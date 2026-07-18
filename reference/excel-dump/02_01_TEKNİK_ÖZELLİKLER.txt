@@ -1,0 +1,55 @@
+=== SHEET: 01-TEKNİK ÖZELLİKLER ===
+A1	STATIC	'1'
+B1	STATIC	'TEKNİK ÖZELLİKLER'
+E3	STATIC	'Teknik Bilgiler'
+E4	STATIC	'Kaldırma Kapasitesi [Ton]'
+P4	STATIC	4
+E5	STATIC	'Kaldırma Yüksekliği [m]'
+P5	STATIC	10
+E6	STATIC	'Kaldırma Hızı [m/dak]'
+P6	STATIC	35
+E7	STATIC	'Yardımcı Kaldırma Kapasitesi [Ton]'
+P7	STATIC	5
+E8	STATIC	'Yardımcı Kaldırma Yüksekliği [m]'
+P8	STATIC	22
+E9	STATIC	'Yardımcı Kaldırma Hızı [m/dak]'
+P9	STATIC	8
+E10	STATIC	'Çelik Yapı Sınıfı'
+P10	STATIC	'A6'
+E11	STATIC	'Kaldırma Sınıfı / Yük Grubu'
+P11	STATIC	'H3/B4'
+E12	STATIC	'Kaldırma Mekanizma Sınıfı'
+P12	STATIC	'M6'
+E13	STATIC	'Kaldırma Kullanım Sınıfı'
+P13	STATIC	'T6'
+E14	STATIC	'Köprü Yürüme Hızı [m/dak]'
+P14	STATIC	60
+E15	STATIC	'Köprü Yürüme Mekanizma Sınıfı'
+P15	STATIC	'M6'
+E16	STATIC	'Köprü Yürüme Kullanım Sınıfı'
+P16	STATIC	'T6'
+E17	STATIC	'Araba Yürütme Hızı [m/dak]'
+P17	STATIC	40
+E18	STATIC	'Araba Mekanizma Sınıfı'
+P18	STATIC	'M6'
+E19	STATIC	'Araba Kullanım Sınıfı'
+P19	STATIC	'T6'
+E20	STATIC	'Kanca Tipi'
+P20	STATIC	'Kepçe'
+E21	STATIC	'Vinç Kontrol Şekli'
+P21	STATIC	'Sabit Kabin + Uzaktan Kumanda'
+E22	STATIC	'Ortam Sıcaklığı '
+R22	STATIC	-10
+S22	STATIC	'/'
+T22	STATIC	40
+U22	STATIC	' ºC'
+E23	STATIC	'Besleme Gerilimi'
+P23	STATIC	'380 VAC, 3 Faz, 50 Hz'
+E24	STATIC	'Kontol Gerilimi'
+P24	STATIC	'24 VDC'
+E25	STATIC	'Vinç Rayı'
+P25	FORMULA	='06-KÖPRÜ YÜRÜTME GRUBU'!L18	VALUE=50x50
+E26	STATIC	'Araba Rayı'
+P26	FORMULA	='05-ARABA YÜRÜTME GRUBU'!L14	VALUE=50x50
+E27	STATIC	'Açıklık (m)'
+P27	STATIC	17.5
