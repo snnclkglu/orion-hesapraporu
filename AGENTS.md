@@ -54,4 +54,4 @@ Next.js 16 (App Router, TS strict) · Tailwind v4 + shadcn/ui · Supabase (Postg
 
 - Token/secret asla commit edilmez; `.env*` gitignored. Service-role key sadece server tarafında.
 - RLS: katalog tabloları herkese okuma / admin yazma; issued revizyon güncellenemez; audit_log insert-only.
-- İlk admin: sinan@vigowood.com.
+- Admin bootstrap e-postaları: scolakoglu@orioncranes.com, sinan@vigowood.com (handle_new_user trigger'ı).
