@@ -4,6 +4,20 @@
 import type { CalcInput } from "./engine";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { TechnicalSpecs } from "./types";
+import { V5_HOOKBLOCK_INPUTS, V5_HOOKBLOCK_SELECTIONS } from "./defaults/hookBlock";
+import {
+  V5_BRIDGE_INPUTS,
+  V5_BRIDGE_SELECTIONS,
+  V5_TROLLEY_INPUTS,
+  V5_TROLLEY_SELECTIONS,
+} from "./defaults/travel";
+import {
+  V5_BUCKLING_INPUTS,
+  V5_ENDCARRIAGE_INPUTS,
+  V5_ENDCARRIAGE_SELECTIONS,
+  V5_GIRDER_INPUTS,
+  V5_GIRDER_SELECTIONS,
+} from "./defaults/structural";
 
 export const V5_SPECS: TechnicalSpecs = {
   mainCapacityT: 4,              // P4
@@ -147,4 +161,10 @@ export const V5_TEMPLATE: CalcInput = {
   specs: V5_SPECS,
   mainHoist: { inputs: V5_MAIN_HOIST_INPUTS, selections: V5_MAIN_HOIST_SELECTIONS },
   auxHoist: { inputs: V5_AUX_HOIST_INPUTS, selections: V5_AUX_HOIST_SELECTIONS },
+  hookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  bridge: { inputs: V5_BRIDGE_INPUTS, selections: V5_BRIDGE_SELECTIONS },
+  girder: { inputs: V5_GIRDER_INPUTS, selections: V5_GIRDER_SELECTIONS },
+  buckling: { inputs: V5_BUCKLING_INPUTS },
+  endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
 };
