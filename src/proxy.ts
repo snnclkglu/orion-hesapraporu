@@ -32,6 +32,14 @@ export async function proxy(request: NextRequest) {
 
   const isLogin = request.nextUrl.pathname.startsWith("/login");
 
+  // Development önizleme rotası auth dışıdır (production'da sayfa 404 döner)
+  if (
+    process.env.NODE_ENV === "development" &&
+    request.nextUrl.pathname.startsWith("/dev/")
+  ) {
+    return response;
+  }
+
   if (!user && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

@@ -1,8 +1,9 @@
 "use client";
 
-// Revizyon editörü: girdiler + seçimler solda, canlı hesap sonuçları ve
-// ✓/✗ kontrolleri sağda. Excel'deki döngünün web karşılığı:
-// girdiler talebi üretir -> mühendis bileşen seçer -> kontroller yeşil/kırmızı.
+// Revizyon editörü — bölüm bölüm ilerleyen sihirbaz yapısı.
+// Her bölümde: o bölümün girdileri/katalog seçimleri, hemen altında bölümün
+// HESABI (sembolik formül → sayılar yerine konmuş hali → sonuç) ve ✓/✗
+// kontrolleri. Excel'in bölüm numaraları (2.1 ... 2.7) korunur.
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -13,8 +14,13 @@ import {
   SPEC_FIELDS,
   type FieldDef,
 } from "@/lib/calc/fields";
+import {
+  HOIST_SECTIONS,
+  type HoistCtx,
+  type HoistSectionDef,
+} from "@/lib/calc/presentation/hoistSections";
 import type { AnyCheck } from "@/lib/calc/types";
-import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
+import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,72 +29,70 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { saveRevision } from "./actions";
 
 function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "string") return v;
-  if (Number.isInteger(v)) return String(v);
+  if (Number.isInteger(v)) return v.toLocaleString("tr-TR");
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
 }
 
-// ---------------------------------------------------------------- FieldGrid
-function FieldGrid<T extends object>({
-  fields, value, onChange, disabled,
+// ---------------------------------------------------------------- Fields
+const INPUT_FIELD_MAP = new Map(HOIST_INPUT_FIELDS.map((f) => [f.key, f]));
+const SELECTION_FIELD_MAP = new Map(HOIST_SELECTION_FIELDS.map((f) => [f.key, f]));
+
+function Field<T extends object>({
+  def, value, onChange, disabled,
 }: {
-  fields: FieldDef<T>[];
+  def: FieldDef<T>;
   value: T;
   onChange: (next: T) => void;
   disabled?: boolean;
 }) {
+  const v = (value as Record<string, unknown>)[def.key];
+  const id = `f-${def.key}`;
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {fields.map((f) => {
-        const v = (value as Record<string, unknown>)[f.key];
-        const id = `f-${f.key}`;
-        return (
-          <div key={f.key} className="grid gap-1">
-            <Label htmlFor={id} className="text-xs text-muted-foreground">
-              {f.label}
-              {f.unit ? ` [${f.unit}]` : ""}
-            </Label>
-            {f.type === "select" ? (
-              <Select
-                value={String(v)}
-                onValueChange={(nv) => onChange({ ...value, [f.key]: nv })}
-                disabled={disabled}
-              >
-                <SelectTrigger id={id} className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(f.options ?? []).map((o) => (
-                    <SelectItem key={o} value={o}>{o}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                id={id}
-                className="h-8"
-                inputMode={f.type === "number" ? "decimal" : undefined}
-                value={String(v ?? "")}
-                disabled={disabled}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (f.type === "number") {
-                    const n = parseFloat(raw.replace(",", "."));
-                    onChange({ ...value, [f.key]: Number.isFinite(n) ? n : 0 });
-                  } else {
-                    onChange({ ...value, [f.key]: raw });
-                  }
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
+    <div className="grid gap-1">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {def.label}
+        {def.unit ? ` [${def.unit}]` : ""}
+      </Label>
+      {def.type === "select" ? (
+        <Select
+          value={String(v)}
+          onValueChange={(nv) => onChange({ ...value, [def.key]: nv })}
+          disabled={disabled}
+        >
+          <SelectTrigger id={id} className="h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(def.options ?? []).map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          id={id}
+          className="h-8"
+          inputMode={def.type === "number" ? "decimal" : undefined}
+          value={String(v ?? "")}
+          disabled={disabled}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (def.type === "number") {
+              const nv = parseFloat(raw.replace(",", "."));
+              onChange({ ...value, [def.key]: Number.isFinite(nv) ? nv : 0 });
+            } else {
+              onChange({ ...value, [def.key]: raw });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -97,18 +101,26 @@ function FieldGrid<T extends object>({
 function CheckRow({ check }: { check: AnyCheck }) {
   const range = check.op === "range";
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm",
+        check.pass ? "border-green-600/30 bg-green-500/5" : "border-destructive/40 bg-destructive/5"
+      )}
+    >
       <div className="min-w-0">
         <div className="truncate font-medium">
           {check.label}
           {check.nonExcel && (
-            <span className="ml-1 text-[10px] text-muted-foreground align-middle">(ek kontrol)</span>
+            <span className="ml-1 align-middle text-[10px] text-muted-foreground">(ek kontrol)</span>
           )}
         </div>
         <div className="text-xs text-muted-foreground">
-          {range
-            ? `${fmt(check.provided)} ${check.unit} · izin: ${(check as { min: number }).min}…${(check as { max: number }).max}`
-            : `gereken ${fmt((check as { required: number }).required)} · sağlanan ${fmt(check.provided)} ${check.unit}`}
+          {(() => {
+            const u = check.unit === "-" ? "" : ` ${check.unit}`;
+            return range
+              ? `${fmt(check.provided)}${u} · izin: ${(check as { min: number }).min}…${(check as { max: number }).max}`
+              : `gereken ${fmt((check as { required: number }).required)}${u} · sağlanan ${fmt(check.provided)}${u}`;
+          })()}
           {check.standard ? ` · ${check.standard}` : ""}
         </div>
       </div>
@@ -119,62 +131,68 @@ function CheckRow({ check }: { check: AnyCheck }) {
   );
 }
 
-// ---------------------------------------------------------------- Results
-const RESULT_ROWS: { key: keyof HoistValues; label: string; unit: string; digits?: number }[] = [
-  { key: "totalLoadKg", label: "Toplam yük", unit: "kg" },
-  { key: "ropeLoadKg", label: "Halat yükü", unit: "kg" },
-  { key: "requiredRopeSafety", label: "Gerekli halat emniyeti (Zp)", unit: "-" },
-  { key: "actualRopeSafety", label: "Gerçekleşen halat emniyeti", unit: "-" },
-  { key: "minDrumDiaMm", label: "Min tambur çapı (H·d)", unit: "mm" },
-  { key: "drumCombinedStress", label: "Tambur bileşik gerilmesi", unit: "kg/cm²" },
-  { key: "requiredGrooveLengthMm", label: "Gerekli oluk boyu", unit: "mm", digits: 1 },
-  { key: "shaftCombinedStress", label: "Mil bileşik gerilmesi", unit: "kg/cm²" },
-  { key: "drumWeldCombinedStress", label: "Tambur kaynağı gerilmesi", unit: "kg/cm²" },
-  { key: "bearingLifeHours", label: "Rulman ömrü", unit: "saat", digits: 0 },
-  { key: "drumRpm", label: "Tambur devri", unit: "d/dak" },
-  { key: "drumTorqueKnm", label: "Tambur torku", unit: "kNm" },
-  { key: "requiredGearboxTorqueKnm", label: "Gerekli redüktör torku", unit: "kNm" },
-  { key: "requiredRatio", label: "Gerekli çevrim oranı", unit: "-" },
-  { key: "ratioDeviationPct", label: "Oran sapması", unit: "%" },
-  { key: "actualLiftSpeedMpm", label: "Gerçekleşen kaldırma hızı", unit: "m/dak" },
-  { key: "motorInputTorqueNm", label: "Motor giriş torku", unit: "Nm" },
-  { key: "requiredPowerAdjustedKw", label: "Gerekli motor gücü", unit: "kW" },
-  { key: "requiredBrakeTorqueNm", label: "Gerekli fren torku", unit: "Nm" },
-  { key: "requiredMotorCouplingTorqueNm", label: "Gerekli motor kaplini kapasitesi", unit: "Nm" },
-  { key: "requiredDrumCouplingTorqueNm", label: "Gerekli tambur kaplini kapasitesi", unit: "Nm" },
-];
-
-function HoistResults({ values, checks }: { values: HoistValues; checks: AnyCheck[] }) {
+// ---------------------------------------------------------------- CalcRow
+function CalcRow({
+  ctx, cell, label, formula, subst, unit, digits, standard,
+}: {
+  ctx: HoistCtx;
+  cell: string;
+  label: string;
+  formula?: string;
+  subst?: (ctx: HoistCtx) => string;
+  unit?: string;
+  digits?: number;
+  standard?: string;
+}) {
+  const value = ctx.c[cell];
   return (
-    <div className="grid gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Hesap Sonuçları</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-1 text-sm">
-            {RESULT_ROWS.map((r) => (
-              <div key={r.key} className="flex justify-between border-b border-dashed py-1 last:border-0">
-                <span className="text-muted-foreground">{r.label}</span>
-                <span className="font-mono tabular-nums">
-                  {fmt(values[r.key] as number, r.digits ?? 2)} {r.unit !== "-" ? r.unit : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Kontroller</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          {checks.map((c) => <CheckRow key={c.id} check={c} />)}
-        </CardContent>
-      </Card>
+    <div className="grid gap-0.5 border-b border-dashed py-2 last:border-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm">{label}</span>
+        <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+          = {fmt(value, digits ?? 2)}{unit ? ` ${unit}` : ""}
+        </span>
+      </div>
+      {(formula || subst) && (
+        <div className="font-mono text-xs text-muted-foreground">
+          {formula}
+          {subst ? <span className="text-foreground/70"> = {subst(ctx)}</span> : null}
+        </div>
+      )}
+      <div className="flex gap-2 text-[10px] text-muted-foreground/70">
+        {standard && <span>{standard}</span>}
+        <span>Excel: {cell}</span>
+      </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------- Steps
+type Step =
+  | { kind: "specs"; key: string; title: string }
+  | { kind: "hoist"; key: string; title: string; which: "main" | "aux"; section: HoistSectionDef }
+  | { kind: "summary"; key: string; title: string };
+
+const HOIST_TITLES = { main: "02 · Ana Kaldırma", aux: "03 · Yrd Kaldırma" } as const;
+
+function buildSteps(): Step[] {
+  const steps: Step[] = [{ kind: "specs", key: "specs", title: "01 · Teknik Özellikler" }];
+  for (const which of ["main", "aux"] as const) {
+    for (const section of HOIST_SECTIONS) {
+      steps.push({
+        kind: "hoist",
+        key: `${which}-${section.id}`,
+        title: `${section.id} ${section.title}`,
+        which,
+        section,
+      });
+    }
+  }
+  steps.push({ kind: "summary", key: "summary", title: "Özet · Kontrol Panosu" });
+  return steps;
+}
+
+const STEPS = buildSteps();
 
 // ---------------------------------------------------------------- Editor
 export function RevisionEditor({
@@ -190,6 +208,7 @@ export function RevisionEditor({
   const [mainSel, setMainSel] = useState(initial.mainHoist!.selections);
   const [auxInputs, setAuxInputs] = useState(initial.auxHoist!.inputs);
   const [auxSel, setAuxSel] = useState(initial.auxHoist!.selections);
+  const [stepIndex, setStepIndex] = useState(0);
   const [pending, startTransition] = useTransition();
 
   const calcInput: CalcInput = useMemo(
@@ -200,10 +219,23 @@ export function RevisionEditor({
     }),
     [specs, mainInputs, mainSel, auxInputs, auxSel]
   );
-
   const result = useMemo(() => runCalc(calcInput), [calcInput]);
 
   const failCount = result.allChecks.filter((c) => !c.pass).length;
+  const step = STEPS[stepIndex];
+
+  function sectionChecks(which: "main" | "aux", section: HoistSectionDef): AnyCheck[] {
+    const moduleResult = which === "main" ? result.mainHoist! : result.auxHoist!;
+    return section.checkSuffixes
+      .map((s) => moduleResult.checks.find((c) => c.id === `${which}.${s}`))
+      .filter((c): c is AnyCheck => Boolean(c));
+  }
+
+  function sectionStatus(which: "main" | "aux", section: HoistSectionDef): "pass" | "fail" | "none" {
+    const checks = sectionChecks(which, section);
+    if (checks.length === 0) return "none";
+    return checks.every((c) => c.pass) ? "pass" : "fail";
+  }
 
   function handleSave() {
     startTransition(async () => {
@@ -213,94 +245,232 @@ export function RevisionEditor({
     });
   }
 
-  function hoistTab(
-    which: "main" | "aux",
-    inputs: typeof mainInputs,
-    setInputs: typeof setMainInputs,
-    sel: typeof mainSel,
-    setSel: typeof setMainSel
-  ) {
-    const moduleResult = which === "main" ? result.mainHoist! : result.auxHoist!;
+  function hoistCtx(which: "main" | "aux"): HoistCtx {
+    return {
+      c: (which === "main" ? result.mainHoist! : result.auxHoist!).cells,
+      inp: which === "main" ? mainInputs : auxInputs,
+      sel: which === "main" ? mainSel : auxSel,
+      specs,
+      which,
+    };
+  }
+
+  // ------------------------------------------------------------ renderers
+  function renderSpecs() {
     return (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Girdiler / Tasarım Kabulleri</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FieldGrid fields={HOIST_INPUT_FIELDS} value={inputs} onChange={setInputs} disabled={readOnly} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Katalog Seçimleri</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FieldGrid fields={HOIST_SELECTION_FIELDS} value={sel} onChange={setSel} disabled={readOnly} />
-            </CardContent>
-          </Card>
-        </div>
-        <HoistResults values={moduleResult.values} checks={moduleResult.checks} />
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">01 · Teknik Özellikler</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {SPEC_FIELDS.map((f) => (
+              <Field key={f.key} def={f} value={specs} onChange={setSpecs} disabled={readOnly} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  return (
-    <div className="grid gap-4">
-      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2">
-        <div className="text-sm">
-          {failCount === 0 ? (
-            <span className="text-green-700 dark:text-green-400 font-medium">
-              ✓ Tüm kontroller uygun ({result.allChecks.length})
+  function renderHoistSection(which: "main" | "aux", section: HoistSectionDef) {
+    const ctx = hoistCtx(which);
+    const inputs = which === "main" ? mainInputs : auxInputs;
+    const setInputs = which === "main" ? setMainInputs : setAuxInputs;
+    const sel = which === "main" ? mainSel : auxSel;
+    const setSel = which === "main" ? setMainSel : setAuxSel;
+    const checks = sectionChecks(which, section);
+    const inputDefs = section.inputKeys
+      .map((k) => INPUT_FIELD_MAP.get(k))
+      .filter((f): f is FieldDef<HoistInputs> => Boolean(f));
+    const selDefs = section.selectionKeys
+      .map((k) => SELECTION_FIELD_MAP.get(k))
+      .filter((f): f is FieldDef<HoistSelections> => Boolean(f));
+
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            <span className="mr-2 font-mono text-muted-foreground">{section.id}</span>
+            {section.title}
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({HOIST_TITLES[which]})
             </span>
-          ) : (
-            <span className="text-destructive font-medium">
-              ✗ {failCount} kontrol uygun değil ({result.allChecks.length} kontrol)
-            </span>
+          </CardTitle>
+          {section.description && (
+            <p className="text-sm text-muted-foreground">{section.description}</p>
           )}
-          <span className="ml-3 font-mono text-xs text-muted-foreground">motor v{result.engineVersion}</span>
-        </div>
-        {!readOnly && (
-          <Button onClick={handleSave} disabled={pending} size="sm">
-            {pending ? "Kaydediliyor..." : "Kaydet"}
-          </Button>
-        )}
-      </div>
-
-      <Tabs defaultValue="specs">
-        <TabsList>
-          <TabsTrigger value="specs">01 · Teknik Özellikler</TabsTrigger>
-          <TabsTrigger value="main">02 · Ana Kaldırma</TabsTrigger>
-          <TabsTrigger value="aux">03 · Yrd Kaldırma</TabsTrigger>
-          <TabsTrigger value="checks">Kontrol Panosu</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="specs">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Teknik Özellikler</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FieldGrid fields={SPEC_FIELDS} value={specs} onChange={setSpecs} disabled={readOnly} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="main">
-          {hoistTab("main", mainInputs, setMainInputs, mainSel, setMainSel)}
-        </TabsContent>
-
-        <TabsContent value="aux">
-          {hoistTab("aux", auxInputs, setAuxInputs, auxSel, setAuxSel)}
-        </TabsContent>
-
-        <TabsContent value="checks">
-          <div className="grid gap-2">
-            {result.allChecks.map((c) => <CheckRow key={c.id} check={c} />)}
+        </CardHeader>
+        <CardContent className="grid gap-5">
+          {inputDefs.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Girdiler / Tasarım Kabulleri
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {inputDefs.map((f) => (
+                  <Field key={f.key} def={f} value={inputs} onChange={setInputs} disabled={readOnly} />
+                ))}
+              </div>
+            </div>
+          )}
+          {selDefs.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Katalog Seçimi
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {selDefs.map((f) => (
+                  <Field key={f.key} def={f} value={sel} onChange={setSel} disabled={readOnly} />
+                ))}
+              </div>
+            </div>
+          )}
+          <Separator />
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Hesap
+            </h3>
+            <div>
+              {section.rows.map((r) => (
+                <CalcRow key={r.cell} ctx={ctx} {...r} />
+              ))}
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+          {checks.length > 0 && (
+            <div className="grid gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Kontroller
+              </h3>
+              {checks.map((c) => <CheckRow key={c.id} check={c} />)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function renderSummary() {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Özet · Kontrol Panosu</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Tüm bölümlerin kontrol durumu. Kırmızı satır = ilgili bölüme dönüp seçimi revize edin.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {(["main", "aux"] as const).map((which) => (
+            <div key={which} className="grid gap-2">
+              <h3 className="text-sm font-semibold">{HOIST_TITLES[which]}</h3>
+              {(which === "main" ? result.mainHoist! : result.auxHoist!).checks.map((c) => (
+                <CheckRow key={c.id} check={c} />
+              ))}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ------------------------------------------------------------ layout
+  return (
+    <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+      {/* Bölüm navigasyonu */}
+      <nav className="lg:sticky lg:top-20 lg:self-start">
+        <ol className="grid gap-0.5 text-sm">
+          {STEPS.map((s, i) => {
+            const status =
+              s.kind === "hoist" ? sectionStatus(s.which, s.section) : "none";
+            const showGroupHeader =
+              s.kind === "hoist" &&
+              (i === 0 || STEPS[i - 1].kind !== "hoist" ||
+                (STEPS[i - 1] as Extract<Step, { kind: "hoist" }>).which !== s.which);
+            return (
+              <li key={s.key}>
+                {showGroupHeader && (
+                  <div className="mt-2 mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {HOIST_TITLES[(s as Extract<Step, { kind: "hoist" }>).which]}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setStepIndex(i)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                    i === stepIndex ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-2 shrink-0 rounded-full",
+                      status === "pass" && "bg-green-500",
+                      status === "fail" && "bg-destructive",
+                      status === "none" && "bg-muted-foreground/30"
+                    )}
+                  />
+                  <span className="truncate">
+                    {s.kind === "hoist" ? `${s.section.id} ${s.section.title}` : s.title}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      {/* İçerik */}
+      <div className="grid gap-4">
+        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2">
+          <div className="text-sm">
+            {failCount === 0 ? (
+              <span className="font-medium text-green-700 dark:text-green-400">
+                ✓ Tüm kontroller uygun ({result.allChecks.length})
+              </span>
+            ) : (
+              <span className="font-medium text-destructive">
+                ✗ {failCount} kontrol uygun değil ({result.allChecks.length} kontrol)
+              </span>
+            )}
+            <span className="ml-3 font-mono text-xs text-muted-foreground">
+              motor v{result.engineVersion}
+            </span>
+          </div>
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={pending} size="sm">
+              {pending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          )}
+        </div>
+
+        {step.kind === "specs" && renderSpecs()}
+        {step.kind === "hoist" && renderHoistSection(step.which, step.section)}
+        {step.kind === "summary" && renderSummary()}
+
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={stepIndex === 0}
+            onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+          >
+            ← Geri
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Adım {stepIndex + 1} / {STEPS.length}
+          </span>
+          <Button
+            size="sm"
+            disabled={stepIndex === STEPS.length - 1}
+            onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
+          >
+            İleri →
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
