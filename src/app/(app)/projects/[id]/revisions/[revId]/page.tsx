@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { RevisionEditor } from "./revision-editor";
+import { IssueRevisionButton } from "./issue-button";
 import {
   V5_TEMPLATE,
 } from "@/lib/calc/defaults";
@@ -25,7 +26,7 @@ export default async function RevisionPage({
 
   const { data: revision } = await supabase
     .from("revisions")
-    .select("id, project_id, rev_no, label, status, inputs, selections, engine_version")
+    .select("id, project_id, rev_no, label, status, inputs, selections, results, engine_version")
     .eq("id", revId)
     .eq("project_id", id)
     .single();
@@ -114,9 +115,23 @@ export default async function RevisionPage({
             <span className="text-muted-foreground font-normal">— {project?.customer}</span>
           </h1>
         </div>
-        <Badge variant={revision.status === "issued" ? "default" : "secondary"}>
-          {revision.status === "issued" ? "yayınlandı" : "taslak"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={revision.status === "issued" ? "default" : "secondary"}>
+            {revision.status === "issued" ? "yayınlandı" : "taslak"}
+          </Badge>
+          {revision.status === "draft" && (
+            <IssueRevisionButton
+              projectId={id}
+              revisionId={revision.id}
+              revNo={revision.rev_no}
+              defaultLabel={revision.label || `V${revision.rev_no}`}
+              failingChecks={
+                ((revision.results as { allChecks?: { pass: boolean }[] } | null)?.allChecks ?? [])
+                  .filter((c) => !c.pass).length
+              }
+            />
+          )}
+        </div>
       </div>
 
       <RevisionEditor

@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { NewRevisionButton } from "./new-revision-button";
+import { ArchiveButton } from "./archive-button";
 
 export default async function ProjectPage({
   params,
@@ -42,6 +43,21 @@ export default async function ProjectPage({
           <p className="text-sm text-muted-foreground">
             {project.customer} · {project.crane_type}
           </p>
+          <div className="mt-2 flex gap-3 text-sm">
+            <Link
+              href={`/projects/${project.id}/compare`}
+              className="text-primary hover:underline"
+            >
+              Revizyonları Karşılaştır
+            </Link>
+            <Link
+              href={`/projects/${project.id}/audit`}
+              className="text-primary hover:underline"
+            >
+              İşlem Kaydı
+            </Link>
+            <ArchiveButton projectId={project.id} archived={project.status === "archived"} />
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-2">

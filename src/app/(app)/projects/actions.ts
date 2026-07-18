@@ -55,6 +55,34 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   redirect(`/projects/${project.id}`);
 }
 
+export async function setProjectArchived(
+  projectId: string,
+  archived: boolean
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { error } = await supabase
+    .from("projects")
+    .update({ status: archived ? "archived" : "active" })
+    .eq("id", projectId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    actor: user.id,
+    action: archived ? "project.archive" : "project.unarchive",
+    detail: {},
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return {};
+}
+
 export async function createRevision(projectId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
