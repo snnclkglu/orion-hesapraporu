@@ -42,6 +42,7 @@ export default async function RevisionPage({
   const selections = revision.selections as {
     mainHoist?: HoistSelections | null;
     auxHoist?: HoistSelections | null;
+    alts?: Record<string, { active: number; options: Record<string, unknown>[] }>;
   };
 
   const initial: CalcInput = {
@@ -84,6 +85,7 @@ export default async function RevisionPage({
         revisionId={revision.id}
         readOnly={revision.status === "issued"}
         initial={initial}
+        initialAlts={selections?.alts}
       />
     </div>
   );

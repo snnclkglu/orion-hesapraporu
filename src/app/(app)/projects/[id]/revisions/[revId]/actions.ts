@@ -13,7 +13,8 @@ export type SaveResult = { error?: string; ok?: boolean };
 export async function saveRevision(
   projectId: string,
   revisionId: string,
-  calcInput: CalcInput
+  calcInput: CalcInput,
+  alts?: Record<string, { active: number; options: Record<string, unknown>[] }>
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -34,6 +35,7 @@ export async function saveRevision(
       selections: {
         mainHoist: calcInput.mainHoist?.selections ?? null,
         auxHoist: calcInput.auxHoist?.selections ?? null,
+        alts: alts ?? {},
       },
       results: JSON.parse(JSON.stringify(result)),
       engine_version: result.engineVersion,

@@ -8,6 +8,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
+import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
 import {
   HOIST_INPUT_FIELDS,
   HOIST_SELECTION_FIELDS,
@@ -32,6 +33,22 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { saveRevision } from "./actions";
+
+/**
+ * Alternatif ekipman seçimi: her seçim bölümü için 3'e kadar alternatif
+ * saklanır; aktif olan canlı hesapta kullanılır, diğerlerinin uygunluğu
+ * rozetle gösterilir.
+ */
+export interface AltState {
+  active: number;
+  options: Record<string, unknown>[];
+}
+export type AltsMap = Record<string, AltState>; // key: `${which}-${sectionId}`
+
+/** Bölüm numarası: ana kaldırma 2.x, yardımcı kaldırma 3.x */
+function displayId(which: "main" | "aux", id: string): string {
+  return which === "aux" ? id.replace(/^2/, "3") : id;
+}
 
 function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
@@ -196,18 +213,20 @@ const STEPS = buildSteps();
 
 // ---------------------------------------------------------------- Editor
 export function RevisionEditor({
-  projectId, revisionId, readOnly, initial,
+  projectId, revisionId, readOnly, initial, initialAlts,
 }: {
   projectId: string;
   revisionId: string;
   readOnly: boolean;
   initial: CalcInput;
+  initialAlts?: AltsMap;
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mainInputs, setMainInputs] = useState(initial.mainHoist!.inputs);
   const [mainSel, setMainSel] = useState(initial.mainHoist!.selections);
   const [auxInputs, setAuxInputs] = useState(initial.auxHoist!.inputs);
   const [auxSel, setAuxSel] = useState(initial.auxHoist!.selections);
+  const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [stepIndex, setStepIndex] = useState(0);
   const [pending, startTransition] = useTransition();
 
@@ -237,9 +256,95 @@ export function RevisionEditor({
     return checks.every((c) => c.pass) ? "pass" : "fail";
   }
 
+  // ---------------------------------------------------------- alternatifler
+  function pickSelection(
+    sel: HoistSelections,
+    keys: readonly string[]
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const rec = sel as unknown as Record<string, unknown>;
+    for (const k of keys) out[k] = rec[k];
+    return out;
+  }
+
+  /** Kaydetmeden önce aktif alternatifi canlı seçim değerleriyle eşitler */
+  function syncedAlts(): AltsMap {
+    const next: AltsMap = { ...alts };
+    for (const [key, st] of Object.entries(next)) {
+      const [which, sectionId] = [key.slice(0, key.indexOf("-")), key.slice(key.indexOf("-") + 1)];
+      const section = HOIST_SECTIONS.find((s) => s.id === sectionId);
+      if (!section) continue;
+      const sel = which === "main" ? mainSel : auxSel;
+      const options = [...st.options];
+      options[st.active] = pickSelection(sel, section.selectionKeys);
+      next[key] = { ...st, options };
+    }
+    return next;
+  }
+
+  function altStateFor(which: "main" | "aux", section: HoistSectionDef): AltState {
+    const key = `${which}-${section.id}`;
+    const sel = which === "main" ? mainSel : auxSel;
+    return alts[key] ?? { active: 0, options: [pickSelection(sel, section.selectionKeys)] };
+  }
+
+  function altSectionPass(
+    which: "main" | "aux",
+    section: HoistSectionDef,
+    option: Record<string, unknown>
+  ): boolean | null {
+    const inputs = which === "main" ? mainInputs : auxInputs;
+    const sel = which === "main" ? mainSel : auxSel;
+    try {
+      const r = computeHoistGroup(specs, which, inputs, { ...sel, ...option } as HoistSelections);
+      const checks = section.checkSuffixes
+        .map((s) => r.checks.find((c) => c.id === `${which}.${s}`))
+        .filter((c): c is AnyCheck => Boolean(c));
+      if (checks.length === 0) return null;
+      return checks.every((c) => c.pass);
+    } catch {
+      return null;
+    }
+  }
+
+  function switchAlt(which: "main" | "aux", section: HoistSectionDef, index: number) {
+    const key = `${which}-${section.id}`;
+    const sel = which === "main" ? mainSel : auxSel;
+    const setSel = which === "main" ? setMainSel : setAuxSel;
+    const st = altStateFor(which, section);
+    if (index === st.active) return;
+    const options = [...st.options];
+    options[st.active] = pickSelection(sel, section.selectionKeys);
+    setSel({ ...sel, ...options[index] } as HoistSelections);
+    setAlts({ ...alts, [key]: { active: index, options } });
+  }
+
+  function addAlt(which: "main" | "aux", section: HoistSectionDef) {
+    const key = `${which}-${section.id}`;
+    const sel = which === "main" ? mainSel : auxSel;
+    const st = altStateFor(which, section);
+    if (st.options.length >= 3) return;
+    const current = pickSelection(sel, section.selectionKeys);
+    const options = [...st.options];
+    options[st.active] = current;
+    options.push({ ...current });
+    setAlts({ ...alts, [key]: { active: options.length - 1, options } });
+  }
+
+  function removeAlt(which: "main" | "aux", section: HoistSectionDef) {
+    const key = `${which}-${section.id}`;
+    const sel = which === "main" ? mainSel : auxSel;
+    const setSel = which === "main" ? setMainSel : setAuxSel;
+    const st = altStateFor(which, section);
+    if (st.options.length <= 1) return;
+    const options = st.options.filter((_, i) => i !== st.active);
+    setSel({ ...sel, ...options[0] } as HoistSelections);
+    setAlts({ ...alts, [key]: { active: 0, options } });
+  }
+
   function handleSave() {
     startTransition(async () => {
-      const res = await saveRevision(projectId, revisionId, calcInput);
+      const res = await saveRevision(projectId, revisionId, calcInput, syncedAlts());
       if (res.error) toast.error(res.error);
       else toast.success("Revizyon kaydedildi.");
     });
@@ -294,7 +399,7 @@ export function RevisionEditor({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            <span className="mr-2 font-mono text-muted-foreground">{section.id}</span>
+            <span className="mr-2 font-mono text-muted-foreground">{displayId(which, section.id)}</span>
             {section.title}
             <span className="ml-2 text-sm font-normal text-muted-foreground">
               ({HOIST_TITLES[which]})
@@ -317,18 +422,76 @@ export function RevisionEditor({
               </div>
             </div>
           )}
-          {selDefs.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Katalog Seçimi
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {selDefs.map((f) => (
-                  <Field key={f.key} def={f} value={sel} onChange={setSel} disabled={readOnly} />
-                ))}
+          {selDefs.length > 0 && (() => {
+            const st = altStateFor(which, section);
+            return (
+              <div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Katalog Seçimi
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    {st.options.map((opt, i) => {
+                      const isActive = i === st.active;
+                      const pass = isActive
+                        ? (sectionChecks(which, section).length > 0
+                            ? sectionChecks(which, section).every((c) => c.pass)
+                            : null)
+                        : altSectionPass(which, section, opt);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => switchAlt(which, section, i)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                            isActive
+                              ? "border-primary bg-primary/10 font-medium text-primary"
+                              : "hover:bg-muted"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              pass === true && "bg-green-500",
+                              pass === false && "bg-destructive",
+                              pass === null && "bg-muted-foreground/30"
+                            )}
+                          />
+                          Alternatif {i + 1}
+                        </button>
+                      );
+                    })}
+                    {!readOnly && st.options.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => addAlt(which, section)}
+                        className="rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        title="Bu ekipman için alternatif seçim ekle (en fazla 3)"
+                      >
+                        + Alternatif
+                      </button>
+                    )}
+                    {!readOnly && st.options.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeAlt(which, section)}
+                        className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        title="Aktif alternatifi sil"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {selDefs.map((f) => (
+                    <Field key={f.key} def={f} value={sel} onChange={setSel} disabled={readOnly} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           <Separator />
           <div>
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -413,7 +576,9 @@ export function RevisionEditor({
                     )}
                   />
                   <span className="truncate">
-                    {s.kind === "hoist" ? `${s.section.id} ${s.section.title}` : s.title}
+                    {s.kind === "hoist"
+                      ? `${displayId(s.which, s.section.id)} ${s.section.title}`
+                      : s.title}
                   </span>
                 </button>
               </li>

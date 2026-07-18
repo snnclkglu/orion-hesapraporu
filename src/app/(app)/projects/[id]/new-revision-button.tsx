@@ -5,7 +5,13 @@ import { toast } from "sonner";
 import { createRevision } from "../actions";
 import { Button } from "@/components/ui/button";
 
-export function NewRevisionButton({ projectId }: { projectId: string }) {
+export function NewRevisionButton({
+  projectId,
+  variant = "default",
+}: {
+  projectId: string;
+  variant?: "default" | "outline";
+}) {
   const [pending, startTransition] = useTransition();
 
   function handleClick() {
@@ -16,7 +22,7 @@ export function NewRevisionButton({ projectId }: { projectId: string }) {
   }
 
   return (
-    <Button onClick={handleClick} disabled={pending}>
+    <Button onClick={handleClick} disabled={pending} variant={variant}>
       {pending ? "Oluşturuluyor..." : "Yeni Revizyon"}
     </Button>
   );

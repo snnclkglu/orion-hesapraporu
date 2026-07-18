@@ -43,7 +43,25 @@ export default async function ProjectPage({
             {project.customer} · {project.crane_type}
           </p>
         </div>
-        <NewRevisionButton projectId={project.id} />
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            {revisions?.[0]?.status === "draft" && (
+              <Link
+                href={`/projects/${project.id}/revisions/${revisions[0].id}`}
+                className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Düzenlemeye Devam (V{revisions[0].rev_no})
+              </Link>
+            )}
+            <NewRevisionButton
+              projectId={project.id}
+              variant={revisions?.[0]?.status === "draft" ? "outline" : "default"}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Yeni revizyon, son revizyonun kopyasıyla açılır — sıfırdan başlamaz.
+          </p>
+        </div>
       </div>
 
       <div className="rounded-lg border">
