@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Construction, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -32,28 +32,105 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl tracking-tight">ORION Hesap Raporu</CardTitle>
-          <CardDescription>Vinç hesap raporu hazırlama sistemi</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/* Sol: marka paneli */}
+      <section className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
+        <div className="relative flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <Construction className="size-5" />
+          </span>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold tracking-tight text-sidebar-accent-foreground">
+              ORION
+            </div>
+            <div className="text-xs text-sidebar-foreground/70">Hesap Raporu Sistemi</div>
+          </div>
+        </div>
+
+        <div className="relative max-w-md">
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
+            Vinç hesap raporları — girdiden yayınlanmış rapora, tek akışta.
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-sidebar-foreground/70">
+            Çift kirişli gezer köprülü vinçler için mekanizma ve çelik konstrüksiyon
+            hesapları, revizyon arşivi ve teslim edilebilir PDF raporlar.
+          </p>
+          <ul className="mt-6 grid gap-2 text-sm text-sidebar-foreground/80">
+            {["FEM 1.001 mekanizma sınıflandırması", "DIN 15018 çelik konstrüksiyon kontrolleri", "CMAA 70 uyumlu hesap zinciri"].map((t) => (
+              <li key={t} className="flex items-center gap-2">
+                <ShieldCheck className="size-4 shrink-0 text-sidebar-primary" />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative text-[11px] text-sidebar-foreground/50">
+          © {new Date().getFullYear()} ORION Cranes · Revizyon arşivli, çok kullanıcılı
+          hesap sistemi
+        </p>
+      </section>
+
+      {/* Sağ: giriş formu */}
+      <section className="flex items-center justify-center bg-background p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <span className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Construction className="size-5" />
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold tracking-tight">ORION</div>
+              <div className="text-xs text-muted-foreground">Hesap Raporu Sistemi</div>
+            </div>
+          </div>
+
+          <h2 className="text-xl font-semibold tracking-tight">Oturum açın</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Hesap raporu projelerinize erişmek için kurumsal hesabınızla giriş yapın.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-8 grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">E-posta</Label>
-              <Input id="email" name="email" type="email" autoComplete="email" required />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="ad.soyad@orioncranes.com"
+                required
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Şifre</Label>
-              <Input id="password" name="password" type="password" autoComplete="current-password" required />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
             </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+              {!loading && <ArrowRight data-icon="inline-end" />}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Hesabınız yok mu? Sistem yöneticinizle iletişime geçin.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

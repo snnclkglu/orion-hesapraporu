@@ -9,6 +9,14 @@
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
 import { useMemo, useState, useTransition } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleX,
+  Save,
+} from "lucide-react";
 import { toast } from "sonner";
 import { runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
 import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
@@ -131,18 +139,25 @@ function CheckRow({ check }: { check: AnyCheck }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm",
-        check.pass ? "border-green-600/30 bg-green-500/5" : "border-destructive/40 bg-destructive/5"
+        "flex items-center gap-3 rounded-md border px-3 py-2 text-sm",
+        check.pass
+          ? "border-success/25 bg-success/5"
+          : "border-destructive/40 bg-destructive/5"
       )}
     >
-      <div className="min-w-0">
+      {check.pass ? (
+        <CircleCheck className="size-4 shrink-0 text-success" />
+      ) : (
+        <CircleX className="size-4 shrink-0 text-destructive" />
+      )}
+      <div className="min-w-0 flex-1">
         <div className="truncate font-medium">
           {check.label}
           {check.nonExcel && (
             <span className="ml-1 align-middle text-[10px] text-muted-foreground">(ek kontrol)</span>
           )}
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs tabular-nums text-muted-foreground">
           {(() => {
             const u = check.unit === "-" ? "" : ` ${check.unit}`;
             return range
@@ -152,8 +167,11 @@ function CheckRow({ check }: { check: AnyCheck }) {
           {check.standard ? ` · ${check.standard}` : ""}
         </div>
       </div>
-      <Badge variant={check.pass ? "default" : "destructive"} className="shrink-0">
-        {check.pass ? "✓ UYGUN" : "✗ UYGUN DEĞİL"}
+      <Badge
+        variant={check.pass ? "secondary" : "destructive"}
+        className={cn("shrink-0", check.pass && "border-transparent bg-success/15 text-success")}
+      >
+        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
       </Badge>
     </div>
   );
@@ -163,22 +181,28 @@ function CheckRow({ check }: { check: AnyCheck }) {
 function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
   const value = row.read(ctx);
   return (
-    <div className="grid gap-0.5 border-b border-dashed py-2 last:border-0">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm">{row.label}</span>
-        <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+    <div className="grid gap-1 border-b py-2.5 last:border-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="min-w-0 text-sm">{row.label}</span>
+        <span className="shrink-0 rounded bg-primary/8 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-primary dark:bg-primary/15">
           = {fmt(value, row.digits ?? 2)}{row.unit ? ` ${row.unit}` : ""}
         </span>
       </div>
       {(row.formula || row.subst) && (
-        <div className="font-mono text-xs text-muted-foreground">
+        <div className="overflow-x-auto rounded-md bg-muted/60 px-2.5 py-1.5 font-mono text-xs leading-relaxed text-muted-foreground">
           {row.formula}
-          {row.subst ? <span className="text-foreground/70"> = {row.subst(ctx)}</span> : null}
+          {row.subst ? <span className="text-foreground/80"> = {row.subst(ctx)}</span> : null}
         </div>
       )}
-      <div className="flex gap-2 text-[10px] text-muted-foreground/70">
-        {row.standard && <span>{row.standard}</span>}
-        <span>{row.excelRef ? `Excel: ${row.excelRef}` : "yeniden yazım"}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {row.standard && (
+          <span className="rounded border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90">
+            {row.standard}
+          </span>
+        )}
+        <span className="rounded border px-1.5 py-px font-mono text-[10px] text-muted-foreground/80">
+          {row.excelRef ? `Excel ${row.excelRef}` : "yeniden yazım"}
+        </span>
       </div>
     </div>
   );
@@ -208,6 +232,38 @@ function buildSteps(): Step[] {
 }
 
 const STEPS = buildSteps();
+
+/** Kenar çubuğu navigasyonu için adımların modül bazlı gruplanması (sadece sunum). */
+interface NavGroup {
+  key: string;
+  title: string | null; // null → grupsuz tek adım (specs / özet)
+  moduleKey?: ModuleKey;
+  items: { step: Step; index: number }[];
+}
+
+function buildNavGroups(): NavGroup[] {
+  const groups: NavGroup[] = [];
+  STEPS.forEach((step, index) => {
+    if (step.kind === "module") {
+      const last = groups[groups.length - 1];
+      if (last && last.moduleKey === step.moduleKey) {
+        last.items.push({ step, index });
+      } else {
+        groups.push({
+          key: `mod-${step.moduleKey}`,
+          title: ADAPTER_BY_KEY[step.moduleKey].title,
+          moduleKey: step.moduleKey,
+          items: [{ step, index }],
+        });
+      }
+    } else {
+      groups.push({ key: step.key, title: null, items: [{ step, index }] });
+    }
+  });
+  return groups;
+}
+
+const NAV_GROUPS = buildNavGroups();
 
 // ---------------------------------------------------------------- Modül durumu
 interface ModulesState {
@@ -273,6 +329,9 @@ export function RevisionEditor({
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [stepIndex, setStepIndex] = useState(0);
+  // Sadece sunum: kenar çubuğunda elle açılan modül grupları
+  // (aktif adımın grubu her zaman açıktır).
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
 
   const calcInput: CalcInput = useMemo(
@@ -520,8 +579,13 @@ export function RevisionEditor({
   function renderSpecs() {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">01 · Teknik Özellikler</CardTitle>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="inline-flex h-6 items-center rounded bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
+              01
+            </span>
+            <span className="tracking-tight">Teknik Özellikler</span>
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
           </p>
@@ -560,13 +624,26 @@ export function RevisionEditor({
 
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            <span className="mr-2 font-mono text-muted-foreground">{section.id}</span>
-            {section.title}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({adapter.title})
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            <span className="inline-flex h-6 items-center rounded bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
+              {section.id}
             </span>
+            <span className="tracking-tight">{section.title}</span>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              {adapter.title}
+            </Badge>
+            {checks.length > 0 && (
+              <Badge
+                variant={checks.every((c) => c.pass) ? "secondary" : "destructive"}
+                className={cn(
+                  "ml-auto",
+                  checks.every((c) => c.pass) && "border-transparent bg-success/15 text-success"
+                )}
+              >
+                {checks.filter((c) => c.pass).length}/{checks.length} uygun
+              </Badge>
+            )}
           </CardTitle>
           {section.description && (
             <p className="text-sm text-muted-foreground">{section.description}</p>
@@ -678,10 +755,10 @@ export function RevisionEditor({
             <>
               <Separator />
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Hesap
                 </h3>
-                <div>
+                <div className="rounded-lg border bg-background px-3 dark:bg-card">
                   {section.rows.map((r) => (
                     <CalcRow key={r.key} row={r} ctx={ctx} />
                   ))}
@@ -705,8 +782,8 @@ export function RevisionEditor({
   function renderSummary() {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Özet · Kontrol Panosu</CardTitle>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-base tracking-tight">Özet · Kontrol Panosu</CardTitle>
           <p className="text-sm text-muted-foreground">
             Tüm bölümlerin kontrol durumu. Kırmızı satır = ilgili bölüme dönüp seçimi revize edin.
           </p>
@@ -715,9 +792,20 @@ export function RevisionEditor({
           {MODULE_ADAPTERS.map((adapter) => {
             const mr = moduleResult(adapter.key);
             if (!mr || mr.checks.length === 0) return null;
+            const modulePass = mr.checks.filter((c) => c.pass).length;
             return (
               <div key={adapter.key} className="grid gap-2">
-                <h3 className="text-sm font-semibold">{adapter.title}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold tracking-tight">{adapter.title}</h3>
+                  <span
+                    className={cn(
+                      "font-mono text-[11px] font-medium tabular-nums",
+                      modulePass === mr.checks.length ? "text-success" : "text-destructive"
+                    )}
+                  >
+                    {modulePass}/{mr.checks.length} uygun
+                  </span>
+                </div>
                 {mr.checks.map((c) => (
                   <CheckRow key={c.id} check={c} />
                 ))}
@@ -730,43 +818,107 @@ export function RevisionEditor({
   }
 
   // ------------------------------------------------------------ layout
+  const passCount = result.allChecks.length - failCount;
+  const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
+  const stepChecks =
+    step.kind === "module" ? sectionChecks(step.moduleKey, step.section) : [];
+
+  function navItem(s: Step, i: number) {
+    const status = s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none";
+    return (
+      <li key={s.key}>
+        <button
+          type="button"
+          onClick={() => setStepIndex(i)}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+            i === stepIndex
+              ? "bg-primary/10 font-medium text-primary"
+              : "text-foreground/80 hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <span
+            className={cn(
+              "size-2 shrink-0 rounded-full",
+              status === "pass" && "bg-success",
+              status === "fail" && "bg-destructive",
+              status === "none" && "bg-muted-foreground/30"
+            )}
+          />
+          <span className="truncate">{s.title}</span>
+        </button>
+      </li>
+    );
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+    <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
       {/* Bölüm navigasyonu */}
-      <nav className="lg:sticky lg:top-20 lg:self-start">
+      <nav className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+        <div className="mb-1.5 flex items-center justify-between px-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Bölümler
+          </span>
+          <span
+            className={cn(
+              "font-mono text-[11px] font-medium tabular-nums",
+              failCount === 0 ? "text-success" : "text-destructive"
+            )}
+          >
+            {passCount}/{result.allChecks.length} uygun
+          </span>
+        </div>
         <ol className="grid gap-0.5 text-sm">
-          {STEPS.map((s, i) => {
-            const status =
-              s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none";
-            const prev = STEPS[i - 1];
-            const showGroupHeader =
-              s.kind === "module" &&
-              (!prev || prev.kind !== "module" || prev.moduleKey !== s.moduleKey);
+          {NAV_GROUPS.map((group) => {
+            // Grupsuz tek adımlar (Teknik Özellikler, Özet)
+            if (group.title === null) {
+              const { step: s, index: i } = group.items[0];
+              return navItem(s, i);
+            }
+            const statuses = group.items.map(({ step: s }) =>
+              s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none"
+            );
+            const withChecks = statuses.filter((st) => st !== "none").length;
+            const passed = statuses.filter((st) => st === "pass").length;
+            const anyFail = statuses.some((st) => st === "fail");
+            const containsCurrent = group.items.some(({ index: i }) => i === stepIndex);
+            const isOpen = containsCurrent || !!openGroups[group.key];
             return (
-              <li key={s.key}>
-                {showGroupHeader && s.kind === "module" && (
-                  <div className="mt-2 mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {ADAPTER_BY_KEY[s.moduleKey].title}
-                  </div>
-                )}
+              <li key={group.key}>
                 <button
                   type="button"
-                  onClick={() => setStepIndex(i)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
-                    i === stepIndex ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted"
-                  )}
+                  onClick={() =>
+                    setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
+                  }
+                  className="mt-2 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <span
+                  <ChevronDown
                     className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      status === "pass" && "bg-green-500",
-                      status === "fail" && "bg-destructive",
-                      status === "none" && "bg-muted-foreground/30"
+                      "size-3.5 shrink-0 transition-transform",
+                      !isOpen && "-rotate-90"
                     )}
                   />
-                  <span className="truncate">{s.title}</span>
+                  <span className="min-w-0 flex-1 truncate">{group.title}</span>
+                  {withChecks > 0 && (
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] font-medium tabular-nums normal-case",
+                        anyFail
+                          ? "text-destructive"
+                          : passed === withChecks
+                            ? "text-success"
+                            : "text-muted-foreground"
+                      )}
+                    >
+                      {passed}/{withChecks}
+                    </span>
+                  )}
                 </button>
+                {isOpen && (
+                  <ol className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
+                    {group.items.map(({ step: s, index: i }) => navItem(s, i))}
+                  </ol>
+                )}
               </li>
             );
           })}
@@ -774,27 +926,64 @@ export function RevisionEditor({
       </nav>
 
       {/* İçerik */}
-      <div className="grid gap-4">
-        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2">
-          <div className="text-sm">
-            {failCount === 0 ? (
-              <span className="font-medium text-green-700 dark:text-green-400">
-                ✓ Tüm kontroller uygun ({result.allChecks.length})
-              </span>
-            ) : (
-              <span className="font-medium text-destructive">
-                ✗ {failCount} kontrol uygun değil ({result.allChecks.length} kontrol)
+      <div className="grid content-start gap-4">
+        {/* Sticky durum çubuğu */}
+        <div className="sticky top-12 z-20 grid gap-2 rounded-lg border bg-card/95 px-4 py-2.5 shadow-xs backdrop-blur">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="flex items-center gap-1.5 text-sm">
+              {failCount === 0 ? (
+                <>
+                  <CircleCheck className="size-4 shrink-0 text-success" />
+                  <span className="font-medium text-success">Tüm kontroller uygun</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    ({result.allChecks.length} kontrol)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CircleX className="size-4 shrink-0 text-destructive" />
+                  <span className="font-medium text-destructive">
+                    {failCount} kontrol uygun değil
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    / {result.allChecks.length} kontrol
+                  </span>
+                </>
+              )}
+            </div>
+            {step.kind === "module" && stepChecks.length > 0 && (
+              <span
+                className={cn(
+                  "hidden rounded border px-1.5 py-0.5 font-mono text-[11px] tabular-nums sm:inline",
+                  stepChecks.every((c) => c.pass)
+                    ? "border-success/30 text-success"
+                    : "border-destructive/40 text-destructive"
+                )}
+              >
+                bu bölüm {stepChecks.filter((c) => c.pass).length}/{stepChecks.length}
               </span>
             )}
-            <span className="ml-3 font-mono text-xs text-muted-foreground">
+            <span className="ml-auto hidden font-mono text-[11px] text-muted-foreground md:inline">
               motor v{result.engineVersion}
             </span>
+            {!readOnly && (
+              <Button onClick={handleSave} disabled={pending} size="sm">
+                <Save className="size-3.5" data-icon="inline-start" />
+                {pending ? "Kaydediliyor..." : "Kaydet"}
+              </Button>
+            )}
           </div>
-          {!readOnly && (
-            <Button onClick={handleSave} disabled={pending} size="sm">
-              {pending ? "Kaydediliyor..." : "Kaydet"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2.5">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="max-w-[55%] truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+              {stepIndex + 1}/{STEPS.length} · {step.title}
+            </span>
+          </div>
         </div>
 
         {step.kind === "specs" && renderSpecs()}
@@ -808,9 +997,10 @@ export function RevisionEditor({
             disabled={stepIndex === 0}
             onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
           >
-            ← Geri
+            <ChevronLeft className="size-4" data-icon="inline-start" />
+            Geri
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
             Adım {stepIndex + 1} / {STEPS.length}
           </span>
           <Button
@@ -818,7 +1008,8 @@ export function RevisionEditor({
             disabled={stepIndex === STEPS.length - 1}
             onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
           >
-            İleri →
+            İleri
+            <ChevronRight className="size-4" data-icon="inline-end" />
           </Button>
         </div>
       </div>

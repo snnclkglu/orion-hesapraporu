@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GitCompare, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,17 +44,19 @@ export default async function ProjectPage({
           <p className="text-sm text-muted-foreground">
             {project.customer} · {project.crane_type}
           </p>
-          <div className="mt-2 flex gap-3 text-sm">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <Link
               href={`/projects/${project.id}/compare`}
-              className="text-primary hover:underline"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
             >
+              <GitCompare className="size-3.5 text-muted-foreground" />
               Revizyonları Karşılaştır
             </Link>
             <Link
               href={`/projects/${project.id}/audit`}
-              className="text-primary hover:underline"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
             >
+              <ScrollText className="size-3.5 text-muted-foreground" />
               İşlem Kaydı
             </Link>
             <ArchiveButton projectId={project.id} archived={project.status === "archived"} />
@@ -80,10 +83,10 @@ export default async function ProjectPage({
         </div>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Revizyon</TableHead>
               <TableHead>Etiket</TableHead>
               <TableHead>Durum</TableHead>
