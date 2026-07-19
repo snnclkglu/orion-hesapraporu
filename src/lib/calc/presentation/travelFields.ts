@@ -6,6 +6,16 @@
 import type { FieldDef } from "../fields";
 import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
 
+/** Teker çapı FEM standart serisi [mm] */
+export const WHEEL_DIA_SERIES_MM = [
+  "200", "250", "315", "400", "500", "630", "710", "800", "900", "1000", "1120", "1250",
+] as const;
+export const RAIL_TYPES = [
+  "A150", "A120", "A100", "A75", "A65", "A55", "A45",
+  "30x30", "40x40", "50x50", "60x60", "70x40", "80x80",
+] as const;
+export const WHEEL_MATERIALS = ["AISI 4140+QT", "42CrMo4", "C60", "GS-70"] as const;
+
 export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
   { key: "trolleyWeightT", label: "Araba ağırlığı", unit: "t", type: "number", excelCell: "L5" },
   { key: "bridgeWeightT", label: "Köprü ağırlığı", unit: "t", type: "number", excelCell: "L6" },   // 06!L6 (sadece köprü)
@@ -34,10 +44,10 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
 ];
 
 export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
-  { key: "railCode", label: "Ray", type: "text", excelCell: "L14" },                               // 06!L18
-  { key: "wheelMaterial", label: "Tekerlek malzemesi", type: "text", excelCell: "L16" },           // 06!L20
+  { key: "railCode", label: "Ray", type: "select", options: RAIL_TYPES, excelCell: "L14" },        // 06!L18
+  { key: "wheelMaterial", label: "Tekerlek malzemesi", type: "select", options: WHEEL_MATERIALS, excelCell: "L16" }, // 06!L20
   { key: "wheelTensileNmm2", label: "Tekerlek malzemesi çekme dayanımı", unit: "N/mm²", type: "number", excelCell: "L17" }, // 06!L21
-  { key: "wheelDiaMm", label: "Tekerlek çapı", unit: "mm", type: "number", excelCell: "L18" },     // 06!L22
+  { key: "wheelDiaMm", label: "Tekerlek çapı", unit: "mm", type: "select", options: WHEEL_DIA_SERIES_MM, numeric: true, excelCell: "L18" }, // 06!L22
   { key: "shaftMaterial", label: "Mil malzemesi", type: "text", excelCell: "L71" },                // 06!L75
   { key: "bearingType", label: "Rulman tipi", type: "text", excelCell: "L85" },                    // 06!L89
   { key: "bearingCode", label: "Rulman kodu", type: "text", excelCell: "L86" },                    // 06!L90

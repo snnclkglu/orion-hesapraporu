@@ -763,13 +763,7 @@ function CalcRowLine({ row, ctx }: { row: AdapterSection["rows"][number]; ctx: u
           {subst ? `  =  ${subst}` : ""}
         </Text>
       )}
-      {(row.standard || row.excelRef) && (
-        <Text style={s.calcMeta}>
-          {[row.standard, row.excelRef ? `Excel: ${row.excelRef}` : "yeniden yazım"]
-            .filter(Boolean)
-            .join(" · ")}
-        </Text>
-      )}
+      {row.standard && <Text style={s.calcMeta}>{row.standard}</Text>}
     </View>
   );
 }

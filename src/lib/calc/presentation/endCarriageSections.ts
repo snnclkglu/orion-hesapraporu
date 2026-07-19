@@ -150,7 +150,7 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
     id: "9.4",
     title: "Yorulma Kontrolü",
     description:
-      "DIN 15018 yorulma kontrolü. Excel'in bozuk yorulma bloğu yerine 07-ANA KİRİŞ'in çalışan T17/T18 mantığıyla yeniden hesaplanır.",
+      "DIN 15018 yorulma kontrolü. İzin gerilmeleri DIN 15018 Tablo 17/18'den hesaplanır.",
     depKeys: [],
     inputKeys: ["fatigueTensileNmm2"],
     selectionKeys: ["fatigueMaterial", "fatigueLoadGroup", "fatigueNotchClass"],

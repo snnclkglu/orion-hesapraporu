@@ -368,7 +368,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.5b",
     title: "Yürütme Freni",
     description:
-      "Sadece köprü varyantı (Excel 6.6). V5 raporunda fren seçilmemiştir; kontrol başarısızdır.",
+      "Sadece köprü varyantı. Fren seçimi yapılmadan kontrol uygun olmaz.",
     bridgeOnly: true,
     inputKeys: ["brakeServiceFactor"],
     selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm"],

@@ -216,8 +216,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     title: "Kiriş Kesiti ve Yorulma",
     description:
       "Kaldırma kirişi kesit özellikleri, ψ katsayılı statik gerilmeler ve DIN 15018 " +
-      "yorulma kontrolü. Yorulma izin gerilmeleri Excel'in bozuk (#ref!) bloğu yerine " +
-      "DIN 15018 Tablo 17 lookup'ıyla temiz yeniden yazılmıştır.",
+      "yorulma kontrolü. Yorulma izin gerilmeleri DIN 15018 Tablo 17'den alınır.",
     inputKeys: [
       "girderSpanMm", "loadOffsetMm",
       "midTopPlateThkMm", "midTopPlateWidthMm", "midWebPlateThkMm", "midWebPlateHeightMm",

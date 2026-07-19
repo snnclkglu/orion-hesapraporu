@@ -13,7 +13,7 @@ export default function EditorPreviewPage() {
       <header className="sticky top-0 z-30 flex h-12 items-center border-b bg-background/90 px-4 backdrop-blur">
         <div className="text-sm font-medium">Editör Önizleme (dev)</div>
       </header>
-      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      <div className="mx-auto w-full flex-1 px-4 py-6 lg:px-8">
         <RevisionEditor
           projectId="dev"
           revisionId="dev"

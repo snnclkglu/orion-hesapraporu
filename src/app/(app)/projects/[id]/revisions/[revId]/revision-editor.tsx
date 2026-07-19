@@ -16,6 +16,7 @@ import {
   CircleCheck,
   CircleX,
   Save,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
@@ -96,22 +97,34 @@ function Field({
         {def.label}
         {def.unit ? ` [${def.unit}]` : ""}
       </Label>
-      {def.type === "select" ? (
-        <Select
-          value={String(v)}
-          onValueChange={(nv) => onChange({ ...value, [def.key]: nv })}
-          disabled={disabled}
-        >
-          <SelectTrigger id={id} className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(def.options ?? []).map((o) => (
-              <SelectItem key={o} value={o}>{o}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
+      {def.type === "select" ? (() => {
+        // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
+        // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).
+        const base = (def.options ?? []).map(String);
+        const cur = v === null || v === undefined || v === "" ? "" : String(v);
+        const opts = cur !== "" && !base.includes(cur) ? [cur, ...base] : base;
+        return (
+          <Select
+            value={cur}
+            onValueChange={(nv) =>
+              onChange({
+                ...value,
+                [def.key]: def.numeric ? parseFloat(nv.replace(",", ".")) : nv,
+              })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger id={id} className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {opts.map((o) => (
+                <SelectItem key={o} value={o}>{o}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      })() : (
         <Input
           id={id}
           className="h-8"
@@ -194,16 +207,13 @@ function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
           {row.subst ? <span className="text-foreground/80"> = {row.subst(ctx)}</span> : null}
         </div>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {row.standard && (
+      {row.standard && (
+        <div className="flex flex-wrap gap-1.5">
           <span className="rounded border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90">
             {row.standard}
           </span>
-        )}
-        <span className="rounded border px-1.5 py-px font-mono text-[10px] text-muted-foreground/80">
-          {row.excelRef ? `Excel ${row.excelRef}` : "yeniden yazım"}
-        </span>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -332,6 +342,8 @@ export function RevisionEditor({
   // Sadece sunum: kenar çubuğunda elle açılan modül grupları
   // (aktif adımın grubu her zaman açıktır).
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Bölüm navigasyonu arama filtresi (bölüm adına göre)
+  const [navQuery, setNavQuery] = useState("");
   const [pending, startTransition] = useTransition();
 
   const calcInput: CalcInput = useMemo(
@@ -851,8 +863,12 @@ export function RevisionEditor({
     );
   }
 
+  const navQ = navQuery.trim().toLocaleLowerCase("tr-TR");
+  const stepMatches = (s: Step) =>
+    navQ === "" || s.title.toLocaleLowerCase("tr-TR").includes(navQ);
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
       {/* Bölüm navigasyonu */}
       <nav className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
         <div className="mb-1.5 flex items-center justify-between px-2">
@@ -868,11 +884,31 @@ export function RevisionEditor({
             {passCount}/{result.allChecks.length} uygun
           </span>
         </div>
+        {/* Bölüm arama kutusu */}
+        <div className="relative mb-2 px-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={navQuery}
+            onChange={(e) => setNavQuery(e.target.value)}
+            placeholder="Bölüm ara..."
+            className="h-8 pl-7 text-sm"
+            aria-label="Bölüm ara"
+          />
+        </div>
         <ol className="grid gap-0.5 text-sm">
           {NAV_GROUPS.map((group) => {
+            const groupTitleMatch =
+              navQ !== "" &&
+              group.title !== null &&
+              group.title.toLocaleLowerCase("tr-TR").includes(navQ);
+            const visibleItems =
+              navQ === "" || groupTitleMatch
+                ? group.items
+                : group.items.filter(({ step: s }) => stepMatches(s));
+            if (visibleItems.length === 0) return null;
             // Grupsuz tek adımlar (Teknik Özellikler, Özet)
             if (group.title === null) {
-              const { step: s, index: i } = group.items[0];
+              const { step: s, index: i } = visibleItems[0];
               return navItem(s, i);
             }
             const statuses = group.items.map(({ step: s }) =>
@@ -882,7 +918,7 @@ export function RevisionEditor({
             const passed = statuses.filter((st) => st === "pass").length;
             const anyFail = statuses.some((st) => st === "fail");
             const containsCurrent = group.items.some(({ index: i }) => i === stepIndex);
-            const isOpen = containsCurrent || !!openGroups[group.key];
+            const isOpen = navQ !== "" || containsCurrent || !!openGroups[group.key];
             return (
               <li key={group.key}>
                 <button
@@ -916,7 +952,7 @@ export function RevisionEditor({
                 </button>
                 {isOpen && (
                   <ol className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
-                    {group.items.map(({ step: s, index: i }) => navItem(s, i))}
+                    {visibleItems.map(({ step: s, index: i }) => navItem(s, i))}
                   </ol>
                 )}
               </li>
@@ -990,7 +1026,8 @@ export function RevisionEditor({
         {step.kind === "module" && renderModuleSection(step.moduleKey, step.section)}
         {step.kind === "summary" && renderSummary()}
 
-        <div className="flex items-center justify-between">
+        {/* Sticky alt gezinme şeridi */}
+        <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border bg-card/95 px-4 py-2.5 shadow-xs backdrop-blur">
           <Button
             variant="outline"
             size="sm"

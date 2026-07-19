@@ -12,14 +12,14 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 2. Rutin veri düzenlemeleri panelden; geliştirmeler kodla.
 
 ## Faz A — Hızlı düzeltmeler (öncelik)
-- [ ] UI'dan tüm Excel referanslarını kaldır (CalcRow'daki "Excel: X" rozetleri → standart referansı rozetine dönüşür; sections dosyalarındaki standard alanları korunur, excelRef gösterimi kapatılır; check/not metinlerindeki Excel/V5 ifadeleri temizlenir; travelSections'taki "Excel 6.6" gibi başlık notları temizlenir)
-- [ ] Teknik özellikler dropdown'ları:
+- [x] UI'dan tüm Excel referanslarını kaldır (CalcRow'daki "Excel: X" rozetleri → standart referansı rozetine dönüşür; sections dosyalarındaki standard alanları korunur, excelRef gösterimi kapatılır; check/not metinlerindeki Excel/V5 ifadeleri temizlenir; travelSections'taki "Excel 6.6" gibi başlık notları temizlenir)
+- [x] Teknik özellikler dropdown'ları:
   - Sıcaklık: min −40…0 (5°C adım), maks +40…+80 (5°C adım)
   - Kanca tipi: DIN 15401 Tekli Kanca, DIN 15402 Çift Ağız Kanca, Kaldırma Kirişi (Spreader), Polip, Mekanik Kepçe, Motorlu Kepçe, C Kancası, Diğer
   - Vinç tipi (proje/spec): Çift Kirişli Gezer Köprü Vinci, Tek Kirişli Gezer Köprü Vinci, Portal Vinç, Yarı Portal Vinç, Pergel Vinç, Alttan Askılı Vinç, Konsol Vinç (ileride hesap varyantları vinç tipine bağlanacak)
-  - Donanım (reeving): 2/2, 2/4, 4/4, 4/8, 6/6, 8/8 dropdown
+  - Donanım (reeving): 2/2, 2/4, 4/4, 4/8, 6/6, 8/8 dropdown (drivenFalls/totalFalls alanları korunuyor — ayrı ele alınacak)
   - Mil malzemesi, teker malzemesi, teker çapı (FEM serisi: 200,250,315,400,500,630,710,800,900,1000,1120,1250), tambur çapı serisi, ray tipi → dropdown
-- [ ] Navigasyon/genişlik düzeltmeleri: max-w-6xl kısıtı geniş ekranda dar kalıyor → tam genişlik + sihirbaz iki kolon oranı iyileştirme; bölüm navigasyonu arama/atlama.
+- [x] Navigasyon/genişlik düzeltmeleri: max-w-6xl kısıtı geniş ekranda dar kalıyor → tam genişlik + sihirbaz iki kolon oranı iyileştirme; bölüm navigasyonu arama/atlama; İleri/Geri sticky alt şerit.
 
 ## Faz B — Katalog dropdown sistemi
 - [ ] `catalog_data/*.json` → parser + Supabase `cat_equipment` seed (kind eşlemesi: motors→motor, reducers→gearbox, ropes→rope, brakes→brake, bearings→bearing, wheels→wheel, hooks→hook, couplings→coupling [mevcut cat_couplings ile birleştir/ilişkilendir], rails→cat_rails, sheaves→sheave)

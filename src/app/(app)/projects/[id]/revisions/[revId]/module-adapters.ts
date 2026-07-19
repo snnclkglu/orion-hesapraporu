@@ -79,6 +79,8 @@ export interface AnyFieldDef {
   unit?: string;
   type: "number" | "text" | "select";
   options?: readonly string[];
+  /** select değerleri sayısal alana yazılır */
+  numeric?: boolean;
   excelCell?: string;
 }
 

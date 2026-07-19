@@ -11,6 +11,8 @@ export interface FieldDef<T> {
   unit?: string;
   type: "number" | "text" | "select";
   options?: readonly string[];
+  /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
+  numeric?: boolean;
   excelCell?: string;
 }
 
@@ -19,6 +21,22 @@ export const USAGE_CLASSES = ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T
 export const STRUCTURE_CLASSES = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"] as const;
 export const DRUM_MATERIALS = ["S235", "S355"] as const;
 export const SHAFT_MATERIALS = ["C25", "C30", "C35", "4140+QT", "4140"] as const;
+export const HOOK_TYPES = [
+  "DIN 15401 Tekli Kanca",
+  "DIN 15402 Çift Ağız Kanca",
+  "Kaldırma Kirişi (Spreader)",
+  "Polip",
+  "Mekanik Kepçe",
+  "Motorlu Kepçe",
+  "C Kancası",
+  "Diğer",
+] as const;
+export const AMBIENT_TEMP_MIN_C = ["-40", "-35", "-30", "-25", "-20", "-15", "-10", "-5", "0"] as const;
+export const AMBIENT_TEMP_MAX_C = ["40", "45", "50", "55", "60", "65", "70", "75", "80"] as const;
+/** Tambur çapı standart serisi [mm] */
+export const DRUM_DIA_SERIES_MM = [
+  "200", "250", "290", "315", "355", "400", "450", "500", "560", "630", "710", "800",
+] as const;
 
 export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "mainCapacityT", label: "Ana kaldırma kapasitesi", unit: "ton", type: "number", excelCell: "P4" },
@@ -37,10 +55,10 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "trolleySpeedMpm", label: "Araba yürütme hızı", unit: "m/dak", type: "number", excelCell: "P17" },
   { key: "trolleyMechanismClass", label: "Araba mekanizma sınıfı", type: "select", options: MECHANISM_CLASSES, excelCell: "P18" },
   { key: "trolleyUsageClass", label: "Araba kullanım sınıfı", type: "select", options: USAGE_CLASSES, excelCell: "P19" },
-  { key: "hookType", label: "Kanca / tutucu tipi", type: "text", excelCell: "P20" },
+  { key: "hookType", label: "Kanca / tutucu tipi", type: "select", options: HOOK_TYPES, excelCell: "P20" },
   { key: "controlType", label: "Kumanda şekli", type: "text", excelCell: "P21" },
-  { key: "ambientTempMinC", label: "Ortam sıcaklığı (min)", unit: "°C", type: "number", excelCell: "R22" },
-  { key: "ambientTempMaxC", label: "Ortam sıcaklığı (maks)", unit: "°C", type: "number", excelCell: "T22" },
+  { key: "ambientTempMinC", label: "Ortam sıcaklığı (min)", unit: "°C", type: "select", options: AMBIENT_TEMP_MIN_C, numeric: true, excelCell: "R22" },
+  { key: "ambientTempMaxC", label: "Ortam sıcaklığı (maks)", unit: "°C", type: "select", options: AMBIENT_TEMP_MAX_C, numeric: true, excelCell: "T22" },
   { key: "supplyVoltage", label: "Besleme gerilimi", type: "text", excelCell: "P23" },
   { key: "controlVoltage", label: "Kumanda gerilimi", type: "text", excelCell: "P24" },
   { key: "spanM", label: "Açıklık", unit: "m", type: "number", excelCell: "P27" },
@@ -86,7 +104,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "ropeCore", label: "Halat özü", type: "text", excelCell: "L26" },
   { key: "ropeWireStrength", label: "Tel mukavemeti", unit: "kg/mm²", type: "number", excelCell: "L27" },
   { key: "ropeBreakingLoadKn", label: "Halat kopma yükü", unit: "kN", type: "number", excelCell: "Q28" },
-  { key: "drumDiaMm", label: "Tambur çapı", unit: "mm", type: "number", excelCell: "L39" },
+  { key: "drumDiaMm", label: "Tambur çapı", unit: "mm", type: "select", options: DRUM_DIA_SERIES_MM, numeric: true, excelCell: "L39" },
   { key: "drumMaterial", label: "Tambur malzemesi", type: "select", options: DRUM_MATERIALS, excelCell: "L40" },
   { key: "drumGrooveLengthText", label: "Seçilen oluk boyu", unit: "mm", type: "text", excelCell: "L63" },
   { key: "shaftMaterial", label: "Mil malzemesi", type: "select", options: SHAFT_MATERIALS, excelCell: "L90" },

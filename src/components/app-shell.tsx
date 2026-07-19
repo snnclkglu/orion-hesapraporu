@@ -144,6 +144,9 @@ function SidebarContent({
 export function AppShell({ isAdmin, displayName, email, children }: AppShellProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // Revizyon sihirbazı geniş ekranda tam genişlik kullanır; diğer sayfalar
+  // okunabilirlik için sınırlı kalır.
+  const fullWidth = /\/revisions\//.test(pathname ?? "");
 
   return (
     <div className="flex min-h-screen">
@@ -206,7 +209,9 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
           </div>
         </header>
         <main className="flex-1 px-4 py-6 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className={cn("mx-auto w-full", fullWidth ? "max-w-none" : "max-w-6xl")}>
+            {children}
+          </div>
         </main>
       </div>
     </div>
