@@ -16,6 +16,8 @@ const ACTION_LABELS: Record<string, string> = {
   "revision.create": "Revizyon oluşturuldu",
   "revision.save": "Revizyon kaydedildi",
   "revision.issue": "Revizyon yayınlandı",
+  "revision.template_set": "Şablon yapıldı",
+  "revision.template_unset": "Şablon kaldırıldı",
 };
 
 function detailSummary(action: string, detail: Record<string, unknown>): string {

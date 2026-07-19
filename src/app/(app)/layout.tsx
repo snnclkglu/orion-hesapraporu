@@ -26,6 +26,11 @@ export default async function AppLayout({
             ORION <span className="text-muted-foreground font-normal">Hesap Raporu</span>
           </Link>
           <div className="flex items-center gap-3 text-sm">
+            {profile?.role === "admin" && (
+              <Link href="/admin" className="text-muted-foreground hover:text-foreground">
+                Yönetim
+              </Link>
+            )}
             <span className="text-muted-foreground">
               {profile?.full_name || user.email}
               {profile?.role === "admin" && (

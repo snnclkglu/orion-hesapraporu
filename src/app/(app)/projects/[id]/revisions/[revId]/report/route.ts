@@ -11,6 +11,7 @@ import {
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { renderReportPdf } from "@/lib/pdf/report";
+import { getReportSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -57,7 +58,9 @@ export async function GET(
   );
   const result = runCalc(input);
 
-  const buffer = await renderReportPdf({
+  const reportSettings = await getReportSettings(supabase);
+      const buffer = await renderReportPdf({
+        settings: reportSettings,
     project,
     revision: {
       rev_no: revision.rev_no,

@@ -9,6 +9,7 @@ import {
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { renderReportPdf } from "@/lib/pdf/report";
+import { getReportSettings } from "@/lib/settings";
 
 export type SaveResult = { error?: string; ok?: boolean };
 
@@ -58,7 +59,9 @@ export async function issueRevision(
         revision.selections as RevisionSelectionsJson
       );
       const result = runCalc(input);
+      const reportSettings = await getReportSettings(supabase);
       const buffer = await renderReportPdf({
+        settings: reportSettings,
         project,
         revision: {
           rev_no: revision.rev_no,
@@ -99,6 +102,43 @@ export async function issueRevision(
         warning:
           "Revizyon yayınlandı ancak PDF arşive yüklenemedi; raporu 'PDF Rapor' bağlantısından indirebilirsiniz.",
       };
+}
+
+/**
+ * Şablon işaretini değiştirir (sadece admin, RLS + is_admin kontrolü).
+ * Şablon revizyon: yeni projelerin ilk revizyonu bu snapshot'tan kopyalanır.
+ */
+export async function setRevisionTemplate(
+  projectId: string,
+  revisionId: string,
+  isTemplate: boolean
+): Promise<SaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "admin") return { error: "Bu işlem için admin yetkisi gerekir" };
+
+  const { error } = await supabase
+    .from("revisions")
+    .update({ is_template: isTemplate })
+    .eq("id", revisionId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    revision_id: revisionId,
+    actor: user.id,
+    action: isTemplate ? "revision.template_set" : "revision.template_unset",
+    detail: {},
+  });
+
+  revalidatePath(`/projects/${projectId}/revisions/${revisionId}`);
+  return { ok: true };
 }
 
 /**

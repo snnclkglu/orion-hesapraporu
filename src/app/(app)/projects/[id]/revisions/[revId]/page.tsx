@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
+import { TemplateToggle } from "./template-toggle";
 import {
   calcInputFromRevision,
   type RevisionInputsJson,
@@ -20,7 +21,7 @@ export default async function RevisionPage({
 
   const { data: revision } = await supabase
     .from("revisions")
-    .select("id, project_id, rev_no, label, status, inputs, selections, results, engine_version")
+    .select("id, project_id, rev_no, label, status, inputs, selections, results, engine_version, is_template")
     .eq("id", revId)
     .eq("project_id", id)
     .single();
@@ -32,6 +33,15 @@ export default async function RevisionPage({
     .select("doc_no, name, customer")
     .eq("id", id)
     .single();
+
+  // Şablon toggle'ı sadece admin'e gösterilir (action ayrıca sunucuda doğrular).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+  const isAdmin = profile?.role === "admin";
 
   // Boş revizyon V5 şablonuyla başlar; kayıtlı revizyon kendi snapshot'ını yükler.
   const inputs = revision.inputs as RevisionInputsJson;
@@ -69,9 +79,19 @@ export default async function RevisionPage({
           >
             Ekipman Listesi
           </a>
+          {revision.is_template && (
+            <Badge variant="outline" className="border-primary/40 text-primary">ŞABLON</Badge>
+          )}
           <Badge variant={revision.status === "issued" ? "default" : "secondary"}>
             {revision.status === "issued" ? "yayınlandı" : "taslak"}
           </Badge>
+          {isAdmin && revision.status === "issued" && (
+            <TemplateToggle
+              projectId={id}
+              revisionId={revision.id}
+              isTemplate={!!revision.is_template}
+            />
+          )}
           {revision.status === "draft" && (
             <IssueRevisionButton
               projectId={id}

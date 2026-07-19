@@ -90,8 +90,10 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  // Son revizyonu bul: yeni rev_no + snapshot kopyası
-  const { data: last } = await supabase
+  // Son revizyonu bul: yeni rev_no + snapshot kopyası.
+  // Projenin ilk revizyonu ise şablon revizyondan (is_template) kopyalanır —
+  // şablon panelden normal revizyon editörüyle bakımı yapılan bir revizyondur.
+  let { data: last } = await supabase
     .from("revisions")
     .select("rev_no, inputs, selections, results, engine_version")
     .eq("project_id", projectId)
@@ -100,6 +102,20 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
     .maybeSingle();
 
   const revNo = (last?.rev_no ?? -1) + 1;
+  let copiedFromTemplate = false;
+  if (!last) {
+    const { data: template } = await supabase
+      .from("revisions")
+      .select("rev_no, inputs, selections, results, engine_version")
+      .eq("is_template", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (template) {
+      last = template;
+      copiedFromTemplate = true;
+    }
+  }
 
   const { data: revision, error } = await supabase
     .from("revisions")
@@ -123,7 +139,11 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
     revision_id: revision.id,
     actor: user.id,
     action: "revision.create",
-    detail: { rev_no: revNo, copied_from: last?.rev_no ?? null },
+    detail: {
+      rev_no: revNo,
+      copied_from: copiedFromTemplate ? null : last?.rev_no ?? null,
+      from_template: copiedFromTemplate,
+    },
   });
 
   revalidatePath(`/projects/${projectId}`);

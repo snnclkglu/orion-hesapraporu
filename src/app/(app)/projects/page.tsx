@@ -5,13 +5,17 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { NewProjectDialog } from "./new-project-dialog";
+import { getReportSettings } from "@/lib/settings";
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, doc_no, name, customer, crane_type, status, created_at, revisions(rev_no, status)")
-    .order("created_at", { ascending: false });
+  const [{ data: projects }, settings] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, doc_no, name, customer, crane_type, status, created_at, revisions(rev_no, status)")
+      .order("created_at", { ascending: false }),
+    getReportSettings(supabase),
+  ]);
 
   return (
     <div className="grid gap-6">
@@ -20,7 +24,7 @@ export default async function ProjectsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Projeler</h1>
           <p className="text-sm text-muted-foreground">Hesap raporu projeleri ve revizyon arşivi</p>
         </div>
-        <NewProjectDialog />
+        <NewProjectDialog defaultCraneType={settings.default_crane_type} />
       </div>
 
       <div className="rounded-lg border">

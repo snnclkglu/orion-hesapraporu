@@ -10,7 +10,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function NewProjectDialog() {
+export function NewProjectDialog({
+  defaultCraneType = "Çift Kirişli Gezer Köprülü Vinç",
+}: {
+  defaultCraneType?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -49,7 +53,7 @@ export function NewProjectDialog() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="crane_type">Vinç Tipi</Label>
-            <Input id="crane_type" name="crane_type" defaultValue="Çift Kirişli Gezer Köprülü Vinç" required />
+            <Input id="crane_type" name="crane_type" defaultValue={defaultCraneType} required />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>

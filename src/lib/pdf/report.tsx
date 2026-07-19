@@ -15,6 +15,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
+import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
@@ -76,6 +77,8 @@ export interface ReportProps {
   preparedBy: string;
   input: CalcInput;
   result: CalcResult;
+  /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
+  settings?: ReportSettings;
 }
 
 // ---------------------------------------------------------------- Yardımcılar
@@ -470,12 +473,13 @@ function CheckLine({ check }: { check: AnyCheck }) {
 
 // ---------------------------------------------------------------- Kapak
 
-function CoverPage({ project, revision, preparedBy }: ReportProps) {
+function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
+  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
   const dateLabel = reportDateLabel(revision);
   return (
     <Page size="A4" style={s.coverPage}>
       <View style={s.coverTopRow}>
-        <Text style={s.coverBrand}>ORION CRANES</Text>
+        <Text style={s.coverBrand}>{st.company}</Text>
         <View>
           <Text style={s.coverDocMeta}>DOC {project.doc_no}</Text>
           <Text style={s.coverDocMeta}>
@@ -485,8 +489,8 @@ function CoverPage({ project, revision, preparedBy }: ReportProps) {
       </View>
 
       <View style={s.coverCenter}>
-        <Text style={s.coverTitle}>HESAP RAPORU</Text>
-        <Text style={s.coverSubtitle}>DESIGN CALCULATION REPORT</Text>
+        <Text style={s.coverTitle}>{st.title_tr}</Text>
+        <Text style={s.coverSubtitle}>{st.title_en}</Text>
         <View style={s.coverRule} />
         <Text style={s.coverCustomer}>{project.customer.toLocaleUpperCase("tr-TR")}</Text>
         <Text style={s.coverProject}>{project.name.toLocaleUpperCase("tr-TR")}</Text>
@@ -520,7 +524,7 @@ function CoverPage({ project, revision, preparedBy }: ReportProps) {
           </View>
         </View>
       </View>
-      <Text style={s.coverFootnote}>ANKARA · TÜRKİYE</Text>
+      <Text style={s.coverFootnote}>{st.city}</Text>
     </Page>
   );
 }
@@ -848,7 +852,7 @@ export function ReportDocument(props: ReportProps) {
   return (
     <Document
       title={`${project.doc_no}-V${revision.rev_no} Hesap Raporu`}
-      author="ORION CRANES"
+      author={(props.settings ?? DEFAULT_REPORT_SETTINGS).company}
       subject={`${project.customer} — ${project.name}`}
       language="tr"
     >
