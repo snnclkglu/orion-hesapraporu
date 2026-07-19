@@ -5,16 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
 import {
-  V5_TEMPLATE,
-} from "@/lib/calc/defaults";
-import type { CalcInput } from "@/lib/calc/engine";
-import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
-import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
-import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
-import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGirder";
-import type { BucklingInputs } from "@/lib/calc/modules/buckling";
-import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
-import type { TechnicalSpecs } from "@/lib/calc/types";
+  calcInputFromRevision,
+  type RevisionInputsJson,
+  type RevisionSelectionsJson,
+} from "@/lib/revision-load";
 
 export default async function RevisionPage({
   params,
@@ -40,62 +34,9 @@ export default async function RevisionPage({
     .single();
 
   // Boş revizyon V5 şablonuyla başlar; kayıtlı revizyon kendi snapshot'ını yükler.
-  const inputs = revision.inputs as {
-    specs?: TechnicalSpecs;
-    mainHoist?: HoistInputs | null;
-    auxHoist?: HoistInputs | null;
-    hookBlock?: HookBlockInputs | null;
-    trolley?: TravelInputs | null;
-    bridge?: TravelInputs | null;
-    girder?: GirderInputs | null;
-    buckling?: BucklingInputs | null;
-    endCarriage?: EndCarriageInputs | null;
-  };
-  const selections = revision.selections as {
-    mainHoist?: HoistSelections | null;
-    auxHoist?: HoistSelections | null;
-    hookBlock?: HookBlockSelections | null;
-    trolley?: TravelSelections | null;
-    bridge?: TravelSelections | null;
-    girder?: GirderSelections | null;
-    endCarriage?: EndCarriageSelections | null;
-    alts?: Record<string, { active: number; options: Record<string, unknown>[] }>;
-  };
-
-  const initial: CalcInput = {
-    specs: inputs?.specs ?? V5_TEMPLATE.specs,
-    mainHoist: {
-      inputs: inputs?.mainHoist ?? V5_TEMPLATE.mainHoist!.inputs,
-      selections: selections?.mainHoist ?? V5_TEMPLATE.mainHoist!.selections,
-    },
-    auxHoist: {
-      inputs: inputs?.auxHoist ?? V5_TEMPLATE.auxHoist!.inputs,
-      selections: selections?.auxHoist ?? V5_TEMPLATE.auxHoist!.selections,
-    },
-    hookBlock: {
-      inputs: inputs?.hookBlock ?? V5_TEMPLATE.hookBlock!.inputs,
-      selections: selections?.hookBlock ?? V5_TEMPLATE.hookBlock!.selections,
-    },
-    trolley: {
-      inputs: inputs?.trolley ?? V5_TEMPLATE.trolley!.inputs,
-      selections: selections?.trolley ?? V5_TEMPLATE.trolley!.selections,
-    },
-    bridge: {
-      inputs: inputs?.bridge ?? V5_TEMPLATE.bridge!.inputs,
-      selections: selections?.bridge ?? V5_TEMPLATE.bridge!.selections,
-    },
-    girder: {
-      inputs: inputs?.girder ?? V5_TEMPLATE.girder!.inputs,
-      selections: selections?.girder ?? V5_TEMPLATE.girder!.selections,
-    },
-    buckling: {
-      inputs: inputs?.buckling ?? V5_TEMPLATE.buckling!.inputs,
-    },
-    endCarriage: {
-      inputs: inputs?.endCarriage ?? V5_TEMPLATE.endCarriage!.inputs,
-      selections: selections?.endCarriage ?? V5_TEMPLATE.endCarriage!.selections,
-    },
-  };
+  const inputs = revision.inputs as RevisionInputsJson;
+  const selections = revision.selections as RevisionSelectionsJson;
+  const initial = calcInputFromRevision(inputs, selections);
 
   return (
     <div className="grid gap-4">
@@ -116,6 +57,18 @@ export default async function RevisionPage({
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`/projects/${id}/revisions/${revision.id}/report`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
+          >
+            PDF Rapor
+          </a>
+          <a
+            href={`/projects/${id}/revisions/${revision.id}/equipment`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
+          >
+            Ekipman Listesi
+          </a>
           <Badge variant={revision.status === "issued" ? "default" : "secondary"}>
             {revision.status === "issued" ? "yayınlandı" : "taslak"}
           </Badge>
