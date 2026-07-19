@@ -27,9 +27,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   // PDF raporu (report route'u + issueRevision server action'ı) DejaVu
-  // fontlarını dosya sisteminden okur; Vercel trace'ine dahil edilmeleri gerekir.
+  // fontlarını ve Orion Cranes logosunu (public/brand) dosya sisteminden okur;
+  // Vercel trace'ine dahil edilmeleri gerekir.
   outputFileTracingIncludes: {
-    "/projects/**": ["./src/assets/fonts/**/*"],
+    "/projects/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

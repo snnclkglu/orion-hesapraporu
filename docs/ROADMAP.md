@@ -28,8 +28,8 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [ ] Yeni katalog ekleme akışı: JSON dosyası → script ile seed (kod tarafı) + panelden tek tek ekleme (mevcut).
 
 ## Faz C — Branding
-- [ ] `Orion Cranes Brand Identity/` HTML'lerini ve uploads/ logoları incele; renk/typografi/logoyu çıkar
-- [ ] UI temasına uygula (sidebar logosu, renk paleti, font); login sayfası; PDF rapor kapağı/başlıklarına logo + kurumsal renkler (Örnek Teklif PDF'inin görünümüyle uyum)
+- [x] `Orion Cranes Brand Identity/` HTML'lerini ve uploads/ logoları incele; renk/typografi/logoyu çıkar (Orion Kırmızısı #A41E1E, Kömür #262626, Kağıt/Gri nötr skalası; Archivo + IBM Plex Mono; logo SVG/PNG → `public/brand/`)
+- [x] UI temasına uygula (sidebar logosu, renk paleti, font); login sayfası; PDF rapor kapağı/başlıklarına logo + kurumsal renkler (kırmızı omurga, kömür başlık çizgisi); Excel başlık dolgusu marka kırmızısı
 
 ## Faz D — Proje takip sistemine dönüşüm (iş emri modeli)
 - Veri modeli: `jobs` (iş emri: 0057-00, müşteri, başlık) → `cranes` (iş içindeki vinçler; mevcut "project" kavramı vinç'e evrilir, doc_no şeması 00XX-YY) → her vinç için modüller: Hesap Raporu (mevcut revizyon sistemi), Ekipman Listesi (mevcut), Teknik Çizimler (yeni: çizim kaydı/dosya takibi), ileride: 3D, Malzeme Listeleri, Satınalma, Üretim.

@@ -8,7 +8,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Construction,
   FolderKanban,
   Menu,
   Settings2,
@@ -60,22 +59,20 @@ function SidebarContent({
 }) {
   return (
     <div className="flex h-full flex-col">
-      {/* Marka */}
+      {/* Marka — koyu zeminde beyaz logo (Orion Cranes marka kılavuzu) */}
       <Link
         href="/projects"
         onClick={onNavigate}
-        className="flex items-center gap-2.5 px-4 pt-5 pb-4"
+        className="block px-4 pt-5 pb-4"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <Construction className="size-5" />
-        </span>
-        <span className="min-w-0 leading-tight">
-          <span className="block text-sm font-semibold tracking-tight text-sidebar-accent-foreground">
-            ORION
-          </span>
-          <span className="block truncate text-xs text-sidebar-foreground/70">
-            Hesap Raporu Sistemi
-          </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/orion-logo-white.svg"
+          alt="Orion Cranes"
+          className="h-[18px] w-auto"
+        />
+        <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
+          Hesap Raporu Sistemi
         </span>
       </Link>
 

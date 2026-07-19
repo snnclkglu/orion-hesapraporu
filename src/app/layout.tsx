@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Orion Cranes marka tipografisi (Marka Kimliği Kılavuzu REV 01):
+// Archivo — display & metin; IBM Plex Mono — teknik etiket/veri.
+// İkisi de Google Fonts'ta; Türkçe glifler için latin-ext şart.
+const archivo = Archivo({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="tr"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn("h-full", "antialiased", archivo.variable, plexMono.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col">
         {children}

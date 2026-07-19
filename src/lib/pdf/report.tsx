@@ -4,10 +4,12 @@
 // birebir aynı bölüm/satır/kontrol yapısı PDF'e dökülür.
 // Yalnızca sunucuda çalışır (Font.register dosya sisteminden okur).
 
+import fs from "node:fs";
 import path from "node:path";
 import {
   Document,
   Font,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -41,6 +43,13 @@ import {
 // next.config.ts outputFileTracingIncludes ile sağlanır.
 
 const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
+
+// Orion Cranes logosu (kırmızı kilit, şeffaf zemin) — public/brand klasörü
+// Vercel trace'ine next.config.ts outputFileTracingIncludes ile dahil edilir.
+// Not: react-pdf string src'yi URL olarak fetch etmeye çalışır (Windows yolunda
+// başarısız olur); bu yüzden dosya Buffer olarak okunup verilir.
+const LOGO_PATH = path.join(process.cwd(), "public", "brand", "orion-logo.png");
+const LOGO_DATA = fs.readFileSync(LOGO_PATH);
 
 Font.register({
   family: "DejaVu",
@@ -228,17 +237,19 @@ function sectionChecks(
 
 // ---------------------------------------------------------------- Stiller
 
+// Orion Cranes marka paleti (Marka Kimliği Kılavuzu REV 01):
+// kömür mürekkep, kağıt/gri nötr skala, Orion kırmızısı vurgu.
 const C = {
-  ink: "#1a1a1a",
-  muted: "#666666",
-  faint: "#999999",
-  line: "#d5d5d5",
-  headBg: "#f0f0f0",
-  green: "#1b7a3d",
+  ink: "#262626", // Kömür
+  muted: "#6B6663", // Gri 600
+  faint: "#8A8480", // Gri 500
+  line: "#DCD9D7", // Çizgi 300
+  headBg: "#F1EEEC", // Kağıt tonu
+  green: "#1F8A5B",
   greenBg: "#eaf5ee",
-  red: "#b3261e",
+  red: "#B4322F",
   redBg: "#fbedec",
-  accent: "#12395f",
+  accent: "#A41E1E", // Orion Kırmızısı
 };
 
 const s = StyleSheet.create({
@@ -249,6 +260,23 @@ const s = StyleSheet.create({
     paddingTop: 42,
     paddingBottom: 52,
     paddingHorizontal: 46,
+  },
+  // ---- kırmızı omurga (marka: "omurga her zaman solda")
+  spine: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 8,
+    backgroundColor: C.accent,
+  },
+  coverSpine: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 22,
+    backgroundColor: C.accent,
   },
   // ---- footer
   footer: {
@@ -276,19 +304,21 @@ const s = StyleSheet.create({
   coverTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.accent,
-    paddingBottom: 8,
+    alignItems: "flex-end",
+    borderBottomWidth: 2,
+    borderBottomColor: C.ink,
+    paddingBottom: 10,
   },
-  coverBrand: { fontSize: 12, fontWeight: "bold", color: C.accent, letterSpacing: 1 },
+  coverLogo: { width: 150, height: 16.9 }, // 596×67 px oranı korunur
+  coverBrand: { fontSize: 7, color: C.muted, letterSpacing: 1.5, marginTop: 5 },
   coverDocMeta: { fontSize: 8, color: C.muted, textAlign: "right" },
   coverCenter: { marginTop: 120, alignItems: "center" },
-  coverTitle: { fontSize: 30, fontWeight: "bold", letterSpacing: 3, color: C.accent },
+  coverTitle: { fontSize: 30, fontWeight: "bold", letterSpacing: 3, color: C.ink },
   coverSubtitle: { fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 2 },
   coverRule: {
     width: 220,
-    borderBottomWidth: 1,
-    borderBottomColor: C.line,
+    borderBottomWidth: 2,
+    borderBottomColor: C.accent,
     marginVertical: 26,
   },
   coverCustomer: { fontSize: 16, fontWeight: "bold", letterSpacing: 1 },
@@ -322,6 +352,8 @@ const s = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: "bold",
     backgroundColor: C.headBg,
+    borderLeftWidth: 2,
+    borderLeftColor: C.accent,
     paddingVertical: 3,
     paddingHorizontal: 6,
     marginTop: 10,
@@ -478,8 +510,12 @@ function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
   const dateLabel = reportDateLabel(revision);
   return (
     <Page size="A4" style={s.coverPage}>
+      <View style={s.coverSpine} fixed />
       <View style={s.coverTopRow}>
-        <Text style={s.coverBrand}>{st.company}</Text>
+        <View>
+          <Image style={s.coverLogo} src={LOGO_DATA} />
+          <Text style={s.coverBrand}>{st.company}</Text>
+        </View>
         <View>
           <Text style={s.coverDocMeta}>DOC {project.doc_no}</Text>
           <Text style={s.coverDocMeta}>
@@ -538,6 +574,7 @@ function TocPage({ project }: ReportProps) {
   });
   return (
     <Page size="A4" style={s.page}>
+      <View style={s.spine} fixed />
       <Text style={s.h1}>İÇİNDEKİLER</Text>
       <Text style={s.h1En}>CONTENTS</Text>
       <View style={s.tocRow}>
@@ -682,6 +719,7 @@ function SummarySection({ input, result, project }: ReportProps) {
   const failCount = result.allChecks.filter((c) => !c.pass).length;
   return (
     <Page size="A4" style={s.page} wrap>
+      <View style={s.spine} fixed />
       <Text style={s.h1}>ÖZET HESAP RAPORU</Text>
       <Text style={s.h1En}>SUMMARY · DESIGN CALCULATION REPORT</Text>
 
@@ -786,6 +824,7 @@ function ModulePage({
 
   return (
     <Page size="A4" style={s.page} wrap>
+      <View style={s.spine} fixed />
       <Text style={s.h1}>
         {no} · {rest.join(" · ").toLocaleUpperCase("tr-TR")}
       </Text>

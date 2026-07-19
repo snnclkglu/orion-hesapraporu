@@ -39,12 +39,12 @@ const textOr = (s: string | null | undefined, fallback = "-"): string =>
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
   pattern: "solid",
-  fgColor: { argb: "FF1F3864" }, // koyu lacivert
+  fgColor: { argb: "FFA41E1E" }, // Orion Kırmızısı (marka birincil rengi)
 };
 const GROUP_FILL: ExcelJS.Fill = {
   type: "pattern",
   pattern: "solid",
-  fgColor: { argb: "FFD9E2F3" }, // açık mavi
+  fgColor: { argb: "FFE7E4E2" }, // Kağıt 200 — marka nötr skalası
 };
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: "FF9CA3AF" } },
@@ -352,7 +352,7 @@ function writeEquipmentSheet(
         for (let c = 1; c <= 5; c++) {
           row.getCell(c).border = {
             ...THIN_BORDER,
-            top: { style: "medium", color: { argb: "FF1F3864" } },
+            top: { style: "medium", color: { argb: "FFA41E1E" } },
           };
         }
       }

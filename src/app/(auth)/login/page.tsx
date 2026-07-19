@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Construction, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,15 +44,16 @@ export default function LoginPage() {
             backgroundSize: "48px 48px",
           }}
         />
-        <div className="relative flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-            <Construction className="size-5" />
-          </span>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight text-sidebar-accent-foreground">
-              ORION
-            </div>
-            <div className="text-xs text-sidebar-foreground/70">Hesap Raporu Sistemi</div>
+        <div className="relative">
+          {/* Koyu zeminde beyaz logo (marka kılavuzu: kömür zemin → beyaz) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/orion-logo-white.svg"
+            alt="Orion Cranes"
+            className="h-6 w-auto"
+          />
+          <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
+            Hesap Raporu Sistemi
           </div>
         </div>
 
@@ -83,13 +84,12 @@ export default function LoginPage() {
       {/* Sağ: giriş formu */}
       <section className="flex items-center justify-center bg-background p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Construction className="size-5" />
-            </span>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold tracking-tight">ORION</div>
-              <div className="text-xs text-muted-foreground">Hesap Raporu Sistemi</div>
+          <div className="mb-8 lg:hidden">
+            {/* Açık zeminde kırmızı logo (marka kılavuzu: kağıt zemin → kırmızı) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/orion-logo.svg" alt="Orion Cranes" className="h-6 w-auto" />
+            <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              Hesap Raporu Sistemi
             </div>
           </div>
 
