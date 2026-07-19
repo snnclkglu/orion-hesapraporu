@@ -9,6 +9,8 @@ export const EQUIPMENT_KINDS = [
   { value: "wheel", label: "Teker" },
   { value: "buffer", label: "Tampon" },
   { value: "hook", label: "Kanca" },
+  { value: "sheave", label: "Makara" },
+  { value: "coupling", label: "Kaplin" },
   { value: "other", label: "Diğer" },
 ] as const;
 

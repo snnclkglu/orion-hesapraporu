@@ -22,10 +22,10 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [x] Navigasyon/genişlik düzeltmeleri: max-w-6xl kısıtı geniş ekranda dar kalıyor → tam genişlik + sihirbaz iki kolon oranı iyileştirme; bölüm navigasyonu arama/atlama; İleri/Geri sticky alt şerit.
 
 ## Faz B — Katalog dropdown sistemi
-- [ ] `catalog_data/*.json` → parser + Supabase `cat_equipment` seed (kind eşlemesi: motors→motor, reducers→gearbox, ropes→rope, brakes→brake, bearings→bearing, wheels→wheel, hooks→hook, couplings→coupling [mevcut cat_couplings ile birleştir/ilişkilendir], rails→cat_rails, sheaves→sheave)
-- [ ] Şema: JSON şemalarını incele (her dosyanın alan yapısı farklı olabilir), attrs jsonb'ye normalize et; marka+model+attrs. `_version.json` sürümü app_settings'e.
-- [ ] Seçim UI: her katalog seçimi bölümünde "Katalogdan Seç" dropdown/combobox (marka filtreli, arama); seçilince ilgili selection alanları otomatik dolar (ör. halat: çap/yapı/kopma yükü; motor: güç/devir/mil çapı). Manuel giriş de mümkün kalır (katalog dışı ürün). Alternatif sistemiyle entegre.
-- [ ] Yeni katalog ekleme akışı: JSON dosyası → script ile seed (kod tarafı) + panelden tek tek ekleme (mevcut).
+- [x] `catalog_data/*.json` → parser + Supabase `cat_equipment` seed (kind eşlemesi: motors→motor, reducers→gearbox, ropes→rope, brakes→brake, bearings→bearing, wheels→wheel, hooks→hook, couplings→coupling [cat_equipment'a ayrıca eklendi; mevcut cat_couplings korunuyor], rails→cat_rails (zaten seed'li), sheaves→sheave) — `scripts/seed-catalog.ts` → `supabase/migrations/20260719000005_catalog_seed.sql` (8732 ürün)
+- [x] Şema: JSON şemaları incelendi, attrs jsonb'ye normalize edildi (snake_case teknik anahtarlar: power_kw, rpm, ratio, dia_mm, breaking_load_kn...); marka+model+attrs. `_version.json` sürümü app_settings `catalog_version` anahtarına.
+- [x] Seçim UI: seçim alanı olan bölümlerde "Katalogdan Seç" combobox (arama, marka+model+ana özellik); seçilince ilgili selection alanları otomatik dolar (eşleme haritası: `src/lib/catalog-mapping.ts`). Manuel giriş mümkün kalır (katalog dışı ürün). Alternatif sistemiyle doğal entegre.
+- [x] Yeni katalog ekleme akışı: JSON dosyası → `npx tsx scripts/seed-catalog.ts` ile seed migration üretimi (kod tarafı) + panelden tek tek ekleme (mevcut; makara/kaplin türleri panele eklendi).
 
 ## Faz C — Branding
 - [x] `Orion Cranes Brand Identity/` HTML'lerini ve uploads/ logoları incele; renk/typografi/logoyu çıkar (Orion Kırmızısı #A41E1E, Kömür #262626, Kağıt/Gri nötr skalası; Archivo + IBM Plex Mono; logo SVG/PNG → `public/brand/`)

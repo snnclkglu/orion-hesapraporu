@@ -100,7 +100,7 @@ export async function updateUserProfile(
 
 // ---------------------------------------------------------------- Ekipman katalogu
 
-const KINDS = ["motor", "gearbox", "rope", "brake", "bearing", "wheel", "buffer", "hook", "other"] as const;
+const KINDS = ["motor", "gearbox", "rope", "brake", "bearing", "wheel", "buffer", "hook", "sheave", "coupling", "other"] as const;
 
 const equipmentSchema = z.object({
   kind: z.enum(KINDS),

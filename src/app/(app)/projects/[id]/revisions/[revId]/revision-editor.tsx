@@ -50,6 +50,11 @@ import {
   type AnyFieldDef,
   type ModuleKey,
 } from "./module-adapters";
+import {
+  applyCatalogPick,
+  getCatalogMapping,
+} from "@/lib/catalog-mapping";
+import { CatalogPicker } from "@/components/catalog-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -691,12 +696,26 @@ export function RevisionEditor({
           )}
           {section.selectionDefs.length > 0 && (() => {
             const st = altStateFor(key, section);
+            const catalogMapping = getCatalogMapping(key, section.rawId);
             return (
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Katalog Seçimi
-                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Katalog Seçimi
+                    </h3>
+                    {!readOnly && catalogMapping && (
+                      <CatalogPicker
+                        mapping={catalogMapping}
+                        onPick={(row) =>
+                          setModuleSelections(key, {
+                            ...(mods[key].selections as object),
+                            ...applyCatalogPick(catalogMapping, row),
+                          })
+                        }
+                      />
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5">
                     {st.options.map((opt, i) => {
                       const isActive = i === st.active;
