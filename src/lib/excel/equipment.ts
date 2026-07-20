@@ -98,7 +98,7 @@ function autoWidth(ws: ExcelJS.Worksheet, min = 8, max = 60): void {
 
 // --- Sayfa 1: Ekipman Listesi ------------------------------------------------
 
-interface EqRow {
+export interface EqRow {
   /** cat_equipment kind (datasheet link eşlemesi için) */
   kind?: string;
   component: string;
@@ -106,11 +106,23 @@ interface EqRow {
   model: string;
   spec: string;
   qty: number | string;
+  /** Panelden eklenen serbest satır (silinebilir/düzenlenebilir) */
+  custom?: boolean;
 }
 
-interface EqGroup {
+export interface EqGroup {
   name: string;
   rows: EqRow[];
+}
+
+/** Panelden eklenen ek ekipman/özellik satırı (equipment_extras.rows) */
+export interface EquipmentExtraRow {
+  group: string;
+  component: string;
+  brand: string;
+  model: string;
+  spec: string;
+  qty: string;
 }
 
 /** Ana / yardımcı kaldırma grubu bileşen satırları (aynı set) */
@@ -266,7 +278,28 @@ function travelRows(
   return rows;
 }
 
-function buildEquipmentGroups(input: CalcInput): EqGroup[] {
+/** Ek satırları gruplara katar: eşleşen grup varsa ona ekler, yoksa yeni grup. */
+export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): EqGroup[] {
+  if (!extras || extras.length === 0) return groups;
+  const merged = groups.map((g) => ({ name: g.name, rows: [...g.rows] }));
+  for (const ex of extras) {
+    const groupName = ex.group.trim() || "Ek Ekipman";
+    const row: EqRow = {
+      component: ex.component,
+      brand: ex.brand || "-",
+      model: ex.model || "-",
+      spec: ex.spec,
+      qty: ex.qty || "-",
+      custom: true,
+    };
+    const existing = merged.find((g) => g.name === groupName);
+    if (existing) existing.rows.push(row);
+    else merged.push({ name: groupName, rows: [row] });
+  }
+  return merged;
+}
+
+export function buildEquipmentGroups(input: CalcInput): EqGroup[] {
   const groups: EqGroup[] = [];
 
   if (input.mainHoist) {
@@ -347,7 +380,7 @@ const HYPERLINK_FONT = { color: { argb: "FF1155CC" }, underline: true as const }
 
 function writeEquipmentSheet(
   ws: ExcelJS.Worksheet,
-  input: CalcInput,
+  groups: EqGroup[],
   meta: EquipmentMeta,
   datasheetUrls?: Map<string, string>
 ): number {
@@ -366,7 +399,6 @@ function writeEquipmentSheet(
   });
   header.height = 18;
 
-  const groups = buildEquipmentGroups(input);
   let rowNo = headerRowNo + 1;
   let componentCount = 0;
 
@@ -426,13 +458,13 @@ export function dsKey(kind: string, brand: string, model: string): string {
 
 // --- Sayfa 2: Teknik Ressam Özeti --------------------------------------------
 
-interface SummaryRow {
+export interface SummaryRow {
   label: string;
   value: number | string;
   unit?: string;
 }
 
-interface SummarySection {
+export interface SummarySection {
   name: string;
   rows: SummaryRow[];
 }
@@ -466,7 +498,7 @@ const ENDCARRIAGE_PLATE_KEYS: (keyof EndCarriageInputs & string)[] = [
   "bottomPlateThicknessMm", "bottomPlateWidthMm",
 ];
 
-function buildSummarySections(input: CalcInput, result: CalcResult): SummarySection[] {
+export function buildSummarySections(input: CalcInput, result: CalcResult): SummarySection[] {
   const specs = input.specs;
   const sections: SummarySection[] = [];
 
@@ -655,6 +687,8 @@ export interface EquipmentWorkbookOptions {
    * "customer"→ yalnızca Ekipman Listesi (müşteriye teslim edilecek dosya)
    */
   scope?: "full" | "customer";
+  /** Panelden eklenen ek ekipman/özellik satırları */
+  extras?: EquipmentExtraRow[];
 }
 
 export function buildEquipmentWorkbook(
@@ -667,10 +701,12 @@ export function buildEquipmentWorkbook(
   wb.creator = "ORION Hesap Raporu";
   wb.created = new Date();
 
+  const groups = mergeExtras(buildEquipmentGroups(calcInput), options.extras);
+
   const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  writeEquipmentSheet(wsEquipment, calcInput, meta, options.datasheetUrls);
+  writeEquipmentSheet(wsEquipment, groups, meta, options.datasheetUrls);
 
   // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
   if (options.scope !== "customer") {
