@@ -15,6 +15,7 @@ import type { Diagram } from "./model";
 import { girderSectionDiagram } from "./girderSection";
 import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
+import { drumDiagram } from "./drum";
 
 export function diagramForSection(
   moduleKey: string,
@@ -54,6 +55,21 @@ export function diagramForSection(
         reactionAKg: v?.reactionAKg,
         reactionBKg: v?.reactionBKg,
         maxMomentKgCm: v?.maxMomentKgCm,
+      });
+    }
+
+    if ((moduleKey === "main" || moduleKey === "aux") && rawSectionId === "2.2.1") {
+      const st = moduleKey === "main" ? input.mainHoist : input.auxHoist;
+      if (!st) return null;
+      const mr = moduleKey === "main" ? result.mainHoist : result.auxHoist;
+      const cells = (mr?.cells ?? {}) as Record<string, number>;
+      return drumDiagram({
+        drumDiaMm: st.selections.drumDiaMm,
+        ropeDiaMm: st.selections.ropeDiaMm,
+        wallThicknessMm: st.inputs.drumWallThicknessMm,
+        groovePitchMm: cells.L41,
+        minDiaMm: cells.L38,
+        material: st.selections.drumMaterial,
       });
     }
 

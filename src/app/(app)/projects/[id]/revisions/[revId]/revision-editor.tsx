@@ -56,6 +56,8 @@ import {
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
+import { MathFormula } from "@/components/math/math-formula";
+import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,7 +103,7 @@ function Field({
     <div className="grid gap-1">
       <Label htmlFor={id} className="text-xs text-muted-foreground">
         {def.label}
-        {def.unit ? ` [${def.unit}]` : ""}
+        {def.unit ? ` [${toDisplayUnitLabel(def.unit)}]` : ""}
       </Label>
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
@@ -178,10 +180,15 @@ function CheckRow({ check }: { check: AnyCheck }) {
         </div>
         <div className="text-xs tabular-nums text-muted-foreground">
           {(() => {
-            const u = check.unit === "-" ? "" : ` ${check.unit}`;
-            return range
-              ? `${fmt(check.provided)}${u} · izin: ${(check as { min: number }).min}…${(check as { max: number }).max}`
-              : `gereken ${fmt((check as { required: number }).required)}${u} · sağlanan ${fmt(check.provided)}${u}`;
+            const prov = toDisplayUnit(check.provided, check.unit);
+            const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
+            if (range) {
+              const mn = toDisplayUnit((check as { min: number }).min, check.unit);
+              const mx = toDisplayUnit((check as { max: number }).max, check.unit);
+              return `${fmt(prov.value)}${u} · izin: ${fmt(mn.value)}…${fmt(mx.value)}`;
+            }
+            const req = toDisplayUnit((check as { required: number }).required, check.unit);
+            return `gereken ${fmt(req.value)}${u} · sağlanan ${fmt(prov.value)}${u}`;
           })()}
           {check.standard ? ` · ${check.standard}` : ""}
         </div>
@@ -198,19 +205,19 @@ function CheckRow({ check }: { check: AnyCheck }) {
 
 // ---------------------------------------------------------------- CalcRow
 function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
-  const value = row.read(ctx);
+  const raw = row.read(ctx);
+  const { value, unit } = toDisplayUnit(raw, row.unit);
   return (
     <div className="grid gap-1 border-b py-2.5 last:border-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="min-w-0 text-sm">{row.label}</span>
         <span className="shrink-0 rounded bg-primary/8 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-primary dark:bg-primary/15">
-          = {fmt(value, row.digits ?? 2)}{row.unit ? ` ${row.unit}` : ""}
+          = {fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
         </span>
       </div>
-      {(row.formula || row.subst) && (
-        <div className="overflow-x-auto rounded-md bg-muted/60 px-2.5 py-1.5 font-mono text-xs leading-relaxed text-muted-foreground">
-          {row.formula}
-          {row.subst ? <span className="text-foreground/80"> = {row.subst(ctx)}</span> : null}
+      {row.formula && (
+        <div className="overflow-x-auto rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90">
+          <MathFormula formula={row.formula} />
         </div>
       )}
       {row.standard && (

@@ -6,15 +6,17 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
-import { buildEquipmentWorkbook } from "@/lib/excel/equipment";
+import { buildEquipmentWorkbook, dsKey } from "@/lib/excel/equipment";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; revId: string }> }
 ) {
   const { id, revId } = await params;
+  // scope=customer → yalnızca ekipman listesi (müşteri dosyası); aksi hâlde tam
+  const scope = request.nextUrl.searchParams.get("scope") === "customer" ? "customer" : "full";
   const supabase = await createClient();
 
   const {
@@ -49,19 +51,39 @@ export async function GET(
   );
   const calcResult = runCalc(calcInput);
 
-  const workbook = buildEquipmentWorkbook(calcInput, calcResult, {
-    docNo: project.doc_no ?? "",
-    projectName: project.name ?? "",
-    customer: project.customer ?? "",
-    revLabel: revision.label ?? "",
-    revNo: revision.rev_no,
-    date: new Date().toLocaleDateString("tr-TR"),
-  });
+  // Katalog datasheet linkleri: kind|brand|model → url. datasheet_url sütunu
+  // henüz migration ile eklenmemişse sorgu hata döner ve link basılmaz (graceful).
+  const datasheetUrls = new Map<string, string>();
+  const { data: catRows } = await supabase
+    .from("cat_equipment")
+    .select("kind, brand, model, datasheet_url")
+    .eq("active", true)
+    .neq("datasheet_url", "");
+  for (const r of (catRows ?? []) as {
+    kind: string; brand: string; model: string; datasheet_url: string;
+  }[]) {
+    if (r.datasheet_url) datasheetUrls.set(dsKey(r.kind, r.brand, r.model), r.datasheet_url);
+  }
+
+  const workbook = buildEquipmentWorkbook(
+    calcInput,
+    calcResult,
+    {
+      docNo: project.doc_no ?? "",
+      projectName: project.name ?? "",
+      customer: project.customer ?? "",
+      revLabel: revision.label ?? "",
+      revNo: revision.rev_no,
+      date: new Date().toLocaleDateString("tr-TR"),
+    },
+    { datasheetUrls, scope }
+  );
 
   const buffer = await workbook.xlsx.writeBuffer();
 
   // Türkçe karakterli dosya adı: ASCII fallback + RFC 5987 filename* kodlaması
-  const filename = `${project.doc_no || "rapor"}-V${revision.rev_no}-ekipman.xlsx`;
+  const suffix = scope === "customer" ? "ekipman-listesi" : "ekipman";
+  const filename = `${project.doc_no || "rapor"}-V${revision.rev_no}-${suffix}.xlsx`;
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);
 

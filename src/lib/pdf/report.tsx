@@ -24,6 +24,8 @@ import {
 } from "@react-pdf/renderer";
 import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
 import { diagramForSection } from "@/lib/diagrams/select";
+import { PdfMath } from "@/lib/pdf/pdf-math";
+import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
@@ -302,20 +304,26 @@ const s = StyleSheet.create({
     width: 22,
     backgroundColor: C.accent,
   },
-  // ---- footer
+  // ---- footer (kurumsal altbilgi: firma + iletişim + doküman/sayfa)
   footer: {
     position: "absolute",
     left: 46,
     right: 46,
-    bottom: 24,
+    bottom: 20,
     borderTopWidth: 0.75,
     borderTopColor: C.line,
     paddingTop: 4,
+    flexDirection: "column",
+    gap: 1.5,
+  },
+  footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    fontSize: 7,
-    color: C.muted,
+    alignItems: "baseline",
   },
+  footerCompany: { fontSize: 7.5, fontWeight: "bold", color: C.accent, letterSpacing: 0.5 },
+  footerMeta: { fontSize: 7, color: C.muted },
+  footerContact: { fontSize: 6, color: C.faint, letterSpacing: 0.2 },
   // ---- kapak
   coverPage: {
     fontFamily: "DejaVu",
@@ -450,14 +458,23 @@ const s = StyleSheet.create({
 
 // ---------------------------------------------------------------- Alt bileşenler
 
-function Footer({ docNo }: { docNo: string }) {
+function Footer({ docNo, settings }: { docNo: string; settings?: ReportSettings }) {
+  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
+  const contact = [st.address, st.phone, st.email, st.web]
+    .map((x) => (x ?? "").trim())
+    .filter(Boolean)
+    .join("  ·  ");
   return (
     <View style={s.footer} fixed>
-      <Text>{docNo}</Text>
-      <Text>HESAP RAPORU · DESIGN CALCULATION REPORT</Text>
-      <Text
-        render={({ pageNumber, totalPages }) => `Sayfa ${pageNumber} / ${totalPages}`}
-      />
+      <View style={s.footerRow}>
+        <Text style={s.footerCompany}>{st.company}</Text>
+        <Text style={s.footerMeta}>
+          {docNo}
+          {"   "}
+          <Text render={({ pageNumber, totalPages }) => `Sayfa ${pageNumber} / ${totalPages}`} />
+        </Text>
+      </View>
+      <Text style={s.footerContact}>{contact || st.city}</Text>
     </View>
   );
 }
@@ -490,7 +507,7 @@ function FieldTable({
       {cols.map((col, i) => (
         <View style={s.kvCol} key={i}>
           {col.map((f) => (
-            <KvRow key={f.key} label={f.label} value={fmtField(rec[f.key])} unit={f.unit} />
+            <KvRow key={f.key} label={f.label} value={fmtField(rec[f.key])} unit={toDisplayUnitLabel(f.unit)} />
           ))}
         </View>
       ))}
@@ -500,14 +517,15 @@ function FieldTable({
 
 function CheckLine({ check }: { check: AnyCheck }) {
   const range = check.op === "range";
-  const u = check.unit === "-" ? "" : ` ${check.unit}`;
+  const prov = toDisplayUnit(check.provided, check.unit);
+  const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
   const detail = range
-    ? `${fmt(check.provided)}${u} · izin: ${fmt((check as { min: number }).min)}…${fmt(
-        (check as { max: number }).max
-      )}`
-    : `gereken ${fmt((check as { required: number }).required)}${u} · sağlanan ${fmt(
-        check.provided
-      )}${u}`;
+    ? `${fmt(prov.value)}${u} · izin: ${fmt(
+        toDisplayUnit((check as { min: number }).min, check.unit).value
+      )}…${fmt(toDisplayUnit((check as { max: number }).max, check.unit).value)}`
+    : `gereken ${fmt(
+        toDisplayUnit((check as { required: number }).required, check.unit).value
+      )}${u} · sağlanan ${fmt(prov.value)}${u}`;
   return (
     <View style={[s.checkRow, check.pass ? s.checkPass : s.checkFail]} wrap={false}>
       <View style={s.checkLabel}>
@@ -591,7 +609,7 @@ function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
 
 // ---------------------------------------------------------------- İçindekiler
 
-function TocPage({ project, level }: ReportProps) {
+function TocPage({ project, level, settings }: ReportProps) {
   // Özet seviyede modül bölümleri rapora girmez; içindekiler de onları listelemez.
   const entries =
     level === "ozet"
@@ -615,7 +633,7 @@ function TocPage({ project, level }: ReportProps) {
           <Text style={s.tocTitle}>{e.title.toLocaleUpperCase("tr-TR")}</Text>
         </View>
       ))}
-      <Footer docNo={project.doc_no} />
+      <Footer docNo={project.doc_no} settings={settings} />
     </Page>
   );
 }
@@ -742,9 +760,8 @@ function summaryGroups(input: CalcInput): SummaryGroup[] {
   return groups.filter((g) => g.items.length > 0);
 }
 
-function SummarySection({ input, result, project }: ReportProps) {
+function SummarySection({ input, result, project, settings }: ReportProps) {
   const groups = summaryGroups(input);
-  const failCount = result.allChecks.filter((c) => !c.pass).length;
   return (
     <Page size="A4" style={s.page} wrap>
       <View style={s.spine} fixed />
@@ -778,15 +795,12 @@ function SummarySection({ input, result, project }: ReportProps) {
         </View>
       </View>
 
-      <Text style={s.h2}>
-        Kontrol Durumu — {result.allChecks.length} kontrol,{" "}
-        {failCount === 0 ? "tümü uygun ✓" : `${failCount} uygun değil ✗`}
-      </Text>
+      <Text style={s.h2}>Kontroller</Text>
       {MODULE_ADAPTERS.map((adapter) => {
         const mr = moduleResult(result, adapter.key);
         if (!mr || mr.checks.length === 0) return null;
         return (
-          <View key={adapter.key} style={s.sumModule}>
+          <View key={adapter.key} style={s.sumModule} minPresenceAhead={36}>
             <Text style={s.sumModuleTitle}>{adapter.title}</Text>
             {mr.checks.map((c) => (
               <CheckLine key={c.id} check={c} />
@@ -794,7 +808,7 @@ function SummarySection({ input, result, project }: ReportProps) {
           </View>
         );
       })}
-      <Footer docNo={project.doc_no} />
+      <Footer docNo={project.doc_no} settings={settings} />
     </Page>
   );
 }
@@ -900,35 +914,29 @@ function CalcRowLine({
 }: {
   row: AdapterSection["rows"][number];
   ctx: unknown;
-  /** false (standart seviye): yalnız sonuç — formül/değer yerine koyma satırı gizli */
+  /** false (standart seviye): yalnız sonuç — sembolik formül satırı gizli */
   showFormulas: boolean;
 }) {
-  let value: number | string | undefined;
-  let subst: string | undefined;
+  let raw: number | string | undefined;
   try {
-    value = row.read(ctx);
+    raw = row.read(ctx);
   } catch {
-    value = undefined;
+    raw = undefined;
   }
-  try {
-    subst = showFormulas ? row.subst?.(ctx) : undefined;
-  } catch {
-    subst = undefined;
-  }
+  const { value, unit } = toDisplayUnit(raw, row.unit);
   return (
     <View style={s.calcRow} wrap={false}>
       <View style={s.calcTop}>
         <Text style={s.calcLabel}>{row.label}</Text>
         <Text style={s.calcValue}>
           = {fmt(value, row.digits ?? 2)}
-          {row.unit ? <Text style={s.kvUnit}> {row.unit}</Text> : null}
+          {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
         </Text>
       </View>
-      {showFormulas && (row.formula || subst) && (
-        <Text style={s.calcFormula}>
-          {row.formula ?? ""}
-          {subst ? `  =  ${subst}` : ""}
-        </Text>
+      {showFormulas && row.formula && (
+        <View style={s.calcFormula}>
+          <PdfMath formula={row.formula} />
+        </View>
       )}
       {row.standard && <Text style={s.calcMeta}>{row.standard}</Text>}
     </View>
@@ -966,13 +974,18 @@ function ModulePage({
         const checks = sectionChecks(adapter, section, mr);
         const diagram = diagramForSection(adapter.key, section.rawId, input, result);
         return (
-          <View key={section.id}>
-            <Text style={s.h2}>
-              {section.id}  {section.title}
-            </Text>
-            {diagram && <PdfDiagram diagram={diagram} />}
+          // Bölüm başlığı sayfa sonunda yalnız kalmasın: minPresenceAhead ile
+          // yeterli boşluk yoksa bölüm bir sonraki sayfaya taşınır.
+          <View key={section.id} minPresenceAhead={70}>
+            {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
+            <View wrap={false}>
+              <Text style={s.h2}>
+                {section.id}  {section.title}
+              </Text>
+              {diagram && <PdfDiagram diagram={diagram} />}
+            </View>
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
-              <View>
+              <View minPresenceAhead={30}>
                 <Text style={s.h3}>Girdiler / Tasarım Kabulleri</Text>
                 <FieldTable defs={section.inputDefs} source={scoped} />
                 {section.extraInputDefs && section.extraInputDefs.length > 0 && (
@@ -981,13 +994,13 @@ function ModulePage({
               </View>
             )}
             {section.selectionDefs.length > 0 && (
-              <View>
+              <View minPresenceAhead={30}>
                 <Text style={s.h3}>Katalog Seçimi</Text>
                 <FieldTable defs={section.selectionDefs} source={state.selections} />
               </View>
             )}
             {section.rows.length > 0 && (
-              <View>
+              <View minPresenceAhead={30}>
                 <Text style={s.h3}>Hesap</Text>
                 {section.rows.map((r) => (
                   <CalcRowLine key={r.key} row={r} ctx={ctx} showFormulas={showFormulas} />
@@ -995,7 +1008,7 @@ function ModulePage({
               </View>
             )}
             {checks.length > 0 && (
-              <View>
+              <View minPresenceAhead={30}>
                 <Text style={s.h3}>Kontroller</Text>
                 {checks.map((c) => (
                   <CheckLine key={c.id} check={c} />
@@ -1005,7 +1018,7 @@ function ModulePage({
           </View>
         );
       })}
-      <Footer docNo={project.doc_no} />
+      <Footer docNo={project.doc_no} settings={props.settings} />
     </Page>
   );
 }

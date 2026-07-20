@@ -21,7 +21,7 @@ export default async function AdminEquipmentPage({
   const supabase = await createClient();
   let query = supabase
     .from("cat_equipment")
-    .select("id, kind, brand, model, attrs, notes, active, sort")
+    .select("id, kind, brand, model, attrs, notes, datasheet_url, active, sort")
     .order("kind")
     .order("sort")
     .order("brand");

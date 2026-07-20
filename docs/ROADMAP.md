@@ -48,6 +48,17 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 ## Faz G — Rapor seviyeleri
 - [x] PDF raporda "Detaylı / Standart / Özet" seçimi (revizyon sayfası "PDF Rapor" dropdown'u + `report?level=` query paramı): Özet = kapak+içindekiler+özet bölümü (kontroller dahil); Standart = + modül bölümleri (hesap satırlarında yalnız sonuç) + diyagramlar; Detaylı = tam rapor. Yayın arşivi (issueRevision) her zaman detaylı üretir. Ayrıca standart referans düzeltmeleri (calc-crossref §2 görüntü metinleri) uygulandı.
 
+## Faz H — Rapor/hesap profesyonelleştirme (2026-07-20, Sinan geri bildirimi)
+- [x] **Birimler**: tüm hesap/rapor yüzeylerinde gerilmeler MPa, momentler Nm (kg/cm², kg·cm kaldırıldı). Dönüşüm sunum katmanında (`src/lib/units.ts`, etiket bazlı: kg/cm²→MPa ×0,0980665, kg·cm→Nm, N/mm²→MPa relabel). Motor iç birimleri korunur → golden testler etkilenmez. Tambur/mil kaynağı izin gerilmesi girdileri MPa'ya taşındı (defaults+fields+hoistGroup check natif MPa).
+- [x] **Profesyonel matematik dizgi**: formül dizesi → MathNode ağacı (`src/lib/math/formula.ts`, kesir/kök/üs/alt indis ayrıştırıcı) → web (`components/math/math-formula.tsx`, HTML/CSS) + PDF (`lib/pdf/pdf-math.tsx`, react-pdf View/Text flexbox). Sayısal yerine-koyma satırı kaldırıldı; tanımsal/koşullu formüller düz italik metne düşer. Golden korumalı (yalnız sunum).
+- [x] **Katalog seçimi marka-önce modal**: `catalog-picker.tsx` iki adımlı (marka kartları → seçilen markanın kataloğu + arama). Karışık tek liste sorunu giderildi.
+- [x] **Detaylı rapor**: "Kontrol Durumu — X kontrol, Y uygun değil" özet satırı kaldırıldı (→ sade "Kontroller").
+- [x] **PDF footer branding**: firma + adres/telefon/e-posta/web (panelden `app_settings` report; DEFAULT_REPORT_SETTINGS + admin/settings formu). Marka kırmızısı firma satırı + iletişim satırı.
+- [x] **PDF sayfa kaymaları**: bölüm/başlık `minPresenceAhead` + başlık-diyagram `wrap={false}` (öksüz başlık/kayma önlendi).
+- [x] **Tambur diyagramı**: `lib/diagrams/drum.ts` (namlu, yanak, mil, oluk, D_d/D_min/halat Ø etiketleri) → sihirbaz+PDF 2.2.1/3.2.1. Teker mili moment etiketi Nm'ye çevrildi.
+- [x] **Ekipman listesi**: sütunlar Ekipman | Marka | Model | Özellikler | Adet (marka/model ayrıldı, grup başlık satırı); müşteri dosyası (`?scope=customer`, yalnız ekipman listesi) ile teknik ressam özeti ayrıldı; datasheet linki altyapısı (`cat_equipment.datasheet_url` migration + admin alanı + Excel Model hücresi köprüsü, kind|brand|model eşlemesi).
+- [ ] **Sonraki**: EN rapor tam çevirisi (kullanıcı: önce TR, sonra EN); datasheet linkleri için seçim-anında URL yakalama (motor/halat gibi yalnız marka tutan bileşenler); ekipman listesine özel satır/özellik ekleme editörü (revizyon şeması + UI).
+
 ## Notlar
 - Hesap motoru golden testleri Excel fikstürlerine karşı çalışmaya devam eder (iç kalite güvencesi) — kullanıcıya görünen yüzeylerde Excel izi olmaz.
 - Vinç tipi hesap varyantları (portal/pergel/tek kirişli) büyük iş — önce spec alanı dropdown olur, hesap varyantları ayrı fazlarda.

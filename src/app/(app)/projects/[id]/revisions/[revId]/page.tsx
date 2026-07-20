@@ -71,11 +71,20 @@ export default async function RevisionPage({
         <div className="flex items-center gap-2">
           <ReportMenu projectId={id} revisionId={revision.id} />
           <a
-            href={`/projects/${id}/revisions/${revision.id}/equipment`}
+            href={`/projects/${id}/revisions/${revision.id}/equipment?scope=customer`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+            title="Müşteriye teslim edilebilir ekipman listesi (tek sayfa)"
           >
             <FileSpreadsheet className="size-3.5 text-muted-foreground" />
             Ekipman Listesi
+          </a>
+          <a
+            href={`/projects/${id}/revisions/${revision.id}/equipment`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+            title="Ekipman listesi + teknik ressam özeti (dahili)"
+          >
+            <FileSpreadsheet className="size-3.5 text-muted-foreground" />
+            + Teknik Özet
           </a>
           {revision.is_template && (
             <Badge variant="outline" className="border-primary/40 text-primary">ŞABLON</Badge>

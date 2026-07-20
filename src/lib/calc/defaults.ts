@@ -63,9 +63,9 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   shaftDiaCm: 6,                // L76
   shaftShearDiaCm: 5,           // L77
   drumWeldThicknessCm: 1.5,     // L99
-  drumWeldAllowable: 1600,      // L101
+  drumWeldAllowable: 156.9,     // L101 — kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
   shaftWeldThicknessCm: 1,      // L115
-  shaftWeldAllowable: 1600,     // L117
+  shaftWeldAllowable: 156.9,    // L117 — kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
   bearingFactorY1: 2.8,         // L142
   bearingFactorY2: 2.8,         // L143
   drumCount: 1,                 // L163

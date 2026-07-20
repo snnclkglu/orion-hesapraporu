@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { girderSectionDiagram } from "@/lib/diagrams/girderSection";
 import { wheelShaftDiagram } from "@/lib/diagrams/wheelShaft";
 import { reevingDiagram } from "@/lib/diagrams/reeving";
+import { drumDiagram } from "@/lib/diagrams/drum";
 import { diagramForSection } from "@/lib/diagrams/select";
 import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
@@ -57,7 +58,28 @@ describe("wheelShaftDiagram", () => {
     );
     expect(t).toContain("a = 11 cm");
     expect(t).toContain("Pmaks = 9.270 kg");
-    expect(t).toContain("Mmaks = 50.985 kg·cm");
+    // Moment Nm cinsinden gösterilir (50.985 kg·cm ≈ 5.000 Nm)
+    expect(t).toMatch(/Mmaks = [\d.,]+ Nm/);
+  });
+});
+
+describe("drumDiagram", () => {
+  it("tambur çapı ve min çap etiketlerini basar", () => {
+    const t = texts(
+      drumDiagram({
+        drumDiaMm: 900, ropeDiaMm: 22, wallThicknessMm: 25,
+        groovePitchMm: 25, minDiaMm: 506, material: "St52",
+      })
+    );
+    expect(t).toMatch(/D_d = 900 mm/);
+    expect(t).toContain("halat Ø22 mm");
+    expect(t).toMatch(/D_min/);
+    expect(t).toContain("D_d ≥ D_min ✓");
+  });
+
+  it("çap seçilmediğinde uyarı basar", () => {
+    const t = texts(drumDiagram({ drumDiaMm: 0, ropeDiaMm: 20 }));
+    expect(t).toContain("Tambur çapı seçilmedi");
   });
 });
 

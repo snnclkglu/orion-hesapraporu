@@ -10,6 +10,11 @@ export interface ReportSettings {
   title_tr: string;
   title_en: string;
   default_crane_type: string;
+  /** Rapor altbilgisi — kurumsal iletişim (opsiyonel) */
+  address?: string;
+  phone?: string;
+  email?: string;
+  web?: string;
 }
 
 export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
@@ -18,6 +23,10 @@ export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
   title_tr: "HESAP RAPORU",
   title_en: "DESIGN CALCULATION REPORT",
   default_crane_type: "Çift Kirişli Gezer Köprülü Vinç",
+  address: "",
+  phone: "",
+  email: "",
+  web: "orioncranes.com",
 };
 
 export async function getReportSettings(

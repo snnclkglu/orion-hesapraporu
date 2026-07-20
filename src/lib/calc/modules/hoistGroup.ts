@@ -13,6 +13,7 @@ import {
   ropeSafetyFactor,
   shaftMaterialAllowables,
 } from "../coefficients";
+import { KGF_TO_MPA } from "@/lib/units";
 import type {
   AnyCheck,
   DrumMaterial,
@@ -290,8 +291,8 @@ export function computeHoistGroup(
   checks.push({
     id: `${which}.drumWeld.stress`,
     label: "Tambur kaynağı gerilmesi",
-    required: L109, provided: inp.drumWeldAllowable, unit: "kg/cm²", op: ">=",
-    pass: inp.drumWeldAllowable >= L109, nonExcel: true,
+    required: L109 * KGF_TO_MPA, provided: inp.drumWeldAllowable, unit: "MPa", op: ">=",
+    pass: inp.drumWeldAllowable >= L109 * KGF_TO_MPA, nonExcel: true,
   });
 
   // --- 2.2.5 Mil kaynağı ---------------------------------------------------
@@ -307,8 +308,8 @@ export function computeHoistGroup(
   checks.push({
     id: `${which}.shaftWeld.stress`,
     label: "Mil kaynağı gerilmesi",
-    required: L125, provided: inp.shaftWeldAllowable, unit: "kg/cm²", op: ">=",
-    pass: inp.shaftWeldAllowable >= L125, nonExcel: true,
+    required: L125 * KGF_TO_MPA, provided: inp.shaftWeldAllowable, unit: "MPa", op: ">=",
+    pass: inp.shaftWeldAllowable >= L125 * KGF_TO_MPA, nonExcel: true,
   });
 
   // --- 2.2.6 Tambur rulmanı ------------------------------------------------

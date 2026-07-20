@@ -99,8 +99,11 @@ function autoWidth(ws: ExcelJS.Worksheet, min = 8, max = 60): void {
 // --- Sayfa 1: Ekipman Listesi ------------------------------------------------
 
 interface EqRow {
+  /** cat_equipment kind (datasheet link eşlemesi için) */
+  kind?: string;
   component: string;
   brand: string;
+  model: string;
   spec: string;
   qty: number | string;
 }
@@ -114,50 +117,65 @@ interface EqGroup {
 function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
   return [
     {
+      kind: "rope",
       component: "Çelik halat",
       brand: textOr(sel.ropeBrand),
-      spec: `Ø${fmt(sel.ropeDiaMm)} mm, ${textOr(sel.ropeConstruction)}, öz: ${textOr(sel.ropeCore)}, tel ${fmt(sel.ropeWireStrength)} kg/mm², kopma yükü ${fmt(sel.ropeBreakingLoadKn, 1)} kN`,
+      model: textOr(sel.ropeConstruction),
+      spec: `Ø${fmt(sel.ropeDiaMm)} mm, öz: ${textOr(sel.ropeCore)}, tel ${fmt(sel.ropeWireStrength)} kg/mm², kopma yükü ${fmt(sel.ropeBreakingLoadKn, 1)} kN`,
       qty: 1,
     },
     {
       component: "Tambur",
       brand: "-",
+      model: "-",
       spec: `Ø${fmt(sel.drumDiaMm)} mm, malzeme ${textOr(sel.drumMaterial)}, oluk boyu ${textOr(sel.drumGrooveLengthText)} mm`,
       qty: inp.drumCount,
     },
     {
+      kind: "bearing",
       component: "Tambur rulmanı",
-      brand: `${textOr(sel.bearingType)} ${textOr(sel.bearingCode, "")}`.trim(),
+      brand: textOr(sel.bearingType),
+      model: textOr(sel.bearingCode),
       spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
       qty: 2,
     },
     {
+      kind: "gearbox",
       component: "Redüktör",
-      brand: textOr(sel.gearboxModel),
+      brand: "-",
+      model: textOr(sel.gearboxModel),
       spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`,
       qty: 1,
     },
     {
+      kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
+      model: "-",
       spec: `${fmt(sel.motorPowerKw, 1)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
       qty: sel.motorCount,
     },
     {
+      kind: "brake",
       component: "Fren",
-      brand: `${textOr(sel.brakeBrand)} ${textOr(sel.brakeModel, "")}`.trim(),
+      brand: textOr(sel.brakeBrand),
+      model: textOr(sel.brakeModel),
       spec: `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm`,
       qty: sel.brakeQty,
     },
     {
+      kind: "coupling",
       component: "Motor-redüktör kaplini",
-      brand: `${textOr(sel.motorCouplingBrand)} ${textOr(sel.motorCouplingModel, "")}`.trim(),
+      brand: textOr(sel.motorCouplingBrand),
+      model: textOr(sel.motorCouplingModel),
       spec: `tork ${fmt(sel.motorCouplingTorqueNm)} Nm, kasnak Ø${fmt(sel.motorCouplingWheelDiaMm)} mm, Dmaks Ø${fmt(sel.motorCouplingDmaxMm)} mm`,
       qty: 1,
     },
     {
+      kind: "coupling",
       component: "Tambur kaplini",
-      brand: `${textOr(sel.drumCouplingBrand)} ${textOr(sel.drumCouplingModel, "")}`.trim(),
+      brand: textOr(sel.drumCouplingBrand),
+      model: textOr(sel.drumCouplingModel),
       spec: `tork ${fmt(sel.drumCouplingTorqueNm)} Nm, radyal yük ${fmt(sel.drumCouplingRadialN)} N, Dmaks Ø${fmt(sel.drumCouplingDmaxMm)} mm`,
       qty: 1,
     },
@@ -172,36 +190,46 @@ function travelRows(
 ): EqRow[] {
   const rows: EqRow[] = [
     {
+      kind: "wheel",
       component: "Tekerlek",
       brand: "-",
+      model: "-",
       spec: `Ø${fmt(sel.wheelDiaMm)} mm, malzeme ${textOr(sel.wheelMaterial)} (${fmt(sel.wheelTensileNmm2)} N/mm²), ray ${textOr(sel.railCode)}`,
       qty: inp.wheelCount,
     },
     {
+      kind: "bearing",
       component: "Teker rulmanı",
-      brand: `${textOr(sel.bearingType)} ${textOr(sel.bearingCode, "")}`.trim(),
+      brand: textOr(sel.bearingType),
+      model: textOr(sel.bearingCode),
       spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
       qty: inp.bearingCount > 0 ? inp.bearingCount : 2,
     },
     {
+      kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
+      model: "-",
       spec: `${fmt(sel.motorPowerKw, 2)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
       qty: sel.motorCount,
     },
     {
+      kind: "gearbox",
       component: "Redüktör",
-      brand: textOr(sel.gearboxModel),
+      brand: "-",
+      model: textOr(sel.gearboxModel),
       spec: `i = ${fmt(sel.gearboxRatio, 2)}, çıkış torku ${fmt(sel.gearboxOutputTorqueKnm, 2)} kNm, çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`,
       qty: sel.motorCount,
     },
   ];
 
-  // Fren bölümü Excel'de sadece köprü sayfasındadır (6.6).
+  // Fren bölümü yalnızca köprü grubunda seçilir.
   if (which === "bridge") {
     rows.push({
+      kind: "brake",
       component: "Fren",
       brand: textOr(sel.brakeBrand, "Seçilmedi"),
+      model: "-",
       spec:
         sel.brakeTorqueNm > 0
           ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm`
@@ -212,20 +240,25 @@ function travelRows(
 
   rows.push(
     {
+      kind: "coupling",
       component: "Motor kaplini",
-      brand: `${textOr(sel.motorCouplingBrand)} ${textOr(sel.motorCouplingModel, "")}`.trim(),
+      brand: textOr(sel.motorCouplingBrand),
+      model: textOr(sel.motorCouplingModel),
       spec: `tork ${fmt(sel.motorCouplingTorqueNm)} Nm, Dmaks Ø${fmt(sel.motorCouplingDmaxMm)} mm`,
       qty: sel.motorCount,
     },
     {
+      kind: "coupling",
       component: "Teker kaplini",
-      brand: `${textOr(sel.wheelCouplingBrand)} ${textOr(sel.wheelCouplingModel, "")}`.trim(),
+      brand: textOr(sel.wheelCouplingBrand),
+      model: textOr(sel.wheelCouplingModel),
       spec: `tork ${fmt(sel.wheelCouplingTorqueNm)} Nm, teker mili Ø${fmt(sel.wheelShaftDiaMm)} mm, Dmaks Ø${fmt(sel.wheelCouplingDmaxMm)} mm`,
       qty: sel.motorCount,
     },
     {
       component: "Tampon",
-      brand: textOr(sel.bufferModel),
+      brand: "-",
+      model: textOr(sel.bufferModel),
       spec: `strok ${fmt(sel.bufferStrokeMm)} mm, enerji ${fmt(sel.bufferEnergyKj, 2)} kJ, yük ${fmt(sel.bufferLoadKn, 1)} kN`,
       qty: 2,
     }
@@ -254,32 +287,41 @@ function buildEquipmentGroups(input: CalcInput): EqGroup[] {
       name: "Kanca Bloğu",
       rows: [
         {
+          kind: "hook",
           component: "Kanca",
-          brand: textOr(sel.hookDesignation),
+          brand: "-",
+          model: textOr(sel.hookDesignation),
           spec: `kapasite ${fmt(sel.hookCapacityKg)} kg (DIN 15400)`,
           qty: 1,
         },
         {
+          kind: "sheave",
           component: "Halat makarası",
           brand: "-",
+          model: "-",
           spec: `halat ekseninde Ø${fmt(sel.sheaveDiaMm)} mm`,
           qty: "-",
         },
         {
+          kind: "bearing",
           component: "Makara rulmanı",
-          brand: `${textOr(sel.sheaveBearingType)} ${textOr(sel.sheaveBearingCode, "")}`.trim(),
+          brand: textOr(sel.sheaveBearingType),
+          model: textOr(sel.sheaveBearingCode),
           spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
           qty: 2,
         },
         {
+          kind: "bearing",
           component: "Kanca (eksenel) rulmanı",
-          brand: `${textOr(sel.hookBearingType)} ${textOr(sel.hookBearingCode, "")}`.trim(),
+          brand: textOr(sel.hookBearingType),
+          model: textOr(sel.hookBearingCode),
           spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
           qty: 1,
         },
         {
           component: "Kanca bloğu mili",
           brand: "-",
+          model: "-",
           spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((input.hookBlock.inputs.shaftDiaCm ?? 0) * 10)} mm`,
           qty: 1,
         },
@@ -301,17 +343,20 @@ function buildEquipmentGroups(input: CalcInput): EqGroup[] {
   return groups;
 }
 
+const HYPERLINK_FONT = { color: { argb: "FF1155CC" }, underline: true as const };
+
 function writeEquipmentSheet(
   ws: ExcelJS.Worksheet,
   input: CalcInput,
-  meta: EquipmentMeta
+  meta: EquipmentMeta,
+  datasheetUrls?: Map<string, string>
 ): number {
   writeTitleBlock(ws, "EKİPMAN LİSTESİ", meta, 5);
 
-  // Tablo başlığı
+  // Tablo başlığı — müşteriye teslim edilebilir profesyonel sütunlar
   const headerRowNo = 8;
   const header = ws.getRow(headerRowNo);
-  ["Grup", "Bileşen", "Marka/Model", "Teknik Özellik", "Adet"].forEach((h, i) => {
+  ["Ekipman", "Marka", "Model", "Özellikler", "Adet"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -325,15 +370,33 @@ function writeEquipmentSheet(
   let rowNo = headerRowNo + 1;
   let componentCount = 0;
 
-  groups.forEach((group, gi) => {
-    // Grup değişiminde ayraç: gruplar arasında boş satır
-    if (gi > 0) rowNo += 1;
+  groups.forEach((group) => {
+    // Grup başlığı: birleşik satır (marka kırmızısı üst çizgi, nötr dolgu)
+    ws.mergeCells(`A${rowNo}:E${rowNo}`);
+    const gc = ws.getCell(`A${rowNo}`);
+    gc.value = group.name;
+    gc.font = { bold: true };
+    gc.fill = GROUP_FILL;
+    for (let c = 1; c <= 5; c++) {
+      ws.getRow(rowNo).getCell(c).border = {
+        ...THIN_BORDER,
+        top: { style: "medium", color: { argb: "FFA41E1E" } },
+      };
+    }
+    rowNo += 1;
 
-    group.rows.forEach((r, ri) => {
+    group.rows.forEach((r) => {
       const row = ws.getRow(rowNo);
-      row.getCell(1).value = ri === 0 ? group.name : "";
-      row.getCell(2).value = r.component;
-      row.getCell(3).value = r.brand;
+      row.getCell(1).value = r.component;
+      row.getCell(2).value = r.brand;
+      // Model hücresi: katalog datasheet linki varsa köprüle
+      const url = r.kind ? datasheetUrls?.get(dsKey(r.kind, r.brand, r.model)) : undefined;
+      if (url && r.model && r.model !== "-") {
+        row.getCell(3).value = { text: r.model, hyperlink: url };
+        row.getCell(3).font = HYPERLINK_FONT;
+      } else {
+        row.getCell(3).value = r.model;
+      }
       row.getCell(4).value = r.spec;
       row.getCell(5).value = r.qty;
       for (let c = 1; c <= 5; c++) {
@@ -345,25 +408,20 @@ function writeEquipmentSheet(
           wrapText: c === 4,
         };
       }
-      if (ri === 0) {
-        row.getCell(1).font = { bold: true };
-        row.getCell(1).fill = GROUP_FILL;
-        // Grup başlangıcında kalın üst çizgi
-        for (let c = 1; c <= 5; c++) {
-          row.getCell(c).border = {
-            ...THIN_BORDER,
-            top: { style: "medium", color: { argb: "FFA41E1E" } },
-          };
-        }
-      }
       rowNo += 1;
       componentCount += 1;
     });
   });
 
   autoWidth(ws);
-  ws.getColumn(4).width = 60; // teknik özellik metni uzun; sabit geniş + wrap
+  ws.getColumn(4).width = 56; // özellik metni uzun; sabit geniş + wrap
   return componentCount;
+}
+
+/** Datasheet link eşleme anahtarı (kind|brand|model, normalize) */
+export function dsKey(kind: string, brand: string, model: string): string {
+  const norm = (s: string) => (s ?? "").trim().toLocaleLowerCase("tr");
+  return `${norm(kind)}|${norm(brand)}|${norm(model)}`;
 }
 
 // --- Sayfa 2: Teknik Ressam Özeti --------------------------------------------
@@ -589,10 +647,21 @@ function writeSummarySheet(
 
 // --- ana giriş ---------------------------------------------------------------
 
+export interface EquipmentWorkbookOptions {
+  /** kind|brand|model → datasheet URL (Model hücresi köprülenir) */
+  datasheetUrls?: Map<string, string>;
+  /**
+   * "full"    → Ekipman Listesi + Teknik Ressam Özeti (dahili, varsayılan)
+   * "customer"→ yalnızca Ekipman Listesi (müşteriye teslim edilecek dosya)
+   */
+  scope?: "full" | "customer";
+}
+
 export function buildEquipmentWorkbook(
   calcInput: CalcInput,
   calcResult: CalcResult,
-  meta: EquipmentMeta
+  meta: EquipmentMeta,
+  options: EquipmentWorkbookOptions = {}
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   wb.creator = "ORION Hesap Raporu";
@@ -601,12 +670,15 @@ export function buildEquipmentWorkbook(
   const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  writeEquipmentSheet(wsEquipment, calcInput, meta);
+  writeEquipmentSheet(wsEquipment, calcInput, meta, options.datasheetUrls);
 
-  const wsSummary = wb.addWorksheet("Teknik Ressam Özeti", {
-    pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-  writeSummarySheet(wsSummary, calcInput, calcResult, meta);
+  // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
+  if (options.scope !== "customer") {
+    const wsSummary = wb.addWorksheet("Teknik Ressam Özeti", {
+      pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    });
+    writeSummarySheet(wsSummary, calcInput, calcResult, meta);
+  }
 
   return wb;
 }

@@ -27,6 +27,7 @@ export interface EquipmentRow {
   model: string;
   attrs: Record<string, unknown>;
   notes: string;
+  datasheet_url?: string;
   active: boolean;
   sort: number;
 }
@@ -64,6 +65,7 @@ export function EquipmentDialog({
   const [brand, setBrand] = useState(item?.brand ?? "");
   const [model, setModel] = useState(item?.model ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
+  const [datasheetUrl, setDatasheetUrl] = useState(item?.datasheet_url ?? "");
   const [active, setActive] = useState(item?.active ?? true);
   const [sort, setSort] = useState(String(item?.sort ?? 0));
   const [attrRows, setAttrRows] = useState<AttrRow[]>(
@@ -75,6 +77,7 @@ export function EquipmentDialog({
     setBrand("");
     setModel("");
     setNotes("");
+    setDatasheetUrl("");
     setActive(true);
     setSort("0");
     setAttrRows([]);
@@ -88,6 +91,7 @@ export function EquipmentDialog({
       setBrand(item.brand);
       setModel(item.model);
       setNotes(item.notes);
+      setDatasheetUrl(item.datasheet_url ?? "");
       setActive(item.active);
       setSort(String(item.sort));
       setAttrRows(attrsToRows(item.attrs));
@@ -105,6 +109,7 @@ export function EquipmentDialog({
       brand: brand.trim(),
       model: model.trim(),
       notes: notes.trim(),
+      datasheet_url: datasheetUrl.trim(),
       active,
       sort: parseInt(sort, 10) || 0,
       attrs: rowsToAttrs(attrRows),
@@ -188,6 +193,19 @@ export function EquipmentDialog({
                 onChange={(e) => setSort(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="eq-datasheet">Katalog / Datasheet linki</Label>
+            <Input
+              id="eq-datasheet" type="url" inputMode="url"
+              placeholder="https://üretici.com/…/urun.pdf"
+              value={datasheetUrl}
+              onChange={(e) => setDatasheetUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ekipman listesi Excel&apos;inde Model hücresi bu adrese köprülenir.
+            </p>
           </div>
 
           <div className="grid gap-2">

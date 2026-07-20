@@ -7,6 +7,7 @@ import {
   DCOL, type Diagram, type DiagramEl,
   caption, dimH, fmtN, ln, loadArrow, txt,
 } from "./model";
+import { KGF_TO_MPA } from "@/lib/units";
 
 export interface WheelShaftParams {
   spanACm: number;          // mesnet A → teker
@@ -117,7 +118,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,
   });
   els.push(ln(xW, yM0, xW, yM0 + hM, DCOL.accent, 0.8, "4,3"));
-  els.push(txt(xW, yM0 + hM + 16, `Mmaks = ${fmtN(p.maxMomentKgCm)} kg·cm`, 10, {
+  els.push(txt(xW, yM0 + hM + 16, `Mmaks = ${fmtN((p.maxMomentKgCm ?? 0) * KGF_TO_MPA)} Nm`, 10, {
     anchor: "middle", fill: DCOL.accent, bold: true,
   }));
 

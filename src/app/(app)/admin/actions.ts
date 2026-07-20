@@ -107,6 +107,7 @@ const equipmentSchema = z.object({
   brand: z.string().trim().min(1, "Marka gerekli"),
   model: z.string().trim().min(1, "Model gerekli"),
   notes: z.string().trim(),
+  datasheet_url: z.string().trim().optional().default(""),
   active: z.boolean(),
   sort: z.number().int(),
   attrs: z.record(z.string(), z.union([z.string(), z.number()])),
@@ -352,6 +353,10 @@ const settingsSchema = z.object({
   title_tr: z.string().trim().min(1, "Türkçe başlık gerekli"),
   title_en: z.string().trim().min(1, "İngilizce başlık gerekli"),
   default_crane_type: z.string().trim().min(1, "Varsayılan vinç tipi gerekli"),
+  address: z.string().trim().optional().default(""),
+  phone: z.string().trim().optional().default(""),
+  email: z.string().trim().optional().default(""),
+  web: z.string().trim().optional().default(""),
 });
 
 export async function updateReportSettings(

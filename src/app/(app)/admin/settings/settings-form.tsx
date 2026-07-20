@@ -26,6 +26,10 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
         title_tr: form.title_tr.trim(),
         title_en: form.title_en.trim(),
         default_crane_type: form.default_crane_type.trim(),
+        address: (form.address ?? "").trim(),
+        phone: (form.phone ?? "").trim(),
+        email: (form.email ?? "").trim(),
+        web: (form.web ?? "").trim(),
       });
       if (result?.error) toast.error(result.error);
       else toast.success("Rapor ayarları kaydedildi");
@@ -76,6 +80,34 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
               Yeni proje dialogunda önerilen vinç tipi.
             </p>
           </div>
+
+          <div className="grid gap-2 border-t pt-4">
+            <Label htmlFor="st-address" className="text-sm font-medium">
+              Rapor Altbilgisi — İletişim
+            </Label>
+            <p className="-mt-1 text-xs text-muted-foreground">
+              PDF rapor sayfalarının altbilgisinde firma iletişim bilgileri olarak gösterilir.
+            </p>
+            <Input
+              id="st-address" placeholder="Adres (ör. OSTİM OSB, Ankara)"
+              value={form.address ?? ""} onChange={(e) => set("address", e.target.value)}
+            />
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                placeholder="Telefon" value={form.phone ?? ""}
+                onChange={(e) => set("phone", e.target.value)}
+              />
+              <Input
+                placeholder="E-posta" value={form.email ?? ""}
+                onChange={(e) => set("email", e.target.value)}
+              />
+              <Input
+                placeholder="Web" value={form.web ?? ""}
+                onChange={(e) => set("web", e.target.value)}
+              />
+            </div>
+          </div>
+
           <div>
             <Button type="submit" disabled={pending}>
               {pending ? "Kaydediliyor..." : "Kaydet"}
