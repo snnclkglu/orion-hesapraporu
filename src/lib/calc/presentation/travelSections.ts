@@ -121,7 +121,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         cell: "L22", bridgeCell: "L26", label: "Limit gerilme değeri PL",
         formula: "PL = f(çekme dayanımı)",
         subst: (x) => `${n(x.sel.wheelTensileNmm2)} N/mm² → ${n(x.v.limitPressure)}`,
-        unit: "N/mm²", standard: "FEM 1.001 T.4.2.4.1.3",
+        unit: "N/mm²", standard: "FEM 1.001 T.4.2.4.1.3 / T.9.12.a",
       },
       {
         cell: "L23", bridgeCell: "L27", label: "Gerçekleşen basınç Port/(b·D)",

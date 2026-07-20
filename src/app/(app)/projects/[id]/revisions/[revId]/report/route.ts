@@ -1,5 +1,6 @@
 // PDF hesap raporu indirme ucu.
-// GET /projects/[id]/revisions/[revId]/report -> application/pdf (attachment)
+// GET /projects/[id]/revisions/[revId]/report?level=detayli|standart|ozet
+//   -> application/pdf (attachment)
 // Auth'lu Supabase istemcisiyle revizyon + proje + hazırlayan profili çekilir,
 // hesap sunucuda yeniden koşturulur ve rapor @react-pdf ile üretilir.
 
@@ -10,16 +11,18 @@ import {
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
-import { renderReportPdf } from "@/lib/pdf/report";
+import { isReportLevel, renderReportPdf, type ReportLevel } from "@/lib/pdf/report";
 import { getReportSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string; revId: string }> }
 ) {
   const { id, revId } = await params;
+  const levelParam = new URL(req.url).searchParams.get("level");
+  const level: ReportLevel = isReportLevel(levelParam) ? levelParam : "detayli";
   const supabase = await createClient();
 
   const {
@@ -71,10 +74,12 @@ export async function GET(
     preparedBy: profile?.full_name || "—",
     input,
     result,
+    level,
   });
 
   // Türkçe karakterli dosya adı: ASCII geri düşüş + RFC 5987 filename*
-  const filename = `${project.doc_no}-V${revision.rev_no}.pdf`;
+  const levelSuffix = level === "detayli" ? "" : level === "standart" ? "-Standart" : "-Ozet";
+  const filename = `${project.doc_no}-V${revision.rev_no}${levelSuffix}.pdf`;
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
 
   return new Response(new Uint8Array(buffer), {

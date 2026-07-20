@@ -211,7 +211,7 @@ export function computeHoistGroup(
     id: `${which}.rope.safety`,
     label: "Halat emniyet katsayısı",
     required: L18, provided: L30, unit: "-", op: ">=", pass: L30 >= L18,
-    standard: "FEM 1.001",
+    standard: "FEM 1.001 T.4.2.2.1.2",
   });
 
   // --- 2.2.1 Tambur çapı ve gerilmeler -------------------------------------
@@ -234,7 +234,7 @@ export function computeHoistGroup(
     id: `${which}.drum.dia`,
     label: "Tambur çapı (min H·d)",
     required: L38, provided: sel.drumDiaMm, unit: "mm", op: ">=", pass: sel.drumDiaMm >= L38,
-    standard: "FEM 1.001", nonExcel: true,
+    standard: "FEM 1.001 T.4.2.3.1.1", nonExcel: true,
   });
 
   // --- 2.2.2 Oluk boyu -----------------------------------------------------
@@ -392,7 +392,7 @@ export function computeHoistGroup(
     id: `${which}.motor.power`,
     label: "Motor gücü",
     required: L215, provided: I215, unit: "kW", op: ">=", pass: I215 >= L215,
-    standard: "CMAA 70",
+    standard: "CMAA 70 5.2.9.1.1",
   });
 
   // --- 2.5 Fren ------------------------------------------------------------

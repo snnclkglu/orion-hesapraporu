@@ -72,6 +72,7 @@ export async function issueRevision(
         preparedBy: profile?.full_name || "—",
         input,
         result,
+        level: "detayli", // yayın arşivi her zaman tam (detaylı) rapor saklar
       });
       const { error: uploadError } = await supabase.storage
         .from("reports")

@@ -46,7 +46,7 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [ ] Ana kiriş vb. hesapları FEM 1.001'e göre derinleştir (mevcut motor korunur, referanslar/ek kontroller eklenir)
 
 ## Faz G — Rapor seviyeleri
-- [ ] PDF raporda "Detaylı / Standart / Özet" seçimi (yayınlama dialogunda + indirme linkinde): Özet = kapak+özet+kontroller; Standart = + ana hesap satırları; Detaylı = tüm formüller + diyagramlar. Müşteriye göre seçilebilir.
+- [x] PDF raporda "Detaylı / Standart / Özet" seçimi (revizyon sayfası "PDF Rapor" dropdown'u + `report?level=` query paramı): Özet = kapak+içindekiler+özet bölümü (kontroller dahil); Standart = + modül bölümleri (hesap satırlarında yalnız sonuç) + diyagramlar; Detaylı = tam rapor. Yayın arşivi (issueRevision) her zaman detaylı üretir. Ayrıca standart referans düzeltmeleri (calc-crossref §2 görüntü metinleri) uygulandı.
 
 ## Notlar
 - Hesap motoru golden testleri Excel fikstürlerine karşı çalışmaya devam eder (iç kalite güvencesi) — kullanıcıya görünen yüzeylerde Excel izi olmaz.

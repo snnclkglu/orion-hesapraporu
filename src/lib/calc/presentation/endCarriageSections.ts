@@ -141,7 +141,7 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
       {
         cell: "L50", label: "İzin verilen gerilme", formula: "σem = f(malzeme)",
         subst: (x) => `${x.sel.material} → ${n(num(x.c.L50))}`, unit: "kg/cm²",
-        standard: "FEM T.3.2.1.1",
+        standard: "FEM 1.001 T.3.2.1.1",
       },
     ],
     checkSuffixes: ["stress"],

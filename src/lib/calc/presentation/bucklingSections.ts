@@ -105,7 +105,7 @@ function panelRows(panel: "side" | "top"): BucklingRowDef[] {
       cell: cell.safetyVv, label: "Buruşma emniyet katsayısı vv",
       formula: "vv = 1,7 + 0,175 · (ψ − 1)",
       subst: (x) => `1,7 + 0,175 · (${n(num(x.c[cell.psi]), 3)} − 1)`,
-      digits: 3, standard: "FEM 1.001 3.4",
+      digits: 3, standard: "FEM 1.001 A-3.4",
     },
     {
       cell: cell.allowable, label: "İzin verilen gerilme σvcr.c / vv",

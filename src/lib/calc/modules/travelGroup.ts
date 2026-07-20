@@ -287,7 +287,7 @@ export function computeTravelGroup(
     label: "Tekerlek yüzey basıncı (PL·c1·c2)",
     required: actualPressure, provided: allowedPressure, unit: "N/mm²", op: ">=",
     pass: allowedPressure >= actualPressure,
-    standard: "FEM 1.001 T.4.2.4.1",
+    standard: "FEM 1.001 4.2.4.1",
   });
 
   // --- 5.2 / 6.2 Teker Mili ------------------------------------------------

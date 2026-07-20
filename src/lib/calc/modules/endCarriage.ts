@@ -147,7 +147,7 @@ export function computeEndCarriage(
     id: "endCarriage.stress",
     label: "Başkiriş bileşik gerilmesi",
     required: L47, provided: L50, unit: "kg/cm²", op: ">=", pass: L47 <= L50,
-    standard: "FEM T.3.2.1.1",
+    standard: "FEM 1.001 T.3.2.1.1",
   });
 
   // --- 9.5 Yorulma gerilmeleri (Excel'in sağlam hücreleri) ------------------

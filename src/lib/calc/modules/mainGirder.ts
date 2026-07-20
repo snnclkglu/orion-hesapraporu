@@ -397,14 +397,14 @@ export function computeMainGirder(
     label: "Yükleme Durumu I bileşik gerilme (γc·σcomb)",
     required: Math.max(E374, E376), provided: allow.case1, unit: "kg/cm²", op: ">=",
     pass: allow.case1 >= Math.max(E374, E376),
-    standard: "FEM T.3.2.1.1", nonExcel: true,
+    standard: "FEM 1.001 T.3.2.1.1", nonExcel: true,
   });
   checks.push({
     id: "girder.stress.case3",
     label: "Yükleme Durumu III bileşik gerilme (test durumu)",
     required: D391, provided: allow.case3, unit: "kg/cm²", op: ">=",
     pass: allow.case3 >= D391,
-    standard: "FEM T.3.2.1.1", nonExcel: true,
+    standard: "FEM 1.001 T.3.2.1.1", nonExcel: true,
   });
 
   // --- 7.5 Yorulma kontrolü (DIN 15018) ------------------------------------
@@ -477,6 +477,7 @@ export function computeMainGirder(
     label: "Sehim oranı (L/δ)",
     required: inp.deflectionLimitRatio, provided: G447, unit: "-", op: ">=",
     pass: G447 >= inp.deflectionLimitRatio, nonExcel: true,
+    standard: "CMAA 70 3.5.5.1",
   });
 
   const values: GirderValues = {

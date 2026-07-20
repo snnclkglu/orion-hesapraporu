@@ -319,7 +319,7 @@ export function computeHookBlock(
     label: "Kiriş statik bileşik gerilmesi",
     required: L132, provided: allowableStaticStress, unit: "kg/cm²", op: ">=",
     pass: allowableStaticStress >= L132,
-    standard: "FEM T.3.2.1.1", nonExcel: true, // Excel P132/L134 bozuk (#ref!)
+    standard: "FEM 1.001 T.3.2.1.1", nonExcel: true, // Excel P132/L134 bozuk (#ref!)
   });
 
   // --- 4.6 Yorulma hesabı ---------------------------------------------------

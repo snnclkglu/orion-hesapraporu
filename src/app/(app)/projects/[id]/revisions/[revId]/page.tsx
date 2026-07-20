@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
+import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
   calcInputFromRevision,
@@ -68,13 +69,7 @@ export default async function RevisionPage({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={`/projects/${id}/revisions/${revision.id}/report`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
-          >
-            <FileText className="size-3.5 text-muted-foreground" />
-            PDF Rapor
-          </a>
+          <ReportMenu projectId={id} revisionId={revision.id} />
           <a
             href={`/projects/${id}/revisions/${revision.id}/equipment`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"

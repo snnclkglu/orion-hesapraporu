@@ -74,7 +74,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         cell: "L18", label: "Gerekli halat emniyet katsayısı",
         formula: "Zp = f(mekanizma sınıfı)  [FEM tablosu]",
         subst: (x) => `${x.specs.hoistMechanismClass} → ${n(num(x.c.L18))}`,
-        standard: "FEM 1.001",
+        standard: "FEM 1.001 T.4.2.2.1.2",
       },
       {
         cell: "L19", label: "Halat yükü", formula: "F = G_t / n_toplam / η",
@@ -104,7 +104,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     rows: [
       {
         cell: "L36", label: "Tambur çap katsayısı", formula: "H = f(mekanizma sınıfı)  [FEM tablosu]",
-        subst: (x) => `${x.specs.hoistMechanismClass} → ${n(num(x.c.L36))}`, standard: "FEM 1.001",
+        subst: (x) => `${x.specs.hoistMechanismClass} → ${n(num(x.c.L36))}`, standard: "FEM 1.001 T.4.2.3.1.1",
       },
       {
         cell: "L38", label: "Minimum tambur çapı", formula: "D_min = H · d",

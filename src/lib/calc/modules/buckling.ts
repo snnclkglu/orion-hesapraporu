@@ -153,7 +153,7 @@ export function computeBuckling(inp: BucklingInputs): ModuleResult<BucklingValue
     label: "Yan sac buruşma kontrolü (σvcr.c/vv ≥ σbil)",
     required: side.sigmaCombined, provided: side.allowable, unit: "N/mm²", op: ">=",
     pass: side.allowable >= side.sigmaCombined,
-    standard: "FEM 1.001 3.4",
+    standard: "FEM 1.001 A-3.4",
   });
   checks.push({
     id: "buckling.side.corrected",
@@ -161,7 +161,7 @@ export function computeBuckling(inp: BucklingInputs): ModuleResult<BucklingValue
     required: side.sigmaCombined, provided: inp.sideCorrectedCriticalNmm2,
     unit: "N/mm²", op: ">=",
     pass: inp.sideCorrectedCriticalNmm2 >= side.sigmaCombined,
-    standard: "FEM 1.001 3.4",
+    standard: "FEM 1.001 A-3.4",
   });
 
   // --- 8.2 Üst sac ----------------------------------------------------------
@@ -172,7 +172,7 @@ export function computeBuckling(inp: BucklingInputs): ModuleResult<BucklingValue
     label: "Üst sac buruşma kontrolü (σvcr.c/vv ≥ σbil)",
     required: top.sigmaCombined, provided: top.allowable, unit: "N/mm²", op: ">=",
     pass: top.allowable >= top.sigmaCombined,
-    standard: "FEM 1.001 3.4",
+    standard: "FEM 1.001 A-3.4",
   });
 
   const values: BucklingValues = {

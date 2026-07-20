@@ -132,7 +132,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         cell: "D46", label: "Dinamik katsayı ψ",
         formula: "ψ = Vl<0,25 → 1,15; Vl>1 → 1,6; aksi 1 + 0,6·Vl",
         subst: (x) => `Vl = ${n(num(x.c.D45), 3)} m/s → ${n(num(x.c.D46), 3)}`,
-        standard: "FEM 2.3",
+        standard: "FEM 1.001 2.2.2.1.1",
       },
       {
         cell: "D57", label: "Araba ivmesi aA", formula: "aA = VA / tA",
@@ -150,7 +150,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         cell: "D105", label: "Araba yatay yükü Fha1",
         formula: "Fha1 = min(F'ha1, F''ha1) / 2",
         subst: (x) => `min(${n(num(x.c.D98))}, ${n(num(x.c.D103))}) / 2`,
-        unit: "kg", standard: "FEM T.2.2.3.1.1",
+        unit: "kg", standard: "FEM 1.001 2.2.3.1.1",
       },
       {
         cell: "D109", label: "Araba yürüme yatay yükü Fha2", formula: "Fha2 = (Wa + W1) · λA",
@@ -160,7 +160,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         cell: "D124", label: "Köprü yatay yükü Fhk1",
         formula: "Fhk1 = min(F'hk1, F''hk1) / 2",
         subst: (x) => `min(${n(num(x.c.D117))}, ${n(num(x.c.D122))}) / 2`,
-        unit: "kg", standard: "FEM T.2.2.3.1.1",
+        unit: "kg", standard: "FEM 1.001 2.2.3.1.1",
       },
       {
         cell: "D128", label: "Köprü yürüme yatay yükü Fhk2", formula: "Fhk2 = (Wv + W1) · λK",
@@ -228,7 +228,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       {
         cell: "E374", label: "γc · σcomb (alt)", formula: "γc · σcomb",
         subst: (x) => `${n(x.inp.amplifyYc)} · ${n(num(x.c.E367))}`, unit: "kg/cm²",
-        standard: "FEM T.3.2.1.1",
+        standard: "FEM 1.001 T.2.3.4",
       },
       {
         cell: "E376", label: "γc · σcomb (üst)", formula: "γc · σcomb",
@@ -331,6 +331,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       {
         cell: "G447", label: "Sehim oranı (L/δ)", formula: "L / δ",
         subst: (x) => `${n(num(x.c.G444))} / ${n(num(x.c.G446), 3)}`, digits: 0,
+        standard: "CMAA 70 3.5.5.1",
       },
     ],
     checkSuffixes: ["deflection"],

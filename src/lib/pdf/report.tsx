@@ -88,6 +88,20 @@ export interface ReportRevision {
   updated_at?: string | null;
 }
 
+/**
+ * Rapor seviyesi:
+ * - "ozet": kapak + içindekiler + özet bölümü (kontroller dahil)
+ * - "standart": + modül bölümleri (hesap satırlarında yalnız sonuç) + diyagramlar
+ * - "detayli": tam rapor (formül/değer yerine koyma satırları dahil) — varsayılan
+ */
+export type ReportLevel = "detayli" | "standart" | "ozet";
+
+export const REPORT_LEVELS: readonly ReportLevel[] = ["detayli", "standart", "ozet"];
+
+export function isReportLevel(v: unknown): v is ReportLevel {
+  return REPORT_LEVELS.includes(v as ReportLevel);
+}
+
 export interface ReportProps {
   project: ReportProject;
   revision: ReportRevision;
@@ -96,6 +110,8 @@ export interface ReportProps {
   result: CalcResult;
   /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
   settings?: ReportSettings;
+  /** Rapor seviyesi (varsayılan "detayli") */
+  level?: ReportLevel;
 }
 
 // ---------------------------------------------------------------- Yardımcılar
@@ -575,11 +591,15 @@ function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
 
 // ---------------------------------------------------------------- İçindekiler
 
-function TocPage({ project }: ReportProps) {
-  const entries = Object.values(MODULE_LABELS).map((label) => {
-    const [no, ...rest] = label.split(" · ");
-    return { no, title: rest.join(" · ") };
-  });
+function TocPage({ project, level }: ReportProps) {
+  // Özet seviyede modül bölümleri rapora girmez; içindekiler de onları listelemez.
+  const entries =
+    level === "ozet"
+      ? []
+      : Object.values(MODULE_LABELS).map((label) => {
+          const [no, ...rest] = label.split(" · ");
+          return { no, title: rest.join(" · ") };
+        });
   return (
     <Page size="A4" style={s.page}>
       <View style={s.spine} fixed />
@@ -873,7 +893,16 @@ function PdfDiagram({ diagram }: { diagram: Diagram }) {
 
 // ---------------------------------------------------------------- Modül bölümleri
 
-function CalcRowLine({ row, ctx }: { row: AdapterSection["rows"][number]; ctx: unknown }) {
+function CalcRowLine({
+  row,
+  ctx,
+  showFormulas,
+}: {
+  row: AdapterSection["rows"][number];
+  ctx: unknown;
+  /** false (standart seviye): yalnız sonuç — formül/değer yerine koyma satırı gizli */
+  showFormulas: boolean;
+}) {
   let value: number | string | undefined;
   let subst: string | undefined;
   try {
@@ -882,7 +911,7 @@ function CalcRowLine({ row, ctx }: { row: AdapterSection["rows"][number]; ctx: u
     value = undefined;
   }
   try {
-    subst = row.subst?.(ctx);
+    subst = showFormulas ? row.subst?.(ctx) : undefined;
   } catch {
     subst = undefined;
   }
@@ -895,7 +924,7 @@ function CalcRowLine({ row, ctx }: { row: AdapterSection["rows"][number]; ctx: u
           {row.unit ? <Text style={s.kvUnit}> {row.unit}</Text> : null}
         </Text>
       </View>
-      {(row.formula || subst) && (
+      {showFormulas && (row.formula || subst) && (
         <Text style={s.calcFormula}>
           {row.formula ?? ""}
           {subst ? `  =  ${subst}` : ""}
@@ -910,10 +939,12 @@ function ModulePage({
   adapter,
   props,
   deps,
+  showFormulas,
 }: {
   adapter: ModuleAdapter;
   props: ReportProps;
   deps: ModuleDepsBundle;
+  showFormulas: boolean;
 }) {
   const { input, result, project } = props;
   const state = moduleState(input, adapter.key);
@@ -959,7 +990,7 @@ function ModulePage({
               <View>
                 <Text style={s.h3}>Hesap</Text>
                 {section.rows.map((r) => (
-                  <CalcRowLine key={r.key} row={r} ctx={ctx} />
+                  <CalcRowLine key={r.key} row={r} ctx={ctx} showFormulas={showFormulas} />
                 ))}
               </View>
             )}
@@ -983,6 +1014,7 @@ function ModulePage({
 
 export function ReportDocument(props: ReportProps) {
   const { input, result, project, revision } = props;
+  const level: ReportLevel = props.level ?? "detayli";
   const deps = buildModuleDeps(input, result);
   return (
     <Document
@@ -992,11 +1024,18 @@ export function ReportDocument(props: ReportProps) {
       language="tr"
     >
       <CoverPage {...props} />
-      <TocPage {...props} />
+      <TocPage {...props} level={level} />
       <SummarySection {...props} />
-      {MODULE_ADAPTERS.map((adapter) => (
-        <ModulePage key={adapter.key} adapter={adapter} props={props} deps={deps} />
-      ))}
+      {level !== "ozet" &&
+        MODULE_ADAPTERS.map((adapter) => (
+          <ModulePage
+            key={adapter.key}
+            adapter={adapter}
+            props={props}
+            deps={deps}
+            showFormulas={level === "detayli"}
+          />
+        ))}
     </Document>
   );
 }

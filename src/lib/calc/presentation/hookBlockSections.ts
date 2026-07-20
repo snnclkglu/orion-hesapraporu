@@ -295,7 +295,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         label: "İzin verilen gerilme", formula: "σ_em = f(malzeme)",
         valueFrom: (x) => x.v.allowableStaticStress,
         subst: (x) => `${x.inp.fatigueMaterial} → ${n(x.v.allowableStaticStress)}`,
-        unit: "kg/cm²", standard: "FEM T.3.2.1.1", nonExcel: true,
+        unit: "kg/cm²", standard: "FEM 1.001 T.3.2.1.1", nonExcel: true,
       },
       {
         cell: "L139", label: "σmax", formula: "σ_max = M_maks / w",
