@@ -26,8 +26,15 @@ const CRANE_TYPES = [
 
 export function NewProjectDialog({
   defaultCraneType = "Çift Kirişli Gezer Köprü Vinci",
+  jobId,
+  jobNo,
+  defaultCustomer,
 }: {
   defaultCraneType?: string;
+  /** İş panelinden "Vinç Ekle" ile açıldığında yeni vinç bu işe bağlanır. */
+  jobId?: string;
+  jobNo?: string;
+  defaultCustomer?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -52,25 +59,42 @@ export function NewProjectDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Yeni Proje</Button>
+        <Button>{jobId ? "Vinç Ekle" : "Yeni Proje"}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Yeni Proje</DialogTitle>
-          <DialogDescription>Yeni bir hesap raporu projesi oluşturun.</DialogDescription>
+          <DialogTitle>{jobId ? "Vinç Ekle" : "Yeni Proje"}</DialogTitle>
+          <DialogDescription>
+            {jobId
+              ? `${jobNo ?? ""} işine bağlı yeni bir vinç oluşturun.`.trim()
+              : "Yeni bir hesap raporu projesi oluşturun."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
+          {/* İş bağlantısı (iş panelinden açıldığında) */}
+          {jobId && <input type="hidden" name="job_id" value={jobId} />}
           <div className="grid gap-2">
             <Label htmlFor="doc_no">Doküman No</Label>
-            <Input id="doc_no" name="doc_no" placeholder="0055-HR-001" required />
+            <Input
+              id="doc_no"
+              name="doc_no"
+              placeholder={jobNo ? `${jobNo.split("-")[0]}-01` : "0055-HR-001"}
+              required
+            />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="name">Proje Adı</Label>
+            <Label htmlFor="name">{jobId ? "Vinç Adı" : "Proje Adı"}</Label>
             <Input id="name" name="name" placeholder="AMONYUM SÜLFAT VİNCİ" required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="customer">Müşteri</Label>
-            <Input id="customer" name="customer" placeholder="İSDEMİR" required />
+            <Input
+              id="customer"
+              name="customer"
+              placeholder="İSDEMİR"
+              defaultValue={defaultCustomer}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="crane_type">Vinç Tipi</Label>

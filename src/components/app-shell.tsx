@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Briefcase,
   FolderKanban,
   Menu,
   Settings2,
@@ -24,6 +25,7 @@ interface AppShellProps {
 }
 
 const NAV_ITEMS = [
+  { href: "/jobs", label: "İşler", icon: Briefcase },
   { href: "/projects", label: "Projeler", icon: FolderKanban },
   { href: "/admin", label: "Yönetim", icon: Settings2, adminOnly: true },
 ];
@@ -31,6 +33,7 @@ const NAV_ITEMS = [
 function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
   if (pathname.startsWith("/admin")) return "Yönetim";
+  if (pathname.startsWith("/jobs")) return "İşler";
   if (pathname.startsWith("/projects")) return "Projeler";
   return "";
 }

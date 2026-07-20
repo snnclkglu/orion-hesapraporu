@@ -11,6 +11,9 @@ const projectSchema = z.object({
   name: z.string().trim().min(1, "Proje adı gerekli"),
   customer: z.string().trim().min(1, "Müşteri gerekli"),
   crane_type: z.string().trim().min(1),
+  // İş emri bağlantısı: iş panelinden "Vinç Ekle" ile açılırsa dolu gelir;
+  // bağımsız vinçlerde null kalır.
+  job_id: z.uuid().nullable(),
 });
 
 export type ActionResult = { error?: string };
@@ -27,6 +30,7 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     name: formData.get("name"),
     customer: formData.get("customer"),
     crane_type: formData.get("crane_type") || "Çift Kirişli Gezer Köprülü Vinç",
+    job_id: formData.get("job_id") || null,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -48,10 +52,15 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     project_id: project.id,
     actor: user.id,
     action: "project.create",
-    detail: { doc_no: parsed.data.doc_no, name: parsed.data.name },
+    detail: {
+      doc_no: parsed.data.doc_no,
+      name: parsed.data.name,
+      ...(parsed.data.job_id ? { job_id: parsed.data.job_id } : {}),
+    },
   });
 
   revalidatePath("/projects");
+  if (parsed.data.job_id) revalidatePath(`/jobs/${parsed.data.job_id}`);
   redirect(`/projects/${project.id}`);
 }
 
@@ -148,4 +157,122 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
 
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}/revisions/${revision.id}`);
+}
+
+// -------------------------------------------------------- Teknik çizimler
+
+const drawingSchema = z.object({
+  drawing_no: z.string().trim().min(1, "Çizim no gerekli"),
+  title: z.string().trim().min(1, "Çizim adı gerekli"),
+  category: z.string().trim().min(1, "Kategori gerekli"),
+  revision: z.string().trim().min(1, "Revizyon gerekli"),
+  status: z.enum(["draft", "checking", "approved"]),
+  file_url: z.string().trim(),
+  notes: z.string().trim(),
+});
+
+export type DrawingInput = z.infer<typeof drawingSchema>;
+
+export async function createDrawing(
+  projectId: string,
+  input: DrawingInput
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsed = drawingSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { data: drawing, error } = await supabase
+    .from("drawings")
+    .insert({ ...parsed.data, project_id: projectId, created_by: user.id })
+    .select("id")
+    .single();
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    actor: user.id,
+    action: "drawing.create",
+    detail: {
+      drawing_id: drawing.id,
+      drawing_no: parsed.data.drawing_no,
+      title: parsed.data.title,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return {};
+}
+
+export async function updateDrawing(
+  drawingId: string,
+  projectId: string,
+  input: DrawingInput
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsed = drawingSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { error } = await supabase
+    .from("drawings")
+    .update(parsed.data)
+    .eq("id", drawingId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    actor: user.id,
+    action: "drawing.update",
+    detail: {
+      drawing_id: drawingId,
+      drawing_no: parsed.data.drawing_no,
+      revision: parsed.data.revision,
+      status: parsed.data.status,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return {};
+}
+
+export async function deleteDrawing(
+  drawingId: string,
+  projectId: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  // RLS silmeyi admin'e sınırlar; etkilenen satırı seçerek yetkisizliği
+  // sessiz başarı yerine net hatayla bildiririz.
+  const { data: deleted, error } = await supabase
+    .from("drawings")
+    .delete()
+    .eq("id", drawingId)
+    .select("drawing_no");
+  if (error) return { error: error.message };
+  if (!deleted || deleted.length === 0) {
+    return { error: "Çizim silinemedi (admin yetkisi gerekir)" };
+  }
+
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    actor: user.id,
+    action: "drawing.delete",
+    detail: { drawing_id: drawingId, drawing_no: deleted[0].drawing_no },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return {};
 }

@@ -18,6 +18,9 @@ const ACTION_LABELS: Record<string, string> = {
   "revision.issue": "Revizyon yayınlandı",
   "revision.template_set": "Şablon yapıldı",
   "revision.template_unset": "Şablon kaldırıldı",
+  "drawing.create": "Çizim eklendi",
+  "drawing.update": "Çizim güncellendi",
+  "drawing.delete": "Çizim silindi",
 };
 
 function detailSummary(action: string, detail: Record<string, unknown>): string {
@@ -30,6 +33,9 @@ function detailSummary(action: string, detail: Record<string, unknown>): string 
   if (detail.all_pass === false) parts.push("uygun olmayan kontroller var");
   if (detail.all_pass === true) parts.push("tüm kontroller uygun");
   if (detail.doc_no) parts.push(String(detail.doc_no));
+  if (detail.drawing_no) parts.push(String(detail.drawing_no));
+  if (detail.revision && action.startsWith("drawing."))
+    parts.push(`Rev ${detail.revision}`);
   return parts.join(" · ");
 }
 

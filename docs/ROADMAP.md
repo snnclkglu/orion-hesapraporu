@@ -33,8 +33,8 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 
 ## Faz D — Proje takip sistemine dönüşüm (iş emri modeli)
 - Veri modeli: `jobs` (iş emri: 0057-00, müşteri, başlık) → `cranes` (iş içindeki vinçler; mevcut "project" kavramı vinç'e evrilir, doc_no şeması 00XX-YY) → her vinç için modüller: Hesap Raporu (mevcut revizyon sistemi), Ekipman Listesi (mevcut), Teknik Çizimler (yeni: çizim kaydı/dosya takibi), ileride: 3D, Malzeme Listeleri, Satınalma, Üretim.
-- [ ] Migration: jobs tablosu + projects.job_id; UI: İşler listesi → iş paneli (vinçler + durum kartları) → vinç paneli (hesap raporu / ekipman / çizimler sekmeleri)
-- [ ] Teknik çizim takibi v1: drawing kayıtları (no, ad, revizyon, durum [taslak/kontrol/onaylı], dosya linki — Google Drive URL alanı; ileride Storage upload). Google Drive klasör kategorizasyonu (0053-01-0100 KÖPRÜ YÜRÜTME GRUBU deseni) → drawing kategorileri olarak önceden tanımlı liste.
+- [x] Migration: jobs tablosu + projects.job_id; UI: İşler listesi → iş paneli (vinçler + durum kartları) → vinç paneli (hesap raporu / ekipman / çizimler sekmeleri) — `20260719000006_jobs.sql`; /jobs listesi + iş paneli ("Vinç Ekle" mevcut proje dialoguna job_id geçirir); proje sayfası sekmeli (Hesap Raporu | Teknik Çizimler | Ekipman Listesi indirme linki); bağımsız vinçler için /projects korunur (job_id null)
+- [x] Teknik çizim takibi v1: drawing kayıtları (no, ad, kategori, revizyon, durum [taslak/kontrolde/onaylı], dosya linki — Google Drive URL alanı; ileride Storage upload). Google Drive klasör kategorizasyonu (0053-01-0100 KÖPRÜ YÜRÜTME GRUBU deseni) → drawing kategorileri app_settings `drawing_categories` öntanımlı listesi. Audit: job.create, drawing.create/update/delete.
 
 ## Faz E — Görsel/dinamik diyagramlar
 - [ ] Ana kiriş parametrik kesit çizimi (SVG, plaka girdilerinden canlı): kutu kesit, plaka etiketleri, tarafsız eksen; hesap bölümünde canlı güncellenir
