@@ -55,6 +55,7 @@ import {
   getCatalogMapping,
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
+import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -667,6 +668,13 @@ export function RevisionEditor({
           )}
         </CardHeader>
         <CardContent className="grid gap-5">
+          {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım) */}
+          <SectionDiagram
+            moduleKey={key}
+            sectionId={section.rawId}
+            input={calcInput}
+            result={result}
+          />
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

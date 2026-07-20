@@ -7,15 +7,23 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  Circle,
   Document,
   Font,
   Image,
+  Line,
   Page,
+  Path,
+  Polygon,
+  Rect,
   StyleSheet,
+  Svg,
   Text,
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
+import { diagramForSection } from "@/lib/diagrams/select";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
@@ -771,6 +779,98 @@ function SummarySection({ input, result, project }: ReportProps) {
   );
 }
 
+// ---------------------------------------------------------------- Diyagramlar
+
+// Saf Diagram modelini react-pdf Svg karşılığına çizer (web ile aynı üreticiler).
+function pdfDiagramEl(el: DiagramEl, i: number) {
+  switch (el.kind) {
+    case "line":
+      return (
+        <Line
+          key={i}
+          x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
+          stroke={el.stroke} strokeWidth={el.strokeWidth}
+          strokeDasharray={el.dash} strokeLinecap={el.cap}
+        />
+      );
+    case "rect":
+      return (
+        <Rect
+          key={i}
+          x={el.x} y={el.y} width={el.w} height={el.h} rx={el.rx}
+          fill={el.fill ?? "none"} stroke={el.stroke} strokeWidth={el.strokeWidth}
+        />
+      );
+    case "circle":
+      return (
+        <Circle
+          key={i}
+          cx={el.cx} cy={el.cy} r={el.r}
+          fill={el.fill ?? "none"} stroke={el.stroke}
+          strokeWidth={el.strokeWidth} strokeDasharray={el.dash}
+        />
+      );
+    case "path":
+      return (
+        <Path
+          key={i}
+          d={el.d}
+          fill={el.fill ?? "none"} stroke={el.stroke}
+          strokeWidth={el.strokeWidth} strokeDasharray={el.dash}
+          strokeLinecap={el.cap}
+        />
+      );
+    case "polygon":
+      return (
+        <Polygon
+          key={i}
+          points={el.points.map(([x, y]) => `${x},${y}`).join(" ")}
+          fill={el.fill ?? "none"} stroke={el.stroke} strokeWidth={el.strokeWidth}
+        />
+      );
+    case "text":
+      return (
+        <Text
+          key={i}
+          x={el.x} y={el.y}
+          fill={el.fill}
+          textAnchor={el.anchor}
+          style={{
+            fontFamily: "DejaVu",
+            fontSize: el.size,
+            fontWeight: el.bold ? "bold" : undefined,
+          }}
+        >
+          {el.text}
+        </Text>
+      );
+  }
+}
+
+function PdfDiagram({ diagram }: { diagram: Diagram }) {
+  // Sayfa içerik genişliği ~503pt; diyagram 460pt'e ölçeklenir
+  const w = 460;
+  const h = (diagram.height / diagram.width) * w;
+  return (
+    <View
+      wrap={false}
+      style={{
+        marginTop: 4,
+        marginBottom: 3,
+        borderWidth: 0.75,
+        borderColor: C.line,
+        borderRadius: 2,
+        paddingVertical: 4,
+        alignItems: "center",
+      }}
+    >
+      <Svg width={w} height={h} viewBox={`0 0 ${diagram.width} ${diagram.height}`}>
+        {diagram.els.map(pdfDiagramEl)}
+      </Svg>
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------- Modül bölümleri
 
 function CalcRowLine({ row, ctx }: { row: AdapterSection["rows"][number]; ctx: unknown }) {
@@ -833,11 +933,13 @@ function ModulePage({
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const checks = sectionChecks(adapter, section, mr);
+        const diagram = diagramForSection(adapter.key, section.rawId, input, result);
         return (
           <View key={section.id}>
             <Text style={s.h2}>
               {section.id}  {section.title}
             </Text>
+            {diagram && <PdfDiagram diagram={diagram} />}
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
               <View>
                 <Text style={s.h3}>Girdiler / Tasarım Kabulleri</Text>

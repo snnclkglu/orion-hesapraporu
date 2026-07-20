@@ -37,9 +37,9 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [x] Teknik çizim takibi v1: drawing kayıtları (no, ad, kategori, revizyon, durum [taslak/kontrolde/onaylı], dosya linki — Google Drive URL alanı; ileride Storage upload). Google Drive klasör kategorizasyonu (0053-01-0100 KÖPRÜ YÜRÜTME GRUBU deseni) → drawing kategorileri app_settings `drawing_categories` öntanımlı listesi. Audit: job.create, drawing.create/update/delete.
 
 ## Faz E — Görsel/dinamik diyagramlar
-- [ ] Ana kiriş parametrik kesit çizimi (SVG, plaka girdilerinden canlı): kutu kesit, plaka etiketleri, tarafsız eksen; hesap bölümünde canlı güncellenir
-- [ ] Teker mili diyagramı (mesnetler, yükler, moment diyagramı)
-- [ ] Tambur/halat donanımı şeması; PDF rapora da girecek (react-pdf SVG desteğiyle)
+- [x] Ana kiriş parametrik kesit çizimi (SVG, plaka girdilerinden canlı): kutu kesit, plaka etiketleri, tarafsız eksen; hesap bölümünde canlı güncellenir (`src/lib/diagrams/girderSection.ts` → sihirbaz 7.1)
+- [x] Teker mili diyagramı (mesnetler, yükler, moment diyagramı) (`wheelShaft.ts` → 5.2/6.2)
+- [x] Tambur/halat donanımı şeması; PDF rapora da girecek (react-pdf SVG desteğiyle) (`reeving.ts` → 2.1/3.1; PDF: `report.tsx` PdfDiagram — üreticiler saf, web+PDF ortak model `src/lib/diagrams/model.ts`)
 
 ## Faz F — FEM 1.001 + CMAA 70 derin inceleme
 - [ ] İki PDF'i ajanlarla bölüm bölüm incele → `docs/standards/fem-1001-notes.md` + `cmaa-70-notes.md` (madde numaraları, tablolar, formüller — hesap satırlarının standard alanlarına doğru madde referansları girilecek)
