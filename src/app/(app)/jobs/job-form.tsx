@@ -7,8 +7,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Save, Trash2 } from "lucide-react";
-import { createJob, updateJob, type JobInput, type JobItemInput } from "./actions";
+import { Minus, Plus, Save, Trash2 } from "lucide-react";
+import { createJob, updateJob } from "./actions";
+import type { JobInput, JobItemInput } from "./schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** Bugünün tarihi (yerel) YYYY-MM-DD */
+function todayISO(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** Adet +/- artırıcı — baştaki sayıyı adımlar, varsa metin ekini korur (ör. "3 Adet") */
+function QtyStepper({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const m = /^\s*(\d+)(.*)$/.exec(value ?? "");
+  const num = m ? parseInt(m[1], 10) : 0;
+  const suffix = m ? m[2] : "";
+  const step = (delta: number) => onChange(`${Math.max(0, num + delta)}${suffix}`);
+  return (
+    <div className="flex items-center">
+      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-r-none" onClick={() => step(-1)}>
+        <Minus className="size-3.5" />
+      </Button>
+      <Input
+        className="h-8 w-full rounded-none border-x-0 text-center"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="1"
+      />
+      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-l-none" onClick={() => step(1)}>
+        <Plus className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
@@ -79,7 +111,11 @@ export function JobForm({
   jobId?: string;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState<JobInput>(initial);
+  const [form, setForm] = useState<JobInput>(() =>
+    mode === "create" && !initial.work_order_date
+      ? { ...initial, work_order_date: todayISO() }
+      : initial
+  );
   const [pending, startTransition] = useTransition();
 
   function set<K extends keyof JobInput>(key: K, value: JobInput[K]) {
@@ -98,7 +134,7 @@ export function JobForm({
     return `${base}-${String(n).padStart(2, "0")}`;
   }
   function addItem() {
-    setForm((f) => ({ ...f, items: [...f.items, { item_no: nextItemNo(), product_name: "", quantity: "" }] }));
+    setForm((f) => ({ ...f, items: [...f.items, { item_no: nextItemNo(), product_name: "", quantity: "1" }] }));
   }
   function removeItem(i: number) {
     setForm((f) => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
@@ -143,14 +179,14 @@ export function JobForm({
           </p>
         ) : (
           <div className="grid gap-2">
-            <div className="grid grid-cols-[110px_1fr_90px_auto] gap-2 px-1 text-[11px] font-medium text-muted-foreground">
-              <span>İş No</span><span>Ürün Adı</span><span>Adet</span><span />
+            <div className="grid grid-cols-[110px_1fr_116px_auto] gap-2 px-1 text-[11px] font-medium text-muted-foreground">
+              <span>İş No</span><span>Ürün Adı</span><span className="text-center">Adet</span><span />
             </div>
             {form.items.map((it, i) => (
-              <div key={i} className="grid grid-cols-[110px_1fr_90px_auto] items-center gap-2">
+              <div key={i} className="grid grid-cols-[110px_1fr_116px_auto] items-center gap-2">
                 <Input className="h-8 font-mono text-xs" value={it.item_no} onChange={(e) => setItem(i, { item_no: e.target.value })} placeholder="0057-01" />
                 <Input className="h-8" value={it.product_name} onChange={(e) => setItem(i, { product_name: e.target.value })} placeholder="1 t x 19 m Tek Kirişli Köprülü Vinç" />
-                <Input className="h-8" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} placeholder="3 Adet" />
+                <QtyStepper value={it.quantity} onChange={(v) => setItem(i, { quantity: v })} />
                 <Button type="button" size="icon" variant="ghost" className="size-8 text-destructive" onClick={() => removeItem(i)}>
                   <Trash2 className="size-3.5" />
                 </Button>

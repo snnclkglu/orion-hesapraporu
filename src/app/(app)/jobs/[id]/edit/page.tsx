@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "../../job-form";
-import type { JobInput } from "../../actions";
+import type { JobInput } from "../../schema";
 
 export default async function EditJobPage({
   params,
