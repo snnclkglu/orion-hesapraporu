@@ -29,7 +29,6 @@ import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
-import { MODULE_LABELS } from "@/lib/calc/labels";
 import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
 import type { HoistCtx } from "@/lib/calc/presentation/hoistSections";
 import type { HookBlockCtx } from "@/lib/calc/presentation/hookBlockSections";
@@ -40,6 +39,9 @@ import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections
 import {
   MODULE_ADAPTERS,
   buildModuleDeps,
+  moduleDisplayNumbers,
+  renumberSectionId,
+  renumberTitle,
   type AdapterSection,
   type AnyFieldDef,
   type ModuleAdapter,
@@ -613,15 +615,24 @@ function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
 
 // ---------------------------------------------------------------- İçindekiler
 
-function TocPage({ project, level, settings }: ReportProps) {
+function TocPage({
+  project, level, settings, numbers, present,
+}: ReportProps & {
+  numbers: Partial<Record<ModuleKey, number>>;
+  present: (k: ModuleKey) => boolean;
+}) {
   // Özet seviyede modül bölümleri rapora girmez; içindekiler de onları listelemez.
+  // Mevcut modüller (esnek) yeniden numaralandırılarak listelenir.
   const entries =
     level === "ozet"
       ? []
-      : Object.values(MODULE_LABELS).map((label) => {
-          const [no, ...rest] = label.split(" · ");
-          return { no, title: rest.join(" · ") };
-        });
+      : [
+          { no: "01", title: "Teknik Özellikler" },
+          ...MODULE_ADAPTERS.filter((a) => present(a.key)).map((a) => {
+            const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
+            return { no, title: rest.join(" · ") };
+          }),
+        ];
   return (
     <Page size="A4" style={s.page}>
       <View style={s.spine} fixed />
@@ -764,7 +775,9 @@ function summaryGroups(input: CalcInput): SummaryGroup[] {
   return groups.filter((g) => g.items.length > 0);
 }
 
-function SummarySection({ input, result, project, settings }: ReportProps) {
+function SummarySection({
+  input, result, project, settings, numbers,
+}: ReportProps & { numbers: Partial<Record<ModuleKey, number>> }) {
   const groups = summaryGroups(input);
   return (
     <Page size="A4" style={s.page} wrap>
@@ -805,7 +818,9 @@ function SummarySection({ input, result, project, settings }: ReportProps) {
         if (!mr || mr.checks.length === 0) return null;
         return (
           <View key={adapter.key} style={s.sumModule} minPresenceAhead={36}>
-            <Text style={s.sumModuleTitle}>{adapter.title}</Text>
+            <Text style={s.sumModuleTitle}>
+              {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
+            </Text>
             {mr.checks.map((c) => (
               <CheckLine key={c.id} check={c} />
             ))}
@@ -952,18 +967,21 @@ function ModulePage({
   props,
   deps,
   showFormulas,
+  moduleNo,
 }: {
   adapter: ModuleAdapter;
   props: ReportProps;
   deps: ModuleDepsBundle;
   showFormulas: boolean;
+  /** Dinamik görüntü numarası (esnek modül numaralandırması) */
+  moduleNo: number;
 }) {
   const { input, result, project } = props;
   const state = moduleState(input, adapter.key);
   const mr = moduleResult(result, adapter.key);
   if (!state || !mr) return null;
   const ctx = ctxFor(adapter.key, input, result, deps);
-  const [no, ...rest] = adapter.title.split(" · ");
+  const [no, ...rest] = renumberTitle(adapter.title, moduleNo).split(" · ");
 
   return (
     <Page size="A4" style={s.page} wrap>
@@ -984,7 +1002,7 @@ function ModulePage({
             {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
             <View wrap={false}>
               <Text style={s.h2}>
-                {section.id}  {section.title}
+                {renumberSectionId(section.id, moduleNo)}  {section.title}
               </Text>
               {diagram && <PdfDiagram diagram={diagram} />}
             </View>
@@ -1033,6 +1051,10 @@ export function ReportDocument(props: ReportProps) {
   const { input, result, project, revision } = props;
   const level: ReportLevel = props.level ?? "detayli";
   const deps = buildModuleDeps(input, result);
+  // Esnek modüller: revizyonda olmayan modül (yardımcı kaldırma / kanca bloğu
+  // kapalı) rapora girmez; numaralar mevcut modüllere göre yeniden dizilir.
+  const present = (k: ModuleKey) => moduleState(input, k) !== undefined;
+  const numbers = moduleDisplayNumbers(present);
   return (
     <Document
       title={`${project.doc_no}-V${revision.rev_no} Hesap Raporu`}
@@ -1041,16 +1063,17 @@ export function ReportDocument(props: ReportProps) {
       language="tr"
     >
       <CoverPage {...props} />
-      <TocPage {...props} level={level} />
-      <SummarySection {...props} />
+      <TocPage {...props} level={level} numbers={numbers} present={present} />
+      <SummarySection {...props} numbers={numbers} />
       {level !== "ozet" &&
-        MODULE_ADAPTERS.map((adapter) => (
+        MODULE_ADAPTERS.filter((a) => present(a.key)).map((adapter) => (
           <ModulePage
             key={adapter.key}
             adapter={adapter}
             props={props}
             deps={deps}
             showFormulas={level === "detayli"}
+            moduleNo={numbers[adapter.key] ?? 0}
           />
         ))}
     </Document>

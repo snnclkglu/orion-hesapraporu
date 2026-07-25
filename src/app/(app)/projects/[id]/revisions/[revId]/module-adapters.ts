@@ -409,6 +409,49 @@ export const ADAPTER_BY_KEY: Record<ModuleKey, ModuleAdapter> = Object.fromEntri
   MODULE_ADAPTERS.map((a) => [a.key, a])
 ) as Record<ModuleKey, ModuleAdapter>;
 
+// -------------------------------------------------- Esnek modül / numaralandırma
+// Bazı modüller vince göre olmayabilir (yardımcı kaldırma yok, kanca yerine
+// kaldırma kirişi/magnet → kanca bloğu yok). Bu modüller açılıp kapatılabilir;
+// görüntü numaraları (02, 03…) mevcut modüllere göre yeniden dizilir. rawId,
+// checkPrefix ve hücre referansları DEĞİŞMEZ — yalnız gösterim numarası dinamik.
+
+/** Vince göre eklenip çıkarılabilen modüller. */
+export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = ["aux", "hookBlock"];
+
+export function isOptionalModule(key: ModuleKey): boolean {
+  return OPTIONAL_MODULE_KEYS.includes(key);
+}
+
+/**
+ * present(key) yüklem — modül dahil mi. Modül anahtarı → görüntü numarası
+ * (Teknik Özellikler = 1 kabul edilir; ilk dahil modül = 2).
+ */
+export function moduleDisplayNumbers(
+  present: (k: ModuleKey) => boolean
+): Partial<Record<ModuleKey, number>> {
+  const out: Partial<Record<ModuleKey, number>> = {};
+  let n = 1;
+  for (const a of MODULE_ADAPTERS) {
+    if (present(a.key)) {
+      n += 1;
+      out[a.key] = n;
+    }
+  }
+  return out;
+}
+
+/** "02 · Ana Kaldırma" + 3 → "03 · Ana Kaldırma" (baştaki numara değişir). */
+export function renumberTitle(title: string, n: number): string {
+  return title.replace(/^\d+/, String(n).padStart(2, "0"));
+}
+
+/** "2.2.1" + 5 → "5.2.1" (ilk segment = modül numarası). */
+export function renumberSectionId(id: string, n: number): string {
+  const parts = id.split(".");
+  parts[0] = String(n);
+  return parts.join(".");
+}
+
 // ---------------------------------------------------------------- Deps üretimi
 
 /**

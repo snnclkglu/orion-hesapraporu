@@ -8,7 +8,7 @@
 // ve ✓/✗ kontrolleri. Excel'in bölüm numaraları korunur.
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -44,7 +44,11 @@ import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
+  OPTIONAL_MODULE_KEYS,
   buildModuleDeps,
+  moduleDisplayNumbers,
+  renumberSectionId,
+  renumberTitle,
   type AdapterRow,
   type AdapterSection,
   type AnyFieldDef,
@@ -82,6 +86,12 @@ export interface AltState {
   options: Record<string, unknown>[];
 }
 export type AltsMap = Record<string, AltState>; // key: `${moduleKey}-${section.rawId}`
+
+/** Opsiyonel modüllerin kullanıcı etiketleri (modül aç/kapa kontrolü). */
+const OPTIONAL_MODULE_LABELS: Partial<Record<ModuleKey, string>> = {
+  aux: "Yardımcı Kaldırma",
+  hookBlock: "Kanca Bloğu",
+};
 
 function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
@@ -253,24 +263,29 @@ type Step =
   | { kind: "module"; key: string; title: string; moduleKey: ModuleKey; section: AdapterSection }
   | { kind: "summary"; key: string; title: string };
 
-function buildSteps(): Step[] {
+function buildSteps(
+  present: (k: ModuleKey) => boolean,
+  numbers: Partial<Record<ModuleKey, number>>
+): Step[] {
   const steps: Step[] = [{ kind: "specs", key: "specs", title: "01 · Teknik Özellikler" }];
   for (const adapter of MODULE_ADAPTERS) {
+    if (!present(adapter.key)) continue;
+    const num = numbers[adapter.key] ?? 0;
     for (const section of adapter.sections) {
+      const displayId = renumberSectionId(section.id, num);
       steps.push({
         kind: "module",
         key: `${adapter.key}-${section.rawId}`,
-        title: `${section.id} ${section.title}`,
+        title: `${displayId} ${section.title}`,
         moduleKey: adapter.key,
-        section,
+        // rawId/hücreler korunur; yalnız görüntü id'si yeniden numaralanır
+        section: { ...section, id: displayId },
       });
     }
   }
   steps.push({ kind: "summary", key: "summary", title: "Özet · Kontrol Panosu" });
   return steps;
 }
-
-const STEPS = buildSteps();
 
 /** Kenar çubuğu navigasyonu için adımların modül bazlı gruplanması (sadece sunum). */
 interface NavGroup {
@@ -280,9 +295,12 @@ interface NavGroup {
   items: { step: Step; index: number }[];
 }
 
-function buildNavGroups(): NavGroup[] {
+function buildNavGroups(
+  steps: Step[],
+  numbers: Partial<Record<ModuleKey, number>>
+): NavGroup[] {
   const groups: NavGroup[] = [];
-  STEPS.forEach((step, index) => {
+  steps.forEach((step, index) => {
     if (step.kind === "module") {
       const last = groups[groups.length - 1];
       if (last && last.moduleKey === step.moduleKey) {
@@ -290,7 +308,10 @@ function buildNavGroups(): NavGroup[] {
       } else {
         groups.push({
           key: `mod-${step.moduleKey}`,
-          title: ADAPTER_BY_KEY[step.moduleKey].title,
+          title: renumberTitle(
+            ADAPTER_BY_KEY[step.moduleKey].title,
+            numbers[step.moduleKey] ?? 0
+          ),
           moduleKey: step.moduleKey,
           items: [{ step, index }],
         });
@@ -301,8 +322,6 @@ function buildNavGroups(): NavGroup[] {
   });
   return groups;
 }
-
-const NAV_GROUPS = buildNavGroups();
 
 // ---------------------------------------------------------------- Modül durumu
 interface ModulesState {
@@ -368,6 +387,19 @@ export function RevisionEditor({
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [stepIndex, setStepIndex] = useState(0);
+  // Esnek modüller: opsiyonel modüller (yardımcı kaldırma, kanca bloğu) açık/kapalı.
+  // Başlangıç: revizyonda modül varsa açık. Kapatılınca hesaba/rapora girmez ve
+  // numaralandırma yeniden dizilir.
+  const [enabled, setEnabled] = useState<Record<ModuleKey, boolean>>(() => ({
+    main: true,
+    aux: initial.auxHoist != null,
+    hookBlock: initial.hookBlock != null,
+    trolley: true,
+    bridge: true,
+    girder: true,
+    buckling: true,
+    endCarriage: true,
+  }));
   // Sadece sunum: kenar çubuğunda elle açılan modül grupları
   // (aktif adımın grubu her zaman açıktır).
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -375,25 +407,34 @@ export function RevisionEditor({
   const [navQuery, setNavQuery] = useState("");
   const [pending, startTransition] = useTransition();
 
+  const present = useCallback((k: ModuleKey) => enabled[k] !== false, [enabled]);
+  const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
+  const STEPS = useMemo(() => buildSteps(present, numbers), [present, numbers]);
+  const NAV_GROUPS = useMemo(() => buildNavGroups(STEPS, numbers), [STEPS, numbers]);
+  // Modül kapatılınca adım sayısı azalabilir → aktif adımı sınırla
+  useEffect(() => {
+    setStepIndex((i) => Math.min(i, STEPS.length - 1));
+  }, [STEPS.length]);
+
   const calcInput: CalcInput = useMemo(
     () => ({
       specs,
       mainHoist: mods.main,
-      auxHoist: mods.aux,
-      hookBlock: mods.hookBlock,
+      auxHoist: enabled.aux ? mods.aux : undefined,
+      hookBlock: enabled.hookBlock ? mods.hookBlock : undefined,
       trolley: mods.trolley,
       bridge: mods.bridge,
       girder: mods.girder,
       buckling: { inputs: mods.buckling.inputs },
       endCarriage: mods.endCarriage,
     }),
-    [specs, mods]
+    [specs, mods, enabled]
   );
   const result = useMemo(() => runCalc(calcInput), [calcInput]);
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
 
   const failCount = result.allChecks.filter((c) => !c.pass).length;
-  const step = STEPS[stepIndex];
+  const step = STEPS[Math.min(stepIndex, STEPS.length - 1)] ?? STEPS[0];
 
   // ------------------------------------------------------------ modül erişimi
   function moduleResult(key: ModuleKey): ModuleResult<unknown> | undefined {
@@ -643,6 +684,31 @@ export function RevisionEditor({
               />
             ))}
           </div>
+
+          {/* Vinç modülleri — opsiyonel modüller açık/kapalı; numaralandırma dinamik */}
+          <div className="mt-6 border-t pt-4">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">
+              Vinç Modülleri (opsiyonel)
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {OPTIONAL_MODULE_KEYS.map((k) => (
+                <label key={k} className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={enabled[k] !== false}
+                    disabled={readOnly}
+                    onChange={(e) => setEnabled((m) => ({ ...m, [k]: e.target.checked }))}
+                    className="size-4 accent-primary"
+                  />
+                  {OPTIONAL_MODULE_LABELS[k] ?? k}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Kapatılan modül hesaba ve rapora girmez; bölüm numaraları otomatik yeniden dizilir
+              (ör. yardımcı kaldırma yoksa Kanca Bloğu 03 olur).
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -858,7 +924,9 @@ export function RevisionEditor({
             return (
               <div key={adapter.key} className="grid gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold tracking-tight">{adapter.title}</h3>
+                  <h3 className="text-sm font-semibold tracking-tight">
+                    {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
+                  </h3>
                   <span
                     className={cn(
                       "font-mono text-[11px] font-medium tabular-nums",
