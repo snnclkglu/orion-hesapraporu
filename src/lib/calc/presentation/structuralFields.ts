@@ -60,13 +60,20 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "dynTestFactorR1", label: "Dinamik test katsayısı ρ1", type: "number", excelCell: "E161" },
   { key: "statTestFactorR2", label: "Statik test katsayısı ρ2", type: "number", excelCell: "E162" },
   { key: "railLeverCMm", label: "Kayma merkezi kolu c", unit: "mm", type: "number", excelCell: "D230" },
-  { key: "diaphragmSpacingMm", label: "İki perde arası l1", unit: "mm", type: "number", excelCell: "D242" },
+  {
+    key: "diaphragmSpacingMm", label: "İki perde arası l1", unit: "mm",
+    type: "select", options: ["1000", "1500", "2000"], numeric: true, excelCell: "D242",
+  },
   { key: "wheelContactHMm", label: "Teker basınç yayılım yüksekliği h", unit: "mm", type: "number", excelCell: "D264" },
   { key: "wheelContactTMm", label: "Teker basıncı taşıyan sac kalınlığı t", unit: "mm", type: "number", excelCell: "D265" },
   { key: "sigmaYMaxNmm2", label: "σy,maks", unit: "N/mm²", type: "number", excelCell: "F397" },
   { key: "sigmaYMinNmm2", label: "σy,min", unit: "N/mm²", type: "number", excelCell: "F402" },
   { key: "fatigueTensileNmm2", label: "Malzeme kopma dayanımı σB", unit: "N/mm²", type: "number", excelCell: "F417" },
-  { key: "deflectionLimitRatio", label: "Sehim sınırı (L/x)", type: "number" },
+  {
+    key: "deflectionLimitRatio", label: "Sehim sınırı", type: "select",
+    options: ["250", "500", "750", "1000", "1100"], numeric: true,
+    optionLabels: { "250": "1/250", "500": "1/500", "750": "1/750", "1000": "1/1000", "1100": "1/1100" },
+  },
 ];
 
 export const GIRDER_SELECTION_FIELDS: FieldDef<GirderSelections>[] = [

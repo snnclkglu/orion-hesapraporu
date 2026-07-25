@@ -38,6 +38,9 @@ export const V5_SPECS: TechnicalSpecs = {
   trolleyUsageClass: "T6",       // P19
   hookType: "Kepçe",             // P20
   controlType: "Sabit Kabin + Uzaktan Kumanda", // P21
+  hoistBrakeType: "Eldro Fren",
+  hoistSafetyBrake: "Yok",
+  travelBrakeType: "Eldro Fren",
   ambientTempMinC: -10,          // R22
   ambientTempMaxC: 40,           // T22
   supplyVoltage: "380 VAC, 3 Faz, 50 Hz", // P23

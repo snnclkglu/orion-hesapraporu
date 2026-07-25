@@ -506,9 +506,13 @@ function FieldTable({
     <View style={s.kvGrid}>
       {cols.map((col, i) => (
         <View style={s.kvCol} key={i}>
-          {col.map((f) => (
-            <KvRow key={f.key} label={f.label} value={fmtField(rec[f.key])} unit={toDisplayUnitLabel(f.unit)} />
-          ))}
+          {col.map((f) => {
+            const labels = (f as { optionLabels?: Record<string, string> }).optionLabels;
+            const val = labels?.[String(rec[f.key])] ?? fmtField(rec[f.key]);
+            return (
+              <KvRow key={f.key} label={f.label} value={val} unit={toDisplayUnitLabel(f.unit)} />
+            );
+          })}
         </View>
       ))}
     </View>

@@ -13,6 +13,8 @@ export interface FieldDef<T> {
   options?: readonly string[];
   /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
   numeric?: boolean;
+  /** select seçeneklerinin gösterim etiketi (değer→etiket, ör. "1000"→"1/1000") */
+  optionLabels?: Record<string, string>;
   excelCell?: string;
 }
 
@@ -25,12 +27,26 @@ export const HOOK_TYPES = [
   "DIN 15401 Tekli Kanca",
   "DIN 15402 Çift Ağız Kanca",
   "Kaldırma Kirişi (Spreader)",
+  "Kaldırma Mıknatısı (Magnet)",
   "Polip",
   "Mekanik Kepçe",
   "Motorlu Kepçe",
   "C Kancası",
   "Diğer",
 ] as const;
+
+/** Kumanda şekli seçenekleri (P21) */
+export const CONTROL_TYPES = [
+  "Sabit Kabin + Uzaktan Kumanda",
+  "Sabit Kabin",
+  "Uzaktan Kumanda",
+  "Yürütmeli Kabin",
+] as const;
+
+/** Fren tipleri — kaldırma grupları (manyetik/eldro/disk), yürütme (manyetik/eldro) */
+export const HOIST_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
+export const TRAVEL_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren"] as const;
+export const YES_NO = ["Var", "Yok"] as const;
 export const AMBIENT_TEMP_MIN_C = ["-40", "-35", "-30", "-25", "-20", "-15", "-10", "-5", "0"] as const;
 export const AMBIENT_TEMP_MAX_C = ["40", "45", "50", "55", "60", "65", "70", "75", "80"] as const;
 /** Tambur çapı standart serisi [mm] */
@@ -56,7 +72,10 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "trolleyMechanismClass", label: "Araba mekanizma sınıfı", type: "select", options: MECHANISM_CLASSES, excelCell: "P18" },
   { key: "trolleyUsageClass", label: "Araba kullanım sınıfı", type: "select", options: USAGE_CLASSES, excelCell: "P19" },
   { key: "hookType", label: "Kanca / tutucu tipi", type: "select", options: HOOK_TYPES, excelCell: "P20" },
-  { key: "controlType", label: "Kumanda şekli", type: "text", excelCell: "P21" },
+  { key: "controlType", label: "Kumanda şekli", type: "select", options: CONTROL_TYPES, excelCell: "P21" },
+  { key: "hoistBrakeType", label: "Kaldırma freni tipi", type: "select", options: HOIST_BRAKE_TYPES },
+  { key: "hoistSafetyBrake", label: "Kaldırma emniyet freni", type: "select", options: YES_NO },
+  { key: "travelBrakeType", label: "Yürütme freni tipi", type: "select", options: TRAVEL_BRAKE_TYPES },
   { key: "ambientTempMinC", label: "Ortam sıcaklığı (min)", unit: "°C", type: "select", options: AMBIENT_TEMP_MIN_C, numeric: true, excelCell: "R22" },
   { key: "ambientTempMaxC", label: "Ortam sıcaklığı (maks)", unit: "°C", type: "select", options: AMBIENT_TEMP_MAX_C, numeric: true, excelCell: "T22" },
   { key: "supplyVoltage", label: "Besleme gerilimi", type: "text", excelCell: "P23" },

@@ -68,6 +68,10 @@ export interface TechnicalSpecs {
   trolleyUsageClass: UsageClass; // P19
   hookType: string;             // P20 (ör. "Kepçe")
   controlType: string;          // P21
+  // Vinç tanımı — açıklayıcı seçimler (hesapta kullanılmaz, raporda görünür)
+  hoistBrakeType?: string;      // kaldırma freni tipi (manyetik/eldro/disk)
+  hoistSafetyBrake?: string;    // kaldırma emniyet freni (Var/Yok)
+  travelBrakeType?: string;     // yürütme freni tipi (manyetik/eldro)
   ambientTempMinC: number;      // R22
   ambientTempMaxC: number;      // T22
   supplyVoltage: string;        // P23

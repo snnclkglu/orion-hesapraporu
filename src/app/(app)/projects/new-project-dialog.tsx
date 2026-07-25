@@ -15,8 +15,8 @@ import {
 
 /** Vinç tipi seçenekleri (ileride hesap varyantları bu tiplere bağlanacak) */
 const CRANE_TYPES = [
-  "Çift Kirişli Gezer Köprü Vinci",
-  "Tek Kirişli Gezer Köprü Vinci",
+  "Çift Kirişli Gezer Köprülü Vinç",
+  "Tek Kirişli Gezer Köprülü Vinç",
   "Portal Vinç",
   "Yarı Portal Vinç",
   "Pergel Vinç",

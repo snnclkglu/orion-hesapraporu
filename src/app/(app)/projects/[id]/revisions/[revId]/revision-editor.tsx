@@ -127,7 +127,9 @@ function Field({
             </SelectTrigger>
             <SelectContent>
               {opts.map((o) => (
-                <SelectItem key={o} value={o}>{o}</SelectItem>
+                <SelectItem key={o} value={o}>
+                  {(def as { optionLabels?: Record<string, string> }).optionLabels?.[o] ?? o}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
