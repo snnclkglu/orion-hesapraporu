@@ -201,8 +201,41 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         cell: "D200", label: "Yük momenti My", formula: "My = b · P_tek / 10",
         subst: (x) => `${n(num(x.c.D173))} · ${n(num(x.c.D199))} / 10`, unit: "kg·cm",
       },
+      // --- σx bileşenleri (alt lif) — FEM 1.001 4.1.1 düşey / 4.1.2 yatay / 4.1.4 ikincil ---
       {
-        cell: "E362", label: "σx (alt) — Yükleme Durumu I",
+        cell: "D186", label: "σx · düşey eğilme — kiriş öz ağırlığı",
+        formula: "σx = M_y,kiriş / W_x,alt", unit: "kg/cm²", standard: "FEM 1.001 4.1.1",
+      },
+      {
+        cell: "D194", label: "σx · düşey eğilme — araba ağırlığı",
+        formula: "σx = M_y,araba / W_x,alt", unit: "kg/cm²", standard: "FEM 1.001 4.1.1",
+      },
+      {
+        cell: "D202", label: "σx · düşey eğilme — kaldırma yükü (×ψ)",
+        formula: "σx = M_y,yük / W_x,alt", unit: "kg/cm²", standard: "FEM 1.001 4.1.1",
+      },
+      {
+        cell: "D212", label: "σx · yatay eğilme — dağılı yanal yük",
+        formula: "σx = M_y1 / W_y", unit: "kg/cm²", standard: "FEM 1.001 4.1.2",
+      },
+      {
+        cell: "D220", label: "σx · yatay eğilme — tekil yanal yük",
+        formula: "σx = M_y2 / W_y", unit: "kg/cm²", standard: "FEM 1.001 4.1.2",
+      },
+      {
+        cell: "D234", label: "σx · yanal — ray kolu / kaçıklık",
+        formula: "σx = M_x,ray / W_x,alt", unit: "kg/cm²", standard: "FEM 1.001 4.1.3",
+      },
+      {
+        cell: "D249", label: "σx · ikincil moment — araba (perde arası)",
+        formula: "σx = M_sec,araba / (3 · W_x,alt)", unit: "kg/cm²", standard: "FEM 1.001 4.1.4",
+      },
+      {
+        cell: "D257", label: "σx · ikincil moment — kaldırma yükü (×ψ)",
+        formula: "σx = M_sec,yük / W_x,alt", unit: "kg/cm²", standard: "FEM 1.001 4.1.4",
+      },
+      {
+        cell: "E362", label: "σx,alt TOPLAM — Yükleme Durumu I",
         formula: "σx,alt = σ1 + σ2 + ψ·σ3 + σ4 + σ5 + σ6 + σ7 + ψ·σ8",
         subst: (x) => `${n(num(x.c.D186))} + ${n(num(x.c.D194))} + ${n(num(x.c.D46), 2)}·${n(num(x.c.D202))} + ${n(num(x.c.D212))} + ${n(num(x.c.D220))} + ${n(num(x.c.D234))} + ${n(num(x.c.D249))} + ${n(num(x.c.D46), 2)}·${n(num(x.c.D257))}`,
         unit: "kg/cm²",
@@ -210,15 +243,33 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       {
         cell: "E363", label: "σx (üst) — Yükleme Durumu I", unit: "kg/cm²",
       },
+      // --- σz bileşenleri (teker basıncı, gövde üst kenarı) — FEM 1.001 4.2 ---
       {
-        cell: "E364", label: "σz — Yükleme Durumu I", formula: "σz = σ9 + ψ·σ10",
+        cell: "D271", label: "σz · teker basıncı — araba",
+        formula: "σz = −P_araba / (2·(0,2h+5)·t·0,1)", unit: "kg/cm²", standard: "FEM 1.001 4.2",
+      },
+      {
+        cell: "D275", label: "σz · teker basıncı — kaldırma yükü (×ψ)",
+        formula: "σz = −P_yük / (2·(0,2h+5)·t·0,1)", unit: "kg/cm²", standard: "FEM 1.001 4.2",
+      },
+      {
+        cell: "E364", label: "σz TOPLAM — Yükleme Durumu I", formula: "σz = σ9 + ψ·σ10",
         subst: (x) => `${n(num(x.c.D271))} + ${n(num(x.c.D46), 2)}·${n(num(x.c.D275))}`, unit: "kg/cm²",
       },
+      // --- σs bileşenleri (burulma + kesme) — FEM 1.001 4.3 ---
       {
-        cell: "E365", label: "σs (ana gövde)", unit: "kg/cm²",
+        cell: "D289", label: "σs · burulma — araba",
+        formula: "σs = T_araba / (2·A_m·t_gövde)", unit: "kg/cm²", standard: "FEM 1.001 4.3.1",
       },
       {
-        cell: "E366", label: "σs (ikincil gövde)", unit: "kg/cm²",
+        cell: "D296", label: "σs · burulma — kaldırma yükü (×ψ)",
+        formula: "σs = T_yük / (2·A_m·t_gövde)", unit: "kg/cm²", standard: "FEM 1.001 4.3.1",
+      },
+      {
+        cell: "E365", label: "σs TOPLAM (ana gövde)", unit: "kg/cm²",
+      },
+      {
+        cell: "E366", label: "σs TOPLAM (ikincil gövde)", unit: "kg/cm²",
       },
       {
         cell: "E367", label: "σcomb (alt)", formula: "σcomb = √(σx² + σz² − |σx·σz| + 3·σs²)",
