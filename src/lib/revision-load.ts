@@ -2,7 +2,7 @@
 // Boş alanlar V5 şablonuyla doldurulur — editör, PDF ve Excel çıktıları
 // aynı yükleyiciyi kullanır.
 
-import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { NEW_WORK_TEMPLATE as V5_TEMPLATE } from "@/lib/calc/defaults";
 import type { CalcInput } from "@/lib/calc/engine";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";

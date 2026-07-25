@@ -171,3 +171,17 @@ export const V5_TEMPLATE: CalcInput = {
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
 };
+
+/**
+ * Yeni iş başlangıç şablonu — V5_TEMPLATE ile aynı, yalnız kullanıcı tercihleri:
+ * iki perde arası 1500 mm, sehim sınırı 1/1000. Golden testler V5_TEMPLATE'i
+ * (Excel değerleri 2000/750) kullandığından bu ayrı tutulur; boş girdiler için
+ * varsayılan kaynak (revision-load / editor) burasıdır.
+ */
+export const NEW_WORK_TEMPLATE: CalcInput = {
+  ...V5_TEMPLATE,
+  girder: {
+    inputs: { ...V5_GIRDER_INPUTS, diaphragmSpacingMm: 1500, deflectionLimitRatio: 1000 },
+    selections: V5_GIRDER_SELECTIONS,
+  },
+};

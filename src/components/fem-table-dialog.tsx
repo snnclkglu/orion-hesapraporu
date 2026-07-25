@@ -6,15 +6,26 @@
 
 import { useState } from "react";
 import { BookMarked } from "lucide-react";
-import { activeFemColumn, type FemTable } from "@/lib/calc/fem-tables";
+import { activeFemColumn, femColumnByHeader, type FemTable } from "@/lib/calc/fem-tables";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-export function FemTableButton({ table, value }: { table: FemTable; value: number | undefined }) {
+export function FemTableButton({
+  table,
+  value,
+  activeHeader,
+}: {
+  table: FemTable;
+  value?: number | undefined;
+  /** Sınıf-bazlı alanlar için sütun başlığıyla eşleştir (ör. "M6") */
+  activeHeader?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const active = activeFemColumn(table, value);
+  const active = activeHeader !== undefined
+    ? femColumnByHeader(table, activeHeader)
+    : activeFemColumn(table, value);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

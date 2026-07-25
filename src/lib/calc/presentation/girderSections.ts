@@ -177,7 +177,19 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     depKeys: [],
     inputKeys: ["amplifyYc", "dynTestFactorR1", "statTestFactorR2"],
     selectionKeys: [],
-    rows: [],
+    rows: [
+      {
+        cell: "E374", label: "Yükleme Durumu I — bileşik gerilme γC·σcomb (alt)",
+        formula: "SI = γC·(SG + ψ·SL + SH)", unit: "kg/cm²", standard: "FEM 1.001 §2.3.1",
+      },
+      {
+        cell: "D386", label: "Test katsayısı k (Durum III)", formula: "k = max(ψ·ρ1, ρ2)",
+      },
+      {
+        cell: "D391", label: "Yükleme Durumu III — bileşik gerilme (test)",
+        formula: "SIII = test yükleri (ρ1 dinamik / ρ2 statik)", unit: "kg/cm²", standard: "FEM 1.001 §2.3.3",
+      },
+    ],
     checkSuffixes: [],
   },
   {

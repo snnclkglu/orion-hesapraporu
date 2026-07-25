@@ -76,3 +76,9 @@ export function activeFemColumn(table: FemTable, value: number | undefined): num
   });
   return best;
 }
+
+/** Sütun başlığına göre eşleşen sütunu bulur (ör. "M6", "A6"). */
+export function femColumnByHeader(table: FemTable, header: string | undefined): number {
+  if (!header) return -1;
+  return table.columns.findIndex((c) => c.header === header.trim());
+}

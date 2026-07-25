@@ -27,7 +27,7 @@ import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
-import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { NEW_WORK_TEMPLATE as V5_TEMPLATE } from "@/lib/calc/defaults";
 import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
@@ -113,7 +113,8 @@ function Field({
           return ft && FEM_TABLES[ft] ? (
             <FemTableButton
               table={FEM_TABLES[ft]}
-              value={typeof v === "number" ? v : parseFloat(String(v ?? ""))}
+              value={typeof v === "number" ? v : undefined}
+              activeHeader={typeof v === "string" ? v : undefined}
             />
           ) : null;
         })()}
