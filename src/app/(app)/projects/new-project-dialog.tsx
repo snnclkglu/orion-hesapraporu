@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createProject } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -24,27 +24,62 @@ const CRANE_TYPES = [
   "Konsol Vinç",
 ] as const;
 
+export interface JobOption {
+  id: string;
+  job_no: string;
+  title: string;
+  customer: string;
+}
+
+const NONE = "__none__";
+
 export function NewProjectDialog({
   defaultCraneType = "Çift Kirişli Gezer Köprü Vinci",
   jobId,
   jobNo,
   defaultCustomer,
+  jobs,
 }: {
   defaultCraneType?: string;
-  /** İş panelinden "Vinç Ekle" ile açıldığında yeni vinç bu işe bağlanır. */
+  /** İş panelinden "Vinç Ekle" ile açıldığında yeni vinç bu işe sabit bağlanır. */
   jobId?: string;
   jobNo?: string;
   defaultCustomer?: string;
+  /** Bağımsız akış (/projects): opsiyonel iş seçimi için iş listesi. */
+  jobs?: JobOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  // Panelde tanımlı varsayılan listede yoksa listeye eklenir (özel tipler korunur).
   const craneTypes: string[] = CRANE_TYPES.includes(
     defaultCraneType as (typeof CRANE_TYPES)[number]
   )
     ? [...CRANE_TYPES]
     : [defaultCraneType, ...CRANE_TYPES];
   const [craneType, setCraneType] = useState(defaultCraneType);
+
+  // İş panelinden gelmiyorsa (jobId yok) opsiyonel iş seçimi gösterilir
+  const showJobSelect = !jobId && (jobs?.length ?? 0) > 0;
+  const [selectedJobId, setSelectedJobId] = useState<string>(NONE);
+  const selectedJob = useMemo(
+    () => jobs?.find((j) => j.id === selectedJobId),
+    [jobs, selectedJobId]
+  );
+
+  // Doküman no / müşteri: iş seçilince ön-doldurulur (kullanıcı değiştirebilir)
+  const [docNo, setDocNo] = useState("");
+  const [customer, setCustomer] = useState(defaultCustomer ?? "");
+
+  function onPickJob(id: string) {
+    setSelectedJobId(id);
+    const job = jobs?.find((j) => j.id === id);
+    if (job) {
+      setCustomer(job.customer);
+      const base = job.job_no.split("-")[0];
+      if (!docNo && base) setDocNo(`${base}-01`);
+    }
+  }
+
+  const effectiveJobId = jobId ?? (selectedJobId !== NONE ? selectedJobId : "");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,31 +94,56 @@ export function NewProjectDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>{jobId ? "Vinç Ekle" : "Yeni Proje"}</Button>
+        <Button>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{jobId ? "Vinç Ekle" : "Yeni Proje"}</DialogTitle>
+          <DialogTitle>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</DialogTitle>
           <DialogDescription>
             {jobId
               ? `${jobNo ?? ""} işine bağlı yeni bir vinç oluşturun.`.trim()
-              : "Yeni bir hesap raporu projesi oluşturun."}
+              : "Yeni bir hesap raporu oluşturun. İsterseniz mevcut bir işe bağlayın, ya da bağımsız (deneme) bırakın."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          {/* İş bağlantısı (iş panelinden açıldığında) */}
-          {jobId && <input type="hidden" name="job_id" value={jobId} />}
+          {/* İş bağlantısı */}
+          <input type="hidden" name="job_id" value={effectiveJobId} />
+          {showJobSelect && (
+            <div className="grid gap-2">
+              <Label>İş Emri (opsiyonel)</Label>
+              <Select value={selectedJobId} onValueChange={onPickJob}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Bağımsız (işe atanmamış)</SelectItem>
+                  {jobs!.map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.job_no} · {j.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedJob && (
+                <p className="text-xs text-muted-foreground">
+                  Bu rapor <span className="font-medium">{selectedJob.job_no}</span> işine bağlanacak.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="doc_no">Doküman No</Label>
             <Input
               id="doc_no"
               name="doc_no"
+              value={docNo}
+              onChange={(e) => setDocNo(e.target.value)}
               placeholder={jobNo ? `${jobNo.split("-")[0]}-01` : "0055-HR-001"}
               required
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="name">{jobId ? "Vinç Adı" : "Proje Adı"}</Label>
+            <Label htmlFor="name">{jobId ? "Vinç Adı" : "Rapor / Vinç Adı"}</Label>
             <Input id="name" name="name" placeholder="AMONYUM SÜLFAT VİNCİ" required />
           </div>
           <div className="grid gap-2">
@@ -92,7 +152,8 @@ export function NewProjectDialog({
               id="customer"
               name="customer"
               placeholder="İSDEMİR"
-              defaultValue={defaultCustomer}
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
               required
             />
           </div>
@@ -108,7 +169,6 @@ export function NewProjectDialog({
                 ))}
               </SelectContent>
             </Select>
-            {/* Form gönderiminde seçilen tip bu gizli alanla taşınır */}
             <input type="hidden" name="crane_type" value={craneType} />
           </div>
           <DialogFooter>

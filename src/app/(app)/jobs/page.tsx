@@ -5,7 +5,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { NewJobDialog } from "./new-job-dialog";
+import { Button } from "@/components/ui/button";
+
+function NewJobButton() {
+  return (
+    <Button asChild>
+      <Link href="/jobs/new">Yeni İş</Link>
+    </Button>
+  );
+}
 
 function StatCard({
   label,
@@ -57,7 +65,7 @@ export default async function JobsPage() {
             İş emirleri ve içerdikleri vinçler
           </p>
         </div>
-        <NewJobDialog />
+        <NewJobButton />
       </div>
 
       {/* İstatistik kartları */}
@@ -100,7 +108,7 @@ export default async function JobsPage() {
               teknik çizim takibi içerir.
             </p>
           </div>
-          <NewJobDialog />
+          <NewJobButton />
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card shadow-xs">

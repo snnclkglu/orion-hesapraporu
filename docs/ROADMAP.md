@@ -60,6 +60,14 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [x] **Ekipman paneli** (doğrudan indirme yerine tablo görünümü): `/…/equipment` artık panel sayfası (sekmeli: Ekipman Listesi | Teknik Ressam Özeti). Otomatik satırlar salt-okunur; "Ek Ekipman / Özellikler" bölümünde serbest satır ekleme/silme + Kaydet (`equipment_extras` tablosu, `20260720000002` migration, revizyon kilidinden bağımsız). İndirme: Excel + PDF, Müşteri/Tam kapsam seçimi (`equipment/download` route, `format=xlsx|pdf&scope=`). Yeni ekipman PDF üreticisi (`lib/pdf/equipment-report.tsx`, marka kimlikli tablo + Model hücresi datasheet köprüsü). Model hücreleri panelde de tıklanır (harici link).
 - [ ] **Sonraki**: EN rapor tam çevirisi (kullanıcı: önce TR, sonra EN); datasheet linkleri için seçim-anında URL yakalama (motor/halat gibi yalnız marka tutan bileşenler).
 
+## Faz I — İş Emri (Work Order, FR.11.02) tam modeli (2026-07-20)
+Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
+- [x] **Veri modeli**: `jobs` genişletildi (tarih, form kodu, müşteri adres/vergi/telefon/faks, sözleşme var+tarih, atölye çıkış/teslim tarihleri, adet, iş lideri, kapsam jsonb, hazırlayan ad/unvan) + `job_items` tablosu (ürün adı → iş no → adet, sort, opsiyonel project_id) — `20260720000003_work_order.sql` (uygulandı).
+- [x] **Yeni İş formu** (`/jobs/new`) ve **Düzenle** (`/jobs/[id]/edit`): tam FR.11.02 formu — başlık, iş kalemleri editörü (satır ekle/sil, iş no otomatik öneri), müşteri bilgileri, iş bilgileri, kapsam kutucukları, açıklamalar, hazırlayan. `job-form.tsx` + `createJob`/`updateJob` (kalem tam yenileme, proje bağlantısı item_no ile korunur).
+- [x] **İş paneli** (`/jobs/[id]`): iş kalemleri tablosu + müşteri/iş bilgileri kartları + kapsam rozetleri + "İş Emri PDF" indir + "Düzenle".
+- [x] **İş Emri PDF** (`lib/pdf/work-order.tsx` + `jobs/[id]/work-order` route): ASTOR dokümanının düzeni — başlık, kalem tablosu, müşteri/iş kutuları, kapsam ✓ kutucukları, açıklamalar, hazırlayan. Marka kimlikli. next.config font/logo trace `/jobs/**` eklendi.
+- [x] **Rapor↔iş bağlama esnekliği**: `/projects` "Yeni Hesap Raporu" dialoguna opsiyonel iş seçimi (mevcut işe bağla → müşteri/doküman no ön-doldurulur, ya da "Bağımsız (işe atanmamış)" = deneme raporu). İş panelinden "Vinç Ekle" işe sabit bağlar (mevcut).
+
 ## Notlar
 - Hesap motoru golden testleri Excel fikstürlerine karşı çalışmaya devam eder (iç kalite güvencesi) — kullanıcıya görünen yüzeylerde Excel izi olmaz.
 - Vinç tipi hesap varyantları (portal/pergel/tek kirişli) büyük iş — önce spec alanı dropdown olur, hesap varyantları ayrı fazlarda.

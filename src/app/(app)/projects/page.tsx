@@ -44,13 +44,19 @@ function StatCard({
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
-  const [{ data: projects }, settings] = await Promise.all([
+  const [{ data: projects }, { data: jobsData }, settings] = await Promise.all([
     supabase
       .from("projects")
       .select("id, doc_no, name, customer, crane_type, status, created_at, revisions(rev_no, status)")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("jobs")
+      .select("id, job_no, title, customer")
+      .eq("status", "active")
+      .order("created_at", { ascending: false }),
     getReportSettings(supabase),
   ]);
+  const jobs = jobsData ?? [];
 
   const list = projects ?? [];
   const allRevs = list.flatMap((p) => p.revisions ?? []);
@@ -69,7 +75,7 @@ export default async function ProjectsPage() {
             Hesap raporu projeleri ve revizyon arşivi
           </p>
         </div>
-        <NewProjectDialog defaultCraneType={settings.default_crane_type} />
+        <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
       </div>
 
       {/* İstatistik kartları */}
@@ -112,7 +118,7 @@ export default async function ProjectsPage() {
               yayınlanabilir PDF raporlarla birlikte gelir.
             </p>
           </div>
-          <NewProjectDialog defaultCraneType={settings.default_crane_type} />
+          <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card shadow-xs">

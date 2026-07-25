@@ -30,7 +30,10 @@ const nextConfig: NextConfig = {
   // fontlarını ve Orion Cranes logosunu (public/brand) dosya sisteminden okur;
   // Vercel trace'ine dahil edilmeleri gerekir.
   outputFileTracingIncludes: {
+    // Hesap raporu + ekipman PDF'i (report / equipment/download route'ları)
     "/projects/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
+    // İş Emri PDF'i (jobs/[id]/work-order route'u) aynı font+logo dosyalarını okur
+    "/jobs/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
