@@ -72,7 +72,9 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   if (p.t2Mm > 0 && p.b2Mm > 0) els.push(plate(cx - (p.b2Mm * s) / 2, y2, p.b2Mm * s, p.t2Mm * s));
   if (p.t1Mm > 0 && p.b1Mm > 0) els.push(plate(cx - (p.b1Mm * s) / 2, y1, p.b1Mm * s, p.t1Mm * s));
 
-  // --- Ray (basitleştirilmiş profil, üst flanşın üzerinde ortalanır)
+  // --- Ray — yan saclardan (gövde) birinin üzerine oturur (kutu kirişte yaygın).
+  // Ray, birinci gövde sacının (web1) merkezine hizalanır; ortada değil.
+  const railCx = p.t3Mm > 0 ? web1X + (p.t3Mm * s) / 2 : cx;
   if (railH > 0) {
     const hr = railH * s;
     const fw = hr * 0.8;   // taban yarı-genişlik ×2
@@ -87,13 +89,16 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     els.push({
       kind: "polygon",
       points: [
-        [cx - fw / 2, yRB], [cx + fw / 2, yRB], [cx + fw / 2, yR2],
-        [cx + ww / 2, yR2], [cx + ww / 2, yR3], [cx + hw / 2, yR3],
-        [cx + hw / 2, yR4], [cx - hw / 2, yR4], [cx - hw / 2, yR3],
-        [cx - ww / 2, yR3], [cx - ww / 2, yR2], [cx - fw / 2, yR2],
+        [railCx - fw / 2, yRB], [railCx + fw / 2, yRB], [railCx + fw / 2, yR2],
+        [railCx + ww / 2, yR2], [railCx + ww / 2, yR3], [railCx + hw / 2, yR3],
+        [railCx + hw / 2, yR4], [railCx - hw / 2, yR4], [railCx - hw / 2, yR3],
+        [railCx - ww / 2, yR3], [railCx - ww / 2, yR2], [railCx - fw / 2, yR2],
       ],
-      fill: "#FFFFFF", stroke: DCOL.muted, strokeWidth: 1,
+      fill: "#EDE6E6", stroke: DCOL.accent, strokeWidth: 1.1,
     });
+    // Ray merkez ekseni (kesikli) — gövde sacıyla hizası görünsün
+    els.push(ln(railCx, yR4 - 4, railCx, yWebBottom, DCOL.accent, 0.6, "3,3"));
+    els.push(txt(railCx, yR4 - 7, "ray", 8, { anchor: "middle", fill: DCOL.accent }));
   }
 
   // --- Plaka etiketleri (sol: t1/t3/t5, sağ: t2/t4/t6 — çakışma önleme aralıklı)
@@ -110,11 +115,11 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     return out;
   };
 
-  // Sol etiketler
+  // Sol etiketler (açıklayıcı ad + sembol)
   const leftItems = [
-    { y: y1 + (p.t1Mm * s) / 2, edgeX: cx - (p.b1Mm * s) / 2, text: `t1 = ${fmtN(p.t1Mm)}` },
-    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web1X, text: `t3 = ${fmtN(p.t3Mm)}` },
-    { y: y5 + (p.t5Mm * s) / 2, edgeX: cx - (p.b5Mm * s) / 2, text: `t5 = ${fmtN(p.t5Mm)}` },
+    { y: y1 + (p.t1Mm * s) / 2, edgeX: cx - (p.b1Mm * s) / 2, text: `üst başlık  t1 = ${fmtN(p.t1Mm)}` },
+    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web1X, text: `gövde sacı  t3 = ${fmtN(p.t3Mm)}` },
+    { y: y5 + (p.t5Mm * s) / 2, edgeX: cx - (p.b5Mm * s) / 2, text: `alt başlık  t5 = ${fmtN(p.t5Mm)}` },
   ];
   const leftYs = spread(leftItems.map((i) => i.y));
   leftItems.forEach((it, i) => {
@@ -122,11 +127,11 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     els.push(txt(leftX, leftYs[i] + 3, it.text, 9.5, { anchor: "end" }));
   });
 
-  // Sağ etiketler
+  // Sağ etiketler (açıklayıcı ad + sembol)
   const rightItems = [
-    { y: y2 + (p.t2Mm * s) / 2, edgeX: cx + (p.b2Mm * s) / 2, text: `t2 = ${fmtN(p.t2Mm)}` },
-    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}` },
-    { y: y6 + (p.t6Mm * s) / 2, edgeX: cx + (p.b6Mm * s) / 2, text: `t6 = ${fmtN(p.t6Mm)}` },
+    { y: y2 + (p.t2Mm * s) / 2, edgeX: cx + (p.b2Mm * s) / 2, text: `t2 = ${fmtN(p.t2Mm)}  iç başlık` },
+    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}  gövde sacı` },
+    { y: y6 + (p.t6Mm * s) / 2, edgeX: cx + (p.b6Mm * s) / 2, text: `t6 = ${fmtN(p.t6Mm)}  ek flanş` },
   ];
   const rightYs = spread(rightItems.map((i) => i.y));
   rightItems.forEach((it, i) => {
@@ -147,9 +152,18 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   els.push(ln(cx + (maxB * s) / 2 + 4, y1, hX + 4, y1, DCOL.faint, 0.6));
   els.push(ln(cx + (maxB * s) / 2 + 4, yB, hX + 4, yB, DCOL.faint, 0.6));
   dimV(els, hX, y1, yB, `h = ${fmtN(totalH)}`);
-  // a — gövde sacları arası
+  // a — gövde sacları arası (net açıklık, geometriden)
   if (p.aMm > 0 && p.h3Mm > 0) {
-    dimH(els, web1X + p.t3Mm * s, web2X, yWebTop + (p.h3Mm * s) * 0.62, `a = ${fmtN(p.aMm)}`, { size: 9 });
+    dimH(els, web1X + p.t3Mm * s, web2X, yWebTop + (p.h3Mm * s) * 0.62, `gövde arası a = ${fmtN(p.aMm)}`, { size: 8.5 });
+  }
+  // h3 — gövde (web) yüksekliği — sol iç
+  if (p.h3Mm > 0) {
+    const h3X = web1X - 12;
+    dimV(els, h3X, yWebTop, yWebBottom, `h3 = ${fmtN(p.h3Mm)}`, { labelSide: "left", size: 8.5 });
+  }
+  // b2 — üst iç başlık genişliği (üstte, b1'in altında)
+  if (p.b2Mm > 0) {
+    dimH(els, cx - (p.b2Mm * s) / 2, cx + (p.b2Mm * s) / 2, y2 - 8, `b2 = ${fmtN(p.b2Mm)}`, { size: 8.5, labelDy: -3 });
   }
 
   // --- Tarafsız eksen (kırmızı kesikli)

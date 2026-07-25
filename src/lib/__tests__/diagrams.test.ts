@@ -7,6 +7,7 @@ import { girderSectionDiagram } from "@/lib/diagrams/girderSection";
 import { wheelShaftDiagram } from "@/lib/diagrams/wheelShaft";
 import { reevingDiagram } from "@/lib/diagrams/reeving";
 import { drumDiagram } from "@/lib/diagrams/drum";
+import { deflectionDiagram } from "@/lib/diagrams/deflection";
 import { diagramForSection } from "@/lib/diagrams/select";
 import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
@@ -80,6 +81,18 @@ describe("drumDiagram", () => {
   it("çap seçilmediğinde uyarı basar", () => {
     const t = texts(drumDiagram({ drumDiaMm: 0, ropeDiaMm: 20 }));
     expect(t).toContain("Tambur çapı seçilmedi");
+  });
+});
+
+describe("deflectionDiagram", () => {
+  it("açıklık, sehim ve L/δ oranını basar", () => {
+    const t = texts(
+      deflectionDiagram({ spanM: 17.5, deflectionCm: 0.455, deflectionRatio: 3844, limitRatio: 750 })
+    );
+    expect(t).toMatch(/L = 17,5 m/);
+    expect(t).toMatch(/δ = 0,455 cm/);
+    expect(t).toMatch(/L\/δ = 3\.844/);
+    expect(t).toContain("✓");
   });
 });
 

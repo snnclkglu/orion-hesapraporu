@@ -16,6 +16,7 @@ import { girderSectionDiagram } from "./girderSection";
 import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
+import { deflectionDiagram } from "./deflection";
 
 export function diagramForSection(
   moduleKey: string,
@@ -38,6 +39,18 @@ export function diagramForSection(
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
         czMm: v?.czMm, cyMm: v?.cyMm,
+      });
+    }
+
+    if (moduleKey === "girder" && rawSectionId === "7.6") {
+      const st = input.girder;
+      if (!st) return null;
+      const v = result.girder?.values as GirderValues | undefined;
+      return deflectionDiagram({
+        spanM: input.specs.spanM,
+        deflectionCm: v?.deflectionCm ?? 0,
+        deflectionRatio: v?.deflectionRatio,
+        limitRatio: st.inputs.deflectionLimitRatio,
       });
     }
 
