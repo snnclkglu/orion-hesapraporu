@@ -245,6 +245,10 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       },
       // --- σz bileşenleri (teker basıncı, gövde üst kenarı) — FEM 1.001 4.2 ---
       {
+        cell: "D266", label: "Teker basıncı yayılım boyu l (otomatik)",
+        formula: "l = 2·h + 40", unit: "mm", digits: 0, standard: "FEM 1.001 4.2",
+      },
+      {
         cell: "D271", label: "σz · teker basıncı — araba",
         formula: "σz = −P_araba / (2·(0,2h+5)·t·0,1)", unit: "kg/cm²", standard: "FEM 1.001 4.2",
       },
