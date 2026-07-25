@@ -56,7 +56,7 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "trolleyAxleSpacingM", label: "Araba dingil açıklığı", unit: "m", type: "number", excelCell: "D88" },
   { key: "trolleyDrivenWheels", label: "Araba tahrikli teker sayısı", type: "number", excelCell: "E101" },
   { key: "bridgeDrivenWheels", label: "Köprü tahrikli teker sayısı", type: "number", excelCell: "E120" },
-  { key: "amplifyYc", label: "Arttırma katsayısı γc", type: "number", excelCell: "E138" },
+  { key: "amplifyYc", label: "Arttırma katsayısı γc", type: "number", excelCell: "E138", femTable: "gammaC" },
   { key: "dynTestFactorR1", label: "Dinamik test katsayısı ρ1", type: "number", excelCell: "E161" },
   { key: "statTestFactorR2", label: "Statik test katsayısı ρ2", type: "number", excelCell: "E162" },
   { key: "railLeverCMm", label: "Kayma merkezi kolu c", unit: "mm", type: "number", excelCell: "D230" },

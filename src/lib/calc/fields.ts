@@ -15,6 +15,8 @@ export interface FieldDef<T> {
   numeric?: boolean;
   /** select seçeneklerinin gösterim etiketi (değer→etiket, ör. "1000"→"1/1000") */
   optionLabels?: Record<string, string>;
+  /** FEM referans tablosu anahtarı (fem-tables.ts) — alan yanında "FEM" düğmesi */
+  femTable?: string;
   excelCell?: string;
 }
 

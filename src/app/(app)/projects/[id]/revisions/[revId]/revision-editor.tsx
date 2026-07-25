@@ -57,6 +57,8 @@ import {
 import { CatalogPicker } from "@/components/catalog-picker";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { MathFormula } from "@/components/math/math-formula";
+import { FemTableButton } from "@/components/fem-table-dialog";
+import { FEM_TABLES } from "@/lib/calc/fem-tables";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,9 +103,20 @@ function Field({
   const id = `f-${def.key}`;
   return (
     <div className="grid gap-1">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {def.label}
-        {def.unit ? ` [${toDisplayUnitLabel(def.unit)}]` : ""}
+      <Label htmlFor={id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span>
+          {def.label}
+          {def.unit ? ` [${toDisplayUnitLabel(def.unit)}]` : ""}
+        </span>
+        {(() => {
+          const ft = (def as { femTable?: string }).femTable;
+          return ft && FEM_TABLES[ft] ? (
+            <FemTableButton
+              table={FEM_TABLES[ft]}
+              value={typeof v === "number" ? v : parseFloat(String(v ?? ""))}
+            />
+          ) : null;
+        })()}
       </Label>
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
