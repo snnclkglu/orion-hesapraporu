@@ -17,6 +17,8 @@ import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
 import { deflectionDiagram } from "./deflection";
+import { girderLoadDiagram } from "./girderLoad";
+import { girderStressDiagram } from "./girderStress";
 
 export function diagramForSection(
   moduleKey: string,
@@ -39,6 +41,34 @@ export function diagramForSection(
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
         czMm: v?.czMm, cyMm: v?.cyMm,
+      });
+    }
+
+    if (moduleKey === "girder" && rawSectionId === "7.2") {
+      const st = input.girder;
+      const mr = result.girder;
+      if (!st || !mr) return null;
+      const c = (mr.cells ?? {}) as Record<string, number>;
+      const v = mr.values as GirderValues | undefined;
+      return girderLoadDiagram({
+        spanM: input.specs.spanM,
+        wheelSpacingMm: c.D172,
+        wheelLoadKg: (c.D191 ?? 0) + (c.D199 ?? 0),
+        selfWeightKg: v?.bridgeWeightKg,
+        liveLoadKg: v?.liveLoadKg,
+        momentKgCm: c.I192,
+      });
+    }
+
+    if (moduleKey === "girder" && rawSectionId === "7.4") {
+      const st = input.girder;
+      const v = result.girder?.values as GirderValues | undefined;
+      if (!st || !v) return null;
+      return girderStressDiagram({
+        sigmaXTopKgCm2: v.sigmaXTopCase1,
+        sigmaXBottomKgCm2: v.sigmaXBottomCase1,
+        sigmaZKgCm2: v.sigmaZCase1,
+        sigmaSKgCm2: v.shearMainCase1,
       });
     }
 

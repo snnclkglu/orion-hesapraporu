@@ -8,6 +8,8 @@ import { wheelShaftDiagram } from "@/lib/diagrams/wheelShaft";
 import { reevingDiagram } from "@/lib/diagrams/reeving";
 import { drumDiagram } from "@/lib/diagrams/drum";
 import { deflectionDiagram } from "@/lib/diagrams/deflection";
+import { girderLoadDiagram } from "@/lib/diagrams/girderLoad";
+import { girderStressDiagram } from "@/lib/diagrams/girderStress";
 import { diagramForSection } from "@/lib/diagrams/select";
 import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
@@ -96,6 +98,36 @@ describe("deflectionDiagram", () => {
   });
 });
 
+describe("girderLoadDiagram", () => {
+  it("açıklık, araba yükleri ve momenti basar", () => {
+    const t = texts(
+      girderLoadDiagram({
+        spanM: 17.5, wheelSpacingMm: 3000, wheelLoadKg: 4200,
+        selfWeightKg: 8000, liveLoadKg: 10000, momentKgCm: 500000,
+      })
+    );
+    expect(t).toMatch(/L = 17,5 m/);
+    expect(t).toContain("ARABA");
+    expect(t).toMatch(/Mmaks =/);
+    expect(t).toMatch(/R_A/);
+  });
+});
+
+describe("girderStressDiagram", () => {
+  it("gerilme konumlarını MPa ile etiketler", () => {
+    const t = texts(
+      girderStressDiagram({
+        sigmaXTopKgCm2: -450, sigmaXBottomKgCm2: 548,
+        sigmaZKgCm2: -120, sigmaSKgCm2: 60,
+      })
+    );
+    expect(t).toContain("σx alt · ÇEKME");
+    expect(t).toContain("σx üst · BASINÇ");
+    expect(t).toMatch(/σz . teker basıncı/);
+    expect(t).toMatch(/MPa/);
+  });
+});
+
 describe("reevingDiagram", () => {
   it("donanım etiketini ve tamburu basar", () => {
     const t = texts(reevingDiagram({ drivenFalls: 2, totalFalls: 4, drumDiaMm: 400, loadKg: 7500 }));
@@ -115,13 +147,16 @@ describe("diagramForSection", () => {
   const input = V5_TEMPLATE;
   const result = runCalc(input);
 
-  it("7.1 / 5.2 / 2.1 bölümlerine diyagram, diğerlerine null döner", () => {
+  it("ilgili bölümlere diyagram, diğerlerine null döner", () => {
     expect(diagramForSection("girder", "7.1", input, result)).not.toBeNull();
+    expect(diagramForSection("girder", "7.2", input, result)).not.toBeNull(); // yükler
+    expect(diagramForSection("girder", "7.4", input, result)).not.toBeNull(); // gerilme konumları
+    expect(diagramForSection("girder", "7.6", input, result)).not.toBeNull(); // sehim
     expect(diagramForSection("trolley", "5.2", input, result)).not.toBeNull();
     expect(diagramForSection("bridge", "5.2", input, result)).not.toBeNull();
     expect(diagramForSection("main", "2.1", input, result)).not.toBeNull();
     expect(diagramForSection("aux", "2.1", input, result)).not.toBeNull();
-    expect(diagramForSection("girder", "7.2", input, result)).toBeNull();
+    expect(diagramForSection("girder", "7.3", input, result)).toBeNull();
     expect(diagramForSection("buckling", "8.1", input, result)).toBeNull();
   });
 
