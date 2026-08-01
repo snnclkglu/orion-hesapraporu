@@ -33,7 +33,7 @@ export function FemTableButton({
         <button
           type="button"
           title={`${table.code} — tabloyu göster`}
-          className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary/90 hover:bg-primary/10"
+          className="inline-flex items-center gap-1 border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary/90 hover:bg-primary/10"
         >
           <BookMarked className="size-3" />
           FEM
@@ -43,7 +43,7 @@ export function FemTableButton({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {table.title}
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+            <span className="bg-muted px-1.5 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">
               {table.code}
             </span>
           </DialogTitle>

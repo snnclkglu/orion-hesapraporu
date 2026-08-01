@@ -1,0 +1,33 @@
+/* ORION CRANES · SPACING
+   Screen rhythm mirrors the guide's own step values (7 / 9 / 12 / 16 / 22 …);
+   page tokens are the A4 measurements the print system is built on. */
+:root{
+  --space-0:0;
+  --space-2xs:4px;
+  --space-xs:7px;
+  --space-sm:9px;
+  --space-md:12px;
+  --space-lg:16px;
+  --space-xl:22px;
+  --space-2xl:26px;
+  --space-3xl:34px;
+  --space-4xl:44px;
+  --space-5xl:64px;
+  --space-6xl:88px;
+
+  /* A4 page system */
+  --page-width:210mm; /* @kind spacing */
+  --page-height:297mm; /* @kind spacing */
+  --page-spine:8mm; /* @kind spacing */
+  --page-margin-top:16mm;
+  --page-margin-outer:16mm;
+  --page-margin-inner:14mm;
+  --page-margin-bottom:11mm;
+  --page-columns:6; /* @kind other */
+  --page-gutter:4mm; /* @kind spacing */
+
+  /* Screen container */
+  --container-max:1240px;
+  --container-pad:32px;
+  --section-gap:88px;
+}

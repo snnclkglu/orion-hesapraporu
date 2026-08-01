@@ -27,16 +27,16 @@ function StatCard({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border bg-card p-4 shadow-xs">
+    <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
         <Icon className="size-4" />
       </span>
       <div className="min-w-0 leading-tight">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">
+        <div className="oc-kicker text-muted-foreground">{label}</div>
+        <div className="mt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight">
           {value}
         </div>
-        {hint && <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</div>}
+        {hint && <div className="mt-0.5 truncate text-[11px] text-foreground/70">{hint}</div>}
       </div>
     </div>
   );
@@ -97,21 +97,24 @@ export default async function JobsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-card px-6 py-16 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Briefcase className="size-6" />
-          </span>
-          <div>
-            <h2 className="text-base font-semibold">Henüz iş yok</h2>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              İlk iş emrini oluşturun; her iş birden çok vinç, hesap raporu ve
-              teknik çizim takibi içerir.
-            </p>
-          </div>
+        <div
+          className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-16 text-center"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+          }}
+        >
+          <h2 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
+            [ HENÜZ İŞ YOK ]
+          </h2>
+          <p className="max-w-sm bg-card px-3 py-1 text-sm text-foreground/70">
+            İlk iş emrini oluşturun; her iş birden çok vinç, hesap raporu ve
+            teknik çizim takibi içerir.
+          </p>
           <NewJobButton />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+        <div className="overflow-hidden rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -133,17 +136,17 @@ export default async function JobsPage() {
                   </TableCell>
                   <TableCell className="font-medium">{j.title}</TableCell>
                   <TableCell className="text-muted-foreground">{j.customer}</TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="font-mono tabular-nums">
                     {j.projects?.length ?? 0}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
                     {new Date(j.created_at).toLocaleDateString("tr-TR")}
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5 text-sm">
                       <span
                         className={cn(
-                          "size-2 rounded-full",
+                          "size-2",
                           j.status === "active" ? "bg-success" : "bg-muted-foreground/40"
                         )}
                       />

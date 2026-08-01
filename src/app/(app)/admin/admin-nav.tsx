@@ -23,10 +23,13 @@ export function AdminNav() {
           <Link
             key={item.href}
             href={item.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md px-3 py-2 text-sm transition-colors",
+              // Aktiflik dili app-shell ile aynı: kırmızı sol çentik + zemin.
+              // Pasifte şeffaf çentik, aktifleşince metin kaymasın diye.
+              "border-l-2 border-l-transparent px-3 py-2 text-sm transition-colors",
               active
-                ? "bg-primary/10 font-medium text-primary"
+                ? "border-l-primary bg-muted font-medium text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >

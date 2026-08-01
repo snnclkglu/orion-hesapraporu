@@ -85,14 +85,14 @@ export default async function ProjectPage({
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <Link
               href={`/projects/${project.id}/compare`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted"
             >
               <GitCompare className="size-3.5 text-muted-foreground" />
               Revizyonları Karşılaştır
             </Link>
             <Link
               href={`/projects/${project.id}/audit`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted"
             >
               <ScrollText className="size-3.5 text-muted-foreground" />
               İşlem Kaydı
@@ -122,32 +122,35 @@ export default async function ProjectPage({
       </div>
 
       <Tabs defaultValue="report">
-        <TabsList>
-          <TabsTrigger value="report">Hesap Raporu</TabsTrigger>
-          <TabsTrigger value="drawings">
-            Teknik Çizimler
-            {drawingList.length > 0 && (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                ({drawingList.length})
-              </span>
-            )}
-          </TabsTrigger>
+        {/* Link, role=tablist içinde kalmasın diye TabsList'in kardeşi olarak durur */}
+        <div className="flex flex-wrap items-center gap-1">
+          <TabsList>
+            <TabsTrigger value="report">Hesap Raporu</TabsTrigger>
+            <TabsTrigger value="drawings">
+              Teknik Çizimler
+              {drawingList.length > 0 && (
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  ({drawingList.length})
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
           {/* Ekipman listesi revizyon snapshot'ından üretilir; sekme yerine
               son revizyonun indirme linki verilir. */}
           {latestRev && (
             <a
               href={`/projects/${project.id}/revisions/${latestRev.id}/equipment`}
-              className="inline-flex h-[calc(100%-1px)] items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 hover:text-foreground"
             >
               <FileDown className="size-3.5" />
               Ekipman Listesi (V{latestRev.rev_no})
             </a>
           )}
-        </TabsList>
+        </div>
 
         {/* ------------------------------------------------ Hesap Raporu */}
         <TabsContent value="report">
-          <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+          <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -179,7 +182,7 @@ export default async function ProjectPage({
                     <TableCell className="text-sm">
                       {(r.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString("tr-TR")}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
@@ -188,9 +191,23 @@ export default async function ProjectPage({
                   </TableRow>
                 ))}
                 {(revisions ?? []).length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                      Henüz revizyon yok. &quot;Yeni Revizyon&quot; ile başlayın.
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={6}
+                      className="h-32 text-center"
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+                      }}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em] text-foreground">
+                          [ HENÜZ REVİZYON YOK ]
+                        </span>
+                        <span className="bg-card px-3 py-1 text-sm text-foreground/70">
+                          Henüz revizyon yok. &quot;Yeni Revizyon&quot; ile başlayın.
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -208,7 +225,7 @@ export default async function ProjectPage({
               </p>
               <DrawingDialog projectId={project.id} categories={categories} />
             </div>
-            <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+            <div className="overflow-hidden rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -260,9 +277,23 @@ export default async function ProjectPage({
                     </TableRow>
                   ))}
                   {drawingList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                        Henüz çizim kaydı yok. &quot;Yeni Çizim&quot; ile başlayın.
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell
+                        colSpan={7}
+                        className="h-32 text-center"
+                        style={{
+                          backgroundImage:
+                            "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+                        }}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em] text-foreground">
+                            [ HENÜZ ÇİZİM YOK ]
+                          </span>
+                          <span className="bg-card px-3 py-1 text-sm text-foreground/70">
+                            Henüz çizim kaydı yok. &quot;Yeni Çizim&quot; ile başlayın.
+                          </span>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

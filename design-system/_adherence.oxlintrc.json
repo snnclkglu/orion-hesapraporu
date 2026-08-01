@@ -1,0 +1,9 @@
+{
+  "plugins": ["react", "import"],
+  "rules": {
+    "react/forbid-elements": ["warn", { "forbid": [] }],
+    "no-restricted-imports": ["warn", { "patterns": [ { "group": ["components/brand/**","components/core/**","components/data/**","components/feedback/**","components/forms/**","components/navigation/**","ui_kits/brand-applications/**","ui_kits/website/**"], "message": "Import design-system components from 'index.js', not component internals." } ] }]
+  },
+  "overrides": [ { "files": ["**/index.js"], "rules": { "no-restricted-imports": "off" } } ],
+  "_note": "Trimmed local copy. Full prop-contract lint selectors live in the cloud project (_adherence.oxlintrc.json); component prop contracts are documented in each component's .d.ts and .prompt.md."
+}

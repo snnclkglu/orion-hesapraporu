@@ -33,7 +33,7 @@ export function ReportMenu({ projectId, revisionId }: { projectId: string; revis
   const base = `/projects/${projectId}/revisions/${revisionId}/report`;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted">
+      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted">
         <FileText className="size-3.5 text-muted-foreground" />
         PDF Rapor
         <ChevronDown className="size-3.5 text-muted-foreground" />

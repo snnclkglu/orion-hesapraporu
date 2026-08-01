@@ -1,82 +1,54 @@
 // Ekipman listesi PDF çıktısı — @react-pdf/renderer. Panelden "PDF indir" ile
-// üretilir. Marka kimliğine sadık (kırmızı omurga, logo, kurumsal footer).
-// Sütunlar: Ekipman · Marka · Model · Özellikler · Adet. Model hücresi katalog
-// datasheet linki varsa köprülenir. scope="full" ise Teknik Ressam Özeti eklenir.
+// üretilir. Marka altyapısı brand.tsx: BrandPage (kırmızı omurga + folio
+// altbilgi), PageHeader bandı, Archivo gövde + PlexMono sayı/kod. Sütunlar:
+// Ekipman · Marka · Model · Özellikler · Adet. Model hücresi katalog datasheet
+// linki varsa köprülenir (çelik mavisi). scope="full" → Teknik Ressam Özeti.
 
-import fs from "node:fs";
-import path from "node:path";
-import {
-  Document, Font, Image, Link, Page, StyleSheet, Text, View, renderToBuffer,
-} from "@react-pdf/renderer";
+import { Document, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
+import { BRAND, BrandPage, PageHeader, RuleRed, T } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 
-const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
-const LOGO_PATH = path.join(process.cwd(), "public", "brand", "orion-logo.png");
-const LOGO_DATA = fs.readFileSync(LOGO_PATH);
-
-Font.register({
-  family: "DejaVu",
-  fonts: [
-    { src: path.join(FONT_DIR, "DejaVuSans.ttf") },
-    { src: path.join(FONT_DIR, "DejaVuSans-Bold.ttf"), fontWeight: "bold" },
-    { src: path.join(FONT_DIR, "DejaVuSans-Oblique.ttf"), fontStyle: "italic" },
-  ],
-});
-Font.registerHyphenationCallback((w) => [w]);
-
-const C = {
-  ink: "#262626", muted: "#6B6663", faint: "#8A8480", line: "#DCD9D7",
-  headBg: "#F1EEEC", groupBg: "#E7E4E2", accent: "#A41E1E", link: "#1155CC",
-};
-
 const s = StyleSheet.create({
-  page: {
-    fontFamily: "DejaVu", fontSize: 8, color: C.ink,
-    paddingTop: 40, paddingBottom: 52, paddingHorizontal: 40,
+  // meta ızgarası (Proje / Müşteri / Revizyon / Tarih)
+  metaGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10, gap: 2 },
+  metaItem: { width: "50%", flexDirection: "row" },
+  metaLabel: { width: 70, fontFamily: "Archivo", fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
+  metaVal: { fontFamily: "Archivo", fontSize: 8, color: BRAND.ink },
+  metaMono: { fontFamily: "PlexMono", fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
+  // tablo: kömür başlık zemini + hairline satır çizgileri
+  tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
+  th: {
+    fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
+    textTransform: "uppercase" as const, color: BRAND.paper100,
+    paddingVertical: 4, paddingHorizontal: 5,
   },
-  spine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 8, backgroundColor: C.accent },
-  topRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end",
-    borderBottomWidth: 1.5, borderBottomColor: C.ink, paddingBottom: 8, marginBottom: 12,
+  groupRow: { backgroundColor: BRAND.paper150 },
+  groupCell: {
+    fontFamily: "Archivo", fontSize: 8, fontWeight: 700, color: BRAND.ink,
+    textTransform: "uppercase" as const, paddingVertical: 3, paddingHorizontal: 5,
   },
-  logo: { width: 130, height: 14.6 },
-  brand: { fontSize: 6.5, color: C.muted, letterSpacing: 1.2, marginTop: 4 },
-  docMeta: { fontSize: 8, color: C.muted, textAlign: "right" },
-  h1: { fontSize: 14, fontWeight: "bold", color: C.accent, letterSpacing: 1 },
-  h1En: { fontSize: 7.5, color: C.muted, letterSpacing: 1, marginBottom: 8 },
-  metaGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 8, gap: 2 },
-  metaItem: { width: "50%", flexDirection: "row", fontSize: 8 },
-  metaLabel: { width: 70, color: C.muted, fontWeight: "bold" },
-  // tablo
-  tHead: { flexDirection: "row", backgroundColor: C.accent, color: "#fff" },
-  th: { paddingVertical: 3.5, paddingHorizontal: 5, fontWeight: "bold", fontSize: 7.5 },
-  groupRow: { backgroundColor: C.groupBg, borderTopWidth: 1, borderTopColor: C.accent },
-  groupCell: { paddingVertical: 3, paddingHorizontal: 5, fontWeight: "bold", fontSize: 8 },
-  tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: C.line },
-  td: { paddingVertical: 2.5, paddingHorizontal: 5, fontSize: 7.5 },
+  tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
+  td: { fontFamily: "Archivo", fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
+  mono: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
   cComp: { width: "21%" },
   cBrand: { width: "14%" },
   cModel: { width: "18%" },
   cSpec: { width: "39%" },
-  cQty: { width: "8%", textAlign: "center" },
-  custom: { color: C.accent },
+  cQty: { width: "8%", textAlign: "right" as const },
+  custom: { color: BRAND.red },
   // özet
-  sumHead: { flexDirection: "row", backgroundColor: C.accent, color: "#fff" },
-  sumSection: { backgroundColor: C.groupBg, fontWeight: "bold", paddingVertical: 3, paddingHorizontal: 5, fontSize: 8 },
-  sLabel: { width: "62%" }, sVal: { width: "24%", textAlign: "right" }, sUnit: { width: "14%", textAlign: "center", color: C.muted },
-  footer: {
-    position: "absolute", left: 40, right: 40, bottom: 20,
-    borderTopWidth: 0.75, borderTopColor: C.line, paddingTop: 4, flexDirection: "column", gap: 1.5,
+  sumSection: {
+    backgroundColor: BRAND.paper150, fontFamily: "Archivo", fontSize: 8, fontWeight: 700,
+    color: BRAND.ink, textTransform: "uppercase" as const, paddingVertical: 3, paddingHorizontal: 5,
   },
-  fRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  fCompany: { fontSize: 7.5, fontWeight: "bold", color: C.accent, letterSpacing: 0.5 },
-  fMeta: { fontSize: 7, color: C.muted },
-  fContact: { fontSize: 6, color: C.faint },
+  sLabel: { width: "62%" },
+  sVal: { width: "24%", textAlign: "right" as const },
+  sUnit: { width: "14%", textAlign: "right" as const, color: BRAND.gray600 },
 });
 
 export interface EquipmentMetaPdf {
@@ -92,68 +64,22 @@ export interface EquipmentPdfProps {
   datasheetUrls?: Map<string, string>;
 }
 
-function Footer({ meta, settings }: { meta: EquipmentMetaPdf; settings?: ReportSettings }) {
-  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  const contact = [st.address, st.phone, st.email, st.web]
-    .map((x) => (x ?? "").trim()).filter(Boolean).join("  ·  ");
-  return (
-    <View style={s.footer} fixed>
-      <View style={s.fRow}>
-        <Text style={s.fCompany}>{st.company}</Text>
-        <Text style={s.fMeta}>
-          {meta.docNo}
-          {"   "}
-          <Text render={({ pageNumber, totalPages }) => `Sayfa ${pageNumber} / ${totalPages}`} />
-        </Text>
-      </View>
-      <Text style={s.fContact}>{contact || st.city}</Text>
-    </View>
-  );
-}
-
-function Header({ meta, settings, title, titleEn }: {
-  meta: EquipmentMetaPdf; settings?: ReportSettings; title: string; titleEn: string;
-}) {
-  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  return (
-    <View>
-      <View style={s.topRow}>
-        <View>
-          <Image style={s.logo} src={LOGO_DATA} />
-          <Text style={s.brand}>{st.company}</Text>
-        </View>
-        <View>
-          <Text style={s.docMeta}>DOC {meta.docNo}</Text>
-          <Text style={s.docMeta}>REV V{meta.revNo} · {meta.date}</Text>
-        </View>
-      </View>
-      <Text style={s.h1}>{title}</Text>
-      <Text style={s.h1En}>{titleEn}</Text>
-      <View style={s.metaGrid}>
-        <View style={s.metaItem}><Text style={s.metaLabel}>Proje</Text><Text>{meta.projectName}</Text></View>
-        <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text>{meta.customer}</Text></View>
-        <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
-        <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text>{meta.date}</Text></View>
-      </View>
-    </View>
-  );
-}
-
-function ModelCell({ group, row, urls }: {
-  group: string; row: EqGroup["rows"][number]; urls?: Map<string, string>;
-}) {
+function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
   const url = row.kind ? urls?.get(dsKey(row.kind, row.brand, row.model)) : undefined;
   if (url && row.model && row.model !== "-") {
     return (
       <View style={[s.td, s.cModel]}>
-        <Link src={url} style={{ color: C.link, textDecoration: "underline" }}>{row.model}</Link>
+        <Link src={url} style={[s.mono, { color: BRAND.steel, textDecoration: "underline" }]}>{row.model}</Link>
       </View>
     );
   }
-  return <Text style={[s.td, s.cModel]}>{row.model}</Text>;
+  return <Text style={[s.td, s.mono, s.cModel]}>{row.model}</Text>;
 }
 
 export function EquipmentDocument({ meta, groups, summary, settings, datasheetUrls }: EquipmentPdfProps) {
+  const rev = String(meta.revNo).padStart(2, "0");
+  const year = /(\d{4})/.exec(meta.date)?.[1] ?? String(new Date().getFullYear());
+  const docCode = `ORC-EQ-${meta.docNo}-R${rev}`;
   return (
     <Document
       title={`${meta.docNo}-V${meta.revNo} Ekipman Listesi`}
@@ -161,9 +87,18 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
       subject={`${meta.customer} — ${meta.projectName}`}
       language="tr"
     >
-      <Page size="A4" style={s.page} wrap>
-        <View style={s.spine} fixed />
-        <Header meta={meta} settings={settings} title="EKİPMAN LİSTESİ" titleEn="EQUIPMENT LIST" />
+      <BrandPage
+        docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
+        docCode={docCode}
+      >
+        <PageHeader kicker="ORION CRANES · EQUIPMENT LIST" title="EKİPMAN LİSTESİ" meta={docCode} />
+
+        <View style={s.metaGrid}>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Proje</Text><Text style={s.metaVal}>{meta.projectName}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
+        </View>
 
         <View style={s.tHead} fixed>
           <Text style={[s.th, s.cComp]}>Ekipman</Text>
@@ -182,9 +117,9 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
                   {r.component}{r.custom ? " *" : ""}
                 </Text>
                 <Text style={[s.td, s.cBrand]}>{r.brand}</Text>
-                <ModelCell group={g.name} row={r} urls={datasheetUrls} />
+                <ModelCell row={r} urls={datasheetUrls} />
                 <Text style={[s.td, s.cSpec]}>{r.spec}</Text>
-                <Text style={[s.td, s.cQty]}>{String(r.qty)}</Text>
+                <Text style={[s.td, s.mono, s.cQty]}>{String(r.qty)}</Text>
               </View>
             ))}
           </View>
@@ -192,9 +127,14 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
 
         {summary && summary.length > 0 && (
           <View break>
-            <Text style={[s.h1, { marginTop: 4 }]}>TEKNİK RESSAM ÖZETİ</Text>
-            <Text style={s.h1En}>FABRICATION SUMMARY</Text>
-            <View style={s.sumHead} fixed>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 6 }}>
+              <View>
+                <Text style={T.kicker}>TEKNİK RESSAM ÖZETİ</Text>
+                <RuleRed />
+              </View>
+              <Text style={T.micro}>FABRICATION SUMMARY</Text>
+            </View>
+            <View style={s.tHead} fixed>
               <Text style={[s.th, s.sLabel]}>Ölçü / Özellik</Text>
               <Text style={[s.th, s.sVal]}>Değer</Text>
               <Text style={[s.th, s.sUnit]}>Birim</Text>
@@ -205,17 +145,15 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
                 {sec.rows.map((r, i) => (
                   <View key={i} style={s.tr} wrap={false}>
                     <Text style={[s.td, s.sLabel]}>{r.label}</Text>
-                    <Text style={[s.td, s.sVal]}>{String(r.value)}</Text>
-                    <Text style={[s.td, s.sUnit]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
+                    <Text style={[s.td, s.mono, s.sVal]}>{String(r.value)}</Text>
+                    <Text style={[s.td, s.mono, s.sUnit, { color: BRAND.gray600 }]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
                   </View>
                 ))}
               </View>
             ))}
           </View>
         )}
-
-        <Footer meta={meta} settings={settings} />
-      </Page>
+      </BrandPage>
     </Document>
   );
 }

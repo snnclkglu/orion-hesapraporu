@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { diffRevisions } from "@/lib/revision-diff";
 import { MODULE_LABELS, fieldLabel } from "@/lib/calc/labels";
 import { Badge } from "@/components/ui/badge";
@@ -104,11 +105,16 @@ export default async function ComparePage({
 
       {diff.checks.length > 0 && (
         <section className="grid gap-2">
-          <h2 className="text-sm font-semibold">Kontrol Durumu Değişimleri ({diff.checks.length})</h2>
+          <h2 className="oc-kicker text-foreground/80">Kontrol Durumu Değişimleri · {diff.checks.length}</h2>
           {diff.checks.map((c) => (
             <div
               key={c.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              className={cn(
+                "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+                // Yön vurgusu: bozulan kontrol kırmızı, düzelen kontrol yeşil zemin.
+                c.aPass === true && c.bPass === false && "border-destructive/40 bg-destructive/10",
+                c.aPass === false && c.bPass === true && "border-success/40 bg-success/10"
+              )}
             >
               <span>{c.label}</span>
               <span className="flex items-center gap-2 font-mono text-xs">
@@ -128,7 +134,7 @@ export default async function ComparePage({
       ) : (
         sortedModules.map((mk) => (
           <section key={mk} className="grid gap-2">
-            <h2 className="text-sm font-semibold">{MODULE_LABELS[mk] ?? mk}</h2>
+            <h2 className="oc-kicker text-foreground/80">{MODULE_LABELS[mk] ?? mk}</h2>
             <div className="rounded-lg border">
               <Table>
                 <TableHeader>
@@ -153,10 +159,12 @@ export default async function ComparePage({
                             {f.kind === "selection" ? "seçim" : "girdi"}
                           </Badge>
                         </TableCell>
+                        {/* Eski değer gri, yeni değer koyu — üstü çizili kullanılmaz
+                            (mühendislik dokümanında çizili değer karışıklık yaratır) */}
                         <TableCell className="text-right font-mono text-sm text-muted-foreground">
                           {fmtVal(f.a)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-medium">
+                        <TableCell className="text-right font-mono text-sm font-semibold text-foreground">
                           {fmtVal(f.b)}
                         </TableCell>
                       </TableRow>

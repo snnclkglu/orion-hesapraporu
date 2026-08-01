@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Construction, FileDown, Pencil } from "lucide-react";
+import { FileDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,21 @@ function fmtDate(iso?: string | null): string {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
 }
 
-function KV({ label, value }: { label: string; value?: string | null }) {
+function KV({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean; // tarih/sayı gibi teknik değerler mono dizilir
+}) {
   return (
     <div className="flex gap-2 border-b py-1 last:border-0">
       <span className="w-32 shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm">{value && String(value).trim() ? value : "—"}</span>
+      <span className={mono ? "font-mono text-sm tabular-nums" : "text-sm"}>
+        {value && String(value).trim() ? value : "—"}
+      </span>
     </div>
   );
 }
@@ -74,7 +84,8 @@ export default async function JobPage({
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{job.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {job.customer} · İş Emri Tarihi: {fmtDate(job.work_order_date)}
+            {job.customer} · İş Emri Tarihi:{" "}
+            <span className="font-mono tabular-nums">{fmtDate(job.work_order_date)}</span>
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span className="inline-flex items-center gap-1.5">
@@ -99,12 +110,23 @@ export default async function JobPage({
       </div>
 
       {/* İş kalemleri */}
-      <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+      <div className="overflow-hidden rounded-lg border bg-card">
         <div className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold">İş Kalemleri</div>
         {itemList.length === 0 ? (
-          <p className="px-4 py-4 text-sm text-muted-foreground">
-            Kalem yok. &quot;Düzenle&quot; ile ürün/iş no ekleyin.
-          </p>
+          <div
+            className="flex flex-col items-center gap-2 px-4 py-8 text-center"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+            }}
+          >
+            <span className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
+              [ KALEM YOK ]
+            </span>
+            <p className="bg-card px-3 py-1 text-sm text-foreground/70">
+              Kalem yok. &quot;Düzenle&quot; ile ürün/iş no ekleyin.
+            </p>
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -118,10 +140,10 @@ export default async function JobPage({
             <TableBody>
               {itemList.map((it, i) => (
                 <TableRow key={i}>
-                  <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="font-mono tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">{it.product_name}</TableCell>
                   <TableCell className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
-                  <TableCell>{it.quantity || "—"}</TableCell>
+                  <TableCell className="font-mono tabular-nums">{it.quantity || "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -131,21 +153,21 @@ export default async function JobPage({
 
       {/* Müşteri + iş bilgileri */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4 shadow-xs">
+        <div className="rounded-lg border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">Müşteri Bilgileri</h2>
           <KV label="Adı" value={job.customer} />
           <KV label="Adresi" value={job.customer_address} />
           <KV label="Vergi Dairesi" value={job.customer_tax_office} />
-          <KV label="Vergi No" value={job.customer_tax_no} />
-          <KV label="Telefon" value={job.customer_phone} />
-          <KV label="Faks" value={job.customer_fax} />
+          <KV label="Vergi No" value={job.customer_tax_no} mono />
+          <KV label="Telefon" value={job.customer_phone} mono />
+          <KV label="Faks" value={job.customer_fax} mono />
         </div>
-        <div className="rounded-lg border bg-card p-4 shadow-xs">
+        <div className="rounded-lg border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">İş Bilgileri</h2>
           <KV label="Sözleşme" value={job.contract_exists ? "VAR" : "YOK"} />
-          <KV label="Sözleşme Tarihi" value={fmtDate(job.contract_date)} />
-          <KV label="Atölye Çıkış" value={fmtDate(job.workshop_exit_date)} />
-          <KV label="Teslim Tarihi" value={fmtDate(job.delivery_date)} />
+          <KV label="Sözleşme Tarihi" value={fmtDate(job.contract_date)} mono />
+          <KV label="Atölye Çıkış" value={fmtDate(job.workshop_exit_date)} mono />
+          <KV label="Teslim Tarihi" value={fmtDate(job.delivery_date)} mono />
           <KV label="Adet" value={job.quantity_text} />
           <KV label="İş Lideri" value={job.job_leader} />
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -161,7 +183,7 @@ export default async function JobPage({
       </div>
 
       {(job.notes || job.prepared_by_name) && (
-        <div className="rounded-lg border bg-card p-4 text-sm shadow-xs">
+        <div className="rounded-lg border bg-card p-4 text-sm">
           {job.notes && <p className="whitespace-pre-line text-muted-foreground">{job.notes}</p>}
           {job.prepared_by_name && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -184,19 +206,22 @@ export default async function JobPage({
           />
         </div>
         {list.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-card px-6 py-12 text-center">
-            <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Construction className="size-6" />
-            </span>
-            <div>
-              <h3 className="text-base font-semibold">Bu işte henüz hesap raporu yok</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                &quot;Vinç Ekle&quot; ile işe bağlı bir hesap raporu oluşturun.
-              </p>
-            </div>
+          <div
+            className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-12 text-center"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+            }}
+          >
+            <h3 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
+              [ HENÜZ HESAP RAPORU YOK ]
+            </h3>
+            <p className="max-w-sm bg-card px-3 py-1 text-sm text-foreground/70">
+              &quot;Vinç Ekle&quot; ile işe bağlı bir hesap raporu oluşturun.
+            </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+          <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">

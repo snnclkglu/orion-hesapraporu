@@ -80,7 +80,9 @@
   --chart-3: oklch(0.617 0.009 56);
   --chart-4: oklch(0.563 0.119 159);
   --chart-5: oklch(0.691 0.146 24);
-  --radius: 0.5rem;
+  /* Marka kuralı: sıfır köşe yuvarlaklığı — her şey köşeli (Marka Kimliği REV 01).
+     Tek istisna: rounded-full kullanan fiziksel/platform öğeleri (ör. switch). */
+  --radius: 0rem;
   --sidebar: oklch(0.269 0 0);
   --sidebar-foreground: oklch(0.887 0.004 56);
   --sidebar-primary: oklch(0.467 0.17 27);
@@ -125,6 +127,32 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.12 25);
   --success: oklch(0.68 0.12 159);
+}
+
+/* Orion marka grafik dili — kılavuzdaki altı taşıyıcı öğeden ekranda kullanılanlar */
+@layer components {
+  /* Mono kicker: IBM Plex Mono, uppercase, .22em takip (kılavuz "MARKA KİMLİĞİ" stili) */
+  .oc-kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  /* Kicker altındaki 44×5px kırmızı çizgi */
+  .oc-rule-red {
+    width: 44px;
+    height: 5px;
+    background: var(--primary);
+  }
+  /* 7px kare madde imi */
+  .oc-bullet {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    background: var(--primary);
+  }
 }
 
 @layer base {

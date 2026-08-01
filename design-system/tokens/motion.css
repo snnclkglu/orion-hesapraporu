@@ -1,0 +1,12 @@
+/* ORION CRANES · MOTION
+   The printed guide specifies no animation. These are the minimum needed for interactive
+   surfaces, chosen to stay in character: short, linear-ish, no overshoot, no scale-bounce. */
+:root{
+  --dur-instant:80ms; /* @kind other */
+  --dur-fast:120ms; /* @kind other */
+  --dur-base:180ms; /* @kind other */
+  --dur-slow:260ms; /* @kind other */
+  --ease-technical:cubic-bezier(.2,0,.2,1); /* @kind other */
+  --ease-out:cubic-bezier(0,0,.2,1); /* @kind other */
+    --transition-control:background-color var(--dur-fast) var(--ease-technical),color var(--dur-fast) var(--ease-technical),border-color var(--dur-fast) var(--ease-technical); /* @kind other */
+}

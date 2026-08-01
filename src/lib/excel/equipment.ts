@@ -36,10 +36,21 @@ const fmt = (n: number | null | undefined, digits = 0): string => {
 const textOr = (s: string | null | undefined, fallback = "-"): string =>
   s && s.trim() !== "" ? s.trim() : fallback;
 
+// Marka renkleri (design-system/readme.md): kömür zemin + paper metin, kırmızı yalnız vurgu
+const CHARCOAL = "FF262626";
+const PAPER = "FFF4F1EF";
+const ORION_RED = "FFA41E1E";
+const MUTED_GRAY = "FF6F6A64";
+
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
   pattern: "solid",
-  fgColor: { argb: "FFA41E1E" }, // Orion Kırmızısı (marka birincil rengi)
+  fgColor: { argb: CHARCOAL }, // kömür zemin — başlık satırları
+};
+const RED_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: ORION_RED }, // Orion Kırmızısı — yalnız ince ayraç vurgusu
 };
 const GROUP_FILL: ExcelJS.Fill = {
   type: "pattern",
@@ -53,42 +64,65 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
   right: { style: "thin", color: { argb: "FF9CA3AF" } },
 };
 
-/** Başlık bloğu (proje / müşteri / doküman no / revizyon / tarih) yazar,
- *  sonraki boş satırın numarasını döndürür. */
+/** Başlık bloğu: kömür zeminli başlık + künye satırı, kırmızı ince ayraç,
+ *  müşteri satırı. Tablo başlık satırının numarasını döndürür. */
 function writeTitleBlock(
   ws: ExcelJS.Worksheet,
   title: string,
   meta: EquipmentMeta,
   colCount: number
-): void {
+): number {
   const lastCol = String.fromCharCode(64 + colCount); // 5 -> "E"
+
+  // Satır 1: sayfa başlığı — kömür zemin, paper metin
   ws.mergeCells(`A1:${lastCol}1`);
   const t = ws.getCell("A1");
   t.value = title;
-  t.font = { bold: true, size: 14 };
-  t.alignment = { horizontal: "center", vertical: "middle" };
-  ws.getRow(1).height = 24;
+  t.font = { name: "Archivo", bold: true, size: 14, color: { argb: PAPER } };
+  t.alignment = { horizontal: "left", vertical: "middle" };
+  ws.getRow(1).height = 26;
 
-  const metaRows: [string, string][] = [
-    ["Proje", meta.projectName],
-    ["Müşteri", meta.customer],
-    ["Doküman No", meta.docNo],
-    ["Revizyon", `V${meta.revNo}${meta.revLabel ? ` — ${meta.revLabel}` : ""}`],
-    ["Tarih", meta.date],
-  ];
-  metaRows.forEach(([k, v], i) => {
-    const row = ws.getRow(2 + i);
-    row.getCell(1).value = k;
-    row.getCell(1).font = { bold: true };
-    row.getCell(2).value = v;
-  });
+  // Satır 2: rapor künyesi — tek birleşik hücre, mono teknik etiket
+  ws.mergeCells(`A2:${lastCol}2`);
+  const k = ws.getCell("A2");
+  k.value = `${textOr(meta.projectName)} · ${textOr(meta.docNo)} · REV V${meta.revNo}${
+    meta.revLabel ? ` — ${meta.revLabel}` : ""
+  } · ${meta.date}`;
+  k.font = { name: "IBM Plex Mono", size: 9, color: { argb: PAPER } };
+  k.alignment = { horizontal: "left", vertical: "middle" };
+  ws.getRow(2).height = 16;
+
+  // Birleşik hücrelerin tüm kolonlarına zemin (merge sonrası kenar hücreler boyasız kalmasın)
+  for (let r = 1; r <= 2; r++) {
+    for (let c = 1; c <= colCount; c++) {
+      ws.getRow(r).getCell(c).fill = HEADER_FILL;
+    }
+  }
+
+  // Satır 3: kırmızı ince ayraç — markanın tek kırmızı vurgusu
+  ws.mergeCells(`A3:${lastCol}3`);
+  for (let c = 1; c <= colCount; c++) {
+    ws.getRow(3).getCell(c).fill = RED_FILL;
+  }
+  ws.getRow(3).height = 3;
+
+  // Satır 4: müşteri (künyede yer almayan tek alan)
+  const m = ws.getRow(4);
+  m.getCell(1).value = "Müşteri";
+  m.getCell(1).font = { bold: true };
+  m.getCell(2).value = textOr(meta.customer);
+
+  return 6; // satır 5 boş; tablo başlığı 6. satırda
 }
 
-/** Otomatik sütun genişliği: her sütunun en uzun metnine göre (8..60). */
+/** Otomatik sütun genişliği: her sütunun en uzun metnine göre (8..60).
+ *  Birleşik hücreler (künye, grup başlığı, altbilgi) tek kolona sığmak
+ *  zorunda olmadığından ölçüme katılmaz. */
 function autoWidth(ws: ExcelJS.Worksheet, min = 8, max = 60): void {
   ws.columns.forEach((col) => {
     let width = min;
     col.eachCell?.({ includeEmpty: false }, (cell) => {
+      if (cell.isMerged) return;
       const len = String(cell.value ?? "").length + 2;
       if (len > width) width = len;
     });
@@ -384,20 +418,23 @@ function writeEquipmentSheet(
   meta: EquipmentMeta,
   datasheetUrls?: Map<string, string>
 ): number {
-  writeTitleBlock(ws, "EKİPMAN LİSTESİ", meta, 5);
+  const headerRowNo = writeTitleBlock(ws, "EKİPMAN LİSTESİ", meta, 5);
 
   // Tablo başlığı — müşteriye teslim edilebilir profesyonel sütunlar
-  const headerRowNo = 8;
   const header = ws.getRow(headerRowNo);
   ["Ekipman", "Marka", "Model", "Özellikler", "Adet"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.font = { name: "Archivo", bold: true, color: { argb: PAPER } };
     cell.fill = HEADER_FILL;
     cell.border = THIN_BORDER;
-    cell.alignment = { horizontal: i === 4 ? "center" : "left", vertical: "middle" };
+    cell.alignment = { horizontal: i === 4 ? "right" : "left", vertical: "middle" };
   });
   header.height = 18;
+
+  // Başlığa kadar dondur + başlık satırında filtre
+  ws.views = [{ state: "frozen", ySplit: headerRowNo }];
+  ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 5 } };
 
   let rowNo = headerRowNo + 1;
   let componentCount = 0;
@@ -431,11 +468,16 @@ function writeEquipmentSheet(
       }
       row.getCell(4).value = r.spec;
       row.getCell(5).value = r.qty;
+      // Adet: sayılar TR ayraçlı, sağa dayalı, mono
+      if (typeof r.qty === "number") {
+        row.getCell(5).numFmt = Number.isInteger(r.qty) ? "#,##0" : "#,##0.00";
+        row.getCell(5).font = { name: "IBM Plex Mono" };
+      }
       for (let c = 1; c <= 5; c++) {
         const cell = row.getCell(c);
         cell.border = THIN_BORDER;
         cell.alignment = {
-          horizontal: c === 5 ? "center" : "left",
+          horizontal: c === 5 ? "right" : "left",
           vertical: "middle",
           wrapText: c === 4,
         };
@@ -445,9 +487,27 @@ function writeEquipmentSheet(
     });
   });
 
+  writeFooterRow(ws, rowNo + 1, 5, "EKİPMAN LİSTESİ", meta);
+
   autoWidth(ws);
   ws.getColumn(4).width = 56; // özellik metni uzun; sabit geniş + wrap
   return componentCount;
+}
+
+/** Altbilgi: gri küçük mono satır — "ORION CRANES · {sayfa} · {doküman no}" */
+function writeFooterRow(
+  ws: ExcelJS.Worksheet,
+  rowNo: number,
+  colCount: number,
+  sheetLabel: string,
+  meta: EquipmentMeta
+): void {
+  const lastCol = String.fromCharCode(64 + colCount);
+  ws.mergeCells(`A${rowNo}:${lastCol}${rowNo}`);
+  const cell = ws.getCell(`A${rowNo}`);
+  cell.value = `ORION CRANES · ${sheetLabel} · ${textOr(meta.docNo)}`;
+  cell.font = { name: "IBM Plex Mono", size: 8, color: { argb: MUTED_GRAY } };
+  cell.alignment = { horizontal: "left", vertical: "middle" };
 }
 
 /** Datasheet link eşleme anahtarı (kind|brand|model, normalize) */
@@ -634,19 +694,22 @@ function writeSummarySheet(
   result: CalcResult,
   meta: EquipmentMeta
 ): void {
-  writeTitleBlock(ws, "TEKNİK RESSAM ÖZETİ", meta, 3);
+  const headerRowNo = writeTitleBlock(ws, "TEKNİK RESSAM ÖZETİ", meta, 3);
 
-  const headerRowNo = 8;
   const header = ws.getRow(headerRowNo);
   ["Ölçü / Özellik", "Değer", "Birim"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.font = { name: "Archivo", bold: true, color: { argb: PAPER } };
     cell.fill = HEADER_FILL;
     cell.border = THIN_BORDER;
-    cell.alignment = { horizontal: i === 0 ? "left" : "center", vertical: "middle" };
+    cell.alignment = { horizontal: i === 1 ? "right" : "left", vertical: "middle" };
   });
   header.height = 18;
+
+  // Başlığa kadar dondur + başlık satırında filtre
+  ws.views = [{ state: "frozen", ySplit: headerRowNo }];
+  ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 3 } };
 
   let rowNo = headerRowNo + 1;
   const sections = buildSummarySections(input, result);
@@ -665,14 +728,21 @@ function writeSummarySheet(
       row.getCell(1).value = r.label;
       row.getCell(2).value = r.value;
       row.getCell(3).value = r.unit ?? "";
+      // Değer kolonu: sayılar TR ayraçlı, sağa dayalı, mono
+      if (typeof r.value === "number") {
+        row.getCell(2).numFmt = Number.isInteger(r.value) ? "#,##0" : "#,##0.00";
+        row.getCell(2).font = { name: "IBM Plex Mono" };
+      }
       for (let c = 1; c <= 3; c++) {
         const cell = row.getCell(c);
         cell.border = THIN_BORDER;
-        cell.alignment = { horizontal: c === 1 ? "left" : "center", vertical: "middle" };
+        cell.alignment = { horizontal: c === 1 ? "left" : "right", vertical: "middle" };
       }
       rowNo += 1;
     }
   }
+
+  writeFooterRow(ws, rowNo + 1, 3, "TEKNİK RESSAM ÖZETİ", meta);
 
   autoWidth(ws);
 }

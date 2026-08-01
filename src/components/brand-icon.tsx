@@ -1,0 +1,109 @@
+// Orion Cranes marka ikon seti — design-system/assets/icons/*.svg dosyalarının
+// birebir inline SVG karşılığı (24×24 grid, 1.5 stroke, kare uç). Lucide yerine
+// bu set kullanılır; "menu" ikonu aynı kurallarla çizilmiş hamburger'dır.
+
+const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
+  bolt: (
+    <>
+      <path d="M12 4 L18 7.5 L18 14.5 L12 18 L6 14.5 L6 7.5 Z" />
+      <circle cx="12" cy="11" r="3" />
+    </>
+  ),
+  cabin: (
+    <>
+      <rect x="4" y="5" width="16" height="14" />
+      <line x1="4" y1="10" x2="20" y2="10" />
+      <line x1="12" y1="10" x2="12" y2="19" />
+    </>
+  ),
+  console: (
+    <>
+      <path d="M4 17 L7 8 L17 8 L20 17 Z" />
+      <circle cx="10" cy="13" r="1" />
+      <circle cx="14" cy="13" r="1" />
+    </>
+  ),
+  gauge: (
+    <>
+      <path d="M4 16 a8 8 0 0 1 16 0" />
+      <line x1="12" y1="16" x2="16.5" y2="11" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+    </>
+  ),
+  hook: (
+    <>
+      <line x1="12" y1="3" x2="12" y2="11" />
+      <path d="M12 11 a4.5 4.5 0 1 1 -4 6.8" />
+      <line x1="9" y1="3" x2="15" y2="3" />
+    </>
+  ),
+  panel: (
+    <>
+      <rect x="5" y="4" width="14" height="16" />
+      <line x1="14" y1="4" x2="14" y2="20" />
+      <line x1="11" y1="12" x2="12.5" y2="12" />
+    </>
+  ),
+  safety: (
+    <>
+      <path d="M12 3 L19 6 L19 12 C19 16 16 19 12 21 C8 19 5 16 5 12 L5 6 Z" />
+      <path d="M9 12 l2 2 l4 -4" />
+    </>
+  ),
+  seat: (
+    <>
+      <path d="M8 4 L8 12 L16 12" />
+      <rect x="7" y="12" width="10" height="3" />
+      <line x1="9" y1="15" x2="9" y2="19" />
+      <line x1="15" y1="15" x2="15" y2="19" />
+    </>
+  ),
+  menu: (
+    <>
+      <line x1="5" y1="7" x2="19" y2="7" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <line x1="5" y1="17" x2="19" y2="17" />
+    </>
+  ),
+};
+
+export type BrandIconName =
+  | "bolt"
+  | "cabin"
+  | "console"
+  | "gauge"
+  | "hook"
+  | "panel"
+  | "safety"
+  | "seat"
+  | "menu";
+
+export function BrandIcon({
+  name,
+  size = 16,
+  className,
+  "aria-hidden": ariaHidden = true,
+}: {
+  name: BrandIconName;
+  size?: number;
+  className?: string;
+  "aria-hidden"?: boolean;
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="square"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden={ariaHidden}
+    >
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}

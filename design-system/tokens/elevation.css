@@ -1,0 +1,11 @@
+/* ORION CRANES · ELEVATION
+   Shadows are neutral black, never colored, never soft-glowy. Print pieces get depth; UI stays flat. */
+:root{
+  --shadow-none:none;
+  --shadow-raised:0 6px 18px rgba(0,0,0,.14);   /* letterhead, plates */
+  --shadow-card:0 8px 22px rgba(0,0,0,.28);     /* business card, decal */
+  --shadow-sign:0 12px 30px rgba(0,0,0,.32);    /* facade signage */
+  --shadow-sheet:0 10px 44px rgba(0,0,0,.45);   /* A4 sheet on desk */
+  --shadow-rivet-inset:inset 0 1px 1px rgba(0,0,0,.6); /* @kind shadow */
+  --shadow-mark-on-photo:drop-shadow(0 1px 3px rgba(0,0,0,.6)); /* @kind other */
+}

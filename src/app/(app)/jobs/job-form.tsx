@@ -49,7 +49,7 @@ const SCOPE_LABELS: { key: keyof JobInput["scope"]; label: string }[] = [
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-xs">
+    <div className="rounded-lg border bg-card p-4">
       <h2 className="mb-3 text-sm font-semibold tracking-tight">{title}</h2>
       {children}
     </div>

@@ -1,0 +1,14 @@
+/* ORION CRANES · BASE ELEMENT DEFAULTS */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-primary);font-family:var(--font-sans);font-size:var(--web-body);line-height:var(--leading-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--text-link-hover)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:var(--border-w-rule) solid var(--focus-ring);outline-offset:2px}
+h1,h2,h3,h4{margin:0;font-family:var(--font-display);text-wrap:balance}
+h1{font-size:var(--web-h1);font-weight:var(--weight-black);line-height:var(--leading-tight);letter-spacing:var(--tracking-display)}
+h2{font-size:var(--web-h2);font-weight:var(--weight-extrabold);line-height:var(--leading-heading);letter-spacing:-.01em}
+h3{font-size:var(--web-h3);font-weight:var(--weight-bold);line-height:var(--leading-heading)}
+p{margin:0;text-wrap:pretty}
+code,kbd,samp{font-family:var(--font-mono)}
+::selection{background:var(--oc-red);color:var(--oc-paper-100)}
+hr{border:0;border-top:var(--border-w-hairline) solid var(--border-default);margin:var(--space-xl) 0}

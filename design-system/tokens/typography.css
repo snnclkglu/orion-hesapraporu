@@ -1,0 +1,50 @@
+/* ORION CRANES · TYPE
+   Archivo carries everything visible; IBM Plex Mono carries every technical string.
+   The role sizes are the canonical A4 values from the guide; --web-* is the screen ladder. */
+:root{
+  --font-display:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  --font-email:Arial,Helvetica,sans-serif;   /* Archivo substitute in email clients */
+
+  --weight-regular:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --weight-bold:700;
+  --weight-extrabold:800;
+  --weight-black:900;
+
+  /* Print / A4 roles */
+  --type-display-size:54px;   --type-display-weight:900; --type-display-lh:1;    --type-display-ls:-.02em; /* @kind other */
+  --type-heading-size:26px;   --type-heading-weight:800; --type-heading-lh:1;    --type-heading-ls:-.01em;
+  --type-subhead-size:17px;   --type-subhead-weight:700; --type-subhead-lh:1;    --type-subhead-ls:0;
+  --type-body-size:12px;      --type-body-weight:400;    --type-body-lh:1.6;     --type-body-ls:0;
+  --type-caption-size:10px;   --type-caption-weight:500; --type-caption-lh:1.5;  --type-caption-ls:0;
+  --type-kicker-size:10px;    --type-kicker-weight:600;  --type-kicker-lh:1;     --type-kicker-ls:.22em;
+  --type-data-size:11px;      --type-data-weight:500;    --type-data-lh:1.6;     --type-data-ls:.06em;
+  --type-micro-size:7.5px;    --type-micro-weight:400;   --type-micro-lh:1.5;    --type-micro-ls:.08em;
+
+  /* Screen ladder (print roles × ~1.35, rounded to whole px) */
+  --web-display:72px;
+  --web-h1:44px;
+  --web-h2:34px;
+  --web-h3:22px;
+  --web-subhead:17px;
+  --web-body:16px;
+  --web-body-sm:14px;
+  --web-caption:13px;
+  --web-kicker:11px;
+  --web-data:13px;
+
+  --leading-tight:1;
+  --leading-heading:1.05;
+  --leading-snug:1.4;
+  --leading-body:1.6;
+  --leading-loose:1.85;
+
+  --tracking-display:-.02em;
+  --tracking-kicker:.22em;
+  --tracking-label:.14em;
+  --tracking-wide:.34em;
+  --tracking-data:.06em;
+}

@@ -7,8 +7,8 @@
 // Seçim, catalog-mapping.ts eşlemesiyle bölümün selection alanlarını doldurur.
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BookOpen, ChevronRight, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { BrandIcon } from "@/components/brand-icon";
 import {
   catalogRowSummary,
   type CatalogRow,
@@ -129,7 +129,7 @@ export function CatalogPicker({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-          <BookOpen className="size-3.5" />
+          <BrandIcon name="panel" className="size-3.5" />
           Katalogdan Seç
         </Button>
       </DialogTrigger>
@@ -140,13 +140,13 @@ export function CatalogPicker({
               <button
                 type="button"
                 onClick={() => setStep("brand")}
-                className="grid size-6 place-items-center rounded hover:bg-muted"
+                className="grid size-8 place-items-center hover:bg-muted"
                 aria-label="Markalara dön"
               >
-                <ArrowLeft className="size-4" />
+                <span aria-hidden="true">←</span>
               </button>
             )}
-            <BookOpen className="size-4 text-primary" />
+            <BrandIcon name="panel" className="size-4 text-primary" />
             {step === "brand" ? "Marka Seçin" : brand}
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -180,21 +180,23 @@ export function CatalogPicker({
                     <span className="block truncate text-sm font-medium">{b.brand}</span>
                     <span className="text-[11px] text-muted-foreground">{b.count} ürün</span>
                   </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <span aria-hidden className="shrink-0 font-mono text-sm text-muted-foreground">
+                    →
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         ) : (
           <div className="flex flex-col">
-            <div className="relative border-b px-4 py-2.5">
-              <Search className="absolute left-6 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Arama ikonu yok — placeholder metni işlevi yeterince anlatıyor */}
+            <div className="border-b px-4 py-2.5">
               <Input
                 autoFocus
                 placeholder="Model / özellik ara…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-9 pl-8"
+                className="h-9"
               />
             </div>
             <div className="max-h-[55vh] overflow-y-auto p-2">

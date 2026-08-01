@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +33,8 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       {/* Sol: marka paneli */}
-      <section className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex">
+      {/* Kırmızı omurga solda (14px) — kılavuzun yapısal imzası */}
+      <section className="relative hidden flex-col justify-between overflow-hidden border-l-[14px] border-l-primary bg-sidebar p-10 text-sidebar-foreground lg:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -55,10 +55,11 @@ export default function LoginPage() {
           <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
             Hesap Raporu Sistemi
           </div>
+          <div className="oc-rule-red mt-3" aria-hidden />
         </div>
 
         <div className="relative max-w-md">
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-sidebar-accent-foreground">
             Vinç hesap raporları — girdiden yayınlanmış rapora, tek akışta.
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-sidebar-foreground/70">
@@ -67,8 +68,8 @@ export default function LoginPage() {
           </p>
           <ul className="mt-6 grid gap-2 text-sm text-sidebar-foreground/80">
             {["FEM 1.001 mekanizma sınıflandırması", "DIN 15018 çelik konstrüksiyon kontrolleri", "CMAA 70 uyumlu hesap zinciri"].map((t) => (
-              <li key={t} className="flex items-center gap-2">
-                <ShieldCheck className="size-4 shrink-0 text-sidebar-primary" />
+              <li key={t} className="flex items-center gap-3">
+                <span className="oc-bullet" aria-hidden />
                 {t}
               </li>
             ))}
@@ -122,7 +123,8 @@ export default function LoginPage() {
             </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
-              {!loading && <ArrowRight data-icon="inline-end" />}
+              {/* Kılavuz: yön göstergesi ok glifi ile (→), ikon setiyle değil */}
+              {!loading && <span aria-hidden>→</span>}
             </Button>
           </form>
 

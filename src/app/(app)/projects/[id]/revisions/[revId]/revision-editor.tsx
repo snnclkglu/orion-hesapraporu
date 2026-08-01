@@ -8,16 +8,7 @@
 // ve ✓/✗ kontrolleri. Excel'in bölüm numaraları korunur.
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  CircleCheck,
-  CircleX,
-  Save,
-  Search,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
 import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
@@ -111,12 +102,32 @@ function Field({
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
+  // Sayı alanı güvenliği: yazım sırasındaki ham metin lokalde tutulur; state'e
+  // yalnız GEÇERLİ sayı yazılır (boş/geçersiz girdi sessizce 0 OLMAZ — hesap son
+  // geçerli değerle koşar, alan hata gösterir). TR ondalık virgül desteklenir.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [numError, setNumError] = useState<string | null>(null);
+  // Dıştan gelen değişimde (katalog seçimi, alternatif geçişi) taslak sıfırlanır;
+  // kendi yazdığımız değer lastSent ile ayırt edilir.
+  const lastSent = useRef<unknown>(v);
+  useEffect(() => {
+    if (v !== lastSent.current) {
+      lastSent.current = v;
+      setDraft(null);
+      setNumError(null);
+    }
+  }, [v]);
   return (
     <div className="grid gap-1">
       <Label htmlFor={id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <span>
           {def.label}
-          {def.unit ? ` [${toDisplayUnitLabel(def.unit)}]` : ""}
+          {def.unit ? (
+            <>
+              {" "}
+              <span className="font-mono">[{toDisplayUnitLabel(def.unit)}]</span>
+            </>
+          ) : null}
         </span>
         {(() => {
           const ft = (def as { femTable?: string }).femTable;
@@ -159,22 +170,42 @@ function Field({
           </Select>
         );
       })() : (
-        <Input
-          id={id}
-          className="h-8"
-          inputMode={def.type === "number" ? "decimal" : undefined}
-          value={String(v ?? "")}
-          disabled={disabled}
-          onChange={(e) => {
-            const raw = e.target.value;
-            if (def.type === "number") {
-              const nv = parseFloat(raw.replace(",", "."));
-              onChange({ ...value, [def.key]: Number.isFinite(nv) ? nv : 0 });
-            } else {
-              onChange({ ...value, [def.key]: raw });
-            }
-          }}
-        />
+        <>
+          <Input
+            id={id}
+            className={cn(
+              "h-8 bg-background",
+              def.type === "number" && "font-mono tabular-nums"
+            )}
+            inputMode={def.type === "number" ? "decimal" : undefined}
+            value={def.type === "number" && draft !== null ? draft : String(v ?? "")}
+            disabled={disabled}
+            aria-invalid={numError ? true : undefined}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (def.type === "number") {
+                setDraft(raw);
+                const nv = parseFloat(raw.trim().replace(",", "."));
+                if (raw.trim() === "") {
+                  setNumError("Değer gerekli");
+                } else if (!Number.isFinite(nv)) {
+                  setNumError("Geçersiz sayı");
+                } else {
+                  setNumError(null);
+                  lastSent.current = nv;
+                  onChange({ ...value, [def.key]: nv });
+                }
+              } else {
+                onChange({ ...value, [def.key]: raw });
+              }
+            }}
+          />
+          {numError && (
+            <p role="alert" className="font-mono text-[11px] text-destructive">
+              ✗ {numError}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -192,19 +223,23 @@ function CheckRow({ check }: { check: AnyCheck }) {
           : "border-destructive/40 bg-destructive/5"
       )}
     >
-      {check.pass ? (
-        <CircleCheck className="size-4 shrink-0 text-success" />
-      ) : (
-        <CircleX className="size-4 shrink-0 text-destructive" />
-      )}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "w-4 shrink-0 text-center font-mono text-sm font-semibold",
+          check.pass ? "text-success" : "text-destructive"
+        )}
+      >
+        {check.pass ? "✓" : "✗"}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">
           {check.label}
           {check.nonExcel && (
-            <span className="ml-1 align-middle text-[10px] text-muted-foreground">(ek kontrol)</span>
+            <span className="ml-1 align-middle text-[11px] font-mono text-muted-foreground">(ek kontrol)</span>
           )}
         </div>
-        <div className="text-xs tabular-nums text-muted-foreground">
+        <div className="font-mono text-xs tabular-nums text-muted-foreground">
           {(() => {
             const prov = toDisplayUnit(check.provided, check.unit);
             const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
@@ -237,7 +272,8 @@ function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
     <div className="grid gap-1 border-b py-2.5 last:border-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="min-w-0 text-sm">{row.label}</span>
-        <span className="shrink-0 rounded bg-primary/8 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-primary dark:bg-primary/15">
+        {/* Hesaplanan değer rolü: salt-okunur, bg-muted zemin + mono — birim boşlukla ayrık */}
+        <span className="shrink-0 bg-muted px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-foreground">
           = {fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
         </span>
       </div>
@@ -248,11 +284,33 @@ function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
       )}
       {row.standard && (
         <div className="flex flex-wrap gap-1.5">
-          <span className="rounded border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90">
+          <span className="border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90">
             {row.standard}
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- RoleLegend
+/** 4 değer rolünün tek satırlık lejantı: girdi / hesap / katalog / kontrol. */
+function RoleLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[11px] tracking-wide text-muted-foreground">
+      <span aria-hidden="true" className="inline-block size-2.5 shrink-0 border border-input bg-background" />
+      <span>GİRDİ</span>
+      <span aria-hidden="true">·</span>
+      <span aria-hidden="true" className="inline-block size-2.5 shrink-0 bg-muted" />
+      <span>HESAP</span>
+      <span aria-hidden="true">·</span>
+      <span aria-hidden="true">▾</span>
+      <span>KATALOG</span>
+      <span aria-hidden="true">·</span>
+      <span aria-hidden="true">
+        <span className="text-success">✓</span>/<span className="text-destructive">✗</span>
+      </span>
+      <span>KONTROL</span>
     </div>
   );
 }
@@ -406,6 +464,48 @@ export function RevisionEditor({
   // Bölüm navigasyonu arama filtresi (bölüm adına göre)
   const [navQuery, setNavQuery] = useState("");
   const [pending, startTransition] = useTransition();
+
+  // Kaydedilmemiş değişiklik takibi: kaydedilen state'lerden herhangi biri
+  // değişince kirli; başarılı kayıtta temizlenir. İlk mount atlanır.
+  const [dirty, setDirty] = useState(false);
+  const dirtyMountRef = useRef(true);
+  useEffect(() => {
+    if (dirtyMountRef.current) {
+      dirtyMountRef.current = false;
+      return;
+    }
+    setDirty(true);
+  }, [specs, mods, alts, enabled]);
+
+  // Kayıp koruması: tarayıcı kapanışı/yenileme için beforeunload, uygulama içi
+  // gezinme (Link tıklaması) için capture fazında confirm.
+  useEffect(() => {
+    if (!dirty || readOnly) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const onDocClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href") ?? "";
+      if (href.startsWith("#")) return;
+      if (
+        !window.confirm(
+          "Kaydedilmemiş değişiklikler var; sayfadan ayrılırsanız kaybolur. Devam edilsin mi?"
+        )
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", onDocClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onDocClick, true);
+    };
+  }, [dirty, readOnly]);
 
   const present = useCallback((k: ModuleKey) => enabled[k] !== false, [enabled]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
@@ -653,7 +753,10 @@ export function RevisionEditor({
     startTransition(async () => {
       const res = await saveRevision(projectId, revisionId, calcInput, syncedAlts());
       if (res.error) toast.error(res.error);
-      else toast.success("Revizyon kaydedildi.");
+      else {
+        setDirty(false);
+        toast.success("Revizyon kaydedildi.");
+      }
     });
   }
 
@@ -663,7 +766,7 @@ export function RevisionEditor({
       <Card>
         <CardHeader className="border-b pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
-            <span className="inline-flex h-6 items-center rounded bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
+            <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
               01
             </span>
             <span className="tracking-tight">Teknik Özellikler</span>
@@ -733,7 +836,7 @@ export function RevisionEditor({
       <Card>
         <CardHeader className="border-b pb-4">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            <span className="inline-flex h-6 items-center rounded bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
+            <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
               {section.id}
             </span>
             <span className="tracking-tight">{section.title}</span>
@@ -766,7 +869,7 @@ export function RevisionEditor({
           />
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="oc-kicker mb-2 text-muted-foreground">
                 Girdiler / Tasarım Kabulleri
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -798,9 +901,14 @@ export function RevisionEditor({
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <h3 className="oc-kicker text-muted-foreground">
                       Katalog Seçimi
                     </h3>
+                    {catalogMapping && (
+                      <span className="border px-1.5 py-px font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                        ▾ {catalogMapping.kind}
+                      </span>
+                    )}
                     {!readOnly && catalogMapping && (
                       <CatalogPicker
                         mapping={catalogMapping}
@@ -825,7 +933,7 @@ export function RevisionEditor({
                           type="button"
                           onClick={() => switchAlt(key, section, i)}
                           className={cn(
-                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                            "inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors",
                             isActive
                               ? "border-primary bg-primary/10 font-medium text-primary"
                               : "hover:bg-muted"
@@ -833,8 +941,8 @@ export function RevisionEditor({
                         >
                           <span
                             className={cn(
-                              "size-1.5 rounded-full",
-                              pass === true && "bg-green-500",
+                              "size-[7px]",
+                              pass === true && "bg-success",
                               pass === false && "bg-destructive",
                               pass === null && "bg-muted-foreground/30"
                             )}
@@ -847,7 +955,7 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => addAlt(key, section)}
-                        className="rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        className="border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
                         title="Bu ekipman için alternatif seçim ekle (en fazla 3)"
                       >
                         + Alternatif
@@ -857,8 +965,9 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => removeAlt(key, section)}
-                        className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         title="Aktif alternatifi sil"
+                        aria-label="Alternatifi sil"
                       >
                         ✕
                       </button>
@@ -883,7 +992,7 @@ export function RevisionEditor({
             <>
               <Separator />
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="oc-kicker mb-2 text-muted-foreground">
                   Hesap
                 </h3>
                 <div className="rounded-lg border bg-background px-3 dark:bg-card">
@@ -896,7 +1005,7 @@ export function RevisionEditor({
           )}
           {checks.length > 0 && (
             <div className="grid gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="oc-kicker text-muted-foreground">
                 Kontroller
               </h3>
               {checks.map((c) => <CheckRow key={c.id} check={c} />)}
@@ -954,7 +1063,17 @@ export function RevisionEditor({
     step.kind === "module" ? sectionChecks(step.moduleKey, step.section) : [];
 
   function navItem(s: Step, i: number) {
-    const status = s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none";
+    // Numara çipi + kontrol özeti: durum noktası yerine "✓ n/m" sayısı
+    // (hepsi geçtiyse nötr, kalan varsa kırmızı).
+    const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
+    const passN = checks.filter((c) => c.pass).length;
+    const chip = s.kind === "module" ? s.section.id : s.kind === "specs" ? "01" : "ÖZ";
+    const label =
+      s.kind === "module"
+        ? s.section.title
+        : s.kind === "specs"
+          ? "Teknik Özellikler"
+          : "Özet · Kontrol Panosu";
     return (
       <li key={s.key}>
         <button
@@ -969,13 +1088,23 @@ export function RevisionEditor({
         >
           <span
             className={cn(
-              "size-2 shrink-0 rounded-full",
-              status === "pass" && "bg-success",
-              status === "fail" && "bg-destructive",
-              status === "none" && "bg-muted-foreground/30"
+              "inline-flex h-5 min-w-8 shrink-0 items-center justify-center px-1 font-mono text-[10px] tabular-nums",
+              i === stepIndex ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
             )}
-          />
-          <span className="truncate">{s.title}</span>
+          >
+            {chip}
+          </span>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {checks.length > 0 && (
+            <span
+              className={cn(
+                "shrink-0 font-mono text-[10px] tabular-nums",
+                passN === checks.length ? "text-muted-foreground" : "text-destructive"
+              )}
+            >
+              {passN}/{checks.length}
+            </span>
+          )}
         </button>
       </li>
     );
@@ -986,11 +1115,14 @@ export function RevisionEditor({
     navQ === "" || s.title.toLocaleLowerCase("tr-TR").includes(navQ);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
+    <div className="grid gap-3">
+      {/* Rol lejantı — 4 değer rolünün görsel dili */}
+      <RoleLegend />
+      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
       {/* Bölüm navigasyonu */}
       <nav className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
         <div className="mb-1.5 flex items-center justify-between px-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="oc-kicker text-muted-foreground">
             Bölümler
           </span>
           <span
@@ -1002,14 +1134,13 @@ export function RevisionEditor({
             {passCount}/{result.allChecks.length} uygun
           </span>
         </div>
-        {/* Bölüm arama kutusu */}
-        <div className="relative mb-2 px-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        {/* Bölüm arama kutusu — ikon yerine mono ARA placeholder */}
+        <div className="mb-2 px-1">
           <Input
             value={navQuery}
             onChange={(e) => setNavQuery(e.target.value)}
-            placeholder="Bölüm ara..."
-            className="h-8 pl-7 text-sm"
+            placeholder="ARA · bölüm adı"
+            className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs"
             aria-label="Bölüm ara"
           />
         </div>
@@ -1046,12 +1177,15 @@ export function RevisionEditor({
                   }
                   className="mt-2 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <ChevronDown
+                  <span
+                    aria-hidden="true"
                     className={cn(
-                      "size-3.5 shrink-0 transition-transform",
+                      "inline-block shrink-0 font-mono transition-transform",
                       !isOpen && "-rotate-90"
                     )}
-                  />
+                  >
+                    ▾
+                  </span>
                   <span className="min-w-0 flex-1 truncate">{group.title}</span>
                   {withChecks > 0 && (
                     <span
@@ -1082,24 +1216,24 @@ export function RevisionEditor({
       {/* İçerik */}
       <div className="grid content-start gap-4">
         {/* Sticky durum çubuğu */}
-        <div className="sticky top-12 z-20 grid gap-2 rounded-lg border bg-card/95 px-4 py-2.5 shadow-xs backdrop-blur">
+        <div className="sticky top-12 z-20 grid gap-2 rounded-lg border bg-card px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <div className="flex items-center gap-1.5 text-sm">
               {failCount === 0 ? (
                 <>
-                  <CircleCheck className="size-4 shrink-0 text-success" />
+                  <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-success">✓</span>
                   <span className="font-medium text-success">Tüm kontroller uygun</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     ({result.allChecks.length} kontrol)
                   </span>
                 </>
               ) : (
                 <>
-                  <CircleX className="size-4 shrink-0 text-destructive" />
+                  <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-destructive">✗</span>
                   <span className="font-medium text-destructive">
                     {failCount} kontrol uygun değil
                   </span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     / {result.allChecks.length} kontrol
                   </span>
                 </>
@@ -1108,7 +1242,7 @@ export function RevisionEditor({
             {step.kind === "module" && stepChecks.length > 0 && (
               <span
                 className={cn(
-                  "hidden rounded border px-1.5 py-0.5 font-mono text-[11px] tabular-nums sm:inline",
+                  "hidden border px-1.5 py-0.5 font-mono text-[11px] tabular-nums sm:inline",
                   stepChecks.every((c) => c.pass)
                     ? "border-success/30 text-success"
                     : "border-destructive/40 text-destructive"
@@ -1122,15 +1256,14 @@ export function RevisionEditor({
             </span>
             {!readOnly && (
               <Button onClick={handleSave} disabled={pending} size="sm">
-                <Save className="size-3.5" data-icon="inline-start" />
                 {pending ? "Kaydediliyor..." : "Kaydet"}
               </Button>
             )}
           </div>
           <div className="flex items-center gap-2.5">
-            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="h-1 flex-1 overflow-hidden bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-[width] duration-300"
+                className="h-full bg-primary transition-[width] duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -1145,14 +1278,14 @@ export function RevisionEditor({
         {step.kind === "summary" && renderSummary()}
 
         {/* Sticky alt gezinme şeridi */}
-        <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border bg-card/95 px-4 py-2.5 shadow-xs backdrop-blur">
+        <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border bg-card px-4 py-2.5">
           <Button
             variant="outline"
             size="sm"
             disabled={stepIndex === 0}
             onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
           >
-            <ChevronLeft className="size-4" data-icon="inline-start" />
+            <span aria-hidden="true" className="font-mono">←</span>
             Geri
           </Button>
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -1164,9 +1297,10 @@ export function RevisionEditor({
             onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
           >
             İleri
-            <ChevronRight className="size-4" data-icon="inline-end" />
+            <span aria-hidden="true" className="font-mono">→</span>
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -72,7 +72,7 @@ export default async function RevisionPage({
           <ReportMenu projectId={id} revisionId={revision.id} />
           <a
             href={`/projects/${id}/revisions/${revision.id}/equipment`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted"
             title="Ekipman listesi panelini aç (tablo görünümü + Excel/PDF indirme)"
           >
             <FileSpreadsheet className="size-3.5 text-muted-foreground" />

@@ -3,7 +3,6 @@ import {
   CircleCheck,
   Clock3,
   FolderKanban,
-  FolderOpen,
   History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -27,16 +26,16 @@ function StatCard({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border bg-card p-4 shadow-xs">
+    <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
         <Icon className="size-4" />
       </span>
       <div className="min-w-0 leading-tight">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">
+        <div className="oc-kicker text-muted-foreground">{label}</div>
+        <div className="mt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight">
           {value}
         </div>
-        {hint && <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</div>}
+        {hint && <div className="mt-0.5 truncate text-[11px] text-foreground/70">{hint}</div>}
       </div>
     </div>
   );
@@ -107,21 +106,24 @@ export default async function ProjectsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-card px-6 py-16 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <FolderOpen className="size-6" />
-          </span>
-          <div>
-            <h2 className="text-base font-semibold">Henüz proje yok</h2>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              İlk hesap raporu projenizi oluşturun; her proje revizyon arşivi ve
-              yayınlanabilir PDF raporlarla birlikte gelir.
-            </p>
-          </div>
+        <div
+          className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-16 text-center"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
+          }}
+        >
+          <h2 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
+            [ HENÜZ PROJE YOK ]
+          </h2>
+          <p className="max-w-sm bg-card px-3 py-1 text-sm text-foreground/70">
+            İlk hesap raporu projenizi oluşturun; her proje revizyon arşivi ve
+            yayınlanabilir PDF raporlarla birlikte gelir.
+          </p>
           <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+        <div className="overflow-hidden rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -164,7 +166,7 @@ export default async function ProjectsPage() {
                       <span className="inline-flex items-center gap-1.5 text-sm">
                         <span
                           className={cn(
-                            "size-2 rounded-full",
+                            "size-2",
                             p.status === "active" ? "bg-success" : "bg-muted-foreground/40"
                           )}
                         />

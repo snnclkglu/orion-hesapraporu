@@ -1,8 +1,9 @@
 // PDF hesap raporu — @react-pdf/renderer Document bileşeni.
-// Kaynak Excel raporun görünümüne sadık: TR ana başlık + EN alt başlık.
+// Marka Kimliği Kılavuzu REV 01 dili: Archivo gövde, IBM Plex Mono sayı/kod/etiket,
+// kırmızı omurga + folio altbilgili BrandPage sayfaları (bkz. brand.tsx).
 // İçerik modül adaptörlerinden (module-adapters.ts) üretilir; editör ile
 // birebir aynı bölüm/satır/kontrol yapısı PDF'e dökülür.
-// Yalnızca sunucuda çalışır (Font.register dosya sisteminden okur).
+// Yalnızca sunucuda çalışır (brand.tsx fontları dosya sisteminden okur).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,7 +13,6 @@ import {
   Font,
   Image,
   Line,
-  Page,
   Path,
   Polygon,
   Rect,
@@ -24,6 +24,16 @@ import {
 } from "@react-pdf/renderer";
 import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
 import { diagramForSection } from "@/lib/diagrams/select";
+import {
+  BRAND,
+  BrandPage,
+  CheckGlyph,
+  FONTS,
+  PageHeader,
+  RuleRed,
+  SectionTag,
+  T,
+} from "@/lib/pdf/brand";
 import { PdfMath } from "@/lib/pdf/pdf-math";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
@@ -49,13 +59,6 @@ import {
   type ModuleKey,
 } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
-// ---------------------------------------------------------------- Fontlar
-// DejaVu Sans: Türkçe glifler (ğ, ş, İ, ı, ...) için şart — varsayılan
-// Helvetica bu karakterleri basamaz. Vercel'de dosyaların bundle'a girmesi
-// next.config.ts outputFileTracingIncludes ile sağlanır.
-
-const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
-
 // Orion Cranes logosu (kırmızı kilit, şeffaf zemin) — public/brand klasörü
 // Vercel trace'ine next.config.ts outputFileTracingIncludes ile dahil edilir.
 // Not: react-pdf string src'yi URL olarak fetch etmeye çalışır (Windows yolunda
@@ -63,17 +66,17 @@ const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
 const LOGO_PATH = path.join(process.cwd(), "public", "brand", "orion-logo.png");
 const LOGO_DATA = fs.readFileSync(LOGO_PATH);
 
+// DejaVu eğik varyantı: pdf-math italik değişken adları için şart — brand.tsx
+// aileyi eğiksiz kaydeder; Font.register aynı aileye kaynak EKLER (ezmez).
 Font.register({
   family: "DejaVu",
   fonts: [
-    { src: path.join(FONT_DIR, "DejaVuSans.ttf") },
-    { src: path.join(FONT_DIR, "DejaVuSans-Bold.ttf"), fontWeight: "bold" },
-    { src: path.join(FONT_DIR, "DejaVuSans-Oblique.ttf"), fontStyle: "italic" },
+    {
+      src: path.join(process.cwd(), "src", "assets", "fonts", "DejaVuSans-Oblique.ttf"),
+      fontStyle: "italic",
+    },
   ],
 });
-
-// Türkçe kelimeler tirelenmesin (react-pdf varsayılan İngilizce heceleme yapar)
-Font.registerHyphenationCallback((word) => [word]);
 
 // ---------------------------------------------------------------- Tipler
 
@@ -135,12 +138,26 @@ function fmtField(v: unknown): string {
   return String(v);
 }
 
-function reportDateLabel(revision: ReportRevision): string {
+function reportDate(revision: ReportRevision): Date {
   const iso = revision.issued_at ?? revision.updated_at;
-  const d = iso ? new Date(iso) : new Date();
-  return d
+  return iso ? new Date(iso) : new Date();
+}
+
+function reportDateLabel(revision: ReportRevision): string {
+  return reportDate(revision)
     .toLocaleDateString("tr-TR", { month: "long", year: "numeric" })
     .toLocaleUpperCase("tr-TR");
+}
+
+/** Altbilgi doküman satırı: `ORION CRANES · HESAP RAPORU · REV 03 · 2026` */
+function docLineFor(revision: ReportRevision): string {
+  const rev = String(revision.rev_no).padStart(2, "0");
+  return `ORION CRANES · HESAP RAPORU · REV ${rev} · ${reportDate(revision).getFullYear()}`;
+}
+
+/** Doküman kodu: `ORC-HR-412-R03` */
+function docCodeFor(project: ReportProject, revision: ReportRevision): string {
+  return `ORC-HR-${project.doc_no}-R${String(revision.rev_no).padStart(2, "0")}`;
 }
 
 // Modül anahtarı -> CalcInput / CalcResult erişimi (editor'daki desenle aynı)
@@ -265,226 +282,142 @@ function sectionChecks(
 
 // ---------------------------------------------------------------- Stiller
 
-// Orion Cranes marka paleti (Marka Kimliği Kılavuzu REV 01):
-// kömür mürekkep, kağıt/gri nötr skala, Orion kırmızısı vurgu.
-const C = {
-  ink: "#262626", // Kömür
-  muted: "#6B6663", // Gri 600
-  faint: "#8A8480", // Gri 500
-  line: "#DCD9D7", // Çizgi 300
-  headBg: "#F1EEEC", // Kağıt tonu
-  green: "#1F8A5B",
-  greenBg: "#eaf5ee",
-  red: "#B4322F",
-  redBg: "#fbedec",
-  accent: "#A41E1E", // Orion Kırmızısı
-};
-
 const s = StyleSheet.create({
-  page: {
-    fontFamily: "DejaVu",
-    fontSize: 8,
-    color: C.ink,
-    paddingTop: 42,
-    paddingBottom: 52,
-    paddingHorizontal: 46,
-  },
-  // ---- kırmızı omurga (marka: "omurga her zaman solda")
-  spine: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 8,
-    backgroundColor: C.accent,
-  },
-  coverSpine: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 22,
-    backgroundColor: C.accent,
-  },
-  // ---- footer (kurumsal altbilgi: firma + iletişim + doküman/sayfa)
-  footer: {
-    position: "absolute",
-    left: 46,
-    right: 46,
-    bottom: 20,
-    borderTopWidth: 0.75,
-    borderTopColor: C.line,
-    paddingTop: 4,
-    flexDirection: "column",
-    gap: 1.5,
-  },
-  footerRow: {
+  // ---- kapak
+  coverLogo: { width: 168, height: 18.9 }, // 596×67 px oranı korunur
+  coverMetaLabel: { ...T.kickerInk, marginBottom: 2 },
+  coverMetaValue: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink },
+  // Künye satırı (spec bloğu): etiket mono kicker, değer büyük mono
+  specRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
-  },
-  footerCompany: { fontSize: 7.5, fontWeight: "bold", color: C.accent, letterSpacing: 0.5 },
-  footerMeta: { fontSize: 7, color: C.muted },
-  footerContact: { fontSize: 6, color: C.faint, letterSpacing: 0.2 },
-  // ---- kapak
-  coverPage: {
-    fontFamily: "DejaVu",
-    fontSize: 9,
-    color: C.ink,
-    paddingTop: 48,
-    paddingBottom: 44,
-    paddingHorizontal: 52,
-  },
-  coverTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    borderBottomWidth: 2,
-    borderBottomColor: C.ink,
-    paddingBottom: 10,
-  },
-  coverLogo: { width: 150, height: 16.9 }, // 596×67 px oranı korunur
-  coverBrand: { fontSize: 7, color: C.muted, letterSpacing: 1.5, marginTop: 5 },
-  coverDocMeta: { fontSize: 8, color: C.muted, textAlign: "right" },
-  coverCenter: { marginTop: 120, alignItems: "center" },
-  coverTitle: { fontSize: 30, fontWeight: "bold", letterSpacing: 3, color: C.ink },
-  coverSubtitle: { fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 2 },
-  coverRule: {
-    width: 220,
-    borderBottomWidth: 2,
-    borderBottomColor: C.accent,
-    marginVertical: 26,
-  },
-  coverCustomer: { fontSize: 16, fontWeight: "bold", letterSpacing: 1 },
-  coverProject: { fontSize: 13, marginTop: 8, letterSpacing: 0.5 },
-  coverCrane: { fontSize: 9, color: C.muted, marginTop: 8 },
-  coverBoxes: {
-    marginTop: "auto",
-    borderWidth: 0.75,
-    borderColor: C.line,
-  },
-  coverBoxRow: { flexDirection: "row" },
-  coverBox: {
-    flex: 1,
-    flexDirection: "row",
-    borderColor: C.line,
+    borderBottomWidth: 0.75,
+    borderBottomColor: BRAND.line300,
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    gap: 10,
   },
-  coverBoxLabel: { width: 78, fontSize: 7, color: C.muted, fontWeight: "bold" },
-  coverBoxValue: { flex: 1, fontSize: 8 },
-  coverFootnote: { textAlign: "center", marginTop: 14, fontSize: 8, color: C.muted, letterSpacing: 1.5 },
-  // ---- başlıklar
-  h1: {
+  specLabel: { ...T.kickerInk },
+  specGloss: { ...T.micro, marginTop: 1.5 },
+  specValue: {
+    fontFamily: FONTS.mono,
     fontSize: 13,
-    fontWeight: "bold",
-    color: C.accent,
-    marginBottom: 2,
-  },
-  h1En: { fontSize: 8, color: C.muted, marginBottom: 10, letterSpacing: 1 },
-  h2: {
-    fontSize: 9.5,
-    fontWeight: "bold",
-    backgroundColor: C.headBg,
-    borderLeftWidth: 2,
-    borderLeftColor: C.accent,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  h3: {
-    fontSize: 7,
-    fontWeight: "bold",
-    color: C.muted,
-    letterSpacing: 0.8,
-    marginTop: 6,
-    marginBottom: 2,
-    textTransform: "uppercase",
+    fontWeight: 600,
+    letterSpacing: 0.2,
+    color: BRAND.ink,
+    textAlign: "right",
   },
   // ---- içindekiler
   tocRow: {
     flexDirection: "row",
     alignItems: "baseline",
     borderBottomWidth: 0.5,
-    borderBottomColor: C.line,
+    borderBottomColor: BRAND.line300,
     paddingVertical: 7,
+    gap: 10,
   },
-  tocNo: { width: 34, fontWeight: "bold", fontSize: 10, color: C.accent },
-  tocTitle: { fontSize: 9.5 },
-  // ---- tablo (girdi/seçim/özet)
-  kvGrid: { flexDirection: "row", gap: 12 },
+  tocNo: { width: 30, fontFamily: FONTS.mono, fontSize: 9, fontWeight: 600, color: BRAND.red },
+  tocTitle: { fontFamily: FONTS.sans, fontSize: 9.5, fontWeight: 700, color: BRAND.ink },
+  // ---- etiket-değer tabloları (girdi/seçim/özet)
+  kvGrid: { flexDirection: "row", gap: 14 },
   kvCol: { flex: 1 },
   kvRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "baseline",
     borderBottomWidth: 0.5,
-    borderBottomColor: C.line,
-    paddingVertical: 2.25,
+    borderBottomColor: BRAND.hairline,
+    paddingVertical: 2.4,
     gap: 6,
   },
-  kvLabel: { flex: 1, color: C.muted },
-  kvValue: { textAlign: "right", fontWeight: "bold" },
-  kvUnit: { color: C.faint },
-  // ---- hesap satırları
-  calcRow: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: C.line,
-    paddingVertical: 2.5,
+  kvLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.gray700 },
+  // Katalog seçimi satırı: etiket de mono (seçim rolü, girdiden ayrışır)
+  kvLabelMono: { flex: 1, fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600 },
+  kvValue: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.6,
+    fontWeight: 500,
+    letterSpacing: 0.2,
+    color: BRAND.ink,
+    textAlign: "right",
   },
-  calcTop: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  calcLabel: { flex: 1 },
-  calcValue: { fontWeight: "bold" },
-  calcFormula: { fontSize: 6.5, color: C.muted, marginTop: 1 },
-  calcMeta: { fontSize: 6, color: C.faint, marginTop: 0.5 },
-  // ---- kontroller
+  kvUnit: { fontFamily: FONTS.mono, fontSize: 6.8, fontWeight: 400, color: BRAND.gray500 },
+  // ---- hesap satırları (hesaplanan rol: paper100 zemin, gri etiket)
+  calcRow: {
+    backgroundColor: BRAND.paper100,
+    borderBottomWidth: 0.5,
+    borderBottomColor: BRAND.line300,
+    paddingVertical: 2.5,
+    paddingHorizontal: 4,
+  },
+  calcTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
+  calcLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.gray700 },
+  calcEq: { fontFamily: FONTS.mono, fontSize: 7.6, color: BRAND.gray500 },
+  calcValue: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.6,
+    fontWeight: 600,
+    letterSpacing: 0.2,
+    color: BRAND.ink,
+  },
+  // Formül satırı DejaVu kalır: pdf-math italik değişkenler + √ gibi glifler
+  // Archivo'da yok; fontFamily sarmalayıcıdan miras yoluyla PdfMath'e iner.
+  calcFormula: { marginTop: 1.5, fontFamily: FONTS.glyph },
+  calcMeta: { fontFamily: FONTS.mono, fontSize: 6, color: BRAND.gray500, marginTop: 1 },
+  // ---- kontroller (düz satır: hairline, yalnız ✗ kırmızı)
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 0.75,
-    borderRadius: 2,
-    paddingVertical: 2.5,
-    paddingHorizontal: 5,
-    marginTop: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: BRAND.hairline,
+    paddingVertical: 3,
     gap: 6,
   },
-  checkPass: { borderColor: C.green, backgroundColor: C.greenBg },
-  checkFail: { borderColor: C.red, backgroundColor: C.redBg },
-  checkLabel: { flex: 1 },
-  checkDetail: { fontSize: 6.5, color: C.muted },
-  checkBadge: { fontSize: 7.5, fontWeight: "bold" },
+  checkLabel: { fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.ink },
+  checkDetail: { fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600, marginTop: 0.8 },
+  checkBadge: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.6 },
   // ---- özet kontrol tablosu
-  sumModule: { marginTop: 5 },
-  sumModuleTitle: { fontSize: 8, fontWeight: "bold", marginBottom: 1.5 },
+  sumModule: { marginTop: 6 },
+  sumModuleTitle: { fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink, marginBottom: 1.5 },
 });
 
 // ---------------------------------------------------------------- Alt bileşenler
 
-function Footer({ docNo, settings }: { docNo: string; settings?: ReportSettings }) {
-  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  const contact = [st.address, st.phone, st.email, st.web]
-    .map((x) => (x ?? "").trim())
-    .filter(Boolean)
-    .join("  ·  ");
+/** Alt başlık bandı: mono TR etiket + sağda mono EN gloss, hairline altı */
+function SubHead({ tr, en }: { tr: string; en?: string }) {
   return (
-    <View style={s.footer} fixed>
-      <View style={s.footerRow}>
-        <Text style={s.footerCompany}>{st.company}</Text>
-        <Text style={s.footerMeta}>
-          {docNo}
-          {"   "}
-          <Text render={({ pageNumber, totalPages }) => `Sayfa ${pageNumber} / ${totalPages}`} />
-        </Text>
-      </View>
-      <Text style={s.footerContact}>{contact || st.city}</Text>
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        borderBottomWidth: 0.75,
+        borderBottomColor: BRAND.line300,
+        paddingBottom: 2,
+        marginTop: 8,
+        marginBottom: 3,
+      }}
+    >
+      <Text style={T.kickerInk}>{tr}</Text>
+      {en ? <Text style={T.micro}>{en}</Text> : null}
     </View>
   );
 }
 
-function KvRow({ label, value, unit }: { label: string; value: string; unit?: string }) {
+function KvRow({
+  label,
+  value,
+  unit,
+  labelMono,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  labelMono?: boolean;
+}) {
   return (
     <View style={s.kvRow} wrap={false}>
-      <Text style={s.kvLabel}>{label}</Text>
+      <Text style={labelMono ? s.kvLabelMono : s.kvLabel}>{label}</Text>
       <Text style={s.kvValue}>
         {value}
         {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
@@ -497,9 +430,12 @@ function KvRow({ label, value, unit }: { label: string; value: string; unit?: st
 function FieldTable({
   defs,
   source,
+  labelMono,
 }: {
   defs: AnyFieldDef[];
   source: object;
+  /** Katalog seçimi tabloları: etiketler de mono (seçim rolü) */
+  labelMono?: boolean;
 }) {
   const rec = source as Record<string, unknown>;
   const mid = Math.ceil(defs.length / 2);
@@ -512,7 +448,13 @@ function FieldTable({
             const labels = (f as { optionLabels?: Record<string, string> }).optionLabels;
             const val = labels?.[String(rec[f.key])] ?? fmtField(rec[f.key]);
             return (
-              <KvRow key={f.key} label={f.label} value={val} unit={toDisplayUnitLabel(f.unit)} />
+              <KvRow
+                key={f.key}
+                label={f.label}
+                value={val}
+                unit={toDisplayUnitLabel(f.unit)}
+                labelMono={labelMono}
+              />
             );
           })}
         </View>
@@ -533,19 +475,23 @@ function CheckLine({ check }: { check: AnyCheck }) {
         toDisplayUnit((check as { required: number }).required, check.unit).value
       )}${u} · sağlanan ${fmt(prov.value)}${u}`;
   return (
-    <View style={[s.checkRow, check.pass ? s.checkPass : s.checkFail]} wrap={false}>
-      <View style={s.checkLabel}>
-        <Text>
+    <View style={s.checkRow} wrap={false}>
+      <CheckGlyph pass={check.pass} size={8} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.checkLabel}>
           {check.label}
-          {check.nonExcel ? <Text style={{ color: C.faint }}> (ek kontrol)</Text> : null}
+          {check.nonExcel ? (
+            <Text style={{ color: BRAND.gray500 }}> (ek kontrol)</Text>
+          ) : null}
         </Text>
         <Text style={s.checkDetail}>
           {detail}
           {check.standard ? ` · ${check.standard}` : ""}
         </Text>
       </View>
-      <Text style={[s.checkBadge, { color: check.pass ? C.green : C.red }]}>
-        {check.pass ? "✓ UYGUN" : "✗ UYGUN DEĞİL"}
+      {/* Marka: yalnız ✗/uygunsuz kırmızı; uygun durum nötr kalır */}
+      <Text style={[s.checkBadge, { color: check.pass ? BRAND.gray700 : BRAND.red }]}>
+        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
       </Text>
     </View>
   );
@@ -553,70 +499,115 @@ function CheckLine({ check }: { check: AnyCheck }) {
 
 // ---------------------------------------------------------------- Kapak
 
-function CoverPage({ project, revision, preparedBy, settings }: ReportProps) {
-  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
+/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kanca yolu → FEM */
+function coverSpecs(input: CalcInput): { label: string; gloss: string; value: string }[] {
+  const sp = input.specs;
+  const out: { label: string; gloss: string; value: string }[] = [];
+  if (Number.isFinite(sp.mainCapacityT)) {
+    const aux = input.auxHoist && Number.isFinite(sp.auxCapacityT) ? ` / ${fmt(sp.auxCapacityT)} t` : "";
+    out.push({ label: "KAPASİTE", gloss: "CAPACITY", value: `${fmt(sp.mainCapacityT)} t${aux}` });
+  }
+  if (Number.isFinite(sp.spanM))
+    out.push({ label: "AÇIKLIK", gloss: "SPAN", value: `${fmt(sp.spanM)} m` });
+  if (Number.isFinite(sp.mainLiftHeightM))
+    out.push({ label: "KANCA YOLU", gloss: "HEIGHT OF LIFT", value: `${fmt(sp.mainLiftHeightM)} m` });
+  const duty = [sp.hoistLoadClass, sp.hoistMechanismClass].filter(Boolean).join(" / ");
+  if (duty) out.push({ label: "FEM SINIFI", gloss: "DUTY CLASS", value: duty });
+  return out;
+}
+
+function CoverPage(props: ReportProps) {
+  const { project, revision, preparedBy, input } = props;
+  const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
+  const docCode = docCodeFor(project, revision);
+  const contact = [st.address, st.phone, st.email, st.web]
+    .map((x) => (x ?? "").trim())
+    .filter(Boolean)
+    .join("  ·  ");
   return (
-    <Page size="A4" style={s.coverPage}>
-      <View style={s.coverSpine} fixed />
-      <View style={s.coverTopRow}>
-        <View>
-          <Image style={s.coverLogo} src={LOGO_DATA} />
-          <Text style={s.coverBrand}>{st.company}</Text>
-        </View>
-        <View>
-          <Text style={s.coverDocMeta}>DOC {project.doc_no}</Text>
-          <Text style={s.coverDocMeta}>
-            REV V{revision.rev_no} · {dateLabel}
+    <BrandPage docLine={docLineFor(revision)} docCode={docCode} hideFooterRule>
+      {/* Üst bant: lockup logo + sağda mono doküman kimliği */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          borderBottomWidth: 1.4,
+          borderBottomColor: BRAND.ink,
+          paddingBottom: 10,
+        }}
+      >
+        <Image style={s.coverLogo} src={LOGO_DATA} />
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={{ ...T.data, color: BRAND.gray600 }}>{docCode}</Text>
+          <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 1.5 }}>
+            REV {String(revision.rev_no).padStart(2, "0")} · {dateLabel}
           </Text>
         </View>
       </View>
 
-      <View style={s.coverCenter}>
-        <Text style={s.coverTitle}>{st.title_tr}</Text>
-        <Text style={s.coverSubtitle}>{st.title_en}</Text>
-        <View style={s.coverRule} />
-        <Text style={s.coverCustomer}>{project.customer.toLocaleUpperCase("tr-TR")}</Text>
-        <Text style={s.coverProject}>{project.name.toLocaleUpperCase("tr-TR")}</Text>
-        <Text style={s.coverCrane}>{project.crane_type}</Text>
+      {/* Başlık bloğu */}
+      <View style={{ marginTop: 84 }}>
+        <Text style={T.kicker}>HESAP RAPORU · CALCULATION REPORT</Text>
+        <RuleRed width={22} />
+        <Text style={{ ...T.display, marginTop: 12 }}>
+          {project.name.toLocaleUpperCase("tr-TR")}
+        </Text>
+        <Text style={{ ...T.caption, marginTop: 6 }}>{project.crane_type}</Text>
       </View>
 
-      <View style={s.coverBoxes}>
-        <View style={[s.coverBoxRow, { borderBottomWidth: 0.75, borderBottomColor: C.line }]}>
-          <View style={[s.coverBox, { borderRightWidth: 0.75 }]}>
-            <Text style={s.coverBoxLabel}>DOKÜMAN NO</Text>
-            <Text style={s.coverBoxValue}>{project.doc_no}</Text>
+      {/* Künye: kapasite → açıklık → kanca yolu → FEM sınıfı */}
+      <View style={{ marginTop: 30, borderTopWidth: 1.4, borderTopColor: BRAND.ink }}>
+        {coverSpecs(input).map((row) => (
+          <View key={row.label} style={s.specRow}>
+            <View>
+              <Text style={s.specLabel}>{row.label}</Text>
+              <Text style={s.specGloss}>{row.gloss}</Text>
+            </View>
+            <Text style={s.specValue}>{row.value}</Text>
           </View>
-          <View style={s.coverBox}>
-            <Text style={s.coverBoxLabel}>TARİH</Text>
-            <Text style={s.coverBoxValue}>{dateLabel}</Text>
+        ))}
+      </View>
+
+      {/* Meta: müşteri / tarih / hazırlayan / revizyon */}
+      <View style={{ marginTop: "auto" }}>
+        <View style={{ flexDirection: "row", gap: 18, marginBottom: 14 }}>
+          <View style={{ flex: 1.4 }}>
+            <Text style={s.coverMetaLabel}>MÜŞTERİ</Text>
+            <Text style={s.coverMetaValue}>{project.customer.toLocaleUpperCase("tr-TR")}</Text>
           </View>
-        </View>
-        <View style={s.coverBoxRow}>
-          <View style={[s.coverBox, { borderRightWidth: 0.75 }]}>
-            <Text style={s.coverBoxLabel}>REVİZYON</Text>
-            <Text style={s.coverBoxValue}>
-              V{revision.rev_no}
-              {revision.label && revision.label !== `V${revision.rev_no}`
-                ? ` · ${revision.label}`
-                : ""}
+          <View style={{ flex: 1 }}>
+            <Text style={s.coverMetaLabel}>TARİH</Text>
+            <Text style={{ ...T.data }}>{dateLabel}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.coverMetaLabel}>HAZIRLAYAN</Text>
+            <Text style={s.coverMetaValue}>{preparedBy.toLocaleUpperCase("tr-TR")}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.coverMetaLabel}>REVİZYON</Text>
+            <Text style={{ ...T.data }}>
+              R{String(revision.rev_no).padStart(2, "0")}
+              {revision.label && revision.label !== `V${revision.rev_no}` ? ` · ${revision.label}` : ""}
             </Text>
           </View>
-          <View style={s.coverBox}>
-            <Text style={s.coverBoxLabel}>HAZIRLAYAN</Text>
-            <Text style={s.coverBoxValue}>{preparedBy.toLocaleUpperCase("tr-TR")}</Text>
-          </View>
+        </View>
+        <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 4 }}>
+          <Text style={T.micro}>
+            {st.company} · {contact || st.city}
+          </Text>
         </View>
       </View>
-      <Text style={s.coverFootnote}>{st.city}</Text>
-    </Page>
+    </BrandPage>
   );
 }
 
 // ---------------------------------------------------------------- İçindekiler
 
 function TocPage({
-  project, level, settings, numbers, present,
+  project, revision, level,
+  numbers, present,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   present: (k: ModuleKey) => boolean;
@@ -634,12 +625,14 @@ function TocPage({
           }),
         ];
   return (
-    <Page size="A4" style={s.page}>
-      <View style={s.spine} fixed />
-      <Text style={s.h1}>İÇİNDEKİLER</Text>
-      <Text style={s.h1En}>CONTENTS</Text>
+    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageHeader
+        kicker="HESAP RAPORU · CALCULATION REPORT"
+        title="İçindekiler"
+        meta="CONTENTS"
+      />
       <View style={s.tocRow}>
-        <Text style={s.tocNo}>—</Text>
+        <Text style={{ ...s.tocNo, color: BRAND.gray450 }}>—</Text>
         <Text style={s.tocTitle}>ÖZET HESAP RAPORU</Text>
       </View>
       {entries.map((e) => (
@@ -648,8 +641,7 @@ function TocPage({
           <Text style={s.tocTitle}>{e.title.toLocaleUpperCase("tr-TR")}</Text>
         </View>
       ))}
-      <Footer docNo={project.doc_no} settings={settings} />
-    </Page>
+    </BrandPage>
   );
 }
 
@@ -776,19 +768,21 @@ function summaryGroups(input: CalcInput): SummaryGroup[] {
 }
 
 function SummarySection({
-  input, result, project, settings, numbers,
+  input, result, project, revision, numbers,
 }: ReportProps & { numbers: Partial<Record<ModuleKey, number>> }) {
   const groups = summaryGroups(input);
   return (
-    <Page size="A4" style={s.page} wrap>
-      <View style={s.spine} fixed />
-      <Text style={s.h1}>ÖZET HESAP RAPORU</Text>
-      <Text style={s.h1En}>SUMMARY · DESIGN CALCULATION REPORT</Text>
+    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageHeader
+        kicker="ÖZET · SUMMARY"
+        title="Özet Hesap Raporu"
+        meta="DESIGN CALCULATION REPORT"
+      />
 
-      <Text style={s.h2}>Teknik Özellikler</Text>
+      <SectionTag no="01" title="Teknik Özellikler" gloss="TECHNICAL SPECIFICATIONS" />
       <FieldTable defs={SPEC_FIELDS as AnyFieldDef[]} source={input.specs} />
 
-      <Text style={s.h2}>Ana Ekipman Seçimleri</Text>
+      <SubHead tr="ANA EKİPMAN SEÇİMLERİ" en="EQUIPMENT SELECTIONS" />
       <View style={s.kvGrid}>
         <View style={s.kvCol}>
           {groups.slice(0, Math.ceil(groups.length / 2)).map((g) => (
@@ -812,7 +806,7 @@ function SummarySection({
         </View>
       </View>
 
-      <Text style={s.h2}>Kontroller</Text>
+      <SubHead tr="KONTROLLER" en="DESIGN CHECKS" />
       {MODULE_ADAPTERS.map((adapter) => {
         const mr = moduleResult(result, adapter.key);
         if (!mr || mr.checks.length === 0) return null;
@@ -827,8 +821,7 @@ function SummarySection({
           </View>
         );
       })}
-      <Footer docNo={project.doc_no} settings={settings} />
-    </Page>
+    </BrandPage>
   );
 }
 
@@ -889,6 +882,8 @@ function pdfDiagramEl(el: DiagramEl, i: number) {
           fill={el.fill}
           textAnchor={el.anchor}
           style={{
+            // Diyagram metinleri DejaVu kalır: teknik semboller (Ø, ölçü okları,
+            // Yunan harfleri) mono/Archivo kapsamı dışında olabilir.
             fontFamily: "DejaVu",
             fontSize: el.size,
             fontWeight: el.bold ? "bold" : undefined,
@@ -901,7 +896,7 @@ function pdfDiagramEl(el: DiagramEl, i: number) {
 }
 
 function PdfDiagram({ diagram }: { diagram: Diagram }) {
-  // Sayfa içerik genişliği ~503pt; diyagram 460pt'e ölçeklenir
+  // Sayfa içerik genişliği ~490pt; diyagram 460pt'e ölçeklenir
   const w = 460;
   const h = (diagram.height / diagram.width) * w;
   return (
@@ -911,8 +906,7 @@ function PdfDiagram({ diagram }: { diagram: Diagram }) {
         marginTop: 4,
         marginBottom: 3,
         borderWidth: 0.75,
-        borderColor: C.line,
-        borderRadius: 2,
+        borderColor: BRAND.line300,
         paddingVertical: 4,
         alignItems: "center",
       }}
@@ -948,7 +942,8 @@ function CalcRowLine({
       <View style={s.calcTop}>
         <Text style={s.calcLabel}>{row.label}</Text>
         <Text style={s.calcValue}>
-          = {fmt(value, row.digits ?? 2)}
+          <Text style={s.calcEq}>= </Text>
+          {fmt(value, row.digits ?? 2)}
           {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
         </Text>
       </View>
@@ -976,7 +971,7 @@ function ModulePage({
   /** Dinamik görüntü numarası (esnek modül numaralandırması) */
   moduleNo: number;
 }) {
-  const { input, result, project } = props;
+  const { input, result, project, revision } = props;
   const state = moduleState(input, adapter.key);
   const mr = moduleResult(result, adapter.key);
   if (!state || !mr) return null;
@@ -984,12 +979,12 @@ function ModulePage({
   const [no, ...rest] = renumberTitle(adapter.title, moduleNo).split(" · ");
 
   return (
-    <Page size="A4" style={s.page} wrap>
-      <View style={s.spine} fixed />
-      <Text style={s.h1}>
-        {no} · {rest.join(" · ").toLocaleUpperCase("tr-TR")}
-      </Text>
-      <Text style={s.h1En}>FEM 1.001 / DIN 15018 / CMAA 70</Text>
+    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageHeader
+        kicker={`BÖLÜM ${no} · SECTION ${no}`}
+        title={rest.join(" · ")}
+        meta="FEM 1.001 · DIN 15018 · CMAA 70"
+      />
       {adapter.sections.map((section) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
@@ -998,17 +993,15 @@ function ModulePage({
         return (
           // Bölüm başlığı sayfa sonunda yalnız kalmasın: minPresenceAhead ile
           // yeterli boşluk yoksa bölüm bir sonraki sayfaya taşınır.
-          <View key={section.id} minPresenceAhead={70}>
+          <View key={section.id} minPresenceAhead={70} style={{ marginBottom: 10 }}>
             {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
             <View wrap={false}>
-              <Text style={s.h2}>
-                {renumberSectionId(section.id, moduleNo)}  {section.title}
-              </Text>
+              <SectionTag no={renumberSectionId(section.id, moduleNo)} title={section.title} />
               {diagram && <PdfDiagram diagram={diagram} />}
             </View>
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
               <View minPresenceAhead={30}>
-                <Text style={s.h3}>Girdiler / Tasarım Kabulleri</Text>
+                <SubHead tr="GİRDİLER / TASARIM KABULLERİ" en="INPUTS" />
                 <FieldTable defs={section.inputDefs} source={scoped} />
                 {section.extraInputDefs && section.extraInputDefs.length > 0 && (
                   <FieldTable defs={section.extraInputDefs} source={inputs} />
@@ -1017,13 +1010,13 @@ function ModulePage({
             )}
             {section.selectionDefs.length > 0 && (
               <View minPresenceAhead={30}>
-                <Text style={s.h3}>Katalog Seçimi</Text>
-                <FieldTable defs={section.selectionDefs} source={state.selections} />
+                <SubHead tr="KATALOG SEÇİMİ" en="SELECTION" />
+                <FieldTable defs={section.selectionDefs} source={state.selections} labelMono />
               </View>
             )}
             {section.rows.length > 0 && (
               <View minPresenceAhead={30}>
-                <Text style={s.h3}>Hesap</Text>
+                <SubHead tr="HESAP" en="CALCULATION" />
                 {section.rows.map((r) => (
                   <CalcRowLine key={r.key} row={r} ctx={ctx} showFormulas={showFormulas} />
                 ))}
@@ -1031,7 +1024,7 @@ function ModulePage({
             )}
             {checks.length > 0 && (
               <View minPresenceAhead={30}>
-                <Text style={s.h3}>Kontroller</Text>
+                <SubHead tr="KONTROLLER" en="CHECKS" />
                 {checks.map((c) => (
                   <CheckLine key={c.id} check={c} />
                 ))}
@@ -1040,8 +1033,7 @@ function ModulePage({
           </View>
         );
       })}
-      <Footer docNo={project.doc_no} settings={props.settings} />
-    </Page>
+    </BrandPage>
   );
 }
 

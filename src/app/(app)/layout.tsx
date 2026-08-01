@@ -18,12 +18,24 @@ export default async function AppLayout({
     .single();
 
   return (
-    <AppShell
-      isAdmin={profile?.role === "admin"}
-      displayName={profile?.full_name || user.email || "Kullanıcı"}
-      email={user.email ?? ""}
-    >
-      {children}
-    </AppShell>
+    <>
+      {/* Klavye kullanıcıları için içeriğe atlama linki; yalnız odaklanınca görünür */}
+      <a
+        href="#icerik"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:bg-primary focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:text-primary-foreground"
+      >
+        İçeriğe atla
+      </a>
+      <AppShell
+        isAdmin={profile?.role === "admin"}
+        displayName={profile?.full_name || user.email || "Kullanıcı"}
+        email={user.email ?? ""}
+      >
+        {/* main app-shell içinde; atlama hedefi bu sarmalayıcıdır */}
+        <div id="icerik" tabIndex={-1} className="outline-none">
+          {children}
+        </div>
+      </AppShell>
+    </>
   );
 }

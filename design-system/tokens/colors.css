@@ -1,0 +1,91 @@
+/* ORION CRANES · COLOR
+   Base values are lifted verbatim from the Marka Kimliği Kılavuzu (REV 01 · 2026). */
+:root{
+  /* --- Primary --- */
+  --oc-red:#A41E1E;              /* Orion Kırmızısı · P 1805 C · RAL 3003 · CMYK 22/95/95/13 */
+  --oc-red-deep:#7D1717;         /* pressed / link hover */
+  --oc-red-lift:#B4322F;         /* ghost mark on red ground */
+  --oc-red-pale:#F1C9C7;         /* meta text on red ground */
+  --oc-ink:#262626;              /* Kömür · Neutral Black C · RAL 9011 */
+  --oc-ink-deep:#211F1D;         /* deepest ground (book body) */
+  --oc-ink-ghost:#2F2E2C;        /* ghost mark on charcoal */
+  --oc-ink-line:#3A3633;         /* hairline on charcoal */
+
+  /* --- Secondary accents --- */
+  --oc-steel:#1F5C7A;            /* Çelik Mavisi · P 7700 C · RAL 5009 · LC series */
+  --oc-steel-line:#3F7A96;
+  --oc-steel-pale:#AEBEC7;
+  --oc-steel-lift:#7FB8D4;
+  --oc-slate:#37474F;            /* Arduvaz · P 431 C · RAL 7031 · HC series */
+  --oc-slate-line:#4E606A;
+  --oc-slate-pale:#DDE4E8;
+  --oc-coral:#E8736F;            /* Mercan — digital accent only */
+
+  /* --- Neutral scale --- */
+  --oc-paper-50:#FAF8F7;
+  --oc-paper-100:#F4F1EF;
+  --oc-paper-150:#F1EEEC;
+  --oc-paper-200:#E7E4E2;
+  --oc-paper-250:#EAE7E5;
+  --oc-hairline:#EDEAE8;
+  --oc-line-300:#DCD9D7;
+  --oc-line-350:#C6C2BF;
+  --oc-gray-400:#B8B2AE;
+  --oc-gray-450:#9A9591;
+  --oc-gray-500:#8A8480;
+  --oc-gray-550:#56524E;
+  --oc-gray-600:#6B6663;
+  --oc-gray-700:#48433F;
+  --oc-white:#FFFFFF;
+
+  /* --- Semantic --- */
+  --oc-success:#1F8A5B;
+  --oc-warning:#A41E1E;          /* the brand has no amber; warnings ride on red */
+  --oc-danger:#A41E1E;
+  --oc-info:#1F5C7A;
+
+  /* --- Aliases: text --- */
+  --text-primary:var(--oc-ink);
+  --text-body:var(--oc-gray-700);
+  --text-secondary:var(--oc-gray-600);
+  --text-muted:var(--oc-gray-500);
+  --text-meta:var(--oc-gray-450);
+  --text-accent:var(--oc-red);
+  --text-on-dark:var(--oc-paper-100);
+  --text-on-dark-muted:#C6C2BF;
+  --text-on-dark-meta:var(--oc-gray-500);
+  --text-on-red:var(--oc-paper-100);
+  --text-on-red-meta:var(--oc-red-pale);
+  --text-link:var(--oc-red);
+  --text-link-hover:var(--oc-red-deep);
+
+  /* --- Aliases: surface --- */
+  --surface-page:var(--oc-paper-50);
+  --surface-sunken:var(--oc-paper-100);
+  --surface-card:var(--oc-white);
+  --surface-inset:var(--oc-paper-100);
+  --surface-ink:var(--oc-ink);
+  --surface-ink-deep:var(--oc-ink-deep);
+  --surface-accent:var(--oc-red);
+  --surface-steel:var(--oc-steel);
+  --surface-slate:var(--oc-slate);
+  --surface-disabled:var(--oc-paper-200);
+
+  /* --- Aliases: border --- */
+  --border-hairline:var(--oc-hairline);
+  --border-default:var(--oc-line-300);
+  --border-strong:var(--oc-ink);
+  --border-dashed:var(--oc-line-350);
+  --border-on-dark:var(--oc-ink-line);
+  --border-on-red:var(--oc-red-lift);
+  --focus-ring:var(--oc-red);
+
+  /* --- Graphic language --- */
+  --spine-color:var(--oc-red);
+  --tick-color:var(--oc-gray-400);
+  --bullet-color:var(--oc-red);
+  --stripe-a:var(--oc-paper-250);
+  --stripe-b:var(--oc-paper-150);
+  --scrim-photo:rgba(0,0,0,.35); /* @kind color */
+  --duotone-red:linear-gradient(135deg,rgba(164,30,30,.9),rgba(38,38,38,.9)); /* @kind color */
+}

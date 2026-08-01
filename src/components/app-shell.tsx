@@ -7,14 +7,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Briefcase,
-  FolderKanban,
-  Menu,
-  Settings2,
-  X,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 
 interface AppShellProps {
@@ -24,10 +18,15 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const NAV_ITEMS = [
-  { href: "/jobs", label: "İşler", icon: Briefcase },
-  { href: "/projects", label: "Projeler", icon: FolderKanban },
-  { href: "/admin", label: "Yönetim", icon: Settings2, adminOnly: true },
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: BrandIconName;
+  adminOnly?: boolean;
+}[] = [
+  { href: "/jobs", label: "İşler", icon: "bolt" },
+  { href: "/projects", label: "Projeler", icon: "panel" },
+  { href: "/admin", label: "Yönetim", icon: "gauge", adminOnly: true },
 ];
 
 function sectionLabel(pathname: string | null): string {
@@ -83,26 +82,27 @@ function SidebarContent({
 
       {/* Navigasyon */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+        <div className="px-2 pb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/50">
           Çalışma Alanı
         </div>
         <ul className="grid gap-0.5">
           {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
             const active = pathname?.startsWith(item.href);
-            const Icon = item.icon;
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                    // Kırmızı sol çentik: omurga motifinin menüdeki devamı;
+                    // pasifte şeffaf tutulur ki aktifleşince metin kaymasın.
+                    "flex items-center gap-2.5 border-l-2 border-l-transparent px-2.5 py-2 text-sm transition-colors",
                     active
-                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                      ? "border-l-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   )}
                 >
-                  <Icon className="size-4 shrink-0" />
+                  <BrandIcon name={item.icon} className="size-4 shrink-0" />
                   {item.label}
                 </Link>
               </li>
@@ -123,7 +123,7 @@ function SidebarContent({
       {/* Kullanıcı kartı */}
       <div className="border-t border-sidebar-border px-3 py-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/30 text-xs font-semibold text-sidebar-accent-foreground">
+          <span className="flex size-8 shrink-0 items-center justify-center bg-sidebar-primary/30 font-mono text-xs font-semibold text-sidebar-accent-foreground">
             {initials(displayName) || "?"}
           </span>
           <div className="min-w-0 flex-1 leading-tight">
@@ -151,7 +151,8 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
   return (
     <div className="flex min-h-screen">
       {/* Masaüstü sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+      {/* Kırmızı omurga: kılavuzda her yüzeyin solunda 14px, hiçbir şey üzerine taşmaz */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex">
         <SidebarContent
           isAdmin={isAdmin}
           displayName={displayName}
@@ -168,14 +169,14 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-sidebar text-sidebar-foreground shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-l-[14px] border-l-primary bg-sidebar text-sidebar-foreground shadow-xl">
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="absolute top-4 right-3 rounded-md p-1 text-sidebar-foreground/70 hover:bg-sidebar-accent"
               aria-label="Menüyü kapat"
             >
-              <X className="size-4" />
+              <span aria-hidden className="block text-sm leading-none">✕</span>
             </button>
             <SidebarContent
               isAdmin={isAdmin}
@@ -190,16 +191,16 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
 
       {/* İçerik */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b bg-background px-4 lg:px-8">
           <button
             type="button"
             onClick={() => setOpen(true)}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Menüyü aç"
           >
-            <Menu className="size-4" />
+            <BrandIcon name="menu" className="size-4" />
           </button>
-          <div className="min-w-0 text-sm font-medium">{sectionLabel(pathname)}</div>
+          <div className="oc-kicker min-w-0 text-foreground/80">{sectionLabel(pathname)}</div>
           <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
             <span className="font-mono">FEM 1.001</span>
             <span aria-hidden>·</span>
