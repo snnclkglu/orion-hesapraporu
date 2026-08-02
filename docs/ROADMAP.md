@@ -213,9 +213,10 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
 ### Kalan iş
 - [ ] `psi_h` için FEM Şekil A.2.2.1 eğrisinin β'ya bağlı ara değerleri sayısallaştırılmadı;
       türetme güvenli tarafta (µ ≤ 1 → 2) kalıyor.
-- [ ] Köprü tekerlek yükü yalnız ANA arabanın ağırlığını görüyor; yardımcı ve monoray
-      arabalar köprü tekerlek yüküne girmiyor (aynı anda en elverişsiz konumda
-      bulunamayacakları kabulü — mühendis onayı bekliyor).
+- [x] Köprü ve başkiriş artık ÜZERİNDEKİ TÜM arabaların ağırlığını görüyor
+      (`bridgeTrolleyWeightT`). Kabul: hepsi aynı anda en elverişsiz konumdadır —
+      emniyetli taraf. **Mühendis onayı bekliyor**: bu kabul fazla muhafazakâr
+      bulunursa arabalar konumlarına göre ayrı ayrı ağırlıklandırılmalı.
 - [ ] Faz M'den devreden maddeler (rapor belgesi yeniden yapılandırması, tampon yürütme
       yükü, teker mili malzemesi, buruşma Durum II/III) hâlâ açık.
 
