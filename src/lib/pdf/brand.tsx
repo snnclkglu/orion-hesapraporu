@@ -79,7 +79,21 @@ export const PAGE = {
   contentLeft: mm(8) + mm(14),
 } as const;
 
-export const FONTS = { sans: "Archivo", mono: "PlexMono", glyph: "DejaVu" } as const;
+/**
+ * Font aileleri — HER BİRİ DejaVu ile yedeklenir.
+ *
+ * Archivo ve IBM Plex Mono Yunan harflerini (σ τ η ψ λ ω φ Σ) ve ✓/✗ gliflerini
+ * TAŞIMAZ. Yedek verilmezse @react-pdf bu kod noktalarını sıfır genişlikli
+ * `.notdef` olarak dizer: harf komşusunun ÜZERİNE biner ("σmaks" → "Ǎmaks").
+ * Mühendislik raporunun her sayfasında Yunan harfi geçtiği için yedek şarttır.
+ * react-pdf 4.x `fontFamily` alanında dizi kabul eder ve eksik glifi sıradaki
+ * aileden alır (kod noktası bazında yerine koyma).
+ */
+export const FONTS: { sans: string[]; mono: string[]; glyph: string[] } = {
+  sans: ["Archivo", "DejaVu"],
+  mono: ["PlexMono", "DejaVu"],
+  glyph: ["DejaVu"],
+};
 
 /**
  * Türkçe büyük harf. @react-pdf'in `textTransform: "uppercase"` uygulaması
@@ -95,17 +109,17 @@ export function trUpper(text: string): string {
 
 /** Kılavuzun A4 tip rolleri — şablonlar spread ile kullanır: {...T.kicker} */
 export const T = StyleSheet.create({
-  display: { fontFamily: "Archivo", fontSize: 30, fontWeight: 900, letterSpacing: -0.6, lineHeight: 1.05, color: BRAND.ink },
-  heading: { fontFamily: "Archivo", fontSize: 15, fontWeight: 800, letterSpacing: -0.15, lineHeight: 1.05, color: BRAND.ink },
-  subhead: { fontFamily: "Archivo", fontSize: 10.5, fontWeight: 700, color: BRAND.ink },
-  body: { fontFamily: "Archivo", fontSize: 8.5, fontWeight: 400, lineHeight: 1.55, color: BRAND.gray700 },
-  caption: { fontFamily: "Archivo", fontSize: 7.5, fontWeight: 500, lineHeight: 1.45, color: BRAND.gray600 },
+  display: { fontFamily: FONTS.sans, fontSize: 30, fontWeight: 900, letterSpacing: -0.6, lineHeight: 1.05, color: BRAND.ink },
+  heading: { fontFamily: FONTS.sans, fontSize: 15, fontWeight: 800, letterSpacing: -0.15, lineHeight: 1.15, color: BRAND.ink },
+  subhead: { fontFamily: FONTS.sans, fontSize: 10.5, fontWeight: 700, color: BRAND.ink },
+  body: { fontFamily: FONTS.sans, fontSize: 8.5, fontWeight: 400, lineHeight: 1.55, color: BRAND.gray700 },
+  caption: { fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, lineHeight: 1.45, color: BRAND.gray600 },
   // kicker/kickerInk büyük harf GÖRÜNÜR ama dönüşüm stilde yapılmaz: metin
   // çağrı yerinde `trUpper()` ile (ya da doğrudan büyük yazılarak) verilir.
-  kicker: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.red },
-  kickerInk: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.gray500 },
-  data: { fontFamily: "PlexMono", fontSize: 8, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
-  micro: { fontFamily: "PlexMono", fontSize: 6, fontWeight: 400, letterSpacing: 0.4, color: BRAND.gray500 },
+  kicker: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.red },
+  kickerInk: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.gray500 },
+  data: { fontFamily: FONTS.mono, fontSize: 8, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
+  micro: { fontFamily: FONTS.mono, fontSize: 6, fontWeight: 400, letterSpacing: 0.4, color: BRAND.gray500 },
 });
 
 // ---------------------------------------------------------------- Bileşenler
@@ -118,7 +132,7 @@ export function RuleRed({ width = 16 }: { width?: number }) {
 /** ✓ / ✗ glifi — yalnız DejaVu'da mevcut; ✗ kırmızı, ✓ yeşil */
 export function CheckGlyph({ pass, size = 8 }: { pass: boolean; size?: number }) {
   return (
-    <Text style={{ fontFamily: "DejaVu", fontSize: size, color: pass ? BRAND.success : BRAND.red }}>
+    <Text style={{ fontFamily: FONTS.glyph, fontSize: size, color: pass ? BRAND.success : BRAND.red }}>
       {pass ? "✓" : "✗"}
     </Text>
   );
@@ -145,7 +159,7 @@ export function BrandPage({ docLine, docCode, children, hideFooterRule, style }:
     <Page
       size="A4"
       style={{
-        fontFamily: "Archivo",
+        fontFamily: FONTS.sans,
         fontSize: 8.5,
         color: BRAND.ink,
         backgroundColor: BRAND.white,
@@ -198,13 +212,15 @@ export function BrandPage({ docLine, docCode, children, hideFooterRule, style }:
 export function PageHeader({ kicker, title, meta }: { kicker: string; title: string; meta?: string }) {
   return (
     <View style={{ marginBottom: 10 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+        <View style={{ flexShrink: 1 }}>
           <Text style={T.kicker}>{trUpper(kicker)}</Text>
           <RuleRed />
           <Text style={{ ...T.heading, marginTop: 5 }}>{trUpper(title)}</Text>
         </View>
-        {meta ? <Text style={{ ...T.data, color: BRAND.gray500 }}>{meta}</Text> : null}
+        {meta ? (
+          <Text style={{ ...T.data, fontSize: 7.5, color: BRAND.gray500, flexShrink: 0 }}>{meta}</Text>
+        ) : null}
       </View>
       <View style={{ height: 1.4, backgroundColor: BRAND.ink, marginTop: 5 }} />
     </View>
@@ -241,12 +257,14 @@ export function SectionTag({
         alignItems: "center",
         backgroundColor: BRAND.ink,
         paddingVertical: 5,
-        paddingHorizontal: 8,
+        paddingLeft: 8,
+        paddingRight: 6,
         marginBottom: 8,
+        gap: 8,
       }}
     >
-      <Text style={{ fontFamily: "PlexMono", fontSize: 12, fontWeight: 600, color: BRAND.redPale, marginRight: 8 }}>{no}</Text>
-      <Text style={{ fontFamily: "Archivo", fontSize: 10, fontWeight: 800, color: BRAND.paper100, flexGrow: 1 }}>
+      <Text style={{ fontFamily: FONTS.mono, fontSize: 11, fontWeight: 600, color: BRAND.redPale, flexShrink: 0 }}>{no}</Text>
+      <Text style={{ fontFamily: FONTS.sans, fontSize: 10, fontWeight: 800, color: BRAND.paper100, flexGrow: 1, flexShrink: 1 }}>
         {trUpper(title)}
       </Text>
       {status && status.total > 0 ? (
@@ -254,10 +272,11 @@ export function SectionTag({
           style={{
             paddingVertical: 1.5,
             paddingHorizontal: 5,
+            flexShrink: 0,
             backgroundColor: allOk ? BRAND.success : BRAND.red,
           }}
         >
-          <Text style={{ fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 0.6, color: BRAND.white }}>
+          <Text style={{ fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.6, color: BRAND.white }}>
             {status.pass}/{status.total} UYGUN
           </Text>
         </View>

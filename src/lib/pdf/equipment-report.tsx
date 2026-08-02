@@ -9,7 +9,7 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
-import { BRAND, BrandPage, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
+import { BRAND, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 
@@ -17,26 +17,26 @@ const s = StyleSheet.create({
   // meta ızgarası (Proje / Müşteri / Revizyon / Tarih)
   metaGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10, gap: 2 },
   metaItem: { width: "50%", flexDirection: "row" },
-  metaLabel: { width: 70, fontFamily: "Archivo", fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
-  metaVal: { fontFamily: "Archivo", fontSize: 8, color: BRAND.ink },
-  metaMono: { fontFamily: "PlexMono", fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
+  metaLabel: { width: 70, fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
+  metaVal: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink },
+  metaMono: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
   // tablo: kömür başlık zemini + hairline satır çizgileri
   tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
   // Büyük harf dönüşümü stilde YAPILMAZ: @react-pdf'in textTransform'u
   // locale'siz toUpperCase() çağırıp Türkçe "i" harfini bozar. Metin çağrı
   // yerinde trUpper() ile büyütülür.
   th: {
-    fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
+    fontFamily: FONTS.mono, fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
     color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   groupRow: { backgroundColor: BRAND.paper150 },
   groupCell: {
-    fontFamily: "Archivo", fontSize: 8, fontWeight: 700, color: BRAND.ink,
+    fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink,
     paddingVertical: 3, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
-  td: { fontFamily: "Archivo", fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
-  mono: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
+  td: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
+  mono: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
   cComp: { width: "21%" },
   cBrand: { width: "14%" },
   cModel: { width: "18%" },
@@ -45,7 +45,7 @@ const s = StyleSheet.create({
   custom: { color: BRAND.red },
   // özet
   sumSection: {
-    backgroundColor: BRAND.paper150, fontFamily: "Archivo", fontSize: 8, fontWeight: 700,
+    backgroundColor: BRAND.paper150, fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700,
     color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5,
   },
   sLabel: { width: "62%" },

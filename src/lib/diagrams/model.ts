@@ -65,6 +65,9 @@ export interface Diagram {
   width: number;
   height: number;
   els: DiagramEl[];
+  /** viewBox sol üst köşesi — içerik 0'ın soluna/üstüne taşarsa negatif olur */
+  x0?: number;
+  y0?: number;
 }
 
 // ------------------------------------------------------- Yükseklik oturtma
@@ -137,31 +140,53 @@ function pathPoints(d: string): { x: number; y: number }[] {
   return out;
 }
 
-/** Bir elemanın en alt sınırı (y ekseninde) */
-function bottomOf(el: DiagramEl): number {
+/**
+ * Metnin kaba genişliği. DejaVu Sans ortalama ilerlemesi ~0,60 em (kalın için
+ * biraz daha fazla). Kesin ölçü değil — sınır kutusunu İHTİYATLI büyütmek için
+ * yeterli; fazla tahmin yalnız birkaç birim boşluk bırakır, eksik tahmin ise
+ * etiketin çerçeve dışında kalmasına yol açar.
+ */
+function textWidth(el: TextEl): number {
+  return el.text.length * el.size * (el.bold ? 0.64 : 0.6);
+}
+
+/** Bir elemanın sınır kutusu [x1, y1, x2, y2] */
+function boundsOf(el: DiagramEl): [number, number, number, number] {
   switch (el.kind) {
     case "line":
-      return Math.max(el.y1, el.y2);
+      return [Math.min(el.x1, el.x2), Math.min(el.y1, el.y2), Math.max(el.x1, el.x2), Math.max(el.y1, el.y2)];
     case "rect":
-      return el.y + Math.max(0, el.h);
+      return [el.x, el.y, el.x + Math.max(0, el.w), el.y + Math.max(0, el.h)];
     case "circle":
-      return el.cy + el.r;
-    case "polygon":
-      return el.points.reduce((m, p) => Math.max(m, p[1]), -Infinity);
-    case "text":
-      // Metin taban çizgisinden çizilir; alt uzantı (descender) payı bırakılır
-      return el.y + el.size * 0.35;
-    case "path":
-      return pathPoints(el.d).reduce((m, p) => Math.max(m, p.y), -Infinity);
+      return [el.cx - el.r, el.cy - el.r, el.cx + el.r, el.cy + el.r];
+    case "polygon": {
+      const xs = el.points.map((p) => p[0]);
+      const ys = el.points.map((p) => p[1]);
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    }
+    case "text": {
+      const w = textWidth(el);
+      const x1 = el.anchor === "end" ? el.x - w : el.anchor === "middle" ? el.x - w / 2 : el.x;
+      // Metin taban çizgisinden çizilir: üstte çıkıntı, altta alt uzantı payı
+      return [x1, el.y - el.size * 0.82, x1 + w, el.y + el.size * 0.28];
+    }
+    case "path": {
+      const pts = pathPoints(el.d);
+      if (pts.length === 0) return [Infinity, Infinity, -Infinity, -Infinity];
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    }
   }
 }
 
 /**
- * Diyagram yüksekliğini İÇERİKTEN hesaplar: hiçbir eleman (özellikle en alttaki
- * etiket) viewBox dışında kalıp kırpılmaz.
+ * Diyagram viewBox'ını İÇERİKTEN hesaplar: hiçbir eleman (özellikle kenardaki
+ * etiketler) çerçeve dışında kalıp kırpılmaz.
  *
- * Üreticiler sabit bir `H` yerine bunu döndürür; `minHeight` tasarımın istediği
- * taban yüksekliktir, içerik daha aşağı taşarsa yükseklik büyütülür.
+ * Üreticiler sabit bir `W`/`H` yerine bunu döndürür; verilen ölçüler tasarımın
+ * istediği TABAN kutudur — içerik dışarı taşarsa kutu o yöne büyütülür, sağa
+ * olduğu kadar sola/yukarı da (viewBox köşesi negatife kayar).
  */
 export function fitDiagram(
   els: DiagramEl[],
@@ -169,13 +194,19 @@ export function fitDiagram(
   minHeight: number,
   pad = 12
 ): Diagram {
-  let maxY = -Infinity;
+  let minX = 0, minY = 0, maxX = -Infinity, maxY = -Infinity;
   for (const el of els) {
-    const b = bottomOf(el);
-    if (Number.isFinite(b) && b > maxY) maxY = b;
+    const [x1, y1, x2, y2] = boundsOf(el);
+    if (Number.isFinite(x1) && x1 < minX) minX = x1;
+    if (Number.isFinite(y1) && y1 < minY) minY = y1;
+    if (Number.isFinite(x2) && x2 > maxX) maxX = x2;
+    if (Number.isFinite(y2) && y2 > maxY) maxY = y2;
   }
-  const height = Number.isFinite(maxY) ? Math.max(minHeight, Math.ceil(maxY + pad)) : minHeight;
-  return { width, height, els };
+  const x0 = minX < 0 ? Math.floor(minX - pad) : 0;
+  const y0 = minY < 0 ? Math.floor(minY - pad) : 0;
+  const right = Number.isFinite(maxX) ? Math.max(width, Math.ceil(maxX + pad)) : width;
+  const bottom = Number.isFinite(maxY) ? Math.max(minHeight, Math.ceil(maxY + pad)) : minHeight;
+  return { width: right - x0, height: bottom - y0, els, x0, y0 };
 }
 
 // ---------------------------------------------------------------- Yardımcılar

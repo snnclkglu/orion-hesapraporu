@@ -57,14 +57,19 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   els.push(txt(xL + 20, yBeam - 30, `öz ağırlık w${p.selfWeightKg ? `  (≈${fmtN(p.selfWeightKg)} kg)` : ""}`, 8, { fill: DCOL.muted }));
 
   // Araba — ortada, iki tekerlek yükü (açıklık a)
-  const halfA = 30; // piksel yarı-açıklık (şematik)
+  // Piksel yarı-açıklık (şematik). Dar tutulunca ortadaki "W1 = … kg" etiketi
+  // iki tekerlek yükü okunun arasına sığmıyor, oklara değiyordu.
+  const halfA = 42;
   const w1 = xC - halfA, w2 = xC + halfA;
   els.push({ kind: "rect", x: xC - 42, y: yBeam - 66, w: 84, h: 20, rx: 2, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1 });
   els.push(txt(xC, yBeam - 52, "ARABA", 8, { anchor: "middle", fill: DCOL.ink }));
   // asılı yük W1
   els.push(ln(xC, yBeam - 46, xC, yBeam - 34, DCOL.faint, 0.8, "2,2"));
   els.push({ kind: "circle", cx: xC, cy: yBeam - 30, r: 4, fill: "#FBEDEC", stroke: DCOL.accent, strokeWidth: 1 });
-  if (p.liveLoadKg) els.push(txt(xC + 8, yBeam - 28, `W1 = ${fmtN(p.liveLoadKg)} kg`, 7.5, { fill: DCOL.accent }));
+  // W1 etiketi kancanın ALTINA ortalanır: sağa yazıldığında sağdaki tekerlek
+  // yükü okunun (w2) üzerine biniyordu.
+  if (p.liveLoadKg)
+    els.push(txt(xC, yBeam - 18, `W1 = ${fmtN(p.liveLoadKg)} kg`, 7.5, { anchor: "middle", fill: DCOL.accent }));
   // tekerlek yükleri (2 aşağı ok)
   for (const wx of [w1, w2]) {
     els.push(ln(wx, yBeam - 44, wx, yBeam - 9, DCOL.accent, 1.8));

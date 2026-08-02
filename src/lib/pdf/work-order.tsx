@@ -5,7 +5,7 @@
 // stil tabanlı `textTransform` Türkçe "i" harfini bozduğu için kullanılmaz.
 
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
-import { BRAND, BrandPage, CheckGlyph, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
+import { BRAND, BrandPage, CheckGlyph, FONTS, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 
 export interface WorkOrderItem {
@@ -49,12 +49,12 @@ const s = StyleSheet.create({
   // tablo: kömür başlık zemini + hairline satır çizgileri
   tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
   th: {
-    fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
+    fontFamily: FONTS.mono, fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
     color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
-  td: { fontFamily: "Archivo", fontSize: 8, color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5 },
-  mono: { fontFamily: "PlexMono", fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3 },
+  td: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5 },
+  mono: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3 },
   cIdx: { width: "6%", textAlign: "right" as const },
   cName: { width: "68%" },
   cNo: { width: "16%" },
@@ -63,19 +63,19 @@ const s = StyleSheet.create({
   twoCol: { flexDirection: "row", gap: 8, marginTop: 12 },
   box: { flex: 1, borderWidth: 0.75, borderColor: BRAND.line300 },
   boxTitle: {
-    fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 1,
+    fontFamily: FONTS.mono, fontSize: 6.5, fontWeight: 600, letterSpacing: 1,
     color: BRAND.gray600, backgroundColor: BRAND.paper150,
     paddingVertical: 3.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: BRAND.line300,
   },
   kv: { flexDirection: "row", paddingVertical: 2.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
-  kvLabel: { width: "38%", fontFamily: "Archivo", fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
-  kvVal: { flex: 1, fontFamily: "Archivo", fontSize: 8, color: BRAND.ink },
-  kvMono: { fontFamily: "PlexMono", fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3 },
+  kvLabel: { width: "38%", fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
+  kvVal: { flex: 1, fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink },
+  kvMono: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3 },
   // kapsam
   scopeRow: { flexDirection: "row", flexWrap: "wrap", gap: 14, borderWidth: 0.75, borderColor: BRAND.line300, padding: 8 },
   chk: { flexDirection: "row", alignItems: "center", gap: 4, width: "28%" },
   box14: { width: 9, height: 9, borderWidth: 0.75, borderColor: BRAND.ink, alignItems: "center", justifyContent: "center" },
-  chkLabel: { fontFamily: "Archivo", fontSize: 8, color: BRAND.ink },
+  chkLabel: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink },
   notes: { borderWidth: 0.75, borderColor: BRAND.line300, padding: 8, minHeight: 46 },
   prep: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, alignItems: "flex-end" },
 });

@@ -277,6 +277,10 @@ const s = StyleSheet.create({
   kvLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.gray700 },
   // Katalog seçimi satırı: etiket de mono (seçim rolü, girdiden ayrışır)
   kvLabelMono: { flex: 1, fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600 },
+  // "Tambur kaplini" tek satıra sığacak genişlik (7,6pt Archivo ≈ 50pt).
+  // DİKKAT: `flex: 0` YAZILMAZ — react-pdf bunu flexBasis:0'a açıyor ve
+  // flexBasis ana eksende `width`i eziyor; etiket yine iki satıra kırılıyordu.
+  kvLabelNarrow: { flexGrow: 0, flexShrink: 0, flexBasis: 53, width: 53 },
   kvValue: {
     fontFamily: FONTS.mono,
     fontSize: 7.6,
@@ -285,6 +289,9 @@ const s = StyleSheet.create({
     color: BRAND.ink,
     textAlign: "right",
   },
+  // En uzun katalog dizesi ("SİBRE FLEXİBLE KAPLİN ALC A 90 · 3.600 Nm",
+  // 41 karakter) iki sütunlu özet ızgarasında tek satırda kalsın diye küçültülür.
+  kvValueWide: { flexGrow: 1, flexShrink: 1, flexBasis: 0, fontSize: 6.7, letterSpacing: 0.15 },
   kvUnit: { fontFamily: FONTS.mono, fontSize: 6.8, fontWeight: 400, color: BRAND.gray500 },
   // ---- hesap satırları
   // Anatomi: solda mono ADIM NUMARASI şeridi, ortada etiket + formül,
@@ -300,15 +307,19 @@ const s = StyleSheet.create({
     paddingVertical: 2.2,
     paddingRight: 5,
   },
+  // Adım numarası şeridi: "10.2.3.14" (9 hane) SIĞACAK kadar geniş olmalı —
+  // dar kalırsa numara etiketin üzerine taşar ("2.2.1.05Eğilme Gerilmesi").
   calcStep: {
-    width: 34,
+    width: 46,
+    flexShrink: 0,
     fontFamily: FONTS.mono,
-    fontSize: 6.6,
+    fontSize: 6.4,
     fontWeight: 600,
     letterSpacing: 0.2,
     color: BRAND.gray500,
-    paddingLeft: 4,
-    paddingTop: 0.6,
+    paddingLeft: 5,
+    paddingRight: 3,
+    paddingTop: 0.8,
   },
   calcBody: { flex: 1 },
   calcTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
@@ -316,19 +327,24 @@ const s = StyleSheet.create({
   calcResult: {
     flexDirection: "row",
     alignItems: "baseline",
+    flexShrink: 0,
     backgroundColor: BRAND.white,
     borderWidth: 0.5,
     borderColor: BRAND.line350,
-    paddingVertical: 1,
-    paddingHorizontal: 3,
+    paddingVertical: 1.4,
+    paddingHorizontal: 4,
   },
+  // Birim değerden BOŞLUKLA ayrılır. Metin içindeki " " karakteri satır
+  // başı/sonu kırpmasına takılıp yok oluyor ("4.000kg"); marj kaybolmaz.
+  calcUnit: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 400, color: BRAND.gray500, marginLeft: 2.5 },
   // Bölüm özet tablosu (ör. ana kiriş gerilme tablosu)
   tblHeadRow: { flexDirection: "row", backgroundColor: BRAND.paper100, borderBottomWidth: 0.6, borderBottomColor: BRAND.gray500 },
   tblRow: { flexDirection: "row", borderBottomWidth: 0.4, borderBottomColor: BRAND.line300 },
-  tblHeadCell: { fontFamily: FONTS.mono, fontSize: 6.4, fontWeight: 700, color: BRAND.gray700, paddingVertical: 2.5, paddingHorizontal: 3 },
-  tblCell: { fontFamily: FONTS.sans, fontSize: 7, color: BRAND.ink, paddingVertical: 2, paddingHorizontal: 3 },
-  tblCellNum: { fontFamily: FONTS.mono, fontSize: 7, color: BRAND.ink, paddingVertical: 2, paddingHorizontal: 3, textAlign: "right" },
-  tblNote: { fontFamily: FONTS.sans, fontSize: 6.6, color: BRAND.gray500, marginTop: 2 },
+  tblHeadCell: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 700, color: BRAND.gray700, paddingVertical: 3, paddingHorizontal: 2.5, lineHeight: 1.25 },
+  tblCell: { fontFamily: FONTS.sans, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 2.5, lineHeight: 1.25 },
+  tblCellNum: { fontFamily: FONTS.mono, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 2.5, lineHeight: 1.25, textAlign: "right" },
+  tblAlignRight: { textAlign: "right" },
+  tblNote: { fontFamily: FONTS.sans, fontSize: 6.2, lineHeight: 1.4, color: BRAND.gray500, marginTop: 4 },
   calcLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.8, fontWeight: 500, color: BRAND.ink },
   calcEq: { fontFamily: FONTS.mono, fontSize: 7.2, color: BRAND.gray450 },
   calcValue: {
@@ -372,6 +388,11 @@ const s = StyleSheet.create({
   cmpUnit: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 400, color: BRAND.gray500 },
   /** Bağıntı işareti (≤ / ≥) — DejaVu, çünkü Plex Mono bu glifleri taşımaz */
   cmpOp: { fontFamily: FONTS.glyph, fontSize: 8, color: BRAND.gray600 },
+  // ---- içindekiler sayfasındaki okuma anahtarı
+  legendHead: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 600, letterSpacing: 0.8, color: BRAND.red, marginBottom: 2.5 },
+  legendText: { fontFamily: FONTS.sans, fontSize: 7.2, lineHeight: 1.45, color: BRAND.gray700 },
+  legendRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 1.5 },
+  legendKey: { width: 58, flexShrink: 0, fontFamily: FONTS.mono, fontSize: 6.8, color: BRAND.ink },
   // ---- özet kontrol tablosu
   sumModule: { marginTop: 6 },
   sumModuleTitle: { fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink, marginBottom: 1.5 },
@@ -410,16 +431,24 @@ function KvRow({
   value,
   unit,
   labelMono,
+  narrowLabel,
 }: {
   label: string;
   value: string;
   unit?: string;
   labelMono?: boolean;
+  /**
+   * Özet ekipman satırları: etiket kısa ("Motor"), değer uzun ("GAMAK 55 kW …").
+   * Etiket sabit dar kalır, sarma değere düşer — aksi hâlde "Teker kaplini"
+   * iki satıra bölünüyor, değer ise tek satıra sıkışıyordu.
+   */
+  narrowLabel?: boolean;
 }) {
+  const labelStyle = labelMono ? s.kvLabelMono : s.kvLabel;
   return (
     <View style={s.kvRow} wrap={false}>
-      <Text style={labelMono ? s.kvLabelMono : s.kvLabel}>{label}</Text>
-      <Text style={s.kvValue}>
+      <Text style={narrowLabel ? [labelStyle, s.kvLabelNarrow] : labelStyle}>{label}</Text>
+      <Text style={narrowLabel ? [s.kvValue, s.kvValueWide] : s.kvValue}>
         {value}
         {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
       </Text>
@@ -453,8 +482,11 @@ function FieldTable({
   specs?: TechnicalSpecs;
 }) {
   const rec = source as Record<string, unknown>;
+  // HER ZAMAN iki sütun — tek sütunda etiket ile değer sayfanın iki ucuna
+  // düşüyor ("Tambur Çapı .......................... 400 mm") ve okunmuyor.
+  // Tek alan kalırsa sağdaki sütun boş bırakılır; hizalama bozulmaz.
   const mid = Math.ceil(defs.length / 2);
-  const cols = defs.length > 3 ? [defs.slice(0, mid), defs.slice(mid)] : [defs];
+  const cols = [defs.slice(0, mid), defs.slice(mid)];
   return (
     <View style={s.kvGrid}>
       {cols.map((col, i) => (
@@ -663,6 +695,18 @@ function CoverPage(props: ReportProps) {
         ))}
       </View>
 
+      {/* Hesabın dayandığı standartlar — kapakta künyeden hemen sonra */}
+      <View style={{ marginTop: 26 }}>
+        <Text style={T.kickerInk}>DAYANAK STANDARTLAR</Text>
+        <RuleRed width={16} />
+        <Text style={{ ...T.caption, marginTop: 6, color: BRAND.gray700 }}>
+          FEM 1.001 (3. Baskı) — sınıflandırma, yükler, mekanizma seçimi{"\n"}
+          DIN 15018 — çelik yapı yorulması{"\n"}
+          DIN 15400 / 15401 / 15402 — kanca · DIN 15061 — halat oluğu{"\n"}
+          CMAA 70 — motor gücü, mil gerilmeleri, sehim sınırı
+        </Text>
+      </View>
+
       {/* Meta: müşteri / tarih / hazırlayan / revizyon */}
       <View style={{ marginTop: "auto" }}>
         <View style={{ flexDirection: "row", gap: 18, marginBottom: 14 }}>
@@ -760,9 +804,62 @@ function TocPage({
           </View>
         </Link>
       ))}
-      <Text style={{ ...T.micro, marginTop: 10 }}>
+      <Text style={{ ...T.micro, marginTop: 8 }}>
         Satıra tıklayarak ilgili bölüme gidebilirsiniz.
       </Text>
+
+      {/* Raporu okuma anahtarı — hesap satırının ve kontrol rozetinin anatomisi */}
+      <View style={{ marginTop: 26 }}>
+        <Text style={T.kickerInk}>RAPORU OKUMA ANAHTARI</Text>
+        <View style={{ height: 1.2, backgroundColor: BRAND.ink, marginTop: 4, marginBottom: 8 }} />
+        <View style={s.kvGrid}>
+          <View style={s.kvCol}>
+            <Text style={s.legendHead}>HESAP SATIRI</Text>
+            <Text style={s.legendText}>
+              Her hesap adımı kalıcı bir adım numarasıyla anılır (ör. 7.4.13): solda numara şeridi,
+              ortada büyüklüğün adı ve sembolik bağıntısı, sağda çerçeveli sonuç ve birimi bulunur.
+              Bağıntının altında dayandığı standart maddesi yazılıdır.
+            </Text>
+            <Text style={[s.legendHead, { marginTop: 8 }]}>KONTROL ŞERİDİ</Text>
+            <Text style={s.legendText}>
+              Bir adıma bağlı kontrol varsa satırın sol şeridi renklenir ve altına
+              «HESAPLANAN … ≤ İZİN VERİLEN …» karşılaştırması eklenir. Yeşil şerit uygun,
+              kırmızı şerit uygun değil demektir.
+            </Text>
+          </View>
+          <View style={s.kvCol}>
+            <Text style={s.legendHead}>KONTROLÜN DAYANAĞI</Text>
+            {[
+              ["standart", "FEM / DIN / CMAA maddesi şart koşuyor (etiket yazılmaz)"],
+              ["üretici", "katalog/üretici kriteri"],
+              ["firma kabulü", "Orion tasarım kabulü"],
+              ["bilgilendirme", "sınır değil, bilgi amaçlı"],
+            ].map(([k, v]) => (
+              <View key={k} style={s.legendRow}>
+                <Text style={s.legendKey}>{k}</Text>
+                <Text style={[s.legendText, { flex: 1 }]}>{v}</Text>
+              </View>
+            ))}
+            <Text style={[s.legendHead, { marginTop: 8 }]}>AĞIRLIK</Text>
+            <View style={s.legendRow}>
+              <Text style={s.legendKey}>engelleyici</Text>
+              <Text style={[s.legendText, { flex: 1 }]}>
+                sağlanmadan rapor yayınlanmamalıdır (varsayılan)
+              </Text>
+            </View>
+            <View style={s.legendRow}>
+              <Text style={s.legendKey}>uyarı</Text>
+              <Text style={[s.legendText, { flex: 1 }]}>
+                gözden geçirilmeli, yayını tek başına engellemez
+              </Text>
+            </View>
+            <Text style={[s.legendHead, { marginTop: 8 }]}>BİRİMLER</Text>
+            <Text style={s.legendText}>
+              Gerilmeler MPa, momentler Nm, uzunluklar mm/cm/m, hızlar m/dak, devir d/dak.
+            </Text>
+          </View>
+        </View>
+      </View>
     </BrandPage>
   );
 }
@@ -940,26 +1037,20 @@ function SummarySection({
 
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       <View style={s.kvGrid}>
-        <View style={s.kvCol}>
-          {groups.slice(0, Math.ceil(groups.length / 2)).map((g) => (
-            <View key={g.title} style={s.sumModule} wrap={false}>
-              <Text style={s.sumModuleTitle}>{g.title}</Text>
-              {g.items.map((it) => (
-                <KvRow key={it.label} label={it.label} value={it.value} />
+        {[groups.slice(0, Math.ceil(groups.length / 2)), groups.slice(Math.ceil(groups.length / 2))].map(
+          (col, ci) => (
+            <View style={s.kvCol} key={ci}>
+              {col.map((g) => (
+                <View key={g.title} style={s.sumModule} wrap={false}>
+                  <Text style={s.sumModuleTitle}>{g.title}</Text>
+                  {g.items.map((it) => (
+                    <KvRow key={it.label} label={it.label} value={it.value} narrowLabel />
+                  ))}
+                </View>
               ))}
             </View>
-          ))}
-        </View>
-        <View style={s.kvCol}>
-          {groups.slice(Math.ceil(groups.length / 2)).map((g) => (
-            <View key={g.title} style={s.sumModule} wrap={false}>
-              <Text style={s.sumModuleTitle}>{g.title}</Text>
-              {g.items.map((it) => (
-                <KvRow key={it.label} label={it.label} value={it.value} />
-              ))}
-            </View>
-          ))}
-        </View>
+          )
+        )}
       </View>
 
       <SubHead tr="KONTROLLER" />
@@ -967,8 +1058,11 @@ function SummarySection({
         const mr = moduleResult(result, adapter.key);
         if (!mr || mr.checks.length === 0) return null;
         return (
-          <View key={adapter.key} style={s.sumModule} minPresenceAhead={36}>
-            <Text style={s.sumModuleTitle}>
+          <View key={adapter.key} style={s.sumModule}>
+            {/* minPresenceAhead YALNIZ başlığa: uzun bir kutuya konursa
+                react-pdf "tamamı + boşluk sığmıyor" deyip bloğun hepsini
+                sonraki sayfaya atar ve geride BOŞ sayfa bırakır. */}
+            <Text style={s.sumModuleTitle} minPresenceAhead={34}>
               {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
             </Text>
             {mr.checks.map((c) => (
@@ -1052,22 +1146,29 @@ function pdfDiagramEl(el: DiagramEl, i: number) {
 }
 
 function PdfDiagram({ diagram }: { diagram: Diagram }) {
-  // Sayfa içerik genişliği ~490pt; diyagram 460pt'e ölçeklenir
-  const w = 460;
+  // Sayfa içerik genişliği ~490pt; diyagram 468pt'e ölçeklenir
+  const w = 468;
   const h = (diagram.height / diagram.width) * w;
   return (
     <View
       wrap={false}
       style={{
-        marginTop: 4,
-        marginBottom: 3,
+        marginTop: 5,
+        marginBottom: 5,
         borderWidth: 0.75,
         borderColor: BRAND.line300,
-        paddingVertical: 4,
+        backgroundColor: BRAND.white,
+        paddingVertical: 5,
         alignItems: "center",
       }}
     >
-      <Svg width={w} height={h} viewBox={`0 0 ${diagram.width} ${diagram.height}`}>
+      {/* viewBox köşesi diyagramdan gelir: içerik 0'ın soluna taşarsa
+          (uzun sol etiketler) kırpılmasın diye kutu o yöne büyütülmüştür. */}
+      <Svg
+        width={w}
+        height={h}
+        viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
+      >
         {diagram.els.map(pdfDiagramEl)}
       </Svg>
     </View>
@@ -1096,13 +1197,45 @@ function PdfSectionTable({
   }
   if (rows.length === 0) return null;
   const n = table.headers.length;
-  const widthOf = (i: number) => (i === 0 ? `${100 / (n + 1)}%` : `${(100 / (n + 1)) * (n / (n - 1))}%`);
+
+  // Sütun genişliği İÇERİKTEN çıkar. Eşit paylaştırmada "No" sütunu ("σ1")
+  // gereksiz genişken açıklama sütunu ("Düşey Eğilme — Kiriş Öz Ağırlığı")
+  // iki satıra kırılıyordu. Ağırlık = sütundaki en uzun metin (sınırlandırılmış).
+  const weights = table.headers.map((h, i) => {
+    let max = String(h).length;
+    for (const r of rows) {
+      const cell = r[i];
+      const len = typeof cell === "number" ? fmt(cell).length : String(cell ?? "").length;
+      if (len > max) max = len;
+    }
+    // +2 karakterlik pay: hücre dolgusu ve Yunan harflerinin (DejaVu yedeği,
+    // Archivo'dan geniş) fazlası hesaba katılmazsa "γc·σcomb" iki satıra kırılır.
+    return Math.min(32, Math.max(6, max + 2));
+  });
+  const total = weights.reduce((a, b) => a + b, 0);
+  const widthOf = (i: number) => `${(weights[i] / total) * 100}%`;
+
+  // Sayısal sütunlar bütünüyle sağa yaslanır — başlığı da dahil; rakamlar
+  // sütun içinde hizalanmazsa tablo mühendislik belgesi gibi okunmuyor.
+  const isNumericCol = (i: number) =>
+    rows.some((r) => r[i] !== undefined && r[i] !== "") &&
+    rows.every((r) => {
+      const cell = r[i];
+      if (cell === undefined || cell === "" || cell === "—") return true;
+      if (typeof cell === "number") return true;
+      return /^[-−+]?[\d.]*,?\d+$/.test(String(cell).trim());
+    });
+  const numericCols = table.headers.map((_, i) => isNumericCol(i));
+
   return (
-    <View minPresenceAhead={40} style={{ marginTop: 4 }}>
+    <View style={{ marginTop: 4 }}>
       <SubHead tr={table.title.toLocaleUpperCase("tr-TR")} />
-      <View style={s.tblHeadRow}>
+      <View style={s.tblHeadRow} wrap={false}>
         {table.headers.map((h, i) => (
-          <Text key={h} style={[s.tblHeadCell, { width: widthOf(i) }]}>
+          <Text
+            key={h}
+            style={[s.tblHeadCell, { width: widthOf(i) }, numericCols[i] ? s.tblAlignRight : {}]}
+          >
             {h}
           </Text>
         ))}
@@ -1113,7 +1246,7 @@ function PdfSectionTable({
             <Text
               key={ci}
               style={[
-                typeof cell === "number" ? s.tblCellNum : s.tblCell,
+                typeof cell === "number" || numericCols[ci] ? s.tblCellNum : s.tblCell,
                 { width: widthOf(ci) },
               ]}
             >
@@ -1173,9 +1306,9 @@ function CalcRowLine({
         <View style={s.calcTop}>
           <Text style={s.calcLabel}>{row.label}</Text>
           <View style={s.calcResult}>
-            <Text style={s.calcEq}>= </Text>
-            <Text style={s.calcValue}>{fmt(value, row.digits ?? 2)}</Text>
-            {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
+            <Text style={s.calcEq}>=</Text>
+            <Text style={[s.calcValue, { marginLeft: 3 }]}>{fmt(value, row.digits ?? 2)}</Text>
+            {unit ? <Text style={s.calcUnit}>{unit}</Text> : null}
           </View>
         </View>
         {showFormulas && row.formula && (
@@ -1230,9 +1363,12 @@ function ModulePage({
         const secChecks = sectionChecks(adapter, section, mr);
         const diagram = diagramForSection(adapter.key, section.rawId, input, result);
         return (
-          // Bölüm başlığı sayfa sonunda yalnız kalmasın: minPresenceAhead ile
-          // yeterli boşluk yoksa bölüm bir sonraki sayfaya taşınır.
-          <View key={section.id} minPresenceAhead={70} style={{ marginBottom: 10 }}>
+          // DİKKAT: bu sarmalayıcıya minPresenceAhead KONMAZ. react-pdf ölçüyü
+          // "kutunun tamamı + istenen boşluk" olarak okur; bölüm bir sayfaya
+          // sığmadığında tamamını sonraki sayfaya atar ve geride yalnız sayfa
+          // başlığının olduğu BOŞ bir sayfa bırakırdı (bkz. eski s.39, s.59).
+          // Dul/yetim koruması başlıkların kendisinde (SectionTag / SubHead).
+          <View key={section.id} style={{ marginBottom: 12 }}>
             {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
             <View wrap={false}>
               <SectionTag
@@ -1247,7 +1383,7 @@ function ModulePage({
               {diagram && <PdfDiagram diagram={diagram} />}
             </View>
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
-              <View minPresenceAhead={30}>
+              <View>
                 <SubHead tr="GİRDİLER / TASARIM KABULLERİ" />
                 <FieldTable defs={section.inputDefs} source={scoped} specs={input.specs} />
                 {section.extraInputDefs && section.extraInputDefs.length > 0 && (
@@ -1256,14 +1392,14 @@ function ModulePage({
               </View>
             )}
             {section.selectionDefs.length > 0 && (
-              <View minPresenceAhead={30}>
+              <View>
                 <SubHead tr="KATALOG SEÇİMİ" />
                 <FieldTable defs={section.selectionDefs} source={state.selections} labelMono specs={input.specs} />
               </View>
             )}
             {section.table && <PdfSectionTable table={section.table} ctx={ctx} />}
             {section.rows.length > 0 && (
-              <View minPresenceAhead={30}>
+              <View>
                 <SubHead tr="HESAP VE KONTROLLER" />
                 {section.rows.map((r, i) => (
                   <CalcRowLine
@@ -1278,7 +1414,7 @@ function ModulePage({
               </View>
             )}
             {rest.length > 0 && (
-              <View minPresenceAhead={30}>
+              <View>
                 <SubHead tr="DİĞER KONTROLLER" />
                 {rest.map((c) => (
                   <CheckLine key={c.id} check={c} />

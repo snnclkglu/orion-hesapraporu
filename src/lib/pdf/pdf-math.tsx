@@ -2,6 +2,14 @@
 // matematik olarak dizer (flexbox: kesir yığını, radikal, üs/alt indis).
 // Web görüntüleyiciyle aynı ağacı kullanır. Font: DejaVu (Türkçe glifler +
 // oblique = italik değişkenler). Ayrıştırılamayan formül düz italik metne düşer.
+//
+// YERLEŞİM İLKESİ — üst/alt indisler NEGATİF MARJLA kaydırılmaz.
+// Negatif marj kutunun ölçüsünü büyütmediği için üs, üstündeki kesir çizgisinin
+// ya da kök çizgisinin ÜZERİNE biniyordu ("σeğ²" → çizgi ² içinden geçiyordu).
+// Bunun yerine taban kutusuna simetrik dolgu verilir: kutu üssü/indisi gerçekten
+// KAPSAR, satır yüksekliği doğru hesaplanır ve hiçbir şey komşusuna girmez.
+// Simetri (üstte ve altta eşit dolgu) tabanın kutu merkezinde kalmasını sağlar;
+// böylece `alignItems: center` ile dizilen satırlarda taban hizası bozulmaz.
 
 import { Text, View } from "@react-pdf/renderer";
 import { parseFormula, type MathNode } from "@/lib/math/formula";
@@ -9,8 +17,38 @@ import { parseFormula, type MathNode } from "@/lib/math/formula";
 const INK = "#262626";
 const OP = "#6B6663";
 
+/** Üs/indis kayma oranları (em) ve ölçek — klasik dizgi değerlerine yakın */
+const SUP_RISE = 0.4;
+const SUB_DROP = 0.28;
+const SCRIPT_SCALE = 0.68;
+
 function isVar(v: string): boolean {
   return /[A-Za-zÇĞİÖŞÜçğıöşüσταπηλκψαβγδωρφθνξεζχιµ]/.test(v);
+}
+
+/**
+ * Düğümün kaba yüksekliği (em cinsinden, 1 = tek satır metin).
+ *
+ * Parantezleri içeriğe göre BÜYÜTMEK için gerekir: sabit boyutlu bir "("
+ * iki katlı bir kesrin yanında gülünç kalıyor ve ifadeyi kavramıyordu.
+ */
+function heightEm(n: MathNode): number {
+  switch (n.t) {
+    case "text":
+      return 1;
+    case "row":
+      return n.items.reduce((m, it) => Math.max(m, heightEm(it)), 1);
+    case "frac":
+      return heightEm(n.num) + heightEm(n.den) + 0.36;
+    case "sup":
+      return heightEm(n.base) + SUP_RISE;
+    case "sub":
+      return heightEm(n.base) + SUB_DROP;
+    case "sqrt":
+      return heightEm(n.inner) + 0.26;
+    case "paren":
+      return heightEm(n.inner);
+  }
 }
 
 function Node({ node, size }: { node: MathNode; size: number }): React.ReactElement {
@@ -38,53 +76,92 @@ function Node({ node, size }: { node: MathNode; size: number }): React.ReactElem
           ))}
         </View>
       );
-    case "frac":
+    case "frac": {
+      // Pay/payda kesir çizgisine değmez: yazı boyuyla orantılı hava bırakılır.
+      const gap = size * 0.2;
       return (
-        <View style={{ flexDirection: "column", alignItems: "center", marginHorizontal: 1.5 }}>
-          <View style={{ paddingHorizontal: 2, paddingBottom: 0.5 }}>
+        <View style={{ flexDirection: "column", alignItems: "center", marginHorizontal: 2 }}>
+          <View style={{ paddingHorizontal: 3, paddingBottom: gap }}>
             <Node node={node.num} size={size} />
           </View>
-          <View style={{ height: 0.6, alignSelf: "stretch", backgroundColor: INK }} />
-          <View style={{ paddingHorizontal: 2, paddingTop: 0.5 }}>
+          <View style={{ height: 0.7, alignSelf: "stretch", backgroundColor: INK }} />
+          <View style={{ paddingHorizontal: 3, paddingTop: gap }}>
             <Node node={node.den} size={size} />
           </View>
         </View>
       );
-    case "sup":
+    }
+    case "sup": {
+      const rise = size * SUP_RISE;
       return (
         <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-          <Node node={node.base} size={size} />
-          <View style={{ marginLeft: 0.4, marginTop: -size * 0.28 }}>
-            <Node node={node.exp} size={size * 0.72} />
+          {/* Simetrik dolgu: taban kutunun ortasında kalır, üs kutunun tepesinde */}
+          <View style={{ paddingTop: rise, paddingBottom: rise }}>
+            <Node node={node.base} size={size} />
+          </View>
+          <View style={{ marginLeft: 0.6 }}>
+            <Node node={node.exp} size={size * SCRIPT_SCALE} />
           </View>
         </View>
       );
-    case "sub":
+    }
+    case "sub": {
+      const drop = size * SUB_DROP;
       return (
         <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-          <Node node={node.base} size={size} />
-          <View style={{ marginLeft: 0.3, marginBottom: -size * 0.18 }}>
-            <Node node={node.sub} size={size * 0.72} />
+          <View style={{ paddingTop: drop, paddingBottom: drop }}>
+            <Node node={node.base} size={size} />
+          </View>
+          <View style={{ marginLeft: 0.5 }}>
+            <Node node={node.sub} size={size * SCRIPT_SCALE} />
           </View>
         </View>
       );
-    case "sqrt":
+    }
+    case "sqrt": {
+      // Kök çizgisi içeriğe DEĞMEZ: üstte paddingTop kadar boşluk bırakılır,
+      // yoksa içerideki üsler (σ², τ²) çizginin içinden geçiyordu.
+      const h = heightEm(node.inner);
       return (
-        <View style={{ flexDirection: "row", alignItems: "stretch" }}>
-          <Text style={{ fontSize: size * 1.15, color: INK, alignSelf: "center" }}>√</Text>
-          <View style={{ borderTopWidth: 0.6, borderTopColor: INK, paddingHorizontal: 1, paddingTop: 0.6 }}>
+        <View style={{ flexDirection: "row", alignItems: "stretch", marginHorizontal: 1 }}>
+          {/* Radikal üste hizalanır: ortalanınca tepesi kök çizgisine
+              yetişmiyor, işaretle çizgi arasında kopukluk kalıyordu. */}
+          <Text
+            style={{
+              fontSize: size * Math.min(2.4, Math.max(1.15, h * 1.05)),
+              color: INK,
+              alignSelf: "flex-start",
+            }}
+          >
+            √
+          </Text>
+          <View
+            style={{
+              borderTopWidth: 0.7,
+              borderTopColor: INK,
+              paddingHorizontal: 1.5,
+              paddingTop: size * 0.24,
+              justifyContent: "center",
+            }}
+          >
             <Node node={node.inner} size={size} />
           </View>
         </View>
       );
-    case "paren":
+    }
+    case "paren": {
+      // Parantez içeriğin yüksekliğine göre büyür — kesir yığınlarını kavrar.
+      const h = heightEm(node.inner);
+      const glyph = size * Math.min(3.2, Math.max(1, h * 0.98));
+      const style = { fontSize: glyph, color: OP, alignSelf: "center" as const };
       return (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ fontSize: size, color: OP }}>{node.l}</Text>
+          <Text style={style}>{node.l}</Text>
           <Node node={node.inner} size={size} />
-          <Text style={{ fontSize: size, color: OP }}>{node.r}</Text>
+          <Text style={style}>{node.r}</Text>
         </View>
       );
+    }
   }
 }
 

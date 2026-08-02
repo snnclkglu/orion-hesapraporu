@@ -181,13 +181,16 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     }));
   });
   if (positions.length > 0) {
-    els.push(txt(xLeft, 62, `T = ${fmtN(p.ropeLoadKg)} kg (her yiv bölgesinde)`, 9, {
-      fill: DCOL.accent,
-    }));
+    // Açıklama satırı çizimin ALTINA alınır: yük oklarının hizasında yazıldığında
+    // T₁ / T₂ oklarının tam üzerine düşüyordu (aynı yükseklik, aynı x aralığı).
     els.push(
-      txt(xRight, 62, "gri bant: halatın yiv boyunca gezinme aralığı", 8, {
-        anchor: "end", fill: DCOL.muted,
-      })
+      txt(
+        W / 2,
+        H + 8,
+        `T = ${fmtN(p.ropeLoadKg)} kg (her yiv bölgesinde)   ·   gri bant: halatın yiv boyunca gezinme aralığı`,
+        8,
+        { anchor: "middle", fill: DCOL.muted }
+      )
     );
   }
 

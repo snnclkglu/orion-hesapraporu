@@ -105,9 +105,12 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(arrowHead(boxLeft + 16, yTopFib, "left", BLUE, 6, 2.6));
   els.push(ln(boxRight - 16, yTopFib, cx + 8, yTopFib, BLUE, 1.4));
   els.push(arrowHead(boxRight - 16, yTopFib, "right", BLUE, 6, 2.6));
+  // Sol açıklamalar da kısa satırlara bölünür: tek uzun satır "end" hizasıyla
+  // çizim kutusunun soluna taşıyor ve baştaki σ numaraları kırpılıyordu.
   els.push(ln(cx, yTopFib, 128, 78, BLUE, 0.7));
-  els.push(txt(126, 74, "σ1 σ2 σ3 σ7 σ8 · ÜST LİF (basınç)", 8, { anchor: "end", fill: BLUE, bold: true }));
-  els.push(txt(126, 85, `σx,üst = ${mpa(p.sigmaXTop)}`, 8.5, { anchor: "end", fill: BLUE }));
+  els.push(txt(126, 70, "ÜST LİF — basınç", 8, { anchor: "end", fill: BLUE, bold: true }));
+  els.push(txt(126, 80, "σ1 σ2 σ3 σ7 σ8", 7, { anchor: "end", fill: BLUE }));
+  els.push(txt(126, 91, `σx,üst = ${mpa(p.sigmaXTop)}`, 8.5, { anchor: "end", fill: BLUE }));
 
   // --- σx alt lif (çekme) — alt başlıkta dışa bakan kırmızı oklar ---
   const yBotFib = (y5 + yB) / 2;
@@ -115,26 +118,34 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(arrowHead(boxLeft + 16, yBotFib, "left", RED, 6, 2.6));
   els.push(ln(cx + 8, yBotFib, boxRight - 16, yBotFib, RED, 1.6));
   els.push(arrowHead(boxRight - 16, yBotFib, "right", RED, 6, 2.6));
-  els.push(ln(cx, yBotFib, 128, yB + 24, RED, 0.7));
-  els.push(txt(126, yB + 20, "σ1 σ2 σ3 σ7 σ8 · ALT LİF (çekme)", 8, { anchor: "end", fill: RED, bold: true }));
-  els.push(txt(126, yB + 31, `σx,alt = ${mpa(p.sigmaXBottom)}`, 8.5, { anchor: "end", fill: RED }));
+  els.push(ln(cx, yBotFib, 128, yB + 20, RED, 0.7));
+  els.push(txt(126, yB + 16, "ALT LİF — çekme", 8, { anchor: "end", fill: RED, bold: true }));
+  els.push(txt(126, yB + 26, "σ1 σ2 σ3 σ7 σ8", 7, { anchor: "end", fill: RED }));
+  els.push(txt(126, yB + 37, `σx,alt = ${mpa(p.sigmaXBottom)}`, 8.5, { anchor: "end", fill: RED }));
+
+  // Çizim alanının sağ sınırı: bu çizginin ötesi LEJANT sütunudur. Ok
+  // açıklamaları buradan sonrasına taşarsa lejant satırlarının üzerine biner
+  // (eski sürümde tam olarak bu oluyordu). Bu yüzden açıklamalar KISA tutulur,
+  // sayısal değerler tekrarlanmaz — hepsi zaten lejantta listelidir.
+  const calloutX = 336;
+  const drawRight = 452;
 
   // --- σ4 σ5 σ6 — yatay eğilme (düşey eksen etrafında): kesit üstünde yatay ok ---
   const yLat = g.railTop - 26;
   els.push(ln(boxLeft, yLat, boxRight, yLat, DCOL.muted, 1.2));
   els.push(arrowHead(boxLeft, yLat, "left", DCOL.muted, 7, 3));
   els.push(arrowHead(boxRight, yLat, "right", DCOL.muted, 7, 3));
-  els.push(ln(boxRight, yLat, 344, yLat - 6, DCOL.muted, 0.7));
-  els.push(txt(348, yLat - 8, "σ4 σ5 σ6 · yatay eğilme (Mz, ray kolu)", 8, { fill: DCOL.ink, bold: true }));
-  els.push(txt(348, yLat + 3, `σ4 = ${mpa(p.sigma4BridgeLateral)}  ·  σ5 = ${mpa(p.sigma5TrolleyLateral)}  ·  σ6 = ${mpa(p.sigma6RailLever)}`, 7.5, { fill: DCOL.muted }));
+  els.push(ln(boxRight, yLat, calloutX - 4, yLat - 6, DCOL.muted, 0.7));
+  els.push(txt(calloutX, yLat - 8, "σ4 σ5 σ6", 8, { fill: DCOL.ink, bold: true }));
+  els.push(txt(calloutX, yLat + 2, "yatay eğilme (Mz)", 7, { fill: DCOL.muted }));
 
   // --- σ9 σ10 — teker basıncı: ray ekseninden ana gövde sacına inen ok ---
   const zx = web1X + (p.t3Mm * s) / 2;
   els.push(ln(zx, yWebTop + 4, zx, yWebTop + 34, ORANGE, 1.6));
   els.push(arrowHead(zx, yWebTop + 36, "down", ORANGE, 7, 3));
-  els.push(ln(zx, yWebTop + 20, 344, yWebTop + 6, ORANGE, 0.7));
-  els.push(txt(348, yWebTop + 4, "σ9 σ10 · teker basıncı (σz, gövde üstü)", 8, { fill: ORANGE, bold: true }));
-  els.push(txt(348, yWebTop + 15, `σz = ${mpa(p.sigmaZ)}`, 8.5, { fill: ORANGE }));
+  els.push(ln(zx, yWebTop + 20, calloutX - 4, yWebTop + 6, ORANGE, 0.7));
+  els.push(txt(calloutX, yWebTop + 4, "σ9 σ10", 8, { fill: ORANGE, bold: true }));
+  els.push(txt(calloutX, yWebTop + 14, "teker basıncı (σz)", 7, { fill: ORANGE }));
 
   // --- τ — her iki gövde sacında kayma (burulma + kesme) ---
   const tauMark = (x: number, y: number, label: string) => {
@@ -146,9 +157,9 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   const tau2X = web2X + (p.t4Mm * s) / 2;
   tauMark(tau1X, naY + 34, "ana");
   tauMark(tau2X, naY + 34, "ikincil");
-  els.push(ln(tau2X, naY + 34, 344, naY + 26, PURPLE, 0.7));
-  els.push(txt(348, naY + 24, "τ1 τ2 τ3 τ4 τ5 · burulma + kesme", 8, { fill: PURPLE, bold: true }));
-  els.push(txt(348, naY + 35, `τ,ana = ${mpa(p.tauMain)}   ·   τ,ikincil = ${mpa(p.tauSecondary)}`, 8, { fill: PURPLE }));
+  els.push(ln(tau2X, naY + 34, calloutX - 4, naY + 26, PURPLE, 0.7));
+  els.push(txt(calloutX, naY + 24, "τ1 … τ5", 8, { fill: PURPLE, bold: true }));
+  els.push(txt(calloutX, naY + 34, "burulma + kesme", 7, { fill: PURPLE }));
 
   // --- Lejant: hangi numara hangi toplama giriyor ---
   const lx = 470;
@@ -195,6 +206,14 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(txt(lx, ly, "σx,üst = σ1+σ2+ψσ3−σ4−σ5−σ6+σ7+ψσ8", 7.5, { fill: DCOL.ink }));
   ly += 11;
   els.push(txt(lx, ly, "σz = σ9 + ψσ10        τ = τ1+ψτ2+τ3+τ4+ψτ5", 7.5, { fill: DCOL.ink }));
+  ly += 11;
+  // Toplam kayma gerilmeleri — ok açıklamasından buraya alındı (orada lejantın
+  // üzerine biniyordu); değerin yeri lejant, çizim değil.
+  els.push(
+    txt(lx, ly, `τ,ana = ${mpa(p.tauMain)}   ·   τ,ikincil = ${mpa(p.tauSecondary)}`, 7.5, {
+      fill: DCOL.ink,
+    })
+  );
   ly += 11;
   els.push(txt(lx, ly, "σcomb = √(σx² + σz² − |σx·σz| + 3τ²)", 7.5, { fill: DCOL.ink, bold: true }));
   ly += 13;

@@ -71,7 +71,9 @@ export function drumDiagram(p: DrumParams): Diagram {
   els.push(ln(gx0, top - 11, gx0, top - 5, DCOL.muted, 0.8));
   els.push(ln(gx0 + pitch, top - 11, gx0 + pitch, top - 5, DCOL.muted, 0.8));
   if (p.groovePitchMm) {
-    els.push(txt(gx0 + pitch / 2, top - 12, `p = ${fmtN(p.groovePitchMm, 1)} mm`, 8, { anchor: "middle", fill: DCOL.ink }));
+    // Etiket ölçünün SAĞINA yazılır: ortalanınca sol yanak flanşının üzerine
+    // biniyordu (flanş x ekseninde ölçünün hemen solunda duruyor).
+    els.push(txt(gx0 + pitch + 5, top - 9, `p = ${fmtN(p.groovePitchMm, 1)} mm`, 8, { fill: DCOL.ink }));
   }
 
   // Halat (kırmızı) tamburun üstünde bir oluğa oturur

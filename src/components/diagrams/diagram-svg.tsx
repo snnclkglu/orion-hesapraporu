@@ -76,7 +76,7 @@ function renderEl(el: DiagramEl, i: number) {
 export function DiagramSvg({ diagram, className }: { diagram: Diagram; className?: string }) {
   return (
     <svg
-      viewBox={`0 0 ${diagram.width} ${diagram.height}`}
+      viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
       role="img"
       className={className}
       style={{ width: "100%", height: "auto", maxWidth: diagram.width, display: "block" }}

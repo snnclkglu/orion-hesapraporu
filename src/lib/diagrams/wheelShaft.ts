@@ -92,11 +92,13 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   }));
 
   // --- Mesnet reaksiyonları RA / RB
-  els.push(txt(xA, yAxis - hs / 2 - 26, `RA = ${fmtN(p.reactionAKg)} kg`, 9, {
-    anchor: "middle", fill: DCOL.muted,
+  // Etiketler mesnetlerin DIŞINA yazılır: mesnet ekseninde ortalanınca
+  // a/b ölçülerine giden kılavuz çizgileri yazının içinden geçiyordu.
+  els.push(txt(xA - 22, yAxis - hs / 2 - 22, `RA = ${fmtN(p.reactionAKg)} kg`, 9, {
+    anchor: "end", fill: DCOL.muted,
   }));
-  els.push(txt(xB, yAxis - hs / 2 - 26, `RB = ${fmtN(p.reactionBKg)} kg`, 9, {
-    anchor: "middle", fill: DCOL.muted,
+  els.push(txt(xB + 22, yAxis - hs / 2 - 22, `RB = ${fmtN(p.reactionBKg)} kg`, 9, {
+    fill: DCOL.muted,
   }));
 
   // --- a / b ölçüleri (üstte)

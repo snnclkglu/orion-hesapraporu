@@ -202,13 +202,17 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
 
   // --- Ölçü okları: b1 (üstte, ray ekseninde), b5 (altta), h (sağda), a (gövdeler arası)
   if (p.b1Mm > 0) {
-    dimH(els, g.railCx - (p.b1Mm * s) / 2, g.railCx + (p.b1Mm * s) / 2, g.railTop - 16, `b1 = ${fmtN(p.b1Mm)}`);
+    // "ray" etiketi ray mantarının hemen üstünde durur; b1 ölçüsü ondan da
+    // yukarıda olmalı, yoksa ölçü çizgisi etiketin içinden geçiyor.
+    dimH(els, g.railCx - (p.b1Mm * s) / 2, g.railCx + (p.b1Mm * s) / 2, g.railTop - 24, `b1 = ${fmtN(p.b1Mm)}`);
   }
   if (p.b5Mm > 0) {
-    dimH(els, cx - (p.b5Mm * s) / 2, cx + (p.b5Mm * s) / 2, yB + 20, `b5 = ${fmtN(p.b5Mm)}`, { labelDy: 13 });
+    dimH(els, cx - (p.b5Mm * s) / 2, cx + (p.b5Mm * s) / 2, yB + 30, `b5 = ${fmtN(p.b5Mm)}`, { labelDy: 13 });
   }
-  // h — toplam kesit yüksekliği (sağ dış)
-  const hX = Math.max(cx + (maxB * s) / 2, rightX + 62) + 26;
+  // h — toplam kesit yüksekliği (sağ dış). Sağ etiket sütunundan (rightX)
+  // en uzun etiket kadar UZAKTA durmalı; yakın olursa ölçü çizgisi
+  // "t4 = 8  gövde sacı" yazısının içine giriyor.
+  const hX = Math.max(cx + (maxB * s) / 2 + 30, rightX + 128);
   els.push(ln(cx + (maxB * s) / 2 + 4, y1, hX + 4, y1, DCOL.faint, 0.6));
   els.push(ln(cx + (maxB * s) / 2 + 4, yB, hX + 4, yB, DCOL.faint, 0.6));
   dimV(els, hX, y1, yB, `h = ${fmtN(totalH)}`);
@@ -223,7 +227,9 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   }
   // b2 — üst iç başlık genişliği (üstte, b1'in altında)
   if (p.b2Mm > 0) {
-    dimH(els, cx - (p.b2Mm * s) / 2, cx + (p.b2Mm * s) / 2, y2 - 8, `b2 = ${fmtN(p.b2Mm)}`, { size: 8.5, labelDy: -3 });
+    // labelDy en az yazı boyu kadar olmalı: -3'te ölçü çizgisi ve uç tikleri
+    // "b2 = 460" yazısının ortasından geçiyordu.
+    dimH(els, cx - (p.b2Mm * s) / 2, cx + (p.b2Mm * s) / 2, y2 - 8, `b2 = ${fmtN(p.b2Mm)}`, { size: 8.5, labelDy: -7 });
   }
 
   // --- Tarafsız eksen (kırmızı kesikli)
@@ -236,8 +242,9 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   }
   if (p.cyMm !== undefined && Number.isFinite(p.cyMm) && p.cyMm > 0 && p.cyMm < p.b2Mm) {
     const xNA = b2Left + p.cyMm * s;
-    els.push(ln(xNA, y1 - 12, xNA, yB + 12, DCOL.accent, 1, "6,3"));
-    els.push(txt(xNA + 4, yB + 10, `Cy = ${fmtN(p.cyMm)} mm`, 9, { fill: DCOL.accent }));
+    els.push(ln(xNA, y1 - 12, xNA, yB + 16, DCOL.accent, 1, "6,3"));
+    // Etiket alt başlık plakasının altına iner (üstünde plakayla çakışıyordu)
+    els.push(txt(xNA + 4, yB + 14, `Cy = ${fmtN(p.cyMm)} mm`, 9, { fill: DCOL.accent }));
   }
 
   return fitDiagram(els, W, H);
