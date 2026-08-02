@@ -206,16 +206,25 @@ export interface CommonReeving {
 
 /**
  * Vinç imalatında yaygın donanımlar. Etiket her zaman
- * `reevingLabel` çıktısıyla aynıdır; liste yalnız hazır seçim sunar,
+ * `reevingLabel` çıktısıyla aynıdır — ilk sayı tahrikli (tambura sarılan),
+ * ikinci sayı toplam halat kolu adedidir. Liste yalnız hazır seçim sunar,
  * serbest giriş engellenmez.
  */
 export const COMMON_REEVINGS: readonly CommonReeving[] = [
+  { label: "1/2", drivenFalls: 1, totalFalls: 2 },
   { label: "2/2", drivenFalls: 2, totalFalls: 2 },
+  { label: "1/4", drivenFalls: 1, totalFalls: 4 },
   { label: "2/4", drivenFalls: 2, totalFalls: 4 },
-  { label: "4/4", drivenFalls: 4, totalFalls: 4 },
+  { label: "2/8", drivenFalls: 2, totalFalls: 8 },
   { label: "4/8", drivenFalls: 4, totalFalls: 8 },
-  { label: "6/6", drivenFalls: 6, totalFalls: 6 },
-  { label: "8/8", drivenFalls: 8, totalFalls: 8 },
+  { label: "2/12", drivenFalls: 2, totalFalls: 12 },
+  { label: "2/16", drivenFalls: 2, totalFalls: 16 },
+  { label: "2/20", drivenFalls: 2, totalFalls: 20 },
+  { label: "4/16", drivenFalls: 4, totalFalls: 16 },
+  { label: "4/20", drivenFalls: 4, totalFalls: 20 },
+  { label: "4/24", drivenFalls: 4, totalFalls: 24 },
+  { label: "4/28", drivenFalls: 4, totalFalls: 28 },
+  { label: "4/32", drivenFalls: 4, totalFalls: 32 },
 ] as const;
 
 /** Etiketten yaygın donanım seçeneğini bulur; tanınmayan etiket için undefined. */

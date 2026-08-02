@@ -1,9 +1,10 @@
 "use client";
 
-// "Yeni Hesap Raporu" — rapor doğrudan bir İŞ EMRİ kalemine bağlanabilir.
+// "Yeni Hesap Raporu" — hesap raporları YALNIZCA Projeler bölümünden açılır.
+// Açılışta istenirse doğrudan bir iş emri kalemine bağlanır; bağlanmazsa rapor
+// bağımsız kalır ve sonradan "İşe Bağla" ile bir işe bağlanabilir.
 // Akış: İş seçilir → o işin kalemleri (ürün + iş no) listelenir → kalem
-// seçilince doküman no, rapor adı ve müşteri otomatik dolar. İşe bağlamadan
-// bağımsız (deneme) rapor açmak da mümkündür.
+// seçilince doküman no ve rapor adı otomatik dolar.
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -30,6 +31,8 @@ const CRANE_TYPES = [
 ] as const;
 
 export interface JobItemOption {
+  /** job_items.id — kalem bağlantısı bu kimlikle güncellenir */
+  id: string;
   item_no: string;
   product_name: string;
   quantity: string | null;
@@ -45,26 +48,17 @@ export interface JobOption {
   items?: JobItemOption[];
 }
 
-const NONE = "__none__";
-const NO_ITEM = "__no_item__";
+/** Seçim kutularında "seçilmedi" anlamına gelen sabitler (boş değer kabul edilmez) */
+export const NO_JOB = "__none__";
+export const NO_ITEM = "__no_item__";
 
 export function NewProjectDialog({
-  defaultCraneType = "Çift Kirişli Gezer Köprü Vinci",
-  jobId,
-  jobNo,
-  defaultCustomer,
+  defaultCraneType = "Çift Kirişli Gezer Köprülü Vinç",
   jobs,
-  jobItems,
 }: {
   defaultCraneType?: string;
-  /** İş panelinden "Vinç Ekle" ile açıldığında yeni vinç bu işe sabit bağlanır. */
-  jobId?: string;
-  jobNo?: string;
-  defaultCustomer?: string;
-  /** Bağımsız akış (/projects): opsiyonel iş seçimi için iş listesi. */
+  /** Opsiyonel iş seçimi için aktif iş listesi (kalemleriyle birlikte). */
   jobs?: JobOption[];
-  /** İş panelinden açıldığında o işin kalemleri. */
-  jobItems?: JobItemOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -75,28 +69,25 @@ export function NewProjectDialog({
     : [defaultCraneType, ...CRANE_TYPES];
   const [craneType, setCraneType] = useState(defaultCraneType);
 
-  // İş panelinden gelmiyorsa (jobId yok) opsiyonel iş seçimi gösterilir
-  const showJobSelect = !jobId && (jobs?.length ?? 0) > 0;
-  const [selectedJobId, setSelectedJobId] = useState<string>(NONE);
+  const showJobSelect = (jobs?.length ?? 0) > 0;
+  const [selectedJobId, setSelectedJobId] = useState<string>(NO_JOB);
   const selectedJob = useMemo(
     () => jobs?.find((j) => j.id === selectedJobId),
     [jobs, selectedJobId]
   );
 
-  // Seçili işin kalemleri: iş panelinden gelirken doğrudan prop, listeden
-  // seçildiğinde seçili işin kendi kalemleri.
-  const items = jobId ? (jobItems ?? []) : (selectedJob?.items ?? []);
-  const [selectedItemNo, setSelectedItemNo] = useState<string>(NO_ITEM);
-  const selectedItem = items.find((i) => i.item_no === selectedItemNo);
+  const items = selectedJob?.items ?? [];
+  const [selectedItemId, setSelectedItemId] = useState<string>(NO_ITEM);
+  const selectedItem = items.find((i) => i.id === selectedItemId);
 
   // Doküman no / rapor adı / müşteri: iş ve kalem seçilince ön-doldurulur
   const [docNo, setDocNo] = useState("");
   const [name, setName] = useState("");
-  const [customer, setCustomer] = useState(defaultCustomer ?? "");
+  const [customer, setCustomer] = useState("");
 
   function onPickJob(id: string) {
     setSelectedJobId(id);
-    setSelectedItemNo(NO_ITEM);
+    setSelectedItemId(NO_ITEM);
     const job = jobs?.find((j) => j.id === id);
     if (job) {
       setCustomer(job.customer);
@@ -105,16 +96,16 @@ export function NewProjectDialog({
     }
   }
 
-  function onPickItem(itemNo: string) {
-    setSelectedItemNo(itemNo);
-    const item = items.find((i) => i.item_no === itemNo);
+  function onPickItem(itemId: string) {
+    setSelectedItemId(itemId);
+    const item = items.find((i) => i.id === itemId);
     if (item) {
       if (item.item_no) setDocNo(item.item_no);
       if (item.product_name) setName(item.product_name);
     }
   }
 
-  const effectiveJobId = jobId ?? (selectedJobId !== NONE ? selectedJobId : "");
+  const effectiveJobId = selectedJobId !== NO_JOB ? selectedJobId : "";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -129,15 +120,14 @@ export function NewProjectDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</Button>
+        <Button>Yeni Hesap Raporu</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</DialogTitle>
+          <DialogTitle>Yeni Hesap Raporu</DialogTitle>
           <DialogDescription>
-            {jobId
-              ? `${jobNo ?? ""} işine bağlı yeni bir vinç oluşturun.`.trim()
-              : "Raporu bir iş emri kalemine bağlayın ya da bağımsız (deneme) bırakın."}
+            Raporu bir iş emri kalemine bağlayın ya da bağımsız bırakın; bağımsız
+            raporlar sonradan &quot;İşe Bağla&quot; ile bir işe bağlanabilir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -151,7 +141,7 @@ export function NewProjectDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>Bağımsız (işe atanmamış)</SelectItem>
+                  <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
                   {jobs!.map((j) => (
                     <SelectItem key={j.id} value={j.id}>
                       {j.job_no} · {j.title}
@@ -166,18 +156,18 @@ export function NewProjectDialog({
           {items.length > 0 && (
             <div className="grid gap-2">
               <Label>İş Kalemi</Label>
-              <Select value={selectedItemNo} onValueChange={onPickItem}>
+              <Select value={selectedItemId} onValueChange={onPickItem}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_ITEM}>Kalem seçilmedi (elle gir)</SelectItem>
+                  <SelectItem value={NO_ITEM}>Kalem Seçilmedi (Elle Gir)</SelectItem>
                   {items.map((it) => (
-                    <SelectItem key={it.item_no || it.product_name} value={it.item_no}>
+                    <SelectItem key={it.id} value={it.id}>
                       {it.item_no ? `${it.item_no} · ` : ""}
                       {it.product_name}
                       {it.quantity ? ` (${it.quantity})` : ""}
-                      {it.project_id ? " — raporu var" : ""}
+                      {it.project_id ? " — Raporu Var" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -198,12 +188,12 @@ export function NewProjectDialog({
               name="doc_no"
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
-              placeholder={jobNo ? `${jobNo.split("-")[0]}-01` : "0055-HR-001"}
+              placeholder="0055-HR-001"
               required
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="name">{jobId ? "Vinç Adı" : "Rapor / Vinç Adı"}</Label>
+            <Label htmlFor="name">Rapor / Vinç Adı</Label>
             <Input
               id="name"
               name="name"

@@ -22,10 +22,11 @@ export function SectionDiagram({
     [moduleKey, sectionId, input, result]
   );
   if (!diagram) return null;
+  // Dar kolonda diyagram KIRPILMAZ, yatay kaydırılır (overflow-x-auto)
   return (
     <div
       data-diagram={`${moduleKey}-${sectionId}`}
-      className="overflow-hidden rounded-lg border bg-white p-2"
+      className="overflow-x-auto rounded-lg border bg-white p-2"
     >
       <DiagramSvg diagram={diagram} className="mx-auto" />
     </div>

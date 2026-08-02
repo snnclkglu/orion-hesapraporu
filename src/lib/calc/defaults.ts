@@ -1,9 +1,18 @@
-// İSDEMİR V5 işinin girdi seti — yeni revizyonlar için başlangıç şablonu ve
-// tarihsel doğrulama fikstürünün girdi tarafı.
+// Başlangıç girdi setleri.
+//
+// İki şablon vardır:
+//   · V5_TEMPLATE       — İSDEMİR Amonyum Sülfat Vinci referans işi. Tarihsel
+//                         doğrulama fikstürünün girdi tarafıdır; DEĞİŞTİRİLİRSE
+//                         `__tests__/legacy` karşılaştırması bozulur.
+//   · NEW_WORK_TEMPLATE — yeni bir hesap raporu açıldığında gelen değerler.
+//                         ORION'un en çok ürettiği vinç tipi esas alınmıştır:
+//                         20 m açıklık, 10 ton, tek kancalı, uzaktan kumandalı
+//                         çift kirişli gezer köprülü vinç.
 
 import type { CalcInput } from "./engine";
 import { ROPE_POSITION_AUTO, type HoistInputs, type HoistSelections } from "./modules/hoistGroup";
 import type { TechnicalSpecs } from "./types";
+import { STANDARD_SHEAVE_EFFICIENCY } from "./derive";
 import { V5_HOOKBLOCK_INPUTS, V5_HOOKBLOCK_SELECTIONS } from "./defaults/hookBlock";
 import {
   V5_BRIDGE_INPUTS,
@@ -46,13 +55,18 @@ export const V5_SPECS: TechnicalSpecs = {
   supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
   controlVoltage: "24 VDC",
   spanM: 17.5,
+  // Konfigürasyon ve ağırlıklar
+  auxTrolleyMode: "shared",
+  monorailCount: 0,
+  mainTrolleyWeightT: 2.5,
+  bridgeWeightT: 17,   // ana kirişler 15 t + başkirişler 2 t
 };
 
 export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   reevingLabel: "2/2",          // tahrikli/toplam halat kolu — hazır donanım
   drivenFalls: 2,
   totalFalls: 2,
-  sheaveEfficiency: 0.985,
+  sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   fixedSheaveCount: 0,
   hookBlockWeightKg: 3250,      // kepçe
   ropeWeightKg: 250,
@@ -166,7 +180,7 @@ export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
   drumCouplingDmaxMm: 110,
 };
 
-/** V5 işinin tam girdi seti — yeni revizyon şablonu */
+/** V5 işinin tam girdi seti — tarihsel doğrulama fikstürü */
 export const V5_TEMPLATE: CalcInput = {
   specs: V5_SPECS,
   mainHoist: { inputs: V5_MAIN_HOIST_INPUTS, selections: V5_MAIN_HOIST_SELECTIONS },
@@ -179,39 +193,133 @@ export const V5_TEMPLATE: CalcInput = {
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
 };
 
-/**
- * Yeni iş başlangıç şablonu — V5_TEMPLATE ile aynı, yalnız kullanıcı tercihleri:
- * iki perde arası 1500 mm, sehim sınırı 1/1000, ve otomatik hesaplanan girdiler
- * (halat ağırlığı, makara verimi) açık. Tarihsel doğrulama V5_TEMPLATE'i
- * (2000/750 ve otomatik alanlar kapalı) kullandığından bu ayrı tutulur; boş
- * girdiler için varsayılan kaynak (revision-load / editor) burasıdır.
- *
- * Makara yataklama tipi, V5'teki 0,985 verimiyle birebir örtüşen "yüksek verim"
- * seçeneğidir — otomatik açılınca sayı değişmez. Halat metre ağırlıkları seçili
- * halatların (Ø18 / Ø12, 6x36 çelik öz) katalog değerleridir.
- */
-const HIGH_EFF_SHEAVE = "Rulmanlı yataklı makara (yüksek verim)";
+// ------------------------------------------------------- Yeni iş şablonu
 
+/**
+ * Yeni bir hesap raporu açıldığında gelen teknik özellikler.
+ * ORION'un en çok ürettiği vinç: 20 m açıklık, 10 ton tek kancalı ana kaldırma,
+ * uzaktan kumandalı, manyetik frenli, iç ortamda çalışan çift kirişli vinç.
+ */
+export const NEW_WORK_SPECS: TechnicalSpecs = {
+  spanM: 20,
+  structureClass: "A6",
+  hoistLoadClass: "H3/B4",
+  hookType: "DIN 15401 Tekli Kanca",
+  controlType: "Uzaktan Kumanda",
+
+  auxTrolleyMode: "shared",
+  monorailCount: 0,
+
+  mainTrolleyWeightT: 2.5,
+  bridgeWeightT: 12,
+
+  mainCapacityT: 10,
+  mainLiftHeightM: 10,
+  mainLiftSpeedMpm: 4,
+  hoistMechanismClass: "M6",
+  hoistUsageClass: "T6",
+
+  // Yardımcı kaldırma bölümü varsayılan olarak KAPALIDIR; açılırsa bu
+  // değerlerle başlar.
+  auxCapacityT: 2,
+  auxLiftHeightM: 10,
+  auxLiftSpeedMpm: 8,
+  auxMechanismClass: "M6",
+  auxUsageClass: "T6",
+
+  trolleySpeedMpm: 20,
+  trolleyMechanismClass: "M6",
+  trolleyUsageClass: "T6",
+
+  bridgeSpeedMpm: 30,
+  bridgeMechanismClass: "M6",
+  bridgeUsageClass: "T6",
+
+  hoistBrakeType: "Manyetik Fren",
+  hoistSafetyBrake: "Yok",
+  travelBrakeType: "Manyetik Fren",
+
+  supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
+  controlVoltage: "24 VDC",
+
+  ambientTempMinC: -10,
+  ambientTempMaxC: 40,
+};
+
+/**
+ * Yeni işte kapalı gelen hesap bölümleri. En yaygın vinçte yardımcı kaldırma,
+ * buruşma ve başkiriş bölümleri hesaplanmaz; kanca bloğu ve ana kiriş açıktır.
+ *
+ * Vinç konfigürasyonundan doğan bölümler (yardımcı araba, monoray grupları)
+ * bu listede YER ALMAZ: onları teknik özelliklerdeki seçim açar/kapatır
+ * (`moduleAllowedByConfig`). Listeye konsalardı kullanıcı "2 Monoray" seçtiğinde
+ * bölümler yine kapalı kalır, ayrıca kutucuk işaretlemesi gerekirdi.
+ */
+export const NEW_WORK_DISABLED_MODULES: readonly string[] = [
+  "aux",
+  "auxHookBlock",
+  "buckling",
+  "endCarriage",
+];
+
+/**
+ * Yeni işte otomatik doldurulan kaldırma girdileri açık gelir.
+ * Donanım 2/4: 10 tonluk tek kancalı bir ana kaldırmada halat yükünü Ø18
+ * halatın emniyet katsayısını sağlayacak düzeye indiren yaygın seçim.
+ */
+const NEW_WORK_HOIST_INPUTS: HoistInputs = {
+  ...V5_MAIN_HOIST_INPUTS,
+  reevingLabel: "2/4",
+  drivenFalls: 2,
+  totalFalls: 4,
+  sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
+  ropeWeightAuto: true,
+  hookBlockWeightAuto: true,
+  tempFactorAuto: true,
+};
+
+const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
+  ...V5_MAIN_HOIST_SELECTIONS,
+  ropeWeightKgPerM: 1.33,
+};
+
+const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
+  ...V5_AUX_HOIST_INPUTS,
+  sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
+  ropeWeightAuto: true,
+  hookBlockWeightAuto: true,
+  tempFactorAuto: true,
+};
+
+const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
+  ...V5_AUX_HOIST_SELECTIONS,
+  ropeWeightKgPerM: 0.59,
+};
+
+/**
+ * Yeni iş başlangıç şablonu — bütün bölümlerin verisi doludur (kapalı bölümler
+ * de dâhil), böylece bir bölüm sonradan açıldığında makul değerlerle gelir.
+ * Hangi bölümlerin hesaba gireceğini `NEW_WORK_DISABLED_MODULES` belirler.
+ */
 export const NEW_WORK_TEMPLATE: CalcInput = {
-  ...V5_TEMPLATE,
-  mainHoist: {
-    inputs: { ...V5_MAIN_HOIST_INPUTS, ropeWeightAuto: true, sheaveEfficiencyAuto: true },
-    selections: {
-      ...V5_MAIN_HOIST_SELECTIONS,
-      ropeWeightKgPerM: 1.33,
-      sheaveBearingKind: HIGH_EFF_SHEAVE,
-    },
-  },
-  auxHoist: {
-    inputs: { ...V5_AUX_HOIST_INPUTS, ropeWeightAuto: true, sheaveEfficiencyAuto: true },
-    selections: {
-      ...V5_AUX_HOIST_SELECTIONS,
-      ropeWeightKgPerM: 0.59,
-      sheaveBearingKind: HIGH_EFF_SHEAVE,
-    },
-  },
+  specs: NEW_WORK_SPECS,
+  mainHoist: { inputs: NEW_WORK_HOIST_INPUTS, selections: NEW_WORK_HOIST_SELECTIONS },
+  auxHoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
+  mono1Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
+  mono2Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
+  hookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  auxHookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  mono1HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  mono2HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  auxTrolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  mono1Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  mono2Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  bridge: { inputs: V5_BRIDGE_INPUTS, selections: V5_BRIDGE_SELECTIONS },
   girder: {
     inputs: { ...V5_GIRDER_INPUTS, diaphragmSpacingMm: 1500, deflectionLimitRatio: 1000 },
     selections: V5_GIRDER_SELECTIONS,
   },
+  buckling: { inputs: V5_BUCKLING_INPUTS },
+  endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
 };

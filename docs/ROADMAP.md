@@ -142,3 +142,112 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
 - [ ] **Tampon yürütme yükü tutarsızlığı** — arabada "gerekli güç", köprüde "seçilen motor gücü" alınıyor; doğrusu ikisinde de seçilen güç olmalı. Düzeltilirse araba tampon yükü ~2 kat artar, bu yüzden karar kullanıcıya bırakıldı.
 - [ ] **Teker mili malzemesi** — izin gerilmeleri sabit "4140" tablosundan okunuyor, seçim alanı ise "42CrMo4" metni taşıyor. Alan bir listeye bağlanmalı.
 - [ ] **Buruşma Yükleme Durumu II/III** — yalnız Durum I hesaplanıyor (kapsam eksikliği, calc-crossref §3.3).
+
+---
+
+## Faz N — Vinç topolojisi, ana kiriş gerilme analizi ve rapor akışı (2026-08-02)
+
+> Sinan'ın 23 maddelik geri bildirimi. Ana eksen: bir vinçte birden çok kaldırma
+> grubu olabilir ve her grubun kendi kanca bloğu ile arabası vardır; ana kirişin
+> gerilme analizi izlenebilir hâle gelmeli.
+
+### Topoloji (motor + sihirbaz)
+- [x] **ModuleKey 8 → 16.** Kaldırma grupları: ana, yardımcı, monoray 1, monoray 2.
+      Her birinin kanca bloğu (`hookBlock`, `auxHookBlock`, `mono1HookBlock`,
+      `mono2HookBlock`) ve arabası (`trolley`, `auxTrolley`, `mono1Trolley`,
+      `mono2Trolley`). Sıra ve aile eşlemesi `presentation/module-family.ts`te tek yerde.
+- [x] **Vinç konfigürasyonu teknik özelliklerde.** `auxTrolleyMode`
+      (ana araba üzerinde / ayrı araba) ve `monorailCount` (0–2) hesap bölümlerini
+      otomatik açar; `engine.ts` `activeModules()` kullanıcı tercihi + konfigürasyon +
+      üst bölüm bağımlılığını birleştirir.
+- [x] **Kanca bloğu artık kapatılabilir** ve bağlı olduğu kaldırma grubunun sınıfı,
+      hızı ve yüküyle hesaplanır (`computeHookBlock(specs, which, …)`).
+- [x] **Ağırlıklar teknik özelliğe taşındı** — Ana Araba / Yardımcı Araba / Köprü.
+      "Diğer ağırlıklar" kalktı, köprü tek toplam ağırlık taşıyor. Eski revizyonlar
+      `revision-load.migrateWeights` ile taşınır (sessiz değer değişimi olmaz).
+- [x] **Tahrikli teker sayısı** yürütme grubundan geliyor: motor adedi × motor başına
+      teker (arabada 2 olabilir). Ana kiriş yatay yük hesabı bunu `deps`ten okur.
+
+### Ana kiriş (07)
+- [x] **Ray altı sacı b1 ray ekseninde** (`section.railCenterY = x + t3/2`) — kesitin
+      ortasında değil. Cy, Izz, burulma kolu ve σ4/σ5/τ1/τ2 etkilendi.
+- [x] **b6 Izz Steiner işaret hatası** düzeltildi.
+- [x] **Gerilme analizi numaralandırıldı** (σ1…σ10, τ1…τ5); üst lif, ikincil gövde ve
+      γc ara değerleri artık raporda görünür. Bölüm sonunda 36 satırlık **gerilme
+      tablosu** (No / Gerilme / Etkidiği Yer / MPa / Durum I / Durum III / Dayanak).
+- [x] **Gerilme konumları görseli** parametrik kutu kesitten türetiliyor; numaralı
+      rozetler, tarafsız eksen, ray ekseni ve birleşim lejantı.
+- [x] **FEM eşleşmeleri düzeltildi** — Booklet 4 mekanizma maddeleri yerine
+      3.2.1.1 / 3.2.1.2 / 3.2.1.3, DIN 15018 Şekil 9, FEM 2.2.3.3. Defterde eksik
+      olan maddeler eklendi (+ ISO 281, + CMAA 70 3.5.1, + FEM A.2.2.1).
+- [x] **ψhA / ψhK otomatik** (FEM A.2.2.1); ölü `psiHK` girdisi artık köprü atalet
+      yükünde gerçekten kullanılıyor.
+- [x] **Yorulma gerilmeden besleniyor** — σy teker basıncından, τ,maks gerçek kayma
+      gerilmesinden; σB malzemeden.
+- [x] **Sehim mm.**
+- [x] **Diyagram kırpılması genel çözümle giderildi** — `fitDiagram()` içerik
+      sınırından yükseklik hesaplar; `select.ts`teki ölü hücre adresleri semantik
+      anahtarlara çevrildi (moment diyagramı zaten hiç değer almıyordu).
+
+### Kaldırma grubu ve arayüz
+- [x] Halat donanımı listesi 1/2 … 4/32 (14 seçenek, yalnız rakam); seçim tahrikli ve
+      toplam halat kutularını doldurur.
+- [x] Kanca bloğu ağırlığı alanı **kanca/tutucu tipinin adıyla** görünür ve
+      kapasitenin %10'u olarak otomatik gelir.
+- [x] Motor sıcaklık faktörü ortam sıcaklığından otomatik (40→1 … 80→1,30).
+- [x] Makara yataklama tipi seçimi kalktı; η = 0,985 firma standardı.
+- [x] "Oluk adımı" → **Hatve p**.
+- [x] Hesap değeri, satırına bağlı kontrol sağlanıyorsa yeşil, sağlanmıyorsa kırmızı.
+- [x] Özet kontrol panosu masaüstünde iki sütun.
+- [x] Tüm başlık ve alan etiketleri Türkçe Başlık Düzeni.
+
+### Proje / iş emri akışı
+- [x] Hesap raporu kopyalama (yeni doküman no + hedef iş), işe bağlama/çıkarma, silme
+      (admin; yayınlanmış revizyon varsa engellenir ve gerekçe gösterilir).
+- [x] İlk raporda buton "Hesap Raporu Oluştur", sonrasında "Yeni Revizyon".
+- [x] Rapor oluşturma akışı iş detayından kaldırıldı; raporlar Projeler'den açılıp
+      sonradan işe bağlanır.
+- [x] PDF'lerde Türkçe büyük harf hatası giderildi (`toUpperCase` → `toLocaleUpperCase("tr-TR")`);
+      iş emri tamamen Türkçe ve Başlık Düzeninde.
+
+### Kalan iş
+- [ ] `psi_h` için FEM Şekil A.2.2.1 eğrisinin β'ya bağlı ara değerleri sayısallaştırılmadı;
+      türetme güvenli tarafta (µ ≤ 1 → 2) kalıyor.
+- [ ] Köprü tekerlek yükü yalnız ANA arabanın ağırlığını görüyor; yardımcı ve monoray
+      arabalar köprü tekerlek yüküne girmiyor (aynı anda en elverişsiz konumda
+      bulunamayacakları kabulü — mühendis onayı bekliyor).
+- [ ] Faz M'den devreden maddeler (rapor belgesi yeniden yapılandırması, tampon yürütme
+      yükü, teker mili malzemesi, buruşma Durum II/III) hâlâ açık.
+
+---
+
+## Faz O — PDF hesap raporu görsel düzeni (2026-08-02)
+
+> "PDF hesap raporlarında ciddi bir görsel düzenleme gerekiyor… hesaplanan ve
+> izin verilen şeklinde kullanalım."
+
+- [x] **Kontrol modeli açıldı.** `Check.computedSide` (ZORUNLU alan) hesaplanan
+      değerin `provided` mı `required` mı olduğunu söyler — model iki sayıyı
+      kapasite/talep diye tutuyordu, "hesaplanan" hangisi olduğu kontrolden
+      kontrole değişiyor ve tahmin edilemiyordu. 58 kontrolün tamamı tek tek
+      işaretlendi (49 `required`, 9 `provided`; 3 aralık kontrolü muaf).
+      Ortak gösterim `checkDisplay()` ile üretilir: **HESAPLANAN x ≤ İZİN VERİLEN y**,
+      hesaplanan değer kalın ve sonuca göre yeşil/kırmızı. Sihirbaz ve PDF aynı
+      fonksiyonu kullanır; iki yerde farklı okunması imkânsızdır.
+- [x] **Hesap adımları numaralandı.** Her satır bölüm numarasının devamı olan
+      kalıcı bir adres taşır (`2.2.3.07`), solda mono şerit hâlinde. Satıra bağlı
+      kontrol varsa sol kenar yeşil/kırmızı boyanır — uygunsuz adım sayfa
+      tarandığında hemen görünür. Sonuç sağda çerçeveli kutuda, kalın mono.
+- [x] **Bölüm başlıkları sayfa dibinde yalnız kalmıyor** — `SectionTag`
+      (90 pt) ve `SubHead` (46 pt) `minPresenceAhead` taşır.
+- [x] **Bölüm başlığında kontrol sayacı** (`5/6 UYGUN` rozeti).
+- [x] **İçindekiler tıklanabilir ve sayfa numaralı.** Her satır `Link src="#..."`
+      ile bölümün çapasına gider (PDF named destination). Sayfa numaraları İKİ
+      GEÇİŞLİ render ile bulunur: birinci geçişte her bölümün başladığı sayfa
+      toplanır, ikinci geçişte tabloya basılır.
+- [x] **PDF'lerde İngilizce kalmadı** — "CONTENTS", "SUMMARY",
+      "DESIGN CALCULATION REPORT", "EQUIPMENT LIST", "FABRICATION SUMMARY" ve
+      `SectionTag`/`SubHead` İngilizce gloss parametreleri kaldırıldı.
+- [x] `report.smoke.test.tsx` artık yapıyı da kilitliyor: iç bağlantıların ve
+      adlandırılmış hedeflerin varlığı, her bölümün başlangıç sayfasının
+      toplanabildiği ve sayfa sırasının bölüm sırasıyla arttığı.

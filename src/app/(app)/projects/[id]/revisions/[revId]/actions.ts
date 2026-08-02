@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
 import {
+  CALC_FIELD,
   calcInputFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
+import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { renderReportPdf } from "@/lib/pdf/report";
 import { getReportSettings } from "@/lib/settings";
 
@@ -151,6 +153,21 @@ export async function setRevisionTemplate(
  * bölümün kapalı olduğu `disabledModules` listesiyle belirtilir. Böylece bir
  * bölüm kapatılıp yeniden açıldığında elle ayarlanmış değerler kaybolmaz.
  */
+/**
+ * Bölüm girdilerini/seçimlerini JSONB'ye çevirir. Bölüm listesi tek yerden
+ * (`CALC_FIELD`) geldiği için yeni bir hesap bölümü eklendiğinde burada
+ * unutulacak bir alan kalmaz.
+ */
+function moduleJson(store: CalcInput, part: "inputs" | "selections") {
+  const src = store as unknown as Record<string, { inputs?: object; selections?: object }>;
+  const out: Record<string, object | null> = {};
+  for (const key of MODULE_ORDER) {
+    const field = CALC_FIELD[key];
+    out[field] = src[field]?.[part] ?? null;
+  }
+  return out;
+}
+
 export async function saveRevision(
   projectId: string,
   revisionId: string,
@@ -172,25 +189,12 @@ export async function saveRevision(
     .from("revisions")
     .update({
       inputs: {
+        ...moduleJson(store, "inputs"),
         specs: calcInput.specs,
-        mainHoist: store.mainHoist?.inputs ?? null,
-        auxHoist: store.auxHoist?.inputs ?? null,
-        hookBlock: store.hookBlock?.inputs ?? null,
-        trolley: store.trolley?.inputs ?? null,
-        bridge: store.bridge?.inputs ?? null,
-        girder: store.girder?.inputs ?? null,
-        buckling: store.buckling?.inputs ?? null,
-        endCarriage: store.endCarriage?.inputs ?? null,
         disabledModules: disabledModules ?? [],
       },
       selections: {
-        mainHoist: store.mainHoist?.selections ?? null,
-        auxHoist: store.auxHoist?.selections ?? null,
-        hookBlock: store.hookBlock?.selections ?? null,
-        trolley: store.trolley?.selections ?? null,
-        bridge: store.bridge?.selections ?? null,
-        girder: store.girder?.selections ?? null,
-        endCarriage: store.endCarriage?.selections ?? null,
+        ...moduleJson(store, "selections"),
         alts: alts ?? {},
       },
       results: JSON.parse(JSON.stringify(result)),

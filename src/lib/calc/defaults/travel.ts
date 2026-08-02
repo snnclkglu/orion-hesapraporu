@@ -18,11 +18,9 @@ export const V5_TRAVEL_DEPS: TravelDeps = {
 };
 
 export const V5_TROLLEY_INPUTS: TravelInputs = {
-  trolleyWeightT: 2.5,          // araba ağırlığı [t]
-  bridgeWeightT: 0,             // yalnız köprü varyantında kullanılır
-  otherWeightsT: 0,             // yalnız köprü varyantında kullanılır
   minApproachM: 0,              // yalnız köprü varyantında kullanılır
   wheelCount: 4,                // tekerlek adedi
+  wheelsPerMotor: 2,            // arabada tek motor iki tekeri tahrik eder
   shaftSpanACm: 7.25,           // teker mili mesnet ölçüsü a [cm]
   shaftSpanBCm: 9,              // teker mili ölçüsü b [cm] (gösterim)
   shaftDiaCm: 11,               // teker mili çapı [cm]
@@ -35,7 +33,8 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   accelTorqueFactorKt: 1.5,     // CMAA 70 ivmelenme tork faktörü
   reducerStages: 3,             // redüktör kademe sayısı
   accelerationMs2: 0.2,         // ivme [m/s²]
-  tempFactor: 1,                // ortam sıcaklığı düzeltmesi (60 °C)
+  tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
+  tempFactorAuto: true,
   motorCalcCount: 1,            // gücün bölüşüldüğü motor adedi
   gearboxServiceFactor: 2.1,    // redüktör emniyet katsayısı
   brakeServiceFactor: 0,        // arabada yürütme freni hesaplanmaz
@@ -84,11 +83,9 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
 };
 
 export const V5_BRIDGE_INPUTS: TravelInputs = {
-  trolleyWeightT: 0,            // köprüde araba ağırlığı bağımlılıktan gelir
-  bridgeWeightT: 15,            // köprü ağırlığı [t]
-  otherWeightsT: 2,             // diğer ağırlıklar [t]
   minApproachM: 1,              // minimum araba yanaşması [m]
   wheelCount: 4,
+  wheelsPerMotor: 1,            // köprüde her motor tek tekeri tahrik eder
   shaftSpanACm: 7.5,
   shaftSpanBCm: 14,
   shaftDiaCm: 14,
@@ -101,7 +98,8 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   accelTorqueFactorKt: 1.5,
   reducerStages: 3,
   accelerationMs2: 0.2,
-  tempFactor: 1,                // ortam sıcaklığı düzeltmesi (60 °C)
+  tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
+  tempFactorAuto: true,
   motorCalcCount: 2,
   gearboxServiceFactor: 2.1,
   brakeServiceFactor: 1.6,      // yürütme freni emniyet katsayısı

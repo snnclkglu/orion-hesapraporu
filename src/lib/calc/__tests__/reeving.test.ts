@@ -243,12 +243,9 @@ describe("validateReeving", () => {
 describe("COMMON_REEVINGS", () => {
   it("beklenen donanımları içerir", () => {
     expect(COMMON_REEVINGS.map((c) => c.label)).toEqual([
-      "2/2",
-      "2/4",
-      "4/4",
-      "4/8",
-      "6/6",
-      "8/8",
+      "1/2", "2/2", "1/4", "2/4", "2/8", "4/8",
+      "2/12", "2/16", "2/20",
+      "4/16", "4/20", "4/24", "4/28", "4/32",
     ]);
   });
 
@@ -266,7 +263,9 @@ describe("COMMON_REEVINGS", () => {
       expect(d.label).toBe(c.label);
       expect(Number.isInteger(d.mechanicalAdvantage)).toBe(true);
       expect(d.blockSheaveCount).toBe(c.totalFalls / 2);
-      expect(d.topSheaveCount).toBe((c.totalFalls - c.drivenFalls) / 2);
+      // Tek sayılı farkta (ör. 1/2, 1/4) üst makara adedi yukarı yuvarlanır:
+      // ölü uca dönen kol da bir yönlendirme makarası üzerinden geçer.
+      expect(d.topSheaveCount).toBe(Math.round((c.totalFalls - c.drivenFalls) / 2));
       expect(d.sheaveBearingCount).toBe(c.totalFalls);
       expect(d.drumRopeEnds).toBe(c.drivenFalls);
     }

@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { getReportSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
-import { NewProjectDialog } from "../../projects/new-project-dialog";
 import { JobArchiveButton } from "./job-archive-button";
 
 const SCOPE_LABELS: [string, string][] = [
@@ -53,7 +51,7 @@ export default async function JobPage({
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
   if (!job) notFound();
 
-  const [{ data: items }, { data: cranes }, settings] = await Promise.all([
+  const [{ data: items }, { data: cranes }] = await Promise.all([
     supabase
       .from("job_items")
       .select("item_no, product_name, quantity, project_id")
@@ -64,7 +62,6 @@ export default async function JobPage({
       .select("id, doc_no, name, crane_type, status, created_at, revisions(rev_no, status)")
       .eq("job_id", id)
       .order("doc_no", { ascending: true }),
-    getReportSettings(supabase),
   ]);
 
   const itemList = items ?? [];
@@ -194,18 +191,10 @@ export default async function JobPage({
         </div>
       )}
 
-      {/* Vinçler / hesap raporları */}
+      {/* Vinçler / hesap raporları — hesap raporu YALNIZCA Projeler bölümünden
+          açılır, sonra "İşe Bağla" ile bu işe bağlanır. Burada sadece listelenir. */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Hesap Raporları (Vinçler)</h2>
-          <NewProjectDialog
-            defaultCraneType={settings.default_crane_type}
-            jobId={job.id}
-            jobNo={job.job_no}
-            defaultCustomer={job.customer}
-            jobItems={itemList}
-          />
-        </div>
+        <h2 className="mb-3 text-lg font-semibold tracking-tight">Hesap Raporları (Vinçler)</h2>
         {list.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-12 text-center"
@@ -218,7 +207,8 @@ export default async function JobPage({
               [ HENÜZ HESAP RAPORU YOK ]
             </h3>
             <p className="max-w-sm bg-card px-3 py-1 text-sm text-foreground/70">
-              &quot;Vinç Ekle&quot; ile işe bağlı bir hesap raporu oluşturun.
+              Bu işe bağlı hesap raporu yok. Projeler bölümünden oluşturup işe
+              bağlayabilirsiniz.
             </p>
           </div>
         ) : (

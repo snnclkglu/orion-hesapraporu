@@ -14,37 +14,46 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { runCalc, type CalcInput } from "@/lib/calc/engine";
-import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
+import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
+import { computeHoistGroup, hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import { computeHookBlock } from "@/lib/calc/modules/hookBlock";
 import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
-import { HOIST_AUTO_FIELDS, SPEC_FIELDS, SPEC_GROUPS } from "@/lib/calc/fields";
-import { deriveHoistInputs } from "@/lib/calc/derive";
+import { HOIST_AUTO_FIELDS, SPEC_FIELDS, SPEC_GROUPS, fieldLabel } from "@/lib/calc/fields";
+import { deriveHoistInputs, motorTempFactor } from "@/lib/calc/derive";
+import { travelSpecView } from "@/lib/calc/modules/travelGroup";
+import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
-import { NEW_WORK_TEMPLATE as V5_TEMPLATE } from "@/lib/calc/defaults";
-import { checkKind, checkSeverity } from "@/lib/calc/types";
+import {
+  ctxFor as buildCtx,
+  moduleResult as readModuleResult,
+} from "@/lib/calc/presentation/module-access";
+import {
+  HOIST_OF_HOOKBLOCK,
+  MODULE_ORDER,
+  isHoistKey,
+  isHookBlockKey,
+  isTravelKey,
+} from "@/lib/calc/presentation/module-family";
+import { CALC_FIELD } from "@/lib/revision-load";
+import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
-import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
+import type { HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
-import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGirder";
-import type { BucklingInputs } from "@/lib/calc/modules/buckling";
-import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
-import type { HoistCtx } from "@/lib/calc/presentation/hoistSections";
-import type { HookBlockCtx } from "@/lib/calc/presentation/hookBlockSections";
-import type { TravelCtx } from "@/lib/calc/presentation/travelSections";
-import type { GirderCtx } from "@/lib/calc/presentation/girderSections";
-import type { BucklingCtx } from "@/lib/calc/presentation/bucklingSections";
-import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections";
+import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
+import type { EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
   MODULE_LABELS,
+  MODULE_PARENT,
   OPTIONAL_MODULE_KEYS,
+  CONFIG_DRIVEN_MODULE_KEYS,
   buildModuleDeps,
+  moduleAllowedByConfig,
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
@@ -95,17 +104,39 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
 }
 
 /**
- * Bir modülün standart tablolarında hangi satırın vurgulanacağı.
- * Vurgu, hesabın GERÇEKTE kullandığı sınıfı gösterir: yürütme modüllerinde de
- * kaldırma sınıfları kullanılır (motorun mevcut davranışı), bu yüzden pop-up
- * ile rapordaki sayı her zaman tutarlıdır.
+ * Bir bölümün standart tablolarında hangi satırın vurgulanacağı.
+ *
+ * Vurgu, hesabın GERÇEKTE kullandığı sınıfı gösterir: her kaldırma ve yürütme
+ * grubu kendi FEM sınıflarıyla hesaplandığından bağlam da bölüm başına kurulur
+ * (ör. köprü yürütme bölümünde köprünün M/T sınıfı vurgulanır). Yük grubu ve
+ * malzeme, DIN 15018 Tablo 17/18 satır vurgusu için taşınır.
  */
-function standardContextFor(specs: TechnicalSpecs): StandardContext {
-  return {
+function standardContextFor(
+  specs: TechnicalSpecs,
+  key: ModuleKey | undefined,
+  girderSelections: GirderSelections | undefined
+): StandardContext {
+  const base: StandardContext = {
     mechanismClass: specs.hoistMechanismClass,
     usageClass: specs.hoistUsageClass,
     structureClass: specs.structureClass,
+    loadGroup: parseHoistLoadClass(specs.hoistLoadClass).loadGroup,
+    material: girderSelections?.fatigueMaterial,
   };
+  if (!key) return base;
+  if (isHoistKey(key)) {
+    const v = hoistSpecView(specs, key);
+    return { ...base, mechanismClass: v.mechanismClass, usageClass: v.usageClass };
+  }
+  if (isHookBlockKey(key)) {
+    const v = hoistSpecView(specs, HOIST_OF_HOOKBLOCK[key]);
+    return { ...base, mechanismClass: v.mechanismClass, usageClass: v.usageClass };
+  }
+  if (isTravelKey(key)) {
+    const v = travelSpecView(specs, key, { hookEquipmentT: 0, trolleyWeightT: 0 });
+    return { ...base, mechanismClass: v.mechanismClass, usageClass: v.usageClass };
+  }
+  return base;
 }
 
 // ---------------------------------------------------------------- Field
@@ -117,7 +148,7 @@ interface AutoFieldState {
 }
 
 function Field({
-  def, value, onChange, disabled, auto, context,
+  def, value, onChange, disabled, auto, context, specs,
 }: {
   def: AnyFieldDef;
   value: object;
@@ -126,6 +157,8 @@ function Field({
   /** Otomatik doldurulabilen alanlar için anahtar durumu */
   auto?: AutoFieldState;
   context?: StandardContext;
+  /** Etiketi teknik özelliklere göre çözebilmek için (ör. kanca/tutucu tipi) */
+  specs?: TechnicalSpecs;
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
@@ -149,7 +182,7 @@ function Field({
     <div className="grid gap-1">
       <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span>
-          {def.label}
+          {fieldLabel(def, specs)}
           {def.unit ? (
             <>
               {" "}
@@ -263,17 +296,32 @@ function Field({
 
 // ---------------------------------------------------------------- Checks
 
-/** Kontrolün sayısal karşılaştırma metni ("gereken … · sağlanan …"). */
-function checkComparison(check: AnyCheck): string {
-  const prov = toDisplayUnit(check.provided, check.unit);
-  const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
-  if (check.op === "range") {
-    const mn = toDisplayUnit((check as { min: number }).min, check.unit);
-    const mx = toDisplayUnit((check as { max: number }).max, check.unit);
-    return `${fmt(prov.value)}${u} · izin: ${fmt(mn.value)}…${fmt(mx.value)}`;
-  }
-  const req = toDisplayUnit((check as { required: number }).required, check.unit);
-  return `gereken ${fmt(req.value)}${u} · sağlanan ${fmt(prov.value)}${u}`;
+/**
+ * Kontrolün sayısal karşılaştırması: "HESAPLANAN 616 MPa ≤ İZİN VERİLEN 2.450 MPa".
+ * Hesaplanan değer kalın ve kontrolün sonucuna göre renklidir; hangi sayının
+ * hesaptan çıktığını `checkDisplay` belirler (kontrolden kontrole değişir).
+ */
+function CheckComparison({ check }: { check: AnyCheck }) {
+  const d = checkDisplay(check);
+  const conv = (v: number) => toDisplayUnit(v, d.unit);
+  const computed = conv(d.computed);
+  const unit = computed.unit === "-" || !computed.unit ? "" : ` ${computed.unit}`;
+  const limitText =
+    d.operator === "…"
+      ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}${unit}`
+      : `${fmt(conv(d.limit ?? 0).value)}${unit}`;
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-xs tabular-nums">
+      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Hesaplanan</span>
+      <span className={cn("font-semibold", check.pass ? "text-success" : "text-destructive")}>
+        {fmt(computed.value)}
+        {unit}
+      </span>
+      {d.operator !== "…" && <span className="text-muted-foreground">{d.operator}</span>}
+      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">İzin Verilen</span>
+      <span className="text-foreground/80">{limitText}</span>
+    </span>
+  );
 }
 
 /**
@@ -346,9 +394,7 @@ function InlineCheck({
         {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
       </span>
       <span className="text-foreground/80">{check.label}</span>
-      <span className="font-mono tabular-nums text-muted-foreground">
-        {checkComparison(check)}
-      </span>
+      <CheckComparison check={check} />
       {check.standard && (
         <StandardRefBadge code={check.standard} context={context} />
       )}
@@ -382,8 +428,8 @@ function CheckRow({ check, context }: { check: AnyCheck; context?: StandardConte
           {check.label}
           <CheckOriginBadge check={check} className="ml-1 align-middle" />
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
-          <span>{checkComparison(check)}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <CheckComparison check={check} />
           {check.standard && (
             <StandardRefBadge code={check.standard} context={context} />
           )}
@@ -412,12 +458,24 @@ function CalcRow({
 }) {
   const raw = row.read(ctx);
   const { value, unit } = toDisplayUnit(raw, row.unit);
+  // Değerin rengi, satıra bağlı kontrolün sonucunu taşır: kontrol sağlanıyorsa
+  // (hesaplanan değer izin verilen sınırın uygun tarafındaysa) YEŞİL, değilse
+  // KIRMIZI. Kontrolü olmayan satırlar nötr kalır.
+  const rowPass =
+    checks && checks.length > 0 ? checks.every((c) => c.pass) : null;
   return (
     <div className="grid gap-1 border-b py-2.5 last:border-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="min-w-0 text-sm">{row.label}</span>
-        {/* Hesaplanan değer rolü: salt-okunur, bg-muted zemin + mono — birim boşlukla ayrık */}
-        <span className="shrink-0 bg-muted px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-foreground">
+        {/* Hesaplanan değer rolü: salt-okunur, mono zemin — birim boşlukla ayrık */}
+        <span
+          className={cn(
+            "shrink-0 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums",
+            rowPass === true && "bg-success/15 text-success",
+            rowPass === false && "bg-destructive/15 text-destructive",
+            rowPass === null && "bg-muted text-foreground"
+          )}
+        >
           = {fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
         </span>
       </div>
@@ -434,6 +492,68 @@ function CalcRow({
       {checks?.map((c) => (
         <InlineCheck key={c.id} check={c} context={context} />
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- SectionTable
+
+/**
+ * Bölüm sonundaki özet tablosu — satır satır okunması zor bileşen dökümlerini
+ * (ör. ana kiriş gerilme tablosu) tek bakışta verir. Dar ekranda yatay kayar.
+ */
+function SectionTable({
+  table, ctx,
+}: {
+  table: NonNullable<AdapterSection["table"]>;
+  ctx: unknown;
+}) {
+  let rows: (string | number)[][] = [];
+  try {
+    rows = table.build(ctx);
+  } catch {
+    rows = [];
+  }
+  if (rows.length === 0) return null;
+  return (
+    <div className="grid gap-2">
+      <h3 className="oc-kicker text-muted-foreground">{table.title}</h3>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b bg-muted/60">
+              {table.headers.map((h) => (
+                <th
+                  key={h}
+                  className="px-3 py-2 text-left font-mono text-[11px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground uppercase"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b last:border-0">
+                {r.map((cell, j) => (
+                  <td
+                    key={j}
+                    className={cn(
+                      "px-3 py-1.5 align-top",
+                      typeof cell === "number" && "text-right font-mono tabular-nums"
+                    )}
+                  >
+                    {typeof cell === "number" ? fmt(cell) : cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {table.note && (
+        <p className="text-[11px] leading-snug text-muted-foreground">{table.note}</p>
+      )}
     </div>
   );
 }
@@ -509,7 +629,9 @@ interface NavGroup {
 function buildNavGroups(
   steps: Step[],
   numbers: Partial<Record<ModuleKey, number>>,
-  present: (k: ModuleKey) => boolean
+  present: (k: ModuleKey) => boolean,
+  /** Vinç konfigürasyonuna göre bu bölüm hiç var olabilir mi */
+  allowed: (k: ModuleKey) => boolean
 ): NavGroup[] {
   const groups: NavGroup[] = [];
   const specsStep = steps.findIndex((s) => s.kind === "specs");
@@ -521,6 +643,9 @@ function buildNavGroups(
     });
   }
   for (const adapter of MODULE_ADAPTERS) {
+    // Konfigürasyonda hiç yer almayan bölümler (monoray yokken monoray
+    // grupları) listede görünmez — kapalı da olsa gürültü yaratmasın.
+    if (!allowed(adapter.key)) continue;
     const items = steps
       .map((step, index) => ({ step, index }))
       .filter(
@@ -549,83 +674,76 @@ function buildNavGroups(
 }
 
 // ---------------------------------------------------------------- Modül durumu
-interface ModulesState {
-  main: { inputs: HoistInputs; selections: HoistSelections };
-  aux: { inputs: HoistInputs; selections: HoistSelections };
-  hookBlock: { inputs: HookBlockInputs; selections: HookBlockSelections };
-  trolley: { inputs: TravelInputs; selections: TravelSelections };
-  bridge: { inputs: TravelInputs; selections: TravelSelections };
-  girder: { inputs: GirderInputs; selections: GirderSelections };
-  buckling: { inputs: BucklingInputs; selections: Record<string, unknown> };
-  endCarriage: { inputs: EndCarriageInputs; selections: EndCarriageSelections };
-}
+
+/** Tüm hesap bölümlerinin girdi/seçim durumu — anahtar bazlı, topolojiden bağımsız. */
+type ModuleState = { inputs: object; selections: object };
+type ModulesState = Record<ModuleKey, ModuleState>;
 
 /**
- * Otomatik alanları (halat ağırlığı, makara verimi) güncel girdi/seçimlerden
- * yeniden türetir. Anahtar kapalıysa ya da kaynak veri eksikse değer korunur.
+ * Otomatik alanları (halat ağırlığı, kanca bloğu ağırlığı, sıcaklık faktörü)
+ * ve seçilen halat donanımını güncel girdi/seçimlerden yeniden türetir.
+ * Anahtar kapalıysa ya da kaynak veri eksikse değer korunur.
  */
-function withDerivedHoist(
-  state: { inputs: HoistInputs; selections: HoistSelections },
-  liftHeightM: number
-): { inputs: HoistInputs; selections: HoistSelections } {
-  const d = deriveHoistInputs(state.inputs, state.selections, liftHeightM);
+function withDerivedHoist(state: ModuleState, specs: TechnicalSpecs, which: ModuleKey): ModuleState {
+  const inputs = state.inputs as HoistInputs;
+  const selections = state.selections as HoistSelections;
+  const view = hoistSpecView(specs, which as "main" | "aux" | "mono1" | "mono2");
   const patch: Partial<HoistInputs> = {};
-  if (d.ropeWeightKg !== undefined && d.ropeWeightKg !== state.inputs.ropeWeightKg) {
+
+  const d = deriveHoistInputs(inputs, selections, {
+    liftHeightM: view.liftHeightM,
+    capacityT: view.capacityT,
+    ambientTempMaxC: specs.ambientTempMaxC,
+  });
+  // Hazır donanım seçiliyse tahrikli/toplam halat kutuları da o donanıma uyar.
+  if (d.drivenFalls !== undefined) patch.drivenFalls = d.drivenFalls;
+  if (d.totalFalls !== undefined) patch.totalFalls = d.totalFalls;
+  if (d.ropeWeightKg !== undefined && d.ropeWeightKg !== inputs.ropeWeightKg) {
     patch.ropeWeightKg = d.ropeWeightKg;
   }
   if (
-    d.sheaveEfficiency !== undefined &&
-    d.sheaveEfficiency !== state.inputs.sheaveEfficiency
+    d.hookBlockWeightKg !== undefined &&
+    d.hookBlockWeightKg !== inputs.hookBlockWeightKg
   ) {
-    patch.sheaveEfficiency = d.sheaveEfficiency;
+    patch.hookBlockWeightKg = d.hookBlockWeightKg;
+  }
+  if (d.tempFactor !== undefined && d.tempFactor !== inputs.tempFactor) {
+    patch.tempFactor = d.tempFactor;
   }
   if (Object.keys(patch).length === 0) return state;
-  return { ...state, inputs: { ...state.inputs, ...patch } };
+  return { ...state, inputs: { ...inputs, ...patch } };
+}
+
+/** Yürütme grubunda otomatik sıcaklık faktörü. */
+function withDerivedTravel(state: ModuleState, specs: TechnicalSpecs): ModuleState {
+  const inputs = state.inputs as TravelInputs;
+  if (!inputs.tempFactorAuto) return state;
+  const v = motorTempFactor(specs.ambientTempMaxC);
+  if (v === inputs.tempFactor) return state;
+  return { ...state, inputs: { ...inputs, tempFactor: v } };
+}
+
+/** Bir bölümün durumunu ailesine göre türetmelerden geçirir. */
+function withDerived(key: ModuleKey, state: ModuleState, specs: TechnicalSpecs): ModuleState {
+  if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
+  if (isTravelKey(key)) return withDerivedTravel(state, specs);
+  return state;
 }
 
 function initModules(initial: CalcInput): ModulesState {
-  // Eksik modüller (eski kayıtlar) V5 şablon değerleriyle tamamlanır.
+  // `initial` yükleyiciden (revision-load) gelir ve TÜM bölümleri içerir.
   // Otomatik alanlar ilk açılışta da türetilir (kayıtlı değer eskimiş olabilir).
-  return {
-    main: withDerivedHoist(
-      {
-        inputs: initial.mainHoist?.inputs ?? V5_TEMPLATE.mainHoist!.inputs,
-        selections: initial.mainHoist?.selections ?? V5_TEMPLATE.mainHoist!.selections,
-      },
-      initial.specs.mainLiftHeightM
-    ),
-    aux: withDerivedHoist(
-      {
-        inputs: initial.auxHoist?.inputs ?? V5_TEMPLATE.auxHoist!.inputs,
-        selections: initial.auxHoist?.selections ?? V5_TEMPLATE.auxHoist!.selections,
-      },
-      initial.specs.auxLiftHeightM
-    ),
-    hookBlock: {
-      inputs: initial.hookBlock?.inputs ?? V5_TEMPLATE.hookBlock!.inputs,
-      selections: initial.hookBlock?.selections ?? V5_TEMPLATE.hookBlock!.selections,
-    },
-    trolley: {
-      inputs: initial.trolley?.inputs ?? V5_TEMPLATE.trolley!.inputs,
-      selections: initial.trolley?.selections ?? V5_TEMPLATE.trolley!.selections,
-    },
-    bridge: {
-      inputs: initial.bridge?.inputs ?? V5_TEMPLATE.bridge!.inputs,
-      selections: initial.bridge?.selections ?? V5_TEMPLATE.bridge!.selections,
-    },
-    girder: {
-      inputs: initial.girder?.inputs ?? V5_TEMPLATE.girder!.inputs,
-      selections: initial.girder?.selections ?? V5_TEMPLATE.girder!.selections,
-    },
-    buckling: {
-      inputs: initial.buckling?.inputs ?? V5_TEMPLATE.buckling!.inputs,
-      selections: {},
-    },
-    endCarriage: {
-      inputs: initial.endCarriage?.inputs ?? V5_TEMPLATE.endCarriage!.inputs,
-      selections: initial.endCarriage?.selections ?? V5_TEMPLATE.endCarriage!.selections,
-    },
-  };
+  const src = initial as unknown as Record<string, ModuleState | undefined>;
+  const out = {} as ModulesState;
+  for (const key of MODULE_ORDER) {
+    const st = src[CALC_FIELD[key]];
+    const base: ModuleState = {
+      inputs: st?.inputs ?? {},
+      selections: st?.selections ?? {},
+    };
+    out[key] = withDerived(key, base, initial.specs);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- Editor
@@ -650,16 +768,9 @@ export function RevisionEditor({
   // açık. Kapatılınca hesaba/rapora girmez ve numaralandırma yeniden dizilir.
   const [enabled, setEnabled] = useState<Record<ModuleKey, boolean>>(() => {
     const off = new Set(initialDisabled ?? []);
-    return {
-      main: true,
-      aux: !off.has("aux"),
-      hookBlock: !off.has("hookBlock"),
-      trolley: true,
-      bridge: true,
-      girder: !off.has("girder"),
-      buckling: !off.has("buckling"),
-      endCarriage: !off.has("endCarriage"),
-    };
+    const out = {} as Record<ModuleKey, boolean>;
+    for (const k of MODULE_ORDER) out[k] = !off.has(k);
+    return out;
   });
   // Sadece sunum: kenar çubuğunda elle açılan modül grupları
   // (aktif adımın grubu her zaman açıktır).
@@ -710,12 +821,33 @@ export function RevisionEditor({
     };
   }, [dirty, readOnly]);
 
-  const present = useCallback((k: ModuleKey) => enabled[k] !== false, [enabled]);
+  /**
+   * Bölüm hesaba giriyor mu: kullanıcının aç/kapa tercihi + vinç konfigürasyonu
+   * (monoray adedi, ayrı yardımcı araba) + üst bölümün açık olması.
+   */
+  const activeSet = useMemo(() => {
+    const off = MODULE_ORDER.filter((k) => enabled[k] === false);
+    return activeModules(specs, off);
+  }, [specs, enabled]);
+  const present = useCallback((k: ModuleKey) => activeSet.has(k), [activeSet]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
   const STEPS = useMemo(() => buildSteps(present, numbers), [present, numbers]);
+  /**
+   * Bölüm kenar çubuğunda listelenir mi: vinç konfigürasyonu buna izin
+   * veriyorsa ve bağlı olduğu üst bölüm açıksa. (Kapalı ama listelenen bölüm
+   * aynı yerden geri açılabilir; hiç var olamayacak bölüm ise gürültüdür.)
+   */
+  const allowedByConfig = useCallback(
+    (k: ModuleKey) => {
+      if (!moduleAllowedByConfig(specs, k)) return false;
+      const parent = MODULE_PARENT[k];
+      return parent ? activeSet.has(parent) : true;
+    },
+    [specs, activeSet]
+  );
   const NAV_GROUPS = useMemo(
-    () => buildNavGroups(STEPS, numbers, present),
-    [STEPS, numbers, present]
+    () => buildNavGroups(STEPS, numbers, present, allowedByConfig),
+    [STEPS, numbers, present, allowedByConfig]
   );
   // Modül kapatılınca adım sayısı azalabilir → aktif adımı sınırla
   useEffect(() => {
@@ -728,90 +860,78 @@ export function RevisionEditor({
   // hesaplanır ve girdiye yazılır. Böylece hesap motoru, PDF rapor ve ekipman
   // listesi hep aynı değeri görür; alan elle düzenlenmek istenirse anahtar
   // kapatılır ve serbest kalır.
-  const derivations = useMemo(
-    () => ({
-      main: deriveHoistInputs(mods.main.inputs, mods.main.selections, specs.mainLiftHeightM),
-      aux: deriveHoistInputs(mods.aux.inputs, mods.aux.selections, specs.auxLiftHeightM),
-    }),
-    [mods.main, mods.aux, specs.mainLiftHeightM, specs.auxLiftHeightM]
-  );
+  const derivations = useMemo(() => {
+    const out = {} as Record<ModuleKey, ReturnType<typeof deriveHoistInputs> | undefined>;
+    for (const k of MODULE_ORDER) {
+      if (!isHoistKey(k)) continue;
+      const view = hoistSpecView(specs, k);
+      out[k] = deriveHoistInputs(
+        mods[k].inputs as HoistInputs,
+        mods[k].selections as HoistSelections,
+        {
+          liftHeightM: view.liftHeightM,
+          capacityT: view.capacityT,
+          ambientTempMaxC: specs.ambientTempMaxC,
+        }
+      );
+    }
+    return out;
+  }, [mods, specs]);
 
-  const calcInput: CalcInput = useMemo(
-    () => ({
-      specs,
-      mainHoist: mods.main,
-      auxHoist: enabled.aux ? mods.aux : undefined,
-      hookBlock: enabled.hookBlock ? mods.hookBlock : undefined,
-      trolley: mods.trolley,
-      bridge: mods.bridge,
-      girder: enabled.girder ? mods.girder : undefined,
-      buckling: enabled.buckling ? { inputs: mods.buckling.inputs } : undefined,
-      endCarriage: enabled.endCarriage ? mods.endCarriage : undefined,
-    }),
-    [specs, mods, enabled]
-  );
   /** Kapalı bölümlerin verisi de kayda gider — yeniden açılınca geri gelsin. */
-  const fullCalcInput: CalcInput = useMemo(
-    () => ({
-      specs,
-      mainHoist: mods.main,
-      auxHoist: mods.aux,
-      hookBlock: mods.hookBlock,
-      trolley: mods.trolley,
-      bridge: mods.bridge,
-      girder: mods.girder,
-      buckling: { inputs: mods.buckling.inputs },
-      endCarriage: mods.endCarriage,
-    }),
-    [specs, mods]
-  );
+  const fullCalcInput: CalcInput = useMemo(() => {
+    const out: Record<string, unknown> = { specs };
+    for (const k of MODULE_ORDER) {
+      out[CALC_FIELD[k]] =
+        k === "buckling" ? { inputs: mods[k].inputs } : mods[k];
+    }
+    return out as unknown as CalcInput;
+  }, [specs, mods]);
+
+  const calcInput: CalcInput = useMemo(() => {
+    const out: Record<string, unknown> = { specs };
+    for (const k of MODULE_ORDER) {
+      if (!activeSet.has(k)) continue;
+      out[CALC_FIELD[k]] = k === "buckling" ? { inputs: mods[k].inputs } : mods[k];
+    }
+    return out as unknown as CalcInput;
+  }, [specs, mods, activeSet]);
+
   const disabledList = useMemo(
     () => OPTIONAL_MODULE_KEYS.filter((k) => enabled[k] === false),
     [enabled]
   );
   const result = useMemo(() => runCalc(calcInput), [calcInput]);
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
-  const stdContext = useMemo(() => standardContextFor(specs), [specs]);
-
   const failCount = result.allChecks.filter((c) => !c.pass).length;
   const step = STEPS[Math.min(stepIndex, STEPS.length - 1)] ?? STEPS[0];
 
+  // Bağlam aktif bölüme göre kurulur: pop-up'ta vurgulanan satır, o bölümün
+  // hesabında gerçekten kullanılan sınıftır.
+  const stdContext = useMemo(
+    () =>
+      standardContextFor(
+        specs,
+        step.kind === "module" ? step.moduleKey : undefined,
+        mods.girder.selections as GirderSelections
+      ),
+    [specs, step, mods.girder.selections]
+  );
+
   // ------------------------------------------------------------ modül erişimi
   function moduleResult(key: ModuleKey): ModuleResult<unknown> | undefined {
-    const map: Record<ModuleKey, ModuleResult<unknown> | undefined> = {
-      main: result.mainHoist,
-      aux: result.auxHoist,
-      hookBlock: result.hookBlock,
-      trolley: result.trolley,
-      bridge: result.bridge,
-      girder: result.girder,
-      buckling: result.buckling,
-      endCarriage: result.endCarriage,
-    };
-    return map[key];
+    return readModuleResult(result, key);
   }
 
-  /** Modül state'ini yazarken kaldırma gruplarında türetmeyi de uygular. */
+  /** Modül state'ini yazarken ailesine özgü türetmeleri de uygular. */
   function writeModule(
     m: ModulesState,
     key: ModuleKey,
     patch: { inputs?: object; selections?: object },
     nextSpecs = specs
   ): ModulesState {
-    const merged = { ...m[key], ...patch } as ModulesState[typeof key];
-    if (key === "main" || key === "aux") {
-      const which = key;
-      const height =
-        which === "main" ? nextSpecs.mainLiftHeightM : nextSpecs.auxLiftHeightM;
-      return {
-        ...m,
-        [which]: withDerivedHoist(
-          merged as { inputs: HoistInputs; selections: HoistSelections },
-          height
-        ),
-      };
-    }
-    return { ...m, [key]: merged } as ModulesState;
+    const merged: ModuleState = { ...m[key], ...patch };
+    return { ...m, [key]: withDerived(key, merged, nextSpecs) };
   }
 
   function setModuleInputs(key: ModuleKey, next: object) {
@@ -823,80 +943,44 @@ export function RevisionEditor({
   }
 
   /**
-   * Teknik özellik değişimi: kaldırma yüksekliği değiştiğinde otomatik halat
-   * ağırlığı da yeniden türetilir.
+   * Teknik özellik değişimi: kaldırma yüksekliği, kapasite ve ortam sıcaklığı
+   * otomatik girdileri besler; hepsi aynı güncellemede yeniden türetilir.
    */
   function updateSpecs(next: TechnicalSpecs) {
-    setSpecs(next);
-    if (
-      next.mainLiftHeightM !== specs.mainLiftHeightM ||
-      next.auxLiftHeightM !== specs.auxLiftHeightM
-    ) {
-      setMods((m) => ({
-        ...m,
-        main: withDerivedHoist(m.main, next.mainLiftHeightM),
-        aux: withDerivedHoist(m.aux, next.auxLiftHeightM),
-      }));
+    // Vinç konfigürasyonu bir bölümü YENİ olanaklı kıldıysa (monoray adedi
+    // arttı, yardımcı kaldırma ayrı arabaya alındı) o bölüm kendiliğinden
+    // açılır — kullanıcı ayrıca kutucuk işaretlemek zorunda kalmasın.
+    const newlyAllowed = CONFIG_DRIVEN_MODULE_KEYS.filter(
+      (k) => !moduleAllowedByConfig(specs, k) && moduleAllowedByConfig(next, k)
+    );
+    if (newlyAllowed.length > 0) {
+      setEnabled((e) => {
+        const out = { ...e };
+        for (const k of newlyAllowed) out[k] = true;
+        return out;
+      });
     }
+    setSpecs(next);
+    setMods((m) => {
+      const out = { ...m };
+      let changed = false;
+      for (const k of MODULE_ORDER) {
+        const d = withDerived(k, m[k], next);
+        if (d !== m[k]) {
+          out[k] = d;
+          changed = true;
+        }
+      }
+      return changed ? out : m;
+    });
   }
 
-  /** Sunum katmanı ctx'i — her modülün kendi Ctx tipiyle kurulur */
+  /**
+   * Sunum katmanı ctx'i. Modül erişim katmanı (module-access) hem editör hem
+   * PDF raporu için aynı bağlamı kurar; burada canlı `calcInput` kullanılır.
+   */
   function ctxFor(key: ModuleKey): unknown {
-    const mr = moduleResult(key);
-    const c = mr?.cells ?? {};
-    switch (key) {
-      case "main":
-      case "aux": {
-        const ctx: HoistCtx = {
-          c, inp: mods[key].inputs, sel: mods[key].selections, specs, which: key,
-        };
-        return ctx;
-      }
-      case "hookBlock": {
-        const ctx: HookBlockCtx = {
-          c,
-          v: result.hookBlock!.values,
-          inp: mods.hookBlock.inputs,
-          sel: mods.hookBlock.selections,
-          deps: deps.hookBlock,
-          specs,
-        };
-        return ctx;
-      }
-      case "trolley":
-      case "bridge": {
-        const ctx: TravelCtx = {
-          c,
-          v: (key === "trolley" ? result.trolley! : result.bridge!).values,
-          inp: mods[key].inputs,
-          sel: mods[key].selections,
-          specs,
-          deps: deps.travel,
-          which: key,
-        };
-        return ctx;
-      }
-      case "girder": {
-        const ctx: GirderCtx = {
-          c, inp: mods.girder.inputs, sel: mods.girder.selections, deps: deps.girder, specs,
-        };
-        return ctx;
-      }
-      case "buckling": {
-        const ctx: BucklingCtx = { c, inp: mods.buckling.inputs };
-        return ctx;
-      }
-      case "endCarriage": {
-        const ctx: EndCarriageCtx = {
-          c,
-          inp: mods.endCarriage.inputs,
-          sel: mods.endCarriage.selections,
-          deps: deps.endCarriage,
-          specs,
-        };
-        return ctx;
-      }
-    }
+    return buildCtx(key, calcInput, result, deps);
   }
 
   function sectionChecks(key: ModuleKey, section: AdapterSection): AnyCheck[] {
@@ -947,33 +1031,31 @@ export function RevisionEditor({
 
   /** Verilen seçimlerle ilgili modülün kontrollerini yeniden hesaplar */
   function computeChecksWith(key: ModuleKey, sel: object): AnyCheck[] {
+    const inp = mods[key].inputs;
+    if (isHoistKey(key)) {
+      return computeHoistGroup(specs, key, inp as never, sel as HoistSelections).checks;
+    }
+    if (isHookBlockKey(key)) {
+      return computeHookBlock(
+        specs, key, inp as never, sel as HookBlockSelections, deps.hookBlock[key]
+      ).checks;
+    }
+    if (isTravelKey(key)) {
+      return computeTravelGroup(
+        specs, key, inp as never, sel as TravelSelections, deps.travel[key]
+      ).checks;
+    }
     switch (key) {
-      case "main":
-      case "aux":
-        return computeHoistGroup(specs, key, mods[key].inputs, sel as HoistSelections).checks;
-      case "hookBlock":
-        return computeHookBlock(
-          specs, mods.hookBlock.inputs, sel as HookBlockSelections, deps.hookBlock
-        ).checks;
-      case "trolley":
-        return computeTravelGroup(
-          specs, "trolley", mods.trolley.inputs, sel as TravelSelections, deps.travel
-        ).checks;
-      case "bridge":
-        return computeTravelGroup(
-          specs, "bridge", mods.bridge.inputs, sel as TravelSelections, deps.travel
-        ).checks;
       case "girder":
-        return computeMainGirder(
-          specs, mods.girder.inputs, sel as GirderSelections, deps.girder
-        ).checks;
+        return computeMainGirder(specs, inp as never, sel as GirderSelections, deps.girder).checks;
       case "buckling":
-        return computeBuckling(mods.buckling.inputs).checks;
+        return computeBuckling(inp as never).checks;
       case "endCarriage":
         return computeEndCarriage(
-          specs, mods.endCarriage.inputs, sel as EndCarriageSelections, deps.endCarriage
+          specs, inp as never, sel as EndCarriageSelections, deps.endCarriage
         ).checks;
     }
+    return [];
   }
 
   /** Kaydetmeden önce aktif alternatifi canlı seçim değerleriyle eşitler */
@@ -1118,6 +1200,7 @@ export function RevisionEditor({
                       onChange={(next) => updateSpecs(next as TechnicalSpecs)}
                       disabled={readOnly}
                       context={stdContext}
+                      specs={specs}
                     />
                   ))}
                 </div>
@@ -1125,28 +1208,48 @@ export function RevisionEditor({
             );
           })}
 
-          {/* Vinç modülleri — opsiyonel modüller açık/kapalı; numaralandırma dinamik */}
+          {/* Hesap bölümleri — açık/kapalı; numaralandırma dinamik.
+              Vinç konfigürasyonundan doğan bölümler (yardımcı araba, monoray)
+              yalnız konfigürasyon izin verdiğinde listelenir. */}
           <section className="grid gap-2.5 border-t pt-4">
             <div className="border-b pb-1.5">
               <h3 className="oc-kicker text-foreground/80">Hesap Bölümleri</h3>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Kapatılan bölüm hesaba ve rapora girmez; bölüm numaraları otomatik
-                yeniden dizilir. Aynı anahtarlar kenar çubuğundaki göz düğmesinde de var.
+                yeniden dizilir. Aynı anahtarlar kenar çubuğundaki düğmede de var.
               </p>
             </div>
-            <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {OPTIONAL_MODULE_KEYS.map((k) => (
-                <label key={k} className="inline-flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={present(k)}
-                    disabled={readOnly}
-                    onChange={(e) => toggleModule(k, e.target.checked)}
-                    className="size-4 accent-primary"
-                  />
-                  {MODULE_LABELS[k]}
-                </label>
-              ))}
+            <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {OPTIONAL_MODULE_KEYS.filter((k) => moduleAllowedByConfig(specs, k)).map((k) => {
+                const parent = MODULE_PARENT[k];
+                const parentOff = parent ? !present(parent) : false;
+                const fromConfig = CONFIG_DRIVEN_MODULE_KEYS.includes(k);
+                return (
+                  <label
+                    key={k}
+                    className={cn(
+                      "inline-flex cursor-pointer items-center gap-2 text-sm",
+                      parentOff && "cursor-not-allowed opacity-45"
+                    )}
+                    title={
+                      parentOff
+                        ? `Önce ${MODULE_LABELS[parent!]} bölümünü açın`
+                        : fromConfig
+                          ? "Vinç konfigürasyonundan geldi"
+                          : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={present(k)}
+                      disabled={readOnly || parentOff}
+                      onChange={(e) => toggleModule(k, e.target.checked)}
+                      className="size-4 accent-primary"
+                    />
+                    {MODULE_LABELS[k]}
+                  </label>
+                );
+              })}
             </div>
           </section>
         </CardContent>
@@ -1162,8 +1265,8 @@ export function RevisionEditor({
     const checks = sectionChecks(key, section);
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
-    const isHoist = key === "main" || key === "aux";
-    const derivation = isHoist ? derivations[key as "main" | "aux"] : undefined;
+    const isHoist = isHoistKey(key);
+    const derivation = derivations[key];
 
     const onInputsChange = (next: object) => {
       setModuleInputs(
@@ -1237,6 +1340,7 @@ export function RevisionEditor({
                     disabled={readOnly}
                     auto={section.inputScope ? undefined : autoStateFor(f.key)}
                     context={stdContext}
+                    specs={specs}
                   />
                 ))}
                 {section.extraInputDefs?.map((f) => (
@@ -1247,6 +1351,7 @@ export function RevisionEditor({
                     onChange={(next) => setModuleInputs(key, next)}
                     disabled={readOnly}
                     context={stdContext}
+                    specs={specs}
                   />
                 ))}
               </div>
@@ -1341,6 +1446,7 @@ export function RevisionEditor({
                       onChange={(next) => setModuleSelections(key, next)}
                       disabled={readOnly}
                       context={stdContext}
+                      specs={specs}
                     />
                   ))}
                 </div>
@@ -1369,6 +1475,7 @@ export function RevisionEditor({
               </div>
             </>
           )}
+          {section.table && <SectionTable table={section.table} ctx={ctx} />}
           {rest.length > 0 && (
             <div className="grid gap-2">
               <h3 className="oc-kicker text-muted-foreground">Diğer Kontroller</h3>
@@ -1383,38 +1490,47 @@ export function RevisionEditor({
   }
 
   function renderSummary() {
+    const blocks = MODULE_ADAPTERS.filter((a) => {
+      const mr = moduleResult(a.key);
+      return present(a.key) && mr && mr.checks.length > 0;
+    });
+    const totalFail = result.allChecks.filter((c) => !c.pass).length;
     return (
       <Card>
         <CardHeader className="border-b pb-4">
           <CardTitle className="text-base tracking-tight">Özet · Kontrol Panosu</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Tüm bölümlerin kontrol durumu. Kırmızı satır = ilgili bölüme dönüp seçimi revize edin.
+            {totalFail === 0
+              ? `Hesap raporundaki ${result.allChecks.length} kontrolün tamamı uygun.`
+              : `Hesap raporundaki ${result.allChecks.length} kontrolün ${totalFail} tanesi uygun değil. ` +
+                "Kırmızı satıra karşılık gelen bölüme dönüp seçimi gözden geçirin."}
           </p>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          {MODULE_ADAPTERS.map((adapter) => {
-            const mr = moduleResult(adapter.key);
-            if (!mr || mr.checks.length === 0) return null;
+        {/* Masaüstünde iki sütun: tüm bölümler tek ekranda görünür */}
+        <CardContent className="grid gap-5 lg:grid-cols-2 lg:gap-x-6">
+          {blocks.map((adapter) => {
+            const mr = moduleResult(adapter.key)!;
             const modulePass = mr.checks.filter((c) => c.pass).length;
+            const allOk = modulePass === mr.checks.length;
             return (
-              <div key={adapter.key} className="grid gap-2">
-                <div className="flex items-center justify-between gap-2">
+              <section key={adapter.key} className="grid content-start gap-2">
+                <div className="flex items-center justify-between gap-2 border-b pb-1.5">
                   <h3 className="text-sm font-semibold tracking-tight">
                     {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
                   </h3>
                   <span
                     className={cn(
-                      "font-mono text-[11px] font-medium tabular-nums",
-                      modulePass === mr.checks.length ? "text-success" : "text-destructive"
+                      "shrink-0 font-mono text-[11px] font-medium tabular-nums",
+                      allOk ? "text-success" : "text-destructive"
                     )}
                   >
-                    {modulePass}/{mr.checks.length} uygun
+                    {modulePass}/{mr.checks.length} Uygun
                   </span>
                 </div>
                 {mr.checks.map((c) => (
                   <CheckRow key={c.id} check={c} context={stdContext} />
                 ))}
-              </div>
+              </section>
             );
           })}
         </CardContent>

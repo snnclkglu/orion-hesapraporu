@@ -17,34 +17,28 @@ import { NEW_WORK_TEMPLATE } from "../defaults";
 import { runCalc, type CalcResult } from "../engine";
 import { checkAnchor } from "../presentation/check-anchors";
 import { moduleFamily, type ModuleKey } from "../presentation/module-family";
+import { moduleResult as moduleResultOf } from "../presentation/module-access";
 import type { AnyCheck } from "../types";
 
 /**
  * Bugün motorun `NEW_WORK_TEMPLATE` ile ürettiği toplam kontrol sayısı — ve
- * bunların TAMAMININ bir bölüme bağlı olduğu gerçeği (94/94, ölçülmüş değer).
+ * bunların TAMAMININ bir bölüme bağlı olduğu gerçeği (212/212, ölçülmüş değer).
+ * Şablon TÜM hesap bölümlerini içerir (ana/yardımcı/iki monoray kaldırma, her
+ * birinin kanca bloğu ve arabası, köprü, ana kiriş, buruşma, başkiriş), böylece
+ * koruma bütün bölümleri kapsar.
  *
  * Sayı bilinçli olarak sabitlenmiştir: kontrol eklendiğinde ya da
  * kaldırıldığında test kırılır ve mühendis, kontrolün bir bölüme bağlandığını
  * onaylamak zorunda kalır. Sayıyı düşünmeden güncellemek bu korumayı işlevsiz
  * bırakır — önce kontrolün raporda göründüğünü doğrulayın, sonra güncelleyin.
  */
-const EXPECTED_CHECK_COUNT = 94;
+const EXPECTED_CHECK_COUNT = 212;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 
-/** Modül anahtarı → o modülün sonucu (motor alan adları farklıdır). */
+/** Modül anahtarı → o modülün sonucu (ortak erişim katmanından). */
 function moduleChecks(key: ModuleKey): AnyCheck[] | undefined {
-  const map: Record<ModuleKey, { checks: AnyCheck[] } | undefined> = {
-    main: result.mainHoist,
-    aux: result.auxHoist,
-    hookBlock: result.hookBlock,
-    trolley: result.trolley,
-    bridge: result.bridge,
-    girder: result.girder,
-    buckling: result.buckling,
-    endCarriage: result.endCarriage,
-  };
-  return map[key]?.checks;
+  return moduleResultOf(result, key)?.checks;
 }
 
 /** Kontrol id'sinin modül önekinden sonraki kısmı ("main.rope.safety" → "rope.safety"). */

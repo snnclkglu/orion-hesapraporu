@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { NewProjectDialog, type JobItemOption } from "./new-project-dialog";
+import { ProjectRowActions } from "./project-actions";
 import { getReportSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,10 @@ function StatCard({
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const [{ data: projects }, { data: jobsData }, settings] = await Promise.all([
     supabase
       .from("projects")
@@ -50,12 +55,19 @@ export default async function ProjectsPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("jobs")
-      .select("id, job_no, title, customer, job_items(item_no, product_name, quantity, project_id)")
+      .select("id, job_no, title, customer, job_items(id, item_no, product_name, quantity, project_id)")
       .eq("status", "active")
       .order("created_at", { ascending: false }),
     getReportSettings(supabase),
   ]);
-  // Yeni rapor dialogunda iş + kalem seçimi için kalemleri de taşırız.
+
+  // Silme yalnızca yöneticide: projects DELETE politikası is_admin() ister,
+  // yetkisiz kullanıcıya buton hiç gösterilmez.
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const isAdmin = profile?.role === "admin";
+  // Yeni rapor / kopyalama / işe bağlama dialoglarında kalemler de gerekir.
   const jobs = (jobsData ?? []).map((j) => ({
     id: j.id,
     job_no: j.job_no,
@@ -141,15 +153,24 @@ export default async function ProjectsPage() {
                 <TableHead>Vinç Tipi</TableHead>
                 <TableHead>Son Revizyon</TableHead>
                 <TableHead>Durum</TableHead>
+                <TableHead className="w-12 text-right">İşlem</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {list.map((p) => {
                 const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
+                const jobNo = (p.jobs as unknown as { job_no: string } | null)?.job_no;
                 return (
                   <TableRow key={p.id} className="relative cursor-pointer">
                     <TableCell className="font-mono text-sm text-muted-foreground">
-                      {(p.jobs as unknown as { job_no: string } | null)?.job_no ?? (
+                      {jobNo && p.job_id ? (
+                        <Link
+                          href={`/jobs/${p.job_id}`}
+                          className="relative z-10 text-primary hover:underline"
+                        >
+                          {jobNo}
+                        </Link>
+                      ) : (
                         <span className="text-muted-foreground/60">bağımsız</span>
                       )}
                     </TableCell>
@@ -185,6 +206,23 @@ export default async function ProjectsPage() {
                         />
                         {p.status === "active" ? "aktif" : "arşiv"}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ProjectRowActions
+                        project={{
+                          id: p.id,
+                          doc_no: p.doc_no,
+                          name: p.name,
+                          customer: p.customer,
+                          job_id: p.job_id ?? null,
+                          job_no: jobNo ?? null,
+                          hasIssuedRevision: (p.revisions ?? []).some(
+                            (r) => r.status === "issued"
+                          ),
+                        }}
+                        jobs={jobs}
+                        canDelete={isAdmin}
+                      />
                     </TableCell>
                   </TableRow>
                 );

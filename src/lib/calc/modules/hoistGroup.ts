@@ -5,7 +5,7 @@
 //   · FEM 1.001 T.4.2.2.1.2 — halat emniyet katsayısı Zp
 //   · FEM 1.001 T.4.2.3.1.1 — minimum tambur çapı katsayısı H
 //   · FEM 1.001 T.2.1.3.2   — mekanizma kullanım sınıfı → gerekli rulman ömrü
-//   · DIN 15061             — tambur oluk adımı
+//   · DIN 15061             — tambur yiv hatvesi
 //   · CMAA 70 4.11.4.1      — mil gerilmeleri
 //   · CMAA 70 5.2.9.1.1     — kaldırma motoru gücü
 //
@@ -41,7 +41,11 @@ import type {
   UsageClass,
 } from "../types";
 
-export type HoistWhich = "main" | "aux";
+/**
+ * Kaldırma grubu varyantı. Aynı hesap; yalnız kapasite/yükseklik/hız ve
+ * FEM sınıfları teknik özelliklerin farklı alanlarından okunur.
+ */
+export type HoistWhich = "main" | "aux" | "mono1" | "mono2";
 
 // ------------------------------------------------- tambur mili geometrisi
 
@@ -172,7 +176,14 @@ export interface HoistInputs {
    * ve alanı salt-okunur yapar.
    */
   ropeWeightAuto?: boolean;
-  sheaveEfficiencyAuto?: boolean;
+  /**
+   * Kanca bloğu / tutucu ağırlığı otomatik: kaldırma kapasitesinin %10'u
+   * (firma tasarım kabulü, bkz. `derive.ts`). Kepçe, mıknatıs gibi özel
+   * tutucularda kapatılıp gerçek ağırlık girilir.
+   */
+  hookBlockWeightAuto?: boolean;
+  /** Sıcaklık faktörü otomatik: ortam sıcaklığı üst sınırından türetilir. */
+  tempFactorAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -327,18 +338,58 @@ export function hoistReeving(inp: HoistInputs): Reeving {
 }
 
 /**
- * Mekanizma sınıfı. Yardımcı kaldırma bağımsız bir mekanizmadır; kendi sınıfı
- * tanımlı değilse (eski revizyonlar) ana kaldırmanınki kullanılır.
+ * Bir kaldırma grubunun teknik özelliklerden okunan büyüklükleri.
+ *
+ * Her grup bağımsız bir mekanizmadır: kendi kapasitesi, yüksekliği, hızı ve
+ * FEM sınıfları vardır. Grup için değer tanımlı değilse (eski revizyonlar,
+ * yeni açılmış monoray) ana kaldırmanınki kullanılır — hesap asla NaN'a düşmez.
  */
-function mechanismClassFor(specs: TechnicalSpecs, which: HoistWhich): MechanismClass {
-  if (which === "aux") return specs.auxMechanismClass ?? specs.hoistMechanismClass;
-  return specs.hoistMechanismClass;
+export interface HoistSpecView {
+  capacityT: number;
+  liftHeightM: number;
+  liftSpeedMpm: number;
+  mechanismClass: MechanismClass;
+  usageClass: UsageClass;
 }
 
-/** Kullanım sınıfı — mekanizma sınıfıyla aynı geriye uyum kuralı. */
-function usageClassFor(specs: TechnicalSpecs, which: HoistWhich): UsageClass {
-  if (which === "aux") return specs.auxUsageClass ?? specs.hoistUsageClass;
-  return specs.hoistUsageClass;
+const posOr = (v: number | undefined, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fallback;
+
+export function hoistSpecView(specs: TechnicalSpecs, which: HoistWhich): HoistSpecView {
+  switch (which) {
+    case "aux":
+      return {
+        capacityT: specs.auxCapacityT,
+        liftHeightM: specs.auxLiftHeightM,
+        liftSpeedMpm: specs.auxLiftSpeedMpm,
+        mechanismClass: specs.auxMechanismClass ?? specs.hoistMechanismClass,
+        usageClass: specs.auxUsageClass ?? specs.hoistUsageClass,
+      };
+    case "mono1":
+      return {
+        capacityT: posOr(specs.mono1CapacityT, specs.mainCapacityT),
+        liftHeightM: posOr(specs.mono1LiftHeightM, specs.mainLiftHeightM),
+        liftSpeedMpm: posOr(specs.mono1LiftSpeedMpm, specs.mainLiftSpeedMpm),
+        mechanismClass: specs.mono1MechanismClass ?? specs.hoistMechanismClass,
+        usageClass: specs.mono1UsageClass ?? specs.hoistUsageClass,
+      };
+    case "mono2":
+      return {
+        capacityT: posOr(specs.mono2CapacityT, specs.mainCapacityT),
+        liftHeightM: posOr(specs.mono2LiftHeightM, specs.mainLiftHeightM),
+        liftSpeedMpm: posOr(specs.mono2LiftSpeedMpm, specs.mainLiftSpeedMpm),
+        mechanismClass: specs.mono2MechanismClass ?? specs.hoistMechanismClass,
+        usageClass: specs.mono2UsageClass ?? specs.hoistUsageClass,
+      };
+    default:
+      return {
+        capacityT: specs.mainCapacityT,
+        liftHeightM: specs.mainLiftHeightM,
+        liftSpeedMpm: specs.mainLiftSpeedMpm,
+        mechanismClass: specs.hoistMechanismClass,
+        usageClass: specs.hoistUsageClass,
+      };
+  }
 }
 
 export function computeHoistGroup(
@@ -347,11 +398,12 @@ export function computeHoistGroup(
   inp: HoistInputs,
   sel: HoistSelections
 ): ModuleResult<HoistValues> {
-  const capacityT = which === "main" ? specs.mainCapacityT : specs.auxCapacityT;
-  const liftHeightM = which === "main" ? specs.mainLiftHeightM : specs.auxLiftHeightM;
-  const liftSpeedMpm = which === "main" ? specs.mainLiftSpeedMpm : specs.auxLiftSpeedMpm;
-  const mech = mechanismClassFor(specs, which);
-  const usage = usageClassFor(specs, which);
+  const view = hoistSpecView(specs, which);
+  const capacityT = view.capacityT;
+  const liftHeightM = view.liftHeightM;
+  const liftSpeedMpm = view.liftSpeedMpm;
+  const mech = view.mechanismClass;
+  const usage = view.usageClass;
 
   const cells: Record<string, number | string> = {};
   const checks: AnyCheck[] = [];
@@ -382,8 +434,9 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.rope.safety`,
-    label: "Halat emniyet katsayısı",
+    label: "Halat Emniyet Katsayısı",
     required: requiredRopeSafety, provided: actualRopeSafety, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: actualRopeSafety >= requiredRopeSafety,
     standard: "FEM 1.001 T.4.2.2.1.2",
     kind: "standart", severity: "engelleyici",
@@ -393,7 +446,7 @@ export function computeHoistGroup(
   const drumCoefficientH = drumCoefficient(mech);
   const minDrumDiaMm = drumCoefficientH * sel.ropeDiaMm;
   const groovePitchMm = groovePitch(sel.ropeDiaMm);
-  // Yiv tabanı ezilme gerilmesi: sarım başına düşen halat kuvvetinin oluk adımı
+  // Yiv tabanı ezilme gerilmesi: sarım başına düşen halat kuvvetinin hatve
   // ve et kalınlığı üzerine yayılması (klasik tambur gövdesi bağıntısı).
   const drumBearingStress =
     (0.5 * ropeLoadKg * 100) / groovePitchMm / inp.drumWallThicknessMm;
@@ -417,15 +470,17 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.drum.stress`,
-    label: "Tambur bileşik gerilmesi",
+    label: "Tambur Bileşik Gerilmesi",
     required: drumCombinedStress, provided: drumAllowable, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: drumAllowable >= drumCombinedStress,
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drum.dia`,
-    label: "Tambur çapı (min H·d)",
+    label: "Tambur Çapı (min H·d)",
     required: minDrumDiaMm, provided: sel.drumDiaMm, unit: "mm", op: ">=",
+    computedSide: "required",
     pass: sel.drumDiaMm >= minDrumDiaMm,
     standard: "FEM 1.001 T.4.2.3.1.1",
     kind: "standart", severity: "engelleyici",
@@ -467,7 +522,7 @@ export function computeHoistGroup(
       loadKg: ropePerPoint,
       label: `Halat yükü T${i + 1}`,
     }));
-    pointLoads.push({ xCm: geo.weightArmCm, loadKg: inp.drumWeightKg, label: "Tambur ağırlığı W" });
+    pointLoads.push({ xCm: geo.weightArmCm, loadKg: inp.drumWeightKg, label: "Tambur Ağırlığı W" });
     const beam = solveBeam({
       lengthCm: geo.spanCm,
       supportACm: 0,
@@ -558,24 +613,27 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.shaft.stress`,
-    label: "Tambur mili bileşik gerilmesi",
+    label: "Tambur Mili Bileşik Gerilmesi",
     required: shaftCombinedStress, provided: shaftAllow.combined, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: shaftAllow.combined >= shaftCombinedStress,
     standard: "CMAA 70 4.11.4.1",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.shaft.bending`,
-    label: "Tambur mili eğilme gerilmesi",
+    label: "Tambur Mili Eğilme Gerilmesi",
     required: shaftBendingStress, provided: shaftAllow.bending, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: shaftAllow.bending >= shaftBendingStress,
     standard: "CMAA 70 4.11.4.1",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.shaft.shear`,
-    label: "Tambur mili kesme gerilmesi",
+    label: "Tambur Mili Kesme Gerilmesi",
     required: shaftShearStress, provided: shaftAllow.shear, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: shaftAllow.shear >= shaftShearStress,
     standard: "CMAA 70 4.11.4.1",
     kind: "standart", severity: "engelleyici",
@@ -614,9 +672,10 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.drumWeld.stress`,
-    label: "Tambur kaynağı gerilmesi",
+    label: "Tambur Kaynağı Gerilmesi",
     required: drumWeldCombinedStress * KGF_TO_MPA, provided: inp.drumWeldAllowable,
     unit: "MPa", op: ">=",
+    computedSide: "required",
     pass: inp.drumWeldAllowable >= drumWeldCombinedStress * KGF_TO_MPA,
     kind: "firma", severity: "engelleyici",
   });
@@ -641,9 +700,10 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.shaftWeld.stress`,
-    label: "Mil kaynağı gerilmesi",
+    label: "Mil Kaynağı Gerilmesi",
     required: shaftWeldShearStress * KGF_TO_MPA, provided: inp.shaftWeldAllowable,
     unit: "MPa", op: ">=",
+    computedSide: "required",
     pass: inp.shaftWeldAllowable >= shaftWeldShearStress * KGF_TO_MPA,
     kind: "firma", severity: "engelleyici",
   });
@@ -675,16 +735,18 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.bearing.life`,
-    label: "Tambur rulmanı ömrü",
+    label: "Tambur Rulmanı Ömrü",
     required: requiredLifeMin, provided: bearingLifeHours, unit: "saat", op: ">=",
+    computedSide: "provided",
     pass: bearingLifeHours >= requiredLifeMin,
     standard: "FEM 1.001 T.2.1.3.2",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.bearing.static`,
-    label: "Rulman statik emniyeti",
+    label: "Rulman Statik Emniyeti",
     required: 1, provided: bearingStaticSafety, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: bearingStaticSafety >= 1,
     kind: "uretici", severity: "engelleyici",
   });
@@ -711,15 +773,16 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.gearbox.torque`,
-    label: "Redüktör tork kapasitesi",
+    label: "Redüktör Tork Kapasitesi",
     required: requiredGearboxTorqueKnm, provided: sel.gearboxNominalTorqueKnm,
     unit: "kNm", op: ">=",
+    computedSide: "required",
     pass: sel.gearboxNominalTorqueKnm >= requiredGearboxTorqueKnm,
     kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.gearbox.ratio`,
-    label: "Çevrim oranı sapması",
+    label: "Çevrim Oranı Sapması",
     min: -10, max: 5, provided: ratioDeviationPct, unit: "%", op: "range",
     pass: ratioDeviationPct <= 5 && ratioDeviationPct >= -10,
     // Band bir tasarım kabulüdür: dışına çıkmak kaldırma hızını beyan edilenden
@@ -728,8 +791,9 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.gearbox.radial`,
-    label: "Redüktör radyal yük",
+    label: "Redüktör Radyal Yük",
     required: gearboxRadialKn, provided: sel.gearboxAllowedRadialKn, unit: "kN", op: ">=",
+    computedSide: "required",
     pass: sel.gearboxAllowedRadialKn >= gearboxRadialKn,
     kind: "uretici", severity: "engelleyici",
   });
@@ -754,8 +818,9 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.motor.power`,
-    label: "Motor gücü",
+    label: "Motor Gücü",
     required: requiredPowerAdjustedKw, provided: installedPowerKw, unit: "kW", op: ">=",
+    computedSide: "required",
     pass: installedPowerKw >= requiredPowerAdjustedKw,
     standard: "CMAA 70 5.2.9.1.1",
     kind: "standart", severity: "engelleyici",
@@ -775,8 +840,9 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.brake.torque`,
-    label: "Fren torku",
+    label: "Fren Torku",
     required: requiredBrakeTorqueNm, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
+    computedSide: "required",
     pass: sel.brakeTorqueNm >= requiredBrakeTorqueNm,
     // Gerekli tork, firma servis faktörüyle ölçeklenir; sağlanmadan yayınlanamaz.
     kind: "firma", severity: "engelleyici",
@@ -793,16 +859,20 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.motorCoupling.torque`,
-    label: "Motor kaplini tork kapasitesi",
+    label: "Motor Kaplini Tork Kapasitesi",
     required: requiredMotorCouplingTorqueNm, provided: sel.motorCouplingTorqueNm,
     unit: "Nm", op: ">=",
+    computedSide: "required",
     pass: sel.motorCouplingTorqueNm >= requiredMotorCouplingTorqueNm,
     kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.motorCoupling.bore`,
-    label: "Motor kaplini delik çapı",
+    label: "Motor Kaplini Delik Çapı",
     required: couplingShaftDiaMm, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",
+    // İki taraf da katalogdan gelir; TALEP tarafı burada türetilir (motor mili ile
+    // redüktör giriş mili çaplarının büyüğü), sınır ise kaplinin delik kapasitesidir.
+    computedSide: "required",
     pass: sel.motorCouplingDmaxMm >= couplingShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
@@ -823,24 +893,29 @@ export function computeHoistGroup(
   });
   checks.push({
     id: `${which}.drumCoupling.torque`,
-    label: "Tambur kaplini tork kapasitesi",
+    label: "Tambur Kaplini Tork Kapasitesi",
     required: requiredDrumCouplingTorqueNm, provided: sel.drumCouplingTorqueNm,
     unit: "Nm", op: ">=",
+    computedSide: "required",
     pass: sel.drumCouplingTorqueNm >= requiredDrumCouplingTorqueNm,
     kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drumCoupling.radial`,
-    label: "Tambur kaplini radyal yük",
+    label: "Tambur Kaplini Radyal Yük",
     required: requiredDrumCouplingRadialN, provided: sel.drumCouplingRadialN,
     unit: "N", op: ">=",
+    computedSide: "required",
     pass: sel.drumCouplingRadialN >= requiredDrumCouplingRadialN,
     kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drumCoupling.bore`,
-    label: "Tambur kaplini delik çapı",
+    label: "Tambur Kaplini Delik Çapı",
     required: drumCouplingShaftDiaMm, provided: sel.drumCouplingDmaxMm, unit: "mm", op: ">=",
+    // İki taraf da katalogdan gelir; TALEP redüktör çıkış mili çapıdır (kaplinin
+    // karşılaması gereken), sınır ise kaplinin en büyük delik çapıdır.
+    computedSide: "required",
     pass: sel.drumCouplingDmaxMm >= drumCouplingShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });

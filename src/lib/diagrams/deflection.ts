@@ -4,12 +4,12 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  arrowHead, dimH, fmtN, ln, txt,
+  arrowHead, dimH, fitDiagram, fmtN, ln, txt,
 } from "./model";
 
 export interface DeflectionParams {
   spanM: number;               // açıklık L [m]
-  deflectionCm: number;        // δ [cm] (hesaplanan)
+  deflectionMm: number;        // δ [mm] (hesaplanan) — vinç pratiğinde sehim mm ile konuşulur
   deflectionRatio?: number;    // L/δ
   limitRatio?: number;         // izin verilen L/δ (ör. 750)
 }
@@ -19,7 +19,7 @@ const H = 250;
 
 export function deflectionDiagram(p: DeflectionParams): Diagram {
   const els: DiagramEl[] = [];
-  const δ = Math.abs(p.deflectionCm ?? 0);
+  const δ = Math.abs(p.deflectionMm ?? 0);
   const okColor = "#1F8A5B";
   const badColor = "#B4322F";
   const pass =
@@ -72,7 +72,7 @@ export function deflectionDiagram(p: DeflectionParams): Diagram {
   els.push(arrowHead(xC + 60, yDip, "down", DCOL.muted));
   els.push(ln(xC, yBeam, xC + 64, yBeam, DCOL.faint, 0.6));
   els.push(ln(xC, yDip, xC + 64, yDip, DCOL.faint, 0.6));
-  els.push(txt(xC + 66, (yBeam + yDip) / 2 + 3, `δ = ${fmtN(δ, 3)} cm`, 9.5, { fill: DCOL.accent, bold: true }));
+  els.push(txt(xC + 66, (yBeam + yDip) / 2 + 3, `δ = ${fmtN(δ, 2)} mm`, 9.5, { fill: DCOL.accent, bold: true }));
 
   // Açıklık L ölçüsü (altta)
   dimH(els, xL, xR, yBeam + 44, `L = ${fmtN(p.spanM, 2)} m`, { labelDy: 13 });
@@ -86,5 +86,5 @@ export function deflectionDiagram(p: DeflectionParams): Diagram {
     }));
   }
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

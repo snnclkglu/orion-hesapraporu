@@ -12,7 +12,9 @@ import {
 } from "@/lib/drawings";
 import { NewRevisionButton } from "./new-revision-button";
 import { ArchiveButton } from "./archive-button";
+import { ProjectDetailActions } from "../project-actions";
 import { DrawingDialog, DeleteDrawingButton, type DrawingRow } from "./drawing-dialog";
+import type { JobItemOption } from "../new-project-dialog";
 
 function drawingStatusBadge(status: DrawingStatus) {
   const variant =
@@ -42,22 +44,58 @@ export default async function ProjectPage({
     title: string;
   } | null) ?? null;
 
-  const [{ data: revisions }, { data: drawings }, categories] = await Promise.all([
-    supabase
-      .from("revisions")
-      .select("id, rev_no, label, status, engine_version, created_at, issued_at, created_by, profiles:created_by(full_name)")
-      .eq("project_id", id)
-      .order("rev_no", { ascending: false }),
-    supabase
-      .from("drawings")
-      .select("id, drawing_no, title, category, revision, status, file_url, notes, created_at")
-      .eq("project_id", id)
-      .order("drawing_no", { ascending: true }),
-    getDrawingCategories(supabase),
-  ]);
+  const [{ data: revisions }, { data: drawings }, categories, { data: jobsData }] =
+    await Promise.all([
+      supabase
+        .from("revisions")
+        .select("id, rev_no, label, status, engine_version, created_at, issued_at, created_by, profiles:created_by(full_name)")
+        .eq("project_id", id)
+        .order("rev_no", { ascending: false }),
+      supabase
+        .from("drawings")
+        .select("id, drawing_no, title, category, revision, status, file_url, notes, created_at")
+        .eq("project_id", id)
+        .order("drawing_no", { ascending: true }),
+      getDrawingCategories(supabase),
+      // Kopyalama / işe bağlama dialogları için aktif iş emirleri + kalemleri
+      supabase
+        .from("jobs")
+        .select("id, job_no, title, customer, job_items(id, item_no, product_name, quantity, project_id)")
+        .eq("status", "active")
+        .order("created_at", { ascending: false }),
+    ]);
+
+  // Silme yalnızca yöneticide (projects DELETE politikası is_admin() ister)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const isAdmin = profile?.role === "admin";
+
+  const jobs = (jobsData ?? []).map((j) => ({
+    id: j.id,
+    job_no: j.job_no,
+    title: j.title,
+    customer: j.customer,
+    items: (j.job_items ?? []) as unknown as JobItemOption[],
+  }));
 
   const drawingList = (drawings ?? []) as DrawingRow[];
-  const latestRev = revisions?.[0];
+  const revisionList = revisions ?? [];
+  const latestRev = revisionList[0];
+  // İlk hesap raporu henüz oluşturulmadıysa buton "Hesap Raporu Oluştur" der.
+  const isFirstRevision = revisionList.length === 0;
+  const projectSummary = {
+    id: project.id,
+    doc_no: project.doc_no,
+    name: project.name,
+    customer: project.customer,
+    job_id: (project.job_id as string | null) ?? null,
+    job_no: job?.job_no ?? null,
+    hasIssuedRevision: revisionList.some((r) => r.status === "issued"),
+  };
 
   return (
     <div className="grid gap-6">
@@ -98,25 +136,33 @@ export default async function ProjectPage({
               İşlem Kaydı
             </Link>
             <ArchiveButton projectId={project.id} archived={project.status === "archived"} />
+            <ProjectDetailActions
+              project={projectSummary}
+              jobs={jobs}
+              canDelete={isAdmin}
+            />
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-2">
-            {revisions?.[0]?.status === "draft" && (
+            {latestRev?.status === "draft" && (
               <Link
-                href={`/projects/${project.id}/revisions/${revisions[0].id}`}
+                href={`/projects/${project.id}/revisions/${latestRev.id}`}
                 className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Düzenlemeye Devam (V{revisions[0].rev_no})
+                Düzenlemeye Devam (V{latestRev.rev_no})
               </Link>
             )}
             <NewRevisionButton
               projectId={project.id}
-              variant={revisions?.[0]?.status === "draft" ? "outline" : "default"}
+              isFirst={isFirstRevision}
+              variant={latestRev?.status === "draft" ? "outline" : "default"}
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Yeni revizyon, son revizyonun kopyasıyla açılır — sıfırdan başlamaz.
+            {isFirstRevision
+              ? "İlk hesap raporu şablondan kopyalanarak açılır — boş sayfayla başlamazsınız."
+              : "Yeni revizyon, son revizyonun kopyasıyla açılır — sıfırdan başlamaz."}
           </p>
         </div>
       </div>
@@ -163,7 +209,7 @@ export default async function ProjectPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(revisions ?? []).map((r) => (
+                {revisionList.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-mono">
                       <Link
@@ -190,7 +236,7 @@ export default async function ProjectPage({
                     </TableCell>
                   </TableRow>
                 ))}
-                {(revisions ?? []).length === 0 && (
+                {isFirstRevision && (
                   <TableRow className="hover:bg-transparent">
                     <TableCell
                       colSpan={6}
@@ -202,10 +248,10 @@ export default async function ProjectPage({
                     >
                       <div className="flex flex-col items-center gap-2">
                         <span className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em] text-foreground">
-                          [ HENÜZ REVİZYON YOK ]
+                          [ HENÜZ HESAP RAPORU YOK ]
                         </span>
                         <span className="bg-card px-3 py-1 text-sm text-foreground/70">
-                          Henüz revizyon yok. &quot;Yeni Revizyon&quot; ile başlayın.
+                          Henüz hesap raporu yok. &quot;Hesap Raporu Oluştur&quot; ile başlayın.
                         </span>
                       </div>
                     </TableCell>

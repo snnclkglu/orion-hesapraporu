@@ -1,18 +1,18 @@
 // Tambur (halat tamburu) şematik diyagramı — yandan görünüş: namlu, yanak
 // flanşları, ortadan geçen mil ve mesnetler, üstte oluk hatları. Etiketler:
-// tambur çapı D_d, sac kalınlığı s, halat çapı d, oluk adımı t, minimum çap
+// tambur çapı D_d, sac kalınlığı s, halat çapı d, hatve p, minimum çap
 // D_min = H·d. Ölçekli değil; oranlar okunur tutulur, değerler etiketlenir.
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, dimV, fmtN, ln, txt,
+  caption, dimV, fitDiagram, fmtN, ln, txt,
 } from "./model";
 
 export interface DrumParams {
   drumDiaMm: number;        // seçilen tambur çapı
   ropeDiaMm: number;        // halat çapı
   wallThicknessMm?: number; // tambur sacı kalınlığı
-  groovePitchMm?: number;   // oluk adımı t
+  groovePitchMm?: number;   // hatve p
   minDiaMm?: number;        // minimum çap D_min = H·d
   grooveLengthMm?: number;  // oluk boyu (varsa)
   material?: string;        // tambur malzemesi
@@ -27,7 +27,7 @@ export function drumDiagram(p: DrumParams): Diagram {
 
   if (!(p.drumDiaMm > 0)) {
     els.push(txt(W / 2, H / 2, "Tambur çapı seçilmedi", 11, { anchor: "middle", fill: DCOL.muted }));
-    return { width: W, height: H, els };
+    return fitDiagram(els, W, H);
   }
 
   // Namlu geometrisi (şematik oranlar)
@@ -66,12 +66,12 @@ export function drumDiagram(p: DrumParams): Diagram {
   for (let x = gx0; x <= gx1; x += pitch) {
     els.push(ln(x, top, x + 6, top + wall, DCOL.muted, 0.7));
   }
-  // Oluk adımı ölçüsü
+  // Hatve ölçüsü
   els.push(ln(gx0, top - 8, gx0 + pitch, top - 8, DCOL.muted, 0.8));
   els.push(ln(gx0, top - 11, gx0, top - 5, DCOL.muted, 0.8));
   els.push(ln(gx0 + pitch, top - 11, gx0 + pitch, top - 5, DCOL.muted, 0.8));
   if (p.groovePitchMm) {
-    els.push(txt(gx0 + pitch / 2, top - 12, `t = ${fmtN(p.groovePitchMm, 1)} mm`, 8, { anchor: "middle", fill: DCOL.ink }));
+    els.push(txt(gx0 + pitch / 2, top - 12, `p = ${fmtN(p.groovePitchMm, 1)} mm`, 8, { anchor: "middle", fill: DCOL.ink }));
   }
 
   // Halat (kırmızı) tamburun üstünde bir oluğa oturur
@@ -95,5 +95,5 @@ export function drumDiagram(p: DrumParams): Diagram {
     els.push(txt(bx1 - flangeW, infoY + 14, `D_d < D_min ✗`, 8.5, { fill: "#B4322F", bold: true }));
   }
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

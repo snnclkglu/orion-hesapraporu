@@ -98,6 +98,7 @@ const SAPMA: Record<string, string> = {
 
 const result = computeHookBlock(
   V5_SPECS,
+  "hookBlock",
   V5_HOOKBLOCK_INPUTS,
   V5_HOOKBLOCK_SELECTIONS,
   V5_HOOKBLOCK_DEPS
@@ -231,6 +232,7 @@ describe("kanca bloğu — mühendislik sonuçları", () => {
   it("ψ katsayısı gerekçeli olarak elle ezilebilir", () => {
     const ezilmis = computeHookBlock(
       V5_SPECS,
+      "hookBlock",
       { ...V5_HOOKBLOCK_INPUTS, dynamicFactorKOverride: 1.4, dynamicFactorLOverride: 0.0088 },
       V5_HOOKBLOCK_SELECTIONS,
       V5_HOOKBLOCK_DEPS

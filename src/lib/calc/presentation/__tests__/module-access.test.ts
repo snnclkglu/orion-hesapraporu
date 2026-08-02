@@ -101,7 +101,7 @@ describe("ctxFor", () => {
     const hookBlock = ctxFor("hookBlock", input, result, deps) as { deps: unknown };
     const girder = ctxFor("girder", input, result, deps) as { deps: unknown };
     const endCarriage = ctxFor("endCarriage", input, result, deps) as { deps: unknown };
-    expect(hookBlock.deps).toBe(deps.hookBlock);
+    expect(hookBlock.deps).toBe(deps.hookBlock.hookBlock);
     expect(girder.deps).toBe(deps.girder);
     expect(endCarriage.deps).toBe(deps.endCarriage);
   });

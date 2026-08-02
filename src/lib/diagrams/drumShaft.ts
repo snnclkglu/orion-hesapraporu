@@ -8,7 +8,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, dimH, fmtN, ln, loadArrow, txt,
+  caption, dimH, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
 import { KGF_TO_MPA } from "@/lib/units";
 
@@ -56,7 +56,7 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     els.push(txt(W / 2, H / 2, "Tambur mili ölçü zinciri (A…G) eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
-    return { width: W, height: H, els };
+    return fitDiagram(els, W, H);
   }
 
   // --- ölçek: cm → px
@@ -249,5 +249,5 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     anchor: "end", fill: DCOL.muted,
   }));
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

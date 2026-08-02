@@ -32,7 +32,27 @@ export type CheckKind = "standart" | "uretici" | "firma" | "bilgi";
  */
 export type CheckSeverity = "engelleyici" | "uyari";
 
-/** Tek bir kontrol satırı: gereken ile sağlananın karşılaştırması. */
+/**
+ * HESAPLANAN değerin hangi alanda durduğu.
+ *
+ * Bir kontrol her zaman iki sayıyı karşılaştırır: biri tasarımdan/hesaptan
+ * çıkan büyüklük, diğeri onu sınırlayan değer. Model bunları `provided`
+ * (sağlanan kapasite) ve `required` (istenen talep) diye tutar; hangisinin
+ * HESAPLANAN olduğu kontrole göre değişir:
+ *
+ * - `"provided"` : hesaplanan büyüklük `provided`, sınır `required`.
+ *                  Örnek: gerçekleşen halat emniyet katsayısı (hesap) ≥
+ *                  FEM'in istediği en küçük katsayı (sınır).
+ * - `"required"` : hesaplanan büyüklük `required`, sınır `provided`.
+ *                  Örnek: hesaplanan bileşik gerilme (hesap) ≤ malzemenin
+ *                  izin verilen gerilmesi (sınır).
+ *
+ * Rapor ve arayüz satırı "Hesaplanan X ≤ İzin Verilen Y" biçiminde yazıldığı
+ * için bu ayrım ZORUNLUDUR — tahmin edilemez.
+ */
+export type ComputedSide = "provided" | "required";
+
+/** Tek bir kontrol satırı: hesaplanan değer ile sınırın karşılaştırması. */
 export interface Check {
   id: string;
   label: string;
@@ -43,6 +63,8 @@ export interface Check {
   unit: string;
   /** provided `op` required şeklinde okunur */
   op: ">=" | "<=";
+  /** Hesaplanan değer hangi alanda (bkz. `ComputedSide`) */
+  computedSide: ComputedSide;
   pass: boolean;
   /** İlgili standart (ör. FEM 1.001 T.2.1.3.2) */
   standard?: string;
@@ -59,11 +81,15 @@ export interface Check {
   severity?: CheckSeverity;
 }
 
-/** Aralık tipli kontrol (ör. redüktör çevrim oranı sapması −10%..+5%) */
-export interface RangeCheck extends Omit<Check, "op" | "required"> {
+/**
+ * Aralık tipli kontrol (ör. redüktör çevrim oranı sapması −10%..+5%).
+ * Hesaplanan değer daima `provided`, sınır ise [min, max] aralığıdır.
+ */
+export interface RangeCheck extends Omit<Check, "op" | "required" | "computedSide"> {
   op: "range";
   min: number;
   max: number;
+  computedSide?: "provided";
 }
 
 export type AnyCheck = Check | RangeCheck;
@@ -100,6 +126,54 @@ export function isBlocking(c: AnyCheck): boolean {
   return !c.pass && checkSeverity(c) === "engelleyici";
 }
 
+/**
+ * Hesaplanan değerin hangi alanda olduğu. Eski revizyon anlık görüntülerinde bu
+ * alan bulunmaz; o kayıtlarda en yaygın kalıp olan `provided` varsayılır.
+ */
+export function checkComputedSide(c: AnyCheck): ComputedSide {
+  const v = (c as { computedSide?: ComputedSide }).computedSide;
+  return v === "required" ? "required" : "provided";
+}
+
+/**
+ * Kontrolün rapor/arayüz gösterimi: HESAPLANAN değer, İZİN VERİLEN sınır ve
+ * ikisi arasındaki bağıntı işareti. Aynı kontrol hem PDF'te hem sihirbazda bu
+ * fonksiyonla yazılır — iki yerde farklı okunması imkânsızdır.
+ */
+export interface CheckDisplay {
+  /** Tasarımdan/hesaptan çıkan değer */
+  computed: number;
+  /** Sınır değer (tek sayı) — aralık kontrolünde undefined */
+  limit?: number;
+  /** Aralık kontrolünde alt/üst sınır */
+  min?: number;
+  max?: number;
+  /** "hesaplanan ⟨işaret⟩ sınır" biçiminde okunur */
+  operator: "≤" | "≥" | "…";
+  unit: string;
+}
+
+export function checkDisplay(c: AnyCheck): CheckDisplay {
+  if (c.op === "range") {
+    const r = c as RangeCheck;
+    return { computed: r.provided, min: r.min, max: r.max, operator: "…", unit: c.unit };
+  }
+  const chk = c as Check;
+  const computedIsProvided = checkComputedSide(c) === "provided";
+  const computed = computedIsProvided ? chk.provided : chk.required;
+  const limit = computedIsProvided ? chk.required : chk.provided;
+  // op, "provided ⟨op⟩ required" olarak okunur. Hesaplanan taraf `required`
+  // ise bağıntı ters çevrilir (a ≥ b  ⟺  b ≤ a).
+  const forward = chk.op === ">=" ? "≥" : "≤";
+  const reversed = chk.op === ">=" ? "≤" : "≥";
+  return {
+    computed,
+    limit,
+    operator: computedIsProvided ? forward : reversed,
+    unit: c.unit,
+  };
+}
+
 /** Verilen kontroller içinden yayını engelleyen başarısızlıkları süzer. */
 export function blockingFailures(checks: AnyCheck[]): AnyCheck[] {
   return checks.filter(isBlocking);
@@ -116,6 +190,19 @@ export interface ModuleResult<TValues> {
   /** İzlenebilirlik anahtarı -> hesaplanan değer */
   cells: Record<string, number | string>;
 }
+
+/**
+ * Yardımcı kaldırma grubunun arabası.
+ *
+ * - `shared`   : Yardımcı kaldırma ANA arabanın üzerindedir; ayrı bir yürütme
+ *                grubu hesaplanmaz (araba ağırlığı ana arabaya dahildir).
+ * - `separate` : Yardımcı kaldırmanın kendi arabası vardır; bağımsız bir araba
+ *                yürütme grubu (hız, sınıf, ağırlık, teker, motor) hesaplanır.
+ */
+export type AuxTrolleyMode = "shared" | "separate";
+
+/** Bir vinçte en çok kaç ek monoray kaldırma grubu tanımlanabilir. */
+export const MAX_MONORAIL_COUNT = 2;
 
 /** 01-TEKNİK ÖZELLİKLER girdileri */
 export interface TechnicalSpecs {
@@ -156,6 +243,67 @@ export interface TechnicalSpecs {
   supplyVoltage: string;        // besleme gerilimi
   controlVoltage: string;       // kumanda gerilimi
   spanM: number;                // açıklık [m]
+
+  // ------------------------------------------------- Vinç konfigürasyonu
+  /**
+   * Yardımcı kaldırma ayrı bir arabada mı çalışıyor. `separate` seçilirse
+   * "Yardımcı Araba Yürütme" hesap bölümü açılır. Verilmezse `shared`.
+   */
+  auxTrolleyMode?: AuxTrolleyMode;
+  /**
+   * Vinçteki ek monoray kaldırma grubu adedi (0…2). Her monoray grubu kendi
+   * kaldırma, kanca bloğu ve araba yürütme bölümlerini açar.
+   */
+  monorailCount?: number;
+
+  // ------------------------------------------------------------ Ağırlıklar
+  // Yürütme gruplarının tümü ağırlık verilerini buradan okur; ağırlık artık
+  // modül girdisi değil, vincin teknik özelliğidir.
+  /** Ana araba ağırlığı [t] */
+  mainTrolleyWeightT: number;
+  /** Yardımcı araba ağırlığı [t] — yalnız ayrı yardımcı araba varken */
+  auxTrolleyWeightT?: number;
+  /** Köprü ağırlığı [t] — ana kirişler + başkirişler toplamı */
+  bridgeWeightT: number;
+
+  // --------------------------------------------- Yardımcı araba yürütme
+  auxTrolleySpeedMpm?: number;
+  auxTrolleyMechanismClass?: MechanismClass;
+  auxTrolleyUsageClass?: UsageClass;
+
+  // ------------------------------------------------------- Monoray 1
+  mono1CapacityT?: number;
+  mono1LiftHeightM?: number;
+  mono1LiftSpeedMpm?: number;
+  mono1MechanismClass?: MechanismClass;
+  mono1UsageClass?: UsageClass;
+  mono1TrolleySpeedMpm?: number;
+  mono1TrolleyMechanismClass?: MechanismClass;
+  mono1TrolleyUsageClass?: UsageClass;
+  mono1TrolleyWeightT?: number;
+
+  // ------------------------------------------------------- Monoray 2
+  mono2CapacityT?: number;
+  mono2LiftHeightM?: number;
+  mono2LiftSpeedMpm?: number;
+  mono2MechanismClass?: MechanismClass;
+  mono2UsageClass?: UsageClass;
+  mono2TrolleySpeedMpm?: number;
+  mono2TrolleyMechanismClass?: MechanismClass;
+  mono2TrolleyUsageClass?: UsageClass;
+  mono2TrolleyWeightT?: number;
+}
+
+/** Vinçte kaç monoray kaldırma grubu var (0…MAX_MONORAIL_COUNT). */
+export function monorailCount(specs: TechnicalSpecs): number {
+  const n = specs.monorailCount;
+  if (!Number.isFinite(n as number)) return 0;
+  return Math.min(MAX_MONORAIL_COUNT, Math.max(0, Math.trunc(n as number)));
+}
+
+/** Yardımcı kaldırmanın kendi arabası var mı. */
+export function hasSeparateAuxTrolley(specs: TechnicalSpecs): boolean {
+  return specs.auxTrolleyMode === "separate";
 }
 
 const HOIST_CLASS_SET: readonly string[] = ["H1", "H2", "H3", "H4"];

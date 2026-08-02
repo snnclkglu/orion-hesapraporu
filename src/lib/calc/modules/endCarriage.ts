@@ -60,8 +60,7 @@ const STEEL_DENSITY = 7.85;
 export interface EndCarriageDeps {
   mainHoistTotalLoadKg: number;      // yük + kanca bloğu + halat [kg]
   trolleyWeightT: number;            // araba ağırlığı [t]
-  bridgeGirdersWeightT: number;      // köprü ana kirişleri ağırlığı [t]
-  bridgeEndCarriagesWeightT: number; // başkirişler ağırlığı [t]
+  bridgeWeightT: number;             // köprü toplam ağırlığı [t] (kirişler + başkirişler)
 }
 
 /** Kullanıcı girdileri */
@@ -176,7 +175,7 @@ export function computeEndCarriage(
 
   // --- 9.1 Tekerlek yükleri ve momentler -----------------------------------
   const bridgeSelfWeightKg =
-    ((deps.bridgeGirdersWeightT + deps.bridgeEndCarriagesWeightT) * 1000) / 4;
+    (deps.bridgeWeightT * 1000) / 4;
   // Fmaks: araba en yakın tekere yanaşmışken (0,9 yaklaşma katsayısı)
   const wheelLoadMaxKg =
     (deps.mainHoistTotalLoadKg / 2 + (deps.trolleyWeightT * 1000) / 2) * 0.9 +
@@ -240,8 +239,9 @@ export function computeEndCarriage(
   });
   checks.push({
     id: "endCarriage.stress",
-    label: "Başkiriş bileşik gerilmesi",
+    label: "Başkiriş Bileşik Gerilmesi",
     required: sigmaCombinedKgCm2, provided: allowableKgCm2, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: sigmaCombinedKgCm2 <= allowableKgCm2,
     standard: "FEM 1.001 T.3.2.1.1",
     kind: "standart", severity: "engelleyici",
@@ -294,6 +294,7 @@ export function computeEndCarriage(
     id: "endCarriage.fatigue.sigma",
     label: "Yorulma σmaks ≤ zul σDz(κ)",
     required: sigmaMaxKgCm2, provided: zulSigmaDzKappaKgCm2, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: sigmaMaxKgCm2 <= zulSigmaDzKappaKgCm2,
     standard: "DIN 15018 T.17/18",
     kind: "standart", severity: "engelleyici",
@@ -302,14 +303,16 @@ export function computeEndCarriage(
     id: "endCarriage.fatigue.tau",
     label: "Yorulma τmaks ≤ zul τD(κ)",
     required: tauMaxKgCm2, provided: zulTauDKgCm2, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: tauMaxKgCm2 <= zulTauDKgCm2,
     standard: "DIN 15018 T.17",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "endCarriage.fatigue.combined",
-    label: "Bileşik yorulma oranı",
+    label: "Bileşik Yorulma Oranı",
     required: fatigueCombined, provided: FATIGUE_COMBINED_LIMIT, unit: "-", op: ">=",
+    computedSide: "required",
     pass: fatigueCombined <= FATIGUE_COMBINED_LIMIT,
     standard: "DIN 15018 7.4.5",
     kind: "standart", severity: "engelleyici",

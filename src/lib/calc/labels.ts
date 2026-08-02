@@ -45,24 +45,46 @@ export const FIELD_LABELS: Map<string, FieldLabel> = collect([
   ENDCARRIAGE_SELECTION_FIELDS,
 ] as { key: string; label: string; unit?: string }[][]);
 
-/** Modül anahtarı -> görünen ad (karşılaştırma/özet/rapor başlıkları) */
+/**
+ * Modül anahtarı -> görünen ad (karşılaştırma/özet/rapor başlıkları).
+ *
+ * Anahtarlar motorun modül anahtarlarıdır (`CalcInput` alanları); sıra
+ * karşılaştırma ekranının bölüm sırasıdır. Baştaki numaralar YALNIZCA yedek
+ * etikettir: gerçek numaralandırma, kapatılan/olmayan modüllere göre çalışma
+ * anında yeniden dizilir (bkz. `moduleDisplayNumbers`).
+ */
 export const MODULE_LABELS: Record<string, string> = {
   specs: "01 · Teknik Özellikler",
+  main: "02 · Ana Kaldırma",
+  hookBlock: "03 · Ana Kanca Bloğu",
+  aux: "04 · Yardımcı Kaldırma",
+  auxHookBlock: "05 · Yardımcı Kanca Bloğu",
+  trolley: "06 · Ana Araba Yürütme",
+  auxTrolley: "07 · Yardımcı Araba Yürütme",
+  mono1: "08 · Monoray 1 Kaldırma",
+  mono1HookBlock: "09 · Monoray 1 Kanca Bloğu",
+  mono1Trolley: "10 · Monoray 1 Araba Yürütme",
+  mono2: "11 · Monoray 2 Kaldırma",
+  mono2HookBlock: "12 · Monoray 2 Kanca Bloğu",
+  mono2Trolley: "13 · Monoray 2 Araba Yürütme",
+  bridge: "14 · Köprü Yürütme",
+  girder: "15 · Ana Kiriş",
+  buckling: "16 · Buruşma",
+  endCarriage: "17 · Başkiriş",
+  // Revizyon karşılaştırması snapshot'ın JSON alan adlarını kullanır; kaldırma
+  // gruplarında bu ad modül anahtarından farklıdır (`main` → `mainHoist`).
   mainHoist: "02 · Ana Kaldırma",
-  auxHoist: "03 · Yrd Kaldırma",
-  hookBlock: "04 · Kanca Bloğu",
-  trolley: "05 · Araba Yürütme",
-  bridge: "06 · Köprü Yürütme",
-  girder: "07 · Ana Kiriş",
-  buckling: "08 · Buruşma Kontrolü",
-  endCarriage: "09 · Başkiriş",
+  auxHoist: "04 · Yardımcı Kaldırma",
+  mono1Hoist: "08 · Monoray 1 Kaldırma",
+  mono2Hoist: "11 · Monoray 2 Kaldırma",
 };
 
 /** Alan listelerinde yer almayan, yalnız karşılaştırmada görünen anahtarlar. */
 const EXTRA_LABELS: Record<string, FieldLabel> = {
-  disabledModules: { label: "Kapatılan hesap bölümleri" },
-  ropeWeightAuto: { label: "Halat ağırlığı otomatik" },
-  sheaveEfficiencyAuto: { label: "Makara verimi otomatik" },
+  disabledModules: { label: "Kapatılan Hesap Bölümleri" },
+  ropeWeightAuto: { label: "Halat Ağırlığı Otomatik" },
+  hookBlockWeightAuto: { label: "Kanca Bloğu Ağırlığı Otomatik" },
+  tempFactorAuto: { label: "Sıcaklık Faktörü Otomatik" },
 };
 
 export function fieldLabel(key: string): FieldLabel {

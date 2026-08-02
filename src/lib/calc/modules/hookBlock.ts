@@ -24,6 +24,8 @@ import {
   smallestHookNumber,
   type HookStrengthClass,
 } from "../hook-table";
+import { hoistReeving, hoistSpecView, type HoistInputs } from "./hoistGroup";
+import { HOIST_OF_HOOKBLOCK, type HookBlockKey } from "../presentation/module-family";
 import { deriveReeving } from "../reeving";
 import { shaftStress } from "../shaftStress";
 import { DIN15018_T17 } from "../tables";
@@ -35,6 +37,12 @@ import {
   type ModuleResult,
   type TechnicalSpecs,
 } from "../types";
+
+/**
+ * Kanca bloğu varyantı. Her kaldırma grubunun kendi kanca bloğu vardır; hesap
+ * aynıdır, yalnız sınıf ve hız bağlı olduğu kaldırma grubundan okunur.
+ */
+export type HookBlockWhich = HookBlockKey;
 
 /** §4.6 kaldırma kirişi yorulma malzemesi */
 export type FatigueMaterial = "S235JR" | "S355JR";
@@ -384,8 +392,9 @@ export interface DynamicFactorResolution extends DynamicFactorCoefficients {
  * Projeye özel bir gerekçe varsa katsayılar tek tek elle ezilebilir.
  */
 export function resolveDynamicFactor(
-  specs: Pick<TechnicalSpecs, "hoistLoadClass" | "mainLiftSpeedMpm">,
-  inp: Pick<HookBlockInputs, "dynamicFactorKOverride" | "dynamicFactorLOverride">
+  specs: Pick<TechnicalSpecs, "hoistLoadClass">,
+  inp: Pick<HookBlockInputs, "dynamicFactorKOverride" | "dynamicFactorLOverride">,
+  liftSpeedMpm: number
 ): DynamicFactorResolution {
   const hoistClass =
     parseHoistLoadClass(specs.hoistLoadClass).hoistClass ?? VARSAYILAN_HOIST_CLASS;
@@ -400,7 +409,7 @@ export function resolveDynamicFactor(
   const k = kOverridden ? kOverride : table.k;
   const l = lOverridden ? lOverride : table.l;
 
-  const speed = Number.isFinite(specs.mainLiftSpeedMpm) ? specs.mainLiftSpeedMpm : 0;
+  const speed = Number.isFinite(liftSpeedMpm) ? liftSpeedMpm : 0;
   return {
     hoistClass,
     k,
@@ -412,12 +421,15 @@ export function resolveDynamicFactor(
 
 export function computeHookBlock(
   specs: TechnicalSpecs,
+  which: HookBlockWhich,
   inp: HookBlockInputs,
   sel: HookBlockSelections,
   deps: HookBlockDeps
 ): ModuleResult<HookBlockValues> {
-  const mech = specs.hoistMechanismClass;
-  const usage = specs.hoistUsageClass;
+  // Kanca bloğu, bağlı olduğu kaldırma grubunun sınıfı ve hızıyla hesaplanır.
+  const hoistView = hoistSpecView(specs, HOIST_OF_HOOKBLOCK[which]);
+  const mech = hoistView.mechanismClass;
+  const usage = hoistView.usageClass;
 
   const cells: Record<string, number | string> = {};
   const checks: AnyCheck[] = [];
@@ -436,9 +448,10 @@ export function computeHookBlock(
     : undefined;
   cells["hook.capacity"] = hookCapacity;
   checks.push({
-    id: "hookBlock.hook.capacity",
-    label: "Kanca taşıma kapasitesi",
+    id: `${which}.hook.capacity`,
+    label: "Kanca Taşıma Kapasitesi",
     required: deps.loadKg, provided: hookCapacity, unit: "kg", op: ">=",
+    computedSide: "required",
     pass: hookCapacity >= deps.loadKg,
     standard: "DIN 15400", kind: "standart", severity: "engelleyici",
   });
@@ -451,9 +464,10 @@ export function computeHookBlock(
     "sheave.minDia": minSheaveDiaMm,
   });
   checks.push({
-    id: "hookBlock.sheave.dia",
-    label: "Makara çapı (min H·d)",
+    id: `${which}.sheave.dia`,
+    label: "Makara Çapı (min H·d)",
     required: minSheaveDiaMm, provided: sel.sheaveDiaMm, unit: "mm", op: ">=",
+    computedSide: "required",
     pass: sel.sheaveDiaMm >= minSheaveDiaMm,
     standard: "FEM 1.001 T.4.2.3.1.1", kind: "standart", severity: "engelleyici",
   });
@@ -486,16 +500,18 @@ export function computeHookBlock(
     ...(requiredLifeMax !== null ? { "sheaveBearing.requiredLifeMax": requiredLifeMax } : {}),
   });
   checks.push({
-    id: "hookBlock.sheaveBearing.life",
-    label: "Makara rulmanı ömrü",
+    id: `${which}.sheaveBearing.life`,
+    label: "Makara Rulmanı Ömrü",
     required: requiredLifeMin, provided: sheaveBearingLifeHours, unit: "saat",
-    op: ">=", pass: sheaveBearingLifeHours >= requiredLifeMin,
+    op: ">=", computedSide: "provided",
+    pass: sheaveBearingLifeHours >= requiredLifeMin,
     standard: "FEM 1.001 T.2.1.3.2", kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "hookBlock.sheaveBearing.static",
-    label: "Makara rulmanı statik emniyeti",
+    id: `${which}.sheaveBearing.static`,
+    label: "Makara Rulmanı Statik Emniyeti",
     required: 1, provided: sheaveBearingStaticSafety, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: sheaveBearingStaticSafety >= 1,
     kind: "uretici", severity: "engelleyici",
   });
@@ -558,24 +574,27 @@ export function computeHookBlock(
     "shaft.allowableCombined": shaftAllow.combined,
   });
   checks.push({
-    id: "hookBlock.shaft.bending",
-    label: "Kanca bloğu mili eğilme gerilmesi",
+    id: `${which}.shaft.bending`,
+    label: "Kanca Bloğu Mili Eğilme Gerilmesi",
     required: stress.bendingStress, provided: shaftAllow.bending,
-    unit: "kg/cm²", op: ">=", pass: shaftAllow.bending >= stress.bendingStress,
+    unit: "kg/cm²", op: ">=", computedSide: "required",
+    pass: shaftAllow.bending >= stress.bendingStress,
     standard: "CMAA 70 4.11.4.1", kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "hookBlock.shaft.shear",
-    label: "Kanca bloğu mili kesme gerilmesi",
+    id: `${which}.shaft.shear`,
+    label: "Kanca Bloğu Mili Kesme Gerilmesi",
     required: stress.shearStress, provided: shaftAllow.shear,
-    unit: "kg/cm²", op: ">=", pass: shaftAllow.shear >= stress.shearStress,
+    unit: "kg/cm²", op: ">=", computedSide: "required",
+    pass: shaftAllow.shear >= stress.shearStress,
     standard: "CMAA 70 4.11.4.1", kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "hookBlock.shaft.stress",
-    label: "Kanca bloğu mili bileşik gerilmesi",
+    id: `${which}.shaft.stress`,
+    label: "Kanca Bloğu Mili Bileşik Gerilmesi",
     required: stress.combinedStress, provided: shaftAllow.combined,
-    unit: "kg/cm²", op: ">=", pass: shaftAllow.combined >= stress.combinedStress,
+    unit: "kg/cm²", op: ">=", computedSide: "required",
+    pass: shaftAllow.combined >= stress.combinedStress,
     standard: "CMAA 70 4.11.4.1", kind: "standart", severity: "engelleyici",
   });
   // Makara rulmanı milin üzerine oturur → iç çapı mil çapına eşit olmalı.
@@ -584,8 +603,8 @@ export function computeHookBlock(
     const boreMm = sel.sheaveBearingBoreMm;
     const shaftMm = inp.shaftD1Cm * 10;
     checks.push({
-      id: "hookBlock.sheaveBearing.bore",
-      label: "Makara rulmanı iç çapı = mil çapı (D1)",
+      id: `${which}.sheaveBearing.bore`,
+      label: "Makara Rulmanı İç Çapı = Mil Çapı (D1)",
       min: shaftMm, max: shaftMm, provided: boreMm, unit: "mm", op: "range",
       pass: Math.abs(boreMm - shaftMm) < 0.5,
       kind: "bilgi", severity: "uyari",
@@ -600,11 +619,12 @@ export function computeHookBlock(
     "hookBearing.staticSafety": hookBearingStaticSafety,
   });
   checks.push({
-    id: "hookBlock.hookBearing.static",
-    label: "Kanca rulmanı statik emniyeti",
+    id: `${which}.hookBearing.static`,
+    label: "Kanca Rulmanı Statik Emniyeti",
     // Dönmeyen / çok yavaş dönen eksenel rulmanlarda rulman katalogları
     // S0 ≥ 0,5 alt sınırını yeterli sayar (düşük sessiz çalışma talebi).
     required: 0.5, provided: hookBearingStaticSafety, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: hookBearingStaticSafety >= 0.5,
     kind: "uretici", severity: "engelleyici",
   });
@@ -681,7 +701,7 @@ export function computeHookBlock(
   });
 
   // --- §4.6 Statik gerilmeler (dinamik katsayı ψ ile) -----------------------
-  const psi = resolveDynamicFactor(specs, inp);
+  const psi = resolveDynamicFactor(specs, inp, hoistView.liftSpeedMpm);
   const staticBendingStress = (momentMaxKgCm * psi.psi) / mid.sectionModulusCm3;
   // Kesme gerilmesi mesnet bölgesinde kritiktir; orada kesit kalınlaştırılmıştır.
   const staticShearStress = (forceMaxKg * psi.psi) / thick.webAreaCm2;
@@ -697,10 +717,11 @@ export function computeHookBlock(
     "girder.allowableStress": allowableStaticStress,
   });
   checks.push({
-    id: "hookBlock.girder.static",
-    label: "Kiriş statik bileşik gerilmesi",
+    id: `${which}.girder.static`,
+    label: "Kiriş Statik Bileşik Gerilmesi",
     required: staticCombinedStress, provided: allowableStaticStress,
-    unit: "kg/cm²", op: ">=", pass: allowableStaticStress >= staticCombinedStress,
+    unit: "kg/cm²", op: ">=", computedSide: "required",
+    pass: allowableStaticStress >= staticCombinedStress,
     standard: "FEM 1.001 T.3.2.1.1", kind: "standart", severity: "engelleyici",
   });
 
@@ -754,23 +775,26 @@ export function computeHookBlock(
   });
 
   checks.push({
-    id: "hookBlock.fatigue.sigma",
-    label: "Kiriş yorulması — normal gerilme (σmax ≤ zul σ Dz(x))",
+    id: `${which}.fatigue.sigma`,
+    label: "Kiriş Yorulması — Normal Gerilme (σmax ≤ zul σ Dz(x))",
     required: sigmaMax, provided: fatigueAllowableSigmaKgCm2, unit: "kg/cm²",
-    op: ">=", pass: fatigueAllowableSigmaKgCm2 >= sigmaMax,
+    op: ">=", computedSide: "required",
+    pass: fatigueAllowableSigmaKgCm2 >= sigmaMax,
     standard: "DIN 15018 Tablo 17/18", kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "hookBlock.fatigue.tau",
-    label: "Kiriş yorulması — kesme gerilmesi (τmax ≤ zul τ D(x))",
+    id: `${which}.fatigue.tau`,
+    label: "Kiriş Yorulması — Kesme Gerilmesi (τmax ≤ zul τ D(x))",
     required: tauMax, provided: fatigueAllowableTauKgCm2, unit: "kg/cm²",
-    op: ">=", pass: fatigueAllowableTauKgCm2 >= tauMax,
+    op: ">=", computedSide: "required",
+    pass: fatigueAllowableTauKgCm2 >= tauMax,
     standard: "DIN 15018 Tablo 17", kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "hookBlock.fatigue.combined",
-    label: "Kiriş yorulması — bileşik oran",
+    id: `${which}.fatigue.combined`,
+    label: "Kiriş Yorulması — Bileşik Oran",
     required: fatigueCombinedRatio, provided: 1.1, unit: "-", op: ">=",
+    computedSide: "required",
     pass: 1.1 >= fatigueCombinedRatio,
     standard: "DIN 15018 Bölüm 7.4.5", kind: "standart", severity: "engelleyici",
   });
@@ -861,22 +885,12 @@ export function hookBlockDepsFromHoist(hoist: {
   values: {
     ropeLoadKg: number; loadKg: number; totalLoadKg: number; drumRpm: number;
   };
-  inputs: {
-    hookBlockWeightKg: number;
-    ropeWeightKg: number;
-    drivenFalls: number;
-    totalFalls: number;
-    fixedSheaveCount: number;
-    sheaveEfficiency: number;
-  };
+  inputs: HoistInputs;
   selections: { ropeDiaMm: number; drumDiaMm: number };
 }): HookBlockDeps {
-  const reeving = deriveReeving({
-    drivenFalls: hoist.inputs.drivenFalls,
-    totalFalls: hoist.inputs.totalFalls,
-    fixedSheaveCount: hoist.inputs.fixedSheaveCount,
-    sheaveEfficiency: hoist.inputs.sheaveEfficiency,
-  });
+  // Donanım tek kaynaktan okunur: hazır bir donanım etiketi seçilmişse kol
+  // sayıları o seçimden gelir (hoistReeving), serbest girdiden değil.
+  const reeving = deriveReeving(hoistReeving(hoist.inputs));
   return {
     ropeDiaMm: hoist.selections.ropeDiaMm,
     ropeLoadKg: hoist.values.ropeLoadKg,

@@ -4,8 +4,9 @@
 // → FEM yük kombinasyonları (Durum I ve III) → gerilme analizi (von Mises)
 // → DIN 15018 yorulma → sehim.
 //
-// Dayanaklar: FEM 1.001 (2.2 yükler, 2.3 kombinasyonlar, 3.2 izin gerilmeleri,
-// 4.x gerilme bileşenleri), DIN 15018 (Tablo 17/18 yorulma), CMAA 70 (sehim).
+// Dayanaklar: FEM 1.001 (2.2 yükler, 2.3 kombinasyonlar, 3.2.1.1–3.2.1.3 izin
+// gerilmeleri, A.2.2.3 yatay ivme dinamik katsayısı), DIN 15018 (Şekil 9 teker
+// basıncı, Tablo 17/18 yorulma), CMAA 70 (3.5.1 kesit oranları, 3.5.5.1 sehim).
 //
 // Birimler: mm, cm², cm³, cm⁴, kg, kg/cm², kg·cm, m, m/s, m/s², s, N/mm².
 //
@@ -14,6 +15,17 @@
 // formülleriyle yazılıdır (tekil yük çiftinin ve düzgün yayılı öz ağırlığın
 // klasik çözümleri); `solveBeam` bu üç yük durumunu sadeleştirmediği için
 // bilinçli olarak kullanılmamıştır.
+//
+// GERİLME NUMARALANDIRMASI — bileşen gerilmelerin kalıcı numaraları (sunum,
+// diyagram ve gerilme tablosu aynı numaraları kullanır):
+//   σ1  kiriş öz ağırlığı (düşey eğilme)        σ2  araba ağırlığı
+//   σ3  kaldırma yükü (×ψ)                      σ4  köprü yatay yükü (yatay eğilme)
+//   σ5  araba yanal yükü                        σ6  ray kolu / kaçıklık
+//   σ7  ikincil moment — araba                  σ8  ikincil moment — yük (×ψ)
+//   σ9  teker basıncı — araba (σz)              σ10 teker basıncı — yük (σz, ×ψ)
+//   τ1  burulma — araba                         τ2  burulma — yük (×ψ)
+//   τ3  kesme — öz ağırlık                      τ4  kesme — araba
+//   τ5  kesme — yük (×ψ)
 
 import { DIN15018_T17 } from "../tables";
 import { parseHoistLoadClass } from "../types";
@@ -62,6 +74,15 @@ export const STRUCTURE_AMPLIFY_FACTOR: Record<StructureClass, number> = {
 };
 
 /**
+ * Yorulma malzemesinin karakteristik kopma dayanımı σB [N/mm²].
+ * (S235JR → 360, S355JR → 510; EN 10025-2 asgari değerleri.)
+ */
+export const FATIGUE_TENSILE_NMM2: Record<FatigueMaterial, number> = {
+  S235JR: 360,
+  S355JR: 510,
+};
+
+/**
  * DIN 15018 yük grubu ayrıştırılamadığında kullanılan güvenli taraf değeri.
  * B6 en ağır gruptur (en düşük izin gerilmesi) — sınıflandırma bilinmiyorsa
  * hesabın iyimser tarafa kaymaması için bilinçli olarak en ağırı seçilir.
@@ -80,26 +101,42 @@ const GRAVITY = 9.81;
 /** kg/cm² → N/mm² dönüşümü (1 kgf = 9,81 N, 1 cm² = 100 mm²). */
 const KG_CM2_TO_NMM2 = 9.81;
 
+/**
+ * Tahrik tekerleği ile ray arasındaki sürtünme katsayısı μ.
+ * FEM 1.001 2.2.3.1.1 uygulamasında çelik teker / çelik ray için μ = 1/7.
+ */
+const WHEEL_FRICTION_COEFF = 1 / 7;
+
+/** Bir tahrik dingilindeki teker sayısı — tahrik daima çift teker üzerinden aktarılır. */
+const WHEELS_PER_DRIVEN_AXLE = 2;
+
+/**
+ * Sürtünmeyle aktarılabilen en büyük yatay kuvvetin böleni:
+ * F'' = n_tahrikli · P_teker · μ / n_çift = n_tahrikli · P_teker / (2 · 7) = … / 14.
+ */
+const TRACTION_LIMIT_DIVISOR = WHEELS_PER_DRIVEN_AXLE / WHEEL_FRICTION_COEFF; // = 14
+
 /** Diğer modüllerden gelen değerler */
 export interface GirderDeps {
-  mainHookBlockWeightKg: number;     // kanca bloğu / kepçe ağırlığı
-  mainRopeWeightKg: number;          // halat ağırlığı
-  trolleyWeightT: number;            // araba ağırlığı [t]
-  trolleyWheelCount: number;         // araba teker sayısı
-  trolleyActualSpeedMpm: number;     // gerçekleşen araba hızı [m/dak]
-  trolleyAccelTimeS: number;         // araba ivmelenme süresi [s]
-  bridgeGirdersWeightT: number;      // köprü ana kirişleri ağırlığı [t]
-  bridgeEndCarriagesWeightT: number; // başkirişler ağırlığı [t]
-  bridgeWheelCount: number;          // köprü teker sayısı
-  bridgeActualSpeedMpm: number;      // gerçekleşen köprü hızı [m/dak]
-  bridgeAccelTimeS: number;          // köprü ivmelenme süresi [s]
+  mainHookBlockWeightKg: number;
+  mainRopeWeightKg: number;
+  trolleyWeightT: number;
+  trolleyWheelCount: number;
+  trolleyDrivenWheels: number;      // araba yürütmeden gelir
+  trolleyActualSpeedMpm: number;
+  trolleyAccelTimeS: number;
+  bridgeWeightT: number;            // köprünün TOPLAM ağırlığı (kirişler + başkirişler)
+  bridgeWheelCount: number;
+  bridgeDrivenWheels: number;       // köprü yürütmeden gelir
+  bridgeActualSpeedMpm: number;
+  bridgeAccelTimeS: number;
 }
 
 /** Kullanıcı girdileri */
 export interface GirderInputs {
   railHeightMm: number;        // hr — ray yüksekliği (raporda gösterilir)
-  t1Mm: number;                // üst flanş kalınlığı t1
-  b1Mm: number;                // üst flanş genişliği b1
+  t1Mm: number;                // ray altı sacı kalınlığı t1
+  b1Mm: number;                // ray altı sacı genişliği b1 (merkezi RAY EKSENİNDE)
   t2Mm: number;                // üst iç flanş kalınlığı t2
   b2Mm: number;                // üst iç flanş genişliği b2
   t3Mm: number;                // ana gövde sacı kalınlığı t3
@@ -112,13 +149,16 @@ export interface GirderInputs {
   aMm: number;                 // gövde sacları arası mesafe a
   xMm: number;                 // kenar mesafesi x
   hookTopPositionM: number;    // kancanın en üst konumu l [m]
-  psiHK: number;               // ψhK (FEM Fig. A.2.2.1, köprü)
-  psiHA: number;               // ψhA (FEM Fig. A.2.2.1, araba)
   bridgeAxleSpacingM: number;  // köprü dingil açıklığı [m]
   trolleyWheelSpacingM: number; // araba tekerlek açıklığı [m]
   trolleyAxleSpacingM: number; // araba dingil açıklığı [m]
-  trolleyDrivenWheels: number; // araba tahrikli teker sayısı
-  bridgeDrivenWheels: number;  // köprü tahrikli teker sayısı
+  /**
+   * ψhA elle ezme (FEM 1.001 Şekil A.2.2.1). Verilmezse kütle oranından
+   * türetilir — normalde boş bırakılır.
+   */
+  psiHAOverride?: number;
+  /** ψhK elle ezme (FEM 1.001 Şekil A.2.2.1). Verilmezse kütle oranından türetilir. */
+  psiHKOverride?: number;
   /**
    * γc elle ezme. Verilmezse teknik özelliklerdeki yapı sınıfından
    * FEM 1.001 T.2.3.4 ile türetilir — normalde boş bırakılır.
@@ -130,9 +170,18 @@ export interface GirderInputs {
   diaphragmSpacingMm: number;  // iki perde arası l1 [mm]
   wheelContactHMm: number;     // tekerlek basıncı yayılım yüksekliği h [mm]
   wheelContactTMm: number;     // tekerlek basıncı taşıyan sac kalınlığı t [mm]
-  sigmaYMaxNmm2: number;       // σy,maks (yerel enine gerilme) [N/mm²]
-  sigmaYMinNmm2: number;       // σy,min [N/mm²]
-  fatigueTensileNmm2: number;  // malzeme kopma dayanımı σB [N/mm²]
+  /**
+   * σy,maks elle ezme [N/mm²]. Verilmezse gerilme analizindeki teker basıncı
+   * σz(I)'den türetilir — normalde boş bırakılır.
+   */
+  sigmaYMaxOverrideNmm2?: number;
+  /** σy,min elle ezme [N/mm²]. Verilmezse σz(araba)'dan türetilir. */
+  sigmaYMinOverrideNmm2?: number;
+  /**
+   * σB elle ezme [N/mm²]. Verilmezse seçilen yorulma malzemesinden türetilir
+   * (S235JR → 360, S355JR → 510).
+   */
+  fatigueTensileOverrideNmm2?: number;
   deflectionLimitRatio: number; // sehim sınırı L/x
 }
 
@@ -158,6 +207,7 @@ export interface GirderValues {
   wyyBottomCm3: number;
   wyyTopCm3: number;
   cyMm: number;
+  railCenterYMm: number;       // ray ekseni (b1 merkezi), b2 sol kenarından [mm]
   izzCm4: number;
   wzzBottomCm3: number;
   wzzTopCm3: number;
@@ -170,6 +220,8 @@ export interface GirderValues {
   dynamicFactor: number;
   trolleyAccelMs2: number;
   bridgeAccelMs2: number;
+  psiHA: number;               // türetilmiş ya da ezilmiş
+  psiHK: number;
   trolleyHorizontalLoadKg: number;
   trolleySkewLoadKg: number;
   bridgeHorizontalLoadKg: number;
@@ -183,7 +235,7 @@ export interface GirderValues {
   sigmaZCase1: number;
   shearMainCase1: number;
   shearSecondaryCase1: number;
-  sigmaCombBottomCase1: number;
+  sigmaCombBottomCase1: number; // iki gövde sacından ELVERİŞSİZ olanı
   sigmaCombTopCase1: number;
   ycSigmaCombBottom: number;   // γc·σcomb (alt) — kontrol değeri
   ycSigmaCombTop: number;
@@ -194,24 +246,48 @@ export interface GirderValues {
   // Yorulma (DIN 15018)
   fatigueSigmaXMax: number;
   fatigueSigmaXMin: number;
+  fatigueSigmaYMax: number;
+  fatigueSigmaYMin: number;
   fatigueTauMax: number;
+  fatigueTauMin: number;
+  fatigueTensileNmm2: number;  // türetilmiş ya da ezilmiş σB
   zulSigmaD1: number;          // zul σD(-1) — T17
   zulSigmaDz0: number;         // zul σDz(0)
   kappaX: number;
   zulSigmaDzX: number;         // zul σDz(κ)
   kappaY: number;
   zulSigmaDzY: number;
+  kappaTau: number;
   zulTauW0: number;
   zulTauDX: number;
   fatigueCombined: number;
   // Sehim
-  deflectionCm: number;
+  deflectionMm: number;
   deflectionRatio: number;     // L / sehim
 }
 
 /** DIN 15018 Tablo 17 lookup */
 function t17(material: FatigueMaterial, notch: NotchClass, group: LoadGroup): number {
   return DIN15018_T17[material === "S355JR" ? "St52" : "St37"][notch][group];
+}
+
+/** von Mises düzlem gerilme bileşkesi: √(σx² + σz² − |σx·σz| + 3τ²) */
+function vonMisesPlane(sigmaX: number, sigmaZ: number, tau: number): number {
+  return Math.sqrt(sigmaX ** 2 + sigmaZ ** 2 - Math.abs(sigmaX * sigmaZ) + 3 * tau ** 2);
+}
+
+/**
+ * Yatay ivme dinamik katsayısı ψh — FEM 1.001 Appendix A.2.2.3 / Şekil A.2.2.1.
+ *
+ * Kütle oranı µ = m1/m (m1: asılı yük kütlesi, m: hareket eden eşdeğer kütle):
+ *   µ ≤ 1 → ψh = 2            (grafiğin üst zarfı; β ≥ βkrit'te tam 2'ye ulaşır)
+ *   µ > 1 → ψh = √(2 + µ + 1/µ)   (Part 2'de verilen teorik maksimum)
+ * Yük dışındaki hareketli parçalar için standart zaten ψh = 2 öngörür; bu
+ * yüzden atalet yükü formüllerinde araç ağırlığı 2 katsayısıyla girer.
+ */
+export function horizontalDynamicFactor(massRatio: number): number {
+  if (!Number.isFinite(massRatio) || massRatio <= 0) return 2;
+  return massRatio > 1 ? Math.sqrt(2 + massRatio + 1 / massRatio) : 2;
 }
 
 /**
@@ -251,7 +327,7 @@ export function computeMainGirder(
   const checks: AnyCheck[] = [];
 
   // --- 7.1 Kesit özellikleri ------------------------------------------------
-  const t1 = inp.t1Mm, b1 = inp.b1Mm;      // üst flanş
+  const t1 = inp.t1Mm, b1 = inp.b1Mm;      // ray altı sacı
   const t2 = inp.t2Mm, b2 = inp.b2Mm;      // üst iç flanş
   const t3 = inp.t3Mm, h3 = inp.h3Mm;      // ana gövde sacı
   const t4 = inp.t4Mm;                     // yardımcı gövde sacı
@@ -291,21 +367,25 @@ export function computeMainGirder(
   const modulusYBottomCm3 = (inertiaYCm4 * 10) / centroidZMm;
   const modulusYTopCm3 = (inertiaYCm4 * 10) / (heightMm - centroidZMm);
 
+  // Ray, ana gövde sacının (web1) ekseninde durur; "ray altı sacı" b1 de bu
+  // eksende ortalanır — kesitin ortasında DEĞİL (b1 merkezi = x + t3/2).
+  const railCenterYMm = edgeDistMm + t3 * 0.5;
+
   // Düşey eksen etrafında ağırlık merkezi ve atalet [mm] / [cm⁴]
   const centroidYMm =
     (areaMainWeb * (edgeDistMm + t3 * 0.5) +
       areaSecondaryWeb * (edgeDistMm + t3 + webGapMm + t4 * 0.5) +
-      areaTopFlange * ((b2 - b1) * 0.5 + b1 * 0.5) +
+      areaTopFlange * railCenterYMm +
       areaTopInnerFlange * b2 * 0.5 +
       areaBottomFlange * ((b2 - b5) * 0.5 + b5 * 0.5) +
       areaExtraFlange * ((b2 - b6) * 0.5 + b6 * 0.5)) / totalAreaMm2;
   const inertiaZCm4 =
     ((1 / 12) * (b1 ** 3 * t1 + b2 ** 3 * t2 + h3 * (t3 ** 3 + t4 ** 3) + b5 ** 3 * t5 + b6 ** 3 * t6) +
-      ((b2 - b1) * 0.5 + b1 * 0.5 - centroidYMm) ** 2 * areaTopFlange +
+      (railCenterYMm - centroidYMm) ** 2 * areaTopFlange +
       ((edgeDistMm + t3 * 0.5) - centroidYMm) ** 2 * areaMainWeb +
       ((edgeDistMm + t3 + webGapMm + t4 * 0.5) - centroidYMm) ** 2 * areaSecondaryWeb +
       ((b2 - b5) * 0.5 + 0.5 * b5 - centroidYMm) ** 2 * areaBottomFlange +
-      ((b2 - b6) * 0.5 - b6 * 0.5 - centroidYMm) ** 2 * areaExtraFlange) / 10 ** 4;
+      ((b2 - b6) * 0.5 + b6 * 0.5 - centroidYMm) ** 2 * areaExtraFlange) / 10 ** 4;
   const modulusZBottomCm3 = (10 * inertiaZCm4) / centroidYMm;
   const modulusZTopCm3 = (10 * inertiaZCm4) / (b2 - centroidYMm);
 
@@ -323,6 +403,11 @@ export function computeMainGirder(
           torsionBoxHeightCm / (0.1 * t3) +
           torsionBoxHeightCm / (0.1 * t4));
 
+  // CMAA 70 3.5.1 — kaynaklı kutu kiriş oranları (bilgi amaçlı gösterilir)
+  const spanMm = specs.spanM * 1000;                     // L — açıklık
+  const spanToDepthRatio = spanMm / heightMm;            // L/h ≤ 25
+  const spanToWidthRatio = spanMm / webGapMm;            // L/b ≤ 65
+
   Object.assign(cells, {
     "section.areaTopFlange": areaTopFlange,
     "section.areaTopInnerFlange": areaTopInnerFlange,
@@ -337,6 +422,7 @@ export function computeMainGirder(
     "section.inertiaY": inertiaYCm4,
     "section.modulusYBottom": modulusYBottomCm3,
     "section.modulusYTop": modulusYTopCm3,
+    "section.railCenterY": railCenterYMm,
     "section.centroidY": centroidYMm,
     "section.inertiaZ": inertiaZCm4,
     "section.modulusZBottom": modulusZBottomCm3,
@@ -345,12 +431,13 @@ export function computeMainGirder(
     "section.inertiaTorsionOpen": inertiaTorsionOpenCm4,
     "section.torsionBoxWidth": torsionBoxWidthCm,
     "section.torsionBoxHeight": torsionBoxHeightCm,
+    "section.spanToDepthRatio": spanToDepthRatio,
+    "section.spanToWidthRatio": spanToWidthRatio,
   });
 
   // --- 7.2 Yükler -----------------------------------------------------------
   // Bir ana kirişe düşen köprü öz ağırlığı (iki kiriş) [kg]
-  const bridgeDeadWeightKg =
-    ((deps.bridgeGirdersWeightT + deps.bridgeEndCarriagesWeightT) / 2) * 1000;
+  const bridgeDeadWeightKg = (deps.bridgeWeightT / 2) * 1000;
   const trolleyWeightKg = deps.trolleyWeightT * 1000;
   const hoistLoadKg = specs.mainCapacityT * 1000;
   const belowHookWeightKg = deps.mainHookBlockWeightKg + deps.mainRopeWeightKg;
@@ -366,14 +453,20 @@ export function computeMainGirder(
   const bridgeSpeedMs = deps.bridgeActualSpeedMpm / 60;
   const bridgeAccelMs2 = bridgeSpeedMs / deps.bridgeAccelTimeS;
 
-  // Yükün sarkaç periyodu ve ivmelenme süresine oranı (FEM A.2.2.1 şekli)
+  // FEM A.2.2.3 — sarkaç periyodu T1, kütle oranı µ = m1/m ve β = tm/T1.
+  // m1 asılı kütledir: yük + kanca bloğu + halat (= toplam hareketli yük).
+  // m ise harekete zorlanan eşdeğer kütledir: araba yürütmede arabanın kendisi,
+  // köprü yürütmede tüm köprü + araba.
   const pendulumPeriodS = 2 * Math.PI * Math.sqrt(inp.hookTopPositionM / GRAVITY);
-  const massRatioBridge = hoistLoadKg / bridgeDeadWeightKg;
-  const massRatioTrolley = hoistLoadKg / trolleyWeightKg;
+  const bridgeMovingMassKg = deps.bridgeWeightT * 1000 + trolleyWeightKg;
+  const massRatioBridge = totalLiveLoadKg / bridgeMovingMassKg;
+  const massRatioTrolley = totalLiveLoadKg / trolleyWeightKg;
   const betaBridge = deps.bridgeAccelTimeS / pendulumPeriodS;
   const betaTrolley = deps.trolleyAccelTimeS / pendulumPeriodS;
+  const psiHA = inp.psiHAOverride ?? horizontalDynamicFactor(massRatioTrolley);
+  const psiHK = inp.psiHKOverride ?? horizontalDynamicFactor(massRatioBridge);
 
-  // Yanal (skew) yük katsayısı λ — FEM 1.001 2.2.3.1.2, 0,05…0,20 bandına kırpılır
+  // Yanal (skew) yük katsayısı λ — FEM 1.001 2.2.3.3, 0,05…0,20 bandına kırpılır
   const clampSkew = (v: number) => (v < 0.05 ? 0.05 : v > 0.2 ? 0.2 : v);
   const skewFactorBridge = clampSkew((0.025 * specs.spanM) / inp.bridgeAxleSpacingM);
   const skewFactorTrolley =
@@ -381,20 +474,24 @@ export function computeMainGirder(
 
   // Araba yatay yükleri (FEM 1.001 2.2.3.1.1)
   const trolleyInertiaLoadKg =
-    (trolleyAccelMs2 * (hoistLoadKg * inp.psiHA + 2 * trolleyWeightKg)) / GRAVITY;
+    (trolleyAccelMs2 * (hoistLoadKg * psiHA + 2 * trolleyWeightKg)) / GRAVITY;
   const trolleyWheelPressureKg = trolleyWeightKg / deps.trolleyWheelCount;
-  // Tahrikli tekerde sürtünme ile aktarılabilen en büyük kuvvet (μ ≈ 1/7, çift teker)
-  const trolleyTractionLimitKg = (inp.trolleyDrivenWheels * trolleyWheelPressureKg) / 14;
+  // Tahrikli tekerde sürtünme ile aktarılabilen en büyük kuvvet (μ = 1/7, çift teker)
+  const trolleyTractionLimitKg =
+    (deps.trolleyDrivenWheels * trolleyWheelPressureKg) / TRACTION_LIMIT_DIVISOR;
   const trolleyHorizontalKg =
     trolleyTractionLimitKg < trolleyInertiaLoadKg
       ? trolleyTractionLimitKg / 2
       : trolleyInertiaLoadKg / 2;
   const trolleySkewKg = (trolleyWeightKg + hoistLoadKg) * skewFactorTrolley;
 
-  // Köprü yatay yükleri
-  const bridgeInertiaLoadKg = (bridgeAccelMs2 * (2 * bridgeDeadWeightKg)) / GRAVITY;
+  // Köprü yatay yükleri — araba ile SİMETRİK: asılı yük ψhK ile dahil edilir
+  // (FEM 1.001 2.2.3.1.1 + A.2.2.3: yükten gelen atalet kuvveti ψh·Fcm).
+  const bridgeInertiaLoadKg =
+    (bridgeAccelMs2 * (hoistLoadKg * psiHK + 2 * bridgeDeadWeightKg)) / GRAVITY;
   const bridgeWheelPressureKg = bridgeDeadWeightKg / deps.bridgeWheelCount;
-  const bridgeTractionLimitKg = (inp.bridgeDrivenWheels * bridgeWheelPressureKg) / 14;
+  const bridgeTractionLimitKg =
+    (deps.bridgeDrivenWheels * bridgeWheelPressureKg) / TRACTION_LIMIT_DIVISOR;
   const bridgeHorizontalKg =
     bridgeTractionLimitKg < bridgeInertiaLoadKg
       ? bridgeTractionLimitKg / 2
@@ -403,6 +500,7 @@ export function computeMainGirder(
 
   Object.assign(cells, {
     "load.bridgeDeadWeight": bridgeDeadWeightKg,
+    "load.bridgeTotalWeight": deps.bridgeWeightT * 1000,
     "load.trolleyWeight": trolleyWeightKg,
     "load.hoistLoad": hoistLoadKg,
     "load.belowHookWeight": belowHookWeightKg,
@@ -413,11 +511,18 @@ export function computeMainGirder(
     "load.trolleyAccel": trolleyAccelMs2,
     "load.bridgeSpeed": bridgeSpeedMs,
     "load.bridgeAccel": bridgeAccelMs2,
+    "load.trolleyWheelCount": deps.trolleyWheelCount,
+    "load.trolleyDrivenWheels": deps.trolleyDrivenWheels,
+    "load.bridgeWheelCount": deps.bridgeWheelCount,
+    "load.bridgeDrivenWheels": deps.bridgeDrivenWheels,
     "load.pendulumPeriod": pendulumPeriodS,
+    "load.bridgeMovingMass": bridgeMovingMassKg,
     "load.massRatioBridge": massRatioBridge,
     "load.massRatioTrolley": massRatioTrolley,
     "load.betaBridge": betaBridge,
     "load.betaTrolley": betaTrolley,
+    "load.psiHA": psiHA,
+    "load.psiHK": psiHK,
     "load.skewFactorBridge": skewFactorBridge,
     "load.skewFactorTrolley": skewFactorTrolley,
     "load.trolleyInertia": trolleyInertiaLoadKg,
@@ -434,24 +539,23 @@ export function computeMainGirder(
 
   // --- 7.4 Gerilme analizi --------------------------------------------------
   const axleSpacingMm = inp.trolleyAxleSpacingM * 1000; // a — araba dingil açıklığı
-  const spanMm = specs.spanM * 1000;                    // L — açıklık
   const wheelToSupportMm = (spanMm - axleSpacingMm) / 2; // b — mesnetten tekere
 
-  // 4.1.1 Düşey yükler → σx (Mmaks = W·L/8; mm→cm için /10)
+  // σ1…σ3 — düşey yükler → σx (Mmaks = W·L/8; mm→cm için /10)
   const momentSelfWeight = (spanMm * bridgeDeadWeightKg) / 80;
-  const sigmaXSelfWeightBottom = momentSelfWeight / modulusYBottomCm3;
-  const sigmaXSelfWeightTop = -momentSelfWeight / modulusYTopCm3;
+  const sigmaXSelfWeightBottom = momentSelfWeight / modulusYBottomCm3;   // σ1 alt
+  const sigmaXSelfWeightTop = -momentSelfWeight / modulusYTopCm3;        // σ1 üst
   const trolleyWheelLoadKg = trolleyWeightKg / 4;
   const momentTrolley = (wheelToSupportMm * trolleyWheelLoadKg) / 10;
-  const sigmaXTrolleyBottom = momentTrolley / modulusYBottomCm3;
-  const sigmaXTrolleyTop = -momentTrolley / modulusYTopCm3;
+  const sigmaXTrolleyBottom = momentTrolley / modulusYBottomCm3;         // σ2 alt
+  const sigmaXTrolleyTop = -momentTrolley / modulusYTopCm3;              // σ2 üst
   const hoistWheelLoadKg = hoistLoadKg / 4;
   const momentHoistLoad = (wheelToSupportMm * hoistWheelLoadKg) / 10;
   const momentVerticalTotal = momentSelfWeight + momentTrolley + momentHoistLoad;
-  const sigmaXHoistBottom = momentHoistLoad / modulusYBottomCm3;
-  const sigmaXHoistTop = -momentHoistLoad / modulusYTopCm3;
+  const sigmaXHoistBottom = momentHoistLoad / modulusYBottomCm3;         // σ3 alt
+  const sigmaXHoistTop = -momentHoistLoad / modulusYTopCm3;              // σ3 üst
 
-  // 4.1.2 Yatay yükler → σx (düşey eksen etrafında eğilme)
+  // σ4, σ5 — yatay yükler → σx (düşey eksen etrafında eğilme)
   const momentBridgeHorizontal = (spanMm * bridgeHorizontalKg) / 80;
   const sigmaXLateralBridgeBottom = momentBridgeHorizontal / modulusZBottomCm3;
   const sigmaXLateralBridgeTop = momentBridgeHorizontal / modulusZTopCm3;
@@ -459,12 +563,12 @@ export function computeMainGirder(
   const sigmaXLateralTrolleyBottom = momentTrolleySkew / modulusZBottomCm3;
   const sigmaXLateralTrolleyTop = momentTrolleySkew / modulusZTopCm3;
 
-  // 4.1.3 Ray kolu (kayma merkezi eksantrikliği) → σx
+  // σ6 — ray kolu (kayma merkezi eksantrikliği) → σx
   const momentRailLever = (inp.railLeverCMm * trolleyHorizontalKg) / 10;
   const sigmaXRailLeverBottom = momentRailLever / modulusYBottomCm3;
   const sigmaXRailLeverTop = momentRailLever / modulusYTopCm3;
 
-  // 4.1.4 İkincil momentler (perdeler arası yerel eğilme)
+  // σ7, σ8 — ikincil momentler (perdeler arası yerel eğilme)
   const momentSecondaryTrolley = (inp.diaphragmSpacingMm * trolleyWheelLoadKg) / 50;
   const sigmaXSecondaryTrolleyBottom = momentSecondaryTrolley / modulusYBottomCm3 / 3;
   const sigmaXSecondaryTrolleyTop = -momentSecondaryTrolley / modulusYTopCm3 / 3;
@@ -472,21 +576,21 @@ export function computeMainGirder(
   const sigmaXSecondaryHoistBottom = momentSecondaryHoist / modulusYBottomCm3;
   const sigmaXSecondaryHoistTop = -momentSecondaryHoist / modulusYTopCm3;
 
-  // 4.2 Tekerlek basıncı → σz (basınç, negatif)
+  // σ9, σ10 — tekerlek basıncı → σz (basınç, negatif) — DIN 15018 Şekil 9
   const wheelContactLengthMm = 2 * inp.wheelContactHMm + 40;
   const contactWidthCm = (0.2 * inp.wheelContactHMm + 5) * inp.wheelContactTMm * 0.1;
   const sigmaZTrolley = -(trolleyWheelLoadKg / 2) / contactWidthCm;
   const sigmaZHoist = -(hoistWheelLoadKg / 2) / contactWidthCm;
 
-  // 4.3.1 Burulma → kayma gerilmesi (Bredt: τ = T / (2·Am·t))
-  const torsionLeverMm = centroidYMm - (edgeDistMm + t3 / 2);
+  // τ1, τ2 — burulma → kayma gerilmesi (Bredt: τ = T / (2·Am·t))
+  const torsionLeverMm = centroidYMm - railCenterYMm;
   const momentTorsionTrolley = (trolleyWheelLoadKg * torsionLeverMm) / 10;
   const torsionShearDenominator = 2 * areaCm2 * ((t3 + t4) / 2);
   const shearTorsionTrolley = momentTorsionTrolley / torsionShearDenominator;
   const momentTorsionHoist = (hoistWheelLoadKg * torsionLeverMm) / 10;
   const shearTorsionHoist = momentTorsionHoist / torsionShearDenominator;
 
-  // 4.3.2 Kesme kuvveti → gövde saclarında kayma gerilmesi
+  // τ3, τ4, τ5 — kesme kuvveti → gövde saclarında kayma gerilmesi
   const webDepthAboveCentroidMm = heightMm - centroidZMm - t2;
   const mainWebShearAreaCm2 = (h3 * t3) / 100;
   const shearMainSelfWeight =
@@ -508,9 +612,12 @@ export function computeMainGirder(
   Object.assign(cells, {
     "geometry.wheelToSupport": wheelToSupportMm,
     "geometry.wheelContactLength": wheelContactLengthMm,
+    "geometry.railLever": inp.railLeverCMm,
+    "geometry.torsionLever": torsionLeverMm,
     "section.webDepthAboveCentroid": webDepthAboveCentroidMm,
     "section.mainWebShearArea": mainWebShearAreaCm2,
     "section.secondaryWebShearArea": secondaryWebShearAreaCm2,
+    "section.wheelContactWidth": contactWidthCm,
     "load.trolleyWheelLoad": trolleyWheelLoadKg,
     "load.hoistWheelLoad": hoistWheelLoadKg,
     "load.selfWeightSecondaryShare": selfWeightSecondaryShareKg,
@@ -572,15 +679,18 @@ export function computeMainGirder(
   const shearSecondaryCase1 =
     shearTorsionTrolley + dynamicFactor * shearTorsionHoist +
     shearSecondarySelfWeight + shearSecondaryTrolley + dynamicFactor * shearSecondaryHoist;
-  // von Mises bileşke (düzlem gerilme): √(σx² + σz² − |σx·σz| + 3τ²)
-  const combinedBottomCase1 = Math.sqrt(
-    sigmaXBottomCase1 ** 2 + sigmaZCase1 ** 2 -
-      Math.abs(sigmaXBottomCase1 * sigmaZCase1) + 3 * shearSecondaryCase1 ** 2
-  );
-  const combinedTopCase1 = Math.sqrt(
-    sigmaXTopCase1 ** 2 + sigmaZCase1 ** 2 -
-      Math.abs(sigmaXTopCase1 * sigmaZCase1) + 3 * shearSecondaryCase1 ** 2
-  );
+
+  // Bileşik gerilme her gövde sacı için AYRI hesaplanır; kontrol elverişsiz
+  // olan (en büyük) değer üzerinden yürür (FEM 1.001 3.2.1.3).
+  const combinedBottomMainCase1 = vonMisesPlane(sigmaXBottomCase1, sigmaZCase1, shearMainCase1);
+  const combinedBottomSecondaryCase1 =
+    vonMisesPlane(sigmaXBottomCase1, sigmaZCase1, shearSecondaryCase1);
+  const combinedBottomCase1 = Math.max(combinedBottomMainCase1, combinedBottomSecondaryCase1);
+  const combinedTopMainCase1 = vonMisesPlane(sigmaXTopCase1, sigmaZCase1, shearMainCase1);
+  const combinedTopSecondaryCase1 =
+    vonMisesPlane(sigmaXTopCase1, sigmaZCase1, shearSecondaryCase1);
+  const combinedTopCase1 = Math.max(combinedTopMainCase1, combinedTopSecondaryCase1);
+
   const amplifiedSigmaXBottom = amplifyFactor * sigmaXBottomCase1;
   const amplifiedShearMain = amplifyFactor * shearMainCase1;
   const amplifiedSigmaXTop = amplifyFactor * sigmaXTopCase1;
@@ -598,14 +708,26 @@ export function computeMainGirder(
     sigmaXSelfWeightBottom + sigmaXTrolleyBottom + testFactor * sigmaXHoistBottom +
     sigmaXLateralBridgeBottom + sigmaXLateralTrolleyBottom + sigmaXRailLeverBottom +
     sigmaXSecondaryTrolleyBottom + testFactor * sigmaXSecondaryHoistBottom;
+  const sigmaXTopCase3 =
+    sigmaXSelfWeightTop + sigmaXTrolleyTop + testFactor * sigmaXHoistTop -
+    sigmaXLateralBridgeTop - sigmaXLateralTrolleyTop - sigmaXRailLeverTop +
+    sigmaXSecondaryTrolleyTop + testFactor * sigmaXSecondaryHoistTop;
   const shearMainCase3 =
     shearTorsionTrolley + testFactor * shearTorsionHoist +
     shearMainSelfWeight + shearMainTrolley + testFactor * shearMainHoist;
+  const shearSecondaryCase3 =
+    shearTorsionTrolley + testFactor * shearTorsionHoist +
+    shearSecondarySelfWeight + shearSecondaryTrolley + testFactor * shearSecondaryHoist;
   const sigmaZCase3 = sigmaZTrolley + testFactor * sigmaZHoist;
-  const combinedCase3 = Math.sqrt(
-    sigmaXBottomCase3 ** 2 + sigmaZCase3 ** 2 -
-      Math.abs(sigmaXBottomCase3 * sigmaZCase3) + 3 * shearMainCase3 ** 2
+  const combinedBottomCase3 = Math.max(
+    vonMisesPlane(sigmaXBottomCase3, sigmaZCase3, shearMainCase3),
+    vonMisesPlane(sigmaXBottomCase3, sigmaZCase3, shearSecondaryCase3)
   );
+  const combinedTopCase3 = Math.max(
+    vonMisesPlane(sigmaXTopCase3, sigmaZCase3, shearMainCase3),
+    vonMisesPlane(sigmaXTopCase3, sigmaZCase3, shearSecondaryCase3)
+  );
+  const combinedCase3 = Math.max(combinedBottomCase3, combinedTopCase3);
 
   const allow = GIRDER_ALLOWABLE_STRESS[sel.staticMaterial];
 
@@ -616,7 +738,11 @@ export function computeMainGirder(
     "stress.sigmaZCase1": sigmaZCase1,
     "stress.shearMainCase1": shearMainCase1,
     "stress.shearSecondaryCase1": shearSecondaryCase1,
+    "stress.combinedBottomMainCase1": combinedBottomMainCase1,
+    "stress.combinedBottomSecondaryCase1": combinedBottomSecondaryCase1,
     "stress.combinedBottomCase1": combinedBottomCase1,
+    "stress.combinedTopMainCase1": combinedTopMainCase1,
+    "stress.combinedTopSecondaryCase1": combinedTopSecondaryCase1,
     "stress.combinedTopCase1": combinedTopCase1,
     "stress.amplifiedSigmaXBottom": amplifiedSigmaXBottom,
     "stress.amplifiedShearMain": amplifiedShearMain,
@@ -627,8 +753,12 @@ export function computeMainGirder(
     "stress.amplifiedCombinedTop": amplifiedCombinedTop,
     "stress.testFactor": testFactor,
     "stress.sigmaXBottomCase3": sigmaXBottomCase3,
+    "stress.sigmaXTopCase3": sigmaXTopCase3,
     "stress.shearMainCase3": shearMainCase3,
+    "stress.shearSecondaryCase3": shearSecondaryCase3,
     "stress.sigmaZCase3": sigmaZCase3,
+    "stress.combinedBottomCase3": combinedBottomCase3,
+    "stress.combinedTopCase3": combinedTopCase3,
     "stress.combinedCase3": combinedCase3,
     "stress.allowableCase1": allow.case1,
     "stress.allowableCase3": allow.case3,
@@ -637,42 +767,58 @@ export function computeMainGirder(
   const worstCombinedCase1 = Math.max(amplifiedCombinedBottom, amplifiedCombinedTop);
   checks.push({
     id: "girder.stress.case1",
-    label: "Yükleme Durumu I bileşik gerilme (γc·σcomb)",
+    label: "Yükleme Durumu I Bileşik Gerilme (γc·σcomb)",
     required: worstCombinedCase1, provided: allow.case1, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: allow.case1 >= worstCombinedCase1,
     standard: "FEM 1.001 T.3.2.1.1",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "girder.stress.case3",
-    label: "Yükleme Durumu III bileşik gerilme (test durumu)",
+    label: "Yükleme Durumu III Bileşik Gerilme (Test Durumu)",
     required: combinedCase3, provided: allow.case3, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: allow.case3 >= combinedCase3,
     standard: "FEM 1.001 T.3.2.1.1",
     kind: "standart", severity: "engelleyici",
   });
 
   // --- 7.5 Yorulma kontrolü (DIN 15018) -------------------------------------
+  // Yorulma girdileri ELLE GİRİLMEZ: hepsi 7.4 gerilme analizinden gelir.
+  //  σx : açıklık ortası alt lif normal gerilmesi (maks = Durum I, min = yalnız öz ağırlık)
+  //  σy : gövde sacındaki yerel enine gerilme = teker basıncı σz
+  //       (basınç olduğundan genlik hesabı MUTLAK değerlerle yapılır; κ oranı korunur)
+  //  τ  : gerçek kayma gerilmesi (maks = elverişsiz gövde sacı, min = yalnız öz ağırlık)
   const loadGroup = girderLoadGroup(specs, sel);
+  const fatigueTensileNmm2 =
+    inp.fatigueTensileOverrideNmm2 ?? FATIGUE_TENSILE_NMM2[sel.fatigueMaterial];
+
   const fatigueSigmaXMax = sigmaXBottomCase1 / KG_CM2_TO_NMM2;
-  const fatigueSigmaYMax = inp.sigmaYMaxNmm2;
-  const fatigueTauMax = sigmaZCase1 / KG_CM2_TO_NMM2;
   const fatigueSigmaXMin = sigmaXSelfWeightBottom / KG_CM2_TO_NMM2;
-  const fatigueSigmaYMin = inp.sigmaYMinNmm2;
-  const fatigueTauMin = shearMainTrolley / KG_CM2_TO_NMM2;
+  const fatigueSigmaYMax =
+    inp.sigmaYMaxOverrideNmm2 ?? Math.abs(sigmaZCase1) / KG_CM2_TO_NMM2;
+  const fatigueSigmaYMin =
+    inp.sigmaYMinOverrideNmm2 ?? Math.abs(sigmaZTrolley) / KG_CM2_TO_NMM2;
+  const fatigueTauMax =
+    Math.max(Math.abs(shearMainCase1), Math.abs(shearSecondaryCase1)) / KG_CM2_TO_NMM2;
+  const fatigueTauMin = Math.abs(shearMainSelfWeight) / KG_CM2_TO_NMM2;
 
   const allowableD1 = t17(sel.fatigueMaterial, sel.fatigueNotchClass, loadGroup);
   const allowableDz0 = (allowableD1 * 5) / 3;
-  const kappaX = fatigueSigmaXMin / fatigueSigmaXMax;
   // DIN 15018 Tablo 18 — κ (gerilme oranı) düzeltmesi
-  const allowableSigmaX =
-    allowableDz0 / (1 - (1 - allowableDz0 / inp.fatigueTensileNmm2 / 0.75) * kappaX);
+  const kappaCorrect = (dz0: number, kappa: number) =>
+    dz0 / (1 - (1 - dz0 / fatigueTensileNmm2 / 0.75) * kappa);
+  const kappaX = fatigueSigmaXMin / fatigueSigmaXMax;
+  const allowableSigmaX = kappaCorrect(allowableDz0, kappaX);
   const kappaY = fatigueSigmaYMin / fatigueSigmaYMax;
-  const allowableSigmaY =
-    allowableDz0 / (1 - (1 - allowableDz0 / inp.fatigueTensileNmm2 / 0.75) * kappaY);
-  // Kayma için çentik durumu daima W0 kabul edilir (DIN 15018 7.4.3)
+  const allowableSigmaY = kappaCorrect(allowableDz0, kappaY);
+  // Kayma için çentik durumu daima W0 kabul edilir (DIN 15018 7.4.3); izin
+  // verilen kayma, aynı κ düzeltmesinden geçmiş normal gerilme / √3'tür.
   const allowableTauW0 = t17(sel.fatigueMaterial, "W0", loadGroup);
-  const allowableTau = allowableTauW0 / Math.sqrt(3);
+  const allowableTauDz0 = (allowableTauW0 * 5) / 3;
+  const kappaTau = fatigueTauMin / fatigueTauMax;
+  const allowableTau = kappaCorrect(allowableTauDz0, kappaTau) / Math.sqrt(3);
   const fatigueCombined =
     (fatigueSigmaXMax / allowableSigmaX) ** 2 +
     (fatigueSigmaYMax / allowableSigmaY) ** 2 -
@@ -681,9 +827,12 @@ export function computeMainGirder(
 
   Object.assign(cells, {
     "fatigue.loadGroup": loadGroup,
+    "fatigue.tensileStrength": fatigueTensileNmm2,
     "fatigue.sigmaXMax": fatigueSigmaXMax,
-    "fatigue.tauMax": fatigueTauMax,
     "fatigue.sigmaXMin": fatigueSigmaXMin,
+    "fatigue.sigmaYMax": fatigueSigmaYMax,
+    "fatigue.sigmaYMin": fatigueSigmaYMin,
+    "fatigue.tauMax": fatigueTauMax,
     "fatigue.tauMin": fatigueTauMin,
     "fatigue.allowableD1": allowableD1,
     "fatigue.allowableDz0": allowableDz0,
@@ -692,6 +841,8 @@ export function computeMainGirder(
     "fatigue.kappaY": kappaY,
     "fatigue.allowableSigmaY": allowableSigmaY,
     "fatigue.allowableTauW0": allowableTauW0,
+    "fatigue.allowableTauDz0": allowableTauDz0,
+    "fatigue.kappaTau": kappaTau,
     "fatigue.allowableTau": allowableTau,
     "fatigue.combined": fatigueCombined,
     "fatigue.combinedLimit": FATIGUE_COMBINED_LIMIT,
@@ -700,6 +851,7 @@ export function computeMainGirder(
     id: "girder.fatigue.sigmaX",
     label: "Yorulma σx,maks ≤ zul σDz(κ)",
     required: fatigueSigmaXMax, provided: allowableSigmaX, unit: "N/mm²", op: ">=",
+    computedSide: "required",
     pass: fatigueSigmaXMax <= allowableSigmaX,
     standard: "DIN 15018 T.17/18",
     kind: "standart", severity: "engelleyici",
@@ -708,6 +860,7 @@ export function computeMainGirder(
     id: "girder.fatigue.sigmaY",
     label: "Yorulma σy,maks ≤ zul σDz(κ)",
     required: fatigueSigmaYMax, provided: allowableSigmaY, unit: "N/mm²", op: ">=",
+    computedSide: "required",
     pass: fatigueSigmaYMax <= allowableSigmaY,
     standard: "DIN 15018 T.17/18",
     kind: "standart", severity: "engelleyici",
@@ -716,14 +869,16 @@ export function computeMainGirder(
     id: "girder.fatigue.tau",
     label: "Yorulma τ,maks ≤ zul τD(κ)",
     required: fatigueTauMax, provided: allowableTau, unit: "N/mm²", op: ">=",
+    computedSide: "required",
     pass: fatigueTauMax <= allowableTau,
     standard: "DIN 15018 T.17",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "girder.fatigue.combined",
-    label: "Bileşik yorulma oranı",
+    label: "Bileşik Yorulma Oranı",
     required: fatigueCombined, provided: FATIGUE_COMBINED_LIMIT, unit: "-", op: ">=",
+    computedSide: "required",
     pass: fatigueCombined <= FATIGUE_COMBINED_LIMIT,
     standard: "DIN 15018 7.4.5",
     kind: "standart", severity: "engelleyici",
@@ -733,7 +888,8 @@ export function computeMainGirder(
   const deflectionWheelLoadKg = trolleyWheelLoadKg + hoistWheelLoadKg;
   const deflectionSpanCm = spanMm / 10;
   const deflectionLoadOffsetCm = (deflectionSpanCm - axleSpacingMm / 10) / 2;
-  // İki simetrik tekil yük altında açıklık ortası sehimi [cm]
+  // İki simetrik tekil yük altında açıklık ortası sehimi — hesap cm cinsinden
+  // yapılır, SUNULAN değer mm'dir (vinç pratiğinde sehim mm ile konuşulur).
   const deflectionCm =
     -1 *
     ((deflectionWheelLoadKg *
@@ -742,18 +898,22 @@ export function computeMainGirder(
       24 /
       ELASTIC_MODULUS_KG_CM2 /
       inertiaYCm4);
-  const deflectionRatio = deflectionSpanCm / deflectionCm;
+  const deflectionMm = deflectionCm * 10;
+  // Oran birimsizdir: açıklık da mm'ye çevrilir (spanMm / δ[mm])
+  const deflectionRatio = spanMm / deflectionMm;
   Object.assign(cells, {
     "deflection.wheelLoad": deflectionWheelLoadKg,
     "deflection.span": deflectionSpanCm,
+    "deflection.spanMm": spanMm,
     "deflection.loadOffset": deflectionLoadOffsetCm,
-    "deflection.value": deflectionCm,
+    "deflection.value": deflectionMm,
     "deflection.ratio": deflectionRatio,
   });
   checks.push({
     id: "girder.deflection",
-    label: "Sehim oranı (L/δ)",
+    label: "Sehim Oranı (L/δ)",
     required: inp.deflectionLimitRatio, provided: deflectionRatio, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: deflectionRatio >= inp.deflectionLimitRatio,
     standard: "CMAA 70 3.5.5.1",
     // Sınır oranı mühendisin seçtiği bir kullanılabilirlik hedefidir; aşılması
@@ -770,6 +930,7 @@ export function computeMainGirder(
     wyyBottomCm3: modulusYBottomCm3,
     wyyTopCm3: modulusYTopCm3,
     cyMm: centroidYMm,
+    railCenterYMm,
     izzCm4: inertiaZCm4,
     wzzBottomCm3: modulusZBottomCm3,
     wzzTopCm3: modulusZTopCm3,
@@ -781,6 +942,8 @@ export function computeMainGirder(
     dynamicFactor,
     trolleyAccelMs2,
     bridgeAccelMs2,
+    psiHA,
+    psiHK,
     trolleyHorizontalLoadKg: trolleyHorizontalKg,
     trolleySkewLoadKg: trolleySkewKg,
     bridgeHorizontalLoadKg: bridgeHorizontalKg,
@@ -802,17 +965,22 @@ export function computeMainGirder(
     allowableCase3: allow.case3,
     fatigueSigmaXMax,
     fatigueSigmaXMin,
+    fatigueSigmaYMax,
+    fatigueSigmaYMin,
     fatigueTauMax,
+    fatigueTauMin,
+    fatigueTensileNmm2,
     zulSigmaD1: allowableD1,
     zulSigmaDz0: allowableDz0,
     kappaX,
     zulSigmaDzX: allowableSigmaX,
     kappaY,
     zulSigmaDzY: allowableSigmaY,
+    kappaTau,
     zulTauW0: allowableTauW0,
     zulTauDX: allowableTau,
     fatigueCombined,
-    deflectionCm,
+    deflectionMm,
     deflectionRatio,
   };
 

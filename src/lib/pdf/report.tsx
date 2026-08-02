@@ -29,6 +29,7 @@ import {
   BrandPage,
   CheckGlyph,
   FONTS,
+  Link,
   PageHeader,
   RuleRed,
   SectionTag,
@@ -38,16 +39,22 @@ import { PdfMath } from "@/lib/pdf/pdf-math";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
-import { SPEC_FIELDS } from "@/lib/calc/fields";
+import { SPEC_FIELDS, fieldLabel } from "@/lib/calc/fields";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
-import { checkKind, checkSeverity } from "@/lib/calc/types";
-import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
-import type { HoistCtx } from "@/lib/calc/presentation/hoistSections";
-import type { HookBlockCtx } from "@/lib/calc/presentation/hookBlockSections";
-import type { TravelCtx } from "@/lib/calc/presentation/travelSections";
-import type { GirderCtx } from "@/lib/calc/presentation/girderSections";
-import type { BucklingCtx } from "@/lib/calc/presentation/bucklingSections";
-import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections";
+import { MODULE_LABELS } from "@/lib/calc/labels";
+import {
+  MODULE_ORDER,
+  isHoistKey,
+  isHookBlockKey,
+  isTravelKey,
+} from "@/lib/calc/presentation/module-family";
+import {
+  ctxFor,
+  moduleResult,
+  moduleState,
+} from "@/lib/calc/presentation/module-access";
+import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
+import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import {
   MODULE_ADAPTERS,
   buildModuleDeps,
@@ -162,114 +169,8 @@ function docCodeFor(project: ReportProject, revision: ReportRevision): string {
   return `ORC-HR-${project.doc_no}-R${String(revision.rev_no).padStart(2, "0")}`;
 }
 
-// Modül anahtarı -> CalcInput / CalcResult erişimi (editor'daki desenle aynı)
-
-function moduleState(
-  input: CalcInput,
-  key: ModuleKey
-): { inputs: object; selections: object } | undefined {
-  switch (key) {
-    case "main":
-      return input.mainHoist;
-    case "aux":
-      return input.auxHoist;
-    case "hookBlock":
-      return input.hookBlock;
-    case "trolley":
-      return input.trolley;
-    case "bridge":
-      return input.bridge;
-    case "girder":
-      return input.girder;
-    case "buckling":
-      return input.buckling ? { inputs: input.buckling.inputs, selections: {} } : undefined;
-    case "endCarriage":
-      return input.endCarriage;
-  }
-}
-
-function moduleResult(result: CalcResult, key: ModuleKey): ModuleResult<unknown> | undefined {
-  const map: Record<ModuleKey, ModuleResult<unknown> | undefined> = {
-    main: result.mainHoist,
-    aux: result.auxHoist,
-    hookBlock: result.hookBlock,
-    trolley: result.trolley,
-    bridge: result.bridge,
-    girder: result.girder,
-    buckling: result.buckling,
-    endCarriage: result.endCarriage,
-  };
-  return map[key];
-}
-
-/** Sunum katmanı ctx'i — revision-editor.tsx'teki ctxFor ile aynı desen */
-function ctxFor(
-  key: ModuleKey,
-  input: CalcInput,
-  result: CalcResult,
-  deps: ModuleDepsBundle
-): unknown {
-  const mr = moduleResult(result, key);
-  const c = mr?.cells ?? {};
-  const specs = input.specs;
-  switch (key) {
-    case "main":
-    case "aux": {
-      const st = key === "main" ? input.mainHoist! : input.auxHoist!;
-      const ctx: HoistCtx = { c, inp: st.inputs, sel: st.selections, specs, which: key };
-      return ctx;
-    }
-    case "hookBlock": {
-      const ctx: HookBlockCtx = {
-        c,
-        v: result.hookBlock!.values,
-        inp: input.hookBlock!.inputs,
-        sel: input.hookBlock!.selections,
-        deps: deps.hookBlock,
-        specs,
-      };
-      return ctx;
-    }
-    case "trolley":
-    case "bridge": {
-      const st = key === "trolley" ? input.trolley! : input.bridge!;
-      const ctx: TravelCtx = {
-        c,
-        v: (key === "trolley" ? result.trolley! : result.bridge!).values,
-        inp: st.inputs,
-        sel: st.selections,
-        specs,
-        deps: deps.travel,
-        which: key,
-      };
-      return ctx;
-    }
-    case "girder": {
-      const ctx: GirderCtx = {
-        c,
-        inp: input.girder!.inputs,
-        sel: input.girder!.selections,
-        deps: deps.girder,
-        specs,
-      };
-      return ctx;
-    }
-    case "buckling": {
-      const ctx: BucklingCtx = { c, inp: input.buckling!.inputs };
-      return ctx;
-    }
-    case "endCarriage": {
-      const ctx: EndCarriageCtx = {
-        c,
-        inp: input.endCarriage!.inputs,
-        sel: input.endCarriage!.selections,
-        deps: deps.endCarriage,
-        specs,
-      };
-      return ctx;
-    }
-  }
-}
+// Modül erişimi (girdi durumu / sonuç / sunum bağlamı) ortak katmandan gelir:
+// aynı üçlü hem editörde hem burada kullanılır, çoğaltılmaz.
 
 function sectionChecks(
   adapter: ModuleAdapter,
@@ -347,8 +248,20 @@ const s = StyleSheet.create({
     paddingVertical: 7,
     gap: 10,
   },
+  tocLink: { textDecoration: "none", color: BRAND.ink },
   tocNo: { width: 30, fontFamily: FONTS.mono, fontSize: 9, fontWeight: 600, color: BRAND.red },
-  tocTitle: { fontFamily: FONTS.sans, fontSize: 9.5, fontWeight: 700, color: BRAND.ink },
+  tocTitle: { fontFamily: FONTS.sans, fontSize: 9.5, fontWeight: 700, color: BRAND.ink, maxWidth: 300 },
+  // Başlık ile sayfa numarası arasını dolduran ince ayraç (metin değil ki sarmasın)
+  tocDots: {
+    flexGrow: 1,
+    height: 1,
+    marginHorizontal: 6,
+    marginBottom: 2,
+    borderBottomWidth: 0.75,
+    borderBottomColor: BRAND.line300,
+    borderBottomStyle: "dotted",
+  },
+  tocPage: { fontFamily: FONTS.mono, fontSize: 9, fontWeight: 600, color: BRAND.gray700 },
   // ---- etiket-değer tabloları (girdi/seçim/özet)
   kvGrid: { flexDirection: "row", gap: 14 },
   kvCol: { flex: 1 },
@@ -373,20 +286,54 @@ const s = StyleSheet.create({
     textAlign: "right",
   },
   kvUnit: { fontFamily: FONTS.mono, fontSize: 6.8, fontWeight: 400, color: BRAND.gray500 },
-  // ---- hesap satırları (hesaplanan rol: paper100 zemin, gri etiket)
+  // ---- hesap satırları
+  // Anatomi: solda mono ADIM NUMARASI şeridi, ortada etiket + formül,
+  // sağda kutulanmış SONUÇ. Satıra bağlı kontrol varsa sol şerit yeşil/kırmızı
+  // renklenir — rapor sayfası tarandığında uygunsuz adım hemen görünür.
   calcRow: {
+    flexDirection: "row",
     backgroundColor: BRAND.paper100,
     borderBottomWidth: 0.5,
     borderBottomColor: BRAND.line300,
-    paddingVertical: 2.5,
-    paddingHorizontal: 4,
+    borderLeftWidth: 2.5,
+    borderLeftColor: BRAND.line350,
+    paddingVertical: 2.2,
+    paddingRight: 5,
   },
+  calcStep: {
+    width: 34,
+    fontFamily: FONTS.mono,
+    fontSize: 6.6,
+    fontWeight: 600,
+    letterSpacing: 0.2,
+    color: BRAND.gray500,
+    paddingLeft: 4,
+    paddingTop: 0.6,
+  },
+  calcBody: { flex: 1 },
   calcTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-  calcLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.gray700 },
-  calcEq: { fontFamily: FONTS.mono, fontSize: 7.6, color: BRAND.gray500 },
+  // Sonuç kutusu: beyaz zemin + ince çerçeve, değer kalın mono
+  calcResult: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    backgroundColor: BRAND.white,
+    borderWidth: 0.5,
+    borderColor: BRAND.line350,
+    paddingVertical: 1,
+    paddingHorizontal: 3,
+  },
+  // Bölüm özet tablosu (ör. ana kiriş gerilme tablosu)
+  tblHeadRow: { flexDirection: "row", backgroundColor: BRAND.paper100, borderBottomWidth: 0.6, borderBottomColor: BRAND.gray500 },
+  tblRow: { flexDirection: "row", borderBottomWidth: 0.4, borderBottomColor: BRAND.line300 },
+  tblHeadCell: { fontFamily: FONTS.mono, fontSize: 6.4, fontWeight: 700, color: BRAND.gray700, paddingVertical: 2.5, paddingHorizontal: 3 },
+  tblCell: { fontFamily: FONTS.sans, fontSize: 7, color: BRAND.ink, paddingVertical: 2, paddingHorizontal: 3 },
+  tblCellNum: { fontFamily: FONTS.mono, fontSize: 7, color: BRAND.ink, paddingVertical: 2, paddingHorizontal: 3, textAlign: "right" },
+  tblNote: { fontFamily: FONTS.sans, fontSize: 6.6, color: BRAND.gray500, marginTop: 2 },
+  calcLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.8, fontWeight: 500, color: BRAND.ink },
+  calcEq: { fontFamily: FONTS.mono, fontSize: 7.2, color: BRAND.gray450 },
   calcValue: {
     fontFamily: FONTS.mono,
-    fontSize: 7.6,
+    fontSize: 8.4,
     fontWeight: 600,
     letterSpacing: 0.2,
     color: BRAND.ink,
@@ -405,21 +352,26 @@ const s = StyleSheet.create({
     gap: 6,
   },
   checkLabel: { fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.ink },
-  checkDetail: { fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600, marginTop: 0.8 },
+  checkDetail: { fontFamily: FONTS.mono, fontSize: 6.4, color: BRAND.gray600, marginTop: 1 },
   checkBadge: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.6 },
   // ---- formül satırının altına iliştirilen kontrol şeridi
   inlineCheck: {
-    flexDirection: "row",
-    alignItems: "center",
     marginTop: 2,
     paddingLeft: 5,
-    paddingVertical: 1.5,
-    borderLeftWidth: 1.5,
-    gap: 4,
+    paddingVertical: 1.6,
+    paddingRight: 4,
+    borderLeftWidth: 1.8,
   },
+  inlineCheckTop: { flexDirection: "row", alignItems: "center", gap: 4 },
   inlineCheckVerdict: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 700, letterSpacing: 0.4 },
-  inlineCheckText: { fontFamily: FONTS.sans, fontSize: 6.8, color: BRAND.ink },
-  inlineCheckDetail: { fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600 },
+  inlineCheckText: { fontFamily: FONTS.sans, fontSize: 6.9, color: BRAND.ink },
+  // ---- "Hesaplanan X ≤ İzin Verilen Y" karşılaştırma şeridi
+  cmp: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", marginTop: 1 },
+  cmpLabel: { fontFamily: FONTS.mono, fontSize: 6.2, letterSpacing: 0.3, color: BRAND.gray500 },
+  cmpValue: { fontFamily: FONTS.mono, fontSize: 7.4, fontWeight: 600, color: BRAND.ink },
+  cmpUnit: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 400, color: BRAND.gray500 },
+  /** Bağıntı işareti (≤ / ≥) — DejaVu, çünkü Plex Mono bu glifleri taşımaz */
+  cmpOp: { fontFamily: FONTS.glyph, fontSize: 8, color: BRAND.gray600 },
   // ---- özet kontrol tablosu
   sumModule: { marginTop: 6 },
   sumModuleTitle: { fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink, marginBottom: 1.5 },
@@ -427,10 +379,16 @@ const s = StyleSheet.create({
 
 // ---------------------------------------------------------------- Alt bileşenler
 
-/** Alt başlık bandı: mono etiket, hairline altı */
-function SubHead({ tr, en }: { tr: string; en?: string }) {
+/**
+ * Alt başlık bandı: mono etiket, hairline altı.
+ *
+ * `minPresenceAhead` alt başlığın sayfa dibinde tek başına kalmasını engeller —
+ * altında en az birkaç satır sığmıyorsa başlık bir sonraki sayfaya taşınır.
+ */
+function SubHead({ tr, minPresenceAhead = 46 }: { tr: string; minPresenceAhead?: number }) {
   return (
     <View
+      minPresenceAhead={minPresenceAhead}
       style={{
         flexDirection: "row",
         justifyContent: "space-between",
@@ -443,7 +401,6 @@ function SubHead({ tr, en }: { tr: string; en?: string }) {
       }}
     >
       <Text style={T.kickerInk}>{tr}</Text>
-      {en ? <Text style={T.micro}>{en}</Text> : null}
     </View>
   );
 }
@@ -470,16 +427,30 @@ function KvRow({
   );
 }
 
+/**
+ * Rapora girecek teknik özellik alanları: vince dahil olmayan hesap
+ * bölümlerinin alanları (kapalı yardımcı kaldırma, olmayan monoray) basılmaz.
+ */
+function specFieldsFor(input: CalcInput): AnyFieldDef[] {
+  return (SPEC_FIELDS as AnyFieldDef[]).filter((f) => {
+    const req = (f as { requiresModule?: ModuleKey }).requiresModule;
+    return !req || moduleState(input, req) !== undefined;
+  });
+}
+
 /** Alan listesini iki sütuna bölerek etiket-değer tablosu basar */
 function FieldTable({
   defs,
   source,
   labelMono,
+  specs,
 }: {
   defs: AnyFieldDef[];
   source: object;
   /** Katalog seçimi tabloları: etiketler de mono (seçim rolü) */
   labelMono?: boolean;
+  /** Teknik özelliklere göre değişen etiketleri (kanca/tutucu tipi) çözmek için */
+  specs?: TechnicalSpecs;
 }) {
   const rec = source as Record<string, unknown>;
   const mid = Math.ceil(defs.length / 2);
@@ -494,7 +465,7 @@ function FieldTable({
             return (
               <KvRow
                 key={f.key}
-                label={f.label}
+                label={fieldLabel(f, specs)}
                 value={val}
                 unit={toDisplayUnitLabel(f.unit)}
                 labelMono={labelMono}
@@ -526,18 +497,44 @@ function checkOriginText(check: AnyCheck): string {
   return parts.join(" · ");
 }
 
-/** "gereken … · sağlanan …" karşılaştırma metni (satır içi ve tam satır ortak). */
-function checkDetailText(check: AnyCheck): string {
-  const prov = toDisplayUnit(check.provided, check.unit);
-  const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
-  if (check.op === "range") {
-    return `${fmt(prov.value)}${u} · izin: ${fmt(
-      toDisplayUnit((check as { min: number }).min, check.unit).value
-    )}…${fmt(toDisplayUnit((check as { max: number }).max, check.unit).value)}`;
-  }
-  return `gereken ${fmt(
-    toDisplayUnit((check as { required: number }).required, check.unit).value
-  )}${u} · sağlanan ${fmt(prov.value)}${u}`;
+/**
+ * Kontrolün karşılaştırma şeridi:
+ *
+ *     HESAPLANAN  616,4 MPa   ≤   İZİN VERİLEN  2.450,0 MPa
+ *
+ * Hesaplanan değer KALIN ve kontrolün sonucuna göre renklidir (uygunsa yeşil,
+ * değilse kırmızı); sınır değer nötr kalır. Hangi sayının hesaptan çıktığı
+ * `checkDisplay` ile belirlenir — kontrolden kontrole değişir, tahmin edilmez.
+ */
+function CheckComparison({ check }: { check: AnyCheck }) {
+  const d = checkDisplay(check);
+  const color = check.pass ? BRAND.success : BRAND.red;
+  const conv = (v: number) => toDisplayUnit(v, d.unit);
+  const computed = conv(d.computed);
+  const unit = computed.unit === "-" || !computed.unit ? "" : ` ${computed.unit}`;
+  const limitText =
+    d.operator === "…"
+      ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}`
+      : fmt(conv(d.limit ?? 0).value);
+  return (
+    <View style={s.cmp}>
+      <Text style={s.cmpLabel}>HESAPLANAN </Text>
+      <Text style={[s.cmpValue, { color }]}>
+        {fmt(computed.value)}
+        {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
+      </Text>
+      {d.operator === "…" ? (
+        <Text style={s.cmpLabel}>{"   "}</Text>
+      ) : (
+        <Text style={s.cmpOp}> {d.operator} </Text>
+      )}
+      <Text style={s.cmpLabel}>İZİN VERİLEN </Text>
+      <Text style={s.cmpValue}>
+        {limitText}
+        {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
+      </Text>
+    </View>
+  );
 }
 
 /**
@@ -546,24 +543,31 @@ function checkDetailText(check: AnyCheck): string {
  * hangi kontrole karşılık geldiği tek bakışta okunur.
  */
 function InlineCheckLine({ check }: { check: AnyCheck }) {
-  const color = check.pass ? BRAND.gray700 : BRAND.red;
+  const color = check.pass ? BRAND.success : BRAND.red;
   return (
-    <View style={[s.inlineCheck, { borderLeftColor: color }]} wrap={false}>
-      <CheckGlyph pass={check.pass} size={7} />
-      <Text style={[s.inlineCheckVerdict, { color }]}>
-        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
-      </Text>
-      <Text style={s.inlineCheckText}>{check.label}</Text>
-      <Text style={s.inlineCheckDetail}>
-        {checkDetailText(check)}
-        {check.standard ? ` · ${check.standard}` : ""}
-      </Text>
+    <View
+      style={[
+        s.inlineCheck,
+        { borderLeftColor: color, backgroundColor: check.pass ? BRAND.white : "#FBF2F1" },
+      ]}
+      wrap={false}
+    >
+      <View style={s.inlineCheckTop}>
+        <CheckGlyph pass={check.pass} size={7} />
+        <Text style={[s.inlineCheckVerdict, { color }]}>
+          {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
+        </Text>
+        <Text style={s.inlineCheckText}>{check.label}</Text>
+        {check.standard ? (
+          <Text style={{ ...T.micro, color: BRAND.gray450 }}>{check.standard}</Text>
+        ) : null}
+      </View>
+      <CheckComparison check={check} />
     </View>
   );
 }
 
 function CheckLine({ check }: { check: AnyCheck }) {
-  const detail = checkDetailText(check);
   return (
     <View style={s.checkRow} wrap={false}>
       <CheckGlyph pass={check.pass} size={8} />
@@ -573,11 +577,11 @@ function CheckLine({ check }: { check: AnyCheck }) {
           {checkOriginText(check) ? (
             <Text style={{ color: BRAND.gray500 }}> ({checkOriginText(check)})</Text>
           ) : null}
+          {check.standard ? (
+            <Text style={{ ...T.micro, color: BRAND.gray450 }}> · {check.standard}</Text>
+          ) : null}
         </Text>
-        <Text style={s.checkDetail}>
-          {detail}
-          {check.standard ? ` · ${check.standard}` : ""}
-        </Text>
+        <CheckComparison check={check} />
       </View>
       {/* Marka: yalnız ✗/uygunsuz kırmızı; uygun durum nötr kalır */}
       <Text style={[s.checkBadge, { color: check.pass ? BRAND.gray700 : BRAND.red }]}>
@@ -639,7 +643,7 @@ function CoverPage(props: ReportProps) {
 
       {/* Başlık bloğu */}
       <View style={{ marginTop: 84 }}>
-        <Text style={T.kicker}>HESAP RAPORU · CALCULATION REPORT</Text>
+        <Text style={T.kicker}>ORION CRANES · HESAP RAPORU</Text>
         <RuleRed width={22} />
         <Text style={{ ...T.display, marginTop: 12 }}>
           {project.name.toLocaleUpperCase("tr-TR")}
@@ -672,7 +676,11 @@ function CoverPage(props: ReportProps) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.coverMetaLabel}>HAZIRLAYAN</Text>
-            <Text style={s.coverMetaValue}>{preparedBy.toLocaleUpperCase("tr-TR")}</Text>
+            {/* Hazırlayan boş kalabilir (profil adı girilmemiş olabilir);
+                rapor bu yüzden üretilememezlik etmemeli. */}
+            <Text style={s.coverMetaValue}>
+              {(preparedBy ?? "—").toLocaleUpperCase("tr-TR")}
+            </Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.coverMetaLabel}>REVİZYON</Text>
@@ -694,43 +702,88 @@ function CoverPage(props: ReportProps) {
 
 // ---------------------------------------------------------------- İçindekiler
 
+/**
+ * Bölüm çapası: içindekilerden tıklanınca gidilecek hedef.
+ * `<Link src="#hedef">` ile eşleşir (react-pdf iç bağlantı = named destination).
+ */
+function anchorFor(key: ModuleKey | "ozet" | "specs"): string {
+  return `bolum-${key}`;
+}
+
+interface TocEntry {
+  no: string;
+  title: string;
+  anchor: string;
+}
+
+function tocEntries(
+  level: ReportLevel,
+  numbers: Partial<Record<ModuleKey, number>>,
+  present: (k: ModuleKey) => boolean
+): TocEntry[] {
+  const out: TocEntry[] = [
+    { no: "—", title: "Özet Hesap Raporu", anchor: anchorFor("ozet") },
+  ];
+  if (level === "ozet") return out;
+  out.push({ no: "01", title: "Teknik Özellikler", anchor: anchorFor("specs") });
+  for (const a of MODULE_ADAPTERS) {
+    if (!present(a.key)) continue;
+    const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
+    out.push({ no, title: rest.join(" · "), anchor: anchorFor(a.key) });
+  }
+  return out;
+}
+
 function TocPage({
   project, revision, level,
-  numbers, present,
+  numbers, present, pageOf,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   present: (k: ModuleKey) => boolean;
+  /** Çapa → başladığı sayfa numarası (ilk geçişte boş) */
+  pageOf: Record<string, number>;
 }) {
-  // Özet seviyede modül bölümleri rapora girmez; içindekiler de onları listelemez.
-  // Mevcut modüller (esnek) yeniden numaralandırılarak listelenir.
-  const entries =
-    level === "ozet"
-      ? []
-      : [
-          { no: "01", title: "Teknik Özellikler" },
-          ...MODULE_ADAPTERS.filter((a) => present(a.key)).map((a) => {
-            const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
-            return { no, title: rest.join(" · ") };
-          }),
-        ];
+  const entries = tocEntries(level ?? "detayli", numbers, present);
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
-      <PageHeader
-        kicker="HESAP RAPORU · CALCULATION REPORT"
-        title="İçindekiler"
-        meta="CONTENTS"
-      />
-      <View style={s.tocRow}>
-        <Text style={{ ...s.tocNo, color: BRAND.gray450 }}>—</Text>
-        <Text style={s.tocTitle}>ÖZET HESAP RAPORU</Text>
-      </View>
+      <PageHeader kicker="ORION CRANES · HESAP RAPORU" title="İçindekiler" />
       {entries.map((e) => (
-        <View style={s.tocRow} key={e.no}>
-          <Text style={s.tocNo}>{e.no}</Text>
-          <Text style={s.tocTitle}>{e.title.toLocaleUpperCase("tr-TR")}</Text>
-        </View>
+        // Satırın tamamı tıklanabilir: PDF okuyucuda ilgili sayfaya atlar.
+        <Link key={e.anchor} src={`#${e.anchor}`} style={s.tocLink}>
+          <View style={s.tocRow}>
+            <Text style={[s.tocNo, { color: e.no === "—" ? BRAND.gray450 : BRAND.red }]}>{e.no}</Text>
+            <Text style={s.tocTitle}>{e.title.toLocaleUpperCase("tr-TR")}</Text>
+            <View style={s.tocDots} />
+            <Text style={s.tocPage}>
+              {pageOf[e.anchor] ? String(pageOf[e.anchor]).padStart(2, "0") : "—"}
+            </Text>
+          </View>
+        </Link>
       ))}
+      <Text style={{ ...T.micro, marginTop: 10 }}>
+        Satıra tıklayarak ilgili bölüme gidebilirsiniz.
+      </Text>
     </BrandPage>
+  );
+}
+
+/**
+ * Sayfa numarası toplayıcı: bir bölümün BAŞLADIĞI sayfayı ilk render geçişinde
+ * yakalar. `render` geri çağrısı yerleşim (layout) sırasında çalıştığı için
+ * sayfa numarası ancak böyle öğrenilebilir; toplanan değerler ikinci geçişte
+ * içindekiler tablosuna basılır.
+ */
+function PageProbe({ anchor, collect }: { anchor: string; collect?: (a: string, p: number) => void }) {
+  return (
+    <Text
+      id={anchor}
+      style={{ position: "absolute", top: 0, left: 0, fontSize: 1, color: BRAND.white }}
+      render={({ pageNumber }) => {
+        collect?.(anchor, pageNumber);
+        return "";
+      }}
+      fixed={false}
+    />
   );
 }
 
@@ -824,52 +877,66 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
   ];
 }
 
+/**
+ * Özet sayfasının ana ekipman blokları vincin GERÇEK topolojisinden üretilir:
+ * hangi kaldırma grupları, kanca blokları ve arabalar hesaba giriyorsa hepsi
+ * listelenir (yardımcı kanca bloğu, ayrı yardımcı araba, monoraylar dâhil).
+ */
 function summaryGroups(input: CalcInput): SummaryGroup[] {
-  const groups: SummaryGroup[] = [
-    { title: "Ana Kaldırma Grubu", items: hoistSelectionItems(input.mainHoist) },
-    { title: "Yardımcı Kaldırma Grubu", items: hoistSelectionItems(input.auxHoist) },
-  ];
-  if (input.hookBlock) {
-    const sel = input.hookBlock.selections as unknown as Record<string, unknown>;
-    groups.push({
-      title: "Kanca Bloğu",
-      items: [
-        {
-          label: "Kanca",
-          value: `${String(sel.hookDesignation ?? "")} · ${fmt(
-            sel.hookCapacityKg as number
-          )} kg`,
-        },
-        {
-          label: "Makara",
-          value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
-            sel.sheaveBearingCode ?? ""
-          )}`,
-        },
-      ],
-    });
+  const groups: SummaryGroup[] = [];
+  for (const key of MODULE_ORDER) {
+    const state = moduleState(input, key);
+    if (!state) continue;
+    const title = (MODULE_LABELS[key] ?? key).replace(/^\d+\s*·\s*/, "");
+    if (isHoistKey(key)) {
+      groups.push({ title, items: hoistSelectionItems(state as never) });
+    } else if (isHookBlockKey(key)) {
+      const sel = state.selections as unknown as Record<string, unknown>;
+      groups.push({
+        title,
+        items: [
+          {
+            label: "Kanca",
+            value: `${String(sel.hookDesignation ?? "")} · ${fmt(
+              sel.hookCapacityKg as number
+            )} kg`,
+          },
+          {
+            label: "Makara",
+            value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
+              sel.sheaveBearingCode ?? ""
+            )}`,
+          },
+        ],
+      });
+    } else if (isTravelKey(key)) {
+      groups.push({ title, items: travelSelectionItems(state as never) });
+    }
   }
-  groups.push(
-    { title: "Araba Yürütme Grubu", items: travelSelectionItems(input.trolley) },
-    { title: "Köprü Yürütme Grubu", items: travelSelectionItems(input.bridge) }
-  );
   return groups.filter((g) => g.items.length > 0);
 }
 
 function SummarySection({
-  input, result, project, revision, numbers,
-}: ReportProps & { numbers: Partial<Record<ModuleKey, number>> }) {
+  input, result, project, revision, numbers, collect,
+}: ReportProps & {
+  numbers: Partial<Record<ModuleKey, number>>;
+  collect?: (anchor: string, page: number) => void;
+}) {
   const groups = summaryGroups(input);
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageProbe anchor={anchorFor("ozet")} collect={collect} />
       <PageHeader
-        kicker="ÖZET · SUMMARY"
+        kicker="ORION CRANES · ÖZET"
         title="Özet Hesap Raporu"
-        meta="DESIGN CALCULATION REPORT"
+        meta="TASARIM HESAP RAPORU"
       />
 
-      <SectionTag no="01" title="Teknik Özellikler" />
-      <FieldTable defs={SPEC_FIELDS as AnyFieldDef[]} source={input.specs} />
+      <View id={anchorFor("specs")}>
+        <PageProbe anchor={anchorFor("specs")} collect={collect} />
+        <SectionTag no="01" title="Teknik Özellikler" />
+      </View>
+      <FieldTable defs={specFieldsFor(input)} source={input.specs} specs={input.specs} />
 
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       <View style={s.kvGrid}>
@@ -1009,11 +1076,76 @@ function PdfDiagram({ diagram }: { diagram: Diagram }) {
 
 // ---------------------------------------------------------------- Modül bölümleri
 
+/**
+ * Bölüm sonundaki özet tablosu — web editöründeki `SectionTable`'ın PDF
+ * karşılığı. İlk sütun geniş, kalanlar eşit paylaşır; sayısal hücreler sağa
+ * yaslı ve mono basılır.
+ */
+function PdfSectionTable({
+  table,
+  ctx,
+}: {
+  table: NonNullable<AdapterSection["table"]>;
+  ctx: unknown;
+}) {
+  let rows: (string | number)[][] = [];
+  try {
+    rows = table.build(ctx);
+  } catch {
+    rows = [];
+  }
+  if (rows.length === 0) return null;
+  const n = table.headers.length;
+  const widthOf = (i: number) => (i === 0 ? `${100 / (n + 1)}%` : `${(100 / (n + 1)) * (n / (n - 1))}%`);
+  return (
+    <View minPresenceAhead={40} style={{ marginTop: 4 }}>
+      <SubHead tr={table.title.toLocaleUpperCase("tr-TR")} />
+      <View style={s.tblHeadRow}>
+        {table.headers.map((h, i) => (
+          <Text key={h} style={[s.tblHeadCell, { width: widthOf(i) }]}>
+            {h}
+          </Text>
+        ))}
+      </View>
+      {rows.map((r, ri) => (
+        <View key={ri} style={s.tblRow} wrap={false}>
+          {r.map((cell, ci) => (
+            <Text
+              key={ci}
+              style={[
+                typeof cell === "number" ? s.tblCellNum : s.tblCell,
+                { width: widthOf(ci) },
+              ]}
+            >
+              {typeof cell === "number" ? fmt(cell) : String(cell)}
+            </Text>
+          ))}
+        </View>
+      ))}
+      {table.note ? <Text style={s.tblNote}>{table.note}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * Tek bir hesap adımı.
+ *
+ * Anatomi (soldan sağa):
+ *   [adım no] │ etiket ............................ [ = sonuç birim ]
+ *             │ formül
+ *             │ standart maddesi
+ *             │ ✓ UYGUN — HESAPLANAN x ≤ İZİN VERİLEN y
+ *
+ * Adım numarası bölüm numarasının devamıdır (7.4 bölümünün 3. adımı → 7.4.03),
+ * böylece rapordaki her sayı kalıcı bir adresle anılabilir. Satıra bağlı bir
+ * kontrol varsa sol şerit yeşil/kırmızı renklenir.
+ */
 function CalcRowLine({
   row,
   ctx,
   showFormulas,
   checks,
+  stepNo,
 }: {
   row: AdapterSection["rows"][number];
   ctx: unknown;
@@ -1021,6 +1153,8 @@ function CalcRowLine({
   showFormulas: boolean;
   /** Bu satıra bağlı kontroller (check-anchors.ts) */
   checks?: AnyCheck[];
+  /** Bölüm içi adım numarası ("7.4.03") */
+  stepNo: string;
 }) {
   let raw: number | string | undefined;
   try {
@@ -1029,25 +1163,31 @@ function CalcRowLine({
     raw = undefined;
   }
   const { value, unit } = toDisplayUnit(raw, row.unit);
+  const hasChecks = (checks?.length ?? 0) > 0;
+  const allPass = hasChecks && checks!.every((c) => c.pass);
+  const accent = !hasChecks ? BRAND.line350 : allPass ? BRAND.success : BRAND.red;
   return (
-    <View style={s.calcRow} wrap={false}>
-      <View style={s.calcTop}>
-        <Text style={s.calcLabel}>{row.label}</Text>
-        <Text style={s.calcValue}>
-          <Text style={s.calcEq}>= </Text>
-          {fmt(value, row.digits ?? 2)}
-          {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
-        </Text>
-      </View>
-      {showFormulas && row.formula && (
-        <View style={s.calcFormula}>
-          <PdfMath formula={row.formula} />
+    <View style={[s.calcRow, { borderLeftColor: accent }]} wrap={false}>
+      <Text style={s.calcStep}>{stepNo}</Text>
+      <View style={s.calcBody}>
+        <View style={s.calcTop}>
+          <Text style={s.calcLabel}>{row.label}</Text>
+          <View style={s.calcResult}>
+            <Text style={s.calcEq}>= </Text>
+            <Text style={s.calcValue}>{fmt(value, row.digits ?? 2)}</Text>
+            {unit ? <Text style={s.kvUnit}> {unit}</Text> : null}
+          </View>
         </View>
-      )}
-      {row.standard && <Text style={s.calcMeta}>{row.standard}</Text>}
-      {checks?.map((c) => (
-        <InlineCheckLine key={c.id} check={c} />
-      ))}
+        {showFormulas && row.formula && (
+          <View style={s.calcFormula}>
+            <PdfMath formula={row.formula} />
+          </View>
+        )}
+        {row.standard && <Text style={s.calcMeta}>{row.standard}</Text>}
+        {checks?.map((c) => (
+          <InlineCheckLine key={c.id} check={c} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -1058,6 +1198,7 @@ function ModulePage({
   deps,
   showFormulas,
   moduleNo,
+  collect,
 }: {
   adapter: ModuleAdapter;
   props: ReportProps;
@@ -1065,6 +1206,7 @@ function ModulePage({
   showFormulas: boolean;
   /** Dinamik görüntü numarası (esnek modül numaralandırması) */
   moduleNo: number;
+  collect?: (anchor: string, page: number) => void;
 }) {
   const { input, result, project, revision } = props;
   const state = moduleState(input, adapter.key);
@@ -1075,6 +1217,7 @@ function ModulePage({
 
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageProbe anchor={anchorFor(adapter.key)} collect={collect} />
       <PageHeader
         kicker={`BÖLÜM ${no}`}
         title={rest.join(" · ")}
@@ -1084,6 +1227,7 @@ function ModulePage({
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
+        const secChecks = sectionChecks(adapter, section, mr);
         const diagram = diagramForSection(adapter.key, section.rawId, input, result);
         return (
           // Bölüm başlığı sayfa sonunda yalnız kalmasın: minPresenceAhead ile
@@ -1091,34 +1235,44 @@ function ModulePage({
           <View key={section.id} minPresenceAhead={70} style={{ marginBottom: 10 }}>
             {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
             <View wrap={false}>
-              <SectionTag no={renumberSectionId(section.id, moduleNo)} title={section.title} />
+              <SectionTag
+                no={renumberSectionId(section.id, moduleNo)}
+                title={section.title}
+                status={
+                  secChecks.length > 0
+                    ? { pass: secChecks.filter((c) => c.pass).length, total: secChecks.length }
+                    : undefined
+                }
+              />
               {diagram && <PdfDiagram diagram={diagram} />}
             </View>
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
               <View minPresenceAhead={30}>
                 <SubHead tr="GİRDİLER / TASARIM KABULLERİ" />
-                <FieldTable defs={section.inputDefs} source={scoped} />
+                <FieldTable defs={section.inputDefs} source={scoped} specs={input.specs} />
                 {section.extraInputDefs && section.extraInputDefs.length > 0 && (
-                  <FieldTable defs={section.extraInputDefs} source={inputs} />
+                  <FieldTable defs={section.extraInputDefs} source={inputs} specs={input.specs} />
                 )}
               </View>
             )}
             {section.selectionDefs.length > 0 && (
               <View minPresenceAhead={30}>
                 <SubHead tr="KATALOG SEÇİMİ" />
-                <FieldTable defs={section.selectionDefs} source={state.selections} labelMono />
+                <FieldTable defs={section.selectionDefs} source={state.selections} labelMono specs={input.specs} />
               </View>
             )}
+            {section.table && <PdfSectionTable table={section.table} ctx={ctx} />}
             {section.rows.length > 0 && (
               <View minPresenceAhead={30}>
                 <SubHead tr="HESAP VE KONTROLLER" />
-                {section.rows.map((r) => (
+                {section.rows.map((r, i) => (
                   <CalcRowLine
                     key={r.key}
                     row={r}
                     ctx={ctx}
                     showFormulas={showFormulas}
                     checks={byRow.get(r.anchorId)}
+                    stepNo={`${renumberSectionId(section.id, moduleNo)}.${String(i + 1).padStart(2, "0")}`}
                   />
                 ))}
               </View>
@@ -1140,8 +1294,15 @@ function ModulePage({
 
 // ---------------------------------------------------------------- Belge
 
-export function ReportDocument(props: ReportProps) {
-  const { input, result, project, revision } = props;
+export function ReportDocument(
+  props: ReportProps & {
+    /** Çapa → başlangıç sayfası (ikinci geçişte dolu) */
+    pageOf?: Record<string, number>;
+    /** İlk geçişte sayfa numaralarını toplayan geri çağrı */
+    collect?: (anchor: string, page: number) => void;
+  }
+) {
+  const { input, result, project, revision, pageOf, collect } = props;
   const level: ReportLevel = props.level ?? "detayli";
   const deps = buildModuleDeps(input, result);
   // Esnek modüller: revizyonda olmayan modül (yardımcı kaldırma / kanca bloğu
@@ -1156,8 +1317,14 @@ export function ReportDocument(props: ReportProps) {
       language="tr"
     >
       <CoverPage {...props} />
-      <TocPage {...props} level={level} numbers={numbers} present={present} />
-      <SummarySection {...props} numbers={numbers} />
+      <TocPage
+        {...props}
+        level={level}
+        numbers={numbers}
+        present={present}
+        pageOf={pageOf ?? {}}
+      />
+      <SummarySection {...props} numbers={numbers} collect={collect} />
       {level !== "ozet" &&
         MODULE_ADAPTERS.filter((a) => present(a.key)).map((adapter) => (
           <ModulePage
@@ -1167,13 +1334,28 @@ export function ReportDocument(props: ReportProps) {
             deps={deps}
             showFormulas={level === "detayli"}
             moduleNo={numbers[adapter.key] ?? 0}
+            collect={collect}
           />
         ))}
     </Document>
   );
 }
 
-/** Revizyon PDF'ini üretir (route handler + yayınlama arşivi ortak girişi) */
+/**
+ * Revizyon PDF'ini üretir (route handler + yayınlama arşivi ortak girişi).
+ *
+ * İKİ GEÇİŞ: içindekiler tablosunda gerçek sayfa numaraları yazabilmek için
+ * belge önce bir kez yerleştirilir (bu sırada her bölümün başladığı sayfa
+ * toplanır), sonra numaralarla yeniden üretilir. Bölüm sayısı ve sayfa
+ * uzunlukları önceden bilinemediğinden başka bir yolu yoktur; ikinci geçiş
+ * yalnız yerleşim tekrarıdır, hesap yeniden koşmaz.
+ */
 export async function renderReportPdf(props: ReportProps): Promise<Buffer> {
-  return renderToBuffer(<ReportDocument {...props} />);
+  const pageOf: Record<string, number> = {};
+  const collect = (anchor: string, page: number) => {
+    // İlk yakalanan (en küçük) sayfa geçerlidir: bölüm oradan başlar.
+    if (pageOf[anchor] === undefined || page < pageOf[anchor]) pageOf[anchor] = page;
+  };
+  await renderToBuffer(<ReportDocument {...props} collect={collect} />);
+  return renderToBuffer(<ReportDocument {...props} pageOf={pageOf} />);
 }

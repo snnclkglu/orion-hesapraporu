@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  checkComputedSide,
+  checkDisplay,
   checkKind,
   checkSeverity,
   isBlocking,
@@ -19,6 +21,7 @@ function mkCheck(over: Partial<Check> = {}): Check {
     provided: 120,
     unit: "kg",
     op: ">=",
+    computedSide: "provided",
     pass: true,
     ...over,
   };
@@ -180,5 +183,59 @@ describe("parseHoistLoadClass", () => {
   it("dönen nesne yalnız tanınan alanları içerir", () => {
     expect(Object.keys(parseHoistLoadClass("H3"))).toEqual(["hoistClass"]);
     expect(Object.keys(parseHoistLoadClass(""))).toEqual([]);
+  });
+});
+
+describe("checkDisplay — hesaplanan / izin verilen", () => {
+  it("hesaplanan `provided` iken bağıntı olduğu gibi okunur", () => {
+    // Gerçekleşen halat emniyet katsayısı (hesap) ≥ gerekli en küçük (sınır)
+    const d = checkDisplay(
+      mkCheck({ required: 5.6, provided: 4.17, op: ">=", computedSide: "provided" })
+    );
+    expect(d.computed).toBe(4.17);
+    expect(d.limit).toBe(5.6);
+    expect(d.operator).toBe("≥");
+  });
+
+  it("hesaplanan `required` iken bağıntı TERS çevrilir", () => {
+    // Hesaplanan gerilme (talep) ≤ izin verilen gerilme (kapasite)
+    const d = checkDisplay(
+      mkCheck({ required: 616, provided: 2450, op: ">=", computedSide: "required" })
+    );
+    expect(d.computed).toBe(616);
+    expect(d.limit).toBe(2450);
+    // provided ≥ required  ⟺  required ≤ provided
+    expect(d.operator).toBe("≤");
+  });
+
+  it("bağıntı her iki okumada da aynı gerçeği söyler", () => {
+    const c = mkCheck({ required: 616, provided: 2450, op: ">=", computedSide: "required" });
+    const d = checkDisplay(c);
+    // Gösterilen bağıntı gerçekten sağlanıyor mu?
+    expect(d.operator === "≤" ? d.computed <= d.limit! : d.computed >= d.limit!).toBe(c.pass);
+  });
+
+  it("aralık kontrolünde hesaplanan daima `provided`", () => {
+    const r: RangeCheck = {
+      id: "gearbox.ratio",
+      label: "Çevrim Oranı Sapması",
+      provided: -7.4,
+      min: -10,
+      max: 5,
+      unit: "%",
+      op: "range",
+      pass: true,
+    };
+    const d = checkDisplay(r);
+    expect(d.computed).toBe(-7.4);
+    expect(d.min).toBe(-10);
+    expect(d.max).toBe(5);
+    expect(d.operator).toBe("…");
+  });
+
+  it("eski anlık görüntülerde alan yoksa `provided` varsayılır", () => {
+    const eski = { ...mkCheck() } as Partial<Check>;
+    delete eski.computedSide;
+    expect(checkComputedSide(eski as AnyCheck)).toBe("provided");
   });
 });

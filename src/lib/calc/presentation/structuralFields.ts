@@ -24,76 +24,117 @@ export const HOIST_CLASSES = ["H1", "H2", "H3", "H4"] as const;
 // --- ANA KİRİŞ --------------------------------------------------------------
 
 export const GIRDER_DEP_FIELDS: FieldDef<GirderDeps>[] = [
-  { key: "mainHookBlockWeightKg", label: "Kanca bloğu / kepçe ağırlığı", unit: "kg", type: "number" },
-  { key: "mainRopeWeightKg", label: "Halat ağırlığı", unit: "kg", type: "number" },
-  { key: "trolleyWeightT", label: "Araba ağırlığı", unit: "t", type: "number" },
-  { key: "trolleyWheelCount", label: "Araba teker sayısı", type: "number" },
-  { key: "trolleyActualSpeedMpm", label: "Gerçekleşen araba hızı", unit: "m/dak", type: "number" },
-  { key: "trolleyAccelTimeS", label: "Araba ivmelenme süresi", unit: "s", type: "number" },
-  { key: "bridgeGirdersWeightT", label: "Köprü ana kirişleri ağırlığı", unit: "t", type: "number" },
-  { key: "bridgeEndCarriagesWeightT", label: "Başkirişler ağırlığı", unit: "t", type: "number" },
-  { key: "bridgeWheelCount", label: "Köprü teker sayısı", type: "number" },
-  { key: "bridgeActualSpeedMpm", label: "Gerçekleşen köprü hızı", unit: "m/dak", type: "number" },
-  { key: "bridgeAccelTimeS", label: "Köprü ivmelenme süresi", unit: "s", type: "number" },
+  { key: "mainHookBlockWeightKg", label: "Kanca Bloğu / Kepçe Ağırlığı", unit: "kg", type: "number" },
+  { key: "mainRopeWeightKg", label: "Halat Ağırlığı", unit: "kg", type: "number" },
+  { key: "trolleyWeightT", label: "Araba Ağırlığı", unit: "t", type: "number" },
+  { key: "trolleyWheelCount", label: "Araba Teker Sayısı", type: "number" },
+  { key: "trolleyDrivenWheels", label: "Araba Tahrikli Teker Sayısı", type: "number" },
+  { key: "trolleyActualSpeedMpm", label: "Gerçekleşen Araba Hızı", unit: "m/dak", type: "number" },
+  { key: "trolleyAccelTimeS", label: "Araba İvmelenme Süresi", unit: "s", type: "number" },
+  { key: "bridgeWeightT", label: "Köprü Toplam Ağırlığı (Kirişler + Başkirişler)", unit: "t", type: "number" },
+  { key: "bridgeWheelCount", label: "Köprü Teker Sayısı", type: "number" },
+  { key: "bridgeDrivenWheels", label: "Köprü Tahrikli Teker Sayısı", type: "number" },
+  { key: "bridgeActualSpeedMpm", label: "Gerçekleşen Köprü Hızı", unit: "m/dak", type: "number" },
+  { key: "bridgeAccelTimeS", label: "Köprü İvmelenme Süresi", unit: "s", type: "number" },
 ];
 
 export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
-  { key: "railHeightMm", label: "Ray yüksekliği hr", unit: "mm", type: "number" },
-  { key: "t1Mm", label: "Üst flanş kalınlığı t1", unit: "mm", type: "number" },
-  { key: "b1Mm", label: "Üst flanş genişliği b1", unit: "mm", type: "number" },
-  { key: "t2Mm", label: "Üst iç flanş kalınlığı t2", unit: "mm", type: "number" },
-  { key: "b2Mm", label: "Üst iç flanş genişliği b2", unit: "mm", type: "number" },
-  { key: "t3Mm", label: "Ana gövde sacı kalınlığı t3", unit: "mm", type: "number" },
-  { key: "h3Mm", label: "Gövde yüksekliği h3", unit: "mm", type: "number" },
-  { key: "t4Mm", label: "Yardımcı gövde sacı kalınlığı t4", unit: "mm", type: "number" },
-  { key: "t5Mm", label: "Alt flanş kalınlığı t5", unit: "mm", type: "number" },
-  { key: "b5Mm", label: "Alt flanş genişliği b5", unit: "mm", type: "number" },
-  { key: "t6Mm", label: "Ek flanş kalınlığı t6", unit: "mm", type: "number" },
-  { key: "b6Mm", label: "Ek flanş genişliği b6", unit: "mm", type: "number" },
-  { key: "aMm", label: "Gövde sacları arası mesafe a", unit: "mm", type: "number" },
-  { key: "xMm", label: "Kenar mesafesi x", unit: "mm", type: "number" },
-  { key: "hookTopPositionM", label: "Kancanın en üst konumu l", unit: "m", type: "number" },
-  { key: "psiHK", label: "ψhK (FEM Fig. A.2.2.1, köprü)", type: "number" },
-  { key: "psiHA", label: "ψhA (FEM Fig. A.2.2.1, araba)", type: "number" },
-  { key: "bridgeAxleSpacingM", label: "Köprü dingil açıklığı", unit: "m", type: "number" },
-  { key: "trolleyWheelSpacingM", label: "Araba tekerlek açıklığı", unit: "m", type: "number" },
-  { key: "trolleyAxleSpacingM", label: "Araba dingil açıklığı", unit: "m", type: "number" },
-  { key: "trolleyDrivenWheels", label: "Araba tahrikli teker sayısı", type: "number" },
-  { key: "bridgeDrivenWheels", label: "Köprü tahrikli teker sayısı", type: "number" },
+  { key: "railHeightMm", label: "Ray Yüksekliği hr", unit: "mm", type: "number" },
+  { key: "t1Mm", label: "Ray Altı Sacı Kalınlığı t1", unit: "mm", type: "number" },
   {
-    key: "amplifyYcOverride", label: "Arttırma katsayısı γc (elle)", type: "number",
+    key: "b1Mm", label: "Ray Altı Sacı Genişliği b1", unit: "mm", type: "number",
+    hint: "b1'in merkezi kirişin ortasında değil, RAY EKSENİNDEDİR (x + t3/2).",
+  },
+  { key: "t2Mm", label: "Üst İç Flanş Kalınlığı t2", unit: "mm", type: "number" },
+  { key: "b2Mm", label: "Üst İç Flanş Genişliği b2", unit: "mm", type: "number" },
+  { key: "t3Mm", label: "Ana Gövde Sacı Kalınlığı t3", unit: "mm", type: "number" },
+  { key: "h3Mm", label: "Gövde Yüksekliği h3", unit: "mm", type: "number" },
+  { key: "t4Mm", label: "Yardımcı Gövde Sacı Kalınlığı t4", unit: "mm", type: "number" },
+  { key: "t5Mm", label: "Alt Flanş Kalınlığı t5", unit: "mm", type: "number" },
+  { key: "b5Mm", label: "Alt Flanş Genişliği b5", unit: "mm", type: "number" },
+  { key: "t6Mm", label: "Ek Flanş Kalınlığı t6", unit: "mm", type: "number" },
+  { key: "b6Mm", label: "Ek Flanş Genişliği b6", unit: "mm", type: "number" },
+  { key: "aMm", label: "Gövde Sacları Arası Mesafe a", unit: "mm", type: "number" },
+  { key: "xMm", label: "Kenar Mesafesi x", unit: "mm", type: "number" },
+  { key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number" },
+  { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },
+  { key: "trolleyWheelSpacingM", label: "Araba Tekerlek Açıklığı", unit: "m", type: "number" },
+  { key: "trolleyAxleSpacingM", label: "Araba Dingil Açıklığı", unit: "m", type: "number" },
+  {
+    key: "psiHAOverride", label: "ψhA — Araba (Elle)", type: "number",
+    standardRef: "FEM 1.001 A.2.2.1",
+    hint: "Boş bırakılırsa kütle oranından türetilir: µ ≤ 1 → 2; µ > 1 → √(2 + µ + 1/µ).",
+  },
+  {
+    key: "psiHKOverride", label: "ψhK — Köprü (Elle)", type: "number",
+    standardRef: "FEM 1.001 A.2.2.1",
+    hint: "Boş bırakılırsa kütle oranından türetilir: µ ≤ 1 → 2; µ > 1 → √(2 + µ + 1/µ).",
+  },
+  {
+    key: "amplifyYcOverride", label: "Arttırma Katsayısı γc (Elle)", type: "number",
     standardRef: "FEM 1.001 T.2.3.4",
     hint: "Boş bırakılırsa çelik yapı sınıfından türetilir (A1 → 1,00 … A8 → 1,20).",
   },
-  { key: "dynTestFactorR1", label: "Dinamik test katsayısı ρ1", type: "number" },
-  { key: "statTestFactorR2", label: "Statik test katsayısı ρ2", type: "number" },
-  { key: "railLeverCMm", label: "Kayma merkezi kolu c", unit: "mm", type: "number" },
   {
-    key: "diaphragmSpacingMm", label: "İki perde arası l1", unit: "mm",
+    key: "dynTestFactorR1", label: "Dinamik Test Katsayısı ρ1", type: "number",
+    standardRef: "FEM 1.001 §2.3.3",
+  },
+  {
+    key: "statTestFactorR2", label: "Statik Test Katsayısı ρ2", type: "number",
+    standardRef: "FEM 1.001 §2.3.3",
+  },
+  { key: "railLeverCMm", label: "Kayma Merkezi Kolu c", unit: "mm", type: "number" },
+  {
+    key: "diaphragmSpacingMm", label: "İki Perde Arası l1", unit: "mm",
     type: "select", options: ["1000", "1500", "2000"], numeric: true,
   },
-  { key: "wheelContactHMm", label: "Teker basıncı yayılım yüksekliği h", unit: "mm", type: "number" },
-  { key: "wheelContactTMm", label: "Teker basıncı taşıyan sac (ray T-profil) kalınlığı t", unit: "mm", type: "number" },
-  { key: "sigmaYMaxNmm2", label: "σy,maks", unit: "N/mm²", type: "number" },
-  { key: "sigmaYMinNmm2", label: "σy,min", unit: "N/mm²", type: "number" },
-  { key: "fatigueTensileNmm2", label: "Malzeme kopma dayanımı σB", unit: "N/mm²", type: "number" },
   {
-    key: "deflectionLimitRatio", label: "Sehim sınırı", type: "select",
+    key: "wheelContactHMm", label: "Teker Basıncı Yayılım Yüksekliği h", unit: "mm",
+    type: "number", standardRef: "DIN 15018 Şekil 9",
+  },
+  {
+    key: "wheelContactTMm", label: "Teker Basıncı Taşıyan Sac (Ray T-Profil) Kalınlığı t",
+    unit: "mm", type: "number", standardRef: "DIN 15018 Şekil 9",
+  },
+  {
+    key: "sigmaYMaxOverrideNmm2", label: "σy,maks (Elle)", unit: "N/mm²", type: "number",
+    standardRef: "DIN 15018 Şekil 9",
+    hint: "Boş bırakılırsa gerilme analizindeki teker basıncından gelir: σy,maks = |σz(I)| / 9,81.",
+  },
+  {
+    key: "sigmaYMinOverrideNmm2", label: "σy,min (Elle)", unit: "N/mm²", type: "number",
+    standardRef: "DIN 15018 Şekil 9",
+    hint: "Boş bırakılırsa gerilme analizinden gelir: σy,min = |σz(araba)| / 9,81.",
+  },
+  {
+    key: "fatigueTensileOverrideNmm2", label: "Malzeme Kopma Dayanımı σB (Elle)",
+    unit: "N/mm²", type: "number",
+    hint: "Boş bırakılırsa yorulma malzemesinden türetilir (S235JR → 360, S355JR → 510).",
+  },
+  {
+    key: "deflectionLimitRatio", label: "Sehim Sınırı", type: "select",
     options: ["250", "500", "750", "1000", "1100"], numeric: true,
     optionLabels: { "250": "1/250", "500": "1/500", "750": "1/750", "1000": "1/1000", "1100": "1/1100" },
+    standardRef: "CMAA 70 3.5.5.1",
   },
 ];
 
 export const GIRDER_SELECTION_FIELDS: FieldDef<GirderSelections>[] = [
-  { key: "fatigueMaterial", label: "Yorulma malzemesi", type: "select", options: FATIGUE_MATERIALS },
   {
-    key: "fatigueLoadGroupOverride", label: "Yük grubu (DIN 15018, elle)",
-    type: "select", options: LOAD_GROUPS,
+    key: "fatigueMaterial", label: "Yorulma Malzemesi", type: "select",
+    options: FATIGUE_MATERIALS, standardRef: "DIN 15018 Tablo 17",
+  },
+  {
+    key: "fatigueLoadGroupOverride", label: "Yük Grubu (DIN 15018, Elle)",
+    type: "select", options: LOAD_GROUPS, standardRef: "DIN 15018 Tablo 17",
     hint: "Boş bırakılırsa teknik özelliklerdeki kaldırma/yük sınıfının B bileşeninden türetilir.",
   },
-  { key: "fatigueNotchClass", label: "Kaynak/çentik sınıfı (DIN 15018)", type: "select", options: NOTCH_CLASSES },
   {
-    key: "staticMaterial", label: "Kiriş malzemesi", type: "select",
+    key: "fatigueNotchClass", label: "Kaynak / Çentik Sınıfı (DIN 15018)", type: "select",
+    options: NOTCH_CLASSES, standardRef: "DIN 15018 Tablo 17",
+  },
+  {
+    key: "staticMaterial", label: "Kiriş Malzemesi", type: "select",
     options: GIRDER_STATIC_MATERIALS, standardRef: "FEM 1.001 T.3.2.1.1",
   },
 ];
@@ -102,19 +143,19 @@ export const GIRDER_SELECTION_FIELDS: FieldDef<GirderSelections>[] = [
 
 /** Yan sac ve üst sac panelleri aynı alan kümesini kullanır. */
 export const BUCKLING_PANEL_FIELDS: FieldDef<BucklingPanelInputs>[] = [
-  { key: "elasticModulus", label: "Elastisite modülü E", unit: "N/mm²", type: "number" },
-  { key: "poisson", label: "Poisson oranı", type: "number" },
-  { key: "thicknessMm", label: "Sac kalınlığı e", unit: "mm", type: "number" },
-  { key: "panelWidthMm", label: "Panel genişliği b", unit: "mm", type: "number" },
-  { key: "stiffenerSpacingMm", label: "İki perde arası a", unit: "mm", type: "number" },
-  { key: "sigma1", label: "Panel kenarı gerilmesi σ1", unit: "N/mm²", type: "number" },
-  { key: "sigma2", label: "Diğer kenar gerilmesi σ2", unit: "N/mm²", type: "number" },
-  { key: "tau", label: "Kesme gerilmesi τ", unit: "N/mm²", type: "number" },
+  { key: "elasticModulus", label: "Elastisite Modülü E", unit: "N/mm²", type: "number" },
+  { key: "poisson", label: "Poisson Oranı", type: "number" },
+  { key: "thicknessMm", label: "Sac Kalınlığı e", unit: "mm", type: "number" },
+  { key: "panelWidthMm", label: "Panel Genişliği b", unit: "mm", type: "number" },
+  { key: "stiffenerSpacingMm", label: "İki Perde Arası a", unit: "mm", type: "number" },
+  { key: "sigma1", label: "Panel Kenarı Gerilmesi σ1", unit: "N/mm²", type: "number" },
+  { key: "sigma2", label: "Diğer Kenar Gerilmesi σ2", unit: "N/mm²", type: "number" },
+  { key: "tau", label: "Kesme Gerilmesi τ", unit: "N/mm²", type: "number" },
 ];
 
 export const BUCKLING_EXTRA_FIELDS: FieldDef<BucklingInputs>[] = [
   {
-    key: "sideCorrectedCriticalNmm2", label: "Düzeltilmiş kritik gerilme (yan sac)",
+    key: "sideCorrectedCriticalNmm2", label: "Düzeltilmiş Kritik Gerilme (Yan Sac)",
     unit: "N/mm²", type: "number",
     hint: "Berkitme düzeni dikkate alınarak elle belirlenen kritik gerilme.",
   },
@@ -123,36 +164,35 @@ export const BUCKLING_EXTRA_FIELDS: FieldDef<BucklingInputs>[] = [
 // --- BAŞKİRİŞ ---------------------------------------------------------------
 
 export const ENDCARRIAGE_DEP_FIELDS: FieldDef<EndCarriageDeps>[] = [
-  { key: "mainHoistTotalLoadKg", label: "Ana kaldırma toplam yükü", unit: "kg", type: "number" },
-  { key: "trolleyWeightT", label: "Araba ağırlığı", unit: "t", type: "number" },
-  { key: "bridgeGirdersWeightT", label: "Köprü ana kirişleri ağırlığı", unit: "t", type: "number" },
-  { key: "bridgeEndCarriagesWeightT", label: "Başkirişler ağırlığı", unit: "t", type: "number" },
+  { key: "mainHoistTotalLoadKg", label: "Ana Kaldırma Toplam Yükü", unit: "kg", type: "number" },
+  { key: "trolleyWeightT", label: "Araba Ağırlığı", unit: "t", type: "number" },
+  { key: "bridgeWeightT", label: "Köprü Toplam Ağırlığı (Kirişler + Başkirişler)", unit: "t", type: "number" },
 ];
 
 export const ENDCARRIAGE_INPUT_FIELDS: FieldDef<EndCarriageInputs>[] = [
-  { key: "wheelSpanAMm", label: "Tekerlekler arası mesafe a", unit: "mm", type: "number" },
-  { key: "loadOffsetBMm", label: "Kiriş oturma noktası b", unit: "mm", type: "number" },
-  { key: "topPlateThicknessMm", label: "Üst sac kalınlığı", unit: "mm", type: "number" },
-  { key: "topPlateWidthMm", label: "Üst sac genişliği", unit: "mm", type: "number" },
-  { key: "sidePlateThicknessMm", label: "Yan sac kalınlığı", unit: "mm", type: "number" },
-  { key: "sidePlateHeightMm", label: "Yan sac yüksekliği", unit: "mm", type: "number" },
-  { key: "bottomPlateThicknessMm", label: "Alt sac kalınlığı", unit: "mm", type: "number" },
-  { key: "bottomPlateWidthMm", label: "Alt sac genişliği", unit: "mm", type: "number" },
-  { key: "fatigueTensileNmm2", label: "Malzeme kopma dayanımı σB", unit: "N/mm²", type: "number" },
+  { key: "wheelSpanAMm", label: "Tekerlekler Arası Mesafe a", unit: "mm", type: "number" },
+  { key: "loadOffsetBMm", label: "Kiriş Oturma Noktası b", unit: "mm", type: "number" },
+  { key: "topPlateThicknessMm", label: "Üst Sac Kalınlığı", unit: "mm", type: "number" },
+  { key: "topPlateWidthMm", label: "Üst Sac Genişliği", unit: "mm", type: "number" },
+  { key: "sidePlateThicknessMm", label: "Yan Sac Kalınlığı", unit: "mm", type: "number" },
+  { key: "sidePlateHeightMm", label: "Yan Sac Yüksekliği", unit: "mm", type: "number" },
+  { key: "bottomPlateThicknessMm", label: "Alt Sac Kalınlığı", unit: "mm", type: "number" },
+  { key: "bottomPlateWidthMm", label: "Alt Sac Genişliği", unit: "mm", type: "number" },
+  { key: "fatigueTensileNmm2", label: "Malzeme Kopma Dayanımı σB", unit: "N/mm²", type: "number" },
 ];
 
 export const ENDCARRIAGE_SELECTION_FIELDS: FieldDef<EndCarriageSelections>[] = [
   {
-    key: "hoistClassOverride", label: "Kaldırma sınıfı (elle)",
+    key: "hoistClassOverride", label: "Kaldırma Sınıfı (Elle)",
     type: "select", options: HOIST_CLASSES, standardRef: "DIN 15018 Tablo 2",
     hint: "Boş bırakılırsa teknik özelliklerdeki kaldırma/yük sınıfının H bileşeninden türetilir.",
   },
   { key: "material", label: "Malzeme", type: "select", options: FATIGUE_MATERIALS },
-  { key: "fatigueMaterial", label: "Yorulma malzemesi", type: "select", options: FATIGUE_MATERIALS },
+  { key: "fatigueMaterial", label: "Yorulma Malzemesi", type: "select", options: FATIGUE_MATERIALS },
   {
-    key: "fatigueLoadGroupOverride", label: "Yük grubu (DIN 15018, elle)",
+    key: "fatigueLoadGroupOverride", label: "Yük Grubu (DIN 15018, Elle)",
     type: "select", options: LOAD_GROUPS,
     hint: "Boş bırakılırsa teknik özelliklerdeki kaldırma/yük sınıfının B bileşeninden türetilir.",
   },
-  { key: "fatigueNotchClass", label: "Kaynak/çentik sınıfı (DIN 15018)", type: "select", options: NOTCH_CLASSES },
+  { key: "fatigueNotchClass", label: "Kaynak / Çentik Sınıfı (DIN 15018)", type: "select", options: NOTCH_CLASSES },
 ];

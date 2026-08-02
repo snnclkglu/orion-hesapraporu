@@ -91,8 +91,38 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    Motora yeni girdi eklendiğinde eski revizyonlar `revision-load.ts`teki
    `withDefaults` sayesinde bozulmaz.
 
-8. **Esnek modüller.** Ana/Yrd kaldırma = tek `hoistGroup`; araba/köprü = tek
-   `travelGroup`. Kanca bloğu, ana kiriş, buruşma ve başkiriş kapatılabilir.
+8. **Vinç topolojisi.** Bir vinçte 1–4 kaldırma grubu olabilir: ana, yardımcı ve
+   en çok iki monoray. **Her kaldırma grubunun kendi kanca bloğu ve kendi
+   arabası vardır.** Yardımcı kaldırma ya ana arabanın üzerindedir
+   (`specs.auxTrolleyMode = "shared"`) ya da kendi arabasındadır (`"separate"`).
+   Köprü yürütme tektir.
+
+   Anahtarlar `presentation/module-family.ts`te tek yerde tanımlıdır
+   (`ModuleKey`, `MODULE_ORDER`, aile eşlemesi, `HOOKBLOCK_OF`, `HOIST_OF_*`).
+   Aynı aile aynı hesabı ve aynı sunum tanımlarını paylaşır; varyant farkı
+   yalnız `hoistSpecView` / `travelSpecView` ile teknik özelliklerden okunan
+   alanlardadır. Yeni bir anahtar eklemek için `ModuleKey`, `FAMILY`,
+   `MODULE_ORDER`, `CALC_FIELD` (revision-load), `MODULE_LABELS` ve
+   `ADAPTER_FACTORY` yeterlidir — switch zinciri çoğaltılmaz.
+
+   Hangi bölümün hesaba gireceğini `engine.ts`teki `activeModules(specs,
+   disabled)` belirler: kullanıcının kapattıkları + vinç konfigürasyonunun izin
+   verdikleri + üst bölümü açık olanlar. Ana kaldırma, ana araba ve köprü
+   kapatılamaz.
+
+9. **Ağırlıklar teknik özelliktir.** Ana araba, yardımcı araba ve köprü
+   ağırlıkları `TechnicalSpecs`te tutulur; yürütme, ana kiriş ve başkiriş
+   hesapları oradan okur. Modül girdisi olarak ağırlık sorulmaz.
+
+10. **Otomatik girdiler.** `derive.ts` bir "girdi"nin başka verilerden
+    hesaplanabildiği yerleri toplar: halat ağırlığı (metre ağırlığı × kol ×
+    yükseklik), kanca bloğu ağırlığı (kapasitenin %10'u), motor sıcaklık
+    faktörü (ortam sıcaklığı üst sınırı). Her biri `*Auto` anahtarıyla açılıp
+    kapatılır; anahtar açıkken alan salt-okunurdur ve editör türetilen değeri
+    girdiye YAZAR (motor, PDF ve Excel aynı sayıyı görür). Halat donanımı
+    seçildiğinde tahrikli/toplam kol sayıları da aynı mekanizmayla dolar.
+    Makara verimi artık seçim değil sabit firma kabulüdür
+    (`STANDARD_SHEAVE_EFFICIENCY`).
 
 ## Yeni bir hesap eklerken
 

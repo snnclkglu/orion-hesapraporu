@@ -153,17 +153,22 @@ export function computeBuckling(inp: BucklingInputs): ModuleResult<BucklingValue
   cells["sidePanel.correctedCritical"] = inp.sideCorrectedCriticalNmm2;
   checks.push({
     id: "buckling.side.interaction",
-    label: "Yan sac buruşma kontrolü (σvcr.c/vv ≥ σbil)",
+    label: "Yan Sac Buruşma Kontrolü (σvcr.c/vv ≥ σbil)",
     required: side.sigmaCombined, provided: side.allowable, unit: "N/mm²", op: ">=",
+    // İki taraf da hesaptan çıkar; RAPORLANAN büyüklük panelin bileşik gerilmesi
+    // σbil, sınır ise ondan bağımsız türetilen izin verilen burkulma gerilmesi
+    // σvcr.c/vv'dir. Bu yüzden hesaplanan taraf `required`.
+    computedSide: "required",
     pass: side.allowable >= side.sigmaCombined,
     standard: "FEM 1.001 A-3.4",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "buckling.side.corrected",
-    label: "Yan sac düzeltilmiş kritik gerilme kontrolü",
+    label: "Yan Sac Düzeltilmiş Kritik Gerilme Kontrolü",
     required: side.sigmaCombined, provided: inp.sideCorrectedCriticalNmm2,
     unit: "N/mm²", op: ">=",
+    computedSide: "required",
     pass: inp.sideCorrectedCriticalNmm2 >= side.sigmaCombined,
     standard: "FEM 1.001 A-3.4",
     // Karşılaştırılan kapasite motorun hesapladığı değil, berkitme düzenine
@@ -175,8 +180,10 @@ export function computeBuckling(inp: BucklingInputs): ModuleResult<BucklingValue
   const top = computePanel(inp.top, "topPanel", cells);
   checks.push({
     id: "buckling.top.interaction",
-    label: "Üst sac buruşma kontrolü (σvcr.c/vv ≥ σbil)",
+    label: "Üst Sac Buruşma Kontrolü (σvcr.c/vv ≥ σbil)",
     required: top.sigmaCombined, provided: top.allowable, unit: "N/mm²", op: ">=",
+    // Yan sacla aynı gerekçe: hesaplanan σbil, sınır σvcr.c/vv.
+    computedSide: "required",
     pass: top.allowable >= top.sigmaCombined,
     standard: "FEM 1.001 A-3.4",
     kind: "standart", severity: "engelleyici",

@@ -5,7 +5,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, dimH, fmtN, ln, loadArrow, txt,
+  caption, dimH, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
 import { KGF_TO_MPA } from "@/lib/units";
 
@@ -32,7 +32,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     els.push(txt(W / 2, H / 2, "Mil mesnet ölçüleri (a, b) eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
-    return { width: W, height: H, els };
+    return fitDiagram(els, W, H);
   }
 
   const xA = 140;
@@ -122,5 +122,5 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     anchor: "middle", fill: DCOL.accent, bold: true,
   }));
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

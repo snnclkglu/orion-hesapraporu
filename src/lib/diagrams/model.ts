@@ -67,6 +67,117 @@ export interface Diagram {
   els: DiagramEl[];
 }
 
+// ------------------------------------------------------- Yükseklik oturtma
+
+/**
+ * SVG `d` dizesindeki mutlak nokta koordinatlarını çözer.
+ *
+ * Yalnız sınır kutusu için kullanılır; eğri kontrol noktaları da döndürülür —
+ * Bézier eğrisi kontrol noktalarının dışbükey zarfının içinde kaldığından bu
+ * güvenli (bir miktar ihtiyatlı) bir üst sınır verir. Yay (A) komutunda yalnız
+ * uç nokta alınır.
+ */
+function pathPoints(d: string): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  const tokens = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g);
+  if (!tokens) return out;
+  // Komut → argüman sayısı
+  const argc: Record<string, number> = {
+    m: 2, l: 2, t: 2, h: 1, v: 1, c: 6, s: 4, q: 4, a: 7, z: 0,
+  };
+  let cx = 0, cy = 0;        // geçerli nokta
+  let sx = 0, sy = 0;        // alt yolun başlangıcı
+  let cmd = "";
+  let i = 0;
+  const push = (x: number, y: number) => out.push({ x, y });
+
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (/[a-zA-Z]/.test(t)) {
+      cmd = t;
+      i++;
+      if (cmd.toLowerCase() === "z") {
+        cx = sx; cy = sy;
+        continue;
+      }
+    }
+    const key = cmd.toLowerCase();
+    const n = argc[key];
+    if (n === undefined) { i++; continue; }
+    const rel = cmd === key;                   // küçük harf → bağıl
+    const args: number[] = [];
+    for (let k = 0; k < n; k++) {
+      const v = Number(tokens[i + k]);
+      if (!Number.isFinite(v)) return out;
+      args.push(v);
+    }
+    i += n;
+
+    if (key === "h") {
+      cx = rel ? cx + args[0] : args[0];
+    } else if (key === "v") {
+      cy = rel ? cy + args[0] : args[0];
+    } else if (key === "a") {
+      cx = rel ? cx + args[5] : args[5];
+      cy = rel ? cy + args[6] : args[6];
+    } else {
+      // Çift çift ilerleyen koordinatlar (kontrol noktaları dahil)
+      for (let k = 0; k < n; k += 2) {
+        const px = rel ? cx + args[k] : args[k];
+        const py = rel ? cy + args[k + 1] : args[k + 1];
+        push(px, py);
+        if (k === n - 2) { cx = px; cy = py; }
+      }
+    }
+    push(cx, cy);
+    if (key === "m") { sx = cx; sy = cy; }
+    // "M" sonrası argüman tekrarı "L" gibi davranır
+    if (key === "m") cmd = rel ? "l" : "L";
+  }
+  return out;
+}
+
+/** Bir elemanın en alt sınırı (y ekseninde) */
+function bottomOf(el: DiagramEl): number {
+  switch (el.kind) {
+    case "line":
+      return Math.max(el.y1, el.y2);
+    case "rect":
+      return el.y + Math.max(0, el.h);
+    case "circle":
+      return el.cy + el.r;
+    case "polygon":
+      return el.points.reduce((m, p) => Math.max(m, p[1]), -Infinity);
+    case "text":
+      // Metin taban çizgisinden çizilir; alt uzantı (descender) payı bırakılır
+      return el.y + el.size * 0.35;
+    case "path":
+      return pathPoints(el.d).reduce((m, p) => Math.max(m, p.y), -Infinity);
+  }
+}
+
+/**
+ * Diyagram yüksekliğini İÇERİKTEN hesaplar: hiçbir eleman (özellikle en alttaki
+ * etiket) viewBox dışında kalıp kırpılmaz.
+ *
+ * Üreticiler sabit bir `H` yerine bunu döndürür; `minHeight` tasarımın istediği
+ * taban yüksekliktir, içerik daha aşağı taşarsa yükseklik büyütülür.
+ */
+export function fitDiagram(
+  els: DiagramEl[],
+  width: number,
+  minHeight: number,
+  pad = 12
+): Diagram {
+  let maxY = -Infinity;
+  for (const el of els) {
+    const b = bottomOf(el);
+    if (Number.isFinite(b) && b > maxY) maxY = b;
+  }
+  const height = Number.isFinite(maxY) ? Math.max(minHeight, Math.ceil(maxY + pad)) : minHeight;
+  return { width, height, els };
+}
+
 // ---------------------------------------------------------------- Yardımcılar
 
 /** tr-TR sayı biçimi (etiketler için) */

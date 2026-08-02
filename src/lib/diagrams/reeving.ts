@@ -6,7 +6,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, fmtN, ln, loadArrow, txt,
+  caption, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
 
 export interface ReevingParams {
@@ -27,7 +27,7 @@ export function reevingDiagram(p: ReevingParams): Diagram {
 
   if (!(p.totalFalls > 0)) {
     els.push(txt(W / 2, H / 2, "Donanım girdileri eksik", 11, { anchor: "middle", fill: DCOL.muted }));
-    return { width: W, height: H, els };
+    return fitDiagram(els, W, H);
   }
 
   const cx = 330;
@@ -153,5 +153,5 @@ export function reevingDiagram(p: ReevingParams): Diagram {
     fill: DCOL.accent, bold: true,
   }));
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

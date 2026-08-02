@@ -31,23 +31,36 @@ import type {
   UsageClass,
 } from "../types";
 
-export type TravelWhich = "trolley" | "bridge";
+/**
+ * Yürütme grubu varyantı. Ana araba, yardımcı araba ve monoray arabaları aynı
+ * araba fiziğini kullanır; köprü ayrı dallanır.
+ */
+export type TravelWhich =
+  | "trolley"
+  | "auxTrolley"
+  | "mono1Trolley"
+  | "mono2Trolley"
+  | "bridge";
 
 /** Modüller arası bağımlılıklar — modül saf kalsın diye parametre olarak alınır */
 export interface TravelDeps {
-  /** Kanca bloğu + halat ağırlığı [t] (kaldırma grubundan gelir) */
+  /** Kanca bloğu + halat ağırlığı [t] (ilgili kaldırma grubundan gelir) */
   hookEquipmentT: number;
-  /** Araba ağırlığı [t] — köprü varyantında araba modülünden gelir */
+  /** Köprünün taşıdığı araba ağırlığı [t] — köprü varyantında kullanılır */
   trolleyWeightT: number;
 }
 
 /** Kullanıcı girdileri (tasarım kabulleri) */
 export interface TravelInputs {
-  trolleyWeightT: number;       // araba ağırlığı [t] (köprüde deps.trolleyWeightT kullanılır)
-  bridgeWeightT: number;        // köprü ağırlığı [t] (sadece köprü)
-  otherWeightsT: number;        // diğer ağırlıklar [t] (sadece köprü)
   minApproachM: number;         // minimum araba yanaşması [m] (sadece köprü)
   wheelCount: number;           // tekerlek adedi
+  /**
+   * Bir motorun tahrik ettiği teker sayısı. Yürütmede genellikle her motor tek
+   * tekeri döndürür; arabalarda tek motor bir mil üzerinden İKİ tekeri birden
+   * tahrik edebilir. Tahrikli teker sayısı = motor adedi × bu değerdir ve ana
+   * kiriş yatay yük hesabına (sürtünmeyle aktarılabilen çekme kuvveti) girer.
+   */
+  wheelsPerMotor: number;
   shaftSpanACm: number;         // teker mili mesnet ölçüsü a [cm]
   shaftSpanBCm: number;         // teker mili ölçüsü b [cm] (gösterim)
   shaftDiaCm: number;           // teker mili çapı [cm]
@@ -61,6 +74,8 @@ export interface TravelInputs {
   reducerStages: number;        // redüktör kademe sayısı
   accelerationMs2: number;      // ivme a [m/s²]
   tempFactor: number;           // ortam sıcaklığı düzeltme faktörü
+  /** Sıcaklık faktörü otomatik: ortam sıcaklığı üst sınırından türetilir. */
+  tempFactorAuto?: boolean;
   motorCalcCount: number;       // gücün bölüşüldüğü motor adedi
   gearboxServiceFactor: number; // redüktör emniyet (servis) katsayısı
   brakeServiceFactor: number;   // fren emniyet katsayısı (sadece köprü)
@@ -112,6 +127,9 @@ export interface TravelSelections {
 }
 
 export interface TravelValues {
+  // Tahrik
+  /** Motor adedi × motor başına teker; ana kiriş yatay yük hesabına girer */
+  drivenWheels: number;
   // Ağırlıklar / tekerlekler
   craneWeightT: number | null;  // toplam vinç ağırlığı (sadece köprü)
   maxWheelLoadKg: number;
@@ -217,6 +235,76 @@ function travelFrictionFactor(wheelDiaMm: number): number {
   return 12;
 }
 
+/**
+ * Bir yürütme grubunun teknik özelliklerden okunan büyüklükleri.
+ *
+ * Ağırlıklar artık modül girdisi değil vincin teknik özelliğidir: ana araba,
+ * yardımcı araba ve köprü ağırlıkları tek yerde girilir, tüm yürütme grupları
+ * buradan okur. Grup için değer tanımlı değilse ana grubun değeri kullanılır.
+ */
+export interface TravelSpecView {
+  speedMpm: number;
+  mechanismClass: MechanismClass;
+  usageClass: UsageClass;
+  /** Bu grubun kaldırdığı yük [t] */
+  capacityT: number;
+  /** Bu grubun kendi ağırlığı [t] (köprüde köprünün taşıdığı araba ağırlığı) */
+  trolleyWeightT: number;
+}
+
+const posOr = (v: number | undefined, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fallback;
+
+export function travelSpecView(
+  specs: TechnicalSpecs,
+  which: TravelWhich,
+  deps: TravelDeps
+): TravelSpecView {
+  switch (which) {
+    case "auxTrolley":
+      return {
+        speedMpm: posOr(specs.auxTrolleySpeedMpm, specs.trolleySpeedMpm),
+        mechanismClass: specs.auxTrolleyMechanismClass ?? specs.trolleyMechanismClass,
+        usageClass: specs.auxTrolleyUsageClass ?? specs.trolleyUsageClass,
+        capacityT: specs.auxCapacityT,
+        trolleyWeightT: posOr(specs.auxTrolleyWeightT, specs.mainTrolleyWeightT),
+      };
+    case "mono1Trolley":
+      return {
+        speedMpm: posOr(specs.mono1TrolleySpeedMpm, specs.trolleySpeedMpm),
+        mechanismClass: specs.mono1TrolleyMechanismClass ?? specs.trolleyMechanismClass,
+        usageClass: specs.mono1TrolleyUsageClass ?? specs.trolleyUsageClass,
+        capacityT: posOr(specs.mono1CapacityT, specs.mainCapacityT),
+        trolleyWeightT: posOr(specs.mono1TrolleyWeightT, specs.mainTrolleyWeightT),
+      };
+    case "mono2Trolley":
+      return {
+        speedMpm: posOr(specs.mono2TrolleySpeedMpm, specs.trolleySpeedMpm),
+        mechanismClass: specs.mono2TrolleyMechanismClass ?? specs.trolleyMechanismClass,
+        usageClass: specs.mono2TrolleyUsageClass ?? specs.trolleyUsageClass,
+        capacityT: posOr(specs.mono2CapacityT, specs.mainCapacityT),
+        trolleyWeightT: posOr(specs.mono2TrolleyWeightT, specs.mainTrolleyWeightT),
+      };
+    case "bridge":
+      return {
+        speedMpm: specs.bridgeSpeedMpm,
+        mechanismClass: specs.bridgeMechanismClass,
+        usageClass: specs.bridgeUsageClass,
+        capacityT: specs.mainCapacityT,
+        // Köprü tekerlek yükü, açıklık üzerindeki ANA arabanın konumundan çıkar.
+        trolleyWeightT: posOr(deps.trolleyWeightT, specs.mainTrolleyWeightT),
+      };
+    default:
+      return {
+        speedMpm: specs.trolleySpeedMpm,
+        mechanismClass: specs.trolleyMechanismClass,
+        usageClass: specs.trolleyUsageClass,
+        capacityT: specs.mainCapacityT,
+        trolleyWeightT: specs.mainTrolleyWeightT,
+      };
+  }
+}
+
 export function computeTravelGroup(
   specs: TechnicalSpecs,
   which: TravelWhich,
@@ -231,26 +319,35 @@ export function computeTravelGroup(
     cells[key] = value;
   };
 
-  const isTrolley = which === "trolley";
-  const speedMpm = isTrolley ? specs.trolleySpeedMpm : specs.bridgeSpeedMpm;
+  const isTrolley = which !== "bridge";
+  const view = travelSpecView(specs, which, deps);
+  const speedMpm = view.speedMpm;
   // Yürütme mekanizmasının kendi FEM sınıfları — kaldırma grubununki DEĞİL.
-  const mechanismClass: MechanismClass = isTrolley
-    ? specs.trolleyMechanismClass
-    : specs.bridgeMechanismClass;
-  const usageClass: UsageClass = isTrolley
-    ? specs.trolleyUsageClass
-    : specs.bridgeUsageClass;
+  const mechanismClass: MechanismClass = view.mechanismClass;
+  const usageClass: UsageClass = view.usageClass;
 
-  const capacityT = specs.mainCapacityT;
-  const trolleyWeightT = isTrolley ? inp.trolleyWeightT : deps.trolleyWeightT;
+  const capacityT = view.capacityT;
+  const trolleyWeightT = view.trolleyWeightT;
+  const bridgeWeightT = specs.bridgeWeightT;
+
+  // --- Tahrik ---------------------------------------------------------------
+  // Tahrikli teker sayısı = motor adedi × motor başına tahrik edilen teker.
+  // Tekerlek adedini aşamaz. Ana kirişin yatay yük hesabı bu sayıyı kullanır.
+  const drivenWheels = Math.min(
+    inp.wheelCount,
+    Math.max(1, Math.round(sel.motorCount * Math.max(1, inp.wheelsPerMotor)))
+  );
+  set("drive.wheelsPerMotor", Math.max(1, inp.wheelsPerMotor));
+  set("drive.drivenWheels", drivenWheels);
 
   // --- Ağırlıklar ----------------------------------------------------------
   let craneWeightT: number | null = null;
   if (!isTrolley) {
-    craneWeightT = inp.bridgeWeightT + inp.otherWeightsT + trolleyWeightT;
+    craneWeightT = bridgeWeightT + trolleyWeightT;
     set("weight.crane", craneWeightT);
-    set("weight.bridgeTotal", inp.bridgeWeightT + inp.otherWeightsT);
+    set("weight.bridgeTotal", bridgeWeightT);
   }
+  set("weight.trolley", trolleyWeightT);
 
   // --- Tekerlekler ---------------------------------------------------------
   let maxWheelLoad: number; // maksimum tekerlek yükü [kg]
@@ -263,7 +360,7 @@ export function computeTravelGroup(
     // Köprü: araba yanaşma eksantrikliği — yük, arabanın açıklık üzerindeki
     // konumuna göre iki başkirişe paylaştırılır.
     const span = specs.spanM;
-    const halfBridge = (inp.bridgeWeightT + inp.otherWeightsT) / 2;
+    const halfBridge = bridgeWeightT / 2;
     maxWheelLoad =
       (((capacityT + trolleyWeightT) * ((span - inp.minApproachM) / span) + halfBridge) * 1000) /
       (inp.wheelCount / 2);
@@ -293,8 +390,11 @@ export function computeTravelGroup(
   set("wheel.allowablePressure", allowedPressure);
   checks.push({
     id: `${which}.wheel.pressure`,
-    label: "Tekerlek yüzey basıncı (PL·c1·c2)",
+    label: "Tekerlek Yüzey Basıncı (PL·c1·c2)",
     required: actualPressure, provided: allowedPressure, unit: "N/mm²", op: ">=",
+    // Gerçekleşen temas basıncı HESAPTAN, sınır ise teker malzemesinin PL tablo
+    // değerinin hız (c1) ve mekanizma (c2) katsayılarıyla ölçeklenmesinden çıkar.
+    computedSide: "required",
     pass: allowedPressure >= actualPressure,
     standard: "FEM 1.001 4.2.4.1",
     kind: "standart", severity: "engelleyici",
@@ -309,7 +409,7 @@ export function computeTravelGroup(
     lengthCm: shaftSupportSpanCm,
     supportACm: 0,
     supportBCm: shaftSupportSpanCm,
-    pointLoads: [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek yükü" }],
+    pointLoads: [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek Yükü" }],
   });
   const reactionA = shaftBeam.reactionAKg;
   const reactionB = shaftBeam.reactionBKg;
@@ -346,8 +446,9 @@ export function computeTravelGroup(
   set("shaft.allowableCombined", shaftAllow.combined);
   checks.push({
     id: `${which}.shaft.stress`,
-    label: "Teker mili bileşik gerilmesi",
+    label: "Teker Mili Bileşik Gerilmesi",
     required: combinedStress, provided: shaftAllow.combined, unit: "kg/cm²", op: ">=",
+    computedSide: "required",
     pass: shaftAllow.combined >= combinedStress,
     standard: "CMAA 70 4.11.4.1",
     kind: "standart", severity: "engelleyici",
@@ -375,23 +476,26 @@ export function computeTravelGroup(
   if (life.max !== null) set("bearing.requiredLifeMax", life.max);
   checks.push({
     id: `${which}.bearing.life`,
-    label: "Tekerlek rulmanı ömrü",
+    label: "Tekerlek Rulmanı Ömrü",
     required: requiredLifeMin, provided: lifeHours, unit: "saat", op: ">=",
+    computedSide: "provided",
     pass: lifeHours >= requiredLifeMin,
     standard: "FEM 1.001 T.2.1.3.2",
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.bearing.static`,
-    label: "Rulman statik emniyeti",
-    required: 1, provided: staticSafety, unit: "-", op: ">=", pass: staticSafety >= 1,
+    label: "Rulman Statik Emniyeti",
+    required: 1, provided: staticSafety, unit: "-", op: ">=",
+    computedSide: "provided",
+    pass: staticSafety >= 1,
     kind: "uretici", severity: "engelleyici",
   });
 
   // --- Yürütme Motoru (CMAA 70) --------------------------------------------
   const totalWeightKg = isTrolley
     ? (capacityT + deps.hookEquipmentT + trolleyWeightT) * 1000
-    : (capacityT + trolleyWeightT + inp.bridgeWeightT + inp.otherWeightsT) * 1000;
+    : (capacityT + trolleyWeightT + bridgeWeightT) * 1000;
   set("weight.moving", totalWeightKg);
   // Tasarım ağırlığı: hareket eden kütleye %10 pay eklenir.
   const designWeightTons = (totalWeightKg * 1.1) / 1000;
@@ -423,8 +527,9 @@ export function computeTravelGroup(
   set("motor.installedPower", installedPower);
   checks.push({
     id: `${which}.motor.power`,
-    label: "Yürütme motoru gücü",
+    label: "Yürütme Motoru Gücü",
     required: requiredMaxPower, provided: installedPower, unit: "kW", op: ">=",
+    computedSide: "required",
     pass: installedPower >= requiredMaxPower,
     standard: "CMAA 70 5.2.9.1.2.1",
     kind: "standart", severity: "engelleyici",
@@ -442,7 +547,7 @@ export function computeTravelGroup(
   const devOk = ratioDeviation <= devMax && ratioDeviation >= devMin;
   checks.push({
     id: `${which}.gearbox.ratio`,
-    label: "Çevrim oranı sapması",
+    label: "Çevrim Oranı Sapması",
     min: devMin, max: devMax, provided: ratioDeviation, unit: "%", op: "range",
     pass: devOk,
     kind: "firma", severity: "uyari",
@@ -459,8 +564,9 @@ export function computeTravelGroup(
   set("gearbox.actualSafety", gearboxSafety);
   checks.push({
     id: `${which}.gearbox.safety`,
-    label: "Redüktör emniyet katsayısı",
+    label: "Redüktör Emniyet Katsayısı",
     required: inp.gearboxServiceFactor, provided: gearboxSafety, unit: "-", op: ">=",
+    computedSide: "provided",
     pass: gearboxSafety >= inp.gearboxServiceFactor,
     kind: "firma", severity: "engelleyici",
   });
@@ -472,8 +578,9 @@ export function computeTravelGroup(
     set("brake.requiredTorque", requiredBrakeTorque);
     checks.push({
       id: `${which}.brake.torque`,
-      label: "Köprü yürütme freni torku",
+      label: "Köprü Yürütme Freni Torku",
       required: requiredBrakeTorque, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
+      computedSide: "required",
       pass: sel.brakeTorqueNm >= requiredBrakeTorque,
       kind: "standart", severity: "engelleyici",
     });
@@ -489,15 +596,19 @@ export function computeTravelGroup(
   set("motorCoupling.actualSafety", motorCouplingSafety);
   checks.push({
     id: `${which}.motorCoupling.torque`,
-    label: "Motor kaplini tork kapasitesi",
+    label: "Motor Kaplini Tork Kapasitesi",
     required: requiredMotorCouplingTorque, provided: sel.motorCouplingTorqueNm, unit: "Nm", op: ">=",
+    computedSide: "required",
     pass: sel.motorCouplingTorqueNm >= requiredMotorCouplingTorque,
     kind: "firma", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.motorCoupling.bore`,
-    label: "Motor kaplini delik çapı",
+    label: "Motor Kaplini Delik Çapı",
     required: motorCouplingShaft, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",
+    // İki taraf da katalogdan gelir; TALEP kaplinin geçirmesi gereken motor mili
+    // çapıdır, sınır ise kaplinin en büyük delik çapıdır.
+    computedSide: "required",
     pass: sel.motorCouplingDmaxMm >= motorCouplingShaft,
     kind: "uretici", severity: "engelleyici",
   });
@@ -510,15 +621,19 @@ export function computeTravelGroup(
   set("wheelCoupling.actualSafety", wheelCouplingSafety);
   checks.push({
     id: `${which}.wheelCoupling.torque`,
-    label: "Teker kaplini tork kapasitesi",
+    label: "Teker Kaplini Tork Kapasitesi",
     required: requiredWheelCouplingTorque, provided: sel.wheelCouplingTorqueNm, unit: "Nm", op: ">=",
+    computedSide: "required",
     pass: sel.wheelCouplingTorqueNm >= requiredWheelCouplingTorque,
     kind: "firma", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.wheelCoupling.bore`,
-    label: "Teker kaplini delik çapı",
+    label: "Teker Kaplini Delik Çapı",
     required: sel.wheelShaftDiaMm, provided: sel.wheelCouplingDmaxMm, unit: "mm", op: ">=",
+    // İki taraf da katalogdan gelir; TALEP kaplinin geçirmesi gereken teker mili
+    // çapıdır, sınır ise kaplinin en büyük delik çapıdır.
+    computedSide: "required",
     pass: sel.wheelCouplingDmaxMm >= sel.wheelShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
@@ -533,7 +648,7 @@ export function computeTravelGroup(
     // Köprüde çarpışan kütle eksantriktir: köprünün yarısı + arabanın
     // yanaşma konumuna düşen payı.
     collisionLoadT =
-      (inp.bridgeWeightT + inp.otherWeightsT) / 2 +
+      bridgeWeightT / 2 +
       (trolleyWeightT * (specs.spanM - inp.bufferApproachM)) / specs.spanM;
     // Köprü kütlesi büyük olduğundan çarpma hızı nominal hızın %70'i alınır.
     impactEnergy = 0.5 * collisionLoadT * ((0.7 * actualSpeed) / 60) ** 2;
@@ -559,20 +674,23 @@ export function computeTravelGroup(
   set("buffer.reactionForce", bufferForce);
   checks.push({
     id: `${which}.buffer.energy`,
-    label: "Tampon enerji kapasitesi",
+    label: "Tampon Enerji Kapasitesi",
     required: totalEnergy, provided: sel.bufferEnergyKj, unit: "kJ", op: ">=",
+    computedSide: "required",
     pass: sel.bufferEnergyKj >= totalEnergy,
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.buffer.load`,
-    label: "Tampon yük kapasitesi",
+    label: "Tampon Yük Kapasitesi",
     required: bufferForce, provided: sel.bufferLoadKn, unit: "kN", op: ">=",
+    computedSide: "required",
     pass: sel.bufferLoadKn >= bufferForce,
     kind: "standart", severity: "engelleyici",
   });
 
   const values: TravelValues = {
+    drivenWheels,
     craneWeightT,
     maxWheelLoadKg: maxWheelLoad,
     minWheelLoadKg: minWheelLoad,

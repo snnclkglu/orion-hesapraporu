@@ -77,8 +77,8 @@ export function shaftMaterialAllowables(material: ShaftMaterial) {
 }
 
 /**
- * Halat oluk adımı [mm] — DIN 15061 basamak fonksiyonu.
- * Halat çapına göre oluk adımı = çap + pay.
+ * Halat hatvesi p [mm] — DIN 15061 basamak fonksiyonu.
+ * Halat çapına göre hatve = çap + pay.
  */
 export function groovePitch(ropeDiaMm: number): number {
   if (ropeDiaMm < 8) return ropeDiaMm + 1;

@@ -10,7 +10,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  arrowHead, caption, dimH, fmtN, ln, loadArrow, txt,
+  arrowHead, caption, dimH, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
 import { KGF_TO_MPA } from "@/lib/units";
 
@@ -52,7 +52,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     els.push(txt(W / 2, H / 2, "Mil ölçü zinciri (A, B, D) eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
-    return { width: W, height: H, els };
+    return fitDiagram(els, W, H);
   }
 
   // --- ölçek
@@ -209,5 +209,5 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   els.push(ln(peak[0], yM0, peak[0], peak[1], DCOL.accent, 0.7, "4,3"));
   els.push(arrowHead(peak[0], peak[1], "down", DCOL.accent, 6, 2.4));
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

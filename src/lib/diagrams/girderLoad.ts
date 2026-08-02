@@ -5,7 +5,7 @@
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  arrowHead, dimH, fmtN, ln, txt,
+  arrowHead, dimH, fitDiagram, fmtN, ln, txt,
 } from "./model";
 import { KGF_TO_MPA } from "@/lib/units";
 
@@ -97,5 +97,5 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
     els.push(txt(xC, yM0 + hM + 22, `Mmaks = ${label}`, 9.5, { anchor: "middle", fill: DCOL.accent, bold: true }));
   }
 
-  return { width: W, height: H, els };
+  return fitDiagram(els, W, H);
 }

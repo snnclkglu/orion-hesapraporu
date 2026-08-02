@@ -6,8 +6,19 @@
 // aynı fonksiyonu kullanır.
 
 import ExcelJS from "exceljs";
+import { MODULE_LABELS } from "@/lib/calc/labels";
+import { moduleState } from "@/lib/calc/presentation/module-access";
+import {
+  MODULE_ORDER,
+  isHoistKey,
+  isHookBlockKey,
+  isTravelKey,
+} from "@/lib/calc/presentation/module-family";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
+import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
+import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
+import { travelSpecView } from "@/lib/calc/modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageInputs } from "@/lib/calc/modules/endCarriage";
@@ -333,79 +344,95 @@ export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): Eq
   return merged;
 }
 
+/** Kanca bloğu bölümünün ekipman satırları. */
+function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelections }): EqRow[] {
+  const sel = m.selections;
+  return [
+    {
+      kind: "hook",
+      component: "Kanca",
+      brand: "-",
+      model: textOr(sel.hookDesignation),
+      spec: `kapasite ${fmt(sel.hookCapacityKg)} kg (DIN 15400)`,
+      qty: 1,
+    },
+    {
+      kind: "sheave",
+      component: "Halat makarası",
+      brand: "-",
+      model: "-",
+      spec: `halat ekseninde Ø${fmt(sel.sheaveDiaMm)} mm`,
+      qty: "-",
+    },
+    {
+      kind: "bearing",
+      component: "Makara rulmanı",
+      brand: textOr(sel.sheaveBearingType),
+      model: textOr(sel.sheaveBearingCode),
+      spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
+      qty: 2,
+    },
+    {
+      kind: "bearing",
+      component: "Kanca (eksenel) rulmanı",
+      brand: textOr(sel.hookBearingType),
+      model: textOr(sel.hookBearingCode),
+      spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
+      qty: 1,
+    },
+    {
+      component: "Kanca bloğu mili",
+      brand: "-",
+      model: "-",
+      spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((m.inputs.shaftD1Cm ?? 0) * 10)} mm`,
+      qty: 1,
+    },
+  ];
+}
+
+/**
+ * Ekipman grupları vincin GERÇEK topolojisinden üretilir: hangi kaldırma
+ * grupları, kanca blokları ve arabalar hesaba giriyorsa listede o kadar bölüm
+ * olur (yardımcı kaldırma, ayrı yardımcı araba, monoray grupları dâhil).
+ * Bölüm adları arayüzdekiyle aynı kaynaktan (`MODULE_LABELS`) gelir.
+ */
+/**
+ * Bölüm adından rapor numarasını atar ("04 · Yardımcı Kaldırma" → "Yardımcı
+ * Kaldırma"). Ekipman listesi bir satın alma belgesidir; hesap raporunun bölüm
+ * numaralandırmasını taşımaz.
+ */
+function groupName(key: string): string {
+  return (MODULE_LABELS[key] ?? key).replace(/^\d+\s*·\s*/, "");
+}
+
 export function buildEquipmentGroups(input: CalcInput): EqGroup[] {
   const groups: EqGroup[] = [];
-
-  if (input.mainHoist) {
-    groups.push({
-      name: "Ana Kaldırma",
-      rows: hoistRows(input.mainHoist.inputs, input.mainHoist.selections),
-    });
-  }
-  if (input.auxHoist) {
-    groups.push({
-      name: "Yrd Kaldırma",
-      rows: hoistRows(input.auxHoist.inputs, input.auxHoist.selections),
-    });
-  }
-  if (input.hookBlock) {
-    const sel = input.hookBlock.selections;
-    groups.push({
-      name: "Kanca Bloğu",
-      rows: [
-        {
-          kind: "hook",
-          component: "Kanca",
-          brand: "-",
-          model: textOr(sel.hookDesignation),
-          spec: `kapasite ${fmt(sel.hookCapacityKg)} kg (DIN 15400)`,
-          qty: 1,
-        },
-        {
-          kind: "sheave",
-          component: "Halat makarası",
-          brand: "-",
-          model: "-",
-          spec: `halat ekseninde Ø${fmt(sel.sheaveDiaMm)} mm`,
-          qty: "-",
-        },
-        {
-          kind: "bearing",
-          component: "Makara rulmanı",
-          brand: textOr(sel.sheaveBearingType),
-          model: textOr(sel.sheaveBearingCode),
-          spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
-          qty: 2,
-        },
-        {
-          kind: "bearing",
-          component: "Kanca (eksenel) rulmanı",
-          brand: textOr(sel.hookBearingType),
-          model: textOr(sel.hookBearingCode),
-          spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
-          qty: 1,
-        },
-        {
-          component: "Kanca bloğu mili",
-          brand: "-",
-          model: "-",
-          spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((input.hookBlock.inputs.shaftD1Cm ?? 0) * 10)} mm`,
-          qty: 1,
-        },
-      ],
-    });
-  }
-  if (input.trolley) {
-    groups.push({
-      name: "Araba Yürütme",
-      rows: travelRows("trolley", input.trolley.inputs, input.trolley.selections),
-    });
-  }
-  if (input.bridge) {
-    groups.push({
-      name: "Köprü Yürütme",
-      rows: travelRows("bridge", input.bridge.inputs, input.bridge.selections),
-    });
+  for (const key of MODULE_ORDER) {
+    const state = moduleState(input, key);
+    if (!state) continue;
+    const name = groupName(key);
+    if (isHoistKey(key)) {
+      groups.push({
+        name,
+        rows: hoistRows(state.inputs as HoistInputs, state.selections as HoistSelections),
+      });
+    } else if (isHookBlockKey(key)) {
+      groups.push({
+        name,
+        rows: hookBlockRows(
+          state as { inputs: HookBlockInputs; selections: HookBlockSelections }
+        ),
+      });
+    } else if (isTravelKey(key)) {
+      groups.push({
+        name,
+        rows: travelRows(
+          key === "bridge" ? "bridge" : "trolley",
+          state.inputs as TravelInputs,
+          state.selections as TravelSelections
+        ),
+      });
+    }
   }
   return groups;
 }
@@ -562,21 +589,31 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
   const specs = input.specs;
   const sections: SummarySection[] = [];
 
-  sections.push({
-    name: "Genel Ölçüler ve Kapasiteler",
-    rows: [
-      { label: "Açıklık (L)", value: specs.spanM, unit: "m" },
-      { label: "Ana kaldırma kapasitesi", value: specs.mainCapacityT, unit: "ton" },
-      { label: "Ana kaldırma yüksekliği", value: specs.mainLiftHeightM, unit: "m" },
-      { label: "Ana kaldırma hızı", value: specs.mainLiftSpeedMpm, unit: "m/dak" },
-      { label: "Yrd kaldırma kapasitesi", value: specs.auxCapacityT, unit: "ton" },
-      { label: "Yrd kaldırma yüksekliği", value: specs.auxLiftHeightM, unit: "m" },
-      { label: "Yrd kaldırma hızı", value: specs.auxLiftSpeedMpm, unit: "m/dak" },
-      { label: "Araba yürütme hızı", value: specs.trolleySpeedMpm, unit: "m/dak" },
-      { label: "Köprü yürütme hızı", value: specs.bridgeSpeedMpm, unit: "m/dak" },
-      { label: "Kanca / tutucu tipi", value: specs.hookType },
-    ],
-  });
+  // Yalnız vinçte GERÇEKTEN olan kaldırma grupları listelenir; kapalı bir
+  // yardımcı kaldırmanın kapasitesini ilan etmek teknik ressamı yanıltır.
+  const genelRows: SummaryRow[] = [
+    { label: "Açıklık (L)", value: specs.spanM, unit: "m" },
+  ];
+  for (const key of MODULE_ORDER) {
+    if (!isHoistKey(key) || !moduleState(input, key)) continue;
+    const view = hoistSpecView(specs, key);
+    const ad = groupName(key);
+    genelRows.push(
+      { label: `${ad} kapasitesi`, value: view.capacityT, unit: "ton" },
+      { label: `${ad} yüksekliği`, value: view.liftHeightM, unit: "m" },
+      { label: `${ad} hızı`, value: view.liftSpeedMpm, unit: "m/dak" }
+    );
+  }
+  for (const key of MODULE_ORDER) {
+    if (!isTravelKey(key) || !moduleState(input, key)) continue;
+    genelRows.push({
+      label: `${groupName(key)} hızı`,
+      value: travelSpecView(specs, key, { hookEquipmentT: 0, trolleyWeightT: 0 }).speedMpm,
+      unit: "m/dak",
+    });
+  }
+  genelRows.push({ label: "Kanca / tutucu tipi", value: specs.hookType });
+  sections.push({ name: "Genel Ölçüler ve Kapasiteler", rows: genelRows });
 
   const trolleyRows: SummaryRow[] = [];
   if (input.trolley) {
@@ -667,19 +704,21 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
     });
   }
 
-  const weightRows: SummaryRow[] = [];
-  if (input.trolley) {
-    weightRows.push({ label: "Araba ağırlığı", value: input.trolley.inputs.trolleyWeightT, unit: "t" });
+  // Ağırlıklar artık teknik özelliklerdedir; yürütme grupları oradan okur.
+  const weightRows: SummaryRow[] = [
+    { label: "Ana araba ağırlığı", value: input.specs.mainTrolleyWeightT, unit: "t" },
+  ];
+  if (input.auxTrolley && input.specs.auxTrolleyWeightT) {
+    weightRows.push({
+      label: "Yardımcı araba ağırlığı",
+      value: input.specs.auxTrolleyWeightT,
+      unit: "t",
+    });
   }
-  if (input.bridge) {
-    weightRows.push(
-      { label: "Köprü ana kirişleri ağırlığı", value: input.bridge.inputs.bridgeWeightT, unit: "t" },
-      { label: "Başkirişler ve diğer ağırlıklar", value: input.bridge.inputs.otherWeightsT, unit: "t" }
-    );
-    const craneT = result.bridge?.values.craneWeightT;
-    if (craneT !== null && craneT !== undefined) {
-      weightRows.push({ label: "Toplam vinç ağırlığı (hesap)", value: Number(craneT.toFixed(2)), unit: "t" });
-    }
+  weightRows.push({ label: "Köprü ağırlığı", value: input.specs.bridgeWeightT, unit: "t" });
+  const craneT = result.bridge?.values.craneWeightT;
+  if (craneT !== null && craneT !== undefined) {
+    weightRows.push({ label: "Toplam vinç ağırlığı (hesap)", value: Number(craneT.toFixed(2)), unit: "t" });
   }
   if (weightRows.length > 0) {
     sections.push({ name: "Ağırlıklar", rows: weightRows });

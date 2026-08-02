@@ -9,7 +9,7 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
-import { BRAND, BrandPage, PageHeader, RuleRed, T } from "@/lib/pdf/brand";
+import { BRAND, BrandPage, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 
@@ -22,15 +22,17 @@ const s = StyleSheet.create({
   metaMono: { fontFamily: "PlexMono", fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
   // tablo: kömür başlık zemini + hairline satır çizgileri
   tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
+  // Büyük harf dönüşümü stilde YAPILMAZ: @react-pdf'in textTransform'u
+  // locale'siz toUpperCase() çağırıp Türkçe "i" harfini bozar. Metin çağrı
+  // yerinde trUpper() ile büyütülür.
   th: {
     fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
-    textTransform: "uppercase" as const, color: BRAND.paper100,
-    paddingVertical: 4, paddingHorizontal: 5,
+    color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   groupRow: { backgroundColor: BRAND.paper150 },
   groupCell: {
     fontFamily: "Archivo", fontSize: 8, fontWeight: 700, color: BRAND.ink,
-    textTransform: "uppercase" as const, paddingVertical: 3, paddingHorizontal: 5,
+    paddingVertical: 3, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
   td: { fontFamily: "Archivo", fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
@@ -44,7 +46,7 @@ const s = StyleSheet.create({
   // özet
   sumSection: {
     backgroundColor: BRAND.paper150, fontFamily: "Archivo", fontSize: 8, fontWeight: 700,
-    color: BRAND.ink, textTransform: "uppercase" as const, paddingVertical: 3, paddingHorizontal: 5,
+    color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5,
   },
   sLabel: { width: "62%" },
   sVal: { width: "24%", textAlign: "right" as const },
@@ -91,7 +93,8 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
         docCode={docCode}
       >
-        <PageHeader kicker="ORION CRANES · EQUIPMENT LIST" title="EKİPMAN LİSTESİ" meta={docCode} />
+        {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır */}
+        <PageHeader kicker="ORION CRANES · EKİPMAN LİSTESİ" title="Ekipman Listesi" meta={docCode} />
 
         <View style={s.metaGrid}>
           <View style={s.metaItem}><Text style={s.metaLabel}>Proje</Text><Text style={s.metaVal}>{meta.projectName}</Text></View>
@@ -101,16 +104,16 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
         </View>
 
         <View style={s.tHead} fixed>
-          <Text style={[s.th, s.cComp]}>Ekipman</Text>
-          <Text style={[s.th, s.cBrand]}>Marka</Text>
-          <Text style={[s.th, s.cModel]}>Model</Text>
-          <Text style={[s.th, s.cSpec]}>Özellikler</Text>
-          <Text style={[s.th, s.cQty]}>Adet</Text>
+          <Text style={[s.th, s.cComp]}>{trUpper("Ekipman")}</Text>
+          <Text style={[s.th, s.cBrand]}>{trUpper("Marka")}</Text>
+          <Text style={[s.th, s.cModel]}>{trUpper("Model")}</Text>
+          <Text style={[s.th, s.cSpec]}>{trUpper("Özellikler")}</Text>
+          <Text style={[s.th, s.cQty]}>{trUpper("Adet")}</Text>
         </View>
 
         {groups.map((g) => (
           <View key={g.name} minPresenceAhead={30}>
-            <View style={s.groupRow}><Text style={s.groupCell}>{g.name}</Text></View>
+            <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
             {g.rows.map((r, i) => (
               <View key={i} style={s.tr} wrap={false}>
                 <Text style={[s.td, s.cComp, r.custom ? s.custom : {}]}>
@@ -132,16 +135,16 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
                 <Text style={T.kicker}>TEKNİK RESSAM ÖZETİ</Text>
                 <RuleRed />
               </View>
-              <Text style={T.micro}>FABRICATION SUMMARY</Text>
+              <Text style={T.micro}>İMALAT ÖZETİ</Text>
             </View>
             <View style={s.tHead} fixed>
-              <Text style={[s.th, s.sLabel]}>Ölçü / Özellik</Text>
-              <Text style={[s.th, s.sVal]}>Değer</Text>
-              <Text style={[s.th, s.sUnit]}>Birim</Text>
+              <Text style={[s.th, s.sLabel]}>{trUpper("Ölçü / Özellik")}</Text>
+              <Text style={[s.th, s.sVal]}>{trUpper("Değer")}</Text>
+              <Text style={[s.th, s.sUnit]}>{trUpper("Birim")}</Text>
             </View>
             {summary.map((sec) => (
               <View key={sec.name} minPresenceAhead={30}>
-                <Text style={s.sumSection}>{sec.name}</Text>
+                <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
                 {sec.rows.map((r, i) => (
                   <View key={i} style={s.tr} wrap={false}>
                     <Text style={[s.td, s.sLabel]}>{r.label}</Text>

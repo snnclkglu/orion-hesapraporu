@@ -1,9 +1,11 @@
-// İş Emri (Work Order, form FR.11.02) PDF çıktısı — @react-pdf/renderer.
-// ASTOR örneğinin içerik düzeni Orion marka kimliğiyle: BrandPage (kırmızı
-// omurga + folio altbilgi), PageHeader bandı, Archivo gövde + PlexMono sayı/kod.
+// İş Emri (form FR.11.02) PDF çıktısı — @react-pdf/renderer.
+// İçerik düzeni Orion marka kimliğiyle: BrandPage (kırmızı omurga + folio
+// altbilgi), PageHeader bandı, Archivo gövde + PlexMono sayı/kod.
+// Tüm metinler Türkçedir; büyük harfe çevrim `trUpper` (tr-TR) ile yapılır —
+// stil tabanlı `textTransform` Türkçe "i" harfini bozduğu için kullanılmaz.
 
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
-import { BRAND, BrandPage, CheckGlyph, PageHeader, RuleRed, T } from "@/lib/pdf/brand";
+import { BRAND, BrandPage, CheckGlyph, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 
 export interface WorkOrderItem {
@@ -48,8 +50,7 @@ const s = StyleSheet.create({
   tHead: { flexDirection: "row", backgroundColor: BRAND.ink },
   th: {
     fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 0.8,
-    textTransform: "uppercase" as const, color: BRAND.paper100,
-    paddingVertical: 4, paddingHorizontal: 5,
+    color: BRAND.paper100, paddingVertical: 4, paddingHorizontal: 5,
   },
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
   td: { fontFamily: "Archivo", fontSize: 8, color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5 },
@@ -63,7 +64,7 @@ const s = StyleSheet.create({
   box: { flex: 1, borderWidth: 0.75, borderColor: BRAND.line300 },
   boxTitle: {
     fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 600, letterSpacing: 1,
-    textTransform: "uppercase" as const, color: BRAND.gray600, backgroundColor: BRAND.paper150,
+    color: BRAND.gray600, backgroundColor: BRAND.paper150,
     paddingVertical: 3.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: BRAND.line300,
   },
   kv: { flexDirection: "row", paddingVertical: 2.5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
@@ -79,12 +80,12 @@ const s = StyleSheet.create({
   prep: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, alignItems: "flex-end" },
 });
 
-/** Bölüm etiketi: mono kicker + kırmızı çizgi */
+/** Bölüm etiketi: mono kicker + kırmızı çizgi (başlık tr-TR ile büyütülür) */
 function SectionLabel({ title, gloss }: { title: string; gloss?: string }) {
   return (
     <View wrap={false} style={{ marginTop: 12, marginBottom: 5 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <Text style={T.kicker}>{title}</Text>
+        <Text style={T.kicker}>{trUpper(title)}</Text>
         {gloss ? <Text style={T.micro}>{gloss}</Text> : null}
       </View>
       <RuleRed />
@@ -120,24 +121,24 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
     <Document title={`İş Emri ${data.job_no}`} author={st.company} subject={data.title} language="tr">
       <BrandPage
         docLine={`ORION CRANES · İŞ EMRİ · REV 00 · ${year}`}
-        docCode={`ORC-WO-${data.job_no}-R00`}
+        docCode={`ORC-IE-${data.job_no}-R00`}
       >
         <PageHeader
-          kicker="ORION CRANES · WORK ORDER"
-          title="İŞ EMRİ"
-          meta={`${data.form_code || "FR.11.02"} · İŞ NO ${data.job_no}`}
+          kicker="ORION CRANES · İş Emri"
+          title="İş Emri"
+          meta={`${data.form_code || "FR.11.02"} · ${trUpper("İş No")} ${data.job_no}`}
         />
 
         <View style={s.dateRow}>
-          <Text style={T.data}>TARİH {fmtDate(data.work_order_date)}</Text>
+          <Text style={T.data}>{trUpper("Tarih")} {fmtDate(data.work_order_date)}</Text>
         </View>
 
         {/* İş kalemleri */}
         <View style={s.tHead}>
           <Text style={[s.th, s.cIdx]}>#</Text>
-          <Text style={[s.th, s.cName]}>Ürün Adı</Text>
-          <Text style={[s.th, s.cNo]}>İş Numarası</Text>
-          <Text style={[s.th, s.cQty]}>Adet</Text>
+          <Text style={[s.th, s.cName]}>{trUpper("Ürün Adı")}</Text>
+          <Text style={[s.th, s.cNo]}>{trUpper("İş Numarası")}</Text>
+          <Text style={[s.th, s.cQty]}>{trUpper("Adet")}</Text>
         </View>
         {(data.items.length > 0 ? data.items : [{ item_no: "", product_name: "—", quantity: "" }]).map((it, i) => (
           <View key={i} style={s.tr} wrap={false}>
@@ -151,7 +152,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         {/* Müşteri + İş bilgileri */}
         <View style={s.twoCol}>
           <View style={s.box}>
-            <Text style={s.boxTitle}>Müşteri Bilgileri</Text>
+            <Text style={s.boxTitle}>{trUpper("Müşteri Bilgileri")}</Text>
             <KV label="Adı" value={data.customer} />
             <KV label="Adresi" value={data.customer_address} />
             <KV label="Vergi Dairesi" value={data.customer_tax_office} />
@@ -160,8 +161,8 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
             <KV label="Faks" value={data.customer_fax} mono />
           </View>
           <View style={s.box}>
-            <Text style={s.boxTitle}>İş Bilgileri</Text>
-            <KV label="Sözleşme" value={data.contract_exists ? "VAR" : "YOK"} />
+            <Text style={s.boxTitle}>{trUpper("İş Bilgileri")}</Text>
+            <KV label="Sözleşme" value={data.contract_exists ? "Var" : "Yok"} />
             <KV label="Sözleşme Tarihi" value={fmtDate(data.contract_date)} mono />
             <KV label="Atölye Çıkış" value={fmtDate(data.workshop_exit_date)} mono />
             <KV label="Teslim Tarihi" value={fmtDate(data.delivery_date)} mono />
@@ -171,7 +172,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         </View>
 
         {/* Kapsam */}
-        <SectionLabel title="KAPSAM" />
+        <SectionLabel title="Kapsam" />
         <View style={s.scopeRow}>
           <Chk label="Proje" on={sc.proje} />
           <Chk label="Devreye Alma" on={sc.devreyeAlma} />
@@ -182,7 +183,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         </View>
 
         {/* Açıklamalar */}
-        <SectionLabel title="AÇIKLAMALAR" />
+        <SectionLabel title="Açıklamalar" />
         <View style={s.notes}>
           <Text style={{ ...T.body, color: BRAND.ink }}>{data.notes && data.notes.trim() ? data.notes : "—"}</Text>
         </View>
@@ -190,9 +191,9 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         {/* Hazırlayan */}
         <View style={s.prep}>
           <View>
-            <Text style={T.kickerInk}>İŞ EMRİNİ HAZIRLAYAN</Text>
-            <Text style={{ ...T.body, color: BRAND.ink, marginTop: 5 }}>Adı Soyadı : {data.prepared_by_name || "—"}</Text>
-            <Text style={{ ...T.body, color: BRAND.ink }}>Unvanı : {data.prepared_by_title || "—"}</Text>
+            <Text style={T.kickerInk}>{trUpper("İş Emrini Hazırlayan")}</Text>
+            <Text style={{ ...T.body, color: BRAND.ink, marginTop: 5 }}>Adı Soyadı: {data.prepared_by_name || "—"}</Text>
+            <Text style={{ ...T.body, color: BRAND.ink }}>Unvanı: {data.prepared_by_title || "—"}</Text>
           </View>
         </View>
       </BrandPage>

@@ -18,11 +18,12 @@ export const V5_GIRDER_DEPS: GirderDeps = {
   mainRopeWeightKg: 250,
   trolleyWeightT: 2.5,
   trolleyWheelCount: 4,
+  trolleyDrivenWheels: 2,
   trolleyActualSpeedMpm: 40.0823890285594,
   trolleyAccelTimeS: 3.34019908571329,
-  bridgeGirdersWeightT: 15,
-  bridgeEndCarriagesWeightT: 2,
+  bridgeWeightT: 17,          // 15 t ana kirişler + 2 t başkirişler
   bridgeWheelCount: 4,
+  bridgeDrivenWheels: 4,
   bridgeActualSpeedMpm: 61.0254372959817,
   bridgeAccelTimeS: 5.08545310799848,
 };
@@ -43,13 +44,12 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   aMm: 320,
   xMm: 80,
   hookTopPositionM: 12,
-  psiHK: 2,                   // ψhK
-  psiHA: 2.31,                // ψhA
   bridgeAxleSpacingM: 3.75,
   trolleyWheelSpacingM: 3,
   trolleyAxleSpacingM: 3,
-  trolleyDrivenWheels: 2,
-  bridgeDrivenWheels: 4,
+  // ψhA / ψhK elle girilmez: kütle oranından türetilir (FEM 1.001 Şekil A.2.2.1)
+  //   µ_araba = 7500/2500 = 3,0 → ψhA = √(2 + µ + 1/µ) = 2,309
+  //   µ_köprü = 7500/19500 = 0,38 ≤ 1 → ψhK = 2,00
   // γc elle girilmez: yapı sınıfı A6 → FEM 1.001 T.2.3.4 → 1,14
   dynTestFactorR1: 1.1,       // ρ1
   statTestFactorR2: 1.25,     // ρ2
@@ -57,9 +57,8 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   diaphragmSpacingMm: 2000,
   wheelContactHMm: 75,
   wheelContactTMm: 12,
-  sigmaYMaxNmm2: 34,
-  sigmaYMinNmm2: 8,
-  fatigueTensileNmm2: 350,    // S235JR σB
+  // σy,maks / σy,min elle girilmez: teker basıncı σz'den gelir
+  // σB elle girilmez: S235JR → 360 N/mm²
   deflectionLimitRatio: 750,  // yaygın imalat hedefi L/750
 };
 
@@ -99,8 +98,7 @@ export const V5_BUCKLING_INPUTS: BucklingInputs = {
 export const V5_ENDCARRIAGE_DEPS: EndCarriageDeps = {
   mainHoistTotalLoadKg: 7500,
   trolleyWeightT: 2.5,
-  bridgeGirdersWeightT: 15,
-  bridgeEndCarriagesWeightT: 2,
+  bridgeWeightT: 17,          // 15 t ana kirişler + 2 t başkirişler
 };
 
 export const V5_ENDCARRIAGE_INPUTS: EndCarriageInputs = {

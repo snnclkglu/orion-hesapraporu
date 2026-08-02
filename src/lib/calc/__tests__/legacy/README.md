@@ -9,6 +9,26 @@ ondan tamamen bağımsızdır.
 > Buradaki hiçbir dosya, uygulamanın hesap yönteminin ne olması gerektiğini
 > tanımlamaz. Yalnızca "ilk portta şu sayı çıkıyordu" bilgisini saklar.
 
+## 0. Ana kiriş artık burada karşılaştırılmıyor
+
+`GIRDER_ALIASES` (`alias-structural.ts`) hâlâ duruyor ama **hiçbir test onu
+çalıştırmıyor**: ana kirişin doğrulaması `__tests__/mainGirder.golden.test.ts`
+içinde Excel'e karşı değil FİZİĞE karşı yazıldı (denge, ölçek tutarlılığı,
+analitik atalet momenti, sınıf duyarlılığı).
+
+Sözlük bilinçli olarak silinmedi; hangi hücrenin hangi semantik anahtara denk
+geldiğini gösteren tarihsel bir harita olarak değerlidir. Ancak **sayısal olarak
+artık örtüşmez** — motorun yöntemi şu noktalarda bilinçli olarak değişti:
+
+- Ray altı sacı b1 kesit ortasına değil **ray eksenine** oturuyor (Cy ve Izz
+  değişti).
+- Ek flanş (b6) Izz Steiner teriminde işaret hatası düzeltildi.
+- Köprü atalet yükü asılı yükü ψhK ile içeriyor; ψhA/ψhK FEM A.2.2.1'den
+  otomatik türetiliyor.
+- Bileşik gerilme her gövde sacı için ayrı hesaplanıp elverişsizi seçiliyor.
+- Yorulmada τ,maks gerçek kayma gerilmesinden, σy teker basıncından geliyor.
+- Sehim cm yerine **mm**.
+
 ## 1. Neden burada duruyor?
 
 Uygulamanın hesap motoru artık kendi yöntemini kullanır ve bu yöntem doğrudan

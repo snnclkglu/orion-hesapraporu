@@ -5,7 +5,7 @@
 
 import path from "node:path";
 import React from "react";
-import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
 
@@ -81,6 +81,16 @@ export const PAGE = {
 
 export const FONTS = { sans: "Archivo", mono: "PlexMono", glyph: "DejaVu" } as const;
 
+/**
+ * Türkçe büyük harf. @react-pdf'in `textTransform: "uppercase"` uygulaması
+ * locale'siz `toUpperCase()` çağırır; bu da "i" harfini "I" yapar
+ * ("Müşteri Bilgileri" → "MÜŞTERI BILGILERI"). Bu yüzden PDF şablonlarında
+ * `textTransform` KULLANILMAZ, metin çağrı yerinde bu yardımcıyla büyütülür.
+ */
+export function trUpper(text: string): string {
+  return text.toLocaleUpperCase("tr-TR");
+}
+
 // ---------------------------------------------------------------- Ortak stiller
 
 /** Kılavuzun A4 tip rolleri — şablonlar spread ile kullanır: {...T.kicker} */
@@ -90,8 +100,10 @@ export const T = StyleSheet.create({
   subhead: { fontFamily: "Archivo", fontSize: 10.5, fontWeight: 700, color: BRAND.ink },
   body: { fontFamily: "Archivo", fontSize: 8.5, fontWeight: 400, lineHeight: 1.55, color: BRAND.gray700 },
   caption: { fontFamily: "Archivo", fontSize: 7.5, fontWeight: 500, lineHeight: 1.45, color: BRAND.gray600 },
-  kicker: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: BRAND.red },
-  kickerInk: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: BRAND.gray500 },
+  // kicker/kickerInk büyük harf GÖRÜNÜR ama dönüşüm stilde yapılmaz: metin
+  // çağrı yerinde `trUpper()` ile (ya da doğrudan büyük yazılarak) verilir.
+  kicker: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.red },
+  kickerInk: { fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 1.5, color: BRAND.gray500 },
   data: { fontFamily: "PlexMono", fontSize: 8, fontWeight: 500, letterSpacing: 0.3, color: BRAND.ink },
   micro: { fontFamily: "PlexMono", fontSize: 6, fontWeight: 400, letterSpacing: 0.4, color: BRAND.gray500 },
 });
@@ -178,17 +190,19 @@ export function BrandPage({ docLine, docCode, children, hideFooterRule, style }:
 }
 
 /**
- * Sayfa başlık bandı: mono kicker + kırmızı çizgi, uppercase başlık,
+ * Sayfa başlık bandı: mono kicker + kırmızı çizgi, büyük harf başlık,
  * sağda mono meta; altında 2pt kömür kural (kılavuz sayfa anatomisi).
+ * Kicker ve başlık Türkçe kurala göre (`trUpper`) büyütülür — şablonlar
+ * metni Title Case verebilir.
  */
 export function PageHeader({ kicker, title, meta }: { kicker: string; title: string; meta?: string }) {
   return (
     <View style={{ marginBottom: 10 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
         <View>
-          <Text style={T.kicker}>{kicker}</Text>
+          <Text style={T.kicker}>{trUpper(kicker)}</Text>
           <RuleRed />
-          <Text style={{ ...T.heading, marginTop: 5, textTransform: "uppercase" }}>{title}</Text>
+          <Text style={{ ...T.heading, marginTop: 5 }}>{trUpper(title)}</Text>
         </View>
         {meta ? <Text style={{ ...T.data, color: BRAND.gray500 }}>{meta}</Text> : null}
       </View>
@@ -198,12 +212,30 @@ export function PageHeader({ kicker, title, meta }: { kicker: string; title: str
 }
 
 /**
- * Bölüm etiketi (kömür section-tag): mono numara + Türkçe başlık + İngilizce mono gloss.
+ * Bölüm etiketi (kömür section-tag): mono numara + Türkçe başlık.
+ * Rapor tamamen Türkçedir; İngilizce yan metin (gloss) taşınmaz.
+ *
+ * `minPresenceAhead` başlığın sayfa dibinde YALNIZ kalmasını engeller: altında
+ * en az bu kadar boşluk yoksa başlık bir sonraki sayfaya taşınır. Varsayılan,
+ * başlığın ardından en az birkaç satır içerik sığdıracak kadar yüksektir.
  */
-export function SectionTag({ no, title, gloss }: { no: string; title: string; gloss?: string }) {
+export function SectionTag({
+  no,
+  title,
+  status,
+  minPresenceAhead = 90,
+}: {
+  no: string;
+  title: string;
+  /** Bölümün kontrol sayacı — başlığın sağında rozet olarak basılır */
+  status?: { pass: number; total: number };
+  minPresenceAhead?: number;
+}) {
+  const allOk = status ? status.pass === status.total : true;
   return (
     <View
       wrap={false}
+      minPresenceAhead={minPresenceAhead}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -214,16 +246,24 @@ export function SectionTag({ no, title, gloss }: { no: string; title: string; gl
       }}
     >
       <Text style={{ fontFamily: "PlexMono", fontSize: 12, fontWeight: 600, color: BRAND.redPale, marginRight: 8 }}>{no}</Text>
-      <Text style={{ fontFamily: "Archivo", fontSize: 10, fontWeight: 800, color: BRAND.paper100, textTransform: "uppercase", flexGrow: 1 }}>
-        {title}
+      <Text style={{ fontFamily: "Archivo", fontSize: 10, fontWeight: 800, color: BRAND.paper100, flexGrow: 1 }}>
+        {trUpper(title)}
       </Text>
-      {gloss ? (
-        <Text style={{ fontFamily: "PlexMono", fontSize: 6.5, fontWeight: 500, color: BRAND.gray400, textTransform: "uppercase", letterSpacing: 0.8 }}>
-          {gloss}
-        </Text>
+      {status && status.total > 0 ? (
+        <View
+          style={{
+            paddingVertical: 1.5,
+            paddingHorizontal: 5,
+            backgroundColor: allOk ? BRAND.success : BRAND.red,
+          }}
+        >
+          <Text style={{ fontFamily: "PlexMono", fontSize: 7, fontWeight: 600, letterSpacing: 0.6, color: BRAND.white }}>
+            {status.pass}/{status.total} UYGUN
+          </Text>
+        </View>
       ) : null}
     </View>
   );
 }
 
-export { Document, Page };
+export { Document, Link, Page };

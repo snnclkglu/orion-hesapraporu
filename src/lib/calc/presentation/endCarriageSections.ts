@@ -53,29 +53,29 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
     id: "9.1",
     title: "Tekerlek Yükleri ve Momentler",
     description: "Maksimum/minimum tekerlek yükleri ve eğilme momentleri.",
-    depKeys: ["mainHoistTotalLoadKg", "trolleyWeightT", "bridgeGirdersWeightT", "bridgeEndCarriagesWeightT"],
+    depKeys: ["mainHoistTotalLoadKg", "trolleyWeightT", "bridgeWeightT"],
     inputKeys: ["wheelSpanAMm", "loadOffsetBMm"],
     selectionKeys: [],
     rows: [
       {
-        key: "wheel.loadMax", label: "Maksimum tekerlek yükü Fmaks",
-        formula: "Fmaks = (W/2 + Wa·1000/2) · 0,9 + (G_kiriş + G_başkiriş)·1000/4",
-        subst: (x) => `(${n(x.deps.mainHoistTotalLoadKg)}/2 + ${n(x.deps.trolleyWeightT)}·1000/2) · 0,9 + (${n(x.deps.bridgeGirdersWeightT)} + ${n(x.deps.bridgeEndCarriagesWeightT)})·1000/4`,
+        key: "wheel.loadMax", label: "Maksimum Tekerlek Yükü Fmaks",
+        formula: "Fmaks = (W/2 + Wa·1000/2) · 0,9 + G_köprü·1000/4",
+        subst: (x) => `(${n(x.deps.mainHoistTotalLoadKg)}/2 + ${n(x.deps.trolleyWeightT)}·1000/2) · 0,9 + ${n(x.deps.bridgeWeightT)}·1000/4`,
         unit: "kg",
       },
       {
-        key: "wheel.loadMin", label: "Minimum tekerlek yükü Fmin",
-        formula: "Fmin = (Wa·1000/2) · 0,5 + (G_kiriş + G_başkiriş)·1000/4",
-        subst: (x) => `(${n(x.deps.trolleyWeightT)}·1000/2) · 0,5 + (${n(x.deps.bridgeGirdersWeightT)} + ${n(x.deps.bridgeEndCarriagesWeightT)})·1000/4`,
+        key: "wheel.loadMin", label: "Minimum Tekerlek Yükü Fmin",
+        formula: "Fmin = (Wa·1000/2) · 0,5 + G_köprü·1000/4",
+        subst: (x) => `(${n(x.deps.trolleyWeightT)}·1000/2) · 0,5 + ${n(x.deps.bridgeWeightT)}·1000/4`,
         unit: "kg",
       },
       {
-        key: "moment.max", label: "Maksimum moment Mmaks",
+        key: "moment.max", label: "Maksimum Moment Mmaks",
         formula: "Mmaks = Fmaks · b  (b mm verildiğinden /10 ile kg·cm)",
         subst: (x) => `${n(num(x.c["wheel.loadMax"]))} · ${n(x.inp.loadOffsetBMm)} / 10`, unit: "kg·cm",
       },
       {
-        key: "moment.min", label: "Minimum moment Mmin",
+        key: "moment.min", label: "Minimum Moment Mmin",
         formula: "Mmin = Fmin · b  (b mm verildiğinden /10 ile kg·cm)",
         subst: (x) => `${n(num(x.c["wheel.loadMin"]))} · ${n(x.inp.loadOffsetBMm)} / 10`, unit: "kg·cm",
       },
@@ -94,21 +94,21 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
     selectionKeys: [],
     rows: [
       {
-        key: "section.weightPerLength", label: "Birim ağırlık G", formula: "G = ΣA · 7,85 / 1000",
+        key: "section.weightPerLength", label: "Birim Ağırlık G", formula: "G = ΣA · 7,85 / 1000",
         unit: "kg/m",
       },
       {
-        key: "section.inertia", label: "Atalet momenti I", formula: "I = Σ(Ii + Ai · di²)", unit: "cm⁴",
+        key: "section.inertia", label: "Atalet Momenti I", formula: "I = Σ(Ii + Ai · di²)", unit: "cm⁴",
       },
       {
-        key: "section.modulus", label: "Kesit modülü W", formula: "W = I / (h/2)",
+        key: "section.modulus", label: "Kesit Modülü W", formula: "W = I / (h/2)",
         subst: (x) => `${n(num(x.c["section.inertia"]))} / ${n(x.inp.sidePlateHeightMm / 20)}`, unit: "cm³",
       },
       {
-        key: "section.area", label: "Kesit alanı A", unit: "cm²",
+        key: "section.area", label: "Kesit Alanı A", unit: "cm²",
       },
       {
-        key: "section.shearArea", label: "Yan sacların alanı Ay", formula: "Ay = 2 · e · h",
+        key: "section.shearArea", label: "Yan Sacların Alanı Ay", formula: "Ay = 2 · e · h",
         subst: (x) => `2 · ${n(x.inp.sidePlateThicknessMm / 10)} · ${n(x.inp.sidePlateHeightMm / 10)}`,
         unit: "cm²",
       },
@@ -124,24 +124,24 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
     selectionKeys: ["hoistClassOverride", "material"],
     rows: [
       {
-        key: "load.dynamicFactor", label: "Dinamik katsayı ψ", formula: "ψ = k + l · v_kaldırma",
+        key: "load.dynamicFactor", label: "Dinamik Katsayı ψ", formula: "ψ = k + l · v_kaldırma",
         subst: (x) => `${x.c["load.hoistClass"]}: ${n(num(x.c["load.factorK"]))} + ${n(num(x.c["load.factorL"]), 4)} · ${n(x.specs.mainLiftSpeedMpm)}`,
         digits: 3, standard: "DIN 15018 Tablo 2",
       },
       {
-        key: "stress.bending", label: "Eğilme gerilmesi σ", formula: "σ = Mmaks · ψ / W",
+        key: "stress.bending", label: "Eğilme Gerilmesi σ", formula: "σ = Mmaks · ψ / W",
         subst: (x) => `${n(num(x.c["moment.max"]))} · ${n(num(x.c["load.dynamicFactor"]), 3)} / ${n(num(x.c["section.modulus"]))}`, unit: "kg/cm²",
       },
       {
-        key: "stress.shear", label: "Kesme gerilmesi τ", formula: "τ = Fmaks · ψ / Ay",
+        key: "stress.shear", label: "Kesme Gerilmesi τ", formula: "τ = Fmaks · ψ / Ay",
         subst: (x) => `${n(num(x.c["wheel.loadMax"]))} · ${n(num(x.c["load.dynamicFactor"]), 3)} / ${n(num(x.c["section.shearArea"]))}`, unit: "kg/cm²",
       },
       {
-        key: "stress.combined", label: "Bileşik gerilme σbil", formula: "σbil = √(σ² + 3τ²)",
+        key: "stress.combined", label: "Bileşik Gerilme σbil", formula: "σbil = √(σ² + 3τ²)",
         subst: (x) => `√(${n(num(x.c["stress.bending"]))}² + 3·${n(num(x.c["stress.shear"]))}²)`, unit: "kg/cm²",
       },
       {
-        key: "stress.allowable", label: "İzin verilen gerilme", formula: "σem = f(malzeme)",
+        key: "stress.allowable", label: "İzin Verilen Gerilme", formula: "σem = f(malzeme)",
         subst: (x) => `${x.sel.material} → ${n(num(x.c["stress.allowable"]))}`, unit: "kg/cm²",
         standard: "FEM 1.001 T.3.2.1.1",
       },
@@ -198,7 +198,7 @@ export const ENDCARRIAGE_SECTIONS: EndCarriageSectionDef[] = [
         unit: "kg/cm²", standard: "DIN 15018 Tablo 17",
       },
       {
-        key: "fatigue.combined", label: "Bileşik yorulma oranı",
+        key: "fatigue.combined", label: "Bileşik Yorulma Oranı",
         formula: "(σmaks/zul σDz(κ))² + (τmaks/zul τD)² ≤ 1,1",
         subst: (x) => `(${n(num(x.c["fatigue.sigmaMax"]))}/${n(num(x.c["fatigue.allowableSigmaKgCm2"]))})² + (${n(num(x.c["fatigue.tauMax"]))}/${n(num(x.c["fatigue.allowableTauKgCm2"]))})²`,
         digits: 4, standard: "DIN 15018 7.4.5",
