@@ -58,6 +58,13 @@ export const MODULE_LABELS: Record<string, string> = {
   endCarriage: "09 · Başkiriş",
 };
 
+/** Alan listelerinde yer almayan, yalnız karşılaştırmada görünen anahtarlar. */
+const EXTRA_LABELS: Record<string, FieldLabel> = {
+  disabledModules: { label: "Kapatılan hesap bölümleri" },
+  ropeWeightAuto: { label: "Halat ağırlığı otomatik" },
+  sheaveEfficiencyAuto: { label: "Makara verimi otomatik" },
+};
+
 export function fieldLabel(key: string): FieldLabel {
-  return FIELD_LABELS.get(key) ?? { label: key };
+  return FIELD_LABELS.get(key) ?? EXTRA_LABELS[key] ?? { label: key };
 }

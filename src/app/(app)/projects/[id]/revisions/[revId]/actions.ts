@@ -145,12 +145,19 @@ export async function setRevisionTemplate(
 /**
  * Taslak revizyonu kaydeder: girdiler + seçimler + sunucuda yeniden hesaplanan
  * sonuç snapshot'ı. Hesap her zaman sunucuda da koşturulur (istemciye güven yok).
+ *
+ * `calcInput` hesaba GİREN settir (kapatılmış bölümler yoktur). `fullInput`
+ * ise kapalı bölümlerin girdilerini de taşır: kayıtta hepsi saklanır, hangi
+ * bölümün kapalı olduğu `disabledModules` listesiyle belirtilir. Böylece bir
+ * bölüm kapatılıp yeniden açıldığında elle ayarlanmış değerler kaybolmaz.
  */
 export async function saveRevision(
   projectId: string,
   revisionId: string,
   calcInput: CalcInput,
-  alts?: Record<string, { active: number; options: Record<string, unknown>[] }>
+  alts?: Record<string, { active: number; options: Record<string, unknown>[] }>,
+  fullInput?: CalcInput,
+  disabledModules?: string[]
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -159,29 +166,31 @@ export async function saveRevision(
   if (!user) return { error: "Oturum bulunamadı" };
 
   const result = runCalc(calcInput);
+  const store = fullInput ?? calcInput;
 
   const { data: updated, error } = await supabase
     .from("revisions")
     .update({
       inputs: {
         specs: calcInput.specs,
-        mainHoist: calcInput.mainHoist?.inputs ?? null,
-        auxHoist: calcInput.auxHoist?.inputs ?? null,
-        hookBlock: calcInput.hookBlock?.inputs ?? null,
-        trolley: calcInput.trolley?.inputs ?? null,
-        bridge: calcInput.bridge?.inputs ?? null,
-        girder: calcInput.girder?.inputs ?? null,
-        buckling: calcInput.buckling?.inputs ?? null,
-        endCarriage: calcInput.endCarriage?.inputs ?? null,
+        mainHoist: store.mainHoist?.inputs ?? null,
+        auxHoist: store.auxHoist?.inputs ?? null,
+        hookBlock: store.hookBlock?.inputs ?? null,
+        trolley: store.trolley?.inputs ?? null,
+        bridge: store.bridge?.inputs ?? null,
+        girder: store.girder?.inputs ?? null,
+        buckling: store.buckling?.inputs ?? null,
+        endCarriage: store.endCarriage?.inputs ?? null,
+        disabledModules: disabledModules ?? [],
       },
       selections: {
-        mainHoist: calcInput.mainHoist?.selections ?? null,
-        auxHoist: calcInput.auxHoist?.selections ?? null,
-        hookBlock: calcInput.hookBlock?.selections ?? null,
-        trolley: calcInput.trolley?.selections ?? null,
-        bridge: calcInput.bridge?.selections ?? null,
-        girder: calcInput.girder?.selections ?? null,
-        endCarriage: calcInput.endCarriage?.selections ?? null,
+        mainHoist: store.mainHoist?.selections ?? null,
+        auxHoist: store.auxHoist?.selections ?? null,
+        hookBlock: store.hookBlock?.selections ?? null,
+        trolley: store.trolley?.selections ?? null,
+        bridge: store.bridge?.selections ?? null,
+        girder: store.girder?.selections ?? null,
+        endCarriage: store.endCarriage?.selections ?? null,
         alts: alts ?? {},
       },
       results: JSON.parse(JSON.stringify(result)),

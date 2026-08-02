@@ -73,7 +73,23 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
   const bInputs = b.inputs ?? {};
   const moduleKeys = new Set([...Object.keys(aInputs), ...Object.keys(bInputs)]);
   for (const mk of moduleKeys) {
+    // Kapalı bölüm listesi bir modül nesnesi değil, dizidir — ayrı ele alınır.
+    if (mk === "disabledModules") continue;
     diffModuleObjects(mk, "input", aInputs[mk], bInputs[mk], fields);
+  }
+
+  // Açık/kapalı hesap bölümü değişimi ayrı bir fark satırı olarak görünür;
+  // aksi hâlde bir bölümün rapordan çıkarılması karşılaştırmada kaybolurdu.
+  const aOff = Array.isArray(aInputs.disabledModules) ? [...aInputs.disabledModules].sort() : [];
+  const bOff = Array.isArray(bInputs.disabledModules) ? [...bInputs.disabledModules].sort() : [];
+  if (JSON.stringify(aOff) !== JSON.stringify(bOff)) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "disabledModules",
+      a: aOff.length ? aOff.join(", ") : "—",
+      b: bOff.length ? bOff.join(", ") : "—",
+    });
   }
 
   const aSel = a.selections ?? {};

@@ -68,6 +68,77 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
 - [x] **İş Emri PDF** (`lib/pdf/work-order.tsx` + `jobs/[id]/work-order` route): ASTOR dokümanının düzeni — başlık, kalem tablosu, müşteri/iş kutuları, kapsam ✓ kutucukları, açıklamalar, hazırlayan. Marka kimlikli. next.config font/logo trace `/jobs/**` eklendi.
 - [x] **Rapor↔iş bağlama esnekliği**: `/projects` "Yeni Hesap Raporu" dialoguna opsiyonel iş seçimi (mevcut işe bağla → müşteri/doküman no ön-doldurulur, ya da "Bağımsız (işe atanmamış)" = deneme raporu). İş panelinden "Vinç Ekle" işe sabit bağlar (mevcut).
 
+## Faz J — Sihirbaz kullanılabilirlik turu (2026-08-02, Sinan geri bildirimi)
+- [x] **Kontroller formülün yanında**: bölüm sonundaki toplu "Kontroller" bloğu kaldırıldı; her kontrol ilgili hesap satırının hemen altında ✓/✗ şeridi olarak görünür. Bağlantı haritası `src/lib/calc/presentation/check-anchors.ts` (86/86 kontrol bağlı; eşleşmeyen kalırsa bölüm sonunda "Diğer Kontroller" bloğuna düşer). Aynı düzen PDF raporda da geçerli. Eksik olan "gereken mil çapı" satırları eklendi (2.7 L254, 5.6 O170/O184, 5.7 O182/O196).
+- [x] **Yardımcı kaldırma koşullu**: modül kapalıyken teknik özelliklerde yrd. kapasite/yükseklik/hız alanları ve grubu hiç görünmez (`FieldDef.requiresModule`).
+- [x] **İş ↔ hesap raporu bağlantısı**: "Yeni Hesap Raporu" dialogunda iş seçimi + **iş kalemi** seçimi (kalem seçilince doküman no ve rapor adı otomatik dolar; kalemin raporu varsa uyarı). Projeler listesine **İş No** sütunu eklendi.
+- [x] **Hesap bölümü gizleme**: opsiyonel modül seti genişletildi (yrd. kaldırma, kanca bloğu, **ana kiriş, buruşma, başkiriş**); kenar çubuğunda her bölümün yanında ＋/－ düğmesi. Kapalı bölüm hesaba ve rapora girmez, numaralar yeniden dizilir. **Kapalı bölümün girdileri korunur** — kayıtta `inputs.disabledModules` listesi tutulur, veri silinmez (eski `null` yazımı da okunur). Karşılaştırma ekranı bölüm aç/kapa değişimini ayrı satırda gösterir.
+- [x] **Gerilim dropdownları**: besleme gerilimi (380/400/415/440/460/480/690 V) ve kumanda gerilimi (24/48 VDC, 24/48/110/220 VAC) seçilir hâle geldi.
+- [x] **Teknik özellikler yerleşimi**: alanlar 8 anlamlı gruba ayrıldı (Vinç Tanımı ve Sınıflandırma, Ana/Yardımcı Kaldırma, Araba/Köprü Yürütme, Frenler, Elektrik, Ortam Koşulları) ve masaüstünde 4 (xl) / 5 (2xl) kolona açılır.
+- [x] **Otomatik girdiler** (`src/lib/calc/derive.ts`): halat ağırlığı = toplam halat × metre ağırlığı × kaldırma yüksekliği (yukarı 50 kg'ın katına yuvarlanır); makara verimi makara yataklama tipinden (rulmanlı 0,98 / yüksek verim 0,985 / burçlu 0,96). Alan başına "OTOMATİK" anahtarı — açıkken salt-okunur ve her değişimde yeniden hesaplanır, kapalıyken serbest. Metre ağırlığı katalogdan gelir (`weight_kg_per_m`). Yeni iş şablonunda ikisi de AÇIK (V5 golden fikstürü etkilenmez).
+- [x] **Katalog seçimi kademeli filtre + tablo**: `catalog-picker.tsx` yeniden yazıldı — marka → türe özgü filtre adımları (halatta yapı → tel mukavemeti → öz tipi) → kapasite "en az" süzgeci → sonuç tablosu. Her adımda uyumlu değerler ürün adediyle listelenir. Yapılandırma `CATALOG_KINDS` (halat, motor, redüktör, fren, kaplin, rulman, teker, kanca, makara).
+- [x] **Standart referans pop-up'ı**: `src/lib/standards/registry.ts` + `standard-ref-dialog.tsx`. Hesap satırı/kontrol üzerindeki her FEM/DIN/CMAA rozeti tıklanabilir; standardın tablosu, bağıntıları ve açıklaması açılır, vincin sınıfına karşılık gelen satır vurgulanır (ör. M6 → Zp 5,6). Eski `fem-table-dialog.tsx` + `fem-tables.ts` kaldırıldı.
+- [x] **Tam Türkçe**: PDF rapor ve iş emrindeki İngilizce alt başlıklar/gloss'lar kaldırıldı; katalog türleri, `attrs` anahtarları ve kısa kodlar (FC/IWRC, drum/disc/em, gear/pin…) Türkçeleştirildi (`ATTR_LABELS`, `ATTR_VALUE_LABELS`); "(Spreader)", "(Magnet)" gibi ekler atıldı.
+
+## Faz K — Tambur mili modeli (2026-08-02, Sinan'ın teknik resimleri)
+- [x] **Yeni yükleme modeli**: tambur artık **A…G ölçü zinciriyle** tanımlanan iki mesnetli kiriştir — solda redüktör tarafı mesnet (Ra), sağda tambur yatağı (Rg). Yükler: her yiv bölgesindeki halat yükü T ve namlu ortasındaki tambur ağırlığı W. Halatlar yiv boyunca gezindiğinden **iki uç hâli** (dış uçlar / iç uçlar) ayrı çözülür; "En elverişsiz (otomatik)" seçiliyken her mesnet KENDİ elverişsiz hâliyle boyutlandırılır (zarf değeri — raporda iki hâl de ayrı satır olarak görünür, karışıklık olmaz). Girdi olarak sabit bir uç hâli de seçilebilir.
+- [x] **Reaksiyonların doğru yere bağlanması**: redüktör radyal yük kontrolü **Ra**'yı, tambur yatağı rulman seçimi (statik emniyet + L10 ömür) **Rg**'yi kullanır. Önceden ikisi de Ra'dan besleniyordu.
+- [x] **Mil gerilmeleri**: her iki uçta ayrı — M = R · (o taraftaki konsol A ya da G); eğilme **D1** kesitinde (σ = M/(π·D1³/32)), kesme **D2** yatak oturma kesitinde (τ = 1,33·R/(π·D2²/4)), bileşik σ = √(σ²+τ²). Yönetici taraf otomatik seçilir. Ayrı eğilme / kesme / bileşik kontrolleri (**CMAA 70 4.11.4.1**, standart pop-up'ı defterde). Tüm gerilmeler MPa, momentler Nm.
+- [x] **Parametrik teknik resim** (`lib/diagrams/drumShaft.ts` → 2.2.3 / 3.2.3, web + PDF): redüktör bloğu, namlu, yanaklar, yiv bölgeleri, T ve W yük okları, Ra/Rg reaksiyon okları, halatın gezinme aralığı, D1/D2 etiketleri ve A…G ölçü zinciri.
+- [x] **Geriye uyum**: `shaftDiaCm`/`shaftShearDiaCm` → `shaftD1Cm`/`shaftD2Cm`; eski a/b/c + moment kolu girdileri kaldırıldı. `revision-load.ts` artık kayıtta olmayan alanları şablondan tamamlıyor (`withDefaults`), böylece motora yeni girdi eklemek eski revizyonları bozmuyor. Simetrik varsayılan geometri (A=G=6, B=F=5, C=E=22, D=64 → L=130) eski formülle **birebir aynı** sonucu verdiğinden 700 hücrelik golden kapsamı olduğu gibi geçiyor.
+- [x] **Yerleşim**: hesap satırları geniş ekranda (xl ve üzeri) **iki kolona** açılır — tek ekranda daha fazla hesap görünür.
+
+## Faz L — Kanca ve kanca bloğu mili (2026-08-02, Sinan'ın DIN tablosu + teknik resimleri)
+- [x] **DIN 15400 Tablo 3 koda alındı** (`lib/calc/hook-table.ts`): 30 kanca numarası × 5 malzeme mukavemet sınıfı (M<P<S<T<V) × 6 mekanizma grubu (1Bm…5m). Vincin FEM 1.001 sınıfı DIN 15020 grubuna çevrilir (M1–M4 → 1Bm, M5 → 1Am, M6 → 2m, M7 → 3m, M8 → 4m; standardın "1Bm'den hafif çalışma dikkate alınmaz" notu uygulanır). Kanca no + malzeme sınıfı seçilince **taşıma kapasitesi tablodan otomatik gelir**; kapasite ≥ kaldırılan yük kontrolü eklendi ve yükü taşıyan en küçük kanca numarası öneri olarak gösterilir. Tablonun tamamı **DIN 15400 rozetine tıklanınca pop-up** olarak açılır.
+- [x] **Kanca bloğu mili donanıma göre modellendi**: makara sayısı **n = toplam halat / 2** (4 halat → 2, 8 → 4, 12 → 6) ve **her makara 2T** taşır. Ölçü zinciri teknik resimlerdeki gibi: **A** yan sac → ilk makara, **B** küme içi makara adımı, **D** iki küme arası orta boşluk (kanca sapı geçişi) → 2 makarada A|D|A, 4 makarada A|B|D|B|A, 6 makarada A|B|B|D|B|B|A. Mesnet reaksiyonları moment dengesinden, maksimum moment yük noktalarında aranarak bulunur. Eğilme **D1** kesitinde, kesme aynı çapta; ayrı eğilme / kesme / bileşik kontrolleri (**CMAA 70 4.11.4.1**).
+- [x] **Dinamik teknik resim** (`lib/diagrams/hookBlockShaft.ts` → 4.4, web + PDF): makara sayısı değiştikçe **kendini yeniden çizer** — makaralar, makara başına rulman çiftleri, 2T yük okları, yan sac mesnetleri, Ra/Rb reaksiyonları, D1, A/B/D ölçü zinciri ve moment diyagramı.
+- [x] **Rulman ↔ mil çapı bağı**: makara rulmanının iç çapı D1 ile eşleşmelidir — katalogdan `bore_mm` seçim alanına gelir ve eşleşme kontrolü yapılır.
+- [x] **S355JR** hem tambur mili hem kanca bloğu mili malzeme listesine eklendi (EN 10025-2 Rm,min = 470 N/mm² → CMAA 70 4.11.4.1 σa = Rm/5 = 94 MPa, τa = σa/√3).
+- [x] **Golden**: §4.4'ün 6 hücresi (L58/L59/L62/L65/L66/L67) bilinçli olarak yenilendi — Excel'in mil bloğu kendi içinde tutarsızdı (L58 "Ra" mesnet reaksiyonu yerine toplam yükü yazıyordu, moment ise tek makara varsayıyordu). Gerekçeli `SUPERSEDED_CELLS` listesiyle hariç tutuldu; sayfanın kalan ~47 sağlam hücresi karşılaştırılmaya devam ediyor.
+
 ## Notlar
 - Hesap motoru golden testleri Excel fikstürlerine karşı çalışmaya devam eder (iç kalite güvencesi) — kullanıcıya görünen yüzeylerde Excel izi olmaz.
+- V5 örneğinde tambur mili D1 = 6 cm ile eğilme/bileşik kontrolü **kalıyor** (115 MPa > 90 MPa, C30). Bu eski modelde de böyleydi; D1 ≈ 7 cm'de kontrol sağlanır.
+- Kanca bloğu milinde makara sayısı arttıkça mil uzar; D1 = 6,5 cm 4+ makaralı bloklarda yetmez (4 makarada 139 MPa > 116 MPa). Beklenen davranış — çap büyütülmelidir.
 - Vinç tipi hesap varyantları (portal/pergel/tek kirişli) büyük iş — önce spec alanı dropdown olur, hesap varyantları ayrı fazlarda.
+
+## Faz M — Excel'den bağımsız hesap motoru (2026-08-02, Sinan'ın direktifi)
+
+> "Excel başlangıç için bir örnekti. Bu sistemin altyapısı ve hesaplama modülü
+> yöntemi tamamen Excel'den bağımsız kendine özgü olmalı."
+
+- [x] **Semantik anahtar göçü.** `ModuleResult.cells` artık tablo hücre adresi değil `<blok>.<büyüklük>` biçiminde semantik anahtar taşır (ör. `rope.load`, `drumShaft.reactionGearbox`, `fatigue.combined`). Dört modül ailesinin tamamı taşındı: kaldırma 96 anahtar, kanca bloğu ~50, yürütme 65, yapısal 195.
+- [x] **Motordan çıkarılanlar.** Wingdings tik hücreleri (`ü`/`û`) ve `tick()` yardımcısı, gösterim ikizleri, girdi yankıları — toplam ~90 hücre. Bunlar tablo sunumunun artığıydı; kontrol sonucu artık yalnız `Check.pass` alanında yaşıyor.
+- [x] **`PI_EXCEL = 3,14159` silindi**, her yerde `Math.PI`. (~8e-7 göreli fark; tarihsel karşılaştırma toleransı 1e-6 → 1e-4'e gevşetildi ve gerekçesi test başlıklarına yazıldı.)
+- [x] **Yürütme varyant birleştirmesi.** 89 adet çift adresli yazım (`put(arabaHücresi, köprüHücresi, …)`) tek semantik anahtara indi; sunum katmanındaki `bridgeCell` alanı ve adaptördeki varyant dallanması tamamen kalktı.
+- [x] **Kontrol tipolojisi.** `nonExcel` bayrağı kaldırıldı; her kontrol artık `kind` (standart / üretici / firma / bilgi) ve `severity` (engelleyici / uyarı) taşıyor. Yayınlama yalnız engelleyici kırılmalara takılır; arayüz ve PDF dayanağı rozetle gösterir.
+- [x] **Ortak hesap kütüphaneleri.** `beam.ts` (iki mesnetli kiriş statiği), `shaftStress.ts` (bileşik ve kayma kabulleri açık parametre), `reeving.ts` (halat donanımının tek kaynağı), `presentation/module-access.ts` (üç yerde tekrarlanan modül erişimi tek dosyada).
+- [x] **Tarihsel doğrulama katmanı.** Excel karşılaştırması `src/lib/calc/__tests__/legacy/` altına taşındı: modül başına eşleme tabloları + gerekçeli `KAPSAM_DISI` / `SAPMA` sözlükleri. Her döküm hücresi dört kovadan birinde sınıflandırılmak zorunda; sınıflandırılmamış hücre testi kırar. Üretim kodunda Excel izi kalmadı.
+- [x] **Bağlantı koruma testi.** `anchors.guard.test.ts`: her kontrol bağlantısının gerçek bir hesap satırını gösterdiğini, hiçbir kontrolün rapordan düşmediğini (94/94) ve ölü bağlantı olmadığını doğrular. Bu koruma göçten ÖNCE yazıldı.
+- [x] **Mühendislik doğrulama testleri.** `engine.integration.test.ts` hücre karşılaştırmasından çıkarılıp motorun kendi tutarlılığına odaklandı: modüller arası zincir, NaN/Infinity taraması, kontrol değerlerinin sonluluğu, engelleyici kırılma kümesinin sabitlenmesi. Bu tarama gerçek bir hatayı yakaladı (aşağıda).
+
+### Bu turda düzeltilen gerçek hatalar
+
+- **Yürütme sınıf yönlendirmesi.** Araba/köprü tekerlek katsayısı c2 (FEM 1.001 4.2.4.1.5) ve rulman gerekli ömrü (4.2.1.1 + T.2.1.3.2) KALDIRMA mekanizmasının sınıfını okuyordu; artık her mekanizma kendi M ve T sınıfını kullanıyor. Referans işte tüm sınıflar M6/T6 olduğu için sayı değişmedi, regresyon testle kilitlendi.
+- **Ana kirişin ivme zinciri kopuyordu.** Anahtar göçünden sonra `engine.ts` hâlâ eski hücre adreslerini okuyor, araba ivmelenme süresi 0 dönüyor ve ana kirişin tüm gerilme kontrolleri NaN'a düşüyordu. NaN taraması yakaladı, isimli değer okumasıyla düzeltildi.
+- **Sürtünme katsayısı tablosu.** Eşitlik zinciriyle yazılmıştı; listede olmayan bir teker çapında (1000/1120/1250 mm) tüm motor hesabını NaN'a çeviriyordu. Kademe sınırlarına çevrildi.
+- **γc elle giriliyordu.** FEM 1.001 T.2.3.4 bunu yapı sınıfından verir; `specs.structureClass` mevcut olmasına rağmen hiçbir modülde okunmuyordu. Artık türetiliyor (A6 → 1,14, mevcut değerle aynı).
+- **Yük grubu iki yerde ayrı giriliyordu.** `specs.hoistLoadClass` ("H3/B4") zaten B bileşenini taşıyor; ana kirişte artık oradan türetiliyor.
+- **Buruşma Kσ.** FEM A.3.4.1'in α ≤ 2/3 dalı `8,6·α²` ister, ilk portta `8,6/α²` yazılıydı ve "tabloya sadakat" gerekçesiyle korunuyordu. Standardın doğrusu uygulandı.
+- **CMAA #74 4.5 → CMAA 70 4.11.4.1.** Mil gerilmelerinin atfı yanlıştı; doğrulanmış madde numarasıyla değiştirildi.
+
+### Bilinçli sayısal sapmalar (mühendisin bilmesi gerekenler)
+
+| Ne | Eski | Yeni | Etki |
+|---|---|---|---|
+| **Başkiriş kaldırma sınıfı** — `hoistClass` elle "H2" giriliyordu, teknik özellikler "H3/B4" diyordu (veri kendi içinde çelişkiliydi). Artık tek kaynaktan türetiliyor. | ψ = 1,354 | ψ = 1,531 | ψ ile çarpılan tüm statik gerilmeler **%13,1 arttı** (σ 905 → 1024, σbil 960 → 1086 kg/cm²). Kontrol yine sağlanıyor (kullanım %63 → %71). `hoistClassOverride` ile elle ezilebilir. |
+| **Kanca bloğu ψ katsayıları** — k/l çifti DIN 15018 Tablo 2'nin H4 satırıydı, sınıf ise H3. | ψ = 1,708 | ψ = 1,531 | ψ **%10 düştü — EMNİYETSİZ yönde**. Etkilenen: kanca bloğu kirişi statik gerilmeleri. Tutarlılık adına yapıldı; kabul edilmezse `hoistLoadClass` H4 olarak düzeltilmeli. |
+| **Dairesel kesitte tepe kayma oranı** | 1,33 | 4/3 (kesin) | +%0,25 (emniyetli yönde). Tambur mili τ 281,11 → 281,81 kg/cm². |
+| **π sabiti** | 3,14159 | Math.PI | ~8e-7 göreli. |
+
+### Kalan iş
+
+- [ ] **Rapor belgesi yeniden yapılandırması** — Tasarım Esasları sayfası, otomatik standart eki (EK A), bölüm sonu sonuç kutusu, seçim gerekçesi alanı. Tasarımı ve veri kaynakları belirlendi (keşif turu raporu), uygulanmadı.
+- [ ] **Tampon yürütme yükü tutarsızlığı** — arabada "gerekli güç", köprüde "seçilen motor gücü" alınıyor; doğrusu ikisinde de seçilen güç olmalı. Düzeltilirse araba tampon yükü ~2 kat artar, bu yüzden karar kullanıcıya bırakıldı.
+- [ ] **Teker mili malzemesi** — izin gerilmeleri sabit "4140" tablosundan okunuyor, seçim alanı ise "42CrMo4" metni taşıyor. Alan bir listeye bağlanmalı.
+- [ ] **Buruşma Yükleme Durumu II/III** — yalnız Durum I hesaplanıyor (kapsam eksikliği, calc-crossref §3.3).

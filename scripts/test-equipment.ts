@@ -72,7 +72,16 @@ async function main() {
   // Yeni sütun başlıkları + ek satır doğrulaması
   const eqWs = readBack.getWorksheet("Ekipman Listesi");
   if (eqWs) {
-    const headerRow = eqWs.getRow(8);
+    // Başlık satırı numarası künye bloğunun boyuna göre değişir → "Ekipman"
+    // hücresini arayarak bulunur (sabit satır no bayatlıyordu).
+    let headerRowNo = -1;
+    for (let r = 1; r <= 20; r++) {
+      if (String(eqWs.getRow(r).getCell(1).value ?? "") === "Ekipman") {
+        headerRowNo = r;
+        break;
+      }
+    }
+    const headerRow = eqWs.getRow(headerRowNo > 0 ? headerRowNo : 8);
     const headers = [1, 2, 3, 4, 5].map((c) => String(headerRow.getCell(c).value ?? ""));
     console.log(`Başlıklar: ${headers.join(" | ")}`);
     const expectedHeaders = ["Ekipman", "Marka", "Model", "Özellikler", "Adet"];

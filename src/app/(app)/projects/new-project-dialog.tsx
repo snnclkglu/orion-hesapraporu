@@ -1,5 +1,10 @@
 "use client";
 
+// "Yeni Hesap Raporu" — rapor doğrudan bir İŞ EMRİ kalemine bağlanabilir.
+// Akış: İş seçilir → o işin kalemleri (ürün + iş no) listelenir → kalem
+// seçilince doküman no, rapor adı ve müşteri otomatik dolar. İşe bağlamadan
+// bağımsız (deneme) rapor açmak da mümkündür.
+
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createProject } from "./actions";
@@ -24,14 +29,24 @@ const CRANE_TYPES = [
   "Konsol Vinç",
 ] as const;
 
+export interface JobItemOption {
+  item_no: string;
+  product_name: string;
+  quantity: string | null;
+  /** Kaleme bağlı hesap raporu zaten varsa (tekrar bağlanmasın diye uyarı) */
+  project_id: string | null;
+}
+
 export interface JobOption {
   id: string;
   job_no: string;
   title: string;
   customer: string;
+  items?: JobItemOption[];
 }
 
 const NONE = "__none__";
+const NO_ITEM = "__no_item__";
 
 export function NewProjectDialog({
   defaultCraneType = "Çift Kirişli Gezer Köprü Vinci",
@@ -39,6 +54,7 @@ export function NewProjectDialog({
   jobNo,
   defaultCustomer,
   jobs,
+  jobItems,
 }: {
   defaultCraneType?: string;
   /** İş panelinden "Vinç Ekle" ile açıldığında yeni vinç bu işe sabit bağlanır. */
@@ -47,6 +63,8 @@ export function NewProjectDialog({
   defaultCustomer?: string;
   /** Bağımsız akış (/projects): opsiyonel iş seçimi için iş listesi. */
   jobs?: JobOption[];
+  /** İş panelinden açıldığında o işin kalemleri. */
+  jobItems?: JobItemOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -65,17 +83,34 @@ export function NewProjectDialog({
     [jobs, selectedJobId]
   );
 
-  // Doküman no / müşteri: iş seçilince ön-doldurulur (kullanıcı değiştirebilir)
+  // Seçili işin kalemleri: iş panelinden gelirken doğrudan prop, listeden
+  // seçildiğinde seçili işin kendi kalemleri.
+  const items = jobId ? (jobItems ?? []) : (selectedJob?.items ?? []);
+  const [selectedItemNo, setSelectedItemNo] = useState<string>(NO_ITEM);
+  const selectedItem = items.find((i) => i.item_no === selectedItemNo);
+
+  // Doküman no / rapor adı / müşteri: iş ve kalem seçilince ön-doldurulur
   const [docNo, setDocNo] = useState("");
+  const [name, setName] = useState("");
   const [customer, setCustomer] = useState(defaultCustomer ?? "");
 
   function onPickJob(id: string) {
     setSelectedJobId(id);
+    setSelectedItemNo(NO_ITEM);
     const job = jobs?.find((j) => j.id === id);
     if (job) {
       setCustomer(job.customer);
       const base = job.job_no.split("-")[0];
       if (!docNo && base) setDocNo(`${base}-01`);
+    }
+  }
+
+  function onPickItem(itemNo: string) {
+    setSelectedItemNo(itemNo);
+    const item = items.find((i) => i.item_no === itemNo);
+    if (item) {
+      if (item.item_no) setDocNo(item.item_no);
+      if (item.product_name) setName(item.product_name);
     }
   }
 
@@ -96,13 +131,13 @@ export function NewProjectDialog({
       <DialogTrigger asChild>
         <Button>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{jobId ? "Vinç Ekle" : "Yeni Hesap Raporu"}</DialogTitle>
           <DialogDescription>
             {jobId
               ? `${jobNo ?? ""} işine bağlı yeni bir vinç oluşturun.`.trim()
-              : "Yeni bir hesap raporu oluşturun. İsterseniz mevcut bir işe bağlayın, ya da bağımsız (deneme) bırakın."}
+              : "Raporu bir iş emri kalemine bağlayın ya da bağımsız (deneme) bırakın."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -110,7 +145,7 @@ export function NewProjectDialog({
           <input type="hidden" name="job_id" value={effectiveJobId} />
           {showJobSelect && (
             <div className="grid gap-2">
-              <Label>İş Emri (opsiyonel)</Label>
+              <Label>İş Emri</Label>
               <Select value={selectedJobId} onValueChange={onPickJob}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -124,13 +159,38 @@ export function NewProjectDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {selectedJob && (
-                <p className="text-xs text-muted-foreground">
-                  Bu rapor <span className="font-medium">{selectedJob.job_no}</span> işine bağlanacak.
+            </div>
+          )}
+
+          {/* İş kalemi — doküman no + rapor adını doldurur */}
+          {items.length > 0 && (
+            <div className="grid gap-2">
+              <Label>İş Kalemi</Label>
+              <Select value={selectedItemNo} onValueChange={onPickItem}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ITEM}>Kalem seçilmedi (elle gir)</SelectItem>
+                  {items.map((it) => (
+                    <SelectItem key={it.item_no || it.product_name} value={it.item_no}>
+                      {it.item_no ? `${it.item_no} · ` : ""}
+                      {it.product_name}
+                      {it.quantity ? ` (${it.quantity})` : ""}
+                      {it.project_id ? " — raporu var" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedItem?.project_id && (
+                <p className="text-xs text-destructive">
+                  Bu kalemin zaten bir hesap raporu var; yine de yeni bir rapor
+                  oluşturabilirsiniz (ör. farklı revizyon hattı).
                 </p>
               )}
             </div>
           )}
+
           <div className="grid gap-2">
             <Label htmlFor="doc_no">Doküman No</Label>
             <Input
@@ -144,7 +204,14 @@ export function NewProjectDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">{jobId ? "Vinç Adı" : "Rapor / Vinç Adı"}</Label>
-            <Input id="name" name="name" placeholder="AMONYUM SÜLFAT VİNCİ" required />
+            <Input
+              id="name"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="AMONYUM SÜLFAT VİNCİ"
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="customer">Müşteri</Label>

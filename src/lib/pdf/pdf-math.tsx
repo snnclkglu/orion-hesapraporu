@@ -10,7 +10,7 @@ const INK = "#262626";
 const OP = "#6B6663";
 
 function isVar(v: string): boolean {
-  return /[A-Za-zÇĞİÖŞÜçğıöşüσταπηλκψαβγδωρφθµ]/.test(v);
+  return /[A-Za-zÇĞİÖŞÜçğıöşüσταπηλκψαβγδωρφθνξεζχιµ]/.test(v);
 }
 
 function Node({ node, size }: { node: MathNode; size: number }): React.ReactElement {

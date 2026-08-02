@@ -1,11 +1,13 @@
-﻿// Kanca bloğu sunum katmanı: Excel'in bölüm yapısı (4.1 ... 4.6) + her hesap
-// satırının SEMBOLİK FORMÜLÜ ve SAYILARIN YERİNE KONMUŞ hali.
-// Hesabın kendisi hookBlock.ts'tedir (golden testli); burası yalnız gösterimdir
-// ve ileride PDF raporun formül satırlarını da bu katman üretir.
+// Kanca bloğu sunum katmanı: bölüm yapısı (§4.1 … §4.6) ve her hesap satırının
+// SEMBOLİK FORMÜLÜ ile SAYILARIN YERİNE KONMUŞ hali.
 //
-// §4.6 yorulma satırlarının bir kısmı Excel'de bozuk hücrelerin (temiz
-// yeniden yazılmış) karşılığıdır; bunlarda Excel hücresi yerine `valueFrom`
-// ile HookBlockValues alanı okunur ve `nonExcel: true` işaretlidir.
+// Hesabın kendisi `modules/hookBlock.ts`tedir; burası yalnız gösterimdir ve
+// PDF raporun formül satırlarını da bu katman üretir.
+//
+// Satırlar motorun SEMANTİK ANAHTARLARIYLA (`<blok>.<büyüklük>`) adreslenir:
+// `key` hem satırın kimliği hem de değerin okunacağı anahtardır. Motorun hücre
+// haritasında karşılığı olmayan (girdi/bağımlılık yankısı olan) satırlar
+// değerini `valueFrom` ile doğrudan bağlamdan okur.
 
 import type {
   HookBlockDeps,
@@ -16,8 +18,8 @@ import type {
 import type { TechnicalSpecs } from "../types";
 
 export interface HookBlockCtx {
-  c: Record<string, number | string>; // hücre haritası (motor çıktısı)
-  v: HookBlockValues;                 // isimli değerler (yeniden yazım dahil)
+  c: Record<string, number | string>; // semantik anahtar → değer (motor çıktısı)
+  v: HookBlockValues;                 // isimli değerler
   inp: HookBlockInputs;
   sel: HookBlockSelections;
   deps: HookBlockDeps;
@@ -25,18 +27,20 @@ export interface HookBlockCtx {
 }
 
 export interface HookBlockRowDef {
-  /** Sonucun okunacağı Excel hücresi (sağlam hücreler) */
-  cell?: string;
-  /** Excel hücresi bozuksa: değerin HookBlockValues'tan okunuşu */
+  /**
+   * Motorun semantik anahtarı (`<blok>.<büyüklük>`) ve satırın kararlı kimliği.
+   * `valueFrom` verilmemişse değer bu anahtarla hücre haritasından okunur;
+   * kontrol ↔ satır bağlantı haritası (check-anchors.ts) de bunu kullanır.
+   */
+  key: string;
+  /** Değer motorun haritasında değilse (girdi/bağımlılık yankısı) okuma yolu */
   valueFrom?: (ctx: HookBlockCtx) => number | string;
   label: string;
-  formula?: string;                   // sembolik formül
+  formula?: string;                      // sembolik formül
   subst?: (ctx: HookBlockCtx) => string; // sayılar yerine konmuş hali
   unit?: string;
   digits?: number;
   standard?: string;
-  /** Excel'de sağlam karşılığı olmayan (yeniden yazılmış) satır */
-  nonExcel?: boolean;
 }
 
 export interface HookBlockSectionDef {
@@ -65,16 +69,42 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     title: "Kanca",
     description: "DIN 15400/15401 kanca seçimi.",
     inputKeys: [],
-    selectionKeys: ["hookDesignation", "hookCapacityKg"],
+    selectionKeys: [
+      "hookDesignation", "hookNumber", "hookStrengthClass", "hookCapacityKg",
+    ],
     rows: [
       {
-        label: "Kanca kapasitesi", formula: "Q_kanca (DIN 15400)",
-        valueFrom: (x) => x.sel.hookCapacityKg,
-        subst: (x) => `${x.sel.hookDesignation} → ${n(x.sel.hookCapacityKg)}`,
+        key: "hook.load",
+        label: "Kancaya gelen yük", formula: "Q = kaldırılan yük",
+        valueFrom: (x) => x.deps.loadKg,
+        subst: (x) => `${n(x.deps.loadKg)}`, unit: "kg",
+      },
+      {
+        key: "hook.dinGroup",
+        label: "Mekanizma grubu (DIN 15020 karşılığı)",
+        formula: "grup = f(FEM sınıfı)",
+        valueFrom: (x) => `${x.specs.hoistMechanismClass} → ${x.v.hookDinGroup}`,
+        standard: "DIN 15400",
+      },
+      {
+        key: "hook.capacity",
+        label: "Kanca taşıma kapasitesi",
+        formula: "Q_kanca = T3(kanca no, malzeme sınıfı, mekanizma grubu)",
+        subst: (x) =>
+          x.v.hookCapacityFromTable
+            ? `Nr ${x.sel.hookNumber} / ${x.sel.hookStrengthClass} / ${x.v.hookDinGroup} → ${n(x.v.hookCapacityKg)}`
+            : `${x.sel.hookDesignation} → ${n(x.v.hookCapacityKg)} (elle)`,
         unit: "kg", standard: "DIN 15400",
       },
+      {
+        key: "hook.suggestedNumber",
+        label: "Bu yükü taşıyan en küçük kanca",
+        formula: "en küçük Nr (DIN 15400 Tablo 3)",
+        valueFrom: (x) => x.v.suggestedHookNumber ?? "—",
+        standard: "DIN 15400",
+      },
     ],
-    checkSuffixes: [],
+    checkSuffixes: ["hook.capacity"],
   },
   {
     id: "4.2",
@@ -84,19 +114,21 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     selectionKeys: ["sheaveDiaMm"],
     rows: [
       {
-        cell: "L11", label: "Makaralar için mekanizma katsayısı",
-        formula: "H = f(mekanizma sınıfı)  [FEM tablosu]",
-        subst: (x) => `${x.specs.hoistMechanismClass} → ${n(num(x.c.L11))}`,
+        key: "sheave.coefficient", label: "Makaralar için mekanizma katsayısı",
+        formula: "H = f(mekanizma sınıfı)",
+        subst: (x) => `${x.specs.hoistMechanismClass} → ${n(num(x.c["sheave.coefficient"]))}`,
         standard: "FEM 1.001 T.4.2.3.1.1",
       },
       {
-        cell: "L12", label: "Halat çapı", formula: "d = 02!L24",
+        key: "sheave.ropeDia", label: "Halat çapı",
+        formula: "d = kaldırma grubundan seçilen halat çapı",
+        valueFrom: (x) => x.deps.ropeDiaMm,
         subst: (x) => `${n(x.deps.ropeDiaMm)}`, unit: "mm",
       },
       {
-        cell: "L10", label: "Minimum makara çapı", formula: "D_min = H · d",
-        subst: (x) => `${n(num(x.c.L11))} · ${n(x.deps.ropeDiaMm)}`, unit: "mm",
-        standard: "FEM 1.001 T.4.2.3.1.1",
+        key: "sheave.minDia", label: "Minimum makara çapı", formula: "D_min = H · d",
+        subst: (x) => `${n(num(x.c["sheave.coefficient"]))} · ${n(x.deps.ropeDiaMm)}`,
+        unit: "mm", standard: "FEM 1.001 T.4.2.3.1.1",
       },
     ],
     checkSuffixes: ["sheave.dia"],
@@ -104,94 +136,167 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
   {
     id: "4.3",
     title: "Makara Rulmanları",
-    description: "Eşdeğer yükler ve L10 yorulma ömrü (bilyalı rulman, FEM T.2.1.3.2).",
+    description:
+      "Eşdeğer yükler ve ISO 281 nominal ömrü (bilyalı rulman). Gerekli ömür " +
+      "FEM 1.001 T.2.1.3.2 kullanım sınıfı bandından okunur.",
     inputKeys: [],
-    selectionKeys: ["sheaveBearingType", "sheaveBearingCode", "sheaveBearingDynCKn", "sheaveBearingStatC0Kn"],
+    selectionKeys: [
+      "sheaveBearingType", "sheaveBearingCode", "sheaveBearingBoreMm",
+      "sheaveBearingDynCKn", "sheaveBearingStatC0Kn",
+    ],
     rows: [
       {
-        cell: "L19", label: "Rulman radyal yükü", formula: "F_r = F_halat · 0,00981",
+        key: "sheaveBearing.radialLoad", label: "Rulman radyal yükü",
+        formula: "F_r = T · 9,81 / 1000",
         subst: (x) => `${n(x.deps.ropeLoadKg)} · 0,00981`, unit: "kN",
       },
       {
-        cell: "L20", label: "Rulman eksenel yükü", formula: "F_a = 0,05 · F_r",
-        subst: (x) => `0,05 · ${n(num(x.c.L19))}`, unit: "kN",
+        key: "sheaveBearing.axialLoad", label: "Rulman eksenel yükü",
+        formula: "F_a = 0,05 · F_r",
+        subst: (x) => `0,05 · ${n(num(x.c["sheaveBearing.radialLoad"]))}`, unit: "kN",
       },
       {
-        cell: "L26", label: "Eşdeğer statik yük", formula: "P₀ = F_r",
-        subst: (x) => `${n(num(x.c.L19))}`, unit: "kN",
+        key: "sheaveBearing.equivalentStatic", label: "Eşdeğer statik yük",
+        formula: "P₀ = F_r  (saf radyal yük: X = 1, Y = 0)",
+        subst: (x) => `${n(num(x.c["sheaveBearing.radialLoad"]))}`, unit: "kN",
       },
       {
-        cell: "L27", label: "Eşdeğer dinamik yük", formula: "P = F_r",
-        subst: (x) => `${n(num(x.c.L19))}`, unit: "kN",
+        key: "sheaveBearing.equivalentDynamic", label: "Eşdeğer dinamik yük",
+        formula: "P = F_r  (saf radyal yük: X = 1, Y = 0)",
+        subst: (x) => `${n(num(x.c["sheaveBearing.radialLoad"]))}`, unit: "kN",
       },
       {
-        cell: "L34", label: "Rulman devri", formula: "n = n_tambur · (D_tambur / D_makara)",
+        key: "sheaveBearing.rpm", label: "Rulman devri",
+        formula: "n = n_tambur · (D_tambur / D_makara)",
         subst: (x) => `${n(x.deps.drumRpm)} · (${n(x.deps.drumDiaMm)} / ${n(x.sel.sheaveDiaMm)})`,
         unit: "d/dak",
       },
       {
-        cell: "L36", label: "Rulman ömrü (L10)", formula: "L₁₀ = (10⁶ / (60·n)) · (C/P)³",
-        subst: (x) => `(10⁶ / (60·${n(num(x.c.L34))})) · (${n(x.sel.sheaveBearingDynCKn)}/${n(num(x.c.L27))})³`,
+        key: "sheaveBearing.lifeHours", label: "Rulman ömrü (L₁₀)",
+        formula: "L₁₀ = (10⁶ / (60·n)) · (C/P)³",
+        subst: (x) =>
+          `(10⁶ / (60·${n(num(x.c["sheaveBearing.rpm"]))})) · (${n(x.sel.sheaveBearingDynCKn)}/${n(num(x.c["sheaveBearing.equivalentDynamic"]))})³`,
+        unit: "saat", digits: 0, standard: "ISO 281",
+      },
+      {
+        key: "sheaveBearing.requiredLifeMin", label: "Gerekli minimum ömür",
+        formula: "L_min = f(kullanım sınıfı)",
+        subst: (x) => `${x.specs.hoistUsageClass} → ${n(num(x.c["sheaveBearing.requiredLifeMin"]), 0)}`,
         unit: "saat", digits: 0, standard: "FEM 1.001 T.2.1.3.2",
       },
       {
-        cell: "L38", label: "Gerekli minimum ömür", formula: "L_min = f(kullanım sınıfı)",
-        subst: (x) => `${x.specs.hoistUsageClass} → ${n(num(x.c.L38), 0)}`,
-        unit: "saat", digits: 0, standard: "FEM 1.001 T.2.1.3.2",
+        key: "sheaveBearing.bore",
+        label: "Rulman iç çapı (mil çapı D1'e oturur)",
+        formula: "d_rulman = D1 · 10",
+        valueFrom: (x) => x.sel.sheaveBearingBoreMm ?? 0,
+        subst: (x) =>
+          `mil D1 = ${n(x.inp.shaftD1Cm)} cm → ${n(x.inp.shaftD1Cm * 10)} mm`,
+        unit: "mm",
       },
     ],
-    checkSuffixes: ["sheaveBearing.life", "sheaveBearing.static"],
+    checkSuffixes: ["sheaveBearing.life", "sheaveBearing.static", "sheaveBearing.bore"],
   },
   {
     id: "4.4",
     title: "Kanca Bloğu Mili",
-    description: "Reaksiyonlar, eğilme/kesme ve bileşik gerilme kontrolü (CMAA #74).",
-    inputKeys: ["shaftSpanACm", "shaftSpanCCm", "shaftDiaCm"],
+    description:
+      "Mil, iki yan sac (mesnet) arasında basit kiriştir. Kanca bloğundaki " +
+      "makara adedi halat donanımından gelir (n = n_toplam / 2) ve HER MAKARA " +
+      "2T yükü taşır. Ölçü zinciri: A yan sac → ilk makara, B küme içi makara " +
+      "adımı, D iki küme arasındaki orta boşluk. Eğilme ve kesme gerilmeleri D1 " +
+      "mil çapında hesaplanır; makara rulmanı da bu çapa oturur. Bileşik gerilme " +
+      "CMAA 70 4.11.4.1'e göre √(σ² + 3τ²), kesme gerilmesi ortalama (τ = V/A) " +
+      "kabulüyle alınır.",
+    inputKeys: [
+      "shaftEdgeGapCm", "shaftSheavePitchCm", "shaftCenterGapCm", "shaftD1Cm",
+    ],
     selectionKeys: ["shaftMaterial"],
     rows: [
       {
-        cell: "L51", label: "Halat yükü", formula: "T = 02!L19",
+        key: "shaft.ropeLoad", label: "Halat yükü (T)",
+        formula: "T = bir halat kolundaki yük",
+        valueFrom: (x) => x.deps.ropeLoadKg,
         subst: (x) => `${n(x.deps.ropeLoadKg)}`, unit: "kg",
       },
       {
-        cell: "L52", label: "Mil yükü", formula: "2T = 2 · T",
-        subst: (x) => `2 · ${n(num(x.c.L51))}`, unit: "kg",
+        key: "shaft.sheaveCount", label: "Kanca bloğu makara adedi",
+        formula: "n = n_toplam / 2  (halat donanımından)",
+        subst: (x) => `donanım → ${n(x.deps.blockSheaveCount)}`,
       },
       {
-        cell: "L58", label: "Reaksiyon kuvveti Ra", formula: "R_a = 2 · 2T",
-        subst: (x) => `2 · ${n(num(x.c.L52))}`, unit: "kg",
+        key: "shaft.sheaveLoad", label: "Makara başına yük", formula: "P = 2T",
+        subst: (x) => `2 · ${n(x.deps.ropeLoadKg)}`, unit: "kg",
       },
       {
-        cell: "L59", label: "Reaksiyon kuvveti Rb", formula: "R_b = R_a",
-        subst: (x) => `${n(num(x.c.L58))}`, unit: "kg",
+        key: "shaft.span", label: "Yan saclar arası açıklık (L)",
+        formula: "L = 2A + (n_küme − 1)·B + D",
+        subst: (x) =>
+          `A=${n(x.inp.shaftEdgeGapCm)} · B=${n(x.inp.shaftSheavePitchCm)} · D=${n(x.inp.shaftCenterGapCm)} → ${n(num(x.c["shaft.span"]))}`,
+        unit: "cm",
       },
       {
-        cell: "L62", label: "Maksimum moment", formula: "M_maks = 2T · a",
-        subst: (x) => `${n(num(x.c.L52))} · ${n(x.inp.shaftSpanACm)}`, unit: "kg·cm",
+        key: "shaft.reactionA", label: "Mesnet reaksiyonu Ra (sol yan sac)",
+        formula: "R_a = Σ P·(L − x_i) / L",
+        subst: (x) =>
+          `${n(x.v.sheaveCount)} × ${n(num(x.c["shaft.sheaveLoad"]))} yük · konumlar [${x.v.sheavePositionsCm.map((p) => n(p)).join("; ")}] cm`,
+        unit: "kg",
       },
       {
-        cell: "L64", label: "Kesit modülü", formula: "S = (π·D⁴/64) / (D/2)",
-        subst: (x) => `(π·${n(x.inp.shaftDiaCm)}⁴/64) / ${n(x.inp.shaftDiaCm / 2, 2)}`, unit: "cm³",
+        key: "shaft.reactionB", label: "Mesnet reaksiyonu Rb (sağ yan sac)",
+        formula: "R_b = n · P − R_a",
+        subst: (x) =>
+          `${n(x.v.sheaveCount)} · ${n(num(x.c["shaft.sheaveLoad"]))} − ${n(num(x.c["shaft.reactionA"]))}`,
+        unit: "kg",
       },
       {
-        cell: "L65", label: "Maksimum eğilme gerilmesi", formula: "σ_E = M_maks / S",
-        subst: (x) => `${n(num(x.c.L62))} / ${n(num(x.c.L64))}`, unit: "kg/cm²",
+        key: "shaft.moment", label: "Maksimum eğilme momenti",
+        formula: "M_maks = maks[ R_a·x − Σ P·(x − x_i) ]",
+        subst: (x) => `${n(num(x.c["shaft.reactionA"]))} · konum − yük katkıları`,
+        unit: "kg·cm",
       },
       {
-        cell: "L66", label: "Kesme gerilmesi", formula: "τ = R_a / (π · (D/2)²)",
-        subst: (x) => `${n(num(x.c.L58))} / (π · ${n(x.inp.shaftDiaCm / 2, 2)}²)`, unit: "kg/cm²",
+        key: "shaft.sectionModulus", label: "Kesit modülü (D1)",
+        formula: "W = π · D1³ / 32",
+        subst: (x) => `π · ${n(x.inp.shaftD1Cm)}³ / 32`, unit: "cm³",
       },
       {
-        cell: "L67", label: "Bileşik gerilme", formula: "σ_bil = √(σ_E² + 3τ²)",
-        subst: (x) => `√(${n(num(x.c.L65))}² + 3·${n(num(x.c.L66))}²)`, unit: "kg/cm²",
+        key: "shaft.bendingStress", label: "Eğilme gerilmesi", formula: "σ = M_maks / W",
+        subst: (x) => `${n(num(x.c["shaft.moment"]))} / ${n(num(x.c["shaft.sectionModulus"]))}`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
       },
       {
-        cell: "L73", label: "İzin verilen bileşik gerilme", formula: "σ_em = f(mil malzemesi)",
-        subst: (x) => `${x.sel.shaftMaterial} → ${n(num(x.c.L73))}`, unit: "kg/cm²",
-        standard: "CMAA #74, 4.5",
+        key: "shaft.shearStress", label: "Kesme gerilmesi (ortalama)",
+        formula: "τ = V / (π · D1² / 4)",
+        subst: (x) =>
+          `${n(num(x.c["shaft.shear"]))} / (π · ${n(x.inp.shaftD1Cm)}² / 4)`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
+      },
+      {
+        key: "shaft.combinedStress", label: "Bileşik gerilme", formula: "σ_bil = √(σ² + 3τ²)",
+        subst: (x) =>
+          `√(${n(num(x.c["shaft.bendingStress"]))}² + 3·${n(num(x.c["shaft.shearStress"]))}²)`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
+      },
+      {
+        key: "shaft.allowableBending", label: "İzin verilen eğilme gerilmesi",
+        formula: "σ_em = f(mil malzemesi)",
+        subst: (x) => `${x.sel.shaftMaterial} → ${n(num(x.c["shaft.allowableBending"]))}`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
+      },
+      {
+        key: "shaft.allowableShear", label: "İzin verilen kesme gerilmesi",
+        formula: "τ_em = f(mil malzemesi)",
+        subst: (x) => `${x.sel.shaftMaterial} → ${n(num(x.c["shaft.allowableShear"]))}`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
+      },
+      {
+        key: "shaft.allowableCombined", label: "İzin verilen bileşik gerilme",
+        formula: "σ_em = f(mil malzemesi)",
+        subst: (x) => `${x.sel.shaftMaterial} → ${n(num(x.c["shaft.allowableCombined"]))}`,
+        unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
       },
     ],
-    checkSuffixes: ["shaft.stress"],
+    checkSuffixes: ["shaft.bending", "shaft.shear", "shaft.stress"],
   },
   {
     id: "4.5",
@@ -201,177 +306,216 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     selectionKeys: ["hookBearingType", "hookBearingCode", "hookBearingStatC0Kn"],
     rows: [
       {
-        cell: "L78", label: "Rulman eksenel yükü", formula: "F_a = G_yük · 9,81 / 1000",
+        key: "hookBearing.axialLoad", label: "Rulman eksenel yükü",
+        formula: "F_a = Q · 9,81 / 1000",
         subst: (x) => `${n(x.deps.loadKg)} · 9,81 / 1000`, unit: "kN",
       },
       {
-        cell: "L85", label: "Statik emniyet katsayısı", formula: "S₀ = C₀ / F_a",
-        subst: (x) => `${n(x.sel.hookBearingStatC0Kn)} / ${n(num(x.c.L78))}`,
+        key: "hookBearing.staticSafety", label: "Statik emniyet katsayısı",
+        formula: "S₀ = C₀ / F_a",
+        subst: (x) => `${n(x.sel.hookBearingStatC0Kn)} / ${n(num(x.c["hookBearing.axialLoad"]))}`,
       },
     ],
     checkSuffixes: ["hookBearing.static"],
   },
   {
     id: "4.6",
-    title: "Kiriş Kesiti ve Yorulma",
+    title: "Kaldırma Kirişi ve Yorulma",
     description:
-      "Kaldırma kirişi kesit özellikleri, ψ katsayılı statik gerilmeler ve DIN 15018 " +
-      "yorulma kontrolü. Yorulma izin gerilmeleri DIN 15018 Tablo 17'den alınır.",
+      "Kanca bloğunun kaldırma kirişi: kutu kesit özellikleri, DIN 15018 Tablo 2 " +
+      "dinamik katsayısı ψ ile statik gerilmeler ve DIN 15018 yorulma kontrolü. " +
+      "Yorulma izin gerilmeleri Tablo 17'den (malzeme × çentik sınıfı × yük grubu), " +
+      "gerilme oranına göre düzeltme Tablo 18'den alınır. ψ katsayısının k ve l " +
+      "terimleri serbest sayı değildir: teknik özelliklerdeki kaldırma sınıfının " +
+      "(H1…H4) Tablo 2 satırıdır.",
     inputKeys: [
       "girderSpanMm", "loadOffsetMm",
       "midTopPlateThkMm", "midTopPlateWidthMm", "midWebPlateThkMm", "midWebPlateHeightMm",
       "midBottomPlateThkMm", "midBottomPlateWidthMm",
       "thickTopPlateThkMm", "thickTopPlateWidthMm", "thickWebPlateThkMm", "thickWebPlateHeightMm",
       "thickBottomPlateThkMm", "thickBottomPlateWidthMm",
-      "hoistClass", "dynamicFactorK", "dynamicFactorL",
       "loadGroup", "notchClass", "fatigueMaterial",
+      "dynamicFactorKOverride", "dynamicFactorLOverride",
     ],
     selectionKeys: [],
     rows: [
       {
-        cell: "L98", label: "Maksimum kuvvet", formula: "F_max = G_toplam / 2",
+        key: "girder.forceMax", label: "Maksimum kuvvet", formula: "F_max = G_toplam / 2",
         subst: (x) => `${n(x.deps.totalLoadKg)} / 2`, unit: "kg",
       },
       {
-        cell: "L99", label: "Minimum kuvvet", formula: "F_min = (G_blok + G_halat) / 2",
-        subst: (x) => `(${n(x.deps.hookBlockWeightKg)} + ${n(x.deps.ropeWeightKg)}) / 2`, unit: "kg",
+        key: "girder.forceMin", label: "Minimum kuvvet",
+        formula: "F_min = (G_blok + G_halat) / 2",
+        subst: (x) => `(${n(x.deps.hookBlockWeightKg)} + ${n(x.deps.ropeWeightKg)}) / 2`,
+        unit: "kg",
       },
       {
-        cell: "L105", label: "Maksimum moment", formula: "M_maks = F_max · b / 10",
-        subst: (x) => `${n(num(x.c.L98))} · ${n(x.inp.loadOffsetMm)} / 10`, unit: "kg·cm",
+        key: "girder.momentMax", label: "Maksimum moment", formula: "M_maks = F_max · b / 10",
+        subst: (x) => `${n(num(x.c["girder.forceMax"]))} · ${n(x.inp.loadOffsetMm)} / 10`,
+        unit: "kg·cm",
       },
       {
-        cell: "L108", label: "Minimum moment", formula: "M_min = F_min · b / 10",
-        subst: (x) => `${n(num(x.c.L99))} · ${n(x.inp.loadOffsetMm)} / 10`, unit: "kg·cm",
+        key: "girder.momentMin", label: "Minimum moment", formula: "M_min = F_min · b / 10",
+        subst: (x) => `${n(num(x.c["girder.forceMin"]))} · ${n(x.inp.loadOffsetMm)} / 10`,
+        unit: "kg·cm",
       },
       {
-        cell: "L116", label: "Birim ağırlık (orta kesit)", formula: "G = ΣA_sac · 7,85 / 10³",
+        key: "girder.midUnitWeight", label: "Birim ağırlık (orta kesit)",
+        formula: "G = ΣA_sac · 7,85 / 10³",
         subst: (x) => `((${n(x.inp.midTopPlateThkMm)}·${n(x.inp.midTopPlateWidthMm)}) + 2·(${n(x.inp.midWebPlateThkMm)}·${n(x.inp.midWebPlateHeightMm)}) + (${n(x.inp.midBottomPlateThkMm)}·${n(x.inp.midBottomPlateWidthMm)})) · 7,85 / 10³`,
         unit: "kg/m",
       },
       {
-        cell: "L117", label: "Atalet momenti (orta kesit)", formula: "I = Σ(I₀ + A·y²)",
+        key: "girder.midInertia", label: "Atalet momenti (orta kesit)",
+        formula: "I = Σ(I₀ + A·y²)",
         subst: (x) => `2·(${n(x.inp.midWebPlateThkMm / 10)}·${n(x.inp.midWebPlateHeightMm / 10)}³/12) + başlık sacları (Steiner)`,
         unit: "cm⁴",
       },
       {
-        cell: "L118", label: "Kesit modülü (orta kesit)", formula: "w = I / (h/2)",
-        subst: (x) => `${n(num(x.c.L117))} / ${n(x.inp.midWebPlateHeightMm / 20)}`, unit: "cm³",
+        key: "girder.midSectionModulus", label: "Kesit modülü (orta kesit)",
+        formula: "w = I / (h/2)",
+        subst: (x) => `${n(num(x.c["girder.midInertia"]))} / ${n(x.inp.midWebPlateHeightMm / 20)}`,
+        unit: "cm³",
       },
       {
-        cell: "L119", label: "Kesit alanı (orta kesit)", formula: "A = ΣA_sac",
-        subst: (x) => `${n(num(x.c.L119))}`, unit: "cm²",
+        key: "girder.midArea", label: "Kesit alanı (orta kesit)", formula: "A = ΣA_sac",
+        subst: (x) => `${n(num(x.c["girder.midArea"]))}`, unit: "cm²",
       },
       {
-        cell: "L120", label: "Yan sacların alanı (orta kesit)", formula: "A_y = 2 · t_y · h",
-        subst: (x) => `2 · ${n(x.inp.midWebPlateThkMm / 10)} · ${n(x.inp.midWebPlateHeightMm / 10)}`, unit: "cm²",
+        key: "girder.midWebArea", label: "Yan sacların alanı (orta kesit)",
+        formula: "A_y = 2 · t_y · h",
+        subst: (x) => `2 · ${n(x.inp.midWebPlateThkMm / 10)} · ${n(x.inp.midWebPlateHeightMm / 10)}`,
+        unit: "cm²",
       },
       {
-        cell: "P118", label: "Kesit modülü (kalın kesit)", formula: "w = I / (h/2)",
-        subst: (x) => `${n(num(x.c.P117))} / ${n(x.inp.thickWebPlateHeightMm / 20)}`, unit: "cm³",
+        key: "girder.thickSectionModulus", label: "Kesit modülü (kalın kesit)",
+        formula: "w = I / (h/2)",
+        subst: (x) => `${n(num(x.c["girder.thickInertia"]))} / ${n(x.inp.thickWebPlateHeightMm / 20)}`,
+        unit: "cm³",
       },
       {
-        cell: "P120", label: "Yan sacların alanı (kalın kesit)", formula: "A_y = 2 · t_y · h",
-        subst: (x) => `2 · ${n(x.inp.thickWebPlateThkMm / 10)} · ${n(x.inp.thickWebPlateHeightMm / 10)}`, unit: "cm²",
+        key: "girder.thickWebArea", label: "Yan sacların alanı (kalın kesit)",
+        formula: "A_y = 2 · t_y · h",
+        subst: (x) => `2 · ${n(x.inp.thickWebPlateThkMm / 10)} · ${n(x.inp.thickWebPlateHeightMm / 10)}`,
+        unit: "cm²",
       },
       {
-        cell: "L124", label: "Dinamik katsayı ψ", formula: "ψ = k + l · v_kaldırma",
-        subst: (x) => `${n(x.inp.dynamicFactorK)} + ${n(x.inp.dynamicFactorL, 4)} · ${n(x.specs.mainLiftSpeedMpm)}`,
-        standard: "DIN 15018 Tablo 2",
+        key: "girder.dynamicFactor", label: "Dinamik katsayı ψ",
+        formula: "ψ = k + l · v_kaldırma   (k, l = Tablo 2 kaldırma sınıfı satırı)",
+        subst: (x) =>
+          `${x.v.hoistClassUsed}${x.v.dynamicFactorOverridden ? " (elle ezildi)" : ""} → ` +
+          `${n(x.v.dynamicFactorK)} + ${n(x.v.dynamicFactorL, 4)} · ${n(x.specs.mainLiftSpeedMpm)}`,
+        digits: 3, standard: "DIN 15018 Tablo 2",
       },
       {
-        cell: "L130", label: "Eğilme gerilmesi", formula: "σ = M_maks · ψ / w",
-        subst: (x) => `${n(num(x.c.L105))} · ${n(num(x.c.L124), 3)} / ${n(num(x.c.L118))}`, unit: "kg/cm²",
+        key: "girder.bendingStress", label: "Eğilme gerilmesi", formula: "σ = M_maks · ψ / w",
+        subst: (x) => `${n(num(x.c["girder.momentMax"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.midSectionModulus"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L131", label: "Kesme gerilmesi", formula: "τ = F_max · ψ / A_y (kalın kesit)",
-        subst: (x) => `${n(num(x.c.L98))} · ${n(num(x.c.L124), 3)} / ${n(num(x.c.P120))}`, unit: "kg/cm²",
+        key: "girder.shearStress", label: "Kesme gerilmesi",
+        formula: "τ = F_max · ψ / A_y (kalın kesit)",
+        subst: (x) => `${n(num(x.c["girder.forceMax"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.thickWebArea"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L132", label: "Bileşik gerilme", formula: "σ_bil = √(σ² + 3τ²)",
-        subst: (x) => `√(${n(num(x.c.L130))}² + 3·${n(num(x.c.L131))}²)`, unit: "kg/cm²",
+        key: "girder.combinedStress", label: "Bileşik gerilme", formula: "σ_bil = √(σ² + 3τ²)",
+        subst: (x) => `√(${n(num(x.c["girder.bendingStress"]))}² + 3·${n(num(x.c["girder.shearStress"]))}²)`,
+        unit: "kg/cm²",
       },
       {
+        key: "girder.allowableStress",
         label: "İzin verilen gerilme", formula: "σ_em = f(malzeme)",
-        valueFrom: (x) => x.v.allowableStaticStress,
         subst: (x) => `${x.inp.fatigueMaterial} → ${n(x.v.allowableStaticStress)}`,
-        unit: "kg/cm²", standard: "FEM 1.001 T.3.2.1.1", nonExcel: true,
+        unit: "kg/cm²", standard: "FEM 1.001 T.3.2.1.1",
       },
       {
-        cell: "L139", label: "σmax", formula: "σ_max = M_maks / w",
-        subst: (x) => `${n(num(x.c.L105))} / ${n(num(x.c.L118))}`, unit: "kg/cm²",
+        key: "fatigue.sigmaMax", label: "σmax", formula: "σ_max = M_maks / w",
+        subst: (x) => `${n(num(x.c["girder.momentMax"]))} / ${n(num(x.c["girder.midSectionModulus"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L140", label: "τmax", formula: "τ_max = F_max / A_y",
-        subst: (x) => `${n(num(x.c.L98))} / ${n(num(x.c.L120))}`, unit: "kg/cm²",
+        key: "fatigue.tauMax", label: "τmax", formula: "τ_max = F_max / A_y",
+        subst: (x) => `${n(num(x.c["girder.forceMax"]))} / ${n(num(x.c["girder.midWebArea"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L141", label: "Bileşik maksimum gerilme", formula: "σ_bil,max = √(σ_max² + 3τ_max²)",
-        subst: (x) => `√(${n(num(x.c.L139))}² + 3·${n(num(x.c.L140))}²)`, unit: "kg/cm²",
+        key: "fatigue.combinedMax", label: "Bileşik maksimum gerilme",
+        formula: "σ_bil,max = √(σ_max² + 3τ_max²)",
+        subst: (x) => `√(${n(num(x.c["fatigue.sigmaMax"]))}² + 3·${n(num(x.c["fatigue.tauMax"]))}²)`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L144", label: "σmin", formula: "σ_min = M_min / w",
-        subst: (x) => `${n(num(x.c.L108))} / ${n(num(x.c.L118))}`, unit: "kg/cm²",
+        key: "fatigue.sigmaMin", label: "σmin", formula: "σ_min = M_min / w",
+        subst: (x) => `${n(num(x.c["girder.momentMin"]))} / ${n(num(x.c["girder.midSectionModulus"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L145", label: "τmin", formula: "τ_min = F_min / A_y",
-        subst: (x) => `${n(num(x.c.L99))} / ${n(num(x.c.L120))}`, unit: "kg/cm²",
+        key: "fatigue.tauMin", label: "τmin", formula: "τ_min = F_min / A_y",
+        subst: (x) => `${n(num(x.c["girder.forceMin"]))} / ${n(num(x.c["girder.midWebArea"]))}`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L146", label: "Bileşik minimum gerilme", formula: "σ_bil,min = √(σ_min² + 3τ_min²)",
-        subst: (x) => `√(${n(num(x.c.L144))}² + 3·${n(num(x.c.L145))}²)`, unit: "kg/cm²",
+        key: "fatigue.combinedMin", label: "Bileşik minimum gerilme",
+        formula: "σ_bil,min = √(σ_min² + 3τ_min²)",
+        subst: (x) => `√(${n(num(x.c["fatigue.sigmaMin"]))}² + 3·${n(num(x.c["fatigue.tauMin"]))}²)`,
+        unit: "kg/cm²",
       },
       {
-        cell: "L161", label: "Gerilme oranı", formula: "x = σ_bil,min / σ_bil,max",
-        subst: (x) => `${n(num(x.c.L146))} / ${n(num(x.c.L141))}`, digits: 3,
+        key: "fatigue.stressRatio", label: "Gerilme oranı",
+        formula: "x = σ_bil,min / σ_bil,max",
+        subst: (x) => `${n(num(x.c["fatigue.combinedMin"]))} / ${n(num(x.c["fatigue.combinedMax"]))}`,
+        digits: 3,
       },
       {
-        label: "zul σ D(-1)", formula: "T17(malzeme, çentik, yük grubu)",
-        valueFrom: (x) => x.v.fatigueSigmaD1Nmm2,
+        key: "fatigue.sigmaD1",
+        label: "zul σ D(-1)", formula: "T17(malzeme, çentik sınıfı, yük grubu)",
         subst: (x) => `${x.inp.fatigueMaterial} / ${x.inp.notchClass} / ${x.inp.loadGroup} → ${n(x.v.fatigueSigmaD1Nmm2)}`,
-        unit: "N/mm²", standard: "DIN 15018 Tablo 17", nonExcel: true,
+        unit: "N/mm²", standard: "DIN 15018 Tablo 17",
       },
       {
+        key: "fatigue.sigmaD1KgCm2",
         label: "zul σ D(-1)", formula: "zul σ D(-1) · 100 / 9,81",
-        valueFrom: (x) => x.v.fatigueSigmaD1KgCm2,
         subst: (x) => `${n(x.v.fatigueSigmaD1Nmm2)} · 100 / 9,81`,
-        unit: "kg/cm²", nonExcel: true,
+        unit: "kg/cm²",
       },
       {
+        key: "fatigue.sigmaDz0",
         label: "zul σ Dz(0)", formula: "zul σ Dz(0) = zul σ D(-1) · 5/3",
-        valueFrom: (x) => x.v.fatigueSigmaDz0KgCm2,
         subst: (x) => `${n(x.v.fatigueSigmaD1KgCm2)} · 5/3`,
-        unit: "kg/cm²", standard: "DIN 15018 Şekil 9", nonExcel: true,
+        unit: "kg/cm²", standard: "DIN 15018 Şekil 9",
       },
       {
+        key: "fatigue.ultimateStrength",
         label: "Malzeme kopma dayanımı σB", formula: "σ_B = f(malzeme)",
-        valueFrom: (x) => x.v.ultimateStrengthKgCm2,
         subst: (x) => `${x.inp.fatigueMaterial} → ${n(x.v.ultimateStrengthKgCm2)}`,
-        unit: "kg/cm²", nonExcel: true,
+        unit: "kg/cm²",
       },
       {
-        label: "zul σ Dz(x)", formula: "zul σ Dz(x) = zulσDz(0) / (1 − (1 − zulσDz(0)/(0,75·σB)) · x)",
-        valueFrom: (x) => x.v.fatigueAllowableSigmaKgCm2,
+        key: "fatigue.allowableSigma",
+        label: "zul σ Dz(x)",
+        formula: "zul σ Dz(x) = zulσDz(0) / (1 − (1 − zulσDz(0)/(0,75·σB)) · x)",
         subst: (x) => `${n(x.v.fatigueSigmaDz0KgCm2)} / (1 − (1 − ${n(x.v.fatigueSigmaDz0KgCm2)}/(0,75·${n(x.v.ultimateStrengthKgCm2)})) · ${n(x.v.kappa, 3)})`,
-        unit: "kg/cm²", standard: "DIN 15018 Tablo 18", nonExcel: true,
+        unit: "kg/cm²", standard: "DIN 15018 Tablo 18",
       },
       {
-        label: "zul τ Dz(x) — W0 için", formula: "T17(malzeme, W0, yük grubu)",
-        valueFrom: (x) => x.v.fatigueTauW0Nmm2,
+        key: "fatigue.tauW0",
+        label: "zul σ Dz(x) — W0 çentik sınıfı", formula: "T17(malzeme, W0, yük grubu)",
         subst: (x) => `${x.inp.fatigueMaterial} / W0 / ${x.inp.loadGroup} → ${n(x.v.fatigueTauW0Nmm2)}`,
-        unit: "N/mm²", standard: "DIN 15018 Tablo 17", nonExcel: true,
+        unit: "N/mm²", standard: "DIN 15018 Tablo 17",
       },
       {
-        label: "zul τ D(x)", formula: "zul τ D(x) = zul τ Dz(x) · (100/9,81) / √3",
-        valueFrom: (x) => x.v.fatigueAllowableTauKgCm2,
+        key: "fatigue.allowableTau",
+        label: "zul τ D(x)", formula: "zul τ D(x) = zul σ Dz(x)|W0 · (100/9,81) / √3",
         subst: (x) => `${n(x.v.fatigueTauW0KgCm2)} / √3`,
-        unit: "kg/cm²", nonExcel: true,
+        unit: "kg/cm²",
       },
       {
-        label: "Bileşik yorulma oranı", formula: "(σ_max/zulσ)² + (τ_max/zulτ)² ≤ 1,1",
-        valueFrom: (x) => x.v.fatigueCombinedRatio,
+        key: "fatigue.combined",
+        label: "Bileşik yorulma oranı",
+        formula: "(σ_max/zulσ)² + (τ_max/zulτ)² ≤ 1,1",
         subst: (x) => `(${n(x.v.sigmaMax)}/${n(x.v.fatigueAllowableSigmaKgCm2)})² + (${n(x.v.tauMax)}/${n(x.v.fatigueAllowableTauKgCm2)})²`,
-        digits: 4, standard: "DIN 15018 Bölüm 7.4.5", nonExcel: true,
+        digits: 4, standard: "DIN 15018 Bölüm 7.4.5",
       },
     ],
     checkSuffixes: ["girder.static", "fatigue.sigma", "fatigue.tau", "fatigue.combined"],

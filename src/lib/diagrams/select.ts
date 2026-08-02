@@ -6,6 +6,8 @@
 //   girder 7.1          → ana kiriş kutu kesiti
 //   trolley/bridge 5.2  → teker mili (5.2 araba / 6.2 köprü)
 //   main/aux 2.1        → halat donanımı (2.1 ana / 3.1 yardımcı)
+//   main/aux 2.2.3      → tambur mili yükleme şeması (A…G ölçü zinciri)
+//   hookBlock 4.4       → kanca bloğu mili (makara sayısına göre dinamik)
 
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import type { GirderValues } from "@/lib/calc/modules/mainGirder";
@@ -16,6 +18,8 @@ import { girderSectionDiagram } from "./girderSection";
 import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
+import { drumShaftDiagram } from "./drumShaft";
+import { hookBlockShaftDiagram } from "./hookBlockShaft";
 import { deflectionDiagram } from "./deflection";
 import { girderLoadDiagram } from "./girderLoad";
 import { girderStressDiagram } from "./girderStress";
@@ -110,9 +114,54 @@ export function diagramForSection(
         drumDiaMm: st.selections.drumDiaMm,
         ropeDiaMm: st.selections.ropeDiaMm,
         wallThicknessMm: st.inputs.drumWallThicknessMm,
-        groovePitchMm: cells.L41,
-        minDiaMm: cells.L38,
+        groovePitchMm: cells["drum.groovePitch"],
+        minDiaMm: cells["drum.minDia"],
         material: st.selections.drumMaterial,
+      });
+    }
+
+    if (moduleKey === "hookBlock" && rawSectionId === "4.4") {
+      const st = input.hookBlock;
+      const v = result.hookBlock?.values;
+      if (!st || !v) return null;
+      const i = st.inputs;
+      return hookBlockShaftDiagram({
+        positionsCm: v.sheavePositionsCm,
+        spanCm: v.shaftSpanCm,
+        edgeGapCm: i.shaftEdgeGapCm,
+        pitchCm: i.shaftSheavePitchCm,
+        centerGapCm: i.shaftCenterGapCm,
+        d1Cm: i.shaftD1Cm,
+        sheaveDiaMm: st.selections.sheaveDiaMm,
+        ropeLoadKg: v.ropeLoadKg,
+        reactionAKg: v.reactionAKg,
+        reactionBKg: v.reactionBKg,
+        maxMomentKgCm: v.shaftMomentKgCm,
+        bearingCode: st.selections.sheaveBearingCode,
+      });
+    }
+
+    if ((moduleKey === "main" || moduleKey === "aux") && rawSectionId === "2.2.3") {
+      const st = moduleKey === "main" ? input.mainHoist : input.auxHoist;
+      if (!st) return null;
+      const v = (moduleKey === "main" ? result.mainHoist : result.auxHoist)?.values as
+        | HoistValues
+        | undefined;
+      const i = st.inputs;
+      return drumShaftDiagram({
+        aCm: i.drumSpanACm, bCm: i.drumSpanBCm, cCm: i.drumSpanCCm, dCm: i.drumSpanDCm,
+        eCm: i.drumSpanECm, fCm: i.drumSpanFCm, gCm: i.drumSpanGCm,
+        d1Cm: i.shaftD1Cm, d2Cm: i.shaftD2Cm,
+        drumDiaMm: st.selections.drumDiaMm,
+        ropeLoadKg: v?.ropeLoadPerPointKg,
+        drumWeightKg: i.drumWeightKg,
+        ropePositionsCm: v?.ropeLoadPositionsCm,
+        weightArmCm: v?.drumWeightArmCm,
+        reactionGearboxKg: v?.reactionGearboxKg,
+        reactionBearingKg: v?.reactionBearingKg,
+        momentGearboxKgCm: v?.momentGearboxKgCm,
+        momentBearingKgCm: v?.momentBearingKgCm,
+        positionLabel: i.ropeLoadPosition,
       });
     }
 

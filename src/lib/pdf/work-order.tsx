@@ -79,7 +79,7 @@ const s = StyleSheet.create({
   prep: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, alignItems: "flex-end" },
 });
 
-/** Bölüm etiketi: mono kicker + kırmızı çizgi, sağda İngilizce mono gloss */
+/** Bölüm etiketi: mono kicker + kırmızı çizgi */
 function SectionLabel({ title, gloss }: { title: string; gloss?: string }) {
   return (
     <View wrap={false} style={{ marginTop: 12, marginBottom: 5 }}>
@@ -171,7 +171,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         </View>
 
         {/* Kapsam */}
-        <SectionLabel title="KAPSAM" gloss="SCOPE" />
+        <SectionLabel title="KAPSAM" />
         <View style={s.scopeRow}>
           <Chk label="Proje" on={sc.proje} />
           <Chk label="Devreye Alma" on={sc.devreyeAlma} />
@@ -182,7 +182,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
         </View>
 
         {/* Açıklamalar */}
-        <SectionLabel title="AÇIKLAMALAR" gloss="NOTES" />
+        <SectionLabel title="AÇIKLAMALAR" />
         <View style={s.notes}>
           <Text style={{ ...T.body, color: BRAND.ink }}>{data.notes && data.notes.trim() ? data.notes : "—"}</Text>
         </View>

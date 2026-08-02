@@ -47,7 +47,7 @@ const SUB_MAP: Record<string, string> = {
 
 // Kimlik (değişken) karakterleri: latin+türkçe harf, yunan, prime, °, virgül
 // (F_k,min gibi bileşik indisler için virgül alt-indiste ele alınır).
-const IDENT_CH = /[A-Za-zÇĞİÖŞÜçğıöşüµΣΔΩ°′″σταπηλκψαβγδωρφθ']/;
+const IDENT_CH = /[A-Za-zÇĞİÖŞÜçğıöşüµΣΔΩΓΠΛΦΨΘ°′″σταπηλκψαβγδωρφθνξεζχι']/;
 const DIGIT_CH = /[0-9]/;
 
 function tokenize(src: string): Tok[] | null {

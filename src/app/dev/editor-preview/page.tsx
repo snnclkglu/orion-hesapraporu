@@ -3,7 +3,7 @@
 
 import { notFound } from "next/navigation";
 import { RevisionEditor } from "@/app/(app)/projects/[id]/revisions/[revId]/revision-editor";
-import { V5_TEMPLATE } from "@/lib/calc/defaults";
+import { NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 
 export default function EditorPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
@@ -18,7 +18,7 @@ export default function EditorPreviewPage() {
           projectId="dev"
           revisionId="dev"
           readOnly={false}
-          initial={V5_TEMPLATE}
+          initial={NEW_WORK_TEMPLATE}
         />
       </div>
     </div>

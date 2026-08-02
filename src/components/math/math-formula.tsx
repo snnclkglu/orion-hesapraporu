@@ -7,7 +7,7 @@ import { parseFormula, type MathNode } from "@/lib/math/formula";
 
 function isVar(v: string): boolean {
   // tek/çift harfli latin/yunan değişken → italik; sayı/operatör düz
-  return /[A-Za-zÇĞİÖŞÜçğıöşüσταπηλκψαβγδωρφθµ]/.test(v);
+  return /[A-Za-zÇĞİÖŞÜçğıöşüσταπηλκψαβγδωρφθνξεζχιµ]/.test(v);
 }
 
 function Node({ node }: { node: MathNode }): React.ReactElement {

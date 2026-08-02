@@ -1,119 +1,119 @@
-// Yürütme grubu hesabı — Excel "05-ARABA YÜRÜTME GRUBU" / "06-KÖPRÜ YÜRÜTME
-// GRUBU" sayfalarının parametrik tek modül karşılığı. Formül zinciri hücre
-// hücre korunmuştur; her hesaplanan değer `cells` haritasında kendi
-// varyantının Excel adresiyle yer alır ve golden testler bu haritayı Excel V5
-// dökümüyle karşılaştırır.
+// Yürütme grubu hesabı — araba ve köprü yürütme mekanizmalarının tek
+// parametrik modülü. Hesap yöntemi FEM 1.001 (tekerlek basıncı, rulman ömrü),
+// CMAA 70 (yürütme gücü, mil emniyet gerilmeleri) ve ilgili katalog
+// kriterlerine dayanır.
 //
-// Varyant farkları (Excel'den birebir):
-// - Köprüde teker yükleri araba yanaşma eksantrikliğiyle hesaplanır (06!L9).
-// - Fren bölümü (6.6) sadece köprüde vardır; V5'te fren seçilmemiştir ve
-//   kontrol "û" çıkar (bilinçli olarak korunur).
-// - Köprü tamponunda çarpma enerjisi 0.7 hız faktörüyle hesaplanır ve motor
-//   gücü olarak SEÇİLEN motor gücü (06!L210=L134) kullanılır; arabada motor
-//   başına GEREKLİ güç (05!L194=L145) kullanılır.
-// - Sapma toleransı arabada +10/−5 (05!O140), köprüde +5/−10 (06!O147).
-// - Bilinen Excel kusuru: 06!O160 formülü boş H156'ya bakar (doğrusu L156).
-//   Bu hücre üretilmez; doğru kontrol `bridge.gearbox.torque` olarak eklenir.
+// Sonuçlar `cells` haritasında SEMANTİK ANAHTARLARLA (`<blok>.<büyüklük>`)
+// yer alır; sunum katmanı ve raporlar bu anahtarlarla okur.
 //
-// Birimler Excel ile aynıdır: t, kg, mm, cm, cm³, kg/cm², N/mm², kN, Nm, kNm,
-// kW, kJ, m/dak, d/dak, saat.
+// Varyant farkları (mühendislik gerekçeleriyle):
+//   · Köprüde tekerlek yükleri arabanın yanaşma eksantrikliğiyle hesaplanır;
+//     arabada yük dört tekere eşit paylaştırılır.
+//   · Yürütme freni yalnız köprü mekanizmasında hesaplanır.
+//   · Köprü tamponunda çarpma hızı olarak nominal hızın %70'i alınır
+//     (köprü kütlesi büyük olduğundan tam hızda çarpışma kabul edilmez).
+//   · Çevrim oranı sapma bandı arabada +10/−5 %, köprüde +5/−10 %'dir:
+//     köprüde hız fazlalığı raylı sistemde daha kritik olduğundan üst sınır
+//     dardır.
+//
+// Birimler: t, kg, mm, cm, cm³, kg/cm², N/mm², kN, Nm, kNm, kW, kJ,
+// m/dak, d/dak, saat.
 
+import { solveBeam } from "../beam";
 import { mechanismLife, shaftMaterialAllowables } from "../coefficients";
+import { shaftStress } from "../shaftStress";
 import { c1Factor, RAILS } from "../tables";
 import type {
   AnyCheck,
   MechanismClass,
   ModuleResult,
   TechnicalSpecs,
+  UsageClass,
 } from "../types";
-
-// Excel bazı hücrelerde PI() (tam hassasiyet), bazılarında 3.14159 kullanır.
-// Golden sadakat için ikisi de aynen korunur (mil kesme gerilmesi 3.14159'ludur).
-const PI_EXCEL = 3.14159;
 
 export type TravelWhich = "trolley" | "bridge";
 
-/** Sayfalar arası bağımlılıklar — modül saf kalsın diye parametre olarak alınır */
+/** Modüller arası bağımlılıklar — modül saf kalsın diye parametre olarak alınır */
 export interface TravelDeps {
-  /** Kanca bloğu + halat [t] — Excel 05!L6 = ('02-ANA KALDIRMA GRUBU'!L14+L15)/1000 */
+  /** Kanca bloğu + halat ağırlığı [t] (kaldırma grubundan gelir) */
   hookEquipmentT: number;
-  /** Araba ağırlığı [t] — Excel 06!L5 = '05-ARABA YÜRÜTME GRUBU'!L5 (köprü varyantı) */
+  /** Araba ağırlığı [t] — köprü varyantında araba modülünden gelir */
   trolleyWeightT: number;
 }
 
-/** Kullanıcı girdileri (tasarım kabulleri) — Excel L sütunundaki statikler.
- *  Hücre yorumları: 05!araba / 06!köprü adresi. */
+/** Kullanıcı girdileri (tasarım kabulleri) */
 export interface TravelInputs {
-  trolleyWeightT: number;       // 05!L5 — araba ağırlığı [t] (köprüde deps.trolleyWeightT kullanılır)
-  bridgeWeightT: number;        // 06!L6 — köprü ağırlığı [t] (sadece köprü)
-  otherWeightsT: number;        // 06!L7 — diğer ağırlıklar [t] (sadece köprü)
-  minApproachM: number;         // 06!L9 — minimum araba yanaşması [m] (sadece köprü)
-  wheelCount: number;           // 05!L10 / 06!L14 — tekerlek adedi
-  shaftSpanACm: number;         // 05!L38 / 06!L42 — mil mesnet ölçüsü a [cm]
-  shaftSpanBCm: number;         // 05!L39 / 06!L43 — b [cm] (gösterim)
-  shaftDiaCm: number;           // 05!L52 / 06!L56 — teker mili çapı [cm]
-  stressConcFactor: number;     // 05!L57 / 06!L61 — gerilme yığılması katsayısı
-  bearingCount: number;         // 05!L81 / 06!L85 — rulman adedi
-  bearingFactorY0: number;      // 05!L94 / 06!L98 — eşdeğer yük katsayısı Y0 (statik)
-  bearingFactorY1: number;      // 05!L95 / 06!L99 — eşdeğer yük katsayısı Y1 (dinamik)
-  applicationClass: string;     // 06!L116 — uygulama sınıfı (H/O/Y, gösterim; arabada boş)
-  serviceFactorKs: number;      // 05!L111 / 06!L118 — Ks servis faktörü (CMAA 70)
-  accelTorqueFactorKt: number;  // 05!L112 / 06!L119 — Kt ivmelenme tork faktörü
-  reducerStages: number;        // 05!L113 / 06!L120 — redüktör kademe sayısı
-  accelerationMs2: number;      // 05!L116 / 06!L123 — ivme a [m/s²]
-  tempFactor: number;           // 05!L121 / 06!L128 — sıcaklık faktörü
-  motorCalcCount: number;       // 05!L123 / 06!L130 — motor adedi (güç bölüşümü)
-  gearboxServiceFactor: number; // 05!L151 / 06!L155 — redüktör emniyet katsayısı
-  brakeServiceFactor: number;   // 06!L168 — fren emniyet katsayısı (sadece köprü)
-  motorCouplingServiceFactor: number; // 05!L163 / 06!L177
-  wheelCouplingServiceFactor: number; // 05!L175 / 06!L189
-  bufferApproachM: number;      // 06!L203 — tampon hesabı araba yanaşması [m] (sadece köprü)
+  trolleyWeightT: number;       // araba ağırlığı [t] (köprüde deps.trolleyWeightT kullanılır)
+  bridgeWeightT: number;        // köprü ağırlığı [t] (sadece köprü)
+  otherWeightsT: number;        // diğer ağırlıklar [t] (sadece köprü)
+  minApproachM: number;         // minimum araba yanaşması [m] (sadece köprü)
+  wheelCount: number;           // tekerlek adedi
+  shaftSpanACm: number;         // teker mili mesnet ölçüsü a [cm]
+  shaftSpanBCm: number;         // teker mili ölçüsü b [cm] (gösterim)
+  shaftDiaCm: number;           // teker mili çapı [cm]
+  stressConcFactor: number;     // gerilme yığılması katsayısı
+  bearingCount: number;         // teker başına rulman adedi
+  bearingFactorY0: number;      // eşdeğer statik yük katsayısı Y0
+  bearingFactorY1: number;      // eşdeğer dinamik yük katsayısı Y1
+  applicationClass: string;     // uygulama sınıfı (H/O/Y, gösterim; sadece köprü)
+  serviceFactorKs: number;      // Ks servis faktörü (CMAA 70)
+  accelTorqueFactorKt: number;  // Kt ivmelenme tork faktörü (CMAA 70)
+  reducerStages: number;        // redüktör kademe sayısı
+  accelerationMs2: number;      // ivme a [m/s²]
+  tempFactor: number;           // ortam sıcaklığı düzeltme faktörü
+  motorCalcCount: number;       // gücün bölüşüldüğü motor adedi
+  gearboxServiceFactor: number; // redüktör emniyet (servis) katsayısı
+  brakeServiceFactor: number;   // fren emniyet katsayısı (sadece köprü)
+  motorCouplingServiceFactor: number; // motor kaplini emniyet katsayısı
+  wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
+  bufferApproachM: number;      // tampon hesabında araba yanaşması [m] (sadece köprü)
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
 export interface TravelSelections {
-  railCode: string;             // 05!L14 / 06!L18 — ray (KATSAYILAR C68:O70 anahtarı)
-  wheelMaterial: string;        // 05!L16 / 06!L20
-  wheelTensileNmm2: number;     // 05!L17 / 06!L21 — teker malzemesi çekme dayanımı [N/mm²]
-  wheelDiaMm: number;           // 05!L18 / 06!L22 — tekerlek çapı [mm]
-  shaftMaterial: string;        // 05!L71 / 06!L75 — mil malzemesi (gösterim; izinler 42CrMo4/4140)
-  bearingType: string;          // 05!L85 / 06!L89
-  bearingCode: string;          // 05!L86 / 06!L90
-  bearingDynCKn: number;        // 05!L92 / 06!L96
-  bearingStatC0Kn: number;      // 05!L93 / 06!L97
-  motorBrand: string;           // 05!L126 / 06!L133
-  motorPowerKw: number;         // 05!L127 / 06!L134
-  motorRpm: number;             // 05!L128 / 06!L135
-  motorCount: number;           // 05!L129 / 06!L136
-  motorShaftMm: number;         // 05!L130 / 06!L137
-  gearboxModel: string;         // 05!L154 / 06!L158
-  gearboxRatio: number;         // 05!L155 / 06!L159
-  gearboxOutputTorqueKnm: number; // 05!L156 / 06!L160
-  gearboxInputShaftText: string;  // 05!L158 / 06!L162 (ör. "-")
-  gearboxOutputShaftMm: number;   // 05!L159 / 06!L163
-  brakeBrand: string;           // 06!L171 — seçilen fren (V5'te boş/0)
-  brakeTorqueNm: number;        // 06!L172 — fren torku (V5'te 0 → kontrol "û")
-  brakeWheelDiaMm: number;      // 06!L173 — kasnak/disk çapı (V5'te 0)
-  couplingMotorShaftMm: number; // 05!L166 — kapline bağlanan motor mili (arabada ayrı statik;
-                                //           köprüde 06!L180 = L137 = motorShaftMm hesaplanır)
-  motorCouplingBrand: string;   // 05!L167 / 06!L181
-  motorCouplingModel: string;   // 05!L168 / 06!L182
-  motorCouplingTorqueNm: number; // 05!L169 / 06!L183
-  motorCouplingDmaxMm: number;   // 05!L170 / 06!L184
-  wheelShaftDiaMm: number;      // 05!L178 / 06!L192 — teker mili çapı (kaplin) [mm]
-  wheelCouplingBrand: string;   // 05!L179 / 06!L193
-  wheelCouplingModel: string;   // 05!L180 / 06!L194
-  wheelCouplingTorqueNm: number; // 05!L181 / 06!L195
-  wheelCouplingDmaxMm: number;   // 05!L182 / 06!L196
-  bufferModel: string;          // 05!L213 / 06!L229
-  bufferStrokeMm: number;       // 05!L214 / 06!L230
-  bufferEnergyKj: number;       // 05!L215 / 06!L231
-  bufferLoadKn: number;         // 05!L216 / 06!L232
+  railCode: string;             // ray tipi (ray tablosu anahtarı)
+  wheelMaterial: string;
+  wheelTensileNmm2: number;     // teker malzemesi çekme dayanımı [N/mm²]
+  wheelDiaMm: number;           // tekerlek çapı [mm]
+  shaftMaterial: string;        // teker mili malzemesi
+  bearingType: string;
+  bearingCode: string;
+  bearingDynCKn: number;        // dinamik yük sayısı C [kN]
+  bearingStatC0Kn: number;      // statik yük sayısı C0 [kN]
+  motorBrand: string;
+  motorPowerKw: number;
+  motorRpm: number;
+  motorCount: number;
+  motorShaftMm: number;
+  gearboxModel: string;
+  gearboxRatio: number;
+  gearboxOutputTorqueKnm: number;
+  gearboxInputShaftText: string;
+  gearboxOutputShaftMm: number;
+  brakeBrand: string;           // yürütme freni (sadece köprü)
+  brakeTorqueNm: number;
+  brakeWheelDiaMm: number;
+  /** Arabada kapline bağlanan motor mili ayrı girilir; köprüde motor mili çapı
+   *  doğrudan kullanılır. */
+  couplingMotorShaftMm: number;
+  motorCouplingBrand: string;
+  motorCouplingModel: string;
+  motorCouplingTorqueNm: number;
+  motorCouplingDmaxMm: number;
+  wheelShaftDiaMm: number;      // kapline bağlanan teker mili çapı [mm]
+  wheelCouplingBrand: string;
+  wheelCouplingModel: string;
+  wheelCouplingTorqueNm: number;
+  wheelCouplingDmaxMm: number;
+  bufferModel: string;
+  bufferStrokeMm: number;
+  bufferEnergyKj: number;
+  bufferLoadKn: number;
 }
 
 export interface TravelValues {
   // Ağırlıklar / tekerlekler
-  craneWeightT: number | null;  // 06!L8 (sadece köprü)
+  craneWeightT: number | null;  // toplam vinç ağırlığı (sadece köprü)
   maxWheelLoadKg: number;
   minWheelLoadKg: number;
   avgWheelLoadKg: number;
@@ -180,8 +180,10 @@ export interface TravelValues {
   bufferForceKn: number;
 }
 
-/** Mekanizma katsayısı c2 (05!L21 / 06!L25 IF zinciri, FEM T.4.2.4.1.5).
- *  Excel her iki sayfada da P12'yi (kaldırma mekanizma sınıfı) okur. */
+/**
+ * Mekanizma katsayısı c2 — FEM 1.001 T.4.2.4.1.5.
+ * Yürütme mekanizmasının KENDİ grup sınıfı ile okunur.
+ */
 function mechanismFactorC2(mech: MechanismClass): number {
   if (mech === "M1" || mech === "M2" || mech === "M3" || mech === "M4") return 1.12;
   if (mech === "M5") return 1;
@@ -189,7 +191,7 @@ function mechanismFactorC2(mech: MechanismClass): number {
   return 0.8; // M7 / M8
 }
 
-/** Limit gerilme PL [N/mm²] (05!L22 / 06!L26 IF zinciri, FEM T.4.2.4.1.3) */
+/** Limit yüzey basıncı PL [N/mm²] — FEM 1.001 T.4.2.4.1.3 */
 function wheelLimitPressure(tensileNmm2: number): number | string {
   if (tensileNmm2 >= 500 && tensileNmm2 < 600) return 5;
   if (tensileNmm2 >= 600 && tensileNmm2 < 700) return 5.6;
@@ -197,16 +199,22 @@ function wheelLimitPressure(tensileNmm2: number): number | string {
   if (tensileNmm2 >= 800 && tensileNmm2 < 900) return 7.2;
   if (tensileNmm2 >= 900 && tensileNmm2 < 1000) return 7.8;
   if (tensileNmm2 >= 1000) return 8.5;
-  return "Hatalı Değer"; // Excel'deki hata metniyle birebir
+  // Tablo 500 N/mm² altını kapsamaz: bu dayanımdaki bir teker malzemesi
+  // ray temas basıncı için uygun değildir.
+  return "Tanımsız (çekme dayanımı < 500 N/mm²)";
 }
 
-/** Sürtünme katsayısı f [lb/ton] (05!L114 / 06!L121, CMAA 70 T.5.2.9.1.2.1-D) */
+/**
+ * Yuvarlanma sürtünme katsayısı f [lb/ton] — CMAA 70 T.5.2.9.1.2.1-D.
+ *
+ * Tablo çap kademeleriyle verilir; burada kademe SINIRLARI kullanılır, böylece
+ * tabloda birebir yer almayan (ör. 1000 mm ve üzeri) standart teker çapları da
+ * tanımlı kalır. Tabloda yer alan çaplarda değer birebir aynıdır.
+ */
 function travelFrictionFactor(wheelDiaMm: number): number {
-  if (wheelDiaMm === 200) return 16;
-  if (wheelDiaMm === 250) return 15;
-  if (wheelDiaMm === 315 || wheelDiaMm === 400 || wheelDiaMm === 500) return 15;
-  if (wheelDiaMm === 630 || wheelDiaMm === 710 || wheelDiaMm === 800 || wheelDiaMm === 900) return 12;
-  return Number.NaN; // Excel IF zinciri eşleşme yoksa FALSE döndürür
+  if (wheelDiaMm <= 200) return 16;
+  if (wheelDiaMm <= 500) return 15;
+  return 12;
 }
 
 export function computeTravelGroup(
@@ -218,374 +226,367 @@ export function computeTravelGroup(
 ): ModuleResult<TravelValues> {
   const cells: Record<string, number | string> = {};
   const checks: AnyCheck[] = [];
-  const tick = (b: boolean) => (b ? "ü" : "û");
-  // Hücre yazıcı: aynı büyüklüğün araba (05) ve köprü (06) adresleri farklıdır.
-  const put = (
-    trolleyCell: string | null,
-    bridgeCell: string | null,
-    value: number | string
-  ) => {
-    const addr = which === "trolley" ? trolleyCell : bridgeCell;
-    if (addr !== null) cells[addr] = value;
+  /** Hesaplanan büyüklüğü semantik anahtarıyla yayımlar. */
+  const set = (key: string, value: number | string) => {
+    cells[key] = value;
   };
 
-  const speedMpm = which === "trolley" ? specs.trolleySpeedMpm : specs.bridgeSpeedMpm; // P17 / P14
+  const isTrolley = which === "trolley";
+  const speedMpm = isTrolley ? specs.trolleySpeedMpm : specs.bridgeSpeedMpm;
+  // Yürütme mekanizmasının kendi FEM sınıfları — kaldırma grubununki DEĞİL.
+  const mechanismClass: MechanismClass = isTrolley
+    ? specs.trolleyMechanismClass
+    : specs.bridgeMechanismClass;
+  const usageClass: UsageClass = isTrolley
+    ? specs.trolleyUsageClass
+    : specs.bridgeUsageClass;
 
-  // --- Ağırlıklar (sayfa başı) --------------------------------------------
-  const capacityT = specs.mainCapacityT; // 05!L4 / 06!L4 = 01!P4
-  put("L4", "L4", capacityT);
-  // Araba ağırlığı: arabada girdi (05!L5 statik), köprüde 05'ten gelir (06!L5 formül).
-  const trolleyWeightT = which === "trolley" ? inp.trolleyWeightT : deps.trolleyWeightT;
+  const capacityT = specs.mainCapacityT;
+  const trolleyWeightT = isTrolley ? inp.trolleyWeightT : deps.trolleyWeightT;
+
+  // --- Ağırlıklar ----------------------------------------------------------
   let craneWeightT: number | null = null;
-  if (which === "trolley") {
-    cells.L6 = deps.hookEquipmentT; // 05!L6 = (02!L14+L15)/1000
-  } else {
-    cells.L5 = trolleyWeightT; // 06!L5 = 05!L5
-    craneWeightT = inp.bridgeWeightT + inp.otherWeightsT + trolleyWeightT; // 06!L8
-    cells.L8 = craneWeightT;
-    cells.L10 = specs.spanM; // 06!L10 = 01!P27
+  if (!isTrolley) {
+    craneWeightT = inp.bridgeWeightT + inp.otherWeightsT + trolleyWeightT;
+    set("weight.crane", craneWeightT);
+    set("weight.bridgeTotal", inp.bridgeWeightT + inp.otherWeightsT);
   }
 
-  // --- 5.1 / 6.1 Tekerlekler ----------------------------------------------
-  let Pmax: number; // maksimum tekerlek yükü [kg]
-  let Pmin: number; // minimum tekerlek yükü [kg]
-  if (which === "trolley") {
-    // 05!L11 = (L5+L4+L6)/L10*1000 ; 05!L12 = (L5+L6)/L10*1000
-    Pmax = ((trolleyWeightT + capacityT + deps.hookEquipmentT) / inp.wheelCount) * 1000;
-    Pmin = ((trolleyWeightT + deps.hookEquipmentT) / inp.wheelCount) * 1000;
+  // --- Tekerlekler ---------------------------------------------------------
+  let maxWheelLoad: number; // maksimum tekerlek yükü [kg]
+  let minWheelLoad: number; // minimum tekerlek yükü [kg]
+  if (isTrolley) {
+    // Araba: kapasite + kanca donanımı + araba ağırlığı tüm tekerlere eşit dağılır.
+    maxWheelLoad = ((trolleyWeightT + capacityT + deps.hookEquipmentT) / inp.wheelCount) * 1000;
+    minWheelLoad = ((trolleyWeightT + deps.hookEquipmentT) / inp.wheelCount) * 1000;
   } else {
-    // Köprüde araba yanaşma eksantrikliği: 06!L15 / 06!L16
+    // Köprü: araba yanaşma eksantrikliği — yük, arabanın açıklık üzerindeki
+    // konumuna göre iki başkirişe paylaştırılır.
     const span = specs.spanM;
     const halfBridge = (inp.bridgeWeightT + inp.otherWeightsT) / 2;
-    Pmax = (((capacityT + trolleyWeightT) * ((span - inp.minApproachM) / span) + halfBridge) * 1000) / (inp.wheelCount / 2);
-    Pmin = ((trolleyWeightT * (inp.minApproachM / span) + halfBridge) * 1000) / (inp.wheelCount / 2);
+    maxWheelLoad =
+      (((capacityT + trolleyWeightT) * ((span - inp.minApproachM) / span) + halfBridge) * 1000) /
+      (inp.wheelCount / 2);
+    minWheelLoad =
+      ((trolleyWeightT * (inp.minApproachM / span) + halfBridge) * 1000) / (inp.wheelCount / 2);
   }
-  const Port = (2 * Pmax + Pmin) / 3; // 05!L13 / 06!L17
-  put("L11", "L15", Pmax);
-  put("L12", "L16", Pmin);
-  put("L13", "L17", Port);
+  // Yorulma/basınç hesabında kullanılan eşdeğer ortalama tekerlek yükü.
+  const meanWheelLoad = (2 * maxWheelLoad + minWheelLoad) / 3;
+  set("wheel.maxLoad", maxWheelLoad);
+  set("wheel.minLoad", minWheelLoad);
+  set("wheel.meanLoad", meanWheelLoad);
 
-  const railHeadWidth = RAILS[sel.railCode]?.headWidth ?? Number.NaN; // HLOOKUP KATSAYILAR C68:O70 satır 3
-  put("L15", "L19", railHeadWidth);
-  const wheelRpm = speedMpm / (sel.wheelDiaMm / 1000) / Math.PI; // 05!L19 / 06!L23 — PI()
-  put("L19", "L23", wheelRpm);
-  const c1 = c1Factor(sel.wheelDiaMm, speedMpm) ?? Number.NaN; // VLOOKUP + KATSAYILAR Q81/R81
-  put("L20", "L24", c1);
-  const c2 = mechanismFactorC2(specs.hoistMechanismClass); // Excel P12 okur (kaldırma sınıfı!)
-  put("L21", "L25", c2);
-  const PL = wheelLimitPressure(sel.wheelTensileNmm2);
-  put("L22", "L26", PL);
-  const actualPressure = (Port * 9.81) / railHeadWidth / sel.wheelDiaMm; // 05!L23 / 06!L27 [N/mm²]
-  put("L23", "L27", actualPressure);
-  const PLnum = typeof PL === "number" ? PL : Number.NaN;
-  const allowedPressure = PLnum * c1 * c2; // 05!L24 / 06!L28
-  put("L24", "L28", allowedPressure);
-  put("O24", "O28", actualPressure);
-  put("Q24", "Q28", tick(allowedPressure >= actualPressure));
+  const railHeadWidth = RAILS[sel.railCode]?.headWidth ?? Number.NaN;
+  set("rail.headWidth", railHeadWidth);
+  const wheelRpm = speedMpm / (sel.wheelDiaMm / 1000) / Math.PI;
+  set("wheel.rpm", wheelRpm);
+  const c1 = c1Factor(sel.wheelDiaMm, speedMpm) ?? Number.NaN;
+  set("wheel.speedFactor", c1);
+  const c2 = mechanismFactorC2(mechanismClass);
+  set("wheel.mechanismFactor", c2);
+  const limitPressure = wheelLimitPressure(sel.wheelTensileNmm2);
+  set("wheel.limitPressure", limitPressure);
+  const actualPressure = (meanWheelLoad * 9.81) / railHeadWidth / sel.wheelDiaMm;
+  set("wheel.contactPressure", actualPressure);
+  const limitPressureNum = typeof limitPressure === "number" ? limitPressure : Number.NaN;
+  const allowedPressure = limitPressureNum * c1 * c2;
+  set("wheel.allowablePressure", allowedPressure);
   checks.push({
     id: `${which}.wheel.pressure`,
     label: "Tekerlek yüzey basıncı (PL·c1·c2)",
     required: actualPressure, provided: allowedPressure, unit: "N/mm²", op: ">=",
     pass: allowedPressure >= actualPressure,
     standard: "FEM 1.001 4.2.4.1",
+    kind: "standart", severity: "engelleyici",
   });
 
-  // --- 5.2 / 6.2 Teker Mili ------------------------------------------------
-  const RA = Pmax / 2; // 05!L46 / 06!L50
-  const RB = Pmax / 2; // 05!L47 / 06!L51
-  put("L46", "L50", RA);
-  put("L47", "L51", RB);
-  const Mmax = RA * inp.shaftSpanACm; // 05!L51 / 06!L55 [kg·cm]
-  put("L51", "L55", Mmax);
-  const sectionModulus = (Math.PI * inp.shaftDiaCm ** 3) / 32; // 05!L56 / 06!L60 — PI()
-  put("L56", "L60", sectionModulus);
-  const bendingStress = (Mmax * inp.stressConcFactor) / sectionModulus; // 05!L61 / 06!L65
-  put("L61", "L65", bendingStress);
-  const shearStress = (RB / (PI_EXCEL * (inp.shaftDiaCm / 2) ** 2)) * inp.stressConcFactor; // 05!L65 / 06!L69 — 3.14159!
-  put("L65", "L69", shearStress);
-  const combinedStress = Math.sqrt(bendingStress ** 2 + 3 * shearStress ** 2); // 05!L69 / 06!L73
-  put("L69", "L73", combinedStress);
-  // Excel izin gerilmelerini KATSAYILAR!J34:J36'dan (42CrMo4 = 4140 satırı) sabit okur.
+  // --- Teker Mili ----------------------------------------------------------
+  // Model: teker mili iki rulman arasında basit kirişdir, tekerlek yükü
+  // açıklığın ortasına etkir. Mesnet aralığı 2·a olduğundan mesnet tepkileri
+  // Pmax/2, ortadaki eğilme momenti (Pmax/2)·a olur.
+  const shaftSupportSpanCm = 2 * inp.shaftSpanACm;
+  const shaftBeam = solveBeam({
+    lengthCm: shaftSupportSpanCm,
+    supportACm: 0,
+    supportBCm: shaftSupportSpanCm,
+    pointLoads: [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek yükü" }],
+  });
+  const reactionA = shaftBeam.reactionAKg;
+  const reactionB = shaftBeam.reactionBKg;
+  const maxMoment = Math.abs(shaftBeam.maxMomentKgCm);
+  set("shaft.reactionA", reactionA);
+  set("shaft.reactionB", reactionB);
+  set("shaft.maxMoment", maxMoment);
+  // Kayma dağılımı ORTALAMA kabul edilir (τ = V/A): teker milinde kritik kesit
+  // eğilme momentinin en büyük olduğu orta kesittir, kaymanın tepe yaptığı
+  // tarafsız eksen ile çakışmaz.
+  const shaftSection = shaftStress({
+    momentKgCm: maxMoment,
+    shearKg: Math.abs(shaftBeam.maxShearKg),
+    bendingDiameterCm: inp.shaftDiaCm,
+    shearDiameterCm: inp.shaftDiaCm,
+    combined: "vonMises",
+    shear: "ortalama",
+  });
+  // Gerilme yığılması katsayısı her iki gerilme bileşenini de ölçekler;
+  // bileşke gerilme de aynı katsayıyla ölçeklenir.
+  const sectionModulus = shaftSection.sectionModulusCm3;
+  const bendingStress = shaftSection.bendingStress * inp.stressConcFactor;
+  const shearStress = shaftSection.shearStress * inp.stressConcFactor;
+  const combinedStress = shaftSection.combinedStress * inp.stressConcFactor;
+  set("shaft.sectionModulus", sectionModulus);
+  set("shaft.bendingStress", bendingStress);
+  set("shaft.shearStress", shearStress);
+  set("shaft.combinedStress", combinedStress);
+  // Teker mili malzemesi 42CrMo4 / AISI 4140 ıslah çeliğidir; izin verilen
+  // gerilmeler bu malzemenin CMAA 70 4.11.4.1 karşılıklarından alınır.
   const shaftAllow = shaftMaterialAllowables("4140");
-  put("L73", "L77", shaftAllow.bending);
-  put("L74", "L78", shaftAllow.shear);
-  put("L75", "L79", shaftAllow.combined);
+  set("shaft.allowableBending", shaftAllow.bending);
+  set("shaft.allowableShear", shaftAllow.shear);
+  set("shaft.allowableCombined", shaftAllow.combined);
   checks.push({
     id: `${which}.shaft.stress`,
     label: "Teker mili bileşik gerilmesi",
     required: combinedStress, provided: shaftAllow.combined, unit: "kg/cm²", op: ">=",
     pass: shaftAllow.combined >= combinedStress,
-    nonExcel: true, // Excel'de tik hücresi yok
+    standard: "CMAA 70 4.11.4.1",
+    kind: "standart", severity: "engelleyici",
   });
 
-  // --- 5.3 / 6.3 Tekerlek Rulmanı -----------------------------------------
-  put("L80", "L84", Port);
-  // Excel formülünde bölen 2 sabittir; rulman adedi girdisiyle eşdeğerdir (V5'te 2).
-  const bearingRadial = (Port * 9.81) / 1000 / inp.bearingCount; // 05!L82 / 06!L86 [kN]
-  put("L82", "L86", bearingRadial);
-  const bearingAxial = 0.1 * bearingRadial; // 05!L83 / 06!L87
-  put("L83", "L87", bearingAxial);
-  const eqStatic = bearingRadial + bearingAxial * inp.bearingFactorY0; // 05!L89 / 06!L93
-  put("L89", "L93", eqStatic);
-  const eqDynamic = bearingRadial + inp.bearingFactorY1 * bearingAxial; // 05!L90 / 06!L94
-  put("L90", "L94", eqDynamic);
-  const staticSafety = sel.bearingStatC0Kn / eqStatic; // 05!L98 / 06!L102
-  put("L98", "L102", staticSafety);
-  put("L100", "L105", wheelRpm); // rulman devri = tekerlek devri
-  const lifeHours = (1000000 / (60 * wheelRpm)) * (sel.bearingDynCKn / eqDynamic) ** (10 / 3); // 05!L101 / 06!L107
-  put("L101", "L107", lifeHours);
-  // Excel her iki sayfada da P13'ü (kaldırma kullanım sınıfı) okur.
-  const life = mechanismLife(specs.hoistUsageClass);
+  // --- Tekerlek Rulmanı ----------------------------------------------------
+  const bearingRadial = (meanWheelLoad * 9.81) / 1000 / inp.bearingCount; // [kN]
+  set("bearing.radialLoad", bearingRadial);
+  // Yanal (kılavuzlama) kuvveti radyal yükün %10'u kabul edilir.
+  const bearingAxial = 0.1 * bearingRadial;
+  set("bearing.axialLoad", bearingAxial);
+  const eqStatic = bearingRadial + bearingAxial * inp.bearingFactorY0;
+  set("bearing.equivalentStatic", eqStatic);
+  const eqDynamic = bearingRadial + inp.bearingFactorY1 * bearingAxial;
+  set("bearing.equivalentDynamic", eqDynamic);
+  const staticSafety = sel.bearingStatC0Kn / eqStatic;
+  set("bearing.staticSafety", staticSafety);
+  // Makaralı rulman ömür üsteli 10/3.
+  const lifeHours = (1000000 / (60 * wheelRpm)) * (sel.bearingDynCKn / eqDynamic) ** (10 / 3);
+  set("bearing.lifeHours", lifeHours);
+  // Gerekli ömür, yürütme mekanizmasının KENDİ kullanım sınıfından okunur.
+  const life = mechanismLife(usageClass);
   const requiredLifeMin = life.min ?? 0;
-  put("L103", "L109", requiredLifeMin);
-  if (life.max !== null) put("Q103", "Q109", life.max);
+  set("bearing.requiredLifeMin", requiredLifeMin);
+  if (life.max !== null) set("bearing.requiredLifeMax", life.max);
   checks.push({
     id: `${which}.bearing.life`,
     label: "Tekerlek rulmanı ömrü",
     required: requiredLifeMin, provided: lifeHours, unit: "saat", op: ">=",
     pass: lifeHours >= requiredLifeMin,
     standard: "FEM 1.001 T.2.1.3.2",
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.bearing.static`,
     label: "Rulman statik emniyeti",
     required: 1, provided: staticSafety, unit: "-", op: ">=", pass: staticSafety >= 1,
-    nonExcel: true,
+    kind: "uretici", severity: "engelleyici",
   });
 
-  // --- 5.4 / 6.4 Yürütme Motoru (CMAA 70) ----------------------------------
-  const totalWeightKg =
-    which === "trolley"
-      ? (capacityT + deps.hookEquipmentT + trolleyWeightT) * 1000 // 05!L107
-      : (capacityT + trolleyWeightT + inp.bridgeWeightT + inp.otherWeightsT) * 1000; // 06!L113
-  put("L107", "L113", totalWeightKg);
-  const designWeightTons = (totalWeightKg * 1.1) / 1000; // 05!L108 / 06!L114 [ton, %10 pay]
-  put("L108", "L114", designWeightTons);
-  // Gerçek hız redüktör bölümünde hesaplanır ama motor bölümünde kullanılır (05!L109=L141).
-  const actualSpeed = (sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.wheelDiaMm / 1000); // PI()
-  put("L109", "L115", actualSpeed);
-  const startupTime = actualSpeed / 60 / inp.accelerationMs2; // 05!L110 / 06!L117 [sn]
-  put("L110", "L117", startupTime);
-  const friction = travelFrictionFactor(sel.wheelDiaMm); // 05!L114 / 06!L121
-  put("L114", "L121", friction);
-  const reducerEff = 0.98 ** inp.reducerStages; // 05!L115 / 06!L122 (0.98 Excel'de sabittir)
-  put("L115", "L122", reducerEff);
-  put("L117", "L124", inp.accelerationMs2 * 3.2808); // ivme [ft/s²]
-  const inertiaCr = 1.05 + (inp.accelerationMs2 * 3.28) / 7.5; // 05!L118 / 06!L125
-  put("L118", "L125", inertiaCr);
+  // --- Yürütme Motoru (CMAA 70) --------------------------------------------
+  const totalWeightKg = isTrolley
+    ? (capacityT + deps.hookEquipmentT + trolleyWeightT) * 1000
+    : (capacityT + trolleyWeightT + inp.bridgeWeightT + inp.otherWeightsT) * 1000;
+  set("weight.moving", totalWeightKg);
+  // Tasarım ağırlığı: hareket eden kütleye %10 pay eklenir.
+  const designWeightTons = (totalWeightKg * 1.1) / 1000;
+  set("weight.design", designWeightTons);
+  // Gerçekleşen yürütme hızı seçilen motor devri ve redüktör oranından çıkar.
+  const actualSpeed = (sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.wheelDiaMm / 1000);
+  set("drive.actualSpeed", actualSpeed);
+  const startupTime = actualSpeed / 60 / inp.accelerationMs2; // [sn]
+  set("drive.startupTime", startupTime);
+  const friction = travelFrictionFactor(sel.wheelDiaMm);
+  set("drive.frictionFactor", friction);
+  // Kademe başına %2 kayıp kabulü.
+  const reducerEff = 0.98 ** inp.reducerStages;
+  set("drive.reducerEfficiency", reducerEff);
+  // CMAA 70 bağıntıları imperial birimlidir: ivme ft/s²'ye çevrilir.
+  set("drive.accelerationFps2", inp.accelerationMs2 * 3.2808);
+  const inertiaCr = 1.05 + (inp.accelerationMs2 * 3.28) / 7.5;
+  set("drive.inertiaFactor", inertiaCr);
   const accelKa =
     (friction + (2000 * inp.accelerationMs2 * inertiaCr) / (9.81 * reducerEff)) /
-    (inp.accelTorqueFactorKt * 33000); // 05!L119 / 06!L126
-  put("L119", "L126", accelKa);
-  const requiredPower = designWeightTons * (actualSpeed * 3.28) * accelKa * inp.serviceFactorKs * 0.745; // 05!L120 / 06!L127 [kW]
-  put("L120", "L127", requiredPower);
-  const requiredMaxPower = inp.tempFactor * requiredPower; // 05!L122 / 06!L129
-  put("L122", "L129", requiredMaxPower);
-  put("L124", "L131", requiredMaxPower / inp.motorCalcCount); // motor başına gerekli güç
-  const installedPower = sel.motorPowerKw * sel.motorCount; // 05!I133 / 06!I140
-  put("I133", "I140", installedPower);
-  put("L133", "L140", requiredMaxPower);
-  put("Q133", "Q140", tick(installedPower >= requiredMaxPower));
+    (inp.accelTorqueFactorKt * 33000);
+  set("drive.accelFactor", accelKa);
+  const requiredPower = designWeightTons * (actualSpeed * 3.28) * accelKa * inp.serviceFactorKs * 0.745;
+  set("motor.requiredPower", requiredPower);
+  const requiredMaxPower = inp.tempFactor * requiredPower;
+  set("motor.requiredMaxPower", requiredMaxPower);
+  set("motor.maxPowerPerMotor", requiredMaxPower / inp.motorCalcCount);
+  const installedPower = sel.motorPowerKw * sel.motorCount;
+  set("motor.installedPower", installedPower);
   checks.push({
     id: `${which}.motor.power`,
     label: "Yürütme motoru gücü",
     required: requiredMaxPower, provided: installedPower, unit: "kW", op: ">=",
     pass: installedPower >= requiredMaxPower,
     standard: "CMAA 70 5.2.9.1.2.1",
+    kind: "standart", severity: "engelleyici",
   });
 
-  // --- 5.5 / 6.5 Yürütme Dişli Kutusu --------------------------------------
-  const requiredRatio = sel.motorRpm / wheelRpm; // 05!L138 / 06!L145
-  put("L138", "L145", requiredRatio);
-  put("L139", "L146", sel.gearboxRatio);
-  const ratioDeviation = (100 * (requiredRatio - sel.gearboxRatio)) / requiredRatio; // 05!L140 / 06!L147 [%]
-  put("L140", "L147", ratioDeviation);
-  // Sapma toleransı varyanta göre farklıdır: araba +10/−5 (05!O140), köprü +5/−10 (06!O147).
-  const devMax = which === "trolley" ? 10 : 5;
-  const devMin = which === "trolley" ? -5 : -10;
+  // --- Yürütme Dişli Kutusu ------------------------------------------------
+  const requiredRatio = sel.motorRpm / wheelRpm;
+  set("gearbox.requiredRatio", requiredRatio);
+  const ratioDeviation = (100 * (requiredRatio - sel.gearboxRatio)) / requiredRatio; // [%]
+  set("gearbox.ratioDeviation", ratioDeviation);
+  // Sapma bandı tasarım kabulüdür: köprüde hız fazlalığı raylı sistemde daha
+  // kritik olduğundan üst sınır dar tutulur.
+  const devMax = isTrolley ? 10 : 5;
+  const devMin = isTrolley ? -5 : -10;
   const devOk = ratioDeviation <= devMax && ratioDeviation >= devMin;
-  put("O140", "O147", tick(devOk));
   checks.push({
     id: `${which}.gearbox.ratio`,
     label: "Çevrim oranı sapması",
     min: devMin, max: devMax, provided: ratioDeviation, unit: "%", op: "range",
     pass: devOk,
+    kind: "firma", severity: "uyari",
   });
-  put("L141", "L148", actualSpeed);
-  put("L143", "L149", requiredPower);
-  put("L144", "L150", sel.motorCount);
-  const powerPerMotor = requiredPower / sel.motorCount; // 05!L145 / 06!L151
-  put("L145", "L151", powerPerMotor);
-  put("L146", "L152", sel.motorRpm);
-  const requiredInputTorque = (9550 * powerPerMotor) / sel.motorRpm; // 05!L148 / 06!L153 [Nm]
-  put("L148", "L153", requiredInputTorque);
-  const nominalOutputTorque = requiredInputTorque * sel.gearboxRatio; // 05!L150 / 06!L154 [Nm]
-  put("L150", "L154", nominalOutputTorque);
-  const requiredMinOutputTorque = nominalOutputTorque * inp.gearboxServiceFactor; // 05!L152 / 06!L156 [Nm]
-  put("L152", "L156", requiredMinOutputTorque);
-  const gearboxSafety = sel.gearboxOutputTorqueKnm / (nominalOutputTorque / 1000); // 05!L157 / 06!L161
-  put("L157", "L161", gearboxSafety);
-  if (which === "trolley") {
-    // 05!O157 = IF(L157>=L151,"ü","û")
-    cells.O157 = tick(gearboxSafety >= inp.gearboxServiceFactor);
-    checks.push({
-      id: `${which}.gearbox.safety`,
-      label: "Redüktör emniyet katsayısı",
-      required: inp.gearboxServiceFactor, provided: gearboxSafety, unit: "-", op: ">=",
-      pass: gearboxSafety >= inp.gearboxServiceFactor,
-    });
-  } else {
-    // Excel kusuru: 06!O160 = IF(L160>=H156/1000,...) boş H156'ya bakar ve daima
-    // "ü" verir. Hücre üretilmez (golden'da hariç); doğru kontrol L156 ile yapılır.
-    checks.push({
-      id: `${which}.gearbox.torque`,
-      label: "Redüktör çıkış torku",
-      required: requiredMinOutputTorque / 1000, provided: sel.gearboxOutputTorqueKnm,
-      unit: "kNm", op: ">=",
-      pass: sel.gearboxOutputTorqueKnm >= requiredMinOutputTorque / 1000,
-    });
-  }
+  const powerPerMotor = requiredPower / sel.motorCount;
+  set("motor.powerPerMotor", powerPerMotor);
+  const requiredInputTorque = (9550 * powerPerMotor) / sel.motorRpm; // [Nm]
+  set("gearbox.requiredInputTorque", requiredInputTorque);
+  const nominalOutputTorque = requiredInputTorque * sel.gearboxRatio; // [Nm]
+  set("gearbox.nominalOutputTorque", nominalOutputTorque);
+  const requiredMinOutputTorque = nominalOutputTorque * inp.gearboxServiceFactor; // [Nm]
+  set("gearbox.requiredOutputTorque", requiredMinOutputTorque);
+  const gearboxSafety = sel.gearboxOutputTorqueKnm / (nominalOutputTorque / 1000);
+  set("gearbox.actualSafety", gearboxSafety);
+  checks.push({
+    id: `${which}.gearbox.safety`,
+    label: "Redüktör emniyet katsayısı",
+    required: inp.gearboxServiceFactor, provided: gearboxSafety, unit: "-", op: ">=",
+    pass: gearboxSafety >= inp.gearboxServiceFactor,
+    kind: "firma", severity: "engelleyici",
+  });
 
-  // --- 6.6 Köprü Yürütme Freni (sadece köprü) ------------------------------
+  // --- Yürütme Freni (sadece köprü) ----------------------------------------
   let requiredBrakeTorque: number | null = null;
-  if (which === "bridge") {
-    cells.L167 = requiredInputTorque; // 06!L167 = L153
-    requiredBrakeTorque = requiredInputTorque * inp.brakeServiceFactor; // 06!L169
-    cells.L169 = requiredBrakeTorque;
-    cells.O172 = requiredBrakeTorque;
-    cells.R172 = tick(sel.brakeTorqueNm >= requiredBrakeTorque); // V5'te fren seçilmemiş → "û"
+  if (!isTrolley) {
+    requiredBrakeTorque = requiredInputTorque * inp.brakeServiceFactor;
+    set("brake.requiredTorque", requiredBrakeTorque);
     checks.push({
       id: `${which}.brake.torque`,
       label: "Köprü yürütme freni torku",
       required: requiredBrakeTorque, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
       pass: sel.brakeTorqueNm >= requiredBrakeTorque,
+      kind: "standart", severity: "engelleyici",
     });
   }
 
-  // --- 5.6 / 6.7 Motor-Dişli Kutusu Kaplini --------------------------------
-  put("L162", "L176", requiredInputTorque);
-  const requiredMotorCouplingTorque = requiredInputTorque * inp.motorCouplingServiceFactor; // 05!L164 / 06!L178
-  put("L164", "L178", requiredMotorCouplingTorque);
-  // Arabada kapline bağlanan mil ayrı statiktir (05!L166); köprüde 06!L180 = L137 formülüdür.
-  const motorCouplingShaft = which === "trolley" ? sel.couplingMotorShaftMm : sel.motorShaftMm;
-  if (which === "bridge") cells.L180 = motorCouplingShaft;
-  put("O169", "O183", requiredMotorCouplingTorque);
-  put("R169", "R183", tick(sel.motorCouplingTorqueNm >= requiredMotorCouplingTorque));
-  put("O170", "O184", motorCouplingShaft);
-  put("R170", "R184", tick(sel.motorCouplingDmaxMm >= motorCouplingShaft));
-  const motorCouplingSafety = sel.motorCouplingTorqueNm / requiredMotorCouplingTorque; // 05!L171 (sadece arabada hücre)
-  put("L171", null, motorCouplingSafety);
+  // --- Motor — Dişli Kutusu Kaplini ----------------------------------------
+  const requiredMotorCouplingTorque = requiredInputTorque * inp.motorCouplingServiceFactor;
+  set("motorCoupling.requiredTorque", requiredMotorCouplingTorque);
+  // Arabada kapline bağlanan mil ayrı girilir; köprüde motorun mil çapıdır.
+  const motorCouplingShaft = isTrolley ? sel.couplingMotorShaftMm : sel.motorShaftMm;
+  set("motorCoupling.shaftDia", motorCouplingShaft);
+  const motorCouplingSafety = sel.motorCouplingTorqueNm / requiredMotorCouplingTorque;
+  set("motorCoupling.actualSafety", motorCouplingSafety);
   checks.push({
     id: `${which}.motorCoupling.torque`,
     label: "Motor kaplini tork kapasitesi",
     required: requiredMotorCouplingTorque, provided: sel.motorCouplingTorqueNm, unit: "Nm", op: ">=",
     pass: sel.motorCouplingTorqueNm >= requiredMotorCouplingTorque,
+    kind: "firma", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.motorCoupling.bore`,
     label: "Motor kaplini delik çapı",
     required: motorCouplingShaft, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",
     pass: sel.motorCouplingDmaxMm >= motorCouplingShaft,
+    kind: "uretici", severity: "engelleyici",
   });
 
-  // --- 5.7 / 6.8 Teker-Dişli Kutusu Kaplini --------------------------------
-  put("L174", "L188", nominalOutputTorque);
-  const requiredWheelCouplingTorque = nominalOutputTorque * inp.wheelCouplingServiceFactor; // 05!L176 / 06!L190
-  put("L176", "L190", requiredWheelCouplingTorque);
-  put("O181", "O195", requiredWheelCouplingTorque);
-  put("R181", "R195", tick(sel.wheelCouplingTorqueNm >= requiredWheelCouplingTorque));
-  put("O182", "O196", sel.wheelShaftDiaMm);
-  put("R182", "R196", tick(sel.wheelCouplingDmaxMm >= sel.wheelShaftDiaMm));
-  // 05!L183 = L181/L174 — kapasite/nominal çıkış torku (servis faktörsüz; sadece arabada hücre)
+  // --- Teker — Dişli Kutusu Kaplini ----------------------------------------
+  const requiredWheelCouplingTorque = nominalOutputTorque * inp.wheelCouplingServiceFactor;
+  set("wheelCoupling.requiredTorque", requiredWheelCouplingTorque);
+  // Emniyet oranı servis faktörsüz nominal çıkış momentine göre raporlanır.
   const wheelCouplingSafety = sel.wheelCouplingTorqueNm / nominalOutputTorque;
-  put("L183", null, wheelCouplingSafety);
+  set("wheelCoupling.actualSafety", wheelCouplingSafety);
   checks.push({
     id: `${which}.wheelCoupling.torque`,
     label: "Teker kaplini tork kapasitesi",
     required: requiredWheelCouplingTorque, provided: sel.wheelCouplingTorqueNm, unit: "Nm", op: ">=",
     pass: sel.wheelCouplingTorqueNm >= requiredWheelCouplingTorque,
+    kind: "firma", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.wheelCoupling.bore`,
     label: "Teker kaplini delik çapı",
     required: sel.wheelShaftDiaMm, provided: sel.wheelCouplingDmaxMm, unit: "mm", op: ">=",
     pass: sel.wheelCouplingDmaxMm >= sel.wheelShaftDiaMm,
+    kind: "uretici", severity: "engelleyici",
   });
 
-  // --- 5.8-5.9 / 6.9-6.10 Tampon -------------------------------------------
+  // --- Tampon --------------------------------------------------------------
   let collisionLoadT: number;
   let impactEnergy: number;
-  if (which === "trolley") {
-    cells.L186 = trolleyWeightT; // araba ağırlığı [t]
-    cells.L187 = actualSpeed;
-    collisionLoadT = trolleyWeightT; // 05!L189 = L186
-    cells.L189 = collisionLoadT;
-    impactEnergy = 0.5 * collisionLoadT * (actualSpeed / 60) ** 2; // 05!L191 [kJ]
-    cells.L191 = impactEnergy;
+  if (isTrolley) {
+    collisionLoadT = trolleyWeightT;
+    impactEnergy = 0.5 * collisionLoadT * (actualSpeed / 60) ** 2; // [kJ]
   } else {
-    cells.L200 = inp.bridgeWeightT + inp.otherWeightsT; // köprü ağırlığı [t]
-    cells.L201 = trolleyWeightT;
-    cells.L202 = actualSpeed;
-    // 06!L205 = (köprü/2) + araba·(açıklık−yanaşma)/açıklık — eksantrik çarpışma yükü
+    // Köprüde çarpışan kütle eksantriktir: köprünün yarısı + arabanın
+    // yanaşma konumuna düşen payı.
     collisionLoadT =
       (inp.bridgeWeightT + inp.otherWeightsT) / 2 +
       (trolleyWeightT * (specs.spanM - inp.bufferApproachM)) / specs.spanM;
-    cells.L205 = collisionLoadT;
-    // Köprüde 0.7 hız faktörü: 06!L207 = 0.5·We·(0.7·v/60)²
+    // Köprü kütlesi büyük olduğundan çarpma hızı nominal hızın %70'i alınır.
     impactEnergy = 0.5 * collisionLoadT * ((0.7 * actualSpeed) / 60) ** 2;
-    cells.L207 = impactEnergy;
   }
-  // Yürütme yükü: arabada motor başına GEREKLİ güç (05!L194=L145), köprüde
-  // SEÇİLEN motor gücü (06!L210=L134) kullanılır — Excel'e sadık.
-  const bufferPowerKw = which === "trolley" ? powerPerMotor : sel.motorPowerKw;
-  put("L194", "L210", bufferPowerKw);
-  put("L195", "L211", sel.motorRpm);
-  put("L196", "L212", sel.gearboxRatio);
-  const drivePerMotor = (bufferPowerKw * sel.gearboxRatio * 9550) / sel.motorRpm; // 05!L197 / 06!L213 [N]
-  put("L197", "L213", drivePerMotor);
-  put("L199", "L215", sel.motorCount);
-  const totalDrive = sel.motorCount * drivePerMotor; // 05!L200 / 06!L216 [N]
-  put("L200", "L216", totalDrive);
-  const bufferDrive = totalDrive / 2; // 05!L202 / 06!L218 — tampon başına
-  put("L202", "L218", bufferDrive);
-  put("L204", "L220", sel.bufferStrokeMm);
-  const driveTimesStroke = (bufferDrive * sel.bufferStrokeMm) / 1000000; // 05!L205 / 06!L221 [kJ]
-  put("L205", "L221", driveTimesStroke);
-  const totalEnergy = driveTimesStroke + impactEnergy; // 05!L207 / 06!L223 [kJ]
-  put("L207", "L223", totalEnergy);
-  put("L209", "L225", sel.bufferStrokeMm);
-  const bufferForce = totalEnergy / (sel.bufferStrokeMm / 1000) / 0.8 + bufferDrive / 1000; // 05!L211 / 06!L227 [kN]
-  put("L211", "L227", bufferForce);
-  put("N215", "N231", tick(sel.bufferEnergyKj >= totalEnergy));
-  put("N216", "N232", tick(sel.bufferLoadKn >= bufferForce));
+  set("buffer.collisionLoad", collisionLoadT);
+  set("buffer.impactEnergy", impactEnergy);
+  // Tampon sıkışırken tahrik itmeye devam eder: arabada motor başına GEREKLİ
+  // güç, köprüde SEÇİLEN motor gücü esas alınır.
+  const bufferPowerKw = isTrolley ? powerPerMotor : sel.motorPowerKw;
+  set("buffer.drivePower", bufferPowerKw);
+  const drivePerMotor = (bufferPowerKw * sel.gearboxRatio * 9550) / sel.motorRpm; // [N]
+  set("buffer.driveForcePerMotor", drivePerMotor);
+  const totalDrive = sel.motorCount * drivePerMotor; // [N]
+  set("buffer.totalDriveForce", totalDrive);
+  const bufferDrive = totalDrive / 2; // tampon başına
+  set("buffer.driveForcePerBuffer", bufferDrive);
+  const driveEnergy = (bufferDrive * sel.bufferStrokeMm) / 1000000; // [kJ]
+  set("buffer.driveEnergy", driveEnergy);
+  const totalEnergy = driveEnergy + impactEnergy; // [kJ]
+  set("buffer.totalEnergy", totalEnergy);
+  // Tampon karakteristik verimi 0,8 kabul edilir.
+  const bufferForce = totalEnergy / (sel.bufferStrokeMm / 1000) / 0.8 + bufferDrive / 1000; // [kN]
+  set("buffer.reactionForce", bufferForce);
   checks.push({
     id: `${which}.buffer.energy`,
     label: "Tampon enerji kapasitesi",
     required: totalEnergy, provided: sel.bufferEnergyKj, unit: "kJ", op: ">=",
     pass: sel.bufferEnergyKj >= totalEnergy,
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.buffer.load`,
     label: "Tampon yük kapasitesi",
     required: bufferForce, provided: sel.bufferLoadKn, unit: "kN", op: ">=",
     pass: sel.bufferLoadKn >= bufferForce,
+    kind: "standart", severity: "engelleyici",
   });
 
   const values: TravelValues = {
     craneWeightT,
-    maxWheelLoadKg: Pmax,
-    minWheelLoadKg: Pmin,
-    avgWheelLoadKg: Port,
+    maxWheelLoadKg: maxWheelLoad,
+    minWheelLoadKg: minWheelLoad,
+    avgWheelLoadKg: meanWheelLoad,
     railHeadWidthMm: railHeadWidth,
     wheelRpm,
     c1,
     c2,
-    limitPressure: PL,
+    limitPressure,
     actualPressure,
     allowedPressure,
-    reactionAKg: RA,
-    reactionBKg: RB,
-    maxMomentKgCm: Mmax,
+    reactionAKg: reactionA,
+    reactionBKg: reactionB,
+    maxMomentKgCm: maxMoment,
     sectionModulusCm3: sectionModulus,
     shaftBendingStress: bendingStress,
     shaftShearStress: shearStress,

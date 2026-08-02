@@ -3,23 +3,30 @@
 // Revizyon editörü — bölüm bölüm ilerleyen sihirbaz yapısı.
 // Adım sırası: 01 Teknik Özellikler → 02 Ana Kaldırma → 03 Yrd Kaldırma →
 // 04 Kanca Bloğu → 05 Araba Yürütme → 06 Köprü Yürütme → 07 Ana Kiriş →
-// 08 Buruşma → 09 Başkiriş → Özet. Her bölümde: girdiler/katalog seçimleri,
-// hemen altında bölümün HESABI (sembolik formül → sayılar yerine konmuş hali)
-// ve ✓/✗ kontrolleri. Excel'in bölüm numaraları korunur.
+// 08 Buruşma → 09 Başkiriş → Özet.
+//
+// Her bölümde: girdiler/katalog seçimleri, ardından bölümün HESABI. Kontroller
+// ayrı bir blokta toplanmaz — ilgili oldukları formül satırının hemen altında
+// ✓/✗ olarak görünür (bağlantı haritası: calc/presentation/check-anchors.ts).
+// Eşlenmemiş kontroller bölümün sonundaki "Diğer Kontroller" bloğuna düşer.
+//
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { runCalc, type CalcInput, type CalcResult } from "@/lib/calc/engine";
+import { runCalc, type CalcInput } from "@/lib/calc/engine";
 import { computeHoistGroup } from "@/lib/calc/modules/hoistGroup";
 import { computeHookBlock } from "@/lib/calc/modules/hookBlock";
 import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
-import { SPEC_FIELDS } from "@/lib/calc/fields";
+import { HOIST_AUTO_FIELDS, SPEC_FIELDS, SPEC_GROUPS } from "@/lib/calc/fields";
+import { deriveHoistInputs } from "@/lib/calc/derive";
+import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import { NEW_WORK_TEMPLATE as V5_TEMPLATE } from "@/lib/calc/defaults";
-import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
+import { checkKind, checkSeverity } from "@/lib/calc/types";
+import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
@@ -35,6 +42,7 @@ import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
+  MODULE_LABELS,
   OPTIONAL_MODULE_KEYS,
   buildModuleDeps,
   moduleDisplayNumbers,
@@ -48,12 +56,13 @@ import {
 import {
   applyCatalogPick,
   getCatalogMapping,
+  catalogKindLabel,
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { MathFormula } from "@/components/math/math-formula";
-import { FemTableButton } from "@/components/fem-table-dialog";
-import { FEM_TABLES } from "@/lib/calc/fem-tables";
+import { StandardRefBadge } from "@/components/standard-ref-dialog";
+import type { StandardContext } from "@/lib/standards/registry";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,12 +87,6 @@ export interface AltState {
 }
 export type AltsMap = Record<string, AltState>; // key: `${moduleKey}-${section.rawId}`
 
-/** Opsiyonel modüllerin kullanıcı etiketleri (modül aç/kapa kontrolü). */
-const OPTIONAL_MODULE_LABELS: Partial<Record<ModuleKey, string>> = {
-  aux: "Yardımcı Kaldırma",
-  hookBlock: "Kanca Bloğu",
-};
-
 function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "string") return v;
@@ -91,17 +94,42 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
 }
 
+/**
+ * Bir modülün standart tablolarında hangi satırın vurgulanacağı.
+ * Vurgu, hesabın GERÇEKTE kullandığı sınıfı gösterir: yürütme modüllerinde de
+ * kaldırma sınıfları kullanılır (motorun mevcut davranışı), bu yüzden pop-up
+ * ile rapordaki sayı her zaman tutarlıdır.
+ */
+function standardContextFor(specs: TechnicalSpecs): StandardContext {
+  return {
+    mechanismClass: specs.hoistMechanismClass,
+    usageClass: specs.hoistUsageClass,
+    structureClass: specs.structureClass,
+  };
+}
+
 // ---------------------------------------------------------------- Field
+
+interface AutoFieldState {
+  on: boolean;
+  onToggle: (next: boolean) => void;
+  warning?: string;
+}
+
 function Field({
-  def, value, onChange, disabled,
+  def, value, onChange, disabled, auto, context,
 }: {
   def: AnyFieldDef;
   value: object;
   onChange: (next: object) => void;
   disabled?: boolean;
+  /** Otomatik doldurulabilen alanlar için anahtar durumu */
+  auto?: AutoFieldState;
+  context?: StandardContext;
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
+  const locked = disabled || auto?.on === true;
   // Sayı alanı güvenliği: yazım sırasındaki ham metin lokalde tutulur; state'e
   // yalnız GEÇERLİ sayı yazılır (boş/geçersiz girdi sessizce 0 OLMAZ — hesap son
   // geçerli değerle koşar, alan hata gösterir). TR ondalık virgül desteklenir.
@@ -119,7 +147,7 @@ function Field({
   }, [v]);
   return (
     <div className="grid gap-1">
-      <Label htmlFor={id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span>
           {def.label}
           {def.unit ? (
@@ -129,16 +157,31 @@ function Field({
             </>
           ) : null}
         </span>
-        {(() => {
-          const ft = (def as { femTable?: string }).femTable;
-          return ft && FEM_TABLES[ft] ? (
-            <FemTableButton
-              table={FEM_TABLES[ft]}
-              value={typeof v === "number" ? v : undefined}
-              activeHeader={typeof v === "string" ? v : undefined}
-            />
-          ) : null;
-        })()}
+        {def.standardRef && (
+          <StandardRefBadge code={def.standardRef} context={context} />
+        )}
+        {auto && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => auto.onToggle(!auto.on)}
+            title={
+              auto.on
+                ? "Otomatik hesap açık — elle girmek için kapatın"
+                : "Otomatik hesapla"
+            }
+            className={cn(
+              "ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[10px] transition-colors",
+              auto.on
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted",
+              disabled && "pointer-events-none opacity-50"
+            )}
+          >
+            <span aria-hidden>{auto.on ? "●" : "○"}</span>
+            OTOMATİK
+          </button>
+        )}
       </Label>
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
@@ -155,15 +198,15 @@ function Field({
                 [def.key]: def.numeric ? parseFloat(nv.replace(",", ".")) : nv,
               })
             }
-            disabled={disabled}
+            disabled={locked}
           >
-            <SelectTrigger id={id} className="h-8">
+            <SelectTrigger id={id} className="h-8 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {opts.map((o) => (
                 <SelectItem key={o} value={o}>
-                  {(def as { optionLabels?: Record<string, string> }).optionLabels?.[o] ?? o}
+                  {def.optionLabels?.[o] ?? o}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -175,11 +218,12 @@ function Field({
             id={id}
             className={cn(
               "h-8 bg-background",
-              def.type === "number" && "font-mono tabular-nums"
+              def.type === "number" && "font-mono tabular-nums",
+              auto?.on && "border-primary/30 bg-primary/5"
             )}
             inputMode={def.type === "number" ? "decimal" : undefined}
             value={def.type === "number" && draft !== null ? draft : String(v ?? "")}
-            disabled={disabled}
+            disabled={locked}
             aria-invalid={numError ? true : undefined}
             onChange={(e) => {
               const raw = e.target.value;
@@ -207,13 +251,114 @@ function Field({
           )}
         </>
       )}
+      {auto?.on && auto.warning && (
+        <p className="text-[11px] leading-snug text-destructive">{auto.warning}</p>
+      )}
+      {auto?.on && !auto.warning && def.hint && (
+        <p className="text-[11px] leading-snug text-muted-foreground">{def.hint}</p>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------- Checks
-function CheckRow({ check }: { check: AnyCheck }) {
-  const range = check.op === "range";
+
+/** Kontrolün sayısal karşılaştırma metni ("gereken … · sağlanan …"). */
+function checkComparison(check: AnyCheck): string {
+  const prov = toDisplayUnit(check.provided, check.unit);
+  const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
+  if (check.op === "range") {
+    const mn = toDisplayUnit((check as { min: number }).min, check.unit);
+    const mx = toDisplayUnit((check as { max: number }).max, check.unit);
+    return `${fmt(prov.value)}${u} · izin: ${fmt(mn.value)}…${fmt(mx.value)}`;
+  }
+  const req = toDisplayUnit((check as { required: number }).required, check.unit);
+  return `gereken ${fmt(req.value)}${u} · sağlanan ${fmt(prov.value)}${u}`;
+}
+
+/**
+ * Kontrolün DAYANAĞI ve AĞIRLIĞI — standart mı, üretici katalogu mu, firma
+ * kabulü mü; sağlanmazsa yayını engelliyor mu. Rozet yalnız "standart +
+ * engelleyici" varsayılanının dışındaki kontrollerde görünür (gürültü olmasın).
+ */
+const CHECK_KIND_LABEL: Record<string, string> = {
+  standart: "standart",
+  uretici: "üretici",
+  firma: "firma kabulü",
+  bilgi: "bilgilendirme",
+};
+
+function CheckOriginBadge({
+  check,
+  className,
+}: {
+  check: AnyCheck;
+  className?: string;
+}) {
+  const kind = checkKind(check);
+  const severity = checkSeverity(check);
+  if (kind === "standart" && severity === "engelleyici") return null;
+  const parts = [
+    kind !== "standart" ? CHECK_KIND_LABEL[kind] : null,
+    severity === "uyari" ? "uyarı" : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <span
+      className={cn(
+        "font-mono text-[10px] whitespace-nowrap text-muted-foreground",
+        className
+      )}
+      title="Bu kontrolün dayanağı ve yayına etkisi"
+    >
+      ({parts.join(" · ")})
+    </span>
+  );
+}
+
+/** Formül satırının altına iliştirilen ince kontrol şeridi. */
+function InlineCheck({
+  check,
+  context,
+}: {
+  check: AnyCheck;
+  context?: StandardContext;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-l-2 py-1 pl-2.5 text-xs",
+        check.pass
+          ? "border-success/50 bg-success/5"
+          : "border-destructive/60 bg-destructive/5"
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "shrink-0 font-mono text-sm font-semibold",
+          check.pass ? "text-success" : "text-destructive"
+        )}
+      >
+        {check.pass ? "✓" : "✗"}
+      </span>
+      <span className={cn("font-medium", check.pass ? "text-success" : "text-destructive")}>
+        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
+      </span>
+      <span className="text-foreground/80">{check.label}</span>
+      <span className="font-mono tabular-nums text-muted-foreground">
+        {checkComparison(check)}
+      </span>
+      {check.standard && (
+        <StandardRefBadge code={check.standard} context={context} />
+      )}
+      <CheckOriginBadge check={check} />
+    </div>
+  );
+}
+
+/** Özet panosunda ve "Diğer Kontroller" bloğunda kullanılan tam satır. */
+function CheckRow({ check, context }: { check: AnyCheck; context?: StandardContext }) {
   return (
     <div
       className={cn(
@@ -235,23 +380,13 @@ function CheckRow({ check }: { check: AnyCheck }) {
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">
           {check.label}
-          {check.nonExcel && (
-            <span className="ml-1 align-middle text-[11px] font-mono text-muted-foreground">(ek kontrol)</span>
-          )}
+          <CheckOriginBadge check={check} className="ml-1 align-middle" />
         </div>
-        <div className="font-mono text-xs tabular-nums text-muted-foreground">
-          {(() => {
-            const prov = toDisplayUnit(check.provided, check.unit);
-            const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
-            if (range) {
-              const mn = toDisplayUnit((check as { min: number }).min, check.unit);
-              const mx = toDisplayUnit((check as { max: number }).max, check.unit);
-              return `${fmt(prov.value)}${u} · izin: ${fmt(mn.value)}…${fmt(mx.value)}`;
-            }
-            const req = toDisplayUnit((check as { required: number }).required, check.unit);
-            return `gereken ${fmt(req.value)}${u} · sağlanan ${fmt(prov.value)}${u}`;
-          })()}
-          {check.standard ? ` · ${check.standard}` : ""}
+        <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+          <span>{checkComparison(check)}</span>
+          {check.standard && (
+            <StandardRefBadge code={check.standard} context={context} />
+          )}
         </div>
       </div>
       <Badge
@@ -265,7 +400,16 @@ function CheckRow({ check }: { check: AnyCheck }) {
 }
 
 // ---------------------------------------------------------------- CalcRow
-function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
+
+function CalcRow({
+  row, ctx, checks, context,
+}: {
+  row: AdapterRow;
+  ctx: unknown;
+  /** Bu satıra bağlı kontroller (varsa hemen altında gösterilir) */
+  checks?: AnyCheck[];
+  context?: StandardContext;
+}) {
   const raw = row.read(ctx);
   const { value, unit } = toDisplayUnit(raw, row.unit);
   return (
@@ -284,11 +428,12 @@ function CalcRow({ row, ctx }: { row: AdapterRow; ctx: unknown }) {
       )}
       {row.standard && (
         <div className="flex flex-wrap gap-1.5">
-          <span className="border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90">
-            {row.standard}
-          </span>
+          <StandardRefBadge code={row.standard} context={context} />
         </div>
       )}
+      {checks?.map((c) => (
+        <InlineCheck key={c.id} check={c} context={context} />
+      ))}
     </div>
   );
 }
@@ -350,34 +495,56 @@ interface NavGroup {
   key: string;
   title: string | null; // null → grupsuz tek adım (specs / özet)
   moduleKey?: ModuleKey;
+  /** Modül kapatılabilir mi (kenar çubuğunda göz düğmesi) */
+  optional?: boolean;
+  /** Modül şu an açık mı (kapalıysa grup boş ve soluk görünür) */
+  enabled?: boolean;
   items: { step: Step; index: number }[];
 }
 
+/**
+ * Navigasyon grupları: KAPALI modüller de listelenir (soluk, öğesiz) ki aynı
+ * yerden tekrar açılabilsinler.
+ */
 function buildNavGroups(
   steps: Step[],
-  numbers: Partial<Record<ModuleKey, number>>
+  numbers: Partial<Record<ModuleKey, number>>,
+  present: (k: ModuleKey) => boolean
 ): NavGroup[] {
   const groups: NavGroup[] = [];
-  steps.forEach((step, index) => {
-    if (step.kind === "module") {
-      const last = groups[groups.length - 1];
-      if (last && last.moduleKey === step.moduleKey) {
-        last.items.push({ step, index });
-      } else {
-        groups.push({
-          key: `mod-${step.moduleKey}`,
-          title: renumberTitle(
-            ADAPTER_BY_KEY[step.moduleKey].title,
-            numbers[step.moduleKey] ?? 0
-          ),
-          moduleKey: step.moduleKey,
-          items: [{ step, index }],
-        });
-      }
-    } else {
-      groups.push({ key: step.key, title: null, items: [{ step, index }] });
-    }
-  });
+  const specsStep = steps.findIndex((s) => s.kind === "specs");
+  if (specsStep >= 0) {
+    groups.push({
+      key: "specs",
+      title: null,
+      items: [{ step: steps[specsStep], index: specsStep }],
+    });
+  }
+  for (const adapter of MODULE_ADAPTERS) {
+    const items = steps
+      .map((step, index) => ({ step, index }))
+      .filter(
+        (it) => it.step.kind === "module" && it.step.moduleKey === adapter.key
+      );
+    groups.push({
+      key: `mod-${adapter.key}`,
+      title: present(adapter.key)
+        ? renumberTitle(adapter.title, numbers[adapter.key] ?? 0)
+        : MODULE_LABELS[adapter.key],
+      moduleKey: adapter.key,
+      optional: OPTIONAL_MODULE_KEYS.includes(adapter.key),
+      enabled: present(adapter.key),
+      items,
+    });
+  }
+  const summaryStep = steps.findIndex((s) => s.kind === "summary");
+  if (summaryStep >= 0) {
+    groups.push({
+      key: "summary",
+      title: null,
+      items: [{ step: steps[summaryStep], index: summaryStep }],
+    });
+  }
   return groups;
 }
 
@@ -393,17 +560,47 @@ interface ModulesState {
   endCarriage: { inputs: EndCarriageInputs; selections: EndCarriageSelections };
 }
 
+/**
+ * Otomatik alanları (halat ağırlığı, makara verimi) güncel girdi/seçimlerden
+ * yeniden türetir. Anahtar kapalıysa ya da kaynak veri eksikse değer korunur.
+ */
+function withDerivedHoist(
+  state: { inputs: HoistInputs; selections: HoistSelections },
+  liftHeightM: number
+): { inputs: HoistInputs; selections: HoistSelections } {
+  const d = deriveHoistInputs(state.inputs, state.selections, liftHeightM);
+  const patch: Partial<HoistInputs> = {};
+  if (d.ropeWeightKg !== undefined && d.ropeWeightKg !== state.inputs.ropeWeightKg) {
+    patch.ropeWeightKg = d.ropeWeightKg;
+  }
+  if (
+    d.sheaveEfficiency !== undefined &&
+    d.sheaveEfficiency !== state.inputs.sheaveEfficiency
+  ) {
+    patch.sheaveEfficiency = d.sheaveEfficiency;
+  }
+  if (Object.keys(patch).length === 0) return state;
+  return { ...state, inputs: { ...state.inputs, ...patch } };
+}
+
 function initModules(initial: CalcInput): ModulesState {
   // Eksik modüller (eski kayıtlar) V5 şablon değerleriyle tamamlanır.
+  // Otomatik alanlar ilk açılışta da türetilir (kayıtlı değer eskimiş olabilir).
   return {
-    main: {
-      inputs: initial.mainHoist?.inputs ?? V5_TEMPLATE.mainHoist!.inputs,
-      selections: initial.mainHoist?.selections ?? V5_TEMPLATE.mainHoist!.selections,
-    },
-    aux: {
-      inputs: initial.auxHoist?.inputs ?? V5_TEMPLATE.auxHoist!.inputs,
-      selections: initial.auxHoist?.selections ?? V5_TEMPLATE.auxHoist!.selections,
-    },
+    main: withDerivedHoist(
+      {
+        inputs: initial.mainHoist?.inputs ?? V5_TEMPLATE.mainHoist!.inputs,
+        selections: initial.mainHoist?.selections ?? V5_TEMPLATE.mainHoist!.selections,
+      },
+      initial.specs.mainLiftHeightM
+    ),
+    aux: withDerivedHoist(
+      {
+        inputs: initial.auxHoist?.inputs ?? V5_TEMPLATE.auxHoist!.inputs,
+        selections: initial.auxHoist?.selections ?? V5_TEMPLATE.auxHoist!.selections,
+      },
+      initial.specs.auxLiftHeightM
+    ),
     hookBlock: {
       inputs: initial.hookBlock?.inputs ?? V5_TEMPLATE.hookBlock!.inputs,
       selections: initial.hookBlock?.selections ?? V5_TEMPLATE.hookBlock!.selections,
@@ -433,31 +630,37 @@ function initModules(initial: CalcInput): ModulesState {
 
 // ---------------------------------------------------------------- Editor
 export function RevisionEditor({
-  projectId, revisionId, readOnly, initial, initialAlts,
+  projectId, revisionId, readOnly, initial, initialAlts, initialDisabled,
 }: {
   projectId: string;
   revisionId: string;
   readOnly: boolean;
+  /** Tüm bölümlerin verisi (kapalılar dâhil) — kapalı bölüm tekrar açılabilsin */
   initial: CalcInput;
   initialAlts?: AltsMap;
+  /** Kapalı hesap bölümleri */
+  initialDisabled?: string[];
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [stepIndex, setStepIndex] = useState(0);
-  // Esnek modüller: opsiyonel modüller (yardımcı kaldırma, kanca bloğu) açık/kapalı.
-  // Başlangıç: revizyonda modül varsa açık. Kapatılınca hesaba/rapora girmez ve
-  // numaralandırma yeniden dizilir.
-  const [enabled, setEnabled] = useState<Record<ModuleKey, boolean>>(() => ({
-    main: true,
-    aux: initial.auxHoist != null,
-    hookBlock: initial.hookBlock != null,
-    trolley: true,
-    bridge: true,
-    girder: true,
-    buckling: true,
-    endCarriage: true,
-  }));
+  // Esnek modüller: opsiyonel modüller (yardımcı kaldırma, kanca bloğu, ana
+  // kiriş, buruşma, başkiriş) açık/kapalı. Başlangıç: revizyonda modül varsa
+  // açık. Kapatılınca hesaba/rapora girmez ve numaralandırma yeniden dizilir.
+  const [enabled, setEnabled] = useState<Record<ModuleKey, boolean>>(() => {
+    const off = new Set(initialDisabled ?? []);
+    return {
+      main: true,
+      aux: !off.has("aux"),
+      hookBlock: !off.has("hookBlock"),
+      trolley: true,
+      bridge: true,
+      girder: !off.has("girder"),
+      buckling: !off.has("buckling"),
+      endCarriage: !off.has("endCarriage"),
+    };
+  });
   // Sadece sunum: kenar çubuğunda elle açılan modül grupları
   // (aktif adımın grubu her zaman açıktır).
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -510,11 +713,28 @@ export function RevisionEditor({
   const present = useCallback((k: ModuleKey) => enabled[k] !== false, [enabled]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
   const STEPS = useMemo(() => buildSteps(present, numbers), [present, numbers]);
-  const NAV_GROUPS = useMemo(() => buildNavGroups(STEPS, numbers), [STEPS, numbers]);
+  const NAV_GROUPS = useMemo(
+    () => buildNavGroups(STEPS, numbers, present),
+    [STEPS, numbers, present]
+  );
   // Modül kapatılınca adım sayısı azalabilir → aktif adımı sınırla
   useEffect(() => {
     setStepIndex((i) => Math.min(i, STEPS.length - 1));
   }, [STEPS.length]);
+
+  // ------------------------------------------------- otomatik girdi türetmesi
+  // "Otomatik" anahtarı açık kaldırma girdileri (halat ağırlığı, makara verimi)
+  // kaynak veri her değiştiğinde AYNI state güncellemesi içinde yeniden
+  // hesaplanır ve girdiye yazılır. Böylece hesap motoru, PDF rapor ve ekipman
+  // listesi hep aynı değeri görür; alan elle düzenlenmek istenirse anahtar
+  // kapatılır ve serbest kalır.
+  const derivations = useMemo(
+    () => ({
+      main: deriveHoistInputs(mods.main.inputs, mods.main.selections, specs.mainLiftHeightM),
+      aux: deriveHoistInputs(mods.aux.inputs, mods.aux.selections, specs.auxLiftHeightM),
+    }),
+    [mods.main, mods.aux, specs.mainLiftHeightM, specs.auxLiftHeightM]
+  );
 
   const calcInput: CalcInput = useMemo(
     () => ({
@@ -524,14 +744,34 @@ export function RevisionEditor({
       hookBlock: enabled.hookBlock ? mods.hookBlock : undefined,
       trolley: mods.trolley,
       bridge: mods.bridge,
+      girder: enabled.girder ? mods.girder : undefined,
+      buckling: enabled.buckling ? { inputs: mods.buckling.inputs } : undefined,
+      endCarriage: enabled.endCarriage ? mods.endCarriage : undefined,
+    }),
+    [specs, mods, enabled]
+  );
+  /** Kapalı bölümlerin verisi de kayda gider — yeniden açılınca geri gelsin. */
+  const fullCalcInput: CalcInput = useMemo(
+    () => ({
+      specs,
+      mainHoist: mods.main,
+      auxHoist: mods.aux,
+      hookBlock: mods.hookBlock,
+      trolley: mods.trolley,
+      bridge: mods.bridge,
       girder: mods.girder,
       buckling: { inputs: mods.buckling.inputs },
       endCarriage: mods.endCarriage,
     }),
-    [specs, mods, enabled]
+    [specs, mods]
+  );
+  const disabledList = useMemo(
+    () => OPTIONAL_MODULE_KEYS.filter((k) => enabled[k] === false),
+    [enabled]
   );
   const result = useMemo(() => runCalc(calcInput), [calcInput]);
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
+  const stdContext = useMemo(() => standardContextFor(specs), [specs]);
 
   const failCount = result.allChecks.filter((c) => !c.pass).length;
   const step = STEPS[Math.min(stepIndex, STEPS.length - 1)] ?? STEPS[0];
@@ -551,12 +791,53 @@ export function RevisionEditor({
     return map[key];
   }
 
+  /** Modül state'ini yazarken kaldırma gruplarında türetmeyi de uygular. */
+  function writeModule(
+    m: ModulesState,
+    key: ModuleKey,
+    patch: { inputs?: object; selections?: object },
+    nextSpecs = specs
+  ): ModulesState {
+    const merged = { ...m[key], ...patch } as ModulesState[typeof key];
+    if (key === "main" || key === "aux") {
+      const which = key;
+      const height =
+        which === "main" ? nextSpecs.mainLiftHeightM : nextSpecs.auxLiftHeightM;
+      return {
+        ...m,
+        [which]: withDerivedHoist(
+          merged as { inputs: HoistInputs; selections: HoistSelections },
+          height
+        ),
+      };
+    }
+    return { ...m, [key]: merged } as ModulesState;
+  }
+
   function setModuleInputs(key: ModuleKey, next: object) {
-    setMods((m) => ({ ...m, [key]: { ...m[key], inputs: next } }) as ModulesState);
+    setMods((m) => writeModule(m, key, { inputs: next }));
   }
 
   function setModuleSelections(key: ModuleKey, next: object) {
-    setMods((m) => ({ ...m, [key]: { ...m[key], selections: next } }) as ModulesState);
+    setMods((m) => writeModule(m, key, { selections: next }));
+  }
+
+  /**
+   * Teknik özellik değişimi: kaldırma yüksekliği değiştiğinde otomatik halat
+   * ağırlığı da yeniden türetilir.
+   */
+  function updateSpecs(next: TechnicalSpecs) {
+    setSpecs(next);
+    if (
+      next.mainLiftHeightM !== specs.mainLiftHeightM ||
+      next.auxLiftHeightM !== specs.auxLiftHeightM
+    ) {
+      setMods((m) => ({
+        ...m,
+        main: withDerivedHoist(m.main, next.mainLiftHeightM),
+        aux: withDerivedHoist(m.aux, next.auxLiftHeightM),
+      }));
+    }
   }
 
   /** Sunum katmanı ctx'i — her modülün kendi Ctx tipiyle kurulur */
@@ -631,6 +912,29 @@ export function RevisionEditor({
     const checks = sectionChecks(key, section);
     if (checks.length === 0) return "none";
     return checks.every((c) => c.pass) ? "pass" : "fail";
+  }
+
+  /**
+   * Bölüm kontrollerini satırlara dağıtır: anchorId'si eşleşenler ilgili
+   * formül satırının altına, kalanlar bölüm sonuna.
+   */
+  function distributeChecks(key: ModuleKey, section: AdapterSection) {
+    const prefix = ADAPTER_BY_KEY[key].checkPrefix;
+    const byRow = new Map<string, AnyCheck[]>();
+    const rest: AnyCheck[] = [];
+    const rowIds = new Set(section.rows.map((r) => r.anchorId));
+    for (const c of sectionChecks(key, section)) {
+      const suffix = c.id.startsWith(prefix) ? c.id.slice(prefix.length) : c.id;
+      const anchor = checkAnchor(key, section.rawId, suffix);
+      if (anchor && rowIds.has(anchor)) {
+        const list = byRow.get(anchor);
+        if (list) list.push(c);
+        else byRow.set(anchor, [c]);
+      } else {
+        rest.push(c);
+      }
+    }
+    return { byRow, rest };
   }
 
   // ---------------------------------------------------------- alternatifler
@@ -751,13 +1055,24 @@ export function RevisionEditor({
 
   function handleSave() {
     startTransition(async () => {
-      const res = await saveRevision(projectId, revisionId, calcInput, syncedAlts());
+      const res = await saveRevision(
+        projectId,
+        revisionId,
+        calcInput,
+        syncedAlts(),
+        fullCalcInput,
+        disabledList
+      );
       if (res.error) toast.error(res.error);
       else {
         setDirty(false);
         toast.success("Revizyon kaydedildi.");
       }
     });
+  }
+
+  function toggleModule(key: ModuleKey, on: boolean) {
+    setEnabled((m) => ({ ...m, [key]: on }));
   }
 
   // ------------------------------------------------------------ renderers
@@ -775,43 +1090,65 @@ export function RevisionEditor({
             Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
           </p>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SPEC_FIELDS.map((f) => (
-              <Field
-                key={f.key}
-                def={f}
-                value={specs}
-                onChange={(next) => setSpecs(next as typeof specs)}
-                disabled={readOnly}
-              />
-            ))}
-          </div>
+        <CardContent className="grid gap-6">
+          {SPEC_GROUPS.map((group) => {
+            if (group.requiresModule && !present(group.requiresModule)) return null;
+            const fields = SPEC_FIELDS.filter(
+              (f) =>
+                f.group === group.key &&
+                (!f.requiresModule || present(f.requiresModule))
+            );
+            if (fields.length === 0) return null;
+            return (
+              <section key={group.key} className="grid gap-2.5">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5">
+                  <h3 className="oc-kicker text-foreground/80">{group.title}</h3>
+                  {group.description && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {group.description}
+                    </span>
+                  )}
+                </div>
+                <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  {fields.map((f) => (
+                    <Field
+                      key={f.key}
+                      def={f}
+                      value={specs}
+                      onChange={(next) => updateSpecs(next as TechnicalSpecs)}
+                      disabled={readOnly}
+                      context={stdContext}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
 
           {/* Vinç modülleri — opsiyonel modüller açık/kapalı; numaralandırma dinamik */}
-          <div className="mt-6 border-t pt-4">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">
-              Vinç Modülleri (opsiyonel)
+          <section className="grid gap-2.5 border-t pt-4">
+            <div className="border-b pb-1.5">
+              <h3 className="oc-kicker text-foreground/80">Hesap Bölümleri</h3>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Kapatılan bölüm hesaba ve rapora girmez; bölüm numaraları otomatik
+                yeniden dizilir. Aynı anahtarlar kenar çubuğundaki göz düğmesinde de var.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {OPTIONAL_MODULE_KEYS.map((k) => (
                 <label key={k} className="inline-flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={enabled[k] !== false}
+                    checked={present(k)}
                     disabled={readOnly}
-                    onChange={(e) => setEnabled((m) => ({ ...m, [k]: e.target.checked }))}
+                    onChange={(e) => toggleModule(k, e.target.checked)}
                     className="size-4 accent-primary"
                   />
-                  {OPTIONAL_MODULE_LABELS[k] ?? k}
+                  {MODULE_LABELS[k]}
                 </label>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Kapatılan modül hesaba ve rapora girmez; bölüm numaraları otomatik yeniden dizilir
-              (ör. yardımcı kaldırma yoksa Kanca Bloğu 03 olur).
-            </p>
-          </div>
+          </section>
         </CardContent>
       </Card>
     );
@@ -823,7 +1160,10 @@ export function RevisionEditor({
     const inputs = mods[key].inputs as object;
     const sel = mods[key].selections as object;
     const checks = sectionChecks(key, section);
+    const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
+    const isHoist = key === "main" || key === "aux";
+    const derivation = isHoist ? derivations[key as "main" | "aux"] : undefined;
 
     const onInputsChange = (next: object) => {
       setModuleInputs(
@@ -831,6 +1171,21 @@ export function RevisionEditor({
         section.inputScope ? section.inputScope.set(inputs, next) : next
       );
     };
+
+    /** Kaldırma modüllerinde otomatik doldurulabilen alanların anahtar durumu */
+    function autoStateFor(fieldKey: string): AutoFieldState | undefined {
+      if (!isHoist) return undefined;
+      const flag = HOIST_AUTO_FIELDS[fieldKey];
+      if (!flag) return undefined;
+      const hoistInputs = inputs as unknown as HoistInputs;
+      const on = hoistInputs[flag] === true;
+      return {
+        on,
+        onToggle: (next) =>
+          setModuleInputs(key, { ...(inputs as object), [flag]: next }),
+        warning: derivation?.warnings.find((w) => w.field === fieldKey)?.message,
+      };
+    }
 
     return (
       <Card>
@@ -872,7 +1227,7 @@ export function RevisionEditor({
               <h3 className="oc-kicker mb-2 text-muted-foreground">
                 Girdiler / Tasarım Kabulleri
               </h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {section.inputDefs.map((f) => (
                   <Field
                     key={f.key}
@@ -880,6 +1235,8 @@ export function RevisionEditor({
                     value={scopedInputs}
                     onChange={onInputsChange}
                     disabled={readOnly}
+                    auto={section.inputScope ? undefined : autoStateFor(f.key)}
+                    context={stdContext}
                   />
                 ))}
                 {section.extraInputDefs?.map((f) => (
@@ -889,6 +1246,7 @@ export function RevisionEditor({
                     value={inputs}
                     onChange={(next) => setModuleInputs(key, next)}
                     disabled={readOnly}
+                    context={stdContext}
                   />
                 ))}
               </div>
@@ -906,7 +1264,7 @@ export function RevisionEditor({
                     </h3>
                     {catalogMapping && (
                       <span className="border px-1.5 py-px font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                        ▾ {catalogMapping.kind}
+                        ▾ {catalogKindLabel(catalogMapping.kind)}
                       </span>
                     )}
                     {!readOnly && catalogMapping && (
@@ -974,7 +1332,7 @@ export function RevisionEditor({
                     )}
                   </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {section.selectionDefs.map((f) => (
                     <Field
                       key={f.key}
@@ -982,6 +1340,7 @@ export function RevisionEditor({
                       value={sel}
                       onChange={(next) => setModuleSelections(key, next)}
                       disabled={readOnly}
+                      context={stdContext}
                     />
                   ))}
                 </div>
@@ -993,22 +1352,29 @@ export function RevisionEditor({
               <Separator />
               <div>
                 <h3 className="oc-kicker mb-2 text-muted-foreground">
-                  Hesap
+                  Hesap ve Kontroller
                 </h3>
-                <div className="rounded-lg border bg-background px-3 dark:bg-card">
+                {/* Geniş ekranda iki kolon: tek ekranda daha çok hesap görünür */}
+                <div className="rounded-lg border bg-background px-3 dark:bg-card xl:grid xl:grid-cols-2 xl:gap-x-6">
                   {section.rows.map((r) => (
-                    <CalcRow key={r.key} row={r} ctx={ctx} />
+                    <CalcRow
+                      key={r.key}
+                      row={r}
+                      ctx={ctx}
+                      checks={byRow.get(r.anchorId)}
+                      context={stdContext}
+                    />
                   ))}
                 </div>
               </div>
             </>
           )}
-          {checks.length > 0 && (
+          {rest.length > 0 && (
             <div className="grid gap-2">
-              <h3 className="oc-kicker text-muted-foreground">
-                Kontroller
-              </h3>
-              {checks.map((c) => <CheckRow key={c.id} check={c} />)}
+              <h3 className="oc-kicker text-muted-foreground">Diğer Kontroller</h3>
+              {rest.map((c) => (
+                <CheckRow key={c.id} check={c} context={stdContext} />
+              ))}
             </div>
           )}
         </CardContent>
@@ -1046,7 +1412,7 @@ export function RevisionEditor({
                   </span>
                 </div>
                 {mr.checks.map((c) => (
-                  <CheckRow key={c.id} check={c} />
+                  <CheckRow key={c.id} check={c} context={stdContext} />
                 ))}
               </div>
             );
@@ -1154,12 +1520,16 @@ export function RevisionEditor({
               navQ === "" || groupTitleMatch
                 ? group.items
                 : group.items.filter(({ step: s }) => stepMatches(s));
-            if (visibleItems.length === 0) return null;
             // Grupsuz tek adımlar (Teknik Özellikler, Özet)
             if (group.title === null) {
+              if (visibleItems.length === 0) return null;
               const { step: s, index: i } = visibleItems[0];
               return navItem(s, i);
             }
+            const isDisabled = group.enabled === false;
+            // Kapalı modüller yalnız arama boşken (ya da adı eşleşince) görünür
+            if (isDisabled && navQ !== "" && !groupTitleMatch) return null;
+            if (!isDisabled && visibleItems.length === 0) return null;
             const statuses = group.items.map(({ step: s }) =>
               s.kind === "module" ? sectionStatus(s.moduleKey, s.section) : "none"
             );
@@ -1167,41 +1537,84 @@ export function RevisionEditor({
             const passed = statuses.filter((st) => st === "pass").length;
             const anyFail = statuses.some((st) => st === "fail");
             const containsCurrent = group.items.some(({ index: i }) => i === stepIndex);
-            const isOpen = navQ !== "" || containsCurrent || !!openGroups[group.key];
+            const isOpen =
+              !isDisabled && (navQ !== "" || containsCurrent || !!openGroups[group.key]);
             return (
               <li key={group.key}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
-                  }
-                  className="mt-2 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                <div
+                  className={cn(
+                    "mt-2 flex w-full items-center gap-1 rounded-md pr-1 transition-colors",
+                    isDisabled ? "opacity-55" : "hover:bg-muted"
+                  )}
                 >
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "inline-block shrink-0 font-mono transition-transform",
-                      !isOpen && "-rotate-90"
-                    )}
+                  <button
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() =>
+                      setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
+                    }
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default"
                   >
-                    ▾
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{group.title}</span>
-                  {withChecks > 0 && (
                     <span
+                      aria-hidden="true"
                       className={cn(
-                        "font-mono text-[10px] font-medium tabular-nums normal-case",
-                        anyFail
-                          ? "text-destructive"
-                          : passed === withChecks
-                            ? "text-success"
-                            : "text-muted-foreground"
+                        "inline-block shrink-0 font-mono transition-transform",
+                        !isOpen && "-rotate-90",
+                        isDisabled && "opacity-0"
                       )}
                     >
-                      {passed}/{withChecks}
+                      ▾
                     </span>
+                    <span className="min-w-0 flex-1 truncate">{group.title}</span>
+                    {!isDisabled && withChecks > 0 && (
+                      <span
+                        className={cn(
+                          "font-mono text-[10px] font-medium normal-case tabular-nums",
+                          anyFail
+                            ? "text-destructive"
+                            : passed === withChecks
+                              ? "text-success"
+                              : "text-muted-foreground"
+                        )}
+                      >
+                        {passed}/{withChecks}
+                      </span>
+                    )}
+                    {isDisabled && (
+                      <span className="font-mono text-[10px] normal-case text-muted-foreground">
+                        kapalı
+                      </span>
+                    )}
+                  </button>
+                  {/* Bölüm aç/kapa — kapalı bölüm hesaba ve rapora girmez */}
+                  {group.optional && group.moduleKey && (
+                    <button
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => toggleModule(group.moduleKey!, isDisabled)}
+                      title={
+                        isDisabled
+                          ? `${MODULE_LABELS[group.moduleKey]} bölümünü aç`
+                          : `${MODULE_LABELS[group.moduleKey]} bölümünü gizle (hesaba ve rapora girmez)`
+                      }
+                      aria-label={
+                        isDisabled
+                          ? `${MODULE_LABELS[group.moduleKey]} bölümünü aç`
+                          : `${MODULE_LABELS[group.moduleKey]} bölümünü gizle`
+                      }
+                      aria-pressed={!isDisabled}
+                      className={cn(
+                        "grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors",
+                        isDisabled
+                          ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          : "text-primary/70 hover:bg-muted hover:text-foreground",
+                        readOnly && "pointer-events-none opacity-40"
+                      )}
+                    >
+                      {isDisabled ? "＋" : "－"}
+                    </button>
                   )}
-                </button>
+                </div>
                 {isOpen && (
                   <ol className="mt-0.5 ml-3.5 grid gap-0.5 border-l border-border/70 pl-2">
                     {visibleItems.map(({ step: s, index: i }) => navItem(s, i))}

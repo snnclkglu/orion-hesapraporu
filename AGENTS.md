@@ -6,52 +6,137 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # ORION Hesap Raporu
 
-Çift kirişli gezer köprülü vinç hesap raporu web uygulaması. Kaynak: "İSDEMİR - AMONYUM SÜLFAT VİNCİ Hesap Raporu V5.xlsx" (FEM 1.001 / DIN 15018 / CMAA 70). Mühendisler girdi + katalog seçimi yapar, sistem hesapları koşturur ve ✓/✗ kontrolleri gösterir; çıktı müşteriye teslim edilebilir PDF rapor + Excel listeleri. Revizyon arşivli, çok kullanıcılı (admin + mühendis).
+Gezer köprülü vinç hesap raporu web uygulaması. Mühendisler girdi + katalog
+seçimi yapar, sistem hesapları koşturur ve ✓/✗ kontrolleri gösterir; çıktı
+müşteriye teslim edilebilir PDF rapor + ekipman listeleridir. Revizyon arşivli,
+çok kullanıcılı (admin + mühendis).
+
+## Temel ilke: hesap yöntemi standartlara dayanır, bir tabloya değil
+
+Uygulama ilk sürümünde bir Excel dosyasından port edilmişti. **Bu bağımlılık
+kaldırılmıştır.** Hesap motoru artık kendi yöntemini doğrudan standartlara
+dayandırır:
+
+- **FEM 1.001** (3rd Ed. Rev. 1998) — sınıflandırma, yükler, halat/tambur/
+  makara/tekerlek/rulman seçimi, plaka burkulması
+- **DIN 15018** — çelik yapı yorulması (Tablo 17/18, Tablo 2 dinamik katsayı)
+- **DIN 15400 / 15401 / 15402** — kanca taşıma kapasiteleri
+- **DIN 15061** — halat oluğu adımı
+- **CMAA 70** — motor gücü, mil gerilmeleri, sehim sınırı
+
+**Excel'e bakarak kod yazma.** Yeni bir hesap eklerken kaynak standardın
+maddesidir. `reference/excel-dump/` ve `src/lib/calc/__tests__/legacy/`
+yalnızca **tarihsel doğrulama fikstürüdür** — şartname değildir. Bir sayı
+uyuşmuyorsa öncelik uygulamanın kendi yöntemindedir; sapma gerekçesiyle
+birlikte belgelenir (bkz. `__tests__/legacy/README.md`).
 
 ## Stack
 
-Next.js 16 (App Router, TS strict) · Tailwind v4 + shadcn/ui · Supabase (Postgres/Auth/RLS/Storage) · Zod · Vitest · @react-pdf/renderer · exceljs · Vercel. UI dili Türkçe; PDF rapor TR/EN başlıklı.
+Next.js 16 (App Router, TS strict) · Tailwind v4 + shadcn/ui · Supabase
+(Postgres/Auth/RLS/Storage) · Zod · Vitest · @react-pdf/renderer · exceljs ·
+Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcılar
+(değişken/tip/alan adları) İngilizce lowerCamelCase.
 
 ## Komutlar
 
 - `npm run dev` — dev sunucu
-- `npm test` — vitest (golden testler dahil)
+- `npm test` — vitest (mühendislik doğrulama + tarihsel karşılaştırma)
 - `npm run build` — production build
+- `npx tsx scripts/test-pdf.ts` — PDF raporu üç seviyede üret (duman testi)
+- `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
 
 ## Mimari ilkeler
 
-1. **Hesap motoru saftır**: `src/lib/calc/` altında DB/UI bağımlılığı olmayan saf TS fonksiyonları. `CalcInput` → `CalcResult` (tüm ara değerler + kontroller). Motor `ENGINE_VERSION` ile etiketlenir; her revizyon hangi sürümle hesaplandığını saklar.
-2. **4 değer rolü** (Excel'den miras): `input` (kullanıcı girer) → `computed` (formül) → `selection` (mühendis katalogdan seçer) → `check` ({label, required, provided, operator, pass, standard}). UI bu döngüyü yansıtır: girdiler talebi üretir, mühendis seçer, kontroller yeşil/kırmızı.
-3. **Excel sadakati**: Formül zinciri ve birimler (kg, kg/cm², Nm, m/min) Excel V5 ile birebir korunur. Golden testler `reference/excel-dump/*.txt` içindeki `VALUE=` alanlarına karşı ±0.1% toleransla çalışır; formül değişikliği = test kırılır.
-4. **Revizyon = snapshot**: `revisions` tablosunda inputs/selections/results JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Değişiklik yeni revizyon açar. Audit log insert-only.
-5. **Parametrik modüller**: Ana/Yrd kaldırma = tek `hoistGroup` modülü; araba/köprü yürütme = tek `travelGroup` modülü (köprü varyantı: yaklaşma eksantrikliği, fren, 0.7 tampon faktörü).
+1. **Hesap motoru saftır.** `src/lib/calc/` altında DB/UI bağımlılığı olmayan
+   saf TS fonksiyonları. `CalcInput` → `CalcResult`. Motor `ENGINE_VERSION` ile
+   etiketlenir; her revizyon hangi sürümle hesaplandığını saklar.
 
-## Excel kaynağındaki bilinen kusurlar (porta KOPYALANMAZ)
+2. **4 değer rolü.** `input` (kullanıcı girer) → `computed` (hesaplanır) →
+   `selection` (mühendis katalogdan seçer) → `check` (kontrol). Arayüz bu
+   döngüyü yansıtır: girdiler talebi üretir, mühendis seçer, kontroller ✓/✗.
 
-- `04-KANCA BLOĞU` §4.6 ve `09-BAŞKİRİŞ` yorulma blokları `#ref!` ile bozuk → `07-ANA KİRİŞ`'in çalışan DIN 15018 T17 mantığından (HLOOKUP+MATCH) yeniden yazılır; S235JR/S355JR malzeme girdisi eklenir.
-- `06-KÖPRÜ!O160` boş `H156`'ya bakar (doğrusu `L156`) → düzeltildi olarak port edilir.
-- `VERİ` sayfası ölü (#ref! kepçe geometrisi) → port edilmez.
-- Köprü freni (6.6) Excel'de seçilmemiş → uygulamada seçim alanı vardır.
+3. **Semantik anahtarlar.** `ModuleResult.cells` haritasının anahtarı
+   `<blok>.<büyüklük>` biçimindedir — tam 2 segment, İngilizce lowerCamelCase:
+   `rope.load`, `drum.minDia`, `drumShaft.reactionGearbox`, `gearbox.requiredTorque`,
+   `fatigue.combined`, `deflection.ratio`. Modül öneki anahtara konmaz (harita
+   zaten modül başınadır). Anahtar asla `L19` gibi tablo adresi biçiminde olmaz.
+   Araba ve köprü **aynı** anahtarları kullanır; varyanta özel satırlar sunum
+   tarafında `variant` ile işaretlenir.
 
-## Anahtar alan bilgisi
+4. **Kontrol tipolojisi.** Her kontrol dayanağını ve ağırlığını taşır:
+   - `kind`: `"standart"` (FEM/DIN/CMAA maddesi şart koşuyor) · `"uretici"`
+     (katalog kriteri) · `"firma"` (tasarım kabulü) · `"bilgi"` (bilgilendirme)
+   - `severity`: `"engelleyici"` (sağlanmadan yayınlanmamalı) · `"uyari"`
+   Yardımcılar `types.ts`te: `checkKind`, `checkSeverity`, `isBlocking`,
+   `blockingFailures`. Varsayılan en muhafazakâr olandır (standart/engelleyici).
 
-- `AnakaldırmaM` (Excel isimli aralık) = mekanizma sınıfı (M1–M8), tüm FEM katsayı lookup'larının anahtarı: halat Zp, tambur/makara H katsayısı.
-- Kullanım sınıfı T0–T9 → gerekli rulman ömrü saat bandı (alt/üst).
-- Kontrol idiyomu: Excel `IF(a>=b,"ü","û")` (Wingdings ✓/✗) → kodda boolean `pass`.
-- KATSAYILAR sayfası → `cat_*` Supabase tabloları (seed migration'larda). Motor/redüktör/halat katalogları YOK — serbest giriş + kontrol; ileride katalog eklenecek.
-- Redüktör çevrim oranı sapma toleransı: +5% / −10% (Excel `O182`).
+5. **Ortak hesap kütüphaneleri** — aynı fizik iki kez yazılmaz:
+   - `beam.ts` — iki mesnetli kiriş statiği (reaksiyon, M(x), Mmaks, kesme)
+   - `shaftStress.ts` — mil gerilmeleri; bileşik (`vonMises`/`resultant`) ve
+     kayma (`ortalama`/`maksimum`) kabulleri **açık parametredir**
+   - `reeving.ts` — halat donanımının tek gerçek kaynağı (mekanik avantaj,
+     halat verimi, kanca bloğu makara sayısı, rulman adedi)
+   - `hook-table.ts` — DIN 15400 Tablo 3 (kanca no × malzeme sınıfı × grup)
+   - `presentation/module-access.ts` — modül girdi/sonuç/bağlam erişimi
+
+6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
+   maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
+   `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
+   `standard: "..."` yazarsan deftere de ekle (aksi hâlde rozet ölü kalır).
+
+7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
+   JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap
+   bölümleri `inputs.disabledModules` listesinde tutulur; girdileri korunur.
+   Motora yeni girdi eklendiğinde eski revizyonlar `revision-load.ts`teki
+   `withDefaults` sayesinde bozulmaz.
+
+8. **Esnek modüller.** Ana/Yrd kaldırma = tek `hoistGroup`; araba/köprü = tek
+   `travelGroup`. Kanca bloğu, ana kiriş, buruşma ve başkiriş kapatılabilir.
+
+## Yeni bir hesap eklerken
+
+1. **Standardın maddesini bul** ve `docs/standards/` altındaki inceleme
+   notlarına bak. Excel dökümüne bakma.
+2. **Saf fonksiyon yaz** — `src/lib/calc/` altında, yan etkisiz.
+3. **Semantik anahtar ver** (`<blok>.<büyüklük>`) ve `cells`e yaz.
+4. **Kontrol ekle**: `kind` + `severity` + `standard` alanlarını doldur.
+5. **Standart defterine** maddeyi ekle (`standards/registry.ts`).
+6. **Mühendislik doğrulama testi yaz** — denge, ölçek tutarlılığı, sınıf
+   duyarlılığı, sınır durumları. Excel'e karşı DEĞİL, fiziğe karşı.
+7. **Kontrolü satırına bağla**: `presentation/check-anchors.ts`.
+   `__tests__/anchors.guard.test.ts` bağlantının gerçek bir satırı gösterdiğini
+   ve hiçbir kontrolün rapordan düşmediğini doğrular.
+
+## Birimler
+
+Motor içi birimler kg, kg/cm², kg·cm, cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
+**Sunum katmanı gerilmeleri MPa, momentleri Nm olarak gösterir** (`lib/units.ts`,
+etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 
 ## Dizin haritası
 
-- `src/lib/calc/modules/` — hoistGroup, hookBlock, travelGroup, mainGirder, buckling, endCarriage, summary (her biri Excel'deki bir sayfaya karşılık)
-- `src/lib/calc/coefficients.ts` — Excel IF zincirlerinin tablo lookup karşılıkları
-- `src/lib/calc/__tests__/` — golden testler (fikstür: ana + yrd kaldırma)
+- `src/lib/calc/` — hesap motoru (saf): `engine.ts`, `modules/`, `beam.ts`,
+  `shaftStress.ts`, `reeving.ts`, `derive.ts`, `hook-table.ts`, `coefficients.ts`,
+  `tables.ts`, `types.ts`
+- `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
+  kontrol bağlantıları, modül erişimi
+- `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
+- `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
+- `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
+- `src/lib/calc/__tests__/` — mühendislik doğrulama + bağlantı koruma testleri
+- `src/lib/calc/__tests__/legacy/` — **tarihsel** karşılaştırma katmanı
+  (eşleme tabloları + gerekçeli kapsam dışı/sapma sözlükleri). Şartname değil.
+- `reference/excel-dump/` — ilk portun kaynak dökümü. DOKUNMA; yalnız tarihsel
+  karşılaştırma okur. Yeni hesap için kaynak DEĞİLDİR.
 - `supabase/migrations/` — şema + RLS + seed
-- `reference/excel-dump/` — Excel hücre dökümleri (format: `HÜCRE<TAB>FORMULA<TAB>=formül<TAB>VALUE=değer` veya `HÜCRE<TAB>STATIC<TAB>değer`). DOKUNMA — golden test kaynağı.
+- `docs/standards/` — FEM 1.001 / CMAA 70 inceleme notları + çapraz referans
 
 ## Güvenlik
 
-- Token/secret asla commit edilmez; `.env*` gitignored. Service-role key sadece server tarafında.
-- RLS: katalog tabloları herkese okuma / admin yazma; issued revizyon güncellenemez; audit_log insert-only.
-- Admin bootstrap e-postaları: scolakoglu@orioncranes.com, sinan@vigowood.com (handle_new_user trigger'ı).
+- Token/secret asla commit edilmez; `.env*` gitignored. Service-role key sadece
+  server tarafında.
+- RLS: katalog tabloları herkese okuma / admin yazma; issued revizyon
+  güncellenemez; audit_log insert-only.
+- Admin bootstrap e-postaları: scolakoglu@orioncranes.com, sinan@vigowood.com
+  (`handle_new_user` trigger'ı).

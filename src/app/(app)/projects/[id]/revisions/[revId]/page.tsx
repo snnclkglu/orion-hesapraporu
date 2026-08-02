@@ -8,7 +8,7 @@ import { IssueRevisionButton } from "./issue-button";
 import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
-  calcInputFromRevision,
+  loadRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
@@ -48,7 +48,9 @@ export default async function RevisionPage({
   // Boş revizyon V5 şablonuyla başlar; kayıtlı revizyon kendi snapshot'ını yükler.
   const inputs = revision.inputs as RevisionInputsJson;
   const selections = revision.selections as RevisionSelectionsJson;
-  const initial = calcInputFromRevision(inputs, selections);
+  // Editör TÜM bölümleri alır (kapalılar dâhil) ve kapalı listesini ayrıca
+  // bilir — kapatılan bölümün girdileri korunur, yeniden açılınca geri gelir.
+  const loaded = loadRevision(inputs, selections);
 
   return (
     <div className="grid gap-4">
@@ -110,8 +112,9 @@ export default async function RevisionPage({
         projectId={id}
         revisionId={revision.id}
         readOnly={revision.status === "issued"}
-        initial={initial}
+        initial={loaded.full}
         initialAlts={selections?.alts}
+        initialDisabled={loaded.disabled}
       />
     </div>
   );

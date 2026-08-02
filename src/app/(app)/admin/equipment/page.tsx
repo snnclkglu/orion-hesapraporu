@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { attrLabel, attrValueLabel } from "@/lib/catalog-mapping";
 import { cn } from "@/lib/utils";
 import { EQUIPMENT_KINDS, KIND_LABELS } from "../labels";
 import { EquipmentDialog, DeleteEquipmentButton, type EquipmentRow } from "./equipment-dialog";
@@ -34,7 +35,7 @@ export default async function AdminEquipmentPage({
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Ekipman Katalogu</h2>
           <p className="text-sm text-muted-foreground">
-            Motor, redüktör, halat vb. satın alma/seçim katalogu. Özellikler (attrs) serbest
+            Motor, redüktör, halat vb. satın alma/seçim katalogu. Özellikler serbest
             anahtar-değer alanlarıdır.
           </p>
         </div>
@@ -87,7 +88,7 @@ export default async function AdminEquipmentPage({
                 <TableCell>{item.model}</TableCell>
                 <TableCell className="max-w-64 text-xs text-muted-foreground">
                   {Object.entries((item.attrs ?? {}) as Record<string, unknown>)
-                    .map(([k, v]) => `${k}: ${v}`)
+                    .map(([k, v]) => `${attrLabel(k)}: ${attrValueLabel(k, v)}`)
                     .join(" · ") || "—"}
                 </TableCell>
                 <TableCell>

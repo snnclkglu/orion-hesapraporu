@@ -39,6 +39,8 @@ import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
+import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
+import { checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult } from "@/lib/calc/types";
 import type { HoistCtx } from "@/lib/calc/presentation/hoistSections";
 import type { HookBlockCtx } from "@/lib/calc/presentation/hookBlockSections";
@@ -280,6 +282,35 @@ function sectionChecks(
     .filter((c): c is AnyCheck => Boolean(c));
 }
 
+/**
+ * Bölüm kontrollerini hesap satırlarına dağıtır: bağlantı haritasında karşılığı
+ * olanlar ilgili formül satırının altına, kalanlar bölüm sonundaki "Diğer
+ * Kontroller" bloğuna gider.
+ */
+function distributeChecks(
+  adapter: ModuleAdapter,
+  section: AdapterSection,
+  mr: ModuleResult<unknown> | undefined
+): { byRow: Map<string, AnyCheck[]>; rest: AnyCheck[] } {
+  const byRow = new Map<string, AnyCheck[]>();
+  const rest: AnyCheck[] = [];
+  const rowIds = new Set(section.rows.map((r) => r.anchorId));
+  for (const c of sectionChecks(adapter, section, mr)) {
+    const suffix = c.id.startsWith(adapter.checkPrefix)
+      ? c.id.slice(adapter.checkPrefix.length)
+      : c.id;
+    const anchor = checkAnchor(adapter.key, section.rawId, suffix);
+    if (anchor && rowIds.has(anchor)) {
+      const list = byRow.get(anchor);
+      if (list) list.push(c);
+      else byRow.set(anchor, [c]);
+    } else {
+      rest.push(c);
+    }
+  }
+  return { byRow, rest };
+}
+
 // ---------------------------------------------------------------- Stiller
 
 const s = StyleSheet.create({
@@ -376,6 +407,19 @@ const s = StyleSheet.create({
   checkLabel: { fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.ink },
   checkDetail: { fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600, marginTop: 0.8 },
   checkBadge: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 600, letterSpacing: 0.6 },
+  // ---- formül satırının altına iliştirilen kontrol şeridi
+  inlineCheck: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    paddingLeft: 5,
+    paddingVertical: 1.5,
+    borderLeftWidth: 1.5,
+    gap: 4,
+  },
+  inlineCheckVerdict: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 700, letterSpacing: 0.4 },
+  inlineCheckText: { fontFamily: FONTS.sans, fontSize: 6.8, color: BRAND.ink },
+  inlineCheckDetail: { fontFamily: FONTS.mono, fontSize: 6.2, color: BRAND.gray600 },
   // ---- özet kontrol tablosu
   sumModule: { marginTop: 6 },
   sumModuleTitle: { fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink, marginBottom: 1.5 },
@@ -383,7 +427,7 @@ const s = StyleSheet.create({
 
 // ---------------------------------------------------------------- Alt bileşenler
 
-/** Alt başlık bandı: mono TR etiket + sağda mono EN gloss, hairline altı */
+/** Alt başlık bandı: mono etiket, hairline altı */
 function SubHead({ tr, en }: { tr: string; en?: string }) {
   return (
     <View
@@ -463,25 +507,71 @@ function FieldTable({
   );
 }
 
-function CheckLine({ check }: { check: AnyCheck }) {
-  const range = check.op === "range";
+/**
+ * Kontrolün dayanağı/ağırlığı — yalnız "standart + engelleyici" varsayılanının
+ * dışındaki kontrollerde basılır.
+ */
+function checkOriginText(check: AnyCheck): string {
+  const kind = checkKind(check);
+  const severity = checkSeverity(check);
+  const labels: Record<string, string> = {
+    standart: "standart",
+    uretici: "üretici",
+    firma: "firma kabulü",
+    bilgi: "bilgilendirme",
+  };
+  const parts: string[] = [];
+  if (kind !== "standart") parts.push(labels[kind]);
+  if (severity === "uyari") parts.push("uyarı");
+  return parts.join(" · ");
+}
+
+/** "gereken … · sağlanan …" karşılaştırma metni (satır içi ve tam satır ortak). */
+function checkDetailText(check: AnyCheck): string {
   const prov = toDisplayUnit(check.provided, check.unit);
   const u = prov.unit === "-" || !prov.unit ? "" : ` ${prov.unit}`;
-  const detail = range
-    ? `${fmt(prov.value)}${u} · izin: ${fmt(
-        toDisplayUnit((check as { min: number }).min, check.unit).value
-      )}…${fmt(toDisplayUnit((check as { max: number }).max, check.unit).value)}`
-    : `gereken ${fmt(
-        toDisplayUnit((check as { required: number }).required, check.unit).value
-      )}${u} · sağlanan ${fmt(prov.value)}${u}`;
+  if (check.op === "range") {
+    return `${fmt(prov.value)}${u} · izin: ${fmt(
+      toDisplayUnit((check as { min: number }).min, check.unit).value
+    )}…${fmt(toDisplayUnit((check as { max: number }).max, check.unit).value)}`;
+  }
+  return `gereken ${fmt(
+    toDisplayUnit((check as { required: number }).required, check.unit).value
+  )}${u} · sağlanan ${fmt(prov.value)}${u}`;
+}
+
+/**
+ * Formül satırının hemen altına iliştirilen kontrol şeridi. Kontroller
+ * bölüm sonunda toplu değil, ilgili hesabın yanında görünür — hangi formülün
+ * hangi kontrole karşılık geldiği tek bakışta okunur.
+ */
+function InlineCheckLine({ check }: { check: AnyCheck }) {
+  const color = check.pass ? BRAND.gray700 : BRAND.red;
+  return (
+    <View style={[s.inlineCheck, { borderLeftColor: color }]} wrap={false}>
+      <CheckGlyph pass={check.pass} size={7} />
+      <Text style={[s.inlineCheckVerdict, { color }]}>
+        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
+      </Text>
+      <Text style={s.inlineCheckText}>{check.label}</Text>
+      <Text style={s.inlineCheckDetail}>
+        {checkDetailText(check)}
+        {check.standard ? ` · ${check.standard}` : ""}
+      </Text>
+    </View>
+  );
+}
+
+function CheckLine({ check }: { check: AnyCheck }) {
+  const detail = checkDetailText(check);
   return (
     <View style={s.checkRow} wrap={false}>
       <CheckGlyph pass={check.pass} size={8} />
       <View style={{ flex: 1 }}>
         <Text style={s.checkLabel}>
           {check.label}
-          {check.nonExcel ? (
-            <Text style={{ color: BRAND.gray500 }}> (ek kontrol)</Text>
+          {checkOriginText(check) ? (
+            <Text style={{ color: BRAND.gray500 }}> ({checkOriginText(check)})</Text>
           ) : null}
         </Text>
         <Text style={s.checkDetail}>
@@ -500,19 +590,19 @@ function CheckLine({ check }: { check: AnyCheck }) {
 // ---------------------------------------------------------------- Kapak
 
 /** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kanca yolu → FEM */
-function coverSpecs(input: CalcInput): { label: string; gloss: string; value: string }[] {
+function coverSpecs(input: CalcInput): { label: string; value: string }[] {
   const sp = input.specs;
-  const out: { label: string; gloss: string; value: string }[] = [];
+  const out: { label: string; value: string }[] = [];
   if (Number.isFinite(sp.mainCapacityT)) {
     const aux = input.auxHoist && Number.isFinite(sp.auxCapacityT) ? ` / ${fmt(sp.auxCapacityT)} t` : "";
-    out.push({ label: "KAPASİTE", gloss: "CAPACITY", value: `${fmt(sp.mainCapacityT)} t${aux}` });
+    out.push({ label: "KAPASİTE", value: `${fmt(sp.mainCapacityT)} t${aux}` });
   }
   if (Number.isFinite(sp.spanM))
-    out.push({ label: "AÇIKLIK", gloss: "SPAN", value: `${fmt(sp.spanM)} m` });
+    out.push({ label: "AÇIKLIK", value: `${fmt(sp.spanM)} m` });
   if (Number.isFinite(sp.mainLiftHeightM))
-    out.push({ label: "KANCA YOLU", gloss: "HEIGHT OF LIFT", value: `${fmt(sp.mainLiftHeightM)} m` });
+    out.push({ label: "KANCA YOLU", value: `${fmt(sp.mainLiftHeightM)} m` });
   const duty = [sp.hoistLoadClass, sp.hoistMechanismClass].filter(Boolean).join(" / ");
-  if (duty) out.push({ label: "FEM SINIFI", gloss: "DUTY CLASS", value: duty });
+  if (duty) out.push({ label: "FEM SINIFI", value: duty });
   return out;
 }
 
@@ -563,7 +653,6 @@ function CoverPage(props: ReportProps) {
           <View key={row.label} style={s.specRow}>
             <View>
               <Text style={s.specLabel}>{row.label}</Text>
-              <Text style={s.specGloss}>{row.gloss}</Text>
             </View>
             <Text style={s.specValue}>{row.value}</Text>
           </View>
@@ -779,10 +868,10 @@ function SummarySection({
         meta="DESIGN CALCULATION REPORT"
       />
 
-      <SectionTag no="01" title="Teknik Özellikler" gloss="TECHNICAL SPECIFICATIONS" />
+      <SectionTag no="01" title="Teknik Özellikler" />
       <FieldTable defs={SPEC_FIELDS as AnyFieldDef[]} source={input.specs} />
 
-      <SubHead tr="ANA EKİPMAN SEÇİMLERİ" en="EQUIPMENT SELECTIONS" />
+      <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       <View style={s.kvGrid}>
         <View style={s.kvCol}>
           {groups.slice(0, Math.ceil(groups.length / 2)).map((g) => (
@@ -806,7 +895,7 @@ function SummarySection({
         </View>
       </View>
 
-      <SubHead tr="KONTROLLER" en="DESIGN CHECKS" />
+      <SubHead tr="KONTROLLER" />
       {MODULE_ADAPTERS.map((adapter) => {
         const mr = moduleResult(result, adapter.key);
         if (!mr || mr.checks.length === 0) return null;
@@ -924,11 +1013,14 @@ function CalcRowLine({
   row,
   ctx,
   showFormulas,
+  checks,
 }: {
   row: AdapterSection["rows"][number];
   ctx: unknown;
   /** false (standart seviye): yalnız sonuç — sembolik formül satırı gizli */
   showFormulas: boolean;
+  /** Bu satıra bağlı kontroller (check-anchors.ts) */
+  checks?: AnyCheck[];
 }) {
   let raw: number | string | undefined;
   try {
@@ -953,6 +1045,9 @@ function CalcRowLine({
         </View>
       )}
       {row.standard && <Text style={s.calcMeta}>{row.standard}</Text>}
+      {checks?.map((c) => (
+        <InlineCheckLine key={c.id} check={c} />
+      ))}
     </View>
   );
 }
@@ -981,14 +1076,14 @@ function ModulePage({
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
       <PageHeader
-        kicker={`BÖLÜM ${no} · SECTION ${no}`}
+        kicker={`BÖLÜM ${no}`}
         title={rest.join(" · ")}
         meta="FEM 1.001 · DIN 15018 · CMAA 70"
       />
       {adapter.sections.map((section) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
-        const checks = sectionChecks(adapter, section, mr);
+        const { byRow, rest } = distributeChecks(adapter, section, mr);
         const diagram = diagramForSection(adapter.key, section.rawId, input, result);
         return (
           // Bölüm başlığı sayfa sonunda yalnız kalmasın: minPresenceAhead ile
@@ -1001,7 +1096,7 @@ function ModulePage({
             </View>
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
               <View minPresenceAhead={30}>
-                <SubHead tr="GİRDİLER / TASARIM KABULLERİ" en="INPUTS" />
+                <SubHead tr="GİRDİLER / TASARIM KABULLERİ" />
                 <FieldTable defs={section.inputDefs} source={scoped} />
                 {section.extraInputDefs && section.extraInputDefs.length > 0 && (
                   <FieldTable defs={section.extraInputDefs} source={inputs} />
@@ -1010,22 +1105,28 @@ function ModulePage({
             )}
             {section.selectionDefs.length > 0 && (
               <View minPresenceAhead={30}>
-                <SubHead tr="KATALOG SEÇİMİ" en="SELECTION" />
+                <SubHead tr="KATALOG SEÇİMİ" />
                 <FieldTable defs={section.selectionDefs} source={state.selections} labelMono />
               </View>
             )}
             {section.rows.length > 0 && (
               <View minPresenceAhead={30}>
-                <SubHead tr="HESAP" en="CALCULATION" />
+                <SubHead tr="HESAP VE KONTROLLER" />
                 {section.rows.map((r) => (
-                  <CalcRowLine key={r.key} row={r} ctx={ctx} showFormulas={showFormulas} />
+                  <CalcRowLine
+                    key={r.key}
+                    row={r}
+                    ctx={ctx}
+                    showFormulas={showFormulas}
+                    checks={byRow.get(r.anchorId)}
+                  />
                 ))}
               </View>
             )}
-            {checks.length > 0 && (
+            {rest.length > 0 && (
               <View minPresenceAhead={30}>
-                <SubHead tr="KONTROLLER" en="CHECKS" />
-                {checks.map((c) => (
+                <SubHead tr="DİĞER KONTROLLER" />
+                {rest.map((c) => (
                   <CheckLine key={c.id} check={c} />
                 ))}
               </View>

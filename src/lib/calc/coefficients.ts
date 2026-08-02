@@ -1,6 +1,6 @@
-// FEM / DIN katsayı tabloları — Excel KATSAYILAR sayfasının kod karşılığı.
+// FEM / DIN katsayı tabloları — hesap motorunun standart sabitleri.
 // Motor saf kalsın diye tablolar gömülüdür; Supabase cat_* tabloları aynı
-// verinin UI/yönetim kopyasıdır. Kaynak: reference/excel-dump/11_KATSAYILAR.txt
+// verinin yönetim panelindeki kopyasıdır.
 
 import type { MechanismClass, ShaftMaterial, UsageClass } from "./types";
 
@@ -62,11 +62,14 @@ export function mechanismLife(usage: UsageClass): { min: number | null; max: num
 
 /** Mil malzemeleri izin verilen gerilmeler [kg/cm²] (A32:J36) */
 const SHAFT_MATERIALS: Record<ShaftMaterial, { bending: number; shear: number; combined: number }> = {
+  // S355JR: EN 10025-2 Rm,min = 470 N/mm² → CMAA 70 4.11.4.1 σa = Rm/5 = 94 MPa,
+  // τa = σa/√3 (tablo birimiyle uyumlu olsun diye kg/cm² karşılıkları).
+  S355JR: { bending: 958.5, shear: 553.4, combined: 958.5 },
   C25: { bending: 850, shear: 490, combined: 850 },
   C30: { bending: 920, shear: 530, combined: 920 },
   C35: { bending: 980, shear: 565, combined: 980 },
   "4140+QT": { bending: 1570, shear: 900, combined: 1570 },
-  "4140": { bending: 1300, shear: 1300 / Math.sqrt(3), combined: 1300 }, // Excel J35 = J34/SQRT(3)
+  "4140": { bending: 1300, shear: 1300 / Math.sqrt(3), combined: 1300 },
 };
 
 export function shaftMaterialAllowables(material: ShaftMaterial) {
@@ -74,7 +77,7 @@ export function shaftMaterialAllowables(material: ShaftMaterial) {
 }
 
 /**
- * Halat oluk adımı [mm] — DIN 15061 basamak fonksiyonu (Excel 02!L41).
+ * Halat oluk adımı [mm] — DIN 15061 basamak fonksiyonu.
  * Halat çapına göre oluk adımı = çap + pay.
  */
 export function groovePitch(ropeDiaMm: number): number {
@@ -88,7 +91,7 @@ export function groovePitch(ropeDiaMm: number): number {
   return ropeDiaMm + 7;
 }
 
-/** Tambur sacı izin verilen gerilme [kg/cm²] (Excel 02!L50) */
+/** Tambur sacı izin verilen gerilme [kg/cm²] — firma tasarım kabulü. */
 export function drumAllowableStress(material: "S235" | "S355"): number {
   return material === "S235" ? 500 : 700;
 }

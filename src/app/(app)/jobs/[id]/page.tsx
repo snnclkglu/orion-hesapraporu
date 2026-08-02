@@ -203,6 +203,7 @@ export default async function JobPage({
             jobId={job.id}
             jobNo={job.job_no}
             defaultCustomer={job.customer}
+            jobItems={itemList}
           />
         </div>
         {list.length === 0 ? (

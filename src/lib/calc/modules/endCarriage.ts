@@ -1,90 +1,168 @@
-// Başkiriş hesabı — Excel "09-BAŞKİRİŞ" sayfasının parametrik karşılığı.
-// Akış: tekerlek yükleri Fmax/Fmin → eğilme momentleri → kutu kesit
-// özellikleri → DIN 15018 dinamik katsayı (ψ = k + l·v) → gerilmeler ve
-// statik kontrol → yorulma.
+// Başkiriş hesabı — köprünün tekerlekleri taşıyan enine kutu kirişi.
 //
-// NOT — Yorulma bloğu: Excel'in L70..N104 aralığı BOZUKTUR (L70/L93 `#ref!`
-// içerir, L82 ArrayFormula artığıdır; N88/N99/N104 #NAME?/#VALUE! üretir).
-// Bu hücreler `cells` haritasına KONMAZ; yorulma bloğu 07-ANA KİRİŞ'in
-// çalışan DIN 15018 mantığıyla (tables.DIN15018_T17 + Tablo 18 formülü)
-// temiz yeniden yazılmıştır ve sonuçları `cells` içinde Excel-dışı anahtar
-// adlarıyla (fatigue.*) yer alır. İlgili kontroller nonExcel: true'dur.
+// Akış: tekerlek yükleri Fmaks/Fmin → eğilme momentleri → kutu kesit
+// özellikleri → DIN 15018 dinamik katsayı (ψ = k + l·v) → gerilmeler ve statik
+// kontrol → DIN 15018 Tablo 17/18 yorulma kontrolü.
 //
-// Birimler: kg, mm, cm³, cm⁴, kg/m, kg·cm, kg/cm² (Excel "kg.cm2" yazsa da
-// kastedilen kg/cm²'dir), N/mm².
+// Dayanaklar: FEM 1.001 T.3.2.1.1 (statik izin gerilmesi), DIN 15018 Tablo 2
+// (kaldırma sınıfına bağlı dinamik katsayı), DIN 15018 Tablo 17/18 (yorulma).
+//
+// Kesit dairesel olmadığı için ortak `shaftStress` modülü kullanılmaz; kutu
+// kesitin W ve Ay büyüklükleri burada hesaplanır. Moment de tek kollu basit
+// bağıntıyla (M = F·b) verildiğinden `solveBeam` kullanılmaz.
+//
+// Birimler: kg, mm, cm³, cm⁴, kg/m, kg·cm, kg/cm², N/mm².
 
 import { DIN15018_T17 } from "../tables";
+import { parseHoistLoadClass } from "../types";
 import type { AnyCheck, HoistClass, LoadGroup, ModuleResult, TechnicalSpecs } from "../types";
 import type { FatigueMaterial, NotchClass } from "./mainGirder";
 
-/** Diğer sayfalardan çekilen değerler */
+/**
+ * DIN 15018 Tablo 2 — kaldırma sınıfına bağlı dinamik katsayı sabitleri.
+ * ψ = k + l·v (v: kaldırma hızı [m/dak]). H1 en yumuşak, H4 en sert kaldırma.
+ */
+export const HOIST_DYNAMIC_FACTORS: Record<HoistClass, { k: number; l: number }> = {
+  H1: { k: 1.1, l: 0.0022 },
+  H2: { k: 1.2, l: 0.0044 },
+  H3: { k: 1.3, l: 0.0066 },
+  H4: { k: 1.4, l: 0.0088 },
+};
+
+/**
+ * Kaldırma sınıfı okunamazsa kullanılan güvenli taraf değeri: en sert kaldırma
+ * (en büyük dinamik katsayı).
+ */
+export const FALLBACK_HOIST_CLASS: HoistClass = "H4";
+
+/**
+ * Yük grubu okunamazsa kullanılan güvenli taraf değeri: en ağır grup
+ * (en düşük yorulma izin gerilmesi).
+ */
+export const FALLBACK_LOAD_GROUP: LoadGroup = "B6";
+
+/** FEM 1.001 T.3.2.1.1 — Yükleme Durumu I izin gerilmeleri [kg/cm²] */
+const ALLOWABLE_STRESS: Record<FatigueMaterial, number> = {
+  S235JR: 1530,
+  S355JR: 2300,
+};
+
+/** kg/cm² ↔ N/mm² dönüşümü (1 kgf = 9,81 N, 1 cm² = 100 mm²). */
+const NMM2_TO_KG_CM2 = 100 / 9.81;
+
+/** DIN 15018 7.4.5 bileşik yorulma oranı üst sınırı. */
+const FATIGUE_COMBINED_LIMIT = 1.1;
+
+/** Çelik yoğunluğu [kg/dm³] — birim ağırlık hesabı. */
+const STEEL_DENSITY = 7.85;
+
+/** Diğer modüllerden gelen değerler */
 export interface EndCarriageDeps {
-  mainHoistTotalLoadKg: number;      // 02!L16 — yük + kanca bloğu + halat [kg]
-  trolleyWeightT: number;            // 06!L5  — araba ağırlığı [t]
-  bridgeGirdersWeightT: number;      // 06!L6  — köprü ana kirişleri ağırlığı [t]
-  bridgeEndCarriagesWeightT: number; // 06!L7  — başkirişler ağırlığı [t]
+  mainHoistTotalLoadKg: number;      // yük + kanca bloğu + halat [kg]
+  trolleyWeightT: number;            // araba ağırlığı [t]
+  bridgeGirdersWeightT: number;      // köprü ana kirişleri ağırlığı [t]
+  bridgeEndCarriagesWeightT: number; // başkirişler ağırlığı [t]
 }
 
-/** Kullanıcı girdileri — Excel 09 sayfası statikleri */
+/** Kullanıcı girdileri */
 export interface EndCarriageInputs {
-  wheelSpanAMm: number;        // L14 — tekerlekler arası mesafe a [mm]
-  loadOffsetBMm: number;       // L15 — kiriş oturma noktası b [mm]
-  topPlateThicknessMm: number; // L24 — üst sac kalınlığı [mm]
-  topPlateWidthMm: number;     // N24 — üst sac genişliği [mm]
-  sidePlateThicknessMm: number; // L25 — yan sac kalınlığı [mm]
-  sidePlateHeightMm: number;   // N25 — yan sac yüksekliği [mm]
-  bottomPlateThicknessMm: number; // L26 — alt sac kalınlığı [mm]
-  bottomPlateWidthMm: number;  // N26 — alt sac genişliği [mm]
-  fatigueTensileNmm2: number;  // σB [N/mm²] — 07!F417 deseni (Excel 09'da bozuk L82)
+  wheelSpanAMm: number;           // tekerlekler arası mesafe a [mm]
+  loadOffsetBMm: number;          // kiriş oturma noktası b [mm]
+  topPlateThicknessMm: number;    // üst sac kalınlığı
+  topPlateWidthMm: number;        // üst sac genişliği
+  sidePlateThicknessMm: number;   // yan sac kalınlığı
+  sidePlateHeightMm: number;      // yan sac yüksekliği
+  bottomPlateThicknessMm: number; // alt sac kalınlığı
+  bottomPlateWidthMm: number;     // alt sac genişliği
+  fatigueTensileNmm2: number;     // malzeme kopma dayanımı σB [N/mm²]
 }
 
 /** Mühendis seçimleri */
 export interface EndCarriageSelections {
-  hoistClass: HoistClass;          // L37 — kaldırma sınıfı (H2)
-  material: FatigueMaterial;       // L49 — S235JR / S355JR (statik izin için)
-  fatigueMaterial: FatigueMaterial; // Excel niyeti: bozuk `#ref!` malzeme hücresi (L49 ile aynı)
-  fatigueLoadGroup: LoadGroup;     // L64 — B1..B6 (DIN 15018)
-  fatigueNotchClass: NotchClass;   // L65 — W0..K4 (DIN 15018)
+  /**
+   * Kaldırma sınıfı elle ezme. Verilmezse teknik özelliklerdeki kaldırma/yük
+   * sınıfının H bileşeninden ("H3/B4" → H3) türetilir.
+   */
+  hoistClassOverride?: HoistClass;
+  material: FatigueMaterial;        // statik izin gerilmesi malzemesi
+  fatigueMaterial: FatigueMaterial; // yorulma malzemesi
+  /**
+   * DIN 15018 yük grubu elle ezme. Verilmezse teknik özelliklerdeki
+   * kaldırma/yük sınıfının B bileşeninden türetilir.
+   */
+  fatigueLoadGroupOverride?: LoadGroup;
+  fatigueNotchClass: NotchClass;    // W0..K4 (DIN 15018)
 }
 
 export interface EndCarriageValues {
-  fMaxKg: number;            // L11
-  fMinKg: number;            // L12
-  mMaxKgCm: number;          // L18
-  mMinKgCm: number;          // L21
-  weightPerM: number;        // L29
-  inertiaCm4: number;        // L30
-  sectionModulusCm3: number; // L31
-  areaCm2: number;           // L32
-  shearAreaCm2: number;      // L33
-  dynamicFactor: number;     // L39 — ψ = k + l·v
-  sigmaKgCm2: number;        // L45
-  tauKgCm2: number;          // L46
-  sigmaCombinedKgCm2: number; // L47
-  allowableKgCm2: number;    // L50
-  // Yorulma (temiz yeniden yazım)
-  sigmaMaxKgCm2: number;     // L55
-  tauMaxKgCm2: number;       // L56
-  sigmaCombMaxKgCm2: number; // L57
-  sigmaMinKgCm2: number;     // L60
-  tauMinKgCm2: number;       // L61
-  sigmaCombMinKgCm2: number; // L62
-  kappa: number;             // L77 — κ = σbil,min / σbil,maks
-  zulSigmaD1Nmm2: number;    // zul σD(-1) — DIN 15018 T17 [N/mm²]
-  zulSigmaD1KgCm2: number;   // kg/cm² karşılığı (·100/9,81)
-  zulSigmaDz0KgCm2: number;  // zul σDz(0) = zul σD(-1)·5/3
-  sigmaBKgCm2: number;       // σB [kg/cm²]
+  fMaxKg: number;
+  fMinKg: number;
+  mMaxKgCm: number;
+  mMinKgCm: number;
+  weightPerM: number;
+  inertiaCm4: number;
+  sectionModulusCm3: number;
+  areaCm2: number;
+  shearAreaCm2: number;
+  hoistClass: HoistClass;    // türetilmiş ya da elle ezilmiş
+  dynamicFactor: number;     // ψ = k + l·v
+  sigmaKgCm2: number;
+  tauKgCm2: number;
+  sigmaCombinedKgCm2: number;
+  allowableKgCm2: number;
+  // Yorulma
+  sigmaMaxKgCm2: number;
+  tauMaxKgCm2: number;
+  sigmaCombMaxKgCm2: number;
+  sigmaMinKgCm2: number;
+  tauMinKgCm2: number;
+  sigmaCombMinKgCm2: number;
+  kappa: number;                // κ = σbil,min / σbil,maks
+  loadGroup: LoadGroup;         // türetilmiş ya da elle ezilmiş
+  zulSigmaD1Nmm2: number;       // zul σD(-1) — DIN 15018 T17
+  zulSigmaD1KgCm2: number;
+  zulSigmaDz0KgCm2: number;     // zul σDz(0) = zul σD(-1)·5/3
+  sigmaBKgCm2: number;          // σB [kg/cm²]
   zulSigmaDzKappaKgCm2: number; // zul σDz(κ) — DIN 15018 T18
-  zulTauW0Nmm2: number;      // zul τ için W0 T17 değeri [N/mm²]
-  zulTauDKgCm2: number;      // zul τD(κ) = W0/√3 [kg/cm²]
-  fatigueCombined: number;   // (σmax/zul σ)² + (τmax/zul τ)²
+  zulTauW0Nmm2: number;
+  zulTauDKgCm2: number;         // zul τD = zul τW0/√3
+  fatigueCombined: number;
 }
 
-const tick = (b: boolean) => (b ? "ü" : "û");
-
-/** DIN 15018 Tablo 17 lookup (07!F409 deseni) */
+/** DIN 15018 Tablo 17 lookup */
 function t17(material: FatigueMaterial, notch: NotchClass, group: LoadGroup): number {
   return DIN15018_T17[material === "S355JR" ? "St52" : "St37"][notch][group];
+}
+
+/**
+ * Kaldırma sınıfı — elle ezilmediyse teknik özelliklerdeki kaldırma/yük
+ * sınıfının H bileşeninden türetilir. Sınıflandırma tek kaynaktan okunur;
+ * modüle ayrı bir sınıf girilmesi veri çelişkisi üretir.
+ */
+export function endCarriageHoistClass(
+  specs: TechnicalSpecs,
+  sel: Pick<EndCarriageSelections, "hoistClassOverride">
+): HoistClass {
+  return (
+    sel.hoistClassOverride ??
+    parseHoistLoadClass(specs.hoistLoadClass).hoistClass ??
+    FALLBACK_HOIST_CLASS
+  );
+}
+
+/**
+ * DIN 15018 yorulma yük grubu — elle ezilmediyse teknik özelliklerdeki
+ * kaldırma/yük sınıfının B bileşeninden türetilir.
+ */
+export function endCarriageLoadGroup(
+  specs: TechnicalSpecs,
+  sel: Pick<EndCarriageSelections, "fatigueLoadGroupOverride">
+): LoadGroup {
+  return (
+    sel.fatigueLoadGroupOverride ??
+    parseHoistLoadClass(specs.hoistLoadClass).loadGroup ??
+    FALLBACK_LOAD_GROUP
+  );
 }
 
 export function computeEndCarriage(
@@ -97,141 +175,170 @@ export function computeEndCarriage(
   const checks: AnyCheck[] = [];
 
   // --- 9.1 Tekerlek yükleri ve momentler -----------------------------------
-  // Fmax = (02!L16/2 + 06!L5·1000/2)·0,9 + (06!L6 + 06!L7)·1000/4 — Excel L11
-  const L11 =
+  const bridgeSelfWeightKg =
+    ((deps.bridgeGirdersWeightT + deps.bridgeEndCarriagesWeightT) * 1000) / 4;
+  // Fmaks: araba en yakın tekere yanaşmışken (0,9 yaklaşma katsayısı)
+  const wheelLoadMaxKg =
     (deps.mainHoistTotalLoadKg / 2 + (deps.trolleyWeightT * 1000) / 2) * 0.9 +
-    ((deps.bridgeGirdersWeightT + deps.bridgeEndCarriagesWeightT) * 1000) / 4;
-  // Fmin = (06!L5·1000/2)·0,5 + (06!L6 + 06!L7)·1000/4 — Excel L12
-  const L12 =
-    ((deps.trolleyWeightT * 1000) / 2) * 0.5 +
-    ((deps.bridgeGirdersWeightT + deps.bridgeEndCarriagesWeightT) * 1000) / 4;
-  const L14 = inp.wheelSpanAMm;
-  const L15 = inp.loadOffsetBMm;
-  const L18 = (L11 * L15) / 10; // Mmaks [kg·cm]
-  const L21 = (L12 * L15) / 10; // Mmin [kg·cm]
-  Object.assign(cells, { L11, L12, L14, L15, L18, L21 });
+    bridgeSelfWeightKg;
+  // Fmin: yüksüz araba karşı uçta (0,5 payı)
+  const wheelLoadMinKg =
+    ((deps.trolleyWeightT * 1000) / 2) * 0.5 + bridgeSelfWeightKg;
+  const momentMaxKgCm = (wheelLoadMaxKg * inp.loadOffsetBMm) / 10;
+  const momentMinKgCm = (wheelLoadMinKg * inp.loadOffsetBMm) / 10;
+  Object.assign(cells, {
+    "wheel.loadMax": wheelLoadMaxKg,
+    "wheel.loadMin": wheelLoadMinKg,
+    "moment.max": momentMaxKgCm,
+    "moment.min": momentMinKgCm,
+  });
 
   // --- 9.2 Kutu kesit özellikleri ------------------------------------------
-  const L24 = inp.topPlateThicknessMm, N24 = inp.topPlateWidthMm;
-  const L25 = inp.sidePlateThicknessMm, N25 = inp.sidePlateHeightMm;
-  const L26 = inp.bottomPlateThicknessMm, N26 = inp.bottomPlateWidthMm;
-  const L29 = ((L24 * N24 + L25 * N25 * 2 + L26 * N26) * 1000 * 7.85) / 10 ** 6; // G [kg/m]
-  const L30 =
-    ((L25 / 10) * (N25 / 10) ** 3 / 12) * 2 +
-    ((N24 / 10) * (L24 / 10) ** 3 / 12 + (L24 / 10) * (N24 / 10) * ((N25 / 10) / 2) ** 2) +
-    (L26 / 10) * (N26 / 10) * ((N25 / 10) / 2) ** 2; // I [cm⁴]
-  const L31 = L30 / (N25 / 20); // W [cm³]
-  const L32 = (L24 / 10) * (N24 / 10) + (L25 / 10) * (N25 / 10) * 2 + (L26 / 10) * (N26 / 10); // A [cm²]
-  const L33 = (L25 / 10) * (N25 / 10) * 2; // Ay [cm²]
-  Object.assign(cells, { L29, L30, L31, L32, L33 });
+  const topT = inp.topPlateThicknessMm, topW = inp.topPlateWidthMm;
+  const sideT = inp.sidePlateThicknessMm, sideH = inp.sidePlateHeightMm;
+  const botT = inp.bottomPlateThicknessMm, botW = inp.bottomPlateWidthMm;
+  const weightPerM =
+    ((topT * topW + sideT * sideH * 2 + botT * botW) * 1000 * STEEL_DENSITY) / 10 ** 6;
+  // Atalet momenti [cm⁴] — yan saclar kendi ekseni, flanşlar Steiner terimiyle
+  const inertiaCm4 =
+    ((sideT / 10) * (sideH / 10) ** 3 / 12) * 2 +
+    ((topW / 10) * (topT / 10) ** 3 / 12 + (topT / 10) * (topW / 10) * ((sideH / 10) / 2) ** 2) +
+    (botT / 10) * (botW / 10) * ((sideH / 10) / 2) ** 2;
+  const sectionModulusCm3 = inertiaCm4 / (sideH / 20);
+  const areaCm2 =
+    (topT / 10) * (topW / 10) + (sideT / 10) * (sideH / 10) * 2 + (botT / 10) * (botW / 10);
+  const shearAreaCm2 = (sideT / 10) * (sideH / 10) * 2; // kesmeyi yan saclar taşır
+  Object.assign(cells, {
+    "section.weightPerLength": weightPerM,
+    "section.inertia": inertiaCm4,
+    "section.modulus": sectionModulusCm3,
+    "section.area": areaCm2,
+    "section.shearArea": shearAreaCm2,
+  });
 
   // --- 9.3 DIN 15018 dinamik katsayı ---------------------------------------
-  const hc = sel.hoistClass;
-  // k — Excel L41
-  const L41 = hc === "H1" ? 1.1 : hc === "H2" ? 1.2 : hc === "H3" ? 1.3 : 1.4;
-  // l — Excel L42
-  const L42 = hc === "H1" ? 0.0022 : hc === "H2" ? 0.0044 : hc === "H3" ? 0.0066 : 0.0088;
-  // ψ = k + l·v (v: ana kaldırma hızı 01!P6) — Excel L39, DIN 15018 Tablo 2
-  const L39 = L41 + L42 * specs.mainLiftSpeedMpm;
-  Object.assign(cells, { L39, L41, L42 });
+  const hoistClass = endCarriageHoistClass(specs, sel);
+  const { k: factorK, l: factorL } = HOIST_DYNAMIC_FACTORS[hoistClass];
+  const dynamicFactor = factorK + factorL * specs.mainLiftSpeedMpm;
+  Object.assign(cells, {
+    "load.hoistClass": hoistClass,
+    "load.factorK": factorK,
+    "load.factorL": factorL,
+    "load.dynamicFactor": dynamicFactor,
+  });
 
   // --- 9.4 Gerilmeler ve statik kontrol ------------------------------------
-  const L45 = (L18 * L39) / L31; // σ [kg/cm²]
-  const L46 = (L11 * L39) / L33; // τ [kg/cm²]
-  const L47 = Math.sqrt(L45 ** 2 + 3 * L46 ** 2); // σbil [kg/cm²]
-  // İzin verilen gerilme — Excel L50 (FEM T.3.2.1.1)
-  const L50 = sel.material === "S355JR" ? 2300 : 1530;
-  const P47 = tick(L47 <= L50);
-  Object.assign(cells, { L45, L46, L47, L50, P47 });
+  const sigmaKgCm2 = (momentMaxKgCm * dynamicFactor) / sectionModulusCm3;
+  const tauKgCm2 = (wheelLoadMaxKg * dynamicFactor) / shearAreaCm2;
+  const sigmaCombinedKgCm2 = Math.sqrt(sigmaKgCm2 ** 2 + 3 * tauKgCm2 ** 2);
+  const allowableKgCm2 = ALLOWABLE_STRESS[sel.material];
+  Object.assign(cells, {
+    "stress.bending": sigmaKgCm2,
+    "stress.shear": tauKgCm2,
+    "stress.combined": sigmaCombinedKgCm2,
+    "stress.allowable": allowableKgCm2,
+  });
   checks.push({
     id: "endCarriage.stress",
     label: "Başkiriş bileşik gerilmesi",
-    required: L47, provided: L50, unit: "kg/cm²", op: ">=", pass: L47 <= L50,
+    required: sigmaCombinedKgCm2, provided: allowableKgCm2, unit: "kg/cm²", op: ">=",
+    pass: sigmaCombinedKgCm2 <= allowableKgCm2,
     standard: "FEM 1.001 T.3.2.1.1",
+    kind: "standart", severity: "engelleyici",
   });
 
-  // --- 9.5 Yorulma gerilmeleri (Excel'in sağlam hücreleri) ------------------
-  const L55 = L18 / L31; // σmaks [kg/cm²]
-  const L56 = L11 / L33; // τmaks [kg/cm²]
-  const L57 = Math.sqrt(L55 ** 2 + 3 * L56 ** 2);
-  const L60 = L21 / L31; // σmin [kg/cm²]
-  const L61 = L12 / L33; // τmin [kg/cm²]
-  const L62 = Math.sqrt(L60 ** 2 + 3 * L61 ** 2);
-  const L77 = L62 / L57; // κ
-  // I88/I99: Excel karşılaştırma göstergeleri (=L55 / =L56) — sağlamdır
-  Object.assign(cells, { L55, L56, L57, L60, L61, L62, L77, I88: L55, I99: L56 });
+  // --- 9.5 Yorulma gerilmeleri (dinamik katsayısız, gerçek gerilme genlikleri)
+  const sigmaMaxKgCm2 = momentMaxKgCm / sectionModulusCm3;
+  const tauMaxKgCm2 = wheelLoadMaxKg / shearAreaCm2;
+  const sigmaCombMaxKgCm2 = Math.sqrt(sigmaMaxKgCm2 ** 2 + 3 * tauMaxKgCm2 ** 2);
+  const sigmaMinKgCm2 = momentMinKgCm / sectionModulusCm3;
+  const tauMinKgCm2 = wheelLoadMinKg / shearAreaCm2;
+  const sigmaCombMinKgCm2 = Math.sqrt(sigmaMinKgCm2 ** 2 + 3 * tauMinKgCm2 ** 2);
+  const kappa = sigmaCombMinKgCm2 / sigmaCombMaxKgCm2;
 
-  // --- 9.6 Yorulma izin gerilmeleri — TEMİZ YENİDEN YAZIM -------------------
-  // Excel L70/L71/L73/L85/L93/L94/L96 bozuktur; 07-ANA KİRİŞ'in çalışan
-  // deseni uygulanır: T17 lookup → zul σDz(0) → Tablo 18 κ düzeltmesi.
-  // (Excel'in bozuk L94'ü N/mm²→kg/cm² için ·9,81 kullanıyordu; doğru
-  // dönüşüm ·100/9,81'dir ve L71 ile tutarlı olan bu kullanılır.)
-  const zulSigmaD1Nmm2 = t17(sel.fatigueMaterial, sel.fatigueNotchClass, sel.fatigueLoadGroup);
-  const zulSigmaD1KgCm2 = (zulSigmaD1Nmm2 * 100) / 9.81;   // Excel L71 niyeti
-  const zulSigmaDz0KgCm2 = (zulSigmaD1KgCm2 * 5) / 3;      // Excel L73 niyeti
-  const sigmaBKgCm2 = (inp.fatigueTensileNmm2 * 100) / 9.81;
-  // zul σDz(κ) — DIN 15018 Tablo 18 (07!F419 deseni)
+  // --- 9.6 Yorulma izin gerilmeleri (DIN 15018 Tablo 17/18) ----------------
+  const loadGroup = endCarriageLoadGroup(specs, sel);
+  const zulSigmaD1Nmm2 = t17(sel.fatigueMaterial, sel.fatigueNotchClass, loadGroup);
+  const zulSigmaD1KgCm2 = zulSigmaD1Nmm2 * NMM2_TO_KG_CM2;
+  const zulSigmaDz0KgCm2 = (zulSigmaD1KgCm2 * 5) / 3;
+  const sigmaBKgCm2 = inp.fatigueTensileNmm2 * NMM2_TO_KG_CM2;
+  // zul σDz(κ) — DIN 15018 Tablo 18 gerilme oranı düzeltmesi
   const zulSigmaDzKappaKgCm2 =
-    zulSigmaDz0KgCm2 / (1 - (1 - zulSigmaDz0KgCm2 / sigmaBKgCm2 / 0.75) * L77);
-  const zulTauW0Nmm2 = t17(sel.fatigueMaterial, "W0", sel.fatigueLoadGroup);
-  const zulTauDKgCm2 = ((zulTauW0Nmm2 * 100) / 9.81) / Math.sqrt(3); // 07!G431 deseni
-  // Bileşik yorulma — Excel I104 niyeti (DIN 15018 7.4.5)
-  const fatigueCombined = (L55 / zulSigmaDzKappaKgCm2) ** 2 + (L56 / zulTauDKgCm2) ** 2;
-  // Excel-dışı anahtarlar (bozuk Excel adresleri bilinçli olarak kullanılmaz)
+    zulSigmaDz0KgCm2 / (1 - (1 - zulSigmaDz0KgCm2 / sigmaBKgCm2 / 0.75) * kappa);
+  // Kayma için çentik durumu daima W0 kabul edilir (DIN 15018 7.4.3)
+  const zulTauW0Nmm2 = t17(sel.fatigueMaterial, "W0", loadGroup);
+  const zulTauDKgCm2 = (zulTauW0Nmm2 * NMM2_TO_KG_CM2) / Math.sqrt(3);
+  const fatigueCombined =
+    (sigmaMaxKgCm2 / zulSigmaDzKappaKgCm2) ** 2 + (tauMaxKgCm2 / zulTauDKgCm2) ** 2;
+
   Object.assign(cells, {
-    "fatigue.zulSigmaD1Nmm2": zulSigmaD1Nmm2,
-    "fatigue.zulSigmaD1KgCm2": zulSigmaD1KgCm2,
-    "fatigue.zulSigmaDz0KgCm2": zulSigmaDz0KgCm2,
-    "fatigue.sigmaBKgCm2": sigmaBKgCm2,
-    "fatigue.zulSigmaDzKappaKgCm2": zulSigmaDzKappaKgCm2,
-    "fatigue.zulTauW0Nmm2": zulTauW0Nmm2,
-    "fatigue.zulTauDKgCm2": zulTauDKgCm2,
+    "fatigue.sigmaMax": sigmaMaxKgCm2,
+    "fatigue.tauMax": tauMaxKgCm2,
+    "fatigue.combinedMax": sigmaCombMaxKgCm2,
+    "fatigue.sigmaMin": sigmaMinKgCm2,
+    "fatigue.tauMin": tauMinKgCm2,
+    "fatigue.combinedMin": sigmaCombMinKgCm2,
+    "fatigue.kappa": kappa,
+    "fatigue.loadGroup": loadGroup,
+    "fatigue.allowableD1Nmm2": zulSigmaD1Nmm2,
+    "fatigue.allowableD1KgCm2": zulSigmaD1KgCm2,
+    "fatigue.allowableDz0KgCm2": zulSigmaDz0KgCm2,
+    "fatigue.tensileKgCm2": sigmaBKgCm2,
+    "fatigue.allowableSigmaKgCm2": zulSigmaDzKappaKgCm2,
+    "fatigue.allowableTauW0Nmm2": zulTauW0Nmm2,
+    "fatigue.allowableTauKgCm2": zulTauDKgCm2,
     "fatigue.combined": fatigueCombined,
+    "fatigue.combinedLimit": FATIGUE_COMBINED_LIMIT,
   });
   checks.push({
     id: "endCarriage.fatigue.sigma",
     label: "Yorulma σmaks ≤ zul σDz(κ)",
-    required: L55, provided: zulSigmaDzKappaKgCm2, unit: "kg/cm²", op: ">=",
-    pass: L55 <= zulSigmaDzKappaKgCm2,
-    standard: "DIN 15018 T.17/18", nonExcel: true,
+    required: sigmaMaxKgCm2, provided: zulSigmaDzKappaKgCm2, unit: "kg/cm²", op: ">=",
+    pass: sigmaMaxKgCm2 <= zulSigmaDzKappaKgCm2,
+    standard: "DIN 15018 T.17/18",
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "endCarriage.fatigue.tau",
     label: "Yorulma τmaks ≤ zul τD(κ)",
-    required: L56, provided: zulTauDKgCm2, unit: "kg/cm²", op: ">=",
-    pass: L56 <= zulTauDKgCm2,
-    standard: "DIN 15018 T.17", nonExcel: true,
+    required: tauMaxKgCm2, provided: zulTauDKgCm2, unit: "kg/cm²", op: ">=",
+    pass: tauMaxKgCm2 <= zulTauDKgCm2,
+    standard: "DIN 15018 T.17",
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: "endCarriage.fatigue.combined",
     label: "Bileşik yorulma oranı",
-    required: fatigueCombined, provided: 1.1, unit: "-", op: ">=",
-    pass: fatigueCombined <= 1.1,
-    standard: "DIN 15018 7.4.5", nonExcel: true,
+    required: fatigueCombined, provided: FATIGUE_COMBINED_LIMIT, unit: "-", op: ">=",
+    pass: fatigueCombined <= FATIGUE_COMBINED_LIMIT,
+    standard: "DIN 15018 7.4.5",
+    kind: "standart", severity: "engelleyici",
   });
 
   const values: EndCarriageValues = {
-    fMaxKg: L11,
-    fMinKg: L12,
-    mMaxKgCm: L18,
-    mMinKgCm: L21,
-    weightPerM: L29,
-    inertiaCm4: L30,
-    sectionModulusCm3: L31,
-    areaCm2: L32,
-    shearAreaCm2: L33,
-    dynamicFactor: L39,
-    sigmaKgCm2: L45,
-    tauKgCm2: L46,
-    sigmaCombinedKgCm2: L47,
-    allowableKgCm2: L50,
-    sigmaMaxKgCm2: L55,
-    tauMaxKgCm2: L56,
-    sigmaCombMaxKgCm2: L57,
-    sigmaMinKgCm2: L60,
-    tauMinKgCm2: L61,
-    sigmaCombMinKgCm2: L62,
-    kappa: L77,
+    fMaxKg: wheelLoadMaxKg,
+    fMinKg: wheelLoadMinKg,
+    mMaxKgCm: momentMaxKgCm,
+    mMinKgCm: momentMinKgCm,
+    weightPerM,
+    inertiaCm4,
+    sectionModulusCm3,
+    areaCm2,
+    shearAreaCm2,
+    hoistClass,
+    dynamicFactor,
+    sigmaKgCm2,
+    tauKgCm2,
+    sigmaCombinedKgCm2,
+    allowableKgCm2,
+    sigmaMaxKgCm2,
+    tauMaxKgCm2,
+    sigmaCombMaxKgCm2,
+    sigmaMinKgCm2,
+    tauMinKgCm2,
+    sigmaCombMinKgCm2,
+    kappa,
+    loadGroup,
     zulSigmaD1Nmm2,
     zulSigmaD1KgCm2,
     zulSigmaDz0KgCm2,

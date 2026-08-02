@@ -389,7 +389,7 @@ export function buildEquipmentGroups(input: CalcInput): EqGroup[] {
           component: "Kanca bloğu mili",
           brand: "-",
           model: "-",
-          spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((input.hookBlock.inputs.shaftDiaCm ?? 0) * 10)} mm`,
+          spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((input.hookBlock.inputs.shaftD1Cm ?? 0) * 10)} mm`,
           qty: 1,
         },
       ],
@@ -657,9 +657,9 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
       name: "Kanca Bloğu",
       rows: [
         { label: "Kanca tanımı", value: textOr(sel.hookDesignation) },
-        { label: "Kanca kapasitesi", value: sel.hookCapacityKg, unit: "kg" },
+        { label: "Kanca kapasitesi", value: result.hookBlock?.values.hookCapacityKg ?? sel.hookCapacityKg, unit: "kg" },
         { label: "Makara çapı (halat ekseni)", value: sel.sheaveDiaMm, unit: "mm" },
-        { label: "Mil çapı", value: input.hookBlock.inputs.shaftDiaCm * 10, unit: "mm" },
+        { label: "Mil çapı (D1)", value: input.hookBlock.inputs.shaftD1Cm * 10, unit: "mm" },
         ...(input.mainHoist
           ? [{ label: "Kanca bloğu ağırlığı", value: input.mainHoist.inputs.hookBlockWeightKg, unit: "kg" }]
           : []),

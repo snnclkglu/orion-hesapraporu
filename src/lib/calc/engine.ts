@@ -87,7 +87,7 @@ export function runCalc(input: CalcInput): CalcResult {
       computeHoistGroup(specs, "aux", input.auxHoist.inputs, input.auxHoist.selections)
   );
 
-  // Kanca bloğu: ana kaldırmadan beslenir (Excel 04 <- 02 referansları)
+  // Kanca bloğu: ana kaldırma grubundan beslenir
   const hookBlock = push(
     input.hookBlock && mainHoist && input.mainHoist
       ? computeHookBlock(
@@ -103,7 +103,7 @@ export function runCalc(input: CalcInput): CalcResult {
       : undefined
   );
 
-  // Araba: kanca donanımı ağırlığı ana kaldırmadan (Excel 05!L6 <- 02!L14+L15)
+  // Araba: kanca donanımı ağırlığı ana kaldırmadan 
   const hookEquipmentT = input.mainHoist
     ? (input.mainHoist.inputs.hookBlockWeightKg + input.mainHoist.inputs.ropeWeightKg) / 1000
     : 3.5;
@@ -115,7 +115,7 @@ export function runCalc(input: CalcInput): CalcResult {
       })
   );
 
-  // Köprü: araba ağırlığı araba modülünden (Excel 06!L5 <- 05!L5)
+  // Köprü: araba ağırlığı araba modülünden 
   const bridge = push(
     input.bridge &&
       computeTravelGroup(specs, "bridge", input.bridge.inputs, input.bridge.selections, {
@@ -124,35 +124,35 @@ export function runCalc(input: CalcInput): CalcResult {
       })
   );
 
-  // Ana kiriş: ana kaldırma + araba + köprüden beslenir (Excel 07 çapraz referansları)
+  // Ana kiriş: ana kaldırma + araba + köprüden beslenir 
   const girder = push(
     input.girder && input.mainHoist && input.trolley && input.bridge && trolley && bridge
       ? computeMainGirder(specs, input.girder.inputs, input.girder.selections, {
-          mainHookBlockWeightKg: input.mainHoist.inputs.hookBlockWeightKg, // 02!L14
-          mainRopeWeightKg: input.mainHoist.inputs.ropeWeightKg,           // 02!L15
-          trolleyWeightT: input.trolley.inputs.trolleyWeightT,             // 05!L5
-          trolleyWheelCount: input.trolley.inputs.wheelCount,              // 05!L10
-          trolleyActualSpeedMpm: num(trolley.cells.L109, 0),               // 05!L109
-          trolleyAccelTimeS: num(trolley.cells.L110, 0),                   // 05!L110
-          bridgeGirdersWeightT: input.bridge.inputs.bridgeWeightT,         // 06!L6
-          bridgeEndCarriagesWeightT: input.bridge.inputs.otherWeightsT,    // 06!L7
-          bridgeWheelCount: input.bridge.inputs.wheelCount,                // 06!L14
-          bridgeActualSpeedMpm: num(bridge.cells.L115, 0),                 // 06!L115
-          bridgeAccelTimeS: num(bridge.cells.L117, 0),                     // 06!L117
+          mainHookBlockWeightKg: input.mainHoist.inputs.hookBlockWeightKg,
+          mainRopeWeightKg: input.mainHoist.inputs.ropeWeightKg,
+          trolleyWeightT: input.trolley.inputs.trolleyWeightT,
+          trolleyWheelCount: input.trolley.inputs.wheelCount,
+          trolleyActualSpeedMpm: trolley.values.actualSpeedMpm,
+          trolleyAccelTimeS: trolley.values.startupTimeS,
+          bridgeGirdersWeightT: input.bridge.inputs.bridgeWeightT,
+          bridgeEndCarriagesWeightT: input.bridge.inputs.otherWeightsT,
+          bridgeWheelCount: input.bridge.inputs.wheelCount,
+          bridgeActualSpeedMpm: bridge.values.actualSpeedMpm,
+          bridgeAccelTimeS: bridge.values.startupTimeS,
         })
       : undefined
   );
 
   const buckling = push(input.buckling && computeBuckling(input.buckling.inputs));
 
-  // Başkiriş: ana kaldırma toplam yükü + köprü ağırlıkları (Excel 09 referansları)
+  // Başkiriş: ana kaldırma toplam yükü + köprü ağırlıkları 
   const endCarriage = push(
     input.endCarriage && mainHoist && input.trolley && input.bridge
       ? computeEndCarriage(specs, input.endCarriage.inputs, input.endCarriage.selections, {
-          mainHoistTotalLoadKg: mainHoist.values.totalLoadKg,             // 02!L16
-          trolleyWeightT: input.trolley.inputs.trolleyWeightT,            // 06!L5
-          bridgeGirdersWeightT: input.bridge.inputs.bridgeWeightT,        // 06!L6
-          bridgeEndCarriagesWeightT: input.bridge.inputs.otherWeightsT,   // 06!L7
+          mainHoistTotalLoadKg: mainHoist.values.totalLoadKg,
+          trolleyWeightT: input.trolley.inputs.trolleyWeightT,
+          bridgeGirdersWeightT: input.bridge.inputs.bridgeWeightT,
+          bridgeEndCarriagesWeightT: input.bridge.inputs.otherWeightsT,
         })
       : undefined
   );

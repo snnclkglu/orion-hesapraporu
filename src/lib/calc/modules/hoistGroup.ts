@@ -1,10 +1,25 @@
-// Kaldırma grubu hesabı — Excel "02-ANA KALDIRMA GRUBU" / "03-YRD KALDIRMA GRUBU"
-// sayfalarının parametrik karşılığı. Formül zinciri hücre hücre korunmuştur;
-// her hesaplanan değer `cells` haritasında Excel adresiyle yer alır ve golden
-// testler bu haritayı Excel V5 dökümüyle karşılaştırır.
+// Kaldırma grubu hesabı — ana ve yardımcı kaldırma mekanizmasının tek
+// parametrik modülü (`which` ile hangi mekanizma olduğu seçilir).
 //
-// Birimler Excel ile aynıdır: kg, kg/cm², cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
+// YÖNTEM doğrudan standartlara dayanır:
+//   · FEM 1.001 T.4.2.2.1.2 — halat emniyet katsayısı Zp
+//   · FEM 1.001 T.4.2.3.1.1 — minimum tambur çapı katsayısı H
+//   · FEM 1.001 T.2.1.3.2   — mekanizma kullanım sınıfı → gerekli rulman ömrü
+//   · DIN 15061             — tambur oluk adımı
+//   · CMAA 70 4.11.4.1      — mil gerilmeleri
+//   · CMAA 70 5.2.9.1.1     — kaldırma motoru gücü
+//
+// Hesaplanan her büyüklük `cells` haritasında SEMANTİK anahtarla
+// (`<blok>.<büyüklük>`) yer alır: `rope.load`, `drum.minDia`,
+// `drumShaft.reactionGearbox`, `gearbox.requiredTorque` gibi. Sunum katmanı ve
+// tarihsel doğrulama fikstürü yalnız bu anahtarları okur.
+//
+// Ortak kütüphaneler: halat donanımı `reeving.ts`, kiriş statiği `beam.ts`,
+// dairesel kesit gerilmeleri `shaftStress.ts` üzerinden çözülür.
+//
+// Birimler: kg, kg/cm², cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
 
+import { solveBeam, type PointLoad } from "../beam";
 import {
   drumAllowableStress,
   drumCoefficient,
@@ -13,100 +28,200 @@ import {
   ropeSafetyFactor,
   shaftMaterialAllowables,
 } from "../coefficients";
+import { commonReevingByLabel, deriveReeving, type Reeving } from "../reeving";
+import { shaftStress } from "../shaftStress";
 import { KGF_TO_MPA } from "@/lib/units";
 import type {
   AnyCheck,
   DrumMaterial,
+  MechanismClass,
   ModuleResult,
   ShaftMaterial,
   TechnicalSpecs,
+  UsageClass,
 } from "../types";
-
-// Excel bazı hücrelerde PI() (tam hassasiyet), bazılarında 3.14159 kullanır.
-// Golden sadakat için ikisi de aynen korunur.
-const PI_EXCEL = 3.14159;
 
 export type HoistWhich = "main" | "aux";
 
-/** Kullanıcı girdileri (tasarım kabulleri) — Excel L sütunundaki statikler */
+// ------------------------------------------------- tambur mili geometrisi
+
+/** Halat yükü konumu seçenekleri (girdi alanı listesiyle aynı metinler). */
+export const ROPE_POSITION_AUTO = "En elverişsiz (otomatik)";
+export const ROPE_POSITION_OUTER = "Dış uçlarda (yanaklara yakın)";
+export const ROPE_POSITION_INNER = "İç uçlarda (ortaya yakın)";
+export const ROPE_POSITIONS = [
+  ROPE_POSITION_AUTO,
+  ROPE_POSITION_OUTER,
+  ROPE_POSITION_INNER,
+] as const;
+
+export function ropePositionMode(v: string | undefined): "auto" | "outer" | "inner" {
+  if (v === ROPE_POSITION_OUTER) return "outer";
+  if (v === ROPE_POSITION_INNER) return "inner";
+  return "auto";
+}
+
+/** Yiv bölgesinin uç konumları (mesnet A'dan uzaklık, cm). */
+interface GrooveSection {
+  /** Yanaklara yakın uç */
+  outer: number;
+  /** Tambur ortasına yakın uç */
+  inner: number;
+}
+
+export interface DrumShaftGeometry {
+  aCm: number;          // redüktör tarafı konsol (moment kolu)
+  gCm: number;          // tambur yatağı tarafı konsol (moment kolu)
+  spanCm: number;       // mesnetler arası açıklık L
+  weightArmCm: number;  // tambur ağırlık merkezinin mesnet A'ya uzaklığı
+  sections: GrooveSection[];
+}
+
+const pos = (v: number | undefined): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
+
+/**
+ * A…G ölçü zincirinden mesnet açıklığını, tambur ağırlık merkezini ve yiv
+ * bölgelerinin uç konumlarını türetir. Sağ yiv bölgesi (E) sıfırsa tek helisli
+ * tambur kabul edilir ve tek yük noktası kullanılır.
+ */
+export function drumShaftGeometry(inp: HoistInputs): DrumShaftGeometry {
+  const A = pos(inp.drumSpanACm);
+  const B = pos(inp.drumSpanBCm);
+  const C = pos(inp.drumSpanCCm);
+  const D = pos(inp.drumSpanDCm);
+  const E = pos(inp.drumSpanECm);
+  const F = pos(inp.drumSpanFCm);
+  const G = pos(inp.drumSpanGCm);
+  const barrel = B + C + D + E + F;   // yanaklar arası namlu boyu
+  const span = A + barrel + G;
+  const sections: GrooveSection[] = [{ outer: A + B, inner: A + B + C }];
+  if (E > 0) sections.push({ outer: A + B + C + D + E, inner: A + B + C + D });
+  return {
+    aCm: A,
+    gCm: G,
+    spanCm: span > 0 ? span : 1,
+    weightArmCm: A + barrel / 2,
+    sections,
+  };
+}
+
+
+/** Kullanıcı girdileri (tasarım kabulleri) */
 export interface HoistInputs {
-  drivenFalls: number;          // L5  — tahrikli halat sayısı
-  totalFalls: number;           // O5  — toplam halat sayısı
-  sheaveEfficiency: number;     // L7  — makara verimi (0.985)
-  fixedSheaveCount: number;     // L8  — sabit makara adedi
-  hookBlockWeightKg: number;    // L14 — kanca bloğu/kepçe ağırlığı
-  ropeWeightKg: number;         // L15 — halat ağırlığı
-  drumWallThicknessMm: number;  // L42 — tambur et kalınlığı
-  safetyGrooveCount: number;    // L58 — emniyet sarımı
-  drumWeightKg: number;         // L69 — tambur ağırlığı
-  shaftSpanACm: number;         // L70 — mil mesnet geometrisi a
-  shaftSpanBCm: number;         // L71 — b
-  shaftSpanCCm: number;         // L72 — c
-  shaftMomentArmCm: number;     // L73 — moment kolu
-  shaftArm2Cm: number;          // L74 — (gösterim)
-  shaftDiaCm: number;           // L76 — mil çapı (eğilme)
-  shaftShearDiaCm: number;      // L77 — mil çapı (kesme)
-  drumWeldThicknessCm: number;  // L99  — tambur kaynak kalınlığı
-  drumWeldAllowable: number;    // L101 — kaynak izin gerilmesi [kg/cm²]
-  shaftWeldThicknessCm: number; // L115 — mil kaynak kalınlığı
-  shaftWeldAllowable: number;   // L117
-  bearingFactorY1: number;      // L142 — rulman eşdeğer yük katsayısı (statik)
-  bearingFactorY2: number;      // L143 — (dinamik)
-  drumCount: number;            // L163 — tambur adedi
-  gearboxServiceFactor: number; // L166 — redüktör emniyet katsayısı
-  reducerStages: number;        // L195 — kademe sayısı
-  stageEfficiency: number;      // L196 — kademe verimi
-  tempFactor: number;           // L203 — sıcaklık faktörü
-  motorDivisor: number;         // L205 — güç bölücü (motor başına)
-  brakeServiceFactor: number;   // L219 — fren emniyet katsayısı
-  motorCouplingServiceFactor: number; // L234
-  drumCouplingDivisor: number;  // L248
-  drumCouplingServiceFactor: number;  // L250
+  /** Tambura sarılan (tahrikli) halat kolu sayısı */
+  drivenFalls: number;
+  /** Kanca bloğunu taşıyan toplam halat kolu sayısı */
+  totalFalls: number;
+  /** Tek makara verimi η_m */
+  sheaveEfficiency: number;
+  /** Verim zincirindeki sabit (yönlendirme) makara adedi */
+  fixedSheaveCount: number;
+  /**
+   * Hazır halat donanımı etiketi ("2/4", "4/8" …). Tanınan bir etiket
+   * seçildiğinde tahrikli/toplam kol sayıları o donanımdan okunur; "Elle giriş"
+   * veya tanınmayan bir değerde yukarıdaki iki alan geçerlidir.
+   */
+  reevingLabel?: string;
+  hookBlockWeightKg: number;    // kanca bloğu / kepçe ağırlığı
+  ropeWeightKg: number;         // askıdaki halatların ağırlığı
+  drumWallThicknessMm: number;  // tambur et kalınlığı
+  safetyGrooveCount: number;    // emniyet sarımı adedi
+  drumWeightKg: number;         // tambur ağırlığı W
+  /**
+   * Tambur mili ölçü zinciri (cm) — teknik resimdeki A…G bölümleri, soldan
+   * (redüktör tarafı) sağa (tambur yatağı tarafı):
+   *   A: redüktör tarafı mesnet ekseni → sol yanak   (aynı zamanda moment kolu)
+   *   B: sol yanak → sol yiv bölgesi başlangıcı
+   *   C: sol yiv bölgesi uzunluğu
+   *   D: ortadaki yivsiz bölge (iki helis arası)
+   *   E: sağ yiv bölgesi uzunluğu
+   *   F: sağ yiv bölgesi sonu → sağ yanak
+   *   G: sağ yanak → tambur yatağı mesnet ekseni     (aynı zamanda moment kolu)
+   */
+  drumSpanACm: number;
+  drumSpanBCm: number;
+  drumSpanCCm: number;
+  drumSpanDCm: number;
+  drumSpanECm: number;
+  drumSpanFCm: number;
+  drumSpanGCm: number;
+  /** Halat yüklerinin yiv bölgesindeki konumu (bkz. ROPE_POSITION_*) */
+  ropeLoadPosition?: string;
+  shaftD1Cm: number;            // D1: eğilme gerilmesi kesiti çapı (yanak dibi)
+  shaftD2Cm: number;            // D2: yatak / rulman oturma çapı (kesme kesiti)
+  drumWeldThicknessCm: number;  // tambur kaynak kalınlığı
+  drumWeldAllowable: number;    // tambur kaynağı izin gerilmesi [MPa]
+  shaftWeldThicknessCm: number; // mil kaynak kalınlığı
+  shaftWeldAllowable: number;   // mil kaynağı izin gerilmesi [MPa]
+  bearingFactorY1: number;      // rulman eşdeğer yük katsayısı (statik)
+  bearingFactorY2: number;      // rulman eşdeğer yük katsayısı (dinamik)
+  drumCount: number;            // tambur adedi
+  gearboxServiceFactor: number; // redüktör emniyet katsayısı
+  reducerStages: number;        // redüktör kademe sayısı
+  stageEfficiency: number;      // kademe verimi
+  tempFactor: number;           // sıcaklık faktörü
+  motorDivisor: number;         // güç bölücü (motor başına)
+  brakeServiceFactor: number;   // fren emniyet katsayısı
+  motorCouplingServiceFactor: number;
+  drumCouplingDivisor: number;
+  drumCouplingServiceFactor: number;
+  /**
+   * Otomatik alan anahtarları (sunum tarafı; hesap zincirini değiştirmez).
+   * Açıkken sihirbaz ilgili girdiyi `lib/calc/derive.ts` türetmesiyle doldurur
+   * ve alanı salt-okunur yapar.
+   */
+  ropeWeightAuto?: boolean;
+  sheaveEfficiencyAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
 export interface HoistSelections {
-  ropeBrand: string;            // L23
-  ropeDiaMm: number;            // L24
-  ropeConstruction: string;     // L25 (6x36)
-  ropeCore: string;             // L26
-  ropeWireStrength: number;     // L27 [kg/mm²]
-  ropeBreakingLoadKn: number;   // Q28
-  drumDiaMm: number;            // L39
-  drumMaterial: DrumMaterial;   // L40
-  drumGrooveLengthText: string; // L63 (ör. "2 x 220")
-  shaftMaterial: ShaftMaterial; // L90
-  bearingType: string;          // L133
-  bearingCode: string;          // L134 (ör. 22212)
-  bearingDynCKn: number;        // L140
-  bearingStatC0Kn: number;      // L141
-  gearboxModel: string;         // L174
-  gearboxRatio: number;         // L175
-  gearboxNominalTorqueKnm: number; // L176
-  gearboxInputShaftMm: number;  // L177
-  gearboxOutputShaftMm: number; // L178
-  gearboxWeightKg: number;      // L180
-  gearboxAllowedRadialKn: number; // L188
-  motorPowerKw: number;         // L208
-  motorRpm: number;             // O208
-  motorShaftMm: number;         // L209
-  motorBrand: string;           // L210
-  motorCount: number;           // L211
-  brakeBrand: string;           // L222
-  brakeModel: string;           // L223
-  brakeTorqueNm: number;        // L224
-  brakeWheelDiaMm: number;      // L225
-  brakeQty: number;             // L226 / O228
-  motorCouplingBrand: string;   // L237
-  motorCouplingModel: string;   // L238
-  motorCouplingWheelDiaMm: number; // L239
-  motorCouplingTorqueNm: number;   // L240
-  motorCouplingDmaxMm: number;     // L241
-  drumCouplingBrand: string;    // L256
-  drumCouplingModel: string;    // L257
-  drumCouplingTorqueNm: number; // L258
-  drumCouplingRadialN: number;  // L259
-  drumCouplingDmaxMm: number;   // L260
+  ropeBrand: string;
+  ropeDiaMm: number;
+  ropeConstruction: string;     // ör. "6x36"
+  ropeCore: string;
+  ropeWireStrength: number;     // [kg/mm²]
+  ropeBreakingLoadKn: number;
+  /** Halat metre ağırlığı [kg/m] — katalogdan gelir, halat ağırlığı türetmesinde kullanılır */
+  ropeWeightKgPerM?: number;
+  /** Makara yataklama tipi — makara verimi türetmesinde kullanılır */
+  sheaveBearingKind?: string;
+  drumDiaMm: number;
+  drumMaterial: DrumMaterial;
+  drumGrooveLengthText: string; // ör. "2 x 220"
+  shaftMaterial: ShaftMaterial;
+  bearingType: string;
+  bearingCode: string;          // ör. 22212
+  bearingDynCKn: number;
+  bearingStatC0Kn: number;
+  gearboxModel: string;
+  gearboxRatio: number;
+  gearboxNominalTorqueKnm: number;
+  gearboxInputShaftMm: number;
+  gearboxOutputShaftMm: number;
+  gearboxWeightKg: number;
+  gearboxAllowedRadialKn: number;
+  motorPowerKw: number;
+  motorRpm: number;
+  motorShaftMm: number;
+  motorBrand: string;
+  motorCount: number;
+  brakeBrand: string;
+  brakeModel: string;
+  brakeTorqueNm: number;
+  brakeWheelDiaMm: number;
+  brakeQty: number;
+  motorCouplingBrand: string;
+  motorCouplingModel: string;
+  motorCouplingWheelDiaMm: number;
+  motorCouplingTorqueNm: number;
+  motorCouplingDmaxMm: number;
+  drumCouplingBrand: string;
+  drumCouplingModel: string;
+  drumCouplingTorqueNm: number;
+  drumCouplingRadialN: number;
+  drumCouplingDmaxMm: number;
 }
 
 export interface HoistValues {
@@ -130,10 +245,28 @@ export interface HoistValues {
   drumAllowable: number;
   requiredGrooves: number;
   requiredGrooveLengthMm: number;
-  // Mil
+  // Mil (tambur mili — iki mesnetli kiriş)
+  /** Mesnetler arası açıklık L = A+B+C+D+E+F+G [cm] */
+  drumShaftSpanCm: number;
+  /** Tambur ağırlık merkezinin redüktör tarafı mesnede uzaklığı [cm] */
+  drumWeightArmCm: number;
+  /** Yönetici yükleme halindeki halat yükü konumları [cm] */
+  ropeLoadPositionsCm: number[];
+  /** Tambur üzerindeki halat yükü sayısı ve tekil yük [kg] */
+  ropeLoadCount: number;
+  ropeLoadPerPointKg: number;
+  /** Redüktör tarafı mesnet reaksiyonu (Ra) [kg] */
+  reactionGearboxKg: number;
+  /** Tambur yatağı tarafı mesnet reaksiyonu (Rg) [kg] */
+  reactionBearingKg: number;
+  /** Geriye uyum: Ra / Rg takma adları */
   reactionAKg: number;
   reactionBKg: number;
+  momentGearboxKgCm: number;
+  momentBearingKgCm: number;
   shaftMomentKgCm: number;
+  /** Gerilmelerin yönetici olduğu taraf */
+  shaftGoverningSide: "redüktör" | "tambur yatağı";
   shaftBendingStress: number;
   shaftShearStress: number;
   shaftCombinedStress: number;
@@ -178,6 +311,36 @@ export interface HoistValues {
   drumCouplingActualSafety: number;
 }
 
+/**
+ * Girdilerden halat donanımı tanımını kurar — donanımın TEK kaynağı budur.
+ * Hazır bir donanım etiketi seçilmişse ("2/4", "4/8" …) kol sayıları o
+ * seçimden okunur; aksi hâlde girdideki serbest değerler geçerlidir.
+ */
+export function hoistReeving(inp: HoistInputs): Reeving {
+  const preset = inp.reevingLabel ? commonReevingByLabel(inp.reevingLabel) : undefined;
+  return {
+    drivenFalls: preset?.drivenFalls ?? inp.drivenFalls,
+    totalFalls: preset?.totalFalls ?? inp.totalFalls,
+    fixedSheaveCount: inp.fixedSheaveCount,
+    sheaveEfficiency: inp.sheaveEfficiency,
+  };
+}
+
+/**
+ * Mekanizma sınıfı. Yardımcı kaldırma bağımsız bir mekanizmadır; kendi sınıfı
+ * tanımlı değilse (eski revizyonlar) ana kaldırmanınki kullanılır.
+ */
+function mechanismClassFor(specs: TechnicalSpecs, which: HoistWhich): MechanismClass {
+  if (which === "aux") return specs.auxMechanismClass ?? specs.hoistMechanismClass;
+  return specs.hoistMechanismClass;
+}
+
+/** Kullanım sınıfı — mekanizma sınıfıyla aynı geriye uyum kuralı. */
+function usageClassFor(specs: TechnicalSpecs, which: HoistWhich): UsageClass {
+  if (which === "aux") return specs.auxUsageClass ?? specs.hoistUsageClass;
+  return specs.hoistUsageClass;
+}
+
 export function computeHoistGroup(
   specs: TechnicalSpecs,
   which: HoistWhich,
@@ -187,345 +350,569 @@ export function computeHoistGroup(
   const capacityT = which === "main" ? specs.mainCapacityT : specs.auxCapacityT;
   const liftHeightM = which === "main" ? specs.mainLiftHeightM : specs.auxLiftHeightM;
   const liftSpeedMpm = which === "main" ? specs.mainLiftSpeedMpm : specs.auxLiftSpeedMpm;
-  // Excel her iki sayfada da AnakaldırmaM (P12) ve P13 kullanır (yrd için ayrı sınıf yok).
-  const mech = specs.hoistMechanismClass;
-  const usage = specs.hoistUsageClass;
+  const mech = mechanismClassFor(specs, which);
+  const usage = usageClassFor(specs, which);
 
   const cells: Record<string, number | string> = {};
   const checks: AnyCheck[] = [];
-  const tick = (b: boolean) => (b ? "ü" : "û");
 
   // --- 2.1 Halat -----------------------------------------------------------
-  const L9 = inp.totalFalls / inp.drivenFalls; // mekanik avantaj
-  const L11 =
-    ((inp.sheaveEfficiency ** inp.fixedSheaveCount) / L9) *
-    ((1 - inp.sheaveEfficiency ** L9) / (1 - inp.sheaveEfficiency)); // halat verimi
-  const L13 = capacityT * 1000;
-  const L16 = L13 + inp.hookBlockWeightKg + inp.ropeWeightKg;
-  const L18 = ropeSafetyFactor(mech, "moving");
-  const L19 = L16 / inp.totalFalls / L11; // halat yükü [kg]
-  const L20 = L19 * L18; // gerekli min kopma yükü [kg]
-  const L28 = (sel.ropeBreakingLoadKn / 9.81) * 1000; // seçilen halat kopma yükü [kg]
-  const L30 = L28 / L19; // gerçekleşen emniyet
-  Object.assign(cells, { L9, L11, L13, L16, L18, L19, L20, L28, L30, O30: L18, R30: tick(L30 >= L18) });
+  // Donanım (mekanik avantaj + halat verimi) tek kaynaktan gelir: reeving.ts.
+  const reeving = hoistReeving(inp);
+  const rig = deriveReeving(reeving);
+  const mechanicalAdvantage = rig.mechanicalAdvantage;
+  const ropeEfficiency = rig.ropeEfficiency;
+  const hoistedLoadKg = capacityT * 1000;
+  const totalLoadKg = hoistedLoadKg + inp.hookBlockWeightKg + inp.ropeWeightKg;
+  const requiredRopeSafety = ropeSafetyFactor(mech, "moving");
+  const ropeLoadKg = totalLoadKg / reeving.totalFalls / ropeEfficiency;
+  const requiredBreakingKg = ropeLoadKg * requiredRopeSafety;
+  const actualBreakingKg = (sel.ropeBreakingLoadKn / 9.81) * 1000;
+  const actualRopeSafety = actualBreakingKg / ropeLoadKg;
+  Object.assign(cells, {
+    "reeving.mechanicalAdvantage": mechanicalAdvantage,
+    "reeving.ropeEfficiency": ropeEfficiency,
+    "load.hoisted": hoistedLoadKg,
+    "load.total": totalLoadKg,
+    "rope.requiredSafety": requiredRopeSafety,
+    "rope.load": ropeLoadKg,
+    "rope.requiredBreakingLoad": requiredBreakingKg,
+    "rope.breakingLoad": actualBreakingKg,
+    "rope.actualSafety": actualRopeSafety,
+  });
   checks.push({
     id: `${which}.rope.safety`,
     label: "Halat emniyet katsayısı",
-    required: L18, provided: L30, unit: "-", op: ">=", pass: L30 >= L18,
+    required: requiredRopeSafety, provided: actualRopeSafety, unit: "-", op: ">=",
+    pass: actualRopeSafety >= requiredRopeSafety,
     standard: "FEM 1.001 T.4.2.2.1.2",
+    kind: "standart", severity: "engelleyici",
   });
 
   // --- 2.2.1 Tambur çapı ve gerilmeler -------------------------------------
-  const L36 = drumCoefficient(mech); // H katsayısı
-  const L37 = sel.ropeDiaMm;
-  const L38 = L36 * L37; // min tambur çapı [mm]
-  const L41 = groovePitch(sel.ropeDiaMm); // oluk adımı [mm]
-  const L44 = (0.5 * L19 * 100) / L41 / inp.drumWallThicknessMm; // ezilme [kg/cm²]
-  const L46 =
-    0.96 * L19 * (1 / ((sel.drumDiaMm / 10) ** 2 * (inp.drumWallThicknessMm / 10) ** 6) ** 0.25); // eğilme
-  const L48 = (L46 ** 2 + L44 ** 2 - L44 * L46) ** 0.5; // bileşik
-  const L50 = drumAllowableStress(sel.drumMaterial);
-  Object.assign(cells, { L36, L37, L38, L41, L44, L46, L48, L50, O50: L48, S50: tick(L50 >= L48) });
+  const drumCoefficientH = drumCoefficient(mech);
+  const minDrumDiaMm = drumCoefficientH * sel.ropeDiaMm;
+  const groovePitchMm = groovePitch(sel.ropeDiaMm);
+  // Yiv tabanı ezilme gerilmesi: sarım başına düşen halat kuvvetinin oluk adımı
+  // ve et kalınlığı üzerine yayılması (klasik tambur gövdesi bağıntısı).
+  const drumBearingStress =
+    (0.5 * ropeLoadKg * 100) / groovePitchMm / inp.drumWallThicknessMm;
+  // Tambur gövdesinin yerel eğilme gerilmesi (çap ve et kalınlığına bağlı).
+  const drumBendingStress =
+    0.96 *
+    ropeLoadKg *
+    (1 / ((sel.drumDiaMm / 10) ** 2 * (inp.drumWallThicknessMm / 10) ** 6) ** 0.25);
+  const drumCombinedStress = Math.sqrt(
+    drumBendingStress ** 2 + drumBearingStress ** 2 - drumBearingStress * drumBendingStress
+  );
+  const drumAllowable = drumAllowableStress(sel.drumMaterial);
+  Object.assign(cells, {
+    "drum.coefficient": drumCoefficientH,
+    "drum.minDia": minDrumDiaMm,
+    "drum.groovePitch": groovePitchMm,
+    "drum.bearingStress": drumBearingStress,
+    "drum.bendingStress": drumBendingStress,
+    "drum.combinedStress": drumCombinedStress,
+    "drum.allowableStress": drumAllowable,
+  });
   checks.push({
     id: `${which}.drum.stress`,
     label: "Tambur bileşik gerilmesi",
-    required: L48, provided: L50, unit: "kg/cm²", op: ">=", pass: L50 >= L48,
+    required: drumCombinedStress, provided: drumAllowable, unit: "kg/cm²", op: ">=",
+    pass: drumAllowable >= drumCombinedStress,
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drum.dia`,
     label: "Tambur çapı (min H·d)",
-    required: L38, provided: sel.drumDiaMm, unit: "mm", op: ">=", pass: sel.drumDiaMm >= L38,
-    standard: "FEM 1.001 T.4.2.3.1.1", nonExcel: true,
+    required: minDrumDiaMm, provided: sel.drumDiaMm, unit: "mm", op: ">=",
+    pass: sel.drumDiaMm >= minDrumDiaMm,
+    standard: "FEM 1.001 T.4.2.3.1.1",
+    kind: "standart", severity: "engelleyici",
   });
 
   // --- 2.2.2 Oluk boyu -----------------------------------------------------
-  const L54 = inp.drivenFalls;
-  const L55 = inp.totalFalls;
-  const L56 = L41;
-  const L57 = liftHeightM;
-  const L60 = ((L55 / L54) * L57) / PI_EXCEL / (sel.drumDiaMm / 1000) + inp.safetyGrooveCount; // gerekli sarım
-  const L62 = L60 * L41; // gerekli oluk boyu [mm]
-  Object.assign(cells, { L54, L55, L56, L57, L60, L62 });
+  // Sarım sayısı: kaldırma yüksekliğinde tambura sarılacak halat boyu, tambur
+  // çevresine bölünür; üzerine emniyet sarımı eklenir.
+  const requiredGrooves =
+    (mechanicalAdvantage * liftHeightM) / Math.PI / (sel.drumDiaMm / 1000) +
+    inp.safetyGrooveCount;
+  const requiredGrooveLengthMm = requiredGrooves * groovePitchMm;
+  Object.assign(cells, {
+    "drum.requiredGrooves": requiredGrooves,
+    "drum.requiredGrooveLength": requiredGrooveLengthMm,
+  });
 
   // --- 2.2.3 Tambur mili ---------------------------------------------------
-  const L67 = L19;
-  const { drumWeightKg: L69, shaftSpanACm: L70, shaftSpanBCm: L71, shaftSpanCCm: L72 } = inp;
-  const L80 = (L67 * L70 + L67 * (2 * L71 + L70) + L69 * (L70 + L71)) / (L70 + 2 * L71 + L72); // Ra
-  const L81 = 2 * L67 + L69 - L80; // Rb
-  const L84 = L80 * inp.shaftMomentArmCm; // M [kg·cm]
-  const L86 = (L84 * inp.shaftDiaCm) / 2 / ((PI_EXCEL / 4) * (inp.shaftDiaCm / 2) ** 4); // eğilme
-  const L87 =
-    (1.33 * Math.max(L80, L81)) / (PI_EXCEL * (inp.shaftShearDiaCm / 2) ** 2); // kesme
-  const L88 = Math.sqrt(L86 ** 2 + L87 ** 2); // bileşik
+  // Model (teknik resimdeki A…G ölçü zinciri): tambur, redüktör tarafı mesnet
+  // (Ra) ile tambur yatağı tarafı mesnet (Rg) arasında iki mesnetli kiriştir.
+  // Yükler: her yiv bölgesindeki halat yükü T ve tambur ağırlığı W (namlu
+  // ortasında). Statik çözüm ortak kiriş çözücüsüyle (beam.ts) yapılır.
+  // Halatlar yiv boyunca hareket ettiğinden iki uç hâli (dış uçlar / iç uçlar)
+  // ayrı çözülür ve her mesnet için elverişsiz olan alınır.
+  const geo = drumShaftGeometry(inp);
+  const ropeLoadCount = rig.drumRopeEnds;
+  const ropePerPoint = (ropeLoadKg * ropeLoadCount) / (geo.sections.length || 1);
+
+  /**
+   * Bir yükleme hâlini kiriş olarak çözer. Mesnet A (redüktör tarafı) x=0,
+   * mesnet B (tambur yatağı tarafı) x=L konumundadır. Yanak dibi kesitleri
+   * x=A ve x=L−G'dir; bu kesitlerle mesnetler arasında yük bulunmadığından
+   * kesit momentleri doğrudan M = R · kol değerine eşittir.
+   */
+  const caseFor = (edge: "outer" | "inner") => {
+    const xs = geo.sections.map((sec) => (edge === "outer" ? sec.outer : sec.inner));
+    const pointLoads: PointLoad[] = xs.map((x, i) => ({
+      xCm: x,
+      loadKg: ropePerPoint,
+      label: `Halat yükü T${i + 1}`,
+    }));
+    pointLoads.push({ xCm: geo.weightArmCm, loadKg: inp.drumWeightKg, label: "Tambur ağırlığı W" });
+    const beam = solveBeam({
+      lengthCm: geo.spanCm,
+      supportACm: 0,
+      supportBCm: geo.spanCm,
+      pointLoads,
+    });
+    return {
+      xs,
+      ra: beam.reactionAKg,
+      rg: beam.reactionBKg,
+      momentGearbox: Math.abs(beam.momentAt(geo.aCm)),
+      momentBearing: Math.abs(beam.momentAt(geo.spanCm - geo.gCm)),
+    };
+  };
+  const outer = caseFor("outer");
+  const inner = caseFor("inner");
+  const mode = ropePositionMode(inp.ropeLoadPosition);
+  const cases = mode === "outer" ? [outer] : mode === "inner" ? [inner] : [outer, inner];
+
+  // Her yükleme hâli kendi içinde dengededir (Ra + Rg = ΣT + W). Halat konumu
+  // "otomatik" seçildiğinde her mesnet KENDİ elverişsiz hâliyle boyutlandırılır;
+  // bu bir ZARF değeridir, iki reaksiyon aynı anda oluşmayabilir.
+  const reactionGearboxKg = Math.max(...cases.map((c) => c.ra));
+  const reactionBearingKg = Math.max(...cases.map((c) => c.rg));
+  /** Tambur yatağını boyutlandıran hâlin halat konumları (diyagram + rapor) */
+  const govBearing = cases.reduce((a, b) => (b.rg > a.rg ? b : a));
+  const momentGearboxKgCm = Math.max(...cases.map((c) => c.momentGearbox));
+  const momentBearingKgCm = Math.max(...cases.map((c) => c.momentBearing));
+
   const shaftAllow = shaftMaterialAllowables(sel.shaftMaterial);
-  const L92 = shaftAllow.bending;
-  const L93 = shaftAllow.shear;
-  const L94 = shaftAllow.combined;
-  Object.assign(cells, { L67, L80, L81, L84, L86, L87, L88, L92, L93, L94 });
+  /**
+   * Mil gerilmeleri ortak modülle (shaftStress.ts) bulunur. KONVANSİYONLAR
+   * açık parametre olarak verilir:
+   *   · combined: "resultant" → √(σ² + τ²). Firma kabulüdür; tambur milinde
+   *     kesme gerilmesi eğilmenin yanında küçüktür ve izin verilen bileşik
+   *     gerilme zaten malzeme tablosundan ayrıca sınırlanır.
+   *   · shear: "maksimum" → dolu dairesel kesitte parabolik kayma dağılımının
+   *     tepe değeri, ortalamanın tam 4/3 katıdır (tarafsız eksende).
+   */
+  const sideStress = (momentKgCm: number, reactionKg: number) =>
+    shaftStress({
+      momentKgCm,
+      shearKg: reactionKg,
+      bendingDiameterCm: inp.shaftD1Cm,
+      shearDiameterCm: inp.shaftD2Cm,
+      combined: "resultant",
+      shear: "maksimum",
+    });
+  const sGearbox = sideStress(momentGearboxKgCm, reactionGearboxKg);
+  const sBearing = sideStress(momentBearingKgCm, reactionBearingKg);
+  const governing = sGearbox.combinedStress >= sBearing.combinedStress ? sGearbox : sBearing;
+  const governingSide: "redüktör" | "tambur yatağı" =
+    sGearbox.combinedStress >= sBearing.combinedStress ? "redüktör" : "tambur yatağı";
+
+  const shaftMomentKgCm = Math.max(momentGearboxKgCm, momentBearingKgCm);
+  const shaftBendingStress = governing.bendingStress;
+  const shaftShearStress = governing.shearStress;
+  const shaftCombinedStress = governing.combinedStress;
+  /** Kaynak/kesit kontrollerinde elverişsiz mesnet reaksiyonu */
+  const maxReactionKg = Math.max(reactionGearboxKg, reactionBearingKg);
+  Object.assign(cells, {
+    "drumShaft.span": geo.spanCm,
+    "drumShaft.armGearbox": geo.aCm,
+    "drumShaft.armBearing": geo.gCm,
+    "drumShaft.weightArm": geo.weightArmCm,
+    "drumShaft.ropeLoadPerPoint": ropePerPoint,
+    "drumShaft.ropeX1": govBearing.xs[0] ?? 0,
+    "drumShaft.ropeX2": govBearing.xs[1] ?? govBearing.xs[0] ?? 0,
+    "drumShaft.reactionGearboxOuter": outer.ra,
+    "drumShaft.reactionBearingOuter": outer.rg,
+    "drumShaft.reactionGearboxInner": inner.ra,
+    "drumShaft.reactionBearingInner": inner.rg,
+    "drumShaft.ropeXOuter1": outer.xs[0] ?? 0,
+    "drumShaft.ropeXOuter2": outer.xs[1] ?? outer.xs[0] ?? 0,
+    "drumShaft.ropeXInner1": inner.xs[0] ?? 0,
+    "drumShaft.ropeXInner2": inner.xs[1] ?? inner.xs[0] ?? 0,
+    "drumShaft.momentGearbox": momentGearboxKgCm,
+    "drumShaft.momentBearing": momentBearingKgCm,
+    "drumShaft.reactionGearbox": reactionGearboxKg,
+    "drumShaft.reactionBearing": reactionBearingKg,
+    "drumShaft.moment": shaftMomentKgCm,
+    "drumShaft.bendingStress": shaftBendingStress,
+    "drumShaft.shearStress": shaftShearStress,
+    "drumShaft.combinedStress": shaftCombinedStress,
+    "drumShaft.allowableBending": shaftAllow.bending,
+    "drumShaft.allowableShear": shaftAllow.shear,
+    "drumShaft.allowableCombined": shaftAllow.combined,
+  });
   checks.push({
     id: `${which}.shaft.stress`,
     label: "Tambur mili bileşik gerilmesi",
-    required: L88, provided: L94, unit: "kg/cm²", op: ">=", pass: L94 >= L88,
-    nonExcel: true,
+    required: shaftCombinedStress, provided: shaftAllow.combined, unit: "kg/cm²", op: ">=",
+    pass: shaftAllow.combined >= shaftCombinedStress,
+    standard: "CMAA 70 4.11.4.1",
+    kind: "standart", severity: "engelleyici",
+  });
+  checks.push({
+    id: `${which}.shaft.bending`,
+    label: "Tambur mili eğilme gerilmesi",
+    required: shaftBendingStress, provided: shaftAllow.bending, unit: "kg/cm²", op: ">=",
+    pass: shaftAllow.bending >= shaftBendingStress,
+    standard: "CMAA 70 4.11.4.1",
+    kind: "standart", severity: "engelleyici",
+  });
+  checks.push({
+    id: `${which}.shaft.shear`,
+    label: "Tambur mili kesme gerilmesi",
+    required: shaftShearStress, provided: shaftAllow.shear, unit: "kg/cm²", op: ">=",
+    pass: shaftAllow.shear >= shaftShearStress,
+    standard: "CMAA 70 4.11.4.1",
+    kind: "standart", severity: "engelleyici",
   });
 
-  // --- 2.3 Redüktör (tork; kaynak hesabı L107 tambur torkuna bağlı) --------
-  const L158 = sel.drumDiaMm / 2000; // tambur yarıçapı [m]
-  const L159 = inp.drivenFalls;
-  const L160 = (L19 * 9.81) / 1000; // halat yükü [kN]
-  const L162 = L158 * L159 * L160; // tambur torku [kNm]
-  const L164 = L162 / inp.drumCount;
-  const L167 = inp.gearboxServiceFactor * L164; // gerekli redüktör torku [kNm]
+  // --- Tambur torku (kaynak ve redüktör hesapları buna dayanır) ------------
+  const drumRadiusM = sel.drumDiaMm / 2000;
+  const ropeLoadKn = (ropeLoadKg * 9.81) / 1000;
+  const drumTorqueKnm = drumRadiusM * reeving.drivenFalls * ropeLoadKn;
+  const drumTorquePerDrumKnm = drumTorqueKnm / inp.drumCount;
+  const requiredGearboxTorqueKnm = inp.gearboxServiceFactor * drumTorquePerDrumKnm;
 
   // --- 2.2.4 Tambur kaynağı ------------------------------------------------
-  const L98 = (Math.PI * sel.drumDiaMm) / 10; // kaynak boyu [cm]
-  const L100 = inp.drumWeldThicknessCm * L98;
-  const L103 = sel.drumDiaMm + 2 * inp.drumWeldThicknessCm * 10;
-  const L104 = sel.drumDiaMm;
-  const L105 = (Math.PI * ((L103 / 2) ** 2 - (L104 / 2) ** 2)) / 100; // halka alan [cm²]
-  const L106 = (PI_EXCEL * ((L103 / 10) ** 4 - (L104 / 10) ** 4)) / 32; // polar modül [cm⁴→cm³]
-  const L107 = (L164 * 100000) / 9.81 / L106; // burulma [kg/cm²]
-  const L108 = L81 / L105; // kesme
-  const L109 = L108 + L107; // bileşik
-  Object.assign(cells, { L98, L100, L103, L104, L105, L106, L107, L108, L109 });
+  // Tambur yanağı ile göbek arasındaki çevresel kaynak: burulma (tambur torku)
+  // ve kesme (mesnet reaksiyonu) birlikte etkir.
+  const drumWeldLengthCm = (Math.PI * sel.drumDiaMm) / 10;
+  const drumWeldThroatAreaCm2 = inp.drumWeldThicknessCm * drumWeldLengthCm;
+  const drumWeldOuterDiaMm = sel.drumDiaMm + 2 * inp.drumWeldThicknessCm * 10;
+  const drumWeldAreaCm2 =
+    (Math.PI * ((drumWeldOuterDiaMm / 2) ** 2 - (sel.drumDiaMm / 2) ** 2)) / 100;
+  const drumWeldPolarModulusCm3 =
+    (Math.PI * ((drumWeldOuterDiaMm / 10) ** 4 - (sel.drumDiaMm / 10) ** 4)) / 32;
+  const drumWeldTorsionStress =
+    (drumTorquePerDrumKnm * 100000) / 9.81 / drumWeldPolarModulusCm3;
+  const drumWeldShearStress = maxReactionKg / drumWeldAreaCm2;
+  const drumWeldCombinedStress = drumWeldShearStress + drumWeldTorsionStress;
+  Object.assign(cells, {
+    "drumWeld.length": drumWeldLengthCm,
+    "drumWeld.throatArea": drumWeldThroatAreaCm2,
+    "drumWeld.outerDia": drumWeldOuterDiaMm,
+    "drumWeld.area": drumWeldAreaCm2,
+    "drumWeld.polarModulus": drumWeldPolarModulusCm3,
+    "drumWeld.torsionStress": drumWeldTorsionStress,
+    "drumWeld.shearStress": drumWeldShearStress,
+    "drumWeld.combinedStress": drumWeldCombinedStress,
+  });
   checks.push({
     id: `${which}.drumWeld.stress`,
     label: "Tambur kaynağı gerilmesi",
-    required: L109 * KGF_TO_MPA, provided: inp.drumWeldAllowable, unit: "MPa", op: ">=",
-    pass: inp.drumWeldAllowable >= L109 * KGF_TO_MPA, nonExcel: true,
+    required: drumWeldCombinedStress * KGF_TO_MPA, provided: inp.drumWeldAllowable,
+    unit: "MPa", op: ">=",
+    pass: inp.drumWeldAllowable >= drumWeldCombinedStress * KGF_TO_MPA,
+    kind: "firma", severity: "engelleyici",
   });
 
   // --- 2.2.5 Mil kaynağı ---------------------------------------------------
-  const L114 = Math.PI * inp.shaftDiaCm;
-  const L116 = inp.shaftWeldThicknessCm * L114;
-  const L119 = inp.shaftDiaCm * 10 + 2 * inp.shaftWeldThicknessCm * 10;
-  const L120 = inp.shaftDiaCm * 10;
-  const L121 = (Math.PI * ((L119 / 2) ** 2 - (L120 / 2) ** 2)) / 100;
-  const L122 = (PI_EXCEL * ((L119 / 10) ** 4 - (L120 / 10) ** 4)) / 32;
-  const L124 = L81 / L121;
-  const L125 = L124;
-  Object.assign(cells, { L114, L116, L119, L120, L121, L122, L124, L125 });
+  const shaftWeldLengthCm = Math.PI * inp.shaftD1Cm;
+  const shaftWeldThroatAreaCm2 = inp.shaftWeldThicknessCm * shaftWeldLengthCm;
+  const shaftWeldInnerDiaMm = inp.shaftD1Cm * 10;
+  const shaftWeldOuterDiaMm = shaftWeldInnerDiaMm + 2 * inp.shaftWeldThicknessCm * 10;
+  const shaftWeldAreaCm2 =
+    (Math.PI * ((shaftWeldOuterDiaMm / 2) ** 2 - (shaftWeldInnerDiaMm / 2) ** 2)) / 100;
+  const shaftWeldPolarModulusCm3 =
+    (Math.PI * ((shaftWeldOuterDiaMm / 10) ** 4 - (shaftWeldInnerDiaMm / 10) ** 4)) / 32;
+  const shaftWeldShearStress = maxReactionKg / shaftWeldAreaCm2;
+  Object.assign(cells, {
+    "shaftWeld.length": shaftWeldLengthCm,
+    "shaftWeld.throatArea": shaftWeldThroatAreaCm2,
+    "shaftWeld.outerDia": shaftWeldOuterDiaMm,
+    "shaftWeld.area": shaftWeldAreaCm2,
+    "shaftWeld.polarModulus": shaftWeldPolarModulusCm3,
+    "shaftWeld.shearStress": shaftWeldShearStress,
+  });
   checks.push({
     id: `${which}.shaftWeld.stress`,
     label: "Mil kaynağı gerilmesi",
-    required: L125 * KGF_TO_MPA, provided: inp.shaftWeldAllowable, unit: "MPa", op: ">=",
-    pass: inp.shaftWeldAllowable >= L125 * KGF_TO_MPA, nonExcel: true,
+    required: shaftWeldShearStress * KGF_TO_MPA, provided: inp.shaftWeldAllowable,
+    unit: "MPa", op: ">=",
+    pass: inp.shaftWeldAllowable >= shaftWeldShearStress * KGF_TO_MPA,
+    kind: "firma", severity: "engelleyici",
   });
 
   // --- 2.2.6 Tambur rulmanı ------------------------------------------------
-  const L130 = L80 * 0.00981; // radyal [kN]
-  const L131 = 0.1 * L130; // eksenel [kN]
-  const L137 = L130 + L131 * inp.bearingFactorY1; // eşdeğer statik [kN]
-  const L138 = L130 + inp.bearingFactorY2 * L131; // eşdeğer dinamik [kN]
-  const L146 = sel.bearingStatC0Kn / L137; // statik emniyet
-  const L149 = ((liftSpeedMpm * inp.totalFalls) / inp.drivenFalls) / (sel.drumDiaMm / 1000) / PI_EXCEL; // tambur devri [d/dak]
-  const L150 = L149;
-  const L152 = (1000000 / (60 * L150)) * (sel.bearingDynCKn / L138) ** (10 / 3); // L10 ömür [saat]
+  // Tambur yatağı rulmanı, TAMBUR YATAĞI tarafı reaksiyonunu taşır.
+  const bearingRadialKn = reactionBearingKg * 0.00981;
+  const bearingAxialKn = 0.1 * bearingRadialKn;
+  const bearingEqStaticKn = bearingRadialKn + bearingAxialKn * inp.bearingFactorY1;
+  const bearingEqDynamicKn = bearingRadialKn + inp.bearingFactorY2 * bearingAxialKn;
+  const bearingStaticSafety = sel.bearingStatC0Kn / bearingEqStaticKn;
+  const drumRpm =
+    (liftSpeedMpm * mechanicalAdvantage) / (sel.drumDiaMm / 1000) / Math.PI;
+  const bearingLifeHours =
+    (1000000 / (60 * drumRpm)) * (sel.bearingDynCKn / bearingEqDynamicKn) ** (10 / 3);
   const life = mechanismLife(usage);
-  const L154 = life.min ?? 0;
-  const Q154 = life.max;
+  const requiredLifeMin = life.min ?? 0;
+  const requiredLifeMax = life.max;
   Object.assign(cells, {
-    L130, L131, L137, L138, L146, L149, L150, L152, L154,
-    ...(Q154 !== null ? { Q154 } : {}),
+    "drumBearing.radialLoad": bearingRadialKn,
+    "drumBearing.axialLoad": bearingAxialKn,
+    "drumBearing.equivalentStatic": bearingEqStaticKn,
+    "drumBearing.equivalentDynamic": bearingEqDynamicKn,
+    "drumBearing.staticSafety": bearingStaticSafety,
+    "drum.rpm": drumRpm,
+    "drumBearing.lifeHours": bearingLifeHours,
+    "drumBearing.requiredLifeMin": requiredLifeMin,
+    ...(requiredLifeMax !== null ? { "drumBearing.requiredLifeMax": requiredLifeMax } : {}),
   });
   checks.push({
     id: `${which}.bearing.life`,
     label: "Tambur rulmanı ömrü",
-    required: L154, provided: L152, unit: "saat", op: ">=", pass: L152 >= L154,
+    required: requiredLifeMin, provided: bearingLifeHours, unit: "saat", op: ">=",
+    pass: bearingLifeHours >= requiredLifeMin,
     standard: "FEM 1.001 T.2.1.3.2",
+    kind: "standart", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.bearing.static`,
     label: "Rulman statik emniyeti",
-    required: 1, provided: L146, unit: "-", op: ">=", pass: L146 >= 1, nonExcel: true,
+    required: 1, provided: bearingStaticSafety, unit: "-", op: ">=",
+    pass: bearingStaticSafety >= 1,
+    kind: "uretici", severity: "engelleyici",
   });
 
   // --- 2.3 Redüktör (seçim ve kontroller) ----------------------------------
-  const L169 = sel.motorRpm;
-  const L170 = L149;
-  const L172 = L169 / L149; // gerekli çevrim oranı
-  const L176 = sel.gearboxNominalTorqueKnm;
-  const L179 = L176 / L164; // gerçekleşen emniyet
-  const L182 = (100 * (sel.gearboxRatio - L172)) / L172; // oran sapması [%]
-  const L184 = liftSpeedMpm;
-  const L185 = (L169 / sel.gearboxRatio) * Math.PI * (sel.drumDiaMm / 1000) / (inp.totalFalls / inp.drivenFalls); // gerçekleşen hız
-  const L187 = (L80 * 9.81) / 1000; // redüktöre gelen radyal yük [kN]
+  const requiredRatio = sel.motorRpm / drumRpm;
+  const gearboxActualSafety = sel.gearboxNominalTorqueKnm / drumTorquePerDrumKnm;
+  const ratioDeviationPct = (100 * (sel.gearboxRatio - requiredRatio)) / requiredRatio;
+  const actualLiftSpeedMpm =
+    ((sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.drumDiaMm / 1000)) / mechanicalAdvantage;
+  // Redüktör çıkış miline gelen radyal yük REDÜKTÖR tarafı reaksiyonudur.
+  const gearboxRadialKn = (reactionGearboxKg * 9.81) / 1000;
   Object.assign(cells, {
-    L158, L159, L160, L162, L164, L167, L169, L170, L172,
-    O176: tick(L176 >= L167), L179, L182, O182: tick(L182 <= 5 && L182 >= -10),
-    L184, L185, L187,
+    "drum.radius": drumRadiusM,
+    "rope.loadKn": ropeLoadKn,
+    "drum.torque": drumTorqueKnm,
+    "drum.torquePerDrum": drumTorquePerDrumKnm,
+    "gearbox.requiredTorque": requiredGearboxTorqueKnm,
+    "gearbox.requiredRatio": requiredRatio,
+    "gearbox.actualSafety": gearboxActualSafety,
+    "gearbox.ratioDeviation": ratioDeviationPct,
+    "gearbox.actualLiftSpeed": actualLiftSpeedMpm,
+    "gearbox.radialLoad": gearboxRadialKn,
   });
   checks.push({
     id: `${which}.gearbox.torque`,
     label: "Redüktör tork kapasitesi",
-    required: L167, provided: L176, unit: "kNm", op: ">=", pass: L176 >= L167,
+    required: requiredGearboxTorqueKnm, provided: sel.gearboxNominalTorqueKnm,
+    unit: "kNm", op: ">=",
+    pass: sel.gearboxNominalTorqueKnm >= requiredGearboxTorqueKnm,
+    kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.gearbox.ratio`,
     label: "Çevrim oranı sapması",
-    min: -10, max: 5, provided: L182, unit: "%", op: "range",
-    pass: L182 <= 5 && L182 >= -10,
+    min: -10, max: 5, provided: ratioDeviationPct, unit: "%", op: "range",
+    pass: ratioDeviationPct <= 5 && ratioDeviationPct >= -10,
+    // Band bir tasarım kabulüdür: dışına çıkmak kaldırma hızını beyan edilenden
+    // saptırır, taşıyıcı bir yetersizlik yaratmaz.
+    kind: "firma", severity: "uyari",
   });
   checks.push({
     id: `${which}.gearbox.radial`,
     label: "Redüktör radyal yük",
-    required: L187, provided: sel.gearboxAllowedRadialKn, unit: "kN", op: ">=",
-    pass: sel.gearboxAllowedRadialKn >= L187, nonExcel: true,
+    required: gearboxRadialKn, provided: sel.gearboxAllowedRadialKn, unit: "kN", op: ">=",
+    pass: sel.gearboxAllowedRadialKn >= gearboxRadialKn,
+    kind: "uretici", severity: "engelleyici",
   });
 
   // --- 2.4 Motor -----------------------------------------------------------
-  const L192 = L164 * 1000; // çıkış torku [Nm]
-  const L193 = sel.gearboxRatio;
-  const L197 = inp.stageEfficiency ** inp.reducerStages; // redüktör verimi
-  const L199 = L192 / (L193 * L197); // motor giriş torku [Nm]
-  const L200 = sel.motorRpm;
-  const L202 = (L199 * L200) / 9550; // gerekli güç [kW]
-  const L204 = inp.tempFactor * L202;
-  const L206 = L204 / inp.motorDivisor;
-  const L212 = sel.motorCount * sel.motorPowerKw;
-  const I215 = sel.motorPowerKw * sel.motorCount;
-  const L215 = L204;
+  const gearboxOutputTorqueNm = drumTorquePerDrumKnm * 1000;
+  const gearboxEfficiency = inp.stageEfficiency ** inp.reducerStages;
+  const motorInputTorqueNm =
+    gearboxOutputTorqueNm / (sel.gearboxRatio * gearboxEfficiency);
+  const requiredPowerKw = (motorInputTorqueNm * sel.motorRpm) / 9550;
+  const requiredPowerAdjustedKw = inp.tempFactor * requiredPowerKw;
+  const powerPerMotorKw = requiredPowerAdjustedKw / inp.motorDivisor;
+  const installedPowerKw = sel.motorPowerKw * sel.motorCount;
   Object.assign(cells, {
-    L192, L193, L197, L199, L200, L202, L204, L206, L212, I215, L215,
-    Q215: tick(I215 >= L215),
+    "gearbox.outputTorque": gearboxOutputTorqueNm,
+    "gearbox.efficiency": gearboxEfficiency,
+    "motor.inputTorque": motorInputTorqueNm,
+    "motor.requiredPower": requiredPowerKw,
+    "motor.adjustedPower": requiredPowerAdjustedKw,
+    "motor.powerPerMotor": powerPerMotorKw,
+    "motor.installedPower": installedPowerKw,
   });
   checks.push({
     id: `${which}.motor.power`,
     label: "Motor gücü",
-    required: L215, provided: I215, unit: "kW", op: ">=", pass: I215 >= L215,
+    required: requiredPowerAdjustedKw, provided: installedPowerKw, unit: "kW", op: ">=",
+    pass: installedPowerKw >= requiredPowerAdjustedKw,
     standard: "CMAA 70 5.2.9.1.1",
+    kind: "standart", severity: "engelleyici",
   });
 
   // --- 2.5 Fren ------------------------------------------------------------
-  const L218 = L199 / sel.motorCount; // fren miline gelen tork [Nm]
-  const L220 = L218 * inp.brakeServiceFactor; // gerekli fren torku [Nm]
-  const L228 = sel.brakeTorqueNm / L218; // gerçekleşen emniyet
+  // Fren de motor–redüktör kaplini de motor miline oturur: ikisinin gördüğü
+  // tork aynı büyüklüktür (motor giriş torku / motor adedi).
+  const motorShaftTorqueNm = motorInputTorqueNm / sel.motorCount;
+  const requiredBrakeTorqueNm = motorShaftTorqueNm * inp.brakeServiceFactor;
+  const brakeActualSafety = sel.brakeTorqueNm / motorShaftTorqueNm;
   Object.assign(cells, {
-    L218, L220, O224: L220, R224: tick(sel.brakeTorqueNm >= L220), L228,
+    "motor.shaftTorque": motorShaftTorqueNm,
+    "brake.requiredTorque": requiredBrakeTorqueNm,
+    "brake.actualSafety": brakeActualSafety,
+    "brake.combinedSafety": sel.brakeQty * brakeActualSafety,
   });
-  if (which === "main") {
-    // Excel'de sadece 02 sayfasında var: fren adedi × emniyet gösterimi
-    Object.assign(cells, { Q228: sel.brakeQty * L228 });
-  }
   checks.push({
     id: `${which}.brake.torque`,
     label: "Fren torku",
-    required: L220, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
-    pass: sel.brakeTorqueNm >= L220,
+    required: requiredBrakeTorqueNm, provided: sel.brakeTorqueNm, unit: "Nm", op: ">=",
+    pass: sel.brakeTorqueNm >= requiredBrakeTorqueNm,
+    // Gerekli tork, firma servis faktörüyle ölçeklenir; sağlanmadan yayınlanamaz.
+    kind: "firma", severity: "engelleyici",
   });
 
   // --- 2.6 Motor-redüktör kaplini ------------------------------------------
-  const L233 = L199 / sel.motorCount;
-  const L235 = L233 * inp.motorCouplingServiceFactor; // gerekli kapasite [Nm]
-  const L236 = Math.max(sel.motorShaftMm, sel.gearboxInputShaftMm); // bağlanacak mil [mm]
-  const L243 = sel.motorCouplingTorqueNm / L233;
+  const requiredMotorCouplingTorqueNm = motorShaftTorqueNm * inp.motorCouplingServiceFactor;
+  const couplingShaftDiaMm = Math.max(sel.motorShaftMm, sel.gearboxInputShaftMm);
+  const motorCouplingActualSafety = sel.motorCouplingTorqueNm / motorShaftTorqueNm;
   Object.assign(cells, {
-    L233, L235, L236, O240: L235, O241: sel.motorShaftMm, L243,
+    "motorCoupling.requiredTorque": requiredMotorCouplingTorqueNm,
+    "motorCoupling.shaftDia": couplingShaftDiaMm,
+    "motorCoupling.actualSafety": motorCouplingActualSafety,
   });
   checks.push({
     id: `${which}.motorCoupling.torque`,
     label: "Motor kaplini tork kapasitesi",
-    required: L235, provided: sel.motorCouplingTorqueNm, unit: "Nm", op: ">=",
-    pass: sel.motorCouplingTorqueNm >= L235,
+    required: requiredMotorCouplingTorqueNm, provided: sel.motorCouplingTorqueNm,
+    unit: "Nm", op: ">=",
+    pass: sel.motorCouplingTorqueNm >= requiredMotorCouplingTorqueNm,
+    kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.motorCoupling.bore`,
     label: "Motor kaplini delik çapı",
-    required: L236, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",
-    pass: sel.motorCouplingDmaxMm >= L236,
+    required: couplingShaftDiaMm, provided: sel.motorCouplingDmaxMm, unit: "mm", op: ">=",
+    pass: sel.motorCouplingDmaxMm >= couplingShaftDiaMm,
+    kind: "uretici", severity: "engelleyici",
   });
 
   // --- 2.7 Tambur kaplini --------------------------------------------------
-  const L247 = L162 * 1000; // [Nm]
-  const L249 = L247 / inp.drumCouplingDivisor;
-  const L251 = L249 * inp.drumCouplingServiceFactor; // gerekli kapasite [Nm]
-  const L252 = L80 * 9.81; // gerekli radyal [N]
-  const L254 = sel.gearboxOutputShaftMm;
-  const L262 = sel.drumCouplingTorqueNm / L249;
+  const drumCouplingDesignTorqueNm = (drumTorqueKnm * 1000) / inp.drumCouplingDivisor;
+  const requiredDrumCouplingTorqueNm =
+    drumCouplingDesignTorqueNm * inp.drumCouplingServiceFactor;
+  const requiredDrumCouplingRadialN = reactionGearboxKg * 9.81;
+  const drumCouplingShaftDiaMm = sel.gearboxOutputShaftMm;
+  const drumCouplingActualSafety = sel.drumCouplingTorqueNm / drumCouplingDesignTorqueNm;
   Object.assign(cells, {
-    L247, L249, L251, L252, L254,
-    O258: L251, R258: tick(sel.drumCouplingTorqueNm >= L251),
-    O259: L252, R259: tick(sel.drumCouplingRadialN >= L252),
-    O260: L254, R260: tick(sel.drumCouplingDmaxMm >= L254),
-    L262,
+    "drumCoupling.designTorque": drumCouplingDesignTorqueNm,
+    "drumCoupling.requiredTorque": requiredDrumCouplingTorqueNm,
+    "drumCoupling.requiredRadial": requiredDrumCouplingRadialN,
+    "drumCoupling.shaftDia": drumCouplingShaftDiaMm,
+    "drumCoupling.actualSafety": drumCouplingActualSafety,
   });
   checks.push({
     id: `${which}.drumCoupling.torque`,
     label: "Tambur kaplini tork kapasitesi",
-    required: L251, provided: sel.drumCouplingTorqueNm, unit: "Nm", op: ">=",
-    pass: sel.drumCouplingTorqueNm >= L251,
+    required: requiredDrumCouplingTorqueNm, provided: sel.drumCouplingTorqueNm,
+    unit: "Nm", op: ">=",
+    pass: sel.drumCouplingTorqueNm >= requiredDrumCouplingTorqueNm,
+    kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drumCoupling.radial`,
     label: "Tambur kaplini radyal yük",
-    required: L252, provided: sel.drumCouplingRadialN, unit: "N", op: ">=",
-    pass: sel.drumCouplingRadialN >= L252,
+    required: requiredDrumCouplingRadialN, provided: sel.drumCouplingRadialN,
+    unit: "N", op: ">=",
+    pass: sel.drumCouplingRadialN >= requiredDrumCouplingRadialN,
+    kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.drumCoupling.bore`,
     label: "Tambur kaplini delik çapı",
-    required: L254, provided: sel.drumCouplingDmaxMm, unit: "mm", op: ">=",
-    pass: sel.drumCouplingDmaxMm >= L254,
+    required: drumCouplingShaftDiaMm, provided: sel.drumCouplingDmaxMm, unit: "mm", op: ">=",
+    pass: sel.drumCouplingDmaxMm >= drumCouplingShaftDiaMm,
+    kind: "uretici", severity: "engelleyici",
   });
 
   const values: HoistValues = {
-    mechanicalAdvantage: L9,
-    ropeEfficiency: L11,
-    loadKg: L13,
-    totalLoadKg: L16,
-    requiredRopeSafety: L18,
-    ropeLoadKg: L19,
-    requiredBreakingKg: L20,
-    actualBreakingKg: L28,
-    actualRopeSafety: L30,
-    drumCoefficientH: L36,
-    minDrumDiaMm: L38,
-    groovePitchMm: L41,
-    drumBearingStress: L44,
-    drumBendingStress: L46,
-    drumCombinedStress: L48,
-    drumAllowable: L50,
-    requiredGrooves: L60,
-    requiredGrooveLengthMm: L62,
-    reactionAKg: L80,
-    reactionBKg: L81,
-    shaftMomentKgCm: L84,
-    shaftBendingStress: L86,
-    shaftShearStress: L87,
-    shaftCombinedStress: L88,
+    mechanicalAdvantage,
+    ropeEfficiency,
+    loadKg: hoistedLoadKg,
+    totalLoadKg,
+    requiredRopeSafety,
+    ropeLoadKg,
+    requiredBreakingKg,
+    actualBreakingKg,
+    actualRopeSafety,
+    drumCoefficientH,
+    minDrumDiaMm,
+    groovePitchMm,
+    drumBearingStress,
+    drumBendingStress,
+    drumCombinedStress,
+    drumAllowable,
+    requiredGrooves,
+    requiredGrooveLengthMm,
+    drumShaftSpanCm: geo.spanCm,
+    drumWeightArmCm: geo.weightArmCm,
+    ropeLoadPositionsCm: govBearing.xs,
+    ropeLoadCount,
+    ropeLoadPerPointKg: ropePerPoint,
+    reactionGearboxKg,
+    reactionBearingKg,
+    reactionAKg: reactionGearboxKg,
+    reactionBKg: reactionBearingKg,
+    momentGearboxKgCm,
+    momentBearingKgCm,
+    shaftGoverningSide: governingSide,
+    shaftMomentKgCm,
+    shaftBendingStress,
+    shaftShearStress,
+    shaftCombinedStress,
     shaftAllowables: shaftAllow,
-    drumWeldCombinedStress: L109,
-    shaftWeldStress: L125,
-    bearingRadialKn: L130,
-    bearingAxialKn: L131,
-    bearingEqStaticKn: L137,
-    bearingEqDynamicKn: L138,
-    bearingStaticSafety: L146,
-    drumRpm: L149,
-    bearingLifeHours: L152,
-    requiredLifeMin: L154,
-    requiredLifeMax: Q154,
-    drumTorqueKnm: L164,
-    requiredGearboxTorqueKnm: L167,
-    requiredRatio: L172,
-    ratioDeviationPct: L182,
-    actualLiftSpeedMpm: L185,
-    gearboxActualSafety: L179,
-    gearboxRadialKn: L187,
-    reducerEfficiency: L197,
-    motorInputTorqueNm: L199,
-    requiredPowerKw: L202,
-    requiredPowerAdjustedKw: L204,
-    installedPowerKw: I215,
-    brakeShaftTorqueNm: L218,
-    requiredBrakeTorqueNm: L220,
-    brakeActualSafety: L228,
-    requiredMotorCouplingTorqueNm: L235,
-    couplingShaftDiaMm: L236,
-    motorCouplingActualSafety: L243,
-    requiredDrumCouplingTorqueNm: L251,
-    requiredDrumCouplingRadialN: L252,
-    drumCouplingActualSafety: L262,
+    drumWeldCombinedStress,
+    shaftWeldStress: shaftWeldShearStress,
+    bearingRadialKn,
+    bearingAxialKn,
+    bearingEqStaticKn,
+    bearingEqDynamicKn,
+    bearingStaticSafety,
+    drumRpm,
+    bearingLifeHours,
+    requiredLifeMin,
+    requiredLifeMax,
+    drumTorqueKnm: drumTorquePerDrumKnm,
+    requiredGearboxTorqueKnm,
+    requiredRatio,
+    ratioDeviationPct,
+    actualLiftSpeedMpm,
+    gearboxActualSafety,
+    gearboxRadialKn,
+    reducerEfficiency: gearboxEfficiency,
+    motorInputTorqueNm,
+    requiredPowerKw,
+    requiredPowerAdjustedKw,
+    installedPowerKw,
+    brakeShaftTorqueNm: motorShaftTorqueNm,
+    requiredBrakeTorqueNm,
+    brakeActualSafety,
+    requiredMotorCouplingTorqueNm,
+    couplingShaftDiaMm,
+    motorCouplingActualSafety,
+    requiredDrumCouplingTorqueNm,
+    requiredDrumCouplingRadialN,
+    drumCouplingActualSafety,
   };
 
   return { values, checks, cells };

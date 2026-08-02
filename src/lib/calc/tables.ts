@@ -1,5 +1,4 @@
-// KATSAYILAR ortak tabloları — scripts ile dökümden üretildi (elle düzenlemeyin).
-// Kaynak: reference/excel-dump/11_KATSAYILAR.txt
+// Standart katsayı tabloları — DIN 15018 ve FEM 1.001 tablolarının kod karşılığı.
 
 /** DIN 15018 Tablo 17 — izin verilen yorulma gerilmeleri [N/mm²].
  * material: St37 (S235) | St52 (S355); notch: W0-W2 (kaynaksız) / K0-K4 (kaynaklı); loadGroup: B1-B6 */
@@ -40,7 +39,6 @@ export const C1_TABLE: Record<number, (number | null)[]> = {
   710: [null, 1.16, 1.14, 1.13, 1.12, 1.1, 1.07, 1.04, 1.02, 0.99, 0.96, 0.92, 0.89, 0.84, 0.79],
   800: [null, 1.17, 1.15, 1.14, 1.13, 1.11, 1.09, 1.06, 1.03, 1, 0.97, 0.94, 0.91, 0.87, 0.82],
   900: [null, null, 1.16, 1.14, 1.13, 1.12, 1.1, 1.07, 1.04, 1.02, 0.99, 0.96, 0.92, 0.89, 0.84],
-  // Kaynak Excel'de F85 metin olarak "1,14" girilmiş; sayıya çevrildi.
   1000: [null, null, 1.17, 1.15, 1.14, 1.13, 1.11, 1.09, 1.06, 1.03, 1, 0.97, 0.94, 0.91, 0.87],
   1120: [null, null, null, 1.16, 1.14, 1.13, 1.12, 1.1, 1.07, 1.04, 1.02, 0.99, 0.96, 0.92, 0.89],
   1250: [null, null, null, 1.17, 1.15, 1.14, 1.13, 1.11, 1.09, 1.06, 1.03, 1, 0.97, 0.94, 0.91],
@@ -54,14 +52,14 @@ export function c1SpeedIndex(speed: number): number {
   return C1_SPEEDS.length - 1;
 }
 
-/** c1 katsayısı: teker çapı + hız (Excel VLOOKUP + Q81/R81) */
+/** c1 katsayısı: teker çapı + yürüyüş hızı (FEM 1.001 T.4.2.4.1.4.b) */
 export function c1Factor(wheelDiaMm: number, speed: number): number | null {
   const row = C1_TABLE[wheelDiaMm];
   if (!row) return null;
   return row[c1SpeedIndex(speed)] ?? null;
 }
 
-/** Ray tablosu (KATSAYILAR C68:O70): baş genişliği [mm] ve radius */
+/** Ray tablosu: baş genişliği [mm] ve köşe yarıçapı */
 export const RAILS: Record<string, { radius: number | null; headWidth: number }> = {
   "A150": { radius: 10, headWidth: 136.666666666667 },
   "A120": { radius: 10, headWidth: 106.666666666667 },

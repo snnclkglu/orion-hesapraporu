@@ -61,15 +61,8 @@ import type { EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
 
 // ---------------------------------------------------------------- Tipler
 
-export type ModuleKey =
-  | "main"
-  | "aux"
-  | "hookBlock"
-  | "trolley"
-  | "bridge"
-  | "girder"
-  | "buckling"
-  | "endCarriage";
+export type { ModuleKey } from "@/lib/calc/presentation/module-family";
+import type { ModuleKey } from "@/lib/calc/presentation/module-family";
 
 /** Alan tanımlarının modülden bağımsız (gevşetilmiş) hali — FieldDef<T> ile
  *  yapısal uyumludur; keyof T'nin kontravaryansından kaçınmak için ayrı tanımlıdır. */
@@ -81,18 +74,27 @@ export interface AnyFieldDef {
   options?: readonly string[];
   /** select değerleri sayısal alana yazılır */
   numeric?: boolean;
-  excelCell?: string;
+  /** select seçeneklerinin gösterim etiketi */
+  optionLabels?: Record<string, string>;
+  /** Standart referansı (standards/registry.ts anahtarı) */
+  standardRef?: string;
+  /** Alanın altında gösterilecek kısa açıklama */
+  hint?: string;
 }
 
 export interface AdapterRow {
   key: string;
+  /**
+   * Kontrol↔satır bağlantısı için kararlı kimlik (check-anchors.ts).
+   * Araba/köprü gibi ortak sunum kullanan modüllerde her iki varyantta da
+   * AYNI değerdir (araba hücresi), böylece harita tek kalır.
+   */
+  anchorId: string;
   label: string;
   formula?: string;
   unit?: string;
   digits?: number;
   standard?: string;
-  /** Excel hücre referansı; null → temiz yeniden yazım (Excel'de sağlam hücre yok) */
-  excelRef: string | null;
   read: (ctx: unknown) => number | string | undefined;
   subst?: (ctx: unknown) => string;
 }
@@ -170,14 +172,14 @@ function hoistAdapter(which: "main" | "aux"): ModuleAdapter {
       rows: s.rows.map((r) => {
         const sub = r.subst;
         return {
-          key: r.cell,
+          key: r.key,
+          anchorId: r.key,
           label: r.label,
           formula: r.formula,
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
-          excelRef: r.cell,
-          read: (ctx: unknown) => (ctx as HoistCtx).c[r.cell],
+          read: (ctx: unknown) => (ctx as HoistCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as HoistCtx) : undefined,
         };
       }),
@@ -201,23 +203,21 @@ function hookBlockAdapter(): ModuleAdapter {
       selectionDefs: defs(s.selectionKeys, HOOKBLOCK_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       checkSuffixes: s.checkSuffixes,
-      rows: s.rows.map((r, i) => {
+      rows: s.rows.map((r) => {
         const sub = r.subst;
         const valueFrom = r.valueFrom;
-        const cell = r.cell;
+        const key = r.key;
         return {
-          key: cell ?? `rw-${s.id}-${i}`,
+          key,
+          anchorId: key,
           label: r.label,
           formula: r.formula,
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
-          // valueFrom satırları Excel'in bozuk hücrelerinin yeniden yazımıdır
-          excelRef: cell && !r.nonExcel ? cell : null,
+          // Değer ya motorun haritasından ya da girdi/bağımlılık yankısından okunur
           read: (ctx: unknown) =>
-            cell !== undefined
-              ? (ctx as HookBlockCtx).c[cell]
-              : valueFrom?.(ctx as HookBlockCtx),
+            valueFrom ? valueFrom(ctx as HookBlockCtx) : (ctx as HookBlockCtx).c[key],
           subst: sub ? (ctx: unknown) => sub(ctx as HookBlockCtx) : undefined,
         };
       }),
@@ -227,7 +227,7 @@ function hookBlockAdapter(): ModuleAdapter {
 
 // ---------------------------------------------------------------- Yürütme (05/06)
 
-/** Travel 5.x id'lerinin köprü (06) numaraları — 5.5b = Excel 6.6, sonrakiler +1 kayar */
+/** Yürütme bölümlerinin köprü (06) numaraları — 5.5b fren bölümü 6.6 olur. */
 const BRIDGE_ID_MAP: Record<string, string> = {
   "5.1": "6.1",
   "5.2": "6.2",
@@ -255,21 +255,21 @@ function travelAdapter(which: "trolley" | "bridge"): ModuleAdapter {
       selectionDefs: defs(s.selectionKeys, TRAVEL_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       checkSuffixes: s.checkSuffixes,
+      // Araba ve köprü AYNI semantik anahtarları kullanır; yalnız tek varyantta
+      // üretilen satırlar diğerinde gösterilmez.
       rows: s.rows
-        // Köprüde adresi olmayan satırlar sadece araba sayfasında hücrelidir
-        .filter((r) => !isBridge || r.bridgeCell !== undefined)
+        .filter((r) => r.variant === undefined || r.variant === which)
         .map((r) => {
           const sub = r.subst;
-          const cell = isBridge ? r.bridgeCell! : r.cell;
           return {
-            key: cell,
+            key: r.key,
+            anchorId: r.key,
             label: r.label,
             formula: r.formula,
             unit: r.unit,
             digits: r.digits,
             standard: r.standard,
-            excelRef: cell,
-            read: (ctx: unknown) => (ctx as TravelCtx).c[cell],
+            read: (ctx: unknown) => (ctx as TravelCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as TravelCtx) : undefined,
           };
         }),
@@ -284,7 +284,6 @@ function girderAdapter(): ModuleAdapter {
     key: "girder",
     title: "07 · Ana Kiriş",
     checkPrefix: "girder.",
-    // depKeys motor tarafından otomatik bağlanır; UI'da gösterilmez.
     sections: GIRDER_SECTIONS.map((s) => ({
       id: s.id,
       rawId: s.id,
@@ -297,14 +296,14 @@ function girderAdapter(): ModuleAdapter {
       rows: s.rows.map((r) => {
         const sub = r.subst;
         return {
-          key: r.cell,
+          key: r.key,
+          anchorId: r.key,
           label: r.label,
           formula: r.formula,
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
-          excelRef: r.cell,
-          read: (ctx: unknown) => (ctx as GirderCtx).c[r.cell],
+          read: (ctx: unknown) => (ctx as GirderCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as GirderCtx) : undefined,
         };
       }),
@@ -327,11 +326,10 @@ function bucklingAdapter(): ModuleAdapter {
       inputDefs: defs(s.inputKeys, BUCKLING_PANEL_MAP),
       // Panel alanları inputs.side / inputs.top alt nesnelerine yazılır
       inputScope: {
-        get: (inputs: object) =>
-          (inputs as Record<string, object>)[s.panel] ?? {},
+        get: (inputs: object) => (inputs as Record<string, object>)[s.panel] ?? {},
         set: (inputs: object, next: object) => ({ ...inputs, [s.panel]: next }),
       },
-      // L54 (düzeltilmiş kritik gerilme) kök inputs alanıdır; sadece yan sacda
+      // Düzeltilmiş kritik gerilme kök inputs alanıdır; yalnız yan sacda görünür
       extraInputDefs: s.panel === "side" ? [...BUCKLING_EXTRA_FIELDS] : undefined,
       selectionDefs: [],
       selectionKeys: [],
@@ -339,14 +337,14 @@ function bucklingAdapter(): ModuleAdapter {
       rows: s.rows.map((r) => {
         const sub = r.subst;
         return {
-          key: r.cell,
+          key: r.key,
+          anchorId: r.key,
           label: r.label,
           formula: r.formula,
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
-          excelRef: r.cell,
-          read: (ctx: unknown) => (ctx as BucklingCtx).c[r.cell],
+          read: (ctx: unknown) => (ctx as BucklingCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as BucklingCtx) : undefined,
         };
       }),
@@ -361,7 +359,6 @@ function endCarriageAdapter(): ModuleAdapter {
     key: "endCarriage",
     title: "09 · Başkiriş",
     checkPrefix: "endCarriage.",
-    // depKeys motor tarafından otomatik bağlanır; UI'da gösterilmez.
     sections: ENDCARRIAGE_SECTIONS.map((s) => ({
       id: s.id,
       rawId: s.id,
@@ -373,17 +370,15 @@ function endCarriageAdapter(): ModuleAdapter {
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
-        // "fatigue.*" anahtarları Excel'in bozuk bloğunun yeniden yazımıdır
-        const isRewrite = r.cell.startsWith("fatigue.");
         return {
-          key: r.cell,
+          key: r.key,
+          anchorId: r.key,
           label: r.label,
           formula: r.formula,
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
-          excelRef: isRewrite ? null : r.cell,
-          read: (ctx: unknown) => (ctx as EndCarriageCtx).c[r.cell],
+          read: (ctx: unknown) => (ctx as EndCarriageCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as EndCarriageCtx) : undefined,
         };
       }),
@@ -415,8 +410,31 @@ export const ADAPTER_BY_KEY: Record<ModuleKey, ModuleAdapter> = Object.fromEntri
 // görüntü numaraları (02, 03…) mevcut modüllere göre yeniden dizilir. rawId,
 // checkPrefix ve hücre referansları DEĞİŞMEZ — yalnız gösterim numarası dinamik.
 
-/** Vince göre eklenip çıkarılabilen modüller. */
-export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = ["aux", "hookBlock"];
+/**
+ * Vince göre eklenip çıkarılabilen modüller.
+ *
+ * Ana kaldırma, araba ve köprü yürütme kapatılamaz: diğer modüller (kanca
+ * bloğu, ana kiriş, başkiriş) hesap girdilerini bunlardan alır.
+ */
+export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
+  "aux",
+  "hookBlock",
+  "girder",
+  "buckling",
+  "endCarriage",
+];
+
+/** Modül aç/kapa kontrollerinde görünen kısa etiketler. */
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  main: "Ana Kaldırma",
+  aux: "Yardımcı Kaldırma",
+  hookBlock: "Kanca Bloğu",
+  trolley: "Araba Yürütme",
+  bridge: "Köprü Yürütme",
+  girder: "Ana Kiriş",
+  buckling: "Buruşma",
+  endCarriage: "Başkiriş",
+};
 
 export function isOptionalModule(key: ModuleKey): boolean {
   return OPTIONAL_MODULE_KEYS.includes(key);
@@ -487,23 +505,23 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
       trolleyWeightT: trolley.inputs.trolleyWeightT,
     },
     girder: {
-      mainHookBlockWeightKg: main.inputs.hookBlockWeightKg,          // 02!L14
-      mainRopeWeightKg: main.inputs.ropeWeightKg,                    // 02!L15
-      trolleyWeightT: trolley.inputs.trolleyWeightT,                 // 05!L5
-      trolleyWheelCount: trolley.inputs.wheelCount,                  // 05!L10
-      trolleyActualSpeedMpm: num(result.trolley?.cells.L109),        // 05!L109
-      trolleyAccelTimeS: num(result.trolley?.cells.L110),            // 05!L110
-      bridgeGirdersWeightT: bridge.inputs.bridgeWeightT,             // 06!L6
-      bridgeEndCarriagesWeightT: bridge.inputs.otherWeightsT,        // 06!L7
-      bridgeWheelCount: bridge.inputs.wheelCount,                    // 06!L14
-      bridgeActualSpeedMpm: num(result.bridge?.cells.L115),          // 06!L115
-      bridgeAccelTimeS: num(result.bridge?.cells.L117),              // 06!L117
+      mainHookBlockWeightKg: main.inputs.hookBlockWeightKg,
+      mainRopeWeightKg: main.inputs.ropeWeightKg,
+      trolleyWeightT: trolley.inputs.trolleyWeightT,
+      trolleyWheelCount: trolley.inputs.wheelCount,
+      trolleyActualSpeedMpm: result.trolley?.values.actualSpeedMpm ?? 0,
+      trolleyAccelTimeS: result.trolley?.values.startupTimeS ?? 0,
+      bridgeGirdersWeightT: bridge.inputs.bridgeWeightT,
+      bridgeEndCarriagesWeightT: bridge.inputs.otherWeightsT,
+      bridgeWheelCount: bridge.inputs.wheelCount,
+      bridgeActualSpeedMpm: result.bridge?.values.actualSpeedMpm ?? 0,
+      bridgeAccelTimeS: result.bridge?.values.startupTimeS ?? 0,
     },
     endCarriage: {
-      mainHoistTotalLoadKg: result.mainHoist!.values.totalLoadKg,    // 02!L16
-      trolleyWeightT: trolley.inputs.trolleyWeightT,                 // 06!L5
-      bridgeGirdersWeightT: bridge.inputs.bridgeWeightT,             // 06!L6
-      bridgeEndCarriagesWeightT: bridge.inputs.otherWeightsT,        // 06!L7
+      mainHoistTotalLoadKg: result.mainHoist!.values.totalLoadKg,
+      trolleyWeightT: trolley.inputs.trolleyWeightT,
+      bridgeGirdersWeightT: bridge.inputs.bridgeWeightT,
+      bridgeEndCarriagesWeightT: bridge.inputs.otherWeightsT,
     },
   };
 }

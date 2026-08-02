@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { attrLabel } from "@/lib/catalog-mapping";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -210,7 +211,7 @@ export function EquipmentDialog({
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <Label>Özellikler (attrs)</Label>
+              <Label>Teknik Özellikler</Label>
               <Button
                 type="button" size="sm" variant="ghost"
                 onClick={() => setAttrRows((rows) => [...rows, { key: "", value: "" }])}
@@ -225,11 +226,20 @@ export function EquipmentDialog({
             )}
             {attrRows.map((row, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                <Input
-                  placeholder="anahtar (ör. power_kw)"
-                  value={row.key}
-                  onChange={(e) => setAttrRow(i, { key: e.target.value })}
-                />
+                <div className="grid gap-0.5">
+                  <Input
+                    placeholder="anahtar (ör. power_kw)"
+                    value={row.key}
+                    onChange={(e) => setAttrRow(i, { key: e.target.value })}
+                  />
+                  {/* Anahtarın kendisi veri sözleşmesidir (snake_case);
+                      karşılığı bilinen anahtarlarda Türkçe adı ipucu olur. */}
+                  {row.key && attrLabel(row.key) !== row.key && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {attrLabel(row.key)}
+                    </span>
+                  )}
+                </div>
                 <Input
                   placeholder="değer"
                   value={row.value}

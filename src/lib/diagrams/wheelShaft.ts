@@ -1,7 +1,7 @@
 // Teker mili diyagramı — parametrik SVG üretici (5.2 / 6.2 bölümleri).
 // Mesnetler (rulmanlar), teker ve yük oku, a/b mesnet ölçüleri ve basit
 // üçgen moment diyagramı (Mmaks etiketli). Model: iki mesnetli kiriş,
-// tekerlek yükü a-b kesişiminde (Excel: RA = Pmaks/2, Mmaks = RA·a).
+// tekerlek yükü a-b kesişiminde: RA = Pmaks/2, Mmaks = RA·a.
 
 import {
   DCOL, type Diagram, type DiagramEl,

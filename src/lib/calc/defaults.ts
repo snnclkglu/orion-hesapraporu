@@ -1,8 +1,8 @@
-// İSDEMİR V5 raporunun değerleri — yeni revizyonlar için başlangıç şablonu
-// ve golden testlerin fikstürü. Kaynak: reference/excel-dump (statik hücreler).
+// İSDEMİR V5 işinin girdi seti — yeni revizyonlar için başlangıç şablonu ve
+// tarihsel doğrulama fikstürünün girdi tarafı.
 
 import type { CalcInput } from "./engine";
-import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
+import { ROPE_POSITION_AUTO, type HoistInputs, type HoistSelections } from "./modules/hoistGroup";
 import type { TechnicalSpecs } from "./types";
 import { V5_HOOKBLOCK_INPUTS, V5_HOOKBLOCK_SELECTIONS } from "./defaults/hookBlock";
 import {
@@ -20,146 +20,153 @@ import {
 } from "./defaults/structural";
 
 export const V5_SPECS: TechnicalSpecs = {
-  mainCapacityT: 4,              // P4
-  mainLiftHeightM: 10,           // P5
-  mainLiftSpeedMpm: 35,          // P6
-  auxCapacityT: 5,               // P7
-  auxLiftHeightM: 22,            // P8
-  auxLiftSpeedMpm: 8,            // P9
-  structureClass: "A6",          // P10
-  hoistLoadClass: "H3/B4",       // P11
-  hoistMechanismClass: "M6",     // P12
-  hoistUsageClass: "T6",         // P13
-  bridgeSpeedMpm: 60,            // P14
-  bridgeMechanismClass: "M6",    // P15
-  bridgeUsageClass: "T6",        // P16
-  trolleySpeedMpm: 40,           // P17
-  trolleyMechanismClass: "M6",   // P18
-  trolleyUsageClass: "T6",       // P19
-  hookType: "Kepçe",             // P20
-  controlType: "Sabit Kabin + Uzaktan Kumanda", // P21
+  mainCapacityT: 4,
+  mainLiftHeightM: 10,
+  mainLiftSpeedMpm: 35,
+  auxCapacityT: 5,
+  auxLiftHeightM: 22,
+  auxLiftSpeedMpm: 8,
+  structureClass: "A6",
+  hoistLoadClass: "H3/B4",
+  hoistMechanismClass: "M6",
+  hoistUsageClass: "T6",
+  bridgeSpeedMpm: 60,
+  bridgeMechanismClass: "M6",
+  bridgeUsageClass: "T6",
+  trolleySpeedMpm: 40,
+  trolleyMechanismClass: "M6",
+  trolleyUsageClass: "T6",
+  hookType: "Kepçe",
+  controlType: "Sabit Kabin + Uzaktan Kumanda",
   hoistBrakeType: "Eldro Fren",
   hoistSafetyBrake: "Yok",
   travelBrakeType: "Eldro Fren",
-  ambientTempMinC: -10,          // R22
-  ambientTempMaxC: 40,           // T22
-  supplyVoltage: "380 VAC, 3 Faz, 50 Hz", // P23
-  controlVoltage: "24 VDC",      // P24
-  spanM: 17.5,                   // P27
+  ambientTempMinC: -10,
+  ambientTempMaxC: 40,
+  supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
+  controlVoltage: "24 VDC",
+  spanM: 17.5,
 };
 
 export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
-  drivenFalls: 2,               // L5
-  totalFalls: 2,                // O5
-  sheaveEfficiency: 0.985,      // L7
-  fixedSheaveCount: 0,          // L8
-  hookBlockWeightKg: 3250,      // L14 (kepçe)
-  ropeWeightKg: 250,            // L15
-  drumWallThicknessMm: 16,      // L42
-  safetyGrooveCount: 3,         // L58
-  drumWeightKg: 800,            // L69
-  shaftSpanACm: 60,             // L70
-  shaftSpanBCm: 5,              // L71
-  shaftSpanCCm: 60,             // L72
-  shaftMomentArmCm: 6,          // L73
-  shaftArm2Cm: 6,               // L74
-  shaftDiaCm: 6,                // L76
-  shaftShearDiaCm: 5,           // L77
-  drumWeldThicknessCm: 1.5,     // L99
-  drumWeldAllowable: 156.9,     // L101 — kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
-  shaftWeldThicknessCm: 1,      // L115
-  shaftWeldAllowable: 156.9,    // L117 — kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
-  bearingFactorY1: 2.8,         // L142
-  bearingFactorY2: 2.8,         // L143
-  drumCount: 1,                 // L163
-  gearboxServiceFactor: 1.5,    // L166
-  reducerStages: 3,             // L195
-  stageEfficiency: 0.99,        // L196
-  tempFactor: 1,                // L203 (40 °C)
-  motorDivisor: 1,              // L205
-  brakeServiceFactor: 1.7,      // L219
-  motorCouplingServiceFactor: 2, // L234
-  drumCouplingDivisor: 1,       // L248
-  drumCouplingServiceFactor: 1.7, // L250
+  reevingLabel: "2/2",          // tahrikli/toplam halat kolu — hazır donanım
+  drivenFalls: 2,
+  totalFalls: 2,
+  sheaveEfficiency: 0.985,
+  fixedSheaveCount: 0,
+  hookBlockWeightKg: 3250,      // kepçe
+  ropeWeightKg: 250,
+  drumWallThicknessMm: 16,
+  safetyGrooveCount: 3,
+  drumWeightKg: 800,            // tambur ağırlığı W
+  // Tambur mili ölçü zinciri (A…G, cm) — mesnetler arası 130 cm, her iki
+  // yanda 6 cm konsol (moment kolu), 2 x 220 mm yiv bölgesi.
+  drumSpanACm: 6,
+  drumSpanBCm: 5,
+  drumSpanCCm: 22,
+  drumSpanDCm: 64,
+  drumSpanECm: 22,
+  drumSpanFCm: 5,
+  drumSpanGCm: 6,
+  ropeLoadPosition: ROPE_POSITION_AUTO,
+  shaftD1Cm: 6,                 // D1 — eğilme gerilmesi kesiti
+  shaftD2Cm: 5,                 // D2 — yatak oturma çapı (kesme kesiti)
+  drumWeldThicknessCm: 1.5,
+  drumWeldAllowable: 156.9,     // kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
+  shaftWeldThicknessCm: 1,
+  shaftWeldAllowable: 156.9,    // kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
+  bearingFactorY1: 2.8,
+  bearingFactorY2: 2.8,
+  drumCount: 1,
+  gearboxServiceFactor: 1.5,
+  reducerStages: 3,
+  stageEfficiency: 0.99,
+  tempFactor: 1,                // 40 °C
+  motorDivisor: 1,
+  brakeServiceFactor: 1.7,
+  motorCouplingServiceFactor: 2,
+  drumCouplingDivisor: 1,
+  drumCouplingServiceFactor: 1.7,
 };
 
 export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
-  ropeBrand: "Hasçelik",        // L23
-  ropeDiaMm: 18,                // L24
-  ropeConstruction: "6x36",     // L25
-  ropeCore: "Çelik Öz",         // L26
-  ropeWireStrength: 200,        // L27
-  ropeBreakingLoadKn: 226,      // Q28
-  drumDiaMm: 400,               // L39
-  drumMaterial: "S355",         // L40
-  drumGrooveLengthText: "2 x 220", // L63
-  shaftMaterial: "C30",         // L90
-  bearingType: "Çift Sıra Makaralı Rulman", // L133
-  bearingCode: "22212",         // L134
-  bearingDynCKn: 159,           // L140
-  bearingStatC0Kn: 166,         // L141
-  gearboxModel: "YILMAZ HT0823", // L174
-  gearboxRatio: 52.57,          // L175
-  gearboxNominalTorqueKnm: 22,  // L176
-  gearboxInputShaftMm: 55,      // L177
-  gearboxOutputShaftMm: 120,    // L178
-  gearboxWeightKg: 775,         // L180
-  gearboxAllowedRadialKn: 60,   // L188
-  motorPowerKw: 55,             // L208
-  motorRpm: 1480,               // O208
-  motorShaftMm: 70,             // L209
-  motorBrand: "GAMAK",          // L210
-  motorCount: 1,                // L211
-  brakeBrand: "SİBRE",          // L222
-  brakeModel: "SIBRE TE250 Ed 50/6", // L223
-  brakeTorqueNm: 850,           // L224
-  brakeWheelDiaMm: 250,         // L225
-  brakeQty: 2,                  // L226 / O228
-  motorCouplingBrand: "ÖZGÜN",  // L237
-  motorCouplingModel: "B3-3",   // L238
-  motorCouplingWheelDiaMm: 200, // L239
-  motorCouplingTorqueNm: 5500,  // L240
-  motorCouplingDmaxMm: 75,      // L241
-  drumCouplingBrand: "ÖZGÜN",   // L256
-  drumCouplingModel: "J7",      // L257
-  drumCouplingTorqueNm: 37000,  // L258
-  drumCouplingRadialN: 88000,   // L259
-  drumCouplingDmaxMm: 150,      // L260
+  ropeBrand: "Hasçelik",
+  ropeDiaMm: 18,
+  ropeConstruction: "6x36",
+  ropeCore: "Çelik Öz",
+  ropeWireStrength: 200,
+  ropeBreakingLoadKn: 226,
+  drumDiaMm: 400,
+  drumMaterial: "S355",
+  drumGrooveLengthText: "2 x 220",
+  shaftMaterial: "C30",
+  bearingType: "Çift Sıra Makaralı Rulman",
+  bearingCode: "22212",
+  bearingDynCKn: 159,
+  bearingStatC0Kn: 166,
+  gearboxModel: "YILMAZ HT0823",
+  gearboxRatio: 52.57,
+  gearboxNominalTorqueKnm: 22,
+  gearboxInputShaftMm: 55,
+  gearboxOutputShaftMm: 120,
+  gearboxWeightKg: 775,
+  gearboxAllowedRadialKn: 60,
+  motorPowerKw: 55,
+  motorRpm: 1480,
+  motorShaftMm: 70,
+  motorBrand: "GAMAK",
+  motorCount: 1,
+  brakeBrand: "SİBRE",
+  brakeModel: "SIBRE TE250 Ed 50/6",
+  brakeTorqueNm: 850,
+  brakeWheelDiaMm: 250,
+  brakeQty: 2,
+  motorCouplingBrand: "ÖZGÜN",
+  motorCouplingModel: "B3-3",
+  motorCouplingWheelDiaMm: 200,
+  motorCouplingTorqueNm: 5500,
+  motorCouplingDmaxMm: 75,
+  drumCouplingBrand: "ÖZGÜN",
+  drumCouplingModel: "J7",
+  drumCouplingTorqueNm: 37000,
+  drumCouplingRadialN: 88000,
+  drumCouplingDmaxMm: 150,
 };
 
 export const V5_AUX_HOIST_INPUTS: HoistInputs = {
   ...V5_MAIN_HOIST_INPUTS,
-  totalFalls: 4,                // O5 (donanım 2/4)
-  hookBlockWeightKg: 150,       // L14
-  ropeWeightKg: 50,             // L15
-  safetyGrooveCount: 2,         // L58
-  gearboxServiceFactor: 1.8,    // L166
-  tempFactor: 1.1,              // L203 (60 °C)
-  brakeServiceFactor: 1.6,      // L219
-  drumCouplingServiceFactor: 1.8, // L250
+  reevingLabel: "2/4",
+  totalFalls: 4,
+  hookBlockWeightKg: 150,
+  ropeWeightKg: 50,
+  safetyGrooveCount: 2,
+  gearboxServiceFactor: 1.8,
+  tempFactor: 1.1,              // 60 °C
+  brakeServiceFactor: 1.6,
+  drumCouplingServiceFactor: 1.8,
 };
 
 export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_MAIN_HOIST_SELECTIONS,
-  ropeDiaMm: 12,                // L24
-  ropeBreakingLoadKn: 100.5,    // Q28
-  drumDiaMm: 290,               // L39
-  drumGrooveLengthText: "2 x 730", // L63
-  gearboxModel: "SEW X3FS100",  // L174
-  gearboxRatio: 86,             // L175
-  gearboxNominalTorqueKnm: 6.8, // L176
-  gearboxOutputShaftMm: 90,     // L178
-  motorPowerKw: 11,             // L208
-  brakeModel: "TE200 Ed 23/5",  // L223
-  brakeTorqueNm: 350,           // L224
-  brakeWheelDiaMm: 315,         // L225
-  drumCouplingModel: "J5",      // L257
-  drumCouplingTorqueNm: 36800,  // L258
-  drumCouplingRadialN: 18400,   // L259
-  drumCouplingDmaxMm: 110,      // L260
+  ropeDiaMm: 12,
+  ropeBreakingLoadKn: 100.5,
+  drumDiaMm: 290,
+  drumGrooveLengthText: "2 x 730",
+  gearboxModel: "SEW X3FS100",
+  gearboxRatio: 86,
+  gearboxNominalTorqueKnm: 6.8,
+  gearboxOutputShaftMm: 90,
+  motorPowerKw: 11,
+  brakeModel: "TE200 Ed 23/5",
+  brakeTorqueNm: 350,
+  brakeWheelDiaMm: 315,
+  drumCouplingModel: "J5",
+  drumCouplingTorqueNm: 36800,
+  drumCouplingRadialN: 18400,
+  drumCouplingDmaxMm: 110,
 };
 
-/** V5 raporunun tam girdi seti — yeni revizyon şablonu */
+/** V5 işinin tam girdi seti — yeni revizyon şablonu */
 export const V5_TEMPLATE: CalcInput = {
   specs: V5_SPECS,
   mainHoist: { inputs: V5_MAIN_HOIST_INPUTS, selections: V5_MAIN_HOIST_SELECTIONS },
@@ -174,12 +181,35 @@ export const V5_TEMPLATE: CalcInput = {
 
 /**
  * Yeni iş başlangıç şablonu — V5_TEMPLATE ile aynı, yalnız kullanıcı tercihleri:
- * iki perde arası 1500 mm, sehim sınırı 1/1000. Golden testler V5_TEMPLATE'i
- * (Excel değerleri 2000/750) kullandığından bu ayrı tutulur; boş girdiler için
- * varsayılan kaynak (revision-load / editor) burasıdır.
+ * iki perde arası 1500 mm, sehim sınırı 1/1000, ve otomatik hesaplanan girdiler
+ * (halat ağırlığı, makara verimi) açık. Tarihsel doğrulama V5_TEMPLATE'i
+ * (2000/750 ve otomatik alanlar kapalı) kullandığından bu ayrı tutulur; boş
+ * girdiler için varsayılan kaynak (revision-load / editor) burasıdır.
+ *
+ * Makara yataklama tipi, V5'teki 0,985 verimiyle birebir örtüşen "yüksek verim"
+ * seçeneğidir — otomatik açılınca sayı değişmez. Halat metre ağırlıkları seçili
+ * halatların (Ø18 / Ø12, 6x36 çelik öz) katalog değerleridir.
  */
+const HIGH_EFF_SHEAVE = "Rulmanlı yataklı makara (yüksek verim)";
+
 export const NEW_WORK_TEMPLATE: CalcInput = {
   ...V5_TEMPLATE,
+  mainHoist: {
+    inputs: { ...V5_MAIN_HOIST_INPUTS, ropeWeightAuto: true, sheaveEfficiencyAuto: true },
+    selections: {
+      ...V5_MAIN_HOIST_SELECTIONS,
+      ropeWeightKgPerM: 1.33,
+      sheaveBearingKind: HIGH_EFF_SHEAVE,
+    },
+  },
+  auxHoist: {
+    inputs: { ...V5_AUX_HOIST_INPUTS, ropeWeightAuto: true, sheaveEfficiencyAuto: true },
+    selections: {
+      ...V5_AUX_HOIST_SELECTIONS,
+      ropeWeightKgPerM: 0.59,
+      sheaveBearingKind: HIGH_EFF_SHEAVE,
+    },
+  },
   girder: {
     inputs: { ...V5_GIRDER_INPUTS, diaphragmSpacingMm: 1500, deflectionLimitRatio: 1000 },
     selections: V5_GIRDER_SELECTIONS,

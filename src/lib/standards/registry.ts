@@ -1,0 +1,1067 @@
+// Standart referans kayıt defteri.
+//
+// Hesap satırlarının ve kontrollerin `standard` alanı ("FEM 1.001 T.4.2.2.1.2"
+// gibi) bu deftere bakar; kullanıcı referansa tıkladığında ilgili standardın
+// tablosu / formülü / açıklaması pop-up olarak açılır. Böylece mühendis, bir
+// katsayının nereden geldiğini raporu terk etmeden görebilir.
+//
+// Kaynaklar: FEM 1.001 3rd Edition Revised (1998), CMAA Specification #70,
+// DIN 15018-1. Tablo değerleri `docs/standards/*.md` inceleme notlarından ve
+// motor sabitlerinden (coefficients.ts, tables.ts) alınmıştır — tek kaynak
+// ilkesi için mümkün olan yerlerde sabitler doğrudan içe aktarılır.
+
+import { DIN15018_T17 } from "@/lib/calc/tables";
+import {
+  DIN15020_GROUPS,
+  DIN15400_T3,
+  HOOK_NUMBERS,
+  HOOK_STRENGTH_CLASSES,
+  HOOK_STRENGTH_CLASS_INFO,
+  hookColumnIndex,
+} from "@/lib/calc/hook-table";
+
+/** Aktif satırın vurgulanması için sihirbazdan gelen sınıf bağlamı. */
+export interface StandardContext {
+  /** Bölümün ait olduğu mekanizmanın grubu (M1–M8) */
+  mechanismClass?: string;
+  /** Bölümün ait olduğu mekanizmanın kullanım sınıfı (T0–T9) */
+  usageClass?: string;
+  /** Çelik konstrüksiyon sınıfı (A1–A8) */
+  structureClass?: string;
+  /** Malzeme (S235 / S355 …) */
+  material?: string;
+  /** Yük grubu (B1–B6) */
+  loadGroup?: string;
+}
+
+export interface StandardTableDef {
+  caption?: string;
+  headers: string[];
+  rows: (string | number)[][];
+  /**
+   * Satır vurgusu: satırın ilk hücresi, bağlamdaki bu anahtarın değeriyle
+   * eşleşirse satır vurgulanır (ör. mechanismClass = "M6" → M6 satırı).
+   */
+  highlightBy?: keyof StandardContext;
+  footnote?: string;
+}
+
+export interface StandardFormulaDef {
+  label?: string;
+  /** math/formula.ts sözdizimi — MathFormula ile dizilir */
+  expr: string;
+}
+
+export interface StandardRef {
+  /** Gösterilecek referans kodu (rozetteki metin) */
+  code: string;
+  title: string;
+  /** Standardın tam adı (kaynak künyesi) */
+  source: string;
+  /** Madde / sayfa bilgisi */
+  clause?: string;
+  summary: string;
+  formulas?: StandardFormulaDef[];
+  tables?: StandardTableDef[];
+  notes?: string[];
+}
+
+// --------------------------------------------------------------- yardımcılar
+
+/** DIN 15018 Tablo 17'yi motor sabitinden okunabilir tabloya çevirir. */
+function din15018T17Table(): StandardTableDef {
+  const loadGroups = ["B1", "B2", "B3", "B4", "B5", "B6"];
+  const notches = ["W0", "W1", "W2", "K0", "K1", "K2", "K3", "K4"];
+  const rows: (string | number)[][] = [];
+  for (const material of ["St37", "St52"] as const) {
+    for (const notch of notches) {
+      rows.push([
+        `${material === "St37" ? "St 37 (S235)" : "St 52 (S355)"} · ${notch}`,
+        ...loadGroups.map((g) =>
+          DIN15018_T17[material][notch][g].toLocaleString("tr-TR", {
+            maximumFractionDigits: 1,
+          })
+        ),
+      ]);
+    }
+  }
+  return {
+    caption: "İzin verilen yorulma gerilmeleri zul σD(−1) [N/mm²]",
+    headers: ["Malzeme · Çentik sınıfı", ...loadGroups],
+    rows,
+    footnote:
+      "W0–W2: kaynaksız (çentiksiz) çentik sınıfları; K0–K4: kaynaklı birleşim " +
+      "çentik sınıfları. Yük grubu B1–B6, gerilme çevrim sayısı ve gerilme " +
+      "kolektifinden belirlenir.",
+  };
+}
+
+/**
+ * DIN 15400 Tablo 3'ü okunabilir biçime çevirir: satırlar kanca numarası,
+ * sütunlar mukavemet sınıfı × mekanizma grubu. Her sınıf tabloda farklı bir
+ * sütun penceresine oturduğundan gösterimde sınıf/grup başlıkları açık yazılır.
+ */
+function din15400T3Table(): StandardTableDef {
+  const headers = [
+    "Kanca No",
+    ...HOOK_STRENGTH_CLASSES.flatMap((cls) =>
+      DIN15020_GROUPS.map((g) => `${cls} · ${g}`)
+    ),
+  ];
+  const rows: (string | number)[][] = HOOK_NUMBERS.map((nr) => {
+    const row = DIN15400_T3[nr];
+    return [
+      nr,
+      ...HOOK_STRENGTH_CLASSES.flatMap((cls) =>
+        DIN15020_GROUPS.map((g) => {
+          const idx = hookColumnIndex(cls, g);
+          const v = idx >= 0 ? row[idx] : null;
+          return v === null || v === undefined
+            ? "–"
+            : v.toLocaleString("tr-TR");
+        })
+      ),
+    ];
+  });
+  return {
+    caption: "Taşıma kapasitesi [kg] — mukavemet sınıfı × mekanizma grubu",
+    headers,
+    rows,
+    footnote:
+      "Sınıflar: " +
+      HOOK_STRENGTH_CLASSES.map((c) => `${c} (${HOOK_STRENGTH_CLASS_INFO[c]})`).join(" · ") +
+      ". FEM 1.001 karşılıkları: M1–M4 → 1Bm, M5 → 1Am, M6 → 2m, M7 → 3m, " +
+      "M8 → 4m. 1Bm'den hafif çalışma dikkate alınmaz. “–” o sınıf/grup " +
+      "birleşimi için tanımsız demektir.",
+  };
+}
+
+// ------------------------------------------------------------------ FEM 1.001
+
+const FEM_SOURCE = "FEM 1.001 3rd Edition Revised (1998-10-01)";
+
+const FEM_REFS: Record<string, StandardRef> = {
+  "FEM 1.001 T.2.1.3.2": {
+    code: "FEM 1.001 T.2.1.3.2",
+    title: "Mekanizma kullanım sınıfları T0–T9",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.1.3.2",
+    summary:
+      "Bir mekanizmanın toplam çalışma süresi (saat) kullanım sınıfına göre " +
+      "sınıflandırılır. Rulman seçiminde gerekli teorik ömür (L10h) bu tablodaki " +
+      "üst banttan alınır (madde 4.2.1.1).",
+    tables: [
+      {
+        caption: "Toplam kullanım süresi T [saat]",
+        headers: ["Sınıf", "Toplam kullanım süresi T (h)"],
+        rows: [
+          ["T0", "T ≤ 200"],
+          ["T1", "200 < T ≤ 400"],
+          ["T2", "400 < T ≤ 800"],
+          ["T3", "800 < T ≤ 1 600"],
+          ["T4", "1 600 < T ≤ 3 200"],
+          ["T5", "3 200 < T ≤ 6 300"],
+          ["T6", "6 300 < T ≤ 12 500"],
+          ["T7", "12 500 < T ≤ 25 000"],
+          ["T8", "25 000 < T ≤ 50 000"],
+          ["T9", "50 000 < T"],
+        ],
+        highlightBy: "usageClass",
+      },
+    ],
+    notes: [
+      "Mekanizma grubu M1–M8, kullanım sınıfı (T) ile yük spektrumu sınıfının (L) " +
+        "birleşiminden belirlenir (Tablo T.2.1.3.4).",
+    ],
+  },
+
+  "FEM 1.001 T.2.3.4": {
+    code: "FEM 1.001 T.2.3.4",
+    title: "Yük arttırma katsayısı γC",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.3.4",
+    summary:
+      "Yapı hesabında I/II/III yükleme durumlarındaki tüm yükler, vincin grup " +
+      "sınıflandırmasına (A1–A8) bağlı γC katsayısıyla çarpılır.",
+    formulas: [{ expr: "S = γ_c · (S_G + ψ · S_L + S_H)" }],
+    tables: [
+      {
+        headers: ["Vinç grubu", "γC"],
+        rows: [
+          ["A1", "1,00"],
+          ["A2", "1,02"],
+          ["A3", "1,05"],
+          ["A4", "1,08"],
+          ["A5", "1,11"],
+          ["A6", "1,14"],
+          ["A7", "1,17"],
+          ["A8", "1,20"],
+        ],
+        highlightBy: "structureClass",
+      },
+    ],
+  },
+
+  "FEM 1.001 T.2.6": {
+    code: "FEM 1.001 T.2.6",
+    title: "Mekanizma arttırma katsayısı γm",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.6",
+    summary:
+      "Mekanizma elemanlarının hesabında yükler, mekanizmanın grup " +
+      "sınıflandırmasına (M1–M8) bağlı γm katsayısıyla çarpılır.",
+    tables: [
+      {
+        headers: ["Mekanizma grubu", "γm"],
+        rows: [
+          ["M1", "1,00"],
+          ["M2", "1,04"],
+          ["M3", "1,08"],
+          ["M4", "1,12"],
+          ["M5", "1,16"],
+          ["M6", "1,20"],
+          ["M7", "1,25"],
+          ["M8", "1,30"],
+        ],
+        highlightBy: "mechanismClass",
+      },
+    ],
+  },
+
+  "FEM 1.001 T.3.2.1.1": {
+    code: "FEM 1.001 T.3.2.1.1",
+    title: "Yapı çelikleri için izin verilen gerilmeler σa",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, madde 3.2.1.1",
+    summary:
+      "Elastik sınıra göre kontrolde izin verilen gerilme σa = σE / νE. Emniyet " +
+      "katsayısı νE yükleme durumuna göre 1,5 (I) / 1,33 (II) / 1,1 (III) alınır.",
+    formulas: [
+      { label: "Basit çekme / basınç", expr: "σ_em = σ_E / ν_E" },
+      { label: "Kayma", expr: "τ_em = σ_em / √3" },
+      {
+        label: "Bileşik (von Mises)",
+        expr: "σ_bil = √(σ_x² + σ_y² − σ_x·σ_y + 3·τ_xy²)",
+      },
+    ],
+    tables: [
+      {
+        caption: "σE ve σa [N/mm²]",
+        headers: ["Çelik", "σE", "σa — Durum I", "σa — Durum II", "σa — Durum III"],
+        rows: [
+          ["E.24 (Fe 360 ≈ S235)", 240, 160, 180, 215],
+          ["E.26 (Fe 430)", 260, 175, 195, 240],
+          ["E.36 (Fe 510 ≈ S355)", 360, 240, 270, 325],
+        ],
+        footnote:
+          "σE, %0,2 kalıcı uzamaya karşılık gelen akma gerilmesi olarak alınır. " +
+          "σE/σR > 0,7 olan yüksek elastik limitli çeliklerde σa ayrı bir " +
+          "orantı bağıntısıyla hesaplanır.",
+      },
+      {
+        caption: "Emniyet katsayısı νE",
+        headers: ["Yükleme durumu", "νE"],
+        rows: [
+          ["Durum I — normal işletme (rüzgârsız)", "1,50"],
+          ["Durum II — normal işletme (rüzgârlı)", "1,33"],
+          ["Durum III — istisnai yükler / test", "1,10"],
+        ],
+      },
+    ],
+  },
+
+  "FEM 1.001 T.4.2.2.1.2": {
+    code: "FEM 1.001 T.4.2.2.1.2",
+    title: "Halat minimum pratik emniyet katsayısı Zp",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.2.1.2.1",
+    summary:
+      "Halat emniyet katsayısı Zp = F0 / S olarak tanımlanır: F0 halatın minimum " +
+      "kopma yükü, S maksimum halat çekme kuvvetidir. Gerekli minimum Zp, " +
+      "mekanizmanın grup sınıflandırmasına bağlıdır.",
+    formulas: [{ expr: "Z_p = F₀ / S" }],
+    tables: [
+      {
+        headers: [
+          "Mekanizma grubu",
+          "Zp — Hareketli halat",
+          "Zp — Sabit (taşıyıcı) halat",
+        ],
+        rows: [
+          ["M1", "3,15", "2,50"],
+          ["M2", "3,35", "2,50"],
+          ["M3", "3,55", "3,00"],
+          ["M4", "4,00", "3,50"],
+          ["M5", "4,50", "4,00"],
+          ["M6", "5,60", "4,50"],
+          ["M7", "7,10", "5,00"],
+          ["M8", "9,00", "5,00"],
+        ],
+        highlightBy: "mechanismClass",
+      },
+    ],
+    notes: [
+      "Maksimum halat çekme kuvveti S; güvenli çalışma yükü, kanca bloğu ve " +
+        "aksesuar ağırlıkları, palanga oranı ve palanga verimi dikkate alınarak " +
+        "bulunur. İvme yükleri statik yükün %10'unu aşıyorsa ve halatın kaldırma " +
+        "eksenine açısı 22,5°'yi geçiyorsa bunlar da hesaba katılır (4.2.2.1.1.1).",
+      "Alternatif C-faktörü yöntemi (4.2.2.1.3) yalnız hareketli halatlar için " +
+        "geçerlidir: d ≥ C·√S.",
+    ],
+  },
+
+  "FEM 1.001 T.4.2.3.1.1": {
+    code: "FEM 1.001 T.4.2.3.1.1",
+    title: "Minimum tambur / makara çapı katsayısı H",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.3.1.1",
+    summary:
+      "Halat ekseninden ölçülen minimum sarım çapı D ≥ H · d bağıntısıyla " +
+      "bulunur; H mekanizma grubuna ve elemana (tambur / makara / dengeleme " +
+      "makarası) bağlıdır.",
+    formulas: [{ expr: "D ≥ H · d" }],
+    tables: [
+      {
+        headers: ["Mekanizma grubu", "Tambur", "Makara", "Dengeleme makarası"],
+        rows: [
+          ["M1", "11,2", "12,5", "11,2"],
+          ["M2", "12,5", "14", "12,5"],
+          ["M3", "14", "16", "12,5"],
+          ["M4", "16", "18", "14"],
+          ["M5", "18", "20", "14"],
+          ["M6", "20", "22,4", "16"],
+          ["M7", "22,4", "25", "16"],
+          ["M8", "25", "28", "18"],
+        ],
+        highlightBy: "mechanismClass",
+      },
+    ],
+    notes: [
+      "Makarada H tamburdan büyüktür: halat bir çevrimde makara üzerinde iki kat " +
+        "fazla eğilme tersinmesi görür. Dengeleme makarasında hareket sınırlı " +
+        "olduğundan H daha düşüktür.",
+      "Yiv dip yarıçapı r = 0,53 · d (madde 4.2.3.2).",
+      "Halat tamamen açıldığında, uç bağlantısından önce tamburda en az 2 tam " +
+        "sarım kalmalıdır (madde 4.2.3.3).",
+    ],
+  },
+
+  "FEM 1.001 T.4.2.4.1.3 / T.9.12.a": {
+    code: "FEM 1.001 T.4.2.4.1.3",
+    title: "Tekerlek limit basıncı PL",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.4.1.3 (+ Booklet 9, Tablo T.9.12.a)",
+    summary:
+      "Tekerlek/ray temasında izin verilen kavramsal basınç PL, teker " +
+      "malzemesinin kopma dayanımına bağlıdır. Kontrol: Pmean / (b · D) ≤ PL · c1 · c2.",
+    formulas: [
+      { label: "Ortalama teker yükü", expr: "P_ort = (P_min + 2 · P_maks) / 3" },
+      { label: "Kontrol", expr: "P_ort / (b · D) ≤ P_L · c₁ · c₂" },
+    ],
+    tables: [
+      {
+        headers: ["Teker malzemesi kopma dayanımı σR", "PL [N/mm²]"],
+        rows: [
+          ["σR > 500 N/mm²", "5,0"],
+          ["σR > 600 N/mm²", "5,6"],
+          ["σR > 700 N/mm²", "6,5"],
+          ["σR > 800 N/mm²", "7,2"],
+          ["σR > 900 N/mm² (Booklet 9, T.9.12.a)", "7,8"],
+          ["σR > 1000 N/mm² (Booklet 9, T.9.12.a)", "8,5"],
+        ],
+        footnote:
+          "900 ve 1000 N/mm² satırları Booklet 9 Tablo T.9.12.a'dandır ve ray " +
+          "malzemesi için asgari mukavemet şartı getirir (sırasıyla ≥ 600 ve " +
+          "≥ 700 N/mm²).",
+      },
+    ],
+    notes: [
+      "Faydalı ray genişliği b: düz oturma yüzeyinde b = l − 2r, bombeli " +
+        "yüzeyde b = l − 4r/3 (madde 4.2.4.1.2).",
+      "Formüller D ≤ 1,25 m tekerler için geçerlidir.",
+      "Yüzey sertleştirilmiş tekerlerde PL, yüzey işlemi öncesi çelik kalitesine " +
+        "göre sınırlanır; sertleştirilmiş dökme demir tekerde PL = 5 N/mm² alınır.",
+    ],
+  },
+
+  "FEM 1.001 T.4.2.4.1.4.a": {
+    code: "FEM 1.001 T.4.2.4.1.4.a",
+    title: "Teker devir katsayısı c1",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.4.1.4",
+    summary:
+      "c1, tekerleğin dakikadaki devir sayısına bağlı düzeltme katsayısıdır. " +
+      "Tablo T.4.2.4.1.4.b aynı değerleri teker çapı × yürüyüş hızı matrisi " +
+      "olarak verir; uygulamada bu matris kullanılır.",
+    tables: [
+      {
+        caption: "Devir sayısına göre c1",
+        headers: ["Devir [d/dak]", "c1", "Devir [d/dak]", "c1", "Devir [d/dak]", "c1"],
+        rows: [
+          ["200", "0,66", "50", "0,94", "16", "1,09"],
+          ["160", "0,72", "45", "0,96", "14", "1,10"],
+          ["125", "0,77", "40", "0,97", "12,5", "1,11"],
+          ["112", "0,79", "35,5", "0,99", "11,2", "1,12"],
+          ["100", "0,82", "31,5", "1,00", "10", "1,13"],
+          ["90", "0,84", "28", "1,02", "8", "1,14"],
+          ["80", "0,87", "25", "1,03", "6,3", "1,15"],
+          ["71", "0,89", "22,4", "1,04", "5,6", "1,16"],
+          ["63", "0,91", "20", "1,06", "5", "1,17"],
+          ["56", "0,92", "18", "1,07", "", ""],
+        ],
+      },
+    ],
+  },
+
+  "FEM 1.001 T.4.2.4.1.5": {
+    code: "FEM 1.001 T.4.2.4.1.5",
+    title: "Mekanizma katsayısı c2 (tekerlek)",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.4.1.5",
+    summary:
+      "c2, tekerleğin bağlı olduğu yürütme mekanizmasının grup " +
+      "sınıflandırmasına bağlı düzeltme katsayısıdır.",
+    tables: [
+      {
+        headers: ["Mekanizma grubu", "c2"],
+        rows: [
+          ["M1", "1,12"],
+          ["M2", "1,12"],
+          ["M3", "1,12"],
+          ["M4", "1,12"],
+          ["M5", "1,00"],
+          ["M6", "0,90"],
+          ["M7", "0,80"],
+          ["M8", "0,80"],
+        ],
+        highlightBy: "mechanismClass",
+      },
+    ],
+    notes: [
+      "Booklet 9 Tablo T.9.12.b, M1–M2 için 1,25 değerini verir (daha yeni kabul).",
+    ],
+  },
+
+  "FEM 1.001 T.A.3.4.1": {
+    code: "FEM 1.001 T.A.3.4.1",
+    title: "Plaka burkulma katsayıları Kσ ve Kτ",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, Appendix A-3.4",
+    summary:
+      "Dört kenarı mesnetli plakalarda kritik burkulma gerilmeleri " +
+      "σv,cr = Kσ · σE,R ve τv,cr = Kτ · σE,R bağıntılarıyla bulunur. " +
+      "Kσ ve Kτ, kenar oranı α = a/b ve gerilme dağılımı ψ'ye bağlıdır.",
+    formulas: [
+      { label: "Euler referans gerilmesi", expr: "σ_ER = 189800 · (e/b)²" },
+      { label: "Basınç", expr: "σ_vcr = K_σ · σ_ER" },
+      { label: "Kayma", expr: "τ_vcr = K_τ · σ_ER" },
+    ],
+    tables: [
+      {
+        headers: ["Durum", "Kenar oranı", "Kσ / Kτ"],
+        rows: [
+          ["1 — Üniform basınç", "α ≥ 1", "Kσ = 4"],
+          ["1 — Üniform basınç", "α ≤ 1", "Kσ = (α + 1/α)²"],
+          ["2 — Üniform olmayan basınç (0 ≤ ψ < 1)", "α ≥ 1", "Kσ = 8,4 / (ψ + 1,1)"],
+          ["2 — Üniform olmayan basınç (0 ≤ ψ < 1)", "α ≤ 1", "Kσ = 2,1·(α + 1/α)² / (ψ + 1,1)"],
+          ["3 — Saf eğilme (ψ = −1)", "α ≥ 2/3", "Kσ = 23,9"],
+          ["3 — Saf eğilme (ψ = −1)", "α ≤ 2/3", "Kσ = 15,87 + 1,87/α² + 8,6·α²"],
+          ["4 — Basınç baskın eğilme (−1 < ψ < 0)", "—", "Kσ = (1+ψ)·K′ − ψ·K″ + 10·ψ·(1+ψ)"],
+          ["5 — Saf kayma", "α ≥ 1", "Kτ = 5,34 + 4/α²"],
+          ["5 — Saf kayma", "α ≤ 1", "Kτ = 4 + 5,34/α²"],
+        ],
+        footnote:
+          "K′: durum 2'nin ψ = 0 değeri, K″: durum 3 (saf eğilme) değeri. " +
+          "e: plaka kalınlığı, b: basınç kuvvetlerine dik plaka genişliği.",
+      },
+    ],
+    notes: [
+      "Formüller yalnız orantı sınırının altında geçerlidir (St 37 için " +
+        "190 N/mm², St 52 için 290 N/mm²); üzerinde kritik değerler ρ " +
+        "katsayısıyla azaltılır (Tablo T.A.3.4.2).",
+      "Burkulma emniyet katsayısı: Durum I → νv = 1,7 + 0,175·(ψ − 1); " +
+        "Durum II → 1,5 + 0,125·(ψ − 1); Durum III → 1,35 + 0,075·(ψ − 1).",
+    ],
+  },
+
+  "FEM 1.001 A-3.4": {
+    code: "FEM 1.001 A-3.4",
+    title: "Plaka burkulması (Appendix A-3.4)",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, Appendix A-3.4",
+    summary:
+      "Basınç ve kayma altındaki ince cidarlı plakaların (kutu kesitin yan ve " +
+      "üst sacları) burkulma kontrolü. Kritik karşılaştırma gerilmesi σv,cr,c " +
+      "hesaplanır ve gerçekleşen bileşik gerilmeyle karşılaştırılır.",
+    formulas: [
+      { expr: "σ_ER = 189800 · (e/b)²" },
+      {
+        label: "Bileşik basınç + kayma",
+        expr:
+          "σ_vcrc = √(σ² + 3·τ²) / ((1 + ψ)/4 · (σ/σ_vcr) + √((0,25·(3 − ψ)·(σ/σ_vcr))² + (τ/τ_vcr)²))",
+      },
+    ],
+    notes: [
+      "Kσ / Kτ katsayıları için bkz. Tablo T.A.3.4.1.",
+      "CMAA 70 Tablo 3.4.8.2-1 aynı katsayıları verir.",
+    ],
+  },
+
+  "FEM 1.001 2.2.2.1.1": {
+    code: "FEM 1.001 2.2.2.1.1",
+    title: "Dinamik katsayı ψ (kaldırma yükü)",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.2.2.1.1",
+    summary:
+      "Yükün yerden alınmasındaki dinamik etkiler, kaldırma yükünün ψ dinamik " +
+      "katsayısıyla çarpılmasıyla dikkate alınır.",
+    formulas: [{ expr: "ψ = 1 + ξ · V_L" }],
+    tables: [
+      {
+        headers: ["Vinç tipi", "ξ"],
+        rows: [
+          ["Köprülü / gezer vinç", "0,6"],
+          ["Pergel (jib) vinç", "0,3"],
+        ],
+      },
+    ],
+    notes: [
+      "V_L: kaldırma hızı [m/s]. ψ hiçbir durumda 1,15'ten küçük alınmaz; " +
+        "V_L > 1 m/s için üst sınır uygulanır.",
+      "DIN 15018 Tablo 2, aynı etkiyi kaldırma sınıfı H1–H4 üzerinden " +
+        "ψ = k + l·v biçiminde verir.",
+    ],
+  },
+
+  "FEM 1.001 2.2.3.1.1": {
+    code: "FEM 1.001 2.2.3.1.1",
+    title: "Yatay hareketten doğan yükler",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.2.3.1.1",
+    summary:
+      "Yürütme hareketinin hızlanma/yavaşlamasından doğan yatay atalet yükleri. " +
+      "Tahrik tekerleğine gelen yatay kuvvet, tekerlek yükünün 1/30 ile 1/4'ü " +
+      "arasında kalacak şekilde sınırlandırılır.",
+    notes: [
+      "Tablo T.2.2.3.1.1 yalnız kılavuz ivme/hızlanma süresi değerleri verir; " +
+        "yatay yükün kendisi mekanizma verilerinden hesaplanır.",
+      "Çapraz yürüyüş yükleri için madde 2.2.3.3: λ katsayısı p/a " +
+        "oranına bağlıdır (p/a = 2…8 → λ = 0,05…0,20).",
+    ],
+  },
+
+  "FEM 1.001 §2.3.1": {
+    code: "FEM 1.001 §2.3.1",
+    title: "Yükleme Durumu I — normal işletme (rüzgârsız)",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.3.1",
+    summary:
+      "Normal işletme yüklemesi: öz ağırlık, dinamik katsayılı kaldırma yükü ve " +
+      "en elverişsiz iki yatay hareket etkisi γC ile arttırılarak toplanır.",
+    formulas: [{ expr: "S_I = γ_c · (S_G + ψ · S_L + S_H)" }],
+    notes: [
+      "γC değerleri için bkz. Tablo T.2.3.4 (A1–A8 → 1,00…1,20).",
+      "Durum II aynı kombinasyona servis rüzgârını ekler; Durum III istisnai " +
+        "yükler ve test yüklemesidir.",
+    ],
+  },
+
+  "FEM 1.001 §2.3.3": {
+    code: "FEM 1.001 §2.3.3",
+    title: "Yükleme Durumu III — istisnai yükler ve test",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.3.3 (c) + Booklet 8, madde 8.1",
+    summary:
+      "Test yüklemesi iki kombinasyondan elverişsiz olanıyla kontrol edilir: " +
+      "öz ağırlık + ψ·ρ1·kaldırma yükü, ya da öz ağırlık + ρ2·kaldırma yükü.",
+    formulas: [
+      { label: "Dinamik test", expr: "S_III = S_G + ψ · ρ₁ · S_L" },
+      { label: "Statik test", expr: "S_III = S_G + ρ₂ · S_L" },
+    ],
+    tables: [
+      {
+        headers: ["Test", "Katsayı", "Yük"],
+        rows: [
+          ["Dinamik test (8.1.1)", "ρ1 = 1,20", "Güvenli çalışma yükünün %120'si"],
+          ["Statik test (8.1.2)", "ρ2 = 1,40", "Güvenli çalışma yükünün %140'ı"],
+        ],
+      },
+    ],
+    notes: [
+      "Bunlar asgari şartlardır; ulusal mevzuat daha yüksek değer isteyebilir.",
+      "Bu kurallar test sırasında izin verilen sehim için bir zorunluluk getirmez.",
+    ],
+  },
+
+  "FEM 1.001 4.1.1": {
+    code: "FEM 1.001 4.1.1",
+    title: "Mekanizma elemanlarında kopma mukavemeti kontrolü",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.1.1",
+    summary:
+      "Mekanizma elemanlarında izin verilen gerilme, malzemenin kopma " +
+      "dayanımının νR emniyet katsayısına bölünmesiyle bulunur.",
+    formulas: [
+      { expr: "σ_em = σ_R / ν_R" },
+      { label: "Kayma", expr: "τ_em = σ_em / √3" },
+      {
+        label: "Bileşik",
+        expr: "σ_bil = √(σ² + 3·τ²) ≤ σ_em",
+      },
+    ],
+    tables: [
+      {
+        caption: "νR emniyet katsayısı (T.4.1.1.2)",
+        headers: ["Yükleme durumu", "νR"],
+        rows: [
+          ["Durum I", "≈ 3,0"],
+          ["Durum II", "≈ 2,7"],
+          ["Durum III", "≈ 2,2"],
+        ],
+        footnote:
+          "Değerler malzemenin σE/σR oranına göre değişir; kesin değerler için " +
+          "Booklet 4 Tablo T.4.1.1.2'ye bakılır.",
+      },
+    ],
+  },
+
+  "FEM 1.001 4.1.2": {
+    code: "FEM 1.001 4.1.2",
+    title: "Mekanizma elemanlarında burkulma kontrolü",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.1.2",
+    summary:
+      "Basınç altındaki mekanizma elemanlarında narinlik oranına bağlı ω " +
+      "katsayısıyla burkulma kontrolü yapılır; hesaplanan gerilme ω ile " +
+      "çarpılıp izin verilen gerilmeyle karşılaştırılır.",
+    formulas: [{ expr: "ω · σ ≤ σ_em" }],
+  },
+
+  "FEM 1.001 4.1.3": {
+    code: "FEM 1.001 4.1.3",
+    title: "Mekanizma elemanlarında yorulma kontrolü",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.1.3",
+    summary:
+      "Yorulma dayanımı; parlatılmış numune dayanım sınırından başlanarak şekil " +
+      "(ks), boyut (kd), yüzey (ku) ve korozyon (kc) katsayılarıyla düzeltilir, " +
+      "ardından gerilme oranı κ ve Wöhler eğrisi üzerinden izin verilen gerilme " +
+      "bulunur (SMITH diyagramı).",
+    formulas: [
+      { expr: "σ_wk = σ_w / (k_s · k_d · k_u · k_c)" },
+      { label: "Kayma", expr: "τ_wk = τ_w" },
+    ],
+    notes: [
+      "Katsayı verileri Appendix A-4.1.3'tedir (ks eğrileri, kd boyut tablosu, " +
+        "ku yüzey ve kc korozyon grafikleri).",
+      "Bu uygulamada kiriş/başkiriş yorulması DIN 15018 Tablo 17/18 yöntemiyle " +
+        "yapılır; FEM karşılığı Booklet 3 madde 3.6'dır.",
+    ],
+  },
+
+  "FEM 1.001 4.1.4": {
+    code: "FEM 1.001 4.1.4",
+    title: "Aşınma kontrolü",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.1.4",
+    summary:
+      "Sürtünmeli temas yüzeylerinde (tekerlek/ray, burç/mil) yüzey basıncı " +
+      "aşınma açısından sınırlandırılır. Tekerlekler için sayısal yöntem madde " +
+      "4.2.4'te verilmiştir.",
+  },
+
+  "FEM 1.001 4.2": {
+    code: "FEM 1.001 4.2",
+    title: "Mekanizma elemanlarının seçimi",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2",
+    summary:
+      "Rulman (4.2.1), halat (4.2.2), tambur ve makara (4.2.3), tekerlek " +
+      "(4.2.4) ve dişli (4.2.5) seçim kurallarını kapsar. Her eleman için " +
+      "mekanizmanın grup sınıflandırması (M1–M8) belirleyicidir.",
+  },
+
+  "FEM 1.001 4.2.4.1": {
+    code: "FEM 1.001 4.2.4.1",
+    title: "Tekerlek hesabı — yüzey basıncı",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.2.4.1",
+    summary:
+      "Tekerlek/ray temasında HERTZ basıncından türetilen kavramsal basınç " +
+      "kontrolü. Ortalama tekerlek yükü Pmean, faydalı ray genişliği b ve " +
+      "tekerlek çapı D üzerinden hesaplanır.",
+    formulas: [
+      { expr: "P_ort = (P_min + 2 · P_maks) / 3" },
+      { expr: "P_ort / (b · D) ≤ P_L · c₁ · c₂" },
+    ],
+    notes: [
+      "Pmean hesaplanırken dinamik katsayı ψ ihmal edilir.",
+      "PL için T.4.2.4.1.3, c1 için T.4.2.4.1.4, c2 için T.4.2.4.1.5.",
+    ],
+  },
+
+  "FEM 1.001 4.3.1": {
+    code: "FEM 1.001 4.3.1",
+    title: "Elektrik motorlarının seçimi",
+    source: FEM_SOURCE,
+    clause: "Booklet 4, madde 4.3.1",
+    summary:
+      "Motor, mekanizmanın gerektirdiği gücü sağlamalı ve çalışma çevrimi " +
+      "boyunca termik olarak yeterli olmalıdır. Gerekli güç, statik dirençler ve " +
+      "hızlanma momentleri toplanarak bulunur.",
+  },
+};
+
+// -------------------------------------------------------------------- CMAA 70
+
+const CMAA_SOURCE = "CMAA Specification No. 70 (Elektrikli Gezer Köprülü Vinçler)";
+
+const CMAA_REFS: Record<string, StandardRef> = {
+  "CMAA 70 3.5.5.1": {
+    code: "CMAA 70 3.5.5.1",
+    title: "Ana kiriş düşey sehim sınırı",
+    source: CMAA_SOURCE,
+    clause: "Madde 3.5.5.1 (+ 3.5.7)",
+    summary:
+      "Araba ve nominal yük altında (kamber etkisi hariç) ana kirişin düşey " +
+      "sehimi, açıklığın belirli bir oranını aşmamalıdır.",
+    formulas: [{ expr: "δ ≤ L / 888" }],
+    tables: [
+      {
+        headers: ["Kriter", "Değer"],
+        rows: [
+          ["Birim sehim", "0,001125 in/in"],
+          ["Açıklık oranı", "≈ L / 888"],
+          ["Yükleme", "Araba + nominal yük (dinamik katsayısız)"],
+        ],
+      },
+    ],
+    notes: [
+      "FEM 1.001 kiriş sehimi için bir sınır getirmez; sehim sınırı sözleşmeyle " +
+        "belirlenir. Uygulamada sınır oranı kullanıcı girdisidir (ör. L/1000).",
+    ],
+  },
+
+  "CMAA 70 5.2.9.1.1": {
+    code: "CMAA 70 5.2.9.1.1",
+    title: "Kaldırma motoru gücü",
+    source: CMAA_SOURCE,
+    clause: "Madde 5.2.9.1.1",
+    summary:
+      "Kaldırma mekanizmasının mekanik gücü, yük ve kaldırma hızından toplam " +
+      "verim üzerinden hesaplanır; gerekli motor gücü kontrol faktörü Kc ile " +
+      "çarpılarak bulunur.",
+    formulas: [
+      { label: "Mekanik güç", expr: "P_mek = W · V / (33000 · E)" },
+      { label: "Gerekli güç", expr: "P_ger = P_mek · K_c" },
+    ],
+    tables: [
+      {
+        caption: "Tipik verimler (Tablo 5.2.9.1.1.1-1)",
+        headers: ["Yataklama", "Dişli kademe verimi Eg", "Makara verimi Es"],
+        rows: [
+          ["Rulmanlı (anti-friction)", "0,97", "0,99"],
+          ["Kaymalı / burçlu (sleeve)", "0,93", "0,98"],
+        ],
+      },
+    ],
+    notes: [
+      "Kc = 1 (kalıcı sekonder direnç yoksa). Kalıcı kayma dirençli AC bilezikli " +
+        "sistemlerde Kc = motor nominal devri / kaldırmadaki işletme devri.",
+    ],
+  },
+
+  "CMAA 70 5.2.9.1.2.1": {
+    code: "CMAA 70 5.2.9.1.2.1",
+    title: "Köprü ve araba yürütme motoru gücü (kapalı saha)",
+    source: CMAA_SOURCE,
+    clause: "Madde 5.2.9.1.2.1",
+    summary:
+      "Yürütme motoru gücü; toplam ağırlık W, yürüyüş hızı V, servis faktörü Ks " +
+      "ve ivmelenme faktörü Ka üzerinden hesaplanır.",
+    formulas: [
+      { label: "Gerekli güç", expr: "P = K_a · W · V · K_s" },
+      {
+        label: "İvmelenme faktörü",
+        expr: "K_a = (f + 2000 · a · C_r / (g · E)) / (33000 · K_t)",
+      },
+      { label: "Dönme atalet faktörü", expr: "C_r = 1,05 + a / 7,5" },
+    ],
+    notes: [
+      "W: hareket ettirilecek toplam ağırlık [ton], V: nominal hız [ft/dak], " +
+        "f: yürüyüş sürtünmesi [lb/ton] (Tablo 5.2.9.1.2.1-D), " +
+        "Ks: servis faktörü (Tablo 5.2.9.1.2.1-E), Kt: ivmelendirme momenti faktörü.",
+      "Redüktör oranı sapması: gerçek tam yük hızı, belirtilen hızın ±%10'u " +
+        "içinde kalmalıdır (madde 5.2.10.3).",
+    ],
+  },
+
+  "CMAA 70 T.5.2.9.1.2.1-D": {
+    code: "CMAA 70 T.5.2.9.1.2.1-D",
+    title: "Yürüyüş sürtünme faktörü f",
+    source: CMAA_SOURCE,
+    clause: "Tablo 5.2.9.1.2.1-D",
+    summary:
+      "Metalik tekerlek + rulmanlı yatak için yürüyüş sürtünmesi (aktarma " +
+      "kayıpları dahil), tekerlek çapına bağlı olarak lb/ton cinsinden verilir.",
+    tables: [
+      {
+        headers: ["Tekerlek çapı", "f [lb/ton]"],
+        rows: [
+          ['36″ – 24″ (≈ 900 – 600 mm)', "10 – 12"],
+          ['21″ – 10″ (≈ 530 – 250 mm)', "12 – 15"],
+          ['8″ – 6″ (≈ 200 – 150 mm)', "16"],
+        ],
+        footnote:
+          "Uygulamadaki eşleme (200 mm → 16; 250–500 mm → 15; 630–900 mm → 12) " +
+          "tablonun muhafazakâr tarafında kalır.",
+      },
+    ],
+  },
+
+  "CMAA 70 4.11.4.1": {
+    code: "CMAA 70 4.11.4.1",
+    title: "Mil ve pim gerilmeleri",
+    source: CMAA_SOURCE,
+    clause: "Madde 4.11.4.1 (kanca bloğu mil ve pimleri)",
+    summary:
+      "Kanca bloğu ve tambur mili gibi taşıyıcı mil/pimlerde izin verilen " +
+      "gerilmeler, malzemenin kopma dayanımı Su üzerinden sınırlandırılır. " +
+      "Eğilme momenti mesnet reaksiyonu ile konsol boyunun çarpımından, kesme " +
+      "gerilmesi ise yatak oturma kesitinden bulunur.",
+    formulas: [
+      { label: "Eğilme", expr: "σ ≤ S_u / 5" },
+      { label: "Kayma", expr: "τ ≤ S_u / (5 · √3)" },
+      { label: "Bileşik", expr: "σ_t = √(σ² + 3·τ²) ≤ S_u / 5" },
+    ],
+    notes: [
+      "Kaynakta CMAA #74 madde 4.5 referansı verilmişti; elimizdeki CMAA 70 " +
+        "baskısında 4.5 makaralara (sheaves) ayrılmıştır — mil gerilmelerinin " +
+        "doğru karşılığı 4.11.4.1'dir.",
+    ],
+  },
+};
+
+// ------------------------------------------------------------------ DIN
+
+const DIN_REFS: Record<string, StandardRef> = {
+  "DIN 15018 T.17": {
+    code: "DIN 15018 Tablo 17",
+    title: "İzin verilen yorulma gerilmeleri zul σD(−1)",
+    source: "DIN 15018-1 — Vinçler, çelik yapıların hesap esasları",
+    clause: "Tablo 17",
+    summary:
+      "Tam tersinir yükleme (κ = −1) altında izin verilen yorulma gerilmesi; " +
+      "malzeme, çentik sınıfı (W0–W2 kaynaksız, K0–K4 kaynaklı) ve yük grubuna " +
+      "(B1–B6) bağlıdır.",
+    tables: [din15018T17Table()],
+  },
+
+  "DIN 15018 Tablo 18": {
+    code: "DIN 15018 Tablo 18",
+    title: "Gerilme oranına bağlı izin verilen yorulma gerilmesi",
+    source: "DIN 15018-1",
+    clause: "Tablo 18 + madde 7.4.5",
+    summary:
+      "Tablo 17'den okunan zul σD(−1) değeri, gerçek gerilme oranı κ = σmin/σmax " +
+      "için dönüştürülür. Önce sıfır-çekme dayanımı zul σDz(0), ardından κ'ya " +
+      "bağlı değer hesaplanır.",
+    formulas: [
+      { label: "Sıfır-çekme", expr: "σ_Dz0 = σ_D(−1) · 5 / 3" },
+      {
+        label: "Gerilme oranına bağlı",
+        expr:
+          "σ_Dz(κ) = σ_Dz0 / (1 − (1 − σ_Dz0 / (0,75 · σ_B)) · κ)",
+      },
+      { label: "Kayma", expr: "τ_D = σ_Dz,W0 / √3" },
+    ],
+    notes: [
+      "σB: malzemenin kopma dayanımı. Kayma için daima W0 çentik sınıfı değeri " +
+        "kullanılır.",
+    ],
+  },
+
+  "DIN 15018 Tablo 2": {
+    code: "DIN 15018 Tablo 2",
+    title: "Dinamik katsayı ψ (kaldırma sınıfı H1–H4)",
+    source: "DIN 15018-1",
+    clause: "Tablo 2",
+    summary:
+      "Kaldırma yükünün dinamik etkisi, kaldırma sınıfına bağlı ψ = k + l·v " +
+      "bağıntısıyla hesaplanır (v: kaldırma hızı [m/dak]).",
+    formulas: [{ expr: "ψ = k + l · v" }],
+    tables: [
+      {
+        headers: ["Kaldırma sınıfı", "k", "l"],
+        rows: [
+          ["H1", "1,10", "0,0022"],
+          ["H2", "1,20", "0,0044"],
+          ["H3", "1,30", "0,0066"],
+          ["H4", "1,40", "0,0088"],
+        ],
+      },
+    ],
+    notes: [
+      "FEM 1.001 karşılığı madde 2.2.2.1.1'dir (ψ = 1 + ξ·V_L).",
+    ],
+  },
+
+  "DIN 15018 7.4.5": {
+    code: "DIN 15018 Madde 7.4.5",
+    title: "Bileşik yorulma kontrolü",
+    source: "DIN 15018-1",
+    clause: "Madde 7.4.5",
+    summary:
+      "Normal ve kayma gerilmelerinin birlikte etkidiği kesitlerde yorulma " +
+      "kontrolü, gerilme oranlarının kareleri toplamıyla yapılır.",
+    formulas: [
+      {
+        expr:
+          "(σ_x / σ_x,em)² + (σ_y / σ_y,em)² − (σ_x · σ_y) / (|σ_x,em| · |σ_y,em|) + (τ / τ_em)² ≤ 1,1",
+      },
+    ],
+    notes: [
+      "Ayrıca her bileşen tek başına da kendi izin verilen değerini aşmamalıdır.",
+    ],
+  },
+
+  "DIN 15018 Şekil 9": {
+    code: "DIN 15018 Şekil 9",
+    title: "Tekerlek basıncının kiriş gövdesine yayılımı",
+    source: "DIN 15018-1",
+    clause: "Şekil 9",
+    summary:
+      "Ray üzerinden gelen tekerlek yükünün gövde sacına yayıldığı etkin boy; " +
+      "ray ve üst başlık kalınlıklarına bağlı olarak belirlenir ve yerel " +
+      "gövde gerilmesi σz'nin hesabında kullanılır.",
+    formulas: [{ expr: "σ_z = P / (l_e · t_g)" }],
+  },
+
+  "DIN 15061": {
+    code: "DIN 15061",
+    title: "Tambur ve makara halat oluğu",
+    source: "DIN 15061-1 — Vinçler, halat oluğu profilleri",
+    clause: "DIN 15061-1",
+    summary:
+      "Halat oluğu adımı (t) ve profil ölçüleri halat çapına göre standartlaştırılmıştır. " +
+      "Uygulamadaki basamak fonksiyonu bu standarttan gelir.",
+    tables: [
+      {
+        caption: "Oluk adımı t = d + pay",
+        headers: ["Halat çapı d [mm]", "Pay [mm]", "Oluk adımı t [mm]"],
+        rows: [
+          ["d < 8", "1,0", "d + 1,0"],
+          ["8 ≤ d < 11", "1,5", "d + 1,5"],
+          ["11 ≤ d < 21", "2,0", "d + 2,0"],
+          ["21 ≤ d < 29", "3,0", "d + 3,0"],
+          ["29 ≤ d < 41", "4,0", "d + 4,0"],
+          ["41 ≤ d < 46", "5,0", "d + 5,0"],
+          ["46 ≤ d < 56", "6,0", "d + 6,0"],
+          ["d ≥ 56", "7,0", "d + 7,0"],
+        ],
+      },
+    ],
+    notes: ["FEM 1.001 madde 4.2.3.2 yalnız yiv dip yarıçapını verir: r = 0,53 · d."],
+  },
+
+  "DIN 15400": {
+    code: "DIN 15400 Tablo 3",
+    title: "Kanca taşıma kapasiteleri",
+    source: "DIN 15400 — Vinç kancaları, malzeme ve taşıma kapasiteleri",
+    clause: "Madde 4, Tablo 3 (Tragfähigkeit)",
+    summary:
+      "Bir kancanın taşıma kapasitesi üç veriyle belirlenir: kanca numarası, " +
+      "malzemenin mukavemet sınıfı (M < P < S < T < V) ve kancanın kullanılacağı " +
+      "mekanizma grubu. Aynı kanca numarasında daha yüksek mukavemet sınıfı daha " +
+      "büyük kapasite, daha ağır çalışma grubu ise daha küçük kapasite verir.",
+    tables: [din15400T3Table()],
+    notes: [
+      "Uygulama vincin FEM 1.001 mekanizma sınıfını (M1–M8) DIN 15020 grubuna " +
+        "çevirir: M1–M4 → 1Bm, M5 → 1Am, M6 → 2m, M7 → 3m, M8 → 4m.",
+      "Standardın notu: 1Bm'den daha hafif çalışma dikkate alınmaz — bu yüzden " +
+        "M1–M4 için aynı (1Bm) sütunu kullanılır.",
+      "Kanca somun ve mili gerilmeleri ayrıca kontrol edilir (bkz. CMAA 70 4.11.4.1).",
+      "Tekli kanca ölçüleri DIN 15401, çift ağızlı kanca ölçüleri DIN 15402'dedir.",
+    ],
+  },
+};
+
+// ------------------------------------------------------------------ birleştirme
+
+/** Ana defter — anahtar, hesap satırındaki `standard` dizesinin birebir kendisi. */
+const REGISTRY: Record<string, StandardRef> = {
+  ...FEM_REFS,
+  ...CMAA_REFS,
+  ...DIN_REFS,
+};
+
+/** Aynı içeriğe işaret eden alternatif yazımlar. */
+const ALIASES: Record<string, string> = {
+  "FEM 1.001 §2.2.2.1.1": "FEM 1.001 2.2.2.1.1",
+  "FEM 1.001 T.2.2.3.1.1": "FEM 1.001 2.2.3.1.1",
+  "FEM 1.001 2.3.1": "FEM 1.001 §2.3.1",
+  "FEM 1.001 2.3.3": "FEM 1.001 §2.3.3",
+  "FEM 1.001 3.4": "FEM 1.001 A-3.4",
+  "FEM 1.001 T.4.2.4.1": "FEM 1.001 4.2.4.1",
+  "FEM 1.001 T.4.2.4.1.3": "FEM 1.001 T.4.2.4.1.3 / T.9.12.a",
+  "FEM T.3.2.1.1": "FEM 1.001 T.3.2.1.1",
+  "DIN 15018 Tablo 17": "DIN 15018 T.17",
+  "DIN 15018 T.17/18": "DIN 15018 Tablo 18",
+  "DIN 15018 Tablo 17/18": "DIN 15018 Tablo 18",
+  "DIN 15018 Bölüm 7.4.5": "DIN 15018 7.4.5",
+  "DIN 15018 T.18": "DIN 15018 Tablo 18",
+  "CMAA #74, 4.5": "CMAA 70 4.11.4.1",
+  "DIN 15401": "DIN 15400",
+  "DIN 15402": "DIN 15400",
+};
+
+/** Karşılaştırma için normalize: boşluk sadeleştirme, § ve "T." önekini atma. */
+function normalize(code: string): string {
+  return code
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/§/g, "")
+    .replace(/\bT\.(?=\d)/g, "")
+    .replace(/\bTablo\s+/gi, "")
+    .replace(/\bBölüm\s+/gi, "")
+    .replace(/\bMadde\s+/gi, "")
+    .toLocaleUpperCase("tr-TR");
+}
+
+const NORMALIZED_INDEX: Map<string, StandardRef> = (() => {
+  const map = new Map<string, StandardRef>();
+  for (const [key, ref] of Object.entries(REGISTRY)) {
+    map.set(normalize(key), ref);
+  }
+  for (const [alias, target] of Object.entries(ALIASES)) {
+    const ref = REGISTRY[target];
+    if (ref) map.set(normalize(alias), ref);
+  }
+  return map;
+})();
+
+/**
+ * Hesap satırındaki `standard` dizesinden referans kaydını bulur.
+ * Birebir eşleşme yoksa normalize edilmiş eşleşme, o da yoksa "A / B" biçimli
+ * bileşik referansın ilk parçası denenir.
+ */
+export function resolveStandardRef(code: string | undefined): StandardRef | undefined {
+  if (!code) return undefined;
+  const direct = REGISTRY[code];
+  if (direct) return direct;
+  const aliased = ALIASES[code];
+  if (aliased && REGISTRY[aliased]) return REGISTRY[aliased];
+  const norm = NORMALIZED_INDEX.get(normalize(code));
+  if (norm) return norm;
+  // "FEM 1.001 T.4.2.4.1.3 / T.9.12.a" gibi bileşik referanslarda ilk parça
+  const first = code.split("/")[0]?.trim();
+  if (first && first !== code) {
+    return NORMALIZED_INDEX.get(normalize(first));
+  }
+  return undefined;
+}
+
+/** Bir referansın defterde karşılığı var mı (rozeti tıklanabilir yapmak için). */
+export function hasStandardRef(code: string | undefined): boolean {
+  return resolveStandardRef(code) !== undefined;
+}

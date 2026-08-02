@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { NewProjectDialog } from "./new-project-dialog";
+import { NewProjectDialog, type JobItemOption } from "./new-project-dialog";
 import { getReportSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
@@ -46,16 +46,23 @@ export default async function ProjectsPage() {
   const [{ data: projects }, { data: jobsData }, settings] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, doc_no, name, customer, crane_type, status, created_at, revisions(rev_no, status)")
+      .select("id, doc_no, name, customer, crane_type, status, created_at, job_id, jobs:job_id(job_no), revisions(rev_no, status)")
       .order("created_at", { ascending: false }),
     supabase
       .from("jobs")
-      .select("id, job_no, title, customer")
+      .select("id, job_no, title, customer, job_items(item_no, product_name, quantity, project_id)")
       .eq("status", "active")
       .order("created_at", { ascending: false }),
     getReportSettings(supabase),
   ]);
-  const jobs = jobsData ?? [];
+  // Yeni rapor dialogunda iş + kalem seçimi için kalemleri de taşırız.
+  const jobs = (jobsData ?? []).map((j) => ({
+    id: j.id,
+    job_no: j.job_no,
+    title: j.title,
+    customer: j.customer,
+    items: (j.job_items ?? []) as unknown as JobItemOption[],
+  }));
 
   const list = projects ?? [];
   const allRevs = list.flatMap((p) => p.revisions ?? []);
@@ -127,6 +134,7 @@ export default async function ProjectsPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead>İş No</TableHead>
                 <TableHead>Doküman No</TableHead>
                 <TableHead>Proje</TableHead>
                 <TableHead>Müşteri</TableHead>
@@ -140,6 +148,11 @@ export default async function ProjectsPage() {
                 const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
                 return (
                   <TableRow key={p.id} className="relative cursor-pointer">
+                    <TableCell className="font-mono text-sm text-muted-foreground">
+                      {(p.jobs as unknown as { job_no: string } | null)?.job_no ?? (
+                        <span className="text-muted-foreground/60">bağımsız</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-sm font-medium text-primary">
                       <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
                         {p.doc_no}
