@@ -929,6 +929,39 @@ const CMAA_REFS: Record<string, StandardRef> = {
     ],
   },
 
+  "CMAA 70 3.5.5.2": {
+    code: "CMAA 70 3.5.5.2",
+    title: "Ana kiriş ters sehimi (kamber)",
+    source: CMAA_SOURCE,
+    clause: "Madde 3.5.5.2",
+    summary:
+      "Kaynaklı kutu kirişler, ölü yük sehimi ile canlı yük sehiminin yarısı " +
+      "toplamı kadar yukarı yönde ters sehim (kamber) verilerek imal edilir. " +
+      "Kamber, kiriş sacları kesilirken uygulanan bir imalat ölçüsüdür.",
+    formulas: [
+      { expr: "kamber(x) = δ_ölü(x) + δ_canlı(x) / 2" },
+      { expr: "mesnette(x) = kamber(x) − δ_ölü(x) = δ_canlı(x) / 2" },
+    ],
+    tables: [
+      {
+        headers: ["Büyüklük", "İçerik"],
+        rows: [
+          ["Ölü yük", "Kirişin kendi yayılı ağırlığı + üstündeki sabit yükler (ray, yürüme yolu, festun)"],
+          ["Canlı yük", "Araba + nominal kaldırma yükü — darbe/dinamik katsayı GİRMEZ"],
+          ["Kesimde verisi", "δ_ölü + δ_canlı/2 — sacların kesim ve ütüleme kotu"],
+          ["Mesnette verisi", "δ_canlı/2 — kiriş sehpaya alındığında ölçülmesi beklenen kot"],
+        ],
+      },
+    ],
+    notes: [
+      "Başkiriş ağırlığı ölü yüke girmez: mesnet üzerinde durur, ana kirişi eğmez.",
+      "Kotlar açıklık ortasından başlayıp sağa ve sola perde (diyafram) " +
+        "aralığınca verilir; uçlarda (teker ekseni) sıfırdır.",
+      "Mesnette ölçülen değer beklenen kotu tutuyorsa kiriş doğru üretilmiştir; " +
+        "bu, imalat kabul kontrolüdür.",
+    ],
+  },
+
   "CMAA 70 5.2.9.1.1": {
     code: "CMAA 70 5.2.9.1.1",
     title: "Kaldırma motoru gücü",

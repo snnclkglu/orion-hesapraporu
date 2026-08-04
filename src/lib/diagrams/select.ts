@@ -22,7 +22,11 @@ import {
   type ModuleKey,
   type TravelKey,
 } from "@/lib/calc/presentation/module-family";
-import type { GirderValues } from "@/lib/calc/modules/mainGirder";
+import { camberProfile } from "@/lib/calc/camber";
+import {
+  GIRDER_ELASTIC_MODULUS_KG_CM2,
+  type GirderValues,
+} from "@/lib/calc/modules/mainGirder";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { Diagram } from "./model";
@@ -33,8 +37,13 @@ import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
 import { deflectionDiagram } from "./deflection";
+import { camberStripDiagram } from "./camberStrip";
 import { girderLoadDiagram } from "./girderLoad";
 import { girderStressDiagram } from "./girderStress";
+
+/** cells hücresi sayı ise değeri, değilse NaN — diyagram girdilerini korur. */
+const numOf = (v: number | string | undefined): number =>
+  typeof v === "number" ? v : NaN;
 
 export function diagramForSection(
   moduleKey: string,
@@ -126,6 +135,36 @@ export function diagramForSection(
         deflectionMm: v?.deflectionMm ?? 0,
         deflectionRatio: v?.deflectionRatio,
         limitRatio: st.inputs.deflectionLimitRatio,
+      });
+    }
+
+    // 7.7 — atölye kamber şeridi: kotlar hesap satırlarıyla AYNI saf
+    // fonksiyondan (camberProfile) üretilir, ikinci bir yöntem yazılmaz.
+    if (moduleKey === "girder" && rawSectionId === "7.7") {
+      const st = input.girder;
+      const c = result.girder?.cells;
+      const v = result.girder?.values as GirderValues | undefined;
+      if (!st || !c || !v) return null;
+      const spanCm = numOf(c["deflection.span"]);
+      const inertia = numOf(c["section.inertiaY"]);
+      const wheelLoad = numOf(c["deflection.wheelLoad"]);
+      if (!(spanCm > 0) || !(inertia > 0)) return null;
+      const profile = camberProfile(
+        {
+          spanCm,
+          deadLoadPerCm: v.camberDeadLoadKgPerM / 100,
+          wheelLoadKg: wheelLoad,
+          wheelSpacingCm: st.inputs.trolleyAxleSpacingM * 100,
+          elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
+          inertiaCm4: inertia,
+        },
+        st.inputs.diaphragmSpacingMm
+      );
+      return camberStripDiagram({
+        spanMm: spanCm * 10,
+        stations: profile.stations,
+        spacingMm: profile.spacingUsedMm,
+        thinned: profile.thinned,
       });
     }
 

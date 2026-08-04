@@ -56,20 +56,22 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   els.push(ln(xL + 8, yBeam - 26, xR - 8, yBeam - 26, DCOL.muted, 0.8));
   els.push(txt(xL + 20, yBeam - 30, `öz ağırlık w${p.selfWeightKg ? `  (≈${fmtN(p.selfWeightKg)} kg)` : ""}`, 8, { fill: DCOL.muted }));
 
-  // Araba — ortada, iki tekerlek yükü (açıklık a)
-  // Piksel yarı-açıklık (şematik). Dar tutulunca ortadaki "W1 = … kg" etiketi
-  // iki tekerlek yükü okunun arasına sığmıyor, oklara değiyordu.
-  const halfA = 42;
+  // Araba — ortada, iki tekerlek yükü (dingil açıklığı a)
+  // Tekerlek konumları GERÇEK a/L oranından ölçeklenir; moment diyagramının
+  // kırılma noktaları bu konumlarda olduğu için şematik sabit bir aralık
+  // kullanmak diyagramı fiziksel olarak yanlış yapardı. Alt sınır, ortadaki
+  // "W1 = … kg" etiketinin oklara değmemesi için korunur.
+  const spanForScale = Math.max(p.spanM, 0.001);
+  const halfA = Math.min(
+    Math.max((p.wheelSpacingMm / 1000 / spanForScale / 2) * (xR - xL), 38),
+    (xR - xL) * 0.3
+  );
   const w1 = xC - halfA, w2 = xC + halfA;
   els.push({ kind: "rect", x: xC - 42, y: yBeam - 66, w: 84, h: 20, rx: 2, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1 });
   els.push(txt(xC, yBeam - 52, "ARABA", 8, { anchor: "middle", fill: DCOL.ink }));
   // asılı yük W1
   els.push(ln(xC, yBeam - 46, xC, yBeam - 34, DCOL.faint, 0.8, "2,2"));
   els.push({ kind: "circle", cx: xC, cy: yBeam - 30, r: 4, fill: "#FBEDEC", stroke: DCOL.accent, strokeWidth: 1 });
-  // W1 etiketi kancanın ALTINA ortalanır: sağa yazıldığında sağdaki tekerlek
-  // yükü okunun (w2) üzerine biniyordu.
-  if (p.liveLoadKg)
-    els.push(txt(xC, yBeam - 18, `W1 = ${fmtN(p.liveLoadKg)} kg`, 7.5, { anchor: "middle", fill: DCOL.accent }));
   // tekerlek yükleri (2 aşağı ok)
   for (const wx of [w1, w2]) {
     els.push(ln(wx, yBeam - 44, wx, yBeam - 9, DCOL.accent, 1.8));
@@ -77,29 +79,76 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   }
   els.push(txt(w1 - 4, yBeam - 30, "P", 9, { anchor: "end", fill: DCOL.accent, bold: true }));
   els.push(txt(w2 + 4, yBeam - 30, "P", 9, { fill: DCOL.accent, bold: true }));
-  if (p.wheelLoadKg) els.push(txt(xC, yBeam - 74, `P ≈ ${fmtN(p.wheelLoadKg)} kg / teker`, 8, { anchor: "middle", fill: DCOL.accent }));
+  // Yük etiketleri arabanın ÜSTÜNDE iki satır hâlinde yığılır. Tekerlek okları
+  // gerçek dingil açıklığı oranında durduğu için aralarında serbest yer yok:
+  // etiket oraya yazılınca okların üzerine biniyordu.
+  if (p.liveLoadKg)
+    els.push(txt(xC, yBeam - 86, `W1 = ${fmtN(p.liveLoadKg)} kg`, 8, { anchor: "middle", fill: DCOL.accent }));
+  if (p.wheelLoadKg)
+    els.push(txt(xC, yBeam - 74, `P ≈ ${fmtN(p.wheelLoadKg)} kg / teker`, 8, { anchor: "middle", fill: DCOL.accent }));
   // araba tekerlek açıklığı a
   dimH(els, w1, w2, yBeam - 2, `a = ${fmtN(p.wheelSpacingMm / 1000, 2)} m`, { size: 7.5, labelDy: 9, color: DCOL.muted });
 
   // Açıklık L
   dimH(els, xL, xR, yBeam + 70, `L = ${fmtN(p.spanM, 2)} m`, { labelDy: 13 });
 
-  // --- Eğilme momenti diyagramı (My) — ortada tepe
+  // --- Eğilme momenti diyagramı (My) --------------------------------------
+  // ÖNCEKİ ÇİZİM YANLIŞTI: tek bir Bézier + geri dönen kırık çizgiler kendini
+  // kesiyor ve mesnetlerde sıfıra inmiyordu. Basit mesnetli kirişte M(x)
+  // mesnetlerde SIFIR, arada tek işaretlidir. Artık M(x) analitik hesaplanıp
+  // örneklenerek çiziliyor:
+  //   • yayılı öz ağırlık w : M(x) = w·x·(L − x) / 2            (parabol)
+  //   • iki tekil teker yükü P (a1, a2 konumlarında):
+  //       M(x) = R·x − Σ P·(x − ai)⁺   ,  R = P (simetrik yükleme)
+  //     → uçlarda doğrusal, tekerler arasında sabit (yamuk)
+  // Şekil gerçek M(x) oranlarını taşır; ölçek yalnız yüksekliğe uygulanır.
   const yM0 = 250;
-  const hM = 34;
+  const hM = 40;
   els.push(txt(16, yM0 - 6, "Eğilme momenti My", 8.5, { fill: DCOL.muted }));
   els.push(ln(xL, yM0, xR, yM0, DCOL.muted, 0.9));
-  // dağılı (parabol) + tekil (üçgen) birleşimi → yumuşak tepe: kuadratik + orta pik
+
+  const spanPx = xR - xL;
+  const a1 = (w1 - xL) / spanPx;          // tekil yük konumları — birim açıklıkta
+  const a2 = (w2 - xL) / spanPx;
+  // Yayılı ve tekil bileşenlerin birim açıklıktaki tepe değerleri; gerçek
+  // yük değerleri bilinmiyorsa şematik bir oran (0,45 / 0,55) kullanılır.
+  const selfW = p.selfWeightKg ?? 0;
+  const wheelP = p.wheelLoadKg ?? 0;
+  const peakUdl = selfW > 0 ? selfW / 8 : 0.45;                // wL²/8 → (W·L)/8
+  const peakPoint = wheelP > 0 ? wheelP * Math.min(a1, 1 - a2) : 0.55;
+  const momentAt = (t: number): number => {
+    const udl = 4 * t * (1 - t) * peakUdl;                     // parabol, tepe = peakUdl
+    const arm = Math.min(t, a1, 1 - t, 1 - a2);                // yamuk kolu
+    const pt = peakPoint > 0 ? (arm / Math.min(a1, 1 - a2)) * peakPoint : 0;
+    return udl + Math.max(0, pt);
+  };
+  const peak = Math.max(...Array.from({ length: 101 }, (_, i) => momentAt(i / 100)), 1e-9);
+
+  const SAMPLES = 80;
+  const pts: string[] = [];
+  for (let i = 0; i <= SAMPLES; i++) {
+    // Tekerlek konumları kırılma noktasıdır; örnekleme onları ıskalamasın
+    const t = i / SAMPLES;
+    pts.push(`${(xL + t * spanPx).toFixed(2)} ${(yM0 + (momentAt(t) / peak) * hM).toFixed(2)}`);
+  }
+  for (const t of [a1, a2]) {
+    pts.push(`${(xL + t * spanPx).toFixed(2)} ${(yM0 + (momentAt(t) / peak) * hM).toFixed(2)}`);
+  }
+  // Kırılma noktaları sıraya girsin diye x'e göre diz
+  const ordered = pts
+    .map((s) => s.split(" ").map(Number) as [number, number])
+    .sort((a, b) => a[0] - b[0])
+    .map(([x, y]) => `${x} ${y}`);
   els.push({
     kind: "path",
-    d: `M ${xL} ${yM0} Q ${xC} ${yM0 + hM * 1.5} ${xR} ${yM0} L ${w2} ${yM0 + hM} L ${xC} ${yM0 + hM + 8} L ${w1} ${yM0 + hM} Z`,
+    d: `M ${xL} ${yM0} L ${ordered.join(" L ")} L ${xR} ${yM0} Z`,
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,
   });
-  els.push(ln(xC, yM0, xC, yM0 + hM + 8, DCOL.accent, 0.7, "3,2"));
+  els.push(ln(xC, yM0, xC, yM0 + hM, DCOL.accent, 0.7, "3,2"));
   if (p.momentKgCm) {
     const nm = p.momentKgCm * KGF_TO_MPA; // kg·cm → N·m
     const label = nm >= 1000 ? `${fmtN(nm / 1000, 1)} kNm` : `${fmtN(nm)} Nm`;
-    els.push(txt(xC, yM0 + hM + 22, `Mmaks = ${label}`, 9.5, { anchor: "middle", fill: DCOL.accent, bold: true }));
+    els.push(txt(xC, yM0 + hM + 18, `Mmaks = ${label}`, 9.5, { anchor: "middle", fill: DCOL.accent, bold: true }));
   }
 
   return fitDiagram(els, W, H);

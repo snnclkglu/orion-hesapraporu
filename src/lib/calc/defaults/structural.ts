@@ -60,6 +60,9 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   // σy,maks / σy,min elle girilmez: teker basıncı σz'den gelir
   // σB elle girilmez: S235JR → 360 N/mm²
   deflectionLimitRatio: 750,  // yaygın imalat hedefi L/750
+  // Kirişin üstündeki ilave sabit yük (ray + yürüme yolu + festun). Kirişin
+  // kendi ağırlığı kesitten hesaplanır, buraya eklenmez.
+  camberExtraDeadLoadKgPerM: 0,
 };
 
 export const V5_GIRDER_SELECTIONS: GirderSelections = {

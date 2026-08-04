@@ -73,6 +73,13 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
 5. **Ortak hesap kütüphaneleri** — aynı fizik iki kez yazılmaz:
    - `beam.ts` — iki mesnetli kiriş statiği (reaksiyon, M(x), Mmaks, kesme)
+   - `camber.ts` — sehim eğrisi ve ters sehim. **Üçü karıştırılmaz:** *sehim*
+     yalnız canlı yükün (araba + nominal yük, darbe katsayısı YOK) çökmesidir
+     ve L/δ ile kontrol edilir; *kesimde* verisi CMAA 70 md. 3.5.5.2 kamberidir
+     (ölü yük sehimi + canlı yük sehiminin yarısı); *mesnette* verisi kesimde −
+     ölü yük sehimi = canlı/2'dir ve atölye ölçüm kotudur. Kotlar açıklık
+     ortasından başlayıp perde aralığınca verilir. Ölü yük kirişin KENDİ yayılı
+     ağırlığıdır — başkiriş mesnette durur, kirişi eğmez.
    - `shaftStress.ts` — mil gerilmeleri; bileşik (`vonMises`/`resultant`) ve
      kayma (`ortalama`/`maksimum`) kabulleri **açık parametredir**
    - `reeving.ts` — halat donanımının tek gerçek kaynağı (mekanik avantaj,

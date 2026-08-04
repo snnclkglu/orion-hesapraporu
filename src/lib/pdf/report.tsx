@@ -264,7 +264,7 @@ const s = StyleSheet.create({
   tocPage: { fontFamily: FONTS.mono, fontSize: 9, fontWeight: 600, color: BRAND.gray700 },
   // ---- etiket-değer tabloları (girdi/seçim/özet)
   kvGrid: { flexDirection: "row", gap: 14 },
-  kvCol: { flex: 1 },
+  kvCol: { flex: 1, flexShrink: 0 },
   kvRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -272,6 +272,10 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: BRAND.hairline,
     paddingVertical: 2.4,
+    // Satır ASLA sıkışmaz: sayfa dibinde yer kalmadığında react-pdf satırları
+    // ezip üst üste bindiriyordu ("Fren Markası / Fren Modeli / Fren Torku"
+    // tek satıra çöküyordu). Bölme kararı kvGrid'in wrap={false}'ında verilir.
+    flexShrink: 0,
     gap: 6,
   },
   kvLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.6, color: BRAND.gray700 },
@@ -340,9 +344,9 @@ const s = StyleSheet.create({
   // Bölüm özet tablosu (ör. ana kiriş gerilme tablosu)
   tblHeadRow: { flexDirection: "row", backgroundColor: BRAND.paper100, borderBottomWidth: 0.6, borderBottomColor: BRAND.gray500 },
   tblRow: { flexDirection: "row", borderBottomWidth: 0.4, borderBottomColor: BRAND.line300 },
-  tblHeadCell: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 700, color: BRAND.gray700, paddingVertical: 3, paddingHorizontal: 2.5, lineHeight: 1.25 },
-  tblCell: { fontFamily: FONTS.sans, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 2.5, lineHeight: 1.25 },
-  tblCellNum: { fontFamily: FONTS.mono, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 2.5, lineHeight: 1.25, textAlign: "right" },
+  tblHeadCell: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 700, color: BRAND.gray700, paddingVertical: 3, paddingHorizontal: 4.5, lineHeight: 1.25 },
+  tblCell: { fontFamily: FONTS.sans, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 4.5, lineHeight: 1.25 },
+  tblCellNum: { fontFamily: FONTS.mono, fontSize: 6.8, color: BRAND.ink, paddingVertical: 2.4, paddingHorizontal: 4.5, lineHeight: 1.25, textAlign: "right" },
   tblAlignRight: { textAlign: "right" },
   tblNote: { fontFamily: FONTS.sans, fontSize: 6.2, lineHeight: 1.4, color: BRAND.gray500, marginTop: 4 },
   calcLabel: { flex: 1, fontFamily: FONTS.sans, fontSize: 7.8, fontWeight: 500, color: BRAND.ink },
@@ -388,6 +392,8 @@ const s = StyleSheet.create({
   cmpUnit: { fontFamily: FONTS.mono, fontSize: 6.2, fontWeight: 400, color: BRAND.gray500 },
   /** Bağıntı işareti (≤ / ≥) — DejaVu, çünkü Plex Mono bu glifleri taşımaz */
   cmpOp: { fontFamily: FONTS.glyph, fontSize: 8, color: BRAND.gray600 },
+  /** Karşılaştırma şeridi parçaları arası boşluk — boşluk karakteri kırpılıyor */
+  cmpGap: { marginLeft: 3.5 },
   // ---- içindekiler sayfasındaki okuma anahtarı
   legendHead: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 600, letterSpacing: 0.8, color: BRAND.red, marginBottom: 2.5 },
   legendText: { fontFamily: FONTS.sans, fontSize: 7.2, lineHeight: 1.45, color: BRAND.gray700 },
@@ -488,7 +494,11 @@ function FieldTable({
   const mid = Math.ceil(defs.length / 2);
   const cols = [defs.slice(0, mid), defs.slice(mid)];
   return (
-    <View style={s.kvGrid}>
+    // wrap={false}: satır yönlü flex kap sayfaya BÖLÜNEMEZ. Bölünmeye
+    // zorlanınca react-pdf içerideki satırları ezip üst üste bindiriyor ve
+    // altbilginin üzerine taşıyordu. Sığmıyorsa tablo bütün hâlde sonraki
+    // sayfaya geçer (en büyük alan tablosu bile yarım sayfadan kısadır).
+    <View style={s.kvGrid} wrap={false}>
       {cols.map((col, i) => (
         <View style={s.kvCol} key={i}>
           {col.map((f) => {
@@ -548,20 +558,19 @@ function CheckComparison({ check }: { check: AnyCheck }) {
     d.operator === "…"
       ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}`
       : fmt(conv(d.limit ?? 0).value);
+  // Parçalar arası boşluk MARJLA verilir. Kardeş <Text>'lerin baştaki boşluk
+  // karakteri dizgide kırpılıyor ve bağıntı işareti birime yapışıyordu
+  // ("40,71 kN≤ İZİN VERİLEN"); marj kırpılmaz.
   return (
     <View style={s.cmp}>
-      <Text style={s.cmpLabel}>HESAPLANAN </Text>
-      <Text style={[s.cmpValue, { color }]}>
+      <Text style={s.cmpLabel}>HESAPLANAN</Text>
+      <Text style={[s.cmpValue, s.cmpGap, { color }]}>
         {fmt(computed.value)}
         {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
       </Text>
-      {d.operator === "…" ? (
-        <Text style={s.cmpLabel}>{"   "}</Text>
-      ) : (
-        <Text style={s.cmpOp}> {d.operator} </Text>
-      )}
-      <Text style={s.cmpLabel}>İZİN VERİLEN </Text>
-      <Text style={s.cmpValue}>
+      {d.operator === "…" ? null : <Text style={[s.cmpOp, s.cmpGap]}>{d.operator}</Text>}
+      <Text style={[s.cmpLabel, s.cmpGap]}>İZİN VERİLEN</Text>
+      <Text style={[s.cmpValue, s.cmpGap]}>
         {limitText}
         {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
       </Text>
@@ -1036,7 +1045,8 @@ function SummarySection({
       <FieldTable defs={specFieldsFor(input)} source={input.specs} specs={input.specs} />
 
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
-      <View style={s.kvGrid}>
+      {/* Aynı gerekçe: iki sütunlu ızgara bölünemez, bütün hâlde taşınır. */}
+      <View style={s.kvGrid} wrap={false}>
         {[groups.slice(0, Math.ceil(groups.length / 2)), groups.slice(Math.ceil(groups.length / 2))].map(
           (col, ci) => (
             <View style={s.kvCol} key={ci}>

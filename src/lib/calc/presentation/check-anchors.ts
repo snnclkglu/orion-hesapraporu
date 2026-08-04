@@ -117,6 +117,7 @@ const GIRDER_ANCHORS: AnchorMap = {
     "fatigue.combined": "fatigue.combined",
   },
   "7.6": { deflection: "deflection.ratio" },
+  // 7.7 Ters Sehim (Kamber) yalnız imalat verisi taşır — kontrolü yoktur.
 };
 
 /** 08 — Buruşma */

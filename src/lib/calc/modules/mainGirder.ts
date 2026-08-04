@@ -27,6 +27,7 @@
 //   τ3  kesme — öz ağırlık                      τ4  kesme — araba
 //   τ5  kesme — yük (×ψ)
 
+import { camberProfile } from "../camber";
 import { DIN15018_T17 } from "../tables";
 import { parseHoistLoadClass } from "../types";
 import type {
@@ -89,8 +90,8 @@ export const FATIGUE_TENSILE_NMM2: Record<FatigueMaterial, number> = {
  */
 export const FALLBACK_LOAD_GROUP: LoadGroup = "B6";
 
-/** Çeliğin elastisite modülü [kg/cm²] — sehim hesabı. */
-const ELASTIC_MODULUS_KG_CM2 = 2_100_000;
+/** Çeliğin elastisite modülü [kg/cm²] — sehim ve kamber hesabı. */
+export const GIRDER_ELASTIC_MODULUS_KG_CM2 = 2_100_000;
 
 /** DIN 15018 7.4.5 bileşik yorulma oranı üst sınırı. */
 const FATIGUE_COMBINED_LIMIT = 1.1;
@@ -183,6 +184,17 @@ export interface GirderInputs {
    */
   fatigueTensileOverrideNmm2?: number;
   deflectionLimitRatio: number; // sehim sınırı L/x
+  /**
+   * Kamber hesabında kirişin üstündeki İLAVE sabit yük [kg/m] — ray, yürüme
+   * yolu, festun, kablo tavası gibi kirişe kalıcı olarak binen her şey.
+   *
+   * Ölü yük sehimi kirişin KENDİ yayılı ağırlığından hesaplanır; gerilme
+   * hesabındaki `bridgeDeadWeightKg` (köprü ağırlığının yarısı) burada
+   * KULLANILMAZ, çünkü o değer başkirişleri de içerir ve başkirişler mesnet
+   * üzerinde durup kirişi eğmez. Kamber imalat ölçüsüdür; fazla tahmin
+   * edilirse kiriş fiilen yukarı kalkık kalır.
+   */
+  camberExtraDeadLoadKgPerM: number;
 }
 
 /** Mühendis seçimleri */
@@ -261,9 +273,13 @@ export interface GirderValues {
   zulTauW0: number;
   zulTauDX: number;
   fatigueCombined: number;
-  // Sehim
-  deflectionMm: number;
+  // Sehim ve ters sehim (kamber)
+  deflectionMm: number;        // canlı yük sehimi δ (açıklık ortası)
   deflectionRatio: number;     // L / sehim
+  deadDeflectionMm: number;    // ölü yük sehimi (açıklık ortası)
+  camberCuttingMm: number;     // KESİMDE verilecek ters sehim (açıklık ortası)
+  camberSupportedMm: number;   // MESNETTE ölçülecek ters sehim (açıklık ortası)
+  camberDeadLoadKgPerM: number; // kamber ölü yükü w (kiriş öz ağırlığı + ilave)
 }
 
 /** DIN 15018 Tablo 17 lookup */
@@ -896,11 +912,32 @@ export function computeMainGirder(
       deflectionLoadOffsetCm *
       (4 * deflectionLoadOffsetCm ** 2 - 3 * deflectionSpanCm ** 2)) /
       24 /
-      ELASTIC_MODULUS_KG_CM2 /
+      GIRDER_ELASTIC_MODULUS_KG_CM2 /
       inertiaYCm4);
   const deflectionMm = deflectionCm * 10;
   // Oran birimsizdir: açıklık da mm'ye çevrilir (spanMm / δ[mm])
   const deflectionRatio = spanMm / deflectionMm;
+
+  // --- Ters sehim (kamber) — CMAA 70 md. 3.5.5.2 --------------------------
+  // Ölü yük: kirişin KENDİ yayılı ağırlığı + üstündeki ilave sabit yük.
+  // (Gerilme hesabındaki bridgeDeadWeightKg başkirişleri de içerdiği için
+  // kamberde kullanılmaz — bkz. GirderInputs.camberExtraDeadLoadKgPerM.)
+  const camberDeadLoadKgPerM = weightPerM + (inp.camberExtraDeadLoadKgPerM || 0);
+  const camber = camberProfile(
+    {
+      spanCm: deflectionSpanCm,
+      deadLoadPerCm: camberDeadLoadKgPerM / 100, // kg/m → kg/cm
+      wheelLoadKg: deflectionWheelLoadKg,
+      wheelSpacingCm: axleSpacingMm / 10,
+      elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
+      inertiaCm4: inertiaYCm4,
+    },
+    inp.diaphragmSpacingMm
+  );
+  const deadDeflectionMm = camber.mid.deadMm;
+  const camberCuttingMm = camber.mid.cuttingMm;
+  const camberSupportedMm = camber.mid.supportedMm;
+
   Object.assign(cells, {
     "deflection.wheelLoad": deflectionWheelLoadKg,
     "deflection.span": deflectionSpanCm,
@@ -908,6 +945,12 @@ export function computeMainGirder(
     "deflection.loadOffset": deflectionLoadOffsetCm,
     "deflection.value": deflectionMm,
     "deflection.ratio": deflectionRatio,
+    "camber.deadLoadPerM": camberDeadLoadKgPerM,
+    "camber.deadValue": deadDeflectionMm,
+    "camber.cutting": camberCuttingMm,
+    "camber.supported": camberSupportedMm,
+    "camber.stationSpacing": camber.spacingUsedMm,
+    "camber.stationCount": camber.stations.length,
   });
   checks.push({
     id: "girder.deflection",
@@ -920,6 +963,10 @@ export function computeMainGirder(
     // taşıma güvenliğini değil kullanım konforunu/kepçe konumlamasını etkiler.
     kind: "firma", severity: "uyari",
   });
+  // 7.7 Ters sehim bölümüne KONTROL EKLENMEZ: kamber bir uygunluk ölçütü değil
+  // imalat ölçüsüdür. "Kamber > 0" gibi bir kontrol aşağı yönlü yükler altında
+  // matematiksel olarak asla başarısız olamaz; rapora yalnız gürültü katardı.
+  // Doğrulama atölyede yapılır: kiriş sehpaya alınıp MESNETTE kotu ölçülür.
 
   const values: GirderValues = {
     heightMm,
@@ -982,6 +1029,10 @@ export function computeMainGirder(
     fatigueCombined,
     deflectionMm,
     deflectionRatio,
+    deadDeflectionMm,
+    camberCuttingMm,
+    camberSupportedMm,
+    camberDeadLoadKgPerM,
   };
 
   return { values, checks, cells };

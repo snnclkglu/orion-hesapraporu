@@ -8,6 +8,8 @@
 // diyagramda ve 7.4 gerilme tablosunda AYNI anlamı taşır — bir bileşenin
 // hangi toplama hangi çarpanla girdiği numarasından izlenebilir.
 
+import { camberProfile } from "../camber";
+import { GIRDER_ELASTIC_MODULUS_KG_CM2 } from "../modules/mainGirder";
 import type { GirderDeps, GirderInputs, GirderSelections } from "../modules/mainGirder";
 import type { TechnicalSpecs } from "../types";
 import { KGF_TO_MPA } from "@/lib/units";
@@ -842,19 +844,22 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
   {
     id: "7.6",
     title: "Sehim Kontrolü",
-    description: "Araba + nominal yük altında açıklık ortası düşey sehimi (mm) ve L/δ oranı.",
+    description:
+      "Sehim, YALNIZ canlı yükün (araba + nominal kaldırma yükü) oluşturduğu " +
+      "düşey çökmedir; darbe/dinamik katsayı girmez. Kullanılabilirlik ölçütü " +
+      "L/δ oranıdır — oran seçilen sınırdan büyük olmalıdır (ör. δ ≤ L/1000).",
     depKeys: [],
     inputKeys: ["deflectionLimitRatio"],
     selectionKeys: [],
     rows: [
       {
-        key: "deflection.wheelLoad", label: "Tekerlek Yükü", formula: "P = P_araba + P_yük",
+        key: "deflection.wheelLoad", label: "Tekerlek Yükü (Canlı)", formula: "P = P_araba + P_yük",
         subst: (x) => `${n(num(x.c["load.trolleyWheelLoad"]))} + ${n(num(x.c["load.hoistWheelLoad"]))}`, unit: "kg",
       },
       {
-        key: "deflection.value", label: "Sehim δ",
-        formula: "δ = −P·a·(4a² − 3l²) / (24 · E · I) · 10   [cm → mm]",
-        subst: (x) => `−${n(num(x.c["deflection.wheelLoad"]))}·${n(num(x.c["deflection.loadOffset"]))}·(4·${n(num(x.c["deflection.loadOffset"]))}² − 3·${n(num(x.c["deflection.span"]))}²) / (24 · 2100000 · ${n(num(x.c["section.inertiaY"]))}) · 10`,
+        key: "deflection.value", label: "Canlı Yük Sehimi δ (Açıklık Ortası)",
+        formula: "δ = P·b·(3·L² − 4·b²) / (24 · E · I) · 10   [cm → mm]",
+        subst: (x) => `${n(num(x.c["deflection.wheelLoad"]))}·${n(num(x.c["deflection.loadOffset"]))}·(3·${n(num(x.c["deflection.span"]))}² − 4·${n(num(x.c["deflection.loadOffset"]))}²) / (24 · 2100000 · ${n(num(x.c["section.inertiaY"]))}) · 10`,
         unit: "mm", digits: 2,
       },
       {
@@ -865,4 +870,103 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     ],
     checkSuffixes: ["deflection"],
   },
+  {
+    id: "7.7",
+    title: "Ters Sehim (Kamber) — İmalat Verileri",
+    description:
+      "Ters sehim bir kontrol değil İMALAT ÖLÇÜSÜDÜR. CMAA 70 md. 3.5.5.2: kutu " +
+      "kirişler, ölü yük sehimi + canlı yük sehiminin yarısı kadar yukarı " +
+      "kamberlenir. KESİMDE verisi sacların kesim/ütüleme kotudur. MESNETTE " +
+      "verisi ise kiriş üretilip iki ucundan sehpaya alındığında, kendi " +
+      "ağırlığıyla çöktükten sonra ölçülmesi beklenen kottur; ölçüm bu değeri " +
+      "tutuyorsa kiriş doğru üretilmiştir. Kotlar açıklık ortasından başlayıp " +
+      "sağa ve sola perde aralığınca verilir.",
+    depKeys: [],
+    inputKeys: ["camberExtraDeadLoadKgPerM"],
+    selectionKeys: [],
+    rows: [
+      {
+        key: "camber.deadLoadPerM", label: "Kamber Ölü Yükü w (Kiriş Öz Ağırlığı + İlave)",
+        formula: "w = G_kesit + w_ilave",
+        subst: (x) => `${n(num(x.c["section.weightPerLength"]))} + ${n(num(x.inp.camberExtraDeadLoadKgPerM))}`,
+        unit: "kg/m", digits: 2,
+      },
+      {
+        key: "camber.deadValue", label: "Ölü Yük Sehimi (Açıklık Ortası)",
+        formula: "δ_ölü = 5 · w · L⁴ / (384 · E · I)",
+        unit: "mm", digits: 2,
+      },
+      {
+        key: "camber.cutting", label: "KESİMDE Ters Sehim (Açıklık Ortası)",
+        formula: "kamber = δ_ölü + δ / 2",
+        subst: (x) => `${n(num(x.c["camber.deadValue"]), 2)} + ${n(num(x.c["deflection.value"]), 2)} / 2`,
+        unit: "mm", digits: 2, standard: "CMAA 70 3.5.5.2",
+      },
+      {
+        key: "camber.supported", label: "MESNETTE Ters Sehim (Açıklık Ortası)",
+        formula: "mesnette = kamber − δ_ölü = δ / 2",
+        subst: (x) => `${n(num(x.c["camber.cutting"]), 2)} − ${n(num(x.c["camber.deadValue"]), 2)}`,
+        unit: "mm", digits: 2, standard: "CMAA 70 3.5.5.2",
+      },
+      {
+        key: "camber.stationSpacing", label: "Kot Adımı (Perde Aralığı)",
+        formula: "l1   (girdiden)", unit: "mm", digits: 0,
+      },
+    ],
+    table: {
+      title: "Kamber Şeridi — Perde Aralıklarında Ters Sehim Kotları",
+      headers: [
+        "İstasyon", "Sol Mesnetten [mm]", "Ortadan [mm]",
+        "Canlı Sehim [mm]", "Ölü Sehim [mm]", "KESİMDE [mm]", "MESNETTE [mm]",
+      ],
+      note:
+        "Kotlar açıklık ORTASINDAN başlayıp sağa ve sola perde aralığınca " +
+        "ilerler; uçlarda (teker ekseni) tümü sıfırdır. KESİMDE = ölü yük sehimi " +
+        "+ canlı yük sehiminin yarısı (CMAA 70 3.5.5.2) — sacların kesim kotu. " +
+        "MESNETTE = canlı yük sehiminin yarısı — kiriş sehpaya alındığında " +
+        "ölçülecek kot. Değerler yukarı yönde (ters sehim) pozitiftir.",
+      build: (x) => camberRows(x),
+    },
+    // Kamber bir uygunluk ölçütü değil imalat ölçüsüdür — kontrolü yoktur.
+    checkSuffixes: [],
+  },
 ];
+
+/**
+ * Kamber şeridi satırları — motorun sakladığı skalerlerden değil, aynı saf
+ * `camberProfile()` fonksiyonundan üretilir; böylece tablo ile hesap satırları
+ * tek kaynaktan gelir ve ayrışamaz.
+ */
+function camberRows(x: GirderCtx): (string | number)[][] {
+  const spanCm = num(x.c["deflection.span"]);
+  const inertia = num(x.c["section.inertiaY"]);
+  const wheelLoad = num(x.c["deflection.wheelLoad"]);
+  const deadPerM = num(x.c["camber.deadLoadPerM"]);
+  if (![spanCm, inertia, wheelLoad, deadPerM].every(Number.isFinite)) return [];
+
+  const profile = camberProfile(
+    {
+      spanCm,
+      deadLoadPerCm: deadPerM / 100,
+      wheelLoadKg: wheelLoad,
+      wheelSpacingCm: x.inp.trolleyAxleSpacingM * 100,
+      elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
+      inertiaCm4: inertia,
+    },
+    x.inp.diaphragmSpacingMm
+  );
+  const mm = (v: number) => Number(v.toFixed(1));
+  return profile.stations.map((st, i) => [
+    i === 0 || i === profile.stations.length - 1
+      ? "mesnet"
+      : st.fromCenterMm === 0
+        ? "ORTA"
+        : `${st.fromCenterMm < 0 ? "sol" : "sağ"} ${Math.abs(Math.round(st.fromCenterMm / profile.spacingUsedMm))}`,
+    Math.round(st.xMm),
+    Math.round(st.fromCenterMm),
+    mm(st.liveMm),
+    mm(st.deadMm),
+    mm(st.cuttingMm),
+    mm(st.supportedMm),
+  ]);
+}

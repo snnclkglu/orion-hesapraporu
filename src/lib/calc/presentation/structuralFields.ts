@@ -116,6 +116,18 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
     options: ["250", "500", "750", "1000", "1100"], numeric: true,
     optionLabels: { "250": "1/250", "500": "1/500", "750": "1/750", "1000": "1/1000", "1100": "1/1100" },
     standardRef: "CMAA 70 3.5.5.1",
+    hint:
+      "Sehim yalnız CANLI yükle (araba + nominal kaldırma yükü) hesaplanır; " +
+      "darbe katsayısı girmez. FEM/CMAA yaygın hedefi δ ≤ L/1000'dir.",
+  },
+  {
+    key: "camberExtraDeadLoadKgPerM", label: "Kamber — İlave Sabit Yük",
+    unit: "kg/m", type: "number", standardRef: "CMAA 70 3.5.5.2",
+    hint:
+      "Ters sehim hesabında kirişe kalıcı binen ilave yük: ray, yürüme yolu, " +
+      "festun, kablo tavası. Kirişin kendi ağırlığı kesitten hesaplanır ve " +
+      "otomatik eklenir; buraya YAZILMAZ. Başkiriş ağırlığı da girmez " +
+      "(mesnet üzerinde durur, kirişi eğmez).",
   },
 ];
 
