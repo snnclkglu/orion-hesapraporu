@@ -4,7 +4,12 @@
 // olan alanlar yorumda belirtilmiştir ve bölüm tanımları (travelSections)
 // hangi alanın nerede sorulacağını belirler.
 
-import type { FieldDef } from "../fields";
+import {
+  MOTOR_RPM_LABELS,
+  MOTOR_RPM_SERIES,
+  TRAVEL_MOTOR_POWERS,
+  type FieldDef,
+} from "../fields";
 import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
 
 /** Teker çapı FEM standart serisi [mm] */
@@ -58,8 +63,15 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "bearingDynCKn", label: "Dinamik Yük Katsayısı C", unit: "kN", type: "number" },
   { key: "bearingStatC0Kn", label: "Statik Yük Katsayısı C0", unit: "kN", type: "number" },
   { key: "motorBrand", label: "Motor Markası", type: "text" },
-  { key: "motorPowerKw", label: "Seçilen Motor Gücü", unit: "kW", type: "number" },
-  { key: "motorRpm", label: "Seçilen Motor Devri", unit: "d/dak", type: "number" },
+  {
+    key: "motorPowerKw", label: "Seçilen Motor Gücü", unit: "kW", type: "select",
+    options: TRAVEL_MOTOR_POWERS.options, optionLabels: TRAVEL_MOTOR_POWERS.optionLabels,
+    numeric: true,
+  },
+  {
+    key: "motorRpm", label: "Seçilen Motor Devri", unit: "d/dak", type: "select",
+    options: MOTOR_RPM_SERIES, optionLabels: MOTOR_RPM_LABELS, numeric: true,
+  },
   { key: "motorCount", label: "Motor Sayısı", type: "number" },
   { key: "motorShaftMm", label: "Motor Mil Çapı", unit: "mm", type: "number" },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },

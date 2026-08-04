@@ -236,7 +236,7 @@ export interface TechnicalSpecs {
   controlType: string;          // kumanda tipi
   // Vinç tanımı — açıklayıcı seçimler (hesapta kullanılmaz, raporda görünür)
   hoistBrakeType?: string;      // kaldırma freni tipi (manyetik/eldro/disk)
-  hoistSafetyBrake?: string;    // kaldırma emniyet freni (Var/Yok)
+  hoistSafetyBrake?: string;    // emniyet freni kapsamı (bkz. hasSafetyBrake)
   travelBrakeType?: string;     // yürütme freni tipi (manyetik/eldro)
   ambientTempMinC: number;      // ortam sıcaklığı alt sınırı [°C]
   ambientTempMaxC: number;      // ortam sıcaklığı üst sınırı [°C]
@@ -345,4 +345,26 @@ export function parseHoistLoadClass(v: string): {
   }
 
   return out;
+}
+
+/**
+ * Bu kaldırma grubunda tambur emniyet freni var mı?
+ *
+ * Emniyet freni bir vinç özelliği değil KALDIRMA GRUBU özelliğidir: tamburun
+ * flanşına oturur, dolayısıyla ana ve yardımcı kaldırmada ayrı ayrı bulunur.
+ * Monoray kaldırma gruplarında tambur emniyet freni uygulanmaz.
+ *
+ * Geriye dönük uyum: alan eskiden "Var"/"Yok" idi. Kayıtlı "Var" değeri
+ * "yalnız ana kaldırmada" diye yorumlanır — eski revizyonlarda yardımcı
+ * kaldırmaya sessizce fren eklenmesi yanlış olurdu.
+ */
+export function hasSafetyBrake(
+  specs: Pick<TechnicalSpecs, "hoistSafetyBrake">,
+  which: "main" | "aux" | "mono1" | "mono2"
+): boolean {
+  const scope = (specs.hoistSafetyBrake ?? "Yok").trim();
+  if (scope === "Yok" || scope === "") return false;
+  if (which === "main") return true;
+  if (which === "aux") return scope.includes("Yardımcı");
+  return false;
 }

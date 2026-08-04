@@ -13,7 +13,10 @@
 // yeni bir kaldırma grubu eklendiğinde burada değişiklik gerekmez.
 
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
-import { HOIST_FIELD } from "@/lib/calc/presentation/module-access";
+import {
+  HOIST_FIELD,
+  moduleResult as moduleResultOf,
+} from "@/lib/calc/presentation/module-access";
 import {
   isHoistKey,
   isHookBlockKey,
@@ -36,6 +39,7 @@ import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
+import { safetyBrakeDiagram } from "./safetyBrake";
 import { deflectionDiagram } from "./deflection";
 import { camberStripDiagram } from "./camberStrip";
 import { girderLoadDiagram } from "./girderLoad";
@@ -165,6 +169,26 @@ export function diagramForSection(
         stations: profile.stations,
         spacingMm: profile.spacingUsedMm,
         thinned: profile.thinned,
+      });
+    }
+
+    // 2.8 — emniyet freni montaj ve ölçü şeması (yalnız freni olan grupta)
+    if (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.8") {
+      const hoistKey = moduleKey as HoistKey;
+      const st = input[HOIST_FIELD[hoistKey]];
+      const c = moduleResultOf(result, hoistKey)?.cells;
+      if (!st || !c) return null;
+      return safetyBrakeDiagram({
+        flangeDiaMm: st.selections.safetyBrakeFlangeDiaMm,
+        minFlangeDiaMm: numOf(c["safety.minFlangeDia"]),
+        drumDiaMm: st.selections.drumDiaMm,
+        brakeCount: numOf(c["safety.brakeCount"]),
+        arrangement: st.selections.safetyBrakeArrangement,
+        model: st.selections.safetyBrakeModel,
+        minThicknessMm: numOf(c["safety.minDiscThickness"]),
+        torqueEachNm: numOf(c["safety.torqueEach"]),
+        totalTorqueNm: numOf(c["safety.totalTorque"]),
+        demandTorqueNm: numOf(c["safety.demandTorque"]),
       });
     }
 

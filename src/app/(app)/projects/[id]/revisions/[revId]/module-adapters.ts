@@ -144,6 +144,13 @@ export interface AdapterSection {
   checkSuffixes: readonly string[];
   rows: AdapterRow[];
   table?: AdapterTable;
+  /**
+   * Bölüm yalnız bu koşul sağlandığında çizilir (arayüz ve PDF ortak kullanır).
+   * Koşul teknik özelliklerden okunur — hesap sonucuna bağlı değildir, bu
+   * yüzden adım listesi kurulurken de değerlendirilebilir. Tanımsızsa bölüm
+   * her zaman görünür.
+   */
+  visible?: (specs: TechnicalSpecs) => boolean;
 }
 
 export interface ModuleAdapter {
@@ -203,6 +210,7 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
       selectionDefs: defs(s.selectionKeys, HOIST_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       checkSuffixes: s.checkSuffixes,
+      visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       rows: s.rows.map((r) => {
         const sub = r.subst;
         return {

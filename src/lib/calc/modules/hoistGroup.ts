@@ -19,6 +19,14 @@
 //
 // Birimler: kg, kg/cm², cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
 
+import {
+  SAFETY_BRAKE_FRICTION,
+  brakeTorqueNm,
+  brakesInArrangement,
+  clampForceKn,
+  minFlangeDiaMm,
+  safetyBrakeByCode,
+} from "../safety-brake";
 import { solveBeam, type PointLoad } from "../beam";
 import {
   drumAllowableStress,
@@ -31,6 +39,7 @@ import {
 import { commonReevingByLabel, deriveReeving, type Reeving } from "../reeving";
 import { shaftStress } from "../shaftStress";
 import { KGF_TO_MPA } from "@/lib/units";
+import { hasSafetyBrake } from "../types";
 import type {
   AnyCheck,
   DrumMaterial,
@@ -171,6 +180,17 @@ export interface HoistInputs {
   drumCouplingDivisor: number;
   drumCouplingServiceFactor: number;
   /**
+   * Emniyet freni için istenen frenleme emniyet katsayısı.
+   * Emniyet freni servis freninin yedeği değil, aktarma organı koptuğunda yükü
+   * tutan tek elemandır; bu yüzden statik yük momentinin katı istenir.
+   */
+  safetyBrakeServiceFactor: number;
+  /**
+   * Flanş dış çapına eklenen montaj payı [mm]. Katalogun geometrik alt sınırı
+   * (kaliperin tambur gövdesine çarpmadan oturması) bu payın üstüne biner.
+   */
+  safetyBrakeFlangeClearanceMm: number;
+  /**
    * Otomatik alan anahtarları (sunum tarafı; hesap zincirini değiştirmez).
    * Açıkken sihirbaz ilgili girdiyi `lib/calc/derive.ts` türetmesiyle doldurur
    * ve alanı salt-okunur yapar.
@@ -233,6 +253,14 @@ export interface HoistSelections {
   drumCouplingTorqueNm: number;
   drumCouplingRadialN: number;
   drumCouplingDmaxMm: number;
+  /** Emniyet freni katalog tipi (SIBRE SHI) */
+  safetyBrakeModel: string;
+  /** Ayarlanan hava aralığı c [mm] — sıkma kuvveti buna göre değişir */
+  safetyBrakeAirGapMm: number;
+  /** Tambur üzerindeki fren yerleşim düzeni (1…6) */
+  safetyBrakeArrangement: string;
+  /** Seçilen flanş (fren diski) dış çapı [mm] */
+  safetyBrakeFlangeDiaMm: number;
 }
 
 export interface HoistValues {
@@ -919,6 +947,75 @@ export function computeHoistGroup(
     pass: sel.drumCouplingDmaxMm >= drumCouplingShaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
+
+  // --- 2.8 Emniyet freni (tambur üstü kaliper) ------------------------------
+  // Yalnız emniyet freni ÖNGÖRÜLEN kaldırma gruplarında hesaplanır; olmayan
+  // grupta ne hücre ne kontrol üretilir, bölüm de raporda görünmez.
+  const safetyBrakeFitted = hasSafetyBrake(specs, which);
+  const sbModel = safetyBrakeByCode(sel.safetyBrakeModel);
+  const sbClampKn = clampForceKn(sbModel, sel.safetyBrakeAirGapMm);
+  const sbCount = brakesInArrangement(sel.safetyBrakeArrangement);
+  const sbMinFlangeDiaMm = minFlangeDiaMm({
+    model: sbModel,
+    drumDiaMm: sel.drumDiaMm,
+    clearanceMm: inp.safetyBrakeFlangeClearanceMm,
+  });
+  // Gereken moment tamburun statik yük momentidir — modül zaten üretiyor.
+  const sbRequiredTorqueNm = drumTorquePerDrumKnm * 1000;
+  const sbDemandTorqueNm = sbRequiredTorqueNm * inp.safetyBrakeServiceFactor;
+  const sbTorqueEachNm = brakeTorqueNm({
+    clampForceN: (sbClampKn ?? 0) * 1000,
+    frictionCoeff: SAFETY_BRAKE_FRICTION,
+    flangeDiaMm: sel.safetyBrakeFlangeDiaMm,
+    leverXMm: sbModel?.leverXMm ?? 0,
+  });
+  const sbTotalTorqueNm = sbTorqueEachNm * sbCount;
+  const sbAchievedFactor =
+    sbRequiredTorqueNm > 0 ? sbTotalTorqueNm / sbRequiredTorqueNm : Number.NaN;
+
+  if (safetyBrakeFitted) {
+    Object.assign(cells, {
+      "safety.requiredTorque": sbRequiredTorqueNm,
+      "safety.demandTorque": sbDemandTorqueNm,
+      "safety.clampForce": (sbClampKn ?? Number.NaN) * 1000,
+      "safety.leverX": sbModel?.leverXMm ?? Number.NaN,
+      "safety.minFlangeDia": sbMinFlangeDiaMm,
+      "safety.flangeDia": sel.safetyBrakeFlangeDiaMm,
+      "safety.brakeCount": sbCount,
+      "safety.torqueEach": sbTorqueEachNm,
+      "safety.totalTorque": sbTotalTorqueNm,
+      "safety.achievedFactor": sbAchievedFactor,
+      "safety.releasePressure": sbModel?.releasePressureBar ?? Number.NaN,
+      "safety.minDiscThickness": sbModel?.minDiscThicknessMm ?? Number.NaN,
+    });
+    checks.push({
+      id: `${which}.safety.torque`,
+      label: "Emniyet Freni Frenleme Momenti",
+      required: sbDemandTorqueNm, provided: sbTotalTorqueNm, unit: "Nm", op: ">=",
+      computedSide: "provided",
+      pass: sbTotalTorqueNm >= sbDemandTorqueNm,
+      standard: "FEM 1.001 T.2.1.3.2",
+      kind: "standart", severity: "engelleyici",
+    });
+    checks.push({
+      id: `${which}.safety.flange`,
+      label: "Flanş Dış Çapı",
+      required: sbMinFlangeDiaMm, provided: sel.safetyBrakeFlangeDiaMm, unit: "mm", op: ">=",
+      computedSide: "required",
+      pass: sel.safetyBrakeFlangeDiaMm >= sbMinFlangeDiaMm,
+      kind: "uretici", severity: "engelleyici",
+    });
+    // Hava aralığı modelin çalışma bandı dışındaysa sıkma kuvveti tanımsızdır
+    // (ör. SHI 231/232 yalnız 2…3 mm); moment hesabı anlamını yitirir.
+    checks.push({
+      id: `${which}.safety.airGap`,
+      label: "Hava Aralığı Modelin Bandında",
+      required: 1, provided: sbClampKn === undefined ? 0 : 1, unit: "-", op: ">=",
+      computedSide: "provided",
+      pass: sbClampKn !== undefined,
+      kind: "uretici", severity: "engelleyici",
+    });
+  }
 
   const values: HoistValues = {
     mechanicalAdvantage,

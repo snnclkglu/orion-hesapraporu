@@ -48,7 +48,7 @@ export const V5_SPECS: TechnicalSpecs = {
   hookType: "Kepçe",
   controlType: "Sabit Kabin + Uzaktan Kumanda",
   hoistBrakeType: "Eldro Fren",
-  hoistSafetyBrake: "Yok",
+  hoistSafetyBrake: "Ana ve Yardımcı Kaldırmada",
   travelBrakeType: "Eldro Fren",
   ambientTempMinC: -10,
   ambientTempMaxC: 40,
@@ -101,6 +101,10 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   motorCouplingServiceFactor: 2,
   drumCouplingDivisor: 1,
   drumCouplingServiceFactor: 1.7,
+  // Emniyet freni: aktarma koptuğunda yükü tutan tek eleman → statik yük
+  // momentinin 1,5 katı istenir. Flanş payı montaj boşluğudur.
+  safetyBrakeServiceFactor: 1.5,
+  safetyBrakeFlangeClearanceMm: 140,
 };
 
 export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
@@ -145,6 +149,11 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   drumCouplingTorqueNm: 37000,
   drumCouplingRadialN: 88000,
   drumCouplingDmaxMm: 150,
+  // Emniyet freni seçimi — tambur çapına göre en küçük uygun SIBRE SHI modeli
+  safetyBrakeModel: "SHI 105",
+  safetyBrakeAirGapMm: 2,
+  safetyBrakeArrangement: "2 · Çift fren — karşılıklı alt konsol",
+  safetyBrakeFlangeDiaMm: 900,
 };
 
 export const V5_AUX_HOIST_INPUTS: HoistInputs = {
@@ -158,6 +167,8 @@ export const V5_AUX_HOIST_INPUTS: HoistInputs = {
   tempFactor: 1.1,              // 60 °C
   brakeServiceFactor: 1.6,
   drumCouplingServiceFactor: 1.8,
+  safetyBrakeServiceFactor: 1.5,
+  safetyBrakeFlangeClearanceMm: 140,
 };
 
 export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
@@ -178,6 +189,11 @@ export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
   drumCouplingTorqueNm: 36800,
   drumCouplingRadialN: 18400,
   drumCouplingDmaxMm: 110,
+  // Emniyet freni seçimi — tambur çapına göre en küçük uygun SIBRE SHI modeli
+  safetyBrakeModel: "SHI 105",
+  safetyBrakeAirGapMm: 2,
+  safetyBrakeArrangement: "2 · Çift fren — karşılıklı alt konsol",
+  safetyBrakeFlangeDiaMm: 900,
 };
 
 /** V5 işinin tam girdi seti — tarihsel doğrulama fikstürü */

@@ -4,6 +4,7 @@
 
 import { ROPE_POSITIONS } from "./modules/hoistGroup";
 import { COMMON_REEVINGS } from "./reeving";
+import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { ModuleKey } from "./presentation/module-family";
 import type { TechnicalSpecs } from "./types";
@@ -174,6 +175,19 @@ export const CONTROL_TYPES = [
 export const HOIST_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
 export const TRAVEL_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren"] as const;
 export const YES_NO = ["Var", "Yok"] as const;
+
+/**
+ * Emniyet freni hangi kaldırma gruplarında var? Emniyet freni bir vinç
+ * özelliği değil KALDIRMA GRUBU özelliğidir: tamburun üstüne oturur, dolayısıyla
+ * her kaldırma grubunda ayrı ayrı bulunabilir. Eski revizyonlar bu alanı
+ * "Var"/"Yok" olarak saklar; `hasSafetyBrake` eski değeri "yalnız ana
+ * kaldırma" diye yorumlar (bkz. types.ts).
+ */
+export const SAFETY_BRAKE_SCOPE = [
+  "Yok",
+  "Ana Kaldırmada",
+  "Ana ve Yardımcı Kaldırmada",
+] as const;
 export const AMBIENT_TEMP_MIN_C = ["-40", "-35", "-30", "-25", "-20", "-15", "-10", "-5", "0"] as const;
 export const AMBIENT_TEMP_MAX_C = ["40", "45", "50", "55", "60", "65", "70", "75", "80"] as const;
 
@@ -211,6 +225,49 @@ export const ROPE_CORE_TYPES = [
   "Çelik Öz (IWRC)",
   "Elyaf Öz (FC)",
 ] as const;
+
+// ------------------------------------------------------------ Motor serileri
+
+/**
+ * IEC standart motor gücü basamakları [kW] (R20 türevi anma güç serisi).
+ * Kaldırma ve yürütme farklı aralık kullanır; liste tek yerde tutulur ki
+ * iki grupta farklı basamaklar oluşmasın.
+ */
+const IEC_MOTOR_POWERS_KW = [
+  0.18, 0.25, 0.37, 0.55, 0.75, 1.1, 1.5, 2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5,
+  22, 30, 37, 45, 55, 75, 90, 110, 132, 160, 200, 250, 315, 355, 400, 450,
+  500, 560, 630, 710, 800, 900, 1000,
+] as const;
+
+/** Seçenek değeri nokta ayraçlı ("5.5"), görünen etiket tr-TR ("5,5"). */
+function powerOptions(minKw: number, maxKw: number) {
+  const list = IEC_MOTOR_POWERS_KW.filter((p) => p >= minKw && p <= maxKw);
+  return {
+    options: list.map((p) => String(p)),
+    optionLabels: Object.fromEntries(
+      list.map((p) => [String(p), p.toLocaleString("tr-TR")])
+    ) as Record<string, string>,
+  };
+}
+
+/** Kaldırma motoru güç aralığı: 0,55 … 1000 kW */
+export const HOIST_MOTOR_POWERS = powerOptions(0.55, 1000);
+/** Yürütme motoru güç aralığı: 0,18 … 355 kW */
+export const TRAVEL_MOTOR_POWERS = powerOptions(0.18, 355);
+
+/**
+ * Motor anma devirleri [d/dak] — 50 Hz kutup sayılarına karşılık gelir:
+ * 8 kutup ≈ 750, 6 kutup ≈ 1000, 4 kutup ≈ 1500, 2 kutup ≈ 3000.
+ * Vinç uygulamasında varsayılan 4 kutuplu (1500) motordur.
+ */
+export const MOTOR_RPM_SERIES = ["750", "1000", "1500", "3000"] as const;
+export const MOTOR_RPM_LABELS: Record<string, string> = {
+  "750": "750 (8 kutup)",
+  "1000": "1.000 (6 kutup)",
+  "1500": "1.500 (4 kutup)",
+  "3000": "3.000 (2 kutup)",
+};
+export const DEFAULT_MOTOR_RPM = 1500;
 
 // ------------------------------------------------------------ Halat donanımı
 
@@ -349,7 +406,8 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   // --- Frenler
   { key: "hoistBrakeType", label: "Kaldırma Freni Tipi", type: "select", options: HOIST_BRAKE_TYPES, group: "brakes" },
-  { key: "hoistSafetyBrake", label: "Kaldırma Emniyet Freni", type: "select", options: YES_NO, group: "brakes" },
+  { key: "hoistSafetyBrake", label: "Kaldırma Emniyet Freni", type: "select", options: SAFETY_BRAKE_SCOPE, group: "brakes",
+    hint: "Emniyet freni tamburun üstüne oturur; hangi kaldırma gruplarında bulunacağı burada seçilir. Seçilen gruplara \"Emniyet Freni\" hesap bölümü eklenir." },
   { key: "travelBrakeType", label: "Yürütme Freni Tipi", type: "select", options: TRAVEL_BRAKE_TYPES, group: "brakes" },
 
   // --- Elektrik
@@ -405,6 +463,14 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
   { key: "brakeServiceFactor", label: "Fren Emniyet Katsayısı", type: "number" },
   { key: "motorCouplingServiceFactor", label: "Motor Kaplini Emniyet Katsayısı", type: "number" },
   { key: "drumCouplingServiceFactor", label: "Tambur Kaplini Emniyet Katsayısı", type: "number" },
+  {
+    key: "safetyBrakeServiceFactor", label: "Emniyet Freni Emniyet Katsayısı", type: "number",
+    hint: "Emniyet freninin sağlaması istenen, tamburdaki statik yük momentine göre kat sayısı.",
+  },
+  {
+    key: "safetyBrakeFlangeClearanceMm", label: "Flanş Montaj Payı", unit: "mm", type: "number",
+    hint: "Katalogun geometrik alt sınırının üstüne eklenen pay; kaliper gövdesinin rahat oturması için.",
+  },
 ];
 
 export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
@@ -430,8 +496,15 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "gearboxOutputShaftMm", label: "Redüktör Çıkış Mili", unit: "mm", type: "number" },
   { key: "gearboxWeightKg", label: "Redüktör Ağırlığı", unit: "kg", type: "number" },
   { key: "gearboxAllowedRadialKn", label: "Redüktör İzinli Radyal Yük", unit: "kN", type: "number" },
-  { key: "motorPowerKw", label: "Motor Gücü", unit: "kW", type: "number" },
-  { key: "motorRpm", label: "Motor Devri", unit: "d/dak", type: "number" },
+  {
+    key: "motorPowerKw", label: "Motor Gücü", unit: "kW", type: "select",
+    options: HOIST_MOTOR_POWERS.options, optionLabels: HOIST_MOTOR_POWERS.optionLabels,
+    numeric: true,
+  },
+  {
+    key: "motorRpm", label: "Motor Devri", unit: "d/dak", type: "select",
+    options: MOTOR_RPM_SERIES, optionLabels: MOTOR_RPM_LABELS, numeric: true,
+  },
   { key: "motorShaftMm", label: "Motor Mili", unit: "mm", type: "number" },
   { key: "motorBrand", label: "Motor Markası", type: "text" },
   { key: "motorCount", label: "Motor Adedi", type: "number" },
@@ -449,12 +522,39 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "drumCouplingTorqueNm", label: "Tambur Kaplini Torku", unit: "Nm", type: "number" },
   { key: "drumCouplingRadialN", label: "Tambur Kaplini Radyal Yükü", unit: "N", type: "number" },
   { key: "drumCouplingDmaxMm", label: "Tambur Kaplini Dmax", unit: "mm", type: "number" },
+  {
+    key: "safetyBrakeModel", label: "Emniyet Freni Modeli", type: "select",
+    options: SAFETY_BRAKE_CODES, standardRef: "SIBRE SHI",
+  },
+  {
+    key: "safetyBrakeAirGapMm", label: "Hava Aralığı c", unit: "mm", type: "select",
+    options: ["1", "2", "3"], numeric: true, standardRef: "SIBRE SHI",
+    hint: "Balata ile disk arasındaki ayar boşluğu. Aralık büyüdükçe yay sıkma kuvveti FA düşer.",
+  },
+  {
+    key: "safetyBrakeArrangement", label: "Fren Yerleşimi", type: "select",
+    options: BRAKE_ARRANGEMENTS,
+    hint: "Tambur üzerindeki kaliper düzeni; kaliper adedini de belirler.",
+  },
+  {
+    key: "safetyBrakeFlangeDiaMm", label: "Flanş Dış Çapı", unit: "mm", type: "number",
+    hint: "Fren diski olarak kullanılan tambur flanşının dış çapı.",
+  },
 ];
 
 /** Otomatik doldurulabilen kaldırma girdileri: alan → anahtar alanı. */
 export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
   ropeWeightKg: "ropeWeightAuto",
   hookBlockWeightKg: "hookBlockWeightAuto",
+  tempFactor: "tempFactorAuto",
+};
+
+/**
+ * Otomatik doldurulabilen YÜRÜTME girdileri — kaldırma tarafıyla aynı
+ * mekanizma: anahtar açıkken alan salt-okunurdur ve türetilen değer girdiye
+ * yazılır (motor, PDF ve Excel aynı sayıyı görür).
+ */
+export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
   tempFactor: "tempFactorAuto",
 };
 

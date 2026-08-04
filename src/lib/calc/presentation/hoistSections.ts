@@ -11,6 +11,7 @@ import type {
   HoistSelections,
   HoistWhich,
 } from "../modules/hoistGroup";
+import { hasSafetyBrake } from "../types";
 import type { TechnicalSpecs } from "../types";
 
 export interface HoistCtx {
@@ -48,6 +49,12 @@ export interface HoistSectionDef {
   rows: HoistRowDef[];
   /** Bölümde gösterilecek kontrol id sonekleri (örn. "rope.safety") */
   checkSuffixes: string[];
+  /**
+   * Bölüm yalnız bu koşul sağlandığında gösterilir (arayüz ve rapor ortak).
+   * Emniyet freni her kaldırma grubunda bulunmaz; olmayan grupta bölüm hiç
+   * çizilmez — boş bir "seçim yapılmadı" bloğu rapora gürültü katardı.
+   */
+  visible?: (specs: TechnicalSpecs, which: HoistWhich) => boolean;
 }
 
 // Sayı biçimleyici (formül substitüsyonu için, TR yerel)
@@ -129,7 +136,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   },
   {
     id: "2.2.1",
-    title: "Tambur — Çap ve Gövde",
+    title: "Tambur",
     description: "Minimum tambur çapı (FEM H katsayısı) ve tambur sacı gerilme kontrolü.",
     inputKeys: ["drumWallThicknessMm"],
     selectionKeys: ["drumDiaMm", "drumMaterial"],
@@ -179,7 +186,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   },
   {
     id: "2.2.2",
-    title: "Tambur — Oluk Boyu",
+    title: "Yiv Boyu",
     inputKeys: ["safetyGrooveCount"],
     selectionKeys: ["drumGrooveLengthText"],
     rows: [
@@ -457,9 +464,9 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   },
   {
     id: "2.3",
-    title: "Redüktör (Dişli Kutusu)",
+    title: "Redüktör",
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",
-    inputKeys: ["drumCount", "gearboxServiceFactor"],
+    inputKeys: ["drumCount", "gearboxServiceFactor", "reducerStages", "stageEfficiency"],
     selectionKeys: ["gearboxModel", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
     rows: [
       {
@@ -499,6 +506,10 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         formula: "F_rad = R_a · 9,81 / 1000",
         subst: (x) => `${n(num(x.c["drumShaft.reactionGearbox"]))} · 9,81 / 1000`, unit: "kN",
       },
+      {
+        key: "gearbox.efficiency", label: "Redüktör Verimi", formula: "η_r = η_kademe^s",
+        subst: (x) => `${n(x.inp.stageEfficiency)}^${n(x.inp.reducerStages)}`, digits: 4,
+      },
     ],
     checkSuffixes: ["gearbox.torque", "gearbox.ratio", "gearbox.radial"],
   },
@@ -506,16 +517,12 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     id: "2.4",
     title: "Motor",
     description: "Motor giriş torku ve gerekli güç (CMAA 70).",
-    inputKeys: ["reducerStages", "stageEfficiency", "tempFactor", "motorDivisor"],
+    inputKeys: ["tempFactor", "motorDivisor"],
     selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
     rows: [
       {
         key: "gearbox.outputTorque", label: "Redüktör Çıkış Torku", formula: "M_ç = M_t · 1000",
         subst: (x) => `${n(num(x.c["drum.torquePerDrum"]), 3)} · 1000`, unit: "Nm",
-      },
-      {
-        key: "gearbox.efficiency", label: "Redüktör Verimi", formula: "η_r = η_kademe^s",
-        subst: (x) => `${n(x.inp.stageEfficiency)}^${n(x.inp.reducerStages)}`, digits: 4,
       },
       {
         key: "motor.inputTorque", label: "Motor Giriş Torku", formula: "M_m = M_ç / (i · η_r)",
@@ -617,5 +624,92 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       },
     ],
     checkSuffixes: ["drumCoupling.torque", "drumCoupling.radial", "drumCoupling.bore"],
+  },
+  {
+    id: "2.8",
+    title: "Emniyet Freni",
+    description:
+      "Emniyet freni tamburun flanşını disk olarak kullanan kaliper frendir. " +
+      "Motor mili üzerindeki servis freni ile tambur arasındaki aktarma organları " +
+      "(kaplin, redüktör, mil) koparsa yükü tutan tek eleman odur; bu yüzden " +
+      "frenleme momenti redüktör öncesinde değil doğrudan TAMBURDA istenir. " +
+      "Kaliper flanşın iki yüzünü FA sıkma kuvvetiyle kavrar: " +
+      "M_fren = 2 · FA · µ · (d_flanş/2 − x). Sıkma kuvveti ayarlanan hava " +
+      "aralığına (c) göre katalogdan okunur; x kaliper baskı merkezinin flanş " +
+      "dış kenarından içeri mesafesidir. Flanş dış çapı hem katalogun en küçük " +
+      "disk çapını hem de tambur çapı + radyal payı sağlamalıdır.",
+    visible: (specs, which) => hasSafetyBrake(specs, which),
+    inputKeys: ["safetyBrakeServiceFactor", "safetyBrakeFlangeClearanceMm"],
+    selectionKeys: [
+      "safetyBrakeModel", "safetyBrakeAirGapMm", "safetyBrakeArrangement",
+      "safetyBrakeFlangeDiaMm",
+    ],
+    rows: [
+      {
+        key: "safety.requiredTorque", label: "Tamburda Gereken Frenleme Momenti",
+        formula: "M_gerekli = M_tambur · 1000",
+        subst: (x) => `${n(num(x.c["drum.torquePerDrum"]), 3)} · 1000`,
+        unit: "Nm",
+      },
+      {
+        key: "safety.demandTorque", label: "İstenen Frenleme Momenti (Emniyetli)",
+        formula: "M_istenen = k · M_gerekli",
+        subst: (x) => `${n(x.inp.safetyBrakeServiceFactor)} · ${n(num(x.c["safety.requiredTorque"]))}`,
+        unit: "Nm",
+      },
+      {
+        key: "safety.clampForce", label: "Sıkma Kuvveti FA",
+        formula: "FA = f(model, hava aralığı c)   [SIBRE katalog]",
+        subst: (x) => `${x.sel.safetyBrakeModel} · c = ${n(x.sel.safetyBrakeAirGapMm)} mm`,
+        unit: "N",
+      },
+      {
+        key: "safety.leverX", label: "Kaliper Baskı Ölçüsü x",
+        formula: "x = f(model)   [SIBRE katalog]",
+        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "mm",
+      },
+      {
+        key: "safety.minFlangeDia", label: "Minimum Flanş Dış Çapı",
+        formula: "d_min = maks(d_katalog ; D_tambur + Δ) + pay",
+        subst: (x) =>
+          `maks(katalog ; ${n(x.sel.drumDiaMm)} + Δ) + ${n(x.inp.safetyBrakeFlangeClearanceMm)}`,
+        unit: "mm",
+      },
+      {
+        key: "safety.brakeCount", label: "Kaliper Adedi",
+        formula: "z = f(yerleşim)",
+        subst: (x) => `${x.sel.safetyBrakeArrangement}`,
+      },
+      {
+        key: "safety.torqueEach", label: "Bir Kaliperin Frenleme Momenti",
+        formula: "M_fren = 2 · FA · µ · (d_flanş/2 − x)",
+        subst: (x) =>
+          `2 · ${n(num(x.c["safety.clampForce"]))} · 0,4 · (${n(x.sel.safetyBrakeFlangeDiaMm)}/2 − ${n(num(x.c["safety.leverX"]))}) / 1000`,
+        unit: "Nm",
+      },
+      {
+        key: "safety.totalTorque", label: "Toplam Frenleme Momenti",
+        formula: "M_toplam = z · M_fren",
+        subst: (x) => `${n(num(x.c["safety.brakeCount"]), 0)} · ${n(num(x.c["safety.torqueEach"]))}`,
+        unit: "Nm",
+      },
+      {
+        key: "safety.achievedFactor", label: "Sağlanan Emniyet Katsayısı",
+        formula: "n = M_toplam / M_gerekli",
+        subst: (x) => `${n(num(x.c["safety.totalTorque"]))} / ${n(num(x.c["safety.requiredTorque"]))}`,
+        digits: 3,
+      },
+      {
+        key: "safety.releasePressure", label: "Açma Basıncı PL",
+        formula: "PL = f(model)   [hidrolik ünite seçimi]",
+        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "bar", digits: 0,
+      },
+      {
+        key: "safety.minDiscThickness", label: "Minimum Flanş Kalınlığı",
+        formula: "b = f(model)   [SIBRE katalog]",
+        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "mm", digits: 0,
+      },
+    ],
+    checkSuffixes: ["safety.torque", "safety.flange", "safety.airGap"],
   },
 ];

@@ -21,7 +21,13 @@ import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
-import { HOIST_AUTO_FIELDS, SPEC_FIELDS, SPEC_GROUPS, fieldLabel } from "@/lib/calc/fields";
+import {
+  HOIST_AUTO_FIELDS,
+  SPEC_FIELDS,
+  SPEC_GROUPS,
+  TRAVEL_AUTO_FIELDS,
+  fieldLabel,
+} from "@/lib/calc/fields";
 import { deriveHoistInputs, motorTempFactor } from "@/lib/calc/derive";
 import { travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
@@ -588,13 +594,16 @@ type Step =
 
 function buildSteps(
   present: (k: ModuleKey) => boolean,
-  numbers: Partial<Record<ModuleKey, number>>
+  numbers: Partial<Record<ModuleKey, number>>,
+  specs: TechnicalSpecs
 ): Step[] {
   const steps: Step[] = [{ kind: "specs", key: "specs", title: "01 · Teknik Özellikler" }];
   for (const adapter of MODULE_ADAPTERS) {
     if (!present(adapter.key)) continue;
     const num = numbers[adapter.key] ?? 0;
     for (const section of adapter.sections) {
+      // Koşullu bölüm (ör. emniyet freni olmayan kaldırma grubunda 2.8)
+      if (section.visible && !section.visible(specs)) continue;
       const displayId = renumberSectionId(section.id, num);
       steps.push({
         kind: "module",
@@ -831,7 +840,7 @@ export function RevisionEditor({
   }, [specs, enabled]);
   const present = useCallback((k: ModuleKey) => activeSet.has(k), [activeSet]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
-  const STEPS = useMemo(() => buildSteps(present, numbers), [present, numbers]);
+  const STEPS = useMemo(() => buildSteps(present, numbers, specs), [present, numbers, specs]);
   /**
    * Bölüm kenar çubuğunda listelenir mi: vinç konfigürasyonu buna izin
    * veriyorsa ve bağlı olduğu üst bölüm açıksa. (Kapalı ama listelenen bölüm
@@ -1275,13 +1284,20 @@ export function RevisionEditor({
       );
     };
 
-    /** Kaldırma modüllerinde otomatik doldurulabilen alanların anahtar durumu */
+    /**
+     * Otomatik doldurulabilen alanların anahtar durumu. Kaldırma ve yürütme
+     * grupları aynı mekanizmayı kullanır; yalnız alan listeleri farklıdır
+     * (yürütmede şimdilik sıcaklık faktörü).
+     */
     function autoStateFor(fieldKey: string): AutoFieldState | undefined {
-      if (!isHoist) return undefined;
-      const flag = HOIST_AUTO_FIELDS[fieldKey];
+      const flag = isHoist
+        ? HOIST_AUTO_FIELDS[fieldKey]
+        : isTravelKey(key)
+          ? TRAVEL_AUTO_FIELDS[fieldKey]
+          : undefined;
       if (!flag) return undefined;
-      const hoistInputs = inputs as unknown as HoistInputs;
-      const on = hoistInputs[flag] === true;
+      const rec = inputs as unknown as Record<string, unknown>;
+      const on = rec[flag] === true;
       return {
         on,
         onToggle: (next) =>

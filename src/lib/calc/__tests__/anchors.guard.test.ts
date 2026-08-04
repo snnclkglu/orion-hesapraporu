@@ -22,7 +22,7 @@ import type { AnyCheck } from "../types";
 
 /**
  * Bugün motorun `NEW_WORK_TEMPLATE` ile ürettiği toplam kontrol sayısı — ve
- * bunların TAMAMININ bir bölüme bağlı olduğu gerçeği (212/212, ölçülmüş değer).
+ * bunların TAMAMININ bir bölüme bağlı olduğu gerçeği (218/218, ölçülmüş değer).
  * Şablon TÜM hesap bölümlerini içerir (ana/yardımcı/iki monoray kaldırma, her
  * birinin kanca bloğu ve arabası, köprü, ana kiriş, buruşma, başkiriş), böylece
  * koruma bütün bölümleri kapsar.
@@ -32,13 +32,32 @@ import type { AnyCheck } from "../types";
  * onaylamak zorunda kalır. Sayıyı düşünmeden güncellemek bu korumayı işlevsiz
  * bırakır — önce kontrolün raporda göründüğünü doğrulayın, sonra güncelleyin.
  */
-const EXPECTED_CHECK_COUNT = 212;
+// 218 = 212 + 6: emniyet frenli varyantta ana ve yardımcı kaldırma gruplarının
+// her biri üç kontrol üretir (moment, flanş çapı, hava aralığı). Monoray
+// gruplarında tambur emniyet freni uygulanmadığı için kontrol çıkmaz.
+const EXPECTED_CHECK_COUNT = 218;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 
+/**
+ * Emniyet freni KOŞULLU bir bölümdür (2.8): yalnız emniyet freni öngörülen
+ * kaldırma gruplarında hesaplanır. Yeni iş şablonunda varsayılan "Yok"tur —
+ * çoğu vinçte tambur emniyet freni bulunmaz. Koruma kapsamının bu bölümü de
+ * içermesi için şablon bir de frenli varyantla koşturulur ve kontrol listeleri
+ * birleştirilir; aksi hâlde 2.8'in bağlantıları hiç sınanmazdı.
+ */
+const resultWithSafetyBrake: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, hoistSafetyBrake: "Ana ve Yardımcı Kaldırmada" },
+});
+
 /** Modül anahtarı → o modülün sonucu (ortak erişim katmanından). */
 function moduleChecks(key: ModuleKey): AnyCheck[] | undefined {
-  return moduleResultOf(result, key)?.checks;
+  const base = moduleResultOf(result, key)?.checks;
+  if (base === undefined) return undefined;
+  const extra = moduleResultOf(resultWithSafetyBrake, key)?.checks ?? [];
+  const seen = new Set(base.map((c) => c.id));
+  return [...base, ...extra.filter((c) => !seen.has(c.id))];
 }
 
 /** Kontrol id'sinin modül önekinden sonraki kısmı ("main.rope.safety" → "rope.safety"). */
@@ -166,7 +185,12 @@ describe("bağlantı koruma — kontrol ↔ hesap satırı", () => {
   });
 
   it("kontrol sayısı sabittir ve tamamı bağlıdır", () => {
-    const total = result.allChecks.length;
+    // Toplam da bağlı sayısı da AYNI (birleştirilmiş) kümeden okunur; aksi
+    // hâlde koşullu bölümün kontrolleri paya girip paydaya girmezdi.
+    const total = MODULE_ADAPTERS.reduce(
+      (n, adapter) => n + (moduleChecks(adapter.key)?.length ?? 0),
+      0
+    );
     const bound = MODULE_ADAPTERS.reduce((n, adapter) => {
       const checks = moduleChecks(adapter.key);
       if (!checks) return n;

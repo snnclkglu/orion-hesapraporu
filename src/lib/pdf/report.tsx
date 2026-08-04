@@ -1366,7 +1366,9 @@ function ModulePage({
         title={rest.join(" · ")}
         meta="FEM 1.001 · DIN 15018 · CMAA 70"
       />
-      {adapter.sections.map((section) => {
+      {adapter.sections
+        .filter((section) => !section.visible || section.visible(input.specs))
+        .map((section) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);

@@ -929,6 +929,45 @@ const CMAA_REFS: Record<string, StandardRef> = {
     ],
   },
 
+  "SIBRE SHI": {
+    code: "SIBRE SHI",
+    title: "Tambur emniyet freni — kaliper fren kataloğu",
+    source: "SIBRE Siegerland-Bremsen GmbH — Caliper Brake SHI / SHI-FC",
+    clause: "Clamping Force FA · Torque Calculation · Brake Discs",
+    summary:
+      "Emniyet freni tamburun flanşını disk olarak kullanan hidrolik açmalı, " +
+      "yay kapamalı kaliper frendir. Sıkma kuvveti FA ayarlanan hava aralığına " +
+      "(c) göre değişir; frenleme momenti flanşın iki yüzündeki sürtünmeden " +
+      "doğar ve etkin sürtünme yarıçapı flanş yarıçapından modele özgü x " +
+      "ölçüsü çıkarılarak bulunur.",
+    formulas: [
+      { expr: "M_fren = 2 · FA · µ · (d_flanş/2 − x)" },
+      { expr: "d_flanş ≥ maks(d_katalog ; D_tambur + Δ)" },
+    ],
+    tables: [
+      {
+        headers: ["Seri", "x [mm]", "En küçük disk Ø [mm]", "Δ = d − d1 [mm]", "En küçük kalınlık [mm]"],
+        rows: [
+          ["SHI 75-1…6", "42,5", "400", "230", "20"],
+          ["SHI 103…107", "60", "650", "280", "20"],
+          ["SHI 161/162", "62,5", "900", "325", "20"],
+          ["SHI 201/202", "60", "1.100", "360", "20"],
+          ["SHI 231/232", "95", "1.100", "440", "20"],
+          ["SHI 251/252", "100", "1.200", "490", "20"],
+          ["SHI 281/282", "112,5", "1.600", "545", "30"],
+        ],
+      },
+    ],
+    notes: [
+      "µ = 0,4 — sinter balata, çevresel hız 15 m/s'ye kadar geçerli ortalama değer.",
+      "d1 katalogda \"azami göbek/tambur çapı\" olarak verilir; Δ = d − d1 " +
+        "kaliper gövdesinin oturması için gereken radyal paydır.",
+      "SHI 231 ve 232 yalnız 2…3 mm hava aralığı bandında çalışır; c = 1 mm " +
+        "için sıkma kuvveti tanımlı değildir.",
+      "Açma basıncı PL hidrolik güç ünitesinin seçimini belirler.",
+    ],
+  },
+
   "CMAA 70 3.5.5.2": {
     code: "CMAA 70 3.5.5.2",
     title: "Ana kiriş ters sehimi (kamber)",

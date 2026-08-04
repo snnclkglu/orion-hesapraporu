@@ -49,6 +49,11 @@ const HOIST_ANCHORS: AnchorMap = {
     "drumCoupling.radial": "drumCoupling.requiredRadial",
     "drumCoupling.bore": "drumCoupling.shaftDia",
   },
+  "2.8": {
+    "safety.torque": "safety.totalTorque",
+    "safety.flange": "safety.minFlangeDia",
+    "safety.airGap": "safety.clampForce",
+  },
 };
 
 /** 04 — Kanca Bloğu */

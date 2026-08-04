@@ -89,6 +89,12 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    - `reeving.ts` — halat donanımının tek gerçek kaynağı (mekanik avantaj,
      halat verimi, kanca bloğu makara sayısı, rulman adedi)
    - `hook-table.ts` — DIN 15400 Tablo 3 (kanca no × malzeme sınıfı × grup)
+   - `safety-brake.ts` — tambur emniyet freni: SIBRE SHI kaliper kataloğu
+     (FA / hava aralığı, x ölçüsü, disk çapı sınırları) + tork ve minimum flanş
+     çapı bağıntıları. Gereken moment BURADA hesaplanmaz; kaldırma modülünün
+     `drum.torquePerDrum` hücresinden okunur. Emniyet freni bir vinç değil
+     KALDIRMA GRUBU özelliğidir (`hasSafetyBrake`); bölüm 2.8 yalnız freni olan
+     grupta görünür (`HoistSectionDef.visible`).
    - `presentation/module-access.ts` — modül girdi/sonuç/bağlam erişimi
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA

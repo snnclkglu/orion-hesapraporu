@@ -279,7 +279,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     title: "Yürütme Motoru",
     description: "CMAA 70 ivmelenme faktörü yöntemiyle gerekli güç ve motor seçimi.",
     inputKeys: [
-      "applicationClass", "serviceFactorKs", "accelTorqueFactorKt", "reducerStages",
+      "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
       "accelerationMs2", "tempFactor", "motorCalcCount",
     ],
     selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
@@ -350,9 +350,9 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   },
   {
     id: "5.5",
-    title: "Yürütme Dişli Kutusu",
+    title: "Yürütme Redüktörü",
     description: "Gerekli çevrim oranı, tork zinciri ve redüktör seçimi.",
-    inputKeys: ["gearboxServiceFactor"],
+    inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
       "gearboxModel", "gearboxRatio", "gearboxOutputTorqueKnm",
       "gearboxInputShaftText", "gearboxOutputShaftMm",
@@ -417,7 +417,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   },
   {
     id: "5.6",
-    title: "Motor — Dişli Kutusu Kaplini",
+    title: "Motor — Redüktör Kaplini",
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: [
       "couplingMotorShaftMm", "motorCouplingBrand", "motorCouplingModel",
@@ -446,7 +446,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   },
   {
     id: "5.7",
-    title: "Teker — Dişli Kutusu Kaplini",
+    title: "Teker — Redüktör Kaplini",
     inputKeys: ["wheelCouplingServiceFactor"],
     selectionKeys: [
       "wheelShaftDiaMm", "wheelCouplingBrand", "wheelCouplingModel",
