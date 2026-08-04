@@ -98,20 +98,27 @@ export function camberStripDiagram(p: CamberStripParams): Diagram {
     );
     els.push(txt(x, yCut, fmtN(st.cuttingMm, 1), size, { anchor: "middle", fill: DCOL.accent, bold: isMid }));
     els.push(txt(x, ySup, fmtN(st.supportedMm, 1), size, { anchor: "middle", fill: DCOL.accent, bold: isMid }));
+    // Perde kodu (M1 · P1… · O · M2) — kotların hangi perdeye ait olduğu
+    // şeritte tek bakışta okunsun; tablo da aynı kodu kullanır.
+    els.push(
+      txt(x, yBot + 15, st.code, size * 0.92, {
+        anchor: "middle", fill: isMid ? DCOL.accent : DCOL.muted, bold: isMid,
+      })
+    );
     // Kotu şeride bağlayan ince uzantılar
     els.push(ln(x, yCut + 4, x, yTop - 4, DCOL.faint, 0.5));
-    els.push(ln(x, yBot + 4, x, ySup - 8, DCOL.faint, 0.5));
+    els.push(ln(x, yBot + 20, x, ySup - 8, DCOL.faint, 0.5));
   });
 
   // Eksen adları — şeridin İÇİNE değil, dışına yazılır (silueti kirletmesin)
   const xMid = xAt(p.spanMm / 2);
   els.push(txt(xMid, yTop - 9, "ORTA EKSEN", 6.5, { anchor: "middle", fill: DCOL.accent }));
-  els.push(txt(xL, yBot + 22, "TEKER EKSENİ", 6.5, { anchor: "middle", fill: DCOL.muted }));
-  els.push(txt(xR, yBot + 22, "TEKER EKSENİ", 6.5, { anchor: "middle", fill: DCOL.muted }));
+  els.push(txt(xL, yBot + 30, "TEKER EKSENİ", 6.5, { anchor: "middle", fill: DCOL.muted }));
+  els.push(txt(xR, yBot + 30, "TEKER EKSENİ", 6.5, { anchor: "middle", fill: DCOL.muted }));
 
   // Açıklık bilgisi
   els.push(
-    txt(W / 2, 258, `L = ${fmtN(p.spanMm / 1000, 2)} m · ${stations.length} istasyon · kotlar mm`, 8, {
+    txt(W / 2, 266, `L = ${fmtN(p.spanMm / 1000, 2)} m · ${stations.length} perde ekseni · kotlar mm`, 8, {
       anchor: "middle", fill: DCOL.muted,
     })
   );

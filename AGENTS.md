@@ -78,8 +78,12 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
      ve L/δ ile kontrol edilir; *kesimde* verisi CMAA 70 md. 3.5.5.2 kamberidir
      (ölü yük sehimi + canlı yük sehiminin yarısı); *mesnette* verisi kesimde −
      ölü yük sehimi = canlı/2'dir ve atölye ölçüm kotudur. Kotlar açıklık
-     ortasından başlayıp perde aralığınca verilir. Ölü yük kirişin KENDİ yayılı
-     ağırlığıdır — başkiriş mesnette durur, kirişi eğmez.
+     ortasından başlayıp perde aralığınca verilir; perde kodları soldan sağa
+     tekildir (M1 · P1…Pn · O · M2) ve perde ADEDİ de aynı ızgaradan okunur.
+     Ölü yük kirişin KENDİ ağırlığıdır: kesit sacları + perdeler (kalınlık =
+     en ince kutu sacı, ölçü = iç genişlik × iç yükseklik) + ray (DIN 536-1
+     ya da kare çubuk kesitinden) + elle girilen ilave sabit yük. Başkiriş
+     GİRMEZ — mesnet üzerinde durur, kirişi eğmez.
    - `shaftStress.ts` — mil gerilmeleri; bileşik (`vonMises`/`resultant`) ve
      kayma (`ortalama`/`maksimum`) kabulleri **açık parametredir**
    - `reeving.ts` — halat donanımının tek gerçek kaynağı (mekanik avantaj,

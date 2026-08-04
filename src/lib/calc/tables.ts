@@ -59,15 +59,28 @@ export function c1Factor(wheelDiaMm: number, speed: number): number | null {
   return row[c1SpeedIndex(speed)] ?? null;
 }
 
-/** Ray tablosu: baş genişliği [mm] ve köşe yarıçapı */
-export const RAILS: Record<string, { radius: number | null; headWidth: number }> = {
-  "A150": { radius: 10, headWidth: 136.666666666667 },
-  "A120": { radius: 10, headWidth: 106.666666666667 },
-  "A100": { radius: 10, headWidth: 86.6666666666667 },
-  "A75": { radius: 8, headWidth: 64.3333333333333 },
-  "A65": { radius: 6, headWidth: 57 },
-  "A55": { radius: 5, headWidth: 48.3333333333333 },
-  "A45": { radius: 4, headWidth: 39.6666666666667 },
+/**
+ * Ray tablosu: baş genişliği [mm], köşe yarıçapı ve metre ağırlığı [kg/m].
+ *
+ * `headWidth` teker basıncının yayıldığı ETKİN genişliktir (DIN 15018 Şekil 9
+ * hesabı için); rayın anma baş genişliği değildir.
+ *
+ * `massKgPerM` yalnız A serisi için tablodan gelir — DIN 536-1 Form A vinç rayı
+ * anma kütleleri. Kare/dikdörtgen çubuk raylarda kütle geometriden hesaplanır
+ * (bkz. `railMassKgPerM`), tabloya yazılmaz ki kesit ölçüsüyle tutarsız
+ * kalmasın.
+ */
+export const RAILS: Record<
+  string,
+  { radius: number | null; headWidth: number; massKgPerM?: number }
+> = {
+  "A150": { radius: 10, headWidth: 136.666666666667, massKgPerM: 150.2 },
+  "A120": { radius: 10, headWidth: 106.666666666667, massKgPerM: 100.0 },
+  "A100": { radius: 10, headWidth: 86.6666666666667, massKgPerM: 74.3 },
+  "A75": { radius: 8, headWidth: 64.3333333333333, massKgPerM: 56.2 },
+  "A65": { radius: 6, headWidth: 57, massKgPerM: 43.1 },
+  "A55": { radius: 5, headWidth: 48.3333333333333, massKgPerM: 31.8 },
+  "A45": { radius: 4, headWidth: 39.6666666666667, massKgPerM: 22.1 },
   "30x30": { radius: null, headWidth: 30 },
   "40x40": { radius: null, headWidth: 40 },
   "50x50": { radius: null, headWidth: 50 },
@@ -75,3 +88,24 @@ export const RAILS: Record<string, { radius: number | null; headWidth: number }>
   "70x40": { radius: null, headWidth: 70 },
   "80x80": { radius: null, headWidth: 80 },
 };
+
+/**
+ * Rayın metre ağırlığı [kg/m] — ana kirişin ölü yüküne girer.
+ *
+ * A serisi DIN 536-1 anma kütlesini kullanır. Kare/dikdörtgen çubuk raylar
+ * ("50x50", "70x40") kod içindeki ölçülerden hesaplanır: A[mm] × B[mm] kesit
+ * alanı × çelik yoğunluğu. Tanınmayan kod için `null` döner — çağıran taraf
+ * ray payını sıfır sayar ve bunu raporda belirtir.
+ */
+export function railMassKgPerM(
+  code: string | undefined,
+  steelDensityKgPerCm3: number
+): number | null {
+  if (!code) return null;
+  const entry = RAILS[code];
+  if (entry?.massKgPerM !== undefined) return entry.massKgPerM;
+  const m = /^(\d+)\s*[xX]\s*(\d+)$/.exec(code.trim());
+  if (!m) return null;
+  const areaCm2 = (Number(m[1]) * Number(m[2])) / 100; // mm² → cm²
+  return areaCm2 * 100 * steelDensityKgPerCm3;         // cm³/m × kg/cm³
+}

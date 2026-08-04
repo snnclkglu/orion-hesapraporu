@@ -288,6 +288,8 @@ export function runCalc(input: CalcInput): CalcResult {
         bridgeDrivenWheels: out.bridge.values.drivenWheels,
         bridgeActualSpeedMpm: out.bridge.values.actualSpeedMpm,
         bridgeAccelTimeS: out.bridge.values.startupTimeS,
+        // Ray ana kirişin üstündedir → ARABA rayı (köprü rayı yol kirişinde)
+        trolleyRailCode: input.trolley.selections.railCode,
       })
     );
   }

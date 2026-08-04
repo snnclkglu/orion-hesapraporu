@@ -872,59 +872,94 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
   },
   {
     id: "7.7",
-    title: "Ters Sehim (Kamber) — İmalat Verileri",
+    title: "Ters Sehim",
     description:
-      "Ters sehim bir kontrol değil İMALAT ÖLÇÜSÜDÜR. CMAA 70 md. 3.5.5.2: kutu " +
-      "kirişler, ölü yük sehimi + canlı yük sehiminin yarısı kadar yukarı " +
-      "kamberlenir. KESİMDE verisi sacların kesim/ütüleme kotudur. MESNETTE " +
-      "verisi ise kiriş üretilip iki ucundan sehpaya alındığında, kendi " +
-      "ağırlığıyla çöktükten sonra ölçülmesi beklenen kottur; ölçüm bu değeri " +
-      "tutuyorsa kiriş doğru üretilmiştir. Kotlar açıklık ortasından başlayıp " +
-      "sağa ve sola perde aralığınca verilir.",
+      "Ters sehim, kirişe imalatta verilen yukarı yönlü ön eğriliktir; uygunluk " +
+      "kontrolü değil imalat ölçüsüdür. CMAA 70 md. 3.5.5.2 uyarınca kutu " +
+      "kirişler ölü yük sehimi ile canlı yük sehiminin yarısı toplamı kadar " +
+      "kamberlenir:  kesimde(x) = δ_ölü(x) + δ_canlı(x)/2.  Kiriş üretilip iki " +
+      "ucundan mesnetlendiğinde kendi ağırlığıyla δ_ölü(x) kadar çöker; geriye " +
+      "kalan  mesnette(x) = kesimde(x) − δ_ölü(x) = δ_canlı(x)/2  değeridir. " +
+      "Ölü yük terimi bu farkta sadeleşir; dolayısıyla mesnette kotu yalnız " +
+      "canlı yüke ve kesit ataletine bağlıdır, ölü yük değişince değişmez. " +
+      "KESİMDE kotları gövde saclarının kesim hattının ve spot ayarının " +
+      "belirlenmesinde kullanılır; MESNETTE kotları kirişin mesnetlenmiş " +
+      "hâldeki ölçüm verisidir. Kotlar açıklık ortasından başlayıp sağa ve sola " +
+      "perde aralığınca, her perde ekseninde verilir.",
     depKeys: [],
     inputKeys: ["camberExtraDeadLoadKgPerM"],
     selectionKeys: [],
     rows: [
       {
-        key: "camber.deadLoadPerM", label: "Kamber Ölü Yükü w (Kiriş Öz Ağırlığı + İlave)",
-        formula: "w = G_kesit + w_ilave",
-        subst: (x) => `${n(num(x.c["section.weightPerLength"]))} + ${n(num(x.inp.camberExtraDeadLoadKgPerM))}`,
+        key: "camber.diaphragmThickness", label: "Perde Sacı Kalınlığı (En İnce Kutu Sacı)",
+        formula: "t_perde = min(t2 ; t3 ; t4 ; t5)",
+        subst: (x) => `min(${n(x.inp.t2Mm)} ; ${n(x.inp.t3Mm)} ; ${n(x.inp.t4Mm)} ; ${n(x.inp.t5Mm)})`,
+        unit: "mm", digits: 0,
+      },
+      {
+        key: "camber.diaphragmMass", label: "Bir Perdenin Ağırlığı",
+        formula: "G_perde = a · h3 · t_perde · ρ",
+        subst: (x) => `${n(x.inp.aMm)} · ${n(x.inp.h3Mm)} · ${n(num(x.c["camber.diaphragmThickness"]), 0)} · 8,0 / 10⁶`,
+        unit: "kg", digits: 2,
+      },
+      {
+        key: "camber.diaphragmPerM", label: "Perdelerin Yayılı Karşılığı",
+        formula: "w_perde = n_perde · G_perde / L",
+        subst: (x) => `${n(num(x.c["camber.diaphragmCount"]), 0)} · ${n(num(x.c["camber.diaphragmMass"]), 2)} / ${n(x.specs.spanM)}`,
         unit: "kg/m", digits: 2,
       },
       {
-        key: "camber.deadValue", label: "Ölü Yük Sehimi (Açıklık Ortası)",
+        key: "camber.railPerM", label: "Ray Metre Ağırlığı",
+        formula: "w_ray = f(ray tipi)   [DIN 536-1 / kesit alanı]",
+        subst: (x) => `${x.deps.trolleyRailCode || "—"} → ${n(num(x.c["camber.railPerM"]), 2)}`,
+        unit: "kg/m", digits: 2,
+      },
+      {
+        key: "camber.deadLoadPerM", label: "Ölü Yük w (Kesit + Perde + Ray + İlave)",
+        formula: "w = G_kesit + w_perde + w_ray + w_ilave",
+        subst: (x) =>
+          `${n(num(x.c["section.weightPerLength"]), 2)} + ${n(num(x.c["camber.diaphragmPerM"]), 2)}` +
+          ` + ${n(num(x.c["camber.railPerM"]), 2)} + ${n(num(x.inp.camberExtraDeadLoadKgPerM))}`,
+        unit: "kg/m", digits: 2,
+      },
+      {
+        key: "camber.girderTotalWeight", label: "Bir Ana Kirişin Toplam Ağırlığı",
+        formula: "G_kiriş = w · L", unit: "kg", digits: 0,
+      },
+      {
+        key: "camber.deadValue", label: "Ölü Yük Sehimi δ_ölü (Açıklık Ortası)",
         formula: "δ_ölü = 5 · w · L⁴ / (384 · E · I)",
         unit: "mm", digits: 2,
       },
       {
         key: "camber.cutting", label: "KESİMDE Ters Sehim (Açıklık Ortası)",
-        formula: "kamber = δ_ölü + δ / 2",
+        formula: "kesimde = δ_ölü + δ / 2",
         subst: (x) => `${n(num(x.c["camber.deadValue"]), 2)} + ${n(num(x.c["deflection.value"]), 2)} / 2`,
         unit: "mm", digits: 2, standard: "CMAA 70 3.5.5.2",
       },
       {
         key: "camber.supported", label: "MESNETTE Ters Sehim (Açıklık Ortası)",
-        formula: "mesnette = kamber − δ_ölü = δ / 2",
+        formula: "mesnette = kesimde − δ_ölü = δ / 2",
         subst: (x) => `${n(num(x.c["camber.cutting"]), 2)} − ${n(num(x.c["camber.deadValue"]), 2)}`,
         unit: "mm", digits: 2, standard: "CMAA 70 3.5.5.2",
       },
       {
-        key: "camber.stationSpacing", label: "Kot Adımı (Perde Aralığı)",
+        key: "camber.stationSpacing", label: "Perde Aralığı (Kot Adımı)",
         formula: "l1   (girdiden)", unit: "mm", digits: 0,
       },
     ],
     table: {
-      title: "Kamber Şeridi — Perde Aralıklarında Ters Sehim Kotları",
+      title: "Kamber Şeridi — Perde Eksenlerinde Ters Sehim Kotları",
       headers: [
-        "İstasyon", "Sol Mesnetten [mm]", "Ortadan [mm]",
+        "Perde", "Sol Mesnetten [mm]", "Ortadan [mm]",
         "Canlı Sehim [mm]", "Ölü Sehim [mm]", "KESİMDE [mm]", "MESNETTE [mm]",
       ],
       note:
-        "Kotlar açıklık ORTASINDAN başlayıp sağa ve sola perde aralığınca " +
-        "ilerler; uçlarda (teker ekseni) tümü sıfırdır. KESİMDE = ölü yük sehimi " +
-        "+ canlı yük sehiminin yarısı (CMAA 70 3.5.5.2) — sacların kesim kotu. " +
-        "MESNETTE = canlı yük sehiminin yarısı — kiriş sehpaya alındığında " +
-        "ölçülecek kot. Değerler yukarı yönde (ters sehim) pozitiftir.",
+        "Perde kodları soldan sağa tekildir: M1 sol mesnet, P1…Pn perdeler, " +
+        "O açıklık ortası, M2 sağ mesnet. Uçlarda (teker ekseni) tüm kotlar " +
+        "sıfırdır. KESİMDE = δ_ölü + δ_canlı/2 (CMAA 70 3.5.5.2) — kesim hattı " +
+        "ve spot ayarı verisi. MESNETTE = δ_canlı/2 — kiriş mesnetlendiğinde " +
+        "ölçüm verisi. Kotlar yukarı yönde (ters sehim) pozitiftir.",
       build: (x) => camberRows(x),
     },
     // Kamber bir uygunluk ölçütü değil imalat ölçüsüdür — kontrolü yoktur.
@@ -947,21 +982,17 @@ function camberRows(x: GirderCtx): (string | number)[][] {
   const profile = camberProfile(
     {
       spanCm,
-      deadLoadPerCm: deadPerM / 100,
+      deadLoadPerCm: deadPerM / 100, // kg/m → kg/cm
       wheelLoadKg: wheelLoad,
-      wheelSpacingCm: x.inp.trolleyAxleSpacingM * 100,
+      wheelSpacingCm: x.inp.trolleyAxleSpacingM * 100, // m → cm
       elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
       inertiaCm4: inertia,
     },
     x.inp.diaphragmSpacingMm
   );
   const mm = (v: number) => Number(v.toFixed(1));
-  return profile.stations.map((st, i) => [
-    i === 0 || i === profile.stations.length - 1
-      ? "mesnet"
-      : st.fromCenterMm === 0
-        ? "ORTA"
-        : `${st.fromCenterMm < 0 ? "sol" : "sağ"} ${Math.abs(Math.round(st.fromCenterMm / profile.spacingUsedMm))}`,
+  return profile.stations.map((st) => [
+    st.code,
     Math.round(st.xMm),
     Math.round(st.fromCenterMm),
     mm(st.liveMm),

@@ -27,8 +27,8 @@
 //   τ3  kesme — öz ağırlık                      τ4  kesme — araba
 //   τ5  kesme — yük (×ψ)
 
-import { camberProfile } from "../camber";
-import { DIN15018_T17 } from "../tables";
+import { camberProfile, camberStationGrid } from "../camber";
+import { DIN15018_T17, railMassKgPerM } from "../tables";
 import { parseHoistLoadClass } from "../types";
 import type {
   AnyCheck,
@@ -93,6 +93,18 @@ export const FALLBACK_LOAD_GROUP: LoadGroup = "B6";
 /** Çeliğin elastisite modülü [kg/cm²] — sehim ve kamber hesabı. */
 export const GIRDER_ELASTIC_MODULUS_KG_CM2 = 2_100_000;
 
+/**
+ * Kaynaklı çelik yapı için kabul edilen yoğunluk.
+ *
+ * Anma değeri 7,85 kg/dm³'tür; imalatta 8,0 kullanılır — aradaki %2 pay kaynak
+ * metalini, sac haddeleme toleransını ve küçük bağlantı parçalarını karşılar
+ * (firma kabulü). Kesit ağırlığı, perde ağırlığı ve kare çubuk ray ağırlığı
+ * AYNI yoğunluktan hesaplanır; ayrışırlarsa kirişin toplam ağırlığı tutmaz.
+ */
+export const STEEL_DENSITY_KG_DM3 = 8.0;
+/** Aynı yoğunluk kg/cm³ cinsinden (ray tablosu bu birimi ister). */
+export const STEEL_DENSITY_KG_CM3 = STEEL_DENSITY_KG_DM3 / 1000;
+
 /** DIN 15018 7.4.5 bileşik yorulma oranı üst sınırı. */
 const FATIGUE_COMBINED_LIMIT = 1.1;
 
@@ -131,6 +143,13 @@ export interface GirderDeps {
   bridgeDrivenWheels: number;       // köprü yürütmeden gelir
   bridgeActualSpeedMpm: number;
   bridgeAccelTimeS: number;
+  /**
+   * Arabanın üzerinde yürüdüğü ray kodu (araba yürütme seçiminden gelir).
+   * Ray ana kirişin üstüne kaynaklıdır; metre ağırlığı kirişin ölü yüküne
+   * girer ve kamberi doğrudan etkiler. Köprü rayı yol kirişine aittir,
+   * ana kirişe binmez — bu yüzden ARABA rayı okunur.
+   */
+  trolleyRailCode: string;
 }
 
 /** Kullanıcı girdileri */
@@ -185,10 +204,14 @@ export interface GirderInputs {
   fatigueTensileOverrideNmm2?: number;
   deflectionLimitRatio: number; // sehim sınırı L/x
   /**
-   * Kamber hesabında kirişin üstündeki İLAVE sabit yük [kg/m] — ray, yürüme
-   * yolu, festun, kablo tavası gibi kirişe kalıcı olarak binen her şey.
+   * Kamber hesabında kirişin üstündeki İLAVE sabit yük [kg/m] — yürüme yolu,
+   * korkuluk, festun, kablo tavası gibi kirişe kalıcı binen ve motorun
+   * geometriden bilemediği her şey.
    *
-   * Ölü yük sehimi kirişin KENDİ yayılı ağırlığından hesaplanır; gerilme
+   * Kesit sacları, perdeler ve RAY buraya YAZILMAZ: üçü de geometriden
+   * hesaplanıp ölü yüke otomatik eklenir.
+   *
+   * Ölü yük sehimi kirişin kendi yayılı ağırlığından hesaplanır; gerilme
    * hesabındaki `bridgeDeadWeightKg` (köprü ağırlığının yarısı) burada
    * KULLANILMAZ, çünkü o değer başkirişleri de içerir ve başkirişler mesnet
    * üzerinde durup kirişi eğmez. Kamber imalat ölçüsüdür; fazla tahmin
@@ -279,7 +302,14 @@ export interface GirderValues {
   deadDeflectionMm: number;    // ölü yük sehimi (açıklık ortası)
   camberCuttingMm: number;     // KESİMDE verilecek ters sehim (açıklık ortası)
   camberSupportedMm: number;   // MESNETTE ölçülecek ters sehim (açıklık ortası)
-  camberDeadLoadKgPerM: number; // kamber ölü yükü w (kiriş öz ağırlığı + ilave)
+  camberDeadLoadKgPerM: number; // kamber ölü yükü w (toplam)
+  // Ölü yük bileşenleri — kirişin gerçek ağırlığı
+  diaphragmThicknessMm: number; // perde sacı kalınlığı (en ince kutu sacı)
+  diaphragmMassKg: number;      // bir perdenin ağırlığı
+  diaphragmCount: number;       // açıklık boyunca perde adedi (mesnetler dâhil)
+  diaphragmKgPerM: number;      // perdelerin yayılı karşılığı
+  railKgPerM: number;           // ray metre ağırlığı (bilinmiyorsa 0)
+  girderTotalWeightKg: number;  // bir ana kirişin toplam ağırlığı
 }
 
 /** DIN 15018 Tablo 17 lookup */
@@ -364,7 +394,8 @@ export function computeMainGirder(
 
   const heightMm = t1 + t2 + h3 + t5 + t6;
   const areaCm2 = totalAreaMm2 * 0.01;
-  const weightPerM = areaCm2 * 100000 * 0.000008; // [kg/m]
+  // Kesit saclarının metre ağırlığı: A[cm²] × 100[cm/m] × yoğunluk[kg/cm³]
+  const weightPerM = areaCm2 * 100 * STEEL_DENSITY_KG_CM3; // [kg/m]
   // Ağırlık merkezi, alt yüzden ölçülür [mm]
   const centroidZMm =
     ((areaExtraFlange * (0.5 * t6) +
@@ -919,10 +950,30 @@ export function computeMainGirder(
   const deflectionRatio = spanMm / deflectionMm;
 
   // --- Ters sehim (kamber) — CMAA 70 md. 3.5.5.2 --------------------------
-  // Ölü yük: kirişin KENDİ yayılı ağırlığı + üstündeki ilave sabit yük.
+  //
+  // ÖLÜ YÜK = kesit sacları + perdeler + ray + ilave sabit yük.
   // (Gerilme hesabındaki bridgeDeadWeightKg başkirişleri de içerdiği için
   // kamberde kullanılmaz — bkz. GirderInputs.camberExtraDeadLoadKgPerM.)
-  const camberDeadLoadKgPerM = weightPerM + (inp.camberExtraDeadLoadKgPerM || 0);
+  //
+  // Perde sacı: kutuyu oluşturan sacların EN İNCESİ kadar kalınlıktadır;
+  // ölçüsü kutunun iç genişliği (gövde sacları arası a) × iç yüksekliği (h3)
+  // kadardır. Ray altı sacı t1 ve ek flanş t6 kutunun dışında kaldığı için
+  // en ince sac aranırken hesaba katılmaz.
+  const diaphragmThicknessMm = Math.min(t2, t3, t4, t5);
+  // Hacim mm³ → dm³ : 1 dm = 100 mm olduğundan bölen 100³ = 1.000.000'dur.
+  const diaphragmMassKg =
+    ((webGapMm * h3 * diaphragmThicknessMm) / 1_000_000) * STEEL_DENSITY_KG_DM3;
+  // Perdeler kamber kotlarının verildiği eksenlerde durur — adet oradan okunur,
+  // böylece perde sayısı ile kot listesi asla ayrışmaz.
+  const diaphragmCount = camberStationGrid(spanMm, inp.diaphragmSpacingMm).xs.length;
+  // Ayrık perdeler yayılı yüke çevrilir: açıklık boyunca düzgün dağıldıkları
+  // için sehimdeki fark ihmal edilebilir (%1 mertebesinde).
+  const diaphragmKgPerM = spanMm > 0 ? (diaphragmCount * diaphragmMassKg) / (spanMm / 1000) : 0;
+  const railKgPerM = railMassKgPerM(deps.trolleyRailCode, STEEL_DENSITY_KG_CM3) ?? 0;
+
+  const camberDeadLoadKgPerM =
+    weightPerM + diaphragmKgPerM + railKgPerM + (inp.camberExtraDeadLoadKgPerM || 0);
+  const girderTotalWeightKg = camberDeadLoadKgPerM * (spanMm / 1000);
   const camber = camberProfile(
     {
       spanCm: deflectionSpanCm,
@@ -951,6 +1002,12 @@ export function computeMainGirder(
     "camber.supported": camberSupportedMm,
     "camber.stationSpacing": camber.spacingUsedMm,
     "camber.stationCount": camber.stations.length,
+    "camber.diaphragmThickness": diaphragmThicknessMm,
+    "camber.diaphragmMass": diaphragmMassKg,
+    "camber.diaphragmCount": diaphragmCount,
+    "camber.diaphragmPerM": diaphragmKgPerM,
+    "camber.railPerM": railKgPerM,
+    "camber.girderTotalWeight": girderTotalWeightKg,
   });
   checks.push({
     id: "girder.deflection",
@@ -1033,6 +1090,12 @@ export function computeMainGirder(
     camberCuttingMm,
     camberSupportedMm,
     camberDeadLoadKgPerM,
+    diaphragmThicknessMm,
+    diaphragmMassKg,
+    diaphragmCount,
+    diaphragmKgPerM,
+    railKgPerM,
+    girderTotalWeightKg,
   };
 
   return { values, checks, cells };

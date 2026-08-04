@@ -697,6 +697,7 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
       mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,
       trolleyWeightT: specs.mainTrolleyWeightT,
       trolleyWheelCount: input.trolley?.inputs.wheelCount ?? 4,
+      trolleyRailCode: input.trolley?.selections.railCode ?? "",
       trolleyDrivenWheels: result.trolley?.values.drivenWheels ?? 2,
       trolleyActualSpeedMpm: result.trolley?.values.actualSpeedMpm ?? 0,
       trolleyAccelTimeS: result.trolley?.values.startupTimeS ?? 0,

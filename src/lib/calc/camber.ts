@@ -81,8 +81,14 @@ export function pointLoadDeflectionCm(
   return (pKg * a * xr * (L ** 2 - a ** 2 - xr ** 2)) / (6 * L * eiKgCm2);
 }
 
-/** Bir istasyondaki (perde noktasındaki) sehim/kamber kotları — hepsi mm. */
+/** Bir perde eksenindeki sehim/kamber kotları — hepsi mm. */
 export interface CamberStation {
+  /**
+   * Perde kodu — imalat şeridinde ve tabloda bu kodla anılır:
+   * `M1` sol mesnet, `P1…Pn` soldan sağa perdeler, `O` açıklık ortası,
+   * `M2` sağ mesnet. Kodlar soldan sağa TEKİLDİR (aynı kod iki kez geçmez).
+   */
+  code: string;
   /** Sol mesnetten (sol teker ekseninden) uzaklık [mm] */
   xMm: number;
   /** Açıklık ortasından işaretli uzaklık [mm] — sol taraf negatif */
@@ -106,7 +112,7 @@ const MAX_STATIONS = 41;
 
 export interface CamberProfile {
   stations: CamberStation[];
-  /** Tabloda gerçekten kullanılan istasyon adımı [mm] */
+  /** Tabloda gerçekten kullanılan perde adımı [mm] */
   spacingUsedMm: number;
   /** Perde aralığı seyreltildi mi (adım katına çıkarıldı mı) */
   thinned: boolean;
@@ -114,15 +120,30 @@ export interface CamberProfile {
   mid: CamberStation;
 }
 
+/** Perde eksenlerinin konumu ve kodu (yükten bağımsız — yalnız geometri). */
+export interface CamberStationGrid {
+  /** Sol mesnetten uzaklıklar [mm], soldan sağa sıralı */
+  xs: number[];
+  /** Aynı sırada perde kodları: M1, P1…Pn, O, …, M2 */
+  codes: string[];
+  /** Gerçekte kullanılan adım [mm] */
+  spacingUsedMm: number;
+  /** Perde aralığı şeride sığması için katlandı mı */
+  thinned: boolean;
+}
+
 /**
- * Ortadan başlayıp sağa ve sola perde aralığınca ilerleyen istasyon listesi.
- * Uçlara mesnet noktaları (x = 0 ve x = L) her hâlükârda eklenir; oralarda
- * sehim de kamber de sıfırdır.
+ * Perde eksenleri: açıklık ORTASINDAN başlayıp sağa ve sola perde aralığınca
+ * ilerler; uçlara mesnet noktaları (x = 0 ve x = L) her hâlükârda eklenir —
+ * oralarda sehim de kamber de sıfırdır.
+ *
+ * Yükten bağımsızdır: hem kamber kotları hem de kirişin perde ADEDİ (ölü yük
+ * payı) bu listeden okunur, böylece ikisi asla ayrışmaz.
  */
-function stationXs(spanMm: number, spacingMm: number): { xs: number[]; step: number; thinned: boolean } {
+export function camberStationGrid(spanMm: number, spacingMm: number): CamberStationGrid {
   const half = spanMm / 2;
   const base = spacingMm > 0 && Number.isFinite(spacingMm) ? spacingMm : half;
-  // Kaç adım sığıyor? (mesnetin kendisi ayrıca eklenir)
+  // Ortadan tek yöne kaç adım sığıyor? (mesnetin kendisi ayrıca eklenir)
   const stepsFor = (s: number) => Math.max(0, Math.floor((half - 1) / s));
   let step = base;
   let thinned = false;
@@ -136,7 +157,17 @@ function stationXs(spanMm: number, spacingMm: number): { xs: number[]; step: num
   xs.push(half);
   for (let i = 1; i <= k; i++) xs.push(half + i * step);
   xs.push(spanMm);
-  return { xs, step, thinned };
+
+  // Kodlar soldan sağa tekildir: M1 · P1…Pk · O · Pk+1…P2k · M2.
+  // Simetrik numaralandırma (…P2 P1 O P1 P2…) atölyede iki ayrı perdeye aynı
+  // kodu verirdi; şeritte sacı işaretlerken kod tekil olmalıdır.
+  const codes = xs.map((_, i) => {
+    if (i === 0) return "M1";
+    if (i === xs.length - 1) return "M2";
+    if (i === k + 1) return "O";
+    return `P${i <= k ? i : i - 1}`;
+  });
+  return { xs, codes, spacingUsedMm: step, thinned };
 }
 
 /**
@@ -156,8 +187,8 @@ export function camberProfile(
   const a1 = spanCm / 2 - beam.wheelSpacingCm / 2;
   const a2 = spanCm / 2 + beam.wheelSpacingCm / 2;
 
-  const { xs, step, thinned } = stationXs(spanMm, diaphragmSpacingMm);
-  const stations: CamberStation[] = xs.map((xMm) => {
+  const { xs, codes, spacingUsedMm, thinned } = camberStationGrid(spanMm, diaphragmSpacingMm);
+  const stations: CamberStation[] = xs.map((xMm, i) => {
     const xCm = xMm / 10;
     const live =
       pointLoadDeflectionCm(beam.wheelLoadKg, a1, spanCm, xCm, ei) +
@@ -166,6 +197,7 @@ export function camberProfile(
     const liveMm = live * 10;
     const deadMm = dead * 10;
     return {
+      code: codes[i],
       xMm,
       fromCenterMm: xMm - spanMm / 2,
       liveMm,
@@ -177,5 +209,5 @@ export function camberProfile(
   });
   const mid =
     stations.find((s) => s.fromCenterMm === 0) ?? stations[Math.floor(stations.length / 2)];
-  return { stations, spacingUsedMm: step, thinned, mid };
+  return { stations, spacingUsedMm, thinned, mid };
 }

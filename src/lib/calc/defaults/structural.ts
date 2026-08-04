@@ -26,6 +26,7 @@ export const V5_GIRDER_DEPS: GirderDeps = {
   bridgeDrivenWheels: 4,
   bridgeActualSpeedMpm: 61.0254372959817,
   bridgeAccelTimeS: 5.08545310799848,
+  trolleyRailCode: "50x50",   // araba rayı — ana kirişin üstüne kaynaklı
 };
 
 export const V5_GIRDER_INPUTS: GirderInputs = {
