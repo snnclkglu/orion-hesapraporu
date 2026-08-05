@@ -182,6 +182,8 @@ export function diagramForSection(
           phi2: v.phi2,
           totalWheels: v.totalWheels,
           wheelsPerCorner: v.wheelsPerCorner,
+          wheelsPerSide: v.wheelsPerSide,
+          spanM: input.specs.spanM,
         });
       }
       return null;

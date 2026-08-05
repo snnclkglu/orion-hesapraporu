@@ -297,13 +297,29 @@ ve teker adedi değişince kendini yeniden kuran bir bileşen
 
 ### Şemalar (üçü de parametrik ve dinamik)
 
+Üçü de vincin GERÇEK SİLUETİNİ çizer (uçlarında daralan ana kiriş gövdesi,
+başkirişler, tekerler, raylar, yol kirişi) — teknik resmin okunuşuyla aynı dil.
+Ortak `drawCrane()` yardımcısı 10.2 ve 10.5'te aynı silueti üretir.
+
 - **10.2** raylara dik görünüş: açıklık, araba yanaşması, Pmaks/Pmin okları.
-- **10.3** üstten görünüş: savrulmuş köprü, anlık kayma kutbu h, kılavuz
-  kuvveti S, teker başına enine/boyuna kuvvet okları (uzunluk kuvvetle
-  orantılı, işaret ok başının yönünde) ve tam ölçü zinciri. Tuval teker
-  adediyle büyür; sığmayan etiketler atlanır.
-- **10.5** yük özeti: bir tekerin ray üzerindeki BÜTÜN kuvvet bileşenleri iki
-  ortogonal görünüşte (düşey + boyuna | düşey + enine + kılavuz).
+  Bu görünüşte bir rayın bütün tekerleri üst üste düştüğü için TEK teker
+  çizilir, adet etiketle verilir.
+- **10.3** üstten görünüş: iki başkiriş + iki ana kiriş (plan silueti), teker
+  düzeni ve kodları, kılavuz kuvveti S, teker başına enine kuvvet okları
+  (uzunluk kuvvetle orantılı, işaret ok başının yönünde), anlık kayma kutbu ve
+  tam ölçü zinciri. Savrulma, FEM F.9.4.d'deki gibi RAY DOĞRULTUSU ↔ HAREKET
+  DOĞRULTUSU açısıyla gösterilir (gövdeyi eğerek değil — α birkaç mrad).
+  Tuval genişliği GEOMETRİDEN çıkar: en dar teker aralığının ölçü etiketi
+  sığacak kadar geniş olur, böylece köşe içi 1.000–1.500 mm aralıklarda bile
+  ölçü zinciri eksiksiz basılır.
+- **10.5** yük özeti: aynı vinç siluetinde BÜTÜN kuvvet bileşenleri. Boyuna
+  kuvvet bu düzleme dik olduğundan ⊗ simgesiyle verilir; simgelerin anlamı
+  alttaki lejantta yazar.
+
+**Birim kuralı:** şemadaki her KUVVET değeri kN ile yazılır (birimsiz sayı
+mühendis için anlam taşımaz). Ölçü zincirinde teknik resim kuralı geçerlidir —
+kotlar çıplak sayı, birim zincirin başında bir kez ("ölçüler mm") ve toplam
+ölçüde yazılır.
 
 ### Excel'e göre düzeltilen noktalar
 
