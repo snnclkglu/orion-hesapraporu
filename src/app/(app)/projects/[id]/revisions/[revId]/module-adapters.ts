@@ -47,6 +47,14 @@ import {
   type EndCarriageCtx,
 } from "@/lib/calc/presentation/endCarriageSections";
 import {
+  WHEELLOAD_SECTIONS,
+  type WheelLoadCtx,
+} from "@/lib/calc/presentation/wheelLoadSections";
+import {
+  WHEELLOAD_INPUT_FIELDS,
+  WHEELLOAD_SELECTION_FIELDS,
+} from "@/lib/calc/presentation/wheelLoadFields";
+import {
   BUCKLING_EXTRA_FIELDS,
   BUCKLING_PANEL_FIELDS,
   ENDCARRIAGE_INPUT_FIELDS,
@@ -60,6 +68,10 @@ import { hookBlockDepsFromHoist, type HookBlockDeps } from "@/lib/calc/modules/h
 import type { TravelDeps } from "@/lib/calc/modules/travelGroup";
 import type { GirderDeps } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
+import {
+  wheelLoadDepsFrom,
+  type WheelLoadDeps,
+} from "@/lib/calc/modules/wheelLoads";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 import { hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
 import {
@@ -141,6 +153,12 @@ export interface AdapterSection {
   extraInputDefs?: AnyFieldDef[];
   selectionDefs: AnyFieldDef[];
   selectionKeys: readonly string[];
+  /**
+   * Bölümün girdi ızgarasından önce çizilecek özel düzenleyici. Jenerik alan
+   * ızgarasıyla anlatılamayan geometriler için arayüz adanmış bir bileşen
+   * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
+   */
+  editor?: "wheelSpacing";
   checkSuffixes: readonly string[];
   rows: AdapterRow[];
   table?: AdapterTable;
@@ -179,6 +197,8 @@ const GIRDER_SELECTION_MAP = fieldMap(GIRDER_SELECTION_FIELDS);
 const BUCKLING_PANEL_MAP = fieldMap(BUCKLING_PANEL_FIELDS);
 const ENDCARRIAGE_INPUT_MAP = fieldMap(ENDCARRIAGE_INPUT_FIELDS);
 const ENDCARRIAGE_SELECTION_MAP = fieldMap(ENDCARRIAGE_SELECTION_FIELDS);
+const WHEELLOAD_INPUT_MAP = fieldMap(WHEELLOAD_INPUT_FIELDS);
+const WHEELLOAD_SELECTION_MAP = fieldMap(WHEELLOAD_SELECTION_FIELDS);
 
 function defs(keys: readonly string[], map: Map<string, AnyFieldDef>): AnyFieldDef[] {
   return keys
@@ -338,6 +358,52 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
   };
 }
 
+// ------------------------------------------------------------- Teker yükleri
+
+function wheelLoadAdapter(): ModuleAdapter {
+  return {
+    key: "wheelLoads",
+    title: "07 · Teker Yükleri",
+    checkPrefix: "wheelLoads.",
+    sections: WHEELLOAD_SECTIONS.map((s) => {
+      const t = s.table;
+      return {
+        id: s.id,
+        rawId: s.id,
+        title: s.title,
+        description: s.description,
+        inputDefs: defs(s.inputKeys, WHEELLOAD_INPUT_MAP),
+        selectionDefs: defs(s.selectionKeys, WHEELLOAD_SELECTION_MAP),
+        selectionKeys: s.selectionKeys,
+        editor: s.editor,
+        checkSuffixes: s.checkSuffixes,
+        table: t
+          ? {
+              title: t.title,
+              headers: t.headers,
+              note: t.note,
+              build: (ctx: unknown) => t.build(ctx as WheelLoadCtx),
+            }
+          : undefined,
+        rows: s.rows.map((r) => {
+          const sub = r.subst;
+          return {
+            key: r.key,
+            anchorId: r.key,
+            label: r.label,
+            formula: r.formula,
+            unit: r.unit,
+            digits: r.digits,
+            standard: r.standard,
+            read: (ctx: unknown) => (ctx as WheelLoadCtx).c[r.key],
+            subst: sub ? (ctx: unknown) => sub(ctx as WheelLoadCtx) : undefined,
+          };
+        }),
+      };
+    }),
+  };
+}
+
 // ---------------------------------------------------------------- Ana kiriş
 
 function girderAdapter(): ModuleAdapter {
@@ -474,6 +540,7 @@ const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
   mono2HookBlock: () => hookBlockAdapter("mono2HookBlock"),
   mono2Trolley: () => travelAdapter("mono2Trolley"),
   bridge: () => travelAdapter("bridge"),
+  wheelLoads: wheelLoadAdapter,
   girder: girderAdapter,
   buckling: bucklingAdapter,
   endCarriage: endCarriageAdapter,
@@ -509,6 +576,7 @@ export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
   "mono2",
   "mono2HookBlock",
   "mono2Trolley",
+  "wheelLoads",
   "girder",
   "buckling",
   "endCarriage",
@@ -580,6 +648,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   mono2HookBlock: "Monoray 2 Kanca Bloğu",
   mono2Trolley: "Monoray 2 Araba Yürütme",
   bridge: "Köprü Yürütme",
+  wheelLoads: "Teker Yükleri",
   girder: "Ana Kiriş",
   buckling: "Buruşma",
   endCarriage: "Başkiriş",
@@ -631,6 +700,7 @@ export interface ModuleDepsBundle {
   hookBlock: Record<HookBlockKey, HookBlockDeps>;
   /** Yürütme bölümü başına */
   travel: Record<TravelKey, TravelDeps>;
+  wheelLoads: WheelLoadDeps;
   girder: GirderDeps;
   endCarriage: EndCarriageDeps;
 }
@@ -700,6 +770,19 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
   return {
     hookBlock,
     travel,
+    wheelLoads: wheelLoadDepsFrom({
+      bridgeWheelCount: input.bridge?.inputs.wheelCount ?? 4,
+      bridgeDrivenWheels: result.bridge?.values.drivenWheels ?? 2,
+      bridgeActualSpeedMpm:
+        result.bridge?.values.actualSpeedMpm ?? specs.bridgeSpeedMpm,
+      bridgeAccelerationMs2: input.bridge?.inputs.accelerationMs2 ?? 0.1,
+      bridgeMinApproachM: input.bridge?.inputs.minApproachM ?? 1,
+      bridgeRailCode: input.bridge?.selections.railCode ?? "",
+      bridgeBufferForceKn: result.bridge?.values.bufferForceKn ?? 0,
+      mainHoistTotalLoadKg: result.mainHoist?.values.totalLoadKg ?? 0,
+      trolleyWeightT: bridgeTrolleyT,
+      bridgeWeightT: specs.bridgeWeightT,
+    }),
     girder: {
       mainHookBlockWeightKg: input.mainHoist?.inputs.hookBlockWeightKg ?? 0,
       mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,

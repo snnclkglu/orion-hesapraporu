@@ -18,9 +18,9 @@ const OFF = [...NEW_WORK_DISABLED_MODULES];
 const OFF_AUX_ON = OFF.filter((k) => k !== "aux");
 
 describe("varsayılan yeni iş", () => {
-  it("yalnız ana kaldırma, kanca bloğu, arabalar, köprü ve ana kirişi hesaplar", () => {
+  it("yalnız ana kaldırma, kanca bloğu, arabalar, köprü, teker yükleri ve ana kirişi hesaplar", () => {
     expect([...activeModules(BASE, OFF)].sort()).toEqual(
-      ["bridge", "girder", "hookBlock", "main", "trolley"]
+      ["bridge", "girder", "hookBlock", "main", "trolley", "wheelLoads"]
     );
   });
 });

@@ -292,6 +292,11 @@ const s = StyleSheet.create({
     letterSpacing: 0.2,
     color: BRAND.ink,
     textAlign: "right",
+    // Değer sütunu da PAY ALIR (yalnız flexShrink yetmiyor: react-pdf'te
+    // genişliği verilmemiş Text doğal genişliğinin altına inmez). Böylece uzun
+    // seçenek metni sarar; eskiden sütunu taşıp etiketin üzerine biniyordu
+    // (ör. "Teker Çifti Düzeni" ↔ "CFF — Bağlı teker çifti, iki taraf da …").
+    flex: 1,
   },
   // En uzun katalog dizesi ("SİBRE FLEXİBLE KAPLİN ALC A 90 · 3.600 Nm",
   // 41 karakter) iki sütunlu özet ızgarasında tek satırda kalsın diye küçültülür.

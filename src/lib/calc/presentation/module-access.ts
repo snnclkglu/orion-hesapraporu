@@ -28,6 +28,7 @@ import type { TravelCtx } from "@/lib/calc/presentation/travelSections";
 import type { GirderCtx } from "@/lib/calc/presentation/girderSections";
 import type { BucklingCtx } from "@/lib/calc/presentation/bucklingSections";
 import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections";
+import type { WheelLoadCtx } from "@/lib/calc/presentation/wheelLoadSections";
 import type { ModuleDepsBundle } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
 /** Kaldırma grubu anahtarı → CalcInput/CalcResult alan adı. */
@@ -57,6 +58,8 @@ export function moduleState(
   switch (key) {
     case "buckling":
       return input.buckling ? { inputs: input.buckling.inputs, selections: {} } : undefined;
+    case "wheelLoads":
+      return input.wheelLoads;
     case "girder":
       return input.girder;
     case "endCarriage":
@@ -75,6 +78,8 @@ export function moduleResult(
   switch (key) {
     case "buckling":
       return result.buckling;
+    case "wheelLoads":
+      return result.wheelLoads;
     case "girder":
       return result.girder;
     case "endCarriage":
@@ -142,6 +147,21 @@ export function ctxFor(
   }
 
   switch (key) {
+    case "wheelLoads": {
+      // Savrulma tablosu hesaplanmış değer kümesini (teker kuvvetleri dizisi)
+      // gerektirir; sonuç yoksa bağlam da yoktur.
+      const r = result.wheelLoads;
+      if (!r) return undefined;
+      const ctx: WheelLoadCtx = {
+        c,
+        v: r.values,
+        inp: st.inputs as never,
+        sel: st.selections as never,
+        deps: deps.wheelLoads,
+        specs,
+      };
+      return ctx;
+    }
     case "girder": {
       const ctx: GirderCtx = {
         c,

@@ -8,6 +8,9 @@
 //   kaldırma 2.1        → halat donanımı (ana / yardımcı / monoray)
 //   kaldırma 2.2.3      → tambur mili yükleme şeması (A…G ölçü zinciri)
 //   kanca bloğu 4.4     → kanca bloğu mili (makara sayısına göre dinamik)
+//   teker yükleri 10.2   → önden görünüş (Pmaks / Pmin, teker adedine göre)
+//   teker yükleri 10.3   → savrulma plan şeması (kayma kutbu + kuvvet okları)
+//   teker yükleri 10.5   → yük özeti (bütün kuvvet bileşenleri iki görünüşte)
 //
 // Dallanma AİLE YÜKLEMLERİYLE yapılır (isHoistKey/isHookBlockKey/isTravelKey);
 // yeni bir kaldırma grubu eklendiğinde burada değişiklik gerekmez.
@@ -44,6 +47,11 @@ import { deflectionDiagram } from "./deflection";
 import { camberStripDiagram } from "./camberStrip";
 import { girderLoadDiagram } from "./girderLoad";
 import { girderStressDiagram } from "./girderStress";
+import {
+  loadSummaryDiagram,
+  skewPlanDiagram,
+  wheelLoadElevationDiagram,
+} from "./wheelLoads";
 
 /** cells hücresi sayı ise değeri, değilse NaN — diyagram girdilerini korur. */
 const numOf = (v: number | string | undefined): number =>
@@ -128,6 +136,55 @@ export function diagramForSection(
         sigmaComb: v?.sigmaCombBottomCase1,
         allowable: v?.allowableCase1,
       });
+    }
+
+    // 10.2 / 10.3 — teker yükleri: önden görünüş ve savrulma plan şeması.
+    // İkisi de gerçek teker adedine ve konumlarına göre kendini çizer.
+    if (moduleKey === "wheelLoads") {
+      const st = input.wheelLoads;
+      const v = result.wheelLoads?.values;
+      if (!st || !v) return null;
+      if (rawSectionId === "10.2") {
+        return wheelLoadElevationDiagram({
+          spanM: input.specs.spanM,
+          minApproachM: input.bridge?.inputs.minApproachM ?? 0,
+          wheelsPerSide: v.wheelsPerSide,
+          maxWheelLoadKg: v.maxWheelLoadKg,
+          minWheelLoadKg: v.minWheelLoadKg,
+          designWheelLoadKg: v.designWheelLoadKg,
+          hoistLoadKg: v.hoistLoadKg,
+          wheelbaseMm: v.wheelbaseMm,
+        });
+      }
+      if (rawSectionId === "10.3") {
+        return skewPlanDiagram({
+          spanM: input.specs.spanM,
+          wheels: v.wheels,
+          alphaRad: v.alphaRad,
+          poleDistanceM: v.poleDistanceM,
+          mu: v.mu,
+          guideForceN: v.guideForceN,
+          guideMeans: st.selections.guideMeans,
+          applicable: v.skewApplicable,
+        });
+      }
+      if (rawSectionId === "10.5") {
+        return loadSummaryDiagram({
+          maxWheelLoadKg: v.maxWheelLoadKg,
+          designWheelLoadKg: v.designWheelLoadKg,
+          minWheelLoadKg: v.minWheelLoadKg,
+          lateralNearN: v.maxLateralNearN,
+          lateralFarN: v.maxLateralFarN,
+          guideForceN: v.guideForceN,
+          skewLongitudinalN: v.longitudinalSkewPerWheelN,
+          driveLongitudinalN: v.longitudinalPerDrivenWheelN,
+          bufferForceKn: v.bufferForceKn,
+          phi2: v.phi2,
+          totalWheels: v.totalWheels,
+          wheelsPerCorner: v.wheelsPerCorner,
+        });
+      }
+      return null;
     }
 
     if (moduleKey === "girder" && rawSectionId === "7.6") {

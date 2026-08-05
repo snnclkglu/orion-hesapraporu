@@ -3,8 +3,19 @@
 // Uygulama kabuğu: kalıcı sol sidebar (koyu lacivert) + ince üst şerit.
 // Mobilde sidebar hamburger ile açılır-kapanır. Sadece sunum katmanı —
 // veri (kullanıcı adı/rolü) server layout'tan prop olarak gelir.
+//
+// YERLEŞİM İLKESİ — çerçeve oynamaz.
+// Sidebar genişliğinin ve içerik payının TEK kaynağı `--app-sidebar-w`
+// değişkenidir; iki değer ayrı yerlerde tanımlanırsa daralt/genişlet sırasında
+// içerik bir kare kayar. Daraltma tercihi boyamadan ÖNCE okunur
+// (useLayoutEffect) ve geçiş sınıfı ilk okuma bitene kadar kapalıdır; aksi
+// hâlde her açılışta sidebar 240px'ten 56px'e "animasyonla" düşer.
+//
+// Revizyon editörü SABİT ÇERÇEVE modunda çalışır: sayfa gövdesi kaymaz, yalnız
+// editörün kendi bölgeleri kayar. Böylece durum çubuğu ve adım şeridi gerçek
+// çerçeve kenarı olur, `sticky` ile belge akışında sürüklenmez.
 
-import { useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -29,6 +40,8 @@ const NAV_ITEMS: {
   { href: "/admin", label: "Yönetim", icon: "gauge", adminOnly: true },
 ];
 
+const COLLAPSE_KEY = "orion.sidebar.collapsed";
+
 function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
   if (pathname.startsWith("/admin")) return "Yönetim";
@@ -51,12 +64,15 @@ function SidebarContent({
   displayName,
   email,
   pathname,
+  collapsed,
   onNavigate,
 }: {
   isAdmin: boolean;
   displayName: string;
   email: string;
   pathname: string | null;
+  /** Dar kip: yalnız ikonlar, metinler gizlenir */
+  collapsed?: boolean;
   onNavigate?: () => void;
 }) {
   return (
@@ -65,26 +81,36 @@ function SidebarContent({
       <Link
         href="/projects"
         onClick={onNavigate}
-        className="block px-4 pt-5 pb-4"
+        title={collapsed ? "Orion Cranes · Hesap Raporu Sistemi" : undefined}
+        className={cn("block pt-5 pb-4", collapsed ? "px-2" : "px-4")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/orion-logo-white.svg"
           alt="Orion Cranes"
-          className="h-[18px] w-auto"
+          className={cn(
+            "h-[18px] w-auto",
+            // Dar kipte logonun yalnız kilit (ikon) kısmı görünür: ayrı bir
+            // ikon dosyası eklemeden kırpma ile aynı sonucu verir.
+            collapsed && "max-w-[26px] object-cover object-left"
+          )}
         />
-        <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
-          Hesap Raporu Sistemi
-        </span>
+        {!collapsed && (
+          <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
+            Hesap Raporu Sistemi
+          </span>
+        )}
       </Link>
 
-      <div className="mx-4 border-t border-sidebar-border" />
+      <div className={cn("border-t border-sidebar-border", collapsed ? "mx-2" : "mx-4")} />
 
       {/* Navigasyon */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="px-2 pb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/50">
-          Çalışma Alanı
-        </div>
+        {!collapsed && (
+          <div className="px-2 pb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/50">
+            Çalışma Alanı
+          </div>
+        )}
         <ul className="grid gap-0.5">
           {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
             const active = pathname?.startsWith(item.href);
@@ -93,17 +119,19 @@ function SidebarContent({
                 <Link
                   href={item.href}
                   onClick={onNavigate}
+                  title={collapsed ? item.label : undefined}
                   className={cn(
                     // Kırmızı sol çentik: omurga motifinin menüdeki devamı;
                     // pasifte şeffaf tutulur ki aktifleşince metin kaymasın.
-                    "flex items-center gap-2.5 border-l-2 border-l-transparent px-2.5 py-2 text-sm transition-colors",
+                    "flex items-center gap-2.5 border-l-2 border-l-transparent py-2 text-sm transition-colors",
+                    collapsed ? "justify-center px-0" : "px-2.5",
                     active
                       ? "border-l-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   )}
                 >
                   <BrandIcon name={item.icon} className="size-4 shrink-0" />
-                  {item.label}
+                  {!collapsed && item.label}
                 </Link>
               </li>
             );
@@ -111,29 +139,36 @@ function SidebarContent({
         </ul>
       </nav>
 
-      {/* Standart künyesi */}
-      <div className="px-4 pb-3">
-        <div className="rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-[10px] leading-relaxed text-sidebar-foreground/60">
-          FEM 1.001 · DIN 15018 · CMAA 70
-          <br />
-          Çift kirişli gezer köprülü vinç
+      {/* Standart künyesi — dar kipte yer kaplamaz */}
+      {!collapsed && (
+        <div className="px-4 pb-3">
+          <div className="rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-[10px] leading-relaxed text-sidebar-foreground/60">
+            FEM 1.001 · DIN 15018 · CMAA 70
+            <br />
+            Çift kirişli gezer köprülü vinç
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Kullanıcı kartı */}
-      <div className="border-t border-sidebar-border px-3 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center bg-sidebar-primary/30 font-mono text-xs font-semibold text-sidebar-accent-foreground">
+      <div className={cn("border-t border-sidebar-border py-3", collapsed ? "px-2" : "px-3")}>
+        <div className={cn("flex items-center gap-2.5", collapsed && "flex-col gap-2")}>
+          <span
+            title={collapsed ? `${displayName} · ${email}` : undefined}
+            className="flex size-8 shrink-0 items-center justify-center bg-sidebar-primary/30 font-mono text-xs font-semibold text-sidebar-accent-foreground"
+          >
             {initials(displayName) || "?"}
           </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-sm font-medium text-sidebar-accent-foreground">
-              {displayName}
+          {!collapsed && (
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="truncate text-sm font-medium text-sidebar-accent-foreground">
+                {displayName}
+              </div>
+              <div className="truncate text-[11px] text-sidebar-foreground/60">
+                {isAdmin ? "Yönetici" : "Mühendis"} · {email}
+              </div>
             </div>
-            <div className="truncate text-[11px] text-sidebar-foreground/60">
-              {isAdmin ? "Yönetici" : "Mühendis"} · {email}
-            </div>
-          </div>
+          )}
           <LogoutButton className="text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
         </div>
       </div>
@@ -143,21 +178,77 @@ function SidebarContent({
 
 export function AppShell({ isAdmin, displayName, email, children }: AppShellProps) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  /** İlk okuma bitene kadar genişlik geçişi kapalı — açılışta kayma olmasın */
+  const [ready, setReady] = useState(false);
   const pathname = usePathname();
-  // Revizyon sihirbazı geniş ekranda tam genişlik kullanır; diğer sayfalar
-  // okunabilirlik için sınırlı kalır.
-  const fullWidth = /\/revisions\//.test(pathname ?? "");
+
+  // Tercih boyamadan önce okunur; ilk kare doğru genişlikle çizilir.
+  useLayoutEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      /* localStorage kapalıysa varsayılan geniş kalır */
+    }
+    setReady(true);
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* yoksay */
+      }
+      return next;
+    });
+  }, []);
+
+  // Ctrl/⌘ + B — masaüstünde menüyü daralt/genişlet
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleCollapsed();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleCollapsed]);
+
+  // Revizyon editörü sabit çerçevede çalışır: sayfa gövdesi kaymaz.
+  const isFrame = /\/revisions\//.test(pathname ?? "");
+  const sidebarW = collapsed ? "3.5rem" : "15rem";
 
   return (
-    <div className="flex min-h-screen">
+    <div
+      // Sabit çerçeve YALNIZ masaüstünde: dar ekranda viewport yüksekliğine
+      // sıkıştırmak bölüm rayını da içeriği de okunmaz hâle getirirdi; orada
+      // doğal sayfa kaydırması doğru davranıştır.
+      className={cn("flex", isFrame ? "min-h-screen lg:h-dvh lg:overflow-hidden" : "min-h-screen")}
+    >
       {/* Masaüstü sidebar */}
       {/* Kırmızı omurga: kılavuzda her yüzeyin solunda 14px, hiçbir şey üzerine taşmaz */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex">
+      <aside
+        // Kenar çubuğu artık AKIŞTA: `position: fixed` + içerikte padding
+        // telafisi yerine gerçek bir flex sütunu. Böylece daralma/genişleme
+        // içeriğe kendiliğinden yansır — telafi payını ayrıca güncellemeyi
+        // unutma riski (ve aradaki bir karelik kayma) ortadan kalkar.
+        // Üç eksen birden sabitlenir; yalnız `width` verildiğinde öğe içeriğinin
+        // içsel en küçük genişliğine göre şişiyordu.
+        style={{ width: sidebarW, minWidth: sidebarW, maxWidth: sidebarW }}
+        className={cn(
+          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-l-[14px] border-sidebar-border border-l-primary bg-sidebar text-sidebar-foreground lg:flex",
+          ready && "transition-[width] duration-200 ease-out"
+        )}
+      >
         <SidebarContent
           isAdmin={isAdmin}
           displayName={displayName}
           email={email}
           pathname={pathname}
+          collapsed={collapsed}
         />
       </aside>
 
@@ -176,7 +267,7 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
               className="absolute top-4 right-3 rounded-md p-1 text-sidebar-foreground/70 hover:bg-sidebar-accent"
               aria-label="Menüyü kapat"
             >
-              <span aria-hidden className="block text-sm leading-none">✕</span>
+              <BrandIcon name="close" className="size-4" />
             </button>
             <SidebarContent
               isAdmin={isAdmin}
@@ -190,8 +281,13 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
       )}
 
       {/* İçerik */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b bg-background px-4 lg:px-8">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          isFrame && "lg:min-h-0"
+        )}
+      >
+        <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -199,6 +295,20 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
             aria-label="Menüyü aç"
           >
             <BrandIcon name="menu" className="size-4" />
+          </button>
+          {/* Daralt/genişlet — yalnız masaüstünde anlamlı */}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-pressed={collapsed}
+            title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
+            aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+            className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
+          >
+            <BrandIcon
+              name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
+              className="size-4"
+            />
           </button>
           <div className="oc-kicker min-w-0 text-foreground/80">{sectionLabel(pathname)}</div>
           <div className="ml-auto hidden items-center gap-2 text-[11px] text-muted-foreground sm:flex">
@@ -209,8 +319,15 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
             <span className="font-mono">CMAA 70</span>
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 lg:px-8">
-          <div className={cn("mx-auto w-full", fullWidth ? "max-w-none" : "max-w-6xl")}>
+        <main
+          className={cn(
+            "min-w-0 flex-1",
+            isFrame
+              ? "px-4 py-3 lg:min-h-0 lg:overflow-hidden lg:px-6"
+              : "px-4 py-6 lg:px-8"
+          )}
+        >
+          <div className={cn("mx-auto w-full", isFrame ? "max-w-none lg:h-full" : "max-w-6xl")}>
             {children}
           </div>
         </main>

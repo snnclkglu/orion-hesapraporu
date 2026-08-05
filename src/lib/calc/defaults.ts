@@ -27,6 +27,7 @@ import {
   V5_GIRDER_INPUTS,
   V5_GIRDER_SELECTIONS,
 } from "./defaults/structural";
+import { V5_WHEELLOAD_INPUTS, V5_WHEELLOAD_SELECTIONS } from "./defaults/wheelLoads";
 
 export const V5_SPECS: TechnicalSpecs = {
   mainCapacityT: 4,
@@ -204,6 +205,10 @@ export const V5_TEMPLATE: CalcInput = {
   hookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
   trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   bridge: { inputs: V5_BRIDGE_INPUTS, selections: V5_BRIDGE_SELECTIONS },
+  // Teker yükleri bölümü Excel'de yoktu; şablona tam vinç kapsamı için eklendi
+  // (PDF/ekipman duman testleri bu şablonu koşturur). Tarihsel karşılaştırma
+  // modül modül eşleştiği için bu ekleme fikstürü etkilemez.
+  wheelLoads: { inputs: V5_WHEELLOAD_INPUTS, selections: V5_WHEELLOAD_SELECTIONS },
   girder: { inputs: V5_GIRDER_INPUTS, selections: V5_GIRDER_SELECTIONS },
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
@@ -332,6 +337,7 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   mono1Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   mono2Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   bridge: { inputs: V5_BRIDGE_INPUTS, selections: V5_BRIDGE_SELECTIONS },
+  wheelLoads: { inputs: V5_WHEELLOAD_INPUTS, selections: V5_WHEELLOAD_SELECTIONS },
   girder: {
     inputs: { ...V5_GIRDER_INPUTS, diaphragmSpacingMm: 1500, deflectionLimitRatio: 1000 },
     selections: V5_GIRDER_SELECTIONS,

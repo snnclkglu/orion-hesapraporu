@@ -27,6 +27,7 @@ export type ModuleKey =
   | "mono2HookBlock"
   | "mono2Trolley"
   | "bridge"
+  | "wheelLoads"
   | "girder"
   | "buckling"
   | "endCarriage";
@@ -35,6 +36,7 @@ export type ModuleFamily =
   | "hoist"
   | "hookBlock"
   | "travel"
+  | "wheelLoads"
   | "girder"
   | "buckling"
   | "endCarriage";
@@ -53,6 +55,7 @@ const FAMILY: Record<ModuleKey, ModuleFamily> = {
   mono2HookBlock: "hookBlock",
   mono2Trolley: "travel",
   bridge: "travel",
+  wheelLoads: "wheelLoads",
   girder: "girder",
   buckling: "buckling",
   endCarriage: "endCarriage",
@@ -77,6 +80,10 @@ export const MODULE_ORDER: readonly ModuleKey[] = [
   "mono2HookBlock",
   "mono2Trolley",
   "bridge",
+  // Teker yükleri, köprü yürütmenin hemen ardından gelir: girdilerini oradan
+  // alır ve yol kirişine aktarılan kuvvetleri raporun taşıyıcı yapı
+  // bölümlerinden önce verir.
+  "wheelLoads",
   "girder",
   "buckling",
   "endCarriage",

@@ -109,6 +109,15 @@ const TRAVEL_ANCHORS: AnchorMap = {
   },
 };
 
+/** 10 — Teker Yükleri */
+const WHEELLOAD_ANCHORS: AnchorMap = {
+  "10.3": {
+    "skew.angle": "skew.angle",
+    "skew.balance": "skew.guideForceBalance",
+  },
+  "10.4": { "longitudinal.transferable": "longitudinal.inertiaForce" },
+};
+
 /** 07 — Ana Kiriş */
 const GIRDER_ANCHORS: AnchorMap = {
   "7.4": {
@@ -148,6 +157,7 @@ const ANCHORS_BY_FAMILY: Record<string, AnchorMap> = {
   hoist: HOIST_ANCHORS,
   hookBlock: HOOKBLOCK_ANCHORS,
   travel: TRAVEL_ANCHORS,
+  wheelLoads: WHEELLOAD_ANCHORS,
   girder: GIRDER_ANCHORS,
   buckling: BUCKLING_ANCHORS,
   endCarriage: ENDCARRIAGE_ANCHORS,

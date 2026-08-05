@@ -252,3 +252,89 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
 - [x] `report.smoke.test.tsx` artık yapıyı da kilitliyor: iç bağlantıların ve
       adlandırılmış hedeflerin varlığı, her bölümün başlangıç sayfasının
       toplanabildiği ve sayfa sırasının bölüm sırasıyla arttığı.
+
+---
+
+## Faz P — Teker Yükleri (yol kirişine aktarılan kuvvetler)
+
+Sinan'ın "Teker Yükleri Detaylı Hesap Örnek.xlsx" çalışması ve iki teknik resmi
+(16 ve 8 tekerli düzen) temel alınarak yeni bir hesap bölümü eklendi. Excel yol
+gösterici dokümandır; hesap yöntemi doğrudan FEM 1.001'den kurulmuştur.
+
+### Kapsam
+
+Motor: `src/lib/calc/modules/wheelLoads.ts` (ENGINE_VERSION 0.4.0).
+Bölüm sırası: Köprü Yürütme'den hemen SONRA, taşıyıcı yapı bölümlerinden önce.
+
+| Bölüm | İçerik | Dayanak |
+|---|---|---|
+| 10.1 | Vinç verileri ve teker düzeni (ölçü zinciri, teker kodları) | FEM 9.4.1.3 / 9.4.1.5 |
+| 10.2 | Düşey teker yükleri + dinamik katsayı φ2 + tasarım yükü | FEM 9.3 (T.9.3.a/b), 2.3.1 |
+| 10.3 | Savrulma: α, f, µ', h, ν, ξ, S ve teker başına Fy1/Fy2/Fx | FEM 9.4.1.3, T.9.4 |
+| 10.4 | Boyuna kuvvetler + 1/30…1/4 bandı + tampon tepkisi | FEM 2.2.3.1.1, 2.2.3.4.1 |
+| 10.5 | Yol kirişine aktarılan kuvvetler özeti (tablo + şema) | — |
+
+### Otomasyon
+
+Bölümün girdilerinin neredeyse tamamı OTOMATİKTİR (`wheelLoadDepsFrom`):
+teker adedi, tahrikli teker, gerçekleşen yürütme hızı, ivme, araba yanaşması,
+ray tipi ve tampon tepki kuvveti köprü yürütme bölümünden; kaldırma yükü ana
+kaldırmadan; ağırlıklar ve açıklık teknik özelliklerden okunur. Mühendis yalnız
+teker düzeni ölçü zincirini, kılavuz boşluğunu ve kaldırma sınıfını (HC/HD)
+verir. Bağlı teker çifti adedi p tahrikli tekerlerden türetilir.
+
+### Teker düzeni modeli
+
+Vinç dört köşesinde EŞİT sayıda tekerle yürür: toplam adet dördün katıdır
+(4 · 8 · 12 · 16 · 20 · 24 — `WHEEL_COUNT_OPTIONS`, Köprü Yürütme'de dropdown),
+köşe başına toplam/4, ray başına toplam/2 teker. Geometri BİR RAY için,
+ardışık teker eksenleri arası mesafelerle girilir (karşı ray aynıdır) —
+teknik resimdeki ölçü zincirinin birebir karşılığı. Tekerler `A1…Ak` (ön köşe)
+ve `B1…Bk` (arka köşe) kodunu taşır. Mesafeler `WheelSpacingEditor` görsel
+düzenleyicisinden yazılır: rayı üstten çizen, her aralığa bir sayı kutusu koyan
+ve teker adedi değişince kendini yeniden kuran bir bileşen
+(`AdapterSection.editor = "wheelSpacing"`).
+
+### Şemalar (üçü de parametrik ve dinamik)
+
+- **10.2** raylara dik görünüş: açıklık, araba yanaşması, Pmaks/Pmin okları.
+- **10.3** üstten görünüş: savrulmuş köprü, anlık kayma kutbu h, kılavuz
+  kuvveti S, teker başına enine/boyuna kuvvet okları (uzunluk kuvvetle
+  orantılı, işaret ok başının yönünde) ve tam ölçü zinciri. Tuval teker
+  adediyle büyür; sığmayan etiketler atlanır.
+- **10.5** yük özeti: bir tekerin ray üzerindeki BÜTÜN kuvvet bileşenleri iki
+  ortogonal görünüşte (düşey + boyuna | düşey + enine + kılavuz).
+
+### Excel'e göre düzeltilen noktalar
+
+1. **µ' (yakın rayın yük payı)** Excel'de araba kolu (l−e)/l = 0,9516 alınmıştı;
+   bu bir YÜK PAYI değil kol oranıdır — köprünün kendi ağırlığı iki raya eşit
+   dağılır. Doğrusu düşey teker yüklerinden çıkar (örnekte 0,771). Sonuç:
+   kılavuz kuvveti S %9 ARTAR (301 → 329 kN), enine kuvvetin raylar arasındaki
+   dağılımı düzelir (Excel uzak rayı 4,7 kat eksik hesaplıyordu). Toplam
+   (Fy1+Fy2) değişmez.
+2. **Ray başı genişliği** aşınma payında (αw) rayın ANMA genişliğidir; motorun
+   `RAILS.headWidth` alanı teker basıncı için ETKİN genişliktir. Yeni
+   `railNominalHeadWidthMm()` ile ayrıştırıldı.
+3. **ξ (boyuna savrulma kuvveti)** Excel'de hesaplanıp hiç kullanılmıyordu;
+   artık teker başına Fx olarak tabloya ve özete girer.
+4. **Boyuna kuvvet bandı** (FEM 2.2.3.1.1: 1/30…1/4) Excel'de yoktu; tasarım
+   kuvveti banda sıkıştırılır ve hangi sınırın belirlediği raporda yazar.
+5. **φ2 uygulanmıyordu**; artık tasarım teker yükü φ2'yi YALNIZ kaldırma yüküne
+   uygular (FEM 2.3.1: SG + ψ·SL + SH), ölü yükü büyütmez.
+6. **Teker konumları** Excel'de 4 tekere sabitlenmişti ("2 tekerli sistemde B ve
+   C'ye 0 girilir" gibi kırılgan bir kabulle); artık 4–24 teker parametriktir.
+7. **Tampon tepkisi** (FEM 9.4.2 ile eşik 0,4 m/s) yol kirişi yüklerine taşındı.
+8. **p (bağlı teker çifti)** Excel'de n'e sabitti; artık teker çifti düzeninden
+   (CFF/IFF/CFM/IFM) ve tahrikli tekerlerden türetilir — bağımsız düzende
+   tanım gereği 0'dır.
+
+### Doğrulama
+
+`__tests__/wheelLoads.test.ts` — 48 mühendislik testi: statik denge, ölçek
+tutarlılığı (ağırlık ×2 → S ×2), sınıf duyarlılığı (HC1<HC2<HC3<HC4), teker
+kuvvetleri toplamının kılavuz kuvvetine eşitliği (dört düzenin hepsinde),
+kayma kutbunun ötesinde işaret dönmesi, FEM bandının sınır durumları, bozuk
+girdide NaN üretmeme ve Sinan'ın iki teknik resminin birebir çözülmesi.
+Excel karşılaştırması yalnız düşey yük ve φ2 bloklarında birebirdir
+(Pmaks 27.948 kg, Pmin 8.302 kg, φ2 = 1,10567).

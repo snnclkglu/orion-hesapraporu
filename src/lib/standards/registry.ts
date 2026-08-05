@@ -11,6 +11,7 @@
 // ilkesi için mümkün olan yerlerde sabitler doğrudan içe aktarılır.
 
 import { DIN15018_T17 } from "@/lib/calc/tables";
+import { HOISTING_CLASS_FACTORS } from "@/lib/calc/modules/wheelLoads";
 import {
   DIN15020_GROUPS,
   DIN15400_T3,
@@ -98,6 +99,25 @@ function din15018T17Table(material: "St37" | "St52"): StandardTableDef {
       "W0–W2: kaynaksız (çentiksiz) çentik sınıfları; K0–K4: kaynaklı birleşim " +
       "çentik sınıfları. Yük grubu B1–B6, gerilme çevrim sayısı ve gerilme " +
       "kolektifinden belirlenir.",
+  };
+}
+
+/**
+ * FEM Kitapçık 9 T.9.3.a'yı motor sabitinden üretir — tablo iki referansta
+ * (md. 9.3 ve T.9.3.a) aynı verilerle görünsün diye tek fonksiyondur.
+ */
+function femHoistingClassTable(): StandardTableDef {
+  return {
+    caption: "T.9.3.a — β₂ [s/m] ve φ₂min",
+    headers: ["Kaldırma sınıfı", "β₂", "φ₂min"],
+    rows: Object.entries(HOISTING_CLASS_FACTORS).map(([cls, f]) => [
+      cls,
+      f.beta2.toLocaleString("tr-TR", { minimumFractionDigits: 2 }),
+      f.phi2Min.toLocaleString("tr-TR", { minimumFractionDigits: 2 }),
+    ]),
+    footnote:
+      "HC1: hassas kaldırma · HC2: normal · HC3: sert (kepçe, mıknatıs) · " +
+      "HC4: çok sert (ağır hizmet).",
   };
 }
 
@@ -588,6 +608,176 @@ const FEM_REFS: Record<string, StandardRef> = {
     notes: [
       "Uygulama λ'yı p/a oranından doğrusal olarak türetir ve 0,05 … 0,20 " +
         "bandına kırpar — tablo değerleriyle birebir örtüşür.",
+    ],
+  },
+
+  "FEM 1.001 2.2.3.4.1": {
+    code: "FEM 1.001 2.2.3.4.1",
+    title: "Tampon çarpma etkisi (yapıya)",
+    source: FEM_SOURCE,
+    clause: "Booklet 2, madde 2.2.3.4.1 (Booklet 9, md. 9.4.2 ile değiştirilmiş)",
+    summary:
+      "Vincin tamponla çarpışmasından doğan tepki kuvveti. Yük salınabiliyorsa " +
+      "çarpma enerjisi vincin (yüksüz) kinetik enerjisinden hesaplanır; yük " +
+      "rijit kılavuzluysa kaldırılan yük de hesaba katılır.",
+    notes: [
+      "Booklet 2 eşiği 0,7 m/s idi; Booklet 9 md. 9.4.2 bunu 0,4 m/s'ye " +
+        "indirmiştir — uygulama 0,4 m/s eşiğini kullanır.",
+      "Tampon enerjisi, vincin nominal hızının %70'ini soğuracak biçimde " +
+        "boyutlandırılır (Vt = 0,7·V).",
+      "Tampon tepki kuvveti ayrıca köprü yürütme bölümünde hesaplanır; teker " +
+        "yükleri bölümü aynı değeri yol kirişi yüklerine taşır.",
+    ],
+  },
+
+  "FEM 1.001 9.3": {
+    code: "FEM 1.001 9.3",
+    title: "Dinamik katsayı φ2 — yerden yük alma",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, madde 9.3 (Booklet 2 md. 2.2.2.1.1 yerine geçer)",
+    summary:
+      "Serbest duran bir yükün yerden alınması sırasındaki dinamik etki, " +
+      "kaldırma yükünün ağırlık kuvvetini φ2 ile çarparak hesaba katılır. " +
+      "Kaldırma yükü; kaldırılan yükü, kaldırma aparatını ve asılı halatın bir " +
+      "bölümünü kapsar. Ölü yük (köprü, araba) φ2 ile büyütülmez.",
+    formulas: [{ label: "Dinamik katsayı", expr: "φ₂ = φ₂min + β₂ · ν_h" }],
+    tables: [femHoistingClassTable()],
+    notes: [
+      "φ2, Booklet 2'deki ψ katsayısının yerine kullanılabilir.",
+      "ν_h değeri kaldırma tahrik sınıfına göre T.9.3.b'den okunur.",
+    ],
+  },
+
+  "FEM 1.001 T.9.3.a": {
+    code: "FEM 1.001 T.9.3.a",
+    title: "β2 ve φ2min — kaldırma sınıfı",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, Tablo T.9.3.a",
+    summary:
+      "Vincin dinamik davranışına göre atandığı HC1–HC4 kaldırma sınıfları ve " +
+      "bunlara karşılık gelen β2 [s/m] ile φ2min değerleri.",
+    tables: [femHoistingClassTable()],
+    notes: [
+      "HC1 en yumuşak (hassas kaldırma), HC4 en sert (ağır hizmet, kepçe/mıknatıs) " +
+        "kaldırmadır.",
+      "φ2 değerleri deney ya da analizle de belirlenebilir; sınıf zorunlu değildir.",
+    ],
+  },
+
+  "FEM 1.001 T.9.3.b": {
+    code: "FEM 1.001 T.9.3.b",
+    title: "ν_h — kaldırma tahrik sınıfına göre hız",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, Tablo T.9.3.b",
+    summary:
+      "φ2 hesabına giren kararlı kaldırma hızı, tahrik sisteminin sürünme " +
+      "hızıyla çalışıp çalışamamasına göre değişir.",
+    tables: [
+      {
+        caption: "Yükleme Durumu I ve II için ν_h",
+        headers: ["Tahrik sınıfı", "ν_h", "Tanım"],
+        rows: [
+          ["HD1", "ν_h,maks", "Sürünme hızıyla çalıştırılamaz"],
+          ["HD2", "ν_h,sürünme", "Sürünme hızını operatör seçer"],
+          [
+            "HD3",
+            "ν_h,sürünme",
+            "Kumanda sistemi, yük yerden kalkana kadar sürünme hızını zorunlu kılar",
+          ],
+          ["HD4", "0,5 · ν_h,maks", "Kademesiz hız kontrolü, operatör kumandalı"],
+          ["HD5", "0", "Ön germeli kademesiz hız kontrolü, operatörden bağımsız"],
+        ],
+        footnote:
+          "Yükleme Durumu III (deney) satırı ayrıdır: HD2 ve HD4 için ν_h,maks, " +
+          "HD5 için 0,5·ν_h,maks alınır. Uygulama Durum I/II satırını kullanır.",
+      },
+    ],
+  },
+
+  "FEM 1.001 9.4.1.3": {
+    code: "FEM 1.001 9.4.1.3",
+    title: "Savrulma kuvvetleri — kılavuz kuvveti ve kayma kutbu",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, madde 9.4.1.3 (Booklet 2 md. 2.2.3 yerine geçer)",
+    summary:
+      "Vinç sabit hızla yürürken raya göre α açısı kadar savrulur ve anlık kayma " +
+      "kutbu etrafında döner. Kılavuz elemanda oluşan Fy kuvveti, tekerlerdeki " +
+      "teğetsel kuvvetlerle dengededir. Sürtünme katsayısı yanal kaymanın " +
+      "(slip) fonksiyonudur ve 0,3'te doyar.",
+    formulas: [
+      { label: "Sürtünme fonksiyonu", expr: "f = 0,3 · (1 − e^(−250·α))" },
+      { label: "Kayma kutbu (F/F)", expr: "h = (p·µ·µ'·l² + Σdᵢ²) / Σdᵢ" },
+      { label: "Kayma kutbu (F/M)", expr: "h = (p·µ·l² + Σdᵢ²) / Σdᵢ" },
+      { label: "Kılavuz kuvveti (F/F)", expr: "ν = 1 − Σdᵢ / (n·h)" },
+      { label: "Kılavuz kuvveti (F/M)", expr: "ν = µ' · (1 − Σdᵢ / (n·h))" },
+      { label: "Kılavuz kuvveti", expr: "F_y = ν · f · mg" },
+    ],
+    notes: [
+      "p: bağlı (coupled) teker çifti adedi; n: tek taraftaki teker adedi; " +
+        "l: açıklık; dᵢ: teker çiftinin kılavuz elemandan uzaklığı.",
+      "µ, ağırlık merkezinin 1 numaralı raya normalize uzaklığıdır; " +
+        "µ' = 1 − µ ise 1 numaralı rayın taşıdığı yük payına eşittir.",
+      "Teker flanşıyla kılavuzlamada ilk teker kılavuz elemandır → d₁ = 0.",
+      "Booklet 2'nin λ katsayılı basitleştirilmiş yöntemi (md. 2.2.3.3) yerine " +
+        "bu model kullanılır.",
+    ],
+  },
+
+  "FEM 1.001 T.9.4": {
+    code: "FEM 1.001 T.9.4",
+    title: "ξ ve ν katsayıları — teker çifti düzenine göre",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, Tablo T.9.4",
+    summary:
+      "Teker başına teğetsel kuvvetler Fx = ξ·f·mg ve Fy = ν·f·mg bağıntılarıyla " +
+      "bulunur. Katsayılar, teker çiftinin bağlı (C) / bağımsız (I) olmasına ve " +
+      "iki tarafın yanal sabit (F) / hareketli (M) olmasına göre değişir.",
+    tables: [
+      {
+        caption: "T.9.4 — ξ1i = ξ2i, ν1i ve ν2i",
+        headers: ["Teker çifti", "ξ1i = ξ2i", "ν1i (ray 1)", "ν2i (ray 2)"],
+        rows: [
+          ["CFF", "µ·µ'·l / (n·h)", "(µ'/n)·(1 − dᵢ/h)", "(µ/n)·(1 − dᵢ/h)"],
+          ["IFF", "0", "(µ'/n)·(1 − dᵢ/h)", "(µ/n)·(1 − dᵢ/h)"],
+          ["CFM", "µ·µ'·l / (n·h)", "(µ'/n)·(1 − dᵢ/h)", "0"],
+          ["IFM", "0", "(µ'/n)·(1 − dᵢ/h)", "0"],
+        ],
+        footnote:
+          "C: bağlı (mekanik mil ya da elektriksel senkronizasyon) · I: bağımsız · " +
+          "F: yanal sabit · M: yanal hareketli (ör. mafsallı ayak). Bağımsız " +
+          "teker çiftinde raya paralel teğetsel kuvvet doğmaz.",
+      },
+    ],
+    notes: [
+      "Katsayıların toplamı kılavuz kuvvetini verir: Σ(ν1i + ν2i) = ν.",
+      "1 numaralı ray, arabanın yanaştığı (yükü ağır olan) raydır; araba karşı " +
+        "uca gittiğinde raylar yer değiştirir, bu yüzden tasarımda her iki ray " +
+        "da büyük değere göre boyutlandırılır.",
+    ],
+  },
+
+  "FEM 1.001 9.4.1.5": {
+    code: "FEM 1.001 9.4.1.5",
+    title: "Savrulma açısı α",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, madde 9.4.1.5",
+    summary:
+      "Savrulma açısı; kılavuz eleman ile ray arasındaki boşluk, tekerlerin ve " +
+      "rayların aşınması ve imalat toleransları toplanarak bulunur. 0,015 " +
+      "radyanı aşamaz.",
+    formulas: [
+      { label: "Toplam açı", expr: "α = α_g + α_w + α_t ≤ 0,015 rad" },
+      { label: "Kılavuz boşluğu payı", expr: "α_g = s_g / w_b" },
+      { label: "Aşınma payı", expr: "α_w = 0,1 · b / w_b" },
+      { label: "Tolerans payı", expr: "α_t = 0,001 rad" },
+    ],
+    notes: [
+      "s_g: kılavuzun TOPLAM boşluğu (tek taraf boşluğun iki katı).",
+      "w_b: kılavuz elemanları arası mesafe — teker flanşıyla kılavuzlamada " +
+        "dingil mesafesine eşittir.",
+      "b: ray başı genişliği.",
+      "α > 0,015 rad çıkarsa kılavuz boşluğu daraltılmalı ya da dingil mesafesi " +
+        "büyütülmelidir; sürtünme fonksiyonu bu bandın dışında geçerli değildir.",
     ],
   },
 

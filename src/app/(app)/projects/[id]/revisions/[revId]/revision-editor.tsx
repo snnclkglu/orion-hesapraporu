@@ -21,6 +21,7 @@ import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
+import { computeWheelLoads } from "@/lib/calc/modules/wheelLoads";
 import {
   HOIST_AUTO_FIELDS,
   SPEC_FIELDS,
@@ -51,6 +52,8 @@ import type { HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
+import type { WheelLoadInputs, WheelLoadSelections } from "@/lib/calc/modules/wheelLoads";
+import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
@@ -185,7 +188,13 @@ function Field({
     }
   }, [v]);
   return (
-    <div className="grid gap-1">
+    // SUBGRID: etiket ve girdi, ızgaranın SATIR RAYLARINA oturur. Böylece bir
+    // satırdaki bütün girdiler aynı hizada başlar — standart rozeti olan alan
+    // etiketi iki satıra taşsa bile komşusunun girdisi aşağı kaymaz. (Eskiden
+    // aynı satırda girdi üstleri 449/453/461 px'e dağılıyordu.)
+    // Alt dolgu satırlar arası ayrımı verir; ızgaranın satır boşluğu artık
+    // etiket ile girdi arasındaki boşluktur.
+    <div className="grid content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
       <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span>
           {fieldLabel(def, specs)}
@@ -222,6 +231,9 @@ function Field({
           </button>
         )}
       </Label>
+      {/* Denetim + yardım metinleri TEK kutuda: subgrid'in ikinci rayı bu
+          kutudur, alan bileşeni her zaman iki çocuk taşır. */}
+      <div className="grid content-start gap-1">
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
         // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).
@@ -296,6 +308,7 @@ function Field({
       {auto?.on && !auto.warning && def.hint && (
         <p className="text-[11px] leading-snug text-muted-foreground">{def.hint}</p>
       )}
+      </div>
     </div>
   );
 }
@@ -772,6 +785,12 @@ export function RevisionEditor({
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [stepIndex, setStepIndex] = useState(0);
+  /**
+   * Kayan gövde. Bölüm değişince başa sarılır: aksi hâlde uzun bir bölümün
+   * ortasından kısa bir bölüme geçince kullanıcı boşluğa bakıyor ve sayfa
+   * kaymış gibi görünüyordu.
+   */
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   // Esnek modüller: opsiyonel modüller (yardımcı kaldırma, kanca bloğu, ana
   // kiriş, buruşma, başkiriş) açık/kapalı. Başlangıç: revizyonda modül varsa
   // açık. Kapatılınca hesaba/rapora girmez ve numaralandırma yeniden dizilir.
@@ -841,6 +860,10 @@ export function RevisionEditor({
   const present = useCallback((k: ModuleKey) => activeSet.has(k), [activeSet]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
   const STEPS = useMemo(() => buildSteps(present, numbers, specs), [present, numbers, specs]);
+  // Bölüm değişince gövde başa sarılır — kayma hissinin ana kaynağı buydu.
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [stepIndex]);
   /**
    * Bölüm kenar çubuğunda listelenir mi: vinç konfigürasyonu buna izin
    * veriyorsa ve bağlı olduğu üst bölüm açıksa. (Kapalı ama listelenen bölüm
@@ -1063,6 +1086,10 @@ export function RevisionEditor({
         return computeEndCarriage(
           specs, inp as never, sel as EndCarriageSelections, deps.endCarriage
         ).checks;
+      case "wheelLoads":
+        return computeWheelLoads(
+          specs, inp as never, sel as WheelLoadSelections, deps.wheelLoads
+        ).checks;
     }
     return [];
   }
@@ -1200,7 +1227,7 @@ export function RevisionEditor({
                     </span>
                   )}
                 </div>
-                <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {fields.map((f) => (
                     <Field
                       key={f.key}
@@ -1341,12 +1368,24 @@ export function RevisionEditor({
             input={calcInput}
             result={result}
           />
+          {/* Özel düzenleyici: teker düzeni ölçü zinciri (10.1). Teker adedi
+              Köprü Yürütme bölümünden okunur; geometri BİR RAY için girilir. */}
+          {section.editor === "wheelSpacing" && (
+            <WheelSpacingEditor
+              totalWheels={(mods.bridge.inputs as TravelInputs).wheelCount}
+              value={(inputs as WheelLoadInputs).wheelSpacingsText}
+              onChange={(next) =>
+                setModuleInputs(key, { ...(inputs as object), wheelSpacingsText: next })
+              }
+              disabled={readOnly}
+            />
+          )}
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
               <h3 className="oc-kicker mb-2 text-muted-foreground">
                 Girdiler / Tasarım Kabulleri
               </h3>
-              <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {section.inputDefs.map((f) => (
                   <Field
                     key={f.key}
@@ -1453,7 +1492,7 @@ export function RevisionEditor({
                     )}
                   </div>
                 </div>
-                <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {section.selectionDefs.map((f) => (
                     <Field
                       key={f.key}
@@ -1613,12 +1652,13 @@ export function RevisionEditor({
     navQ === "" || s.title.toLocaleLowerCase("tr-TR").includes(navQ);
 
   return (
-    <div className="grid gap-3">
-      {/* Rol lejantı — 4 değer rolünün görsel dili */}
-      <RoleLegend />
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
+    // SABİT ÇERÇEVE: sayfa gövdesi kaymaz. Bölüm rayı ve içerik kendi
+    // bölgelerinde kayar; durum çubuğu ile adım şeridi çerçevenin gerçek
+    // kenarlarıdır. Eskiden ikisi de `sticky` idi ve belge akışıyla birlikte
+    // sürüklendiği için bölüm değiştikçe yerleri oynuyordu.
+    <div className="flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
       {/* Bölüm navigasyonu */}
-      <nav className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+      <nav className="flex min-h-0 min-w-0 shrink-0 flex-col lg:w-[260px] xl:w-[286px]">
         <div className="mb-1.5 flex items-center justify-between px-2">
           <span className="oc-kicker text-muted-foreground">
             Bölümler
@@ -1633,7 +1673,7 @@ export function RevisionEditor({
           </span>
         </div>
         {/* Bölüm arama kutusu — ikon yerine mono ARA placeholder */}
-        <div className="mb-2 px-1">
+        <div className="mb-2 shrink-0 px-1">
           <Input
             value={navQuery}
             onChange={(e) => setNavQuery(e.target.value)}
@@ -1642,7 +1682,8 @@ export function RevisionEditor({
             aria-label="Bölüm ara"
           />
         </div>
-        <ol className="grid gap-0.5 text-sm">
+        {/* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar */}
+        <ol className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 pr-1 text-sm lg:max-h-none lg:flex-1">
           {NAV_GROUPS.map((group) => {
             const groupTitleMatch =
               navQ !== "" &&
@@ -1718,7 +1759,12 @@ export function RevisionEditor({
                       </span>
                     )}
                   </button>
-                  {/* Bölüm aç/kapa — kapalı bölüm hesaba ve rapora girmez */}
+                  {/* Bölüm aç/kapa — kapalı bölüm hesaba ve rapora girmez.
+                      Yuva ZORUNLU bölümlerde de ayrılır: aksi hâlde sayaçlar
+                      satırdan satıra 24px kayıyor ve liste hizasız görünüyordu. */}
+                  {!(group.optional && group.moduleKey) && (
+                    <span aria-hidden className="size-6 shrink-0" />
+                  )}
                   {group.optional && group.moduleKey && (
                     <button
                       type="button"
@@ -1758,10 +1804,10 @@ export function RevisionEditor({
         </ol>
       </nav>
 
-      {/* İçerik */}
-      <div className="grid content-start gap-4">
-        {/* Sticky durum çubuğu */}
-        <div className="sticky top-12 z-20 grid gap-2 rounded-lg border bg-card px-4 py-2.5">
+      {/* İçerik — üstte durum çubuğu, ortada kayan gövde, altta adım şeridi */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        {/* Durum çubuğu — çerçevenin üst kenarı, kaymaz */}
+        <div className="grid shrink-0 gap-2 rounded-lg border bg-card px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <div className="flex items-center gap-1.5 text-sm">
               {failCount === 0 ? (
@@ -1818,12 +1864,15 @@ export function RevisionEditor({
           </div>
         </div>
 
-        {step.kind === "specs" && renderSpecs()}
-        {step.kind === "module" && renderModuleSection(step.moduleKey, step.section)}
-        {step.kind === "summary" && renderSummary()}
+        {/* Kayan gövde — bölüm değişince başa sarılır (bkz. scrollRef) */}
+        <div ref={bodyRef} className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+          {step.kind === "specs" && renderSpecs()}
+          {step.kind === "module" && renderModuleSection(step.moduleKey, step.section)}
+          {step.kind === "summary" && renderSummary()}
+        </div>
 
-        {/* Sticky alt gezinme şeridi */}
-        <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border bg-card px-4 py-2.5">
+        {/* Adım şeridi — çerçevenin alt kenarı, kaymaz */}
+        <div className="flex shrink-0 items-center justify-between rounded-lg border bg-card px-4 py-2.5">
           <Button
             variant="outline"
             size="sm"
@@ -1845,7 +1894,6 @@ export function RevisionEditor({
             <span aria-hidden="true" className="font-mono">→</span>
           </Button>
         </div>
-      </div>
       </div>
     </div>
   );

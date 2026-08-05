@@ -53,8 +53,10 @@ export default async function RevisionPage({
   const loaded = loadRevision(inputs, selections);
 
   return (
-    <div className="grid gap-4">
-      <div className="flex items-center justify-between">
+    // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
+    // kendi içinde kayar (sayfa gövdesi kaymaz).
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 items-center justify-between">
         <div>
           <div className="text-sm text-muted-foreground">
             <Link href="/projects" className="hover:underline">Projeler</Link>

@@ -12,6 +12,10 @@ import {
   GIRDER_INPUT_FIELDS,
   GIRDER_SELECTION_FIELDS,
 } from "./presentation/structuralFields";
+import {
+  WHEELLOAD_INPUT_FIELDS,
+  WHEELLOAD_SELECTION_FIELDS,
+} from "./presentation/wheelLoadFields";
 
 export interface FieldLabel {
   label: string;
@@ -43,6 +47,8 @@ export const FIELD_LABELS: Map<string, FieldLabel> = collect([
   BUCKLING_EXTRA_FIELDS,
   ENDCARRIAGE_INPUT_FIELDS,
   ENDCARRIAGE_SELECTION_FIELDS,
+  WHEELLOAD_INPUT_FIELDS,
+  WHEELLOAD_SELECTION_FIELDS,
 ] as { key: string; label: string; unit?: string }[][]);
 
 /**
@@ -68,9 +74,10 @@ export const MODULE_LABELS: Record<string, string> = {
   mono2HookBlock: "12 · Monoray 2 Kanca Bloğu",
   mono2Trolley: "13 · Monoray 2 Araba Yürütme",
   bridge: "14 · Köprü Yürütme",
-  girder: "15 · Ana Kiriş",
-  buckling: "16 · Buruşma",
-  endCarriage: "17 · Başkiriş",
+  wheelLoads: "15 · Teker Yükleri",
+  girder: "16 · Ana Kiriş",
+  buckling: "17 · Buruşma",
+  endCarriage: "18 · Başkiriş",
   // Revizyon karşılaştırması snapshot'ın JSON alan adlarını kullanır; kaldırma
   // gruplarında bu ad modül anahtarından farklıdır (`main` → `mainHoist`).
   mainHoist: "02 · Ana Kaldırma",

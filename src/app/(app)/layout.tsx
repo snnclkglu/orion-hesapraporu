@@ -32,7 +32,11 @@ export default async function AppLayout({
         email={user.email ?? ""}
       >
         {/* main app-shell içinde; atlama hedefi bu sarmalayıcıdır */}
-        <div id="icerik" tabIndex={-1} className="outline-none">
+        {/* Yükseklik zinciri: sabit çerçeveli sayfalarda (revizyon editörü)
+            main → bu sarmalayıcı → sayfa kökü kesintisiz `h-full` taşımalı,
+            aksi hâlde editörün `lg:h-full` bağlanacağı belirli bir yükseklik
+            bulamaz ve çerçeve çöker. */}
+        <div id="icerik" tabIndex={-1} className="h-full outline-none">
           {children}
         </div>
       </AppShell>

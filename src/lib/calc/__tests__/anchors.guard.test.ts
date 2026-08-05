@@ -32,10 +32,13 @@ import type { AnyCheck } from "../types";
  * onaylamak zorunda kalır. Sayıyı düşünmeden güncellemek bu korumayı işlevsiz
  * bırakır — önce kontrolün raporda göründüğünü doğrulayın, sonra güncelleyin.
  */
-// 218 = 212 + 6: emniyet frenli varyantta ana ve yardımcı kaldırma gruplarının
-// her biri üç kontrol üretir (moment, flanş çapı, hava aralığı). Monoray
-// gruplarında tambur emniyet freni uygulanmadığı için kontrol çıkmaz.
-const EXPECTED_CHECK_COUNT = 218;
+// 221 = 212 + 6 + 3:
+//   +6  emniyet frenli varyantta ana ve yardımcı kaldırma gruplarının her biri
+//       üç kontrol üretir (moment, flanş çapı, hava aralığı). Monoray
+//       gruplarında tambur emniyet freni uygulanmadığı için kontrol çıkmaz.
+//   +3  teker yükleri bölümü: savrulma açısı (10.3), kılavuz kuvveti denge
+//       kontrolü (10.3), boyuna kuvvet bandı (10.4).
+const EXPECTED_CHECK_COUNT = 221;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

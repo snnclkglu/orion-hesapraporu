@@ -90,6 +90,25 @@ export const RAILS: Record<
 };
 
 /**
+ * Rayın ANMA baş genişliği [mm] — rayın üstten görünen gerçek genişliği.
+ *
+ * `RAILS.headWidth` teker basıncı için ETKİN genişliktir; DIN 15018 Şekil 9
+ * köşe yuvarlaklıklarını düşer (b_etkin = k − 4r/3). Savrulma açısının aşınma
+ * payı (FEM 1.001 Kitapçık 9 md. 9.4.1.5, α_w = 0,1·b/w_b) ise rayın ANMA baş
+ * genişliğini ister — köşe yuvarlaklığı aşınmayı azaltmaz. Bu yüzden A serisi
+ * için etkin genişlikten geri çevrilir; kare/dikdörtgen çubuk raylarda ikisi
+ * zaten aynıdır.
+ *
+ * Tanınmayan kod için `NaN` döner — çağıran taraf değeri hesaba sokmadan önce
+ * kontrol etmelidir.
+ */
+export function railNominalHeadWidthMm(code: string): number {
+  const row = RAILS[code];
+  if (!row) return Number.NaN;
+  return row.radius === null ? row.headWidth : row.headWidth + (4 * row.radius) / 3;
+}
+
+/**
  * Rayın metre ağırlığı [kg/m] — ana kirişin ölü yüküne girer.
  *
  * A serisi DIN 536-1 anma kütlesini kullanır. Kare/dikdörtgen çubuk raylar

@@ -38,6 +38,13 @@ import {
   type GirderSelections,
   type GirderValues,
 } from "./modules/mainGirder";
+import {
+  computeWheelLoads,
+  wheelLoadDepsFrom,
+  type WheelLoadInputs,
+  type WheelLoadSelections,
+  type WheelLoadValues,
+} from "./modules/wheelLoads";
 import { computeBuckling, type BucklingInputs, type BucklingValues } from "./modules/buckling";
 import {
   computeEndCarriage,
@@ -61,8 +68,11 @@ import { hasSeparateAuxTrolley, monorailCount } from "./types";
  * 0.3.0: Çoklu kaldırma topolojisi — her kaldırma grubunun kendi kanca bloğu ve
  *        arabası; ağırlıklar teknik özelliklere taşındı; tahrikli teker sayısı
  *        yürütme grubundan türetilip ana kirişe bağlandı.
+ * 0.4.0: Teker yükleri bölümü — yol kirişine aktarılan düşey/enine/boyuna
+ *        kuvvetler, FEM Kitapçık 9 md. 9.3 dinamik katsayısı ve md. 9.4.1
+ *        savrulma modeli.
  */
-export const ENGINE_VERSION = "0.3.0";
+export const ENGINE_VERSION = "0.4.0";
 
 export interface HoistModuleInput {
   inputs: HoistInputs;
@@ -95,6 +105,8 @@ export interface CalcInput {
   mono1Trolley?: TravelModuleInput;
   mono2Trolley?: TravelModuleInput;
   bridge?: TravelModuleInput;
+  // Yol kirişine aktarılan kuvvetler
+  wheelLoads?: { inputs: WheelLoadInputs; selections: WheelLoadSelections };
   // Taşıyıcı yapı
   girder?: { inputs: GirderInputs; selections: GirderSelections };
   buckling?: { inputs: BucklingInputs };
@@ -116,6 +128,7 @@ export interface CalcResult {
   mono1Trolley?: ModuleResult<TravelValues>;
   mono2Trolley?: ModuleResult<TravelValues>;
   bridge?: ModuleResult<TravelValues>;
+  wheelLoads?: ModuleResult<WheelLoadValues>;
   girder?: ModuleResult<GirderValues>;
   buckling?: ModuleResult<BucklingValues>;
   endCarriage?: ModuleResult<EndCarriageValues>;
@@ -207,7 +220,11 @@ export function activeModules(
     if (on(`${h}Trolley`)) out.add(`${h}Trolley`);
   }
   if (on("bridge")) out.add("bridge");
-  for (const k of ["girder", "buckling", "endCarriage"]) if (on(k)) out.add(k);
+  // Teker yükleri köprü yürütmeden beslenir; köprü kapatılamadığı için burada
+  // yalnız kullanıcının tercihine bakılır.
+  for (const k of ["wheelLoads", "girder", "buckling", "endCarriage"]) {
+    if (on(k)) out.add(k);
+  }
   return out;
 }
 
@@ -269,6 +286,29 @@ export function runCalc(input: CalcInput): CalcResult {
         hookEquipmentT: hookEquipmentTons(input[HOIST_FIELD[hoistKey]] ?? input.mainHoist),
         trolleyWeightT: bridgeTrolleyT,
       })
+    );
+  }
+
+  // --- Teker yükleri: köprü yürütme + ana kaldırmadan beslenir -------------
+  if (input.wheelLoads && input.bridge && out.bridge && out.mainHoist) {
+    out.wheelLoads = push(
+      computeWheelLoads(
+        specs,
+        input.wheelLoads.inputs,
+        input.wheelLoads.selections,
+        wheelLoadDepsFrom({
+          bridgeWheelCount: input.bridge.inputs.wheelCount,
+          bridgeDrivenWheels: out.bridge.values.drivenWheels,
+          bridgeActualSpeedMpm: out.bridge.values.actualSpeedMpm,
+          bridgeAccelerationMs2: input.bridge.inputs.accelerationMs2,
+          bridgeMinApproachM: input.bridge.inputs.minApproachM,
+          bridgeRailCode: input.bridge.selections.railCode,
+          bridgeBufferForceKn: out.bridge.values.bufferForceKn,
+          mainHoistTotalLoadKg: out.mainHoist.values.totalLoadKg,
+          trolleyWeightT: bridgeTrolleyT,
+          bridgeWeightT: specs.bridgeWeightT,
+        })
+      )
     );
   }
 

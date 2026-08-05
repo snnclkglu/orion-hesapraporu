@@ -11,6 +11,7 @@ import {
   type FieldDef,
 } from "../fields";
 import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
+import { WHEEL_COUNT_OPTIONS } from "../modules/wheelLoads";
 
 /** Teker çapı FEM standart serisi [mm] */
 export const WHEEL_DIA_SERIES_MM = [
@@ -25,7 +26,11 @@ export const WHEEL_MATERIALS = ["AISI 4140+QT", "42CrMo4", "C60", "GS-70"] as co
 export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
   // Ağırlıklar teknik özelliklerdeki "Ağırlıklar" grubundan gelir; burada sorulmaz.
   { key: "minApproachM", label: "Minimum Araba Yanaşması", unit: "m", type: "number" }, // sadece köprü
-  { key: "wheelCount", label: "Tekerlek Adedi", type: "number" },
+  {
+    key: "wheelCount", label: "Tekerlek Adedi", type: "select",
+    options: WHEEL_COUNT_OPTIONS.map(String), numeric: true,
+    hint: "Vinç dört köşesinde eşit tekerle yürür; adet dördün katıdır. 16 teker = köşe başına 4, ray başına 8.",
+  },
   {
     key: "wheelsPerMotor", label: "Motor Başına Tahrikli Teker", type: "select",
     options: ["1", "2"], numeric: true,

@@ -65,6 +65,28 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <line x1="5" y1="17" x2="19" y2="17" />
     </>
   ),
+  close: (
+    <>
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </>
+  ),
+  // Kenar çubuğu daralt/genişlet: panel + yön oku. İki ikon aynı çerçeveyi
+  // paylaşır, yalnız ok yönü değişir — durum tek bakışta okunur.
+  sidebarCollapse: (
+    <>
+      <rect x="4" y="5" width="16" height="14" />
+      <line x1="10" y1="5" x2="10" y2="19" />
+      <path d="M16 9.5 L13.5 12 L16 14.5" />
+    </>
+  ),
+  sidebarExpand: (
+    <>
+      <rect x="4" y="5" width="16" height="14" />
+      <line x1="10" y1="5" x2="10" y2="19" />
+      <path d="M13.5 9.5 L16 12 L13.5 14.5" />
+    </>
+  ),
 };
 
 export type BrandIconName =
@@ -76,7 +98,10 @@ export type BrandIconName =
   | "panel"
   | "safety"
   | "seat"
-  | "menu";
+  | "menu"
+  | "close"
+  | "sidebarCollapse"
+  | "sidebarExpand";
 
 export function BrandIcon({
   name,

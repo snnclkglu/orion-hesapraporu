@@ -95,6 +95,7 @@ export const CALC_FIELD: Record<ModuleKey, keyof CalcInput> = {
   mono2HookBlock: "mono2HookBlock",
   mono2Trolley: "mono2Trolley",
   bridge: "bridge",
+  wheelLoads: "wheelLoads",
   girder: "girder",
   buckling: "buckling",
   endCarriage: "endCarriage",

@@ -18,7 +18,8 @@ kaldırılmıştır.** Hesap motoru artık kendi yöntemini doğrudan standartla
 dayandırır:
 
 - **FEM 1.001** (3rd Ed. Rev. 1998) — sınıflandırma, yükler, halat/tambur/
-  makara/tekerlek/rulman seçimi, plaka burkulması
+  makara/tekerlek/rulman seçimi, plaka burkulması; **Kitapçık 9** ile
+  güncellenen dinamik katsayı φ2 (md. 9.3) ve savrulma modeli (md. 9.4.1)
 - **DIN 15018** — çelik yapı yorulması (Tablo 17/18, Tablo 2 dinamik katsayı)
 - **DIN 15400 / 15401 / 15402** — kanca taşıma kapasiteleri
 - **DIN 15061** — halat oluğu adımı
@@ -97,6 +98,27 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
      grupta görünür (`HoistSectionDef.visible`).
    - `presentation/module-access.ts` — modül girdi/sonuç/bağlam erişimi
 
+11. **Teker yükleri yol kirişinin girdisidir.** `wheelLoads.ts` bir mekanizma
+    değil TESLİM edilen kuvvet setini üretir: düşey teker yükleri, FEM
+    Kitapçık 9 md. 9.3 dinamik katsayısı φ2, md. 9.4.1 savrulma kuvvetleri ve
+    md. 2.2.3.1.1 boyuna kuvvetler. Girdilerinin neredeyse tamamı köprü
+    yürütme bölümünden ve teknik özelliklerden OTOMATİK gelir
+    (`wheelLoadDepsFrom`); mühendis yalnız teker düzeni ölçü zincirini ve
+    kılavuzlama verilerini girer.
+
+    **Teker düzeni:** vinç dört köşesinde EŞİT sayıda tekerle yürür → toplam
+    adet dördün katıdır (4…24, `WHEEL_COUNT_OPTIONS`), köşe başına toplam/4,
+    ray başına toplam/2 teker. Geometri BİR RAY için verilir (karşı ray
+    aynıdır) ve ardışık teker eksenleri arası mesafelerle tanımlanır — teknik
+    resimdeki ölçü zincirinin birebir karşılığı. Tekerler ön köşede `A1…Ak`,
+    arka köşede `B1…Bk` kodunu taşır; savrulmadaki dᵢ uzaklıkları `A1`
+    ekseninden ölçülür. Mesafeler `components/wheel-spacing-editor.tsx`
+    görsel düzenleyicisinden yazılır (`AdapterSection.editor`).
+
+    **Sapma (belgelenmiş):** µ' (yakın rayın yük payı) araba kolundan değil
+    DÜŞEY TEKER YÜKLERİNDEN türetilir — köprünün kendi ağırlığı iki raya eşit
+    dağıldığından (l−e)/l yük payına eşit değildir. Gerekçe modül başlığında.
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -166,6 +188,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/calc/` — hesap motoru (saf): `engine.ts`, `modules/`, `beam.ts`,
   `shaftStress.ts`, `reeving.ts`, `derive.ts`, `hook-table.ts`, `coefficients.ts`,
   `tables.ts`, `types.ts`
+- `src/lib/calc/modules/` — kaldırma, kanca bloğu, yürütme, **teker yükleri**
+  (`wheelLoads.ts` — yol kirişine aktarılan kuvvetler), ana kiriş, buruşma,
+  başkiriş
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)

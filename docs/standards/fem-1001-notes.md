@@ -765,7 +765,7 @@ Bkz. §5.3. Ulusal yöntemlere atıf: DIN 4114 (Almanya), NBN 1 (Belçika), CM 1
 1. Görevde "Tablo T.2.3.1" olarak anılan γc tablosu metinde **T.2.3.4**'tür; "Tablo T.2.2.2.1.1" olarak anılan ψ verisi metinde **Şekil (Figure) 2.2.2.1.1**'dir; mekanizma grup rehberi **T.2.1.3.5** (görevdeki "T.2.1.3.5.1" değil).
 2. S235/S355 karşılıkları: metin E.24/A.37/Fe 360 (σE=240) ve E.36/A.52/Fe 510 (σE=360) adlarını kullanır; günümüz S235/S355 eşdeğerleridir (metinde S235/S355 adları geçmez).
 3. Döküm kalitesinden ötürü "[emin değilim]" işaretli yerler: T.2.1.4.4'te B2/P4 hücresi; T.2.2.4.1.4.1'de hadde/kutu profil alt satır eşleşmesi; T.3.1.3'te "5" değerinin anlamı; silindir berkitme atalet formülünün üs düzeni; σv_cr.c formülünün parantez yapısı (sayısal örnekle doğrulanmış kurulum verilmiştir).
-4. Metinde geçmeyen, dolayısıyla bu rapora alınmayan hususlar: skewing için ayrıntılı DIN-tipi çarpık yürüyüş hesabı (FEM 1.001'de yalnız λ katsayılı basit yöntem, madde 2.2.3.3 vardır).
+4. Booklet 2'de skewing için yalnız λ katsayılı basit yöntem (madde 2.2.3.3) vardır; ayrıntılı çarpık yürüyüş modeli **Booklet 9 madde 9.4.1**'dedir (bkz. Bölüm 9) ve uygulamada bu model kullanılır (`modules/wheelLoads.ts`).
 
 
 ---
@@ -1237,7 +1237,28 @@ h = (p·µ·µ'·l² + Σdi²)/Σdi  (F/F)  ;  h = (p·µ·l² + Σdi²)/Σdi  (
 α = αg + αw + αt ;  αg = sg/wb ;  αw = 0,1·(b/wb) ;  αt = 0,001 rad ; α ≤ 0,015 rad
 ```
 Teğetsel kuvvetler Fx1i = ξ1i·f·mg vb.; ξ, ν katsayıları Tablo T.9.4'ten (CFF: ξ=µµ'l/nh; IFF: ξ=0 …).
+
+Tablo T.9.4 (PDF s.280, tam hâli):
+
+| Teker çifti | ξ1i = ξ2i | ν1i (ray 1) | ν2i (ray 2) |
+|---|---|---|---|
+| CFF | µ·µ'·l/(n·h) | (µ'/n)·(1 − dᵢ/h) | (µ/n)·(1 − dᵢ/h) |
+| IFF | 0 | (µ'/n)·(1 − dᵢ/h) | (µ/n)·(1 − dᵢ/h) |
+| CFM | µ·µ'·l/(n·h) | (µ'/n)·(1 − dᵢ/h) | 0 |
+| IFM | 0 | (µ'/n)·(1 − dᵢ/h) | 0 |
+
+**µ tanımı (PDF s.277):** "mg, 1 numaralı raydan **µl uzaklıkta** etkir ve her
+taraftaki n tekere eşit dağılır." Buradan 1 numaralı rayın taşıdığı yük payı
+µ' = 1 − µ olur; ν1i'nin µ' ile ölçeklenmesi de bunun sonucudur (yanal sürtünme
+kuvveti = f × o tekerin DÜŞEY yükü). Uygulama µ'yü araba kolundan değil
+**düşey teker yüklerinden** türetir — köprünün kendi ağırlığı iki raya eşit
+dağıldığı için araba kolu (l−e)/l yük payına eşit DEĞİLDİR.
+
 **9.4.2 — Tampon etkisi:** 2.2.3.4.1'de **0,7 m/s yerine 0,4 m/s** alınır (PDF s.281).
+
+> **Uygulamadaki karşılığı:** 9.3 ve 9.4.1 modelinin tamamı
+> `src/lib/calc/modules/wheelLoads.ts` içindedir (teker yükleri bölümü);
+> sunum `presentation/wheelLoadSections.ts`, şemalar `diagrams/wheelLoads.ts`.
 
 **9.5 — Rüzgâr (2.2.4.1):** Aynı güvenlik seviyesi sağlanmak kaydıyla başka öneri/çalışmalar kullanılabilir (PDF s.282).
 
