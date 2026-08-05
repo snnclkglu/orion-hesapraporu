@@ -194,7 +194,11 @@ function Field({
     // aynı satırda girdi üstleri 449/453/461 px'e dağılıyordu.)
     // Alt dolgu satırlar arası ayrımı verir; ızgaranın satır boşluğu artık
     // etiket ile girdi arasındaki boşluktur.
-    <div className="grid content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
+    // `min-w-0`: ızgara sütununun varsayılan `min-width: auto` değeri, uzun bir
+    // seçenek etiketi (ör. "HC2 — Normal kaldırma (genel amaçlı vinç)") olan
+    // alanın sütununu içerik genişliğine zorluyor ve alan komşusunun üstüne
+    // taşıyordu. Sıfırlanınca sütun küçülebiliyor, metin de kırpılıyor.
+    <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
       <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span>
           {fieldLabel(def, specs)}
@@ -233,7 +237,7 @@ function Field({
       </Label>
       {/* Denetim + yardım metinleri TEK kutuda: subgrid'in ikinci rayı bu
           kutudur, alan bileşeni her zaman iki çocuk taşır. */}
-      <div className="grid content-start gap-1">
+      <div className="grid min-w-0 content-start gap-1">
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
         // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).

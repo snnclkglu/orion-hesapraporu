@@ -184,6 +184,7 @@ export function diagramForSection(
           wheelsPerCorner: v.wheelsPerCorner,
           wheelsPerSide: v.wheelsPerSide,
           spanM: input.specs.spanM,
+          positionsM: v.positionsM,
         });
       }
       return null;

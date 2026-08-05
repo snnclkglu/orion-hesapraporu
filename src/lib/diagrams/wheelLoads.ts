@@ -52,8 +52,11 @@ interface CraneSilhouette {
   yGirderTop: number;
   yGirderBotMid: number;
   yCarriageTop: number;
+  /** Bandaj (teker yüzeyi) ortası — kılavuz kuvveti bu kotta etkir */
   yWheel: number;
-  wheelR: number;
+  /** Flanş dış yüzünün eksene uzaklığı — yan kuvvet okları buradan başlar */
+  wheelHalfWidth: number;
+  /** Ray başının üst kotu (bandajın oturduğu düzlem) */
   yRail: number;
   yRunwayTop: number;
   yRunwayBot: number;
@@ -80,10 +83,22 @@ function drawCrane(
   const yGirderBotEnd = yTop + endH;
   const yCarriageTop = yGirderBotEnd + 8;
   const carriageH = 20;
-  const wheelR = 13;
-  const yWheel = yCarriageTop + carriageH + wheelR - 2;
-  const yRail = yWheel + wheelR;
-  const yRunwayTop = yRail + 9;
+  // Teker bu görünüşte ÖNDEN görülür: dönme ekseni bakış doğrultusuna diktir,
+  // dolayısıyla daire değil BANDAJ GENİŞLİĞİ ve iki yanındaki FLANŞLAR görünür.
+  // Daire ancak raya paralel bakışta (yandan) çıkar.
+  const treadHalf = 17; // bandaj yarı genişliği
+  const treadH = 21; // bandaj yüksekliği (görünen kısım)
+  const flangeW = 4.5;
+  const flangeDrop = 13; // flanşın bandaj altına sarkması
+  const wheelHalfWidth = treadHalf + flangeW;
+  const yWheelTop = yCarriageTop + carriageH + 2;
+  const yWheel = yWheelTop + treadH / 2;
+  const yRail = yWheelTop + treadH; // bandaj ray başına oturur
+  // Ray kesiti: baş + gövde + taban
+  const railHeadH = 7;
+  const railWebH = 8;
+  const railFootH = 5;
+  const yRunwayTop = yRail + railHeadH + railWebH + railFootH + 2;
   const yRunwayBot = yRunwayTop + 15;
 
   const gx1 = xL - 54;
@@ -134,35 +149,73 @@ function drawCrane(
         fill: DCOL.muted,
       })
     );
-    // Teker — bu görünüşte bir rayın bütün tekerleri üst üste düşer
+    // --- Teker: ÖNDEN görünüş (bandaj + iki flanş) -------------------------
+    // Bu görünüşte bir rayın bütün tekerleri üst üste düşer, tek teker görülür.
     els.push({
-      kind: "circle",
-      cx: xc,
-      cy: yWheel,
-      r: wheelR,
+      kind: "rect",
+      x: xc - treadHalf,
+      y: yWheelTop,
+      w: 2 * treadHalf,
+      h: treadH,
       fill: "#FFFFFF",
       stroke: DCOL.ink,
       strokeWidth: 1.4,
     });
+    // Mil ekseni
+    els.push(ln(xc - treadHalf - 7, yWheel, xc + treadHalf + 7, yWheel, DCOL.faint, 0.7, "6,3"));
     els.push({
-      kind: "circle",
-      cx: xc,
-      cy: yWheel,
-      r: 3.5,
+      kind: "rect",
+      x: xc - 5,
+      y: yWheel - 3.5,
+      w: 10,
+      h: 7,
       fill: DCOL.paper,
       stroke: DCOL.ink,
       strokeWidth: 0.9,
     });
-    // Ray
+    // Flanşlar — ray başını iki yandan kavrar, kılavuz boşluğu aradaki payıdır
+    for (const s of [-1, 1]) {
+      els.push({
+        kind: "rect",
+        x: s < 0 ? xc - treadHalf - flangeW : xc + treadHalf,
+        y: yWheelTop + treadH - 15,
+        w: flangeW,
+        h: 15 + flangeDrop,
+        fill: DCOL.line,
+        stroke: DCOL.ink,
+        strokeWidth: 1.1,
+      });
+    }
+    // --- Ray kesiti: baş + gövde + taban -----------------------------------
     els.push({
       kind: "rect",
-      x: xc - 12,
+      x: xc - 9,
       y: yRail,
-      w: 24,
-      h: 9,
+      w: 18,
+      h: railHeadH,
+      fill: DCOL.line,
+      stroke: DCOL.ink,
+      strokeWidth: 1.1,
+    });
+    els.push({
+      kind: "rect",
+      x: xc - 3.5,
+      y: yRail + railHeadH,
+      w: 7,
+      h: railWebH,
       fill: DCOL.line,
       stroke: DCOL.ink,
       strokeWidth: 1,
+    });
+    els.push({
+      kind: "rect",
+      x: xc - 15,
+      y: yRail + railHeadH + railWebH,
+      w: 30,
+      h: railFootH,
+      fill: DCOL.line,
+      stroke: DCOL.ink,
+      strokeWidth: 1.1,
     });
     // Yol kirişi + zemin taraması
     els.push({
@@ -196,27 +249,11 @@ function drawCrane(
     yGirderBotMid,
     yCarriageTop,
     yWheel,
-    wheelR,
+    wheelHalfWidth,
     yRail,
     yRunwayTop,
     yRunwayBot,
   };
-}
-
-/** Sayfa düzlemine DİK kuvvet simgesi: ⊗ (içeri) — boyuna kuvvetler için. */
-function intoPageSymbol(els: DiagramEl[], cx: number, cy: number, r = 8) {
-  els.push({
-    kind: "circle",
-    cx,
-    cy,
-    r,
-    fill: "#FFFFFF",
-    stroke: DCOL.ink,
-    strokeWidth: 1.4,
-  });
-  const d = r * 0.62;
-  els.push(ln(cx - d, cy - d, cx + d, cy + d, DCOL.ink, 1.3));
-  els.push(ln(cx - d, cy + d, cx + d, cy - d, DCOL.ink, 1.3));
 }
 
 // ---------------------------------------------------------------- Önden görünüş
@@ -454,28 +491,74 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
       strokeWidth: 1.2,
     });
   }
-  // Ana kirişler — başkirişleri birbirine bağlar
-  const girderW = 16;
-  const xG1 = xOf(wheels[Math.max(0, Math.floor((perCorner - 1) / 2))].distanceM);
-  const xG2 = xOf(
-    wheels[Math.min(nWheels - 1, perCorner + Math.floor((perCorner - 1) / 2))]
-      .distanceM
-  );
+  // --- Ana kirişler --------------------------------------------------------
+  // Ana kirişler iki RAY ARASINDA, açıklık boyunca uzanır; her biri bir köşe
+  // teker grubunun ortasına oturur. Açıklık (tipik 20 m) dingil mesafesinden
+  // (tipik 3–14 m) çok daha uzundur — bu şemada dingil mesafesi ölçü zinciri
+  // okunabilsin diye büyük çizildiğinden açıklık ÖLÇEKLİ DEĞİLDİR ve teknik
+  // resim kuralınca KIRIK İŞARETİYLE kısaltılmış gösterilir.
+  const girderW = 26;
+  const centreOf = (from: number, to: number) => {
+    const slice = wheels.slice(from, to);
+    const sum = slice.reduce((a, w) => a + w.distanceM, 0);
+    return xOf(sum / Math.max(1, slice.length));
+  };
+  const xG1 = centreOf(0, perCorner);
+  const xG2 = centreOf(perCorner, nWheels);
+  const gyTop = yRail1 + carriageHalf;
+  const gyBot = yRail2 - carriageHalf;
+  const gyMid = (gyTop + gyBot) / 2;
   for (const xg of [xG1, xG2]) {
     els.push({
       kind: "rect",
       x: xg - girderW / 2,
-      y: yRail1 + carriageHalf,
+      y: gyTop,
       w: girderW,
-      h: yRail2 - yRail1 - 2 * carriageHalf,
+      h: gyBot - gyTop,
       fill: DCOL.paper,
       stroke: DCOL.ink,
-      strokeWidth: 1.1,
+      strokeWidth: 1.2,
     });
+    // Kırık (kesme) işareti — kirişin kısaltıldığını söyler
+    els.push({
+      kind: "rect",
+      x: xg - girderW / 2 - 1,
+      y: gyMid - 7,
+      w: girderW + 2,
+      h: 14,
+      fill: "#FFFFFF",
+      stroke: "none",
+    });
+    for (const dy of [-7, 1]) {
+      els.push(
+        ln(xg - girderW / 2 - 1, gyMid + dy + 6, xg + girderW / 2 + 1, gyMid + dy, DCOL.ink, 1.1)
+      );
+    }
   }
+  // Yalnız SOLDAKİ kiriş etiketlenir: sağdakinin etiketi anlık kayma kutbu
+  // etiketiyle aynı banda düşüyordu, iki kiriş de aynı elemandır.
   els.push(
-    txt((xG1 + xG2) / 2, (yRail1 + yRail2) / 2 - 6, "ANA KİRİŞLER", 8, {
-      anchor: "middle",
+    txt(xG1 - girderW / 2 - 8, gyTop + 26, "ANA KİRİŞLER (2 adet)", 7.5, {
+      anchor: "end",
+      fill: DCOL.muted,
+    })
+  );
+  // Açıklık ölçüsü — kırık işaretiyle kısaltıldığı için değeri yazılır
+  const xSpanDim = Math.min(xG1 - girderW / 2 - 58, xL - 34);
+  els.push(ln(xSpanDim, gyTop, xSpanDim, gyBot, DCOL.muted, 0.8));
+  els.push(ln(xSpanDim - 4, gyTop, xSpanDim + 4, gyTop, DCOL.muted, 0.8));
+  els.push(ln(xSpanDim - 4, gyBot, xSpanDim + 4, gyBot, DCOL.muted, 0.8));
+  els.push(arrowHead(xSpanDim, gyTop, "up", DCOL.muted));
+  els.push(arrowHead(xSpanDim, gyBot, "down", DCOL.muted));
+  els.push(
+    txt(xSpanDim - 7, gyMid - 4, `açıklık l = ${mOf(p.spanM)}`, 7.5, {
+      anchor: "end",
+      fill: DCOL.muted,
+    })
+  );
+  els.push(
+    txt(xSpanDim - 7, gyMid + 7, "(ölçekli değil — kısaltılmıştır)", 6.8, {
+      anchor: "end",
       fill: DCOL.muted,
     })
   );
@@ -705,7 +788,6 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
 
   return fitDiagram(els, PW, PH);
 }
-
 // ----------------------------------------------------------------- Yük özeti
 
 export interface LoadSummaryParams {
@@ -732,18 +814,25 @@ export interface LoadSummaryParams {
   wheelsPerCorner: number;
   wheelsPerSide: number;
   spanM: number;
+  /** Teker eksenlerinin kılavuz elemandan uzaklıkları [m] — yandan görünüş */
+  positionsM: number[];
 }
 
-const SW = 680;
-const SH = 430;
+const SW = 700;
+const SH = 545;
 
 /**
- * Yol kirişine aktarılan BÜTÜN kuvvetler tek vinç şemasında.
+ * Yol kirişine aktarılan BÜTÜN kuvvetler — İKİ PANEL.
  *
- * Görünüş raylara diktir; boyuna kuvvetler bu düzleme dik olduğundan ⊗
- * (sayfa düzlemine dik, içeri) simgesiyle ray kotunda gösterilir. Böylece
- * mühendis üç doğrultunun tamamını tek resimde görür ve hangi kuvvetin hangi
- * doğrultuda etkidiğini tabloyu okumadan anlar.
+ * Her kuvvet, gerçekten göründüğü bakış yönünde ve kendi oku ile verilir:
+ *
+ *   ÜST PANEL · raylara dik  → düşey (Pmaks/Pmin), enine (Fy1/Fy2), kılavuz (S)
+ *   ALT PANEL · ray ekseni   → boyuna (H), savrulma teğetseli (Fx), tampon
+ *
+ * Bakış yönü değiştiği için TEKER GÖSTERİMİ de değişir: üstte bandaj + flanş
+ * (önden), altta daire (yandan). Tek panelde boyuna kuvvetleri ⊗ simgesiyle
+ * anlatmak yerine kendi görünüşünde ok olarak vermek, kuvvet setini tabloya
+ * bakmadan okunur kılar.
  */
 export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   const els: DiagramEl[] = [];
@@ -760,40 +849,50 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   );
   els.push(ln(16, 40, SW - 16, 40, DCOL.line, 0.8));
 
-  const xL = 178;
-  const xR = SW - 178;
-  const c = drawCrane(els, xL, xR, 118, p.wheelsPerSide, [
+  // ======================================================== ÜST PANEL
+  els.push(txt(16, 58, "1 · RAYLARA DİK GÖRÜNÜŞ", 9, { bold: true }));
+  els.push(
+    txt(SW - 16, 58, "düşey · enine · kılavuz kuvvetleri", 8, {
+      anchor: "end",
+      fill: DCOL.muted,
+    })
+  );
+
+  const xL = 196;
+  const xR = SW - 196;
+  const c = drawCrane(els, xL, xR, 104, p.wheelsPerSide, [
     "RAY 1 — araba bu raya yanaşır",
     "RAY 2",
   ]);
 
-  // --- Araba + yük ---------------------------------------------------------
-  const xTrolley = xL + 92;
+  // Araba + yük
+  const xTrolley = xL + 88;
   els.push({
     kind: "rect",
-    x: xTrolley - 36,
-    y: c.yGirderTop - 30,
-    w: 72,
-    h: 24,
+    x: xTrolley - 34,
+    y: c.yGirderTop - 28,
+    w: 68,
+    h: 22,
     rx: 2,
     fill: DCOL.paper,
     stroke: DCOL.ink,
     strokeWidth: 1,
   });
-  els.push(txt(xTrolley, c.yGirderTop - 14, "ARABA", 7.5, { anchor: "middle" }));
-  els.push(ln(xTrolley + 30, c.yGirderTop - 30, xTrolley + 30, c.yWheel - 10, DCOL.faint, 0.9, "2,2"));
+  els.push(txt(xTrolley, c.yGirderTop - 13, "ARABA", 7.5, { anchor: "middle" }));
+  els.push(
+    ln(xTrolley + 28, c.yGirderTop - 28, xTrolley + 28, c.yWheel - 12, DCOL.faint, 0.9, "2,2")
+  );
   els.push({
     kind: "circle",
-    cx: xTrolley + 30,
-    cy: c.yWheel - 2,
+    cx: xTrolley + 28,
+    cy: c.yWheel - 4,
     r: 7,
     fill: "#FBEDEC",
     stroke: DCOL.accent,
     strokeWidth: 1.2,
   });
 
-  // --- Düşey kuvvetler -----------------------------------------------------
-  // Ray adı satırı yRunwayBot + 22'de; oklar onun altından başlar.
+  // Düşey kuvvetler
   const yV0 = c.yRunwayBot + 32;
   const vertical = (xc: number, lines: string[], color: string) => {
     els.push(ln(xc, yV0, xc, yV0 + 20, color, 2));
@@ -826,70 +925,200 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     DCOL.muted
   );
 
-  // --- Kılavuz ve enine kuvvetler: kenar sütunlarında, alt alta -----------
-  // Etiketler yalnız DEĞER taşır; simgelerin ne olduğu alttaki lejantta yazar.
-  // (Her okun yanına açıklama yazmak bu dar bantta çakışma üretiyordu.)
-  const yGuide = c.yWheel;
-  els.push(ln(xL - 84, yGuide, xL - c.wheelR - 6, yGuide, DCOL.accent, 2.4));
-  els.push(arrowHead(xL - c.wheelR - 2, yGuide, "right", DCOL.accent, 9, 3.6));
+  // Kılavuz kuvveti — flanş temasında
+  const yGuide = c.yRail - 4;
+  els.push(ln(xL - 92, yGuide, xL - c.wheelHalfWidth - 6, yGuide, DCOL.accent, 2.4));
   els.push(
-    txt(xL - 90, yGuide + 3, `S = ${kNof(p.guideForceN)}`, 9, {
+    arrowHead(xL - c.wheelHalfWidth - 2, yGuide, "right", DCOL.accent, 9, 3.6)
+  );
+  els.push(
+    txt(xL - 98, yGuide + 3, `S = ${kNof(p.guideForceN)}`, 9, {
       anchor: "end",
       fill: DCOL.accent,
       bold: true,
     })
   );
 
+  // Enine kuvvetler — ray kotunda
   const yLat = c.yRunwayTop + 7;
-  els.push(ln(xL - 84, yLat, xL - 22, yLat, DCOL.accent, 2));
+  els.push(ln(xL - 92, yLat, xL - 22, yLat, DCOL.accent, 2));
   els.push(arrowHead(xL - 18, yLat, "right", DCOL.accent, 8, 3.2));
   els.push(
-    txt(xL - 90, yLat + 3, `Fy1 = ${kNof(p.lateralNearN)}`, 9, {
+    txt(xL - 98, yLat + 3, `Fy1 = ${kNof(p.lateralNearN)}`, 9, {
       anchor: "end",
       fill: DCOL.accent,
       bold: true,
     })
   );
-  els.push(ln(xR + 22, yLat, xR + 84, yLat, DCOL.muted, 1.8));
-  els.push(arrowHead(xR + 88, yLat, "right", DCOL.muted, 8, 3.2));
+  els.push(ln(xR + 22, yLat, xR + 92, yLat, DCOL.muted, 1.8));
+  els.push(arrowHead(xR + 96, yLat, "right", DCOL.muted, 8, 3.2));
   els.push(
-    txt(xR + 90, yLat + 3, `Fy2 = ${kNof(p.lateralFarN)}`, 9, { fill: DCOL.muted })
+    txt(xR + 98, yLat + 3, `Fy2 = ${kNof(p.lateralFarN)}`, 9, { fill: DCOL.muted })
   );
 
-  // --- Boyuna kuvvetler: bu düzleme DİK → ⊗ simgesi ------------------------
-  // Düşey yük etiketlerinin ALTINDA, ortada tek blok.
-  const xMid = (xL + xR) / 2;
-  const yLong = yV0 + 84;
-  intoPageSymbol(els, xMid - 132, yLong, 9);
+  // ======================================================== ALT PANEL
+  const yPanel2 = yV0 + 82;
+  els.push(ln(16, yPanel2, SW - 16, yPanel2, DCOL.line, 0.8));
+  els.push(txt(16, yPanel2 + 20, "2 · RAY EKSENİ BOYUNCA", 9, { bold: true }));
   els.push(
-    txt(xMid - 116, yLong + 3, `Boyuna H = ${kNof(p.driveLongitudinalN)} / tahrikli teker`, 9, {
+    txt(SW - 16, yPanel2 + 20, "boyuna kuvvetler · aynı vinç, yandan", 8, {
+      anchor: "end",
+      fill: DCOL.muted,
+    })
+  );
+
+  const yRailB = yPanel2 + 106;
+  const wheelRB = 12;
+  const xB1 = 150;
+  const xB2 = SW - 150;
+  const positions = p.positionsM.length > 0 ? p.positionsM : [0];
+  const maxPos = Math.max(...positions, 0.001);
+  const xB = (d: number) => xB1 + (d / maxPos) * (xB2 - xB1);
+
+  // Başkiriş (yandan) + tekerler DAİRE olarak — bu bakışta dönme ekseni
+  // görüşe diktir, dolayısıyla tekerin yuvarlak yüzü görünür.
+  els.push({
+    kind: "rect",
+    x: xB1 - 26,
+    y: yRailB - 2 * wheelRB - 26,
+    w: xB2 - xB1 + 52,
+    h: 24,
+    fill: DCOL.paper,
+    stroke: DCOL.ink,
+    strokeWidth: 1.2,
+  });
+  els.push(
+    txt((xB1 + xB2) / 2, yRailB - 2 * wheelRB - 10, "BAŞKİRİŞ", 7.5, {
+      anchor: "middle",
+      fill: DCOL.muted,
+    })
+  );
+  for (const d of positions) {
+    const x = xB(d);
+    els.push({
+      kind: "circle",
+      cx: x,
+      cy: yRailB - wheelRB,
+      r: wheelRB,
+      fill: "#FFFFFF",
+      stroke: DCOL.ink,
+      strokeWidth: 1.3,
+    });
+    els.push({
+      kind: "circle",
+      cx: x,
+      cy: yRailB - wheelRB,
+      r: 3,
+      fill: DCOL.paper,
+      stroke: DCOL.ink,
+      strokeWidth: 0.9,
+    });
+  }
+  // Ray + yol kirişi
+  els.push({
+    kind: "rect",
+    x: 40,
+    y: yRailB,
+    w: SW - 80,
+    h: 7,
+    fill: DCOL.line,
+    stroke: DCOL.ink,
+    strokeWidth: 1,
+  });
+  els.push({
+    kind: "rect",
+    x: 40,
+    y: yRailB + 7,
+    w: SW - 80,
+    h: 13,
+    fill: DCOL.paper,
+    stroke: DCOL.ink,
+    strokeWidth: 1.1,
+  });
+  for (let x = 46; x < SW - 40; x += 12) {
+    els.push(ln(x, yRailB + 20, x - 6, yRailB + 28, DCOL.muted, 0.6));
+  }
+
+  // Boyuna kuvvet: tahrik ve frenleme — raya paralel, iki yönlü
+  const yH = yRailB - 2 * wheelRB - 40;
+  els.push(ln(xB1 - 100, yH, xB1 - 34, yH, DCOL.accent, 2.2));
+  els.push(arrowHead(xB1 - 104, yH, "left", DCOL.accent, 9, 3.4));
+  els.push(ln(xB2 + 34, yH, xB2 + 100, yH, DCOL.accent, 2.2));
+  els.push(arrowHead(xB2 + 104, yH, "right", DCOL.accent, 9, 3.4));
+  els.push(
+    txt((xB1 + xB2) / 2, yH + 3, `H = ${kNof(p.driveLongitudinalN)} / tahrikli teker`, 9, {
+      anchor: "middle",
+      fill: DCOL.accent,
       bold: true,
     })
   );
-  const extras: string[] = [];
-  if (Math.abs(p.skewLongitudinalN) > 1) {
-    extras.push(`savrulma Fx = ${kNof(p.skewLongitudinalN, 2)} / teker`);
-  }
+  els.push(
+    txt((xB1 + xB2) / 2, yH - 10, "tahrik ve frenleme", 7.5, {
+      anchor: "middle",
+      fill: DCOL.muted,
+    })
+  );
+
+  // Tampon — yolun ucunda
   if (p.bufferForceKn > 0) {
-    extras.push(`tampon tepkisi = ${fmtN(p.bufferForceKn, 1)} kN / tampon`);
-  }
-  if (extras.length > 0) {
+    const xBuf = SW - 44;
+    els.push({
+      kind: "rect",
+      x: xBuf - 16,
+      y: yRailB - 2 * wheelRB - 4,
+      w: 16,
+      h: 20,
+      fill: DCOL.paper,
+      stroke: DCOL.ink,
+      strokeWidth: 1.2,
+    });
+    for (let i = 0; i < 3; i += 1) {
+      els.push(
+        ln(xBuf - 16, yRailB - 2 * wheelRB + i * 6, xBuf, yRailB - 2 * wheelRB + 3 + i * 6, DCOL.muted, 0.8)
+      );
+    }
     els.push(
-      txt(xMid, yLong + 20, extras.join("   ·   "), 8, {
+      txt(xBuf - 8, yRailB - 2 * wheelRB - 12, "tampon", 7, {
         anchor: "middle",
         fill: DCOL.muted,
       })
     );
+    els.push(
+      txt(xBuf - 24, yRailB - 2 * wheelRB + 8, `${fmtN(p.bufferForceKn, 1)} kN`, 8.5, {
+        anchor: "end",
+        fill: DCOL.ink,
+        bold: true,
+      })
+    );
   }
+  if (Math.abs(p.skewLongitudinalN) > 1) {
+    // Savrulma teğetseli her tekerde doğar; teker araları ok çizilemeyecek
+    // kadar dar olduğundan tek satırda, ok simgesiyle verilir.
+    const yFx = yRailB + 44;
+    els.push(ln((xB1 + xB2) / 2 - 116, yFx, (xB1 + xB2) / 2 - 96, yFx, DCOL.muted, 1.4));
+    els.push(arrowHead((xB1 + xB2) / 2 - 93, yFx, "right", DCOL.muted, 7, 2.8));
+    els.push(
+      txt(
+        (xB1 + xB2) / 2 - 86,
+        yFx + 3,
+        `savrulma Fx = ${kNof(p.skewLongitudinalN, 2)} / teker (her tekerde, raya paralel)`,
+        8,
+        { fill: DCOL.muted }
+      )
+    );
+  }
+  els.push(txt(16, yRailB + 62, "yürüme yönü", 7.5, { fill: DCOL.muted }));
+  els.push(ln(80, yRailB + 59, 116, yRailB + 59, DCOL.muted, 1));
+  els.push(arrowHead(119, yRailB + 59, "right", DCOL.muted, 8, 3));
 
-  // --- Lejant --------------------------------------------------------------
-  els.push(ln(16, SH - 44, SW - 16, SH - 44, DCOL.line, 0.8));
+  // ======================================================== Lejant
+  els.push(ln(16, SH - 40, SW - 16, SH - 40, DCOL.line, 0.8));
   els.push(
     txt(
       16,
-      SH - 30,
-      "S: kılavuz kuvveti (VİNÇ TOPLAMI, flanş/makara temasında)   ·   " +
-        "Fy1 · Fy2: enine teker kuvveti   ·   H: boyuna kuvvet, ⊗ = sayfa düzlemine dik (raya paralel)",
+      SH - 26,
+      "S: kılavuz kuvveti (VİNÇ TOPLAMI, flanş temasında)   ·   Fy1 · Fy2: enine teker kuvveti   ·   " +
+        "H: tahrik/fren boyuna kuvveti   ·   Fx: savrulma teğetsel kuvveti",
       7.5,
       { fill: DCOL.muted }
     )
@@ -897,7 +1126,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   els.push(
     txt(
       16,
-      SH - 18,
+      SH - 14,
       "Kuvvetler karakteristiktir; kısmi güvenlik katsayıları yol kirişi tasarımında uygulanır. " +
         "Araba karşı uca gittiğinde raylar yer değiştirir — her iki ray da Fy1 ile boyutlandırılır.",
       7.5,
