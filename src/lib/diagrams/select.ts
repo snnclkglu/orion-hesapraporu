@@ -33,10 +33,21 @@ import {
   GIRDER_ELASTIC_MODULUS_KG_CM2,
   type GirderValues,
 } from "@/lib/calc/modules/mainGirder";
+import type { BucklingValues } from "@/lib/calc/modules/buckling";
+import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { Diagram } from "./model";
 import { girderSectionDiagram } from "./girderSection";
+import {
+  bucklingFactorChart,
+  bucklingInteractionChart,
+  bucklingPanelLayoutDiagram,
+  panelStressDiagram,
+  rhoReductionChart,
+  rhoPoint,
+  rhoShearPoint,
+} from "./buckling";
 import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
@@ -348,4 +359,124 @@ export function diagramForSection(
     return null;
   }
   return null;
+}
+
+/**
+ * 8.1 / 8.2 — buruşma görsel seti.
+ *
+ * Panelin sayıları MOTORUN kendi `values`'ından okunur; diyagram hiçbir fiziği
+ * yeniden hesaplamaz. Panel yerleşim şeması yalnız 8.1'de basılır — iki paneli
+ * birden gösterdiği için 8.2'de tekrarı raporu gereksiz şişirir.
+ *
+ * ETKİLEŞİM DİYAGRAMININ MATEMATİĞİ: FEM A-3.4 bağıntısı x = σ/σvcr,ind ve
+ * y = τ/τvcr,ind cinsinden yazıldığında kontrol tam olarak
+ *   D(x,y) = (1+ψ)/4·x + √([0,25·(3−ψ)·x]² + y²) ≤ ρc/νv
+ * koşuluna indirgenir ve kullanım oranı = νv·D/ρc olur. Diyagram bu iki eğriyi
+ * (kritik: D = 1, izin verilen: D = ρc/νv) ve çalışma noktasını çizer.
+ */
+function bucklingDiagrams(
+  rawSectionId: string,
+  input: CalcInput,
+  result: CalcResult
+): Diagram[] {
+  const st = input.buckling;
+  const mr = result.buckling;
+  if (!st || !mr) return [];
+  const isSide = rawSectionId === "8.1";
+  if (!isSide && rawSectionId !== "8.2") return [];
+
+  const v = mr.values as BucklingValues;
+  const pv = isSide ? v.side : v.top;
+  const gi = input.girder?.inputs;
+  const out: Diagram[] = [];
+
+  // 1 — Panel yerleşimi (yalnız 8.1; kesit ana kirişten gelir)
+  if (isSide && gi) {
+    out.push(
+      bucklingPanelLayoutDiagram({
+        railHeightMm: gi.railHeightMm,
+        t1Mm: gi.t1Mm, b1Mm: gi.b1Mm, t2Mm: gi.t2Mm, b2Mm: gi.b2Mm,
+        t3Mm: gi.t3Mm, h3Mm: gi.h3Mm, t4Mm: gi.t4Mm,
+        t5Mm: gi.t5Mm, b5Mm: gi.b5Mm, t6Mm: gi.t6Mm, b6Mm: gi.b6Mm,
+        aMm: gi.aMm, xMm: gi.xMm,
+        sideWidthMm: v.side.panelWidthMm,
+        sideLengthMm: v.side.panelLengthMm,
+        topWidthMm: v.top.panelWidthMm,
+        topLengthMm: v.top.panelLengthMm,
+      })
+    );
+  }
+
+  // 2 — Kenar gerilme dağılımı ve FEM durumu
+  out.push(
+    panelStressDiagram({
+      title: `BURUŞMA — ${isSide ? "YAN SAC" : "ÜST SAC"} PANELİ`,
+      sigma1: pv.sigma1,
+      sigma2: pv.sigma2,
+      tau: pv.case1.tau,
+      psi: pv.psi,
+      widthMm: pv.panelWidthMm,
+      lengthMm: pv.panelLengthMm,
+      alpha: pv.alpha,
+      caseNo: pv.caseNo,
+    })
+  );
+
+  // 3 — Kσ / Kτ eğrileri
+  out.push(
+    bucklingFactorChart({
+      alpha: pv.alpha, psi: pv.psi, kSigma: pv.kSigma, kTau: pv.kTau,
+    })
+  );
+
+  // 4 — Etkileşim diyagramı (eksenler İNDİRGENMİŞ kritik gerilmelerle)
+  out.push(
+    bucklingInteractionChart({
+      sigmaRatio: pv.sigmaVcr > 0 ? pv.case1.sigma / pv.sigmaVcr : NaN,
+      tauRatio: pv.tauVcr > 0 ? Math.abs(pv.case1.tau) / pv.tauVcr : 0,
+      psi: pv.psiClamped,
+      safety: pv.case1.safetyVv,
+      rho: pv.case1.rhoCombined,
+      utilization: pv.case1.utilization,
+      caseLabel: `${BUCKLING_CASE_LABEL[pv.caseNo]} · ${LOAD_CASE_LABEL[1]}`,
+    })
+  );
+
+  // 5 — ρ indirgemesi: yalnız gerçekten uygulandıysa
+  if (pv.reductionApplied || pv.case1.rhoCombined < 1) {
+    out.push(
+      rhoReductionChart({
+        steel: pv.steel,
+        points: [
+          rhoPoint("σvcr", pv.sigmaVcrElastic, pv.steel),
+          rhoShearPoint("τvcr", pv.tauVcrElastic, pv.steel),
+          ...(pv.case1.rhoCombined < 1
+            ? [rhoPoint("σvcr.c", pv.case1.sigmaVcrCElastic, pv.steel)]
+            : []),
+        ],
+      })
+    );
+  }
+  return out;
+}
+
+/**
+ * Bölümün TÜM diyagramları, çizim sırasıyla. Çoğu bölüm tek diyagram döndürür;
+ * buruşma gibi bölümler bir set döndürür (yerleşim → gerilme → katsayı →
+ * etkileşim → indirgeme).
+ */
+export function diagramsForSection(
+  moduleKey: string,
+  rawSectionId: string,
+  input: CalcInput,
+  result: CalcResult
+): Diagram[] {
+  try {
+    if (moduleKey === "buckling") return bucklingDiagrams(rawSectionId, input, result);
+  } catch {
+    // Diyagram hiçbir zaman hesabı/raporu düşürmez
+    return [];
+  }
+  const one = diagramForSection(moduleKey, rawSectionId, input, result);
+  return one ? [one] : [];
 }

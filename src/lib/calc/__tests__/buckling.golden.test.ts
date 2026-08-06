@@ -6,6 +6,14 @@
 // toleransı 1e-4 göreliye gevşetilmiştir.
 //
 // Zincir: döküm hücresi → alias → semantik anahtar → motor değeri.
+//
+// DİKKAT — bu dosyadaki SAPMA sözlüğü artık uzundur ve bu BEKLENEN durumdur:
+// buruşma modülü FEM 1.001 A-3.4'e göre yeniden kuruldu (σvcr.c bağıntısındaki
+// dizgi hatası düzeltildi, T.A.3.4.2 orantı sınırı indirgemesi eklendi, panel
+// geometrisi ana kirişin kesitinden türetildi, Yükleme Durumu III kontrolü
+// eklendi). Yöntemin STANDARDA karşı doğrulaması
+// `__tests__/plate-buckling.test.ts` dosyasındadır; burası yalnız ilk portla
+// aradaki farkın gerekçeli kaydıdır.
 
 import { describe, expect, it } from "vitest";
 import { V5_BUCKLING_INPUTS } from "../defaults/structural";
@@ -44,10 +52,53 @@ const KAPSAM_DISI: Record<string, string> = {
 const SAPMA: Record<string, string> = {
   AA33: "Kσ (−1<ψ≤0, α≤2/3) dalı: 8,6/α² → 8,6·α² (FEM T.A.3.4.1). V5'te dal seçilmediğinden değer değişmez.",
   AA92: "Kσ (−1<ψ≤0, α≤2/3) dalı: 8,6/α² → 8,6·α² (FEM T.A.3.4.1). V5'te dal seçilmediğinden değer değişmez.",
-};
 
+  // --- σvcr.c bağıntısı: ÇARPMA → TOPLAMA -----------------------------------
+  // İlk port, FEM 1.001 A-3.4'ün BASILI metnindeki dizgi hatasını birebir
+  // kopyalamıştı: karekökün içindeki iki terim çarpılıyordu. Standardın KENDİ
+  // çözümlü örneği (s.126-128: σ=28, τ=47, ψ=−0,79, σvcr=158,5, τvcr=99)
+  // 168 N/mm² verir ve bu sonucu YALNIZ toplama üretir; çarpma 965 N/mm²
+  // çıkarır. Toplama yorumu ayrıca τ=0'da σvcr.c ≡ σvcr dejenerasyonunu
+  // sağlar (fiziksel zorunluluk), çarpma ise σvcr'nin katlarını verir.
+  // Kaynak DIN 4114 bağıntısı da toplamalıdır. Yön: çarpma kapasiteyi DAİMA
+  // şişirir, yani ilk port EMNİYETSİZ taraftaydı.
+  // Doğrulaması: __tests__/plate-buckling.test.ts (FEM örneği + sınır hâlleri).
+  L48: "σvcr.c: karekök içi çarpma → toplama (FEM A-3.4 çözümlü örneği 168 N/mm²).",
+  L107: "σvcr.c: karekök içi çarpma → toplama (FEM A-3.4 çözümlü örneği 168 N/mm²).",
+
+  // --- Orantı sınırı ve ρ indirgemesi (T.A.3.4.2) ----------------------------
+  // İlk port FEM A-3.4'ün "Important note" maddesini hiç uygulamıyordu:
+  // elastik bağıntılar yalnız orantı sınırının (St 37: 190, St 52: 290 N/mm²)
+  // altında geçerlidir; üzerinde kritik değer ρ ile indirgenir. V5 yan sacında
+  // σvcr = 729 N/mm² çıkıyordu — çeliğin akma sınırının üç katı, fiziksel
+  // olarak imkânsız bir kritik gerilme. Motor artık T.A.3.4.2'yi uygular ve
+  // tablonun son satırında sabitler (St 37 → 221, St 52 → 322 N/mm²).
+  // İlk portun elle girdiği "düzeltilmiş kritik gerilme = 322" değerinin
+  // T.A.3.4.2'nin St 52 son satırındaki indirgenmiş değerin birebir kendisi
+  // olması, indirgemenin o zaman ELLE yapıldığını gösterir; artık motorda.
+  L39: "σvcr: T.A.3.4.2 ρ indirgemesi uygulanıyor (elastik 729 → indirgenmiş 221).",
+  L43: "τvcr: √3·τvcr orantı sınırı koşulu ve ρ indirgemesi uygulanıyor.",
+  L52: "İzin verilen gerilme: indirgenmiş σvcr.c ve düzeltilmiş bağıntıdan.",
+  L111: "İzin verilen gerilme: indirgenmiş σvcr.c ve düzeltilmiş bağıntıdan.",
+
+  // --- Üst sac panel geometrisi kesitten türetildi --------------------------
+  // İlk portta üst sac paneli b = 590 mm ve a = 1500 mm girilmişti. b = 590,
+  // kirişin ÜST BAŞLIĞININ TAMAMINDAN (b2 = 460 mm) bile geniştir ve kesitteki
+  // hiçbir ölçüye karşılık gelmez; a = 1500 de kirişin perde aralığıyla
+  // (2000 mm) çelişir. FEM A-3.4'te panel, MESNETLİ KENARLARI arasındaki
+  // açıklıktır: üst başlığın dört kenarından mesnetli bölümü gövde sacları
+  // arasında kalan net açıklıktır (aMm = 320 mm), uzunluğu ise perde
+  // aralığıdır (2000 mm). Değerler artık kesitten türetilir.
+  L75: "Üst sac σER: panel genişliği b, kesitten türetildi (590 → gövdeler arası 320 mm).",
+  L87: "Üst sac α: b = 320 mm ve a = perde aralığı 2000 mm (1500 değil).",
+  L94: "Üst sac Kτ: düzeltilmiş α'dan.",
+  L98: "Üst sac σvcr: düzeltilmiş geometri + T.A.3.4.2 ρ indirgemesi.",
+  L102: "Üst sac τvcr: düzeltilmiş geometri + ρ indirgemesi.",
+};
 describe("buruşma — tarihsel doğrulama", () => {
-  const result = computeBuckling(V5_BUCKLING_INPUTS);
+  // Tarihsel karşılaştırma ELLE girdilerle yapılır: ilk portta panel ölçüleri
+  // ve gerilmeleri elle yazılıyordu, ana kirişten türetilmiyordu.
+  const result = computeBuckling({ ...V5_BUCKLING_INPUTS, autoFromGirder: false });
   const dumpCells = loadFormulaCells("09_08_BURUŞMA_KONTROLÜ.txt").filter(
     (c) => !isDecorative(c)
   );
@@ -110,14 +161,14 @@ describe("buruşma — tarihsel doğrulama", () => {
   it("kısa panelde (α ≤ 2/3) Kσ standardın 8,6·α² terimiyle hesaplanır", () => {
     // α = 1500/3000 = 0,5 ve ψ = −50/100 = −0,5 → −1 < ψ ≤ 0, α ≤ 2/3 dalı.
     const panel = {
-      elasticModulus: 210000, poisson: 0.3, thicknessMm: 8,
+      thicknessMm: 8,
       panelWidthMm: 3000, stiffenerSpacingMm: 1500,
       sigma1: 100, sigma2: -50, tau: 0,
     };
     const r = computeBuckling({
+      autoFromGirder: false,
       side: panel,
       top: V5_BUCKLING_INPUTS.top,
-      sideCorrectedCriticalNmm2: 0,
     });
     const alpha = 0.5, psi = -0.5;
     const expected =

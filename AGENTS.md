@@ -96,6 +96,15 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
      `drum.torquePerDrum` hücresinden okunur. Emniyet freni bir vinç değil
      KALDIRMA GRUBU özelliğidir (`hasSafetyBrake`); bölüm 2.8 yalnız freni olan
      grupta görünür (`HoistSectionDef.visible`).
+   - `plate-buckling.ts` — FEM 1.001 A-3.4 plaka burkulması çekirdeği: Euler
+     referans gerilmesi, Kσ/Kτ (T.A.3.4.1), etkileşimli kritik gerilme σvcr.c,
+     orantı sınırı ve ρ indirgemesi (T.A.3.4.2), emniyet katsayısı νv (md. 3.4).
+     **σvcr.c bağıntısında karekök içi TOPLAMADIR** — standardın basılı
+     metnindeki çarpma bir dizgi hatasıdır; FEM'in kendi çözümlü örneği
+     (168 N/mm²) ve τ = 0 → σvcr.c = σvcr özdeşliği bunu kanıtlar.
+   - `diagrams/chart.ts` — kartezyen grafik katmanı (eksen, "güzel sayı" tikleri,
+     ızgara, eğri, çalışma noktası, kullanım oranı çubuğu). Şematik teknik
+     resimlerden farklı olarak GERÇEK grafik çizen bölümler bunu kullanır.
    - `presentation/module-access.ts` — modül girdi/sonuç/bağlam erişimi
 
 11. **Teker yükleri yol kirişinin girdisidir.** `wheelLoads.ts` bir mekanizma
@@ -149,6 +158,32 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    verdikleri + üst bölümü açık olanlar. Ana kaldırma, ana araba ve köprü
    kapatılamaz.
 
+12. **Buruşma ana kirişin bir kontrolüdür, bağımsız bir modül değil.**
+    `buckling.ts` panel ölçülerini ve kenar gerilmelerini ELLE SORMAZ:
+    `bucklingDepsFrom` ana kirişin kesit geometrisinden ve 7.4 gerilme
+    analizinden türetir (`autoFromGirder`). Paneller FEM A-3.4'ün tanımına
+    göre "mesnetli kenarlar arasındaki açıklık"tır:
+    - **Yan sac**: b = boyuna berkitme (köşebent) mesafesi, yoksa gövde
+      yüksekliği h3 · a = perde aralığı · e = t3
+    - **Üst sac**: b = gövde sacları arası NET açıklık · a = perde aralığı ·
+      e = t2 · gerilme düzgün (ψ = +1, tablo durum 1)
+    Kenar gerilmeleri iki uç lif arasında doğrusal enterpolasyonla bulunur ve
+    γc arttırma katsayısını taşır; ana kiriş çekmeyi pozitif tuttuğu için
+    işaret bir kez `bucklingDepsFrom` içinde ters çevrilir (buruşmada
+    **basınç pozitiftir**). Başlığın gövdelerden taşan çıkmaları üç kenarından
+    mesnetli olduğu için T.A.3.4.1'in kapsamı dışındadır ve kontrol edilmez.
+
+    **Yükleme durumları:** Durum I ve Durum III hesaplanır (ana kiriş de bu
+    ikisini hesaplar). Durum II rüzgâr yükü ister; rüzgâr uygulamanın hiçbir
+    modülinde modellenmediğinden buruşmada da kapsam dışıdır ve raporda
+    `kind:"bilgi"` bir kontrolle açıkça belirtilir — sessiz eksik bırakılmaz.
+
+    **ψ:** ham değer −1'in altına inebilir (çekme baskın eğilme, T.A.3.4.1
+    durum 3) ve Kσ bunu kendi dalıyla karşılar; νv ve etkileşim bağıntısı için
+    ψ [−1, +1] aralığına kelepçelenir (md. 3.4). σ1 mutlak değere göre DEĞİL,
+    **basınç yönüne göre** seçilir — mutlak değerle sıralamak çekme baskın
+    panellerde kontrolü sessizce düşürür.
+
 9. **Ağırlıklar teknik özelliktir.** Ana araba, yardımcı araba ve köprü
    ağırlıkları `TechnicalSpecs`te tutulur; yürütme, ana kiriş ve başkiriş
    hesapları oradan okur. Modül girdisi olarak ağırlık sorulmaz.
@@ -187,7 +222,7 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 
 - `src/lib/calc/` — hesap motoru (saf): `engine.ts`, `modules/`, `beam.ts`,
   `shaftStress.ts`, `reeving.ts`, `derive.ts`, `hook-table.ts`, `coefficients.ts`,
-  `tables.ts`, `types.ts`
+  `plate-buckling.ts`, `tables.ts`, `types.ts`
 - `src/lib/calc/modules/` — kaldırma, kanca bloğu, yürütme, **teker yükleri**
   (`wheelLoads.ts` — yol kirişine aktarılan kuvvetler), ana kiriş, buruşma,
   başkiriş

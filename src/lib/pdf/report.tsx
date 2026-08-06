@@ -23,7 +23,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
-import { diagramForSection } from "@/lib/diagrams/select";
+import { diagramsForSection } from "@/lib/diagrams/select";
 import {
   BRAND,
   BrandPage,
@@ -1378,7 +1378,7 @@ function ModulePage({
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
         const secChecks = sectionChecks(adapter, section, mr);
-        const diagram = diagramForSection(adapter.key, section.rawId, input, result);
+        const diagrams = diagramsForSection(adapter.key, section.rawId, input, result);
         return (
           // DİKKAT: bu sarmalayıcıya minPresenceAhead KONMAZ. react-pdf ölçüyü
           // "kutunun tamamı + istenen boşluk" olarak okur; bölüm bir sayfaya
@@ -1397,8 +1397,13 @@ function ModulePage({
                     : undefined
                 }
               />
-              {diagram && <PdfDiagram diagram={diagram} />}
+              {diagrams[0] && <PdfDiagram diagram={diagrams[0]} />}
             </View>
+            {/* Bölümün kalan diyagramları başlıktan bağımsız akar; her biri
+                PdfDiagram'ın kendi wrap={false} kutusunda bölünmeden kalır. */}
+            {diagrams.slice(1).map((d, i) => (
+              <PdfDiagram key={i} diagram={d} />
+            ))}
             {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
               <View>
                 <SubHead tr="GİRDİLER / TASARIM KABULLERİ" />

@@ -154,7 +154,33 @@ Durum sütunu: ✓ = mevcut referans doğru · ~ = doğru ama kesinleştirilmeli
 3. Gerilme yığılması: motor `stressConcFactor` girdisi CMAA 4.11.4.2 (Kt eğilme, Ks kesme) ile ilişkilendirilebilir.
 4. CMAA alternatifi: 4.11.4.1 statik (%20 Su) + 4.11.4.2 yorulma (Se = 0,36·Su′·Ksc; Kc sınıf faktörü A–F: 1,0–1,25).
 
-### 3.3 Buruşma (öncelik 3)
+### 3.3 Buruşma — TAMAMLANDI (2026-08-06)
+
+Aşağıdaki maddelerin tamamı uygulandı; ayrıntı `docs/ROADMAP.md` Faz R.
+
+1. ✅ **σvcr.c bağıntısı düzeltildi** (kök içi çarpma → toplama). FEM'in basılı
+   metnindeki dizgi hatası ilk portta birebir kopyalanmıştı; kapasiteyi V5
+   verisinde 2,3–2,7 kat, FEM'in kendi örneğinde 5,8 kat ŞİŞİRİYORDU.
+2. ✅ **T.A.3.4.2 orantı sınırı / ρ indirgemesi** eklendi (St 37 ve St 52
+   satırları; St 44 emniyetli tarafta St 37 bloğunu kullanır). Elle girilen
+   `sideCorrectedCriticalNmm2` alanı kaldırıldı — 322 değeri zaten bu tablonun
+   St 52 son satırıydı, artık motor kendisi üretiyor.
+3. ✅ **Durum III kontrolü** eklendi (νv = 1,35 + 0,075(ψ−1)); gerilme oranları
+   ana kirişin Durum III/Durum I hücrelerinden okunur. Durum II rüzgâr
+   modellenmediği için gerekçesiyle kapsam dışı bırakıldı ve raporda görünür.
+4. ✅ **ψ kelepçesi** ve işaret kuralı: σ1 basınç kenarıdır (mutlak değere göre
+   sıralama YOK); ψ < −1 korunur ve Kσ durum 3'ten okunur, νv için kelepçelenir.
+5. ✅ **Panel geometrisi ana kirişten türetiliyor** — b, a, e ve kenar
+   gerilmeleri elle yazılmıyor; boyuna berkitme mesafesi kiriş girdisi oldu.
+6. ✅ **Beş parametrik görsel** (panel yerleşimi, kenar gerilme dağılımı,
+   Kσ–Kτ eğrileri, etkileşim diyagramı, ρ indirgeme grafiği).
+7. ✅ Standart defterine `FEM 1.001 3.4` ve `FEM 1.001 T.A.3.4.2` gerçek kayıt
+   olarak eklendi (önceden ilki takma addı, ikincisi hiç yoktu).
+
+Kalan (isteğe bağlı): berkitme tasarım kuralları (CMAA 3.5.2–3.5.4), yardımcı
+gövde sacı (t4) ve berkitme altı alt panel için ek kontroller.
+
+### 3.3-eski Buruşma (öncelik 3) — tarihsel kayıt
 1. **Case II/III emniyet katsayıları**: vv yalnız Case I (1,7+0,175(ψ−1)); Booklet 9 T.9.10 → Case II: 1,5+0,125(ψ−1), Case III: 1,35+0,075(ψ−1). Test durumu (Case III) gerilmeleriyle buruşma kontrolü şu an hiç yapılmıyor.
 2. **İnelastik bölge indirgemesi**: kritik gerilme orantı sınırını (σp ≈ σy/1,32) aşarsa indirgenmiş σkR kullanılmalı (CMAA 3.4.8.2; FEM A-3.4 ρ katsayısı). Şu an elle `sideCorrectedCriticalNmm2` girdisiyle karşılanıyor — formülleştirilebilir.
 3. AA33 `8,6/α²` → `8,6·α²` düzeltmesi (§2.5).

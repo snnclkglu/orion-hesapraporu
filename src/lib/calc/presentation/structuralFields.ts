@@ -87,6 +87,16 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   {
     key: "diaphragmSpacingMm", label: "İki Perde Arası l1", unit: "mm",
     type: "select", options: ["1000", "1500", "2000"], numeric: true,
+    standardRef: "FEM 1.001 A-3.4",
+    hint: "Buruşma kontrolünde panel uzunluğu a bu değerdir (α = a / b).",
+  },
+  {
+    key: "webStiffenerOffsetMm", label: "Boyuna Berkitme (Köşebent) Mesafesi",
+    unit: "mm", type: "number", standardRef: "FEM 1.001 A-3.4",
+    hint:
+      "Gövde sacındaki boyuna berkitmenin ÜST BAŞLIĞA uzaklığı. Kesit " +
+      "özelliklerine girmez; yalnız buruşma panelini böler — 0 girilirse " +
+      "gövdenin tamamı tek panel olarak kontrol edilir.",
   },
   {
     key: "wheelContactHMm", label: "Teker Basıncı Yayılım Yüksekliği h", unit: "mm",
@@ -153,23 +163,67 @@ export const GIRDER_SELECTION_FIELDS: FieldDef<GirderSelections>[] = [
 
 // --- BURUŞMA KONTROLÜ -------------------------------------------------------
 
-/** Yan sac ve üst sac panelleri aynı alan kümesini kullanır. */
+/**
+ * Panel alanları. NORMALDE ELLE GİRİLMEZ: ana kiriş açıkken ölçüler kesitten,
+ * kenar gerilmeleri 7.4 gerilme analizinden türetilir (bkz. modules/buckling.ts
+ * `bucklingDepsFrom`). Bu alanlar yalnız "Ana Kirişten Otomatik" anahtarı
+ * kapatıldığında kullanılır.
+ *
+ * İŞARET KURALI her gerilme alanının ipucunda tekrarlanır — buruşmada bir
+ * işaret hatası doğrudan yanlış Kσ dalına düşürür.
+ */
 export const BUCKLING_PANEL_FIELDS: FieldDef<BucklingPanelInputs>[] = [
-  { key: "elasticModulus", label: "Elastisite Modülü E", unit: "N/mm²", type: "number" },
-  { key: "poisson", label: "Poisson Oranı", type: "number" },
-  { key: "thicknessMm", label: "Sac Kalınlığı e", unit: "mm", type: "number" },
-  { key: "panelWidthMm", label: "Panel Genişliği b", unit: "mm", type: "number" },
-  { key: "stiffenerSpacingMm", label: "İki Perde Arası a", unit: "mm", type: "number" },
-  { key: "sigma1", label: "Panel Kenarı Gerilmesi σ1", unit: "N/mm²", type: "number" },
-  { key: "sigma2", label: "Diğer Kenar Gerilmesi σ2", unit: "N/mm²", type: "number" },
-  { key: "tau", label: "Kesme Gerilmesi τ", unit: "N/mm²", type: "number" },
+  {
+    key: "thicknessMm", label: "Sac Kalınlığı e", unit: "mm", type: "number",
+    standardRef: "FEM 1.001 A-3.4",
+    hint: "Otomatik türetmede yan sac için gövde sacı t3, üst sac için üst iç başlık t2.",
+  },
+  {
+    key: "panelWidthMm", label: "Panel Genişliği b", unit: "mm", type: "number",
+    standardRef: "FEM 1.001 A-3.4",
+    hint:
+      "Basınç kuvvetlerine DİK ölçü. Yan sacta gövdenin boyuna berkitmeye " +
+      "(köşebent) kadar olan yüksekliği, berkitme yoksa gövdenin tamamı h3; " +
+      "üst sacta gövde sacları arası net açıklık a.",
+  },
+  {
+    key: "stiffenerSpacingMm", label: "Panel Uzunluğu a (Perde Aralığı)", unit: "mm",
+    type: "number", standardRef: "FEM 1.001 A-3.4",
+    hint: "Basınç yönündeki ölçü = ana kirişin iki perdesi arası. α = a / b.",
+  },
+  {
+    key: "sigma1", label: "Basınç Kenarı Gerilmesi σ1", unit: "N/mm²", type: "number",
+    standardRef: "FEM 1.001 T.A.3.4.1",
+    hint:
+      "BASINÇ POZİTİF girilir. σ1 panelin basınç kenarıdır (iki kenarın " +
+      "büyüğü). Yükleme Durumu I gerilmesidir ve γc arttırma katsayısını içerir.",
+  },
+  {
+    key: "sigma2", label: "Karşı Kenar Gerilmesi σ2", unit: "N/mm²", type: "number",
+    standardRef: "FEM 1.001 T.A.3.4.1",
+    hint:
+      "Panelin diğer kenarı; ÇEKME ise NEGATİF girilir. ψ = σ2/σ1 buradan " +
+      "çıkar: +1 düzgün basınç, 0 üçgen basınç, −1 saf eğilme. ψ < −1 (çekme " +
+      "baskın eğilme) geçerlidir ve Kσ = 23,9 ile karşılanır.",
+  },
+  {
+    key: "tau", label: "Ortalama Kayma Gerilmesi τ", unit: "N/mm²", type: "number",
+    standardRef: "FEM 1.001 A-3.4",
+    hint:
+      "Panelin ortalama kayma gerilmesi (işareti sonucu etkilemez). Yan sacta " +
+      "gövde kayması, üst sacta kapalı kesitin burulma akışından gelen kayma.",
+  },
 ];
 
 export const BUCKLING_EXTRA_FIELDS: FieldDef<BucklingInputs>[] = [
   {
-    key: "sideCorrectedCriticalNmm2", label: "Düzeltilmiş Kritik Gerilme (Yan Sac)",
-    unit: "N/mm²", type: "number",
-    hint: "Berkitme düzeni dikkate alınarak elle belirlenen kritik gerilme.",
+    key: "autoFromGirder", label: "Panelleri Ana Kirişten Otomatik Türet",
+    type: "select", options: ["Evet", "Hayır"],
+    standardRef: "FEM 1.001 A-3.4",
+    hint:
+      "Açıkken panel ölçüleri kesit geometrisinden, kenar gerilmeleri 7.4 " +
+      "gerilme analizinden gelir; yukarıdaki alanlar kullanılmaz. Kapatılırsa " +
+      "değerler elle girilir.",
   },
 ];
 

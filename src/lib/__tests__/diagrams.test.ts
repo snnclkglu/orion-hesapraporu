@@ -15,7 +15,7 @@ import { drumDiagram } from "@/lib/diagrams/drum";
 import { deflectionDiagram } from "@/lib/diagrams/deflection";
 import { girderLoadDiagram } from "@/lib/diagrams/girderLoad";
 import { girderStressDiagram } from "@/lib/diagrams/girderStress";
-import { diagramForSection } from "@/lib/diagrams/select";
+import { diagramForSection, diagramsForSection } from "@/lib/diagrams/select";
 import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
 import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
@@ -226,7 +226,9 @@ describe("diagramForSection", () => {
     expect(diagramForSection("main", "2.1", input, result)).not.toBeNull();
     expect(diagramForSection("aux", "2.1", input, result)).not.toBeNull();
     expect(diagramForSection("girder", "7.3", input, result)).toBeNull();
+    // Buruşma çoklu diyagram döndürür; tekil API bilinçli olarak null kalır
     expect(diagramForSection("buckling", "8.1", input, result)).toBeNull();
+    expect(diagramsForSection("buckling", "8.1", input, result).length).toBeGreaterThan(0);
   });
 
   it("kesit diyagramı hesaplanan tarafsız ekseni içerir", () => {
@@ -272,5 +274,82 @@ describe("diagramForSection", () => {
     assertFits("reeving", reevingDiagram({
       drivenFalls: 2, totalFalls: 4, drumDiaMm: 400, loadKg: 7500,
     }));
+  });
+});
+
+
+describe("buruşma diyagramları (8.1 / 8.2)", () => {
+  const input = V5_TEMPLATE;
+  const result = runCalc(input);
+  const all = (sec: string) => diagramsForSection("buckling", sec, input, result);
+
+  it("8.1 yerleşim + gerilme + katsayı + etkileşim setini üretir", () => {
+    const d = all("8.1");
+    // yerleşim, kenar gerilmesi, Kσ/Kτ, etkileşim (+ gerekiyorsa ρ)
+    expect(d.length).toBeGreaterThanOrEqual(4);
+    const t = texts({ els: d.flatMap((x) => x.els) });
+    expect(t).toContain("KONTROL EDİLEN PANELLER");
+    expect(t).toContain("ETKİLEŞİM DİYAGRAMI");
+    expect(t).toContain("BURKULMA KATSAYILARI");
+  });
+
+  it("8.2 yerleşim şemasını TEKRARLAMAZ (rapor şişmesin)", () => {
+    const t = texts({ els: all("8.2").flatMap((x) => x.els) });
+    expect(t).not.toContain("KONTROL EDİLEN PANELLER");
+    expect(t).toContain("ÜST SAC");
+  });
+
+  it("etkileşim sınırı D = c koşulunu her ψ ve c için sağlar", () => {
+    // Diyagramın çizdiği eğrinin matematiği: y² = c² − 2·A·c·x + (ψ−1)/2·x²
+    for (const psi of [-1, -0.786, -0.5, 0, 0.4545, 0.75, 1]) {
+      const A = (1 + psi) / 4;
+      const B = (3 - psi) / 4;
+      for (const c of [0.4, 0.623, 1]) {
+        for (let i = 0; i <= 20; i++) {
+          const x = (c * i) / 20;
+          const v = c * c - 2 * A * c * x + ((psi - 1) / 2) * x * x;
+          const y = v > 0 ? Math.sqrt(v) : 0;
+          const D = A * x + Math.sqrt((B * x) ** 2 + y ** 2);
+          expect(D).toBeCloseTo(c, 8);
+        }
+      }
+    }
+  });
+
+  it("grafiğin kullanım oranı motorun hesabıyla AYNIDIR", () => {
+    // Grafik ile rapor tablosu aynı sayıyı göstermeli; aksi hâlde mühendis
+    // aynı sayfada iki farklı sonuç görür.
+    const v = result.buckling!.values;
+    for (const pv of [v.side, v.top]) {
+      const x = pv.case1.sigma / pv.sigmaVcr;
+      const y = Math.abs(pv.case1.tau) / pv.tauVcr;
+      const A = (1 + pv.psiClamped) / 4;
+      const B = (3 - pv.psiClamped) / 4;
+      const D = A * x + Math.sqrt((B * x) ** 2 + y ** 2);
+      const cAllow = pv.case1.rhoCombined / pv.case1.safetyVv;
+      expect(D / cAllow).toBeCloseTo(pv.case1.utilization, 6);
+    }
+  });
+
+  it("hiçbir buruşma diyagramı kırpılmaz", () => {
+    for (const sec of ["8.1", "8.2"]) {
+      all(sec).forEach((d, i) => assertFits(`buruşma ${sec}#${i}`, d));
+    }
+  });
+
+  it("dejenere girdiler istisna atmaz", () => {
+    const bozuk = {
+      ...V5_TEMPLATE,
+      buckling: {
+        inputs: {
+          autoFromGirder: false,
+          side: { thicknessMm: 0, panelWidthMm: 0, stiffenerSpacingMm: 0, sigma1: 0, sigma2: 0, tau: 0 },
+          top: { thicknessMm: 0, panelWidthMm: 0, stiffenerSpacingMm: 0, sigma1: 0, sigma2: 0, tau: 0 },
+        },
+      },
+    };
+    const r = runCalc(bozuk);
+    expect(() => diagramsForSection("buckling", "8.1", bozuk, r)).not.toThrow();
+    expect(() => diagramsForSection("buckling", "8.2", bozuk, r)).not.toThrow();
   });
 });

@@ -188,6 +188,16 @@ export interface GirderInputs {
   statTestFactorR2: number;    // statik test katsayısı ρ2
   railLeverCMm: number;        // kayma merkezi kolu c [mm]
   diaphragmSpacingMm: number;  // iki perde arası l1 [mm]
+  /**
+   * Gövde sacındaki BOYUNA berkitmenin (köşebent) üst başlığa uzaklığı [mm].
+   * 0 = boyuna berkitme yok.
+   *
+   * Kesit özelliklerine GİRMEZ (köşebentin atalet momentine katkısı ihmal
+   * edilir — muhafazakâr kabul); yalnız BURUŞMA panelini böler: FEM 1.001
+   * A-3.4'te panel, mesnetli kenarları arasındaki açıklıktır ve boyuna
+   * berkitme gövdeyi iki panele ayırır (bkz. modules/buckling.ts).
+   */
+  webStiffenerOffsetMm: number;
   wheelContactHMm: number;     // tekerlek basıncı yayılım yüksekliği h [mm]
   wheelContactTMm: number;     // tekerlek basıncı taşıyan sac kalınlığı t [mm]
   /**

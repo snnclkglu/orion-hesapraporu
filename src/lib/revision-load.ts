@@ -183,10 +183,29 @@ function keepManualValues<T extends object>(stored: T | null | undefined, merged
  * Kayıtta olmayan alanları şablondan tamamlar (şema evrimi güvenliği).
  * Motora yeni bir girdi eklendiğinde eski revizyonlar `undefined` yerine
  * şablon değerini görür — hesap NaN'a düşmez.
+ *
+ * Birleştirme İKİ SEVİYELİDİR: şablondaki bir alan düz nesneyse (buruşmanın
+ * `side` / `top` panelleri gibi) o nesnenin İÇİ de tamamlanır. Sığ birleştirme
+ * yapılsaydı iç içe bir yapıya yeni alan eklendiğinde eski revizyonlarda o
+ * alan `undefined` kalır ve hesap sessizce NaN üretirdi. Diziler ve `null`
+ * OLDUĞU GİBİ korunur — onlar veri, tamamlanacak şema değil.
  */
 function withDefaults<T extends object>(stored: T | null | undefined, template: T): T {
   if (!stored || typeof stored !== "object") return template;
-  return { ...template, ...stored };
+  const tpl = template as unknown as Record<string, unknown>;
+  const src = stored as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...tpl, ...src };
+  for (const key of Object.keys(tpl)) {
+    const t = tpl[key];
+    const v = src[key];
+    if (
+      t !== null && typeof t === "object" && !Array.isArray(t) &&
+      v !== null && typeof v === "object" && !Array.isArray(v)
+    ) {
+      out[key] = { ...(t as object), ...(v as object) };
+    }
+  }
+  return out as T;
 }
 
 /**

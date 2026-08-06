@@ -56,6 +56,10 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   statTestFactorR2: 1.25,     // ρ2
   railLeverCMm: 741.9,
   diaphragmSpacingMm: 2000,
+  // Gövdeye kaynaklı boyuna berkitme (köşebent) üst başlıktan 300 mm aşağıda;
+  // buruşmada gövde paneli bu kottan bölünür (ilk portun "üst sac ile köşebent
+  // arası mesafe b = 300" girdisinin geometrik karşılığı).
+  webStiffenerOffsetMm: 300,
   wheelContactHMm: 75,
   wheelContactTMm: 12,
   // σy,maks / σy,min elle girilmez: teker basıncı σz'den gelir
@@ -73,29 +77,33 @@ export const V5_GIRDER_SELECTIONS: GirderSelections = {
   staticMaterial: "St52",     // S355 (St 52)
 };
 
-/** Buruşma kontrolü panelleri */
+/**
+ * Buruşma kontrolü panelleri.
+ *
+ * Varsayılan olarak panel ölçüleri ve kenar gerilmeleri ANA KİRİŞTEN türetilir
+ * (`autoFromGirder`); aşağıdaki değerler yalnız türetme kapatıldığında ya da
+ * ana kiriş bölümü kapalıyken kullanılan yedeklerdir. Ölçüler V5 kesitiyle
+ * uyumludur: yan sac t3 = 8, b = köşebent mesafesi 300, a = perde aralığı 2000;
+ * üst sac t2 = 8, b = gövdeler arası net açıklık 320, a = 2000.
+ */
 export const V5_BUCKLING_INPUTS: BucklingInputs = {
+  autoFromGirder: true,
   side: {
-    elasticModulus: 210000,
-    poisson: 0.3,
     thicknessMm: 8,
     panelWidthMm: 300,
     stiffenerSpacingMm: 2000,
     sigma1: 110,
     sigma2: 50,
-    tau: -30,
+    tau: 30,
   },
   top: {
-    elasticModulus: 210000,
-    poisson: 0.3,
     thicknessMm: 8,
-    panelWidthMm: 590,
-    stiffenerSpacingMm: 1500,
+    panelWidthMm: 320,
+    stiffenerSpacingMm: 2000,
     sigma1: 80,
     sigma2: 60,
     tau: 0,
   },
-  sideCorrectedCriticalNmm2: 322,
 };
 
 /** Başkirişin diğer modüllerden aldığı değerler */

@@ -38,7 +38,7 @@ import type { AnyCheck } from "../types";
 //       gruplarında tambur emniyet freni uygulanmadığı için kontrol çıkmaz.
 //   +3  teker yükleri bölümü: savrulma açısı (10.3), kılavuz kuvveti denge
 //       kontrolü (10.3), boyuna kuvvet bandı (10.4).
-const EXPECTED_CHECK_COUNT = 221;
+const EXPECTED_CHECK_COUNT = 225;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

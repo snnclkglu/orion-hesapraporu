@@ -467,6 +467,111 @@ const FEM_REFS: Record<string, StandardRef> = {
     ],
   },
 
+  "FEM 1.001 3.4": {
+    code: "FEM 1.001 3.4",
+    title: "Burkulmaya (buruşmaya) karşı kontrol — emniyet katsayısı νv",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, madde 3.4 (Booklet 9 md. 9.10 ile güncellenmiş)",
+    summary:
+      "Hesaplanan gerilmenin, kritik burkulma gerilmesinin νv'ye bölünmüş " +
+      "hâlini aşmadığı doğrulanır. Plaka genişliği boyunca gerilme DÜZGÜN " +
+      "dağıldığında (ψ = +1) burkulma tehlikesi en büyüktür; bu yüzden emniyet " +
+      "katsayısı ψ'ye bağlıdır ve ψ = +1'de en yüksek değerini alır. Kenar " +
+      "gerilmeleri oranı ψ, +1 ile −1 arasında değişir.",
+    formulas: [
+      { label: "Durum I", expr: "νv = 1,70 + 0,175 · (ψ − 1)" },
+      { label: "Durum II", expr: "νv = 1,50 + 0,125 · (ψ − 1)" },
+      { label: "Durum III", expr: "νv = 1,35 + 0,075 · (ψ − 1)" },
+      { label: "İzin verilen gerilme", expr: "σ_izin = σ_vcrc / νv" },
+    ],
+    tables: [
+      {
+        caption: "Tablo T.9.10 — buruşma emniyet katsayısı νv",
+        headers: ["Yükleme durumu", "Düzlem elemanlar (plaka)", "ψ = +1", "ψ = −1", "Eğri elemanlar"],
+        rows: [
+          ["I — normal işletme", "1,70 + 0,175·(ψ − 1)", "1,70", "1,35", "1,70"],
+          ["II — rüzgârlı işletme", "1,50 + 0,125·(ψ − 1)", "1,50", "1,25", "1,50"],
+          ["III — test / olağanüstü", "1,35 + 0,075·(ψ − 1)", "1,35", "1,20", "1,35"],
+        ],
+        footnote:
+          "Eğri elemanlarda (dairesel silindirler, borular) katsayı ψ'den " +
+          "bağımsızdır. Kritik gerilmenin belirlenmesi için bkz. Appendix A-3.4.",
+      },
+    ],
+    notes: [
+      "Uygulama Durum I ve Durum III'ü hesaplar. Durum II rüzgâr yükü " +
+        "gerektirir; rüzgâr uygulamanın hiçbir modülünde modellenmediğinden " +
+        "buruşmada da kapsam dışıdır ve raporda bilgi kontrolüyle belirtilir.",
+      "ψ tanım gereği [−1, +1] aralığındadır; çekme baskın eğilmede (ψ < −1) " +
+        "νv hesabında ψ = −1 alınır, Kσ ise T.A.3.4.1 durum 3'ten okunur.",
+    ],
+  },
+
+  "FEM 1.001 T.A.3.4.2": {
+    code: "FEM 1.001 T.A.3.4.2",
+    title: "Orantı sınırı ve indirgeme katsayısı ρ",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, Appendix A-3.4 (Tablo T.A.3.4.2)",
+    summary:
+      "Elastik burkulma bağıntıları YALNIZ orantı sınırının altında " +
+      "geçerlidir: St 37 için 190 N/mm², St 52 için 290 N/mm². Hesaplanan " +
+      "kritik gerilme bu sınırı aşarsa gerçek kritik gerilme plastikleşme " +
+      "nedeniyle daha küçüktür ve tablodaki ρ katsayısıyla indirgenir. Kayma " +
+      "için koşul √3·τvcr ≤ orantı sınırı biçimindedir; bu yüzden τ sütunu σ " +
+      "sütununun √3'e bölünmüş hâlidir.",
+    formulas: [
+      { label: "İndirgenmiş kritik gerilme", expr: "σ_vcr,ind = ρ · σ_vcr" },
+      { label: "Kayma koşulu", expr: "3^0,5 · τ_vcr ≤ σ_P" },
+    ],
+    tables: [
+      {
+        caption: "St 37 (Fe 360) — orantı sınırı 190 N/mm²",
+        headers: ["σvcr hesaplanan", "τvcr hesaplanan", "ρ", "σvcr indirgenmiş", "τvcr indirgenmiş"],
+        rows: [
+          [190, 110, "1,00", 190, 110],
+          [200, 116, "0,97", 194, 113],
+          [210, 121, "0,94", 197, 114],
+          [220, 127, "0,91", 200, 116],
+          [230, 133, "0,88", 202, 117],
+          [240, 139, "0,85", 204, 118],
+          [250, 145, "0,82", 206, 119],
+          [260, 150, "0,80", 208, 120],
+          [280, 162, "0,76", 212, 122],
+          [300, 173, "0,72", 215, 124],
+          [340, 197, "0,65", 221, 128],
+        ],
+      },
+      {
+        caption: "St 52 (Fe 510) — orantı sınırı 290 N/mm²",
+        headers: ["σvcr hesaplanan", "τvcr hesaplanan", "ρ", "σvcr indirgenmiş", "τvcr indirgenmiş"],
+        rows: [
+          [290, 168, "1,00", 290, 168],
+          [300, 173, "0,98", 294, 169],
+          [310, 179, "0,96", 297, 172],
+          [320, 185, "0,94", 300, 174],
+          [330, 191, "0,92", 303, 175],
+          [340, 196, "0,90", 306, 176],
+          [350, 202, "0,88", 308, 177],
+          [360, 208, "0,86", 309, 178],
+          [380, 220, "0,82", 312, 180],
+          [400, 231, "0,79", 316, 182],
+          [440, 254, "0,73", 322, 185],
+        ],
+      },
+    ],
+    notes: [
+      "Ara değerlerde uygulama İNDİRGENMİŞ DEĞER üzerinden doğrusal " +
+        "enterpolasyon yapar; bu yol sonucun tablodaki gibi monoton artmasını " +
+        "garanti eder (ρ üzerinden enterpolasyonla farkı binde birkaçtır).",
+      "Tablonun son satırının ötesinde indirgenmiş değer SABİT tutulur " +
+        "(St 37 → 221, St 52 → 322 N/mm²). Gerçek eğri akma sınırına doğru çok " +
+        "yavaş yükselmeye devam eder; sabitlemek kapasiteyi olduğundan küçük " +
+        "gösterir, yani emniyetli taraftadır — belgelenmiş firma kabulüdür.",
+      "FEM tabloyu yalnız St 37 ve St 52 için verir. St 44 için uygulama " +
+        "emniyetli tarafta kalmak üzere St 37 satırlarını kullanır.",
+    ],
+  },
+
   "FEM 1.001 T.A.3.4.1": {
     code: "FEM 1.001 T.A.3.4.1",
     title: "Plaka burkulma katsayıları Kσ ve Kτ",
@@ -527,8 +632,21 @@ const FEM_REFS: Record<string, StandardRef> = {
       },
     ],
     notes: [
-      "Kσ / Kτ katsayıları için bkz. Tablo T.A.3.4.1.",
-      "CMAA 70 Tablo 3.4.8.2-1 aynı katsayıları verir.",
+      "Kσ / Kτ katsayıları için bkz. Tablo T.A.3.4.1; orantı sınırı ve ρ " +
+        "indirgemesi için Tablo T.A.3.4.2; emniyet katsayısı νv için madde 3.4.",
+      "DİKKAT — standardın BASILI metninde σ_vcrc bağıntısında karekökün " +
+        "içindeki iki terim arasında çarpma işareti görünür; bu bir dizgi " +
+        "hatasıdır. Standardın kendi çözümlü örneği (σ = 28, τ = 47, ψ = −0,79, " +
+        "σ_vcr = 158,5, τ_vcr = 99 → σ_vcrc = 168 N/mm²) yalnız TOPLAMA ile " +
+        "çıkar; çarpma yorumu 965 N/mm² verir. Toplama ayrıca τ = 0'da " +
+        "σ_vcrc = σ_vcr, σ = 0'da σ_vcrc = √3·τ_vcr sınır hâllerini sağlar. " +
+        "Bağıntının kaynağı DIN 4114'tür ve orada da toplamalıdır.",
+      "İşaret kuralı: σ1 panelin BASINÇ kenarı gerilmesidir, σ2 karşı kenardır " +
+        "ve çekme ise ters işaretlidir. Bağıntıya σ mutlak değeriyle girer; " +
+        "işaretin etkisi yalnız ψ üzerindendir.",
+      "σ ve τ aynı noktanın gerilmeleri değildir: σ panelin kenar eğilme " +
+        "gerilmesi, τ ise panelin ortalama kaymasıdır. Bu FEM'in kasıtlı " +
+        "panel kabulüdür.",
     ],
   },
 
@@ -1485,7 +1603,6 @@ const ALIASES: Record<string, string> = {
   "FEM 1.001 T.2.2.3.1.1": "FEM 1.001 2.2.3.1.1",
   "FEM 1.001 2.3.1": "FEM 1.001 §2.3.1",
   "FEM 1.001 2.3.3": "FEM 1.001 §2.3.3",
-  "FEM 1.001 3.4": "FEM 1.001 A-3.4",
   "FEM 1.001 T.4.2.4.1": "FEM 1.001 4.2.4.1",
   "FEM 1.001 T.4.2.4.1.3": "FEM 1.001 T.4.2.4.1.3 / T.9.12.a",
   "FEM T.3.2.1.1": "FEM 1.001 T.3.2.1.1",

@@ -6,7 +6,7 @@
 
 import { useMemo } from "react";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
-import { diagramForSection } from "@/lib/diagrams/select";
+import { diagramsForSection } from "@/lib/diagrams/select";
 import { DiagramSvg } from "./diagram-svg";
 
 export function SectionDiagram({
@@ -17,18 +17,23 @@ export function SectionDiagram({
   input: CalcInput;
   result: CalcResult;
 }) {
-  const diagram = useMemo(
-    () => diagramForSection(moduleKey, sectionId, input, result),
+  const diagrams = useMemo(
+    () => diagramsForSection(moduleKey, sectionId, input, result),
     [moduleKey, sectionId, input, result]
   );
-  if (!diagram) return null;
+  if (diagrams.length === 0) return null;
   // Dar kolonda diyagram KIRPILMAZ, yatay kaydırılır (overflow-x-auto)
   return (
-    <div
-      data-diagram={`${moduleKey}-${sectionId}`}
-      className="overflow-x-auto rounded-lg border bg-white p-2"
-    >
-      <DiagramSvg diagram={diagram} className="mx-auto" />
+    <div className="grid gap-2">
+      {diagrams.map((d, i) => (
+        <div
+          key={i}
+          data-diagram={`${moduleKey}-${sectionId}-${i}`}
+          className="overflow-x-auto rounded-lg border bg-white p-2"
+        >
+          <DiagramSvg diagram={d} className="mx-auto" />
+        </div>
+      ))}
     </div>
   );
 }

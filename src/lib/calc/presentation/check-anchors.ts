@@ -137,10 +137,17 @@ const GIRDER_ANCHORS: AnchorMap = {
 /** 08 — Buruşma */
 const BUCKLING_ANCHORS: AnchorMap = {
   "8.1": {
-    "side.interaction": "sidePanel.allowable",
-    "side.corrected": "sidePanel.correctedCritical",
+    "side.case1": "sidePanel.allowable",
+    "side.case3": "sidePanel.allowableCase3",
+    "side.width": "sidePanel.width",
   },
-  "8.2": { "top.interaction": "topPanel.allowable" },
+  "8.2": {
+    "top.case1": "topPanel.allowable",
+    "top.case3": "topPanel.allowableCase3",
+    "top.width": "topPanel.width",
+    // Kapsam bilgisi bölüm sonunda, emniyet katsayısı satırına bağlanır
+    "loadCaseII.scope": "topPanel.safetyFactor",
+  },
 };
 
 /** 09 — Başkiriş */

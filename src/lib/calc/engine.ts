@@ -45,7 +45,12 @@ import {
   type WheelLoadSelections,
   type WheelLoadValues,
 } from "./modules/wheelLoads";
-import { computeBuckling, type BucklingInputs, type BucklingValues } from "./modules/buckling";
+import {
+  bucklingDepsFrom,
+  computeBuckling,
+  type BucklingInputs,
+  type BucklingValues,
+} from "./modules/buckling";
 import {
   computeEndCarriage,
   type EndCarriageInputs,
@@ -334,7 +339,18 @@ export function runCalc(input: CalcInput): CalcResult {
     );
   }
 
-  out.buckling = push(input.buckling && computeBuckling(input.buckling.inputs));
+  // --- Buruşma: ana kirişin kesit geometrisi ve gerilme analizinden beslenir
+  // Panel ölçüleri ve kenar gerilmeleri elle yazılmaz; ana kiriş açıksa
+  // oradan türetilir (bkz. modules/buckling.ts `bucklingDepsFrom`).
+  out.buckling = push(
+    input.buckling &&
+      computeBuckling(
+        input.buckling.inputs,
+        input.girder
+          ? bucklingDepsFrom(input.girder, out.girder?.cells)
+          : undefined
+      )
+  );
 
   // --- Başkiriş: ana kaldırma toplam yükü + köprü ağırlıkları ---------------
   if (input.endCarriage && out.mainHoist) {
