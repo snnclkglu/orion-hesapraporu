@@ -45,6 +45,8 @@ export interface BufferDiagramParams {
   maxCompressionPct?: number;
   /** Gerçekleşen sıkışma [%] */
   compressionPct?: number;
+  /** Katalog eğrileriyle gerçek bir hesap üretilebildi mi? */
+  computed?: boolean;
   /** Sönümleme verimi η (hidrolik) */
   dampingEfficiency?: number;
 }
@@ -69,19 +71,20 @@ function toStrokeCurve(
 
 export function bufferDiagram(p: BufferDiagramParams): Diagram {
   const els: DiagramEl[] = [];
-  const rubber = p.type === "kaucuk";
+  const curveDriven = p.type === "kaucuk" || p.type === "hucresel";
+  const cellular = p.type === "hucresel";
   const eta = finite(p.dampingEfficiency) || 0.85;
   const height = finite(p.strokeMm);
   const used = finite(p.strokeUsedMm);
   const Ea = finite(p.totalEnergyKj);
   const Ft = finite(p.reactionForceKn);
 
-  const baslik = rubber ? "TAMPON — KAUÇUK" : "TAMPON — HİDROLİK";
+  const baslik = cellular ? "TAMPON — HÜCRESEL" : curveDriven ? "TAMPON — KAUÇUK" : "TAMPON — HİDROLİK";
   els.push(txt(16, 22, baslik, 11, { bold: true }));
   els.push(
     txt(
       16, 34,
-      rubber
+      curveDriven
         ? `${p.model ?? "—"} · yük diyagramından enterpolasyon · h = ${fmtN(height)} mm`
         : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
@@ -98,9 +101,31 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
     return fitDiagram(els, W, 160);
   }
 
+  if (curveDriven && p.computed === false) {
+    els.push(
+      txt(
+        W / 2, 120,
+        cellular
+          ? "KAT0180 yük diyagramı olmadan sıkışma ve tepki kuvveti hesaplanamaz."
+          : "Seçilen kauçuk tampon için doğrulanmış yük eğrisi yoktur.",
+        10,
+        { anchor: "middle", fill: DCOL.muted }
+      )
+    );
+    els.push(
+      txt(
+        W / 2, 138,
+        "Katalog enerji kapasitesi yine seçime girer; 0 kN bir hesap sonucu değildir.",
+        8.5,
+        { anchor: "middle", fill: DCOL.muted }
+      )
+    );
+    return fitDiagram(els, W, 170);
+  }
+
   // --- Eğriler ------------------------------------------------------------
   // Enerji eğrisi [mm → kJ]; kauçukta katalog J cinsindendir (1/1000 ölçek).
-  const energyPts: [number, number][] = rubber
+  const energyPts: [number, number][] = curveDriven
     ? toStrokeCurve(p.energyCurve, height, 1 / 1000)
     : [
         [0, 0],
@@ -111,7 +136,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
         [used > 0 ? used : height, Ea],
       ];
   // Kuvvet eğrisi [mm → kN]
-  const forcePts: [number, number][] = rubber
+  const forcePts: [number, number][] = curveDriven
     ? toStrokeCurve(p.forceCurve, height, 1)
     : [
         [0, Ft],
@@ -178,8 +203,8 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   // --- Gösterge + kullanım oranı -----------------------------------------
   const legendY = topY + chartH + 52;
   pushLegend(els, 62, legendY, [
-    { color: DCOL.ink, label: rubber ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)" },
-    { color: DCOL.accent, label: rubber ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)" },
+    { color: DCOL.ink, label: curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)" },
+    { color: DCOL.accent, label: curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)" },
   ]);
 
   const barY = legendY - 6;
@@ -198,7 +223,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
     });
   }
 
-  if (rubber && finite(p.maxCompressionPct) > 0) {
+  if (curveDriven && finite(p.maxCompressionPct) > 0) {
     const pct = finite(p.compressionPct);
     const ok = pct <= p.maxCompressionPct!;
     els.push(

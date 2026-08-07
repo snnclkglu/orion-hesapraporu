@@ -239,7 +239,7 @@ export interface AdapterSection {
    * ızgarasıyla anlatılamayan geometriler için arayüz adanmış bir bileşen
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
-  editor?: "wheelSpacing";
+  editor?: "wheelSpacing" | "festoon";
   /**
    * Bölümün başlık kontrolü — girdiler ile katalog seçimi arasında (ya da
    * katalog başlığının yanında) gösterilen "gereken ↔ gerçekleşen" özeti.
@@ -469,6 +469,7 @@ const BRIDGE_ID_MAP: Record<string, string> = {
   "5.6": "6.7",
   "5.7": "6.8",
   "5.8": "6.9",
+  "5.9": "6.10",
 };
 
 const TRAVEL_TITLES: Record<TravelKey, string> = {
@@ -477,6 +478,14 @@ const TRAVEL_TITLES: Record<TravelKey, string> = {
   mono1Trolley: "Monoray 1 Araba Yürütme",
   mono2Trolley: "Monoray 2 Araba Yürütme",
   bridge: "Köprü Yürütme",
+};
+
+const FESTOON_TITLES: Record<TravelKey, string> = {
+  trolley: "Ana Araba",
+  auxTrolley: "Yardımcı Araba",
+  mono1Trolley: "Monoray 1 Arabası",
+  mono2Trolley: "Monoray 2 Arabası",
+  bridge: "Köprü",
 };
 
 function travelAdapter(which: TravelKey): ModuleAdapter {
@@ -488,11 +497,12 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
     sections: TRAVEL_SECTIONS.filter((s) => isBridge || !s.bridgeOnly).map((s) => ({
       id: isBridge ? BRIDGE_ID_MAP[s.id] ?? s.id.replace(/^5/, "6") : s.id,
       rawId: s.id,
-      title: s.title,
+      title: s.editor === "festoon" ? `${FESTOON_TITLES[which]} Feston` : s.title,
       description: s.description,
       inputDefs: defs(s.inputKeys, TRAVEL_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, TRAVEL_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
+      editor: s.editor,
       checkSuffixes: s.checkSuffixes,
       // Koşullu bölümler (ör. 5.8 tampon — tampon tipi "Yok" ise görünmez).
       // hoistAdapter ile aynı desen; koşul teknik özelliklerden okunur.

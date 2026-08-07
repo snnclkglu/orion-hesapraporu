@@ -816,6 +816,14 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "bufferStrokeMm", from: { attr: "stroke_mm" } },
       { sel: "bufferEnergyKj", from: { attr: "energy_kj" } },
       { sel: "bufferLoadKn", from: { attr: "max_force_kn" } },
+      // Kauçukta gerçek sıkışma ve kuvvet, yalnız katalog yük eğrilerinden
+      // okunabilir; ürün seçildiğinde bu eğriler hesap girdisine de taşınır.
+      { sel: "bufferEnergyCurve", from: { attr: "energy_curve" } },
+      { sel: "bufferForceCurve", from: { attr: "force_curve" } },
+      { sel: "bufferMaxCompressionPct", from: { attr: "max_compression_pct" } },
+      // SIBRE SP kısma iğnesi tablosu da seçilen strokla birlikte gelir;
+      // kod hesaplanan tampon başına kütleden otomatik türetilir.
+      { sel: "bufferMeteringPins", from: { attr: "metering_pins" } },
     ],
   },
 };

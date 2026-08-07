@@ -63,6 +63,8 @@ export interface TravelSectionDef {
   visible?: (specs: TechnicalSpecs, which: TravelWhich) => boolean;
   inputKeys: (keyof TravelInputs & string)[];
   selectionKeys: (keyof TravelSelections & string)[];
+  /** Jenerik alan ızgarasına sığmayan, bölüme ait özel düzenleyici. */
+  editor?: "festoon";
   rows: TravelRowDef[];
   /** Bölümde gösterilecek kontrol id sonekleri (örn. "wheel.pressure") */
   checkSuffixes: string[];
@@ -525,7 +527,6 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     ],
     selectionKeys: [
       "bufferModel", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
-      "bufferMeteringPinCode", "bufferDesignMassMaxT", "bufferMaxCompressionPct",
     ],
     rows: [
       {
@@ -599,21 +600,39 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       },
       {
         key: "buffer.compression", label: "Gerçekleşen Sıkışma",
-        formula: "kauçuk: enerji–sıkışma eğrisinden (E_a → %)",
+        valueFrom: (x) =>
+          (x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel") && !x.v.bufferComputed
+            ? "Yük diyagramı yok"
+            : x.v.bufferCompressionPct,
+        formula: "kauçuk / hücresel: enerji–sıkışma eğrisinden (E_a → %)",
         subst: (x) =>
-          x.v.bufferType === "kaucuk"
-            ? `eğri(${n(x.v.totalEnergyKj * 1000, 1)} J)`
+          x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
+            ? x.v.bufferComputed
+              ? `eğri(${n(x.v.totalEnergyKj * 1000, 1)} J)`
+              : "katalog yük diyagramı yok"
             : "tam strok",
         unit: "%", digits: 1,
       },
       {
+        key: "buffer.maxCompressionLimit", label: "Katalog Azami Sıkışma",
+        valueFrom: (x) => x.sel.bufferMaxCompressionPct || "Katalog verisi yok",
+        unit: "%", digits: 1,
+        formula: "Program 0170: %50 · Program 0180: %80",
+      },
+      {
         key: "buffer.reactionForce", label: "Tampon Tepki Kuvveti F_t",
+        valueFrom: (x) =>
+          (x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel") && !x.v.bufferComputed
+            ? "Yük diyagramı yok"
+            : x.v.bufferForceKn,
         formula:
           "hidrolik: F_t = E_a / (s · η) + F₀/1000, η = 0,85 · " +
-          "kauçuk: F_t = kuvvet eğrisi(sıkışma %) + F₀/1000",
+          "kauçuk / hücresel: F_t = kuvvet eğrisi(sıkışma %) + F₀/1000",
         subst: (x) =>
-          x.v.bufferType === "kaucuk"
-            ? `eğri(${n(x.v.bufferCompressionPct, 1)} %) + ${n(x.v.bufferDriveLoadN, 1)}/1000`
+          x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
+            ? x.v.bufferComputed
+              ? `eğri(${n(x.v.bufferCompressionPct, 1)} %) + ${n(x.v.bufferDriveLoadN, 1)}/1000`
+              : "katalog yük diyagramı yok"
             : `${n(x.v.totalEnergyKj, 3)} / (${n(x.v.bufferStrokeUsedMm)}/1000 · 0,85) + ${n(x.v.bufferDriveLoadN, 1)}/1000`,
         unit: "kN", digits: 2,
       },
@@ -637,11 +656,40 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         subst: (x) => `${n(x.v.collisionLoadT, 3)}`,
         unit: "t", digits: 3,
       },
+      {
+        key: "buffer.meteringPinCode", label: "Otomatik Kısma İğnesi Kodu",
+        valueFrom: (x) => x.v.bufferMeteringPinCode || "Katalog tablosu yok",
+        formula: "seçilen strokta m_a değerini karşılayan en küçük katalog sınıfı",
+      },
+      {
+        key: "buffer.meteringPinMassClass", label: "İğne Kütle Sınıfı",
+        valueFrom: (x) => x.v.bufferDesignMassMaxT || "—",
+        unit: "t", digits: 3,
+      },
     ],
     checkSuffixes: [
       "buffer.energy", "buffer.load", "buffer.compression",
       "buffer.deceleration", "buffer.designMass", "buffer.speedThreshold",
       "buffer.scope",
     ],
+  },
+  {
+    id: "5.9",
+    title: "Feston Sistemi",
+    description:
+      "Bu hareket ekseninin kablo taşıyıcı sistemi. Seri, taşıyıcı adedi ve " +
+      "kablo paketi ilgili yürütmeden bağımsız seçilir.",
+    visible: (specs, which) => {
+      if (which === "trolley") return specs.trolleyPowerSupply === "festoon";
+      if (which === "auxTrolley") return specs.auxTrolleyPowerSupply === "festoon";
+      if (which === "mono1Trolley") return specs.mono1TrolleyPowerSupply === "festoon";
+      if (which === "mono2Trolley") return specs.mono2TrolleyPowerSupply === "festoon";
+      return specs.bridgePowerSupply === "festoon";
+    },
+    inputKeys: [],
+    selectionKeys: [],
+    editor: "festoon",
+    rows: [],
+    checkSuffixes: [],
   },
 ];

@@ -13,6 +13,7 @@ import {
   computeBuffer,
   interpolateCurve,
   inverseCurve,
+  selectMeteringPin,
   type BufferInput,
   type CurvePoint,
 } from "../buffer";
@@ -85,6 +86,23 @@ describe("eğri enterpolasyonu", () => {
     expect(interpolateCurve([], 10)).toBeUndefined();
     expect(interpolateCurve(undefined, 10)).toBeUndefined();
     expect(inverseCurve([], 10)).toBeUndefined();
+  });
+});
+
+describe("SIBRE SP kısma iğnesi seçimi", () => {
+  const pins = [
+    { design_mass_t_max: 5, metering_pin_code: "102" },
+    { design_mass_t_max: 10, metering_pin_code: "104" },
+    { design_mass_t_max: 20, metering_pin_code: "106" },
+  ];
+
+  it("tasarım kütlesini karşılayan en küçük katalog sınıfını seçer", () => {
+    expect(selectMeteringPin(pins, 5)).toEqual({ code: "102", designMassMaxT: 5 });
+    expect(selectMeteringPin(pins, 5.01)).toEqual({ code: "104", designMassMaxT: 10 });
+  });
+
+  it("katalog sınıfı yetmezse kod üretmez", () => {
+    expect(selectMeteringPin(pins, 21)).toBeUndefined();
   });
 });
 
@@ -215,6 +233,20 @@ describe("kauçuk tampon — eğriden çözüm", () => {
     // Uydurma bir enerji/kuvvet kontrolü ÜRETİLMEZ
     expect(check(r, "buffer.energy")).toBeUndefined();
     expect(check(r, "buffer.load")).toBeUndefined();
+  });
+
+  it("hücresel tamponun yük diyagramı yoksa 0 kN sonuç olarak yorumlanmaz", () => {
+    const r = computeBuffer({
+      ...RUBBER,
+      type: "hucresel",
+      energyCurve: undefined,
+      forceCurve: undefined,
+      maxCompressionPct: 80,
+    });
+    expect(r.values.computed).toBe(false);
+    expect(r.values.reactionForceKn).toBe(0);
+    expect(check(r, "buffer.scope")?.label).toContain("Hücresel Tampon Yük Diyagramı Yok");
+    expect(check(r, "buffer.deceleration")).toBeUndefined();
   });
 });
 
@@ -367,5 +399,25 @@ describe("yürütme modülünde tampon", () => {
     expect(yok.checks.find((c) => c.id === "trolley.buffer.energy")).toBeUndefined();
     expect(yok.checks.find((c) => c.id === "trolley.buffer.scope")).toBeDefined();
     expect(yok.values.bufferForceKn).toBe(0);
+  });
+
+  it("SIBRE SP kısma iğnesini katalogdaki kütle sınıfından otomatik seçer", () => {
+    const withPins = computeTravelGroup(
+      V5_SPECS,
+      "trolley",
+      V5_TROLLEY_INPUTS,
+      {
+        ...V5_TROLLEY_SELECTIONS,
+        bufferMeteringPins: [
+          { design_mass_t_max: 1, metering_pin_code: "102" },
+          { design_mass_t_max: 2, metering_pin_code: "104" },
+        ],
+      },
+      V5_TRAVEL_DEPS
+    );
+    expect(withPins.values.collisionLoadT).toBeGreaterThan(1);
+    expect(withPins.values.bufferMeteringPinCode).toBe("104");
+    expect(withPins.values.bufferDesignMassMaxT).toBe(2);
+    expect(withPins.checks.find((item) => item.id === "trolley.buffer.designMass")?.pass).toBe(true);
   });
 });

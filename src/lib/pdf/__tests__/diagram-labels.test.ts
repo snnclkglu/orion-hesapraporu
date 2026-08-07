@@ -13,6 +13,7 @@ import { runCalc } from "@/lib/calc/engine";
 import { MODULE_ADAPTERS } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 import { diagramsForSection } from "@/lib/diagrams/select";
 import { resolveTextOverlaps, textBounds, type Diagram, type TextEl } from "@/lib/diagrams/model";
+import { reevingDiagram } from "@/lib/diagrams/reeving";
 
 const input = V5_TEMPLATE;
 const result = runCalc(input);
@@ -90,6 +91,13 @@ describe("diyagram etiketleri", () => {
     resolveTextOverlaps(els);
     expect(els[0].y).toBe(0);
     expect(els[1].y).not.toBe(0);
+  });
+
+  it("halat donanımı şeması Türkçe baş harf düzenini korur", () => {
+    const labels = reevingDiagram({ drivenFalls: 2, totalFalls: 2 }).els
+      .filter((element): element is TextEl => element.kind === "text")
+      .map((element) => element.text);
+    expect(labels).toContain("Tambur · Makara · Kanca Bloğu");
   });
 
   it("kaçan etiket için bağlantı çizgisi çizilir (leaderTo verilmişse)", () => {

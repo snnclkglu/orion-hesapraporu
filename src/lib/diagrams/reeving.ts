@@ -24,7 +24,7 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   const els: DiagramEl[] = [];
   const nf = Math.min(12, Math.max(1, Math.round(p.totalFalls || 0)));
   const nd = Math.min(nf, Math.max(1, Math.round(p.drivenFalls || 0)));
-  caption(els, `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`, "tambur · makara · kanca bloğu");
+  caption(els, `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`, "Tambur · Makara · Kanca Bloğu");
 
   if (!(p.totalFalls > 0)) {
     els.push(txt(W / 2, H / 2, "Donanım girdileri eksik", 11, { anchor: "middle", fill: DCOL.muted }));

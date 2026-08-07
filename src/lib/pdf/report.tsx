@@ -490,7 +490,6 @@ const s = StyleSheet.create({
   },
   altFields: { flex: 1, fontFamily: FONTS.mono, fontSize: 6.9, color: BRAND.ink },
   altFieldLabel: { fontFamily: FONTS.sans, fontSize: 6.4, fontWeight: 500, color: BRAND.gray600 },
-  altNote: { ...T.micro, color: BRAND.gray500, marginTop: 2.5 },
   // ---- kontrol özeti (belge sonu): sol sütun sayfa no, sağda sonuç
   chkPage: {
     width: 22,
@@ -656,58 +655,50 @@ function FieldTable({
   );
 }
 
-/** Teknik özelliklerde festoon rapor seçeneği açıksa basılan seri/adet ön seçimi. */
-function FestoonDetails({ input }: { input: CalcInput }) {
+/** İlgili yürütme bölümünün altında basılan festoon ön seçimi. */
+function FestoonDetails({ input, axisKey }: { input: CalcInput; axisKey: string }) {
   if (!input.specs.showFestoonDetailsInReport) return null;
-  const axes = festoonAxes(input.specs).filter(
-    (axis) => axis.selected && moduleState(input, axis.key) !== undefined
+  const axis = festoonAxes(input.specs).find(
+    (item) => item.key === axisKey && item.selected && moduleState(input, item.key) !== undefined
   );
-  if (axes.length === 0) return null;
+  if (!axis) return null;
+
+  const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
+  const selected = festoonSeriesLabel(result.selected);
+  const carrierLoad = result.loadPerTrolleyKg === null ? "—" : `${fmt(result.loadPerTrolleyKg)} kg`;
+  const limit = result.selected
+    ? `${result.selected.maxTrolleyLoadKg} kg · ${result.selected.maxSpeedMpm} m/dak`
+    : "Uygun seri bulunamadı";
 
   return (
     <>
-      <SubHead tr="FESTON ÖN SEÇİMLERİ" />
-      <View>
-        {axes.map((axis) => {
-          const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
-          const selected = festoonSeriesLabel(result.selected);
-          const carrierLoad = result.loadPerTrolleyKg === null ? "—" : `${fmt(result.loadPerTrolleyKg)} kg`;
-          const limit = result.selected
-            ? `${result.selected.maxTrolleyLoadKg} kg · ${result.selected.maxSpeedMpm} m/dak`
-            : "Uygun seri bulunamadı";
-          return (
-            <View
-              key={axis.key}
-              style={{
-                marginTop: 5,
-                borderLeftWidth: 2,
-                borderLeftColor: BRAND.steel,
-                borderBottomWidth: 0.5,
-                borderBottomColor: BRAND.line300,
-                paddingLeft: 7,
-                paddingBottom: 3,
-              }}
-              wrap={false}
-            >
-              <Text style={s.sumModuleTitle}>{axis.title}</Text>
-              <KvRow
-                label="Seri / adet"
-                value={`${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
-                narrowLabel
-              />
-              <KvRow
-                label="Hareket"
-                value={`${fmt(result.travelDistanceM)} m · ${fmt(result.travelSpeedMpm)} m/dak · h ${fmt(axis.spec?.loopHeightM ?? 1.5)} m`}
-                narrowLabel
-              />
-              <KvRow
-                label="Yük / sınır"
-                value={`${carrierLoad} / ${limit}${result.pass === false ? " · UYGUN DEĞİL" : result.pass === true ? " · UYGUN" : ""}`}
-                narrowLabel
-              />
-            </View>
-          );
-        })}
+      <View
+        style={{
+          borderLeftWidth: 2,
+          borderLeftColor: BRAND.steel,
+          borderBottomWidth: 0.5,
+          borderBottomColor: BRAND.line300,
+          paddingLeft: 7,
+          paddingBottom: 3,
+        }}
+        wrap={false}
+      >
+        <Text style={s.sumModuleTitle}>{axis.title}</Text>
+        <KvRow
+          label="Seri / adet"
+          value={`${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
+          narrowLabel
+        />
+        <KvRow
+          label="Hareket"
+          value={`${fmt(result.travelDistanceM)} m · ${fmt(result.travelSpeedMpm)} m/dak · h ${fmt(axis.spec?.loopHeightM ?? 1.5)} m`}
+          narrowLabel
+        />
+        <KvRow
+          label="Yük / sınır"
+          value={`${carrierLoad} / ${limit}${result.pass === false ? " · UYGUN DEĞİL" : result.pass === true ? " · UYGUN" : ""}`}
+          narrowLabel
+        />
       </View>
       <Text style={{ ...T.caption, marginTop: 4 }}>
         Ön seçim, katalog ailesinin hız ve taşıyıcı başına yük sınırını doğrular. Kesin parça kodu; I-kiriş flanşı, kablo paketi ölçüleri ve minimum bükülme çapı doğrulanarak belirlenir.
@@ -1420,8 +1411,6 @@ function SummarySection({
         <SectionTag no="01" title="Teknik Özellikler" />
       </View>
       <FieldTable defs={specFieldsFor(input)} source={input.specs} specs={input.specs} />
-      <FestoonDetails input={input} />
-
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       {/* Aynı gerekçe: iki sütunlu ızgara bölünemez, bütün hâlde taşınır. */}
       <View style={s.kvGrid} wrap={false}>
@@ -1804,6 +1793,8 @@ function CalcRowLine({
     raw = undefined;
   }
   const { value, unit } = toDisplayUnit(raw, row.unit);
+  // Sözel durumlar (ör. katalog yük diyagramı yok) sayısal birim almaz.
+  const displayUnit = typeof value === "string" ? undefined : unit;
   const hasChecks = (checks?.length ?? 0) > 0;
   const allPass = hasChecks && checks!.every((c) => c.pass);
   const accent = !hasChecks ? BRAND.line350 : allPass ? BRAND.success : BRAND.red;
@@ -1820,7 +1811,7 @@ function CalcRowLine({
               {row.diameter ? "Ø" : ""}
               {fmt(value, row.digits ?? 2)}
             </Text>
-            {unit ? <Text style={s.calcUnit}>{unit}</Text> : null}
+            {displayUnit ? <Text style={s.calcUnit}>{displayUnit}</Text> : null}
           </View>
         </View>
         {showFormulas && row.formula && (
@@ -1864,8 +1855,7 @@ function EngineeringNote({ note }: { note: string }) {
       }}
       wrap={false}
     >
-      <Text style={T.kicker}>MÜHENDİS NOTU</Text>
-      <Text style={{ ...T.body, marginTop: 2 }}>{note}</Text>
+      <Text style={T.body}>{note}</Text>
     </View>
   );
 }
@@ -1902,7 +1892,11 @@ function ModulePage({
         meta="FEM 1.001 · DIN 15018 · CMAA 70"
       />
       {adapter.sections
-        .filter((section) => !section.visible || section.visible(input.specs))
+        .filter(
+          (section) =>
+            (!section.visible || section.visible(input.specs)) &&
+            (section.editor !== "festoon" || input.specs.showFestoonDetailsInReport === true)
+        )
         .map((section, si) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
@@ -1928,6 +1922,10 @@ function ModulePage({
 
         // Diyagramlar: her biri kendi başına bölünemez bir parça
         for (const [i, d] of diagrams.entries()) add(<PdfDiagram key={i} diagram={d} />);
+
+        if (section.editor === "festoon") {
+          add(<FestoonDetails input={input} axisKey={adapter.key} />);
+        }
 
         const inputTables: React.ReactNode[] = [];
         if (section.inputDefs.length > 0) {
@@ -1984,14 +1982,7 @@ function ModulePage({
           deps
         );
         if (altNodes.length > 0) {
-          addHeaded("SEÇENEKLER", altNodes[0], [
-            ...altNodes.slice(1),
-            <Text key="alt-note" style={s.altNote}>
-              ◆ işaretli seçenek bu raporun hesaplarında kullanılmıştır; diğerleri
-              onaya sunulan alternatiflerdir. Uygunluk rozeti yalnız bu bölümün
-              kontrollerini kapsar.
-            </Text>,
-          ]);
+          addHeaded("SEÇENEKLER", altNodes[0], altNodes.slice(1));
         }
 
         if (section.table) {

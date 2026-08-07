@@ -288,6 +288,7 @@ export function diagramForSection(
         forceCurve: st.selections.bufferForceCurve,
         maxCompressionPct: st.selections.bufferMaxCompressionPct,
         compressionPct: v.bufferCompressionPct,
+        computed: v.bufferComputed,
         dampingEfficiency: HYDRAULIC_DAMPING_EFFICIENCY,
       });
     }

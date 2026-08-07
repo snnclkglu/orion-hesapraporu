@@ -194,20 +194,4 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     key: "bufferLoadKn", label: "Tampon Azami Son Kuvveti", unit: "kN", type: "number",
     hint: "Katalogun bastığı azami son kuvvet (SIBRE SP: \"max. End Force\").",
   },
-  {
-    key: "bufferMeteringPinCode", label: "Kısma İğnesi Kodu", type: "text",
-    hint:
-      "SIBRE SP sipariş kodunun son parçası. Hesaplanan tampon başına tasarım " +
-      "kütlesine göre katalogdan seçilir (sibre_sp_metering_pins.json).",
-  },
-  {
-    key: "bufferDesignMassMaxT", label: "İğne Tasarım Kütlesi Sınıfı", unit: "t", type: "number",
-    hint: "Seçilen strokta kısma iğnesi tablosunun tasarım kütlesi tavanı. 0 = kontrol edilmez.",
-  },
-  {
-    key: "bufferMaxCompressionPct", label: "İzin Verilen Azami Sıkışma", unit: "%", type: "number",
-    hint:
-      "Kauçuk tamponda katalogun izin verdiği azami sıkışma (Conductix " +
-      "Program 0170: tampon yüksekliğinin %50'si). 0 = kontrol edilmez.",
-  },
 ];

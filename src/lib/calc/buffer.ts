@@ -35,14 +35,23 @@ import type { AnyCheck } from "./types";
 // --------------------------------------------------------------- sabitler
 
 /** Tampon tipi — teknik özelliklerde araba ve köprü için ayrı seçilir. */
-export type BufferType = "hidrolik" | "kaucuk" | "yok";
+export type BufferType = "hidrolik" | "kaucuk" | "hucresel" | "yok";
 
-export const BUFFER_TYPES = ["hidrolik", "kaucuk", "yok"] as const;
+export const BUFFER_TYPES = ["hidrolik", "kaucuk", "hucresel", "yok"] as const;
 
 export const BUFFER_TYPE_LABELS: Record<string, string> = {
   hidrolik: "Hidrolik Tampon",
   kaucuk: "Kauçuk Tampon",
+  hucresel: "Hücresel Tampon",
   yok: "Yok",
+};
+
+/** Katalogdaki tampon tipi değeri; seçici bu değerle teknik seçimi kilitler. */
+export const BUFFER_CATALOG_TYPE: Record<BufferType, string> = {
+  hidrolik: "hidrolik",
+  kaucuk: "kauçuk",
+  hucresel: "hücresel",
+  yok: "yok",
 };
 
 /**
@@ -78,6 +87,41 @@ export const TROLLEY_IMPACT_SPEED_RATIO = 1;
 
 /** Katalog eğrisinin bir noktası: [sıkışma %, büyüklük]. */
 export type CurvePoint = readonly [number, number];
+
+/** SIBRE SP katalog satırına bağlı kısma iğnesi seçeneği. */
+export interface MeteringPin {
+  design_mass_t_max: number;
+  metering_pin_code: string;
+}
+
+export interface SelectedMeteringPin {
+  code: string;
+  designMassMaxT: number;
+}
+
+/**
+ * Tampon başına tasarım kütlesini karşılayan en küçük SIBRE SP kısma iğnesini
+ * seçer. Katalog tablosu yoksa ya da kütle en büyük sınıfı geçerse sonuç yoktur.
+ */
+export function selectMeteringPin(
+  pins: readonly MeteringPin[] | undefined,
+  designMassT: number
+): SelectedMeteringPin | undefined {
+  if (!Array.isArray(pins) || !Number.isFinite(designMassT) || designMassT <= 0) return undefined;
+  const pin = pins
+    .filter(
+      (pin) =>
+        Number.isFinite(pin.design_mass_t_max) &&
+        pin.design_mass_t_max > 0 &&
+        typeof pin.metering_pin_code === "string" &&
+        pin.metering_pin_code.trim() !== ""
+    )
+    .sort((a, b) => a.design_mass_t_max - b.design_mass_t_max)
+    .find((item) => item.design_mass_t_max >= designMassT);
+  return pin
+    ? { code: pin.metering_pin_code, designMassMaxT: pin.design_mass_t_max }
+    : undefined;
+}
 
 /**
  * Eğriyi x'e göre artan sırada, sayısal olmayan noktaları eleyerek verir.
@@ -399,12 +443,13 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   /** Kauçukta gereken enerji katalog eğrisinin tepesini aşıyor mu */
   let beyondCurve = false;
 
-  if (inp.type === "kaucuk") {
+  const curveDriven = inp.type === "kaucuk" || inp.type === "hucresel";
+  if (curveDriven) {
     const energyCurve = cleanCurve(inp.energyCurve);
     const forceCurve = cleanCurve(inp.forceCurve);
     if (energyCurve.length < 2 || forceCurve.length < 2 || strokeMm <= 0) {
-      // EĞRİ YOK → hesap SESSİZCE YAPILMAZ. Kauçuk doğrusal olmadığı için
-      // kapalı formülle "yaklaşık" bir sayı üretmek yanıltıcı olur.
+      // EĞRİ YOK → hesap SESSİZCE YAPILMAZ. Kauçuk/hücresel tampon doğrusal
+      // olmadığı için kapalı formülle "yaklaşık" bir sayı üretmek yanıltıcı olur.
       computed = false;
       strokeUsedMm = 0;
       totalEnergyKj = impactEnergyKj;
@@ -412,7 +457,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       reactionForceKn = 0;
       checks.push({
         id: id("buffer.scope"),
-        label: "Kauçuk Tampon Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı",
+        label: inp.type === "hucresel"
+          ? "Hücresel Tampon Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı"
+          : "Kauçuk Tampon Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı",
         required: 0,
         provided: 0,
         unit: "-",
@@ -526,7 +573,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
     });
   }
 
-  if (inp.type === "kaucuk" && computed && pos(inp.maxCompressionPct) > 0) {
+  if (curveDriven && computed && pos(inp.maxCompressionPct) > 0) {
     checks.push({
       id: id("buffer.compression"),
       label: beyondCurve

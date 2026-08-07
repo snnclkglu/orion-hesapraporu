@@ -23,9 +23,11 @@ import { solveBeam } from "../beam";
 import {
   computeBuffer,
   FEM_IMPACT_SPEED_RATIO,
+  selectMeteringPin,
   TROLLEY_IMPACT_SPEED_RATIO,
   type BufferType,
   type CurvePoint,
+  type MeteringPin,
 } from "../buffer";
 import { mechanismLife, shaftMaterialAllowables } from "../coefficients";
 import { shaftStress } from "../shaftStress";
@@ -197,6 +199,8 @@ export interface TravelSelections {
   bufferLoadKn: number;
   /** Hidrolik: SIBRE kısma iğnesi (metering pin) sipariş kodu */
   bufferMeteringPinCode?: string;
+  /** Hidrolik: katalog satırının strokla uyumlu kısma iğnesi tablosu. */
+  bufferMeteringPins?: MeteringPin[];
   /** Hidrolik: seçilen strokta iğne tablosundaki tasarım kütlesi tavanı [t] */
   bufferDesignMassMaxT?: number;
   /** Kauçuk/hücresel: katalogun izin verdiği azami sıkışma [%] (kauçuk 50) */
@@ -298,6 +302,10 @@ export interface TravelValues {
   bufferCompressionPct: number;
   bufferAvgDecelerationMps2: number;
   bufferMaxDecelerationMps2: number;
+  /** SIBRE SP için hesaplanan kütle sınıfından otomatik seçilen iğne kodu. */
+  bufferMeteringPinCode: string;
+  /** Otomatik iğne sınıfının katalogdaki tasarım kütlesi üst sınırı [t]. */
+  bufferDesignMassMaxT: number;
   /** Tampon tepkisi yapıya aktarılıyor mu (FEM Kitapçık 9 md. 9.4.2) */
   bufferTransferredToStructure: boolean;
   /** Tampon hesabı koştu mu (tip "yok" ya da eğri verisi eksikse false) */
@@ -858,6 +866,21 @@ export function computeTravelGroup(
   const bufferPowerKw = isTrolley ? powerPerMotor : sel.motorPowerKw;
   set("buffer.drivePower", bufferPowerKw);
 
+  // SIBRE SP kısma iğnesi, katalogdaki aynı strok satırında tampon başına
+  // hesaplanan tasarım kütlesini karşılayan en küçük sınıftır. Eski revizyon
+  // ya da katalog dışı bir seçimde kullanıcıdaki manuel değer geri düşüm olur.
+  const automaticMeteringPin = view.bufferType === "hidrolik"
+    ? selectMeteringPin(sel.bufferMeteringPins, massPerBufferT)
+    : undefined;
+  const meteringPinCode = view.bufferType === "hidrolik"
+    ? automaticMeteringPin?.code ?? sel.bufferMeteringPinCode ?? ""
+    : "";
+  const meteringPinMassMaxT = view.bufferType === "hidrolik"
+    ? automaticMeteringPin?.designMassMaxT ?? sel.bufferDesignMassMaxT ?? 0
+    : 0;
+  set("buffer.meteringPinCode", meteringPinCode);
+  set("buffer.meteringPinMassClass", meteringPinMassMaxT);
+
   const bufferResult = computeBuffer({
     which,
     type: view.bufferType,
@@ -869,7 +892,7 @@ export function computeTravelGroup(
     strokeMm: sel.bufferStrokeMm,
     catalogEnergyKj: sel.bufferEnergyKj,
     catalogMaxForceKn: sel.bufferLoadKn,
-    catalogDesignMassMaxT: sel.bufferDesignMassMaxT ?? 0,
+    catalogDesignMassMaxT: meteringPinMassMaxT,
     energyCurve: sel.bufferEnergyCurve,
     forceCurve: sel.bufferForceCurve,
     maxCompressionPct: sel.bufferMaxCompressionPct ?? 0,
@@ -952,6 +975,8 @@ export function computeTravelGroup(
     bufferCompressionPct: bv.compressionPct,
     bufferAvgDecelerationMps2: bv.avgDecelerationMps2,
     bufferMaxDecelerationMps2: bv.maxDecelerationMps2,
+    bufferMeteringPinCode: meteringPinCode,
+    bufferDesignMassMaxT: meteringPinMassMaxT,
     bufferTransferredToStructure: bv.transferredToStructure,
     bufferComputed: bv.computed,
   };

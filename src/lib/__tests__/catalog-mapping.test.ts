@@ -433,6 +433,8 @@ describe.each([
     expect(sel.bufferEnergyKj).toBe(17);
     // buffer.load kontrolü (engelleyici)
     expect(sel.bufferLoadKn).toBe(200);
+    // Aynı strokun SIBRE iğne tablosu da seçimle gelir; kod hesapta otomatik seçilir.
+    expect(sel.bufferMeteringPins).toEqual(HYDRAULIC_BUFFER.attrs.metering_pins);
   });
 
   it("kauçuk tamponda kJ'ye çevrilmiş enerjiyi ve türetilmiş stroğu yazar", () => {
@@ -442,6 +444,9 @@ describe.each([
     // s = h · sıkışma% / 100 = 200 · 50 / 100
     expect(sel.bufferStrokeMm).toBe(100);
     expect(sel.bufferLoadKn).toBe(400);
+    expect(sel.bufferMaxCompressionPct).toBe(50);
+    expect(sel.bufferEnergyCurve).toEqual(RUBBER_BUFFER.attrs.energy_curve);
+    expect(sel.bufferForceCurve).toEqual(RUBBER_BUFFER.attrs.force_curve);
   });
 
   it("katalogda olmayan alanı yazmaz", () => {

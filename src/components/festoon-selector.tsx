@@ -46,7 +46,7 @@ export function FestoonSelector({
     : "Kablo paketi yükünü giriniz";
 
   return (
-    <section className="grid gap-3 border border-dashed bg-muted/20 p-3.5">
+    <section className="grid min-w-0 gap-3 border border-dashed bg-muted/20 p-3.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold tracking-tight">{title} · Feston Ön Seçimi</h4>
@@ -74,15 +74,15 @@ export function FestoonSelector({
         loopHeightM={spec.loopHeightM}
       />
 
-      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 xl:grid-cols-5">
-        <label className="grid gap-1.5 text-xs font-medium">
+      <div className="grid min-w-0 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
           Feston Tipi
           <Select
             value={spec.series}
             disabled={disabled}
             onValueChange={(series) => update({ series: series as FestoonSpec["series"] })}
           >
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"><SelectValue /></SelectTrigger>
             <SelectContent>
               {FESTOON_SERIES_OPTIONS.map((series) => (
                 <SelectItem key={series} value={series}>{FESTOON_SERIES_LABELS[series]}</SelectItem>
@@ -90,14 +90,14 @@ export function FestoonSelector({
             </SelectContent>
           </Select>
         </label>
-        <label className="grid gap-1.5 text-xs font-medium">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
           Kablo Formu
           <Select
             value={spec.cableForm}
             disabled={disabled}
             onValueChange={(cableForm) => update({ cableForm: cableForm as FestoonSpec["cableForm"] })}
           >
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"><SelectValue /></SelectTrigger>
             <SelectContent>
               {FESTOON_CABLE_FORMS.map((form) => (
                 <SelectItem key={form} value={form}>{FESTOON_CABLE_FORM_LABELS[form]}</SelectItem>
@@ -105,7 +105,7 @@ export function FestoonSelector({
             </SelectContent>
           </Select>
         </label>
-        <label className="grid gap-1.5 text-xs font-medium">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
           Kablo Taşıyıcı Adedi
           <Input
             type="number"
@@ -116,7 +116,7 @@ export function FestoonSelector({
             onChange={(event) => update({ trolleyCount: Number(event.target.value) || 0 })}
           />
         </label>
-        <label className="grid gap-1.5 text-xs font-medium">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
           Hareketli Kablo Paketi
           <span className="relative">
             <Input
@@ -131,7 +131,7 @@ export function FestoonSelector({
             <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center font-mono text-xs text-muted-foreground">kg</span>
           </span>
         </label>
-        <label className="grid gap-1.5 text-xs font-medium">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
           Maksimum Loop Yüksekliği
           <span className="relative">
             <Input

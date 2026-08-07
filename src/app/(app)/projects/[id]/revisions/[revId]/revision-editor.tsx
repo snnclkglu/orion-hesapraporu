@@ -24,7 +24,8 @@ import {
   fieldLabel,
 } from "@/lib/calc/fields";
 import { travelApplicationClass } from "@/lib/calc/derive";
-import { travelSpecView } from "@/lib/calc/modules/travelGroup";
+import { travelBufferType, travelSpecView } from "@/lib/calc/modules/travelGroup";
+import { BUFFER_CATALOG_TYPE } from "@/lib/calc/buffer";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import {
@@ -119,6 +120,28 @@ type FestoonAxis = {
   travelDistanceM: number | undefined;
   travelSpeedMpm: number | undefined;
 };
+
+function festoonAxisForModule(key: ModuleKey, specs: TechnicalSpecs): FestoonAxis | null {
+  switch (key) {
+    case "trolley":
+      return { key: "trolleyFestoon", title: "Ana Araba", enabled: specs.trolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.trolleySpeedMpm };
+    case "auxTrolley":
+      return { key: "auxTrolleyFestoon", title: "Yardımcı Araba", enabled: specs.auxTrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.auxTrolleySpeedMpm };
+    case "mono1Trolley":
+      return { key: "mono1TrolleyFestoon", title: "Monoray 1 Arabası", enabled: specs.mono1TrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.mono1TrolleySpeedMpm };
+    case "mono2Trolley":
+      return { key: "mono2TrolleyFestoon", title: "Monoray 2 Arabası", enabled: specs.mono2TrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.mono2TrolleySpeedMpm };
+    case "bridge":
+      return { key: "bridgeFestoon", title: "Köprü", enabled: specs.bridgePowerSupply === "festoon", travelDistanceM: specs.runwayLengthM, travelSpeedMpm: specs.bridgeSpeedMpm };
+    default:
+      return null;
+  }
+}
+
+function hasSelectedFestoon(specs: TechnicalSpecs): boolean {
+  return ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"]
+    .some((key) => festoonAxisForModule(key as ModuleKey, specs)?.enabled === true);
+}
 
 /**
  * Alternatif ekipman seçimi: seçim alanı olan her modül bölümü için 3'e kadar
@@ -659,6 +682,8 @@ function CalcRow({
 }) {
   const raw = row.read(ctx);
   const { value, unit } = toDisplayUnit(raw, row.unit);
+  // Sözel durumlar (ör. katalog yük diyagramı yok) sayısal birim almaz.
+  const displayUnit = typeof value === "string" ? undefined : unit;
   // Değerin rengi, satıra bağlı kontrolün sonucunu taşır: kontrol sağlanıyorsa
   // (hesaplanan değer izin verilen sınırın uygun tarafındaysa) YEŞİL, değilse
   // KIRMIZI. Kontrolü olmayan satırlar nötr kalır.
@@ -678,7 +703,7 @@ function CalcRow({
           )}
         >
           {/* Madde 30: çap satırlarında değerin başına "Ø" konur */}
-          = {row.diameter ? "Ø" : ""}{fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
+          = {row.diameter ? "Ø" : ""}{fmt(value, row.digits ?? 2)}{displayUnit ? ` ${displayUnit}` : ""}
         </span>
       </div>
       {row.formula && (
@@ -1325,90 +1350,6 @@ export function RevisionEditor({
             );
           })}
 
-          {(() => {
-            const festoonAxes: FestoonAxis[] = [
-              {
-                key: "trolleyFestoon",
-                title: "Ana Araba",
-                enabled: specs.trolleyPowerSupply === "festoon",
-                travelDistanceM: specs.spanM,
-                travelSpeedMpm: specs.trolleySpeedMpm,
-              },
-              {
-                key: "auxTrolleyFestoon",
-                title: "Yardımcı Araba",
-                enabled: present("auxTrolley") && specs.auxTrolleyPowerSupply === "festoon",
-                travelDistanceM: specs.spanM,
-                travelSpeedMpm: specs.auxTrolleySpeedMpm,
-              },
-              {
-                key: "mono1TrolleyFestoon",
-                title: "Monoray 1 Arabası",
-                enabled: present("mono1Trolley") && specs.mono1TrolleyPowerSupply === "festoon",
-                travelDistanceM: specs.spanM,
-                travelSpeedMpm: specs.mono1TrolleySpeedMpm,
-              },
-              {
-                key: "mono2TrolleyFestoon",
-                title: "Monoray 2 Arabası",
-                enabled: present("mono2Trolley") && specs.mono2TrolleyPowerSupply === "festoon",
-                travelDistanceM: specs.spanM,
-                travelSpeedMpm: specs.mono2TrolleySpeedMpm,
-              },
-              {
-                key: "bridgeFestoon",
-                title: "Köprü",
-                enabled: specs.bridgePowerSupply === "festoon",
-                travelDistanceM: specs.runwayLengthM,
-                travelSpeedMpm: specs.bridgeSpeedMpm,
-              },
-            ];
-            const activeFestoonAxes = festoonAxes.filter((axis) => axis.enabled);
-            if (activeFestoonAxes.length === 0) return null;
-            return (
-              <section className="grid gap-2.5 border-t pt-4">
-                <div className="border-b pb-1.5">
-                  <h3 className="oc-kicker text-foreground/80">Feston Sistemleri</h3>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Her hareket ekseni için seri ve kablo taşıyıcı adedi bağımsız seçilir.
-                  </p>
-                </div>
-                <div className="grid gap-3">
-                  {activeFestoonAxes.map((axis) => (
-                    <FestoonSelector
-                      key={axis.key}
-                      title={axis.title}
-                      travelDistanceM={axis.travelDistanceM}
-                      travelSpeedMpm={axis.travelSpeedMpm}
-                      value={specs[axis.key]}
-                      onChange={(next) => updateSpecs({ ...specs, [axis.key]: next })}
-                      disabled={readOnly}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })()}
-
-          <section className="grid gap-2.5 border-t pt-4">
-            <div className="border-b pb-1.5">
-              <h3 className="oc-kicker text-foreground/80">Rapor Ayrıntıları</h3>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Teknik özelliklerdeki feston ve enerji besleme bilgilerini rapora isteğe bağlı ekleyin.
-              </p>
-            </div>
-            <label className="inline-flex w-fit cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={specs.showFestoonDetailsInReport === true}
-                disabled={readOnly}
-                onChange={(event) => updateSpecs({ ...specs, showFestoonDetailsInReport: event.target.checked })}
-                className="size-4 accent-primary"
-              />
-              Feston ve enerji besleme ayrıntılarını PDF raporunda göster
-            </label>
-          </section>
-
           {/* Hesap bölümleri — açık/kapalı; numaralandırma dinamik.
               Vinç konfigürasyonundan doğan bölümler (yardımcı araba, monoray)
               yalnız konfigürasyon izin verdiğinde listelenir. */}
@@ -1451,6 +1392,18 @@ export function RevisionEditor({
                   </label>
                 );
               })}
+              {hasSelectedFestoon(specs) && (
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={specs.showFestoonDetailsInReport === true}
+                    disabled={readOnly}
+                    onChange={(event) => updateSpecs({ ...specs, showFestoonDetailsInReport: event.target.checked })}
+                    className="size-4 accent-primary"
+                  />
+                  Feston Sistemleri ve Enerji Beslemesi
+                </label>
+              )}
             </div>
           </section>
         </CardContent>
@@ -1584,7 +1537,7 @@ export function RevisionEditor({
                 value={sectionNote}
                 disabled={readOnly}
                 onChange={(event) => updateSectionNote(event.target.value)}
-                placeholder="Bu hesap alt bölümü için mühendis notu yazın…"
+                placeholder="Bu hesap alt bölümü için not yazın…"
                 rows={3}
               />
             </section>
@@ -1614,6 +1567,20 @@ export function RevisionEditor({
               disabled={readOnly}
             />
           )}
+          {section.editor === "festoon" && isTravelKey(key) && (() => {
+            const axis = festoonAxisForModule(key, specs);
+            if (!axis?.enabled) return null;
+            return (
+              <FestoonSelector
+                title={axis.title}
+                travelDistanceM={axis.travelDistanceM}
+                travelSpeedMpm={axis.travelSpeedMpm}
+                value={specs[axis.key]}
+                onChange={(next) => updateSpecs({ ...specs, [axis.key]: next })}
+                disabled={readOnly}
+              />
+            );
+          })()}
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
               <h3 className="oc-kicker mb-2 text-muted-foreground">
@@ -1653,7 +1620,19 @@ export function RevisionEditor({
           )}
           {section.selectionDefs.length > 0 && (() => {
             const st = altStateFor(key, section);
-            const catalogMapping = getCatalogMapping(key, section.rawId);
+            const baseCatalogMapping = getCatalogMapping(key, section.rawId);
+            // Tampon seçicisi, teknik özelliklerde seçilen malzeme ailesiyle
+            // kilitlidir. Böylece Program 0180 hücresel tampon, Program 0170
+            // kauçuk eğrisiyle yanlışlıkla hesaplanamaz.
+            const catalogMapping = baseCatalogMapping && section.rawId === "5.8" && isTravelKey(key)
+              ? {
+                  ...baseCatalogMapping,
+                  lockedFacets: {
+                    ...baseCatalogMapping.lockedFacets,
+                    type: BUFFER_CATALOG_TYPE[travelBufferType(specs, key)],
+                  },
+                }
+              : baseCatalogMapping;
             return (
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -1669,12 +1648,29 @@ export function RevisionEditor({
                     {!readOnly && catalogMapping && (
                       <CatalogPicker
                         mapping={catalogMapping}
-                        onPick={(row) =>
-                          setModuleSelections(key, {
-                            ...(mods[key].selections as object),
+                        onPick={(row) => {
+                          const next = {
+                            ...(mods[key].selections as Record<string, unknown>),
                             ...applyCatalogPick(catalogMapping, row),
-                          })
-                        }
+                          };
+                          // Bir kauçuk satırından hücresel / hidrolik satıra
+                          // geçerken önceki ürünün eğrisini taşımak fiziksel
+                          // olarak yanlıştır. Katalogda olmayan veri açıkça silinir.
+                          if (section.rawId === "5.8") {
+                            const bufferCatalogFields: Record<string, string> = {
+                              bufferEnergyCurve: "energy_curve",
+                              bufferForceCurve: "force_curve",
+                              bufferMeteringPins: "metering_pins",
+                              bufferMaxCompressionPct: "max_compression_pct",
+                            };
+                            for (const [selectionField, catalogField] of Object.entries(bufferCatalogFields)) {
+                              if (!Object.prototype.hasOwnProperty.call(row.attrs, catalogField)) {
+                                delete next[selectionField];
+                              }
+                            }
+                          }
+                          setModuleSelections(key, next);
+                        }}
                       />
                     )}
                     {/* Madde 3: seçim düğmesinin hemen yanında gereken ve
