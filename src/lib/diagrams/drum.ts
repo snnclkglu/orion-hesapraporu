@@ -1,6 +1,6 @@
 // Tambur (halat tamburu) şematik diyagramı — yandan görünüş: namlu, yanak
-// flanşları, ortadan geçen mil ve mesnetler, üstte oluk hatları. Etiketler:
-// tambur çapı D_d, sac kalınlığı s, halat çapı d, hatve p, minimum çap
+// flanşları, ortadan geçen mil ve mesnetler, üstte yiv hatları. Etiketler:
+// tambur çapı D_d, yiv dibi et kalınlığı s, halat çapı d, hatve p, minimum çap
 // D_min = H·d. Ölçekli değil; oranlar okunur tutulur, değerler etiketlenir.
 
 import {
@@ -11,10 +11,10 @@ import {
 export interface DrumParams {
   drumDiaMm: number;        // seçilen tambur çapı
   ropeDiaMm: number;        // halat çapı
-  wallThicknessMm?: number; // tambur sacı kalınlığı
+  wallThicknessMm?: number; // tambur yiv dibi et kalınlığı
   groovePitchMm?: number;   // hatve p
   minDiaMm?: number;        // minimum çap D_min = H·d
-  grooveLengthMm?: number;  // oluk boyu (varsa)
+  grooveLengthMm?: number;  // yiv boyu (varsa)
   material?: string;        // tambur malzemesi
 }
 
@@ -23,7 +23,7 @@ const H = 260;
 
 export function drumDiagram(p: DrumParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "TAMBUR", "çap · sac · oluk · mil");
+  caption(els, "TAMBUR", "çap · et · yiv · mil");
 
   if (!(p.drumDiaMm > 0)) {
     els.push(txt(W / 2, H / 2, "Tambur çapı seçilmedi", 11, { anchor: "middle", fill: DCOL.muted }));
@@ -59,7 +59,7 @@ export function drumDiagram(p: DrumParams): Diagram {
   els.push(ln(bx1, top + wall, bx2, top + wall, DCOL.faint, 0.8, "3,2"));
   els.push(ln(bx1, bot - wall, bx2, bot - wall, DCOL.faint, 0.8, "3,2"));
 
-  // Oluk hatları (üst yüzeyde helis izlenimi)
+  // Yiv hatları (üst yüzeyde helis izlenimi)
   const gx0 = bx1 + 10;
   const gx1 = bx2 - 10;
   const pitch = 14;
@@ -76,7 +76,7 @@ export function drumDiagram(p: DrumParams): Diagram {
     els.push(txt(gx0 + pitch + 5, top - 9, `p = ${fmtN(p.groovePitchMm, 1)} mm`, 8, { fill: DCOL.ink }));
   }
 
-  // Halat (kırmızı) tamburun üstünde bir oluğa oturur
+  // Halat (kırmızı) tamburun üstünde bir yive oturur
   const rx = (gx0 + gx1) / 2;
   els.push({ kind: "circle", cx: rx, cy: top - 4, r: 4, fill: "#FBEDEC", stroke: DCOL.accent, strokeWidth: 1.2 });
   els.push(txt(rx + 8, top - 4, `halat Ø${fmtN(p.ropeDiaMm, 1)} mm`, 8, { fill: DCOL.accent }));
@@ -88,7 +88,7 @@ export function drumDiagram(p: DrumParams): Diagram {
   const infoY = 224;
   const parts: string[] = [];
   if (p.minDiaMm) parts.push(`Min. çap  D_min = H·d = ${fmtN(p.minDiaMm)} mm`);
-  if (p.wallThicknessMm) parts.push(`Sac  s = ${fmtN(p.wallThicknessMm, 1)} mm`);
+  if (p.wallThicknessMm) parts.push(`Yiv dibi et  s = ${fmtN(p.wallThicknessMm, 1)} mm`);
   if (p.material) parts.push(`Malzeme  ${p.material}`);
   els.push(txt(bx1 - flangeW, infoY, parts.join("      "), 8.5, { fill: DCOL.ink }));
   if (p.minDiaMm && p.drumDiaMm >= p.minDiaMm) {

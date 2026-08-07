@@ -30,6 +30,11 @@ export interface GirderRowDef {
   unit?: string;
   digits?: number;
   standard?: string;
+  /**
+   * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur (bkz. fields.ts
+   * `withDiameterSign`). Arayüz ve PDF aynı bayrağı okur.
+   */
+  diameter?: true;
 }
 
 /** Bölüm sonunda gösterilen özet tablosu (örneğin gerilme tablosu). */
@@ -348,7 +353,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     description:
       "Bileşen gerilmeler numaralandırılmıştır (σ1…σ10, τ1…τ5): her bileşen önce tek başına, " +
       "sonra alt lif / üst lif ve ana gövde / ikincil gövde toplamlarında görünür. Bileşik " +
-      "gerilme her gövde sacı için ayrı hesaplanır, kontrol elverişsiz olan üzerinden yürür.",
+      "gerilme her gövde sacı için ayrı hesaplanır, kontrol kritik olan üzerinden yürür.",
     depKeys: [],
     inputKeys: ["railLeverCMm", "diaphragmSpacingMm", "wheelContactHMm", "wheelContactTMm"],
     selectionKeys: ["staticMaterial"],
@@ -598,7 +603,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
-        key: "stress.combinedBottomCase1", label: "σcomb (Alt Lif) — Elverişsiz Gövde",
+        key: "stress.combinedBottomCase1", label: "σcomb (Alt Lif) — Kritik Gövde",
         formula: "σcomb,alt = maks(σcomb,ana ; σcomb,ikincil)",
         subst: (x) => `maks(${n(num(x.c["stress.combinedBottomMainCase1"]))} ; ${n(num(x.c["stress.combinedBottomSecondaryCase1"]))})`,
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
@@ -614,7 +619,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
       },
       {
-        key: "stress.combinedTopCase1", label: "σcomb (Üst Lif) — Elverişsiz Gövde",
+        key: "stress.combinedTopCase1", label: "σcomb (Üst Lif) — Kritik Gövde",
         formula: "σcomb,üst = maks(σcomb,ana ; σcomb,ikincil)",
         subst: (x) => `maks(${n(num(x.c["stress.combinedTopMainCase1"]))} ; ${n(num(x.c["stress.combinedTopSecondaryCase1"]))})`,
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
@@ -665,7 +670,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         formula: "τ_ikincil = τ1 + k·τ2 + τ3' + τ4' + k·τ5'", unit: "kg/cm²", standard: "FEM 1.001 3.2.1.2",
       },
       {
-        key: "stress.combinedCase3", label: "σcomb — Yükleme Durumu III (Elverişsiz)",
+        key: "stress.combinedCase3", label: "σcomb — Yükleme Durumu III (Kritik)",
         formula: "σcomb = maks(alt/üst lif × ana/ikincil gövde)",
         subst: (x) => `maks(${n(num(x.c["stress.combinedBottomCase3"]))} ; ${n(num(x.c["stress.combinedTopCase3"]))})`,
         unit: "kg/cm²", standard: "FEM 1.001 3.2.1.3",
@@ -687,7 +692,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         "“+” bileşenin kombinasyona doğrudan girdiğini, “+ψ” dinamik katsayıyla, " +
         "“+k” test katsayısıyla girdiğini gösterir. Değerler MPa'dır " +
         "(kg/cm² × 0,0980665). σcomb her gövde sacı için ayrı hesaplanır; " +
-        "kontrol elverişsiz (en büyük) değer üzerinden yürür.",
+        "kontrol kritik (en büyük) değer üzerinden yürür.",
       build: (x) => {
         const c = x.c;
         const B1 = "FEM 1.001 3.2.1.1";
@@ -727,8 +732,8 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
           ["Σ", "σz TOPLAM", "Gövde üstü", mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase1"]), mpa(c["stress.sigmaZCase3"]), D9],
           ["Σ", "τ TOPLAM (ana gövde)", "Ana gövde", mpa(c["stress.shearMainCase1"]), mpa(c["stress.shearMainCase1"]), mpa(c["stress.shearMainCase3"]), B2],
           ["Σ", "τ TOPLAM (ikincil gövde)", "İkincil gövde", mpa(c["stress.shearSecondaryCase1"]), mpa(c["stress.shearSecondaryCase1"]), mpa(c["stress.shearSecondaryCase3"]), B2],
-          ["σcomb", "Bileşik Gerilme (elverişsiz)", "Alt lif", mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase3"]), B3],
-          ["σcomb", "Bileşik Gerilme (elverişsiz)", "Üst lif", mpa(c["stress.combinedTopCase1"]), mpa(c["stress.combinedTopCase1"]), mpa(c["stress.combinedTopCase3"]), B3],
+          ["σcomb", "Bileşik Gerilme (kritik)", "Alt lif", mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase1"]), mpa(c["stress.combinedBottomCase3"]), B3],
+          ["σcomb", "Bileşik Gerilme (kritik)", "Üst lif", mpa(c["stress.combinedTopCase1"]), mpa(c["stress.combinedTopCase1"]), mpa(c["stress.combinedTopCase3"]), B3],
           ["γc·σcomb", "Arttırılmış Bileşik Gerilme", "Alt lif", mpa(c["stress.amplifiedCombinedBottom"]), mpa(c["stress.amplifiedCombinedBottom"]), "—", "FEM 1.001 T.2.3.4"],
           ["γc·σcomb", "Arttırılmış Bileşik Gerilme", "Üst lif", mpa(c["stress.amplifiedCombinedTop"]), mpa(c["stress.amplifiedCombinedTop"]), "—", "FEM 1.001 T.2.3.4"],
           ["σem", `İzin Gerilmesi (${x.sel.staticMaterial})`, "—", mpa(c["stress.allowableCase1"]), mpa(c["stress.allowableCase1"]), mpa(c["stress.allowableCase3"]), "FEM 1.001 T.3.2.1.1"],

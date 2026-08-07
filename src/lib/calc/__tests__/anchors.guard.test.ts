@@ -38,7 +38,17 @@ import type { AnyCheck } from "../types";
 //       gruplarında tambur emniyet freni uygulanmadığı için kontrol çıkmaz.
 //   +3  teker yükleri bölümü: savrulma açısı (10.3), kılavuz kuvveti denge
 //       kontrolü (10.3), boyuna kuvvet bandı (10.4).
-const EXPECTED_CHECK_COUNT = 225;
+// 241 = 225 + 16 (tampon çekirdeği, `calc/buffer.ts`):
+//   +10  beş yürütme grubunun (ana/yardımcı/iki monoray araba + köprü) her
+//        birinde İKİ yeni kontrol: yavaşlama sınırı (FEM 1.001 md. 7.7.1.2) ve
+//        tepki aktarım eşiği bilgilendirmesi (FEM Kitapçık 9 md. 9.4.2).
+//   +3   ana arabada koşullu tampon kontrolleri: kauçuk sıkışma oranı,
+//        kısma iğnesi tasarım kütlesi ve kapsam bilgilendirmesi.
+//   +3   kauçuk varyantında yardımcı ve iki monoray arabası da kauçuk olur
+//        (tip TÜM araba gruplarında ortaktır) ama yük diyagramı verilmediği
+//        için "kapsam" bilgilendirmesi üretirler — sessiz kalmadıklarının
+//        kanıtı budur.
+const EXPECTED_CHECK_COUNT = 241;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 
@@ -54,13 +64,69 @@ const resultWithSafetyBrake: CalcResult = runCalc({
   specs: { ...NEW_WORK_TEMPLATE.specs, hoistSafetyBrake: "Ana ve Yardımcı Kaldırmada" },
 });
 
+/**
+ * TAMPON bölümü de koşulludur: tipi (hidrolik / kauçuk / yok) ve katalog
+ * verisinin varlığı hangi kontrollerin çıkacağını belirler. Aşağıdaki üç
+ * varyant, emniyet freni varyantıyla aynı gerekçeyle koşturulur — aksi hâlde
+ * 5.8'in koşullu bağlantıları hiç sınanmazdı:
+ *   · kauçuk + yük diyagramı        → "buffer.compression"
+ *   · hidrolik + kısma iğnesi verisi → "buffer.designMass"
+ *   · tampon yok                     → "buffer.scope"
+ */
+const TROLLEY = NEW_WORK_TEMPLATE.trolley!;
+
+const resultRubberBuffer: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, trolleyBufferType: "kaucuk" },
+  trolley: {
+    inputs: TROLLEY.inputs,
+    selections: {
+      ...TROLLEY.selections!,
+      bufferStrokeMm: 100,
+      bufferMaxCompressionPct: 50,
+      // Conductix Program 0170, Ø100×100 eğrisinin sadeleştirilmiş bir
+      // örneği — burada yalnız kontrolün ÜRETİLDİĞİNİ sınıyoruz.
+      bufferEnergyCurve: [[0, 0], [25, 150], [50, 800]],
+      bufferForceCurve: [[0, 0], [25, 20], [50, 63]],
+    },
+  },
+});
+
+const resultMeteringPin: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  trolley: {
+    inputs: TROLLEY.inputs,
+    selections: { ...TROLLEY.selections!, bufferDesignMassMaxT: 20 },
+  },
+});
+
+const resultNoBuffer: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, trolleyBufferType: "yok" },
+});
+
+/** Koşullu bölümleri de kapsayan varyant listesi. */
+const VARIANTS: CalcResult[] = [
+  resultWithSafetyBrake,
+  resultRubberBuffer,
+  resultMeteringPin,
+  resultNoBuffer,
+];
+
 /** Modül anahtarı → o modülün sonucu (ortak erişim katmanından). */
 function moduleChecks(key: ModuleKey): AnyCheck[] | undefined {
   const base = moduleResultOf(result, key)?.checks;
   if (base === undefined) return undefined;
-  const extra = moduleResultOf(resultWithSafetyBrake, key)?.checks ?? [];
+  const out = [...base];
   const seen = new Set(base.map((c) => c.id));
-  return [...base, ...extra.filter((c) => !seen.has(c.id))];
+  for (const variant of VARIANTS) {
+    for (const c of moduleResultOf(variant, key)?.checks ?? []) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 /** Kontrol id'sinin modül önekinden sonraki kısmı ("main.rope.safety" → "rope.safety"). */

@@ -1,7 +1,12 @@
 // Teker mili diyagramı — parametrik SVG üretici (5.2 / 6.2 bölümleri).
-// Mesnetler (rulmanlar), teker ve yük oku, a/b mesnet ölçüleri ve basit
-// üçgen moment diyagramı (Mmaks etiketli). Model: iki mesnetli kiriş,
-// tekerlek yükü a-b kesişiminde: RA = Pmaks/2, Mmaks = RA·a.
+// Mesnetler (rulmanlar), teker ve yük gösterimi, a/b mesnet ölçüleri ve
+// moment diyagramı (Mmaks etiketli). Model: iki mesnetli kiriş, tekerlek
+// yükü a-b kesişiminde; RA = Pmaks/2.
+//
+// Teker genişliği verilmişse yük TEKİL değil bandaj genişliği boyunca YAYILI
+// çizilir (bant boyunca ok dizisi + q şiddeti + b_teker ölçüsü) ve moment
+// diyagramının tepesi sivri üçgen yerine PARABOLİK olarak düzleşir —
+// M_kenar = Mmaks − q·b_t²/8. Genişlik yoksa eski tekil yük gösterimi kalır.
 
 import {
   DCOL, type Diagram, type DiagramEl,
@@ -17,6 +22,10 @@ export interface WheelShaftParams {
   reactionAKg?: number;     // RA
   reactionBKg?: number;     // RB
   maxMomentKgCm?: number;   // Mmaks
+  /** Teker genişliği = yükün yayıldığı bant boyu [cm]; 0 → tekil yük */
+  loadBandCm?: number;
+  /** Yayılı yük şiddeti q = Pmaks / b_t [kg/cm] */
+  loadIntensityKgPerCm?: number;
 }
 
 const W = 660;
@@ -85,11 +94,38 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     els.push(txt(x, yBk + 40, `Rulman ${label}`, 8.5, { anchor: "middle", fill: DCOL.muted }));
   }
 
-  // --- Teker yükü oku (kırmızı, alttan — ray teması)
-  loadArrow(els, xW, yAxis + rWheel + 52, yAxis + rWheel + 4);
-  els.push(txt(xW + 9, yAxis + rWheel + 40, `Pmaks = ${fmtN(p.wheelLoadKg)} kg`, 10, {
-    fill: DCOL.accent, bold: true,
-  }));
+  // --- Teker yükü (kırmızı, alttan — ray teması)
+  // Teker genişliği verilmişse yük TEKİL değil, bandaj genişliği boyunca
+  // YAYILI gösterilir: bant boyunca dizilmiş kısa oklar + üstlerinde q şiddeti.
+  const pxPerCm = (xB - xA) / (a + b);
+  const bandCm = p.loadBandCm ?? 0;
+  const bandPx = bandCm > 0 ? Math.max(14, bandCm * pxPerCm) : 0;
+  const yTip = yAxis + rWheel + 4;
+  // Yayılı gösterimde oklar kısaltılır: altına teker genişliği ölçüsü ve
+  // Pmaks etiketi girecek, moment diyagramına da yer kalmalıdır.
+  const yTail = yAxis + rWheel + (bandCm > 0 ? 40 : 52);
+  if (bandPx > 0) {
+    const x0 = xW - bandPx / 2;
+    const x1 = xW + bandPx / 2;
+    // Yayılı yükün taban çizgisi ve ok dizisi
+    els.push(ln(x0, yTail, x1, yTail, DCOL.accent, 1.6));
+    const steps = Math.max(3, Math.min(9, Math.round(bandPx / 14)));
+    for (let i = 0; i <= steps; i++) {
+      const x = x0 + (i * (x1 - x0)) / steps;
+      loadArrow(els, x, yTail, yTip, { width: 1.1 });
+    }
+    dimH(els, x0, x1, yTail + 16, `b_teker = ${fmtN(bandCm)} cm`, { size: 9 });
+    els.push(txt(x1 + 12, yTail - 4,
+      `q = ${fmtN(p.loadIntensityKgPerCm)} kg/cm`, 9.5, { fill: DCOL.accent }));
+    els.push(txt(xW, yTail + 34, `Pmaks = ${fmtN(p.wheelLoadKg)} kg  (yayılı)`, 10, {
+      anchor: "middle", fill: DCOL.accent, bold: true,
+    }));
+  } else {
+    loadArrow(els, xW, yTail, yTip);
+    els.push(txt(xW + 9, yAxis + rWheel + 40, `Pmaks = ${fmtN(p.wheelLoadKg)} kg`, 10, {
+      fill: DCOL.accent, bold: true,
+    }));
+  }
 
   // --- Mesnet reaksiyonları RA / RB
   // Etiketler mesnetlerin DIŞINA yazılır: mesnet ekseninde ortalanınca
@@ -114,9 +150,29 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   const hM = 56;
   els.push(txt(xA - 34, yM0 - 8, "Moment diyagramı", 8.5, { fill: DCOL.muted }));
   els.push(ln(xA - 10, yM0, xB + 10, yM0, DCOL.muted, 0.9));
+  // Tekil yükte diyagram ÜÇGENDİR; yayılı yükte bant boyunca PARABOLİKTİR ve
+  // tepesi düzleşir — bandın uçlarında moment M_kenar = Mmaks − q·b_t²/8'dir.
+  const mMax = Math.abs(p.maxMomentKgCm ?? 0);
+  const q = p.loadIntensityKgPerCm ?? 0;
+  const momentPoints: [number, number][] = [[xA, yM0]];
+  if (bandPx > 0 && mMax > 0 && q > 0) {
+    const halfCm = bandCm / 2;
+    const samples = 8;
+    for (let i = 0; i <= samples; i++) {
+      const xCm = -halfCm + (i * bandCm) / samples;
+      const m = mMax - (q * xCm * xCm) / 2;
+      momentPoints.push([
+        xW + (xCm / bandCm) * bandPx,
+        yM0 + Math.max(0, m / mMax) * hM,
+      ]);
+    }
+  } else {
+    momentPoints.push([xW, yM0 + hM]);
+  }
+  momentPoints.push([xB, yM0]);
   els.push({
     kind: "polygon",
-    points: [[xA, yM0], [xW, yM0 + hM], [xB, yM0]],
+    points: momentPoints,
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,
   });
   els.push(ln(xW, yM0, xW, yM0 + hM, DCOL.accent, 0.8, "4,3"));

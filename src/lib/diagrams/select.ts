@@ -5,8 +5,10 @@
 // Eşleme (ham bölüm id'leri; yardımcı 3.x ve köprü 6.x ham 2.x/5.x id taşır):
 //   girder 7.1          → ana kiriş kutu kesiti
 //   yürütme 5.2         → teker mili (tüm arabalar ve köprü)
+//   yürütme 5.8         → tampon enerji/kuvvet–strok grafikleri (5.8 · 6.9)
 //   kaldırma 2.1        → halat donanımı (ana / yardımcı / monoray)
 //   kaldırma 2.2.3      → tambur mili yükleme şeması (A…G ölçü zinciri)
+//   kaldırma 2.2.5      → mil kaynağı kesiti (namlu · yanak · göbek · G kolu)
 //   kanca bloğu 4.4     → kanca bloğu mili (makara sayısına göre dinamik)
 //   teker yükleri 10.2   → önden görünüş (Pmaks / Pmin, teker adedine göre)
 //   teker yükleri 10.3   → savrulma plan şeması (kayma kutbu + kuvvet okları)
@@ -29,12 +31,14 @@ import {
   type TravelKey,
 } from "@/lib/calc/presentation/module-family";
 import { camberProfile } from "@/lib/calc/camber";
+import { HYDRAULIC_DAMPING_EFFICIENCY } from "@/lib/calc/buffer";
 import {
   GIRDER_ELASTIC_MODULUS_KG_CM2,
   type GirderValues,
 } from "@/lib/calc/modules/mainGirder";
 import type { BucklingValues } from "@/lib/calc/modules/buckling";
 import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling";
+import { cmToMm, mmToCm } from "@/lib/calc/modules/hoistGroup";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { Diagram } from "./model";
@@ -48,10 +52,12 @@ import {
   rhoPoint,
   rhoShearPoint,
 } from "./buckling";
+import { bufferDiagram } from "./buffer";
 import { wheelShaftDiagram } from "./wheelShaft";
 import { reevingDiagram } from "./reeving";
 import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
+import { shaftWeldDiagram } from "./shaftWeld";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
 import { safetyBrakeDiagram } from "./safetyBrake";
 import { deflectionDiagram } from "./deflection";
@@ -263,6 +269,29 @@ export function diagramForSection(
       });
     }
 
+    if (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.8") {
+      const travelKey = moduleKey as TravelKey;
+      const st = input[travelKey];
+      const v = result[travelKey]?.values as TravelValues | undefined;
+      if (!st || !v) return null;
+      if (v.bufferType === "yok") return null;
+      return bufferDiagram({
+        type: v.bufferType,
+        model: st.selections.bufferModel,
+        strokeMm: st.selections.bufferStrokeMm,
+        strokeUsedMm: v.bufferStrokeUsedMm,
+        totalEnergyKj: v.totalEnergyKj,
+        catalogEnergyKj: st.selections.bufferEnergyKj,
+        reactionForceKn: v.bufferForceKn,
+        catalogMaxForceKn: st.selections.bufferLoadKn,
+        energyCurve: st.selections.bufferEnergyCurve,
+        forceCurve: st.selections.bufferForceCurve,
+        maxCompressionPct: st.selections.bufferMaxCompressionPct,
+        compressionPct: v.bufferCompressionPct,
+        dampingEfficiency: HYDRAULIC_DAMPING_EFFICIENCY,
+      });
+    }
+
     if (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.2") {
       const travelKey = moduleKey as TravelKey;
       const st = input[travelKey];
@@ -278,6 +307,8 @@ export function diagramForSection(
         reactionAKg: v?.reactionAKg,
         reactionBKg: v?.reactionBKg,
         maxMomentKgCm: v?.maxMomentKgCm,
+        loadBandCm: v?.shaftLoadBandCm,
+        loadIntensityKgPerCm: v?.shaftLoadIntensityKgPerCm,
       });
     }
 
@@ -324,20 +355,49 @@ export function diagramForSection(
         | HoistValues
         | undefined;
       const i = st.inputs;
+      // Ölçüler girdide mm; motorun cm çıktıları (halat konumları, ağırlık
+      // merkezi) tek yardımcıyla (`cmToMm`) mm'ye çevrilir — şema mm çizer.
       return drumShaftDiagram({
-        aCm: i.drumSpanACm, bCm: i.drumSpanBCm, cCm: i.drumSpanCCm, dCm: i.drumSpanDCm,
-        eCm: i.drumSpanECm, fCm: i.drumSpanFCm, gCm: i.drumSpanGCm,
-        d1Cm: i.shaftD1Cm, d2Cm: i.shaftD2Cm,
+        aMm: i.drumSpanAMm, bMm: i.drumSpanBMm, cMm: i.drumSpanCMm, dMm: i.drumSpanDMm,
+        eMm: i.drumSpanEMm, fMm: i.drumSpanFMm, gMm: i.drumSpanGMm,
+        d1Mm: i.shaftD1Mm, d2Mm: i.shaftD2Mm,
         drumDiaMm: st.selections.drumDiaMm,
         ropeLoadKg: v?.ropeLoadPerPointKg,
         drumWeightKg: i.drumWeightKg,
-        ropePositionsCm: v?.ropeLoadPositionsCm,
-        weightArmCm: v?.drumWeightArmCm,
+        ropePositionsMm: v?.ropeLoadPositionsCm?.map(cmToMm),
+        weightArmMm: v?.drumWeightArmCm === undefined ? undefined : cmToMm(v.drumWeightArmCm),
         reactionGearboxKg: v?.reactionGearboxKg,
         reactionBearingKg: v?.reactionBearingKg,
         momentGearboxKgCm: v?.momentGearboxKgCm,
         momentBearingKgCm: v?.momentBearingKgCm,
         positionLabel: i.ropeLoadPosition,
+      });
+    }
+
+    // 2.2.5 — mil kaynağı kesiti: yükün flanşa uzaklığı (G ölçüsü) ve dikişte
+    // doğan eğilme momenti görsel olarak gösterilir.
+    if (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.2.5") {
+      const st = input[HOIST_FIELD[moduleKey as HoistKey]];
+      const c = moduleResultOf(result, moduleKey as HoistKey)?.cells;
+      if (!st || !c) return null;
+      const armCm = numOf(c["shaftWeld.arm"]);
+      const momentKgCm = numOf(c["shaftWeld.bendingMoment"]);
+      return shaftWeldDiagram({
+        drumDiaMm: st.selections.drumDiaMm,
+        hubDiaMm: st.inputs.shaftD1Mm,
+        shaftDiaMm: st.inputs.shaftD2Mm,
+        weldThroatMm: st.inputs.shaftWeldThicknessMm,
+        armMm: cmToMm(armCm),
+        // Kol hangi mesnetten geliyorsa ölçünün adı da odur (G ya da A).
+        // Karşılaştırma motorun kendi dönüşümüyle (mmToCm) yapılır ki
+        // hücredeki cm değeriyle birebir aynı sayı elde edilsin.
+        armLabel: armCm === mmToCm(st.inputs.drumSpanAMm) ? "A" : "G",
+        reactionKg: armCm > 0 ? momentKgCm / armCm : undefined,
+        momentKgCm,
+        bendingStress: numOf(c["shaftWeld.bendingStress"]),
+        shearStress: numOf(c["shaftWeld.shearStress"]),
+        combinedStress: numOf(c["shaftWeld.combinedStress"]),
+        allowableMPa: numOf(c["shaftWeld.allowable"]),
       });
     }
 
@@ -352,6 +412,7 @@ export function diagramForSection(
         totalFalls: st.inputs.totalFalls,
         drumDiaMm: st.selections.drumDiaMm,
         loadKg: v?.totalLoadKg,
+        capacityT: v?.capacityT,
       });
     }
   } catch {

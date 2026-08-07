@@ -173,17 +173,28 @@ export interface GirderInputs {
   trolleyWheelSpacingM: number; // araba tekerlek açıklığı [m]
   trolleyAxleSpacingM: number; // araba dingil açıklığı [m]
   /**
-   * ψhA elle ezme (FEM 1.001 Şekil A.2.2.1). Verilmezse kütle oranından
-   * türetilir — normalde boş bırakılır.
+   * ψhA (FEM 1.001 Şekil A.2.2.1). `psiHAAuto` açıkken kütle oranından
+   * türetilip bu alana YAZILIR (salt-okunur kutu); anahtar kapalıyken
+   * mühendisin girdiği değer geçerlidir. Alan boşsa motor yine kütle
+   * oranından türetir — eski revizyonlar bozulmaz.
    */
   psiHAOverride?: number;
-  /** ψhK elle ezme (FEM 1.001 Şekil A.2.2.1). Verilmezse kütle oranından türetilir. */
+  /** ψhK — `psiHKAuto` ile aynı mekanizma (FEM 1.001 Şekil A.2.2.1). */
   psiHKOverride?: number;
   /**
-   * γc elle ezme. Verilmezse teknik özelliklerdeki yapı sınıfından
-   * FEM 1.001 T.2.3.4 ile türetilir — normalde boş bırakılır.
+   * γc. `amplifyYcAuto` açıkken teknik özelliklerdeki çelik yapı sınıfından
+   * FEM 1.001 T.2.3.4 ile türetilip bu alana yazılır.
    */
   amplifyYcOverride?: number;
+  /**
+   * Otomatik alan anahtarları (7.2 Yükler / 7.3 Yükleme Durumları). Açıkken
+   * ilgili kutu türetilen değerle dolar ve salt-okunur olur; kapatılınca
+   * mühendis elle düzeltir. Anahtarlar `revision-load.ts` AUTO_FLAGS
+   * listesindedir — kayıtta anahtar yoksa elle girilmiş sayılır ve ezilmez.
+   */
+  psiHAAuto?: boolean;
+  psiHKAuto?: boolean;
+  amplifyYcAuto?: boolean;
   dynTestFactorR1: number;     // dinamik test katsayısı ρ1
   statTestFactorR2: number;    // statik test katsayısı ρ2
   railLeverCMm: number;        // kayma merkezi kolu c [mm]
@@ -737,7 +748,7 @@ export function computeMainGirder(
     shearTorsionTrolley + dynamicFactor * shearTorsionHoist +
     shearSecondarySelfWeight + shearSecondaryTrolley + dynamicFactor * shearSecondaryHoist;
 
-  // Bileşik gerilme her gövde sacı için AYRI hesaplanır; kontrol elverişsiz
+  // Bileşik gerilme her gövde sacı için AYRI hesaplanır; kontrol kritik
   // olan (en büyük) değer üzerinden yürür (FEM 1.001 3.2.1.3).
   const combinedBottomMainCase1 = vonMisesPlane(sigmaXBottomCase1, sigmaZCase1, shearMainCase1);
   const combinedBottomSecondaryCase1 =
@@ -846,7 +857,7 @@ export function computeMainGirder(
   //  σx : açıklık ortası alt lif normal gerilmesi (maks = Durum I, min = yalnız öz ağırlık)
   //  σy : gövde sacındaki yerel enine gerilme = teker basıncı σz
   //       (basınç olduğundan genlik hesabı MUTLAK değerlerle yapılır; κ oranı korunur)
-  //  τ  : gerçek kayma gerilmesi (maks = elverişsiz gövde sacı, min = yalnız öz ağırlık)
+  //  τ  : gerçek kayma gerilmesi (maks = kritik gövde sacı, min = yalnız öz ağırlık)
   const loadGroup = girderLoadGroup(specs, sel);
   const fatigueTensileNmm2 =
     inp.fatigueTensileOverrideNmm2 ?? FATIGUE_TENSILE_NMM2[sel.fatigueMaterial];

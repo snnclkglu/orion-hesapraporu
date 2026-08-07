@@ -1,0 +1,385 @@
+// Otomatik girdiler — mühendislik doğrulaması + anahtar davranışı.
+//
+// Bu dosya PK-D paketiyle gelen dört yeni otomatik alanı kilitler: makara
+// verimi, yiv boyu metni, tambur ağırlığı, yürütme uygulama sınıfı ve ana
+// kirişin ψhA / ψhK / γc katsayıları.
+//
+// İKİ ŞEY AYRI AYRI DOĞRULANIR:
+//   1. Türetmenin SAYISI doğru mu (fizik / standart / kullanıcı örneği).
+//   2. Anahtar KAPALIYKEN elle girilen değer korunuyor mu — yani her yeni
+//      `*Auto` anahtarının `revision-load.ts` AUTO_FLAGS listesinde karşılığı
+//      var mı. Kayıt anahtarı taşımıyorsa değer ELLE girilmiştir ve şablondaki
+//      `true` miras alınırsa mühendisin sayısı sessizce ezilir.
+
+import { describe, expect, it } from "vitest";
+import {
+  CMAA_APPLICATION_CLASSES,
+  DRUM_STEEL_DENSITY_G_CM3,
+  DRUM_WEIGHT_EXTRA_FACTOR,
+  FEM_TO_CMAA_APPLICATION_CLASS,
+  GROOVE_LENGTH_LARGE_THRESHOLD_MM,
+  STANDARD_SHEAVE_EFFICIENCY,
+  deriveDrumGrooveLengthText,
+  deriveDrumWeightKg,
+  deriveGirderInputs,
+  deriveHoistInputs,
+  deriveTravelInputs,
+  roundGrooveLengthMm,
+  travelApplicationClass,
+} from "../derive";
+import {
+  GIRDER_AUTO_FIELDS,
+  HOIST_AUTO_FIELDS,
+  HOIST_AUTO_SELECTION_FIELDS,
+  TRAVEL_AUTO_FIELDS,
+  withDiameterSign,
+} from "../fields";
+import {
+  NEW_WORK_SPECS,
+  NEW_WORK_TEMPLATE,
+  V5_MAIN_HOIST_INPUTS,
+  V5_MAIN_HOIST_SELECTIONS,
+  V5_SPECS,
+} from "../defaults";
+import { CALC_FIELD, loadRevision } from "@/lib/revision-load";
+import { MODULE_ORDER } from "../presentation/module-family";
+import { STRUCTURE_AMPLIFY_FACTOR, horizontalDynamicFactor } from "../modules/mainGirder";
+import { drumGrooveRequirement, drumShaftGeometry } from "../modules/hoistGroup";
+import { MECHANISM_CLASSES } from "../fields";
+import type { HoistInputs, HoistSelections } from "../modules/hoistGroup";
+import type { GirderInputs } from "../modules/mainGirder";
+import type { TravelInputs } from "../modules/travelGroup";
+
+const MAIN = NEW_WORK_TEMPLATE.mainHoist!;
+const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40 };
+const withInputs = (patch: Partial<HoistInputs>): HoistInputs => ({ ...MAIN.inputs, ...patch });
+const withSel = (patch: Partial<HoistSelections>): HoistSelections => ({
+  ...MAIN.selections,
+  ...patch,
+});
+
+// --------------------------------------------------------- 1. Makara verimi
+
+describe("makara verimi otomatiği", () => {
+  it("anahtar açıkken firma standardını girdiye yazar", () => {
+    const d = deriveHoistInputs(withInputs({ sheaveEfficiencyAuto: true }), MAIN.selections, CTX);
+    expect(d.sheaveEfficiency).toBe(STANDARD_SHEAVE_EFFICIENCY);
+  });
+
+  it("anahtar kapalıyken elle girilen verime dokunmaz", () => {
+    const d = deriveHoistInputs(
+      withInputs({ sheaveEfficiencyAuto: false, sheaveEfficiency: 0.96 }),
+      MAIN.selections,
+      CTX
+    );
+    expect(d.sheaveEfficiency).toBeUndefined();
+  });
+});
+
+// -------------------------------------------------------------- 2. Yiv boyu
+
+describe("yiv boyu otomatiği", () => {
+  it("düzgün ölçüye YUKARI yuvarlar (1 m altı 10 mm, üstü 50 mm adım)", () => {
+    expect(roundGrooveLengthMm(219.15)).toBe(220);
+    expect(roundGrooveLengthMm(220)).toBe(220);
+    expect(roundGrooveLengthMm(220.1)).toBe(230);
+    // Eşik ve üstünde 50 mm adım
+    expect(roundGrooveLengthMm(GROOVE_LENGTH_LARGE_THRESHOLD_MM)).toBe(1000);
+    expect(roundGrooveLengthMm(1284)).toBe(1300);
+    expect(roundGrooveLengthMm(1301)).toBe(1350);
+  });
+
+  it("asla AŞAĞI yuvarlamaz — yiv boyu yetmezse halat tambura sığmaz", () => {
+    for (const raw of [1, 55.4, 219.15, 999.9, 1000.1, 4321]) {
+      expect(roundGrooveLengthMm(raw)!).toBeGreaterThanOrEqual(raw);
+    }
+  });
+
+  it("geçersiz boyda değer üretmez", () => {
+    expect(roundGrooveLengthMm(0)).toBeUndefined();
+    expect(roundGrooveLengthMm(-10)).toBeUndefined();
+    expect(roundGrooveLengthMm(Number.NaN)).toBeUndefined();
+  });
+
+  it("metni '<tahrikli halat sayısı> x <yiv boyu>' biçiminde kurar", () => {
+    // V5 referans işi: 2/2 donanım, 10 m, Ø400 tambur, Ø18 halat, 3 emniyet
+    // sarımı → z = 10,96 sarım · p = 20 mm → 219,15 mm → 220 mm.
+    // Mühendisin elle yazdığı değer de tam olarak "2 x 220"dir.
+    expect(deriveDrumGrooveLengthText(V5_MAIN_HOIST_INPUTS, V5_MAIN_HOIST_SELECTIONS, 10))
+      .toBe("2 x 220");
+    expect(V5_MAIN_HOIST_SELECTIONS.drumGrooveLengthText).toBe("2 x 220");
+  });
+
+  it("baştaki sayı TAHRİKLİ kol sayısıdır (donanım seçiminden okunur)", () => {
+    const text = deriveDrumGrooveLengthText(
+      { ...V5_MAIN_HOIST_INPUTS, reevingLabel: "4/8", drivenFalls: 1, totalFalls: 1 },
+      V5_MAIN_HOIST_SELECTIONS,
+      10
+    );
+    expect(text?.startsWith("4 x ")).toBe(true);
+  });
+
+  it("motorun gerekli yiv boyuyla tutarlıdır (aşağı kalmaz)", () => {
+    const req = drumGrooveRequirement(V5_MAIN_HOIST_INPUTS, V5_MAIN_HOIST_SELECTIONS, 10);
+    const rounded = Number(
+      deriveDrumGrooveLengthText(V5_MAIN_HOIST_INPUTS, V5_MAIN_HOIST_SELECTIONS, 10)!
+        .split(" x ")[1]
+    );
+    expect(rounded).toBeGreaterThanOrEqual(req.lengthMm);
+  });
+
+  it("anahtar kapalıyken metne dokunmaz, açıkken yazar", () => {
+    expect(
+      deriveHoistInputs(withInputs({ drumGrooveLengthAuto: false }), MAIN.selections, CTX)
+        .drumGrooveLengthText
+    ).toBeUndefined();
+    expect(
+      deriveHoistInputs(withInputs({ drumGrooveLengthAuto: true }), MAIN.selections, CTX)
+        .drumGrooveLengthText
+    ).toBe("2 x 380");
+  });
+
+  it("kaynak veri eksikse değer değil UYARI üretir", () => {
+    const d = deriveHoistInputs(
+      withInputs({ drumGrooveLengthAuto: true }),
+      withSel({ drumDiaMm: 0 }),
+      CTX
+    );
+    expect(d.drumGrooveLengthText).toBeUndefined();
+    expect(d.warnings.map((w) => w.field)).toContain("drumGrooveLengthText");
+  });
+});
+
+// -------------------------------------------------------- 3. Tambur ağırlığı
+
+describe("tambur ağırlığı otomatiği", () => {
+  it("kullanıcının verdiği örneği birebir üretir (Ø400 · 12 mm yiv dibi · Ø18 · 2000 mm)", () => {
+    // s = 12 + 18/2 = 21 mm → A = π/4·(400² − 358²) = 25.004 mm²
+    // V = 25.004 · 2.000 = 50.008,1 cm³ → 392,6 kg → ×1,3 = 510,3 → 520 kg
+    const areaMm2 = (Math.PI / 4) * (400 ** 2 - 358 ** 2);
+    const kg = ((areaMm2 * 2000) / 1000) * DRUM_STEEL_DENSITY_G_CM3 / 1000 *
+      DRUM_WEIGHT_EXTRA_FACTOR;
+    expect(kg).toBeCloseTo(510.3, 1);
+    expect(
+      deriveDrumWeightKg({
+        drumDiaMm: 400,
+        grooveWallThicknessMm: 12,
+        ropeDiaMm: 18,
+        barrelLengthMm: 2000,
+      })
+    ).toBe(520);
+  });
+
+  it("et kalınlığına halat çapının YARISI eklenir", () => {
+    const withRope = deriveDrumWeightKg({
+      drumDiaMm: 400, grooveWallThicknessMm: 12, ropeDiaMm: 18, barrelLengthMm: 2000,
+    })!;
+    const asIfWallOnly = deriveDrumWeightKg({
+      drumDiaMm: 400, grooveWallThicknessMm: 21, ropeDiaMm: 0, barrelLengthMm: 2000,
+    })!;
+    expect(withRope).toBe(asIfWallOnly);
+  });
+
+  it("boy ve et kalınlığıyla birlikte artar", () => {
+    const base = { drumDiaMm: 400, grooveWallThicknessMm: 12, ropeDiaMm: 18, barrelLengthMm: 2000 };
+    expect(deriveDrumWeightKg({ ...base, barrelLengthMm: 4000 })!).toBeGreaterThan(
+      deriveDrumWeightKg(base)!
+    );
+    expect(deriveDrumWeightKg({ ...base, grooveWallThicknessMm: 20 })!).toBeGreaterThan(
+      deriveDrumWeightKg(base)!
+    );
+  });
+
+  it("boyu NAMLU (yanaklar arası B…F) ölçüsünden alır, yiv boyundan değil", () => {
+    const geo = drumShaftGeometry(V5_MAIN_HOIST_INPUTS);
+    // B+C+D+E+F = 5+22+64+22+5 = 118 cm; yiv bölgeleri yalnız C ve E'dir.
+    expect(geo.barrelCm).toBe(118);
+    const d = deriveHoistInputs(
+      { ...V5_MAIN_HOIST_INPUTS, drumWeightAuto: true },
+      V5_MAIN_HOIST_SELECTIONS,
+      { ...CTX, capacityT: 4 }
+    );
+    expect(d.drumWeightKg).toBe(
+      deriveDrumWeightKg({
+        drumDiaMm: V5_MAIN_HOIST_SELECTIONS.drumDiaMm,
+        grooveWallThicknessMm: V5_MAIN_HOIST_INPUTS.drumWallThicknessMm,
+        ropeDiaMm: V5_MAIN_HOIST_SELECTIONS.ropeDiaMm,
+        barrelLengthMm: 1180,
+      })
+    );
+  });
+
+  it("geometrik olarak imkânsız kesitte değer üretmez", () => {
+    // 2s ≥ D → gövde dolu; boru bağıntısı anlamsız.
+    expect(
+      deriveDrumWeightKg({
+        drumDiaMm: 100, grooveWallThicknessMm: 60, ropeDiaMm: 20, barrelLengthMm: 1000,
+      })
+    ).toBeUndefined();
+    expect(
+      deriveDrumWeightKg({
+        drumDiaMm: 400, grooveWallThicknessMm: 12, ropeDiaMm: 18, barrelLengthMm: 0,
+      })
+    ).toBeUndefined();
+  });
+
+  it("anahtar kapalıyken elle girilen ağırlığa dokunmaz", () => {
+    const d = deriveHoistInputs(
+      withInputs({ drumWeightAuto: false, drumWeightKg: 1234 }),
+      MAIN.selections,
+      CTX
+    );
+    expect(d.drumWeightKg).toBeUndefined();
+  });
+});
+
+// ------------------------------------------- 4. Yürütme uygulama (CMAA) sınıfı
+
+describe("yürütme uygulama sınıfı otomatiği", () => {
+  it("FEM mekanizma sınıfını CMAA servis sınıfına eşler (firma kabulü)", () => {
+    expect(FEM_TO_CMAA_APPLICATION_CLASS).toEqual({
+      M1: "A", M2: "B", M3: "C", M4: "C", M5: "D", M6: "E", M7: "F", M8: "F",
+    });
+  });
+
+  it("her mekanizma sınıfının geçerli bir karşılığı vardır ve eşleme monotondur", () => {
+    let prev = -1;
+    for (const m of MECHANISM_CLASSES) {
+      const cls = travelApplicationClass(m);
+      const i = CMAA_APPLICATION_CLASSES.indexOf(cls);
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(i).toBeGreaterThanOrEqual(prev); // ağırlaşan mekanizma → ağırlaşan sınıf
+      prev = i;
+    }
+  });
+
+  it("tanınmayan sınıfta en ağır kabulde kalır", () => {
+    expect(travelApplicationClass(undefined)).toBe("F");
+  });
+
+  it("anahtar açıkken sınıfı girdiye yazar, kapalıyken elle seçime dokunmaz", () => {
+    const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+    expect(
+      deriveTravelInputs({ ...inp, travelApplicationClassAuto: true }, {
+        ambientTempMaxC: 40, mechanismClass: "M3",
+      }).applicationClass
+    ).toBe("C");
+    expect(
+      deriveTravelInputs({ ...inp, travelApplicationClassAuto: false, applicationClass: "B" }, {
+        ambientTempMaxC: 40, mechanismClass: "M3",
+      }).applicationClass
+    ).toBeUndefined();
+  });
+
+  it("şablondaki değer seçenek listesindedir", () => {
+    for (const key of ["trolley", "bridge"] as const) {
+      const cls = (NEW_WORK_TEMPLATE[key]!.inputs as TravelInputs).applicationClass;
+      expect(CMAA_APPLICATION_CLASSES as readonly string[]).toContain(cls);
+    }
+  });
+});
+
+// ------------------------------- 5. Ana kiriş: yükler ve yükleme durumları
+
+describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
+  const GIRDER = NEW_WORK_TEMPLATE.girder!.inputs as GirderInputs;
+  const DEP = { mainHookBlockWeightKg: 1000, mainRopeWeightKg: 100 };
+
+  it("ψh değerleri motorun kendi bağıntısıyla BİREBİR aynıdır", () => {
+    const d = deriveGirderInputs({ ...GIRDER, psiHAAuto: true, psiHKAuto: true }, NEW_WORK_SPECS, DEP);
+    const live = NEW_WORK_SPECS.mainCapacityT * 1000 + 1000 + 100;
+    const trolleyKg = NEW_WORK_SPECS.mainTrolleyWeightT * 1000;
+    expect(d.psiHAOverride).toBe(horizontalDynamicFactor(live / trolleyKg));
+    expect(d.psiHKOverride).toBe(
+      horizontalDynamicFactor(live / (NEW_WORK_SPECS.bridgeWeightT * 1000 + trolleyKg))
+    );
+  });
+
+  it("γc çelik yapı sınıfından gelir", () => {
+    const d = deriveGirderInputs({ ...GIRDER, amplifyYcAuto: true }, V5_SPECS, DEP);
+    expect(d.amplifyYcOverride).toBe(STRUCTURE_AMPLIFY_FACTOR[V5_SPECS.structureClass]);
+  });
+
+  it("kütle oranı 1'in altındaysa ψh = 2 (FEM üst zarfı)", () => {
+    const agirAraba = { ...NEW_WORK_SPECS, mainTrolleyWeightT: 100 };
+    const d = deriveGirderInputs({ ...GIRDER, psiHAAuto: true }, agirAraba, DEP);
+    expect(d.psiHAOverride).toBe(2);
+  });
+
+  it("anahtarlar kapalıyken elle girilen katsayılara dokunmaz", () => {
+    const d = deriveGirderInputs(
+      { ...GIRDER, psiHAAuto: false, psiHKAuto: false, amplifyYcAuto: false },
+      NEW_WORK_SPECS,
+      DEP
+    );
+    expect(d).toEqual({});
+  });
+});
+
+// ---------------------------------------- 6. AUTO_FLAGS koruması (regresyon)
+
+/** Kaydedilmiş bir revizyon gövdesi — tüm bölümler mevcut (kapalı sayılmasın). */
+function storedRevision(): Record<string, unknown> {
+  const src = NEW_WORK_TEMPLATE as unknown as Record<string, { inputs: object } | undefined>;
+  const out: Record<string, unknown> = { specs: NEW_WORK_SPECS, disabledModules: [] };
+  for (const key of MODULE_ORDER) {
+    const field = CALC_FIELD[key];
+    out[field] = { ...(src[field]?.inputs ?? {}) };
+  }
+  return out;
+}
+
+/** Bir bölümün girdisinden bir anahtarı siler (eski kayıt: elle girilmiş). */
+function withoutFlag(stored: Record<string, unknown>, field: string, flag: string) {
+  const rec = { ...(stored[field] as Record<string, unknown>) };
+  delete rec[flag];
+  return { ...stored, [field]: rec };
+}
+
+describe("AUTO_FLAGS koruması", () => {
+  const CASES: [string, Record<string, string>][] = [
+    ["mainHoist", HOIST_AUTO_FIELDS],
+    ["mainHoist", HOIST_AUTO_SELECTION_FIELDS],
+    ["bridge", TRAVEL_AUTO_FIELDS],
+    ["girder", GIRDER_AUTO_FIELDS],
+  ];
+
+  for (const [field, map] of CASES) {
+    for (const flag of new Set(Object.values(map))) {
+      it(`${field}.${flag}: kayıtta anahtar yoksa KAPALI yüklenir (elle değer ezilmez)`, () => {
+        const stored = withoutFlag(storedRevision(), field, flag);
+        const loaded = loadRevision(stored, null);
+        const inputs = (loaded.full as unknown as Record<string, { inputs: Record<string, unknown> }>)[
+          field
+        ].inputs;
+        expect(inputs[flag]).toBe(false);
+      });
+
+      it(`${field}.${flag}: kayıtta anahtar açıksa açık kalır`, () => {
+        const base = storedRevision();
+        const rec = { ...(base[field] as Record<string, unknown>), [flag]: true };
+        const loaded = loadRevision({ ...base, [field]: rec }, null);
+        const inputs = (loaded.full as unknown as Record<string, { inputs: Record<string, unknown> }>)[
+          field
+        ].inputs;
+        expect(inputs[flag]).toBe(true);
+      });
+    }
+  }
+});
+
+// ------------------------------------------------------------ 7. Çap işareti
+
+describe("çap işareti", () => {
+  it("yalnız işaretli tanımların değerine Ø ekler", () => {
+    expect(withDiameterSign("400", { diameter: true })).toBe("Ø400");
+    expect(withDiameterSign("400")).toBe("400");
+    expect(withDiameterSign("400", {})).toBe("400");
+  });
+
+  it("boş ve zaten işaretli değerlere dokunmaz", () => {
+    expect(withDiameterSign("—", { diameter: true })).toBe("—");
+    expect(withDiameterSign("", { diameter: true })).toBe("");
+    expect(withDiameterSign("Ø400", { diameter: true })).toBe("Ø400");
+  });
+});

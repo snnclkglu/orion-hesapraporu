@@ -49,3 +49,59 @@ export async function saveEquipmentExtras(
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
 }
+
+// ------------------------------------------------- Ek Özellikler (madde 34)
+
+const noteSchema = z.object({
+  // `<modulKey>:<slug>` — ekipman satırının kararlı kimliği
+  rowKey: z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9]+:[A-Za-z0-9]+$/, "Geçersiz satır anahtarı"),
+  note: z.string().max(1000),
+});
+
+export type SaveNoteResult = { ok?: boolean; error?: string };
+
+/**
+ * Bir ekipman satırının "Ek Özellikler" notunu kaydeder (equipment_notes).
+ * Not bir hesap değeri değil açıklamadır; yayınlanmış revizyonda da yazılabilir
+ * (gerekçe migration yorumunda). Boş not satırı siler — tablo şişmez.
+ */
+export async function saveEquipmentNote(
+  projectId: string,
+  revisionId: string,
+  rowKey: string,
+  note: string
+): Promise<SaveNoteResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsed = noteSchema.safeParse({ rowKey, note });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const temiz = parsed.data.note.trim();
+  if (temiz === "") {
+    const { error } = await supabase
+      .from("equipment_notes")
+      .delete()
+      .eq("revision_id", revisionId)
+      .eq("row_key", parsed.data.rowKey);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.from("equipment_notes").upsert(
+      {
+        revision_id: revisionId,
+        row_key: parsed.data.rowKey,
+        note: temiz,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      },
+      { onConflict: "revision_id,row_key" }
+    );
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  return { ok: true };
+}

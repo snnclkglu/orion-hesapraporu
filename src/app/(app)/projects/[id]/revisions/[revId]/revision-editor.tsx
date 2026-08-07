@@ -15,21 +15,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
-import { computeHoistGroup, hoistSpecView } from "@/lib/calc/modules/hoistGroup";
-import { computeHookBlock } from "@/lib/calc/modules/hookBlock";
-import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
-import { computeMainGirder } from "@/lib/calc/modules/mainGirder";
-import { computeBuckling } from "@/lib/calc/modules/buckling";
-import { computeEndCarriage } from "@/lib/calc/modules/endCarriage";
-import { computeWheelLoads } from "@/lib/calc/modules/wheelLoads";
+// Alternatiflerin uygunluğu artık burada hesaplanmaz; module-adapters.ts'teki
+// saf `altOptionPass` çağrılır (PDF raporu da aynı kaynağı okur).
+import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import {
-  HOIST_AUTO_FIELDS,
   SPEC_FIELDS,
   SPEC_GROUPS,
-  TRAVEL_AUTO_FIELDS,
   fieldLabel,
 } from "@/lib/calc/fields";
-import { deriveHoistInputs, motorTempFactor } from "@/lib/calc/derive";
+import { travelApplicationClass } from "@/lib/calc/derive";
 import { travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
@@ -44,15 +38,18 @@ import {
   isHookBlockKey,
   isTravelKey,
 } from "@/lib/calc/presentation/module-family";
-import { CALC_FIELD } from "@/lib/revision-load";
+import {
+  CALC_FIELD,
+  altKeyFor,
+  splitAltKey,
+  type RevisionAltState,
+  type RevisionAlts,
+} from "@/lib/revision-load";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
-import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
-import type { HookBlockSelections } from "@/lib/calc/modules/hookBlock";
-import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
+import type { TravelInputs } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
-import type { EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
-import type { WheelLoadInputs, WheelLoadSelections } from "@/lib/calc/modules/wheelLoads";
+import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import {
   ADAPTER_BY_KEY,
@@ -61,15 +58,25 @@ import {
   MODULE_PARENT,
   OPTIONAL_MODULE_KEYS,
   CONFIG_DRIVEN_MODULE_KEYS,
+  altOptionPass,
+  autoInputFlag,
+  autoSelectionFlag,
   buildModuleDeps,
+  derivationWarnings,
+  headlineItems,
   moduleAllowedByConfig,
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
+  withDerivedModules,
+  type AdapterHeadline,
   type AdapterRow,
   type AdapterSection,
   type AnyFieldDef,
+  type HeadlineItem,
   type ModuleKey,
+  type ModuleState,
+  type ModulesState,
 } from "./module-adapters";
 import {
   applyCatalogPick,
@@ -98,12 +105,13 @@ import { saveRevision } from "./actions";
  * Alternatif ekipman seçimi: seçim alanı olan her modül bölümü için 3'e kadar
  * alternatif saklanır; aktif olan canlı hesapta kullanılır, diğerlerinin
  * uygunluğu rozetle gösterilir.
+ *
+ * Tip TANIMI burada DEĞİL, `revision-load.ts`tedir — aynı yapıyı PDF raporu ve
+ * ekipman listesi de okur. Burada yalnız editörün alıştığı adlarla yeniden
+ * dışa verilir (anahtar: `${moduleKey}-${section.rawId}`).
  */
-export interface AltState {
-  active: number;
-  options: Record<string, unknown>[];
-}
-export type AltsMap = Record<string, AltState>; // key: `${moduleKey}-${section.rawId}`
+export type AltState = RevisionAltState;
+export type AltsMap = RevisionAlts;
 
 function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
@@ -143,7 +151,14 @@ function standardContextFor(
   }
   if (isTravelKey(key)) {
     const v = travelSpecView(specs, key, { hookEquipmentT: 0, trolleyWeightT: 0 });
-    return { ...base, mechanismClass: v.mechanismClass, usageClass: v.usageClass };
+    return {
+      ...base,
+      mechanismClass: v.mechanismClass,
+      usageClass: v.usageClass,
+      // CMAA 70 servis faktörü tablosunda vincin kendi sınıfının satırı
+      // vurgulansın (FEM sınıfından türetilen uygulama sınıfı).
+      applicationClass: travelApplicationClass(v.mechanismClass),
+    };
   }
   return base;
 }
@@ -256,6 +271,10 @@ function Field({
             disabled={locked}
           >
             <SelectTrigger id={id} className="h-8 w-full">
+              {/* Madde 30: çap alanlarında değerin başında "Ø" durur */}
+              {def.diameter && (
+                <span aria-hidden="true" className="font-mono text-muted-foreground">Ø</span>
+              )}
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -269,11 +288,23 @@ function Field({
         );
       })() : (
         <>
+          {/* Madde 30: çap alanında değerin başında sabit "Ø" işareti durur —
+              girdinin KENDİSİNE yazılmaz, yalnız önüne konur. */}
+          <div className="relative">
+          {def.diameter && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-2 flex items-center font-mono text-sm text-muted-foreground"
+            >
+              Ø
+            </span>
+          )}
           <Input
             id={id}
             className={cn(
               "h-8 bg-background",
               def.type === "number" && "font-mono tabular-nums",
+              def.diameter && "pl-6",
               auto?.on && "border-primary/30 bg-primary/5"
             )}
             inputMode={def.type === "number" ? "decimal" : undefined}
@@ -299,6 +330,7 @@ function Field({
               }
             }}
           />
+          </div>
           {numError && (
             <p role="alert" className="font-mono text-[11px] text-destructive">
               ✗ {numError}
@@ -384,6 +416,133 @@ function CheckOriginBadge({
     >
       ({parts.join(" · ")})
     </span>
+  );
+}
+
+// ------------------------------------------------------------ Başlık kontrolü
+
+/**
+ * Başlık kontrolünün iki sayısı, gösterim birimine çevrilmiş metin hâlinde.
+ * Hangi sayının hesaptan çıktığını `checkDisplay` belirler (kontrolden kontrole
+ * değişir) — burada tahmin edilmez.
+ */
+function headlineTexts(check: AnyCheck): { computed: string; limit: string } {
+  const d = checkDisplay(check);
+  const conv = (v: number) => toDisplayUnit(v, d.unit);
+  const c = conv(d.computed);
+  const unit = c.unit === "-" || !c.unit ? "" : ` ${c.unit}`;
+  const limit =
+    d.operator === "…"
+      ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}${unit}`
+      : `${fmt(conv(d.limit ?? 0).value)}${unit}`;
+  return { computed: `${fmt(c.value)}${unit}`, limit };
+}
+
+/**
+ * Katalog seçim başlığının yanındaki rozet çifti (madde 3).
+ *
+ * "GEREKEN 5,00 · GERÇEKLEŞEN 5,42" — mühendis katalogdan seçim yaparken
+ * kararını bu iki sayıya bakarak verir; renk kontrolün KENDİ `pass` değerinden
+ * gelir, burada eşik karşılaştırması yapılmaz.
+ */
+function HeadlineBadge({
+  item,
+  headline,
+}: {
+  item: HeadlineItem;
+  headline: AdapterHeadline;
+}) {
+  const { check, label } = item;
+  const t = headlineTexts(check);
+  return (
+    <span
+      title={`${check.label} — ${headline.limitLabel} ${t.limit} / ${headline.computedLabel} ${t.computed}`}
+      className={cn(
+        "inline-flex flex-wrap items-baseline gap-x-1.5 border px-2 py-0.5 font-mono text-[10px] tabular-nums",
+        check.pass
+          ? "border-success/40 bg-success/10 text-success"
+          : "border-destructive/50 bg-destructive/10 text-destructive"
+      )}
+    >
+      <span aria-hidden="true" className="font-semibold">
+        {check.pass ? "✓" : "✗"}
+      </span>
+      <span className="tracking-wide uppercase opacity-70">{headline.limitLabel}</span>
+      <span className="font-semibold">{t.limit}</span>
+      <span aria-hidden="true" className="opacity-40">·</span>
+      <span className="tracking-wide uppercase opacity-70">{headline.computedLabel}</span>
+      <span className="font-semibold">{t.computed}</span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+/**
+ * Girdilerin hemen altında, katalog seçiminin üstünde duran özet şeridi
+ * (madde 7 — tambur mili gerilmeleri). Bölümün ayrıntılı hesap satırları
+ * ALT BÖLÜMDE aynen kalır; bu şerit yalnız kararı hızlandıran özettir.
+ */
+function HeadlineBand({
+  items,
+  headline,
+}: {
+  items: HeadlineItem[];
+  headline: AdapterHeadline;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      {headline.title && (
+        <h3 className="oc-kicker mb-2 text-muted-foreground">{headline.title}</h3>
+      )}
+      <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {items.map(({ label, check }) => {
+          const t = headlineTexts(check);
+          return (
+            <div
+              key={check.id}
+              className={cn(
+                "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-l-2 py-1 pl-2.5 text-xs",
+                check.pass
+                  ? "border-success/50 bg-success/5"
+                  : "border-destructive/60 bg-destructive/5"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "shrink-0 font-mono text-sm font-semibold",
+                  check.pass ? "text-success" : "text-destructive"
+                )}
+              >
+                {check.pass ? "✓" : "✗"}
+              </span>
+              <span className="font-medium">{label}</span>
+              <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-[11px] tabular-nums">
+                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                  {headline.computedLabel}
+                </span>
+                <span
+                  className={cn(
+                    "font-semibold",
+                    check.pass ? "text-success" : "text-destructive"
+                  )}
+                >
+                  {t.computed}
+                </span>
+                <span className="text-muted-foreground">
+                  {checkDisplay(check).operator}
+                </span>
+                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                  {headline.limitLabel}
+                </span>
+                <span className="text-foreground/80">{t.limit}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -499,7 +658,8 @@ function CalcRow({
             rowPass === null && "bg-muted text-foreground"
           )}
         >
-          = {fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
+          {/* Madde 30: çap satırlarında değerin başına "Ø" konur */}
+          = {row.diameter ? "Ø" : ""}{fmt(value, row.digits ?? 2)}{unit ? ` ${unit}` : ""}
         </span>
       </div>
       {row.formula && (
@@ -701,60 +861,8 @@ function buildNavGroups(
 
 // ---------------------------------------------------------------- Modül durumu
 
-/** Tüm hesap bölümlerinin girdi/seçim durumu — anahtar bazlı, topolojiden bağımsız. */
-type ModuleState = { inputs: object; selections: object };
-type ModulesState = Record<ModuleKey, ModuleState>;
-
-/**
- * Otomatik alanları (halat ağırlığı, kanca bloğu ağırlığı, sıcaklık faktörü)
- * ve seçilen halat donanımını güncel girdi/seçimlerden yeniden türetir.
- * Anahtar kapalıysa ya da kaynak veri eksikse değer korunur.
- */
-function withDerivedHoist(state: ModuleState, specs: TechnicalSpecs, which: ModuleKey): ModuleState {
-  const inputs = state.inputs as HoistInputs;
-  const selections = state.selections as HoistSelections;
-  const view = hoistSpecView(specs, which as "main" | "aux" | "mono1" | "mono2");
-  const patch: Partial<HoistInputs> = {};
-
-  const d = deriveHoistInputs(inputs, selections, {
-    liftHeightM: view.liftHeightM,
-    capacityT: view.capacityT,
-    ambientTempMaxC: specs.ambientTempMaxC,
-  });
-  // Hazır donanım seçiliyse tahrikli/toplam halat kutuları da o donanıma uyar.
-  if (d.drivenFalls !== undefined) patch.drivenFalls = d.drivenFalls;
-  if (d.totalFalls !== undefined) patch.totalFalls = d.totalFalls;
-  if (d.ropeWeightKg !== undefined && d.ropeWeightKg !== inputs.ropeWeightKg) {
-    patch.ropeWeightKg = d.ropeWeightKg;
-  }
-  if (
-    d.hookBlockWeightKg !== undefined &&
-    d.hookBlockWeightKg !== inputs.hookBlockWeightKg
-  ) {
-    patch.hookBlockWeightKg = d.hookBlockWeightKg;
-  }
-  if (d.tempFactor !== undefined && d.tempFactor !== inputs.tempFactor) {
-    patch.tempFactor = d.tempFactor;
-  }
-  if (Object.keys(patch).length === 0) return state;
-  return { ...state, inputs: { ...inputs, ...patch } };
-}
-
-/** Yürütme grubunda otomatik sıcaklık faktörü. */
-function withDerivedTravel(state: ModuleState, specs: TechnicalSpecs): ModuleState {
-  const inputs = state.inputs as TravelInputs;
-  if (!inputs.tempFactorAuto) return state;
-  const v = motorTempFactor(specs.ambientTempMaxC);
-  if (v === inputs.tempFactor) return state;
-  return { ...state, inputs: { ...inputs, tempFactor: v } };
-}
-
-/** Bir bölümün durumunu ailesine göre türetmelerden geçirir. */
-function withDerived(key: ModuleKey, state: ModuleState, specs: TechnicalSpecs): ModuleState {
-  if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
-  if (isTravelKey(key)) return withDerivedTravel(state, specs);
-  return state;
-}
+// Bölüm durumu tipleri ve otomatik alan türetmesi module-adapters.ts'tedir:
+// saf (React'ten bağımsız) oldukları için doğrudan test edilirler.
 
 function initModules(initial: CalcInput): ModulesState {
   // `initial` yükleyiciden (revision-load) gelir ve TÜM bölümleri içerir.
@@ -763,13 +871,12 @@ function initModules(initial: CalcInput): ModulesState {
   const out = {} as ModulesState;
   for (const key of MODULE_ORDER) {
     const st = src[CALC_FIELD[key]];
-    const base: ModuleState = {
+    out[key] = {
       inputs: st?.inputs ?? {},
       selections: st?.selections ?? {},
     };
-    out[key] = withDerived(key, base, initial.specs);
   }
-  return out;
+  return withDerivedModules(out, initial.specs);
 }
 
 // ---------------------------------------------------------------- Editor
@@ -891,28 +998,15 @@ export function RevisionEditor({
   }, [STEPS.length]);
 
   // ------------------------------------------------- otomatik girdi türetmesi
-  // "Otomatik" anahtarı açık kaldırma girdileri (halat ağırlığı, makara verimi)
+  // "Otomatik" anahtarı açık alanlar (halat ağırlığı, makara verimi, yiv boyu,
+  // tambur ağırlığı, yürütmenin uygulama sınıfı / Ks / Kt, ana kirişin ψh ve γc)
   // kaynak veri her değiştiğinde AYNI state güncellemesi içinde yeniden
-  // hesaplanır ve girdiye yazılır. Böylece hesap motoru, PDF rapor ve ekipman
-  // listesi hep aynı değeri görür; alan elle düzenlenmek istenirse anahtar
-  // kapatılır ve serbest kalır.
-  const derivations = useMemo(() => {
-    const out = {} as Record<ModuleKey, ReturnType<typeof deriveHoistInputs> | undefined>;
-    for (const k of MODULE_ORDER) {
-      if (!isHoistKey(k)) continue;
-      const view = hoistSpecView(specs, k);
-      out[k] = deriveHoistInputs(
-        mods[k].inputs as HoistInputs,
-        mods[k].selections as HoistSelections,
-        {
-          liftHeightM: view.liftHeightM,
-          capacityT: view.capacityT,
-          ambientTempMaxC: specs.ambientTempMaxC,
-        }
-      );
-    }
-    return out;
-  }, [mods, specs]);
+  // hesaplanır ve girdiye (yiv boyunda: seçime) yazılır. Böylece hesap motoru,
+  // PDF rapor ve ekipman listesi hep aynı değeri görür; alan elle düzenlenmek
+  // istenirse anahtar kapatılır ve serbest kalır.
+  // Buradaki liste yalnız UYARILARDIR (otomatik açık ama kaynak veri eksik);
+  // değerin kendisi `withDerivedModules` ile state'e yazılır.
+  const warningsByModule = useMemo(() => derivationWarnings(mods, specs), [mods, specs]);
 
   /** Kapalı bölümlerin verisi de kayda gider — yeniden açılınca geri gelsin. */
   const fullCalcInput: CalcInput = useMemo(() => {
@@ -959,7 +1053,13 @@ export function RevisionEditor({
     return readModuleResult(result, key);
   }
 
-  /** Modül state'ini yazarken ailesine özgü türetmeleri de uygular. */
+  /**
+   * Modül state'ini yazarken TÜM bölümlerin türetmelerini tazeler.
+   *
+   * Yalnız yazılan bölüm değil hepsi geçirilir, çünkü türetmeler bölüm sınırını
+   * aşar: ana kirişin ψhA/ψhK katsayıları ana kaldırmanın kanca ve halat
+   * ağırlıklarından beslenir. Değişmeyen bölümler aynı nesne olarak kalır.
+   */
   function writeModule(
     m: ModulesState,
     key: ModuleKey,
@@ -967,7 +1067,7 @@ export function RevisionEditor({
     nextSpecs = specs
   ): ModulesState {
     const merged: ModuleState = { ...m[key], ...patch };
-    return { ...m, [key]: withDerived(key, merged, nextSpecs) };
+    return withDerivedModules({ ...m, [key]: merged }, nextSpecs);
   }
 
   function setModuleInputs(key: ModuleKey, next: object) {
@@ -997,18 +1097,7 @@ export function RevisionEditor({
       });
     }
     setSpecs(next);
-    setMods((m) => {
-      const out = { ...m };
-      let changed = false;
-      for (const k of MODULE_ORDER) {
-        const d = withDerived(k, m[k], next);
-        if (d !== m[k]) {
-          out[k] = d;
-          changed = true;
-        }
-      }
-      return changed ? out : m;
-    });
+    setMods((m) => withDerivedModules(m, next));
   }
 
   /**
@@ -1065,48 +1154,15 @@ export function RevisionEditor({
     return out;
   }
 
-  /** Verilen seçimlerle ilgili modülün kontrollerini yeniden hesaplar */
-  function computeChecksWith(key: ModuleKey, sel: object): AnyCheck[] {
-    const inp = mods[key].inputs;
-    if (isHoistKey(key)) {
-      return computeHoistGroup(specs, key, inp as never, sel as HoistSelections).checks;
-    }
-    if (isHookBlockKey(key)) {
-      return computeHookBlock(
-        specs, key, inp as never, sel as HookBlockSelections, deps.hookBlock[key]
-      ).checks;
-    }
-    if (isTravelKey(key)) {
-      return computeTravelGroup(
-        specs, key, inp as never, sel as TravelSelections, deps.travel[key]
-      ).checks;
-    }
-    switch (key) {
-      case "girder":
-        return computeMainGirder(specs, inp as never, sel as GirderSelections, deps.girder).checks;
-      case "buckling":
-        return computeBuckling(inp as never).checks;
-      case "endCarriage":
-        return computeEndCarriage(
-          specs, inp as never, sel as EndCarriageSelections, deps.endCarriage
-        ).checks;
-      case "wheelLoads":
-        return computeWheelLoads(
-          specs, inp as never, sel as WheelLoadSelections, deps.wheelLoads
-        ).checks;
-    }
-    return [];
-  }
-
   /** Kaydetmeden önce aktif alternatifi canlı seçim değerleriyle eşitler */
   function syncedAlts(): AltsMap {
     const next: AltsMap = { ...alts };
     for (const [key, st] of Object.entries(next)) {
-      const dash = key.indexOf("-");
-      const moduleKey = key.slice(0, dash) as ModuleKey;
-      const sectionId = key.slice(dash + 1);
+      const parts = splitAltKey(key);
+      if (!parts) continue;
+      const moduleKey = parts.moduleKey as ModuleKey;
       const adapter = ADAPTER_BY_KEY[moduleKey];
-      const section = adapter?.sections.find((s) => s.rawId === sectionId);
+      const section = adapter?.sections.find((s) => s.rawId === parts.sectionRawId);
       if (!section) continue;
       const options = [...st.options];
       options[st.active] = pickSelection(mods[moduleKey].selections, section.selectionKeys);
@@ -1116,35 +1172,31 @@ export function RevisionEditor({
   }
 
   function altStateFor(key: ModuleKey, section: AdapterSection): AltState {
-    const altKey = `${key}-${section.rawId}`;
     return (
-      alts[altKey] ?? {
+      alts[altKeyFor(key, section.rawId)] ?? {
         active: 0,
         options: [pickSelection(mods[key].selections, section.selectionKeys)],
       }
     );
   }
 
+  /**
+   * Alternatifin uygunluk rozeti. Hesap BURADA yapılmaz: PDF raporundaki
+   * "SEÇENEKLER" bloğuyla aynı saf yardımcı (`altOptionPass`) çağrılır ki iki
+   * yüzey aynı sayıyı iki ayrı yoldan üretip sessizce ayrışmasın.
+   */
   function altSectionPass(
     key: ModuleKey,
     section: AdapterSection,
     option: Record<string, unknown>
   ): boolean | null {
-    const prefix = ADAPTER_BY_KEY[key].checkPrefix;
-    try {
-      const all = computeChecksWith(key, { ...mods[key].selections, ...option });
-      const checks = section.checkSuffixes
-        .map((s) => all.find((c) => c.id === `${prefix}${s}`))
-        .filter((c): c is AnyCheck => Boolean(c));
-      if (checks.length === 0) return null;
-      return checks.every((c) => c.pass);
-    } catch {
-      return null;
-    }
+    return altOptionPass(
+      key, section, specs, mods[key].inputs, mods[key].selections, option, deps
+    );
   }
 
   function switchAlt(key: ModuleKey, section: AdapterSection, index: number) {
-    const altKey = `${key}-${section.rawId}`;
+    const altKey = altKeyFor(key, section.rawId);
     const sel = mods[key].selections;
     const st = altStateFor(key, section);
     if (index === st.active) return;
@@ -1155,7 +1207,7 @@ export function RevisionEditor({
   }
 
   function addAlt(key: ModuleKey, section: AdapterSection) {
-    const altKey = `${key}-${section.rawId}`;
+    const altKey = altKeyFor(key, section.rawId);
     const st = altStateFor(key, section);
     if (st.options.length >= 3) return;
     const current = pickSelection(mods[key].selections, section.selectionKeys);
@@ -1166,7 +1218,7 @@ export function RevisionEditor({
   }
 
   function removeAlt(key: ModuleKey, section: AdapterSection) {
-    const altKey = `${key}-${section.rawId}`;
+    const altKey = altKeyFor(key, section.rawId);
     const sel = mods[key].selections;
     const st = altStateFor(key, section);
     if (st.options.length <= 1) return;
@@ -1305,8 +1357,15 @@ export function RevisionEditor({
     const checks = sectionChecks(key, section);
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
-    const isHoist = isHoistKey(key);
-    const derivation = derivations[key];
+    const warnings = warningsByModule[key] ?? [];
+    // Başlık kontrolleri: bölümün özünü seçim yapılan yerde tekrar eden özet
+    // (madde 3 rozet çifti / madde 7 gerilme şeridi). Ayrıntılı satırlar kalır.
+    const headline = section.headline;
+    const headlines = headlineItems(
+      adapter.checkPrefix,
+      section,
+      moduleResult(key)?.checks
+    );
 
     const onInputsChange = (next: object) => {
       setModuleInputs(
@@ -1316,25 +1375,34 @@ export function RevisionEditor({
     };
 
     /**
-     * Otomatik doldurulabilen alanların anahtar durumu. Kaldırma ve yürütme
-     * grupları aynı mekanizmayı kullanır; yalnız alan listeleri farklıdır
-     * (yürütmede şimdilik sıcaklık faktörü).
+     * Otomatik doldurulabilen alanların anahtar durumu.
+     *
+     * Anahtar HER ZAMAN girdilerde durur — türetilen değer girdiye de seçime de
+     * yazılabilir (yiv boyu bir SEÇİM alanıdır). Bu yüzden tek bir yardımcı
+     * kullanılır; hangi haritadan okunacağını çağıran belirler.
      */
-    function autoStateFor(fieldKey: string): AutoFieldState | undefined {
-      const flag = isHoist
-        ? HOIST_AUTO_FIELDS[fieldKey]
-        : isTravelKey(key)
-          ? TRAVEL_AUTO_FIELDS[fieldKey]
-          : undefined;
+    function autoStateFrom(
+      flag: string | undefined,
+      fieldKey: string
+    ): AutoFieldState | undefined {
       if (!flag) return undefined;
       const rec = inputs as unknown as Record<string, unknown>;
-      const on = rec[flag] === true;
       return {
-        on,
+        on: rec[flag] === true,
         onToggle: (next) =>
           setModuleInputs(key, { ...(inputs as object), [flag]: next }),
-        warning: derivation?.warnings.find((w) => w.field === fieldKey)?.message,
+        warning: warnings.find((w) => w.field === fieldKey)?.message,
       };
+    }
+
+    /** Girdi ızgarasındaki alanın otomatik anahtarı (kaldırma/yürütme/ana kiriş). */
+    function autoStateFor(fieldKey: string): AutoFieldState | undefined {
+      return autoStateFrom(autoInputFlag(key, fieldKey), fieldKey);
+    }
+
+    /** Katalog seçimi ızgarasındaki alanın otomatik anahtarı (yiv boyu). */
+    function autoSelectionStateFor(fieldKey: string): AutoFieldState | undefined {
+      return autoStateFrom(autoSelectionFlag(key, fieldKey), fieldKey);
     }
 
     return (
@@ -1345,8 +1413,12 @@ export function RevisionEditor({
               {section.id}
             </span>
             <span className="tracking-tight">{section.title}</span>
+            {/* Rozet, kenar çubuğuyla AYNI dinamik numarayı basar: adapter.title
+                sabit "05 · …" taşır, oysa bölüm numarası vince dahil modüllere
+                göre yeniden dizilir (kenar çubuğu "04" derken rozet "05"
+                diyordu). Numara tek kaynaktan — `numbers` haritasından — gelir. */}
             <Badge variant="outline" className="font-normal text-muted-foreground">
-              {adapter.title}
+              {renumberTitle(adapter.title, numbers[key] ?? 0)}
             </Badge>
             {checks.length > 0 && (
               <Badge
@@ -1416,6 +1488,11 @@ export function RevisionEditor({
               </div>
             </div>
           )}
+          {/* Madde 7: İZİN VERİLEN / OLUŞAN özeti girdilerin hemen altında,
+              katalog seçiminin üstünde. Ayrıntılı hesap alt bölümde kalır. */}
+          {headline?.placement === "band" && (
+            <HeadlineBand items={headlines} headline={headline} />
+          )}
           {section.selectionDefs.length > 0 && (() => {
             const st = altStateFor(key, section);
             const catalogMapping = getCatalogMapping(key, section.rawId);
@@ -1442,6 +1519,12 @@ export function RevisionEditor({
                         }
                       />
                     )}
+                    {/* Madde 3: seçim düğmesinin hemen yanında gereken ve
+                        gerçekleşen değer — uygunsa yeşil, değilse kırmızı. */}
+                    {headline?.placement === "catalog" &&
+                      headlines.map((it) => (
+                        <HeadlineBadge key={it.check.id} item={it} headline={headline} />
+                      ))}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {st.options.map((opt, i) => {
@@ -1504,6 +1587,9 @@ export function RevisionEditor({
                       value={sel}
                       onChange={(next) => setModuleSelections(key, next)}
                       disabled={readOnly}
+                      // Seçim alanı da otomatik olabilir (yiv boyu): anahtar
+                      // girdilerde, türetilen değer seçimlerde durur.
+                      auto={autoSelectionStateFor(f.key)}
                       context={stdContext}
                       specs={specs}
                     />

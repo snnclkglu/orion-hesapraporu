@@ -20,6 +20,13 @@
 // m/dak, d/dak, saat.
 
 import { solveBeam } from "../beam";
+import {
+  computeBuffer,
+  FEM_IMPACT_SPEED_RATIO,
+  TROLLEY_IMPACT_SPEED_RATIO,
+  type BufferType,
+  type CurvePoint,
+} from "../buffer";
 import { mechanismLife, shaftMaterialAllowables } from "../coefficients";
 import { shaftStress } from "../shaftStress";
 import { c1Factor, RAILS } from "../tables";
@@ -35,6 +42,14 @@ import type {
  * Yürütme grubu varyantı. Ana araba, yardımcı araba ve monoray arabaları aynı
  * araba fiziğini kullanır; köprü ayrı dallanır.
  */
+/**
+ * İki durumlu yürütme girdilerinin "evet" değeri. Kayıtta düz METİN durur
+ * (açılır liste seçeneği); motor bu sabitle karşılaştırır — böylece değer tek
+ * bir yerde tanımlıdır ve sunum katmanı ile motor ayrışamaz.
+ */
+export const TRAVEL_YES = "Evet";
+export const TRAVEL_NO = "Hayır";
+
 export type TravelWhich =
   | "trolley"
   | "auxTrolley"
@@ -64,13 +79,46 @@ export interface TravelInputs {
   shaftSpanACm: number;         // teker mili mesnet ölçüsü a [cm]
   shaftSpanBCm: number;         // teker mili ölçüsü b [cm] (gösterim)
   shaftDiaCm: number;           // teker mili çapı [cm]
+  /**
+   * Teker bandaj (tread) genişliği [mm].
+   *
+   * Teker yükü mile bir ÇİZGİ üzerinden değil, göbeğin oturduğu BANT boyunca
+   * aktarılır; bu yüzden kiriş çözümünde tekil kuvvet değil düzgün yayılı yük
+   * (q = P / b_teker) kullanılır. Bant açıklığın ORTASINDA merkezlenir.
+   *
+   * GERİYE DÖNÜK UYUM: alan tanımsız ya da 0 ise TEKİL yüke geri dönülür —
+   * bu alanın eklenmesinden önceki revizyonların sayıları değişmez.
+   */
+  wheelWidthMm?: number;
   stressConcFactor: number;     // gerilme yığılması katsayısı
   bearingCount: number;         // teker başına rulman adedi
   bearingFactorY0: number;      // eşdeğer statik yük katsayısı Y0
   bearingFactorY1: number;      // eşdeğer dinamik yük katsayısı Y1
-  applicationClass: string;     // uygulama sınıfı (H/O/Y, gösterim; sadece köprü)
+  /**
+   * CMAA 70 servis (uygulama) sınıfı A…F — gösterim büyüklüğüdür, hesaba
+   * girmez. FEM mekanizma sınıfından otomatik türetilir
+   * (`travelApplicationClass`, firma tasarım kabulü); anahtar kapatılınca
+   * mühendis listeden kendisi seçer.
+   */
+  applicationClass: string;
+  /** Uygulama sınıfı otomatik: FEM mekanizma sınıfından türetilir. */
+  travelApplicationClassAuto?: boolean;
   serviceFactorKs: number;      // Ks servis faktörü (CMAA 70)
   accelTorqueFactorKt: number;  // Kt ivmelenme tork faktörü (CMAA 70)
+  /**
+   * Tahrik / kumanda tipi — CMAA 70 T.5.2.9.1.2.1-E'nin SÜTUNU.
+   * Ks yalnız servis sınıfından seçilemez; kumanda tipi de gerekir.
+   */
+  driveControl?: string;
+  /** Ks otomatik: CMAA 70 T.5.2.9.1.2.1-E (sınıf × kumanda tipi). */
+  serviceFactorKsAuto?: boolean;
+  /**
+   * Motor / kumanda tipi — CMAA 70 T.5.2.9.1.2.1-C'nin SATIRI.
+   * Kt servis sınıfına bağlı DEĞİLDİR; yalnız motor ve kumanda tipine bağlıdır.
+   */
+  motorControl?: string;
+  /** Kt otomatik: CMAA 70 T.5.2.9.1.2.1-C. */
+  accelTorqueFactorKtAuto?: boolean;
   reducerStages: number;        // redüktör kademe sayısı
   accelerationMs2: number;      // ivme a [m/s²]
   tempFactor: number;           // ortam sıcaklığı düzeltme faktörü
@@ -82,6 +130,25 @@ export interface TravelInputs {
   motorCouplingServiceFactor: number; // motor kaplini emniyet katsayısı
   wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
   bufferApproachM: number;      // tampon hesabında araba yanaşması [m] (sadece köprü)
+  /**
+   * Çarpışmada AYNI ANDA temas eden tampon adedi. Araba iki kirişin ucundaki
+   * iki durdurucuya, köprü de iki rayın ucundaki iki durdurucuya çarpar →
+   * varsayılan 2. Çarpışan kütle bu adede paylaştırılır.
+   */
+  bufferCount?: number;
+  /**
+   * Yük RİJİT KILAVUZLU mu ("Evet" / "Hayır")? FEM 1.001 md. 2.2.3.4.1 /
+   * CMAA 70 md. 3.3.2.1.3.2: yük salınabiliyorsa çarpışan kütleye GİRMEZ;
+   * rijit kılavuzluysa kapasite + kanca donanımı da kütleye eklenir.
+   * Varsayılan: salınabilir ("Hayır").
+   */
+  bufferLoadRigidlyGuided?: string;
+  /**
+   * Yürüyüş sınırına normal işletmede SIK ulaşılıyor mu ("Evet" / "Hayır")?
+   * FEM 1.001 md. 7.7.1.2 bu durumda azami yavaşlamayı 5 m/s² yerine
+   * 2,5 m/s² ile sınırlar.
+   */
+  bufferFrequentEndApproach?: string;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -121,9 +188,27 @@ export interface TravelSelections {
   wheelCouplingTorqueNm: number;
   wheelCouplingDmaxMm: number;
   bufferModel: string;
+  /**
+   * HİDROLİKTE tam strok s [mm]; KAUÇUKTA tamponun GÖVDE YÜKSEKLİĞİ h [mm]
+   * (sıkışma yolu f′ = sıkışma% · h / 100 olarak eğriden çıkar).
+   */
   bufferStrokeMm: number;
   bufferEnergyKj: number;
   bufferLoadKn: number;
+  /** Hidrolik: SIBRE kısma iğnesi (metering pin) sipariş kodu */
+  bufferMeteringPinCode?: string;
+  /** Hidrolik: seçilen strokta iğne tablosundaki tasarım kütlesi tavanı [t] */
+  bufferDesignMassMaxT?: number;
+  /** Kauçuk/hücresel: katalogun izin verdiği azami sıkışma [%] (kauçuk 50) */
+  bufferMaxCompressionPct?: number;
+  /**
+   * Kauçuk: enerji–sıkışma eğrisi [[sıkışma %, enerji J], …].
+   * Kaynak `catalog_data/buffers/conductix_curves.json`; kauçuk yay
+   * karakteristiği doğrusal olmadığı için kapalı formül KULLANILMAZ.
+   */
+  bufferEnergyCurve?: CurvePoint[];
+  /** Kauçuk: kuvvet–sıkışma eğrisi [[sıkışma %, kuvvet kN], …] */
+  bufferForceCurve?: CurvePoint[];
 }
 
 export interface TravelValues {
@@ -146,6 +231,10 @@ export interface TravelValues {
   reactionAKg: number;
   reactionBKg: number;
   maxMomentKgCm: number;
+  /** Teker yükünün yayıldığı bant boyu [cm] — 0 ise tekil yük modeli */
+  shaftLoadBandCm: number;
+  /** Yayılı yük şiddeti q = Pmaks / b_teker [kg/cm] — tekil yükte 0 */
+  shaftLoadIntensityKgPerCm: number;
   sectionModulusCm3: number;
   shaftBendingStress: number;
   shaftShearStress: number;
@@ -189,13 +278,30 @@ export interface TravelValues {
   requiredWheelCouplingTorqueNm: number;
   wheelCouplingSafety: number;
   // Tampon
+  bufferType: BufferType;
+  /** Tampon başına çarpışan kütle [t] */
   collisionLoadT: number;
+  /** Çarpma hızı oranı k (v_ç = v/60 · k) */
+  bufferImpactSpeedRatio: number;
+  /** Çarpma hızı [m/s] */
+  bufferImpactSpeedMps: number;
   impactEnergyKj: number;
   driveLoadPerMotorN: number;
   totalDriveLoadN: number;
   bufferDriveLoadN: number;
+  /** Hesapta kullanılan sıkışma yolu f′ [mm] */
+  bufferStrokeUsedMm: number;
+  bufferDriveEnergyKj: number;
   totalEnergyKj: number;
   bufferForceKn: number;
+  /** Kauçukta gerçekleşen sıkışma [%] */
+  bufferCompressionPct: number;
+  bufferAvgDecelerationMps2: number;
+  bufferMaxDecelerationMps2: number;
+  /** Tampon tepkisi yapıya aktarılıyor mu (FEM Kitapçık 9 md. 9.4.2) */
+  bufferTransferredToStructure: boolean;
+  /** Tampon hesabı koştu mu (tip "yok" ya da eğri verisi eksikse false) */
+  bufferComputed: boolean;
 }
 
 /**
@@ -250,16 +356,67 @@ export interface TravelSpecView {
   capacityT: number;
   /** Bu grubun kendi ağırlığı [t] (köprüde köprünün taşıdığı araba ağırlığı) */
   trolleyWeightT: number;
+  /** Bu grubun tampon tipi (teknik özelliklerden) */
+  bufferType: BufferType;
+  /** Bu grubun çarpma hızı oranı k (teknik özelliklerden) */
+  bufferImpactSpeedRatio: number;
 }
 
 const posOr = (v: number | undefined, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fallback;
+
+/** Geçerli bir tampon tipi mi (eski revizyonlarda alan hiç bulunmaz). */
+function bufferTypeOr(v: BufferType | undefined, fallback: BufferType): BufferType {
+  return v === "hidrolik" || v === "kaucuk" || v === "yok" ? v : fallback;
+}
+
+/**
+ * Bir yürütme grubunun tampon tipi. Araba varyantlarının tamamı (ana, yardımcı,
+ * monoray) tek bir "araba tamponu" seçimini paylaşır; köprünün kendi seçimi
+ * vardır. Alan hiç tanımlı değilse (eski revizyonlar) hidrolik kabul edilir —
+ * eski hesabın kapalı formülü de sabit verimli hidrolik davranışıydı.
+ */
+export function travelBufferType(specs: TechnicalSpecs, which: TravelWhich): BufferType {
+  return which === "bridge"
+    ? bufferTypeOr(specs.bridgeBufferType, "hidrolik")
+    : bufferTypeOr(specs.trolleyBufferType, "hidrolik");
+}
+
+/**
+ * Çarpma hızı oranı k. Teknik özelliklerde yüzde olarak düzenlenir.
+ * Varsayılan: araba %100 (muhafazakâr firma kabulü), köprü %70
+ * (FEM 1.001 md. 2.2.3.4.1).
+ */
+export function travelBufferImpactSpeedRatio(
+  specs: TechnicalSpecs,
+  which: TravelWhich
+): number {
+  const pct =
+    which === "bridge"
+      ? specs.bridgeBufferImpactSpeedPct
+      : specs.trolleyBufferImpactSpeedPct;
+  if (typeof pct === "number" && Number.isFinite(pct) && pct > 0) return pct / 100;
+  return which === "bridge" ? FEM_IMPACT_SPEED_RATIO : TROLLEY_IMPACT_SPEED_RATIO;
+}
 
 export function travelSpecView(
   specs: TechnicalSpecs,
   which: TravelWhich,
   deps: TravelDeps
 ): TravelSpecView {
+  return {
+    ...travelSpecViewCore(specs, which, deps),
+    bufferType: travelBufferType(specs, which),
+    bufferImpactSpeedRatio: travelBufferImpactSpeedRatio(specs, which),
+  };
+}
+
+/** Ağırlık/hız/sınıf kısmı — tampon alanları `travelSpecView` içinde eklenir. */
+function travelSpecViewCore(
+  specs: TechnicalSpecs,
+  which: TravelWhich,
+  deps: TravelDeps
+): Omit<TravelSpecView, "bufferType" | "bufferImpactSpeedRatio"> {
   switch (which) {
     case "auxTrolley":
       return {
@@ -403,14 +560,43 @@ export function computeTravelGroup(
   // --- Teker Mili ----------------------------------------------------------
   // Model: teker mili iki rulman arasında basit kirişdir, tekerlek yükü
   // açıklığın ortasına etkir. Mesnet aralığı 2·a olduğundan mesnet tepkileri
-  // Pmax/2, ortadaki eğilme momenti (Pmax/2)·a olur.
+  // her hâlde Pmax/2'dir.
+  //
+  // TEKER GENİŞLİĞİ: teker göbeği mile bir ÇİZGİ üzerinden basmaz — yük bandaj
+  // genişliği kadar bir BANT boyunca yayılır. Bant açıklığın ortasında
+  // merkezlenir ve şiddeti q = Pmax / b_teker olur. Yayılı yük momenti tekil
+  // yüke göre q·b_t²/8 kadar KÜÇÜLTÜR (moment diyagramının tepesi sivri değil
+  // düz olur); mesnet reaksiyonları ve maksimum kesme kuvveti DEĞİŞMEZ.
+  //
+  // GERİYE DÖNÜK UYUM: teker genişliği girilmemişse (eski revizyonlar) tekil
+  // yük modeline geri dönülür ve sayılar birebir korunur.
   const shaftSupportSpanCm = 2 * inp.shaftSpanACm;
+  const wheelWidthCm = Math.max(0, (inp.wheelWidthMm ?? 0) / 10);
+  // Bant açıklığı aşamaz; aşarsa tüm açıklığa yayılır.
+  const loadBandCm = Number.isFinite(wheelWidthCm)
+    ? Math.min(wheelWidthCm, shaftSupportSpanCm)
+    : 0;
+  const shaftLoadDistributed = loadBandCm > 0 && shaftSupportSpanCm > 0;
+  const loadIntensityKgPerCm = shaftLoadDistributed ? maxWheelLoad / loadBandCm : 0;
+  const bandFromCm = (shaftSupportSpanCm - loadBandCm) / 2;
   const shaftBeam = solveBeam({
     lengthCm: shaftSupportSpanCm,
     supportACm: 0,
     supportBCm: shaftSupportSpanCm,
-    pointLoads: [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek Yükü" }],
+    pointLoads: shaftLoadDistributed
+      ? []
+      : [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek Yükü" }],
+    distributedLoads: shaftLoadDistributed
+      ? [{
+          fromCm: bandFromCm,
+          toCm: bandFromCm + loadBandCm,
+          intensityKgPerCm: loadIntensityKgPerCm,
+          label: "Tekerlek Yükü (yayılı)",
+        }]
+      : undefined,
   });
+  set("shaft.loadBand", loadBandCm);
+  set("shaft.loadIntensity", loadIntensityKgPerCm);
   const reactionA = shaftBeam.reactionAKg;
   const reactionB = shaftBeam.reactionBKg;
   const maxMoment = Math.abs(shaftBeam.maxMomentKgCm);
@@ -639,55 +825,61 @@ export function computeTravelGroup(
   });
 
   // --- Tampon --------------------------------------------------------------
-  let collisionLoadT: number;
-  let impactEnergy: number;
+  // Fizik `calc/buffer.ts` çekirdeğindedir; burada yalnız ÇARPIŞAN KÜTLE ve
+  // TAHRİK GÜCÜ hazırlanır.
+  //
+  // ÇARPIŞAN KÜTLE (FEM 1.001 md. 2.2.3.4.1 / CMAA 70 md. 3.3.2.1.3.2):
+  // yük SALINABİLİYORSA hariçtir; RİJİT KILAVUZLUYSA kapasite + kanca donanımı
+  // eklenir. Aşağıdaki iki bağıntı da BİR TAMPONA gelen kütleyi verir:
+  //   · Araba simetriktir → toplam kütle tampon adedine bölünür.
+  //   · Köprüde araba eksantriktir → yakın raya düşen pay (köprü/2 + araba·
+  //     (L−y)/L) o raydaki tamponlara (n/2 adet) bölünür.
+  // İkinci bir "n'e bölme" YAPILMAZ; köprü bağıntısındaki /2 zaten iki paralel
+  // tamponun payıdır (çift sayma olurdu).
+  const bufferCount = Math.max(1, Math.round(posOr(inp.bufferCount, 2)));
+  set("buffer.count", bufferCount);
+  const rigidLoad = inp.bufferLoadRigidlyGuided === TRAVEL_YES;
+  const rigidExtraT = rigidLoad ? capacityT + deps.hookEquipmentT : 0;
+  set("buffer.rigidGuidedLoad", rigidLoad ? 1 : 0);
+
+  let massPerBufferT: number;
   if (isTrolley) {
-    collisionLoadT = trolleyWeightT;
-    impactEnergy = 0.5 * collisionLoadT * (actualSpeed / 60) ** 2; // [kJ]
+    massPerBufferT = (trolleyWeightT + rigidExtraT) / bufferCount;
   } else {
-    // Köprüde çarpışan kütle eksantriktir: köprünün yarısı + arabanın
-    // yanaşma konumuna düşen payı.
-    collisionLoadT =
+    const nearRailShareT =
       bridgeWeightT / 2 +
-      (trolleyWeightT * (specs.spanM - inp.bufferApproachM)) / specs.spanM;
-    // Köprü kütlesi büyük olduğundan çarpma hızı nominal hızın %70'i alınır.
-    impactEnergy = 0.5 * collisionLoadT * ((0.7 * actualSpeed) / 60) ** 2;
+      ((trolleyWeightT + rigidExtraT) * (specs.spanM - inp.bufferApproachM)) / specs.spanM;
+    massPerBufferT = nearRailShareT / Math.max(1, bufferCount / 2);
   }
-  set("buffer.collisionLoad", collisionLoadT);
-  set("buffer.impactEnergy", impactEnergy);
+
   // Tampon sıkışırken tahrik itmeye devam eder: arabada motor başına GEREKLİ
-  // güç, köprüde SEÇİLEN motor gücü esas alınır.
+  // güç, köprüde SEÇİLEN motor gücü esas alınır (mevcut tasarım kabulü).
   const bufferPowerKw = isTrolley ? powerPerMotor : sel.motorPowerKw;
   set("buffer.drivePower", bufferPowerKw);
-  const drivePerMotor = (bufferPowerKw * sel.gearboxRatio * 9550) / sel.motorRpm; // [N]
+
+  const bufferResult = computeBuffer({
+    which,
+    type: view.bufferType,
+    nominalSpeedMpm: actualSpeed,
+    impactSpeedRatio: view.bufferImpactSpeedRatio,
+    massPerBufferT,
+    bufferCount,
+    drivePowerTotalKw: bufferPowerKw * sel.motorCount,
+    strokeMm: sel.bufferStrokeMm,
+    catalogEnergyKj: sel.bufferEnergyKj,
+    catalogMaxForceKn: sel.bufferLoadKn,
+    catalogDesignMassMaxT: sel.bufferDesignMassMaxT ?? 0,
+    energyCurve: sel.bufferEnergyCurve,
+    forceCurve: sel.bufferForceCurve,
+    maxCompressionPct: sel.bufferMaxCompressionPct ?? 0,
+    frequentEndApproach: inp.bufferFrequentEndApproach === TRAVEL_YES,
+  });
+  for (const [key, value] of Object.entries(bufferResult.cells)) set(key, value);
+  checks.push(...bufferResult.checks);
+  const bv = bufferResult.values;
+  // Motor başına tahrik kuvveti — raporda gösterilen ara büyüklük.
+  const drivePerMotor = bv.totalDriveForceN / Math.max(1, sel.motorCount);
   set("buffer.driveForcePerMotor", drivePerMotor);
-  const totalDrive = sel.motorCount * drivePerMotor; // [N]
-  set("buffer.totalDriveForce", totalDrive);
-  const bufferDrive = totalDrive / 2; // tampon başına
-  set("buffer.driveForcePerBuffer", bufferDrive);
-  const driveEnergy = (bufferDrive * sel.bufferStrokeMm) / 1000000; // [kJ]
-  set("buffer.driveEnergy", driveEnergy);
-  const totalEnergy = driveEnergy + impactEnergy; // [kJ]
-  set("buffer.totalEnergy", totalEnergy);
-  // Tampon karakteristik verimi 0,8 kabul edilir.
-  const bufferForce = totalEnergy / (sel.bufferStrokeMm / 1000) / 0.8 + bufferDrive / 1000; // [kN]
-  set("buffer.reactionForce", bufferForce);
-  checks.push({
-    id: `${which}.buffer.energy`,
-    label: "Tampon Enerji Kapasitesi",
-    required: totalEnergy, provided: sel.bufferEnergyKj, unit: "kJ", op: ">=",
-    computedSide: "required",
-    pass: sel.bufferEnergyKj >= totalEnergy,
-    kind: "standart", severity: "engelleyici",
-  });
-  checks.push({
-    id: `${which}.buffer.load`,
-    label: "Tampon Yük Kapasitesi",
-    required: bufferForce, provided: sel.bufferLoadKn, unit: "kN", op: ">=",
-    computedSide: "required",
-    pass: sel.bufferLoadKn >= bufferForce,
-    kind: "standart", severity: "engelleyici",
-  });
 
   const values: TravelValues = {
     drivenWheels,
@@ -705,6 +897,8 @@ export function computeTravelGroup(
     reactionAKg: reactionA,
     reactionBKg: reactionB,
     maxMomentKgCm: maxMoment,
+    shaftLoadBandCm: loadBandCm,
+    shaftLoadIntensityKgPerCm: loadIntensityKgPerCm,
     sectionModulusCm3: sectionModulus,
     shaftBendingStress: bendingStress,
     shaftShearStress: shearStress,
@@ -742,13 +936,23 @@ export function computeTravelGroup(
     motorCouplingSafety,
     requiredWheelCouplingTorqueNm: requiredWheelCouplingTorque,
     wheelCouplingSafety,
-    collisionLoadT,
-    impactEnergyKj: impactEnergy,
+    bufferType: bv.type,
+    collisionLoadT: bv.massPerBufferT,
+    bufferImpactSpeedRatio: view.bufferImpactSpeedRatio,
+    bufferImpactSpeedMps: bv.impactSpeedMps,
+    impactEnergyKj: bv.impactEnergyKj,
     driveLoadPerMotorN: drivePerMotor,
-    totalDriveLoadN: totalDrive,
-    bufferDriveLoadN: bufferDrive,
-    totalEnergyKj: totalEnergy,
-    bufferForceKn: bufferForce,
+    totalDriveLoadN: bv.totalDriveForceN,
+    bufferDriveLoadN: bv.driveForcePerBufferN,
+    bufferStrokeUsedMm: bv.strokeUsedMm,
+    bufferDriveEnergyKj: bv.driveEnergyKj,
+    totalEnergyKj: bv.totalEnergyKj,
+    bufferForceKn: bv.reactionForceKn,
+    bufferCompressionPct: bv.compressionPct,
+    bufferAvgDecelerationMps2: bv.avgDecelerationMps2,
+    bufferMaxDecelerationMps2: bv.maxDecelerationMps2,
+    bufferTransferredToStructure: bv.transferredToStructure,
+    bufferComputed: bv.computed,
   };
 
   return { values, checks, cells };

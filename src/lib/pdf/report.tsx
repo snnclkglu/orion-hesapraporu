@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import React from "react";
 import {
   Circle,
   Document,
@@ -55,14 +56,19 @@ import {
 } from "@/lib/calc/presentation/module-access";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
+import { altKeyFor, type RevisionAltState, type RevisionAlts } from "@/lib/revision-load";
 import {
   MODULE_ADAPTERS,
+  altOptionPass,
   buildModuleDeps,
+  headlineItems,
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
+  type AdapterHeadline,
   type AdapterSection,
   type AnyFieldDef,
+  type HeadlineItem,
   type ModuleAdapter,
   type ModuleDepsBundle,
   type ModuleKey,
@@ -124,6 +130,12 @@ export interface ReportProps {
   preparedBy: string;
   input: CalcInput;
   result: CalcResult;
+  /**
+   * Alternatif (seçenekli) ekipman seçimleri — `selections.alts`.
+   * `altsFromRevision()` ile okunur. Verilmezse ya da bir bölümde tek seçenek
+   * varsa rapor bugünkü hâlini BİREBİR korur: "SEÇENEKLER" bloğu basılmaz.
+   */
+  alts?: RevisionAlts;
   /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
   settings?: ReportSettings;
   /** Rapor seviyesi (varsayılan "detayli") */
@@ -231,6 +243,19 @@ const s = StyleSheet.create({
   },
   specLabel: { ...T.kickerInk },
   specGloss: { ...T.micro, marginTop: 1.5 },
+  /**
+   * Başlık düzeninde (yalnız baş harfi büyük) yazılan kapak alt başlığı.
+   * `T.kickerInk` harf aralığı açıp BÜYÜK harf görünümü verir; Türkçe başlık
+   * düzeni istenen yerde bu varyant kullanılır: aralık yok, punto biraz büyük.
+   */
+  coverSourcesTitle: {
+    ...T.kickerInk,
+    fontFamily: FONTS.sans,
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 0,
+    color: BRAND.ink,
+  },
   specValue: {
     fontFamily: FONTS.mono,
     fontSize: 13,
@@ -399,11 +424,70 @@ const s = StyleSheet.create({
   cmpOp: { fontFamily: FONTS.glyph, fontSize: 8, color: BRAND.gray600 },
   /** Karşılaştırma şeridi parçaları arası boşluk — boşluk karakteri kırpılıyor */
   cmpGap: { marginLeft: 3.5 },
-  // ---- içindekiler sayfasındaki okuma anahtarı
-  legendHead: { fontFamily: FONTS.mono, fontSize: 6.6, fontWeight: 600, letterSpacing: 0.8, color: BRAND.red, marginBottom: 2.5 },
-  legendText: { fontFamily: FONTS.sans, fontSize: 7.2, lineHeight: 1.45, color: BRAND.gray700 },
-  legendRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 1.5 },
-  legendKey: { width: 58, flexShrink: 0, fontFamily: FONTS.mono, fontSize: 6.8, color: BRAND.ink },
+  // ---- başlık kontrolü şeridi (girdiler ↔ katalog seçimi arası özet)
+  headlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderLeftWidth: 1.8,
+    paddingLeft: 5,
+    paddingRight: 4,
+    paddingVertical: 2,
+    marginBottom: 1.5,
+  },
+  headlineLabel: {
+    fontFamily: FONTS.sans,
+    fontSize: 7.2,
+    fontWeight: 600,
+    color: BRAND.ink,
+    width: 62,
+    flexShrink: 0,
+  },
+  // ---- alternatif (seçenekli) ekipman satırı — "SEÇENEKLER" bloğu
+  // Anatomi: solda renkli kenar + mono seçenek etiketi, sonra uygunluk rozeti,
+  // sağda alternatifleri birbirinden AYIRAN büyüklükler. Aktif seçenek kağıt
+  // zeminli ve "◆ SEÇİLEN" etiketlidir.
+  altRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderLeftWidth: 1.8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: BRAND.hairline,
+    paddingLeft: 5,
+    paddingRight: 4,
+    paddingVertical: 2.4,
+    gap: 5,
+  },
+  altNo: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.6,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    width: 74,
+    flexShrink: 0,
+  },
+  altVerdict: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.4,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    width: 48,
+    flexShrink: 0,
+  },
+  altFields: { flex: 1, fontFamily: FONTS.mono, fontSize: 6.9, color: BRAND.ink },
+  altFieldLabel: { fontFamily: FONTS.sans, fontSize: 6.4, fontWeight: 500, color: BRAND.gray600 },
+  altNote: { ...T.micro, color: BRAND.gray500, marginTop: 2.5 },
+  // ---- kontrol özeti (belge sonu): sol sütun sayfa no, sağda sonuç
+  chkPage: {
+    width: 22,
+    flexShrink: 0,
+    fontFamily: FONTS.mono,
+    fontSize: 7.4,
+    fontWeight: 600,
+    color: BRAND.gray600,
+    textDecoration: "none",
+  },
+  chkLead: { ...T.caption, marginBottom: 2 },
   // ---- özet kontrol tablosu
   sumModule: { marginTop: 6 },
   sumModuleTitle: { fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700, color: BRAND.ink, marginBottom: 1.5 },
@@ -416,8 +500,15 @@ const s = StyleSheet.create({
  *
  * `minPresenceAhead` alt başlığın sayfa dibinde tek başına kalmasını engeller —
  * altında en az birkaç satır sığmıyorsa başlık bir sonraki sayfaya taşınır.
+ *
+ * DİKKAT — bu koruma başlık bir sarmalayıcının İLK ÇOCUĞU olduğunda ÇALIŞMAZ:
+ * @react-pdf/layout `shouldBreak` içinde `breakingImprovesPresence` bayrağını
+ * "aynı ebeveynde bu düğümden ÖNCE yerleşmiş kardeş var mı" diye sorar; yoksa
+ * sayfa bölme işe yaramaz sayılır ve minPresenceAhead sessizce yok sayılır.
+ * Bu yüzden başlıklar `<View>` kutularına sarılmaz, bölüm parçaları düz bir
+ * kardeş dizisi (Fragment) olarak akar. Bkz. ModulePage.
  */
-function SubHead({ tr, minPresenceAhead = 46 }: { tr: string; minPresenceAhead?: number }) {
+function SubHead({ tr, minPresenceAhead = 52 }: { tr: string; minPresenceAhead?: number }) {
   return (
     <View
       minPresenceAhead={minPresenceAhead}
@@ -478,6 +569,19 @@ function specFieldsFor(input: CalcInput): AnyFieldDef[] {
   });
 }
 
+/**
+ * Bir alanın rapora basılan değeri (birimsiz).
+ *
+ * Seçenek etiketi varsa o kullanılır (ham kod değil), çap alanlarında değerin
+ * başına "Ø" konur (madde 30 — boş değere konmaz). Alan tablosu ve alternatif
+ * ("SEÇENEKLER") bloğu aynı biçimlemeyi paylaşsın diye ayrı fonksiyondur.
+ */
+function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): string {
+  const labels = (f as { optionLabels?: Record<string, string> }).optionLabels;
+  const val = labels?.[String(rec[f.key])] ?? fmtField(rec[f.key]);
+  return f.diameter && val !== "—" ? `Ø${val}` : val;
+}
+
 /** Alan listesini iki sütuna bölerek etiket-değer tablosu basar */
 function FieldTable({
   defs,
@@ -507,13 +611,13 @@ function FieldTable({
       {cols.map((col, i) => (
         <View style={s.kvCol} key={i}>
           {col.map((f) => {
-            const labels = (f as { optionLabels?: Record<string, string> }).optionLabels;
-            const val = labels?.[String(rec[f.key])] ?? fmtField(rec[f.key]);
+            // Madde 30: çap alanlarında değerin başına "Ø" konur (boş değere değil)
+            const shown = fieldShownValue(f, rec);
             return (
               <KvRow
                 key={f.key}
                 label={fieldLabel(f, specs)}
-                value={val}
+                value={shown}
                 unit={toDisplayUnitLabel(f.unit)}
                 labelMono={labelMono}
               />
@@ -613,6 +717,59 @@ function InlineCheckLine({ check }: { check: AnyCheck }) {
   );
 }
 
+/**
+ * BAŞLIK KONTROLÜ şeridi — girdiler ile katalog seçimi arasında duran özet
+ * (madde 7). Editördeki şeridin PDF karşılığıdır; bölümün ayrıntılı hesap
+ * satırları aşağıda AYNEN kalır, bu şerit yalnız kararı hızlandıran tekrardır.
+ *
+ * Sayılar ve renk kontrolün kendi `pass` değerinden gelir; eşik burada
+ * hesaplanmaz. Etiketler bölüm tanımından okunur ("Oluşan / İzin verilen",
+ * "Gerçekleşen / Gereken").
+ */
+function HeadlineLine({
+  item,
+  headline,
+}: {
+  item: HeadlineItem;
+  headline: AdapterHeadline;
+}) {
+  const { check, label } = item;
+  const d = checkDisplay(check);
+  const color = check.pass ? BRAND.success : BRAND.red;
+  const conv = (v: number) => toDisplayUnit(v, d.unit);
+  const computed = conv(d.computed);
+  const unit = computed.unit === "-" || !computed.unit ? "" : ` ${computed.unit}`;
+  const limitText =
+    d.operator === "…"
+      ? `${fmt(conv(d.min ?? 0).value)} … ${fmt(conv(d.max ?? 0).value)}`
+      : fmt(conv(d.limit ?? 0).value);
+  return (
+    <View
+      style={[
+        s.headlineRow,
+        { borderLeftColor: color, backgroundColor: check.pass ? BRAND.white : "#FBF2F1" },
+      ]}
+      wrap={false}
+    >
+      <CheckGlyph pass={check.pass} size={7} />
+      <Text style={s.headlineLabel}>{label}</Text>
+      <Text style={s.cmpLabel}>{headline.computedLabel.toLocaleUpperCase("tr-TR")}</Text>
+      <Text style={[s.cmpValue, s.cmpGap, { color }]}>
+        {fmt(computed.value)}
+        {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
+      </Text>
+      {d.operator === "…" ? null : <Text style={[s.cmpOp, s.cmpGap]}>{d.operator}</Text>}
+      <Text style={[s.cmpLabel, s.cmpGap]}>
+        {headline.limitLabel.toLocaleUpperCase("tr-TR")}
+      </Text>
+      <Text style={[s.cmpValue, s.cmpGap]}>
+        {limitText}
+        {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
+      </Text>
+    </View>
+  );
+}
+
 function CheckLine({ check }: { check: AnyCheck }) {
   return (
     <View style={s.checkRow} wrap={false}>
@@ -635,6 +792,139 @@ function CheckLine({ check }: { check: AnyCheck }) {
       </Text>
     </View>
   );
+}
+
+// ------------------------------------------- Alternatifler ("SEÇENEKLER")
+
+/** Bir bölümde en çok kaç ayırt edici alan basılır (satır tek satırda kalsın) */
+const ALT_FIELD_LIMIT = 6;
+
+/**
+ * Alternatifleri birbirinden AYIRAN seçim alanları.
+ *
+ * Bütün seçim alanlarını her seçenek için tekrar basmak sayfayı doldurur ve
+ * kararı kolaylaştırmaz; okuyucunun aradığı, seçenekler arasında NEYİN
+ * değiştiğidir. Bu yüzden değeri seçenekten seçeneğe DEĞİŞEN alanlar seçilir.
+ * Kimlik alanları (bölümün ilk iki seçim alanı — tipik olarak marka/model)
+ * değişmese bile taşınır: "Ø22 mm" tek başına hangi ürün olduğunu söylemez.
+ */
+function altDistinguishingDefs(
+  section: AdapterSection,
+  options: readonly Record<string, unknown>[]
+): AnyFieldDef[] {
+  const defs = section.selectionDefs;
+  const identity = new Set(defs.slice(0, 2).map((f) => f.key));
+  const differs = (f: AnyFieldDef) => {
+    const first = JSON.stringify(options[0]?.[f.key] ?? null);
+    return options.some((o) => JSON.stringify(o?.[f.key] ?? null) !== first);
+  };
+  const picked = defs.filter((f) => identity.has(f.key) || differs(f));
+  return (picked.length > 0 ? picked : defs).slice(0, ALT_FIELD_LIMIT);
+}
+
+/**
+ * Tek bir alternatif seçeneğin satırı.
+ *
+ * Uygunluk (`pass`) BURADA hesaplanmaz: editördeki rozetle aynı saf yardımcı
+ * (`altOptionPass`) çağrılır. `null` = bölümde kontrol yok ya da hesap bu
+ * seçimle koşamıyor — uydurma bir "uygun" basmaktansa bilinmez bırakılır.
+ */
+function AltOptionLine({
+  index,
+  active,
+  pass,
+  defs,
+  option,
+  fallback,
+  specs,
+}: {
+  index: number;
+  active: boolean;
+  pass: boolean | null;
+  defs: AnyFieldDef[];
+  option: Record<string, unknown>;
+  /** Seçenekte olmayan alanın değeri modülün canlı seçimlerinden okunur */
+  fallback: Record<string, unknown>;
+  specs: TechnicalSpecs;
+}) {
+  const color = pass === true ? BRAND.success : pass === false ? BRAND.red : BRAND.gray450;
+  const rec: Record<string, unknown> = { ...fallback, ...option };
+  return (
+    <View
+      style={[
+        s.altRow,
+        {
+          borderLeftColor: color,
+          backgroundColor: active ? BRAND.paper100 : BRAND.white,
+        },
+      ]}
+      wrap={false}
+    >
+      <Text style={[s.altNo, { color: active ? BRAND.ink : BRAND.gray600 }]}>
+        {active ? `◆ SEÇENEK ${index + 1}` : `SEÇENEK ${index + 1}`}
+      </Text>
+      <Text style={[s.altVerdict, { color }]}>
+        {pass === true ? "UYGUN" : pass === false ? "UYGUN DEĞİL" : "—"}
+      </Text>
+      {/* Alanlar TEK bir Text içinde iç içe akar: kardeş <Text>'lerde baştaki
+          boşluk dizgide kırpılıp etiket değere yapışıyordu (bkz. CheckComparison). */}
+      <Text style={s.altFields}>
+        {defs.map((f, i) => (
+          <React.Fragment key={f.key}>
+            <Text style={s.altFieldLabel}>
+              {`${i > 0 ? "   ·   " : ""}${fieldLabel(f, specs)} `}
+            </Text>
+            <Text>
+              {fieldShownValue(f, rec)}
+              {toDisplayUnitLabel(f.unit) ? (
+                <Text style={s.kvUnit}> {toDisplayUnitLabel(f.unit)}</Text>
+              ) : null}
+            </Text>
+          </React.Fragment>
+        ))}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Bölümün "SEÇENEKLER" bloğu parçaları — KATALOG SEÇİMİ tablosunun ALTINA
+ * girer. Alternatifi olmayan (tek seçenekli) bölümde BOŞ dizi döner ve rapor
+ * bugünkü çıktısını birebir korur.
+ */
+export function altOptionNodes(
+  key: ModuleKey,
+  section: AdapterSection,
+  state: { inputs: object; selections: object },
+  alt: RevisionAltState | undefined,
+  specs: TechnicalSpecs,
+  deps: ModuleDepsBundle
+): React.ReactNode[] {
+  if (!alt || alt.options.length < 2 || section.selectionDefs.length === 0) return [];
+  const fallback = state.selections as Record<string, unknown>;
+  // AKTİF seçenek, saklanan kopyasından DEĞİL modülün CANLI seçimlerinden
+  // okunur: rapor hesaplarını onlarla yaptı. Kayıtlı kopya bayatsa (eski bir
+  // revizyon, elle düzeltilmiş bir seçim) "◆ Seçilen" satırı KATALOG SEÇİMİ
+  // tablosundan farklı sayı gösterir ve rapor kendi kendisiyle çelişirdi.
+  const options = alt.options.map((option, i) => {
+    if (i !== alt.active) return option;
+    const live: Record<string, unknown> = {};
+    for (const key of section.selectionKeys) live[key] = fallback[key];
+    return live;
+  });
+  const defs = altDistinguishingDefs(section, options);
+  return options.map((option, i) => (
+    <AltOptionLine
+      key={i}
+      index={i}
+      active={i === alt.active}
+      pass={altOptionPass(key, section, specs, state.inputs, state.selections, option, deps)}
+      defs={defs}
+      option={option}
+      fallback={fallback}
+      specs={specs}
+    />
+  ));
 }
 
 // ---------------------------------------------------------------- Kapak
@@ -711,12 +1001,12 @@ function CoverPage(props: ReportProps) {
 
       {/* Hesabın dayandığı standartlar — kapakta künyeden hemen sonra */}
       <View style={{ marginTop: 26 }}>
-        <Text style={T.kickerInk}>DAYANAK STANDARTLAR</Text>
+        <Text style={s.coverSourcesTitle}>Kaynaklar</Text>
         <RuleRed width={16} />
         <Text style={{ ...T.caption, marginTop: 6, color: BRAND.gray700 }}>
           FEM 1.001 (3. Baskı) — sınıflandırma, yükler, mekanizma seçimi{"\n"}
           DIN 15018 — çelik yapı yorulması{"\n"}
-          DIN 15400 / 15401 / 15402 — kanca · DIN 15061 — halat oluğu{"\n"}
+          DIN 15400 / 15401 / 15402 — kanca · DIN 15061{"\n"}
           CMAA 70 — motor gücü, mil gerilmeleri, sehim sınırı
         </Text>
       </View>
@@ -764,7 +1054,7 @@ function CoverPage(props: ReportProps) {
  * Bölüm çapası: içindekilerden tıklanınca gidilecek hedef.
  * `<Link src="#hedef">` ile eşleşir (react-pdf iç bağlantı = named destination).
  */
-function anchorFor(key: ModuleKey | "ozet" | "specs"): string {
+function anchorFor(key: ModuleKey | "ozet" | "specs" | "kontroller"): string {
   return `bolum-${key}`;
 }
 
@@ -782,13 +1072,24 @@ function tocEntries(
   const out: TocEntry[] = [
     { no: "—", title: "Özet Hesap Raporu", anchor: anchorFor("ozet") },
   ];
-  if (level === "ozet") return out;
+  // Kontrol özeti belgenin EN SONUNDADIR (madde 24) — içindekilerde de en son
+  // satırdır, hangi seviyede olursa olsun basılır.
+  const checksEntry: TocEntry = {
+    no: "—",
+    title: "Kontrol Özeti",
+    anchor: anchorFor("kontroller"),
+  };
+  if (level === "ozet") {
+    out.push(checksEntry);
+    return out;
+  }
   out.push({ no: "01", title: "Teknik Özellikler", anchor: anchorFor("specs") });
   for (const a of MODULE_ADAPTERS) {
     if (!present(a.key)) continue;
     const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
     out.push({ no, title: rest.join(" · "), anchor: anchorFor(a.key) });
   }
+  out.push(checksEntry);
   return out;
 }
 
@@ -821,59 +1122,6 @@ function TocPage({
       <Text style={{ ...T.micro, marginTop: 8 }}>
         Satıra tıklayarak ilgili bölüme gidebilirsiniz.
       </Text>
-
-      {/* Raporu okuma anahtarı — hesap satırının ve kontrol rozetinin anatomisi */}
-      <View style={{ marginTop: 26 }}>
-        <Text style={T.kickerInk}>RAPORU OKUMA ANAHTARI</Text>
-        <View style={{ height: 1.2, backgroundColor: BRAND.ink, marginTop: 4, marginBottom: 8 }} />
-        <View style={s.kvGrid}>
-          <View style={s.kvCol}>
-            <Text style={s.legendHead}>HESAP SATIRI</Text>
-            <Text style={s.legendText}>
-              Her hesap adımı kalıcı bir adım numarasıyla anılır (ör. 7.4.13): solda numara şeridi,
-              ortada büyüklüğün adı ve sembolik bağıntısı, sağda çerçeveli sonuç ve birimi bulunur.
-              Bağıntının altında dayandığı standart maddesi yazılıdır.
-            </Text>
-            <Text style={[s.legendHead, { marginTop: 8 }]}>KONTROL ŞERİDİ</Text>
-            <Text style={s.legendText}>
-              Bir adıma bağlı kontrol varsa satırın sol şeridi renklenir ve altına
-              «HESAPLANAN … ≤ İZİN VERİLEN …» karşılaştırması eklenir. Yeşil şerit uygun,
-              kırmızı şerit uygun değil demektir.
-            </Text>
-          </View>
-          <View style={s.kvCol}>
-            <Text style={s.legendHead}>KONTROLÜN DAYANAĞI</Text>
-            {[
-              ["standart", "FEM / DIN / CMAA maddesi şart koşuyor (etiket yazılmaz)"],
-              ["üretici", "katalog/üretici kriteri"],
-              ["firma kabulü", "Orion tasarım kabulü"],
-              ["bilgilendirme", "sınır değil, bilgi amaçlı"],
-            ].map(([k, v]) => (
-              <View key={k} style={s.legendRow}>
-                <Text style={s.legendKey}>{k}</Text>
-                <Text style={[s.legendText, { flex: 1 }]}>{v}</Text>
-              </View>
-            ))}
-            <Text style={[s.legendHead, { marginTop: 8 }]}>AĞIRLIK</Text>
-            <View style={s.legendRow}>
-              <Text style={s.legendKey}>engelleyici</Text>
-              <Text style={[s.legendText, { flex: 1 }]}>
-                sağlanmadan rapor yayınlanmamalıdır (varsayılan)
-              </Text>
-            </View>
-            <View style={s.legendRow}>
-              <Text style={s.legendKey}>uyarı</Text>
-              <Text style={[s.legendText, { flex: 1 }]}>
-                gözden geçirilmeli, yayını tek başına engellemez
-              </Text>
-            </View>
-            <Text style={[s.legendHead, { marginTop: 8 }]}>BİRİMLER</Text>
-            <Text style={s.legendText}>
-              Gerilmeler MPa, momentler Nm, uzunluklar mm/cm/m, hızlar m/dak, devir d/dak.
-            </Text>
-          </View>
-        </View>
-      </View>
     </BrandPage>
   );
 }
@@ -894,6 +1142,43 @@ function PageProbe({ anchor, collect }: { anchor: string; collect?: (a: string, 
         return "";
       }}
       fixed={false}
+    />
+  );
+}
+
+/** Bir hesap bölümünün (2.5, 7.4 …) çapası — kontrol özetinde sayfa numarası */
+function sectionAnchor(key: ModuleKey, rawId: string): string {
+  return `sec-${key}-${rawId}`;
+}
+
+/**
+ * Bölüm başına sayfa numarası toplayıcı.
+ *
+ * `PageProbe`den farkı AKIŞ İÇİNDE olmasıdır: mutlak konumlu bir düğüm sayfa
+ * bölmede yerinde kalır ve hangi sayfaya düştüğü sorulamaz — modülün ilk
+ * sayfasını bildirirdi. Bu sonda ise sıfır yükseklikli, görünmez bir metin
+ * olarak bölümün başladığı yerde akar; `render` geri çağrısı gerçekten
+ * yerleştiği sayfanın numarasını verir.
+ */
+function SectionProbe({
+  anchor,
+  collect,
+}: {
+  anchor: string;
+  collect?: (a: string, p: number) => void;
+}) {
+  const style = { height: 0, fontSize: 1, lineHeight: 0, color: BRAND.white };
+  // İkinci geçişte `collect` yoktur ama `id` KALMALI: kontrol özetindeki sayfa
+  // numarası bu çapaya bağlanan tıklanabilir bir bağlantıdır.
+  if (!collect) return <Text id={anchor} style={style} />;
+  return (
+    <Text
+      id={anchor}
+      style={style}
+      render={({ pageNumber }) => {
+        collect(anchor, pageNumber);
+        return "";
+      }}
     />
   );
 }
@@ -1068,22 +1353,140 @@ function SummarySection({
         )}
       </View>
 
-      <SubHead tr="KONTROLLER" />
+      {/* Toplu kontrol listesi burada DEĞİL, belgenin en sonundadır
+          (madde 24 — bkz. ChecksSummarySection). */}
+    </BrandPage>
+  );
+}
+
+// ------------------------------------------------------------ Kontrol özeti
+
+/**
+ * Kontrol kimliği → bağlı olduğu hesap bölümünün çapası.
+ *
+ * Bölüm tanımı hangi kontrol soneklerini taşıdığını zaten bildirir
+ * (`checkSuffixes`); kontrol özetindeki sayfa numarası bu bağdan çıkar.
+ * Kapalı (görünmeyen) bölümler atlanır — raporda basılmayan bir bölüme sayfa
+ * numarası verilemez.
+ */
+function checkSectionAnchors(
+  adapter: ModuleAdapter,
+  mr: ModuleResult<unknown> | undefined,
+  specs: TechnicalSpecs
+): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!mr) return out;
+  for (const section of adapter.sections) {
+    if (section.visible && !section.visible(specs)) continue;
+    for (const c of sectionChecks(adapter, section, mr)) {
+      if (!out.has(c.id)) out.set(c.id, sectionAnchor(adapter.key, section.rawId));
+    }
+  }
+  return out;
+}
+
+/**
+ * Kontrol özeti satırı: SOLDA hesabın geçtiği sayfa numarası, sağda sonuç.
+ * Sayfa numarası tıklanabilir — okuyucu doğrudan o bölüme gider.
+ */
+function SummaryCheckLine({
+  check,
+  page,
+  anchor,
+}: {
+  check: AnyCheck;
+  /** Kontrolün bağlı olduğu bölümün sayfası; bilinmiyorsa "—" basılır */
+  page?: number;
+  anchor?: string;
+}) {
+  const pageText = page ? String(page).padStart(2, "0") : "—";
+  return (
+    <View style={s.checkRow} wrap={false}>
+      {page && anchor ? (
+        <Link src={`#${anchor}`} style={s.chkPage}>
+          {pageText}
+        </Link>
+      ) : (
+        <Text style={s.chkPage}>{pageText}</Text>
+      )}
+      <CheckGlyph pass={check.pass} size={8} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.checkLabel}>
+          {check.label}
+          {checkOriginText(check) ? (
+            <Text style={{ color: BRAND.gray500 }}> ({checkOriginText(check)})</Text>
+          ) : null}
+          {check.standard ? (
+            <Text style={{ ...T.micro, color: BRAND.gray450 }}> · {check.standard}</Text>
+          ) : null}
+        </Text>
+        <CheckComparison check={check} />
+      </View>
+      <Text style={[s.checkBadge, { color: check.pass ? BRAND.gray700 : BRAND.red }]}>
+        {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Belgenin EN SON bölümü: bütün kontroller modüle göre gruplu tek listede
+ * (madde 24). Satır içi kontroller yerinde kalır; buradaki liste bir DİZİN
+ * gibidir — her satırın solunda hesabın yapıldığı sayfa vardır.
+ */
+function ChecksSummarySection({
+  input, result, project, revision, numbers, pageOf, collect,
+}: ReportProps & {
+  numbers: Partial<Record<ModuleKey, number>>;
+  pageOf: Record<string, number>;
+  collect?: (anchor: string, page: number) => void;
+}) {
+  const total = MODULE_ADAPTERS.reduce(
+    (n, a) => n + (moduleResult(result, a.key)?.checks.length ?? 0),
+    0
+  );
+  const failed = MODULE_ADAPTERS.reduce(
+    (n, a) => n + (moduleResult(result, a.key)?.checks.filter((c) => !c.pass).length ?? 0),
+    0
+  );
+  return (
+    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageProbe anchor={anchorFor("kontroller")} collect={collect} />
+      <PageHeader
+        kicker="ORION CRANES · KONTROLLER"
+        title="Kontrol Özeti"
+        meta={`${total} KONTROL · ${failed === 0 ? "TÜMÜ UYGUN" : `${failed} UYGUN DEĞİL`}`}
+      />
+      <Text style={s.chkLead}>
+        Soldaki numara kontrolün dayandığı hesabın geçtiği sayfadır; numaraya
+        tıklayarak o bölüme gidebilirsiniz.
+      </Text>
       {MODULE_ADAPTERS.map((adapter) => {
         const mr = moduleResult(result, adapter.key);
         if (!mr || mr.checks.length === 0) return null;
+        const anchors = checkSectionAnchors(adapter, mr, input.specs);
+        const lines = mr.checks.map((c) => {
+          const anchor = anchors.get(c.id);
+          return (
+            <SummaryCheckLine
+              key={c.id}
+              check={c}
+              anchor={anchor}
+              page={anchor ? pageOf[anchor] : undefined}
+            />
+          );
+        });
         return (
-          <View key={adapter.key} style={s.sumModule}>
-            {/* minPresenceAhead YALNIZ başlığa: uzun bir kutuya konursa
-                react-pdf "tamamı + boşluk sığmıyor" deyip bloğun hepsini
-                sonraki sayfaya atar ve geride BOŞ sayfa bırakır. */}
-            <Text style={s.sumModuleTitle} minPresenceAhead={34}>
-              {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
-            </Text>
-            {mr.checks.map((c) => (
-              <CheckLine key={c.id} check={c} />
-            ))}
-          </View>
+          // Modül başlığı ilk kontrol satırıyla birlikte kalır (madde 29).
+          <React.Fragment key={adapter.key}>
+            <KeepWithNext>
+              <Text style={[s.sumModuleTitle, { marginTop: 8 }]}>
+                {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
+              </Text>
+              {lines[0]}
+            </KeepWithNext>
+            {lines.slice(1)}
+          </React.Fragment>
         );
       })}
     </BrandPage>
@@ -1197,21 +1600,17 @@ function PdfDiagram({ diagram }: { diagram: Diagram }) {
  * karşılığı. İlk sütun geniş, kalanlar eşit paylaşır; sayısal hücreler sağa
  * yaslı ve mono basılır.
  */
-function PdfSectionTable({
-  table,
-  ctx,
-}: {
-  table: NonNullable<AdapterSection["table"]>;
-  ctx: unknown;
-}) {
+function sectionTableParts(
+  table: NonNullable<AdapterSection["table"]>,
+  ctx: unknown
+): React.ReactNode[] {
   let rows: (string | number)[][] = [];
   try {
     rows = table.build(ctx);
   } catch {
     rows = [];
   }
-  if (rows.length === 0) return null;
-  const n = table.headers.length;
+  if (rows.length === 0) return [];
 
   // Sütun genişliği İÇERİKTEN çıkar. Eşit paylaştırmada "No" sütunu ("σ1")
   // gereksiz genişken açıklama sütunu ("Düşey Eğilme — Kiriş Öz Ağırlığı")
@@ -1242,8 +1641,26 @@ function PdfSectionTable({
     });
   const numericCols = table.headers.map((_, i) => isNumericCol(i));
 
-  return (
-    <View style={{ marginTop: 4 }}>
+  const dataRow = (r: (string | number)[], ri: number) => (
+    <View key={`r${ri}`} style={s.tblRow} wrap={false}>
+      {r.map((cell, ci) => (
+        <Text
+          key={ci}
+          style={[
+            typeof cell === "number" || numericCols[ci] ? s.tblCellNum : s.tblCell,
+            { width: widthOf(ci) },
+          ]}
+        >
+          {typeof cell === "number" ? fmt(cell) : String(cell)}
+        </Text>
+      ))}
+    </View>
+  );
+
+  // Başlık + sütun başlıkları + İLK veri satırı ayrılmaz bir parçadır; kalan
+  // satırlar serbest akar (bkz. KeepWithNext).
+  const parts: React.ReactNode[] = [
+    <KeepWithNext key="head">
       <SubHead tr={table.title.toLocaleUpperCase("tr-TR")} />
       <View style={s.tblHeadRow} wrap={false}>
         {table.headers.map((h, i) => (
@@ -1255,24 +1672,12 @@ function PdfSectionTable({
           </Text>
         ))}
       </View>
-      {rows.map((r, ri) => (
-        <View key={ri} style={s.tblRow} wrap={false}>
-          {r.map((cell, ci) => (
-            <Text
-              key={ci}
-              style={[
-                typeof cell === "number" || numericCols[ci] ? s.tblCellNum : s.tblCell,
-                { width: widthOf(ci) },
-              ]}
-            >
-              {typeof cell === "number" ? fmt(cell) : String(cell)}
-            </Text>
-          ))}
-        </View>
-      ))}
-      {table.note ? <Text style={s.tblNote}>{table.note}</Text> : null}
-    </View>
-  );
+      {dataRow(rows[0], 0)}
+    </KeepWithNext>,
+  ];
+  for (let ri = 1; ri < rows.length; ri++) parts.push(dataRow(rows[ri], ri));
+  if (table.note) parts.push(<Text key="note" style={s.tblNote}>{table.note}</Text>);
+  return parts;
 }
 
 /**
@@ -1322,7 +1727,11 @@ function CalcRowLine({
           <Text style={s.calcLabel}>{row.label}</Text>
           <View style={s.calcResult}>
             <Text style={s.calcEq}>=</Text>
-            <Text style={[s.calcValue, { marginLeft: 3 }]}>{fmt(value, row.digits ?? 2)}</Text>
+            {/* Madde 30: çap satırlarında değerin başına "Ø" konur */}
+            <Text style={[s.calcValue, { marginLeft: 3 }]}>
+              {row.diameter ? "Ø" : ""}
+              {fmt(value, row.digits ?? 2)}
+            </Text>
             {unit ? <Text style={s.calcUnit}>{unit}</Text> : null}
           </View>
         </View>
@@ -1338,6 +1747,20 @@ function CalcRowLine({
       </View>
     </View>
   );
+}
+
+/**
+ * Başlık + onu izleyen İLK parça: ayrılmaz kutu.
+ *
+ * Madde 29'un kalıcı çözümü budur. `minPresenceAhead` yalnız "başlığın altında
+ * şu kadar boşluk kalsın" diyebilir; ardından gelen parçanın GERÇEK yüksekliğini
+ * bilemez. Bölünemeyen bir tablo (FieldTable `wrap={false}`) kalan boşluğa
+ * sığmayıp sonraki sayfaya geçtiğinde başlık yine yalnız kalıyordu. Başlığı ilk
+ * parçasıyla aynı bölünemez kutuya koymak sorunu yapısal olarak bitirir:
+ * başlık nereye giderse en az bir satır içerik onunla birlikte gider.
+ */
+function KeepWithNext({ children }: { children: React.ReactNode }) {
+  return <View wrap={false}>{children}</View>;
 }
 
 function ModulePage({
@@ -1373,23 +1796,142 @@ function ModulePage({
       />
       {adapter.sections
         .filter((section) => !section.visible || section.visible(input.specs))
-        .map((section) => {
+        .map((section, si) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
         const secChecks = sectionChecks(adapter, section, mr);
         const diagrams = diagramsForSection(adapter.key, section.rawId, input, result);
+        const secNo = renumberSectionId(section.id, moduleNo);
+
+        // Bölüm gövdesi düz bir PARÇA dizisidir. Her alt başlık kendi ilk
+        // satırıyla birlikte tek bir bölünemez kutuya konur (KeepWithNext).
+        const body: React.ReactNode[] = [];
+        const add = (node: React.ReactNode) =>
+          body.push(<React.Fragment key={body.length}>{node}</React.Fragment>);
+        const addHeaded = (tr: string, first: React.ReactNode, more: React.ReactNode[] = []) => {
+          add(
+            <KeepWithNext>
+              <SubHead tr={tr} />
+              {first}
+            </KeepWithNext>
+          );
+          for (const n of more) add(n);
+        };
+
+        // Diyagramlar: her biri kendi başına bölünemez bir parça
+        for (const [i, d] of diagrams.entries()) add(<PdfDiagram key={i} diagram={d} />);
+
+        const inputTables: React.ReactNode[] = [];
+        if (section.inputDefs.length > 0) {
+          inputTables.push(<FieldTable key="in" defs={section.inputDefs} source={scoped} specs={input.specs} />);
+        }
+        if (section.extraInputDefs && section.extraInputDefs.length > 0) {
+          inputTables.push(<FieldTable key="ex" defs={section.extraInputDefs} source={inputs} specs={input.specs} />);
+        }
+        if (inputTables.length > 0) {
+          addHeaded("GİRDİLER / TASARIM KABULLERİ", inputTables[0], inputTables.slice(1));
+        }
+
+        // Başlık kontrolü (madde 3 / madde 7): editördekiyle AYNI özet şerit.
+        // "band" yerleşiminde girdilerle katalog seçimi ARASINA, "catalog"
+        // yerleşiminde katalog seçim başlığının altına girer.
+        const headline = section.headline;
+        const headlineNodes = headline
+          ? headlineItems(adapter.checkPrefix, section, mr.checks).map((it) => (
+              <HeadlineLine key={it.check.id} item={it} headline={headline} />
+            ))
+          : [];
+        if (headline?.placement === "band" && headlineNodes.length > 0) {
+          addHeaded(
+            (headline.title ?? "ÖZET").toLocaleUpperCase("tr-TR"),
+            headlineNodes[0],
+            headlineNodes.slice(1)
+          );
+        }
+
+        if (section.selectionDefs.length > 0) {
+          const selectionTable = (
+            <FieldTable defs={section.selectionDefs} source={state.selections} labelMono specs={input.specs} />
+          );
+          // "catalog" yerleşiminde rozetler başlığın hemen altındadır: başlık
+          // ilk parçasıyla birlikte taşınır (KeepWithNext), tablo peşinden gelir.
+          if (headline?.placement === "catalog" && headlineNodes.length > 0) {
+            addHeaded("KATALOG SEÇİMİ", headlineNodes[0], [
+              ...headlineNodes.slice(1),
+              selectionTable,
+            ]);
+          } else {
+            addHeaded("KATALOG SEÇİMİ", selectionTable);
+          }
+        }
+
+        // Madde 23 / 25: seçenekli ekipmanlar. Blok yalnız gerçekten birden
+        // çok seçenek varsa basılır; yoksa bölüm çıktısı hiç değişmez.
+        const altNodes = altOptionNodes(
+          adapter.key,
+          section,
+          state,
+          props.alts?.[altKeyFor(adapter.key, section.rawId)],
+          input.specs,
+          deps
+        );
+        if (altNodes.length > 0) {
+          addHeaded("SEÇENEKLER", altNodes[0], [
+            ...altNodes.slice(1),
+            <Text key="alt-note" style={s.altNote}>
+              ◆ işaretli seçenek bu raporun hesaplarında kullanılmıştır; diğerleri
+              onaya sunulan alternatiflerdir. Uygunluk rozeti yalnız bu bölümün
+              kontrollerini kapsar.
+            </Text>,
+          ]);
+        }
+
+        if (section.table) {
+          for (const n of sectionTableParts(section.table, ctx)) add(n);
+        }
+
+        if (section.rows.length > 0) {
+          const rowNodes = section.rows.map((r, i) => (
+            <CalcRowLine
+              key={r.key}
+              row={r}
+              ctx={ctx}
+              showFormulas={showFormulas}
+              checks={byRow.get(r.anchorId)}
+              stepNo={`${secNo}.${String(i + 1).padStart(2, "0")}`}
+            />
+          ));
+          addHeaded("HESAP VE KONTROLLER", rowNodes[0], rowNodes.slice(1));
+        }
+
+        if (rest.length > 0) {
+          const checkNodes = rest.map((c) => <CheckLine key={c.id} check={c} />);
+          addHeaded("DİĞER KONTROLLER", checkNodes[0], checkNodes.slice(1));
+        }
+
         return (
-          // DİKKAT: bu sarmalayıcıya minPresenceAhead KONMAZ. react-pdf ölçüyü
-          // "kutunun tamamı + istenen boşluk" olarak okur; bölüm bir sayfaya
-          // sığmadığında tamamını sonraki sayfaya atar ve geride yalnız sayfa
-          // başlığının olduğu BOŞ bir sayfa bırakırdı (bkz. eski s.39, s.59).
-          // Dul/yetim koruması başlıkların kendisinde (SectionTag / SubHead).
-          <View key={section.id} style={{ marginBottom: 12 }}>
-            {/* Başlık + diyagram bir arada kalır (kaymayı önler) */}
-            <View wrap={false}>
+          // Bölüm SARMALAYICI KUTUYA konmaz, düz bir kardeş dizisi olarak akar.
+          // İki ayrı tuzak vardır ve ikisinden de bu yapı kurtarır:
+          //   1) Bölümün TAMAMINI kapsayan kutuya minPresenceAhead konursa
+          //      react-pdf "kutunun hepsi + boşluk sığmıyor" deyip bloğu
+          //      tümüyle sonraki sayfaya atar, geride BOŞ sayfa kalır.
+          //   2) Kutu minPresenceAhead'siz bırakılsa bile, içindeki İLK çocuk
+          //      olan başlığın kendi minPresenceAhead'i çalışmaz: react-pdf
+          //      sayfa bölmenin "görünürlüğü artıracağını" ancak düğümden ÖNCE
+          //      yerleşmiş bir kardeş varsa kabul eder. Madde 29'daki dul
+          //      başlıkların (2.5 FREN, KATALOG SEÇİMİ…) kök nedeni budur.
+          // Bölümler arası boşluk marjla verilir.
+          <React.Fragment key={section.id}>
+            {/* Bölüm başlığı + gövdenin İLK parçası ayrılmaz: başlık asla
+                sayfa dibinde yalnız kalmaz (madde 29). Sayfa sondası da bu
+                kutunun İÇİNDEDİR — dışarıda kalsaydı başlık sonraki sayfaya
+                taşındığında sonda önceki sayfanın dibinde kalır ve kontrol
+                özetine bir eksik sayfa numarası yazardı. */}
+            <View wrap={false} style={si === 0 ? undefined : { marginTop: 12 }}>
+              <SectionProbe anchor={sectionAnchor(adapter.key, section.rawId)} collect={collect} />
               <SectionTag
-                no={renumberSectionId(section.id, moduleNo)}
+                no={secNo}
                 title={section.title}
                 status={
                   secChecks.length > 0
@@ -1397,53 +1939,10 @@ function ModulePage({
                     : undefined
                 }
               />
-              {diagrams[0] && <PdfDiagram diagram={diagrams[0]} />}
+              {body[0]}
             </View>
-            {/* Bölümün kalan diyagramları başlıktan bağımsız akar; her biri
-                PdfDiagram'ın kendi wrap={false} kutusunda bölünmeden kalır. */}
-            {diagrams.slice(1).map((d, i) => (
-              <PdfDiagram key={i} diagram={d} />
-            ))}
-            {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
-              <View>
-                <SubHead tr="GİRDİLER / TASARIM KABULLERİ" />
-                <FieldTable defs={section.inputDefs} source={scoped} specs={input.specs} />
-                {section.extraInputDefs && section.extraInputDefs.length > 0 && (
-                  <FieldTable defs={section.extraInputDefs} source={inputs} specs={input.specs} />
-                )}
-              </View>
-            )}
-            {section.selectionDefs.length > 0 && (
-              <View>
-                <SubHead tr="KATALOG SEÇİMİ" />
-                <FieldTable defs={section.selectionDefs} source={state.selections} labelMono specs={input.specs} />
-              </View>
-            )}
-            {section.table && <PdfSectionTable table={section.table} ctx={ctx} />}
-            {section.rows.length > 0 && (
-              <View>
-                <SubHead tr="HESAP VE KONTROLLER" />
-                {section.rows.map((r, i) => (
-                  <CalcRowLine
-                    key={r.key}
-                    row={r}
-                    ctx={ctx}
-                    showFormulas={showFormulas}
-                    checks={byRow.get(r.anchorId)}
-                    stepNo={`${renumberSectionId(section.id, moduleNo)}.${String(i + 1).padStart(2, "0")}`}
-                  />
-                ))}
-              </View>
-            )}
-            {rest.length > 0 && (
-              <View>
-                <SubHead tr="DİĞER KONTROLLER" />
-                {rest.map((c) => (
-                  <CheckLine key={c.id} check={c} />
-                ))}
-              </View>
-            )}
-          </View>
+            {body.slice(1)}
+          </React.Fragment>
         );
       })}
     </BrandPage>
@@ -1495,6 +1994,13 @@ export function ReportDocument(
             collect={collect}
           />
         ))}
+      {/* Kontroller belgenin EN ALTINDA toplanır (madde 24) */}
+      <ChecksSummarySection
+        {...props}
+        numbers={numbers}
+        pageOf={pageOf ?? {}}
+        collect={collect}
+      />
     </Document>
   );
 }
@@ -1511,8 +2017,12 @@ export function ReportDocument(
 export async function renderReportPdf(props: ReportProps): Promise<Buffer> {
   const pageOf: Record<string, number> = {};
   const collect = (anchor: string, page: number) => {
-    // İlk yakalanan (en küçük) sayfa geçerlidir: bölüm oradan başlar.
-    if (pageOf[anchor] === undefined || page < pageOf[anchor]) pageOf[anchor] = page;
+    // SON yazan kazanır. react-pdf sayfa bölerken dinamik düğümleri her aday
+    // sayfa için YENİDEN çalıştırır; ara değerler bölümün gerçek yerini
+    // göstermez. Kesin numara, yerleşim bittikten sonra sayfa indekslerini
+    // çözen son geçişten gelir ve en sonda yazılır. (En küçüğü almak, ilerideki
+    // bir bölüme geçici olarak hesaplanan erken sayfayı kalıcılaştırıyordu.)
+    pageOf[anchor] = page;
   };
   await renderToBuffer(<ReportDocument {...props} collect={collect} />);
   return renderToBuffer(<ReportDocument {...props} pageOf={pageOf} />);

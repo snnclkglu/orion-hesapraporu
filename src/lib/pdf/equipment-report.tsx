@@ -3,6 +3,11 @@
 // altbilgi), PageHeader bandı, Archivo gövde + PlexMono sayı/kod. Sütunlar:
 // Ekipman · Marka · Model · Özellikler · Adet. Model hücresi katalog datasheet
 // linki varsa köprülenir (çelik mavisi). scope="full" → Teknik Ressam Özeti.
+//
+// Sütun metinleri `buildEquipmentGroups` içinde `baslikDuzeni` ile "Baş Harfler
+// Büyük" düzenine getirilmiş olarak gelir (madde 33) — burada yeniden
+// biçimlenmez. "Ek Özellikler" sütunu kullanıcının satıra yazdığı serbest
+// nottur (equipment_notes, madde 34).
 
 import { Document, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import type {
@@ -37,12 +42,24 @@ const s = StyleSheet.create({
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
   td: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
   mono: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
-  cComp: { width: "21%" },
-  cBrand: { width: "14%" },
-  cModel: { width: "18%" },
-  cSpec: { width: "39%" },
-  cQty: { width: "8%", textAlign: "right" as const },
+  cComp: { width: "18%" },
+  cBrand: { width: "12%" },
+  cModel: { width: "15%" },
+  cSpec: { width: "30%" },
+  // Ek Özellikler: kullanıcının satıra yazdığı serbest açıklama (madde 34).
+  // Renk ayrı stildedir; genişlik stili başlık satırında da kullanılıyor ve
+  // oradaki paper100 metin rengini ezmemelidir.
+  cNote: { width: "18%" },
+  noteText: { color: BRAND.gray700 },
+  cQty: { width: "7%", textAlign: "right" as const },
   custom: { color: BRAND.red },
+  // Alternatif (seçenekli) satır: aktif seçim ana satırdır, alternatifler onun
+  // ALTINDA soluk ve girintili durur. Eğik yazı KULLANILMAZ — Archivo eğik
+  // varyantla kaydedilmediğinden react-pdf harfleri yapay eğmez, sessizce
+  // düz basar; ayrım rengin ve girintinin üzerinden verilir.
+  altRow: { backgroundColor: BRAND.paper50 },
+  altText: { color: BRAND.gray600 },
+  altIndent: { paddingLeft: 12 },
   // özet
   sumSection: {
     backgroundColor: BRAND.paper150, fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700,
@@ -108,6 +125,7 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
           <Text style={[s.th, s.cBrand]}>{trUpper("Marka")}</Text>
           <Text style={[s.th, s.cModel]}>{trUpper("Model")}</Text>
           <Text style={[s.th, s.cSpec]}>{trUpper("Özellikler")}</Text>
+          <Text style={[s.th, s.cNote]}>{trUpper("Ek Özellikler")}</Text>
           <Text style={[s.th, s.cQty]}>{trUpper("Adet")}</Text>
         </View>
 
@@ -115,14 +133,21 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
           <View key={g.name} minPresenceAhead={30}>
             <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
             {g.rows.map((r, i) => (
-              <View key={i} style={s.tr} wrap={false}>
-                <Text style={[s.td, s.cComp, r.custom ? s.custom : {}]}>
+              <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
+                <Text
+                  style={[
+                    s.td, s.cComp,
+                    r.custom ? s.custom : {},
+                    r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
+                  ]}
+                >
                   {r.component}{r.custom ? " *" : ""}
                 </Text>
-                <Text style={[s.td, s.cBrand]}>{r.brand}</Text>
+                <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{r.brand}</Text>
                 <ModelCell row={r} urls={datasheetUrls} />
-                <Text style={[s.td, s.cSpec]}>{r.spec}</Text>
-                <Text style={[s.td, s.mono, s.cQty]}>{String(r.qty)}</Text>
+                <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
+                <Text style={[s.td, s.cNote, s.noteText]}>{r.note ?? ""}</Text>
+                <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
               </View>
             ))}
           </View>

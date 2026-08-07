@@ -60,20 +60,27 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },
   { key: "trolleyWheelSpacingM", label: "Araba Tekerlek Açıklığı", unit: "m", type: "number" },
   { key: "trolleyAxleSpacingM", label: "Araba Dingil Açıklığı", unit: "m", type: "number" },
+  // 7.2 / 7.3'ün üç katsayısı ARTIK ELLE SORULMAZ: otomatik türetilip kutuya
+  // yazılır (bkz. derive.ts `deriveGirderInputs`, fields.ts GIRDER_AUTO_FIELDS).
+  // Anahtar kapatılınca alan serbest kalır ve mühendisin değeri kullanılır.
   {
-    key: "psiHAOverride", label: "ψhA — Araba (Elle)", type: "number",
+    key: "psiHAOverride", label: "Yatay Dinamik Katsayı ψhA (Araba)", type: "number",
     standardRef: "FEM 1.001 A.2.2.1",
-    hint: "Boş bırakılırsa kütle oranından türetilir: µ ≤ 1 → 2; µ > 1 → √(2 + µ + 1/µ).",
+    hint:
+      "Otomatik: araba kütle oranından türetilir — µA = asılı yük / araba " +
+      "ağırlığı; µ ≤ 1 → 2, µ > 1 → √(2 + µ + 1/µ).",
   },
   {
-    key: "psiHKOverride", label: "ψhK — Köprü (Elle)", type: "number",
+    key: "psiHKOverride", label: "Yatay Dinamik Katsayı ψhK (Köprü)", type: "number",
     standardRef: "FEM 1.001 A.2.2.1",
-    hint: "Boş bırakılırsa kütle oranından türetilir: µ ≤ 1 → 2; µ > 1 → √(2 + µ + 1/µ).",
+    hint:
+      "Otomatik: köprü kütle oranından türetilir — µK = asılı yük / " +
+      "(köprü + araba); µ ≤ 1 → 2, µ > 1 → √(2 + µ + 1/µ).",
   },
   {
-    key: "amplifyYcOverride", label: "Arttırma Katsayısı γc (Elle)", type: "number",
+    key: "amplifyYcOverride", label: "Arttırma Katsayısı γc", type: "number",
     standardRef: "FEM 1.001 T.2.3.4",
-    hint: "Boş bırakılırsa çelik yapı sınıfından türetilir (A1 → 1,00 … A8 → 1,20).",
+    hint: "Otomatik: çelik yapı sınıfından getirilir (A1 → 1,00 … A8 → 1,20).",
   },
   {
     key: "dynTestFactorR1", label: "Dinamik Test Katsayısı ρ1", type: "number",

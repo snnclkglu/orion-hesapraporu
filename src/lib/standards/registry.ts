@@ -11,6 +11,15 @@
 // ilkesi için mümkün olan yerlerde sabitler doğrudan içe aktarılır.
 
 import { DIN15018_T17 } from "@/lib/calc/tables";
+import {
+  CMAA_ACCEL_TORQUE_KT,
+  CMAA_APPLICATION_CLASSES,
+  CMAA_DRIVE_CONTROLS,
+  CMAA_DRIVE_CONTROL_LABELS,
+  CMAA_MOTOR_CONTROLS,
+  CMAA_MOTOR_CONTROL_LABELS,
+  CMAA_SERVICE_FACTOR_KS,
+} from "@/lib/calc/derive";
 import { HOISTING_CLASS_FACTORS } from "@/lib/calc/modules/wheelLoads";
 import {
   DIN15020_GROUPS,
@@ -33,6 +42,12 @@ export interface StandardContext {
   material?: string;
   /** Yük grubu (B1–B6) */
   loadGroup?: string;
+  /**
+   * CMAA 70 uygulama (servis) sınıfı A…F — Ks tablosunun satır vurgusu için.
+   * Yürütme bölümlerinde FEM mekanizma sınıfından türetilir
+   * (`travelApplicationClass`).
+   */
+  applicationClass?: string;
 }
 
 export interface StandardTableDef {
@@ -99,6 +114,53 @@ function din15018T17Table(material: "St37" | "St52"): StandardTableDef {
       "W0–W2: kaynaksız (çentiksiz) çentik sınıfları; K0–K4: kaynaklı birleşim " +
       "çentik sınıfları. Yük grubu B1–B6, gerilme çevrim sayısı ve gerilme " +
       "kolektifinden belirlenir.",
+  };
+}
+
+/**
+ * CMAA 70 Tablo 5.2.9.1.2.1-E'yi MOTOR SABİTİNDEN üretir — defterde görünen
+ * sayılar ile hesabın kullandığı sayılar tek kaynaktan gelir. Satır vurgusu
+ * `applicationClass` bağlamıyla yapılır (satırın ilk hücresi sınıf koduysa).
+ */
+function cmaaServiceFactorTable(): StandardTableDef {
+  const cols = CMAA_DRIVE_CONTROLS;
+  return {
+    caption: "Ks — CMAA servis sınıfı (satır) × tahrik/kumanda tipi (sütun)",
+    headers: ["Servis sınıfı", ...cols.map((c) => CMAA_DRIVE_CONTROL_LABELS[c])],
+    rows: CMAA_APPLICATION_CLASSES.map((cls) => [
+      cls,
+      ...cols.map((c) => {
+        const v = CMAA_SERVICE_FACTOR_KS[cls][c];
+        return v === null ? "N/A" : v.toLocaleString("tr-TR", { minimumFractionDigits: 2 });
+      }),
+    ]),
+    highlightBy: "applicationClass",
+    footnote:
+      "Değerler CMAA Specification #70, Tablo 5.2.9.1.2.1-E'den birebir " +
+      "alınmıştır. \"N/A\" = o sınıf için o kumanda tipi önerilmez.",
+  };
+}
+
+/** CMAA 70 Tablo 5.2.9.1.2.1-C'yi motor sabitinden üretir. */
+function cmaaAccelTorqueTable(): StandardTableDef {
+  return {
+    caption: "Kt — motor tipi × kumanda tipi",
+    headers: ["Motor / kumanda", "Kt (katalog)", "Uygulamanın seçtiği"],
+    rows: CMAA_MOTOR_CONTROLS.map((k) => {
+      const r = CMAA_ACCEL_TORQUE_KT[k];
+      const printed =
+        r.min === r.max
+          ? r.min.toLocaleString("tr-TR", { minimumFractionDigits: 2 })
+          : `${r.min.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} – ${r.max.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`;
+      return [
+        CMAA_MOTOR_CONTROL_LABELS[k],
+        printed,
+        r.min.toLocaleString("tr-TR", { minimumFractionDigits: 2 }),
+      ];
+    }),
+    footnote:
+      "Aralık verilen satırlarda alt uç seçilir (katalog dipnotu 2: sürekli " +
+      "kayma direncinde alt uç önerilir).",
   };
 }
 
@@ -292,6 +354,62 @@ const FEM_REFS: Record<string, StandardRef> = {
           ["Durum III — istisnai yükler / test", "1,10"],
         ],
       },
+    ],
+  },
+
+  "FEM 1.001 T.3.2.2.3": {
+    code: "FEM 1.001 T.3.2.2.3",
+    title: "Kaynak dikişlerinde izin verilen gerilmeler",
+    source: FEM_SOURCE,
+    clause: "Booklet 3, madde 3.2.2.3 (kaynaklı birleşimler)",
+    summary:
+      "Kaynak dikişinde izin verilen gerilme, dikiş TÜRÜNE (küt / köşe), " +
+      "zorlama biçimine (çekme · basınç · kayma) ve yükleme durumuna bağlıdır. " +
+      "Köşe (fillet) dikişte enine çekme ile kayma AYNI sınırı paylaşır; " +
+      "boğaz kesitine indirgenmiş gerilme bu değeri aşamaz. Uygulama tambur " +
+      "ve tambur mili kaynaklarında yalnız normal işletmeyi hesapladığından " +
+      "en muhafazakâr olan Durum I sütunu kullanılır.",
+    formulas: [
+      { label: "Boğaz kesiti alanı (Ek A-3.2.2.3 md.4)", expr: "A_k = a · L_k" },
+      {
+        label: "Eşdeğer gerilme (Ek A-3.2.2.3 md.3)",
+        expr: "σ_cp = (σ² + 2 · τ²)^0,5 ≤ σ_a,k",
+      },
+      {
+        label: "İki normal gerilmeli hâl (Ek A-3.2.2.3 md.3)",
+        expr: "σ_cp = (σx² + σy² − σx · σy + 2 · τxy²)^0,5",
+      },
+    ],
+    tables: [
+      {
+        caption: "Köşe (fillet) dikiş — izin verilen gerilme σa,k [N/mm²]",
+        headers: ["Çelik", "Durum I", "Durum II", "Durum III"],
+        rows: [
+          ["A.37 (Fe 360 ≈ S235)", 113, 127, 152],
+          ["A.42 (Fe 430)", 124, 138, 170],
+          ["A.52 (Fe 510 ≈ S355)", 170, 191, 230],
+        ],
+        footnote:
+          "Köşe dikişte enine çekme ve kayma satırları aynı değeri verdiğinden " +
+          "iki etkiyi birden gören tambur/mil dikişlerinde bu ortak değer sınırdır. " +
+          "Küt (tam nüfuziyetli) dikişlerin sınırı ana metalinkiyle aynıdır.",
+      },
+    ],
+    notes: [
+      "Dayanım hesabında ZAYIF ana metal yönetir: madde 3.2.2.3 kaynak metalinin " +
+        "en az ana metal kadar iyi olduğunu varsayar. Tambur–göbek ve mil–göbek " +
+        "dikişlerinde zayıf taraf her zaman yapı çeliğinden yanak/göbek sacıdır; " +
+        "mil malzemesi (C30, 42CrMo4 …) ıslah çeliğidir ve daha dayanıklıdır.",
+      "EŞDEĞER GERİLMEDE KAYMA TERİMİNİN KATSAYISI 2'DİR (Ek A-3.2.2.3 md.3, " +
+        "standardın basılı metni: “σcp = ( σ2 + 2 . τ2 )0,5”). " +
+        "√(σ² + τ²) yazmak dikişi olduğundan EMNİYETLİ gösterir.",
+      "TAŞIYICI KESİT BOĞAZ KESİTİDİR (Ek A-3.2.2.3 md.4): köşe dikişte hesaba " +
+        "giren genişlik boğaz derinliği, uzunluk ise dikişin etkin boyudur. " +
+        "Dikişin izdüşüm halka alanı taşıyıcı kesit değildir.",
+      "Uygulama bu sınırı CMAA 70 md. 3.4.4.2'nin asal gerilme kuralıyla " +
+        "BİRLİKTE hesaplar; iki standardın kullanım oranından BÜYÜĞÜ yönetir. " +
+        "İki sınır doğrudan karşılaştırılmaz — her standart kendi gerilmesini " +
+        "tanımlar.",
     ],
   },
 
@@ -745,6 +863,71 @@ const FEM_REFS: Record<string, StandardRef> = {
         "boyutlandırılır (Vt = 0,7·V).",
       "Tampon tepki kuvveti ayrıca köprü yürütme bölümünde hesaplanır; teker " +
         "yükleri bölümü aynı değeri yol kirişi yüklerine taşır.",
+      "Standardın özgün metni: \"It shall be assumed that a buffer is capable " +
+        "of absorbing the kinetic energy of the appliance (without the working " +
+        "load) at a fraction of the rated speed Vt fixed at 0.7 Vt.\"",
+    ],
+    formulas: [
+      { label: "Çarpma hızı", expr: "v_ç = (v / 60) · k" },
+      { label: "Çarpma enerjisi", expr: "E_kin = 0,5 · m_t · v_ç^2" },
+      { label: "Tahrik kuvveti", expr: "F_0 = P / v" },
+      { label: "Sönümlenecek enerji", expr: "E_a = E_kin + F_0 · f'" },
+    ],
+  },
+
+  "FEM 1.001 9.4.2": {
+    code: "FEM 1.001 9.4.2",
+    title: "Tampon etkisinin yapıya aktarılma eşiği",
+    source: FEM_SOURCE,
+    clause: "Booklet 9, madde 9.4.2 (Booklet 2 md. 2.2.3.4.1'i değiştirir)",
+    summary:
+      "Kitapçık 9'un bu maddesi tek cümledir: \"In clause 2.2.3.4.1 replace " +
+      "0,7 m/s with 0,4 m/s\". Yani tampon tepkisinin YAPIYA taşınması için " +
+      "eşik yürüyüş hızı 0,7 m/s'den 0,4 m/s'ye indirilmiştir.",
+    tables: [
+      {
+        caption: "Eşik hızın etkisi",
+        headers: ["Anma yürüyüş hızı", "Tampon boyutlandırması", "Yapı yüklemesi"],
+        rows: [
+          ["v ≤ 0,4 m/s", "Yapılır", "Tampon tepkisi yapıya taşınmaz"],
+          ["v > 0,4 m/s", "Yapılır", "Tepki Yükleme Durumu III'e girer"],
+        ],
+      },
+    ],
+    notes: [
+      "Eşiğin altında tampon YİNE boyutlandırılır — madde yalnız yapıya " +
+        "aktarılan tepkiyi kapsam dışı bırakır.",
+      "Uygulamada aynı eşik `modules/wheelLoads.ts` içinde de kullanılır; " +
+        "iki yer tek sayıyı paylaşır (BUFFER_SPEED_THRESHOLD).",
+    ],
+  },
+
+  "FEM 1.001 7.7.1.2": {
+    code: "FEM 1.001 7.7.1.2",
+    title: "Yürütme tahrikleri — tampon ve yavaşlama sınırı",
+    source: FEM_SOURCE,
+    clause: "Booklet 7, madde 7.7.1.2 (Emniyet tertibatları)",
+    summary:
+      "Tahrikli vinç ve arabalar; hareket eden kütlelerin anma yürüyüş " +
+      "hızındaki enerjisinin YARISINI yutabilen pabuç fren, kauçuk, yay ya da " +
+      "hidrolik tamponlarla donatılmalıdır. Kabin içindeki azami yavaşlama " +
+      "5 m/s²'yi aşamaz.",
+    tables: [
+      {
+        caption: "Azami yavaşlama sınırı",
+        headers: ["Durum", "a_maks [m/s²]"],
+        rows: [
+          ["Normal işletme", "5,0"],
+          ["Yürüyüş sınırına normal işletmede SIK ulaşılıyorsa", "2,5"],
+          ["İki vincin aynı yolda çarpışması", "5,0 (hiçbir koşulda aşılamaz)"],
+        ],
+      },
+    ],
+    notes: [
+      "Uygulama iki yavaşlamayı da hesaplar: ortalama a = v_ç²/(2·f′) ve azami " +
+        "a = F_t/m_t; kontrol büyük olanı sınıra karşı yapar.",
+      "Radyo kumandalı vinç ve arabalarda yürüyüş hızı 40 m/dak'yı aşıyorsa " +
+        "ayrıca yürüyüş sınır şalteri istenir.",
     ],
   },
 
@@ -1386,6 +1569,50 @@ const CMAA_REFS: Record<string, StandardRef> = {
     ],
   },
 
+  "CMAA 70 T.5.2.9.1.2.1-E": {
+    code: "CMAA 70 T.5.2.9.1.2.1-E",
+    title: "Yürütme tahriki servis sınıfı faktörü Ks",
+    source: CMAA_SOURCE,
+    clause: "Tablo 5.2.9.1.2.1-E",
+    summary:
+      "Gerekli yürütme motoru gücünü ölçekleyen servis faktörü. Tablo İKİ " +
+      "EKSENLİDİR: satır CMAA uygulama (servis) sınıfı A…F, SÜTUN tahrik ve " +
+      "kumanda tipidir. Ks yalnız sınıftan seçilemez — kumanda tipi de bilinmelidir.",
+    tables: [cmaaServiceFactorTable()],
+    notes: [
+      "Sınıf E değerleri, tahrikin en çok %30 çalışma süresi ve saatte en çok " +
+        "25 çevrim esasına dayanır; sınıf F için %50 ve 45 çevrimdir. Daha ağır " +
+        "hizmette çevrim analizi önerilir.",
+      "\"N/A\": o sınıf o kumanda tipiyle önerilmez; uygulama bu hücrede " +
+        "otomatik seçim YAPMAZ ve mühendisi uyarır.",
+      "Tabloda bulunmayan kumanda tipleri için CMAA vinç imalatçısına " +
+        "danışılmasını ister (dipnot 3).",
+    ],
+  },
+
+  "CMAA 70 T.5.2.9.1.2.1-C": {
+    code: "CMAA 70 T.5.2.9.1.2.1-C",
+    title: "İvmelenme tork faktörü Kt",
+    source: CMAA_SOURCE,
+    clause: "Tablo 5.2.9.1.2.1-C",
+    summary:
+      "Motorun anma devrine kadar hızlanırken ürettiği, anma momentine göre " +
+      "EŞDEĞER KARARLI momentin oranı. Tablo yalnız MOTOR TİPİ ve KUMANDA " +
+      "TİPİYLE indislenir — CMAA servis sınıfına (A…F) BAĞLI DEĞİLDİR.",
+    formulas: [
+      { label: "İvmelenme faktöründeki yeri", expr: "K_a = (f + 2000 · a · C_r / (g · E)) / (33000 · K_t)" },
+    ],
+    tables: [cmaaAccelTorqueTable()],
+    notes: [
+      "Katalog dipnotu 1: Kt kumanda ve/veya direnç tasarımının bir " +
+        "fonksiyonudur.",
+      "Katalog dipnotu 2: aralık verilen satırlarda SÜREKLİ KAYMA DİRENCİ " +
+        "kullanıldığında aralığın ALT ucu önerilir. Uygulama alt ucu seçer; " +
+        "bu aynı zamanda Ka'yı (dolayısıyla gerekli gücü) büyüten muhafazakâr " +
+        "taraftır.",
+    ],
+  },
+
   "CMAA 70 4.11.4.1": {
     code: "CMAA 70 4.11.4.1",
     title: "Mil ve pim gerilmeleri",
@@ -1405,6 +1632,84 @@ const CMAA_REFS: Record<string, StandardRef> = {
       "Kaynakta CMAA #74 madde 4.5 referansı verilmişti; elimizdeki CMAA 70 " +
         "baskısında 4.5 makaralara (sheaves) ayrılmıştır — mil gerilmelerinin " +
         "doğru karşılığı 4.11.4.1'dir.",
+    ],
+  },
+
+  "CMAA 70 3.4.1": {
+    code: "CMAA 70 3.4.1",
+    title: "Yapısal elemanlarda izin verilen gerilmeler (Durum 1)",
+    source: CMAA_SOURCE,
+    clause: "Madde 3.4.1 — Allowable Stresses, Stress Level 1",
+    summary:
+      "Yapı çeliğinden elemanlarda izin verilen gerilmeler akma gerilmesinin " +
+      "kesirleri olarak verilir: çekme/eğilme için 0,60·σ_akma, kayma için " +
+      "0,35·σ_akma. Her sınır KENDİ gerilmesiyle karşılaştırılır: kaynakta " +
+      "md. 3.4.4.2'nin ASAL gerilmesi bir normal gerilmedir ve 0,60·σ_akma " +
+      "ile, saf kayma τ ise 0,35·σ_akma ile sınırlanır.",
+    formulas: [
+      { label: "Çekme / eğilme", expr: "σ_em = 0,60 · σ_akma" },
+      { label: "Kayma", expr: "τ_em = 0,35 · σ_akma" },
+    ],
+    tables: [
+      {
+        caption: "Yapı çelikleri — Durum 1 sınırları [N/mm²]",
+        headers: ["Çelik", "σ_akma", "0,60·σ_akma", "0,35·σ_akma"],
+        rows: [
+          ["S235", 235, 141, 82.3],
+          ["S355", 355, 213, 124.3],
+        ],
+        footnote:
+          "Durum 2 ve Durum 3 için CMAA aynı oranları farklı emniyet " +
+          "katsayılarıyla kullanır; uygulama yalnız Durum 1'i (normal işletme) " +
+          "hesaplar.",
+      },
+    ],
+    notes: [
+      "Kaynak dikişi kontrolünde bu tablo FEM 1.001 T.3.2.2.3 ile BİRLİKTE " +
+        "kullanılır; ancak iki sınır doğrudan karşılaştırılmaz. Her standart " +
+        "kendi gerilmesini tanımladığı için uygulama iki KULLANIM ORANI " +
+        "hesaplar (σ_cp/σ_a,k ve maks(σ_v/0,60σ_akma ; τ/0,35σ_akma)) ve " +
+        "büyük olanı yönetici alır.",
+      "Eski yöntem √(σ²+τ²) bileşkesini 0,35·σ_akma ile karşılaştırıyordu; bu " +
+        "büyüklük CMAA'nın tanımladığı gerilme değildi.",
+    ],
+  },
+
+  "CMAA 70 3.4.4.2": {
+    code: "CMAA 70 3.4.4.2",
+    title: "Kaynakta bileşik gerilme (asal gerilme)",
+    source: CMAA_SOURCE,
+    clause: "Madde 3.4.4.2 — Combined Stresses, for welds",
+    summary:
+      "CMAA kaynak dikişinde bileşik gerilmeyi ASAL GERİLME olarak tanımlar: " +
+      "dikiş düzlemindeki normal gerilmeler σx, σy ve kayma gerilmesi τ'dan " +
+      "Mohr çemberinin kökleri bulunur ve mutlak değeri büyük olan kök izin " +
+      "verilen gerilme ile karşılaştırılır. Tambur ve mil kaynaklarında dikişe " +
+      "dik ikinci normal gerilme yoktur (σy = 0).",
+    formulas: [
+      {
+        label: "Asal gerilme (md. 3.4.4.2)",
+        expr: "σ_v = ½·(σx + σy) ± ½·√((σx − σy)² + 4·τ²) ≤ σ_ALL",
+      },
+      { label: "σy = 0 hâli", expr: "σ_v = ½·σ ± ½·√(σ² + 4·τ²)" },
+      { label: "Sınır (md. 3.4.1, Durum 1)", expr: "σ_ALL = 0,60 · σ_akma" },
+    ],
+    tables: [
+      {
+        caption: "Durum 1 sınırları [N/mm²]",
+        headers: ["Çelik", "σ_akma", "σ_ALL = 0,60·σ_akma", "τ_em = 0,35·σ_akma"],
+        rows: [
+          ["S235", 235, 141, 82.3],
+          ["S355", 355, 213, 124.3],
+        ],
+      },
+    ],
+    notes: [
+      "σ_v bir NORMAL gerilmedir; çekme sınırı (0,60·σ_akma) ile karşılaştırılır. " +
+        "Kayma gerilmesi bu kuralla tek başına sınırlanmadığından uygulama " +
+        "τ ≤ 0,35·σ_akma kontrolünü AYRICA yapar (md. 3.4.1).",
+      "Aynı dikiş FEM 1.001 Ek A-3.2.2.3 md.3'ün eşdeğer gerilmesiyle de " +
+        "değerlendirilir; kullanım oranı büyük olan standart yönetir.",
     ],
   },
 };
@@ -1510,11 +1815,11 @@ const DIN_REFS: Record<string, StandardRef> = {
 
   "DIN 15061": {
     code: "DIN 15061",
-    title: "Tambur ve makara halat oluğu (hatve)",
-    source: "DIN 15061-1 — Vinçler, halat oluğu profilleri",
+    title: "Tambur ve makara halat yivi (hatve)",
+    source: "DIN 15061-1 — Vinçler, halat yivi profilleri",
     clause: "DIN 15061-1",
     summary:
-      "Halat oluğu hatvesi (p) ve profil ölçüleri halat çapına göre " +
+      "Halat yivi hatvesi (p) ve profil ölçüleri halat çapına göre " +
       "standartlaştırılmıştır. Uygulamadaki basamak fonksiyonu bu standarttan gelir.",
     tables: [
       {

@@ -56,9 +56,209 @@ import type {
  */
 export type HoistWhich = "main" | "aux" | "mono1" | "mono2";
 
+// ------------------------------------------------ kaynak izin gerilmeleri
+
+/**
+ * FEM 1.001 T.3.2.2.3 — köşe (fillet) kaynak dikişinde izin verilen en büyük
+ * EŞDEĞER gerilme, yükleme durumu I [N/mm²].
+ *
+ * Tabloda köşe kaynağın "enine çekme" ve "kayma" satırları AYNI değeri verir
+ * (A.37: 113 · A.42: 124 · A.52: 170); tambur ve mil dikişleri her iki etkiyi
+ * de gördüğü için bu ortak değer sınırdır. Durum II/III değerleri (127/152 ve
+ * 138/170 ve 191/230) daha yüksektir; uygulama yalnız normal işletmeyi
+ * (Durum I) hesapladığından en muhafazakâr olan alınır.
+ */
+const FEM_FILLET_WELD_CASE_I_MPA: Record<DrumMaterial, number> = {
+  S235: 113, // A.37 (Fe 360)
+  S355: 170, // A.52 (Fe 510)
+};
+
+/** Yapı çeliğinin akma gerilmesi σ_akma [N/mm²] — EN 10025-2 */
+const STRUCTURAL_YIELD_MPA: Record<DrumMaterial, number> = {
+  S235: 235,
+  S355: 355,
+};
+
+/**
+ * CMAA 70 md. 3.4.1 — Durum 1 (Stress Level 1) izin verilen KAYMA gerilmesi
+ * katsayısı: τ_em = 0,35 · σ_akma. SAF KAYMA için geçerlidir.
+ */
+export const CMAA_WELD_SHEAR_FACTOR = 0.35;
+
+/**
+ * CMAA 70 md. 3.4.1 — Durum 1 izin verilen ÇEKME/EĞİLME gerilmesi katsayısı:
+ * σ_em = 0,60 · σ_akma. Md. 3.4.4.2'nin kaynak için tanımladığı ASAL gerilme
+ * (σv) bu sınırla karşılaştırılır ("… ≤ σALL"); asal gerilme bir NORMAL
+ * gerilmedir, kayma sınırıyla karşılaştırılamaz.
+ */
+export const CMAA_WELD_TENSION_FACTOR = 0.6;
+
+/** Bir kaynak dikişinin iki standarttan gelen izin gerilmeleri [MPa] */
+export interface WeldAllowableStress {
+  /** FEM 1.001 T.3.2.2.3 — köşe kaynak, Durum I (eşdeğer gerilme σcp sınırı) */
+  femMPa: number;
+  /** CMAA 70 md. 3.4.1 — 0,60 · σ_akma (md. 3.4.4.2 asal gerilme sınırı) */
+  cmaaTensionMPa: number;
+  /** CMAA 70 md. 3.4.1 — 0,35 · σ_akma (saf kayma sınırı) */
+  cmaaShearMPa: number;
+  /** Dayanak metalin akma gerilmesi [N/mm²] */
+  yieldMPa: number;
+}
+
+/**
+ * Kaynak dikişi izin gerilmeleri — İKİ standardın sınırları da üretilir.
+ *
+ * Dayanak metal olarak tambur sacı (yapı çeliği) alınır: FEM 1.001 3.2.2.3
+ * "kaynak metali en az ana metal kadar iyidir" kabulünü yapar ve bir birleşimin
+ * dayanımını ZAYIF ana metal yönetir. Tambur–göbek ve mil–göbek dikişlerinde
+ * zayıf taraf her zaman yapı çeliğinden yanak/göbek sacıdır; mil malzemesi
+ * (C30, 42CrMo4 …) ıslah çeliğidir ve daha dayanıklıdır.
+ *
+ * SINIRLAR DOĞRUDAN KARŞILAŞTIRILMAZ (bkz. `assessWeld`): her standart kendi
+ * gerilme tanımını kullanır; min(FEM ; CMAA) almak elmayla armudu toplamaktı.
+ */
+export function weldAllowableStress(material: DrumMaterial): WeldAllowableStress {
+  const femMPa = FEM_FILLET_WELD_CASE_I_MPA[material] ?? FEM_FILLET_WELD_CASE_I_MPA.S235;
+  const yieldMPa = STRUCTURAL_YIELD_MPA[material] ?? STRUCTURAL_YIELD_MPA.S235;
+  return {
+    femMPa,
+    cmaaTensionMPa: CMAA_WELD_TENSION_FACTOR * yieldMPa,
+    cmaaShearMPa: CMAA_WELD_SHEAR_FACTOR * yieldMPa,
+    yieldMPa,
+  };
+}
+
+/** Kaynak kontrolünü YÖNETEN kural. */
+export type WeldRule = "FEM" | "CMAA-asal" | "CMAA-kayma" | "elle";
+
+/** Yöneten kuralın rapordaki adı ve standart rozeti. */
+const WELD_RULE_INFO: Record<WeldRule, { label: string; standard?: string }> = {
+  FEM: { label: "FEM — eşdeğer gerilme", standard: "FEM 1.001 T.3.2.2.3" },
+  "CMAA-asal": { label: "CMAA — asal gerilme", standard: "CMAA 70 3.4.4.2" },
+  "CMAA-kayma": { label: "CMAA — kayma", standard: "CMAA 70 3.4.1" },
+  elle: { label: "Elle girilen sınır" },
+};
+
+/** Bir kaynak dikişinin iki standarda göre değerlendirilmesi. */
+export interface WeldAssessment {
+  allow: WeldAllowableStress;
+  /** FEM Ek A-3.2.2.3 md.3 eşdeğer gerilmesi σcp = √(σ² + 2·τ²) [kg/cm²] */
+  femEquivalent: number;
+  /** CMAA 70 md. 3.4.4.2 asal gerilmesi σv [kg/cm²] (mutlak değeri büyük kök) */
+  cmaaPrincipal: number;
+  /** Dikişteki toplam kayma gerilmesi τ [kg/cm²] */
+  shear: number;
+  /** σcp / σ_a,k (FEM) */
+  femUtilization: number;
+  /** max(σv / 0,60σ_akma ; τ / 0,35σ_akma) (CMAA) */
+  cmaaUtilization: number;
+  /** Yöneten (büyük) kullanım oranı */
+  utilization: number;
+  rule: WeldRule;
+  ruleLabel: string;
+  /** Yöneten kuralın standart rozeti (elle girilen sınırda yoktur) */
+  standard?: string;
+  /** Yöneten kuralın karşılaştırdığı GERİLME [MPa] */
+  stressMPa: number;
+  /** Yöneten kuralın SINIRI [MPa] */
+  allowableMPa: number;
+}
+
+/**
+ * Bir köşe kaynak dikişini FEM ve CMAA kurallarıyla AYRI AYRI değerlendirir ve
+ * kullanım oranı büyük olanı yönetici seçer.
+ *
+ * NEDEN AYRI: iki standart aynı dikiş için FARKLI gerilme tanımlar.
+ *   · FEM 1.001 Ek A-3.2.2.3 md.3 — eşdeğer gerilme
+ *         σcp = ( σ² + 2·τ² )^0,5              ≤ σ_a,k (T.3.2.2.3)
+ *     Kayma teriminin katsayısı 2'dir; √(σ²+τ²) yazmak dikişi olduğundan
+ *     EMNİYETLİ gösterir ve standarda aykırıdır.
+ *   · CMAA 70 md. 3.4.4.2 — kaynakta ASAL gerilme
+ *         σv = ½(σx+σy) ± ½·√((σx−σy)² + 4·τ²) ≤ σ_ALL
+ *     Burada σy = 0 (dikişe dik ikinci normal gerilme yoktur); σ_ALL, md.
+ *     3.4.1'in Durum 1 çekme sınırıdır (0,60·σ_akma).
+ *   · CMAA 70 md. 3.4.1 — saf kayma sınırı τ ≤ 0,35·σ_akma. Asal gerilme
+ *     kuralı kaymayı tek başına sınırlamadığından bu da ayrıca aranır.
+ *
+ * Eski yöntem √(σ²+τ²) bileşkesini 0,35·σ_akma ile karşılaştırıyordu: ne
+ * FEM'in gerilmesi ne CMAA'nın gerilmesiydi; rapor "CMAA 0,35σ_akma" derken
+ * CMAA'nın tanımlamadığı bir büyüklüğü sınırlıyordu.
+ *
+ * `manualAllowableMPa` verilirse (otomatik türetme KAPALI) sınır mühendisin
+ * girdiği değerdir; karşılaştırılan gerilme yine FEM eşdeğer gerilmesidir.
+ */
+export function assessWeld(args: {
+  /** Dikişe dik normal gerilme σ [kg/cm²] (yoksa 0) */
+  normalKgCm2: number;
+  /** Dikişteki TOPLAM kayma gerilmesi τ [kg/cm²] (kesme + burulma) */
+  shearKgCm2: number;
+  material: DrumMaterial;
+  manualAllowableMPa?: number;
+}): WeldAssessment {
+  const sigma = args.normalKgCm2;
+  const tau = args.shearKgCm2;
+  const allow = weldAllowableStress(args.material);
+
+  // FEM Ek A-3.2.2.3 md.3 — τ² katsayısı 2'dir.
+  const femEquivalent = Math.sqrt(sigma ** 2 + 2 * tau ** 2);
+  // CMAA 70 md. 3.4.4.2 — σy = 0 ile iki kök; mutlak değeri büyük olan yönetir.
+  const root = Math.sqrt(sigma ** 2 + 4 * tau ** 2);
+  const rootPlus = 0.5 * sigma + 0.5 * root;
+  const rootMinus = 0.5 * sigma - 0.5 * root;
+  const cmaaPrincipal = Math.abs(rootPlus) >= Math.abs(rootMinus) ? rootPlus : rootMinus;
+
+  const femMPa = femEquivalent * KGF_TO_MPA;
+  const cmaaPrincipalMPa = Math.abs(cmaaPrincipal) * KGF_TO_MPA;
+  const shearMPa = Math.abs(tau) * KGF_TO_MPA;
+
+  const femUtilization = femMPa / allow.femMPa;
+  const cmaaAxialUtil = cmaaPrincipalMPa / allow.cmaaTensionMPa;
+  const cmaaShearUtil = shearMPa / allow.cmaaShearMPa;
+  const cmaaUtilization = Math.max(cmaaAxialUtil, cmaaShearUtil);
+
+  let rule: WeldRule;
+  let stressMPa: number;
+  let allowableMPa: number;
+  if (args.manualAllowableMPa !== undefined) {
+    rule = "elle";
+    stressMPa = femMPa;
+    allowableMPa = args.manualAllowableMPa;
+  } else if (femUtilization >= cmaaUtilization) {
+    rule = "FEM";
+    stressMPa = femMPa;
+    allowableMPa = allow.femMPa;
+  } else if (cmaaAxialUtil >= cmaaShearUtil) {
+    rule = "CMAA-asal";
+    stressMPa = cmaaPrincipalMPa;
+    allowableMPa = allow.cmaaTensionMPa;
+  } else {
+    rule = "CMAA-kayma";
+    stressMPa = shearMPa;
+    allowableMPa = allow.cmaaShearMPa;
+  }
+  const info = WELD_RULE_INFO[rule];
+  return {
+    allow,
+    femEquivalent,
+    cmaaPrincipal,
+    shear: tau,
+    femUtilization,
+    cmaaUtilization,
+    utilization: allowableMPa > 0 ? stressMPa / allowableMPa : Number.NaN,
+    rule,
+    ruleLabel: info.label,
+    standard: info.standard,
+    stressMPa,
+    allowableMPa,
+  };
+}
+
 // ------------------------------------------------- tambur mili geometrisi
 
 /** Halat yükü konumu seçenekleri (girdi alanı listesiyle aynı metinler). */
+// DEĞER DEĞİŞMEZ: kayıtlı revizyonlardaki select değerleri bu dizgeye bağlıdır.
+// Kullanıcıya görünen etiket `fields.ts` → `ROPE_POSITION_LABELS` ile verilir
+// ("En Kritik Konum").
 export const ROPE_POSITION_AUTO = "En elverişsiz (otomatik)";
 export const ROPE_POSITION_OUTER = "Dış uçlarda (yanaklara yakın)";
 export const ROPE_POSITION_INNER = "İç uçlarda (ortaya yakın)";
@@ -82,10 +282,74 @@ interface GrooveSection {
   inner: number;
 }
 
+/**
+ * Tambur mili ölçüleri GİRDİDE mm, MOTOR İÇİNDE cm'dir.
+ *
+ * Ölçüler mühendisin teknik resminden okunduğu gibi (mm) sorulur ve saklanır;
+ * motorun geri kalanı ise AGENTS.md "Birimler" maddesindeki cm tabanında
+ * çalışır (kg·cm moment, kg/cm² gerilme, cm³ direnç momenti).
+ *
+ * SEÇİLEN YOL — (a) girdiyi mm sakla, TEK NOKTADA cm'ye çevir.
+ * Gerekçe: kaldırma zincirinin tamamı (beam.ts kiriş statiği, shaftStress.ts
+ * mil gerilmeleri, kaynak kesitleri, derive.ts tambur ağırlığı) cm tabanlıdır.
+ * (b) yolunda — tüm zinciri mm'ye taşımak — bu bağıntıların hepsi ile birlikte
+ * malzeme izin gerilmesi tabloları ve golden değerler de değişirdi; kazancı
+ * olmayan, yüksek riskli bir dokunuş olurdu.
+ *
+ * DÖNÜŞÜM İKİNCİ BİR YERDE TEKRARLANMAZ: `*Mm` alanları yalnızca aşağıdaki
+ * `drumShaftDimsCm` içinde (tek `mmToCm` çağrı kümesi) cm'ye çevrilir. Sunum
+ * ve diyagram katmanları da bu iki yardımcıyı kullanır; hiçbir yerde elle
+ * "/ 10" yazılmaz.
+ */
+export const mmToCm = (mm: number): number => mm / 10;
+
+/** cm → mm (sunum/diyagram tarafında motorun cm çıktısını mm göstermek için). */
+export const cmToMm = (cm: number): number => cm * 10;
+
+/** Tambur mili ölçü zincirinin motor birimindeki (cm) karşılığı. */
+export interface DrumShaftDimsCm {
+  aCm: number; bCm: number; cCm: number; dCm: number;
+  eCm: number; fCm: number; gCm: number;
+  /** D1 — eğilme gerilmesi kesiti çapı (yanak dibi) */
+  d1Cm: number;
+  /** D2 — yatak / rulman oturma çapı (kesme kesiti) */
+  d2Cm: number;
+  /** Tambur kaynak dikişi boğaz kalınlığı a */
+  drumWeldThroatCm: number;
+  /** Mil kaynak dikişi boğaz kalınlığı a */
+  shaftWeldThroatCm: number;
+}
+
+/**
+ * mm cinsinden girilen tambur mili ölçülerini motorun cm birimine çevirir.
+ * **Bu, mm → cm dönüşümünün TEK noktasıdır.**
+ */
+export function drumShaftDimsCm(inp: HoistInputs): DrumShaftDimsCm {
+  return {
+    aCm: mmToCm(inp.drumSpanAMm),
+    bCm: mmToCm(inp.drumSpanBMm),
+    cCm: mmToCm(inp.drumSpanCMm),
+    dCm: mmToCm(inp.drumSpanDMm),
+    eCm: mmToCm(inp.drumSpanEMm),
+    fCm: mmToCm(inp.drumSpanFMm),
+    gCm: mmToCm(inp.drumSpanGMm),
+    d1Cm: mmToCm(inp.shaftD1Mm),
+    d2Cm: mmToCm(inp.shaftD2Mm),
+    drumWeldThroatCm: mmToCm(inp.drumWeldThicknessMm),
+    shaftWeldThroatCm: mmToCm(inp.shaftWeldThicknessMm),
+  };
+}
+
 export interface DrumShaftGeometry {
   aCm: number;          // redüktör tarafı konsol (moment kolu)
   gCm: number;          // tambur yatağı tarafı konsol (moment kolu)
   spanCm: number;       // mesnetler arası açıklık L
+  /**
+   * Yanaklar arası NAMLU boyu B+C+D+E+F [cm] — tambur gövdesinin (borusunun)
+   * gerçek uzunluğu. Yiv boyu (C ve E) bunun yalnız bir parçasıdır; tambur
+   * ağırlığı namlu boyundan hesaplanır (bkz. `derive.ts`).
+   */
+  barrelCm: number;
   weightArmCm: number;  // tambur ağırlık merkezinin mesnet A'ya uzaklığı
   sections: GrooveSection[];
 }
@@ -99,13 +363,15 @@ const pos = (v: number | undefined): number =>
  * tambur kabul edilir ve tek yük noktası kullanılır.
  */
 export function drumShaftGeometry(inp: HoistInputs): DrumShaftGeometry {
-  const A = pos(inp.drumSpanACm);
-  const B = pos(inp.drumSpanBCm);
-  const C = pos(inp.drumSpanCCm);
-  const D = pos(inp.drumSpanDCm);
-  const E = pos(inp.drumSpanECm);
-  const F = pos(inp.drumSpanFCm);
-  const G = pos(inp.drumSpanGCm);
+  // Girdiler mm; motor cm ile çalışır (bkz. `drumShaftDimsCm` — tek dönüşüm noktası).
+  const dims = drumShaftDimsCm(inp);
+  const A = pos(dims.aCm);
+  const B = pos(dims.bCm);
+  const C = pos(dims.cCm);
+  const D = pos(dims.dCm);
+  const E = pos(dims.eCm);
+  const F = pos(dims.fCm);
+  const G = pos(dims.gCm);
   const barrel = B + C + D + E + F;   // yanaklar arası namlu boyu
   const span = A + barrel + G;
   const sections: GrooveSection[] = [{ outer: A + B, inner: A + B + C }];
@@ -114,9 +380,34 @@ export function drumShaftGeometry(inp: HoistInputs): DrumShaftGeometry {
     aCm: A,
     gCm: G,
     spanCm: span > 0 ? span : 1,
+    barrelCm: barrel,
     weightArmCm: A + barrel / 2,
     sections,
   };
+}
+
+/**
+ * Bir yiv helisinin gerekli sarım sayısı z ve yiv boyu L = z · p.
+ *
+ * Kaldırma yüksekliğinde tambura sarılan halat boyu mekanik avantajla
+ * (i = n_toplam / n_tahrik) çarpılır, tambur çevresine bölünür ve üzerine
+ * emniyet sarımı eklenir. Sonuç TEK helis içindir; tahrikli kol sayısı kadar
+ * helis vardır (yiv boyu "2 x 220 mm" biçiminde gösterilir).
+ *
+ * Hem hesap motoru hem de "Yiv Boyu" kutusunun otomatik türetmesi (derive.ts)
+ * bu tek fonksiyonu okur — iki yerde ayrı formül yazılmaz.
+ */
+export function drumGrooveRequirement(
+  inp: Pick<HoistInputs, "drivenFalls" | "totalFalls" | "fixedSheaveCount" | "sheaveEfficiency" | "reevingLabel" | "safetyGrooveCount">,
+  sel: Pick<HoistSelections, "drumDiaMm" | "ropeDiaMm">,
+  liftHeightM: number
+): { grooves: number; lengthMm: number; pitchMm: number } {
+  const rig = deriveReeving(hoistReeving(inp as HoistInputs));
+  const pitchMm = groovePitch(sel.ropeDiaMm);
+  const grooves =
+    (rig.mechanicalAdvantage * liftHeightM) / Math.PI / (sel.drumDiaMm / 1000) +
+    inp.safetyGrooveCount;
+  return { grooves, lengthMm: grooves * pitchMm, pitchMm };
 }
 
 
@@ -142,7 +433,7 @@ export interface HoistInputs {
   safetyGrooveCount: number;    // emniyet sarımı adedi
   drumWeightKg: number;         // tambur ağırlığı W
   /**
-   * Tambur mili ölçü zinciri (cm) — teknik resimdeki A…G bölümleri, soldan
+   * Tambur mili ölçü zinciri (mm) — teknik resimdeki A…G bölümleri, soldan
    * (redüktör tarafı) sağa (tambur yatağı tarafı):
    *   A: redüktör tarafı mesnet ekseni → sol yanak   (aynı zamanda moment kolu)
    *   B: sol yanak → sol yiv bölgesi başlangıcı
@@ -151,22 +442,36 @@ export interface HoistInputs {
    *   E: sağ yiv bölgesi uzunluğu
    *   F: sağ yiv bölgesi sonu → sağ yanak
    *   G: sağ yanak → tambur yatağı mesnet ekseni     (aynı zamanda moment kolu)
+   *
+   * Motor bu ölçüleri cm ile çözer; dönüşüm `drumShaftDimsCm` içindedir.
    */
-  drumSpanACm: number;
-  drumSpanBCm: number;
-  drumSpanCCm: number;
-  drumSpanDCm: number;
-  drumSpanECm: number;
-  drumSpanFCm: number;
-  drumSpanGCm: number;
+  drumSpanAMm: number;
+  drumSpanBMm: number;
+  drumSpanCMm: number;
+  drumSpanDMm: number;
+  drumSpanEMm: number;
+  drumSpanFMm: number;
+  drumSpanGMm: number;
   /** Halat yüklerinin yiv bölgesindeki konumu (bkz. ROPE_POSITION_*) */
   ropeLoadPosition?: string;
-  shaftD1Cm: number;            // D1: eğilme gerilmesi kesiti çapı (yanak dibi)
-  shaftD2Cm: number;            // D2: yatak / rulman oturma çapı (kesme kesiti)
-  drumWeldThicknessCm: number;  // tambur kaynak kalınlığı
-  drumWeldAllowable: number;    // tambur kaynağı izin gerilmesi [MPa]
-  shaftWeldThicknessCm: number; // mil kaynak kalınlığı
-  shaftWeldAllowable: number;   // mil kaynağı izin gerilmesi [MPa]
+  shaftD1Mm: number;            // D1: eğilme gerilmesi kesiti çapı (yanak dibi) [mm]
+  shaftD2Mm: number;            // D2: yatak / rulman oturma çapı (kesme kesiti) [mm]
+  drumWeldThicknessMm: number;  // tambur kaynak dikişi boğaz kalınlığı a [mm]
+  /** Tambur kaynağı izin gerilmesi [MPa] — yalnız otomatik türetme KAPALIYKEN */
+  drumWeldAllowable: number;
+  shaftWeldThicknessMm: number; // mil kaynak dikişi boğaz kalınlığı a [mm]
+  /** Mil kaynağı izin gerilmesi [MPa] — yalnız otomatik türetme KAPALIYKEN */
+  shaftWeldAllowable: number;
+  /**
+   * Kaynak izin gerilmesi otomatik türetilsin mi?
+   *
+   * VARSAYILAN AÇIKTIR: alan tanımsızsa (eski revizyonlar) da otomatik türetme
+   * geçerlidir — elle girilen 156,9 MPa'lık sabit standartların verdiği sınırın
+   * üzerindeydi ve sessizce emniyetsiz kalmamalıdır. Kapatmak için alanın
+   * açıkça `false` olması gerekir; o zaman `drumWeldAllowable` /
+   * `shaftWeldAllowable` değerleri kullanılır.
+   */
+  weldAllowableAuto?: boolean;
   bearingFactorY1: number;      // rulman eşdeğer yük katsayısı (statik)
   bearingFactorY2: number;      // rulman eşdeğer yük katsayısı (dinamik)
   drumCount: number;            // tambur adedi
@@ -204,6 +509,23 @@ export interface HoistInputs {
   hookBlockWeightAuto?: boolean;
   /** Sıcaklık faktörü otomatik: ortam sıcaklığı üst sınırından türetilir. */
   tempFactorAuto?: boolean;
+  /**
+   * Makara verimi otomatik: ORION makaraları istisnasız rulmanlı yataklanır,
+   * η_m bir seçim değil sabit firma kabulüdür (`STANDARD_SHEAVE_EFFICIENCY`).
+   * Anahtar kapatılırsa mühendis kendi değerini girer.
+   */
+  sheaveEfficiencyAuto?: boolean;
+  /**
+   * "Yiv Boyu" kutusu otomatik: tahrikli kol sayısı × gerekli yiv boyu
+   * ("2 x 220" gibi), yukarı yuvarlanmış (bkz. `derive.ts`).
+   */
+  drumGrooveLengthAuto?: boolean;
+  /**
+   * Tambur ağırlığı otomatik: yiv dibi et kalınlığına halat çapının yarısı
+   * eklenerek bulunan et kalınlığında, tambur çapında ve NAMLU boyunda çelik
+   * borunun ağırlığı × 1,3 (bkz. `derive.ts` → `deriveDrumWeightKg`).
+   */
+  drumWeightAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -265,6 +587,8 @@ export interface HoistSelections {
 
 export interface HoistValues {
   // 2.1 Halat
+  /** Bu kaldırma grubunun kaldırma kapasitesi [t] */
+  capacityT: number;
   mechanicalAdvantage: number;
   ropeEfficiency: number;
   loadKg: number;
@@ -311,8 +635,22 @@ export interface HoistValues {
   shaftCombinedStress: number;
   shaftAllowables: { bending: number; shear: number; combined: number };
   // Kaynaklar
+  /** Tambur kaynağı FEM eşdeğer gerilmesi √(σ² + 2τ²) [kg/cm²] */
   drumWeldCombinedStress: number;
+  /** Tambur kaynağı değerlendirmesi (FEM ve CMAA ayrı ayrı) */
+  drumWeldAssessment: WeldAssessment;
+  /** Mil kaynağı kesme gerilmesi [kg/cm²] */
   shaftWeldStress: number;
+  /** Mil kaynağındaki eğilme momenti M = R · G [kg·cm] */
+  shaftWeldMomentKgCm: number;
+  /** Mil kaynağı eğilme gerilmesi [kg/cm²] */
+  shaftWeldBendingStress: number;
+  /** Mil kaynağı FEM eşdeğer gerilmesi √(σ² + 2τ²) [kg/cm²] */
+  shaftWeldCombinedStress: number;
+  /** Mil kaynağı değerlendirmesi (FEM ve CMAA ayrı ayrı) */
+  shaftWeldAssessment: WeldAssessment;
+  /** Kaynak dikişi izin gerilmeleri [MPa] — FEM / CMAA çekme / CMAA kayma */
+  weldAllowable: WeldAllowableStress;
   // Rulman
   bearingRadialKn: number;
   bearingAxialKn: number;
@@ -450,6 +788,9 @@ export function computeHoistGroup(
   const actualBreakingKg = (sel.ropeBreakingLoadKn / 9.81) * 1000;
   const actualRopeSafety = actualBreakingKg / ropeLoadKg;
   Object.assign(cells, {
+    // Yükün tonajı halat zincirinin BAŞIDIR: rapor okuyucusu 2.1'de önce
+    // hangi yükün kaldırıldığını görmeli, sonra halat kuvvetine inmelidir.
+    "load.capacityT": capacityT,
     "reeving.mechanicalAdvantage": mechanicalAdvantage,
     "reeving.ropeEfficiency": ropeEfficiency,
     "load.hoisted": hoistedLoadKg,
@@ -514,13 +855,12 @@ export function computeHoistGroup(
     kind: "standart", severity: "engelleyici",
   });
 
-  // --- 2.2.2 Oluk boyu -----------------------------------------------------
+  // --- 2.2.2 Yiv boyu -----------------------------------------------------
   // Sarım sayısı: kaldırma yüksekliğinde tambura sarılacak halat boyu, tambur
   // çevresine bölünür; üzerine emniyet sarımı eklenir.
-  const requiredGrooves =
-    (mechanicalAdvantage * liftHeightM) / Math.PI / (sel.drumDiaMm / 1000) +
-    inp.safetyGrooveCount;
-  const requiredGrooveLengthMm = requiredGrooves * groovePitchMm;
+  const grooveReq = drumGrooveRequirement(inp, sel, liftHeightM);
+  const requiredGrooves = grooveReq.grooves;
+  const requiredGrooveLengthMm = grooveReq.lengthMm;
   Object.assign(cells, {
     "drum.requiredGrooves": requiredGrooves,
     "drum.requiredGrooveLength": requiredGrooveLengthMm,
@@ -532,8 +872,10 @@ export function computeHoistGroup(
   // Yükler: her yiv bölgesindeki halat yükü T ve tambur ağırlığı W (namlu
   // ortasında). Statik çözüm ortak kiriş çözücüsüyle (beam.ts) yapılır.
   // Halatlar yiv boyunca hareket ettiğinden iki uç hâli (dış uçlar / iç uçlar)
-  // ayrı çözülür ve her mesnet için elverişsiz olan alınır.
+  // ayrı çözülür ve her mesnet için kritik olan alınır.
   const geo = drumShaftGeometry(inp);
+  // Ölçüler girdide mm; motorun cm karşılıkları TEK noktadan alınır.
+  const dims = drumShaftDimsCm(inp);
   const ropeLoadCount = rig.drumRopeEnds;
   const ropePerPoint = (ropeLoadKg * ropeLoadCount) / (geo.sections.length || 1);
 
@@ -571,7 +913,7 @@ export function computeHoistGroup(
   const cases = mode === "outer" ? [outer] : mode === "inner" ? [inner] : [outer, inner];
 
   // Her yükleme hâli kendi içinde dengededir (Ra + Rg = ΣT + W). Halat konumu
-  // "otomatik" seçildiğinde her mesnet KENDİ elverişsiz hâliyle boyutlandırılır;
+  // "en kritik konum" seçildiğinde her mesnet KENDİ kritik hâliyle boyutlandırılır;
   // bu bir ZARF değeridir, iki reaksiyon aynı anda oluşmayabilir.
   const reactionGearboxKg = Math.max(...cases.map((c) => c.ra));
   const reactionBearingKg = Math.max(...cases.map((c) => c.rg));
@@ -594,8 +936,8 @@ export function computeHoistGroup(
     shaftStress({
       momentKgCm,
       shearKg: reactionKg,
-      bendingDiameterCm: inp.shaftD1Cm,
-      shearDiameterCm: inp.shaftD2Cm,
+      bendingDiameterCm: dims.d1Cm,
+      shearDiameterCm: dims.d2Cm,
       combined: "resultant",
       shear: "maksimum",
     });
@@ -609,7 +951,7 @@ export function computeHoistGroup(
   const shaftBendingStress = governing.bendingStress;
   const shaftShearStress = governing.shearStress;
   const shaftCombinedStress = governing.combinedStress;
-  /** Kaynak/kesit kontrollerinde elverişsiz mesnet reaksiyonu */
+  /** Kaynak/kesit kontrollerinde kritik mesnet reaksiyonu */
   const maxReactionKg = Math.max(reactionGearboxKg, reactionBearingKg);
   Object.assign(cells, {
     "drumShaft.span": geo.spanCm,
@@ -674,66 +1016,151 @@ export function computeHoistGroup(
   const drumTorquePerDrumKnm = drumTorqueKnm / inp.drumCount;
   const requiredGearboxTorqueKnm = inp.gearboxServiceFactor * drumTorquePerDrumKnm;
 
+  // --- Kaynak dikişi izin gerilmesi (2.2.4 ve 2.2.5 ortak) ------------------
+  // İKİ standart da KENDİ gerilme tanımıyla hesaplanır ve kullanım oranı büyük
+  // olan yönetir (bkz. `assessWeld`). Otomatik türetme varsayılandır; alan
+  // açıkça `false` yapılmadıkça elle girilen sabitler kullanılmaz.
+  const weldAllow = weldAllowableStress(sel.drumMaterial);
+  const weldAllowanceAuto = inp.weldAllowableAuto !== false;
+
   // --- 2.2.4 Tambur kaynağı ------------------------------------------------
-  // Tambur yanağı ile göbek arasındaki çevresel kaynak: burulma (tambur torku)
-  // ve kesme (mesnet reaksiyonu) birlikte etkir.
+  // Tambur namlusu ile yanak sacı arasındaki çevresel köşe kaynağı: burulma
+  // (tambur torku) ve kesme (mesnet reaksiyonu) birlikte etkir. Dikişe dik
+  // normal gerilme yoktur (σ = 0).
+  //
+  // KESİT — FEM 1.001 Ek A-3.2.2.3 md.4: "In a fillet weld, the width of the
+  // section considered is the depth of the weld to the bottom of the throat and
+  // its length is the effective length of the weld". Yani taşıyıcı kesit
+  // BOĞAZ alanıdır (A_k = a · L_k), dikişin izdüşüm halka alanı değil.
+  // Eski kod boğaz alanını hesaplayıp yalnız rapora basıyor, gerilmede daha
+  // BÜYÜK olan izdüşüm alanını kullanıyordu — gerilmeyi olduğundan küçük,
+  // yani dikişi olduğundan emniyetli gösteriyordu.
   const drumWeldLengthCm = (Math.PI * sel.drumDiaMm) / 10;
-  const drumWeldThroatAreaCm2 = inp.drumWeldThicknessCm * drumWeldLengthCm;
-  const drumWeldOuterDiaMm = sel.drumDiaMm + 2 * inp.drumWeldThicknessCm * 10;
-  const drumWeldAreaCm2 =
-    (Math.PI * ((drumWeldOuterDiaMm / 2) ** 2 - (sel.drumDiaMm / 2) ** 2)) / 100;
-  const drumWeldPolarModulusCm3 =
-    (Math.PI * ((drumWeldOuterDiaMm / 10) ** 4 - (sel.drumDiaMm / 10) ** 4)) / 32;
+  const drumWeldThroatAreaCm2 = dims.drumWeldThroatCm * drumWeldLengthCm;
+  // BURULMA DİRENÇ MOMENTİ — aynı boğaz kesiti üzerinden:
+  // ince halka kabulüyle Wp = A_k · (D/2); boğaz alanının tamamı D/2 kolunda
+  // teğetsel kayma akışı taşır. (İzdüşüm halkasının polar modülü ile hesaplamak
+  // taşımayan bir kesit varsayardı.)
+  const drumWeldPolarModulusCm3 = drumWeldThroatAreaCm2 * (sel.drumDiaMm / 20);
   const drumWeldTorsionStress =
     (drumTorquePerDrumKnm * 100000) / 9.81 / drumWeldPolarModulusCm3;
-  const drumWeldShearStress = maxReactionKg / drumWeldAreaCm2;
-  const drumWeldCombinedStress = drumWeldShearStress + drumWeldTorsionStress;
+  const drumWeldShearStress = maxReactionKg / drumWeldThroatAreaCm2;
+  // İki kayma bileşeni aynı kesitte etkir; en elverişsiz noktada üst üste
+  // binebileceği için toplanır (muhafazakâr kabul).
+  const drumWeldTotalShear = drumWeldShearStress + drumWeldTorsionStress;
+  const drumWeldAssess = assessWeld({
+    normalKgCm2: 0,
+    shearKgCm2: drumWeldTotalShear,
+    material: sel.drumMaterial,
+    manualAllowableMPa: weldAllowanceAuto ? undefined : inp.drumWeldAllowable,
+  });
+  const drumWeldCombinedStress = drumWeldAssess.femEquivalent;
   Object.assign(cells, {
     "drumWeld.length": drumWeldLengthCm,
     "drumWeld.throatArea": drumWeldThroatAreaCm2,
-    "drumWeld.outerDia": drumWeldOuterDiaMm,
-    "drumWeld.area": drumWeldAreaCm2,
     "drumWeld.polarModulus": drumWeldPolarModulusCm3,
     "drumWeld.torsionStress": drumWeldTorsionStress,
     "drumWeld.shearStress": drumWeldShearStress,
+    "drumWeld.totalShear": drumWeldTotalShear,
     "drumWeld.combinedStress": drumWeldCombinedStress,
+    "drumWeld.principalStress": drumWeldAssess.cmaaPrincipal,
+    "drumWeld.allowableFem": weldAllow.femMPa,
+    "drumWeld.allowableCmaa": weldAllow.cmaaTensionMPa,
+    "drumWeld.allowableCmaaShear": weldAllow.cmaaShearMPa,
+    "drumWeld.utilizationFem": drumWeldAssess.femUtilization,
+    "drumWeld.utilizationCmaa": drumWeldAssess.cmaaUtilization,
+    "drumWeld.governing": drumWeldAssess.ruleLabel,
+    "drumWeld.governingStress": drumWeldAssess.stressMPa,
+    "drumWeld.allowable": drumWeldAssess.allowableMPa,
   });
   checks.push({
     id: `${which}.drumWeld.stress`,
-    label: "Tambur Kaynağı Gerilmesi",
-    required: drumWeldCombinedStress * KGF_TO_MPA, provided: inp.drumWeldAllowable,
+    label: `Tambur Kaynağı Gerilmesi (${drumWeldAssess.ruleLabel})`,
+    required: drumWeldAssess.stressMPa, provided: drumWeldAssess.allowableMPa,
     unit: "MPa", op: ">=",
     computedSide: "required",
-    pass: inp.drumWeldAllowable >= drumWeldCombinedStress * KGF_TO_MPA,
-    kind: "firma", severity: "engelleyici",
+    pass: drumWeldAssess.allowableMPa >= drumWeldAssess.stressMPa,
+    standard: drumWeldAssess.standard,
+    kind: "standart", severity: "engelleyici",
   });
 
   // --- 2.2.5 Mil kaynağı ---------------------------------------------------
-  const shaftWeldLengthCm = Math.PI * inp.shaftD1Cm;
-  const shaftWeldThroatAreaCm2 = inp.shaftWeldThicknessCm * shaftWeldLengthCm;
-  const shaftWeldInnerDiaMm = inp.shaftD1Cm * 10;
-  const shaftWeldOuterDiaMm = shaftWeldInnerDiaMm + 2 * inp.shaftWeldThicknessCm * 10;
-  const shaftWeldAreaCm2 =
-    (Math.PI * ((shaftWeldOuterDiaMm / 2) ** 2 - (shaftWeldInnerDiaMm / 2) ** 2)) / 100;
-  const shaftWeldPolarModulusCm3 =
-    (Math.PI * ((shaftWeldOuterDiaMm / 10) ** 4 - (shaftWeldInnerDiaMm / 10) ** 4)) / 32;
-  const shaftWeldShearStress = maxReactionKg / shaftWeldAreaCm2;
+  // Mil ile tambur göbeği arasındaki çevresel köşe kaynağı YALNIZ kesme
+  // taşımaz. Mesnet reaksiyonu kaynak düzleminden (yanak/flanş sacı) bir kol
+  // kadar UZAKTA etkir — tambur yatağı tarafında bu kol tam olarak ölçü
+  // zincirindeki G ölçüsüdür, redüktör tarafında A'dır. Dolayısıyla dikişte
+  // eğilme momenti doğar:
+  //     M_k = R · kol                       (kg·cm)
+  //     W_k = π · a · D1² / 4               (ince dairesel dikişin eğilme
+  //                                          direnç momenti; a boğaz kalınlığı)
+  //     σ_eğ = M_k / W_k   ·   τ = R / A_k
+  //     σcp  = √(σ_eğ² + 2·τ²)              (FEM Ek A-3.2.2.3 md.3)
+  // İki mesnedin momenti ayrı hesaplanıp ZARFI alınır (kesme gerilmesi de
+  // kritik reaksiyonla bulunur); böylece hangi taraf yönetiyorsa o boyutlandırır.
+  //
+  // KESİT — eğilme direnç momenti zaten BOĞAZ kalınlığı a üzerinden kurulmuştu;
+  // kesme gerilmesi de aynı boğaz alanından (A_k = a · π · D1) okunur
+  // (FEM Ek A-3.2.2.3 md.4). Dikişin izdüşüm halka alanı taşıyıcı kesit
+  // değildir ve gerilmeyi olduğundan küçük gösterir.
+  //
+  // BURULMA YOKTUR — tambur torku bu dikişten GEÇMEZ. Tork yolu:
+  // redüktör çıkış mili → tambur kaplini → redüktör tarafı yanak → tambur
+  // namlusu; namluya girdiği çevresel dikiş 2.2.4'tür ve burulmayı O taşır.
+  // 2.2.5'in dikişi tambur yatağı tarafındaki TAŞIYICI (tahriksiz) mil
+  // ucunu göbeğe bağlar; bu uç yalnız mesnet reaksiyonunu aktarır. Bu yüzden
+  // burulma direnç momenti (polar modül) hesaplanmaz ve RAPORDA GÖSTERİLMEZ —
+  // kullanılmayan bir direnç momenti mühendisi yanıltır.
+  const shaftWeldLengthCm = Math.PI * dims.d1Cm;
+  const shaftWeldThroatAreaCm2 = dims.shaftWeldThroatCm * shaftWeldLengthCm;
+  const shaftWeldShearStress =
+    shaftWeldThroatAreaCm2 > 0 ? maxReactionKg / shaftWeldThroatAreaCm2 : 0;
+  const shaftWeldMomentBearingKgCm = reactionBearingKg * geo.gCm;
+  const shaftWeldMomentGearboxKgCm = reactionGearboxKg * geo.aCm;
+  const bearingSideGoverns = shaftWeldMomentBearingKgCm >= shaftWeldMomentGearboxKgCm;
+  const shaftWeldArmCm = bearingSideGoverns ? geo.gCm : geo.aCm;
+  const shaftWeldMomentKgCm = Math.max(
+    shaftWeldMomentBearingKgCm,
+    shaftWeldMomentGearboxKgCm
+  );
+  const shaftWeldSectionModulusCm3 =
+    (Math.PI * dims.shaftWeldThroatCm * dims.d1Cm ** 2) / 4;
+  const shaftWeldBendingStress =
+    shaftWeldSectionModulusCm3 > 0 ? shaftWeldMomentKgCm / shaftWeldSectionModulusCm3 : 0;
+  const shaftWeldAssess = assessWeld({
+    normalKgCm2: shaftWeldBendingStress,
+    shearKgCm2: shaftWeldShearStress,
+    material: sel.drumMaterial,
+    manualAllowableMPa: weldAllowanceAuto ? undefined : inp.shaftWeldAllowable,
+  });
+  const shaftWeldCombinedStress = shaftWeldAssess.femEquivalent;
   Object.assign(cells, {
     "shaftWeld.length": shaftWeldLengthCm,
     "shaftWeld.throatArea": shaftWeldThroatAreaCm2,
-    "shaftWeld.outerDia": shaftWeldOuterDiaMm,
-    "shaftWeld.area": shaftWeldAreaCm2,
-    "shaftWeld.polarModulus": shaftWeldPolarModulusCm3,
     "shaftWeld.shearStress": shaftWeldShearStress,
+    "shaftWeld.arm": shaftWeldArmCm,
+    "shaftWeld.bendingMoment": shaftWeldMomentKgCm,
+    "shaftWeld.sectionModulus": shaftWeldSectionModulusCm3,
+    "shaftWeld.bendingStress": shaftWeldBendingStress,
+    "shaftWeld.combinedStress": shaftWeldCombinedStress,
+    "shaftWeld.principalStress": shaftWeldAssess.cmaaPrincipal,
+    "shaftWeld.allowableFem": weldAllow.femMPa,
+    "shaftWeld.allowableCmaa": weldAllow.cmaaTensionMPa,
+    "shaftWeld.allowableCmaaShear": weldAllow.cmaaShearMPa,
+    "shaftWeld.utilizationFem": shaftWeldAssess.femUtilization,
+    "shaftWeld.utilizationCmaa": shaftWeldAssess.cmaaUtilization,
+    "shaftWeld.governing": shaftWeldAssess.ruleLabel,
+    "shaftWeld.governingStress": shaftWeldAssess.stressMPa,
+    "shaftWeld.allowable": shaftWeldAssess.allowableMPa,
   });
   checks.push({
     id: `${which}.shaftWeld.stress`,
-    label: "Mil Kaynağı Gerilmesi",
-    required: shaftWeldShearStress * KGF_TO_MPA, provided: inp.shaftWeldAllowable,
+    label: `Mil Kaynağı Gerilmesi (${shaftWeldAssess.ruleLabel})`,
+    required: shaftWeldAssess.stressMPa, provided: shaftWeldAssess.allowableMPa,
     unit: "MPa", op: ">=",
     computedSide: "required",
-    pass: inp.shaftWeldAllowable >= shaftWeldShearStress * KGF_TO_MPA,
-    kind: "firma", severity: "engelleyici",
+    pass: shaftWeldAssess.allowableMPa >= shaftWeldAssess.stressMPa,
+    standard: shaftWeldAssess.standard,
+    kind: "standart", severity: "engelleyici",
   });
 
   // --- 2.2.6 Tambur rulmanı ------------------------------------------------
@@ -1018,6 +1445,7 @@ export function computeHoistGroup(
   }
 
   const values: HoistValues = {
+    capacityT,
     mechanicalAdvantage,
     ropeEfficiency,
     loadKg: hoistedLoadKg,
@@ -1054,7 +1482,13 @@ export function computeHoistGroup(
     shaftCombinedStress,
     shaftAllowables: shaftAllow,
     drumWeldCombinedStress,
+    drumWeldAssessment: drumWeldAssess,
     shaftWeldStress: shaftWeldShearStress,
+    shaftWeldMomentKgCm,
+    shaftWeldBendingStress,
+    shaftWeldCombinedStress,
+    shaftWeldAssessment: shaftWeldAssess,
+    weldAllowable: weldAllow,
     bearingRadialKn,
     bearingAxialKn,
     bearingEqStaticKn,

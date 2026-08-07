@@ -55,7 +55,7 @@ Kaynak dosyalar (repo dışında, `C:\Users\HP\Desktop\ORION\HESAP RAPORU KOD\`)
 - [x] **Detaylı rapor**: "Kontrol Durumu — X kontrol, Y uygun değil" özet satırı kaldırıldı (→ sade "Kontroller").
 - [x] **PDF footer branding**: firma + adres/telefon/e-posta/web (panelden `app_settings` report; DEFAULT_REPORT_SETTINGS + admin/settings formu). Marka kırmızısı firma satırı + iletişim satırı.
 - [x] **PDF sayfa kaymaları**: bölüm/başlık `minPresenceAhead` + başlık-diyagram `wrap={false}` (öksüz başlık/kayma önlendi).
-- [x] **Tambur diyagramı**: `lib/diagrams/drum.ts` (namlu, yanak, mil, oluk, D_d/D_min/halat Ø etiketleri) → sihirbaz+PDF 2.2.1/3.2.1. Teker mili moment etiketi Nm'ye çevrildi.
+- [x] **Tambur diyagramı**: `lib/diagrams/drum.ts` (namlu, yanak, mil, yiv, D_d/D_min/halat Ø etiketleri) → sihirbaz+PDF 2.2.1/3.2.1. Teker mili moment etiketi Nm'ye çevrildi.
 - [x] **Ekipman listesi**: sütunlar Ekipman | Marka | Model | Özellikler | Adet (marka/model ayrıldı, grup başlık satırı); müşteri dosyası (`scope=customer`, yalnız ekipman listesi) ile teknik ressam özeti ayrıldı; datasheet linki altyapısı (`cat_equipment.datasheet_url` migration + admin alanı + Excel Model hücresi köprüsü, kind|brand|model eşlemesi).
 - [x] **Ekipman paneli** (doğrudan indirme yerine tablo görünümü): `/…/equipment` artık panel sayfası (sekmeli: Ekipman Listesi | Teknik Ressam Özeti). Otomatik satırlar salt-okunur; "Ek Ekipman / Özellikler" bölümünde serbest satır ekleme/silme + Kaydet (`equipment_extras` tablosu, `20260720000002` migration, revizyon kilidinden bağımsız). İndirme: Excel + PDF, Müşteri/Tam kapsam seçimi (`equipment/download` route, `format=xlsx|pdf&scope=`). Yeni ekipman PDF üreticisi (`lib/pdf/equipment-report.tsx`, marka kimlikli tablo + Model hücresi datasheet köprüsü). Model hücreleri panelde de tıklanır (harici link).
 - [ ] **Sonraki**: EN rapor tam çevirisi (kullanıcı: önce TR, sonra EN); datasheet linkleri için seçim-anında URL yakalama (motor/halat gibi yalnız marka tutan bileşenler).
@@ -81,7 +81,7 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
 - [x] **Tam Türkçe**: PDF rapor ve iş emrindeki İngilizce alt başlıklar/gloss'lar kaldırıldı; katalog türleri, `attrs` anahtarları ve kısa kodlar (FC/IWRC, drum/disc/em, gear/pin…) Türkçeleştirildi (`ATTR_LABELS`, `ATTR_VALUE_LABELS`); "(Spreader)", "(Magnet)" gibi ekler atıldı.
 
 ## Faz K — Tambur mili modeli (2026-08-02, Sinan'ın teknik resimleri)
-- [x] **Yeni yükleme modeli**: tambur artık **A…G ölçü zinciriyle** tanımlanan iki mesnetli kiriştir — solda redüktör tarafı mesnet (Ra), sağda tambur yatağı (Rg). Yükler: her yiv bölgesindeki halat yükü T ve namlu ortasındaki tambur ağırlığı W. Halatlar yiv boyunca gezindiğinden **iki uç hâli** (dış uçlar / iç uçlar) ayrı çözülür; "En elverişsiz (otomatik)" seçiliyken her mesnet KENDİ elverişsiz hâliyle boyutlandırılır (zarf değeri — raporda iki hâl de ayrı satır olarak görünür, karışıklık olmaz). Girdi olarak sabit bir uç hâli de seçilebilir.
+- [x] **Yeni yükleme modeli**: tambur artık **A…G ölçü zinciriyle** tanımlanan iki mesnetli kiriştir — solda redüktör tarafı mesnet (Ra), sağda tambur yatağı (Rg). Yükler: her yiv bölgesindeki halat yükü T ve namlu ortasındaki tambur ağırlığı W. Halatlar yiv boyunca gezindiğinden **iki uç hâli** (dış uçlar / iç uçlar) ayrı çözülür; "En Kritik Konum" seçiliyken her mesnet KENDİ kritik hâliyle boyutlandırılır (zarf değeri — raporda iki hâl de ayrı satır olarak görünür, karışıklık olmaz). Girdi olarak sabit bir uç hâli de seçilebilir.
 - [x] **Reaksiyonların doğru yere bağlanması**: redüktör radyal yük kontrolü **Ra**'yı, tambur yatağı rulman seçimi (statik emniyet + L10 ömür) **Rg**'yi kullanır. Önceden ikisi de Ra'dan besleniyordu.
 - [x] **Mil gerilmeleri**: her iki uçta ayrı — M = R · (o taraftaki konsol A ya da G); eğilme **D1** kesitinde (σ = M/(π·D1³/32)), kesme **D2** yatak oturma kesitinde (τ = 1,33·R/(π·D2²/4)), bileşik σ = √(σ²+τ²). Yönetici taraf otomatik seçilir. Ayrı eğilme / kesme / bileşik kontrolleri (**CMAA 70 4.11.4.1**, standart pop-up'ı defterde). Tüm gerilmeler MPa, momentler Nm.
 - [x] **Parametrik teknik resim** (`lib/diagrams/drumShaft.ts` → 2.2.3 / 3.2.3, web + PDF): redüktör bloğu, namlu, yanaklar, yiv bölgeleri, T ve W yük okları, Ra/Rg reaksiyon okları, halatın gezinme aralığı, D1/D2 etiketleri ve A…G ölçü zinciri.
@@ -196,7 +196,7 @@ Kaynak: `ÖRNEK 0057-00 - ASTOR-İş Emri_Muhtelif Vinçler.pdf`.
       kapasitenin %10'u olarak otomatik gelir.
 - [x] Motor sıcaklık faktörü ortam sıcaklığından otomatik (40→1 … 80→1,30).
 - [x] Makara yataklama tipi seçimi kalktı; η = 0,985 firma standardı.
-- [x] "Oluk adımı" → **Hatve p**.
+- [x] "Yiv adımı" → **Hatve p**.
 - [x] Hesap değeri, satırına bağlı kontrol sağlanıyorsa yeşil, sağlanmıyorsa kırmızı.
 - [x] Özet kontrol panosu masaüstünde iki sütun.
 - [x] Tüm başlık ve alan etiketleri Türkçe Başlık Düzeni.
@@ -354,3 +354,87 @@ kayma kutbunun ötesinde işaret dönmesi, FEM bandının sınır durumları, bo
 girdide NaN üretmeme ve Sinan'ın iki teknik resminin birebir çözülmesi.
 Excel karşılaştırması yalnız düşey yük ve φ2 bloklarında birebirdir
 (Pmaks 27.948 kg, Pmin 8.302 kg, φ2 = 1,10567).
+
+## Faz R2 — YILMAZ redüktör katalogları ve kullanım grubu (2026-08-06)
+
+Sinan üç YILMAZ katalog PDF'ini workspace'e koydu: **DR ve M yürütme**, **H
+kaldırma** grubu için. Üçü de çıkarılıp sisteme bağlandı.
+
+### Kaynak seçimi: motorsuz (gear unit) tablolar
+
+Kataloglarda iki güç–devir bölümü var: motorlu (belirli bir motorla eşleşmiş
+kombinasyon) ve motorsuz (redüktörün kendi anma değerleri). Uygulama redüktör
+ile motoru ayrı bölümlerde seçtiği için **motorsuz tablolar** kullanıldı —
+anma momenti Ma, izin verilen radyal yükler Fqam/Fqem, ağırlık ve mil çapları
+oradadır. Kataloğun tanımıyla (M kataloğu s.7) Ma, redüktörün fs=1 şartında
+mekanik olarak taşıdığı momenttir; `gearbox.torque` kontrolünün karşılaştırdığı
+büyüklük tam olarak budur.
+
+Önceki çıkarım DR'yi **motorlu** sayfalardan almıştı (1796 satır motor+redüktör
+kombinasyonu) ve H kataloğunun **B serisini tamamen kaçırmıştı**; ayrıca H
+satırlarında ağırlık, servis faktörü ve mil çapı boştu (5654 satırın tamamında).
+
+### Sonuç
+
+| Katalog | Satır | Model | Kullanım grubu | Kaynak sayfa |
+|---|---:|---:|---|---|
+| D serisi | 579 | 46 | yürütme | s.252–262 |
+| M / N serisi | 1.292 | 104 | yürütme | s.320–331 |
+| H / B serisi | 5.407 | 90 | kaldırma | s.104–233 + s.416–505 |
+
+Toplam 7.766 redüktör (SIMOGEAR 488 dahil 8.254 → seed'de 7.766 + diğer türler).
+H/B'de her model beş giriş devri için ayrı basılıdır (n1 = 1400/900/750/450/300)
+ve anma momenti devirle değiştiğinden beşi de alındı.
+
+**Yeni alanlar:** `application` (kaldirma | yurutme), `allowed_radial_output_kn`
+ve `allowed_radial_input_kn` (katalogda N/kN → kN), `input_shaft_mm`,
+`hollow_bore_mm`, `shrinkdisc_bore_mm`, `thermal_power_kw` /
+`thermal_power_fan_kw` (Pt1/Pt2, 20 °C), `stages`, `frame_size`,
+`dimension_page`.
+
+### Sisteme bağlanma
+
+- [x] **Kullanım grubu kilitli süzgeç.** `SectionCatalogMapping.lockedFacets`
+      eklendi: 2.3 kaldırma redüktörü yalnız `application=kaldirma`, 5.5 yürütme
+      redüktörü yalnız `yurutme` görür. Süzgeç sunucuda uygulanır
+      (`attrs->>application`), adım listesinden çıkarılır ve başlıkta rozet
+      olarak gösterilir — mühendis kaldırma bölümünde yürütme redüktörü seçemez.
+- [x] **İzin verilen radyal yük katalogdan doluyor.** `gearbox.radial`
+      ENGELLEYİCİ bir kontroldü ama `gearboxAllowedRadialKn` katalogda hiç
+      yoktu; "Katalogdan Seç" sonrası alan eski değerinde kalıyor ve kontrol
+      yanlış veriyle ✓ verebiliyordu. Artık Fqam'den doluyor.
+- [x] **Giriş mili çapı katalogdan doluyor** (`gearboxInputShaftMm` / yürütmede
+      `gearboxInputShaftText`) — 2.6 motor kaplini mil çapını belirler. H/B
+      serisinde aynı gövdede çevrim oranı bandına göre değişir, bandıyla eşlenir.
+- [x] Redüktör tablosuna izin verilen radyal yük ve giriş mili sütunları;
+      seçicide `application` ilk facet.
+- [x] **Sessiz kırpma giderildi — sanılandan ağır bir kusurdu.** Seçici bir
+      markanın satırlarını tek istekle çekiyordu. Asıl sınır istemcinin
+      `.limit(5000)` değeri değil, **PostgREST'in `max_rows` ayarıdır: bu
+      projede 1000** ve istemci limiti bunu AŞAMAZ. Yani seçici her zaman bir
+      markanın yalnız ilk 1000 satırını gösteriyordu; ne hata, ne uyarı. Canlıda
+      ölçüldü: kaldırma grubu 5.407 satırken marka kartı "1000 ürün" yazıyordu.
+      Sorgular `range()` ile sayfalandı (kısa sayfa gelene kadar); marka
+      adetleri de aynı yolla toplanıyor. Düzeltme sonrası kartlar 5.407 /
+      1.871 / 488 gösteriyor. 20.000 satırlık emniyet tavanına dayanılırsa
+      kullanıcı uyarılıyor.
+- [x] Migration `20260806000001_gearbox_reseed.sql` — `delete … where kind =
+      'gearbox'` + 7.766 satır. Uygulanmış seed dosyası düzenlenmedi;
+      `seed-catalog.ts` artık `--kinds` / `--out` ile yenileme migration'ı üretir.
+      **Uzak veritabanına uygulandı (2026-08-06).** Silinen 7.938 satırın tamamı
+      seed kaynaklıydı (tek günde oluşmuş, not/datasheet/pasif kayıt yok) ve
+      `cat_equipment`'a bakan yabancı anahtar yok — revizyonlar seçimi JSONB
+      anlık görüntü olarak sakladığından kayıtlı raporlar etkilenmez.
+- [x] Çıkarım betikleri `scripts/catalog-extract/` altında (README'de yöntem,
+      kaynak sayfalar ve doğrulama durumu).
+- [x] `src/lib/__tests__/catalog-mapping.test.ts` — 9 koruma testi. `attrs`
+      anahtarı değişirse seçim sessizce eksik dolardı; test o sessizliği kırar.
+
+### Açık kalan: V5 varsayılanı katalogla uyuşmuyor
+
+`defaults.ts` ana kaldırma redüktörü `YILMAZ HT0823`, i = 52,57 için
+**22 kNm / 60 kN / Ø120 mm / 775 kg** taşıyor. Kataloğun basılı değeri (s.110,
+n1 = 1400) aynı model ve oran için **24 kNm / 154 kN / Ø130 mm / 620 kg**.
+`main.gearbox.torque` kontrolü V5'te 22 < 22,07 kNm ile başarısızdı; katalog
+değeriyle geçer. Varsayılanlar golden testlerin beklediği sonuçları belirlediği
+için DEĞİŞTİRİLMEDİ — düzeltme kararı Sinan'ındır.

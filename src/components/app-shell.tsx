@@ -218,7 +218,16 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
   }, [toggleCollapsed]);
 
   // Revizyon editörü sabit çerçevede çalışır: sayfa gövdesi kaymaz.
-  const isFrame = /\/revisions\//.test(pathname ?? "");
+  //
+  // DİKKAT — kalıp YALNIZ editörün kendisini yakalar (`…/revisions/<id>`),
+  // ALT SAYFALARINI DEĞİL. Daha önce `/\/revisions\//` kullanılıyordu; bu
+  // kalıp `…/revisions/<id>/equipment` gibi normal uzun sayfaları da çerçeve
+  // kipine sokuyordu: gövdeye `lg:h-dvh lg:overflow-hidden`, `main`e
+  // `lg:overflow-hidden` biniyor, sayfa kendi kaydırma kabını kurmadığı için
+  // ekran yüksekliğinden taşan kısım KESİLİYOR ve kaydırılamıyordu
+  // (ekipman listesi hatası, madde 35). Çerçeve kipini hak eden sayfa kendi
+  // içinde kayan bölgeler kurar; alt sayfalar doğal sayfa kaydırmasını ister.
+  const isFrame = /\/revisions\/[^/]+\/?$/.test(pathname ?? "");
   const sidebarW = collapsed ? "3.5rem" : "15rem";
 
   return (

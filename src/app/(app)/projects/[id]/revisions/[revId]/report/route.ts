@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { runCalc } from "@/lib/calc/engine";
 import {
+  altsFromRevision,
   calcInputFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
@@ -75,6 +76,8 @@ export async function GET(
     input,
     result,
     level,
+    // Seçenekli (alternatif) ekipman seçimleri raporda "SEÇENEKLER" bloğu olur.
+    alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
   });
 
   // Türkçe karakterli dosya adı: ASCII geri düşüş + RFC 5987 filename*

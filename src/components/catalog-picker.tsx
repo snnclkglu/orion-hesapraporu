@@ -19,6 +19,8 @@ import {
   catalogCellValue,
   catalogKindConfig,
   catalogKindLabel,
+  isUnverifiedRow,
+  lockedFacetValues,
   type CatalogRow,
   type SectionCatalogMapping,
 } from "@/lib/catalog-mapping";
@@ -37,6 +39,32 @@ import { cn } from "@/lib/utils";
 interface BrandInfo {
   brand: string;
   count: number;
+}
+
+/**
+ * PostgREST tek yanıtta en çok `max_rows` satır döndürür (bu projede **1000**)
+ * ve istemcinin `.limit()` değeri bunu AŞAMAZ. Katalogda bir markanın satır
+ * sayısı bunun katı olduğundan (Yılmaz kaldırma redüktörleri 5.407) tek istek
+ * listeyi SESSİZCE ilk 1000 satıra kırpar. Bu yüzden sayfa sayfa çekilir.
+ */
+const PAGE_SIZE = 1000;
+
+/** Sayfalamanın üst sınırı — kaçak bir döngüye karşı emniyet. */
+const ROW_LIMIT = 20000;
+
+/** Ardışık sayfaları, kısa bir sayfa gelene kadar toplar. */
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const out: T[] = [];
+  for (let from = 0; from < ROW_LIMIT; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) return { rows: out, truncated: false };
+    const batch = data ?? [];
+    out.push(...batch);
+    if (batch.length < PAGE_SIZE) return { rows: out, truncated: false };
+  }
+  return { rows: out, truncated: true };
 }
 
 /** Seçili facet değerleriyle satırları süzer (ilk `upTo` adım uygulanır). */
@@ -73,13 +101,33 @@ export function CatalogPicker({
   mapping: SectionCatalogMapping;
   onPick: (row: CatalogRow) => void;
 }) {
-  const config = useMemo(() => catalogKindConfig(mapping.kind), [mapping.kind]);
+  const locked = useMemo(
+    () => Object.entries(mapping.lockedFacets ?? {}),
+    [mapping.lockedFacets]
+  );
+  // Kilitli filtreler sunucuda uygulandığı için adım olarak gösterilmez.
+  const config = useMemo(() => {
+    const base = catalogKindConfig(mapping.kind);
+    if (locked.length === 0) return base;
+    const lockedAttrs = new Set(locked.map(([a]) => a));
+    return { ...base, facets: base.facets.filter((f) => !lockedAttrs.has(f.attr)) };
+  }, [mapping.kind, locked]);
   const kindLabel = catalogKindLabel(mapping.kind);
+  // Kilitli süzgeç birden çok katalog kodunu kapsayabilir (ör. tambur kaplini
+  // = "drum" + "barrel"); rozet hepsini "/" ile birleştirerek gösterir.
+  const lockedLabel = locked
+    .map(([attr, value]) =>
+      lockedFacetValues(value)
+        .map((v) => attrValueLabel(attr, v))
+        .join(" / ")
+    )
+    .join(" · ");
 
   const [open, setOpen] = useState(false);
   const [brand, setBrand] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandInfo[] | null>(null);
   const [rows, setRows] = useState<CatalogRow[] | null>(null);
+  const [truncated, setTruncated] = useState(false);
   /** Seçilen facet değerleri: attr → değer (string'e çevrilmiş) */
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [minValue, setMinValue] = useState("");
@@ -91,6 +139,7 @@ export function CatalogPicker({
     if (open) {
       setBrand(null);
       setRows(null);
+      setTruncated(false);
       setPicks({});
       setMinValue("");
       setQuery("");
@@ -104,32 +153,39 @@ export function CatalogPicker({
     setLoading(true);
     (async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("cat_equipment")
-        .select("brand")
-        .eq("kind", mapping.kind)
-        .eq("active", true)
-        .limit(10000);
-      if (cancelled) return;
-      if (error || !data) {
-        setBrands([]);
-      } else {
-        const counts = new Map<string, number>();
-        for (const r of data as { brand: string }[]) {
-          counts.set(r.brand, (counts.get(r.brand) ?? 0) + 1);
+      // Marka kartındaki ürün adedi doğru olmalı: tek istek 1000'de kesileceği
+      // için markalar da sayfa sayfa toplanır (yalnız `brand` sütunu çekilir).
+      const { rows: brandRows } = await fetchAllPages<{ brand: string }>(
+        (from, to) => {
+          let q = supabase
+            .from("cat_equipment")
+            .select("brand")
+            .eq("kind", mapping.kind)
+            .eq("active", true);
+          // Tek değerde eşitlik, çok değerde "in" — ikisi de sunucu tarafında.
+          for (const [attr, value] of locked) {
+            const values = lockedFacetValues(value);
+            q = values.length === 1
+              ? q.eq(`attrs->>${attr}`, values[0])
+              : q.in(`attrs->>${attr}`, values);
+          }
+          return q.order("id").range(from, to);
         }
-        setBrands(
-          [...counts.entries()]
-            .map(([b, count]) => ({ brand: b, count }))
-            .sort((a, b) => a.brand.localeCompare(b.brand, "tr"))
-        );
-      }
+      );
+      if (cancelled) return;
+      const counts = new Map<string, number>();
+      for (const r of brandRows) counts.set(r.brand, (counts.get(r.brand) ?? 0) + 1);
+      setBrands(
+        [...counts.entries()]
+          .map(([b, count]) => ({ brand: b, count }))
+          .sort((a, b) => a.brand.localeCompare(b.brand, "tr"))
+      );
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, mapping.kind]);
+  }, [open, mapping.kind, locked]);
 
   // Seçilen markanın kataloğu
   useEffect(() => {
@@ -138,23 +194,34 @@ export function CatalogPicker({
     setLoading(true);
     (async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("cat_equipment")
-        .select("id, brand, model, attrs")
-        .eq("kind", mapping.kind)
-        .eq("brand", brand)
-        .eq("active", true)
-        .order("sort")
-        .order("model")
-        .limit(5000);
+      const { rows: list, truncated: cut } = await fetchAllPages<CatalogRow>(
+        (from, to) => {
+          let q = supabase
+            .from("cat_equipment")
+            .select("id, brand, model, attrs")
+            .eq("kind", mapping.kind)
+            .eq("brand", brand)
+            .eq("active", true);
+          // Tek değerde eşitlik, çok değerde "in" — ikisi de sunucu tarafında.
+          for (const [attr, value] of locked) {
+            const values = lockedFacetValues(value);
+            q = values.length === 1
+              ? q.eq(`attrs->>${attr}`, values[0])
+              : q.in(`attrs->>${attr}`, values);
+          }
+          // Sayfalama kararlı bir toplam sıra ister; `id` eşitlik bozucudur.
+          return q.order("sort").order("model").order("id").range(from, to);
+        }
+      );
       if (cancelled) return;
-      setRows(error ? [] : ((data ?? []) as CatalogRow[]));
+      setRows(list);
+      setTruncated(cut);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, brand, mapping.kind]);
+  }, [open, brand, mapping.kind, locked]);
 
   /** Tüm facet seçimleri + "en az" + arama uygulanmış sonuç. */
   const results = useMemo(() => {
@@ -226,6 +293,13 @@ export function CatalogPicker({
   const activeFilterCount =
     Object.keys(picks).length + (minValue.trim() !== "" ? 1 : 0);
 
+  /**
+   * Listede üretici teyidi olmayan satır var mı? Bu satırlar (firma Excel'inden
+   * gelen tamponlar) katalogda dururlar ama hiçbir üretici belgesiyle
+   * karşılaştırılamamıştır; seçilmeden önce mühendisin bunu görmesi gerekir.
+   */
+  const hasUnverified = results.some(isUnverifiedRow);
+
   function setPick(attr: string, key: string | null) {
     setPicks((prev) => {
       const next = { ...prev };
@@ -271,12 +345,24 @@ export function CatalogPicker({
             )}
             <BrandIcon name="panel" className="size-4 text-primary" />
             {brand ? `${kindLabel} · ${brand}` : `${kindLabel} — Marka Seçin`}
+            {lockedLabel && (
+              <span className="border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                {lockedLabel}
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription className="text-xs">
             {brand
               ? "Özellikleri sırayla daraltın; alttaki tablodan ürünü seçin."
               : "Önce üretici markayı seçin, ardından özellik süzgeçleri açılır."}
+            {lockedLabel && ` Yalnız ${lockedLabel.toLocaleLowerCase("tr")} grubuna uygun ürünler listelenir.`}
           </DialogDescription>
+          {truncated && (
+            <p className="text-xs text-destructive">
+              Katalog {ROW_LIMIT.toLocaleString("tr-TR")} satır sınırına ulaştı; liste
+              eksik olabilir. Süzgeçleri daraltın.
+            </p>
+          )}
         </DialogHeader>
 
         {!brand ? (
@@ -407,6 +493,14 @@ export function CatalogPicker({
               </span>
             </div>
 
+            {hasUnverified && (
+              <p className="border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+                ⚠ Bu listedeki bazı satırlar firma Excel&apos;inden gelmektedir ve
+                ÜRETİCİ KATALOĞUYLA DOĞRULANMAMIŞTIR. Kullanmadan önce değerleri
+                üreticiye teyit ettirin.
+              </p>
+            )}
+
             <div className="min-h-0 flex-1 overflow-auto">
               {loading && (
                 <p className="py-10 text-center text-sm text-muted-foreground">Yükleniyor…</p>
@@ -462,7 +556,15 @@ export function CatalogPicker({
                             </td>
                           );
                         })}
-                        <td className="px-3 py-1.5 text-right">
+                        <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                          {isUnverifiedRow(row) && (
+                            <span
+                              title="Üretici kataloğuyla doğrulanmamış veri"
+                              className="mr-2 border border-destructive/40 px-1 py-0.5 font-mono text-[10px] text-destructive"
+                            >
+                              teyitsiz
+                            </span>
+                          )}
                           <span className="font-mono text-[11px] text-primary">Seç →</span>
                         </td>
                       </tr>

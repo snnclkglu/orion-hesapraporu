@@ -61,6 +61,13 @@ export const V5_SPECS: TechnicalSpecs = {
   monorailCount: 0,
   mainTrolleyWeightT: 2.5,
   bridgeWeightT: 17,   // ana kirişler 15 t + başkirişler 2 t
+  // Tamponlar — referans işte hidrolik tampon (GLHB 63/100) kullanılmıştır.
+  // Çarpma hızı oranı: arabada %100 (muhafazakâr firma kabulü), köprüde %70
+  // (FEM 1.001 md. 2.2.3.4.1). Bu iki değer referans hesabın davranışıdır.
+  trolleyBufferType: "hidrolik",
+  bridgeBufferType: "hidrolik",
+  trolleyBufferImpactSpeedPct: 100,
+  bridgeBufferImpactSpeedPct: 70,
 };
 
 export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
@@ -74,21 +81,21 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   drumWallThicknessMm: 16,
   safetyGrooveCount: 3,
   drumWeightKg: 800,            // tambur ağırlığı W
-  // Tambur mili ölçü zinciri (A…G, cm) — mesnetler arası 130 cm, her iki
-  // yanda 6 cm konsol (moment kolu), 2 x 220 mm yiv bölgesi.
-  drumSpanACm: 6,
-  drumSpanBCm: 5,
-  drumSpanCCm: 22,
-  drumSpanDCm: 64,
-  drumSpanECm: 22,
-  drumSpanFCm: 5,
-  drumSpanGCm: 6,
+  // Tambur mili ölçü zinciri (A…G, mm) — mesnetler arası 1300 mm, her iki
+  // yanda 60 mm konsol (moment kolu), 2 x 220 mm yiv bölgesi.
+  drumSpanAMm: 60,
+  drumSpanBMm: 50,
+  drumSpanCMm: 220,
+  drumSpanDMm: 640,
+  drumSpanEMm: 220,
+  drumSpanFMm: 50,
+  drumSpanGMm: 60,
   ropeLoadPosition: ROPE_POSITION_AUTO,
-  shaftD1Cm: 6,                 // D1 — eğilme gerilmesi kesiti
-  shaftD2Cm: 5,                 // D2 — yatak oturma çapı (kesme kesiti)
-  drumWeldThicknessCm: 1.5,
+  shaftD1Mm: 60,                // D1 — eğilme gerilmesi kesiti
+  shaftD2Mm: 50,                // D2 — yatak oturma çapı (kesme kesiti)
+  drumWeldThicknessMm: 15,
   drumWeldAllowable: 156.9,     // kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
-  shaftWeldThicknessCm: 1,
+  shaftWeldThicknessMm: 10,
   shaftWeldAllowable: 156.9,    // kaynak izin gerilmesi [MPa] (≈1600 kg/cm²)
   bearingFactorY1: 2.8,
   bearingFactorY2: 2.8,
@@ -265,6 +272,12 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
 
   ambientTempMinC: -10,
   ambientTempMaxC: 40,
+
+  // Tamponlar — yeni işte hidrolik tampon varsayılır.
+  trolleyBufferType: "hidrolik",
+  bridgeBufferType: "hidrolik",
+  trolleyBufferImpactSpeedPct: 100,
+  bridgeBufferImpactSpeedPct: 70,
 };
 
 /**
@@ -297,11 +310,18 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   ropeWeightAuto: true,
   hookBlockWeightAuto: true,
   tempFactorAuto: true,
+  sheaveEfficiencyAuto: true,
+  drumGrooveLengthAuto: true,
+  drumWeightAuto: true,
+  // Otomatik türetmenin bu şablon için verdiği değer — şablon kendi içinde
+  // tutarlı olsun (editör açılmadan üretilen PDF/Excel de aynı sayıyı görsün).
+  drumWeightKg: 360,
 };
 
 const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
   ...V5_MAIN_HOIST_SELECTIONS,
   ropeWeightKgPerM: 1.33,
+  drumGrooveLengthText: "2 x 380",   // 2/4 donanım, 10 m, Ø400 → otomatik
 };
 
 const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
@@ -310,11 +330,59 @@ const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   ropeWeightAuto: true,
   hookBlockWeightAuto: true,
   tempFactorAuto: true,
+  sheaveEfficiencyAuto: true,
+  drumGrooveLengthAuto: true,
+  drumWeightAuto: true,
+  drumWeightKg: 230,
 };
 
 const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_AUX_HOIST_SELECTIONS,
   ropeWeightKgPerM: 0.59,
+  drumGrooveLengthText: "2 x 340",   // 2/4 donanım, 10 m, Ø290 → otomatik
+};
+
+/**
+ * Yeni işte yürütme girdileri: CMAA 70 servis faktörü Ks ve ivmelenme tork
+ * faktörü Kt OTOMATİK gelir.
+ *
+ * · Ks — Tablo 5.2.9.1.2.1-E: satır = CMAA uygulama sınıfı (M6 → E), sütun =
+ *   tahrik/kumanda tipi (AC manyetik). E × AC manyetik = **1,2**.
+ * · Kt — Tablo 5.2.9.1.2.1-C: AC bilezikli rotor (Mill) + kontaktör-direnç
+ *   satırı 1,5–1,7; alt uç **1,5** kullanılır.
+ *
+ * Şablondaki sayılar türetmenin verdiği değerlerle BİREBİR aynıdır (editör
+ * açılmadan üretilen PDF/Excel de aynı sayıyı görsün).
+ *
+ * DİKKAT: Referans V5 işi Ks'yi ELLE 1,0 girmişti; o fikstürde otomatik
+ * kapalıdır (bkz. `defaults/travel.ts`). Yeni işlerde tablodan gelen 1,2
+ * kullanılır ve gerekli yürütme motoru gücü %20 artar.
+ */
+const NEW_WORK_TROLLEY_INPUTS = {
+  ...V5_TROLLEY_INPUTS,
+  serviceFactorKs: 1.2,
+  serviceFactorKsAuto: true,
+  accelTorqueFactorKt: 1.5,
+  accelTorqueFactorKtAuto: true,
+};
+
+const NEW_WORK_BRIDGE_INPUTS = {
+  ...V5_BRIDGE_INPUTS,
+  serviceFactorKs: 1.2,
+  serviceFactorKsAuto: true,
+  accelTorqueFactorKt: 1.5,
+  accelTorqueFactorKtAuto: true,
+};
+
+/**
+ * Ks = 1,2 ile köprü yürütmesinde gerekli güç 6,26 kW'a çıkar; 2 × 3 kW artık
+ * yetmez (referans işin 2 × 3 kW seçimi Ks = 1,0 ile yapılmıştı). Yeni iş
+ * şablonu bu yüzden 2 × 4 kW motorla gelir — şablonun kendi içinde tutarlı
+ * olması, açılır açılmaz "UYGUN DEĞİL" gösteren bir rapordan iyidir.
+ */
+const NEW_WORK_BRIDGE_SELECTIONS = {
+  ...V5_BRIDGE_SELECTIONS,
+  motorPowerKw: 4,
 };
 
 /**
@@ -332,14 +400,23 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   auxHookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
   mono1HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
   mono2HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  auxTrolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  mono1Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  mono2Trolley: { inputs: V5_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  bridge: { inputs: V5_BRIDGE_INPUTS, selections: V5_BRIDGE_SELECTIONS },
+  trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  auxTrolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  mono2Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  bridge: { inputs: NEW_WORK_BRIDGE_INPUTS, selections: NEW_WORK_BRIDGE_SELECTIONS },
   wheelLoads: { inputs: V5_WHEELLOAD_INPUTS, selections: V5_WHEELLOAD_SELECTIONS },
   girder: {
-    inputs: { ...V5_GIRDER_INPUTS, diaphragmSpacingMm: 1500, deflectionLimitRatio: 1000 },
+    // 7.2 / 7.3'ün üç katsayısı (ψhA, ψhK, γc) yeni işte OTOMATİKtir: kütle
+    // oranından ve çelik yapı sınıfından türetilip kutulara yazılır.
+    inputs: {
+      ...V5_GIRDER_INPUTS,
+      diaphragmSpacingMm: 1500,
+      deflectionLimitRatio: 1000,
+      psiHAAuto: true,
+      psiHKAuto: true,
+      amplifyYcAuto: true,
+    },
     selections: V5_GIRDER_SELECTIONS,
   },
   buckling: { inputs: V5_BUCKLING_INPUTS },

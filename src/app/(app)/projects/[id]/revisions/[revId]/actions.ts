@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { runCalc, type CalcInput } from "@/lib/calc/engine";
 import {
   CALC_FIELD,
+  altsFromRevision,
   calcInputFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
@@ -75,6 +76,8 @@ export async function issueRevision(
         input,
         result,
         level: "detayli", // yayın arşivi her zaman tam (detaylı) rapor saklar
+        // Arşivlenen resmî rapor da seçenekli ekipmanları içermelidir.
+        alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
       });
       const { error: uploadError } = await supabase.storage
         .from("reports")

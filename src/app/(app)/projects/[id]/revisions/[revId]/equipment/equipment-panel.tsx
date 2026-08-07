@@ -1,15 +1,20 @@
 "use client";
 
 // Ekipman listesi paneli (client) — sekmeli tablo görünümü + ek satır editörü +
-// Excel/PDF indirme. Otomatik satırlar salt-okunur; "Ek Ekipman / Özellikler"
-// bölümündeki satırlar düzenlenebilir/silinebilir ve kaydedilir.
+// Excel/PDF indirme. Otomatik satırların hesap alanları salt-okunurdur; her
+// satırın "Ek Özellikler" hücresi düzenlenebilir ve odak çıkışında kendiliğinden
+// kaydedilir (equipment_notes, madde 34). "Ek Ekipman / Özellikler" bölümündeki
+// serbest satırlar düzenlenebilir/silinebilir ve topluca kaydedilir.
+//
+// Kaydırma: sayfa app-shell'in normal (sabit çerçeve OLMAYAN) kipinde açılır;
+// tablo yalnız YATAY kendi kabında kayar, dikey kaydırma sayfanındır (madde 35).
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ExternalLink, FileDown, FileSpreadsheet, Plus, Save, Trash2 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
-import { saveEquipmentExtras } from "./actions";
+import { saveEquipmentExtras, saveEquipmentNote } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +28,73 @@ type Scope = "customer" | "full";
 const EMPTY: EquipmentExtraRow = {
   group: "Ek Ekipman", component: "", brand: "", model: "", spec: "", qty: "",
 };
+
+/**
+ * Bir ekipman satırının "Ek Özellikler" hücresi (madde 34).
+ * Yazma durduktan ~700 ms sonra ve odak çıkışında kendiliğinden kaydeder;
+ * ayrı bir "Kaydet" düğmesi yoktur — not bir hesap değeri değil açıklamadır.
+ */
+function NoteCell({
+  rowKey,
+  initial,
+  onSave,
+}: {
+  rowKey: string;
+  initial: string;
+  onSave: (rowKey: string, note: string) => Promise<string | null>;
+}) {
+  const [value, setValue] = useState(initial);
+  const [durum, setDurum] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
+  // En son BAŞARIYLA kaydedilen değer; gereksiz yazma isteği göndermemek için.
+  const sonKayit = useRef(initial);
+
+  const kaydet = useCallback(
+    async (yeni: string) => {
+      if (yeni === sonKayit.current) return;
+      const hata = await onSave(rowKey, yeni);
+      if (hata) {
+        toast.error(hata);
+        setDurum("temiz");
+        return;
+      }
+      sonKayit.current = yeni;
+      setDurum("kaydedildi");
+    },
+    [onSave, rowKey]
+  );
+
+  // Yazma durduğunda kaydet (debounce). Bileşen sökülürse zamanlayıcı iptal
+  // olur; odak çıkışı (onBlur) ikinci güvenceyi verir.
+  useEffect(() => {
+    if (value === sonKayit.current) return;
+    setDurum("bekliyor");
+    const t = setTimeout(() => void kaydet(value), 700);
+    return () => clearTimeout(t);
+  }, [value, kaydet]);
+
+  return (
+    <div className="relative">
+      <textarea
+        rows={1}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void kaydet(value)}
+        placeholder="Ek özellik yaz…"
+        aria-label="Ek özellikler"
+        className="field-sizing-content min-h-8 w-full resize-none rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:border-input focus:border-ring focus:bg-background focus:ring-[3px] focus:ring-ring/30"
+      />
+      {durum !== "temiz" && (
+        <span
+          aria-hidden
+          title={durum === "bekliyor" ? "Kaydediliyor…" : "Kaydedildi"}
+          className={`pointer-events-none absolute top-1 right-1 size-1.5 rounded-full ${
+            durum === "bekliyor" ? "bg-amber-500" : "bg-emerald-500"
+          }`}
+        />
+      )}
+    </div>
+  );
+}
 
 export function EquipmentPanel({
   projectId, revisionId, autoGroups, summary, initialExtras, datasheetUrls, locked,
@@ -51,6 +123,16 @@ export function EquipmentPanel({
   function removeRow(i: number) {
     setExtras((rows) => rows.filter((_, idx) => idx !== i));
   }
+  // Not kaydı: hata mesajını döndürür (null = başarılı). Kimliği sabit
+  // kalmalı ki NoteCell'in debounce etkisi her boyamada yeniden kurulmasın.
+  const saveNote = useCallback(
+    async (rowKey: string, note: string): Promise<string | null> => {
+      const result = await saveEquipmentNote(projectId, revisionId, rowKey, note);
+      return result?.error ?? null;
+    },
+    [projectId, revisionId]
+  );
+
   function save() {
     startTransition(async () => {
       const result = await saveEquipmentExtras(projectId, revisionId, extras);
@@ -121,10 +203,11 @@ export function EquipmentPanel({
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[20%]">Ekipman</TableHead>
-                  <TableHead className="w-[13%]">Marka</TableHead>
-                  <TableHead className="w-[16%]">Model</TableHead>
+                  <TableHead className="w-[18%]">Ekipman</TableHead>
+                  <TableHead className="w-[11%]">Marka</TableHead>
+                  <TableHead className="w-[14%]">Model</TableHead>
                   <TableHead>Özellikler</TableHead>
+                  <TableHead className="w-[20%]">Ek Özellikler</TableHead>
                   <TableHead className="w-[7%] text-center">Adet</TableHead>
                 </TableRow>
               </TableHeader>
@@ -132,7 +215,7 @@ export function EquipmentPanel({
                 {autoGroups.map((g) => (
                   <Fragment key={`g-${g.name}`}>
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableCell colSpan={5} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                      <TableCell colSpan={6} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
                         {g.name}
                       </TableCell>
                     </TableRow>
@@ -142,6 +225,19 @@ export function EquipmentPanel({
                         <TableCell>{r.brand}</TableCell>
                         <TableCell><ModelCell row={r} /></TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.spec}</TableCell>
+                        {/* Ek Özellikler: satırın tek düzenlenebilir hücresi (madde 34).
+                            Satırın kararlı anahtarı yoksa (kuramsal) not tutulamaz. */}
+                        <TableCell className="p-1 align-middle">
+                          {r.rowKey ? (
+                            <NoteCell
+                              rowKey={r.rowKey}
+                              initial={r.note ?? ""}
+                              onSave={saveNote}
+                            />
+                          ) : (
+                            <span className="px-2 text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center tabular-nums">{String(r.qty)}</TableCell>
                       </TableRow>
                     ))}

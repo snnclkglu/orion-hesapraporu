@@ -5,7 +5,7 @@
 // Satırlar sonucu motorun semantik anahtarından (`key`) okur; PDF raporun
 // formül satırlarını da bu katman üretir.
 
-import { hoistSpecView } from "../modules/hoistGroup";
+import { drumShaftDimsCm, hoistSpecView } from "../modules/hoistGroup";
 import type {
   HoistInputs,
   HoistSelections,
@@ -29,6 +29,21 @@ export interface HoistCtx {
  */
 const viewOf = (x: HoistCtx) => hoistSpecView(x.specs, x.which);
 
+/**
+ * Tambur mili ölçülerinin motor birimindeki (cm) karşılığı.
+ *
+ * Girdi alanları mm'dir (`drumSpan*Mm`, `shaftD1Mm` …) ve sihirbaz ile rapor
+ * girdi tablosunda mm olarak görünür. Buna karşılık 2.2.3/2.2.4/2.2.5 hesap
+ * satırlarının SONUÇLARI motorun cm tabanındadır (L cm, M kg·cm, σ kg/cm²,
+ * W cm³). Formül satırındaki sayılar bu yüzden cm cinsinden yazılır — satırın
+ * birim etiketi ile yerine konmuş sayılar aynı birimde olmalıdır, aksi hâlde
+ * rapor 10 kat yanlış okunur.
+ *
+ * Dönüşüm motorun kendi yardımcısıyla yapılır (`drumShaftDimsCm`); sunumda
+ * ikinci bir "/ 10" yazılmaz.
+ */
+const dimsOf = (x: HoistCtx) => drumShaftDimsCm(x.inp);
+
 export interface HoistRowDef {
   /** Sonucun okunacağı semantik anahtar (`<blok>.<büyüklük>`) */
   key: string;
@@ -38,6 +53,11 @@ export interface HoistRowDef {
   unit?: string;
   digits?: number;
   standard?: string;
+  /**
+   * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur (bkz. fields.ts
+   * `withDiameterSign`). Arayüz ve PDF aynı bayrağı okur.
+   */
+  diameter?: true;
 }
 
 export interface HoistSectionDef {
@@ -82,6 +102,13 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       "ropeWireStrength", "ropeBreakingLoadKn", "ropeWeightKgPerM",
     ],
     rows: [
+      // Yükün tonajı halat zincirinin BAŞIDIR: rapor okuyucusu önce hangi
+      // yükün kaldırıldığını görmeli, sonra halat kuvvetine inmelidir.
+      {
+        key: "load.capacityT", label: "Kaldırma Kapasitesi", formula: "Q  [teknik özellik]",
+        subst: (x) => `${n(viewOf(x).capacityT, 3)} t`,
+        unit: "t", digits: 3,
+      },
       {
         key: "reeving.mechanicalAdvantage", label: "Mekanik Avantaj",
         formula: "i = n_toplam / n_tahrik",
@@ -149,7 +176,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         standard: "FEM 1.001 T.4.2.3.1.1",
       },
       {
-        key: "drum.minDia", label: "Minimum Tambur Çapı", formula: "D_min = H · d",
+        key: "drum.minDia", label: "Minimum Tambur Çapı", formula: "D_min = H · d", diameter: true,
         subst: (x) => `${n(num(x.c["drum.coefficient"]))} · ${n(x.sel.ropeDiaMm)}`, unit: "mm",
       },
       {
@@ -196,7 +223,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `(${n(num(x.c["reeving.mechanicalAdvantage"]))} · ${n(viewOf(x).liftHeightM)}) / (π · ${n(x.sel.drumDiaMm / 1000, 3)}) + ${n(x.inp.safetyGrooveCount)}`,
       },
       {
-        key: "drum.requiredGrooveLength", label: "Gerekli Oluk Boyu", formula: "L = z · p",
+        key: "drum.requiredGrooveLength", label: "Gerekli Yiv Boyu", formula: "L = z · p",
         subst: (x) => `${n(num(x.c["drum.requiredGrooves"]))} · ${n(num(x.c["drum.groovePitch"]))}`,
         unit: "mm", digits: 1,
       },
@@ -213,33 +240,38 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       "redüktör radyal yük kontrolünde hem tambur yatağı / rulman seçiminde " +
       "kullanılır; mil gerilmeleri D1 kesitinde (eğilme) ve D2 kesitinde (kesme) " +
       "bulunur. Halatlar yiv boyunca hareket ettiğinden iki uç hâli ayrı ayrı " +
-      "çözülür; her mesnet KENDİ elverişsiz hâliyle boyutlandırılır (zarf değeri).",
+      "çözülür; her mesnet KENDİ kritik hâliyle boyutlandırılır (zarf değeri).",
     inputKeys: [
       "drumWeightKg",
-      "drumSpanACm", "drumSpanBCm", "drumSpanCCm", "drumSpanDCm",
-      "drumSpanECm", "drumSpanFCm", "drumSpanGCm",
-      "ropeLoadPosition", "shaftD1Cm", "shaftD2Cm",
+      "drumSpanAMm", "drumSpanBMm", "drumSpanCMm", "drumSpanDMm",
+      "drumSpanEMm", "drumSpanFMm", "drumSpanGMm",
+      "ropeLoadPosition", "shaftD1Mm", "shaftD2Mm",
     ],
     selectionKeys: ["shaftMaterial"],
     rows: [
       {
         key: "drumShaft.ropeLoadPerPoint", label: "Yük Noktası Başına Halat Yükü (T)",
         formula: "T = F_halat · n_tahrik / yiv bölgesi adedi",
-        subst: (x) => `${n(num(x.c["rope.load"]))} · ${n(x.inp.drivenFalls)} / ${n(x.inp.drumSpanECm > 0 ? 2 : 1)}`,
+        subst: (x) => `${n(num(x.c["rope.load"]))} · ${n(x.inp.drivenFalls)} / ${n(x.inp.drumSpanEMm > 0 ? 2 : 1)}`,
         unit: "kg",
       },
       {
         key: "drumShaft.span", label: "Mesnetler Arası Açıklık (L)",
         formula: "L = A + B + C + D + E + F + G",
-        subst: (x) =>
-          `${n(x.inp.drumSpanACm)} + ${n(x.inp.drumSpanBCm)} + ${n(x.inp.drumSpanCCm)} + ${n(x.inp.drumSpanDCm)} + ${n(x.inp.drumSpanECm)} + ${n(x.inp.drumSpanFCm)} + ${n(x.inp.drumSpanGCm)}`,
+        // Sayılar cm cinsindendir (satırın birimi cm); girdi mm sorulur.
+        subst: (x) => {
+          const d = dimsOf(x);
+          return `${n(d.aCm)} + ${n(d.bCm)} + ${n(d.cCm)} + ${n(d.dCm)} + ${n(d.eCm)} + ${n(d.fCm)} + ${n(d.gCm)}`;
+        },
         unit: "cm",
       },
       {
         key: "drumShaft.weightArm", label: "Tambur Ağırlık Merkezi (Mesnet A'dan)",
         formula: "x_W = A + (B + C + D + E + F) / 2",
-        subst: (x) =>
-          `${n(x.inp.drumSpanACm)} + (${n(x.inp.drumSpanBCm + x.inp.drumSpanCCm + x.inp.drumSpanDCm + x.inp.drumSpanECm + x.inp.drumSpanFCm)}) / 2`,
+        subst: (x) => {
+          const d = dimsOf(x);
+          return `${n(d.aCm)} + (${n(d.bCm + d.cCm + d.dCm + d.eCm + d.fCm)}) / 2`;
+        },
         unit: "cm",
       },
       {
@@ -287,13 +319,13 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       {
         key: "drumShaft.momentGearbox", label: "Redüktör Tarafı Eğilme Momenti",
         formula: "M_a = R_a · A",
-        subst: (x) => `${n(num(x.c["drumShaft.reactionGearbox"]))} · ${n(x.inp.drumSpanACm)}`,
+        subst: (x) => `${n(num(x.c["drumShaft.reactionGearbox"]))} · ${n(dimsOf(x).aCm)}`,
         unit: "kg·cm",
       },
       {
         key: "drumShaft.momentBearing", label: "Tambur Yatağı Tarafı Eğilme Momenti",
         formula: "M_g = R_g · G",
-        subst: (x) => `${n(num(x.c["drumShaft.reactionBearing"]))} · ${n(x.inp.drumSpanGCm)}`,
+        subst: (x) => `${n(num(x.c["drumShaft.reactionBearing"]))} · ${n(dimsOf(x).gCm)}`,
         unit: "kg·cm",
       },
       {
@@ -306,7 +338,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       {
         key: "drumShaft.bendingStress", label: "Eğilme Gerilmesi (D1 Kesiti)",
         formula: "σ = M / (π · D1³ / 32)",
-        subst: (x) => `${n(num(x.c["drumShaft.moment"]))} / (π · ${n(x.inp.shaftD1Cm)}³ / 32)`,
+        subst: (x) => `${n(num(x.c["drumShaft.moment"]))} / (π · ${n(dimsOf(x).d1Cm)}³ / 32)`,
         unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
       },
       {
@@ -315,7 +347,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         // ortalamanın 4/3 katıdır (tarafsız eksende).
         formula: "τ = (4/3) · R / (π · D2² / 4)",
         subst: (x) =>
-          `(4/3) · ${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / (π · ${n(x.inp.shaftD2Cm)}² / 4)`,
+          `(4/3) · ${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / (π · ${n(dimsOf(x).d2Cm)}² / 4)`,
         unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
       },
       {
@@ -349,9 +381,12 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     id: "2.2.4",
     title: "Tambur Kaynağı",
     description:
-      "Tambur yanağı ile göbek arasındaki çevresel kaynak: tambur torkundan " +
-      "gelen burulma ile mesnet reaksiyonundan gelen kesme birlikte etkir.",
-    inputKeys: ["drumWeldThicknessCm", "drumWeldAllowable"],
+      "Tambur namlusu ile yanak sacı arasındaki çevresel köşe kaynağı: tambur " +
+      "torkundan gelen burulma ile mesnet reaksiyonundan gelen kesme birlikte " +
+      "etkir; dikişe dik normal gerilme yoktur. Taşıyıcı kesit FEM Ek " +
+      "A-3.2.2.3 md.4 uyarınca BOĞAZ alanıdır (a · L_k) — dikişin izdüşüm " +
+      "halka alanı değil.",
+    inputKeys: ["drumWeldThicknessMm", "drumWeldAllowable"],
     selectionKeys: [],
     rows: [
       {
@@ -359,15 +394,15 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `π · ${n(x.sel.drumDiaMm)} / 10`, unit: "cm",
       },
       {
-        key: "drumWeld.area", label: "Kaynak Halka Alanı",
-        formula: "A = π·((D_d/2)² − (D_i/2)²) / 100",
-        subst: (x) => `π·((${n(num(x.c["drumWeld.outerDia"]))}/2)² − (${n(x.sel.drumDiaMm)}/2)²) / 100`,
-        unit: "cm²",
+        key: "drumWeld.throatArea", label: "Taşıyıcı Boğaz Kesiti",
+        formula: "A_k = a · L_k",
+        subst: (x) => `${n(dimsOf(x).drumWeldThroatCm, 3)} · ${n(num(x.c["drumWeld.length"]))}`,
+        unit: "cm²", standard: "FEM 1.001 T.3.2.2.3",
       },
       {
-        key: "drumWeld.polarModulus", label: "Polar Mukavemet Momenti",
-        formula: "W_p = π·((D_d/10)⁴ − (D_i/10)⁴) / 32",
-        subst: (x) => `π·((${n(num(x.c["drumWeld.outerDia"]))}/10)⁴ − (${n(x.sel.drumDiaMm)}/10)⁴) / 32`,
+        key: "drumWeld.polarModulus", label: "Burulma Direnç Momenti (boğaz kesiti)",
+        formula: "W_p = A_k · D / 2",
+        subst: (x) => `${n(num(x.c["drumWeld.throatArea"]))} · ${n(x.sel.drumDiaMm / 10)} / 2`,
         unit: "cm³",
       },
       {
@@ -378,14 +413,69 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       },
       {
         key: "drumWeld.shearStress", label: "Kesme Gerilmesi",
-        formula: "τ_k = R / A",
-        subst: (x) => `${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / ${n(num(x.c["drumWeld.area"]))}`,
+        formula: "τ_k = R / A_k",
+        subst: (x) => `${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / ${n(num(x.c["drumWeld.throatArea"]))}`,
         unit: "kg/cm²",
       },
       {
-        key: "drumWeld.combinedStress", label: "Bileşik Gerilme", formula: "σ_b = τ_k + τ_b",
+        key: "drumWeld.totalShear", label: "Toplam Kayma Gerilmesi",
+        formula: "τ = τ_k + τ_b",
         subst: (x) => `${n(num(x.c["drumWeld.shearStress"]))} + ${n(num(x.c["drumWeld.torsionStress"]))}`,
         unit: "kg/cm²",
+      },
+      // İKİ standart da KENDİ gerilme tanımıyla hesaplanır; kullanım oranı
+      // büyük olan yönetir. Rapor okuyucusu hangi gerilmenin hangi sınırla
+      // karşılaştırıldığını satır satır görebilmelidir.
+      {
+        key: "drumWeld.combinedStress", label: "Eşdeğer Gerilme (FEM)",
+        formula: "σ_cp = √(σ² + 2 · τ²)",
+        subst: (x) => `√(0² + 2 · ${n(num(x.c["drumWeld.totalShear"]))}²)`,
+        unit: "kg/cm²", standard: "FEM 1.001 T.3.2.2.3",
+      },
+      {
+        key: "drumWeld.principalStress", label: "Asal Gerilme (CMAA)",
+        formula: "σ_v = ½·σ ± ½·√(σ² + 4 · τ²)",
+        subst: (x) => `± ½ · √(0² + 4 · ${n(num(x.c["drumWeld.totalShear"]))}²)`,
+        unit: "kg/cm²", standard: "CMAA 70 3.4.4.2",
+      },
+      {
+        key: "drumWeld.allowableFem", label: "İzin Verilen Gerilme — FEM (σ_cp için)",
+        formula: "σ_a,k = f(çelik ; Durum I)",
+        subst: (x) => `${x.sel.drumMaterial} → ${n(num(x.c["drumWeld.allowableFem"]))}`,
+        unit: "N/mm²", standard: "FEM 1.001 T.3.2.2.3",
+      },
+      {
+        key: "drumWeld.allowableCmaa", label: "İzin Verilen Gerilme — CMAA (σ_v için)",
+        formula: "σ_ALL = 0,60 · σ_akma",
+        subst: (x) => `0,60 · ${n(num(x.c["drumWeld.allowableCmaa"]) / 0.6)}`,
+        unit: "N/mm²", standard: "CMAA 70 3.4.4.2",
+      },
+      {
+        key: "drumWeld.allowableCmaaShear", label: "İzin Verilen Kayma — CMAA (τ için)",
+        formula: "τ_em = 0,35 · σ_akma",
+        subst: (x) => `0,35 · ${n(num(x.c["drumWeld.allowableCmaaShear"]) / 0.35)}`,
+        unit: "N/mm²", standard: "CMAA 70 3.4.1",
+      },
+      {
+        key: "drumWeld.utilizationFem", label: "Kullanım Oranı — FEM",
+        formula: "η_FEM = σ_cp / σ_a,k", unit: "-", digits: 3,
+      },
+      {
+        key: "drumWeld.utilizationCmaa", label: "Kullanım Oranı — CMAA",
+        formula: "η_CMAA = maks(σ_v / 0,60σ_akma ; τ / 0,35σ_akma)",
+        unit: "-", digits: 3,
+      },
+      {
+        key: "drumWeld.governing", label: "Yöneten Kural",
+        formula: "büyük kullanım oranı yönetir",
+      },
+      {
+        key: "drumWeld.governingStress", label: "Karşılaştırılan Gerilme",
+        formula: "yöneten kuralın gerilmesi", unit: "N/mm²",
+      },
+      {
+        key: "drumWeld.allowable", label: "Karşılaştırılan Sınır",
+        formula: "yöneten kuralın izin gerilmesi", unit: "N/mm²",
       },
     ],
     checkSuffixes: ["drumWeld.stress"],
@@ -393,24 +483,113 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.2.5",
     title: "Tambur Mili Kaynağı",
-    description: "Mil ile tambur göbeği arasındaki kaynak, mesnet reaksiyonunu kesme olarak taşır.",
-    inputKeys: ["shaftWeldThicknessCm", "shaftWeldAllowable"],
+    description:
+      "Mil ile tambur göbeği arasındaki çevresel köşe kaynağı yalnız kesme " +
+      "taşımaz: mesnet reaksiyonu dikiş düzleminden (yanak/flanş sacı) bir kol " +
+      "kadar uzakta etkir — tambur yatağı tarafında bu kol ölçü zincirindeki " +
+      "G ölçüsüdür, redüktör tarafında A'dır. İki mesnedin momenti ayrı " +
+      "hesaplanıp zarfı alınır; kesme gerilmesi kritik reaksiyonla bulunur. " +
+      "Taşıyıcı kesit FEM Ek A-3.2.2.3 md.4 uyarınca BOĞAZ alanıdır (a · L_k). " +
+      "Tambur torku bu dikişten geçmez — tork yolu redüktör tarafı yanaktan " +
+      "namluya girer (bölüm 2.2.4); bu uç yalnız mesnet reaksiyonunu aktarır.",
+    inputKeys: ["shaftWeldThicknessMm", "shaftWeldAllowable"],
     selectionKeys: [],
     rows: [
       {
         key: "shaftWeld.length", label: "Kaynak Boyu", formula: "L_k = π · D1",
-        subst: (x) => `π · ${n(x.inp.shaftD1Cm)}`, unit: "cm",
+        subst: (x) => `π · ${n(dimsOf(x).d1Cm)}`, unit: "cm",
       },
       {
-        key: "shaftWeld.area", label: "Kaynak Halka Alanı",
-        formula: "A = π·((d_d/2)² − (d_i/2)²) / 100",
-        subst: (x) => `π·((${n(num(x.c["shaftWeld.outerDia"]))}/2)² − (${n(x.inp.shaftD1Cm * 10)}/2)²) / 100`,
-        unit: "cm²",
+        key: "shaftWeld.throatArea", label: "Taşıyıcı Boğaz Kesiti",
+        formula: "A_k = a · L_k",
+        subst: (x) => `${n(dimsOf(x).shaftWeldThroatCm, 3)} · ${n(num(x.c["shaftWeld.length"]))}`,
+        unit: "cm²", standard: "FEM 1.001 T.3.2.2.3",
       },
       {
-        key: "shaftWeld.shearStress", label: "Kesme Gerilmesi", formula: "τ = R / A",
-        subst: (x) => `${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / ${n(num(x.c["shaftWeld.area"]))}`,
+        key: "shaftWeld.shearStress", label: "Kesme Gerilmesi", formula: "τ = R / A_k",
+        subst: (x) => `${n(Math.max(num(x.c["drumShaft.reactionGearbox"]), num(x.c["drumShaft.reactionBearing"])))} / ${n(num(x.c["shaftWeld.throatArea"]))}`,
         unit: "kg/cm²",
+      },
+      {
+        key: "shaftWeld.arm", label: "Kaynak Kolu (yükün flanşa uzaklığı)",
+        formula: "e = max(G ; A) tarafının kolu",
+        subst: (x) => {
+          const d = dimsOf(x);
+          return `G = ${n(d.gCm)} · A = ${n(d.aCm)} → ${n(num(x.c["shaftWeld.arm"]))}`;
+        },
+        unit: "cm",
+      },
+      {
+        key: "shaftWeld.bendingMoment", label: "Eğilme Momenti",
+        formula: "M_k = R · e",
+        subst: (x) => `${n(num(x.c["shaftWeld.arm"]) > 0 ? num(x.c["shaftWeld.bendingMoment"]) / num(x.c["shaftWeld.arm"]) : NaN)} · ${n(num(x.c["shaftWeld.arm"]))}`,
+        unit: "kg·cm",
+      },
+      {
+        key: "shaftWeld.sectionModulus", label: "Eğilme Direnç Momenti",
+        formula: "W_k = π · a · D1² / 4",
+        subst: (x) => {
+          const d = dimsOf(x);
+          return `π · ${n(d.shaftWeldThroatCm, 3)} · ${n(d.d1Cm)}² / 4`;
+        },
+        unit: "cm³",
+      },
+      {
+        key: "shaftWeld.bendingStress", label: "Eğilme Gerilmesi",
+        formula: "σ_eğ = M_k / W_k",
+        subst: (x) => `${n(num(x.c["shaftWeld.bendingMoment"]))} / ${n(num(x.c["shaftWeld.sectionModulus"]))}`,
+        unit: "kg/cm²",
+      },
+      {
+        key: "shaftWeld.combinedStress", label: "Eşdeğer Gerilme (FEM)",
+        formula: "σ_cp = √(σ_eğ² + 2 · τ²)",
+        subst: (x) => `√(${n(num(x.c["shaftWeld.bendingStress"]))}² + 2 · ${n(num(x.c["shaftWeld.shearStress"]))}²)`,
+        unit: "kg/cm²", standard: "FEM 1.001 T.3.2.2.3",
+      },
+      {
+        key: "shaftWeld.principalStress", label: "Asal Gerilme (CMAA)",
+        formula: "σ_v = ½·σ_eğ ± ½·√(σ_eğ² + 4 · τ²)",
+        subst: (x) => `½ · ${n(num(x.c["shaftWeld.bendingStress"]))} ± ½ · √(${n(num(x.c["shaftWeld.bendingStress"]))}² + 4 · ${n(num(x.c["shaftWeld.shearStress"]))}²)`,
+        unit: "kg/cm²", standard: "CMAA 70 3.4.4.2",
+      },
+      {
+        key: "shaftWeld.allowableFem", label: "İzin Verilen Gerilme — FEM (σ_cp için)",
+        formula: "σ_a,k = f(çelik ; Durum I)",
+        subst: (x) => `${x.sel.drumMaterial} → ${n(num(x.c["shaftWeld.allowableFem"]))}`,
+        unit: "N/mm²", standard: "FEM 1.001 T.3.2.2.3",
+      },
+      {
+        key: "shaftWeld.allowableCmaa", label: "İzin Verilen Gerilme — CMAA (σ_v için)",
+        formula: "σ_ALL = 0,60 · σ_akma",
+        subst: (x) => `0,60 · ${n(num(x.c["shaftWeld.allowableCmaa"]) / 0.6)}`,
+        unit: "N/mm²", standard: "CMAA 70 3.4.4.2",
+      },
+      {
+        key: "shaftWeld.allowableCmaaShear", label: "İzin Verilen Kayma — CMAA (τ için)",
+        formula: "τ_em = 0,35 · σ_akma",
+        subst: (x) => `0,35 · ${n(num(x.c["shaftWeld.allowableCmaaShear"]) / 0.35)}`,
+        unit: "N/mm²", standard: "CMAA 70 3.4.1",
+      },
+      {
+        key: "shaftWeld.utilizationFem", label: "Kullanım Oranı — FEM",
+        formula: "η_FEM = σ_cp / σ_a,k", unit: "-", digits: 3,
+      },
+      {
+        key: "shaftWeld.utilizationCmaa", label: "Kullanım Oranı — CMAA",
+        formula: "η_CMAA = maks(σ_v / 0,60σ_akma ; τ / 0,35σ_akma)",
+        unit: "-", digits: 3,
+      },
+      {
+        key: "shaftWeld.governing", label: "Yöneten Kural",
+        formula: "büyük kullanım oranı yönetir",
+      },
+      {
+        key: "shaftWeld.governingStress", label: "Karşılaştırılan Gerilme",
+        formula: "yöneten kuralın gerilmesi", unit: "N/mm²",
+      },
+      {
+        key: "shaftWeld.allowable", label: "Karşılaştırılan Sınır",
+        formula: "yöneten kuralın izin gerilmesi", unit: "N/mm²",
       },
     ],
     checkSuffixes: ["shaftWeld.stress"],
@@ -583,7 +762,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         unit: "Nm",
       },
       {
-        key: "motorCoupling.shaftDia", label: "Bağlanacak En Büyük Mil",
+        key: "motorCoupling.shaftDia", label: "Bağlanacak En Büyük Mil", diameter: true,
         formula: "d = maks(d_motor, d_redüktör)",
         subst: (x) => `maks(${n(x.sel.motorShaftMm)}, ${n(x.sel.gearboxInputShaftMm)})`, unit: "mm",
       },
@@ -613,7 +792,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `${n(num(x.c["drumShaft.reactionGearbox"]))} · 9,81`, unit: "N",
       },
       {
-        key: "drumCoupling.shaftDia", label: "Bağlanacak Mil Çapı",
+        key: "drumCoupling.shaftDia", label: "Bağlanacak Mil Çapı", diameter: true,
         formula: "d = d_redüktör çıkış mili",
         subst: (x) => `${n(x.sel.gearboxOutputShaftMm)}`, unit: "mm",
       },
@@ -669,7 +848,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "mm",
       },
       {
-        key: "safety.minFlangeDia", label: "Minimum Flanş Dış Çapı",
+        key: "safety.minFlangeDia", label: "Minimum Flanş Dış Çapı", diameter: true,
         formula: "d_min = maks(d_katalog ; D_tambur + Δ) + pay",
         subst: (x) =>
           `maks(katalog ; ${n(x.sel.drumDiaMm)} + Δ) + ${n(x.inp.safetyBrakeFlangeClearanceMm)}`,

@@ -13,19 +13,21 @@ import {
 import { KGF_TO_MPA } from "@/lib/units";
 
 export interface DrumShaftParams {
-  /** Ölçü zinciri [cm] */
-  aCm: number; bCm: number; cCm: number; dCm: number;
-  eCm: number; fCm: number; gCm: number;
-  /** Mil çapları [cm] */
-  d1Cm: number;
-  d2Cm: number;
+  /** Ölçü zinciri [mm] — girdi alanlarıyla aynı birim */
+  aMm: number; bMm: number; cMm: number; dMm: number;
+  eMm: number; fMm: number; gMm: number;
+  /** Mil çapları [mm] */
+  d1Mm: number;
+  d2Mm: number;
   /** Tambur dış çapı [mm] — namlu yüksekliğinin ölçeklenmesi için */
   drumDiaMm?: number;
   /** Yükler ve sonuçlar */
   ropeLoadKg?: number;
   drumWeightKg?: number;
-  ropePositionsCm?: number[];
-  weightArmCm?: number;
+  /** Halat yükü konumları [mm] — motorun cm çıktısı çağıranda mm'ye çevrilir */
+  ropePositionsMm?: number[];
+  /** Tambur ağırlık merkezinin mesnet A'ya uzaklığı [mm] */
+  weightArmMm?: number;
   reactionGearboxKg?: number;
   reactionBearingKg?: number;
   momentGearboxKgCm?: number;
@@ -46,10 +48,11 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
       : "iki mesnetli kiriş · halat yükleri ve tambur ağırlığı"
   );
 
+  // Bütün ölçüler mm; şema da mm ölçeğinde çizilir ve mm etiketlenir.
   const seg = {
-    A: Math.max(0, p.aCm), B: Math.max(0, p.bCm), C: Math.max(0, p.cCm),
-    D: Math.max(0, p.dCm), E: Math.max(0, p.eCm), F: Math.max(0, p.fCm),
-    G: Math.max(0, p.gCm),
+    A: Math.max(0, p.aMm), B: Math.max(0, p.bMm), C: Math.max(0, p.cMm),
+    D: Math.max(0, p.dMm), E: Math.max(0, p.eMm), F: Math.max(0, p.fMm),
+    G: Math.max(0, p.gMm),
   };
   const span = seg.A + seg.B + seg.C + seg.D + seg.E + seg.F + seg.G;
   if (!(span > 0)) {
@@ -59,15 +62,15 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     return fitDiagram(els, W, H);
   }
 
-  // --- ölçek: cm → px
+  // --- ölçek: mm → px
   const xLeft = 92;
   const xRight = 612;
-  const sx = (cm: number) => xLeft + (cm / span) * (xRight - xLeft);
+  const sx = (mm: number) => xLeft + (mm / span) * (xRight - xLeft);
 
   const yAxis = 158;                                  // mil ekseni
   const drumR = Math.min(56, Math.max(30, (p.drumDiaMm ?? 400) / 9)); // namlu yarı yüksekliği
-  const shaftH1 = Math.min(22, Math.max(9, p.d1Cm * 1.9));
-  const shaftH2 = Math.min(18, Math.max(7, p.d2Cm * 1.9));
+  const shaftH1 = Math.min(22, Math.max(9, p.d1Mm * 0.19));
+  const shaftH2 = Math.min(18, Math.max(7, p.d2Mm * 0.19));
 
   // ölçü zinciri sınır noktaları
   const xA = sx(0);                                    // Ra mesnedi
@@ -172,9 +175,9 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
 
   // --- halat yükleri T (yukarıdan aşağı)
   const yTop = yAxis - drumR - 58;
-  const positions = p.ropePositionsCm ?? [];
-  positions.forEach((cm, i) => {
-    const x = sx(cm);
+  const positions = p.ropePositionsMm ?? [];
+  positions.forEach((mm, i) => {
+    const x = sx(mm);
     loadArrow(els, x, yTop, yAxis - drumR - 10);
     els.push(txt(x, yTop - 6, `T${positions.length > 1 ? (i === 0 ? "₁" : "₂") : ""}`, 10, {
       anchor: "middle", fill: DCOL.accent, bold: true,
@@ -195,8 +198,8 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
   }
 
   // --- tambur ağırlığı W (namlu ortası)
-  if (p.weightArmCm !== undefined) {
-    const xW = sx(p.weightArmCm);
+  if (p.weightArmMm !== undefined) {
+    const xW = sx(p.weightArmMm);
     loadArrow(els, xW, yTop - 22, yAxis - drumR - 10, { width: 2.4 });
     els.push(txt(xW + 8, yTop - 16, `W = ${fmtN(p.drumWeightKg)} kg`, 9.5, {
       fill: DCOL.accent, bold: true,
@@ -205,9 +208,9 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
 
   // --- D1 / D2 etiketleri (sağ uç)
   els.push(ln(xPlateR + 7, yAxis - shaftH1 / 2 - 3, xPlateR + 7, yAxis - drumR - 22, DCOL.faint, 0.6));
-  els.push(txt(xPlateR + 10, yAxis - drumR - 24, `D1 = ${fmtN(p.d1Cm)} cm`, 8.5, { fill: DCOL.ink }));
+  els.push(txt(xPlateR + 10, yAxis - drumR - 24, `D1 = ${fmtN(p.d1Mm)} mm`, 8.5, { fill: DCOL.ink }));
   els.push(ln(xG, yAxis + shaftH2 / 2 + 3, xG, yAxis + drumR + 34, DCOL.faint, 0.6));
-  els.push(txt(xG + 6, yAxis + drumR + 34, `D2 = ${fmtN(p.d2Cm)} cm`, 8.5, { fill: DCOL.ink }));
+  els.push(txt(xG + 6, yAxis + drumR + 34, `D2 = ${fmtN(p.d2Mm)} mm`, 8.5, { fill: DCOL.ink }));
 
   // --- ölçü zinciri (altta)
   const yDim = yBase + 46;
@@ -229,7 +232,7 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     dimH(els, x1, x2, yDim, x2 - x1 > 40 ? `${label} = ${fmtN(len)}` : label, { size: 8.5 });
   }
   els.push(ln(sx(span), yAxis + drumR + 8, sx(span), yDim - 5, DCOL.faint, 0.5));
-  dimH(els, xA, xG, yDim + 26, `L = ${fmtN(span)} cm`, { size: 9.5 });
+  dimH(els, xA, xG, yDim + 26, `L = ${fmtN(span)} mm`, { size: 9.5 });
   // Ölçü listesi — dar bölümlerin değerleri de okunabilsin
   els.push(
     txt(
@@ -238,7 +241,7 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
       marks
         .filter(([, len]) => len > 0)
         .map(([, len, label]) => `${label}=${fmtN(len)}`)
-        .join("  ·  ") + "  cm",
+        .join("  ·  ") + "  mm",
       8.5,
       { anchor: "middle", fill: DCOL.muted }
     )

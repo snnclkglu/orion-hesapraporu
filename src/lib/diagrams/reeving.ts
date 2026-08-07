@@ -14,6 +14,7 @@ export interface ReevingParams {
   totalFalls: number;     // toplam halat sayısı
   drumDiaMm?: number;     // tambur çapı (etiket)
   loadKg?: number;        // toplam yük Gt (kanca yükü oku etiketi)
+  capacityT?: number;     // kaldırılan yükün tonajı Q [t]
 }
 
 const W = 660;
@@ -149,8 +150,16 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   });
   const yArrow0 = yHook + 34;
   loadArrow(els, cx, yArrow0, yArrow0 + 40);
-  els.push(txt(cx + 10, yArrow0 + 28, `Gt = ${fmtN(p.loadKg)} kg`, 10, {
-    fill: DCOL.accent, bold: true,
+  // Kaldırılan yükün TONAJI önce yazılır: şemaya bakan mühendis hangi yükün
+  // kaldırıldığını görmeden halat kuvvetini okumamalıdır. Gt bunun altında
+  // kanca bloğu ve halat ağırlığını da içeren toplam yüktür.
+  if (p.capacityT !== undefined && Number.isFinite(p.capacityT)) {
+    els.push(txt(cx + 10, yArrow0 + 16, `YÜK  Q = ${fmtN(p.capacityT, 2)} t`, 10.5, {
+      fill: DCOL.accent, bold: true,
+    }));
+  }
+  els.push(txt(cx + 10, yArrow0 + 31, `Gt = ${fmtN(p.loadKg)} kg`, 9.5, {
+    fill: DCOL.accent,
   }));
 
   return fitDiagram(els, W, H);

@@ -9,7 +9,7 @@
 // Yalnız tek varyantta üretilen satırlar `variant` ile işaretlenir; sunum
 // adaptörü bunları diğer varyantta eler.
 
-import { travelSpecView } from "../modules/travelGroup";
+import { travelBufferType, travelSpecView } from "../modules/travelGroup";
 import type {
   TravelDeps,
   TravelInputs,
@@ -38,6 +38,11 @@ export interface TravelRowDef {
   unit?: string;
   digits?: number;
   standard?: string;
+  /**
+   * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur (bkz. fields.ts
+   * `withDiameterSign`). Arayüz ve PDF aynı bayrağı okur.
+   */
+  diameter?: true;
   /** Satır yalnız bu varyantta üretilir; diğerinde gösterilmez */
   variant?: TravelWhich;
 }
@@ -48,6 +53,12 @@ export interface TravelSectionDef {
   description?: string;
   /** Sadece köprü varyantında gösterilir (yürütme freni bölümü) */
   bridgeOnly?: boolean;
+  /**
+   * Bölüm yalnız bu koşul sağlanınca gösterilir (kaldırma tarafındaki
+   * `HoistSectionDef.visible` deseniyle aynı). Tampon bölümü, teknik
+   * özelliklerde o grup için tampon seçilmişse görünür.
+   */
+  visible?: (specs: TechnicalSpecs, which: TravelWhich) => boolean;
   inputKeys: (keyof TravelInputs & string)[];
   selectionKeys: (keyof TravelSelections & string)[];
   rows: TravelRowDef[];
@@ -178,8 +189,14 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.2",
     title: "Teker Mili",
     description:
-      "Teker mili, tekerlek yükü açıklığın ortasına etkiyen iki mesnetli kiriş olarak çözülür; kesit kuvvetleri dairesel kesitte gerilmeye çevrilir.",
-    inputKeys: ["shaftSpanACm", "shaftSpanBCm", "shaftDiaCm", "stressConcFactor"],
+      "Teker mili iki rulman arasında basit kiriş olarak çözülür. Teker yükü " +
+      "mile bir çizgi üzerinden değil bandaj genişliği boyunca YAYILI aktarılır " +
+      "(q = Pmaks / b_teker, bant açıklığın ortasında); bu, momentin tepesini " +
+      "q·b_t²/8 kadar düşürür. Teker genişliği girilmezse yük tekil kabul " +
+      "edilir. Kesit kuvvetleri dairesel kesitte gerilmeye çevrilir.",
+    inputKeys: [
+      "shaftSpanACm", "shaftSpanBCm", "shaftDiaCm", "wheelWidthMm", "stressConcFactor",
+    ],
     selectionKeys: ["shaftMaterial"],
     rows: [
       {
@@ -188,9 +205,27 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         subst: (x) => `${n(x.v.maxWheelLoadKg)} / 2`, unit: "kg",
       },
       {
+        key: "shaft.loadBand", label: "Yük Bandı (teker genişliği)",
+        formula: "b_t = teker genişliği / 10   (0 → tekil yük)",
+        subst: (x) => `${n(x.inp.wheelWidthMm ?? 0)} / 10`, unit: "cm",
+      },
+      {
+        key: "shaft.loadIntensity", label: "Yayılı Yük Şiddeti",
+        formula: "q = Pmaks / b_t",
+        subst: (x) =>
+          x.v.shaftLoadBandCm > 0
+            ? `${n(x.v.maxWheelLoadKg)} / ${n(x.v.shaftLoadBandCm)}`
+            : "tekil yük — yayılı yük yok",
+        unit: "kg/cm",
+      },
+      {
         key: "shaft.maxMoment", label: "Maksimum Moment Mmaks",
-        formula: "M = R_A · a",
-        subst: (x) => `${n(x.v.reactionAKg)} · ${n(x.inp.shaftSpanACm)}`, unit: "kg·cm",
+        formula: "M = R_A · a − q · b_t² / 8",
+        subst: (x) =>
+          x.v.shaftLoadBandCm > 0
+            ? `${n(x.v.reactionAKg)} · ${n(x.inp.shaftSpanACm)} − ${n(x.v.shaftLoadIntensityKgPerCm)} · ${n(x.v.shaftLoadBandCm)}² / 8`
+            : `${n(x.v.reactionAKg)} · ${n(x.inp.shaftSpanACm)}`,
+        unit: "kg·cm",
       },
       {
         key: "shaft.sectionModulus", label: "Kesit Modülü W",
@@ -431,7 +466,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         unit: "Nm",
       },
       {
-        key: "motorCoupling.shaftDia", label: "Bağlanacak Mil Çapı",
+        key: "motorCoupling.shaftDia", label: "Bağlanacak Mil Çapı", diameter: true,
         formula: "d = d_motor mili",
         subst: (x) => `${n(x.v.motorCouplingShaftMm)}`,
         unit: "mm",
@@ -471,65 +506,138 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.8",
     title: "Tampon",
     description:
-      "Çarpma enerjisi + yürütme enerjisi ile tampon seçimi. Köprüde çarpışan kütle eksantriktir ve çarpma hızı nominal hızın %70'i alınır.",
-    inputKeys: ["bufferApproachM"],
-    selectionKeys: ["bufferModel", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn"],
+      "Çarpma enerjisi + tahrik enerjisi ile tampon seçimi (FEM 1.001 md. " +
+      "2.2.3.4.1). Çarpışan kütleye salınabilen yük DAHİL DEĞİLDİR; kütle aynı " +
+      "anda temas eden tamponlara paylaşılır. Köprüde araba eksantriktir. " +
+      "Tampon tipi (hidrolik / kauçuk) teknik özelliklerden gelir ve hesap " +
+      "dalını belirler. Tepki kuvveti yapıya YÜKLEME DURUMU III olarak teslim " +
+      "edilir; köprüde bu değeri teker yükleri bölümü yol kirişi yüklerine " +
+      "taşır (FEM Kitapçık 9 md. 9.4.2 eşiğinin üstündeyse).",
+    // Bölüm yalnız o grupta tampon seçilmişse görünür (teknik özellikler).
+    visible: (specs, which) => travelBufferType(specs, which) !== "yok",
+    inputKeys: [
+      "bufferApproachM", "bufferCount", "bufferLoadRigidlyGuided",
+      "bufferFrequentEndApproach",
+    ],
+    selectionKeys: [
+      "bufferModel", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
+      "bufferMeteringPinCode", "bufferDesignMassMaxT", "bufferMaxCompressionPct",
+    ],
     rows: [
       {
-        key: "buffer.collisionLoad", label: "Çarpışma Yükü We1",
-        formula: "We1 = G_araba  (köprüde: G_köprü/2 + G_araba·(L−y)/L)",
-        subst: (x) =>
-          x.which !== "bridge"
-            ? `${n(num(x.c["weight.trolley"]))}`
-            : `${n(x.specs.bridgeWeightT)}/2 + ${n(x.deps.trolleyWeightT)}·(${n(x.specs.spanM)} − ${n(x.inp.bufferApproachM)})/${n(x.specs.spanM)}`,
-        unit: "t",
+        key: "buffer.impactSpeedRatio", label: "Çarpma Hızı Oranı k",
+        formula: "k = teknik özelliklerden (FEM 1.001 2.2.3.4.1: 0,7)",
+        subst: (x) => `${n(x.v.bufferImpactSpeedRatio, 2)}`,
+        standard: "FEM 1.001 2.2.3.4.1", digits: 2,
       },
       {
-        key: "buffer.impactEnergy", label: "Çarpma Enerjisi",
-        formula: "E_ç = 0,5 · We1 · (v/60)²  (köprüde v yerine 0,7·v)",
+        key: "buffer.impactSpeed", label: "Çarpma Hızı v_ç",
+        formula: "v_ç = (v/60) · k",
+        subst: (x) => `(${n(x.v.actualSpeedMpm)}/60) · ${n(x.v.bufferImpactSpeedRatio, 2)}`,
+        unit: "m/s", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
+      },
+      {
+        key: "buffer.collisionLoad", label: "Tampon Başına Çarpışan Kütle m_t",
+        formula:
+          "m_t = G_araba / n  (köprüde: [G_köprü/2 + G_araba·(L−y)/L] / (n/2))",
         subst: (x) =>
           x.which !== "bridge"
-            ? `0,5 · ${n(x.v.collisionLoadT)} · (${n(x.v.actualSpeedMpm)}/60)²`
-            : `0,5 · ${n(x.v.collisionLoadT)} · (0,7·${n(x.v.actualSpeedMpm)}/60)²`,
+            ? `${n(num(x.c["weight.trolley"]))} / ${n(num(x.c["buffer.count"]))}`
+            : `[${n(x.specs.bridgeWeightT)}/2 + ${n(x.deps.trolleyWeightT)}·(${n(x.specs.spanM)} − ${n(x.inp.bufferApproachM)})/${n(x.specs.spanM)}] / ${n(Math.max(1, num(x.c["buffer.count"]) / 2))}`,
+        unit: "t", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
+      },
+      {
+        key: "buffer.impactEnergy", label: "Çarpma Enerjisi E_kin",
+        formula: "E_kin = 0,5 · m_t · v_ç²",
+        subst: (x) =>
+          `0,5 · ${n(x.v.collisionLoadT, 3)} · ${n(x.v.bufferImpactSpeedMps, 3)}²`,
         unit: "kJ", digits: 3,
       },
       {
-        key: "buffer.driveForcePerMotor", label: "Yürütme Yükü / Motor D''",
-        formula: "D'' = P · i · 9550 / n",
+        key: "buffer.driveForcePerMotor", label: "Motor Başına Tahrik Kuvveti F₀″",
+        formula: "F₀ = P[W] / v[m/s]   (= T_çıkış / r_teker)",
         subst: (x) =>
-          `${n(x.which !== "bridge" ? x.v.requiredPowerPerMotorKw : x.sel.motorPowerKw)} · ${n(x.sel.gearboxRatio)} · 9550 / ${n(x.sel.motorRpm)}`,
-        unit: "N",
+          `${n(num(x.c["buffer.drivePower"]) * 1000)} / (${n(x.v.actualSpeedMpm)}/60)`,
+        unit: "N", digits: 1,
       },
       {
-        key: "buffer.totalDriveForce", label: "Toplam Yürütme Yükü D'",
-        formula: "D' = D'' · motor sayısı",
-        subst: (x) => `${n(x.v.driveLoadPerMotorN)} · ${n(x.sel.motorCount)}`, unit: "N",
+        key: "buffer.totalDriveForce", label: "Toplam Tahrik Kuvveti F₀′",
+        formula: "F₀′ = F₀″ · motor sayısı",
+        subst: (x) => `${n(x.v.driveLoadPerMotorN, 1)} · ${n(x.sel.motorCount)}`,
+        unit: "N", digits: 1,
       },
       {
-        key: "buffer.driveForcePerBuffer", label: "Tampon Başına Yürütme Yükü",
-        formula: "D = D' / 2",
-        subst: (x) => `${n(x.v.totalDriveLoadN)} / 2`, unit: "N",
+        key: "buffer.driveForcePerBuffer", label: "Tampon Başına Tahrik Kuvveti F₀",
+        formula: "F₀ = F₀′ / n",
+        subst: (x) => `${n(x.v.totalDriveLoadN, 1)} / ${n(num(x.c["buffer.count"]))}`,
+        unit: "N", digits: 1,
       },
       {
-        key: "buffer.driveEnergy", label: "Yürütme Enerjisi D·s",
-        formula: "E_d = D · s / 10⁶",
-        subst: (x) => `${n(x.v.bufferDriveLoadN)} · ${n(x.sel.bufferStrokeMm)} / 10⁶`,
+        key: "buffer.strokeUsed", label: "Sıkışma Yolu f′",
+        formula: "hidrolik: f′ = s · kauçuk: f′ = sıkışma % · h / 100",
+        subst: (x) =>
+          x.v.bufferType === "kaucuk"
+            ? `${n(x.v.bufferCompressionPct, 1)} % · ${n(x.sel.bufferStrokeMm)} / 100`
+            : `${n(x.sel.bufferStrokeMm)}`,
+        unit: "mm", digits: 1,
+      },
+      {
+        key: "buffer.driveEnergy", label: "Tahrik Enerjisi E_pot",
+        formula: "E_pot = F₀ · f′ / 10⁶",
+        subst: (x) => `${n(x.v.bufferDriveLoadN, 1)} · ${n(x.v.bufferStrokeUsedMm, 1)} / 10⁶`,
         unit: "kJ", digits: 4,
       },
       {
-        key: "buffer.totalEnergy", label: "Toplam Sönümlenmesi Gereken Enerji",
-        formula: "E = E_d + E_ç",
-        subst: (x) => `${n((x.v.bufferDriveLoadN * x.sel.bufferStrokeMm) / 1e6, 4)} + ${n(x.v.impactEnergyKj, 3)}`,
-        unit: "kJ", digits: 3,
+        key: "buffer.totalEnergy", label: "Sönümlenmesi Gereken Toplam Enerji E_a",
+        formula: "E_a = E_kin + E_pot",
+        subst: (x) => `${n(x.v.impactEnergyKj, 3)} + ${n(x.v.bufferDriveEnergyKj, 4)}`,
+        unit: "kJ", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
       },
       {
-        key: "buffer.reactionForce", label: "Tampon Yükü",
-        formula: "F_t = E / (s/1000) / 0,8 + D/1000",
+        key: "buffer.compression", label: "Gerçekleşen Sıkışma",
+        formula: "kauçuk: enerji–sıkışma eğrisinden (E_a → %)",
         subst: (x) =>
-          `${n(x.v.totalEnergyKj, 3)} / (${n(x.sel.bufferStrokeMm)}/1000) / 0,8 + ${n(x.v.bufferDriveLoadN)}/1000`,
-        unit: "kN",
+          x.v.bufferType === "kaucuk"
+            ? `eğri(${n(x.v.totalEnergyKj * 1000, 1)} J)`
+            : "tam strok",
+        unit: "%", digits: 1,
+      },
+      {
+        key: "buffer.reactionForce", label: "Tampon Tepki Kuvveti F_t",
+        formula:
+          "hidrolik: F_t = E_a / (s · η) + F₀/1000, η = 0,85 · " +
+          "kauçuk: F_t = kuvvet eğrisi(sıkışma %) + F₀/1000",
+        subst: (x) =>
+          x.v.bufferType === "kaucuk"
+            ? `eğri(${n(x.v.bufferCompressionPct, 1)} %) + ${n(x.v.bufferDriveLoadN, 1)}/1000`
+            : `${n(x.v.totalEnergyKj, 3)} / (${n(x.v.bufferStrokeUsedMm)}/1000 · 0,85) + ${n(x.v.bufferDriveLoadN, 1)}/1000`,
+        unit: "kN", digits: 2,
+      },
+      {
+        key: "buffer.avgDeceleration", label: "Ortalama Yavaşlama a_ort",
+        formula: "a_ort = v_ç² / (2 · f′)",
+        subst: (x) =>
+          `${n(x.v.bufferImpactSpeedMps, 3)}² / (2 · ${n(x.v.bufferStrokeUsedMm / 1000, 3)})`,
+        unit: "m/s²", digits: 2, standard: "FEM 1.001 7.7.1.2",
+      },
+      {
+        key: "buffer.maxDeceleration", label: "Azami Yavaşlama a_maks",
+        formula: "a_maks = (F_t − F₀) / m_t   (tahrik itmesi yavaşlatmaz)",
+        subst: (x) =>
+          `(${n(x.v.bufferForceKn * 1000, 0)} − ${n(x.v.bufferDriveLoadN, 0)}) / ${n(x.v.collisionLoadT * 1000, 0)}`,
+        unit: "m/s²", digits: 2, standard: "FEM 1.001 7.7.1.2",
+      },
+      {
+        key: "buffer.designMass", label: "Kısma İğnesi Tasarım Kütlesi",
+        formula: "m_a = m_t (tampon başına)",
+        subst: (x) => `${n(x.v.collisionLoadT, 3)}`,
+        unit: "t", digits: 3,
       },
     ],
-    checkSuffixes: ["buffer.energy", "buffer.load"],
+    checkSuffixes: [
+      "buffer.energy", "buffer.load", "buffer.compression",
+      "buffer.deceleration", "buffer.designMass", "buffer.speedThreshold",
+      "buffer.scope",
+    ],
   },
 ];

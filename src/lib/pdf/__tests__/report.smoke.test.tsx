@@ -56,8 +56,11 @@ describe("hesap raporu PDF duman testi", () => {
 
   it("her bölümün başlangıç sayfası toplanır (içindekiler sayfa numarası basabilsin)", async () => {
     const pageOf: Record<string, number> = {};
+    // Üretimdeki (renderReportPdf) kuralın AYNISI: son yazan kazanır. react-pdf
+    // sayfa bölerken dinamik düğümleri her aday sayfa için yeniden çalıştırır;
+    // kesin numara yerleşim bittikten sonraki son geçişten gelir.
     const collect = (anchor: string, page: number) => {
-      if (pageOf[anchor] === undefined || page < pageOf[anchor]) pageOf[anchor] = page;
+      pageOf[anchor] = page;
     };
     await renderToBuffer(<ReportDocument {...props} collect={collect} />);
 
@@ -74,5 +77,27 @@ describe("hesap raporu PDF duman testi", () => {
     const sirali = ["main", "hookBlock", "aux", "trolley", "bridge", "girder", "buckling", "endCarriage"]
       .map((k) => pageOf[`bolum-${k}`]);
     expect([...sirali].sort((a, b) => a - b)).toEqual(sirali);
+  }, 240_000);
+
+  // ---- madde 24: kontrol özeti belgenin EN SONUNDA, sayfa numaralarıyla
+  it("kontrol özeti en sondadır ve her hesap bölümünün sayfası toplanır", async () => {
+    const pageOf: Record<string, number> = {};
+    const collect = (anchor: string, page: number) => {
+      pageOf[anchor] = page;
+    };
+    await renderToBuffer(<ReportDocument {...props} collect={collect} />);
+
+    const sectionPages = Object.entries(pageOf).filter(([a]) => a.startsWith("sec-"));
+    // Bölüm başına çapa gerçekten kuruluyor mu (kontrol satırının sol sütunu
+    // bu çapadan besleniyor)
+    expect(sectionPages.length).toBeGreaterThan(20);
+
+    const kontroller = pageOf["bolum-kontroller"];
+    expect(kontroller).toBeDefined();
+    // Kontrol özeti bütün hesap bölümlerinden SONRA gelir
+    for (const [anchor, page] of sectionPages) {
+      expect(page, `${anchor} kontrol özetinden önce olmalı`).toBeLessThanOrEqual(kontroller);
+    }
+    expect(kontroller).toBeGreaterThan(pageOf["bolum-endCarriage"]);
   }, 240_000);
 });

@@ -28,7 +28,7 @@ const HOIST_ANCHORS: AnchorMap = {
     "shaft.stress": "drumShaft.allowableCombined",
   },
   "2.2.4": { "drumWeld.stress": "drumWeld.combinedStress" },
-  "2.2.5": { "shaftWeld.stress": "shaftWeld.shearStress" },
+  "2.2.5": { "shaftWeld.stress": "shaftWeld.combinedStress" },
   "2.2.6": {
     "bearing.static": "drumBearing.staticSafety",
     "bearing.life": "drumBearing.requiredLifeMin",
@@ -106,6 +106,12 @@ const TRAVEL_ANCHORS: AnchorMap = {
   "5.8": {
     "buffer.energy": "buffer.totalEnergy",
     "buffer.load": "buffer.reactionForce",
+    "buffer.compression": "buffer.compression",
+    "buffer.deceleration": "buffer.maxDeceleration",
+    "buffer.designMass": "buffer.designMass",
+    // Eşik ve kapsam bilgilendirmeleri bölümün girişindeki hız satırına bağlanır
+    "buffer.speedThreshold": "buffer.impactSpeed",
+    "buffer.scope": "buffer.impactSpeedRatio",
   },
 };
 

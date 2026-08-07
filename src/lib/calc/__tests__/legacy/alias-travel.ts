@@ -31,11 +31,10 @@ export const TROLLEY_ALIASES: AliasMap = {
   // --- Teker mili
   L46: "shaft.reactionA",
   L47: "shaft.reactionB",
-  L51: "shaft.maxMoment",
+  // L51 / L61 / L69 eşlenmez — TROLLEY_SAPMA'da gerekçelendirildi
+  // (teker yükünün bandaj genişliği boyunca YAYILI çözülmesi).
   L56: "shaft.sectionModulus",
-  L61: "shaft.bendingStress",
   L65: "shaft.shearStress",
-  L69: "shaft.combinedStress",
   L73: "shaft.allowableBending",
   L74: "shaft.allowableShear",
   L75: "shaft.allowableCombined",
@@ -90,15 +89,9 @@ export const TROLLEY_ALIASES: AliasMap = {
   L183: "wheelCoupling.actualSafety",
 
   // --- Tampon
-  L189: "buffer.collisionLoad",
-  L191: "buffer.impactEnergy",
+  // L189 / L191 / L197 / L200 / L202 / L205 / L207 / L211 eşlenmez —
+  // TROLLEY_SAPMA'da gerekçelendirildi (tampon başına kütle + birim düzeltmesi).
   L194: "buffer.drivePower",
-  L197: "buffer.driveForcePerMotor",
-  L200: "buffer.totalDriveForce",
-  L202: "buffer.driveForcePerBuffer",
-  L205: "buffer.driveEnergy",
-  L207: "buffer.totalEnergy",
-  L211: "buffer.reactionForce",
 };
 
 /** Köprü yürütme dökümü → motorun semantik anahtarları (aynı anahtar kümesi) */
@@ -125,11 +118,10 @@ export const BRIDGE_ALIASES: AliasMap = {
   // --- Teker mili
   L50: "shaft.reactionA",
   L51: "shaft.reactionB",
-  L55: "shaft.maxMoment",
+  // L55 / L65 / L73 eşlenmez — BRIDGE_SAPMA'da gerekçelendirildi
+  // (teker yükünün bandaj genişliği boyunca YAYILI çözülmesi).
   L60: "shaft.sectionModulus",
-  L65: "shaft.bendingStress",
   L69: "shaft.shearStress",
-  L73: "shaft.combinedStress",
   L77: "shaft.allowableBending",
   L78: "shaft.allowableShear",
   L79: "shaft.allowableCombined",
@@ -191,12 +183,8 @@ export const BRIDGE_ALIASES: AliasMap = {
   L205: "buffer.collisionLoad",
   L207: "buffer.impactEnergy",
   L210: "buffer.drivePower",
-  L213: "buffer.driveForcePerMotor",
-  L216: "buffer.totalDriveForce",
-  L218: "buffer.driveForcePerBuffer",
-  L221: "buffer.driveEnergy",
-  L223: "buffer.totalEnergy",
-  L227: "buffer.reactionForce",
+  // L213 / L216 / L218 / L221 / L223 / L227 eşlenmez — BRIDGE_SAPMA'da
+  // gerekçelendirildi (tahrik kuvveti birim düzeltmesi + sönümleme verimi).
 };
 
 /**
@@ -272,11 +260,123 @@ export const BRIDGE_KAPSAM_DISI: Record<string, string> = {
  * Bilinçli SAYISAL sapmalar: eski değerden ayrılan hücreler ve gerekçeleri.
  * Bu hücreler karşılaştırmadan çıkarılır.
  *
- * Yürütme grubunda 1e-4 göreli tolerans içinde kalmayan bilinçli bir sapma
- * YOKTUR. Yöntem iyileştirmeleri (π'nin tam hassasiyetle kullanılması, kiriş
+ * Yürütme grubundaki TEK sapma kaynağı teker mili kirişinin yükleme modelidir:
+ * eski tablo teker yükünü mile TEKİL kuvvet olarak veriyordu, uygulama ise
+ * yükü tekerin bandaj genişliği boyunca YAYILI çözer (bkz. travelGroup.ts).
+ * Diğer yöntem iyileştirmeleri (π'nin tam hassasiyetle kullanılması, kiriş
  * statiğinin ortak çözücüye taşınması, sürtünme katsayısı tablosunun kademe
- * sınırlarıyla yazılması) hiçbir V5 değerini tolerans dışına taşımaz; bu
- * yüzden hepsi karşılaştırma kapsamında kalır.
+ * sınırlarıyla yazılması) hiçbir V5 değerini tolerans dışına taşımaz.
  */
-export const TROLLEY_SAPMA: Record<string, string> = {};
-export const BRIDGE_SAPMA: Record<string, string> = {};
+
+/**
+ * Yayılı yük sapmasının ortak gerekçesi.
+ *
+ * Teker göbeği mile bir ÇİZGİ üzerinden basmaz; yük bandaj genişliği kadar bir
+ * BANT boyunca aktarılır. Bant açıklığın ortasında merkezlendiğinde mesnet
+ * tepkileri (Pmaks/2) ve maksimum kesme kuvveti AYNI kalır, yalnız açıklık
+ * ortasındaki moment q·b_t²/8 = Pmaks·b_t/8 kadar KÜÇÜLÜR — moment
+ * diyagramının sivri tepesi düzleşir. Sapmanın yönü bu yüzden her zaman
+ * AZALTICIDIR ve fizik olarak doğrudur; eski tablo mili gereğinden kalın
+ * boyutlandırıyordu. Teker genişliği girilmemiş (eski) revizyonlarda tekil yük
+ * modeline geri dönülür ve o revizyonların sayıları değişmez.
+ */
+const WHEEL_WIDTH_SAPMA =
+  "Teker yükü artık bandaj genişliği boyunca YAYILI çözülüyor (tekil kuvvet " +
+  "yerine q = Pmaks / b_teker, bant açıklığın ortasında). Mesnet tepkileri ve " +
+  "kesme kuvveti değişmez; açıklık ortasındaki moment Pmaks·b_teker/8 kadar " +
+  "AZALIR.";
+
+/**
+ * Tampon hesabının üç sapma kaynağı (hepsi `calc/buffer.ts`te uygulanır).
+ *
+ * 1) TAHRİK KUVVETİ BİRİM HATASI. Eski tablo 9550·P/n·i ile MOTORUN ÇIKIŞ
+ *    MOMENTİNİ (Nm) hesaplayıp onu doğrudan KUVVET (N) yerine kullanıyordu;
+ *    yani teker yarıçapını örtük olarak 1 m alıyordu. Doğrusu F₀ = P[W] / v[m/s]
+ *    (= T_çıkış / r_teker). Düzeltmenin çarpanı 1/r'dir: araba tekeri Ø250 mm →
+ *    ×8,00; köprü tekeri Ø315 mm → ×6,349.
+ * 2) SÖNÜMLEME VERİMİ 0,80 → 0,85. SIBRE SP kataloğu (M 1501 486 E-EN-2021-11,
+ *    s. 18) son kuvvetlerini η = 0,85 ile basar ve bunu açıkça yazar; eski
+ *    tablonun 0,80'i kaynaksızdı. Aynı enerjide kuvveti %5,9 DÜŞÜRÜR.
+ * 3) TAMPON BAŞINA KÜTLE. Çarpışan kütle aynı anda temas eden tamponlara
+ *    paylaşılır. Köprüde eski tablo bunu zaten yapıyordu (G_köprü/2 + araba
+ *    payı = bir tampona gelen kütle); ARABADA yapmıyor, arabanın TAMAMINI tek
+ *    tampona yüklüyordu. Araba iki kirişin ucundaki iki durdurucuya aynı anda
+ *    çarptığı için doğrusu m/2'dir.
+ */
+export const TROLLEY_SAPMA: Record<string, string> = {
+  L189:
+    "Tampon başına çarpışan kütle. Araba iki kirişin ucundaki İKİ durdurucuya " +
+    "aynı anda çarpar; kütle iki tampona paylaşılır (FEM 1.001 md. 2.2.3.4.1, " +
+    "tampon adedi girdisi n = 2). Eski tablo arabanın tamamını tek tampona " +
+    "yüklüyordu: 2,50 → 1,25 t (−50,0 %).",
+  L191:
+    "Çarpma enerjisi E = ½·m_t·v_ç². Yalnız kütle yarıya indiği için enerji de " +
+    "yarıya iner: 0,5578 → 0,2789 kJ (−50,0 %). Çarpma hızı oranı k = 1,00 " +
+    "(araba) DEĞİŞMEDİ.",
+  L197:
+    "Motor başına tahrik kuvveti — BİRİM DÜZELTMESİ (yukarıdaki 1. madde). " +
+    "Ø250 mm teker, r = 0,125 m: 261,80 N → 2.094,26 N (×8,00).",
+  L200:
+    "Toplam tahrik kuvveti — L197'nin motor adediyle çarpımı; aynı ×8,00 " +
+    "birim düzeltmesi: 261,80 → 2.094,26 N.",
+  L202:
+    "Tampon başına tahrik kuvveti (toplam / 2): 130,90 → 1.047,13 N (×8,00).",
+  L205:
+    "Tahrik enerjisi E_pot = F₀·f′. Kuvvetle doğru orantılı: " +
+    "0,01309 → 0,10471 kJ (×8,00).",
+  L207:
+    "Toplam sönümlenmesi gereken enerji E_a = E_kin + E_pot. İki karşıt etki " +
+    "birleşir: kinetik enerji yarıya iner (−0,2789), tahrik enerjisi sekize " +
+    "katlanır (+0,0916). Net: 0,5709 → 0,3836 kJ (−32,8 %).",
+  L211:
+    "Tampon tepki kuvveti F_t = E_a/(s·η) + F₀. Üç etkinin bileşkesi: kütle " +
+    "yarılanması ve η = 0,85 düşürücü, birim düzeltmesi artırıcıdır. " +
+    "7,268 → 5,560 kN (−23,5 %).",
+  L51:
+    `Teker mili maksimum eğilme momenti. ${WHEEL_WIDTH_SAPMA} ` +
+    "Araba tekeri b = 90 mm: 9.062,5 → 6.250 kg·cm (−31,0 %).",
+  L61:
+    "Teker mili eğilme gerilmesi — L51'deki moment düşüşünün doğrudan " +
+    "sonucudur (kesit modülü ve gerilme yığılması katsayısı değişmedi). " +
+    "69,35 → 47,83 kg/cm² (−31,0 %).",
+  L69:
+    "Teker mili bileşik gerilmesi √(σ² + 3τ²). Yalnız eğilme bileşeni " +
+    "küçüldü; kesme gerilmesi (L65) aynı kaldığı için düşüş daha ılımlıdır: " +
+    "73,00 → 52,98 kg/cm² (−27,4 %). Sapma EMNİYETLİ tarafta değil, " +
+    "GERÇEKÇİ taraftadır — eski değer aşırı ihtiyatlıydı.",
+};
+
+export const BRIDGE_SAPMA: Record<string, string> = {
+  // Köprüde ÇARPIŞAN KÜTLE ve ÇARPMA ENERJİSİ DEĞİŞMEDİ (L205 / L207 hâlâ
+  // eşlenir): eski tablonun G_köprü/2 + G_araba·(L−y)/L bağıntısı zaten BİR
+  // tampona gelen payı veriyordu ve çarpma hızı oranı k = 0,70'tir.
+  L213:
+    "Motor başına tahrik kuvveti — BİRİM DÜZELTMESİ (bkz. TROLLEY_SAPMA " +
+    "başlığı, 1. madde). Ø315 mm teker, r = 0,1575 m: " +
+    "464,59 N → 2.949,59 N (×6,349).",
+  L216:
+    "Toplam tahrik kuvveti (2 motor): 929,19 → 5.899,18 N (×6,349).",
+  L218:
+    "Tampon başına tahrik kuvveti (toplam / 2): 464,59 → 2.949,59 N (×6,349).",
+  L221:
+    "Tahrik enerjisi E_pot = F₀·f′: 0,04646 → 0,29496 kJ (×6,349).",
+  L223:
+    "Toplam enerji E_a = E_kin + E_pot. Kinetik enerji (2,7155 kJ) değişmedi; " +
+    "yalnız tahrik enerjisi büyüdü: 2,7620 → 3,0105 kJ (+9,00 %).",
+  L227:
+    "Tampon tepki kuvveti F_t = E_a/(s·η) + F₀. Birim düzeltmesi kuvveti " +
+    "+16,0 % büyütür, η = 0,80 → 0,85 ise −5,9 % küçültür; net etki " +
+    "34,989 → 38,367 kN (+9,65 %). Bu kuvvet yol kirişine YÜKLEME DURUMU III " +
+    "olarak teslim edilir (`modules/wheelLoads.ts`), dolayısıyla köprü tampon " +
+    "tepkisi yapı hesabında da %9,65 artar.",
+  L55:
+    `Teker mili maksimum eğilme momenti. ${WHEEL_WIDTH_SAPMA} ` +
+    "Köprü tekeri b = 100 mm: 27.428,57 → 18.285,71 kg·cm (−33,3 %).",
+  L65:
+    "Teker mili eğilme gerilmesi — L55'teki moment düşüşünün doğrudan " +
+    "sonucudur. 101,82 → 67,88 kg/cm² (−33,3 %).",
+  L73:
+    "Teker mili bileşik gerilmesi √(σ² + 3τ²). Kesme gerilmesi (L69) " +
+    "değişmediğinden düşüş eğilmeninkinden azdır: 109,82 → 79,38 kg/cm² " +
+    "(−27,7 %).",
+};

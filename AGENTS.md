@@ -22,7 +22,7 @@ dayandırır:
   güncellenen dinamik katsayı φ2 (md. 9.3) ve savrulma modeli (md. 9.4.1)
 - **DIN 15018** — çelik yapı yorulması (Tablo 17/18, Tablo 2 dinamik katsayı)
 - **DIN 15400 / 15401 / 15402** — kanca taşıma kapasiteleri
-- **DIN 15061** — halat oluğu adımı
+- **DIN 15061** — halat yivi adımı
 - **CMAA 70** — motor gücü, mil gerilmeleri, sehim sınırı
 
 **Excel'e bakarak kod yazma.** Yeni bir hesap eklerken kaynak standardın
@@ -127,6 +127,26 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **Sapma (belgelenmiş):** µ' (yakın rayın yük payı) araba kolundan değil
     DÜŞEY TEKER YÜKLERİNDEN türetilir — köprünün kendi ağırlığı iki raya eşit
     dağıldığından (l−e)/l yük payına eşit değildir. Gerekçe modül başlığında.
+
+13. **Katalog ürünü kullanım grubuna bağlıdır.** Bir redüktör ya kaldırma ya
+    yürütme tahrikidir; `cat_equipment.attrs.application` (`kaldirma` |
+    `yurutme`) bunu taşır. Bölümün katalog eşlemesindeki
+    `lockedFacets` seçiciyi o gruba KİLİTLER (sunucu tarafında
+    `attrs->>application`): 2.3 kaldırma redüktörü yürütme ürünü, 5.5 yürütme
+    redüktörü kaldırma ürünü göstermez. Kilitli süzgeç adım listesinden çıkar,
+    başlıkta rozet olur; kullanıcı değiştiremez.
+
+    Katalog verisi `catalog_data/*.json` → `scripts/seed-catalog.ts` →
+    migration yolunu izler. **Uygulanmış bir seed migration'ı düzenlenmez**;
+    `--kinds <tür> --out <yeni_dosya>` ile o türü silip yeniden yazan bir
+    yenileme migration'ı üretilir. YILMAZ redüktör kataloglarının PDF'ten
+    çıkarımı `scripts/catalog-extract/` altındadır (yöntem ve doğrulama durumu
+    kendi README'sinde).
+
+    **Eşleme sessizce eksik doldurur:** `applyCatalogPick` katalogda karşılığı
+    olmayan alanı atlar ve eski değer kalır. Engelleyici bir kontrolü besleyen
+    alan (ör. `gearboxAllowedRadialKn`) bu yüzden koruma testine bağlıdır —
+    `src/lib/__tests__/catalog-mapping.test.ts`.
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki

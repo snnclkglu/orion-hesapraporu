@@ -58,21 +58,14 @@ export const HOIST_ALIASES: AliasMap = {
   // --- 2.2.4 Tambur kaynağı
   L98: "drumWeld.length",
   L100: "drumWeld.throatArea",
-  L103: "drumWeld.outerDia",
-  L105: "drumWeld.area",
-  L106: "drumWeld.polarModulus",
-  L107: "drumWeld.torsionStress",
-  L108: "drumWeld.shearStress",
-  L109: "drumWeld.combinedStress",
+  // L103 / L105 / L106 / L107 / L108 / L109 eşlenmez — HOIST_SAPMA'da
+  // gerekçelendirildi (taşıyıcı kesit BOĞAZ alanıdır; izdüşüm halka alanı ve
+  // ona dayanan büyüklükler motorda artık yoktur).
 
   // --- 2.2.5 Mil kaynağı
   L114: "shaftWeld.length",
   L116: "shaftWeld.throatArea",
-  L119: "shaftWeld.outerDia",
-  L121: "shaftWeld.area",
-  L122: "shaftWeld.polarModulus",
-  L124: "shaftWeld.shearStress",
-  L125: "shaftWeld.shearStress",
+  // L119 / L121 / L122 / L124 / L125 eşlenmez — HOIST_SAPMA (aynı gerekçe).
 
   // --- 2.2.6 Tambur rulmanı
   L130: "drumBearing.radialLoad",
@@ -194,4 +187,27 @@ export const HOIST_SAPMA: Record<string, string> = {
     "Mil bileşik gerilmesi √(σ² + τ²). Kesme gerilmesindeki 1,33 → 4/3 " +
     "düzeltmesinin doğrudan sonucudur. Ana kaldırma: 1207,39 → 1207,55 kg/cm²; " +
     "yardımcı kaldırma: 497,45 → 497,52 kg/cm².",
+  L106:
+    "Tambur kaynağının burulma direnç momenti Wp. Eski tablo π(D⁴−d⁴)/32 " +
+    "yazıyordu; bu bağıntı polar ATALET MOMENTİ Ip'dir (cm⁴) ve mukavemet " +
+    "momenti (cm³) yerine kullanılamaz — boyut hatasıdır. Doğrusu " +
+    "Wp = Ip / (D_dış/2) = π(D⁴−d⁴)/(16·D_dış). Eski değer tam olarak " +
+    "D_dış/2 katı büyüktü. Ana kaldırma: 84.312,52 → 3.921,52 cm³ " +
+    "(D_dış = 430 mm, oran 21,5); yardımcı kaldırma: 33.506,53 → 2.094,16 cm³ " +
+    "(D_dış = 320 mm, oran 16,0).",
+  L107:
+    "Tambur kaynağı burulma gerilmesi. L106'daki Wp boyut hatasının doğrudan " +
+    "sonucudur: gerilme aynı oranda ARTAR, yani eski tablo kaynağı olduğundan " +
+    "emniyetli gösteriyordu. Ana kaldırma: 1,78 → 38,25 kg/cm²; " +
+    "yardımcı kaldırma: 1,13 → 18,14 kg/cm². Düzeltme EMNİYETLİ yöndedir.",
+  L109:
+    "Tambur kaynağı bileşik gerilmesi. Burulma bileşenindeki L107 " +
+    "düzeltmesinin doğrudan sonucudur (kesme bileşeni L108 değişmedi). " +
+    "Ana kaldırma: 23,00 → 59,47 kg/cm²; yardımcı kaldırma: " +
+    "13,03 → 30,03 kg/cm². Yeni değer izin verilen gerilmenin (FEM 1.001 " +
+    "T.3.2.2.3 ile CMAA 70 md. 3.4.1'in küçüğü) hâlâ çok altındadır.",
+  L122:
+    "Mil kaynağının burulma direnç momenti — L106 ile AYNI boyut hatası. " +
+    "274,89 → 68,72 cm³ (D_dış = 80 mm, oran 4,0). Her iki kaldırma " +
+    "grubunda da aynı, çünkü mil kaynağı çapı ikisinde de eşittir.",
 };

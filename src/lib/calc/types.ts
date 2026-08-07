@@ -2,6 +2,8 @@
 // Dört değer rolü: input (kullanıcı girer) -> computed (formül) ->
 // selection (katalogdan seçim) -> check (kontrol).
 
+import type { BufferType } from "./buffer";
+
 export type MechanismClass = "M1" | "M2" | "M3" | "M4" | "M5" | "M6" | "M7" | "M8";
 export type UsageClass = "T0" | "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7" | "T8" | "T9";
 export type StructureClass = "A1" | "A2" | "A3" | "A4" | "A5" | "A6" | "A7" | "A8";
@@ -265,6 +267,25 @@ export interface TechnicalSpecs {
   auxTrolleyWeightT?: number;
   /** Köprü ağırlığı [t] — ana kirişler + başkirişler toplamı */
   bridgeWeightT: number;
+
+  // ------------------------------------------------------------- Tamponlar
+  /**
+   * Araba yürütme tamponu tipi. Seçime göre 5.8 tampon bölümü görünür ve
+   * ilgili hesap dalı (hidrolik / kauçuk) koşar. "yok" seçilirse bölüm
+   * gösterilmez ve tampon hesabı yapılmaz. Tüm araba varyantları (ana,
+   * yardımcı, monoray) aynı seçimi kullanır.
+   */
+  trolleyBufferType?: BufferType;
+  /** Köprü yürütme tamponu tipi (6.9 bölümü) */
+  bridgeBufferType?: BufferType;
+  /**
+   * Araba tamponunda çarpma hızı oranı k [%]. v_ç = (v_anma/60)·k/100.
+   * FEM 1.001 md. 2.2.3.4.1 cihaz için 0,7 verir; arabada varsayılan %100
+   * muhafazakâr firma kabulüdür (bkz. `calc/buffer.ts`).
+   */
+  trolleyBufferImpactSpeedPct?: number;
+  /** Köprü tamponunda çarpma hızı oranı k [%] — FEM varsayılanı %70 */
+  bridgeBufferImpactSpeedPct?: number;
 
   // --------------------------------------------- Yardımcı araba yürütme
   auxTrolleySpeedMpm?: number;

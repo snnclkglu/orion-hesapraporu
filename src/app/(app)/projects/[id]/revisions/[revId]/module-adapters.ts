@@ -11,9 +11,19 @@
 // anahtarları onlara dayanır.
 
 import {
+  GIRDER_AUTO_FIELDS,
+  HOIST_AUTO_FIELDS,
+  HOIST_AUTO_SELECTION_FIELDS,
   HOIST_INPUT_FIELDS,
   HOIST_SELECTION_FIELDS,
+  TRAVEL_AUTO_FIELDS,
 } from "@/lib/calc/fields";
+import {
+  deriveGirderInputs,
+  deriveHoistInputs,
+  deriveTravelInputs,
+  type GirderDeriveContext,
+} from "@/lib/calc/derive";
 import {
   HOIST_SECTIONS,
   type HoistCtx,
@@ -64,19 +74,43 @@ import {
 } from "@/lib/calc/presentation/structuralFields";
 import { bridgeTrolleyWeightT } from "@/lib/calc/engine";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
-import { hookBlockDepsFromHoist, type HookBlockDeps } from "@/lib/calc/modules/hookBlock";
-import type { TravelDeps } from "@/lib/calc/modules/travelGroup";
-import type { GirderDeps } from "@/lib/calc/modules/mainGirder";
-import type { EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
 import {
+  computeHoistGroup,
+  hoistSpecView,
+  type HoistInputs,
+  type HoistSelections,
+} from "@/lib/calc/modules/hoistGroup";
+import {
+  computeHookBlock,
+  hookBlockDepsFromHoist,
+  type HookBlockDeps,
+} from "@/lib/calc/modules/hookBlock";
+import {
+  computeTravelGroup,
+  travelSpecView,
+  type TravelDeps,
+  type TravelInputs,
+} from "@/lib/calc/modules/travelGroup";
+import {
+  computeMainGirder,
+  type GirderDeps,
+  type GirderInputs,
+} from "@/lib/calc/modules/mainGirder";
+import { computeBuckling } from "@/lib/calc/modules/buckling";
+import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
+import {
+  computeWheelLoads,
   wheelLoadDepsFrom,
   type WheelLoadDeps,
 } from "@/lib/calc/modules/wheelLoads";
-import type { TechnicalSpecs } from "@/lib/calc/types";
+import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
 import { hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
 import {
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
+  isHoistKey,
+  isHookBlockKey,
+  isTravelKey,
   type HoistKey,
   type HookBlockKey,
   type ModuleKey,
@@ -106,6 +140,12 @@ export interface AnyFieldDef {
   standardRef?: string;
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
+  /**
+   * Alan bir ÇAP büyüklüğüdür: değer "Ø" işaretiyle gösterilir (arayüz + PDF).
+   * Bayrağı sunum katmanı (fields.ts / *Fields.ts) koyar; burada yalnız okunur.
+   * Bayrak yoksa hiçbir şey değişmez.
+   */
+  diameter?: boolean;
 }
 
 export interface AdapterRow {
@@ -123,6 +163,45 @@ export interface AdapterRow {
   standard?: string;
   read: (ctx: unknown) => number | string | undefined;
   subst?: (ctx: unknown) => string;
+  /** Satırın sonucu bir ÇAPtır: değerin başına "Ø" konur (arayüz + PDF) */
+  diameter?: boolean;
+}
+
+/**
+ * BAŞLIK KONTROLÜ (headline check) — bölümün özünü tek bakışta veren kontrol.
+ *
+ * Bir bölümün ayrıntılı hesap satırları aşağıda AYNEN kalır; başlık kontrolü
+ * yalnızca "gereken ↔ gerçekleşen" (ya da "izin verilen ↔ oluşan") çiftini
+ * seçimin YANINDA/ÜSTÜNDE tekrar eder, çünkü mühendis katalogdan seçim
+ * yaparken kararını bu iki sayıya bakarak verir.
+ *
+ * Kavram jeneriktir: hangi kontrolün başlığa çıkacağını bölüm tanımı söyler,
+ * sayılar ve uygunluk (yeşil/kırmızı) kontrolün KENDİ `pass` değerinden gelir —
+ * burada eşik uydurulmaz.
+ */
+export interface AdapterHeadlineCheck {
+  /** Kontrol id soneki — bölümün `checkSuffixes` sözlüğünden bir değer */
+  suffix: string;
+  /** Başlıkta görünen kısa ad (kontrolün tam etiketi şerit için uzun kalır) */
+  label?: string;
+}
+
+export interface AdapterHeadline {
+  /**
+   * Yerleşim:
+   * - `"catalog"` — katalog seçim başlığının (ve "Katalogdan Seç" düğmesinin)
+   *   hemen yanında rozet çifti (madde 3: halat emniyet katsayısı).
+   * - `"band"` — girdilerin hemen altında, katalog seçiminin üstünde kısa bir
+   *   özet şeridi (madde 7: tambur mili gerilmeleri).
+   */
+  placement: "catalog" | "band";
+  /** Şerit başlığı (yalnız `"band"`) */
+  title?: string;
+  /** Hesaptan çıkan değerin etiketi (ör. "Gerçekleşen", "Oluşan") */
+  computedLabel: string;
+  /** Sınır değerin etiketi (ör. "Gereken", "İzin verilen") */
+  limitLabel: string;
+  checks: readonly AdapterHeadlineCheck[];
 }
 
 /**
@@ -159,6 +238,12 @@ export interface AdapterSection {
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
   editor?: "wheelSpacing";
+  /**
+   * Bölümün başlık kontrolü — girdiler ile katalog seçimi arasında (ya da
+   * katalog başlığının yanında) gösterilen "gereken ↔ gerçekleşen" özeti.
+   * Ayrıntılı hesap satırları bundan etkilenmez.
+   */
+  headline?: AdapterHeadline;
   checkSuffixes: readonly string[];
   rows: AdapterRow[];
   table?: AdapterTable;
@@ -206,6 +291,43 @@ function defs(keys: readonly string[], map: Map<string, AnyFieldDef>): AnyFieldD
     .filter((f): f is AnyFieldDef => Boolean(f));
 }
 
+/**
+ * Sunum satırındaki `diameter` bayrağı (madde 30).
+ *
+ * Bayrağı sunum katmanı (hoistSections, travelSections, …) koyar; satır tipleri
+ * onu HENÜZ tanımlamıyor olabilir, bu yüzden yapısal olarak okunur: bayrak
+ * yoksa `undefined` döner ve gösterimde hiçbir şey değişmez.
+ */
+function diameterFlag(def: object): true | undefined {
+  return (def as { diameter?: unknown }).diameter === true ? true : undefined;
+}
+
+/** Başlık kontrolünün çözülmüş hali: kısa ad + motorun ürettiği kontrol. */
+export interface HeadlineItem {
+  label: string;
+  check: AnyCheck;
+}
+
+/**
+ * Bölümün başlık kontrollerini modül sonucundan çözer (arayüz + PDF ortak).
+ * Kontrol üretilmemişse (bölüm hesaba girmemiş, seçim boş) satır düşer —
+ * boş bir rozet basılmaz.
+ */
+export function headlineItems(
+  checkPrefix: string,
+  section: AdapterSection,
+  checks: readonly AnyCheck[] | undefined
+): HeadlineItem[] {
+  const headline = section.headline;
+  if (!headline || !checks) return [];
+  const out: HeadlineItem[] = [];
+  for (const h of headline.checks) {
+    const c = checks.find((x) => x.id === `${checkPrefix}${h.suffix}`);
+    if (c) out.push({ label: h.label ?? c.label, check: c });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- Kaldırma
 
 /** Kaldırma grubu başlıkları — numara çalışma anında yeniden dizilir. */
@@ -214,6 +336,39 @@ const HOIST_TITLES: Record<HoistKey, string> = {
   aux: "Yardımcı Kaldırma",
   mono1: "Monoray 1 Kaldırma",
   mono2: "Monoray 2 Kaldırma",
+};
+
+/**
+ * Kaldırma bölümlerinin başlık kontrolleri (bkz. AdapterHeadline).
+ *
+ * - 2.1 Halat: mühendis halatı katalogdan seçerken kararını GEREKEN ve
+ *   GERÇEKLEŞEN emniyet katsayısına bakarak verir; ikisi seçim düğmesinin
+ *   yanında durur (madde 3).
+ * - 2.2.3 Tambur Mili: izin verilen ve oluşan gerilmeler girdilerin hemen
+ *   altında özetlenir; ayrıntılı hesap satırları alt bölümde AYNEN kalır
+ *   (madde 7).
+ *
+ * Sonekler bölümün `checkSuffixes` listesinden gelir — kontrolün kendisi ve
+ * `pass` değeri motordan okunur, burada eşik tanımlanmaz.
+ */
+const HOIST_HEADLINES: Record<string, AdapterHeadline> = {
+  "2.1": {
+    placement: "catalog",
+    computedLabel: "Gerçekleşen",
+    limitLabel: "Gereken",
+    checks: [{ suffix: "rope.safety", label: "Emniyet katsayısı" }],
+  },
+  "2.2.3": {
+    placement: "band",
+    title: "İzin Verilen / Oluşan Gerilmeler",
+    computedLabel: "Oluşan",
+    limitLabel: "İzin verilen",
+    checks: [
+      { suffix: "shaft.bending", label: "Eğilme" },
+      { suffix: "shaft.shear", label: "Kesme" },
+      { suffix: "shaft.stress", label: "Bileşik" },
+    ],
+  },
 };
 
 function hoistAdapter(which: HoistKey): ModuleAdapter {
@@ -229,6 +384,7 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
       inputDefs: defs(s.inputKeys, HOIST_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, HOIST_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
+      headline: HOIST_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
       visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       rows: s.rows.map((r) => {
@@ -241,6 +397,7 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
+          diameter: diameterFlag(r),
           read: (ctx: unknown) => (ctx as HoistCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as HoistCtx) : undefined,
         };
@@ -284,6 +441,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
+          diameter: diameterFlag(r),
           // Değer ya motorun haritasından ya da girdi/bağımlılık yankısından okunur
           read: (ctx: unknown) =>
             valueFrom ? valueFrom(ctx as HookBlockCtx) : (ctx as HookBlockCtx).c[key],
@@ -332,6 +490,9 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
       selectionDefs: defs(s.selectionKeys, TRAVEL_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       checkSuffixes: s.checkSuffixes,
+      // Koşullu bölümler (ör. 5.8 tampon — tampon tipi "Yok" ise görünmez).
+      // hoistAdapter ile aynı desen; koşul teknik özelliklerden okunur.
+      visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       // Tüm yürütme varyantları AYNI semantik anahtarları kullanır; yalnız tek
       // varyantta üretilen satırlar diğerinde gösterilmez.
       rows: s.rows
@@ -350,6 +511,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
             unit: r.unit,
             digits: r.digits,
             standard: r.standard,
+            diameter: diameterFlag(r),
             read: (ctx: unknown) => (ctx as TravelCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as TravelCtx) : undefined,
           };
@@ -395,6 +557,7 @@ function wheelLoadAdapter(): ModuleAdapter {
             unit: r.unit,
             digits: r.digits,
             standard: r.standard,
+            diameter: diameterFlag(r),
             read: (ctx: unknown) => (ctx as WheelLoadCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as WheelLoadCtx) : undefined,
           };
@@ -440,6 +603,7 @@ function girderAdapter(): ModuleAdapter {
             unit: r.unit,
             digits: r.digits,
             standard: r.standard,
+            diameter: diameterFlag(r),
             read: (ctx: unknown) => (ctx as GirderCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as GirderCtx) : undefined,
           };
@@ -482,6 +646,7 @@ function bucklingAdapter(): ModuleAdapter {
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
+          diameter: diameterFlag(r),
           read: (ctx: unknown) => (ctx as BucklingCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as BucklingCtx) : undefined,
         };
@@ -516,6 +681,7 @@ function endCarriageAdapter(): ModuleAdapter {
           unit: r.unit,
           digits: r.digits,
           standard: r.standard,
+          diameter: diameterFlag(r),
           read: (ctx: unknown) => (ctx as EndCarriageCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as EndCarriageCtx) : undefined,
         };
@@ -804,4 +970,326 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
       bridgeWeightT: specs.bridgeWeightT,
     },
   };
+}
+
+// ------------------------------------------------ Otomatik girdi türetmesi
+//
+// "Otomatik" anahtarı açık olan alanlar bir GİRDİ gibi saklanır ama değerleri
+// başka verilerden türetilir (bkz. calc/derive.ts). Editör türetilen değeri
+// state'e YAZAR — motor, PDF raporu ve ekipman listesi hep aynı sayıyı görsün
+// diye. Bu bölüm o yazma işleminin SAF karşılığıdır: React'ten bağımsızdır,
+// bu yüzden doğrudan test edilebilir.
+//
+// KRİTİK: yalnız DEĞİŞEN alan patch'lenir ve hiçbir değişiklik yoksa AYNI
+// nesne geri döner. Referans eşitliği korunmazsa `setMods` her turda yeni
+// nesne üretir ve editör sonsuz yeniden çizime girer.
+
+/** Bir hesap bölümünün girdi + seçim durumu. */
+export type ModuleState = { inputs: object; selections: object };
+/** Tüm bölümlerin durumu — anahtar bazlı, vinç topolojisinden bağımsız. */
+export type ModulesState = Record<ModuleKey, ModuleState>;
+
+/** Otomatik açık ama kaynak veri eksikse alanın altında gösterilen uyarı. */
+export interface DerivationWarning {
+  field: string;
+  message: string;
+}
+
+/**
+ * Yürütme türetmesi teknik özelliklerden yalnız MEKANİZMA SINIFINI okur;
+ * ağırlık bağımlılıkları (kanca donanımı, araba) bu türetmeye girmediği için
+ * görünüm sıfır ağırlıkla kurulur.
+ */
+const TRAVEL_VIEW_DEPS: TravelDeps = { hookEquipmentT: 0, trolleyWeightT: 0 };
+
+/** Ana kirişin türetmesi ana kaldırma grubunun girdilerinden beslenir. */
+function girderDeriveContext(mods: ModulesState): GirderDeriveContext {
+  const h = mods.main?.inputs as HoistInputs | undefined;
+  return {
+    mainHookBlockWeightKg: h?.hookBlockWeightKg ?? 0,
+    mainRopeWeightKg: h?.ropeWeightKg ?? 0,
+  };
+}
+
+/**
+ * Kaldırma grubunun otomatik alanları.
+ *
+ * İki hedef vardır: halat/kanca/sıcaklık/makara verimi/tambur ağırlığı GİRDİYE,
+ * yiv boyu metni ise KATALOG SEÇİMİNE yazılır (`HoistSelections`), çünkü yiv
+ * boyu bir seçim alanıdır — anahtarı yine girdilerde durur.
+ */
+export function withDerivedHoist(
+  state: ModuleState,
+  specs: TechnicalSpecs,
+  which: HoistKey
+): ModuleState {
+  const inputs = state.inputs as HoistInputs;
+  const selections = state.selections as HoistSelections;
+  const view = hoistSpecView(specs, which);
+  const d = deriveHoistInputs(inputs, selections, {
+    liftHeightM: view.liftHeightM,
+    capacityT: view.capacityT,
+    ambientTempMaxC: specs.ambientTempMaxC,
+  });
+
+  const patch: Partial<HoistInputs> = {};
+  const put = <K extends keyof HoistInputs>(k: K, v: HoistInputs[K] | undefined) => {
+    if (v !== undefined && v !== inputs[k]) patch[k] = v;
+  };
+  // Hazır donanım seçiliyse tahrikli/toplam halat kutuları da o donanıma uyar.
+  put("drivenFalls", d.drivenFalls);
+  put("totalFalls", d.totalFalls);
+  put("ropeWeightKg", d.ropeWeightKg);
+  put("hookBlockWeightKg", d.hookBlockWeightKg);
+  put("tempFactor", d.tempFactor);
+  put("sheaveEfficiency", d.sheaveEfficiency);
+  put("drumWeightKg", d.drumWeightKg);
+
+  const selPatch: Partial<HoistSelections> = {};
+  if (
+    d.drumGrooveLengthText !== undefined &&
+    d.drumGrooveLengthText !== selections.drumGrooveLengthText
+  ) {
+    selPatch.drumGrooveLengthText = d.drumGrooveLengthText;
+  }
+
+  const inputsChanged = Object.keys(patch).length > 0;
+  const selChanged = Object.keys(selPatch).length > 0;
+  if (!inputsChanged && !selChanged) return state;
+  return {
+    inputs: inputsChanged ? { ...inputs, ...patch } : state.inputs,
+    selections: selChanged ? { ...selections, ...selPatch } : state.selections,
+  };
+}
+
+/**
+ * Yürütme grubunun otomatik alanları: sıcaklık faktörü, CMAA uygulama sınıfı
+ * ve ona bağlı Ks / Kt katsayıları. Teknik Özellikler'de mekanizma sınıfı
+ * değiştiğinde uygulama sınıfı ve Ks BURADAN güncellenir.
+ */
+export function withDerivedTravel(
+  state: ModuleState,
+  specs: TechnicalSpecs,
+  which: TravelKey
+): ModuleState {
+  const inputs = state.inputs as TravelInputs;
+  const view = travelSpecView(specs, which, TRAVEL_VIEW_DEPS);
+  const d = deriveTravelInputs(inputs, {
+    ambientTempMaxC: specs.ambientTempMaxC,
+    mechanismClass: view.mechanismClass,
+  });
+
+  const patch: Partial<TravelInputs> = {};
+  const put = <K extends keyof TravelInputs>(k: K, v: TravelInputs[K] | undefined) => {
+    if (v !== undefined && v !== inputs[k]) patch[k] = v;
+  };
+  put("tempFactor", d.tempFactor);
+  put("applicationClass", d.applicationClass);
+  put("serviceFactorKs", d.serviceFactorKs);
+  put("accelTorqueFactorKt", d.accelTorqueFactorKt);
+
+  if (Object.keys(patch).length === 0) return state;
+  return { ...state, inputs: { ...inputs, ...patch } };
+}
+
+/** Ana kirişin 7.2 / 7.3 otomatik katsayıları: ψhA, ψhK, γc. */
+export function withDerivedGirder(
+  state: ModuleState,
+  specs: TechnicalSpecs,
+  ctx: GirderDeriveContext
+): ModuleState {
+  const inputs = state.inputs as GirderInputs;
+  const d = deriveGirderInputs(inputs, specs, ctx);
+
+  const patch: Partial<GirderInputs> = {};
+  const put = <K extends keyof GirderInputs>(k: K, v: GirderInputs[K] | undefined) => {
+    if (v !== undefined && v !== inputs[k]) patch[k] = v;
+  };
+  put("psiHAOverride", d.psiHAOverride);
+  put("psiHKOverride", d.psiHKOverride);
+  put("amplifyYcOverride", d.amplifyYcOverride);
+
+  if (Object.keys(patch).length === 0) return state;
+  return { ...state, inputs: { ...inputs, ...patch } };
+}
+
+/** Bir bölümün durumunu ailesine göre türetmelerden geçirir. */
+export function withDerivedModule(
+  key: ModuleKey,
+  state: ModuleState,
+  specs: TechnicalSpecs,
+  all: ModulesState
+): ModuleState {
+  if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
+  if (isTravelKey(key)) return withDerivedTravel(state, specs, key);
+  if (key === "girder") return withDerivedGirder(state, specs, girderDeriveContext(all));
+  return state;
+}
+
+/**
+ * TÜM bölümlerin otomatik alanlarını tek geçişte tazeler.
+ *
+ * Bölümler `MODULE_ORDER` sırasıyla işlenir; ana kaldırma ana kirişten ÖNCE
+ * geldiği için kirişin ψh katsayıları ana kaldırmanın AYNI turda güncellenmiş
+ * kanca/halat ağırlıklarını görür. Hiçbir bölüm değişmediyse giriş nesnesi
+ * olduğu gibi döner (referans eşitliği → gereksiz yeniden çizim yok).
+ */
+export function withDerivedModules(
+  mods: ModulesState,
+  specs: TechnicalSpecs
+): ModulesState {
+  let out = mods;
+  for (const key of MODULE_ORDER) {
+    const cur = out[key];
+    if (!cur) continue;
+    const next = withDerivedModule(key, cur, specs, out);
+    if (next === cur) continue;
+    if (out === mods) out = { ...mods };
+    out[key] = next;
+  }
+  return out;
+}
+
+/**
+ * Bölüm başına türetme uyarıları (otomatik açık ama kaynak veri eksik).
+ * Alanın altında kırmızı satır olarak gösterilir.
+ */
+export function derivationWarnings(
+  mods: ModulesState,
+  specs: TechnicalSpecs
+): Record<ModuleKey, DerivationWarning[]> {
+  const out = {} as Record<ModuleKey, DerivationWarning[]>;
+  for (const key of MODULE_ORDER) {
+    const st = mods[key];
+    if (!st) {
+      out[key] = [];
+      continue;
+    }
+    if (isHoistKey(key)) {
+      const view = hoistSpecView(specs, key);
+      out[key] = deriveHoistInputs(
+        st.inputs as HoistInputs,
+        st.selections as HoistSelections,
+        {
+          liftHeightM: view.liftHeightM,
+          capacityT: view.capacityT,
+          ambientTempMaxC: specs.ambientTempMaxC,
+        }
+      ).warnings;
+    } else if (isTravelKey(key)) {
+      out[key] = deriveTravelInputs(st.inputs as TravelInputs, {
+        ambientTempMaxC: specs.ambientTempMaxC,
+        mechanismClass: travelSpecView(specs, key, TRAVEL_VIEW_DEPS).mechanismClass,
+      }).warnings;
+    } else {
+      out[key] = [];
+    }
+  }
+  return out;
+}
+
+/**
+ * Bir GİRDİ alanının otomatik anahtarı (yoksa alan otomatik değildir).
+ * Kaldırma, yürütme ve ana kiriş aynı mekanizmayı paylaşır.
+ */
+export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefined {
+  if (isHoistKey(key)) return HOIST_AUTO_FIELDS[fieldKey];
+  if (isTravelKey(key)) return TRAVEL_AUTO_FIELDS[fieldKey];
+  if (key === "girder") return GIRDER_AUTO_FIELDS[fieldKey];
+  return undefined;
+}
+
+/**
+ * Bir KATALOG SEÇİMİ alanının otomatik anahtarı. Anahtar yine GİRDİLERDE
+ * durur (revision-load AUTO_FLAGS koruması girdi nesnesine bakar); türetilen
+ * değer seçimlere yazılır.
+ */
+export function autoSelectionFlag(key: ModuleKey, fieldKey: string): string | undefined {
+  if (isHoistKey(key)) return HOIST_AUTO_SELECTION_FIELDS[fieldKey];
+  return undefined;
+}
+
+// ------------------------------------------------- Alternatiflerin uygunluğu
+//
+// Alternatif (seçenekli) ekipmanın uygunluğu TEK yerde hesaplanır: editördeki
+// rozet ile PDF raporundaki "SEÇENEKLER" bloğu aynı fonksiyonu çağırır. Aynı
+// sayının iki ayrı yerde hesaplanması, iki yüzeyin sessizce ayrışmasının en
+// kısa yoludur; bu yüzden mantık saf bir yardımcıya çıkarılmıştır.
+
+/**
+ * Bir modülün kontrollerini VERİLEN seçim setiyle yeniden hesaplar (saf).
+ *
+ * Motorun `runCalc` yolundan farkı: yalnız tek modül koşar ve bağımlılıkları
+ * dışarıdan (`ModuleDepsBundle`) alır — alternatif bir seçim tüm vinci
+ * yeniden hesaplatmadan denenebilsin diye.
+ */
+export function computeModuleChecksWith(
+  key: ModuleKey,
+  specs: TechnicalSpecs,
+  inputs: object,
+  selections: object,
+  deps: ModuleDepsBundle
+): AnyCheck[] {
+  if (isHoistKey(key)) {
+    return computeHoistGroup(specs, key, inputs as never, selections as never).checks;
+  }
+  if (isHookBlockKey(key)) {
+    return computeHookBlock(
+      specs, key, inputs as never, selections as never, deps.hookBlock[key]
+    ).checks;
+  }
+  if (isTravelKey(key)) {
+    return computeTravelGroup(
+      specs, key, inputs as never, selections as never, deps.travel[key]
+    ).checks;
+  }
+  switch (key) {
+    case "girder":
+      return computeMainGirder(specs, inputs as never, selections as never, deps.girder).checks;
+    case "buckling":
+      return computeBuckling(inputs as never).checks;
+    case "endCarriage":
+      return computeEndCarriage(
+        specs, inputs as never, selections as never, deps.endCarriage
+      ).checks;
+    case "wheelLoads":
+      return computeWheelLoads(
+        specs, inputs as never, selections as never, deps.wheelLoads
+      ).checks;
+  }
+  return [];
+}
+
+/**
+ * Bir alternatif seçeneğin BÖLÜM kontrollerini geçip geçmediği.
+ *
+ * Seçenek, bölümün seçim alanlarının bir alt kümesidir; canlı seçimlerin
+ * üzerine bindirilerek modül yeniden koşturulur ve yalnız bu bölümün
+ * kontrollerine bakılır. Dönüş:
+ *   `true`  — bölümün tüm kontrolleri uygun
+ *   `false` — en az biri uygun değil
+ *   `null`  — bölümde kontrol yok ya da hesap bu seçimle koşamıyor (uydurma
+ *             bir "uygun" basmaktansa bilinmez bırakılır)
+ */
+export function altOptionPass(
+  key: ModuleKey,
+  section: AdapterSection,
+  specs: TechnicalSpecs,
+  inputs: object,
+  selections: object,
+  option: Record<string, unknown>,
+  deps: ModuleDepsBundle
+): boolean | null {
+  const prefix = ADAPTER_BY_KEY[key]?.checkPrefix;
+  if (!prefix) return null;
+  try {
+    const all = computeModuleChecksWith(key, specs, inputs, { ...selections, ...option }, deps);
+    const checks = section.checkSuffixes
+      .map((suffix) => all.find((c) => c.id === `${prefix}${suffix}`))
+      .filter((c): c is AnyCheck => Boolean(c));
+    if (checks.length === 0) return null;
+    return checks.every((c) => c.pass);
+  } catch {
+    return null;
+  }
 }

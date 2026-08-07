@@ -6,6 +6,7 @@
 // aynı fonksiyonu kullanır.
 
 import ExcelJS from "exceljs";
+import { baslikDuzeni } from "@/lib/tr-text";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import { moduleState } from "@/lib/calc/presentation/module-access";
 import {
@@ -13,7 +14,9 @@ import {
   isHoistKey,
   isHookBlockKey,
   isTravelKey,
+  type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
+import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
@@ -146,14 +149,34 @@ function autoWidth(ws: ExcelJS.Worksheet, min = 8, max = 60): void {
 export interface EqRow {
   /** cat_equipment kind (datasheet link eşlemesi için) */
   kind?: string;
+  /**
+   * Satır bir ALTERNATİF (seçenekli) ekipmandır: değeri seçeneğin sırasıdır
+   * (raporun "SEÇENEKLER" bloğundaki numarayla aynı). Aktif seçim ana satırdır
+   * ve bu alanı taşımaz; alternatifler ana satırın hemen ALTINDA listelenir.
+   */
+  alt?: number;
+  /**
+   * Satırın KARARLI kimliği — `equipment_notes.row_key`.
+   * Biçim: `<modulKey>:<slug>` (ör. "main:rope", "bridge:wheel").
+   * Slug ham kaynak alandan gelir, ETİKET METNİNDEN TÜRETİLMEZ: etiketler
+   * `baslikDuzeni` ile büyütülür ve dile göre değişebilir; anahtar bu yüzden
+   * dilden ve biçimlemeden bağımsız tutulur, aksi hâlde notlar satırdan kopar.
+   * Panelden eklenen serbest satırlarda yoktur (not tutulmaz).
+   */
+  rowKey?: string;
   component: string;
   brand: string;
   model: string;
   spec: string;
+  /** "Ek Özellikler" — kullanıcının satıra elle yazdığı serbest açıklama */
+  note?: string;
   qty: number | string;
   /** Panelden eklenen serbest satır (silinebilir/düzenlenebilir) */
   custom?: boolean;
 }
+
+/** row_key → not metni (equipment_notes tablosundan okunur) */
+export type EquipmentNotes = Record<string, string>;
 
 export interface EqGroup {
   name: string;
@@ -171,9 +194,11 @@ export interface EquipmentExtraRow {
 }
 
 /** Ana / yardımcı kaldırma grubu bileşen satırları (aynı set) */
-function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
+function hoistRows(moduleKey: string, inp: HoistInputs, sel: HoistSelections): EqRow[] {
+  const rk = (slug: string) => `${moduleKey}:${slug}`;
   return [
     {
+      rowKey: rk("rope"),
       kind: "rope",
       component: "Çelik halat",
       brand: textOr(sel.ropeBrand),
@@ -182,13 +207,15 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: 1,
     },
     {
+      rowKey: rk("drum"),
       component: "Tambur",
       brand: "-",
       model: "-",
-      spec: `Ø${fmt(sel.drumDiaMm)} mm, malzeme ${textOr(sel.drumMaterial)}, oluk boyu ${textOr(sel.drumGrooveLengthText)} mm`,
+      spec: `Ø${fmt(sel.drumDiaMm)} mm, malzeme ${textOr(sel.drumMaterial)}, yiv boyu ${textOr(sel.drumGrooveLengthText)} mm`,
       qty: inp.drumCount,
     },
     {
+      rowKey: rk("drumBearing"),
       kind: "bearing",
       component: "Tambur rulmanı",
       brand: textOr(sel.bearingType),
@@ -197,6 +224,7 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: 2,
     },
     {
+      rowKey: rk("gearbox"),
       kind: "gearbox",
       component: "Redüktör",
       brand: "-",
@@ -205,6 +233,7 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: 1,
     },
     {
+      rowKey: rk("motor"),
       kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
@@ -213,6 +242,7 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: sel.motorCount,
     },
     {
+      rowKey: rk("brake"),
       kind: "brake",
       component: "Fren",
       brand: textOr(sel.brakeBrand),
@@ -221,6 +251,7 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: sel.brakeQty,
     },
     {
+      rowKey: rk("motorCoupling"),
       kind: "coupling",
       component: "Motor-redüktör kaplini",
       brand: textOr(sel.motorCouplingBrand),
@@ -229,6 +260,7 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
       qty: 1,
     },
     {
+      rowKey: rk("drumCoupling"),
       kind: "coupling",
       component: "Tambur kaplini",
       brand: textOr(sel.drumCouplingBrand),
@@ -241,12 +273,15 @@ function hoistRows(inp: HoistInputs, sel: HoistSelections): EqRow[] {
 
 /** Araba / köprü yürütme grubu bileşen satırları */
 function travelRows(
+  moduleKey: string,
   which: "trolley" | "bridge",
   inp: TravelInputs,
   sel: TravelSelections
 ): EqRow[] {
+  const rk = (slug: string) => `${moduleKey}:${slug}`;
   const rows: EqRow[] = [
     {
+      rowKey: rk("wheel"),
       kind: "wheel",
       component: "Tekerlek",
       brand: "-",
@@ -255,6 +290,7 @@ function travelRows(
       qty: inp.wheelCount,
     },
     {
+      rowKey: rk("wheelBearing"),
       kind: "bearing",
       component: "Teker rulmanı",
       brand: textOr(sel.bearingType),
@@ -263,6 +299,7 @@ function travelRows(
       qty: inp.bearingCount > 0 ? inp.bearingCount : 2,
     },
     {
+      rowKey: rk("motor"),
       kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
@@ -271,6 +308,7 @@ function travelRows(
       qty: sel.motorCount,
     },
     {
+      rowKey: rk("gearbox"),
       kind: "gearbox",
       component: "Redüktör",
       brand: "-",
@@ -283,6 +321,7 @@ function travelRows(
   // Fren bölümü yalnızca köprü grubunda seçilir.
   if (which === "bridge") {
     rows.push({
+      rowKey: rk("brake"),
       kind: "brake",
       component: "Fren",
       brand: textOr(sel.brakeBrand, "Seçilmedi"),
@@ -297,6 +336,7 @@ function travelRows(
 
   rows.push(
     {
+      rowKey: rk("motorCoupling"),
       kind: "coupling",
       component: "Motor kaplini",
       brand: textOr(sel.motorCouplingBrand),
@@ -305,6 +345,7 @@ function travelRows(
       qty: sel.motorCount,
     },
     {
+      rowKey: rk("wheelCoupling"),
       kind: "coupling",
       component: "Teker kaplini",
       brand: textOr(sel.wheelCouplingBrand),
@@ -313,6 +354,7 @@ function travelRows(
       qty: sel.motorCount,
     },
     {
+      rowKey: rk("buffer"),
       component: "Tampon",
       brand: "-",
       model: textOr(sel.bufferModel),
@@ -328,12 +370,14 @@ export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): Eq
   if (!extras || extras.length === 0) return groups;
   const merged = groups.map((g) => ({ name: g.name, rows: [...g.rows] }));
   for (const ex of extras) {
-    const groupName = ex.group.trim() || "Ek Ekipman";
+    // Grup adı otomatik gruplarla AYNI düzenden geçer; aksi hâlde "ana kaldırma"
+    // yazan bir ek satır "Ana Kaldırma" grubuna denk gelmez ve yeni grup açardı.
+    const groupName = baslikDuzeni(ex.group.trim()) || "Ek Ekipman";
     const row: EqRow = {
-      component: ex.component,
-      brand: ex.brand || "-",
-      model: ex.model || "-",
-      spec: ex.spec,
+      component: baslikDuzeni(ex.component),
+      brand: baslikDuzeni(ex.brand) || "-",
+      model: ex.model || "-", // model kodu: dokunulmaz
+      spec: baslikDuzeni(ex.spec),
       qty: ex.qty || "-",
       custom: true,
     };
@@ -345,10 +389,15 @@ export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): Eq
 }
 
 /** Kanca bloğu bölümünün ekipman satırları. */
-function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelections }): EqRow[] {
+function hookBlockRows(
+  moduleKey: string,
+  m: { inputs: HookBlockInputs; selections: HookBlockSelections }
+): EqRow[] {
   const sel = m.selections;
+  const rk = (slug: string) => `${moduleKey}:${slug}`;
   return [
     {
+      rowKey: rk("hook"),
       kind: "hook",
       component: "Kanca",
       brand: "-",
@@ -357,6 +406,7 @@ function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelect
       qty: 1,
     },
     {
+      rowKey: rk("sheave"),
       kind: "sheave",
       component: "Halat makarası",
       brand: "-",
@@ -365,6 +415,7 @@ function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelect
       qty: "-",
     },
     {
+      rowKey: rk("sheaveBearing"),
       kind: "bearing",
       component: "Makara rulmanı",
       brand: textOr(sel.sheaveBearingType),
@@ -373,6 +424,7 @@ function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelect
       qty: 2,
     },
     {
+      rowKey: rk("hookBearing"),
       kind: "bearing",
       component: "Kanca (eksenel) rulmanı",
       brand: textOr(sel.hookBearingType),
@@ -381,6 +433,7 @@ function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelect
       qty: 1,
     },
     {
+      rowKey: rk("shaft"),
       component: "Kanca bloğu mili",
       brand: "-",
       model: "-",
@@ -402,39 +455,144 @@ function hookBlockRows(m: { inputs: HookBlockInputs; selections: HookBlockSelect
  * numaralandırmasını taşımaz.
  */
 function groupName(key: string): string {
-  return (MODULE_LABELS[key] ?? key).replace(/^\d+\s*·\s*/, "");
+  return baslikDuzeni((MODULE_LABELS[key] ?? key).replace(/^\d+\s*·\s*/, ""));
 }
 
-export function buildEquipmentGroups(input: CalcInput): EqGroup[] {
+/**
+ * Satır metinlerini "Baş Harfler Büyük" düzenine getirir (madde 33).
+ * Model kodu ve adet DIŞARIDA bırakılır: model bir katalog kimliğidir
+ * ("22212 E", "HT0823"), adet ise sayıdır. `rowKey` zaten ham slug'tan
+ * üretildiği için bu adımdan etkilenmez.
+ *
+ * "Ek Özellikler" (note) de dışarıda kalır: orası kullanıcının KENDİ yazdığı
+ * serbest metindir, ekranda ne yazdıysa çıktıda da odur.
+ */
+function baslikDuzeniniUygula(row: EqRow): EqRow {
+  return {
+    ...row,
+    component: baslikDuzeni(row.component),
+    brand: baslikDuzeni(row.brand),
+    spec: baslikDuzeni(row.spec),
+  };
+}
+
+/**
+ * Bir modülün bileşen satırları — seçimler DIŞARIDAN verilebilir.
+ *
+ * Alternatif seçenekler aynı satır üreticisinden geçsin diye seçim nesnesi
+ * parametredir: "Seçenek 2" satırı, ana satırla birebir aynı biçimlemeden
+ * (aynı alan sırası, aynı birimler) çıkar.
+ */
+function moduleEquipmentRows(
+  key: ModuleKey,
+  inputs: object,
+  selections: object
+): EqRow[] | null {
+  if (isHoistKey(key)) {
+    return hoistRows(key, inputs as HoistInputs, selections as HoistSelections);
+  }
+  if (isHookBlockKey(key)) {
+    return hookBlockRows(key, {
+      inputs: inputs as HookBlockInputs,
+      selections: selections as HookBlockSelections,
+    });
+  }
+  if (isTravelKey(key)) {
+    return travelRows(
+      key,
+      key === "bridge" ? "bridge" : "trolley",
+      inputs as TravelInputs,
+      selections as TravelSelections
+    );
+  }
+  return null;
+}
+
+/** İki satır aynı ekipmanı mı anlatıyor (alternatif gerçekten farklı mı)? */
+function sameEquipment(a: EqRow, b: EqRow): boolean {
+  return (
+    a.brand === b.brand &&
+    a.model === b.model &&
+    a.spec === b.spec &&
+    String(a.qty) === String(b.qty)
+  );
+}
+
+/**
+ * Alternatif (seçenekli) satırları ana satırların ALTINA yerleştirir.
+ *
+ * Bir seçenek yalnız kendi bölümünün seçim alanlarını taşır; canlı seçimlerin
+ * üzerine bindirilip aynı satır üreticisi koşturulur ve ana satırdan FARKLI
+ * çıkan satırlar alınır. Böylece halat alternatifi yalnız halat satırını
+ * çoğaltır, tamburu/redüktörü tekrar etmez.
+ *
+ * Alternatif satırın `rowKey`i KENDİNE aittir (`...#<bölüm>-<seçenek>`): ana
+ * satırın anahtarını çalarsa "Ek Özellikler" notları (madde 34) yanlış satıra
+ * bağlanır.
+ */
+function withAlternativeRows(
+  key: ModuleKey,
+  state: { inputs: object; selections: object },
+  mainRows: EqRow[],
+  alts: RevisionAlts
+): EqRow[] {
+  const variants: { label: number; sectionRawId: string; rows: EqRow[] }[] = [];
+  for (const [altKey, st] of Object.entries(alts)) {
+    const parts = splitAltKey(altKey);
+    if (!parts || parts.moduleKey !== key) continue;
+    st.options.forEach((option, i) => {
+      if (i === st.active) return;
+      const rows = moduleEquipmentRows(key, state.inputs, {
+        ...state.selections,
+        ...option,
+      });
+      if (rows) variants.push({ label: i + 1, sectionRawId: parts.sectionRawId, rows });
+    });
+  }
+  if (variants.length === 0) return mainRows;
+
+  const out: EqRow[] = [];
+  for (const main of mainRows) {
+    out.push(main);
+    for (const v of variants) {
+      const alt = v.rows.find((r) => r.rowKey === main.rowKey);
+      if (!alt || sameEquipment(alt, main)) continue;
+      out.push({
+        ...alt,
+        rowKey: main.rowKey ? `${main.rowKey}#${v.sectionRawId}-${v.label}` : undefined,
+        component: `${main.component} — Seçenek ${v.label}`,
+        alt: v.label,
+      });
+    }
+  }
+  return out;
+}
+
+export function buildEquipmentGroups(
+  input: CalcInput,
+  notes?: EquipmentNotes,
+  /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
+  alts?: RevisionAlts
+): EqGroup[] {
   const groups: EqGroup[] = [];
   for (const key of MODULE_ORDER) {
     const state = moduleState(input, key);
     if (!state) continue;
-    const name = groupName(key);
-    if (isHoistKey(key)) {
-      groups.push({
-        name,
-        rows: hoistRows(state.inputs as HoistInputs, state.selections as HoistSelections),
-      });
-    } else if (isHookBlockKey(key)) {
-      groups.push({
-        name,
-        rows: hookBlockRows(
-          state as { inputs: HookBlockInputs; selections: HookBlockSelections }
-        ),
-      });
-    } else if (isTravelKey(key)) {
-      groups.push({
-        name,
-        rows: travelRows(
-          key === "bridge" ? "bridge" : "trolley",
-          state.inputs as TravelInputs,
-          state.selections as TravelSelections
-        ),
-      });
-    }
+    const rows = moduleEquipmentRows(key, state.inputs, state.selections);
+    if (!rows) continue;
+    groups.push({
+      name: groupName(key),
+      rows: alts ? withAlternativeRows(key, state, rows, alts) : rows,
+    });
   }
-  return groups;
+  // Notlar satırlara KARARLI anahtarla bağlanır, ardından başlık düzeni
+  // uygulanır. Sıra bu yöndedir: anahtar önce, biçimleme sonra.
+  return groups.map((g) => ({
+    name: g.name,
+    rows: g.rows.map((r) =>
+      baslikDuzeniniUygula(r.rowKey ? { ...r, note: notes?.[r.rowKey] ?? "" } : r)
+    ),
+  }));
 }
 
 const HYPERLINK_FONT = { color: { argb: "FF1155CC" }, underline: true as const };
@@ -445,35 +603,44 @@ function writeEquipmentSheet(
   meta: EquipmentMeta,
   datasheetUrls?: Map<string, string>
 ): number {
-  const headerRowNo = writeTitleBlock(ws, "EKİPMAN LİSTESİ", meta, 5);
+  // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Adet
+  const COL_COUNT = 6;
+  const QTY_COL = 6;
+  const headerRowNo = writeTitleBlock(ws, "EKİPMAN LİSTESİ", meta, COL_COUNT);
 
   // Tablo başlığı — müşteriye teslim edilebilir profesyonel sütunlar
   const header = ws.getRow(headerRowNo);
-  ["Ekipman", "Marka", "Model", "Özellikler", "Adet"].forEach((h, i) => {
+  ["Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Adet"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
     cell.font = { name: "Archivo", bold: true, color: { argb: PAPER } };
     cell.fill = HEADER_FILL;
     cell.border = THIN_BORDER;
-    cell.alignment = { horizontal: i === 4 ? "right" : "left", vertical: "middle" };
+    cell.alignment = {
+      horizontal: i + 1 === QTY_COL ? "right" : "left",
+      vertical: "middle",
+    };
   });
   header.height = 18;
 
   // Başlığa kadar dondur + başlık satırında filtre
   ws.views = [{ state: "frozen", ySplit: headerRowNo }];
-  ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 5 } };
+  ws.autoFilter = {
+    from: { row: headerRowNo, column: 1 },
+    to: { row: headerRowNo, column: COL_COUNT },
+  };
 
   let rowNo = headerRowNo + 1;
   let componentCount = 0;
 
   groups.forEach((group) => {
     // Grup başlığı: birleşik satır (marka kırmızısı üst çizgi, nötr dolgu)
-    ws.mergeCells(`A${rowNo}:E${rowNo}`);
+    ws.mergeCells(`A${rowNo}:F${rowNo}`);
     const gc = ws.getCell(`A${rowNo}`);
     gc.value = group.name;
     gc.font = { bold: true };
     gc.fill = GROUP_FILL;
-    for (let c = 1; c <= 5; c++) {
+    for (let c = 1; c <= COL_COUNT; c++) {
       ws.getRow(rowNo).getCell(c).border = {
         ...THIN_BORDER,
         top: { style: "medium", color: { argb: "FFA41E1E" } },
@@ -494,30 +661,40 @@ function writeEquipmentSheet(
         row.getCell(3).value = r.model;
       }
       row.getCell(4).value = r.spec;
-      row.getCell(5).value = r.qty;
+      row.getCell(5).value = r.note ?? "";
+      row.getCell(QTY_COL).value = r.qty;
       // Adet: sayılar TR ayraçlı, sağa dayalı, mono
       if (typeof r.qty === "number") {
-        row.getCell(5).numFmt = Number.isInteger(r.qty) ? "#,##0" : "#,##0.00";
-        row.getCell(5).font = { name: "IBM Plex Mono" };
+        row.getCell(QTY_COL).numFmt = Number.isInteger(r.qty) ? "#,##0" : "#,##0.00";
+        row.getCell(QTY_COL).font = { name: "IBM Plex Mono" };
       }
-      for (let c = 1; c <= 5; c++) {
+      for (let c = 1; c <= COL_COUNT; c++) {
         const cell = row.getCell(c);
         cell.border = THIN_BORDER;
         cell.alignment = {
-          horizontal: c === 5 ? "right" : "left",
+          horizontal: c === QTY_COL ? "right" : "left",
           vertical: "middle",
-          wrapText: c === 4,
+          wrapText: c === 4 || c === 5,
+          // Alternatif satır ana satırın altında GİRİNTİLİ durur: satın alma
+          // listesinde hangi satırın asıl seçim olduğu tek bakışta görünsün.
+          indent: r.alt && c === 1 ? 1 : undefined,
         };
+        // Alternatifler ikincil bilgidir: eğik ve soluk yazılır. Model hücresi
+        // köprülüyse rengi bozulmaz (bağlantı mavisi kalır).
+        if (r.alt && !(c === 3 && cell.font?.underline)) {
+          cell.font = { ...(cell.font ?? {}), italic: true, color: { argb: MUTED_GRAY } };
+        }
       }
       rowNo += 1;
       componentCount += 1;
     });
   });
 
-  writeFooterRow(ws, rowNo + 1, 5, "EKİPMAN LİSTESİ", meta);
+  writeFooterRow(ws, rowNo + 1, COL_COUNT, "EKİPMAN LİSTESİ", meta);
 
   autoWidth(ws);
-  ws.getColumn(4).width = 56; // özellik metni uzun; sabit geniş + wrap
+  ws.getColumn(4).width = 46; // özellik metni uzun; sabit geniş + wrap
+  ws.getColumn(5).width = 32; // ek özellikler: kullanıcı metni, wrap
   return componentCount;
 }
 
@@ -638,9 +815,9 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
   if (input.mainHoist) {
     drumRows.push(
       { label: "Ana tambur çapı", value: input.mainHoist.selections.drumDiaMm, unit: "mm" },
-      { label: "Ana tambur oluk boyu (seçilen)", value: textOr(input.mainHoist.selections.drumGrooveLengthText), unit: "mm" },
+      { label: "Ana tambur yiv boyu (seçilen)", value: textOr(input.mainHoist.selections.drumGrooveLengthText), unit: "mm" },
       {
-        label: "Ana tambur gerekli oluk boyu",
+        label: "Ana tambur gerekli yiv boyu",
         value: fmt(result.mainHoist?.values.requiredGrooveLengthMm, 0),
         unit: "mm",
       }
@@ -649,9 +826,9 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
   if (input.auxHoist) {
     drumRows.push(
       { label: "Yrd tambur çapı", value: input.auxHoist.selections.drumDiaMm, unit: "mm" },
-      { label: "Yrd tambur oluk boyu (seçilen)", value: textOr(input.auxHoist.selections.drumGrooveLengthText), unit: "mm" },
+      { label: "Yrd tambur yiv boyu (seçilen)", value: textOr(input.auxHoist.selections.drumGrooveLengthText), unit: "mm" },
       {
-        label: "Yrd tambur gerekli oluk boyu",
+        label: "Yrd tambur gerekli yiv boyu",
         value: fmt(result.auxHoist?.values.requiredGrooveLengthMm, 0),
         unit: "mm",
       }
@@ -798,6 +975,10 @@ export interface EquipmentWorkbookOptions {
   scope?: "full" | "customer";
   /** Panelden eklenen ek ekipman/özellik satırları */
   extras?: EquipmentExtraRow[];
+  /** row_key → "Ek Özellikler" notu (equipment_notes) */
+  notes?: EquipmentNotes;
+  /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
+  alts?: RevisionAlts;
 }
 
 export function buildEquipmentWorkbook(
@@ -810,7 +991,10 @@ export function buildEquipmentWorkbook(
   wb.creator = "ORION Hesap Raporu";
   wb.created = new Date();
 
-  const groups = mergeExtras(buildEquipmentGroups(calcInput), options.extras);
+  const groups = mergeExtras(
+    buildEquipmentGroups(calcInput, options.notes, options.alts),
+    options.extras
+  );
 
   const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },

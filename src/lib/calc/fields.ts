@@ -2,7 +2,9 @@
 // key'ler motor tiplerinin (TechnicalSpecs, HoistInputs, HoistSelections)
 // alan adlarıyla birebir aynıdır.
 
-import { ROPE_POSITIONS } from "./modules/hoistGroup";
+import { ROPE_POSITION_AUTO, ROPE_POSITIONS } from "./modules/hoistGroup";
+import { BUFFER_TYPES, BUFFER_TYPE_LABELS } from "./buffer";
+import { DRUM_WEIGHT_FORMULA_HINT } from "./derive";
 import { COMMON_REEVINGS } from "./reeving";
 import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
@@ -33,6 +35,31 @@ export interface FieldDef<T> {
   requiresModule?: ModuleKey;
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
+  /**
+   * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur ("Ø 400 mm").
+   * Etikete yazılmaz; işaret ölçünün kendisine aittir. Arayüz ve PDF aynı
+   * bayrağı okur, `withDiameterSign` ile biçimlendirir (tek kaynak).
+   */
+  diameter?: true;
+}
+
+/** Çap işareti — çap ölçülerinin başına konur. */
+export const DIAMETER_SIGN = "Ø";
+
+/** `diameter` bayrağı taşıyan alan/satır tanımı. */
+export interface DiameterMarked {
+  diameter?: true;
+}
+
+/**
+ * Bir ölçünün gösterim metni: tanım çap işaretliyse başına "Ø" konur.
+ * Boş/çizgi değerlere dokunulmaz — "Ø —" anlamsızdır.
+ */
+export function withDiameterSign(text: string, def?: DiameterMarked): string {
+  if (!def?.diameter) return text;
+  const t = text.trim();
+  if (t === "" || t === "—" || t === "-" || t.startsWith(DIAMETER_SIGN)) return text;
+  return `${DIAMETER_SIGN}${t}`;
 }
 
 // ------------------------------------------------------- Teknik özellik grupları
@@ -171,9 +198,9 @@ export const CONTROL_TYPES = [
   "Yürütmeli Kabin",
 ] as const;
 
-/** Fren tipleri — kaldırma grupları (manyetik/eldro/disk), yürütme (manyetik/eldro) */
+/** Fren tipleri — hem kaldırma hem yürütme grupları: manyetik / eldro / disk */
 export const HOIST_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
-export const TRAVEL_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren"] as const;
+export const TRAVEL_BRAKE_TYPES = ["Manyetik Fren", "Eldro Fren", "Disk Fren"] as const;
 export const YES_NO = ["Var", "Yok"] as const;
 
 /**
@@ -215,10 +242,37 @@ export const CONTROL_VOLTAGES = [
   "220 VAC",
 ] as const;
 
+/**
+ * Emniyet sarımı adedi — tamburda halat ucunun bağlantısından önce kalması
+ * gereken tam sarım sayısı. Yarım sarım basamakları da kullanıldığı için liste
+ * 0,5 adımlıdır. **Değerler NOKTA ayraçlıdır**: sayısal select'te seçilen değer
+ * `parseFloat` ile sayıya çevrilir ve kayıtlı sayı `String(v)` ile listeyle
+ * eşleştirilir (1,5 → "1,5" listede bulunamaz, 1.5 → "1.5" bulunur). Türkçe
+ * gösterim `SAFETY_GROOVE_COUNT_LABELS` ile verilir.
+ */
+export const SAFETY_GROOVE_COUNTS = ["1", "1.5", "2", "2.5", "3", "4"] as const;
+export const SAFETY_GROOVE_COUNT_LABELS: Record<string, string> = {
+  "1": "1",
+  "1.5": "1,5",
+  "2": "2",
+  "2.5": "2,5",
+  "3": "3",
+  "4": "4",
+};
+
 /** Tambur çapı standart serisi [mm] */
 export const DRUM_DIA_SERIES_MM = [
   "200", "250", "290", "315", "355", "400", "450", "500", "560", "630", "710", "800",
 ] as const;
+
+/**
+ * Halat yükü konumu seçeneklerinin gösterim etiketleri. Saklanan DEĞER
+ * `hoistGroup.ts`teki sabitlerdir ve kayıtlı revizyonlar ona bağlı olduğundan
+ * değişmez; burada yalnız kullanıcıya görünen metin sadeleştirilir.
+ */
+export const ROPE_POSITION_LABELS: Record<string, string> = {
+  [ROPE_POSITION_AUTO]: "En Kritik Konum",
+};
 
 /** Halat özü seçenekleri — katalog verisiyle uyumlu (FC / IWRC) */
 export const ROPE_CORE_TYPES = [
@@ -399,10 +453,42 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "mono2TrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.6" },
   { key: "mono2TrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
 
+  {
+    key: "trolleyBufferType", label: "Tampon Tipi", type: "select",
+    options: BUFFER_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "trolley",
+    hint:
+      "Seçime göre 5.8 Tampon bölümü açılır ve ilgili hesap dalı koşar. " +
+      "Hidrolik tamponda tam strok ve η = 0,85 ile kapalı çözüm; kauçuk " +
+      "tamponda katalog yük diyagramından enterpolasyon kullanılır. Tüm araba " +
+      "grupları (ana, yardımcı, monoray) bu seçimi paylaşır. HÜCRESEL " +
+      "(poliüretan) tampon KAPSAM DIŞIDIR: yük diyagramları ayrı bir katalog " +
+      "belgesindedir (KAT0180) ve elimizde yoktur; eğrisiz bir kauçuk/hücresel " +
+      "hesabı uydurma olurdu.",
+  },
+  {
+    key: "trolleyBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
+    type: "number", group: "trolley", standardRef: "FEM 1.001 2.2.3.4.1",
+    hint:
+      "v_ç = anma hızı × bu oran. FEM 1.001 md. 2.2.3.4.1 cihaz için %70 verir; " +
+      "arabada varsayılan %100 muhafazakâr firma kabulüdür.",
+  },
+
   // --- Köprü yürütme
   { key: "bridgeSpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "bridge" },
   { key: "bridgeMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.6" },
   { key: "bridgeUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "bridgeBufferType", label: "Tampon Tipi", type: "select",
+    options: BUFFER_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "bridge",
+    hint: "Seçime göre 6.9 Tampon bölümü açılır ve ilgili hesap dalı koşar.",
+  },
+  {
+    key: "bridgeBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
+    type: "number", group: "bridge", standardRef: "FEM 1.001 2.2.3.4.1",
+    hint:
+      "v_ç = anma hızı × bu oran. Köprüde FEM 1.001 md. 2.2.3.4.1'in verdiği " +
+      "%70 varsayılandır.",
+  },
 
   // --- Frenler
   { key: "hoistBrakeType", label: "Kaldırma Freni Tipi", type: "select", options: HOIST_BRAKE_TYPES, group: "brakes" },
@@ -427,7 +513,13 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
   },
   { key: "drivenFalls", label: "Tahrikli Halat Sayısı", type: "number" },
   { key: "totalFalls", label: "Toplam Halat Sayısı", type: "number" },
-  { key: "sheaveEfficiency", label: "Makara Verimi", type: "number", hint: "Rulmanlı yataklı makara (yüksek verim) standart kabulü." },
+  {
+    key: "sheaveEfficiency", label: "Makara Verimi", type: "number",
+    hint:
+      "Otomatik: ORION makaraları istisnasız rulmanlı yataklanır; η_m = 0,985 " +
+      "sabit firma kabulüdür (CMAA 70 T.5.2.9.1.1.1-1'in rulmanlı yatak değeri " +
+      "0,99'un biraz altında, imalat toleransı payıyla).",
+  },
   { key: "fixedSheaveCount", label: "Sabit Makara Adedi", type: "number" },
   {
     key: "hookBlockWeightKg", label: "Kanca Bloğu Ağırlığı", unit: "kg", type: "number",
@@ -435,22 +527,36 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
     hint: "Kaldırma kapasitesinin %10'u olarak türetilir.",
   },
   { key: "ropeWeightKg", label: "Halat Ağırlığı", unit: "kg", type: "number", hint: "Toplam halat sayısı × metre ağırlığı × kaldırma yüksekliği (50 kg'a yuvarlanır)." },
-  { key: "drumWallThicknessMm", label: "Tambur Et Kalınlığı", unit: "mm", type: "number" },
-  { key: "safetyGrooveCount", label: "Emniyet Sarımı", type: "number" },
-  { key: "drumWeightKg", label: "Tambur Ağırlığı (W)", unit: "kg", type: "number" },
-  { key: "drumSpanACm", label: "A · Redüktör Mesnedi → Sol Yanak", unit: "cm", type: "number", hint: "Redüktör tarafı moment kolu." },
-  { key: "drumSpanBCm", label: "B · Sol Yanak → Yiv Başlangıcı", unit: "cm", type: "number" },
-  { key: "drumSpanCCm", label: "C · Sol Yiv Bölgesi", unit: "cm", type: "number" },
-  { key: "drumSpanDCm", label: "D · Ortadaki Yivsiz Bölge", unit: "cm", type: "number" },
-  { key: "drumSpanECm", label: "E · Sağ Yiv Bölgesi", unit: "cm", type: "number", hint: "Tek helisli tamburda 0 girin." },
-  { key: "drumSpanFCm", label: "F · Yiv Sonu → Sağ Yanak", unit: "cm", type: "number" },
-  { key: "drumSpanGCm", label: "G · Sağ Yanak → Tambur Yatağı", unit: "cm", type: "number", hint: "Tambur yatağı tarafı moment kolu." },
-  { key: "ropeLoadPosition", label: "Halat Yükü Konumu", type: "select", options: ROPE_POSITIONS },
-  { key: "shaftD1Cm", label: "D1 · Mil Gerilme Kesiti Çapı", unit: "cm", type: "number" },
-  { key: "shaftD2Cm", label: "D2 · Yatak / Rulman Oturma Çapı", unit: "cm", type: "number" },
-  { key: "drumWeldThicknessCm", label: "Tambur Kaynak Kalınlığı", unit: "cm", type: "number" },
+  { key: "drumWallThicknessMm", label: "Tambur Yiv Dibi Et Kalınlığı", unit: "mm", type: "number" },
+  {
+    key: "safetyGrooveCount", label: "Emniyet Sarımı", type: "select",
+    options: SAFETY_GROOVE_COUNTS, optionLabels: SAFETY_GROOVE_COUNT_LABELS, numeric: true,
+    hint: "Halat ucu bağlantısından önce tamburda kalması gereken sarım sayısı.",
+  },
+  {
+    key: "drumWeightKg", label: "Tambur Ağırlığı (W)", unit: "kg", type: "number",
+    hint: DRUM_WEIGHT_FORMULA_HINT,
+  },
+  // Tambur mili ölçü zinciri: teknik resimden okunduğu gibi mm sorulur.
+  { key: "drumSpanAMm", label: "A · Redüktör Mesnedi → Sol Yanak", unit: "mm", type: "number", hint: "Redüktör tarafı moment kolu." },
+  { key: "drumSpanBMm", label: "B · Sol Yanak → Yiv Başlangıcı", unit: "mm", type: "number" },
+  { key: "drumSpanCMm", label: "C · Sol Yiv Bölgesi", unit: "mm", type: "number" },
+  { key: "drumSpanDMm", label: "D · Ortadaki Yivsiz Bölge", unit: "mm", type: "number" },
+  { key: "drumSpanEMm", label: "E · Sağ Yiv Bölgesi", unit: "mm", type: "number", hint: "Tek helisli tamburda 0 girin." },
+  { key: "drumSpanFMm", label: "F · Yiv Sonu → Sağ Yanak", unit: "mm", type: "number" },
+  { key: "drumSpanGMm", label: "G · Sağ Yanak → Tambur Yatağı", unit: "mm", type: "number", hint: "Tambur yatağı tarafı moment kolu." },
+  {
+    // Seçenek DEĞERLERİ değişmez (kayıtlı revizyonlar bunlara bağlıdır); yalnız
+    // gösterim etiketi sadeleştirilir. `optionLabels` hem sihirbazda hem PDF
+    // raporunda (FieldTable) uygulanır.
+    key: "ropeLoadPosition", label: "Halat Yükü Konumu", type: "select",
+    options: ROPE_POSITIONS, optionLabels: ROPE_POSITION_LABELS,
+  },
+  { key: "shaftD1Mm", label: "D1 · Mil Gerilme Kesiti Çapı", unit: "mm", type: "number", diameter: true },
+  { key: "shaftD2Mm", label: "D2 · Yatak / Rulman Oturma Çapı", unit: "mm", type: "number", diameter: true },
+  { key: "drumWeldThicknessMm", label: "Tambur Kaynak Kalınlığı", unit: "mm", type: "number" },
   { key: "drumWeldAllowable", label: "Tambur Kaynağı İzin Gerilmesi", unit: "MPa", type: "number" },
-  { key: "shaftWeldThicknessCm", label: "Mil Kaynak Kalınlığı", unit: "cm", type: "number" },
+  { key: "shaftWeldThicknessMm", label: "Mil Kaynak Kalınlığı", unit: "mm", type: "number" },
   { key: "shaftWeldAllowable", label: "Mil Kaynağı İzin Gerilmesi", unit: "MPa", type: "number" },
   { key: "bearingFactorY1", label: "Rulman Eşdeğer Yük Katsayısı (statik)", type: "number" },
   { key: "bearingFactorY2", label: "Rulman Eşdeğer Yük Katsayısı (dinamik)", type: "number" },
@@ -475,15 +581,21 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
 
 export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "ropeBrand", label: "Halat Markası", type: "text" },
-  { key: "ropeDiaMm", label: "Halat Çapı", unit: "mm", type: "number" },
+  { key: "ropeDiaMm", label: "Halat Çapı", unit: "mm", type: "number", diameter: true },
   { key: "ropeConstruction", label: "Halat Yapısı", type: "text" },
   { key: "ropeCore", label: "Halat Özü", type: "select", options: ROPE_CORE_TYPES },
   { key: "ropeWireStrength", label: "Tel Mukavemeti", unit: "kg/mm²", type: "number" },
   { key: "ropeBreakingLoadKn", label: "Halat Kopma Yükü", unit: "kN", type: "number" },
   { key: "ropeWeightKgPerM", label: "Halat Metre Ağırlığı", unit: "kg/m", type: "number" },
-  { key: "drumDiaMm", label: "Tambur Çapı", unit: "mm", type: "select", options: DRUM_DIA_SERIES_MM, numeric: true },
+  { key: "drumDiaMm", label: "Tambur Çapı", unit: "mm", type: "select", options: DRUM_DIA_SERIES_MM, numeric: true, diameter: true },
   { key: "drumMaterial", label: "Tambur Malzemesi", type: "select", options: DRUM_MATERIALS },
-  { key: "drumGrooveLengthText", label: "Seçilen Oluk Boyu", unit: "mm", type: "text" },
+  {
+    key: "drumGrooveLengthText", label: "Yiv Boyu", unit: "mm", type: "text",
+    hint:
+      "Otomatik: <tahrikli halat sayısı> x <gerekli yiv boyu>. Boy yukarı " +
+      "yuvarlanır (1 m altında 10 mm, üstünde 50 mm adımla) — yiv boyu " +
+      "yetmezse halat tambura sığmaz.",
+  },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
@@ -492,8 +604,8 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "gearboxModel", label: "Redüktör", type: "text" },
   { key: "gearboxRatio", label: "Çevrim Oranı", type: "number" },
   { key: "gearboxNominalTorqueKnm", label: "Redüktör Nominal Torku", unit: "kNm", type: "number" },
-  { key: "gearboxInputShaftMm", label: "Redüktör Giriş Mili", unit: "mm", type: "number" },
-  { key: "gearboxOutputShaftMm", label: "Redüktör Çıkış Mili", unit: "mm", type: "number" },
+  { key: "gearboxInputShaftMm", label: "Redüktör Giriş Mili", unit: "mm", type: "number", diameter: true },
+  { key: "gearboxOutputShaftMm", label: "Redüktör Çıkış Mili", unit: "mm", type: "number", diameter: true },
   { key: "gearboxWeightKg", label: "Redüktör Ağırlığı", unit: "kg", type: "number" },
   { key: "gearboxAllowedRadialKn", label: "Redüktör İzinli Radyal Yük", unit: "kN", type: "number" },
   {
@@ -502,26 +614,32 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     numeric: true,
   },
   {
-    key: "motorRpm", label: "Motor Devri", unit: "d/dak", type: "select",
-    options: MOTOR_RPM_SERIES, optionLabels: MOTOR_RPM_LABELS, numeric: true,
+    // Katalog GERÇEK yüklü devri verir (1465, 1470, 1475 …) ve bu değer doğrudan
+    // hesaba girer (çevrim oranı, gerçekleşen kaldırma hızı, gerekli güç).
+    // Anma devri listesi (750/1000/1500/3000) gerçeği temsil etmediği ve
+    // katalogdan gelen devri açılır listeye sığdıramadığı için alan SERBEST
+    // SAYIDIR. `MOTOR_RPM_SERIES` / `MOTOR_RPM_LABELS` anma devri sözlüğü
+    // olarak dışa verilmeye devam eder (silinmedi); alan tanımı artık okumaz.
+    key: "motorRpm", label: "Motor Devri", unit: "d/dak", type: "number",
+    hint: "Katalogdan gelen gerçek yüklü devir (anma devri değil).",
   },
-  { key: "motorShaftMm", label: "Motor Mili", unit: "mm", type: "number" },
+  { key: "motorShaftMm", label: "Motor Mili", unit: "mm", type: "number", diameter: true },
   { key: "motorBrand", label: "Motor Markası", type: "text" },
   { key: "motorCount", label: "Motor Adedi", type: "number" },
   { key: "brakeBrand", label: "Fren Markası", type: "text" },
   { key: "brakeModel", label: "Fren Modeli", type: "text" },
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
-  { key: "brakeWheelDiaMm", label: "Fren Kasnak Çapı", unit: "mm", type: "number" },
+  { key: "brakeWheelDiaMm", label: "Fren Kasnak Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeQty", label: "Fren Adedi", type: "number" },
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Motor Kaplini Modeli", type: "text" },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Torku", unit: "Nm", type: "number" },
-  { key: "motorCouplingDmaxMm", label: "Motor Kaplini Dmax", unit: "mm", type: "number" },
+  { key: "motorCouplingDmaxMm", label: "Motor Kaplini Dmax", unit: "mm", type: "number", diameter: true },
   { key: "drumCouplingBrand", label: "Tambur Kaplini Markası", type: "text" },
   { key: "drumCouplingModel", label: "Tambur Kaplini Modeli", type: "text" },
   { key: "drumCouplingTorqueNm", label: "Tambur Kaplini Torku", unit: "Nm", type: "number" },
   { key: "drumCouplingRadialN", label: "Tambur Kaplini Radyal Yükü", unit: "N", type: "number" },
-  { key: "drumCouplingDmaxMm", label: "Tambur Kaplini Dmax", unit: "mm", type: "number" },
+  { key: "drumCouplingDmaxMm", label: "Tambur Kaplini Dmax", unit: "mm", type: "number", diameter: true },
   {
     key: "safetyBrakeModel", label: "Emniyet Freni Modeli", type: "select",
     options: SAFETY_BRAKE_CODES, standardRef: "SIBRE SHI",
@@ -537,7 +655,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     hint: "Tambur üzerindeki kaliper düzeni; kaliper adedini de belirler.",
   },
   {
-    key: "safetyBrakeFlangeDiaMm", label: "Flanş Dış Çapı", unit: "mm", type: "number",
+    key: "safetyBrakeFlangeDiaMm", label: "Flanş Dış Çapı", unit: "mm", type: "number", diameter: true,
     hint: "Fren diski olarak kullanılan tambur flanşının dış çapı.",
   },
 ];
@@ -547,6 +665,19 @@ export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
   ropeWeightKg: "ropeWeightAuto",
   hookBlockWeightKg: "hookBlockWeightAuto",
   tempFactor: "tempFactorAuto",
+  sheaveEfficiency: "sheaveEfficiencyAuto",
+  drumWeightKg: "drumWeightAuto",
+};
+
+/**
+ * Otomatik doldurulabilen kaldırma KATALOG SEÇİMİ alanları: alan → anahtar.
+ *
+ * Anahtar yine GİRDİLERDE durur (`HoistInputs`), çünkü `revision-load.ts`teki
+ * AUTO_FLAGS koruması yalnız girdi nesnesine bakar; türetilen değer ise
+ * seçimlere yazılır.
+ */
+export const HOIST_AUTO_SELECTION_FIELDS: Record<string, keyof HoistInputs & string> = {
+  drumGrooveLengthText: "drumGrooveLengthAuto",
 };
 
 /**
@@ -556,6 +687,20 @@ export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
  */
 export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
   tempFactor: "tempFactorAuto",
+  applicationClass: "travelApplicationClassAuto",
+  serviceFactorKs: "serviceFactorKsAuto",
+  accelTorqueFactorKt: "accelTorqueFactorKtAuto",
+};
+
+/**
+ * Otomatik doldurulabilen ANA KİRİŞ girdileri (7.2 Yükler / 7.3 Yükleme
+ * Durumları). Bu üç kutu eskiden "(Elle)" etiketiyle boş isteniyordu; artık
+ * türetilen değerle dolar ve anahtar kapatılınca elle düzeltilebilir.
+ */
+export const GIRDER_AUTO_FIELDS: Record<string, string> = {
+  psiHAOverride: "psiHAAuto",
+  psiHKOverride: "psiHKAuto",
+  amplifyYcOverride: "amplifyYcAuto",
 };
 
 /**

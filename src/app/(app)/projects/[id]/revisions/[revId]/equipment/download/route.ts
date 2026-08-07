@@ -6,11 +6,11 @@
 
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson } from "@/lib/revision-load";
+import { altsFromRevision, calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
   buildEquipmentWorkbook, buildEquipmentGroups, buildSummarySections, mergeExtras, dsKey,
-  type EquipmentExtraRow,
+  type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
 import { getReportSettings } from "@/lib/settings";
@@ -65,6 +65,16 @@ export async function GET(
     extras = extrasRow.rows as EquipmentExtraRow[];
   }
 
+  // "Ek Özellikler" notları (equipment_notes) — row_key ile satırlara bağlanır
+  const notes: EquipmentNotes = {};
+  const { data: noteRows } = await supabase
+    .from("equipment_notes")
+    .select("row_key, note")
+    .eq("revision_id", revId);
+  for (const n of (noteRows ?? []) as { row_key: string; note: string }[]) {
+    notes[n.row_key] = n.note;
+  }
+
   // Katalog datasheet linkleri
   const datasheetUrls = new Map<string, string>();
   const { data: catRows } = await supabase
@@ -95,14 +105,19 @@ export async function GET(
   let contentType: string;
   let ext: string;
 
+  // Seçenekli (alternatif) seçimler ekipman listesinde ana satırın altına iner.
+  const alts = altsFromRevision(revision.selections as RevisionSelectionsJson | null);
+
   if (format === "pdf") {
-    const groups = mergeExtras(buildEquipmentGroups(calcInput), extras);
+    const groups = mergeExtras(buildEquipmentGroups(calcInput, notes, alts), extras);
     const summary = scope === "customer" ? undefined : buildSummarySections(calcInput, calcResult);
     raw = await renderEquipmentPdf({ meta, groups, summary, settings, datasheetUrls });
     contentType = "application/pdf";
     ext = "pdf";
   } else {
-    const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, { datasheetUrls, scope, extras });
+    const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
+      datasheetUrls, scope, extras, notes, alts,
+    });
     raw = await workbook.xlsx.writeBuffer();
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     ext = "xlsx";

@@ -24,13 +24,30 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   shaftSpanACm: 7.25,           // teker mili mesnet ölçüsü a [cm]
   shaftSpanBCm: 9,              // teker mili ölçüsü b [cm] (gösterim)
   shaftDiaCm: 11,               // teker mili çapı [cm]
+  // Teker bandaj genişliği: 50×50 kare ray + iki yandan yanaşma payı.
+  // Yük mile bu genişlik boyunca YAYILI aktarılır (bkz. travelGroup.ts).
+  wheelWidthMm: 90,
   stressConcFactor: 1,          // gerilme yığılması katsayısı
   bearingCount: 2,              // teker başına rulman adedi
   bearingFactorY0: 2.8,         // eşdeğer statik yük katsayısı Y0
   bearingFactorY1: 2.8,         // eşdeğer dinamik yük katsayısı Y1
-  applicationClass: "",         // yalnız köprü varyantında kullanılır
-  serviceFactorKs: 1,           // CMAA 70 servis faktörü
+  // CMAA 70 servis (uygulama) sınıfı — FEM mekanizma sınıfından türetilir
+  // (M6 → E); bkz. derive.ts `travelApplicationClass`.
+  applicationClass: "E",
+  travelApplicationClassAuto: true,
+  // CMAA 70 Tablo 5.2.9.1.2.1-E: Ks sınıf × KUMANDA TİPİ ile seçilir.
+  // Referans işte Ks ELLE 1,0 girilmişti (E sınıfı + AC manyetik kumanda için
+  // tablo 1,2 verir); tarihsel fikstürü bozmamak için otomatik KAPALI gelir.
+  // Yeni iş şablonunda anahtar AÇIKTIR (bkz. defaults.ts).
+  driveControl: "acManyetik",
+  serviceFactorKs: 1,           // CMAA 70 servis faktörü (elle girilmiş)
+  serviceFactorKsAuto: false,
+  // CMAA 70 Tablo 5.2.9.1.2.1-C: Kt motor + kumanda tipinden gelir; servis
+  // sınıfına bağlı DEĞİLDİR. AC bilezikli rotor (Mill) + kontaktör-direnç
+  // satırı 1,5–1,7 verir, alt uç 1,5'tir → referans değerle birebir örtüşür.
+  motorControl: "acBilezikliMillKontaktor",
   accelTorqueFactorKt: 1.5,     // CMAA 70 ivmelenme tork faktörü
+  accelTorqueFactorKtAuto: true,
   reducerStages: 3,             // redüktör kademe sayısı
   accelerationMs2: 0.2,         // ivme [m/s²]
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
@@ -41,6 +58,11 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 2,
   bufferApproachM: 0,           // yalnız köprü varyantında kullanılır
+  // Araba iki kirişin ucundaki iki durdurucuya aynı anda çarpar.
+  bufferCount: 2,
+  // Kepçe halatla asılıdır → salınabilir yük, çarpışan kütleye girmez.
+  bufferLoadRigidlyGuided: "Hayır",
+  bufferFrequentEndApproach: "Hayır",
 };
 
 export const V5_TROLLEY_SELECTIONS: TravelSelections = {
@@ -80,6 +102,11 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   bufferStrokeMm: 100,
   bufferEnergyKj: 15,
   bufferLoadKn: 170,
+  // Referans iş SIBRE SP tamponu kullanmıyor; kısma iğnesi ve sıkışma sınırı
+  // verisi YOKTUR. Uydurulmamış, 0 bırakılmıştır → ilgili kontroller üretilmez.
+  bufferMeteringPinCode: "",
+  bufferDesignMassMaxT: 0,
+  bufferMaxCompressionPct: 0,
 };
 
 export const V5_BRIDGE_INPUTS: TravelInputs = {
@@ -89,13 +116,21 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   shaftSpanACm: 7.5,
   shaftSpanBCm: 14,
   shaftDiaCm: 14,
+  // Köprü tekeri daha büyük çaplıdır; bandaj genişliği de daha fazladır.
+  wheelWidthMm: 100,
   stressConcFactor: 1,
   bearingCount: 2,
   bearingFactorY0: 2.5,
   bearingFactorY1: 2.6,
-  applicationClass: "o",        // uygulama sınıfı (H=hafif, O=orta, Y=yüksek)
-  serviceFactorKs: 1,
+  // CMAA 70 servis (uygulama) sınıfı — köprü mekanizma sınıfı M6 → E.
+  applicationClass: "E",
+  travelApplicationClassAuto: true,
+  driveControl: "acManyetik",
+  serviceFactorKs: 1,           // elle girilmiş — bkz. V5_TROLLEY_INPUTS notu
+  serviceFactorKsAuto: false,
+  motorControl: "acBilezikliMillKontaktor",
   accelTorqueFactorKt: 1.5,
+  accelTorqueFactorKtAuto: true,
   reducerStages: 3,
   accelerationMs2: 0.2,
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
@@ -106,6 +141,10 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 1.8,
   bufferApproachM: 2,           // tampon hesabında araba yanaşması [m]
+  // Köprü iki rayın ucundaki iki durdurucuya aynı anda çarpar.
+  bufferCount: 2,
+  bufferLoadRigidlyGuided: "Hayır",
+  bufferFrequentEndApproach: "Hayır",
 };
 
 export const V5_BRIDGE_SELECTIONS: TravelSelections = {
@@ -147,4 +186,9 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   bufferStrokeMm: 100,
   bufferEnergyKj: 15,
   bufferLoadKn: 170,
+  // Referans iş SIBRE SP tamponu kullanmıyor; kısma iğnesi ve sıkışma sınırı
+  // verisi YOKTUR. Uydurulmamış, 0 bırakılmıştır → ilgili kontroller üretilmez.
+  bufferMeteringPinCode: "",
+  bufferDesignMassMaxT: 0,
+  bufferMaxCompressionPct: 0,
 };

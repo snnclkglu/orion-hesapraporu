@@ -2,12 +2,49 @@
 // üç seviyede (detaylı / standart / özet) üretir.
 // Çalıştırma: npx tsx scripts/test-pdf.ts [çıktı-dizini]
 // Doğrular: dosya %PDF ile başlar, >20KB (detaylı), sayfa sayılarını raporlar.
+//
+// Rapor ALTERNATİFLİ (seçenekli) bir revizyonla üretilir (madde 23/25): 2.1
+// Halat bölümüne üç seçenek konur ki "SEÇENEKLER" bloğu gerçek çıktıda görünsün
+// ve yerleşim denetçisi (scripts/check-pdf-layout.py) onu da tarasın.
 
 import fs from "node:fs";
 import path from "node:path";
 import { V5_TEMPLATE } from "../src/lib/calc/defaults";
 import { runCalc } from "../src/lib/calc/engine";
 import { REPORT_LEVELS, renderReportPdf, type ReportLevel } from "../src/lib/pdf/report";
+import type { RevisionAlts } from "../src/lib/revision-load";
+
+/**
+ * Alternatif halat fikstürü. ÜÇ SEÇENEK DE GERÇEK KATALOG SATIRIDIR
+ * (supabase/migrations/20260719000005_catalog_seed.sql, kind='rope'); sayı
+ * uydurulmamıştır:
+ *   1) Ø18 6x36 WS IWRC 1960 MPa — 226 kN, 1,33 kg/m  (V5 şablonunun seçimi → AKTİF)
+ *   2) Ø20 6x36 WS IWRC 1960 MPa — 279 kN, 1,64 kg/m
+ *   3) Ø16 6x36 WS IWRC 1960 MPa — 179 kN, 1,05 kg/m
+ * Alanlar hoistSections 2.1 bölümünün `selectionKeys` listesiyle birebirdir.
+ */
+const ALTS: RevisionAlts = {
+  "main-2.1": {
+    active: 0,
+    options: [
+      {
+        ropeBrand: "Hasçelik", ropeDiaMm: 18, ropeConstruction: "6x36",
+        ropeCore: "Çelik Öz", ropeWireStrength: 200, ropeBreakingLoadKn: 226,
+        ropeWeightKgPerM: 1.33,
+      },
+      {
+        ropeBrand: "İzmit A.Ş.", ropeDiaMm: 20, ropeConstruction: "6x36",
+        ropeCore: "Çelik Öz", ropeWireStrength: 200, ropeBreakingLoadKn: 279,
+        ropeWeightKgPerM: 1.64,
+      },
+      {
+        ropeBrand: "İzmit A.Ş.", ropeDiaMm: 16, ropeConstruction: "6x36",
+        ropeCore: "Çelik Öz", ropeWireStrength: 200, ropeBreakingLoadKn: 179,
+        ropeWeightKgPerM: 1.05,
+      },
+    ],
+  },
+};
 
 async function main() {
   const outDir = process.argv[2] ?? path.join(process.cwd(), ".test-output");
@@ -30,6 +67,7 @@ async function main() {
       preparedBy: "Sinan Çolakoğlu",
       input,
       result,
+      alts: ALTS,
       level,
     });
 

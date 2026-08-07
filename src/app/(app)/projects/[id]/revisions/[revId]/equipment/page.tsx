@@ -7,12 +7,13 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
+  altsFromRevision,
   calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
   buildEquipmentGroups, buildSummarySections, dsKey,
-  type EquipmentExtraRow,
+  type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
 import { EquipmentPanel } from "./equipment-panel";
 
@@ -50,7 +51,22 @@ export default async function EquipmentPage({
   );
   const calcResult = runCalc(calcInput);
 
-  const autoGroups = buildEquipmentGroups(calcInput);
+  // "Ek Özellikler" notları — satırın kararlı row_key'i ile eşlenir (madde 34)
+  const notes: EquipmentNotes = {};
+  const { data: noteRows } = await supabase
+    .from("equipment_notes")
+    .select("row_key, note")
+    .eq("revision_id", revId);
+  for (const n of (noteRows ?? []) as { row_key: string; note: string }[]) {
+    notes[n.row_key] = n.note;
+  }
+
+  const autoGroups = buildEquipmentGroups(
+    calcInput,
+    notes,
+    // Seçenekli (alternatif) seçimler panelde de ana satırın altında görünür.
+    altsFromRevision(revision.selections as RevisionSelectionsJson | null)
+  );
   const summary = buildSummarySections(calcInput, calcResult);
 
   let extras: EquipmentExtraRow[] = [];
@@ -75,8 +91,11 @@ export default async function EquipmentPage({
     if (r.datasheet_url) datasheetUrls[dsKey(r.kind, r.brand, r.model)] = r.datasheet_url;
   }
 
+  // Sayfa kendi iç boşluğunu VERMEZ: app-shell normal (çerçeve olmayan) kipte
+  // `main`e zaten px/py uyguluyor. Sayfa ayrıca padding verirse boşluk ikiye
+  // katlanır (madde 35 düzeltmesiyle bu sayfa normal kipe geçti).
   return (
-    <div className="mx-auto w-full px-4 py-6 lg:px-8">
+    <div className="w-full">
       <div className="mb-4">
         <Link
           href={`/projects/${id}/revisions/${revId}`}

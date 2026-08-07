@@ -32,6 +32,13 @@ export interface RectEl {
   kind: "rect";
   x: number; y: number; w: number; h: number;
   fill?: string; stroke?: string; strokeWidth?: number; rx?: number;
+  /**
+   * Çakışma çözücü bu kutunun üstüne etiket koymaz. Yalnız ÜZERİNE YAZI
+   * GELMEMESİ gereken dolu kutularda işaretlenir (kullanım oranı çubuğu,
+   * gösterge kartuşu). Şematik resimlerdeki plaka/kesit dolguları
+   * işaretlenmez — onların üstündeki etiketler kasıtlıdır.
+   */
+  obstacle?: boolean;
 }
 export interface CircleEl {
   kind: "circle";
@@ -57,6 +64,19 @@ export interface TextEl {
   anchor?: TextAnchor;
   fill?: string;
   bold?: boolean;
+  /**
+   * Çakışma çözücü bu etiketi KAYDIRMAZ. Konumu anlam taşıyan etiketlerde
+   * kullanılır: eksen tik değerleri (tikin tam altında durmalı), grafik
+   * başlıkları, ölçü zincirinin kotları.
+   */
+  fixed?: boolean;
+  /** Çakışma hâlinde kaçış yönü tercihi (varsayılan: iki yöne de bakar) */
+  push?: "up" | "down" | "auto";
+  /**
+   * Etiketin anlattığı nokta. Etiket çakışma yüzünden bu noktadan uzağa
+   * kaydırılırsa aralarına ince bir bağlantı (leader) çizgisi çizilir.
+   */
+  leaderTo?: [number, number];
 }
 
 export type DiagramEl = LineEl | RectEl | CircleEl | PathEl | PolygonEl | TextEl;
@@ -146,8 +166,20 @@ function pathPoints(d: string): { x: number; y: number }[] {
  * yeterli; fazla tahmin yalnız birkaç birim boşluk bırakır, eksik tahmin ise
  * etiketin çerçeve dışında kalmasına yol açar.
  */
-function textWidth(el: TextEl): number {
+export function textWidth(el: TextEl): number {
   return el.text.length * el.size * (el.bold ? 0.64 : 0.6);
+}
+
+/**
+ * Metnin tahmini sınır kutusu [x1, y1, x2, y2]. Metin TABAN ÇİZGİSİNDEN
+ * çizilir: üstte büyük harf çıkıntısı, altta alt uzantı (g, ğ, ş) payı vardır.
+ * Hem viewBox hesabı hem çakışma çözücü aynı tahmini kullanır — iki yerde iki
+ * ayrı ölçü olsaydı çözücünün ayırdığı etiket çerçevede yine kesişik görünürdü.
+ */
+export function textBounds(el: TextEl): [number, number, number, number] {
+  const w = textWidth(el);
+  const x1 = el.anchor === "end" ? el.x - w : el.anchor === "middle" ? el.x - w / 2 : el.x;
+  return [x1, el.y - el.size * 0.82, x1 + w, el.y + el.size * 0.28];
 }
 
 /** Bir elemanın sınır kutusu [x1, y1, x2, y2] */
@@ -164,12 +196,8 @@ function boundsOf(el: DiagramEl): [number, number, number, number] {
       const ys = el.points.map((p) => p[1]);
       return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     }
-    case "text": {
-      const w = textWidth(el);
-      const x1 = el.anchor === "end" ? el.x - w : el.anchor === "middle" ? el.x - w / 2 : el.x;
-      // Metin taban çizgisinden çizilir: üstte çıkıntı, altta alt uzantı payı
-      return [x1, el.y - el.size * 0.82, x1 + w, el.y + el.size * 0.28];
-    }
+    case "text":
+      return textBounds(el);
     case "path": {
       const pts = pathPoints(el.d);
       if (pts.length === 0) return [Infinity, Infinity, -Infinity, -Infinity];
@@ -178,6 +206,116 @@ function boundsOf(el: DiagramEl): [number, number, number, number] {
       return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     }
   }
+}
+
+// ------------------------------------------------------- etiket çakışması
+
+type Box = [number, number, number, number];
+
+/** İki kutunun kesişimi, KÜÇÜK olanın alanına oranla (0 = ayrık). */
+function overlapRatio(a: Box, b: Box): number {
+  const dx = Math.min(a[2], b[2]) - Math.max(a[0], b[0]);
+  const dy = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+  if (dx <= 0 || dy <= 0) return 0;
+  const small = Math.min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]));
+  return small > 0 ? (dx * dy) / small : 0;
+}
+
+/** Kutuyu her yöne `p` kadar büyütür — etiketler birbirine yapışmasın. */
+function grow(b: Box, p: number): Box {
+  return [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
+}
+
+function shifted(b: Box, dx: number, dy: number): Box {
+  return [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+}
+
+/** Üst üste binmeyi bildiren en küçük oran — bunun altındaki teğetler yok sayılır. */
+const OVERLAP_LIMIT = 0.08;
+/** Etiketler arası en az boşluk [birim] */
+const LABEL_PAD = 1.0;
+
+/**
+ * GENEL etiket çakışma çözücü — tek bir diyagrama özel yama değildir.
+ *
+ * Yerleştirme sırası çizim sırasıdır: önce çizilen etiket yerini korur, sonra
+ * gelen çakışıyorsa kaçar. `fixed: true` işaretli etiketler (eksen tik
+ * değerleri, ölçü kotları) HİÇ kaçmaz — konumları anlam taşır, onlar için
+ * kaçan hep karşı taraftır. Kaçış önce dikey (etiketin `push` tercihine göre),
+ * gerekirse yatay denenir. Etiketin `leaderTo` alanı varsa ve kaçış gözle
+ * görülür olduysa aradaki ilişkiyi kaybetmemek için ince bir bağlantı çizgisi
+ * eklenir.
+ *
+ * Dönüş: kaydırılan etiket sayısı (test ve ölçüm için).
+ */
+export function resolveTextOverlaps(els: DiagramEl[]): number {
+  const texts = els.filter((e): e is TextEl => e.kind === "text");
+  if (texts.length < 2) return 0;
+
+  const placed: Box[] = [];
+  const hits = (b: Box) => placed.some((p) => overlapRatio(p, b) > OVERLAP_LIMIT);
+
+  // Sabit etiketler ve "üstüne yazılmaz" kutular önce yerleşir: sıraları ne
+  // olursa olsun kaçmazlar, kaçan hep karşı taraftır.
+  for (const el of texts) if (el.fixed) placed.push(grow(textBounds(el), LABEL_PAD));
+  for (const el of els) {
+    if (el.kind === "rect" && el.obstacle) {
+      placed.push(grow([el.x, el.y, el.x + Math.max(0, el.w), el.y + Math.max(0, el.h)], LABEL_PAD));
+    }
+  }
+
+  const leaders: LineEl[] = [];
+  let moved = 0;
+
+  for (const el of texts) {
+    if (el.fixed) continue;
+    const base = grow(textBounds(el), LABEL_PAD);
+    if (!hits(base)) {
+      placed.push(base);
+      continue;
+    }
+    const step = Math.max(3, el.size * 0.95);
+    const dirs: number[] =
+      el.push === "up" ? [-1] : el.push === "down" ? [1] : [-1, 1];
+    let dx = 0;
+    let dy = 0;
+    let box: Box | null = null;
+    for (let k = 1; k <= 10 && !box; k++) {
+      for (const d of dirs) {
+        const cand = shifted(base, 0, d * step * k);
+        if (!hits(cand)) { dy = d * step * k; box = cand; break; }
+      }
+    }
+    if (!box) {
+      // Dikeyde yer kalmadı: yana kaç (kutunun kendi genişliği kadar adımla)
+      const wide = Math.max(8, (base[2] - base[0]) * 0.55);
+      for (let k = 1; k <= 8 && !box; k++) {
+        for (const sx of [1, -1]) {
+          const cand = shifted(base, sx * wide * k, 0);
+          if (!hits(cand)) { dx = sx * wide * k; box = cand; break; }
+        }
+      }
+    }
+    if (!box) {
+      // Çözülemedi — etiket yerinde kalır (kaybetmek üst üste binmekten kötü)
+      placed.push(base);
+      continue;
+    }
+    el.x += dx;
+    el.y += dy;
+    placed.push(box);
+    moved++;
+    if (el.leaderTo && Math.abs(dx) + Math.abs(dy) > el.size) {
+      const [lx, ly] = el.leaderTo;
+      const b = textBounds(el);
+      const ax = lx < b[0] ? b[0] : lx > b[2] ? b[2] : lx;
+      const ay = ly < b[1] ? b[1] : ly > b[3] ? b[3] : ly;
+      leaders.push(ln(lx, ly, ax, ay, el.fill ?? DCOL.muted, 0.5, "2,2"));
+    }
+  }
+  // Bağlantı çizgileri en sona: metnin üstünü çizmesinler
+  els.push(...leaders);
+  return moved;
 }
 
 /**
@@ -194,6 +332,9 @@ export function fitDiagram(
   minHeight: number,
   pad = 12
 ): Diagram {
+  // Önce etiket çakışmaları çözülür, SONRA çerçeve ölçülür: kaçan etiket
+  // kutunun dışına taşarsa viewBox onu da kapsayacak şekilde büyür.
+  resolveTextOverlaps(els);
   let minX = 0, minY = 0, maxX = -Infinity, maxY = -Infinity;
   for (const el of els) {
     const [x1, y1, x2, y2] = boundsOf(el);
@@ -227,13 +368,26 @@ export function ln(
 
 export function txt(
   x: number, y: number, text: string, size = 9.5,
-  opts?: { anchor?: TextAnchor; fill?: string; bold?: boolean }
+  opts?: {
+    anchor?: TextAnchor;
+    fill?: string;
+    bold?: boolean;
+    /** Çakışma çözücü bu etiketi kaydırmasın (konumu anlam taşıyor) */
+    fixed?: boolean;
+    /** Kaçış yönü tercihi */
+    push?: "up" | "down" | "auto";
+    /** Etiketin anlattığı nokta — kaçarsa bağlantı çizgisi çizilir */
+    leaderTo?: [number, number];
+  }
 ): TextEl {
   return {
     kind: "text", x, y, text, size,
     anchor: opts?.anchor ?? "start",
     fill: opts?.fill ?? DCOL.ink,
     bold: opts?.bold,
+    fixed: opts?.fixed,
+    push: opts?.push,
+    leaderTo: opts?.leaderTo,
   };
 }
 

@@ -13,7 +13,7 @@
 
 import { NEW_WORK_TEMPLATE, NEW_WORK_DISABLED_MODULES } from "@/lib/calc/defaults";
 import { activeModules, type CalcInput } from "@/lib/calc/engine";
-import { MODULE_ORDER, type ModuleKey } from "@/lib/calc/presentation/module-family";
+import { MODULE_ORDER, isHoistKey, type ModuleKey } from "@/lib/calc/presentation/module-family";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
@@ -60,7 +60,72 @@ export interface RevisionSelectionsJson {
   bridge?: TravelSelections | null;
   girder?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;
-  alts?: Record<string, { active: number; options: Record<string, unknown>[] }>;
+  alts?: RevisionAlts;
+}
+
+/**
+ * Alternatif (seçenekli) ekipman durumu — TEK KAYNAK.
+ *
+ * Seçim alanı olan her modül bölümü için 3'e kadar seçenek saklanır. `active`
+ * olan canlı hesaba girer; diğerleri kaydedilmiş seçim kümeleridir ve raporda
+ * (PDF "SEÇENEKLER" bloğu) ile ekipman listesinde ("Seçenek n" satırları)
+ * görünür. Editör bu tipi kendi `AltState`/`AltsMap` adlarıyla yeniden
+ * dışa verir; tanım burada durur ki editör, PDF ve Excel aynı şekli okusun.
+ */
+export interface RevisionAltState {
+  /** Canlı hesapta kullanılan seçeneğin `options` içindeki sırası */
+  active: number;
+  /** Her seçenek, bölümün SEÇİM alanlarının (selectionKeys) bir alt kümesidir */
+  options: Record<string, unknown>[];
+}
+
+/** Anahtar: `${moduleKey}-${section.rawId}` — ör. "main-2.1" */
+export type RevisionAlts = Record<string, RevisionAltState>;
+
+/**
+ * Revizyon snapshot'ından alternatif haritasını güvenle okur.
+ *
+ * JSONB serbest biçimlidir: bozuk/eksik kayıt raporu düşürmemeli. Seçenek
+ * dizisi olmayan, boş ya da nesne olmayan girdiler ATLANIR; `active` dizinin
+ * sınırlarına kelepçelenir. Alternatifi olmayan revizyonda sonuç boş
+ * nesnedir ve çıktılar bugünkü hâlini birebir korur.
+ */
+export function altsFromRevision(
+  selections: RevisionSelectionsJson | null | undefined
+): RevisionAlts {
+  const raw = (selections as { alts?: unknown } | null | undefined)?.alts;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: RevisionAlts = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const st = value as { active?: unknown; options?: unknown };
+    if (!Array.isArray(st.options)) continue;
+    const options = st.options.filter(
+      (o): o is Record<string, unknown> => Boolean(o) && typeof o === "object" && !Array.isArray(o)
+    );
+    if (options.length === 0) continue;
+    const active =
+      typeof st.active === "number" && Number.isInteger(st.active)
+        ? Math.min(Math.max(st.active, 0), options.length - 1)
+        : 0;
+    out[key] = { active, options };
+  }
+  return out;
+}
+
+/** Bölümün alternatif anahtarı (editör, PDF ve Excel aynı biçimi kullanır). */
+export function altKeyFor(moduleKey: string, sectionRawId: string): string {
+  return `${moduleKey}-${sectionRawId}`;
+}
+
+/**
+ * Alternatif anahtarını modül anahtarı + bölüm ham id'sine ayırır.
+ * Modül anahtarları tire içermez; ilk tire ayraçtır.
+ */
+export function splitAltKey(key: string): { moduleKey: string; sectionRawId: string } | null {
+  const dash = key.indexOf("-");
+  if (dash <= 0 || dash === key.length - 1) return null;
+  return { moduleKey: key.slice(0, dash), sectionRawId: key.slice(dash + 1) };
 }
 
 /** Kapatılabilen bölümler — ana kaldırma/ana araba/köprü diğerlerini besler. */
@@ -153,16 +218,32 @@ function disabledSet(inputs: RevisionInputsJson | null): Set<ModuleKey> {
 }
 
 /**
- * Bir bölümün "otomatik" anahtarları (halat ağırlığı, kanca bloğu ağırlığı,
- * sıcaklık faktörü). Şablonda AÇIK gelirler; ancak kayıtlı bir revizyonda bu
- * anahtar hiç yoksa mühendis o değeri ELLE girmiş demektir ve türetme onu
- * ezmemelidir. Bu yüzden şablondan miras alınmaz, kapalıya çekilir.
+ * Bir bölümün "otomatik" anahtarları. Şablonda AÇIK gelirler; ancak kayıtlı bir
+ * revizyonda bu anahtar hiç yoksa mühendis o değeri ELLE girmiş demektir ve
+ * türetme onu ezmemelidir. Bu yüzden şablondan miras alınmaz, kapalıya çekilir.
+ *
+ * Liste bölüm ailelerinden BAĞIMSIZDIR: her modülün girdi nesnesine aynı
+ * süzgeç uygulanır, o modülde olmayan anahtar zaten hiç görünmez.
+ * **Yeni bir `*Auto` anahtarı eklerken buraya da eklenmelidir** — yoksa
+ * şablondaki `true` miras kalır ve mühendisin elle girdiği değer ilk açılışta
+ * sessizce ezilir.
  */
 const AUTO_FLAGS = [
+  // Kaldırma grubu
   "ropeWeightAuto",
   "hookBlockWeightAuto",
   "sheaveEfficiencyAuto",
   "tempFactorAuto",
+  "drumGrooveLengthAuto",
+  "drumWeightAuto",
+  // Yürütme grubu
+  "travelApplicationClassAuto",
+  "serviceFactorKsAuto",
+  "accelTorqueFactorKtAuto",
+  // Ana kiriş (7.2 yükler / 7.3 yükleme durumları)
+  "psiHAAuto",
+  "psiHKAuto",
+  "amplifyYcAuto",
 ] as const;
 
 function keepManualValues<T extends object>(stored: T | null | undefined, merged: T): T {
@@ -239,6 +320,52 @@ function migrateWeights(
   return out;
 }
 
+/**
+ * Tambur mili ölçüleri eskiden cm'ydi (`drumSpanACm`, `shaftD1Cm`,
+ * `drumWeldThicknessCm` …); artık teknik resimle aynı birimde, mm sorulur ve
+ * saklanır (`drumSpanAMm`, `shaftD1Mm` …).
+ *
+ * `withDefaults` AD BAZLI çalışır: eski kayıttaki `*Cm` alanlarını tanımaz ve
+ * yeni `*Mm` alanlarını ŞABLON DEĞERİNE düşürür — mühendisin girdiği ölçüler
+ * sessizce kaybolur, hesap başka bir tamburu çözer. Bu yüzden göç ZORUNLUDUR:
+ * eski `*Cm` değeri ×10 ile yeni `*Mm` alanına taşınır.
+ *
+ * Göç yalnız kayıtta `*Mm` YOKKEN ve `*Cm` VARKEN uygulanır; yeni kayıtlar
+ * dokunulmadan geçer. `null`/sayı olmayan değerler atlanır (şablon devreye
+ * girer).
+ */
+const DRUM_SHAFT_CM_TO_MM: ReadonlyArray<readonly [legacyCm: string, mm: string]> = [
+  ["drumSpanACm", "drumSpanAMm"],
+  ["drumSpanBCm", "drumSpanBMm"],
+  ["drumSpanCCm", "drumSpanCMm"],
+  ["drumSpanDCm", "drumSpanDMm"],
+  ["drumSpanECm", "drumSpanEMm"],
+  ["drumSpanFCm", "drumSpanFMm"],
+  ["drumSpanGCm", "drumSpanGMm"],
+  ["shaftD1Cm", "shaftD1Mm"],
+  ["shaftD2Cm", "shaftD2Mm"],
+  ["drumWeldThicknessCm", "drumWeldThicknessMm"],
+  ["shaftWeldThicknessCm", "shaftWeldThicknessMm"],
+];
+
+export function migrateDrumShaftUnits<T extends object>(
+  stored: object | null | undefined,
+  merged: T
+): T {
+  if (!stored || typeof stored !== "object") return merged;
+  const rec = stored as Record<string, unknown>;
+  const out = { ...merged } as Record<string, unknown>;
+  let changed = false;
+  for (const [legacyCm, mm] of DRUM_SHAFT_CM_TO_MM) {
+    if (mm in rec) continue;                 // yeni biçim: kayıt zaten mm taşıyor
+    const v = rec[legacyCm];
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    out[mm] = v * 10;
+    changed = true;
+  }
+  return changed ? (out as T) : merged;
+}
+
 /** Tüm bölümleri (kapalılar dâhil) şablonla tamamlanmış olarak kurar. */
 function fullInput(
   inputs: RevisionInputsJson | null,
@@ -265,7 +392,14 @@ function fullInput(
       // yoksa değer elle girilmiştir ve türetme onu ezmemelidir.
       inputs: keepManualValues(
         storedModuleInputs,
-        withDefaults(storedModuleInputs, tpl.inputs)
+        // Tambur mili ölçüsü cm → mm göçü YALNIZ kaldırma gruplarına uygulanır:
+        // kanca bloğunun `shaftD1Cm` alanı cm olarak KALIR (ayrı bölüm, ayrı tip).
+        isHoistKey(key)
+          ? migrateDrumShaftUnits(
+              storedModuleInputs,
+              withDefaults(storedModuleInputs, tpl.inputs)
+            )
+          : withDefaults(storedModuleInputs, tpl.inputs)
       ),
     };
     if (tpl.selections) {

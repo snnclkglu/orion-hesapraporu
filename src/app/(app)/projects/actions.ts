@@ -5,6 +5,42 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
+import {
+  notesForRevision,
+  type EquipmentNoteRow,
+} from "./[id]/revisions/[revId]/equipment/notes";
+
+/**
+ * Kaynak revizyonun ekipman listesi "Ek Özellikler" notlarını yeni revizyona
+ * taşır (madde 34).
+ *
+ * NEDEN AYRI BİR ADIM: notlar `equipment_notes` tablosunda durur, revizyonun
+ * inputs/selections/results snapshot'ında değil. Snapshot kopyalandığında
+ * notlar kendiliğinden gelmez; yeni versiyona geçen mühendis yazdığı
+ * açıklamaları kaybederdi.
+ *
+ * Hata YUTULUR: not taşınması revizyon açmayı bozmamalıdır — revizyon zaten
+ * oluşturulmuş olur, eksik kalan yalnızca açıklamalardır ve elle yazılabilir.
+ */
+async function copyEquipmentNotes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fromRevisionId: string | null | undefined,
+  toRevisionId: string,
+  actorId: string
+): Promise<void> {
+  if (!fromRevisionId) return;
+  const { data } = await supabase
+    .from("equipment_notes")
+    .select("row_key, note")
+    .eq("revision_id", fromRevisionId);
+  const rows = notesForRevision(
+    (data ?? null) as EquipmentNoteRow[] | null,
+    toRevisionId,
+    actorId
+  );
+  if (rows.length === 0) return;
+  await supabase.from("equipment_notes").insert(rows);
+}
 
 const projectSchema = z.object({
   doc_no: z.string().trim().min(1, "Doküman no gerekli"),
@@ -150,6 +186,8 @@ export async function duplicateProject(
       .single();
     if (revError) return { error: revError.message };
     copiedRevisionId = revision.id;
+    // Ekipman listesine yazılmış "Ek Özellikler" notları da kopyaya taşınır
+    await copyEquipmentNotes(supabase, last.id, revision.id, user.id);
   }
 
   // Seçilen iş kalemi bu yeni rapora bağlanır (kalem başka rapora bağlıysa devralınır)
@@ -386,9 +424,10 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   // Son revizyonu bul: yeni rev_no + snapshot kopyası.
   // Projenin ilk revizyonu ise şablon revizyondan (is_template) kopyalanır —
   // şablon panelden normal revizyon editörüyle bakımı yapılan bir revizyondur.
+  // `id` de okunur: ekipman notları kaynak revizyondan kopyalanacak (madde 34).
   let { data: last } = await supabase
     .from("revisions")
-    .select("rev_no, inputs, selections, results, engine_version")
+    .select("id, rev_no, inputs, selections, results, engine_version")
     .eq("project_id", projectId)
     .order("rev_no", { ascending: false })
     .limit(1)
@@ -399,7 +438,7 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   if (!last) {
     const { data: template } = await supabase
       .from("revisions")
-      .select("rev_no, inputs, selections, results, engine_version")
+      .select("id, rev_no, inputs, selections, results, engine_version")
       .eq("is_template", true)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -426,6 +465,10 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
     .single();
 
   if (error) return { error: error.message };
+
+  // Snapshot gibi ekipman notları da devralınır — şablondan gelen ilk
+  // revizyonda şablonun notları, sonrakilerde bir önceki revizyonunkiler.
+  await copyEquipmentNotes(supabase, last?.id, revision.id, user.id);
 
   await supabase.from("audit_log").insert({
     project_id: projectId,

@@ -43,3 +43,8 @@ next-env.d.ts
 
 # PDF duman testi ciktilari
 .smoke/
+.tmpcheck/
+
+# katalog cikarim betiklerinin python onbellegi
+__pycache__/
+*.pyc
