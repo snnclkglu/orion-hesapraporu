@@ -49,6 +49,8 @@ export interface HoistRowDef {
   key: string;
   label: string;
   formula?: string;          // sembolik formül (ör. "F = G / n / η")
+  /** Motor hücresi yerine sunuma dönüştürülmüş değer. */
+  valueFrom?: (ctx: HoistCtx) => number | string;
   subst?: (ctx: HoistCtx) => string; // sayılar yerine konmuş hali
   unit?: string;
   digits?: number;
@@ -258,21 +260,16 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       {
         key: "drumShaft.span", label: "Mesnetler Arası Açıklık (L)",
         formula: "L = A + B + C + D + E + F + G",
-        // Sayılar cm cinsindendir (satırın birimi cm); girdi mm sorulur.
-        subst: (x) => {
-          const d = dimsOf(x);
-          return `${n(d.aCm)} + ${n(d.bCm)} + ${n(d.cCm)} + ${n(d.dCm)} + ${n(d.eCm)} + ${n(d.fCm)} + ${n(d.gCm)}`;
-        },
-        unit: "cm",
+        valueFrom: (x) => num(x.c["drumShaft.span"]) * 10,
+        subst: (x) => `${n(x.inp.drumSpanAMm)} + ${n(x.inp.drumSpanBMm)} + ${n(x.inp.drumSpanCMm)} + ${n(x.inp.drumSpanDMm)} + ${n(x.inp.drumSpanEMm)} + ${n(x.inp.drumSpanFMm)} + ${n(x.inp.drumSpanGMm)}`,
+        unit: "mm",
       },
       {
         key: "drumShaft.weightArm", label: "Tambur Ağırlık Merkezi (Mesnet A'dan)",
         formula: "x_W = A + (B + C + D + E + F) / 2",
-        subst: (x) => {
-          const d = dimsOf(x);
-          return `${n(d.aCm)} + (${n(d.bCm + d.cCm + d.dCm + d.eCm + d.fCm)}) / 2`;
-        },
-        unit: "cm",
+        valueFrom: (x) => num(x.c["drumShaft.weightArm"]) * 10,
+        subst: (x) => `${n(x.inp.drumSpanAMm)} + (${n(x.inp.drumSpanBMm + x.inp.drumSpanCMm + x.inp.drumSpanDMm + x.inp.drumSpanEMm + x.inp.drumSpanFMm)}) / 2`,
+        unit: "mm",
       },
       {
         key: "drumShaft.reactionBearingOuter", label: "Rg — Halatlar Dış Uçlarda",
@@ -390,8 +387,9 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     selectionKeys: [],
     rows: [
       {
-        key: "drumWeld.length", label: "Kaynak Boyu", formula: "L_k = π · D / 10",
-        subst: (x) => `π · ${n(x.sel.drumDiaMm)} / 10`, unit: "cm",
+        key: "drumWeld.length", label: "Kaynak Boyu", formula: "L_k = π · D",
+        valueFrom: (x) => num(x.c["drumWeld.length"]) * 10,
+        subst: (x) => `π · ${n(x.sel.drumDiaMm)}`, unit: "mm",
       },
       {
         key: "drumWeld.throatArea", label: "Taşıyıcı Boğaz Kesiti",
@@ -497,7 +495,8 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     rows: [
       {
         key: "shaftWeld.length", label: "Kaynak Boyu", formula: "L_k = π · D1",
-        subst: (x) => `π · ${n(dimsOf(x).d1Cm)}`, unit: "cm",
+        valueFrom: (x) => num(x.c["shaftWeld.length"]) * 10,
+        subst: (x) => `π · ${n(x.inp.shaftD1Mm)}`, unit: "mm",
       },
       {
         key: "shaftWeld.throatArea", label: "Taşıyıcı Boğaz Kesiti",
@@ -513,11 +512,11 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       {
         key: "shaftWeld.arm", label: "Kaynak Kolu (yükün flanşa uzaklığı)",
         formula: "e = max(G ; A) tarafının kolu",
+        valueFrom: (x) => num(x.c["shaftWeld.arm"]) * 10,
         subst: (x) => {
-          const d = dimsOf(x);
-          return `G = ${n(d.gCm)} · A = ${n(d.aCm)} → ${n(num(x.c["shaftWeld.arm"]))}`;
+          return `G = ${n(x.inp.drumSpanGMm)} · A = ${n(x.inp.drumSpanAMm)} → ${n(num(x.c["shaftWeld.arm"]) * 10)}`;
         },
-        unit: "cm",
+        unit: "mm",
       },
       {
         key: "shaftWeld.bendingMoment", label: "Eğilme Momenti",

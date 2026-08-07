@@ -389,6 +389,7 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
       visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       rows: s.rows.map((r) => {
         const sub = r.subst;
+        const valueFrom = r.valueFrom;
         return {
           key: r.key,
           anchorId: r.key,
@@ -398,7 +399,8 @@ function hoistAdapter(which: HoistKey): ModuleAdapter {
           digits: r.digits,
           standard: r.standard,
           diameter: diameterFlag(r),
-          read: (ctx: unknown) => (ctx as HoistCtx).c[r.key],
+          read: (ctx: unknown) =>
+            valueFrom ? valueFrom(ctx as HoistCtx) : (ctx as HoistCtx).c[r.key],
           subst: sub ? (ctx: unknown) => sub(ctx as HoistCtx) : undefined,
         };
       }),
@@ -503,6 +505,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
         )
         .map((r) => {
           const sub = r.subst;
+          const valueFrom = r.valueFrom;
           return {
             key: r.key,
             anchorId: r.key,
@@ -512,7 +515,8 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
             digits: r.digits,
             standard: r.standard,
             diameter: diameterFlag(r),
-            read: (ctx: unknown) => (ctx as TravelCtx).c[r.key],
+            read: (ctx: unknown) =>
+              valueFrom ? valueFrom(ctx as TravelCtx) : (ctx as TravelCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as TravelCtx) : undefined,
           };
         }),

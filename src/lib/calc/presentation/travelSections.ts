@@ -34,6 +34,8 @@ export interface TravelRowDef {
   key: string;
   label: string;
   formula?: string;           // sembolik formül
+  /** Motor hücresi yerine sunuma dönüştürülmüş değer. */
+  valueFrom?: (ctx: TravelCtx) => number | string;
   subst?: (ctx: TravelCtx) => string; // sayılar yerine konmuş hali
   unit?: string;
   digits?: number;
@@ -195,7 +197,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "q·b_t²/8 kadar düşürür. Teker genişliği girilmezse yük tekil kabul " +
       "edilir. Kesit kuvvetleri dairesel kesitte gerilmeye çevrilir.",
     inputKeys: [
-      "shaftSpanACm", "shaftSpanBCm", "shaftDiaCm", "wheelWidthMm", "stressConcFactor",
+      "shaftSpanAMm", "shaftSpanBMm", "shaftDiaMm", "wheelWidthMm", "stressConcFactor",
     ],
     selectionKeys: ["shaftMaterial"],
     rows: [
@@ -206,31 +208,33 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       },
       {
         key: "shaft.loadBand", label: "Yük Bandı (teker genişliği)",
-        formula: "b_t = teker genişliği / 10   (0 → tekil yük)",
-        subst: (x) => `${n(x.inp.wheelWidthMm ?? 0)} / 10`, unit: "cm",
+        formula: "b_t = teker genişliği   (0 → tekil yük)",
+        valueFrom: (x) => num(x.c["shaft.loadBand"]) * 10,
+        subst: (x) => `${n(x.inp.wheelWidthMm ?? 0)}`, unit: "mm",
       },
       {
         key: "shaft.loadIntensity", label: "Yayılı Yük Şiddeti",
         formula: "q = Pmaks / b_t",
+        valueFrom: (x) => num(x.c["shaft.loadIntensity"]) / 10,
         subst: (x) =>
           x.v.shaftLoadBandCm > 0
-            ? `${n(x.v.maxWheelLoadKg)} / ${n(x.v.shaftLoadBandCm)}`
+            ? `${n(x.v.maxWheelLoadKg)} / ${n(x.v.shaftLoadBandCm * 10)}`
             : "tekil yük — yayılı yük yok",
-        unit: "kg/cm",
+        unit: "kg/mm",
       },
       {
         key: "shaft.maxMoment", label: "Maksimum Moment Mmaks",
         formula: "M = R_A · a − q · b_t² / 8",
         subst: (x) =>
           x.v.shaftLoadBandCm > 0
-            ? `${n(x.v.reactionAKg)} · ${n(x.inp.shaftSpanACm)} − ${n(x.v.shaftLoadIntensityKgPerCm)} · ${n(x.v.shaftLoadBandCm)}² / 8`
-            : `${n(x.v.reactionAKg)} · ${n(x.inp.shaftSpanACm)}`,
+            ? `${n(x.v.reactionAKg)} · (${n(x.inp.shaftSpanAMm)} / 10) − ${n(x.v.shaftLoadIntensityKgPerCm)} · ${n(x.v.shaftLoadBandCm)}² / 8`
+            : `${n(x.v.reactionAKg)} · (${n(x.inp.shaftSpanAMm)} / 10)`,
         unit: "kg·cm",
       },
       {
         key: "shaft.sectionModulus", label: "Kesit Modülü W",
         formula: "W = π · D³ / 32",
-        subst: (x) => `π · ${n(x.inp.shaftDiaCm)}³ / 32`, unit: "cm³",
+        subst: (x) => `π · (${n(x.inp.shaftDiaMm)} / 10)³ / 32`, unit: "cm³",
       },
       {
         key: "shaft.bendingStress", label: "Maksimum Eğilme Gerilmesi",
@@ -241,7 +245,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "shaft.shearStress", label: "Kesme Gerilmesi (ortalama)",
         formula: "τ = V / (π · D²/4) · k",
-        subst: (x) => `${n(x.v.reactionBKg)} / (π · ${n(x.inp.shaftDiaCm)}²/4) · ${n(x.inp.stressConcFactor)}`,
+        subst: (x) => `${n(x.v.reactionBKg)} / (π · (${n(x.inp.shaftDiaMm)} / 10)²/4) · ${n(x.inp.stressConcFactor)}`,
         unit: "kg/cm²",
       },
       {

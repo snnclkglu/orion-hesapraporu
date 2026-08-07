@@ -190,7 +190,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         formula: "d_rulman = D1 · 10",
         valueFrom: (x) => x.sel.sheaveBearingBoreMm ?? 0,
         subst: (x) =>
-          `mil D1 = ${n(x.inp.shaftD1Cm)} cm → ${n(x.inp.shaftD1Cm * 10)} mm`,
+          `mil D1 = ${n(x.inp.shaftD1Mm)} mm`,
         unit: "mm",
       },
     ],
@@ -208,7 +208,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
       "CMAA 70 4.11.4.1'e göre √(σ² + 3τ²), kesme gerilmesi ortalama (τ = V/A) " +
       "kabulüyle alınır.",
     inputKeys: [
-      "shaftEdgeGapCm", "shaftSheavePitchCm", "shaftCenterGapCm", "shaftD1Cm",
+      "shaftEdgeGapMm", "shaftSheavePitchMm", "shaftCenterGapMm", "shaftD1Mm",
     ],
     selectionKeys: ["shaftMaterial"],
     rows: [
@@ -231,14 +231,14 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         key: "shaft.span", label: "Yan Saclar Arası Açıklık (L)",
         formula: "L = 2A + (n_küme − 1)·B + D",
         subst: (x) =>
-          `A=${n(x.inp.shaftEdgeGapCm)} · B=${n(x.inp.shaftSheavePitchCm)} · D=${n(x.inp.shaftCenterGapCm)} → ${n(num(x.c["shaft.span"]))}`,
-        unit: "cm",
+          `A=${n(x.inp.shaftEdgeGapMm)} · B=${n(x.inp.shaftSheavePitchMm)} · D=${n(x.inp.shaftCenterGapMm)} → ${n(num(x.c["shaft.span"]))}`,
+        unit: "mm",
       },
       {
         key: "shaft.reactionA", label: "Mesnet Reaksiyonu Ra (Sol Yan Sac)",
         formula: "R_a = Σ P·(L − x_i) / L",
         subst: (x) =>
-          `${n(x.v.sheaveCount)} × ${n(num(x.c["shaft.sheaveLoad"]))} yük · konumlar [${x.v.sheavePositionsCm.map((p) => n(p)).join("; ")}] cm`,
+          `${n(x.v.sheaveCount)} × ${n(num(x.c["shaft.sheaveLoad"]))} yük · konumlar [${x.v.sheavePositionsCm.map((p) => n(p * 10)).join("; ")}] mm`,
         unit: "kg",
       },
       {
@@ -257,7 +257,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
       {
         key: "shaft.sectionModulus", label: "Kesit Modülü (D1)",
         formula: "W = π · D1³ / 32",
-        subst: (x) => `π · ${n(x.inp.shaftD1Cm)}³ / 32`, unit: "cm³",
+        subst: (x) => `π · (${n(x.inp.shaftD1Mm)} / 10)³ / 32`, unit: "cm³",
       },
       {
         key: "shaft.bendingStress", label: "Eğilme Gerilmesi", formula: "σ = M_maks / W",
@@ -268,7 +268,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         key: "shaft.shearStress", label: "Kesme Gerilmesi (Ortalama)",
         formula: "τ = V / (π · D1² / 4)",
         subst: (x) =>
-          `${n(num(x.c["shaft.shear"]))} / (π · ${n(x.inp.shaftD1Cm)}² / 4)`,
+          `${n(num(x.c["shaft.shear"]))} / (π · (${n(x.inp.shaftD1Mm)} / 10)² / 4)`,
         unit: "kg/cm²", standard: "CMAA 70 4.11.4.1",
       },
       {

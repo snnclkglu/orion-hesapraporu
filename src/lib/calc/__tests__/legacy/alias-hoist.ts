@@ -177,6 +177,12 @@ export const HOIST_KAPSAM_DISI: Record<string, string> = {
  * belgelenmiştir. Değer farkı bir hata değil, yöntem iyileştirmesidir.
  */
 export const HOIST_SAPMA: Record<string, string> = {
+  L103:
+    "Tambur kaynağı dış çapı. Motor, kaynak kesitini doğrudan boğaz alanı " +
+    "üzerinden hesapladığı için bu eski ara geometrik büyüklüğü üretmez.",
+  L105:
+    "Tambur kaynağı izdüşüm halka alanı. Taşıyıcı kesit boğaz alanı olduğundan " +
+    "motor bu eski ara büyüklüğü kullanmaz.",
   L87:
     "Mil kesme gerilmesi. Eski tablo dolu dairesel kesitin tepe kayma oranını " +
     "1,33 diye yuvarlıyordu; motor kesin oranı 4/3 kullanır " +
@@ -206,8 +212,23 @@ export const HOIST_SAPMA: Record<string, string> = {
     "Ana kaldırma: 23,00 → 59,47 kg/cm²; yardımcı kaldırma: " +
     "13,03 → 30,03 kg/cm². Yeni değer izin verilen gerilmenin (FEM 1.001 " +
     "T.3.2.2.3 ile CMAA 70 md. 3.4.1'in küçüğü) hâlâ çok altındadır.",
+  L108:
+    "Tambur kaynağı kesme gerilmesi. Motor, eski izdüşüm halka alanı yerine " +
+    "kaynak boğaz alanını kullanan hesap yöntemini uygular.",
+  L119:
+    "Mil kaynağı dış çapı. Motor, kaynak kesitini doğrudan boğaz alanı " +
+    "üzerinden hesapladığı için bu eski ara geometrik büyüklüğü üretmez.",
+  L121:
+    "Mil kaynağı izdüşüm halka alanı. Taşıyıcı kesit boğaz alanı olduğundan " +
+    "motor bu eski ara büyüklüğü kullanmaz.",
   L122:
     "Mil kaynağının burulma direnç momenti — L106 ile AYNI boyut hatası. " +
     "274,89 → 68,72 cm³ (D_dış = 80 mm, oran 4,0). Her iki kaldırma " +
     "grubunda da aynı, çünkü mil kaynağı çapı ikisinde de eşittir.",
+  L124:
+    "Mil kaynağı burulma gerilmesi. Motor, eski izdüşüm halka alanı yerine " +
+    "kaynak boğaz alanını kullanan hesap yöntemini uygular.",
+  L125:
+    "Mil kaynağı bileşik gerilmesi. Önceki satırdaki kesit yöntemi farkının " +
+    "doğrudan sonucudur.",
 };

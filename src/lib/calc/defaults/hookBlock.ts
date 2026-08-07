@@ -10,10 +10,10 @@ import type {
 export const V5_HOOKBLOCK_INPUTS: HookBlockInputs = {
   // Mil ölçü zinciri: A yan sac → ilk makara, B küme içi makara adımı,
   // D iki makara kümesi arası (kanca sapı geçişi)
-  shaftEdgeGapCm: 5,              // A
-  shaftSheavePitchCm: 10,         // B
-  shaftCenterGapCm: 15,           // D
-  shaftD1Cm: 6.5,                 // D1 — mil gerilme kesiti çapı
+  shaftEdgeGapMm: 50,             // A
+  shaftSheavePitchMm: 100,        // B
+  shaftCenterGapMm: 150,          // D
+  shaftD1Mm: 65,                  // D1 — mil gerilme kesiti çapı
   girderSpanMm: 4800,             // a — kiriş açıklığı
   loadOffsetMm: 550,              // b — yükün mesnede uzaklığı
   midTopPlateThkMm: 15,           // orta kesit üst sac

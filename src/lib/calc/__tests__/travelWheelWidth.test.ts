@@ -52,7 +52,7 @@ describe("teker mili — teker genişliği boyunca yayılı yük", () => {
   it("alan tanımsızsa TEKİL yük modeline döner (eski revizyon uyumu)", () => {
     // `undefined` — bu alanın eklenmesinden önceki revizyonların hâli
     const eski = runTrolley({ wheelWidthMm: undefined });
-    const a = V5_TROLLEY_INPUTS.shaftSpanACm;
+    const a = V5_TROLLEY_INPUTS.shaftSpanAMm / 10;
     expect(eski.shaftLoadBandCm).toBe(0);
     expect(eski.shaftLoadIntensityKgPerCm).toBe(0);
     // Tekil yükün analitik momenti: M = (Pmaks/2) · a
@@ -108,7 +108,7 @@ describe("teker mili — teker genişliği boyunca yayılı yük", () => {
   });
 
   it("açıklıktan geniş teker tüm açıklığa yayılır (bant kelepçelenir)", () => {
-    const spanCm = 2 * V5_BRIDGE_INPUTS.shaftSpanACm;
+    const spanCm = (2 * V5_BRIDGE_INPUTS.shaftSpanAMm) / 10;
     const asiri = runBridge({ wheelWidthMm: spanCm * 10 * 3 });
     expect(asiri.shaftLoadBandCm).toBeCloseTo(spanCm, 9);
     // Tüm açıklığa düzgün yayılı yükte M = P·L/8

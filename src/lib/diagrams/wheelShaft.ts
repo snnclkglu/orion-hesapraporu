@@ -15,14 +15,14 @@ import {
 import { KGF_TO_MPA } from "@/lib/units";
 
 export interface WheelShaftParams {
-  spanACm: number;          // mesnet A → teker
-  spanBCm: number;          // teker → mesnet B
-  shaftDiaCm: number;       // mil çapı
+  spanAMm: number;          // mesnet A → teker
+  spanBMm: number;          // teker → mesnet B
+  shaftDiaMm: number;       // mil çapı
   wheelLoadKg?: number;     // Pmaks (hesaplanan maksimum teker yükü)
   reactionAKg?: number;     // RA
   reactionBKg?: number;     // RB
   maxMomentKgCm?: number;   // Mmaks
-  /** Teker genişliği = yükün yayıldığı bant boyu [cm]; 0 → tekil yük */
+  /** Teker genişliği = yükün yayıldığı bant boyu [mm]; 0 → tekil yük */
   loadBandCm?: number;
   /** Yayılı yük şiddeti q = Pmaks / b_t [kg/cm] */
   loadIntensityKgPerCm?: number;
@@ -35,8 +35,8 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   const els: DiagramEl[] = [];
   caption(els, "TEKER MİLİ", "mesnetler · yük · moment diyagramı");
 
-  const a = p.spanACm;
-  const b = p.spanBCm;
+  const a = p.spanAMm / 10;
+  const b = p.spanBMm / 10;
   if (!(a > 0) || !(b > 0)) {
     els.push(txt(W / 2, H / 2, "Mil mesnet ölçüleri (a, b) eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
@@ -48,7 +48,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   const xB = 540;
   const yAxis = 122;
   const xW = xA + (a / (a + b)) * (xB - xA);
-  const hs = Math.min(30, Math.max(12, p.shaftDiaCm * 2.2)); // mil kalınlığı [px]
+  const hs = Math.min(30, Math.max(12, (p.shaftDiaMm / 10) * 2.2)); // mil kalınlığı [px]
 
   // --- Mil gövdesi + eksen çizgisi
   els.push({
@@ -56,7 +56,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.2,
   });
   els.push(ln(xA - 46, yAxis, xB + 46, yAxis, DCOL.faint, 0.7, "12,3,2,3"));
-  els.push(txt(xB + 52, yAxis + 3, `Ød = ${fmtN(p.shaftDiaCm)} cm`, 9.5));
+  els.push(txt(xB + 52, yAxis + 3, `Ød = ${fmtN(p.shaftDiaMm)} mm`, 9.5));
 
   // --- Teker (mil üzerinde, yük noktasında)
   const rWheel = 40;
@@ -114,9 +114,9 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
       const x = x0 + (i * (x1 - x0)) / steps;
       loadArrow(els, x, yTail, yTip, { width: 1.1 });
     }
-    dimH(els, x0, x1, yTail + 16, `b_teker = ${fmtN(bandCm)} cm`, { size: 9 });
+    dimH(els, x0, x1, yTail + 16, `b_teker = ${fmtN(bandCm * 10)} mm`, { size: 9 });
     els.push(txt(x1 + 12, yTail - 4,
-      `q = ${fmtN(p.loadIntensityKgPerCm)} kg/cm`, 9.5, { fill: DCOL.accent }));
+      `q = ${fmtN((p.loadIntensityKgPerCm ?? 0) / 10)} kg/mm`, 9.5, { fill: DCOL.accent }));
     els.push(txt(xW, yTail + 34, `Pmaks = ${fmtN(p.wheelLoadKg)} kg  (yayılı)`, 10, {
       anchor: "middle", fill: DCOL.accent, bold: true,
     }));
@@ -142,8 +142,8 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   els.push(ln(xA, yAxis - hs / 2 - 10, xA, yDim - 4, DCOL.faint, 0.6));
   els.push(ln(xW, yAxis - rWheel - 4, xW, yDim - 4, DCOL.faint, 0.6));
   els.push(ln(xB, yAxis - hs / 2 - 10, xB, yDim - 4, DCOL.faint, 0.6));
-  dimH(els, xA, xW, yDim, `a = ${fmtN(a)} cm`);
-  dimH(els, xW, xB, yDim, `b = ${fmtN(b)} cm`);
+  dimH(els, xA, xW, yDim, `a = ${fmtN(p.spanAMm)} mm`);
+  dimH(els, xW, xB, yDim, `b = ${fmtN(p.spanBMm)} mm`);
 
   // --- Moment diyagramı (üçgen, tepe teker altında)
   const yM0 = 252;

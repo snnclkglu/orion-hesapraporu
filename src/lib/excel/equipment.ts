@@ -437,7 +437,7 @@ function hookBlockRows(
       component: "Kanca bloğu mili",
       brand: "-",
       model: "-",
-      spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt((m.inputs.shaftD1Cm ?? 0) * 10)} mm`,
+      spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt(m.inputs.shaftD1Mm ?? 0)} mm`,
       qty: 1,
     },
   ];
@@ -873,7 +873,7 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
         { label: "Kanca tanımı", value: textOr(sel.hookDesignation) },
         { label: "Kanca kapasitesi", value: result.hookBlock?.values.hookCapacityKg ?? sel.hookCapacityKg, unit: "kg" },
         { label: "Makara çapı (halat ekseni)", value: sel.sheaveDiaMm, unit: "mm" },
-        { label: "Mil çapı (D1)", value: input.hookBlock.inputs.shaftD1Cm * 10, unit: "mm" },
+        { label: "Mil çapı (D1)", value: input.hookBlock.inputs.shaftD1Mm, unit: "mm" },
         ...(input.mainHoist
           ? [{ label: "Kanca bloğu ağırlığı", value: input.mainHoist.inputs.hookBlockWeightKg, unit: "kg" }]
           : []),

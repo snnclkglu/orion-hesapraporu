@@ -97,11 +97,11 @@ describe("wheelShaftDiagram", () => {
   it("mesnet ölçüleri ve Mmaks etiketini basar", () => {
     const t = texts(
       wheelShaftDiagram({
-        spanACm: 11, spanBCm: 11, shaftDiaCm: 9,
+        spanAMm: 110, spanBMm: 110, shaftDiaMm: 90,
         wheelLoadKg: 9270, reactionAKg: 4635, reactionBKg: 4635, maxMomentKgCm: 50985,
       })
     );
-    expect(t).toContain("a = 11 cm");
+    expect(t).toContain("a = 110 mm");
     expect(t).toContain("Pmaks = 9.270 kg");
     // Moment Nm cinsinden gösterilir (50.985 kg·cm ≈ 5.000 Nm)
     expect(t).toMatch(/Mmaks = [\d.,]+ Nm/);
@@ -268,7 +268,7 @@ describe("diagramForSection", () => {
       groovePitchMm: 25, minDiaMm: 506, material: "St52",
     }));
     assertFits("wheelShaft", wheelShaftDiagram({
-      spanACm: 11, spanBCm: 11, shaftDiaCm: 9,
+      spanAMm: 110, spanBMm: 110, shaftDiaMm: 90,
       wheelLoadKg: 9270, reactionAKg: 4635, reactionBKg: 4635, maxMomentKgCm: 50985,
     }));
     assertFits("reeving", reevingDiagram({

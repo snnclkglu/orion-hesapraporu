@@ -21,10 +21,10 @@ export const NOTCH_CLASSES = ["W0", "W1", "W2", "K0", "K1", "K2", "K3", "K4"] as
 export const LOAD_GROUPS = ["B1", "B2", "B3", "B4", "B5", "B6"] as const;
 
 export const HOOKBLOCK_INPUT_FIELDS: FieldDef<HookBlockInputs>[] = [
-  { key: "shaftEdgeGapCm", label: "A · Yan Sac → İlk Makara", unit: "cm", type: "number", hint: "Mesnet ekseninden ilk makara eksenine." },
-  { key: "shaftSheavePitchCm", label: "B · Makara Adımı (Küme İçi)", unit: "cm", type: "number" },
-  { key: "shaftCenterGapCm", label: "D · Kümeler Arası Orta Boşluk", unit: "cm", type: "number", hint: "Kanca sapının geçtiği boşluk; 2 makarada iki makara arası." },
-  { key: "shaftD1Cm", label: "D1 · Mil Çapı", unit: "cm", type: "number", diameter: true },
+  { key: "shaftEdgeGapMm", label: "A · Yan Sac → İlk Makara", unit: "mm", type: "number", hint: "Mesnet ekseninden ilk makara eksenine." },
+  { key: "shaftSheavePitchMm", label: "B · Makara Adımı (Küme İçi)", unit: "mm", type: "number" },
+  { key: "shaftCenterGapMm", label: "D · Kümeler Arası Orta Boşluk", unit: "mm", type: "number", hint: "Kanca sapının geçtiği boşluk; 2 makarada iki makara arası." },
+  { key: "shaftD1Mm", label: "D1 · Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "girderSpanMm", label: "Kiriş Açıklığı a", unit: "mm", type: "number" },
   { key: "loadOffsetMm", label: "Yük Mesafesi b", unit: "mm", type: "number" },
   { key: "midTopPlateThkMm", label: "Orta Kesit Üst Sac Kalınlığı", unit: "mm", type: "number" },

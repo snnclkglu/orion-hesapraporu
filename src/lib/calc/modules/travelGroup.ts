@@ -76,9 +76,9 @@ export interface TravelInputs {
    * kiriş yatay yük hesabına (sürtünmeyle aktarılabilen çekme kuvveti) girer.
    */
   wheelsPerMotor: number;
-  shaftSpanACm: number;         // teker mili mesnet ölçüsü a [cm]
-  shaftSpanBCm: number;         // teker mili ölçüsü b [cm] (gösterim)
-  shaftDiaCm: number;           // teker mili çapı [cm]
+  shaftSpanAMm: number;         // teker mili mesnet ölçüsü a [mm]
+  shaftSpanBMm: number;         // teker mili ölçüsü b [mm] (gösterim)
+  shaftDiaMm: number;           // teker mili çapı [mm]
   /**
    * Teker bandaj (tread) genişliği [mm].
    *
@@ -570,7 +570,8 @@ export function computeTravelGroup(
   //
   // GERİYE DÖNÜK UYUM: teker genişliği girilmemişse (eski revizyonlar) tekil
   // yük modeline geri dönülür ve sayılar birebir korunur.
-  const shaftSupportSpanCm = 2 * inp.shaftSpanACm;
+  const shaftSpanACm = inp.shaftSpanAMm / 10;
+  const shaftSupportSpanCm = 2 * shaftSpanACm;
   const wheelWidthCm = Math.max(0, (inp.wheelWidthMm ?? 0) / 10);
   // Bant açıklığı aşamaz; aşarsa tüm açıklığa yayılır.
   const loadBandCm = Number.isFinite(wheelWidthCm)
@@ -585,7 +586,7 @@ export function computeTravelGroup(
     supportBCm: shaftSupportSpanCm,
     pointLoads: shaftLoadDistributed
       ? []
-      : [{ xCm: inp.shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek Yükü" }],
+      : [{ xCm: shaftSpanACm, loadKg: maxWheelLoad, label: "Tekerlek Yükü" }],
     distributedLoads: shaftLoadDistributed
       ? [{
           fromCm: bandFromCm,
@@ -609,8 +610,8 @@ export function computeTravelGroup(
   const shaftSection = shaftStress({
     momentKgCm: maxMoment,
     shearKg: Math.abs(shaftBeam.maxShearKg),
-    bendingDiameterCm: inp.shaftDiaCm,
-    shearDiameterCm: inp.shaftDiaCm,
+    bendingDiameterCm: inp.shaftDiaMm / 10,
+    shearDiameterCm: inp.shaftDiaMm / 10,
     combined: "vonMises",
     shear: "ortalama",
   });

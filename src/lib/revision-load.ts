@@ -321,9 +321,8 @@ function migrateWeights(
 }
 
 /**
- * Tambur mili ölçüleri eskiden cm'ydi (`drumSpanACm`, `shaftD1Cm`,
- * `drumWeldThicknessCm` …); artık teknik resimle aynı birimde, mm sorulur ve
- * saklanır (`drumSpanAMm`, `shaftD1Mm` …).
+ * Kullanıcıdan istenen tüm doğrusal ölçüler eskiden bazı bölümlerde cm'ydi.
+ * Artık teknik resimle aynı birimde, mm sorulur ve saklanır.
  *
  * `withDefaults` AD BAZLI çalışır: eski kayıttaki `*Cm` alanlarını tanımaz ve
  * yeni `*Mm` alanlarını ŞABLON DEĞERİNE düşürür — mühendisin girdiği ölçüler
@@ -334,7 +333,7 @@ function migrateWeights(
  * dokunulmadan geçer. `null`/sayı olmayan değerler atlanır (şablon devreye
  * girer).
  */
-const DRUM_SHAFT_CM_TO_MM: ReadonlyArray<readonly [legacyCm: string, mm: string]> = [
+const LEGACY_CM_TO_MM: ReadonlyArray<readonly [legacyCm: string, mm: string]> = [
   ["drumSpanACm", "drumSpanAMm"],
   ["drumSpanBCm", "drumSpanBMm"],
   ["drumSpanCCm", "drumSpanCMm"],
@@ -346,6 +345,12 @@ const DRUM_SHAFT_CM_TO_MM: ReadonlyArray<readonly [legacyCm: string, mm: string]
   ["shaftD2Cm", "shaftD2Mm"],
   ["drumWeldThicknessCm", "drumWeldThicknessMm"],
   ["shaftWeldThicknessCm", "shaftWeldThicknessMm"],
+  ["shaftEdgeGapCm", "shaftEdgeGapMm"],
+  ["shaftSheavePitchCm", "shaftSheavePitchMm"],
+  ["shaftCenterGapCm", "shaftCenterGapMm"],
+  ["shaftSpanACm", "shaftSpanAMm"],
+  ["shaftSpanBCm", "shaftSpanBMm"],
+  ["shaftDiaCm", "shaftDiaMm"],
 ];
 
 export function migrateDrumShaftUnits<T extends object>(
@@ -356,7 +361,7 @@ export function migrateDrumShaftUnits<T extends object>(
   const rec = stored as Record<string, unknown>;
   const out = { ...merged } as Record<string, unknown>;
   let changed = false;
-  for (const [legacyCm, mm] of DRUM_SHAFT_CM_TO_MM) {
+  for (const [legacyCm, mm] of LEGACY_CM_TO_MM) {
     if (mm in rec) continue;                 // yeni biçim: kayıt zaten mm taşıyor
     const v = rec[legacyCm];
     if (typeof v !== "number" || !Number.isFinite(v)) continue;
@@ -392,14 +397,10 @@ function fullInput(
       // yoksa değer elle girilmiştir ve türetme onu ezmemelidir.
       inputs: keepManualValues(
         storedModuleInputs,
-        // Tambur mili ölçüsü cm → mm göçü YALNIZ kaldırma gruplarına uygulanır:
-        // kanca bloğunun `shaftD1Cm` alanı cm olarak KALIR (ayrı bölüm, ayrı tip).
-        isHoistKey(key)
-          ? migrateDrumShaftUnits(
-              storedModuleInputs,
-              withDefaults(storedModuleInputs, tpl.inputs)
-            )
-          : withDefaults(storedModuleInputs, tpl.inputs)
+        migrateDrumShaftUnits(
+          storedModuleInputs,
+          withDefaults(storedModuleInputs, tpl.inputs)
+        )
       ),
     };
     if (tpl.selections) {

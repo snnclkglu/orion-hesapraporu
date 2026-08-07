@@ -116,11 +116,17 @@ describe("revizyon göçü — tambur mili ölçüleri cm → mm", () => {
     expect(aux.shaftD1Mm).toBe(70);
   });
 
-  it("kanca bloğunun kendi shaftD1Cm alanına DOKUNULMAZ (cm kalır)", () => {
-    const loaded = loadRevision(legacy.inputs, legacy.selections);
-    const hookBlock = loaded.input.hookBlock!.inputs as unknown as Record<string, unknown>;
-    expect(hookBlock.shaftD1Cm).toBe(V5_TEMPLATE.hookBlock!.inputs.shaftD1Cm);
-    expect(hookBlock.shaftD1Mm).toBeUndefined();
+  it("kanca bloğu ve teker mili eski cm girdilerini mm olarak korur", () => {
+    const hook = migrateDrumShaftUnits(
+      { shaftEdgeGapCm: 5, shaftSheavePitchCm: 10, shaftCenterGapCm: 15, shaftD1Cm: 6.5 },
+      { ...V5_TEMPLATE.hookBlock!.inputs }
+    );
+    expect(hook).toMatchObject({ shaftEdgeGapMm: 50, shaftSheavePitchMm: 100, shaftCenterGapMm: 150, shaftD1Mm: 65 });
+    const travel = migrateDrumShaftUnits(
+      { shaftSpanACm: 7.25, shaftSpanBCm: 9, shaftDiaCm: 11 },
+      { ...V5_TEMPLATE.trolley!.inputs }
+    );
+    expect(travel).toMatchObject({ shaftSpanAMm: 72.5, shaftSpanBMm: 90, shaftDiaMm: 110 });
   });
 
   it("eski biçimli revizyonun hesabı mm biçimiyle BİREBİR aynıdır", () => {

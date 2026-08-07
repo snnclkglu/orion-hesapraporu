@@ -300,9 +300,9 @@ export function diagramForSection(
         | TravelValues
         | undefined;
       return wheelShaftDiagram({
-        spanACm: st.inputs.shaftSpanACm,
-        spanBCm: st.inputs.shaftSpanBCm,
-        shaftDiaCm: st.inputs.shaftDiaCm,
+        spanAMm: st.inputs.shaftSpanAMm,
+        spanBMm: st.inputs.shaftSpanBMm,
+        shaftDiaMm: st.inputs.shaftDiaMm,
         wheelLoadKg: v?.maxWheelLoadKg,
         reactionAKg: v?.reactionAKg,
         reactionBKg: v?.reactionBKg,
@@ -333,12 +333,12 @@ export function diagramForSection(
       if (!st || !v) return null;
       const i = st.inputs;
       return hookBlockShaftDiagram({
-        positionsCm: v.sheavePositionsCm,
-        spanCm: v.shaftSpanCm,
-        edgeGapCm: i.shaftEdgeGapCm,
-        pitchCm: i.shaftSheavePitchCm,
-        centerGapCm: i.shaftCenterGapCm,
-        d1Cm: i.shaftD1Cm,
+        positionsMm: v.sheavePositionsCm.map(cmToMm),
+        spanMm: cmToMm(v.shaftSpanCm),
+        edgeGapMm: i.shaftEdgeGapMm,
+        pitchMm: i.shaftSheavePitchMm,
+        centerGapMm: i.shaftCenterGapMm,
+        d1Mm: i.shaftD1Mm,
         sheaveDiaMm: st.selections.sheaveDiaMm,
         ropeLoadKg: v.ropeLoadKg,
         reactionAKg: v.reactionAKg,

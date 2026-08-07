@@ -15,16 +15,16 @@ import {
 import { KGF_TO_MPA } from "@/lib/units";
 
 export interface HookBlockShaftParams {
-  /** Makara eksenlerinin sol mesnete uzaklıkları [cm] */
-  positionsCm: number[];
-  /** Yan saclar arası açıklık [cm] */
-  spanCm: number;
+  /** Makara eksenlerinin sol mesnete uzaklıkları [mm] */
+  positionsMm: number[];
+  /** Yan saclar arası açıklık [mm] */
+  spanMm: number;
   /** Ölçü zinciri */
-  edgeGapCm: number;
-  pitchCm: number;
-  centerGapCm: number;
-  /** Mil çapı D1 [cm] */
-  d1Cm: number;
+  edgeGapMm: number;
+  pitchMm: number;
+  centerGapMm: number;
+  /** Mil çapı D1 [mm] */
+  d1Mm: number;
   /** Makara çapı [mm] — makara dairelerinin ölçeği */
   sheaveDiaMm?: number;
   /** Yükler ve sonuçlar */
@@ -41,14 +41,14 @@ const H = 452;
 
 export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   const els: DiagramEl[] = [];
-  const n = p.positionsCm.length;
+  const n = p.positionsMm.length;
   caption(
     els,
     "KANCA BLOĞU MİLİ — YÜKLEME ŞEMASI",
-    `${n} makara · her makarada 2T · mil Ø${fmtN(p.d1Cm)} cm`
+    `${n} makara · her makarada 2T · mil Ø${fmtN(p.d1Mm)} mm`
   );
 
-  if (!(p.spanCm > 0) || n === 0) {
+  if (!(p.spanMm > 0) || n === 0) {
     els.push(txt(W / 2, H / 2, "Mil ölçü zinciri (A, B, D) eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
@@ -58,31 +58,31 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   // --- ölçek
   const xLeft = 96;
   const xRight = 604;
-  const sx = (cm: number) => xLeft + (cm / p.spanCm) * (xRight - xLeft);
+  const sx = (mm: number) => xLeft + (mm / p.spanMm) * (xRight - xLeft);
   const yAxis = 196;                      // mil ekseni
 
   // makara yarıçapı: hem çapa hem komşu makara aralığına göre sınırlanır
   const pitchPx =
     n > 1
       ? Math.min(
-          ...p.positionsCm.slice(1).map((x, i) => sx(x) - sx(p.positionsCm[i]))
+          ...p.positionsMm.slice(1).map((x, i) => sx(x) - sx(p.positionsMm[i]))
         )
       : xRight - xLeft;
   const rSheave = Math.max(16, Math.min(52, pitchPx / 2 - 3, (p.sheaveDiaMm ?? 450) / 11));
-  const shaftH = Math.max(8, Math.min(20, p.d1Cm * 2.2));
+  const shaftH = Math.max(8, Math.min(20, (p.d1Mm / 10) * 2.2));
 
   // --- mil gövdesi
   els.push({
     kind: "rect", x: sx(0) - 18, y: yAxis - shaftH / 2,
-    w: sx(p.spanCm) - sx(0) + 36, h: shaftH,
+    w: sx(p.spanMm) - sx(0) + 36, h: shaftH,
     fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.3,
   });
-  els.push(ln(sx(0) - 30, yAxis, sx(p.spanCm) + 30, yAxis, DCOL.faint, 0.7, "12,3,2,3"));
+  els.push(ln(sx(0) - 30, yAxis, sx(p.spanMm) + 30, yAxis, DCOL.faint, 0.7, "12,3,2,3"));
 
   // --- yan saclar (mesnetler)
   for (const [x, label, value] of [
     [sx(0), "Ra", p.reactionAKg],
-    [sx(p.spanCm), "Rb", p.reactionBKg],
+    [sx(p.spanMm), "Rb", p.reactionBKg],
   ] as const) {
     els.push({
       kind: "rect", x: x - 7, y: yAxis - rSheave - 26, w: 14, h: (rSheave + 26) * 2,
@@ -98,14 +98,14 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   els.push(txt(sx(0), yAxis - rSheave - 34, "yan sac", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
-  els.push(txt(sx(p.spanCm), yAxis - rSheave - 34, "yan sac", 8, {
+  els.push(txt(sx(p.spanMm), yAxis - rSheave - 34, "yan sac", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
 
   // --- makaralar + rulman çiftleri + 2T yük okları
   const yTop = yAxis - rSheave - 52;
-  p.positionsCm.forEach((cm, i) => {
-    const x = sx(cm);
+  p.positionsMm.forEach((mm, i) => {
+    const x = sx(mm);
     // makara gövdesi ve yiv
     els.push({
       kind: "circle", cx: x, cy: yAxis, r: rSheave,
@@ -145,15 +145,15 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   }
 
   // --- D1 etiketi
-  const xMid = n > 1 ? (sx(p.positionsCm[0]) + sx(p.positionsCm[n - 1])) / 2 : sx(p.spanCm / 2);
+  const xMid = n > 1 ? (sx(p.positionsMm[0]) + sx(p.positionsMm[n - 1])) / 2 : sx(p.spanMm / 2);
   els.push(ln(xMid, yAxis + shaftH / 2, xMid, yAxis + rSheave + 14, DCOL.faint, 0.6));
-  els.push(txt(xMid + 5, yAxis + rSheave + 16, `D1 = ${fmtN(p.d1Cm)} cm`, 8.5, {
+  els.push(txt(xMid + 5, yAxis + rSheave + 16, `D1 = ${fmtN(p.d1Mm)} mm`, 8.5, {
     fill: DCOL.ink,
   }));
 
   // --- ölçü zinciri (altta): A · B … D … B · A
   const yDim = yAxis + rSheave + 108;
-  const bounds = [0, ...p.positionsCm, p.spanCm];
+  const bounds = [0, ...p.positionsMm, p.spanMm];
   for (let i = 0; i < bounds.length - 1; i++) {
     const from = bounds[i];
     const to = bounds[i + 1];
@@ -163,7 +163,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     const isEdge = i === 0 || i === bounds.length - 2;
     const label = isEdge
       ? "A"
-      : Math.abs(len - p.centerGapCm) < 1e-6 && n > 1
+      : Math.abs(len - p.centerGapMm) < 1e-6 && n > 1
         ? "D"
         : "B";
     const x1 = sx(from);
@@ -171,8 +171,8 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     els.push(ln(x1, yAxis + rSheave + 30, x1, yDim - 5, DCOL.faint, 0.5));
     dimH(els, x1, x2, yDim, x2 - x1 > 40 ? `${label} = ${fmtN(len)}` : label, { size: 8.5 });
   }
-  els.push(ln(sx(p.spanCm), yAxis + rSheave + 30, sx(p.spanCm), yDim - 5, DCOL.faint, 0.5));
-  dimH(els, sx(0), sx(p.spanCm), yDim + 26, `L = ${fmtN(p.spanCm)} cm`, { size: 9.5 });
+  els.push(ln(sx(p.spanMm), yAxis + rSheave + 30, sx(p.spanMm), yDim - 5, DCOL.faint, 0.5));
+  dimH(els, sx(0), sx(p.spanMm), yDim + 26, `L = ${fmtN(p.spanMm)} mm`, { size: 9.5 });
 
   // --- moment diyagramı (yük noktalarında kırılan çokgen)
   const yM0 = yDim + 54;
@@ -180,16 +180,16 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   const P = 2 * (p.ropeLoadKg ?? 0);
   const Ra = p.reactionAKg ?? 0;
   const momentAt = (x: number) =>
-    Ra * x - p.positionsCm.reduce((s, xi) => s + (xi <= x ? P * (x - xi) : 0), 0);
-  const mMax = Math.max(1e-9, ...p.positionsCm.map(momentAt));
+    Ra * (x / 10) - p.positionsMm.reduce((s, xi) => s + (xi <= x ? P * ((x - xi) / 10) : 0), 0);
+  const mMax = Math.max(1e-9, ...p.positionsMm.map(momentAt));
   const pts: [number, number][] = [
     [sx(0), yM0],
-    ...p.positionsCm.map(
+    ...p.positionsMm.map(
       (x) => [sx(x), yM0 + (momentAt(x) / mMax) * hM] as [number, number]
     ),
-    [sx(p.spanCm), yM0],
+    [sx(p.spanMm), yM0],
   ];
-  els.push(ln(sx(0) - 10, yM0, sx(p.spanCm) + 10, yM0, DCOL.muted, 0.9));
+  els.push(ln(sx(0) - 10, yM0, sx(p.spanMm) + 10, yM0, DCOL.muted, 0.9));
   els.push({
     kind: "polygon", points: pts,
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,

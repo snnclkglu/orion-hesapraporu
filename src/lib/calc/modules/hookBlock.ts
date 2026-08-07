@@ -158,11 +158,11 @@ export interface HookBlockInputs {
    * Makara adedi donanımdan gelir ve makaralar iki kümeye ayrılır:
    * 2 makara → A|D|A, 4 makara → A|B|D|B|A, 6 makara → A|B|B|D|B|B|A.
    */
-  shaftEdgeGapCm: number;        // A [cm]
-  shaftSheavePitchCm: number;    // B [cm]
-  shaftCenterGapCm: number;      // D [cm]
-  /** D1 — mil gerilme kesiti çapı [cm] */
-  shaftD1Cm: number;
+  shaftEdgeGapMm: number;        // A [mm]
+  shaftSheavePitchMm: number;    // B [mm]
+  shaftCenterGapMm: number;      // D [mm]
+  /** D1 — mil gerilme kesiti çapı [mm] */
+  shaftD1Mm: number;
   // §4.6 Kaldırma kirişi kesiti
   /** a — kiriş açıklığı [mm] */
   girderSpanMm: number;
@@ -346,14 +346,14 @@ export interface HookShaftGeometry {
  * bölünür; tek makarada orta boşluk kullanılmaz.
  */
 export function hookShaftGeometry(
-  inp: Pick<HookBlockInputs, "shaftEdgeGapCm" | "shaftSheavePitchCm" | "shaftCenterGapCm">,
+  inp: Pick<HookBlockInputs, "shaftEdgeGapMm" | "shaftSheavePitchMm" | "shaftCenterGapMm">,
   sheaveCount: number
 ): HookShaftGeometry {
   const num = (v: number | undefined) =>
     typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
-  const edgeGapCm = num(inp.shaftEdgeGapCm);
-  const pitchCm = num(inp.shaftSheavePitchCm);
-  const centerGapCm = num(inp.shaftCenterGapCm);
+  const edgeGapCm = num(inp.shaftEdgeGapMm) / 10;
+  const pitchCm = num(inp.shaftSheavePitchMm) / 10;
+  const centerGapCm = num(inp.shaftCenterGapMm) / 10;
   const count = Math.max(
     1,
     Math.round(Number.isFinite(sheaveCount) ? sheaveCount : 1)
@@ -550,8 +550,8 @@ export function computeHookBlock(
   const stress = shaftStress({
     momentKgCm: shaftMomentKgCm,
     shearKg: shaftShearKg,
-    bendingDiameterCm: inp.shaftD1Cm,
-    shearDiameterCm: inp.shaftD1Cm,
+    bendingDiameterCm: inp.shaftD1Mm / 10,
+    shearDiameterCm: inp.shaftD1Mm / 10,
     combined: "vonMises",
     shear: "ortalama",
   });
@@ -559,7 +559,7 @@ export function computeHookBlock(
   Object.assign(cells, {
     "shaft.sheaveLoad": doubleRopeLoadKg,
     "shaft.sheaveCount": sheaveCount,
-    "shaft.span": geo.spanCm,
+    "shaft.span": geo.spanCm * 10,
     "shaft.reactionA": beam.reactionAKg,
     "shaft.reactionB": beam.reactionBKg,
     "shaft.moment": shaftMomentKgCm,
@@ -601,7 +601,7 @@ export function computeHookBlock(
   // Montaj uyumu bilgisidir; tasarımı reddetmez.
   if (sel.sheaveBearingBoreMm !== undefined && sel.sheaveBearingBoreMm > 0) {
     const boreMm = sel.sheaveBearingBoreMm;
-    const shaftMm = inp.shaftD1Cm * 10;
+    const shaftMm = inp.shaftD1Mm;
     checks.push({
       id: `${which}.sheaveBearing.bore`,
       label: "Makara Rulmanı İç Çapı = Mil Çapı (D1)",

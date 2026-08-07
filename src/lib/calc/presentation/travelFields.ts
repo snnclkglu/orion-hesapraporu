@@ -46,9 +46,9 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
     options: ["1", "2"], numeric: true,
     hint: "Tek motor bir mil üzerinden iki tekeri birden tahrik edebilir. Tahrikli teker sayısı = motor adedi × bu değer.",
   },
-  { key: "shaftSpanACm", label: "Mil Mesnet Ölçüsü A", unit: "cm", type: "number", hint: "Mesnet ile tekerlek yükü arasındaki mesafe; mesnet aralığı 2·a alınır." },
-  { key: "shaftSpanBCm", label: "Mil Mesnet Ölçüsü B", unit: "cm", type: "number" },
-  { key: "shaftDiaCm", label: "Teker Mili Çapı", unit: "cm", type: "number", diameter: true },
+  { key: "shaftSpanAMm", label: "Mil Mesnet Ölçüsü A", unit: "mm", type: "number", hint: "Mesnet ile tekerlek yükü arasındaki mesafe; mesnet aralığı 2·a alınır." },
+  { key: "shaftSpanBMm", label: "Mil Mesnet Ölçüsü B", unit: "mm", type: "number" },
+  { key: "shaftDiaMm", label: "Teker Mili Çapı", unit: "mm", type: "number", diameter: true },
   {
     key: "wheelWidthMm", label: "Teker Genişliği", unit: "mm", type: "number",
     hint:

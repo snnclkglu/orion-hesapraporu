@@ -21,9 +21,9 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   minApproachM: 0,              // yalnız köprü varyantında kullanılır
   wheelCount: 4,                // tekerlek adedi
   wheelsPerMotor: 2,            // arabada tek motor iki tekeri tahrik eder
-  shaftSpanACm: 7.25,           // teker mili mesnet ölçüsü a [cm]
-  shaftSpanBCm: 9,              // teker mili ölçüsü b [cm] (gösterim)
-  shaftDiaCm: 11,               // teker mili çapı [cm]
+  shaftSpanAMm: 72.5,           // teker mili mesnet ölçüsü a [mm]
+  shaftSpanBMm: 90,             // teker mili ölçüsü b [mm] (gösterim)
+  shaftDiaMm: 110,              // teker mili çapı [mm]
   // Teker bandaj genişliği: 50×50 kare ray + iki yandan yanaşma payı.
   // Yük mile bu genişlik boyunca YAYILI aktarılır (bkz. travelGroup.ts).
   wheelWidthMm: 90,
@@ -113,9 +113,9 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   minApproachM: 1,              // minimum araba yanaşması [m]
   wheelCount: 4,
   wheelsPerMotor: 1,            // köprüde her motor tek tekeri tahrik eder
-  shaftSpanACm: 7.5,
-  shaftSpanBCm: 14,
-  shaftDiaCm: 14,
+  shaftSpanAMm: 75,
+  shaftSpanBMm: 140,
+  shaftDiaMm: 140,
   // Köprü tekeri daha büyük çaplıdır; bandaj genişliği de daha fazladır.
   wheelWidthMm: 100,
   stressConcFactor: 1,
