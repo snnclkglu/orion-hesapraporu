@@ -9,7 +9,11 @@ import { COMMON_REEVINGS } from "./reeving";
 import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { ModuleKey } from "./presentation/module-family";
-import type { TechnicalSpecs } from "./types";
+import {
+  HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+  HOIST_EQUIPMENT_ARRANGEMENTS,
+  type TechnicalSpecs,
+} from "./types";
 import {
   AIR_CONDITIONING_TYPE_LABELS,
   AIR_CONDITIONING_TYPE_OPTIONS,
@@ -543,6 +547,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   // --- Ana kaldırma
   { key: "mainCapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mainHoist" },
+  {
+    key: "mainHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+    group: "mainHoist", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+  },
   { key: "mainLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mainHoist" },
   { key: "mainLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mainHoist" },
   { key: "hoistMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mainHoist", standardRef: "FEM 1.001 T.2.6" },
@@ -550,6 +559,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   // --- Yardımcı kaldırma (bölüm kapalıysa gizlenir)
   { key: "auxCapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "auxHoist", requiresModule: "aux" },
+  {
+    key: "auxHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+    group: "auxHoist", requiresModule: "aux", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+  },
   { key: "auxLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "auxHoist", requiresModule: "aux" },
   { key: "auxLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "auxHoist", requiresModule: "aux" },
   {
@@ -567,6 +581,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   // --- Monoray 1 kaldırma
   { key: "mono1CapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
+  {
+    key: "mono1HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+    group: "mono1Hoist", requiresModule: "mono1", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+  },
   { key: "mono1LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
   { key: "mono1LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
   { key: "mono1MechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Hoist", requiresModule: "mono1", standardRef: "FEM 1.001 T.2.6" },
@@ -574,6 +593,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   // --- Monoray 2 kaldırma
   { key: "mono2CapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
+  {
+    key: "mono2HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
+    options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+    group: "mono2Hoist", requiresModule: "mono2", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+  },
   { key: "mono2LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
   { key: "mono2LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
   { key: "mono2MechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Hoist", requiresModule: "mono2", standardRef: "FEM 1.001 T.2.6" },

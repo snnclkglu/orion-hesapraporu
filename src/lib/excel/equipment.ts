@@ -37,6 +37,11 @@ import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGr
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageInputs } from "@/lib/calc/modules/endCarriage";
 import {
+  HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+  hoistEquipmentArrangement,
+  hoistEquipmentQuantityFactor,
+} from "@/lib/calc/types";
+import {
   ENDCARRIAGE_INPUT_FIELDS,
   GIRDER_INPUT_FIELDS,
 } from "@/lib/calc/presentation/structuralFields";
@@ -709,9 +714,21 @@ export function buildEquipmentGroups(
     if (!state) continue;
     const rows = moduleEquipmentRows(key, state.inputs, state.selections);
     if (!rows) continue;
+    const rowsWithAlternatives = alts ? withAlternativeRows(key, state, rows, alts) : rows;
+    // İkiz kaldırma, mühendislik hesabını değil satın alma/montaj için hazır
+    // ekipman adetlerini iki katına çıkarır. Kanca bloğu ve diğer gruplar tek
+    // hesap düzeninde kalır.
+    const quantityFactor = isHoistKey(key)
+      ? hoistEquipmentQuantityFactor(input.specs, key)
+      : 1;
     groups.push({
       name: groupName(key),
-      rows: alts ? withAlternativeRows(key, state, rows, alts) : rows,
+      rows: quantityFactor === 1
+        ? rowsWithAlternatives
+        : rowsWithAlternatives.map((row) => ({
+            ...row,
+            qty: typeof row.qty === "number" ? row.qty * quantityFactor : row.qty,
+          })),
     });
   }
   groups.push(...festoonEquipmentGroups(input));
@@ -909,7 +926,11 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
     genelRows.push(
       { label: `${ad} kapasitesi`, value: view.capacityT, unit: "ton" },
       { label: `${ad} yüksekliği`, value: view.liftHeightM, unit: "m" },
-      { label: `${ad} hızı`, value: view.liftSpeedMpm, unit: "m/dak" }
+      { label: `${ad} hızı`, value: view.liftSpeedMpm, unit: "m/dak" },
+      {
+        label: `${ad} donanımı`,
+        value: HOIST_EQUIPMENT_ARRANGEMENT_LABELS[hoistEquipmentArrangement(specs, key)],
+      }
     );
   }
   for (const key of MODULE_ORDER) {

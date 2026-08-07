@@ -12,6 +12,16 @@ export type HoistClass = "H1" | "H2" | "H3" | "H4";
 export type DrumMaterial = "S235" | "S355";
 export type ShaftMaterial = "S355JR" | "C25" | "C30" | "C35" | "4140+QT" | "4140";
 
+/** Kaldırma grubunun hazır ekipman düzeni. Hesap her zaman tek grup üzerinden yürür. */
+export type HoistEquipmentArrangement = "standard" | "twin";
+export type HoistEquipmentGroup = "main" | "aux" | "mono1" | "mono2";
+
+export const HOIST_EQUIPMENT_ARRANGEMENTS = ["standard", "twin"] as const;
+export const HOIST_EQUIPMENT_ARRANGEMENT_LABELS: Record<HoistEquipmentArrangement, string> = {
+  standard: "Standart Donanım",
+  twin: "İkiz Donanım",
+};
+
 /**
  * Kontrolün dayanağı — kontrolü kimin şart koştuğunu söyler.
  *
@@ -264,9 +274,13 @@ export interface TechnicalSpecs {
   mainCapacityT: number;        // ana kaldırma kapasitesi [ton]
   mainLiftHeightM: number;      // ana kaldırma yüksekliği [m]
   mainLiftSpeedMpm: number;     // ana kaldırma hızı [m/dak]
+  /** Ana kaldırma hazır ekipman adedi; ikiz seçim yalnız ekipman listesini etkiler. */
+  mainHoistEquipmentArrangement?: HoistEquipmentArrangement;
   auxCapacityT: number;         // yardımcı kaldırma kapasitesi [ton]
   auxLiftHeightM: number;       // yardımcı kaldırma yüksekliği [m]
   auxLiftSpeedMpm: number;      // yardımcı kaldırma hızı [m/dak]
+  /** Yardımcı kaldırma hazır ekipman adedi; ikiz seçim yalnız ekipman listesini etkiler. */
+  auxHoistEquipmentArrangement?: HoistEquipmentArrangement;
   structureClass: StructureClass;      // çelik yapı sınıfı (A1–A8)
   hoistLoadClass: string;              // kaldırma/yük grubu (ör. "H3/B4")
   hoistMechanismClass: MechanismClass; // ana kaldırma mekanizma sınıfı
@@ -403,6 +417,7 @@ export interface TechnicalSpecs {
   mono1CapacityT?: number;
   mono1LiftHeightM?: number;
   mono1LiftSpeedMpm?: number;
+  mono1HoistEquipmentArrangement?: HoistEquipmentArrangement;
   mono1MechanismClass?: MechanismClass;
   mono1UsageClass?: UsageClass;
   mono1TrolleySpeedMpm?: number;
@@ -414,6 +429,7 @@ export interface TechnicalSpecs {
   mono2CapacityT?: number;
   mono2LiftHeightM?: number;
   mono2LiftSpeedMpm?: number;
+  mono2HoistEquipmentArrangement?: HoistEquipmentArrangement;
   mono2MechanismClass?: MechanismClass;
   mono2UsageClass?: UsageClass;
   mono2TrolleySpeedMpm?: number;
@@ -427,6 +443,28 @@ export function monorailCount(specs: TechnicalSpecs): number {
   const n = specs.monorailCount;
   if (!Number.isFinite(n as number)) return 0;
   return Math.min(MAX_MONORAIL_COUNT, Math.max(0, Math.trunc(n as number)));
+}
+
+/** Eski revizyonlarda alan yoktur; her zaman standart donanım olarak okunur. */
+export function hoistEquipmentArrangement(
+  specs: TechnicalSpecs,
+  which: HoistEquipmentGroup
+): HoistEquipmentArrangement {
+  const value = {
+    main: specs.mainHoistEquipmentArrangement,
+    aux: specs.auxHoistEquipmentArrangement,
+    mono1: specs.mono1HoistEquipmentArrangement,
+    mono2: specs.mono2HoistEquipmentArrangement,
+  }[which];
+  return value === "twin" ? "twin" : "standard";
+}
+
+/** İkiz donanımda yalnız satın alma/montaj listesi iki set hazır ekipman ister. */
+export function hoistEquipmentQuantityFactor(
+  specs: TechnicalSpecs,
+  which: HoistEquipmentGroup
+): 1 | 2 {
+  return hoistEquipmentArrangement(specs, which) === "twin" ? 2 : 1;
 }
 
 /** Yardımcı kaldırmanın kendi arabası var mı. */

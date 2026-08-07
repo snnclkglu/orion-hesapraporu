@@ -13,6 +13,7 @@ import {
   applyCatalogPick,
   attrValueLabel,
   catalogKindConfig,
+  catalogRowSummary,
   getCatalogMapping,
   isUnverifiedRow,
   lockedFacetValues,
@@ -30,6 +31,7 @@ const HOIST_GEARBOX: CatalogRow = {
     frame_size: "08",
     stages: 2,
     ratio: 52.57,
+    ratio_range: "1:25…90",
     output_torque_nm: 22_000,
     output_speed_rpm: 26.6,
     input_speed_rpm: 1400,
@@ -55,6 +57,23 @@ const TRAVEL_GEARBOX: CatalogRow = {
     allowed_radial_output_kn: 5.5,
     output_shaft_mm: 50,
     input_shaft_mm: 24,
+  },
+};
+
+/** FLENDER MD 20.1'in tip/boyut tablosundan gelen satırı; kesin oran değildir. */
+const FLENDER_GEARBOX: CatalogRow = {
+  id: "flender-h3-15",
+  brand: "FLENDER",
+  model: "H3-15",
+  attrs: {
+    series: "H3",
+    application: "kaldirma",
+    frame_size: "15",
+    stages: 3,
+    gear_unit_type: "Helical",
+    ratio_range: "1:22.4…90",
+    output_torque_nm: 153_000,
+    source_page: "16-17",
   },
 };
 
@@ -84,6 +103,14 @@ describe("kaldırma redüktörü (2.3)", () => {
     const sel = applyCatalogPick(mapping, bare);
     expect(sel).not.toHaveProperty("gearboxAllowedRadialKn");
     expect(sel).not.toHaveProperty("gearboxOutputShaftMm");
+  });
+
+  it("oran aralığı olan FLENDER tipinde elle girilen kesin oranı değiştirmez", () => {
+    const sel = applyCatalogPick(mapping, FLENDER_GEARBOX);
+    expect(sel.gearboxModel).toBe("FLENDER H3-15");
+    expect(sel.gearboxNominalTorqueKnm).toBe(153);
+    expect(sel).not.toHaveProperty("gearboxRatio");
+    expect(catalogRowSummary("gearbox", FLENDER_GEARBOX)).toContain("i=1:22.4…90");
   });
 });
 

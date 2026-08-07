@@ -32,11 +32,15 @@ const CATALOG_DIR = positional
   ? path.resolve(positional)
   : path.resolve(__dirname, "..", "..", "catalog_data");
 const ONLY_KINDS = argOf("kinds")?.split(",").map((s) => s.trim()).filter(Boolean);
+const ONLY_BRANDS = argOf("brands")?.split(",").map((s) => s.trim()).filter(Boolean);
 /**
  * Mevcut katalog satırlarını koruyarak yalnızca eksik tür/marka/model
  * birleşimlerini ekler. Canlı ortama ilk katalog aktarımı için güvenli moddur.
  */
 const APPEND_ONLY = process.argv.includes("--append");
+if (ONLY_BRANDS && !APPEND_ONLY) {
+  throw new Error("--brands yalnızca --append ile kullanılabilir.");
+}
 const OUT_NAME = argOf("out") ?? "20260719000005_catalog_seed";
 const OUT_FILE = path.resolve(
   __dirname, "..", "supabase", "migrations", `${OUT_NAME}.sql`
@@ -133,6 +137,7 @@ const REDUCER_FILES: { file: string; application?: string }[] = [
   { file: "reducers/yilmaz_dr.json" },
   { file: "reducers/yilmaz_m.json" },
   { file: "reducers/yilmaz_h.json" },
+  { file: "reducers/flender_md20_1.json" },
   // SIMOGEAR paralel milli redüktörler yürütme tahrikinde kullanılır.
   { file: "reducers/simogear_parallel.json", application: "yurutme" },
 ];
@@ -140,22 +145,51 @@ const REDUCER_FILES: { file: string; application?: string }[] = [
 for (const { file, application } of REDUCER_FILES) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
-  for (const it of items) {
-    const a = rename(cleanAttrs(it), {
-      output_shaft_diameter_mm: "output_shaft_mm",
-      input_shaft_diameter_mm: "input_shaft_mm",
-      permitted_radial_load_output_n: "allowed_radial_output_kn",
-      permitted_radial_load_input_n: "allowed_radial_input_kn",
-    });
-    // İzin verilen radyal yükler katalogda N; motor ve kontroller kN bekliyor.
-    for (const k of ["allowed_radial_output_kn", "allowed_radial_input_kn"]) {
-      const v = num(a[k]);
-      if (v !== undefined) a[k] = Math.round(v / 10) / 100; // N → kN, 2 hane
+  for (const raw of items) {
+    // Bazı kaynak kataloglar bir tip/sizes matrisi yayımlar. Bu biçim, aynı
+    // seri bilgisini tekrar etmeden her (tip, boyut) hücresini katalog satırına
+    // açar: [gövde, nominal çıkış torku Nm, i_min, i_max].
+    const variants = Array.isArray(raw.variants) ? raw.variants : undefined;
+    const expandedItems = variants
+      ? variants.map((variant) => {
+          if (!Array.isArray(variant) || variant.length !== 4) {
+            throw new Error(`${file}: variants satırı [size, torque_nm, ratio_min, ratio_max] olmalı.`);
+          }
+          const [frameSize, outputTorqueNm, ratioMin, ratioMax] = variant;
+          const { variants: _variants, ...base } = raw;
+          return {
+            ...base,
+            model: `${String(base.series)}-${String(frameSize).padStart(2, "0")}`,
+            frame_size: String(frameSize).padStart(2, "0"),
+            output_torque_Nm: outputTorqueNm,
+            ratio_range: `1:${String(ratioMin)}…${String(ratioMax)}`,
+          };
+        })
+      : [raw];
+
+    for (const it of expandedItems) {
+      const a = rename(cleanAttrs(it), {
+        output_shaft_diameter_mm: "output_shaft_mm",
+        input_shaft_diameter_mm: "input_shaft_mm",
+        permitted_radial_load_output_n: "allowed_radial_output_kn",
+        permitted_radial_load_input_n: "allowed_radial_input_kn",
+      });
+      // İzin verilen radyal yükler katalogda N; motor ve kontroller kN bekliyor.
+      for (const k of ["allowed_radial_output_kn", "allowed_radial_input_kn"]) {
+        const v = num(a[k]);
+        if (v !== undefined) a[k] = Math.round(v / 10) / 100; // N → kN, 2 hane
+      }
+      const applications = Array.isArray(a.applications)
+        ? a.applications.filter((value): value is string => typeof value === "string" && value.length > 0)
+        : [String(a.application ?? application ?? meta.application ?? "")].filter(Boolean);
+      delete a.applications;
+      delete a.application;
+      const model = String(a.model ?? "");
+      delete a.model;
+      for (const usage of applications) {
+        push("gearbox", brand, model, { ...a, application: usage });
+      }
     }
-    a.application = a.application ?? application ?? meta.application;
-    const model = String(a.model ?? "");
-    delete a.model;
-    push("gearbox", brand, model, a);
   }
 }
 
@@ -504,13 +538,16 @@ function rowSql(r: Row): string {
 }
 
 // `--kinds` verildiyse yalnız o türler yazılır ve önce mevcut satırları silinir.
-const emitted = ONLY_KINDS ? rows.filter((r) => ONLY_KINDS.includes(r.kind)) : rows;
+const emitted = rows.filter((r) =>
+  (!ONLY_KINDS || ONLY_KINDS.includes(r.kind)) &&
+  (!ONLY_BRANDS || ONLY_BRANDS.includes(r.brand))
+);
 
 const BATCH = 500;
 const parts: string[] = [];
 parts.push(`-- Katalog seed — catalog_data JSON'larından scripts/seed-catalog.ts ile üretildi.
 -- Yeniden üretmek için: npx tsx scripts/seed-catalog.ts${
-  ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")} --out ${OUT_NAME}` : ""}
+  `${ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")}` : ""}${ONLY_BRANDS ? ` --brands ${ONLY_BRANDS.join(",")}` : ""}${APPEND_ONLY ? " --append" : ""} --out ${OUT_NAME}`}
 -- Toplam ${emitted.length} ürün.
 `);
 

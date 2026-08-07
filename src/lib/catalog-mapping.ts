@@ -117,6 +117,7 @@ export const ATTR_LABELS: Record<string, string> = {
   // redüktör
   application: "Kullanım Grubu",
   ratio: "Çevrim Oranı",
+  ratio_range: "Çevrim Oranı Aralığı",
   output_torque_nm: "Çıkış Torku [Nm]",
   output_speed_rpm: "Çıkış Devri [d/dak]",
   input_speed_rpm: "Giriş Devri [d/dak]",
@@ -541,7 +542,7 @@ export function catalogRowSummary(kind: string, row: CatalogRow): string {
     case "motor":
       return `${numFmt(a.power_kw)} kW · ${numFmt(a.rpm)} d/dak · ${numFmt(a.poles)}K`;
     case "gearbox":
-      return `i=${numFmt(a.ratio)} · ${numFmt(a.output_torque_nm)} Nm · n₁=${numFmt(a.input_speed_rpm)}`;
+      return `i=${numFmt(a.ratio ?? a.ratio_range)} · ${numFmt(a.output_torque_nm)} Nm${a.input_speed_rpm !== undefined ? ` · n₁=${numFmt(a.input_speed_rpm)}` : ""}`;
     case "rope":
       return `Ø${numFmt(a.dia_mm)} mm · ${numFmt(a.breaking_load_kn)} kN · ${attrValueLabel("core", a.core)}`;
     case "brake":
