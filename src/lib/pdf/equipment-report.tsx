@@ -15,7 +15,7 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import { canLinkEquipmentModel, dsKey } from "@/lib/excel/equipment";
-import { BRAND, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
+import { BRAND, BrandPage, FONTS, PAGE, PageHeader, RuleRed, T, mm, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 
@@ -76,6 +76,8 @@ const s = StyleSheet.create({
 export interface EquipmentMetaPdf {
   docNo: string; projectName: string; customer: string;
   revLabel: string; revNo: number; date: string;
+  preparedBy?: string;
+  checkedBy?: string;
 }
 
 export interface EquipmentPdfProps {
@@ -89,6 +91,28 @@ export interface EquipmentPdfProps {
 /** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
 export function breakEquipmentModelCode(model: string): string {
   return model.replace(/([./_-])/g, "$1\u200B");
+}
+
+/** Ekipman listesi her sayfada proje firmasının künyesini ayrı ve okunur tutar. */
+function CompanyFooter({ settings }: { settings?: ReportSettings }) {
+  const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
+  const contact = [st.phone, st.email, st.web]
+    .map((value) => (value ?? "").trim())
+    .filter(Boolean)
+    .join("  ·  ");
+  return (
+    <View
+      fixed
+      style={{
+        position: "absolute", left: PAGE.contentLeft, right: PAGE.marginOuter, bottom: mm(15),
+        borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 4,
+      }}
+    >
+      <Text style={{ ...T.micro, color: BRAND.gray700, fontWeight: 600 }}>{st.company}</Text>
+      <Text style={{ ...T.micro, marginTop: 1.5 }}>{st.address || st.city}</Text>
+      {contact ? <Text style={{ ...T.micro, marginTop: 1.5 }}>{contact}</Text> : null}
+    </View>
+  );
 }
 
 function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
@@ -121,6 +145,7 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
         docCode={docCode}
         orientation="landscape"
+        style={{ paddingBottom: mm(29) + 14 }}
       >
         {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır */}
         <PageHeader kicker="ORION CRANES · EKİPMAN LİSTESİ" title="Ekipman Listesi" meta={docCode} />
@@ -130,6 +155,8 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
           <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Hazırlayan</Text><Text style={s.metaVal}>{meta.preparedBy || "—"}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Kontrol</Text><Text style={s.metaVal}>{meta.checkedBy || "—"}</Text></View>
         </View>
 
         <View style={s.tHead} fixed>
@@ -193,6 +220,7 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
             ))}
           </View>
         )}
+        <CompanyFooter settings={settings} />
       </BrandPage>
     </Document>
   );

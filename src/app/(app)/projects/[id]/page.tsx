@@ -14,6 +14,7 @@ import { NewRevisionButton } from "./new-revision-button";
 import { ArchiveButton } from "./archive-button";
 import { ProjectDetailActions } from "../project-actions";
 import { DrawingDialog, DeleteDrawingButton, type DrawingRow } from "./drawing-dialog";
+import { ProjectSignatoryCard, type SignatoryOption } from "./signatory-card";
 import type { JobItemOption } from "../new-project-dialog";
 
 function drawingStatusBadge(status: DrawingStatus) {
@@ -32,7 +33,7 @@ export default async function ProjectPage({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, name, customer, crane_type, status, created_at, job_id, jobs:job_id(id, job_no, title)")
+    .select("id, doc_no, name, customer, crane_type, status, created_at, job_id, prepared_by, checked_by, jobs:job_id(id, job_no, title)")
     .eq("id", id)
     .single();
 
@@ -44,7 +45,7 @@ export default async function ProjectPage({
     title: string;
   } | null) ?? null;
 
-  const [{ data: revisions }, { data: drawings }, categories, { data: jobsData }] =
+  const [{ data: revisions }, { data: drawings }, categories, { data: jobsData }, { data: signatoryProfiles }] =
     await Promise.all([
       supabase
         .from("revisions")
@@ -63,6 +64,11 @@ export default async function ProjectPage({
         .select("id, job_no, title, customer, job_items(id, item_no, product_name, quantity, project_id)")
         .eq("status", "active")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .in("role", ["admin", "engineer"])
+        .order("full_name", { ascending: true }),
     ]);
 
   // Silme yalnızca yöneticide (projects DELETE politikası is_admin() ister)
@@ -83,6 +89,7 @@ export default async function ProjectPage({
   }));
 
   const drawingList = (drawings ?? []) as DrawingRow[];
+  const signatoryPeople = (signatoryProfiles ?? []) as SignatoryOption[];
   const revisionList = revisions ?? [];
   const latestRev = revisionList[0];
   // İlk hesap raporu henüz oluşturulmadıysa buton "Hesap Raporu Oluştur" der.
@@ -166,6 +173,13 @@ export default async function ProjectPage({
           </p>
         </div>
       </div>
+
+      <ProjectSignatoryCard
+        projectId={project.id}
+        people={signatoryPeople}
+        preparedBy={(project.prepared_by as string | null) ?? null}
+        checkedBy={(project.checked_by as string | null) ?? null}
+      />
 
       <Tabs defaultValue="report">
         {/* Link, role=tablist içinde kalmasın diye TabsList'in kardeşi olarak durur */}

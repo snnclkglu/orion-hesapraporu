@@ -142,6 +142,7 @@ export interface ReportProps {
   project: ReportProject;
   revision: ReportRevision;
   preparedBy: string;
+  checkedBy?: string;
   input: CalcInput;
   result: CalcResult;
   /**
@@ -259,19 +260,6 @@ const s = StyleSheet.create({
   },
   specLabel: { ...T.kickerInk },
   specGloss: { ...T.micro, marginTop: 1.5 },
-  /**
-   * Başlık düzeninde (yalnız baş harfi büyük) yazılan kapak alt başlığı.
-   * `T.kickerInk` harf aralığı açıp BÜYÜK harf görünümü verir; Türkçe başlık
-   * düzeni istenen yerde bu varyant kullanılır: aralık yok, punto biraz büyük.
-   */
-  coverSourcesTitle: {
-    ...T.kickerInk,
-    fontFamily: FONTS.sans,
-    fontSize: 9,
-    fontWeight: 700,
-    letterSpacing: 0,
-    color: BRAND.ink,
-  },
   specValue: {
     fontFamily: FONTS.mono,
     fontSize: 13,
@@ -1079,7 +1067,13 @@ export function altOptionNodes(
 
 // ---------------------------------------------------------------- Kapak
 
-/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kaldırma yüksekliği → FEM */
+/** Ana kaldırma mekanizması için FEM grubu ve ISO sınıfı eşlemesi. */
+const FEM_GROUP_BY_ISO_CLASS: Record<string, string> = {
+  M1: "1Bm", M2: "1Bm", M3: "1Am", M4: "2m",
+  M5: "2m", M6: "3m", M7: "4m", M8: "5m",
+};
+
+/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kaldırma yüksekliği → sınıflar */
 function coverSpecs(input: CalcInput): { label: string; value: string }[] {
   const sp = input.specs;
   const out: { label: string; value: string }[] = [];
@@ -1091,17 +1085,23 @@ function coverSpecs(input: CalcInput): { label: string; value: string }[] {
     out.push({ label: "AÇIKLIK", value: `${fmt(sp.spanM)} m` });
   if (Number.isFinite(sp.mainLiftHeightM))
     out.push({ label: "KALDIRMA YÜKSEKLİĞİ", value: `${fmt(sp.mainLiftHeightM)} m` });
-  const duty = [sp.hoistLoadClass, sp.hoistMechanismClass].filter(Boolean).join(" / ");
-  if (duty) out.push({ label: "FEM SINIFI", value: duty });
+  const femGroup = FEM_GROUP_BY_ISO_CLASS[sp.hoistMechanismClass] ?? "—";
+  if (sp.hoistMechanismClass) {
+    out.push({ label: "FEM SINIFI", value: `FEM ${femGroup} / ISO ${sp.hoistMechanismClass}` });
+  }
+  const loadGroup = sp.hoistLoadClass.split("/").map((part) => part.trim()).find((part) => /^B[1-6]$/.test(part));
+  if (loadGroup) out.push({ label: "YÜK GRUBU", value: loadGroup });
+  if (sp.structureClass) out.push({ label: "ÇELİK KONSTRÜKSİYON SINIFI", value: sp.structureClass });
+  if (sp.hookType) out.push({ label: "KANCA TİPİ", value: sp.hookType });
   return out;
 }
 
 function CoverPage(props: ReportProps) {
-  const { project, revision, preparedBy, input } = props;
+  const { project, revision, preparedBy, checkedBy, input } = props;
   const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
-  const contact = [st.address, st.phone, st.email, st.web]
+  const contact = [st.phone, st.email, st.web]
     .map((x) => (x ?? "").trim())
     .filter(Boolean)
     .join("  ·  ");
@@ -1149,22 +1149,10 @@ function CoverPage(props: ReportProps) {
         ))}
       </View>
 
-      {/* Hesabın dayandığı standartlar — kapakta künyeden hemen sonra */}
-      <View style={{ marginTop: 26 }}>
-        <Text style={s.coverSourcesTitle}>Kaynaklar</Text>
-        <RuleRed width={16} />
-        <Text style={{ ...T.caption, marginTop: 6, color: BRAND.gray700 }}>
-          FEM 1.001 (3. Baskı) — sınıflandırma, yükler, mekanizma seçimi{"\n"}
-          DIN 15018 — çelik yapı yorulması{"\n"}
-          DIN 15400 / 15401 / 15402 — kanca · DIN 15061{"\n"}
-          CMAA 70 — motor gücü, mil gerilmeleri, sehim sınırı
-        </Text>
-      </View>
-
-      {/* Meta: müşteri / tarih / hazırlayan / revizyon */}
+      {/* Meta: müşteri / tarih / hazırlayan / kontrol / revizyon */}
       <View style={{ marginTop: "auto" }}>
-        <View style={{ flexDirection: "row", gap: 18, marginBottom: 14 }}>
-          <View style={{ flex: 1.4 }}>
+        <View style={{ flexDirection: "row", gap: 14, marginBottom: 12 }}>
+          <View style={{ flex: 1.25 }}>
             <Text style={s.coverMetaLabel}>MÜŞTERİ</Text>
             <Text style={s.coverMetaValue}>{project.customer.toLocaleUpperCase("tr-TR")}</Text>
           </View>
@@ -1174,10 +1162,14 @@ function CoverPage(props: ReportProps) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.coverMetaLabel}>HAZIRLAYAN</Text>
-            {/* Hazırlayan boş kalabilir (profil adı girilmemiş olabilir);
-                rapor bu yüzden üretilememezlik etmemeli. */}
             <Text style={s.coverMetaValue}>
               {(preparedBy ?? "—").toLocaleUpperCase("tr-TR")}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.coverMetaLabel}>KONTROL</Text>
+            <Text style={s.coverMetaValue}>
+              {(checkedBy ?? "—").toLocaleUpperCase("tr-TR")}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
@@ -1188,10 +1180,10 @@ function CoverPage(props: ReportProps) {
             </Text>
           </View>
         </View>
-        <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 4 }}>
-          <Text style={T.micro}>
-            {st.company} · {contact || st.city}
-          </Text>
+        <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 6 }}>
+          <Text style={{ ...T.micro, color: BRAND.gray700, fontWeight: 600 }}>{st.company}</Text>
+          <Text style={{ ...T.micro, marginTop: 2 }}>{st.address || st.city}</Text>
+          {contact ? <Text style={{ ...T.micro, marginTop: 2 }}>{contact}</Text> : null}
         </View>
       </View>
     </BrandPage>
@@ -1580,8 +1572,9 @@ function SummaryCheckLine({
 }
 
 /**
- * Belgenin EN SON bölümü: bütün kontroller modüle göre gruplu tek listede
- * (madde 24). Satır içi kontroller yerinde kalır; buradaki liste bir DİZİN
+ * Hesap bölümlerinin ardından gelen kontrol özeti. Kaynaklar, kullanıcı
+ * isteği doğrultusunda bunun da ardından belgenin en sonunda yer alır.
+ * Satır içi kontroller yerinde kalır; buradaki liste bir DİZİN
  * gibidir — her satırın solunda hesabın yapıldığı sayfa vardır.
  */
 function ChecksSummarySection({
@@ -1915,6 +1908,45 @@ function KeepWithNext({ children }: { children: React.ReactNode }) {
   return <View wrap={false}>{children}</View>;
 }
 
+const REPORT_SOURCES = [
+  "FEM 1.001 (3. Baskı) — Rules for the Design of Hoisting Appliances",
+  "DIN 15018 — Cranes; Steel Structures; Design and Analysis",
+  "DIN 15400 — Lifting Hooks; General Requirements",
+  "DIN 15401 — Lifting Hooks; Single Hooks",
+  "DIN 15402 — Lifting Hooks; Mechanical Properties, Load Capacities and Stresses",
+  "DIN 15061 — Cranes; Wire Rope Drums; Dimensions",
+  "CMAA Specification No. 70 — Specifications for Top Running and Under Running Single Girder and Multiple Girder Electric Overhead Traveling Cranes Utilizing Top Running and Under Running Trolley Hoist",
+  "EN 13001-1 — Cranes; General Design; Part 1: General Principles and Requirements",
+  "EN 13001-2 — Cranes; General Design; Part 2: Load Actions",
+  "EN 13001-3-1 — Cranes; General Design; Part 3-1: Limit States and Proof of Competence of Steel Structures",
+  "ISO 4301-1:2016 — Cranes; Classification; Part 1: General",
+  "ISO 4309:2017 — Cranes; Wire Ropes; Care and Maintenance, Inspection and Discard",
+  "ISO 9927-1:2013 — Cranes; Inspections; Part 1: General",
+] as const;
+
+/** Hesap ve tasarımda başvurulan standartların tam adları, belgenin son sayfasında yer alır. */
+function SourcesSection({ project, revision }: Pick<ReportProps, "project" | "revision">) {
+  return (
+    <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
+      <PageHeader kicker="EK" title="Kaynaklar ve Standartlar" />
+      <Text style={{ ...T.caption, marginBottom: 10 }}>
+        Hesap raporunda başvurulan kaynak dokümanlar.
+      </Text>
+      <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300 }}>
+        {REPORT_SOURCES.map((source, index) => (
+          <View
+            key={source}
+            style={{ flexDirection: "row", gap: 8, borderBottomWidth: 0.5, borderBottomColor: BRAND.line300, paddingVertical: 5 }}
+          >
+            <Text style={{ ...T.data, width: 17, color: BRAND.red }}>{String(index + 1).padStart(2, "0")}</Text>
+            <Text style={{ ...T.caption, flex: 1, color: BRAND.gray700 }}>{source}</Text>
+          </View>
+        ))}
+      </View>
+    </BrandPage>
+  );
+}
+
 /** Editördeki hesap alt bölümü notunun PDF karşılığı. */
 function EngineeringNote({ note }: { note: string }) {
   return (
@@ -2170,13 +2202,14 @@ export function ReportDocument(
             collect={collect}
           />
         ))}
-      {/* Kontroller belgenin EN ALTINDA toplanır (madde 24) */}
+      {/* Kontroller hesap bölümlerinin ardından toplanır. */}
       <ChecksSummarySection
         {...props}
         numbers={numbers}
         pageOf={pageOf ?? {}}
         collect={collect}
       />
+      <SourcesSection {...props} />
     </Document>
   );
 }

@@ -53,12 +53,19 @@ export async function issueRevision(
     const [{ data: project }, { data: profile }] = await Promise.all([
       supabase
         .from("projects")
-        .select("doc_no, name, customer, crane_type")
+        .select("doc_no, name, customer, crane_type, prepared_by, checked_by")
         .eq("id", projectId)
         .single(),
       supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     ]);
     if (project) {
+      const preparedById = project.prepared_by ?? user.id;
+      const { data: signatoryProfiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", [preparedById, project.checked_by].filter((id): id is string => Boolean(id)));
+      const nameOf = (id: string | null | undefined) =>
+        (signatoryProfiles ?? []).find((person) => person.id === id)?.full_name;
       const input = calcInputFromRevision(
         revision.inputs as RevisionInputsJson,
         revision.selections as RevisionSelectionsJson
@@ -74,7 +81,8 @@ export async function issueRevision(
           issued_at: revision.issued_at,
           updated_at: revision.updated_at,
         },
-        preparedBy: profile?.full_name || "—",
+        preparedBy: nameOf(preparedById) || profile?.full_name || "—",
+        checkedBy: nameOf(project.checked_by) || "—",
         input,
         result,
         level: "detayli", // yayın arşivi her zaman tam (detaylı) rapor saklar

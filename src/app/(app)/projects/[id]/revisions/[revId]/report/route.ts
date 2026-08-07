@@ -44,18 +44,23 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer, crane_type")
+    .select("doc_no, name, customer, crane_type, prepared_by, checked_by")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
 
-  // Hazırlayan: yayınlayan; taslakta revizyonu oluşturan
-  const preparedById = revision.issued_by ?? revision.created_by;
-  const { data: profile } = await supabase
+  // Eski projeler için hazırlayan fallback'i korunur; yeni projelerde iki isim
+  // proje düzeyindeki resmi sorumlulardan gelir.
+  const preparedById = project.prepared_by ?? revision.issued_by ?? revision.created_by;
+  const signatoryIds = [preparedById, project.checked_by].filter(
+    (value): value is string => Boolean(value)
+  );
+  const { data: profiles } = await supabase
     .from("profiles")
-    .select("full_name")
-    .eq("id", preparedById)
-    .single();
+    .select("id, full_name")
+    .in("id", signatoryIds);
+  const nameOf = (id: string | null | undefined) =>
+    (profiles ?? []).find((profile) => profile.id === id)?.full_name || "—";
 
   const input = calcInputFromRevision(
     revision.inputs as RevisionInputsJson,
@@ -73,7 +78,8 @@ export async function GET(
       issued_at: revision.issued_at,
       updated_at: revision.updated_at,
     },
-    preparedBy: profile?.full_name || "—",
+    preparedBy: nameOf(preparedById),
+    checkedBy: nameOf(project.checked_by),
     input,
     result,
     level,

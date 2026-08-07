@@ -31,7 +31,11 @@ import {
   type TravelKey,
 } from "@/lib/calc/presentation/module-family";
 import { camberProfile } from "@/lib/calc/camber";
-import { HYDRAULIC_DAMPING_EFFICIENCY } from "@/lib/calc/buffer";
+import {
+  cellularCurvesAtImpactSpeed,
+  HYDRAULIC_DAMPING_EFFICIENCY,
+} from "@/lib/calc/buffer";
+import { cellularSpeedCurvesForModel } from "@/lib/calc/cellularBufferSpeedCurves";
 import {
   GIRDER_ELASTIC_MODULUS_KG_CM2,
   type GirderValues,
@@ -275,17 +279,25 @@ export function diagramForSection(
       const v = result[travelKey]?.values as TravelValues | undefined;
       if (!st || !v) return null;
       if (v.bufferType === "yok") return null;
+      const cellularCurves = v.bufferType === "hucresel"
+        ? cellularCurvesAtImpactSpeed(
+            cellularSpeedCurvesForModel(st.selections.bufferModel),
+            v.bufferImpactSpeedMps,
+            st.selections.bufferLoadKn
+          )
+        : undefined;
       return bufferDiagram({
         type: v.bufferType,
         model: st.selections.bufferModel,
         strokeMm: st.selections.bufferStrokeMm,
         strokeUsedMm: v.bufferStrokeUsedMm,
         totalEnergyKj: v.totalEnergyKj,
-        catalogEnergyKj: st.selections.bufferEnergyKj,
+        catalogEnergyKj: v.bufferCatalogEnergyAtImpactKj,
         reactionForceKn: v.bufferForceKn,
-        catalogMaxForceKn: st.selections.bufferLoadKn,
-        energyCurve: st.selections.bufferEnergyCurve,
-        forceCurve: st.selections.bufferForceCurve,
+        catalogMaxForceKn: v.bufferCatalogForceAtImpactKn,
+        catalogCurveSpeedMps: v.bufferCatalogCurveSpeedMps,
+        energyCurve: cellularCurves?.energyCurve ?? st.selections.bufferEnergyCurve,
+        forceCurve: cellularCurves?.forceCurve ?? st.selections.bufferForceCurve,
         maxCompressionPct: st.selections.bufferMaxCompressionPct,
         compressionPct: v.bufferCompressionPct,
         computed: v.bufferComputed,

@@ -13,6 +13,7 @@ import {
 interface Profile {
   id: string;
   full_name: string;
+  email: string;
   title: string;
   role: string;
 }
@@ -29,10 +30,11 @@ export function UserRow({
   const [role, setRole] = useState<"admin" | "engineer">(
     profile.role === "admin" ? "admin" : "engineer"
   );
+  const [fullName, setFullName] = useState(profile.full_name);
   const [title, setTitle] = useState(profile.title);
   const [pending, startTransition] = useTransition();
 
-  const dirty = role !== profile.role || title !== profile.title;
+  const dirty = role !== profile.role || title !== profile.title || fullName !== profile.full_name;
   const lastAdmin = profile.role === "admin" && adminCount <= 1;
 
   function handleSave() {
@@ -47,7 +49,7 @@ export function UserRow({
       if (!window.confirm(msg)) return;
     }
     startTransition(async () => {
-      const result = await updateUserProfile(profile.id, { role, title });
+      const result = await updateUserProfile(profile.id, { role, title, full_name: fullName });
       if (result?.error) toast.error(result.error);
       else toast.success("Kullanıcı güncellendi");
     });
@@ -56,9 +58,15 @@ export function UserRow({
   return (
     <TableRow>
       <TableCell className="font-medium">
-        {profile.full_name || "—"}
+        <Input
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Ad Soyad"
+          className="h-8 min-w-48"
+        />
         {isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(siz)</span>}
       </TableCell>
+      <TableCell className="text-sm text-muted-foreground">{profile.email || "—"}</TableCell>
       <TableCell>
         <Input
           value={title}

@@ -438,7 +438,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   { key: "structureClass", label: "Çelik Konstrüksiyon Sınıfı", type: "select", options: STRUCTURE_CLASSES, group: "crane", standardRef: "FEM 1.001 T.2.3.4" },
   { key: "hoistLoadClass", label: "Kaldırma / Yük Grubu Sınıfı", type: "select", options: HOIST_LOAD_CLASSES, group: "crane", standardRef: "DIN 15018 Tablo 2" },
-  { key: "hookType", label: "Kanca / Tutucu Tipi", type: "select", options: HOOK_TYPES, group: "crane", standardRef: "DIN 15400" },
+  { key: "hookType", label: "Kanca Tipi", type: "select", options: HOOK_TYPES, group: "crane", standardRef: "DIN 15400" },
   { key: "controlType", label: "Kumanda Şekli", type: "select", options: CONTROL_TYPES, group: "crane" },
 
   // --- Operatör kabini

@@ -15,6 +15,10 @@ describe("hücresel tamponlu hesap raporu", () => {
         selections: {
           ...V5_TEMPLATE.trolley!.selections,
           bufferCatalogType: "hücresel",
+          bufferModel: "Conductix-Wampfler 018112-080x080",
+          bufferStrokeMm: 64,
+          bufferEnergyKj: 1.52,
+          bufferLoadKn: 31,
           bufferEnergyCurve: undefined,
           bufferForceCurve: undefined,
           bufferMaxCompressionPct: 80,

@@ -55,6 +55,8 @@ export interface EquipmentMeta {
   revLabel: string;
   revNo: number;
   date: string;
+  preparedBy?: string;
+  checkedBy?: string;
 }
 
 // --- yardımcılar -------------------------------------------------------------
@@ -96,8 +98,8 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
   right: { style: "thin", color: { argb: "FF9CA3AF" } },
 };
 
-/** Başlık bloğu: kömür zeminli başlık + künye satırı, kırmızı ince ayraç,
- *  müşteri satırı. Tablo başlık satırının numarasını döndürür. */
+/** Başlık bloğu: kömür zeminli başlık + künye satırı, kırmızı ince ayraç ve
+ *  proje sorumluları. Tablo başlık satırının numarasını döndürür. */
 function writeTitleBlock(
   ws: ExcelJS.Worksheet,
   title: string,
@@ -138,13 +140,19 @@ function writeTitleBlock(
   }
   ws.getRow(3).height = 3;
 
-  // Satır 4: müşteri (künyede yer almayan tek alan)
-  const m = ws.getRow(4);
-  m.getCell(1).value = "Müşteri";
-  m.getCell(1).font = { bold: true };
-  m.getCell(2).value = textOr(meta.customer);
+  const details: Array<[string, string | undefined]> = [
+    ["Müşteri", meta.customer],
+    ["Hazırlayan", meta.preparedBy],
+    ["Kontrol", meta.checkedBy],
+  ];
+  for (const [index, [label, value]] of details.entries()) {
+    const row = ws.getRow(4 + index);
+    row.getCell(1).value = label;
+    row.getCell(1).font = { bold: true };
+    row.getCell(2).value = textOr(value);
+  }
 
-  return 6; // satır 5 boş; tablo başlığı 6. satırda
+  return 8; // satır 7 boş; tablo başlığı 8. satırda
 }
 
 /** Otomatik sütun genişliği: her sütunun en uzun metnine göre (8..60).
@@ -960,7 +968,7 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
       unit: "m/dak",
     });
   }
-  genelRows.push({ label: "Kanca / tutucu tipi", value: specs.hookType });
+  genelRows.push({ label: "Kanca tipi", value: specs.hookType });
   sections.push({ name: "Genel Ölçüler ve Kapasiteler", rows: genelRows });
 
   if (specs.hasOperatorCabin === "yes") {

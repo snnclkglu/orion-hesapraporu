@@ -34,7 +34,7 @@ export async function GET(
 
   const { data: revision } = await supabase
     .from("revisions")
-    .select("id, project_id, rev_no, label, status, inputs, selections")
+    .select("id, project_id, rev_no, label, status, inputs, selections, created_by, issued_by")
     .eq("id", revId)
     .eq("project_id", id)
     .single();
@@ -42,10 +42,21 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("doc_no, name, customer")
+    .select("doc_no, name, customer, prepared_by, checked_by")
     .eq("id", id)
     .single();
   if (!project) return new Response("Proje bulunamadı", { status: 404 });
+
+  const preparedById = project.prepared_by ?? revision.issued_by ?? revision.created_by;
+  const signatoryIds = [preparedById, project.checked_by].filter(
+    (value): value is string => Boolean(value)
+  );
+  const { data: signatoryProfiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", signatoryIds);
+  const nameOf = (id: string | null | undefined) =>
+    (signatoryProfiles ?? []).find((profile) => profile.id === id)?.full_name || "—";
 
   const calcInput = calcInputFromRevision(
     revision.inputs as RevisionInputsJson | null,
@@ -95,6 +106,8 @@ export async function GET(
     revLabel: revision.label ?? "",
     revNo: revision.rev_no,
     date: new Date().toLocaleDateString("tr-TR"),
+    preparedBy: nameOf(preparedById),
+    checkedBy: nameOf(project.checked_by),
   };
 
   const baseName = `${project.doc_no || "rapor"}-V${revision.rev_no}-${

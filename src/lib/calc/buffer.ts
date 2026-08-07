@@ -31,6 +31,7 @@
 // BİRİMLER: t, kg, kJ, kN, N, mm, m, m/s, m/dak, m/s².
 
 import type { AnyCheck } from "./types";
+import type { CellularSpeedCurveData } from "./cellularBufferSpeedCurves";
 
 // --------------------------------------------------------------- sabitler
 
@@ -65,58 +66,6 @@ export const BUFFER_CATALOG_TYPE: Record<BufferType, string> = {
   hucresel: "hücresel",
   yok: "yok",
 };
-
-/** Hücresel katalog satırının Wmaks/Fmaks limitlerinden türetilen eğriler. */
-export interface CellularBufferCurves {
-  /** Sıkışma [%] → yutulan enerji [J] */
-  energyCurve: CurvePoint[];
-  /** Sıkışma [%] → tampon kuvveti [kN] */
-  forceCurve: CurvePoint[];
-}
-
-/**
- * Conductix Program 0180 ürün tabloları çalışma eğrisini basmaz; ancak her
- * ürün için dinamik enerji kapasitesi, azami kuvvet ve izinli sıkışmayı verir.
- * Bu üç katalog limitinden, uç noktaları bire bir sağlayan sürekli bir eğri
- * oluşturulur:
- *
- *   F(x) = Fmaks · (x / xmax)^p
- *   E(x) = Wmaks · (x / xmax)^(p + 1)
- *
- * p, integral enerji tam olarak Wmaks olacak şekilde seçilir. Böylece grafik
- * ve hesap 0 kN gibi yanıltıcı bir sonuç üretmez; eğrinin katalog grafiği
- * değil, katalog limitlerinden türetilmiş hesap eğrisi olduğu raporda açıkça
- * belirtilir.
- */
-export function cellularCurvesFromCatalog(input: {
-  /** İzin verilen toplam sıkışma yolu [mm] */
-  strokeMm: number;
-  /** İzin verilen azami sıkışma [%] */
-  maxCompressionPct: number;
-  /** Katalog dinamik enerji kapasitesi Wmaks [kJ] */
-  catalogEnergyKj: number;
-  /** Katalog azami kuvveti Fmaks [kN] */
-  catalogMaxForceKn: number;
-}): CellularBufferCurves | undefined {
-  const strokeM = input.strokeMm / 1000;
-  const maxPct = input.maxCompressionPct;
-  const energyJ = input.catalogEnergyKj * 1000;
-  const forceKn = input.catalogMaxForceKn;
-  if (
-    !Number.isFinite(strokeM) || strokeM <= 0 ||
-    !Number.isFinite(maxPct) || maxPct <= 0 ||
-    !Number.isFinite(energyJ) || energyJ <= 0 ||
-    !Number.isFinite(forceKn) || forceKn <= 0
-  ) return undefined;
-
-  // F[kN] · s[m] = kJ. p ≥ 0 olduğunda kuvvet eğrisi monoton artar.
-  const exponent = Math.max(0, (forceKn * strokeM) / input.catalogEnergyKj - 1);
-  const fractions = [0, 0.125, 0.25, 0.5, 0.75, 0.875, 1];
-  return {
-    energyCurve: fractions.map((r) => [maxPct * r, energyJ * r ** (exponent + 1)]),
-    forceCurve: fractions.map((r) => [maxPct * r, forceKn * r ** exponent]),
-  };
-}
 
 /**
  * Hidrolik tamponun sönümleme verimi η.
@@ -230,6 +179,94 @@ export function interpolateCurve(
 }
 
 /**
+ * Çarpma hızına göre KAT0180'deki 0 / 1 / 2 / 3 / 4 m/s eğrilerinden seçilen
+ * çalışma eğrisi. Katalog dışında ekstrapolasyon yapılmaz: 4 m/s üzerindeki
+ * hücresel tampon seçimi, üretici teyidi olmadan hesaplanmış sayılmaz.
+ */
+export interface CellularBufferCurves {
+  /** Sıkışma [%] → yutulan enerji [J] */
+  energyCurve: CurvePoint[];
+  /** Sıkışma [%] → tampon kuvveti [kN] */
+  forceCurve: CurvePoint[];
+  /** Çarpma hızındaki eğrinin enerji üst sınırı [kJ] */
+  energyCapacityKj: number;
+  /** Çarpma hızındaki eğrinin son kuvveti [kN] */
+  forceCapacityKn: number;
+  /** Enterpolasyonda kullanılan gerçek çarpma hızı [m/s] */
+  speedMps: number;
+}
+
+const speedCurvePoints = (curve: readonly (readonly [number, number])[]): CurvePoint[] =>
+  cleanCurve(curve);
+
+/**
+ * KAT0180 kuvvet eğrileri, katalogdaki statik son kuvvete göre çarpan olarak
+ * saklanır. Bu fonksiyon enerji ve kuvveti AYNI hızdaki komşu eğriler arasında
+ * enterpole eder; enerji eğrisini J'e çevirerek hesap çekirdeğine verir.
+ */
+export function cellularCurvesAtImpactSpeed(
+  curves: readonly CellularSpeedCurveData[] | undefined,
+  impactSpeedMps: number,
+  staticMaxForceKn: number
+): CellularBufferCurves | undefined {
+  if (!Array.isArray(curves) || !Number.isFinite(impactSpeedMps) || impactSpeedMps < 0) {
+    return undefined;
+  }
+  if (!Number.isFinite(staticMaxForceKn) || staticMaxForceKn <= 0) return undefined;
+
+  const usable = curves
+    .map((curve) => ({
+      speed: curve.speed_mps,
+      energy: speedCurvePoints(curve.energy_curve),
+      forceFactor: speedCurvePoints(curve.force_factor_curve),
+    }))
+    .filter(
+      (curve) =>
+        Number.isFinite(curve.speed) &&
+        curve.speed >= 0 &&
+        curve.energy.length >= 2 &&
+        curve.forceFactor.length >= 2
+    )
+    .sort((a, b) => a.speed - b.speed);
+  if (usable.length === 0) return undefined;
+
+  const first = usable[0];
+  const last = usable[usable.length - 1];
+  if (impactSpeedMps > last.speed + 1e-9) return undefined;
+
+  const upperIndex = usable.findIndex((curve) => curve.speed >= impactSpeedMps);
+  const upper = upperIndex < 0 ? last : usable[upperIndex];
+  const lower = upperIndex <= 0 ? first : usable[upperIndex - 1];
+  const blend = upper.speed === lower.speed
+    ? 0
+    : (impactSpeedMps - lower.speed) / (upper.speed - lower.speed);
+  const valueAt = (a: readonly CurvePoint[], b: readonly CurvePoint[], pct: number) => {
+    const ay = interpolateCurve(a, pct) ?? 0;
+    const by = interpolateCurve(b, pct) ?? ay;
+    return ay + (by - ay) * blend;
+  };
+  const percentages = (a: readonly CurvePoint[], b: readonly CurvePoint[]) =>
+    [...new Set([...a, ...b].map(([pct]) => pct))].sort((x, y) => x - y);
+  const energyCurve = percentages(lower.energy, upper.energy).map(
+    (pct) => [pct, valueAt(lower.energy, upper.energy, pct) * 1000] as CurvePoint
+  );
+  const forceCurve = percentages(lower.forceFactor, upper.forceFactor).map(
+    (pct) => [pct, valueAt(lower.forceFactor, upper.forceFactor, pct) * staticMaxForceKn] as CurvePoint
+  );
+  const energyCapacityKj = (energyCurve[energyCurve.length - 1]?.[1] ?? 0) / 1000;
+  const forceCapacityKn = forceCurve[forceCurve.length - 1]?.[1] ?? 0;
+  if (energyCapacityKj <= 0 || forceCapacityKn <= 0) return undefined;
+
+  return {
+    energyCurve,
+    forceCurve,
+    energyCapacityKj,
+    forceCapacityKn,
+    speedMps: impactSpeedMps,
+  };
+}
+
+/**
  * y → x ters enterpolasyon (eğri y'de ARTAN kabul edilir — enerji ve kuvvet
  * eğrileri sıkışmayla monoton artar). y eğrinin tepesini aşıyorsa son x döner;
  * çağıran bunu "kapasite yetmiyor" olarak yorumlar (sıkışma kontrolü yakalar).
@@ -286,6 +323,8 @@ export interface BufferInput {
   energyCurve?: readonly CurvePoint[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[%, kN], …] */
   forceCurve?: readonly CurvePoint[];
+  /** Hücresel: KAT0180'den alınan 0–4 m/s hız bağımlı eğriler */
+  cellularSpeedCurves?: readonly CellularSpeedCurveData[];
   /** Kauçuk/hücresel: izin verilen azami sıkışma [%] */
   maxCompressionPct: number;
   /** Yürüyüş sınırına normal işletmede sık ulaşılıyor mu (FEM 7.7.1.2) */
@@ -320,6 +359,12 @@ export interface BufferValues {
   avgDecelerationMps2: number;
   /** Azami yavaşlama [m/s²] */
   maxDecelerationMps2: number;
+  /** Çarpma hızındaki katalog enerji sınırı [kJ] */
+  catalogEnergyAtImpactKj: number;
+  /** Çarpma hızındaki katalog son kuvveti [kN] */
+  catalogForceAtImpactKn: number;
+  /** Hız-bağımlı katalog eğrisinin kullanıldığı çarpma hızı [m/s] */
+  catalogCurveSpeedMps?: number;
   /** Tepki yapıya aktarılıyor mu (FEM Kitapçık 9 md. 9.4.2) */
   transferredToStructure: boolean;
   /** Hesap yapılabildi mi (tip "yok" ya da eğri verisi eksikse false) */
@@ -404,10 +449,25 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   const impactSpeedMps = nominalSpeedMps * ratio;
   const massPerBufferT = pos(inp.massPerBufferT);
   const strokeMm = pos(inp.strokeMm);
+  const cellularCatalog = inp.type === "hucresel"
+    ? cellularCurvesAtImpactSpeed(
+        inp.cellularSpeedCurves,
+        impactSpeedMps,
+        pos(inp.catalogMaxForceKn)
+      )
+    : undefined;
+  // Hücreselde Wmaks ve Fmaks sabit katalog hücreleri değildir: gerçek çarpma
+  // hızındaki yük diyagramı eğrisinin son noktalarıdır. Diğer tiplerde seçili
+  // katalog satırındaki limitler aynen kullanılır.
+  const catalogEnergyAtImpactKj = cellularCatalog?.energyCapacityKj ?? pos(inp.catalogEnergyKj);
+  const catalogForceAtImpactKn = cellularCatalog?.forceCapacityKn ?? pos(inp.catalogMaxForceKn);
 
   set("buffer.impactSpeedRatio", ratio);
   set("buffer.impactSpeed", impactSpeedMps);
   set("buffer.collisionLoad", massPerBufferT);
+  set("buffer.catalogEnergyAtImpact", catalogEnergyAtImpactKj);
+  set("buffer.catalogForceAtImpact", catalogForceAtImpactKn);
+  if (cellularCatalog) set("buffer.catalogCurveSpeed", cellularCatalog.speedMps);
 
   // 1) Çarpma (kinetik) enerjisi. t · (m/s)² = kJ — birim dönüşümü gerekmez.
   const impactEnergyKj = 0.5 * massPerBufferT * impactSpeedMps ** 2;
@@ -494,6 +554,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
         compressionPct: 0,
         avgDecelerationMps2: 0,
         maxDecelerationMps2: 0,
+        catalogEnergyAtImpactKj: 0,
+        catalogForceAtImpactKn: 0,
+        catalogCurveSpeedMps: undefined,
         transferredToStructure: false,
         computed: false,
       },
@@ -513,16 +576,8 @@ export function computeBuffer(inp: BufferInput): BufferResult {
 
   const curveDriven = inp.type === "kaucuk" || inp.type === "hucresel";
   if (curveDriven) {
-    const cellularFallback = inp.type === "hucresel"
-      ? cellularCurvesFromCatalog({
-          strokeMm,
-          maxCompressionPct: inp.maxCompressionPct,
-          catalogEnergyKj: inp.catalogEnergyKj,
-          catalogMaxForceKn: inp.catalogMaxForceKn,
-        })
-      : undefined;
-    const energyCurve = cleanCurve(inp.energyCurve ?? cellularFallback?.energyCurve);
-    const forceCurve = cleanCurve(inp.forceCurve ?? cellularFallback?.forceCurve);
+    const energyCurve = cleanCurve(inp.energyCurve ?? cellularCatalog?.energyCurve);
+    const forceCurve = cleanCurve(inp.forceCurve ?? cellularCatalog?.forceCurve);
     const elasticHeightMm = inp.maxCompressionPct > 0
       ? (strokeMm * 100) / inp.maxCompressionPct
       : strokeMm;
@@ -537,7 +592,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       checks.push({
         id: id("buffer.scope"),
         label: inp.type === "hucresel"
-          ? "Hücresel Tampon Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı"
+          ? "Hücresel Tampon Hız-Bağımlı KAT0180 Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı"
           : "Kauçuk Tampon Yük Diyagramı Yok — Sıkışma ve Kuvvet Hesaplanmadı",
         required: 0,
         provided: 0,
@@ -616,13 +671,15 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   if (computed) {
     checks.push({
       id: id("buffer.energy"),
-      label: "Tampon Enerji Kapasitesi",
+      label: inp.type === "hucresel"
+        ? "Hücresel Tampon Enerji Kapasitesi (Çarpma Hızında)"
+        : "Tampon Enerji Kapasitesi",
       required: totalEnergyKj,
-      provided: inp.catalogEnergyKj,
+      provided: catalogEnergyAtImpactKj,
       unit: "kJ",
       op: ">=",
       computedSide: "required",
-      pass: inp.catalogEnergyKj >= totalEnergyKj,
+      pass: catalogEnergyAtImpactKj >= totalEnergyKj,
       standard: "FEM 1.001 2.2.3.4.1",
       kind: "standart",
       severity: "engelleyici",
@@ -632,26 +689,32 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       label:
         inp.type === "hidrolik"
           ? "Tampon Azami Son Kuvveti"
-          : "Tampon Yük Kapasitesi",
+          : inp.type === "hucresel"
+            ? "Hücresel Tampon Son Kuvveti (Çarpma Hızında)"
+            : "Tampon Yük Kapasitesi",
       required: reactionForceKn,
-      provided: inp.catalogMaxForceKn,
+      provided: catalogForceAtImpactKn,
       unit: "kN",
       op: ">=",
       computedSide: "required",
-      pass: inp.catalogMaxForceKn >= reactionForceKn,
+      pass: catalogForceAtImpactKn >= reactionForceKn,
       // İki taraf da katalogdan gelir; sınır üreticinin son kuvvet sınırıdır.
       kind: "uretici",
       severity: "engelleyici",
     });
     checks.push({
       id: id("buffer.deceleration"),
-      label: "Tampon Yavaşlaması",
-      required: Math.max(avgDecel, maxDecel),
+      // KAT0170 / KAT0180 seçim yöntemi, izin verilen azami yavaşlamayı
+      // tamponun son kuvvetinden okunan TEPE değerle karşılaştırır:
+      // a_maks = (F_t − F₀) / m_t. Kinematik ortalama a_ort raporda ayrıca
+      // gösterilir; fakat katalog seçiminin yerine geçen bir tepe değer değildir.
+      label: "Tampon Tepe Yavaşlaması a_maks",
+      required: maxDecel,
       provided: decelLimit,
       unit: "m/s²",
       op: ">=",
       computedSide: "required",
-      pass: decelLimit >= Math.max(avgDecel, maxDecel),
+      pass: decelLimit >= maxDecel,
       standard: "FEM 1.001 7.7.1.2",
       kind: "standart",
       severity: "engelleyici",
@@ -715,6 +778,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       compressionPct,
       avgDecelerationMps2: avgDecel,
       maxDecelerationMps2: maxDecel,
+      catalogEnergyAtImpactKj,
+      catalogForceAtImpactKn,
+      catalogCurveSpeedMps: cellularCatalog?.speedMps,
       transferredToStructure: transferred,
       computed,
     },

@@ -19,7 +19,6 @@ import {
   DCOL, type Diagram, type DiagramEl,
   fitDiagram, fmtN, ln, txt,
 } from "./model";
-import { cellularCurvesFromCatalog } from "@/lib/calc/buffer";
 
 export interface BufferDiagramParams {
   /** "hidrolik" | "kaucuk" | "yok" */
@@ -38,6 +37,8 @@ export interface BufferDiagramParams {
   reactionForceKn: number;
   /** Katalog azami son kuvveti [kN] */
   catalogMaxForceKn: number;
+  /** Hücresel eğrinin seçildiği gerçek çarpma hızı [m/s] */
+  catalogCurveSpeedMps?: number;
   /** Kauçuk: enerji–sıkışma eğrisi [[%, J], …] */
   energyCurve?: readonly (readonly [number, number])[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[%, kN], …] */
@@ -82,16 +83,8 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
 
   const baslik = cellular ? "TAMPON — HÜCRESEL" : curveDriven ? "TAMPON — KAUÇUK" : "TAMPON — HİDROLİK";
   els.push(txt(16, 22, baslik, 11, { bold: true }));
-  const cellularFallback = cellular
-    ? cellularCurvesFromCatalog({
-        strokeMm: height,
-        maxCompressionPct: finite(p.maxCompressionPct),
-        catalogEnergyKj: finite(p.catalogEnergyKj),
-        catalogMaxForceKn: finite(p.catalogMaxForceKn),
-      })
-    : undefined;
-  const energyCurve = p.energyCurve ?? cellularFallback?.energyCurve;
-  const forceCurve = p.forceCurve ?? cellularFallback?.forceCurve;
+  const energyCurve = p.energyCurve;
+  const forceCurve = p.forceCurve;
   const elasticHeight = finite(p.maxCompressionPct) > 0
     ? (height * 100) / finite(p.maxCompressionPct)
     : height;
@@ -101,7 +94,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       16, 34,
       curveDriven
         ? cellular
-          ? `${p.model ?? "—"} · katalog Wmaks/Fmaks limitlerinden türetilmiş eğri · s = ${fmtN(height)} mm`
+          ? `${p.model ?? "—"} · KAT0180 hız eğrisinden enterpolasyon · v_ç = ${fmtN(finite(p.catalogCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
           : `${p.model ?? "—"} · katalog yük diyagramından enterpolasyon · s = ${fmtN(height)} mm`
         : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
@@ -123,7 +116,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       txt(
         W / 2, 120,
         cellular
-          ? "Hücresel tampon için enerji, kuvvet veya sıkışma katalog verisi eksik."
+          ? "Hücresel tampon için çarpma hızında KAT0180 enerji/kuvvet eğrisi bulunamadı."
           : "Seçilen kauçuk tampon için doğrulanmış yük eğrisi yoktur.",
         10,
         { anchor: "middle", fill: DCOL.muted }
@@ -132,7 +125,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
     els.push(
       txt(
         W / 2, 138,
-        "Katalog enerji kapasitesi yine seçime girer; 0 kN bir hesap sonucu değildir.",
+        "0–4 m/s dışındaki hızlar veya katalogda olmayan modeller üretici teyidi gerektirir.",
         8.5,
         { anchor: "middle", fill: DCOL.muted }
       )
@@ -222,11 +215,11 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   pushLegend(els, 62, legendY, [
     {
       color: DCOL.ink,
-      label: cellular ? "katalog limitlerinden türetilen enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
+      label: cellular ? "KAT0180 hız enterpolasyonlu enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
     },
     {
       color: DCOL.accent,
-      label: cellular ? "katalog limitlerinden türetilen kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
+      label: cellular ? "KAT0180 hız enterpolasyonlu kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
     },
   ]);
 

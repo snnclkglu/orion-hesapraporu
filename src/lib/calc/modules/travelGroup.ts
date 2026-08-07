@@ -30,6 +30,7 @@ import {
   type CurvePoint,
   type MeteringPin,
 } from "../buffer";
+import { cellularSpeedCurvesForModel } from "../cellularBufferSpeedCurves";
 import { mechanismLife, shaftMaterialAllowables } from "../coefficients";
 import { shaftStress } from "../shaftStress";
 import { c1Factor, RAILS } from "../tables";
@@ -315,6 +316,12 @@ export interface TravelValues {
   bufferCompressionPct: number;
   bufferAvgDecelerationMps2: number;
   bufferMaxDecelerationMps2: number;
+  /** Çarpma hızındaki hücresel katalog enerji sınırı [kJ] */
+  bufferCatalogEnergyAtImpactKj: number;
+  /** Çarpma hızındaki hücresel katalog son kuvveti [kN] */
+  bufferCatalogForceAtImpactKn: number;
+  /** Hücresel hız eğrisinin enterpole edildiği çarpma hızı [m/s] */
+  bufferCatalogCurveSpeedMps?: number;
   /** SIBRE SP için hesaplanan kütle sınıfından otomatik seçilen iğne kodu. */
   bufferMeteringPinCode: string;
   /** Otomatik iğne sınıfının katalogdaki tasarım kütlesi üst sınırı [t]. */
@@ -939,6 +946,9 @@ export function computeTravelGroup(
     catalogDesignMassMaxT: meteringPinMassMaxT,
     energyCurve: sel.bufferEnergyCurve,
     forceCurve: sel.bufferForceCurve,
+    cellularSpeedCurves: bufferType === "hucresel"
+      ? cellularSpeedCurvesForModel(sel.bufferModel)
+      : undefined,
     maxCompressionPct: sel.bufferMaxCompressionPct ?? 0,
     frequentEndApproach: inp.bufferFrequentEndApproach === TRAVEL_YES,
   });
@@ -1019,6 +1029,9 @@ export function computeTravelGroup(
     bufferCompressionPct: bv.compressionPct,
     bufferAvgDecelerationMps2: bv.avgDecelerationMps2,
     bufferMaxDecelerationMps2: bv.maxDecelerationMps2,
+    bufferCatalogEnergyAtImpactKj: bv.catalogEnergyAtImpactKj,
+    bufferCatalogForceAtImpactKn: bv.catalogForceAtImpactKn,
+    bufferCatalogCurveSpeedMps: bv.catalogCurveSpeedMps,
     bufferMeteringPinCode: meteringPinCode,
     bufferDesignMassMaxT: meteringPinMassMaxT,
     bufferTransferredToStructure: bv.transferredToStructure,

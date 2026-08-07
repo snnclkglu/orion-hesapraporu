@@ -9,6 +9,7 @@ import {
   BUFFER_SPEED_THRESHOLD_MPS,
   DECELERATION_LIMIT_FREQUENT_MPS2,
   DECELERATION_LIMIT_MPS2,
+  cellularCurvesAtImpactSpeed,
   HYDRAULIC_DAMPING_EFFICIENCY,
   computeBuffer,
   interpolateCurve,
@@ -17,6 +18,7 @@ import {
   type BufferInput,
   type CurvePoint,
 } from "../buffer";
+import { cellularSpeedCurvesForModel } from "../cellularBufferSpeedCurves";
 import { V5_SPECS } from "../defaults";
 import {
   V5_BRIDGE_INPUTS,
@@ -247,12 +249,18 @@ describe("kauçuk tampon — eğriden çözüm", () => {
     expect(check(r, "buffer.load")).toBeUndefined();
   });
 
-  it("hücresel tampon katalog Wmaks/Fmaks limitlerinden çalışma eğrisini üretir", () => {
+  it("hücresel tampon KAT0180 hız eğrisini kullanır; limitlerden eğri uydurmaz", () => {
+    const cellularSpeedCurves = cellularSpeedCurvesForModel("Conductix-Wampfler 018112-080x080");
     const r = computeBuffer({
       ...RUBBER,
       type: "hucresel",
       energyCurve: undefined,
       forceCurve: undefined,
+      cellularSpeedCurves,
+      massPerBufferT: 1,
+      strokeMm: 64,
+      catalogEnergyKj: 1.52,
+      catalogMaxForceKn: 31,
       maxCompressionPct: 80,
     });
     expect(r.values.computed).toBe(true);
@@ -261,6 +269,22 @@ describe("kauçuk tampon — eğriden çözüm", () => {
     expect(r.values.reactionForceKn).toBeGreaterThan(0);
     expect(check(r, "buffer.energy")?.pass).toBe(true);
     expect(check(r, "buffer.deceleration")).toBeDefined();
+    const deceleration = check(r, "buffer.deceleration");
+    expect(deceleration && "required" in deceleration ? deceleration.required : undefined)
+      .toBeCloseTo(r.values.maxDecelerationMps2, 12);
+  });
+
+  it("hücresel eğri çarpma hızında enterpole edilir ve 4 m/s üstünde hesaplanmaz", () => {
+    const curves = cellularSpeedCurvesForModel("Conductix-Wampfler 018112-080x080");
+    const staticCurve = cellularCurvesAtImpactSpeed(curves, 0, 31)!;
+    const dynamicCurve = cellularCurvesAtImpactSpeed(curves, 4, 31)!;
+    const midpoint = cellularCurvesAtImpactSpeed(curves, 0.5, 31)!;
+
+    expect(staticCurve.energyCapacityKj).toBeCloseTo(0.6966, 4);
+    expect(dynamicCurve.energyCapacityKj).toBeCloseTo(1.5084, 4);
+    expect(midpoint.energyCapacityKj).toBeCloseTo((0.6966 + 0.8843) / 2, 4);
+    expect(dynamicCurve.forceCapacityKn).toBeCloseTo(31 * 1.6197, 4);
+    expect(cellularCurvesAtImpactSpeed(curves, 4.01, 31)).toBeUndefined();
   });
 
   it("teknik özellikteki Kauçuk ailesinde katalogdan hücresel alt tür seçilebilir", () => {
@@ -271,6 +295,10 @@ describe("kauçuk tampon — eğriden çözüm", () => {
       {
         ...V5_TROLLEY_SELECTIONS,
         bufferCatalogType: "hücresel",
+        bufferModel: "Conductix-Wampfler 018112-080x080",
+        bufferStrokeMm: 64,
+        bufferEnergyKj: 1.52,
+        bufferLoadKn: 31,
         bufferEnergyCurve: undefined,
         bufferForceCurve: undefined,
         bufferMaxCompressionPct: 80,
@@ -320,6 +348,19 @@ describe("kontroller ve standart eşikleri", () => {
     const kisa = computeBuffer({ ...BASE, strokeMm: 100 }).values.avgDecelerationMps2;
     const uzun = computeBuffer({ ...BASE, strokeMm: 200 }).values.avgDecelerationMps2;
     expect(uzun / kisa).toBeCloseTo(0.5, 9);
+  });
+
+  it("ortalama yavaşlama ile tepe yavaşlama farklı büyüklüklerdir", () => {
+    // Kullanıcının karşılaştırdığı örnekler: köprüde %70 çarpma hızı, arabada %100.
+    const bridge = computeBuffer({ ...BASE, nominalSpeedMpm: 60, impactSpeedRatio: 0.7, strokeMm: 100 });
+    const trolley65 = computeBuffer({ ...BASE, nominalSpeedMpm: 40, impactSpeedRatio: 1, strokeMm: 65 });
+    const trolley200 = computeBuffer({ ...BASE, nominalSpeedMpm: 40, impactSpeedRatio: 1, strokeMm: 200 });
+
+    expect(bridge.values.avgDecelerationMps2).toBeCloseTo(2.45, 2);
+    expect(trolley65.values.avgDecelerationMps2).toBeCloseTo(3.42, 2);
+    expect(trolley200.values.avgDecelerationMps2).toBeCloseTo(1.11, 2);
+    // a_maks tampon kuvvet eğrisinden gelir; strok ve hızın tek başına türevi değildir.
+    expect(trolley65.values.maxDecelerationMps2).not.toBeCloseTo(trolley65.values.avgDecelerationMps2, 4);
   });
 
   it("enerji kontrolü standart, kuvvet kontrolü üretici dayanaklıdır", () => {

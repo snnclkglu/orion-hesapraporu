@@ -156,6 +156,77 @@ export async function updateProjectDetails(
   return {};
 }
 
+// ---------------------------------------------------- Rapor imza sorumluları
+
+const projectSignatoriesSchema = z.object({
+  prepared_by: z.uuid().nullable(),
+  checked_by: z.uuid().nullable(),
+});
+
+export type ProjectSignatoriesInput = z.infer<typeof projectSignatoriesSchema>;
+
+/**
+ * Rapor kapağında yer alan hazırlayan ve kontrol eden kişileri proje bazında
+ * saklar. Seçim yalnızca hesap raporu üreten rollerle (admin / engineer)
+ * sınırlıdır; istemciden gelen UUID'ye güvenilmez.
+ */
+export async function updateProjectSignatories(
+  projectId: string,
+  input: ProjectSignatoriesInput
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsedId = z.uuid("Geçersiz hesap raporu").safeParse(projectId);
+  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
+  const parsed = projectSignatoriesSchema.safeParse(input);
+  if (!parsed.success) return { error: "Geçersiz hazırlayan veya kontrol eden seçimi" };
+
+  const selectedIds = [parsed.data.prepared_by, parsed.data.checked_by]
+    .filter((id): id is string => Boolean(id));
+  if (selectedIds.length > 0) {
+    const { data: eligible } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", selectedIds)
+      .in("role", ["admin", "engineer"]);
+    if ((eligible ?? []).length !== new Set(selectedIds).size) {
+      return { error: "Hazırlayan ve kontrol eden yalnızca Admin veya Mühendis olabilir" };
+    }
+  }
+
+  const { data: current } = await supabase
+    .from("projects")
+    .select("prepared_by, checked_by")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!current) return { error: "Hesap raporu bulunamadı" };
+
+  const { error } = await supabase
+    .from("projects")
+    .update(parsed.data)
+    .eq("id", parsedId.data);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: parsedId.data,
+    actor: user.id,
+    action: "project.updateSignatories",
+    detail: {
+      previous_prepared_by: current.prepared_by,
+      previous_checked_by: current.checked_by,
+      prepared_by: parsed.data.prepared_by,
+      checked_by: parsed.data.checked_by,
+    },
+  });
+
+  revalidatePath(`/projects/${parsedId.data}`);
+  return {};
+}
+
 // ------------------------------------------------------ Kopyalama (çoğaltma)
 
 const duplicateSchema = z.object({

@@ -48,13 +48,14 @@ async function audit(
 // ------------------------------------------------------------------ Kullanıcılar
 
 const userSchema = z.object({
+  full_name: z.string().trim().min(1, "Ad soyad gerekli").max(120),
   role: z.enum(["admin", "engineer"]),
   title: z.string().trim().max(120),
 });
 
 export async function updateUserProfile(
   userId: string,
-  input: { role: "admin" | "engineer"; title: string }
+  input: { full_name: string; role: "admin" | "engineer"; title: string }
 ): Promise<AdminActionResult> {
   const ctx = await requireAdmin();
   if ("error" in ctx) return { error: ctx.error };
@@ -83,13 +84,14 @@ export async function updateUserProfile(
 
   const { error } = await supabase
     .from("profiles")
-    .update({ role: parsed.data.role, title: parsed.data.title })
+    .update({ full_name: parsed.data.full_name, role: parsed.data.role, title: parsed.data.title })
     .eq("id", userId);
   if (error) return { error: error.message };
 
   await audit(supabase, user.id, "admin.user_update", {
     target_id: userId,
-    target_name: target.full_name,
+    previous_name: target.full_name,
+    full_name: parsed.data.full_name,
     role: parsed.data.role,
     title: parsed.data.title,
   });

@@ -1,5 +1,4 @@
-// Kullanıcı yönetimi: profil listesi + rol/unvan düzenleme.
-// E-posta gösterilmez — auth.users'a istemciden erişim yok, sadece profil alanları.
+// Kullanıcı yönetimi: profil listesi + ad/soyad, rol ve unvan düzenleme.
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -15,7 +14,7 @@ export default async function AdminUsersPage() {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, title, role, created_at")
+    .select("id, full_name, email, title, role, created_at")
     .order("created_at", { ascending: true });
 
   const adminCount = (profiles ?? []).filter((p) => p.role === "admin").length;
@@ -34,6 +33,7 @@ export default async function AdminUsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Ad Soyad</TableHead>
+              <TableHead>E-posta</TableHead>
               <TableHead>Unvan</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead className="w-24" />
@@ -50,7 +50,7 @@ export default async function AdminUsersPage() {
             ))}
             {(profiles ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   Kayıtlı kullanıcı yok.
                 </TableCell>
               </TableRow>

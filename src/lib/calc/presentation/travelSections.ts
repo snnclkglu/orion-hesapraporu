@@ -512,7 +512,9 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "anda temas eden tamponlara paylaşılır. Köprüde araba eksantriktir. " +
       "Teknik özelliklerdeki tampon ailesi (hidrolik / kauçuk) hesap dalını " +
       "belirler; kauçuk ailesinde katalogdan kauçuk veya hücresel poliüretan " +
-      "alt türü seçilir. Tepki kuvveti yapıya YÜKLEME DURUMU III olarak teslim " +
+      "alt türü seçilir. Rapor; kinematik ortalama yavaşlamayı ve tampon kuvvet " +
+      "eğrisinden gelen tepe yavaşlamayı ayrı gösterir; katalog seçiminde tepe " +
+      "yavaşlama esas alınır. Tepki kuvveti yapıya YÜKLEME DURUMU III olarak teslim " +
       "edilir; köprüde bu değeri teker yükleri bölümü yol kirişi yüklerine " +
       "taşır (FEM Kitapçık 9 md. 9.4.2 eşiğinin üstündeyse).",
     // Bölüm yalnız o grupta tampon seçilmişse görünür (teknik özellikler).
@@ -595,6 +597,15 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         unit: "kJ", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
       },
       {
+        key: "buffer.catalogEnergyAtImpact", label: "Çarpma Hızındaki Katalog Enerji Kapasitesi W_maks",
+        valueFrom: (x) => x.v.bufferCatalogEnergyAtImpactKj,
+        formula: "hücresel: KAT0180 0 / 1 / 2 / 3 / 4 m/s eğrileri arasında enterpolasyon · diğer: seçilen katalog satırı",
+        subst: (x) => x.v.bufferType === "hucresel"
+          ? `v_ç = ${n(x.v.bufferCatalogCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
+          : x.sel.bufferModel || "—",
+        unit: "kJ", digits: 3,
+      },
+      {
         key: "buffer.compression", label: "Gerçekleşen Sıkışma",
         valueFrom: (x) =>
           (x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel") && !x.v.bufferComputed
@@ -622,25 +633,34 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
             ? "Yük diyagramı yok"
             : x.v.bufferForceKn,
         formula:
-          "hidrolik: F_t = E_a / (s · η) + F₀/1000, η = 0,85 · " +
-          "kauçuk / hücresel: F_t = kuvvet eğrisi(sıkışma %) + F₀/1000",
+          "hidrolik: F_t = E_a / (s · η), η = 0,85 · " +
+          "kauçuk / hücresel: F_t = kuvvet eğrisi(sıkışma %)",
         subst: (x) =>
           x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
             ? x.v.bufferComputed
-              ? `eğri(${n(x.v.bufferCompressionPct, 1)} %) + ${n(x.v.bufferDriveLoadN, 1)}/1000`
+              ? `eğri(${n(x.v.bufferCompressionPct, 1)} %)`
               : "katalog yük diyagramı yok"
-            : `${n(x.v.totalEnergyKj, 3)} / (${n(x.v.bufferStrokeUsedMm)}/1000 · 0,85) + ${n(x.v.bufferDriveLoadN, 1)}/1000`,
+            : `${n(x.v.totalEnergyKj, 3)} / (${n(x.v.bufferStrokeUsedMm)}/1000 · 0,85)`,
         unit: "kN", digits: 2,
       },
       {
-        key: "buffer.avgDeceleration", label: "Ortalama Yavaşlama a_ort",
+        key: "buffer.catalogForceAtImpact", label: "Çarpma Hızındaki Katalog Son Kuvveti",
+        valueFrom: (x) => x.v.bufferCatalogForceAtImpactKn,
+        formula: "hücresel: KAT0180 kuvvet eğrisi, v_ç hızında enterpolasyon · diğer: seçilen katalog satırı",
+        subst: (x) => x.v.bufferType === "hucresel"
+          ? `v_ç = ${n(x.v.bufferCatalogCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
+          : x.sel.bufferModel || "—",
+        unit: "kN", digits: 2,
+      },
+      {
+        key: "buffer.avgDeceleration", label: "Ortalama Yavaşlama (Kinematik) a_ort",
         formula: "a_ort = v_ç² / (2 · f′)",
         subst: (x) =>
           `${n(x.v.bufferImpactSpeedMps, 3)}² / (2 · ${n(x.v.bufferStrokeUsedMm / 1000, 3)})`,
         unit: "m/s²", digits: 2, standard: "FEM 1.001 7.7.1.2",
       },
       {
-        key: "buffer.maxDeceleration", label: "Azami Yavaşlama a_maks",
+        key: "buffer.maxDeceleration", label: "Tepe Yavaşlama (Tampon Kuvvetinden) a_maks",
         formula: "a_maks = (F_t − F₀) / m_t   (tahrik itmesi yavaşlatmaz)",
         subst: (x) =>
           `(${n(x.v.bufferForceKn * 1000, 0)} − ${n(x.v.bufferDriveLoadN, 0)}) / ${n(x.v.collisionLoadT * 1000, 0)}`,
