@@ -189,6 +189,34 @@ export function bridgeTrolleyWeightT(specs: TechnicalSpecs, active: Set<string>)
   return total;
 }
 
+/**
+ * Köprü yürütme motor hesabında taşınan arabaların hareket eden toplam ağırlığı
+ * W [t]. Bu, yalnız araba gövdelerinin toplamı değildir: her aktif arabanın
+ * kapasitesi, kanca/halat donanımı ve kendi gövde ağırlığı dahildir.
+ */
+export function bridgeMovingTrolleyWeightT(specs: TechnicalSpecs, input: CalcInput): number {
+  const active = presentSet(input);
+  const movingWeight = (
+    capacityT: number | undefined,
+    trolleyWeightT: number | undefined,
+    hoist: HoistModuleInput | undefined
+  ) => (capacityT ?? 0) + (trolleyWeightT ?? 0) + hookEquipmentTons(hoist);
+
+  // Ana araba köprü üzerinde her zaman bulunur; kendi yürütme bölümü kapalı
+  // olsa bile köprü motorunun taşıdığı kütleden çıkarılamaz.
+  let total = movingWeight(specs.mainCapacityT, specs.mainTrolleyWeightT, input.mainHoist);
+  if (active.has("auxTrolley") && specs.auxTrolleyMode === "separate") {
+    total += movingWeight(specs.auxCapacityT, specs.auxTrolleyWeightT, input.auxHoist);
+  }
+  if (active.has("mono1Trolley") && (specs.monorailCount ?? 0) >= 1) {
+    total += movingWeight(specs.mono1CapacityT, specs.mono1TrolleyWeightT, input.mono1Hoist);
+  }
+  if (active.has("mono2Trolley") && (specs.monorailCount ?? 0) >= 2) {
+    total += movingWeight(specs.mono2CapacityT, specs.mono2TrolleyWeightT, input.mono2Hoist);
+  }
+  return total;
+}
+
 /** Bu hesapta yer alan bölümlerin kümesi (girdi durumu mevcut olanlar). */
 function presentSet(input: CalcInput): Set<string> {
   const src = input as unknown as Record<string, unknown>;
@@ -282,6 +310,7 @@ export function runCalc(input: CalcInput): CalcResult {
   // Her araba, taşıdığı kaldırma grubunun kanca donanımını görür; köprü ana
   // arabanın ağırlığıyla (teknik özelliklerden) çalışır.
   const bridgeTrolleyT = bridgeTrolleyWeightT(specs, presentSet(input));
+  const bridgeMovingTrolleyT = bridgeMovingTrolleyWeightT(specs, input);
   for (const key of TRAVEL_KEYS) {
     const m = input[key];
     if (!m) continue;
@@ -290,6 +319,7 @@ export function runCalc(input: CalcInput): CalcResult {
       computeTravelGroup(specs, key, m.inputs, m.selections, {
         hookEquipmentT: hookEquipmentTons(input[HOIST_FIELD[hoistKey]] ?? input.mainHoist),
         trolleyWeightT: bridgeTrolleyT,
+        bridgeMovingTrolleyWeightT: bridgeMovingTrolleyT,
       })
     );
   }

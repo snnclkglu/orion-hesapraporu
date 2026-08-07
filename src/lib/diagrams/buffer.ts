@@ -19,13 +19,14 @@ import {
   DCOL, type Diagram, type DiagramEl,
   fitDiagram, fmtN, ln, txt,
 } from "./model";
+import { cellularCurvesFromCatalog } from "@/lib/calc/buffer";
 
 export interface BufferDiagramParams {
   /** "hidrolik" | "kaucuk" | "yok" */
   type: string;
   /** Tampon modeli (başlıkta gösterilir) */
   model?: string;
-  /** Hidrolikte tam strok, kauçukta tampon yüksekliği [mm] */
+  /** Hidrolikte tam strok, elastomerde izin verilen toplam sıkışma yolu [mm] */
   strokeMm: number;
   /** Hesapta kullanılan sıkışma yolu f′ [mm] */
   strokeUsedMm: number;
@@ -41,7 +42,7 @@ export interface BufferDiagramParams {
   energyCurve?: readonly (readonly [number, number])[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[%, kN], …] */
   forceCurve?: readonly (readonly [number, number])[];
-  /** Kauçuk: izin verilen azami sıkışma [%] */
+  /** Kauçuk / hücresel: izin verilen azami sıkışma [%] */
   maxCompressionPct?: number;
   /** Gerçekleşen sıkışma [%] */
   compressionPct?: number;
@@ -81,11 +82,27 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
 
   const baslik = cellular ? "TAMPON — HÜCRESEL" : curveDriven ? "TAMPON — KAUÇUK" : "TAMPON — HİDROLİK";
   els.push(txt(16, 22, baslik, 11, { bold: true }));
+  const cellularFallback = cellular
+    ? cellularCurvesFromCatalog({
+        strokeMm: height,
+        maxCompressionPct: finite(p.maxCompressionPct),
+        catalogEnergyKj: finite(p.catalogEnergyKj),
+        catalogMaxForceKn: finite(p.catalogMaxForceKn),
+      })
+    : undefined;
+  const energyCurve = p.energyCurve ?? cellularFallback?.energyCurve;
+  const forceCurve = p.forceCurve ?? cellularFallback?.forceCurve;
+  const elasticHeight = finite(p.maxCompressionPct) > 0
+    ? (height * 100) / finite(p.maxCompressionPct)
+    : height;
+
   els.push(
     txt(
       16, 34,
       curveDriven
-        ? `${p.model ?? "—"} · yük diyagramından enterpolasyon · h = ${fmtN(height)} mm`
+        ? cellular
+          ? `${p.model ?? "—"} · katalog Wmaks/Fmaks limitlerinden türetilmiş eğri · s = ${fmtN(height)} mm`
+          : `${p.model ?? "—"} · katalog yük diyagramından enterpolasyon · s = ${fmtN(height)} mm`
         : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
     )
@@ -106,7 +123,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       txt(
         W / 2, 120,
         cellular
-          ? "KAT0180 yük diyagramı olmadan sıkışma ve tepki kuvveti hesaplanamaz."
+          ? "Hücresel tampon için enerji, kuvvet veya sıkışma katalog verisi eksik."
           : "Seçilen kauçuk tampon için doğrulanmış yük eğrisi yoktur.",
         10,
         { anchor: "middle", fill: DCOL.muted }
@@ -126,7 +143,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   // --- Eğriler ------------------------------------------------------------
   // Enerji eğrisi [mm → kJ]; kauçukta katalog J cinsindendir (1/1000 ölçek).
   const energyPts: [number, number][] = curveDriven
-    ? toStrokeCurve(p.energyCurve, height, 1 / 1000)
+    ? toStrokeCurve(energyCurve, elasticHeight, 1 / 1000)
     : [
         [0, 0],
         // Hidrolikte kısma iğnesi kuvveti strok boyunca sabit tutar; yutulan
@@ -137,7 +154,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       ];
   // Kuvvet eğrisi [mm → kN]
   const forcePts: [number, number][] = curveDriven
-    ? toStrokeCurve(p.forceCurve, height, 1)
+    ? toStrokeCurve(forceCurve, elasticHeight, 1)
     : [
         [0, Ft],
         [height, Ft],
@@ -203,8 +220,14 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   // --- Gösterge + kullanım oranı -----------------------------------------
   const legendY = topY + chartH + 52;
   pushLegend(els, 62, legendY, [
-    { color: DCOL.ink, label: curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)" },
-    { color: DCOL.accent, label: curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)" },
+    {
+      color: DCOL.ink,
+      label: cellular ? "katalog limitlerinden türetilen enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
+    },
+    {
+      color: DCOL.accent,
+      label: cellular ? "katalog limitlerinden türetilen kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
+    },
   ]);
 
   const barY = legendY - 6;

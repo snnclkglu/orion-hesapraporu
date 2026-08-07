@@ -141,6 +141,13 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   bearingCode: "22212",
   bearingDynCKn: 159,
   bearingStatC0Kn: 166,
+  bearingHousingBrand: "SKF",
+  bearingHousingCode: "SE 212",
+  bearingHousingSeries: "SE",
+  bearingHousingCompatibleBearing: "22212",
+  bearingHousingBoreMm: 60,
+  bearingHousingWidthMm: 105,
+  bearingHousingSeatType: "Silindirik yataklama",
   gearboxModel: "YILMAZ HT0823",
   gearboxRatio: 52.57,
   gearboxNominalTorqueKnm: 22,
@@ -388,8 +395,8 @@ const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
  * Yeni işte yürütme girdileri: CMAA 70 servis faktörü Ks ve ivmelenme tork
  * faktörü Kt OTOMATİK gelir.
  *
- * · Ks — Tablo 5.2.9.1.2.1-E: satır = CMAA uygulama sınıfı (M6 → E), sütun =
- *   tahrik/kumanda tipi (AC manyetik). E × AC manyetik = **1,2**.
+ * · Ks — Tablo 5.2.9.1.2.1-E: satır = CMAA uygulama sınıfı (M6 → D), sütun =
+ *   tahrik/kumanda tipi (AC manyetik). D × AC manyetik = **1,1**.
  * · Kt — Tablo 5.2.9.1.2.1-C: AC bilezikli rotor (Mill) + kontaktör-direnç
  *   satırı 1,5–1,7; alt uç **1,5** kullanılır.
  *
@@ -397,12 +404,12 @@ const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
  * açılmadan üretilen PDF/Excel de aynı sayıyı görsün).
  *
  * DİKKAT: Referans V5 işi Ks'yi ELLE 1,0 girmişti; o fikstürde otomatik
- * kapalıdır (bkz. `defaults/travel.ts`). Yeni işlerde tablodan gelen 1,2
- * kullanılır ve gerekli yürütme motoru gücü %20 artar.
+ * kapalıdır (bkz. `defaults/travel.ts`). Yeni işlerde tablodan gelen 1,1
+ * kullanılır ve gerekli yürütme motoru gücü %10 artar.
  */
 const NEW_WORK_TROLLEY_INPUTS = {
   ...V5_TROLLEY_INPUTS,
-  serviceFactorKs: 1.2,
+  serviceFactorKs: 1.1,
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
   accelTorqueFactorKtAuto: true,
@@ -410,15 +417,15 @@ const NEW_WORK_TROLLEY_INPUTS = {
 
 const NEW_WORK_BRIDGE_INPUTS = {
   ...V5_BRIDGE_INPUTS,
-  serviceFactorKs: 1.2,
+  serviceFactorKs: 1.1,
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
   accelTorqueFactorKtAuto: true,
 };
 
 /**
- * Ks = 1,2 ile köprü yürütmesinde gerekli güç 6,26 kW'a çıkar; 2 × 3 kW artık
- * yetmez (referans işin 2 × 3 kW seçimi Ks = 1,0 ile yapılmıştı). Yeni iş
+ * Ks = 1,1 ile köprü yürütmesinde gerekli güç artar; referans işte Ks = 1,0
+ * elle girilmişti. Yeni iş
  * şablonu bu yüzden 2 × 4 kW motorla gelir — şablonun kendi içinde tutarlı
  * olması, açılır açılmaz "UYGUN DEĞİL" gösteren bir rapordan iyidir.
  */

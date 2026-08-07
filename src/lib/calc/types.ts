@@ -405,10 +405,11 @@ export interface TechnicalSpecs {
 
   // ------------------------------------------------------------- Tamponlar
   /**
-   * Araba yürütme tamponu tipi. Seçime göre 5.8 tampon bölümü görünür ve
-   * ilgili hesap dalı (hidrolik / kauçuk) koşar. "yok" seçilirse bölüm
-   * gösterilmez ve tampon hesabı yapılmaz. Tüm araba varyantları (ana,
-   * yardımcı, monoray) aynı seçimi kullanır.
+   * Araba yürütme tampon ana ailesi. Teknik özelliklerde hidrolik veya kauçuk
+   * seçilir; kauçuk ailesinin katalog alt türü kauçuk ya da hücresel
+   * poliüretandır. Eski revizyonlardaki "hucresel" / "yok" değerleri geriye
+   * uyumluluk için veri tipinde korunur. Tüm araba varyantları (ana, yardımcı,
+   * monoray) aynı seçimi kullanır.
    */
   trolleyBufferType?: BufferType;
   /** Köprü yürütme tamponu tipi (6.9 bölümü) */

@@ -6,7 +6,7 @@
 // açıldığında mühendisin girdiği değer korunuyor mu).
 
 import { describe, expect, it } from "vitest";
-import { activeModules, bridgeTrolleyWeightT, runCalc } from "../engine";
+import { activeModules, bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT, runCalc } from "../engine";
 import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "../defaults";
 import { CALC_FIELD, loadRevision } from "@/lib/revision-load";
 import { MODULE_ORDER } from "../presentation/module-family";
@@ -104,6 +104,18 @@ describe("her kaldırma grubu KENDİ verisiyle hesaplanır", () => {
       bridgeTrolleyWeightT(specs, new Set(["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley"]))
     ).toBeCloseTo(toplam, 10);
     expect(result.bridge!.values.craneWeightT).toBeCloseTo(specs.bridgeWeightT + toplam, 10);
+  });
+
+  it("köprü yürütme motoru köprüye tüm arabaların hareket eden W ağırlığını ekler", () => {
+    const movingTrolleys = bridgeMovingTrolleyWeightT(specs, {
+      ...NEW_WORK_TEMPLATE,
+      specs,
+    });
+    expect(movingTrolleys).toBeGreaterThan(2.5 + 1.2 + 0.8 + 0.9);
+    expect(result.bridge!.values.totalWeightKg).toBeCloseTo(
+      (specs.bridgeWeightT + movingTrolleys) * 1000,
+      10
+    );
   });
 });
 

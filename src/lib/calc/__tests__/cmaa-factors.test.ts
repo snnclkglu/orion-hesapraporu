@@ -71,9 +71,9 @@ describe("CMAA 70 Tablo 5.2.9.1.2.1-E — servis faktörü Ks", () => {
     expect(cmaaServiceFactorKs("E", "bilinmiyor")).toBeUndefined();
   });
 
-  it("FEM M6 → CMAA E → AC manyetik kumandada Ks = 1,2", () => {
-    expect(travelApplicationClass("M6")).toBe("E");
-    expect(cmaaServiceFactorKs("E", "acManyetik")).toBe(1.2);
+  it("FEM M6 → CMAA D → AC manyetik kumandada Ks = 1,1", () => {
+    expect(travelApplicationClass("M6")).toBe("D");
+    expect(cmaaServiceFactorKs("D", "acManyetik")).toBe(1.1);
   });
 });
 
@@ -117,8 +117,8 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
       },
       CTX
     );
-    expect(d.applicationClass).toBe("E");
-    expect(d.serviceFactorKs).toBe(1.2);
+    expect(d.applicationClass).toBe("D");
+    expect(d.serviceFactorKs).toBe(1.1);
     expect(d.warnings).toEqual([]);
   });
 
@@ -145,7 +145,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
         serviceFactorKsAuto: true,
         driveControl: "dcSabit30",
       },
-      CTX
+      { ...CTX, mechanismClass: "M7" }
     );
     expect(d.serviceFactorKs).toBeUndefined();
     expect(d.warnings.map((w) => w.field)).toContain("serviceFactorKs");
@@ -167,6 +167,17 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
         V5_BRIDGE_SELECTIONS, V5_TRAVEL_DEPS
       ).values.requiredPowerKw;
     expect(run(1.2) / run(1.0)).toBeCloseTo(1.2, 9);
+  });
+
+  it("CMAA ağırlığı W'nin kg → ton dönüşümüdür; ayrıca %10 pay eklenmez", () => {
+    const values = computeTravelGroup(
+      V5_SPECS,
+      "bridge",
+      V5_BRIDGE_INPUTS,
+      V5_BRIDGE_SELECTIONS,
+      V5_TRAVEL_DEPS
+    ).values;
+    expect(values.designWeightTons).toBeCloseTo(values.totalWeightKg / 1000, 12);
   });
 
   it("Kt gerekli gücü TERS orantılı ölçekler (Ka ~ 1/Kt)", () => {

@@ -37,6 +37,18 @@ import type { AnyCheck } from "./types";
 /** Tampon tipi — teknik özelliklerde araba ve köprü için ayrı seçilir. */
 export type BufferType = "hidrolik" | "kaucuk" | "hucresel" | "yok";
 
+/**
+ * Teknik özelliklerde görünen iki ana tampon ailesi. Hücresel poliüretan
+ * tampon, kauçuk/elastomer ailesinin katalog alt türüdür; ayrı bir teknik
+ * özellik seçeneği değildir.
+ */
+export const BUFFER_TECHNICAL_TYPES = ["hidrolik", "kaucuk"] as const;
+
+/**
+ * Kaydedilmiş eski revizyonlar ve hesap çekirdeği için tanınan tüm türler.
+ * `hucresel` üst seçimde gösterilmez ama eski kayıtlarda ve katalog satırında
+ * fiziksel davranışı belirtmek için korunur.
+ */
 export const BUFFER_TYPES = ["hidrolik", "kaucuk", "hucresel", "yok"] as const;
 
 export const BUFFER_TYPE_LABELS: Record<string, string> = {
@@ -53,6 +65,58 @@ export const BUFFER_CATALOG_TYPE: Record<BufferType, string> = {
   hucresel: "hücresel",
   yok: "yok",
 };
+
+/** Hücresel katalog satırının Wmaks/Fmaks limitlerinden türetilen eğriler. */
+export interface CellularBufferCurves {
+  /** Sıkışma [%] → yutulan enerji [J] */
+  energyCurve: CurvePoint[];
+  /** Sıkışma [%] → tampon kuvveti [kN] */
+  forceCurve: CurvePoint[];
+}
+
+/**
+ * Conductix Program 0180 ürün tabloları çalışma eğrisini basmaz; ancak her
+ * ürün için dinamik enerji kapasitesi, azami kuvvet ve izinli sıkışmayı verir.
+ * Bu üç katalog limitinden, uç noktaları bire bir sağlayan sürekli bir eğri
+ * oluşturulur:
+ *
+ *   F(x) = Fmaks · (x / xmax)^p
+ *   E(x) = Wmaks · (x / xmax)^(p + 1)
+ *
+ * p, integral enerji tam olarak Wmaks olacak şekilde seçilir. Böylece grafik
+ * ve hesap 0 kN gibi yanıltıcı bir sonuç üretmez; eğrinin katalog grafiği
+ * değil, katalog limitlerinden türetilmiş hesap eğrisi olduğu raporda açıkça
+ * belirtilir.
+ */
+export function cellularCurvesFromCatalog(input: {
+  /** İzin verilen toplam sıkışma yolu [mm] */
+  strokeMm: number;
+  /** İzin verilen azami sıkışma [%] */
+  maxCompressionPct: number;
+  /** Katalog dinamik enerji kapasitesi Wmaks [kJ] */
+  catalogEnergyKj: number;
+  /** Katalog azami kuvveti Fmaks [kN] */
+  catalogMaxForceKn: number;
+}): CellularBufferCurves | undefined {
+  const strokeM = input.strokeMm / 1000;
+  const maxPct = input.maxCompressionPct;
+  const energyJ = input.catalogEnergyKj * 1000;
+  const forceKn = input.catalogMaxForceKn;
+  if (
+    !Number.isFinite(strokeM) || strokeM <= 0 ||
+    !Number.isFinite(maxPct) || maxPct <= 0 ||
+    !Number.isFinite(energyJ) || energyJ <= 0 ||
+    !Number.isFinite(forceKn) || forceKn <= 0
+  ) return undefined;
+
+  // F[kN] · s[m] = kJ. p ≥ 0 olduğunda kuvvet eğrisi monoton artar.
+  const exponent = Math.max(0, (forceKn * strokeM) / input.catalogEnergyKj - 1);
+  const fractions = [0, 0.125, 0.25, 0.5, 0.75, 0.875, 1];
+  return {
+    energyCurve: fractions.map((r) => [maxPct * r, energyJ * r ** (exponent + 1)]),
+    forceCurve: fractions.map((r) => [maxPct * r, forceKn * r ** exponent]),
+  };
+}
 
 /**
  * Hidrolik tamponun sönümleme verimi η.
@@ -206,7 +270,11 @@ export interface BufferInput {
   bufferCount: number;
   /** Tahrik gücü — tampon sıkışırken itmeye devam eden toplam güç [kW] */
   drivePowerTotalKw: number;
-  /** Tampon stroğu (hidrolik) ya da tampon yüksekliği (kauçuk) [mm] */
+  /**
+   * Hidrolik tamponun tam stroğu veya elastomer tamponun izinli toplam
+   * sıkışma yolu [mm]. Elastomer eğrileri, `maxCompressionPct` ile tam gövde
+   * yüksekliğine geri ölçeklenir.
+   */
   strokeMm: number;
   /** Katalog enerji yutma kapasitesi W_max [kJ] */
   catalogEnergyKj: number;
@@ -445,9 +513,20 @@ export function computeBuffer(inp: BufferInput): BufferResult {
 
   const curveDriven = inp.type === "kaucuk" || inp.type === "hucresel";
   if (curveDriven) {
-    const energyCurve = cleanCurve(inp.energyCurve);
-    const forceCurve = cleanCurve(inp.forceCurve);
-    if (energyCurve.length < 2 || forceCurve.length < 2 || strokeMm <= 0) {
+    const cellularFallback = inp.type === "hucresel"
+      ? cellularCurvesFromCatalog({
+          strokeMm,
+          maxCompressionPct: inp.maxCompressionPct,
+          catalogEnergyKj: inp.catalogEnergyKj,
+          catalogMaxForceKn: inp.catalogMaxForceKn,
+        })
+      : undefined;
+    const energyCurve = cleanCurve(inp.energyCurve ?? cellularFallback?.energyCurve);
+    const forceCurve = cleanCurve(inp.forceCurve ?? cellularFallback?.forceCurve);
+    const elasticHeightMm = inp.maxCompressionPct > 0
+      ? (strokeMm * 100) / inp.maxCompressionPct
+      : strokeMm;
+    if (energyCurve.length < 2 || forceCurve.length < 2 || elasticHeightMm <= 0) {
       // EĞRİ YOK → hesap SESSİZCE YAPILMAZ. Kauçuk/hücresel tampon doğrusal
       // olmadığı için kapalı formülle "yaklaşık" bir sayı üretmek yanıltıcı olur.
       computed = false;
@@ -474,7 +553,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
         energyCurve,
         impactEnergyKj,
         driveForcePerBufferN,
-        strokeMm
+        elasticHeightMm
       );
       compressionPct = solved.compressionPct;
       totalEnergyKj = solved.totalEnergyKj;

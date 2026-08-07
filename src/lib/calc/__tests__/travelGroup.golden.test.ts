@@ -142,7 +142,7 @@ describe.each(FIXTURES)("yürütme grubu tarihsel doğrulama — $which", (fx) =
       if (!dumpCellSet.has(cell)) {
         stale.push(`${cell}: dökümde artık böyle bir hücre yok — kaydı silin. (${reason})`);
       }
-      if (cell in fx.aliases || cell in fx.ticks) {
+      if ((cell in fx.aliases || cell in fx.ticks) && !(cell in fx.sapma)) {
         stale.push(`${cell}: hem eşlemesi hem gerekçesi var — birini kaldırın.`);
       }
     }

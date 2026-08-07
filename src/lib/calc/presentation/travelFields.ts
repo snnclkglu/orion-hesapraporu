@@ -66,7 +66,7 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
     standardRef: "CMAA 70 5.2.9.1.2.1",
     hint:
       "CMAA 70 servis sınıfı. Otomatik: FEM mekanizma sınıfından getirilir " +
-      "(M1→A · M2→B · M3/M4→C · M5→D · M6→E · M7/M8→F). Bu eşleme hiçbir " +
+      "(M1/M2/M3→A · M4→B · M5→C · M6→D · M7→E · M8→F). Bu eşleme hiçbir " +
       "standartta normatif değildir; yaygın karşılığa dayanan firma kabulüdür " +
       "ve anahtar kapatılıp elle düzeltilebilir.",
   },
@@ -182,6 +182,10 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "wheelCouplingTorqueNm", label: "Teker Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },
   { key: "wheelCouplingDmaxMm", label: "Teker Kaplini Azami Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "bufferModel", label: "Seçilen Tampon", type: "text" },
+  {
+    key: "bufferCatalogType", label: "Seçilen Tampon Alt Türü", type: "text",
+    hint: "Katalog satırından gelir; Kauçuk ailesinde kauçuk veya hücresel poliüretan olabilir.",
+  },
   {
     key: "bufferStrokeMm", label: "Tampon Stroğu / Yüksekliği", unit: "mm", type: "number",
     hint:

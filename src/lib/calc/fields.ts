@@ -3,7 +3,7 @@
 // alan adlarıyla birebir aynıdır.
 
 import { ROPE_POSITION_AUTO, ROPE_POSITIONS } from "./modules/hoistGroup";
-import { BUFFER_TYPES, BUFFER_TYPE_LABELS } from "./buffer";
+import { BUFFER_TECHNICAL_TYPES, BUFFER_TYPE_LABELS } from "./buffer";
 import { DRUM_WEIGHT_FORMULA_HINT } from "./derive";
 import { COMMON_REEVINGS } from "./reeving";
 import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
@@ -643,15 +643,12 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
 
   {
     key: "trolleyBufferType", label: "Tampon Tipi", type: "select",
-    options: BUFFER_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "trolley",
+    options: BUFFER_TECHNICAL_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "trolley",
     hint:
       "Seçime göre 5.8 Tampon bölümü açılır ve ilgili hesap dalı koşar. " +
       "Hidrolik tamponda tam strok ve η = 0,85 ile kapalı çözüm; kauçuk " +
-      "tamponda katalog yük diyagramından enterpolasyon kullanılır. Tüm araba " +
-      "grupları (ana, yardımcı, monoray) bu seçimi paylaşır. HÜCRESEL " +
-      "(poliüretan) tampon KAPSAM DIŞIDIR: yük diyagramları ayrı bir katalog " +
-      "belgesindedir (KAT0180) ve elimizde yoktur; eğrisiz bir kauçuk/hücresel " +
-      "hesabı uydurma olurdu.",
+      "ve hücresel poliüretan tamponlarda katalog alt türü seçilir. Tüm araba " +
+      "grupları (ana, yardımcı, monoray) bu seçimi paylaşır.",
   },
   {
     key: "trolleyBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
@@ -672,8 +669,10 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   {
     key: "bridgeBufferType", label: "Tampon Tipi", type: "select",
-    options: BUFFER_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "bridge",
-    hint: "Seçime göre 6.9 Tampon bölümü açılır ve ilgili hesap dalı koşar.",
+    options: BUFFER_TECHNICAL_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "bridge",
+    hint:
+      "Seçime göre 6.9 Tampon bölümü açılır. Kauçuk seçiminde katalogdan " +
+      "kauçuk veya hücresel poliüretan alt türü seçilebilir.",
   },
   {
     key: "bridgeBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
@@ -794,6 +793,13 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
   { key: "bearingDynCKn", label: "Rulman Dinamik Yük C", unit: "kN", type: "number" },
   { key: "bearingStatC0Kn", label: "Rulman Statik Yük C0", unit: "kN", type: "number" },
+  { key: "bearingHousingBrand", label: "Tambur Yatağı Markası", type: "text" },
+  { key: "bearingHousingCode", label: "Tambur Yatağı Kodu", type: "text" },
+  { key: "bearingHousingSeries", label: "Tambur Yatağı Serisi", type: "text" },
+  { key: "bearingHousingCompatibleBearing", label: "Uyumlu Rulman", type: "text" },
+  { key: "bearingHousingBoreMm", label: "Yatak Rulman İç Çapı", unit: "mm", type: "number", diameter: true },
+  { key: "bearingHousingWidthMm", label: "Yatak Genişliği A₂", unit: "mm", type: "number" },
+  { key: "bearingHousingSeatType", label: "Yataklama Tipi", type: "text" },
   { key: "gearboxModel", label: "Redüktör", type: "text" },
   { key: "gearboxRatio", label: "Çevrim Oranı", type: "number" },
   { key: "gearboxNominalTorqueKnm", label: "Redüktör Nominal Torku", unit: "kNm", type: "number" },

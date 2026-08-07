@@ -208,12 +208,12 @@ describe("yiv boyu SEÇİM alanı (madde 5)", () => {
 // ------------------------------- 4. Yürütme: uygulama sınıfı + Ks/Kt (17, 18)
 
 describe("yürütme uygulama sınıfı ve Ks/Kt kutuları (madde 17, 18)", () => {
-  it("şablonda M6 → uygulama sınıfı E, Ks tablodan gelir", () => {
+  it("şablonda M6 → uygulama sınıfı D, Ks tablodan gelir", () => {
     const m = withDerivedModules(baseModules(), SPECS);
     const t = travelIn(m, "trolley");
     expect(SPECS.trolleyMechanismClass).toBe("M6");
-    expect(t.applicationClass).toBe("E");
-    expect(t.serviceFactorKs).toBe(cmaaServiceFactorKs("E", t.driveControl));
+    expect(t.applicationClass).toBe("D");
+    expect(t.serviceFactorKs).toBe(cmaaServiceFactorKs("D", t.driveControl));
     expect(t.accelTorqueFactorKt).toBe(cmaaAccelTorqueKt(t.motorControl));
   });
 
@@ -230,9 +230,9 @@ describe("yürütme uygulama sınıfı ve Ks/Kt kutuları (madde 17, 18)", () =>
     for (const key of ["trolley", "bridge"] as const) {
       const t = travelIn(m, key);
       expect(t.applicationClass).toBe(travelApplicationClass("M3"));
-      expect(t.applicationClass).toBe("C");
-      expect(t.serviceFactorKs).toBe(cmaaServiceFactorKs("C", t.driveControl));
-      // E → C geçişinde acManyetik sütunu 1,2 → 1,0 düşer; sayı GERÇEKTEN oynar.
+      expect(t.applicationClass).toBe("A");
+      expect(t.serviceFactorKs).toBe(cmaaServiceFactorKs("A", t.driveControl));
+      // D → A geçişinde acManyetik sütunu 1,1 → 1,0 düşer; sayı GERÇEKTEN oynar.
       expect(t.serviceFactorKs).toBe(1);
     }
   });
@@ -262,9 +262,10 @@ describe("yürütme uygulama sınıfı ve Ks/Kt kutuları (madde 17, 18)", () =>
   it("tablo N/A verdiğinde değer uydurulmaz, UYARI üretilir", () => {
     // E sınıfı × 30 dakikalık DC sütunu tabloda N/A'dır.
     const m = patchInputs(baseModules(), "bridge", { driveControl: "dcSabit30" });
-    const w = derivationWarnings(m, SPECS).bridge;
+    const m7 = { ...SPECS, bridgeMechanismClass: "M7" as const };
+    const w = derivationWarnings(m, m7).bridge;
     expect(w.map((x) => x.field)).toContain("serviceFactorKs");
-    expect(travelIn(withDerivedModules(m, SPECS), "bridge").serviceFactorKs).toBe(1.2);
+    expect(travelIn(withDerivedModules(m, m7), "bridge").serviceFactorKs).toBe(1.1);
   });
 });
 

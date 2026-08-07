@@ -83,6 +83,7 @@ export const CATALOG_KIND_LABELS: Record<string, string> = {
   coupling: "Kaplin",
   buffer: "Tampon",
   air_conditioner: "Klima",
+  bearing_housing: "Rulman Yatağı",
   other: "Diğer",
 };
 
@@ -206,6 +207,13 @@ export const ATTR_LABELS: Record<string, string> = {
   dynamic_load_kn: "Dinamik Yük C [kN]",
   static_load_kn: "Statik Yük C₀ [kN]",
   limiting_speed_rpm: "Sınır Devir [d/dak]",
+  // tambur rulman yatağı
+  housing_series: "Yatak Serisi",
+  compatible_bearing: "Uyumlu Rulman",
+  bearing_outer_dia_mm: "Rulman Dış Çapı [mm]",
+  housing_width_mm: "Yatak Genişliği A₂ [mm]",
+  seat_type: "Yataklama Tipi",
+  catalog_page: "Katalog Tablosu",
   // kanca
   hook_nr: "Kanca No",
   d1_shaft_mm: "d₁ Mil Çapı [mm]",
@@ -468,6 +476,23 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
     ],
     sortBy: "bore_mm",
   },
+  bearing_housing: {
+    label: "Rulman Yatağı",
+    facets: [
+      { attr: "housing_series", label: "Yatak Serisi" },
+      { attr: "compatible_bearing", label: "Uyumlu Rulman" },
+    ],
+    columns: [
+      { attr: "model", label: "Yatak Kodu" },
+      { attr: "housing_series", label: "Seri" },
+      { attr: "compatible_bearing", label: "Uyumlu Rulman" },
+      { attr: "bearing_bore_mm", label: "İç Çap", unit: "mm" },
+      { attr: "bearing_outer_dia_mm", label: "Dış Çap", unit: "mm" },
+      { attr: "housing_width_mm", label: "Genişlik A₂", unit: "mm" },
+      { attr: "seat_type", label: "Yataklama" },
+    ],
+    sortBy: "bearing_bore_mm",
+  },
   wheel: {
     label: "Tekerlek",
     facets: [
@@ -561,9 +586,17 @@ export function catalogRowSummary(kind: string, row: CatalogRow): string {
       return `${numFmt(a.nominal_torque_nm)} Nm${a.max_shaft_dia_mm !== undefined ? ` · d ≤ ${numFmt(a.max_shaft_dia_mm)} mm` : ""}`;
     case "buffer":
       return `${attrValueLabel("type", a.type)} · ${numFmt(a.stroke_mm)} mm · ${numFmt(a.energy_kj)} kJ · ${numFmt(a.max_force_kn)} kN`;
+    case "bearing_housing":
+      return `${numFmt(a.compatible_bearing)} · Ø${numFmt(a.bearing_bore_mm)} / Ø${numFmt(a.bearing_outer_dia_mm)} mm · A₂ ${numFmt(a.housing_width_mm)} mm`;
     default:
       return "";
   }
+}
+
+/** SKF temel rulman kodunu, E soneki olan/olmayan kayıtlarda ortak anahtara indirger. */
+export function bearingHousingCompatibilityKey(bearingCode: unknown): string {
+  if (typeof bearingCode !== "string") return "";
+  return bearingCode.trim().replace(/\s+E(?:\s.*)?$/i, "");
 }
 
 // ---------------------------------------------------------------- eşlemeler
@@ -618,6 +651,20 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "bearingCode", from: "model" },
       { sel: "bearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "bearingStatC0Kn", from: { attr: "static_load_kn" } },
+    ],
+  },
+  // 2.2.7 Tambur rulman yatağı — `compatible_bearing` filtresi editörde
+  // seçilen rulman kodundan dinamik eklenir; katalogda uyumsuz yatak görünmez.
+  "2.2.7": {
+    kind: "bearing_housing",
+    fields: [
+      { sel: "bearingHousingBrand", from: "brand" },
+      { sel: "bearingHousingCode", from: "model" },
+      { sel: "bearingHousingSeries", from: { attr: "housing_series" } },
+      { sel: "bearingHousingCompatibleBearing", from: { attr: "compatible_bearing" } },
+      { sel: "bearingHousingBoreMm", from: { attr: "bearing_bore_mm" } },
+      { sel: "bearingHousingWidthMm", from: { attr: "housing_width_mm" } },
+      { sel: "bearingHousingSeatType", from: { attr: "seat_type" } },
     ],
   },
   // 2.3 Redüktör — kaldırma grubu kataloğu
@@ -814,6 +861,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
     kind: "buffer",
     fields: [
       { sel: "bufferModel", from: "brand_model" },
+      { sel: "bufferCatalogType", from: { attr: "type" } },
       { sel: "bufferStrokeMm", from: { attr: "stroke_mm" } },
       { sel: "bufferEnergyKj", from: { attr: "energy_kj" } },
       { sel: "bufferLoadKn", from: { attr: "max_force_kn" } },

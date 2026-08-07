@@ -548,6 +548,16 @@ export interface HoistSelections {
   bearingCode: string;          // ör. 22212
   bearingDynCKn: number;
   bearingStatC0Kn: number;
+  /** SKF SNL/SE tambur rulman yatağı — rulman koduna göre katalogdan seçilir. */
+  bearingHousingBrand: string;
+  bearingHousingCode: string;
+  bearingHousingSeries: string;
+  /** Yatağın katalogda uyumlu olduğu temel rulman kodu (örn. 22212). */
+  bearingHousingCompatibleBearing: string;
+  bearingHousingBoreMm: number;
+  /** TSN .. A keçe düzenindeki katalog genişliği A₂ [mm]. */
+  bearingHousingWidthMm: number;
+  bearingHousingSeatType: string;
   gearboxModel: string;
   gearboxRatio: number;
   gearboxNominalTorqueKnm: number;

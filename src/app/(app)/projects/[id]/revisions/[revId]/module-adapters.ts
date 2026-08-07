@@ -72,7 +72,7 @@ import {
   GIRDER_INPUT_FIELDS,
   GIRDER_SELECTION_FIELDS,
 } from "@/lib/calc/presentation/structuralFields";
-import { bridgeTrolleyWeightT } from "@/lib/calc/engine";
+import { bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT } from "@/lib/calc/engine";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import {
   computeHoistGroup,
@@ -941,11 +941,13 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
     (Object.keys(HOIST_OF_TRAVEL) as TravelKey[]).filter((k) => src[k] !== undefined)
   );
   const bridgeTrolleyT = bridgeTrolleyWeightT(specs, activeTravel);
+  const bridgeMovingTrolleyT = bridgeMovingTrolleyWeightT(specs, input);
   const travel = {} as Record<TravelKey, TravelDeps>;
   for (const key of Object.keys(HOIST_OF_TRAVEL) as TravelKey[]) {
     travel[key] = {
       hookEquipmentT: hookEquipmentT(HOIST_OF_TRAVEL[key]),
       trolleyWeightT: bridgeTrolleyT,
+      bridgeMovingTrolleyWeightT: bridgeMovingTrolleyT,
     };
   }
 

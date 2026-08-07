@@ -77,6 +77,9 @@ describe("engine entegrasyonu — V5 şablonu", () => {
     expect(blocking, `engelleyici kırılmalar: ${blocking.join(", ")}`).toEqual(
       [
         "bridge.brake.torque",          // köprü freni referans işte seçilmemiş
+        // Hareket eden toplam W artık köprü + araba kapasitesi/kanca/halat
+        // donanımıyla hesaplandığı için referans redüktör emniyeti yetersizdir.
+        "bridge.gearbox.safety",
         "hookBlock.sheaveBearing.life", // makara rulmanı ömrü yetersiz (2707 < 6300 saat)
         "main.gearbox.torque",          // redüktör torku sınırın hemen altında (22 < 22,07 kNm)
         // Tambur mili D1 = 6 cm referans yükte yetersiz: 115 MPa > 90 MPa (C30).

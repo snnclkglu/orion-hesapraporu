@@ -303,6 +303,18 @@ const WHEEL_WIDTH_SAPMA =
  *    tampona yüklüyordu. Araba iki kirişin ucundaki iki durdurucuya aynı anda
  *    çarptığı için doğrusu m/2'dir.
  */
+const CMAA_W_NO_MARGIN_SAPMA =
+  "CMAA yürütme motoru ağırlığı W, hareket eden toplam kütlenin kg → ton " +
+  "dönüşümüdür; eski tablodaki ek %10 çarpan fiziksel bir tasarım payı değildi. " +
+  "Bu nedenle W ve ondan türeyen motor/redüktör/kaplin büyüklükleri bilinçli " +
+  "olarak tarihsel dökümden ayrılır.";
+
+const BRIDGE_MOVING_W_SAPMA =
+  "Köprü yürütmesinde W artık köprü ağırlığına her aktif arabanın kapasite + " +
+  "kanca/halat donanımı + araba ağırlığını ekler. Eski tablo kanca/halat " +
+  "donanımını dışarıda bırakıyordu; motor zincirindeki tüm türemiş değerler " +
+  "bu nedenle bilinçli olarak farklıdır.";
+
 export const TROLLEY_SAPMA: Record<string, string> = {
   L189:
     "Tampon başına çarpışan kütle. Araba iki kirişin ucundaki İKİ durdurucuya " +
@@ -344,9 +356,21 @@ export const TROLLEY_SAPMA: Record<string, string> = {
     "küçüldü; kesme gerilmesi (L65) aynı kaldığı için düşüş daha ılımlıdır: " +
     "73,00 → 52,98 kg/cm² (−27,4 %). Sapma EMNİYETLİ tarafta değil, " +
     "GERÇEKÇİ taraftadır — eski değer aşırı ihtiyatlıydı.",
+  ...Object.fromEntries(
+    [
+      "L108", "L120", "L122", "L124", "L133", "L143", "L145", "L148", "L150", "L152",
+      "L157", "L162", "L164", "O169", "L171", "L174", "L176", "O181", "L183", "L194",
+    ].map((cell) => [cell, CMAA_W_NO_MARGIN_SAPMA])
+  ),
 };
 
 export const BRIDGE_SAPMA: Record<string, string> = {
+  ...Object.fromEntries(
+    [
+      "L113", "L114", "L127", "L129", "L131", "L140", "L149", "L151", "L153", "L154",
+      "L156", "L161", "L167", "L169", "O172", "L176", "L178", "O183", "L188", "L190", "O195",
+    ].map((cell) => [cell, BRIDGE_MOVING_W_SAPMA])
+  ),
   // Köprüde ÇARPIŞAN KÜTLE ve ÇARPMA ENERJİSİ DEĞİŞMEDİ (L205 / L207 hâlâ
   // eşlenir): eski tablonun G_köprü/2 + G_araba·(L−y)/L bağıntısı zaten BİR
   // tampona gelen payı veriyordu ve çarpma hızı oranı k = 0,70'tir.

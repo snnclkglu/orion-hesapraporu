@@ -308,6 +308,22 @@ for (const file of couplingFiles) {
   }
 }
 
+// ---------------------------------------------------------- bearing housings
+{
+  // Tambur yatağı, rulmanla birlikte seçilen ayrı bir ekipmandır. Katalog
+  // yalnız SNL/SE silindirik yataklama tablosunda doğrudan karşılığı bulunan
+  // 222xx / 223xx rulman kodlarını içerir; uygunluk seçicideki
+  // `compatible_bearing` kilitli filtresiyle sağlanır.
+  const { meta, items } = readJson("bearing_housings/skf_snl_se.json");
+  const brand = String(meta.brand);
+  for (const it of items) {
+    const a = cleanAttrs(it);
+    const model = String(a.model ?? "");
+    delete a.model;
+    push("bearing_housing", brand, model, a);
+  }
+}
+
 // ------------------------------------------------------------------ hooks
 {
   const { meta, items } = readJson("hooks/din15401_forged.json");

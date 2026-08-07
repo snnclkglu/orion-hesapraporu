@@ -326,14 +326,9 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
     rows: [
       {
-        key: "weight.moving", label: "Hareket Eden Toplam Ağırlık W",
-        formula: "W = ΣG · 1000",
-        subst: (x) => `${n(x.v.totalWeightKg / 1000)} t · 1000`, unit: "kg",
-      },
-      {
-        key: "weight.design", label: "Tasarım Ağırlığı (%10 Pay)",
-        formula: "W' = W · 1,1 / 1000",
-        subst: (x) => `${n(x.v.totalWeightKg)} · 1,1 / 1000`, unit: "ton",
+        key: "weight.design", label: "Hareket Eden Toplam Ağırlık W",
+        formula: "W = ΣG",
+        subst: (x) => `${n(x.v.totalWeightKg)} / 1000`, unit: "ton",
       },
       {
         key: "drive.actualSpeed", label: "Yürütme Hızı V (gerçek)",
@@ -371,7 +366,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       },
       {
         key: "motor.requiredPower", label: "Gerekli Güç",
-        formula: "P = W' · (V·3,28) · Ka · Ks · 0,745",
+        formula: "P = W · (V·3,28) · Ka · Ks · 0,745",
         subst: (x) =>
           `${n(x.v.designWeightTons)} · (${n(x.v.actualSpeedMpm)}·3,28) · ${n(x.v.accelFactorKa, 6)} · ${n(x.inp.serviceFactorKs)} · 0,745`,
         unit: "kW",
@@ -515,8 +510,9 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "Çarpma enerjisi + tahrik enerjisi ile tampon seçimi (FEM 1.001 md. " +
       "2.2.3.4.1). Çarpışan kütleye salınabilen yük DAHİL DEĞİLDİR; kütle aynı " +
       "anda temas eden tamponlara paylaşılır. Köprüde araba eksantriktir. " +
-      "Tampon tipi (hidrolik / kauçuk) teknik özelliklerden gelir ve hesap " +
-      "dalını belirler. Tepki kuvveti yapıya YÜKLEME DURUMU III olarak teslim " +
+      "Teknik özelliklerdeki tampon ailesi (hidrolik / kauçuk) hesap dalını " +
+      "belirler; kauçuk ailesinde katalogdan kauçuk veya hücresel poliüretan " +
+      "alt türü seçilir. Tepki kuvveti yapıya YÜKLEME DURUMU III olarak teslim " +
       "edilir; köprüde bu değeri teker yükleri bölümü yol kirişi yüklerine " +
       "taşır (FEM Kitapçık 9 md. 9.4.2 eşiğinin üstündeyse).",
     // Bölüm yalnız o grupta tampon seçilmişse görünür (teknik özellikler).
@@ -526,7 +522,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "bufferFrequentEndApproach",
     ],
     selectionKeys: [
-      "bufferModel", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
+      "bufferModel", "bufferCatalogType", "bufferStrokeMm", "bufferEnergyKj", "bufferLoadKn",
     ],
     rows: [
       {
@@ -579,10 +575,10 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       },
       {
         key: "buffer.strokeUsed", label: "Sıkışma Yolu f′",
-        formula: "hidrolik: f′ = s · kauçuk: f′ = sıkışma % · h / 100",
+        formula: "hidrolik: f′ = s · elastomer: f′ = (sıkışma % / izin %) · s_izin",
         subst: (x) =>
-          x.v.bufferType === "kaucuk"
-            ? `${n(x.v.bufferCompressionPct, 1)} % · ${n(x.sel.bufferStrokeMm)} / 100`
+          x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
+            ? `${n(x.v.bufferCompressionPct, 1)} % / ${n(x.sel.bufferMaxCompressionPct)} % · ${n(x.sel.bufferStrokeMm)}`
             : `${n(x.sel.bufferStrokeMm)}`,
         unit: "mm", digits: 1,
       },

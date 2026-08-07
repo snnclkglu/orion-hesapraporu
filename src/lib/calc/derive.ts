@@ -405,16 +405,16 @@ export const CMAA_APPLICATION_CLASS_LABELS: Record<string, string> = {
  * ve ORION'un kendi işlerinde kullandığı `kind:"firma"` tasarım kabulüdür;
  * mühendis anahtarı kapatıp listeden başka bir sınıf seçebilir.
  *
- * M1→A · M2→B · M3→C · M4→C · M5→D · M6→E · M7→F · M8→F
+ * M1/M2/M3→A · M4→B · M5→C · M6→D · M7→E · M8→F
  */
 export const FEM_TO_CMAA_APPLICATION_CLASS: Record<MechanismClass, CmaaApplicationClass> = {
   M1: "A",
-  M2: "B",
-  M3: "C",
-  M4: "C",
-  M5: "D",
-  M6: "E",
-  M7: "F",
+  M2: "A",
+  M3: "A",
+  M4: "B",
+  M5: "C",
+  M6: "D",
+  M7: "E",
   M8: "F",
 };
 

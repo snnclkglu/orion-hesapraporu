@@ -176,7 +176,7 @@ describe("kauçuk tampon — eğriden çözüm", () => {
     type: "kaucuk",
     massPerBufferT: 2,
     nominalSpeedMpm: 60,
-    strokeMm: 100,             // kauçukta bu tamponun YÜKSEKLİĞİdir
+    strokeMm: 50,              // %50 izinli sıkışma için kullanılabilir strok
     energyCurve,
     forceCurve,
     maxCompressionPct: 50,
@@ -235,7 +235,7 @@ describe("kauçuk tampon — eğriden çözüm", () => {
     expect(check(r, "buffer.load")).toBeUndefined();
   });
 
-  it("hücresel tamponun yük diyagramı yoksa 0 kN sonuç olarak yorumlanmaz", () => {
+  it("hücresel tampon katalog Wmaks/Fmaks limitlerinden çalışma eğrisini üretir", () => {
     const r = computeBuffer({
       ...RUBBER,
       type: "hucresel",
@@ -243,10 +243,30 @@ describe("kauçuk tampon — eğriden çözüm", () => {
       forceCurve: undefined,
       maxCompressionPct: 80,
     });
-    expect(r.values.computed).toBe(false);
-    expect(r.values.reactionForceKn).toBe(0);
-    expect(check(r, "buffer.scope")?.label).toContain("Hücresel Tampon Yük Diyagramı Yok");
-    expect(check(r, "buffer.deceleration")).toBeUndefined();
+    expect(r.values.computed).toBe(true);
+    expect(r.values.compressionPct).toBeGreaterThan(0);
+    expect(r.values.compressionPct).toBeLessThanOrEqual(80);
+    expect(r.values.reactionForceKn).toBeGreaterThan(0);
+    expect(check(r, "buffer.energy")?.pass).toBe(true);
+    expect(check(r, "buffer.deceleration")).toBeDefined();
+  });
+
+  it("teknik özellikteki Kauçuk ailesinde katalogdan hücresel alt tür seçilebilir", () => {
+    const result = computeTravelGroup(
+      { ...V5_SPECS, trolleyBufferType: "kaucuk" },
+      "trolley",
+      V5_TROLLEY_INPUTS,
+      {
+        ...V5_TROLLEY_SELECTIONS,
+        bufferCatalogType: "hücresel",
+        bufferEnergyCurve: undefined,
+        bufferForceCurve: undefined,
+        bufferMaxCompressionPct: 80,
+      },
+      V5_TRAVEL_DEPS
+    );
+    expect(result.values.bufferType).toBe("hucresel");
+    expect(result.values.bufferComputed).toBe(true);
   });
 });
 

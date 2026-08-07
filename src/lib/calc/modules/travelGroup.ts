@@ -21,6 +21,7 @@
 
 import { solveBeam } from "../beam";
 import {
+  BUFFER_CATALOG_TYPE,
   computeBuffer,
   FEM_IMPACT_SPEED_RATIO,
   selectMeteringPin,
@@ -65,6 +66,12 @@ export interface TravelDeps {
   hookEquipmentT: number;
   /** Köprünün taşıdığı araba ağırlığı [t] — köprü varyantında kullanılır */
   trolleyWeightT: number;
+  /**
+   * Köprü yürütme motor hesabındaki hareket eden toplam araba ağırlığı W [t].
+   * Her aktif arabanın kendi kapasitesi, kanca/halat donanımı ve araba
+   * ağırlığından oluşur. Tanımsızsa eski tek-araba toplamına geri dönülür.
+   */
+  bridgeMovingTrolleyWeightT?: number;
 }
 
 /** Kullanıcı girdileri (tasarım kabulleri) */
@@ -191,6 +198,11 @@ export interface TravelSelections {
   wheelCouplingDmaxMm: number;
   bufferModel: string;
   /**
+   * Katalogdaki fiziksel tampon türü. Teknik özelliklerdeki "Kauçuk" ailesi
+   * altında kauçuk ve hücresel poliüretan ürünler ayrı ayrı seçilebilir.
+   */
+  bufferCatalogType?: string;
+  /**
    * HİDROLİKTE tam strok s [mm]; KAUÇUKTA tamponun GÖVDE YÜKSEKLİĞİ h [mm]
    * (sıkışma yolu f′ = sıkışma% · h / 100 olarak eğriden çıkar).
    */
@@ -255,6 +267,7 @@ export interface TravelValues {
   requiredLifeMax: number | null;
   // Motor
   totalWeightKg: number;
+  /** CMAA bağıntısında kullanılan hareket eden toplam ağırlık W [ton] */
   designWeightTons: number;
   actualSpeedMpm: number;
   startupTimeS: number;
@@ -375,6 +388,10 @@ const posOr = (v: number | undefined, fallback: number): number =>
 
 /** Geçerli bir tampon tipi mi (eski revizyonlarda alan hiç bulunmaz). */
 function bufferTypeOr(v: BufferType | undefined, fallback: BufferType): BufferType {
+  // Eski revizyonlardaki hücresel üst seçimi yeni arayüzdeki Kauçuk/Elastomer
+  // ailesine taşınır. Fiziksel alt tür, katalog seçimindeki `bufferCatalogType`
+  // alanından belirlenir.
+  if (v === "hucresel") return "kaucuk";
   return v === "hidrolik" || v === "kaucuk" || v === "yok" ? v : fallback;
 }
 
@@ -388,6 +405,28 @@ export function travelBufferType(specs: TechnicalSpecs, which: TravelWhich): Buf
   return which === "bridge"
     ? bufferTypeOr(specs.bridgeBufferType, "hidrolik")
     : bufferTypeOr(specs.trolleyBufferType, "hidrolik");
+}
+
+/** Teknik üst seçime göre katalogda izin verilen fiziksel tampon türleri. */
+export function travelBufferCatalogTypes(specs: TechnicalSpecs, which: TravelWhich): string[] {
+  const family = travelBufferType(specs, which);
+  if (family === "kaucuk") return ["kauçuk", "hücresel"];
+  return [BUFFER_CATALOG_TYPE[family]];
+}
+
+/**
+ * Hesabın kullanacağı fiziksel tür. Teknik özellikteki Kauçuk seçimi yalnız
+ * aileyi belirler; katalog satırı kauçuk mu hücresel mi olduğunu söyler.
+ */
+export function travelBufferCalculationType(
+  specs: TechnicalSpecs,
+  which: TravelWhich,
+  selections: Pick<TravelSelections, "bufferCatalogType"> | undefined
+): BufferType {
+  const family = travelBufferType(specs, which);
+  return family === "kaucuk" && selections?.bufferCatalogType === "hücresel"
+    ? "hucresel"
+    : family;
 }
 
 /**
@@ -486,6 +525,7 @@ export function computeTravelGroup(
 
   const isTrolley = which !== "bridge";
   const view = travelSpecView(specs, which, deps);
+  const bufferType = travelBufferCalculationType(specs, which, sel);
   const speedMpm = view.speedMpm;
   // Yürütme mekanizmasının kendi FEM sınıfları — kaldırma grubununki DEĞİL.
   const mechanismClass: MechanismClass = view.mechanismClass;
@@ -688,12 +728,16 @@ export function computeTravelGroup(
   });
 
   // --- Yürütme Motoru (CMAA 70) --------------------------------------------
+  const bridgeMovingTrolleyWeightT = deps.bridgeMovingTrolleyWeightT
+    ?? capacityT + deps.hookEquipmentT + trolleyWeightT;
   const totalWeightKg = isTrolley
     ? (capacityT + deps.hookEquipmentT + trolleyWeightT) * 1000
-    : (capacityT + trolleyWeightT + bridgeWeightT) * 1000;
+    : (bridgeMovingTrolleyWeightT + bridgeWeightT) * 1000;
   set("weight.moving", totalWeightKg);
-  // Tasarım ağırlığı: hareket eden kütleye %10 pay eklenir.
-  const designWeightTons = (totalWeightKg * 1.1) / 1000;
+  // CMAA 70 motor bağıntısı ağırlığı tonla ister. Önceki %10 çarpanı fiziksel
+  // bir tasarım payı değildi; kg → ton dönüşümünü yanlış yorumlayan eski kabul
+  // kaldırıldı. W, hareket eden toplam kütlenin doğrudan ton karşılığıdır.
+  const designWeightTons = totalWeightKg / 1000;
   set("weight.design", designWeightTons);
   // Gerçekleşen yürütme hızı seçilen motor devri ve redüktör oranından çıkar.
   const actualSpeed = (sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.wheelDiaMm / 1000);
@@ -869,13 +913,13 @@ export function computeTravelGroup(
   // SIBRE SP kısma iğnesi, katalogdaki aynı strok satırında tampon başına
   // hesaplanan tasarım kütlesini karşılayan en küçük sınıftır. Eski revizyon
   // ya da katalog dışı bir seçimde kullanıcıdaki manuel değer geri düşüm olur.
-  const automaticMeteringPin = view.bufferType === "hidrolik"
+  const automaticMeteringPin = bufferType === "hidrolik"
     ? selectMeteringPin(sel.bufferMeteringPins, massPerBufferT)
     : undefined;
-  const meteringPinCode = view.bufferType === "hidrolik"
+  const meteringPinCode = bufferType === "hidrolik"
     ? automaticMeteringPin?.code ?? sel.bufferMeteringPinCode ?? ""
     : "";
-  const meteringPinMassMaxT = view.bufferType === "hidrolik"
+  const meteringPinMassMaxT = bufferType === "hidrolik"
     ? automaticMeteringPin?.designMassMaxT ?? sel.bufferDesignMassMaxT ?? 0
     : 0;
   set("buffer.meteringPinCode", meteringPinCode);
@@ -883,7 +927,7 @@ export function computeTravelGroup(
 
   const bufferResult = computeBuffer({
     which,
-    type: view.bufferType,
+    type: bufferType,
     nominalSpeedMpm: actualSpeed,
     impactSpeedRatio: view.bufferImpactSpeedRatio,
     massPerBufferT,

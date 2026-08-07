@@ -242,6 +242,15 @@ function hoistRows(moduleKey: string, inp: HoistInputs, sel: HoistSelections): E
       qty: 2,
     },
     {
+      rowKey: rk("drumBearingHousing"),
+      kind: "bearing_housing",
+      component: "Tambur rulman yatağı",
+      brand: textOr(sel.bearingHousingBrand),
+      model: textOr(sel.bearingHousingCode),
+      spec: `${textOr(sel.bearingHousingSeries)} · ${textOr(sel.bearingHousingCompatibleBearing)} rulmanı ile uyumlu · Ø${fmt(sel.bearingHousingBoreMm)} mm · A₂ ${fmt(sel.bearingHousingWidthMm)} mm · ${textOr(sel.bearingHousingSeatType)}`,
+      qty: 2,
+    },
+    {
       rowKey: rk("gearbox"),
       kind: "gearbox",
       component: "Redüktör",
@@ -376,7 +385,7 @@ function travelRows(
       component: "Tampon",
       brand: "-",
       model: textOr(sel.bufferModel),
-      spec: `strok ${fmt(sel.bufferStrokeMm)} mm, enerji ${fmt(sel.bufferEnergyKj, 2)} kJ, yük ${fmt(sel.bufferLoadKn, 1)} kN`,
+      spec: `${textOr(sel.bufferCatalogType, "tip belirtilmemiş")}, strok ${fmt(sel.bufferStrokeMm)} mm, enerji ${fmt(sel.bufferEnergyKj, 2)} kJ, yük ${fmt(sel.bufferLoadKn, 1)} kN`,
       qty: 2,
     }
   );

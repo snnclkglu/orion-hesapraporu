@@ -238,7 +238,7 @@ describe("tambur ağırlığı otomatiği", () => {
 describe("yürütme uygulama sınıfı otomatiği", () => {
   it("FEM mekanizma sınıfını CMAA servis sınıfına eşler (firma kabulü)", () => {
     expect(FEM_TO_CMAA_APPLICATION_CLASS).toEqual({
-      M1: "A", M2: "B", M3: "C", M4: "C", M5: "D", M6: "E", M7: "F", M8: "F",
+      M1: "A", M2: "A", M3: "A", M4: "B", M5: "C", M6: "D", M7: "E", M8: "F",
     });
   });
 
@@ -263,7 +263,7 @@ describe("yürütme uygulama sınıfı otomatiği", () => {
       deriveTravelInputs({ ...inp, travelApplicationClassAuto: true }, {
         ambientTempMaxC: 40, mechanismClass: "M3",
       }).applicationClass
-    ).toBe("C");
+    ).toBe("A");
     expect(
       deriveTravelInputs({ ...inp, travelApplicationClassAuto: false, applicationClass: "B" }, {
         ambientTempMaxC: 40, mechanismClass: "M3",

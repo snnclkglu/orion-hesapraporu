@@ -32,8 +32,8 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   bearingFactorY0: 2.8,         // eşdeğer statik yük katsayısı Y0
   bearingFactorY1: 2.8,         // eşdeğer dinamik yük katsayısı Y1
   // CMAA 70 servis (uygulama) sınıfı — FEM mekanizma sınıfından türetilir
-  // (M6 → E); bkz. derive.ts `travelApplicationClass`.
-  applicationClass: "E",
+  // (M6 → D); bkz. derive.ts `travelApplicationClass`.
+  applicationClass: "D",
   travelApplicationClassAuto: true,
   // CMAA 70 Tablo 5.2.9.1.2.1-E: Ks sınıf × KUMANDA TİPİ ile seçilir.
   // Referans işte Ks ELLE 1,0 girilmişti (E sınıfı + AC manyetik kumanda için
@@ -99,6 +99,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   wheelCouplingTorqueNm: 3600,
   wheelCouplingDmaxMm: 80,
   bufferModel: "GLHB 63 100 - TYPE RM",
+  bufferCatalogType: "hidrolik",
   bufferStrokeMm: 100,
   bufferEnergyKj: 15,
   bufferLoadKn: 170,
@@ -122,8 +123,8 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   bearingCount: 2,
   bearingFactorY0: 2.5,
   bearingFactorY1: 2.6,
-  // CMAA 70 servis (uygulama) sınıfı — köprü mekanizma sınıfı M6 → E.
-  applicationClass: "E",
+  // CMAA 70 servis (uygulama) sınıfı — köprü mekanizma sınıfı M6 → D.
+  applicationClass: "D",
   travelApplicationClassAuto: true,
   driveControl: "acManyetik",
   serviceFactorKs: 1,           // elle girilmiş — bkz. V5_TROLLEY_INPUTS notu
@@ -183,6 +184,7 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   wheelCouplingTorqueNm: 3600,
   wheelCouplingDmaxMm: 80,
   bufferModel: "GLHB 63 100 - TYPE RM",
+  bufferCatalogType: "hidrolik",
   bufferStrokeMm: 100,
   bufferEnergyKj: 15,
   bufferLoadKn: 170,

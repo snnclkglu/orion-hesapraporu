@@ -641,6 +641,23 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     checkSuffixes: ["bearing.life", "bearing.static"],
   },
   {
+    id: "2.2.7",
+    title: "Tambur Rulman Yatağı",
+    description: "Seçilen tambur rulmanına uyumlu SKF SNL/SE iki parçalı yatak gövdesi; silindirik yataklama için katalogdan seçilir.",
+    inputKeys: [],
+    selectionKeys: [
+      "bearingHousingBrand",
+      "bearingHousingCode",
+      "bearingHousingSeries",
+      "bearingHousingCompatibleBearing",
+      "bearingHousingBoreMm",
+      "bearingHousingWidthMm",
+      "bearingHousingSeatType",
+    ],
+    rows: [],
+    checkSuffixes: [],
+  },
+  {
     id: "2.3",
     title: "Redüktör",
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",

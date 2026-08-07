@@ -24,8 +24,7 @@ import {
   fieldLabel,
 } from "@/lib/calc/fields";
 import { travelApplicationClass } from "@/lib/calc/derive";
-import { travelBufferType, travelSpecView } from "@/lib/calc/modules/travelGroup";
-import { BUFFER_CATALOG_TYPE } from "@/lib/calc/buffer";
+import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import {
@@ -83,6 +82,7 @@ import {
 } from "./module-adapters";
 import {
   applyCatalogPick,
+  bearingHousingCompatibilityKey,
   getCatalogMapping,
   catalogKindLabel,
 } from "@/lib/catalog-mapping";
@@ -1621,17 +1621,34 @@ export function RevisionEditor({
           {section.selectionDefs.length > 0 && (() => {
             const st = altStateFor(key, section);
             const baseCatalogMapping = getCatalogMapping(key, section.rawId);
-            // Tampon seçicisi, teknik özelliklerde seçilen malzeme ailesiyle
-            // kilitlidir. Böylece Program 0180 hücresel tampon, Program 0170
-            // kauçuk eğrisiyle yanlışlıkla hesaplanamaz.
+            // Teknik özelliklerde yalnız ana aile seçilir. Kauçuk/Elastomer
+            // ailesi altında Program 0170 kauçuk ile Program 0180 hücresel
+            // poliüretan tamponun ikisi de ayrı katalog satırı olarak seçilir.
             const catalogMapping = baseCatalogMapping && section.rawId === "5.8" && isTravelKey(key)
               ? {
                   ...baseCatalogMapping,
                   lockedFacets: {
                     ...baseCatalogMapping.lockedFacets,
-                    type: BUFFER_CATALOG_TYPE[travelBufferType(specs, key)],
+                    type: travelBufferCatalogTypes(specs, key),
                   },
                 }
+              : baseCatalogMapping && section.rawId === "2.2.7" && isHoistKey(key)
+                ? (() => {
+                    const bearingCode = bearingHousingCompatibilityKey(
+                      (mods[key].selections as Record<string, unknown>).bearingCode
+                    );
+                    // Yatak, seçilmiş temel rulman koduna kilitlenir. Rulman
+                    // seçilmemişse katalog düğmesini göstermemek, uyumsuz bir
+                    // yatağın serbestçe seçilmesinden daha güvenlidir.
+                    if (!bearingCode) return undefined;
+                    return {
+                      ...baseCatalogMapping,
+                      lockedFacets: {
+                        ...baseCatalogMapping.lockedFacets,
+                        compatible_bearing: bearingCode,
+                      },
+                    };
+                  })()
               : baseCatalogMapping;
             return (
               <div>
@@ -1649,10 +1666,31 @@ export function RevisionEditor({
                       <CatalogPicker
                         mapping={catalogMapping}
                         onPick={(row) => {
+                          const picked = applyCatalogPick(catalogMapping, row);
+                          const priorSelections = mods[key].selections as Record<string, unknown>;
                           const next = {
-                            ...(mods[key].selections as Record<string, unknown>),
-                            ...applyCatalogPick(catalogMapping, row),
+                            ...priorSelections,
+                            ...picked,
                           };
+                          // Rulman kodu katalogdan değiştiğinde önceki yatağı
+                          // taşımak fiziksel olarak yanlış bir eşleme yaratır.
+                          // Aynı temel koda ait "E" soneki değişiminde ise yatak
+                          // korunur; SKF yatak tablosu temel kodla eşleştirilir.
+                          if (section.rawId === "2.2.6" && isHoistKey(key)) {
+                            const oldBearing = bearingHousingCompatibilityKey(priorSelections.bearingCode);
+                            const newBearing = bearingHousingCompatibilityKey(picked.bearingCode);
+                            if (newBearing && oldBearing !== newBearing) {
+                              for (const field of [
+                                "bearingHousingBrand",
+                                "bearingHousingCode",
+                                "bearingHousingSeries",
+                                "bearingHousingCompatibleBearing",
+                                "bearingHousingBoreMm",
+                                "bearingHousingWidthMm",
+                                "bearingHousingSeatType",
+                              ]) delete next[field];
+                            }
+                          }
                           // Bir kauçuk satırından hücresel / hidrolik satıra
                           // geçerken önceki ürünün eğrisini taşımak fiziksel
                           // olarak yanlıştır. Katalogda olmayan veri açıkça silinir.

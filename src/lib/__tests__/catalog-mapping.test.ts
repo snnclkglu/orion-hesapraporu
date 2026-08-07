@@ -12,6 +12,7 @@ import {
   CATALOG_KINDS,
   applyCatalogPick,
   attrValueLabel,
+  bearingHousingCompatibilityKey,
   catalogKindConfig,
   catalogRowSummary,
   getCatalogMapping,
@@ -19,6 +20,20 @@ import {
   lockedFacetValues,
   type CatalogRow,
 } from "../catalog-mapping";
+
+const SKF_BEARING_HOUSING: CatalogRow = {
+  id: "skf-se-212",
+  brand: "SKF",
+  model: "SE 212",
+  attrs: {
+    housing_series: "SE",
+    compatible_bearing: "22212",
+    bearing_bore_mm: 60,
+    bearing_outer_dia_mm: 110,
+    housing_width_mm: 105,
+    seat_type: "Silindirik yataklama",
+  },
+};
 
 /** Seed betiğinin bir YILMAZ H serisi redüktör için ürettiği satır. */
 const HOIST_GEARBOX: CatalogRow = {
@@ -465,6 +480,7 @@ describe.each([
   it("hidrolik tamponda hesabın okuduğu alanların hepsini doldurur", () => {
     const sel = applyCatalogPick(mapping, HYDRAULIC_BUFFER);
     expect(sel.bufferModel).toBe("SIBRE SP 65 FF 100");
+    expect(sel.bufferCatalogType).toBe("hidrolik");
     // buffer.driveEnergy (D·s) ve buffer.reactionForce strok'tan hesaplanır
     expect(sel.bufferStrokeMm).toBe(100);
     // buffer.energy kontrolü (engelleyici)
@@ -477,6 +493,7 @@ describe.each([
 
   it("kauçuk tamponda kJ'ye çevrilmiş enerjiyi ve türetilmiş stroğu yazar", () => {
     const sel = applyCatalogPick(mapping, RUBBER_BUFFER);
+    expect(sel.bufferCatalogType).toBe("kauçuk");
     // Kaynak katalog 12.500 J basar; ortak anahtar kJ'dir.
     expect(sel.bufferEnergyKj).toBe(12.5);
     // s = h · sıkışma% / 100 = 200 · 50 / 100
@@ -524,6 +541,36 @@ describe("tampon seçici yapılandırması", () => {
   it("üretici teyidi olmayan satır işaretlidir", () => {
     expect(isUnverifiedRow(UNVERIFIED_BUFFER)).toBe(true);
     expect(isUnverifiedRow(HYDRAULIC_BUFFER)).toBe(false);
+  });
+});
+
+describe("SKF tambur rulman yatağı eşlemesi", () => {
+  const mapping = getCatalogMapping("main", "2.2.7")!;
+
+  it("rulman kodunun E sonekli ve eski kayıtlarda ortak anahtarını kullanır", () => {
+    expect(bearingHousingCompatibilityKey("22212 E")).toBe("22212");
+    expect(bearingHousingCompatibilityKey("22312")).toBe("22312");
+  });
+
+  it("uyumlu SKF yatağının tüm seçim alanlarını doldurur", () => {
+    expect(mapping.kind).toBe("bearing_housing");
+    expect(applyCatalogPick(mapping, SKF_BEARING_HOUSING)).toMatchObject({
+      bearingHousingBrand: "SKF",
+      bearingHousingCode: "SE 212",
+      bearingHousingSeries: "SE",
+      bearingHousingCompatibleBearing: "22212",
+      bearingHousingBoreMm: 60,
+      bearingHousingWidthMm: 105,
+      bearingHousingSeatType: "Silindirik yataklama",
+    });
+  });
+
+  it("seçicide seri, uyumlu rulman ve temel geometriyi gösterir", () => {
+    const config = catalogKindConfig("bearing_housing");
+    expect(config.facets.map((f) => f.attr)).toEqual(["housing_series", "compatible_bearing"]);
+    expect(config.columns.map((c) => c.attr)).toEqual(expect.arrayContaining([
+      "model", "bearing_bore_mm", "bearing_outer_dia_mm", "housing_width_mm",
+    ]));
   });
 });
 
