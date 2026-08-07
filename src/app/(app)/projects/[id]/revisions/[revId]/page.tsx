@@ -9,6 +9,7 @@ import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
   loadRevision,
+  sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
@@ -116,6 +117,7 @@ export default async function RevisionPage({
         readOnly={revision.status === "issued"}
         initial={loaded.full}
         initialAlts={selections?.alts}
+        initialSectionNotes={sectionNotesFromRevision(selections)}
         initialDisabled={loaded.disabled}
       />
     </div>

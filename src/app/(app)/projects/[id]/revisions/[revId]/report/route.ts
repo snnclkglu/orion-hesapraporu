@@ -9,6 +9,7 @@ import { runCalc } from "@/lib/calc/engine";
 import {
   altsFromRevision,
   calcInputFromRevision,
+  sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
@@ -78,6 +79,7 @@ export async function GET(
     level,
     // Seçenekli (alternatif) ekipman seçimleri raporda "SEÇENEKLER" bloğu olur.
     alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
+    sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
   });
 
   // Türkçe karakterli dosya adı: ASCII geri düşüş + RFC 5987 filename*

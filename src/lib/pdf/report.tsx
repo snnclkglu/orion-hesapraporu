@@ -56,7 +56,19 @@ import {
 } from "@/lib/calc/presentation/module-access";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
-import { altKeyFor, type RevisionAltState, type RevisionAlts } from "@/lib/revision-load";
+import {
+  altKeyFor,
+  sectionNoteKeyFor,
+  type RevisionAltState,
+  type RevisionAlts,
+  type RevisionSectionNotes,
+} from "@/lib/revision-load";
+import {
+  FESTOON_CABLE_FORM_LABELS,
+  festoonAxes,
+  festoonSeriesLabel,
+  selectFestoon,
+} from "@/lib/calc/festoon";
 import {
   MODULE_ADAPTERS,
   altOptionPass,
@@ -136,6 +148,8 @@ export interface ReportProps {
    * varsa rapor bugünkü hâlini BİREBİR korur: "SEÇENEKLER" bloğu basılmaz.
    */
   alts?: RevisionAlts;
+  /** Hesap alt bölümlerine ait, revizyon snapshot'ında saklanan mühendis notları. */
+  sectionNotes?: RevisionSectionNotes;
   /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
   settings?: ReportSettings;
   /** Rapor seviyesi (varsayılan "detayli") */
@@ -562,10 +576,23 @@ function KvRow({
  * Rapora girecek teknik özellik alanları: vince dahil olmayan hesap
  * bölümlerinin alanları (kapalı yardımcı kaldırma, olmayan monoray) basılmaz.
  */
+const FESTOON_SPEC_FIELD_KEYS = new Set<string>([
+  "runwayLengthM",
+  "trolleyPowerSupply",
+  "auxTrolleyPowerSupply",
+  "mono1TrolleyPowerSupply",
+  "mono2TrolleyPowerSupply",
+  "bridgePowerSupply",
+]);
+
 function specFieldsFor(input: CalcInput): AnyFieldDef[] {
   return (SPEC_FIELDS as AnyFieldDef[]).filter((f) => {
     const req = (f as { requiresModule?: ModuleKey }).requiresModule;
-    return !req || moduleState(input, req) !== undefined;
+    const visibleForModule = !req || moduleState(input, req) !== undefined;
+    const visibleInReport = input.specs.showFestoonDetailsInReport || !FESTOON_SPEC_FIELD_KEYS.has(f.key);
+    const visibleForSpecs = !(f as { visible?: (specs: TechnicalSpecs) => boolean }).visible ||
+      (f as { visible?: (specs: TechnicalSpecs) => boolean }).visible!(input.specs);
+    return visibleForModule && visibleInReport && visibleForSpecs;
   });
 }
 
@@ -626,6 +653,66 @@ function FieldTable({
         </View>
       ))}
     </View>
+  );
+}
+
+/** Teknik özelliklerde festoon rapor seçeneği açıksa basılan seri/adet ön seçimi. */
+function FestoonDetails({ input }: { input: CalcInput }) {
+  if (!input.specs.showFestoonDetailsInReport) return null;
+  const axes = festoonAxes(input.specs).filter(
+    (axis) => axis.selected && moduleState(input, axis.key) !== undefined
+  );
+  if (axes.length === 0) return null;
+
+  return (
+    <>
+      <SubHead tr="FESTON ÖN SEÇİMLERİ" />
+      <View>
+        {axes.map((axis) => {
+          const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
+          const selected = festoonSeriesLabel(result.selected);
+          const carrierLoad = result.loadPerTrolleyKg === null ? "—" : `${fmt(result.loadPerTrolleyKg)} kg`;
+          const limit = result.selected
+            ? `${result.selected.maxTrolleyLoadKg} kg · ${result.selected.maxSpeedMpm} m/dak`
+            : "Uygun seri bulunamadı";
+          return (
+            <View
+              key={axis.key}
+              style={{
+                marginTop: 5,
+                borderLeftWidth: 2,
+                borderLeftColor: BRAND.steel,
+                borderBottomWidth: 0.5,
+                borderBottomColor: BRAND.line300,
+                paddingLeft: 7,
+                paddingBottom: 3,
+              }}
+              wrap={false}
+            >
+              <Text style={s.sumModuleTitle}>{axis.title}</Text>
+              <KvRow
+                label="Seri / adet"
+                value={`${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
+                narrowLabel
+              />
+              <KvRow
+                label="Hareket"
+                value={`${fmt(result.travelDistanceM)} m · ${fmt(result.travelSpeedMpm)} m/dak · h ${fmt(axis.spec?.loopHeightM ?? 1.5)} m`}
+                narrowLabel
+              />
+              <KvRow
+                label="Yük / sınır"
+                value={`${carrierLoad} / ${limit}${result.pass === false ? " · UYGUN DEĞİL" : result.pass === true ? " · UYGUN" : ""}`}
+                narrowLabel
+              />
+            </View>
+          );
+        })}
+      </View>
+      <Text style={{ ...T.caption, marginTop: 4 }}>
+        Ön seçim, katalog ailesinin hız ve taşıyıcı başına yük sınırını doğrular. Kesin parça kodu; I-kiriş flanşı, kablo paketi ölçüleri ve minimum bükülme çapı doğrulanarak belirlenir.
+      </Text>
+    </>
   );
 }
 
@@ -1333,6 +1420,7 @@ function SummarySection({
         <SectionTag no="01" title="Teknik Özellikler" />
       </View>
       <FieldTable defs={specFieldsFor(input)} source={input.specs} specs={input.specs} />
+      <FestoonDetails input={input} />
 
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       {/* Aynı gerekçe: iki sütunlu ızgara bölünemez, bütün hâlde taşınır. */}
@@ -1763,6 +1851,25 @@ function KeepWithNext({ children }: { children: React.ReactNode }) {
   return <View wrap={false}>{children}</View>;
 }
 
+/** Editördeki hesap alt bölümü notunun PDF karşılığı. */
+function EngineeringNote({ note }: { note: string }) {
+  return (
+    <View
+      style={{
+        borderLeftWidth: 2,
+        borderLeftColor: BRAND.red,
+        backgroundColor: BRAND.paper100,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+      }}
+      wrap={false}
+    >
+      <Text style={T.kicker}>MÜHENDİS NOTU</Text>
+      <Text style={{ ...T.body, marginTop: 2 }}>{note}</Text>
+    </View>
+  );
+}
+
 function ModulePage({
   adapter,
   props,
@@ -1909,6 +2016,11 @@ function ModulePage({
           const checkNodes = rest.map((c) => <CheckLine key={c.id} check={c} />);
           addHeaded("DİĞER KONTROLLER", checkNodes[0], checkNodes.slice(1));
         }
+
+        const sectionNote = props.sectionNotes?.[
+          sectionNoteKeyFor(adapter.key, section.rawId)
+        ]?.trim();
+        if (sectionNote) addHeaded("BÖLÜM NOTU", <EngineeringNote note={sectionNote} />);
 
         return (
           // Bölüm SARMALAYICI KUTUYA konmaz, düz bir kardeş dizisi olarak akar.

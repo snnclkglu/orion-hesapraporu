@@ -56,6 +56,13 @@ export const V5_SPECS: TechnicalSpecs = {
   supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
   controlVoltage: "24 VDC",
   spanM: 17.5,
+  hasOperatorCabin: "no",
+  operatorCabinAirConditioning: "none",
+  electricalAccommodationType: "none",
+  electricalRoomAirConditioning: "none",
+  electricalRoomAirConditioningRedundancy: "none",
+  electricalPanelAirConditioning: "none",
+  electricalPanelAirConditioningRedundancy: "none",
   // Konfigürasyon ve ağırlıklar
   auxTrolleyMode: "shared",
   monorailCount: 0,
@@ -230,10 +237,32 @@ export const V5_TEMPLATE: CalcInput = {
  */
 export const NEW_WORK_SPECS: TechnicalSpecs = {
   spanM: 20,
+  runwayLengthM: 60,
   structureClass: "A6",
   hoistLoadClass: "H3/B4",
   hookType: "DIN 15401 Tekli Kanca",
   controlType: "Uzaktan Kumanda",
+  hasOperatorCabin: "no",
+  operatorCabinWidthM: 2,
+  operatorCabinLengthM: 2.5,
+  operatorCabinHeightM: 2.4,
+  operatorCabinInsulation: "rockWool50",
+  operatorCabinAirConditioning: "none",
+  operatorCabinAirConditionerModel: "",
+
+  electricalAccommodationType: "none",
+  electricalRoomWidthM: 3,
+  electricalRoomLengthM: 4,
+  electricalRoomHeightM: 2.6,
+  electricalRoomInsulation: "rockWool100",
+  electricalRoomAirConditioning: "none",
+  electricalRoomAirConditionerModel: "",
+  electricalRoomAirConditioningRedundancy: "none",
+  electricalPanelCount: 1,
+  electricalPanelIpClass: "IP55",
+  electricalPanelAirConditioning: "none",
+  electricalPanelAirConditionerModel: "",
+  electricalPanelAirConditioningRedundancy: "none",
 
   auxTrolleyMode: "shared",
   monorailCount: 0,
@@ -258,10 +287,15 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   trolleySpeedMpm: 20,
   trolleyMechanismClass: "M6",
   trolleyUsageClass: "T6",
+  trolleyPowerSupply: "cableChain",
 
   bridgeSpeedMpm: 30,
   bridgeMechanismClass: "M6",
   bridgeUsageClass: "T6",
+  bridgePowerSupply: "conductorBar",
+
+  // Enerji besleme ayrıntısı proje bazında rapora isteğe bağlı girer.
+  showFestoonDetailsInReport: false,
 
   hoistBrakeType: "Manyetik Fren",
   hoistSafetyBrake: "Yok",

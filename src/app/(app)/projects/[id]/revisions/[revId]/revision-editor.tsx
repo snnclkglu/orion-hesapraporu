@@ -41,9 +41,11 @@ import {
 import {
   CALC_FIELD,
   altKeyFor,
+  sectionNoteKeyFor,
   splitAltKey,
   type RevisionAltState,
   type RevisionAlts,
+  type RevisionSectionNotes,
 } from "@/lib/revision-load";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
@@ -85,6 +87,7 @@ import {
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
+import { FestoonSelector } from "@/components/festoon-selector";
 import { MathFormula } from "@/components/math/math-formula";
 import { StandardRefBadge } from "@/components/standard-ref-dialog";
 import type { StandardContext } from "@/lib/standards/registry";
@@ -94,12 +97,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { saveRevision } from "./actions";
+
+type FestoonSpecKey =
+  | "trolleyFestoon"
+  | "auxTrolleyFestoon"
+  | "mono1TrolleyFestoon"
+  | "mono2TrolleyFestoon"
+  | "bridgeFestoon";
+
+type FestoonAxis = {
+  key: FestoonSpecKey;
+  title: string;
+  enabled: boolean;
+  travelDistanceM: number | undefined;
+  travelSpeedMpm: number | undefined;
+};
 
 /**
  * Alternatif ekipman seçimi: seçim alanı olan her modül bölümü için 3'e kadar
@@ -881,7 +900,7 @@ function initModules(initial: CalcInput): ModulesState {
 
 // ---------------------------------------------------------------- Editor
 export function RevisionEditor({
-  projectId, revisionId, readOnly, initial, initialAlts, initialDisabled,
+  projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
 }: {
   projectId: string;
   revisionId: string;
@@ -889,12 +908,15 @@ export function RevisionEditor({
   /** Tüm bölümlerin verisi (kapalılar dâhil) — kapalı bölüm tekrar açılabilsin */
   initial: CalcInput;
   initialAlts?: AltsMap;
+  /** Her hesap alt bölümüne bağlanan serbest mühendis notları. */
+  initialSectionNotes?: RevisionSectionNotes;
   /** Kapalı hesap bölümleri */
   initialDisabled?: string[];
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
+  const [sectionNotes, setSectionNotes] = useState<RevisionSectionNotes>(initialSectionNotes ?? {});
   const [stepIndex, setStepIndex] = useState(0);
   /**
    * Kayan gövde. Bölüm değişince başa sarılır: aksi hâlde uzun bir bölümün
@@ -928,7 +950,7 @@ export function RevisionEditor({
       return;
     }
     setDirty(true);
-  }, [specs, mods, alts, enabled]);
+  }, [specs, mods, alts, sectionNotes, enabled]);
 
   // Kayıp koruması: tarayıcı kapanışı/yenileme için beforeunload, uygulama içi
   // gezinme (Link tıklaması) için capture fazında confirm.
@@ -1235,7 +1257,8 @@ export function RevisionEditor({
         calcInput,
         syncedAlts(),
         fullCalcInput,
-        disabledList
+        disabledList,
+        sectionNotes
       );
       if (res.error) toast.error(res.error);
       else {
@@ -1267,10 +1290,12 @@ export function RevisionEditor({
         <CardContent className="grid gap-6">
           {SPEC_GROUPS.map((group) => {
             if (group.requiresModule && !present(group.requiresModule)) return null;
+            if (group.visible && !group.visible(specs)) return null;
             const fields = SPEC_FIELDS.filter(
               (f) =>
                 f.group === group.key &&
-                (!f.requiresModule || present(f.requiresModule))
+                (!f.requiresModule || present(f.requiresModule)) &&
+                (!f.visible || f.visible(specs))
             );
             if (fields.length === 0) return null;
             return (
@@ -1299,6 +1324,90 @@ export function RevisionEditor({
               </section>
             );
           })}
+
+          {(() => {
+            const festoonAxes: FestoonAxis[] = [
+              {
+                key: "trolleyFestoon",
+                title: "Ana Araba",
+                enabled: specs.trolleyPowerSupply === "festoon",
+                travelDistanceM: specs.spanM,
+                travelSpeedMpm: specs.trolleySpeedMpm,
+              },
+              {
+                key: "auxTrolleyFestoon",
+                title: "Yardımcı Araba",
+                enabled: present("auxTrolley") && specs.auxTrolleyPowerSupply === "festoon",
+                travelDistanceM: specs.spanM,
+                travelSpeedMpm: specs.auxTrolleySpeedMpm,
+              },
+              {
+                key: "mono1TrolleyFestoon",
+                title: "Monoray 1 Arabası",
+                enabled: present("mono1Trolley") && specs.mono1TrolleyPowerSupply === "festoon",
+                travelDistanceM: specs.spanM,
+                travelSpeedMpm: specs.mono1TrolleySpeedMpm,
+              },
+              {
+                key: "mono2TrolleyFestoon",
+                title: "Monoray 2 Arabası",
+                enabled: present("mono2Trolley") && specs.mono2TrolleyPowerSupply === "festoon",
+                travelDistanceM: specs.spanM,
+                travelSpeedMpm: specs.mono2TrolleySpeedMpm,
+              },
+              {
+                key: "bridgeFestoon",
+                title: "Köprü",
+                enabled: specs.bridgePowerSupply === "festoon",
+                travelDistanceM: specs.runwayLengthM,
+                travelSpeedMpm: specs.bridgeSpeedMpm,
+              },
+            ];
+            const activeFestoonAxes = festoonAxes.filter((axis) => axis.enabled);
+            if (activeFestoonAxes.length === 0) return null;
+            return (
+              <section className="grid gap-2.5 border-t pt-4">
+                <div className="border-b pb-1.5">
+                  <h3 className="oc-kicker text-foreground/80">Feston Sistemleri</h3>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Her hareket ekseni için seri ve kablo taşıyıcı adedi bağımsız seçilir.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {activeFestoonAxes.map((axis) => (
+                    <FestoonSelector
+                      key={axis.key}
+                      title={axis.title}
+                      travelDistanceM={axis.travelDistanceM}
+                      travelSpeedMpm={axis.travelSpeedMpm}
+                      value={specs[axis.key]}
+                      onChange={(next) => updateSpecs({ ...specs, [axis.key]: next })}
+                      disabled={readOnly}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })()}
+
+          <section className="grid gap-2.5 border-t pt-4">
+            <div className="border-b pb-1.5">
+              <h3 className="oc-kicker text-foreground/80">Rapor Ayrıntıları</h3>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Teknik özelliklerdeki feston ve enerji besleme bilgilerini rapora isteğe bağlı ekleyin.
+              </p>
+            </div>
+            <label className="inline-flex w-fit cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={specs.showFestoonDetailsInReport === true}
+                disabled={readOnly}
+                onChange={(event) => updateSpecs({ ...specs, showFestoonDetailsInReport: event.target.checked })}
+                className="size-4 accent-primary"
+              />
+              Feston ve enerji besleme ayrıntılarını PDF raporunda göster
+            </label>
+          </section>
 
           {/* Hesap bölümleri — açık/kapalı; numaralandırma dinamik.
               Vinç konfigürasyonundan doğan bölümler (yardımcı araba, monoray)
@@ -1366,6 +1475,25 @@ export function RevisionEditor({
       section,
       moduleResult(key)?.checks
     );
+    const noteKey = sectionNoteKeyFor(key, section.rawId);
+    const noteIsEnabled = Object.prototype.hasOwnProperty.call(sectionNotes, noteKey);
+    const sectionNote = sectionNotes[noteKey] ?? "";
+
+    function enableSectionNote() {
+      setSectionNotes((current) => ({ ...current, [noteKey]: "" }));
+    }
+
+    function updateSectionNote(note: string) {
+      setSectionNotes((current) => ({ ...current, [noteKey]: note }));
+    }
+
+    function removeSectionNote() {
+      setSectionNotes((current) => {
+        const next = { ...current };
+        delete next[noteKey];
+        return next;
+      });
+    }
 
     const onInputsChange = (next: object) => {
       setModuleInputs(
@@ -1437,6 +1565,36 @@ export function RevisionEditor({
           )}
         </CardHeader>
         <CardContent className="grid gap-5">
+          {noteIsEnabled ? (
+            <section className="grid gap-2 border border-dashed bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="oc-kicker text-foreground/80">Bölüm Notu</h3>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Kaydedildiğinde hesap raporunda bu alt bölümün altında görünür.
+                  </p>
+                </div>
+                {!readOnly && (
+                  <Button type="button" variant="ghost" size="sm" onClick={removeSectionNote}>
+                    Notu Kaldır
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={sectionNote}
+                disabled={readOnly}
+                onChange={(event) => updateSectionNote(event.target.value)}
+                placeholder="Bu hesap alt bölümü için mühendis notu yazın…"
+                rows={3}
+              />
+            </section>
+          ) : !readOnly ? (
+            <div>
+              <Button type="button" variant="outline" size="sm" onClick={enableSectionNote}>
+                + Bölüm Notu Ekle
+              </Button>
+            </div>
+          ) : null}
           {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım) */}
           <SectionDiagram
             moduleKey={key}

@@ -7,8 +7,10 @@ import {
   CALC_FIELD,
   altsFromRevision,
   calcInputFromRevision,
+  sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
+  type RevisionSectionNotes,
 } from "@/lib/revision-load";
 import { MODULE_ORDER } from "@/lib/calc/presentation/module-family";
 import { renderReportPdf } from "@/lib/pdf/report";
@@ -78,6 +80,7 @@ export async function issueRevision(
         level: "detayli", // yayın arşivi her zaman tam (detaylı) rapor saklar
         // Arşivlenen resmî rapor da seçenekli ekipmanları içermelidir.
         alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
+        sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
       });
       const { error: uploadError } = await supabase.storage
         .from("reports")
@@ -177,7 +180,8 @@ export async function saveRevision(
   calcInput: CalcInput,
   alts?: Record<string, { active: number; options: Record<string, unknown>[] }>,
   fullInput?: CalcInput,
-  disabledModules?: string[]
+  disabledModules?: string[],
+  sectionNotes?: RevisionSectionNotes
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -199,6 +203,7 @@ export async function saveRevision(
       selections: {
         ...moduleJson(store, "selections"),
         alts: alts ?? {},
+        sectionNotes: sectionNotes ?? {},
       },
       results: JSON.parse(JSON.stringify(result)),
       engine_version: result.engineVersion,

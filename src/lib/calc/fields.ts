@@ -10,6 +10,11 @@ import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { ModuleKey } from "./presentation/module-family";
 import type { TechnicalSpecs } from "./types";
+import {
+  AIR_CONDITIONING_TYPE_LABELS,
+  AIR_CONDITIONING_TYPE_OPTIONS,
+  airConditionerModelOptions,
+} from "@/lib/tms-air-conditioning";
 
 export interface FieldDef<T> {
   key: keyof T & string;
@@ -35,6 +40,8 @@ export interface FieldDef<T> {
   requiresModule?: ModuleKey;
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
+  /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
+  visible?: (specs: TechnicalSpecs) => boolean;
   /**
    * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur ("Ø 400 mm").
    * Etikete yazılmaz; işaret ölçünün kendisine aittir. Arayüz ve PDF aynı
@@ -79,7 +86,11 @@ export type SpecGroupKey =
   | "bridge"
   | "brakes"
   | "electrical"
-  | "environment";
+  | "environment"
+  | "operatorCabin"
+  | "electricalAccommodation"
+  | "electricalRoom"
+  | "panelType";
 
 export interface SpecGroup {
   key: SpecGroupKey;
@@ -87,6 +98,8 @@ export interface SpecGroup {
   description?: string;
   /** Grup yalnız bu hesap bölümü açıkken gösterilir */
   requiresModule?: ModuleKey;
+  /** Teknik özellik seçimine göre grubu göster/gizle. */
+  visible?: (specs: TechnicalSpecs) => boolean;
 }
 
 /** Teknik özellikler ekranındaki blok sırası. */
@@ -101,6 +114,28 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
     title: "Vinç Konfigürasyonu",
     description:
       "Kaldırma grupları ve arabaları. Buradaki seçim hesap bölümlerini otomatik açar.",
+  },
+  {
+    key: "operatorCabin",
+    title: "Operatör Kabini",
+    description: "Kabin ölçüleri, taş yünü izolasyonu ve klima ön seçimi.",
+  },
+  {
+    key: "electricalAccommodation",
+    title: "Elektrik Yerleşimi",
+    description: "Elektrik odası veya yan yana pano tipi yerleşim seçilir.",
+  },
+  {
+    key: "electricalRoom",
+    title: "Elektrik Odası Özellikleri",
+    description: "Oda ölçüleri, izolasyon ve 1+1 kurulu yedek klima seçimi.",
+    visible: (specs) => specs.electricalAccommodationType === "room",
+  },
+  {
+    key: "panelType",
+    title: "Pano Tipi Özellikleri",
+    description: "Yan yana pano yerleşimi; oda izolasyonu yerine pano IP koruması kullanılır.",
+    visible: (specs) => specs.electricalAccommodationType === "panel",
   },
   {
     key: "weights",
@@ -242,6 +277,22 @@ export const CONTROL_VOLTAGES = [
   "220 VAC",
 ] as const;
 
+/** Araba ve köprü enerji besleme yöntemleri. Festoon ayrıntısı özel seçim kartında açılır. */
+export const TROLLEY_POWER_SUPPLY_OPTIONS = ["festoon", "cableChain"] as const;
+export const TROLLEY_POWER_SUPPLY_LABELS: Record<string, string> = {
+  festoon: "Feston Sistemi",
+  cableChain: "Kablo Zinciri",
+};
+export const BRIDGE_POWER_SUPPLY_OPTIONS = [
+  "festoon", "cableChain", "conductorBar", "cableReel",
+] as const;
+export const BRIDGE_POWER_SUPPLY_LABELS: Record<string, string> = {
+  festoon: "Feston Sistemi",
+  cableChain: "Kablo Zinciri",
+  conductorBar: "Bara",
+  cableReel: "Kablo Sarma Tamburu",
+};
+
 /**
  * Emniyet sarımı adedi — tamburda halat ucunun bağlantısından önce kalması
  * gereken tam sarım sayısı. Yarım sarım basamakları da kullanıldığı için liste
@@ -356,13 +407,104 @@ export const MONORAIL_COUNT_LABELS: Record<string, string> = {
   "2": "2 Monoray",
 };
 
+export const OPERATOR_CABIN_OPTIONS = ["yes", "no"] as const;
+export const OPERATOR_CABIN_LABELS: Record<string, string> = { yes: "Var", no: "Yok" };
+export const ELECTRICAL_ACCOMMODATION_OPTIONS = ["none", "room", "panel"] as const;
+export const ELECTRICAL_ACCOMMODATION_LABELS: Record<string, string> = {
+  none: "Yok", room: "Elektrik Odası", panel: "Pano Tipi",
+};
+export const ROOM_INSULATION_OPTIONS = ["rockWool50", "rockWool100"] as const;
+export const ROOM_INSULATION_LABELS: Record<string, string> = {
+  rockWool50: "Taş Yünü 50 mm", rockWool100: "Taş Yünü 100 mm",
+};
+export const AIR_CONDITIONING_REDUNDANCY_OPTIONS = ["none", "nPlusOne"] as const;
+export const AIR_CONDITIONING_REDUNDANCY_LABELS: Record<string, string> = {
+  none: "Yok", nPlusOne: "1+1 (Kurulu Yedek)",
+};
+export const ELECTRICAL_PANEL_IP_CLASSES = ["IP54", "IP55", "IP65"] as const;
+
 export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Vinç tanımı ve sınıflandırma
   { key: "spanM", label: "Açıklık", unit: "m", type: "number", group: "crane" },
+  {
+    key: "runwayLengthM", label: "Vinç Yürüme Yolu Uzunluğu", unit: "m", type: "number", group: "crane",
+    hint: "Köprü festoonu seçildiğinde kablo taşıyıcı sisteminin hareket mesafesi olarak kullanılır.",
+  },
   { key: "structureClass", label: "Çelik Konstrüksiyon Sınıfı", type: "select", options: STRUCTURE_CLASSES, group: "crane", standardRef: "FEM 1.001 T.2.3.4" },
   { key: "hoistLoadClass", label: "Kaldırma / Yük Grubu Sınıfı", type: "select", options: HOIST_LOAD_CLASSES, group: "crane", standardRef: "DIN 15018 Tablo 2" },
   { key: "hookType", label: "Kanca / Tutucu Tipi", type: "select", options: HOOK_TYPES, group: "crane", standardRef: "DIN 15400" },
   { key: "controlType", label: "Kumanda Şekli", type: "select", options: CONTROL_TYPES, group: "crane" },
+
+  // --- Operatör kabini
+  {
+    key: "hasOperatorCabin", label: "Operatör Kabini", type: "select",
+    options: OPERATOR_CABIN_OPTIONS, optionLabels: OPERATOR_CABIN_LABELS, group: "operatorCabin",
+  },
+  { key: "operatorCabinWidthM", label: "Kabin Genişliği", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
+  { key: "operatorCabinLengthM", label: "Kabin Uzunluğu", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
+  { key: "operatorCabinHeightM", label: "Kabin Yüksekliği", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
+  {
+    key: "operatorCabinInsulation", label: "Kabin İzolasyonu", type: "select",
+    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes",
+  },
+  {
+    key: "operatorCabinAirConditioning", label: "Kabin Kliması", type: "select",
+    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes",
+  },
+  {
+    key: "operatorCabinAirConditionerModel", label: "Kabin Klima Tipi", type: "select",
+    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "operatorCabin",
+    visible: (s) => s.hasOperatorCabin === "yes" && s.operatorCabinAirConditioning !== "none",
+    hint: "TMS tipi, seçilen klima sınıfına uygun olarak proje ısı yüküyle teyit edilir.",
+  },
+
+  // --- Elektrik odası / pano tipi
+  {
+    key: "electricalAccommodationType", label: "Elektrik Yerleşimi", type: "select",
+    options: ELECTRICAL_ACCOMMODATION_OPTIONS, optionLabels: ELECTRICAL_ACCOMMODATION_LABELS, group: "electricalAccommodation",
+    hint: "Elektrik odası ayrı hacimdir; pano tipinde panolar yan yana dizilir ve oda izolasyonu uygulanmaz.",
+  },
+  { key: "electricalRoomWidthM", label: "Oda Genişliği", unit: "m", type: "number", group: "electricalRoom" },
+  { key: "electricalRoomLengthM", label: "Oda Uzunluğu", unit: "m", type: "number", group: "electricalRoom" },
+  { key: "electricalRoomHeightM", label: "Oda Yüksekliği", unit: "m", type: "number", group: "electricalRoom" },
+  {
+    key: "electricalRoomInsulation", label: "Oda İzolasyonu", type: "select",
+    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "electricalRoom",
+  },
+  {
+    key: "electricalRoomAirConditioning", label: "Elektrik Odası Kliması", type: "select",
+    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "electricalRoom",
+  },
+  {
+    key: "electricalRoomAirConditionerModel", label: "Elektrik Odası Klima Tipi", type: "select",
+    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "electricalRoom",
+    visible: (s) => s.electricalRoomAirConditioning !== "none",
+  },
+  {
+    key: "electricalRoomAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
+    options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "electricalRoom",
+    visible: (s) => s.electricalRoomAirConditioning !== "none",
+    hint: "Elektrik odasında kurulu yedek seçimi 1+1 olarak ekipman listesine yansır.",
+  },
+  { key: "electricalPanelCount", label: "Pano Adedi", unit: "adet", type: "number", group: "panelType" },
+  {
+    key: "electricalPanelIpClass", label: "Pano Koruma Sınıfı", type: "select", options: ELECTRICAL_PANEL_IP_CLASSES, group: "panelType",
+    hint: "Pano tipi yerleşimde oda izolasyonu yoktur; pano gövdesinin IP koruması belirtilir.",
+  },
+  {
+    key: "electricalPanelAirConditioning", label: "Pano Kliması", type: "select",
+    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "panelType",
+  },
+  {
+    key: "electricalPanelAirConditionerModel", label: "Pano Klima Tipi", type: "select",
+    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "panelType",
+    visible: (s) => s.electricalPanelAirConditioning !== "none",
+  },
+  {
+    key: "electricalPanelAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
+    options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "panelType",
+    visible: (s) => s.electricalPanelAirConditioning !== "none",
+  },
 
   // --- Vinç konfigürasyonu (hesap bölümlerini açar)
   {
@@ -439,19 +581,39 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "trolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "trolley" },
   { key: "trolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.6" },
   { key: "trolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "trolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS, group: "trolley",
+    hint: "Araba için Feston veya kablo zinciri seçilir. Feston seçildiğinde aşağıda tip ve adet açılır.",
+  },
 
   // --- Yardımcı araba yürütme
   { key: "auxTrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "auxTrolley", requiresModule: "auxTrolley" },
   { key: "auxTrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.6" },
   { key: "auxTrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "auxTrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
+    group: "auxTrolley", requiresModule: "auxTrolley",
+  },
 
   // --- Monoray araba yürütme
   { key: "mono1TrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "mono1Trolley", requiresModule: "mono1Trolley" },
   { key: "mono1TrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.6" },
   { key: "mono1TrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "mono1TrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
+    group: "mono1Trolley", requiresModule: "mono1Trolley",
+  },
   { key: "mono2TrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "mono2Trolley", requiresModule: "mono2Trolley" },
   { key: "mono2TrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.6" },
   { key: "mono2TrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "mono2TrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
+    group: "mono2Trolley", requiresModule: "mono2Trolley",
+  },
 
   {
     key: "trolleyBufferType", label: "Tampon Tipi", type: "select",
@@ -477,6 +639,11 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "bridgeSpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "bridge" },
   { key: "bridgeMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.6" },
   { key: "bridgeUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.1.3.2" },
+  {
+    key: "bridgePowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    options: BRIDGE_POWER_SUPPLY_OPTIONS, optionLabels: BRIDGE_POWER_SUPPLY_LABELS, group: "bridge",
+    hint: "Köprü için Feston, kablo zinciri, bara veya kablo sarma tamburu seçilir.",
+  },
   {
     key: "bridgeBufferType", label: "Tampon Tipi", type: "select",
     options: BUFFER_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "bridge",

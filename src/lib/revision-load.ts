@@ -61,6 +61,8 @@ export interface RevisionSelectionsJson {
   girder?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;
   alts?: RevisionAlts;
+  /** Hesap alt bölümlerine bağlı mühendis notları. */
+  sectionNotes?: RevisionSectionNotes;
 }
 
 /**
@@ -81,6 +83,29 @@ export interface RevisionAltState {
 
 /** Anahtar: `${moduleKey}-${section.rawId}` — ör. "main-2.1" */
 export type RevisionAlts = Record<string, RevisionAltState>;
+
+/** Anahtar: `${moduleKey}-${section.rawId}`; değer serbest mühendis notu. */
+export type RevisionSectionNotes = Record<string, string>;
+
+/** Hesap alt bölümünün not anahtarı (editör ve PDF aynı kimliği kullanır). */
+export function sectionNoteKeyFor(moduleKey: string, sectionRawId: string): string {
+  return `${moduleKey}-${sectionRawId}`;
+}
+
+/** JSONB snapshot'tan güvenli not haritası okur; boş/bozuk girdileri atlar. */
+export function sectionNotesFromRevision(
+  selections: RevisionSelectionsJson | null | undefined
+): RevisionSectionNotes {
+  const raw = (selections as { sectionNotes?: unknown } | null | undefined)?.sectionNotes;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: RevisionSectionNotes = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== "string") continue;
+    const note = value.trim();
+    if (note) out[key] = note;
+  }
+  return out;
+}
 
 /**
  * Revizyon snapshot'ından alternatif haritasını güvenle okur.

@@ -203,6 +203,59 @@ export interface ModuleResult<TValues> {
  */
 export type AuxTrolleyMode = "shared" | "separate";
 
+/** Araba enerjisi için bu sürümde desteklenen besleme alternatifleri. */
+export type TrolleyPowerSupply = "festoon" | "cableChain";
+
+/** Köprü enerjisi için desteklenen besleme alternatifleri. */
+export type BridgePowerSupply =
+  | "festoon"
+  | "cableChain"
+  | "conductorBar"
+  | "cableReel";
+
+/** Operatör kabini projeye dâhil mi? */
+export type OperatorCabinPresence = "yes" | "no";
+
+/** Elektrik ekipmanının yerleşimi: ayrı oda, yan yana panolar veya yok. */
+export type ElectricalAccommodationType = "none" | "room" | "panel";
+
+/** Oda/kabin panel izolasyonu. Pano tipinde kullanılmaz; IP sınıfı ayrı tutulur. */
+export type RoomInsulation = "rockWool50" | "rockWool100";
+
+/** İklimlendirme çözümünün proje seviyesindeki sınıfı. */
+export type AirConditioningType =
+  | "none"
+  | "standard"
+  | "panel"
+  | "industrial"
+  | "heavyIndustrial";
+
+/** Elektrik odası ve panolar için kurulu yedek klima düzeni. */
+export type AirConditioningRedundancy = "none" | "nPlusOne";
+
+/** Conductix-Wampfler I-kiriş festoon ürün ailesi. `auto` en küçük uygun aileyi seçer. */
+export type FestoonSeries = "auto" | "0314" | "0320" | "0325" | "0330";
+
+/** Katalogdaki ayrı düz/kesitli ve yuvarlak kablo taşıyıcı düzenleri. */
+export type FestoonCableForm = "flat" | "round";
+
+/**
+ * Bir hareket ekseni için minimum festoon ön seçimi.
+ *
+ * `cablePackageWeightKg` hareket eden kablo paketi toplam kütlesidir. Sistem,
+ * bunu seçilen taşıyıcı adedine bölerek katalogdaki taşıyıcı başına kapasiteyle
+ * kıyaslar. Kesin taşıyıcı parça kodu için ayrıca I-kiriş flanşı ve kablo paket
+ * geometrisi gerekir; bu iki bilgi teklif/imalat doğrulamasında istenir.
+ */
+export interface FestoonSpec {
+  series: FestoonSeries;
+  trolleyCount: number;
+  cablePackageWeightKg: number;
+  cableForm: FestoonCableForm;
+  /** Kablo loop'larının ray altındaki en büyük çalışma yüksekliği [m]. */
+  loopHeightM?: number;
+}
+
 /** Bir vinçte en çok kaç ek monoray kaldırma grubu tanımlanabilir. */
 export const MAX_MONORAIL_COUNT = 2;
 
@@ -245,6 +298,60 @@ export interface TechnicalSpecs {
   supplyVoltage: string;        // besleme gerilimi
   controlVoltage: string;       // kumanda gerilimi
   spanM: number;                // açıklık [m]
+
+  /** Vinç yürüme yolu uzunluğu [m] — köprü festoon hareket mesafesi. */
+  runwayLengthM?: number;
+
+  // ---------------------------------------------------- Enerji besleme
+  /** Ana araba enerji besleme yöntemi. */
+  trolleyPowerSupply?: TrolleyPowerSupply;
+  /** Ayrı yardımcı araba enerji besleme yöntemi. */
+  auxTrolleyPowerSupply?: TrolleyPowerSupply;
+  /** Monoray 1 araba enerji besleme yöntemi. */
+  mono1TrolleyPowerSupply?: TrolleyPowerSupply;
+  /** Monoray 2 araba enerji besleme yöntemi. */
+  mono2TrolleyPowerSupply?: TrolleyPowerSupply;
+  /** Köprü enerji besleme yöntemi. */
+  bridgePowerSupply?: BridgePowerSupply;
+
+  /** Her hareket ekseninin festoon ön seçimi. */
+  trolleyFestoon?: FestoonSpec;
+  auxTrolleyFestoon?: FestoonSpec;
+  mono1TrolleyFestoon?: FestoonSpec;
+  mono2TrolleyFestoon?: FestoonSpec;
+  bridgeFestoon?: FestoonSpec;
+
+  /** Enerji besleme/festoon ayrıntıları hesap raporunda basılsın mı. */
+  showFestoonDetailsInReport?: boolean;
+
+  // ---------------------------------------- Operatör kabini / elektrik mahalli
+  /** Operatör kabini projeye dâhil mi? */
+  hasOperatorCabin?: OperatorCabinPresence;
+  operatorCabinWidthM?: number;
+  operatorCabinLengthM?: number;
+  operatorCabinHeightM?: number;
+  operatorCabinInsulation?: RoomInsulation;
+  operatorCabinAirConditioning?: AirConditioningType;
+  /** TMS katalog tipi; standart klimada "Projeye özel seçim" bırakılabilir. */
+  operatorCabinAirConditionerModel?: string;
+
+  /** Elektrik ekipmanı ayrı odada mı, yan yana panolarda mı? */
+  electricalAccommodationType?: ElectricalAccommodationType;
+  electricalRoomWidthM?: number;
+  electricalRoomLengthM?: number;
+  electricalRoomHeightM?: number;
+  electricalRoomInsulation?: RoomInsulation;
+  electricalRoomAirConditioning?: AirConditioningType;
+  electricalRoomAirConditionerModel?: string;
+  /** Elektrik odası için kurulu yedek: 1+1. */
+  electricalRoomAirConditioningRedundancy?: AirConditioningRedundancy;
+
+  /** Pano tipi yerleşimde yan yana dizilen pano adedi ve kendi IP koruması. */
+  electricalPanelCount?: number;
+  electricalPanelIpClass?: string;
+  electricalPanelAirConditioning?: AirConditioningType;
+  electricalPanelAirConditionerModel?: string;
+  electricalPanelAirConditioningRedundancy?: AirConditioningRedundancy;
 
   // ------------------------------------------------- Vinç konfigürasyonu
   /**
