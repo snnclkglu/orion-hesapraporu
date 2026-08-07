@@ -128,6 +128,18 @@ KNOWN_GOOD = {
     "51214": {"static_load_kN": 160},
 }
 
+# SKF Rolling Bearings PUB BU/P1 17000 EN (2018) ürün tablolarında görülen,
+# aynı kod ailesi içinde geometrik tasarım değişiminden kaynaklanan kapasite
+# kırılımları. Bunlar çıkarım hatası değildir; kaynak satırları yine görünür
+# uyarı üretir ki yeni bir katalog baskısında yeniden değerlendirilirler.
+KNOWN_MONOTONIC_EXCEPTIONS = {
+    ("512xx Eksenel Bilyalı", "51205", "51206", "dynamic_load_kN"),
+    ("512xx Eksenel Bilyalı", "51208", "51209", "dynamic_load_kN"),
+    ("512xx Eksenel Bilyalı", "51208", "51209", "static_load_kN"),
+    ("60xx Sabit Bilyalı", "6026", "6028", "dynamic_load_kN"),
+    ("62xx Sabit Bilyalı", "6222", "6224", "dynamic_load_kN"),
+}
+
 
 # --------------------------------------------------------------------------
 # Doğrulama
@@ -257,15 +269,23 @@ def validate_series_monotonic(items: list[dict], rep: Report) -> None:
             if cur["bore_mm"] == prev["bore_mm"]:
                 continue
             tag = f"{series}: {prev['designation']} -> {cur['designation']}"
+            def monotonic_issue(field: str, msg: str) -> None:
+                key = (series, prev["designation"], cur["designation"], field)
+                if key in KNOWN_MONOTONIC_EXCEPTIONS:
+                    rep.warn(f"{tag}: katalog sapması — {msg}")
+                else:
+                    rep.error(f"{tag}: {msg}")
             if cur["dynamic_load_kN"] < prev["dynamic_load_kN"]:
-                rep.error(
-                    f"{tag}: d artarken C düşüyor "
-                    f"({prev['dynamic_load_kN']} -> {cur['dynamic_load_kN']} kN)"
+                monotonic_issue(
+                    "dynamic_load_kN",
+                    "d artarken C düşüyor "
+                    f"({prev['dynamic_load_kN']} -> {cur['dynamic_load_kN']} kN)",
                 )
             if cur["static_load_kN"] < prev["static_load_kN"]:
-                rep.error(
-                    f"{tag}: d artarken C0 düşüyor "
-                    f"({prev['static_load_kN']} -> {cur['static_load_kN']} kN)"
+                monotonic_issue(
+                    "static_load_kN",
+                    "d artarken C0 düşüyor "
+                    f"({prev['static_load_kN']} -> {cur['static_load_kN']} kN)",
                 )
             if cur["limiting_speed_rpm"] > prev["limiting_speed_rpm"]:
                 rep.error(

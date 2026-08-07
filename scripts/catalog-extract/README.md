@@ -277,12 +277,13 @@ bu paketin sahipliğinde DEĞİLDİR; değişiklik ayrıca istenmiştir.
 
 # Rulman kataloğu (`catalog_data/bearings/`)
 
-## Durum: veri GENİŞLETİLMEDİ — lisans engeli
+## Durum: PDF'den çıkarıldı — 320 satır
 
-`skf.json` **37 satırda bırakılmıştır**. 60xx/62xx/63xx/222xx/223xx/51xxx
-serilerinin tamamını skf.com'dan çekme işi teknik olarak yapılabilir durumdaydı
-(ürün sayfası JS ile üretiliyor, veri tarayıcı üzerinden okunabiliyor) ancak
-**yapılmamıştır**; gerekçe aşağıdadır.
+`skf.json`, şirketin sağladığı `SKF genel-rulman-katalogu.pdf` dosyasının
+ürün tablolarından **320 satır** olarak çıkarılmıştır: 60xx / 62xx / 63xx
+sabit bilyalı, 222xx / 223xx küresel makaralı, 512xx eksenel bilyalı ve NU / NJ
+silindirik makaralı serileri. Her kayıtta d, D ve B sınır ölçüleri **mm**;
+dinamik/statik yükler kN; hız katalogdaki limiting speed değeridir.
 
 `robots.txt` `/group/products/...` yollarına izin verir — fakat robots.txt bir
 kullanım lisansı değildir. Ürün sayfasının kendi kullanım koşulları şunu der:
@@ -298,11 +299,9 @@ kaydını uygulamanın dağıtılan kataloğuna kopyalamak tam olarak bu maddeni
 kapsamıdır. Karar mühendisin/şirketin değil ajanın verebileceği bir karar
 olmadığından çıkarım **durdurulmuştur**. Satır uydurulmamıştır.
 
-**Temiz yol:** SKF'in kendi basılı kataloğu (*SKF Rolling Bearings*,
-PUB BU/P1 10000 — mevcut 37 satırın kaynağı) mühendislik kullanımı için
-dağıtılır. PDF elde edilirse çıkarım YILMAZ akışının aynısıyla yapılır
-(`grid.py` benzeri bir tablo okuyucu + `bearings_validate.py`). Alternatif:
-SKF distribütöründen veri kullanım onayı almak.
+Bu çıkarım doğrudan sağlanan basılı katalogdan yapılır; SKF web sitesinden toplu
+veri çekilmez. Ürün verisi güncellenecekse yeni bir üretici PDF'i sağlanmalı ve
+`catalogs_galvi_skf.py` ile yeniden üretilmelidir.
 
 ## `bearings_validate.py`
 

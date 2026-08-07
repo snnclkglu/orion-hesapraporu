@@ -32,6 +32,11 @@ const CATALOG_DIR = positional
   ? path.resolve(positional)
   : path.resolve(__dirname, "..", "..", "catalog_data");
 const ONLY_KINDS = argOf("kinds")?.split(",").map((s) => s.trim()).filter(Boolean);
+/**
+ * Mevcut katalog satırlarını koruyarak yalnızca eksik tür/marka/model
+ * birleşimlerini ekler. Canlı ortama ilk katalog aktarımı için güvenli moddur.
+ */
+const APPEND_ONLY = process.argv.includes("--append");
 const OUT_NAME = argOf("out") ?? "20260719000005_catalog_seed";
 const OUT_FILE = path.resolve(
   __dirname, "..", "supabase", "migrations", `${OUT_NAME}.sql`
@@ -168,13 +173,16 @@ for (const file of ["ropes/hascelik_6x36.json", "ropes/izmit_6x36.json"]) {
 }
 
 // ------------------------------------------------------------------ brakes
-for (const file of [
-  "brakes/sibre_te_drum.json",
-  "brakes/sibre_usb_disc.json",
-  "brakes/sibre_shi_caliper.json",
-  "brakes/dereli_dyf_em.json",
-]) {
-  const { meta, items } = readJson(file);
+// Fren katalogları seri dosyalarına ayrılır; yeni üretici eklendiğinde seed
+// listesine elle ekleme unutulmasın diye klasör kararlı sırada taranır.
+const BRAKE_DIR = "brakes";
+const brakeFiles = fs
+  .readdirSync(path.join(CATALOG_DIR, BRAKE_DIR))
+  .filter((f) => f.toLowerCase().endsWith(".json"))
+  .sort();
+
+for (const file of brakeFiles) {
+  const { meta, items } = readJson(`${BRAKE_DIR}/${file}`);
   const brand = String(meta.brand);
   for (const it of items) {
     const a = cleanAttrs(it);
@@ -482,7 +490,7 @@ parts.push(`-- Katalog seed — catalog_data JSON'larından scripts/seed-catalog
 -- Toplam ${emitted.length} ürün.
 `);
 
-if (ONLY_KINDS) {
+if (ONLY_KINDS && !APPEND_ONLY) {
   parts.push(
     `-- Bu türler tamamen katalog dosyalarından üretilir; eski satırlar bırakılmaz.\n` +
     `delete from public.cat_equipment where kind in (${
@@ -492,10 +500,25 @@ if (ONLY_KINDS) {
 
 for (let i = 0; i < emitted.length; i += BATCH) {
   const batch = emitted.slice(i, i + BATCH);
-  parts.push(
-    `insert into public.cat_equipment (kind, brand, model, attrs, sort) values\n` +
-    batch.map(rowSql).join(",\n") + ";\n"
-  );
+  const values = batch.map(rowSql).join(",\n");
+  if (APPEND_ONLY) {
+    parts.push(
+      `insert into public.cat_equipment (kind, brand, model, attrs, sort)\n` +
+      `select candidate.kind, candidate.brand, candidate.model, candidate.attrs, candidate.sort\n` +
+      `from (values\n${values}\n) as candidate(kind, brand, model, attrs, sort)\n` +
+      `where not exists (\n` +
+      `  select 1 from public.cat_equipment as existing\n` +
+      `  where existing.kind = candidate.kind\n` +
+      `    and existing.brand = candidate.brand\n` +
+      `    and existing.model = candidate.model\n` +
+      `);\n`
+    );
+  } else {
+    parts.push(
+      `insert into public.cat_equipment (kind, brand, model, attrs, sort) values\n` +
+      values + ";\n"
+    );
+  }
 }
 
 // Katalog sürümü → app_settings
