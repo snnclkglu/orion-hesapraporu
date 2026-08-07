@@ -82,6 +82,7 @@ export const CATALOG_KIND_LABELS: Record<string, string> = {
   sheave: "Makara",
   coupling: "Kaplin",
   buffer: "Tampon",
+  air_conditioner: "Klima",
   other: "Diğer",
 };
 
@@ -222,6 +223,16 @@ export const ATTR_LABELS: Record<string, string> = {
   max_load_kn: "En Büyük Teker Yükü [kN]",
   tread_width_mm: "Bandaj Genişliği [mm]",
   bearing_bore_mm: "Rulman İç Çapı [mm]",
+  // Klima
+  cooling_capacity_kw_min: "Soğutma Kapasitesi — En Küçük [kW]",
+  cooling_capacity_kw_max: "Soğutma Kapasitesi — En Büyük [kW]",
+  ambient_temp_min_c: "Ortam Sıcaklığı — En Küçük [°C]",
+  ambient_temp_max_c: "Ortam Sıcaklığı — En Büyük [°C]",
+  service_class: "Hizmet Sınıfı",
+  dust_resistance: "Toz Dayanımı",
+  corrosion_resistance: "Korozyon Dayanımı",
+  vibration_resistance: "Titreşim Dayanımı",
+  features: "Özellikler",
 };
 
 /** Bir attrs anahtarının ekranda gösterilecek adı (yoksa anahtarın kendisi). */

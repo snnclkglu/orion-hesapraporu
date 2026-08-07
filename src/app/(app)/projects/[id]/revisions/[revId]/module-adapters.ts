@@ -132,6 +132,8 @@ export interface AnyFieldDef {
   unit?: string;
   type: "number" | "text" | "select";
   options?: readonly string[];
+  /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
+  optionsFor?: (specs: TechnicalSpecs) => readonly string[];
   /** select değerleri sayısal alana yazılır */
   numeric?: boolean;
   /** select seçeneklerinin gösterim etiketi */

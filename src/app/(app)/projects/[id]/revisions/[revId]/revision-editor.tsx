@@ -275,7 +275,7 @@ function Field({
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
         // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).
-        const base = (def.options ?? []).map(String);
+        const base = (def.optionsFor?.(specs ?? (value as TechnicalSpecs)) ?? def.options ?? []).map(String);
         const cur = v === null || v === undefined || v === "" ? "" : String(v);
         const opts = cur !== "" && !base.includes(cur) ? [cur, ...base] : base;
         return (

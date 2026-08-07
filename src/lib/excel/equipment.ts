@@ -24,11 +24,10 @@ import {
   selectFestoon,
 } from "@/lib/calc/festoon";
 import {
-  AIR_CONDITIONING_TYPE_LABELS,
   AIR_CONDITIONING_REDUNDANCY_LABELS,
   ROOM_INSULATION_LABELS,
 } from "@/lib/calc/fields";
-import { tmsAirConditionerModel } from "@/lib/tms-air-conditioning";
+import { AIR_CONDITIONING_TYPE_LABELS, tmsAirConditionerModel } from "@/lib/tms-air-conditioning";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";

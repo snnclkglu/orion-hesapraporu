@@ -28,6 +28,8 @@ export interface FieldDef<T> {
   unit?: string;
   type: "number" | "text" | "select";
   options?: readonly string[];
+  /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
+  optionsFor?: (specs: TechnicalSpecs) => readonly string[];
   /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
   numeric?: boolean;
   /** select seçeneklerinin gösterim etiketi (değer→etiket, ör. "1000"→"1/1000") */
@@ -453,7 +455,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   {
     key: "operatorCabinAirConditionerModel", label: "Kabin Klima Tipi", type: "select",
-    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "operatorCabin",
+    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.operatorCabinAirConditioning), group: "operatorCabin",
     visible: (s) => s.hasOperatorCabin === "yes" && s.operatorCabinAirConditioning !== "none",
     hint: "TMS tipi, seçilen klima sınıfına uygun olarak proje ısı yüküyle teyit edilir.",
   },
@@ -464,46 +466,46 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
     options: ELECTRICAL_ACCOMMODATION_OPTIONS, optionLabels: ELECTRICAL_ACCOMMODATION_LABELS, group: "electricalAccommodation",
     hint: "Elektrik odası ayrı hacimdir; pano tipinde panolar yan yana dizilir ve oda izolasyonu uygulanmaz.",
   },
-  { key: "electricalRoomWidthM", label: "Oda Genişliği", unit: "m", type: "number", group: "electricalRoom" },
-  { key: "electricalRoomLengthM", label: "Oda Uzunluğu", unit: "m", type: "number", group: "electricalRoom" },
-  { key: "electricalRoomHeightM", label: "Oda Yüksekliği", unit: "m", type: "number", group: "electricalRoom" },
+  { key: "electricalRoomWidthM", label: "Oda Genişliği", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
+  { key: "electricalRoomLengthM", label: "Oda Uzunluğu", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
+  { key: "electricalRoomHeightM", label: "Oda Yüksekliği", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
   {
     key: "electricalRoomInsulation", label: "Oda İzolasyonu", type: "select",
-    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "electricalRoom",
+    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room",
   },
   {
     key: "electricalRoomAirConditioning", label: "Elektrik Odası Kliması", type: "select",
-    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "electricalRoom",
+    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room",
   },
   {
     key: "electricalRoomAirConditionerModel", label: "Elektrik Odası Klima Tipi", type: "select",
-    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "electricalRoom",
-    visible: (s) => s.electricalRoomAirConditioning !== "none",
+    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.electricalRoomAirConditioning), group: "electricalRoom",
+    visible: (s) => s.electricalAccommodationType === "room" && s.electricalRoomAirConditioning !== "none",
   },
   {
     key: "electricalRoomAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
     options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "electricalRoom",
-    visible: (s) => s.electricalRoomAirConditioning !== "none",
+    visible: (s) => s.electricalAccommodationType === "room" && s.electricalRoomAirConditioning !== "none",
     hint: "Elektrik odasında kurulu yedek seçimi 1+1 olarak ekipman listesine yansır.",
   },
-  { key: "electricalPanelCount", label: "Pano Adedi", unit: "adet", type: "number", group: "panelType" },
+  { key: "electricalPanelCount", label: "Pano Adedi", unit: "adet", type: "number", group: "panelType", visible: (s) => s.electricalAccommodationType === "panel" },
   {
-    key: "electricalPanelIpClass", label: "Pano Koruma Sınıfı", type: "select", options: ELECTRICAL_PANEL_IP_CLASSES, group: "panelType",
+    key: "electricalPanelIpClass", label: "Pano Koruma Sınıfı", type: "select", options: ELECTRICAL_PANEL_IP_CLASSES, group: "panelType", visible: (s) => s.electricalAccommodationType === "panel",
     hint: "Pano tipi yerleşimde oda izolasyonu yoktur; pano gövdesinin IP koruması belirtilir.",
   },
   {
     key: "electricalPanelAirConditioning", label: "Pano Kliması", type: "select",
-    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "panelType",
+    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "panelType", visible: (s) => s.electricalAccommodationType === "panel",
   },
   {
     key: "electricalPanelAirConditionerModel", label: "Pano Klima Tipi", type: "select",
-    options: ["Projeye özel seçim", ...airConditionerModelOptions("panel"), ...airConditionerModelOptions("industrial"), ...airConditionerModelOptions("heavyIndustrial")], group: "panelType",
-    visible: (s) => s.electricalPanelAirConditioning !== "none",
+    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.electricalPanelAirConditioning), group: "panelType",
+    visible: (s) => s.electricalAccommodationType === "panel" && s.electricalPanelAirConditioning !== "none",
   },
   {
     key: "electricalPanelAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
     options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "panelType",
-    visible: (s) => s.electricalPanelAirConditioning !== "none",
+    visible: (s) => s.electricalAccommodationType === "panel" && s.electricalPanelAirConditioning !== "none",
   },
 
   // --- Vinç konfigürasyonu (hesap bölümlerini açar)

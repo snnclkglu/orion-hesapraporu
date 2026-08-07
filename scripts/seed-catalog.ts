@@ -52,6 +52,7 @@ interface Row {
   brand: string;
   model: string;
   attrs: Record<string, unknown>;
+  datasheetUrl: string;
   sort: number;
 }
 
@@ -88,8 +89,14 @@ const num = (v: unknown): number | undefined =>
 const rows: Row[] = [];
 let sortCounter = 0;
 
-function push(kind: string, brand: string, model: string, attrs: Record<string, unknown>) {
-  rows.push({ kind, brand, model, attrs, sort: sortCounter++ });
+function push(
+  kind: string,
+  brand: string,
+  model: string,
+  attrs: Record<string, unknown>,
+  datasheetUrl = ""
+) {
+  rows.push({ kind, brand, model, attrs, datasheetUrl, sort: sortCounter++ });
 }
 
 // ------------------------------------------------------------------ motors
@@ -295,6 +302,23 @@ for (const file of couplingFiles) {
   }
 }
 
+// ---------------------------------------------------- air conditioners
+// TMS'nin kamuya açık seri sayfalarından alınan tip kataloğu. Bu satırlar
+// kapasite hesabı yapmak için değil; teknik özelliklerdeki tip ön seçimi ve
+// ekipman listesi/datasheet bağlantısı için tutulur.
+{
+  const { meta, items } = readJson("air_conditioners/tms.json");
+  const brand = String(meta.brand);
+  for (const it of items) {
+    const a = cleanAttrs(it);
+    const model = String(a.model ?? "");
+    const datasheetUrl = String(a.datasheet_url ?? "");
+    delete a.model;
+    delete a.datasheet_url;
+    push("air_conditioner", brand, model, a, datasheetUrl);
+  }
+}
+
 // ------------------------------------------------------------------ buffers
 // (Madde 20, 21) Tampon kataloğu ÜÇ AİLEDEN gelir — SIBRE SP hidrolik,
 // Conductix-Wampfler kauçuk (Program 0170) ve hücresel (Program 0180) — ve
@@ -476,7 +500,7 @@ const esc = (s: string): string => s.replace(/'/g, "''");
 
 function rowSql(r: Row): string {
   const attrsJson = esc(JSON.stringify(r.attrs));
-  return `  ('${r.kind}', '${esc(r.brand)}', '${esc(r.model)}', '${attrsJson}'::jsonb, ${r.sort})`;
+  return `  ('${r.kind}', '${esc(r.brand)}', '${esc(r.model)}', '${attrsJson}'::jsonb, '${esc(r.datasheetUrl)}', ${r.sort})`;
 }
 
 // `--kinds` verildiyse yalnız o türler yazılır ve önce mevcut satırları silinir.
@@ -503,9 +527,9 @@ for (let i = 0; i < emitted.length; i += BATCH) {
   const values = batch.map(rowSql).join(",\n");
   if (APPEND_ONLY) {
     parts.push(
-      `insert into public.cat_equipment (kind, brand, model, attrs, sort)\n` +
-      `select candidate.kind, candidate.brand, candidate.model, candidate.attrs, candidate.sort\n` +
-      `from (values\n${values}\n) as candidate(kind, brand, model, attrs, sort)\n` +
+      `insert into public.cat_equipment (kind, brand, model, attrs, datasheet_url, sort)\n` +
+      `select candidate.kind, candidate.brand, candidate.model, candidate.attrs, candidate.datasheet_url, candidate.sort\n` +
+      `from (values\n${values}\n) as candidate(kind, brand, model, attrs, datasheet_url, sort)\n` +
       `where not exists (\n` +
       `  select 1 from public.cat_equipment as existing\n` +
       `  where existing.kind = candidate.kind\n` +
@@ -515,7 +539,7 @@ for (let i = 0; i < emitted.length; i += BATCH) {
     );
   } else {
     parts.push(
-      `insert into public.cat_equipment (kind, brand, model, attrs, sort) values\n` +
+      `insert into public.cat_equipment (kind, brand, model, attrs, datasheet_url, sort) values\n` +
       values + ";\n"
     );
   }
