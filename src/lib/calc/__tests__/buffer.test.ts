@@ -140,15 +140,27 @@ describe("enerji dengesi ve birim tutarlılığı", () => {
     );
   });
 
-  it("hidrolik tepki kuvveti F = E_a/(s·η) + F₀ ile TERSİNE çözülebilir", () => {
+  it("hidrolik tampon kuvveti F = E_a/(s·η) ile TERSİNE çözülebilir", () => {
     const r = computeBuffer({ ...BASE, drivePowerTotalKw: 10 });
     const sonuc = r.values.reactionForceKn;
     // Ters çözüm: kuvvetten enerjiye dönülünce aynı E_a çıkmalı.
     const geri =
-      (sonuc - r.values.driveForcePerBufferN / 1000) *
+      sonuc *
       (r.values.strokeUsedMm / 1000) *
       HYDRAULIC_DAMPING_EFFICIENCY;
     expect(geri).toBeCloseTo(r.values.totalEnergyKj, 9);
+  });
+
+  it("tahrik kuvvetini tampon direncine eklemez; ivme net kuvvetle hesaplanır", () => {
+    const r = computeBuffer({ ...BASE, drivePowerTotalKw: 10 });
+    const strokeM = r.values.strokeUsedMm / 1000;
+    const expectedResistanceKn = r.values.totalEnergyKj / (strokeM * HYDRAULIC_DAMPING_EFFICIENCY);
+    const expectedDeceleration =
+      (expectedResistanceKn * 1000 - r.values.driveForcePerBufferN) /
+      (r.values.massPerBufferT * 1000);
+
+    expect(r.values.reactionForceKn).toBeCloseTo(expectedResistanceKn, 9);
+    expect(r.values.maxDecelerationMps2).toBeCloseTo(expectedDeceleration, 9);
   });
 
   it("sönümleme verimi 0,85'tir (SIBRE SP kataloğu) ve kuvveti belirler", () => {

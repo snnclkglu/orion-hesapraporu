@@ -2,7 +2,8 @@
 // üretilir. Marka altyapısı brand.tsx: BrandPage (kırmızı omurga + folio
 // altbilgi), PageHeader bandı, Archivo gövde + PlexMono sayı/kod. Sütunlar:
 // Ekipman · Marka · Model · Özellikler · Adet. Model hücresi katalog datasheet
-// linki varsa köprülenir (çelik mavisi). scope="full" → Teknik Ressam Özeti.
+// linki varsa köprülenir (çelik mavisi); klima satırları düz metindir.
+// scope="full" → Teknik Ressam Özeti.
 //
 // Sütun metinleri `buildEquipmentGroups` içinde `baslikDuzeni` ile "Baş Harfler
 // Büyük" düzenine getirilmiş olarak gelir (madde 33) — burada yeniden
@@ -13,7 +14,7 @@ import { Document, Link, StyleSheet, Text, View, renderToBuffer } from "@react-p
 import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
-import { dsKey } from "@/lib/excel/equipment";
+import { canLinkEquipmentModel, dsKey } from "@/lib/excel/equipment";
 import { BRAND, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
@@ -42,16 +43,18 @@ const s = StyleSheet.create({
   tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline },
   td: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, paddingVertical: 2.5, paddingHorizontal: 5 },
   mono: { fontFamily: FONTS.mono, fontSize: 7, fontWeight: 500, letterSpacing: 0.2 },
-  cComp: { width: "18%" },
-  cBrand: { width: "12%" },
-  cModel: { width: "15%" },
-  cSpec: { width: "30%" },
+  // Ekipman listesi A4 yataydır. Uzun katalog kodlarının özellik hücresine
+  // taşmaması için model sütunu özellikle geniş tutulur.
+  cComp: { width: "15%" },
+  cBrand: { width: "11%" },
+  cModel: { width: "18%" },
+  cSpec: { width: "34%" },
   // Ek Özellikler: kullanıcının satıra yazdığı serbest açıklama (madde 34).
   // Renk ayrı stildedir; genişlik stili başlık satırında da kullanılıyor ve
   // oradaki paper100 metin rengini ezmemelidir.
-  cNote: { width: "18%" },
+  cNote: { width: "16%" },
   noteText: { color: BRAND.gray700 },
-  cQty: { width: "7%", textAlign: "right" as const },
+  cQty: { width: "6%", textAlign: "right" as const },
   custom: { color: BRAND.red },
   // Alternatif (seçenekli) satır: aktif seçim ana satırdır, alternatifler onun
   // ALTINDA soluk ve girintili durur. Eğik yazı KULLANILMAZ — Archivo eğik
@@ -83,16 +86,24 @@ export interface EquipmentPdfProps {
   datasheetUrls?: Map<string, string>;
 }
 
+/** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
+export function breakEquipmentModelCode(model: string): string {
+  return model.replace(/([./_-])/g, "$1\u200B");
+}
+
 function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
   const url = row.kind ? urls?.get(dsKey(row.kind, row.brand, row.model)) : undefined;
-  if (url && row.model && row.model !== "-") {
+  const model = breakEquipmentModelCode(row.model);
+  // Klima tipleri için üretici websitesi bağlantısı müşteri çıktılarında
+  // istenmiyor; diğer katalog ekipmanlarının datasheet bağlantıları korunur.
+  if (canLinkEquipmentModel(row.kind) && url && row.model && row.model !== "-") {
     return (
       <View style={[s.td, s.cModel]}>
-        <Link src={url} style={[s.mono, { color: BRAND.steel, textDecoration: "underline" }]}>{row.model}</Link>
+        <Link src={url} style={[s.mono, { color: BRAND.steel, textDecoration: "underline" }]}>{model}</Link>
       </View>
     );
   }
-  return <Text style={[s.td, s.mono, s.cModel]}>{row.model}</Text>;
+  return <Text style={[s.td, s.mono, s.cModel]}>{model}</Text>;
 }
 
 export function EquipmentDocument({ meta, groups, summary, settings, datasheetUrls }: EquipmentPdfProps) {
@@ -109,6 +120,7 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
       <BrandPage
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
         docCode={docCode}
+        orientation="landscape"
       >
         {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır */}
         <PageHeader kicker="ORION CRANES · EKİPMAN LİSTESİ" title="Ekipman Listesi" meta={docCode} />

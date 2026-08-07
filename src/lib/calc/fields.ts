@@ -554,8 +554,8 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   { key: "mainLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mainHoist" },
   { key: "mainLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mainHoist" },
-  { key: "hoistMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mainHoist", standardRef: "FEM 1.001 T.2.6" },
-  { key: "hoistUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mainHoist", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "hoistMechanismClass", label: "Ana Kaldırma Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mainHoist", standardRef: "FEM 1.001 T.2.6" },
+  { key: "hoistUsageClass", label: "Ana Kaldırma Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mainHoist", standardRef: "FEM 1.001 T.2.1.3.2" },
 
   // --- Yardımcı kaldırma (bölüm kapalıysa gizlenir)
   { key: "auxCapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "auxHoist", requiresModule: "aux" },
@@ -567,13 +567,13 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "auxLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "auxHoist", requiresModule: "aux" },
   { key: "auxLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "auxHoist", requiresModule: "aux" },
   {
-    key: "auxMechanismClass", label: "Mekanizma Sınıfı", type: "select",
+    key: "auxMechanismClass", label: "Yardımcı Kaldırma Mekanizma Sınıfı", type: "select",
     options: MECHANISM_CLASSES, group: "auxHoist", requiresModule: "aux",
     standardRef: "FEM 1.001 T.2.6",
     hint: "Yardımcı kaldırma bağımsız bir mekanizmadır; boş bırakılırsa ana kaldırmanın sınıfı kullanılır.",
   },
   {
-    key: "auxUsageClass", label: "Kullanım Sınıfı", type: "select",
+    key: "auxUsageClass", label: "Yardımcı Kaldırma Kullanım Sınıfı", type: "select",
     options: USAGE_CLASSES, group: "auxHoist", requiresModule: "aux",
     standardRef: "FEM 1.001 T.2.1.3.2",
     hint: "Gerekli rulman ömrünü belirler; boş bırakılırsa ana kaldırmanın sınıfı kullanılır.",
@@ -588,8 +588,8 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   { key: "mono1LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
   { key: "mono1LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
-  { key: "mono1MechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Hoist", requiresModule: "mono1", standardRef: "FEM 1.001 T.2.6" },
-  { key: "mono1UsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono1Hoist", requiresModule: "mono1", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "mono1MechanismClass", label: "Monoray 1 Kaldırma Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Hoist", requiresModule: "mono1", standardRef: "FEM 1.001 T.2.6" },
+  { key: "mono1UsageClass", label: "Monoray 1 Kaldırma Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono1Hoist", requiresModule: "mono1", standardRef: "FEM 1.001 T.2.1.3.2" },
 
   // --- Monoray 2 kaldırma
   { key: "mono2CapacityT", label: "Kaldırma Kapasitesi", unit: "ton", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
@@ -600,49 +600,49 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
   { key: "mono2LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
   { key: "mono2LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
-  { key: "mono2MechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Hoist", requiresModule: "mono2", standardRef: "FEM 1.001 T.2.6" },
-  { key: "mono2UsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Hoist", requiresModule: "mono2", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "mono2MechanismClass", label: "Monoray 2 Kaldırma Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Hoist", requiresModule: "mono2", standardRef: "FEM 1.001 T.2.6" },
+  { key: "mono2UsageClass", label: "Monoray 2 Kaldırma Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Hoist", requiresModule: "mono2", standardRef: "FEM 1.001 T.2.1.3.2" },
 
   // --- Ana araba yürütme
-  { key: "trolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "trolley" },
-  { key: "trolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.6" },
-  { key: "trolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "trolleySpeedMpm", label: "Ana Araba Yürütme Hızı", unit: "m/dak", type: "number", group: "trolley" },
+  { key: "trolleyMechanismClass", label: "Ana Araba Yürütme Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.6" },
+  { key: "trolleyUsageClass", label: "Ana Araba Yürütme Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
   {
-    key: "trolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    key: "trolleyPowerSupply", label: "Ana Araba Enerji Besleme Sistemi", type: "select",
     options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS, group: "trolley",
     hint: "Araba için Feston veya kablo zinciri seçilir. Feston seçildiğinde aşağıda tip ve adet açılır.",
   },
 
   // --- Yardımcı araba yürütme
-  { key: "auxTrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "auxTrolley", requiresModule: "auxTrolley" },
-  { key: "auxTrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.6" },
-  { key: "auxTrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "auxTrolleySpeedMpm", label: "Yardımcı Araba Yürütme Hızı", unit: "m/dak", type: "number", group: "auxTrolley", requiresModule: "auxTrolley" },
+  { key: "auxTrolleyMechanismClass", label: "Yardımcı Araba Yürütme Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.6" },
+  { key: "auxTrolleyUsageClass", label: "Yardımcı Araba Yürütme Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "auxTrolley", requiresModule: "auxTrolley", standardRef: "FEM 1.001 T.2.1.3.2" },
   {
-    key: "auxTrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    key: "auxTrolleyPowerSupply", label: "Yardımcı Araba Enerji Besleme Sistemi", type: "select",
     options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
     group: "auxTrolley", requiresModule: "auxTrolley",
   },
 
   // --- Monoray araba yürütme
-  { key: "mono1TrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "mono1Trolley", requiresModule: "mono1Trolley" },
-  { key: "mono1TrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.6" },
-  { key: "mono1TrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "mono1TrolleySpeedMpm", label: "Monoray 1 Araba Yürütme Hızı", unit: "m/dak", type: "number", group: "mono1Trolley", requiresModule: "mono1Trolley" },
+  { key: "mono1TrolleyMechanismClass", label: "Monoray 1 Araba Yürütme Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.6" },
+  { key: "mono1TrolleyUsageClass", label: "Monoray 1 Araba Yürütme Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono1Trolley", requiresModule: "mono1Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
   {
-    key: "mono1TrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    key: "mono1TrolleyPowerSupply", label: "Monoray 1 Araba Enerji Besleme Sistemi", type: "select",
     options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
     group: "mono1Trolley", requiresModule: "mono1Trolley",
   },
-  { key: "mono2TrolleySpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "mono2Trolley", requiresModule: "mono2Trolley" },
-  { key: "mono2TrolleyMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.6" },
-  { key: "mono2TrolleyUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "mono2TrolleySpeedMpm", label: "Monoray 2 Araba Yürütme Hızı", unit: "m/dak", type: "number", group: "mono2Trolley", requiresModule: "mono2Trolley" },
+  { key: "mono2TrolleyMechanismClass", label: "Monoray 2 Araba Yürütme Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.6" },
+  { key: "mono2TrolleyUsageClass", label: "Monoray 2 Araba Yürütme Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "mono2Trolley", requiresModule: "mono2Trolley", standardRef: "FEM 1.001 T.2.1.3.2" },
   {
-    key: "mono2TrolleyPowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    key: "mono2TrolleyPowerSupply", label: "Monoray 2 Araba Enerji Besleme Sistemi", type: "select",
     options: TROLLEY_POWER_SUPPLY_OPTIONS, optionLabels: TROLLEY_POWER_SUPPLY_LABELS,
     group: "mono2Trolley", requiresModule: "mono2Trolley",
   },
 
   {
-    key: "trolleyBufferType", label: "Tampon Tipi", type: "select",
+    key: "trolleyBufferType", label: "Araba Tampon Tipi", type: "select",
     options: BUFFER_TECHNICAL_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "trolley",
     hint:
       "Seçime göre 5.8 Tampon bölümü açılır ve ilgili hesap dalı koşar. " +
@@ -651,7 +651,7 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
       "grupları (ana, yardımcı, monoray) bu seçimi paylaşır.",
   },
   {
-    key: "trolleyBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
+    key: "trolleyBufferImpactSpeedPct", label: "Araba Çarpma Hızı Oranı", unit: "%",
     type: "number", group: "trolley", standardRef: "FEM 1.001 2.2.3.4.1",
     hint:
       "v_ç = anma hızı × bu oran. FEM 1.001 md. 2.2.3.4.1 cihaz için %70 verir; " +
@@ -659,23 +659,23 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   },
 
   // --- Köprü yürütme
-  { key: "bridgeSpeedMpm", label: "Yürütme Hızı", unit: "m/dak", type: "number", group: "bridge" },
-  { key: "bridgeMechanismClass", label: "Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.6" },
-  { key: "bridgeUsageClass", label: "Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.1.3.2" },
+  { key: "bridgeSpeedMpm", label: "Köprü Yürütme Hızı", unit: "m/dak", type: "number", group: "bridge" },
+  { key: "bridgeMechanismClass", label: "Köprü Yürütme Mekanizma Sınıfı", type: "select", options: MECHANISM_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.6" },
+  { key: "bridgeUsageClass", label: "Köprü Yürütme Kullanım Sınıfı", type: "select", options: USAGE_CLASSES, group: "bridge", standardRef: "FEM 1.001 T.2.1.3.2" },
   {
-    key: "bridgePowerSupply", label: "Enerji Besleme Sistemi", type: "select",
+    key: "bridgePowerSupply", label: "Köprü Enerji Besleme Sistemi", type: "select",
     options: BRIDGE_POWER_SUPPLY_OPTIONS, optionLabels: BRIDGE_POWER_SUPPLY_LABELS, group: "bridge",
     hint: "Köprü için Feston, kablo zinciri, bara veya kablo sarma tamburu seçilir.",
   },
   {
-    key: "bridgeBufferType", label: "Tampon Tipi", type: "select",
+    key: "bridgeBufferType", label: "Köprü Tampon Tipi", type: "select",
     options: BUFFER_TECHNICAL_TYPES, optionLabels: BUFFER_TYPE_LABELS, group: "bridge",
     hint:
       "Seçime göre 6.9 Tampon bölümü açılır. Kauçuk seçiminde katalogdan " +
       "kauçuk veya hücresel poliüretan alt türü seçilebilir.",
   },
   {
-    key: "bridgeBufferImpactSpeedPct", label: "Çarpma Hızı Oranı", unit: "%",
+    key: "bridgeBufferImpactSpeedPct", label: "Köprü Çarpma Hızı Oranı", unit: "%",
     type: "number", group: "bridge", standardRef: "FEM 1.001 2.2.3.4.1",
     hint:
       "v_ç = anma hızı × bu oran. Köprüde FEM 1.001 md. 2.2.3.4.1'in verdiği " +

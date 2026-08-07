@@ -6,12 +6,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, Link2, MoreHorizontal, Trash2 } from "lucide-react";
+import { Copy, Link2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
   assignProjectToJob,
   deleteProject,
   duplicateProject,
+  updateProjectDetails,
   type DuplicateProjectInput,
+  type ProjectDetailsInput,
 } from "./actions";
 import {
   NO_ITEM, NO_JOB, type JobItemOption, type JobOption,
@@ -230,6 +232,78 @@ export function DuplicateProjectDialog({
   );
 }
 
+// --------------------------------------------------------- Proje bilgileri
+
+export function EditProjectDetailsDialog({
+  project,
+  open,
+  onOpenChange,
+}: {
+  project: ProjectSummary;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState(project.name);
+  const [customer, setCustomer] = useState(project.customer);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const input: ProjectDetailsInput = { name, customer };
+    startTransition(async () => {
+      const result = await updateProjectDetails(project.id, input);
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Proje bilgileri güncellendi.");
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Proje Bilgilerini Düzenle</DialogTitle>
+          <DialogDescription>
+            <span className="font-mono">{project.doc_no}</span> için proje / iş adı ve müşteri
+            bilgisi güncellenir.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="project_name">Proje / İş Adı</Label>
+            <Input
+              id="project_name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="project_customer">Müşteri</Label>
+            <Input
+              id="project_customer"
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Vazgeç
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ------------------------------------------------------------ İşe Bağla
 
 export function AssignJobDialog({
@@ -407,7 +481,7 @@ export function DeleteProjectDialog({
 
 // ---------------------------------------------------- Birleşik tetikleyiciler
 
-type ActiveDialog = "duplicate" | "assign" | "delete" | null;
+type ActiveDialog = "edit" | "duplicate" | "assign" | "delete" | null;
 
 /** Projeler listesi satır menüsü — satırı kaplayan link ile çakışmaz (z-10) */
 export function ProjectRowActions({
@@ -434,6 +508,9 @@ export function ProjectRowActions({
         {/* Menü kapanırken odak tetikleyiciye dönmesin — hemen açılan dialogla
             odak çekişmesi yaşanmasın diye. */}
         <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DropdownMenuItem onSelect={() => setActive("edit")}>
+            <Pencil className="size-3.5" /> Düzenle
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setActive("duplicate")}>
             <Copy className="size-3.5" /> Kopyala
           </DropdownMenuItem>
@@ -452,6 +529,13 @@ export function ProjectRowActions({
       </DropdownMenu>
 
       {/* Dialoglar menünün dışında durur; menü kapansa da açık kalırlar. */}
+      {active === "edit" && (
+        <EditProjectDetailsDialog
+          project={project}
+          open
+          onOpenChange={(o) => !o && setActive(null)}
+        />
+      )}
       {active === "duplicate" && (
         <DuplicateProjectDialog
           project={project}
@@ -493,6 +577,9 @@ export function ProjectDetailActions({
 
   return (
     <>
+      <Button variant="ghost" size="sm" onClick={() => setActive("edit")}>
+        <Pencil className="size-3.5 text-muted-foreground" /> Düzenle
+      </Button>
       <Button variant="ghost" size="sm" onClick={() => setActive("duplicate")}>
         <Copy className="size-3.5 text-muted-foreground" /> Kopyala
       </Button>
@@ -511,6 +598,13 @@ export function ProjectDetailActions({
         </Button>
       )}
 
+      {active === "edit" && (
+        <EditProjectDetailsDialog
+          project={project}
+          open
+          onOpenChange={(o) => !o && setActive(null)}
+        />
+      )}
       {active === "duplicate" && (
         <DuplicateProjectDialog
           project={project}

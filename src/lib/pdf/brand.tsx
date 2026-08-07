@@ -146,6 +146,8 @@ export interface PageFrameProps {
   children: React.ReactNode;
   /** Kapak sayfasında altbilgi çizgisi istenmezse */
   hideFooterRule?: boolean;
+  /** Yalnız geniş tablo ve çizelgelerde A4 yatay kullanılır. */
+  orientation?: "portrait" | "landscape";
   style?: object;
 }
 
@@ -154,10 +156,18 @@ export interface PageFrameProps {
  * sabit altbilgi (doküman satırı + folio "07 / 25"), doğru marjlarla içerik alanı.
  * Şablonlar <Page> yerine bunu kullanır.
  */
-export function BrandPage({ docLine, docCode, children, hideFooterRule, style }: PageFrameProps) {
+export function BrandPage({
+  docLine,
+  docCode,
+  children,
+  hideFooterRule,
+  orientation = "portrait",
+  style,
+}: PageFrameProps) {
   return (
     <Page
       size="A4"
+      orientation={orientation}
       style={{
         fontFamily: FONTS.sans,
         fontSize: 8.5,

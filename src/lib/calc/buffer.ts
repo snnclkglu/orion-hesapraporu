@@ -559,9 +559,12 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       totalEnergyKj = solved.totalEnergyKj;
       strokeUsedMm = solved.strokeUsedMm;
       beyondCurve = solved.beyondCurve;
-      // Kuvvet AYNI sıkışma yüzdesinden okunur; tahrik kuvveti eklenir.
+      // Kuvvet AYNI sıkışma yüzdesinden okunur. Eğrinin verdiği kuvvet,
+      // tamponun hareketli kütleye karşı direnç kuvvetidir; tahrik kuvveti
+      // buna EKLENMEZ. Tahrik etkisi zaten enerji denkleminde F₀·f′ olarak
+      // sıkışma ihtiyacına dahil edilmiştir.
       const curveForceKn = interpolateCurve(forceCurve, compressionPct) ?? 0;
-      reactionForceKn = curveForceKn + driveForcePerBufferN / 1000;
+      reactionForceKn = curveForceKn;
     }
   } else {
     // HİDROLİK (SIBRE SP): sabit kuvvetli sönümleme — tam strok kullanılır.
@@ -572,8 +575,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
     const strokeM = strokeUsedMm / 1000;
     reactionForceKn =
       strokeM > 0
-        ? totalEnergyKj / (strokeM * HYDRAULIC_DAMPING_EFFICIENCY) +
-          driveForcePerBufferN / 1000
+        ? totalEnergyKj / (strokeM * HYDRAULIC_DAMPING_EFFICIENCY)
         : 0;
   }
 
@@ -587,17 +589,21 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   // 4) Yavaşlama (FEM 1.001 md. 7.7.1.2)
   //
   // ORTALAMA yavaşlama saf kinematiktir: kütle v_ç hızından f′ yolunda durur.
-  // AZAMİ yavaşlama, tamponun TEPE KUVVETİNDEN çıkar. Burada tepki kuvvetinin
-  // tamamı DEĞİL, tamponun kendi kuvveti kullanılır: tepki kuvveti F_t, yapıya
-  // teslim edilen değerdir ve tahrik itmesini (F₀) de içerir; oysa tahrik
-  // kuvveti hareket yönünde etki eder, kütleyi YAVAŞLATMAZ. Kütleye etkiyen net
-  // frenleme kuvveti F_tampon = F_t − F₀'dır. (Tam net kuvvet F_tampon − F₀
-  // olurdu; tahrik itmesi bir kez daha düşülmez — emniyetli taraf.)
+  // AZAMİ yavaşlama, tamponun TEPE KUVVETİNDEN çıkar. `reactionForceKn`,
+  // tamponun yapıya aktardığı gerçek direnç kuvvetidir. Tahrik kuvveti F₀
+  // hareket yönünde kaldığından net yavaşlatan kuvvet F_tampon − F₀'dır.
+  // F₀, enerji denklemine zaten ek iş olarak girmiştir; burada bir kez daha
+  // net kuvvetten düşülmesi gerekir. Önceki uygulama F₀'ı hem katalog
+  // kuvvetine ekliyor hem de ivme hesabında düşmüyordu; özellikle araba
+  // tamponunda yavaşlama gereğinden büyük çıkıyordu.
   const strokeUsedM = strokeUsedMm / 1000;
   const avgDecel = strokeUsedM > 0 ? impactSpeedMps ** 2 / (2 * strokeUsedM) : 0;
   const massPerBufferKg = massPerBufferT * 1000;
-  const bufferOwnForceN = Math.max(0, reactionForceKn * 1000 - driveForcePerBufferN);
-  const maxDecel = massPerBufferKg > 0 ? bufferOwnForceN / massPerBufferKg : 0;
+  const netDeceleratingForceN = Math.max(
+    0,
+    reactionForceKn * 1000 - driveForcePerBufferN
+  );
+  const maxDecel = massPerBufferKg > 0 ? netDeceleratingForceN / massPerBufferKg : 0;
   set("buffer.avgDeceleration", avgDecel);
   set("buffer.maxDeceleration", maxDecel);
 

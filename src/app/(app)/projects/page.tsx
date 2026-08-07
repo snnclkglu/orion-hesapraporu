@@ -101,7 +101,7 @@ export default async function ProjectsPage() {
         <StatCard
           label="Toplam Proje"
           value={String(list.length)}
-          hint={`${list.filter((p) => p.status === "active").length} aktif`}
+          hint={`${list.filter((p) => p.status === "active").length} Aktif`}
           icon={FolderKanban}
         />
         <StatCard
@@ -189,7 +189,7 @@ export default async function ProjectsPage() {
                           <Badge
                             variant={lastRev.status === "issued" ? "default" : "secondary"}
                           >
-                            {lastRev.status === "issued" ? "yayınlandı" : "taslak"}
+                            {lastRev.status === "issued" ? "Yayınlandı" : "Taslak"}
                           </Badge>
                         </span>
                       ) : (
@@ -204,7 +204,7 @@ export default async function ProjectsPage() {
                             p.status === "active" ? "bg-success" : "bg-muted-foreground/40"
                           )}
                         />
-                        {p.status === "active" ? "aktif" : "arşiv"}
+                        {p.status === "active" ? "Aktif" : "Arşiv"}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">

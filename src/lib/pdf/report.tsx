@@ -586,15 +586,81 @@ const FESTOON_SPEC_FIELD_KEYS = new Set<string>([
   "bridgePowerSupply",
 ]);
 
-function specFieldsFor(input: CalcInput): AnyFieldDef[] {
-  return (SPEC_FIELDS as AnyFieldDef[]).filter((f) => {
+/** PDF özetinde teknik anlam taşımayan "Yok" / boş seçimleri basma. */
+function isAbsentSummarySpec(f: AnyFieldDef, specs: TechnicalSpecs): boolean {
+  const raw = (specs as unknown as Record<string, unknown>)[f.key];
+  const normalized = typeof raw === "string" ? raw.trim().toLocaleLowerCase("tr-TR") : "";
+  if (
+    raw === undefined ||
+    raw === null ||
+    (typeof raw === "string" && (normalized === "" || normalized === "yok" || normalized === "none" || normalized === "no"))
+  ) {
+    return true;
+  }
+  const label = f.optionLabels?.[String(raw)];
+  return label === "Yok";
+}
+
+/** Özet PDF'deki teknik özellik alanlarının görünürlük ve sıralama kuralları. */
+export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
+  const fields = (SPEC_FIELDS as AnyFieldDef[]).filter((f) => {
     const req = (f as { requiresModule?: ModuleKey }).requiresModule;
     const visibleForModule = !req || moduleState(input, req) !== undefined;
-    const visibleInReport = input.specs.showFestoonDetailsInReport || !FESTOON_SPEC_FIELD_KEYS.has(f.key);
+    const visibleInReport =
+      (input.specs.showFestoonDetailsInReport || !FESTOON_SPEC_FIELD_KEYS.has(f.key)) &&
+      f.key !== "trolleyBufferImpactSpeedPct" &&
+      f.key !== "bridgeBufferImpactSpeedPct";
     const visibleForSpecs = !(f as { visible?: (specs: TechnicalSpecs) => boolean }).visible ||
       (f as { visible?: (specs: TechnicalSpecs) => boolean }).visible!(input.specs);
-    return visibleForModule && visibleInReport && visibleForSpecs;
+    return visibleForModule && visibleInReport && visibleForSpecs && !isAbsentSummarySpec(f, input.specs);
   });
+
+  // Özet sayfasının ilk teknik bilgisi her zaman ana kaldırma kapasitesidir.
+  const mainCapacity = fields.find((f) => f.key === "mainCapacityT");
+  return mainCapacity
+    ? [mainCapacity, ...fields.filter((f) => f !== mainCapacity)]
+    : fields;
+}
+
+/**
+ * Özet teknik tabloya yalnız raporda görünen toplam ağırlık satırlarını ekler.
+ * Vinç toplamı, bu tabloda ayrı ayrı görünen köprü + ana araba + ana
+ * kanca/kepçe gövdesinin toplamıdır; kapasite (kaldırılan yük) dahil edilmez.
+ */
+export function summarySpecsForReport(input: CalcInput): {
+  defs: AnyFieldDef[];
+  source: Record<string, unknown>;
+} {
+  const source: Record<string, unknown> = { ...input.specs };
+  const attachmentWeightT = Math.max(0, (input.mainHoist?.inputs.hookBlockWeightKg ?? 0) / 1000);
+  const craneTotalWeightT =
+    Math.max(0, input.specs.mainTrolleyWeightT ?? 0) +
+    Math.max(0, input.specs.bridgeWeightT ?? 0) +
+    attachmentWeightT;
+  source.summaryAttachmentWeightT = attachmentWeightT;
+  source.summaryCraneTotalWeightT = craneTotalWeightT;
+
+  const attachmentIsGrab = input.specs.hookType.toLocaleLowerCase("tr-TR").includes("kepçe");
+  const extra: AnyFieldDef[] = [
+    {
+      key: "summaryAttachmentWeightT",
+      label: attachmentIsGrab ? "Kepçe Ağırlığı" : "Kanca Bloğu Ağırlığı",
+      unit: "t",
+      type: "number",
+    },
+    {
+      key: "summaryCraneTotalWeightT",
+      label: "Vinç Toplam Ağırlığı",
+      unit: "t",
+      type: "number",
+    },
+  ];
+
+  const defs = specFieldsFor(input);
+  const bridgeWeightIndex = defs.findIndex((f) => f.key === "bridgeWeightT");
+  const afterWeights = bridgeWeightIndex >= 0 ? bridgeWeightIndex + 1 : defs.length;
+  defs.splice(afterWeights, 0, ...extra);
+  return { defs, source };
 }
 
 /**
@@ -1013,7 +1079,7 @@ export function altOptionNodes(
 
 // ---------------------------------------------------------------- Kapak
 
-/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kanca yolu → FEM */
+/** Kapak künyesi: kılavuz spec sırası — kapasite → açıklık → kaldırma yüksekliği → FEM */
 function coverSpecs(input: CalcInput): { label: string; value: string }[] {
   const sp = input.specs;
   const out: { label: string; value: string }[] = [];
@@ -1024,7 +1090,7 @@ function coverSpecs(input: CalcInput): { label: string; value: string }[] {
   if (Number.isFinite(sp.spanM))
     out.push({ label: "AÇIKLIK", value: `${fmt(sp.spanM)} m` });
   if (Number.isFinite(sp.mainLiftHeightM))
-    out.push({ label: "KANCA YOLU", value: `${fmt(sp.mainLiftHeightM)} m` });
+    out.push({ label: "KALDIRMA YÜKSEKLİĞİ", value: `${fmt(sp.mainLiftHeightM)} m` });
   const duty = [sp.hoistLoadClass, sp.hoistMechanismClass].filter(Boolean).join(" / ");
   if (duty) out.push({ label: "FEM SINIFI", value: duty });
   return out;
@@ -1071,7 +1137,7 @@ function CoverPage(props: ReportProps) {
         <Text style={{ ...T.caption, marginTop: 6 }}>{project.crane_type}</Text>
       </View>
 
-      {/* Künye: kapasite → açıklık → kanca yolu → FEM sınıfı */}
+      {/* Künye: kapasite → açıklık → kaldırma yüksekliği → FEM sınıfı */}
       <View style={{ marginTop: 30, borderTopWidth: 1.4, borderTopColor: BRAND.ink }}>
         {coverSpecs(input).map((row) => (
           <View key={row.label} style={s.specRow}>
@@ -1403,6 +1469,7 @@ function SummarySection({
   collect?: (anchor: string, page: number) => void;
 }) {
   const groups = summaryGroups(input);
+  const summarySpecs = summarySpecsForReport(input);
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
       <PageProbe anchor={anchorFor("ozet")} collect={collect} />
@@ -1416,7 +1483,7 @@ function SummarySection({
         <PageProbe anchor={anchorFor("specs")} collect={collect} />
         <SectionTag no="01" title="Teknik Özellikler" />
       </View>
-      <FieldTable defs={specFieldsFor(input)} source={input.specs} specs={input.specs} />
+      <FieldTable defs={summarySpecs.defs} source={summarySpecs.source} specs={input.specs} />
       <SubHead tr="ANA EKİPMAN SEÇİMLERİ" />
       {/* Aynı gerekçe: iki sütunlu ızgara bölünemez, bütün hâlde taşınır. */}
       <View style={s.kvGrid} wrap={false}>

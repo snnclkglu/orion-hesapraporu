@@ -204,12 +204,10 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
     // FEM 1.001 Ek A-3.2.2.3 md.3: eşdeğer gerilmede τ² katsayısı 2'dir.
     `σ_cp = √(σ_eğ² + 2·τ²) = ${fmtN((p.combinedStress ?? 0) * KGF_TO_MPA)} MPa`,
   ];
-  // Sınır, kontrolü YÖNETEN kuralın (FEM eşdeğer / CMAA asal / CMAA kayma)
-  // sınırıdır; hangi gerilmenin hangi sınırla karşılaştırıldığı 2.2.5
-  // satırlarında açıkça yazılıdır. Diyagram bu yüzden "σ_cp ≤ σ_em" gibi
-  // doğrudan bir karşılaştırma İDDİA ETMEZ.
+  // Bu değer, ilgili kontrolün karşılaştırdığı izin verilen gerilmedir; hangi
+  // gerilmenin hangi sınırla eşleştiği 2.2.5 satırlarında ayrıca yazılıdır.
   if (p.allowableMPa !== undefined) {
-    lines.push(`Yöneten kuralın sınırı  σ_em = ${fmtN(p.allowableMPa)} MPa`);
+    lines.push(`İzin Verilen Gerilme  σ_em = ${fmtN(p.allowableMPa)} MPa`);
   }
   els.push({
     kind: "rect", x: bx, y: by, w: W - 2 * bx, h: 16 * lines.length + 12,

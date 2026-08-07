@@ -12,7 +12,12 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { describe, expect, it } from "vitest";
 import { V5_TEMPLATE } from "@/lib/calc/defaults";
 import { runCalc } from "@/lib/calc/engine";
-import { ReportDocument, renderReportPdf, type ReportProps } from "@/lib/pdf/report";
+import {
+  ReportDocument,
+  renderReportPdf,
+  summarySpecsForReport,
+  type ReportProps,
+} from "@/lib/pdf/report";
 
 const input = V5_TEMPLATE;
 const result = runCalc(input);
@@ -34,6 +39,38 @@ let cached: Promise<Buffer> | undefined;
 const report = () => (cached ??= renderReportPdf(props));
 
 describe("hesap raporu PDF duman testi", () => {
+  it("özet teknik tablosu kapasiteyle başlar; yok alanları ve çarpma oranlarını basmaz", () => {
+    const summary = summarySpecsForReport({
+      ...input,
+      specs: {
+        ...input.specs,
+        showFestoonDetailsInReport: true,
+        trolleyPowerSupply: "festoon",
+        bridgePowerSupply: "conductorBar",
+        trolleyBufferType: "hidrolik",
+        bridgeBufferType: "kaucuk",
+      },
+    });
+    const keys = summary.defs.map((f) => f.key);
+    const labels = new Map(summary.defs.map((f) => [f.key, f.label]));
+    const bridgeWeight = keys.indexOf("bridgeWeightT");
+
+    expect(keys[0]).toBe("mainCapacityT");
+    expect(keys).not.toContain("monorailCount");
+    expect(keys).not.toContain("trolleyBufferImpactSpeedPct");
+    expect(keys).not.toContain("bridgeBufferImpactSpeedPct");
+    expect(keys.slice(bridgeWeight + 1, bridgeWeight + 3)).toEqual([
+      "summaryAttachmentWeightT",
+      "summaryCraneTotalWeightT",
+    ]);
+    expect(labels.get("summaryAttachmentWeightT")).toBe("Kepçe Ağırlığı");
+    expect(summary.source.summaryCraneTotalWeightT).toBeCloseTo(22.75, 9);
+    expect(labels.get("trolleySpeedMpm")).toBe("Ana Araba Yürütme Hızı");
+    expect(labels.get("bridgeSpeedMpm")).toBe("Köprü Yürütme Hızı");
+    expect(labels.get("trolleyPowerSupply")).toBe("Ana Araba Enerji Besleme Sistemi");
+    expect(labels.get("bridgeBufferType")).toBe("Köprü Tampon Tipi");
+  });
+
   it("V5 şablonundan detaylı rapor üretir (>20KB) ve örneği .smoke/ altına yazar", async () => {
     const buf = await report();
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
-import { buildEquipmentGroups, buildSummarySections } from "@/lib/excel/equipment";
+import {
+  buildEquipmentGroups,
+  buildEquipmentWorkbook,
+  buildSummarySections,
+  canLinkEquipmentModel,
+  dsKey,
+} from "@/lib/excel/equipment";
 import { runCalc } from "@/lib/calc/engine";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
 
@@ -77,5 +83,30 @@ describe("operatör kabini ve elektrik yerleşimi", () => {
     expect(roomInsulation?.visible?.(roomSpecs)).toBe(true);
     expect(panelIp?.visible?.(panelSpecs)).toBe(true);
     expect(panelIp?.visible?.(roomSpecs)).toBe(false);
+  });
+
+  it("klima modelini Excel'de website bağlantısı olmadan düz metin yazar", () => {
+    const input = structuredClone(NEW_WORK_TEMPLATE);
+    input.specs = {
+      ...input.specs,
+      hasOperatorCabin: "yes",
+      operatorCabinAirConditioning: "industrial",
+      operatorCabinAirConditionerModel: "VKS-VS",
+    };
+    const workbook = buildEquipmentWorkbook(input, runCalc(input), {
+      docNo: "EQ-01", projectName: "Test", customer: "Test", revLabel: "V0", revNo: 0,
+      date: "07.08.2026",
+    }, {
+      datasheetUrls: new Map([
+        [dsKey("air_conditioner", "TMS", "VKS-VS"), "https://example.test/tms"],
+      ]),
+      scope: "customer",
+    });
+    const sheet = workbook.getWorksheet("Ekipman Listesi");
+    const climateCell = sheet?.getColumn(3).values.find((value) => value === "VKS-VS");
+
+    expect(climateCell).toBe("VKS-VS");
+    expect(canLinkEquipmentModel("air_conditioner")).toBe(false);
+    expect(canLinkEquipmentModel("motor")).toBe(true);
   });
 });

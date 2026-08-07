@@ -201,6 +201,11 @@ export interface EqGroup {
   rows: EqRow[];
 }
 
+/** Klima ürünleri müşteri çıktılarına website bağlantısı olarak yazılmaz. */
+export function canLinkEquipmentModel(kind: EqRow["kind"]): boolean {
+  return kind !== "air_conditioner";
+}
+
 /** Panelden eklenen ek ekipman/özellik satırı (equipment_extras.rows) */
 export interface EquipmentExtraRow {
   group: string;
@@ -813,9 +818,10 @@ function writeEquipmentSheet(
       const row = ws.getRow(rowNo);
       row.getCell(1).value = r.component;
       row.getCell(2).value = r.brand;
-      // Model hücresi: katalog datasheet linki varsa köprüle
+      // Model hücresi: katalog datasheet linki varsa köprüle. Klima
+      // satırlarında website bağlantısı müşteri çıktılarında gösterilmez.
       const url = r.kind ? datasheetUrls?.get(dsKey(r.kind, r.brand, r.model)) : undefined;
-      if (url && r.model && r.model !== "-") {
+      if (canLinkEquipmentModel(r.kind) && url && r.model && r.model !== "-") {
         row.getCell(3).value = { text: r.model, hyperlink: url };
         row.getCell(3).font = HYPERLINK_FONT;
       } else {

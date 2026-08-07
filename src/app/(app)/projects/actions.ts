@@ -100,6 +100,62 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   redirect(`/projects/${project.id}`);
 }
 
+// ----------------------------------------------------- Proje bilgisi düzenleme
+
+const projectDetailsSchema = z.object({
+  name: z.string().trim().min(1, "Proje / iş adı gerekli"),
+  customer: z.string().trim().min(1, "Müşteri gerekli"),
+});
+
+export type ProjectDetailsInput = z.infer<typeof projectDetailsSchema>;
+
+/** Projeler listesinden proje/iş adı ile müşteri bilgisini günceller. */
+export async function updateProjectDetails(
+  projectId: string,
+  input: ProjectDetailsInput
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsedId = z.uuid("Geçersiz hesap raporu").safeParse(projectId);
+  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
+  const parsed = projectDetailsSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { data: current } = await supabase
+    .from("projects")
+    .select("id, name, customer, job_id")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!current) return { error: "Hesap raporu bulunamadı" };
+
+  const { error } = await supabase
+    .from("projects")
+    .update({ name: parsed.data.name, customer: parsed.data.customer })
+    .eq("id", parsedId.data);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    project_id: parsedId.data,
+    actor: user.id,
+    action: "project.updateDetails",
+    detail: {
+      previous_name: current.name,
+      previous_customer: current.customer,
+      name: parsed.data.name,
+      customer: parsed.data.customer,
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${parsedId.data}`);
+  if (current.job_id) revalidatePath(`/jobs/${current.job_id}`);
+  return {};
+}
+
 // ------------------------------------------------------ Kopyalama (çoğaltma)
 
 const duplicateSchema = z.object({
