@@ -37,4 +37,31 @@ describe("festoon ekipman listesi", () => {
     });
     expect(bridge?.rows[0]).toMatchObject({ model: "0325 · M-Line", qty: 2 });
   });
+
+  it("Vasel seçimini marka, seri ve katalog kod şablonuyla ekipman listesine taşır", () => {
+    const input = {
+      ...V5_TEMPLATE,
+      specs: {
+        ...V5_TEMPLATE.specs,
+        trolleyPowerSupply: "festoon" as const,
+        trolleyFestoon: {
+          brand: "vasel" as const,
+          series: "auto" as const,
+          cableForm: "flat" as const,
+          trolleyCount: 2,
+          cablePackageWeightKg: 120,
+        },
+      },
+    };
+
+    const group = buildEquipmentGroups(input).find(
+      (item) => item.name === "Ana Araba Enerji Besleme"
+    );
+    expect(group?.rows[0]).toMatchObject({
+      brand: "Vasel",
+      model: "VS2060 · Ağır Hizmet",
+      qty: 2,
+    });
+    expect(group?.rows[0].spec).toContain("VS2060A-FB50A…");
+  });
 });

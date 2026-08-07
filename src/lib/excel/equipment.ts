@@ -18,8 +18,10 @@ import {
 } from "@/lib/calc/presentation/module-family";
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
 import {
+  FESTOON_BRAND_LABELS,
   FESTOON_CABLE_FORM_LABELS,
   festoonAxes,
+  festoonProductCodeSummary,
   festoonSeriesLabel,
   selectFestoon,
 } from "@/lib/calc/festoon";
@@ -531,8 +533,9 @@ function festoonEquipmentGroups(input: CalcInput): EqGroup[] {
     if (!axis.selected || !moduleState(input, axis.key)) continue;
     const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
     const series = festoonSeriesLabel(result.selected);
+    const productCodes = festoonProductCodeSummary(result.selected, axis.spec?.cableForm);
     const capacity = result.selected
-      ? `${result.selected.maxTrolleyLoadKg} kg / ${result.selected.maxSpeedMpm} m/dak`
+      ? `${result.trolleyLoadLimitKg} kg / ${result.selected.maxSpeedMpm ? `${result.selected.maxSpeedMpm} m/dak` : "hız teyidi"}`
       : "Uygun katalog serisi bulunamadı";
     groups.push({
       name: `${axis.title} Enerji Besleme`,
@@ -540,12 +543,13 @@ function festoonEquipmentGroups(input: CalcInput): EqGroup[] {
         {
           rowKey: `energy:${axis.key}:festoon`,
           component: "Feston kablo taşıyıcı sistemi",
-          brand: "Conductix-Wampfler",
+          brand: FESTOON_BRAND_LABELS[result.brand],
           model: series,
           spec:
             `${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}; ` +
             `hareket ${fmt(result.travelDistanceM, 2)} m, hız ${fmt(result.travelSpeedMpm, 2)} m/dak, loop h ${fmt(axis.spec?.loopHeightM ?? 1.5, 2)} m; ` +
             `taşıyıcı başına ${fmt(result.loadPerTrolleyKg, 2)} kg; katalog sınırı ${capacity}` +
+            (productCodes ? `; ${productCodes}` : "") +
             (result.pass === false ? "; UYGUN DEĞİL — üretici doğrulaması gerekli" : ""),
           qty: result.trolleyCount > 0 ? result.trolleyCount : "-",
         },

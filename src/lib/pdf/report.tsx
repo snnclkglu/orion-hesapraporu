@@ -64,8 +64,10 @@ import {
   type RevisionSectionNotes,
 } from "@/lib/revision-load";
 import {
+  FESTOON_BRAND_LABELS,
   FESTOON_CABLE_FORM_LABELS,
   festoonAxes,
+  festoonProductCodeSummary,
   festoonSeriesLabel,
   selectFestoon,
 } from "@/lib/calc/festoon";
@@ -665,9 +667,10 @@ function FestoonDetails({ input, axisKey }: { input: CalcInput; axisKey: string 
 
   const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
   const selected = festoonSeriesLabel(result.selected);
+  const productCodes = festoonProductCodeSummary(result.selected, axis.spec?.cableForm);
   const carrierLoad = result.loadPerTrolleyKg === null ? "—" : `${fmt(result.loadPerTrolleyKg)} kg`;
   const limit = result.selected
-    ? `${result.selected.maxTrolleyLoadKg} kg · ${result.selected.maxSpeedMpm} m/dak`
+    ? `${result.trolleyLoadLimitKg} kg · ${result.selected.maxSpeedMpm ? `${result.selected.maxSpeedMpm} m/dak` : "hız teyidi"}`
     : "Uygun seri bulunamadı";
 
   return (
@@ -686,9 +689,12 @@ function FestoonDetails({ input, axisKey }: { input: CalcInput; axisKey: string 
         <Text style={s.sumModuleTitle}>{axis.title}</Text>
         <KvRow
           label="Seri / adet"
-          value={`${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
+          value={`${FESTOON_BRAND_LABELS[result.brand]} · ${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
           narrowLabel
         />
+        {productCodes ? (
+          <KvRow label="Kod şablonu" value={productCodes} narrowLabel />
+        ) : null}
         <KvRow
           label="Hareket"
           value={`${fmt(result.travelDistanceM)} m · ${fmt(result.travelSpeedMpm)} m/dak · h ${fmt(axis.spec?.loopHeightM ?? 1.5)} m`}
@@ -701,7 +707,7 @@ function FestoonDetails({ input, axisKey }: { input: CalcInput; axisKey: string 
         />
       </View>
       <Text style={{ ...T.caption, marginTop: 4 }}>
-        Ön seçim, katalog ailesinin hız ve taşıyıcı başına yük sınırını doğrular. Kesin parça kodu; I-kiriş flanşı, kablo paketi ölçüleri ve minimum bükülme çapı doğrulanarak belirlenir.
+        Ön seçim, katalog ailesinin hız ve taşıyıcı başına yük sınırını doğrular. Kesin parça kodu; I-kiriş flanşı, kablo paketi ölçüleri ve minimum bükülme çapı doğrulanarak belirlenir. Katalogda hız limiti yayımlanmayan Vasel serilerinde hız üreticiyle teyit edilir.
       </Text>
     </>
   );

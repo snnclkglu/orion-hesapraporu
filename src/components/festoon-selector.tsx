@@ -8,11 +8,14 @@ import {
 } from "@/components/ui/select";
 import {
   DEFAULT_FESTOON_SPEC,
+  FESTOON_BRAND_LABELS,
+  FESTOON_BRANDS,
   FESTOON_CABLE_FORMS,
   FESTOON_CABLE_FORM_LABELS,
-  FESTOON_SERIES_LABELS,
-  FESTOON_SERIES_OPTIONS,
+  festoonProductCodeSummary,
   festoonSeriesLabel,
+  festoonSeriesOptionLabel,
+  festoonSeriesOptions,
   selectFestoon,
 } from "@/lib/calc/festoon";
 import type { FestoonSpec } from "@/lib/calc/types";
@@ -38,8 +41,15 @@ export function FestoonSelector({
   onChange: (next: FestoonSpec) => void;
   disabled?: boolean;
 }) {
-  const spec = { ...DEFAULT_FESTOON_SPEC, ...value };
+  const spec = {
+    ...DEFAULT_FESTOON_SPEC,
+    ...value,
+    // Eski revizyonlarda marka alanı yoktur; Conductix-Wampfler seçimi korunur.
+    brand: value?.brand ?? DEFAULT_FESTOON_SPEC.brand!,
+  };
   const selection = selectFestoon(spec, travelDistanceM, travelSpeedMpm);
+  const seriesOptions = festoonSeriesOptions(spec.brand, spec.cableForm);
+  const productCodes = festoonProductCodeSummary(selection.selected, spec.cableForm);
   const update = (next: Partial<FestoonSpec>) => onChange({ ...spec, ...next });
   const selectedLabel = selection.complete
     ? festoonSeriesLabel(selection.selected)
@@ -63,7 +73,13 @@ export function FestoonSelector({
             selection.pass === false && "border-destructive/30 bg-destructive/10 text-destructive"
           )}
         >
-          {selection.pass === true ? "Katalog sınırları uygun" : selection.pass === false ? "Katalog sınırı aşıldı" : "Bilgi bekleniyor"}
+          {selection.pass === false
+            ? "Katalog sınırı aşıldı"
+            : selection.pass === true && selection.speedPass === null
+              ? "Yük uygun · hız teyidi gerekli"
+              : selection.pass === true
+                ? "Katalog sınırları uygun"
+                : "Bilgi bekleniyor"}
         </Badge>
       </div>
 
@@ -74,9 +90,27 @@ export function FestoonSelector({
         loopHeightM={spec.loopHeightM}
       />
 
-      <div className="grid min-w-0 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid min-w-0 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         <label className="grid min-w-0 gap-1.5 text-xs font-medium">
-          Feston Tipi
+          Feston Markası
+          <Select
+            value={spec.brand}
+            disabled={disabled}
+            onValueChange={(brand) => update({
+              brand: brand as NonNullable<FestoonSpec["brand"]>,
+              series: "auto",
+            })}
+          >
+            <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FESTOON_BRANDS.map((brand) => (
+                <SelectItem key={brand} value={brand}>{FESTOON_BRAND_LABELS[brand]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">
+          Feston Serisi
           <Select
             value={spec.series}
             disabled={disabled}
@@ -84,8 +118,8 @@ export function FestoonSelector({
           >
             <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {FESTOON_SERIES_OPTIONS.map((series) => (
-                <SelectItem key={series} value={series}>{FESTOON_SERIES_LABELS[series]}</SelectItem>
+              {seriesOptions.map((series) => (
+                <SelectItem key={series} value={series}>{festoonSeriesOptionLabel(spec.brand, series, spec.cableForm)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -95,7 +129,10 @@ export function FestoonSelector({
           <Select
             value={spec.cableForm}
             disabled={disabled}
-            onValueChange={(cableForm) => update({ cableForm: cableForm as FestoonSpec["cableForm"] })}
+            onValueChange={(cableForm) => update({
+              cableForm: cableForm as FestoonSpec["cableForm"],
+              series: "auto",
+            })}
           >
             <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -151,10 +188,15 @@ export function FestoonSelector({
       <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-3">
         <p>Ön seçilen seri: <span className="font-mono text-foreground">{selectedLabel}</span></p>
         <p>Taşıyıcı başına yük: <span className="font-mono text-foreground">{fmt(selection.loadPerTrolleyKg)} kg</span></p>
-        <p>Katalog kapasitesi: <span className="font-mono text-foreground">{selection.selected ? `${selection.selected.maxTrolleyLoadKg} kg · ${selection.selected.maxSpeedMpm} m/dak` : "—"}</span></p>
+        <p>Katalog kapasitesi: <span className="font-mono text-foreground">{selection.selected ? `${selection.trolleyLoadLimitKg} kg · ${selection.selected.maxSpeedMpm ? `${selection.selected.maxSpeedMpm} m/dak` : "hız teyidi"}` : "—"}</span></p>
       </div>
+      {productCodes ? (
+        <p className="text-[11px] text-muted-foreground">
+          Vasel kod şablonu: <span className="font-mono text-foreground">{productCodes}</span>
+        </p>
+      ) : null}
       <p className="border-t pt-2 text-[11px] leading-relaxed text-muted-foreground">
-        Şemadaki hareket mesafesi, taşıyıcı adedi ve loop yüksekliği canlı güncellenir. Bu ekran seri/adet ön seçimini hız ve taşıyıcı başına yükle doğrular. Kesin katalog parça kodu için I-kiriş flanş genişliği, kablo paketinin genişlik/yüksekliği ve minimum bükülme çapı teklif/imalat aşamasında doğrulanmalıdır.
+        Şemadaki hareket mesafesi, taşıyıcı adedi ve loop yüksekliği canlı güncellenir. Bu ekran seri/adet ön seçimini hız ve taşıyıcı başına yükle doğrular. Kesin katalog parça kodu için I-kiriş flanş genişliği, kablo paketinin genişlik/yüksekliği ve minimum bükülme çapı teklif/imalat aşamasında doğrulanmalıdır. Vasel serilerinde katalogda hız limiti belirtilmemişse hız, üreticiyle ayrıca teyit edilir.
       </p>
     </section>
   );

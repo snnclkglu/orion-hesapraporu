@@ -38,8 +38,12 @@ const ONLY_BRANDS = argOf("brands")?.split(",").map((s) => s.trim()).filter(Bool
  * birleşimlerini ekler. Canlı ortama ilk katalog aktarımı için güvenli moddur.
  */
 const APPEND_ONLY = process.argv.includes("--append");
-if (ONLY_BRANDS && !APPEND_ONLY) {
-  throw new Error("--brands yalnızca --append ile kullanılabilir.");
+const REPLACE_BRANDS = process.argv.includes("--replace");
+if (ONLY_BRANDS && !APPEND_ONLY && !REPLACE_BRANDS) {
+  throw new Error("--brands yalnızca --append veya --replace ile kullanılabilir.");
+}
+if (APPEND_ONLY && REPLACE_BRANDS) {
+  throw new Error("--append ve --replace birlikte kullanılamaz.");
 }
 const OUT_NAME = argOf("out") ?? "20260719000005_catalog_seed";
 const OUT_FILE = path.resolve(
@@ -156,26 +160,36 @@ for (const { file, application } of REDUCER_FILES) {
             throw new Error(`${file}: variants satırı [size, torque_nm, ratio_min, ratio_max] olmalı.`);
           }
           const [frameSize, outputTorqueNm, ratioMin, ratioMax] = variant;
-          const { variants: _variants, ...base } = raw;
+          const { variants: _variants, details_by_size: _detailsBySize, ...base } = raw;
+          const detailBySize = raw.details_by_size as Record<string, unknown> | undefined;
+          const detail = detailBySize?.[String(frameSize).padStart(2, "0")];
           return {
             ...base,
             model: `${String(base.series)}-${String(frameSize).padStart(2, "0")}`,
             frame_size: String(frameSize).padStart(2, "0"),
             output_torque_Nm: outputTorqueNm,
             ratio_range: `1:${String(ratioMin)}…${String(ratioMax)}`,
+            ...(detail && typeof detail === "object" ? detail as Record<string, unknown> : {}),
           };
         })
       : [raw];
 
     for (const it of expandedItems) {
-      const a = rename(cleanAttrs(it), {
+      const rawAttrs = cleanAttrs(it);
+      const radialOutputIsNewton = rawAttrs.permitted_radial_load_output_n !== undefined;
+      const radialInputIsNewton = rawAttrs.permitted_radial_load_input_n !== undefined;
+      const a = rename(rawAttrs, {
         output_shaft_diameter_mm: "output_shaft_mm",
         input_shaft_diameter_mm: "input_shaft_mm",
         permitted_radial_load_output_n: "allowed_radial_output_kn",
         permitted_radial_load_input_n: "allowed_radial_input_kn",
       });
       // İzin verilen radyal yükler katalogda N; motor ve kontroller kN bekliyor.
-      for (const k of ["allowed_radial_output_kn", "allowed_radial_input_kn"]) {
+      for (const [k, isNewton] of [
+        ["allowed_radial_output_kn", radialOutputIsNewton],
+        ["allowed_radial_input_kn", radialInputIsNewton],
+      ] as const) {
+        if (!isNewton) continue;
         const v = num(a[k]);
         if (v !== undefined) a[k] = Math.round(v / 10) / 100; // N → kN, 2 hane
       }
@@ -547,11 +561,18 @@ const BATCH = 500;
 const parts: string[] = [];
 parts.push(`-- Katalog seed — catalog_data JSON'larından scripts/seed-catalog.ts ile üretildi.
 -- Yeniden üretmek için: npx tsx scripts/seed-catalog.ts${
-  `${ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")}` : ""}${ONLY_BRANDS ? ` --brands ${ONLY_BRANDS.join(",")}` : ""}${APPEND_ONLY ? " --append" : ""} --out ${OUT_NAME}`}
+  `${ONLY_KINDS ? ` --kinds ${ONLY_KINDS.join(",")}` : ""}${ONLY_BRANDS ? ` --brands ${ONLY_BRANDS.join(",")}` : ""}${APPEND_ONLY ? " --append" : ""}${REPLACE_BRANDS ? " --replace" : ""} --out ${OUT_NAME}`}
 -- Toplam ${emitted.length} ürün.
 `);
 
-if (ONLY_KINDS && !APPEND_ONLY) {
+if (REPLACE_BRANDS && ONLY_BRANDS) {
+  parts.push(
+    `-- Bu markanın katalog satırları kaynak JSON'dan yeniden üretilir.\n` +
+    `delete from public.cat_equipment where brand in (${
+      ONLY_BRANDS.map((brand) => `'${esc(brand)}'`).join(", ")
+    });\n`
+  );
+} else if (ONLY_KINDS && !APPEND_ONLY) {
   parts.push(
     `-- Bu türler tamamen katalog dosyalarından üretilir; eski satırlar bırakılmaz.\n` +
     `delete from public.cat_equipment where kind in (${

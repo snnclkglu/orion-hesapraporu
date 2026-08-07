@@ -243,8 +243,20 @@ export type AirConditioningType =
 /** Elektrik odası ve panolar için kurulu yedek klima düzeni. */
 export type AirConditioningRedundancy = "none" | "nPlusOne";
 
-/** Conductix-Wampfler I-kiriş festoon ürün ailesi. `auto` en küçük uygun aileyi seçer. */
-export type FestoonSeries = "auto" | "0314" | "0320" | "0325" | "0330";
+/** I-kiriş festoon ürün ailesinin üreticisi. */
+export type FestoonBrand = "conductixWampfler" | "vasel";
+
+/**
+ * I-kiriş festoon seri ailesi. `auto`, seçilen üreticide en küçük uygun aileyi
+ * seçer. Vasel'in tam ürün kodu I-kiriş geometrisine göre katalog şablonundan
+ * tamamlanır; seri seçimi bu geometrik doğrulamadan önceki ön seçimdir.
+ */
+export type FestoonSeries =
+  | "auto"
+  | "0314" | "0320" | "0325" | "0330"
+  | "VS2005" | "VS2010" | "VS2015" | "VS2020"
+  | "VS2050" | "VS2060" | "VS2070"
+  | "VS25-S1" | "VS25-S2" | "VS26-S3" | "VS26-S4";
 
 /** Katalogdaki ayrı düz/kesitli ve yuvarlak kablo taşıyıcı düzenleri. */
 export type FestoonCableForm = "flat" | "round";
@@ -258,6 +270,8 @@ export type FestoonCableForm = "flat" | "round";
  * geometrisi gerekir; bu iki bilgi teklif/imalat doğrulamasında istenir.
  */
 export interface FestoonSpec {
+  /** Verilmezse eski kayıtlarla uyum için Conductix-Wampfler kabul edilir. */
+  brand?: FestoonBrand;
   series: FestoonSeries;
   trolleyCount: number;
   cablePackageWeightKg: number;
