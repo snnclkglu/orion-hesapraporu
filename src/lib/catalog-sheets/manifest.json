@@ -1,1299 +1,5773 @@
 {
-  "sheets": [
-    {
-      "id": "coupling/ozgun-a",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "A",
-      "title": "ÖZGÜN Tip A — Tam-flex dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.15",
-      "pdf": "coupling/ozgun-a.pdf",
-      "images": [
-        "coupling/ozgun-a-p1.webp"
-      ],
-      "models": [
-        "A1",
-        "A2",
-        "A3",
-        "A4",
-        "A5",
-        "A6",
-        "A7",
-        "A8",
-        "A9",
-        "A10",
-        "A11",
-        "A12",
-        "A13"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-b1",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "B1",
-      "title": "ÖZGÜN Tip B1 — Fren kasnaklı kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.16",
-      "pdf": "coupling/ozgun-b1.pdf",
-      "images": [
-        "coupling/ozgun-b1-p1.webp"
-      ],
-      "models": [
-        "B1-1",
-        "B1-2",
-        "B1-3",
-        "B1-4",
-        "B1-5",
-        "B1-6",
-        "B1-7",
-        "B1-8"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-b2",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "B2",
-      "title": "ÖZGÜN Tip B2 — Fren kasnaklı kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.17",
-      "pdf": "coupling/ozgun-b2.pdf",
-      "images": [
-        "coupling/ozgun-b2-p1.webp"
-      ],
-      "models": [
-        "B2-1",
-        "B2-2",
-        "B2-3",
-        "B2-4",
-        "B2-5",
-        "B2-6",
-        "B2-7",
-        "B2-8"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-b3",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "B3",
-      "title": "ÖZGÜN Tip B3 — Fren kasnaklı kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.18",
-      "pdf": "coupling/ozgun-b3.pdf",
-      "images": [
-        "coupling/ozgun-b3-p1.webp"
-      ],
-      "models": [
-        "B3-1",
-        "B3-2",
-        "B3-3",
-        "B3-4",
-        "B3-5",
-        "B3-6",
-        "B3-7",
-        "B3-8"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-c",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "C",
-      "title": "ÖZGÜN Tip C — Elastik kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.19",
-      "pdf": "coupling/ozgun-c.pdf",
-      "images": [
-        "coupling/ozgun-c-p1.webp"
-      ],
-      "models": [
-        "C1",
-        "C2",
-        "C3",
-        "C4",
-        "C5",
-        "C6",
-        "C7",
-        "C8",
-        "C9",
-        "C10"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-da",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Da",
-      "title": "ÖZGÜN Tip Da — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.20",
-      "pdf": "coupling/ozgun-da.pdf",
-      "images": [
-        "coupling/ozgun-da-p1.webp"
-      ],
-      "models": [
-        "Da1",
-        "Da2",
-        "Da3",
-        "Da4",
-        "Da5",
-        "Da6",
-        "Da7",
-        "Da8",
-        "Da9",
-        "Da10",
-        "Da11",
-        "Da12",
-        "Da13",
-        "Da14",
-        "Da15",
-        "Da16",
-        "Da17",
-        "Da18",
-        "Da19",
-        "Da20"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-db",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Db",
-      "title": "ÖZGÜN Tip Db — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.21",
-      "pdf": "coupling/ozgun-db.pdf",
-      "images": [
-        "coupling/ozgun-db-p1.webp"
-      ],
-      "models": [
-        "Db1",
-        "Db2",
-        "Db3",
-        "Db4",
-        "Db5",
-        "Db6",
-        "Db7",
-        "Db8",
-        "Db9",
-        "Db10",
-        "Db11",
-        "Db12",
-        "Db13",
-        "Db14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-dc",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Dc",
-      "title": "ÖZGÜN Tip Dc — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.22",
-      "pdf": "coupling/ozgun-dc.pdf",
-      "images": [
-        "coupling/ozgun-dc-p1.webp"
-      ],
-      "models": [
-        "Dc1",
-        "Dc2",
-        "Dc3",
-        "Dc4",
-        "Dc5",
-        "Dc6",
-        "Dc7",
-        "Dc8",
-        "Dc9",
-        "Dc10",
-        "Dc11",
-        "Dc12",
-        "Dc13",
-        "Dc14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-dk",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Dk",
-      "title": "ÖZGÜN Tip Dk — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.23",
-      "pdf": "coupling/ozgun-dk.pdf",
-      "images": [
-        "coupling/ozgun-dk-p1.webp"
-      ],
-      "models": [
-        "Dk1",
-        "Dk2",
-        "Dk3",
-        "Dk4",
-        "Dk5",
-        "Dk6",
-        "Dk7",
-        "Dk8",
-        "Dk9",
-        "Dk10",
-        "Dk11",
-        "Dk12",
-        "Dk13",
-        "Dk14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-dt",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Dt",
-      "title": "ÖZGÜN Tip Dt — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.24",
-      "pdf": "coupling/ozgun-dt.pdf",
-      "images": [
-        "coupling/ozgun-dt-p1.webp"
-      ],
-      "models": [
-        "Dt1",
-        "Dt2",
-        "Dt3",
-        "Dt4",
-        "Dt5",
-        "Dt6",
-        "Dt7",
-        "Dt8",
-        "Dt9",
-        "Dt10",
-        "Dt11",
-        "Dt12"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-dtk",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Dtk",
-      "title": "ÖZGÜN Tip Dtk — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.26",
-      "pdf": "coupling/ozgun-dtk.pdf",
-      "images": [
-        "coupling/ozgun-dtk-p1.webp"
-      ],
-      "models": [
-        "Dtk1",
-        "Dtk2",
-        "Dtk3",
-        "Dtk4",
-        "Dtk5",
-        "Dtk6",
-        "Dtk7",
-        "Dtk8",
-        "Dtk9",
-        "Dtk10",
-        "Dtk11",
-        "Dtk12"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-dv",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Dv",
-      "title": "ÖZGÜN Tip Dv — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.27",
-      "pdf": "coupling/ozgun-dv.pdf",
-      "images": [
-        "coupling/ozgun-dv-p1.webp"
-      ],
-      "models": [
-        "Dv1",
-        "Dv2",
-        "Dv3",
-        "Dv4",
-        "Dv5",
-        "Dv6",
-        "Dv7",
-        "Dv8",
-        "Dv9",
-        "Dv10",
-        "Dv11",
-        "Dv12",
-        "Dv13",
-        "Dv14",
-        "Dv15",
-        "Dv16",
-        "Dv17",
-        "Dv18",
-        "Dv19",
-        "Dv20"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-e",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "E",
-      "title": "ÖZGÜN Tip E — Zincirli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.28",
-      "pdf": "coupling/ozgun-e.pdf",
-      "images": [
-        "coupling/ozgun-e-p1.webp"
-      ],
-      "models": [
-        "E1",
-        "E2",
-        "E3",
-        "E4",
-        "E5",
-        "E6"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-f",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "F",
-      "title": "ÖZGÜN Tip F — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.29",
-      "pdf": "coupling/ozgun-f.pdf",
-      "images": [
-        "coupling/ozgun-f-p1.webp"
-      ],
-      "models": [
-        "F1",
-        "F2",
-        "F3",
-        "F4",
-        "F5",
-        "F6",
-        "F7",
-        "F8",
-        "F9",
-        "F10",
-        "F11",
-        "F12",
-        "F13",
-        "F14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-g",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "G",
-      "title": "ÖZGÜN Tip G — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.30",
-      "pdf": "coupling/ozgun-g.pdf",
-      "images": [
-        "coupling/ozgun-g-p1.webp"
-      ],
-      "models": [
-        "G1",
-        "G2",
-        "G3",
-        "G4",
-        "G5",
-        "G6",
-        "G7",
-        "G8",
-        "G9",
-        "G10",
-        "G11",
-        "G12",
-        "G13",
-        "G14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-h",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "H",
-      "title": "ÖZGÜN Tip H — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.31",
-      "pdf": "coupling/ozgun-h.pdf",
-      "images": [
-        "coupling/ozgun-h-p1.webp"
-      ],
-      "models": [
-        "H1",
-        "H2",
-        "H3",
-        "H4",
-        "H5",
-        "H6",
-        "H7",
-        "H8",
-        "H9",
-        "H10",
-        "H11",
-        "H12",
-        "H13",
-        "H14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-i",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "I",
-      "title": "ÖZGÜN Tip I — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.32",
-      "pdf": "coupling/ozgun-i.pdf",
-      "images": [
-        "coupling/ozgun-i-p1.webp"
-      ],
-      "models": [
-        "I 1",
-        "I 2",
-        "I 3",
-        "I 4",
-        "I 5",
-        "I 6",
-        "I 7",
-        "I 8",
-        "I 9",
-        "I 10",
-        "I 11",
-        "I 12",
-        "I 13",
-        "I 14",
-        "I 15"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-j",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "J",
-      "title": "ÖZGÜN Tip J — Tambur (kasnaklı) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.33",
-      "pdf": "coupling/ozgun-j.pdf",
-      "images": [
-        "coupling/ozgun-j-p1.webp"
-      ],
-      "models": [
-        "J1",
-        "J2",
-        "J3",
-        "J4",
-        "J5",
-        "J6",
-        "J7",
-        "J8",
-        "J9",
-        "J10",
-        "J11",
-        "J12",
-        "J13",
-        "J14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-k",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "K",
-      "title": "ÖZGÜN Tip K — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.34",
-      "pdf": "coupling/ozgun-k.pdf",
-      "images": [
-        "coupling/ozgun-k-p1.webp"
-      ],
-      "models": [
-        "K1",
-        "K2",
-        "K3",
-        "K4",
-        "K5",
-        "K6",
-        "K7",
-        "K8",
-        "K9",
-        "K10",
-        "K11",
-        "K12",
-        "K13",
-        "K14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-n",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "N",
-      "title": "ÖZGÜN Tip N — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.35",
-      "pdf": "coupling/ozgun-n.pdf",
-      "images": [
-        "coupling/ozgun-n-p1.webp"
-      ],
-      "models": [
-        "N1",
-        "N2",
-        "N3",
-        "N4",
-        "N5",
-        "N6",
-        "N7",
-        "N8",
-        "N9",
-        "N10",
-        "N11",
-        "N12",
-        "N13",
-        "N14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-r",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "R",
-      "title": "ÖZGÜN Tip R — Dişli kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.37",
-      "pdf": "coupling/ozgun-r.pdf",
-      "images": [
-        "coupling/ozgun-r-p1.webp"
-      ],
-      "models": [
-        "R1",
-        "R2",
-        "R3",
-        "R4",
-        "R5",
-        "R6",
-        "R7",
-        "R8",
-        "R9",
-        "R10",
-        "R11",
-        "R12",
-        "R13",
-        "R14"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-s6",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "S6",
-      "title": "ÖZGÜN Tip S6 — Diskli (lamelli) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.38",
-      "pdf": "coupling/ozgun-s6.pdf",
-      "images": [
-        "coupling/ozgun-s6-p1.webp"
-      ],
-      "models": [
-        "S6-1",
-        "S6-2",
-        "S6-3",
-        "S6-4",
-        "S6-5",
-        "S6-6",
-        "S6-7",
-        "S6-8",
-        "S6-9",
-        "S6-10",
-        "S6-11",
-        "S6-12",
-        "S6-13",
-        "S6-14",
-        "S6-15",
-        "S6-16",
-        "S6-17"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-s8",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "S8",
-      "title": "ÖZGÜN Tip S8 — Diskli (lamelli) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.39",
-      "pdf": "coupling/ozgun-s8.pdf",
-      "images": [
-        "coupling/ozgun-s8-p1.webp"
-      ],
-      "models": [
-        "S8-1",
-        "S8-2",
-        "S8-3",
-        "S8-4",
-        "S8-5",
-        "S8-6",
-        "S8-7",
-        "S8-8",
-        "S8-9",
-        "S8-10",
-        "S8-11",
-        "S8-12",
-        "S8-13",
-        "S8-14",
-        "S8-15",
-        "S8-16",
-        "S8-17"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-t6",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "T6",
-      "title": "ÖZGÜN Tip T6 — Diskli (lamelli) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.40",
-      "pdf": "coupling/ozgun-t6.pdf",
-      "images": [
-        "coupling/ozgun-t6-p1.webp"
-      ],
-      "models": [
-        "T6-1",
-        "T6-2",
-        "T6-3",
-        "T6-4",
-        "T6-5",
-        "T6-6",
-        "T6-7",
-        "T6-8",
-        "T6-9",
-        "T6-10",
-        "T6-11",
-        "T6-12",
-        "T6-13",
-        "T6-14",
-        "T6-15",
-        "T6-16",
-        "T6-17"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-t8",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "T8",
-      "title": "ÖZGÜN Tip T8 — Diskli (lamelli) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.41",
-      "pdf": "coupling/ozgun-t8.pdf",
-      "images": [
-        "coupling/ozgun-t8-p1.webp"
-      ],
-      "models": [
-        "T8-1",
-        "T8-2",
-        "T8-3",
-        "T8-4",
-        "T8-5",
-        "T8-6",
-        "T8-7",
-        "T8-8",
-        "T8-9",
-        "T8-10",
-        "T8-11",
-        "T8-12",
-        "T8-13",
-        "T8-14",
-        "T8-15",
-        "T8-16",
-        "T8-17"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-y",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Y",
-      "title": "ÖZGÜN Tip Y — Elastik kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.42",
-      "pdf": "coupling/ozgun-y.pdf",
-      "images": [
-        "coupling/ozgun-y-p1.webp"
-      ],
-      "models": [
-        "Y1",
-        "Y2",
-        "Y3",
-        "Y4",
-        "Y5",
-        "Y6",
-        "Y7",
-        "Y8",
-        "Y9",
-        "Y10",
-        "Y11",
-        "Y12"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-za",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Za",
-      "title": "ÖZGÜN Tip Za — Elastik kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.43",
-      "pdf": "coupling/ozgun-za.pdf",
-      "images": [
-        "coupling/ozgun-za-p1.webp"
-      ],
-      "models": [
-        "Za1",
-        "Za2",
-        "Za3",
-        "Za4",
-        "Za5",
-        "Za6",
-        "Za7",
-        "Za8",
-        "Za9"
-      ]
-    },
-    {
-      "id": "coupling/ozgun-zr",
-      "kind": "coupling",
-      "brand": "OZGUN",
-      "series": "Zr",
-      "title": "ÖZGÜN Tip Zr — Pimli (elastik) kaplin",
-      "source": "ozgun katalog 2019 1-b.pdf",
-      "printedPages": "s.44-45",
-      "pdf": "coupling/ozgun-zr.pdf",
-      "images": [
-        "coupling/ozgun-zr-p1.webp",
-        "coupling/ozgun-zr-p2.webp"
-      ],
-      "models": [
-        "Zr1",
-        "Zr2",
-        "Zr3",
-        "Zr4",
-        "Zr5",
-        "Zr6",
-        "Zr7",
-        "Zr8",
-        "Zr9",
-        "Zr10",
-        "Zr11",
-        "Zr12",
-        "Zr13",
-        "Zr14",
-        "Zr15",
-        "Zr16",
-        "Zr17",
-        "Zr18",
-        "Zr19",
-        "Zr20",
-        "Zr21",
-        "Zr22",
-        "Zr23",
-        "Zr24",
-        "Zr25",
-        "Zr26"
-      ]
-    },
-    {
-      "id": "coupling/sibre-alc-a",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "ALC-A",
-      "title": "SIBRE ALC-A — Elastik kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.10-11",
-      "pdf": "coupling/sibre-alc-a.pdf",
-      "images": [
-        "coupling/sibre-alc-a-p1.webp"
-      ],
-      "models": [
-        "ALC-A 38",
-        "ALC-A 42",
-        "ALC-A 48",
-        "ALC-A 55",
-        "ALC-A 65",
-        "ALC-A 75",
-        "ALC-A 90",
-        "ALC-A 100",
-        "ALC-A 110",
-        "ALC-A 125"
-      ]
-    },
-    {
-      "id": "coupling/sibre-alc-as",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "ALC-AS",
-      "title": "SIBRE ALC-AS — Fren kasnaklı elastik kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.12-13",
-      "pdf": "coupling/sibre-alc-as.pdf",
-      "images": [
-        "coupling/sibre-alc-as-p1.webp"
-      ],
-      "models": [
-        "ALC-AS 38",
-        "ALC-AS 42",
-        "ALC-AS 48",
-        "ALC-AS 55",
-        "ALC-AS 65",
-        "ALC-AS 75",
-        "ALC-AS 90",
-        "ALC-AS 100",
-        "ALC-AS 110",
-        "ALC-AS 125"
-      ]
-    },
-    {
-      "id": "coupling/sibre-alc-at",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "ALC-AT",
-      "title": "SIBRE ALC-AT — Fren diskli elastik kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.12-13",
-      "pdf": "coupling/sibre-alc-as.pdf",
-      "images": [
-        "coupling/sibre-alc-as-p1.webp"
-      ],
-      "models": [
-        "ALC-AT 38",
-        "ALC-AT 42",
-        "ALC-AT 48",
-        "ALC-AT 55",
-        "ALC-AT 65",
-        "ALC-AT 75",
-        "ALC-AT 90",
-        "ALC-AT 100",
-        "ALC-AT 110",
-        "ALC-AT 125"
-      ]
-    },
-    {
-      "id": "coupling/sibre-afc-a",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "AFC-A",
-      "title": "SIBRE AFC-A — Elastik kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.14-15",
-      "pdf": "coupling/sibre-afc-a.pdf",
-      "images": [
-        "coupling/sibre-afc-a-p1.webp"
-      ],
-      "models": [
-        "AFC-A 65",
-        "AFC-A 75",
-        "AFC-A 90",
-        "AFC-A 100",
-        "AFC-A 110",
-        "AFC-A 125",
-        "AFC-A 140",
-        "AFC-A 160"
-      ]
-    },
-    {
-      "id": "coupling/sibre-afc-as",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "AFC-AS",
-      "title": "SIBRE AFC-AS — Fren kasnaklı elastik kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.14-15",
-      "pdf": "coupling/sibre-afc-a.pdf",
-      "images": [
-        "coupling/sibre-afc-a-p1.webp"
-      ],
-      "models": [
-        "AFC-AS 65",
-        "AFC-AS 75",
-        "AFC-AS 90",
-        "AFC-AS 100",
-        "AFC-AS 110",
-        "AFC-AS 125",
-        "AFC-AS 140",
-        "AFC-AS 160"
-      ]
-    },
-    {
-      "id": "coupling/sibre-apc-a",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "APC-A",
-      "title": "SIBRE APC-A — Pimli kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.16-17",
-      "pdf": "coupling/sibre-apc-a.pdf",
-      "images": [
-        "coupling/sibre-apc-a-p1.webp"
-      ],
-      "models": [
-        "APC-A 160",
-        "APC-A 200",
-        "APC-A 250",
-        "APC-A 315",
-        "APC-A 400",
-        "APC-A 500"
-      ]
-    },
-    {
-      "id": "coupling/sibre-apc-as",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "APC-AS",
-      "title": "SIBRE APC-AS — Fren kasnaklı pimli kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.18-19",
-      "pdf": "coupling/sibre-apc-as.pdf",
-      "images": [
-        "coupling/sibre-apc-as-p1.webp"
-      ],
-      "models": [
-        "APC-AS 160",
-        "APC-AS 200",
-        "APC-AS 250",
-        "APC-AS 315",
-        "APC-AS 400",
-        "APC-AS 500"
-      ]
-    },
-    {
-      "id": "coupling/sibre-apc-at",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "APC-AT",
-      "title": "SIBRE APC-AT — Fren diskli pimli kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.20-21",
-      "pdf": "coupling/sibre-apc-at.pdf",
-      "images": [
-        "coupling/sibre-apc-at-p1.webp"
-      ],
-      "models": [
-        "APC-AT 160",
-        "APC-AT 200",
-        "APC-AT 250",
-        "APC-AT 315",
-        "APC-AT 400",
-        "APC-AT 500"
-      ]
-    },
-    {
-      "id": "coupling/sibre-apc-bt",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "APC-BT",
-      "title": "SIBRE APC-BT — Fren diskli pimli kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.20-21",
-      "pdf": "coupling/sibre-apc-at.pdf",
-      "images": [
-        "coupling/sibre-apc-at-p1.webp"
-      ],
-      "models": [
-        "APC-BT 160",
-        "APC-BT 200",
-        "APC-BT 250",
-        "APC-BT 315",
-        "APC-BT 400",
-        "APC-BT 500"
-      ]
-    },
-    {
-      "id": "coupling/sibre-zkes",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "ZKES",
-      "title": "SIBRE ZKES — Dişli kaplin",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.24-25",
-      "pdf": "coupling/sibre-zkes.pdf",
-      "images": [
-        "coupling/sibre-zkes-p1.webp"
-      ],
-      "models": [
-        "ZKES 02",
-        "ZKES 04",
-        "ZKES 06",
-        "ZKES 08",
-        "ZKES 10",
-        "ZKES 13",
-        "ZKES 15",
-        "ZKES 17",
-        "ZKES 19"
-      ]
-    },
-    {
-      "id": "coupling/sibre-abc-v",
-      "kind": "coupling",
-      "brand": "SIBRE",
-      "series": "ABC-V",
-      "title": "SIBRE ABC-V — Tambur (halat) kaplini",
-      "source": "02_SIBRE_Coupling-catalogue.pdf",
-      "printedPages": "s.46-47",
-      "pdf": "coupling/sibre-abc-v.pdf",
-      "images": [
-        "coupling/sibre-abc-v-p1.webp"
-      ],
-      "models": [
-        "ABC-V 260",
-        "ABC-V 280",
-        "ABC-V 310",
-        "ABC-V 340",
-        "ABC-V 400",
-        "ABC-V 420",
-        "ABC-V 450",
-        "ABC-V 530",
-        "ABC-V 545",
-        "ABC-V 560",
-        "ABC-V 600",
-        "ABC-V 670",
-        "ABC-V 730",
-        "ABC-V 800",
-        "ABC-V 860"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mt",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MT",
-      "title": "JAURE MT — Kavisli dişli tam-flex kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.17",
-      "pdf": "coupling/jaure-mt.pdf",
-      "images": [
-        "coupling/jaure-mt-p1.webp"
-      ],
-      "models": [
-        "MT 52",
-        "MT 62",
-        "MT 78",
-        "MT 98",
-        "MT 112",
-        "MT 132",
-        "MT 156",
-        "MT 174",
-        "MT 190",
-        "MT 210",
-        "MT 233",
-        "MT 275"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mts",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTS",
-      "title": "JAURE MTS — Tek gövdeli (yarım-flex) dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.19",
-      "pdf": "coupling/jaure-mts.pdf",
-      "images": [
-        "coupling/jaure-mts-p1.webp"
-      ],
-      "models": [
-        "MTS 22",
-        "MTS 32",
-        "MTS 38",
-        "MTS 50",
-        "MTS 55",
-        "MTS 70",
-        "MTS 90",
-        "MTS 100",
-        "MTS 125",
-        "MTS 145",
-        "MTS 165",
-        "MTS 185",
-        "MTS 205",
-        "MTS 230",
-        "MTS 260",
-        "MTS 280",
-        "MTS 310",
-        "MTS 345"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mtg",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTG",
-      "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.20",
-      "pdf": "coupling/jaure-mtg.pdf",
-      "images": [
-        "coupling/jaure-mtg-p1.webp"
-      ],
-      "models": [
-        "MTG 280",
-        "MTG 310",
-        "MTG 345",
-        "MTG 370",
-        "MTG 390",
-        "MTG 420",
-        "MTG 460",
-        "MTG 500",
-        "MTG 550",
-        "MTG 590",
-        "MTG 620",
-        "MTG 650",
-        "MTG 680",
-        "MTG 730"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mtg-hd",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTG-HD",
-      "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.20",
-      "pdf": "coupling/jaure-mtg.pdf",
-      "images": [
-        "coupling/jaure-mtg-p1.webp"
-      ],
-      "models": [
-        "MTG-HD 280",
-        "MTG-HD 310",
-        "MTG-HD 345",
-        "MTG-HD 370",
-        "MTG-HD 390",
-        "MTG-HD 420",
-        "MTG-HD 460",
-        "MTG-HD 500",
-        "MTG-HD 550",
-        "MTG-HD 590",
-        "MTG-HD 620",
-        "MTG-HD 650",
-        "MTG-HD 680",
-        "MTG-HD 730"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mtf",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTF",
-      "title": "JAURE MTF — Ara fren kasnaklı dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.28",
-      "pdf": "coupling/jaure-mtf.pdf",
-      "images": [
-        "coupling/jaure-mtf-p1.webp"
-      ],
-      "models": [
-        "MTF 52",
-        "MTF 62",
-        "MTF 78",
-        "MTF 98",
-        "MTF 112",
-        "MTF 132",
-        "MTF 156",
-        "MTF 174"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mtfe",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTFE",
-      "title": "JAURE MTFE — Yan fren kasnaklı dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.29",
-      "pdf": "coupling/jaure-mtfe.pdf",
-      "images": [
-        "coupling/jaure-mtfe-p1.webp"
-      ],
-      "models": [
-        "MTFE 52",
-        "MTFE 62",
-        "MTFE 78",
-        "MTFE 98",
-        "MTFE 112",
-        "MTFE 132",
-        "MTFE 156",
-        "MTFE 174"
-      ]
-    },
-    {
-      "id": "coupling/jaure-mtes",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "MTES",
-      "title": "JAURE MTES — Ayrılabilir (kavramalı) dişli kaplin",
-      "source": "JAURE MT Series_Gear Coupling.pdf",
-      "printedPages": "s.31",
-      "pdf": "coupling/jaure-mtes.pdf",
-      "images": [
-        "coupling/jaure-mtes-p1.webp"
-      ],
-      "models": [
-        "MTES 42",
-        "MTES 55",
-        "MTES 70",
-        "MTES 90",
-        "MTES 100",
-        "MTES 125",
-        "MTES 145",
-        "MTES 165",
-        "MTES 185",
-        "MTES 205",
-        "MTES 230",
-        "MTES 260"
-      ]
-    },
-    {
-      "id": "coupling/jaure-tcbr",
-      "kind": "coupling",
-      "brand": "JAURE",
-      "series": "TCBR",
-      "title": "JAURE TCBR — Fıçı tipi tambur kaplini",
-      "source": "Jaure Tambur kaplini.pdf",
-      "printedPages": "s.18-19",
-      "pdf": "coupling/jaure-tcbr.pdf",
-      "images": [
-        "coupling/jaure-tcbr-p1.webp",
-        "coupling/jaure-tcbr-p2.webp"
-      ],
-      "models": [
-        "TCBR 25",
-        "TCBR 50",
-        "TCBR 75",
-        "TCBR 100",
-        "TCBR 130",
-        "TCBR 160",
-        "TCBR 200",
-        "TCBR 300",
-        "TCBR 400",
-        "TCBR 500",
-        "TCBR 600",
-        "TCBR 1000",
-        "TCBR 1500",
-        "TCBR 2100",
-        "TCBR 2600",
-        "TCBR 3400",
-        "TCBR 4200",
-        "TCBR 6200",
-        "TCBR 8200",
-        "TCBR 9200",
-        "TCBR 10200"
-      ]
-    }
-  ]
+ "sheets": [
+  {
+   "id": "coupling/ozgun-a",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "A",
+   "title": "ÖZGÜN Tip A — Tam-flex dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.15",
+   "images": [
+    "coupling/ozgun-a-p1.webp"
+   ],
+   "models": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "A9",
+    "A10",
+    "A11",
+    "A12",
+    "A13"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-b1",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "B1",
+   "title": "ÖZGÜN Tip B1 — Fren kasnaklı kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.16",
+   "images": [
+    "coupling/ozgun-b1-p1.webp"
+   ],
+   "models": [
+    "B1-1",
+    "B1-2",
+    "B1-3",
+    "B1-4",
+    "B1-5",
+    "B1-6",
+    "B1-7",
+    "B1-8"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-b2",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "B2",
+   "title": "ÖZGÜN Tip B2 — Fren kasnaklı kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.17",
+   "images": [
+    "coupling/ozgun-b2-p1.webp"
+   ],
+   "models": [
+    "B2-1",
+    "B2-2",
+    "B2-3",
+    "B2-4",
+    "B2-5",
+    "B2-6",
+    "B2-7",
+    "B2-8"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-b3",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "B3",
+   "title": "ÖZGÜN Tip B3 — Fren kasnaklı kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.18",
+   "images": [
+    "coupling/ozgun-b3-p1.webp"
+   ],
+   "models": [
+    "B3-1",
+    "B3-2",
+    "B3-3",
+    "B3-4",
+    "B3-5",
+    "B3-6",
+    "B3-7",
+    "B3-8"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-c",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "C",
+   "title": "ÖZGÜN Tip C — Elastik kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.19",
+   "images": [
+    "coupling/ozgun-c-p1.webp"
+   ],
+   "models": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-da",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Da",
+   "title": "ÖZGÜN Tip Da — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.20",
+   "images": [
+    "coupling/ozgun-da-p1.webp"
+   ],
+   "models": [
+    "Da1",
+    "Da2",
+    "Da3",
+    "Da4",
+    "Da5",
+    "Da6",
+    "Da7",
+    "Da8",
+    "Da9",
+    "Da10",
+    "Da11",
+    "Da12",
+    "Da13",
+    "Da14",
+    "Da15",
+    "Da16",
+    "Da17",
+    "Da18",
+    "Da19",
+    "Da20"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-db",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Db",
+   "title": "ÖZGÜN Tip Db — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.21",
+   "images": [
+    "coupling/ozgun-db-p1.webp"
+   ],
+   "models": [
+    "Db1",
+    "Db2",
+    "Db3",
+    "Db4",
+    "Db5",
+    "Db6",
+    "Db7",
+    "Db8",
+    "Db9",
+    "Db10",
+    "Db11",
+    "Db12",
+    "Db13",
+    "Db14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-dc",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Dc",
+   "title": "ÖZGÜN Tip Dc — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.22",
+   "images": [
+    "coupling/ozgun-dc-p1.webp"
+   ],
+   "models": [
+    "Dc1",
+    "Dc2",
+    "Dc3",
+    "Dc4",
+    "Dc5",
+    "Dc6",
+    "Dc7",
+    "Dc8",
+    "Dc9",
+    "Dc10",
+    "Dc11",
+    "Dc12",
+    "Dc13",
+    "Dc14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-dk",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Dk",
+   "title": "ÖZGÜN Tip Dk — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.23",
+   "images": [
+    "coupling/ozgun-dk-p1.webp"
+   ],
+   "models": [
+    "Dk1",
+    "Dk2",
+    "Dk3",
+    "Dk4",
+    "Dk5",
+    "Dk6",
+    "Dk7",
+    "Dk8",
+    "Dk9",
+    "Dk10",
+    "Dk11",
+    "Dk12",
+    "Dk13",
+    "Dk14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-dt",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Dt",
+   "title": "ÖZGÜN Tip Dt — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.24",
+   "images": [
+    "coupling/ozgun-dt-p1.webp"
+   ],
+   "models": [
+    "Dt1",
+    "Dt2",
+    "Dt3",
+    "Dt4",
+    "Dt5",
+    "Dt6",
+    "Dt7",
+    "Dt8",
+    "Dt9",
+    "Dt10",
+    "Dt11",
+    "Dt12"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-dtk",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Dtk",
+   "title": "ÖZGÜN Tip Dtk — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.26",
+   "images": [
+    "coupling/ozgun-dtk-p1.webp"
+   ],
+   "models": [
+    "Dtk1",
+    "Dtk2",
+    "Dtk3",
+    "Dtk4",
+    "Dtk5",
+    "Dtk6",
+    "Dtk7",
+    "Dtk8",
+    "Dtk9",
+    "Dtk10",
+    "Dtk11",
+    "Dtk12"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-dv",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Dv",
+   "title": "ÖZGÜN Tip Dv — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.27",
+   "images": [
+    "coupling/ozgun-dv-p1.webp"
+   ],
+   "models": [
+    "Dv1",
+    "Dv2",
+    "Dv3",
+    "Dv4",
+    "Dv5",
+    "Dv6",
+    "Dv7",
+    "Dv8",
+    "Dv9",
+    "Dv10",
+    "Dv11",
+    "Dv12",
+    "Dv13",
+    "Dv14",
+    "Dv15",
+    "Dv16",
+    "Dv17",
+    "Dv18",
+    "Dv19",
+    "Dv20"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-e",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "E",
+   "title": "ÖZGÜN Tip E — Zincirli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.28",
+   "images": [
+    "coupling/ozgun-e-p1.webp"
+   ],
+   "models": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-f",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "F",
+   "title": "ÖZGÜN Tip F — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.29",
+   "images": [
+    "coupling/ozgun-f-p1.webp"
+   ],
+   "models": [
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "F13",
+    "F14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-g",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "G",
+   "title": "ÖZGÜN Tip G — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.30",
+   "images": [
+    "coupling/ozgun-g-p1.webp"
+   ],
+   "models": [
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5",
+    "G6",
+    "G7",
+    "G8",
+    "G9",
+    "G10",
+    "G11",
+    "G12",
+    "G13",
+    "G14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-h",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "H",
+   "title": "ÖZGÜN Tip H — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.31",
+   "images": [
+    "coupling/ozgun-h-p1.webp"
+   ],
+   "models": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "H7",
+    "H8",
+    "H9",
+    "H10",
+    "H11",
+    "H12",
+    "H13",
+    "H14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-i",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "I",
+   "title": "ÖZGÜN Tip I — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.32",
+   "images": [
+    "coupling/ozgun-i-p1.webp"
+   ],
+   "models": [
+    "I 1",
+    "I 2",
+    "I 3",
+    "I 4",
+    "I 5",
+    "I 6",
+    "I 7",
+    "I 8",
+    "I 9",
+    "I 10",
+    "I 11",
+    "I 12",
+    "I 13",
+    "I 14",
+    "I 15"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-j",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "J",
+   "title": "ÖZGÜN Tip J — Tambur (kasnaklı) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.33",
+   "images": [
+    "coupling/ozgun-j-p1.webp"
+   ],
+   "models": [
+    "J1",
+    "J2",
+    "J3",
+    "J4",
+    "J5",
+    "J6",
+    "J7",
+    "J8",
+    "J9",
+    "J10",
+    "J11",
+    "J12",
+    "J13",
+    "J14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-k",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "K",
+   "title": "ÖZGÜN Tip K — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.34",
+   "images": [
+    "coupling/ozgun-k-p1.webp"
+   ],
+   "models": [
+    "K1",
+    "K2",
+    "K3",
+    "K4",
+    "K5",
+    "K6",
+    "K7",
+    "K8",
+    "K9",
+    "K10",
+    "K11",
+    "K12",
+    "K13",
+    "K14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-n",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "N",
+   "title": "ÖZGÜN Tip N — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.35",
+   "images": [
+    "coupling/ozgun-n-p1.webp"
+   ],
+   "models": [
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+    "N7",
+    "N8",
+    "N9",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-r",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "R",
+   "title": "ÖZGÜN Tip R — Dişli kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.37",
+   "images": [
+    "coupling/ozgun-r-p1.webp"
+   ],
+   "models": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R9",
+    "R10",
+    "R11",
+    "R12",
+    "R13",
+    "R14"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-s6",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "S6",
+   "title": "ÖZGÜN Tip S6 — Diskli (lamelli) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.38",
+   "images": [
+    "coupling/ozgun-s6-p1.webp"
+   ],
+   "models": [
+    "S6-1",
+    "S6-2",
+    "S6-3",
+    "S6-4",
+    "S6-5",
+    "S6-6",
+    "S6-7",
+    "S6-8",
+    "S6-9",
+    "S6-10",
+    "S6-11",
+    "S6-12",
+    "S6-13",
+    "S6-14",
+    "S6-15",
+    "S6-16",
+    "S6-17"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-s8",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "S8",
+   "title": "ÖZGÜN Tip S8 — Diskli (lamelli) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.39",
+   "images": [
+    "coupling/ozgun-s8-p1.webp"
+   ],
+   "models": [
+    "S8-1",
+    "S8-2",
+    "S8-3",
+    "S8-4",
+    "S8-5",
+    "S8-6",
+    "S8-7",
+    "S8-8",
+    "S8-9",
+    "S8-10",
+    "S8-11",
+    "S8-12",
+    "S8-13",
+    "S8-14",
+    "S8-15",
+    "S8-16",
+    "S8-17"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-t6",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "T6",
+   "title": "ÖZGÜN Tip T6 — Diskli (lamelli) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.40",
+   "images": [
+    "coupling/ozgun-t6-p1.webp"
+   ],
+   "models": [
+    "T6-1",
+    "T6-2",
+    "T6-3",
+    "T6-4",
+    "T6-5",
+    "T6-6",
+    "T6-7",
+    "T6-8",
+    "T6-9",
+    "T6-10",
+    "T6-11",
+    "T6-12",
+    "T6-13",
+    "T6-14",
+    "T6-15",
+    "T6-16",
+    "T6-17"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-t8",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "T8",
+   "title": "ÖZGÜN Tip T8 — Diskli (lamelli) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.41",
+   "images": [
+    "coupling/ozgun-t8-p1.webp"
+   ],
+   "models": [
+    "T8-1",
+    "T8-2",
+    "T8-3",
+    "T8-4",
+    "T8-5",
+    "T8-6",
+    "T8-7",
+    "T8-8",
+    "T8-9",
+    "T8-10",
+    "T8-11",
+    "T8-12",
+    "T8-13",
+    "T8-14",
+    "T8-15",
+    "T8-16",
+    "T8-17"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-y",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Y",
+   "title": "ÖZGÜN Tip Y — Elastik kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.42",
+   "images": [
+    "coupling/ozgun-y-p1.webp"
+   ],
+   "models": [
+    "Y1",
+    "Y2",
+    "Y3",
+    "Y4",
+    "Y5",
+    "Y6",
+    "Y7",
+    "Y8",
+    "Y9",
+    "Y10",
+    "Y11",
+    "Y12"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-za",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Za",
+   "title": "ÖZGÜN Tip Za — Elastik kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.43",
+   "images": [
+    "coupling/ozgun-za-p1.webp"
+   ],
+   "models": [
+    "Za1",
+    "Za2",
+    "Za3",
+    "Za4",
+    "Za5",
+    "Za6",
+    "Za7",
+    "Za8",
+    "Za9"
+   ]
+  },
+  {
+   "id": "coupling/ozgun-zr",
+   "kind": "coupling",
+   "brand": "OZGUN",
+   "series": "Zr",
+   "title": "ÖZGÜN Tip Zr — Pimli (elastik) kaplin",
+   "source": "ozgun katalog 2019 1-b.pdf",
+   "printedPages": "s.44-45",
+   "images": [
+    "coupling/ozgun-zr-p1.webp",
+    "coupling/ozgun-zr-p2.webp"
+   ],
+   "models": [
+    "Zr1",
+    "Zr2",
+    "Zr3",
+    "Zr4",
+    "Zr5",
+    "Zr6",
+    "Zr7",
+    "Zr8",
+    "Zr9",
+    "Zr10",
+    "Zr11",
+    "Zr12",
+    "Zr13",
+    "Zr14",
+    "Zr15",
+    "Zr16",
+    "Zr17",
+    "Zr18",
+    "Zr19",
+    "Zr20",
+    "Zr21",
+    "Zr22",
+    "Zr23",
+    "Zr24",
+    "Zr25",
+    "Zr26"
+   ]
+  },
+  {
+   "id": "coupling/sibre-alc-a",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "ALC-A",
+   "title": "SIBRE ALC-A — Elastik kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.10-11",
+   "images": [
+    "coupling/sibre-alc-a-p1.webp"
+   ],
+   "models": [
+    "ALC-A 38",
+    "ALC-A 42",
+    "ALC-A 48",
+    "ALC-A 55",
+    "ALC-A 65",
+    "ALC-A 75",
+    "ALC-A 90",
+    "ALC-A 100",
+    "ALC-A 110",
+    "ALC-A 125"
+   ]
+  },
+  {
+   "id": "coupling/sibre-alc-as",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "ALC-AS",
+   "title": "SIBRE ALC-AS — Fren kasnaklı elastik kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.12-13",
+   "images": [
+    "coupling/sibre-alc-as-p1.webp"
+   ],
+   "models": [
+    "ALC-AS 38",
+    "ALC-AS 42",
+    "ALC-AS 48",
+    "ALC-AS 55",
+    "ALC-AS 65",
+    "ALC-AS 75",
+    "ALC-AS 90",
+    "ALC-AS 100",
+    "ALC-AS 110",
+    "ALC-AS 125"
+   ]
+  },
+  {
+   "id": "coupling/sibre-alc-at",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "ALC-AT",
+   "title": "SIBRE ALC-AT — Fren diskli elastik kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.12-13",
+   "images": [
+    "coupling/sibre-alc-as-p1.webp"
+   ],
+   "models": [
+    "ALC-AT 38",
+    "ALC-AT 42",
+    "ALC-AT 48",
+    "ALC-AT 55",
+    "ALC-AT 65",
+    "ALC-AT 75",
+    "ALC-AT 90",
+    "ALC-AT 100",
+    "ALC-AT 110",
+    "ALC-AT 125"
+   ]
+  },
+  {
+   "id": "coupling/sibre-afc-a",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "AFC-A",
+   "title": "SIBRE AFC-A — Elastik kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.14-15",
+   "images": [
+    "coupling/sibre-afc-a-p1.webp"
+   ],
+   "models": [
+    "AFC-A 65",
+    "AFC-A 75",
+    "AFC-A 90",
+    "AFC-A 100",
+    "AFC-A 110",
+    "AFC-A 125",
+    "AFC-A 140",
+    "AFC-A 160"
+   ]
+  },
+  {
+   "id": "coupling/sibre-afc-as",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "AFC-AS",
+   "title": "SIBRE AFC-AS — Fren kasnaklı elastik kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.14-15",
+   "images": [
+    "coupling/sibre-afc-a-p1.webp"
+   ],
+   "models": [
+    "AFC-AS 65",
+    "AFC-AS 75",
+    "AFC-AS 90",
+    "AFC-AS 100",
+    "AFC-AS 110",
+    "AFC-AS 125",
+    "AFC-AS 140",
+    "AFC-AS 160"
+   ]
+  },
+  {
+   "id": "coupling/sibre-apc-a",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "APC-A",
+   "title": "SIBRE APC-A — Pimli kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.16-17",
+   "images": [
+    "coupling/sibre-apc-a-p1.webp"
+   ],
+   "models": [
+    "APC-A 160",
+    "APC-A 200",
+    "APC-A 250",
+    "APC-A 315",
+    "APC-A 400",
+    "APC-A 500"
+   ]
+  },
+  {
+   "id": "coupling/sibre-apc-as",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "APC-AS",
+   "title": "SIBRE APC-AS — Fren kasnaklı pimli kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.18-19",
+   "images": [
+    "coupling/sibre-apc-as-p1.webp"
+   ],
+   "models": [
+    "APC-AS 160",
+    "APC-AS 200",
+    "APC-AS 250",
+    "APC-AS 315",
+    "APC-AS 400",
+    "APC-AS 500"
+   ]
+  },
+  {
+   "id": "coupling/sibre-apc-at",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "APC-AT",
+   "title": "SIBRE APC-AT — Fren diskli pimli kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.20-21",
+   "images": [
+    "coupling/sibre-apc-at-p1.webp"
+   ],
+   "models": [
+    "APC-AT 160",
+    "APC-AT 200",
+    "APC-AT 250",
+    "APC-AT 315",
+    "APC-AT 400",
+    "APC-AT 500"
+   ]
+  },
+  {
+   "id": "coupling/sibre-apc-bt",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "APC-BT",
+   "title": "SIBRE APC-BT — Fren diskli pimli kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.20-21",
+   "images": [
+    "coupling/sibre-apc-at-p1.webp"
+   ],
+   "models": [
+    "APC-BT 160",
+    "APC-BT 200",
+    "APC-BT 250",
+    "APC-BT 315",
+    "APC-BT 400",
+    "APC-BT 500"
+   ]
+  },
+  {
+   "id": "coupling/sibre-zkes",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "ZKES",
+   "title": "SIBRE ZKES — Dişli kaplin",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.24-25",
+   "images": [
+    "coupling/sibre-zkes-p1.webp"
+   ],
+   "models": [
+    "ZKES 02",
+    "ZKES 04",
+    "ZKES 06",
+    "ZKES 08",
+    "ZKES 10",
+    "ZKES 13",
+    "ZKES 15",
+    "ZKES 17",
+    "ZKES 19"
+   ]
+  },
+  {
+   "id": "coupling/sibre-abc-v",
+   "kind": "coupling",
+   "brand": "SIBRE",
+   "series": "ABC-V",
+   "title": "SIBRE ABC-V — Tambur (halat) kaplini",
+   "source": "02_SIBRE_Coupling-catalogue.pdf",
+   "printedPages": "s.46-47",
+   "images": [
+    "coupling/sibre-abc-v-p1.webp"
+   ],
+   "models": [
+    "ABC-V 260",
+    "ABC-V 280",
+    "ABC-V 310",
+    "ABC-V 340",
+    "ABC-V 400",
+    "ABC-V 420",
+    "ABC-V 450",
+    "ABC-V 530",
+    "ABC-V 545",
+    "ABC-V 560",
+    "ABC-V 600",
+    "ABC-V 670",
+    "ABC-V 730",
+    "ABC-V 800",
+    "ABC-V 860"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mt",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MT",
+   "title": "JAURE MT — Kavisli dişli tam-flex kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.17",
+   "images": [
+    "coupling/jaure-mt-p1.webp"
+   ],
+   "models": [
+    "MT 52",
+    "MT 62",
+    "MT 78",
+    "MT 98",
+    "MT 112",
+    "MT 132",
+    "MT 156",
+    "MT 174",
+    "MT 190",
+    "MT 210",
+    "MT 233",
+    "MT 275"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mts",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTS",
+   "title": "JAURE MTS — Tek gövdeli (yarım-flex) dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.19",
+   "images": [
+    "coupling/jaure-mts-p1.webp"
+   ],
+   "models": [
+    "MTS 22",
+    "MTS 32",
+    "MTS 38",
+    "MTS 50",
+    "MTS 55",
+    "MTS 70",
+    "MTS 90",
+    "MTS 100",
+    "MTS 125",
+    "MTS 145",
+    "MTS 165",
+    "MTS 185",
+    "MTS 205",
+    "MTS 230",
+    "MTS 260",
+    "MTS 280",
+    "MTS 310",
+    "MTS 345"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mtg",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTG",
+   "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.20",
+   "images": [
+    "coupling/jaure-mtg-p1.webp"
+   ],
+   "models": [
+    "MTG 280",
+    "MTG 310",
+    "MTG 345",
+    "MTG 370",
+    "MTG 390",
+    "MTG 420",
+    "MTG 460",
+    "MTG 500",
+    "MTG 550",
+    "MTG 590",
+    "MTG 620",
+    "MTG 650",
+    "MTG 680",
+    "MTG 730"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mtg-hd",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTG-HD",
+   "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.20",
+   "images": [
+    "coupling/jaure-mtg-p1.webp"
+   ],
+   "models": [
+    "MTG-HD 280",
+    "MTG-HD 310",
+    "MTG-HD 345",
+    "MTG-HD 370",
+    "MTG-HD 390",
+    "MTG-HD 420",
+    "MTG-HD 460",
+    "MTG-HD 500",
+    "MTG-HD 550",
+    "MTG-HD 590",
+    "MTG-HD 620",
+    "MTG-HD 650",
+    "MTG-HD 680",
+    "MTG-HD 730"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mtf",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTF",
+   "title": "JAURE MTF — Ara fren kasnaklı dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.28",
+   "images": [
+    "coupling/jaure-mtf-p1.webp"
+   ],
+   "models": [
+    "MTF 52",
+    "MTF 62",
+    "MTF 78",
+    "MTF 98",
+    "MTF 112",
+    "MTF 132",
+    "MTF 156",
+    "MTF 174"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mtfe",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTFE",
+   "title": "JAURE MTFE — Yan fren kasnaklı dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.29",
+   "images": [
+    "coupling/jaure-mtfe-p1.webp"
+   ],
+   "models": [
+    "MTFE 52",
+    "MTFE 62",
+    "MTFE 78",
+    "MTFE 98",
+    "MTFE 112",
+    "MTFE 132",
+    "MTFE 156",
+    "MTFE 174"
+   ]
+  },
+  {
+   "id": "coupling/jaure-mtes",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "MTES",
+   "title": "JAURE MTES — Ayrılabilir (kavramalı) dişli kaplin",
+   "source": "JAURE MT Series_Gear Coupling.pdf",
+   "printedPages": "s.31",
+   "images": [
+    "coupling/jaure-mtes-p1.webp"
+   ],
+   "models": [
+    "MTES 42",
+    "MTES 55",
+    "MTES 70",
+    "MTES 90",
+    "MTES 100",
+    "MTES 125",
+    "MTES 145",
+    "MTES 165",
+    "MTES 185",
+    "MTES 205",
+    "MTES 230",
+    "MTES 260"
+   ]
+  },
+  {
+   "id": "coupling/jaure-tcbr",
+   "kind": "coupling",
+   "brand": "JAURE",
+   "series": "TCBR",
+   "title": "JAURE TCBR — Fıçı tipi tambur kaplini",
+   "source": "Jaure Tambur kaplini.pdf",
+   "printedPages": "s.18-19",
+   "images": [
+    "coupling/jaure-tcbr-p1.webp",
+    "coupling/jaure-tcbr-p2.webp"
+   ],
+   "models": [
+    "TCBR 25",
+    "TCBR 50",
+    "TCBR 75",
+    "TCBR 100",
+    "TCBR 130",
+    "TCBR 160",
+    "TCBR 200",
+    "TCBR 300",
+    "TCBR 400",
+    "TCBR 500",
+    "TCBR 600",
+    "TCBR 1000",
+    "TCBR 1500",
+    "TCBR 2100",
+    "TCBR 2600",
+    "TCBR 3400",
+    "TCBR 4200",
+    "TCBR 6200",
+    "TCBR 8200",
+    "TCBR 9200",
+    "TCBR 10200"
+   ]
+  },
+  {
+   "id": "buffer/sibre-sp",
+   "kind": "buffer",
+   "brand": "SIBRE",
+   "series": "SP",
+   "title": "SIBRE SP — Hidrolik tampon: seçim matrisi ve ölçüler",
+   "source": "SIBRE Produktkatalog2022_Puffer_SP.pdf",
+   "printedPages": "s.18-21",
+   "images": [
+    "buffer/sibre-sp-p1.webp",
+    "buffer/sibre-sp-p2.webp",
+    "buffer/sibre-sp-p3.webp"
+   ],
+   "models": [
+    "SP 65 FF 100",
+    "SP 65 BF 100",
+    "SP 65 FF 200",
+    "SP 65 BF 200",
+    "SP 65 FF 300",
+    "SP 65 BF 300",
+    "SP 65 FF 400",
+    "SP 65 BF 400",
+    "SP 65 FF 600",
+    "SP 65 FF 800",
+    "SP 80 FF 100",
+    "SP 80 BF 100",
+    "SP 80 FF 200",
+    "SP 80 BF 200",
+    "SP 80 FF 300",
+    "SP 80 BF 300",
+    "SP 80 FF 400",
+    "SP 80 BF 400",
+    "SP 80 FF 500",
+    "SP 80 FF 600",
+    "SP 100 FF 200",
+    "SP 100 BF 200",
+    "SP 100 FF 400",
+    "SP 100 BF 400",
+    "SP 100 FF 600",
+    "SP 100 FF 800",
+    "SP 125 BF 100",
+    "SP 125 FF 200",
+    "SP 125 BF 200",
+    "SP 125 FF 400",
+    "SP 125 BF 400",
+    "SP 125 FF 600",
+    "SP 125 FF 800"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p45",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.45",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.45",
+   "images": [
+    "bearing/skf-skf-p45.webp"
+   ],
+   "models": [
+    "6030"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p266",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.266",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.266",
+   "images": [
+    "bearing/skf-skf-p266.webp"
+   ],
+   "models": [
+    "6000",
+    "6200",
+    "6300"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p268",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.268",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.268",
+   "images": [
+    "bearing/skf-skf-p268.webp"
+   ],
+   "models": [
+    "6001",
+    "6002",
+    "6201",
+    "6301"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p270",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.270",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.270",
+   "images": [
+    "bearing/skf-skf-p270.webp"
+   ],
+   "models": [
+    "6003",
+    "6202",
+    "6203",
+    "6302"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p272",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.272",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.272",
+   "images": [
+    "bearing/skf-skf-p272.webp"
+   ],
+   "models": [
+    "6004",
+    "6204",
+    "6303",
+    "6304"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p274",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.274",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.274",
+   "images": [
+    "bearing/skf-skf-p274.webp"
+   ],
+   "models": [
+    "6005",
+    "6205",
+    "6305"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p276",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.276",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.276",
+   "images": [
+    "bearing/skf-skf-p276.webp"
+   ],
+   "models": [
+    "6006",
+    "6007",
+    "6206",
+    "6207",
+    "6306"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p278",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.278",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.278",
+   "images": [
+    "bearing/skf-skf-p278.webp"
+   ],
+   "models": [
+    "6008",
+    "6208",
+    "6307",
+    "6308"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p280",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.280",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.280",
+   "images": [
+    "bearing/skf-skf-p280.webp"
+   ],
+   "models": [
+    "6009",
+    "6010",
+    "6209",
+    "6210",
+    "6309"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p282",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.282",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.282",
+   "images": [
+    "bearing/skf-skf-p282.webp"
+   ],
+   "models": [
+    "6011",
+    "6211",
+    "6310",
+    "6311"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p284",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.284",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.284",
+   "images": [
+    "bearing/skf-skf-p284.webp"
+   ],
+   "models": [
+    "6012",
+    "6013",
+    "6212",
+    "6213",
+    "6312"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p286",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.286",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.286",
+   "images": [
+    "bearing/skf-skf-p286.webp"
+   ],
+   "models": [
+    "6014",
+    "6214",
+    "6313",
+    "6314"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p288",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.288",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.288",
+   "images": [
+    "bearing/skf-skf-p288.webp"
+   ],
+   "models": [
+    "6015",
+    "6016",
+    "6215",
+    "6216",
+    "6315"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p290",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.290",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.290",
+   "images": [
+    "bearing/skf-skf-p290.webp"
+   ],
+   "models": [
+    "6017",
+    "6018",
+    "6217",
+    "6218",
+    "6316",
+    "6317"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p292",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.292",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.292",
+   "images": [
+    "bearing/skf-skf-p292.webp"
+   ],
+   "models": [
+    "6019",
+    "6020",
+    "6219",
+    "6220",
+    "6318",
+    "6319"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p294",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.294",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.294",
+   "images": [
+    "bearing/skf-skf-p294.webp"
+   ],
+   "models": [
+    "6021",
+    "6022",
+    "6221",
+    "6222",
+    "6320",
+    "6321",
+    "6322"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p296",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.296",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.296",
+   "images": [
+    "bearing/skf-skf-p296.webp"
+   ],
+   "models": [
+    "6024",
+    "6026",
+    "6224",
+    "6226",
+    "6324",
+    "6326"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p298",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.298",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.298",
+   "images": [
+    "bearing/skf-skf-p298.webp"
+   ],
+   "models": [
+    "6028",
+    "6032",
+    "6228",
+    "6230",
+    "6232",
+    "6328",
+    "6330"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p300",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.300",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.300",
+   "images": [
+    "bearing/skf-skf-p300.webp"
+   ],
+   "models": [
+    "6034",
+    "6036",
+    "6038",
+    "6234",
+    "6236",
+    "6238",
+    "6332",
+    "6334",
+    "6336",
+    "6338"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p302",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.302",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.302",
+   "images": [
+    "bearing/skf-skf-p302.webp"
+   ],
+   "models": [
+    "6040",
+    "6240"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p474",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.474",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.474",
+   "images": [
+    "bearing/skf-skf-p474.webp"
+   ],
+   "models": [
+    "51200",
+    "51201",
+    "51202",
+    "51203",
+    "51204",
+    "51205",
+    "51206",
+    "51207"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p476",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.476",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.476",
+   "images": [
+    "bearing/skf-skf-p476.webp"
+   ],
+   "models": [
+    "51208",
+    "51209",
+    "51210",
+    "51211",
+    "51212",
+    "51213",
+    "51214",
+    "51215"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p478",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.478",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.478",
+   "images": [
+    "bearing/skf-skf-p478.webp"
+   ],
+   "models": [
+    "51216",
+    "51217",
+    "51218",
+    "51220",
+    "51222",
+    "51224",
+    "51226",
+    "51228"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p518",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.518",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.518",
+   "images": [
+    "bearing/skf-skf-p518.webp"
+   ],
+   "models": [
+    "NJ 2203 ECP",
+    "NJ 2204 ECP",
+    "NJ 2205 ECP",
+    "NJ 2304 ECP",
+    "NJ 202 ECP",
+    "NJ 203 ECP",
+    "NJ 204 ECP",
+    "NJ 205 ECP",
+    "NJ 303 ECP",
+    "NJ 304 ECP",
+    "NU 2203 ECP",
+    "NU 2204 ECP",
+    "NU 2205 ECP",
+    "NU 2304 ECP",
+    "NU 202 ECP",
+    "NU 203 ECP",
+    "NU 204 ECP",
+    "NU 205 ECP",
+    "NU 303 ECP",
+    "NU 304 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p520",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.520",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.520",
+   "images": [
+    "bearing/skf-skf-p520.webp"
+   ],
+   "models": [
+    "NJ 2206 ECP",
+    "NJ 2207 ECP",
+    "NJ 2305 ECP",
+    "NJ 2306 ECP",
+    "NJ 206 ECP",
+    "NJ 207 ECP",
+    "NJ 305 ECP",
+    "NJ 306 ECP",
+    "NJ 307 ECP",
+    "NU 1007 ECP",
+    "NU 2206 ECP",
+    "NU 2207 ECP",
+    "NU 2305 ECP",
+    "NU 2306 ECP",
+    "NU 206 ECP",
+    "NU 207 ECP",
+    "NU 305 ECP",
+    "NU 306 ECP",
+    "NU 307 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p522",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.522",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.522",
+   "images": [
+    "bearing/skf-skf-p522.webp"
+   ],
+   "models": [
+    "NJ 1009 ECP",
+    "NJ 2208 ECP",
+    "NJ 2209 ECP",
+    "NJ 2307 ECP",
+    "NJ 2308 ECP",
+    "NJ 208 ECP",
+    "NJ 209 ECP",
+    "NJ 308 ECP",
+    "NJ 309 ECP",
+    "NU 1009 ECP",
+    "NU 2208 ECP",
+    "NU 2209 ECP",
+    "NU 2307 ECP",
+    "NU 2308 ECP",
+    "NU 208 ECP",
+    "NU 209 ECP",
+    "NU 308 ECP",
+    "NU 309 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p524",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.524",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.524",
+   "images": [
+    "bearing/skf-skf-p524.webp"
+   ],
+   "models": [
+    "NJ 1011 ECP",
+    "NJ 2210 ECP",
+    "NJ 2211 ECP",
+    "NJ 2309 ECP",
+    "NJ 2310 ECP",
+    "NJ 210 ECP",
+    "NJ 211 ECP",
+    "NJ 310 ECP",
+    "NJ 311 ECP",
+    "NU 1010 ECP",
+    "NU 1011 ECP",
+    "NU 2210 ECP",
+    "NU 2211 ECP",
+    "NU 2309 ECP",
+    "NU 2310 ECP",
+    "NU 210 ECP",
+    "NU 211 ECP",
+    "NU 310 ECP",
+    "NU 311 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p526",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.526",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.526",
+   "images": [
+    "bearing/skf-skf-p526.webp"
+   ],
+   "models": [
+    "NJ 2212 ECP",
+    "NJ 2213 ECP",
+    "NJ 2311 ECP",
+    "NJ 2312 ECP",
+    "NJ 212 ECP",
+    "NJ 213 ECP",
+    "NJ 312 ECP",
+    "NJ 313 ECP",
+    "NU 1013 ECP",
+    "NU 2212 ECP",
+    "NU 2213 ECP",
+    "NU 2311 ECP",
+    "NU 2312 ECP",
+    "NU 212 ECP",
+    "NU 213 ECP",
+    "NU 312 ECP",
+    "NU 313 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p528",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.528",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.528",
+   "images": [
+    "bearing/skf-skf-p528.webp"
+   ],
+   "models": [
+    "NJ 2214 ECP",
+    "NJ 2215 ECP",
+    "NJ 2313 ECP",
+    "NJ 2314 ECP",
+    "NJ 214 ECP",
+    "NJ 215 ECP",
+    "NJ 314 ECP",
+    "NU 1014 ECP",
+    "NU 2214 ECP",
+    "NU 2215 ECP",
+    "NU 2313 ECP",
+    "NU 2314 ECP",
+    "NU 214 ECP",
+    "NU 215 ECP",
+    "NU 314 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p530",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.530",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.530",
+   "images": [
+    "bearing/skf-skf-p530.webp"
+   ],
+   "models": [
+    "NJ 2216 ECP",
+    "NJ 2217 ECP",
+    "NJ 2315 ECP",
+    "NJ 2316 ECP",
+    "NJ 216 ECP",
+    "NJ 217 ECP",
+    "NJ 315 ECP",
+    "NJ 316 ECP",
+    "NU 2216 ECP",
+    "NU 2217 ECP",
+    "NU 2315 ECP",
+    "NU 2316 ECP",
+    "NU 216 ECP",
+    "NU 217 ECP",
+    "NU 315 ECP",
+    "NU 316 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p532",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.532",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.532",
+   "images": [
+    "bearing/skf-skf-p532.webp"
+   ],
+   "models": [
+    "NJ 2218 ECP",
+    "NJ 2219 ECP",
+    "NJ 2317 ECP",
+    "NJ 2318 ECP",
+    "NJ 218 ECP",
+    "NJ 219 ECP",
+    "NJ 317 ECP",
+    "NJ 318 ECP",
+    "NU 2218 ECP",
+    "NU 2219 ECP",
+    "NU 2317 ECP",
+    "NU 2318 ECP",
+    "NU 218 ECP",
+    "NU 219 ECP",
+    "NU 317 ECP",
+    "NU 318 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p534",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.534",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.534",
+   "images": [
+    "bearing/skf-skf-p534.webp"
+   ],
+   "models": [
+    "NJ 2220 ECP",
+    "NJ 220 ECP",
+    "NJ 221 ECP",
+    "NJ 319 ECP",
+    "NJ 321 ECP",
+    "NU 2220 ECP",
+    "NU 2319 ECP",
+    "NU 2320 ECP",
+    "NU 220 ECP",
+    "NU 221 ECP",
+    "NU 319 ECP",
+    "NU 320 ECP",
+    "NU 321 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p536",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.536",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.536",
+   "images": [
+    "bearing/skf-skf-p536.webp"
+   ],
+   "models": [
+    "NJ 2222 ECP",
+    "NJ 2322 ECP",
+    "NJ 222 ECP",
+    "NJ 224 ECP",
+    "NU 2222 ECP",
+    "NU 2224 ECP",
+    "NU 2322 ECP",
+    "NU 222 ECP",
+    "NU 224 ECP",
+    "NU 322 ECP",
+    "NU 324 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p538",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.538",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.538",
+   "images": [
+    "bearing/skf-skf-p538.webp"
+   ],
+   "models": [
+    "NJ 226 ECP",
+    "NU 2226 ECP",
+    "NU 226 ECP",
+    "NU 326 ECP"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p794",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.794",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.794",
+   "images": [
+    "bearing/skf-skf-p794.webp"
+   ],
+   "models": [
+    "22205 E",
+    "22206 E",
+    "22207 E",
+    "22208 E",
+    "22209 E",
+    "22210 E",
+    "22211 E",
+    "22308 E",
+    "22309 E",
+    "22310 E",
+    "22311 E"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p796",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.796",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.796",
+   "images": [
+    "bearing/skf-skf-p796.webp"
+   ],
+   "models": [
+    "22212 E",
+    "22213 E",
+    "22214 E",
+    "22215 E",
+    "22216 E",
+    "22312 E",
+    "22313 E",
+    "22314 E",
+    "22315 E",
+    "22316 E"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p798",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.798",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.798",
+   "images": [
+    "bearing/skf-skf-p798.webp"
+   ],
+   "models": [
+    "22217 E",
+    "22218 E",
+    "22219 E",
+    "22220 E",
+    "22317 E",
+    "22318 E",
+    "22319 E",
+    "22320 E"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p800",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.800",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.800",
+   "images": [
+    "bearing/skf-skf-p800.webp"
+   ],
+   "models": [
+    "22222 E",
+    "22224 E",
+    "22322 E"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p802",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.802",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.802",
+   "images": [
+    "bearing/skf-skf-p802.webp"
+   ],
+   "models": [
+    "22226 E"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p72",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.72",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.72",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p72.webp"
+   ],
+   "models": [
+    "SE 213",
+    "SE 513-611"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p73",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.73",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.73",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p73.webp"
+   ],
+   "models": [
+    "SNL 205",
+    "SE 208-307",
+    "SE 209",
+    "SE 210",
+    "SE 510-608"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p79",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.79",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.79",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p79.webp"
+   ],
+   "models": [
+    "SE 211",
+    "SE 215",
+    "SNL 216",
+    "SNL 217",
+    "SNL 218",
+    "SNL 520-617",
+    "SNL 522-619",
+    "SNL 524-620",
+    "SNL 526",
+    "SE 515-612",
+    "SNL 516-613",
+    "SNL 517",
+    "SNL 518-615"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p80",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.80",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.80",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p80.webp"
+   ],
+   "models": [
+    "SE 207"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p81",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.81",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.81",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p81.webp"
+   ],
+   "models": [
+    "SNL 206-305"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p92",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.92",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.92",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p92.webp"
+   ],
+   "models": [
+    "SE 511-609"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p94",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.94",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.94",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p94.webp"
+   ],
+   "models": [
+    "SE 512-610"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p98",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.98",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.98",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p98.webp"
+   ],
+   "models": [
+    "SNL 519-616"
+   ]
+  },
+  {
+   "id": "bearing_housing/skf-skf-snl-se-p130",
+   "kind": "bearing_housing",
+   "brand": "SKF",
+   "series": "SNL / SE iki parçalı yatak gövdeleri",
+   "title": "SKF Rulman Yatağı — katalog s.130",
+   "source": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+   "printedPages": "PDF s.130",
+   "images": [
+    "bearing_housing/skf-skf-snl-se-p130.webp"
+   ],
+   "models": [
+    "SE 212"
+   ]
+  },
+  {
+   "id": "brake/galvi-newcomen-galvi-nhyd-nvhyd-p1",
+   "kind": "brake",
+   "brand": "GALVI NEWCOMEN",
+   "series": "N.HYD / NV.HYD",
+   "title": "GALVI NEWCOMEN Fren — katalog s.1",
+   "source": "Galvi Kasnak Fren.pdf",
+   "printedPages": "PDF s.1",
+   "images": [
+    "brake/galvi-newcomen-galvi-nhyd-nvhyd-p1.webp"
+   ],
+   "models": [
+    "N(NV).160.HYD.023/05(2)",
+    "N(NV).160.HYD.024/05(2)",
+    "N(NV).200.HYD.023/05",
+    "N(NV).200.HYD.024/05",
+    "N(NV).200.HYD.030/05",
+    "N(NV).200.HYD.031/05",
+    "N(NV).250.HYD.023/05",
+    "N(NV).250.HYD.024/05",
+    "N(NV).250.HYD.030/05",
+    "N(NV).250.HYD.031/05",
+    "N(NV).250.HYD.050/06",
+    "N(NV).250.HYD.051/06",
+    "N(NV).315.HYD.030/05",
+    "N(NV).315.HYD.031/05",
+    "N(NV).315.HYD.050/06",
+    "N(NV).315.HYD.051/06",
+    "N(NV).315.HYD.080/06",
+    "N(NV).315.HYD.081/06",
+    "N(NV).400.HYD.050/06",
+    "N(NV).400.HYD.051/06",
+    "N(NV).400.HYD.080/06",
+    "N(NV).400.HYD.081/06",
+    "N(NV).400.HYD.121/06",
+    "N(NV).500.HYD.080/06",
+    "N(NV).500.HYD.081/06",
+    "N(NV).500.HYD.121/06",
+    "N(NV).500.HYD.201/06",
+    "N(NV).630.HYD.121/06",
+    "N(NV).630.HYD.201/06",
+    "N(NV).630.HYD.301/06",
+    "N(NV).710.HYD.121/06",
+    "N(NV).710.HYD.201/06",
+    "N(NV).710.HYD.301/06"
+   ]
+  },
+  {
+   "id": "buffer/conductix-wampfler-conductix-rubber-p11",
+   "kind": "buffer",
+   "brand": "Conductix-Wampfler",
+   "series": "",
+   "title": "Conductix-Wampfler Kauçuk Tampon — katalog s.11",
+   "source": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+   "printedPages": "PDF s.11",
+   "images": [
+    "buffer/conductix-wampfler-conductix-rubber-p11.webp"
+   ],
+   "models": [
+    "017110-040x032N",
+    "017110-050x040N",
+    "017110-063x050N",
+    "017111-080N",
+    "017120-080N",
+    "017111-100N",
+    "017120-100N",
+    "017111-125N",
+    "017120-125N",
+    "017111-160N",
+    "017120-160N",
+    "017111-200N",
+    "017120-200N",
+    "017111-250N",
+    "017120-250N",
+    "017111-315N"
+   ]
+  },
+  {
+   "id": "buffer/conductix-wampfler-conductix-rubber-p12",
+   "kind": "buffer",
+   "brand": "Conductix-Wampfler",
+   "series": "",
+   "title": "Conductix-Wampfler Kauçuk Tampon — katalog s.12",
+   "source": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+   "printedPages": "PDF s.12",
+   "images": [
+    "buffer/conductix-wampfler-conductix-rubber-p12.webp"
+   ],
+   "models": [
+    "017220-016x006,3",
+    "017220-016x008",
+    "017220-016x010",
+    "017220-016x012,5",
+    "017220-016x016",
+    "017220-020x008",
+    "017220-020x010",
+    "017220-020x012,5",
+    "017220-020x016",
+    "017220-020x020",
+    "017220-025x010",
+    "017220-025x012,5",
+    "017220-025x016",
+    "017220-025x020",
+    "017220-025x025",
+    "017220-032x012,5",
+    "017220-032x016",
+    "017220-032x020",
+    "017220-032x025",
+    "017220-032x032",
+    "017220-040x016",
+    "017220-040x020",
+    "017220-040x025",
+    "017220-040x032",
+    "017220-040x040",
+    "017220-050x020",
+    "017220-050x025",
+    "017220-050x032",
+    "017220-050x040",
+    "017220-050x050",
+    "017220-063x020",
+    "017220-063x025",
+    "017220-063x032",
+    "017220-063x040",
+    "017220-063x050",
+    "017220-063x063",
+    "017220-080x020",
+    "017220-080x025",
+    "017220-080x032"
+   ]
+  },
+  {
+   "id": "buffer/conductix-wampfler-conductix-rubber-p13",
+   "kind": "buffer",
+   "brand": "Conductix-Wampfler",
+   "series": "",
+   "title": "Conductix-Wampfler Kauçuk Tampon — katalog s.13",
+   "source": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+   "printedPages": "PDF s.13",
+   "images": [
+    "buffer/conductix-wampfler-conductix-rubber-p13.webp"
+   ],
+   "models": [
+    "017220-080x040",
+    "017220-080x050",
+    "017220-080x063",
+    "017220-080x080",
+    "017220-100x020",
+    "017220-100x025",
+    "017220-100x032",
+    "017220-100x040",
+    "017220-100x050",
+    "017220-100x063",
+    "017220-100x080",
+    "017220-100x100"
+   ]
+  },
+  {
+   "id": "buffer/conductix-wampfler-conductix-cellular-p23",
+   "kind": "buffer",
+   "brand": "Conductix-Wampfler",
+   "series": "",
+   "title": "Conductix-Wampfler Hücresel Tampon — katalog s.23",
+   "source": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+   "printedPages": "PDF s.23",
+   "images": [
+    "buffer/conductix-wampfler-conductix-cellular-p23.webp"
+   ],
+   "models": [
+    "018112-080x040",
+    "018112-080x080",
+    "018112-080x120",
+    "018112-100x050",
+    "018112-100x100",
+    "018112-100x150",
+    "018112-125x063",
+    "018112-125x125",
+    "018112-125x188",
+    "018112-160x080",
+    "018112-160x160",
+    "018112-160x240",
+    "018112-200x100",
+    "018112-200x200",
+    "018112-200x200-A",
+    "018112-200x300",
+    "018112-200x300-A",
+    "018112-250x125",
+    "018112-250x250",
+    "018112-250x375",
+    "018112-315x158",
+    "018112-315x315",
+    "018112-315x475",
+    "018112-400x200",
+    "018112-400x400",
+    "018112-400x600",
+    "018112-500x250",
+    "018112-500x500",
+    "018112-500x750",
+    "018112-600x300",
+    "018112-600x600",
+    "018112-600x900"
+   ]
+  },
+  {
+   "id": "buffer/conductix-wampfler-conductix-cellular-p24",
+   "kind": "buffer",
+   "brand": "Conductix-Wampfler",
+   "series": "",
+   "title": "Conductix-Wampfler Hücresel Tampon — katalog s.24",
+   "source": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+   "printedPages": "PDF s.24",
+   "images": [
+    "buffer/conductix-wampfler-conductix-cellular-p24.webp"
+   ],
+   "models": [
+    "018121-080x040",
+    "018121-080x080",
+    "018121-080x120",
+    "018121-100x050",
+    "018121-100x100",
+    "018121-100x150",
+    "018121-125x063",
+    "018121-125x125",
+    "018121-125x188",
+    "018121-160x080",
+    "018121-160x160",
+    "018121-160x240",
+    "018121-200x100",
+    "018121-200x200",
+    "018121-200x300",
+    "018121-250x125",
+    "018121-250x250",
+    "018121-250x375",
+    "018121-315x158",
+    "018121-315x315",
+    "018121-315x475",
+    "018121-400x200",
+    "018121-400x400"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p252",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.252",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.252",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p252.webp"
+   ],
+   "models": [
+    "DT072",
+    "DT073",
+    "DT172",
+    "DT173",
+    "DT272"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p253",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.253",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.253",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p253.webp"
+   ],
+   "models": [
+    "DT272",
+    "DT273",
+    "DT275",
+    "DT276",
+    "DT282"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p254",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.254",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.254",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p254.webp"
+   ],
+   "models": [
+    "DT283",
+    "DT285",
+    "DT286",
+    "DT372",
+    "DT373"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p255",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.255",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.255",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p255.webp"
+   ],
+   "models": [
+    "DT373",
+    "DT375",
+    "DT376",
+    "DT472",
+    "DT473"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p256",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.256",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.256",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p256.webp"
+   ],
+   "models": [
+    "DT473",
+    "DT474",
+    "DT475",
+    "DT476",
+    "DT572",
+    "DT573"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p257",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.257",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.257",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p257.webp"
+   ],
+   "models": [
+    "DT573",
+    "DT574",
+    "DT575",
+    "DT576",
+    "DT672",
+    "DT673"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p258",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.258",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.258",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p258.webp"
+   ],
+   "models": [
+    "DT673",
+    "DT674",
+    "DT675",
+    "DT676",
+    "DT772",
+    "DT773"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p259",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.259",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.259",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p259.webp"
+   ],
+   "models": [
+    "DT773",
+    "DT774",
+    "DT775",
+    "DT776",
+    "DT872"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p260",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.260",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.260",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p260.webp"
+   ],
+   "models": [
+    "DT872",
+    "DT873",
+    "DT874",
+    "DT875",
+    "DT876"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p261",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.261",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.261",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p261.webp"
+   ],
+   "models": [
+    "DT876",
+    "DT972",
+    "DT973",
+    "DT974",
+    "DT975",
+    "DT976"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p262",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "D",
+   "title": "YILMAZ D Serisi Redüktör — katalog s.262",
+   "source": "YILMAZ DR KATALOG.pdf",
+   "printedPages": "PDF s.262",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-dr-p262.webp"
+   ],
+   "models": [
+    "DT976"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p320",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.320",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.320",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p320.webp"
+   ],
+   "models": [
+    "MT002",
+    "NT002",
+    "MT003",
+    "NT003",
+    "MT102",
+    "NT102",
+    "MT103",
+    "NT103",
+    "MT172",
+    "NT172"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p321",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.321",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.321",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p321.webp"
+   ],
+   "models": [
+    "MT172",
+    "NT172",
+    "MT173",
+    "NT173",
+    "MT202",
+    "NT202",
+    "MT203",
+    "NT203",
+    "MT272",
+    "NT272",
+    "MT273",
+    "NT273"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p322",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.322",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.322",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p322.webp"
+   ],
+   "models": [
+    "MT273",
+    "NT273",
+    "MT275",
+    "NT275",
+    "MT276",
+    "NT276",
+    "MT282",
+    "NT282",
+    "MT283",
+    "NT283"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p323",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.323",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.323",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p323.webp"
+   ],
+   "models": [
+    "MT283",
+    "NT283",
+    "MT284",
+    "NT284",
+    "MT285",
+    "NT285",
+    "MT286",
+    "NT286",
+    "MT372",
+    "NT372",
+    "MT373",
+    "NT373"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p324",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.324",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.324",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p324.webp"
+   ],
+   "models": [
+    "MT373",
+    "NT373",
+    "MT374",
+    "NT374",
+    "MT375",
+    "NT375",
+    "MT376",
+    "NT376",
+    "MT472",
+    "NT472",
+    "MT473",
+    "NT473"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p325",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.325",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.325",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p325.webp"
+   ],
+   "models": [
+    "MT473",
+    "NT473",
+    "MT474",
+    "NT474",
+    "MT475",
+    "NT475",
+    "MT476",
+    "NT476",
+    "MT572",
+    "NT572"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p326",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.326",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.326",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p326.webp"
+   ],
+   "models": [
+    "MT573",
+    "NT573",
+    "MT574",
+    "NT574",
+    "MT575",
+    "NT575",
+    "MT576",
+    "NT576",
+    "MT672",
+    "NT672"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p327",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.327",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.327",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p327.webp"
+   ],
+   "models": [
+    "MT672",
+    "NT672",
+    "MT673",
+    "NT673",
+    "MT674",
+    "NT674",
+    "MT675",
+    "NT675",
+    "MT676",
+    "NT676",
+    "MT772",
+    "NT772"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p328",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.328",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.328",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p328.webp"
+   ],
+   "models": [
+    "MT772",
+    "NT772",
+    "MT773",
+    "NT773",
+    "MT774",
+    "NT774",
+    "MT775",
+    "NT775",
+    "MT776",
+    "NT776"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p329",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.329",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.329",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p329.webp"
+   ],
+   "models": [
+    "MT776",
+    "NT776",
+    "MT872",
+    "NT872",
+    "MT873",
+    "NT873",
+    "MT874",
+    "NT874",
+    "MT875",
+    "NT875"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p330",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.330",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.330",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p330.webp"
+   ],
+   "models": [
+    "MT875",
+    "NT875",
+    "MT876",
+    "NT876",
+    "MT972",
+    "NT972",
+    "MT973",
+    "NT973",
+    "MT974",
+    "NT974"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-m-p331",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "M / N",
+   "title": "YILMAZ M Serisi Redüktör — katalog s.331",
+   "source": "YILMAZ M KATALOG.pdf",
+   "printedPages": "PDF s.331",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-m-p331.webp"
+   ],
+   "models": [
+    "MT974",
+    "NT974",
+    "MT975",
+    "NT975",
+    "MT976",
+    "NT976"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p104",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.104",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.104",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p104.webp"
+   ],
+   "models": [
+    "HT0321",
+    "HT0521",
+    "HT0721"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p106",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.106",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.106",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p106.webp"
+   ],
+   "models": [
+    "HT0322",
+    "HT0323",
+    "HT0422",
+    "HT0423",
+    "HT0522"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p108",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.108",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.108",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p108.webp"
+   ],
+   "models": [
+    "HT0523",
+    "HT0622",
+    "HT0623",
+    "HT0722",
+    "HT0723"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p110",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.110",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.110",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p110.webp"
+   ],
+   "models": [
+    "HT0724",
+    "HT0822",
+    "HT0823",
+    "HT0824",
+    "HT0922"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p112",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.112",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.112",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p112.webp"
+   ],
+   "models": [
+    "HT0923",
+    "HT0924",
+    "HT1022",
+    "HT1023",
+    "HT1024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p114",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.114",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.114",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p114.webp"
+   ],
+   "models": [
+    "HT1122",
+    "HT1123",
+    "HT1124",
+    "HT1222",
+    "HT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p116",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.116",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.116",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p116.webp"
+   ],
+   "models": [
+    "HT1224",
+    "HT1322",
+    "HT1323",
+    "HT1324",
+    "HT1422"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p118",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.118",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.118",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p118.webp"
+   ],
+   "models": [
+    "HT1423",
+    "HT1424",
+    "HT1522",
+    "HT1523",
+    "HT1524"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p120",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.120",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.120",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p120.webp"
+   ],
+   "models": [
+    "HT1524",
+    "HT1622",
+    "HT1623",
+    "HT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p122",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.122",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.122",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p122.webp"
+   ],
+   "models": [
+    "HT1722",
+    "HT1723",
+    "HT1724",
+    "HT1822",
+    "HT1823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p124",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.124",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.124",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p124.webp"
+   ],
+   "models": [
+    "HT1823",
+    "HT1824",
+    "HT1922",
+    "HT1923",
+    "HT1924",
+    "HT2022"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p126",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.126",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.126",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p126.webp"
+   ],
+   "models": [
+    "HT2022",
+    "HT2023",
+    "HT2024",
+    "HT2122",
+    "HT2123"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p128",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.128",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.128",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p128.webp"
+   ],
+   "models": [
+    "HT2124",
+    "HT2222",
+    "HT2223",
+    "HT2224"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p130",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.130",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.130",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p130.webp"
+   ],
+   "models": [
+    "HT0321",
+    "HT0521",
+    "HT0721"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p132",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.132",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.132",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p132.webp"
+   ],
+   "models": [
+    "HT0322",
+    "HT0422",
+    "HT0522",
+    "HT0323",
+    "HT0423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p134",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.134",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.134",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p134.webp"
+   ],
+   "models": [
+    "HT0523",
+    "HT0622",
+    "HT0623",
+    "HT0722",
+    "HT0723"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p136",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.136",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.136",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p136.webp"
+   ],
+   "models": [
+    "HT0724",
+    "HT0822",
+    "HT0823",
+    "HT0824",
+    "HT0922"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p138",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.138",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.138",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p138.webp"
+   ],
+   "models": [
+    "HT0923",
+    "HT0924",
+    "HT1022",
+    "HT1023",
+    "HT1024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p140",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.140",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.140",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p140.webp"
+   ],
+   "models": [
+    "HT1122",
+    "HT1123",
+    "HT1124",
+    "HT1222",
+    "HT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p142",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.142",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.142",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p142.webp"
+   ],
+   "models": [
+    "HT1224",
+    "HT1322",
+    "HT1323",
+    "HT1324",
+    "HT1422"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p144",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.144",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.144",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p144.webp"
+   ],
+   "models": [
+    "HT1423",
+    "HT1424",
+    "HT1522",
+    "HT1523",
+    "HT1524"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p146",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.146",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.146",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p146.webp"
+   ],
+   "models": [
+    "HT1524",
+    "HT1622",
+    "HT1623",
+    "HT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p148",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.148",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.148",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p148.webp"
+   ],
+   "models": [
+    "HT1722",
+    "HT1723",
+    "HT1724",
+    "HT1822"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p150",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.150",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.150",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p150.webp"
+   ],
+   "models": [
+    "HT1923",
+    "HT1924",
+    "HT2022",
+    "HT1922",
+    "HT1824",
+    "HT1823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p152",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.152",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.152",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p152.webp"
+   ],
+   "models": [
+    "HT2022",
+    "HT2023",
+    "HT2024",
+    "HT2122",
+    "HT2123"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p154",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.154",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.154",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p154.webp"
+   ],
+   "models": [
+    "HT2222",
+    "HT2223",
+    "HT2124",
+    "HT2224"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p156",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.156",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.156",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p156.webp"
+   ],
+   "models": [
+    "HT0321",
+    "HT0521",
+    "HT0721"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p158",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.158",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.158",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p158.webp"
+   ],
+   "models": [
+    "HT0322",
+    "HT0422",
+    "HT0423",
+    "HT0522"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p160",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.160",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.160",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p160.webp"
+   ],
+   "models": [
+    "HT0622",
+    "HT0623",
+    "HT0722",
+    "HT0723",
+    "HT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p162",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.162",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.162",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p162.webp"
+   ],
+   "models": [
+    "HT0724",
+    "HT0822",
+    "HT0823",
+    "HT0824",
+    "HT0922"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p164",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.164",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.164",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p164.webp"
+   ],
+   "models": [
+    "HT0923",
+    "HT0924",
+    "HT1022",
+    "HT1023",
+    "HT1024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p166",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.166",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.166",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p166.webp"
+   ],
+   "models": [
+    "HT1122",
+    "HT1123",
+    "HT1124",
+    "HT1222",
+    "HT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p168",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.168",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.168",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p168.webp"
+   ],
+   "models": [
+    "HT1224",
+    "HT1322",
+    "HT1323",
+    "HT1324",
+    "HT1422"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p170",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.170",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.170",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p170.webp"
+   ],
+   "models": [
+    "HT1423",
+    "HT1424",
+    "HT1522",
+    "HT1523",
+    "HT1524"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p172",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.172",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.172",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p172.webp"
+   ],
+   "models": [
+    "HT1524",
+    "HT1622",
+    "HT1623",
+    "HT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p174",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.174",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.174",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p174.webp"
+   ],
+   "models": [
+    "HT1722",
+    "HT1723",
+    "HT1724",
+    "HT1822"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p176",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.176",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.176",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p176.webp"
+   ],
+   "models": [
+    "HT1823",
+    "HT1824",
+    "HT1922",
+    "HT1923",
+    "HT2022"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p178",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.178",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.178",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p178.webp"
+   ],
+   "models": [
+    "HT2022",
+    "HT2023",
+    "HT2024",
+    "HT2122",
+    "HT2123"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p180",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.180",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.180",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p180.webp"
+   ],
+   "models": [
+    "HT2124",
+    "HT2222",
+    "HT2223",
+    "HT2224"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p182",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.182",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.182",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p182.webp"
+   ],
+   "models": [
+    "HT0321",
+    "HT0521",
+    "HT0721"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p184",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.184",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.184",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p184.webp"
+   ],
+   "models": [
+    "HT0322",
+    "HT0323",
+    "HT0422",
+    "HT0423",
+    "HT0522"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p186",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.186",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.186",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p186.webp"
+   ],
+   "models": [
+    "HT0523",
+    "HT0622",
+    "HT0623",
+    "HT0722",
+    "HT0723"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p188",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.188",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.188",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p188.webp"
+   ],
+   "models": [
+    "HT0724",
+    "HT0822",
+    "HT0823",
+    "HT0824",
+    "HT0922"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p190",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.190",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.190",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p190.webp"
+   ],
+   "models": [
+    "HT0923",
+    "HT0924",
+    "HT1022",
+    "HT1023",
+    "HT1024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p192",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.192",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.192",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p192.webp"
+   ],
+   "models": [
+    "HT1122",
+    "HT1123",
+    "HT1124",
+    "HT1222",
+    "HT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p194",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.194",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.194",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p194.webp"
+   ],
+   "models": [
+    "HT1224",
+    "HT1322",
+    "HT1323",
+    "HT1324",
+    "HT1422"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p196",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.196",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.196",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p196.webp"
+   ],
+   "models": [
+    "HT1423",
+    "HT1424",
+    "HT1523",
+    "HT1524"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p198",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.198",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.198",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p198.webp"
+   ],
+   "models": [
+    "HT1524",
+    "HT1622",
+    "HT1623",
+    "HT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p200",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.200",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.200",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p200.webp"
+   ],
+   "models": [
+    "HT1722",
+    "HT1723",
+    "HT1822",
+    "HT1724"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p202",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.202",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.202",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p202.webp"
+   ],
+   "models": [
+    "HT1823",
+    "HT1922",
+    "HT1923",
+    "HT1924"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p204",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.204",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.204",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p204.webp"
+   ],
+   "models": [
+    "HT2023",
+    "HT2024",
+    "HT2122",
+    "HT2123"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p206",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.206",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.206",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p206.webp"
+   ],
+   "models": [
+    "HT2222",
+    "HT2223",
+    "HT2224"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p208",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.208",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.208",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p208.webp"
+   ],
+   "models": [
+    "HT0321",
+    "HT0521",
+    "HT0721"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p210",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.210",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.210",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p210.webp"
+   ],
+   "models": [
+    "HT0322",
+    "HT0323",
+    "HT0422",
+    "HT0423",
+    "HT0522"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p212",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.212",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.212",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p212.webp"
+   ],
+   "models": [
+    "HT0523",
+    "HT0622",
+    "HT0623",
+    "HT0722",
+    "HT0723"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p214",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.214",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.214",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p214.webp"
+   ],
+   "models": [
+    "HT0724",
+    "HT0822",
+    "HT0823",
+    "HT0824",
+    "HT0922"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p216",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.216",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.216",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p216.webp"
+   ],
+   "models": [
+    "HT0923",
+    "HT0924",
+    "HT1022",
+    "HT1023",
+    "HT1024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p218",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.218",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.218",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p218.webp"
+   ],
+   "models": [
+    "HT1122",
+    "HT1123",
+    "HT1124",
+    "HT1222",
+    "HT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p220",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.220",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.220",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p220.webp"
+   ],
+   "models": [
+    "HT1224",
+    "HT1322",
+    "HT1323",
+    "HT1324",
+    "HT1422"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p222",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.222",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.222",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p222.webp"
+   ],
+   "models": [
+    "HT1423",
+    "HT1424",
+    "HT1523",
+    "HT1524"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p224",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.224",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.224",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p224.webp"
+   ],
+   "models": [
+    "HT1524",
+    "HT1622",
+    "HT1623",
+    "HT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p226",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.226",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.226",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p226.webp"
+   ],
+   "models": [
+    "HT1722",
+    "HT1723",
+    "HT1724",
+    "HT1822"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p228",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.228",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.228",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p228.webp"
+   ],
+   "models": [
+    "HT1922",
+    "HT1923",
+    "HT1924",
+    "HT2022"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p230",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.230",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.230",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p230.webp"
+   ],
+   "models": [
+    "HT2023",
+    "HT2024",
+    "HT2122",
+    "HT2123"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p232",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.232",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.232",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p232.webp"
+   ],
+   "models": [
+    "HT2223",
+    "HT2224"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p416",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.416",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.416",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p416.webp"
+   ],
+   "models": [
+    "BT0322",
+    "BT0522",
+    "BT0722"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p418",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.418",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.418",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p418.webp"
+   ],
+   "models": [
+    "BT0323",
+    "BT0423",
+    "BT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p420",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.420",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.420",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p420.webp"
+   ],
+   "models": [
+    "BT0623",
+    "BT0723",
+    "BT0724",
+    "BT0823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p422",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.422",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.422",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p422.webp"
+   ],
+   "models": [
+    "BT0824",
+    "BT0923",
+    "BT0924",
+    "BT1023"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p424",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.424",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.424",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p424.webp"
+   ],
+   "models": [
+    "BT1024",
+    "BT1123",
+    "BT1124",
+    "BT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p426",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.426",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.426",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p426.webp"
+   ],
+   "models": [
+    "BT1224",
+    "BT1323",
+    "BT1324",
+    "BT1423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p428",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.428",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.428",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p428.webp"
+   ],
+   "models": [
+    "BT1424",
+    "BT1523",
+    "BT1524",
+    "BT1623"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p430",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.430",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.430",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p430.webp"
+   ],
+   "models": [
+    "BT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p432",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.432",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.432",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p432.webp"
+   ],
+   "models": [
+    "BT1724",
+    "BT1824",
+    "BT1924",
+    "BT2024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p434",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.434",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.434",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p434.webp"
+   ],
+   "models": [
+    "BT0322",
+    "BT0522",
+    "BT0722"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p436",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.436",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.436",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p436.webp"
+   ],
+   "models": [
+    "BT0323",
+    "BT0423",
+    "BT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p438",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.438",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.438",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p438.webp"
+   ],
+   "models": [
+    "BT0623",
+    "BT0723",
+    "BT0724",
+    "BT0823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p440",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.440",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.440",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p440.webp"
+   ],
+   "models": [
+    "BT0824",
+    "BT0923",
+    "BT0924",
+    "BT1023"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p442",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.442",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.442",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p442.webp"
+   ],
+   "models": [
+    "BT1024",
+    "BT1123",
+    "BT1124",
+    "BT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p444",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.444",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.444",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p444.webp"
+   ],
+   "models": [
+    "BT1224",
+    "BT1323",
+    "BT1324",
+    "BT1423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p446",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.446",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.446",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p446.webp"
+   ],
+   "models": [
+    "BT1424",
+    "BT1523",
+    "BT1524",
+    "BT1623"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p448",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.448",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.448",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p448.webp"
+   ],
+   "models": [
+    "BT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p450",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.450",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.450",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p450.webp"
+   ],
+   "models": [
+    "BT1724",
+    "BT1824",
+    "BT1924",
+    "BT2024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p452",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.452",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.452",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p452.webp"
+   ],
+   "models": [
+    "BT0322",
+    "BT0522",
+    "BT0722"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p454",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.454",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.454",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p454.webp"
+   ],
+   "models": [
+    "BT0323",
+    "BT0423",
+    "BT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p456",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.456",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.456",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p456.webp"
+   ],
+   "models": [
+    "BT0623",
+    "BT0723",
+    "BT0724",
+    "BT0823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p458",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.458",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.458",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p458.webp"
+   ],
+   "models": [
+    "BT0824",
+    "BT0923",
+    "BT0924",
+    "BT1023"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p460",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.460",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.460",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p460.webp"
+   ],
+   "models": [
+    "BT1024",
+    "BT1123",
+    "BT1124",
+    "BT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p462",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.462",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.462",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p462.webp"
+   ],
+   "models": [
+    "BT1224",
+    "BT1323",
+    "BT1324",
+    "BT1423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p464",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.464",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.464",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p464.webp"
+   ],
+   "models": [
+    "BT1424",
+    "BT1523",
+    "BT1524",
+    "BT1623"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p466",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.466",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.466",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p466.webp"
+   ],
+   "models": [
+    "BT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p468",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.468",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.468",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p468.webp"
+   ],
+   "models": [
+    "BT1724",
+    "BT1824",
+    "BT1924",
+    "BT2024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p470",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.470",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.470",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p470.webp"
+   ],
+   "models": [
+    "BT0322",
+    "BT0522",
+    "BT0722"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p472",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.472",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.472",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p472.webp"
+   ],
+   "models": [
+    "BT0323",
+    "BT0423",
+    "BT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p474",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.474",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.474",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p474.webp"
+   ],
+   "models": [
+    "BT0623",
+    "BT0723",
+    "BT0724",
+    "BT0823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p476",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.476",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.476",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p476.webp"
+   ],
+   "models": [
+    "BT0824",
+    "BT0923",
+    "BT0924",
+    "BT1023"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p478",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.478",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.478",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p478.webp"
+   ],
+   "models": [
+    "BT1024",
+    "BT1123",
+    "BT1124",
+    "BT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p480",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.480",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.480",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p480.webp"
+   ],
+   "models": [
+    "BT1224",
+    "BT1323",
+    "BT1324",
+    "BT1423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p482",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.482",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.482",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p482.webp"
+   ],
+   "models": [
+    "BT1424",
+    "BT1523",
+    "BT1524",
+    "BT1623"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p484",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.484",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.484",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p484.webp"
+   ],
+   "models": [
+    "BT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p486",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.486",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.486",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p486.webp"
+   ],
+   "models": [
+    "BT1724",
+    "BT1824",
+    "BT1924",
+    "BT2024"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p488",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.488",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.488",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p488.webp"
+   ],
+   "models": [
+    "BT0322",
+    "BT0522",
+    "BT0722"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p490",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.490",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.490",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p490.webp"
+   ],
+   "models": [
+    "BT0323",
+    "BT0423",
+    "BT0523"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p492",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.492",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.492",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p492.webp"
+   ],
+   "models": [
+    "BT0623",
+    "BT0723",
+    "BT0724",
+    "BT0823"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p494",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.494",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.494",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p494.webp"
+   ],
+   "models": [
+    "BT0824",
+    "BT0923",
+    "BT0924",
+    "BT1023"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p496",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.496",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.496",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p496.webp"
+   ],
+   "models": [
+    "BT1024",
+    "BT1123",
+    "BT1124",
+    "BT1223"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p498",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.498",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.498",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p498.webp"
+   ],
+   "models": [
+    "BT1224",
+    "BT1323",
+    "BT1324",
+    "BT1423"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p500",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.500",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.500",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p500.webp"
+   ],
+   "models": [
+    "BT1424",
+    "BT1523",
+    "BT1524",
+    "BT1623"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p502",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.502",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.502",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p502.webp"
+   ],
+   "models": [
+    "BT1624"
+   ]
+  },
+  {
+   "id": "gearbox/y-lmaz-red-kt-r-yilmaz-h-p504",
+   "kind": "gearbox",
+   "brand": "Yılmaz Redüktör",
+   "series": "H / B",
+   "title": "YILMAZ H Serisi Redüktör — katalog s.504",
+   "source": "YILMAZ H KATALOG.pdf",
+   "printedPages": "PDF s.504",
+   "images": [
+    "gearbox/y-lmaz-red-kt-r-yilmaz-h-p504.webp"
+   ],
+   "models": [
+    "BT1724",
+    "BT1824",
+    "BT2024"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p20",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.20",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.20",
+   "images": [
+    "motor/abb-abb-p20.webp"
+   ],
+   "models": [
+    "M3BP 200MLB"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p26",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.26",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.26",
+   "images": [
+    "motor/abb-abb-p26.webp"
+   ],
+   "models": [
+    "M3BP 71MA",
+    "M3BP 71MB",
+    "M3BP 80MA",
+    "M3BP 80MB",
+    "M3BP 90SLB",
+    "M3BP 90SLC",
+    "M3BP 100LA",
+    "M3BP 100LB",
+    "M3BP 112M",
+    "M3BP 132SMA",
+    "M3BP 132SMB",
+    "M3BP 160MLA",
+    "M3BP 160MLB",
+    "M3BP 160MLC",
+    "M3BP 180MLA",
+    "M3BP 200MLA",
+    "M3BP 225SMA",
+    "M3BP 225SMB",
+    "M3BP 250SMA",
+    "M3BP 280SMA",
+    "M3BP 280SMB",
+    "M3BP 315SMA",
+    "M3BP 315SMB",
+    "M3BP 315SMC",
+    "M3BP 315MLA",
+    "M3BP 355SMA",
+    "M3BP 355SMB",
+    "M3BP 355SMC",
+    "M3BP 355MLB",
+    "M3BP 400LA",
+    "M3BP 400LB",
+    "M3BP 400LC",
+    "M3BP 450LA",
+    "M3BP 450LB",
+    "M3BP 450LC",
+    "M3BP 450LD"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p37",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.37",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.37",
+   "images": [
+    "motor/abb-abb-p37.webp"
+   ],
+   "models": [
+    "M3BP 80ME",
+    "M3BP 90LA",
+    "M3BP 112ME",
+    "M3BP 132SMC",
+    "M3BP 132SME",
+    "M3BP 250SMA",
+    "M3BP 315SMD",
+    "M3BP 315MLA",
+    "M3BP 355SMA"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p38",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.38",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.38",
+   "images": [
+    "motor/abb-abb-p38.webp"
+   ],
+   "models": [
+    "M3BP 160MLA",
+    "M3BP 315MLB",
+    "M3BP 355SMB",
+    "M3BP 355SMC"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p43",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.43",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.43",
+   "images": [
+    "motor/abb-abb-p43.webp"
+   ],
+   "models": [
+    "M3BP 71ME",
+    "M3BP 80MC",
+    "M3BP 90SLA",
+    "M3BP 100MLA",
+    "M3BP 160MLA",
+    "M3BP 160MLB",
+    "M3BP 160MLC",
+    "M3BP 180MLA",
+    "M3BP 200MLA",
+    "M3BP 225SMA",
+    "M3BP 280SMB",
+    "M3BP 280SMC",
+    "M3BP 315SMB",
+    "M3BP 315SMC",
+    "M3BP 355SMB",
+    "M3BP 355SMC"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p44",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.44",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.44",
+   "images": [
+    "motor/abb-abb-p44.webp"
+   ],
+   "models": [
+    "M3BP 71MD",
+    "M3BP 71MLE",
+    "M3BP 80MLC",
+    "M3BP 80MLE",
+    "M3BP 90LA",
+    "M3BP 90LB",
+    "M3BP 100LA",
+    "M3BP 100MLB",
+    "M3BP 112ME",
+    "M3BP 132SMB",
+    "M3BP 132SME",
+    "M3BP 160MLB",
+    "M3BP 180MLA",
+    "M3BP 180MLB",
+    "M3BP 200MLA",
+    "M3BP 225SMA",
+    "M3BP 225SMB",
+    "M3BP 250SMA",
+    "M3BP 280SMB",
+    "M3BP 280SMC",
+    "M3BP 315SMB",
+    "M3BP 315SMC",
+    "M3BP 315SMD"
+   ]
+  },
+  {
+   "id": "motor/abb-abb-p46",
+   "kind": "motor",
+   "brand": "ABB",
+   "series": "Process performance motors M3BP (dökme g",
+   "title": "ABB Motor — katalog s.46",
+   "source": "abb-ozel-elektrik-motor-katalog.pdf",
+   "printedPages": "PDF s.46",
+   "images": [
+    "motor/abb-abb-p46.webp"
+   ],
+   "models": [
+    "M3BP 80MB",
+    "M3BP 90SLD",
+    "M3BP 90LF",
+    "M3BP 100MLB",
+    "M3BP 112MJ",
+    "M3BP 132SMB",
+    "M3BP 132SMF",
+    "M3BP 132SMJ",
+    "M3BP 160MLA",
+    "M3BP 160MLB",
+    "M3BP 180MLA",
+    "M3BP 200MLA",
+    "M3BP 200MLB",
+    "M3BP 225SMA",
+    "M3BP 250SMA",
+    "M3BP 280SMB",
+    "M3BP 280SMC",
+    "M3BP 315SMB",
+    "M3BP 315SMC",
+    "M3BP 315SMD",
+    "M3BP 315MLB",
+    "M3BP 355SMA",
+    "M3BP 355SMB",
+    "M3BP 355SMC",
+    "M3BP 355MLB",
+    "M3BP 355LKA"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p21",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.21",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.21",
+   "images": [
+    "motor/gamak-gamak-p21.webp"
+   ],
+   "models": [
+    "AGM2E 80 M 2a",
+    "AGM2E 80 M 2b",
+    "AGM2E 90 S 2a",
+    "AGM2E 90 L 2b",
+    "AGM2E 100 L 2a",
+    "AGM2E 112 M 2a",
+    "GM2E 132 S 2a",
+    "GM2E 132 S 2b",
+    "GM2E 160 M 2a",
+    "GM2E 160 M 2b",
+    "GM2E 160 L 2c",
+    "GM2E 180 M 2a",
+    "GM2E 200 L 2a",
+    "GM2E 200 L 2b"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p22",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.22",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.22",
+   "images": [
+    "motor/gamak-gamak-p22.webp"
+   ],
+   "models": [
+    "AGM2E 80 M 4b",
+    "AGM2E 90 S 4a",
+    "AGM2E 90 L 4b",
+    "AGM2E 100 L 4a",
+    "AGM2E 100 H 4b",
+    "AGM2E 112 M 4a",
+    "GM2E 132 S 4a",
+    "GM2E 132 M 4b",
+    "GM2E 160 M 4a",
+    "GM2E 160 L 4b",
+    "GM2E 180 M 4a",
+    "GM2E 180 L 4b",
+    "GM2E 200 L 4a"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p23",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.23",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.23",
+   "images": [
+    "motor/gamak-gamak-p23.webp"
+   ],
+   "models": [
+    "AGM 56 M 2a",
+    "AGM 56 M 2b",
+    "AGM 63 M 2a",
+    "AGM 63 M 2b",
+    "AGM 71 M 2a",
+    "AGM 71 M 2b",
+    "GMM 355 L 2e",
+    "GMM 355 L 2f",
+    "GMM 400 L 2c",
+    "GMM 400 L 2d",
+    "GMM 400 L 2e",
+    "GMM 450 L 2a",
+    "GMM 450 H 2b",
+    "GMM 450 H 2c",
+    "AGM2E 90 S 6a",
+    "AGM2E 90 L 6b",
+    "AGM2E 100 L 6a",
+    "AGM2E 112 M 6a",
+    "GM2E 132 S 6a",
+    "GM2E 132 M 6b",
+    "AGM2E 132 H 6c",
+    "GM2E 160 M 6a",
+    "GM2E 160 L 6b",
+    "GM2E 180 L 6a",
+    "GM2E 200 L 6a",
+    "GM2E 200 L 6b",
+    "GM2E 250 M 6a",
+    "GM2E 280 S 6a",
+    "GM2E 280 M 6b",
+    "GM2E 315 S 6a",
+    "GM2E 315 M 6b",
+    "GM2E 315 M 6c",
+    "GMM2E 315 L 6d",
+    "GMM2E 315 L 6e",
+    "GMM2E 355 M 6b",
+    "GMM2E 355 M 6c",
+    "GMM2E 355 L 6d",
+    "GMM2E 355 L 6e",
+    "GMM2E 400 L 6b"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p24",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.24",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.24",
+   "images": [
+    "motor/gamak-gamak-p24.webp"
+   ],
+   "models": [
+    "AGM 56 M 4a",
+    "AGM 56 M 4b",
+    "AGM 63 M 4a",
+    "AGM 63 M 4b",
+    "AGM 71 M 4a",
+    "AGM 71 M 4b",
+    "AGM 80 M 4a",
+    "GMM 355 L 4e",
+    "GMM 355 L 4f",
+    "GMM 400 L 4c",
+    "GMM 400 L 4d",
+    "GMM 400 L 4e",
+    "GMM 450 L 4a",
+    "GMM 450 H 4b",
+    "GMM 450 H 4c",
+    "AGM 71 M 6a",
+    "AGM 71 M 6b",
+    "AGM 80 M 6a",
+    "AGM 80 M 6b",
+    "GMM 400 L 6c",
+    "GMM 400 L 6d",
+    "GMM 400 L 6e",
+    "GMM 450 L 6a",
+    "GMM 450 L 6b",
+    "GMM 450 H 6c"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p25",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.25",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.25",
+   "images": [
+    "motor/gamak-gamak-p25.webp"
+   ],
+   "models": [
+    "AGM 71 M 8a",
+    "AGM 71 M 8b",
+    "AGM 80 M 8a",
+    "AGM 90 S 8a",
+    "AGM 90 L 8b",
+    "AGM 100 L 8a",
+    "AGM 100 L 8b",
+    "AGM 112 M 8a",
+    "GM 132 S 8a",
+    "GM 132 M 8b",
+    "GM 160 M 8a",
+    "GM 160 M 8b",
+    "GM 160 L 8c",
+    "GM 180 L 8a",
+    "GM 200 L 8a",
+    "GM 250 M 8a",
+    "GM 280 S 8a",
+    "GM 280 M 8b",
+    "GM 315 S 8a",
+    "GM 315 M 8b",
+    "GM 315 M 8c",
+    "GMM 315 L 8d",
+    "GMM 315 L 8e",
+    "GMM 355 M 8b",
+    "GMM 355 M 8c",
+    "GMM 355 L 8d",
+    "GMM 400 L 8a",
+    "GMM 400 L 8b",
+    "GMM 400 L 8c",
+    "GMM 400 L 8d",
+    "GMM 450 L 8a",
+    "GMM 450 L 8b",
+    "GMM 450 H 8c"
+   ]
+  },
+  {
+   "id": "motor/gamak-gamak-p26",
+   "kind": "motor",
+   "brand": "GAMAK",
+   "series": "Üç fazlı sincap kafesli asenkron motorla",
+   "title": "GAMAK Motor — katalog s.26",
+   "source": "GAMAK MOTOR.pdf",
+   "printedPages": "PDF s.26",
+   "images": [
+    "motor/gamak-gamak-p26.webp"
+   ],
+   "models": [
+    "GM3E 250 M 2a",
+    "GM3E 280 S 2a",
+    "GM3E 280 M 2b",
+    "GM3E 315 S 2a",
+    "GM3E 315 M 2b",
+    "GM3E 315 M 2c",
+    "GMM3E 315 L 2d",
+    "GMM3E 315 L 2e",
+    "GM3E 315 H 2f",
+    "GMM3E 355 M 2b",
+    "GMM3E 355 M 2c",
+    "GMM3E 355 L 2d",
+    "GM3E 250 M 4a",
+    "GM3E 280 S 4a",
+    "GM3E 280 M 4b",
+    "GM3E 315 S 4a",
+    "GM3E 315 M 4b",
+    "GM3E 315 L 4c",
+    "GMM3E 315 L 4d",
+    "GM3E 315 H 4e",
+    "GM3E 315 H 4f",
+    "GMM3E 355 M 4b",
+    "GMM3E 355 L 4c",
+    "GMM3E 355 L 4d"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p140",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.140",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.140",
+   "images": [
+    "motor/innomatics-innomatics-p140.webp"
+   ],
+   "models": [
+    "1LE1603-1CB2"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p141",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.141",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.141",
+   "images": [
+    "motor/innomatics-innomatics-p141.webp"
+   ],
+   "models": [
+    "1LE1603-2BA2"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p142",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.142",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.142",
+   "images": [
+    "motor/innomatics-innomatics-p142.webp"
+   ],
+   "models": [
+    "1LE1603-2DB2"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p145",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.145",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.145",
+   "images": [
+    "motor/innomatics-innomatics-p145.webp"
+   ],
+   "models": [
+    "1LE1503-0DA2",
+    "1LE1503-0EA4",
+    "1LE1603-1AA4",
+    "1LE1603-1CA1"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p146",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.146",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.146",
+   "images": [
+    "motor/innomatics-innomatics-p146.webp"
+   ],
+   "models": [
+    "1LE1503-0DB2",
+    "1LE1503-0DB3",
+    "1LE1503-0EB0"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p147",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.147",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.147",
+   "images": [
+    "motor/innomatics-innomatics-p147.webp"
+   ],
+   "models": [
+    "1LE1503-0DC2",
+    "1LE1503-0DC3",
+    "1LE1503-0EC0",
+    "1LE1603-1BC2",
+    "1LE1603-1CC0",
+    "1LE1603-1CC2",
+    "1LE1603-1CC3",
+    "1LE1603-1EC4",
+    "1LE1603-2AC4",
+    "1LE1603-2AC5",
+    "1LE1503-0DD2",
+    "1LE1503-0DD3",
+    "1LE1503-0ED0",
+    "1LE1503-0ED4",
+    "1LE1603-1BD2",
+    "1LE1603-1CD0",
+    "1LE1603-1CD2"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p148",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.148",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.148",
+   "images": [
+    "motor/innomatics-innomatics-p148.webp"
+   ],
+   "models": [
+    "1LE1603-2AA4",
+    "1LE1603-2AB5"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p149",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.149",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.149",
+   "images": [
+    "motor/innomatics-innomatics-p149.webp"
+   ],
+   "models": [
+    "1LE1603-1CB0"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p150",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.150",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.150",
+   "images": [
+    "motor/innomatics-innomatics-p150.webp"
+   ],
+   "models": [
+    "1LE1503-0CA2",
+    "1LE1503-0CA3",
+    "1LE1503-0DA3",
+    "1LE1503-0EA0",
+    "1LE1603-1BA2",
+    "1LE1603-1CA0",
+    "1LE1603-1DA2",
+    "1LE1603-1DA3",
+    "1LE1603-1DA4",
+    "1LE1603-1EA2",
+    "1LE1603-2AA5",
+    "1LE1603-2CA2",
+    "1LE1603-2DA0",
+    "1LE1603-2DA2",
+    "1LE1603-3AA0",
+    "1LE1603-3AA2",
+    "1LE1603-3AA4",
+    "1LE1603-3AA5"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p151",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.151",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.151",
+   "images": [
+    "motor/innomatics-innomatics-p151.webp"
+   ],
+   "models": [
+    "1LE1503-0CB2",
+    "1LE1503-0CB3",
+    "1LE1503-0EB4",
+    "1LE1603-1AB4",
+    "1LE1603-1AB5",
+    "1LE1603-1BB2",
+    "1LE1603-1DB2",
+    "1LE1603-1DB4",
+    "1LE1603-1EB2",
+    "1LE1603-1EB4",
+    "1LE1603-2BB0",
+    "1LE1603-2BB2",
+    "1LE1603-2CB2",
+    "1LE1603-2DB0",
+    "1LE1603-3AB0",
+    "1LE1603-3AB2",
+    "1LE1603-3AB4",
+    "1LE1603-3AB5"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p152",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.152",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.152",
+   "images": [
+    "motor/innomatics-innomatics-p152.webp"
+   ],
+   "models": [
+    "1LE1503-0CC2",
+    "1LE1503-0CC3",
+    "1LE1503-0EC4",
+    "1LE1603-1AC4",
+    "1LE1603-1DC2",
+    "1LE1603-1DC4",
+    "1LE1603-2BC2",
+    "1LE1603-2CC2",
+    "1LE1603-2DC0",
+    "1LE1603-2DC2",
+    "1LE1603-3AC0",
+    "1LE1603-3AC2",
+    "1LE1603-3AC4",
+    "1LE1603-3AC5",
+    "1LE1603-3AC6"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p153",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.153",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.153",
+   "images": [
+    "motor/innomatics-innomatics-p153.webp"
+   ],
+   "models": [
+    "1LE1503-0CD2",
+    "1LE1503-0CD3",
+    "1LE1603-1AD4",
+    "1LE1603-1AD5"
+   ]
+  },
+  {
+   "id": "motor/innomatics-innomatics-p157",
+   "kind": "motor",
+   "brand": "INNOMATICS",
+   "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
+   "title": "SIEMENS / INNOMATICS Motor — katalog s.157",
+   "source": "SIEMENS MOTOR KATALOG.pdf",
+   "printedPages": "PDF s.157",
+   "images": [
+    "motor/innomatics-innomatics-p157.webp"
+   ],
+   "models": [
+    "1LE1603-1DD2",
+    "1LE1603-1DD3",
+    "1LE1603-1DD4",
+    "1LE1603-1ED4",
+    "1LE1603-2AD5",
+    "1LE1603-2BD0",
+    "1LE1603-2BD2",
+    "1LE1603-2CD2",
+    "1LE1603-2DD0",
+    "1LE1603-2DD2",
+    "1LE1603-3AD0",
+    "1LE1603-3AD2",
+    "1LE1603-3AD4",
+    "1LE1603-3AD5",
+    "1LE1603-3AD6"
+   ]
+  }
+ ]
 }

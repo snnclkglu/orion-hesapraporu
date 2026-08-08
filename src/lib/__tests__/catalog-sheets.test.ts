@@ -21,10 +21,15 @@ const SHEET_DIR = path.join(process.cwd(), "catalog-sheets");
 describe("katalog sayfası defteri", () => {
   const sheets = allCatalogSheets();
 
-  it("kaplin sayfaları defterde var", () => {
-    expect(sheets.length).toBeGreaterThan(40);
-    expect(sheets.every((s) => s.kind === "coupling")).toBe(true);
-    for (const brand of ["OZGUN", "SIBRE", "JAURE"]) {
+  it("tüm ekipman türleri defterde temsil ediliyor", () => {
+    expect(sheets.length).toBeGreaterThan(200);
+    const kinds = new Set(sheets.map((s) => s.kind));
+    for (const kind of [
+      "coupling", "bearing", "bearing_housing", "brake", "buffer", "gearbox", "motor",
+    ]) {
+      expect(kinds.has(kind), `${kind} türünde sayfa yok`).toBe(true);
+    }
+    for (const brand of ["OZGUN", "SIBRE", "JAURE", "SKF", "ABB", "GAMAK"]) {
       expect(sheets.some((s) => s.brand === brand), `${brand} yok`).toBe(true);
     }
   });
@@ -42,20 +47,19 @@ describe("katalog sayfası defteri", () => {
     ).toEqual([]);
   });
 
-  it("her kaydın sayfa görüntüsü adedi PDF'iyle tutarlı", () => {
+  it("her kaydın en az bir sayfa görüntüsü ve bir modeli var", () => {
     for (const sheet of sheets) {
       expect(sheet.images.length, sheet.id).toBeGreaterThan(0);
       expect(sheet.models.length, sheet.id).toBeGreaterThan(0);
-      expect(sheet.pdf.endsWith(".pdf"), sheet.id).toBe(true);
       expect(sheet.images.every((i) => i.endsWith(".webp")), sheet.id).toBe(true);
     }
   });
 
   it("uç adresi defterdeki yolu birebir taşır", () => {
-    const first = sheets[0];
-    expect(catalogSheetUrl(first.pdf)).toBe(`/api/catalog-sheet/${first.pdf}`);
+    const first = sheets[0].images[0];
+    expect(catalogSheetUrl(first)).toBe(`/api/catalog-sheet/${first}`);
     // Uç, yolu segmentlerden yeniden kurar; ayrıştırma defterle örtüşmeli.
-    const rebuilt = catalogSheetUrl(first.pdf)
+    const rebuilt = catalogSheetUrl(first)
       .replace("/api/catalog-sheet/", "")
       .split("/")
       .join("/");
@@ -109,9 +113,30 @@ describe("model → sayfa eşlemesi", () => {
     }
   });
 
+  it("diğer türlerin ürünleri de sayfa bulur", () => {
+    expect(findCatalogSheet("bearing", "SKF", "22320 E")?.kind).toBe("bearing");
+    expect(findCatalogSheet("bearing_housing", "SKF", "SNL 205")?.kind).toBe("bearing_housing");
+    expect(findCatalogSheet("motor", "GAMAK", "AGM2E 80 M 2a")?.kind).toBe("motor");
+    expect(findCatalogSheet("gearbox", "Yılmaz Redüktör", "DT072")?.kind).toBe("gearbox");
+  });
+
+  it("rulman tasarım soneki eşlemeyi bozmaz (22212 ↔ 22212 E)", () => {
+    // Mühendis çoğu zaman temel kodu girer; katalog kodu sonekle basar.
+    const withSuffix = findCatalogSheet("bearing", "SKF", "22212 E");
+    const withoutSuffix = findCatalogSheet("bearing", "SKF", "22212");
+    expect(withSuffix, "22212 E defterde yok").toBeDefined();
+    expect(withoutSuffix?.id).toBe(withSuffix?.id);
+    // 2.2.6 tambur rulmanı bölümünün eşlemesinde MARKA alanı yoktur:
+    // marka bilinmeden de bulunmalıdır.
+    expect(findCatalogSheet("bearing", null, "22212")?.id).toBe(withSuffix?.id);
+  });
+
   it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {
     expect(hasCatalogSheets("coupling")).toBe(true);
-    expect(hasCatalogSheets("gearbox")).toBe(false);
+    expect(hasCatalogSheets("gearbox")).toBe(true);
+    // Halat / kanca / makara kataloglarının kaynak PDF'i workspace'te yok.
+    expect(hasCatalogSheets("rope")).toBe(false);
+    expect(hasCatalogSheets("hook")).toBe(false);
     expect(hasCatalogSheets("coupling", "OZGUN")).toBe(true);
     expect(hasCatalogSheets("coupling", "ÖZGÜN")).toBe(true);
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);

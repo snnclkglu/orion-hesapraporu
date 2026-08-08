@@ -1,34 +1,34 @@
 # -*- coding: utf-8 -*-
-"""Katalog SAYFASI dilimleyici — "o ürünün kataloğundaki gerçek sayfa".
+"""Katalog SAYFASI kesici — "o ürünün kataloğundaki gerçek sayfası".
 
 NE YAPAR
-  Üretici katalog PDF'lerinden, her ÜRÜN SERİSİNİN tablosunun bulunduğu
-  sayfa(lar)ı kesip iki biçimde yazar:
-    · `<slug>.pdf`      — sayfanın BİREBİR kendisi (vektör/tarama korunur;
-                          yeni sekmede açılır, indirilir, teklife eklenir)
-    · `<slug>-p<n>.webp` — aynı sayfanın ekran çözünürlüğünde görüntüsü
-                          (pop-up içinde gösterilir; her tarayıcıda çalışır)
-  Ayrıca uygulamanın okuduğu `src/lib/catalog-sheets/manifest.json` dosyasını
-  üretir: hangi MARKA + MODEL hangi sayfaya düşer.
+  Üretici katalog PDF'lerinden, seçilen ürünün TABLOSUNUN bulunduğu sayfayı
+  kesip ekran çözünürlüğünde bir görüntü (.webp) olarak yazar ve uygulamanın
+  okuduğu `src/lib/catalog-sheets/manifest.json` defterini üretir: hangi MARKA
+  + MODEL hangi sayfaya düşer.
 
-NEDEN SAYFA HARİTASI ELLE VERİLİYOR
-  Sayfa numaraları TAHMİN EDİLMEZ. ÖZGÜN kataloğunun metin katmanı yoktur
-  (taranmış); SIBRE ve JAURE'de ise aynı tablo hem endüstriyel hem denizcilik
-  bölümünde tekrar eder. Bu yüzden harita, katalog verisini çıkaran betiklerin
-  (`catalog-extract/couplings_*.py`) `meta.source_page` alanlarıyla ve JAURE'de
-  sayfa metnindeki tork sütunuyla BİREBİR doğrulanarak elle yazılmıştır.
-  `--verify` bu doğrulamayı yeniden koşturur (metin katmanı olan PDF'lerde).
+  Yalnız GÖRÜNTÜ yazılır, PDF dilimi yazılmaz. Sayfa dilimi PDF'i kaynak
+  dosyanın taranmış görüntüsünü olduğu gibi taşıdığı için dosya başına 200–800
+  KB tutuyordu; 250'yi aşkın sayfada bu depoyu gereksiz şişirirdi. Görüntü her
+  tarayıcıda açılır, indirilir ve yazdırılır — kaybedilen tek şey vektör
+  kataloglardaki metin seçimidir (kataloğun çoğu zaten taranmıştır).
 
-  İNDİS TABANI: PyMuPDF `doc[i]` ile aynı, yani 0 TABANLIDIR. Katalog
-  verisindeki "PDF idx 16" ifadesi de aynı indistir; basılı sayfa numarası
-  ayrıca `printed` alanında tutulur.
+SAYFA NASIL BULUNUR — İKİ YOL
+  1. ELLE (`MANUAL`): sayfa haritası katalog verisini çıkaran betiklerin
+     `meta.source_page` alanlarından gelir. Kaplinlerde böyledir; ÖZGÜN
+     kataloğunun metin katmanı olmadığı için başka yolu da yoktur.
+  2. OTOMATİK (`DISCOVER`): her ÜRÜN için, o ürünün ayırt edici değerlerinin
+     (model kodu + sayısal alanları) en çoğunu taşıyan sayfa seçilir. Tek bir
+     kodun kataloğun her yerinde geçmesi sayfayı kazandırmaz; ürünün SATIRININ
+     bulunduğu tablo sayfası kazanır. Eşiği geçemeyen ürün için sayfa YAZILMAZ
+     — yanlış sayfa göstermektense hiç göstermemek doğrudur.
+
+  İNDİS TABANI: PyMuPDF `doc[i]` ile aynı, yani 0 TABANLIDIR.
 
 KULLANIM
-  python scripts/catalog-sheets.py           # üret
-  python scripts/catalog-sheets.py --verify  # yalnız sayfa haritasını doğrula
-
-ŞİMDİLİK YALNIZ KAPLİNLER. Yeni bir tür eklemek için SHEETS'e girdi yazmak
-yeterlidir; uygulama tarafında hiçbir değişiklik gerekmez.
+  python scripts/catalog-sheets.py            # üret
+  python scripts/catalog-sheets.py --verify   # yalnız haritayı sına, dosya yazma
+  python scripts/catalog-sheets.py --only motor,bearing   # tek tür üret
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ import json
 import os
 import re
 import sys
+from collections import defaultdict
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -48,32 +49,51 @@ CATALOG_DATA = os.path.join(WORKSPACE, "catalog_data")
 OUT_DIR = os.path.join(REPO, "catalog-sheets")
 MANIFEST = os.path.join(REPO, "src", "lib", "catalog-sheets", "manifest.json")
 
-# Görüntü kalitesi: A4 sayfa 150 dpi'da ~1240×1754 px olur — ölçü tablolarındaki
-# en küçük rakam ekranda rahat okunur, dosya da 100–400 KB bandında kalır.
-RENDER_DPI = 150
-WEBP_QUALITY = 82
+# Görüntü: A4 sayfa 1500 px genişlikte ~180 dpi olur — ölçü tablolarındaki en
+# küçük rakam ekranda okunur, dosya 120–250 KB bandında kalır.
+IMG_WIDTH = 1500
+WEBP_QUALITY = 76
 
 # --------------------------------------------------------------- kaynak PDF'ler
 
 PDFS = {
     "ozgun": "ozgun katalog 2019 1-b.pdf",
-    "sibre": "02_SIBRE_Coupling-catalogue.pdf",
+    "sibre_coupling": "02_SIBRE_Coupling-catalogue.pdf",
     "jaure_mt": "JAURE MT Series_Gear Coupling.pdf",
     "jaure_tcbr": "Jaure Tambur kaplini.pdf",
+    "skf_bearing": "SKF genel-rulman-katalogu.pdf",
+    "skf_housing": "13186_1_EN_SKF_bearing_housings_and_roller_bearing_units_pdf_preview_medium.pdf",
+    "galvi": "Galvi Kasnak Fren.pdf",
+    "conductix": "KAT0170-0002-EN Rubber and Cellular Buffers, Programs 0170_0180.pdf",
+    "conductix_curves": "KAT0170-0003-EN Load Diagrams Rubber Buffers.pdf",
+    "sibre_sp": "SIBRE Produktkatalog2022_Puffer_SP.pdf",
+    "yilmaz_dr": "YILMAZ DR KATALOG.pdf",
+    "yilmaz_m": "YILMAZ M KATALOG.pdf",
+    "yilmaz_h": "YILMAZ H KATALOG.pdf",
+    "abb": "abb-ozel-elektrik-motor-katalog.pdf",
+    "gamak": "GAMAK MOTOR.pdf",
+    "siemens": "SIEMENS MOTOR KATALOG.pdf",
+    "flender": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
 }
 
-# ------------------------------------------------------------------ sayfa haritası
-#
+KIND_DIR = {
+    "coupling": "couplings",
+    "bearing": "bearings",
+    "bearing_housing": "bearing_housings",
+    "brake": "brakes",
+    "buffer": "buffers",
+    "gearbox": "reducers",
+    "motor": "motors",
+}
+
+# ------------------------------------------------------------ ELLE sayfa haritası
 # (kind, brand, series, catalog_data dosyası, kaynak, 0-tabanlı sayfalar,
 #  basılı sayfa etiketi, başlık)
-#
-# `verify_tokens`: metin katmanı olan PDF'lerde sayfada MUTLAKA bulunması
-# gereken kelimeler — yanlış sayfaya kayma sessizce geçmesin diye.
 
-SHEETS = [
+MANUAL = [
     # ---------------------------------------------------------------- ÖZGÜN
-    # Taranmış katalog; sayfa haritası couplings_ozgun.py başlığındaki
-    # idx tablosundan birebir alınmıştır (metin katmanı YOK → doğrulanamaz).
+    # Taranmış katalog; harita couplings_ozgun.py başlığındaki idx tablosundan
+    # birebir alınmıştır (metin katmanı YOK → otomatik doğrulanamaz).
     ("coupling", "OZGUN", "A", "ozgun_a.json", "ozgun", [16], "s.15", "ÖZGÜN Tip A — Tam-flex dişli kaplin"),
     ("coupling", "OZGUN", "B1", "ozgun_b1.json", "ozgun", [17], "s.16", "ÖZGÜN Tip B1 — Fren kasnaklı kaplin"),
     ("coupling", "OZGUN", "B2", "ozgun_b2.json", "ozgun", [18], "s.17", "ÖZGÜN Tip B2 — Fren kasnaklı kaplin"),
@@ -104,21 +124,21 @@ SHEETS = [
     ("coupling", "OZGUN", "Zr", "ozgun_zr.json", "ozgun", [45, 46], "s.44-45", "ÖZGÜN Tip Zr — Pimli (elastik) kaplin"),
     # ---------------------------------------------------------------- SIBRE
     # Katalog çift sayfa (spread) basılmıştır: bir PDF sayfası iki basılı sayfa.
-    ("coupling", "SIBRE", "ALC-A", "sibre_alc_a.json", "sibre", [5], "s.10-11", "SIBRE ALC-A — Elastik kaplin"),
-    ("coupling", "SIBRE", "ALC-AS", "sibre_alc_as.json", "sibre", [6], "s.12-13", "SIBRE ALC-AS — Fren kasnaklı elastik kaplin"),
-    ("coupling", "SIBRE", "ALC-AT", "sibre_alc_at.json", "sibre", [6], "s.12-13", "SIBRE ALC-AT — Fren diskli elastik kaplin"),
-    ("coupling", "SIBRE", "AFC-A", "sibre_afc_a.json", "sibre", [7], "s.14-15", "SIBRE AFC-A — Elastik kaplin"),
-    ("coupling", "SIBRE", "AFC-AS", "sibre_afc_as.json", "sibre", [7], "s.14-15", "SIBRE AFC-AS — Fren kasnaklı elastik kaplin"),
-    ("coupling", "SIBRE", "APC-A", "sibre_apc_a.json", "sibre", [8], "s.16-17", "SIBRE APC-A — Pimli kaplin"),
-    ("coupling", "SIBRE", "APC-AS", "sibre_apc_as.json", "sibre", [9], "s.18-19", "SIBRE APC-AS — Fren kasnaklı pimli kaplin"),
-    ("coupling", "SIBRE", "APC-AT", "sibre_apc_at.json", "sibre", [10], "s.20-21", "SIBRE APC-AT — Fren diskli pimli kaplin"),
-    ("coupling", "SIBRE", "APC-BT", "sibre_apc_bt.json", "sibre", [10], "s.20-21", "SIBRE APC-BT — Fren diskli pimli kaplin"),
-    ("coupling", "SIBRE", "ZKES", "sibre_zkes.json", "sibre", [12], "s.24-25", "SIBRE ZKES — Dişli kaplin"),
-    ("coupling", "SIBRE", "ABC-V", "sibre_abc_v.json", "sibre", [23], "s.46-47", "SIBRE ABC-V — Tambur (halat) kaplini"),
+    ("coupling", "SIBRE", "ALC-A", "sibre_alc_a.json", "sibre_coupling", [5], "s.10-11", "SIBRE ALC-A — Elastik kaplin"),
+    ("coupling", "SIBRE", "ALC-AS", "sibre_alc_as.json", "sibre_coupling", [6], "s.12-13", "SIBRE ALC-AS — Fren kasnaklı elastik kaplin"),
+    ("coupling", "SIBRE", "ALC-AT", "sibre_alc_at.json", "sibre_coupling", [6], "s.12-13", "SIBRE ALC-AT — Fren diskli elastik kaplin"),
+    ("coupling", "SIBRE", "AFC-A", "sibre_afc_a.json", "sibre_coupling", [7], "s.14-15", "SIBRE AFC-A — Elastik kaplin"),
+    ("coupling", "SIBRE", "AFC-AS", "sibre_afc_as.json", "sibre_coupling", [7], "s.14-15", "SIBRE AFC-AS — Fren kasnaklı elastik kaplin"),
+    ("coupling", "SIBRE", "APC-A", "sibre_apc_a.json", "sibre_coupling", [8], "s.16-17", "SIBRE APC-A — Pimli kaplin"),
+    ("coupling", "SIBRE", "APC-AS", "sibre_apc_as.json", "sibre_coupling", [9], "s.18-19", "SIBRE APC-AS — Fren kasnaklı pimli kaplin"),
+    ("coupling", "SIBRE", "APC-AT", "sibre_apc_at.json", "sibre_coupling", [10], "s.20-21", "SIBRE APC-AT — Fren diskli pimli kaplin"),
+    ("coupling", "SIBRE", "APC-BT", "sibre_apc_bt.json", "sibre_coupling", [10], "s.20-21", "SIBRE APC-BT — Fren diskli pimli kaplin"),
+    ("coupling", "SIBRE", "ZKES", "sibre_zkes.json", "sibre_coupling", [12], "s.24-25", "SIBRE ZKES — Dişli kaplin"),
+    ("coupling", "SIBRE", "ABC-V", "sibre_abc_v.json", "sibre_coupling", [23], "s.46-47", "SIBRE ABC-V — Tambur (halat) kaplini"),
     # ---------------------------------------------------------------- JAURE
-    # ENDÜSTRİYEL bölüm sayfaları seçilmiştir. MT ve MTG tabloları katalogun
-    # DENİZCİLİK (marine) bölümünde idx 35/36'da AYNI torklarla tekrar eder;
-    # vinç uygulaması endüstriyel bölüme aittir.
+    # ENDÜSTRİYEL bölüm sayfaları. MT ve MTG tabloları katalogun DENİZCİLİK
+    # bölümünde idx 35/36'da AYNI torklarla tekrar eder; vinç uygulaması
+    # endüstriyel bölüme aittir.
     ("coupling", "JAURE", "MT", "jaure_mt.json", "jaure_mt", [16], "s.17", "JAURE MT — Kavisli dişli tam-flex kaplin"),
     ("coupling", "JAURE", "MTS", "jaure_mts.json", "jaure_mt", [18], "s.19", "JAURE MTS — Tek gövdeli (yarım-flex) dişli kaplin"),
     ("coupling", "JAURE", "MTG", "jaure_mtg.json", "jaure_mt", [19], "s.20", "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin"),
@@ -129,10 +149,61 @@ SHEETS = [
     # TCBR PDF'i iki sayfadır ve sıralaması TERSTİR: idx 1 basılı s.18 (seçim
     # tablosu), idx 0 basılı s.19 (ölçü tamamlayıcı). Basılı sıra korunur.
     ("coupling", "JAURE", "TCBR", "jaure_tcbr_barrel.json", "jaure_tcbr", [1, 0], "s.18-19", "JAURE TCBR — Fıçı tipi tambur kaplini"),
+    # ---------------------------------------------------------------- TAMPON
+    # SIBRE SP kataloğu ürün kodunu satır olarak BASMAZ: seçim, s.18'deki
+    # "Impact Force / Damping Capacity" matrisinden yapılır ve ölçüler
+    # s.19-22'deki FF/BF tablolarındadır. Otomatik arama bu yüzden ürün
+    # bulamıyor; sayfalar elle verilir.
+    ("buffer", "SIBRE", "SP", "sibre_sp_hydraulic.json", "sibre_sp", [17, 18, 20], "s.18-21",
+     "SIBRE SP — Hidrolik tampon: seçim matrisi ve ölçüler"),
 ]
 
-# Katalog verisi klasörleri (kind → catalog_data alt klasörü)
-KIND_DIR = {"coupling": "couplings"}
+# --------------------------------------------------- OTOMATİK sayfa keşfi
+# (kind, catalog_data dosyası, kaynak, model alanı|None, ayırt edici sayısal
+#  alanlar, başlık öneki)
+
+DISCOVER = [
+    ("bearing", "bearings/skf.json", "skf_bearing", "designation",
+     ["bore_mm", "outer_diameter_mm", "width_mm", "dynamic_load_kN", "static_load_kN"],
+     "SKF Rulman"),
+    ("bearing_housing", "bearing_housings/skf_snl_se.json", "skf_housing", "model",
+     ["bearing_bore_mm", "bearing_outer_dia_mm", "housing_width_mm"],
+     "SKF Rulman Yatağı"),
+    ("brake", "brakes/galvi_nhyd_nvhyd.json", "galvi", "model",
+     ["drum_diameter_mm", "brake_torque_Nm", "weight_kg"],
+     "GALVI NEWCOMEN Fren"),
+    ("buffer", "buffers/conductix_rubber.json", "conductix", "model",
+     ["diameter_mm", "height_mm", "energy_capacity_j", "max_force_kn"],
+     "Conductix-Wampfler Kauçuk Tampon"),
+    ("buffer", "buffers/conductix_cellular.json", "conductix", "model",
+     ["diameter_mm", "height_mm", "energy_capacity_j", "max_force_kn"],
+     "Conductix-Wampfler Hücresel Tampon"),
+    ("gearbox", "reducers/yilmaz_dr.json", "yilmaz_dr", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm"],
+     "YILMAZ D Serisi Redüktör"),
+    ("gearbox", "reducers/yilmaz_m.json", "yilmaz_m", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm"],
+     "YILMAZ M Serisi Redüktör"),
+    ("gearbox", "reducers/yilmaz_h.json", "yilmaz_h", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm"],
+     "YILMAZ H Serisi Redüktör"),
+    ("motor", "motors/abb.json", "abb", None,
+     ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
+     "ABB Motor"),
+    ("motor", "motors/gamak.json", "gamak", None,
+     ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
+     "GAMAK Motor"),
+    ("motor", "motors/innomatics.json", "siemens", None,
+     ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
+     "SIEMENS / INNOMATICS Motor"),
+]
+
+NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
+THOUSANDS_RE = re.compile(r"^\d{1,3}(\.\d{3})+(,\d+)?$")
+
+
+def norm(text) -> str:
+    return re.sub(r"\s+", "", str(text)).upper()
 
 
 def slugify(text: str) -> str:
@@ -140,41 +211,126 @@ def slugify(text: str) -> str:
     return out or "sheet"
 
 
-def load_models(kind: str, filename: str) -> tuple[list[str], dict]:
-    path = os.path.join(CATALOG_DATA, KIND_DIR[kind], filename)
+def fmt_num(v: float) -> str:
+    return str(int(v)) if float(v).is_integer() else ("%.3f" % v).rstrip("0")
+
+
+def page_numbers(text: str) -> set[str]:
+    """Sayfadaki sayıları normalleştirilmiş kümede toplar (1.234,5 → 1234.5)."""
+    out: set[str] = set()
+    for m in NUM_RE.finditer(text):
+        s = m.group(0)
+        s = s.replace(".", "").replace(",", ".") if THOUSANDS_RE.match(s) else s.replace(",", ".")
+        try:
+            out.add(fmt_num(float(s)))
+        except ValueError:
+            continue
+    return out
+
+
+class Source:
+    """Açılmış kaynak PDF: sayfa metinleri + sayı kümeleri (bir kez kurulur)."""
+
+    _cache: dict[str, "Source"] = {}
+
+    def __init__(self, key: str):
+        self.key = key
+        self.name = PDFS[key]
+        path = os.path.join(WORKSPACE, self.name)
+        if not os.path.exists(path):
+            raise SystemExit("Kaynak PDF bulunamadi: %s" % path)
+        self.doc = fitz.open(path)
+        self.text: list[str] = []
+        self.nums: list[set[str]] = []
+        for page in self.doc:
+            raw = page.get_text()
+            self.text.append(norm(raw))
+            self.nums.append(page_numbers(raw))
+
+    @classmethod
+    def get(cls, key: str) -> "Source":
+        if key not in cls._cache:
+            cls._cache[key] = cls(key)
+        return cls._cache[key]
+
+
+def load_items(kind: str, filename: str) -> tuple[list[dict], dict]:
+    path = os.path.join(CATALOG_DATA, KIND_DIR[kind], os.path.basename(filename))
     with open(path, encoding="utf-8") as fh:
         doc = json.load(fh)
-    return [str(it["model"]) for it in doc["items"]], doc["meta"]
+    return doc["items"], doc["meta"]
 
 
-# Boy numarası kanıtının yeterli sayılacağı en düşük oran.
+def db_model(kind: str, item: dict) -> str:
+    """`cat_equipment.model` ile BİREBİR aynı dizgiyi üretir.
+
+    Seed betiği (scripts/seed-catalog.ts) modeli türe göre farklı kurar;
+    defterdeki anahtarların veritabanıyla örtüşmesi buna bağlıdır.
+    """
+    if kind == "bearing":
+        return str(item.get("designation", "")).strip()
+    if kind == "motor":
+        code = str(item.get("model", "")).strip() if isinstance(item.get("model"), str) else ""
+        if code:
+            return code
+        return ("%s kW %sK %s" % (
+            item.get("power_kw"), item.get("poles"), item.get("frame_size", ""))).strip()
+    return str(item.get("model", "")).strip()
+
+
+def discover_pages(entry) -> tuple[dict[int, list[str]], int, str]:
+    """Ürünleri sayfalara dağıtır → {sayfa: [model, …]}, eşleşmeyen, kanıt."""
+    kind, jf, src_key, code_field, num_fields, _title = entry
+    items, _meta = load_items(kind, jf)
+    src = Source.get(src_key)
+
+    by_page: dict[int, list[str]] = defaultdict(list)
+    unmatched = 0
+    for it in items:
+        values = [fmt_num(it[f]) for f in num_fields if isinstance(it.get(f), (int, float))]
+        code = norm(it.get(code_field, "")) if code_field else ""
+        if not values and not code:
+            unmatched += 1
+            continue
+        # Kod varsa 3 puanlık ağırlık taşır: model kodu, sayılardan çok daha
+        # ayırt edicidir. Eşik, ürünün sayısal alanlarının %60'ıdır.
+        need = max(2, int(len(values) * 0.6)) + (3 if code else 0)
+        best, best_score = None, 0
+        for i, nums in enumerate(src.nums):
+            if code and code not in src.text[i]:
+                continue
+            score = sum(1 for v in values if v in nums) + (3 if code else 0)
+            if score > best_score:
+                best, best_score = i, score
+        if best is None or best_score < need:
+            unmatched += 1
+            continue
+        model = db_model(kind, it)
+        if model and model not in by_page[best]:
+            by_page[best].append(model)
+
+    total = sum(len(v) for v in by_page.values())
+    evidence = "%d model / %d sayfa" % (total, len(by_page))
+    return dict(by_page), unmatched, evidence
+
+
+# ------------------------------------------------------------------ ELLE doğrulama
+
 SIZE_COVERAGE_MIN = 0.6
 
 
-def verify(sheet, doc) -> tuple[str, str | None]:
-    """Sayfa haritasını PDF'in KENDİ metniyle sınar → (kanıt, hata).
-
-    İki bağımsız kanıt aranır; biri yeterlidir:
-      · SERİ BAŞLIĞI — seri kodu sayfa metninde geçiyor mu (ör. "APC-A").
-      · BOY KAPSAMI  — katalog verisindeki model kodlarının sonundaki boy
-        numaralarının kaçı sayfada ayrı bir kelime olarak var.
-
-    İkisi birden gerekmez: bazı sayfalar boyu ancak birleşik tip kodunda
-    basar (SIBRE "APC250A"), bazılarında ise seri adı yalnız görselde geçer.
-    Metin katmanı hiç yoksa (taranmış ÖZGÜN kataloğu) doğrulama yapılamaz ve
-    bu AÇIKÇA raporlanır — sessizce "geçti" sayılmaz.
-    """
+def verify_manual(sheet, src: Source) -> tuple[str, str | None]:
+    """Elle verilen sayfayı PDF'in KENDİ metniyle sınar → (kanıt, hata)."""
     kind, _brand, series, filename, _src, pages, _printed, _title = sheet
-    words = {w[4] for i in pages for w in doc[i].get_text("words")}
+    words = {w[4] for i in pages for w in src.doc[i].get_text("words")}
     if not words:
         return ("metin katmanı yok — doğrulanamadı", None)
 
-    text = "".join(doc[i].get_text() for i in pages).upper()
-    text = re.sub(r"\s+", "", text)
-    header = re.sub(r"\s+", "", series.upper()) in text
+    text = norm("".join(src.doc[i].get_text() for i in pages))
+    header = norm(series) in text
 
-    models, _ = load_models(kind, filename)
-    sizes = [m.group(1) for m in (re.search(r"(\d+)$", x) for x in models) if m]
+    items, _ = load_items(kind, filename)
+    sizes = [m.group(1) for m in (re.search(r"(\d+)$", db_model(kind, it)) for it in items) if m]
     hit = sum(1 for s in sizes if s in words)
     ratio = hit / len(sizes) if sizes else 0.0
 
@@ -184,114 +340,120 @@ def verify(sheet, doc) -> tuple[str, str | None]:
         return ("seri başlığı (boy %d/%d)" % (hit, len(sizes)), None)
     if ratio >= SIZE_COVERAGE_MIN:
         return ("boy %d/%d" % (hit, len(sizes)), None)
-    return (
-        "",
-        "%s: sayfada ne seri başlığı ne de yeterli boy numarası var "
-        "(boy %d/%d)" % (series, hit, len(sizes)),
-    )
+    return ("", "%s: sayfada ne seri başlığı ne de yeterli boy numarası var (boy %d/%d)"
+            % (series, hit, len(sizes)))
 
 
-def render_webp(page, path: str) -> None:
-    pix = page.get_pixmap(dpi=RENDER_DPI)
+# ------------------------------------------------------------------ üretim
+
+def render(src: Source, idx: int, path: str) -> None:
+    page = src.doc[idx]
+    zoom = IMG_WIDTH / page.rect.width
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     img.save(path, "WEBP", quality=WEBP_QUALITY, method=6)
 
 
-def build(verify_only: bool = False) -> None:
-    docs: dict[str, fitz.Document] = {}
-    for key, name in PDFS.items():
-        path = os.path.join(WORKSPACE, name)
-        if not os.path.exists(path):
-            raise SystemExit("Kaynak PDF bulunamadi: %s" % path)
-        docs[key] = fitz.open(path)
-
-    problems: list[str] = []
+def build(verify_only: bool = False, only: set[str] | None = None) -> None:
     entries: list[dict] = []
-    # AYNI sayfa birden çok seriye hizmet edebilir (SIBRE ALC-AS/ALC-AT tek
-    # çift sayfada, JAURE MTG/MTG-HD tek tabloda). Dosya BİR KEZ üretilir;
-    # manifestte her seri kendi kaydını tutup aynı dosyayı gösterir.
-    produced: dict[tuple[str, tuple[int, ...]], tuple[str, list[str]]] = {}
+    problems: list[str] = []
+    # Aynı sayfa birden çok seriye hizmet edebilir; dosya BİR KEZ üretilir.
+    produced: dict[tuple[str, int], str] = {}
 
-    for sheet in SHEETS:
-        kind, brand, series, filename, src, pages, printed, title = sheet
-        doc = docs[src]
-        evidence, problem = verify(sheet, doc)
+    def image_for(src_key: str, kind: str, idx: int, slug_hint: str) -> str:
+        key = (src_key, idx)
+        if key in produced:
+            return produced[key]
+        rel = "%s/%s.webp" % (kind, slug_hint)
+        produced[key] = rel
+        if not verify_only:
+            out = os.path.join(OUT_DIR, kind)
+            os.makedirs(out, exist_ok=True)
+            render(Source.get(src_key), idx, os.path.join(out, "%s.webp" % slug_hint))
+        return rel
+
+    # ---------------------------------------------------------- elle harita
+    for sheet in MANUAL:
+        kind, brand, series, filename, src_key, pages, printed, title = sheet
+        if only and kind not in only:
+            continue
+        src = Source.get(src_key)
+        evidence, problem = verify_manual(sheet, src)
         if problem:
             problems.append(problem)
             continue
-        page_key = (src, tuple(pages))
-        shared = produced.get(page_key)
-        print("  %-6s %-8s %-8s → idx %-8s %s%s"
-              % (brand, series, printed, ",".join(str(i) for i in pages), evidence,
-                 " (aynı sayfa)" if shared else ""))
-        models, meta = load_models(kind, filename)
-        rel_dir = kind
-        if shared:
-            slug, images = shared
-        else:
-            slug = "%s-%s" % (slugify(brand), slugify(series))
-            images = ["%s/%s-p%d.webp" % (rel_dir, slug, i + 1) for i in range(len(pages))]
-            produced[page_key] = (slug, images)
-        entry = {
-            "id": "%s/%s" % (rel_dir, slugify("%s-%s" % (brand, series))),
-            "kind": kind,
-            "brand": brand,
-            "series": series,
-            "title": title,
-            "source": PDFS[src],
-            "printedPages": printed,
-            "pdf": "%s/%s.pdf" % (rel_dir, slug),
-            "images": images,
-            "models": models,
-        }
-        # `meta.notes` MANIFESTE GİRMEZ: çıkarım notları diakritiksiz yazılmış
-        # geliştirici metnidir ve manifest istemci paketine giren bir dosyadır.
-        # Mühendisin ihtiyaç duyduğu köken bilgisi `source` + `printedPages`tir.
-        _ = meta
-        entries.append(entry)
-
-        if verify_only or shared:
-            continue
-
-        out_dir = os.path.join(OUT_DIR, rel_dir)
-        os.makedirs(out_dir, exist_ok=True)
-        # 1) sayfanın birebir PDF dilimi
-        slice_doc = fitz.open()
-        for i in pages:
-            slice_doc.insert_pdf(doc, from_page=i, to_page=i)
-        slice_doc.set_metadata({
-            "title": title,
-            "subject": "%s — %s (%s)" % (PDFS[src], printed, series),
-            "producer": "ORION Hesap Raporu / catalog-sheets.py",
+        items, _ = load_items(kind, filename)
+        models = []
+        for it in items:
+            m = db_model(kind, it)
+            if m and m not in models:
+                models.append(m)
+        images = [
+            image_for(src_key, kind, idx,
+                      "%s-%s-p%d" % (slugify(brand), slugify(series), n + 1))
+            for n, idx in enumerate(pages)
+        ]
+        entries.append({
+            "id": "%s/%s-%s" % (kind, slugify(brand), slugify(series)),
+            "kind": kind, "brand": brand, "series": series, "title": title,
+            "source": PDFS[src_key], "printedPages": printed,
+            "images": images, "models": models,
         })
-        slice_doc.save(os.path.join(out_dir, "%s.pdf" % slug), garbage=4, deflate=True)
-        slice_doc.close()
-        # 2) ekran görüntüsü
-        for n, i in enumerate(pages, start=1):
-            render_webp(doc[i], os.path.join(out_dir, "%s-p%d.webp" % (slug, n)))
+        print("  %-16s %-6s %-8s %-9s idx %-9s %s"
+              % (kind, brand, series, printed, ",".join(map(str, pages)), evidence))
+
+    # ------------------------------------------------------- otomatik keşif
+    for entry in DISCOVER:
+        kind, jf, src_key, _code, _nums, title_prefix = entry
+        if only and kind not in only:
+            continue
+        _items, meta = load_items(kind, jf)
+        brand = str(meta.get("brand", "")).strip()
+        by_page, unmatched, evidence = discover_pages(entry)
+        if not by_page:
+            problems.append("%s: hiçbir ürün sayfaya bağlanamadı" % jf)
+            continue
+        for idx in sorted(by_page):
+            slug = "%s-%s-p%d" % (slugify(brand), slugify(os.path.splitext(os.path.basename(jf))[0]), idx + 1)
+            rel = image_for(src_key, kind, idx, slug)
+            entries.append({
+                "id": "%s/%s" % (kind, slug),
+                "kind": kind, "brand": brand,
+                "series": str(meta.get("series", ""))[:40],
+                "title": "%s — katalog s.%d" % (title_prefix, idx + 1),
+                "source": PDFS[src_key], "printedPages": "PDF s.%d" % (idx + 1),
+                "images": [rel], "models": by_page[idx],
+            })
+        print("  %-16s %-22s %-28s eşleşmeyen=%d" % (kind, brand[:22], evidence, unmatched))
 
     if problems:
         for p in problems:
-            print("  DOGRULAMA HATASI: %s" % p)
+            print("  SORUN: %s" % p)
         raise SystemExit("Sayfa haritasi dogrulanamadi — uretim durduruldu.")
 
     if verify_only:
-        print("Sayfa haritasi dogrulandi: %d sayfa kaydi." % len(entries))
+        print("Harita doğrulandı: %d sayfa kaydı, %d benzersiz görüntü."
+              % (len(entries), len(produced)))
         return
 
     os.makedirs(os.path.dirname(MANIFEST), exist_ok=True)
     with open(MANIFEST, "w", encoding="utf-8") as fh:
-        json.dump({"sheets": entries}, fh, ensure_ascii=False, indent=2)
+        json.dump({"sheets": entries}, fh, ensure_ascii=False, indent=1)
         fh.write("\n")
 
     total = 0
     for root, _dirs, files in os.walk(OUT_DIR):
         for f in files:
             total += os.path.getsize(os.path.join(root, f))
-    print("%d katalog sayfasi yazildi (%s) — toplam %.1f MB"
-          % (len(entries), OUT_DIR, total / 1024 / 1024))
-    print("manifest: %s" % MANIFEST)
+    models = sum(len(e["models"]) for e in entries)
+    print("%d sayfa kaydı · %d görüntü · %d model — toplam %.1f MB"
+          % (len(entries), len(produced), models, total / 1024 / 1024))
+    print("manifest: %s (%.0f KB)" % (MANIFEST, os.path.getsize(MANIFEST) / 1024))
 
 
 if __name__ == "__main__":
-    build(verify_only="--verify" in sys.argv)
+    args = sys.argv[1:]
+    kinds = None
+    if "--only" in args:
+        kinds = set(args[args.index("--only") + 1].split(","))
+    build(verify_only="--verify" in args, only=kinds)

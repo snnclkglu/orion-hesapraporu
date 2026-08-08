@@ -47,8 +47,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
 - `npx tsx scripts/test-work-order.ts` — iş emri PDF'ini 1…16 kalemle üret
   (sayfa dengesi görsel kontrolü)
-- `python scripts/catalog-sheets.py [--verify]` — katalog sayfalarını kaynak
-  PDF'lerden kes (kaplinler); `--verify` yalnız sayfa haritasını sınar
+- `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
+  sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
 
 ## Mimari ilkeler
@@ -154,18 +154,34 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
     **Katalog SAYFASI ayrı bir yoldur.** Seçim tablosu ürünün sayılarını verir;
     mühendis çoğu zaman sayfanın kendisini de görmek ister (ölçü resmi, dipnot,
-    üretici uyarısı). `scripts/catalog-sheets.py` kaynak PDF'ten seri bazında
-    sayfayı keser (`catalog-sheets/<tür>/*.pdf` + `*.webp`) ve
-    `src/lib/catalog-sheets/manifest.json` defterini yazar; `Katalog Seçimi`
-    başlığındaki **Katalog Sayfası** düğmesi bu deftere bakar. Eşleme SERİ
-    önekiyle değil MODEL koduyla yapılır ("A" serisi ile "ABC-V 260" karışırdı)
-    ve tam eşleşme yoksa sayfa AÇILMAZ — yakın bir sayfa göstermek yanlış ölçü
-    tablosuna baktırırdı. Sayfa numaraları tahmin edilmez; betik metin katmanı
-    olan PDF'lerde seri başlığı + boy numaralarıyla kendini doğrular
-    (`--verify`). Dosyalar `public/` altında DEĞİLDİR: üretici kataloğu
-    kimlik doğrulamalı `/api/catalog-sheet/...` ucundan sunulur. Şimdilik
-    yalnız KAPLİNLER kapsanır; yeni tür eklemek betikteki `SHEETS` listesine
-    satır yazmaktır.
+    üretici uyarısı). `scripts/catalog-sheets.py` kaynak PDF'ten sayfayı keser
+    (`catalog-sheets/<tür>/*.webp`) ve `src/lib/catalog-sheets/manifest.json`
+    defterini yazar; `Katalog Seçimi` başlığındaki **Katalog Sayfası** düğmesi
+    bu deftere bakar.
+
+    Sayfa iki yoldan bulunur: **elle** (`MANUAL` — kaplinler; ÖZGÜN kataloğu
+    taranmış olduğu için tek yol budur) ve **otomatik** (`DISCOVER` — her ÜRÜN
+    için, ürünün model kodu + sayısal alanlarının en çoğunu taşıyan sayfa
+    seçilir). Tek bir kodun kataloğun her yerinde geçmesi sayfayı kazandırmaz;
+    ürünün SATIRININ bulunduğu tablo sayfası kazanır. Eşiği geçemeyen ürüne
+    sayfa YAZILMAZ. `--verify` haritayı dosya yazmadan sınar.
+
+    Eşleme SERİ önekiyle değil MODEL koduyla yapılır ("A" serisi ile
+    "ABC-V 260" karışırdı); tam eşleşme yoksa tasarım soneki atılmış temel koda
+    düşülür ("22212" ↔ "22212 E"), o da yoksa sayfa AÇILMAZ — yakın bir sayfa
+    göstermek yanlış ölçü tablosuna baktırırdı. Manifestteki model dizgileri
+    `cat_equipment.model` ile BİREBİR aynıdır; seed'in model kurma kuralı
+    değişirse betikteki `db_model` de değişmelidir.
+
+    **Yalnız görüntü saklanır, PDF dilimi değil:** sayfa dilimi PDF'i kaynağın
+    taranmış görüntüsünü olduğu gibi taşıdığı için dosya başına 200–800 KB
+    tutuyordu; 260'ı aşkın sayfada depoyu şişirirdi. Dosyalar `public/` altında
+    DEĞİLDİR: üretici kataloğu kimlik doğrulamalı `/api/catalog-sheet/...`
+    ucundan sunulur.
+
+    Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör · motor.
+    Halat, kanca, makara ve ray kataloglarının kaynak PDF'i workspace'te
+    olmadığı için deftere giremez.
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
@@ -289,8 +305,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
-- `catalog-sheets/` — üretici katalog sayfalarının kesilmiş hâli (üretilir;
-  `public/` altında değildir, `/api/catalog-sheet/` ucundan sunulur)
+- `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri
+  (üretilir; `public/` altında değildir, `/api/catalog-sheet/` ucundan sunulur)
 - `src/lib/calc/__tests__/` — mühendislik doğrulama + bağlantı koruma testleri
 - `src/lib/calc/__tests__/legacy/` — **tarihsel** karşılaştırma katmanı
   (eşleme tabloları + gerekçeli kapsam dışı/sapma sözlükleri). Şartname değil.

@@ -111,8 +111,12 @@ export function CatalogSheetButton({
         <BookOpen className="size-3.5 text-primary" />
         Katalog Sayfası
       </Button>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="border-b px-5 py-3.5">
+      {/* DialogContent varsayılanı GRID'dir; içindeki `flex-1 min-h-0` gövde o
+          düzende çalışmaz ve sayfa görüntüsü kırpılıp KAYDIRILAMAZ olur.
+          Bu pencere sütun flex'e çevrilir: başlık sabit kalır, gövde kalan
+          yüksekliği alır ve kendi içinde kayar. */}
+      <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+        <DialogHeader className="shrink-0 border-b px-5 py-3.5">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <BookOpen className="size-4 text-primary" />
             {sheet.title}
@@ -135,13 +139,16 @@ export function CatalogSheetButton({
               {zoomed ? "Sayfaya sığdır" : "Büyüt"}
             </Button>
             <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-              <a href={catalogSheetUrl(sheet.pdf)} target="_blank" rel="noopener noreferrer">
+              <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="size-3.5" />
-                PDF&apos;i yeni sekmede aç
+                Yeni sekmede aç
               </a>
             </Button>
             <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-              <a href={catalogSheetUrl(sheet.pdf)} download>
+              <a
+                href={catalogSheetUrl(sheet.images[0])}
+                download={`${sheet.title} — ${sheet.printedPages}.webp`}
+              >
                 <Download className="size-3.5" />
                 İndir
               </a>

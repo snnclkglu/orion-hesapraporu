@@ -30,11 +30,14 @@ export interface CatalogSheet {
   title: string;
   /** Kaynak katalog dosyasının adı (köken bilgisi) */
   source: string;
-  /** Basılı sayfa numarası/aralığı (ör. "s.15", "s.44-45") */
+  /** Basılı sayfa numarası/aralığı (ör. "s.15", "s.44-45", "PDF s.106") */
   printedPages: string;
-  /** Sayfanın birebir PDF dilimi (uç yolu içindeki göreli yol) */
-  pdf: string;
-  /** Sayfa görüntüleri, basılı sırayla */
+  /**
+   * Sayfa görüntüleri, basılı sırayla. PDF dilimi SAKLANMAZ: kaynak sayfanın
+   * taranmış görüntüsünü olduğu gibi taşıdığı için dosya başına 200–800 KB
+   * tutuyordu ve 260'ı aşkın sayfada depoyu gereksiz şişirirdi. Görüntü her
+   * tarayıcıda açılır, indirilir ve yazdırılır.
+   */
   images: string[];
   /**
    * Bu sayfaya düşen model kodları — `cat_equipment.model` ile birebir.
@@ -64,8 +67,33 @@ function norm(value: string): string {
     .toUpperCase();
 }
 
+/**
+ * Kod SONEKİNİ atar: "22212 E" → "22212".
+ *
+ * Rulman kodları katalogda tasarım sonekiyle basılır (E, EK, CC/W33); mühendis
+ * ise çoğu zaman temel kodu girer. `bearingHousingCompatibilityKey` aynı
+ * gerçeği yatak eşlemesinde zaten kabul eder. Sonek yalnız kod RAKAMLA
+ * bitiyorsa atılır — "SNL 205" gibi kodların sonu zaten rakamdır ve dokunulmaz.
+ */
+function baseCode(normalized: string): string {
+  const m = /^(.*\d)[A-Z]{1,3}$/.exec(normalized);
+  return m && m[1].length >= 3 ? m[1] : normalized;
+}
+
 /** tür|marka|model → sayfa */
 const BY_BRAND_MODEL = new Map<string, CatalogSheet>();
+/**
+ * tür|marka|temel kod → sayfa. Tam kod bulunamazsa başvurulur. Aynı temel kod
+ * FARKLI sayfalara düşüyorsa kayıt düşürülür: iki üründen birini tahminle
+ * seçmektense sayfa açmamak doğrudur.
+ */
+const BY_BASE = new Map<string, CatalogSheet | null>();
+/**
+ * tür|temel kod → sayfa. Bazı bölümlerin katalog eşlemesinde MARKA alanı hiç
+ * yoktur (ör. 2.2.6 tambur rulmanı yalnız kod ve yük sayılarını doldurur);
+ * orada marka bilinmeden aranır.
+ */
+const BY_BASE_MODEL = new Map<string, CatalogSheet | null>();
 /**
  * tür|model → sayfa. Marka alanı serbest metin olabildiği için (eski
  * revizyonlarda "SİBRE PİN KAPLİN" gibi) yalnız modelle de aranır. Model kodu
@@ -79,13 +107,27 @@ const BRANDS = new Set<string>();
 for (const sheet of SHEETS) {
   BRANDS.add(`${sheet.kind}|${norm(sheet.brand)}`);
   for (const model of sheet.models) {
-    const brandKey = `${sheet.kind}|${norm(sheet.brand)}|${norm(model)}`;
+    const normalized = norm(model);
+    const brandKey = `${sheet.kind}|${norm(sheet.brand)}|${normalized}`;
     if (!BY_BRAND_MODEL.has(brandKey)) BY_BRAND_MODEL.set(brandKey, sheet);
 
-    const modelKey = `${sheet.kind}|${norm(model)}`;
+    const modelKey = `${sheet.kind}|${normalized}`;
     const seen = BY_MODEL.get(modelKey);
     if (seen === undefined) BY_MODEL.set(modelKey, sheet);
     else if (seen && seen.brand !== sheet.brand) BY_MODEL.set(modelKey, null);
+
+    const base = baseCode(normalized);
+    if (base !== normalized) {
+      const baseKey = `${sheet.kind}|${norm(sheet.brand)}|${base}`;
+      const prior = BY_BASE.get(baseKey);
+      if (prior === undefined) BY_BASE.set(baseKey, sheet);
+      else if (prior && prior.id !== sheet.id) BY_BASE.set(baseKey, null);
+
+      const plainKey = `${sheet.kind}|${base}`;
+      const priorPlain = BY_BASE_MODEL.get(plainKey);
+      if (priorPlain === undefined) BY_BASE_MODEL.set(plainKey, sheet);
+      else if (priorPlain && priorPlain.id !== sheet.id) BY_BASE_MODEL.set(plainKey, null);
+    }
   }
 }
 
@@ -103,11 +145,20 @@ export function findCatalogSheet(
   model: string | undefined | null
 ): CatalogSheet | undefined {
   if (!model) return undefined;
+  const normalized = norm(model);
   if (brand) {
-    const exact = BY_BRAND_MODEL.get(`${kind}|${norm(brand)}|${norm(model)}`);
+    const exact = BY_BRAND_MODEL.get(`${kind}|${norm(brand)}|${normalized}`);
     if (exact) return exact;
   }
-  return BY_MODEL.get(`${kind}|${norm(model)}`) ?? undefined;
+  const byModel = BY_MODEL.get(`${kind}|${normalized}`);
+  if (byModel) return byModel;
+  // Son çare: tasarım soneki atılmış temel kod ("22212" → "22212 E").
+  const base = baseCode(normalized);
+  if (brand) {
+    const hit = BY_BASE.get(`${kind}|${norm(brand)}|${base}`);
+    if (hit) return hit;
+  }
+  return BY_BASE_MODEL.get(`${kind}|${base}`) ?? undefined;
 }
 
 /** Bu tür + marka için defterde HERHANGİ bir sayfa var mı? */
@@ -128,7 +179,6 @@ export function catalogSheetUrl(relativePath: string): string {
 export function catalogSheetFiles(): ReadonlySet<string> {
   const files = new Set<string>();
   for (const sheet of SHEETS) {
-    files.add(sheet.pdf);
     for (const image of sheet.images) files.add(image);
   }
   return files;

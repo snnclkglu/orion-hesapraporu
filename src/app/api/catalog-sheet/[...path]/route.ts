@@ -16,7 +16,6 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const CONTENT_TYPES: Record<string, string> = {
-  ".pdf": "application/pdf",
   ".webp": "image/webp",
 };
 

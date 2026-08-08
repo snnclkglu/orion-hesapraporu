@@ -41,18 +41,13 @@ beforeEach(() => {
 describe("GET /api/catalog-sheet", () => {
   it("oturum yoksa 401 döner", async () => {
     signedIn = false;
-    const res = await call(sheet.pdf.split("/"));
+    const res = await call(sheet.images[0].split("/"));
     expect(res.status).toBe(401);
   });
 
-  it("defterdeki PDF'i doğru içerik tipiyle verir", async () => {
-    const res = await call(sheet.pdf.split("/"));
-    expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toBe("application/pdf");
-    const body = new Uint8Array(await res.arrayBuffer());
-    expect(body.byteLength).toBeGreaterThan(1000);
-    // %PDF- imzası
-    expect(String.fromCharCode(...body.slice(0, 5))).toBe("%PDF-");
+  it("PDF uzantısı sunulmaz (defterde yalnız görüntü vardır)", async () => {
+    const res = await call(sheet.images[0].replace(/\.webp$/, ".pdf").split("/"));
+    expect(res.status).toBe(404);
   });
 
   it("defterdeki sayfa görüntüsünü webp olarak verir", async () => {
@@ -83,11 +78,11 @@ describe("GET /api/catalog-sheet", () => {
 
   it("izin listesindeki her dosya gerçekten okunabiliyor", async () => {
     // Defter büyüdükçe tek tek elle denenmez; hepsi burada bir kez geçer.
-    for (const s of allCatalogSheets()) {
-      for (const relative of [s.pdf, ...s.images]) {
-        const res = await call(relative.split("/"));
-        expect(res.status, relative).toBe(200);
-      }
+    // Aynı görüntüyü birden çok seri paylaşabildiği için yol kümesi kullanılır.
+    const paths = new Set(allCatalogSheets().flatMap((s) => s.images));
+    for (const relative of paths) {
+      const res = await call(relative.split("/"));
+      expect(res.status, relative).toBe(200);
     }
-  });
+  }, 60_000);
 });
