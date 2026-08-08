@@ -103,9 +103,12 @@ const BY_BASE_MODEL = new Map<string, CatalogSheet | null>();
 const BY_MODEL = new Map<string, CatalogSheet | null>();
 /** tür|marka → o markanın sayfası var mı */
 const BRANDS = new Set<string>();
+/** Defterdeki markaların normalleştirilmiş adları — model önekini ayıklamak için */
+const BRAND_TOKENS = new Set<string>();
 
 for (const sheet of SHEETS) {
   BRANDS.add(`${sheet.kind}|${norm(sheet.brand)}`);
+  BRAND_TOKENS.add(norm(sheet.brand));
   for (const model of sheet.models) {
     const normalized = norm(model);
     const brandKey = `${sheet.kind}|${norm(sheet.brand)}|${normalized}`;
@@ -146,19 +149,34 @@ export function findCatalogSheet(
 ): CatalogSheet | undefined {
   if (!model) return undefined;
   const normalized = norm(model);
-  if (brand) {
-    const exact = BY_BRAND_MODEL.get(`${kind}|${norm(brand)}|${normalized}`);
-    if (exact) return exact;
+  const candidates = [normalized];
+  // Eski kayıtlarda model alanına marka da yazılmış olabilir
+  // ("SIBRE TE250 Ed 50/6"); katalogdaki kod yalnız "TE 250 Ed 50/6"dır.
+  for (const b of brand ? [norm(brand)] : [...BRAND_TOKENS]) {
+    if (b.length >= 3 && normalized.startsWith(b) && normalized.length > b.length) {
+      candidates.push(normalized.slice(b.length));
+    }
   }
-  const byModel = BY_MODEL.get(`${kind}|${normalized}`);
-  if (byModel) return byModel;
+
+  for (const key of candidates) {
+    if (brand) {
+      const exact = BY_BRAND_MODEL.get(`${kind}|${norm(brand)}|${key}`);
+      if (exact) return exact;
+    }
+    const byModel = BY_MODEL.get(`${kind}|${key}`);
+    if (byModel) return byModel;
+  }
   // Son çare: tasarım soneki atılmış temel kod ("22212" → "22212 E").
-  const base = baseCode(normalized);
-  if (brand) {
-    const hit = BY_BASE.get(`${kind}|${norm(brand)}|${base}`);
-    if (hit) return hit;
+  for (const key of candidates) {
+    const base = baseCode(key);
+    if (brand) {
+      const hit = BY_BASE.get(`${kind}|${norm(brand)}|${base}`);
+      if (hit) return hit;
+    }
+    const plain = BY_BASE_MODEL.get(`${kind}|${base}`);
+    if (plain) return plain;
   }
-  return BY_BASE_MODEL.get(`${kind}|${base}`) ?? undefined;
+  return undefined;
 }
 
 /** Bu tür + marka için defterde HERHANGİ bir sayfa var mı? */

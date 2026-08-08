@@ -59,6 +59,7 @@ WEBP_QUALITY = 76
 PDFS = {
     "ozgun": "ozgun katalog 2019 1-b.pdf",
     "sibre_coupling": "02_SIBRE_Coupling-catalogue.pdf",
+    "sibre_brake": "01_SIBRE_Brake-catalogue.pdf",
     "jaure_mt": "JAURE MT Series_Gear Coupling.pdf",
     "jaure_tcbr": "Jaure Tambur kaplini.pdf",
     "skf_bearing": "SKF genel-rulman-katalogu.pdf",
@@ -172,6 +173,19 @@ DISCOVER = [
     ("brake", "brakes/galvi_nhyd_nvhyd.json", "galvi", "model",
      ["drum_diameter_mm", "brake_torque_Nm", "weight_kg"],
      "GALVI NEWCOMEN Fren"),
+    # SIBRE fren kataloğu üç ürün ailesini ayrı tablolarda basar; her aile
+    # kendi JSON'undan aranır. Model kodu ("TE 160 Ed 23/5") tabloda parça
+    # parça durduğu için eşleşme ağırlıklı olarak SAYILARDAN gelir.
+    ("brake", "brakes/sibre_te_drum.json", "sibre_brake", None,
+     ["drum_diameter_mm", "min_torque_Nm", "max_torque_Nm", "brake_torque_Nm", "weight_kg"],
+     "SIBRE TE — Kasnaklı (tambur) fren"),
+    ("brake", "brakes/sibre_usb_disc.json", "sibre_brake", None,
+     ["disc_diameter_mm", "min_torque_Nm", "max_torque_Nm", "brake_torque_Nm", "weight_kg"],
+     "SIBRE USB5 — Diskli fren"),
+    ("brake", "brakes/sibre_shi_caliper.json", "sibre_brake", None,
+     ["min_disc_diameter_mm", "clamping_force_1mm_kN", "clamping_force_3mm_kN",
+      "release_pressure_bar", "torque_offset_mm"],
+     "SIBRE SHI — Kaliperli disk fren"),
     ("buffer", "buffers/conductix_rubber.json", "conductix", "model",
      ["diameter_mm", "height_mm", "energy_capacity_j", "max_force_kn"],
      "Conductix-Wampfler Kauçuk Tampon"),

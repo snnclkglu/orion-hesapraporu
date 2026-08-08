@@ -29,6 +29,8 @@ describe("katalog sayfası defteri", () => {
     ]) {
       expect(kinds.has(kind), `${kind} türünde sayfa yok`).toBe(true);
     }
+    expect(sheets.some((s) => s.kind === "brake" && s.brand === "SIBRE"),
+      "SIBRE fren sayfası yok").toBe(true);
     for (const brand of ["OZGUN", "SIBRE", "JAURE", "SKF", "ABB", "GAMAK"]) {
       expect(sheets.some((s) => s.brand === brand), `${brand} yok`).toBe(true);
     }
@@ -129,6 +131,14 @@ describe("model → sayfa eşlemesi", () => {
     // 2.2.6 tambur rulmanı bölümünün eşlemesinde MARKA alanı yoktur:
     // marka bilinmeden de bulunmalıdır.
     expect(findCatalogSheet("bearing", null, "22212")?.id).toBe(withSuffix?.id);
+  });
+
+  it("model alanına yazılmış marka öneki eşlemeyi bozmaz", () => {
+    // Eski/şablon kayıtlarda model alanı "SIBRE TE 250 Ed 50/6" gibi markayı
+    // da taşıyabilir; katalogdaki kod yalnız "TE 250 Ed 50/6"dır.
+    const plain = findCatalogSheet("brake", "SIBRE", "TE 250 Ed 23/5");
+    expect(plain, "TE 250 Ed 23/5 defterde yok").toBeDefined();
+    expect(findCatalogSheet("brake", "SİBRE", "SIBRE TE250 Ed 23/5")?.id).toBe(plain?.id);
   });
 
   it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {

@@ -2363,6 +2363,245 @@
    ]
   },
   {
+   "id": "brake/sibre-sibre-te-drum-p14",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "TE",
+   "title": "SIBRE TE — Kasnaklı (tambur) fren — katalog s.14",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.14",
+   "images": [
+    "brake/sibre-sibre-te-drum-p14.webp"
+   ],
+   "models": [
+    "TE 160 Ed 23/5",
+    "TE 200 Ed 23/5"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-te-drum-p39",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "TE",
+   "title": "SIBRE TE — Kasnaklı (tambur) fren — katalog s.39",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.39",
+   "images": [
+    "brake/sibre-sibre-te-drum-p39.webp"
+   ],
+   "models": [
+    "TE 200 Ed 12/4",
+    "TE 250 Ed 23/5",
+    "TE 250 Ed 30/5",
+    "TE 315 Ed 23/5",
+    "TE 315 Ed 30/5",
+    "TE 315 80/6",
+    "TE 400 Ed 23/5",
+    "TE 400 Ed 30/5",
+    "TE 400 80/6",
+    "TE 400 121/6",
+    "TE 500 Ed 30/5",
+    "TE 500 80/6",
+    "TE 500 121/6",
+    "TE 500 201/6",
+    "TE 630 121/6",
+    "TE 630 201/6",
+    "TE 630 301/6",
+    "TE 710 121/6",
+    "TE 710 201/6",
+    "TE 710 301/6"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-usb-disc-p6",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "USB5",
+   "title": "SIBRE USB5 — Diskli fren — katalog s.6",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.6",
+   "images": [
+    "brake/sibre-sibre-usb-disc-p6.webp"
+   ],
+   "models": [
+    "USB5-05 D250 23/5",
+    "USB5-05 D280 23/5",
+    "USB5-05 D315 23/5",
+    "USB5-05 D355 30/5",
+    "USB5-05 D400 30/5",
+    "USB5-05 D450 30/5",
+    "USB5-05 D500 30/5"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-usb-disc-p7",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "USB5",
+   "title": "SIBRE USB5 — Diskli fren — katalog s.7",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.7",
+   "images": [
+    "brake/sibre-sibre-usb-disc-p7.webp"
+   ],
+   "models": [
+    "USB5-I D355 30/5",
+    "USB5-I D400 30/5",
+    "USB5-I D450 50/6",
+    "USB5-I D500 50/6",
+    "USB5-I D560 80/6",
+    "USB5-I D630 80/6",
+    "USB5-I D710 80/6"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-usb-disc-p8",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "USB5",
+   "title": "SIBRE USB5 — Diskli fren — katalog s.8",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.8",
+   "images": [
+    "brake/sibre-sibre-usb-disc-p8.webp"
+   ],
+   "models": [
+    "USB5-II D450 121/6",
+    "USB5-II D500 121/6",
+    "USB5-II D560 201/6",
+    "USB5-II D630 201/6",
+    "USB5-II D710 201/6",
+    "USB5-III D560 201/6",
+    "USB5-III D1000 301/6"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-usb-disc-p9",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "USB5",
+   "title": "SIBRE USB5 — Diskli fren — katalog s.9",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.9",
+   "images": [
+    "brake/sibre-sibre-usb-disc-p9.webp"
+   ],
+   "models": [
+    "USB5-III D710 301/6",
+    "USB5-III D800 301/6",
+    "USB5-V D630 2000/120",
+    "USB5-V D800 3000/120",
+    "USB5-V D900 3000/120"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-usb-disc-p10",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "USB5",
+   "title": "SIBRE USB5 — Diskli fren — katalog s.10",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.10",
+   "images": [
+    "brake/sibre-sibre-usb-disc-p10.webp"
+   ],
+   "models": [
+    "USB5-V D710 2000/120",
+    "USB5-V D1000 6300/120"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-shi-caliper-p14",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "SHI",
+   "title": "SIBRE SHI — Kaliperli disk fren — katalog s.14",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.14",
+   "images": [
+    "brake/sibre-sibre-te-drum-p14.webp"
+   ],
+   "models": [
+    "SHI 75-1",
+    "SHI 75-2",
+    "SHI 75-3",
+    "SHI 75-4",
+    "SHI 75-5",
+    "SHI 75-6"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-shi-caliper-p15",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "SHI",
+   "title": "SIBRE SHI — Kaliperli disk fren — katalog s.15",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.15",
+   "images": [
+    "brake/sibre-sibre-shi-caliper-p15.webp"
+   ],
+   "models": [
+    "SHI 103",
+    "SHI 104",
+    "SHI 105"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-shi-caliper-p16",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "SHI",
+   "title": "SIBRE SHI — Kaliperli disk fren — katalog s.16",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.16",
+   "images": [
+    "brake/sibre-sibre-shi-caliper-p16.webp"
+   ],
+   "models": [
+    "SHI 106",
+    "SHI 107",
+    "SHI 161",
+    "SHI 162"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-shi-caliper-p17",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "SHI",
+   "title": "SIBRE SHI — Kaliperli disk fren — katalog s.17",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.17",
+   "images": [
+    "brake/sibre-sibre-shi-caliper-p17.webp"
+   ],
+   "models": [
+    "SHI 201",
+    "SHI 202",
+    "SHI 231",
+    "SHI 232"
+   ]
+  },
+  {
+   "id": "brake/sibre-sibre-shi-caliper-p18",
+   "kind": "brake",
+   "brand": "SIBRE",
+   "series": "SHI",
+   "title": "SIBRE SHI — Kaliperli disk fren — katalog s.18",
+   "source": "01_SIBRE_Brake-catalogue.pdf",
+   "printedPages": "PDF s.18",
+   "images": [
+    "brake/sibre-sibre-shi-caliper-p18.webp"
+   ],
+   "models": [
+    "SHI 251",
+    "SHI 252",
+    "SHI 281",
+    "SHI 282"
+   ]
+  },
+  {
    "id": "buffer/conductix-wampfler-conductix-rubber-p11",
    "kind": "buffer",
    "brand": "Conductix-Wampfler",
