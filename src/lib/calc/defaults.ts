@@ -12,6 +12,7 @@
 import type { CalcInput } from "./engine";
 import { ROPE_POSITION_AUTO, type HoistInputs, type HoistSelections } from "./modules/hoistGroup";
 import type { TechnicalSpecs } from "./types";
+import type { CabinInputs, CabinSelections } from "./modules/cabin";
 import { STANDARD_SHEAVE_EFFICIENCY } from "./derive";
 import { V5_HOOKBLOCK_INPUTS, V5_HOOKBLOCK_SELECTIONS } from "./defaults/hookBlock";
 import {
@@ -61,12 +62,10 @@ export const V5_SPECS: TechnicalSpecs = {
   controlVoltage: "24 VDC",
   spanM: 17.5,
   hasOperatorCabin: "no",
-  operatorCabinAirConditioning: "none",
+  operatorCabinHasAirConditioner: "no",
   electricalAccommodationType: "none",
-  electricalRoomAirConditioning: "none",
-  electricalRoomAirConditioningRedundancy: "none",
-  electricalPanelAirConditioning: "none",
-  electricalPanelAirConditioningRedundancy: "none",
+  electricalRoomHasAirConditioner: "no",
+  electricalPanelHasAirConditioner: "no",
   // Konfigürasyon ve ağırlıklar
   auxTrolleyMode: "shared",
   monorailCount: 0,
@@ -159,6 +158,9 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   motorRpm: 1480,
   motorShaftMm: 70,
   motorBrand: "GAMAK",
+  // Tarihsel V5 referansı motorun tip kodunu kaydetmiyordu; alan katalogdan
+  // ürün seçilince dolar.
+  motorModel: "",
   motorCount: 1,
   brakeBrand: "SİBRE",
   brakeModel: "SIBRE TE250 Ed 50/6",
@@ -227,6 +229,36 @@ export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
 };
 
 /** V5 işinin tam girdi seti — tarihsel doğrulama fikstürü */
+/**
+ * Kabin ve elektrik odası varsayılanları. Ölçüler ORION'un standart kabin ve
+ * elektrik odası gabarisidir; klima seçimi BOŞ gelir — teknik özelliklerde
+ * "var" denen mahalde katalogdan ürün seçilmesi bir kontroldür ve şablonun
+ * doldurduğu bir ürün o kontrolü sessizce geçerdi.
+ */
+export const DEFAULT_CABIN_INPUTS: CabinInputs = {
+  cabinWidthM: 2,
+  cabinLengthM: 2.5,
+  cabinHeightM: 2.4,
+  cabinInsulation: "rockWool50",
+  roomWidthM: 3,
+  roomLengthM: 4,
+  roomHeightM: 2.6,
+  roomInsulation: "rockWool100",
+  roomAcRedundancy: "none",
+  panelCount: 1,
+  panelIpClass: "IP55",
+  panelAcRedundancy: "none",
+};
+
+export const DEFAULT_CABIN_SELECTIONS: CabinSelections = {
+  cabinAcBrand: "", cabinAcModel: "", cabinAcSeries: "", cabinAcApplication: "",
+  cabinAcCoolingKwMin: 0, cabinAcCoolingKwMax: 0, cabinAcAmbientMaxC: 0,
+  roomAcBrand: "", roomAcModel: "", roomAcSeries: "", roomAcApplication: "",
+  roomAcCoolingKwMin: 0, roomAcCoolingKwMax: 0, roomAcAmbientMaxC: 0,
+  panelAcBrand: "", panelAcModel: "", panelAcSeries: "", panelAcApplication: "",
+  panelAcCoolingKwMin: 0, panelAcCoolingKwMax: 0, panelAcAmbientMaxC: 0,
+};
+
 export const V5_TEMPLATE: CalcInput = {
   specs: V5_SPECS,
   mainHoist: { inputs: V5_MAIN_HOIST_INPUTS, selections: V5_MAIN_HOIST_SELECTIONS },
@@ -241,6 +273,7 @@ export const V5_TEMPLATE: CalcInput = {
   girder: { inputs: V5_GIRDER_INPUTS, selections: V5_GIRDER_SELECTIONS },
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
+  cabin: { inputs: DEFAULT_CABIN_INPUTS, selections: DEFAULT_CABIN_SELECTIONS },
 };
 
 // ------------------------------------------------------- Yeni iş şablonu
@@ -258,26 +291,11 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   hookType: "DIN 15401 Tekli Kanca",
   controlType: "Uzaktan Kumanda",
   hasOperatorCabin: "no",
-  operatorCabinWidthM: 2,
-  operatorCabinLengthM: 2.5,
-  operatorCabinHeightM: 2.4,
-  operatorCabinInsulation: "rockWool50",
-  operatorCabinAirConditioning: "none",
-  operatorCabinAirConditionerModel: "",
+  operatorCabinHasAirConditioner: "no",
 
   electricalAccommodationType: "none",
-  electricalRoomWidthM: 3,
-  electricalRoomLengthM: 4,
-  electricalRoomHeightM: 2.6,
-  electricalRoomInsulation: "rockWool100",
-  electricalRoomAirConditioning: "none",
-  electricalRoomAirConditionerModel: "",
-  electricalRoomAirConditioningRedundancy: "none",
-  electricalPanelCount: 1,
-  electricalPanelIpClass: "IP55",
-  electricalPanelAirConditioning: "none",
-  electricalPanelAirConditionerModel: "",
-  electricalPanelAirConditioningRedundancy: "none",
+  electricalRoomHasAirConditioner: "no",
+  electricalPanelHasAirConditioner: "no",
 
   auxTrolleyMode: "shared",
   monorailCount: 0,
@@ -474,4 +492,5 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   },
   buckling: { inputs: V5_BUCKLING_INPUTS },
   endCarriage: { inputs: V5_ENDCARRIAGE_INPUTS, selections: V5_ENDCARRIAGE_SELECTIONS },
+  cabin: { inputs: DEFAULT_CABIN_INPUTS, selections: DEFAULT_CABIN_SELECTIONS },
 };

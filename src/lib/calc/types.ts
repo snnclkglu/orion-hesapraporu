@@ -232,7 +232,21 @@ export type ElectricalAccommodationType = "none" | "room" | "panel";
 /** Oda/kabin panel izolasyonu. Pano tipinde kullanılmaz; IP sınıfı ayrı tutulur. */
 export type RoomInsulation = "rockWool50" | "rockWool100";
 
-/** İklimlendirme çözümünün proje seviyesindeki sınıfı. */
+/**
+ * Bir mahalde klima öngörülmüş mü. Teknik özelliklerde SORULAN tek şey budur;
+ * ürünün kendisi (marka, seri, kapasite, ortam sıcaklığı sınırı) 11. bölümde
+ * TMS kataloğundan seçilir.
+ */
+export type AirConditionerPresence = "yes" | "no";
+
+/**
+ * ESKİ REVİZYON UYUMLULUĞU — iklimlendirme SINIFI artık sorulmaz.
+ *
+ * Sınıf (pano / endüstriyel / ağır hizmet) ürünün katalogdaki KULLANIM
+ * GRUBUDUR (`attrs.application`), bir proje girdisi değil. Tip yalnız eski
+ * snapshot'ların okunabilmesi için durur; "none" dışındaki her değer "klima
+ * var" olarak yorumlanır.
+ */
 export type AirConditioningType =
   | "none"
   | "standard"
@@ -243,41 +257,28 @@ export type AirConditioningType =
 /** Elektrik odası ve panolar için kurulu yedek klima düzeni. */
 export type AirConditioningRedundancy = "none" | "nPlusOne";
 
-/** I-kiriş festoon ürün ailesinin üreticisi. */
+/**
+ * ESKİ REVİZYON UYUMLULUĞU — bu tipler artık DÜZENLENMİYOR.
+ *
+ * Feston seçimi bir teknik özellik kartıyken yürütme grubunun katalog bölümü
+ * oldu (5.9, `kind = "festoon"`). Aşağıdaki tipler yalnız eski snapshot'ların
+ * okunabilmesi ve `migrateFestoon` göçünün veriyi modül girdilerine
+ * taşıyabilmesi için durur; yeni kod bunlara YAZMAZ.
+ */
 export type FestoonBrand = "conductixWampfler" | "vasel";
 
-/**
- * I-kiriş festoon seri ailesi. `auto`, seçilen üreticide en küçük uygun aileyi
- * seçer. Vasel'in tam ürün kodu I-kiriş geometrisine göre katalog şablonundan
- * tamamlanır; seri seçimi bu geometrik doğrulamadan önceki ön seçimdir.
- */
-export type FestoonSeries =
-  | "auto"
-  | "0314" | "0320" | "0325" | "0330"
-  | "VS2005" | "VS2010" | "VS2015" | "VS2020"
-  | "VS2050" | "VS2060" | "VS2070"
-  | "VS25-S1" | "VS25-S2" | "VS26-S3" | "VS26-S4";
+/** Eski kayıtlardaki seri kodu; "auto" = seri seçilmemiş. */
+export type FestoonSeries = string;
 
-/** Katalogdaki ayrı düz/kesitli ve yuvarlak kablo taşıyıcı düzenleri. */
 export type FestoonCableForm = "flat" | "round";
 
-/**
- * Bir hareket ekseni için minimum festoon ön seçimi.
- *
- * `cablePackageWeightKg` hareket eden kablo paketi toplam kütlesidir. Sistem,
- * bunu seçilen taşıyıcı adedine bölerek katalogdaki taşıyıcı başına kapasiteyle
- * kıyaslar. Kesin taşıyıcı parça kodu için ayrıca I-kiriş flanşı ve kablo paket
- * geometrisi gerekir; bu iki bilgi teklif/imalat doğrulamasında istenir.
- */
 export interface FestoonSpec {
-  /** Verilmezse eski kayıtlarla uyum için Conductix-Wampfler kabul edilir. */
   brand?: FestoonBrand;
   series: FestoonSeries;
   trolleyCount: number;
   cablePackageWeightKg: number;
   cableForm: FestoonCableForm;
-  /** Kablo loop'larının ray altındaki en büyük çalışma yüksekliği [m]. */
-  loopHeightM?: number;
+  loopHeightM: number;
 }
 
 /** Bir vinçte en çok kaç ek monoray kaldırma grubu tanımlanabilir. */
@@ -358,9 +359,14 @@ export interface TechnicalSpecs {
   operatorCabinWidthM?: number;
   operatorCabinLengthM?: number;
   operatorCabinHeightM?: number;
+  /** Kabinde klima var mı — ürün 11.1'de katalogdan seçilir. */
+  operatorCabinHasAirConditioner?: AirConditionerPresence;
+
+  // ESKİ REVİZYON ALANLARI — artık düzenlenmez; ölçüler/izolasyon/ürün 11.
+  // bölüme taşındı (bkz. `migrateCabin`, revision-load.ts).
+  operatorCabinWidthM_legacy?: never;
   operatorCabinInsulation?: RoomInsulation;
   operatorCabinAirConditioning?: AirConditioningType;
-  /** TMS katalog tipi; standart klimada "Projeye özel seçim" bırakılabilir. */
   operatorCabinAirConditionerModel?: string;
 
   /** Elektrik ekipmanı ayrı odada mı, yan yana panolarda mı? */
@@ -368,13 +374,20 @@ export interface TechnicalSpecs {
   electricalRoomWidthM?: number;
   electricalRoomLengthM?: number;
   electricalRoomHeightM?: number;
+  /** Elektrik odasında klima var mı — ürün 11.2'de katalogdan seçilir. */
+  electricalRoomHasAirConditioner?: AirConditionerPresence;
+
+  // ESKİ REVİZYON ALANLARI
   electricalRoomInsulation?: RoomInsulation;
   electricalRoomAirConditioning?: AirConditioningType;
   electricalRoomAirConditionerModel?: string;
-  /** Elektrik odası için kurulu yedek: 1+1. */
   electricalRoomAirConditioningRedundancy?: AirConditioningRedundancy;
 
   /** Pano tipi yerleşimde yan yana dizilen pano adedi ve kendi IP koruması. */
+  /** Panolarda klima var mı — ürün 11.3'te katalogdan seçilir. */
+  electricalPanelHasAirConditioner?: AirConditionerPresence;
+
+  // ESKİ REVİZYON ALANLARI
   electricalPanelCount?: number;
   electricalPanelIpClass?: string;
   electricalPanelAirConditioning?: AirConditioningType;

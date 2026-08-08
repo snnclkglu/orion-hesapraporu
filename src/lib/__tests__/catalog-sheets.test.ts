@@ -141,12 +141,60 @@ describe("model → sayfa eşlemesi", () => {
     expect(findCatalogSheet("brake", "SİBRE", "SIBRE TE250 Ed 23/5")?.id).toBe(plain?.id);
   });
 
+  /**
+   * KORUMA: bölümün seçim alanlarından katalog KİMLİĞİNİ çıkarma yolu.
+   *
+   * Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8) eşlemelerinde
+   * ürünün kimliğini tek bir "MARKA MODEL" alanı taşır; motorda ise ayrı bir
+   * model alanı vardı ki YOKTU. Bu üç yol bozulduğunda hiçbir derleme/test
+   * hatası çıkmaz — düğme sessizce pasif kalır. Aşağıdaki durumlar o sessizliği
+   * kırar; değerler editörün gerçekten yazdığı biçimdedir.
+   */
+  it("bölümlerin seçim alanından gelen kimlikle sayfa bulunur", () => {
+    const cases: [kind: string, brand: string | undefined, model: string][] = [
+      // gearboxModel = "MARKA MODEL" (from: "brand_model")
+      ["gearbox", undefined, "Yılmaz Redüktör DT072"],
+      ["gearbox", undefined, "FLENDER H3-14"],
+      // motorBrand + motorModel (from: "brand" + "model")
+      ["motor", "GAMAK", "AGM2E 80 M 2a"],
+      ["motor", "INNOMATICS", "1LE1603-1CB2"],
+      // 5.5b brakeBrand = "MARKA MODEL"
+      ["brake", undefined, "SIBRE TE 160 Ed 23/5"],
+      // 5.8 bufferModel = "MARKA MODEL"
+      ["buffer", undefined, "Conductix-Wampfler 017110-040x032N"],
+      ["buffer", undefined, "SIBRE SP 65 FF 100"],
+      // 5.9 festoonBrand + festoonSeries
+      ["festoon", "Vasel", "VS2020"],
+    ];
+    for (const [kind, brand, model] of cases) {
+      expect(
+        findCatalogSheet(kind, brand, model),
+        `${kind} / ${brand ?? "-"} / ${model} için katalog sayfası bulunamadı`
+      ).toBeDefined();
+    }
+  });
+
+  it("kaynak katalogda ölçü sayfası olmayan ürüne sayfa yazılmaz", () => {
+    // FLENDER ölçü bölümü H2'de boy 4'ten başlar; H2-03 tip/boy matrisinde
+    // vardır ama ölçü sayfası YOKTUR. Yakın bir sayfa göstermek yanlış ölçü
+    // tablosuna baktırırdı.
+    expect(findCatalogSheet("gearbox", undefined, "FLENDER H2-03")).toBeUndefined();
+    // Conductix'in workspace'teki feston dosyası bir SORU FORMUDUR; ürün
+    // tablosu içermediği için o markaya sayfa yazılmaz.
+    expect(findCatalogSheet("festoon", "Conductix-Wampfler", "0320")).toBeUndefined();
+  });
+
   it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {
     expect(hasCatalogSheets("coupling")).toBe(true);
     expect(hasCatalogSheets("gearbox")).toBe(true);
     // Halat / kanca / makara kataloglarının kaynak PDF'i workspace'te yok.
     expect(hasCatalogSheets("rope")).toBe(false);
     expect(hasCatalogSheets("hook")).toBe(false);
+    expect(hasCatalogSheets("sheave")).toBe(false);
+    expect(hasCatalogSheets("wheel")).toBe(false);
+    // Feston: Vasel broşürü workspace'tedir, Conductix'inki soru formudur.
+    expect(hasCatalogSheets("festoon", "Vasel")).toBe(true);
+    expect(hasCatalogSheets("festoon", "Conductix-Wampfler")).toBe(false);
     expect(hasCatalogSheets("coupling", "OZGUN")).toBe(true);
     expect(hasCatalogSheets("coupling", "ÖZGÜN")).toBe(true);
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);

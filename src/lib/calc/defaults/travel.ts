@@ -63,6 +63,11 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   // Kepçe halatla asılıdır → salınabilir yük, çarpışan kütleye girmez.
   bufferLoadRigidlyGuided: "Hayır",
   bufferFrequentEndApproach: "Hayır",
+  // Feston — bölüm yalnız enerji beslemesi feston seçilince görünür; alanlar
+  // sıfırdan başlar ki mühendis kendi kablo paketini girsin.
+  festoonTrolleyCount: 1,
+  festoonCablePackageWeightKg: 0,
+  festoonLoopHeightM: 1.5,
 };
 
 export const V5_TROLLEY_SELECTIONS: TravelSelections = {
@@ -76,6 +81,8 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   bearingDynCKn: 159,
   bearingStatC0Kn: 166,
   motorBrand: "INNOMATICS/SEW/ABB",
+  // Tip kodu tarihsel V5 referansında yok; katalogdan seçilince dolar.
+  motorModel: "",
   motorPowerKw: 3,
   motorRpm: 1480,
   motorCount: 1,
@@ -146,6 +153,11 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   bufferCount: 2,
   bufferLoadRigidlyGuided: "Hayır",
   bufferFrequentEndApproach: "Hayır",
+  // Feston — bölüm yalnız enerji beslemesi feston seçilince görünür; alanlar
+  // sıfırdan başlar ki mühendis kendi kablo paketini girsin.
+  festoonTrolleyCount: 1,
+  festoonCablePackageWeightKg: 0,
+  festoonLoopHeightM: 1.5,
 };
 
 export const V5_BRIDGE_SELECTIONS: TravelSelections = {
@@ -159,6 +171,8 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   bearingDynCKn: 243,
   bearingStatC0Kn: 270,
   motorBrand: "INNOMATICS/SEW/ABB",
+  // Tip kodu tarihsel V5 referansında yok; katalogdan seçilince dolar.
+  motorModel: "",
   motorPowerKw: 3,
   motorRpm: 1480,
   motorCount: 2,

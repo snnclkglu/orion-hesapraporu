@@ -7,92 +7,158 @@ import {
   canLinkEquipmentModel,
   dsKey,
 } from "@/lib/excel/equipment";
-import { runCalc } from "@/lib/calc/engine";
+import { runCalc, type CalcInput } from "@/lib/calc/engine";
 import { SPEC_FIELDS } from "@/lib/calc/fields";
 
-describe("operatör kabini ve elektrik yerleşimi", () => {
-  it("kabin ile elektrik odasını klima tipi ve 1+1 yedekle ekipman listesine taşır", () => {
-    const input = structuredClone(NEW_WORK_TEMPLATE);
-    input.specs = {
-      ...input.specs,
-      hasOperatorCabin: "yes",
-      operatorCabinWidthM: 2.2,
-      operatorCabinLengthM: 2.8,
-      operatorCabinHeightM: 2.4,
-      operatorCabinInsulation: "rockWool50",
-      operatorCabinAirConditioning: "heavyIndustrial",
-      operatorCabinAirConditionerModel: "VKS-VS",
-      electricalAccommodationType: "room",
-      electricalRoomWidthM: 3,
-      electricalRoomLengthM: 5,
-      electricalRoomHeightM: 2.6,
-      electricalRoomInsulation: "rockWool100",
-      electricalRoomAirConditioning: "industrial",
-      electricalRoomAirConditionerModel: "WMU",
-      electricalRoomAirConditioningRedundancy: "nPlusOne",
-    };
+/**
+ * Kabin, elektrik odası ve panolar artık 11. hesap bölümüdür: teknik
+ * özelliklerde yalnız VARLIK (kabin var mı, klima var mı) sorulur; ölçüler ve
+ * ürünün kendisi modül girdisi / katalog seçimidir.
+ */
+describe("kabin ve elektrik odası", () => {
+  const CABIN = NEW_WORK_TEMPLATE.cabin!;
 
-    const group = buildEquipmentGroups(input).find(
-      (item) => item.name === "Operatör Kabini ve Elektrik Yerleşimi"
-    );
-    expect(group?.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ component: "Operatör Kabini", model: "İzole operatör kabini" }),
-      expect.objectContaining({ kind: "air_conditioner", brand: "TMS", model: "VKS-VS", qty: 1 }),
-      expect.objectContaining({ kind: "air_conditioner", brand: "TMS", model: "WMU", qty: "2 (1+1)" }),
-    ]));
-    expect(group?.rows.find((row) => row.model === "WMU")?.spec).toContain("1+1");
+  function withCabinAndRoom(): CalcInput {
+    return {
+      ...NEW_WORK_TEMPLATE,
+      specs: {
+        ...NEW_WORK_TEMPLATE.specs,
+        hasOperatorCabin: "yes",
+        operatorCabinHasAirConditioner: "yes",
+        electricalAccommodationType: "room",
+        electricalRoomHasAirConditioner: "yes",
+      },
+      cabin: {
+        inputs: {
+          ...CABIN.inputs,
+          cabinWidthM: 2.2, cabinLengthM: 2.8, cabinHeightM: 2.4,
+          roomWidthM: 3, roomLengthM: 5, roomHeightM: 2.6,
+          roomAcRedundancy: "nPlusOne",
+        },
+        selections: {
+          ...CABIN.selections,
+          cabinAcBrand: "TMS", cabinAcModel: "VKS-VS", cabinAcSeries: "VKS Serisi",
+          cabinAcApplication: "heavy_industrial",
+          cabinAcCoolingKwMin: 2.5, cabinAcCoolingKwMax: 48, cabinAcAmbientMaxC: 95,
+          roomAcBrand: "TMS", roomAcModel: "WMU", roomAcSeries: "WMU Serisi",
+          roomAcApplication: "industrial",
+          roomAcCoolingKwMin: 8, roomAcCoolingKwMax: 100,
+        },
+      },
+    };
+  }
+
+  it("kabin, oda ve klimalarını 1+1 yedekle ekipman listesine taşır", () => {
+    const input = withCabinAndRoom();
+    const rows = buildEquipmentGroups(input).flatMap((group) => group.rows);
+
+    expect(rows.find((r) => r.rowKey === "cabin:operator-cabin")).toMatchObject({
+      // Model hücresi ürün kodudur; başlık düzeninden GEÇMEZ (dokunulmaz).
+      model: "İzole operatör kabini",
+    });
+    expect(rows.find((r) => r.rowKey === "cabin:cabinAc")).toMatchObject({
+      kind: "air_conditioner", brand: "TMS", model: "VKS-VS", qty: 1,
+    });
+    const roomAc = rows.find((r) => r.rowKey === "cabin:roomAc");
+    expect(roomAc).toMatchObject({ brand: "TMS", model: "WMU", qty: "2 (1+1)" });
+    // Kullanım grubu Türkçeleştirilerek yazılır; ham katalog kodu görünmez.
+    expect(roomAc?.spec).toContain("Endüstriyel");
+    expect(roomAc?.spec).not.toContain("industrial");
+    // Ortam sıcaklığı sınırı yayımlanmayan üründe bu açıkça belirtilir.
+    expect(roomAc?.spec).toContain("Yayımlanmamış");
 
     const summary = buildSummarySections(input, runCalc(input));
-    expect(summary.map((section) => section.name)).toEqual(expect.arrayContaining([
-      "Operatör Kabini", "Elektrik Odası",
-    ]));
+    expect(summary.map((section) => section.name)).toEqual(
+      expect.arrayContaining(["Operatör Kabini", "Elektrik Odası"])
+    );
+  });
+
+  it("ortam sıcaklığı sınırı yetersiz klimayı engelleyici kontrolle düşürür", () => {
+    const input = withCabinAndRoom();
+    // Proje ortamı 40 °C; katalog sınırı 35 °C olan bir ürün seçilirse kontrol
+    // sağlanmamalıdır.
+    input.specs = { ...input.specs, ambientTempMaxC: 40 };
+    input.cabin = {
+      inputs: input.cabin!.inputs,
+      selections: { ...input.cabin!.selections, cabinAcAmbientMaxC: 35 },
+    };
+    const check = runCalc(input).cabin?.checks.find((c) => c.id === "cabin.cabinAc.ambient");
+    expect(check?.pass).toBe(false);
+    expect(check?.kind).toBe("uretici");
+    expect(check?.severity).toBe("engelleyici");
+  });
+
+  it("klima var denip katalogdan ürün seçilmediğinde uyarır", () => {
+    const input = withCabinAndRoom();
+    input.cabin = {
+      inputs: input.cabin!.inputs,
+      selections: { ...input.cabin!.selections, cabinAcModel: "" },
+    };
+    const check = runCalc(input).cabin?.checks.find((c) => c.id === "cabin.cabinAc.selected");
+    expect(check?.pass).toBe(false);
+    expect(check?.severity).toBe("engelleyici");
   });
 
   it("pano tipinde oda izolasyonu yerine pano IP sınıfını listeler", () => {
-    const input = structuredClone(NEW_WORK_TEMPLATE);
-    input.specs = {
-      ...input.specs,
-      electricalAccommodationType: "panel",
-      electricalPanelCount: 3,
-      electricalPanelIpClass: "IP55",
-      electricalPanelAirConditioning: "panel",
-      electricalPanelAirConditionerModel: "PKS-PO",
-      electricalPanelAirConditioningRedundancy: "nPlusOne",
+    const input: CalcInput = {
+      ...NEW_WORK_TEMPLATE,
+      specs: {
+        ...NEW_WORK_TEMPLATE.specs,
+        electricalAccommodationType: "panel",
+        electricalPanelHasAirConditioner: "yes",
+      },
+      cabin: {
+        inputs: {
+          ...CABIN.inputs,
+          panelCount: 3, panelIpClass: "IP55", panelAcRedundancy: "nPlusOne",
+        },
+        selections: {
+          ...CABIN.selections,
+          panelAcBrand: "TMS", panelAcModel: "PKS-PO", panelAcApplication: "panel",
+          panelAcCoolingKwMin: 2, panelAcCoolingKwMax: 4, panelAcAmbientMaxC: 80,
+        },
+      },
     };
+    const rows = buildEquipmentGroups(input).flatMap((group) => group.rows);
+    const panel = rows.find((r) => r.rowKey === "cabin:electrical-panel");
 
-    const group = buildEquipmentGroups(input).find(
-      (item) => item.name === "Operatör Kabini ve Elektrik Yerleşimi"
-    );
-    const panel = group?.rows.find((row) => row.component === "Elektrik Panosu");
     expect(panel).toMatchObject({ qty: 3 });
     expect(panel?.spec).toContain("IP55");
     expect(panel?.spec).toContain("Oda İzolasyonu Uygulanmaz");
     expect(panel?.spec).not.toContain("Taş Yünü");
-    expect(group?.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "air_conditioner", model: "PKS-PO", qty: "2 (1+1)" }),
-    ]));
+    // 3 pano × 1+1 → 6 ünite.
+    expect(rows.find((r) => r.rowKey === "cabin:panelAc")).toMatchObject({
+      model: "PKS-PO", qty: "6 (1+1)",
+    });
   });
 
-  it("rapora da taşınan alan görünürlüğünde oda ve pano ayrımını korur", () => {
-    const panelSpecs = { ...NEW_WORK_TEMPLATE.specs, electricalAccommodationType: "panel" as const };
-    const roomSpecs = { ...NEW_WORK_TEMPLATE.specs, electricalAccommodationType: "room" as const };
-    const roomInsulation = SPEC_FIELDS.find((field) => field.key === "electricalRoomInsulation");
-    const panelIp = SPEC_FIELDS.find((field) => field.key === "electricalPanelIpClass");
+  it("teknik özelliklerde yalnız VARLIK sorulur", () => {
+    const keys = SPEC_FIELDS.map((f) => f.key);
+    // Ölçü / izolasyon / pano adedi / ürün alanları 11. bölüme taşındı.
+    for (const removed of [
+      "operatorCabinWidthM", "operatorCabinInsulation", "operatorCabinAirConditioning",
+      "operatorCabinAirConditionerModel", "electricalRoomWidthM", "electricalRoomInsulation",
+      "electricalRoomAirConditioningRedundancy", "electricalPanelCount", "electricalPanelIpClass",
+    ]) {
+      expect(keys, `${removed} teknik özelliklerde kalmamalı`).not.toContain(removed);
+    }
 
-    expect(roomInsulation?.visible?.(panelSpecs)).toBe(false);
-    expect(roomInsulation?.visible?.(roomSpecs)).toBe(true);
-    expect(panelIp?.visible?.(panelSpecs)).toBe(true);
-    expect(panelIp?.visible?.(roomSpecs)).toBe(false);
+    const cabinAc = SPEC_FIELDS.find((f) => f.key === "operatorCabinHasAirConditioner");
+    const roomAc = SPEC_FIELDS.find((f) => f.key === "electricalRoomHasAirConditioner");
+    const panelAc = SPEC_FIELDS.find((f) => f.key === "electricalPanelHasAirConditioner");
+    expect(cabinAc?.options).toEqual(["yes", "no"]);
+
+    const roomSpecs = { ...NEW_WORK_TEMPLATE.specs, electricalAccommodationType: "room" as const };
+    const panelSpecs = { ...NEW_WORK_TEMPLATE.specs, electricalAccommodationType: "panel" as const };
+    expect(roomAc?.visible?.(roomSpecs)).toBe(true);
+    expect(roomAc?.visible?.(panelSpecs)).toBe(false);
+    expect(panelAc?.visible?.(panelSpecs)).toBe(true);
+    expect(panelAc?.visible?.(roomSpecs)).toBe(false);
+    expect(cabinAc?.visible?.({ ...NEW_WORK_TEMPLATE.specs, hasOperatorCabin: "no" })).toBe(false);
   });
 
   it("klima modelini Excel'de website bağlantısı olmadan düz metin yazar", () => {
-    const input = structuredClone(NEW_WORK_TEMPLATE);
-    input.specs = {
-      ...input.specs,
-      hasOperatorCabin: "yes",
-      operatorCabinAirConditioning: "industrial",
-      operatorCabinAirConditionerModel: "VKS-VS",
-    };
+    const input = withCabinAndRoom();
     const workbook = buildEquipmentWorkbook(input, runCalc(input), {
       docNo: "EQ-01", projectName: "Test", customer: "Test", revLabel: "V0", revNo: 0,
       date: "07.08.2026",

@@ -20,6 +20,7 @@ import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGr
 import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { BucklingInputs } from "@/lib/calc/modules/buckling";
 import type { EndCarriageInputs, EndCarriageSelections } from "@/lib/calc/modules/endCarriage";
+import type { CabinInputs, CabinSelections } from "@/lib/calc/modules/cabin";
 import type { TechnicalSpecs } from "@/lib/calc/types";
 
 export interface RevisionInputsJson {
@@ -40,6 +41,7 @@ export interface RevisionInputsJson {
   girder?: GirderInputs | null;
   buckling?: BucklingInputs | null;
   endCarriage?: EndCarriageInputs | null;
+  cabin?: CabinInputs | null;
   /** Kullanıcının kapattığı hesap bölümleri (hesaba ve rapora girmez) */
   disabledModules?: string[] | null;
 }
@@ -60,6 +62,7 @@ export interface RevisionSelectionsJson {
   bridge?: TravelSelections | null;
   girder?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;
+  cabin?: CabinSelections | null;
   alts?: RevisionAlts;
   /** Hesap alt bölümlerine bağlı mühendis notları. */
   sectionNotes?: RevisionSectionNotes;
@@ -189,6 +192,7 @@ export const CALC_FIELD: Record<ModuleKey, keyof CalcInput> = {
   girder: "girder",
   buckling: "buckling",
   endCarriage: "endCarriage",
+  cabin: "cabin",
 };
 
 export interface LoadedRevision {
@@ -397,6 +401,134 @@ export function migrateDrumShaftUnits<T extends object>(
 }
 
 /** Tüm bölümleri (kapalılar dâhil) şablonla tamamlanmış olarak kurar. */
+/**
+ * Feston, teknik özellikte tutulan bir "ön seçim kartı" iken yürütme grubunun
+ * KATALOG bölümü oldu (5.9): seri artık katalogdan seçilir, taşıyıcı adedi ve
+ * kablo paketi modül girdisidir, taşıyıcı yükü/hız kontrolleri motorda koşar.
+ *
+ * Eski revizyonlarda veri `specs.<eksen>Festoon` altındadır. `withDefaults` AD
+ * BAZLI çalıştığı için o veriyi tanımaz ve mühendisin girdiği taşıyıcı adedi /
+ * kablo paketi SESSİZCE şablon değerine düşerdi. Göç bu yüzden zorunludur:
+ * değerler bir kez ilgili yürütme bölümünün girdi ve seçimlerine taşınır.
+ *
+ * Yalnız modülde feston alanı BOŞKEN uygulanır; yeni kayıtlar dokunulmadan
+ * geçer. Katalog seri kodları eski listede olduğu gibi taşınır ("0320",
+ * "VS2020"); marka adı da katalogdaki yazımına çevrilir ki katalog satırıyla
+ * eşleşsin.
+ */
+const LEGACY_FESTOON_SPEC_KEY: Record<string, string> = {
+  trolley: "trolleyFestoon",
+  auxTrolley: "auxTrolleyFestoon",
+  mono1Trolley: "mono1TrolleyFestoon",
+  mono2Trolley: "mono2TrolleyFestoon",
+  bridge: "bridgeFestoon",
+};
+
+const LEGACY_FESTOON_BRAND: Record<string, string> = {
+  conductixWampfler: "Conductix-Wampfler",
+  vasel: "Vasel",
+};
+
+const LEGACY_FESTOON_CABLE_FORM: Record<string, string> = {
+  flat: "Yassı",
+  round: "Yuvarlak",
+};
+
+export function migrateFestoon(
+  moduleKey: string,
+  specs: TechnicalSpecs,
+  merged: { inputs: object; selections?: object }
+): { inputs: object; selections?: object } {
+  const specKey = LEGACY_FESTOON_SPEC_KEY[moduleKey];
+  if (!specKey) return merged;
+  const legacy = (specs as unknown as Record<string, unknown>)[specKey] as
+    | Record<string, unknown>
+    | undefined;
+  if (!legacy || typeof legacy !== "object") return merged;
+
+  const inputs = merged.inputs as Record<string, unknown>;
+  const selections = (merged.selections ?? {}) as Record<string, unknown>;
+  // Modülde zaten feston verisi varsa (yeni kayıt) dokunulmaz.
+  if (selections.festoonSeries || inputs.festoonCablePackageWeightKg) return merged;
+
+  const num = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  const nextInputs: Record<string, unknown> = { ...inputs };
+  const nextSelections: Record<string, unknown> = { ...selections };
+
+  const trolleyCount = num(legacy.trolleyCount);
+  if (trolleyCount !== undefined) nextInputs.festoonTrolleyCount = trolleyCount;
+  const packageKg = num(legacy.cablePackageWeightKg);
+  if (packageKg !== undefined) nextInputs.festoonCablePackageWeightKg = packageKg;
+  const loopHeight = num(legacy.loopHeightM);
+  if (loopHeight !== undefined) nextInputs.festoonLoopHeightM = loopHeight;
+
+  const brand = typeof legacy.brand === "string" ? LEGACY_FESTOON_BRAND[legacy.brand] : undefined;
+  if (brand) nextSelections.festoonBrand = brand;
+  // "auto" bir seri DEĞİLDİR — eski kayıtta seri seçilmemiş demektir; katalog
+  // satırı yerine boş bırakılır ki mühendis bilinçli olarak seçsin.
+  if (typeof legacy.series === "string" && legacy.series !== "auto") {
+    nextSelections.festoonSeries = legacy.series;
+  }
+  const form = typeof legacy.cableForm === "string"
+    ? LEGACY_FESTOON_CABLE_FORM[legacy.cableForm]
+    : undefined;
+  if (form) nextSelections.festoonCableForm = form;
+
+  return { inputs: nextInputs, selections: merged.selections ? nextSelections : merged.selections };
+}
+
+/**
+ * Kabin ve elektrik odası, teknik özelliklerin bir grubuyken kendi hesap
+ * bölümü oldu (11.x): ölçüler, izolasyon, pano adedi ve kurulu yedek düzeni
+ * artık MODÜL GİRDİSİDİR, klima da katalogdan seçilen bir üründür.
+ *
+ * Eski revizyonlar bu verinin tamamını `specs` altında taşıyor. `withDefaults`
+ * AD BAZLI çalıştığı için modül girdileri şablon değerine düşer ve mühendisin
+ * girdiği kabin ölçüleri SESSİZCE değişirdi. Göç bu yüzden zorunludur.
+ *
+ * Klimanın KENDİSİ taşınmaz: eski kayıt yalnız bir sınıf ("industrial") ve
+ * serbest metin bir TMS tipi tutuyordu; bunlar katalog satırına karşılık
+ * gelmez. Bunun yerine "o mahalde klima vardı" bilgisi korunur ve ürün seçimi
+ * kontrolü mühendisi katalogdan seçim yapmaya yönlendirir.
+ */
+export function migrateCabin(
+  specs: TechnicalSpecs,
+  merged: { inputs: object; selections?: object }
+): { inputs: object; selections?: object } {
+  const legacy = specs as unknown as Record<string, unknown>;
+  const inputs = merged.inputs as Record<string, unknown>;
+  const num = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  const text = (v: unknown): string | undefined =>
+    typeof v === "string" && v !== "" ? v : undefined;
+
+  const next: Record<string, unknown> = { ...inputs };
+  const carryNum = (from: string, to: string) => {
+    const v = num(legacy[from]);
+    if (v !== undefined) next[to] = v;
+  };
+  const carryText = (from: string, to: string) => {
+    const v = text(legacy[from]);
+    if (v !== undefined) next[to] = v;
+  };
+
+  carryNum("operatorCabinWidthM", "cabinWidthM");
+  carryNum("operatorCabinLengthM", "cabinLengthM");
+  carryNum("operatorCabinHeightM", "cabinHeightM");
+  carryText("operatorCabinInsulation", "cabinInsulation");
+  carryNum("electricalRoomWidthM", "roomWidthM");
+  carryNum("electricalRoomLengthM", "roomLengthM");
+  carryNum("electricalRoomHeightM", "roomHeightM");
+  carryText("electricalRoomInsulation", "roomInsulation");
+  carryText("electricalRoomAirConditioningRedundancy", "roomAcRedundancy");
+  carryNum("electricalPanelCount", "panelCount");
+  carryText("electricalPanelIpClass", "panelIpClass");
+  carryText("electricalPanelAirConditioningRedundancy", "panelAcRedundancy");
+
+  return { ...merged, inputs: next };
+}
+
 function fullInput(
   inputs: RevisionInputsJson | null,
   selections: RevisionSelectionsJson | null
@@ -434,7 +566,9 @@ function fullInput(
         tpl.selections
       );
     }
-    target[field] = merged;
+    target[field] = key === "cabin"
+      ? migrateCabin(out.specs, merged)
+      : migrateFestoon(key, out.specs, merged);
   }
   return out;
 }

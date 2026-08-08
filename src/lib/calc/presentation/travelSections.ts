@@ -9,7 +9,7 @@
 // Yalnız tek varyantta üretilen satırlar `variant` ile işaretlenir; sunum
 // adaptörü bunları diğer varyantta eler.
 
-import { travelBufferType, travelSpecView } from "../modules/travelGroup";
+import { travelBufferType, travelHasFestoon, travelSpecView } from "../modules/travelGroup";
 import type {
   TravelDeps,
   TravelInputs,
@@ -323,7 +323,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
       "accelerationMs2", "tempFactor", "motorCalcCount",
     ],
-    selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
+    selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
     rows: [
       {
         key: "weight.movingTonnes", label: "Hareket Eden Toplam Kütle ΣG",
@@ -702,19 +702,71 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.9",
     title: "Feston Sistemi",
     description:
-      "Bu hareket ekseninin kablo taşıyıcı sistemi. Seri, taşıyıcı adedi ve " +
-      "kablo paketi ilgili yürütmeden bağımsız seçilir.",
-    visible: (specs, which) => {
-      if (which === "trolley") return specs.trolleyPowerSupply === "festoon";
-      if (which === "auxTrolley") return specs.auxTrolleyPowerSupply === "festoon";
-      if (which === "mono1Trolley") return specs.mono1TrolleyPowerSupply === "festoon";
-      if (which === "mono2Trolley") return specs.mono2TrolleyPowerSupply === "festoon";
-      return specs.bridgePowerSupply === "festoon";
-    },
-    inputKeys: [],
-    selectionKeys: [],
+      "Bu hareket ekseninin kablo taşıyıcı sistemi. Seri KATALOGDAN seçilir " +
+      "(marka → kablo formu → ürün hattı → ürün tablosu); hareket mesafesi ve " +
+      "hız teknik özelliklerden okunur. Bu bir kablo sarkması hesabı değil, " +
+      "üreticinin çalışma yükü ve hız sınırlarına karşı bir SEÇİM kontrolüdür: " +
+      "hareketli kablo paketi taşıyıcılara eşit dağıtılır. Kesin parça kodu " +
+      "için I-kiriş flanş genişliği, kablo paketinin genişlik/yükseklik ölçüsü " +
+      "ve minimum bükülme çapı teklif/imalat aşamasında doğrulanır.",
+    visible: (specs, which) => travelHasFestoon(specs, which),
+    inputKeys: [
+      "festoonTrolleyCount", "festoonCablePackageWeightKg", "festoonLoopHeightM",
+    ],
+    selectionKeys: [
+      "festoonBrand", "festoonSeries", "festoonLine", "festoonCableForm",
+      "festoonTrolleyLoadKg", "festoonMaxSpeedMpm",
+      "festoonTrolleyCode", "festoonTowTrolleyCode", "festoonEndClampCode",
+    ],
+    // Şema (hareket mesafesi · taşıyıcı adedi · loop yüksekliği) bölümün
+    // üstünde canlı çizilir; seçim akışı diğer bölümlerin aynısıdır.
     editor: "festoon",
-    rows: [],
-    checkSuffixes: [],
+    rows: [
+      {
+        key: "festoon.travelDistance", label: "Hareket Mesafesi",
+        formula: "araba: açıklık L · köprü: yürüme yolu uzunluğu",
+        subst: (x) => x.which === "bridge"
+          ? `${n(x.specs.runwayLengthM)}`
+          : `${n(x.specs.spanM)}`,
+        unit: "m", digits: 2,
+      },
+      {
+        key: "festoon.cablePackageWeight", label: "Hareketli Kablo Paketi",
+        formula: "mühendis girdisi",
+        subst: (x) => `${n(x.inp.festoonCablePackageWeightKg)}`,
+        unit: "kg", digits: 2,
+      },
+      {
+        key: "festoon.trolleyCount", label: "Kablo Taşıyıcı Adedi",
+        formula: "mühendis girdisi",
+        subst: (x) => `${n(x.inp.festoonTrolleyCount)}`,
+      },
+      {
+        key: "festoon.loadPerTrolley", label: "Taşıyıcı Başına Yük",
+        formula: "G_taşıyıcı = G_kablo / n_taşıyıcı",
+        subst: (x) =>
+          `${n(x.inp.festoonCablePackageWeightKg)} / ${n(x.inp.festoonTrolleyCount)}`,
+        unit: "kg", digits: 2,
+      },
+      {
+        key: "festoon.catalogLoad", label: "Katalog Çalışma Yükü",
+        valueFrom: (x) => x.sel.festoonTrolleyLoadKg || "Katalogdan ürün seçilmedi",
+        formula: "seçilen katalog satırı (seri × kablo formu)",
+        unit: "kg", digits: 2,
+      },
+      {
+        key: "festoon.catalogSpeed", label: "Katalog Hız Sınırı",
+        valueFrom: (x) => x.sel.festoonMaxSpeedMpm || "Katalogda yayımlanmamış",
+        formula: "katalogda yayımlanmışsa; yoksa üretici teyidi gerekir",
+        unit: "m/dak", digits: 1,
+      },
+      {
+        key: "festoon.loopHeight", label: "Azami Loop Yüksekliği",
+        formula: "mühendis girdisi — sistem yüksekliği ve alt gabari kontrolü için",
+        subst: (x) => `${n(x.inp.festoonLoopHeightM)}`,
+        unit: "m", digits: 2,
+      },
+    ],
+    checkSuffixes: ["festoon.capacity", "festoon.speed"],
   },
 ];

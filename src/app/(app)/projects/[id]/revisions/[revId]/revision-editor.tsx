@@ -90,7 +90,8 @@ import {
 import { CatalogPicker } from "@/components/catalog-picker";
 import { CatalogSheetButton } from "@/components/catalog-sheet-dialog";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
-import { FestoonSelector } from "@/components/festoon-selector";
+import { FestoonSchematic } from "@/components/festoon-schematic";
+import { travelFestoonDistanceM } from "@/lib/calc/modules/travelGroup";
 import { MathFormula } from "@/components/math/math-formula";
 import { StandardRefBadge } from "@/components/standard-ref-dialog";
 import type { StandardContext } from "@/lib/standards/registry";
@@ -108,42 +109,18 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { saveRevision } from "./actions";
 
-type FestoonSpecKey =
-  | "trolleyFestoon"
-  | "auxTrolleyFestoon"
-  | "mono1TrolleyFestoon"
-  | "mono2TrolleyFestoon"
-  | "bridgeFestoon";
-
-type FestoonAxis = {
-  key: FestoonSpecKey;
-  title: string;
-  enabled: boolean;
-  travelDistanceM: number | undefined;
-  travelSpeedMpm: number | undefined;
+/**
+ * Feston şemasının başlığı. Feston artık bir KATALOG bölümüdür (5.9): seri
+ * seçimi, taşıyıcı yükü ve hız kontrolü yürütme modülünün girdi/seçimlerinde
+ * durur. Burada kalan tek şey, o bölümün üstünde çizilen parametrik şemadır.
+ */
+const FESTOON_AXIS_TITLES: Partial<Record<ModuleKey, string>> = {
+  trolley: "Ana Araba",
+  auxTrolley: "Yardımcı Araba",
+  mono1Trolley: "Monoray 1 Arabası",
+  mono2Trolley: "Monoray 2 Arabası",
+  bridge: "Köprü",
 };
-
-function festoonAxisForModule(key: ModuleKey, specs: TechnicalSpecs): FestoonAxis | null {
-  switch (key) {
-    case "trolley":
-      return { key: "trolleyFestoon", title: "Ana Araba", enabled: specs.trolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.trolleySpeedMpm };
-    case "auxTrolley":
-      return { key: "auxTrolleyFestoon", title: "Yardımcı Araba", enabled: specs.auxTrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.auxTrolleySpeedMpm };
-    case "mono1Trolley":
-      return { key: "mono1TrolleyFestoon", title: "Monoray 1 Arabası", enabled: specs.mono1TrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.mono1TrolleySpeedMpm };
-    case "mono2Trolley":
-      return { key: "mono2TrolleyFestoon", title: "Monoray 2 Arabası", enabled: specs.mono2TrolleyPowerSupply === "festoon", travelDistanceM: specs.spanM, travelSpeedMpm: specs.mono2TrolleySpeedMpm };
-    case "bridge":
-      return { key: "bridgeFestoon", title: "Köprü", enabled: specs.bridgePowerSupply === "festoon", travelDistanceM: specs.runwayLengthM, travelSpeedMpm: specs.bridgeSpeedMpm };
-    default:
-      return null;
-  }
-}
-
-function hasSelectedFestoon(specs: TechnicalSpecs): boolean {
-  return ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"]
-    .some((key) => festoonAxisForModule(key as ModuleKey, specs)?.enabled === true);
-}
 
 /**
  * Alternatif ekipman seçimi: seçim alanı olan her modül bölümü için 3'e kadar
@@ -1394,18 +1371,6 @@ export function RevisionEditor({
                   </label>
                 );
               })}
-              {hasSelectedFestoon(specs) && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={specs.showFestoonDetailsInReport === true}
-                    disabled={readOnly}
-                    onChange={(event) => updateSpecs({ ...specs, showFestoonDetailsInReport: event.target.checked })}
-                    className="size-4 accent-primary"
-                  />
-                  Feston Sistemleri ve Enerji Beslemesi
-                </label>
-              )}
             </div>
           </section>
         </CardContent>
@@ -1569,20 +1534,16 @@ export function RevisionEditor({
               disabled={readOnly}
             />
           )}
-          {section.editor === "festoon" && isTravelKey(key) && (() => {
-            const axis = festoonAxisForModule(key, specs);
-            if (!axis?.enabled) return null;
-            return (
-              <FestoonSelector
-                title={axis.title}
-                travelDistanceM={axis.travelDistanceM}
-                travelSpeedMpm={axis.travelSpeedMpm}
-                value={specs[axis.key]}
-                onChange={(next) => updateSpecs({ ...specs, [axis.key]: next })}
-                disabled={readOnly}
-              />
-            );
-          })()}
+          {/* Feston şeması: hareket mesafesi teknik özelliklerden, taşıyıcı
+              adedi ve loop yüksekliği bölüm girdilerinden canlı okunur. */}
+          {section.editor === "festoon" && isTravelKey(key) && (
+            <FestoonSchematic
+              title={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+              travelDistanceM={travelFestoonDistanceM(specs, key)}
+              trolleyCount={(inputs as TravelInputs).festoonTrolleyCount}
+              loopHeightM={(inputs as TravelInputs).festoonLoopHeightM}
+            />
+          )}
           {(section.inputDefs.length > 0 || (section.extraInputDefs?.length ?? 0) > 0) && (
             <div>
               <h3 className="oc-kicker mb-2 text-muted-foreground">
@@ -1717,18 +1678,21 @@ export function RevisionEditor({
                         Salt-okunur revizyonda da görünür: yayınlanmış bir
                         raporu okuyan mühendis de sayfaya bakabilmelidir. */}
                     {catalogMapping && (() => {
-                      const { brandField, modelField } =
+                      const { brandField, modelField, combinedField } =
                         catalogIdentityFields(catalogMapping);
                       const value = (field?: string) => {
                         if (!field) return undefined;
                         const v = (sel as Record<string, unknown>)[field];
-                        return typeof v === "string" ? v : undefined;
+                        return typeof v === "string" && v.trim() !== "" ? v : undefined;
                       };
+                      // Redüktör, yürütme freni ve tamponda ürünün kimliği tek
+                      // bir "MARKA MODEL" alanındadır; defter marka önekini
+                      // kendisi ayıkladığı için metin olduğu gibi verilir.
                       return (
                         <CatalogSheetButton
                           kind={catalogMapping.kind}
                           brand={value(brandField)}
-                          model={value(modelField)}
+                          model={value(modelField) ?? value(combinedField)}
                         />
                       );
                     })()}

@@ -16,6 +16,7 @@ import {
   WHEELLOAD_INPUT_FIELDS,
   WHEELLOAD_SELECTION_FIELDS,
 } from "./presentation/wheelLoadFields";
+import { CABIN_INPUT_FIELDS, CABIN_SELECTION_FIELDS } from "./presentation/cabinFields";
 
 export interface FieldLabel {
   label: string;
@@ -49,6 +50,8 @@ export const FIELD_LABELS: Map<string, FieldLabel> = collect([
   ENDCARRIAGE_SELECTION_FIELDS,
   WHEELLOAD_INPUT_FIELDS,
   WHEELLOAD_SELECTION_FIELDS,
+  CABIN_INPUT_FIELDS,
+  CABIN_SELECTION_FIELDS,
 ] as { key: string; label: string; unit?: string }[][]);
 
 /**
@@ -78,6 +81,7 @@ export const MODULE_LABELS: Record<string, string> = {
   girder: "16 · Ana Kiriş",
   buckling: "17 · Buruşma",
   endCarriage: "18 · Başkiriş",
+  cabin: "19 · Kabin ve Elektrik Odası",
   // Revizyon karşılaştırması snapshot'ın JSON alan adlarını kullanır; kaldırma
   // gruplarında bu ad modül anahtarından farklıdır (`main` → `mainHoist`).
   mainHoist: "02 · Ana Kaldırma",

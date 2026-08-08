@@ -30,7 +30,8 @@ export type ModuleKey =
   | "wheelLoads"
   | "girder"
   | "buckling"
-  | "endCarriage";
+  | "endCarriage"
+  | "cabin";
 
 export type ModuleFamily =
   | "hoist"
@@ -39,7 +40,8 @@ export type ModuleFamily =
   | "wheelLoads"
   | "girder"
   | "buckling"
-  | "endCarriage";
+  | "endCarriage"
+  | "cabin";
 
 const FAMILY: Record<ModuleKey, ModuleFamily> = {
   main: "hoist",
@@ -59,6 +61,7 @@ const FAMILY: Record<ModuleKey, ModuleFamily> = {
   girder: "girder",
   buckling: "buckling",
   endCarriage: "endCarriage",
+  cabin: "cabin",
 };
 
 export function moduleFamily(key: ModuleKey): ModuleFamily {
@@ -87,6 +90,9 @@ export const MODULE_ORDER: readonly ModuleKey[] = [
   "girder",
   "buckling",
   "endCarriage",
+  // Kabin ve elektrik odası en sonda: hesabın hiçbir bölümünü beslemez,
+  // teknik özelliklerdeki yerleşim seçimlerini ve klima katalogunu toplar.
+  "cabin",
 ];
 
 // ------------------------------------------------------------ Kaldırma grupları

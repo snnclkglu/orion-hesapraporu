@@ -571,6 +571,8 @@ export interface HoistSelections {
   motorRpm: number;
   motorShaftMm: number;
   motorBrand: string;
+  /** Katalogun kendi tip kodu (ör. "1LE1503-1DB23-4AA4"); satın alma bunu ister. */
+  motorModel: string;
   motorCount: number;
   brakeBrand: string;
   brakeModel: string;

@@ -28,6 +28,7 @@ import type { TravelCtx } from "@/lib/calc/presentation/travelSections";
 import type { GirderCtx } from "@/lib/calc/presentation/girderSections";
 import type { BucklingCtx } from "@/lib/calc/presentation/bucklingSections";
 import type { EndCarriageCtx } from "@/lib/calc/presentation/endCarriageSections";
+import type { CabinCtx } from "@/lib/calc/presentation/cabinSections";
 import type { WheelLoadCtx } from "@/lib/calc/presentation/wheelLoadSections";
 import type { ModuleDepsBundle } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
@@ -64,6 +65,8 @@ export function moduleState(
       return input.girder;
     case "endCarriage":
       return input.endCarriage;
+    case "cabin":
+      return input.cabin;
   }
 }
 
@@ -84,6 +87,8 @@ export function moduleResult(
       return result.girder;
     case "endCarriage":
       return result.endCarriage;
+    case "cabin":
+      return result.cabin;
   }
 }
 
@@ -182,6 +187,16 @@ export function ctxFor(
         inp: st.inputs as never,
         sel: st.selections as never,
         deps: deps.endCarriage,
+        specs,
+      };
+      return ctx;
+    }
+    case "cabin": {
+      const ctx: CabinCtx = {
+        c,
+        v: (result.cabin?.values ?? {}) as never,
+        inp: st.inputs as never,
+        sel: st.selections as never,
         specs,
       };
       return ctx;

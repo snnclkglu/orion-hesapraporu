@@ -18,23 +18,23 @@ import {
 } from "@/lib/calc/presentation/module-family";
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
 import {
-  FESTOON_BRAND_LABELS,
-  FESTOON_CABLE_FORM_LABELS,
-  festoonAxes,
-  festoonProductCodeSummary,
-  festoonSeriesLabel,
-  selectFestoon,
-} from "@/lib/calc/festoon";
-import {
   AIR_CONDITIONING_REDUNDANCY_LABELS,
   ROOM_INSULATION_LABELS,
 } from "@/lib/calc/fields";
-import { AIR_CONDITIONING_TYPE_LABELS, tmsAirConditionerModel } from "@/lib/tms-air-conditioning";
+import { attrValueLabel } from "@/lib/catalog-mapping";
+import {
+  cabinHasAirConditioner,
+  panelHasAirConditioner,
+  roomHasAirConditioner,
+  type CabinInputs,
+  type CabinSelections,
+} from "@/lib/calc/modules/cabin";
+import { CABIN_CLIMATE_SITES } from "@/lib/calc/presentation/cabinSections";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
-import { travelSpecView } from "@/lib/calc/modules/travelGroup";
+import { travelHasFestoon, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageInputs } from "@/lib/calc/modules/endCarriage";
@@ -42,6 +42,7 @@ import {
   HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
   hoistEquipmentArrangement,
   hoistEquipmentQuantityFactor,
+  type TechnicalSpecs,
 } from "@/lib/calc/types";
 import {
   ENDCARRIAGE_INPUT_FIELDS,
@@ -277,7 +278,7 @@ function hoistRows(moduleKey: string, inp: HoistInputs, sel: HoistSelections): E
       kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
-      model: "-",
+      model: textOr(sel.motorModel),
       spec: `${fmt(sel.motorPowerKw, 1)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
       qty: sel.motorCount,
     },
@@ -316,7 +317,9 @@ function travelRows(
   moduleKey: string,
   which: "trolley" | "bridge",
   inp: TravelInputs,
-  sel: TravelSelections
+  sel: TravelSelections,
+  /** Bu eksende enerji beslemesi feston mu (teknik özellik) */
+  hasFestoon: boolean
 ): EqRow[] {
   const rk = (slug: string) => `${moduleKey}:${slug}`;
   const rows: EqRow[] = [
@@ -343,7 +346,7 @@ function travelRows(
       kind: "motor",
       component: "Motor",
       brand: textOr(sel.motorBrand),
-      model: "-",
+      model: textOr(sel.motorModel),
       spec: `${fmt(sel.motorPowerKw, 2)} kW, ${fmt(sel.motorRpm)} d/dak, mil Ø${fmt(sel.motorShaftMm)} mm`,
       qty: sel.motorCount,
     },
@@ -402,6 +405,36 @@ function travelRows(
       qty: 2,
     }
   );
+
+  // Feston, artık bu yürütme grubunun bir KATALOG bölümüdür (5.9): satır da
+  // grubun kendi satırlarıyla birlikte, ayrı bir "Enerji Besleme" grubu
+  // açmadan listeye girer. Adet = kablo taşıyıcı adedi.
+  if (hasFestoon) {
+    const codes = [
+      sel.festoonTrolleyCode ? `kablo arabası ${sel.festoonTrolleyCode}` : undefined,
+      sel.festoonTowTrolleyCode ? `öncü ${sel.festoonTowTrolleyCode}` : undefined,
+      sel.festoonEndClampCode ? `sonlandırıcı ${sel.festoonEndClampCode}` : undefined,
+    ].filter(Boolean).join(", ");
+    const trolleyCount = inp.festoonTrolleyCount ?? 0;
+    const perTrolley = trolleyCount > 0
+      ? (inp.festoonCablePackageWeightKg ?? 0) / trolleyCount
+      : 0;
+    rows.push({
+      rowKey: rk("festoon"),
+      kind: "festoon",
+      component: "Feston kablo taşıyıcı sistemi",
+      brand: textOr(sel.festoonBrand, "Seçilmedi"),
+      model: textOr(sel.festoonSeries),
+      spec:
+        `${textOr(sel.festoonCableForm, "kablo formu belirtilmemiş")}; ` +
+        `kablo paketi ${fmt(inp.festoonCablePackageWeightKg, 2)} kg, ` +
+        `taşıyıcı başına ${fmt(perTrolley, 2)} kg / katalog ${fmt(sel.festoonTrolleyLoadKg, 2)} kg; ` +
+        `loop h ${fmt(inp.festoonLoopHeightM, 2)} m; ` +
+        (sel.festoonMaxSpeedMpm ? `hız sınırı ${fmt(sel.festoonMaxSpeedMpm, 1)} m/dak` : "hız üretici teyidi") +
+        (codes ? `; ${codes}` : ""),
+      qty: trolleyCount > 0 ? trolleyCount : "-",
+    });
+  }
   return rows;
 }
 
@@ -526,7 +559,8 @@ function baslikDuzeniniUygula(row: EqRow): EqRow {
 function moduleEquipmentRows(
   key: ModuleKey,
   inputs: object,
-  selections: object
+  selections: object,
+  specs: TechnicalSpecs
 ): EqRow[] | null {
   if (isHoistKey(key)) {
     return hoistRows(key, inputs as HoistInputs, selections as HoistSelections);
@@ -537,135 +571,95 @@ function moduleEquipmentRows(
       selections: selections as HookBlockSelections,
     });
   }
+  if (key === "cabin") {
+    return cabinRows(specs, inputs as CabinInputs, selections as CabinSelections);
+  }
   if (isTravelKey(key)) {
     return travelRows(
       key,
       key === "bridge" ? "bridge" : "trolley",
       inputs as TravelInputs,
-      selections as TravelSelections
+      selections as TravelSelections,
+      travelHasFestoon(specs, key)
     );
   }
   return null;
 }
 
-/** Teknik özelliklerde seçilmiş festoon sistemlerini ekipman listesine taşır. */
-function festoonEquipmentGroups(input: CalcInput): EqGroup[] {
-  const groups: EqGroup[] = [];
-  for (const axis of festoonAxes(input.specs)) {
-    if (!axis.selected || !moduleState(input, axis.key)) continue;
-    const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
-    const series = festoonSeriesLabel(result.selected);
-    const productCodes = festoonProductCodeSummary(result.selected, axis.spec?.cableForm);
-    const capacity = result.selected
-      ? `${result.trolleyLoadLimitKg} kg / ${result.selected.maxSpeedMpm ? `${result.selected.maxSpeedMpm} m/dak` : "hız teyidi"}`
-      : "Uygun katalog serisi bulunamadı";
-    groups.push({
-      name: `${axis.title} Enerji Besleme`,
-      rows: [
-        {
-          rowKey: `energy:${axis.key}:festoon`,
-          component: "Feston kablo taşıyıcı sistemi",
-          brand: FESTOON_BRAND_LABELS[result.brand],
-          model: series,
-          spec:
-            `${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}; ` +
-            `hareket ${fmt(result.travelDistanceM, 2)} m, hız ${fmt(result.travelSpeedMpm, 2)} m/dak, loop h ${fmt(axis.spec?.loopHeightM ?? 1.5, 2)} m; ` +
-            `taşıyıcı başına ${fmt(result.loadPerTrolleyKg, 2)} kg; katalog sınırı ${capacity}` +
-            (productCodes ? `; ${productCodes}` : "") +
-            (result.pass === false ? "; UYGUN DEĞİL — üretici doğrulaması gerekli" : ""),
-          qty: result.trolleyCount > 0 ? result.trolleyCount : "-",
-        },
-      ],
-    });
-  }
-  return groups;
-}
-
-/** Operatör kabini, elektrik odası ve pano tipi seçimlerini ekipman listesine taşır. */
-function climateEquipmentGroups(input: CalcInput): EqGroup[] {
-  const specs = input.specs;
+/**
+ * Kabin ve elektrik odası bölümünün (11.x) ekipman satırları.
+ *
+ * Mahaller (kabin, oda, pano) ve iklimlendirmeleri artık modül girdisi ve
+ * KATALOG SEÇİMİDİR; satırlar da diğer bölümlerle aynı üreticiden geçer.
+ */
+function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections): EqRow[] {
   const rows: EqRow[] = [];
-
-  const airConditionerRow = (
-    rowKey: string,
-    component: string,
-    type: NonNullable<typeof specs.operatorCabinAirConditioning>,
-    modelCode: string | undefined,
-    redundancy?: typeof specs.electricalRoomAirConditioningRedundancy
+  const acRow = (
+    site: (typeof CABIN_CLIMATE_SITES)[number],
+    unitQty: number | string
   ): void => {
-    if (!type || type === "none") return;
-    const tms = tmsAirConditionerModel(modelCode);
-    const model = textOr(modelCode, "Projeye özel seçim");
-    const redundancyText = redundancy && redundancy !== "none"
-      ? `; yedekleme ${AIR_CONDITIONING_REDUNDANCY_LABELS[redundancy]}`
-      : "";
+    if (!site.selected(specs)) return;
+    const get = (suffix: string): unknown =>
+      (sel as unknown as Record<string, unknown>)[`${site.block}${suffix}`];
+    const model = typeof get("Model") === "string" ? (get("Model") as string) : "";
+    const cooling = `${fmt(get("CoolingKwMin") as number, 2)}–${fmt(get("CoolingKwMax") as number, 2)} kW`;
+    const ambient = (get("AmbientMaxC") as number) > 0
+      ? `; ortam ≤ ${fmt(get("AmbientMaxC") as number, 0)} °C`
+      : "; ortam sıcaklığı sınırı katalogda yayımlanmamış";
     rows.push({
-      rowKey,
-      kind: tms ? "air_conditioner" : undefined,
-      component,
-      brand: tms ? "TMS" : "-",
-      model,
-      spec: tms
-        ? `${AIR_CONDITIONING_TYPE_LABELS[type]}; ${tms.series}; kapasite ${tms.capacity}; çalışma ${tms.operatingRange}${redundancyText}`
-        : `${AIR_CONDITIONING_TYPE_LABELS[type]}; tip proje ısı yüküne göre belirlenecek${redundancyText}`,
-      qty: redundancy === "nPlusOne" ? "2 (1+1)" : 1,
+      rowKey: `cabin:${site.rowKey}`,
+      kind: "air_conditioner",
+      component: site.label,
+      brand: textOr(get("Brand") as string, "Seçilmedi"),
+      model: textOr(model),
+      spec: model
+        ? `${attrValueLabel("application", get("Application"))}; ${textOr(get("Series") as string)}; kapasite ${cooling}${ambient}`
+        : "Katalogdan ürün seçilmedi",
+      qty: unitQty,
     });
   };
 
   if (specs.hasOperatorCabin === "yes") {
     rows.push({
-      rowKey: "accommodation:operator-cabin",
+      rowKey: "cabin:operator-cabin",
       component: "Operatör kabini",
       brand: "-",
       model: "İzole operatör kabini",
-      spec: `${fmt(specs.operatorCabinWidthM, 2)} × ${fmt(specs.operatorCabinLengthM, 2)} × ${fmt(specs.operatorCabinHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[specs.operatorCabinInsulation ?? "rockWool50"]}`,
+      spec: `${fmt(inp.cabinWidthM, 2)} × ${fmt(inp.cabinLengthM, 2)} × ${fmt(inp.cabinHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.cabinInsulation ?? "rockWool50"]}`,
       qty: 1,
     });
-    airConditionerRow(
-      "accommodation:operator-cabin-ac",
-      "Operatör kabini kliması",
-      specs.operatorCabinAirConditioning ?? "none",
-      specs.operatorCabinAirConditionerModel
-    );
+    acRow(CABIN_CLIMATE_SITES[0], 1);
   }
 
   if (specs.electricalAccommodationType === "room") {
     rows.push({
-      rowKey: "accommodation:electrical-room",
+      rowKey: "cabin:electrical-room",
       component: "Elektrik odası",
       brand: "-",
       model: "İzole elektrik odası",
-      spec: `${fmt(specs.electricalRoomWidthM, 2)} × ${fmt(specs.electricalRoomLengthM, 2)} × ${fmt(specs.electricalRoomHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[specs.electricalRoomInsulation ?? "rockWool100"]}`,
+      spec: `${fmt(inp.roomWidthM, 2)} × ${fmt(inp.roomLengthM, 2)} × ${fmt(inp.roomHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.roomInsulation ?? "rockWool100"]}`,
       qty: 1,
     });
-    airConditionerRow(
-      "accommodation:electrical-room-ac",
-      "Elektrik odası kliması",
-      specs.electricalRoomAirConditioning ?? "none",
-      specs.electricalRoomAirConditionerModel,
-      specs.electricalRoomAirConditioningRedundancy
-    );
+    acRow(CABIN_CLIMATE_SITES[1], inp.roomAcRedundancy === "nPlusOne" ? "2 (1+1)" : 1);
   }
 
   if (specs.electricalAccommodationType === "panel") {
+    const panelCount = inp.panelCount > 0 ? inp.panelCount : 1;
     rows.push({
-      rowKey: "accommodation:electrical-panel",
+      rowKey: "cabin:electrical-panel",
       component: "Elektrik panosu",
       brand: "-",
       model: "Pano tipi yerleşim",
-      spec: `Yan yana pano yerleşimi; koruma sınıfı ${textOr(specs.electricalPanelIpClass, "IP55")}; oda izolasyonu uygulanmaz`,
-      qty: specs.electricalPanelCount ?? 1,
+      spec: `Yan yana pano yerleşimi; koruma sınıfı ${textOr(inp.panelIpClass, "IP55")}; oda izolasyonu uygulanmaz`,
+      qty: panelCount,
     });
-    airConditionerRow(
-      "accommodation:electrical-panel-ac",
-      "Pano kliması",
-      specs.electricalPanelAirConditioning ?? "none",
-      specs.electricalPanelAirConditionerModel,
-      specs.electricalPanelAirConditioningRedundancy
+    acRow(
+      CABIN_CLIMATE_SITES[2],
+      inp.panelAcRedundancy === "nPlusOne" ? `${panelCount * 2} (1+1)` : panelCount
     );
   }
 
-  return rows.length > 0 ? [{ name: "Operatör Kabini ve Elektrik Yerleşimi", rows }] : [];
+  return rows;
 }
 
 /** İki satır aynı ekipmanı mı anlatıyor (alternatif gerçekten farklı mı)? */
@@ -694,7 +688,8 @@ function withAlternativeRows(
   key: ModuleKey,
   state: { inputs: object; selections: object },
   mainRows: EqRow[],
-  alts: RevisionAlts
+  alts: RevisionAlts,
+  specs: TechnicalSpecs
 ): EqRow[] {
   const variants: { label: number; sectionRawId: string; rows: EqRow[] }[] = [];
   for (const [altKey, st] of Object.entries(alts)) {
@@ -705,7 +700,7 @@ function withAlternativeRows(
       const rows = moduleEquipmentRows(key, state.inputs, {
         ...state.selections,
         ...option,
-      });
+      }, specs);
       if (rows) variants.push({ label: i + 1, sectionRawId: parts.sectionRawId, rows });
     });
   }
@@ -738,9 +733,11 @@ export function buildEquipmentGroups(
   for (const key of MODULE_ORDER) {
     const state = moduleState(input, key);
     if (!state) continue;
-    const rows = moduleEquipmentRows(key, state.inputs, state.selections);
+    const rows = moduleEquipmentRows(key, state.inputs, state.selections, input.specs);
     if (!rows) continue;
-    const rowsWithAlternatives = alts ? withAlternativeRows(key, state, rows, alts) : rows;
+    const rowsWithAlternatives = alts
+      ? withAlternativeRows(key, state, rows, alts, input.specs)
+      : rows;
     // İkiz kaldırma, mühendislik hesabını değil satın alma/montaj için hazır
     // ekipman adetlerini iki katına çıkarır. Kanca bloğu ve diğer gruplar tek
     // hesap düzeninde kalır.
@@ -757,8 +754,6 @@ export function buildEquipmentGroups(
           })),
     });
   }
-  groups.push(...festoonEquipmentGroups(input));
-  groups.push(...climateEquipmentGroups(input));
   // Notlar satırlara KARARLI anahtarla bağlanır, ardından başlık düzeni
   // uygulanır. Sıra bu yöndedir: anahtar önce, biçimleme sonra.
   return groups.map((g) => ({
@@ -971,50 +966,67 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
   genelRows.push({ label: "Kanca tipi", value: specs.hookType });
   sections.push({ name: "Genel Ölçüler ve Kapasiteler", rows: genelRows });
 
-  if (specs.hasOperatorCabin === "yes") {
-    const cabinRows: SummaryRow[] = [
-      { label: "Kabin genişliği", value: specs.operatorCabinWidthM ?? "-", unit: "m" },
-      { label: "Kabin uzunluğu", value: specs.operatorCabinLengthM ?? "-", unit: "m" },
-      { label: "Kabin yüksekliği", value: specs.operatorCabinHeightM ?? "-", unit: "m" },
-      { label: "Kabin izolasyonu", value: ROOM_INSULATION_LABELS[specs.operatorCabinInsulation ?? "rockWool50"] },
-      { label: "Kabin kliması", value: AIR_CONDITIONING_TYPE_LABELS[specs.operatorCabinAirConditioning ?? "none"] },
-    ];
-    if (specs.operatorCabinAirConditioning && specs.operatorCabinAirConditioning !== "none") {
-      cabinRows.push({ label: "Kabin klima tipi", value: textOr(specs.operatorCabinAirConditionerModel, "Projeye özel seçim") });
-    }
-    sections.push({ name: "Operatör Kabini", rows: cabinRows });
+  // Kabin / oda / pano ölçüleri artık 11. bölümün girdisidir; teknik ressam
+  // özeti de oradan okur (teknik özelliklerde yalnız "var mı" bilgisi kalır).
+  const cabin = input.cabin;
+  if (cabin && specs.hasOperatorCabin === "yes") {
+    sections.push({
+      name: "Operatör Kabini",
+      rows: [
+        { label: "Kabin genişliği", value: cabin.inputs.cabinWidthM || "-", unit: "m" },
+        { label: "Kabin uzunluğu", value: cabin.inputs.cabinLengthM || "-", unit: "m" },
+        { label: "Kabin yüksekliği", value: cabin.inputs.cabinHeightM || "-", unit: "m" },
+        { label: "Kabin izolasyonu", value: ROOM_INSULATION_LABELS[cabin.inputs.cabinInsulation ?? "rockWool50"] },
+        {
+          label: "Kabin kliması",
+          value: cabinHasAirConditioner(specs)
+            ? textOr(cabin.selections.cabinAcModel, "Katalogdan seçilmedi")
+            : "Yok",
+        },
+      ],
+    });
   }
 
-  if (specs.electricalAccommodationType === "room") {
-    const roomRows: SummaryRow[] = [
-      { label: "Oda genişliği", value: specs.electricalRoomWidthM ?? "-", unit: "m" },
-      { label: "Oda uzunluğu", value: specs.electricalRoomLengthM ?? "-", unit: "m" },
-      { label: "Oda yüksekliği", value: specs.electricalRoomHeightM ?? "-", unit: "m" },
-      { label: "Oda izolasyonu", value: ROOM_INSULATION_LABELS[specs.electricalRoomInsulation ?? "rockWool100"] },
-      { label: "Elektrik odası kliması", value: AIR_CONDITIONING_TYPE_LABELS[specs.electricalRoomAirConditioning ?? "none"] },
-    ];
-    if (specs.electricalRoomAirConditioning && specs.electricalRoomAirConditioning !== "none") {
-      roomRows.push(
-        { label: "Elektrik odası klima tipi", value: textOr(specs.electricalRoomAirConditionerModel, "Projeye özel seçim") },
-        { label: "Klima yedeği", value: AIR_CONDITIONING_REDUNDANCY_LABELS[specs.electricalRoomAirConditioningRedundancy ?? "none"] }
-      );
-    }
-    sections.push({ name: "Elektrik Odası", rows: roomRows });
+  if (cabin && specs.electricalAccommodationType === "room") {
+    sections.push({
+      name: "Elektrik Odası",
+      rows: [
+        { label: "Oda genişliği", value: cabin.inputs.roomWidthM || "-", unit: "m" },
+        { label: "Oda uzunluğu", value: cabin.inputs.roomLengthM || "-", unit: "m" },
+        { label: "Oda yüksekliği", value: cabin.inputs.roomHeightM || "-", unit: "m" },
+        { label: "Oda izolasyonu", value: ROOM_INSULATION_LABELS[cabin.inputs.roomInsulation ?? "rockWool100"] },
+        {
+          label: "Elektrik odası kliması",
+          value: roomHasAirConditioner(specs)
+            ? textOr(cabin.selections.roomAcModel, "Katalogdan seçilmedi")
+            : "Yok",
+        },
+        {
+          label: "Klima yedeği",
+          value: AIR_CONDITIONING_REDUNDANCY_LABELS[cabin.inputs.roomAcRedundancy ?? "none"],
+        },
+      ],
+    });
   }
 
-  if (specs.electricalAccommodationType === "panel") {
-    const panelRows: SummaryRow[] = [
-      { label: "Pano adedi", value: specs.electricalPanelCount ?? 1, unit: "adet" },
-      { label: "Pano koruma sınıfı", value: textOr(specs.electricalPanelIpClass, "IP55") },
-      { label: "Pano kliması", value: AIR_CONDITIONING_TYPE_LABELS[specs.electricalPanelAirConditioning ?? "none"] },
-    ];
-    if (specs.electricalPanelAirConditioning && specs.electricalPanelAirConditioning !== "none") {
-      panelRows.push(
-        { label: "Pano klima tipi", value: textOr(specs.electricalPanelAirConditionerModel, "Projeye özel seçim") },
-        { label: "Klima yedeği", value: AIR_CONDITIONING_REDUNDANCY_LABELS[specs.electricalPanelAirConditioningRedundancy ?? "none"] }
-      );
-    }
-    sections.push({ name: "Pano Tipi", rows: panelRows });
+  if (cabin && specs.electricalAccommodationType === "panel") {
+    sections.push({
+      name: "Pano Tipi",
+      rows: [
+        { label: "Pano adedi", value: cabin.inputs.panelCount || 1, unit: "adet" },
+        { label: "Pano koruma sınıfı", value: textOr(cabin.inputs.panelIpClass, "IP55") },
+        {
+          label: "Pano kliması",
+          value: panelHasAirConditioner(specs)
+            ? textOr(cabin.selections.panelAcModel, "Katalogdan seçilmedi")
+            : "Yok",
+        },
+        {
+          label: "Klima yedeği",
+          value: AIR_CONDITIONING_REDUNDANCY_LABELS[cabin.inputs.panelAcRedundancy ?? "none"],
+        },
+      ],
+    });
   }
 
   const trolleyRows: SummaryRow[] = [];

@@ -52,7 +52,17 @@ import type { AnyCheck } from "../types";
 //   +4   emniyet frenli ana ve yardımcı kaldırma gruplarının her birinde İKİ
 //        yeni kontrol: seçilen flanş KALINLIĞI katalogun b sınırını sağlıyor mu
 //        ve HİDROLİK ÜNİTE basıncı frenin PL/Pmax bandında mı.
-const EXPECTED_CHECK_COUNT = 245;
+// 247 = 245 + 2 (feston, 5.9 — bölüm katalog seçimine çevrildi):
+//   +2   ana arabanın feston varyantında İKİ kontrol: taşıyıcı başına yükün
+//        katalog çalışma yükünü aşmaması ve yürüyüş hızının katalog hız
+//        sınırında kalması. Diğer eksenlerde enerji beslemesi feston olmadığı
+//        için kontrol çıkmaz.
+// 256 = 247 + 9 (kabin ve elektrik odası, 11.x — yeni bölüm):
+//   +9   üç mahallin (kabin · elektrik odası · pano) her birinde ÜÇ kontrol:
+//        katalogdan ürün seçildi mi, katalogun ortam sıcaklığı üst sınırı
+//        projenin üst sınırını karşılıyor mu ve kapasitenin üretici tarafından
+//        doğrulanacağı bilgilendirmesi.
+const EXPECTED_CHECK_COUNT = 256;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 
@@ -109,12 +119,106 @@ const resultNoBuffer: CalcResult = runCalc({
   specs: { ...NEW_WORK_TEMPLATE.specs, trolleyBufferType: "yok" },
 });
 
+/**
+ * FESTON bölümü (5.9) de koşulludur: yalnız o eksende enerji beslemesi feston
+ * seçilmişse hesaplanır. İki varyant koşturulur — katalogda hız limiti
+ * YAYIMLANMIŞ bir seri ("festoon.speed" üretici kontrolü olur) ve
+ * yayımlanmamış bir seri (aynı kontrol bilgilendirmeye düşer). İkisi de aynı
+ * bağlantıyı kullanır; koşmadıklarında 5.9'un bağlantıları hiç sınanmazdı.
+ */
+const resultFestoon: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, trolleyPowerSupply: "festoon" },
+  trolley: {
+    inputs: {
+      ...TROLLEY.inputs,
+      festoonTrolleyCount: 4,
+      festoonCablePackageWeightKg: 160,
+      festoonLoopHeightM: 1.5,
+    },
+    selections: {
+      ...TROLLEY.selections!,
+      festoonBrand: "Conductix-Wampfler",
+      festoonSeries: "0320",
+      festoonCableForm: "Yassı",
+      festoonTrolleyLoadKg: 80,
+      festoonMaxSpeedMpm: 100,
+    },
+  },
+});
+
+const resultFestoonNoSpeedLimit: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: { ...NEW_WORK_TEMPLATE.specs, trolleyPowerSupply: "festoon" },
+  trolley: {
+    inputs: {
+      ...TROLLEY.inputs,
+      festoonTrolleyCount: 2,
+      festoonCablePackageWeightKg: 60,
+      festoonLoopHeightM: 1.5,
+    },
+    selections: {
+      ...TROLLEY.selections!,
+      festoonBrand: "Vasel",
+      festoonSeries: "VS2020",
+      festoonCableForm: "Yassı",
+      festoonTrolleyLoadKg: 35,
+    },
+  },
+});
+
+/**
+ * KABİN ve ELEKTRİK ODASI (11.x) de koşulludur: bölüm yalnız vinçte operatör
+ * kabini ya da bir elektrik yerleşimi varsa hesaplanır, klima kontrolleri de
+ * yalnız o mahalde klima öngörülmüşse çıkar. Oda ve pano birbirini dışladığı
+ * için iki varyant koşturulur.
+ */
+const CABIN = NEW_WORK_TEMPLATE.cabin!;
+
+const resultCabinRoom: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: {
+    ...NEW_WORK_TEMPLATE.specs,
+    hasOperatorCabin: "yes",
+    operatorCabinHasAirConditioner: "yes",
+    electricalAccommodationType: "room",
+    electricalRoomHasAirConditioner: "yes",
+  },
+  cabin: {
+    inputs: CABIN.inputs,
+    selections: {
+      ...CABIN.selections,
+      // Ortam sıcaklığı sınırı YAYIMLANMIŞ ürün → "ambient" üretici kontrolü.
+      cabinAcBrand: "TMS", cabinAcModel: "VKS-VM", cabinAcAmbientMaxC: 80,
+      // Sınırı yayımlanmamış ürün → aynı kontrol bilgilendirmeye düşer.
+      roomAcBrand: "TMS", roomAcModel: "WMU", roomAcAmbientMaxC: 0,
+    },
+  },
+});
+
+const resultCabinPanel: CalcResult = runCalc({
+  ...NEW_WORK_TEMPLATE,
+  specs: {
+    ...NEW_WORK_TEMPLATE.specs,
+    electricalAccommodationType: "panel",
+    electricalPanelHasAirConditioner: "yes",
+  },
+  cabin: {
+    inputs: { ...CABIN.inputs, panelCount: 3 },
+    selections: { ...CABIN.selections, panelAcBrand: "TMS", panelAcModel: "PKS-PO", panelAcAmbientMaxC: 80 },
+  },
+});
+
 /** Koşullu bölümleri de kapsayan varyant listesi. */
 const VARIANTS: CalcResult[] = [
   resultWithSafetyBrake,
   resultRubberBuffer,
   resultMeteringPin,
   resultNoBuffer,
+  resultFestoon,
+  resultFestoonNoSpeedLimit,
+  resultCabinRoom,
+  resultCabinPanel,
 ];
 
 /** Modül anahtarı → o modülün sonucu (ortak erişim katmanından). */

@@ -98,6 +98,12 @@ import {
 } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
+import { cabinModuleApplies } from "@/lib/calc/modules/cabin";
+import { CABIN_SECTIONS, type CabinCtx } from "@/lib/calc/presentation/cabinSections";
+import {
+  CABIN_INPUT_FIELDS,
+  CABIN_SELECTION_FIELDS,
+} from "@/lib/calc/presentation/cabinFields";
 import {
   computeWheelLoads,
   wheelLoadDepsFrom,
@@ -706,6 +712,46 @@ function endCarriageAdapter(): ModuleAdapter {
   };
 }
 
+// ---------------------------------------------------------------- Kabin
+
+const CABIN_INPUT_MAP = fieldMap(CABIN_INPUT_FIELDS as AnyFieldDef[]);
+const CABIN_SELECTION_MAP = fieldMap(CABIN_SELECTION_FIELDS as AnyFieldDef[]);
+
+function cabinAdapter(): ModuleAdapter {
+  return {
+    key: "cabin",
+    title: "11 · Kabin ve Elektrik Odası",
+    checkPrefix: "cabin.",
+    sections: CABIN_SECTIONS.map((s) => ({
+      id: s.id,
+      rawId: s.id,
+      title: s.title,
+      description: s.description,
+      visible: s.visible,
+      inputDefs: defs(s.inputKeys, CABIN_INPUT_MAP),
+      selectionDefs: defs(s.selectionKeys, CABIN_SELECTION_MAP),
+      selectionKeys: s.selectionKeys,
+      checkSuffixes: s.checkSuffixes,
+      rows: s.rows.map((r) => {
+        const sub = r.subst;
+        const from = r.valueFrom;
+        return {
+          key: r.key,
+          anchorId: r.key,
+          label: r.label,
+          formula: r.formula,
+          unit: r.unit,
+          digits: r.digits,
+          read: from
+            ? (ctx: unknown) => from(ctx as CabinCtx)
+            : (ctx: unknown) => (ctx as CabinCtx).c[r.key],
+          subst: sub ? (ctx: unknown) => sub(ctx as CabinCtx) : undefined,
+        };
+      }),
+    })),
+  };
+}
+
 // ---------------------------------------------------------------- Dışa aktarım
 
 const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
@@ -726,6 +772,7 @@ const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
   girder: girderAdapter,
   buckling: bucklingAdapter,
   endCarriage: endCarriageAdapter,
+  cabin: cabinAdapter,
 };
 
 /** Sihirbaz adım sırası — her kaldırma grubunu kendi kanca bloğu izler. */
@@ -762,6 +809,7 @@ export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
   "girder",
   "buckling",
   "endCarriage",
+  "cabin",
 ];
 
 /**
@@ -771,6 +819,7 @@ export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
  */
 export const CONFIG_DRIVEN_MODULE_KEYS: readonly ModuleKey[] = [
   "auxTrolley",
+  "cabin",
   "mono1",
   "mono1HookBlock",
   "mono1Trolley",
@@ -796,6 +845,10 @@ export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): bo
     case "mono2HookBlock":
     case "mono2Trolley":
       return monos >= 2;
+    // Kabin bölümü ancak vinçte operatör kabini ya da bir elektrik yerleşimi
+    // (oda / pano) varsa listede görünür — ikisi de yoksa boş bir bölüm olurdu.
+    case "cabin":
+      return cabinModuleApplies(specs);
     default:
       return true;
   }
@@ -834,6 +887,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   girder: "Ana Kiriş",
   buckling: "Buruşma",
   endCarriage: "Başkiriş",
+  cabin: "Kabin ve Elektrik Odası",
 };
 
 export function isOptionalModule(key: ModuleKey): boolean {

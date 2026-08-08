@@ -75,6 +75,7 @@ PDFS = {
     "gamak": "GAMAK MOTOR.pdf",
     "siemens": "SIEMENS MOTOR KATALOG.pdf",
     "flender": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
+    "vasel_festoon": "vasel-i-profil-grubu-kablo-tasima-sistemleri-rf-cat-4b52-brosur-tr.pdf",
 }
 
 KIND_DIR = {
@@ -85,11 +86,17 @@ KIND_DIR = {
     "buffer": "buffers",
     "gearbox": "reducers",
     "motor": "motors",
+    "festoon": "festoons",
 }
 
 # ------------------------------------------------------------ ELLE sayfa haritası
 # (kind, brand, series, catalog_data dosyası, kaynak, 0-tabanlı sayfalar,
-#  basılı sayfa etiketi, başlık)
+#  basılı sayfa etiketi, başlık[, o sayfaya düşen SERİLER])
+#
+# Dokuzuncu alan İSTEĞE BAĞLIDIR: dosyada birden çok seri varsa (feston
+# kataloğu böyledir) sayfaya yalnız o serilerin ürünleri bağlanır. Verilmezse
+# dosyadaki BÜTÜN ürünler sayfaya düşer — kaplin ve tampon dosyalarında her
+# dosya zaten tek seridir.
 
 MANUAL = [
     # ---------------------------------------------------------------- ÖZGÜN
@@ -157,6 +164,20 @@ MANUAL = [
     # bulamıyor; sayfalar elle verilir.
     ("buffer", "SIBRE", "SP", "sibre_sp_hydraulic.json", "sibre_sp", [17, 18, 20], "s.18-21",
      "SIBRE SP — Hidrolik tampon: seçim matrisi ve ölçüler"),
+    # ---------------------------------------------------------------- FESTON
+    # Vasel Cat.4b/52 broşürü ürün kodlarını ve arabaların resmini basar;
+    # taşıyıcı YÜKÜ tablosu broşürde YOKTUR (tam katalog workspace'te değil).
+    # Bu yüzden yalnız broşürde gerçekten çizilmiş seriler haritaya girer;
+    # 2050/2060/2070 ve VS25/VS26 broşürde sadece "Katg. No" ile REFERANS
+    # verilir — o sayfayı göstermek yanlış tabloya baktırırdı.
+    # Conductix'in workspace'teki dosyası 2 sayfalık bir SORU FORMUDUR, ürün
+    # tablosu içermez; o markaya sayfa yazılmaz.
+    ("festoon", "Vasel", "VS2005", "vasel.json", "vasel_festoon", [1], "s.2",
+     "Vasel VS2005 — 2005 Serisi kablo taşıma sistemi parça kodları",
+     ["VS2005"]),
+    ("festoon", "Vasel", "VS2010-VS2020", "vasel.json", "vasel_festoon", [2], "s.3",
+     "Vasel VS2010 / VS2015 / VS2020 — parça kodları ve kablo kelepçeleri",
+     ["VS2010", "VS2015", "VS2020"]),
 ]
 
 # --------------------------------------------------- OTOMATİK sayfa keşfi
@@ -212,8 +233,32 @@ DISCOVER = [
      "SIEMENS / INNOMATICS Motor"),
 ]
 
+
+# ------------------------------------------------ BAŞLIK TARAMALI sayfa keşfi
+# Üçüncü yol. Bazı kataloglar ölçü sayfalarını ürün ürün değil TİP + BOY
+# ARALIĞI olarak basar: "Type H3 — Gear unit dimensions, three-stage, gear unit
+# sizes 13 to 18". Böyle bir katalogda sayısal keşif çalışmaz (sayfada ürünün
+# torku değil ölçüleri vardır), elle harita ise yüzlerce satır olurdu. Bunun
+# yerine sayfa BAŞLIĞI okunur ve aralığa düşen bütün boylar o sayfaya bağlanır.
+#
+# (kind, catalog_data dosyası, kaynak, başlık deseni → (tip, boy_alt, boy_üst),
+#  bölüm önekleri, başlık öneki)
+#
+# FLENDER MD 20.1 aynı ölçü bölümünü iki montaj konumu için ayrı basar:
+# böl. 4/6 YATAY, böl. 5/7 DİKEY. Vinç tahriklerinde standart montaj yataydır
+# ve defter model başına TEK sayfa seti tuttuğu için yalnız yatay bölümler
+# alınır — iki seti birleştirmek mühendisi yanlış ölçü resmine baktırırdı.
+HEADER_SCAN = [
+    ("gearbox", "reducers/flender_md20_1.json", "flender",
+     r"Type\s+([HB][1-4])\s+Gear unit dimensions,\s*[a-z-]+stage,"
+     r"\s*gear unit sizes\s+(\d+)\s+to\s+(\d+)",
+     ("4/", "6/"),
+     "FLENDER MD 20.1"),
+]
+
 NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
 THOUSANDS_RE = re.compile(r"^\d{1,3}(\.\d{3})+(,\d+)?$")
+PRINTED_PAGE_RE = re.compile(r"^(\d+/\d+)")
 
 
 def norm(text) -> str:
@@ -268,11 +313,43 @@ class Source:
         return cls._cache[key]
 
 
+def expand_variants(item: dict) -> list[dict]:
+    """Tip/boy matrisi biçimindeki satırı tek tek ürünlere açar.
+
+    Bazı kataloglar (FLENDER MD 20.1) bir seriyi tek satırda yayımlar ve
+    boyları `variants` dizisinde taşır: [gövde, nominal tork Nm, i_min, i_max].
+    `scripts/seed-catalog.ts` bu satırları veritabanına açarken modeli
+    `<seri>-<gövde>` diye kurar; defterdeki anahtarların DB ile örtüşmesi için
+    burada AYNI kural uygulanır.
+    """
+    variants = item.get("variants")
+    if not isinstance(variants, list):
+        return [item]
+    details = item.get("details_by_size") or {}
+    base = {k: v for k, v in item.items() if k not in ("variants", "details_by_size")}
+    out = []
+    for variant in variants:
+        if not isinstance(variant, list) or len(variant) != 4:
+            raise SystemExit("variants satiri [size, torque_nm, ratio_min, ratio_max] olmali")
+        size = str(variant[0]).zfill(2)
+        row = dict(base)
+        row["model"] = "%s-%s" % (base.get("series"), size)
+        row["frame_size"] = size
+        row["output_torque_Nm"] = variant[1]
+        row["ratio_range"] = "1:%s…%s" % (variant[2], variant[3])
+        detail = details.get(size)
+        if isinstance(detail, dict):
+            row.update(detail)
+        out.append(row)
+    return out
+
+
 def load_items(kind: str, filename: str) -> tuple[list[dict], dict]:
     path = os.path.join(CATALOG_DATA, KIND_DIR[kind], os.path.basename(filename))
     with open(path, encoding="utf-8") as fh:
         doc = json.load(fh)
-    return doc["items"], doc["meta"]
+    items = [row for item in doc["items"] for row in expand_variants(item)]
+    return items, doc["meta"]
 
 
 def db_model(kind: str, item: dict) -> str:
@@ -289,7 +366,22 @@ def db_model(kind: str, item: dict) -> str:
             return code
         return ("%s kW %sK %s" % (
             item.get("power_kw"), item.get("poles"), item.get("frame_size", ""))).strip()
+    # Festonda ürün kimliği SERİ kodudur (Conductix'te program numarası,
+    # Vasel'de VS20xx); seed de modeli seriden kurar.
+    if kind == "festoon":
+        return str(item.get("series", "")).strip()
     return str(item.get("model", "")).strip()
+
+
+def manual_items(sheet) -> list[dict]:
+    """ELLE harita satırının kapsadığı ürünler (seri süzgeci verilmişse süzülür)."""
+    kind, _brand, _series, filename, _src, _pages, _printed, _title = sheet[:8]
+    items, _meta = load_items(kind, filename)
+    series_filter = sheet[8] if len(sheet) > 8 else None
+    if not series_filter:
+        return items
+    keep = set(series_filter)
+    return [it for it in items if str(it.get("series", "")).strip() in keep]
 
 
 def discover_pages(entry) -> tuple[dict[int, list[str]], int, str]:
@@ -328,6 +420,60 @@ def discover_pages(entry) -> tuple[dict[int, list[str]], int, str]:
     return dict(by_page), unmatched, evidence
 
 
+def header_scan_groups(entry) -> tuple[list[dict], int, str]:
+    """Başlığı okunabilen ölçü sayfalarını (tip, boy aralığı) kümelerine böler.
+
+    Ardışık sayfalar aynı başlığı taşıyorsa (ölçü tablosu iki sayfaya taşar)
+    TEK kayıtta birleşir; mühendis pencerede ölçü resmini ve çıkış mili /
+    ağırlık tablosunu birlikte görür.
+    """
+    kind, jf, src_key, pattern, chapters, _title = entry
+    items, _meta = load_items(kind, jf)
+
+    # seri → {boy(int): DB modeli}
+    by_series: dict[str, dict[int, str]] = defaultdict(dict)
+    for it in items:
+        series = str(it.get("series", "")).strip()
+        size = it.get("frame_size")
+        model = db_model(kind, it)
+        if not (series and size and model):
+            continue
+        by_series[series][int(size)] = model
+
+    src = Source.get(src_key)
+    pat = re.compile(pattern, re.I)
+    groups: list[dict] = []
+    for i in range(len(src.text)):
+        flat = " ".join(src.doc[i].get_text().split())
+        if chapters and not flat.startswith(tuple(chapters)):
+            continue
+        m = pat.search(flat)
+        if not m:
+            continue
+        series, lo, hi = m.group(1), int(m.group(2)), int(m.group(3))
+        printed = PRINTED_PAGE_RE.match(flat)
+        last = groups[-1] if groups else None
+        if last and last["key"] == (series, lo, hi) and i == last["pages"][-1] + 1:
+            last["pages"].append(i)
+            if printed:
+                last["printed"].append(printed.group(1))
+            continue
+        groups.append({
+            "key": (series, lo, hi),
+            "series": series, "lo": lo, "hi": hi,
+            "pages": [i],
+            "printed": [printed.group(1)] if printed else [],
+            "models": [by_series[series][s] for s in range(lo, hi + 1) if s in by_series[series]],
+        })
+
+    groups = [g for g in groups if g["models"]]
+    placed = {m for g in groups for m in g["models"]}
+    unmatched = sum(1 for models in by_series.values() for m in models.values() if m not in placed)
+    pages = sum(len(g["pages"]) for g in groups)
+    evidence = "%d model / %d sayfa (%d küme)" % (len(placed), pages, len(groups))
+    return groups, unmatched, evidence
+
+
 # ------------------------------------------------------------------ ELLE doğrulama
 
 SIZE_COVERAGE_MIN = 0.6
@@ -335,7 +481,7 @@ SIZE_COVERAGE_MIN = 0.6
 
 def verify_manual(sheet, src: Source) -> tuple[str, str | None]:
     """Elle verilen sayfayı PDF'in KENDİ metniyle sınar → (kanıt, hata)."""
-    kind, _brand, series, filename, _src, pages, _printed, _title = sheet
+    kind, _brand, series, filename, _src, pages, _printed, _title = sheet[:8]
     words = {w[4] for i in pages for w in src.doc[i].get_text("words")}
     if not words:
         return ("metin katmanı yok — doğrulanamadı", None)
@@ -343,7 +489,7 @@ def verify_manual(sheet, src: Source) -> tuple[str, str | None]:
     text = norm("".join(src.doc[i].get_text() for i in pages))
     header = norm(series) in text
 
-    items, _ = load_items(kind, filename)
+    items = manual_items(sheet)
     sizes = [m.group(1) for m in (re.search(r"(\d+)$", db_model(kind, it)) for it in items) if m]
     hit = sum(1 for s in sizes if s in words)
     ratio = hit / len(sizes) if sizes else 0.0
@@ -388,7 +534,7 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
 
     # ---------------------------------------------------------- elle harita
     for sheet in MANUAL:
-        kind, brand, series, filename, src_key, pages, printed, title = sheet
+        kind, brand, series, _filename, src_key, pages, printed, title = sheet[:8]
         if only and kind not in only:
             continue
         src = Source.get(src_key)
@@ -396,7 +542,7 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
         if problem:
             problems.append(problem)
             continue
-        items, _ = load_items(kind, filename)
+        items = manual_items(sheet)
         models = []
         for it in items:
             m = db_model(kind, it)
@@ -437,6 +583,35 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
                 "title": "%s — katalog s.%d" % (title_prefix, idx + 1),
                 "source": PDFS[src_key], "printedPages": "PDF s.%d" % (idx + 1),
                 "images": [rel], "models": by_page[idx],
+            })
+        print("  %-16s %-22s %-28s eşleşmeyen=%d" % (kind, brand[:22], evidence, unmatched))
+
+    # -------------------------------------------------- başlık taramalı keşif
+    for entry in HEADER_SCAN:
+        kind, jf, src_key, _pattern, _chapters, title_prefix = entry
+        if only and kind not in only:
+            continue
+        _items, meta = load_items(kind, jf)
+        brand = str(meta.get("brand", "")).strip()
+        groups, unmatched, evidence = header_scan_groups(entry)
+        if not groups:
+            problems.append("%s: başlık taramasında hiçbir ölçü sayfası bulunamadı" % jf)
+            continue
+        for g in groups:
+            slug = "%s-%s-%d-%d" % (slugify(brand), slugify(g["series"]), g["lo"], g["hi"])
+            images = [
+                image_for(src_key, kind, idx, "%s-p%d" % (slug, n + 1))
+                for n, idx in enumerate(g["pages"])
+            ]
+            printed = "s.%s" % "-".join(g["printed"]) if g["printed"] else \
+                "PDF s.%s" % ",".join(str(i + 1) for i in g["pages"])
+            entries.append({
+                "id": "%s/%s" % (kind, slug),
+                "kind": kind, "brand": brand, "series": g["series"],
+                "title": "%s — Tip %s, boy %d–%d ölçü sayfası"
+                         % (title_prefix, g["series"], g["lo"], g["hi"]),
+                "source": PDFS[src_key], "printedPages": printed,
+                "images": images, "models": g["models"],
             })
         print("  %-16s %-22s %-28s eşleşmeyen=%d" % (kind, brand[:22], evidence, unmatched))
 

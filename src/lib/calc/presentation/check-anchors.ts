@@ -115,6 +115,12 @@ const TRAVEL_ANCHORS: AnchorMap = {
     "buffer.speedThreshold": "buffer.impactSpeed",
     "buffer.scope": "buffer.impactSpeedRatio",
   },
+  "5.9": {
+    "festoon.capacity": "festoon.loadPerTrolley",
+    // Hız limiti yayımlanmadığında kontrol bilgilendirmeye düşer; her iki
+    // durumda da bölümün katalog hız satırına bağlanır.
+    "festoon.speed": "festoon.catalogSpeed",
+  },
 };
 
 /** 10 — Teker Yükleri */
@@ -168,6 +174,27 @@ const ENDCARRIAGE_ANCHORS: AnchorMap = {
   },
 };
 
+/** 11 — Kabin ve Elektrik Odası */
+const CABIN_ANCHORS: AnchorMap = {
+  "11.1": {
+    // Üç kontrol de klimanın seçildiği satıra bağlanır: ürün seçimi, ortam
+    // sıcaklığı sınırı ve kapasite bilgilendirmesi aynı ürüne aittir.
+    "cabinAc.selected": "cabinAc.coolingMax",
+    "cabinAc.ambient": "cabinAc.ambientMax",
+    "cabinAc.capacity": "cabinAc.coolingMax",
+  },
+  "11.2": {
+    "roomAc.selected": "roomAc.coolingMax",
+    "roomAc.ambient": "roomAc.ambientMax",
+    "roomAc.capacity": "roomAc.coolingMax",
+  },
+  "11.3": {
+    "panelAc.selected": "panelAc.coolingMax",
+    "panelAc.ambient": "panelAc.ambientMax",
+    "panelAc.capacity": "panelAc.coolingMax",
+  },
+};
+
 const ANCHORS_BY_FAMILY: Record<string, AnchorMap> = {
   hoist: HOIST_ANCHORS,
   hookBlock: HOOKBLOCK_ANCHORS,
@@ -176,6 +203,7 @@ const ANCHORS_BY_FAMILY: Record<string, AnchorMap> = {
   girder: GIRDER_ANCHORS,
   buckling: BUCKLING_ANCHORS,
   endCarriage: ENDCARRIAGE_ANCHORS,
+  cabin: CABIN_ANCHORS,
 };
 
 /**

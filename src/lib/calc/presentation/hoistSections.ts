@@ -713,7 +713,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     title: "Motor",
     description: "Motor giriş torku ve gerekli güç (CMAA 70).",
     inputKeys: ["tempFactor", "motorDivisor"],
-    selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
+    selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
     rows: [
       {
         key: "gearbox.outputTorque", label: "Redüktör Çıkış Torku", formula: "M_ç = M_t · 1000",

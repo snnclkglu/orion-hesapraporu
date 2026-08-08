@@ -174,6 +174,17 @@ export interface TravelInputs {
    * 2,5 m/s² ile sınırlar.
    */
   bufferFrequentEndApproach?: string;
+
+  // --- Feston (kablo taşıyıcı) sistemi -------------------------------------
+  // Bölüm yalnız bu eksende enerji beslemesi FESTON seçilmişse hesaplanır
+  // (teknik özellikler). Hareket mesafesi ve hız ayrıca sorulmaz: araba
+  // açıklıktan, köprü yürüme yolu uzunluğundan okunur.
+  /** Kablo taşıyıcı (araba) adedi — kablo paketi bunlara eşit dağıtılır. */
+  festoonTrolleyCount?: number;
+  /** Hareketli kablo paketinin toplam ağırlığı [kg]. */
+  festoonCablePackageWeightKg?: number;
+  /** İzin verilen azami sarkma (loop) yüksekliği [m] — şemada gösterilir. */
+  festoonLoopHeightM?: number;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -188,6 +199,8 @@ export interface TravelSelections {
   bearingDynCKn: number;        // dinamik yük sayısı C [kN]
   bearingStatC0Kn: number;      // statik yük sayısı C0 [kN]
   motorBrand: string;
+  /** Katalogun kendi tip kodu; katalog sayfası bu kodla bulunur. */
+  motorModel: string;
   motorPowerKw: number;
   motorRpm: number;
   motorCount: number;
@@ -212,6 +225,22 @@ export interface TravelSelections {
   wheelCouplingModel: string;
   wheelCouplingTorqueNm: number;
   wheelCouplingDmaxMm: number;
+  // --- Feston (kablo taşıyıcı) sistemi -------------------------------------
+  // Katalogdan (kind = "festoon") gelir. Kablo formu da SEÇİMLE gelir: aynı
+  // seri yassı ve yuvarlak kabloda farklı araba kodu ve farklı taşıyıcı yükü
+  // taşıyabiliyor (Vasel VS2020: yassı 35 kg / yuvarlak 30 kg).
+  festoonBrand?: string;
+  festoonSeries?: string;
+  festoonLine?: string;
+  festoonCableForm?: string;
+  /** Katalogda verilen taşıyıcı başına çalışma yükü [kg]. */
+  festoonTrolleyLoadKg?: number;
+  /** Katalogda YAYIMLANMIŞSA azami hız [m/dak]; yoksa boştur (hız teyidi). */
+  festoonMaxSpeedMpm?: number;
+  festoonTrolleyCode?: string;
+  festoonTowTrolleyCode?: string;
+  festoonEndClampCode?: string;
+
   bufferModel: string;
   /**
    * Katalogdaki fiziksel tampon türü. Teknik özelliklerdeki "Kauçuk" ailesi
@@ -348,6 +377,13 @@ export interface TravelValues {
   bufferTransferredToStructure: boolean;
   /** Tampon hesabı koştu mu (tip "yok" ya da eğri verisi eksikse false) */
   bufferComputed: boolean;
+  // Feston
+  /** Bu eksende enerji beslemesi feston mu (teknik özellik) */
+  festoonSelected: boolean;
+  /** Feston hareket mesafesi [m] — arabada açıklık, köprüde yürüme yolu */
+  festoonTravelDistanceM: number;
+  /** Kablo paketinin taşıyıcı başına düşen ağırlığı [kg] */
+  festoonLoadPerTrolleyKg: number;
 }
 
 /**
@@ -430,6 +466,29 @@ export function travelBufferType(specs: TechnicalSpecs, which: TravelWhich): Buf
   return which === "bridge"
     ? bufferTypeOr(specs.bridgeBufferType, "hidrolik")
     : bufferTypeOr(specs.trolleyBufferType, "hidrolik");
+}
+
+/**
+ * Bu hareket ekseninde FESTON (kablo taşıyıcı) sistemi seçilmiş mi?
+ *
+ * Enerji besleme yöntemi teknik özelliktedir; 5.9 bölümü, ekipman listesi ve
+ * hesap yalnız bu üç yerin AYNI koşulu okumasıyla tutarlı kalır.
+ */
+export function travelHasFestoon(specs: TechnicalSpecs, which: TravelWhich): boolean {
+  if (which === "trolley") return specs.trolleyPowerSupply === "festoon";
+  if (which === "auxTrolley") return specs.auxTrolleyPowerSupply === "festoon";
+  if (which === "mono1Trolley") return specs.mono1TrolleyPowerSupply === "festoon";
+  if (which === "mono2Trolley") return specs.mono2TrolleyPowerSupply === "festoon";
+  return specs.bridgePowerSupply === "festoon";
+}
+
+/**
+ * Feston hareket mesafesi: araba açıklık boyunca, köprü yürüme yolu boyunca
+ * gider. Ayrıca sorulmaz — teknik özelliklerden okunur.
+ */
+export function travelFestoonDistanceM(specs: TechnicalSpecs, which: TravelWhich): number {
+  const value = which === "bridge" ? specs.runwayLengthM : specs.spanM;
+  return Number.isFinite(value) && (value ?? 0) > 0 ? (value as number) : 0;
 }
 
 /** Teknik üst seçime göre katalogda izin verilen fiziksel tampon türleri. */
@@ -981,6 +1040,60 @@ export function computeTravelGroup(
   const drivePerMotor = bv.totalDriveForceN / Math.max(1, sel.motorCount);
   set("buffer.driveForcePerMotor", drivePerMotor);
 
+  // --- Feston (kablo taşıyıcı) sistemi -------------------------------------
+  // Bu bir kablo sarkması/askı yerleşimi hesabı DEĞİL, bir KATALOG SEÇİMİ
+  // kontrolüdür: hareketli kablo paketi taşıyıcılara eşit dağıtılır ve
+  // taşıyıcı başına yük üreticinin çalışma yüküyle karşılaştırılır. Hız,
+  // katalogda yayımlanmışsa ayrıca sınanır; yayımlanmamışsa uygulama
+  // VARSAYIMSAL bir limit üretmez, mühendisi üretici teyidine yönlendirir.
+  const festoonSelected = travelHasFestoon(specs, which);
+  const festoonTrolleyCount = Math.max(0, Math.floor(inp.festoonTrolleyCount ?? 0));
+  const festoonPackageKg = Math.max(0, inp.festoonCablePackageWeightKg ?? 0);
+  const festoonLoadPerTrolley = festoonTrolleyCount > 0
+    ? festoonPackageKg / festoonTrolleyCount
+    : 0;
+  const festoonCatalogLoadKg = sel.festoonTrolleyLoadKg ?? 0;
+  const festoonCatalogSpeed = sel.festoonMaxSpeedMpm ?? 0;
+  if (festoonSelected) {
+    set("festoon.travelDistance", travelFestoonDistanceM(specs, which));
+    set("festoon.trolleyCount", festoonTrolleyCount);
+    set("festoon.cablePackageWeight", festoonPackageKg);
+    set("festoon.loadPerTrolley", festoonLoadPerTrolley);
+    set("festoon.catalogLoad", festoonCatalogLoadKg);
+    set("festoon.loopHeight", inp.festoonLoopHeightM ?? 0);
+    set("festoon.catalogSpeed", festoonCatalogSpeed);
+
+    checks.push({
+      id: `${which}.festoon.capacity`,
+      label: "Feston Taşıyıcı Yükü",
+      required: festoonLoadPerTrolley, provided: festoonCatalogLoadKg, unit: "kg", op: ">=",
+      computedSide: "required",
+      pass: festoonCatalogLoadKg > 0 && festoonCatalogLoadKg >= festoonLoadPerTrolley,
+      kind: "uretici", severity: "engelleyici",
+    });
+    // Katalogda hız limiti yoksa kontrol SESSİZCE düşürülmez: bilgilendirme
+    // olarak kalır ve üretici teyidi gerektiğini raporda söyler.
+    checks.push(
+      festoonCatalogSpeed > 0
+        ? {
+            id: `${which}.festoon.speed`,
+            label: "Feston Hız Sınırı",
+            required: actualSpeed, provided: festoonCatalogSpeed, unit: "m/dak", op: ">=",
+            computedSide: "required",
+            pass: festoonCatalogSpeed >= actualSpeed,
+            kind: "uretici", severity: "engelleyici",
+          }
+        : {
+            id: `${which}.festoon.speed`,
+            label: "Feston Hız Sınırı — Katalogda Yayımlanmamış, Üretici Teyidi Gerekli",
+            required: actualSpeed, provided: 0, unit: "m/dak", op: ">=",
+            computedSide: "required",
+            pass: true,
+            kind: "bilgi", severity: "uyari",
+          }
+    );
+  }
+
   const values: TravelValues = {
     drivenWheels,
     craneWeightT,
@@ -1058,6 +1171,9 @@ export function computeTravelGroup(
     bufferDesignMassMaxT: meteringPinMassMaxT,
     bufferTransferredToStructure: bv.transferredToStructure,
     bufferComputed: bv.computed,
+    festoonSelected,
+    festoonTravelDistanceM: travelFestoonDistanceM(specs, which),
+    festoonLoadPerTrolleyKg: festoonLoadPerTrolley,
   };
 
   return { values, checks, cells };

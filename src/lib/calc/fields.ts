@@ -16,11 +16,6 @@ import {
   HOIST_EQUIPMENT_ARRANGEMENTS,
   type TechnicalSpecs,
 } from "./types";
-import {
-  AIR_CONDITIONING_TYPE_LABELS,
-  AIR_CONDITIONING_TYPE_OPTIONS,
-  airConditionerModelOptions,
-} from "@/lib/tms-air-conditioning";
 
 export interface FieldDef<T> {
   key: keyof T & string;
@@ -96,9 +91,7 @@ export type SpecGroupKey =
   | "electrical"
   | "environment"
   | "operatorCabin"
-  | "electricalAccommodation"
-  | "electricalRoom"
-  | "panelType";
+  | "electricalAccommodation";
 
 export interface SpecGroup {
   key: SpecGroupKey;
@@ -126,24 +119,17 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
   {
     key: "operatorCabin",
     title: "Operatör Kabini",
-    description: "Kabin ölçüleri, taş yünü izolasyonu ve klima ön seçimi.",
+    description:
+      "Kabin var mı ve kliması var mı — ölçü, izolasyon ve ürün seçimi " +
+      "\"Kabin ve Elektrik Odası\" bölümündedir.",
   },
   {
     key: "electricalAccommodation",
     title: "Elektrik Yerleşimi",
-    description: "Elektrik odası veya yan yana pano tipi yerleşim seçilir.",
-  },
-  {
-    key: "electricalRoom",
-    title: "Elektrik Odası Özellikleri",
-    description: "Oda ölçüleri, izolasyon ve 1+1 kurulu yedek klima seçimi.",
-    visible: (specs) => specs.electricalAccommodationType === "room",
-  },
-  {
-    key: "panelType",
-    title: "Pano Tipi Özellikleri",
-    description: "Yan yana pano yerleşimi; oda izolasyonu yerine pano IP koruması kullanılır.",
-    visible: (specs) => specs.electricalAccommodationType === "panel",
+    description:
+      "Elektrik odası veya yan yana pano tipi yerleşim ve o mahallin kliması " +
+      "var mı — ölçü, pano adedi, kurulu yedek ve ürün seçimi \"Kabin ve " +
+      "Elektrik Odası\" bölümündedir.",
   },
   {
     key: "weights",
@@ -425,6 +411,11 @@ export const ROOM_INSULATION_OPTIONS = ["rockWool50", "rockWool100"] as const;
 export const ROOM_INSULATION_LABELS: Record<string, string> = {
   rockWool50: "Taş Yünü 50 mm", rockWool100: "Taş Yünü 100 mm",
 };
+export const AIR_CONDITIONER_PRESENCE_OPTIONS = ["yes", "no"] as const;
+export const AIR_CONDITIONER_PRESENCE_LABELS: Record<string, string> = {
+  yes: "Var",
+  no: "Yok",
+};
 export const AIR_CONDITIONING_REDUNDANCY_OPTIONS = ["none", "nPlusOne"] as const;
 export const AIR_CONDITIONING_REDUNDANCY_LABELS: Record<string, string> = {
   none: "Yok", nPlusOne: "1+1 (Kurulu Yedek)",
@@ -443,75 +434,39 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   { key: "hookType", label: "Kanca Tipi", type: "select", options: HOOK_TYPES, group: "crane", standardRef: "DIN 15400" },
   { key: "controlType", label: "Kumanda Şekli", type: "select", options: CONTROL_TYPES, group: "crane" },
 
-  // --- Operatör kabini
+  // --- Operatör kabini / elektrik yerleşimi
+  // Teknik özelliklerde YALNIZ VARLIK sorulur: kabin var mı, elektrik nerede
+  // duruyor, o mahalde klima var mı. Ölçüler, izolasyon, pano adedi, kurulu
+  // yedek düzeni ve klimanın KENDİSİ (TMS kataloğundan) "Kabin ve Elektrik
+  // Odası" bölümündedir — katalogdan seçim yalnız hesap bölümlerinde
+  // yapılabildiği için. Metinlerde SABİT bölüm numarası verilmez: numara,
+  // vince dahil bölümlere göre çalışma anında yeniden dizilir.
   {
     key: "hasOperatorCabin", label: "Operatör Kabini", type: "select",
     options: OPERATOR_CABIN_OPTIONS, optionLabels: OPERATOR_CABIN_LABELS, group: "operatorCabin",
   },
-  { key: "operatorCabinWidthM", label: "Kabin Genişliği", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
-  { key: "operatorCabinLengthM", label: "Kabin Uzunluğu", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
-  { key: "operatorCabinHeightM", label: "Kabin Yüksekliği", unit: "m", type: "number", group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes" },
   {
-    key: "operatorCabinInsulation", label: "Kabin İzolasyonu", type: "select",
-    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes",
+    key: "operatorCabinHasAirConditioner", label: "Kabin Kliması", type: "select",
+    options: AIR_CONDITIONER_PRESENCE_OPTIONS, optionLabels: AIR_CONDITIONER_PRESENCE_LABELS,
+    group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes",
+    hint: "Ürün, Kabin ve Elektrik Odası bölümünde TMS kataloğundan seçilir.",
   },
-  {
-    key: "operatorCabinAirConditioning", label: "Kabin Kliması", type: "select",
-    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "operatorCabin", visible: (s) => s.hasOperatorCabin === "yes",
-  },
-  {
-    key: "operatorCabinAirConditionerModel", label: "Kabin Klima Tipi", type: "select",
-    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.operatorCabinAirConditioning), group: "operatorCabin",
-    visible: (s) => s.hasOperatorCabin === "yes" && s.operatorCabinAirConditioning !== "none",
-    hint: "TMS tipi, seçilen klima sınıfına uygun olarak proje ısı yüküyle teyit edilir.",
-  },
-
-  // --- Elektrik odası / pano tipi
   {
     key: "electricalAccommodationType", label: "Elektrik Yerleşimi", type: "select",
     options: ELECTRICAL_ACCOMMODATION_OPTIONS, optionLabels: ELECTRICAL_ACCOMMODATION_LABELS, group: "electricalAccommodation",
     hint: "Elektrik odası ayrı hacimdir; pano tipinde panolar yan yana dizilir ve oda izolasyonu uygulanmaz.",
   },
-  { key: "electricalRoomWidthM", label: "Oda Genişliği", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
-  { key: "electricalRoomLengthM", label: "Oda Uzunluğu", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
-  { key: "electricalRoomHeightM", label: "Oda Yüksekliği", unit: "m", type: "number", group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room" },
   {
-    key: "electricalRoomInsulation", label: "Oda İzolasyonu", type: "select",
-    options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS, group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room",
+    key: "electricalRoomHasAirConditioner", label: "Elektrik Odası Kliması", type: "select",
+    options: AIR_CONDITIONER_PRESENCE_OPTIONS, optionLabels: AIR_CONDITIONER_PRESENCE_LABELS,
+    group: "electricalAccommodation", visible: (s) => s.electricalAccommodationType === "room",
+    hint: "Oda ölçüleri, ürün ve kurulu yedek düzeni Kabin ve Elektrik Odası bölümündedir.",
   },
   {
-    key: "electricalRoomAirConditioning", label: "Elektrik Odası Kliması", type: "select",
-    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "electricalRoom", visible: (s) => s.electricalAccommodationType === "room",
-  },
-  {
-    key: "electricalRoomAirConditionerModel", label: "Elektrik Odası Klima Tipi", type: "select",
-    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.electricalRoomAirConditioning), group: "electricalRoom",
-    visible: (s) => s.electricalAccommodationType === "room" && s.electricalRoomAirConditioning !== "none",
-  },
-  {
-    key: "electricalRoomAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
-    options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "electricalRoom",
-    visible: (s) => s.electricalAccommodationType === "room" && s.electricalRoomAirConditioning !== "none",
-    hint: "Elektrik odasında kurulu yedek seçimi 1+1 olarak ekipman listesine yansır.",
-  },
-  { key: "electricalPanelCount", label: "Pano Adedi", unit: "adet", type: "number", group: "panelType", visible: (s) => s.electricalAccommodationType === "panel" },
-  {
-    key: "electricalPanelIpClass", label: "Pano Koruma Sınıfı", type: "select", options: ELECTRICAL_PANEL_IP_CLASSES, group: "panelType", visible: (s) => s.electricalAccommodationType === "panel",
-    hint: "Pano tipi yerleşimde oda izolasyonu yoktur; pano gövdesinin IP koruması belirtilir.",
-  },
-  {
-    key: "electricalPanelAirConditioning", label: "Pano Kliması", type: "select",
-    options: AIR_CONDITIONING_TYPE_OPTIONS, optionLabels: AIR_CONDITIONING_TYPE_LABELS, group: "panelType", visible: (s) => s.electricalAccommodationType === "panel",
-  },
-  {
-    key: "electricalPanelAirConditionerModel", label: "Pano Klima Tipi", type: "select",
-    options: ["Projeye özel seçim"], optionsFor: (s) => airConditionerModelOptions(s.electricalPanelAirConditioning), group: "panelType",
-    visible: (s) => s.electricalAccommodationType === "panel" && s.electricalPanelAirConditioning !== "none",
-  },
-  {
-    key: "electricalPanelAirConditioningRedundancy", label: "Klima Yedeği", type: "select",
-    options: AIR_CONDITIONING_REDUNDANCY_OPTIONS, optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS, group: "panelType",
-    visible: (s) => s.electricalAccommodationType === "panel" && s.electricalPanelAirConditioning !== "none",
+    key: "electricalPanelHasAirConditioner", label: "Pano Kliması", type: "select",
+    options: AIR_CONDITIONER_PRESENCE_OPTIONS, optionLabels: AIR_CONDITIONER_PRESENCE_LABELS,
+    group: "electricalAccommodation", visible: (s) => s.electricalAccommodationType === "panel",
+    hint: "Pano adedi, ürün ve kurulu yedek düzeni Kabin ve Elektrik Odası bölümündedir.",
   },
 
   // --- Vinç konfigürasyonu (hesap bölümlerini açar)
@@ -826,6 +781,9 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   },
   { key: "motorShaftMm", label: "Motor Mili", unit: "mm", type: "number", diameter: true },
   { key: "motorBrand", label: "Motor Markası", type: "text" },
+  // Tip kodu katalogtan gelir ve iki yeri besler: ekipman listesindeki model
+  // sütunu ve "Katalog Sayfası" düğmesi (sayfa MARKA + MODEL ile bulunur).
+  { key: "motorModel", label: "Motor Tip Kodu", type: "text" },
   { key: "motorCount", label: "Motor Adedi", type: "number" },
   { key: "brakeBrand", label: "Fren Markası", type: "text" },
   { key: "brakeModel", label: "Fren Modeli", type: "text" },

@@ -14,6 +14,7 @@ import {
 } from "../src/lib/excel/equipment";
 import { renderEquipmentPdf } from "../src/lib/pdf/equipment-report";
 import type { RevisionAlts } from "../src/lib/revision-load";
+import { baslikDuzeni } from "../src/lib/tr-text";
 
 /**
  * Alternatif (seçenekli) halat fikstürü — madde 23/25. Üç seçenek de GERÇEK
@@ -254,8 +255,11 @@ async function main() {
 
   // PDF üretimi (müşteri + tam) — react-pdf hata vermeden buffer üretmeli
   const groups = mergeExtras(buildEquipmentGroups(V5_TEMPLATE, NOTES, ALTS), EXTRAS);
-  // Grup adları da başlık düzeninden geçmeli (madde 33)
-  const bozukGrup = groups.filter((g) => /(^|\s)\p{Ll}/u.test(g.name));
+  // Grup adları da başlık düzeninden geçmeli (madde 33).
+  // Ölçüt "her sözcük büyük harfle başlar" DEĞİLDİR: `baslikDuzeni` bağlaçları
+  // ("ve", "ile") bilinçli olarak küçük bırakır — "Kabin ve Elektrik Odası"
+  // doğru yazımdır. Doğru ölçüt, adın kendi düzeninde SABİT olmasıdır.
+  const bozukGrup = groups.filter((g) => g.name !== baslikDuzeni(g.name));
   if (bozukGrup.length > 0) {
     console.error(`HATA: grup adı başlık düzeninde değil: ${bozukGrup.map((g) => g.name).join(" / ")}`);
     process.exitCode = 1;

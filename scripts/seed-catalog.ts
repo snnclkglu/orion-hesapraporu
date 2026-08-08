@@ -383,6 +383,25 @@ for (const file of couplingFiles) {
   }
 }
 
+// ---------------------------------------------------------------- festoons
+// I-kiriş feston (kablo taşıyıcı) sistemleri. Ürün kimliği SERİ kodudur
+// (Conductix'te program numarası, Vasel'de VS20xx); satırlar (seri × kablo
+// formu) ikilisi başına açılır çünkü taşıyıcı yükü ve parça kodları kablo
+// formuna göre değişebiliyor (VS2020: yassı 35 kg / yuvarlak 30 kg).
+// Katalog sayfası kaynağı olan tek marka Vasel'dir.
+for (const file of ["festoons/conductix_wampfler.json", "festoons/vasel.json"]) {
+  const { meta, items } = readJson(file);
+  const brand = String(meta.brand);
+  const metaDatasheet = String(meta.datasheet_url ?? "");
+  for (const it of items) {
+    const a = cleanAttrs(it);
+    const model = String(a.series ?? "");
+    const datasheetUrl = String(a.datasheet_url ?? metaDatasheet);
+    delete a.datasheet_url;
+    push("festoon", brand, model, a, datasheetUrl);
+  }
+}
+
 // ------------------------------------------------------------------ buffers
 // (Madde 20, 21) Tampon kataloğu ÜÇ AİLEDEN gelir — SIBRE SP hidrolik,
 // Conductix-Wampfler kauçuk (Program 0170) ve hücresel (Program 0180) — ve

@@ -134,6 +134,35 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     DÜŞEY TEKER YÜKLERİNDEN türetilir — köprünün kendi ağırlığı iki raya eşit
     dağıldığından (l−e)/l yük payına eşit değildir. Gerekçe modül başlığında.
 
+15. **Feston bir katalog ürünüdür, teknik özellik değil.** I-kiriş kablo
+    taşıyıcı sistemi yürütme grubunun 5.9 bölümüdür: seri `cat_equipment`
+    kataloğundan seçilir (`kind = "festoon"`, Conductix-Wampfler + Vasel),
+    taşıyıcı adedi / kablo paketi / loop yüksekliği modül GİRDİSİDİR, taşıyıcı
+    başına yük ve hız sınırı KONTROLdür. Katalog satırı (seri × kablo formu)
+    ikilisi başına açılır: aynı seri yassı ve yuvarlak kabloda farklı araba
+    kodu ve farklı çalışma yükü taşıyabiliyor (Vasel VS2020: 35 / 30 kg).
+    Hareket mesafesi sorulmaz — arabada açıklık, köprüde yürüme yolu
+    uzunluğudur (`travelFestoonDistanceM`). Katalogda hız limiti yayımlanmayan
+    seride kontrol BİLGİLENDİRMEYE düşer; uygulama varsayımsal bir limit
+    üretmez. Eski revizyonların `specs.<eksen>Festoon` verisi
+    `migrateFestoon` ile modül girdilerine taşınır.
+
+16. **Kabin ve elektrik odası kendi bölümüdür (11.x).** Teknik özelliklerde
+    yalnız VARLIK sorulur: kabin var mı, elektrik nerede duruyor (oda / pano),
+    o mahalde klima var mı. Ölçüler, izolasyon, pano adedi ve kurulu yedek
+    düzeni modül girdisidir; klimanın kendisi TMS kataloğundan seçilen bir
+    üründür (`kind = "air_conditioner"`) — katalogdan seçim yalnız hesap
+    bölümlerinde yapılabildiği için bölüm ZORUNLUDUR.
+
+    **Isı yükü hesaplanmaz.** Nihai kapasite üreticinin proje bazlı teyidine
+    bağlıdır ve bu bir bilgilendirme kontrolüyle açıkça yazılır. Uygulamanın
+    doğrulayabildiği iki şey kontrol edilir: klima "var" denen mahalde
+    katalogdan ürün seçilmiş mi (firma / engelleyici) ve seçilen ürünün ortam
+    sıcaklığı üst sınırı projenin üst sınırını karşılıyor mu (üretici /
+    engelleyici). Eski revizyonların `specs` altındaki ölçüleri `migrateCabin`
+    ile taşınır; iklimlendirme SINIFI ("industrial" …) artık sorulmaz, "none"
+    dışındaki her eski değer "klima var" olarak okunur.
+
 13. **Katalog ürünü kullanım grubuna bağlıdır.** Bir redüktör ya kaldırma ya
     yürütme tahrikidir; `cat_equipment.attrs.application` (`kaldirma` |
     `yurutme`) bunu taşır. Bölümün katalog eşlemesindeki
@@ -181,9 +210,27 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     DEĞİLDİR: üretici kataloğu kimlik doğrulamalı `/api/catalog-sheet/...`
     ucundan sunulur.
 
-    Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör · motor.
-    Halat, kanca, makara ve ray kataloglarının kaynak PDF'i workspace'te
-    olmadığı için deftere giremez.
+    **Sayfa MARKA + MODEL ile bulunur; bölümün o kimliği SAKLIYOR olması
+    gerekir.** Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8)
+    eşlemelerinde kimlik tek bir birleşik `brand_model` alanındadır;
+    `catalogIdentityFields` bunu `combinedField` olarak verir ve defter marka
+    önekini kendisi ayıklar. Motor eşlemesinde ise MODEL alanı hiç yoktu —
+    `motorModel` bu yüzden eklendi. Bu bağ koptuğunda hiçbir test kırılmaz,
+    düğme sessizce pasif kalır: koruma `__tests__/catalog-sheets.test.ts`tedir.
+
+    Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör
+    (Yılmaz + FLENDER) · motor · feston (yalnız Vasel).
+    Halat, kanca, makara, teker ve ray kataloglarının kaynak PDF'i workspace'te
+    olmadığı için deftere giremez; Conductix'in feston dosyası bir soru
+    formudur, TMS klima kataloğu ise yalnız web sayfalarından derlenmiştir.
+
+    **Üçüncü yol — BAŞLIK TARAMASI (`HEADER_SCAN`).** Bazı kataloglar ölçü
+    sayfalarını ürün ürün değil TİP + BOY ARALIĞI olarak basar ("Type H3 —
+    Gear unit dimensions, three-stage, gear unit sizes 13 to 18"). Orada
+    sayısal keşif çalışmaz, elle harita ise yüzlerce satır olurdu; sayfa
+    BAŞLIĞI okunur ve aralığa düşen bütün boylar o sayfaya bağlanır. FLENDER
+    MD 20.1 böyle haritalanır ve yalnız YATAY montaj bölümleri (böl. 4 ve 6)
+    alınır — defter model başına tek sayfa seti tutar.
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
@@ -301,7 +348,7 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `plate-buckling.ts`, `tables.ts`, `types.ts`
 - `src/lib/calc/modules/` — kaldırma, kanca bloğu, yürütme, **teker yükleri**
   (`wheelLoads.ts` — yol kirişine aktarılan kuvvetler), ana kiriş, buruşma,
-  başkiriş
+  başkiriş, kabin ve elektrik odası (`cabin.ts`)
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)

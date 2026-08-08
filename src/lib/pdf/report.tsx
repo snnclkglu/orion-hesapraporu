@@ -64,14 +64,6 @@ import {
   type RevisionSectionNotes,
 } from "@/lib/revision-load";
 import {
-  FESTOON_BRAND_LABELS,
-  FESTOON_CABLE_FORM_LABELS,
-  festoonAxes,
-  festoonProductCodeSummary,
-  festoonSeriesLabel,
-  selectFestoon,
-} from "@/lib/calc/festoon";
-import {
   MODULE_ADAPTERS,
   altOptionPass,
   buildModuleDeps,
@@ -561,19 +553,6 @@ function KvRow({
   );
 }
 
-/**
- * Rapora girecek teknik özellik alanları: vince dahil olmayan hesap
- * bölümlerinin alanları (kapalı yardımcı kaldırma, olmayan monoray) basılmaz.
- */
-const FESTOON_SPEC_FIELD_KEYS = new Set<string>([
-  "runwayLengthM",
-  "trolleyPowerSupply",
-  "auxTrolleyPowerSupply",
-  "mono1TrolleyPowerSupply",
-  "mono2TrolleyPowerSupply",
-  "bridgePowerSupply",
-]);
-
 /** PDF özetinde teknik anlam taşımayan "Yok" / boş seçimleri basma. */
 function isAbsentSummarySpec(f: AnyFieldDef, specs: TechnicalSpecs): boolean {
   const raw = (specs as unknown as Record<string, unknown>)[f.key];
@@ -595,7 +574,6 @@ export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
     const req = (f as { requiresModule?: ModuleKey }).requiresModule;
     const visibleForModule = !req || moduleState(input, req) !== undefined;
     const visibleInReport =
-      (input.specs.showFestoonDetailsInReport || !FESTOON_SPEC_FIELD_KEYS.has(f.key)) &&
       f.key !== "trolleyBufferImpactSpeedPct" &&
       f.key !== "bridgeBufferImpactSpeedPct";
     const visibleForSpecs = !(f as { visible?: (specs: TechnicalSpecs) => boolean }).visible ||
@@ -708,62 +686,6 @@ function FieldTable({
         </View>
       ))}
     </View>
-  );
-}
-
-/** İlgili yürütme bölümünün altında basılan festoon ön seçimi. */
-function FestoonDetails({ input, axisKey }: { input: CalcInput; axisKey: string }) {
-  if (!input.specs.showFestoonDetailsInReport) return null;
-  const axis = festoonAxes(input.specs).find(
-    (item) => item.key === axisKey && item.selected && moduleState(input, item.key) !== undefined
-  );
-  if (!axis) return null;
-
-  const result = selectFestoon(axis.spec, axis.travelDistanceM, axis.travelSpeedMpm);
-  const selected = festoonSeriesLabel(result.selected);
-  const productCodes = festoonProductCodeSummary(result.selected, axis.spec?.cableForm);
-  const carrierLoad = result.loadPerTrolleyKg === null ? "—" : `${fmt(result.loadPerTrolleyKg)} kg`;
-  const limit = result.selected
-    ? `${result.trolleyLoadLimitKg} kg · ${result.selected.maxSpeedMpm ? `${result.selected.maxSpeedMpm} m/dak` : "hız teyidi"}`
-    : "Uygun seri bulunamadı";
-
-  return (
-    <>
-      <View
-        style={{
-          borderLeftWidth: 2,
-          borderLeftColor: BRAND.steel,
-          borderBottomWidth: 0.5,
-          borderBottomColor: BRAND.line300,
-          paddingLeft: 7,
-          paddingBottom: 3,
-        }}
-        wrap={false}
-      >
-        <Text style={s.sumModuleTitle}>{axis.title}</Text>
-        <KvRow
-          label="Seri / adet"
-          value={`${FESTOON_BRAND_LABELS[result.brand]} · ${selected} · ${axis.spec?.trolleyCount ?? 0} taşıyıcı · ${FESTOON_CABLE_FORM_LABELS[axis.spec?.cableForm ?? "flat"]}`}
-          narrowLabel
-        />
-        {productCodes ? (
-          <KvRow label="Kod şablonu" value={productCodes} narrowLabel />
-        ) : null}
-        <KvRow
-          label="Hareket"
-          value={`${fmt(result.travelDistanceM)} m · ${fmt(result.travelSpeedMpm)} m/dak · h ${fmt(axis.spec?.loopHeightM ?? 1.5)} m`}
-          narrowLabel
-        />
-        <KvRow
-          label="Yük / sınır"
-          value={`${carrierLoad} / ${limit}${result.pass === false ? " · UYGUN DEĞİL" : result.pass === true ? " · UYGUN" : ""}`}
-          narrowLabel
-        />
-      </View>
-      <Text style={{ ...T.caption, marginTop: 4 }}>
-        Ön seçim, katalog ailesinin hız ve taşıyıcı başına yük sınırını doğrular. Kesin parça kodu; I-kiriş flanşı, kablo paketi ölçüleri ve minimum bükülme çapı doğrulanarak belirlenir. Katalogda hız limiti yayımlanmayan Vasel serilerinde hız üreticiyle teyit edilir.
-      </Text>
-    </>
   );
 }
 
@@ -1999,8 +1921,7 @@ function ModulePage({
       {adapter.sections
         .filter(
           (section) =>
-            (!section.visible || section.visible(input.specs)) &&
-            (section.editor !== "festoon" || input.specs.showFestoonDetailsInReport === true)
+            !section.visible || section.visible(input.specs)
         )
         .map((section, si) => {
         const inputs = state.inputs;
@@ -2027,10 +1948,6 @@ function ModulePage({
 
         // Diyagramlar: her biri kendi başına bölünemez bir parça
         for (const [i, d] of diagrams.entries()) add(<PdfDiagram key={i} diagram={d} />);
-
-        if (section.editor === "festoon") {
-          add(<FestoonDetails input={input} axisKey={adapter.key} />);
-        }
 
         const inputTables: React.ReactNode[] = [];
         if (section.inputDefs.length > 0) {

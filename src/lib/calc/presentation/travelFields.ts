@@ -136,6 +136,17 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
       "FEM 1.001 md. 7.7.1.2: normal işletmede yürüyüş sınırına sık " +
       "ulaşılıyorsa azami yavaşlama 5 m/s² yerine 2,5 m/s² ile sınırlıdır.",
   },
+  // --- Feston (5.9). Hareket mesafesi ve hız SORULMAZ: teknik özelliklerden
+  // okunur (arabada açıklık, köprüde yürüme yolu uzunluğu).
+  { key: "festoonTrolleyCount", label: "Kablo Taşıyıcı Adedi", unit: "adet", type: "number" },
+  {
+    key: "festoonCablePackageWeightKg", label: "Hareketli Kablo Paketi", unit: "kg", type: "number",
+    hint: "Taşıyıcılara asılan kabloların toplam ağırlığı; taşıyıcı adedine eşit dağıtılır.",
+  },
+  {
+    key: "festoonLoopHeightM", label: "Azami Loop Yüksekliği", unit: "m", type: "number",
+    hint: "Kablo sarkmasının izin verilen en büyük derinliği; şemada gösterilir.",
+  },
 ];
 
 export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
@@ -198,4 +209,18 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     key: "bufferLoadKn", label: "Tampon Azami Son Kuvveti", unit: "kN", type: "number",
     hint: "Katalogun bastığı azami son kuvvet (SIBRE SP: \"max. End Force\").",
   },
+  // --- Feston (5.9) — hepsi katalogdan gelir; katalog dışı ürün için elle de
+  // girilebilir (uygulamanın her yerinde olduğu gibi).
+  { key: "festoonBrand", label: "Feston Markası", type: "text" },
+  { key: "festoonSeries", label: "Feston Serisi", type: "text" },
+  { key: "festoonLine", label: "Ürün Hattı", type: "text" },
+  { key: "festoonCableForm", label: "Kablo Formu", type: "text" },
+  { key: "festoonTrolleyLoadKg", label: "Katalog Taşıyıcı Yükü", unit: "kg", type: "number" },
+  {
+    key: "festoonMaxSpeedMpm", label: "Katalog Hız Sınırı", unit: "m/dak", type: "number",
+    hint: "Katalogda yayımlanmamışsa boş kalır; hız üreticiyle teyit edilir.",
+  },
+  { key: "festoonTrolleyCode", label: "Kablo Arabası Kodu", type: "text" },
+  { key: "festoonTowTrolleyCode", label: "Öncü Araba Kodu", type: "text" },
+  { key: "festoonEndClampCode", label: "Başlangıç Askısı / Sonlandırıcı", type: "text" },
 ];

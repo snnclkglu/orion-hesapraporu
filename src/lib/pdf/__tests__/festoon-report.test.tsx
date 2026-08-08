@@ -12,22 +12,43 @@ describe("festoonlu hesap raporu", () => {
       specs: {
         ...V5_TEMPLATE.specs,
         trolleyPowerSupply: "festoon" as const,
-        trolleyFestoon: {
-          brand: "vasel" as const,
-          series: "auto" as const,
-          cableForm: "flat" as const,
-          trolleyCount: 2,
-          cablePackageWeightKg: 120,
-        },
         bridgePowerSupply: "festoon" as const,
         runwayLengthM: 80,
-        bridgeFestoon: {
-          series: "auto" as const,
-          cableForm: "round" as const,
-          trolleyCount: 2,
-          cablePackageWeightKg: 200,
+      },
+      trolley: {
+        inputs: {
+          ...V5_TEMPLATE.trolley!.inputs,
+          festoonTrolleyCount: 2,
+          festoonCablePackageWeightKg: 120,
+          festoonLoopHeightM: 1.5,
         },
-        showFestoonDetailsInReport: true,
+        selections: {
+          ...V5_TEMPLATE.trolley!.selections,
+          festoonBrand: "Vasel",
+          festoonSeries: "VS2070",
+          festoonLine: "Ağır Hizmet",
+          festoonCableForm: "Yassı",
+          festoonTrolleyLoadKg: 125,
+          festoonMaxSpeedMpm: 150,
+          festoonTrolleyCode: "VS2070A-FB63A…",
+        },
+      },
+      bridge: {
+        inputs: {
+          ...V5_TEMPLATE.bridge!.inputs,
+          festoonTrolleyCount: 2,
+          festoonCablePackageWeightKg: 200,
+          festoonLoopHeightM: 2,
+        },
+        selections: {
+          ...V5_TEMPLATE.bridge!.selections,
+          festoonBrand: "Conductix-Wampfler",
+          festoonSeries: "0330",
+          festoonLine: "M-Line",
+          festoonCableForm: "Yuvarlak",
+          festoonTrolleyLoadKg: 200,
+          festoonMaxSpeedMpm: 150,
+        },
       },
     };
     const props: ReportProps = {

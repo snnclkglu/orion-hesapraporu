@@ -84,6 +84,7 @@ export const CATALOG_KIND_LABELS: Record<string, string> = {
   buffer: "Tampon",
   air_conditioner: "Klima",
   bearing_housing: "Rulman Yatağı",
+  festoon: "Feston Sistemi",
   other: "Diğer",
 };
 
@@ -242,6 +243,15 @@ export const ATTR_LABELS: Record<string, string> = {
   corrosion_resistance: "Korozyon Dayanımı",
   vibration_resistance: "Titreşim Dayanımı",
   features: "Özellikler",
+  // Feston (I-kiriş kablo taşıyıcı sistemi)
+  line: "Ürün Hattı",
+  cable_form: "Kablo Formu",
+  max_trolley_load_kg: "Taşıyıcı Başına Yük [kg]",
+  max_speed_mpm: "En Yüksek Hız [m/dak]",
+  beam_type: "Kiriş Tipi",
+  cable_trolley_code: "Kablo Arabası Kodu",
+  tow_trolley_code: "Öncü Araba Kodu",
+  end_clamp_code: "Başlangıç Askısı / Sonlandırıcı",
 };
 
 /** Bir attrs anahtarının ekranda gösterilecek adı (yoksa anahtarın kendisi). */
@@ -273,8 +283,18 @@ export const ATTR_VALUE_LABELS: Record<string, Record<string, string>> = {
     chain: "Zincirli Kaplin",
   },
   application: {
+    // Redüktör kullanım grubu
     kaldirma: "Kaldırma",
     yurutme: "Yürütme",
+    // Klima kullanım grubu (TMS) — redüktör değerleriyle çakışmaz
+    panel: "Pano Kliması",
+    industrial: "Endüstriyel",
+    heavy_industrial: "Ağır Hizmet Endüstriyel",
+  },
+  service_class: {
+    orta_hizmet: "Orta Hizmet",
+    "ağır_hizmet": "Ağır Hizmet",
+    "agır_hizmet": "Ağır Hizmet",
   },
   // Tampon tipi — değerler katalog verisinde zaten Türkçedir, burada yalnız
   // baş harfi büyütülür. (`type` anahtarı rulmanda seri kodunu taşır; oradaki
@@ -525,6 +545,53 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
     ],
     sortBy: "hook_nr",
   },
+  // Klima (TMS) — bu katalog KAPASİTE HESABI yapmaz, tip ön seçimi içindir.
+  // Nihai kapasite ısı yükü, ortam, montaj ve bakım erişimine göre üretici
+  // tarafından proje bazında teyit edilir (katalog verisinin kendi notu).
+  air_conditioner: {
+    label: "Klima",
+    facets: [
+      { attr: "application", label: "Kullanım Grubu" },
+      { attr: "series", label: "Seri" },
+    ],
+    minFilter: {
+      attr: "cooling_capacity_kw_max", label: "En Az Soğutma Kapasitesi", unit: "kW",
+    },
+    columns: [
+      { attr: "model", label: "Model" },
+      { attr: "series", label: "Seri" },
+      { attr: "application", label: "Kullanım Grubu" },
+      { attr: "cooling_capacity_kw_min", label: "Soğutma (Min)", unit: "kW" },
+      { attr: "cooling_capacity_kw_max", label: "Soğutma (Maks)", unit: "kW" },
+      { attr: "ambient_temp_max_c", label: "Ortam Sıc. Üst Sınırı", unit: "°C" },
+      { attr: "service_class", label: "Hizmet Sınıfı" },
+      { attr: "dust_resistance", label: "Toz Dayanımı" },
+      { attr: "corrosion_resistance", label: "Korozyon Dayanımı" },
+    ],
+    sortBy: "cooling_capacity_kw_max",
+  },
+  // Feston — ürün kimliği SERİ kodudur (Conductix'te program numarası, Vasel'de
+  // VS20xx). Satırlar (seri × kablo formu) ikilisi başına açıktır: taşıyıcı
+  // yükü ve parça kodları kablo formuna göre değişebiliyor.
+  festoon: {
+    label: "Feston Sistemi",
+    facets: [
+      { attr: "cable_form", label: "Kablo Formu" },
+      { attr: "line", label: "Ürün Hattı" },
+    ],
+    minFilter: { attr: "max_trolley_load_kg", label: "En Az Taşıyıcı Yükü", unit: "kg" },
+    columns: [
+      { attr: "model", label: "Seri" },
+      { attr: "line", label: "Ürün Hattı" },
+      { attr: "cable_form", label: "Kablo Formu" },
+      { attr: "max_trolley_load_kg", label: "Taşıyıcı Yükü", unit: "kg" },
+      { attr: "max_speed_mpm", label: "Maks. Hız", unit: "m/dak" },
+      { attr: "cable_trolley_code", label: "Kablo Arabası" },
+      { attr: "tow_trolley_code", label: "Öncü Araba" },
+      { attr: "end_clamp_code", label: "Başlangıç / Sonlandırıcı" },
+    ],
+    sortBy: "max_trolley_load_kg",
+  },
   sheave: {
     label: "Makara",
     facets: [{ attr: "dia_mm", label: "Anma Çapı", unit: "mm" }],
@@ -688,6 +755,9 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
     kind: "motor",
     fields: [
       { sel: "motorBrand", from: "brand" },
+      // Tip kodu olmadan katalog SAYFASI bulunamıyordu: defter marka + model
+      // ile aranıyor, motor eşlemesinde ise yalnız marka vardı.
+      { sel: "motorModel", from: "model" },
       { sel: "motorPowerKw", from: { attr: "power_kw" } },
       // Devir KATALOGTAKİ GERÇEK yüklü devirdir (1465, 1470, …) ve senkron
       // devire YUVARLANMAZ: motorRpm gerekli çevrim oranını (n/n_tambur),
@@ -735,6 +805,33 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "drumCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
     ],
   },
+};
+
+/**
+ * Kabin ve elektrik odası (11.x) — üç mahal de AYNI klima kataloğundan
+ * beslenir; yalnız yazılacak seçim alanlarının öneki değişir.
+ */
+function airConditionerMap(prefix: "cabinAc" | "roomAc" | "panelAc"): SectionCatalogMapping {
+  return {
+    kind: "air_conditioner",
+    fields: [
+      { sel: `${prefix}Brand`, from: "brand" },
+      { sel: `${prefix}Model`, from: "model" },
+      { sel: `${prefix}Series`, from: { attr: "series" } },
+      { sel: `${prefix}Application`, from: { attr: "application" } },
+      { sel: `${prefix}CoolingKwMin`, from: { attr: "cooling_capacity_kw_min" } },
+      { sel: `${prefix}CoolingKwMax`, from: { attr: "cooling_capacity_kw_max" } },
+      // Ortam sıcaklığı üst sınırı engelleyici bir kontrolü besler; katalogda
+      // yoksa alan boş kalır ve kontrol bilgilendirmeye düşer.
+      { sel: `${prefix}AmbientMaxC`, from: { attr: "ambient_temp_max_c" } },
+    ],
+  };
+}
+
+const CABIN_MAP: Record<string, SectionCatalogMapping> = {
+  "11.1": airConditionerMap("cabinAc"),
+  "11.2": airConditionerMap("roomAc"),
+  "11.3": airConditionerMap("panelAc"),
 };
 
 /** Kanca bloğu (4.x) */
@@ -797,6 +894,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
     kind: "motor",
     fields: [
       { sel: "motorBrand", from: "brand" },
+      { sel: "motorModel", from: "model" },
       { sel: "motorPowerKw", from: { attr: "power_kw" } },
       // Gerçek yüklü devir — travelGroup.ts gerçekleşen yürüyüş hızını,
       // gerekli çevrim oranını, giriş torkunu ve tampon tahrik kuvvetini
@@ -875,6 +973,24 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "bufferMeteringPins", from: { attr: "metering_pins" } },
     ],
   },
+  // 5.9 Feston sistemi — bu hareket ekseninin kablo taşıyıcı sistemi.
+  // Kablo formu KATALOG SATIRININ kendi özelliğidir (aynı seri yassı ve
+  // yuvarlak kabloda farklı araba kodu ve farklı taşıyıcı yükü taşıyabiliyor),
+  // bu yüzden seçimle birlikte gelir — mühendisin ayrıca girmesi gerekmez.
+  "5.9": {
+    kind: "festoon",
+    fields: [
+      { sel: "festoonBrand", from: "brand" },
+      { sel: "festoonSeries", from: "model" },
+      { sel: "festoonLine", from: { attr: "line" } },
+      { sel: "festoonCableForm", from: { attr: "cable_form" } },
+      { sel: "festoonTrolleyLoadKg", from: { attr: "max_trolley_load_kg" } },
+      { sel: "festoonMaxSpeedMpm", from: { attr: "max_speed_mpm" } },
+      { sel: "festoonTrolleyCode", from: { attr: "cable_trolley_code" } },
+      { sel: "festoonTowTrolleyCode", from: { attr: "tow_trolley_code" } },
+      { sel: "festoonEndClampCode", from: { attr: "end_clamp_code" } },
+    ],
+  },
 };
 
 // Aynı aileye giren tüm bölümler aynı katalog eşlemesini kullanır: ana,
@@ -894,6 +1010,7 @@ const MAP_BY_MODULE: Record<string, Record<string, SectionCatalogMapping>> = {
   mono1Trolley: TRAVEL_MAP,
   mono2Trolley: TRAVEL_MAP,
   bridge: TRAVEL_MAP,
+  cabin: CABIN_MAP,
 };
 
 /**
@@ -905,17 +1022,29 @@ const MAP_BY_MODULE: Record<string, Record<string, SectionCatalogMapping>> = {
  * bilgi eşlemede zaten vardır — `from: "brand"` ve `from: "model"` — ve burada
  * tek yerden okunur; hiçbir bölüm için elle liste tutulmaz.
  *
- * `brand_model` birleşik alanı kimlik olarak KULLANILMAZ: metni geri ayırmak
- * marka adında boşluk olan ürünlerde (ör. "Marka Belirsiz (Firma Excel'i)")
- * sessizce yanlış eşleme üretirdi.
+ * `brand_model` birleşik alanı BURADA AYRIŞTIRILMAZ: metni marka/model diye
+ * ikiye bölmek, marka adında boşluk olan ürünlerde (ör. "Yılmaz Redüktör",
+ * "Conductix-Wampfler") sessizce yanlış eşleme üretirdi. Alan bunun yerine
+ * `combinedField` olarak olduğu gibi verilir; `findCatalogSheet` defterdeki
+ * MARKA adlarını tanıdığı için öneki kendisi ayıklar.
+ *
+ * Bu alan olmadan REDÜKTÖR (2.3 / 5.5), YÜRÜTME FRENİ (5.5b) ve TAMPON (5.8)
+ * bölümlerinin katalog sayfası düğmesi ölü kalıyordu: bu üç eşlemede ürünün
+ * kimliğini yalnız `brand_model` taşıyor.
  */
 export function catalogIdentityFields(mapping: SectionCatalogMapping): {
   brandField?: string;
   modelField?: string;
+  /** "MARKA MODEL" birleşik alanı — ayrı model alanı yoksa kimlik budur. */
+  combinedField?: string;
 } {
-  const find = (source: "brand" | "model") =>
+  const find = (source: "brand" | "model" | "brand_model") =>
     mapping.fields.find((f) => f.from === source)?.sel;
-  return { brandField: find("brand"), modelField: find("model") };
+  return {
+    brandField: find("brand"),
+    modelField: find("model"),
+    combinedField: find("brand_model"),
+  };
 }
 
 /** Bölümün katalog eşlemesi (yoksa combobox gösterilmez) */

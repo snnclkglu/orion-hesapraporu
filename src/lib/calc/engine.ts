@@ -58,6 +58,13 @@ import {
   type EndCarriageValues,
 } from "./modules/endCarriage";
 import {
+  cabinModuleApplies,
+  computeCabin,
+  type CabinInputs,
+  type CabinSelections,
+  type CabinValues,
+} from "./modules/cabin";
+import {
   HOIST_OF_HOOKBLOCK,
   type HoistKey,
   type HookBlockKey,
@@ -116,6 +123,8 @@ export interface CalcInput {
   girder?: { inputs: GirderInputs; selections: GirderSelections };
   buckling?: { inputs: BucklingInputs };
   endCarriage?: { inputs: EndCarriageInputs; selections: EndCarriageSelections };
+  // Kabin ve elektrik odası (klima katalog seçimi dâhil)
+  cabin?: { inputs: CabinInputs; selections: CabinSelections };
 }
 
 export interface CalcResult {
@@ -137,6 +146,7 @@ export interface CalcResult {
   girder?: ModuleResult<GirderValues>;
   buckling?: ModuleResult<BucklingValues>;
   endCarriage?: ModuleResult<EndCarriageValues>;
+  cabin?: ModuleResult<CabinValues>;
   /** Tüm modüllerin kontrolleri (pano/özet için düzleştirilmiş) */
   allChecks: AnyCheck[];
   allPass: boolean;
@@ -258,6 +268,9 @@ export function activeModules(
   for (const k of ["wheelLoads", "girder", "buckling", "endCarriage"]) {
     if (on(k)) out.add(k);
   }
+  // Kabin ve elektrik odası bölümü yalnız vinçte operatör kabini ya da bir
+  // elektrik yerleşimi (oda / pano) varsa vardır — teknik özellikten gelir.
+  if (cabinModuleApplies(specs) && on("cabin")) out.add("cabin");
   return out;
 }
 
@@ -392,6 +405,11 @@ export function runCalc(input: CalcInput): CalcResult {
         bridgeWeightT: specs.bridgeWeightT,
       })
     );
+  }
+
+  // --- Kabin ve elektrik odası --------------------------------------------
+  if (input.cabin) {
+    out.cabin = push(computeCabin(specs, input.cabin.inputs, input.cabin.selections));
   }
 
   out.allPass = allChecks.every((c) => c.pass);
