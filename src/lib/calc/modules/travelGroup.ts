@@ -54,6 +54,21 @@ import type {
 export const TRAVEL_YES = "Evet";
 export const TRAVEL_NO = "Hayır";
 
+/**
+ * Metrik ton → ABD KISA TONU (short ton) çevrim katsayısı.
+ *
+ * CMAA 70 md. 5.2.9.1.2.1 bağıntısı baştan sona imperial birimlidir: hız
+ * ft/dak, sürtünme f **lb/ton**, ivmelenme teriminin payındaki 2000 sayısı da
+ * bir KISA TONUN pound karşılığıdır (1 short ton = 2000 lb). Dolayısıyla
+ * bağıntıdaki W metrik ton DEĞİL, kısa tondur; hareket eden kütle önce tona,
+ * sonra bu katsayıyla kısa tona çevrilir.
+ *
+ * Tam çevrim 1000 / 907,18474 = 1,10231'dir; firma kabulü yuvarlanmış
+ * **1,1**'dir (fark −%0,21, servis faktörü Ks'nin yanında ihmal edilebilir) ve
+ * hesabın tarihsel dökümüyle birebir aynı sayıyı verir.
+ */
+export const SHORT_TON_PER_TONNE = 1.1;
+
 export type TravelWhich =
   | "trolley"
   | "auxTrolley"
@@ -268,8 +283,11 @@ export interface TravelValues {
   requiredLifeMax: number | null;
   // Motor
   totalWeightKg: number;
-  /** CMAA bağıntısında kullanılan hareket eden toplam ağırlık W [ton] */
-  designWeightTons: number;
+  /**
+   * CMAA bağıntısında kullanılan hareket eden toplam ağırlık W
+   * [**kısa ton / US ton**, metrik ton değil — bkz. `SHORT_TON_PER_TONNE`]
+   */
+  designWeightShortTons: number;
   actualSpeedMpm: number;
   startupTimeS: number;
   frictionFactor: number;
@@ -741,11 +759,14 @@ export function computeTravelGroup(
     ? (capacityT + deps.hookEquipmentT + trolleyWeightT) * 1000
     : (bridgeMovingTrolleyWeightT + bridgeWeightT) * 1000;
   set("weight.moving", totalWeightKg);
-  // CMAA 70 motor bağıntısı ağırlığı tonla ister. Önceki %10 çarpanı fiziksel
-  // bir tasarım payı değildi; kg → ton dönüşümünü yanlış yorumlayan eski kabul
-  // kaldırıldı. W, hareket eden toplam kütlenin doğrudan ton karşılığıdır.
-  const designWeightTons = totalWeightKg / 1000;
-  set("weight.design", designWeightTons);
+  // Hareket eden kütlenin metrik ton karşılığı — ara büyüklük olarak raporda
+  // görünür, böylece kg → ton → kısa ton zinciri okunabilir kalır.
+  const movingWeightTonnes = totalWeightKg / 1000;
+  set("weight.movingTonnes", movingWeightTonnes);
+  // CMAA 70 bağıntısı imperial birimlidir ve W'yi KISA TON (US ton) ister;
+  // metrik ton doğrudan yazılırsa gerekli güç %10 eksik çıkar.
+  const designWeightShortTons = movingWeightTonnes * SHORT_TON_PER_TONNE;
+  set("weight.design", designWeightShortTons);
   // Gerçekleşen yürütme hızı seçilen motor devri ve redüktör oranından çıkar.
   const actualSpeed = (sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.wheelDiaMm / 1000);
   set("drive.actualSpeed", actualSpeed);
@@ -764,7 +785,8 @@ export function computeTravelGroup(
     (friction + (2000 * inp.accelerationMs2 * inertiaCr) / (9.81 * reducerEff)) /
     (inp.accelTorqueFactorKt * 33000);
   set("drive.accelFactor", accelKa);
-  const requiredPower = designWeightTons * (actualSpeed * 3.28) * accelKa * inp.serviceFactorKs * 0.745;
+  const requiredPower =
+    designWeightShortTons * (actualSpeed * 3.28) * accelKa * inp.serviceFactorKs * 0.745;
   set("motor.requiredPower", requiredPower);
   const requiredMaxPower = inp.tempFactor * requiredPower;
   set("motor.requiredMaxPower", requiredMaxPower);
@@ -991,7 +1013,7 @@ export function computeTravelGroup(
     requiredLifeMin,
     requiredLifeMax: life.max,
     totalWeightKg,
-    designWeightTons,
+    designWeightShortTons,
     actualSpeedMpm: actualSpeed,
     startupTimeS: startupTime,
     frictionFactor: friction,

@@ -303,17 +303,12 @@ const WHEEL_WIDTH_SAPMA =
  *    tampona yüklüyordu. Araba iki kirişin ucundaki iki durdurucuya aynı anda
  *    çarptığı için doğrusu m/2'dir.
  */
-const CMAA_W_NO_MARGIN_SAPMA =
-  "CMAA yürütme motoru ağırlığı W, hareket eden toplam kütlenin kg → ton " +
-  "dönüşümüdür; eski tablodaki ek %10 çarpan fiziksel bir tasarım payı değildi. " +
-  "Bu nedenle W ve ondan türeyen motor/redüktör/kaplin büyüklükleri bilinçli " +
-  "olarak tarihsel dökümden ayrılır.";
-
 const BRIDGE_MOVING_W_SAPMA =
   "Köprü yürütmesinde W artık köprü ağırlığına her aktif arabanın kapasite + " +
   "kanca/halat donanımı + araba ağırlığını ekler. Eski tablo kanca/halat " +
   "donanımını dışarıda bırakıyordu; motor zincirindeki tüm türemiş değerler " +
-  "bu nedenle bilinçli olarak farklıdır.";
+  "bu nedenle bilinçli olarak farklıdır. (Ağırlığın KISA TONA çevrilmesi " +
+  "eski tabloyla AYNIDIR — ×1,1 çarpanı geri alınmış bir sapma değildir.)";
 
 export const TROLLEY_SAPMA: Record<string, string> = {
   L189:
@@ -356,12 +351,10 @@ export const TROLLEY_SAPMA: Record<string, string> = {
     "küçüldü; kesme gerilmesi (L65) aynı kaldığı için düşüş daha ılımlıdır: " +
     "73,00 → 52,98 kg/cm² (−27,4 %). Sapma EMNİYETLİ tarafta değil, " +
     "GERÇEKÇİ taraftadır — eski değer aşırı ihtiyatlıydı.",
-  ...Object.fromEntries(
-    [
-      "L108", "L120", "L122", "L124", "L133", "L143", "L145", "L148", "L150", "L152",
-      "L157", "L162", "L164", "O169", "L171", "L174", "L176", "O181", "L183", "L194",
-    ].map((cell) => [cell, CMAA_W_NO_MARGIN_SAPMA])
-  ),
+  // NOT: Araba yürütme motoru zinciri (L108 W, L120 gerekli güç ve ondan
+  // türeyen redüktör/kaplin momentleri) artık SAPMA DEĞİLDİR: CMAA 70
+  // bağıntısındaki W kısa tondur (US ton) ve eski tablonun ×1,1 çarpanı tam
+  // olarak bu birim dönüşümüdür. Değerler tarihsel dökümle yeniden örtüşür.
 };
 
 export const BRIDGE_SAPMA: Record<string, string> = {

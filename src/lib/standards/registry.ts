@@ -1541,6 +1541,13 @@ const CMAA_REFS: Record<string, StandardRef> = {
       "W: hareket ettirilecek toplam ağırlık [ton], V: nominal hız [ft/dak], " +
         "f: yürüyüş sürtünmesi [lb/ton] (Tablo 5.2.9.1.2.1-D), " +
         "Ks: servis faktörü (Tablo 5.2.9.1.2.1-E), Kt: ivmelendirme momenti faktörü.",
+      "BİRİM UYARISI — W METRİK TON DEĞİL, ABD KISA TONUDUR (short ton, " +
+        "1 US ton = 2000 lb = 907,185 kg). Bağıntı baştan sona imperial " +
+        "birimlidir: f tablosu lb/ton basar ve ivmelenme teriminin payındaki " +
+        "2000 sayısı bir kısa tonun pound karşılığıdır. Uygulama hareket eden " +
+        "kütleyi kg → metrik ton → kısa ton sırasıyla çevirir (×1,1; tam çevrim " +
+        "1,10231, firma kabulü yuvarlanmış 1,1'dir). Metrik ton doğrudan " +
+        "yazılırsa gerekli güç yaklaşık %10 EKSİK çıkar.",
       "Redüktör oranı sapması: gerçek tam yük hızı, belirtilen hızın ±%10'u " +
         "içinde kalmalıdır (madde 5.2.10.3).",
     ],

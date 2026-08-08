@@ -25,7 +25,7 @@ import {
   V5_BRIDGE_SELECTIONS,
   V5_TRAVEL_DEPS,
 } from "../defaults/travel";
-import { computeTravelGroup } from "../modules/travelGroup";
+import { computeTravelGroup, SHORT_TON_PER_TONNE } from "../modules/travelGroup";
 import { resolveStandardRef } from "@/lib/standards/registry";
 
 // -------------------------------------------------- Tablo 5.2.9.1.2.1-E (Ks)
@@ -169,7 +169,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
     expect(run(1.2) / run(1.0)).toBeCloseTo(1.2, 9);
   });
 
-  it("CMAA ağırlığı W'nin kg → ton dönüşümüdür; ayrıca %10 pay eklenmez", () => {
+  it("CMAA ağırlığı W metrik ton DEĞİL, kısa tondur (kg → ton → US ton)", () => {
     const values = computeTravelGroup(
       V5_SPECS,
       "bridge",
@@ -177,7 +177,26 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
       V5_BRIDGE_SELECTIONS,
       V5_TRAVEL_DEPS
     ).values;
-    expect(values.designWeightTons).toBeCloseTo(values.totalWeightKg / 1000, 12);
+    expect(values.designWeightShortTons).toBeCloseTo(
+      (values.totalWeightKg / 1000) * SHORT_TON_PER_TONNE,
+      12
+    );
+    // Yuvarlanmış firma katsayısı, tam çevrimden (1000/907,18474) %0,25'ten
+    // fazla sapmaz — bağıntının imperial "ton"u gerçekten kısa tondur.
+    expect(SHORT_TON_PER_TONNE).toBeCloseTo(1000 / 907.18474, 1);
+  });
+
+  it("gerekli güç, ağırlığın kısa tona çevrilmesiyle DOĞRU ORANTILI büyür", () => {
+    const values = computeTravelGroup(
+      V5_SPECS, "bridge", V5_BRIDGE_INPUTS, V5_BRIDGE_SELECTIONS, V5_TRAVEL_DEPS
+    ).values;
+    const metricTonPower =
+      (values.totalWeightKg / 1000) *
+      (values.actualSpeedMpm * 3.28) *
+      values.accelFactorKa *
+      V5_BRIDGE_INPUTS.serviceFactorKs *
+      0.745;
+    expect(values.requiredPowerKw / metricTonPower).toBeCloseTo(SHORT_TON_PER_TONNE, 9);
   });
 
   it("Kt gerekli gücü TERS orantılı ölçekler (Ka ~ 1/Kt)", () => {

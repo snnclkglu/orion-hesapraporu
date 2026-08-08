@@ -326,9 +326,18 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     selectionKeys: ["motorBrand", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
     rows: [
       {
-        key: "weight.design", label: "Hareket Eden Toplam Ağırlık W",
-        formula: "W = ΣG",
+        key: "weight.movingTonnes", label: "Hareket Eden Toplam Kütle ΣG",
+        formula: "ΣG = Σm / 1000",
         subst: (x) => `${n(x.v.totalWeightKg)} / 1000`, unit: "ton",
+      },
+      {
+        // CMAA 70 imperial birimlidir: sürtünme f [lb/ton] ve ivmelenme
+        // terimindeki 2000 sayısı KISA TONA (1 US ton = 2000 lb) aittir.
+        // Metrik ton doğrudan yazılırsa gerekli güç %10 eksik çıkar.
+        key: "weight.design", label: "Hareket Eden Toplam Ağırlık W (kısa ton)",
+        formula: "W = ΣG · 1,1",
+        subst: (x) => `${n(x.v.totalWeightKg / 1000)} · 1,1`,
+        unit: "US ton", standard: "CMAA 70 5.2.9.1.2.1",
       },
       {
         key: "drive.actualSpeed", label: "Yürütme Hızı V (gerçek)",
@@ -368,8 +377,8 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         key: "motor.requiredPower", label: "Gerekli Güç",
         formula: "P = W · (V·3,28) · Ka · Ks · 0,745",
         subst: (x) =>
-          `${n(x.v.designWeightTons)} · (${n(x.v.actualSpeedMpm)}·3,28) · ${n(x.v.accelFactorKa, 6)} · ${n(x.inp.serviceFactorKs)} · 0,745`,
-        unit: "kW",
+          `${n(x.v.designWeightShortTons)} · (${n(x.v.actualSpeedMpm)}·3,28) · ${n(x.v.accelFactorKa, 6)} · ${n(x.inp.serviceFactorKs)} · 0,745`,
+        unit: "kW", standard: "CMAA 70 5.2.9.1.2.1",
       },
       {
         key: "motor.requiredMaxPower", label: "Gerekli Maksimum Güç PNmax",

@@ -224,6 +224,8 @@ Gerekli HP = Ka × W × V × Ks
 ```
 - **W** = hareket ettirilecek toplam ağırlık (ölü + canlı, TON), **V** = nominal sürüş hızı (FPM), **Ks** = servis faktörü (Table 5.2.9.1.2.1-E), **Ka** = ivmelenme faktörü:
 
+> **BİRİM UYARISI — buradaki TON, ABD KISA TONUDUR (short ton = 2000 lb = 907,185 kg), metrik ton değil.** Kanıt bağıntının kendi içindedir: sürtünme tablosu (Table D) **lb/ton** basar ve Ka'nın payındaki **2000** sayısı bir kısa tonun pound karşılığıdır (`2000 lb/ton × a[ft/s²] / g[ft/s²]` → lb/ton). Metrik ton yazılırsa gerekli güç ≈%10 eksik çıkar. Uygulama hareket eden kütleyi `kg → metrik ton → kısa ton` sırasıyla çevirir (`SHORT_TON_PER_TONNE = 1,1`; tam çevrim 1,10231, firma kabulü yuvarlanmış 1,1'dir). Aynı uyarı 5.2.9.1.2.3 (açık saha) ve 5.2.10 (redüksiyon seçimi) bağıntılarındaki W için de geçerlidir.
+
 ```
         f + (2000 × a × Cr) / (g × E)      Nr
 Ka  =  ───────────────────────────────  ×  ──
