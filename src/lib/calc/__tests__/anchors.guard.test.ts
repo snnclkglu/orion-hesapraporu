@@ -62,7 +62,14 @@ import type { AnyCheck } from "../types";
 //        katalogdan ürün seçildi mi, katalogun ortam sıcaklığı üst sınırı
 //        projenin üst sınırını karşılıyor mu ve kapasitenin üretici tarafından
 //        doğrulanacağı bilgilendirmesi.
-const EXPECTED_CHECK_COUNT = 256;
+// 259 = 256 + 3 (mahal ısı yükü hesaplandı):
+//   +3   üç mahalde de ÇEVRE IŞINIM YÜKÜ girilmediğinde çıkan bilgilendirme.
+//        Işınım görüş hattı ister — platform ya da ısı kalkanı varsa yük
+//        ihmal edilebilir; uygulama bunu bilemeyeceği için sessiz sıfır
+//        yazmak yerine kapsam dışı bıraktığını raporda söyler.
+//   Kapasite kontrolü SAYI OLARAK değişmedi ama artık bilgilendirme değil
+//   GERÇEK bir üretici kontrolüdür: hesaplanan yük ≤ katalog kapasitesi.
+const EXPECTED_CHECK_COUNT = 259;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

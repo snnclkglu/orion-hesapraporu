@@ -411,6 +411,11 @@ export const ROOM_INSULATION_OPTIONS = ["rockWool50", "rockWool100"] as const;
 export const ROOM_INSULATION_LABELS: Record<string, string> = {
   rockWool50: "Taş Yünü 50 mm", rockWool100: "Taş Yünü 100 mm",
 };
+export const INSTALLATION_ENVIRONMENTS = ["indoor", "outdoor"] as const;
+export const INSTALLATION_ENVIRONMENT_LABELS: Record<string, string> = {
+  indoor: "Kapalı Mahal",
+  outdoor: "Açık Hava",
+};
 export const AIR_CONDITIONER_PRESENCE_OPTIONS = ["yes", "no"] as const;
 export const AIR_CONDITIONER_PRESENCE_LABELS: Record<string, string> = {
   yes: "Var",
@@ -652,6 +657,17 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Ortam
   { key: "ambientTempMinC", label: "Ortam Sıcaklığı (Min)", unit: "°C", type: "select", options: AMBIENT_TEMP_MIN_C, numeric: true, group: "environment" },
   { key: "ambientTempMaxC", label: "Ortam Sıcaklığı (Maks)", unit: "°C", type: "select", options: AMBIENT_TEMP_MAX_C, numeric: true, group: "environment" },
+  {
+    key: "ambientRelHumidityPct", label: "Ortam Bağıl Nemi", unit: "%", type: "number",
+    group: "environment",
+    hint: "Klima yükünün gizli (nem) kalemini belirler; bilinmiyorsa %50 kabul edilir.",
+  },
+  {
+    key: "installationEnvironment", label: "Çalışma Ortamı", type: "select",
+    options: INSTALLATION_ENVIRONMENTS, optionLabels: INSTALLATION_ENVIRONMENT_LABELS,
+    group: "environment",
+    hint: "Açık havada kabin ve elektrik odasının zarfına güneş yükü biner.",
+  },
 ];
 
 export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
@@ -867,6 +883,16 @@ export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
  * Durumları). Bu üç kutu eskiden "(Elle)" etiketiyle boş isteniyordu; artık
  * türetilen değerle dolar ve anahtar kapatılınca elle düzeltilebilir.
  */
+/**
+ * Kabin bölümünün otomatik alanları. Pano kayıp gücü seçilmiş MOTOR
+ * güçlerinden türetilir (bkz. `drive-losses.ts`); mühendisten sürücü gücü
+ * ayrıca istenmez. Anahtar kapatılınca alan elle girilir.
+ */
+export const CABIN_AUTO_FIELDS: Record<string, string> = {
+  roomDeviceHeatKw: "roomDeviceHeatAuto",
+  panelDeviceHeatKw: "panelDeviceHeatAuto",
+};
+
 export const GIRDER_AUTO_FIELDS: Record<string, string> = {
   psiHAOverride: "psiHAAuto",
   psiHKOverride: "psiHKAuto",

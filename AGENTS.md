@@ -135,33 +135,94 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     dağıldığından (l−e)/l yük payına eşit değildir. Gerekçe modül başlığında.
 
 15. **Feston bir katalog ürünüdür, teknik özellik değil.** I-kiriş kablo
-    taşıyıcı sistemi yürütme grubunun 5.9 bölümüdür: seri `cat_equipment`
+    taşıyıcı sistemi yürütme grubunun 5.9 bölümüdür: ürün `cat_equipment`
     kataloğundan seçilir (`kind = "festoon"`, Conductix-Wampfler + Vasel),
     taşıyıcı adedi / kablo paketi / loop yüksekliği modül GİRDİSİDİR, taşıyıcı
-    başına yük ve hız sınırı KONTROLdür. Katalog satırı (seri × kablo formu)
-    ikilisi başına açılır: aynı seri yassı ve yuvarlak kabloda farklı araba
-    kodu ve farklı çalışma yükü taşıyabiliyor (Vasel VS2020: 35 / 30 kg).
-    Hareket mesafesi sorulmaz — arabada açıklık, köprüde yürüme yolu
-    uzunluğudur (`travelFestoonDistanceM`). Katalogda hız limiti yayımlanmayan
-    seride kontrol BİLGİLENDİRMEYE düşer; uygulama varsayımsal bir limit
-    üretmez. Eski revizyonların `specs.<eksen>Festoon` verisi
-    `migrateFestoon` ile modül girdilerine taşınır.
+    başına yük ve hız sınırı KONTROLdür. Hareket mesafesi sorulmaz — arabada
+    açıklık, köprüde yürüme yolu uzunluğudur (`travelFestoonDistanceM`).
+    Katalogda hız limiti yayımlanmayan seride kontrol BİLGİLENDİRMEYE düşer;
+    uygulama varsayımsal bir limit üretmez. Eski revizyonların
+    `specs.<eksen>Festoon` verisi `migrateFestoon` ile modül girdilerine taşınır.
+
+    **Satır = KABLO ARABASI PARÇA NUMARASI.** `cat_equipment.model` siparişe
+    giden araba kodudur (Conductix `032252-250x160`, Vasel `VS2005A-CT80`);
+    program/seri kodu `attrs.series` altındadır ve seçicinin ikinci süzgeç
+    adımıdır (ilki kablo formu). Kaynak kataloglar seçimi böyle basar: aynı
+    program içinde kablo mesnedi çapı dₐ, araba genişliği b₁ ve kablo paketi
+    penceresi b₂ × s parça numarasına göre değişir. Eşlemede `festoonTrolleyCode`
+    `from: "model"` taşır — katalog SAYFASI marka + model ile arandığından bu
+    bağ zorunludur (`catalogIdentityFields`).
+
+    **Kaynak ve doğrulama durumu ayrımı.** Conductix satırları (92) KAT0320-
+    0003b-EN'in ürün tablolarından birebir gelir; yük ve hız katalogun program
+    başlığında yayımlanmıştır. Vasel satırlarında (23) PARÇA KODLARI Cat.4b/52
+    broşüründen birebirdir ama TAŞIYICI YÜKÜ ve HIZ broşürde YAYIMLANMAMIŞTIR:
+    o iki alan üretici ürün sayfalarından gelir, satır `unverified: true`
+    taşır ve `load_source` kaynağı yazar. Broşürde yalnız fotoğraf + katalog
+    sayfa referansıyla verilen Vasel aileleri (2050/2060/2070, VS25-S2,
+    VS26-S3, VS26-S4) parça kodu ve kablo formu TAŞIMAZ; `catalog_ref`
+    mühendisi Cat.4b/52'nin ilgili sayfasına yönlendirir. Çelik araba parça
+    numarasının sonundaki `/...` yürüyüş takımı kodudur (makara malzemesi +
+    kiriş soneki) ve siparişte tamamlanır; model alanında taşınmaz.
 
 16. **Kabin ve elektrik odası kendi bölümüdür (11.x).** Teknik özelliklerde
     yalnız VARLIK sorulur: kabin var mı, elektrik nerede duruyor (oda / pano),
-    o mahalde klima var mı. Ölçüler, izolasyon, pano adedi ve kurulu yedek
-    düzeni modül girdisidir; klimanın kendisi TMS kataloğundan seçilen bir
-    üründür (`kind = "air_conditioner"`) — katalogdan seçim yalnız hesap
-    bölümlerinde yapılabildiği için bölüm ZORUNLUDUR.
+    o mahalde klima var mı. Ölçüler, izolasyon, KAPI ADEDİ, pano adedi ve
+    kurulu yedek düzeni modül girdisidir; klimanın kendisi TMS kataloğundan
+    seçilen bir üründür (`kind = "air_conditioner"`) — katalogdan seçim yalnız
+    hesap bölümlerinde yapılabildiği için bölüm ZORUNLUDUR. Eski revizyonların
+    `specs` altındaki ölçüleri `migrateCabin` ile taşınır; iklimlendirme SINIFI
+    ("industrial" …) artık sorulmaz, "none" dışındaki her eski değer "klima
+    var" okunur.
 
-    **Isı yükü hesaplanmaz.** Nihai kapasite üreticinin proje bazlı teyidine
-    bağlıdır ve bu bir bilgilendirme kontrolüyle açıkça yazılır. Uygulamanın
-    doğrulayabildiği iki şey kontrol edilir: klima "var" denen mahalde
-    katalogdan ürün seçilmiş mi (firma / engelleyici) ve seçilen ürünün ortam
-    sıcaklığı üst sınırı projenin üst sınırını karşılıyor mu (üretici /
-    engelleyici). Eski revizyonların `specs` altındaki ölçüleri `migrateCabin`
-    ile taşınır; iklimlendirme SINIFI ("industrial" …) artık sorulmaz, "none"
-    dışındaki her eski değer "klima var" olarak okunur.
+17. **Mahal iklimlendirme yükü hesaplanır — `climate-load.ts`.** Çekirdek
+    saftır ve üç mahal (kabin · elektrik odası · pano) aynı fonksiyondan
+    geçer:
+
+        Q = iletim + güneş + ışınım + cihaz ısısı + taze hava  ⟶  × (1 + emniyet)
+
+    - **İletim**: U·A·ΔT, U değeri EN ISO 6946 (Rsi 0,13 · Rse 0,04). KAPILAR
+      kendi U değeriyle ayrı hesaplanır ve panel alanından düşülür — kapı
+      adedinin sorulma sebebi budur (aynı sayı sızıntıya da girer).
+    - **λ SICAKLIKLA ARTAR.** Taş yününün beyan değeri 10 °C ortalama
+      sıcaklıktadır; gerçek ortalama (dış+iç)/2'dir. 60 °C ortamda bu 41 °C
+      eder ve λ ~%15 yükselir. Beyan değerini doğrudan kullanmak ısı geçişini
+      o kadar EKSİK hesaplar — bu hata sessizdir, bu yüzden düzeltme
+      çekirdektedir. Panel ekleri ve karkas için ayrıca %15 ısı köprüsü payı
+      eklenir.
+    - **Güneş** ayrı bir kalem DEĞİLDİR: ASHRAE güneş-hava (sol-air)
+      sıcaklığıyla iletimin içine girer ve yalnız `installationEnvironment =
+      "outdoor"` iken devrededir. Boya soğurma katsayısı α gerçek bir tasarım
+      kaldıracıdır (açık renk çatı yükü belirgin düşürür).
+    - **Işınım HESAPLANMAZ.** Çevredeki sıcak yüzeyden gelen yük görüş hattı
+      ister; elektrik odası platform üzerindeyse ya da altında ısı kalkanı
+      varsa yük ihmal edilebilir düzeye iner (parlak alüminyum kalkan net
+      ışınımı ~%93 keser). Uygulama bunu bilemez: mühendis girer, girmezse
+      kalem sıfırdır ve `kind:"bilgi"` bir kontrol raporda bunu açıkça söyler.
+    - **Taze hava**: basınçlandırmayı (Δp = 4 Pa) ayakta tutan sızıntı
+      debisinin TAM ENTALPİ farkı — duyulur ve gizli ayrı ayrı değil. Sıcak
+      ortamda yükün büyük kısmı NEMDEN gelir; `ambientRelHumidityPct` bu
+      yüzden bir teknik özelliktir.
+
+    **Pano kayıp gücü motor güçlerinden türetilir (`drive-losses.ts`).**
+    Mühendisten sürücü gücü İSTENMEZ: vinçte sürücü ağır hizmet sütunundan,
+    yani motorun anma gücüne göre bir büyük gövdeden seçilir ve ABB ACS880
+    katalogu her gövdenin "Heat dissipation" değerini yayımlar. Üstüne besleme
+    ünitesi/trafo/PLC payı (%80) ve eşzamanlılık (0,6) uygulanır — vinç kesikli
+    çalışır, bütün sürücüleri aynı anda tam yükte saymak klimayı gereksiz
+    büyütürdü. `*Auto` anahtarı kapatılınca mühendis kendi listesini yazar.
+
+    Sabit firma kabulleri çekirdektedir ve SORULMAZ: oda tasarım sıcaklığı
+    25 °C / %50, Δp = 4 Pa, üfleme ΔT = 8 K, sızıntı açıklığı (kapı başına
+    3 cm² + sabit 4 cm²), emniyet katsayısı %15.
+
+    **Kapsam sınırı:** bu bir ÖN BOYUTLANDIRMA ve KONTROLdür. Kapasite
+    kontrolü gerçektir (hesaplanan yük ≤ katalog soğutma kapasitesi, üretici /
+    engelleyici) ama nihai kapasite üreticinin proje bazlı teyidine tabidir.
+    Tarihsel karşılaştırma `__tests__/climate-load.test.ts` sonundadır: TMS'in
+    Erdemir E-House raporuna karşı iletim %1, hesaplanan yük %1 sapar; toplam
+    %3,6 sapar (emniyet katsayısı %10 yerine %15) ve ışınım kalemi bilinçli
+    olarak boştur.
 
 13. **Katalog ürünü kullanım grubuna bağlıdır.** Bir redüktör ya kaldırma ya
     yürütme tahrikidir; `cat_equipment.attrs.application` (`kaldirma` |
@@ -219,10 +280,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     düğme sessizce pasif kalır: koruma `__tests__/catalog-sheets.test.ts`tedir.
 
     Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör
-    (Yılmaz + FLENDER) · motor · feston (yalnız Vasel).
+    (Yılmaz + FLENDER) · motor · feston (Vasel + Conductix-Wampfler).
     Halat, kanca, makara, teker ve ray kataloglarının kaynak PDF'i workspace'te
-    olmadığı için deftere giremez; Conductix'in feston dosyası bir soru
-    formudur, TMS klima kataloğu ise yalnız web sayfalarından derlenmiştir.
+    olmadığı için deftere giremez; TMS klima kataloğu ise yalnız web
+    sayfalarından derlenmiştir. Feston kataloğunda süzgeç SERİ LİSTESİ yerine
+    ALAN SÖZLÜĞÜ de olabilir (`{"series": [...], "cable_form": [...]}`): aynı
+    program yassı ve yuvarlak kabloyu ayrı sayfada basar, seri kodu ikisinde
+    de aynıdır. Workspace'teki FB0300-0005-E feston dosyası bir SORU FORMUDUR
+    ve deftere GİRMEZ; ürün kataloğu KAT0320-0003-EN'dir.
 
     **Üçüncü yol — BAŞLIK TARAMASI (`HEADER_SCAN`).** Bazı kataloglar ölçü
     sayfalarını ürün ürün değil TİP + BOY ARALIĞI olarak basar ("Type H3 —
@@ -376,6 +441,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/calc/modules/` — kaldırma, kanca bloğu, yürütme, **teker yükleri**
   (`wheelLoads.ts` — yol kirişine aktarılan kuvvetler), ana kiriş, buruşma,
   başkiriş, kabin ve elektrik odası (`cabin.ts`)
+- `src/lib/calc/climate-load.ts` — mahal iklimlendirme yükü çekirdeği
+  (psikrometri + zarf ısı geçişi + güneş-hava sıcaklığı)
+- `src/lib/calc/drive-losses.ts` — ABB ACS880 sürücü atık ısısı tablosu
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)

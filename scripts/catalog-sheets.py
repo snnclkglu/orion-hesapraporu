@@ -76,6 +76,7 @@ PDFS = {
     "siemens": "SIEMENS MOTOR KATALOG.pdf",
     "flender": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
     "vasel_festoon": "vasel-i-profil-grubu-kablo-tasima-sistemleri-rf-cat-4b52-brosur-tr.pdf",
+    "conductix_festoon": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
 }
 
 KIND_DIR = {
@@ -170,14 +171,58 @@ MANUAL = [
     # Bu yüzden yalnız broşürde gerçekten çizilmiş seriler haritaya girer;
     # 2050/2060/2070 ve VS25/VS26 broşürde sadece "Katg. No" ile REFERANS
     # verilir — o sayfayı göstermek yanlış tabloya baktırırdı.
-    # Conductix'in workspace'teki dosyası 2 sayfalık bir SORU FORMUDUR, ürün
-    # tablosu içermez; o markaya sayfa yazılmaz.
     ("festoon", "Vasel", "VS2005", "vasel.json", "vasel_festoon", [1], "s.2",
      "Vasel VS2005 — 2005 Serisi kablo taşıma sistemi parça kodları",
      ["VS2005"]),
     ("festoon", "Vasel", "VS2010-VS2020", "vasel.json", "vasel_festoon", [2], "s.3",
      "Vasel VS2010 / VS2015 / VS2020 — parça kodları ve kablo kelepçeleri",
      ["VS2010", "VS2015", "VS2020"]),
+    # Conductix-Wampfler KAT0320-0003b-EN GERÇEK bir ürün kataloğudur (ölçü
+    # tabloları + kiriş uyumluluğu + yürüyüş takımı kodları). Workspace'teki
+    # FB0300-0005-E ile karıştırılmamalıdır: o 2 sayfalık bir SORU FORMUDUR ve
+    # deftere girmez.
+    #
+    # Süzgeç SÖZLÜKTÜR çünkü aynı program yassı ve yuvarlak kabloyu AYRI
+    # sayfada basar; seri kodu ikisinde de aynıdır. Program 0314'te ayrım
+    # kablo bağlantısına iner: küresel mafsallı arabalar kablo KELEPÇESİYLE
+    # (s.6-8), kancalı araba kablo BİLEZİĞİYLE (s.9) kullanılır ve aksesuar
+    # tabloları ayrı sayfalardadır.
+    ("festoon", "Conductix-Wampfler", "0314 Yassi", "conductix_wampfler.json",
+     "conductix_festoon", [3, 4], "s.4-5",
+     "Conductix Program 0314 — yassı kablo plastik arabaları ve sonlandırıcı",
+     {"series": ["0314"], "cable_form": ["Yassı"]}),
+    ("festoon", "Conductix-Wampfler", "0314 Yuvarlak Mafsalli", "conductix_wampfler.json",
+     "conductix_festoon", [5, 6, 7], "s.6-8",
+     "Conductix Program 0314 — küresel mafsallı arabalar, sonlandırıcı ve kablo kelepçesi",
+     {"series": ["0314"], "cable_attachment": ["Küresel mafsal"]}),
+    ("festoon", "Conductix-Wampfler", "0314 Yuvarlak Kancali", "conductix_wampfler.json",
+     "conductix_festoon", [8], "s.9",
+     "Conductix Program 0314 — kancalı araba ve kablo bileziği",
+     {"series": ["0314"], "cable_attachment": ["Kanca"]}),
+    ("festoon", "Conductix-Wampfler", "0320 Yassi", "conductix_wampfler.json",
+     "conductix_festoon", [10], "s.11",
+     "Conductix Program 0320 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0320"], "cable_form": ["Yassı"]}),
+    ("festoon", "Conductix-Wampfler", "0320 Yuvarlak", "conductix_wampfler.json",
+     "conductix_festoon", [11], "s.12",
+     "Conductix Program 0320 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0320"], "cable_form": ["Yuvarlak"]}),
+    ("festoon", "Conductix-Wampfler", "0325 Yassi", "conductix_wampfler.json",
+     "conductix_festoon", [12], "s.13",
+     "Conductix Program 0325 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0325"], "cable_form": ["Yassı"]}),
+    ("festoon", "Conductix-Wampfler", "0325 Yuvarlak", "conductix_wampfler.json",
+     "conductix_festoon", [13], "s.14",
+     "Conductix Program 0325 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0325"], "cable_form": ["Yuvarlak"]}),
+    ("festoon", "Conductix-Wampfler", "0330 Yassi", "conductix_wampfler.json",
+     "conductix_festoon", [14], "s.15",
+     "Conductix Program 0330 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0330"], "cable_form": ["Yassı"]}),
+    ("festoon", "Conductix-Wampfler", "0330 Yuvarlak", "conductix_wampfler.json",
+     "conductix_festoon", [15], "s.16",
+     "Conductix Program 0330 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+     {"series": ["0330"], "cable_form": ["Yuvarlak"]}),
 ]
 
 # --------------------------------------------------- OTOMATİK sayfa keşfi
@@ -366,22 +411,35 @@ def db_model(kind: str, item: dict) -> str:
             return code
         return ("%s kW %sK %s" % (
             item.get("power_kw"), item.get("poles"), item.get("frame_size", ""))).strip()
-    # Festonda ürün kimliği SERİ kodudur (Conductix'te program numarası,
-    # Vasel'de VS20xx); seed de modeli seriden kurar.
+    # Festonda ürün kimliği KABLO ARABASININ sipariş kodudur; seed de modeli
+    # `model` alanından kurar (parça kodu basılmayan Vasel ailelerinde bu alan
+    # seri kodunun kendisidir).
     if kind == "festoon":
-        return str(item.get("series", "")).strip()
+        return str(item.get("model") or item.get("series", "")).strip()
     return str(item.get("model", "")).strip()
 
 
 def manual_items(sheet) -> list[dict]:
-    """ELLE harita satırının kapsadığı ürünler (seri süzgeci verilmişse süzülür)."""
+    """ELLE harita satırının kapsadığı ürünler (süzgeç verilmişse süzülür).
+
+    Dokuzuncu alan iki biçimde verilebilir:
+      * SERİ listesi — `["VS2005"]` (kısa yol, en sık kullanılan)
+      * ALAN → değerler sözlüğü — `{"series": ["0314"], "cable_form": ["Yassı"]}`
+        Feston kataloğu bunu gerektirir: aynı program yassı ve yuvarlak kabloyu
+        AYRI sayfalarda basar, seri kodu ikisinde de aynıdır.
+    """
     kind, _brand, _series, filename, _src, _pages, _printed, _title = sheet[:8]
     items, _meta = load_items(kind, filename)
-    series_filter = sheet[8] if len(sheet) > 8 else None
-    if not series_filter:
+    flt = sheet[8] if len(sheet) > 8 else None
+    if not flt:
         return items
-    keep = set(series_filter)
-    return [it for it in items if str(it.get("series", "")).strip() in keep]
+    if not isinstance(flt, dict):
+        flt = {"series": flt}
+    return [
+        it for it in items
+        if all(str(it.get(field, "")).strip() in set(values)
+               for field, values in flt.items())
+    ]
 
 
 def discover_pages(entry) -> tuple[dict[int, list[str]], int, str]:
@@ -490,18 +548,32 @@ def verify_manual(sheet, src: Source) -> tuple[str, str | None]:
     header = norm(series) in text
 
     items = manual_items(sheet)
-    sizes = [m.group(1) for m in (re.search(r"(\d+)$", db_model(kind, it)) for it in items) if m]
-    hit = sum(1 for s in sizes if s in words)
-    ratio = hit / len(sizes) if sizes else 0.0
+    # Kanıt iki yoldan gelir: ürünün BOY numarası sayfada tek başına bir sözcük
+    # olarak geçiyorsa (ölçü tabloları böyle basar) ya da MODEL KODUNUN kendisi
+    # sayfa metninde geçiyorsa. İkincisi olmadan alfasayısal kodlu kataloglar
+    # (Vasel VS2010A-4WF, VS2015A) doğrulanamıyordu: o kodların sonunda rakam
+    # yok, dolayısıyla boy numarası hiç üretilmiyor ve kanıt boş kalıyordu.
+    models = [db_model(kind, it) for it in items]
+    models = [m for m in models if m]
+
+    def evidenced(model: str) -> bool:
+        size = re.search(r"(\d+)$", model)
+        if size and size.group(1) in words:
+            return True
+        return norm(model) in text
+
+    hit = sum(1 for m in models if evidenced(m))
+    total = len(models)
+    ratio = hit / total if total else 0.0
 
     if header and ratio >= SIZE_COVERAGE_MIN:
-        return ("seri başlığı + boy %d/%d" % (hit, len(sizes)), None)
+        return ("seri başlığı + ürün %d/%d" % (hit, total), None)
     if header:
-        return ("seri başlığı (boy %d/%d)" % (hit, len(sizes)), None)
+        return ("seri başlığı (ürün %d/%d)" % (hit, total), None)
     if ratio >= SIZE_COVERAGE_MIN:
-        return ("boy %d/%d" % (hit, len(sizes)), None)
-    return ("", "%s: sayfada ne seri başlığı ne de yeterli boy numarası var (boy %d/%d)"
-            % (series, hit, len(sizes)))
+        return ("ürün %d/%d" % (hit, total), None)
+    return ("", "%s: sayfada ne seri başlığı ne de yeterli ürün kanıtı var (ürün %d/%d)"
+            % (series, hit, total))
 
 
 # ------------------------------------------------------------------ üretim

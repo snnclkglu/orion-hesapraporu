@@ -181,17 +181,29 @@ const CABIN_ANCHORS: AnchorMap = {
     // sıcaklığı sınırı ve kapasite bilgilendirmesi aynı ürüne aittir.
     "cabinAc.selected": "cabinAc.coolingMax",
     "cabinAc.ambient": "cabinAc.ambientMax",
-    "cabinAc.capacity": "cabinAc.coolingMax",
+    // Kapasite kontrolü, karşılaştırdığı iki sayıdan HESAPLANAN olanın
+    // satırına bağlanır: toplam ısı kazancı.
+    "cabinAc.capacity": "cabinAc.total",
+    // Işınım kapsam bilgilendirmesi kendi satırındadır.
+    "cabinAc.radiationScope": "cabinAc.radiation",
   },
   "11.2": {
     "roomAc.selected": "roomAc.coolingMax",
     "roomAc.ambient": "roomAc.ambientMax",
-    "roomAc.capacity": "roomAc.coolingMax",
+    // Kapasite kontrolü, karşılaştırdığı iki sayıdan HESAPLANAN olanın
+    // satırına bağlanır: toplam ısı kazancı.
+    "roomAc.capacity": "roomAc.total",
+    // Işınım kapsam bilgilendirmesi kendi satırındadır.
+    "roomAc.radiationScope": "roomAc.radiation",
   },
   "11.3": {
     "panelAc.selected": "panelAc.coolingMax",
     "panelAc.ambient": "panelAc.ambientMax",
-    "panelAc.capacity": "panelAc.coolingMax",
+    // Kapasite kontrolü, karşılaştırdığı iki sayıdan HESAPLANAN olanın
+    // satırına bağlanır: toplam ısı kazancı.
+    "panelAc.capacity": "panelAc.total",
+    // Işınım kapsam bilgilendirmesi kendi satırındadır.
+    "panelAc.radiationScope": "panelAc.radiation",
   },
 };
 

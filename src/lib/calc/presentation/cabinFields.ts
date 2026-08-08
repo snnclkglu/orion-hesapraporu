@@ -20,6 +20,18 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
     key: "cabinInsulation", label: "Kabin İzolasyonu", type: "select",
     options: ROOM_INSULATION_OPTIONS, optionLabels: ROOM_INSULATION_LABELS,
   },
+  {
+    key: "cabinDoorCount", label: "Kapı Adedi", unit: "adet", type: "number",
+    hint: "Hem zarf ısı geçişine hem basınçlandırma sızıntısına girer.",
+  },
+  {
+    key: "cabinDeviceHeatKw", label: "Kabin İçi Isı", unit: "kW", type: "number",
+    hint: "Kumanda masası, ekranlar, aydınlatma ve operatör.",
+  },
+  {
+    key: "cabinRadiationKw", label: "Çevre Işınım Yükü", unit: "kW", type: "number",
+    hint: "Kabin kızgın yükü DOĞRUDAN görüyorsa girin. Arada ısı kalkanı ya da platform varsa boş bırakın; ışınım görüş hattı ister.",
+  },
   // --- Elektrik odası
   { key: "roomWidthM", label: "Oda Genişliği", unit: "m", type: "number" },
   { key: "roomLengthM", label: "Oda Uzunluğu", unit: "m", type: "number" },
@@ -32,7 +44,19 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
     key: "roomAcRedundancy", label: "Klima Yedeği", type: "select",
     options: AIR_CONDITIONING_REDUNDANCY_OPTIONS,
     optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS,
-    hint: "1+1 seçilirse odaya iki ünite takılır; biri kurulu yedektir.",
+    hint: "1+1 seçilirse odaya iki ünite takılır; biri kurulu yedektir. Kapasite kontrolü tek üniteye göre yapılır.",
+  },
+  {
+    key: "roomDoorCount", label: "Kapı Adedi", unit: "adet", type: "number",
+    hint: "Hem zarf ısı geçişine hem basınçlandırma sızıntısına girer.",
+  },
+  {
+    key: "roomDeviceHeatKw", label: "Pano Kayıp Gücü", unit: "kW", type: "number",
+    hint: "Otomatikken seçilmiş motor güçlerinden türetilir (ABB ACS880 katalog kayıpları, ağır hizmet seçimi + yardımcı ekipman + eşzamanlılık).",
+  },
+  {
+    key: "roomRadiationKw", label: "Çevre Işınım Yükü", unit: "kW", type: "number",
+    hint: "Oda kızgın yükü DOĞRUDAN görüyorsa girin. Platform ya da ısı kalkanı varsa boş bırakın.",
   },
   // --- Pano tipi yerleşim
   { key: "panelCount", label: "Pano Adedi", unit: "adet", type: "number" },
@@ -46,6 +70,14 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
     options: AIR_CONDITIONING_REDUNDANCY_OPTIONS,
     optionLabels: AIR_CONDITIONING_REDUNDANCY_LABELS,
     hint: "1+1 seçilirse pano BAŞINA iki ünite hesaplanır.",
+  },
+  {
+    key: "panelDeviceHeatKw", label: "Pano Kayıp Gücü", unit: "kW", type: "number",
+    hint: "Otomatikken seçilmiş motor güçlerinden türetilir; panolara eşit dağıtılır.",
+  },
+  {
+    key: "panelRadiationKw", label: "Çevre Işınım Yükü", unit: "kW", type: "number",
+    hint: "Panolar kızgın yükü DOĞRUDAN görüyorsa girin; ısı kalkanı varsa boş bırakın.",
   },
 ];
 

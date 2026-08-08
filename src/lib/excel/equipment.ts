@@ -24,11 +24,15 @@ import {
 import { attrValueLabel } from "@/lib/catalog-mapping";
 import {
   cabinHasAirConditioner,
+  computeCabin,
   panelHasAirConditioner,
   roomHasAirConditioner,
   type CabinInputs,
   type CabinSelections,
+  type CabinValues,
 } from "@/lib/calc/modules/cabin";
+import type { ClimateLoadResult } from "@/lib/calc/climate-load";
+import { cabinDepsFrom } from "@/lib/calc/engine";
 import { CABIN_CLIMATE_SITES } from "@/lib/calc/presentation/cabinSections";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
@@ -560,7 +564,8 @@ function moduleEquipmentRows(
   key: ModuleKey,
   inputs: object,
   selections: object,
-  specs: TechnicalSpecs
+  specs: TechnicalSpecs,
+  cabinValues?: CabinValues
 ): EqRow[] | null {
   if (isHoistKey(key)) {
     return hoistRows(key, inputs as HoistInputs, selections as HoistSelections);
@@ -572,7 +577,7 @@ function moduleEquipmentRows(
     });
   }
   if (key === "cabin") {
-    return cabinRows(specs, inputs as CabinInputs, selections as CabinSelections);
+    return cabinRows(specs, inputs as CabinInputs, selections as CabinSelections, cabinValues);
   }
   if (isTravelKey(key)) {
     return travelRows(
@@ -592,11 +597,18 @@ function moduleEquipmentRows(
  * Mahaller (kabin, oda, pano) ve iklimlendirmeleri artık modül girdisi ve
  * KATALOG SEÇİMİDİR; satırlar da diğer bölümlerle aynı üreticiden geçer.
  */
-function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections): EqRow[] {
+function cabinRows(
+  specs: TechnicalSpecs,
+  inp: CabinInputs,
+  sel: CabinSelections,
+  /** Hesaplanan mahal ısı yükleri — satın alma satırında yükü de göstermek için */
+  values?: CabinValues
+): EqRow[] {
   const rows: EqRow[] = [];
   const acRow = (
     site: (typeof CABIN_CLIMATE_SITES)[number],
-    unitQty: number | string
+    unitQty: number | string,
+    load: ClimateLoadResult | undefined
   ): void => {
     if (!site.selected(specs)) return;
     const get = (suffix: string): unknown =>
@@ -606,6 +618,11 @@ function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections
     const ambient = (get("AmbientMaxC") as number) > 0
       ? `; ortam ≤ ${fmt(get("AmbientMaxC") as number, 0)} °C`
       : "; ortam sıcaklığı sınırı katalogda yayımlanmamış";
+    // Hesaplanan yük satın alma satırında da görünür: teklif veren, seçilen
+    // ünitenin hangi yükü karşılaması gerektiğini raporu açmadan görsün.
+    const duty = load
+      ? `; hesaplanan yük ${fmt(load.totalKw, 2)} kW, üfleme ${fmt(load.airFlowM3h, 0)} m³/h`
+      : "";
     rows.push({
       rowKey: `cabin:${site.rowKey}`,
       kind: "air_conditioner",
@@ -613,8 +630,8 @@ function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections
       brand: textOr(get("Brand") as string, "Seçilmedi"),
       model: textOr(model),
       spec: model
-        ? `${attrValueLabel("application", get("Application"))}; ${textOr(get("Series") as string)}; kapasite ${cooling}${ambient}`
-        : "Katalogdan ürün seçilmedi",
+        ? `${attrValueLabel("application", get("Application"))}; ${textOr(get("Series") as string)}; kapasite ${cooling}${ambient}${duty}`
+        : `Katalogdan ürün seçilmedi${duty}`,
       qty: unitQty,
     });
   };
@@ -628,7 +645,7 @@ function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections
       spec: `${fmt(inp.cabinWidthM, 2)} × ${fmt(inp.cabinLengthM, 2)} × ${fmt(inp.cabinHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.cabinInsulation ?? "rockWool50"]}`,
       qty: 1,
     });
-    acRow(CABIN_CLIMATE_SITES[0], 1);
+    acRow(CABIN_CLIMATE_SITES[0], 1, values?.cabinLoad);
   }
 
   if (specs.electricalAccommodationType === "room") {
@@ -640,7 +657,7 @@ function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections
       spec: `${fmt(inp.roomWidthM, 2)} × ${fmt(inp.roomLengthM, 2)} × ${fmt(inp.roomHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.roomInsulation ?? "rockWool100"]}`,
       qty: 1,
     });
-    acRow(CABIN_CLIMATE_SITES[1], inp.roomAcRedundancy === "nPlusOne" ? "2 (1+1)" : 1);
+    acRow(CABIN_CLIMATE_SITES[1], inp.roomAcRedundancy === "nPlusOne" ? "2 (1+1)" : 1, values?.roomLoad);
   }
 
   if (specs.electricalAccommodationType === "panel") {
@@ -655,7 +672,8 @@ function cabinRows(specs: TechnicalSpecs, inp: CabinInputs, sel: CabinSelections
     });
     acRow(
       CABIN_CLIMATE_SITES[2],
-      inp.panelAcRedundancy === "nPlusOne" ? `${panelCount * 2} (1+1)` : panelCount
+      inp.panelAcRedundancy === "nPlusOne" ? `${panelCount * 2} (1+1)` : panelCount,
+      values?.panelLoad
     );
   }
 
@@ -689,7 +707,8 @@ function withAlternativeRows(
   state: { inputs: object; selections: object },
   mainRows: EqRow[],
   alts: RevisionAlts,
-  specs: TechnicalSpecs
+  specs: TechnicalSpecs,
+  cabinValues?: CabinValues
 ): EqRow[] {
   const variants: { label: number; sectionRawId: string; rows: EqRow[] }[] = [];
   for (const [altKey, st] of Object.entries(alts)) {
@@ -700,7 +719,7 @@ function withAlternativeRows(
       const rows = moduleEquipmentRows(key, state.inputs, {
         ...state.selections,
         ...option,
-      }, specs);
+      }, specs, cabinValues);
       if (rows) variants.push({ label: i + 1, sectionRawId: parts.sectionRawId, rows });
     });
   }
@@ -730,13 +749,20 @@ export function buildEquipmentGroups(
   alts?: RevisionAlts
 ): EqGroup[] {
   const groups: EqGroup[] = [];
+  // Mahal ısı yükleri satın alma satırında da gösterilir; hesap saf olduğu
+  // için burada yeniden koşturulur (sonuç nesnesi bu imzada yok).
+  const cabinValues = input.cabin
+    ? computeCabin(
+        input.specs, input.cabin.inputs, input.cabin.selections, cabinDepsFrom(input)
+      ).values
+    : undefined;
   for (const key of MODULE_ORDER) {
     const state = moduleState(input, key);
     if (!state) continue;
-    const rows = moduleEquipmentRows(key, state.inputs, state.selections, input.specs);
+    const rows = moduleEquipmentRows(key, state.inputs, state.selections, input.specs, cabinValues);
     if (!rows) continue;
     const rowsWithAlternatives = alts
-      ? withAlternativeRows(key, state, rows, alts, input.specs)
+      ? withAlternativeRows(key, state, rows, alts, input.specs, cabinValues)
       : rows;
     // İkiz kaldırma, mühendislik hesabını değil satın alma/montaj için hazır
     // ekipman adetlerini iki katına çıkarır. Kanca bloğu ve diğer gruplar tek

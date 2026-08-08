@@ -58,6 +58,8 @@ export const V5_SPECS: TechnicalSpecs = {
   travelBrakeType: "Eldro Fren",
   ambientTempMinC: -10,
   ambientTempMaxC: 40,
+  ambientRelHumidityPct: 50,
+  installationEnvironment: "indoor",
   supplyVoltage: "380 VAC, 3 Faz, 50 Hz",
   controlVoltage: "24 VDC",
   spanM: 17.5,
@@ -240,14 +242,27 @@ export const DEFAULT_CABIN_INPUTS: CabinInputs = {
   cabinLengthM: 2.5,
   cabinHeightM: 2.4,
   cabinInsulation: "rockWool50",
+  cabinDoorCount: 1,
+  // Kumanda masası, ekranlar, aydınlatma ve operatör — küçük ve sabit.
+  cabinDeviceHeatKw: 0.3,
+  cabinRadiationKw: 0,
   roomWidthM: 3,
   roomLengthM: 4,
   roomHeightM: 2.6,
   roomInsulation: "rockWool100",
   roomAcRedundancy: "none",
+  roomDoorCount: 1,
+  roomDeviceHeatKw: 0,
+  // Pano kaybı motor güçlerinden türetilir; mühendis anahtarı kapatıp kendi
+  // elektrik taşeronundan gelen gerçek listeyi yazabilir.
+  roomDeviceHeatAuto: true,
+  roomRadiationKw: 0,
   panelCount: 1,
   panelIpClass: "IP55",
   panelAcRedundancy: "none",
+  panelDeviceHeatKw: 0,
+  panelDeviceHeatAuto: true,
+  panelRadiationKw: 0,
 };
 
 export const DEFAULT_CABIN_SELECTIONS: CabinSelections = {
@@ -343,6 +358,8 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
 
   ambientTempMinC: -10,
   ambientTempMaxC: 40,
+  ambientRelHumidityPct: 50,
+  installationEnvironment: "indoor",
 
   // Tamponlar — yeni işte hidrolik tampon varsayılır.
   trolleyBufferType: "hidrolik",

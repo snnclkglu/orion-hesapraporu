@@ -252,6 +252,30 @@ export const ATTR_LABELS: Record<string, string> = {
   cable_trolley_code: "Kablo Arabası Kodu",
   tow_trolley_code: "Öncü Araba Kodu",
   end_clamp_code: "Başlangıç Askısı / Sonlandırıcı",
+  tow_clamp_code: "Öncü Kelepçe Kodu",
+  cable_clip_code: "Kablo Kelepçesi / Bileziği",
+  acid_resistant_code: "Aside Dayanıklı Kod",
+  acid_resistant_end_clamp_code: "Aside Dayanıklı Sonlandırıcı",
+  // Kablo mesnedi çapı da: kablonun EN KÜÇÜK BÜKÜLME ÇAPINDAN küçük seçilemez
+  // (katalog s.10 sipariş örneğinin ilk kriteri).
+  cable_support_dia_mm: "Kablo Mesnedi Çapı dₐ [mm]",
+  running_gear_width_mm: "Yürüyüş Takımı Genişliği lw [mm]",
+  trolley_width_mm: "Araba Genişliği b₁ [mm]",
+  cable_window_width_mm: "Kablo Paketi Penceresi — Genişlik b₂ [mm]",
+  cable_window_height_mm: "Kablo Paketi Penceresi — Yükseklik s [mm]",
+  end_clamp_width_mm: "Sonlandırıcı Genişliği lE [mm]",
+  tow_trolley_width_mm: "Öncü Araba Genişliği lM [mm]",
+  tow_clamp_width_mm: "Öncü Kelepçe Genişliği lK [mm]",
+  beam_flange_max_mm: "En Büyük Kiriş Flanş Genişliği b [mm]",
+  beam_inp_range: "Uygun INP Kirişler",
+  beam_ipe_range: "Uygun IPE Kirişler",
+  beam_profile: "Kiriş Profili",
+  roller_flanged_mm: "Flanşlı Makara Ø",
+  roller_cylindrical_mm: "Silindirik Makara Ø",
+  wheel_count: "Tekerlek Sayısı",
+  cable_attachment: "Kablo Bağlantısı",
+  load_source: "Yük Değerinin Kaynağı",
+  catalog_ref: "Katalog Referansı",
 };
 
 /** Bir attrs anahtarının ekranda gösterilecek adı (yoksa anahtarın kendisi). */
@@ -570,23 +594,33 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
     ],
     sortBy: "cooling_capacity_kw_max",
   },
-  // Feston — ürün kimliği SERİ kodudur (Conductix'te program numarası, Vasel'de
-  // VS20xx). Satırlar (seri × kablo formu) ikilisi başına açıktır: taşıyıcı
-  // yükü ve parça kodları kablo formuna göre değişebiliyor.
+  // Feston — ürün kimliği KABLO ARABASININ SİPARİŞ KODUDUR (Conductix
+  // 032252-250x160, Vasel VS2005A-CT80); program/seri kodu `series` altındadır
+  // ve ilk süzgeç adımından sonra gelir. Kaynak kataloglar seçimi araba parça
+  // numarası başına basar: aynı program içinde kablo mesnedi çapı dₐ, araba
+  // genişliği b₁ ve kablo paketi penceresi b₂ × s parça numarasına göre değişir
+  // — bunlar mühendisin gerçek seçim kriterleridir ve tabloda görünür.
+  //
+  // Kablo formu ilk adımdır: elde hangi kablonun olduğu seçimin başlangıcıdır
+  // ve yassı/yuvarlak arabalar tümüyle farklı parça ailesidir.
   festoon: {
     label: "Feston Sistemi",
     facets: [
       { attr: "cable_form", label: "Kablo Formu" },
-      { attr: "line", label: "Ürün Hattı" },
+      { attr: "series", label: "Program / Seri" },
     ],
     minFilter: { attr: "max_trolley_load_kg", label: "En Az Taşıyıcı Yükü", unit: "kg" },
     columns: [
-      { attr: "model", label: "Seri" },
+      { attr: "model", label: "Kablo Arabası" },
+      { attr: "series", label: "Program / Seri" },
       { attr: "line", label: "Ürün Hattı" },
       { attr: "cable_form", label: "Kablo Formu" },
       { attr: "max_trolley_load_kg", label: "Taşıyıcı Yükü", unit: "kg" },
       { attr: "max_speed_mpm", label: "Maks. Hız", unit: "m/dak" },
-      { attr: "cable_trolley_code", label: "Kablo Arabası" },
+      { attr: "cable_support_dia_mm", label: "Mesnet Ø dₐ", unit: "mm" },
+      { attr: "trolley_width_mm", label: "Araba Gen. b₁", unit: "mm" },
+      { attr: "cable_window_width_mm", label: "Pencere b₂", unit: "mm" },
+      { attr: "cable_window_height_mm", label: "Pencere s", unit: "mm" },
       { attr: "tow_trolley_code", label: "Öncü Araba" },
       { attr: "end_clamp_code", label: "Başlangıç / Sonlandırıcı" },
     ],
@@ -655,6 +689,18 @@ export function catalogRowSummary(kind: string, row: CatalogRow): string {
       return `${attrValueLabel("type", a.type)} · ${numFmt(a.stroke_mm)} mm · ${numFmt(a.energy_kj)} kJ · ${numFmt(a.max_force_kn)} kN`;
     case "bearing_housing":
       return `${numFmt(a.compatible_bearing)} · Ø${numFmt(a.bearing_bore_mm)} / Ø${numFmt(a.bearing_outer_dia_mm)} mm · A₂ ${numFmt(a.housing_width_mm)} mm`;
+    case "festoon": {
+      // Kablo paketi penceresi ve mesnet çapı ürünü seçtiren iki ölçüdür;
+      // katalogda basılı olmayanlar (Vasel) satırı boş göstermez, düşer.
+      const parts = [`${numFmt(a.series)} · ${numFmt(a.max_trolley_load_kg)} kg`];
+      if (a.cable_window_width_mm !== undefined) {
+        parts.push(`paket ${numFmt(a.cable_window_width_mm)}×${numFmt(a.cable_window_height_mm)} mm`);
+      }
+      if (a.cable_support_dia_mm !== undefined) {
+        parts.push(`dₐ ${numFmt(a.cable_support_dia_mm)} mm`);
+      }
+      return parts.join(" · ");
+    }
     default:
       return "";
   }
@@ -974,19 +1020,25 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
     ],
   },
   // 5.9 Feston sistemi — bu hareket ekseninin kablo taşıyıcı sistemi.
-  // Kablo formu KATALOG SATIRININ kendi özelliğidir (aynı seri yassı ve
-  // yuvarlak kabloda farklı araba kodu ve farklı taşıyıcı yükü taşıyabiliyor),
+  // Kablo formu KATALOG SATIRININ kendi özelliğidir (yassı ve yuvarlak kablo
+  // arabaları tümüyle ayrı parça ailesidir ve farklı taşıyıcı yükü taşır),
   // bu yüzden seçimle birlikte gelir — mühendisin ayrıca girmesi gerekmez.
+  //
+  // KİMLİK: satırın `model` alanı KABLO ARABASININ sipariş kodudur, o yüzden
+  // `festoonTrolleyCode` doğrudan modele bağlanır; `festoonSeries` ise
+  // program/seri kodunu (`attrs.series`) alır. Katalog SAYFASI defteri marka +
+  // model ile arandığından (`catalogIdentityFields`) eşlemede `from: "model"`
+  // taşıyan bir alan BULUNMAK ZORUNDADIR — burada o alan `festoonTrolleyCode`.
   "5.9": {
     kind: "festoon",
     fields: [
       { sel: "festoonBrand", from: "brand" },
-      { sel: "festoonSeries", from: "model" },
+      { sel: "festoonTrolleyCode", from: "model" },
+      { sel: "festoonSeries", from: { attr: "series" } },
       { sel: "festoonLine", from: { attr: "line" } },
       { sel: "festoonCableForm", from: { attr: "cable_form" } },
       { sel: "festoonTrolleyLoadKg", from: { attr: "max_trolley_load_kg" } },
       { sel: "festoonMaxSpeedMpm", from: { attr: "max_speed_mpm" } },
-      { sel: "festoonTrolleyCode", from: { attr: "cable_trolley_code" } },
       { sel: "festoonTowTrolleyCode", from: { attr: "tow_trolley_code" } },
       { sel: "festoonEndClampCode", from: { attr: "end_clamp_code" } },
     ],

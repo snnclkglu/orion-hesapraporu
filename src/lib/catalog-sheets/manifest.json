@@ -1309,7 +1309,15 @@
     "festoon/vasel-vs2005-p1.webp"
    ],
    "models": [
-    "VS2005"
+    "VS2005A-Y80",
+    "VS2005A-A80",
+    "VS2005A-D80",
+    "VS2005A-C80",
+    "VS2005A-CT80",
+    "VS2005A-CK80",
+    "VS2005A-U80",
+    "VS2005A-UK80",
+    "VS2005A-UK-SB80"
    ]
   },
   {
@@ -1324,9 +1332,235 @@
     "festoon/vasel-vs2010-vs2020-p1.webp"
    ],
    "models": [
-    "VS2010",
-    "VS2015",
-    "VS2020"
+    "VS2010A-4WF",
+    "VS2010A-4WB",
+    "VS2015A",
+    "VS2020A-4WF",
+    "VS2020A-3WF",
+    "VS2020A-4WF-S",
+    "VS2020A-RS2WF",
+    "VS2020A-4WU"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0314-yassi",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0314 Yassi",
+   "title": "Conductix Program 0314 — yassı kablo plastik arabaları ve sonlandırıcı",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.4-5",
+   "images": [
+    "festoon/conductix-wampfler-0314-yassi-p1.webp",
+    "festoon/conductix-wampfler-0314-yassi-p2.webp"
+   ],
+   "models": [
+    "022134-125",
+    "022134-160",
+    "022134-200",
+    "022134-250",
+    "022134-280",
+    "022134-320",
+    "022134-350",
+    "022133-125",
+    "022133-160",
+    "022133-200",
+    "022133-250",
+    "022133-280",
+    "022133-320",
+    "022132-125",
+    "022132-160",
+    "022132-200",
+    "022132-250",
+    "022132-280",
+    "022132-320"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0314-yuvarlak-mafsalli",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0314 Yuvarlak Mafsalli",
+   "title": "Conductix Program 0314 — küresel mafsallı arabalar, sonlandırıcı ve kablo kelepçesi",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.6-8",
+   "images": [
+    "festoon/conductix-wampfler-0314-yuvarlak-mafsalli-p1.webp",
+    "festoon/conductix-wampfler-0314-yuvarlak-mafsalli-p2.webp",
+    "festoon/conductix-wampfler-0314-yuvarlak-mafsalli-p3.webp"
+   ],
+   "models": [
+    "022124-125",
+    "022124-160",
+    "022124-200",
+    "022124-250",
+    "022123-125",
+    "022123-160",
+    "022123-200",
+    "022123-250",
+    "022122-125",
+    "022122-160",
+    "022122-200",
+    "022122-250"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0314-yuvarlak-kancali",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0314 Yuvarlak Kancali",
+   "title": "Conductix Program 0314 — kancalı araba ve kablo bileziği",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.9",
+   "images": [
+    "festoon/conductix-wampfler-0314-yuvarlak-kancali-p1.webp"
+   ],
+   "models": [
+    "022112-125",
+    "022112-160",
+    "022112-200"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0320-yassi",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0320 Yassi",
+   "title": "Conductix Program 0320 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.11",
+   "images": [
+    "festoon/conductix-wampfler-0320-yassi-p1.webp"
+   ],
+   "models": [
+    "032250-160x100",
+    "032250-160x160",
+    "032250-200x100",
+    "032250-200x160",
+    "032252-200x100",
+    "032252-200x160",
+    "032252-250x100",
+    "032252-250x160",
+    "032252-250x200",
+    "032253-250x160",
+    "032253-250x200",
+    "032253-280x160",
+    "032253-280x200"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0320-yuvarlak",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0320 Yuvarlak",
+   "title": "Conductix Program 0320 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.12",
+   "images": [
+    "festoon/conductix-wampfler-0320-yuvarlak-p1.webp"
+   ],
+   "models": [
+    "032464-250x160",
+    "032464-250x200",
+    "032465-320x160",
+    "032465-320x200",
+    "032465-320x250",
+    "032467-400x160",
+    "032467-400x200",
+    "032467-400x250"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0325-yassi",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0325 Yassi",
+   "title": "Conductix Program 0325 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.13",
+   "images": [
+    "festoon/conductix-wampfler-0325-yassi-p1.webp"
+   ],
+   "models": [
+    "032652-220x160",
+    "032652-220x200",
+    "032652-250x160",
+    "032652-250x200",
+    "032653-290x160",
+    "032653-290x200",
+    "032653-290x250",
+    "032653-320x160",
+    "032653-320x200",
+    "032653-320x250",
+    "032654-320x160",
+    "032654-320x200",
+    "032654-320x250"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0325-yuvarlak",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0325 Yuvarlak",
+   "title": "Conductix Program 0325 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.14",
+   "images": [
+    "festoon/conductix-wampfler-0325-yuvarlak-p1.webp"
+   ],
+   "models": [
+    "032865-320x160",
+    "032865-320x200",
+    "032865-320x250",
+    "032867-400x160",
+    "032867-400x200",
+    "032867-400x250"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0330-yassi",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0330 Yassi",
+   "title": "Conductix Program 0330 — yassı kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.15",
+   "images": [
+    "festoon/conductix-wampfler-0330-yassi-p1.webp"
+   ],
+   "models": [
+    "033252-250x160",
+    "033252-250x200",
+    "033252-250x250",
+    "033252-320x160",
+    "033252-320x200",
+    "033252-320x250",
+    "033253-320x160",
+    "033253-320x200",
+    "033253-320x250",
+    "033254-400x160",
+    "033254-400x200",
+    "033254-400x250"
+   ]
+  },
+  {
+   "id": "festoon/conductix-wampfler-0330-yuvarlak",
+   "kind": "festoon",
+   "brand": "Conductix-Wampfler",
+   "series": "0330 Yuvarlak",
+   "title": "Conductix Program 0330 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
+   "source": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+   "printedPages": "s.16",
+   "images": [
+    "festoon/conductix-wampfler-0330-yuvarlak-p1.webp"
+   ],
+   "models": [
+    "033465-320x160",
+    "033465-320x200",
+    "033465-320x250",
+    "033467-400x160",
+    "033467-400x200",
+    "033467-400x250"
    ]
   },
   {

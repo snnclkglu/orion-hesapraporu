@@ -11,6 +11,7 @@
 // anahtarları onlara dayanır.
 
 import {
+  CABIN_AUTO_FIELDS,
   GIRDER_AUTO_FIELDS,
   HOIST_AUTO_FIELDS,
   HOIST_AUTO_SELECTION_FIELDS,
@@ -1268,6 +1269,7 @@ export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefi
   if (isHoistKey(key)) return HOIST_AUTO_FIELDS[fieldKey];
   if (isTravelKey(key)) return TRAVEL_AUTO_FIELDS[fieldKey];
   if (key === "girder") return GIRDER_AUTO_FIELDS[fieldKey];
+  if (key === "cabin") return CABIN_AUTO_FIELDS[fieldKey];
   return undefined;
 }
 

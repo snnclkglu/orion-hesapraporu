@@ -60,10 +60,12 @@ import {
 import {
   cabinModuleApplies,
   computeCabin,
+  type CabinDeps,
   type CabinInputs,
   type CabinSelections,
   type CabinValues,
 } from "./modules/cabin";
+import { driveGroupLossKw, panelHeatKw } from "./drive-losses";
 import {
   HOIST_OF_HOOKBLOCK,
   type HoistKey,
@@ -274,6 +276,34 @@ export function activeModules(
   return out;
 }
 
+/**
+ * Kabin bölümünün pano ısısı girdisi: vincin SEÇİLMİŞ motorlarından türetilir.
+ *
+ * Mühendisten sürücü gücü ayrıca istenmez — vinç tahrikinde sürücü ağır hizmet
+ * sütunundan, yani motorun anma gücüne göre bir büyük gövdeden seçilir ve ABB
+ * katalogu her gövdenin atık ısısını yayımlar (bkz. `drive-losses.ts`).
+ * Yalnız hesaba GİREN (kapatılmamış) bölümlerin motorları sayılır.
+ */
+export function cabinDepsFrom(input: CalcInput): CabinDeps {
+  let installedKw = 0;
+  let inverterLossKw = 0;
+  const add = (m: { selections: { motorPowerKw: number; motorCount: number } } | undefined) => {
+    if (!m) return;
+    const p = m.selections.motorPowerKw;
+    const n = m.selections.motorCount;
+    if (!Number.isFinite(p) || p <= 0) return;
+    const count = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+    installedKw += p * count;
+    inverterLossKw += driveGroupLossKw(p, count);
+  };
+  for (const which of ["main", "aux", "mono1", "mono2"] as const) add(input[HOIST_FIELD[which]]);
+  for (const key of TRAVEL_KEYS) add(input[key]);
+  return {
+    installedDrivePowerKw: installedKw,
+    panelHeatKw: panelHeatKw(inverterLossKw),
+  };
+}
+
 export function runCalc(input: CalcInput): CalcResult {
   const { specs } = input;
   const allChecks: AnyCheck[] = [];
@@ -409,7 +439,9 @@ export function runCalc(input: CalcInput): CalcResult {
 
   // --- Kabin ve elektrik odası --------------------------------------------
   if (input.cabin) {
-    out.cabin = push(computeCabin(specs, input.cabin.inputs, input.cabin.selections));
+    out.cabin = push(
+      computeCabin(specs, input.cabin.inputs, input.cabin.selections, cabinDepsFrom(input))
+    );
   }
 
   out.allPass = allChecks.every((c) => c.pass);

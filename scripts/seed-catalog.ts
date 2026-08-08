@@ -384,20 +384,27 @@ for (const file of couplingFiles) {
 }
 
 // ---------------------------------------------------------------- festoons
-// I-kiriş feston (kablo taşıyıcı) sistemleri. Ürün kimliği SERİ kodudur
-// (Conductix'te program numarası, Vasel'de VS20xx); satırlar (seri × kablo
-// formu) ikilisi başına açılır çünkü taşıyıcı yükü ve parça kodları kablo
-// formuna göre değişebiliyor (VS2020: yassı 35 kg / yuvarlak 30 kg).
-// Katalog sayfası kaynağı olan tek marka Vasel'dir.
+// I-kiriş feston (kablo taşıyıcı) sistemleri. Ürün kimliği KABLO ARABASININ
+// SİPARİŞ KODUDUR — Conductix'te 032252-250x160, Vasel'de VS2005A-CT80 —
+// çünkü kaynak kataloglar seçimi araba parça numarası başına basar: aynı
+// program içinde kablo mesnedi çapı (da), araba genişliği (b1) ve kablo
+// paketi penceresi (b2 × s) parça numarasına göre değişir. Program/seri
+// kodu `attrs.series` altındadır ve seçicinin süzgeç adımıdır.
+//
+// Broşürde yalnız fotoğraf ve tam katalog sayfa referansıyla verilen Vasel
+// aileleri (2050/2060/2070, VS25/VS26) parça kodu taşımaz; onlarda model
+// seri kodunun kendisidir ve `catalog_ref` mühendisi sayfaya yönlendirir.
 for (const file of ["festoons/conductix_wampfler.json", "festoons/vasel.json"]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
   const metaDatasheet = String(meta.datasheet_url ?? "");
   for (const it of items) {
     const a = cleanAttrs(it);
-    const model = String(a.series ?? "");
+    const model = String(a.model ?? a.series ?? "");
     const datasheetUrl = String(a.datasheet_url ?? metaDatasheet);
     delete a.datasheet_url;
+    // `model` satırın kendi sütunudur; attrs içinde ikinci kez taşınmaz.
+    delete a.model;
     push("festoon", brand, model, a, datasheetUrl);
   }
 }

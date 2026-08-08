@@ -226,6 +226,9 @@ export type BridgePowerSupply =
 /** Operatör kabini projeye dâhil mi? */
 export type OperatorCabinPresence = "yes" | "no";
 
+/** Mahallin bulunduğu ortam — güneş yükünü belirler. */
+export type InstallationEnvironment = "indoor" | "outdoor";
+
 /** Elektrik ekipmanının yerleşimi: ayrı oda, yan yana panolar veya yok. */
 export type ElectricalAccommodationType = "none" | "room" | "panel";
 
@@ -324,6 +327,17 @@ export interface TechnicalSpecs {
   travelBrakeType?: string;     // yürütme freni tipi (manyetik/eldro)
   ambientTempMinC: number;      // ortam sıcaklığı alt sınırı [°C]
   ambientTempMaxC: number;      // ortam sıcaklığı üst sınırı [°C]
+  /**
+   * Ortam bağıl nemi [%] — mahal iklimlendirme yükünün GİZLİ (latent) kalemini
+   * belirler. Sıcak ve nemli ortamda taze hava yükünün büyük kısmı nemden
+   * gelir; sıcaklık tek başına yetmez.
+   */
+  ambientRelHumidityPct?: number;
+  /**
+   * Vinç kapalı mahalde mi açık havada mı çalışıyor. Açık havada kabin ve
+   * elektrik odasının zarfına GÜNEŞ yükü biner (güneş-hava sıcaklığı).
+   */
+  installationEnvironment?: InstallationEnvironment;
   supplyVoltage: string;        // besleme gerilimi
   controlVoltage: string;       // kumanda gerilimi
   spanM: number;                // açıklık [m]

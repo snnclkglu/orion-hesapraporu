@@ -163,8 +163,12 @@ describe("model → sayfa eşlemesi", () => {
       // 5.8 bufferModel = "MARKA MODEL"
       ["buffer", undefined, "Conductix-Wampfler 017110-040x032N"],
       ["buffer", undefined, "SIBRE SP 65 FF 100"],
-      // 5.9 festoonBrand + festoonSeries
-      ["festoon", "Vasel", "VS2020"],
+      // 5.9 festoonBrand + festoonTrolleyCode (from: "model") — festonda
+      // ürün kimliği KABLO ARABASININ sipariş kodudur, seri kodu değil.
+      ["festoon", "Vasel", "VS2020A-4WU"],
+      ["festoon", "Vasel", "VS2005A-CT80"],
+      ["festoon", "Conductix-Wampfler", "032252-250x160"],
+      ["festoon", "Conductix-Wampfler", "022134-350"],
     ];
     for (const [kind, brand, model] of cases) {
       expect(
@@ -179,9 +183,11 @@ describe("model → sayfa eşlemesi", () => {
     // vardır ama ölçü sayfası YOKTUR. Yakın bir sayfa göstermek yanlış ölçü
     // tablosuna baktırırdı.
     expect(findCatalogSheet("gearbox", undefined, "FLENDER H2-03")).toBeUndefined();
-    // Conductix'in workspace'teki feston dosyası bir SORU FORMUDUR; ürün
-    // tablosu içermediği için o markaya sayfa yazılmaz.
-    expect(findCatalogSheet("festoon", "Conductix-Wampfler", "0320")).toBeUndefined();
+    // Vasel broşürü 2050/2060/2070 ve VS25/VS26 ailelerini YALNIZ fotoğraf ve
+    // "Katg. No" referansıyla verir — parça kodu ve ölçü tablosu tam katalogda
+    // (Cat.4b/52 s.27-41) olduğu için o ailelere sayfa yazılmaz.
+    expect(findCatalogSheet("festoon", "Vasel", "VS2050")).toBeUndefined();
+    expect(findCatalogSheet("festoon", "Vasel", "VS26-S3")).toBeUndefined();
   });
 
   it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {
@@ -192,9 +198,11 @@ describe("model → sayfa eşlemesi", () => {
     expect(hasCatalogSheets("hook")).toBe(false);
     expect(hasCatalogSheets("sheave")).toBe(false);
     expect(hasCatalogSheets("wheel")).toBe(false);
-    // Feston: Vasel broşürü workspace'tedir, Conductix'inki soru formudur.
+    // Feston: iki markanın da kaynak kataloğu workspace'tedir — Vasel
+    // Cat.4b/52 broşürü ve Conductix KAT0320-0003b-EN ürün kataloğu.
+    // (Workspace'teki FB0300-0005-E ise bir SORU FORMUDUR ve deftere girmez.)
     expect(hasCatalogSheets("festoon", "Vasel")).toBe(true);
-    expect(hasCatalogSheets("festoon", "Conductix-Wampfler")).toBe(false);
+    expect(hasCatalogSheets("festoon", "Conductix-Wampfler")).toBe(true);
     expect(hasCatalogSheets("coupling", "OZGUN")).toBe(true);
     expect(hasCatalogSheets("coupling", "ÖZGÜN")).toBe(true);
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);
