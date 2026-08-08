@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { ContractOpenButton } from "../contract-upload";
+import { JobStatusMenu } from "../job-status-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { JobArchiveButton } from "./job-archive-button";
 
 const SCOPE_LABELS: [string, string][] = [
   ["proje", "Proje"], ["devreyeAlma", "Devreye Alma"], ["malzeme", "Malzeme"],
@@ -40,6 +41,41 @@ function KV({
   );
 }
 
+/** Kaleme bağlı hesap raporunun özeti (son revizyon rozetiyle) */
+interface LinkedReport {
+  id: string;
+  doc_no: string;
+  name: string;
+  status: string;
+  revisions?: { rev_no: number; status: string }[] | null;
+}
+
+function ReportCell({ report }: { report: LinkedReport | null }) {
+  if (!report) {
+    return (
+      <span className="text-xs text-muted-foreground/70">
+        Rapor bağlı değil
+      </span>
+    );
+  }
+  const lastRev = [...(report.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <Link
+        href={`/projects/${report.id}`}
+        className="font-mono text-sm font-medium text-primary hover:underline"
+      >
+        {report.doc_no}
+      </Link>
+      {lastRev && (
+        <Badge variant={lastRev.status === "issued" ? "default" : "secondary"} className="text-[10px]">
+          V{lastRev.rev_no} · {lastRev.status === "issued" ? "yayınlandı" : "taslak"}
+        </Badge>
+      )}
+    </span>
+  );
+}
+
 export default async function JobPage({
   params,
 }: {
@@ -51,10 +87,15 @@ export default async function JobPage({
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
   if (!job) notFound();
 
+  // Hesap raporu İŞE değil İŞ KALEMİNE bağlanır: bir iş emrinde birden çok
+  // ürün olur ve her ürünün kendi raporu vardır. Kalem satırı raporunu
+  // doğrudan taşır; kaleme bağlanmamış raporlar ayrı listelenir.
   const [{ data: items }, { data: cranes }] = await Promise.all([
     supabase
       .from("job_items")
-      .select("item_no, product_name, quantity, project_id")
+      .select(
+        "item_no, product_name, quantity, project_id, projects:project_id(id, doc_no, name, status, revisions(rev_no, status))"
+      )
       .eq("job_id", id)
       .order("sort", { ascending: true }),
     supabase
@@ -65,7 +106,11 @@ export default async function JobPage({
   ]);
 
   const itemList = items ?? [];
-  const list = cranes ?? [];
+  const linkedProjectIds = new Set(
+    itemList.map((it) => it.project_id).filter((v): v is string => Boolean(v))
+  );
+  // Kaleme bağlanmamış raporlar (eski kayıtlar ya da doğrudan işe bağlananlar)
+  const unlinked = (cranes ?? []).filter((p) => !linkedProjectIds.has(p.id));
   const scope = (job.scope ?? {}) as Record<string, boolean>;
   const activeScopes = SCOPE_LABELS.filter(([k]) => scope[k]).map(([, l]) => l);
 
@@ -85,11 +130,7 @@ export default async function JobPage({
             <span className="font-mono tabular-nums">{fmtDate(job.work_order_date)}</span>
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-1.5">
-              <span className={cn("size-2 rounded-full", job.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
-              {job.status === "active" ? "aktif" : "arşiv"}
-            </span>
-            <JobArchiveButton jobId={job.id} archived={job.status === "archived"} />
+            <JobStatusMenu jobId={job.id} status={job.status} size="md" />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -106,9 +147,14 @@ export default async function JobPage({
         </div>
       </div>
 
-      {/* İş kalemleri */}
+      {/* İş kalemleri — her kalem kendi hesap raporunu taşır */}
       <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold">İş Kalemleri</div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2">
+          <span className="text-sm font-semibold">İş Kalemleri</span>
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {itemList.length} kalem · {linkedProjectIds.size} rapor bağlı
+          </span>
+        </div>
         {itemList.length === 0 ? (
           <div
             className="flex flex-col items-center gap-2 px-4 py-8 text-center"
@@ -128,24 +174,34 @@ export default async function JobPage({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="w-[8%]">#</TableHead>
+                <TableHead className="w-[6%]">#</TableHead>
+                <TableHead className="w-[14%]">İş Kalemi No</TableHead>
                 <TableHead>Ürün Adı</TableHead>
-                <TableHead className="w-[16%]">İş No</TableHead>
-                <TableHead className="w-[12%]">Adet</TableHead>
+                <TableHead className="w-[9%]">Adet</TableHead>
+                <TableHead className="w-[26%]">Hesap Raporu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {itemList.map((it, i) => (
                 <TableRow key={i}>
                   <TableCell className="font-mono tabular-nums text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{it.product_name}</TableCell>
                   <TableCell className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
+                  <TableCell className="font-medium">{it.product_name}</TableCell>
                   <TableCell className="font-mono tabular-nums">{it.quantity || "—"}</TableCell>
+                  <TableCell>
+                    <ReportCell
+                      report={(it.projects as unknown as LinkedReport | null) ?? null}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
+        <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+          Hesap raporu iş kalemine bağlanır. Bağlamak için Projeler bölümünde
+          raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve kalemi seçin.
+        </p>
       </div>
 
       {/* Müşteri + iş bilgileri */}
@@ -167,7 +223,19 @@ export default async function JobPage({
           <KV label="Teslim Tarihi" value={fmtDate(job.delivery_date)} mono />
           <KV label="Adet" value={job.quantity_text} />
           <KV label="İş Lideri" value={job.job_leader} />
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          {job.contract_file_path ? (
+            <div className="mt-3">
+              <ContractOpenButton
+                path={job.contract_file_path}
+                fileName={job.contract_file_name}
+              />
+            </div>
+          ) : job.contract_exists ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Sözleşme dosyası yüklenmemiş — &quot;Düzenle&quot; ile PDF ekleyebilirsiniz.
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {activeScopes.length > 0 ? (
               activeScopes.map((sLabel) => (
                 <Badge key={sLabel} variant="secondary" className="text-[11px]">{sLabel}</Badge>
@@ -191,27 +259,17 @@ export default async function JobPage({
         </div>
       )}
 
-      {/* Vinçler / hesap raporları — hesap raporu YALNIZCA Projeler bölümünden
-          açılır, sonra "İşe Bağla" ile bu işe bağlanır. Burada sadece listelenir. */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">Hesap Raporları (Vinçler)</h2>
-        {list.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center gap-4 border bg-card px-6 py-12 text-center"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(135deg, var(--muted) 0 10px, transparent 10px 20px)",
-            }}
-          >
-            <h3 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
-              [ HENÜZ HESAP RAPORU YOK ]
-            </h3>
-            <p className="max-w-sm bg-card px-3 py-1 text-sm text-foreground/70">
-              Bu işe bağlı hesap raporu yok. Projeler bölümünden oluşturup işe
-              bağlayabilirsiniz.
-            </p>
-          </div>
-        ) : (
+      {/* Kaleme bağlanmamış raporlar — eski kayıtlarda ya da kalem açılmadan
+          bağlanan raporlarda görünür; kaleme taşınması için hatırlatıcıdır. */}
+      {unlinked.length > 0 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold tracking-tight">
+            Kaleme Bağlanmamış Hesap Raporları
+          </h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Bu raporlar işe bağlı ama bir iş kalemine atanmamış. Projeler
+            bölümündeki &quot;İşe Bağla&quot; ile kalem seçerek eşleştirin.
+          </p>
           <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
@@ -224,7 +282,7 @@ export default async function JobPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((p) => {
+                {unlinked.map((p) => {
                   const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
                   return (
                     <TableRow key={p.id} className="relative cursor-pointer">
@@ -250,7 +308,7 @@ export default async function JobPage({
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-sm">
                           <span className={cn("size-2 rounded-full", p.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
-                          {p.status === "active" ? "aktif" : "arşiv"}
+                          {p.status === "active" ? "Aktif" : "Arşiv"}
                         </span>
                       </TableCell>
                     </TableRow>
@@ -259,8 +317,8 @@ export default async function JobPage({
               </TableBody>
             </Table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

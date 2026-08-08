@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "../../job-form";
+import { loadJobFormData } from "../../form-data";
 import type { JobInput } from "../../schema";
 
 export default async function EditJobPage({
@@ -16,17 +17,21 @@ export default async function EditJobPage({
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
   if (!job) notFound();
 
-  const { data: items } = await supabase
-    .from("job_items")
-    .select("item_no, product_name, quantity")
-    .eq("job_id", id)
-    .order("sort", { ascending: true });
+  const [{ data: items }, formData] = await Promise.all([
+    supabase
+      .from("job_items")
+      .select("item_no, product_name, quantity")
+      .eq("job_id", id)
+      .order("sort", { ascending: true }),
+    loadJobFormData(),
+  ]);
 
   const scope = (job.scope ?? {}) as Partial<JobInput["scope"]>;
   const initial: JobInput = {
     job_no: job.job_no ?? "",
     title: job.title ?? "",
     customer: job.customer ?? "",
+    customer_id: job.customer_id ?? null,
     work_order_date: job.work_order_date ?? "",
     customer_address: job.customer_address ?? "",
     customer_tax_office: job.customer_tax_office ?? "",
@@ -35,6 +40,8 @@ export default async function EditJobPage({
     customer_fax: job.customer_fax ?? "",
     contract_exists: !!job.contract_exists,
     contract_date: job.contract_date ?? "",
+    contract_file_path: job.contract_file_path ?? "",
+    contract_file_name: job.contract_file_name ?? "",
     workshop_exit_date: job.workshop_exit_date ?? "",
     delivery_date: job.delivery_date ?? "",
     quantity_text: job.quantity_text ?? "",
@@ -61,7 +68,13 @@ export default async function EditJobPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">İş Emrini Düzenle</h1>
       </div>
-      <JobForm mode="edit" jobId={id} initial={initial} />
+      <JobForm
+        mode="edit"
+        jobId={id}
+        initial={initial}
+        customers={formData.customers}
+        people={formData.people}
+      />
     </div>
   );
 }

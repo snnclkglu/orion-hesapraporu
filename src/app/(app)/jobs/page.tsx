@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { Briefcase, Building2, Construction, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { jobStatusOf } from "@/lib/job-status";
+import { JobsTable, type JobRow } from "./jobs-table";
 import { Button } from "@/components/ui/button";
 
 function NewJobButton() {
@@ -44,17 +42,42 @@ function StatCard({
 
 export default async function JobsPage() {
   const supabase = await createClient();
-  const { data: jobs } = await supabase
-    .from("jobs")
-    .select("id, job_no, title, customer, status, created_at, projects(id)")
-    .order("created_at", { ascending: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const list = jobs ?? [];
-  const craneCount = list.reduce((sum, j) => sum + (j.projects?.length ?? 0), 0);
+  const [{ data: jobs }, { data: profile }] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select(
+        "id, job_no, title, customer, status, work_order_date, created_at, projects(id), job_items(id)"
+      )
+      .order("created_at", { ascending: false }),
+    // Silme yalnızca yöneticide: jobs DELETE politikası is_admin() ister,
+    // yetkisiz kullanıcıya buton hiç gösterilmez.
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const list: JobRow[] = (jobs ?? []).map((j) => ({
+    id: j.id,
+    job_no: j.job_no,
+    title: j.title,
+    customer: j.customer ?? "",
+    status: j.status,
+    work_order_date: j.work_order_date ?? null,
+    created_at: j.created_at,
+    itemCount: j.job_items?.length ?? 0,
+    craneCount: j.projects?.length ?? 0,
+  }));
+
+  const craneCount = list.reduce((sum, j) => sum + j.craneCount, 0);
   const customers = new Set(list.map((j) => j.customer)).size;
   const lastCreated = list[0]?.created_at
     ? new Date(list[0].created_at).toLocaleDateString("tr-TR")
     : "—";
+  const activeCount = list.filter((j) => jobStatusOf(j.status) === "active").length;
 
   return (
     <div className="grid gap-6">
@@ -73,7 +96,7 @@ export default async function JobsPage() {
         <StatCard
           label="Toplam İş"
           value={String(list.length)}
-          hint={`${list.filter((j) => j.status === "active").length} aktif`}
+          hint={`${activeCount} Aktif`}
           icon={Briefcase}
         />
         <StatCard
@@ -114,50 +137,7 @@ export default async function JobsPage() {
           <NewJobButton />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>İş No</TableHead>
-                <TableHead>İşin Adı</TableHead>
-                <TableHead>Müşteri</TableHead>
-                <TableHead>Vinç</TableHead>
-                <TableHead>Tarih</TableHead>
-                <TableHead>Durum</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.map((j) => (
-                <TableRow key={j.id} className="relative cursor-pointer">
-                  <TableCell className="font-mono text-sm font-medium text-primary">
-                    <Link href={`/jobs/${j.id}`} className="after:absolute after:inset-0">
-                      {j.job_no}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-medium">{j.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{j.customer}</TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {j.projects?.length ?? 0}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
-                    {new Date(j.created_at).toLocaleDateString("tr-TR")}
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5 text-sm">
-                      <span
-                        className={cn(
-                          "size-2",
-                          j.status === "active" ? "bg-success" : "bg-muted-foreground/40"
-                        )}
-                      />
-                      {j.status === "active" ? "aktif" : "arşiv"}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <JobsTable jobs={list} canDelete={profile?.role === "admin"} />
       )}
     </div>
   );

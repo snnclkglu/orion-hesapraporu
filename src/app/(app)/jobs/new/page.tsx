@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { JobForm, EMPTY_JOB } from "../job-form";
+import { loadJobFormData } from "../form-data";
 
-export default function NewJobPage() {
+export default async function NewJobPage() {
+  const { customers, people } = await loadJobFormData();
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="mb-4">
@@ -14,7 +17,7 @@ export default function NewJobPage() {
           FR.11.02 iş emri formu — müşteri, iş kalemleri, kapsam ve teslim bilgileri.
         </p>
       </div>
-      <JobForm mode="create" initial={EMPTY_JOB} />
+      <JobForm mode="create" initial={EMPTY_JOB} customers={customers} people={people} />
     </div>
   );
 }

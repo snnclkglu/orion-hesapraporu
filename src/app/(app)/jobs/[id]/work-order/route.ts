@@ -59,7 +59,13 @@ export async function GET(
   };
 
   const buffer = await renderWorkOrderPdf(data, settings);
-  const filename = `${job.job_no || "is-emri"}-is-emri.pdf`;
+  // Dosya adı: "İş No - İşin Adı - İş Emri". İndirilenler klasöründe iş emirleri
+  // yan yana durduğunda hangi işe ait olduğu adından okunmalıdır. Dosya adında
+  // kullanılamayan karakterler (\ / : * ? " < > |) boşluğa çevrilir.
+  const safe = (v: string) => v.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  const filename = [safe(job.job_no ?? ""), safe(job.title ?? ""), "İş Emri"]
+    .filter(Boolean)
+    .join(" - ") + ".pdf";
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);
 

@@ -45,6 +45,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npm run build` — production build
 - `npx tsx scripts/test-pdf.ts` — PDF raporu üç seviyede üret (duman testi)
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
+- `npx tsx scripts/test-work-order.ts` — iş emri PDF'ini 1…16 kalemle üret
+  (sayfa dengesi görsel kontrolü)
 - `python scripts/catalog-sheets.py [--verify]` — katalog sayfalarını kaynak
   PDF'lerden kes (kaplinler); `--verify` yalnız sayfa haritasını sınar
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
@@ -169,6 +171,25 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
    `standard: "..."` yazarsan deftere de ekle (aksi hâlde rozet ölü kalır).
+
+14. **Hesap raporu İŞE değil İŞ KALEMİNE bağlanır.** Bir iş emri (`jobs`)
+    birden çok ürün içerir (`job_items`); rapor bir ÜRÜNÜN hesabıdır, işin
+    değil. Bağlantı `job_items.project_id`tedir; `projects.job_id` yalnız hızlı
+    süzme içindir ve `assignProjectToJob` ikisini birlikte yazar. İş detayında
+    her kalem satırı kendi raporunu gösterir; kaleme bağlanmamış raporlar ayrı
+    listelenir ki eşleşmemiş kayıt gözden kaçmasın.
+
+    **Kalem numarası kuralı** (`autoItemNos`, jobs/schema.ts): iş no `0075` ise
+    TEK kalemli işte kalem `0075-00`, ÇOK kalemlide numaralar `0075-01`den
+    başlar — yani ikinci kalem eklendiğinde ilk kalemin numarası da kayar.
+    Otomatik anahtar kapatılınca elle yazılır (uygulamanın `*Auto` deseni).
+
+    **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
+    `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
+    sonradan güncellenince yayınlanmış iş emri değişmez.
+
+    **İş durumu** `job_status` enum'udur (aktif · pasif · tamamlandı · arşiv);
+    `projects.status` ile karıştırılmaz, etiket/renk `lib/job-status.ts`tedir.
 
 7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
    JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap

@@ -7,7 +7,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { jobInputSchema, type JobInput, type JobItemInput } from "./schema";
+import { JOB_STATUSES, type JobStatus } from "@/lib/job-status";
+import {
+  customerInputSchema,
+  jobInputSchema,
+  type CustomerInput,
+  type CustomerOption,
+  type JobInput,
+  type JobItemInput,
+} from "./schema";
 export type { JobInput, JobItemInput } from "./schema";
 
 export type ActionResult = { error?: string };
@@ -116,29 +124,109 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   redirect(`/jobs/${jobId}`);
 }
 
-export async function setJobArchived(
+/**
+ * İşin durumunu değiştirir (Aktif · Pasif · Tamamlandı · Arşiv).
+ *
+ * Liste satırından ve iş detayından tek tıkla çağrılır; bu yüzden yönlendirme
+ * YAPMAZ, yalnız ilgili sayfaları tazeler.
+ */
+export async function setJobStatus(
   jobId: string,
-  archived: boolean
+  status: JobStatus
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
+  if (!JOB_STATUSES.includes(status)) return { error: "Geçersiz iş durumu" };
 
-  const { error } = await supabase
-    .from("jobs")
-    .update({ status: archived ? "archived" : "active" })
-    .eq("id", jobId);
+  const { error } = await supabase.from("jobs").update({ status }).eq("id", jobId);
   if (error) return { error: error.message };
 
   await supabase.from("audit_log").insert({
     actor: user.id,
-    action: archived ? "job.archive" : "job.unarchive",
-    detail: { job_id: jobId },
+    action: "job.status",
+    detail: { job_id: jobId, status },
   });
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
   return {};
+}
+
+/**
+ * İşi kalıcı olarak siler. `job_items` cascade ile gider; bağlı hesap raporları
+ * SİLİNMEZ — `projects.job_id` null'a düşer (raporun kendi ömrü vardır).
+ * RLS silmeyi yalnız yöneticiye açar; yetkisiz çağrı sessizce başarısız
+ * olmasın diye satır sayısı kontrol edilir.
+ */
+export async function deleteJob(jobId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .delete()
+    .eq("id", jobId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "İş silinemedi — silme yetkisi yalnız yöneticidedir." };
+  }
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "job.delete",
+    detail: { job_id: jobId },
+  });
+
+  revalidatePath("/jobs");
+  return {};
+}
+
+// ------------------------------------------------------------------ müşteri
+
+/**
+ * Müşteri defterine yeni kayıt açar ve kaydı geri döner — form açılır listeyi
+ * yeniden yüklemeden seçebilsin diye. Aynı ada sahip kayıt varsa MEVCUT kayıt
+ * döner (unique index büyük/küçük harf duyarsızdır); mükerrer müşteri açılmaz.
+ */
+export async function createCustomer(
+  input: CustomerInput
+): Promise<{ error?: string; customer?: CustomerOption }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsed = customerInputSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const columns = "id, name, address, tax_office, tax_no, phone, fax, notes";
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({ ...parsed.data, created_by: user.id })
+    .select(columns)
+    .single();
+
+  if (error) {
+    if (error.code !== "23505") return { error: error.message };
+    // Aynı isim zaten kayıtlı: kullanıcıyı hata ile durdurmak yerine mevcut
+    // kaydı döndürüp seçilmesini sağlıyoruz.
+    const { data: existing } = await supabase
+      .from("customers")
+      .select(columns)
+      .ilike("name", parsed.data.name)
+      .maybeSingle();
+    if (!existing) return { error: "Bu müşteri zaten kayıtlı." };
+    return { customer: existing as CustomerOption };
+  }
+
+  revalidatePath("/jobs");
+  return { customer: data as CustomerOption };
 }
