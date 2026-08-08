@@ -34,6 +34,9 @@ const nextConfig: NextConfig = {
     "/projects/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
     // İş Emri PDF'i (jobs/[id]/work-order route'u) aynı font+logo dosyalarını okur
     "/jobs/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
+    // Katalog sayfaları: üretici katalog sayfaları `public/` altında DEĞİLDİR
+    // (kimlik doğrulamalı uçtan sunulur), bu yüzden trace'e elle eklenir.
+    "/api/catalog-sheet/**": ["./catalog-sheets/**/*"],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

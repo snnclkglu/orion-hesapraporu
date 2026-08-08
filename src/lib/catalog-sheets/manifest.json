@@ -1,0 +1,1299 @@
+{
+  "sheets": [
+    {
+      "id": "coupling/ozgun-a",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "A",
+      "title": "ÖZGÜN Tip A — Tam-flex dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.15",
+      "pdf": "coupling/ozgun-a.pdf",
+      "images": [
+        "coupling/ozgun-a-p1.webp"
+      ],
+      "models": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+        "A10",
+        "A11",
+        "A12",
+        "A13"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-b1",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "B1",
+      "title": "ÖZGÜN Tip B1 — Fren kasnaklı kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.16",
+      "pdf": "coupling/ozgun-b1.pdf",
+      "images": [
+        "coupling/ozgun-b1-p1.webp"
+      ],
+      "models": [
+        "B1-1",
+        "B1-2",
+        "B1-3",
+        "B1-4",
+        "B1-5",
+        "B1-6",
+        "B1-7",
+        "B1-8"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-b2",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "B2",
+      "title": "ÖZGÜN Tip B2 — Fren kasnaklı kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.17",
+      "pdf": "coupling/ozgun-b2.pdf",
+      "images": [
+        "coupling/ozgun-b2-p1.webp"
+      ],
+      "models": [
+        "B2-1",
+        "B2-2",
+        "B2-3",
+        "B2-4",
+        "B2-5",
+        "B2-6",
+        "B2-7",
+        "B2-8"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-b3",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "B3",
+      "title": "ÖZGÜN Tip B3 — Fren kasnaklı kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.18",
+      "pdf": "coupling/ozgun-b3.pdf",
+      "images": [
+        "coupling/ozgun-b3-p1.webp"
+      ],
+      "models": [
+        "B3-1",
+        "B3-2",
+        "B3-3",
+        "B3-4",
+        "B3-5",
+        "B3-6",
+        "B3-7",
+        "B3-8"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-c",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "C",
+      "title": "ÖZGÜN Tip C — Elastik kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.19",
+      "pdf": "coupling/ozgun-c.pdf",
+      "images": [
+        "coupling/ozgun-c-p1.webp"
+      ],
+      "models": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8",
+        "C9",
+        "C10"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-da",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Da",
+      "title": "ÖZGÜN Tip Da — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.20",
+      "pdf": "coupling/ozgun-da.pdf",
+      "images": [
+        "coupling/ozgun-da-p1.webp"
+      ],
+      "models": [
+        "Da1",
+        "Da2",
+        "Da3",
+        "Da4",
+        "Da5",
+        "Da6",
+        "Da7",
+        "Da8",
+        "Da9",
+        "Da10",
+        "Da11",
+        "Da12",
+        "Da13",
+        "Da14",
+        "Da15",
+        "Da16",
+        "Da17",
+        "Da18",
+        "Da19",
+        "Da20"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-db",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Db",
+      "title": "ÖZGÜN Tip Db — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.21",
+      "pdf": "coupling/ozgun-db.pdf",
+      "images": [
+        "coupling/ozgun-db-p1.webp"
+      ],
+      "models": [
+        "Db1",
+        "Db2",
+        "Db3",
+        "Db4",
+        "Db5",
+        "Db6",
+        "Db7",
+        "Db8",
+        "Db9",
+        "Db10",
+        "Db11",
+        "Db12",
+        "Db13",
+        "Db14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-dc",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Dc",
+      "title": "ÖZGÜN Tip Dc — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.22",
+      "pdf": "coupling/ozgun-dc.pdf",
+      "images": [
+        "coupling/ozgun-dc-p1.webp"
+      ],
+      "models": [
+        "Dc1",
+        "Dc2",
+        "Dc3",
+        "Dc4",
+        "Dc5",
+        "Dc6",
+        "Dc7",
+        "Dc8",
+        "Dc9",
+        "Dc10",
+        "Dc11",
+        "Dc12",
+        "Dc13",
+        "Dc14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-dk",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Dk",
+      "title": "ÖZGÜN Tip Dk — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.23",
+      "pdf": "coupling/ozgun-dk.pdf",
+      "images": [
+        "coupling/ozgun-dk-p1.webp"
+      ],
+      "models": [
+        "Dk1",
+        "Dk2",
+        "Dk3",
+        "Dk4",
+        "Dk5",
+        "Dk6",
+        "Dk7",
+        "Dk8",
+        "Dk9",
+        "Dk10",
+        "Dk11",
+        "Dk12",
+        "Dk13",
+        "Dk14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-dt",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Dt",
+      "title": "ÖZGÜN Tip Dt — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.24",
+      "pdf": "coupling/ozgun-dt.pdf",
+      "images": [
+        "coupling/ozgun-dt-p1.webp"
+      ],
+      "models": [
+        "Dt1",
+        "Dt2",
+        "Dt3",
+        "Dt4",
+        "Dt5",
+        "Dt6",
+        "Dt7",
+        "Dt8",
+        "Dt9",
+        "Dt10",
+        "Dt11",
+        "Dt12"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-dtk",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Dtk",
+      "title": "ÖZGÜN Tip Dtk — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.26",
+      "pdf": "coupling/ozgun-dtk.pdf",
+      "images": [
+        "coupling/ozgun-dtk-p1.webp"
+      ],
+      "models": [
+        "Dtk1",
+        "Dtk2",
+        "Dtk3",
+        "Dtk4",
+        "Dtk5",
+        "Dtk6",
+        "Dtk7",
+        "Dtk8",
+        "Dtk9",
+        "Dtk10",
+        "Dtk11",
+        "Dtk12"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-dv",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Dv",
+      "title": "ÖZGÜN Tip Dv — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.27",
+      "pdf": "coupling/ozgun-dv.pdf",
+      "images": [
+        "coupling/ozgun-dv-p1.webp"
+      ],
+      "models": [
+        "Dv1",
+        "Dv2",
+        "Dv3",
+        "Dv4",
+        "Dv5",
+        "Dv6",
+        "Dv7",
+        "Dv8",
+        "Dv9",
+        "Dv10",
+        "Dv11",
+        "Dv12",
+        "Dv13",
+        "Dv14",
+        "Dv15",
+        "Dv16",
+        "Dv17",
+        "Dv18",
+        "Dv19",
+        "Dv20"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-e",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "E",
+      "title": "ÖZGÜN Tip E — Zincirli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.28",
+      "pdf": "coupling/ozgun-e.pdf",
+      "images": [
+        "coupling/ozgun-e-p1.webp"
+      ],
+      "models": [
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E6"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-f",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "F",
+      "title": "ÖZGÜN Tip F — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.29",
+      "pdf": "coupling/ozgun-f.pdf",
+      "images": [
+        "coupling/ozgun-f-p1.webp"
+      ],
+      "models": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-g",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "G",
+      "title": "ÖZGÜN Tip G — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.30",
+      "pdf": "coupling/ozgun-g.pdf",
+      "images": [
+        "coupling/ozgun-g-p1.webp"
+      ],
+      "models": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
+        "G8",
+        "G9",
+        "G10",
+        "G11",
+        "G12",
+        "G13",
+        "G14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-h",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "H",
+      "title": "ÖZGÜN Tip H — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.31",
+      "pdf": "coupling/ozgun-h.pdf",
+      "images": [
+        "coupling/ozgun-h-p1.webp"
+      ],
+      "models": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "H8",
+        "H9",
+        "H10",
+        "H11",
+        "H12",
+        "H13",
+        "H14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-i",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "I",
+      "title": "ÖZGÜN Tip I — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.32",
+      "pdf": "coupling/ozgun-i.pdf",
+      "images": [
+        "coupling/ozgun-i-p1.webp"
+      ],
+      "models": [
+        "I 1",
+        "I 2",
+        "I 3",
+        "I 4",
+        "I 5",
+        "I 6",
+        "I 7",
+        "I 8",
+        "I 9",
+        "I 10",
+        "I 11",
+        "I 12",
+        "I 13",
+        "I 14",
+        "I 15"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-j",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "J",
+      "title": "ÖZGÜN Tip J — Tambur (kasnaklı) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.33",
+      "pdf": "coupling/ozgun-j.pdf",
+      "images": [
+        "coupling/ozgun-j-p1.webp"
+      ],
+      "models": [
+        "J1",
+        "J2",
+        "J3",
+        "J4",
+        "J5",
+        "J6",
+        "J7",
+        "J8",
+        "J9",
+        "J10",
+        "J11",
+        "J12",
+        "J13",
+        "J14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-k",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "K",
+      "title": "ÖZGÜN Tip K — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.34",
+      "pdf": "coupling/ozgun-k.pdf",
+      "images": [
+        "coupling/ozgun-k-p1.webp"
+      ],
+      "models": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5",
+        "K6",
+        "K7",
+        "K8",
+        "K9",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-n",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "N",
+      "title": "ÖZGÜN Tip N — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.35",
+      "pdf": "coupling/ozgun-n.pdf",
+      "images": [
+        "coupling/ozgun-n-p1.webp"
+      ],
+      "models": [
+        "N1",
+        "N2",
+        "N3",
+        "N4",
+        "N5",
+        "N6",
+        "N7",
+        "N8",
+        "N9",
+        "N10",
+        "N11",
+        "N12",
+        "N13",
+        "N14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-r",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "R",
+      "title": "ÖZGÜN Tip R — Dişli kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.37",
+      "pdf": "coupling/ozgun-r.pdf",
+      "images": [
+        "coupling/ozgun-r-p1.webp"
+      ],
+      "models": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "R7",
+        "R8",
+        "R9",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-s6",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "S6",
+      "title": "ÖZGÜN Tip S6 — Diskli (lamelli) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.38",
+      "pdf": "coupling/ozgun-s6.pdf",
+      "images": [
+        "coupling/ozgun-s6-p1.webp"
+      ],
+      "models": [
+        "S6-1",
+        "S6-2",
+        "S6-3",
+        "S6-4",
+        "S6-5",
+        "S6-6",
+        "S6-7",
+        "S6-8",
+        "S6-9",
+        "S6-10",
+        "S6-11",
+        "S6-12",
+        "S6-13",
+        "S6-14",
+        "S6-15",
+        "S6-16",
+        "S6-17"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-s8",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "S8",
+      "title": "ÖZGÜN Tip S8 — Diskli (lamelli) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.39",
+      "pdf": "coupling/ozgun-s8.pdf",
+      "images": [
+        "coupling/ozgun-s8-p1.webp"
+      ],
+      "models": [
+        "S8-1",
+        "S8-2",
+        "S8-3",
+        "S8-4",
+        "S8-5",
+        "S8-6",
+        "S8-7",
+        "S8-8",
+        "S8-9",
+        "S8-10",
+        "S8-11",
+        "S8-12",
+        "S8-13",
+        "S8-14",
+        "S8-15",
+        "S8-16",
+        "S8-17"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-t6",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "T6",
+      "title": "ÖZGÜN Tip T6 — Diskli (lamelli) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.40",
+      "pdf": "coupling/ozgun-t6.pdf",
+      "images": [
+        "coupling/ozgun-t6-p1.webp"
+      ],
+      "models": [
+        "T6-1",
+        "T6-2",
+        "T6-3",
+        "T6-4",
+        "T6-5",
+        "T6-6",
+        "T6-7",
+        "T6-8",
+        "T6-9",
+        "T6-10",
+        "T6-11",
+        "T6-12",
+        "T6-13",
+        "T6-14",
+        "T6-15",
+        "T6-16",
+        "T6-17"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-t8",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "T8",
+      "title": "ÖZGÜN Tip T8 — Diskli (lamelli) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.41",
+      "pdf": "coupling/ozgun-t8.pdf",
+      "images": [
+        "coupling/ozgun-t8-p1.webp"
+      ],
+      "models": [
+        "T8-1",
+        "T8-2",
+        "T8-3",
+        "T8-4",
+        "T8-5",
+        "T8-6",
+        "T8-7",
+        "T8-8",
+        "T8-9",
+        "T8-10",
+        "T8-11",
+        "T8-12",
+        "T8-13",
+        "T8-14",
+        "T8-15",
+        "T8-16",
+        "T8-17"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-y",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Y",
+      "title": "ÖZGÜN Tip Y — Elastik kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.42",
+      "pdf": "coupling/ozgun-y.pdf",
+      "images": [
+        "coupling/ozgun-y-p1.webp"
+      ],
+      "models": [
+        "Y1",
+        "Y2",
+        "Y3",
+        "Y4",
+        "Y5",
+        "Y6",
+        "Y7",
+        "Y8",
+        "Y9",
+        "Y10",
+        "Y11",
+        "Y12"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-za",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Za",
+      "title": "ÖZGÜN Tip Za — Elastik kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.43",
+      "pdf": "coupling/ozgun-za.pdf",
+      "images": [
+        "coupling/ozgun-za-p1.webp"
+      ],
+      "models": [
+        "Za1",
+        "Za2",
+        "Za3",
+        "Za4",
+        "Za5",
+        "Za6",
+        "Za7",
+        "Za8",
+        "Za9"
+      ]
+    },
+    {
+      "id": "coupling/ozgun-zr",
+      "kind": "coupling",
+      "brand": "OZGUN",
+      "series": "Zr",
+      "title": "ÖZGÜN Tip Zr — Pimli (elastik) kaplin",
+      "source": "ozgun katalog 2019 1-b.pdf",
+      "printedPages": "s.44-45",
+      "pdf": "coupling/ozgun-zr.pdf",
+      "images": [
+        "coupling/ozgun-zr-p1.webp",
+        "coupling/ozgun-zr-p2.webp"
+      ],
+      "models": [
+        "Zr1",
+        "Zr2",
+        "Zr3",
+        "Zr4",
+        "Zr5",
+        "Zr6",
+        "Zr7",
+        "Zr8",
+        "Zr9",
+        "Zr10",
+        "Zr11",
+        "Zr12",
+        "Zr13",
+        "Zr14",
+        "Zr15",
+        "Zr16",
+        "Zr17",
+        "Zr18",
+        "Zr19",
+        "Zr20",
+        "Zr21",
+        "Zr22",
+        "Zr23",
+        "Zr24",
+        "Zr25",
+        "Zr26"
+      ]
+    },
+    {
+      "id": "coupling/sibre-alc-a",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "ALC-A",
+      "title": "SIBRE ALC-A — Elastik kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.10-11",
+      "pdf": "coupling/sibre-alc-a.pdf",
+      "images": [
+        "coupling/sibre-alc-a-p1.webp"
+      ],
+      "models": [
+        "ALC-A 38",
+        "ALC-A 42",
+        "ALC-A 48",
+        "ALC-A 55",
+        "ALC-A 65",
+        "ALC-A 75",
+        "ALC-A 90",
+        "ALC-A 100",
+        "ALC-A 110",
+        "ALC-A 125"
+      ]
+    },
+    {
+      "id": "coupling/sibre-alc-as",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "ALC-AS",
+      "title": "SIBRE ALC-AS — Fren kasnaklı elastik kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.12-13",
+      "pdf": "coupling/sibre-alc-as.pdf",
+      "images": [
+        "coupling/sibre-alc-as-p1.webp"
+      ],
+      "models": [
+        "ALC-AS 38",
+        "ALC-AS 42",
+        "ALC-AS 48",
+        "ALC-AS 55",
+        "ALC-AS 65",
+        "ALC-AS 75",
+        "ALC-AS 90",
+        "ALC-AS 100",
+        "ALC-AS 110",
+        "ALC-AS 125"
+      ]
+    },
+    {
+      "id": "coupling/sibre-alc-at",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "ALC-AT",
+      "title": "SIBRE ALC-AT — Fren diskli elastik kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.12-13",
+      "pdf": "coupling/sibre-alc-as.pdf",
+      "images": [
+        "coupling/sibre-alc-as-p1.webp"
+      ],
+      "models": [
+        "ALC-AT 38",
+        "ALC-AT 42",
+        "ALC-AT 48",
+        "ALC-AT 55",
+        "ALC-AT 65",
+        "ALC-AT 75",
+        "ALC-AT 90",
+        "ALC-AT 100",
+        "ALC-AT 110",
+        "ALC-AT 125"
+      ]
+    },
+    {
+      "id": "coupling/sibre-afc-a",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "AFC-A",
+      "title": "SIBRE AFC-A — Elastik kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.14-15",
+      "pdf": "coupling/sibre-afc-a.pdf",
+      "images": [
+        "coupling/sibre-afc-a-p1.webp"
+      ],
+      "models": [
+        "AFC-A 65",
+        "AFC-A 75",
+        "AFC-A 90",
+        "AFC-A 100",
+        "AFC-A 110",
+        "AFC-A 125",
+        "AFC-A 140",
+        "AFC-A 160"
+      ]
+    },
+    {
+      "id": "coupling/sibre-afc-as",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "AFC-AS",
+      "title": "SIBRE AFC-AS — Fren kasnaklı elastik kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.14-15",
+      "pdf": "coupling/sibre-afc-a.pdf",
+      "images": [
+        "coupling/sibre-afc-a-p1.webp"
+      ],
+      "models": [
+        "AFC-AS 65",
+        "AFC-AS 75",
+        "AFC-AS 90",
+        "AFC-AS 100",
+        "AFC-AS 110",
+        "AFC-AS 125",
+        "AFC-AS 140",
+        "AFC-AS 160"
+      ]
+    },
+    {
+      "id": "coupling/sibre-apc-a",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "APC-A",
+      "title": "SIBRE APC-A — Pimli kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.16-17",
+      "pdf": "coupling/sibre-apc-a.pdf",
+      "images": [
+        "coupling/sibre-apc-a-p1.webp"
+      ],
+      "models": [
+        "APC-A 160",
+        "APC-A 200",
+        "APC-A 250",
+        "APC-A 315",
+        "APC-A 400",
+        "APC-A 500"
+      ]
+    },
+    {
+      "id": "coupling/sibre-apc-as",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "APC-AS",
+      "title": "SIBRE APC-AS — Fren kasnaklı pimli kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.18-19",
+      "pdf": "coupling/sibre-apc-as.pdf",
+      "images": [
+        "coupling/sibre-apc-as-p1.webp"
+      ],
+      "models": [
+        "APC-AS 160",
+        "APC-AS 200",
+        "APC-AS 250",
+        "APC-AS 315",
+        "APC-AS 400",
+        "APC-AS 500"
+      ]
+    },
+    {
+      "id": "coupling/sibre-apc-at",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "APC-AT",
+      "title": "SIBRE APC-AT — Fren diskli pimli kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.20-21",
+      "pdf": "coupling/sibre-apc-at.pdf",
+      "images": [
+        "coupling/sibre-apc-at-p1.webp"
+      ],
+      "models": [
+        "APC-AT 160",
+        "APC-AT 200",
+        "APC-AT 250",
+        "APC-AT 315",
+        "APC-AT 400",
+        "APC-AT 500"
+      ]
+    },
+    {
+      "id": "coupling/sibre-apc-bt",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "APC-BT",
+      "title": "SIBRE APC-BT — Fren diskli pimli kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.20-21",
+      "pdf": "coupling/sibre-apc-at.pdf",
+      "images": [
+        "coupling/sibre-apc-at-p1.webp"
+      ],
+      "models": [
+        "APC-BT 160",
+        "APC-BT 200",
+        "APC-BT 250",
+        "APC-BT 315",
+        "APC-BT 400",
+        "APC-BT 500"
+      ]
+    },
+    {
+      "id": "coupling/sibre-zkes",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "ZKES",
+      "title": "SIBRE ZKES — Dişli kaplin",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.24-25",
+      "pdf": "coupling/sibre-zkes.pdf",
+      "images": [
+        "coupling/sibre-zkes-p1.webp"
+      ],
+      "models": [
+        "ZKES 02",
+        "ZKES 04",
+        "ZKES 06",
+        "ZKES 08",
+        "ZKES 10",
+        "ZKES 13",
+        "ZKES 15",
+        "ZKES 17",
+        "ZKES 19"
+      ]
+    },
+    {
+      "id": "coupling/sibre-abc-v",
+      "kind": "coupling",
+      "brand": "SIBRE",
+      "series": "ABC-V",
+      "title": "SIBRE ABC-V — Tambur (halat) kaplini",
+      "source": "02_SIBRE_Coupling-catalogue.pdf",
+      "printedPages": "s.46-47",
+      "pdf": "coupling/sibre-abc-v.pdf",
+      "images": [
+        "coupling/sibre-abc-v-p1.webp"
+      ],
+      "models": [
+        "ABC-V 260",
+        "ABC-V 280",
+        "ABC-V 310",
+        "ABC-V 340",
+        "ABC-V 400",
+        "ABC-V 420",
+        "ABC-V 450",
+        "ABC-V 530",
+        "ABC-V 545",
+        "ABC-V 560",
+        "ABC-V 600",
+        "ABC-V 670",
+        "ABC-V 730",
+        "ABC-V 800",
+        "ABC-V 860"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mt",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MT",
+      "title": "JAURE MT — Kavisli dişli tam-flex kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.17",
+      "pdf": "coupling/jaure-mt.pdf",
+      "images": [
+        "coupling/jaure-mt-p1.webp"
+      ],
+      "models": [
+        "MT 52",
+        "MT 62",
+        "MT 78",
+        "MT 98",
+        "MT 112",
+        "MT 132",
+        "MT 156",
+        "MT 174",
+        "MT 190",
+        "MT 210",
+        "MT 233",
+        "MT 275"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mts",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTS",
+      "title": "JAURE MTS — Tek gövdeli (yarım-flex) dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.19",
+      "pdf": "coupling/jaure-mts.pdf",
+      "images": [
+        "coupling/jaure-mts-p1.webp"
+      ],
+      "models": [
+        "MTS 22",
+        "MTS 32",
+        "MTS 38",
+        "MTS 50",
+        "MTS 55",
+        "MTS 70",
+        "MTS 90",
+        "MTS 100",
+        "MTS 125",
+        "MTS 145",
+        "MTS 165",
+        "MTS 185",
+        "MTS 205",
+        "MTS 230",
+        "MTS 260",
+        "MTS 280",
+        "MTS 310",
+        "MTS 345"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mtg",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTG",
+      "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.20",
+      "pdf": "coupling/jaure-mtg.pdf",
+      "images": [
+        "coupling/jaure-mtg-p1.webp"
+      ],
+      "models": [
+        "MTG 280",
+        "MTG 310",
+        "MTG 345",
+        "MTG 370",
+        "MTG 390",
+        "MTG 420",
+        "MTG 460",
+        "MTG 500",
+        "MTG 550",
+        "MTG 590",
+        "MTG 620",
+        "MTG 650",
+        "MTG 680",
+        "MTG 730"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mtg-hd",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTG-HD",
+      "title": "JAURE MTG / MTG-HD — Büyük çaplı dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.20",
+      "pdf": "coupling/jaure-mtg.pdf",
+      "images": [
+        "coupling/jaure-mtg-p1.webp"
+      ],
+      "models": [
+        "MTG-HD 280",
+        "MTG-HD 310",
+        "MTG-HD 345",
+        "MTG-HD 370",
+        "MTG-HD 390",
+        "MTG-HD 420",
+        "MTG-HD 460",
+        "MTG-HD 500",
+        "MTG-HD 550",
+        "MTG-HD 590",
+        "MTG-HD 620",
+        "MTG-HD 650",
+        "MTG-HD 680",
+        "MTG-HD 730"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mtf",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTF",
+      "title": "JAURE MTF — Ara fren kasnaklı dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.28",
+      "pdf": "coupling/jaure-mtf.pdf",
+      "images": [
+        "coupling/jaure-mtf-p1.webp"
+      ],
+      "models": [
+        "MTF 52",
+        "MTF 62",
+        "MTF 78",
+        "MTF 98",
+        "MTF 112",
+        "MTF 132",
+        "MTF 156",
+        "MTF 174"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mtfe",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTFE",
+      "title": "JAURE MTFE — Yan fren kasnaklı dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.29",
+      "pdf": "coupling/jaure-mtfe.pdf",
+      "images": [
+        "coupling/jaure-mtfe-p1.webp"
+      ],
+      "models": [
+        "MTFE 52",
+        "MTFE 62",
+        "MTFE 78",
+        "MTFE 98",
+        "MTFE 112",
+        "MTFE 132",
+        "MTFE 156",
+        "MTFE 174"
+      ]
+    },
+    {
+      "id": "coupling/jaure-mtes",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "MTES",
+      "title": "JAURE MTES — Ayrılabilir (kavramalı) dişli kaplin",
+      "source": "JAURE MT Series_Gear Coupling.pdf",
+      "printedPages": "s.31",
+      "pdf": "coupling/jaure-mtes.pdf",
+      "images": [
+        "coupling/jaure-mtes-p1.webp"
+      ],
+      "models": [
+        "MTES 42",
+        "MTES 55",
+        "MTES 70",
+        "MTES 90",
+        "MTES 100",
+        "MTES 125",
+        "MTES 145",
+        "MTES 165",
+        "MTES 185",
+        "MTES 205",
+        "MTES 230",
+        "MTES 260"
+      ]
+    },
+    {
+      "id": "coupling/jaure-tcbr",
+      "kind": "coupling",
+      "brand": "JAURE",
+      "series": "TCBR",
+      "title": "JAURE TCBR — Fıçı tipi tambur kaplini",
+      "source": "Jaure Tambur kaplini.pdf",
+      "printedPages": "s.18-19",
+      "pdf": "coupling/jaure-tcbr.pdf",
+      "images": [
+        "coupling/jaure-tcbr-p1.webp",
+        "coupling/jaure-tcbr-p2.webp"
+      ],
+      "models": [
+        "TCBR 25",
+        "TCBR 50",
+        "TCBR 75",
+        "TCBR 100",
+        "TCBR 130",
+        "TCBR 160",
+        "TCBR 200",
+        "TCBR 300",
+        "TCBR 400",
+        "TCBR 500",
+        "TCBR 600",
+        "TCBR 1000",
+        "TCBR 1500",
+        "TCBR 2100",
+        "TCBR 2600",
+        "TCBR 3400",
+        "TCBR 4200",
+        "TCBR 6200",
+        "TCBR 8200",
+        "TCBR 9200",
+        "TCBR 10200"
+      ]
+    }
+  ]
+}

@@ -896,6 +896,28 @@ const MAP_BY_MODULE: Record<string, Record<string, SectionCatalogMapping>> = {
   bridge: TRAVEL_MAP,
 };
 
+/**
+ * Bölümün seçim alanları içinde ürünün KİMLİĞİNİ taşıyanlar.
+ *
+ * Katalog sayfası (`lib/catalog-sheets.ts`) marka + model ile bulunur; hangi
+ * seçim alanının markayı, hangisinin modeli tuttuğu bölümden bölüme değişir
+ * (`motorCouplingBrand` / `wheelCouplingBrand` / `drumCouplingBrand` …). Bu
+ * bilgi eşlemede zaten vardır — `from: "brand"` ve `from: "model"` — ve burada
+ * tek yerden okunur; hiçbir bölüm için elle liste tutulmaz.
+ *
+ * `brand_model` birleşik alanı kimlik olarak KULLANILMAZ: metni geri ayırmak
+ * marka adında boşluk olan ürünlerde (ör. "Marka Belirsiz (Firma Excel'i)")
+ * sessizce yanlış eşleme üretirdi.
+ */
+export function catalogIdentityFields(mapping: SectionCatalogMapping): {
+  brandField?: string;
+  modelField?: string;
+} {
+  const find = (source: "brand" | "model") =>
+    mapping.fields.find((f) => f.from === source)?.sel;
+  return { brandField: find("brand"), modelField: find("model") };
+}
+
 /** Bölümün katalog eşlemesi (yoksa combobox gösterilmez) */
 export function getCatalogMapping(
   moduleKey: string,

@@ -45,6 +45,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npm run build` — production build
 - `npx tsx scripts/test-pdf.ts` — PDF raporu üç seviyede üret (duman testi)
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
+- `python scripts/catalog-sheets.py [--verify]` — katalog sayfalarını kaynak
+  PDF'lerden kes (kaplinler); `--verify` yalnız sayfa haritasını sınar
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
 
 ## Mimari ilkeler
@@ -147,6 +149,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     olmayan alanı atlar ve eski değer kalır. Engelleyici bir kontrolü besleyen
     alan (ör. `gearboxAllowedRadialKn`) bu yüzden koruma testine bağlıdır —
     `src/lib/__tests__/catalog-mapping.test.ts`.
+
+    **Katalog SAYFASI ayrı bir yoldur.** Seçim tablosu ürünün sayılarını verir;
+    mühendis çoğu zaman sayfanın kendisini de görmek ister (ölçü resmi, dipnot,
+    üretici uyarısı). `scripts/catalog-sheets.py` kaynak PDF'ten seri bazında
+    sayfayı keser (`catalog-sheets/<tür>/*.pdf` + `*.webp`) ve
+    `src/lib/catalog-sheets/manifest.json` defterini yazar; `Katalog Seçimi`
+    başlığındaki **Katalog Sayfası** düğmesi bu deftere bakar. Eşleme SERİ
+    önekiyle değil MODEL koduyla yapılır ("A" serisi ile "ABC-V 260" karışırdı)
+    ve tam eşleşme yoksa sayfa AÇILMAZ — yakın bir sayfa göstermek yanlış ölçü
+    tablosuna baktırırdı. Sayfa numaraları tahmin edilmez; betik metin katmanı
+    olan PDF'lerde seri başlığı + boy numaralarıyla kendini doğrular
+    (`--verify`). Dosyalar `public/` altında DEĞİLDİR: üretici kataloğu
+    kimlik doğrulamalı `/api/catalog-sheet/...` ucundan sunulur. Şimdilik
+    yalnız KAPLİNLER kapsanır; yeni tür eklemek betikteki `SHEETS` listesine
+    satır yazmaktır.
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
@@ -251,6 +268,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
+- `catalog-sheets/` — üretici katalog sayfalarının kesilmiş hâli (üretilir;
+  `public/` altında değildir, `/api/catalog-sheet/` ucundan sunulur)
 - `src/lib/calc/__tests__/` — mühendislik doğrulama + bağlantı koruma testleri
 - `src/lib/calc/__tests__/legacy/` — **tarihsel** karşılaştırma katmanı
   (eşleme tabloları + gerekçeli kapsam dışı/sapma sözlükleri). Şartname değil.

@@ -83,10 +83,12 @@ import {
 import {
   applyCatalogPick,
   bearingHousingCompatibilityKey,
+  catalogIdentityFields,
   getCatalogMapping,
   catalogKindLabel,
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
+import { CatalogSheetButton } from "@/components/catalog-sheet-dialog";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { FestoonSelector } from "@/components/festoon-selector";
 import { MathFormula } from "@/components/math/math-formula";
@@ -1711,6 +1713,25 @@ export function RevisionEditor({
                         }}
                       />
                     )}
+                    {/* Seçilen ürünün üretici kataloğundaki gerçek sayfası.
+                        Salt-okunur revizyonda da görünür: yayınlanmış bir
+                        raporu okuyan mühendis de sayfaya bakabilmelidir. */}
+                    {catalogMapping && (() => {
+                      const { brandField, modelField } =
+                        catalogIdentityFields(catalogMapping);
+                      const value = (field?: string) => {
+                        if (!field) return undefined;
+                        const v = (sel as Record<string, unknown>)[field];
+                        return typeof v === "string" ? v : undefined;
+                      };
+                      return (
+                        <CatalogSheetButton
+                          kind={catalogMapping.kind}
+                          brand={value(brandField)}
+                          model={value(modelField)}
+                        />
+                      );
+                    })()}
                     {/* Madde 3: seçim düğmesinin hemen yanında gereken ve
                         gerçekleşen değer — uygunsa yeşil, değilse kırmızı. */}
                     {headline?.placement === "catalog" &&
