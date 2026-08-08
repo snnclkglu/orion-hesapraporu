@@ -53,6 +53,8 @@ const HOIST_ANCHORS: AnchorMap = {
     "safety.torque": "safety.totalTorque",
     "safety.flange": "safety.minFlangeDia",
     "safety.airGap": "safety.clampForce",
+    "safety.flangeThickness": "safety.flangeThickness",
+    "safety.hydraulic": "safety.unitPressure",
   },
 };
 

@@ -837,7 +837,8 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     inputKeys: ["safetyBrakeServiceFactor", "safetyBrakeFlangeClearanceMm"],
     selectionKeys: [
       "safetyBrakeModel", "safetyBrakeAirGapMm", "safetyBrakeArrangement",
-      "safetyBrakeFlangeDiaMm",
+      "safetyBrakeFlangeDiaMm", "safetyBrakeFlangeThicknessMm",
+      "safetyBrakeHydraulicUnit",
     ],
     rows: [
       {
@@ -854,7 +855,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       },
       {
         key: "safety.clampForce", label: "Sıkma Kuvveti FA",
-        formula: "FA = f(model, hava aralığı c)   [SIBRE katalog]",
+        formula: "FA = f(model, fren boşluğu c)   [SIBRE katalog]",
         subst: (x) => `${x.sel.safetyBrakeModel} · c = ${n(x.sel.safetyBrakeAirGapMm)} mm`,
         unit: "N",
       },
@@ -895,16 +896,77 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         digits: 3,
       },
       {
-        key: "safety.releasePressure", label: "Açma Basıncı PL",
-        formula: "PL = f(model)   [hidrolik ünite seçimi]",
-        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "bar", digits: 0,
-      },
-      {
-        key: "safety.minDiscThickness", label: "Minimum Flanş Kalınlığı",
+        key: "safety.minDiscThickness", label: "Minimum Flanş Kalınlığı b",
         formula: "b = f(model)   [SIBRE katalog]",
         subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "mm", digits: 0,
       },
+      {
+        key: "safety.flangeThickness", label: "Seçilen Flanş Kalınlığı",
+        formula: "b_seçilen ≥ b",
+        subst: (x) =>
+          `${n(x.sel.safetyBrakeFlangeThicknessMm, 0)} ≥ ${n(num(x.c["safety.minDiscThickness"]), 0)}`,
+        unit: "mm", digits: 0,
+      },
+      // --- Hidrolik güç ünitesi ------------------------------------------
+      // Kaliper YAYLA KAPANIR, hidrolikle AÇILIR: ünite basıncı kesildiği anda
+      // fren devreye girer. Ünite açma basıncını sağlamalı, emniyet valfi ayarı
+      // frenin azami basıncını aşmamalıdır.
+      {
+        key: "safety.releasePressure", label: "Frenin Açma Basıncı PL",
+        formula: "PL = f(model)   [SIBRE katalog]",
+        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "bar", digits: 0,
+      },
+      {
+        key: "safety.maxPressure", label: "Frenin Azami Basıncı Pmax",
+        formula: "Pmax = f(model)   [SIBRE katalog]",
+        subst: (x) => `${x.sel.safetyBrakeModel}`, unit: "bar", digits: 0,
+      },
+      {
+        key: "safety.oilVolume", label: "Açma Yağ Hacmi",
+        formula: "V = z · Vmax(c = 2 mm)",
+        subst: (x) =>
+          `${n(num(x.c["safety.brakeCount"]), 0)} · ${n(num(x.c["safety.oilVolume"]) / Math.max(1, num(x.c["safety.brakeCount"])), 3)}`,
+        unit: "litre", digits: 3,
+      },
+      {
+        key: "safety.unitCode", label: "Hidrolik Güç Ünitesi",
+        formula: "HPU = f(fren tipi ; kaliper adedi)   [SIBRE seçim tablosu]",
+        subst: (x) =>
+          `${x.sel.safetyBrakeModel} · ${n(num(x.c["safety.brakeCount"]), 0)} kaliper → ${x.c["safety.unitSeries"]}`,
+      },
+      {
+        key: "safety.unitPressure", label: "Ünitenin Açma Basıncı",
+        formula: "p_ünite ≥ PL",
+        subst: (x) =>
+          `${n(num(x.c["safety.unitPressure"]), 0)} ≥ ${n(num(x.c["safety.releasePressure"]), 0)}`,
+        unit: "bar", digits: 0,
+      },
+      {
+        key: "safety.unitRelief", label: "Emniyet Valfi Ayarı",
+        formula: "p_valf ≤ Pmax",
+        subst: (x) =>
+          `${n(num(x.c["safety.unitRelief"]), 0)} ≤ ${n(num(x.c["safety.maxPressure"]), 0)}`,
+        unit: "bar", digits: 0,
+      },
+      {
+        key: "safety.unitPump", label: "Pompa Debisi",
+        formula: "Q = f(ünite)   [SIBRE katalog]",
+        subst: (x) => `${x.c["safety.unitCode"]}`, unit: "l/dak",
+      },
+      {
+        key: "safety.unitMotor", label: "Ünite Motor Gücü",
+        formula: "P = f(ünite)   [SIBRE katalog]",
+        subst: (x) => `${x.c["safety.unitCode"]}`, unit: "kW",
+      },
+      {
+        key: "safety.unitTank", label: "Depo Hacmi",
+        formula: "V_depo = f(ünite)   [SIBRE katalog]",
+        subst: (x) => `${x.c["safety.unitCode"]}`, unit: "litre", digits: 0,
+      },
     ],
-    checkSuffixes: ["safety.torque", "safety.flange", "safety.airGap"],
+    checkSuffixes: [
+      "safety.torque", "safety.flange", "safety.flangeThickness",
+      "safety.airGap", "safety.hydraulic",
+    ],
   },
 ];

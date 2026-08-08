@@ -178,8 +178,10 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   // Emniyet freni seçimi — tambur çapına göre en küçük uygun SIBRE SHI modeli
   safetyBrakeModel: "SHI 105",
   safetyBrakeAirGapMm: 2,
-  safetyBrakeArrangement: "2 · Çift fren — karşılıklı alt konsol",
+  safetyBrakeArrangement: "B · Çift fren — karşılıklı alt konsol",
   safetyBrakeFlangeDiaMm: 900,
+  safetyBrakeFlangeThicknessMm: 25,
+  safetyBrakeHydraulicUnit: "",
 };
 
 export const V5_AUX_HOIST_INPUTS: HoistInputs = {
@@ -218,8 +220,10 @@ export const V5_AUX_HOIST_SELECTIONS: HoistSelections = {
   // Emniyet freni seçimi — tambur çapına göre en küçük uygun SIBRE SHI modeli
   safetyBrakeModel: "SHI 105",
   safetyBrakeAirGapMm: 2,
-  safetyBrakeArrangement: "2 · Çift fren — karşılıklı alt konsol",
+  safetyBrakeArrangement: "B · Çift fren — karşılıklı alt konsol",
   safetyBrakeFlangeDiaMm: 900,
+  safetyBrakeFlangeThicknessMm: 25,
+  safetyBrakeHydraulicUnit: "",
 };
 
 /** V5 işinin tam girdi seti — tarihsel doğrulama fikstürü */

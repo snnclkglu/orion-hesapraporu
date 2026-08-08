@@ -25,6 +25,8 @@ import {
   brakesInArrangement,
   clampForceKn,
   minFlangeDiaMm,
+  hydraulicUnitByCode,
+  recommendHydraulicUnit,
   safetyBrakeByCode,
 } from "../safety-brake";
 import { solveBeam, type PointLoad } from "../beam";
@@ -591,6 +593,10 @@ export interface HoistSelections {
   safetyBrakeAirGapMm: number;
   /** Tambur üzerindeki fren yerleşim düzeni (1…6) */
   safetyBrakeArrangement: string;
+  /** Seçilen flanş (fren diski) kalınlığı [mm] — katalogun b sınırını sağlamalı */
+  safetyBrakeFlangeThicknessMm: number;
+  /** Hidrolik güç ünitesi sipariş kodu; boşsa katalogdan önerilen kullanılır */
+  safetyBrakeHydraulicUnit: string;
   /** Seçilen flanş (fren diski) dış çapı [mm] */
   safetyBrakeFlangeDiaMm: number;
 }
@@ -1409,6 +1415,13 @@ export function computeHoistGroup(
   const sbTotalTorqueNm = sbTorqueEachNm * sbCount;
   const sbAchievedFactor =
     sbRequiredTorqueNm > 0 ? sbTotalTorqueNm / sbRequiredTorqueNm : Number.NaN;
+  // Hidrolik güç ünitesi: mühendis seçmediyse katalogun HPU seçim tablosundan
+  // önerilen ünite kullanılır. Seri kaliper adedine bağlıdır (V2'ye en çok iki
+  // fren bağlanır); basınç kademesi fren tipinden gelir.
+  const sbRecommendedUnit = recommendHydraulicUnit(sbModel, sbCount);
+  const sbUnit = hydraulicUnitByCode(sel.safetyBrakeHydraulicUnit) ?? sbRecommendedUnit;
+  // Bir fren açmak için gereken yağ hacmi — ünite deposunun karşılaması gerekir.
+  const sbOilLitre = (sbModel?.volumeLitre ?? 0) * sbCount;
 
   if (safetyBrakeFitted) {
     Object.assign(cells, {
@@ -1423,7 +1436,17 @@ export function computeHoistGroup(
       "safety.totalTorque": sbTotalTorqueNm,
       "safety.achievedFactor": sbAchievedFactor,
       "safety.releasePressure": sbModel?.releasePressureBar ?? Number.NaN,
+      "safety.maxPressure": sbModel?.maxPressureBar ?? Number.NaN,
       "safety.minDiscThickness": sbModel?.minDiscThicknessMm ?? Number.NaN,
+      "safety.flangeThickness": sel.safetyBrakeFlangeThicknessMm,
+      "safety.oilVolume": sbOilLitre,
+      "safety.unitCode": sbUnit?.code ?? "—",
+      "safety.unitSeries": sbUnit?.series ?? "—",
+      "safety.unitPressure": sbUnit?.releasePressureBar ?? Number.NaN,
+      "safety.unitRelief": sbUnit?.reliefValveBar ?? Number.NaN,
+      "safety.unitPump": sbUnit?.pumpLpm ?? Number.NaN,
+      "safety.unitMotor": sbUnit?.motorKw ?? Number.NaN,
+      "safety.unitTank": sbUnit?.tankLitre ?? Number.NaN,
     });
     checks.push({
       id: `${which}.safety.torque`,
@@ -1442,14 +1465,39 @@ export function computeHoistGroup(
       pass: sel.safetyBrakeFlangeDiaMm >= sbMinFlangeDiaMm,
       kind: "uretici", severity: "engelleyici",
     });
-    // Hava aralığı modelin çalışma bandı dışındaysa sıkma kuvveti tanımsızdır
+    // Fren boşluğu modelin çalışma bandı dışındaysa sıkma kuvveti tanımsızdır
     // (ör. SHI 231/232 yalnız 2…3 mm); moment hesabı anlamını yitirir.
     checks.push({
       id: `${which}.safety.airGap`,
-      label: "Hava Aralığı Modelin Bandında",
+      label: "Fren Boşluğu Modelin Bandında",
       required: 1, provided: sbClampKn === undefined ? 0 : 1, unit: "-", op: ">=",
       computedSide: "provided",
       pass: sbClampKn !== undefined,
+      kind: "uretici", severity: "engelleyici",
+    });
+    // Flanş, katalogun istediği en küçük disk kalınlığını sağlamalıdır; ince
+    // disk ısınır ve balata basıncını taşıyamaz.
+    checks.push({
+      id: `${which}.safety.flangeThickness`,
+      label: "Flanş Kalınlığı",
+      required: sbModel?.minDiscThicknessMm ?? Number.NaN,
+      provided: sel.safetyBrakeFlangeThicknessMm, unit: "mm", op: ">=",
+      computedSide: "required",
+      pass: sel.safetyBrakeFlangeThicknessMm >= (sbModel?.minDiscThicknessMm ?? Infinity),
+      kind: "uretici", severity: "engelleyici",
+    });
+    // Hidrolik ünite frenin açma basıncını sağlamalı, emniyet valfi ayarı da
+    // frenin azami basıncını AŞMAMALIDIR (aşarsa kaliper zorlanır).
+    checks.push({
+      id: `${which}.safety.hydraulic`,
+      label: "Hidrolik Ünite Basıncı",
+      required: sbModel?.releasePressureBar ?? Number.NaN,
+      provided: sbUnit?.releasePressureBar ?? Number.NaN, unit: "bar", op: ">=",
+      computedSide: "required",
+      pass:
+        sbUnit !== undefined && sbModel !== undefined &&
+        sbUnit.releasePressureBar >= sbModel.releasePressureBar &&
+        sbUnit.reliefValveBar <= sbModel.maxPressureBar,
       kind: "uretici", severity: "engelleyici",
     });
   }

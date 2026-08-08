@@ -47,6 +47,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
 - `npx tsx scripts/test-work-order.ts` — iş emri PDF'ini 1…16 kalemle üret
   (sayfa dengesi görsel kontrolü)
+- `npx tsx scripts/test-safety-brake-diagram.tsx` — emniyet freni şemasını altı
+  yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
   sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)

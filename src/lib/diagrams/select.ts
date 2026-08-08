@@ -267,9 +267,12 @@ export function diagramForSection(
         arrangement: st.selections.safetyBrakeArrangement,
         model: st.selections.safetyBrakeModel,
         minThicknessMm: numOf(c["safety.minDiscThickness"]),
+        thicknessMm: st.selections.safetyBrakeFlangeThicknessMm,
         torqueEachNm: numOf(c["safety.torqueEach"]),
         totalTorqueNm: numOf(c["safety.totalTorque"]),
         demandTorqueNm: numOf(c["safety.demandTorque"]),
+        hydraulicUnit: typeof c["safety.unitCode"] === "string" ? c["safety.unitCode"] : undefined,
+        hydraulicPressureBar: numOf(c["safety.unitPressure"]),
       });
     }
 

@@ -6,7 +6,9 @@ import { ROPE_POSITION_AUTO, ROPE_POSITIONS } from "./modules/hoistGroup";
 import { BUFFER_TECHNICAL_TYPES, BUFFER_TYPE_LABELS } from "./buffer";
 import { DRUM_WEIGHT_FORMULA_HINT } from "./derive";
 import { COMMON_REEVINGS } from "./reeving";
-import { BRAKE_ARRANGEMENTS, SAFETY_BRAKE_CODES } from "./safety-brake";
+import {
+  BRAKE_ARRANGEMENTS, HYDRAULIC_UNIT_CODES, SAFETY_BRAKE_CODES,
+} from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { ModuleKey } from "./presentation/module-family";
 import {
@@ -844,18 +846,29 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     options: SAFETY_BRAKE_CODES, standardRef: "SIBRE SHI",
   },
   {
-    key: "safetyBrakeAirGapMm", label: "Hava Aralığı c", unit: "mm", type: "select",
+    key: "safetyBrakeAirGapMm", label: "Fren Boşluğu c", unit: "mm", type: "select",
     options: ["1", "2", "3"], numeric: true, standardRef: "SIBRE SHI",
-    hint: "Balata ile disk arasındaki ayar boşluğu. Aralık büyüdükçe yay sıkma kuvveti FA düşer.",
+    hint: "Balata ile disk arasındaki ayar boşluğu (katalogda \"air gap\"). Boşluk büyüdükçe yay sıkma kuvveti FA düşer.",
   },
   {
     key: "safetyBrakeArrangement", label: "Fren Yerleşimi", type: "select",
     options: BRAKE_ARRANGEMENTS,
-    hint: "Tambur üzerindeki kaliper düzeni; kaliper adedini de belirler.",
+    hint: "Tambur üzerindeki kaliper düzeni (A…F); kaliper adedini ve şemadaki açısal konumları belirler.",
   },
   {
     key: "safetyBrakeFlangeDiaMm", label: "Flanş Dış Çapı", unit: "mm", type: "number", diameter: true,
     hint: "Fren diski olarak kullanılan tambur flanşının dış çapı.",
+  },
+  {
+    key: "safetyBrakeFlangeThicknessMm", label: "Seçilen Flanş Kalınlığı", unit: "mm",
+    type: "select", options: ["20", "25", "30", "35", "40"], numeric: true,
+    standardRef: "SIBRE SHI",
+    hint: "Fren diski olarak kullanılan flanşın kalınlığı b. Katalogun istediği en küçük değerin altına inilemez.",
+  },
+  {
+    key: "safetyBrakeHydraulicUnit", label: "Hidrolik Güç Ünitesi", type: "select",
+    options: HYDRAULIC_UNIT_CODES, standardRef: "SIBRE SHI",
+    hint: "Kaliper fren yayla kapanır, hidrolikle açılır. V2 kompakt ünitedir (≤50 çevrim/saat, en çok iki fren); H-SF 3 (V3) yüksek çevrim içindir. Boş bırakılırsa katalogun seçim tablosundan önerilen ünite kullanılır.",
   },
 ];
 

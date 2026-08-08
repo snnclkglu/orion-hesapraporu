@@ -8,12 +8,15 @@
 import { describe, expect, it } from "vitest";
 import {
   BRAKE_ARRANGEMENTS,
+  BRAKE_ARRANGEMENT_DEFS,
   SAFETY_BRAKES,
   SAFETY_BRAKE_FRICTION,
+  brakeArrangementOf,
   brakeTorqueNm,
   brakesInArrangement,
   clampForceKn,
   minFlangeDiaMm,
+  recommendHydraulicUnit,
   safetyBrakeByCode,
 } from "../safety-brake";
 
@@ -149,6 +152,61 @@ describe("yerleşim düzeni → kaliper adedi", () => {
   it("tanımsız düzen en güvenli tarafa (tek fren) düşer", () => {
     expect(brakesInArrangement(undefined)).toBe(1);
     expect(brakesInArrangement("")).toBe(1);
+    // Serbest metin baş harfe göre çözülmez: "bilinmeyen" de B ile başlar ama
+    // düzen etiketi değildir; sessizce çift frenli düzene düşmemelidir.
     expect(brakesInArrangement("bilinmeyen")).toBe(1);
+    expect(brakesInArrangement("Farklı bir yazı")).toBe(1);
+  });
+
+  it("eski rakamlı etiketler aynı düzene çözülür (revizyonlar bozulmaz)", () => {
+    // Kayıtlı revizyonlar "2 · Çift fren — karşılıklı alt konsol" taşır.
+    expect(brakesInArrangement("2 · Çift fren — karşılıklı alt konsol")).toBe(2);
+    expect(brakesInArrangement("6 · Dört fren — çift taraflı yüksek konsol")).toBe(4);
+    expect(brakeArrangementOf("2 · Çift fren — karşılıklı alt konsol").code).toBe("B");
+  });
+
+  it("her düzenin kaliper açıları BENZERSİZDİR — şema düzenle gerçekten değişir", () => {
+    const seen = new Set<string>();
+    for (const def of BRAKE_ARRANGEMENT_DEFS) {
+      expect(def.angles.length, def.code).toBeGreaterThan(0);
+      const key = [...def.angles].sort((a, b) => a - b).join(",");
+      expect(seen.has(key), `${def.code} açıları başka bir düzenle aynı`).toBe(false);
+      seen.add(key);
+    }
+  });
+});
+
+describe("hidrolik güç ünitesi seçimi", () => {
+  it("katalog seçim tablosundaki basınç kademesini verir", () => {
+    // SIBRE HPU SELECTION GUIDE: SHI 105 → V2.1.B / V3.B
+    const brake = safetyBrakeByCode("SHI 105")!;
+    expect(recommendHydraulicUnit(brake, 2)?.code).toBe("V2.1-B");
+    expect(recommendHydraulicUnit(brake, 4)?.code).toBe("V3-B");
+    // SHI 75-1 → E kademesi
+    expect(recommendHydraulicUnit(safetyBrakeByCode("SHI 75-1"), 1)?.code).toBe("V2.1-E");
+  });
+
+  it("ikiden çok kaliperde V2 değil H-SF 3 önerilir", () => {
+    // Katalog dipnotu: bir V2 ünitesine en çok İKİ fren bağlanır.
+    const brake = safetyBrakeByCode("SHI 282")!;
+    expect(recommendHydraulicUnit(brake, 2)?.series).toBe("V2");
+    expect(recommendHydraulicUnit(brake, 4)?.series).toBe("H-SF 3");
+  });
+
+  it("önerilen ünite frenin PL ve Pmax bandını sağlar", () => {
+    for (const brake of SAFETY_BRAKES) {
+      for (const count of [1, 2, 4]) {
+        const unit = recommendHydraulicUnit(brake, count);
+        expect(unit, brake.code).toBeDefined();
+        expect(unit!.releasePressureBar, `${brake.code} açma basıncı`)
+          .toBeGreaterThanOrEqual(brake.releasePressureBar);
+        expect(unit!.reliefValveBar, `${brake.code} emniyet valfi`)
+          .toBeLessThanOrEqual(brake.maxPressureBar);
+      }
+    }
+  });
+
+  it("model seçilmediyse ünite önerilmez", () => {
+    expect(recommendHydraulicUnit(undefined, 2)).toBeUndefined();
   });
 });

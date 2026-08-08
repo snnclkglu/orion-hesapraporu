@@ -48,7 +48,11 @@ import type { AnyCheck } from "../types";
 //        (tip TÜM araba gruplarında ortaktır) ama yük diyagramı verilmediği
 //        için "kapsam" bilgilendirmesi üretirler — sessiz kalmadıklarının
 //        kanıtı budur.
-const EXPECTED_CHECK_COUNT = 241;
+// 245 = 241 + 4 (emniyet freni, SIBRE kataloğundan genişletildi):
+//   +4   emniyet frenli ana ve yardımcı kaldırma gruplarının her birinde İKİ
+//        yeni kontrol: seçilen flanş KALINLIĞI katalogun b sınırını sağlıyor mu
+//        ve HİDROLİK ÜNİTE basıncı frenin PL/Pmax bandında mı.
+const EXPECTED_CHECK_COUNT = 245;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 
