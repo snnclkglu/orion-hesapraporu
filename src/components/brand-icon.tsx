@@ -58,6 +58,16 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <line x1="15" y1="15" x2="15" y2="19" />
     </>
   ),
+  // Satış takibi: çizelge sayfası + yükselen sütunlar. Rakam DEĞİL, rakamın
+  // tutulduğu defter anlatılır — para simgesi kullanılmaz (çoklu para birimi).
+  ledger: (
+    <>
+      <rect x="4" y="4" width="16" height="16" />
+      <line x1="8" y1="16" x2="8" y2="12.5" />
+      <line x1="12" y1="16" x2="12" y2="9.5" />
+      <line x1="16" y1="16" x2="16" y2="7.5" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -98,6 +108,7 @@ export type BrandIconName =
   | "panel"
   | "safety"
   | "seat"
+  | "ledger"
   | "menu"
   | "close"
   | "sidebarCollapse"

@@ -256,6 +256,33 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **İş durumu** `job_status` enum'udur (aktif · pasif · tamamlandı · arşiv);
     `projects.status` ile karıştırılmaz, etiket/renk `lib/job-status.ts`tedir.
 
+15. **Roller yetki SORUSUYLA sorulur, listeyle değil.** `user_role` dört değer
+    taşır: `admin` (Yönetici) · `manager` (Müdür) · `engineer` (Mühendis) ·
+    `draftsman` (Teknik Ressam). Kod hiçbir yerde rol listesi karşılaştırmaz;
+    `lib/roles.ts`teki `isAdminRole` / `canSeeSales` sorulur. Roller HİYERARŞİ
+    DEĞİLDİR — müdür satış rakamlarını görür ama yönetim paneline giremez.
+    Veritabanı karşılığı `is_admin()` ve `can_see_sales()` fonksiyonlarıdır;
+    menüden gizlemek yalnız görgü kuralıdır, asıl engel RLS'tir.
+
+16. **Satış Takibi İŞ KALEMİNE bağlanır ve AYRI TABLODADIR.**
+    `job_item_sales` (kapsam, termin/sevk, miktar, ağırlık, birim fiyat, para
+    birimi, kur) yalnız Yönetici ve Müdür'e açıktır. Alanlar `job_items`
+    üzerine konsaydı satır bütün olarak okunduğu için fiyatı ayıklamak sunum
+    katmanına kalırdı; ayrı tabloda yetkiyi RLS'in kendisi keser.
+
+    **Satırlar önceden ÜRETİLMEZ:** sayfa `job_items` ile sol birleştirme yapar,
+    kayıt ilk fiyat girildiğinde `upsert` ile oluşur. Tetikleyiciyle satır
+    açmak, iş emri güncellemesi `job_items`i tamamen yenilediği için boş kayıt
+    bırakırdı.
+
+    **Toplamlar TÜRETİLİR** (`generated always as stored`): toplam ağırlık,
+    toplam fiyat ve avro karşılığı birim değerlerden çıkar — elle girilen bir
+    toplam onlarla çelişebilirdi. **Kur satırın kendindedir** (1 avro kaç birim
+    para eder): merkezî bir kur tablosundan okunsaydı sözleşme anındaki kur
+    değiştiğinde geçmiş cironun avro karşılığı da değişirdi. Firma ciroyu
+    AVRODA toplar; kuru girilmemiş satır toplama girmez ve sayfada ayrıca
+    sayılır ki sessizce kaybolmasın.
+
 7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
    JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap
    bölümleri `inputs.disabledModules` listesinde tutulur; girdileri korunur.
@@ -352,6 +379,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
+- `src/lib/roles.ts` — kullanıcı rolleri ve yetki soruları (`canSeeSales` vb.)
+- `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
+- `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
 - `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri

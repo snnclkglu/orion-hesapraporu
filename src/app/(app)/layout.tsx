@@ -27,7 +27,7 @@ export default async function AppLayout({
         İçeriğe atla
       </a>
       <AppShell
-        isAdmin={profile?.role === "admin"}
+        role={profile?.role ?? "engineer"}
         displayName={profile?.full_name || user.email || "Kullanıcı"}
         email={user.email ?? ""}
       >

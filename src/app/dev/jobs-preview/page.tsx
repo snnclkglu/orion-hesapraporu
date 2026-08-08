@@ -65,7 +65,9 @@ export default function JobsPreviewPage() {
       <header className="sticky top-0 z-30 flex h-12 items-center border-b bg-background/90 px-4">
         <div className="text-sm font-medium">İş Emri Önizleme (dev · sahte veri)</div>
       </header>
-      <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-6 lg:px-8">
+      {/* Gerçek liste sayfası gibi TAM GENİŞLİK — önizleme dar kalsaydı sütun
+          sıkışması burada görünmez, sorunu ancak canlıda fark ederdik. */}
+      <div className="grid w-full flex-1 gap-8 px-4 py-6 lg:px-8">
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">İşler — filtreler ve satır eylemleri</h2>
           <JobsTable jobs={JOBS} canDelete />

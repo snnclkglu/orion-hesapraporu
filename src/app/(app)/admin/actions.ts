@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { USER_ROLES, type UserRole } from "@/lib/roles";
 import type { ReportSettings } from "@/lib/settings";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
@@ -49,13 +50,13 @@ async function audit(
 
 const userSchema = z.object({
   full_name: z.string().trim().min(1, "Ad soyad gerekli").max(120),
-  role: z.enum(["admin", "engineer"]),
+  role: z.enum(USER_ROLES),
   title: z.string().trim().max(120),
 });
 
 export async function updateUserProfile(
   userId: string,
-  input: { full_name: string; role: "admin" | "engineer"; title: string }
+  input: { full_name: string; role: UserRole; title: string }
 ): Promise<AdminActionResult> {
   const ctx = await requireAdmin();
   if ("error" in ctx) return { error: ctx.error };
@@ -71,14 +72,16 @@ export async function updateUserProfile(
     .single();
   if (!target) return { error: "Kullanıcı bulunamadı" };
 
-  // Son admin korunur: sistemde tek admin varsa rolü düşürülemez.
-  if (target.role === "admin" && parsed.data.role === "engineer") {
+  // Son yönetici korunur: sistemde tek yönetici varsa rolü düşürülemez.
+  // Kontrol "engineer'a düşürme" değil "yöneticiLİKTEN çıkarma" üzerinedir —
+  // müdür/teknik ressam da yönetici olmayan rollerdir.
+  if (target.role === "admin" && parsed.data.role !== "admin") {
     const { count } = await supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
     if ((count ?? 0) <= 1) {
-      return { error: "Sistemdeki son admin rolü düşürülemez. Önce başka bir admin atayın." };
+      return { error: "Sistemdeki son Yönetici rolü düşürülemez. Önce başka bir Yönetici atayın." };
     }
   }
 

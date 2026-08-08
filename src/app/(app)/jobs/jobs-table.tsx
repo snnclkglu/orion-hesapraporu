@@ -11,7 +11,9 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileDown, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import {
+  ChevronDown, ChevronUp, ChevronsUpDown, FileDown, MoreHorizontal, Pencil, Trash2, X,
+} from "lucide-react";
 import { deleteJob } from "./actions";
 import { JobStatusMenu } from "./job-status-menu";
 import { JOB_STATUSES, JOB_STATUS_LABELS, jobStatusOf } from "@/lib/job-status";
@@ -56,6 +58,73 @@ function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+
+// ---------------------------------------------------------------- sıralama
+
+type SortKey = "job_no" | "title" | "customer" | "itemCount" | "craneCount" | "date" | "status";
+
+/**
+ * Sıralama anahtarları. Sayısal alanlar SAYI, metinler tr-TR sıralamasıyla
+ * karşılaştırılır ("İ" ve "ı" doğru yere düşsün diye `localeCompare`).
+ *
+ * Varsayılan İŞ NO AZALANDIR: iş numarası kronolojik artar, dolayısıyla en
+ * büyük numara en yeni iştir ve listenin başında olmalıdır.
+ */
+const SORT_VALUE: Record<SortKey, (j: JobRow) => string | number> = {
+  job_no: (j) => j.job_no,
+  title: (j) => j.title,
+  customer: (j) => j.customer,
+  itemCount: (j) => j.itemCount,
+  craneCount: (j) => j.craneCount,
+  date: (j) => j.work_order_date || j.created_at,
+  status: (j) => JOB_STATUS_LABELS[jobStatusOf(j.status)] ?? j.status,
+};
+
+function compareJobs(a: JobRow, b: JobRow, key: SortKey): number {
+  const va = SORT_VALUE[key](a);
+  const vb = SORT_VALUE[key](b);
+  if (typeof va === "number" && typeof vb === "number") return va - vb;
+  return String(va).localeCompare(String(vb), "tr", { numeric: true });
+}
+
+function SortHead({
+  label,
+  sortKey,
+  active,
+  dir,
+  onSort,
+  className,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  active: boolean;
+  dir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: "left" | "right";
+}) {
+  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <TableHead
+      className={className}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "-mx-1 flex w-full items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-foreground",
+          align === "right" && "justify-end",
+          active ? "text-foreground" : "text-muted-foreground"
+        )}
+      >
+        {label}
+        <Icon className={cn("size-3 shrink-0", !active && "opacity-40")} />
+      </button>
+    </TableHead>
+  );
 }
 
 function DeleteJobDialog({
@@ -177,10 +246,28 @@ export function JobsTable({
   const [customer, setCustomer] = useState(ALL);
   const [status, setStatus] = useState(ALL);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
+    key: "job_no",
+    dir: "desc",
+  });
+
+  /**
+   * Başlığa tıklama: aynı sütunsa yön döner, başka sütunsa o sütunun DOĞAL
+   * yönüyle başlar — numara/tarih/sayı alanlarında büyükten küçüğe, metinde
+   * A'dan Z'ye. Her sütunda "önce artan" davranışı tarih listelerinde ters
+   * hissettiriyordu.
+   */
+  function toggleSort(key: SortKey) {
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "title" || key === "customer" || key === "status" ? "asc" : "desc" }
+    );
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
-    return jobs.filter((j) => {
+    const rows = jobs.filter((j) => {
       if (year !== ALL && jobYear(j) !== year) return false;
       if (customer !== ALL && j.customer.trim() !== customer) return false;
       if (status !== ALL && jobStatusOf(j.status) !== status) return false;
@@ -189,7 +276,9 @@ export function JobsTable({
       }
       return true;
     });
-  }, [jobs, year, customer, status, query]);
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return rows.sort((a, b) => sign * compareJobs(a, b, sort.key));
+  }, [jobs, year, customer, status, query, sort]);
 
   const activeFilters =
     (year !== ALL ? 1 : 0) + (customer !== ALL ? 1 : 0) + (status !== ALL ? 1 : 0) +
@@ -265,13 +354,27 @@ export function JobsTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>İş No</TableHead>
-              <TableHead>İşin Adı</TableHead>
-              <TableHead>Müşteri</TableHead>
-              <TableHead className="w-[9%]">Kalem</TableHead>
-              <TableHead className="w-[9%]">Rapor</TableHead>
-              <TableHead className="w-[12%]">Tarih</TableHead>
-              <TableHead className="w-[15%]">Durum</TableHead>
+              {(
+                [
+                  { label: "İş No", key: "job_no", className: "w-[7rem]" },
+                  { label: "İşin Adı", key: "title" },
+                  { label: "Müşteri", key: "customer", className: "w-[22%]" },
+                  { label: "Kalem", key: "itemCount", className: "w-[5.5rem]" },
+                  { label: "Rapor", key: "craneCount", className: "w-[5.5rem]" },
+                  { label: "Tarih", key: "date", className: "w-[7.5rem]" },
+                  { label: "Durum", key: "status", className: "w-[10rem]" },
+                ] as const
+              ).map((c) => (
+                <SortHead
+                  key={c.key}
+                  label={c.label}
+                  sortKey={c.key}
+                  className={"className" in c ? c.className : undefined}
+                  active={sort.key === c.key}
+                  dir={sort.dir}
+                  onSort={toggleSort}
+                />
+              ))}
               <TableHead className="w-12 text-right">İşlem</TableHead>
             </TableRow>
           </TableHeader>

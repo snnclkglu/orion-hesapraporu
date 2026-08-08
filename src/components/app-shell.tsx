@@ -21,23 +21,33 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
+import { canSeeSales, isAdminRole, roleLabel } from "@/lib/roles";
 
 interface AppShellProps {
-  isAdmin: boolean;
+  role: string;
   displayName: string;
   email: string;
   children: React.ReactNode;
 }
 
+/**
+ * Menü yetkiye göre süzülür. `visible` bir ROL LİSTESİ değil bir SORUDUR
+ * (`isAdminRole` / `canSeeSales`): yetkinin tanımı `lib/roles.ts`te tek yerde
+ * durur, menü ile RLS aynı kaynağı okur.
+ *
+ * Menüden gizlemek yalnız görgü kuralıdır — Satış Takibi'ni asıl kapatan
+ * `job_item_sales` üzerindeki RLS'tir.
+ */
 const NAV_ITEMS: {
   href: string;
   label: string;
   icon: BrandIconName;
-  adminOnly?: boolean;
+  visible?: (role: string) => boolean;
 }[] = [
   { href: "/jobs", label: "İşler", icon: "bolt" },
   { href: "/projects", label: "Projeler", icon: "panel" },
-  { href: "/admin", label: "Yönetim", icon: "gauge", adminOnly: true },
+  { href: "/sales", label: "Satış Takibi", icon: "ledger", visible: canSeeSales },
+  { href: "/admin", label: "Yönetim", icon: "gauge", visible: isAdminRole },
 ];
 
 const COLLAPSE_KEY = "orion.sidebar.collapsed";
@@ -47,6 +57,7 @@ function sectionLabel(pathname: string | null): string {
   if (pathname.startsWith("/admin")) return "Yönetim";
   if (pathname.startsWith("/jobs")) return "İşler";
   if (pathname.startsWith("/projects")) return "Projeler";
+  if (pathname.startsWith("/sales")) return "Satış Takibi";
   return "";
 }
 
@@ -60,14 +71,14 @@ function initials(name: string): string {
 }
 
 function SidebarContent({
-  isAdmin,
+  role,
   displayName,
   email,
   pathname,
   collapsed,
   onNavigate,
 }: {
-  isAdmin: boolean;
+  role: string;
   displayName: string;
   email: string;
   pathname: string | null;
@@ -112,7 +123,7 @@ function SidebarContent({
           </div>
         )}
         <ul className="grid gap-0.5">
-          {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
+          {NAV_ITEMS.filter((item) => !item.visible || item.visible(role)).map((item) => {
             const active = pathname?.startsWith(item.href);
             return (
               <li key={item.href}>
@@ -165,7 +176,7 @@ function SidebarContent({
                 {displayName}
               </div>
               <div className="truncate text-[11px] text-sidebar-foreground/60">
-                {isAdmin ? "Yönetici" : "Mühendis"} · {email}
+                {roleLabel(role)} · {email}
               </div>
             </div>
           )}
@@ -176,7 +187,7 @@ function SidebarContent({
   );
 }
 
-export function AppShell({ isAdmin, displayName, email, children }: AppShellProps) {
+export function AppShell({ role, displayName, email, children }: AppShellProps) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   /** İlk okuma bitene kadar genişlik geçişi kapalı — açılışta kayma olmasın */
@@ -228,6 +239,10 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
   // (ekipman listesi hatası, madde 35). Çerçeve kipini hak eden sayfa kendi
   // içinde kayan bölgeler kurar; alt sayfalar doğal sayfa kaydırmasını ister.
   const isFrame = /\/revisions\/[^/]+\/?$/.test(pathname ?? "");
+  // Liste sayfaları ekranın TAMAMINI kullanır. Okuma genişliği kuralı (max-w-6xl)
+  // metin için doğrudur ama çok sütunlu tabloda ters teper: sütunlar sıkışır,
+  // durum menüsü kırpılır. Form ve rapor sayfaları dar kalmaya devam eder.
+  const isWide = /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "");
   const sidebarW = collapsed ? "3.5rem" : "15rem";
 
   return (
@@ -253,7 +268,7 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
         )}
       >
         <SidebarContent
-          isAdmin={isAdmin}
+          role={role}
           displayName={displayName}
           email={email}
           pathname={pathname}
@@ -279,7 +294,7 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
               <BrandIcon name="close" className="size-4" />
             </button>
             <SidebarContent
-              isAdmin={isAdmin}
+              role={role}
               displayName={displayName}
               email={email}
               pathname={pathname}
@@ -336,7 +351,12 @@ export function AppShell({ isAdmin, displayName, email, children }: AppShellProp
               : "px-4 py-6 lg:px-8"
           )}
         >
-          <div className={cn("mx-auto w-full", isFrame ? "max-w-none lg:h-full" : "max-w-6xl")}>
+          <div
+            className={cn(
+              "mx-auto w-full",
+              isFrame ? "max-w-none lg:h-full" : isWide ? "max-w-none" : "max-w-6xl"
+            )}
+          >
             {children}
           </div>
         </main>
