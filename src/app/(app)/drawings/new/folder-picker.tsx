@@ -90,9 +90,14 @@ export function FolderPicker() {
       : null;
   }, [klasorAdi, dosyalar]);
 
-  async function dosyalariAl(list: FileList | null) {
-    if (!list || list.length === 0) return;
-    const hepsi = Array.from(list);
+  async function dosyalariAl(hepsi: File[]) {
+    // SESSİZ DÖNÜŞ YOK. Kullanıcı bir klasör seçtiyse ekranda bir şey olmalı;
+    // "tıkladım, hiçbir şey olmadı" bu ekranın en kötü hâlidir ve bir kez
+    // yaşandı (canlı FileList temizlenince seçim sıfırlanıyordu).
+    if (hepsi.length === 0) {
+      toast.error("Klasörden hiç dosya okunamadı. Boş bir klasör seçmiş olabilirsiniz.");
+      return;
+    }
 
     // Kök klasör adı ilk parçadır. `webkitRelativePath` boşsa (iOS Safari)
     // klasör bilgisi hiç yoktur: yükleme YİNE yapılır, yalnız İPTAL/malzeme
@@ -250,9 +255,16 @@ export function FolderPicker() {
             className="hidden"
             disabled={calisiyor}
             onChange={(e) => {
-              const l = e.target.files;
+              // ÖNCE KOPYALA, SONRA TEMİZLE. `e.target.files` CANLI bir
+              // `FileList`tir: `value = ""` onu yerinde boşaltır ve elde
+              // tutulan referans sıfır elemanlı kalır — seçim sessizce
+              // kaybolur. (`File` nesneleri hayatta kalır, liste kalmaz;
+              // `contract-upload.tsx` tek dosya aldığı için bu tuzağa
+              // düşmüyor.) Temizleme, aynı klasörü ikinci kez seçmenin
+              // `change` olayını yeniden tetiklemesi için gerekli.
+              const secilenler = Array.from(e.target.files ?? []);
               e.target.value = "";
-              void dosyalariAl(l);
+              void dosyalariAl(secilenler);
             }}
           />
         </label>

@@ -8,6 +8,9 @@
 // GÖSTERMEK için — tek doğruluk kaynağı sunucudur ve kural değiştiğinde eski
 // bir sekmeden gelen kayıt yanlış ayrıştırılmış olmaz.
 
+// `randomUUID` AÇIKÇA içe aktarılır: `globalThis.crypto` yalnız Node 19+'da
+// kararlıdır ve dağıtımın Node sürümüne bağlı sessiz bir kırılganlık istemiyoruz.
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -58,10 +61,9 @@ async function requireWrite(): Promise<
 /**
  * Paketi ve dosya kayıtlarını oluşturur; depo yollarını istemciye döner.
  *
- * SIRA ÖNEMLİ: önce satırlar, sonra baytlar. Satır kimlikleri depo anahtarını
- * ürettiği için (`{package_id}/{file_id}`) tersi mümkün değil — ve yarıda
- * kalan bir yükleme, satırları zaten yazılmış olduğu için kaldığı yerden
- * sürdürülebilir olur.
+ * SIRA ÖNEMLİ: önce satırlar, sonra baytlar. Yarıda kalan bir yükleme,
+ * satırları zaten yazılmış olduğu için kaldığı yerden sürdürülebilir olur —
+ * 454 dosyalık bir pakette bu vazgeçilmez.
  */
 export async function createPackage(
   input: CreatePackageInput
@@ -120,47 +122,44 @@ export async function createPackage(
   }
   const packageId = paket.id as string;
 
-  // Satırlar toplu yazılır; 454 dosyayı tek istekte göndermek PostgREST'i
-  // zorlar, 200'lük öbekler hem güvenli hem ilerleme göstermeye elverişli.
+  // KİMLİK BURADA ÜRETİLİR, veritabanında değil.
+  //
+  // Depo anahtarı `{package_id}/{file_id}` olduğu için satır yazılmadan yol
+  // bilinemez gibi görünür — ve ilk sürüm bu yüzden önce satırları yazıp
+  // SONRA her birine `storage_path`i tek tek UPDATE ediyordu. 454 dosyada bu
+  // 454 ardışık gidiş-geliş demek: sunucu eylemi dakikalarca sürer ya da
+  // zaman aşımına düşer. Kimliği burada üretmek tek geçişte yazmayı sağlar.
   const uploads: { relPath: string; storagePath: string }[] = [];
   for (let i = 0; i < cozulmus.length; i += 200) {
-    const obek = cozulmus.slice(i, i + 200).map((f) => ({
-      package_id: packageId,
-      rel_path: f.relPath,
-      folder: f.folder,
-      file_name: f.fileName,
-      ext: f.ext,
-      role: f.role,
-      lifecycle: f.lifecycle,
-      part_code: f.partCode,
-      material: f.material,
-      thickness_mm: f.thicknessMm,
-      qty: f.qty,
-      label: f.label,
-      recognized_by: f.recognizedBy,
-      folder_material: f.folderMaterial,
-      folder_thickness_mm: f.folderThicknessMm,
-      size_bytes: f.size,
-      checksum: f.checksum,
-    }));
-    const { data, error } = await supabase
-      .from("drawing_files")
-      .insert(obek)
-      .select("id, rel_path");
-    if (error) return { error: `Dosya kaydı yazılamadı: ${error.message}`, packageId };
-    for (const r of data ?? []) {
-      uploads.push({ relPath: r.rel_path as string, storagePath: `${packageId}/${r.id}` });
-    }
-  }
+    const obek = cozulmus.slice(i, i + 200).map((f) => {
+      const fileId = randomUUID();
+      const storagePath = `${packageId}/${fileId}`;
+      uploads.push({ relPath: f.relPath, storagePath });
+      return {
+        id: fileId,
+        storage_path: storagePath,
+        package_id: packageId,
+        rel_path: f.relPath,
+        folder: f.folder,
+        file_name: f.fileName,
+        ext: f.ext,
+        role: f.role,
+        lifecycle: f.lifecycle,
+        part_code: f.partCode,
+        material: f.material,
+        thickness_mm: f.thicknessMm,
+        qty: f.qty,
+        label: f.label,
+        recognized_by: f.recognizedBy,
+        folder_material: f.folderMaterial,
+        folder_thickness_mm: f.folderThicknessMm,
+        size_bytes: f.size,
+        checksum: f.checksum,
+      };
+    });
 
-  // Depo anahtarı satırın kimliğinden türer; satıra geri yazılır ki indirme
-  // tarafı yolu yeniden hesaplamak zorunda kalmasın.
-  for (const u of uploads) {
-    await supabase
-      .from("drawing_files")
-      .update({ storage_path: u.storagePath })
-      .eq("package_id", packageId)
-      .eq("rel_path", u.relPath);
+    const { error } = await supabase.from("drawing_files").insert(obek);
+    if (error) return { error: `Dosya kaydı yazılamadı: ${error.message}`, packageId };
   }
 
   revalidatePath("/drawings");
@@ -300,15 +299,41 @@ export async function reconcilePackage(input: {
   for (const d of dosyalar) yolKimlik.set(d.rel_path as string, d.id as string);
 
   // Dosya kararları (kopya / süperse) satırlara yazılır.
+  //
+  // YALNIZ DEĞİŞENLER yazılır. Kararların ezici çoğunluğu dosyanın adından
+  // zaten çıkarılmış olanı tekrarlar; hepsini tek tek UPDATE etmek 454 ardışık
+  // gidiş-geliş demekti. Değişen satır sayısı gerçek paketlerde yirmiyi
+  // geçmiyor (kopyalar ve süperse edilenler).
+  const mevcutDurum = new Map(
+    dosyalar.map((d) => [
+      d.rel_path as string,
+      {
+        lifecycle: d.lifecycle as string,
+        superseded: (d.superseded_file_id as string | null) ?? null,
+        duplicate: (d.duplicate_of_id as string | null) ?? null,
+      },
+    ])
+  );
   for (const k of sonuc.fileDecisions) {
     const id = yolKimlik.get(k.relPath);
     if (!id) continue;
+    const superseded = k.supersedesRelPath ? yolKimlik.get(k.supersedesRelPath) ?? null : null;
+    const duplicate = k.duplicateOfRelPath ? yolKimlik.get(k.duplicateOfRelPath) ?? null : null;
+    const mevcut = mevcutDurum.get(k.relPath);
+    if (
+      mevcut &&
+      mevcut.lifecycle === k.lifecycle &&
+      mevcut.superseded === superseded &&
+      mevcut.duplicate === duplicate
+    ) {
+      continue;
+    }
     await supabase
       .from("drawing_files")
       .update({
         lifecycle: k.lifecycle,
-        superseded_file_id: k.supersedesRelPath ? yolKimlik.get(k.supersedesRelPath) ?? null : null,
-        duplicate_of_id: k.duplicateOfRelPath ? yolKimlik.get(k.duplicateOfRelPath) ?? null : null,
+        superseded_file_id: superseded,
+        duplicate_of_id: duplicate,
       })
       .eq("id", id);
   }
