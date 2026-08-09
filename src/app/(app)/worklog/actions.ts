@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeWorkLog } from "@/lib/roles";
 import { nextDistinctHue } from "@/lib/tags";
+import { resolveItemNo } from "@/lib/job-items";
 import {
   remapItemSchema,
   workCategorySchema,
@@ -49,32 +50,6 @@ async function requireWorkLogAccess() {
  * Metin her hâlükârda saklanır — bağlantı kurulamadı diye kayıt reddedilmez;
  * atölye kaydı sistemdeki numaralandırmayı beklemek zorunda değildir.
  */
-async function resolveItem(
-  supabase: SupabaseClient,
-  itemNo: string
-): Promise<{ jobItemId: string | null; jobId: string | null }> {
-  const no = itemNo.trim();
-  if (!no) return { jobItemId: null, jobId: null };
-
-  const { data: item } = await supabase
-    .from("job_items")
-    .select("id, job_id")
-    .eq("item_no", no)
-    .limit(1)
-    .maybeSingle();
-  if (item) {
-    const row = item as { id: string; job_id: string };
-    return { jobItemId: row.id, jobId: row.job_id };
-  }
-
-  const { data: job } = await supabase
-    .from("jobs")
-    .select("id")
-    .eq("job_no", no.slice(0, 4))
-    .limit(1)
-    .maybeSingle();
-  return { jobItemId: null, jobId: (job as { id: string } | null)?.id ?? null };
-}
 
 /**
  * Bir günün kayıtlarını bir bütün olarak yazar.
@@ -98,7 +73,7 @@ export async function saveWorkDay(input: WorkDayInput): Promise<WorkLogActionRes
   // yapılır: aynı gün on satır aynı kaleme yazılır ve on ayrı sorgu gereksizdir.
   const resolved = new Map<string, { jobItemId: string | null; jobId: string | null }>();
   for (const no of new Set(rows.map((r) => r.itemNo.trim()))) {
-    resolved.set(no, await resolveItem(supabase, no));
+    resolved.set(no, await resolveItemNo(supabase, no));
   }
 
   const { data: existingRows } = await supabase
@@ -174,7 +149,7 @@ export async function updateWorkLog(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tarih geçersiz" };
 
-  const link = await resolveItem(supabase, parsed.data.itemNo);
+  const link = await resolveItemNo(supabase, parsed.data.itemNo);
   const { error } = await supabase
     .from("work_logs")
     .update({

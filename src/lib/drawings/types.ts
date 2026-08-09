@@ -3,6 +3,10 @@
 // Veritabanındaki `dwg_*` enum'larının birebir karşılığıdır; iki taraf
 // ayrışırsa RLS'in ve arayüzün konuştuğu dil ikiye bölünür.
 
+/** Paketin yaşam evresi. `dwg_package_status` enum'unun birebir karşılığı. */
+export const PACKAGE_STATUSES = ["yukleniyor", "yuklendi", "aktif", "superse"] as const;
+export type DwgPackageStatus = (typeof PACKAGE_STATUSES)[number];
+
 /** Dosyanın işlevi. Bilinmeyen uzantı `diger`dir — bu bir hata değildir. */
 export const FILE_ROLES = ["model", "resim", "kesim", "bukum", "bom", "model3d", "diger"] as const;
 export type FileRole = (typeof FILE_ROLES)[number];
