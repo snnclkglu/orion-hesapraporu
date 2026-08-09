@@ -72,16 +72,16 @@ export function FindingRow({
   return (
     <li className={"grid gap-1.5 px-4 py-3" + (acked ? " opacity-55" : "")}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`border px-1.5 py-0.5 font-mono text-[10px] uppercase ${findingChipClass(kind)}`}>
+        <span className={`border px-1.5 py-0.5 font-mono text-[11px] uppercase ${findingChipClass(kind)}`}>
           {code}
         </span>
         {hintId && (
-          <span className="border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          <span className="border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
             {hintId}
           </span>
         )}
         {acked && (
-          <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
             <Check className="size-3" /> onaylandı
           </span>
         )}

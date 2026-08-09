@@ -625,3 +625,68 @@ dinleyen bir `MutationObserver`. Gözlemci hedefi bulur bulmaz KAPANIR, sürekli
 maliyet kalmaz; kabuk yuvasını sunucuda bastığı için normal sayfalarda gözlemci
 hiç kurulmaz bile. Sunucu anlık görüntüsü `undefined`dır ("henüz bilinmiyor"),
 `null` değil — böylece başlık bir kare sayfanın içinde belirip şeride zıplamaz.
+
+---
+
+## Faz V — Teknik Resimler modülü (2026-08-10)
+
+Teknik ressamın klasörü artık Drive'a değil sisteme giriyor. İki gerçek teslim
+klasörü incelendi ve **birbirine benzemedikleri** modülün temel kuralını
+belirledi: `0057-00-0500 - MONORAY (1 TON)` (174 dosya, düz yapı, tek Excel,
+tireli ad) ile `0043-00-0000_MTC PASLANMAZ` (454 dosya, üç seviye iç içe, yedi
+Excel, alt çizgili ad). Üçüncüsü de benzemeyecek.
+
+### Temel ilke: hoşgörülü anlama
+
+**Sistem klasöre biçim DAYATMAZ, klasörü anlamaya çalışır. Hiçbir kural bir
+yüklemeyi ENGELLEMEZ.** Bulgu düzeyleri `eksik · celiski · bilgi` — hesap
+motorundaki `engelleyici` düzeyinin BURADA KARŞILIĞI YOKTUR ve olmamalıdır.
+Rapor dili suçlamaz: "standart dışı" değil "tanıyamadım". Tanıma oranı
+ressamın notu değil sistemin kavrayışıdır.
+
+Tek regex yerine **sıralı tanıyıcı listesi** (`recognize.ts`); dosya adı `" - "`
+ile bölünüp her parça kendi başına sınıflandırılır, **sıra önemsenmez**. Excel
+sabit şemayla değil **sütun sözlüğüyle** okunur (iki pakette beş ayrı sütun
+şekli: 7 · 9 · 11 · 13 · 14). Tanınmayan dosya reddedilmez, saklanır ve elle
+bağlanabilir — bağ `drawing_aliases`a yazılıp **hatırlanır**.
+
+### Yanlış alarm bu modülün en büyük düşmanı
+
+Yazarken üç yanlış alarm sınıfı ölçülüp kesildi ve hepsi koruma testinde:
+`Testere` kalemleri için resim beklenmez (MTC'de 13 bulgunun 12'si yanlıştı),
+alt montajdan DXF beklenmez, `GRUP_BOLUNMUS` yalnız bitişik iki grup için
+basılır (gevşek kural yedi yanlış alarm veriyordu). `ICERIK_OKUNMADI` paket
+başına TEK bulgudur — dosya başına yazılsa MTC'de 270 satır olurdu.
+
+Buna karşılık modül gerçek kusurlar buldu: `0057-00-0600-00-01-04` (imalat
+parçası, hiç resmi yok), `0043-00-0400-04.pdf` ile `-02.pdf`in bayt bayt aynı
+olması (ressam yanlış görünümü dışa aktarmış), dört Excel'in adındaki kalem eki
+hatası, ve V2 içerik okumasında üç resmin antedindeki proje no çelişkisi.
+
+### Fazlar
+
+- **V1** — tanıma çekirdeği, şema, ekranlar, öneri belgesi
+- **V2** — içerik okuma: PDF anteti (`unpdf`) + el yazımı DXF başlık okuyucusu.
+  DXF'ler `$DWGCODEPAGE=ANSI_1254` beyan ettiği için kod sayfası koklanıp
+  `windows-1254` ile çözülür — `dxf-parser` UTF-8 varsayardı. Antet çıkarımı
+  **etiket sözcüklerine tutunur, satır konumuna asla** (metin katmanında
+  sözcükler bitişik geliyor); span dizisi karıştırıldığında aynı sonucu verdiği
+  testle kanıtlı. İçerik **isteğe bağlıdır**: okunmazsa defter Faz 1
+  davranışında kalır ve hiçbir bulgu kaymaz.
+- **V3** — türev çıktılar: satın alma · kesim · imalat listeleri (Excel).
+  Tedarikçi ve fiyat sütunu YOK — kaynakta yok, uydurmak yalan olur.
+- **V4** — sürüm ve süperse: paket farkı, yarım kalmış yükleme kartı.
+- **V5** — parça üretim durumu: aşama DEFTERİ (serbest metin değil; İş
+  Takibi'nin `work_categories` dersi), atölye ekranı. İlerleme **pakete değil
+  parçaya** bağlıdır (`item_no` + `part_code`), çünkü `drawing_parts` türetilmiş
+  bir tablodur ve her eşleştirmede silinip yeniden kurulur.
+
+### Açık kalanlar
+
+- Birleşik imalat PDF'i (`pdf-lib` gerektirir; `@react-pdf/renderer` mevcut
+  PDF'leri birleştiremez)
+- Satın alma kimliği: `derive.satinAlmaListesi` konumsal anahtar kullanıyor,
+  `progress.ts` tanımdan birleştiriyor — MTC'de 90 satır ↔ 68 kalem farkı var
+  ve iki ekran farklı sayı söylüyor
+- Aşama defteri yönetim ekranı (bugün yalnız tohum aşamalar)
+- `src/lib/excel/` marka bloğu üç dosyada tekrarlanıyor, ortak modüle çıkarılmalı

@@ -10,6 +10,7 @@ import { RECONCILER_VERSION } from "@/lib/drawings/reconcile";
 import { loadPackage } from "../data";
 import { PackageNav } from "./package-nav";
 import { PackageActions } from "./package-actions";
+import { PackageOutputs } from "./package-outputs";
 
 export default async function PackageLayout({
   children,
@@ -80,6 +81,10 @@ export default async function PackageLayout({
               kural eski
             </span>
           )}
+          {/* ÇIKTILAR yetki kapısının DIŞINDA: indirmek okumadır, paketi
+              değiştirmez. Müdürün satın alma listesine erişememesi anlamsız
+              olurdu. Değiştiren eylemler (Yeniden Eşleştir · Sil) içeride. */}
+          <PackageOutputs packageId={paket.id} />
           {yazabilir && <PackageActions packageId={paket.id} />}
         </div>
       </header>

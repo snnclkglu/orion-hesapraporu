@@ -74,6 +74,7 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
     size_bytes: f.size,
     storage_path: "",
     stored: false,
+    meta: null,
   }));
   const yolKimlik = new Map(files.map((f) => [f.rel_path, f.id]));
 
@@ -94,6 +95,8 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
     cut_length_mm: p.cutLengthMm,
     thickness_mm: p.thicknessMm,
     weight_kg: p.weightKg,
+    extents_x_mm: p.extentsXMm,
+    extents_y_mm: p.extentsYMm,
     has_model: p.hasModel,
     has_sheet: p.hasSheet,
     has_cut: p.hasCut,
@@ -170,7 +173,7 @@ export default function DrawingsPreviewPage() {
                       {liste.map((f, i) => (
                         <li key={`${f.code}-${f.subject}-${i}`} className="grid gap-1 px-3 py-2">
                           <span
-                            className={`w-fit border px-1.5 py-0.5 font-mono text-[10px] uppercase ${findingChipClass(f.kind)}`}
+                            className={`w-fit border px-1.5 py-0.5 font-mono text-[11px] uppercase ${findingChipClass(f.kind)}`}
                           >
                             {f.code}
                           </span>

@@ -201,21 +201,56 @@ export function FolderPicker() {
 
     await finalizeUpload({ packageId, storedPaths: yuklenen });
 
-    // Excel okuma — parçalı uç, `kalan` sıfırlanana kadar döner.
+    // İÇE AKTARMA ÜÇ AŞAMA: excel → pdf → dxf. Her biri parçalı uç,
+    // `kalan` sıfırlanana kadar döner.
+    //
+    // SIRA ÖNEMLİ: defterin omurgası Excel'den kurulur; antet ve DXF kutusu
+    // yalnız BOŞ ALANI doldurur. Ters sırada çalışsalardı antetteki anlık
+    // ağırlık, ressamın onayladığı ürün ağacındakini ezerdi.
+    //
+    // İçerik aşamaları BAŞARISIZ OLABİLİR ve bu yüklemeyi bozmaz: paket zaten
+    // açılmıştır, defter Excel'den kurulur, kullanıcı sonra "İçerikleri
+    // Yeniden Oku" ile tamamlayabilir.
     setAsama("okuma");
-    setDurumMetni("Excel dosyaları okunuyor…");
-    let ofset = 0;
-    for (let tur = 0; tur < 50; tur++) {
-      const yanit = await fetch(`/drawings/${packageId}/import?ofset=${ofset}&adet=10`, {
-        method: "POST",
-      });
-      if (!yanit.ok) {
-        toast.warning("Excel okuma tamamlanamadı; paket yine de açıldı.");
-        break;
+    async function asamayiKostur(asama: "excel" | "pdf" | "dxf", adet: number): Promise<boolean> {
+      let ofset = 0;
+      for (let tur = 0; tur < 200; tur++) {
+        const yanit = await fetch(
+          `/drawings/${packageId}/import?asama=${asama}&ofset=${ofset}&adet=${adet}`,
+          { method: "POST" }
+        );
+        if (!yanit.ok) return false;
+        const sonuc = (await yanit.json()) as {
+          toplam: number;
+          kalan: number;
+          sonraki: number | null;
+        };
+        if (sonuc.toplam > 0) {
+          setIlerleme({
+            yapilan: sonuc.toplam - sonuc.kalan,
+            toplam: sonuc.toplam,
+            bayt: 0,
+          });
+        }
+        if (!sonuc.kalan || sonuc.sonraki == null) return true;
+        ofset = sonuc.sonraki;
       }
-      const sonuc = (await yanit.json()) as { kalan: number; sonraki: number | null };
-      if (!sonuc.kalan || sonuc.sonraki == null) break;
-      ofset = sonuc.sonraki;
+      return false;
+    }
+
+    setDurumMetni("Excel dosyaları okunuyor…");
+    if (!(await asamayiKostur("excel", 10))) {
+      toast.warning("Excel okuma tamamlanamadı; paket yine de açıldı.");
+    }
+
+    setDurumMetni("Resim antetleri okunuyor…");
+    if (!(await asamayiKostur("pdf", 20))) {
+      toast.warning("Antet okuma tamamlanamadı. Ağırlıklar eksik kalabilir.");
+    }
+
+    setDurumMetni("Kesim dosyaları okunuyor…");
+    if (!(await asamayiKostur("dxf", 25))) {
+      toast.warning("DXF okuma tamamlanamadı. Kesim ölçüleri eksik kalabilir.");
     }
 
     setAsama("eslestirme");

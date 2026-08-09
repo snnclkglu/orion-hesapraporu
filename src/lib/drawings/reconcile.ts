@@ -17,6 +17,8 @@ import {
   parsePartCode,
 } from "./part-code";
 import { parseBomFileName } from "./file-name";
+import type { DxfHeader } from "./dxf-header";
+import type { SheetBomRow, TitleBlock } from "./titleblock";
 import { trBuyuk, trKatla, trSayi } from "./tr-text";
 import type { BomRow, Finding, ParsedFile, PartKind } from "./types";
 import type { FolderName } from "./folder-name";
@@ -29,6 +31,21 @@ import type { FolderName } from "./folder-name";
  */
 export const RECONCILER_VERSION = 1;
 
+/**
+ * Bir dosyanın OKUNMUŞ içeriği (`drawing_files.meta`).
+ *
+ * İçerik okuma İSTEĞE BAĞLIDIR: `content` hiç verilmezse defter yalnız addan
+ * ve Excel'den kurulur ve hiçbir bulgu değişmez. Verildiğinde YALNIZ BOŞ ALANI
+ * DOLDURUR — Excel'den gelen bir ağırlığı antetteki değerle EZMEZ. Öncelik
+ * ürün ağacı > depo > antet, çünkü ilk ikisi ressamın onayladığı listedir,
+ * antet ise modelin anlık hâli.
+ */
+export interface FileContent {
+  titleBlock?: TitleBlock;
+  sheetBom?: SheetBomRow[];
+  dxf?: DxfHeader;
+}
+
 export interface PackageSnapshot {
   /** Kök klasörün ham adı */
   folderName: string;
@@ -40,6 +57,8 @@ export interface PackageSnapshot {
   groupMap?: Record<string, string>;
   /** Sistemdeki güncel kalem no (kaymışsa bilgi bulgusu basılır) */
   systemItemNo?: string;
+  /** Okunmuş dosya içerikleri, `relPath` anahtarlı. Yoksa Faz 1 davranışı. */
+  content?: Record<string, FileContent>;
 }
 
 export interface RegisterPart {
@@ -61,6 +80,11 @@ export interface RegisterPart {
   cutLengthMm: number | null;
   thicknessMm: number | null;
   weightKg: number | null;
+  /** Ağırlık NEREDEN geldi — rapor ve defter bunu göstermeli. */
+  weightSource: "" | "excel" | "antet";
+  /** DXF kutusu (gerçek kesim ölçüsü); yalnız içerik okunduysa dolu. */
+  extentsXMm: number | null;
+  extentsYMm: number | null;
   hasModel: boolean;
   hasSheet: boolean;
   hasCut: boolean;
@@ -394,6 +418,9 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     cutLengthMm: null,
     thicknessMm: null,
     weightKg: null,
+    weightSource: "",
+    extentsXMm: null,
+    extentsYMm: null,
     hasModel: false,
     hasSheet: false,
     hasCut: false,
@@ -427,7 +454,13 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
 
     for (const r of satirlar) {
       p.cutLengthMm ??= kesimBoyu(r.qtyRaw);
-      p.weightKg ??= r.massRaw ? trSayi(r.massRaw) : null;
+      if (p.weightKg == null && r.massRaw) {
+        const kg = trSayi(r.massRaw);
+        if (kg != null) {
+          p.weightKg = kg;
+          p.weightSource = "excel";
+        }
+      }
     }
     p.thicknessMm = kalinlikTanimdan(p.description);
 
@@ -463,9 +496,29 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
         p.cutRelPath = f.relPath;
         p.thicknessMm ??= f.thicknessMm;
         if (!p.material) p.material = malzemeNormalize(f.material);
+        // DXF kutusu GERÇEK kesim ölçüsüdür; tanımdaki nominal ölçü yuvarlanmış
+        // ya da eski olabilir (örnek klasörde Ø220 annulus "200x200" yazıyordu).
+        const dxf = snap.content?.[f.relPath]?.dxf;
+        if (dxf) {
+          p.extentsXMm ??= dxf.extentsXMm;
+          p.extentsYMm ??= dxf.extentsYMm;
+        }
       }
       if (f.role === "model3d") p.has3d = true;
       if (!p.name && f.label) p.name = f.label;
+
+      // ANTET YALNIZ BOŞ ALANI DOLDURUR. Excel'den gelen bir değeri ezmez:
+      // ürün ağacı ressamın onayladığı listedir, antet modelin anlık hâli.
+      const antet = snap.content?.[f.relPath]?.titleBlock;
+      if (antet) {
+        if (p.weightKg == null && antet.weightKg != null) {
+          p.weightKg = antet.weightKg;
+          p.weightSource = "antet";
+        }
+        if (!p.material) p.material = malzemeNormalize(antet.material);
+        if (!p.name && antet.jobName) p.name = antet.jobName;
+        if (!p.assemblyTitle && antet.parentProject) p.assemblyTitle = antet.parentProject;
+      }
     }
   }
 
@@ -651,6 +704,28 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
       title: `${f.fileName} adı ${adKalem} diyor; klasör ve satırlar ${paketKalem} diyor.`,
       detail: "İçerik esas alındı; dosya adındaki kalem eki büyük olasılıkla yazım hatası.",
       hintId: "Ö-7",
+    });
+  }
+
+  // İÇERİK OKUNMADI — PAKET BAŞINA TEK BULGU.
+  //
+  // Dosya başına yazılsaydı MONORAY 104, MTC 270 satır üretirdi; bugünkü toplam
+  // "bilgi" sayısı 16 ve 31. Rapor bir gürültü listesine döner ve gerçek
+  // bulgular görünmez olurdu. Sayı bir cümlede söylenir, satır satır değil.
+  const icerikAdaylari = kullanilir.filter((f) => f.role === "resim" || f.role === "kesim");
+  const okunmus = icerikAdaylari.filter((f) => snap.content?.[f.relPath]).length;
+  if (icerikAdaylari.length > 0 && okunmus < icerikAdaylari.length) {
+    ekle({
+      code: "ICERIK_OKUNMADI",
+      kind: "bilgi",
+      subject: snap.folder?.code || snap.folderName,
+      title:
+        okunmus === 0
+          ? `${icerikAdaylari.length} resim/kesim dosyasının içeriği henüz okunmadı.`
+          : `${icerikAdaylari.length} dosyanın ${icerikAdaylari.length - okunmus} tanesinin içeriği okunmadı.`,
+      detail:
+        "Antetteki ağırlık ve DXF'in gerçek kesim ölçüsü bu okumadan gelir. " +
+        "“İçerikleri Yeniden Oku” ile alınabilir; defter onsuz da çalışır.",
     });
   }
 

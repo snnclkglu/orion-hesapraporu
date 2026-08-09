@@ -18,7 +18,12 @@ import { canEditDrawings } from "@/lib/roles";
 import { resolveItemNo } from "@/lib/job-items";
 import { parseFile } from "@/lib/drawings/file-name";
 import { folderNameFromContents, parseFolderName } from "@/lib/drawings/folder-name";
-import { reconcile, RECONCILER_VERSION, type PackageSnapshot } from "@/lib/drawings/reconcile";
+import {
+  reconcile,
+  RECONCILER_VERSION,
+  type FileContent,
+  type PackageSnapshot,
+} from "@/lib/drawings/reconcile";
 import type { BomRow, ParsedFile } from "@/lib/drawings/types";
 import {
   ackFindingSchema,
@@ -37,8 +42,14 @@ import {
 
 const BUCKET = "drawings";
 
-/** Yazma yetkisi + oturum. Asıl engel RLS'tir; bu yalnız anlaşılır mesaj içindir. */
-async function requireWrite(): Promise<
+/**
+ * Yazma yetkisi + oturum. Asıl engel RLS'tir; bu yalnız anlaşılır mesaj içindir.
+ *
+ * EXPORT EDİLİR: üretim durumu eylemleri (`[id]/progress/actions.ts`) aynı
+ * soruyu soruyor. İki kopya kalsaydı yetki kuralı bir gün yalnız bir yerde
+ * değişir ve atölye ekranı sessizce daha gevşek kalırdı.
+ */
+export async function requireWrite(): Promise<
   { supabase: SupabaseClient; userId: string } | { error: string }
 > {
   const supabase = await createClient();
@@ -284,11 +295,21 @@ export async function reconcilePackage(input: {
     );
   }
 
+  // OKUNMUŞ İÇERİK — varsa. `?asama=pdf|dxf` hiç çalıştırılmadıysa harita boş
+  // kalır ve defter Faz 1 davranışına döner; hiçbir bulgu değişmez.
+  const content: Record<string, FileContent> = {};
+  for (const d of dosyalar) {
+    const meta = d.meta as { titleBlock?: unknown; sheetBom?: unknown; dxf?: unknown } | null;
+    if (!meta || (!meta.titleBlock && !meta.dxf)) continue;
+    content[d.rel_path as string] = meta as FileContent;
+  }
+
   const snap: PackageSnapshot = {
     folderName,
     folder: tanima.value,
     files,
     bom,
+    content,
     groupMap: (paket.group_map as Record<string, string>) ?? {},
     systemItemNo,
   };
@@ -361,6 +382,10 @@ export async function reconcilePackage(input: {
     cut_length_mm: p.cutLengthMm,
     thickness_mm: p.thicknessMm,
     weight_kg: p.weightKg,
+    // DXF kutusu yalnız içerik okunduysa doludur; okunmadıysa null kalır ve
+    // sütun boş görünür — "ölçülmedi" ile "sıfır" karışmasın.
+    extents_x_mm: p.extentsXMm,
+    extents_y_mm: p.extentsYMm,
     has_model: p.hasModel,
     has_sheet: p.hasSheet,
     has_cut: p.hasCut,

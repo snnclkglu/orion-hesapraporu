@@ -30,6 +30,16 @@ function anlikGoruntu(pkg: FixturePackage, sheets: FixtureSheet[]): PackageSnaps
   return { folderName: pkg.folder, folder: parseFolderName(pkg.folder).value, files, bom };
 }
 
+/** Antetin boş hâli — testte yalnız ilgilenilen alan doldurulur. */
+function bosAntet() {
+  return {
+    drawingNo: "", projectNo: "", jobName: "", parentProject: "", customer: "",
+    weightKg: null as number | null, weightNA: false, qty: null as number | null,
+    material: "", scale: "", sheetSize: "", sheetNo: "", drawnBy: "",
+    approvedBy: "", dateIso: "", approvedDateIso: "", revision: "",
+  };
+}
+
 const monoray = reconcile(anlikGoruntu(MONORAY, MONORAY_SHEETS));
 const mtc = reconcile(anlikGoruntu(MTC, MTC_SHEETS));
 
@@ -205,6 +215,47 @@ describe("SESSİZLİK — yanlış alarm basılmayan durumlar", () => {
     expect(say(mtc, "GRUP_BOLUNMUS")).toBe(0);
     // MONORAY'daki gerçek durum (bitişik iki grup) yakalanmaya devam eder.
     expect(say(monoray, "GRUP_BOLUNMUS")).toBe(1);
+  });
+
+  it("içerik okunmadı uyarısı PAKET BAŞINA TEK bulgudur", () => {
+    // Dosya başına yazılsaydı MONORAY 104, MTC 270 satır üretirdi ve rapordaki
+    // gerçek bulgular (16 ve 31 bilgi) o gürültünün içinde kaybolurdu.
+    expect(say(monoray, "ICERIK_OKUNMADI")).toBe(1);
+    expect(say(mtc, "ICERIK_OKUNMADI")).toBe(1);
+  });
+
+  it("içerik verilmediğinde hiçbir bulgu KAYMAZ", () => {
+    // İçerik okuma İSTEĞE BAĞLIDIR: `content` yokken defter Faz 1 davranışında
+    // kalır. Eksik ve çelişki sayıları içerik zincirinden ÖNCEKİ ölçümle aynı.
+    expect(monoray.findings.filter((f) => f.kind === "eksik")).toHaveLength(2);
+    expect(monoray.findings.filter((f) => f.kind === "celiski")).toHaveLength(2);
+    expect(mtc.findings.filter((f) => f.kind === "eksik")).toHaveLength(5);
+    expect(mtc.findings.filter((f) => f.kind === "celiski")).toHaveLength(9);
+  });
+
+  it("içerik verildiğinde ağırlık antetten gelir ve kaynağı yazılır", () => {
+    // MONORAY'da ürün ağacı YOK: 62 kodlu parçanın hiçbirinin ağırlığı bilinmiyor.
+    // Antet okunduğunda o boşluk dolar — V2'nin bu pakette var oluş sebebi bu.
+    const kod = "0057-00-0510-01";
+    const resim = MONORAY.files.find((f) => f.path === `DWG/${kod}.pdf`);
+    expect(resim, "fikstürde bu resim olmalı").toBeDefined();
+
+    const icerikli = reconcile({
+      ...anlikGoruntu(MONORAY, MONORAY_SHEETS),
+      content: {
+        [resim!.path]: {
+          titleBlock: { ...bosAntet(), weightKg: 4.1, material: "S235JR" },
+        },
+      },
+    });
+
+    const p = icerikli.parts.find((x) => x.partCode === kod)!;
+    expect(p.weightKg).toBeCloseTo(4.1, 3);
+    expect(p.weightSource).toBe("antet");
+
+    // Ve Excel'den gelen bir ağırlık antetle EZİLMEZ.
+    const mtcAgirlikli = mtc.parts.find((x) => x.partCode === "0043-00-0100")!;
+    expect(mtcAgirlikli.weightSource).toBe("excel");
   });
 
   it("hiçbir bulgu ENGELLEYİCİ değildir — öyle bir düzey yoktur", () => {

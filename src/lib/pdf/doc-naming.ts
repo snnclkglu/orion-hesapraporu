@@ -9,8 +9,15 @@
 // Büyük harf `tr-TR` ile yapılır: `toUpperCase()` "i" harfini "I" yapar ve
 // "İşin adı" → "ISIN ADI" olurdu.
 
-/** `ORC-HR-0055-R01` · `ORC-EQ-0055-R01` — belge kimliği. */
-export function docCode(kind: "HR" | "EQ", docNo: string, revNo: number): string {
+/**
+ * `ORC-HR-0055-R01` · `ORC-EQ-0055-R01` · `ORC-TR-0057-00-0500-R01` — belge kimliği.
+ *
+ * `TR` teknik resim paketinin türev çıktılarıdır (satın alma / kesim / imalat
+ * listesi) ve doküman numarası olarak KLASÖR KODUNU taşır: bir işin birden çok
+ * resim paketi olabilir ve ikisi de aynı iş kalemine bağlıdır, ayırt eden şey
+ * grup kodudur.
+ */
+export function docCode(kind: "HR" | "EQ" | "TR", docNo: string, revNo: number): string {
   return `ORC-${kind}-${docNo}-R${String(revNo).padStart(2, "0")}`;
 }
 

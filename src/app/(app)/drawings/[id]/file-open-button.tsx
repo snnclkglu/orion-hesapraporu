@@ -40,33 +40,50 @@ export function FileOpenButton({
     }
     basla(async () => {
       const supabase = createClient();
-      const tarayicidaAcilir = opensInBrowser(fileName);
 
-      // `download` seçeneği `Content-Disposition: attachment; filename=…`
-      // yazar. Depo anahtarı bir UUID olduğu için bu OLMADAN indirilen dosya
-      // uzantısız iniyor ve DXF kesim programında açılmıyordu. PDF'te
-      // verilmez — o yeni sekmede görüntülensin.
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(storagePath, 120, tarayicidaAcilir ? undefined : { download: fileName });
-
-      if (error || !data?.signedUrl) {
-        toast.error("Dosya açılamadı.");
-        return;
-      }
-
-      if (tarayicidaAcilir) {
+      // PDF YENİ SEKMEDE AÇILIR — üretime inen resim odur, mühendis ona bakmak
+      // ister. İmzalı bağlantı yeter; indirme adı gerekmez.
+      if (opensInBrowser(fileName)) {
+        const { data, error } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(storagePath, 120);
+        if (error || !data?.signedUrl) {
+          toast.error("Dosya açılamadı.");
+          return;
+        }
         window.open(data.signedUrl, "_blank", "noopener,noreferrer");
         return;
       }
-      // İndirme yeni sekme AÇMAZ: `Content-Disposition: attachment` yüzünden
-      // sekme boş açılıp hemen kapanıyor ve kullanıcı bir şey olmadı sanıyor.
+
+      // GERİ KALANI BLOB OLARAK İNER ve adı TARAYICIDA verilir.
+      //
+      // Neden imzalı bağlantının `download` seçeneği kullanılmıyor: o seçenek
+      // adı sunucunun `Content-Disposition` başlığına yüzde kodlanmış yazıyor
+      // ve tarayıcı onu düz metin sanıyor — dosya
+      // `S235JR - 15MM - 0057-00-0510-01 - %281 ADET%29.dxf` diye iniyordu.
+      // Parantez, boşluk ve Türkçe harf taşıyan gerçek adlarda bu kaçınılmaz.
+      //
+      // Blob aynı kökenli bir `blob:` adresi ürettiği için `<a download>`
+      // özniteliği ARTIK GEÇERLİDİR (çapraz kökende yok sayılıyordu) ve ad
+      // neyse o olur. Bedeli dosyanın tarayıcı belleğinden geçmesi; bucket
+      // sınırı 50 MB ve gözlenen en büyük dosya 5,6 MB olduğu için kabul
+      // edilebilir.
+      const { data: blob, error } = await supabase.storage.from(BUCKET).download(storagePath);
+      if (error || !blob) {
+        toast.error("Dosya indirilemedi.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = data.signedUrl;
+      a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      // Serbest bırakma tıklamadan HEMEN sonra olmaz: bazı tarayıcılar indirmeyi
+      // başlatmadan adresi kaybeder.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     });
   }
 

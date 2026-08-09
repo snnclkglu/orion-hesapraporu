@@ -14,10 +14,16 @@ import { cn } from "@/lib/utils";
 export function PackageNav({ packageId }: { packageId: string }) {
   const pathname = usePathname() ?? "";
   const kok = `/drawings/${packageId}`;
+  // SIRA İŞ AKIŞINI İZLER, dosya adlarını değil: paket açılır (Genel Bakış),
+  // içindekiler okunur (Parça Defteri), atölyeye iner (Üretim), sonra denetim
+  // (Rapor) ve en sonda arşiv (Sürümler). İki faz bu rayı ayrı ayrı genişletmek
+  // istedi; tek düzenlemede birleştirildi.
   const sekmeler = [
     { href: kok, label: "Genel Bakış", exact: true },
     { href: `${kok}/parts`, label: "Parça Defteri", exact: false },
+    { href: `${kok}/progress`, label: "Üretim", exact: false },
     { href: `${kok}/report`, label: "İçe Aktarım Raporu", exact: false },
+    { href: `${kok}/versions`, label: "Sürümler", exact: false },
   ];
 
   return (

@@ -87,16 +87,34 @@ function Dugum({
   const resim = part.sheet_file_id ? dosyaKimlikYol.get(part.sheet_file_id) : null;
   const kesim = part.cut_file_id ? dosyaKimlikYol.get(part.cut_file_id) : null;
 
+  // ANA GRUP SATIRI (0057-00-0500, 0057-00-0510 …) ayırt edici basılır.
+  //
+  // 121 parçalık bir ağaçta bütün kodlar aynı ağırlıkta olunca grup sınırları
+  // kayboluyor ve göz nerede bir montajın bittiğini göremiyor. Girinti tek
+  // başına yetmiyor çünkü dar ekranda 0,75rem'e sıkışıyor. Ayrım TİPOGRAFİYLE
+  // yapılır: kod kalın, satır hafif zeminli ve üstünde bir çizgi — marka dili
+  // gereği renk değil AĞIRLIK ve KURAL kullanılır.
+  const anaGrup = seviye === 0;
+
   return (
     <li>
       <div
         className={
           "flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 text-sm" +
+          (anaGrup ? " border-t border-t-border bg-muted/40" : "") +
           (eksik ? " border-l-2 border-l-destructive bg-destructive/5" : "")
         }
         style={{ paddingLeft: `${1 + Math.min(seviye, 4) * 0.75}rem` }}
       >
-        <span className="font-mono text-[12px] font-medium">{part.part_code}</span>
+        <span
+          className={
+            anaGrup
+              ? "font-mono text-[13px] font-bold tracking-tight"
+              : "font-mono text-[12px] font-medium"
+          }
+        >
+          {part.part_code}
+        </span>
         <span className="min-w-0 flex-1 truncate text-foreground/80" title={part.description}>
           {part.description || part.name || part.assembly_title || "—"}
         </span>

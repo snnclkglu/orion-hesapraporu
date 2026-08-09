@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
 import { FINDING_SECTIONS, formatNum, recognitionClass } from "@/lib/drawings/labels";
 import { loadAcks, loadFindings, loadPackage } from "../../data";
-import { FindingRow } from "./finding-row";
+import { ReportView } from "./report-view";
 
 export default async function PackageReportPage({
   params,
@@ -71,45 +71,12 @@ export default async function PackageReportPage({
         </div>
       </section>
 
-      {FINDING_SECTIONS.map((bolum) => {
-        const liste = bulgular.filter((b) => b.kind === bolum.kind);
-        return (
-          <section key={bolum.kind} className="border bg-card">
-            <header className="border-b bg-muted/40 px-4 py-2.5">
-              <h2 className="flex items-baseline gap-2 text-sm font-medium">
-                {bolum.title}
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {formatNum(liste.length)}
-                </span>
-              </h2>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{bolum.hint}</p>
-            </header>
-
-            {liste.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                Bu bölümde bir şey yok.
-              </p>
-            ) : (
-              <ul className="divide-y">
-                {liste.map((b) => (
-                  <FindingRow
-                    key={b.id}
-                    packageId={id}
-                    code={b.code}
-                    kind={b.kind}
-                    subject={b.subject}
-                    title={b.title}
-                    detail={b.detail}
-                    hintId={b.hint_id}
-                    acked={onaylar.has(`${b.code}|${b.subject}`)}
-                    canWrite={yazabilir}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
+      <ReportView
+        packageId={id}
+        findings={bulgular}
+        ackedKeys={[...onaylar]}
+        canWrite={yazabilir}
+      />
     </div>
   );
 }

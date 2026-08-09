@@ -11,7 +11,7 @@ import type { DwgPackageStatus, FileLifecycle, FileRole, FindingKind, PartKind }
 /** Bir seferde okunacak satır sayısı — PostgREST öntanımının altında. */
 const SAYFA = 900;
 
-interface SayfaSonucu {
+export interface SayfaSonucu {
   data: unknown[] | null;
   error: { message: string } | null;
 }
@@ -24,7 +24,7 @@ interface SayfaSonucu {
  * "excessively deep" hatası veriyordu; sınır sayfalamanın kendisi zaten basit
  * bir döngü, akıllı tipe ihtiyacı yok.
  */
-async function tumSatirlar<T>(
+export async function tumSatirlar<T>(
   getir: (bas: number, son: number) => PromiseLike<SayfaSonucu>
 ): Promise<T[]> {
   const sonuc: T[] = [];
@@ -108,6 +108,8 @@ export interface FileRow {
   size_bytes: number;
   storage_path: string;
   stored: boolean;
+  /** Okunmuş içerik (antet / DXF başlığı). İçerik okunmadıysa boş nesne. */
+  meta: Record<string, unknown> | null;
 }
 
 export async function loadFiles(supabase: SupabaseClient, packageId: string): Promise<FileRow[]> {
@@ -116,7 +118,7 @@ export async function loadFiles(supabase: SupabaseClient, packageId: string): Pr
       .from("drawing_files")
       .select(
         "id, rel_path, folder, file_name, ext, role, lifecycle, part_code, material, " +
-          "thickness_mm, qty, label, recognized_by, size_bytes, storage_path, stored"
+          "thickness_mm, qty, label, recognized_by, size_bytes, storage_path, stored, meta"
       )
       .eq("package_id", packageId)
       .order("rel_path")
@@ -141,6 +143,8 @@ export interface PartRow {
   cut_length_mm: number | null;
   thickness_mm: number | null;
   weight_kg: number | null;
+  extents_x_mm: number | null;
+  extents_y_mm: number | null;
   has_model: boolean;
   has_sheet: boolean;
   has_cut: boolean;
@@ -157,6 +161,7 @@ export async function loadParts(supabase: SupabaseClient, packageId: string): Pr
       .select(
         "id, register_key, part_code, parent_code, item_path, level, kind, name, description, " +
           "assembly_title, material, category, qty, cut_length_mm, thickness_mm, weight_kg, " +
+          "extents_x_mm, extents_y_mm, " +
           "has_model, has_sheet, has_cut, has_3d, sheet_file_id, cut_file_id, sort"
       )
       .eq("package_id", packageId)
