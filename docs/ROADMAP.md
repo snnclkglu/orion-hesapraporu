@@ -558,3 +558,33 @@ yapalım"* + PDF'lere çapraz logo isteği.
 - Üst şeritteki `FEM 1.001 · DIN 15018 · CMAA 70` yazısı DURUYOR. Projeler
   bölümünde doğru, İş Takibi ve Satış Takibi'nde konu dışı. Kaldırılsın mı,
   yoksa yalnız `/projects` altında mı gösterilsin — Sinan'ın kararı.
+
+### Faz T eki — altbilgi tek çizgiye indi (2026-08-09)
+
+Sinan: *"Ekipman listesinde bu şekilde çift footer çizgisi olmasa daha iyi olur.
+PDF raporlarda da arada gereksiz bir boşluk var."*
+
+Aynı kökten iki kusur: firma künyesi altbilginin İÇİNDE değil, AYRI bir katman
+olarak duruyordu.
+
+- **Ekipman listesi** künyeyi `fixed` bir katmanda sayfanın altına koyuyordu.
+  Künyenin kendi ayırıcı çizgisi ile `BrandPage` altbilgisinin çizgisi ~8 mm
+  arayla alt alta basılıyordu → **iki ince çizgi**.
+- **Hesap raporu kapağı** künyeyi içerik akışının SONUNA koyuyordu. İçerik
+  sayfanın alt payında biterken altbilgi en alta sabitlendiği için aralarında
+  ~23 pt doldurulmamış bir şerit kalıyordu → **gereksiz boşluk**.
+
+Çözüm tek yerde: `BrandPage` artık `company` alıyor ve künyeyi altbilginin ilk
+satırı olarak basıyor. Çizgi künyenin üstünde TEK tanedir, doküman satırı kendi
+çizgisini çizmez, aradaki mesafe `paddingTop: 4`e iner. Sayfanın alt payı da
+künyenin varlığına göre `BrandPage` içinde ayarlanır — çağıranın elle pay
+vermesi (ve unutması) gerekmez.
+
+Ölçüldü (pymupdf): iki belgede de alt bölgede **tek** yatay çizgi, künye ile
+doküman satırı arası **4,0 pt**.
+
+**Ders — ölçerken dosya adını doğrula.** Bu turda uzun süre yanlış teşhis
+kovalandı: dosya adı standardizasyonu çıktı adını `0055-HR-001-V5-ozet.pdf` →
+`0055-01-V5-ozet.pdf` yapmıştı ve ölçüm betiği eski dosyayı okuyordu. Kapaktaki
+"boşluk kapanmıyor" izlenimi tamamen bundandı; `.test-output/` ölçülmeden önce
+temizlenmeli ya da dosya adı üretim çıktısından okunmalıdır.

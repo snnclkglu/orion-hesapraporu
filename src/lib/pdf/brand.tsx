@@ -160,7 +160,7 @@ export function CheckGlyph({ pass, size = 8 }: { pass: boolean; size?: number })
  * fotokopilendiğinde kimin belgesi olduğu görünsün. Bu yüzden iki kural
  * pazarlıksızdır:
  *
- *  - **Okunurluğu bozmaz.** Opaklık %4,5'te; kömür metnin (#262626) kağıt
+ *  - **Okunurluğu bozmaz.** Opaklık %6'da; kömür metnin (#262626) kağıt
  *    üzerindeki kontrastı 15:1 iken filigranın kendi kontrastı 1,05:1
  *    civarındadır — göz onu ancak arayınca görür, satır okurken görmez.
  *    Kırmızı da bu yüzden soluk kalır: marka kuralı kırmızıyı VURGU olarak
@@ -199,18 +199,40 @@ function Watermark() {
   );
 }
 
+export interface CompanyInfo {
+  company: string;
+  address: string;
+  phone?: string;
+  email?: string;
+  web?: string;
+}
+
 export interface PageFrameProps {
   /** Altbilgi sol satırı: `ORION CRANES · HESAP RAPORU · REV 03 · 2026` */
   docLine: string;
   /** Altbilgi orta: doküman kodu (`ORC-HR-412-R03`) — opsiyonel */
   docCode?: string;
   children: React.ReactNode;
+  /**
+   * Firma künyesi altbilgiye eklenir (ad · adres · telefon · e-posta · web).
+   *
+   * KÜNYE ALTBİLGİNİN İÇİNDEDİR, ayrı bir blok değil. Ayrı durduğunda künyenin
+   * kendi çizgisi ile altbilgi çizgisi alt alta iki çizgi olarak basılıyor,
+   * aralarında da doldurulmamış bir şerit kalıyordu. Tek çerçevede toplanınca
+   * çizgi bir tane olur ve boşluk kendiliğinden kapanır; sayfanın alt payı da
+   * künyenin varlığına göre burada ayarlanır (çağıranın elle pay vermesi
+   * gerekmez — unutulduğunda içerik künyenin üstüne binerdi).
+   */
+  company?: CompanyInfo;
   /** Kapak sayfasında altbilgi çizgisi istenmezse */
   hideFooterRule?: boolean;
   /** Yalnız geniş tablo ve çizelgelerde A4 yatay kullanılır. */
   orientation?: "portrait" | "landscape";
   style?: object;
 }
+
+/** Künyenin altbilgide kapladığı yükseklik (çizgi + iki satır + aralık). */
+const COMPANY_FOOTER_HEIGHT = 28;
 
 /**
  * Markalı A4 sayfa: solda tam boy 8mm kırmızı omurga (hiçbir şey üzerine taşmaz),
@@ -221,6 +243,7 @@ export function BrandPage({
   docLine,
   docCode,
   children,
+  company,
   hideFooterRule,
   orientation = "portrait",
   style,
@@ -235,7 +258,7 @@ export function BrandPage({
         color: BRAND.ink,
         backgroundColor: BRAND.white,
         paddingTop: PAGE.marginTop,
-        paddingBottom: PAGE.marginBottom + 14,
+        paddingBottom: PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0),
         paddingLeft: PAGE.contentLeft,
         paddingRight: PAGE.marginOuter,
         ...style,
@@ -249,7 +272,9 @@ export function BrandPage({
         style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: PAGE.spine, backgroundColor: BRAND.red }}
       />
       {children}
-      {/* Altbilgi: doküman kimliği + folio */}
+      {/* Altbilgi: (varsa) firma künyesi + doküman kimliği + folio.
+          Ayırıcı çizgi TEK: künye varsa çizgi künyenin üstündedir ve doküman
+          satırı kendi çizgisini çizmez. */}
       <View
         fixed
         style={{
@@ -257,20 +282,26 @@ export function BrandPage({
           left: PAGE.contentLeft,
           right: PAGE.marginOuter,
           bottom: mm(7),
-          borderTopWidth: hideFooterRule ? 0 : 0.75,
-          borderTopColor: BRAND.line300,
-          paddingTop: 4,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
         }}
       >
-        <Text style={T.micro}>{docLine}</Text>
-        {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
-        <Text
-          style={T.micro}
-          render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
-        />
+        {company ? <CompanyBlock {...company} /> : null}
+        <View
+          style={{
+            borderTopWidth: company || hideFooterRule ? 0 : 0.75,
+            borderTopColor: BRAND.line300,
+            paddingTop: 4,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Text style={T.micro}>{docLine}</Text>
+          {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
+          <Text
+            style={T.micro}
+            render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
+          />
+        </View>
       </View>
     </Page>
   );

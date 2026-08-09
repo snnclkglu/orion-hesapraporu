@@ -16,7 +16,8 @@ import type {
 } from "@/lib/excel/equipment";
 import { canLinkEquipmentModel, dsKey, rowSheetUrl } from "@/lib/excel/equipment";
 import {
-  BRAND, BrandBand, BrandPage, CompanyBlock, FONTS, PAGE, PageHeader, RuleRed, T, mm, trUpper,
+  BRAND, BrandBand, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper,
+  type CompanyInfo,
 } from "@/lib/pdf/brand";
 import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
@@ -141,25 +142,21 @@ export function breakEquipmentModelCode(model: string): string {
   return model.replace(/([./_-])/g, "$1\u200B");
 }
 
-/** Ekipman listesi her sayfada proje firmasının künyesini ayrı ve okunur tutar. */
-function CompanyFooter({ settings }: { settings?: ReportSettings }) {
+/**
+ * Firma künyesi — `BrandPage`in altbilgisine verilir, AYRI BİR BLOK OLARAK
+ * DEĞİL. Ayrı bir `fixed` katman olduğunda künyenin çizgisi ile altbilgi
+ * çizgisi alt alta iki ince çizgi basılıyor ve aralarında boş bir şerit
+ * kalıyordu; sayfanın alt payını da çağıranın elle vermesi gerekiyordu.
+ */
+function companyInfo(settings?: ReportSettings): CompanyInfo {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  return (
-    <View
-      fixed
-      style={{
-        position: "absolute", left: PAGE.contentLeft, right: PAGE.marginOuter, bottom: mm(15),
-      }}
-    >
-      <CompanyBlock
-        company={st.company}
-        address={st.address || st.city}
-        phone={st.phone}
-        email={st.email}
-        web={st.web}
-      />
-    </View>
-  );
+  return {
+    company: st.company,
+    address: st.address || st.city,
+    phone: st.phone,
+    email: st.email,
+    web: st.web,
+  };
 }
 
 function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<string, string> }) {
@@ -242,7 +239,7 @@ export function EquipmentDocument({
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
         docCode={code}
         orientation="landscape"
-        style={{ paddingBottom: mm(29) + 14 }}
+        company={companyInfo(settings)}
       >
         {/* Marka bandı: lockup logo + doküman kimliği. Müşteriye teslim edilen
             belgenin ilk sayfası markayı taşır (hesap raporu kapağıyla aynı). */}
@@ -336,7 +333,6 @@ export function EquipmentDocument({
             ))}
           </View>
         )}
-        <CompanyFooter settings={settings} />
       </BrandPage>
 
       {/*

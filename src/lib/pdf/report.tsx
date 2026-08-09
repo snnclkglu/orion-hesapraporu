@@ -28,7 +28,6 @@ import {
   BrandBand,
   BrandPage,
   CheckGlyph,
-  CompanyBlock,
   FONTS,
   Link,
   PageHeader,
@@ -1020,7 +1019,20 @@ function CoverPage(props: ReportProps) {
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
   return (
-    <BrandPage docLine={docLineFor(revision)} docCode={docCode} hideFooterRule>
+    // Künye ALTBİLGİNİN İÇİNDE: ayrı bir blok olarak akışın sonuna konduğunda
+    // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
+    // (altbilgi sayfanın en altına sabit, künye ise içeriğin bittiği yere).
+    <BrandPage
+      docLine={docLineFor(revision)}
+      docCode={docCode}
+      company={{
+        company: st.company,
+        address: st.address || st.city,
+        phone: st.phone,
+        email: st.email,
+        web: st.web,
+      }}
+    >
       {/* Üst bant: lockup logo + sağda mono doküman kimliği (ekipman listesiyle ortak) */}
       <BrandBand
         docCode={docCode}
@@ -1081,13 +1093,6 @@ function CoverPage(props: ReportProps) {
             </Text>
           </View>
         </View>
-        <CompanyBlock
-          company={st.company}
-          address={st.address || st.city}
-          phone={st.phone}
-          email={st.email}
-          web={st.web}
-        />
       </View>
     </BrandPage>
   );
