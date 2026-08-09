@@ -6,7 +6,7 @@
 // müşteri, iş, parça ve tür listelenir. Böylece "hiçbir sonuç vermeyen
 // süzgeç" seçilemez ve liste kendiliğinden güncel kalır.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,11 @@ import {
   type WorkLogRow,
 } from "@/lib/work-log";
 import { ALL, activeFilterCount, EMPTY_FILTERS, type WorkFilters } from "./filters";
+
+/** "2026-06-01" → "01.06.26" — şeritte yer kaplamayan tarih. */
+function shortDate(iso: string): string {
+  return iso ? `${iso.slice(8)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : "…";
+}
 
 /** Süzgeç seçeneklerini kayıtlardan türetir. */
 export function useFilterOptions(rows: readonly WorkLogRow[]) {
@@ -73,6 +78,15 @@ export function FilterBar({
   const today = todayIso();
   const set = (patch: Partial<WorkFilters>) => onChange({ ...filters, ...patch });
 
+  /**
+   * "Özel aralık" seçildi mi — tarih kutularını AÇIK tutan bayrak.
+   *
+   * Yalnız tarihlere bakmak yetmez: özel kipe geçerken verilen başlangıç
+   * değeri (ay başı … bugün) ayın son gününde "Bu ay" ön tanımıyla birebir
+   * çakışır ve kutular kullanıcının gözü önünde kapanırdı.
+   */
+  const [customOpen, setCustomOpen] = useState(false);
+
   // Seçili dönem hangi ön tanıma denk geliyor? (Adres çubuğundan gelen ham
   // tarihler de doğru düğmeyi vurgulasın diye tarihten geriye çözülür.)
   const preset: PeriodPreset = useMemo(() => {
@@ -86,25 +100,28 @@ export function FilterBar({
   }, [filters.from, filters.to, today]);
 
   const active = activeFilterCount(filters);
+  const presetValue = customOpen ? "custom" : preset;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
       <span className="oc-kicker mr-1 text-muted-foreground">Filtre</span>
 
       <Select
-        value={preset}
+        value={presetValue}
         onValueChange={(v) => {
           const p = v as PeriodPreset;
           if (p === "custom") {
+            setCustomOpen(true);
             // "Özel" seçildiğinde tarihler KORUNUR; kullanıcı ince ayar yapar.
             set({ from: filters.from || periodRange("thisMonth", today).from, to: filters.to || today });
             return;
           }
+          setCustomOpen(false);
           const r = periodRange(p, today);
           set({ from: r.from, to: r.to });
         }}
       >
-        <SelectTrigger size="sm" className="w-[145px]">
+        <SelectTrigger size="sm" className="w-[135px]">
           <SelectValue placeholder="Dönem" />
         </SelectTrigger>
         <SelectContent>
@@ -116,24 +133,41 @@ export function FilterBar({
         </SelectContent>
       </Select>
 
-      <Input
-        type="date"
-        value={filters.from}
-        onChange={(e) => set({ from: e.target.value })}
-        className="h-8 w-[9.5rem]"
-        aria-label="Başlangıç tarihi"
-      />
-      <span className="text-xs text-muted-foreground">–</span>
-      <Input
-        type="date"
-        value={filters.to}
-        onChange={(e) => set({ to: e.target.value })}
-        className="h-8 w-[9.5rem]"
-        aria-label="Bitiş tarihi"
-      />
+      {/* Tarih kutuları YALNIZ "Özel aralık" seçilince görünür.
+          Her zaman durduklarında iki tarih alanı + ayraç şeridin üçte birini
+          yiyor ve süzgeç ikinci satıra taşıyordu; oysa dönem çoğu zaman hazır
+          bir ön tanımdan seçilir. Seçili aralık, ön tanım kipinde de dönem
+          kutusunun etiketinden okunur. */}
+      {!customOpen && preset !== "custom" && preset !== "all" && (
+        <span
+          className="font-mono text-[11px] tabular-nums text-muted-foreground"
+          title={`${filters.from} … ${filters.to}`}
+        >
+          {shortDate(filters.from)} – {shortDate(filters.to)}
+        </span>
+      )}
+      {(customOpen || preset === "custom") && (
+        <>
+          <Input
+            type="date"
+            value={filters.from}
+            onChange={(e) => set({ from: e.target.value })}
+            className="h-8 w-[9.5rem]"
+            aria-label="Başlangıç tarihi"
+          />
+          <span className="text-xs text-muted-foreground">–</span>
+          <Input
+            type="date"
+            value={filters.to}
+            onChange={(e) => set({ to: e.target.value })}
+            className="h-8 w-[9.5rem]"
+            aria-label="Bitiş tarihi"
+          />
+        </>
+      )}
 
       <Select value={filters.customer} onValueChange={(v) => set({ customer: v })}>
-        <SelectTrigger size="sm" className="w-[175px]">
+        <SelectTrigger size="sm" className="w-[165px]">
           <SelectValue placeholder="Müşteri" />
         </SelectTrigger>
         <SelectContent>
@@ -147,11 +181,11 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.item} onValueChange={(v) => set({ item: v })}>
-        <SelectTrigger size="sm" className="w-[165px]">
+        <SelectTrigger size="sm" className="w-[145px]">
           <SelectValue placeholder="İş kalemi" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm iş kalemleri</SelectItem>
+          <SelectItem value={ALL}>Tüm kalemler</SelectItem>
           {options.items.map(([no, product]) => (
             <SelectItem key={no} value={no}>
               <span className="font-mono text-xs">{no}</span>
@@ -164,7 +198,7 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.part} onValueChange={(v) => set({ part: v })}>
-        <SelectTrigger size="sm" className="w-[165px]">
+        <SelectTrigger size="sm" className="w-[150px]">
           <SelectValue placeholder="Parça" />
         </SelectTrigger>
         <SelectContent>
@@ -178,11 +212,11 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.category} onValueChange={(v) => set({ category: v })}>
-        <SelectTrigger size="sm" className="w-[165px]">
+        <SelectTrigger size="sm" className="w-[140px]">
           <SelectValue placeholder="İmalat türü" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm imalat türleri</SelectItem>
+          <SelectItem value={ALL}>Tüm türler</SelectItem>
           {options.categories.map(([name, hue]) => (
             <SelectItem key={name} value={name}>
               <span className="flex items-center gap-1.5">
@@ -198,7 +232,7 @@ export function FilterBar({
         value={filters.query}
         onChange={(e) => set({ query: e.target.value })}
         placeholder="Kalem, ürün, parça veya not ara…"
-        className="h-8 w-full flex-1 sm:w-auto sm:min-w-[180px]"
+        className="h-8 w-full flex-1 sm:w-auto sm:min-w-[160px]"
       />
 
       <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -209,7 +243,10 @@ export function FilterBar({
           variant="ghost"
           size="sm"
           className="h-8 gap-1 text-xs"
-          onClick={() => onChange({ ...EMPTY_FILTERS })}
+          onClick={() => {
+            setCustomOpen(false);
+            onChange({ ...EMPTY_FILTERS });
+          }}
         >
           <X className="size-3.5" /> Temizle
         </Button>

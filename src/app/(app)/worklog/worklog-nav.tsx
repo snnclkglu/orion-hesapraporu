@@ -18,10 +18,13 @@ const TABS = [
   { href: "/worklog/records", label: "Kayıtlar", exact: false },
 ];
 
-export function WorkLogNav() {
+export function WorkLogNav({ badge }: { badge?: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   return (
-    <nav className="flex items-center gap-0 border-b" aria-label="İş Takibi bölümleri">
+    // Rozet `nav`ın İÇİNDE ama sekme değildir; `role="tablist"` sözleşmesi
+    // burada yok (sekmeler gerçek bağlantı), bu yüzden aynı çizgiyi paylaşması
+    // sorun değil — kazanılan bir satır boyudur.
+    <nav className="flex items-center gap-3 border-b" aria-label="İş Takibi bölümleri">
       {TABS.map((t) => {
         const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
         return (
@@ -32,7 +35,7 @@ export function WorkLogNav() {
             className={cn(
               // Marka dili: alt çizgi kırmızı, köşe yuvarlaklığı yok, geçiş
               // yalnız RENK adımı (kılavuz: no scale, no shadow lift).
-              "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
+              "-mb-px border-b-2 px-3 py-1.5 text-sm transition-colors",
               active
                 ? "border-primary font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -42,6 +45,7 @@ export function WorkLogNav() {
           </Link>
         );
       })}
+      {badge && <span className="ml-auto pb-1.5">{badge}</span>}
     </nav>
   );
 }

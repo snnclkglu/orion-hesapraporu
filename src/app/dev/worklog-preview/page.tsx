@@ -177,14 +177,23 @@ export default function WorkLogPreviewPage() {
   for (const r of ROWS) dailyTotals[r.date] = (dailyTotals[r.date] ?? 0) + r.manHours;
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-6 px-6 py-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">İş Takibi — Önizleme</h1>
-        <p className="text-sm text-muted-foreground">
-          Sahte veriyle görsel test. Kaydetme ve silme eylemleri çalışmaz.
+    // Üst bant GERÇEK bölüm kabuğunun birebir aynısıdır (worklog/layout.tsx):
+    // önizlemenin işe yaraması için sıkıştırılmış başlık düzeni de burada
+    // görülebilmeli.
+    <div className="mx-auto grid max-w-[1500px] gap-3 px-6 py-6">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <h1 className="text-xl font-semibold tracking-tight">İş Takibi</h1>
+        <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+          Atölyede hangi gün hangi işe kaç kişi çalıştı — adam·saat kaydı ve analizi
         </p>
       </div>
-      <WorkLogNav />
+      <WorkLogNav
+        badge={
+          <span className="shrink-0 border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
+            Yönetici · Müdür
+          </span>
+        }
+      />
 
       <Section title="Günlük Giriş">
         <DayEntry

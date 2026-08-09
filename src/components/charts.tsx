@@ -542,10 +542,10 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-start gap-3 rounded-lg border bg-card p-4", className)}>
+    <div className={cn("flex items-start gap-2.5 rounded-lg border bg-card p-3", className)}>
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-md",
+          "flex size-8 shrink-0 items-center justify-center rounded-md",
           tone === "warn" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
         )}
       >
@@ -554,7 +554,7 @@ export function StatCard({
       <div className="min-w-0 leading-tight">
         <div className="oc-kicker text-muted-foreground">{label}</div>
         <div className="mt-0.5 flex items-baseline gap-2">
-          <span className="font-mono text-xl font-semibold tracking-tight tabular-nums">{value}</span>
+          <span className="font-mono text-lg font-semibold tracking-tight tabular-nums">{value}</span>
           {delta !== null && delta !== undefined && Number.isFinite(delta) && (
             <span
               className={cn(

@@ -455,7 +455,11 @@ export function DayEntry({
       {/* Sık kullanılanlar — tek tıkla dolu satır */}
       {recent.length > 0 && (
         <div className="rounded-lg border bg-card px-3 py-2.5">
-          <div className="oc-kicker mb-2 text-muted-foreground">Sık Kullanılan · tek tıkla ekle</div>
+          {/* Etiket "SON kullanılan"dır, "sık" değil: sıralama önce TARİHE
+              bakar (`loadRecentCombos`), sıklık yalnız eşitlikte devreye girer.
+              Kurgunun tamamı "dünü tekrarla" üzerine oturduğu için doğru
+              davranış budur; yanlış olan yalnız eski etiketti. */}
+          <div className="oc-kicker mb-2 text-muted-foreground">Son Kullanılan · tek tıkla ekle</div>
           <div className="flex flex-wrap gap-1.5">
             {recent.map((c) => (
               <button

@@ -24,21 +24,25 @@ export default async function WorkLogLayout({
 
   if (!canSeeWorkLog(profile?.role)) redirect("/jobs");
 
+  // ÜST BANT İKİ SATIRDIR, üç değil: bu bölümde asıl iş EKRANIN ALTINDA
+  // (grafikler, tablolar). Başlık ile açıklama aynı satırda durur, yetki rozeti
+  // sekme şeridinin sağ ucuna oturur — kendi satırını hak etmiyor.
   return (
-    <div className="grid gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">İş Takibi</h1>
-          <p className="text-sm text-muted-foreground">
-            Atölyede hangi gün hangi işe kaç kişi çalıştı — adam·saat kaydı ve analizi
-          </p>
-        </div>
-        <span className="rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
-          Yönetici · Müdür
-        </span>
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <h1 className="text-xl font-semibold tracking-tight">İş Takibi</h1>
+        <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+          Atölyede hangi gün hangi işe kaç kişi çalıştı — adam·saat kaydı ve analizi
+        </p>
       </div>
 
-      <WorkLogNav />
+      <WorkLogNav
+        badge={
+          <span className="shrink-0 border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
+            Yönetici · Müdür
+          </span>
+        }
+      />
 
       {children}
     </div>
