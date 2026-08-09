@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { parseFile } from "@/lib/drawings/file-name";
 import { folderCodeFromContents, parseFolderName } from "@/lib/drawings/folder-name";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
+import { contentTypeFor } from "@/lib/drawings/mime";
 import { createPackage, finalizeUpload, reconcilePackage } from "../actions";
 
 const BUCKET = "drawings";
@@ -176,7 +177,13 @@ export function FolderPicker() {
         }
         const { error } = await supabase.storage
           .from(BUCKET)
-          .upload(hedef, d.file, { upsert: true, contentType: d.file.type || undefined });
+          .upload(hedef, d.file, {
+            upsert: true,
+            // Tarayıcı `.dxf`/`.dwg`/`.stp` için tip VERMEZ; uzantıdan bulunur.
+            // Yoksa depo öntanımlı bir tip yazıyor ve kesimciye giden DXF
+            // tarayıcıda metin gibi açılıyordu.
+            contentType: contentTypeFor(d.file.name, d.file.type),
+          });
         // BİR DOSYANIN HATASI YÜKLEMEYİ DURDURMAZ: 454 dosyalık bir paketi
         // ortasından kesmek, kullanıcıyı baştan başlamaya zorlardı.
         if (error) hatalar.push(d.relPath);

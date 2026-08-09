@@ -141,13 +141,23 @@ export default async function PackagePartsPage({
                   <TableCell>
                     <span className="flex flex-wrap items-center gap-1">
                       {resim && (
-                        <FileOpenButton storagePath={resim.storage_path} label="RES" title={resim.file_name} />
+                        <FileOpenButton
+                          storagePath={resim.storage_path}
+                          fileName={resim.file_name}
+                          label="PDF"
+                          title={resim.file_name}
+                        />
                       )}
                       {kesim && (
-                        <FileOpenButton storagePath={kesim.storage_path} label="DXF" title={kesim.file_name} />
+                        <FileOpenButton
+                          storagePath={kesim.storage_path}
+                          fileName={kesim.file_name}
+                          label="DXF"
+                          title={kesim.file_name}
+                        />
                       )}
                       {p.has_model && !resim && (
-                        <span className="border px-1.5 font-mono text-[11px] text-muted-foreground">MOD</span>
+                        <span className="border px-1.5 font-mono text-[11px] text-muted-foreground">DWG</span>
                       )}
                       {!p.has_model && !p.has_sheet && !p.has_cut && !p.has_3d && (
                         <span className="font-mono text-[11px] text-muted-foreground">—</span>

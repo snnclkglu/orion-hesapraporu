@@ -11,17 +11,21 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { opensInBrowser } from "@/lib/drawings/mime";
 
 const BUCKET = "drawings";
 
 export function FileOpenButton({
   storagePath,
+  fileName,
   label,
   title,
   className,
   disabled,
 }: {
   storagePath: string;
+  /** GERÇEK dosya adı — depo anahtarı opak olduğu için indirmede bu kullanılır. */
+  fileName: string;
   label: string;
   title?: string;
   className?: string;
@@ -36,14 +40,33 @@ export function FileOpenButton({
     }
     basla(async () => {
       const supabase = createClient();
+      const tarayicidaAcilir = opensInBrowser(fileName);
+
+      // `download` seçeneği `Content-Disposition: attachment; filename=…`
+      // yazar. Depo anahtarı bir UUID olduğu için bu OLMADAN indirilen dosya
+      // uzantısız iniyor ve DXF kesim programında açılmıyordu. PDF'te
+      // verilmez — o yeni sekmede görüntülensin.
       const { data, error } = await supabase.storage
         .from(BUCKET)
-        .createSignedUrl(storagePath, 120);
+        .createSignedUrl(storagePath, 120, tarayicidaAcilir ? undefined : { download: fileName });
+
       if (error || !data?.signedUrl) {
         toast.error("Dosya açılamadı.");
         return;
       }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+
+      if (tarayicidaAcilir) {
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      // İndirme yeni sekme AÇMAZ: `Content-Disposition: attachment` yüzünden
+      // sekme boş açılıp hemen kapanıyor ve kullanıcı bir şey olmadı sanıyor.
+      const a = document.createElement("a");
+      a.href = data.signedUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     });
   }
 
