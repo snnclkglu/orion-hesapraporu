@@ -438,3 +438,88 @@ n1 = 1400) aynı model ve oran için **24 kNm / 154 kN / Ø130 mm / 620 kg**.
 `main.gearbox.torque` kontrolü V5'te 22 < 22,07 kNm ile başarısızdı; katalog
 değeriyle geçer. Varsayılanlar golden testlerin beklediği sonuçları belirlediği
 için DEĞİŞTİRİLMEDİ — düzeltme kararı Sinan'ındır.
+
+## Faz S — İş Takibi modülü (2026-08-09)
+
+Sinan `ORION İŞ TAKİBİ.xlsx` çalışma kitabını workspace'e koydu: atölyede her
+gün hangi işe kaç kişinin kaç saat çalıştığının kaydı. Bölüm sisteme alındı ve
+kitabın tamamı aktarıldı.
+
+### Kaynağın söyledikleri
+
+| | |
+|---|---|
+| Satır | 1.751 (2025-04-21 … 2026-08-04) |
+| Adam·saat | 35.712 |
+| Farklı kalem no | 28 · parça 45 · imalat türü 6 · grup kodu 34 |
+| Kayıt günü | 382 · gün başına ortalama 4,6 satır |
+
+İki ölçüm modülün tasarımını belirledi:
+
+1. **Bir günün satırlarının %87'si bir önceki iş gününden AYNEN devam ediyor**;
+   381 günün 170'i bir öncekiyle birebir aynı. Kullanıcının yaptığı iş "dün ne
+   yazdıysam onu tekrar yaz"dı. Ekran bu tekrarı iki harekete indirir: *Önceki
+   günü kopyala* ve sık kullanılan (kalem · parça · tür) üçlülerini tek tıkla
+   satır yapan şerit. Yeni satır yazmak yine mümkün ama İSTİSNA.
+2. **Parça alanı serbest metindi ve aynı parça beş yazımla girilmişti**
+   ("Anakiriş"/"Ana Kiriş", "Kaldrıma Kirşi"/"Kaldrıma Kirişi", "Monaray").
+   Serbest metin bırakılsa parça bazında toplam ALINAMAZDI: parça ve imalat
+   türü kendi defterlerine (`work_parts`, `work_categories`) alındı; yeni parça
+   günlük girişteki arama kutusundan tek adımda açılır.
+
+### Kalem eşleşmesi — devralınan verinin yarısı bağlantısız
+
+Çizelgedeki "İş No" aslında KALEM numarasıdır (`job_items.item_no`). 28
+numaradan 23'ü birebir eşleşti; 0021-00 / 0045-00 / 0057-00 yalnız İŞ düzeyinde
+eşleşti (o işlerde kalemler `-01`den başlıyor) ve **0020-00 (792 satır, 18.162
+adam·saat) ile 0061-00'in sistemde karşılığı YOK**. Aktarımda hiçbir satır
+düşürülmedi: `item_no` metni her satırda durur, bağlantı türevdir.
+
+Ekrandaki **Kalem Eşleştirme** kartı bu numaraları listeler ve bir numaranın
+BÜTÜN satırlarını tek işlemde doğru kaleme bağlar (`remapItemNo`). 0020-00'ın
+parça listesi (Anakiriş, Yardımcı Kiriş, Ekolayzer, Tambur 185T, 185MT Üst
+Makara, "Şarj Vinci Akşam Mesai") 0019 no'lu KARÇEL 185/40 t şarj vincini
+işaret ediyor ama bu bir TAHMİNDİR — kararı Sinan verecek, uygulama sessizce
+birleştirmedi.
+
+### Ne yapıldı
+
+- [x] Şema `20260809000004_work_log.sql`: `work_logs` + `work_parts` +
+      `work_categories` + `can_see_work_log()` + RLS (Yönetici · Müdür).
+      `man_hours` türetilen sütundur; `hours` üst sınırı GENİŞtir çünkü
+      devralınan kayıtta "3 kişi × 112 saat" gibi toplu iş satırları var.
+- [x] Aktarım `20260809000005_import_work_log.sql`: 1.751 satır, tekrar
+      çalıştırılabilir (gün + kalem + parça + tür + adam + saat aynıysa atlar).
+      **Uzak veritabanına uygulandı (2026-08-09):** 1.751 kayıt / 35.712
+      adam·saat, kaynakla birebir.
+- [x] **Günlük Giriş** (`/worklog`): tarih gezinme, son 14 gün şeridi, önceki
+      günü kopyala, sık kullanılan üçlüler, satır düzenleyici (kişi sayacı,
+      grup kodu önerisi), Ctrl+S, kaydedilmemiş değişiklik uyarısı.
+- [x] **Analiz** (`/worklog/analysis`): dört özet kartı (önceki döneme göre
+      değişimle), yığılmış zaman serisi (günlük/haftalık/aylık × altı kırılım
+      ekseni), sıralı kırılım (tıklanınca süzgece dönüşür), imalat türü halkası,
+      aylık ısı haritası, çapraz tablo (satır/sütun seçilir, yer değiştirilir),
+      dönem karşılaştırması (aynı uzunlukta önceki aralık).
+- [x] **Kayıtlar** (`/worklog/records`): süzgeçli/sıralanabilir tablo, satır
+      düzenleme penceresi, Kalem Eşleştirme kartı, kademeli yükleme.
+- [x] **Excel indirme** (`/worklog/export`): beş sayfa (Kayıtlar · Aylık Özet ·
+      İş Kalemi Özeti · Parça Özeti · Künye), marka kimlikli başlık, gerçek
+      tarih hücreleri + otomatik süzgeç + dondurulmuş başlık. Dosya adı indirme
+      TARİHİ VE SAATİNİ taşır: `ORION İş Takibi 09.08.2026 14-32.xlsx`.
+- [x] Pano grafikleri `components/charts.tsx` — `lib/diagrams` KULLANILMADI
+      (gerekçe AGENTS.md md. 17). Seri rengi ton açısıdır, L/C tema başına
+      `globals.css` `.oc-series-*` / `.oc-heat` kurallarında.
+- [x] `src/lib/__tests__/work-log.test.ts` — 28 test: pay toplamı, boş kovanın
+      seriye girmesi, haftanın pazartesi başlaması, eşit uzunlukta önceki
+      dönem, yerel takvim günü, dosya adı biçimi.
+- [x] `/dev/worklog-preview` — üç ekranı sahte veriyle auth'suz basar.
+
+### Açık kalan
+
+- **0020-00 ve 0061-00 numaralarının hedefi.** Kalem Eşleştirme kartı hazır;
+  hangi işe bağlanacağına Sinan karar verecek. Bağlanana kadar bu satırlar
+  müşteri ve iş kırılımlarında "—" kovasındadır (toplamdan DÜŞMEZ).
+- **Günlük kaydı kim giriyor?** Bölüm Yönetici + Müdür'e açıktır (istenen
+  buydu). Kaydı atölyeden biri giriyorsa ya o kişiye Müdür rolü verilmeli ya da
+  `user_role` enum'una beşinci bir rol (ör. atölye şefi) eklenip
+  `canSeeWorkLog` genişletilmelidir — tek satırlık bir değişiklik.

@@ -17,6 +17,7 @@ import { collectCatalogSheetPages } from "../src/lib/pdf/catalog-sheet-images";
 import { renderEquipmentPdf } from "../src/lib/pdf/equipment-report";
 import type { RevisionAlts } from "../src/lib/revision-load";
 import { baslikDuzeni } from "../src/lib/tr-text";
+import { DEFAULT_REPORT_SETTINGS } from "../src/lib/settings";
 
 /**
  * Alternatif (seçenekli) halat fikstürü — madde 23/25. Üç seçenek de GERÇEK
@@ -66,6 +67,21 @@ const META = {
   revLabel: "V5 şablon testi",
   revNo: 0,
   date: new Date().toLocaleDateString("tr-TR"),
+  preparedBy: "Alkım Kelleci",
+  checkedBy: "Sinan Çolakoğlu",
+};
+
+/**
+ * Künye ayarları — varsayılanlarda adres/telefon BOŞTUR ve sayfa dibindeki
+ * firma bloğu gerçek uzunluğunda görülmez. Duman testi bu yüzden canlıdaki
+ * değerlerle koşar.
+ */
+const SETTINGS = {
+  ...DEFAULT_REPORT_SETTINGS,
+  address: "Malıköy, 1. Cd. No:20, 06909 Başkent Organize Sanayi Bölgesi/Sincan/Ankara",
+  phone: "(0312) 511 48 06",
+  email: "info@orioncranes.com",
+  web: "orioncranes.com",
 };
 
 async function main() {
@@ -280,8 +296,8 @@ async function main() {
     process.exitCode = 1;
   }
 
-  const pdfCustomer = await renderEquipmentPdf({ meta: META, groups, sheetUrls });
-  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary, sheetUrls });
+  const pdfCustomer = await renderEquipmentPdf({ meta: META, groups, sheetUrls, settings: SETTINGS });
+  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary, sheetUrls, settings: SETTINGS });
   const pCustPath = path.join(outDir, "ekipman-listesi-musteri.pdf");
   const pFullPath = path.join(outDir, "ekipman-listesi-tam.pdf");
   writeFileSync(pCustPath, pdfCustomer);
@@ -298,7 +314,7 @@ async function main() {
     );
     process.exitCode = 1;
   }
-  const pdfDetailed = await renderEquipmentPdf({ meta: META, groups, summary, sheetPages });
+  const pdfDetailed = await renderEquipmentPdf({ meta: META, groups, summary, sheetPages, settings: SETTINGS });
   const pDetailPath = path.join(outDir, "ekipman-listesi-detayli.pdf");
   writeFileSync(pDetailPath, pdfDetailed);
 

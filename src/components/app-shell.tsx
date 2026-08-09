@@ -21,7 +21,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
-import { canSeeSales, isAdminRole, roleLabel } from "@/lib/roles";
+import { canSeeSales, canSeeWorkLog, isAdminRole, roleLabel } from "@/lib/roles";
 
 interface AppShellProps {
   role: string;
@@ -46,6 +46,7 @@ const NAV_ITEMS: {
 }[] = [
   { href: "/jobs", label: "İşler", icon: "bolt" },
   { href: "/projects", label: "Projeler", icon: "panel" },
+  { href: "/worklog", label: "İş Takibi", icon: "timesheet", visible: canSeeWorkLog },
   { href: "/sales", label: "Satış Takibi", icon: "ledger", visible: canSeeSales },
   { href: "/admin", label: "Yönetim", icon: "gauge", visible: isAdminRole },
 ];
@@ -58,6 +59,7 @@ function sectionLabel(pathname: string | null): string {
   if (pathname.startsWith("/jobs")) return "İşler";
   if (pathname.startsWith("/projects")) return "Projeler";
   if (pathname.startsWith("/sales")) return "Satış Takibi";
+  if (pathname.startsWith("/worklog")) return "İş Takibi";
   return "";
 }
 
@@ -273,7 +275,11 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // Liste sayfaları ekranın TAMAMINI kullanır. Okuma genişliği kuralı (max-w-6xl)
   // metin için doğrudur ama çok sütunlu tabloda ters teper: sütunlar sıkışır,
   // durum menüsü kırpılır. Form ve rapor sayfaları dar kalmaya devam eder.
-  const isWide = /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "");
+  // İş Takibi'nin ÜÇ sayfası da geniştir: günlük girişte satırlar yan yana
+  // uzar, analiz grafik ızgarası, kayıtlar çok sütunlu tablodur.
+  const isWide =
+    /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
+    /^\/worklog(\/|$)/.test(pathname ?? "");
   const sidebarW = collapsed ? "3.5rem" : "15rem";
 
   return (

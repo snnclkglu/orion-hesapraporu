@@ -5,14 +5,12 @@
 // birebir aynı bölüm/satır/kontrol yapısı PDF'e dökülür.
 // Yalnızca sunucuda çalışır (brand.tsx fontları dosya sisteminden okur).
 
-import fs from "node:fs";
 import path from "node:path";
 import React from "react";
 import {
   Circle,
   Document,
   Font,
-  Image,
   Line,
   Path,
   Polygon,
@@ -27,8 +25,10 @@ import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
 import { diagramsForSection } from "@/lib/diagrams/select";
 import {
   BRAND,
+  BrandBand,
   BrandPage,
   CheckGlyph,
+  CompanyBlock,
   FONTS,
   Link,
   PageHeader,
@@ -36,6 +36,7 @@ import {
   SectionTag,
   T,
 } from "@/lib/pdf/brand";
+import { docCode } from "@/lib/pdf/doc-naming";
 import { PdfMath } from "@/lib/pdf/pdf-math";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
@@ -80,12 +81,8 @@ import {
   type ModuleKey,
 } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
-// Orion Cranes logosu (kırmızı kilit, şeffaf zemin) — public/brand klasörü
-// Vercel trace'ine next.config.ts outputFileTracingIncludes ile dahil edilir.
-// Not: react-pdf string src'yi URL olarak fetch etmeye çalışır (Windows yolunda
-// başarısız olur); bu yüzden dosya Buffer olarak okunup verilir.
-const LOGO_PATH = path.join(process.cwd(), "public", "brand", "orion-logo.png");
-const LOGO_DATA = fs.readFileSync(LOGO_PATH);
+// Logo ve marka bandı `brand.tsx`tedir (BRAND_LOGO / BrandBand): hesap raporu
+// kapağı ile ekipman listesinin ilk sayfası aynı bandı paylaşsın diye.
 
 // DejaVu eğik varyantı: pdf-math italik değişken adları için şart — brand.tsx
 // aileyi eğiksiz kaydeder; Font.register aynı aileye kaynak EKLER (ezmez).
@@ -187,7 +184,7 @@ function docLineFor(revision: ReportRevision): string {
 
 /** Doküman kodu: `ORC-HR-412-R03` */
 function docCodeFor(project: ReportProject, revision: ReportRevision): string {
-  return `ORC-HR-${project.doc_no}-R${String(revision.rev_no).padStart(2, "0")}`;
+  return docCode("HR", project.doc_no, revision.rev_no);
 }
 
 // Modül erişimi (girdi durumu / sonuç / sunum bağlamı) ortak katmandan gelir:
@@ -237,7 +234,6 @@ function distributeChecks(
 
 const s = StyleSheet.create({
   // ---- kapak
-  coverLogo: { width: 168, height: 18.9 }, // 596×67 px oranı korunur
   coverMetaLabel: { ...T.kickerInk, marginBottom: 2 },
   coverMetaValue: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink },
   // Künye satırı (spec bloğu): etiket mono kicker, değer büyük mono
@@ -1023,31 +1019,14 @@ function CoverPage(props: ReportProps) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...props.settings };
   const dateLabel = reportDateLabel(revision);
   const docCode = docCodeFor(project, revision);
-  const contact = [st.phone, st.email, st.web]
-    .map((x) => (x ?? "").trim())
-    .filter(Boolean)
-    .join("  ·  ");
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCode} hideFooterRule>
-      {/* Üst bant: lockup logo + sağda mono doküman kimliği */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          borderBottomWidth: 1.4,
-          borderBottomColor: BRAND.ink,
-          paddingBottom: 10,
-        }}
-      >
-        <Image style={s.coverLogo} src={LOGO_DATA} />
-        <View style={{ alignItems: "flex-end" }}>
-          <Text style={{ ...T.data, color: BRAND.gray600 }}>{docCode}</Text>
-          <Text style={{ ...T.data, color: BRAND.gray600, marginTop: 1.5 }}>
-            REV {String(revision.rev_no).padStart(2, "0")} · {dateLabel}
-          </Text>
-        </View>
-      </View>
+      {/* Üst bant: lockup logo + sağda mono doküman kimliği (ekipman listesiyle ortak) */}
+      <BrandBand
+        docCode={docCode}
+        lines={[`REV ${String(revision.rev_no).padStart(2, "0")} · ${dateLabel}`]}
+        logoWidth={168}
+      />
 
       {/* Başlık bloğu */}
       <View style={{ marginTop: 84 }}>
@@ -1102,11 +1081,13 @@ function CoverPage(props: ReportProps) {
             </Text>
           </View>
         </View>
-        <View style={{ borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 6 }}>
-          <Text style={{ ...T.micro, color: BRAND.gray700, fontWeight: 600 }}>{st.company}</Text>
-          <Text style={{ ...T.micro, marginTop: 2 }}>{st.address || st.city}</Text>
-          {contact ? <Text style={{ ...T.micro, marginTop: 2 }}>{contact}</Text> : null}
-        </View>
+        <CompanyBlock
+          company={st.company}
+          address={st.address || st.city}
+          phone={st.phone}
+          email={st.email}
+          web={st.web}
+        />
       </View>
     </BrandPage>
   );

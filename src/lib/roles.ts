@@ -52,3 +52,17 @@ export function canSeeSales(value: string | null | undefined): boolean {
   const r = roleOf(value);
   return r === "admin" || r === "manager";
 }
+
+/**
+ * İş Takibi bölümü: atölye çalışma saatleri, adam·saat toplamları ve analizi.
+ *
+ * Bugün `canSeeSales` ile AYNI rol kümesini döndürür ama AYRI bir sorudur:
+ * satış rakamı ile atölye verimliliği farklı iki bilgidir ve biri açılırken
+ * öbürü kapalı kalabilmelidir. Tek satırlık bir kopya, ileride ikisini
+ * ayırmak için bütün çağrı yerlerini gözden geçirme borcunu ortadan kaldırır.
+ * Veritabanı karşılığı `can_see_work_log()`.
+ */
+export function canSeeWorkLog(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "manager";
+}

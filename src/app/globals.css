@@ -186,6 +186,54 @@
     flex-shrink: 0;
     background: oklch(0.72 0.13 var(--oc-hue));
   }
+
+  /*
+   * Grafik serisi rengi — etiketle AYNI kaynaktan (ton açısı), farklı ayarda.
+   *
+   * Etiket bir metnin arkasında durur ve okunurluğu metin belirler; çubuk ya da
+   * dilim ise KENDİ BAŞINA bir veri işaretidir ve komşusundan ayırt edilmelidir.
+   * Bu yüzden doygunluk etiketten yüksek (0,115 · 0,05–0,08 değil) ama marka
+   * kuralı korunur: tek gerçekten doygun renk Orion Kırmızısıdır, seriler onun
+   * bir basamak altında kalır.
+   *
+   * SVG dolgusu ve HTML zemini AYRI sınıflardır: `fill` bir div'i, `background`
+   * bir <rect>'i boyamaz.
+   */
+  .oc-series-fill {
+    --oc-hue: 0;
+    fill: oklch(0.62 0.115 var(--oc-hue));
+  }
+  .dark .oc-series-fill {
+    fill: oklch(0.7 0.13 var(--oc-hue));
+  }
+  .oc-series-bg {
+    --oc-hue: 0;
+    background: oklch(0.62 0.115 var(--oc-hue));
+  }
+  .dark .oc-series-bg {
+    background: oklch(0.7 0.13 var(--oc-hue));
+  }
+  .oc-series-stroke {
+    --oc-hue: 0;
+    stroke: oklch(0.62 0.115 var(--oc-hue));
+  }
+  .dark .oc-series-stroke {
+    stroke: oklch(0.7 0.13 var(--oc-hue));
+  }
+  /* Isı haritası hücresi: yoğunluk `--oc-level` (0–1) ile verilir. Renk değil
+     DOYGUNLUK+PARLAKLIK değişir; boş hücre zeminle aynı kalır, dolusu koyulaşır. */
+  .oc-heat {
+    --oc-hue: 0;
+    --oc-level: 0;
+    background: oklch(
+      calc(0.97 - 0.35 * var(--oc-level)) calc(0.02 + 0.1 * var(--oc-level)) var(--oc-hue)
+    );
+  }
+  .dark .oc-heat {
+    background: oklch(
+      calc(0.26 + 0.32 * var(--oc-level)) calc(0.02 + 0.1 * var(--oc-level)) var(--oc-hue)
+    );
+  }
 }
 
 @layer base {

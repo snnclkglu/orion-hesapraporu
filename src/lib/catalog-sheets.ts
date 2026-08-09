@@ -68,6 +68,21 @@ function norm(value: string): string {
 }
 
 /**
+ * Sunum katmanının "boş" işaretlerini gerçek marka saymaz.
+ *
+ * Ekipman listesi, markası olmayan satırlara MARKA sütununda "-" yazar
+ * (`textOr`). Bu metin markaymış gibi ele alındığında iki şey birden bozuluyordu:
+ * `<tür>|-|<model>` anahtarı hiçbir zaman tutmuyor VE marka önekini modelden
+ * ayıklayan yol hiç çalışmıyordu (`brand` dolu sayıldığı için defterdeki marka
+ * adları denenmiyordu). Sonuç: redüktör ve tampon gibi kimliği tek birleşik
+ * "MARKA MODEL" alanında duran bölümlerin HİÇBİRİ katalog sayfası bulamıyordu.
+ */
+function realBrand(brand: string | null | undefined): string | null {
+  const trimmed = (brand ?? "").trim();
+  return trimmed === "" || trimmed === "-" || trimmed === "—" ? null : trimmed;
+}
+
+/**
  * Kod SONEKİNİ atar: "22212 E" → "22212".
  *
  * Rulman kodları katalogda tasarım sonekiyle basılır (E, EK, CC/W33); mühendis
@@ -144,10 +159,11 @@ for (const sheet of SHEETS) {
  */
 export function findCatalogSheet(
   kind: string,
-  brand: string | undefined | null,
+  brandInput: string | undefined | null,
   model: string | undefined | null
 ): CatalogSheet | undefined {
   if (!model) return undefined;
+  const brand = realBrand(brandInput);
   const normalized = norm(model);
   const candidates = [normalized];
   // Eski kayıtlarda model alanına marka da yazılmış olabilir
@@ -181,8 +197,9 @@ export function findCatalogSheet(
 
 /** Bu tür + marka için defterde HERHANGİ bir sayfa var mı? */
 export function hasCatalogSheets(kind: string, brand?: string | null): boolean {
-  if (!brand) return SHEETS.some((s) => s.kind === kind);
-  return BRANDS.has(`${kind}|${norm(brand)}`);
+  const real = realBrand(brand);
+  if (!real) return SHEETS.some((s) => s.kind === kind);
+  return BRANDS.has(`${kind}|${norm(real)}`);
 }
 
 /** Uç adresi — dosya yolu defterde geçmiyorsa uç 404 döner. */
@@ -209,7 +226,8 @@ export function catalogSheetPageUrl(
   origin = ""
 ): string {
   const q = new URLSearchParams({ tur: kind, model });
-  if (brand && brand !== "-") q.set("marka", brand);
+  const real = realBrand(brand);
+  if (real) q.set("marka", real);
   return `${origin}/katalog?${q.toString()}`;
 }
 

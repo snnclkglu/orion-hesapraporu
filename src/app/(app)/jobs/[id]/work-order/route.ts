@@ -3,6 +3,7 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderWorkOrderPdf, type WorkOrderData } from "@/lib/pdf/work-order";
+import { downloadFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
@@ -59,13 +60,9 @@ export async function GET(
   };
 
   const buffer = await renderWorkOrderPdf(data, settings);
-  // Dosya adı: "İş No - İşin Adı - İş Emri". İndirilenler klasöründe iş emirleri
-  // yan yana durduğunda hangi işe ait olduğu adından okunmalıdır. Dosya adında
-  // kullanılamayan karakterler (\ / : * ? " < > |) boşluğa çevrilir.
-  const safe = (v: string) => v.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
-  const filename = [safe(job.job_no ?? ""), safe(job.title ?? ""), "İş Emri"]
-    .filter(Boolean)
-    .join(" - ") + ".pdf";
+  // Dosya adı: "İŞ ADI - İŞ NO - İŞ EMRİ" (bkz. pdf/doc-naming). İş emrinin
+  // doküman kodu ve versiyonu yoktur; kimliği iş numarasıdır.
+  const filename = downloadFileName([job.title, job.job_no, job.form_code, "İş Emri"]);
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);
 

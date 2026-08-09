@@ -14,6 +14,7 @@ import {
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { isReportLevel, renderReportPdf, type ReportLevel } from "@/lib/pdf/report";
+import { REPORT_LEVEL_LABELS, docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
@@ -88,9 +89,14 @@ export async function GET(
     sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
   });
 
-  // Türkçe karakterli dosya adı: ASCII geri düşüş + RFC 5987 filename*
-  const levelSuffix = level === "detayli" ? "" : level === "standart" ? "-Standart" : "-Ozet";
-  const filename = `${project.doc_no}-V${revision.rev_no}${levelSuffix}.pdf`;
+  // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - SEVİYE (bkz. pdf/doc-naming).
+  // Türkçe karakterli ad: ASCII geri düşüş + RFC 5987 filename*.
+  const filename = downloadFileName([
+    project.name,
+    docCode("HR", project.doc_no, revision.rev_no),
+    `V${revision.rev_no}`,
+    REPORT_LEVEL_LABELS[level],
+  ]);
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
 
   return new Response(new Uint8Array(buffer), {

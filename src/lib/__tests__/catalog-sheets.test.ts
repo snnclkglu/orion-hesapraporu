@@ -255,3 +255,48 @@ describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
     expect(url.searchParams.has("marka")).toBe(false);
   });
 });
+
+describe("markası olmayan satır — \"-\" gerçek marka sayılmaz", () => {
+  // Ekipman listesi markasız satırlara MARKA sütununda "-" yazar. Bu metin
+  // marka sanıldığı sürece kimliği tek birleşik "MARKA MODEL" alanında duran
+  // bölümlerin (redüktör 2.3/5.5, tampon 5.8, yürütme freni 5.5b) HİÇBİRİ
+  // katalog sayfası bulamıyordu: `<tür>|-|<model>` anahtarı tutmuyor, marka
+  // önekini modelden ayıklayan yol ise `brand` dolu göründüğü için hiç
+  // çalışmıyordu.
+  it("birleşik \"MARKA MODEL\" alanı \"-\" markayla da çözülür", () => {
+    for (const model of [
+      "Yılmaz Redüktör HT0823",
+      "FLENDER B2-04",
+      "SEW-EURODRIVE X3160e/HC",
+    ]) {
+      expect(findCatalogSheet("gearbox", "-", model), `${model} bulunamadı`).toBeDefined();
+      // Marka hiç verilmediğinde de aynı sayfa bulunmalı.
+      expect(findCatalogSheet("gearbox", null, model)?.id).toBe(
+        findCatalogSheet("gearbox", "-", model)?.id
+      );
+    }
+  });
+
+  it("tampon (5.8) katalog sayfası bulur — satırın markası yoktur", () => {
+    expect(findCatalogSheet("buffer", "-", "SIBRE SP 65 FF 200")).toBeDefined();
+    expect(findCatalogSheet("buffer", "-", "Conductix-Wampfler 017111-100N")).toBeDefined();
+  });
+
+  it("yürütme freninin kimliği MARKA sütunundadır ve o metinle bulunur", () => {
+    // 5.5b eşlemesinde ürün kimliğini yalnız `brakeBrand` taşır; ekipman satırı
+    // onu `catalogModel` olarak verir (model sütunu "-"dir).
+    expect(findCatalogSheet("brake", null, "SIBRE TE 250 Ed 30/5")).toBeDefined();
+  });
+
+  it("boş marka ve em-dash da marka sayılmaz", () => {
+    const beklenen = findCatalogSheet("gearbox", null, "FLENDER B2-04")?.id;
+    expect(findCatalogSheet("gearbox", "", "FLENDER B2-04")?.id).toBe(beklenen);
+    expect(findCatalogSheet("gearbox", "—", "FLENDER B2-04")?.id).toBe(beklenen);
+    expect(findCatalogSheet("gearbox", "  ", "FLENDER B2-04")?.id).toBe(beklenen);
+  });
+
+  it("gerçek marka hâlâ süzgeç görevi görür — yanlış markanın sayfası açılmaz", () => {
+    expect(findCatalogSheet("gearbox", "FLENDER", "FLENDER B2-04")).toBeDefined();
+    expect(findCatalogSheet("gearbox", "SEW-EURODRIVE", "FLENDER B2-04")).toBeUndefined();
+  });
+});

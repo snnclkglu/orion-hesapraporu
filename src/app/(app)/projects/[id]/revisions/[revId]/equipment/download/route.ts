@@ -21,6 +21,7 @@ import {
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
 import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
+import { docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
 import { getReportSettings } from "@/lib/settings";
 
@@ -121,14 +122,6 @@ export async function GET(
     checkedBy: nameOf(project.checked_by),
   };
 
-  const baseName = `${project.doc_no || "rapor"}-V${revision.rev_no}-${
-    detailed
-      ? "ekipman-listesi-detayli"
-      : scope === "customer"
-        ? "ekipman-listesi"
-        : "ekipman"
-  }`;
-
   let raw: Buffer | ArrayBuffer;
   let contentType: string;
   let ext: string;
@@ -158,7 +151,20 @@ export async function GET(
   }
 
   const body = new Uint8Array(raw as ArrayBuffer);
-  const filename = `${baseName}.${ext}`;
+  // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - TÜR (bkz. pdf/doc-naming).
+  // Teknik özet DAHİLİ bir çıktıdır; adında görünmesi, müşteriye yanlış dosyayı
+  // göndermeyi zorlaştırır.
+  const filename = downloadFileName(
+    [
+      project.name,
+      docCode("EQ", project.doc_no ?? "", revision.rev_no),
+      `V${revision.rev_no}`,
+      "Ekipman Listesi",
+      scope === "customer" ? null : "Teknik Özet",
+      detailed ? "Detaylı" : null,
+    ],
+    ext as "pdf" | "xlsx"
+  );
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);
 

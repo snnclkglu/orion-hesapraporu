@@ -200,6 +200,16 @@ export interface EqRow {
   component: string;
   brand: string;
   model: string;
+  /**
+   * Katalog sayfası aramasında MODEL yerine kullanılacak kimlik.
+   *
+   * Çoğu satırda kimlik zaten görünen sütunlardadır. Yürütme freninde ise ürün
+   * kimliğini tek birleşik alan taşır (`brakeBrand` = "MARKA MODEL") ve o alan
+   * MARKA sütununda görünür, model sütunu "-"dir. Görünen sütunları kimliğe
+   * uydurmak müşteriye giden tabloyu değiştirirdi; arama kimliği bu yüzden
+   * ayrıca taşınır.
+   */
+  catalogModel?: string;
   spec: string;
   /** "Ek Özellikler" — kullanıcının satıra elle yazdığı serbest açıklama */
   note?: string;
@@ -375,6 +385,9 @@ function travelRows(
       component: "Fren",
       brand: textOr(sel.brakeBrand, "Seçilmedi"),
       model: "-",
+      // Yürütme freninin kimliği tek birleşik alandadır ve MARKA sütununda
+      // görünür; katalog sayfası o metinle aranır.
+      catalogModel: sel.brakeBrand,
       spec:
         sel.brakeTorqueNm > 0
           ? `fren torku ${fmt(sel.brakeTorqueNm)} Nm, kasnak/disk Ø${fmt(sel.brakeWheelDiaMm)} mm`
@@ -404,6 +417,9 @@ function travelRows(
     },
     {
       rowKey: rk("buffer"),
+      // Tampon bir KATALOG ürünüdür (SIBRE SP · Conductix kauçuk/hücresel);
+      // `kind` yazılmadığı için satır katalog sayfası eşlemesine hiç girmiyordu.
+      kind: "buffer",
       component: "Tampon",
       brand: "-",
       model: textOr(sel.bufferModel),
@@ -951,14 +967,32 @@ export function buildCatalogSheetUrls(groups: EqGroup[], origin = ""): Map<strin
   const urls = new Map<string, string>();
   for (const group of groups) {
     for (const row of group.rows) {
-      if (!row.kind || !row.model || row.model === "-") continue;
-      const key = dsKey(row.kind, row.brand, row.model);
+      const id = catalogIdentityOf(row);
+      if (!id) continue;
+      // Anahtar GÖRÜNEN sütunlardan üretilir: panelde, Excel'de ve PDF'te satır
+      // aynı anahtarla aranır, arama kimliği ise ayrı olabilir.
+      const key = dsKey(row.kind!, row.brand, row.model);
       if (urls.has(key)) continue;
-      if (!findCatalogSheet(row.kind, row.brand, row.model)) continue;
-      urls.set(key, catalogSheetPageUrl(row.kind, row.brand, row.model, origin));
+      if (!findCatalogSheet(id.kind, id.brand, id.model)) continue;
+      urls.set(key, catalogSheetPageUrl(id.kind, id.brand, id.model, origin));
     }
   }
   return urls;
+}
+
+/**
+ * Satırın katalog KİMLİĞİ — yoksa (kataloga bağlanmayan imalat kalemi) null.
+ *
+ * Kimlik çoğu satırda görünen marka/model sütunlarıdır; `catalogModel` taşıyan
+ * satırlarda ise o alandır (bkz. `EqRow.catalogModel`).
+ */
+export function catalogIdentityOf(
+  row: Pick<EqRow, "kind" | "brand" | "model" | "catalogModel">
+): { kind: string; brand: string; model: string } | null {
+  if (!row.kind) return null;
+  const model = (row.catalogModel ?? row.model ?? "").trim();
+  if (!model || model === "-") return null;
+  return { kind: row.kind, brand: row.brand, model };
 }
 
 /** Satırın katalog sayfası adresi (yoksa undefined). */

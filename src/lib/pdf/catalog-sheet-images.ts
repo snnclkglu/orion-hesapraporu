@@ -14,7 +14,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { findCatalogSheet } from "@/lib/catalog-sheets";
-import { dsKey, type EqGroup } from "@/lib/excel/equipment";
+import { catalogIdentityOf, dsKey, type EqGroup } from "@/lib/excel/equipment";
 import type { CatalogSheetPage } from "@/lib/pdf/equipment-report";
 
 const MAX_WIDTH = 1400;
@@ -54,12 +54,15 @@ export async function collectCatalogSheetPages(
 
   for (const group of groups) {
     for (const row of group.rows) {
-      if (!row.kind || !row.model || row.model === "-") continue;
-      const key = dsKey(row.kind, row.brand, row.model);
+      const id = catalogIdentityOf(row);
+      if (!id) continue;
+      // Anahtar GÖRÜNEN sütunlardan üretilir (listedeki bağlantıyla aynı),
+      // arama ise satırın katalog kimliğiyle yapılır.
+      const key = dsKey(row.kind!, row.brand, row.model);
       if (seenProduct.has(key)) continue;
       seenProduct.add(key);
 
-      const sheet = findCatalogSheet(row.kind, row.brand, row.model);
+      const sheet = findCatalogSheet(id.kind, id.brand, id.model);
       if (!sheet) continue;
 
       // Aynı sayfa: yaprak bir kez basılır, ikinci ürün de aynı çapaya bağlanır.

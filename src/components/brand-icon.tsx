@@ -68,6 +68,19 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <line x1="16" y1="16" x2="16" y2="7.5" />
     </>
   ),
+  // İş takibi: puantaj çizelgesi — takvim yaprağı + üzerinde saat ibresi.
+  // "ledger" defterle karışmasın diye yaprağın üst tırnakları korunur; ölçülen
+  // büyüklük ZAMANDIR, o yüzden ibre ikonun merkezindedir.
+  timesheet: (
+    <>
+      <rect x="4" y="5" width="16" height="15" />
+      <line x1="4" y1="9.5" x2="20" y2="9.5" />
+      <line x1="8.5" y1="3" x2="8.5" y2="6" />
+      <line x1="15.5" y1="3" x2="15.5" y2="6" />
+      <circle cx="12" cy="14.75" r="3.25" />
+      <path d="M12 13 L12 14.75 L13.5 15.75" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -109,6 +122,7 @@ export type BrandIconName =
   | "safety"
   | "seat"
   | "ledger"
+  | "timesheet"
   | "menu"
   | "close"
   | "sidebarCollapse"

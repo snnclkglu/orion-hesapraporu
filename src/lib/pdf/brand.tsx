@@ -3,11 +3,26 @@
 // fontlar, renkler, A4 sayfa anatomisi (kırmızı omurga + başlık bandı + folio altbilgi).
 // Yalnızca sunucuda çalışır (Font.register dosya sisteminden okur).
 
+import fs from "node:fs";
 import path from "node:path";
 import React from "react";
-import { Document, Font, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
+
+/**
+ * Orion Cranes lockup logosu (kırmızı kilit + kelime markası, şeffaf zemin).
+ *
+ * Vercel trace'ine `next.config.ts` outputFileTracingIncludes ile dahil edilir.
+ * Dosya BUFFER olarak okunur: react-pdf string `src`yi URL sayıp fetch etmeye
+ * çalışır ve Windows dosya yolunda başarısız olur.
+ */
+export const BRAND_LOGO: Buffer = fs.readFileSync(
+  path.join(process.cwd(), "public", "brand", "orion-logo.png")
+);
+
+/** Logonun gerçek oranı (596×67 px) — genişlik verilip yükseklik buradan çıkar. */
+export const LOGO_RATIO = 67 / 596;
 
 // Archivo — görünen her metin; IBM Plex Mono — her sayı, kod, etiket, kicker.
 // DejaVu yalnız ✓/✗ glifleri için kalır (Archivo/Plex Mono bu glifleri içermez).
@@ -214,6 +229,109 @@ export function BrandPage({
 }
 
 /**
+ * Marka bandı: solda lockup logo, sağda doküman kimliği, altında kömür kural.
+ *
+ * Müşteriye TESLİM EDİLEN her belgenin ilk sayfası markayı taşımalıdır; kırmızı
+ * omurga ve folio tek başına logonun yerini tutmaz. Hesap raporunun kapağında
+ * bu bant zaten vardı, ekipman listesinde yoktu — aynı bileşene çekildi ki iki
+ * belge aynı yerde aynı yüksekliğe otursun.
+ */
+export function BrandBand({
+  docCode,
+  lines = [],
+  logoWidth = 150,
+}: {
+  docCode?: string;
+  /** Sağ sütuna alt alta yazılan mono satırlar (ör. "REV 01 · 09.08.2026") */
+  lines?: string[];
+  logoWidth?: number;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-end",
+        borderBottomWidth: 1.4,
+        borderBottomColor: BRAND.ink,
+        paddingBottom: 8,
+        marginBottom: 10,
+      }}
+    >
+      <Image style={{ width: logoWidth, height: logoWidth * LOGO_RATIO }} src={BRAND_LOGO} />
+      <View style={{ alignItems: "flex-end" }}>
+        {docCode ? <Text style={{ ...T.data, color: BRAND.gray600 }}>{docCode}</Text> : null}
+        {lines.map((line, i) => (
+          <Text key={i} style={{ ...T.data, color: BRAND.gray600, marginTop: 1.5 }}>
+            {line}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Firma künyesi — sayfa dibinde, folio satırının ÜSTÜNDE.
+ *
+ * Üç satır alt alta mono gri metin okunmuyordu: firma adı adresten ayrışmıyor,
+ * iletişim satırı da adresin devamı gibi duruyordu. Blok iki sütuna ayrıldı —
+ * solda KİMLİK (firma adı kömür/kalın + adres), sağda İLETİŞİM — ve firma adı
+ * gövde ailesine alındı; künye artık bir imza gibi okunuyor.
+ */
+export function CompanyBlock({
+  company,
+  address,
+  phone,
+  email,
+  web,
+}: {
+  company: string;
+  address: string;
+  phone?: string;
+  email?: string;
+  web?: string;
+}) {
+  const contact = [email, web].map((v) => (v ?? "").trim()).filter(Boolean).join("  ·  ");
+  return (
+    <View>
+      <View style={{ height: 0.75, backgroundColor: BRAND.line300, marginBottom: 5 }} />
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 18,
+        }}
+      >
+        <View style={{ flexShrink: 1 }}>
+          <Text
+            style={{
+              fontFamily: FONTS.sans,
+              fontSize: 7.5,
+              fontWeight: 700,
+              letterSpacing: 0.2,
+              color: BRAND.ink,
+            }}
+          >
+            {company}
+          </Text>
+          {address ? (
+            <Text style={{ ...T.micro, color: BRAND.gray600, marginTop: 2 }}>{address}</Text>
+          ) : null}
+        </View>
+        <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
+          {phone ? <Text style={{ ...T.micro, color: BRAND.gray600 }}>{phone}</Text> : null}
+          {contact ? (
+            <Text style={{ ...T.micro, color: BRAND.gray600, marginTop: 2 }}>{contact}</Text>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
  * Sayfa başlık bandı: mono kicker + kırmızı çizgi, büyük harf başlık,
  * sağda mono meta; altında 2pt kömür kural (kılavuz sayfa anatomisi).
  * Kicker ve başlık Türkçe kurala göre (`trUpper`) büyütülür — şablonlar
@@ -295,4 +413,4 @@ export function SectionTag({
   );
 }
 
-export { Document, Link, Page };
+export { Document, Image, Link, Page };

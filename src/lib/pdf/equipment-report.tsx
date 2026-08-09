@@ -15,7 +15,10 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import { canLinkEquipmentModel, dsKey, rowSheetUrl } from "@/lib/excel/equipment";
-import { BRAND, BrandPage, FONTS, PAGE, PageHeader, RuleRed, T, mm, trUpper } from "@/lib/pdf/brand";
+import {
+  BRAND, BrandBand, BrandPage, CompanyBlock, FONTS, PAGE, PageHeader, RuleRed, T, mm, trUpper,
+} from "@/lib/pdf/brand";
+import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
 
@@ -141,21 +144,20 @@ export function breakEquipmentModelCode(model: string): string {
 /** Ekipman listesi her sayfada proje firmasının künyesini ayrı ve okunur tutar. */
 function CompanyFooter({ settings }: { settings?: ReportSettings }) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
-  const contact = [st.phone, st.email, st.web]
-    .map((value) => (value ?? "").trim())
-    .filter(Boolean)
-    .join("  ·  ");
   return (
     <View
       fixed
       style={{
         position: "absolute", left: PAGE.contentLeft, right: PAGE.marginOuter, bottom: mm(15),
-        borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 4,
       }}
     >
-      <Text style={{ ...T.micro, color: BRAND.gray700, fontWeight: 600 }}>{st.company}</Text>
-      <Text style={{ ...T.micro, marginTop: 1.5 }}>{st.address || st.city}</Text>
-      {contact ? <Text style={{ ...T.micro, marginTop: 1.5 }}>{contact}</Text> : null}
+      <CompanyBlock
+        company={st.company}
+        address={st.address || st.city}
+        phone={st.phone}
+        email={st.email}
+        web={st.web}
+      />
     </View>
   );
 }
@@ -228,7 +230,7 @@ export function EquipmentDocument({
   };
   const rev = String(meta.revNo).padStart(2, "0");
   const year = /(\d{4})/.exec(meta.date)?.[1] ?? String(new Date().getFullYear());
-  const docCode = `ORC-EQ-${meta.docNo}-R${rev}`;
+  const code = docCode("EQ", meta.docNo, meta.revNo);
   return (
     <Document
       title={`${meta.docNo}-V${meta.revNo} Ekipman Listesi`}
@@ -238,16 +240,27 @@ export function EquipmentDocument({
     >
       <BrandPage
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
-        docCode={docCode}
+        docCode={code}
         orientation="landscape"
         style={{ paddingBottom: mm(29) + 14 }}
       >
-        {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır */}
-        <PageHeader kicker="ORION CRANES · EKİPMAN LİSTESİ" title="Ekipman Listesi" meta={docCode} />
+        {/* Marka bandı: lockup logo + doküman kimliği. Müşteriye teslim edilen
+            belgenin ilk sayfası markayı taşır (hesap raporu kapağıyla aynı). */}
+        <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
 
+        {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır.
+            Kicker'da firma adı, sağda doküman kodu TEKRARLANMAZ — ikisi de marka
+            bandında. */}
+        <PageHeader
+          kicker={detailed ? "Ekipman Listesi · Katalog Sayfaları Ekli" : "Ekipman Listesi"}
+          title={meta.projectName || "Ekipman Listesi"}
+        />
+
+        {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
+            başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
         <View style={s.metaGrid}>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Proje</Text><Text style={s.metaVal}>{meta.projectName}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
+          <View style={s.metaItem}><Text style={s.metaLabel}>Doküman</Text><Text style={s.metaMono}>{meta.docNo}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
           <View style={s.metaItem}><Text style={s.metaLabel}>Hazırlayan</Text><Text style={s.metaVal}>{meta.preparedBy || "—"}</Text></View>
@@ -338,7 +351,7 @@ export function EquipmentDocument({
           <BrandPage
             key={`${sheet.keys[0]}-${i}`}
             docLine={`ORION CRANES · KATALOG SAYFASI · REV ${rev} · ${year}`}
-            docCode={docCode}
+            docCode={code}
           >
             <View id={i === 0 ? anchorId(sheet.keys[0] ?? "") : undefined} style={s.sheetHead}>
               <Text style={T.kicker}>KATALOG SAYFASI</Text>

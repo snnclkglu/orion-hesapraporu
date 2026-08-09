@@ -47,6 +47,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
 - `npx tsx scripts/test-work-order.ts` — iş emri PDF'ini 1…16 kalemle üret
   (sayfa dengesi görsel kontrolü)
+- `npx tsx scripts/test-work-log-excel.ts` — İş Takibi Excel çıktısını üret
+  (sayfa yapısı, süzgeç, dondurulmuş başlık — duman testi)
 - `npx tsx scripts/test-safety-brake-diagram.tsx` — emniyet freni şemasını altı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
@@ -303,6 +305,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     kurar; tur `__tests__/catalog-sheets.test.ts`te kapanır. Model hücresindeki
     bağlantı BAŞKA bir şeydir (yönetim panelinden girilen üretici datasheet'i).
 
+    **Eşleme MARKA sütunundaki "-"yi marka SAYMAZ.** Ekipman listesi markası
+    olmayan satıra "-" yazar; bu metin marka gibi ele alındığında kimliği tek
+    birleşik "MARKA MODEL" alanında duran bölümlerin (redüktör 2.3/5.5, tampon
+    5.8, yürütme freni 5.5b) HİÇBİRİ sayfa bulamıyordu — `<tür>|-|<model>`
+    anahtarı tutmuyor, marka önekini modelden ayıklayan yol da `brand` dolu
+    göründüğü için hiç çalışmıyordu (`realBrand`). Kimliği görünen sütunlarda
+    OLMAYAN satır arama modelini `EqRow.catalogModel` ile ayrıca taşır.
+
     **Ekipman listesi PDF'i iki seviyelidir.** *Standart* liste bugünkü
     tablodur ve adı dış adrese bağlar. *Detaylı* liste (`?detay=1`) aynı
     tablonun arkasına ürünlerin katalog sayfalarını EKLER; ad artık belge
@@ -422,6 +432,49 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     ayrıntılı kapsam metinleri ilk kaydetmede sessizce silinirdi. Her kapsam
     kendi pastel tonunu taşır (sık kullanılanlar sabit, diğerleri metinden).
 
+17. **İş Takibi bir GÜN × KALEM × PARÇA × TÜR çizelgesidir.** `work_logs` bir
+    satırda tarih, iş kalemi, parça, imalat türü, KİŞİ SAYISI ve saat tutar;
+    `man_hours` türetilir. Kişiler İSİMLE tutulmaz — atölye kaydı baştan beri
+    kişi sayısıyla tutuluyor ve her gün isim yazmak günlük girişi kullanılamaz
+    yapardı. Yetki `can_see_work_log()` / `canSeeWorkLog` (Yönetici + Müdür);
+    `canSeeSales` ile aynı kümeyi döndürür ama AYRI bir sorudur.
+
+    **Kalem numarası METİN, bağlantı TÜREV.** Atölye çizelgesi sistemdeki
+    numaralandırmayı beklemez: `item_no` her satırda durur, `job_item_id` ve
+    `job_id` eşleştiği ölçüde dolar (önce kalem, sonra iş kökü, sonra boş).
+    Eşleşmeyen kayıt DÜŞÜRÜLMEZ; ekranda ayrıca sayılır ve "Kalem Eşleştirme"
+    ile bir numaranın bütün satırları tek işlemde bağlanır (`remapItemNo`).
+    Devralınan veride 0020-00 numarasının 792 satırı böyle bağlanır.
+
+    **Parça ve imalat türü DEFTERDEDİR** (`work_parts`, `work_categories`),
+    serbest metin değildir: kaynak çizelgede aynı parça beş yazımla girilmişti
+    ("Anakiriş"/"Ana Kiriş") ve serbest metinle parça bazında toplam ALINAMAZDI.
+    Yeni parça günlük girişteki arama kutusundan tek adımda açılır; imalat
+    türünün rengi `nextDistinctHue` ile verilir (yığılmış grafikte komşu
+    dilimlerin ayrılabilirliğini veri değil KURAL garanti eder).
+
+    **Günlük giriş TEKRARI hedefler.** Devralınan veride bir günün satırlarının
+    %87'si bir önceki iş gününden aynen devam ediyor ve 381 günün 170'i bir
+    öncekiyle birebir aynı. Ekran bunu iki harekete indirir: "Önceki günü
+    kopyala" ve sık kullanılan (kalem · parça · tür) üçlülerini tek tıkla satır
+    yapan şerit. Gün BİR BÜTÜN olarak kaydedilir (`saveWorkDay`): satırlar
+    kimlikleriyle eşlenir, kalanlar güncellenir, silinenler silinir — günü silip
+    yeniden yazmak `created_by`/`created_at` bilgisini yok ederdi.
+
+    **Pano grafikleri `lib/diagrams` KULLANMAZ.** O katman `DiagramEl[]` üretir
+    ve aynı model web + PDF'e basılır; kategorik ekseni, çubuk/dilim ilkeli ve
+    etkileşimi yoktur, renkleri sabit hex'tir. `components/charts.tsx` düz
+    HTML/CSS çubuk kullanır (SVG `viewBox` ile ölçeklenirken YAZILAR da ölçeklenir
+    ve dar kolonda okunmaz); yay gerektiren tek grafik halkadır ve orada yazı
+    yoktur. Seri rengi veriden yalnız TON AÇISI olarak gelir, L/C `globals.css`
+    `.oc-series-*` kuralında ve tema başına verilir — grafikte elle hex yazılmaz.
+
+    **Süzgeç tanımı TEKTİR** (`worklog/filters.ts`): Analiz ekranı, Kayıtlar
+    ekranı ve Excel indirme ucu aynı `matchesFilters`'ı çağırır. Üçünde ayrı
+    yazılsaydı indirilen dosya ile ekrandaki tablo sessizce ayrışırdı. İndirilen
+    dosyanın adı tarih ve saat taşır (`downloadName`): aynı süzgeçle alınan iki
+    dosya klasörde birbirini ezmez.
+
 7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
    JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap
    bölümleri `inputs.disabledModules` listesinde tutulur; girdileri korunur.
@@ -515,6 +568,32 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    `__tests__/anchors.guard.test.ts` bağlantının gerçek bir satırı gösterdiğini
    ve hiçbir kontrolün rapordan düşmediğini doğrular.
 
+## Belge kimliği ve dosya adı
+
+Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
+
+- **`BrandBand`** — ilk sayfanın üst bandı: solda lockup logo, sağda doküman
+  kodu + revizyon/tarih, altında kömür kural. Müşteriye TESLİM EDİLEN her
+  belgenin ilk sayfası markayı taşır; kırmızı omurga ve folio tek başına
+  logonun yerini tutmaz. Hesap raporu kapağı ile ekipman listesinin ilk sayfası
+  aynı bileşeni kullanır, ikisi aynı yüksekliğe oturur.
+- **`CompanyBlock`** — sayfa dibindeki firma künyesi, folio satırının ÜSTÜNDE.
+  İki sütundur: solda KİMLİK (firma adı gövde ailesinde + adres), sağda
+  İLETİŞİM. Üç satır alt alta mono gri metin okunmuyordu — firma adı adresten
+  ayrışmıyor, iletişim adresin devamı gibi duruyordu.
+
+**Dosya adı tek yerdedir: `pdf/doc-naming.ts`.** Firma kuralı
+**İŞ ADI - DOKÜMAN KODU - VERSİYON**, tamamı BÜYÜK HARF, sonda belgenin
+türü/seviyesi:
+
+    AMONYUM SÜLFAT TESİSİ VİNCİ - ORC-HR-0055-R01 - V1 - DETAYLI.pdf
+    AMONYUM SÜLFAT TESİSİ VİNCİ - ORC-EQ-0055-R01 - V1 - EKİPMAN LİSTESİ - DETAYLI.pdf
+    MUHTELİF VİNÇLER - 0075 - FR.11.02 - İŞ EMRİ.pdf
+
+Büyük harf `tr-TR` ile yapılır (`toUpperCase()` "i"yi "I" yapar). Doküman kodu
+`docCode(kind, docNo, revNo)` ile üretilir ve PDF'in kendi künyesiyle AYNI
+fonksiyondan gelir — dosya adı ile belgenin içi ayrışamaz.
+
 ## Birimler
 
 Motor içi birimler kg, kg/cm², kg·cm, cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
@@ -542,13 +621,21 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/use-stored-flag.ts` — tarayıcıda kalıcı aç/kapa tercihi
   (`useSyncExternalStore`; ilk boyamada doğru genişlik, hidrasyon uyumlu)
 - `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür)
+- `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
+  `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
+  `filters.ts` üç ekranın ortak süzgeç tanımı
+- `src/lib/work-log.ts` — İş Takibi sözlüğü + saf toplama/pivot/dönem çekirdeği
+- `src/components/charts.tsx` — pano grafikleri (zaman serisi, sıralı çubuk,
+  halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ
+- `src/components/combobox.tsx` — aranabilir tek seçimli liste (Türkçe süzgeç)
 - `src/app/(app)/admin/customers/` — müşteri defteri yönetimi (kısaltma + renk)
 - `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
   Excel ve PDF ekipman ADINDAN buraya bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
-  development; production'da 404): kabuk, editör, işler, satış, ekipman listesi
+  development; production'da 404): kabuk, editör, işler, satış, ekipman listesi,
+  **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
-- `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
+- `src/lib/pdf/`, `src/lib/excel/` — rapor, ekipman listesi ve iş takibi çıktıları
 - `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri
   (üretilir; `public/` altında değildir, `/api/catalog-sheet/` ucundan sunulur)
 - `src/lib/calc/__tests__/` — mühendislik doğrulama + bağlantı koruma testleri
