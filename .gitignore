@@ -48,3 +48,7 @@ next-env.d.ts
 # katalog cikarim betiklerinin python onbellegi
 __pycache__/
 *.pyc
+
+# gecici cikti ve hata ayiklama dokumleri (depoya girmez)
+tmp/
+scratch-dump.txt

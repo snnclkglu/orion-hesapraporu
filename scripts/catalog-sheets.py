@@ -77,6 +77,20 @@ PDFS = {
     "flender": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
     "vasel_festoon": "vasel-i-profil-grubu-kablo-tasima-sistemleri-rf-cat-4b52-brosur-tr.pdf",
     "conductix_festoon": "KAT0320-0003-EN Festoon Systems for I-Beams Program 0314_0320_0325_0330.pdf",
+    # "Diğer kataloglar" klasöründeki kaynaklar (2026-08-09'da eklendi)
+    "casar": "Diğer kataloglar/CASAR CRANE ROPES.pdf",
+    "hascelik_h18": "Diğer kataloglar/Hasçelik H 18 LRC.pdf",
+    "hascelik_h8k": "Diğer kataloglar/Hasçelik halat H 8K PI.pdf",
+    "oliveira_dp": "Diğer kataloglar/OLIVEIRA-DP-8-K-PPI-urun.pdf",
+    "oliveira_hd": "Diğer kataloglar/OLIVEIRA-HD-8-K-PPI-urun.pdf",
+    "diepa_h43": "Diğer kataloglar/Diepa H43 Özellikler ve Teknik Bilgiler.pdf",
+    "polat_pcs": "Diğer kataloglar/POLAT KALDIRMA REDÜKTÖRÜ pcs_catologue_2024.pdf",
+    "yilmaz_k": "Diğer kataloglar/YILMAZ KR KATALOG.pdf",
+    "yilmaz_planet": "Diğer kataloglar/YILMAZ R PL PLANET REDÜKTÖRLER.pdf",
+    "sew_x": "Diğer kataloglar/SEW X-SERİSİ REDUKTOR.pdf",
+    "sew_xe_hc": "Diğer kataloglar/SEW x-fcc.pdf",
+    "sew_r": "Diğer kataloglar/SEW R serisi.pdf",
+    "sew_drn": "Diğer kataloglar/SEW Dr serisi.pdf",
 }
 
 KIND_DIR = {
@@ -88,6 +102,7 @@ KIND_DIR = {
     "gearbox": "reducers",
     "motor": "motors",
     "festoon": "festoons",
+    "rope": "ropes",
 }
 
 # ------------------------------------------------------------ ELLE sayfa haritası
@@ -223,6 +238,57 @@ MANUAL = [
      "conductix_festoon", [15], "s.16",
      "Conductix Program 0330 — yuvarlak kablo çelik arabaları, ölçüler ve kiriş uyumluluğu",
      {"series": ["0330"], "cable_form": ["Yuvarlak"]}),
+    # ---------------------------------------------------------------- HALAT
+    # Halat ürün föyleri TEK TABLO sayfasıdır ve dosya başına tek üründür;
+    # otomatik keşfe gerek yoktur, sayfa doğrudan bilinir. CASAR kataloğu tek
+    # PDF olduğu hâlde on altı ürün taşır — her ürünün kendi tablosu vardır.
+    ("rope", "CASAR", "Starlift Plus", "casar_starlift_plus.json", "casar", [16], "s.C17",
+     "CASAR STARLIFT PLUS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Starlift Xtra", "casar_starlift_xtra.json", "casar", [18], "s.C19",
+     "CASAR STARLIFT XTRA — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Eurolift", "casar_eurolift.json", "casar", [20], "s.C21",
+     "CASAR EUROLIFT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Powerplast", "casar_powerplast.json", "casar", [22], "s.C23",
+     "CASAR POWERPLAST — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Doublefit", "casar_doublefit.json", "casar", [24], "s.C25",
+     "CASAR DOUBLEFIT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Stratoplast", "casar_stratoplast.json", "casar", [28], "s.C29",
+     "CASAR STRATOPLAST — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Turboplast", "casar_turboplast.json", "casar", [30], "s.C31",
+     "CASAR TURBOPLAST — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Paraplast", "casar_paraplast.json", "casar", [32], "s.C33",
+     "CASAR PARAPLAST — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Superplast8", "casar_superplast8.json", "casar", [34], "s.C35",
+     "CASAR SUPERPLAST8 — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Superplast10 Mix", "casar_superplast10_mix.json", "casar", [36], "s.C37",
+     "CASAR SUPERPLAST10 MIX — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Parafit", "casar_parafit.json", "casar", [38], "s.C39",
+     "CASAR PARAFIT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Alphalift", "casar_alphalift.json", "casar", [40], "s.C41",
+     "CASAR ALPHALIFT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Turbolift", "casar_turbolift.json", "casar", [42], "s.C43",
+     "CASAR TURBOLIFT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Betalift", "casar_betalift.json", "casar", [44], "s.C45",
+     "CASAR BETALIFT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Technolift", "casar_technolift.json", "casar", [46], "s.C47",
+     "CASAR TECHNOLIFT — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "CASAR", "Technolift Plus", "casar_technolift_plus.json", "casar", [48], "s.C49",
+     "CASAR TECHNOLIFT PLUS — çap, kopma kuvveti ve metre ağırlığı tablosu"),
+    ("rope", "Haşçelik", "H 18 LRC", "hascelik_h_18_lrc.json", "hascelik_h18", [0, 1], "s.1-2",
+     "Haşçelik H 18 LRC — dönmeye dirençli 18 toron halat: özellikler ve tablo"),
+    ("rope", "Haşçelik", "H 8K PI", "hascelik_h_8k_pi.json", "hascelik_h8k", [0, 1], "s.1-2",
+     "Haşçelik H 8K PI — 8 compact toron plastik dolgulu halat: özellikler ve tablo"),
+    ("rope", "OLIVEIRA", "DP 8 K PPI", "oliveira_dp_8_k_ppi.json", "oliveira_dp", [0, 1], "s.1-2",
+     "OLIVEIRA DP 8 K PPI — genel bakış ve çelik halat teknik tablosu"),
+    ("rope", "OLIVEIRA", "HD 8 K PPI", "oliveira_hd_8_k_ppi.json", "oliveira_hd", [0, 1], "s.1-2",
+     "OLIVEIRA HD 8 K PPI — genel bakış ve çelik halat teknik tablosu"),
+    ("rope", "DIEPA", "H 43", "diepa_h_43.json", "diepa_h43", [0, 1, 2, 3], "s.1-4",
+     "DIEPA H 43 — genel bakış ve çelik halat teknik tabloları"),
+    # ------------------------------------------------------- SEW X..e /HC
+    # Katalog bu seride seçim tablosu değil TİP × BOY MATRİSİ basar; matris
+    # tek sayfadır, otomatik keşfe konu değildir.
+    ("gearbox", "SEW-EURODRIVE", "X..e/HC", "sew_xe_hc.json", "sew_xe_hc", [41], "s.42",
+     "SEW X..e /HC — anma momentleri, çevrim oranı bantları, eksen mesafeleri ve ağırlıklar"),
 ]
 
 # --------------------------------------------------- OTOMATİK sayfa keşfi
@@ -276,6 +342,29 @@ DISCOVER = [
     ("motor", "motors/innomatics.json", "siemens", None,
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
      "SIEMENS / INNOMATICS Motor"),
+    # --------------------------------- "Diğer kataloglar" (2026-08-09)
+    ("gearbox", "reducers/yilmaz_k.json", "yilmaz_k", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm"],
+     "YILMAZ K Serisi Redüktör"),
+    ("gearbox", "reducers/yilmaz_planet.json", "yilmaz_planet", "model",
+     ["ratio", "output_speed_rpm", "nominal_power_kw"],
+     "YILMAZ Planet Redüktör"),
+    ("gearbox", "reducers/polat_pcs.json", "polat_pcs", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm"],
+     "POLAT PCS Kaldırma Redüktörü"),
+    # SEW iki nedenle özel: (1) momenti kNm basar, JSON Nm taşır — tork alanı
+    # sayısal eşleşmeye VERİLMEZ, yoksa hiçbir sayfa tutmaz; (2) model kodu
+    # sayfada "X3F110" diye değil "X.F110" diye geçer, bu yüzden kod alanı
+    # `catalog_type`tir (bkz. reducers_sew_x.py).
+    ("gearbox", "reducers/sew_x.json", "sew_x", "catalog_type",
+     ["ratio", "output_speed_rpm", "nominal_power_kw"],
+     "SEW X Serisi Endüstriyel Redüktör"),
+    ("gearbox", "reducers/sew_r.json", "sew_r", "model",
+     ["ratio", "output_torque_Nm", "output_speed_rpm", "permitted_radial_load_output_N"],
+     "SEW R / F / K / S / W Redüktör"),
+    ("motor", "motors/sew_drn.json", "sew_drn", "model",
+     ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
+     "SEW DRN Motor"),
 ]
 
 
@@ -397,12 +486,32 @@ def load_items(kind: str, filename: str) -> tuple[list[dict], dict]:
     return items, doc["meta"]
 
 
-def db_model(kind: str, item: dict) -> str:
+def _fmt_dia(v) -> str:
+    """Halat çapı JSON'da sayıdır, seed betiği onu JS ile basar: 10.0 → "10",
+    6.4 → "6.4". Python'un varsayılan basımı "10.0" verir ve model dizgisi
+    veritabanıyla örtüşmez."""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def db_model(kind: str, item: dict, meta: dict | None = None) -> str:
     """`cat_equipment.model` ile BİREBİR aynı dizgiyi üretir.
 
     Seed betiği (scripts/seed-catalog.ts) modeli türe göre farklı kurar;
     defterdeki anahtarların veritabanıyla örtüşmesi buna bağlıdır.
     """
+    if kind == "rope":
+        # Halatta model kodu YOKTUR; seed onu ölçüden kurar. Konstrüksiyon
+        # `meta.series`ten gelir ve mukavemet sınıfı basılı değilse (CASAR
+        # Starlift Xtra) o parça DÜŞER — seed de öyle yapar.
+        construction = str((meta or {}).get("series", "")).strip()
+        parts = ["Ø%s" % _fmt_dia(item.get("diameter_mm")), construction,
+                 str(item.get("core_type", "")).strip()]
+        grade = item.get("grade_mpa")
+        if grade:
+            parts.append("%s MPa" % _fmt_dia(grade))
+        return " ".join(p for p in parts if p)
     if kind == "bearing":
         return str(item.get("designation", "")).strip()
     if kind == "motor":
@@ -429,7 +538,9 @@ def manual_items(sheet) -> list[dict]:
         AYRI sayfalarda basar, seri kodu ikisinde de aynıdır.
     """
     kind, _brand, _series, filename, _src, _pages, _printed, _title = sheet[:8]
-    items, _meta = load_items(kind, filename)
+    items, meta = load_items(kind, filename)
+    for it in items:
+        it.setdefault("_meta", meta)
     flt = sheet[8] if len(sheet) > 8 else None
     if not flt:
         return items
@@ -553,17 +664,27 @@ def verify_manual(sheet, src: Source) -> tuple[str, str | None]:
     # sayfa metninde geçiyorsa. İkincisi olmadan alfasayısal kodlu kataloglar
     # (Vasel VS2010A-4WF, VS2015A) doğrulanamıyordu: o kodların sonunda rakam
     # yok, dolayısıyla boy numarası hiç üretilmiyor ve kanıt boş kalıyordu.
-    models = [db_model(kind, it) for it in items]
-    models = [m for m in models if m]
+    rows = [(db_model(kind, it, it.get("_meta")), it) for it in items]
+    rows = [(m, it) for m, it in rows if m]
 
-    def evidenced(model: str) -> bool:
+    def evidenced(model: str, item: dict) -> bool:
         size = re.search(r"(\d+)$", model)
         if size and size.group(1) in words:
             return True
-        return norm(model) in text
+        if norm(model) in text:
+            return True
+        # Model kodu ÖLÇÜDEN kurulan türlerde (halat: "Ø14 Eurolift IWRC 1960
+        # MPa") kod sayfada hiç geçmez; kanıt ürünün AYIRT EDİCİ ÖLÇÜSÜDÜR.
+        for field in ("diameter_mm", "frame_size"):
+            val = item.get(field)
+            if isinstance(val, (int, float)) and fmt_num(val) in words:
+                return True
+            if isinstance(val, str) and val.strip() and val.strip() in words:
+                return True
+        return False
 
-    hit = sum(1 for m in models if evidenced(m))
-    total = len(models)
+    hit = sum(1 for m, it in rows if evidenced(m, it))
+    total = len(rows)
     ratio = hit / total if total else 0.0
 
     if header and ratio >= SIZE_COVERAGE_MIN:
@@ -617,7 +738,7 @@ def build(verify_only: bool = False, only: set[str] | None = None) -> None:
         items = manual_items(sheet)
         models = []
         for it in items:
-            m = db_model(kind, it)
+            m = db_model(kind, it, it.get("_meta"))
             if m and m not in models:
                 models.append(m)
         images = [

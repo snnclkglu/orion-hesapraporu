@@ -153,6 +153,39 @@
     flex-shrink: 0;
     background: var(--primary);
   }
+
+  /*
+   * Pastel etiket — müşteri adı ve satış kapsamı (lib/tags.ts).
+   *
+   * Renk `--oc-hue` ile TON AÇISI olarak gelir; doygunluk ve parlaklık BURADA
+   * ve tema başına ayrı verilir. Böylece etiket açık temada soluk pastel, koyu
+   * temada koyu pastel olur ve ikisinde de okunur — tek bir hex bunu yapamazdı.
+   * Chroma bilinçli olarak düşüktür (0,05–0,08): marka dilinde tek doygun renk
+   * Orion Kırmızısıdır, etiketler onun önüne geçmemelidir.
+   */
+  .oc-tag {
+    --oc-hue: 0;
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    background: oklch(0.935 0.05 var(--oc-hue));
+    color: oklch(0.4 0.09 var(--oc-hue));
+    border: 1px solid oklch(0.87 0.06 var(--oc-hue));
+  }
+  .dark .oc-tag {
+    background: oklch(0.33 0.045 var(--oc-hue));
+    color: oklch(0.86 0.07 var(--oc-hue));
+    border-color: oklch(0.44 0.055 var(--oc-hue));
+  }
+  /* Yalnız renk noktası — etiket kutusu satırı şişirmesin istenen yerlerde */
+  .oc-tag-dot {
+    --oc-hue: 0;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    background: oklch(0.72 0.13 var(--oc-hue));
+  }
 }
 
 @layer base {

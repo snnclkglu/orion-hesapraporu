@@ -11,6 +11,15 @@ import { SalesTable } from "@/app/(app)/sales/sales-table";
 import { EMPTY_SALE, type SaleRow } from "@/app/(app)/sales/schema";
 import type { SaleInput } from "@/app/(app)/sales/schema";
 
+/** Müşteri defteri karşılığı: kısaltma + renk (defterde yoksa `null` geçilir). */
+const BOOK: Record<string, { short: string; hue: number }> = {
+  "KARÇEL KARDEMİR ÇELİK YAPI İMALAT SAN.VE TİC.LTD.ŞTİ.": { short: "KARÇEL", hue: 96 },
+  "PLASTIC MASTER PLASTİK SANAYİ VE TİC.LTD.ŞTİ.": { short: "PLASTIC MASTER", hue: 300 },
+  "YALCO DIŞ TİCARET VE MÜMESSİLLİK LTD. ŞTİ.": { short: "YALCO", hue: 200 },
+  "ASTOR A.Ş.": { short: "ASTOR", hue: 0 },
+  "LITEC MAKİNA SAN. VE TİC. A.Ş.": { short: "LITEC", hue: 255 },
+};
+
 function row(
   itemNo: string,
   productName: string,
@@ -28,6 +37,8 @@ function row(
     jobId: itemNo.split("-")[0],
     jobNo: itemNo.split("-")[0],
     customer,
+    customerShort: BOOK[customer]?.short ?? null,
+    customerHue: BOOK[customer]?.hue ?? null,
     jobStatus: "completed",
     contractDate,
     hasSale: sale !== null,

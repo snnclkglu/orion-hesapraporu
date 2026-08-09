@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   allCatalogSheets,
   catalogSheetFiles,
+  catalogSheetPageUrl,
   catalogSheetUrl,
   findCatalogSheet,
   hasCatalogSheets,
@@ -169,6 +170,15 @@ describe("model → sayfa eşlemesi", () => {
       ["festoon", "Vasel", "VS2005A-CT80"],
       ["festoon", "Conductix-Wampfler", "032252-250x160"],
       ["festoon", "Conductix-Wampfler", "022134-350"],
+      // 2.1 ropeBrand + ... — HALATTA MODEL KODU YOKTUR: seed onu ölçüden
+      // kurar ("Ø14 Eurolift IWRC 1960 MPa") ve defter AYNI dizgiyi üretmek
+      // zorundadır. İki kural birbirinden habersiz iki dosyada (seed-catalog.ts
+      // ve catalog-sheets.py `db_model`) yaşadığı için bağ sessizce kopar.
+      ["rope", "CASAR", "Ø14 Eurolift IWRC 1960 MPa"],
+      // Mukavemet sınıfı BASILI OLMAYAN ürün: model dizgisinde "… MPa" yoktur.
+      ["rope", "CASAR", "Ø16 Starlift Xtra IWRC"],
+      ["rope", "DIEPA", "Ø20 8 demetli plastik dolgulu (H 43) IWRC-PI 1960 MPa"],
+      ["rope", "Haşçelik", "Ø12 8xK26/K31/K36 WS (H 8K PI) IWRC-PI 2160 MPa"],
     ];
     for (const [kind, brand, model] of cases) {
       expect(
@@ -193,8 +203,9 @@ describe("model → sayfa eşlemesi", () => {
   it("henüz kapsanmayan tür için düğme hiç gösterilmez", () => {
     expect(hasCatalogSheets("coupling")).toBe(true);
     expect(hasCatalogSheets("gearbox")).toBe(true);
-    // Halat / kanca / makara kataloglarının kaynak PDF'i workspace'te yok.
-    expect(hasCatalogSheets("rope")).toBe(false);
+    // Halat kataloglarının kaynak PDF'i 2026-08-09'da workspace'e girdi
+    // (CASAR · Haşçelik · OLIVEIRA · DIEPA); kanca, makara ve tekerinki hâlâ yok.
+    expect(hasCatalogSheets("rope")).toBe(true);
     expect(hasCatalogSheets("hook")).toBe(false);
     expect(hasCatalogSheets("sheave")).toBe(false);
     expect(hasCatalogSheets("wheel")).toBe(false);
@@ -206,5 +217,41 @@ describe("model → sayfa eşlemesi", () => {
     expect(hasCatalogSheets("coupling", "OZGUN")).toBe(true);
     expect(hasCatalogSheets("coupling", "ÖZGÜN")).toBe(true);
     expect(hasCatalogSheets("coupling", "BİLİNMEYEN")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
+  it("adres ürün kimliğini taşır ve aynı sayfaya geri çözülür", () => {
+    // Uygulama, Excel ve PDF aynı adresi üretir; `/katalog` sayfası onu
+    // `findCatalogSheet` ile geri çözer. Bu tur kapanmazsa bağlantı sessizce
+    // "sayfa bulunamadı"ya düşer.
+    const kimlikler: [string, string | null, string][] = [
+      ["coupling", "OZGUN", "B3-3"],
+      ["bearing", null, "22212"],
+      ["gearbox", "FLENDER", "B3SH 13"],
+    ];
+    for (const [kind, brand, model] of kimlikler) {
+      const beklenen = findCatalogSheet(kind, brand, model);
+      if (!beklenen) continue; // katalog verisi değişmiş olabilir; ayrı test kapsar
+      const url = new URL(catalogSheetPageUrl(kind, brand, model, "https://ornek"));
+      const sp = url.searchParams;
+      expect(url.pathname).toBe("/katalog");
+      const cozulen = findCatalogSheet(sp.get("tur")!, sp.get("marka"), sp.get("model")!);
+      expect(cozulen?.id, `${kind} ${model} adresten geri çözülemedi`).toBe(beklenen.id);
+    }
+  });
+
+  it("kök verilmezse göreli, verilirse mutlak adres üretir", () => {
+    expect(catalogSheetPageUrl("coupling", "OZGUN", "B3-3")).toMatch(/^\/katalog\?/);
+    expect(catalogSheetPageUrl("coupling", "OZGUN", "B3-3", "https://a.b")).toMatch(
+      /^https:\/\/a\.b\/katalog\?/
+    );
+  });
+
+  it("marka alanı yoksa (\"-\") adrese yazılmaz", () => {
+    const url = new URL(catalogSheetPageUrl("gearbox", "-", "B3SH 13", "https://ornek"));
+    expect(url.searchParams.has("marka")).toBe(false);
   });
 });

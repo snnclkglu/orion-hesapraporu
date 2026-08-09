@@ -11,6 +11,14 @@ import {
 } from "../fields";
 import type { CabinInputs, CabinSelections } from "../modules/cabin";
 
+/** Cam tipi seçenekleri — değerler `GlazingKind` ile birebir. */
+export const GLAZING_KINDS = ["single", "double", "reflective"] as const;
+export const GLAZING_KIND_LABELS: Record<string, string> = {
+  single: "Tek Cam",
+  double: "Çift Cam (Isıcam)",
+  reflective: "Isıcam + Reflektif",
+};
+
 export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
   // --- Operatör kabini
   { key: "cabinWidthM", label: "Kabin Genişliği", unit: "m", type: "number" },
@@ -31,6 +39,19 @@ export const CABIN_INPUT_FIELDS: FieldDef<CabinInputs>[] = [
   {
     key: "cabinRadiationKw", label: "Çevre Işınım Yükü", unit: "kW", type: "number",
     hint: "Kabin kızgın yükü DOĞRUDAN görüyorsa girin. Arada ısı kalkanı ya da platform varsa boş bırakın; ışınım görüş hattı ister.",
+  },
+  {
+    key: "cabinOccupantCount", label: "Operatör Adedi", unit: "kişi", type: "number",
+    hint: "Kişi başına 75 W duyulur + 55 W gizli ısı ve 5 L/s temiz hava. Temiz hava gereği basınçlandırma sızıntısını aşarsa taze hava yükünü o belirler.",
+  },
+  {
+    key: "cabinGlazingAreaM2", label: "Cam Alanı", unit: "m²", type: "number",
+    hint: "Kabini elektrik odasından ayıran kalem. Cam duvar alanından düşülür ve kendi U değeriyle hesaplanır.",
+  },
+  {
+    key: "cabinGlazingKind", label: "Cam Tipi", type: "select",
+    options: GLAZING_KINDS, optionLabels: GLAZING_KIND_LABELS,
+    hint: "Açık havada güneşin camdan geçen kısmı kabinin en büyük yüküdür; reflektif kaplama bunu belirgin düşürür.",
   },
   // --- Elektrik odası
   { key: "roomWidthM", label: "Oda Genişliği", unit: "m", type: "number" },

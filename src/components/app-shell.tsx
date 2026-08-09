@@ -77,6 +77,7 @@ function SidebarContent({
   pathname,
   collapsed,
   onNavigate,
+  onToggleCollapse,
 }: {
   role: string;
   displayName: string;
@@ -85,6 +86,8 @@ function SidebarContent({
   /** Dar kip: yalnız ikonlar, metinler gizlenir */
   collapsed?: boolean;
   onNavigate?: () => void;
+  /** Daralt/genişlet — yalnız masaüstü kenar çubuğunda verilir */
+  onToggleCollapse?: () => void;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -149,6 +152,34 @@ function SidebarContent({
           })}
         </ul>
       </nav>
+
+      {/*
+        Daralt/genişlet — MENÜNÜN İÇİNDE.
+        Aynı işi yapan bir düğme üst şeritte de var ama orada ikon tek başına
+        duruyor ve neyi daralttığı anlaşılmıyordu; kullanıcı özelliği hiç fark
+        etmiyordu. Denetim, denetlediği yüzeyin üzerinde durur.
+      */}
+      {onToggleCollapse && (
+        <div className={cn("shrink-0 pb-2", collapsed ? "px-2" : "px-2")}>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
+            aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+            aria-pressed={collapsed}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-md py-2 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+              collapsed ? "justify-center px-0" : "px-2.5"
+            )}
+          >
+            <BrandIcon
+              name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
+              className="size-4 shrink-0"
+            />
+            {!collapsed && "Menüyü daralt"}
+          </button>
+        </div>
+      )}
 
       {/* Standart künyesi — dar kipte yer kaplamaz */}
       {!collapsed && (
@@ -273,6 +304,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
           email={email}
           pathname={pathname}
           collapsed={collapsed}
+          onToggleCollapse={toggleCollapsed}
         />
       </aside>
 

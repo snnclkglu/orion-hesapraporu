@@ -1,11 +1,17 @@
 "use client";
 
-// Müşteri seçimi — defterden seç, yoksa pop-up ile hemen kaydet.
+// Müşteri seçimi — LİSTEDEN seç, listede yoksa pop-up ile hemen kaydet.
 //
 // Müşteri bilgileri şimdiye kadar her iş emrine elle yazılıyordu; aynı müşteri
 // her seferinde yeniden girildiği için yazım farkları oluşuyor ve müşteri
-// filtresi güvenilir çalışmıyordu. Artık defterden seçilir: seçim, iş emrinin
+// filtresi güvenilir çalışmıyordu. Artık listeden seçilir: seçim, iş emrinin
 // adres/vergi/telefon alanlarını da doldurur.
+//
+// ELLE MÜŞTERİ GİRİŞİ YOKTUR. Serbest metin bırakıldığı sürece defter dışında
+// ikinci bir müşteri listesi büyümeye devam ediyordu (aynı firma "ASTOR A.Ş."
+// ve "Astor Enerji" olarak iki satır); kısaltma ve renk gibi defter alanları da
+// o kayıtlara bağlanamıyordu. Listede olmayan müşteri "Yeni Müşteri" ile
+// deftere yazılır — tek zorunlu alan MÜŞTERİ ADIDIR.
 //
 // Alanlar seçimden SONRA da düzenlenebilir kalır — iş emri, basıldığı andaki
 // bilgilerin fotoğrafıdır; defterdeki sonraki değişiklik eski işi bozmaz.
@@ -24,9 +30,11 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { CustomerTag } from "@/components/tags";
+import { autoShortName } from "@/lib/tags";
 
-/** Deftere bağlı olmayan (elle yazılmış) müşteri. */
-export const NO_CUSTOMER = "__manual__";
+/** Henüz müşteri seçilmemiş satır — Select boş string değere izin vermez. */
+export const NO_CUSTOMER = "__none__";
 
 export interface CustomerFields {
   customer: string;
@@ -50,10 +58,10 @@ export function fieldsFromCustomer(c: CustomerOption): CustomerFields {
 }
 
 const EMPTY_NEW = {
-  name: "", address: "", tax_office: "", tax_no: "", phone: "", fax: "", notes: "",
+  name: "", short_name: "", address: "", tax_office: "", tax_no: "", phone: "", fax: "", notes: "",
 };
 
-function NewCustomerDialog({
+export function NewCustomerDialog({
   open,
   onOpenChange,
   onCreated,
@@ -66,6 +74,15 @@ function NewCustomerDialog({
 }) {
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState({ ...EMPTY_NEW, name: initialName ?? "" });
+  /**
+   * Kısaltma adın ilk kelimesinden OTOMATİK dolar ama kullanıcı kutuya yazar
+   * yazmaz anahtar kapanır: elle yazılmış kısaltma, ad düzeltilince ezilmemeli.
+   *
+   * Otomatik değer bir EFEKTLE state'e yazılmaz, boyama sırasında TÜRETİLİR;
+   * aksi hâlde her tuş vuruşu ikinci bir boyama turu açardı.
+   */
+  const [autoShort, setAutoShort] = useState(true);
+  const shortName = autoShort ? autoShortName(form.name) : form.short_name;
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -74,7 +91,7 @@ function NewCustomerDialog({
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     startTransition(async () => {
-      const res = await createCustomer(form);
+      const res = await createCustomer({ ...form, short_name: shortName });
       if (res.error || !res.customer) {
         toast.error(res.error ?? "Müşteri kaydedilemedi.");
         return;
@@ -91,22 +108,43 @@ function NewCustomerDialog({
         <DialogHeader>
           <DialogTitle>Yeni Müşteri Kaydı</DialogTitle>
           <DialogDescription>
-            Müşteri deftere kaydedilir ve bu iş emrine seçilir. Sonraki işlerde
-            listeden seçmeniz yeterli olacak.
+            Müşteri deftere kaydedilir ve bu iş emrine seçilir. Yalnız
+            <span className="font-medium"> Müşteri Adı </span>
+            zorunludur; diğer alanlar sonradan Yönetim → Müşteriler ekranından
+            tamamlanabilir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="new_customer_name">Müşteri Adı</Label>
-            <Input
-              id="new_customer_name"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="İSKENDERUN DEMİR VE ÇELİK A.Ş."
-              autoFocus
-              required
-            />
+          <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+            <div className="grid gap-1.5">
+              <Label htmlFor="new_customer_name">Müşteri Adı</Label>
+              <Input
+                id="new_customer_name"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="İSKENDERUN DEMİR VE ÇELİK A.Ş."
+                autoFocus
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new_customer_short">Kısaltma</Label>
+              <Input
+                id="new_customer_short"
+                value={shortName}
+                onChange={(e) => {
+                  setAutoShort(false);
+                  set("short_name", e.target.value);
+                }}
+                placeholder="İSDEMİR"
+                title="İşler ve Satış Takibi listelerinde bu ad görünür"
+              />
+            </div>
           </div>
+          <p className="-mt-1 text-[11px] text-muted-foreground">
+            Kısaltma adın ilk kelimesinden gelir; listeler bu adı gösterir ve
+            müşteriye kendine özgü bir renk atanır.
+          </p>
           <div className="grid gap-1.5">
             <Label htmlFor="new_customer_address">Adresi</Label>
             <Input
@@ -172,9 +210,9 @@ export function CustomerPicker({
   onPick,
 }: {
   customers: CustomerOption[];
-  /** Seçili defter kaydının id'si (yoksa NO_CUSTOMER) */
+  /** Seçili defter kaydının id'si (henüz seçilmediyse null) */
   value: string | null;
-  /** Formdaki müşteri adı — defterde yoksa "elle girilmiş" seçeneğinde gösterilir */
+  /** Formdaki müşteri adı — defterde karşılığı yoksa uyarı satırında gösterilir */
   currentName: string;
   onPick: (customer: CustomerOption | null) => void;
 }) {
@@ -186,39 +224,53 @@ export function CustomerPicker({
     [list]
   );
 
+  // Eski iş emirlerinde müşteri deftere bağlanmamış olabilir (elle yazılmış).
+  // Kayıt bozulmasın diye ad korunur; kullanıcı düzenlerken listeden eşini
+  // seçmeye ya da deftere eklemeye yönlendirilir.
+  const unlinked = value === null && currentName.trim() !== "";
+
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div className="grid min-w-[240px] flex-1 gap-1.5">
-        <Label>Müşteri (Defterden Seç)</Label>
-        <Select
-          value={value ?? NO_CUSTOMER}
-          onValueChange={(id) => {
-            if (id === NO_CUSTOMER) {
-              onPick(null);
-              return;
-            }
-            const picked = sorted.find((c) => c.id === id);
-            if (picked) onPick(picked);
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Müşteri seçin" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CUSTOMER}>
-              {currentName.trim() ? `Elle girilen: ${currentName}` : "Defter dışı (elle gir)"}
-            </SelectItem>
-            {sorted.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
+    <div className="grid gap-1.5">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="grid min-w-[240px] flex-1 gap-1.5">
+          <Label>Müşteri (Liste&apos;den Seç)</Label>
+          <Select
+            value={value ?? NO_CUSTOMER}
+            onValueChange={(id) => {
+              if (id === NO_CUSTOMER) return;
+              const picked = sorted.find((c) => c.id === id);
+              if (picked) onPick(picked);
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Müşteri seçin" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CUSTOMER} disabled>
+                {unlinked ? `Deftere bağlı değil: ${currentName}` : "Müşteri seçin"}
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              {sorted.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <CustomerTag name={c.name} shortName={c.short_name} hue={c.color_hue} />
+                    <span className="min-w-0 truncate text-muted-foreground">{c.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button type="button" variant="outline" onClick={() => setCreating(true)}>
+          <UserPlus className="size-4" /> Yeni Müşteri
+        </Button>
       </div>
-      <Button type="button" variant="outline" onClick={() => setCreating(true)}>
-        <UserPlus className="size-4" /> Yeni Müşteri
-      </Button>
+
+      {unlinked && (
+        <p className="text-[11px] text-destructive">
+          Bu iş emrindeki müşteri müşteri defterine bağlı değil. Listeden eşini
+          seçin ya da &quot;Yeni Müşteri&quot; ile deftere ekleyin.
+        </p>
+      )}
 
       {creating && (
         <NewCustomerDialog

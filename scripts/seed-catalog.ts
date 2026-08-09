@@ -108,7 +108,10 @@ function push(
 }
 
 // ------------------------------------------------------------------ motors
-for (const file of ["motors/gamak.json", "motors/abb.json", "motors/innomatics.json"]) {
+for (const file of [
+  "motors/gamak.json", "motors/abb.json", "motors/innomatics.json",
+  "motors/sew_drn.json",
+]) {
   const { meta, items } = readJson(file);
   const brand = String(meta.brand);
   for (const it of items) {
@@ -141,9 +144,21 @@ const REDUCER_FILES: { file: string; application?: string }[] = [
   { file: "reducers/yilmaz_dr.json" },
   { file: "reducers/yilmaz_m.json" },
   { file: "reducers/yilmaz_h.json" },
+  // K serisi (helisel-konik) ve planet redüktörler kullanım grubunu SATIRDA
+  // taşır: katalogları kaldırma/yürütme ayrımı yapmadığı için çıkarım her
+  // satırı iki grup için de yazar.
+  { file: "reducers/yilmaz_k.json" },
+  { file: "reducers/yilmaz_planet.json" },
   { file: "reducers/flender_md20_1.json" },
   // SIMOGEAR paralel milli redüktörler yürütme tahrikinde kullanılır.
   { file: "reducers/simogear_parallel.json", application: "yurutme" },
+  // POLAT PCS bir VİNÇ KALDIRMA redüktörüdür (çıkışı tambur flanşı).
+  { file: "reducers/polat_pcs.json" },
+  // SEW X endüstriyel redüktörler (kaldırma + yürütme), X..e/HC yalnız
+  // kaldırma, R/F/K/S/W gövdeleri yürütme tahriki.
+  { file: "reducers/sew_x.json" },
+  { file: "reducers/sew_xe_hc.json" },
+  { file: "reducers/sew_r.json" },
 ];
 
 for (const { file, application } of REDUCER_FILES) {
@@ -208,10 +223,20 @@ for (const { file, application } of REDUCER_FILES) {
 }
 
 // ------------------------------------------------------------------ ropes
-for (const file of ["ropes/hascelik_6x36.json", "ropes/izmit_6x36.json"]) {
-  const { meta, items } = readJson(file);
+// Halat dosyaları KONSTRÜKSİYON başına ayrıdır (`meta.series` seçicinin ilk
+// süzgeç adımıdır) ve marka başına birden çok olabilir — CASAR tek PDF'ten
+// on altı ürün üretir. Bu yüzden dosyalar TEK TEK listelenmez; klasör kararlı
+// sırada taranır (kaplin ve fren dosyalarındaki desenin aynısı).
+const ROPE_DIR = "ropes";
+const ropeFiles = fs
+  .readdirSync(path.join(CATALOG_DIR, ROPE_DIR))
+  .filter((f) => f.toLowerCase().endsWith(".json"))
+  .sort();
+
+for (const file of ropeFiles) {
+  const { meta, items } = readJson(`${ROPE_DIR}/${file}`);
   const brand = String(meta.brand);
-  const construction = String(meta.series); // "6x36 WS"
+  const construction = String(meta.series); // "6x36 WS", "Starlift Plus", …
   for (const it of items) {
     const a = rename(cleanAttrs(it), {
       diameter_mm: "dia_mm",
@@ -222,7 +247,15 @@ for (const file of ["ropes/hascelik_6x36.json", "ropes/izmit_6x36.json"]) {
     const grade = num(a.grade_mpa);
     // Tel dayanımı [kg/mm²] — 1770→180, 1960→200, 2160→220 (standart seriler)
     if (grade) a.wire_strength_kgmm2 = Math.round(grade / 9.80665);
-    const model = `Ø${a.dia_mm} ${construction} ${a.core} ${a.grade_mpa} MPa`;
+    // Model, satın almanın istediği tanımdır. Mukavemet SINIFI basılı olmayan
+    // ürünlerde (CASAR Starlift Xtra) o parça atlanır — "undefined MPa"
+    // yazmak katalogda olmayan bir sınıf uydururdu.
+    const model = [
+      `Ø${a.dia_mm}`,
+      construction,
+      a.core,
+      grade ? `${a.grade_mpa} MPa` : "",
+    ].filter(Boolean).join(" ");
     push("rope", brand, model, a);
   }
 }

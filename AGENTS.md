@@ -216,13 +216,35 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     25 °C / %50, Δp = 4 Pa, üfleme ΔT = 8 K, sızıntı açıklığı (kapı başına
     3 cm² + sabit 4 cm²), emniyet katsayısı %15.
 
+    **KABİN BİR E-HOUSE DEĞİLDİR.** Operatör kabininde iki kalem daha vardır ve
+    ikisi de yükü belirler:
+    - **CAM** — kabini kabin yapan yüzey. Tek cam U = 5,7 W/m²K, panelin ~13
+      katı; duvar alanından düşülür, kendi U'suyla hesaplanır ve açık havada
+      güneşi g katsayısıyla DOĞRUDAN geçirir (iletim yoluyla değil). Açık
+      havada bu kalem çoğu zaman cihaz ısısını da geçer.
+    - **OPERATÖR** — 75 W duyulur + 55 W gizli (ASHRAE, oturur hafif iş). Asıl
+      etkisi ısısı değil, **temiz hava gereğidir**: basınçlandırma sızıntısı
+      yalnız fazla basıncı tutar, insanın hava ihtiyacı ondan bağımsız bir
+      sağlık gereğidir (EN 16798-1 / ASHRAE 62.1). Kabinde taze hava debisi bu
+      ikisinin BÜYÜĞÜdür ve kişi başı 5 L/s çoğu zaman kazanır. Kapı ölçüsü de
+      ayrıdır (0,7 × 1,9 m); oda kapısı küçük bir kabinde duvarın dörtte birini
+      kaplayıp iletimi gerçekdışı büyütürdü.
+
+    Her iki bölüm de bir ŞEMA çizer (`diagrams/climateRoom.ts`): mahal kesiti
+    (zarf · kapı · cam · operatör · cihazlar · klima, ısı okları) ve yük
+    dağılımı çubuğu. Sayı tablosunun anlatamadığı şey hangi kalemin baskın
+    olduğudur; "yalıtımı artırsam ne olur" sorusunun cevabı oradadır.
+
     **Kapsam sınırı:** bu bir ÖN BOYUTLANDIRMA ve KONTROLdür. Kapasite
     kontrolü gerçektir (hesaplanan yük ≤ katalog soğutma kapasitesi, üretici /
     engelleyici) ama nihai kapasite üreticinin proje bazlı teyidine tabidir.
-    Tarihsel karşılaştırma `__tests__/climate-load.test.ts` sonundadır: TMS'in
-    Erdemir E-House raporuna karşı iletim %1, hesaplanan yük %1 sapar; toplam
+    Tarihsel karşılaştırma `__tests__/climate-load.test.ts` sonundadır. TMS'in
+    Erdemir E-HOUSE raporuna karşı iletim %1, hesaplanan yük %1 sapar; toplam
     %3,6 sapar (emniyet katsayısı %10 yerine %15) ve ışınım kalemi bilinçli
-    olarak boştur.
+    olarak boştur. TMS'in Erdemir OPERATÖR KABİNİ raporu aynı E-House formuyla
+    üretilmiştir ve cam / operatör / temiz hava kalemlerini hiç sormaz;
+    uygulama bu üçünü hesaba kattığı için sonuç oradan %20'den fazla YÜKSEK
+    çıkar — bu bir yuvarlama farkı değil, eksik kalemlerdir.
 
 13. **Katalog ürünü kullanım grubuna bağlıdır.** Bir redüktör ya kaldırma ya
     yürütme tahrikidir; `cat_equipment.attrs.application` (`kaldirma` |
@@ -271,6 +293,27 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     DEĞİLDİR: üretici kataloğu kimlik doğrulamalı `/api/catalog-sheet/...`
     ucundan sunulur.
 
+    **Katalog sayfasının kendi adresi vardır: `/katalog?tur=…&marka=…&model=…`.**
+    Ekipman listesinde EKİPMAN ADI bu adrese bağlanır — uygulamada yeni sekmede,
+    Excel'de köprü olarak, standart PDF'te dış bağlantı olarak. Adres ÜRÜN
+    KİMLİĞİNİ taşır, defterin iç kimliğini değil: `manifest.json` yeniden
+    üretildiğinde sayfa kimlikleri değişebilir ama ürün kimliği değişmez, yani
+    daha önce indirilmiş bir Excel'in bağlantısı ölü kalmaz. Adresi
+    `catalogSheetPageUrl` üretir, listedeki eşlemeyi `buildCatalogSheetUrls`
+    kurar; tur `__tests__/catalog-sheets.test.ts`te kapanır. Model hücresindeki
+    bağlantı BAŞKA bir şeydir (yönetim panelinden girilen üretici datasheet'i).
+
+    **Ekipman listesi PDF'i iki seviyelidir.** *Standart* liste bugünkü
+    tablodur ve adı dış adrese bağlar. *Detaylı* liste (`?detay=1`) aynı
+    tablonun arkasına ürünlerin katalog sayfalarını EKLER; ad artık belge
+    içindeki o yaprağa gider (`Link src="#…"` + `View id="…"`). Ek sayfalar
+    DİKEY basılır — kaynak taramalar dikeydir, yatay sayfada yüksekliğe
+    sığdırmak ölçü tablosunu okunmaz yapardı. Görüntüler `.webp`tir ve react-pdf
+    webp çözmez: dönüştürme `pdf/catalog-sheet-images.ts`te sharp ile yapılır
+    (JPEG, 1400 px) ve PDF katmanına hazır tampon olarak girer. Aynı katalog
+    sayfasına düşen iki ürün yaprağı iki kez bastırmaz, ikisi de aynı çapaya
+    bağlanır (`CatalogSheetPage.keys` çoğuldur).
+
     **Sayfa MARKA + MODEL ile bulunur; bölümün o kimliği SAKLIYOR olması
     gerekir.** Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8)
     eşlemelerinde kimlik tek bir birleşik `brand_model` alanındadır;
@@ -280,10 +323,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     düğme sessizce pasif kalır: koruma `__tests__/catalog-sheets.test.ts`tedir.
 
     Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör
-    (Yılmaz + FLENDER) · motor · feston (Vasel + Conductix-Wampfler).
-    Halat, kanca, makara, teker ve ray kataloglarının kaynak PDF'i workspace'te
-    olmadığı için deftere giremez; TMS klima kataloğu ise yalnız web
-    sayfalarından derlenmiştir. Feston kataloğunda süzgeç SERİ LİSTESİ yerine
+    (Yılmaz + FLENDER + POLAT + SEW) · motor (ABB, GAMAK, INNOMATICS, SEW) ·
+    feston (Vasel + Conductix-Wampfler) · **halat** (CASAR, Haşçelik,
+    OLIVEIRA, DIEPA). Kanca, makara, teker ve ray kataloglarının kaynak PDF'i
+    workspace'te olmadığı için deftere giremez; TMS klima kataloğu ise yalnız
+    web sayfalarından derlenmiştir. Halatta model kodu YOKTUR (seed onu
+    ölçüden kurar: "Ø14 Eurolift IWRC 1960 MPa"), bu yüzden `db_model`
+    halat türünde `meta.series`i de okur ve sayfa kanıtı model kodu yerine
+    ÇAPTAN gelir. Feston kataloğunda süzgeç SERİ LİSTESİ yerine
     ALAN SÖZLÜĞÜ de olabilir (`{"series": [...], "cable_form": [...]}`): aynı
     program yassı ve yuvarlak kabloyu ayrı sayfada basar, seri kodu ikisinde
     de aynıdır. Workspace'teki FB0300-0005-E feston dosyası bir SORU FORMUDUR
@@ -316,10 +363,30 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
     **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
     `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
-    sonradan güncellenince yayınlanmış iş emri değişmez.
+    sonradan güncellenince yayınlanmış iş emri değişmez. Müşteri yalnız
+    LİSTEDEN seçilir ya da "Yeni Müşteri" ile deftere yazılır — serbest metin
+    girişi kaldırıldı, çünkü defter dışında ikinci bir müşteri listesi büyüyor
+    ve kısaltma/renk gibi defter alanları o kayıtlara bağlanamıyordu. Yeni
+    kayıtta zorunlu tek alan MÜŞTERİ ADIDIR; defter Yönetim → Müşteriler'den
+    düzenlenir ve silinir (`jobs.customer_id` `on delete set null`, iş emri
+    silinmez).
 
     **İş durumu** `job_status` enum'udur (aktif · pasif · tamamlandı · arşiv);
     `projects.status` ile karıştırılmaz, etiket/renk `lib/job-status.ts`tedir.
+
+    **Liste ekranları KISALTMA ve RENK gösterir (`lib/tags.ts`).** Resmî unvan
+    satırın yarısını yiyordu; İşler ve Satış Takibi artık `customers.short_name`
+    ile müşterinin kendine özgü rengini gösterir, tam unvan `title` ile durur.
+    Kısaltmanın otomatik değeri adın İLK KELİMESİDİR ve kullanıcı düzeltebilir.
+
+    **Renk bir HEX değil AÇIDIR** (`customers.color_hue`, 0–359). Gerekçe: aynı
+    hex açık ve koyu temada birden okunmaz. Veri yalnız OKLCH ton açısını
+    taşır, doygunluk ve parlaklık `globals.css`teki `.oc-tag` kuralında ve tema
+    başına ayrı verilir — "soft pastel" kuralı veriyle değil TANIMLA garanti
+    edilir; kullanıcı tonu seçer, pastelliği bozamaz. Yeni müşteri var olan
+    tonlardan EN UZAK boşluğu alır (`nextDistinctHue`); defterde karşılığı
+    olmayan ad ise metinden türetilir (`hueFromText`), yani ekran hiçbir zaman
+    renksiz kalmaz. Aynı mekanizma satış kapsamı etiketlerini de renklendirir.
 
 15. **Roller yetki SORUSUYLA sorulur, listeyle değil.** `user_role` dört değer
     taşır: `admin` (Yönetici) · `manager` (Müdür) · `engineer` (Mühendis) ·
@@ -348,11 +415,32 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     AVRODA toplar; kuru girilmemiş satır toplama girmez ve sayfada ayrıca
     sayılır ki sessizce kaybolmasın.
 
+    **Kapsam açılır listedir ama liste KAPALI DEĞİLDİR** (`SALE_SCOPES`,
+    lib/tags.ts). Sabit seçenekler devralınan verideki gerçek kapsamlardan
+    çıkarıldı; kayıttaki değer listede yoksa pencere onu KENDİ seçeneği olarak
+    korur ve "Diğer" ile serbest metin yazılabilir. Aksi hâlde eski satırlardaki
+    ayrıntılı kapsam metinleri ilk kaydetmede sessizce silinirdi. Her kapsam
+    kendi pastel tonunu taşır (sık kullanılanlar sabit, diğerleri metinden).
+
 7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
    JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap
    bölümleri `inputs.disabledModules` listesinde tutulur; girdileri korunur.
    Motora yeni girdi eklendiğinde eski revizyonlar `revision-load.ts`teki
    `withDefaults` sayesinde bozulmaz.
+
+   **Editör ekranında çalışma alanı kutsaldır.** Mühendis günün büyük kısmını
+   burada geçirir; kalıcı kabuk öğeleri buna göre kısılmıştır:
+   - Kontrol özeti + Kaydet editörün üstünde ayrı bir kart DEĞİLDİR; sayfa
+     başlığına, PDF Rapor düğmesinin soluna taşınır. Başlık sunucu bileşeninde,
+     durum ise istemci durumunda olduğu için bağ bir PORTALDIR
+     (`EDITOR_STATUS_SLOT_ID`); yuva yoksa şerit yerinde çizilir. İlerleme
+     çubuğu, motor sürümü ve "bu bölüm n/m" sayacı alt adım şeridine indi.
+   - Bölüm rayı daraltılabilir (`orion.editor.nav.collapsed`); dar kipte
+     gruplar kalkar, yalnız BÖLÜM NUMARALARI kalır, kontrolü kalan bölüm çipin
+     köşesindeki kırmızı noktadan anlaşılır.
+   - Sol menünün daralt/genişlet düğmesi MENÜNÜN İÇİNDEDİR. Üst şeritte de bir
+     eşi var ama orada ikon tek başına durduğu için neyi daralttığı
+     anlaşılmıyordu: denetim, denetlediği yüzeyin üzerinde durur.
 
 8. **Vinç topolojisi.** Bir vinçte 1–4 kaldırma grubu olabilir: ana, yardımcı ve
    en çok iki monoray. **Her kaldırma grubunun kendi kanca bloğu ve kendi
@@ -449,7 +537,16 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
 - `src/lib/roles.ts` — kullanıcı rolleri ve yetki soruları (`canSeeSales` vb.)
 - `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
+- `src/lib/tags.ts` + `src/components/tags.tsx` — pastel etiket dili (müşteri
+  kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`
+- `src/lib/use-stored-flag.ts` — tarayıcıda kalıcı aç/kapa tercihi
+  (`useSyncExternalStore`; ilk boyamada doğru genişlik, hidrasyon uyumlu)
 - `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür)
+- `src/app/(app)/admin/customers/` — müşteri defteri yönetimi (kısaltma + renk)
+- `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
+  Excel ve PDF ekipman ADINDAN buraya bağlanır
+- `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
+  development; production'da 404): kabuk, editör, işler, satış, ekipman listesi
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor ve ekipman listesi çıktıları
 - `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri

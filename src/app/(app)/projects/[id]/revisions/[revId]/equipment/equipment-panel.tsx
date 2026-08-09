@@ -8,10 +8,21 @@
 //
 // Kaydırma: sayfa app-shell'in normal (sabit çerçeve OLMAYAN) kipinde açılır;
 // tablo yalnız YATAY kendi kabında kayar, dikey kaydırma sayfanındır (madde 35).
+//
+// SÜTUN KAYMASI (madde 36). İki ayrı sorun aynı ekranda birleşiyordu:
+//   1. Tablo hücreleri `whitespace-nowrap` devralıyordu; "Özellikler" sütunundaki
+//      uzun katalog metni satırı tek satıra zorlayınca tablo ekrandan taşıyor,
+//      yüzdeyle verilen sütun genişlikleri taşan genişliğe göre hesaplandığı için
+//      başlıklar da içerikle birlikte sağa kayıyordu. Uzun metin sütunları artık
+//      SARILIR (`whitespace-normal`), tablo ekrana oturur.
+//   2. Ek satır editöründe başlık şeridi ile satırlar AYRI ızgaralardı ve
+//      başlıkta silme düğmesinin yeri yoktu (`auto` sütun 0 px, satırlarda 32 px);
+//      etiketler sütunlarından bir düğme boyu kayıyordu. Izgara tanımı tek yerde
+//      toplandı ve başlığa aynı genişlikte boşluk kondu.
 
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ExternalLink, FileDown, FileSpreadsheet, Plus, Save, Trash2 } from "lucide-react";
+import { BookOpen, ExternalLink, FileDown, FileSpreadsheet, Plus, Save, Trash2 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
 import { saveEquipmentExtras, saveEquipmentNote } from "./actions";
@@ -28,6 +39,9 @@ type Scope = "customer" | "full";
 const EMPTY: EquipmentExtraRow = {
   group: "Ek Ekipman", component: "", brand: "", model: "", spec: "", qty: "",
 };
+
+/** Ek satır editörünün ızgarası — başlık şeridi ve satırlar AYNI tanımı kullanır. */
+const EXTRA_GRID = "grid grid-cols-[1fr_1fr_1fr_1.6fr_0.5fr_2rem] items-center gap-2";
 
 /**
  * Bir ekipman satırının "Ek Özellikler" hücresi (madde 34).
@@ -97,7 +111,7 @@ function NoteCell({
 }
 
 export function EquipmentPanel({
-  projectId, revisionId, autoGroups, summary, initialExtras, datasheetUrls, locked,
+  projectId, revisionId, autoGroups, summary, initialExtras, datasheetUrls, sheetUrls, locked,
 }: {
   projectId: string;
   revisionId: string;
@@ -105,6 +119,8 @@ export function EquipmentPanel({
   summary: SummarySection[];
   initialExtras: EquipmentExtraRow[];
   datasheetUrls: Record<string, string>;
+  /** kind|brand|model → uygulamadaki katalog sayfası adresi (ekipman adına bağlanır) */
+  sheetUrls: Record<string, string>;
   locked: boolean;
 }) {
   const [extras, setExtras] = useState<EquipmentExtraRow[]>(initialExtras);
@@ -112,7 +128,8 @@ export function EquipmentPanel({
   const [pending, startTransition] = useTransition();
 
   const dlBase = `/projects/${projectId}/revisions/${revisionId}/equipment/download`;
-  const dl = (format: "xlsx" | "pdf") => `${dlBase}?format=${format}&scope=${scope}`;
+  const dl = (format: "xlsx" | "pdf", detailed = false) =>
+    `${dlBase}?format=${format}&scope=${scope}${detailed ? "&detay=1" : ""}`;
 
   function setRow(i: number, patch: Partial<EquipmentExtraRow>) {
     setExtras((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -157,6 +174,30 @@ export function EquipmentPanel({
     return <span>{row.model}</span>;
   }
 
+  /**
+   * Ekipman adı — ürünün katalog sayfası varsa YENİ SEKMEDE açılır.
+   *
+   * Model hücresindeki bağlantıdan farklıdır: o üretici websitesine (yönetim
+   * panelinden girilen datasheet), bu uygulamanın kendi katalog sayfası
+   * görüntüleyicisine gider. Aynı adres Excel ve PDF çıktılarında da kullanılır.
+   */
+  function ComponentCell({ row }: { row: EqGroup["rows"][number] }) {
+    const url = row.kind ? sheetUrls[dsKey(row.kind, row.brand, row.model)] : undefined;
+    if (!url) return <span>{row.component}</span>;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Katalog sayfasını yeni sekmede aç"
+        className="inline-flex items-center gap-1 hover:text-primary hover:underline"
+      >
+        {row.component}
+        <BookOpen className="size-3 shrink-0 text-primary/70" />
+      </a>
+    );
+  }
+
   return (
     <div className="grid gap-4">
       {/* İndirme çubuğu */}
@@ -182,12 +223,29 @@ export function EquipmentPanel({
           <FileSpreadsheet className="size-3.5 text-emerald-600" />
           Excel indir
         </a>
-        <a href={dl("pdf")} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted">
+        {/* İki PDF: standart liste ve KATALOG SAYFALARI EKLİ detaylı liste.
+            Detaylı dosya onlarca taranmış sayfa taşıdığı için MB'larca tutar;
+            müşteriye gidecek olan çoğu zaman standarttır, bu yüzden ikisi ayrı
+            düğmedir ve hangisinin ne getirdiği yazılıdır. */}
+        <a
+          href={dl("pdf")}
+          title="Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+        >
           <FileDown className="size-3.5 text-red-600" />
-          PDF indir
+          Standart Ekipman Listesi
+        </a>
+        <a
+          href={dl("pdf", true)}
+          title="Ekipman listesi + ürünlerin katalog sayfaları; ad tıklanınca ilgili sayfaya gider"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+        >
+          <BookOpen className="size-3.5 text-red-600" />
+          Detaylı Ekipman Listesi
         </a>
         <span className="ml-auto text-xs text-muted-foreground">
           {autoGroups.reduce((n, g) => n + g.rows.length, 0)} otomatik · {extras.length} ek satır
+          {Object.keys(sheetUrls).length > 0 && ` · ${Object.keys(sheetUrls).length} katalog sayfası`}
         </span>
       </div>
 
@@ -199,16 +257,20 @@ export function EquipmentPanel({
 
         {/* ---- Ekipman Listesi ---- */}
         <TabsContent value="equipment" className="mt-3">
+          {/* `table-fixed`: sütun genişlikleri BAŞLIKTAN belirlenir, hücre
+              içeriğinden değil. Otomatik yerleşimde tek bir uzun katalog metni
+              yüzdelik genişlikleri kendine göre yeniden bölüştürüyor ve
+              sütunlar satırdan satıra kayıyordu. */}
           <div className="overflow-hidden rounded-lg border">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[18%]">Ekipman</TableHead>
-                  <TableHead className="w-[11%]">Marka</TableHead>
+                  <TableHead className="w-[17%]">Ekipman</TableHead>
+                  <TableHead className="w-[10%]">Marka</TableHead>
                   <TableHead className="w-[14%]">Model</TableHead>
                   <TableHead>Özellikler</TableHead>
-                  <TableHead className="w-[20%]">Ek Özellikler</TableHead>
-                  <TableHead className="w-[7%] text-center">Adet</TableHead>
+                  <TableHead className="w-[18%]">Ek Özellikler</TableHead>
+                  <TableHead className="w-[6%] text-center">Adet</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -220,11 +282,13 @@ export function EquipmentPanel({
                       </TableCell>
                     </TableRow>
                     {g.rows.map((r, i) => (
-                      <TableRow key={`${g.name}-${i}`}>
-                        <TableCell className="font-medium">{r.component}</TableCell>
-                        <TableCell>{r.brand}</TableCell>
-                        <TableCell><ModelCell row={r} /></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{r.spec}</TableCell>
+                      <TableRow key={`${g.name}-${i}`} className="align-top">
+                        <TableCell className="font-medium whitespace-normal">
+                          <ComponentCell row={r} />
+                        </TableCell>
+                        <TableCell className="whitespace-normal">{r.brand}</TableCell>
+                        <TableCell className="break-words whitespace-normal"><ModelCell row={r} /></TableCell>
+                        <TableCell className="text-xs whitespace-normal text-muted-foreground">{r.spec}</TableCell>
                         {/* Ek Özellikler: satırın tek düzenlenebilir hücresi (madde 34).
                             Satırın kararlı anahtarı yoksa (kuramsal) not tutulamaz. */}
                         <TableCell className="p-1 align-middle">
@@ -271,17 +335,17 @@ export function EquipmentPanel({
               </p>
             ) : (
               <div className="grid gap-2 p-3">
-                <div className="grid grid-cols-[1fr_1fr_1fr_1.6fr_0.5fr_auto] gap-2 px-1 text-[11px] font-medium text-muted-foreground">
+                <div className={`${EXTRA_GRID} text-[11px] font-medium text-muted-foreground`}>
                   <span>Grup</span><span>Ekipman</span><span>Marka</span><span>Model / Özellik</span><span>Adet</span><span />
                 </div>
                 {extras.map((r, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_1fr_1.6fr_0.5fr_auto] items-center gap-2">
+                  <div key={i} className={EXTRA_GRID}>
                     <Input className="h-8" placeholder="Ek Ekipman" value={r.group} onChange={(e) => setRow(i, { group: e.target.value })} />
                     <Input className="h-8" placeholder="Ekipman" value={r.component} onChange={(e) => setRow(i, { component: e.target.value })} />
                     <Input className="h-8" placeholder="Marka" value={r.brand} onChange={(e) => setRow(i, { brand: e.target.value })} />
                     <Input className="h-8" placeholder="Model / özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
                     <Input className="h-8" placeholder="1" value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
-                    <Button type="button" size="icon" variant="ghost" className="size-8 text-destructive" onClick={() => removeRow(i)}>
+                    <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0 text-destructive" onClick={() => removeRow(i)}>
                       <Trash2 className="size-3.5" />
                     </Button>
                   </div>
@@ -294,7 +358,7 @@ export function EquipmentPanel({
         {/* ---- Teknik Ressam Özeti ---- */}
         <TabsContent value="summary" className="mt-3">
           <div className="overflow-hidden rounded-lg border">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead>Ölçü / Özellik</TableHead>
@@ -312,7 +376,7 @@ export function EquipmentPanel({
                     </TableRow>
                     {sec.rows.map((r, i) => (
                       <TableRow key={`${sec.name}-${i}`}>
-                        <TableCell>{r.label}</TableCell>
+                        <TableCell className="whitespace-normal">{r.label}</TableCell>
                         <TableCell className="text-right tabular-nums">{String(r.value)}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{r.unit ?? ""}</TableCell>
                       </TableRow>

@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   airDensity,
+  CABIN_DOOR_SIZE_M,
   computeClimateLoad,
   humidityRatio,
   insulationLambda,
@@ -157,6 +158,135 @@ describe("mahal ısı yükü", () => {
     const yok = computeClimateLoad(base);
     const var_ = computeClimateLoad({ ...base, radiationKw: 2 });
     expect(var_.calculatedKw - yok.calculatedKw).toBeCloseTo(2, 6);
+  });
+});
+
+describe("operatör kabini — E-House'tan farklar", () => {
+  const kabin = (over: Partial<ClimateLoadInput> = {}): ClimateLoadInput => ({
+    widthM: 2.3, lengthM: 1.8, heightM: 2.2,
+    insulation: "rockWool100", doorCount: 2, doorSize: CABIN_DOOR_SIZE_M,
+    ambientTempC: 60, ambientRhPct: 40, environment: "indoor",
+    deviceHeatKw: 1.5, radiationKw: 0, safetyFactorPct: 15,
+    occupantCount: 1, glazingAreaM2: 2.5, glazingKind: "double",
+    ...over,
+  });
+
+  it("kabin kapısı oda kapısından küçüktür — küçük hacimde fark büyür", () => {
+    const kabinKapi = computeClimateLoad(kabin());
+    const odaKapi = computeClimateLoad(kabin({ doorSize: undefined }));
+    expect(kabinKapi.doorAreaM2).toBeLessThan(odaKapi.doorAreaM2);
+    expect(kabinKapi.transmissionKw).toBeLessThan(odaKapi.transmissionKw);
+  });
+
+  it("operatör hem duyulur hem GİZLİ ısı verir; gizli kısım drenaja gider", () => {
+    const bos = computeClimateLoad(kabin({ occupantCount: 0 }));
+    const dolu = computeClimateLoad(kabin({ occupantCount: 1 }));
+    expect(bos.occupantKw).toBe(0);
+    expect(dolu.occupantKw).toBeCloseTo(0.13, 3);
+    // Gizli ısı nemdir: yoğuşan su artar.
+    expect(dolu.condensateKgH).toBeGreaterThan(bos.condensateKgH);
+  });
+
+  it("kişi başı temiz hava gereği basınçlandırma sızıntısını AŞARSA taze hava yükünü o belirler", () => {
+    const bos = computeClimateLoad(kabin({ occupantCount: 0 }));
+    const dolu = computeClimateLoad(kabin({ occupantCount: 1 }));
+    // Sızıntı iki durumda da aynıdır; değişen şey taze hava DEBİSİdir.
+    expect(dolu.infiltrationM3h).toBeCloseTo(bos.infiltrationM3h, 6);
+    expect(dolu.occupantVentilationM3h).toBeCloseTo(18, 1);   // 1 kişi × 5 L/s
+    expect(dolu.freshAirM3h).toBeCloseTo(dolu.occupantVentilationM3h, 6);
+    expect(bos.freshAirM3h).toBeCloseTo(bos.infiltrationM3h, 6);
+    // Bu, taze hava yükünü ciddi büyütür — TMS formunun en büyük eksiği.
+    expect(dolu.freshAirKw / bos.freshAirKw).toBeGreaterThan(1.5);
+  });
+
+  it("kalabalık kabinde temiz hava gereği doğrusal artar", () => {
+    const tek = computeClimateLoad(kabin({ occupantCount: 1 }));
+    const cift = computeClimateLoad(kabin({ occupantCount: 2 }));
+    expect(cift.freshAirM3h).toBeCloseTo(2 * tek.freshAirM3h, 6);
+  });
+
+  it("cam duvar panelinden düşülür ve kendi U değeriyle hesaplanır", () => {
+    const camsiz = computeClimateLoad(kabin({ glazingAreaM2: 0, glazingKind: undefined }));
+    const camli = computeClimateLoad(kabin());
+    expect(camsiz.glazingAreaM2).toBe(0);
+    expect(camli.glazingAreaM2).toBeCloseTo(2.5, 6);
+    // Cam panelden çok daha fazla ısı geçirir.
+    expect(camli.glazingUValue).toBeGreaterThan(camli.uValue * 3);
+    expect(camli.transmissionKw).toBeGreaterThan(camsiz.transmissionKw);
+  });
+
+  it("tek cam çift camdan, çift cam reflektiften daha çok yük getirir", () => {
+    const tek = computeClimateLoad(kabin({ glazingKind: "single" }));
+    const cift = computeClimateLoad(kabin({ glazingKind: "double" }));
+    const refl = computeClimateLoad(kabin({ glazingKind: "reflective" }));
+    expect(tek.totalKw).toBeGreaterThan(cift.totalKw);
+    expect(cift.totalKw).toBeGreaterThan(refl.totalKw);
+  });
+
+  it("açık havada güneş CAMDAN da geçer; reflektif kaplama bunu keser", () => {
+    const cift = computeClimateLoad(kabin({ environment: "outdoor", glazingKind: "double" }));
+    const refl = computeClimateLoad(kabin({ environment: "outdoor", glazingKind: "reflective" }));
+    // Kapalı mahalde camın güneş geçirgenliği devrede değildir.
+    const kapali = computeClimateLoad(kabin({ glazingKind: "double" }));
+    expect(cift.solarKw).toBeGreaterThan(kapali.solarKw);
+    expect(refl.solarKw).toBeLessThan(cift.solarKw);
+  });
+
+  it("cam ve operatör verilmezse çekirdek elektrik odasıyla aynı davranır", () => {
+    const yalin = computeClimateLoad(kabin({
+      occupantCount: 0, glazingAreaM2: 0, glazingKind: undefined,
+    }));
+    expect(yalin.occupantKw).toBe(0);
+    expect(yalin.glazingAreaM2).toBe(0);
+    expect(yalin.freshAirM3h).toBeCloseTo(yalin.infiltrationM3h, 6);
+  });
+});
+
+/**
+ * TARİHSEL KARŞILAŞTIRMA — TMS "Heat Gain Calculation Report", Erdemir
+ * OPERATÖR KABİNİ (1,8 × 2,3 × 2,2 m), 28.07.2026.
+ *
+ * TMS kabin için E-House formunun AYNISINI kullanmış; kabine özgü üç kalem
+ * formda hiç sorulmuyor ve bu yüzden hesaba girmiyor:
+ *   · operatörün duyulur + gizli ısısı,
+ *   · kişi başı TEMİZ HAVA gereği (formda yalnız basınçlandırma sızıntısı var;
+ *     7,08 m³/h bir kişi için ~2 L/s eder, sağlık gereğinin altındadır),
+ *   · CAM — kabini kabin yapan yüzey; formda pencere alanı alanı yok.
+ *
+ * Uygulama bu üçünü hesaba katar, bu yüzden sonuç TMS'ten YÜKSEK çıkar. Sınanan
+ * şey sapmanın yönü ve büyüklüğüdür.
+ */
+describe("tarihsel karşılaştırma — TMS Erdemir operatör kabini", () => {
+  const ortak = {
+    widthM: 2.3, lengthM: 1.8, heightM: 2.2,
+    insulation: "rockWool100" as const, doorCount: 2, doorSize: CABIN_DOOR_SIZE_M,
+    ambientTempC: 60, ambientRhPct: 40, environment: "indoor" as const,
+    deviceHeatKw: 1.5, radiationKw: 0, safetyFactorPct: 15,
+  };
+  const tmsGibi = computeClimateLoad({ ...ortak, occupantCount: 0, glazingAreaM2: 0 });
+  const bizim = computeClimateLoad({
+    ...ortak, occupantCount: 1, glazingAreaM2: 2.5, glazingKind: "double",
+  });
+
+  it("kabine özgü kalemler çıkarılınca TMS'in toplamına yaklaşır", () => {
+    // TMS 2,62 kW; emniyet katsayısı farkı (%10 → %15) tek başına ~%5 fark eder.
+    expect(tmsGibi.totalKw).toBeGreaterThan(2.62 * 0.9);
+    expect(tmsGibi.totalKw).toBeLessThan(2.62 * 1.2);
+  });
+
+  it("kabine özgü kalemler eklenince yük belirgin büyür", () => {
+    expect(bizim.totalKw).toBeGreaterThan(tmsGibi.totalKw);
+    // %20'den fazla — bu bir yuvarlama farkı değil, eksik kalemlerdir.
+    expect(bizim.totalKw / tmsGibi.totalKw).toBeGreaterThan(1.2);
+  });
+
+  it("farkın büyük kısmı operatörün TEMİZ HAVA gereğinden gelir", () => {
+    const camsiz = computeClimateLoad({
+      ...ortak, occupantCount: 1, glazingAreaM2: 0,
+    });
+    const operatorPayi = camsiz.totalKw - tmsGibi.totalKw;
+    const camPayi = bizim.totalKw - camsiz.totalKw;
+    expect(operatorPayi).toBeGreaterThan(camPayi);
   });
 });
 

@@ -72,8 +72,16 @@ export type JobItemInput = z.infer<typeof jobItemSchema>;
 
 // ------------------------------------------------------------------ müşteri
 
+/**
+ * Yeni müşteride ZORUNLU tek alan ADIDIR. Vergi dairesi/numarası ve adres iş
+ * emri basılırken gerekir ama müşteri çoğu zaman iş açılırken, elde yalnız
+ * firma adı varken deftere girilir; zorunlu tutmak kullanıcıyı uydurma değer
+ * yazmaya iterdi.
+ */
 export const customerInputSchema = z.object({
   name: z.string().trim().min(1, "Müşteri adı gerekli").max(200),
+  /** Liste ekranlarındaki kısaltma. Boş bırakılırsa adın ilk kelimesi kullanılır. */
+  short_name: z.string().trim().max(40).default(""),
   address: z.string().trim().max(400).default(""),
   tax_office: z.string().trim().max(120).default(""),
   tax_no: z.string().trim().max(60).default(""),
@@ -84,9 +92,15 @@ export const customerInputSchema = z.object({
 
 export type CustomerInput = z.infer<typeof customerInputSchema>;
 
+/** Defter kaydının okunduğu sütun listesi — action'lar ve sayfalar aynı seti ister. */
+export const CUSTOMER_COLUMNS =
+  "id, name, short_name, color_hue, address, tax_office, tax_no, phone, fax, notes";
+
 /** Formda müşteri açılır listesini besleyen kayıt. */
 export interface CustomerOption extends CustomerInput {
   id: string;
+  /** OKLCH ton açısı (0–359) — bkz. lib/tags.ts */
+  color_hue: number;
 }
 
 // --------------------------------------------------- iş kalemi numaralandırma

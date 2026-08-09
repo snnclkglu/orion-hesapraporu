@@ -25,6 +25,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CustomerTag, ScopeTag } from "@/components/tags";
+import { SALE_SCOPES } from "@/lib/tags";
+
+/** "Diğer" — listede olmayan kapsam serbest metin olarak yazılır. */
+const SCOPE_OTHER = "__other__";
 
 /** Sayısal alanlar METİN olarak tutulur: kullanıcı "1.575.000,5" yazarken
  *  her tuş vuruşunda sayıya çevrilseydi imleç ve ondalık virgül kaybolurdu. */
@@ -65,6 +70,17 @@ export function SaleDialog({
   const [pending, startTransition] = useTransition();
 
   const [scope, setScope] = useState(row.sale.scope);
+  /**
+   * Kapsam artık açılır listedir ama liste KAPALI DEĞİLDİR: devralınan
+   * kayıtlarda ayrıntılı kapsam metinleri var ("Köprü İmalatı. Elektrik,
+   * Devreye Alma ve Araba Hariç"). Kayıttaki değer listede yoksa listeye kendi
+   * seçeneği olarak eklenir; aksi hâlde ilk kaydetmede sessizce silinirdi.
+   */
+  const [scopeFree, setScopeFree] = useState(false);
+  const scopeOptions = useMemo(() => {
+    const current = row.sale.scope.trim();
+    return current && !SALE_SCOPES.includes(current) ? [current, ...SALE_SCOPES] : SALE_SCOPES;
+  }, [row.sale.scope]);
   const [dueDate, setDueDate] = useState(row.sale.due_date ?? "");
   const [shipmentDate, setShipmentDate] = useState(row.sale.shipment_date ?? "");
   const [quantity, setQuantity] = useState(numText(row.sale.quantity));
@@ -142,15 +158,60 @@ export function SaleDialog({
           <DialogTitle>
             <span className="font-mono text-primary">{row.itemNo}</span> — Satış Bilgisi
           </DialogTitle>
-          <DialogDescription>
-            {row.productName}
-            {row.customer ? ` · ${row.customer}` : ""}
+          <DialogDescription className="flex flex-wrap items-center gap-2">
+            <span>{row.productName}</span>
+            {row.customer && (
+              <CustomerTag
+                name={row.customer}
+                shortName={row.customerShort}
+                hue={row.customerHue}
+              />
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
-          <Field label="Kapsam" hint="ör. Komple İmalat · Mühendislik ve Tasarım Hizmeti · İşçilik">
-            <Input value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Komple İmalat" />
+          <Field
+            label="Kapsam"
+            hint={
+              scopeFree
+                ? "Listede olmayan kapsam — kendi rengini metninden alır"
+                : "Etiket rengi kapsama özgüdür; listede yoksa \"Diğer\" ile yazabilirsiniz"
+            }
+          >
+            {scopeFree ? (
+              <Input
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                placeholder="Kapsamı yazın"
+                autoFocus
+              />
+            ) : (
+              <Select
+                // Boş kapsamda hiçbir seçenekle eşleşmez → yer tutucu görünür.
+                value={scope.trim()}
+                onValueChange={(v) => {
+                  if (v === SCOPE_OTHER) {
+                    setScopeFree(true);
+                    setScope("");
+                    return;
+                  }
+                  setScope(v);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Kapsam seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scopeOptions.map((sc) => (
+                    <SelectItem key={sc} value={sc}>
+                      <ScopeTag scope={sc} />
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={SCOPE_OTHER}>Diğer (elle yaz)…</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-3">

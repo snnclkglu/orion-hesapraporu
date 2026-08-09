@@ -22,6 +22,7 @@ import {
   ROOM_INSULATION_LABELS,
 } from "@/lib/calc/fields";
 import { attrValueLabel } from "@/lib/catalog-mapping";
+import { catalogSheetPageUrl, findCatalogSheet } from "@/lib/catalog-sheets";
 import {
   cabinHasAirConditioner,
   computeCabin,
@@ -34,6 +35,7 @@ import {
 import type { ClimateLoadResult } from "@/lib/calc/climate-load";
 import { cabinDepsFrom } from "@/lib/calc/engine";
 import { CABIN_CLIMATE_SITES } from "@/lib/calc/presentation/cabinSections";
+import { GLAZING_KIND_LABELS } from "@/lib/calc/presentation/cabinFields";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
@@ -642,7 +644,13 @@ function cabinRows(
       component: "Operatör kabini",
       brand: "-",
       model: "İzole operatör kabini",
-      spec: `${fmt(inp.cabinWidthM, 2)} × ${fmt(inp.cabinLengthM, 2)} × ${fmt(inp.cabinHeightM, 2)} m; izolasyon ${ROOM_INSULATION_LABELS[inp.cabinInsulation ?? "rockWool50"]}`,
+      // Cam ve operatör adedi satın almaya girer: kabin gövdesi bunlarla
+      // sipariş edilir ve klima yükünü de bu ikisi belirler.
+      spec:
+        `${fmt(inp.cabinWidthM, 2)} × ${fmt(inp.cabinLengthM, 2)} × ${fmt(inp.cabinHeightM, 2)} m; ` +
+        `izolasyon ${ROOM_INSULATION_LABELS[inp.cabinInsulation ?? "rockWool50"]}; ` +
+        `cam ${fmt(inp.cabinGlazingAreaM2, 2)} m² ${GLAZING_KIND_LABELS[inp.cabinGlazingKind] ?? ""}; ` +
+        `${fmt(inp.cabinOccupantCount, 0)} operatör`,
       qty: 1,
     });
     acRow(CABIN_CLIMATE_SITES[0], 1, values?.cabinLoad);
@@ -796,7 +804,9 @@ function writeEquipmentSheet(
   ws: ExcelJS.Worksheet,
   groups: EqGroup[],
   meta: EquipmentMeta,
-  datasheetUrls?: Map<string, string>
+  datasheetUrls?: Map<string, string>,
+  /** Ekipman ADINA bağlanan katalog sayfası adresleri (mutlak) */
+  sheetUrls?: Map<string, string>
 ): number {
   // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Adet
   const COL_COUNT = 6;
@@ -845,7 +855,15 @@ function writeEquipmentSheet(
 
     group.rows.forEach((r) => {
       const row = ws.getRow(rowNo);
-      row.getCell(1).value = r.component;
+      // Ekipman adı: katalog sayfası varsa uygulamadaki görüntüleyiciye köprü.
+      // Excel dosyası uygulamanın dışında açıldığı için adres MUTLAKTIR.
+      const sheetUrl = rowSheetUrl(r, sheetUrls);
+      if (sheetUrl) {
+        row.getCell(1).value = { text: r.component, hyperlink: sheetUrl };
+        row.getCell(1).font = HYPERLINK_FONT;
+      } else {
+        row.getCell(1).value = r.component;
+      }
       row.getCell(2).value = r.brand;
       // Model hücresi: katalog datasheet linki varsa köprüle. Klima
       // satırlarında website bağlantısı müşteri çıktılarında gösterilmez.
@@ -875,9 +893,10 @@ function writeEquipmentSheet(
           // listesinde hangi satırın asıl seçim olduğu tek bakışta görünsün.
           indent: r.alt && c === 1 ? 1 : undefined,
         };
-        // Alternatifler ikincil bilgidir: eğik ve soluk yazılır. Model hücresi
-        // köprülüyse rengi bozulmaz (bağlantı mavisi kalır).
-        if (r.alt && !(c === 3 && cell.font?.underline)) {
+        // Alternatifler ikincil bilgidir: eğik ve soluk yazılır. Köprülü
+        // hücrelerin (ekipman adı, model) rengi bozulmaz — bağlantı mavisi
+        // kalmazsa tıklanabilir olduğu anlaşılmaz.
+        if (r.alt && !cell.font?.underline) {
           cell.font = { ...(cell.font ?? {}), italic: true, color: { argb: MUTED_GRAY } };
         }
       }
@@ -914,6 +933,42 @@ function writeFooterRow(
 export function dsKey(kind: string, brand: string, model: string): string {
   const norm = (s: string) => (s ?? "").trim().toLocaleLowerCase("tr");
   return `${norm(kind)}|${norm(brand)}|${norm(model)}`;
+}
+
+/**
+ * Satır → KATALOG SAYFASI adresi eşlemesi.
+ *
+ * `datasheetUrls` ile karıştırılmaz: o, yönetim panelinden elle girilen ÜRETİCİ
+ * WEB SAYFASIDIR ve model hücresine bağlanır. Buradaki adres ise uygulamanın
+ * kendi katalog sayfası görüntüleyicisidir (`/katalog`) ve EKİPMAN ADINA
+ * bağlanır — mühendisin aradığı şey çoğu zaman ölçü resmidir, üretici sitesi
+ * değil.
+ *
+ * Sayfası olmayan ürün eşlemeye GİRMEZ; bağlantı ancak gerçekten açılacak bir
+ * sayfa varsa kurulur.
+ */
+export function buildCatalogSheetUrls(groups: EqGroup[], origin = ""): Map<string, string> {
+  const urls = new Map<string, string>();
+  for (const group of groups) {
+    for (const row of group.rows) {
+      if (!row.kind || !row.model || row.model === "-") continue;
+      const key = dsKey(row.kind, row.brand, row.model);
+      if (urls.has(key)) continue;
+      if (!findCatalogSheet(row.kind, row.brand, row.model)) continue;
+      urls.set(key, catalogSheetPageUrl(row.kind, row.brand, row.model, origin));
+    }
+  }
+  return urls;
+}
+
+/** Satırın katalog sayfası adresi (yoksa undefined). */
+export function rowSheetUrl(
+  row: Pick<EqRow, "kind" | "brand" | "model">,
+  urls?: Map<string, string> | Record<string, string>
+): string | undefined {
+  if (!row.kind || !urls) return undefined;
+  const key = dsKey(row.kind, row.brand, row.model);
+  return urls instanceof Map ? urls.get(key) : urls[key];
 }
 
 // --- Sayfa 2: Teknik Ressam Özeti --------------------------------------------
@@ -1242,6 +1297,13 @@ export interface EquipmentWorkbookOptions {
   notes?: EquipmentNotes;
   /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
   alts?: RevisionAlts;
+  /**
+   * Uygulamanın kök adresi (`https://…`). Verilirse ekipman ADI, ürünün katalog
+   * sayfasını açan uygulama adresine köprülenir. Excel dosyası uygulamanın
+   * dışında açıldığından adresin MUTLAK olması şarttır; kök bilinmiyorsa
+   * (ör. birim testi) bağlantı hiç kurulmaz.
+   */
+  appOrigin?: string;
 }
 
 export function buildEquipmentWorkbook(
@@ -1262,7 +1324,10 @@ export function buildEquipmentWorkbook(
   const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  writeEquipmentSheet(wsEquipment, groups, meta, options.datasheetUrls);
+  const sheetUrls = options.appOrigin
+    ? buildCatalogSheetUrls(groups, options.appOrigin)
+    : undefined;
+  writeEquipmentSheet(wsEquipment, groups, meta, options.datasheetUrls, sheetUrls);
 
   // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
   if (options.scope !== "customer") {

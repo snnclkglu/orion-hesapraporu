@@ -25,9 +25,12 @@
 // üreticinin proje bazlı teyidine tabidir ve rapor bunu açıkça yazar.
 
 import {
+  CABIN_DOOR_SIZE_M,
   computeClimateLoad,
   ROOM_DESIGN_TEMP_C,
+  ROOM_DOOR_SIZE_M,
   type ClimateLoadResult,
+  type GlazingKind,
   type InstallationEnvironment,
   type RoomInsulationKind,
 } from "../climate-load";
@@ -68,6 +71,20 @@ export interface CabinInputs {
    * Sıfır bırakıldığında rapor bunu bilgilendirme kontrolüyle söyler.
    */
   cabinRadiationKw: number;
+  /**
+   * Kabindeki kişi adedi. İki şeyi birden belirler: operatörün duyulur + gizli
+   * ısısı ve KİŞİ BAŞI TEMİZ HAVA gereği. İkincisi çoğu zaman basınçlandırma
+   * sızıntısından büyüktür ve kabinin taze hava yükünü o belirler.
+   */
+  cabinOccupantCount: number;
+  /**
+   * Kabin camının toplam alanı [m²]. Kabini elektrik odasından ayıran şey
+   * budur: tek cam panelin 13 katı ısı geçirir ve açık havada güneşi doğrudan
+   * içeri alır.
+   */
+  cabinGlazingAreaM2: number;
+  /** Cam tipi (`GlazingKind`): tek cam / çift cam / ısıcam + reflektif. */
+  cabinGlazingKind: string;
 
   // --- Elektrik odası
   roomWidthM: number;
@@ -222,6 +239,12 @@ function insulationKind(value: string | undefined): RoomInsulationKind {
   return value === "rockWool100" ? "rockWool100" : "rockWool50";
 }
 
+/** Cam tipini hesap çekirdeğinin beklediği türe indirger. */
+function glazingKind(value: string | undefined): GlazingKind {
+  if (value === "single" || value === "reflective") return value;
+  return "double";
+}
+
 export function computeCabin(
   specs: TechnicalSpecs,
   inp: CabinInputs,
@@ -254,15 +277,27 @@ export function computeCabin(
   const panelCount = Math.max(0, Math.floor(nonNeg(inp.panelCount)));
   const panelAcUnitCount = panelCount * redundancyUnits(inp.panelAcRedundancy);
 
-  /** Mahallin ısı yükü — üç mahal de aynı çekirdekten geçer. */
+  /**
+   * Mahallin ısı yükü — üç mahal de aynı çekirdekten geçer. Kabine özgü
+   * kalemler (operatör, cam, kabin kapısı ölçüsü) yalnız kabinde verilir.
+   */
   const loadFor = (
     widthM: number, lengthM: number, heightM: number,
     insulation: string, doorCount: number,
-    deviceHeatKw: number, radiationKw: number
+    deviceHeatKw: number, radiationKw: number,
+    cabinSpecific?: {
+      occupantCount: number;
+      glazingAreaM2: number;
+      glazingKind: GlazingKind;
+    }
   ) => computeClimateLoad({
     widthM, lengthM, heightM,
     insulation: insulationKind(insulation),
     doorCount,
+    doorSize: cabinSpecific ? CABIN_DOOR_SIZE_M : ROOM_DOOR_SIZE_M,
+    glazingAreaM2: cabinSpecific?.glazingAreaM2,
+    glazingKind: cabinSpecific?.glazingKind,
+    occupantCount: cabinSpecific?.occupantCount,
     ambientTempC: ambientTempMaxC,
     ambientRhPct,
     environment,
@@ -279,7 +314,12 @@ export function computeCabin(
 
   const cabinLoad = cabinPresent
     ? loadFor(inp.cabinWidthM, inp.cabinLengthM, inp.cabinHeightM, inp.cabinInsulation,
-        inp.cabinDoorCount, nonNeg(inp.cabinDeviceHeatKw), nonNeg(inp.cabinRadiationKw))
+        inp.cabinDoorCount, nonNeg(inp.cabinDeviceHeatKw), nonNeg(inp.cabinRadiationKw),
+        {
+          occupantCount: nonNeg(inp.cabinOccupantCount),
+          glazingAreaM2: nonNeg(inp.cabinGlazingAreaM2),
+          glazingKind: glazingKind(inp.cabinGlazingKind),
+        })
     : undefined;
   const roomLoad = roomPresent
     ? loadFor(inp.roomWidthM, inp.roomLengthM, inp.roomHeightM, inp.roomInsulation,
@@ -331,6 +371,9 @@ export function computeCabin(
     set(block + ".solar", load.solarKw);
     set(block + ".radiation", load.radiationKw);
     set(block + ".deviceHeat", load.deviceHeatKw);
+    set(block + ".occupant", load.occupantKw);
+    set(block + ".glazingArea", load.glazingAreaM2);
+    set(block + ".freshAirFlow", load.freshAirM3h);
     set(block + ".freshAir", load.freshAirKw);
     set(block + ".calculated", load.calculatedKw);
     set(block + ".total", load.totalKw);

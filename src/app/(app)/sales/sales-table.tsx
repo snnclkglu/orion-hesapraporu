@@ -28,6 +28,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { CustomerTag, ScopeTag } from "@/components/tags";
+import { customerTag, scopeLabel } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all__";
@@ -48,7 +50,8 @@ type SortKey =
 const SORT_VALUE: Record<SortKey, (r: SaleRow) => string | number> = {
   itemNo: (r) => r.itemNo,
   productName: (r) => r.productName,
-  customer: (r) => r.customer,
+  // Sıralama GÖRÜNEN ada göredir (bkz. jobs-table'daki aynı gerekçe).
+  customer: (r) => customerTag({ name: r.customer, shortName: r.customerShort }).short,
   scope: (r) => r.sale.scope,
   dueDate: (r) => r.sale.due_date ?? "",
   shipmentDate: (r) => r.sale.shipment_date ?? "",
@@ -123,6 +126,7 @@ function SortHead({
 export function SalesTable({ rows }: { rows: SaleRow[] }) {
   const [year, setYear] = useState(ALL);
   const [customer, setCustomer] = useState(ALL);
+  const [scope, setScope] = useState(ALL);
   const [currency, setCurrency] = useState(ALL);
   const [priceState, setPriceState] = useState(ALL);
   const [query, setQuery] = useState("");
@@ -137,9 +141,27 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     return [...set].sort((a, b) => b.localeCompare(a));
   }, [rows]);
 
+  // Süzgeç DEĞERİ tam unvan, ETİKETİ kısaltmadır (İşler listesiyle aynı düzen).
   const customers = useMemo(() => {
-    const set = new Set(rows.map((r) => r.customer.trim()).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, "tr"));
+    const byName = new Map<string, SaleRow>();
+    for (const r of rows) {
+      const name = r.customer.trim();
+      if (name && !byName.has(name)) byName.set(name, r);
+    }
+    return [...byName.entries()]
+      .map(([name, r]) => ({ name, short: r.customerShort, hue: r.customerHue }))
+      .sort((a, b) =>
+        customerTag({ name: a.name, shortName: a.short }).short.localeCompare(
+          customerTag({ name: b.name, shortName: b.short }).short,
+          "tr"
+        )
+      );
+  }, [rows]);
+
+  /** Kapsam süzgeci — veride geçen kapsamlar (etiket kırpılmış, değer tam metin). */
+  const scopes = useMemo(() => {
+    const set = new Set(rows.map((r) => r.sale.scope.trim()).filter(Boolean));
+    return [...set].sort((a, b) => scopeLabel(a).localeCompare(scopeLabel(b), "tr"));
   }, [rows]);
 
   function toggleSort(key: SortKey) {
@@ -159,11 +181,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     const out = rows.filter((r) => {
       if (year !== ALL && saleYear(r) !== year) return false;
       if (customer !== ALL && r.customer.trim() !== customer) return false;
+      if (scope !== ALL && r.sale.scope.trim() !== scope) return false;
       if (currency !== ALL && r.sale.currency !== currency) return false;
       if (priceState === PRICED && r.sale.unit_price === null) return false;
       if (priceState === UNPRICED && r.sale.unit_price !== null) return false;
-      if (q && ![r.itemNo, r.productName, r.customer, r.sale.scope].join(" ")
-        .toLocaleLowerCase("tr").includes(q)) return false;
+      if (q && ![r.itemNo, r.productName, r.customer, r.customerShort ?? "", r.sale.scope]
+        .join(" ").toLocaleLowerCase("tr").includes(q)) return false;
       return true;
     });
     const sign = sort.dir === "asc" ? 1 : -1;
@@ -176,7 +199,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           : String(va).localeCompare(String(vb), "tr", { numeric: true });
       return sign * c;
     });
-  }, [rows, year, customer, currency, priceState, query, sort]);
+  }, [rows, year, customer, scope, currency, priceState, query, sort]);
 
   // Özetler süzgeçten GEÇEN satırlardan çıkar: "2025 · ASTOR" seçildiğinde
   // kartlar o kesitin cirosunu gösterir.
@@ -185,7 +208,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     let weight = 0;
     let priced = 0;
     let missingFx = 0;
-    const byCustomer = new Map<string, { eur: number; count: number }>();
+    const byCustomer = new Map<
+      string,
+      { eur: number; count: number; short: string | null; hue: number | null }
+    >();
     for (const r of filtered) {
       if (r.sale.unit_price !== null) priced += 1;
       if (r.sale.unit_price !== null && r.eurAmount === null) missingFx += 1;
@@ -193,8 +219,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
       if (r.eurAmount !== null) {
         eur += r.eurAmount;
         const key = r.customer.trim() || "—";
-        const cur = byCustomer.get(key) ?? { eur: 0, count: 0 };
-        byCustomer.set(key, { eur: cur.eur + r.eurAmount, count: cur.count + 1 });
+        const cur = byCustomer.get(key) ?? {
+          eur: 0, count: 0, short: r.customerShort ?? null, hue: r.customerHue ?? null,
+        };
+        byCustomer.set(key, { ...cur, eur: cur.eur + r.eurAmount, count: cur.count + 1 });
       }
     }
     return {
@@ -207,12 +235,13 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
   }, [filtered]);
 
   const activeFilters =
-    (year !== ALL ? 1 : 0) + (customer !== ALL ? 1 : 0) + (currency !== ALL ? 1 : 0) +
-    (priceState !== ALL ? 1 : 0) + (query.trim() ? 1 : 0);
+    (year !== ALL ? 1 : 0) + (customer !== ALL ? 1 : 0) + (scope !== ALL ? 1 : 0) +
+    (currency !== ALL ? 1 : 0) + (priceState !== ALL ? 1 : 0) + (query.trim() ? 1 : 0);
 
   function clearFilters() {
     setYear(ALL);
     setCustomer(ALL);
+    setScope(ALL);
     setCurrency(ALL);
     setPriceState(ALL);
     setQuery("");
@@ -269,13 +298,29 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Select>
 
         <Select value={customer} onValueChange={setCustomer}>
-          <SelectTrigger size="sm" className="w-[220px]">
+          <SelectTrigger size="sm" className="w-[190px]">
             <SelectValue placeholder="Müşteri" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
             {customers.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
+              <SelectItem key={c.name} value={c.name}>
+                <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={scope} onValueChange={setScope}>
+          <SelectTrigger size="sm" className="w-[200px]">
+            <SelectValue placeholder="Kapsam" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Tüm kapsamlar</SelectItem>
+            {scopes.map((sc) => (
+              <SelectItem key={sc} value={sc}>
+                <ScopeTag scope={sc} />
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -328,9 +373,9 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                 active={sort.key === "itemNo"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Ürün" sortKey="productName"
                 active={sort.key === "productName"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Müşteri" sortKey="customer" className="w-[18%]"
+              <SortHead label="Müşteri" sortKey="customer" className="w-[10rem]"
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Kapsam" sortKey="scope" className="w-[12%]"
+              <SortHead label="Kapsam" sortKey="scope" className="w-[15rem]"
                 active={sort.key === "scope"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Termin" sortKey="dueDate" className="w-[6.5rem]"
                 active={sort.key === "dueDate"} dir={sort.dir} onSort={toggleSort} />
@@ -362,9 +407,15 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     {r.itemNo || "—"}
                   </TableCell>
                   <TableCell className="font-medium">{r.productName}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.customer}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {r.sale.scope || "—"}
+                  <TableCell>
+                    <CustomerTag
+                      name={r.customer}
+                      shortName={r.customerShort}
+                      hue={r.customerHue}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ScopeTag scope={r.sale.scope} />
                   </TableCell>
                   <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
                     {fmtDate(r.sale.due_date)}
@@ -432,7 +483,9 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {i + 1}
                     </TableCell>
-                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell>
+                      <CustomerTag name={name} shortName={v.short} hue={v.hue} />
+                    </TableCell>
                     <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
                       {v.count}
                     </TableCell>

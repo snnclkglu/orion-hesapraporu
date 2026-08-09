@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
-import { RevisionEditor } from "./revision-editor";
+import { EDITOR_STATUS_SLOT_ID, RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
 import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
@@ -74,6 +74,10 @@ export default async function RevisionPage({
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* Kontrol özeti + Kaydet buraya, PDF Rapor'un SOLUNA gelir; editör
+              onları bu yuvaya portalla taşır (bkz. EDITOR_STATUS_SLOT_ID).
+              Böylece çalışma alanı üstteki durum kartından kurtulur. */}
+          <div id={EDITOR_STATUS_SLOT_ID} className="flex items-center gap-2" />
           <ReportMenu projectId={id} revisionId={revision.id} />
           <a
             href={`/projects/${id}/revisions/${revision.id}/equipment`}

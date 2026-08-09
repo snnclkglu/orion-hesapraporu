@@ -5,6 +5,12 @@ import { jobStatusOf } from "@/lib/job-status";
 import { JobsTable, type JobRow } from "./jobs-table";
 import { Button } from "@/components/ui/button";
 
+/** Supabase gömülü ilişkiyi tekil ya da dizi olarak dönebilir; ikisini de karşıla. */
+function one<T>(v: unknown): T | null {
+  if (Array.isArray(v)) return (v[0] as T) ?? null;
+  return (v as T) ?? null;
+}
+
 function NewJobButton() {
   return (
     <Button asChild>
@@ -49,8 +55,14 @@ export default async function JobsPage() {
   const [{ data: jobs }, { data: profile }] = await Promise.all([
     supabase
       .from("jobs")
+      // Kısaltma ve renk DEFTERDEN gelir, iş emrinin metin alanından değil:
+      // müşteri kısaltmasını sonradan düzeltmek eski işlerin görünümünü de
+      // düzeltmelidir (unvan fotoğrafı ise iş emrinde olduğu gibi kalır).
+      // Sorgu metni TEK PARÇA yazılır — birleştirilmiş dizgide Supabase'in tip
+      // çıkarımı çalışmaz ve satırlar `GenericStringError` olur.
       .select(
-        "id, job_no, title, customer, status, work_order_date, created_at, projects(id), job_items(id)"
+        `id, job_no, title, customer, status, work_order_date, created_at,
+         customers(short_name, color_hue), projects(id), job_items(id)`
       )
       .order("created_at", { ascending: false }),
     // Silme yalnızca yöneticide: jobs DELETE politikası is_admin() ister,
@@ -60,17 +72,25 @@ export default async function JobsPage() {
       : Promise.resolve({ data: null }),
   ]);
 
-  const list: JobRow[] = (jobs ?? []).map((j) => ({
-    id: j.id,
-    job_no: j.job_no,
-    title: j.title,
-    customer: j.customer ?? "",
-    status: j.status,
-    work_order_date: j.work_order_date ?? null,
-    created_at: j.created_at,
-    itemCount: j.job_items?.length ?? 0,
-    craneCount: j.projects?.length ?? 0,
-  }));
+  const list: JobRow[] = (jobs ?? []).map((j) => {
+    // PostgREST gömülü ilişkiyi tekil ya da dizi olarak dönebilir.
+    const book = one<{ short_name: string | null; color_hue: number | null }>(
+      j.customers as unknown
+    );
+    return {
+      id: j.id,
+      job_no: j.job_no,
+      title: j.title,
+      customer: j.customer ?? "",
+      customerShort: book?.short_name ?? null,
+      customerHue: book?.color_hue ?? null,
+      status: j.status,
+      work_order_date: j.work_order_date ?? null,
+      created_at: j.created_at,
+      itemCount: j.job_items?.length ?? 0,
+      craneCount: j.projects?.length ?? 0,
+    };
+  });
 
   const craneCount = list.reduce((sum, j) => sum + j.craneCount, 0);
   const customers = new Set(list.map((j) => j.customer)).size;

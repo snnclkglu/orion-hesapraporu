@@ -10,11 +10,11 @@
 // biçimlenmez. "Ek Özellikler" sütunu kullanıcının satıra yazdığı serbest
 // nottur (equipment_notes, madde 34).
 
-import { Document, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Image, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
-import { canLinkEquipmentModel, dsKey } from "@/lib/excel/equipment";
+import { canLinkEquipmentModel, dsKey, rowSheetUrl } from "@/lib/excel/equipment";
 import { BRAND, BrandPage, FONTS, PAGE, PageHeader, RuleRed, T, mm, trUpper } from "@/lib/pdf/brand";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
@@ -71,6 +71,12 @@ const s = StyleSheet.create({
   sLabel: { width: "62%" },
   sVal: { width: "24%", textAlign: "right" as const },
   sUnit: { width: "14%", textAlign: "right" as const, color: BRAND.gray600 },
+  // ek: katalog sayfaları
+  sheetHead: { marginBottom: 6 },
+  sheetTitle: { fontFamily: FONTS.sans, fontSize: 11, fontWeight: 700, color: BRAND.ink },
+  sheetMeta: { fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600, marginTop: 2 },
+  sheetImage: { width: "100%", objectFit: "contain" as const },
+  hint: { fontFamily: FONTS.sans, fontSize: 7, color: BRAND.gray600, marginBottom: 6 },
 });
 
 export interface EquipmentMetaPdf {
@@ -80,12 +86,51 @@ export interface EquipmentMetaPdf {
   checkedBy?: string;
 }
 
+/**
+ * Detaylı listenin ekindeki bir katalog sayfası.
+ *
+ * Görüntü BURAYA HAZIR gelir (`data` + `format`): kaynak dosyalar .webp'tir ve
+ * react-pdf webp çözmez; dönüştürme çağıran taraftadır (indirme ucu, sharp).
+ * PDF katmanı dosya sistemi bilmez — saf kalır ve testten geçirilebilir.
+ */
+export interface CatalogSheetPage {
+  /**
+   * Bu eke bağlanan ürünlerin anahtarları — `dsKey(kind, brand, model)`.
+   * ÇOĞULDUR: aynı katalog sayfası birden çok ürüne hizmet edebilir (aynı
+   * serinin iki boyu tek tabloda basılır) ve sayfa eke bir kez girer.
+   */
+  keys: string[];
+  title: string;
+  /** Ek sayfa başlığında görünen model kodu (birden çok ürünse ilki) */
+  model: string;
+  source: string;
+  printedPages: string;
+  images: { data: Buffer; format: "png" | "jpg" }[];
+}
+
 export interface EquipmentPdfProps {
   meta: EquipmentMetaPdf;
   groups: EqGroup[];
   summary?: SummarySection[];
   settings?: ReportSettings;
   datasheetUrls?: Map<string, string>;
+  /**
+   * Ekipman ADINA bağlanan katalog sayfası adresleri (MUTLAK). Standart
+   * listede kullanılır: PDF Acrobat'ta açıldığında bağlantı uygulamanın
+   * katalog görüntüleyicisini yeni sekmede açar.
+   */
+  sheetUrls?: Map<string, string>;
+  /**
+   * Detaylı liste: katalog sayfaları belgenin SONUNA eklenir ve ekipman adı
+   * DIŞ adrese değil, belge içindeki o sayfaya bağlanır. Boşsa belge standart
+   * listedir.
+   */
+  sheetPages?: CatalogSheetPage[];
+}
+
+/** Ek sayfa çapası — `Link src="#…"` ile `View id="…"` bu adı paylaşır. */
+function anchorId(key: string): string {
+  return `katalog-${key.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
 /** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
@@ -130,7 +175,57 @@ function ModelCell({ row, urls }: { row: EqGroup["rows"][number]; urls?: Map<str
   return <Text style={[s.td, s.mono, s.cModel]}>{model}</Text>;
 }
 
-export function EquipmentDocument({ meta, groups, summary, settings, datasheetUrls }: EquipmentPdfProps) {
+/**
+ * Ekipman adı hücresi.
+ *
+ * Katalog sayfası varsa ad tıklanabilir olur; NEREYE gittiği belgenin türüne
+ * bağlıdır: detaylı listede belgenin kendi ek sayfasına (iç bağlantı), standart
+ * listede uygulamadaki katalog görüntüleyicisine (dış adres). Bağlantı ADA
+ * bağlanır çünkü mühendis ürünü adıyla arar; model kodu üretici datasheet'ine
+ * ayrılmıştır.
+ */
+function ComponentCell({
+  row,
+  href,
+  style,
+}: {
+  row: EqGroup["rows"][number];
+  href?: string;
+  style: React.ComponentProps<typeof View>["style"];
+}) {
+  const text = `${row.component}${row.custom ? " *" : ""}`;
+  if (!href) return <Text style={style}>{text}</Text>;
+  return (
+    <View style={style}>
+      <Link src={href} style={{ color: BRAND.steel, textDecoration: "underline" }}>
+        {text}
+      </Link>
+    </View>
+  );
+}
+
+export function EquipmentDocument({
+  meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages,
+}: EquipmentPdfProps) {
+  const detailed = !!sheetPages && sheetPages.length > 0;
+  /**
+   * Ürün anahtarı → belge içi çapa. Çapa sayfanın İLK ürününün anahtarından
+   * türer; aynı sayfayı paylaşan diğer ürünler de oraya gider (yoksa
+   * bağlantı var olmayan bir hedefe düşer ve tıklama hiçbir şey yapmaz).
+   */
+  const anchorByKey = new Map<string, string>();
+  for (const page of sheetPages ?? []) {
+    const anchor = anchorId(page.keys[0] ?? "");
+    for (const key of page.keys) anchorByKey.set(key, anchor);
+  }
+  const linkFor = (row: EqGroup["rows"][number]): string | undefined => {
+    if (!row.kind) return undefined;
+    if (detailed) {
+      const anchor = anchorByKey.get(dsKey(row.kind, row.brand, row.model));
+      return anchor ? `#${anchor}` : undefined;
+    }
+    return rowSheetUrl(row, sheetUrls);
+  };
   const rev = String(meta.revNo).padStart(2, "0");
   const year = /(\d{4})/.exec(meta.date)?.[1] ?? String(new Date().getFullYear());
   const docCode = `ORC-EQ-${meta.docNo}-R${rev}`;
@@ -159,6 +254,14 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
           <View style={s.metaItem}><Text style={s.metaLabel}>Kontrol</Text><Text style={s.metaVal}>{meta.checkedBy || "—"}</Text></View>
         </View>
 
+        {(detailed || (sheetUrls && sheetUrls.size > 0)) && (
+          <Text style={s.hint}>
+            {detailed
+              ? "Altı çizili ekipman adına tıklayınca belgenin sonundaki ilgili katalog sayfasına gidilir."
+              : "Altı çizili ekipman adına tıklayınca ürünün katalog sayfası tarayıcıda açılır."}
+          </Text>
+        )}
+
         <View style={s.tHead} fixed>
           <Text style={[s.th, s.cComp]}>{trUpper("Ekipman")}</Text>
           <Text style={[s.th, s.cBrand]}>{trUpper("Marka")}</Text>
@@ -173,15 +276,15 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
             <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
             {g.rows.map((r, i) => (
               <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
-                <Text
+                <ComponentCell
+                  row={r}
+                  href={linkFor(r)}
                   style={[
                     s.td, s.cComp,
                     r.custom ? s.custom : {},
                     r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
                   ]}
-                >
-                  {r.component}{r.custom ? " *" : ""}
-                </Text>
+                />
                 <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{r.brand}</Text>
                 <ModelCell row={r} urls={datasheetUrls} />
                 <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
@@ -222,6 +325,36 @@ export function EquipmentDocument({ meta, groups, summary, settings, datasheetUr
         )}
         <CompanyFooter settings={settings} />
       </BrandPage>
+
+      {/*
+        EK — KATALOG SAYFALARI (yalnız detaylı liste).
+        Sayfalar DİKEY basılır: kaynak katalog sayfaları dikey taranmıştır,
+        yatay bir sayfada yüksekliğe sığdırmak görüntüyü üçte bire indirir ve
+        ölçü tablolarını okunmaz yapardı. Her katalog sayfası kendi yaprağını
+        alır; listeden gelen iç bağlantı ilk yaprağın çapasına düşer.
+      */}
+      {(sheetPages ?? []).flatMap((sheet) =>
+        sheet.images.map((image, i) => (
+          <BrandPage
+            key={`${sheet.keys[0]}-${i}`}
+            docLine={`ORION CRANES · KATALOG SAYFASI · REV ${rev} · ${year}`}
+            docCode={docCode}
+          >
+            <View id={i === 0 ? anchorId(sheet.keys[0] ?? "") : undefined} style={s.sheetHead}>
+              <Text style={T.kicker}>KATALOG SAYFASI</Text>
+              <RuleRed />
+              <Text style={[s.sheetTitle, { marginTop: 5 }]}>
+                {sheet.title} — {sheet.model}
+              </Text>
+              <Text style={s.sheetMeta}>
+                {sheet.source} · {sheet.printedPages}
+                {sheet.images.length > 1 ? ` · sayfa ${i + 1}/${sheet.images.length}` : ""}
+              </Text>
+            </View>
+            <Image src={image} style={s.sheetImage} />
+          </BrandPage>
+        ))
+      )}
     </Document>
   );
 }

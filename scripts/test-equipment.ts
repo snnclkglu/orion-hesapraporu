@@ -9,9 +9,11 @@ import path from "node:path";
 import { V5_TEMPLATE } from "../src/lib/calc/defaults";
 import { runCalc } from "../src/lib/calc/engine";
 import {
-  buildEquipmentGroups, buildEquipmentWorkbook, buildSummarySections, mergeExtras,
+  buildCatalogSheetUrls, buildEquipmentGroups, buildEquipmentWorkbook, buildSummarySections,
+  mergeExtras,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "../src/lib/excel/equipment";
+import { collectCatalogSheetPages } from "../src/lib/pdf/catalog-sheet-images";
 import { renderEquipmentPdf } from "../src/lib/pdf/equipment-report";
 import type { RevisionAlts } from "../src/lib/revision-load";
 import { baslikDuzeni } from "../src/lib/tr-text";
@@ -270,16 +272,45 @@ async function main() {
   const outDir = path.join(process.cwd(), ".test-output");
   mkdirSync(outDir, { recursive: true });
 
-  const pdfCustomer = await renderEquipmentPdf({ meta: META, groups });
-  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary });
+  // Standart liste: ekipman adı uygulamanın katalog sayfasına köprülenir.
+  const sheetUrls = buildCatalogSheetUrls(groups, "https://ornek.orioncranes.com");
+  console.log(`Katalog sayfası bağlantısı olan ürün: ${sheetUrls.size}`);
+  if (sheetUrls.size === 0) {
+    console.error("HATA: hiçbir ürüne katalog sayfası bağlanmadı — eşleme kopmuş olabilir.");
+    process.exitCode = 1;
+  }
+
+  const pdfCustomer = await renderEquipmentPdf({ meta: META, groups, sheetUrls });
+  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary, sheetUrls });
   const pCustPath = path.join(outDir, "ekipman-listesi-musteri.pdf");
   const pFullPath = path.join(outDir, "ekipman-listesi-tam.pdf");
   writeFileSync(pCustPath, pdfCustomer);
   writeFileSync(pFullPath, pdfFull);
-  for (const [label, p] of [["müşteri", pCustPath], ["tam", pFullPath]] as const) {
+
+  // Detaylı liste: aynı liste + arkasına katalog sayfaları (webp → jpeg).
+  const sheetPages = await collectCatalogSheetPages(groups);
+  const yaprak = sheetPages.reduce((n, p) => n + p.images.length, 0);
+  console.log(`Ek katalog sayfası: ${sheetPages.length} ürün grubu · ${yaprak} yaprak`);
+  if (sheetPages.length === 0) {
+    console.error(
+      "HATA: detaylı listeye hiç katalog sayfası girmedi — " +
+        "`python scripts/catalog-sheets.py` koşulmamış olabilir."
+    );
+    process.exitCode = 1;
+  }
+  const pdfDetailed = await renderEquipmentPdf({ meta: META, groups, summary, sheetPages });
+  const pDetailPath = path.join(outDir, "ekipman-listesi-detayli.pdf");
+  writeFileSync(pDetailPath, pdfDetailed);
+
+  for (const [label, p, min] of [
+    ["müşteri", pCustPath, 4],
+    ["tam", pFullPath, 4],
+    // Detaylı dosya taranmış sayfalar taşır; 200 KB altındaysa ek boş demektir.
+    ["detaylı", pDetailPath, 200],
+  ] as const) {
     const sz = statSync(p).size;
     console.log(`PDF (${label}): ${p} — ${(sz / 1024).toFixed(1)} KB`);
-    if (sz <= 4 * 1024) {
+    if (sz <= min * 1024) {
       console.error(`HATA: PDF (${label}) çok küçük — üretim başarısız olabilir.`);
       process.exitCode = 1;
     }

@@ -291,6 +291,13 @@ export function JobForm({
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Müşteri alanı SALT-OKUNUR olduğu için tarayıcının `required` denetimi
+    // onu atlar (salt-okunur alanlar kısıt denetimine girmez); seçim yapılmadan
+    // gönderilirse hata ancak sunucudan dönerdi. Uyarı burada verilir.
+    if (!form.customer.trim()) {
+      toast.error("Önce listeden bir müşteri seçin (ya da Yeni Müşteri ile ekleyin).");
+      return;
+    }
     syncing.current = true;
     startTransition(async () => {
       const result = mode === "edit" && jobId
@@ -307,6 +314,9 @@ export function JobForm({
       {/* Başlık */}
       <Section title="İş Emri Başlığı">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Alan altına açıklama YAZILMAZ: satırdaki tek alanı uzatıp komşu
+              alanları yukarı kaydırıyordu. Kalem numarasının iş nodan türediği
+              zaten İş Kalemleri bölümünde yazılı. */}
           <div className="grid gap-1.5">
             <Label htmlFor="job_no">İş No</Label>
             <Input
@@ -315,11 +325,9 @@ export function JobForm({
               onChange={(e) => set("job_no", e.target.value)}
               placeholder="0075"
               className="font-mono"
+              title="Yalnız iş numarası — kalem numaraları buradan türer"
               required
             />
-            <p className="text-[11px] text-muted-foreground">
-              Yalnız iş numarası — kalem numaraları buradan türer.
-            </p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="work_order_date">Tarih</Label>
@@ -390,18 +398,25 @@ export function JobForm({
             value={form.customer_id}
             currentName={form.customer}
             onPick={(c) =>
-              setForm((f) =>
-                c
-                  ? { ...f, customer_id: c.id, ...fieldsFromCustomer(c) }
-                  : { ...f, customer_id: null }
-              )
+              setForm((f) => (c ? { ...f, customer_id: c.id, ...fieldsFromCustomer(c) } : f))
             }
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
+          {/* Ad SALT-OKUNURDUR: müşteri yalnız listeden seçilir ya da "Yeni
+              Müşteri" ile deftere yazılır. Serbest metin bırakıldığı sürece
+              defter dışında ikinci bir müşteri listesi büyüyordu. */}
           <div className="grid gap-1.5">
             <Label htmlFor="customer">Adı</Label>
-            <Input id="customer" value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="ASTOR A.Ş." required />
+            <Input
+              id="customer"
+              value={form.customer}
+              readOnly
+              className="bg-muted text-muted-foreground"
+              placeholder="Listeden müşteri seçin"
+              title="Müşteri adı defterden gelir — değiştirmek için listeden başka bir müşteri seçin"
+              required
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="customer_address">Adresi</Label>
@@ -425,7 +440,7 @@ export function JobForm({
           </div>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Bu alanlar iş emrinin BASILDIĞI ANDAKİ bilgilerdir; defterden seçtikten
+          Bu alanlar iş emrinin BASILDIĞI ANDAKİ bilgilerdir; listeden seçtikten
           sonra da düzenlenebilir ve defteri değiştirmez.
         </p>
       </Section>

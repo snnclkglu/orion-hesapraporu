@@ -135,6 +135,24 @@ export const ATTR_LABELS: Record<string, string> = {
   allowed_radial_input_kn: "İzin Verilen Radyal Yük — Giriş [kN]",
   stages: "Kademe Sayısı",
   dimension_page: "Katalog Ölçü Sayfası",
+  ratio_nominal: "Anma Çevrim Oranı",
+  efficiency: "Verim η",
+  center_distance_mm: "Eksen Mesafesi [mm]",
+  // POLAT PCS'te çıkış tambura DIN 5480 çoklu kamayla bağlanır; mil çapı
+  // yerine bu kod sipariş edilir.
+  output_spline: "Çıkış Kama Profili (DIN 5480)",
+  planet_family: "Planet Alt Ailesi",
+  // Vinç kaldırma redüktörlerinde nominal giriş gücü FEM 9.511 (ISO 4301/1)
+  // sınıfına göre yayımlanır; seçim bu sütundan yapılır.
+  nominal_power_kw_m4: "Nominal Güç — 1Am (M4) [kW]",
+  nominal_power_kw_m5: "Nominal Güç — 2m (M5) [kW]",
+  nominal_power_kw_m6: "Nominal Güç — 3m (M6) [kW]",
+  nominal_power_kw_m7: "Nominal Güç — 4m (M7) [kW]",
+  nominal_power_kw_m8: "Nominal Güç — 5m (M8) [kW]",
+  // Planet redüktörde anma momenti ÖMÜRE bağlıdır; ana alan 10000 saattir.
+  output_torque_nm_5000h: "Çıkış Torku — 5000 saat [Nm]",
+  output_torque_nm_2000h: "Çıkış Torku — 2000 saat [Nm]",
+  output_torque_nm_1000h: "Çıkış Torku — 1000 saat [Nm]",
   // halat
   dia_mm: "Çap [mm]",
   core: "Öz Tipi",
@@ -143,6 +161,18 @@ export const ATTR_LABELS: Record<string, string> = {
   wire_strength_kgmm2: "Tel Mukavemeti [kg/mm²]",
   breaking_load_kn: "Kopma Yükü [kN]",
   weight_kg_per_m: "Metre Ağırlığı [kg/m]",
+  diameter_inch: "Çap [inç]",
+  steel_area_mm2: "Çelik Kesit Alanı [mm²]",
+  // Tek katlı ve kılavuzsuz yükte dönmeye dirençli halat şarttır; bu yüzden
+  // nitelik seçim ekranında görünür.
+  rotation_resistant: "Dönmeye Dirençli",
+  compacted: "Sıkıştırılmış Damar",
+  swaged: "Dövme (Swaged)",
+  rcn: "Halat Kategori No (RCN)",
+  outer_strands: "Dış Damar Sayısı",
+  total_wires: "Toplam Tel Sayısı",
+  outer_load_bearing_wires: "Dış Katmanda Taşıyıcı Tel Sayısı",
+  fill_factor: "Dolgu Faktörü",
   // fren
   brake_type: "Fren Tipi",
   brake_torque_nm: "Fren Torku [Nm]",
@@ -289,6 +319,14 @@ export const ATTR_VALUE_LABELS: Record<string, Record<string, string>> = {
     FC: "Elyaf Öz (FC)",
     IWRC: "Çelik Öz (IWRC)",
     WSC: "Çelik Halat Öz (WSC)",
+    // Plastikli özler AYRI kodlardır: plastik öz ile damarlar arasındaki
+    // basıncı dağıtır, çok katlı sarımda halat ömrünü belirgin uzatır.
+    // "PI" öz ile damarlar arası boşluğun DOLDURULDUĞU, "PC" özün
+    // CEKETLENDİĞİ, "PPI" ise dokuma sonrası plastik enjekte edildiği
+    // konstrüksiyondur.
+    "IWRC-PI": "Plastik Dolgulu Çelik Öz (IWRC-PI)",
+    "IWRC-PC": "Plastik Kaplı Çelik Öz (IWRC-PC)",
+    "IWRC-PPI": "Plastik Enjeksiyonlu Çelik Öz (IWRC-PPI)",
   },
   brake_type: {
     drum: "Kasnaklı (Tambur) Fren",
@@ -393,6 +431,10 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       { attr: "grade_mpa", label: "Mukavemet", unit: "MPa" },
       { attr: "breaking_load_kn", label: "Kopma Yükü", unit: "kN" },
       { attr: "weight_kg_per_m", label: "Metre Ağırlığı", unit: "kg/m" },
+      // FEM 1.001 tek katlı ve kılavuzsuz yükte dönmeye dirençli halat ister;
+      // bu bir SEÇİM ölçütüdür, süzgeç adımı yapılmadı çünkü eski katalog
+      // dosyalarında alan yok ve boş bir adım seçiciyi uzatırdı.
+      { attr: "rotation_resistant", label: "Dönmeye Dirençli" },
     ],
     sortBy: "dia_mm",
   },

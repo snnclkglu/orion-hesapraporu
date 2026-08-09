@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/admin/users", label: "Kullanıcılar" },
+  { href: "/admin/customers", label: "Müşteriler" },
   { href: "/admin/equipment", label: "Ekipman Katalogu" },
   { href: "/admin/couplings", label: "Kaplin Katalogu" },
   { href: "/admin/rails", label: "Raylar" },

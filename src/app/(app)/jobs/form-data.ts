@@ -3,7 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { PersonOption } from "./job-form";
-import type { CustomerOption } from "./schema";
+import { CUSTOMER_COLUMNS, type CustomerOption } from "./schema";
 
 export async function loadJobFormData(): Promise<{
   customers: CustomerOption[];
@@ -13,7 +13,7 @@ export async function loadJobFormData(): Promise<{
   const [{ data: customers }, { data: profiles }] = await Promise.all([
     supabase
       .from("customers")
-      .select("id, name, address, tax_office, tax_no, phone, fax, notes")
+      .select(CUSTOMER_COLUMNS)
       .order("name", { ascending: true }),
     // İş lideri ve hazırlayan listeleri uygulama kullanıcılarından gelir;
     // adı girilmemiş profiller listede işe yaramaz.

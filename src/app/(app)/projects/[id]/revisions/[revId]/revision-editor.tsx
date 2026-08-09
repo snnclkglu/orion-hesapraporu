@@ -12,7 +12,10 @@
 //
 // Modüllerin sunum farkları module-adapters.ts'te tek tipe indirgenmiştir.
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition,
+} from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
 // Alternatiflerin uygunluğu artık burada hesaplanmaz; module-adapters.ts'teki
@@ -107,6 +110,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useStoredFlag } from "@/lib/use-stored-flag";
 import { saveRevision } from "./actions";
 
 /**
@@ -903,6 +907,43 @@ function initModules(initial: CalcInput): ModulesState {
 }
 
 // ---------------------------------------------------------------- Editor
+
+/** Bölüm rayının dar/geniş tercihi (tarayıcı başına kalıcı). */
+const NAV_COLLAPSE_KEY = "orion.editor.nav.collapsed";
+
+/**
+ * Durum şeridinin sayfa başlığındaki yuvası.
+ *
+ * Kontrol özeti ve Kaydet düğmesi editörün ÜSTÜNDE ayrı bir kart olarak
+ * duruyordu ve çalışma alanından iki satır yiyordu; artık PDF Rapor düğmesinin
+ * soluna, sayfa başlığına taşınır. Başlık sunucu bileşenindedir (proje adı,
+ * rozetler, rapor menüsü oradan gelir), durum ise istemci durumundan çıkar —
+ * ikisini birleştirmenin en ucuz yolu bir portaldır. Yuva bulunamazsa (dev
+ * önizleme gibi başlıksız bağlamlar) şerit editörün kendi içinde çizilir.
+ */
+export const EDITOR_STATUS_SLOT_ID = "hesap-durum-yuvasi";
+
+/**
+ * Çocuklarını sayfa başlığındaki yuvaya taşır; yuva yoksa yerinde bırakır.
+ *
+ * Hedef ilk boyamadan SONRA aranır (portal sunucu çıktısında yer alamaz);
+ * bulunana kadar hiçbir şey çizilmez, aksi hâlde şerit bir kare editörün
+ * içinde belirip sonra başlığa zıplardı.
+ */
+function StatusSlot({ children }: { children: React.ReactNode }) {
+  // Hedef ancak istemcide vardır; `useSyncExternalStore` sunucu anlık
+  // görüntüsünü ayrı verdiği için hem hidrasyon uyuşur hem de ilk istemci
+  // boyamasında şerit doğrudan başlığa gider (efektle bir kare gecikmez).
+  const host = useSyncExternalStore(
+    () => () => {},
+    () => document.getElementById(EDITOR_STATUS_SLOT_ID),
+    () => null
+  );
+  if (host) return createPortal(children, host);
+  // Yuvası olmayan bağlam (dev önizleme): şerit yerinde çizilir.
+  return <div className="flex justify-end">{children}</div>;
+}
+
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
 }: {
@@ -942,6 +983,16 @@ export function RevisionEditor({
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   // Bölüm navigasyonu arama filtresi (bölüm adına göre)
   const [navQuery, setNavQuery] = useState("");
+  /**
+   * Bölüm rayı dar kip. Mühendis günün büyük kısmını bu ekranda geçirir ve
+   * çalışma alanı 286 px'lik bir listeye harcanmamalıdır; dar kipte yalnız
+   * BÖLÜM NUMARALARI kalır (ör. "2.3"), ad ipucu olarak durur.
+   *
+   * Tercih tarayıcıda kalıcıdır ve ilk boyamada okunur (`useStoredFlag`);
+   * genişlik geçişi ilk boyamadan sonra açılır, aksi hâlde her açılışta ray
+   * geniş çizilip animasyonla daralırdı.
+   */
+  const [navCollapsed, toggleNavCollapsed] = useStoredFlag(NAV_COLLAPSE_KEY);
   const [pending, startTransition] = useTransition();
 
   // Kaydedilmemiş değişiklik takibi: kaydedilen state'lerden herhangi biri
@@ -1866,18 +1917,59 @@ export function RevisionEditor({
   const stepChecks =
     step.kind === "module" ? sectionChecks(step.moduleKey, step.section) : [];
 
+  /** Adımın ray etiketleri — dar ve geniş kip aynı kaynaktan okur. */
+  function stepChip(s: Step): string {
+    return s.kind === "module" ? s.section.id : s.kind === "specs" ? "01" : "ÖZ";
+  }
+  function stepLabel(s: Step): string {
+    return s.kind === "module"
+      ? s.section.title
+      : s.kind === "specs"
+        ? "Teknik Özellikler"
+        : "Özet · Kontrol Panosu";
+  }
+
+  /**
+   * Dar kip satırı: yalnız BÖLÜM NUMARASI. Ad `title` ile durur ve kontrolü
+   * kalan bölüm çipin köşesindeki kırmızı noktadan anlaşılır — sayaç yazısı bu
+   * genişliğe sığmaz, ama "burada bir sorun var" bilgisi kaybolmamalıdır.
+   */
+  function navChip(s: Step, i: number) {
+    const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
+    const failing = checks.some((c) => !c.pass);
+    return (
+      <li key={s.key}>
+        <button
+          type="button"
+          onClick={() => setStepIndex(i)}
+          title={`${stepChip(s)} · ${stepLabel(s)}`}
+          aria-current={i === stepIndex ? "step" : undefined}
+          className={cn(
+            "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[10px] tabular-nums transition-colors",
+            i === stepIndex
+              ? "bg-primary/15 font-medium text-primary"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          {stepChip(s)}
+          {failing && (
+            <span
+              aria-hidden
+              className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-destructive"
+            />
+          )}
+        </button>
+      </li>
+    );
+  }
+
   function navItem(s: Step, i: number) {
     // Numara çipi + kontrol özeti: durum noktası yerine "✓ n/m" sayısı
     // (hepsi geçtiyse nötr, kalan varsa kırmızı).
     const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
     const passN = checks.filter((c) => c.pass).length;
-    const chip = s.kind === "module" ? s.section.id : s.kind === "specs" ? "01" : "ÖZ";
-    const label =
-      s.kind === "module"
-        ? s.section.title
-        : s.kind === "specs"
-          ? "Teknik Özellikler"
-          : "Özet · Kontrol Panosu";
+    const chip = stepChip(s);
+    const label = stepLabel(s);
     return (
       <li key={s.key}>
         <button
@@ -1918,38 +2010,109 @@ export function RevisionEditor({
   const stepMatches = (s: Step) =>
     navQ === "" || s.title.toLocaleLowerCase("tr-TR").includes(navQ);
 
+  /**
+   * Durum şeridi — sayfa başlığındaki yuvaya taşınır (bkz. EDITOR_STATUS_SLOT_ID).
+   * Yalnız kontrol özeti ve Kaydet kalır; ilerleme çubuğu, motor sürümü ve
+   * "bu bölüm" sayacı alt adım şeridine indi (orada zaten adım bilgisi var).
+   */
+  const statusStrip = (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 text-sm">
+        {failCount === 0 ? (
+          <>
+            <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-success">✓</span>
+            <span className="hidden font-medium text-success sm:inline">Tüm kontroller uygun</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {result.allChecks.length}
+            </span>
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-destructive">✗</span>
+            <span className="font-medium text-destructive">
+              <span className="font-mono tabular-nums">{failCount}</span>
+              <span className="hidden sm:inline"> kontrol uygun değil</span>
+            </span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              / {result.allChecks.length}
+            </span>
+          </>
+        )}
+      </div>
+      {!readOnly && (
+        <Button onClick={handleSave} disabled={pending} size="sm" className="h-8">
+          {pending ? "Kaydediliyor..." : "Kaydet"}
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     // SABİT ÇERÇEVE: sayfa gövdesi kaymaz. Bölüm rayı ve içerik kendi
-    // bölgelerinde kayar; durum çubuğu ile adım şeridi çerçevenin gerçek
-    // kenarlarıdır. Eskiden ikisi de `sticky` idi ve belge akışıyla birlikte
-    // sürüklendiği için bölüm değiştikçe yerleri oynuyordu.
+    // bölgelerinde kayar; adım şeridi çerçevenin gerçek alt kenarıdır.
+    // Eskiden üstte bir durum çubuğu daha vardı; o artık sayfa başlığında.
     <div className="flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
-      {/* Bölüm navigasyonu */}
-      <nav className="flex min-h-0 min-w-0 shrink-0 flex-col lg:w-[260px] xl:w-[286px]">
-        <div className="mb-1.5 flex items-center justify-between px-2">
-          <span className="oc-kicker text-muted-foreground">
-            Bölümler
-          </span>
-          <span
-            className={cn(
-              "font-mono text-[11px] font-medium tabular-nums",
-              failCount === 0 ? "text-success" : "text-destructive"
-            )}
+      <StatusSlot>{statusStrip}</StatusSlot>
+
+      {/* Bölüm navigasyonu — dar kipte yalnız bölüm numaraları */}
+      <nav
+        className={cn(
+          "flex min-h-0 min-w-0 shrink-0 flex-col transition-[width] duration-200 ease-out",
+          navCollapsed ? "lg:w-[3.25rem] xl:w-[3.25rem]" : "lg:w-[260px] xl:w-[286px]"
+        )}
+      >
+        <div
+          className={cn(
+            "mb-1.5 flex items-center gap-1",
+            navCollapsed ? "justify-center" : "justify-between px-2"
+          )}
+        >
+          {!navCollapsed && (
+            <>
+              <span className="oc-kicker text-muted-foreground">Bölümler</span>
+              <span
+                className={cn(
+                  "ml-auto font-mono text-[11px] font-medium tabular-nums",
+                  failCount === 0 ? "text-success" : "text-destructive"
+                )}
+              >
+                {passCount}/{result.allChecks.length} uygun
+              </span>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={toggleNavCollapsed}
+            aria-pressed={navCollapsed}
+            title={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
+            aria-label={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
+            className="shrink-0 rounded p-1 font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {passCount}/{result.allChecks.length} uygun
-          </span>
+            {navCollapsed ? "»" : "«"}
+          </button>
         </div>
-        {/* Bölüm arama kutusu — ikon yerine mono ARA placeholder */}
-        <div className="mb-2 shrink-0 px-1">
-          <Input
-            value={navQuery}
-            onChange={(e) => setNavQuery(e.target.value)}
-            placeholder="ARA · bölüm adı"
-            className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs"
-            aria-label="Bölüm ara"
-          />
-        </div>
-        {/* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar */}
+
+        {/* Bölüm arama kutusu — dar kipte yer kaplamaz (ada göre arıyor) */}
+        {!navCollapsed && (
+          <div className="mb-2 shrink-0 px-1">
+            <Input
+              value={navQuery}
+              onChange={(e) => setNavQuery(e.target.value)}
+              placeholder="ARA · bölüm adı"
+              className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs"
+              aria-label="Bölüm ara"
+            />
+          </div>
+        )}
+
+        {/* Dar kip: gruplar kalkar, adımlar tek sütun numara listesi olur.
+            Kapalı modüllerin adımları zaten STEPS'te yoktur. */}
+        {navCollapsed ? (
+          <ol className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 lg:max-h-none lg:flex-1">
+            {STEPS.map((s, i) => navChip(s, i))}
+          </ol>
+        ) : (
+        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar */
         <ol className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 pr-1 text-sm lg:max-h-none lg:flex-1">
           {NAV_GROUPS.map((group) => {
             const groupTitleMatch =
@@ -2069,68 +2232,13 @@ export function RevisionEditor({
             );
           })}
         </ol>
+        )}
       </nav>
 
-      {/* İçerik — üstte durum çubuğu, ortada kayan gövde, altta adım şeridi */}
+      {/* İçerik — kayan gövde + altta adım şeridi. Üstteki durum çubuğu
+          kaldırıldı: kontrol özeti ve Kaydet sayfa başlığına taşındı, ilerleme
+          bilgisi zaten adım bilgisi olan alt şeride indi. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-        {/* Durum çubuğu — çerçevenin üst kenarı, kaymaz */}
-        <div className="grid shrink-0 gap-2 rounded-lg border bg-card px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <div className="flex items-center gap-1.5 text-sm">
-              {failCount === 0 ? (
-                <>
-                  <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-success">✓</span>
-                  <span className="font-medium text-success">Tüm kontroller uygun</span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    ({result.allChecks.length} kontrol)
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-destructive">✗</span>
-                  <span className="font-medium text-destructive">
-                    {failCount} kontrol uygun değil
-                  </span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    / {result.allChecks.length} kontrol
-                  </span>
-                </>
-              )}
-            </div>
-            {step.kind === "module" && stepChecks.length > 0 && (
-              <span
-                className={cn(
-                  "hidden border px-1.5 py-0.5 font-mono text-[11px] tabular-nums sm:inline",
-                  stepChecks.every((c) => c.pass)
-                    ? "border-success/30 text-success"
-                    : "border-destructive/40 text-destructive"
-                )}
-              >
-                bu bölüm {stepChecks.filter((c) => c.pass).length}/{stepChecks.length}
-              </span>
-            )}
-            <span className="ml-auto hidden font-mono text-[11px] text-muted-foreground md:inline">
-              motor v{result.engineVersion}
-            </span>
-            {!readOnly && (
-              <Button onClick={handleSave} disabled={pending} size="sm">
-                {pending ? "Kaydediliyor..." : "Kaydet"}
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="h-1 flex-1 overflow-hidden bg-muted">
-              <div
-                className="h-full bg-primary transition-[width] duration-300"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <span className="max-w-[55%] truncate font-mono text-[11px] tabular-nums text-muted-foreground">
-              {stepIndex + 1}/{STEPS.length} · {step.title}
-            </span>
-          </div>
-        </div>
-
         {/* Kayan gövde — bölüm değişince başa sarılır (bkz. scrollRef) */}
         <div ref={bodyRef} className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
           {step.kind === "specs" && renderSpecs()}
@@ -2139,27 +2247,56 @@ export function RevisionEditor({
         </div>
 
         {/* Adım şeridi — çerçevenin alt kenarı, kaymaz */}
-        <div className="flex shrink-0 items-center justify-between rounded-lg border bg-card px-4 py-2.5">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={stepIndex === 0}
-            onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-          >
-            <span aria-hidden="true" className="font-mono">←</span>
-            Geri
-          </Button>
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            Adım {stepIndex + 1} / {STEPS.length}
-          </span>
-          <Button
-            size="sm"
-            disabled={stepIndex === STEPS.length - 1}
-            onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
-          >
-            İleri
-            <span aria-hidden="true" className="font-mono">→</span>
-          </Button>
+        <div className="shrink-0 rounded-lg border bg-card px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={stepIndex === 0}
+              onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+            >
+              <span aria-hidden="true" className="font-mono">←</span>
+              Geri
+            </Button>
+
+            {/* İlerleme + bulunulan bölüm: eskiden üstteki durum çubuğundaydı,
+                şimdi adım bilgisiyle aynı yerde duruyor. */}
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="h-1 min-w-8 flex-1 overflow-hidden bg-muted">
+                <div
+                  className="h-full bg-primary transition-[width] duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="hidden max-w-[50%] shrink truncate font-mono text-[11px] tabular-nums text-muted-foreground sm:inline">
+                {stepIndex + 1}/{STEPS.length} · {step.title}
+              </span>
+              {step.kind === "module" && stepChecks.length > 0 && (
+                <span
+                  className={cn(
+                    "hidden shrink-0 border px-1.5 py-0.5 font-mono text-[11px] tabular-nums md:inline",
+                    stepChecks.every((c) => c.pass)
+                      ? "border-success/30 text-success"
+                      : "border-destructive/40 text-destructive"
+                  )}
+                >
+                  bu bölüm {stepChecks.filter((c) => c.pass).length}/{stepChecks.length}
+                </span>
+              )}
+              <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground lg:inline">
+                motor v{result.engineVersion}
+              </span>
+            </div>
+
+            <Button
+              size="sm"
+              disabled={stepIndex === STEPS.length - 1}
+              onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
+            >
+              İleri
+              <span aria-hidden="true" className="font-mono">→</span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

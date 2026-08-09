@@ -64,9 +64,48 @@ export const THERMAL_BRIDGE_FACTOR = 0.15;
 /** Yalıtımlı çelik kapının ısı geçirgenliği [W/m²K] — firma kabulü. */
 export const DOOR_U_VALUE = 2.0;
 
-/** Standart kapı ölçüsü [m] — kapı alanı adetten türetilir. */
-export const DOOR_WIDTH_M = 1.0;
-export const DOOR_HEIGHT_M = 2.1;
+/**
+ * Kapı ölçüsü [m] — kapı alanı adetten türetilir, ayrıca sorulmaz.
+ *
+ * Mahal türüne göre AYRIDIR: operatör kabini küçük bir hacimdir ve oda kapısı
+ * ölçüsü (1,0 × 2,1 m) orada duvarın dörtte birini kaplayarak iletim yükünü
+ * gerçekdışı büyütürdü.
+ */
+export const ROOM_DOOR_SIZE_M = { width: 1.0, height: 2.1 };
+export const CABIN_DOOR_SIZE_M = { width: 0.7, height: 1.9 };
+
+/**
+ * OPERATÖR — kabinin E-House'tan ilk farkı.
+ *
+ * Oturur hâlde hafif iş yapan bir kişi (ASHRAE Fundamentals, "seated, light
+ * work") duyulur ve gizli ısı verir. Gizli kısım terleme ve solunumdur;
+ * klimanın alması gereken NEM demektir, sıcaklık farkıyla görünmez.
+ */
+export const OCCUPANT_SENSIBLE_W = 75;
+export const OCCUPANT_LATENT_W = 55;
+
+/**
+ * Kişi başı temiz hava debisi [L/s] — kabinin ikinci farkı ve TMS formunun en
+ * büyük eksiği.
+ *
+ * Basınçlandırma sızıntısı yalnız mahalde fazla basıncı tutmaya yeter; İNSAN
+ * için gereken hava ondan bağımsız bir sağlık gereğidir (EN 16798-1 / ASHRAE
+ * 62.1 bandı 4–10 L/s·kişi). Kabinde taze hava debisi bu ikisinin BÜYÜĞÜdür.
+ * 5 L/s muhafazakâr olmayan, savunulabilir bir alt banttır; sıcak ortamda
+ * gereğinden fazla dış hava almak yükü boş yere büyütür.
+ */
+export const VENTILATION_PER_PERSON_LPS = 5;
+
+/** Camın ısı geçirgenliği [W/m²K] ve güneş geçirgenliği (g) — cam tipine göre. */
+export type GlazingKind = "single" | "double" | "reflective";
+
+export const GLAZING: Record<GlazingKind, { uValue: number; solarFactor: number }> = {
+  // Tek cam: paneli 13 kat aşan bir ısı köprüsü; kabinde yükün baskın kalemi.
+  single: { uValue: 5.7, solarFactor: 0.85 },
+  double: { uValue: 2.8, solarFactor: 0.75 },
+  // Isıcam + reflektif kaplama: güneşin çoğunu dışarıda tutar.
+  reflective: { uValue: 1.6, solarFactor: 0.35 },
+};
 
 /** Mahallin tasarım iç sıcaklığı [°C] ve bağıl nemi [%] — firma kabulü. */
 export const ROOM_DESIGN_TEMP_C = 25;
@@ -177,6 +216,17 @@ export interface ClimateLoadInput {
   insulation: RoomInsulationKind;
   /** Kapı adedi — hem zarf ısı geçişine hem sızıntıya girer. */
   doorCount: number;
+  /** Kapı ölçüsü — mahal türüne göre (oda / kabin). Verilmezse oda kapısı. */
+  doorSize?: { width: number; height: number };
+  /**
+   * Cam alanı [m²] ve tipi — YALNIZ operatör kabininde anlamlıdır. Cam duvar
+   * alanından düşülür, kendi U değeriyle hesaplanır ve açık havada güneşi
+   * DOĞRUDAN geçirir (g katsayısı).
+   */
+  glazingAreaM2?: number;
+  glazingKind?: GlazingKind;
+  /** Mahalde bulunan kişi adedi — duyulur + gizli ısı ve temiz hava debisi. */
+  occupantCount?: number;
   /** Dış ortam sıcaklığı [°C] ve bağıl nemi [%] (teknik özellikler). */
   ambientTempC: number;
   ambientRhPct: number;
@@ -200,18 +250,27 @@ export interface ClimateLoadResult {
   /** Çatının gördüğü güneş-hava sıcaklığı [°C] (kapalı mahalde dış sıcaklık) */
   roofSolAirTempC: number;
   wallSolAirTempC: number;
+  /** Cam alanı [m²] ve ısı geçirgenliği [W/m²K] — cam yoksa 0 */
+  glazingAreaM2: number;
+  glazingUValue: number;
   /** Yük kalemleri [kW] */
   transmissionKw: number;
   /** Güneşin iletime kattığı fazladan yük [kW] — kapalı mahalde 0 */
   solarKw: number;
   radiationKw: number;
   deviceHeatKw: number;
+  /** Operatörlerin duyulur + gizli ısısı [kW] */
+  occupantKw: number;
   freshAirKw: number;
   /** Emniyet katsayısı öncesi ve sonrası [kW] */
   calculatedKw: number;
   totalKw: number;
   /** Basınçlandırma sızıntı debisi [m³/h] ve yoğuşan su [kg/h] */
   infiltrationM3h: number;
+  /** Kişi başı temiz hava gereği [m³/h] — kişi yoksa 0 */
+  occupantVentilationM3h: number;
+  /** Taze hava hesabına giren debi: sızıntı ile temiz hava gereğinin BÜYÜĞÜ */
+  freshAirM3h: number;
   condensateKgH: number;
   /** Gereken üfleme havası debisi [m³/h] */
   airFlowM3h: number;
@@ -231,9 +290,14 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
   const wallArea = 2 * (l * h) + 2 * (w * h);
   const roofArea = l * w;
   const envelopeAreaM2 = wallArea + 2 * roofArea;
-  const doorArea = Math.max(0, Math.floor(positive(inp.doorCount))) * DOOR_WIDTH_M * DOOR_HEIGHT_M;
-  // Kapı duvarın İÇİNDEDİR: panel alanından düşülür, yoksa aynı yüzey iki kez sayılır.
-  const netWallArea = Math.max(0, wallArea - doorArea);
+  const doorSize = inp.doorSize ?? ROOM_DOOR_SIZE_M;
+  const doorArea =
+    Math.max(0, Math.floor(positive(inp.doorCount))) * doorSize.width * doorSize.height;
+  const glazing = inp.glazingKind ? GLAZING[inp.glazingKind] : undefined;
+  const glazingArea = glazing ? Math.min(positive(inp.glazingAreaM2), wallArea) : 0;
+  // Kapı ve cam duvarın İÇİNDEDİR: panel alanından düşülür, yoksa aynı yüzey
+  // iki kez sayılır.
+  const netWallArea = Math.max(0, wallArea - doorArea - glazingArea);
 
   const outdoor = inp.environment === "outdoor";
   const roofSolAir = outdoor
@@ -253,14 +317,22 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
   const qRoof = uFor(roofSolAir) * roofArea * (roofSolAir - roomTemp);
   const qFloor = uFor(ambient) * roofArea * (ambient - roomTemp);
   const qDoor = DOOR_U_VALUE * doorArea * (wallSolAir - roomTemp);
-  const transmissionTotal = qWall + qRoof + qFloor + qDoor;
+  const qGlazing = (glazing?.uValue ?? 0) * glazingArea * (wallSolAir - roomTemp);
+  // Camın GÜNEŞ GEÇİRGENLİĞİ ayrı bir yoldur: ısı iletimle değil, ışınım
+  // doğrudan cam düzleminden geçerek içeri girer. Yalnız açık havada.
+  const qGlazingSolar = outdoor
+    ? (glazing?.solarFactor ?? 0) * glazingArea * SOLAR_WALL_W_M2
+    : 0;
+  const transmissionTotal = qWall + qRoof + qFloor + qDoor + qGlazing + qGlazingSolar;
 
   // Güneşsiz durumdaki iletim — farkı "güneş yükü" olarak ayrı raporlanır ki
   // açık hava seçiminin etkisi rapordan okunabilsin.
   const uPlain = panelUValue(inp.insulation, (ambient + roomTemp) / 2);
   const dTPlain = ambient - roomTemp;
   const transmissionNoSun =
-    uPlain * (netWallArea + 2 * roofArea) * dTPlain + DOOR_U_VALUE * doorArea * dTPlain;
+    uPlain * (netWallArea + 2 * roofArea) * dTPlain +
+    DOOR_U_VALUE * doorArea * dTPlain +
+    (glazing?.uValue ?? 0) * glazingArea * dTPlain;
   const solarKw = Math.max(0, transmissionTotal - transmissionNoSun) / 1000;
   const transmissionKw = transmissionNoSun / 1000;
 
@@ -274,23 +346,35 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
   const infiltrationM3s = leakageArea * leakVelocity;
   const infiltrationM3h = infiltrationM3s * 3600;
 
+  // --- Operatör ve temiz hava gereği -----------------------------------------
+  // Basınçlandırma sızıntısı yalnız fazla basıncı tutar; İNSAN için gereken
+  // hava ondan bağımsız bir sağlık gereğidir. Mahalde kişi varsa taze hava
+  // debisi ikisinin BÜYÜĞÜdür — kabinde çoğu zaman temiz hava gereği kazanır.
+  const occupants = Math.max(0, Math.floor(positive(inp.occupantCount)));
+  const occupantVentilationM3s = (occupants * VENTILATION_PER_PERSON_LPS) / 1000;
+  const freshAirM3s = Math.max(infiltrationM3s, occupantVentilationM3s);
+
   // --- Taze hava (duyulur + gizli, tam entalpi farkı) ------------------------
   const rhoRoom = airDensity(roomTemp);
-  const mInfiltration = infiltrationM3s * rhoRoom; // kg/s
+  const mFreshAir = freshAirM3s * rhoRoom; // kg/s
   const dEnthalpy =
     moistAirEnthalpy(ambient, inp.ambientRhPct) -
     moistAirEnthalpy(roomTemp, ROOM_DESIGN_RH_PCT);
-  const freshAirKw = Math.max(0, (mInfiltration * dEnthalpy) / 1000);
+  const freshAirKw = Math.max(0, (mFreshAir * dEnthalpy) / 1000);
 
-  // Yoğuşan su: klimanın havadan aldığı nem.
+  // Yoğuşan su: klimanın havadan aldığı nem. Operatörün gizli ısısı da nemdir
+  // ve aynı drenajdan çıkar.
   const dw =
     humidityRatio(ambient, inp.ambientRhPct) - humidityRatio(roomTemp, ROOM_DESIGN_RH_PCT);
-  const condensateKgH = Math.max(0, mInfiltration * dw * 3600);
+  const occupantMoistureKgH = (occupants * OCCUPANT_LATENT_W * 3600) / H_FG_0C;
+  const condensateKgH = Math.max(0, mFreshAir * dw * 3600) + occupantMoistureKgH;
 
   // --- Toplam ---------------------------------------------------------------
   const deviceHeatKw = positive(inp.deviceHeatKw);
   const radiationKw = positive(inp.radiationKw);
-  const calculatedKw = transmissionKw + solarKw + radiationKw + deviceHeatKw + freshAirKw;
+  const occupantKw = (occupants * (OCCUPANT_SENSIBLE_W + OCCUPANT_LATENT_W)) / 1000;
+  const calculatedKw =
+    transmissionKw + solarKw + radiationKw + deviceHeatKw + occupantKw + freshAirKw;
   const totalKw = calculatedKw * (1 + positive(inp.safetyFactorPct) / 100);
 
   // --- Gereken üfleme debisi -------------------------------------------------
@@ -300,6 +384,8 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
   return {
     envelopeAreaM2,
     doorAreaM2: doorArea,
+    glazingAreaM2: glazingArea,
+    glazingUValue: glazing?.uValue ?? 0,
     insulationMeanTempC: (ambient + roomTemp) / 2,
     uValue: uPlain,
     roofSolAirTempC: roofSolAir,
@@ -308,10 +394,13 @@ export function computeClimateLoad(inp: ClimateLoadInput): ClimateLoadResult {
     solarKw,
     radiationKw,
     deviceHeatKw,
+    occupantKw,
     freshAirKw,
     calculatedKw,
     totalKw,
     infiltrationM3h,
+    occupantVentilationM3h: occupantVentilationM3s * 3600,
+    freshAirM3h: freshAirM3s * 3600,
     condensateKgH,
     airFlowM3h,
   };

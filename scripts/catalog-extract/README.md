@@ -891,3 +891,167 @@ Alternatif (daha az tercih edilir): `motorRpm` select kalır ve "senkron
 devir" anlamını üstlenir, yanına `motorRatedRpm` eklenir. Bu, iki alanı da
 raporda göstermek zorunda bırakır ve hangisinin hesaba girdiğini
 belirsizleştirir.
+
+---
+
+# "Diğer kataloglar" klasörü (2026-08-09)
+
+Workspace kökündeki `Diğer kataloglar/` klasöründe 16 üretici PDF'i vardır:
+altı HALAT, dokuz REDÜKTÖR, bir MOTOR kataloğu. Bu bölüm hangisinin nereye
+girdiğini ve hangisinin GİRMEDİĞİNİ, gerekçesiyle birlikte kayda geçirir.
+
+## Ortak katman — `pdftable.py`
+
+`grid.py` tabloyu ÇİZGİ ızgarasından çözer (YILMAZ kataloglarında öyledir).
+Bu kataloglarda çizgi ya yoktur ya güvenilmez; `pdftable.py` sütunları BAŞLIK
+ETİKETLERİNİN x konumundan bulur ve gövdedeki her sayıyı en yakın çapaya
+oturtur. Sabit sütun indisine güvenmekten sağlamdır çünkü katalog tabloları
+BOŞ HÜCRE basar: büyük çaplarda üst mukavemet sınıfı yoktur, bazı ölçü yalnız
+inç olarak verilir, bazı satırda ağırlık yoktur. Sırayla okumak o satırlarda
+sütunları kaydırır; x ile okumak kaydırmaz (`by_anchor`).
+
+İki tuzak burada çözülür ve ikisi de SESSİZ hatadır:
+
+- **Nokta hem binlik hem ondalık ayıracıdır.** Türkçe/Almanca kataloglar
+  "1.322,0" yazar, İngilizce SEW katalogları "0.465" ve "8.160" yazar. Üç
+  haneli grubu körü körüne binlik saymak "0.465" akımını 465 A yapar.
+  `num()` binlik saymak için ayrıca virgüllü ondalık · birden çok grup · ya da
+  iki basamaklı baş grup arar; baş grubu "0" olan sayı asla binlik değildir.
+- **Boşluksuz basılan inç ölçüsü.** Metin katmanında "1 1/8" çoğu zaman
+  "11/8" olarak tek kelime çıkar ve 34,9 mm okunur (doğrusu 28,6 mm). Katalog
+  bileşik kesir KULLANMADIĞI için kural nettir: pay paydadan büyükse ilk
+  basamak tam sayıdır (`inch_parts`). "13/16" gibi gerçek proper kesirler
+  etkilenmez.
+
+## Halatlar (`catalog_data/ropes/`, 21 yeni dosya · 1722 satır)
+
+| Kaynak PDF | Dosya | Satır |
+|---|---|---|
+| `CASAR CRANE ROPES.pdf` | `casar_*.json` (16 ürün) | 1213 |
+| `Hasçelik H 18 LRC.pdf` | `hascelik_h_18_lrc.json` | 21 |
+| `Hasçelik halat H 8K PI.pdf` | `hascelik_h_8k_pi.json` | 60 |
+| `OLIVEIRA-DP-8-K-PPI-urun.pdf` | `oliveira_dp_8_k_ppi.json` | 34 |
+| `OLIVEIRA-HD-8-K-PPI-urun.pdf` | `oliveira_hd_8_k_ppi.json` | 82 |
+| `Diepa H43 …pdf` | `diepa_h_43.json` | 312 |
+
+```bash
+python ropes_casar.py && python ropes_others.py
+python ropes_validate.py     # fiziğe karşı doğrulama
+```
+
+**Her konstrüksiyon kendi dosyasındadır.** `meta.series` seed tarafından
+`construction` alanına yazılır ve seçicinin İLK süzgeç adımıdır; CASAR tek PDF
+olmasına rağmen on altı ürün üretir çünkü on altısının da çap bandı,
+mukavemet sınıfları ve konstrüksiyonu ayrıdır.
+
+**Yeni öz kodları.** `ATTR_VALUE_LABELS.core` üçe genişledi: `IWRC-PI`
+(plastik dolgulu), `IWRC-PC` (plastik kaplı öz — CASAR "Plast" ailesi),
+`IWRC-PPI` (plastik enjeksiyonlu). Kod uydurulmadı: CASAR'da öz tipi
+katalogun kendi "Rope Properties" matrisinden (s. C12–C13) okunur — "With
+internal plastic jacket" işaretli ürün `IWRC-PC` alır. Aynı matristen
+`rotation_resistant` · `compacted` · `swaged` nitelikleri de gelir; FEM 1.001
+tek katlı ve kılavuzsuz yükte dönmeye dirençli halat istediği için bu nitelik
+seçim tablosunda bir sütundur.
+
+**Mukavemet sınıfı basılı olmayan ürün.** CASAR Starlift Xtra'nın tablosunda
+sınıf yoktur (katalog onu yalnız kopma kuvvetiyle tanımlar); o satırlarda
+`grade_mpa` YOKTUR ve seed model dizgisinden "… MPa" parçasını düşürür.
+
+### Doğrulama durumu — `ropes_validate.py`
+
+Dört sınama: yapım faktörü bandı (F / d²·R), çap ↑ ⇒ kopma kuvveti ↑ (öz tipi
+ve sınıf başına), sınıf ↑ ⇒ kopma kuvveti ↑, metre ağırlığı / d² bandı.
+**Yeni dosyalarda kalan uyarıların tümü KATALOGUN KENDİ DİZGİ HATASIDIR** ve
+basılı değer korunmuştur (üretici belgesi sipariş ve garantinin dayanağıdır):
+
+- CASAR Betalift Ø17 metre ağırlığı 1,16 kg/m (komşuları 1,30 ve 1,65)
+- CASAR Powerplast 1/2" metre ağırlığı 1,19 kg/m (komşuları 0,73 ve 0,87)
+- CASAR Technolift 1 1/8" kopma kuvveti 469,0 kN — Ø26 satırının aynısı;
+  ~560 kN olmalıydı, basılı değer EMNİYETLİ yöndedir
+- DIEPA H43 Ø30 ağırlığı 499 kg/100 m (komşuları 426 ve 482)
+
+Betik ayrıca ESKİ `hascelik_6x36.json` dosyasındaki Ø58 satırlarını bozuk
+bildirir (kopma kuvveti 13 ve 60 kN, ağırlık 2120 kg/m — sütun kayması).
+Kaynak PDF workspace'te olmadığı için bu bölümde DÜZELTİLMEMİŞTİR.
+
+## Redüktörler (`catalog_data/reducers/`, 6 yeni dosya)
+
+| Kaynak PDF | Dosya | Satır | Kullanım grubu |
+|---|---|---|---|
+| `POLAT KALDIRMA REDÜKTÖRÜ pcs_catologue_2024.pdf` | `polat_pcs.json` | 150 | kaldırma |
+| `YILMAZ KR KATALOG.pdf` | `yilmaz_k.json` | 1130 | kaldırma + yürütme |
+| `YILMAZ R PL PLANET REDÜKTÖRLER.pdf` | `yilmaz_planet.json` | 22416 | kaldırma + yürütme |
+| `SEW X-SERİSİ REDUKTOR.pdf` | `sew_x.json` | 15432 | kaldırma + yürütme |
+| `SEW x-fcc.pdf` | `sew_xe_hc.json` | 20 | kaldırma |
+| `SEW R serisi.pdf` | `sew_r.json` | 1548 | yürütme |
+
+```bash
+python reducers_polat.py
+python reducers_yilmaz.py    # K serisi + planet
+python reducers_sew_x.py     # X serisi + X..e/HC
+python reducers_sew_r.py     # R / F / K / S / W
+```
+
+Her betik yazmadan önce kendi doğrulamasını koşturur: `n2 = n1/i`, `MN2 ≤
+MN2max`, model ataması (POLAT'ta bir çevrim oranı yalnız tek modele ait
+olabilir). Sapan satır oranı %1'i aşarsa betik DURUR — sütun kayması bu
+bağıntıları toptan bozar, katalogun kendi yuvarlaması ise tek tük satırı.
+
+**Kullanım grubu, katalog söylemiyorsa İKİSİ birden yazılır.** YILMAZ K ve
+Planet katalogları ile SEW X kataloğu vinci uygulama alanı olarak sayar ama
+kaldırma/yürütme ayrımı yapmaz; her satır iki grup için de yazılır (FLENDER
+MD 20.1 dosyasındaki desen). SEW X..e/HC adı gibi yalnız kaldırmadır
+(katalogun kendi tanımı), SEW R/F/K/S/W yürütme tahrikidir çünkü SEW kaldırma
+için ayrı seri yayımlar, POLAT PCS ise tanımı gereği kaldırmadır.
+
+Sayfa düzeninden gelen üç ayrı zorluk ve çözümleri:
+
+- **POLAT PCS** — model adı blokta DİKEY ORTALANMIŞ tek hücredir; "son
+  görülen etiket" kuralı bloğun ilk satırlarını bir önceki modele yazardı.
+  En yakın etikete atanır ve `_verify` bunu çevrim oranı kümeleriyle sınar.
+  PCS'te çıkış mili YOKTUR: tambura DIN 5480 flanşıyla bağlanır, kod
+  `output_spline` alanındadır.
+- **YILMAZ Planet** — anma momenti ÖMÜRE BAĞLIDIR (10000/5000/2000/1000
+  saat, kNm). `output_torque_Nm` 10000 saatliktir (en düşük, vinç kabulü),
+  diğer üçü `output_torque_Nm_<saat>h` alanlarında saklanır.
+- **SEW X** — kademe sayısı tabloda "X2F.." / "X3F.." grup etiketiyle
+  verilir; başlıktaki nokta (X.F110) kademenin yer tutucusudur. Grup sınırı
+  sayfadaki YATAY ÇİZGİDEN okunur, etiket grubun ortasında durduğu için
+  "en yakın etiket" yanlış kademe atardı. Katalog sayfası defteri ürünü
+  `catalog_type` ("X.F110") ile arar — model kodu ("X3F110") sayfada hiç
+  geçmez.
+
+## Motor (`catalog_data/motors/sew_drn.json`, 57 satır)
+
+`SEW Dr serisi.pdf` böl. 13. Her kutup sayısı için iki tablo birleştirilir:
+"Information on motors" (güç, moment, devir, akım, cosφ, verim) ve "Further
+information" (ağırlık, fren tipi BE.., fren momenti MB). Mil ucu çapı
+katalogda basılı değildir; ABB/GAMAK çıkarımlarındaki kurulu yol izlenir —
+IEC 60072-1 Tablo 4'ten alınır ve `shaft_source` bunu satırda belirtir.
+
+```bash
+python motors_sew.py
+```
+
+## KAPSAM DIŞI — üç katalog neden satır üretmiyor
+
+`POLAT PD/PM` (paralel mil yürütme) · `SEW GEARHOIST CATALOG` (G..7 kaldırma
+redüktörlü motorları) · `YILMAZ V SERİSİ` (vinç tamburu tahrik redüktörü).
+
+Üçü de yalnız **motorlu (geared motor) tablo** yayımlar. Bu biçim uygulamanın
+modeline uymaz: her satır bir motoru — SEW'de ayrıca bir tambur çapını ve bir
+halat donanımını — zorunlu kılar, oysa uygulama redüktörle motoru AYRI
+bölümlerde seçer (2.3/2.4 kaldırma, 5.4/5.5 yürütme). Redüktörün kendi anma
+momenti Ma bu kataloglarda HİÇBİR YERDE basılı değildir; teknik bilgiler
+bölümlerinde de yoktur.
+
+PD/PM'de Ma, basılı `M2 × fB` çarpımından geri hesaplanabilir görünüyor ama
+GERÇEKTE ÇIKMIYOR: fB tek ondalıkla basıldığı için aynı (gövde, çevrim oranı)
+için farklı motorlardan gelen değerler %8'e varan bant gösteriyor (ölçüldü:
+i = 2769,78'de 2988 / 2920 / 2323 Nm). `gearbox.torque` ENGELLEYİCİ bir
+kontroldür; onu ±%8 belirsizlikli türetilmiş bir sayıyla beslemek, kataloğu
+hiç eklememekten kötüdür. Bu yüzden üçü de `cat_equipment`e girmez.
+
+Bu karar değişirse yol açıktır: satırlar `M2 × fB` ile üretilip
+`unverified: true` taşıyabilir (Vasel feston satırlarındaki desen) — ama o
+zaman `gearbox.torque` kontrolünün bu satırlarda UYARIYA düşürülmesi gerekir.

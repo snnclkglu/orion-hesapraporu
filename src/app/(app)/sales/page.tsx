@@ -41,6 +41,12 @@ interface JobJoin {
   status: string;
   contract_date: string | null;
   work_order_date: string | null;
+  customers: CustomerJoin | CustomerJoin[] | null;
+}
+
+interface CustomerJoin {
+  short_name: string | null;
+  color_hue: number | null;
 }
 
 /** numeric sütunlar PostgREST'ten metin gelebilir; sayıya çevir. */
@@ -68,7 +74,8 @@ export default async function SalesPage() {
     .from("job_items")
     .select(
       `id, item_no, product_name, sort,
-       jobs!inner(id, job_no, customer, status, contract_date, work_order_date),
+       jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
+                  customers(short_name, color_hue)),
        job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
                       unit_price, currency, fx_rate, shipment_place, notes,
                       total_weight_kg, total_price, eur_amount)`
@@ -78,6 +85,7 @@ export default async function SalesPage() {
   const rows: SaleRow[] = (items ?? []).map((it) => {
     const job = one<JobJoin>(it.jobs as unknown as JobJoin | JobJoin[]);
     const s = one<SaleJoin>(it.job_item_sales as unknown as SaleJoin | SaleJoin[]);
+    const book = one<CustomerJoin>(job?.customers);
     return {
       itemId: it.id,
       itemNo: it.item_no || "",
@@ -85,6 +93,8 @@ export default async function SalesPage() {
       jobId: job?.id ?? "",
       jobNo: job?.job_no ?? "",
       customer: job?.customer ?? "",
+      customerShort: book?.short_name ?? null,
+      customerHue: book?.color_hue ?? null,
       jobStatus: job?.status ?? "active",
       contractDate: job?.contract_date ?? job?.work_order_date ?? null,
       hasSale: Boolean(s),

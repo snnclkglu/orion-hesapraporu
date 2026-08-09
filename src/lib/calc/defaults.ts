@@ -246,6 +246,10 @@ export const DEFAULT_CABIN_INPUTS: CabinInputs = {
   // Kumanda masası, ekranlar, aydınlatma ve operatör — küçük ve sabit.
   cabinDeviceHeatKw: 0.3,
   cabinRadiationKw: 0,
+  cabinOccupantCount: 1,
+  // Ön ve yan cam — kumanda kabininde tipik görüş alanı.
+  cabinGlazingAreaM2: 2.5,
+  cabinGlazingKind: "double",
   roomWidthM: 3,
   roomLengthM: 4,
   roomHeightM: 2.6,

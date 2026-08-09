@@ -45,7 +45,10 @@ import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling"
 import { cmToMm, mmToCm } from "@/lib/calc/modules/hoistGroup";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
+import type { CabinValues } from "@/lib/calc/modules/cabin";
+import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-load";
 import type { Diagram } from "./model";
+import { climateRoomDiagram } from "./climateRoom";
 import { girderSectionDiagram } from "./girderSection";
 import {
   bucklingFactorChart,
@@ -85,6 +88,67 @@ export function diagramForSection(
   result: CalcResult
 ): Diagram | null {
   try {
+    // --- Kabin ve elektrik odası (11.x): mahal ısı yükü şeması -------------
+    if (moduleKey === "cabin") {
+      const v = result.cabin?.values as CabinValues | undefined;
+      const inp = input.cabin?.inputs;
+      if (!v || !inp) return null;
+      const ortak = {
+        insulationMm: 0,
+        ambientTempC: v.ambientTempMaxC,
+        ambientRhPct: v.ambientRhPct,
+        roomTempC: v.roomDesignTempC,
+        roomRhPct: ROOM_DESIGN_RH_PCT,
+        outdoor: v.environment === "outdoor",
+      };
+      const kalem = (load: ClimateLoadResult) => ({
+        transmissionKw: load.transmissionKw,
+        solarKw: load.solarKw,
+        radiationKw: load.radiationKw,
+        deviceHeatKw: load.deviceHeatKw,
+        occupantKw: load.occupantKw,
+        freshAirKw: load.freshAirKw,
+        totalKw: load.totalKw,
+        freshAirM3h: load.freshAirM3h,
+        airFlowM3h: load.airFlowM3h,
+        glazingAreaM2: load.glazingAreaM2,
+      });
+      const mm = (k: string) => (k === "rockWool100" ? 100 : 50);
+
+      if (rawSectionId === "11.1" && v.cabinLoad) {
+        return climateRoomDiagram({
+          ...ortak, ...kalem(v.cabinLoad),
+          title: "Operatör Kabini",
+          widthM: inp.cabinWidthM, lengthM: inp.cabinLengthM, heightM: inp.cabinHeightM,
+          insulationMm: mm(inp.cabinInsulation),
+          doorCount: inp.cabinDoorCount,
+          occupantCount: inp.cabinOccupantCount,
+        });
+      }
+      if (rawSectionId === "11.2" && v.roomLoad) {
+        return climateRoomDiagram({
+          ...ortak, ...kalem(v.roomLoad),
+          title: "Elektrik Odası",
+          widthM: inp.roomWidthM, lengthM: inp.roomLengthM, heightM: inp.roomHeightM,
+          insulationMm: mm(inp.roomInsulation),
+          doorCount: inp.roomDoorCount,
+          occupantCount: 0,
+        });
+      }
+      if (rawSectionId === "11.3" && v.panelLoad) {
+        return climateRoomDiagram({
+          ...ortak, ...kalem(v.panelLoad),
+          title: "Elektrik Panoları",
+          widthM: inp.roomWidthM, lengthM: inp.roomLengthM, heightM: inp.roomHeightM,
+          insulationMm: mm(inp.roomInsulation),
+          // Pano yerleşiminde sızıntı yolu pano kapaklarıdır.
+          doorCount: inp.panelCount,
+          occupantCount: 0,
+        });
+      }
+      return null;
+    }
+
     if (moduleKey === "girder" && rawSectionId === "7.1") {
       const st = input.girder;
       if (!st) return null;

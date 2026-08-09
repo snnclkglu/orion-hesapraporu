@@ -19,6 +19,7 @@ import {
   type CabinSelections,
   type CabinValues,
 } from "../modules/cabin";
+import { GLAZING_KIND_LABELS } from "./cabinFields";
 import type { TechnicalSpecs } from "../types";
 
 export interface CabinCtx {
@@ -101,9 +102,9 @@ function climateRows(block: "cabinAc" | "roomAc" | "panelAc"): CabinRowDef[] {
     },
     {
       key: `${block}.freshAir`, label: "Taze Hava Yükü (Duyulur + Gizli)",
-      formula: "Q = ṁ_sızıntı · (h_dış − h_iç)",
+      formula: "Q = ṁ_taze · (h_dış − h_iç)",
       subst: (x) =>
-        `${n(cell(x, "infiltration"), 2)} m³/h sızıntı · ortam %${n(x.v.ambientRhPct, 0)} bağıl nem`,
+        `${n(cell(x, "freshAirFlow"), 2)} m³/h · ortam %${n(x.v.ambientRhPct, 0)} bağıl nem`,
       unit: "kW", digits: 2,
     },
     {
@@ -137,7 +138,7 @@ function climateRows(block: "cabinAc" | "roomAc" | "panelAc"): CabinRowDef[] {
     },
     {
       key: `${block}.condensate`, label: "Yoğuşan Su (Drenaj)",
-      formula: "m_su = ṁ_sızıntı · (w_dış − w_iç)",
+      formula: "m_su = ṁ_taze · (w_dış − w_iç) + operatörün gizli ısısı",
       unit: "kg/h", digits: 2,
     },
   ];
@@ -148,16 +149,19 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
     id: "11.1",
     title: "Operatör Kabini",
     description:
-      "Kabin ölçüleri, izolasyonu ve kabin kliması. Isı yükü zarf ısı geçişi " +
-      "(EN ISO 6946), açık havada güneş-hava sıcaklığı, basınçlandırma " +
-      "sızıntısının psikrometrik yükü ve kabin içi ısıdan hesaplanır. Yalıtım " +
-      "iletkenliği λ, yalıtımın ORTALAMA sıcaklığında okunur — 10 °C beyan " +
-      "değerini doğrudan kullanmak sıcak ortamda ısı geçişini eksik gösterir. " +
-      "Nihai kapasite üreticinin proje bazlı teyidine tabidir.",
+      "Kabin ölçüleri, izolasyonu, camı ve kabin kliması. Kabin bir elektrik " +
+      "odası DEĞİLDİR: içinde İNSAN vardır ve büyük bir CAM yüzeyi taşır. Bu " +
+      "iki kalem yükü belirler — cam panelin birkaç katı ısı geçirir ve açık " +
+      "havada güneşi doğrudan içeri alır; operatörün hem ısısı hem de temiz " +
+      "hava ihtiyacı vardır ve o ihtiyaç çoğu zaman basınçlandırma " +
+      "sızıntısından büyüktür. Yalıtım iletkenliği λ, yalıtımın ORTALAMA " +
+      "sıcaklığında okunur. Nihai kapasite üreticinin proje bazlı teyidine " +
+      "tabidir.",
     visible: (specs) => hasOperatorCabin(specs),
     inputKeys: [
       "cabinWidthM", "cabinLengthM", "cabinHeightM", "cabinInsulation",
-      "cabinDoorCount", "cabinDeviceHeatKw", "cabinRadiationKw",
+      "cabinDoorCount", "cabinGlazingAreaM2", "cabinGlazingKind",
+      "cabinOccupantCount", "cabinDeviceHeatKw", "cabinRadiationKw",
     ],
     selectionKeys: [
       "cabinAcBrand", "cabinAcModel", "cabinAcSeries", "cabinAcApplication",
@@ -175,6 +179,30 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
         formula: "V = A × yükseklik",
         subst: (x) => `${n(x.v.cabinFloorAreaM2)} × ${n(x.inp.cabinHeightM)}`,
         unit: "m³", digits: 2,
+      },
+      {
+        key: "cabinAc.glazingArea", label: "Cam Alanı",
+        valueFrom: (x) =>
+          (x.c["cabinAc.glazingArea"] as number) || "Cam girilmedi",
+        formula: "cam duvar panelinden düşülür; kendi U değeriyle hesaplanır",
+        subst: (x) => `${GLAZING_KIND_LABELS[x.inp.cabinGlazingKind] ?? "—"}`,
+        unit: "m²", digits: 2,
+      },
+      {
+        key: "cabinAc.occupant", label: "Operatör Isısı (Duyulur + Gizli)",
+        formula: "kişi başına 75 W duyulur + 55 W gizli (oturur, hafif iş)",
+        subst: (x) => `${n(x.inp.cabinOccupantCount, 0)} kişi × 130 W`,
+        unit: "kW", digits: 2,
+      },
+      {
+        key: "cabinAc.freshAirFlow", label: "Taze Hava Debisi",
+        formula:
+          "maks(basınçlandırma sızıntısı · kişi başı 5 L/s temiz hava) — " +
+          "insanın hava ihtiyacı basınçlandırmadan bağımsız bir sağlık gereğidir",
+        subst: (x) =>
+          `maks(${n(x.c["cabinAc.infiltration"] as number, 2)} · ` +
+          `${n(x.inp.cabinOccupantCount * 18, 1)}) m³/h`,
+        unit: "m³/h", digits: 2,
       },
       ...climateRows("cabinAc"),
     ],

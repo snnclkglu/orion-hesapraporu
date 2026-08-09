@@ -46,7 +46,11 @@ export interface SaleRow {
   productName: string;
   jobId: string;
   jobNo: string;
+  /** İş emrindeki resmî unvan */
   customer: string;
+  /** Müşteri defterindeki kısaltma ve renk (defter dışı işlerde null) */
+  customerShort?: string | null;
+  customerHue?: number | null;
   jobStatus: string;
   /** Sözleşme tarihi (yoksa iş emri tarihi) — yıl bu alandan okunur */
   contractDate: string | null;

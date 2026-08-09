@@ -2,16 +2,25 @@
 //   format=xlsx (varsayılan) → exceljs workbook (Node Buffer → nodejs runtime)
 //   format=pdf               → react-pdf ekipman listesi
 //   scope=customer           → yalnız ekipman listesi (müşteri); aksi hâlde + teknik özet
+//   detay=1  (yalnız pdf)    → DETAYLI liste: aynı liste + arkasına ürünlerin
+//                              katalog sayfaları; ekipman adı belge içinde o
+//                              sayfaya bağlanır
 // Panelden eklenen ek satırlar (equipment_extras) çıktıya katılır.
+//
+// Ekipman adına konan katalog bağlantısı MUTLAK adres ister (Excel ve PDF
+// uygulamanın dışında açılır). Kök adres isteğin kendisinden okunur; böylece
+// yerelde localhost, canlıda alan adı yazılır ve ayrıca ayar tutmak gerekmez.
 
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { altsFromRevision, calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
-  buildEquipmentWorkbook, buildEquipmentGroups, buildSummarySections, mergeExtras, dsKey,
+  buildCatalogSheetUrls, buildEquipmentWorkbook, buildEquipmentGroups, buildSummarySections,
+  mergeExtras, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
+import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
 import { getReportSettings } from "@/lib/settings";
 
@@ -25,6 +34,8 @@ export async function GET(
   const sp = request.nextUrl.searchParams;
   const format = sp.get("format") === "pdf" ? "pdf" : "xlsx";
   const scope = sp.get("scope") === "customer" ? "customer" : "full";
+  const detailed = format === "pdf" && sp.get("detay") === "1";
+  const appOrigin = request.nextUrl.origin;
   const supabase = await createClient();
 
   const {
@@ -111,7 +122,11 @@ export async function GET(
   };
 
   const baseName = `${project.doc_no || "rapor"}-V${revision.rev_no}-${
-    scope === "customer" ? "ekipman-listesi" : "ekipman"
+    detailed
+      ? "ekipman-listesi-detayli"
+      : scope === "customer"
+        ? "ekipman-listesi"
+        : "ekipman"
   }`;
 
   let raw: Buffer | ArrayBuffer;
@@ -124,12 +139,18 @@ export async function GET(
   if (format === "pdf") {
     const groups = mergeExtras(buildEquipmentGroups(calcInput, notes, alts), extras);
     const summary = scope === "customer" ? undefined : buildSummarySections(calcInput, calcResult);
-    raw = await renderEquipmentPdf({ meta, groups, summary, settings, datasheetUrls });
+    // Detaylı listede ekipman adı belge İÇİNDEKİ katalog sayfasına bağlanır,
+    // standart listede uygulamadaki görüntüleyiciye — ikisi aynı anda gerekmez.
+    const sheetPages = detailed ? await collectCatalogSheetPages(groups) : undefined;
+    const sheetUrls = detailed ? undefined : buildCatalogSheetUrls(groups, appOrigin);
+    raw = await renderEquipmentPdf({
+      meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages,
+    });
     contentType = "application/pdf";
     ext = "pdf";
   } else {
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
-      datasheetUrls, scope, extras, notes, alts,
+      datasheetUrls, scope, extras, notes, alts, appOrigin,
     });
     raw = await workbook.xlsx.writeBuffer();
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

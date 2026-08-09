@@ -12,7 +12,7 @@ import {
 } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
-  buildEquipmentGroups, buildSummarySections, dsKey,
+  buildCatalogSheetUrls, buildEquipmentGroups, buildSummarySections, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
 import { EquipmentPanel } from "./equipment-panel";
@@ -91,6 +91,10 @@ export default async function EquipmentPage({
     if (r.datasheet_url) datasheetUrls[dsKey(r.kind, r.brand, r.model)] = r.datasheet_url;
   }
 
+  // Katalog sayfası bağlantıları — ekipman ADINA bağlanır. Uygulama içinde
+  // göreli adres yeter; Excel/PDF çıktısı mutlak adresi indirme ucunda üretir.
+  const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(autoGroups));
+
   // Sayfa kendi iç boşluğunu VERMEZ: app-shell normal (çerçeve olmayan) kipte
   // `main`e zaten px/py uyguluyor. Sayfa ayrıca padding verirse boşluk ikiye
   // katlanır (madde 35 düzeltmesiyle bu sayfa normal kipe geçti).
@@ -122,6 +126,7 @@ export default async function EquipmentPage({
         summary={summary}
         initialExtras={extras}
         datasheetUrls={datasheetUrls}
+        sheetUrls={sheetUrls}
         locked={revision.status === "issued"}
       />
     </div>

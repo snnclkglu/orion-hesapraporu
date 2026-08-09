@@ -8,7 +8,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { JOB_STATUSES, type JobStatus } from "@/lib/job-status";
+import { autoShortName, nextDistinctHue } from "@/lib/tags";
 import {
+  CUSTOMER_COLUMNS,
   customerInputSchema,
   jobInputSchema,
   type CustomerInput,
@@ -194,6 +196,10 @@ export async function deleteJob(jobId: string): Promise<ActionResult> {
  * Müşteri defterine yeni kayıt açar ve kaydı geri döner — form açılır listeyi
  * yeniden yüklemeden seçebilsin diye. Aynı ada sahip kayıt varsa MEVCUT kayıt
  * döner (unique index büyük/küçük harf duyarsızdır); mükerrer müşteri açılmaz.
+ *
+ * Renk BURADA seçilir, veritabanı varsayılanına bırakılmaz: defterdeki tonlar
+ * okunup en uzak boşluk bulunur (`nextDistinctHue`), böylece yeni müşteri
+ * listede komşularına benzemeyen bir renk alır.
  */
 export async function createCustomer(
   input: CustomerInput
@@ -207,11 +213,20 @@ export async function createCustomer(
   const parsed = customerInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const columns = "id, name, address, tax_office, tax_no, phone, fax, notes";
+  const { data: used } = await supabase.from("customers").select("color_hue");
+  const hue = nextDistinctHue(
+    (used ?? []).map((r) => Number((r as { color_hue: number }).color_hue) || 0)
+  );
+
   const { data, error } = await supabase
     .from("customers")
-    .insert({ ...parsed.data, created_by: user.id })
-    .select(columns)
+    .insert({
+      ...parsed.data,
+      short_name: parsed.data.short_name || autoShortName(parsed.data.name),
+      color_hue: hue,
+      created_by: user.id,
+    })
+    .select(CUSTOMER_COLUMNS)
     .single();
 
   if (error) {
@@ -220,7 +235,7 @@ export async function createCustomer(
     // kaydı döndürüp seçilmesini sağlıyoruz.
     const { data: existing } = await supabase
       .from("customers")
-      .select(columns)
+      .select(CUSTOMER_COLUMNS)
       .ilike("name", parsed.data.name)
       .maybeSingle();
     if (!existing) return { error: "Bu müşteri zaten kayıtlı." };
@@ -228,5 +243,6 @@ export async function createCustomer(
   }
 
   revalidatePath("/jobs");
+  revalidatePath("/admin/customers");
   return { customer: data as CustomerOption };
 }

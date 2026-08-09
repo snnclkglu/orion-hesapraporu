@@ -191,6 +191,29 @@ export function catalogSheetUrl(relativePath: string): string {
 }
 
 /**
+ * Katalog sayfasının UYGULAMA İÇİ adresi — ekipman listesinden, Excel'den ve
+ * PDF'ten aynı sayfaya gidilir.
+ *
+ * Adres ürünün KİMLİĞİNİ taşır (tür + marka + model), defterin iç kimliğini
+ * değil: `manifest.json` yeniden üretildiğinde sayfa kimlikleri değişebilir ama
+ * ürün kimliği değişmez, dolayısıyla eskiden indirilmiş bir Excel'in bağlantısı
+ * ölü kalmaz.
+ *
+ * `origin` verilirse MUTLAK adres üretilir. Excel ve PDF çıktıları uygulamanın
+ * dışında (Excel, Acrobat) açıldığı için orada göreli adres çalışmaz.
+ */
+export function catalogSheetPageUrl(
+  kind: string,
+  brand: string | null | undefined,
+  model: string,
+  origin = ""
+): string {
+  const q = new URLSearchParams({ tur: kind, model });
+  if (brand && brand !== "-") q.set("marka", brand);
+  return `${origin}/katalog?${q.toString()}`;
+}
+
+/**
  * Uçtan sunulmasına izin verilen dosyaların TAM listesi. Yol defterde yoksa
  * dosya okunmaz; böylece uç bir dizin gezme (path traversal) yüzeyi açmaz.
  */

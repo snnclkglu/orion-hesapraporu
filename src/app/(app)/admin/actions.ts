@@ -103,6 +103,92 @@ export async function updateUserProfile(
   return { ok: true };
 }
 
+// -------------------------------------------------------------------- Müşteriler
+
+/**
+ * Müşteri defteri düzenlemesi.
+ *
+ * Renk burada AÇI olarak gelir (0–359, bkz. lib/tags.ts): sunum katmanı ondan
+ * temaya uygun pasteli üretir. Hex kabul edilseydi kullanıcı koyu temada
+ * okunmayan bir renk seçebilirdi.
+ */
+const customerAdminSchema = z.object({
+  name: z.string().trim().min(1, "Müşteri adı gerekli").max(200),
+  short_name: z.string().trim().max(40),
+  color_hue: z.number().int().min(0).max(359),
+  address: z.string().trim().max(400),
+  tax_office: z.string().trim().max(120),
+  tax_no: z.string().trim().max(60),
+  phone: z.string().trim().max(60),
+  fax: z.string().trim().max(60),
+  notes: z.string().trim().max(1000),
+});
+
+export type CustomerAdminInput = z.infer<typeof customerAdminSchema>;
+
+function revalidateCustomerViews() {
+  revalidatePath("/admin/customers");
+  revalidatePath("/jobs");
+  revalidatePath("/sales");
+}
+
+export async function updateCustomer(
+  id: string,
+  input: CustomerAdminInput
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = customerAdminSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { error } = await supabase
+    .from("customers")
+    .update({
+      ...parsed.data,
+      // Kısaltma boş bırakılırsa tetikleyici de dolduramaz (o yalnız INSERT'te
+      // çalışır); ilk kelimeye burada düşülür.
+      short_name: parsed.data.short_name || parsed.data.name.split(" ")[0] || parsed.data.name,
+    })
+    .eq("id", id);
+  if (error) {
+    return { error: error.code === "23505" ? "Bu isimde bir müşteri zaten var" : error.message };
+  }
+
+  await audit(supabase, user.id, "admin.customer_update", { id, name: parsed.data.name });
+  revalidateCustomerViews();
+  return { ok: true };
+}
+
+/**
+ * Müşteriyi defterden siler.
+ *
+ * İŞ EMİRLERİ SİLİNMEZ: `jobs.customer_id` yabancı anahtarı `on delete set null`
+ * taşır ve iş emrindeki müşteri METİN alanları zaten basıldığı andaki
+ * fotoğraftır — yayınlanmış bir iş emri defter kaydı silinince değişmemelidir.
+ * Buna karşılık listelerdeki kısaltma ve renk kaybolur; bu yüzden kullanıcı
+ * bağlı iş sayısıyla birlikte uyarılır.
+ */
+export async function deleteCustomer(id: string): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const { data: item } = await supabase
+    .from("customers")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("customers").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await audit(supabase, user.id, "admin.customer_delete", { id, name: item?.name });
+  revalidateCustomerViews();
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------- Ekipman katalogu
 
 const KINDS = ["motor", "gearbox", "rope", "brake", "bearing", "wheel", "buffer", "hook", "sheave", "coupling", "other"] as const;

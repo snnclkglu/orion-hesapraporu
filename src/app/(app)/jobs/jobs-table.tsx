@@ -31,13 +31,20 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { CustomerTag } from "@/components/tags";
+import { customerTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
 export interface JobRow {
   id: string;
   job_no: string;
   title: string;
+  /** İş emrindeki resmî unvan (basıldığı andaki fotoğraf) */
   customer: string;
+  /** Müşteri defterindeki kısaltma — listelerde bu görünür */
+  customerShort?: string | null;
+  /** Müşteri defterindeki renk (OKLCH ton açısı) */
+  customerHue?: number | null;
   status: string;
   work_order_date: string | null;
   created_at: string;
@@ -74,7 +81,9 @@ type SortKey = "job_no" | "title" | "customer" | "itemCount" | "craneCount" | "d
 const SORT_VALUE: Record<SortKey, (j: JobRow) => string | number> = {
   job_no: (j) => j.job_no,
   title: (j) => j.title,
-  customer: (j) => j.customer,
+  // Sıralama GÖRÜNEN ada göredir: sütun kısaltmayı gösterirken tam unvana göre
+  // sıralamak listeyi rastgele sıralanmış gibi gösterirdi.
+  customer: (j) => customerTag({ name: j.customer, shortName: j.customerShort }).short,
   itemCount: (j) => j.itemCount,
   craneCount: (j) => j.craneCount,
   date: (j) => j.work_order_date || j.created_at,
@@ -234,9 +243,22 @@ export function JobsTable({
     return [...set].sort((a, b) => b.localeCompare(a));
   }, [jobs]);
 
+  // Süzgeç DEĞERİ tam unvandır (iş satırındaki alanla eşleşmesi gerekir),
+  // ETİKETİ kısaltmadır.
   const customers = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.customer.trim()).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, "tr"));
+    const byName = new Map<string, JobRow>();
+    for (const j of jobs) {
+      const name = j.customer.trim();
+      if (name && !byName.has(name)) byName.set(name, j);
+    }
+    return [...byName.entries()]
+      .map(([name, j]) => ({ name, short: j.customerShort, hue: j.customerHue }))
+      .sort((a, b) =>
+        customerTag({ name: a.name, shortName: a.short }).short.localeCompare(
+          customerTag({ name: b.name, shortName: b.short }).short,
+          "tr"
+        )
+      );
   }, [jobs]);
 
   // Varsayılan yıl: içinde bulunduğumuz yıl — ama o yılda hiç iş yoksa filtre
@@ -271,9 +293,10 @@ export function JobsTable({
       if (year !== ALL && jobYear(j) !== year) return false;
       if (customer !== ALL && j.customer.trim() !== customer) return false;
       if (status !== ALL && jobStatusOf(j.status) !== status) return false;
-      if (q && ![j.job_no, j.title, j.customer].join(" ").toLocaleLowerCase("tr").includes(q)) {
-        return false;
-      }
+      // Arama hem kısaltmayı hem tam unvanı tarar: kullanıcı ekranda gördüğü
+      // "İSDEMİR"i de, defterdeki resmî adı da yazabilmelidir.
+      const haystack = [j.job_no, j.title, j.customer, j.customerShort ?? ""].join(" ");
+      if (q && !haystack.toLocaleLowerCase("tr").includes(q)) return false;
       return true;
     });
     const sign = sort.dir === "asc" ? 1 : -1;
@@ -310,13 +333,15 @@ export function JobsTable({
         </Select>
 
         <Select value={customer} onValueChange={setCustomer}>
-          <SelectTrigger size="sm" className="w-[220px]">
+          <SelectTrigger size="sm" className="w-[190px]">
             <SelectValue placeholder="Müşteri" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
             {customers.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
+              <SelectItem key={c.name} value={c.name}>
+                <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -358,7 +383,8 @@ export function JobsTable({
                 [
                   { label: "İş No", key: "job_no", className: "w-[7rem]" },
                   { label: "İşin Adı", key: "title" },
-                  { label: "Müşteri", key: "customer", className: "w-[22%]" },
+                  // Kısaltma sütunu artık dar: kazanılan yer "İşin Adı"na gider.
+                  { label: "Müşteri", key: "customer", className: "w-[11rem]" },
                   { label: "Kalem", key: "itemCount", className: "w-[5.5rem]" },
                   { label: "Rapor", key: "craneCount", className: "w-[5.5rem]" },
                   { label: "Tarih", key: "date", className: "w-[7.5rem]" },
@@ -394,7 +420,17 @@ export function JobsTable({
                     </Link>
                   </TableCell>
                   <TableCell className="font-medium">{j.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{j.customer}</TableCell>
+                  <TableCell>
+                    {/* Satırın tamamı bir link (after:absolute inset-0); etiket
+                        onun ÜSTÜNDE kalmalı ki başlık (tam unvan) okunabilsin. */}
+                    <span className="relative z-10">
+                      <CustomerTag
+                        name={j.customer}
+                        shortName={j.customerShort}
+                        hue={j.customerHue}
+                      />
+                    </span>
+                  </TableCell>
                   <TableCell className="font-mono tabular-nums">{j.itemCount}</TableCell>
                   <TableCell
                     className={cn(

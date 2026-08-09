@@ -15,23 +15,27 @@ const YEAR = new Date().getFullYear();
 const JOBS: JobRow[] = [
   {
     id: "j1", job_no: "0055", title: "İsdemir Amonyum Sülfat Vinci",
-    customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.", status: "active",
+    customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.", customerShort: "İSDEMİR", customerHue: 12,
+    status: "active",
     work_order_date: `${YEAR}-05-11`, created_at: `${YEAR}-05-11T09:00:00Z`,
     itemCount: 1, craneCount: 1,
   },
   {
     id: "j2", job_no: "0057", title: "Astor 1T ve 5T Vinçler",
-    customer: "ASTOR ENERJİ A.Ş.", status: "completed",
+    customer: "ASTOR ENERJİ A.Ş.", customerShort: "ASTOR", customerHue: 148,
+    status: "completed",
     work_order_date: `${YEAR}-03-02`, created_at: `${YEAR}-03-02T09:00:00Z`,
     itemCount: 2, craneCount: 2,
   },
   {
     id: "j3", job_no: "0053", title: "LITEC 40 t x 16,7 m Portal Vinç",
-    customer: "LITEC MAKİNA", status: "passive",
+    customer: "LITEC MAKİNA SAN. VE TİC. A.Ş.", customerShort: "LITEC", customerHue: 255,
+    status: "passive",
     work_order_date: `${YEAR}-01-20`, created_at: `${YEAR}-01-20T09:00:00Z`,
     itemCount: 1, craneCount: 0,
   },
   {
+    // Deftere bağlanmamış eski kayıt: kısaltma ve renk metinden türetilir.
     id: "j4", job_no: "0045", title: "Habaş 2x30T Tersane Vinçleri",
     customer: "HABAŞ SINAİ VE TIBBİ GAZLAR", status: "archived",
     work_order_date: `${YEAR - 1}-07-26`, created_at: `${YEAR - 1}-07-26T09:00:00Z`,
@@ -41,15 +45,21 @@ const JOBS: JobRow[] = [
 
 const CUSTOMERS: CustomerOption[] = [
   {
-    id: "c1", name: "İSKENDERUN DEMİR VE ÇELİK A.Ş.",
+    id: "c1", name: "İSKENDERUN DEMİR VE ÇELİK A.Ş.", short_name: "İSDEMİR", color_hue: 12,
     address: "Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1 PK 31900 Payas/Hatay",
     tax_office: "HATAY - Akdeniz Vergi Dairesi Müdürlüğü", tax_no: "8790009670",
     phone: "+90 (326) 758 40 40", fax: "+90 (326) 758 38 38", notes: "",
   },
   {
-    id: "c2", name: "ASTOR ENERJİ A.Ş.", address: "ASO 2. ve 3. OSB, Sincan/Ankara",
+    id: "c2", name: "ASTOR ENERJİ A.Ş.", short_name: "ASTOR", color_hue: 148,
+    address: "ASO 2. ve 3. OSB, Sincan/Ankara",
     tax_office: "Ankara - Sincan", tax_no: "1234567890",
     phone: "+90 312 267 01 56", fax: "", notes: "",
+  },
+  {
+    id: "c3", name: "LITEC MAKİNA SAN. VE TİC. A.Ş.", short_name: "LITEC", color_hue: 255,
+    address: "The Paragon, B Blok, Kat 23 No.113, Çukurambar, Çankaya/Ankara",
+    tax_office: "", tax_no: "", phone: "", fax: "", notes: "",
   },
 ];
 
