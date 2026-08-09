@@ -4,12 +4,17 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# ORION Hesap Raporu
+# ORION Cranes — İş Yönetim Sistemi
 
-Gezer köprülü vinç hesap raporu web uygulaması. Mühendisler girdi + katalog
-seçimi yapar, sistem hesapları koşturur ve ✓/✗ kontrolleri gösterir; çıktı
-müşteriye teslim edilebilir PDF rapor + ekipman listeleridir. Revizyon arşivli,
-çok kullanıcılı (admin + mühendis).
+Vinç işlerinin tek yerden takibi: iş emri → ürün → mühendislik → imalat → satış.
+Uygulama bir HESAP RAPORU aracı olarak başladı ve adı bir süre onu taşıdı; bugün
+hesap raporu bölümlerden BİRİDİR. Kapsam: iş emirleri (`/jobs`), hesap raporu
+projeleri ve revizyon arşivi (`/projects`), teknik çizim takibi, ekipman
+listeleri, üretici katalogları (`/katalog`), atölye çalışma saatleri
+(`/worklog`) ve satış takibi (`/sales`). Çok kullanıcılı, dört rollü.
+
+Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
+`APP_TITLE`, `APP_TAGLINE`) — kabuk, giriş sayfası ve sekme başlığı oradan okur.
 
 ## Temel ilke: hesap yöntemi standartlara dayanır, bir tabloya değil
 

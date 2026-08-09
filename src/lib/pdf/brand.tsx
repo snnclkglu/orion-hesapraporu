@@ -153,6 +153,52 @@ export function CheckGlyph({ pass, size = 8 }: { pass: boolean; size?: number })
   );
 }
 
+/**
+ * Çapraz marka filigranı — teslim edilen her sayfada.
+ *
+ * AMAÇ belgeyi işaretlemektir, süslemek değil: sayfa tarandığında ya da
+ * fotokopilendiğinde kimin belgesi olduğu görünsün. Bu yüzden iki kural
+ * pazarlıksızdır:
+ *
+ *  - **Okunurluğu bozmaz.** Opaklık %4,5'te; kömür metnin (#262626) kağıt
+ *    üzerindeki kontrastı 15:1 iken filigranın kendi kontrastı 1,05:1
+ *    civarındadır — göz onu ancak arayınca görür, satır okurken görmez.
+ *    Kırmızı da bu yüzden soluk kalır: marka kuralı kırmızıyı VURGU olarak
+ *    tanımlar, bir zemin dokusu olarak değil.
+ *  - **İçeriğin ALTINDA kalır.** react-pdf boyama sırası belge sırasıdır;
+ *    filigran `children`den ÖNCE çizilir, dolgulu tablo hücreleri ve
+ *    diyagram zeminleri onu kendiliğinden örter.
+ *
+ * `fixed` olduğu için her sayfada yeniden basılır; sayfa yönü değişse de
+ * dört kenara yaslandığından kendini ortalar.
+ */
+function Watermark() {
+  return (
+    <View
+      fixed
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Image
+        src={BRAND_LOGO}
+        style={{
+          width: 430,
+          height: 430 * LOGO_RATIO,
+          opacity: 0.06,
+          transform: "rotate(-45deg)",
+        }}
+      />
+    </View>
+  );
+}
+
 export interface PageFrameProps {
   /** Altbilgi sol satırı: `ORION CRANES · HESAP RAPORU · REV 03 · 2026` */
   docLine: string;
@@ -195,6 +241,8 @@ export function BrandPage({
         ...style,
       }}
     >
+      {/* Çapraz filigran — İÇERİKTEN ÖNCE çizilir ki altında kalsın */}
+      <Watermark />
       {/* Kırmızı omurga — her sayfada, tam boy, solda */}
       <View
         fixed

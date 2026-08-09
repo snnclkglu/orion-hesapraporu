@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { APP_NAME, APP_TAGLINE, COMPANY_NAME } from "@/lib/app";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,36 +50,27 @@ export default function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/orion-logo-white.svg"
-            alt="Orion Cranes"
+            alt={COMPANY_NAME}
             className="h-6 w-auto"
           />
           <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
-            Hesap Raporu Sistemi
+            {APP_NAME}
           </div>
           <div className="oc-rule-red mt-3" aria-hidden />
         </div>
 
+        {/* TEK CÜMLE. Giriş ekranı bir tanıtım sayfası değildir: burada duran
+            kişi zaten şirkette çalışıyor ve ne yaptığımızı biliyor. Eski
+            sürümdeki başlık, paragraf ve üç maddelik standart listesi
+            uygulamayı yalnız hesap raporundan ibaret gösteriyordu. */}
         <div className="relative max-w-md">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-sidebar-accent-foreground">
-            Vinç hesap raporları — girdiden yayınlanmış rapora, tek akışta.
+            {APP_TAGLINE}
           </h1>
-          <p className="mt-4 text-sm leading-relaxed text-sidebar-foreground/70">
-            Çift kirişli gezer köprülü vinçler için mekanizma ve çelik konstrüksiyon
-            hesapları, revizyon arşivi ve teslim edilebilir PDF raporlar.
-          </p>
-          <ul className="mt-6 grid gap-2 text-sm text-sidebar-foreground/80">
-            {["FEM 1.001 mekanizma sınıflandırması", "DIN 15018 çelik konstrüksiyon kontrolleri", "CMAA 70 uyumlu hesap zinciri"].map((t) => (
-              <li key={t} className="flex items-center gap-3">
-                <span className="oc-bullet" aria-hidden />
-                {t}
-              </li>
-            ))}
-          </ul>
         </div>
 
         <p className="relative text-[11px] text-sidebar-foreground/50">
-          © {new Date().getFullYear()} ORION Cranes · Revizyon arşivli, çok kullanıcılı
-          hesap sistemi
+          © {new Date().getFullYear()} {COMPANY_NAME}
         </p>
       </section>
 
@@ -88,15 +80,15 @@ export default function LoginPage() {
           <div className="mb-8 lg:hidden">
             {/* Açık zeminde kırmızı logo (marka kılavuzu: kağıt zemin → kırmızı) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/orion-logo.svg" alt="Orion Cranes" className="h-6 w-auto" />
+            <img src="/brand/orion-logo.svg" alt={COMPANY_NAME} className="h-6 w-auto" />
             <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              Hesap Raporu Sistemi
+              {APP_NAME}
             </div>
           </div>
 
           <h2 className="text-xl font-semibold tracking-tight">Oturum açın</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Hesap raporu projelerinize erişmek için kurumsal hesabınızla giriş yapın.
+            Kurumsal hesabınızla giriş yapın.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 grid gap-4">

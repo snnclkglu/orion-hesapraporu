@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { APP_TAGLINE, APP_TITLE } from "@/lib/app";
 import { Toaster } from "@/components/ui/sonner";
 
 // Orion Cranes marka tipografisi (Marka Kimliği Kılavuzu REV 01):
@@ -19,8 +20,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ORION Hesap Raporu",
-  description: "Vinç hesap raporu hazırlama ve arşiv sistemi",
+  title: APP_TITLE,
+  description: APP_TAGLINE,
 };
 
 export default function RootLayout({

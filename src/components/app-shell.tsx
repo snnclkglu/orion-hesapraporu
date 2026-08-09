@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 import { canSeeSales, canSeeWorkLog, isAdminRole, roleLabel } from "@/lib/roles";
+import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 
 interface AppShellProps {
   role: string;
@@ -97,7 +98,7 @@ function SidebarContent({
       <Link
         href="/projects"
         onClick={onNavigate}
-        title={collapsed ? "Orion Cranes · Hesap Raporu Sistemi" : undefined}
+        title={collapsed ? `${COMPANY_NAME} · ${APP_NAME}` : undefined}
         className={cn("block pt-5 pb-4", collapsed ? "px-2" : "px-4")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -113,7 +114,7 @@ function SidebarContent({
         />
         {!collapsed && (
           <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
-            Hesap Raporu Sistemi
+            {APP_NAME}
           </span>
         )}
       </Link>
@@ -180,17 +181,6 @@ function SidebarContent({
             />
             {!collapsed && "Menüyü daralt"}
           </button>
-        </div>
-      )}
-
-      {/* Standart künyesi — dar kipte yer kaplamaz */}
-      {!collapsed && (
-        <div className="px-4 pb-3">
-          <div className="rounded-md border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-[10px] leading-relaxed text-sidebar-foreground/60">
-            FEM 1.001 · DIN 15018 · CMAA 70
-            <br />
-            Çift kirişli gezer köprülü vinç
-          </div>
         </div>
       )}
 

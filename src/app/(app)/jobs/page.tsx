@@ -100,11 +100,11 @@ export default async function JobsPage() {
   const activeCount = list.filter((j) => jobStatusOf(j.status) === "active").length;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">İşler</h1>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+          <h1 className="text-xl font-semibold tracking-tight">İşler</h1>
+          <p className="truncate text-sm text-muted-foreground">
             İş emirleri ve içerdikleri vinçler
           </p>
         </div>

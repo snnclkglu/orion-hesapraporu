@@ -523,3 +523,38 @@ birleştirmedi.
   buydu). Kaydı atölyeden biri giriyorsa ya o kişiye Müdür rolü verilmeli ya da
   `user_role` enum'una beşinci bir rol (ör. atölye şefi) eklenip
   `canSeeWorkLog` genişletilmelidir — tek satırlık bir değişiklik.
+
+## Faz T — Kimlik ve belge filigranı (2026-08-09)
+
+Sinan: *"uygulamanın adını hesap raporu sistemi değil daha geniş bir tanım
+yapalım"* + PDF'lere çapraz logo isteği.
+
+- [x] **Ad: "İş Yönetim Sistemi"** (`src/lib/app.ts` — `APP_NAME` / `APP_TITLE`
+      / `APP_TAGLINE` tek kaynak). Gerekçe: hesap raporu artık bölümlerden
+      biridir; her kayıt bir İŞE bağlanır, bölüm adları da o dili konuşur
+      (İşler · İş Takibi · Satış Takibi). Kabuk, giriş sayfası ve sekme başlığı
+      aynı sabitten okur.
+- [x] **Kenar çubuğundaki standart künyesi kaldırıldı** (FEM 1.001 · DIN 15018 ·
+      CMAA 70 / "Çift kirişli gezer köprülü vinç"). Uygulama artık yalnız çift
+      kirişli köprülü vinç hesabı değil; künye kalan üç bölümde yanlış bir
+      kapsam sözü veriyordu.
+- [x] **Giriş sayfası sadeleşti**: başlık + paragraf + üç maddelik standart
+      listesi yerine TEK cümle. Giriş ekranı tanıtım sayfası değildir; oradaki
+      kişi zaten şirkette çalışıyor.
+- [x] **Başlık altı açıklamalar başlıkla aynı satıra alındı** (İşler, Projeler,
+      Satış Takibi, Yönetim, İş Takibi) ve başlık `text-2xl` → `text-xl`, dış
+      boşluk `gap-6` → `gap-4`. Kazanç sayfa başına ~40 px; bu ekranlarda asıl
+      iş tabloların olduğu ALT bölümdedir.
+- [x] **PDF filigranı** (`brand.tsx` → `Watermark`, `BrandPage` içinde `fixed`):
+      çapraz (-45°) marka lockup'ı, opaklık 0,06, sayfa ortasında. Hesap raporu,
+      ekipman listesi ve iş emri PDF'lerinin HER sayfasında çıkar — üçü de
+      `BrandPage` kullanır. İçerikten ÖNCE çizilir (react-pdf boyama sırası
+      belge sırasıdır), böylece dolgulu tablo hücreleri onu örter.
+      Ölçüldü: sayfa pikselinin ~%1'i, ton (250,242,242) — kömür metnin yanında
+      kontrastı 1,05:1, yani göz onu ancak arayınca görür.
+
+### Açık kalan
+
+- Üst şeritteki `FEM 1.001 · DIN 15018 · CMAA 70` yazısı DURUYOR. Projeler
+  bölümünde doğru, İş Takibi ve Satış Takibi'nde konu dışı. Kaldırılsın mı,
+  yoksa yalnız `/projects` altında mı gösterilsin — Sinan'ın kararı.

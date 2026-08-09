@@ -22,10 +22,10 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/projects");
 
   return (
-    <div className="grid gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Yönetim</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="grid gap-4">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+        <h1 className="text-xl font-semibold tracking-tight">Yönetim</h1>
+        <p className="truncate text-sm text-muted-foreground">
           Kullanıcılar, kataloglar ve rapor ayarları
         </p>
       </div>
