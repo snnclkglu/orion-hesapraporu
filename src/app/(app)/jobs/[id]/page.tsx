@@ -4,6 +4,7 @@ import { FileDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ContractOpenButton } from "../contract-upload";
 import { JobStatusMenu } from "../job-status-menu";
+import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,8 +73,8 @@ function ReportCell({ report }: { report: LinkedReport | null }) {
       </Link>
       {lastRev && (
         // 10px içerik metni için fazla küçük — 11px taban.
-        <Badge variant={lastRev.status === "issued" ? "default" : "secondary"} className="text-[11px]">
-          V{lastRev.rev_no} · {lastRev.status === "issued" ? "yayınlandı" : "taslak"}
+        <Badge variant={revisionStatusVariant(lastRev.status)} className="text-[11px]">
+          V{lastRev.rev_no} · {revisionStatusLabel(lastRev.status)}
         </Badge>
       )}
     </span>
@@ -317,7 +318,7 @@ export default async function JobPage({
                         {p.name}
                         <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
                           {p.crane_type}
-                          {lastRev ? ` · V${lastRev.rev_no} ${lastRev.status === "issued" ? "yayınlandı" : "taslak"}` : ""}
+                          {lastRev ? ` · V${lastRev.rev_no} ${revisionStatusLabel(lastRev.status)}` : ""}
                         </div>
                       </TableCell>
                       <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.crane_type}</TableCell>
@@ -325,8 +326,8 @@ export default async function JobPage({
                         {lastRev ? (
                           <span className="inline-flex items-center gap-1.5 text-sm">
                             <span className="font-mono">V{lastRev.rev_no}</span>
-                            <Badge variant={lastRev.status === "issued" ? "default" : "secondary"}>
-                              {lastRev.status === "issued" ? "yayınlandı" : "taslak"}
+                            <Badge variant={revisionStatusVariant(lastRev.status)}>
+                              {revisionStatusLabel(lastRev.status)}
                             </Badge>
                           </span>
                         ) : (

@@ -6,6 +6,7 @@ import {
   History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -207,7 +208,7 @@ export default async function ProjectsPage() {
                         ) : null}
                         {p.customer}
                         {lastRev
-                          ? ` · V${lastRev.rev_no} ${lastRev.status === "issued" ? "Yayınlandı" : "Taslak"}`
+                          ? ` · V${lastRev.rev_no} ${revisionStatusLabel(lastRev.status)}`
                           : ""}
                       </div>
                     </TableCell>
@@ -221,10 +222,8 @@ export default async function ProjectsPage() {
                       {lastRev ? (
                         <span className="inline-flex items-center gap-1.5 text-sm">
                           <span className="font-mono">V{lastRev.rev_no}</span>
-                          <Badge
-                            variant={lastRev.status === "issued" ? "default" : "secondary"}
-                          >
-                            {lastRev.status === "issued" ? "Yayınlandı" : "Taslak"}
+                          <Badge variant={revisionStatusVariant(lastRev.status)}>
+                            {revisionStatusLabel(lastRev.status)}
                           </Badge>
                         </span>
                       ) : (

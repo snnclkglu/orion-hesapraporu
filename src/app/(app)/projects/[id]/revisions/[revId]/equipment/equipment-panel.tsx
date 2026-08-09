@@ -367,7 +367,7 @@ export function EquipmentPanel({
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                 Ek Ekipman / Özellikler
                 {locked && (
-                  <Badge variant="outline" className="text-[11px]">revizyon yayınlandı — ek satırlar serbest</Badge>
+                  <Badge variant="outline" className="text-[11px]">Revizyon yayınlandı — ek satırlar serbest</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">

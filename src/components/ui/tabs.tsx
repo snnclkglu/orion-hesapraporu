@@ -33,7 +33,15 @@ const tabsListVariants = cva(
   // `h-[calc(100%-1px)]` ile şeridin yüksekliğini izlediği için tek yerden
   // büyür. Grup seçicisinin özgüllüğünü karşılamak üzere `pointer-coarse`
   // aynı grup varyantına zincirlenir — düz `pointer-coarse:h-11` kaybederdi.
-  "group/tabs-list inline-flex w-fit max-w-full items-center justify-center overflow-x-auto rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-9 group-data-horizontal/tabs:pointer-coarse:h-11 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none [&>*]:shrink-0",
+  //
+  // `overflow-y-hidden` AÇIKÇA yazılır: CSS'te bir eksen `visible` dışına
+  // çıkınca diğeri de `visible` kalamaz, `overflow-x-auto` tek başına
+  // `overflow-y`yi de `auto` yapar. Tetikleyicinin altçizgi çubuğu
+  // (`after`, şeridin dışına taşacak biçimde konumlanır) o eksende 1–2px
+  // kaydırılabilir alan üretiyor, tarayıcı da şeridin içine 15px'lik DİKEY
+  // KAYDIRMA ÇUBUĞU çiziyordu: sekmelerin yanında ▲▼ oku beliriyor ve şerit
+  // o kadar daralıyordu.
+  "group/tabs-list inline-flex w-fit max-w-full items-center justify-center overflow-x-auto overflow-y-hidden rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-9 group-data-horizontal/tabs:pointer-coarse:h-11 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none [&>*]:shrink-0",
   {
     variants: {
       variant: {
@@ -74,7 +82,11 @@ function TabsTrigger({
         "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
         "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
-        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+        // Altçizgi çubuğu ŞERİDİN İÇİNDE kalır. Kural: taşma payı en çok
+        // şeridin iç boşluğu kadardır (`p-[3px]`) — daha fazlası kaydırma
+        // kabında taşma sayılır ve şeride kaydırma çubuğu çizdirir
+        // (`tabsListVariants` notu). Eski değerler -5px / -4px idi.
+        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-3px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-[3px] group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
         className
       )}
       {...props}

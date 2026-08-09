@@ -5,6 +5,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { revisionStatusLabel } from "@/lib/revision-status";
 
 interface Rev {
   id: string;
@@ -30,7 +31,7 @@ export function RevisionPicker({
   function item(r: Rev) {
     return (
       <SelectItem key={r.id} value={r.id}>
-        V{r.rev_no} — {r.label || "etiketsiz"} ({r.status === "issued" ? "yayınlandı" : "taslak"})
+        V{r.rev_no} — {r.label || "etiketsiz"} ({revisionStatusLabel(r.status)})
       </SelectItem>
     );
   }

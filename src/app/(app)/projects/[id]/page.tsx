@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileDown, GitCompare, ScrollText } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canEditReports, isAdminRole } from "@/lib/roles";
+import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -11,10 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getDrawingCategories, DRAWING_STATUS_LABELS, type DrawingStatus,
 } from "@/lib/drawings";
-import { NewRevisionButton } from "./new-revision-button";
 import { DeleteRevisionButton } from "./delete-revision-button";
-import { ArchiveButton } from "./archive-button";
-import { ProjectDetailActions } from "../project-actions";
+import { ProjectDetailHeader } from "./project-header";
 import { DrawingDialog, DeleteDrawingButton, type DrawingRow } from "./drawing-dialog";
 import { ProjectSignatoryCard, type SignatoryOption } from "./signatory-card";
 import type { JobItemOption } from "../new-project-dialog";
@@ -112,78 +111,22 @@ export default async function ProjectPage({
 
   return (
     <div className="grid gap-6">
-      {/* Başlık + eylem şeridi: sağdaki blok ("Düzenlemeye Devam (V3)" +
-          "Yeni Revizyon") tek başına ~350px tuttuğu için sarmasız bir
-          `justify-between` 375/430px telefonda satırı yatay taşırıyordu. */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm text-muted-foreground">
-            {job ? (
-              <>
-                <Link href="/jobs" className="hover:underline">İşler</Link>
-                {" / "}
-                <Link href={`/jobs/${job.id}`} className="font-mono hover:underline">
-                  {job.job_no}
-                </Link>
-              </>
-            ) : (
-              <Link href="/projects" className="hover:underline">Projeler</Link>
-            )}
-            {" / "}
-            <span className="font-mono">{project.doc_no}</span>
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{project.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {project.customer} · {project.crane_type}
-          </p>
-          {/* Bu iki bağlantı elle yazılmış düğmelerdir; yandaki `size="sm"`
-              Button'lar dokunmatik payını tabandan alıyor, bunlar almıyordu. */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-            <Link
-              href={`/projects/${project.id}/compare`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
-            >
-              <GitCompare className="size-3.5 text-muted-foreground" />
-              Revizyonları Karşılaştır
-            </Link>
-            <Link
-              href={`/projects/${project.id}/audit`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
-            >
-              <ScrollText className="size-3.5 text-muted-foreground" />
-              İşlem Kaydı
-            </Link>
-            <ArchiveButton projectId={project.id} archived={project.status === "archived"} />
-            <ProjectDetailActions
-              project={projectSummary}
-              jobs={jobs}
-              canDelete={isAdmin}
-            />
-          </div>
-        </div>
-        <div className="flex w-full flex-col gap-1 sm:w-auto sm:items-end">
-          <div className="flex flex-wrap gap-2">
-            {latestRev?.status === "draft" && (
-              <Link
-                href={`/projects/${project.id}/revisions/${latestRev.id}`}
-                className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 pointer-coarse:h-10"
-              >
-                Düzenlemeye Devam (V{latestRev.rev_no})
-              </Link>
-            )}
-            <NewRevisionButton
-              projectId={project.id}
-              isFirst={isFirstRevision}
-              variant={latestRev?.status === "draft" ? "outline" : "default"}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {isFirstRevision
-              ? "İlk hesap raporu şablondan kopyalanarak açılır — boş sayfayla başlamazsınız."
-              : "Yeni revizyon, son revizyonun kopyasıyla açılır — sıfırdan başlamaz."}
-          </p>
-        </div>
-      </div>
+      <ProjectDetailHeader
+        project={{
+          id: project.id,
+          doc_no: project.doc_no,
+          name: project.name,
+          customer: project.customer,
+          crane_type: project.crane_type,
+          archived: project.status === "archived",
+        }}
+        job={job}
+        summary={projectSummary}
+        jobs={jobs}
+        canDelete={isAdmin}
+        latestRev={latestRev ?? null}
+        isFirstRevision={isFirstRevision}
+      />
 
       <ProjectSignatoryCard
         projectId={project.id}
@@ -260,8 +203,8 @@ export default async function ProjectPage({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={r.status === "issued" ? "default" : "secondary"}>
-                        {r.status === "issued" ? "yayınlandı" : "taslak"}
+                      <Badge variant={revisionStatusVariant(r.status)}>
+                        {revisionStatusLabel(r.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden text-sm md:table-cell">

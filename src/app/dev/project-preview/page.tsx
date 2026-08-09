@@ -11,13 +11,27 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { ProjectSignatoryCard, type SignatoryOption } from "@/app/(app)/projects/[id]/signatory-card";
 import { DeleteRevisionButton } from "@/app/(app)/projects/[id]/delete-revision-button";
+import { ProjectDetailHeader } from "@/app/(app)/projects/[id]/project-header";
 
 const PEOPLE: SignatoryOption[] = [
   { id: "p1", full_name: "Alkım Kelleci", role: "engineer" },
   { id: "p2", full_name: "Sinan Çolakoğlu", role: "admin" },
 ];
+
+// Başlık bloğu gerçek sayfadakiyle AYNI genişlik kabında ölçülmelidir:
+// `/projects/<id>` geniş sayfa DEĞİLDİR, app-shell ona `max-w-6xl` (1152px)
+// verir. Eylem şeridinin sağa dayanması tam da bu genişlikte sınanır.
+const PROJECT = {
+  id: "dev",
+  doc_no: "0055-00",
+  name: "AMONYUM SÜLFAT TESİSİ VİNCİ",
+  customer: "İSDEMİR A.Ş.",
+  crane_type: "Çift Kirişli Gezer Köprülü Vinç",
+  archived: false,
+};
 
 const REVISIONS = [
   { id: "r1", rev_no: 1, label: "V1", status: "draft" as const, who: "Sinan Çolakoğlu", date: "08.08.2026" },
@@ -34,7 +48,25 @@ export default function ProjectPreviewPage() {
       {/* `content-start`: ızgara artan boşlukta satırları GERMESİN — gerçek
           sayfada kap `flex-1` taşımıyor, önizleme onu taklit etmezse bileşen
           olduğundan yüksek ölçülür. */}
-      <div className="grid w-full flex-1 content-start gap-6 px-4 py-6 lg:px-8">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-6 px-4 py-6 lg:px-8">
+        <ProjectDetailHeader
+          project={PROJECT}
+          job={{ id: "j1", job_no: "0055" }}
+          summary={{
+            id: PROJECT.id,
+            doc_no: PROJECT.doc_no,
+            name: PROJECT.name,
+            customer: PROJECT.customer,
+            job_id: "j1",
+            job_no: "0055",
+            hasIssuedRevision: true,
+          }}
+          jobs={[]}
+          canDelete
+          latestRev={REVISIONS[0]}
+          isFirstRevision={false}
+        />
+
         <ProjectSignatoryCard
           projectId="dev"
           people={PEOPLE}
@@ -69,8 +101,8 @@ export default function ProjectPreviewPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={r.status === "issued" ? "default" : "secondary"}>
-                      {r.status === "issued" ? "yayınlandı" : "taslak"}
+                    <Badge variant={revisionStatusVariant(r.status)}>
+                      {revisionStatusLabel(r.status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden text-sm md:table-cell">{r.who}</TableCell>

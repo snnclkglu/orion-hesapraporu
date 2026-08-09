@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { EDITOR_STATUS_SLOT_ID, RevisionEditor } from "./revision-editor";
@@ -97,8 +98,8 @@ export default async function RevisionPage({
           {revision.is_template && (
             <Badge variant="outline" className="border-primary/40 text-primary">ŞABLON</Badge>
           )}
-          <Badge variant={revision.status === "issued" ? "default" : "secondary"}>
-            {revision.status === "issued" ? "yayınlandı" : "taslak"}
+          <Badge variant={revisionStatusVariant(revision.status)}>
+            {revisionStatusLabel(revision.status)}
           </Badge>
           {isAdmin && revision.status === "issued" && (
             <TemplateToggle
