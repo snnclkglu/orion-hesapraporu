@@ -10,6 +10,7 @@ import { canSeeSales } from "@/lib/roles";
 import { currencyOf } from "@/lib/currency";
 import { EMPTY_SALE, type SaleRow } from "./schema";
 import { SalesTable } from "./sales-table";
+import { PageHeader } from "@/components/page-header";
 
 /** Supabase gömülü ilişkiyi tekil ya da dizi olarak dönebilir; ikisini de karşıla. */
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -121,17 +122,14 @@ export default async function SalesPage() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-          <h1 className="text-xl font-semibold tracking-tight">Satış Takibi</h1>
-          <p className="truncate text-sm text-muted-foreground">
-            İş kalemi başına fiyat, termin ve sevk takibi — ciro avro karşılığıyla toplanır
-          </p>
-        </div>
-        <span className="rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
+      <PageHeader
+        title="Satış Takibi"
+        hint="İş kalemi başına fiyat, termin ve sevk takibi — ciro avro karşılığıyla toplanır"
+      >
+        <span className="shrink-0 border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
           Yönetici · Müdür
         </span>
-      </div>
+      </PageHeader>
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 border bg-card px-6 py-16 text-center">

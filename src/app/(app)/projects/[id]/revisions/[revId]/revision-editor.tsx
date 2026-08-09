@@ -263,7 +263,10 @@ function Field({
                 : "Otomatik hesapla"
             }
             className={cn(
-              "ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[10px] transition-colors",
+              // Dokunmatikte 16px'lik anahtar parmakla tutulmuyordu; farede
+              // etiket satırı ince kalsın diye yükseklik yalnız kaba
+              // işaretleme aygıtında büyür (sözleşme §2).
+              "ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[11px] transition-colors pointer-coarse:min-h-10 pointer-coarse:px-2.5",
               auto.on
                 ? "border-primary/40 bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted",
@@ -295,7 +298,10 @@ function Field({
             }
             disabled={locked}
           >
-            <SelectTrigger id={id} className="h-8 w-full">
+            {/* Yükseklik SelectTrigger'ın kendi `size` değerinden gelir
+                (40px); buradaki eski `h-8` özgüllük yüzünden hiç
+                uygulanmıyordu, dokunmatik payı zaten sağlanıyor. */}
+            <SelectTrigger id={id} className="w-full">
               {/* Madde 30: çap alanlarında değerin başında "Ø" durur */}
               {def.diameter && (
                 <span aria-hidden="true" className="font-mono text-muted-foreground">Ø</span>
@@ -327,7 +333,10 @@ function Field({
           <Input
             id={id}
             className={cn(
-              "h-8 bg-background",
+              // Uygulamanın ANA veri girişi: farede 32px yoğunluk korunur,
+              // parmakta 40px'e çıkar (sözleşme §2). Yazı boyutu ezilmez —
+              // `Input` tabanı dokunmatikte 16px verir (iOS yakınlaştırması).
+              "h-8 bg-background pointer-coarse:h-10",
               def.type === "number" && "font-mono tabular-nums",
               def.diameter && "pl-6",
               auto?.on && "border-primary/30 bg-primary/5"
@@ -392,13 +401,13 @@ function CheckComparison({ check }: { check: AnyCheck }) {
       : `${fmt(conv(d.limit ?? 0).value)}${unit}`;
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-xs tabular-nums">
-      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Hesaplanan</span>
+      <span className="text-[11px] tracking-wide text-muted-foreground uppercase">Hesaplanan</span>
       <span className={cn("font-semibold", check.pass ? "text-success" : "text-destructive")}>
         {fmt(computed.value)}
         {unit}
       </span>
       {d.operator !== "…" && <span className="text-muted-foreground">{d.operator}</span>}
-      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">İzin Verilen</span>
+      <span className="text-[11px] tracking-wide text-muted-foreground uppercase">İzin Verilen</span>
       <span className="text-foreground/80">{limitText}</span>
     </span>
   );
@@ -434,7 +443,7 @@ function CheckOriginBadge({
   return (
     <span
       className={cn(
-        "font-mono text-[10px] whitespace-nowrap text-muted-foreground",
+        "font-mono text-[11px] whitespace-nowrap text-muted-foreground",
         className
       )}
       title="Bu kontrolün dayanağı ve yayına etkisi"
@@ -483,7 +492,8 @@ function HeadlineBadge({
     <span
       title={`${check.label} — ${headline.limitLabel} ${t.limit} / ${headline.computedLabel} ${t.computed}`}
       className={cn(
-        "inline-flex flex-wrap items-baseline gap-x-1.5 border px-2 py-0.5 font-mono text-[10px] tabular-nums",
+        // Sayısal rozet mobilde bir kademe büyür (sözleşme §3)
+        "inline-flex flex-wrap items-baseline gap-x-1.5 border px-2 py-0.5 font-mono text-xs tabular-nums sm:text-[11px]",
         check.pass
           ? "border-success/40 bg-success/10 text-success"
           : "border-destructive/50 bg-destructive/10 text-destructive"
@@ -544,7 +554,7 @@ function HeadlineBand({
               </span>
               <span className="font-medium">{label}</span>
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-[11px] tabular-nums">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
                   {headline.computedLabel}
                 </span>
                 <span
@@ -558,7 +568,7 @@ function HeadlineBand({
                 <span className="text-muted-foreground">
                   {checkDisplay(check).operator}
                 </span>
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
                   {headline.limitLabel}
                 </span>
                 <span className="text-foreground/80">{t.limit}</span>
@@ -631,7 +641,9 @@ function CheckRow({ check, context }: { check: AnyCheck; context?: StandardConte
         {check.pass ? "✓" : "✗"}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">
+        {/* Dar ekranda tek satıra kırpılan kontrol adı okunmuyordu; özet
+            panosunda kırmızı kontrolü bulmanın tek yolu bu metindir. */}
+        <div className="line-clamp-2 font-medium sm:line-clamp-1" title={check.label}>
           {check.label}
           <CheckOriginBadge check={check} className="ml-1 align-middle" />
         </div>
@@ -676,10 +688,12 @@ function CalcRow({
     <div className="grid gap-1 border-b py-2.5 last:border-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="min-w-0 text-sm">{row.label}</span>
-        {/* Hesaplanan değer rolü: salt-okunur, mono zemin — birim boşlukla ayrık */}
+        {/* Hesaplanan değer rolü: salt-okunur, mono zemin — birim boşlukla ayrık.
+            `ml-auto`: etiket uzunsa rozet alt satıra düşer ve `justify-between`
+            onu SOLA yaslıyordu; hiza dar ekranda tamamen bozuluyordu. */}
         <span
           className={cn(
-            "shrink-0 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums",
+            "ml-auto shrink-0 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums",
             rowPass === true && "bg-success/15 text-success",
             rowPass === false && "bg-destructive/15 text-destructive",
             rowPass === null && "bg-muted text-foreground"
@@ -690,7 +704,9 @@ function CalcRow({
         </span>
       </div>
       {row.formula && (
-        <div className="overflow-x-auto rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90">
+        // `oc-scrollx`: mobil tarayıcı kaydırma çubuğu çizmez; uzun formülün
+        // sağa devam ettiğini gösteren tek ipucu kenar gölgesidir (sözleşme §6).
+        <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90 [--oc-scroll-bg:var(--muted)]">
           <MathFormula formula={row.formula} />
         </div>
       )}
@@ -911,6 +927,9 @@ function initModules(initial: CalcInput): ModulesState {
 /** Bölüm rayının dar/geniş tercihi (tarayıcı başına kalıcı). */
 const NAV_COLLAPSE_KEY = "orion.editor.nav.collapsed";
 
+/** Bölüm listesinin kimliği — mobil aç/kapa düğmesi `aria-controls` ile bağlanır. */
+const NAV_LIST_ID = "hesap-bolum-listesi";
+
 /**
  * Durum şeridinin sayfa başlığındaki yuvası.
  *
@@ -930,18 +949,56 @@ export const EDITOR_STATUS_SLOT_ID = "hesap-durum-yuvasi";
  * bulunana kadar hiçbir şey çizilmez, aksi hâlde şerit bir kare editörün
  * içinde belirip sonra başlığa zıplardı.
  */
+function subscribeStatusHost(onChange: () => void) {
+  // Yuva artık SAYFA BAŞLIĞININ İÇİNDE ve başlık da kabuğun şeridine
+  // portallanıyor: hedef ilk boyamada henüz DOM'da OLMAYABİLİR. Efekt sırasına
+  // güvenmek kırılgandı (portal içeriği ikinci geçişte bağlanıyor); yuva doğar
+  // doğmaz haber veren bir gözlemci kullanılır ve bulununca kapanır.
+  if (document.getElementById(EDITOR_STATUS_SLOT_ID)) return () => {};
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById(EDITOR_STATUS_SLOT_ID)) return;
+    observer.disconnect();
+    onChange();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+const getStatusHost = () => document.getElementById(EDITOR_STATUS_SLOT_ID);
+/** Sunucuda DOM yoktur: `undefined` "henüz bilinmiyor" demektir, "yok" değil. */
+const getServerStatusHost = (): HTMLElement | null | undefined => undefined;
+
 function StatusSlot({ children }: { children: React.ReactNode }) {
-  // Hedef ancak istemcide vardır; `useSyncExternalStore` sunucu anlık
-  // görüntüsünü ayrı verdiği için hem hidrasyon uyuşur hem de ilk istemci
-  // boyamasında şerit doğrudan başlığa gider (efektle bir kare gecikmez).
-  const host = useSyncExternalStore(
-    () => () => {},
-    () => document.getElementById(EDITOR_STATUS_SLOT_ID),
-    () => null
-  );
+  const host = useSyncExternalStore(subscribeStatusHost, getStatusHost, getServerStatusHost);
+  if (host === undefined) return null;
   if (host) return createPortal(children, host);
   // Yuvası olmayan bağlam (dev önizleme): şerit yerinde çizilir.
   return <div className="flex justify-end">{children}</div>;
+}
+
+/** Sabit çerçevenin açıldığı genişlik (app-shell `lg` üstünde çerçeve kurar). */
+const DESKTOP_MQ = "(min-width: 1024px)";
+
+/**
+ * Ekran sabit çerçeve genişliğinde mi (≥1024px).
+ *
+ * Editörün iki davranışı doğrudan buna bağlıdır: bölüm rayının DAR kipi ve
+ * bölüm değişiminde neyin başa sarılacağı. lg ALTINDA çerçeve yoktur — ray tam
+ * genişliktedir ve sayfa doğal olarak kayar; genişliği bilmeden ikisi de yanlış
+ * çalışıyordu. Sunucuda genişlik bilinemez: `false` (mobil düzen) varsayılır,
+ * ilk istemci boyaması gerçek değeri okur (hidrasyon uyumlu).
+ */
+// Abonelik ve anlık görüntü fonksiyonları modül düzeyindedir: her boyamada
+// yeni bir işlev üretilseydi React aboneliği baştan kurardı.
+function subscribeDesktop(onChange: () => void) {
+  const mq = window.matchMedia(DESKTOP_MQ);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+const desktopSnapshot = () => window.matchMedia(DESKTOP_MQ).matches;
+const desktopServerSnapshot = () => false;
+
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(subscribeDesktop, desktopSnapshot, desktopServerSnapshot);
 }
 
 export function RevisionEditor({
@@ -993,6 +1050,22 @@ export function RevisionEditor({
    * geniş çizilip animasyonla daralırdı.
    */
   const [navCollapsed, toggleNavCollapsed] = useStoredFlag(NAV_COLLAPSE_KEY);
+  const isDesktop = useIsDesktop();
+  /**
+   * Dar kip YALNIZ masaüstünde geçerlidir. Tercih tarayıcı başına kalıcı
+   * olduğu için masaüstünden telefona taşınıyordu ve orada ray tam genişlikte
+   * olduğundan satırlarda yalnız "2.3" yazıyordu.
+   */
+  const narrowNav = navCollapsed && isDesktop;
+  /**
+   * Bölüm rayı telefonda/tablet portrede KAPALI başlar.
+   *
+   * lg altında ray içeriğin ÜSTÜNDE ve tam genişliktedir: başlık + arama +
+   * liste ≈ 350px, yani kullanıcı her adımda önce bu listeyi geçmek zorunda
+   * kalıyordu. Masaüstünde ray kendi sütunundadır, bu durum orada bir şey
+   * değiştirmez (liste `lg` üstünde her zaman açıktır).
+   */
+  const [navOpenMobile, setNavOpenMobile] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // Kaydedilmemiş değişiklik takibi: kaydedilen state'lerden herhangi biri
@@ -1049,8 +1122,12 @@ export function RevisionEditor({
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
   const STEPS = useMemo(() => buildSteps(present, numbers, specs), [present, numbers, specs]);
   // Bölüm değişince gövde başa sarılır — kayma hissinin ana kaynağı buydu.
+  // `bodyRef` kabı YALNIZ lg üstünde kayar (`lg:overflow-y-auto`); lg altında
+  // kaydırma sayfanındır ve çağrı sessizce ölüyordu: yeni bölüme geçen kullanıcı
+  // sayfanın ortasında/dibinde kalıyordu.
   useEffect(() => {
-    bodyRef.current?.scrollTo({ top: 0 });
+    if (window.matchMedia(DESKTOP_MQ).matches) bodyRef.current?.scrollTo({ top: 0 });
+    else window.scrollTo({ top: 0 });
   }, [stepIndex]);
   /**
    * Bölüm kenar çubuğunda listelenir mi: vinç konfigürasyonu buna izin
@@ -1328,9 +1405,15 @@ export function RevisionEditor({
   }
 
   // ------------------------------------------------------------ renderers
+  /**
+   * Kart iç boşluğu telefonda bir kademe kısılır: 24px'lik yatay boşluk
+   * 375px'lik ekranda hesap satırına 271px bırakıyordu.
+   */
+  const cardSpacing = "[--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]";
+
   function renderSpecs() {
     return (
-      <Card>
+      <Card className={cardSpacing}>
         <CardHeader className="border-b pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
@@ -1400,7 +1483,9 @@ export function RevisionEditor({
                   <label
                     key={k}
                     className={cn(
-                      "inline-flex cursor-pointer items-center gap-2 text-sm",
+                      // Satır ~20px'ti; onay kutusu etiketiyle birlikte tek
+                      // dokunma hedefidir, parmakla tutulabilmesi gerekir.
+                      "inline-flex cursor-pointer items-center gap-2 py-1.5 text-sm pointer-coarse:min-h-10",
                       parentOff && "cursor-not-allowed opacity-45"
                     )}
                     title={
@@ -1505,7 +1590,7 @@ export function RevisionEditor({
     }
 
     return (
-      <Card>
+      <Card className={cardSpacing}>
         <CardHeader className="border-b pb-4">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
@@ -1519,24 +1604,44 @@ export function RevisionEditor({
             <Badge variant="outline" className="font-normal text-muted-foreground">
               {renumberTitle(adapter.title, numbers[key] ?? 0)}
             </Badge>
-            {checks.length > 0 && (
-              <Badge
-                variant={checks.every((c) => c.pass) ? "secondary" : "destructive"}
-                className={cn(
-                  "ml-auto",
-                  checks.every((c) => c.pass) && "border-transparent bg-success/15 text-success"
-                )}
-              >
-                {checks.filter((c) => c.pass).length}/{checks.length} uygun
-              </Badge>
-            )}
+            {/* Sağ grup: bölüm notu düğmesi + kontrol rozeti.
+                Not düğmesi eskiden içeriğin ilk satırındaydı ve HER bölümde bir
+                satır boyu yer yiyordu — üstelik çoğu bölümde hiç kullanılmıyor.
+                Başlık satırında zaten boş duran sağ kenara alındı. */}
+            <span className="ml-auto flex items-center gap-2">
+              {!noteIsEnabled && !readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={enableSectionNote}
+                  title="Bu alt bölüme rapora girecek bir not ekle"
+                  className="h-6 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+                >
+                  + Bölüm Notu
+                </Button>
+              )}
+              {checks.length > 0 && (
+                <Badge
+                  variant={checks.every((c) => c.pass) ? "secondary" : "destructive"}
+                  className={cn(
+                    checks.every((c) => c.pass) &&
+                      "border-transparent bg-success/15 text-success"
+                  )}
+                >
+                  {checks.filter((c) => c.pass).length}/{checks.length} uygun
+                </Badge>
+              )}
+            </span>
           </CardTitle>
           {section.description && (
             <p className="text-sm text-muted-foreground">{section.description}</p>
           )}
         </CardHeader>
         <CardContent className="grid gap-5">
-          {noteIsEnabled ? (
+          {/* Not KUTUSU yalnız not açıkken yer kaplar; "not ekle" düğmesi
+              başlık satırındadır (bkz. CardTitle). */}
+          {noteIsEnabled && (
             <section className="grid gap-2 border border-dashed bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -1559,13 +1664,7 @@ export function RevisionEditor({
                 rows={3}
               />
             </section>
-          ) : !readOnly ? (
-            <div>
-              <Button type="button" variant="outline" size="sm" onClick={enableSectionNote}>
-                + Bölüm Notu Ekle
-              </Button>
-            </div>
-          ) : null}
+          )}
           {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım) */}
           <SectionDiagram
             moduleKey={key}
@@ -1672,7 +1771,7 @@ export function RevisionEditor({
                       Katalog Seçimi
                     </h3>
                     {catalogMapping && (
-                      <span className="border px-1.5 py-px font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <span className="border px-1.5 py-px font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
                         ▾ {catalogKindLabel(catalogMapping.kind)}
                       </span>
                     )}
@@ -1754,7 +1853,10 @@ export function RevisionEditor({
                         <HeadlineBadge key={it.check.id} item={it} headline={headline} />
                       ))}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  {/* Alternatif çipleri SARMALIDIR: kap `Card` `overflow-hidden`
+                      taşıdığı için taşan kısım kaydırılamıyor, KIRPILIYORDU —
+                      "✕ Alternatifi sil" telefonda hiç erişilemiyordu. */}
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {st.options.map((opt, i) => {
                       const isActive = i === st.active;
                       const pass = isActive
@@ -1766,7 +1868,7 @@ export function RevisionEditor({
                           type="button"
                           onClick={() => switchAlt(key, section, i)}
                           className={cn(
-                            "inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors",
+                            "inline-flex min-h-9 items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-10",
                             isActive
                               ? "border-primary bg-primary/10 font-medium text-primary"
                               : "hover:bg-muted"
@@ -1788,7 +1890,7 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => addAlt(key, section)}
-                        className="border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        className="inline-flex min-h-9 items-center border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted pointer-coarse:min-h-10"
                         title="Bu ekipman için alternatif seçim ekle (en fazla 3)"
                       >
                         + Alternatif
@@ -1798,7 +1900,7 @@ export function RevisionEditor({
                       <button
                         type="button"
                         onClick={() => removeAlt(key, section)}
-                        className="border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="inline-flex min-h-9 min-w-9 items-center justify-center border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive pointer-coarse:min-h-10 pointer-coarse:min-w-10"
                         title="Aktif alternatifi sil"
                         aria-label="Alternatifi sil"
                       >
@@ -1869,7 +1971,7 @@ export function RevisionEditor({
     });
     const totalFail = result.allChecks.filter((c) => !c.pass).length;
     return (
-      <Card>
+      <Card className={cardSpacing}>
         <CardHeader className="border-b pb-4">
           <CardTitle className="text-base tracking-tight">Özet · Kontrol Panosu</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -1930,6 +2032,16 @@ export function RevisionEditor({
   }
 
   /**
+   * Bölüme geçiş. Telefonda ray içeriğin ÜSTÜNDE durduğu için seçimden sonra
+   * kapanır; aksi hâlde kullanıcı seçtiği bölümü görmek için listeyi bir kez
+   * daha geçmek zorunda kalırdı. lg üstünde liste zaten hep açıktır.
+   */
+  function goToStep(i: number) {
+    setStepIndex(i);
+    setNavOpenMobile(false);
+  }
+
+  /**
    * Dar kip satırı: yalnız BÖLÜM NUMARASI. Ad `title` ile durur ve kontrolü
    * kalan bölüm çipin köşesindeki kırmızı noktadan anlaşılır — sayaç yazısı bu
    * genişliğe sığmaz, ama "burada bir sorun var" bilgisi kaybolmamalıdır.
@@ -1941,11 +2053,11 @@ export function RevisionEditor({
       <li key={s.key}>
         <button
           type="button"
-          onClick={() => setStepIndex(i)}
+          onClick={() => goToStep(i)}
           title={`${stepChip(s)} · ${stepLabel(s)}`}
           aria-current={i === stepIndex ? "step" : undefined}
           className={cn(
-            "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[10px] tabular-nums transition-colors",
+            "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors pointer-coarse:min-h-10",
             i === stepIndex
               ? "bg-primary/15 font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1974,9 +2086,11 @@ export function RevisionEditor({
       <li key={s.key}>
         <button
           type="button"
-          onClick={() => setStepIndex(i)}
+          onClick={() => goToStep(i)}
+          aria-current={i === stepIndex ? "step" : undefined}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+            // Telefonda bölüm listesi ana dokunma hedefidir (~29px'ti)
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors pointer-coarse:min-h-10",
             i === stepIndex
               ? "bg-primary/10 font-medium text-primary"
               : "text-foreground/80 hover:bg-muted hover:text-foreground"
@@ -1984,17 +2098,17 @@ export function RevisionEditor({
         >
           <span
             className={cn(
-              "inline-flex h-5 min-w-8 shrink-0 items-center justify-center px-1 font-mono text-[10px] tabular-nums",
+              "inline-flex h-5 min-w-8 shrink-0 items-center justify-center px-1 font-mono text-xs tabular-nums sm:text-[11px]",
               i === stepIndex ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
             )}
           >
             {chip}
           </span>
-          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <span className="min-w-0 flex-1 truncate" title={label}>{label}</span>
           {checks.length > 0 && (
             <span
               className={cn(
-                "shrink-0 font-mono text-[10px] tabular-nums",
+                "shrink-0 font-mono text-xs tabular-nums sm:text-[11px]",
                 passN === checks.length ? "text-muted-foreground" : "text-destructive"
               )}
             >
@@ -2039,8 +2153,11 @@ export function RevisionEditor({
           </>
         )}
       </div>
+      {/* Kaydet lg ALTINDA burada değil, sabitlenmiş adım şeridindedir: sayfa
+          başlığı mobilde sticky değil ve bölüm kartı çok uzun — kaydetmek için
+          her seferinde sayfanın en başına dönmek gerekiyordu. */}
       {!readOnly && (
-        <Button onClick={handleSave} disabled={pending} size="sm" className="h-8">
+        <Button onClick={handleSave} disabled={pending} size="sm" className="hidden lg:inline-flex">
           {pending ? "Kaydediliyor..." : "Kaydet"}
         </Button>
       )}
@@ -2064,15 +2181,39 @@ export function RevisionEditor({
         <div
           className={cn(
             "mb-1.5 flex items-center gap-1",
-            navCollapsed ? "justify-center" : "justify-between px-2"
+            narrowNav ? "justify-center" : "justify-between px-2"
           )}
         >
-          {!navCollapsed && (
+          {!narrowNav && (
             <>
-              <span className="oc-kicker text-muted-foreground">Bölümler</span>
+              {/* lg ALTINDA başlık aynı zamanda listenin aç/kapa düğmesidir:
+                  ray orada tam genişlikte ve içeriğin üstündedir, açık liste
+                  her adımda kullanıcıyı bölüm içeriğinden uzaklaştırıyordu.
+                  lg üstünde ray kendi sütunundadır ve düğme etkisizdir. */}
+              <button
+                type="button"
+                onClick={() => setNavOpenMobile((v) => !v)}
+                aria-expanded={navOpenMobile}
+                aria-controls={NAV_LIST_ID}
+                className="flex min-h-9 min-w-0 items-center gap-1.5 text-left transition-colors hover:text-foreground pointer-coarse:min-h-10 lg:pointer-events-none lg:min-h-0"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "shrink-0 font-mono text-[11px] leading-none text-muted-foreground transition-transform lg:hidden",
+                    navOpenMobile && "rotate-90"
+                  )}
+                >
+                  ›
+                </span>
+                <span className="oc-kicker text-muted-foreground">Bölümler</span>
+                <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground lg:hidden">
+                  · {stepChip(step)}
+                </span>
+              </button>
               <span
                 className={cn(
-                  "ml-auto font-mono text-[11px] font-medium tabular-nums",
+                  "ml-auto shrink-0 font-mono text-[11px] font-medium tabular-nums",
                   failCount === 0 ? "text-success" : "text-destructive"
                 )}
               >
@@ -2080,26 +2221,28 @@ export function RevisionEditor({
               </span>
             </>
           )}
+          {/* Dar/geniş kip yalnız sabit çerçevede anlamlıdır; lg altında
+              düğme hiçbir şey yapmayacağı için gösterilmez. */}
           <button
             type="button"
             onClick={toggleNavCollapsed}
             aria-pressed={navCollapsed}
             title={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
             aria-label={navCollapsed ? "Bölüm listesini genişlet" : "Bölüm listesini daralt"}
-            className="shrink-0 rounded p-1 font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="hidden size-6 shrink-0 place-items-center rounded font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground pointer-coarse:size-10 lg:grid"
           >
             {navCollapsed ? "»" : "«"}
           </button>
         </div>
 
         {/* Bölüm arama kutusu — dar kipte yer kaplamaz (ada göre arıyor) */}
-        {!navCollapsed && (
-          <div className="mb-2 shrink-0 px-1">
+        {!narrowNav && (
+          <div className={cn("mb-2 shrink-0 px-1", !navOpenMobile && "hidden lg:block")}>
             <Input
               value={navQuery}
               onChange={(e) => setNavQuery(e.target.value)}
               placeholder="ARA · bölüm adı"
-              className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs"
+              className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs pointer-coarse:h-10"
               aria-label="Bölüm ara"
             />
           </div>
@@ -2107,13 +2250,22 @@ export function RevisionEditor({
 
         {/* Dar kip: gruplar kalkar, adımlar tek sütun numara listesi olur.
             Kapalı modüllerin adımları zaten STEPS'te yoktur. */}
-        {navCollapsed ? (
-          <ol className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 lg:max-h-none lg:flex-1">
+        {narrowNav ? (
+          <ol
+            id={NAV_LIST_ID}
+            className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 lg:max-h-none lg:flex-1"
+          >
             {STEPS.map((s, i) => navChip(s, i))}
           </ol>
         ) : (
-        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar */
-        <ol className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 pr-1 text-sm lg:max-h-none lg:flex-1">
+        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar; lg altında ise
+           yalnız kullanıcı açtığında yer kaplar (bkz. navOpenMobile). */
+        <ol
+          id={NAV_LIST_ID}
+          className={cn(
+            "max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2 pr-1 text-sm lg:max-h-none lg:flex-1",
+            navOpenMobile ? "grid" : "hidden lg:grid"
+          )}>
           {NAV_GROUPS.map((group) => {
             const groupTitleMatch =
               navQ !== "" &&
@@ -2156,7 +2308,7 @@ export function RevisionEditor({
                     onClick={() =>
                       setOpenGroups((g) => ({ ...g, [group.key]: !isOpen }))
                     }
-                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground pointer-coarse:min-h-10 disabled:cursor-default"
                   >
                     <span
                       aria-hidden="true"
@@ -2168,11 +2320,13 @@ export function RevisionEditor({
                     >
                       ▾
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{group.title}</span>
+                    <span className="min-w-0 flex-1 truncate" title={group.title ?? undefined}>
+                      {group.title}
+                    </span>
                     {!isDisabled && withChecks > 0 && (
                       <span
                         className={cn(
-                          "font-mono text-[10px] font-medium normal-case tabular-nums",
+                          "font-mono text-[11px] font-medium normal-case tabular-nums",
                           anyFail
                             ? "text-destructive"
                             : passed === withChecks
@@ -2184,7 +2338,7 @@ export function RevisionEditor({
                       </span>
                     )}
                     {isDisabled && (
-                      <span className="font-mono text-[10px] normal-case text-muted-foreground">
+                      <span className="font-mono text-[11px] normal-case text-muted-foreground">
                         kapalı
                       </span>
                     )}
@@ -2193,7 +2347,7 @@ export function RevisionEditor({
                       Yuva ZORUNLU bölümlerde de ayrılır: aksi hâlde sayaçlar
                       satırdan satıra 24px kayıyor ve liste hizasız görünüyordu. */}
                   {!(group.optional && group.moduleKey) && (
-                    <span aria-hidden className="size-6 shrink-0" />
+                    <span aria-hidden className="size-6 shrink-0 pointer-coarse:size-10" />
                   )}
                   {group.optional && group.moduleKey && (
                     <button
@@ -2212,7 +2366,7 @@ export function RevisionEditor({
                       }
                       aria-pressed={!isDisabled}
                       className={cn(
-                        "grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors",
+                        "grid size-6 shrink-0 place-items-center rounded font-mono text-[11px] transition-colors pointer-coarse:size-10",
                         isDisabled
                           ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                           : "text-primary/70 hover:bg-muted hover:text-foreground",
@@ -2246,9 +2400,14 @@ export function RevisionEditor({
           {step.kind === "summary" && renderSummary()}
         </div>
 
-        {/* Adım şeridi — çerçevenin alt kenarı, kaymaz */}
-        <div className="shrink-0 rounded-lg border bg-card px-4 py-2.5">
-          <div className="flex items-center gap-3">
+        {/* Adım şeridi — lg üstünde çerçevenin alt kenarıdır. lg ALTINDA çerçeve
+            yoktur: şerit uzun bölüm kartının en dibinde kalıyor ve her geçişte
+            sayfanın sonuna kaydırmak gerekiyordu; orada ekranın altına
+            SABİTLENİR. */}
+        <div className="sticky bottom-0 z-20 shrink-0 rounded-lg border bg-card px-3 py-2 sm:px-4 sm:py-2.5 lg:static">
+          {/* Telefonda üç düğme + ilerleme tek satıra sığmıyor (bölüm adına
+              ~30px kalıyordu): bilgi satırı üste, düğmeler alta iner. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <Button
               variant="outline"
               size="sm"
@@ -2261,14 +2420,19 @@ export function RevisionEditor({
 
             {/* İlerleme + bulunulan bölüm: eskiden üstteki durum çubuğundaydı,
                 şimdi adım bilgisiyle aynı yerde duruyor. */}
-            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="order-first flex min-w-0 grow basis-full items-center gap-2.5 sm:order-none sm:basis-0">
               <div className="h-1 min-w-8 flex-1 overflow-hidden bg-muted">
                 <div
                   className="h-full bg-primary transition-[width] duration-300"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              <span className="hidden max-w-[50%] shrink truncate font-mono text-[11px] tabular-nums text-muted-foreground sm:inline">
+              {/* Bulunulan bölüm 640px altında da GÖRÜNÜR: kullanıcının hangi
+                  adımda olduğunu gösteren tek yazı budur (ray mobilde kapalı). */}
+              <span
+                className="max-w-[60%] shrink truncate font-mono text-[11px] tabular-nums text-muted-foreground"
+                title={`${stepIndex + 1}/${STEPS.length} · ${step.title}`}
+              >
                 {stepIndex + 1}/{STEPS.length} · {step.title}
               </span>
               {step.kind === "module" && stepChecks.length > 0 && (
@@ -2287,6 +2451,20 @@ export function RevisionEditor({
                 motor v{result.engineVersion}
               </span>
             </div>
+
+            {/* Kaydet yalnız lg ALTINDA burada: sayfa başlığı mobilde sticky
+                değil, sabit şerit ise her zaman elin altındadır. */}
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSave}
+                disabled={pending}
+                className="lg:hidden"
+              >
+                {pending ? "Kaydediliyor..." : "Kaydet"}
+              </Button>
+            )}
 
             <Button
               size="sm"

@@ -4,6 +4,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "./admin-nav";
+import { PageHeader } from "@/components/page-header";
 
 export default async function AdminLayout({
   children,
@@ -23,13 +24,12 @@ export default async function AdminLayout({
 
   return (
     <div className="grid gap-4">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-        <h1 className="text-xl font-semibold tracking-tight">Yönetim</h1>
-        <p className="truncate text-sm text-muted-foreground">
-          Kullanıcılar, kataloglar ve rapor ayarları
-        </p>
-      </div>
-      <div className="grid gap-6 md:grid-cols-[200px_1fr]">
+      <PageHeader title="Yönetim" hint="Kullanıcılar, kataloglar ve rapor ayarları" />
+      {/* Yönetim rayı YALNIZ `lg` üstünde sütun olur: 768–1023px'te uygulama
+          kabuğunun kendi menüsü zaten gizli, ikinci bir 200px'lik dikey ray
+          tabletin içerik alanının üçte birini yiyordu. Altında ray yatay
+          şerittir (bkz. admin-nav.tsx). */}
+      <div className="grid gap-4 lg:grid-cols-[200px_1fr] lg:gap-6">
         <AdminNav />
         <div className="min-w-0">{children}</div>
       </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
 import { EDITOR_STATUS_SLOT_ID, RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
 import { ReportMenu } from "./report-menu";
@@ -57,31 +58,37 @@ export default async function RevisionPage({
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
     // kendi içinde kayar (sayfa gövdesi kaymaz).
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex shrink-0 items-center justify-between">
-        <div>
-          <div className="text-sm text-muted-foreground">
+      {/* Başlık ve eylemler kabuğun üst şeridine taşındı: editör ekranında
+          çalışma alanı kutsaldır ve bir başlık satırı burada en pahalı
+          yerdedir. Kırıntı yolu (Projeler / 0055 / V1) başlığın önünde,
+          yalnız geniş ekranda görünür. */}
+      <PageHeader
+        kicker={
+          <span className="flex items-center gap-1">
             <Link href="/projects" className="hover:underline">Projeler</Link>
-            {" / "}
+            <span aria-hidden>/</span>
             <Link href={`/projects/${id}`} className="hover:underline">
               {project?.doc_no}
             </Link>
-            {" / "}
-            <span className="font-mono">V{revision.rev_no}</span>
-          </div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight">
+            <span aria-hidden>/</span>
+            <span>V{revision.rev_no}</span>
+          </span>
+        }
+        title={
+          <>
             {project?.name}{" "}
-            <span className="text-muted-foreground font-normal">— {project?.customer}</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
+            <span className="font-normal text-muted-foreground">— {project?.customer}</span>
+          </>
+        }
+      >
           {/* Kontrol özeti + Kaydet buraya, PDF Rapor'un SOLUNA gelir; editör
               onları bu yuvaya portalla taşır (bkz. EDITOR_STATUS_SLOT_ID).
               Böylece çalışma alanı üstteki durum kartından kurtulur. */}
-          <div id={EDITOR_STATUS_SLOT_ID} className="flex items-center gap-2" />
+          <div id={EDITOR_STATUS_SLOT_ID} className="flex flex-wrap items-center gap-2" />
           <ReportMenu projectId={id} revisionId={revision.id} />
           <a
             href={`/projects/${id}/revisions/${revision.id}/equipment`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
             title="Ekipman listesi panelini aç (tablo görünümü + Excel/PDF indirme)"
           >
             <FileSpreadsheet className="size-3.5 text-muted-foreground" />
@@ -112,8 +119,7 @@ export default async function RevisionPage({
               }
             />
           )}
-        </div>
-      </div>
+      </PageHeader>
 
       <RevisionEditor
         projectId={id}

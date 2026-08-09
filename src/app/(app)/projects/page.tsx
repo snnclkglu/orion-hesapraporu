@@ -14,6 +14,7 @@ import { NewProjectDialog, type JobItemOption } from "./new-project-dialog";
 import { ProjectRowActions } from "./project-actions";
 import { getReportSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 function StatCard({
   label,
@@ -36,7 +37,12 @@ function StatCard({
         <div className="mt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight">
           {value}
         </div>
-        {hint && <div className="mt-0.5 truncate text-[11px] text-foreground/70">{hint}</div>}
+        {/* `truncate` kırptığında tam metnin görünebileceği tek yer ipucudur. */}
+        {hint && (
+          <div className="mt-0.5 truncate text-[11px] text-foreground/70" title={hint}>
+            {hint}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -86,15 +92,9 @@ export default async function ProjectsPage() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-          <h1 className="text-xl font-semibold tracking-tight">Projeler</h1>
-          <p className="truncate text-sm text-muted-foreground">
-            Hesap raporu projeleri ve revizyon arşivi
-          </p>
-        </div>
+      <PageHeader title="Projeler" hint="Hesap raporu projeleri ve revizyon arşivi">
         <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
-      </div>
+      </PageHeader>
 
       {/* İstatistik kartları */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -145,13 +145,18 @@ export default async function ProjectsPage() {
         <div className="overflow-hidden rounded-lg border bg-card">
           <Table>
             <TableHeader>
+              {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
+                  (~341px) bir buçuk katıydı ve sağdaki Durum/İşlem hiç
+                  görünmüyordu. Mobilde yalnız Doküman No · Proje · Durum ·
+                  İşlem kalır; gizlenenlerin kritik olanları proje adının
+                  altına iner (aşağıdaki md:hidden satır). */}
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>İş No</TableHead>
+                <TableHead className="hidden md:table-cell">İş No</TableHead>
                 <TableHead>Doküman No</TableHead>
                 <TableHead>Proje</TableHead>
-                <TableHead>Müşteri</TableHead>
-                <TableHead>Vinç Tipi</TableHead>
-                <TableHead>Son Revizyon</TableHead>
+                <TableHead className="hidden md:table-cell">Müşteri</TableHead>
+                <TableHead className="hidden lg:table-cell">Vinç Tipi</TableHead>
+                <TableHead className="hidden md:table-cell">Son Revizyon</TableHead>
                 <TableHead>Durum</TableHead>
                 <TableHead className="w-12 text-right">İşlem</TableHead>
               </TableRow>
@@ -162,11 +167,11 @@ export default async function ProjectsPage() {
                 const jobNo = (p.jobs as unknown as { job_no: string } | null)?.job_no;
                 return (
                   <TableRow key={p.id} className="relative cursor-pointer">
-                    <TableCell className="font-mono text-sm text-muted-foreground">
+                    <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">
                       {jobNo && p.job_id ? (
                         <Link
                           href={`/jobs/${p.job_id}`}
-                          className="relative z-10 text-primary hover:underline"
+                          className="relative z-10 inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
                         >
                           {jobNo}
                         </Link>
@@ -179,10 +184,40 @@ export default async function ProjectsPage() {
                         {p.doc_no}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.customer}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.crane_type}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium whitespace-normal">
+                      {p.name}
+                      {/* Mobilde gizlenen sütunların kritik olanları — kart
+                          markup'ı çoğaltmadan, aynı hücrenin ikinci satırı. */}
+                      <div className="mt-0.5 text-[11px] font-normal whitespace-normal text-muted-foreground md:hidden">
+                        {/* İş no BURADA DA BAĞLANTIDIR: sütunu gizlemek bilgiyi
+                            korur ama iş emrine geçişi telefonda tümüyle
+                            kaybettiriyordu. `relative z-10` satırın tamamını
+                            kaplayan proje bağlantısının üstünde kalmasını
+                            sağlar (aksi hâlde dokunuş projeye giderdi). */}
+                        {jobNo && p.job_id ? (
+                          <>
+                            <Link
+                              href={`/jobs/${p.job_id}`}
+                              className="relative z-10 font-mono text-primary hover:underline"
+                            >
+                              {jobNo}
+                            </Link>
+                            {" · "}
+                          </>
+                        ) : null}
+                        {p.customer}
+                        {lastRev
+                          ? ` · V${lastRev.rev_no} ${lastRev.status === "issued" ? "Yayınlandı" : "Taslak"}`
+                          : ""}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">
+                      {p.customer}
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+                      {p.crane_type}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {lastRev ? (
                         <span className="inline-flex items-center gap-1.5 text-sm">
                           <span className="font-mono">V{lastRev.rev_no}</span>

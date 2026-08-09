@@ -588,3 +588,40 @@ kovalandı: dosya adı standardizasyonu çıktı adını `0055-HR-001-V5-ozet.pd
 `0055-01-V5-ozet.pdf` yapmıştı ve ölçüm betiği eski dosyayı okuyordu. Kapaktaki
 "boşluk kapanmıyor" izlenimi tamamen bundandı; `.test-output/` ölçülmeden önce
 temizlenmeli ya da dosya adı üretim çıktısından okunmalıdır.
+
+## Faz U — Başlık üst şeride taşındı (2026-08-09)
+
+Sinan: *"üst şeritteki FEM 1.001 DIN 15018 CMAA 70 yazısını kaldır. başlık ve
+butonları da üste taşı. Tüm sayfalarda bölümlerde bu yapıya git."*
+
+Her sayfa iki bant harcıyordu: kabuğun 48 px'lik üst şeridi (içinde yalnız
+bölüm adı + standart künyesi) ve sayfanın kendi başlık satırı (~64 px, başlık +
+açıklama + eylem düğmeleri). İkisi de aynı şeyi söylüyordu.
+
+- [x] **Standart künyesi kaldırıldı.** Uygulama artık yalnız hesap raporu
+      değil; künye beş bölümün üçünde konu dışıydı. Standart referansları asıl
+      yerlerinde duruyor — hesap satırlarındaki tıklanabilir FEM/DIN/CMAA
+      rozetlerinde (`standards/registry.ts`).
+- [x] **`components/page-header.tsx`** — `PageHeader` başlığı, açıklamayı ve
+      eylemleri kabuğun şeridine PORTALLA taşır (`APP_HEADER_SLOT_ID`).
+      Yuvası olmayan bağlamda (dev önizleme) başlık yerinde çizilir.
+- [x] **Uygulanan sayfalar:** Projeler · İşler · Satış Takibi · Yönetim ·
+      İş Takibi (bölüm kabuğu) · revizyon editörü (kırıntı yolu + başlık +
+      Kaydet/PDF/Ekipman/Yayınla). Kabuk önizlemesi de aynı düzeni gösterir.
+- [x] Bölüm adı geniş ekranda GİZLENİR (`lg:hidden`): başlık zaten bölüm adını
+      içeriyor, ikisi yan yana aynı kelimeyi iki kez okutuyordu. Telefonda yuva
+      çoğu zaman yalnız düğmeleri taşır, orada bölüm adı tek kimliktir.
+
+### Portal sıralaması — sessiz tuzak ve çözümü
+
+Editörün durum şeridi (kontrol özeti + Kaydet) kendi yuvasına portallanıyor ve
+o yuva ARTIK sayfa başlığının içinde, yani başlığın kendi portalının içinde.
+React önce bütün ağacı boyar, sonra DOM'a işler: editör kendi yuvasını
+ararken başlık portalı henüz DOM'a girmemiş oluyor ve şerit sessizce editörün
+içinde kalıyordu. Efekt sırasına güvenmek kırılgandı.
+
+İki yuva da artık DOM'a ABONE: `useSyncExternalStore` + hedef doğana kadar
+dinleyen bir `MutationObserver`. Gözlemci hedefi bulur bulmaz KAPANIR, sürekli
+maliyet kalmaz; kabuk yuvasını sunucuda bastığı için normal sayfalarda gözlemci
+hiç kurulmaz bile. Sunucu anlık görüntüsü `undefined`dır ("henüz bilinmiyor"),
+`null` değil — böylece başlık bir kare sayfanın içinde belirip şeride zıplamaz.

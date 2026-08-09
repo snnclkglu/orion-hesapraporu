@@ -20,3 +20,14 @@ export const APP_TITLE = `${COMPANY_NAME} — ${APP_NAME}`;
 /** Sekme açıklaması ve giriş sayfasının tek cümlesi. */
 export const APP_TAGLINE =
   "Vinç işlerinin tek yerden takibi: iş emri, mühendislik, imalat ve satış.";
+
+/**
+ * Kabuğun üst şeridindeki SAYFA BAŞLIĞI YUVASI.
+ *
+ * Sayfa başlığı, açıklaması ve eylem düğmeleri kendi satırlarında değil bu
+ * yuvada durur (`components/page-header.tsx` portalla taşır). Gerekçe yer:
+ * üst şerit zaten her sayfada 48 px yer kaplıyordu ve içinde yalnız bölüm adı
+ * ile bir standart künyesi vardı; başlık satırı ise ayrıca ~64 px alıyordu.
+ * İkisi birleşince her sayfada bir başlık satırı boyu içerik kazanılır.
+ */
+export const APP_HEADER_SLOT_ID = "sayfa-baslik-yuvasi";

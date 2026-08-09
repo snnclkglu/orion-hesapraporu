@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { jobStatusOf } from "@/lib/job-status";
 import { JobsTable, type JobRow } from "./jobs-table";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 
 /** Supabase gömülü ilişkiyi tekil ya da dizi olarak dönebilir; ikisini de karşıla. */
 function one<T>(v: unknown): T | null {
@@ -40,7 +41,11 @@ function StatCard({
         <div className="mt-0.5 font-mono text-xl font-semibold tabular-nums tracking-tight">
           {value}
         </div>
-        {hint && <div className="mt-0.5 truncate text-[11px] text-foreground/70">{hint}</div>}
+        {hint && (
+          <div className="mt-0.5 truncate text-[11px] text-foreground/70" title={hint}>
+            {hint}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -101,15 +106,9 @@ export default async function JobsPage() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-          <h1 className="text-xl font-semibold tracking-tight">İşler</h1>
-          <p className="truncate text-sm text-muted-foreground">
-            İş emirleri ve içerdikleri vinçler
-          </p>
-        </div>
+      <PageHeader title="İşler" hint="İş emirleri ve içerdikleri vinçler">
         <NewJobButton />
-      </div>
+      </PageHeader>
 
       {/* İstatistik kartları */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

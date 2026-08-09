@@ -180,20 +180,17 @@ export default function WorkLogPreviewPage() {
     // Üst bant GERÇEK bölüm kabuğunun birebir aynısıdır (worklog/layout.tsx):
     // önizlemenin işe yaraması için sıkıştırılmış başlık düzeni de burada
     // görülebilmeli.
-    <div className="mx-auto grid max-w-[1500px] gap-3 px-6 py-6">
+    // Kenar boşluğu da kabuğun gerçek değerlerini izler (`app-shell.tsx`
+    // `main`): sabit `px-6` dar ekranda gerçekte olmayan 12px'lik bir pay
+    // ekliyor ve önizlemeyi olduğundan geniş gösteriyordu.
+    <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <h1 className="text-xl font-semibold tracking-tight">İş Takibi</h1>
-        <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+        <p className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
           Atölyede hangi gün hangi işe kaç kişi çalıştı — adam·saat kaydı ve analizi
         </p>
       </div>
-      <WorkLogNav
-        badge={
-          <span className="shrink-0 border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
-            Yönetici · Müdür
-          </span>
-        }
-      />
+      <WorkLogNav />
 
       <Section title="Günlük Giriş">
         <DayEntry
