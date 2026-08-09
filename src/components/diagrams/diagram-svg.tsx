@@ -73,13 +73,36 @@ function renderEl(el: DiagramEl, i: number) {
   }
 }
 
+/**
+ * Diyagram DOĞAL ÖLÇEĞİNDE çizilir; kap darsa KÜÇÜLMEZ, kaydırılır.
+ *
+ * Eskiden yalnız `width: 100%` + `maxWidth` vardı: geniş ekranda diyagram
+ * tuval genişliğine oturuyor, DAR ekranda ise sessizce küçülüyordu. Kabındaki
+ * `overflow-x-auto` bu yüzden hiç tetiklenmiyordu — kod yorumu yatay kaydırma
+ * vaat ediyor ama davranış küçültmeydi.
+ *
+ * Küçülmenin bedeli okunurluk: ölçü yazıları 7–9,5 tuval biriminde çizilir,
+ * yani 700 birimlik bir diyagram 325px'lik telefon sütununa sığdırıldığında
+ * 8,5 birimlik kot ~3,9 px'e iner; 900 birimlik kamber şeridi 3,1 px. Bu
+ * diyagramlar PDF'e giden modelin ta kendisidir — mühendis ekranda gördüğünü
+ * doğrulayamıyordu.
+ *
+ * `minWidth` = tuval genişliği: yazılar her cihazda masaüstündeki boyutta
+ * kalır, dar ekran farkı kaydırmayla kapatır.
+ */
 export function DiagramSvg({ diagram, className }: { diagram: Diagram; className?: string }) {
   return (
     <svg
       viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
       role="img"
       className={className}
-      style={{ width: "100%", height: "auto", maxWidth: diagram.width, display: "block" }}
+      style={{
+        width: "100%",
+        height: "auto",
+        minWidth: diagram.width,
+        maxWidth: diagram.width,
+        display: "block",
+      }}
     >
       {diagram.els.map(renderEl)}
     </svg>

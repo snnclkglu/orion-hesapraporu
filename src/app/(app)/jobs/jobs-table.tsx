@@ -120,11 +120,14 @@ function SortHead({
       className={className}
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
     >
+      {/* Düğme hücrenin TAMAMINI kaplar: yalnız yazının yüksekliğinde (~21px)
+          olduğu sürece parmakla sıralama değiştirmek neredeyse imkânsızdı.
+          Negatif kenar boşluğu başlığın kendi iç boşluğunu geri alır. */}
       <button
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "-mx-1 flex w-full items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-foreground",
+          "-mx-2 flex h-10 w-full items-center gap-1 rounded px-2 transition-colors hover:text-foreground",
           align === "right" && "justify-end",
           active ? "text-foreground" : "text-muted-foreground"
         )}
@@ -198,7 +201,10 @@ function JobRowActions({ job, canDelete }: { job: JobRow; canDelete: boolean }) 
     <div className="relative z-10 flex justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="size-8 p-0">
+          {/* `icon-sm` boyu dokunmatikte kendiliğinden 40px'e çıkar; elle
+              yazılan `size-8` bu payı eziyor ve ıskalanan dokunuş satır
+              bağlantısına düşüyordu. */}
+          <Button variant="ghost" size="icon-sm">
             <MoreHorizontal className="size-4" />
             <span className="sr-only">Satır Eylemleri</span>
           </Button>
@@ -316,65 +322,81 @@ export function JobsTable({
 
   return (
     <div className="grid gap-3">
-      {/* Hızlı filtreler */}
+      {/* Hızlı filtreler.
+          Sabit genişlikli üç tetikleyici (120+190+150) telefonda yan yana
+          sığmadığı için şerit 360px'te beş-altı satıra yayılıyordu; mobilde
+          ikişerli ızgaraya girerler ve "Filtre" başlığı tek başına bir satır
+          yemesin diye yalnız geniş ekranda görünür. */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
-        <span className="oc-kicker mr-1 text-muted-foreground">Filtre</span>
+        <span className="oc-kicker mr-1 hidden text-muted-foreground sm:inline">Filtre</span>
 
-        <Select value={year} onValueChange={setYear}>
-          <SelectTrigger size="sm" className="w-[120px]">
-            <SelectValue placeholder="Yıl" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Tüm yıllar</SelectItem>
-            {years.map((y) => (
-              <SelectItem key={y} value={y}>{y}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+          <Select value={year} onValueChange={setYear}>
+            <SelectTrigger size="sm" className="w-full sm:w-[120px]">
+              <SelectValue placeholder="Yıl" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Tüm yıllar</SelectItem>
+              {years.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={customer} onValueChange={setCustomer}>
-          <SelectTrigger size="sm" className="w-[190px]">
-            <SelectValue placeholder="Müşteri" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
-            {customers.map((c) => (
-              <SelectItem key={c.name} value={c.name}>
-                <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={customer} onValueChange={setCustomer}>
+            <SelectTrigger size="sm" className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Müşteri" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
+              {customers.map((c) => (
+                <SelectItem key={c.name} value={c.name}>
+                  <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger size="sm" className="w-[150px]">
-            <SelectValue placeholder="Durum" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Tüm durumlar</SelectItem>
-            {JOB_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{JOB_STATUS_LABELS[s]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger size="sm" className="col-span-2 w-full sm:w-[150px]">
+              <SelectValue placeholder="Durum" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Tüm durumlar</SelectItem>
+              {JOB_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{JOB_STATUS_LABELS[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="İş no, ad veya müşteri ara…"
-          className="h-8 w-full flex-1 sm:w-auto sm:min-w-[200px]"
+          className="h-10 w-full flex-1 sm:h-8 sm:w-auto sm:min-w-[200px] sm:pointer-coarse:h-10"
         />
 
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {filtered.length} / {jobs.length}
-        </span>
-        {activeFilters > 0 && (
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
-            <X className="size-3.5" /> Temizle
-          </Button>
-        )}
+        {/* Sayaç ve "Temizle" mobilde satırın iki ucuna yayılır; sağa itilmiş
+            küçük bir çift olarak kalsalar dokunulacak yer bulunmuyordu. */}
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto">
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {filtered.length} / {jobs.length}
+          </span>
+          {activeFilters > 0 && (
+            <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={clearFilters}>
+              <X className="size-3.5" /> Temizle
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütun 375px'te tabloyu kabın 2,3 katına
+          çıkarıyordu. Telefonda yalnız İş No · İşin Adı · Durum · İşlem kalır;
+          müşteri ve tarih "İşin Adı" hücresinin altına ikinci satır olarak
+          iner (aşağıdaki `md:hidden` blok), kalem/rapor sayaçları ise ancak
+          `lg`de geri gelir. Gizleme HEM başlıkta HEM hücrede yapılır, yoksa
+          sütunlar kayar. */}
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -384,11 +406,11 @@ export function JobsTable({
                   { label: "İş No", key: "job_no", className: "w-[7rem]" },
                   { label: "İşin Adı", key: "title" },
                   // Kısaltma sütunu artık dar: kazanılan yer "İşin Adı"na gider.
-                  { label: "Müşteri", key: "customer", className: "w-[11rem]" },
-                  { label: "Kalem", key: "itemCount", className: "w-[5.5rem]" },
-                  { label: "Rapor", key: "craneCount", className: "w-[5.5rem]" },
-                  { label: "Tarih", key: "date", className: "w-[7.5rem]" },
-                  { label: "Durum", key: "status", className: "w-[10rem]" },
+                  { label: "Müşteri", key: "customer", className: "hidden w-[11rem] md:table-cell" },
+                  { label: "Kalem", key: "itemCount", className: "hidden w-[5.5rem] lg:table-cell" },
+                  { label: "Rapor", key: "craneCount", className: "hidden w-[5.5rem] lg:table-cell" },
+                  { label: "Tarih", key: "date", className: "hidden w-[7.5rem] md:table-cell" },
+                  { label: "Durum", key: "status", className: "md:w-[10rem]" },
                 ] as const
               ).map((c) => (
                 <SortHead
@@ -419,8 +441,20 @@ export function JobsTable({
                       {j.job_no}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-medium">{j.title}</TableCell>
-                  <TableCell>
+                  {/* `whitespace-normal` tablo hücresinin nowrap varsayılanını
+                      ezer: telefonda dar kalan bu sütunda uzun iş adı satırı
+                      taşırmak yerine sarmalıdır. */}
+                  <TableCell className="font-medium whitespace-normal">
+                    {j.title}
+                    {/* Gizlenen müşteri + tarih sütunlarının mobil karşılığı —
+                        kart markup'ı çoğaltılmadan tek kaynaktan. */}
+                    <div className="mt-0.5 font-normal text-[11px] text-muted-foreground md:hidden">
+                      {customerTag({ name: j.customer, shortName: j.customerShort }).short}
+                      {" · "}
+                      {fmtDate(j.work_order_date || j.created_at)}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {/* Satırın tamamı bir link (after:absolute inset-0); etiket
                         onun ÜSTÜNDE kalmalı ki başlık (tam unvan) okunabilsin. */}
                     <span className="relative z-10">
@@ -431,16 +465,18 @@ export function JobsTable({
                       />
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono tabular-nums">{j.itemCount}</TableCell>
+                  <TableCell className="hidden font-mono tabular-nums lg:table-cell">
+                    {j.itemCount}
+                  </TableCell>
                   <TableCell
                     className={cn(
-                      "font-mono tabular-nums",
+                      "hidden font-mono tabular-nums lg:table-cell",
                       j.craneCount === 0 && "text-muted-foreground/60"
                     )}
                   >
                     {j.craneCount}
                   </TableCell>
-                  <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
+                  <TableCell className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
                     {fmtDate(j.work_order_date || j.created_at)}
                   </TableCell>
                   <TableCell>

@@ -29,9 +29,16 @@ export function CustomerTag({
     <span
       title={tag.full}
       style={tagStyle(tag.hue)}
-      className={cn("oc-tag max-w-full truncate px-1.5 py-0.5 text-xs font-medium", className)}
+      className={cn("oc-tag max-w-full px-1.5 py-0.5 text-xs font-medium", className)}
     >
-      {tag.short}
+      {/*
+        KIRPMA İÇ SPAN'DEDİR. `.oc-tag` bir `inline-flex` kutusudur ve
+        `text-overflow` flex kapsayıcısının anonim metin öğesine UYGULANMAZ:
+        dıştaki `truncate` üç nokta üretmiyor, adı sertçe kesiyordu — üstelik
+        bu yalnız dar ekranda, yani kırpmanın gerçekten olduğu yerde ortaya
+        çıkıyor ve kullanıcı adın eksik olduğunu anlamıyordu.
+      */}
+      <span className="truncate">{tag.short}</span>
     </span>
   );
 }
@@ -44,9 +51,10 @@ export function ScopeTag({ scope, className }: { scope: string; className?: stri
     <span
       title={text}
       style={tagStyle(scopeHue(text))}
-      className={cn("oc-tag max-w-full truncate px-1.5 py-0.5 text-xs", className)}
+      className={cn("oc-tag max-w-full px-1.5 py-0.5 text-xs", className)}
     >
-      {scopeLabel(text)}
+      {/* Kırpma iç span'dedir — gerekçe `CustomerTag`te */}
+      <span className="truncate">{scopeLabel(text)}</span>
     </span>
   );
 }

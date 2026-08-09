@@ -47,7 +47,10 @@ export interface CustomerAdminRow {
 function HuePicker({ value, onChange }: { value: number; onChange: (hue: number) => void }) {
   const hues = Array.from({ length: 24 }, (_, i) => i * 15);
   return (
-    <div className="flex flex-wrap gap-1">
+    // 28px'lik kutular 4px aralıkla parmakla ayırt edilemiyordu: yanlış ton
+    // seçmek bir dokunuş meselesiydi. Ham `<button>` olduğu için dokunma payı
+    // burada elle verilir (Button/Select tabanı ortak katmanda düzeltildi).
+    <div className="flex flex-wrap gap-1.5">
       {hues.map((h) => (
         <button
           key={h}
@@ -58,7 +61,7 @@ function HuePicker({ value, onChange }: { value: number; onChange: (hue: number)
           title={`Ton ${h}°`}
           style={tagStyle(h)}
           className={
-            "oc-tag size-7 justify-center " +
+            "oc-tag size-9 justify-center pointer-coarse:size-10 " +
             (normalizeHue(value) === h ? "ring-2 ring-foreground/60" : "hover:opacity-80")
           }
         >
@@ -112,7 +115,11 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
+      {/* Dikey kaydırma ve yükseklik sınırı artık `DialogContent` tabanından
+          gelir. Genişlik `min(...)` ile verilir: düz `sm:max-w-2xl` (672px)
+          640px'lik pencerede taban `max-w-[calc(100%-1.5rem)]` sınırını ezip
+          ekranı taşırıyordu. */}
+      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Müşteri Kaydı</DialogTitle>
           <DialogDescription>
@@ -286,35 +293,52 @@ export function CustomerRow({ row }: { row: CustomerAdminRow }) {
         <TableCell>
           <CustomerTag name={row.name} shortName={row.short_name} hue={row.color_hue} />
         </TableCell>
-        <TableCell className="font-medium whitespace-normal">{row.name}</TableCell>
-        <TableCell className="text-sm whitespace-normal text-muted-foreground">
+        <TableCell className="font-medium whitespace-normal">
+          {row.name}
+          {/* Dar ekranda gizlenen üç sütunun özeti — sütun kaybolduğunda bilgi
+              de kaybolmasın (sözleşme §6.2). */}
+          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
+            {[
+              row.tax_office || row.tax_no ? `${row.tax_office} ${row.tax_no}`.trim() : null,
+              row.phone || null,
+              `${row.jobCount} iş`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+        </TableCell>
+        <TableCell className="hidden text-sm whitespace-normal text-muted-foreground md:table-cell">
           {row.tax_office || row.tax_no ? `${row.tax_office} ${row.tax_no}`.trim() : "—"}
         </TableCell>
-        <TableCell className="text-sm text-muted-foreground">{row.phone || "—"}</TableCell>
-        <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
+        <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+          {row.phone || "—"}
+        </TableCell>
+        <TableCell className="hidden text-right font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
           {row.jobCount}
         </TableCell>
         <TableCell>
-          <div className="flex justify-end gap-1">
+          {/* Yıkıcı ve yıkıcı olmayan eylem yan yana duruyor: `gap-1` (4px)
+              parmakla yanlış düğmeye basmayı kolaylaştırıyordu. Boy ortak
+              katmanın `icon-sm` varyantından gelir (dokunmatikte 40px). */}
+          <div className="flex justify-end gap-2">
             <Button
-              size="sm"
+              size="icon-sm"
               variant="ghost"
-              className="size-8 p-0"
               onClick={() => setEditing(true)}
               aria-label="Düzenle"
               title="Düzenle"
             >
-              <Pencil className="size-3.5" />
+              <Pencil />
             </Button>
             <Button
-              size="sm"
+              size="icon-sm"
               variant="ghost"
-              className="size-8 p-0 text-destructive"
+              className="text-destructive"
               onClick={() => setConfirming(true)}
               aria-label="Sil"
               title="Sil"
             >
-              <Trash2 className="size-3.5" />
+              <Trash2 />
             </Button>
           </div>
         </TableCell>

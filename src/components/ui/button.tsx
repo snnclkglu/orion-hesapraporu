@@ -22,16 +22,26 @@ const buttonVariants = cva(
       },
       size: {
         // Marka kontrol yükseklikleri: md 40px, lg 48px (--control-h-*)
+        //
+        // DOKUNMATİK PAYI — `pointer-coarse:` ile verilir, kırılımla DEĞİL.
+        // Küçük boylar (xs/sm/icon-sm) masaüstünde bilinçli bir yoğunluk
+        // tercihidir: fare imleci 1px hedefi tutar. Parmak tutmaz — WCAG 2.5.8
+        // en az 24px, kullanılabilirlik araştırması 40–44px ister ve 32px'lik
+        // ikon düğmeleri tabloda satır bağlantısının üstünde durduğu için
+        // ıskalanan her dokunuş kullanıcıyı istemediği sayfaya götürüyordu.
+        // Kırılım (`max-sm:`) yanlış soruyu sorar: dar pencere ≠ dokunmatik,
+        // 1280px'lik bir tablet de parmakla kullanılır. Sorulması gereken
+        // "işaretleme aygıtı kaba mı" — `pointer: coarse` tam olarak budur.
         default:
           "h-10 gap-1.5 px-3 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
+        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 pointer-coarse:h-8 pointer-coarse:px-2.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 pointer-coarse:h-10 pointer-coarse:px-3",
         lg: "h-12 gap-1.5 px-3.5 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
         icon: "size-10",
         "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
+          "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md pointer-coarse:size-8 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
-          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
+          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md pointer-coarse:size-10",
         "icon-lg": "size-10",
       },
     },

@@ -118,6 +118,20 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    - `diagrams/chart.ts` — kartezyen grafik katmanı (eksen, "güzel sayı" tikleri,
      ızgara, eğri, çalışma noktası, kullanım oranı çubuğu). Şematik teknik
      resimlerden farklı olarak GERÇEK grafik çizen bölümler bunu kullanır.
+
+   **Şema okunurluğu ÖLÇÜLÜR, gözle aranmaz.** Üst üste binen yazı bu projede
+   defalarca ekran görüntüsüyle bildirildi; artık
+   `diagrams/__tests__/legibility.guard.test.ts` bütün bölümlerin bütün
+   diyagramlarını üretip üç şeyi sayar: etiket-etiket çakışması, ETİKETİN
+   ÜSTÜNE sonradan çizilen dolu şekil (SVG boyama sırası belge sırasıdır) ve
+   çerçeve dışına taşan etiket. `resolveTextOverlaps` yalnız METİN-METİN
+   çakışmasını görür — yazının duvara/dolguya binmesini göremez, o yüzden
+   şematik üreticiler etiket şeritlerini kendileri ayırır.
+
+   Koruma İKİ FİKSTÜRLE koşar: V5 şablonunda kabin ve elektrik mahali KAPALIDIR
+   (`electricalAccommodationType: "none"`) ve 11.x mahal şemaları hiç
+   üretilmez — tam da onlar kapsam dışında kalıp gözden kaçmıştı. Testin ilk
+   maddesi bu yüzden kapsamın kendisini de doğrular.
    - `presentation/module-access.ts` — modül girdi/sonuç/bağlam erişimi
 
 11. **Teker yükleri yol kirişinin girdisidir.** `wheelLoads.ts` bir mekanizma
@@ -376,6 +390,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     başlar — yani ikinci kalem eklendiğinde ilk kalemin numarası da kayar.
     Otomatik anahtar kapatılınca elle yazılır (uygulamanın `*Auto` deseni).
 
+    **DOKÜMAN NO = İŞ KALEMİ NUMARASI.** `projects.doc_no` bir kalem
+    numarasıdır ve belge kodu ondan türer (`docCode`, pdf/doc-naming.ts):
+
+        0055-01  →  ORC-HR-0055-01-R01
+        0055-02  →  ORC-HR-0055-02-R01
+
+    Alan serbest metin bırakıldığı için üç yazım birden dolaşıyordu: `0055`
+    (kalemsiz — aynı işe ikinci kalem eklenince ikinci rapor benzersizlik
+    kısıtına takılır ve kod hangi kaleme ait olduğunu söylemez), `0055-01`
+    (doğru olan) ve `0055-HR-001` (şemanın ilk yorumundaki örnek; belge kodunda
+    "HR" iki kez çıkıyordu). Yeni rapor penceresinde kalem seçiliyken alan
+    SALT-OKUNURDUR ve altında üretilecek kodun canlı önizlemesi durur.
+    ESKİ KAYITLAR DÖNÜŞTÜRÜLMEDİ (kullanıcı kararı): yayınlanmış raporların
+    kodu teslim edilmiş PDF'lerle aynı kalmalıdır.
+
     **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
     `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
     sonradan güncellenince yayınlanmış iş emri değişmez. Müşteri yalnız
@@ -406,10 +435,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 15. **Roller yetki SORUSUYLA sorulur, listeyle değil.** `user_role` dört değer
     taşır: `admin` (Yönetici) · `manager` (Müdür) · `engineer` (Mühendis) ·
     `draftsman` (Teknik Ressam). Kod hiçbir yerde rol listesi karşılaştırmaz;
-    `lib/roles.ts`teki `isAdminRole` / `canSeeSales` sorulur. Roller HİYERARŞİ
-    DEĞİLDİR — müdür satış rakamlarını görür ama yönetim paneline giremez.
-    Veritabanı karşılığı `is_admin()` ve `can_see_sales()` fonksiyonlarıdır;
-    menüden gizlemek yalnız görgü kuralıdır, asıl engel RLS'tir.
+    `lib/roles.ts`teki `isAdminRole` / `canSeeSales` / `canEditReports` sorulur.
+    Roller HİYERARŞİ DEĞİLDİR — müdür satış rakamlarını görür ama yönetim
+    paneline giremez ve hesap raporu yazamaz; mühendis rapor yazar ve taslağını
+    siler ama satış rakamını görmez. Veritabanı karşılığı `is_admin()`,
+    `can_see_sales()` ve `can_edit_reports()` fonksiyonlarıdır; menüden
+    gizlemek yalnız görgü kuralıdır, asıl engel RLS'tir. Rol kümeleri
+    `lib/__tests__/roles.test.ts`te dondurulmuştur: bir yetkiyi genişleten,
+    hangi rollerin etkilendiğini orada görür.
 
 16. **Satış Takibi İŞ KALEMİNE bağlanır ve AYRI TABLODADIR.**
     `job_item_sales` (kapsam, termin/sevk, miktar, ağırlık, birim fiyat, para
@@ -486,6 +519,18 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    Motora yeni girdi eklendiğinde eski revizyonlar `revision-load.ts`teki
    `withDefaults` sayesinde bozulmaz.
 
+   **Taslak revizyon SİLİNEBİLİR, yayınlanmış SİLİNEMEZ.** Yanlış açılmış ya da
+   yanlış yönde ilerlemiş bir taslağı temizlemenin yolu yoktu. İki kural AYRI
+   yerdedir ve karıştırılmaz: NEYİN silinebileceğini `guard_issued_revision`
+   tetikleyicisi (DELETE dalı), KİMİN silebileceğini `revisions_delete`
+   politikası söyler. Yetki `can_edit_reports()` — Yönetici + Mühendis; raporu
+   açan mühendis kendi taslağını temizlemek için yöneticiyi beklememelidir
+   (PROJEYİ silmek hâlâ yalnız yöneticidedir). `deleteRevision` yalnız
+   anlaşılır hata mesajı ekler. `equipment_notes`/`equipment_extras` yabancı anahtarla gider, PDF
+   arşivi yalnız YAYINDA yazıldığı için yetim dosya kalmaz. Silmeden sonra
+   "Yeni Revizyon" KALAN SON revizyondan kopyalar (`createRevision` en büyük
+   `rev_no`yu okur): V1 silinince açılan yeni V1 yeniden V0'dan türer.
+
    **Editör ekranında çalışma alanı kutsaldır.** Mühendis günün büyük kısmını
    burada geçirir; kalıcı kabuk öğeleri buna göre kısılmıştır:
    - Kontrol özeti + Kaydet editörün üstünde ayrı bir kart DEĞİLDİR; sayfa
@@ -499,6 +544,9 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    - Sol menünün daralt/genişlet düğmesi MENÜNÜN İÇİNDEDİR. Üst şeritte de bir
      eşi var ama orada ikon tek başına durduğu için neyi daralttığı
      anlaşılmıyordu: denetim, denetlediği yüzeyin üzerinde durur.
+   - "+ Bölüm Notu" düğmesi bölüm BAŞLIĞINDA, kontrol rozetinin solundadır.
+     İçeriğin ilk satırında dururken her bölümde bir satır boyu yer yiyordu ve
+     çoğu bölümde hiç kullanılmıyor. Not KUTUSU yalnız not açıkken görünür.
 
 8. **Vinç topolojisi.** Bir vinçte 1–4 kaldırma grubu olabilir: ana, yardımcı ve
    en çok iki monoray. **Her kaldırma grubunun kendi kanca bloğu ve kendi
@@ -558,6 +606,73 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     seçildiğinde tahrikli/toplam kol sayıları da aynı mekanizmayla dolar.
     Makara verimi artık seçim değil sabit firma kabulüdür
     (`STANDARD_SHEAVE_EFFICIENCY`).
+
+## Dokunmatik ve dar ekran ilkeleri
+
+Uygulama atölyede ve sahada telefondan/tabletten de açılır. Aşağıdakiler
+tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
+
+1. **Dokunma hedefi kırılımla değil `pointer-coarse:` ile büyür.** Dar pencere
+   ≠ dokunmatik; 1280px'lik bir tablet de parmakla kullanılır, 500px'e
+   daraltılmış bir masaüstü penceresi de fareyle. Sorulacak soru "işaretleme
+   aygıtı kaba mı"dır. `Button` boyları (`sm`/`xs`/`icon-sm`/`icon-xs`),
+   `SelectTrigger size=sm` ve menü/liste satırları bu varyantla büyür;
+   masaüstü yoğunluğu hiç değişmez. Elle yazılmış tıklanabilir öğelerde
+   (ham `<button>`, çip, rozet-düğme) aynı kalıp uygulanır.
+
+2. **Girdi yazısı dokunmatikte 16px'tir** (`text-base pointer-fine:text-sm`).
+   iOS Safari 16px'ten küçük yazılı alana odaklanınca sayfayı KENDİLİĞİNDEN
+   yakınlaştırır ve geri çıkmaz. Eski kural `md:text-sm` idi ve iPad portre
+   (768px) tam o eşiğe düştüğü için tablette sorunu geri getiriyordu.
+   **Bir çağrı yeri yazı boyutunu ezerse dokunmatik payını korumalıdır:**
+   `text-xs` DEĞİL, `text-base pointer-fine:text-xs`.
+
+3. **Yükseklik birimi `dvh`dir, `vh` değil.** Mobil tarayıcıda `vh` adres
+   çubuğu gizliyken ölçülen BÜYÜK görünür alandır; `100vh` bir kutuyu her
+   zaman ekranın altına taşırır ve `min-h-screen` kısa sayfalarda "hayalet
+   kaydırma" üretir.
+
+4. **Pencere yüksekliği görünür alana kelepçelidir.** `DialogContent` tabanı
+   `max-h-[calc(100dvh-1.5rem)] overflow-y-auto` taşır. Bu olmadan `fixed` +
+   `-translate-y-1/2` ile ortalanan uzun bir form hem üstten hem alttan
+   ekranın dışında kalır ve KAYDIRILAMAZ — yani ilk alana da Kaydet düğmesine
+   de erişilemez. Çağrı yerlerinde tekrar etme.
+
+5. **`min-width`, `max-width`i yener.** Açılır kutulara verilen sabit
+   `min-w-[26rem]` gibi değerler taban `max-w` kelepçesini delip ekranı
+   taşırır. Kalıp: `min-w-[min(26rem,calc(100vw-1.5rem))]`.
+
+6. **Geniş pencere tablette kenar boşluğu bırakır.** `sm:max-w-3xl` (768px)
+   tam olarak tablet genişliğidir ve pencereyi ekranın tamamı yapar; kullanıcı
+   pencerede mi sayfada mı olduğunu ayırt edemez. Kalıp:
+   `sm:max-w-[min(48rem,calc(100%-2rem))]`.
+
+7. **Tabloda sütun önceliklendirilir, kart markup'ı ÇOĞALTILMAZ.**
+   `TableHead`/`TableCell` varsayılanı `whitespace-nowrap`tır; 8–10 sütunlu bir
+   liste telefonda ekranın 2–4 katına çıkar. Düşük öncelikli sütunlara **hem
+   `th` hem `td` üzerinde** `hidden md:table-cell` verilir, gizlenen bilgiden
+   kritik olanı birincil hücrenin içinde `md:hidden` ikinci satır olur. İkinci
+   bir kart markup'ı yazmak sıralama/seçim mantığını ikiye böler ve zamanla
+   ayrışır.
+
+8. **Yatay kaydırma varsa GÖRÜNMELİDİR.** Mobil tarayıcı kaydırma çubuğu
+   çizmez; kullanıcı sağda sütun olduğunu bilmez. `globals.css`teki
+   `.oc-scrollx` yardımcısı `background-attachment: local/scroll` ikilisiyle
+   yalnız o yönde içerik varken kenar gölgesi gösterir, sona gelince söner
+   (JS yok). Zemin rengi `--oc-scroll-bg` ile verilir, varsayılanı `--card`.
+
+9. **Diyagram küçülmez, kaydırılır.** `DiagramSvg` `minWidth = diagram.width`
+   taşır. Ölçü yazıları 7–9,5 tuval biriminde çizilir: 700 birimlik bir
+   diyagram telefon sütununa sığdırılınca kot ~3,9 px'e iner ve bu resimler
+   PDF'e giden modelin ta kendisidir — mühendis ekranda gördüğünü doğrulayamaz.
+
+10. **Kart iç boşluğu telefonda bir kademe kısılır** (`--card-spacing`
+    16px → ≥640px'te 24px). 375px'lik ekranda 48px'lik yatay dolgu içeriğin
+    %14'ünü yiyordu.
+
+11. **İçerik metninde 11px altına inilmez.** `text-[9px]`/`text-[10px]` yalnız
+    salt dekoratif işaretlerde kabul edilebilir; sayısal rozetler ve etiketler
+    en az `text-[11px]`dir.
 
 ## Yeni bir hesap eklerken
 

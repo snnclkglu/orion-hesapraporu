@@ -46,8 +46,12 @@ export function JobStatusMenu({
           disabled={pending}
           // Liste satırını kaplayan bağlantının ÜSTÜNDE kalmalı, yoksa tıklama
           // satır linkine gider ve menü hiç açılmaz.
+          //
+          // Yükseklik de bu yüzden asgari 36px (dokunmatikte 40px): rozet
+          // 24px iken ıskalanan her dokunuş altındaki satır bağlantısına
+          // düşüyor, yani kullanıcıyı istemediği sayfaya götürüyordu.
           className={cn(
-            "relative z-10 inline-flex items-center gap-1.5 border px-2 py-1 transition-colors hover:bg-muted disabled:opacity-50",
+            "relative z-10 inline-flex min-h-9 items-center gap-1.5 border px-2 py-1 transition-colors hover:bg-muted disabled:opacity-50 pointer-coarse:min-h-10",
             size === "md" ? "text-sm" : "text-xs"
           )}
         >

@@ -133,6 +133,9 @@ export function diagramForSection(
           insulationMm: mm(inp.roomInsulation),
           doorCount: inp.roomDoorCount,
           occupantCount: 0,
+          // Odanın içindekiler panolardır: kesitte yan yana dolap olarak
+          // çizilir ki "bu odaya bu kadar pano sığar mı" şekilden okunsun.
+          deviceCount: inp.panelCount, deviceLabel: "Pano",
         });
       }
       if (rawSectionId === "11.3" && v.panelLoad) {
@@ -141,9 +144,10 @@ export function diagramForSection(
           title: "Elektrik Panoları",
           widthM: inp.roomWidthM, lengthM: inp.roomLengthM, heightM: inp.roomHeightM,
           insulationMm: mm(inp.roomInsulation),
-          // Pano yerleşiminde sızıntı yolu pano kapaklarıdır.
-          doorCount: inp.panelCount,
+          // Pano yerleşiminde sızıntı yolu pano KAPAKLARIDIR — duvar kapısı yok.
+          doorCount: inp.panelCount, doorLabel: "Pano Kapağı",
           occupantCount: 0,
+          deviceCount: inp.panelCount, deviceLabel: "Pano",
         });
       }
       return null;

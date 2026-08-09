@@ -61,7 +61,24 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-md sm:gap-6 sm:p-6 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          /*
+           * DİKEY TAŞMA — telefondaki en yıkıcı kusur buydu.
+           * Pencere `top-1/2 -translate-y-1/2` ile ortalanıyor ve yüksekliği
+           * SINIRSIZDI: altı alanlı bir form 800px'i geçince pencerenin hem
+           * üstü hem altı ekranın dışında kalıyor, sabit konumlu olduğu için
+           * de kaydırılamıyordu — yani başlıktaki ilk alana da alttaki Kaydet
+           * düğmesine de ERİŞİLEMİYORDU. Yükseklik görünür alana kelepçelenir
+           * ve içerik kendi içinde kayar. `dvh` seçildi: mobil tarayıcıda
+           * adres çubuğu gizlenip açılırken `vh` donmuş değerde kalıyor.
+           */
+          "max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain",
+          /*
+           * TAM KENARLI pencere isteyen çağrı yeri `p-0 sm:p-0` (ve gerekiyorsa
+           * `gap-0 sm:gap-0`) yazmalıdır: iç boşluk artık kırılımlı olduğu için
+           * tek başına `p-0` yalnız ön eksiz sınıfı ezer, `sm:p-6` yürürlükte
+           * kalır. Katalog seçici ve katalog sayfası pencereleri böyledir.
+           */
           className
         )}
         {...props}
@@ -71,7 +88,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-4 right-4"
+              className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4"
               size="icon-sm"
             >
               <XIcon
@@ -89,7 +106,9 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      // Sağ iç boşluk kapatma düğmesinin payıdır: dar ekranda başlık sarınca
+      // ilk satır düğmenin altına giriyordu.
+      className={cn("flex flex-col gap-2 pr-8", className)}
       {...props}
     />
   )

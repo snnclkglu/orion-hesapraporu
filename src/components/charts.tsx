@@ -71,7 +71,11 @@ export function ChartLegend({
             onClick={() => onToggle(s.key)}
             aria-pressed={!off}
             className={cn(
-              "flex items-center gap-1.5 text-[11px] transition-colors",
+              // Efsane öğesi bir SERİYİ AÇIP KAPATAN denetimdir, salt etiket
+              // değil — 17px'lik satır parmakla tutulmuyordu. Vurma alanı
+              // dolguyla büyür, negatif kenar boşluğu efsanenin görsel
+              // yüksekliğini olduğu gibi bırakır.
+              "-my-1 flex items-center gap-1.5 py-1 text-[11px] transition-colors pointer-coarse:-my-2 pointer-coarse:py-2",
               off ? "text-muted-foreground/50 line-through" : "text-foreground/80 hover:text-foreground"
             )}
           >
@@ -134,12 +138,25 @@ export function TimeBarChart({
   // okunmaz bir şerit üretir.
   const labelStep = columns.length > 26 ? Math.ceil(columns.length / 13) : 1;
 
+  /**
+   * ÇİZİM ALANI KENDİ İÇİNDE KAYAR ve sütuna taban genişlik verilir.
+   *
+   * Eskiden bütün sütunlar kabın genişliğine sıkışıyordu: 360px'lik ekranda
+   * aylık kırılımın 20 sütunu sütun başına 12px'e iniyor, "Oca 25" etiketi
+   * (~34px) okunmaz oluyordu. Artık sütun en az 40px'tir; kap dar olduğunda
+   * grafik yatay kayar. Üst sınır seyreltilmiş etiketle birlikte çok uzun
+   * dönemlerde (günlük kova) tuvalin şişmesini engeller.
+   *
+   * Y ekseni kaydırma kabının DIŞINDADIR: kayarken tik değerleri yerinde kalır.
+   */
+  const plotMinWidth = Math.min(columns.length * 40, 1600);
+
   return (
     <div className={cn("grid gap-2", className)}>
       <div className="flex gap-2">
         {/* Y ekseni — tik etiketleri mono ve tabular, ızgarayla aynı hizada */}
         <div
-          className="relative w-12 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+          className="relative w-12 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
           style={{ height }}
           aria-hidden
         >
@@ -154,70 +171,79 @@ export function TimeBarChart({
           ))}
         </div>
 
-        <div className="relative min-w-0 flex-1" style={{ height }}>
-          {/* Izgara — çubukların ALTINDA, saç teli kalınlığında */}
-          {ticks.map((t) => (
-            <div
-              key={t}
-              aria-hidden
-              className={cn(
-                "absolute inset-x-0 border-t",
-                t === 0 ? "border-border" : "border-border/50"
-              )}
-              style={{ bottom: `${(t / top) * 100}%` }}
-            />
-          ))}
+        <div className="oc-scrollx min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
+          <div style={{ minWidth: plotMinWidth }}>
+            <div className="relative" style={{ height }}>
+              {/* Izgara — çubukların ALTINDA, saç teli kalınlığında */}
+              {ticks.map((t) => (
+                <div
+                  key={t}
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-0 border-t",
+                    t === 0 ? "border-border" : "border-border/50"
+                  )}
+                  style={{ bottom: `${(t / top) * 100}%` }}
+                />
+              ))}
 
-          <div className="absolute inset-0 flex items-end gap-[2px]">
-            {columns.map((col, i) => {
-              const colTotal = totals[i];
-              return (
+              <div className="absolute inset-0 flex items-end gap-[2px]">
+                {columns.map((col, i) => {
+                  const colTotal = totals[i];
+                  return (
+                    <div
+                      key={col.key}
+                      className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
+                      title={`${col.label} · ${fmtManHours(colTotal)} ${valueLabel}`}
+                    >
+                      {/* Vurgu: sütunun tamamı hover'da hafifçe zeminlenir */}
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 bg-foreground/[0.04] opacity-0 transition-opacity group-hover:opacity-100"
+                      />
+                      {visible.map((s) => {
+                        const v = col.parts[s.key] ?? 0;
+                        if (v <= 0) return null;
+                        return (
+                          <span
+                            key={s.key}
+                            className="oc-series-bg block w-full"
+                            style={{ ...tagStyle(s.hue), height: `${(v / top) * 100}%` }}
+                            title={`${col.label} · ${s.label} · ${fmtManHours(v)} ${valueLabel}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* X ekseni etiketleri — çubuklarla AYNI kaydırma kabında, yoksa
+                kaydırınca etiket ile sütun birbirinden ayrılırdı. */}
+            <div className="mt-2 flex gap-[2px]">
+              {columns.map((col, i) => (
                 <div
                   key={col.key}
-                  className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
-                  title={`${col.label} · ${fmtManHours(colTotal)} ${valueLabel}`}
+                  className="min-w-0 flex-1 truncate text-center font-mono text-[11px] text-muted-foreground"
                 >
-                  {/* Vurgu: sütunun tamamı hover'da hafifçe zeminlenir */}
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-foreground/[0.04] opacity-0 transition-opacity group-hover:opacity-100"
-                  />
-                  {visible.map((s) => {
-                    const v = col.parts[s.key] ?? 0;
-                    if (v <= 0) return null;
-                    return (
-                      <span
-                        key={s.key}
-                        className="oc-series-bg block w-full"
-                        style={{ ...tagStyle(s.hue), height: `${(v / top) * 100}%` }}
-                        title={`${col.label} · ${s.label} · ${fmtManHours(v)} ${valueLabel}`}
-                      />
-                    );
-                  })}
+                  {i % labelStep === 0 ? col.label : ""}
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* X ekseni etiketleri — Y ekseni payıyla aynı hizada */}
-      <div className="flex gap-2">
-        <div className="w-12 shrink-0" aria-hidden />
-        <div className="flex min-w-0 flex-1 gap-[2px]">
-          {columns.map((col, i) => (
-            <div
-              key={col.key}
-              className="min-w-0 flex-1 truncate text-center font-mono text-[10px] text-muted-foreground"
-            >
-              {i % labelStep === 0 ? col.label : ""}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {series.length > 1 && (
-        <ChartLegend series={series} hidden={hiddenKeys} onToggle={toggle} className="pl-14" />
+        <ChartLegend
+          series={series}
+          hidden={hiddenKeys}
+          onToggle={toggle}
+          /* Y ekseni payı (48px + 8px) telefonda genişliğin beşte birini
+             yiyordu; efsane orada kenardan başlar. */
+          className="pl-0 sm:pl-14"
+        />
       )}
     </div>
   );
@@ -279,13 +305,18 @@ export function RankBars({
               ? { type: "button" as const, onClick: () => onSelect(item.key), "aria-pressed": active }
               : {})}
             className={cn(
-              "grid grid-cols-[minmax(6rem,11rem)_1fr_auto] items-center gap-2 px-1 py-1 text-left",
-              onSelect && "transition-colors hover:bg-muted/60",
+              // MOBİLDE ETİKET ÇUBUĞUN ÜSTÜNDEDİR: üç sütunlu düzende çubuğa
+              // ~74px kalıyor ve etiketler tanınmaz biçimde kırpılıyordu —
+              // dokunmatikte `title` ipucu da yoktur.
+              "grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 px-1 py-1 text-left sm:grid-cols-[minmax(6rem,11rem)_1fr_auto] sm:gap-y-0",
+              // Dokunma hedefi yalnız KABA işaretçide büyür; farede satır
+              // yoğunluğu bilinçli bir tercihtir (bkz. `Button` boy notu).
+              onSelect && "transition-colors pointer-coarse:min-h-10 hover:bg-muted/60",
               active && "bg-muted"
             )}
             title={item.hint ? `${item.label} — ${item.hint}` : item.label}
           >
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="col-span-2 flex min-w-0 items-center gap-1.5 sm:col-span-1">
               <span className="oc-tag-dot" style={tagStyle(item.hue)} aria-hidden />
               <span className="truncate text-xs font-medium">{item.label}</span>
             </span>
@@ -345,14 +376,17 @@ export function DonutChart({
   let offset = 0;
 
   return (
-    <div className={cn("flex items-center gap-4", className)}>
+    // Halka + efsane dar kolonda YAN YANA DURAMAZ: 276px'lik bir kartta halkaya
+    // 168px gidince efsaneye 58px kalıyor ama sayı sütunları `shrink-0` olduğu
+    // için ~107px yer istiyor ve efsane kartın dışına taşıyordu. Dar kapta alt
+    // alta dizilir; halka da kabından geniş olamaz.
+    <div className={cn("flex flex-col items-center gap-4 sm:flex-row", className)}>
       <svg
         viewBox="0 0 100 100"
-        width={size}
-        height={size}
+        style={{ width: size, maxWidth: "100%" }}
         role="img"
         aria-labelledby={titleId}
-        className="shrink-0"
+        className="h-auto shrink-0"
       >
         <title id={titleId}>{`${centerLabel}: ${centerValue}`}</title>
         <circle cx="50" cy="50" r={r} fill="none" strokeWidth="14" className="stroke-muted" />
@@ -404,7 +438,7 @@ export function DonutChart({
         </text>
       </svg>
 
-      <div className="grid min-w-0 flex-1 gap-1">
+      <div className="grid w-full min-w-0 flex-1 gap-1">
         {items.map((item) => (
           <div key={item.key} className="flex items-center gap-2 text-xs">
             <span className="oc-tag-dot" style={tagStyle(item.hue)} aria-hidden />
@@ -458,20 +492,24 @@ export function Heatmap({
   if (max <= 0) max = 1;
 
   return (
-    <div className={cn("overflow-x-auto", className)}>
+    // Satır etiketi sütunu SOLA YAPIŞIR: yatay kaydırınca hangi satıra
+    // bakıldığı kayboluyordu. Ay başlığındaki `whitespace-nowrap` da kaldırıldı
+    // — 24px'lik hücrelerin yanında ~38px'lik başlık sütunu gereksiz geriyordu,
+    // "Oca 25" dar kapta iki satıra iner.
+    <div className={cn("oc-scrollx overflow-x-auto overscroll-x-contain", className)}>
       <table className="w-full border-separate border-spacing-[2px] text-xs">
         <thead>
           <tr>
-            <th className="w-40 text-left font-normal" />
+            <th className="sticky left-0 z-10 w-24 bg-card text-left font-normal sm:w-40" />
             {columns.map((c) => (
               <th
                 key={c.key}
-                className="px-0.5 pb-1 text-center font-mono text-[10px] font-normal whitespace-nowrap text-muted-foreground"
+                className="px-0.5 pb-1 text-center font-mono text-[11px] font-normal text-muted-foreground"
               >
                 {c.label}
               </th>
             ))}
-            <th className="pb-1 pl-2 text-right font-mono text-[10px] font-normal text-muted-foreground">
+            <th className="pb-1 pl-2 text-right font-mono text-[11px] font-normal text-muted-foreground">
               Toplam
             </th>
           </tr>
@@ -479,7 +517,10 @@ export function Heatmap({
         <tbody>
           {rows.map((r) => (
             <tr key={r.key}>
-              <td className="max-w-40 truncate pr-2 text-xs" title={r.label}>
+              <td
+                className="sticky left-0 z-10 max-w-24 truncate bg-card pr-2 text-xs sm:max-w-40"
+                title={r.label}
+              >
                 <span className="flex items-center gap-1.5">
                   <span className="oc-tag-dot" style={tagStyle(r.hue)} aria-hidden />
                   <span className="truncate">{r.label}</span>

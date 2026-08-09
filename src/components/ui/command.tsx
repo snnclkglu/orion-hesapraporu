@@ -53,8 +53,12 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
+        // `sm:p-0` ZORUNLU: taban `p-4 sm:p-6` taşıdığı için yalnız `p-0`
+        // yazmak 640px üstünde 24px'lik iç boşluğu geri getirir (tailwind-merge
+        // ön ekli ve ön eksiz sınıfı ayrı gruplar sayar). Tam kenarlı pencere
+        // isteyen her çağrı yeri ikisini birden vermelidir.
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
+          "top-1/3 max-h-[min(70dvh,calc(100dvh-1.5rem))] translate-y-0 overflow-hidden rounded-xl! p-0 sm:p-0",
           className
         )}
         showCloseButton={showCloseButton}
@@ -71,11 +75,15 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+      {/* Dokunmatikte 40px: arama kutusu bu uygulamada bir kolaylık değil,
+          katalog/kalem/parça seçiminin TEK yoludur. */}
+      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! pointer-coarse:h-10! *:data-[slot=input-group-addon]:pl-2!">
         <CommandPrimitive.Input
           data-slot="command-input"
+          // 16px yazı: bu alan ham `CommandPrimitive.Input`tur, `ui/input.tsx`
+          // korumasının dışındadır — iOS odaklanınca sayfayı yakınlaştırıyordu.
           className={cn(
-            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+            "w-full text-base outline-hidden pointer-fine:text-sm disabled:cursor-not-allowed disabled:opacity-50",
             className
           )}
           {...props}
@@ -96,7 +104,10 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
+        // Sabit 288px, yatay telefonda (≈390px yükseklik) ya da klavye açıkken
+        // listeyi ekranın altına taşırıyordu; kısa görünür alanda kendi kendini
+        // kısar.
+        "no-scrollbar max-h-[min(18rem,50dvh)] scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
         className
       )}
       {...props}
@@ -155,7 +166,8 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-foreground",
+        // Dokunmatikte satır yüksekliği 32px'ten 44px'e çıkar (pointer-coarse)
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none pointer-coarse:py-2.5 in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-foreground",
         className
       )}
       {...props}

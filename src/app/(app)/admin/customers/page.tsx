@@ -60,14 +60,22 @@ export default async function AdminCustomersPage() {
 
       <div className="rounded-lg border">
         <Table>
+          {/*
+            SÜTUN ÖNCELİKLENDİRME. Altı sütun telefonda ekranın iki katına
+            çıkıyordu; sabit genişlikler (9rem + %22 + 10rem + 5rem + 6rem)
+            otomatik yerleşimle çekişip unvan sütununu eziyordu. Dar ekranda
+            kısaltma · unvan · eylemler kalır, vergi/telefon/iş sayısı unvanın
+            altında ikinci satıra iner (bkz. customer-row.tsx). Sabit
+            genişlikler yalnız sütunların hepsi görünürken (`md`) devrededir.
+          */}
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[9rem]">Kısaltma</TableHead>
+              <TableHead className="md:w-[9rem]">Kısaltma</TableHead>
               <TableHead>Resmî Unvan</TableHead>
-              <TableHead className="w-[22%]">Vergi Dairesi / No</TableHead>
-              <TableHead className="w-[10rem]">Telefon</TableHead>
-              <TableHead className="w-[5rem] text-right">İş</TableHead>
-              <TableHead className="w-[6rem]" />
+              <TableHead className="hidden md:table-cell md:w-[22%]">Vergi Dairesi / No</TableHead>
+              <TableHead className="hidden md:table-cell md:w-[10rem]">Telefon</TableHead>
+              <TableHead className="hidden text-right md:table-cell md:w-[5rem]">İş</TableHead>
+              <TableHead className="md:w-[6rem]" />
             </TableRow>
           </TableHeader>
           <TableBody>

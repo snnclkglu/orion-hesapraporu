@@ -35,7 +35,11 @@ export default async function AdminStandardsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Tabletin (768–1023px) yönetim rayı artık yatay olduğu için içerik tam
+          genişliktedir; dört küçük tablo orada tek sütunda gereksiz uzuyordu.
+          `lg` üstünde kabuk menüsü + yönetim rayı devreye girip alanı
+          daralttığı hâlde iki sütun hâlâ okunur (tablolar 3-4 dar sütun). */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Halat Emniyet Katsayıları (Zp)</CardTitle>

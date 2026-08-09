@@ -12,7 +12,15 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        /*
+         * Kart iç boşluğu telefonda bir kademe kısılır (24px → 16px).
+         * 375px'lik bir ekranda kabuğun payından sonra karta 351px kalıyor ve
+         * 48px'lik yatay dolgu bunun %14'ünü yiyordu — darlığı asıl çeken şey
+         * hesap satırları ve tablo sütunları. ≥640px'te eski değer geri gelir.
+         * `data-[size=sm]` seçicisi öznitelik özgüllüğü sayesinde her iki
+         * durumda da baskındır, sırası önemli değildir.
+         */
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-[>img:first-child]:pt-0 sm:[--card-spacing:--spacing(6)] data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}

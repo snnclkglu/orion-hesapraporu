@@ -153,7 +153,10 @@ export function SaleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
+      {/* Yükseklik sınırı ve iç kaydırma artık `DialogContent` tabanındadır.
+          `sm:max-w-3xl` 768px tablette pencereyi ekranın tamamı yapıyordu;
+          genişlik görünür alandan pay bırakacak biçimde kelepçelenir. */}
+      <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>
             <span className="font-mono text-primary">{row.itemNo}</span> — Satış Bilgisi
@@ -230,7 +233,9 @@ export function SaleDialog({
             </Field>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4">
+          {/* Dört sütun 640–767px'te ~145px'e iniyor ve uzun etiketler ("Birim
+              Ağırlık (kg)") üç satıra kırılıyordu. */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Miktar">
               <Input
                 inputMode="decimal"
@@ -252,13 +257,15 @@ export function SaleDialog({
               />
             </Field>
             <Field label="Toplam Ağırlık (kg)">
-              <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
+              {/* Hesaplanan kutular komşu `Input`larla aynı boyda olmalı (40px),
+                  yoksa ızgara satırında hiza kayıyordu. */}
+              <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
                 {fmtNum(totals.weight)}
               </div>
             </Field>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Birim Fiyat (KDV hariç)">
               <Input
                 inputMode="decimal"
@@ -295,15 +302,15 @@ export function SaleDialog({
               />
             </Field>
             <Field label="Toplam Fiyat">
-              <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
+              <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
                 {fmtNum(totals.total)} {CURRENCY_SYMBOLS[currency]}
               </div>
             </Field>
           </div>
 
           {/* Avro karşılığı ayrı ve vurgulu: firmanın ciroyu topladığı büyüklük */}
-          <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
+            <div className="min-w-0">
               <div className="oc-kicker text-muted-foreground">Avro Karşılığı</div>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Ciro toplamlarına bu tutar girer

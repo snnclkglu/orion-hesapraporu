@@ -141,7 +141,8 @@ export function NewCustomerDialog({
               />
             </div>
           </div>
-          <p className="-mt-1 text-[11px] text-muted-foreground">
+          {/* Çok satırlı açıklama 11px'te telefonda okunmuyordu. */}
+          <p className="-mt-1 text-xs text-muted-foreground">
             Kısaltma adın ilk kelimesinden gelir; listeler bu adı gösterir ve
             müşteriye kendine özgü bir renk atanır.
           </p>
@@ -232,7 +233,8 @@ export function CustomerPicker({
   return (
     <div className="grid gap-1.5">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="grid min-w-[240px] flex-1 gap-1.5">
+        {/* Sabit 240px asgari genişlik 360px'lik telefonda satırı taşırıyordu. */}
+        <div className="grid min-w-0 flex-1 gap-1.5 sm:min-w-[240px]">
           <Label>Müşteri (Liste&apos;den Seç)</Label>
           <Select
             value={value ?? NO_CUSTOMER}
@@ -260,13 +262,15 @@ export function CustomerPicker({
             </SelectContent>
           </Select>
         </div>
-        <Button type="button" variant="outline" onClick={() => setCreating(true)}>
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCreating(true)}>
           <UserPlus className="size-4" /> Yeni Müşteri
         </Button>
       </div>
 
       {unlinked && (
-        <p className="text-[11px] text-destructive">
+        // Hata satırı gövde metniyle aynı boyda olmalı; 11px'te uyarı
+        // telefonda dipnot gibi okunuyor ve gözden kaçıyordu.
+        <p className="text-sm text-destructive">
           Bu iş emrindeki müşteri müşteri defterine bağlı değil. Listeden eşini
           seçin ya da &quot;Yeni Müşteri&quot; ile deftere ekleyin.
         </p>

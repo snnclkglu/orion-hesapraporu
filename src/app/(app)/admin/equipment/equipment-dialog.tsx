@@ -145,7 +145,9 @@ export function EquipmentDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          {/* `sm:` öneki olmadan iki sütun 328px'lik pencerede alan başına
+              ~130px bırakıyor, etiketler üç satıra sarıyordu. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label>Tip</Label>
               <Select value={kind} onValueChange={setKind}>
@@ -172,7 +174,7 @@ export function EquipmentDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="eq-brand">Marka</Label>
               <Input id="eq-brand" value={brand} onChange={(e) => setBrand(e.target.value)} required />
@@ -182,7 +184,9 @@ export function EquipmentDialog({
               <Input id="eq-model" value={model} onChange={(e) => setModel(e.target.value)} required />
             </div>
           </div>
-          <div className="grid grid-cols-[1fr_120px] gap-4">
+          {/* Sabit 120px'lik ikinci sütun dar pencerede notlara ~180px
+              bırakıyordu; mobilde alanlar alt alta. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_120px]">
             <div className="grid gap-2">
               <Label htmlFor="eq-notes">Notlar</Label>
               <Input id="eq-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -224,8 +228,10 @@ export function EquipmentDialog({
                 Özellik yok. &quot;Satır ekle&quot; ile anahtar-değer çifti ekleyin.
               </p>
             )}
+            {/* Üç sütun (anahtar · değer · Sil) 328px'te alan başına ~105px
+                bırakıyordu; mobilde alt alta, Sil düğmesi sağa yaslı. */}
             {attrRows.map((row, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+              <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                 <div className="grid gap-0.5">
                   <Input
                     placeholder="anahtar (ör. power_kw)"
@@ -247,6 +253,7 @@ export function EquipmentDialog({
                 />
                 <Button
                   type="button" size="sm" variant="ghost"
+                  className="justify-self-end sm:justify-self-auto"
                   onClick={() => setAttrRows((rows) => rows.filter((_, idx) => idx !== i))}
                 >
                   Sil

@@ -8,6 +8,7 @@ import {
 } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TableCell, TableRow } from "@/components/ui/table";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -59,28 +60,45 @@ export function UserRow({
   }
 
   return (
-    <TableRow>
-      <TableCell className="font-medium">
+    // DAR EKRANDA SATIR BİR IZGARADIR. Beş hücre yan yana ~730px istiyor;
+    // telefonda satırın kendisi ekranın 2,5 katı oluyordu. `xl` altında satır
+    // ızgaraya döner, hücreler alt alta iner ve her alan kendi etiketini
+    // taşır (başlık satırı orada gizli — bkz. page.tsx). Kaydetme akışı
+    // DEĞİŞMEZ: aynı durum, aynı düğme, aynı sunucu eylemi.
+    <TableRow className="max-xl:grid max-xl:gap-3 max-xl:px-2 max-xl:py-3">
+      <TableCell className="font-medium max-xl:p-0">
+        <Label htmlFor={`name-${profile.id}`} className="mb-1.5 block text-muted-foreground xl:hidden">
+          Ad Soyad
+        </Label>
         <Input
+          id={`name-${profile.id}`}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Ad Soyad"
-          className="h-8 min-w-48"
+          className="h-8 w-full pointer-coarse:h-10 xl:min-w-40"
         />
         {isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(siz)</span>}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">{profile.email || "—"}</TableCell>
-      <TableCell>
+      <TableCell className="text-sm text-muted-foreground max-xl:p-0 max-xl:whitespace-normal">
+        <span className="mr-1.5 xl:hidden">E-posta:</span>
+        {profile.email || "—"}
+      </TableCell>
+      <TableCell className="max-xl:p-0">
+        <Label htmlFor={`title-${profile.id}`} className="mb-1.5 block text-muted-foreground xl:hidden">
+          Unvan
+        </Label>
         <Input
+          id={`title-${profile.id}`}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Unvan (ör. Makine Mühendisi)"
-          className="h-8 max-w-64"
+          className="h-8 w-full pointer-coarse:h-10 xl:max-w-64"
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="max-xl:p-0">
+        <Label className="mb-1.5 block text-muted-foreground xl:hidden">Rol</Label>
         <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
-          <SelectTrigger size="sm" className="w-40">
+          <SelectTrigger size="sm" className="w-full xl:w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -102,8 +120,16 @@ export function UserRow({
           </div>
         )}
       </TableCell>
-      <TableCell>
-        <Button size="sm" variant="outline" disabled={!dirty || pending} onClick={handleSave}>
+      <TableCell className="max-xl:p-0">
+        {/* Dar kipte Kaydet alanların ALTINDA ve tam genişlikte durur:
+            değiştirilen alandan sonra göz onu aramak zorunda kalmasın. */}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!dirty || pending}
+          onClick={handleSave}
+          className="w-full xl:w-auto"
+        >
           {pending ? "Kaydediliyor..." : "Kaydet"}
         </Button>
       </TableCell>

@@ -155,6 +155,33 @@
   }
 
   /*
+   * Yatay kaydırma ipucu — dar ekranda kırpılan tablolar için.
+   *
+   * Sorun taşma değil, taşmanın GÖRÜNMEMESİDİR: telefonda tablo kabın içinde
+   * sessizce kesiliyor, kullanıcı sağda sütun olduğunu bilmiyordu (mobil
+   * tarayıcılar kaydırma çubuğunu göstermez). Klasik çift-katman hilesi:
+   * `local` bağlı beyaz örtüler kaydırmayla BİRLİKTE kayar, `scroll` bağlı
+   * gölgeler yerinde durur — böylece gölge yalnız o yönde içerik varken
+   * görünür ve sona gelince kendiliğinden söner. JS gerektirmez.
+   *
+   * Zemin rengi `--oc-scroll-bg` ile verilir; varsayılan kart yüzeyidir,
+   * tabloların çoğu kart içinde durur. Kart dışında kullanan yer değişkeni
+   * kendi zeminiyle ezer.
+   */
+  .oc-scrollx {
+    --oc-scroll-bg: var(--card);
+    background-image:
+      linear-gradient(to right, var(--oc-scroll-bg), transparent),
+      linear-gradient(to left, var(--oc-scroll-bg), transparent),
+      linear-gradient(to right, color-mix(in oklch, var(--foreground) 18%, transparent), transparent),
+      linear-gradient(to left, color-mix(in oklch, var(--foreground) 18%, transparent), transparent);
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 28px 100%, 28px 100%, 10px 100%, 10px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  /*
    * Pastel etiket — müşteri adı ve satış kapsamı (lib/tags.ts).
    *
    * Renk `--oc-hue` ile TON AÇISI olarak gelir; doygunluk ve parlaklık BURADA
@@ -242,9 +269,26 @@
   }
   body {
     @apply bg-background text-foreground;
+    /*
+     * Dokunma geri bildirimi markalı olsun: tarayıcının varsayılan mavi
+     * parlaması hem marka dışıdır hem de tıklanabilir OLMAYAN kapsayıcılarda
+     * da yanıp yanlış ipucu verir. Kırmızının çok soluk bir karışımı yeterli.
+     */
+    -webkit-tap-highlight-color: color-mix(in oklch, var(--primary) 14%, transparent);
   }
   html {
     @apply font-sans;
+    /*
+     * Preflight yalnız `-webkit-` önekli olanı veriyor; öneksiz karşılığı
+     * burada tamamlanır. İkisi de tarayıcının "metin şişirme" davranışını
+     * kapatır — kullanıcının KENDİ yakınlaştırması etkilenmez.
+     */
+    text-size-adjust: 100%;
+    /*
+     * İç kaydırma kapları (katalog tablosu, açılır listeler, diyagram şeridi)
+     * sona geldiğinde kaydırma arkadaki sayfaya zincirlenmesin.
+     */
+    overscroll-behavior-y: none;
   }
   h1, h2, h3, h4 {
     @apply tracking-tight;
@@ -252,5 +296,39 @@
   }
   table {
     font-variant-numeric: tabular-nums;
+  }
+  /*
+   * Uzun teknik dizgiler (katalog model kodu "032252-250x160", doküman kodu
+   * "ORC-HR-0055-01-R01", e-posta) dar ekranda kırılacak boşluk bulamayıp
+   * kapsayıcıyı taşırıyordu. Kırılma yalnız GEREKTİĞİNDE devreye girer.
+   */
+  body {
+    overflow-wrap: break-word;
+  }
+
+  /*
+   * YAPISAL KAPSAYICILARDA OTOMATİK EN KÜÇÜK GENİŞLİK KAPALI.
+   *
+   * Telefonda sayfanın tamamının yatay kaymasının tek ve gerçek sebebi buydu.
+   * Izgara/esnek yerleşim öğelerinin `min-width` değeri varsayılan olarak
+   * `auto`dur ve bu, öğenin İÇERİĞİNİN min-content genişliğinden daha dar
+   * olmasını YASAKLAR. Kural her seviyede yukarı doğru zincirlenir: en içteki
+   * geniş tablo, kendi `overflow-x-auto` kabını, o kabı tutan bölüm ızgarasını,
+   * onu tutan sayfa yığınını ve en sonunda uygulama kabuğunu birlikte
+   * genişletir. Sonuç: kaydırma kabı devreye hiç girmez (kap zaten içerik kadar
+   * geniştir) ve BÜTÜN SAYFA yana kayar — İş Takibi günlük girişinde 375px'lik
+   * ekranda belge 721px ölçülüyordu.
+   *
+   * `min-width: 0` yalnız yapısal kapsayıcılara verilir; `button`, `a`, `span`,
+   * `input` ve tablo hücreleri kapsam dışıdır — onlarda büzülme metni kutudan
+   * taşırırdı. Küçülmemesi gereken kapsayıcılar zaten `shrink-0` taşır ve o
+   * kural `min-width`ten bağımsız çalışır; gerçekten en küçük bir genişliğe
+   * ihtiyacı olan yer ise (ör. günlük girişin `min-w-[62rem]` ızgarası) bunu
+   * AÇIKÇA söyler ve `base` katmanındaki bu kural yardımcı sınıflara kaybeder.
+   *
+   * `:where()` özgüllüğü sıfırlar: hiçbir bileşen kuralı bu yüzden ezilmez.
+   */
+  :where(div, section, main, nav, article, aside, form, ul, ol, li, figure) {
+    min-width: 0;
   }
 }

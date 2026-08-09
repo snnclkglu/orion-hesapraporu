@@ -80,12 +80,21 @@ export default async function AuditPage({
         </p>
       </div>
 
+      {/* İşlem rozeti sarmaz (Badge tabanı `whitespace-nowrap`); dar telefonda
+          tablo yine de kayabilir. Mobil tarayıcı kaydırma çubuğu çizmediği
+          için tek ipucu bu nottur. */}
+      <p className="text-[11px] text-muted-foreground md:hidden">
+        → Tabloyu yana kaydırın
+      </p>
+
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
+            {/* "Kullanıcı" mobilde işlem rozetinin altına iner; dört sütun
+                + serbest metin detay telefonda tabloyu ~900px yapıyordu. */}
             <TableRow>
               <TableHead>Tarih</TableHead>
-              <TableHead>Kullanıcı</TableHead>
+              <TableHead className="hidden md:table-cell">Kullanıcı</TableHead>
               <TableHead>İşlem</TableHead>
               <TableHead>Detay</TableHead>
             </TableRow>
@@ -93,18 +102,25 @@ export default async function AuditPage({
           <TableBody>
             {(entries ?? []).map((e) => (
               <TableRow key={e.id}>
-                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                {/* Tarih + saat mobilde sarsın: nowrap hâlinde tek başına
+                    ~150px yiyordu. */}
+                <TableCell className="text-sm whitespace-normal text-muted-foreground md:whitespace-nowrap">
                   {new Date(e.created_at).toLocaleString("tr-TR")}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="hidden text-sm md:table-cell">
                   {(e.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-normal">
                   <Badge variant={e.action === "revision.issue" ? "default" : "outline"}>
                     {ACTION_LABELS[e.action] ?? e.action}
                   </Badge>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground md:hidden">
+                    {(e.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
+                  </div>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                {/* Serbest metin: taban `whitespace-nowrap`u devralınca uzun
+                    detay tabloyu tek başına ~900px'e çıkarıyordu. */}
+                <TableCell className="text-sm whitespace-normal text-muted-foreground md:min-w-[16rem]">
                   {detailSummary(e.action, (e.detail ?? {}) as Record<string, unknown>)}
                 </TableCell>
               </TableRow>

@@ -22,14 +22,17 @@ export function SectionDiagram({
     [moduleKey, sectionId, input, result]
   );
   if (diagrams.length === 0) return null;
-  // Dar kolonda diyagram KIRPILMAZ, yatay kaydırılır (overflow-x-auto)
+  // Dar kolonda diyagram KIRPILMAZ, yatay kaydırılır (overflow-x-auto).
+  // `oc-scrollx` kenar gölgesiyle kaydırılabilir olduğunu gösterir — mobil
+  // tarayıcı kaydırma çubuğu çizmediği için tek ipucu budur; zemin beyaz
+  // olduğundan örtü rengi de beyaza ayarlanır.
   return (
     <div className="grid gap-2">
       {diagrams.map((d, i) => (
         <div
           key={i}
           data-diagram={`${moduleKey}-${sectionId}-${i}`}
-          className="overflow-x-auto rounded-lg border bg-white p-2"
+          className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-lg border bg-white p-2 [--oc-scroll-bg:#fff]"
         >
           <DiagramSvg diagram={d} className="mx-auto" />
         </div>

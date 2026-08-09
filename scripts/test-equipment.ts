@@ -61,7 +61,7 @@ const NOTES: EquipmentNotes = {
 };
 
 const META = {
-  docNo: "TEST-V5",
+  docNo: "0055-01", // doküman no = iş kalemi numarası
   projectName: "İSDEMİR - Amonyum Sülfat Vinci (V5 şablon)",
   customer: "İSDEMİR",
   revLabel: "V5 şablon testi",

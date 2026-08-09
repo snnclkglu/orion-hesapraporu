@@ -73,6 +73,18 @@ import {
   type WorkFilters,
 } from "../filters";
 
+/**
+ * Çapraz tablonun kimlik sütunu sola yapışır — on iki sütunla tablo dar ekranda
+ * kayıyor ve satırın hangi kaleme ait olduğu görünmez oluyordu. Zemin opaktır;
+ * yarı saydam satır zeminlerinin (`bg-muted/50`, `bg-muted/40`) kart üzerindeki
+ * bileşimi `color-mix` ile birebir tekrarlanır.
+ */
+const PIVOT_STICKY = "sticky left-0 z-10 bg-card";
+const PIVOT_STICKY_HEAD =
+  "sticky left-0 z-20 bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+const PIVOT_STICKY_TOTAL =
+  "sticky left-0 z-10 bg-[color-mix(in_oklch,var(--muted)_40%,var(--card))]";
+
 /** Bölüm başlığı — kicker + kırmızı cetvel (marka grafik dili). */
 function SectionHead({
   title,
@@ -299,9 +311,10 @@ export function AnalysisView({
           hint={`${columns.length} ${bucket === "month" ? "ay" : bucket === "week" ? "hafta" : "gün"}`}
           icon={TrendingUp}
           action={
-            <div className="flex items-center gap-2">
+            // 296px'lik bir şeritte açılır liste + üç düğme yan yana sığmıyordu.
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               <Select value={seriesDim} onValueChange={(v) => setSeriesDim(v as WorkDimension)}>
-                <SelectTrigger size="sm" className="w-[150px]">
+                <SelectTrigger size="sm" className="w-full sm:w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,7 +352,7 @@ export function AnalysisView({
             <>
               <TimeBarChart columns={columns} series={series} height={220} />
               {seriesBuckets.length > seriesShown.length && (
-                <p className="mt-2 pl-14 text-[11px] text-muted-foreground">
+                <p className="mt-2 pl-0 text-[11px] text-muted-foreground sm:pl-14">
                   Grafikte en büyük {seriesShown.length} {WORK_DIMENSION_LABELS[seriesDim]}{" "}
                   gösteriliyor; kalan {seriesBuckets.length - seriesShown.length} kalem çubuklara
                   girmiyor. Tamamı aşağıdaki kırılımda listelenir.
@@ -350,8 +363,11 @@ export function AnalysisView({
         </div>
       </div>
 
-      {/* 3 — Kırılım + halka */}
-      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+      {/* 3 — Kırılım + halka
+          İKİ SÜTUN `xl`E ERTELENDİ: `lg`de (1024px) halka kartına 276px kalıyor,
+          halkanın 168px'i düşünce efsaneye 58px yer kalıyordu — sayı sütunları
+          `shrink-0` olduğu için efsane kartın dışına taşıyordu. */}
+      <div className="grid gap-4 xl:grid-cols-[1.55fr_1fr]">
         <div className="rounded-lg border bg-card">
           <SectionHead
             title="Kırılım"
@@ -359,7 +375,7 @@ export function AnalysisView({
             icon={Grid3x3}
             action={
               <Select value={rankDim} onValueChange={(v) => setRankDim(v as WorkDimension)}>
-                <SelectTrigger size="sm" className="w-[150px]">
+                <SelectTrigger size="sm" className="w-full sm:w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -418,7 +434,7 @@ export function AnalysisView({
           icon={CalendarRange}
           action={
             <Select value={heatDim} onValueChange={(v) => setHeatDim(v as WorkDimension)}>
-              <SelectTrigger size="sm" className="w-[150px]">
+              <SelectTrigger size="sm" className="w-full sm:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -451,9 +467,11 @@ export function AnalysisView({
           hint={`${WORK_DIMENSION_LABELS[pivotRow]} × ${WORK_DIMENSION_LABELS[pivotCol]}`}
           icon={Grid3x3}
           action={
-            <div className="flex items-center gap-2">
+            // Satır / değiştir / sütun üçlüsü telefonda kendi satırını alır ve
+            // iki liste kalan yeri paylaşır (sabit 135px + 135px + düğme sığmaz).
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               <Select value={pivotRow} onValueChange={(v) => setPivotRow(v as WorkDimension)}>
-                <SelectTrigger size="sm" className="w-[135px]">
+                <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-[135px] sm:flex-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -478,7 +496,7 @@ export function AnalysisView({
                 <ArrowLeftRight className="size-3.5" />
               </Button>
               <Select value={pivotCol} onValueChange={(v) => setPivotCol(v as WorkDimension)}>
-                <SelectTrigger size="sm" className="w-[135px]">
+                <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-[135px] sm:flex-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -492,11 +510,17 @@ export function AnalysisView({
             </div>
           }
         />
-        <div className="overflow-x-auto">
+        {/* `Table` kendi kaydırma kabını kurar; ipucu tablonun ÜSTÜNDE verilir. */}
+        <p className="px-4 pt-2 text-[11px] text-muted-foreground md:hidden">
+          → Tabloyu yana kaydırın
+        </p>
+        <div>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="min-w-[11rem]">{WORK_DIMENSION_LABELS[pivotRow]}</TableHead>
+                <TableHead className={cn("min-w-[9rem] md:min-w-[11rem]", PIVOT_STICKY_HEAD)}>
+                  {WORK_DIMENSION_LABELS[pivotRow]}
+                </TableHead>
                 {crossCols.map((c) => (
                   <TableHead key={c.key} className="text-right">
                     <span className="flex items-center justify-end gap-1.5">
@@ -511,7 +535,10 @@ export function AnalysisView({
             <TableBody>
               {crossRows.map((r) => (
                 <TableRow key={r.key} className="hover:bg-transparent">
-                  <TableCell className="max-w-[16rem] truncate" title={r.hint || r.label}>
+                  <TableCell
+                    className={cn("max-w-[12rem] truncate md:max-w-[16rem]", PIVOT_STICKY)}
+                    title={r.hint || r.label}
+                  >
                     <span className="flex items-center gap-1.5">
                       <span className="oc-tag-dot" style={tagStyle(r.hue)} aria-hidden />
                       <span className="truncate font-medium">{r.label}</span>
@@ -541,7 +568,7 @@ export function AnalysisView({
                 </TableRow>
               ))}
               <TableRow className="border-t-2 bg-muted/40 hover:bg-muted/40">
-                <TableCell className="font-semibold">Toplam</TableCell>
+                <TableCell className={cn("font-semibold", PIVOT_STICKY_TOTAL)}>Toplam</TableCell>
                 {crossCols.map((c) => (
                   <TableCell
                     key={c.key}
@@ -594,12 +621,14 @@ export function AnalysisView({
         ) : (
           <Table>
             <TableHeader>
+              {/* "Fark" telefonda düşer: iki dönem sütunundan zaten okunur ve
+                  beş sütun 375px'lik ekranda tabloyu ikiye katlıyordu. */}
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>{WORK_DIMENSION_LABELS[rankDim]}</TableHead>
-                <TableHead className="w-[9rem] text-right">Bu dönem</TableHead>
-                <TableHead className="w-[9rem] text-right">Önceki dönem</TableHead>
-                <TableHead className="w-[8rem] text-right">Fark</TableHead>
-                <TableHead className="w-[7rem] text-right">Değişim</TableHead>
+                <TableHead className="w-[6rem] text-right md:w-[9rem]">Bu dönem</TableHead>
+                <TableHead className="w-[6rem] text-right md:w-[9rem]">Önceki dönem</TableHead>
+                <TableHead className="hidden w-[8rem] text-right md:table-cell">Fark</TableHead>
+                <TableHead className="w-[5.5rem] text-right md:w-[7rem]">Değişim</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -619,7 +648,7 @@ export function AnalysisView({
                   </TableCell>
                   <TableCell
                     className={cn(
-                      "text-right font-mono text-xs tabular-nums",
+                      "hidden text-right font-mono text-xs tabular-nums md:table-cell",
                       c.diff > 0 ? "text-success" : c.diff < 0 ? "text-destructive" : ""
                     )}
                   >
@@ -646,7 +675,7 @@ export function AnalysisView({
                 <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
                   {fmtManHours(previous.summary.manHours)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                <TableCell className="hidden text-right font-mono text-xs font-semibold tabular-nums md:table-cell">
                   {summary.manHours - previous.summary.manHours > 0 ? "+" : ""}
                   {fmtManHours(summary.manHours - previous.summary.manHours)}
                 </TableCell>

@@ -120,7 +120,10 @@ export function RecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
+      {/* Yükseklik sınırı ve iç kaydırma artık `DialogContent` tabanındadır.
+          Genişlik görünür alandan pay bırakacak biçimde kelepçelenir: düz
+          `sm:max-w-2xl` 640px'lik ekranda pencereyi ekrandan taşırıyordu. */}
+      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Çalışma Kaydı</DialogTitle>
           <DialogDescription>
@@ -142,7 +145,7 @@ export function RecordDialog({
               onChange={setItemNo}
               placeholder="İş kalemi"
               searchPlaceholder="Kalem no, ürün veya müşteri…"
-              contentClassName="min-w-[24rem]"
+              contentClassName="min-w-[min(24rem,calc(100vw-1.5rem))]"
             />
           </div>
 
@@ -187,7 +190,9 @@ export function RecordDialog({
             />
           </div>
 
-          <div className="grid grid-cols-3 items-end gap-2">
+          {/* Üç sayısal alan 300px'lik bir sütuna sığmaz: telefonda adam/saat
+              yan yana, sonuç kutusu alta iner. */}
+          <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-3">
             <div className="grid gap-1.5">
               <Label htmlFor="wl-people">Adam</Label>
               <Input
@@ -208,7 +213,7 @@ export function RecordDialog({
                 className="text-center font-mono tabular-nums"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="col-span-2 grid gap-1.5 sm:col-span-1">
               <Label>Adam·Saat</Label>
               <div className="flex h-10 items-center justify-center border bg-muted/40 font-mono text-sm font-semibold tabular-nums">
                 {p > 0 && h > 0 ? fmtManHours(p * h) : "—"}

@@ -4,6 +4,7 @@
 
 import { Fragment } from "react";
 import { parseFormula, type MathNode } from "@/lib/math/formula";
+import { cn } from "@/lib/utils";
 
 function isVar(v: string): boolean {
   // tek/çift harfli latin/yunan değişken → italik; sayı/operatör düz
@@ -74,6 +75,21 @@ function Node({ node }: { node: MathNode }): React.ReactElement {
 }
 
 /**
+ * Taşma koruması BİLEŞENİN KENDİSİNDEDİR, çağrı yerinde değil.
+ *
+ * Kök düğüm `inline-flex`tir ve inline-flex satır KIRMAZ: uzun bir bağıntı tek
+ * parça hâlinde genişler, telefonda pencereyi yatay taşırır. Bugün her iki
+ * çağrı yeri de kendi kaydırma kabını sağlıyor ama koruma orada olmamalı —
+ * yeni bir çağrı yeri bunu unutursa taşma sessizce geri gelir. Kabı buraya
+ * almak çağrı yerlerinde ÇİFT kaydırma da üretmez: dıştaki kap `max-w-full`
+ * ile sınırlanan bu kutuyu asla taşıramaz, yani kaydıran tek katman burasıdır.
+ *
+ * Kaydırma İPUCU (`oc-scrollx`) buraya konmaz: kenar gölgesinin rengi kabın
+ * zeminine bağlıdır ve onu yalnız çağrı yeri bilir — `className` ile eklenir.
+ */
+const FORMULA_WRAP = "block max-w-full overflow-x-auto overscroll-x-contain";
+
+/**
  * Formül dizesini matematiksel olarak dizer. Ayrıştırılamazsa `fallback`
  * (varsayılan: kaynak dize) italik serif olarak gösterilir.
  */
@@ -81,14 +97,17 @@ export function MathFormula({ formula, className }: { formula: string; className
   const node = parseFormula(formula);
   if (!node) {
     return (
-      <span className={className} style={{ fontFamily: "var(--font-serif, Georgia), serif", fontStyle: "italic" }}>
+      <span
+        className={cn(FORMULA_WRAP, className)}
+        style={{ fontFamily: "var(--font-serif, Georgia), serif", fontStyle: "italic" }}
+      >
         {formula}
       </span>
     );
   }
   return (
     <span
-      className={className}
+      className={cn(FORMULA_WRAP, className)}
       style={{ fontFamily: "var(--font-serif, Georgia), serif" }}
     >
       <Node node={node} />

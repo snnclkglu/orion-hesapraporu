@@ -1,17 +1,27 @@
-// Mahal iklimlendirme yükü şeması — kabin ve elektrik odası bölümleri (11.x).
+// Mahal iklimlendirme yükü şeması — kabin, elektrik odası ve pano bölümleri.
 //
 // İki şeyi birden anlatır:
-//   SOL  — mahallin kesiti: yalıtımlı zarf, kapı, cam, operatör, cihazlar ve
-//          klima ünitesi. Isının HANGİ YOLDAN girdiği ok ok gösterilir.
-//   SAĞ  — yük dağılımı çubuğu: hangi kalemin baskın olduğu tek bakışta
+//   SOL  — mahallin KESİTİ: yalıtımlı zarf, kapı, cam, operatör, panolar ve
+//          klima ünitesi. Isının HANGİ YOLDAN girdiği okla gösterilir.
+//   ALT  — yük dağılımı çubuğu: hangi kalemin baskın olduğu tek bakışta
 //          okunur. Sayı tablosunun anlatamadığı şey budur — mühendis
 //          "yalıtımı artırsam ne olur" sorusunun cevabını buradan görür.
 //
-// Şema ÖLÇEKLİ DEĞİLDİR: mahal oranları korunur ama duvar kalınlığı, kapı ve
-// cam okunabilirlik için abartılır. Ölçüler etiketle verilir.
+// YERLEŞİM İLKESİ — ETİKET ZARFIN ÜSTÜNE YAZILMAZ.
+// Çizimin çevresi üç şeride ayrılır: SOL LULUK (dış koşul, iletim oku, kapı),
+// KUTU (yalnız iç koşullar ve mahalin kendi içeriği) ve SAĞ ŞERİT (klima ve
+// hava debileri). Mahalin içindekilerin (pano, operatör) etiketleri kutunun
+// ALTINA, dışına yazılır. Genel çakışma çözücü (`resolveTextOverlaps`) yalnız
+// metin-metin çakışmasını görür; metnin duvar çizgisine binmesini göremez, bu
+// yüzden şeritler burada elle ayrılır.
+//
+// KESİT ÖLÇEKLİDİR: kutunun en/boy oranı mahalin yükseklik/uzunluk oranıdır ve
+// içindekiler (pano, insan) GERÇEK boylarıyla ölçeklenir — 2 m'lik bir pano
+// 2,6 m'lik odanın üçte ikisini kaplar. Yalnız duvar kalınlığı, kapı ve cam
+// okunabilirlik için abartılır; ölçüler etiketle verilir.
 
 import {
-  DCOL, type Diagram, type DiagramEl,
+  DCOL, type Diagram, type DiagramEl, type LineEl,
   arrowHead, caption, fitDiagram, fmtN, ln, txt,
 } from "./model";
 
@@ -24,6 +34,8 @@ export interface ClimateRoomParams {
   /** Yalıtım kalınlığı [mm] — zarf kesitinde etiketlenir */
   insulationMm: number;
   doorCount: number;
+  /** Kapı etiketi — pano yerleşiminde sızıntı yolu "Pano Kapağı"dır */
+  doorLabel?: string;
   ambientTempC: number;
   ambientRhPct: number;
   roomTempC: number;
@@ -43,10 +55,29 @@ export interface ClimateRoomParams {
   /** Kabine özgü: cam alanı [m²] ve kişi adedi (0 ise çizilmez) */
   glazingAreaM2: number;
   occupantCount: number;
+  /**
+   * Mahalde yan yana duran dolap adedi (pano). 0/verilmezse tek bir genel
+   * "Cihazlar" konsolu çizilir — kabinde cihaz bir dolap değil, panelin
+   * arkasındaki elektroniktir.
+   */
+  deviceCount?: number;
+  /** Dolap etiketi ("Pano"). Adet önüne yazılır: "6 Pano". */
+  deviceLabel?: string;
 }
 
 const W = 700;
-const H = 400;
+const H = 360;
+
+/**
+ * ÇİZİM KABULLERİ — girdi değil, ölçek için. Bunlar hesaba GİRMEZ; yalnız
+ * kesitteki nesnelerin mahal yüksekliğine oranını verir ki "bu odaya kaç pano
+ * sığar" sorusu şekilden okunabilsin. Bu yüzden etikete de yazılmazlar:
+ * yazılsalardı hesaplanmış bir ölçüymüş gibi okunurdu.
+ */
+const PANEL_H_M = 2.0;   // tipik pano dolabı yüksekliği
+const PANEL_W_M = 0.8;   // tipik pano gözü genişliği
+const DOOR_H_M = 2.0;    // tipik kapı yüksekliği
+const PERSON_H_M = 1.75; // ayakta insan boyu
 
 /** Yük kalemi: etiket, değer, renk. */
 interface Item {
@@ -55,25 +86,81 @@ interface Item {
   fill: string;
 }
 
+/** Yuvarlak uçlu kalın çizgi — insan figürünün uzuvları. */
+function limb(x1: number, y1: number, x2: number, y2: number, w: number): LineEl {
+  return { kind: "line", x1, y1, x2, y2, stroke: DCOL.ink, strokeWidth: w, cap: "round" };
+}
+
+/**
+ * Ayakta duran insan silueti — GERÇEK BOYDA.
+ *
+ * Çöp adam kesitte ölçek vermiyordu: 2,4 m'lik kabinde 25 px'lik bir figür
+ * mahalin ne kadarını doldurduğunu göstermiyor. Figür artık 1,75 m'lik bir
+ * insanın mahal yüksekliğine oranından ölçeklenir ve klasik 7,5 baş
+ * oranlarıyla çizilir (baş · omuz · kalça · bacak), böylece "bu kabine iki
+ * kişi sığar mı" sorusu şemadan okunur.
+ */
+function person(els: DiagramEl[], cx: number, footY: number, h: number) {
+  const headR = h * 0.057;
+  const topY = footY - h;
+  const shoulderY = topY + h * 0.175;
+  const hipY = topY + h * 0.50;
+  const shoulderHalf = h * 0.098;
+  const hipHalf = h * 0.068;
+
+  els.push({ kind: "circle", cx, cy: topY + headR * 1.15, r: headR, fill: DCOL.ink });
+  // boyun
+  els.push(limb(cx, topY + headR * 1.9, cx, shoulderY, h * 0.032));
+  // gövde — omuzdan kalçaya daralan silüet
+  els.push({
+    kind: "polygon",
+    points: [
+      [cx - shoulderHalf, shoulderY],
+      [cx + shoulderHalf, shoulderY],
+      [cx + hipHalf, hipY],
+      [cx - hipHalf, hipY],
+    ],
+    fill: DCOL.ink,
+  });
+  // kollar — omuzdan kalça hizasına, gövdeye yakın (yana açılmış kollar
+  // figürü gerçek insandan geniş gösteriyordu)
+  els.push(limb(cx - shoulderHalf * 0.85, shoulderY + h * 0.015, cx - shoulderHalf * 1.08, hipY + h * 0.05, h * 0.034));
+  els.push(limb(cx + shoulderHalf * 0.85, shoulderY + h * 0.015, cx + shoulderHalf * 1.08, hipY + h * 0.05, h * 0.034));
+  // bacaklar — kalçadan tabana
+  els.push(limb(cx - hipHalf * 0.5, hipY, cx - hipHalf * 0.7, footY, h * 0.046));
+  els.push(limb(cx + hipHalf * 0.5, hipY, cx + hipHalf * 0.7, footY, h * 0.046));
+}
+
+/** Figürün kolları dâhil yarı genişliği — yerleştirme bununla yapılır. */
+function personHalfWidth(h: number): number {
+  return h * 0.098 * 1.08 + h * 0.017;
+}
+
 export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
   const els: DiagramEl[] = [];
   caption(
     els,
     `${p.title.toLocaleUpperCase("tr")} · ISI YÜKÜ ŞEMASI`,
     `${fmtN(p.lengthM, 2)} × ${fmtN(p.widthM, 2)} × ${fmtN(p.heightM, 2)} m · ` +
-      `${p.outdoor ? "açık hava" : "kapalı mahal"} · ortam ${fmtN(p.ambientTempC, 0)} °C / %${fmtN(p.ambientRhPct, 0)}`
+      `${p.outdoor ? "Açık Hava" : "Kapalı Mahal"} · Ortam ${fmtN(p.ambientTempC, 0)} °C / %${fmtN(p.ambientRhPct, 0)}`
   );
 
   // ---------------------------------------------------------------- mahal kutusu
   // Oranlar korunur; kutu sabit bir alana sığdırılır.
-  const boxMaxW = 250;
-  const boxMaxH = 150;
+  const boxMaxW = 300;
+  const boxMaxH = 168;
   const ratio = p.heightM > 0 && p.lengthM > 0 ? p.heightM / p.lengthM : 0.6;
   let bw = boxMaxW;
   let bh = bw * ratio;
   if (bh > boxMaxH) { bh = boxMaxH; bw = bh / ratio; }
-  const bx = 96;
-  const by = 132;
+  // SOL ŞERİT: iletim oku ve etiketi buraya sığmalı ("İletim 0,00 kW" ≈ 75 px
+  // + ok 46 px). Dar bırakılırsa etiket duvarın üstüne biner.
+  const bx = 140;
+  const by = 70;
+  const boxRight = bx + bw;
+  const boxBottom = by + bh;
+  /** Metrenin piksel karşılığı — içerideki her şey bununla ölçeklenir. */
+  const pxPerM = p.heightM > 0 ? bh / p.heightM : 0;
 
   // Zarf: dış çizgi + yalıtım dolgusu + iç çizgi
   const t = 7; // yalıtım kalınlığı [px] — okunabilirlik için abartılı
@@ -86,95 +173,150 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1,
   });
   // Yalıtım tarama çizgileri (üst bant)
-  for (let x = bx + 6; x < bx + bw - 6; x += 9) {
+  for (let x = bx + 6; x < boxRight - 6; x += 9) {
     els.push(ln(x, by + 1.5, x + 4.5, by + t - 1.5, DCOL.faint, 0.6));
   }
-  els.push(
-    txt(bx + bw / 2, by - 8, `taş yünü ${fmtN(p.insulationMm, 0)} mm`, 8.5, {
-      anchor: "middle", fill: DCOL.muted,
-    })
-  );
+  const innerTop = by + t;
+  const floorY = boxBottom - t;
 
-  // İç koşullar
-  els.push(
-    txt(bx + bw / 2, by + bh / 2 - 20, `${fmtN(p.roomTempC, 0)} °C`, 13, {
-      anchor: "middle", bold: true,
-    })
-  );
-  els.push(
-    txt(bx + bw / 2, by + bh / 2 - 7, `%${fmtN(p.roomRhPct, 0)} bağıl nem`, 8.5, {
-      anchor: "middle", fill: DCOL.muted,
-    })
-  );
+  // ZARF ETİKETLERİ KUTUNUN ÜSTÜNDE. İç koşullar eskiden kutunun ORTASINA
+  // yazılıyordu; içerik gerçek boyuna çıkınca (2 m'lik pano 2,6 m'lik odada)
+  // panolar yazının üstünü örttü. Mahalin içi artık yalnız MAHALİN İÇİNDEKİLERE
+  // ayrılmıştır.
+  const insLabel = `Taş Yünü ${fmtN(p.insulationMm, 0)} mm`;
+  const inLabel = `İç ${fmtN(p.roomTempC, 0)} °C · %${fmtN(p.roomRhPct, 0)} Bağıl Nem`;
+  if (bw >= 210) {
+    // Geniş kutu: yalıtım solda, iç koşul sağda — tek satır.
+    els.push(txt(bx + 2, by - 9, insLabel, 8.5, { fill: DCOL.muted }));
+    els.push(txt(boxRight - 2, by - 9, inLabel, 8.5, { anchor: "end", fill: DCOL.ink }));
+  } else {
+    // Dar kutu (kabin): iki satır, ortalanmış.
+    els.push(txt(bx + bw / 2, by - 21, insLabel, 8.5, { anchor: "middle", fill: DCOL.muted }));
+    els.push(txt(bx + bw / 2, by - 9, inLabel, 8.5, { anchor: "middle", fill: DCOL.ink }));
+  }
 
   // ---------------------------------------------------------------- kapı
+  // Etiket SOL LULUKTA değil kutunun ALTINDA: kapı yüksekliği gerçek boyuna
+  // (2 m) çıkınca ortasındaki etiket iletim okunun etiketiyle çakışıyordu.
+  const belowY = boxBottom + 13;
+  const inner1 = bx + t;
+  const inner2 = boxRight - t;
   if (p.doorCount > 0) {
-    const dh = Math.min(bh - 2 * t - 6, 34);
-    const dy = by + bh - t - dh;
+    const dh = Math.min(bh - 2 * t - 6, Math.max(26, DOOR_H_M * pxPerM));
     els.push({
-      kind: "rect", x: bx + t - 1, y: dy, w: 5, h: dh,
+      kind: "rect", x: bx + t - 1, y: floorY - dh, w: 5, h: dh,
       fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
     });
     els.push(
-      txt(bx - 8, dy + dh / 2, `${fmtN(p.doorCount, 0)} kapı`, 8.5, {
-        anchor: "end", fill: DCOL.muted,
+      txt(inner1, belowY, `${fmtN(p.doorCount, 0)} ${p.doorLabel ?? "Kapı"}`, 8, {
+        fill: DCOL.muted, push: "down",
       })
     );
   }
 
   // ---------------------------------------------------------------- cam
   if (p.glazingAreaM2 > 0) {
-    const gh = Math.min(bh - 2 * t - 10, 46);
-    const gy = by + t + 8;
+    const gh = Math.min(bh - 2 * t - 10, 52);
+    const gy = innerTop + 40;
     els.push({
-      kind: "rect", x: bx + bw - t - 4, y: gy, w: 5, h: gh,
+      kind: "rect", x: boxRight - t - 4, y: gy, w: 5, h: gh,
       fill: "#DCEAF2", stroke: DCOL.ink, strokeWidth: 1,
     });
-    els.push(ln(bx + bw - t - 4, gy + gh / 3, bx + bw - t + 1, gy + gh / 3, DCOL.faint, 0.7));
+    els.push(ln(boxRight - t - 4, gy + gh / 3, boxRight - t + 1, gy + gh / 3, DCOL.faint, 0.7));
+    // Cam etiketi kutunun ALTINDA: içeride operatör figürünün, sağda ise
+    // klima şeridinin altında kalıyordu.
     els.push(
-      txt(bx + bw + 8, gy + gh / 2, `cam ${fmtN(p.glazingAreaM2, 1)} m²`, 8.5, {
-        fill: DCOL.muted,
+      txt(inner2, boxBottom + 13, `Cam ${fmtN(p.glazingAreaM2, 1)} m²`, 8, {
+        anchor: "end", fill: DCOL.muted, push: "down",
       })
     );
   }
 
-  // ---------------------------------------------------------------- operatör
+  // ---------------------------------------------- mahalin içindekiler (zeminde)
+  // Etiketler kutunun ALTINA yazılır — duvarın üstüne binmesin.
+
+  // Panolar: yan yana dolaplar. Adet verilmezse tek bir genel konsol.
+  const cabCount = Math.max(0, Math.floor(p.deviceCount ?? 0));
+  const cabH = Math.min(bh - 2 * t - 8, Math.max(22, PANEL_H_M * pxPerM));
+  let deviceLeft: number;
+  let deviceRight: number;
+  if (cabCount > 0) {
+    // Nominal 0,8 m'lik pano gözü; sığmıyorsa mevcut zemine daraltılır.
+    const gap = 2.5;
+    const avail = (inner2 - inner1) * 0.62;
+    const wNom = Math.max(6, PANEL_W_M * ((bw - 2 * t) / Math.max(p.lengthM, 0.001)));
+    const wCab = Math.min(wNom, (avail - gap * (cabCount - 1)) / cabCount);
+    const total = wCab * cabCount + gap * (cabCount - 1);
+    deviceRight = inner2 - 6;
+    deviceLeft = deviceRight - total;
+    for (let i = 0; i < cabCount; i++) {
+      const x = deviceLeft + i * (wCab + gap);
+      els.push({
+        kind: "rect", x, y: floorY - cabH, w: wCab, h: cabH,
+        fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 0.9,
+      });
+      // Kapak kolu + havalandırma çizgileri — dolap olduğu okunsun
+      els.push(ln(x + wCab - 2.5, floorY - cabH * 0.55, x + wCab - 2.5, floorY - cabH * 0.42, DCOL.ink, 0.9));
+      for (let k = 1; k <= 3; k++) {
+        const yy = floorY - cabH + cabH * (0.16 * k);
+        els.push(ln(x + 2, yy, x + wCab - 4, yy, DCOL.muted, 0.5));
+      }
+    }
+    els.push(
+      txt((deviceLeft + deviceRight) / 2, belowY,
+        `${fmtN(cabCount, 0)} ${p.deviceLabel ?? "Pano"}`, 8, {
+        anchor: "middle", fill: DCOL.muted, push: "down",
+      })
+    );
+  } else {
+    const eqW = Math.min(52, (inner2 - inner1) * 0.34);
+    const eqH = Math.min(bh - 2 * t - 8, Math.max(20, 0.9 * pxPerM));
+    deviceRight = inner2 - 8;
+    deviceLeft = deviceRight - eqW;
+    els.push({
+      kind: "rect", x: deviceLeft, y: floorY - eqH, w: eqW, h: eqH,
+      fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
+    });
+    for (let k = 1; k <= 2; k++) {
+      const yy = floorY - eqH + (eqH / 3) * k;
+      els.push(ln(deviceLeft + 5, yy, deviceRight - 5, yy, DCOL.muted, 0.7));
+    }
+    els.push(
+      txt((deviceLeft + deviceRight) / 2, belowY, "Cihazlar", 8, {
+        anchor: "middle", fill: DCOL.muted, push: "down",
+      })
+    );
+  }
+
+  // Operatörler — cihazların SOLUNDA kalan SERBEST ZEMİNE eşit aralıklarla,
+  // gerçek boyla (1,75 m). Kişiler zemine dizilir; kalan yer dar ise omuz omuza
+  // gelirler — 1,8 m'lik bir kabinde gerçekte olan da budur ve şemanın söylediği
+  // şey tam olarak budur.
   if (p.occupantCount > 0) {
-    const px = bx + bw * 0.34;
-    const py = by + bh - t - 8;
-    els.push({ kind: "circle", cx: px, cy: py - 21, r: 4.2, fill: DCOL.ink });
-    els.push(ln(px, py - 17, px, py - 7, DCOL.ink, 1.6));
-    els.push(ln(px - 6, py - 13, px + 6, py - 13, DCOL.ink, 1.4));
-    els.push(ln(px, py - 7, px - 5, py, DCOL.ink, 1.4));
-    els.push(ln(px, py - 7, px + 5, py, DCOL.ink, 1.4));
+    const ph = Math.min(bh - 2 * t - 6, Math.max(26, PERSON_H_M * pxPerM));
+    const n = Math.min(p.occupantCount, 3);
+    const freeL = inner1 + 3;
+    const freeR = deviceLeft - 5;
+    const slot = Math.max((freeR - freeL) / n, personHalfWidth(ph));
+    const cxOf = (i: number) => freeL + slot * (i + 0.5);
+    for (let i = 0; i < n; i++) person(els, cxOf(i), floorY, ph);
     els.push(
-      txt(px, py + 11, `${fmtN(p.occupantCount, 0)} operatör`, 8, {
-        anchor: "middle", fill: DCOL.muted,
+      txt((cxOf(0) + cxOf(n - 1)) / 2, belowY, `${fmtN(p.occupantCount, 0)} Operatör`, 8, {
+        anchor: "middle", fill: DCOL.muted, push: "down",
       })
     );
   }
-
-  // ---------------------------------------------------------------- cihazlar
-  const eqW = 30;
-  const eqH = 26;
-  const eqX = bx + bw - t - eqW - 10;
-  const eqY = by + bh - t - eqH - 4;
-  els.push({
-    kind: "rect", x: eqX, y: eqY, w: eqW, h: eqH,
-    fill: DCOL.line, stroke: DCOL.ink, strokeWidth: 1,
-  });
-  els.push(ln(eqX + 5, eqY + 8, eqX + eqW - 5, eqY + 8, DCOL.muted, 0.7));
-  els.push(ln(eqX + 5, eqY + 14, eqX + eqW - 5, eqY + 14, DCOL.muted, 0.7));
-  els.push(
-    txt(eqX + eqW / 2, eqY + eqH + 10, "cihazlar", 8, {
-      anchor: "middle", fill: DCOL.muted,
-    })
-  );
 
   // ---------------------------------------------------------------- ısı okları
-  /** Zarfa dışarıdan giren yük oku — etiket kırmızı, değer kW. */
+  /**
+   * Zarfa dışarıdan giren yük oku. Etiket okun KUYRUK tarafına, çizimden
+   * DIŞARI doğru yazılır: ok yönünün tersine yazmak etiketi kutunun üstüne
+   * bindiriyordu.
+   */
   const heatArrow = (
-    x1: number, y1: number, x2: number, y2: number, label: string, kw: number
+    x1: number, y1: number, x2: number, y2: number,
+    label: string, kw: number,
+    labelPos: { x: number; y: number; anchor: "start" | "middle" | "end" }
   ) => {
     if (!(kw > 0)) return;
     els.push(ln(x1, y1, x2, y2, DCOL.accent, 1.6));
@@ -183,86 +325,109 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
       : (y2 > y1 ? "down" : "up");
     els.push(arrowHead(x2, y2, dir as "left" | "right" | "up" | "down", DCOL.accent, 8, 3.2));
     els.push(
-      txt(x1, y1 - 5, `${label} ${fmtN(kw, 2)} kW`, 8.5, {
-        anchor: x2 > x1 ? "end" : "start", fill: DCOL.accent,
-        leaderTo: [x2, y2],
+      txt(labelPos.x, labelPos.y, `${label} ${fmtN(kw, 2)} kW`, 8.5, {
+        anchor: labelPos.anchor, fill: DCOL.accent, leaderTo: [x2, y2],
       })
     );
   };
 
-  // İletim — sol duvardan içeri
-  heatArrow(bx - 46, by + bh * 0.34, bx - 3, by + bh * 0.34, "iletim", p.transmissionKw);
-  // Güneş — çatıdan (yalnız açık havada)
+  // İletim — sol duvardan içeri (etiket sol şeritte)
+  const condY = by + bh * 0.55;
+  heatArrow(bx - 52, condY, bx - 3, condY, "İletim", p.transmissionKw,
+    { x: bx - 58, y: condY + 3, anchor: "end" });
+
+  // Güneş — çatıdan (yalnız açık havada). Güneş simgesi sağ üstte, yalıtım
+  // etiketinin dışında kalır.
   if (p.outdoor && p.solarKw > 0) {
-    const sx = bx + bw * 0.62;
-    els.push({ kind: "circle", cx: sx + 40, cy: by - 44, r: 8, fill: "#F2C94C" });
+    const sx = bx + bw * 0.74;
+    const sunX = boxRight + 26;
+    const sunY = by - 34;
+    els.push({ kind: "circle", cx: sunX, cy: sunY, r: 7, fill: "#F2C94C" });
     for (let a = 0; a < 8; a += 1) {
       const ang = (a * Math.PI) / 4;
       els.push(ln(
-        sx + 40 + Math.cos(ang) * 11, by - 44 + Math.sin(ang) * 11,
-        sx + 40 + Math.cos(ang) * 15, by - 44 + Math.sin(ang) * 15,
+        sunX + Math.cos(ang) * 10, sunY + Math.sin(ang) * 10,
+        sunX + Math.cos(ang) * 14, sunY + Math.sin(ang) * 14,
         "#F2C94C", 1.2
       ));
     }
-    heatArrow(sx, by - 30, sx, by - 3, "güneş", p.solarKw);
+    heatArrow(sx, by - 30, sx, by - 3, "Güneş", p.solarKw,
+      { x: sx + 8, y: by - 20, anchor: "start" });
   }
-  // Işınım — sağ duvardan (yalnız girilmişse)
-  heatArrow(bx + bw + 52, by + bh * 0.62, bx + bw + 3, by + bh * 0.62, "ışınım", p.radiationKw);
+
+  // Işınım — ALTTAN. Fiziksel olarak da doğru yer: yakındaki sıcak yüzey
+  // (platform altı) ışınımı tabandan gelir. Sağ şerit klimaya ayrıldı.
+  if (p.radiationKw > 0) {
+    const rx = bx + bw * 0.28;
+    heatArrow(rx, boxBottom + 46, rx, boxBottom + 3, "Işınım", p.radiationKw,
+      { x: rx - 6, y: boxBottom + 44, anchor: "end" });
+  }
 
   // ---------------------------------------------------------------- klima ünitesi
-  const acX = bx + bw + 78;
-  const acY = by + bh - 56;
+  // SAĞ ŞERİT: kutu ile klima arasındaki boşluk debi etiketlerinin genişliğine
+  // göre seçilir — "Üfleme 1.212 m³/h" ≈ 105 px.
+  const gapAc = 128;
+  const acW = 60;
+  const acH = 46;
+  const acX = boxRight + gapAc;
+  const acY = boxBottom - acH - 6;
+  const midX = (boxRight + acX) / 2;
   els.push({
-    kind: "rect", x: acX, y: acY, w: 54, h: 44,
+    kind: "rect", x: acX, y: acY, w: acW, h: acH,
     fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.3,
   });
-  els.push(txt(acX + 27, acY + 20, "KLİMA", 9, { anchor: "middle", bold: true }));
+  els.push(txt(acX + acW / 2, acY + 20, "KLİMA", 9, { anchor: "middle", bold: true }));
   els.push(
-    txt(acX + 27, acY + 32, `${fmtN(p.totalKw, 2)} kW`, 9, {
+    txt(acX + acW / 2, acY + 33, `${fmtN(p.totalKw, 2)} kW`, 9, {
       anchor: "middle", fill: DCOL.accent, bold: true,
     })
   );
-  // Üfleme (mahalle) ve dönüş (mahalden) okları
-  els.push(ln(acX, acY + 12, bx + bw + 6, acY + 12, DCOL.ink, 1.3));
-  els.push(arrowHead(bx + bw + 4, acY + 12, "left", DCOL.ink, 7, 2.8));
+  // Üfleme (mahalle) — etiket okun ÜSTÜNDE, iki kutunun tam ortasında
+  const supplyY = acY + 13;
+  els.push(ln(acX, supplyY, boxRight + 6, supplyY, DCOL.ink, 1.3));
+  els.push(arrowHead(boxRight + 4, supplyY, "left", DCOL.ink, 7, 2.8));
   els.push(
-    txt(acX - 4, acY + 7, `üfleme ${fmtN(p.airFlowM3h, 0)} m³/h`, 8, {
+    txt(midX, supplyY - 5, `Üfleme ${fmtN(p.airFlowM3h, 0)} m³/h`, 8, {
+      anchor: "middle", fill: DCOL.muted,
+    })
+  );
+  // Dönüş (mahalden) — etiket okun ALTINDA
+  const returnY = acY + acH - 10;
+  els.push(ln(boxRight + 6, returnY, acX, returnY, DCOL.faint, 1.1, "4,3"));
+  els.push(arrowHead(acX - 2, returnY, "right", DCOL.faint, 7, 2.8));
+  els.push(txt(midX, returnY + 10, "Dönüş", 8, { anchor: "middle", fill: DCOL.muted }));
+
+  // Taze hava — dışarıdan klimaya (etiket ünitenin üstünde)
+  els.push(ln(acX + acW / 2, acY - 30, acX + acW / 2, acY - 2, DCOL.muted, 1.2));
+  els.push(arrowHead(acX + acW / 2, acY, "down", DCOL.muted, 7, 2.8));
+  els.push(
+    txt(acX + acW / 2, acY - 36, `Taze Hava ${fmtN(p.freshAirM3h, 1)} m³/h`, 8, {
+      anchor: "middle", fill: DCOL.muted,
+    })
+  );
+
+  // Dış koşul — SOL ŞERİDİN üstünde, kutunun dışında
+  els.push(
+    txt(bx - 14, by + 12, `Dış Ortam ${fmtN(p.ambientTempC, 0)} °C`, 8.5, {
       anchor: "end", fill: DCOL.muted,
-    })
-  );
-  els.push(ln(bx + bw + 6, acY + 34, acX, acY + 34, DCOL.faint, 1.1, "4,3"));
-  els.push(arrowHead(acX - 2, acY + 34, "right", DCOL.faint, 7, 2.8));
-  els.push(txt(acX - 4, acY + 44, "dönüş", 8, { anchor: "end", fill: DCOL.muted }));
-
-  // Taze hava — dışarıdan klimaya
-  els.push(ln(acX + 27, acY - 26, acX + 27, acY - 2, DCOL.muted, 1.2));
-  els.push(arrowHead(acX + 27, acY, "down", DCOL.muted, 7, 2.8));
-  els.push(
-    txt(acX + 33, acY - 16, `taze hava ${fmtN(p.freshAirM3h, 1)} m³/h`, 8, {
-      fill: DCOL.muted,
-    })
-  );
-
-  // Dış koşul kartuşu
-  els.push(
-    txt(bx - 46, by + 6, `dış ortam ${fmtN(p.ambientTempC, 0)} °C`, 9, {
-      anchor: "start", fill: DCOL.muted,
     })
   );
 
   // ---------------------------------------------------------------- yük çubuğu
   const items: Item[] = [
-    { label: "iletim", kw: p.transmissionKw, fill: "#8A8480" },
-    { label: "güneş", kw: p.solarKw, fill: "#F2C94C" },
-    { label: "ışınım", kw: p.radiationKw, fill: "#E2A05A" },
-    { label: "cihaz", kw: p.deviceHeatKw, fill: "#A41E1E" },
-    { label: "operatör", kw: p.occupantKw, fill: "#5B8C7B" },
-    { label: "taze hava", kw: p.freshAirKw, fill: "#4A7A96" },
+    { label: "İletim", kw: p.transmissionKw, fill: "#8A8480" },
+    { label: "Güneş", kw: p.solarKw, fill: "#F2C94C" },
+    { label: "Işınım", kw: p.radiationKw, fill: "#E2A05A" },
+    { label: "Cihaz", kw: p.deviceHeatKw, fill: "#A41E1E" },
+    { label: "Operatör", kw: p.occupantKw, fill: "#5B8C7B" },
+    { label: "Taze Hava", kw: p.freshAirKw, fill: "#4A7A96" },
   ].filter((i) => i.kw > 0);
 
   const sum = items.reduce((a, i) => a + i.kw, 0);
   const barX = 96;
-  const barY = 330;
+  // Çubuk, kesitin ALTINDAKİ en alçak öğeden sonra başlar: ışınım oku ve
+  // içerik etiketleri oraya iniyor.
+  const barY = Math.max(262, boxBottom + (p.radiationKw > 0 ? 78 : 52));
   const barW = 520;
   const barH = 20;
   els.push(txt(barX, barY - 8, "YÜK DAĞILIMI", 8.5, { fill: DCOL.muted, fixed: true }));
@@ -277,9 +442,13 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
       });
       // Etiket yalnız dilim yeterince genişse içine yazılır; dar dilimler
       // aşağıdaki lejantta kalır.
-      if (w > 54) {
+      // Dilim dar ise ETİKET DÜŞER ama YÜZDE KALIR: renkli bir blok tek
+      // başına hiçbir şey söylemiyordu, kalemin adı zaten lejantta duruyor.
+      const pct = `%${fmtN((it.kw / sum) * 100, 0)}`;
+      const inner = w > 62 ? `${it.label} ${pct}` : w > 24 ? pct : "";
+      if (inner) {
         els.push(
-          txt(x + w / 2, barY + 13.5, `${it.label} %${fmtN((it.kw / sum) * 100, 0)}`, 8, {
+          txt(x + w / 2, barY + 13.5, inner, 8, {
             anchor: "middle", fill: "#FFFFFF", fixed: true,
           })
         );
@@ -291,7 +460,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     for (const it of items) {
       els.push({ kind: "rect", x: lx, y: barY + 30, w: 8, h: 8, fill: it.fill });
       els.push(txt(lx + 12, barY + 37, `${it.label} ${fmtN(it.kw, 2)}`, 8, { fill: DCOL.ink }));
-      lx += 88;
+      lx += 92;
     }
   }
   els.push(
@@ -300,7 +469,7 @@ export function climateRoomDiagram(p: ClimateRoomParams): Diagram {
     })
   );
   els.push(
-    txt(barX + barW + 8, barY + 26, "emniyet katsayısı dâhil", 7.5, {
+    txt(barX + barW + 8, barY + 26, "Emniyet Katsayısı Dâhil", 7.5, {
       fill: DCOL.muted, fixed: true,
     })
   );

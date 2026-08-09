@@ -25,7 +25,21 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-function SheetPages({ sheet, zoomed }: { sheet: CatalogSheet; zoomed: boolean }) {
+/**
+ * Zum kademeleri. Eskiden yalnız iki kademe vardı — "sığdır" ve %180 — ve
+ * telefonda ikisi de işe yaramıyordu: 375px'lik ekranda pencere gövdesi
+ * ~311px, A4 bir taramanın %180'i bile sayfanın dörtte birini gösteriyor,
+ * ölçü tablosu okunmuyordu. Pencere içinde parmakla yakınlaştırma da yoktur
+ * (pencere `fixed`tir), tek kaldıraç kademelerdir.
+ * `width` = null → kabın genişliğine sığdır.
+ */
+const ZOOM_LEVELS: readonly { width: string | null; next: string }[] = [
+  { width: null, next: "Büyüt (%200)" },
+  { width: "200%", next: "Daha büyüt (%400)" },
+  { width: "400%", next: "Sayfaya sığdır" },
+];
+
+function SheetPages({ sheet, zoomWidth }: { sheet: CatalogSheet; zoomWidth: string | null }) {
   return (
     <div className="grid gap-4">
       {sheet.images.map((image, i) => (
@@ -36,7 +50,8 @@ function SheetPages({ sheet, zoomed }: { sheet: CatalogSheet; zoomed: boolean })
             </figcaption>
           )}
           {/* Katalog sayfası ölçü tablosu içerir: küçültülmüş hâli okunur
-              olsun diye "sığdır" varsayılan, "büyüt" yatay kaydırmalıdır.
+              olsun diye "sığdır" varsayılan, büyütme kademeleri yatay
+              kaydırmalıdır.
               next/image KULLANILMAZ — kaynak kimlik doğrulamalı bir uçtur ve
               görüntü iyileştiricisinden geçirmenin faydası yoktur. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -45,9 +60,9 @@ function SheetPages({ sheet, zoomed }: { sheet: CatalogSheet; zoomed: boolean })
             alt={`${sheet.title} — ${sheet.printedPages}`}
             className={cn(
               "h-auto border bg-white",
-              zoomed ? "max-w-none" : "w-full"
+              zoomWidth ? "max-w-none" : "w-full"
             )}
-            style={zoomed ? { width: "180%" } : undefined}
+            style={zoomWidth ? { width: zoomWidth } : undefined}
           />
         </figure>
       ))}
@@ -65,7 +80,8 @@ export function CatalogSheetButton({
   model?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [zoomed, setZoomed] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const level = ZOOM_LEVELS[zoom];
 
   // Bu ekipman türü için defterde hiç sayfa yoksa düğme hiç görünmez —
   // henüz kapsanmayan türlerde ölü bir düğme durmaz.
@@ -98,7 +114,7 @@ export function CatalogSheetButton({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setZoomed(false);
+        if (!next) setZoom(0);
       }}
     >
       <Button
@@ -115,12 +131,17 @@ export function CatalogSheetButton({
           düzende çalışmaz ve sayfa görüntüsü kırpılıp KAYDIRILAMAZ olur.
           Bu pencere sütun flex'e çevrilir: başlık sabit kalır, gövde kalan
           yüksekliği alır ve kendi içinde kayar. */}
-      <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="shrink-0 border-b px-5 py-3.5">
+      {/* `vh` mobilde adres çubuğu gizliyken ölçülür → pencerenin altı ekranın
+          dışında kalıyordu. `sm:gap-0 sm:p-0`: taban `sm:p-6`/`sm:gap-6`
+          taşıyor ve `p-0`/`gap-0` yalnız ön eksiz sınıfı eziyor. */}
+      <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(64rem,calc(100%-2rem))] sm:gap-0 sm:p-0">
+        {/* `px-*` tabanın `pr-8`ini siler (tailwind-merge); sarılan başlığın
+            ilk satırı kapatma X'inin altına giriyordu. */}
+        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-5 sm:py-3.5 sm:pr-14">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <BookOpen className="size-4 text-primary" />
             {sheet.title}
-            <span className="border px-1.5 py-px font-mono text-[10px] tracking-wide text-muted-foreground">
+            <span className="border px-1.5 py-px font-mono text-[11px] tracking-wide text-muted-foreground">
               {model}
             </span>
           </DialogTitle>
@@ -128,15 +149,21 @@ export function CatalogSheetButton({
             Kaynak: {sheet.source} · {sheet.printedPages} — sayfa katalogtan
             birebir alınmıştır, yeniden çizilmemiştir.
           </DialogDescription>
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {/* 375px'te üç düğme sarıp iki satıra taşıyor ve sayfa görüntüsüne
+              kalan yüksekliği yiyordu; mobilde ikişerli ızgaraya oturur. */}
+          <div className="grid grid-cols-2 gap-1.5 pt-1 sm:flex sm:flex-wrap sm:items-center">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setZoomed((z) => !z)}
-              className="h-7 gap-1.5 text-xs"
+              onClick={() => setZoom((z) => (z + 1) % ZOOM_LEVELS.length)}
+              className="col-span-2 h-7 gap-1.5 text-xs sm:col-auto"
             >
-              {zoomed ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-              {zoomed ? "Sayfaya sığdır" : "Büyüt"}
+              {zoom === ZOOM_LEVELS.length - 1 ? (
+                <Minimize2 className="size-3.5" />
+              ) : (
+                <Maximize2 className="size-3.5" />
+              )}
+              {level.next}
             </Button>
             <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
               <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
@@ -155,8 +182,8 @@ export function CatalogSheetButton({
             </Button>
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-auto bg-muted/30 p-4">
-          <SheetPages sheet={sheet} zoomed={zoomed} />
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/30 p-2 sm:p-4">
+          <SheetPages sheet={sheet} zoomWidth={level.width} />
         </div>
       </DialogContent>
     </Dialog>

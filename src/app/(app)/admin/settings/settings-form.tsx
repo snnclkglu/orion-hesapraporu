@@ -38,7 +38,9 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      {/* `pt-6` gereksizdi: `Card` zaten `py-(--card-spacing)` veriyor, ikisi
+          üst üste binince kartın üstünde 48px boşluk kalıyordu. */}
+      <CardContent>
         <form onSubmit={handleSubmit} className="grid max-w-xl gap-4">
           <div className="grid gap-2">
             <Label htmlFor="st-company">Firma</Label>
@@ -54,7 +56,9 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
               onChange={(e) => set("city", e.target.value)} required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          {/* `sm:` öneki olmadan iki sütun 336px'lik ekranda alan başına
+              ~160px bırakıyordu. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="st-title-tr">Rapor Başlığı (TR)</Label>
               <Input
@@ -92,16 +96,33 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
               id="st-address" placeholder="Adres (ör. OSTİM OSB, Ankara)"
               value={form.address ?? ""} onChange={(e) => set("address", e.target.value)}
             />
-            <div className="grid grid-cols-3 gap-3">
+            {/* Üç sütun 360px'lik telefonda alan başına ~85px bırakıyordu —
+                "0312 000 00 00" yazan alan kendi yer tutucusunu bile
+                göstermiyordu. `type` alanları doğru mobil klavyeyi açar. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Input
+                type="tel" inputMode="tel" autoComplete="off"
                 placeholder="Telefon" value={form.phone ?? ""}
                 onChange={(e) => set("phone", e.target.value)}
               />
+              {/* E-posta alanı da BİLEREK `type="email"` DEĞİL — Web alanıyla
+                  aynı gerekçe. Bu alan rapor künyesine basılan serbest bir
+                  iletişim metnidir; içinde iki adres ya da açıklama olabilir ve
+                  tarayıcı doğrulaması o durumda kaydetmeyi engellerdi. Amaç
+                  doğru klavyeyi açmaktı, yeni bir doğrulama kuralı koymak
+                  değil. */}
               <Input
+                inputMode="email" autoComplete="off"
                 placeholder="E-posta" value={form.email ?? ""}
                 onChange={(e) => set("email", e.target.value)}
               />
+              {/* Web alanı BİLEREK `type="url"` DEĞİL: varsayılan değer
+                  şemasız ("orioncranes.com") ve tarayıcı doğrulaması şema
+                  isteyip formun kaydedilmesini engellerdi. `inputMode` doğru
+                  klavyeyi doğrulama getirmeden açar. Alanlar firmanın
+                  bilgisidir, oturumdaki kişinin değil — `autoComplete` kapalı. */}
               <Input
+                inputMode="url" autoComplete="off"
                 placeholder="Web" value={form.web ?? ""}
                 onChange={(e) => set("web", e.target.value)}
               />

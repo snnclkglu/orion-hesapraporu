@@ -110,14 +110,17 @@ export default async function ComparePage({
             <div
               key={c.id}
               className={cn(
-                "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+                // Sağdaki iki rozet + "→" ~150px nowrap yer tutuyor; sarma
+                // olmadan soldaki kontrol adı telefonda tek harfe kadar
+                // eziliyordu.
+                "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md border px-3 py-2 text-sm",
                 // Yön vurgusu: bozulan kontrol kırmızı, düzelen kontrol yeşil zemin.
                 c.aPass === true && c.bPass === false && "border-destructive/40 bg-destructive/10",
                 c.aPass === false && c.bPass === true && "border-success/40 bg-success/10"
               )}
             >
-              <span>{c.label}</span>
-              <span className="flex items-center gap-2 font-mono text-xs">
+              <span className="min-w-0 flex-1">{c.label}</span>
+              <span className="flex shrink-0 items-center gap-2 font-mono text-xs">
                 <StatusBadge pass={c.aPass} rev={revA.rev_no} />
                 →
                 <StatusBadge pass={c.bPass} rev={revB.rev_no} />
@@ -150,7 +153,9 @@ export default async function ComparePage({
                     const fl = fieldLabel(f.key.split(".").pop()!);
                     return (
                       <TableRow key={`${f.kind}-${f.key}`}>
-                        <TableCell>
+                        {/* Alan adı serbest metindir; taban `whitespace-nowrap`
+                            uzun etiketlerde tabloyu telefonda taşırıyordu. */}
+                        <TableCell className="whitespace-normal">
                           {fl.label}
                           {fl.unit ? ` [${fl.unit}]` : ""}
                         </TableCell>

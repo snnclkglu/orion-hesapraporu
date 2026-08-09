@@ -29,8 +29,27 @@ export default async function AdminUsersPage() {
         </p>
       </div>
       <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
+        {/* `max-xl:block`: dar kipte tablo yerleşimi tamamen bırakılır (tablo ·
+            gövde · satır · hücre blok olur), satırlar ızgaraya döner. Yalnız
+            satırı ızgara yapmak tarayıcıyı anonim tablo kutuları üretmeye
+            zorlardı; sonuç aynı görünse de sütun genişliği hesabı öngörülemez
+            olurdu. */}
+        <Table className="max-xl:block">
+          {/*
+            SÜTUN BAŞLIKLARI YALNIZ GENİŞ EKRANDA. Bu tablo aslında satır başına
+            bir FORMdur: dört düzenleme alanı + Kaydet yan yana ~730px istiyor
+            ve 360px'te satır iki buçuk ekran genişliğine çıkıyordu — kullanıcı
+            adını yazarken Kaydet düğmesi ekranın dışında kalıyordu.
+
+            Kırılım `xl`, `lg` DEĞİL: yönetim panelinde kullanılabilir genişlik
+            lg'de ARTMAZ, azalır — 1024px'te hem kabuk menüsü (240px) hem
+            yönetim rayı (200px) devreye girer ve içeriğe ~510px kalır; asıl
+            geniş bant 768–1023px tablet aralığıdır. Tablo yalnız gerçekten
+            sığdığı yerde tablodur; altında satır ızgaraya döner ve alanlar alt
+            alta iner (bkz. user-row.tsx). O kipte başlık satırı alanların
+            karşısına düşmediğinden etiketler satırın İÇİNDE verilir.
+          */}
+          <TableHeader className="max-xl:hidden">
             <TableRow>
               <TableHead>Ad Soyad</TableHead>
               <TableHead>E-posta</TableHead>
@@ -39,7 +58,7 @@ export default async function AdminUsersPage() {
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="max-xl:block">
             {(profiles ?? []).map((p) => (
               <UserRow
                 key={p.id}
@@ -49,8 +68,11 @@ export default async function AdminUsersPage() {
               />
             ))}
             {(profiles ?? []).length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+              <TableRow className="max-xl:block">
+                <TableCell
+                  colSpan={5}
+                  className="h-24 text-center text-muted-foreground max-xl:grid max-xl:place-items-center"
+                >
                   Kayıtlı kullanıcı yok.
                 </TableCell>
               </TableRow>

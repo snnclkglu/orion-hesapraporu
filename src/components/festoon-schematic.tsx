@@ -2,6 +2,8 @@
 // Katalog çizimini kopyalamaz; seçilen hareket mesafesi, taşıyıcı adedi ve
 // loop yüksekliğini anlaşılır bir uygulama diyagramına dönüştürür.
 
+import { useId } from "react";
+
 const VIEW_W = 960;
 const VIEW_H = 320;
 const RAIL_X = 70;
@@ -100,6 +102,11 @@ export function FestoonSchematic({
   trolleyCount: number | undefined;
   loopHeightM: number | undefined;
 }) {
+  // Araba ve köprü festonu AYNI sayfada basılır: sabit id'ler DOM'da
+  // yineleniyor ve iki şemanın `aria-labelledby`i de ilk başlığa çözülüyordu.
+  const uid = useId();
+  const titleId = `${uid}-festoon-title`;
+  const descId = `${uid}-festoon-desc`;
   const metrics = festoonSchematicMetrics(travelDistanceM, trolleyCount, loopHeightM);
   const leftClearance = RAIL_W * 0.11;
   const rightClearance = RAIL_W * 0.11;
@@ -116,15 +123,23 @@ export function FestoonSchematic({
   const lastCarrier = shownPositions.at(-1) ?? firstCarrier;
 
   return (
-    <figure className="overflow-x-auto border bg-background px-2 py-2.5" aria-label={`${title} feston şeması`}>
+    // Kaydırılabilirliğin tek ipucu kenar gölgesidir; mobil tarayıcı kaydırma
+    // çubuğu çizmez. Zemin figürün kendi rengidir.
+    <figure
+      className="oc-scrollx overflow-x-auto overscroll-x-contain border bg-background px-2 py-2.5 [--oc-scroll-bg:var(--background)]"
+      aria-label={`${title} feston şeması`}
+    >
+      {/* 960'lık viewBox 640px'e sıkıştırılınca ölçek 0,667'ye düşüyor ve
+          şemanın 13/12/11/10px'lik etiketleri ekranda 8,7…6,7px'e iniyordu —
+          okunmuyorlardı. Kaydırma zaten var; küçültmenin faydası yok. */}
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="h-auto min-w-[640px] w-full text-foreground"
+        className="h-auto min-w-[960px] w-full text-foreground"
         role="img"
-        aria-labelledby="festoon-diagram-title festoon-diagram-desc"
+        aria-labelledby={`${titleId} ${descId}`}
       >
-        <title id="festoon-diagram-title">{title} feston yerleşim şeması</title>
-        <desc id="festoon-diagram-desc">
+        <title id={titleId}>{title} feston yerleşim şeması</title>
+        <desc id={descId}>
           {`${fmt(metrics.travelDistanceM)} metre hareket mesafesinde ${metrics.trolleyCount} kablo taşıyıcı ve ${fmt(metrics.loopHeightM)} metre loop yüksekliği.`}
         </desc>
 

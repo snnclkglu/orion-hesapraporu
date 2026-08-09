@@ -15,8 +15,9 @@ export default async function AdminRailsPage() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* `flex-wrap` yoksa açıklama ~200px'e sıkışıp 4-5 satıra iniyordu. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold tracking-tight">Raylar</h2>
           <p className="text-sm text-muted-foreground">
             Teker basıncı hesabında kullanılan ray kesitleri. Baş yarıçapı kare raylarda boş bırakılır.
@@ -25,6 +26,9 @@ export default async function AdminRailsPage() {
         <RailDialog />
       </div>
 
+      {/* `Table` kendi kaydırma kabını kurduğu için ipucu (sözleşme §6) tablonun
+          ÜSTÜNDE verilir; mobil tarayıcı kaydırma çubuğu çizmez. */}
+      <p className="text-[11px] text-muted-foreground lg:hidden">→ Tabloyu yana kaydırın</p>
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -32,19 +36,27 @@ export default async function AdminRailsPage() {
               <TableHead>Kod</TableHead>
               <TableHead className="text-right">Baş yarıçapı [mm]</TableHead>
               <TableHead className="text-right">Temas genişliği [mm]</TableHead>
-              <TableHead className="text-right">Sıra</TableHead>
+              {/* Sıra yalnız listeleme düzenidir; dar ekranda kodun altına iner. */}
+              <TableHead className="hidden text-right md:table-cell">Sıra</TableHead>
               <TableHead className="w-36" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {(rails ?? []).map((rail) => (
               <TableRow key={rail.code}>
-                <TableCell className="font-mono font-medium">{rail.code}</TableCell>
+                <TableCell className="font-mono font-medium">
+                  {rail.code}
+                  <div className="mt-0.5 font-sans text-[11px] font-normal text-muted-foreground md:hidden">
+                    sıra {rail.sort}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right font-mono text-sm">
                   {rail.radius ?? "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">{rail.head_width}</TableCell>
-                <TableCell className="text-right font-mono text-sm">{rail.sort}</TableCell>
+                <TableCell className="hidden text-right font-mono text-sm md:table-cell">
+                  {rail.sort}
+                </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1.5">
                     <RailDialog item={rail as RailRow} />

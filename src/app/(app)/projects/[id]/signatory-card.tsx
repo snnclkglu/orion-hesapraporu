@@ -47,45 +47,56 @@ export function ProjectSignatoryCard({
   const personLabel = (person: SignatoryOption) =>
     `${person.full_name || "İsimsiz kullanıcı"} · ${person.role === "admin" ? "Admin" : "Mühendis"}`;
 
+  const personSelect = (
+    id: string,
+    value: string,
+    onChange: (v: string) => void
+  ) => (
+    <Select value={value} onValueChange={onChange}>
+      {/* Sabit 240px: etiketle birlikte ~310px tutuyor, 360px telefonda kartın
+          iç genişliği (296px) yetmiyor ve kutu kartı taşırıyordu. */}
+      <SelectTrigger id={id} size="sm" className="w-full min-w-0 sm:w-[15rem]">
+        <SelectValue placeholder="Kişi seçin" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>Seçilmedi</SelectItem>
+        {people.map((person) => (
+          <SelectItem key={person.id} value={person.id}>{personLabel(person)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  // İki açılır listelik bir ayar beş satır yer kaplıyordu (başlık + açıklama +
+  // iki etiketli sütun + kendi satırındaki Kaydet). Ayar TEK SATIRA indi;
+  // açıklama, alanların ne işe yaradığı zaten adlarından okunduğu için başlığın
+  // ipucuna (title) taşındı.
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold">Rapor Sorumluları</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          PDF raporun kapağında hazırlayan ve kontrol eden olarak görünür.
-        </p>
+    <section
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5"
+      title="PDF raporun kapağında hazırlayan ve kontrol eden olarak görünür."
+    >
+      <span className="oc-kicker text-muted-foreground">Rapor Sorumluları</span>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+        <Label htmlFor="prepared_by" className="shrink-0 text-xs text-muted-foreground">
+          Hazırlayan
+        </Label>
+        {personSelect("prepared_by", preparedById, setPreparedById)}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="prepared_by">Hazırlayan</Label>
-          <Select value={preparedById} onValueChange={setPreparedById}>
-            <SelectTrigger id="prepared_by"><SelectValue placeholder="Kişi seçin" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Seçilmedi</SelectItem>
-              {people.map((person) => (
-                <SelectItem key={person.id} value={person.id}>{personLabel(person)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="checked_by">Kontrol</Label>
-          <Select value={checkedById} onValueChange={setCheckedById}>
-            <SelectTrigger id="checked_by"><SelectValue placeholder="Kişi seçin" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Seçilmedi</SelectItem>
-              {people.map((person) => (
-                <SelectItem key={person.id} value={person.id}>{personLabel(person)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+        <Label htmlFor="checked_by" className="shrink-0 text-xs text-muted-foreground">
+          Kontrol
+        </Label>
+        {personSelect("checked_by", checkedById, setCheckedById)}
       </div>
-      <div className="mt-4 flex justify-end">
-        <Button size="sm" disabled={!dirty || pending} onClick={save}>
-          {pending ? "Kaydediliyor..." : "Kaydet"}
-        </Button>
-      </div>
+      <Button
+        size="sm"
+        className="w-full sm:ml-auto sm:w-auto"
+        disabled={!dirty || pending}
+        onClick={save}
+      >
+        {pending ? "Kaydediliyor..." : "Kaydet"}
+      </Button>
     </section>
   );
 }

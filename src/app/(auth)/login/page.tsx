@@ -32,7 +32,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+    // `dvh`: mobil tarayıcıda `vh` adres çubuğu gizliyken ölçülen büyük alandır,
+    // yani `min-h-screen` giriş formunu adres çubuğunun altına taşırıyordu.
+    <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
       {/* Sol: marka paneli */}
       {/* Kırmızı omurga solda (14px) — kılavuzun yapısal imzası */}
       <section className="relative hidden flex-col justify-between overflow-hidden border-l-[14px] border-l-primary bg-sidebar p-10 text-sidebar-foreground lg:flex">
@@ -79,8 +81,10 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
             {/* Açık zeminde kırmızı logo (marka kılavuzu: kağıt zemin → kırmızı) */}
+            {/* Telefonda logo tek marka işareti olarak KALIYOR (sol panel gizli);
+                24px yükseklikte kelime işareti okunmuyordu. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/orion-logo.svg" alt={COMPANY_NAME} className="h-6 w-auto" />
+            <img src="/brand/orion-logo.svg" alt={COMPANY_NAME} className="h-7 w-auto sm:h-6" />
             <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
               {APP_NAME}
             </div>

@@ -40,8 +40,33 @@ const EMPTY: EquipmentExtraRow = {
   group: "Ek Ekipman", component: "", brand: "", model: "", spec: "", qty: "",
 };
 
-/** Ek satır editörünün ızgarası — başlık şeridi ve satırlar AYNI tanımı kullanır. */
-const EXTRA_GRID = "grid grid-cols-[1fr_1fr_1fr_1.6fr_0.5fr_2rem] items-center gap-2";
+/**
+ * Ek satır editörünün sütun tanımı — başlık şeridi ve satırlar AYNI tanımı
+ * kullanır.
+ *
+ * Sütunlar YALNIZ md üstünde yan yanadır: 375px'lik ekranda altı sütunun her
+ * biri ~47px'e düşüyordu ve alanlara yazmak imkânsızdı. Mobilde alanlar alt
+ * alta iner, her biri kendi görünür etiketini taşır ve başlık şeridi gizlenir
+ * (sözleşme §7).
+ */
+// Son sütun silme düğmesinindir; dokunmatikte düğme 40px'e çıktığı için ray
+// 2rem yerine 2.5rem'dir (yoksa düğme sütunundan taşıyordu).
+const EXTRA_COLS = "md:grid-cols-[1fr_1fr_1fr_1.6fr_0.5fr_2.5rem]";
+const EXTRA_GRID = `grid grid-cols-1 gap-2 ${EXTRA_COLS} md:items-center`;
+const EXTRA_HEAD = `hidden gap-2 md:grid md:items-center ${EXTRA_COLS}`;
+
+/**
+ * Ek satır alanı: mobilde girdinin üstünde görünür etiket durur; md üstünde
+ * sütun adları başlık şeridinden okunduğu için etiket gizlenir.
+ */
+function ExtraField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-[11px] font-medium text-muted-foreground md:hidden">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 /**
  * Bir ekipman satırının "Ek Özellikler" hücresi (madde 34).
@@ -95,7 +120,10 @@ function NoteCell({
         onBlur={() => void kaydet(value)}
         placeholder="Ek özellik yaz…"
         aria-label="Ek özellikler"
-        className="field-sizing-content min-h-8 w-full resize-none rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:border-input focus:border-ring focus:bg-background focus:ring-[3px] focus:ring-ring/30"
+        // Ham `<textarea>` de dokunmatik payını korumalıdır (sözleşme §3):
+        // iOS Safari 16px altındaki alana odaklanınca sayfayı kendiliğinden
+        // yakınlaştırır ve geri çıkmaz.
+        className="field-sizing-content min-h-8 w-full resize-none rounded-md border border-transparent bg-transparent px-2 py-1 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:border-input focus:border-ring focus:bg-background focus:ring-[3px] focus:ring-ring/30 pointer-fine:text-xs pointer-coarse:min-h-10"
       />
       {durum !== "temiz" && (
         <span
@@ -190,7 +218,9 @@ export function EquipmentPanel({
         target="_blank"
         rel="noopener noreferrer"
         title="Katalog sayfasını yeni sekmede aç"
-        className="inline-flex items-center gap-1 hover:text-primary hover:underline"
+        // Dokunmatikte 36px: bağlantı satır yüksekliğini fareyle kullanan
+        // kullanıcıda büyütmez, parmakla kullananda hedefi tutulabilir yapar.
+        className="inline-flex items-center gap-1 hover:text-primary hover:underline pointer-coarse:min-h-9"
       >
         {row.component}
         <BookOpen className="size-3 shrink-0 text-primary/70" />
@@ -201,25 +231,26 @@ export function EquipmentPanel({
   return (
     <div className="grid gap-4">
       {/* İndirme çubuğu */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card p-3">
         <div className="text-sm font-medium">İndir:</div>
+        {/* Kapsam düğmeleri ~28px'ti; parmakla tutulabilmesi gerekir (§2) */}
         <div className="inline-flex overflow-hidden rounded-md border">
           <button
             type="button"
             onClick={() => setScope("customer")}
-            className={`px-3 py-1.5 text-xs ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
           >
             Müşteri (yalnız liste)
           </button>
           <button
             type="button"
             onClick={() => setScope("full")}
-            className={`px-3 py-1.5 text-xs ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "full" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
           >
             + Teknik Özet
           </button>
         </div>
-        <a href={dl("xlsx")} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted">
+        <a href={dl("xlsx")} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10">
           <FileSpreadsheet className="size-3.5 text-emerald-600" />
           Excel indir
         </a>
@@ -230,7 +261,7 @@ export function EquipmentPanel({
         <a
           href={dl("pdf")}
           title="Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
         >
           <FileDown className="size-3.5 text-red-600" />
           Standart Ekipman Listesi
@@ -238,12 +269,14 @@ export function EquipmentPanel({
         <a
           href={dl("pdf", true)}
           title="Ekipman listesi + ürünlerin katalog sayfaları; ad tıklanınca ilgili sayfaya gider"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
         >
           <BookOpen className="size-3.5 text-red-600" />
           Detaylı Ekipman Listesi
         </a>
-        <span className="ml-auto text-xs text-muted-foreground">
+        {/* `ml-auto` dar ekranda sayaç sardığında tek başına bir satır
+            kaplıyordu; sağa itme yalnız sm üstünde. */}
+        <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:text-right">
           {autoGroups.reduce((n, g) => n + g.rows.length, 0)} otomatik · {extras.length} ek satır
           {Object.keys(sheetUrls).length > 0 && ` · ${Object.keys(sheetUrls).length} katalog sayfası`}
         </span>
@@ -260,17 +293,23 @@ export function EquipmentPanel({
           {/* `table-fixed`: sütun genişlikleri BAŞLIKTAN belirlenir, hücre
               içeriğinden değil. Otomatik yerleşimde tek bir uzun katalog metni
               yüzdelik genişlikleri kendine göre yeniden bölüştürüyor ve
-              sütunlar satırdan satıra kayıyordu. */}
+              sütunlar satırdan satıra kayıyordu.
+
+              SÜTUN ÖNCELİKLENDİRME (sözleşme §6): 375px'te altı sütun 22–46px'e
+              sıkışıyor, hücrelerin içeriği okunmuyor ve not alanına yazılamıyordu.
+              md ALTINDA marka/model/özellik sütunları gizlenir; bilgileri ekipman
+              adının altına ikinci satır olarak iner (tek kaynak, ayrı kart
+              markup'ı yok). Mobilde kalan üç sütunun yüzdeleri ayrıdır. */}
           <div className="overflow-hidden rounded-lg border">
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[17%]">Ekipman</TableHead>
-                  <TableHead className="w-[10%]">Marka</TableHead>
-                  <TableHead className="w-[14%]">Model</TableHead>
-                  <TableHead>Özellikler</TableHead>
-                  <TableHead className="w-[18%]">Ek Özellikler</TableHead>
-                  <TableHead className="w-[6%] text-center">Adet</TableHead>
+                  <TableHead className="w-[46%] md:w-[17%]">Ekipman</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[10%]">Marka</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[14%]">Model</TableHead>
+                  <TableHead className="hidden md:table-cell">Özellikler</TableHead>
+                  <TableHead className="w-[36%] md:w-[18%]">Ek Özellikler</TableHead>
+                  <TableHead className="w-[18%] text-center md:w-[6%]">Adet</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -283,12 +322,23 @@ export function EquipmentPanel({
                     </TableRow>
                     {g.rows.map((r, i) => (
                       <TableRow key={`${g.name}-${i}`} className="align-top">
-                        <TableCell className="font-medium whitespace-normal">
+                        <TableCell className="font-medium break-words whitespace-normal">
                           <ComponentCell row={r} />
+                          {/* Mobilde gizlenen sütunların kritik bilgisi burada;
+                              model bağlantısı da korunur. */}
+                          <div className="mt-0.5 text-[11px] font-normal break-words text-muted-foreground md:hidden">
+                            {r.brand && r.brand !== "-" ? `${r.brand} · ` : ""}
+                            <ModelCell row={r} />
+                          </div>
+                          {r.spec && (
+                            <div className="mt-0.5 text-[11px] font-normal break-words text-muted-foreground md:hidden">
+                              {r.spec}
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="whitespace-normal">{r.brand}</TableCell>
-                        <TableCell className="break-words whitespace-normal"><ModelCell row={r} /></TableCell>
-                        <TableCell className="text-xs whitespace-normal text-muted-foreground">{r.spec}</TableCell>
+                        <TableCell className="hidden whitespace-normal md:table-cell">{r.brand}</TableCell>
+                        <TableCell className="hidden break-words whitespace-normal md:table-cell"><ModelCell row={r} /></TableCell>
+                        <TableCell className="hidden text-xs whitespace-normal text-muted-foreground md:table-cell">{r.spec}</TableCell>
                         {/* Ek Özellikler: satırın tek düzenlenebilir hücresi (madde 34).
                             Satırın kararlı anahtarı yoksa (kuramsal) not tutulamaz. */}
                         <TableCell className="p-1 align-middle">
@@ -313,11 +363,11 @@ export function EquipmentPanel({
 
           {/* Ek satır editörü */}
           <div className="mt-5 rounded-lg border">
-            <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b bg-muted/40 px-3 py-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                 Ek Ekipman / Özellikler
                 {locked && (
-                  <Badge variant="outline" className="text-[10px]">revizyon yayınlandı — ek satırlar serbest</Badge>
+                  <Badge variant="outline" className="text-[11px]">revizyon yayınlandı — ek satırlar serbest</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -334,18 +384,37 @@ export function EquipmentPanel({
                 Ek satır yok. Müşteriye özel ekipman veya özellik eklemek için &quot;Satır ekle&quot;.
               </p>
             ) : (
-              <div className="grid gap-2 p-3">
-                <div className={`${EXTRA_GRID} text-[11px] font-medium text-muted-foreground`}>
+              <div className="grid gap-3 p-3 md:gap-2">
+                <div className={`${EXTRA_HEAD} text-[11px] font-medium text-muted-foreground`}>
                   <span>Grup</span><span>Ekipman</span><span>Marka</span><span>Model / Özellik</span><span>Adet</span><span />
                 </div>
                 {extras.map((r, i) => (
-                  <div key={i} className={EXTRA_GRID}>
-                    <Input className="h-8" placeholder="Ek Ekipman" value={r.group} onChange={(e) => setRow(i, { group: e.target.value })} />
-                    <Input className="h-8" placeholder="Ekipman" value={r.component} onChange={(e) => setRow(i, { component: e.target.value })} />
-                    <Input className="h-8" placeholder="Marka" value={r.brand} onChange={(e) => setRow(i, { brand: e.target.value })} />
-                    <Input className="h-8" placeholder="Model / özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
-                    <Input className="h-8" placeholder="1" value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
-                    <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0 text-destructive" onClick={() => removeRow(i)}>
+                  // Mobilde satırlar alt alta indiği için birbirinden ince bir
+                  // çizgiyle ayrılır; md üstünde ızgara zaten ayırıyor.
+                  <div key={i} className={`${EXTRA_GRID} border-b pb-3 last:border-0 last:pb-0 md:border-0 md:pb-0`}>
+                    <ExtraField label="Grup">
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="Ek Ekipman" value={r.group} onChange={(e) => setRow(i, { group: e.target.value })} />
+                    </ExtraField>
+                    <ExtraField label="Ekipman">
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="Ekipman" value={r.component} onChange={(e) => setRow(i, { component: e.target.value })} />
+                    </ExtraField>
+                    <ExtraField label="Marka">
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="Marka" value={r.brand} onChange={(e) => setRow(i, { brand: e.target.value })} />
+                    </ExtraField>
+                    <ExtraField label="Model / Özellik">
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="Model / özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
+                    </ExtraField>
+                    <ExtraField label="Adet">
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="1" value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
+                    </ExtraField>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Satırı sil"
+                      className="justify-self-end text-destructive md:justify-self-auto"
+                      onClick={() => removeRow(i)}
+                    >
                       <Trash2 className="size-3.5" />
                     </Button>
                   </div>

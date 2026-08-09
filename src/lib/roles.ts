@@ -5,9 +5,9 @@
 // sessiz bir varsayım oluşmaz; satış rakamlarını müdür görür ama katalog ve
 // kullanıcı yönetimine giremez.
 //
-// Veritabanı karşılığı `public.user_role` enum'udur; RLS tarafında `is_admin()`
-// ve `can_see_sales()` fonksiyonları aynı ayrımı uygular (arayüzdeki gizleme
-// tek başına yeterli değildir).
+// Veritabanı karşılığı `public.user_role` enum'udur; RLS tarafında `is_admin()`,
+// `can_see_sales()` ve `can_edit_reports()` fonksiyonları aynı ayrımı uygular
+// (arayüzdeki gizleme tek başına yeterli değildir).
 
 export const USER_ROLES = ["admin", "manager", "engineer", "draftsman"] as const;
 
@@ -24,7 +24,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
 export const USER_ROLE_HINTS: Record<UserRole, string> = {
   admin: "Tüm yetkiler: yönetim paneli, kullanıcılar, katalog ve satış.",
   manager: "Satış takibini görür ve düzenler; yönetim paneline giremez.",
-  engineer: "Hesap raporu ve iş emri; satış rakamlarını göremez.",
+  engineer: "Hesap raporu ve iş emri; taslak revizyonu siler, satış rakamlarını göremez.",
   draftsman: "Teknik çizim takibi; satış rakamlarını göremez.",
 };
 
@@ -51,6 +51,22 @@ export function isAdminRole(value: string | null | undefined): boolean {
 export function canSeeSales(value: string | null | undefined): boolean {
   const r = roleOf(value);
   return r === "admin" || r === "manager";
+}
+
+/**
+ * Hesap raporu yazan roller — TASLAK revizyon silme yetkisi buna bağlıdır.
+ *
+ * `isAdminRole` YETMEZ: revizyonu açan ve düzenleyen mühendistir, yanlış
+ * açılmış bir taslağı temizlemek için yöneticiyi beklememelidir. Müdür ve
+ * teknik ressam kapsam dışıdır; ikisi de hesap raporu yazmaz.
+ *
+ * YAYINLANMIŞ revizyonun silinemezliği bu soruyla İLGİSİZDİR ve veritabanındaki
+ * `guard_issued_revision` tetikleyicisindedir: bu soru KİMİN, tetikleyici NEYİN
+ * silinebileceğini söyler. Veritabanı karşılığı `can_edit_reports()`.
+ */
+export function canEditReports(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "engineer";
 }
 
 /**

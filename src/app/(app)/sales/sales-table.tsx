@@ -37,6 +37,17 @@ const ALL = "__all__";
 const PRICED = "__priced__";
 const UNPRICED = "__unpriced__";
 
+/**
+ * SÜTUN ÖNCELİKLENDİRME. Dokuz sütunun sabit genişlikleri 70,5rem eder; esnek
+ * "Ürün" ile birlikte tablo 375px'lik ekranda kabın 3,9 KATINA çıkıyor ve para
+ * sütunları en sağda kaldığı için telefonda hiç görünmüyordu. Telefonda yalnız
+ * Kalem No · Ürün · Tutar kalır; düşen bilgilerin kritik olanı ürün hücresinin
+ * ikinci satırına iner (kart markup'ı çoğaltılmaz).
+ */
+const AT_SM = "hidden sm:table-cell";
+const AT_MD = "hidden md:table-cell";
+const AT_LG = "hidden lg:table-cell";
+
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -111,7 +122,9 @@ function SortHead({
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "-mx-1 flex w-full items-center gap-1 rounded px-1 py-0.5 hover:text-foreground",
+          // Düğme başlık hücresinin TAMAMINI kaplar (eskiden ~21px'ti):
+          // sıralama, dar ekranda tabloyu kullanılabilir kılan tek araçtır.
+          "-mx-2 -my-2 flex h-10 w-full items-center gap-1 rounded px-2 py-2 hover:text-foreground",
           align === "right" && "justify-end",
           active ? "text-foreground" : "text-muted-foreground"
         )}
@@ -281,12 +294,13 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         />
       </div>
 
-      {/* Süzgeçler */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
-        <span className="oc-kicker mr-1 text-muted-foreground">Filtre</span>
+      {/* Süzgeçler — beş sabit genişlikli tetikleyici 820px istiyordu; telefonda
+          ikişerli ızgara, `sm` üstünde eski sarmalı şerit. */}
+      <div className="grid grid-cols-2 items-center gap-2 rounded-lg border bg-card px-3 py-2 sm:flex sm:flex-wrap">
+        <span className="oc-kicker col-span-2 text-muted-foreground sm:mr-1">Filtre</span>
 
         <Select value={year} onValueChange={setYear}>
-          <SelectTrigger size="sm" className="w-[120px]">
+          <SelectTrigger size="sm" className="w-full sm:w-[120px]">
             <SelectValue placeholder="Yıl" />
           </SelectTrigger>
           <SelectContent>
@@ -298,7 +312,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Select>
 
         <Select value={customer} onValueChange={setCustomer}>
-          <SelectTrigger size="sm" className="w-[190px]">
+          <SelectTrigger size="sm" className="w-full sm:w-[190px]">
             <SelectValue placeholder="Müşteri" />
           </SelectTrigger>
           <SelectContent>
@@ -312,7 +326,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Select>
 
         <Select value={scope} onValueChange={setScope}>
-          <SelectTrigger size="sm" className="w-[200px]">
+          <SelectTrigger size="sm" className="w-full sm:w-[200px]">
             <SelectValue placeholder="Kapsam" />
           </SelectTrigger>
           <SelectContent>
@@ -326,7 +340,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Select>
 
         <Select value={currency} onValueChange={setCurrency}>
-          <SelectTrigger size="sm" className="w-[150px]">
+          <SelectTrigger size="sm" className="w-full sm:w-[150px]">
             <SelectValue placeholder="Para birimi" />
           </SelectTrigger>
           <SelectContent>
@@ -338,7 +352,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Select>
 
         <Select value={priceState} onValueChange={setPriceState}>
-          <SelectTrigger size="sm" className="w-[160px]">
+          <SelectTrigger size="sm" className="w-full sm:w-[160px]">
             <SelectValue placeholder="Fiyat" />
           </SelectTrigger>
           <SelectContent>
@@ -352,40 +366,46 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Kalem no, ürün, müşteri veya kapsam ara…"
-          className="h-8 w-full flex-1 sm:w-auto sm:min-w-[200px]"
+          className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[200px]"
         />
 
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {filtered.length} / {rows.length}
-        </span>
-        {activeFilters > 0 && (
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
-            <X className="size-3.5" /> Temizle
-          </Button>
-        )}
+        <div className="col-span-2 flex flex-wrap items-center gap-2 sm:contents">
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {filtered.length} / {rows.length}
+          </span>
+          {activeFilters > 0 && (
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
+              <X className="size-3.5" /> Temizle
+            </Button>
+          )}
+        </div>
       </div>
+
+      <p className="text-[11px] text-muted-foreground md:hidden">
+        → Ayrıntı için satıra dokunun; tabloyu yana da kaydırabilirsiniz.
+      </p>
 
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortHead label="Kalem No" sortKey="itemNo" className="w-[7rem]"
+              <SortHead label="Kalem No" sortKey="itemNo" className="w-[6rem] md:w-[7rem]"
                 active={sort.key === "itemNo"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Ürün" sortKey="productName"
                 active={sort.key === "productName"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Müşteri" sortKey="customer" className="w-[10rem]"
+              <SortHead label="Müşteri" sortKey="customer" className={cn("w-[10rem]", AT_MD)}
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Kapsam" sortKey="scope" className="w-[15rem]"
+              <SortHead label="Kapsam" sortKey="scope" className={cn("w-[15rem]", AT_LG)}
                 active={sort.key === "scope"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Termin" sortKey="dueDate" className="w-[6.5rem]"
+              <SortHead label="Termin" sortKey="dueDate" className={cn("w-[6.5rem]", AT_MD)}
                 active={sort.key === "dueDate"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Sevk" sortKey="shipmentDate" className="w-[6.5rem]"
+              <SortHead label="Sevk" sortKey="shipmentDate" className={cn("w-[6.5rem]", AT_LG)}
                 active={sort.key === "shipmentDate"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Ağırlık" sortKey="totalWeightKg" className="w-[7rem]" align="right"
+              <SortHead label="Ağırlık" sortKey="totalWeightKg" className={cn("w-[7rem]", AT_LG)} align="right"
                 active={sort.key === "totalWeightKg"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Tutar" sortKey="totalPrice" className="w-[9rem]" align="right"
+              <SortHead label="Tutar" sortKey="totalPrice" className="w-[7.5rem] md:w-[9rem]" align="right"
                 active={sort.key === "totalPrice"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Avro Karşılığı" sortKey="eurAmount" className="w-[9.5rem]" align="right"
+              <SortHead label="Avro Karşılığı" sortKey="eurAmount" className={cn("w-[9.5rem]", AT_SM)} align="right"
                 active={sort.key === "eurAmount"} dir={sort.dir} onSort={toggleSort} />
             </TableRow>
           </TableHeader>
@@ -403,30 +423,57 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   className="cursor-pointer"
                   onClick={() => setEditing(r)}
                 >
-                  <TableCell className="font-mono text-sm font-medium text-primary">
+                  <TableCell className="align-top font-mono text-sm font-medium text-primary md:align-middle">
                     {r.itemNo || "—"}
                   </TableCell>
-                  <TableCell className="font-medium">{r.productName}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium whitespace-normal md:whitespace-nowrap">
+                    {r.productName}
+                    {/* Telefonda düşen sütunların kritik olanları burada durur. */}
+                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground md:hidden">
+                      {[
+                        customerTag({ name: r.customer, shortName: r.customerShort }).short,
+                        r.sale.scope.trim() ? scopeLabel(r.sale.scope) : "",
+                        r.sale.due_date ? `termin ${fmtDate(r.sale.due_date)}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      {r.eurAmount !== null && (
+                        <span className="sm:hidden">
+                          {" · "}
+                          <span className="font-mono tabular-nums">{fmtNum(r.eurAmount)} €</span>
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className={AT_MD}>
                     <CustomerTag
                       name={r.customer}
                       shortName={r.customerShort}
                       hue={r.customerHue}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={AT_LG}>
                     <ScopeTag scope={r.sale.scope} />
                   </TableCell>
-                  <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
+                  <TableCell
+                    className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_MD)}
+                  >
                     {fmtDate(r.sale.due_date)}
                   </TableCell>
-                  <TableCell className="font-mono text-sm tabular-nums text-muted-foreground">
+                  <TableCell
+                    className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_LG)}
+                  >
                     {fmtDate(r.sale.shipment_date)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
+                  <TableCell
+                    className={cn(
+                      "text-right font-mono text-sm tabular-nums text-muted-foreground",
+                      AT_LG
+                    )}
+                  >
                     {r.totalWeightKg ? fmtNum(r.totalWeightKg) : "—"}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm tabular-nums">
+                  <TableCell className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
                     {r.sale.unit_price === null ? (
                       <span className="text-muted-foreground/60">fiyat yok</span>
                     ) : (
@@ -438,7 +485,9 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       </>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-medium tabular-nums">
+                  <TableCell
+                    className={cn("text-right font-mono text-sm font-medium tabular-nums", AT_SM)}
+                  >
                     {r.eurAmount === null ? (
                       r.sale.unit_price === null ? (
                         <span className="text-muted-foreground/60">—</span>
@@ -467,12 +516,14 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           </div>
           <Table>
             <TableHeader>
+              {/* Beş sütun telefonda 400px'i geçiyordu; sıra no, kalem sayısı ve
+                  pay çubuğu ikincil bilgidir. */}
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-10 text-right">#</TableHead>
+                <TableHead className={cn("w-10 text-right", AT_SM)}>#</TableHead>
                 <TableHead>Müşteri</TableHead>
-                <TableHead className="w-[6rem] text-right">Kalem</TableHead>
+                <TableHead className={cn("w-[6rem] text-right", AT_SM)}>Kalem</TableHead>
                 <TableHead className="w-[10rem] text-right">Ciro (Avro)</TableHead>
-                <TableHead className="w-[24%]">Pay</TableHead>
+                <TableHead className={cn("w-[24%]", AT_MD)}>Pay</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -480,19 +531,32 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                 const share = summary.eur > 0 ? v.eur / summary.eur : 0;
                 return (
                   <TableRow key={name} className="hover:bg-transparent">
-                    <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                    <TableCell
+                      className={cn(
+                        "text-right font-mono text-xs tabular-nums text-muted-foreground",
+                        AT_SM
+                      )}
+                    >
                       {i + 1}
                     </TableCell>
                     <TableCell>
                       <CustomerTag name={name} shortName={v.short} hue={v.hue} />
+                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground sm:hidden">
+                        {v.count} kalem · %{fmtNum(share * 100)}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
+                    <TableCell
+                      className={cn(
+                        "text-right font-mono text-sm tabular-nums text-muted-foreground",
+                        AT_SM
+                      )}
+                    >
                       {v.count}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm tabular-nums">
+                    <TableCell className="text-right align-top font-mono text-sm tabular-nums sm:align-middle">
                       {fmtNum(v.eur)} €
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={AT_MD}>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                           <div

@@ -13,7 +13,7 @@
 //
 // Değer, modülün `wheelSpacingsText` girdisine virgülle ayrılmış olarak yazılır.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   resolveWheelSpacings,
   wheelCodes,
@@ -67,6 +67,41 @@ export function WheelSpacingEditor({
 
   const wheelbase = spacings.reduce((a, b) => a + b, 0);
 
+  // Mobil liste ile grafik yerleşim AYNI ANDA DOM'dadır (biri CSS ile
+  // gizlidir); id'ler yinelenmesin diye düzen öneki taşır.
+  const uid = useId();
+  const gapId = (layout: string, index: number) => `${uid}-${layout}-gap-${index}`;
+
+  const clearDraft = (index: number) =>
+    setDraft((d) =>
+      Object.fromEntries(Object.entries(d).filter(([k]) => Number(k) !== index))
+    );
+
+  /**
+   * Ölçü kutusu. Eski hâli ham bir `<input>` ile `h-7 w-24 text-xs` idi: 28px
+   * yükseklik ve 12px yazı iOS'ta odaklanma zumunu KESİN tetikliyor, zaten
+   * kat kat kaydırılan bir düzende zum geri alınamıyordu.
+   */
+  const gapInput = (index: number, layout: string, extra: string) => (
+    <input
+      id={gapId(layout, index)}
+      inputMode="decimal"
+      disabled={disabled}
+      value={draft[index] ?? fmt(spacings[index])}
+      onChange={(e) => commit(index, e.target.value)}
+      // Odak çıkınca taslak temizlenir; alan yeniden çözülmüş (geçerli)
+      // değeri gösterir.
+      onBlur={() => clearDraft(index)}
+      className={cn(
+        "h-9 border bg-background px-2 text-center font-mono text-base tabular-nums",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "pointer-coarse:h-10 pointer-fine:text-xs",
+        disabled && "opacity-60",
+        extra
+      )}
+    />
+  );
+
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -76,78 +111,103 @@ export function WheelSpacingEditor({
         </span>
       </div>
 
-      <div className="overflow-x-auto border bg-card/40 p-4">
-        <div className="min-w-max">
-          {/* Yürüme yönü */}
-          <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <span>yürüme yönü</span>
-            <span aria-hidden className="font-mono">
-              →
+      {/*
+        MOBİL DÜZEN — `sm:` altında grafik yerleşim KULLANILAMAZ.
+        Grafik yerleşim sabit piksel sütunludur: teker 64px, ölçü 112px. 12
+        tekerli bir rayda 12×64 + 11×112 = 2000px eder; 375px'lik bir telefonda
+        5,3 kat kaydırma demektir ve hiçbir anda teker kodu ile ait olduğu ölçü
+        kutusu BİRLİKTE görünmez. Mobilde ölçü zinciri dikey listeye düşer:
+        her satır kendi etiketini taşır, yatay kaydırma kalmaz.
+      */}
+      <div className="grid gap-1.5 border bg-card/40 p-3 sm:hidden">
+        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span>yürüme yönü</span>
+          <span aria-hidden className="font-mono">
+            →
+          </span>
+        </div>
+        {spacings.map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-3 border-b py-1 last:border-0"
+          >
+            <label
+              htmlFor={gapId("m", i)}
+              className={cn(
+                "font-mono text-xs font-semibold",
+                i < perCorner ? "text-primary" : "text-foreground"
+              )}
+            >
+              {codes[i]}–{codes[i + 1]}
+            </label>
+            <span className="flex shrink-0 items-center gap-1.5">
+              {gapInput(i, "m", "w-28")}
+              <span className="font-mono text-[11px] text-muted-foreground">mm</span>
             </span>
           </div>
+        ))}
+      </div>
 
-          {/* Teker sırası + aralarındaki ölçü kutuları */}
-          <div className="flex items-end">
-            {codes.map((code, i) => (
-              <div key={code} className="flex items-end">
-                <div className="flex w-16 flex-col items-center gap-1">
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-background font-mono text-[11px] font-semibold",
-                      i < perCorner
-                        ? "border-primary/60 text-primary"
-                        : "border-foreground/50 text-foreground"
-                    )}
-                  >
-                    {code}
-                  </div>
-                  {/* Ray ekseni tiki */}
-                  <div className="h-3 w-px bg-foreground/40" />
-                </div>
-                {i < codes.length - 1 && (
-                  <div className="flex w-28 flex-col items-center gap-1 pb-4">
-                    <label className="sr-only" htmlFor={`gap-${i}`}>
-                      {code} – {codes[i + 1]} mesafesi
-                    </label>
-                    <input
-                      id={`gap-${i}`}
-                      inputMode="decimal"
-                      disabled={disabled}
-                      value={draft[i] ?? fmt(spacings[i])}
-                      onChange={(e) => commit(i, e.target.value)}
-                      onBlur={() =>
-                        // Odak çıkınca taslak temizlenir; alan yeniden çözülmüş
-                        // (geçerli) değeri gösterir.
-                        setDraft((d) =>
-                          Object.fromEntries(
-                            Object.entries(d).filter(([k]) => Number(k) !== i)
-                          )
-                        )
-                      }
+      {/* GRAFİK YERLEŞİM — `sm:` ve üstünde aynen korunur. */}
+      <div className="hidden border bg-card/40 sm:block">
+        <div className="oc-scrollx overflow-x-auto overscroll-x-contain p-4">
+          <div className="min-w-max">
+            {/* Yürüme yönü */}
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <span>yürüme yönü</span>
+              <span aria-hidden className="font-mono">
+                →
+              </span>
+            </div>
+
+            {/* Teker sırası + aralarındaki ölçü kutuları */}
+            <div className="flex items-end">
+              {codes.map((code, i) => (
+                <div key={code} className="flex items-end">
+                  <div className="flex w-16 flex-col items-center gap-1">
+                    <div
                       className={cn(
-                        "h-7 w-24 border bg-background px-2 text-center font-mono text-xs tabular-nums",
-                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        disabled && "opacity-60"
+                        "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-background font-mono text-[11px] font-semibold",
+                        i < perCorner
+                          ? "border-primary/60 text-primary"
+                          : "border-foreground/50 text-foreground"
                       )}
-                    />
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {code}–{codes[i + 1]}
-                    </span>
+                    >
+                      {code}
+                    </div>
+                    {/* Ray ekseni tiki */}
+                    <div className="h-3 w-px bg-foreground/40" />
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  {i < codes.length - 1 && (
+                    <div className="flex w-28 flex-col items-center gap-1 pb-4">
+                      <label className="sr-only" htmlFor={gapId("d", i)}>
+                        {code} – {codes[i + 1]} mesafesi
+                      </label>
+                      {gapInput(i, "d", "w-24")}
+                      {/* Hangi kutuya ne yazıldığını söyleyen TEK işaret. */}
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {code}–{codes[i + 1]}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
 
-          {/* Ray çizgisi */}
-          <div className="relative -mt-4 mb-1 h-px bg-foreground/50" />
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>RAY 1 — karşı ray (RAY 2) aynıdır</span>
-            <span className="font-mono">
-              dingil mesafesi = {wheelbase.toLocaleString("tr-TR")} mm
-            </span>
+            {/* Ray çizgisi */}
+            <div className="relative -mt-4 h-px bg-foreground/50" />
           </div>
         </div>
+      </div>
+
+      {/* Düzenleyicinin tek özet çıktısı. Eskiden `min-w-max` çiziminin
+          İÇİNDEYDİ, yani 2000px'lik şemanın ta sağında kalıyor ve telefonda
+          hiç görülmüyordu. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <span>RAY 1 — karşı ray (RAY 2) aynıdır</span>
+        <span className="font-mono">
+          dingil mesafesi = {wheelbase.toLocaleString("tr-TR")} mm
+        </span>
       </div>
 
       <p className="text-xs text-muted-foreground">

@@ -45,9 +45,22 @@ export function ContractOpenButton({
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={open} disabled={opening}>
+    // Birincil eylem telefonda tam genişlik ve 40px yükseklik alır; `sm`den
+    // itibaren masaüstünün yoğun düzeni geri gelir. (Dokunmatik payı zaten
+    // `size="sm"` tabanındaki `pointer-coarse:h-10`ten gelir; buradaki
+    // `max-sm:` yalnız dar pencerede görsel ağırlık içindir.)
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full max-sm:h-10 max-sm:px-3 sm:w-auto"
+      onClick={open}
+      disabled={opening}
+    >
       <FileText className="size-3.5" />
-      {opening ? "Açılıyor…" : fileName?.trim() || "Sözleşmeyi Aç"}
+      <span className="min-w-0 truncate">
+        {opening ? "Açılıyor…" : fileName?.trim() || "Sözleşmeyi Aç"}
+      </span>
     </Button>
   );
 }
@@ -122,8 +135,22 @@ export function ContractUpload({
     return (
       <div className="flex flex-wrap items-center gap-2 border bg-muted/30 px-3 py-2">
         <FileText className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 flex-1 truncate text-sm">{fileName || "Sözleşme.pdf"}</span>
-        <Button type="button" variant="outline" size="sm" onClick={open} disabled={opening}>
+        {/* Dosya adı iki düğmeyle aynı satırı paylaşınca telefonda ~10
+            karakterde kesiliyordu; mobilde kendi satırını alır. */}
+        <span
+          className="min-w-0 basis-full truncate text-sm sm:flex-1 sm:basis-auto"
+          title={fileName || "Sözleşme.pdf"}
+        >
+          {fileName || "Sözleşme.pdf"}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="flex-1 max-sm:h-10 max-sm:px-3 sm:flex-none"
+          onClick={open}
+          disabled={opening}
+        >
           {opening ? "Açılıyor…" : "Aç"}
         </Button>
         {!disabled && (
@@ -131,7 +158,7 @@ export function ContractUpload({
             type="button"
             variant="ghost"
             size="sm"
-            className="text-destructive"
+            className="flex-1 text-destructive max-sm:h-10 max-sm:px-3 sm:flex-none"
             onClick={remove}
             disabled={busy}
           >
@@ -145,12 +172,21 @@ export function ContractUpload({
   return (
     <label
       className={
-        "flex cursor-pointer flex-wrap items-center gap-2 border border-dashed px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5" +
+        "flex min-h-10 cursor-pointer flex-wrap items-center gap-2 border border-dashed px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5" +
         (disabled ? " pointer-events-none opacity-50" : "")
       }
     >
       {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-      {busy ? "Yükleniyor…" : "Sözleşme PDF'ini seçin veya buraya sürükleyin"}
+      {busy ? (
+        "Yükleniyor…"
+      ) : (
+        <span>
+          {"Sözleşme PDF'ini seçin"}
+          {/* Dokunmatikte sürükle-bırak yoktur; ipucu yalnız fare düzeninde
+              anlamlı ve telefonda satırı ikiye bölüyordu. */}
+          <span className="hidden sm:inline">{" veya buraya sürükleyin"}</span>
+        </span>
+      )}
       <input
         type="file"
         accept="application/pdf"

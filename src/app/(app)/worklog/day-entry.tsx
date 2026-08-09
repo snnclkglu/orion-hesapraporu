@@ -71,6 +71,30 @@ function newKey(): string {
   return `r${seq}`;
 }
 
+/**
+ * Çizelge sütun şablonu — başlık şeridi ve satırlar aynı ızgarayı paylaşır.
+ *
+ * YALNIZ `lg` ÜSTÜNDE: sekiz sütunun sabit genişlikleri tek başına 27,5rem
+ * eder ve şablon 62rem'in altında kullanılamaz. Dar ekranda satır bu ızgaraya
+ * girdiğinde HER GİRİŞ ALANI kaydırma kabının içinde kalıyor, kullanıcı
+ * "yaz → sağa kaydır → yaz" döngüsüne giriyordu. Kırılım `md` değil `lg`:
+ * kabuk sol menüyü yalnız `lg` üstünde gösterir, yani 768px tablet portre hâlâ
+ * mobil düzendir ve orada ızgara 992px isteyip yine kaydırırdı.
+ *
+ * `lg` altında satır dört sıraya açılan bir karttır (`col-span-*` yerleşimi).
+ */
+const GRID_COLS =
+  "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.7fr)_minmax(0,1.4fr)_5.5rem_7.5rem_5.5rem_6rem_3rem]";
+
+/** Kart düzeninde her alanın kendi başlığı olur (ızgara düzeninde başlık şeridi vardır). */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mb-1 block truncate text-[11px] text-muted-foreground lg:hidden">
+      {children}
+    </span>
+  );
+}
+
 function toEditRow(r: WorkLogRow): EditRow {
   return {
     key: newKey(),
@@ -367,7 +391,7 @@ export function DayEntry({
           type="date"
           value={date}
           onChange={(e) => e.target.value && goto(e.target.value)}
-          className="h-8 w-[10.5rem]"
+          className="h-8 w-[10.5rem] pointer-coarse:h-10"
           aria-label="Tarih seç"
         />
         {date !== today && (
@@ -376,7 +400,10 @@ export function DayEntry({
           </Button>
         )}
 
-        <div className="ml-auto flex items-center gap-4">
+        {/* İki özet bloğu + Kaydet'in min-content genişliği 330px'i geçiyordu:
+            `ml-auto` ile sağa itildiklerinde 360px'lik ekranda şerit yatay
+            taşıyordu. Telefonda blok kendi satırını alır ve yayılır. */}
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:ml-auto sm:w-auto sm:flex-nowrap sm:justify-end">
           <div className="text-right leading-tight">
             <div className="oc-kicker text-muted-foreground">Gün Toplamı</div>
             <div className="font-mono text-lg font-semibold tabular-nums">
@@ -390,14 +417,16 @@ export function DayEntry({
           </div>
           <Button onClick={() => void save()} disabled={saving || !dirty} className="gap-2">
             {saving ? "Kaydediliyor…" : dirty ? "Kaydet" : "Kaydedildi"}
-            <span className="font-mono text-[10px] opacity-70">Ctrl+S</span>
+            {/* Kısayol rozeti telefonda düğmenin üçte birini yiyor, dokunmatikte
+                de karşılığı yok. */}
+            <span className="hidden font-mono text-[10px] opacity-70 md:inline">Ctrl+S</span>
           </Button>
         </div>
       </div>
 
       {/* Son 14 gün — kayıt sürekliliği tek bakışta görünür, atlanan gün
           göze batar. Tıklanınca o güne gidilir. */}
-      <div className="flex items-end gap-1 overflow-x-auto rounded-lg border bg-card px-3 py-2">
+      <div className="oc-scrollx flex items-end gap-1 overflow-x-auto overscroll-x-contain rounded-lg border bg-card px-3 py-2">
         <span className="oc-kicker mr-2 shrink-0 self-center text-muted-foreground">Son 14 Gün</span>
         {recentDays.map((d) => (
           <button
@@ -421,7 +450,7 @@ export function DayEntry({
             </span>
             <span
               className={cn(
-                "font-mono text-[9px] tabular-nums",
+                "font-mono text-[11px] tabular-nums",
                 d.iso === date ? "text-foreground" : "text-muted-foreground"
               )}
             >
@@ -467,13 +496,16 @@ export function DayEntry({
                 type="button"
                 onClick={() => addFromCombo(c)}
                 title={`${c.itemNo} · ${c.partName} · ${c.categoryName} — son: ${c.people} kişi × ${c.hours} saat`}
-                className="flex items-center gap-1.5 border bg-background px-2 py-1 text-xs transition-colors hover:border-primary/50 hover:bg-primary/5"
+                /* Ekranın en çok tıklanması hedeflenen kontrolü 24px yüksekti;
+                   dokunmatikte tam boy verilir ve uzun parça adı çipi ekran
+                   dışına taşırmaz. */
+                className="flex min-h-9 max-w-full items-center gap-1.5 border bg-background px-2 py-1 text-xs transition-colors pointer-coarse:min-h-10 hover:border-primary/50 hover:bg-primary/5"
               >
                 <span className="oc-tag-dot" style={tagStyle(c.categoryHue)} aria-hidden />
                 <span className="font-mono text-[11px] font-medium text-primary">{c.itemNo}</span>
                 <span className="text-muted-foreground">·</span>
-                <span>{c.partName}</span>
-                <span className="font-mono text-[10px] text-muted-foreground">
+                <span className="min-w-0 truncate">{c.partName}</span>
+                <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                   {c.people}×{fmtManHours(c.hours)}
                 </span>
               </button>
@@ -482,216 +514,263 @@ export function DayEntry({
         </div>
       )}
 
-      {/* Çizelge */}
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <div className="min-w-[62rem]">
-          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1.7fr)_minmax(0,1.4fr)_5.5rem_7.5rem_5.5rem_6rem_2.5rem] items-center gap-2 border-b bg-muted/50 px-3 py-2">
-            {["İş Kalemi", "Parça", "İmalat Türü", "Grup", "Adam", "Saat", "Adam·Saat", ""].map(
-              (h, i) => (
-                <span
-                  key={h || `x${i}`}
-                  className={cn(
-                    "oc-kicker text-muted-foreground",
-                    (i === 6) && "text-right"
-                  )}
-                >
-                  {h}
-                </span>
-              )
-            )}
+      {/* Çizelge
+          BOŞ DURUM ve ALT TOPLAM ŞERİDİ kaydırma kabının DIŞINDADIR: içeride
+          `min-w-[62rem]` onları da 992px'e geriyordu ve telefonda boş gün
+          ekranında ortalanmış içerik görünür alanın dışında kalıyor, "Satır
+          ekle" düğmesine ulaşılamıyordu. */}
+      <div className="rounded-lg border bg-card">
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+            <h2 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
+              [ BU GÜNE KAYIT YOK ]
+            </h2>
+            <p className="max-w-sm text-sm text-foreground/70">
+              Önceki günü kopyalayın, sık kullanılan bir kalemi tıklayın ya da boş satır
+              ekleyin.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => addRow()} className="gap-1.5">
+              <Plus className="size-3.5" /> Satır ekle
+            </Button>
           </div>
-
-          {rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-              <h2 className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em]">
-                [ BU GÜNE KAYIT YOK ]
-              </h2>
-              <p className="max-w-sm text-sm text-foreground/70">
-                Önceki günü kopyalayın, sık kullanılan bir kalemi tıklayın ya da boş satır
-                ekleyin.
-              </p>
-              <Button variant="outline" size="sm" onClick={() => addRow()} className="gap-1.5">
-                <Plus className="size-3.5" /> Satır ekle
-              </Button>
-            </div>
-          ) : (
-            rows.map((row) => {
-              const people = parseNum(row.people) ?? 0;
-              const hours = parseNum(row.hours) ?? 0;
-              const job = jobByNo.get(row.itemNo);
-              const cat = categoryById.get(row.categoryId);
-              const incomplete = !row.itemNo || !row.partId || !row.categoryId || people <= 0 || hours <= 0;
-              return (
-                <div
-                  key={row.key}
-                  className={cn(
-                    "grid grid-cols-[minmax(0,2fr)_minmax(0,1.7fr)_minmax(0,1.4fr)_5.5rem_7.5rem_5.5rem_6rem_2.5rem] items-center gap-2 border-b px-3 py-1.5 last:border-b-0",
-                    incomplete && "bg-destructive/[0.04]"
-                  )}
-                >
-                  <Combobox
-                    options={jobOptions}
-                    value={row.itemNo || null}
-                    onChange={(v) => {
-                      setRow(row.key, { itemNo: v });
-                      applyCodeHint(row.key, v, row.partId, row.partCode);
-                    }}
-                    placeholder="İş kalemi"
-                    searchPlaceholder="Kalem no, ürün veya müşteri…"
-                    className="h-8"
-                    contentClassName="min-w-[26rem]"
-                    renderTrigger={(sel) =>
-                      sel ? (
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="font-mono text-xs font-medium text-primary">
-                            {sel.label}
-                          </span>
-                          {job && !job.orphan && (
-                            <CustomerTag
-                              name={job.customer}
-                              shortName={job.customerShort}
-                              hue={job.customerHue}
-                              className="shrink-0"
-                            />
-                          )}
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            {job?.productName}
-                          </span>
-                        </span>
-                      ) : (
-                        "İş kalemi"
-                      )
-                    }
-                  />
-
-                  <Combobox
-                    options={partOptions}
-                    value={row.partId || null}
-                    onChange={(v) => {
-                      setRow(row.key, { partId: v });
-                      applyCodeHint(row.key, row.itemNo, v, row.partCode);
-                    }}
-                    placeholder="Parça"
-                    searchPlaceholder="Parça ara…"
-                    onCreate={(name) => addPart(name, row.key)}
-                    createLabel="Yeni parça"
-                    className="h-8"
-                    renderTrigger={(sel) => sel?.label ?? "Parça"}
-                  />
-
-                  <Select
-                    value={row.categoryId || undefined}
-                    onValueChange={(v) => setRow(row.key, { categoryId: v })}
-                  >
-                    <SelectTrigger size="sm" className="w-full">
-                      <SelectValue placeholder="İmalat türü" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          <span className="flex items-center gap-1.5">
-                            <span className="oc-tag-dot" style={tagStyle(c.colorHue)} aria-hidden />
-                            {c.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Input
-                    value={row.partCode}
-                    onChange={(e) => setRow(row.key, { partCode: e.target.value })}
-                    placeholder="0200"
-                    title="Çizim grubu kodu — işe göre değişir, zorunlu değildir"
-                    className="h-8 px-2 font-mono text-xs"
-                  />
-
-                  {/* Kişi sayacı: en sık yapılan düzeltme "bir kişi eksik/fazla"dır,
-                      klavyeye dönmeden yapılabilmelidir. */}
-                  <div className="flex items-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="shrink-0 rounded-r-none"
-                      onClick={() =>
-                        setRow(row.key, { people: String(Math.max(1, Math.round(people) - 1)) })
-                      }
-                      aria-label="Kişi azalt"
-                    >
-                      <Minus className="size-3" />
-                    </Button>
-                    <Input
-                      value={row.people}
-                      onChange={(e) => setRow(row.key, { people: e.target.value })}
-                      inputMode="numeric"
-                      className="h-8 min-w-0 flex-1 rounded-none border-x-0 px-1 text-center font-mono text-xs tabular-nums"
-                      aria-label="Kişi sayısı"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="shrink-0 rounded-l-none"
-                      onClick={() => setRow(row.key, { people: String(Math.round(people) + 1) })}
-                      aria-label="Kişi artır"
-                    >
-                      <Plus className="size-3" />
-                    </Button>
-                  </div>
-
-                  <Input
-                    value={row.hours}
-                    onChange={(e) => setRow(row.key, { hours: e.target.value })}
-                    inputMode="decimal"
-                    className="h-8 px-2 text-center font-mono text-xs tabular-nums"
-                    aria-label="Saat"
-                  />
-
-                  <span
-                    className="text-right font-mono text-sm font-medium tabular-nums"
-                    title={cat ? `${cat.name}` : undefined}
-                  >
-                    {people > 0 && hours > 0 ? fmtManHours(people * hours) : "—"}
-                  </span>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => removeRow(row.key)}
-                    aria-label="Satırı sil"
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              );
-            })
-          )}
-
-          {rows.length > 0 && (
-            <div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2">
-              <Button variant="outline" size="sm" onClick={() => addRow()} className="gap-1.5">
-                <Plus className="size-3.5" /> Satır ekle
-              </Button>
-              <div className="flex items-center gap-4 text-sm">
-                {totals.invalid > 0 && (
-                  <span className="font-mono text-[11px] text-destructive">
-                    {totals.invalid} satır eksik
-                  </span>
+        ) : (
+          <div className="oc-scrollx overflow-x-auto overscroll-x-contain">
+            <div className="lg:min-w-[62rem]">
+              {/* Başlık şeridi yalnız ızgara düzeninde anlamlıdır; kart
+                  düzeninde her alan kendi başlığını taşır. */}
+              <div
+                className={cn(
+                  "hidden items-center gap-2 border-b bg-muted/50 px-3 py-2 lg:grid",
+                  GRID_COLS
                 )}
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Users className="size-3.5" />
-                  <span className="font-mono tabular-nums">{totals.people}</span> kişi
-                </span>
-                <span className="font-mono font-semibold tabular-nums">
-                  {fmtManHours(totals.manHours)} adam·saat
-                </span>
+              >
+                {["İş Kalemi", "Parça", "İmalat Türü", "Grup", "Adam", "Saat", "Adam·Saat", ""].map(
+                  (h, i) => (
+                    <span
+                      key={h || `x${i}`}
+                      className={cn(
+                        "oc-kicker text-muted-foreground",
+                        (i === 6) && "text-right"
+                      )}
+                    >
+                      {h}
+                    </span>
+                  )
+                )}
               </div>
+
+              {rows.map((row) => {
+                const people = parseNum(row.people) ?? 0;
+                const hours = parseNum(row.hours) ?? 0;
+                const job = jobByNo.get(row.itemNo);
+                const cat = categoryById.get(row.categoryId);
+                const incomplete =
+                  !row.itemNo || !row.partId || !row.categoryId || people <= 0 || hours <= 0;
+                return (
+                  <div
+                    key={row.key}
+                    className={cn(
+                      // Kart: dört sütun (kalem+sil · parça · tür+grup ·
+                      // adam/saat/adam·saat). `lg` üstünde tek satırlık ızgara.
+                      "grid grid-cols-4 gap-x-2 gap-y-2.5 border-b px-3 py-3 last:border-b-0 lg:items-center lg:gap-y-2 lg:py-1.5",
+                      GRID_COLS,
+                      incomplete && "bg-destructive/[0.04]"
+                    )}
+                  >
+                    <div className="col-span-3 min-w-0 lg:col-span-1">
+                      <FieldLabel>İş Kalemi</FieldLabel>
+                      <Combobox
+                        options={jobOptions}
+                        value={row.itemNo || null}
+                        onChange={(v) => {
+                          setRow(row.key, { itemNo: v });
+                          applyCodeHint(row.key, v, row.partId, row.partCode);
+                        }}
+                        placeholder="İş kalemi"
+                        searchPlaceholder="Kalem no, ürün veya müşteri…"
+                        className="h-8 pointer-coarse:h-10"
+                        contentClassName="min-w-[min(26rem,calc(100vw-1.5rem))]"
+                        renderTrigger={(sel) =>
+                          sel ? (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="font-mono text-xs font-medium text-primary">
+                                {sel.label}
+                              </span>
+                              {job && !job.orphan && (
+                                <CustomerTag
+                                  name={job.customer}
+                                  shortName={job.customerShort}
+                                  hue={job.customerHue}
+                                  className="shrink-0"
+                                />
+                              )}
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {job?.productName}
+                              </span>
+                            </span>
+                          ) : (
+                            "İş kalemi"
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="col-span-4 min-w-0 lg:col-span-1">
+                      <FieldLabel>Parça</FieldLabel>
+                      <Combobox
+                        options={partOptions}
+                        value={row.partId || null}
+                        onChange={(v) => {
+                          setRow(row.key, { partId: v });
+                          applyCodeHint(row.key, row.itemNo, v, row.partCode);
+                        }}
+                        placeholder="Parça"
+                        searchPlaceholder="Parça ara…"
+                        onCreate={(name) => addPart(name, row.key)}
+                        createLabel="Yeni parça"
+                        className="h-8 pointer-coarse:h-10"
+                        renderTrigger={(sel) => sel?.label ?? "Parça"}
+                      />
+                    </div>
+
+                    <div className="col-span-3 min-w-0 lg:col-span-1">
+                      <FieldLabel>İmalat Türü</FieldLabel>
+                      <Select
+                        value={row.categoryId || undefined}
+                        onValueChange={(v) => setRow(row.key, { categoryId: v })}
+                      >
+                        <SelectTrigger size="sm" className="w-full">
+                          <SelectValue placeholder="İmalat türü" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              <span className="flex items-center gap-1.5">
+                                <span
+                                  className="oc-tag-dot"
+                                  style={tagStyle(c.colorHue)}
+                                  aria-hidden
+                                />
+                                {c.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="col-span-1 min-w-0">
+                      <FieldLabel>Grup</FieldLabel>
+                      <Input
+                        value={row.partCode}
+                        onChange={(e) => setRow(row.key, { partCode: e.target.value })}
+                        placeholder="0200"
+                        title="Çizim grubu kodu — işe göre değişir, zorunlu değildir"
+                        className="h-8 px-2 font-mono text-base pointer-coarse:h-10 pointer-fine:text-xs"
+                      />
+                    </div>
+
+                    {/* Kişi sayacı: en sık yapılan düzeltme "bir kişi eksik/fazla"dır,
+                        klavyeye dönmeden yapılabilmelidir. Dokunmatikte düğmeler
+                        40px'e büyüdüğü için kutu da onlarla aynı boya çıkar. */}
+                    <div className="col-span-2 min-w-0 lg:col-span-1">
+                      <FieldLabel>Adam</FieldLabel>
+                      <div className="flex items-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="shrink-0 rounded-r-none"
+                          onClick={() =>
+                            setRow(row.key, { people: String(Math.max(1, Math.round(people) - 1)) })
+                          }
+                          aria-label="Kişi azalt"
+                        >
+                          <Minus className="size-3" />
+                        </Button>
+                        <Input
+                          value={row.people}
+                          onChange={(e) => setRow(row.key, { people: e.target.value })}
+                          inputMode="numeric"
+                          className="h-8 min-w-0 flex-1 rounded-none border-x-0 px-1 text-center font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
+                          aria-label="Kişi sayısı"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="shrink-0 rounded-l-none"
+                          onClick={() => setRow(row.key, { people: String(Math.round(people) + 1) })}
+                          aria-label="Kişi artır"
+                        >
+                          <Plus className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 min-w-0">
+                      <FieldLabel>Saat</FieldLabel>
+                      <Input
+                        value={row.hours}
+                        onChange={(e) => setRow(row.key, { hours: e.target.value })}
+                        inputMode="decimal"
+                        className="h-8 px-2 text-center font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
+                        aria-label="Saat"
+                      />
+                    </div>
+
+                    <div className="col-span-1 min-w-0 text-right">
+                      <FieldLabel>Adam·Saat</FieldLabel>
+                      <span
+                        className="block truncate font-mono text-sm font-medium tabular-nums"
+                        title={cat ? `${cat.name}` : undefined}
+                      >
+                        {people > 0 && hours > 0 ? fmtManHours(people * hours) : "—"}
+                      </span>
+                    </div>
+
+                    {/* Yıkıcı eylem: mobilde kartın sağ üst köşesine yerleşir
+                        (`row-start-1`), komşu alanlarla karışmaz. */}
+                    <div className="col-start-4 row-start-1 flex justify-end lg:col-start-auto lg:row-start-auto">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => removeRow(row.key)}
+                        aria-label="Satırı sil"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t bg-muted/30 px-3 py-2">
+            <Button variant="outline" size="sm" onClick={() => addRow()} className="gap-1.5">
+              <Plus className="size-3.5" /> Satır ekle
+            </Button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              {totals.invalid > 0 && (
+                <span className="font-mono text-[11px] text-destructive">
+                  {totals.invalid} satır eksik
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="size-3.5" />
+                <span className="font-mono tabular-nums">{totals.people}</span> kişi
+              </span>
+              <span className="font-mono font-semibold tabular-nums">
+                {fmtManHours(totals.manHours)} adam·saat
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <p className="text-[11px] text-muted-foreground">

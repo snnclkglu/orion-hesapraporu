@@ -93,7 +93,9 @@ export function DrawingDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid grid-cols-[1fr_auto] gap-3">
+          {/* Sabit sütunlu ızgara responsive öneksizdi: dar pencerede çizim no
+              alanı revizyon kutusunun payı kadar eziliyordu. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
             <div className="grid gap-2">
               <Label htmlFor="drawing_no">Çizim No</Label>
               <Input

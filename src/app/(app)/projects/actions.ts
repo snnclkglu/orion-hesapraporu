@@ -613,6 +613,72 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   redirect(`/projects/${projectId}/revisions/${revision.id}`);
 }
 
+/**
+ * TASLAK bir revizyonu siler.
+ *
+ * Yayınlanmış revizyon SİLİNEMEZ — teslim edilmiş bir hesabın kaydı geriye
+ * dönük yok edilemez. Bu kural veritabanında `guard_issued_revision`
+ * tetikleyicisindedir; buradaki kontrol yalnız kullanıcıya anlaşılır bir mesaj
+ * vermek içindir. Silme yetkisi RLS'te `can_edit_reports()`e bağlıdır: raporu
+ * AÇAN ve düzenleyen mühendis kendi taslağını da temizleyebilmelidir (projeyi
+ * silmek ise hâlâ yöneticiye özeldir — ayrı soru, ayrı politika).
+ *
+ * Yanlış açılmış ya da yanlış yönde ilerlemiş bir taslağı temizlemenin yolu
+ * yoktu; kullanıcı ya bozuk revizyonla yaşıyor ya da üstüne bir yenisini
+ * açıyordu. Silindikten sonra "Yeni Revizyon" KALAN SON revizyondan kopyalar
+ * (`createRevision` en büyük rev_no'yu okur): V1 silinince açılan yeni V1
+ * yeniden V0'dan türer.
+ *
+ * `equipment_notes` ve `equipment_extras` yabancı anahtarla birlikte gider.
+ * PDF arşivi (reports bucket'ı) YALNIZ yayınlandığında yazılır; taslakta
+ * yetim dosya kalmaz.
+ */
+export async function deleteRevision(
+  projectId: string,
+  revisionId: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { data: revision } = await supabase
+    .from("revisions")
+    .select("id, rev_no, status")
+    .eq("id", revisionId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (!revision) return { error: "Revizyon bulunamadı" };
+  if (revision.status === "issued") {
+    return { error: "Yayınlanmış revizyon silinemez." };
+  }
+
+  const { data: deleted, error } = await supabase
+    .from("revisions")
+    .delete()
+    .eq("id", revisionId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!deleted || deleted.length === 0) {
+    return {
+      error: "Revizyon silinemedi — silme yetkisi Yönetici ve Mühendis rollerindedir.",
+    };
+  }
+
+  // `audit_log.revision_id` artık var olmayan bir satırı gösteremez (yabancı
+  // anahtar); kimlik detaya yazılır.
+  await supabase.from("audit_log").insert({
+    project_id: projectId,
+    actor: user.id,
+    action: "revision.delete",
+    detail: { revision_id: revisionId, rev_no: revision.rev_no },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return {};
+}
+
 // -------------------------------------------------------- Teknik çizimler
 
 const drawingSchema = z.object({

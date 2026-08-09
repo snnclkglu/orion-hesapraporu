@@ -19,6 +19,18 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+/**
+ * Rozetin ortak görünümü — tıklanabilir ve düz sürüm aynı satır yüksekliğinde
+ * durmalıdır, ikisi de aynı hesap satırlarında yan yana çıkar.
+ *
+ * Eski hâli `px-1.5 py-px text-[10px]` idi: dokunma hedefi ~17px yüksekliğinde
+ * kalıyordu ve bu rozet HER HESAP SATIRINDA duran tek "standardı göster"
+ * girişidir — telefonda pratikte basılamıyor, komşu satırın rozeti
+ * ıskalanıyordu. Negatif kenar boşluğu hedefi satırı büyütmeden yükseltir.
+ */
+const BADGE_BASE =
+  "-my-[3px] inline-flex items-center gap-1 border px-2 py-1 font-mono text-[11px]";
+
 /** Satır vurgusu: tablonun ilk hücresi bağlamdaki değerle eşleşiyor mu. */
 function isHighlighted(
   table: StandardTableDef,
@@ -43,7 +55,9 @@ function RefTable({
       {table.caption && (
         <div className="oc-kicker text-muted-foreground">{table.caption}</div>
       )}
-      <div className="overflow-x-auto rounded-md border">
+      {/* FEM tabloları telefonda kırpılıyor ve mobil tarayıcı kaydırma çubuğu
+          çizmediği için sağda sütun kaldığı anlaşılmıyordu. */}
+      <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-md border [--oc-scroll-bg:var(--popover)]">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
@@ -91,8 +105,10 @@ function RefTable({
           </tbody>
         </table>
       </div>
+      {/* Dipnot FEM tablolarının çoğunda KULLANIM KOŞULU taşır (hangi grupta,
+          hangi sınırla geçerli); 11px'te en görmezden gelinecek boyuttaydı. */}
       {table.footnote && (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
           {table.footnote}
         </p>
       )}
@@ -120,8 +136,13 @@ export function StandardRefBody({
                 {f.label && (
                   <span className="text-[11px] text-muted-foreground">{f.label}</span>
                 )}
-                <div className="overflow-x-auto rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed">
-                  <MathFormula formula={f.expr} />
+                {/* Kaydırma artık MathFormula'nın kendi sarmalayıcısındadır;
+                    kaydırma ipucunun zemini buranın rengini almalıdır. */}
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed">
+                  <MathFormula
+                    formula={f.expr}
+                    className="oc-scrollx [--oc-scroll-bg:var(--muted)]"
+                  />
                 </div>
               </div>
             ))}
@@ -177,10 +198,7 @@ export function StandardRefBadge({
   if (!refDef) {
     return (
       <span
-        className={cn(
-          "border border-primary/25 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90",
-          className
-        )}
+        className={cn(BADGE_BASE, "border-primary/25 bg-primary/5 text-primary/90", className)}
       >
         {code}
       </span>
@@ -194,17 +212,24 @@ export function StandardRefBadge({
         onClick={() => setOpen(true)}
         title={`${refDef.title} — standardı göster`}
         className={cn(
-          "inline-flex items-center gap-1 border border-primary/30 bg-primary/5 px-1.5 py-px font-mono text-[10px] text-primary/90 transition-colors hover:border-primary/60 hover:bg-primary/15",
+          BADGE_BASE,
+          // Dokunmatikte ~31px. Daha fazlası sarılmış satırlarda komşu rozetin
+          // hedefiyle ÇAKIŞIRDI — düzeltmenin kendisi soruna dönerdi.
+          "border-primary/30 bg-primary/5 text-primary/90 transition-colors hover:border-primary/60 hover:bg-primary/15 pointer-coarse:-my-1 pointer-coarse:py-2",
           className
         )}
       >
-        <BookMarked className="size-2.5" aria-hidden />
+        <BookMarked className="size-3" aria-hidden />
         {code}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 text-base">
+        {/* Yükseklik ve kaydırma artık tabandadır (`max-h-[calc(100dvh-1.5rem)]`);
+            `sm:max-w-3xl` 768px tablette pencereyi ekranın TAMAMI yapıyordu. */}
+        <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+          {/* Kapatma X'i sağdan 16px'te başlayan 32px'lik bir düğmedir;
+              tabanın `pr-8`i sarılan başlığı altına almaya yetmiyordu. */}
+          <DialogHeader className="pr-12 sm:pr-14">
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
               <span>{refDef.title}</span>
               <span className="bg-muted px-1.5 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">
                 {refDef.code}

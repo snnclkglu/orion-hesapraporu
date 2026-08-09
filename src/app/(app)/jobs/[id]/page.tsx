@@ -32,9 +32,12 @@ function KV({
   mono?: boolean; // tarih/sayı gibi teknik değerler mono dizilir
 }) {
   return (
-    <div className="flex gap-2 border-b py-1 last:border-0">
-      <span className="w-32 shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className={mono ? "font-mono text-sm tabular-nums" : "text-sm"}>
+    // 128px'lik sabit etiket sütunu telefonda değere yalnız ~180px bırakıyor,
+    // adres gibi uzun alanlar okunmaz hâle geliyordu: mobilde etiket üstte,
+    // değer altta; `sm`den itibaren eski iki sütunlu düzen.
+    <div className="grid grid-cols-1 gap-0.5 border-b py-1.5 last:border-0 sm:flex sm:gap-2 sm:py-1">
+      <span className="text-xs text-muted-foreground sm:w-32 sm:shrink-0">{label}</span>
+      <span className={cn("min-w-0 break-words", mono ? "font-mono text-sm tabular-nums" : "text-sm")}>
         {value && String(value).trim() ? value : "—"}
       </span>
     </div>
@@ -68,7 +71,8 @@ function ReportCell({ report }: { report: LinkedReport | null }) {
         {report.doc_no}
       </Link>
       {lastRev && (
-        <Badge variant={lastRev.status === "issued" ? "default" : "secondary"} className="text-[10px]">
+        // 10px içerik metni için fazla küçük — 11px taban.
+        <Badge variant={lastRev.status === "issued" ? "default" : "secondary"} className="text-[11px]">
           V{lastRev.rev_no} · {lastRev.status === "issued" ? "yayınlandı" : "taslak"}
         </Badge>
       )}
@@ -118,7 +122,7 @@ export default async function JobPage({
     <div className="grid gap-6">
       {/* Başlık + eylemler */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="text-sm text-muted-foreground">
             <Link href="/jobs" className="hover:underline">İşler</Link>
             {" / "}
@@ -133,13 +137,15 @@ export default async function JobPage({
             <JobStatusMenu jobId={job.id} status={job.status} size="md" />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm">
+        {/* İki birincil eylem telefonda satırın sağ ucunda küçük bir çift
+            olarak sıkışıyordu; mobilde satırı ikiye bölüp yayılırlar. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <Button asChild variant="outline" size="sm" className="flex-1 max-sm:h-10 max-sm:px-3 sm:flex-none">
             <a href={`/jobs/${job.id}/work-order`}>
               <FileDown className="size-3.5" /> İş Emri PDF
             </a>
           </Button>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="flex-1 max-sm:h-10 max-sm:px-3 sm:flex-none">
             <Link href={`/jobs/${job.id}/edit`}>
               <Pencil className="size-3.5" /> Düzenle
             </Link>
@@ -171,23 +177,36 @@ export default async function JobPage({
             </p>
           </div>
         ) : (
+          /* SÜTUN ÖNCELİKLENDİRME — beş sütun telefonda tabloyu taşırıyordu.
+             Sıra numarası ve adet gizlenir (adet "Ürün Adı"nın altına iner);
+             mobilde İş Kalemi No · Ürün Adı · Hesap Raporu kalır.
+             Yüzde genişlikler `table-layout: auto` altında nowrap içerik
+             karşısında etkisizdi; mutlak değere çevrildi. */
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="w-[6%]">#</TableHead>
-                <TableHead className="w-[14%]">İş Kalemi No</TableHead>
+                <TableHead className="hidden w-10 sm:table-cell">#</TableHead>
+                <TableHead className="w-[8.5rem]">İş Kalemi No</TableHead>
                 <TableHead>Ürün Adı</TableHead>
-                <TableHead className="w-[9%]">Adet</TableHead>
-                <TableHead className="w-[26%]">Hesap Raporu</TableHead>
+                <TableHead className="hidden w-[5rem] md:table-cell">Adet</TableHead>
+                <TableHead className="sm:w-[16rem]">Hesap Raporu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {itemList.map((it, i) => (
                 <TableRow key={i}>
-                  <TableCell className="font-mono tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{i + 1}</TableCell>
                   <TableCell className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
-                  <TableCell className="font-medium">{it.product_name}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{it.quantity || "—"}</TableCell>
+                  <TableCell className="font-medium whitespace-normal">
+                    {it.product_name}
+                    {/* Gizlenen adet sütununun mobil karşılığı. Alan serbest
+                        metindir ("3", "3 Adet", "Muhtelif"); değerin sonuna
+                        birim EKLENMEZ, etiket öne konur. */}
+                    <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
+                      Adet: <span className="font-mono tabular-nums">{it.quantity || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden font-mono tabular-nums md:table-cell">{it.quantity || "—"}</TableCell>
                   <TableCell>
                     <ReportCell
                       report={(it.projects as unknown as LinkedReport | null) ?? null}
@@ -198,7 +217,7 @@ export default async function JobPage({
             </TableBody>
           </Table>
         )}
-        <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
           Hesap raporu iş kalemine bağlanır. Bağlamak için Projeler bölümünde
           raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve kalemi seçin.
         </p>
@@ -270,14 +289,17 @@ export default async function JobPage({
             Bu raporlar işe bağlı ama bir iş kalemine atanmamış. Projeler
             bölümündeki &quot;İşe Bağla&quot; ile kalem seçerek eşleştirin.
           </p>
+          {/* SÜTUN ÖNCELİKLENDİRME — vinç tipi ve son revizyon telefonda
+              gizlenir, ikisi de "Vinç" hücresinin altına ikinci satır olarak
+              iner; mobilde Doküman No · Vinç · Durum kalır. */}
           <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Doküman No</TableHead>
                   <TableHead>Vinç</TableHead>
-                  <TableHead>Vinç Tipi</TableHead>
-                  <TableHead>Son Revizyon</TableHead>
+                  <TableHead className="hidden md:table-cell">Vinç Tipi</TableHead>
+                  <TableHead className="hidden md:table-cell">Son Revizyon</TableHead>
                   <TableHead>Durum</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,9 +313,15 @@ export default async function JobPage({
                           {p.doc_no}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.crane_type}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium whitespace-normal">
+                        {p.name}
+                        <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
+                          {p.crane_type}
+                          {lastRev ? ` · V${lastRev.rev_no} ${lastRev.status === "issued" ? "yayınlandı" : "taslak"}` : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.crane_type}</TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {lastRev ? (
                           <span className="inline-flex items-center gap-1.5 text-sm">
                             <span className="font-mono">V{lastRev.rev_no}</span>
@@ -306,8 +334,10 @@ export default async function JobPage({
                         )}
                       </TableCell>
                       <TableCell>
+                        {/* Marka kuralı: köşe yuvarlaklığı sıfır — aynı işlevi
+                            gören durum noktaları uygulamanın her yerinde kare. */}
                         <span className="inline-flex items-center gap-1.5 text-sm">
-                          <span className={cn("size-2 rounded-full", p.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
+                          <span className={cn("size-2 shrink-0", p.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
                           {p.status === "active" ? "Aktif" : "Arşiv"}
                         </span>
                       </TableCell>

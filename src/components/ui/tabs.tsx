@@ -25,7 +25,15 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-9 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
+  // `max-w-full` + yatay kaydırma: sekme etiketleri `whitespace-nowrap`tır,
+  // dar ekranda şerit kap genişliğini aşıp SAYFAYI yatay kaydırıyordu.
+  // Tetikleyicilerin `flex-1`i kaydırma kabında büzülmeye dönmesin diye
+  // `shrink-0` verilir.
+  // Dokunmatikte şerit 36px'ten 44px'e çıkar; sekme tetikleyicileri
+  // `h-[calc(100%-1px)]` ile şeridin yüksekliğini izlediği için tek yerden
+  // büyür. Grup seçicisinin özgüllüğünü karşılamak üzere `pointer-coarse`
+  // aynı grup varyantına zincirlenir — düz `pointer-coarse:h-11` kaybederdi.
+  "group/tabs-list inline-flex w-fit max-w-full items-center justify-center overflow-x-auto rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-9 group-data-horizontal/tabs:pointer-coarse:h-11 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none [&>*]:shrink-0",
   {
     variants: {
       variant: {

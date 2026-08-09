@@ -30,6 +30,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+// Saf yardımcı — kod önizlemesi ile basılan belge AYNI fonksiyondan çıkar.
+import { docCode } from "@/lib/pdf/doc-naming";
 
 export interface ProjectSummary {
   id: string;
@@ -67,6 +69,10 @@ function withCurrentJob(jobs: JobOption[], project: ProjectSummary): JobOption[]
  * Kaynak doküman nodan kopya için öneri üretir: sondaki sayı bir artırılır
  * (sıfır dolgusu korunur), sayı yoksa "-K1" eklenir. Doküman no benzersizdir;
  * çakışırsa sunucu Türkçe hata döner ve kullanıcı elle düzeltir.
+ *
+ * Doküman no İŞ KALEMİ NUMARASI olduğu için artış kuralı zaten kalem
+ * numaralandırmasıyla örtüşür: `0055-01` → `0055-02`. Öneri O NUMARANIN gerçek
+ * kalemine ait raporla çakışabilir; bu yüzden öneridir, dayatma değil.
  */
 export function suggestDocNo(source: string): string {
   const m = /^(.*?)(\d+)(\D*)$/.exec(source.trim());
@@ -197,8 +203,13 @@ export function DuplicateProjectDialog({
               id="dup_doc_no"
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
+              placeholder="0055-02"
               required
             />
+            <p className="text-[11px] text-muted-foreground">
+              Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor kodu
+              bundan türer → <span className="font-mono">{docCode("HR", docNo || "0055-02", 1)}</span>
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="dup_name">Rapor / Vinç Adı</Label>
@@ -500,7 +511,11 @@ export function ProjectRowActions({
     <div className="relative z-10 flex justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="size-8 p-0">
+          {/* `icon-sm`: masaüstünde aynı 32px, dokunmatikte 40px. Elle yazılan
+              `size-8` dokunma payını almıyordu ve tetikleyici satırı kaplayan
+              bağlantının üstünde durduğu için ıskalanan her dokunuş
+              kullanıcıyı proje detayına götürüyordu. */}
+          <Button variant="ghost" size="icon-sm">
             <MoreHorizontal className="size-4" />
             <span className="sr-only">Satır Eylemleri</span>
           </Button>

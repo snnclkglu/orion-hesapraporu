@@ -5,6 +5,14 @@
 // bağımsız kalır ve sonradan "İşe Bağla" ile bir işe bağlanabilir.
 // Akış: İş seçilir → o işin kalemleri (ürün + iş no) listelenir → kalem
 // seçilince doküman no ve rapor adı otomatik dolar.
+//
+// DOKÜMAN NO = İŞ KALEMİ NUMARASI (firma kuralı). Rapor işe değil KALEME
+// bağlıdır; `0055-01` ve `0055-02` iki ayrı rapordur ve doküman kodları
+// `ORC-HR-0055-01-R01` / `ORC-HR-0055-02-R01` olur. Kural alanı serbest
+// bırakıldığında üç ayrı yazım birden dolaşıyordu (`0055`, `0055-01`,
+// `0055-HR-001`); `0055` yazılan bir işe ikinci kalem eklendiğinde ikinci rapor
+// benzersizlik kısıtına takılıyor, kod da hangi kaleme ait olduğunu
+// söylemiyordu. Kalem seçiliyken alan artık SALT-OKUNURDUR.
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -18,6 +26,10 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+// Saf yardımcı (dosya sistemi/PDF bağımlılığı yok) — kod önizlemesi ile basılan
+// belge AYNI fonksiyondan çıksın diye buradan okunur.
+import { docCode } from "@/lib/pdf/doc-naming";
+import { cn } from "@/lib/utils";
 
 /** Vinç tipi seçenekleri (ileride hesap varyantları bu tiplere bağlanacak) */
 const CRANE_TYPES = [
@@ -91,8 +103,11 @@ export function NewProjectDialog({
     const job = jobs?.find((j) => j.id === id);
     if (job) {
       setCustomer(job.customer);
+      // Kalemi OLAN işte doküman no kalem seçilince dolar. Körlemesine
+      // "0055-01" önermek, o numaranın gerçek kalemine açılacak raporla
+      // çakışırdı; öneri yalnız hiç kalemi olmayan işlerde yapılır.
       const base = job.job_no.split("-")[0];
-      if (!docNo && base) setDocNo(`${base}-01`);
+      if (!docNo && base && (job.items?.length ?? 0) === 0) setDocNo(`${base}-01`);
     }
   }
 
@@ -188,9 +203,23 @@ export function NewProjectDialog({
               name="doc_no"
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
-              placeholder="0055-HR-001"
+              readOnly={!!selectedItem}
+              className={cn(selectedItem && "bg-muted text-muted-foreground")}
+              placeholder="0055-01"
+              title={
+                selectedItem
+                  ? "İş kalemi numarasından gelir — elle yazmak için \"Kalem Seçilmedi\"yi seçin"
+                  : undefined
+              }
               required
             />
+            {/* Doküman kodunun canlı önizlemesi: kuralın ne ürettiği alanın
+                altında görünsün, PDF açılana kadar beklenmesin. */}
+            <p className="text-[11px] text-muted-foreground">
+              Doküman no <span className="font-medium">iş kalemi numarasıdır</span>; rapor kodu
+              bundan türer →{" "}
+              <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">Rapor / Vinç Adı</Label>

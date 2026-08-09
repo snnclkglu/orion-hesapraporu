@@ -124,17 +124,22 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       {/* PopoverContent varsayılanı w-72 + p-4 + gap-4'tür; liste için
-          tetikleyici genişliğine oturtulur ve iç boşluk sıfırlanır. */}
+          tetikleyici genişliğine oturtulur ve iç boşluk sıfırlanır.
+
+          `min-w` GÖRÜNÜR ALANLA KELEPÇELİDİR: CSS'te `min-width`, `max-width`i
+          yener — sabit bir `min-w-[16rem]` dar telefonda kutuyu ekran dışına
+          taşırır ve `max-w` bunu kurtaramaz. */}
       <PopoverContent
         align="start"
         className={cn(
-          "w-(--radix-popover-trigger-width) min-w-[16rem] gap-0 p-0",
+          "w-(--radix-popover-trigger-width) min-w-[min(16rem,calc(100vw-1.5rem))] gap-0 p-0",
           contentClassName
         )}
       >
         <Command shouldFilter={false}>
           <CommandInput value={query} onValueChange={setQuery} placeholder={searchPlaceholder} />
-          <CommandList className="max-h-72">
+          {/* Yükseklik sınırı CommandList tabanından gelir (kısa ekranda kısılır) */}
+          <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             {canCreate && (
               <CommandGroup>

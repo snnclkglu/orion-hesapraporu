@@ -33,7 +33,8 @@ export function ReportMenu({ projectId, revisionId }: { projectId: string; revis
   const base = `/projects/${projectId}/revisions/${revisionId}/report`;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted">
+      {/* Dokunmatikte 32px'lik tetikleyici parmakla tutulmuyordu (sözleşme §2) */}
+      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10">
         <FileText className="size-3.5 text-muted-foreground" />
         PDF Rapor
         <ChevronDown className="size-3.5 text-muted-foreground" />

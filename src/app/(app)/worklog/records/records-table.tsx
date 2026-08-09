@@ -75,7 +75,10 @@ function SortHead({
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "-mx-1 flex w-full items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-foreground",
+          // Düğme başlık hücresinin TAMAMINI kaplar (eskiden ~21px'ti):
+          // sıralama, dar ekranda tabloyu kullanılabilir kılan tek araçtır ve
+          // hücrenin yarısına basmak hiçbir şey yapmıyordu.
+          "-mx-2 -my-2 flex h-10 w-full items-center gap-1 rounded px-2 py-2 transition-colors hover:text-foreground",
           align === "right" && "justify-end",
           active ? "text-foreground" : "text-muted-foreground"
         )}
@@ -88,6 +91,24 @@ function SortHead({
 }
 
 const PAGE_STEP = 200;
+
+/**
+ * Yapışkan kimlik sütunları — tablo on sütunla 1.136px ister ve tablet
+ * genişliğinde sağa kaydırıldığında hangi satıra bakıldığı kayboluyordu.
+ * Tarih ve Kalem sola yapışır. Zemin opaktır (altından satır geçmesin);
+ * satır vurgusunun `bg-muted/50 üzeri kart` bileşimi `color-mix` ile birebir
+ * tekrarlanır, yoksa yapışkan hücreler vurguda ayrık görünürdü.
+ */
+const STICKY_DATE =
+  "md:sticky md:left-0 md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+const STICKY_ITEM =
+  "md:sticky md:left-[6.5rem] md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+/** Başlık şeridinin yapışkan hücreleri — satır zemini yarı saydam olduğu için opak eş değeri. */
+const STICKY_HEAD_DATE = "md:sticky md:left-0 md:z-20 bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+const STICKY_HEAD_ITEM =
+  "md:sticky md:left-[6.5rem] md:z-20 bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+/** Telefonda düşen sütunlar — kritik olanları birincil hücrenin ikinci satırı taşır. */
+const SECONDARY = "hidden md:table-cell";
 
 export function RecordsTable({
   rows,
@@ -170,13 +191,17 @@ export function RecordsTable({
 
       <ItemRemapCard rows={rows} jobs={jobs} />
 
-      <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border bg-card px-4 py-2.5">
         <span className="oc-kicker text-muted-foreground">Süzgeçten Geçen</span>
-        <span className="flex items-baseline gap-4 font-mono text-sm tabular-nums">
+        <span className="flex flex-wrap items-baseline gap-x-4 font-mono text-sm tabular-nums">
           <span className="text-muted-foreground">{totals.records} kayıt</span>
           <span className="font-semibold">{fmtManHours(totals.manHours)} adam·saat</span>
         </span>
       </div>
+
+      <p className="text-[11px] text-muted-foreground md:hidden">
+        → Ayrıntı için satıra dokunun; tabloyu yana da kaydırabilirsiniz.
+      </p>
 
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
@@ -185,7 +210,7 @@ export function RecordsTable({
               <SortHead
                 label="Tarih"
                 sortKey="date"
-                className="w-[6.5rem]"
+                className={cn("w-[6.5rem]", STICKY_HEAD_DATE)}
                 active={sort.key === "date"}
                 dir={sort.dir}
                 onSort={toggleSort}
@@ -193,7 +218,7 @@ export function RecordsTable({
               <SortHead
                 label="Kalem"
                 sortKey="itemNo"
-                className="w-[7rem]"
+                className={cn("md:w-[7rem]", STICKY_HEAD_ITEM)}
                 active={sort.key === "itemNo"}
                 dir={sort.dir}
                 onSort={toggleSort}
@@ -201,16 +226,16 @@ export function RecordsTable({
               <SortHead
                 label="Müşteri"
                 sortKey="customer"
-                className="w-[9rem]"
+                className={cn("w-[9rem]", SECONDARY)}
                 active={sort.key === "customer"}
                 dir={sort.dir}
                 onSort={toggleSort}
               />
-              <TableHead>Ürün</TableHead>
+              <TableHead className={SECONDARY}>Ürün</TableHead>
               <SortHead
                 label="Parça"
                 sortKey="part"
-                className="w-[11rem]"
+                className={cn("w-[11rem]", SECONDARY)}
                 active={sort.key === "part"}
                 dir={sort.dir}
                 onSort={toggleSort}
@@ -218,16 +243,16 @@ export function RecordsTable({
               <SortHead
                 label="İmalat Türü"
                 sortKey="category"
-                className="w-[10rem]"
+                className={cn("w-[10rem]", SECONDARY)}
                 active={sort.key === "category"}
                 dir={sort.dir}
                 onSort={toggleSort}
               />
-              <TableHead className="w-[4.5rem]">Grup</TableHead>
+              <TableHead className={cn("w-[4.5rem]", SECONDARY)}>Grup</TableHead>
               <SortHead
                 label="Adam"
                 sortKey="people"
-                className="w-[5rem]"
+                className={cn("w-[5rem]", SECONDARY)}
                 align="right"
                 active={sort.key === "people"}
                 dir={sort.dir}
@@ -236,7 +261,7 @@ export function RecordsTable({
               <SortHead
                 label="Saat"
                 sortKey="hours"
-                className="w-[5rem]"
+                className={cn("w-[5rem]", SECONDARY)}
                 align="right"
                 active={sort.key === "hours"}
                 dir={sort.dir}
@@ -262,20 +287,42 @@ export function RecordsTable({
               </TableRow>
             ) : (
               visible.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => setEditing(r)}>
-                  <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                <TableRow
+                  key={r.id}
+                  className="group/row cursor-pointer"
+                  onClick={() => setEditing(r)}
+                >
+                  <TableCell
+                    className={cn(
+                      "align-top font-mono text-xs tabular-nums text-muted-foreground md:align-middle",
+                      STICKY_DATE
+                    )}
+                  >
                     {fmtDate(r.date)}
                   </TableCell>
                   <TableCell
                     className={cn(
                       "font-mono text-sm font-medium",
-                      r.jobItemId ? "text-primary" : "text-destructive"
+                      r.jobItemId ? "text-primary" : "text-destructive",
+                      STICKY_ITEM
                     )}
                     title={r.jobItemId ? undefined : "Sistemde iş kalemi karşılığı yok"}
                   >
                     {r.itemNo || "—"}
+                    {/* Telefonda düşen sütunların kritik olanları burada ikinci
+                        satır olur — kart markup'ı çoğaltılmaz. */}
+                    <span className="mt-0.5 block font-sans text-[11px] font-normal whitespace-normal text-muted-foreground md:hidden">
+                      {[
+                        r.customerShort || r.customer,
+                        r.partName,
+                        r.categoryName,
+                        `${r.people}×${fmtManHours(r.hours)}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={SECONDARY}>
                     {r.customer ? (
                       <CustomerTag
                         name={r.customer}
@@ -286,26 +333,34 @@ export function RecordsTable({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[18rem] truncate text-xs" title={r.productName}>
+                  <TableCell
+                    className={cn("max-w-[18rem] truncate text-xs", SECONDARY)}
+                    title={r.productName}
+                  >
                     {r.productName || <span className="text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell className="font-medium">{r.partName}</TableCell>
-                  <TableCell>
+                  <TableCell className={cn("font-medium", SECONDARY)}>{r.partName}</TableCell>
+                  <TableCell className={SECONDARY}>
                     <span className="flex items-center gap-1.5 text-xs">
                       <span className="oc-tag-dot" style={tagStyle(r.categoryHue)} aria-hidden />
                       {r.categoryName}
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell className={cn("font-mono text-xs text-muted-foreground", SECONDARY)}>
                     {r.partCode || "—"}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm tabular-nums">
+                  <TableCell className={cn("text-right font-mono text-sm tabular-nums", SECONDARY)}>
                     {r.people}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
+                  <TableCell
+                    className={cn(
+                      "text-right font-mono text-sm tabular-nums text-muted-foreground",
+                      SECONDARY
+                    )}
+                  >
                     {fmtManHours(r.hours)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-medium tabular-nums">
+                  <TableCell className="text-right align-top font-mono text-sm font-medium tabular-nums md:align-middle">
                     {fmtManHours(r.manHours)}
                   </TableCell>
                 </TableRow>
@@ -316,7 +371,7 @@ export function RecordsTable({
       </div>
 
       {filtered.length > visible.length && (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {visible.length} / {filtered.length}
           </span>

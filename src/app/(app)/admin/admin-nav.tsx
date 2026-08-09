@@ -17,7 +17,17 @@ const ITEMS = [
 export function AdminNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-row flex-wrap gap-1 md:flex-col md:self-start">
+    // 7 madde sarınca telefonda ~3 satır oluyor ve HER yönetim sayfasının
+    // üstünde 110px'lik kalıcı bir blok bırakıyordu. `lg` altında tek satırlık
+    // kaydırılabilir şerit: negatif kenar boşluğu şeridi kabuğun `px-3`
+    // dolgusunun dışına taşırır, böylece kaydırma ekran kenarında biter ve
+    // kesilen madde "devamı var" ipucu olur (kenar gölgesi `oc-scrollx`).
+    <nav
+      // Negatif kenar boşluğu kabuğun dolgusunu İZLER (`px-3`, ≥640px'te
+      // `px-4`); sabit kalsaydı tablette şerit 4px içeride biter ve kesilen
+      // madde ekran kenarına değmediği için "devamı var" ipucu zayıflardı.
+      className="oc-scrollx -mx-3 flex snap-x gap-1 overflow-x-auto overscroll-x-contain px-3 [--oc-scroll-bg:var(--background)] sm:-mx-4 sm:px-4 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:bg-none lg:px-0"
+    >
       {ITEMS.map((item) => {
         const active = pathname?.startsWith(item.href);
         return (
@@ -26,12 +36,14 @@ export function AdminNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              // Aktiflik dili app-shell ile aynı: kırmızı sol çentik + zemin.
+              // Aktiflik dili app-shell ile aynı: kırmızı çentik + zemin.
               // Pasifte şeffaf çentik, aktifleşince metin kaymasın diye.
-              "border-l-2 border-l-transparent px-3 py-2 text-sm transition-colors",
+              // Çentik yönü yerleşimi izler: yatay şeritte SOL çentik hangi
+              // maddeye ait olduğunu göstermez, altta durması gerekir.
+              "shrink-0 snap-start border-b-2 px-3 py-2 text-sm transition-colors pointer-coarse:py-2.5 lg:border-b-0 lg:border-l-2",
               active
-                ? "border-l-primary bg-muted font-medium text-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-b-primary bg-muted font-medium text-foreground lg:border-l-primary"
+                : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent"
             )}
           >
             {item.label}

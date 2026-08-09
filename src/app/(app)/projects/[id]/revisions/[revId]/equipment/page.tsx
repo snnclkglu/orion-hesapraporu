@@ -103,7 +103,7 @@ export default async function EquipmentPage({
       <div className="mb-4">
         <Link
           href={`/projects/${id}/revisions/${revId}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex min-h-9 items-center gap-1 text-sm text-muted-foreground hover:text-foreground pointer-coarse:min-h-10"
         >
           <ChevronLeft className="size-4" />
           Revizyona dön

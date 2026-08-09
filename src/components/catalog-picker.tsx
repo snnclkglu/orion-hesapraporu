@@ -11,7 +11,7 @@
 // CATALOG_KINDS yapılandırmasından gelir. Ayrıca kapasite değeri için "en az"
 // süzgeci ve serbest metin araması vardır.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BrandIcon } from "@/components/brand-icon";
 import {
@@ -300,6 +300,19 @@ export function CatalogPicker({
    */
   const hasUnverified = results.some(isUnverifiedRow);
 
+  /**
+   * Satır tıklamasının başladığı nokta. Ürün tablosu yatay kaydırılabilir bir
+   * kapta durur; parmakla yana kaydırınca tarayıcı kaydırmanın sonunda satıra
+   * bir `click` üretiyor ve pencere YANLIŞ ürünle kapanıyordu. Vinç hesabında
+   * yanlış redüktör sessiz bir hatadır — hareket eşiği bunu keser.
+   */
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+
+  function pickRow(row: CatalogRow) {
+    onPick(row);
+    setOpen(false);
+  }
+
   function setPick(attr: string, key: string | null) {
     setPicks((prev) => {
       const next = { ...prev };
@@ -324,9 +337,19 @@ export function CatalogPicker({
           Katalogdan Seç
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[88vh] gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="border-b px-5 py-3.5">
-          <DialogTitle className="flex items-center gap-2 text-base">
+      {/*
+        Yükseklik TEK kaynaktan gelir. Eskiden üç ayrı `vh` sınırı vardı
+        (88/65/72) ve `vh` mobilde adres çubuğu gizliyken ölçüldüğü için
+        pencerenin altı ekranın dışında kalıyordu. Artık dış kap `dvh` ile
+        kelepçelenir, iç bölgeler `flex-1 min-h-0` ile pay alır.
+        `sm:gap-0 sm:p-0`: taban `sm:p-6`/`sm:gap-6` taşıyor ve `p-0`/`gap-0`
+        yalnız ön ek taşımayan sınıfı eziyor — tam kenarlı düzen bozuluyordu.
+      */}
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(64rem,calc(100%-2rem))] sm:gap-0 sm:p-0">
+        {/* `px-*` tabanın `pr-8`ini siler (tailwind-merge); kapatma X'inin
+            payı burada yeniden verilir, yoksa başlık X'in altına girer. */}
+        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-5 sm:py-3.5 sm:pr-14">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             {brand && (
               <button
                 type="button"
@@ -337,7 +360,8 @@ export function CatalogPicker({
                   setMinValue("");
                   setQuery("");
                 }}
-                className="grid size-7 place-items-center border hover:bg-muted"
+                // Pencerenin tek geri yolu — 28px'lik hedef parmakla ıskalanıyordu.
+                className="grid size-9 shrink-0 place-items-center border hover:bg-muted pointer-coarse:size-10"
                 aria-label="Markalara dön"
               >
                 <span aria-hidden="true" className="font-mono">←</span>
@@ -367,7 +391,7 @@ export function CatalogPicker({
 
         {!brand ? (
           // ------------------------------------------------------ 1) Marka
-          <div className="max-h-[65vh] overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {loading && !brands && (
               <p className="py-8 text-center text-sm text-muted-foreground">Yükleniyor…</p>
             )}
@@ -376,16 +400,20 @@ export function CatalogPicker({
                 Bu tür için katalogda kayıt yok.
               </p>
             )}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {/* 375px'te iki sütun kart başına ~151px bırakıyor ve
+                "CONDUCTIX-WAMPFLER" gibi marka adları kırpılıyordu. */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
               {brands?.map((b) => (
                 <button
                   key={b.brand}
                   type="button"
                   onClick={() => setBrand(b.brand)}
-                  className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  className="flex min-h-11 items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{b.brand}</span>
+                    <span className="block truncate text-sm font-medium" title={b.brand}>
+                      {b.brand}
+                    </span>
                     <span className="text-[11px] text-muted-foreground">{b.count} ürün</span>
                   </span>
                   <span aria-hidden className="shrink-0 font-mono text-sm text-muted-foreground">
@@ -396,10 +424,14 @@ export function CatalogPicker({
             </div>
           </div>
         ) : (
-          <div className="flex max-h-[72vh] flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             {/* ------------------------------------------- 2) Filtre adımları */}
+            {/* Blok eskiden ne yükseklikle sınırlıydı ne de kayıyordu: telefonda
+                çip bulutu 600px'i aştığında ürün tablosu pencerenin dışında
+                kalıyor ve ÜRÜN HİÇ SEÇİLEMİYORDU. Artık süzgeç kendi içinde
+                kayar, tablo her zaman görünür pay alır. */}
             {(config.facets.length > 0 || config.minFilter) && (
-              <div className="grid gap-2.5 border-b bg-muted/30 px-4 py-3">
+              <div className="grid max-h-[34dvh] shrink-0 gap-2.5 overflow-y-auto overscroll-contain border-b bg-muted/30 px-4 py-3 sm:max-h-[45dvh]">
                 {facetSteps.map((step, i) => (
                   <div
                     key={step.facet.attr}
@@ -408,8 +440,8 @@ export function CatalogPicker({
                       !step.unlocked && "pointer-events-none opacity-40"
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex size-4 shrink-0 items-center justify-center bg-primary/10 font-mono text-[10px] font-semibold text-primary">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center bg-primary/10 font-mono text-[11px] font-semibold text-primary">
                         {i + 1}
                       </span>
                       <span className="oc-kicker text-muted-foreground">
@@ -420,13 +452,16 @@ export function CatalogPicker({
                         <button
                           type="button"
                           onClick={() => setPick(step.facet.attr, null)}
-                          className="font-mono text-[10px] text-muted-foreground hover:text-destructive"
+                          // Süzgeci geri almanın tek yolu; eski hâli ~42×13px'lik
+                          // bir hedefti. Negatif kenar boşluğu satırı büyütmeden
+                          // dokunma alanını 36/40px'e çıkarır.
+                          className="-my-1.5 inline-flex min-h-9 items-center px-2 font-mono text-[11px] text-muted-foreground hover:text-destructive pointer-coarse:min-h-10"
                         >
                           temizle
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {step.options.length === 0 && (
                         <span className="text-xs text-muted-foreground">
                           Uygun değer yok
@@ -439,15 +474,17 @@ export function CatalogPicker({
                             key={o.key}
                             type="button"
                             onClick={() => setPick(step.facet.attr, active ? null : o.key)}
+                            // Seçicinin ANA etkileşimi: 26px'lik çipler
+                            // parmakla komşu değere basılmasına yol açıyordu.
                             className={cn(
-                              "inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs transition-colors",
+                              "inline-flex min-h-9 items-center gap-1.5 border px-3 py-1.5 text-xs transition-colors pointer-coarse:min-h-10",
                               active
                                 ? "border-primary bg-primary/10 font-medium text-primary"
                                 : "bg-background hover:bg-muted"
                             )}
                           >
                             {attrValueLabel(step.facet.attr, o.value)}
-                            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                               {o.count}
                             </span>
                           </button>
@@ -459,7 +496,7 @@ export function CatalogPicker({
 
                 {config.minFilter && (
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    <span className="inline-flex size-4 shrink-0 items-center justify-center bg-primary/10 font-mono text-[10px] font-semibold text-primary">
+                    <span className="inline-flex size-5 shrink-0 items-center justify-center bg-primary/10 font-mono text-[11px] font-semibold text-primary">
                       {config.facets.length + 1}
                     </span>
                     <span className="oc-kicker text-muted-foreground">
@@ -471,7 +508,9 @@ export function CatalogPicker({
                       onChange={(e) => setMinValue(e.target.value)}
                       inputMode="decimal"
                       placeholder="—"
-                      className="h-7 w-28 bg-background font-mono text-xs tabular-nums"
+                      // 28px yükseklik + 12px yazı iOS'ta odaklanma zumunu
+                      // tetikliyordu; dokunmatikte 16px yazı korunur.
+                      className="h-9 w-28 bg-background font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
                       aria-label={config.minFilter.label}
                     />
                   </div>
@@ -480,12 +519,12 @@ export function CatalogPicker({
             )}
 
             {/* ------------------------------------------- 3) Sonuç tablosu */}
-            <div className="flex items-center gap-2 border-b px-4 py-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
               <Input
                 placeholder="Tabloda ara…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-8 flex-1"
+                className="h-9 min-w-40 flex-1 pointer-coarse:h-10"
               />
               <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                 {results.length} ürün
@@ -494,14 +533,16 @@ export function CatalogPicker({
             </div>
 
             {hasUnverified && (
-              <p className="border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+              <p className="shrink-0 border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
                 ⚠ Bu listedeki bazı satırlar firma Excel&apos;inden gelmektedir ve
                 ÜRETİCİ KATALOĞUYLA DOĞRULANMAMIŞTIR. Kullanmadan önce değerleri
                 üreticiye teyit ettirin.
               </p>
             )}
 
-            <div className="min-h-0 flex-1 overflow-auto">
+            {/* Mobil tarayıcı kaydırma çubuğu çizmez: yanda sütun kaldığının
+                tek ipucu kenar gölgesidir. Zemin pencere yüzeyidir. */}
+            <div className="oc-scrollx min-h-0 flex-1 overflow-auto overscroll-x-contain [--oc-scroll-bg:var(--popover)]">
               {loading && (
                 <p className="py-10 text-center text-sm text-muted-foreground">Yükleniyor…</p>
               )}
@@ -532,9 +573,21 @@ export function CatalogPicker({
                     {results.map((row) => (
                       <tr
                         key={row.id}
-                        onClick={() => {
-                          onPick(row);
-                          setOpen(false);
+                        onPointerDown={(e) => {
+                          pressStart.current = { x: e.clientX, y: e.clientY };
+                        }}
+                        onClick={(e) => {
+                          const start = pressStart.current;
+                          pressStart.current = null;
+                          // Yatay kaydırma sonunda üretilen `click` yanlış ürünü
+                          // seçiyordu; 10px'ten fazla hareket seçim sayılmaz.
+                          if (
+                            start &&
+                            Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10
+                          ) {
+                            return;
+                          }
+                          pickRow(row);
                         }}
                         className="cursor-pointer border-b transition-colors last:border-0 hover:bg-primary/5"
                       >
@@ -544,7 +597,7 @@ export function CatalogPicker({
                             <td
                               key={String(c.attr)}
                               className={cn(
-                                "px-3 py-1.5 whitespace-nowrap",
+                                "px-3 py-2.5 whitespace-nowrap",
                                 typeof v === "number"
                                   ? "font-mono tabular-nums"
                                   : c.attr === "model"
@@ -556,16 +609,29 @@ export function CatalogPicker({
                             </td>
                           );
                         })}
-                        <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
                           {isUnverifiedRow(row) && (
                             <span
                               title="Üretici kataloğuyla doğrulanmamış veri"
-                              className="mr-2 border border-destructive/40 px-1 py-0.5 font-mono text-[10px] text-destructive"
+                              className="mr-2 border border-destructive/40 px-1 py-0.5 font-mono text-[11px] text-destructive"
                             >
                               teyitsiz
                             </span>
                           )}
-                          <span className="font-mono text-[11px] text-primary">Seç →</span>
+                          {/* Seçimin GERÇEK denetimi: `<tr onClick>` klavyeyle
+                              odaklanamıyordu, yani ürün yalnız fareyle
+                              seçilebiliyordu. */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              pickRow(row);
+                            }}
+                            className="-my-1 inline-flex min-h-9 items-center gap-1 border border-primary/40 bg-primary/5 px-2.5 font-mono text-[11px] text-primary transition-colors hover:bg-primary/15 pointer-coarse:min-h-10"
+                          >
+                            Seç
+                            <span aria-hidden>→</span>
+                          </button>
                         </td>
                       </tr>
                     ))}

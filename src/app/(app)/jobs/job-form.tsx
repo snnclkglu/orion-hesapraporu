@@ -109,12 +109,15 @@ function AutoToggle({
   label: string;
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+    // Kutu 14px, etiket satırı ise 17px yüksekliğindeydi: parmakla vurulacak
+    // hedef yoktu. Kutu 16px'e çıkar, tıklanabilir alanı etiketin kendisi
+    // asgari 36px (dokunmatikte 40px) yüksekliğe yayar.
+    <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-[11px] text-muted-foreground pointer-coarse:min-h-10">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-3.5 accent-primary"
+        className="size-4 accent-primary"
       />
       {label}
     </label>
@@ -134,18 +137,20 @@ function QtyStepper({ value, onChange }: { value: string; onChange: (v: string) 
   const num = m ? parseInt(m[1], 10) : 0;
   const suffix = m ? m[2] : "";
   const step = (delta: number) => onChange(`${Math.max(0, num + delta)}${suffix}`);
+  // 32px'lik adım düğmeleri parmakla vurulmuyordu; `pointer-coarse:` payı
+  // üçünü birlikte 40px'e çıkarır (aksi hâlde kutu ile düğmeler ayrışır).
   return (
     <div className="flex items-center">
-      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-r-none" onClick={() => step(-1)}>
+      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-r-none pointer-coarse:size-10" onClick={() => step(-1)}>
         <Minus className="size-3.5" />
       </Button>
       <Input
-        className="h-8 w-full rounded-none border-x-0 text-center"
+        className="h-8 w-full rounded-none border-x-0 text-center pointer-coarse:h-10"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="1"
       />
-      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-l-none" onClick={() => step(1)}>
+      <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-l-none pointer-coarse:size-10" onClick={() => step(1)}>
         <Plus className="size-3.5" />
       </Button>
     </div>
@@ -154,7 +159,9 @@ function QtyStepper({ value, onChange }: { value: string; onChange: (v: string) 
 
 function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+    // Kapsam kutuları yan yana dizildiğinde tıklama alanı yalnız 20px'ti;
+    // etiket satırı asgari 36px (dokunmatikte 40px) yüksekliğe yayılır.
+    <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-sm pointer-coarse:min-h-10">
       <input
         type="checkbox"
         checked={checked}
@@ -163,6 +170,28 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
       />
       {label}
     </label>
+  );
+}
+
+/**
+ * İş kalemi satırındaki tek alan. Mobilde alanlar alt alta iner ve her biri
+ * kendi görünür etiketini taşır; `sm`den itibaren sarmalayıcı `contents` ile
+ * çözülür, böylece alanlar üstteki başlık satırının ızgara sütunlarına oturur.
+ */
+function ItemField({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("grid gap-1 sm:contents", className)}>
+      <span className="text-[11px] font-medium text-muted-foreground sm:hidden">{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -362,25 +391,49 @@ export function JobForm({
             ve sonrasına kayar.
           </p>
         ) : (
+          // Sabit sütunlu ızgara (120+116+silme düğmesi ≈ 280px) 360px'lik
+          // telefonda "Ürün Adı"na 4px bırakıyordu. Mobilde alanlar alt alta
+          // iner, her biri kendi etiketini taşır ve satırlar birbirinden
+          // ayrılsın diye hafif bir çerçeveye girer; başlık satırı yalnız
+          // ızgara düzeninde anlamlı olduğu için `sm` altında gizlenir.
           <div className="grid gap-2">
-            <div className="grid grid-cols-[120px_1fr_116px_auto] gap-2 px-1 text-[11px] font-medium text-muted-foreground">
+            <div className="hidden grid-cols-[120px_1fr_116px_auto] gap-3 px-1 text-[11px] font-medium text-muted-foreground sm:grid">
               <span>İş Kalemi No</span><span>Ürün Adı</span><span className="text-center">Adet</span><span />
             </div>
             {form.items.map((it, i) => (
-              <div key={i} className="grid grid-cols-[120px_1fr_116px_auto] items-center gap-2">
-                <Input
-                  className={cn("h-8 font-mono text-xs", autoNos && "bg-muted text-muted-foreground")}
-                  value={it.item_no}
-                  onChange={(e) => setItem(i, { item_no: e.target.value })}
-                  readOnly={autoNos}
-                  title={autoNos ? "Otomatik — değiştirmek için anahtarı kapatın" : undefined}
-                  placeholder={derivedNos[i]}
-                />
-                <Input className="h-8" value={it.product_name} onChange={(e) => setItem(i, { product_name: e.target.value })} placeholder="1 t x 19 m Tek Kirişli Köprülü Vinç" />
-                <QtyStepper value={it.quantity} onChange={(v) => setItem(i, { quantity: v })} />
-                <Button type="button" size="icon" variant="ghost" className="size-8 text-destructive" onClick={() => removeItem(i)}>
-                  <Trash2 className="size-3.5" />
-                </Button>
+              <div
+                key={i}
+                className="grid grid-cols-1 gap-2 border bg-muted/20 p-2 sm:grid-cols-[120px_1fr_116px_auto] sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0"
+              >
+                <ItemField label="İş Kalemi No">
+                  <Input
+                    // `text-xs` dokunmatikte 12px yapıyordu ve iOS alana
+                    // odaklanınca sayfayı kendiliğinden yakınlaştırıyordu.
+                    className={cn(
+                      "h-8 font-mono text-base pointer-coarse:h-10 pointer-fine:text-xs",
+                      autoNos && "bg-muted text-muted-foreground"
+                    )}
+                    value={it.item_no}
+                    onChange={(e) => setItem(i, { item_no: e.target.value })}
+                    readOnly={autoNos}
+                    title={autoNos ? "Otomatik — değiştirmek için anahtarı kapatın" : undefined}
+                    placeholder={derivedNos[i]}
+                  />
+                </ItemField>
+                <ItemField label="Ürün Adı">
+                  <Input className="h-8 pointer-coarse:h-10" value={it.product_name} onChange={(e) => setItem(i, { product_name: e.target.value })} placeholder="1 t x 19 m Tek Kirişli Köprülü Vinç" />
+                </ItemField>
+                {/* Silme düğmesi "+" adımının 8px yanındaydı; ızgara aralığı
+                    12px'e, düğme dokunmatikte 40px'e çıkar. */}
+                <div className="flex items-end gap-3 sm:contents">
+                  <ItemField label="Adet" className="flex-1">
+                    <QtyStepper value={it.quantity} onChange={(v) => setItem(i, { quantity: v })} />
+                  </ItemField>
+                  <Button type="button" size="icon-sm" variant="ghost" className="text-destructive" onClick={() => removeItem(i)}>
+                    <Trash2 className="size-3.5" />
+                    <span className="sr-only">Kalemi sil</span>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -439,7 +492,8 @@ export function JobForm({
             <Input id="customer_fax" value={form.customer_fax} onChange={(e) => set("customer_fax", e.target.value)} />
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        {/* Çok satırlı açıklama 11px'te telefonda okunmuyordu. */}
+        <p className="mt-2 text-xs text-muted-foreground">
           Bu alanlar iş emrinin BASILDIĞI ANDAKİ bilgilerdir; listeden seçtikten
           sonra da düzenlenebilir ve defteri değiştirmez.
         </p>
@@ -461,7 +515,10 @@ export function JobForm({
             <Input id="delivery_date" type="date" value={form.delivery_date ?? ""} onChange={(e) => set("delivery_date", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <div className="flex items-center justify-between gap-2">
+            {/* Negatif dikey boşluk: anahtarın büyütülmüş dokunma alanı etiket
+                satırını 36px'e çıkarıp bu alanı komşu tarih alanlarının
+                altına kaydırıyordu — hedef korunur, yerleşim korunur. */}
+            <div className="-my-2 flex items-center justify-between gap-2">
               <Label htmlFor="quantity_text">Adet</Label>
               <AutoToggle checked={autoQty} onChange={setAutoQty} label="oto" />
             </div>
@@ -493,7 +550,8 @@ export function JobForm({
           </div>
           <div className="grid gap-1.5 lg:col-span-2">
             <Label>Sözleşme</Label>
-            <div className="flex h-9 items-center">
+            {/* Kutu 36px iken komşu tarih girişleri 40px'ti ve satır kayıyordu. */}
+            <div className="flex h-10 items-center">
               <Check checked={form.contract_exists} onChange={(v) => set("contract_exists", v)} label="Sözleşme var" />
             </div>
           </div>
@@ -515,7 +573,9 @@ export function JobForm({
 
         <div className="mt-4">
           <Label className="mb-2 block text-xs text-muted-foreground">Kapsam</Label>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {/* Altı kutu tek satıra sarınca telefonda birbirine giriyordu;
+              mobilde ikişerli ızgaraya girer, `sm`den itibaren eski dizilim. */}
+          <div className="grid grid-cols-2 gap-x-4 sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
             {SCOPE_LABELS.map((s) => (
               <Check key={s.key} checked={form.scope[s.key]} onChange={(v) => setScope(s.key, v)} label={s.label} />
             ))}
@@ -555,7 +615,8 @@ export function JobForm({
               )}
             </div>
             <div className="grid gap-1.5">
-              <div className="flex items-center justify-between gap-2">
+              {/* Negatif dikey boşluk — "Adet" alanındakiyle aynı gerekçe. */}
+              <div className="-my-2 flex items-center justify-between gap-2">
                 <Label htmlFor="prepared_by_title">Unvanı</Label>
                 <AutoToggle checked={autoTitle} onChange={setAutoTitle} label="profilden" />
               </div>
@@ -573,7 +634,11 @@ export function JobForm({
         </div>
       </Section>
 
-      <div className="flex items-center gap-2">
+      {/* Form telefonda dört-beş ekran boyunda; Kaydet yalnız en altta kalınca
+          kullanıcı her küçük düzeltmeden sonra sonuna kadar kaydırmak zorunda
+          kalıyordu. Mobilde şerit alta yapışır, `sm`den itibaren eski akış.
+          Negatif kenar boşluğu kabuğun `px-3` iç boşluğunu kenara taşır. */}
+      <div className="sticky bottom-0 z-20 -mx-3 flex items-center gap-2 border-t bg-background px-3 py-3 sm:static sm:mx-0 sm:border-0 sm:p-0">
         <Button type="submit" disabled={pending}>
           <Save className="size-4" /> {pending ? "Kaydediliyor…" : mode === "edit" ? "Kaydet" : "İş Emrini Oluştur"}
         </Button>

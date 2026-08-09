@@ -57,7 +57,7 @@ export default async function CatalogSheetPage({
           <h1 className="mt-1 flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
             <BookOpen className="size-4 shrink-0 text-primary" />
             {sheet.title}
-            <span className="border px-1.5 py-px font-mono text-[11px] tracking-wide text-muted-foreground">
+            <span className="border px-1.5 py-px font-mono text-xs tracking-wide text-muted-foreground">
               {model}
             </span>
           </h1>
@@ -66,13 +66,15 @@ export default async function CatalogSheetPage({
             birebir alınmıştır, yeniden çizilmemiştir.
           </p>
         </div>
+        {/* Boy `size="sm"`in kendisinden gelir: elle yazılan `h-8` dokunmatik
+            payını (`pointer-coarse:h-10`) eziyordu. */}
         <div className="flex flex-wrap gap-1.5">
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
             <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" /> Görüntüyü aç
             </a>
           </Button>
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
             <a
               href={catalogSheetUrl(sheet.images[0])}
               download={`${sheet.title} — ${sheet.printedPages}.webp`}
@@ -84,6 +86,9 @@ export default async function CatalogSheetPage({
       </div>
 
       <div className="grid gap-4">
+        <p className="text-[11px] text-muted-foreground md:hidden">
+          → Katalog sayfasını yana ve aşağı kaydırarak inceleyin.
+        </p>
         {sheet.images.map((image, i) => (
           <figure key={image} className="grid gap-1.5">
             {sheet.images.length > 1 && (
@@ -93,12 +98,21 @@ export default async function CatalogSheetPage({
             )}
             {/* next/image KULLANILMAZ — kaynak kimlik doğrulamalı bir uçtur ve
                 görüntü iyileştiricisinden geçirmenin faydası yoktur. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={catalogSheetUrl(image)}
-              alt={`${sheet.title} — ${sheet.printedPages}`}
-              className="h-auto w-full border bg-white"
-            />
+            {/*
+              TARAMA KÜÇÜLTÜLMEZ, KAYDIRILIR. `w-full` bir A4 taramasını 328px'e
+              sıkıştırıyordu: ölçü tabloları ve dipnotlar tamamen okunmaz
+              oluyor, yakınlaştırma ya da kaydırma yolu da yoktu. Telefonda
+              görüntü DOĞAL boyutunda durur ve kap içinde iki yönde kayar;
+              `md` üstünde kaba sığar (orada zaten okunuyor).
+            */}
+            <div className="oc-scrollx overflow-auto overscroll-x-contain border bg-white [--oc-scroll-bg:#fff] md:overflow-visible md:bg-none">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={catalogSheetUrl(image)}
+                alt={`${sheet.title} — ${sheet.printedPages}`}
+                className="h-auto max-w-none md:w-full"
+              />
+            </div>
           </figure>
         ))}
       </div>

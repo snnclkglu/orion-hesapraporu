@@ -24,13 +24,15 @@ const H = 300;
 export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   const els: DiagramEl[] = [];
   els.push(txt(16, 22, "ANA KİRİŞ — YÜKLER ve EĞİLME MOMENTİ", 11, { bold: true }));
-  els.push(txt(16, 34, "araba ortada · FEM 1.001 §2.2 · şematik", 8, { fill: DCOL.muted }));
+  els.push(txt(16, 34, "Araba Ortada · FEM 1.001 §2.2 · Şematik", 8, { fill: DCOL.muted }));
   els.push(ln(16, 40, W - 16, 40, DCOL.line, 0.8));
 
   const xL = 78;
   const xR = W - 78;
   const xC = (xL + xR) / 2;
-  const yBeam = 118;
+  // Kirişin yeri, ARABA kutusunun ÜSTÜNDEKİ iki yük etiketinin başlık
+  // kuralının (y = 40) altına sığmasına göre seçilir: 152 − 86 = 66.
+  const yBeam = 152;
 
   // Kiriş gövdesi (kutu profil şematik)
   els.push({ kind: "rect", x: xL, y: yBeam - 7, w: xR - xL, h: 14, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.3 });
@@ -54,7 +56,7 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
     els.push(arrowHead(x, yBeam - 8, "down", DCOL.muted, 5, 2));
   }
   els.push(ln(xL + 8, yBeam - 26, xR - 8, yBeam - 26, DCOL.muted, 0.8));
-  els.push(txt(xL + 20, yBeam - 30, `öz ağırlık w${p.selfWeightKg ? `  (≈${fmtN(p.selfWeightKg)} kg)` : ""}`, 8, { fill: DCOL.muted }));
+  els.push(txt(xL + 20, yBeam - 30, `Öz Ağırlık w${p.selfWeightKg ? `  (≈${fmtN(p.selfWeightKg)} kg)` : ""}`, 8, { fill: DCOL.muted }));
 
   // Araba — ortada, iki tekerlek yükü (dingil açıklığı a)
   // Tekerlek konumları GERÇEK a/L oranından ölçeklenir; moment diyagramının
@@ -87,10 +89,10 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   if (p.wheelLoadKg)
     els.push(txt(xC, yBeam - 74, `P ≈ ${fmtN(p.wheelLoadKg)} kg / teker`, 8, { anchor: "middle", fill: DCOL.accent }));
   // araba tekerlek açıklığı a
-  dimH(els, w1, w2, yBeam - 2, `a = ${fmtN(p.wheelSpacingMm / 1000, 2)} m`, { size: 7.5, labelDy: 9, color: DCOL.muted });
+  dimH(els, w1, w2, yBeam + 22, `a = ${fmtN(p.wheelSpacingMm / 1000, 2)} m`, { size: 7.5, labelDy: 11, color: DCOL.muted });
 
   // Açıklık L
-  dimH(els, xL, xR, yBeam + 70, `L = ${fmtN(p.spanM, 2)} m`, { labelDy: 13 });
+  dimH(els, xL, xR, yBeam + 76, `L = ${fmtN(p.spanM, 2)} m`, { labelDy: 13 });
 
   // --- Eğilme momenti diyagramı (My) --------------------------------------
   // ÖNCEKİ ÇİZİM YANLIŞTI: tek bir Bézier + geri dönen kırık çizgiler kendini
@@ -102,9 +104,9 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   //       M(x) = R·x − Σ P·(x − ai)⁺   ,  R = P (simetrik yükleme)
   //     → uçlarda doğrusal, tekerler arasında sabit (yamuk)
   // Şekil gerçek M(x) oranlarını taşır; ölçek yalnız yüksekliğe uygulanır.
-  const yM0 = 250;
+  const yM0 = 288;
   const hM = 40;
-  els.push(txt(16, yM0 - 6, "Eğilme momenti My", 8.5, { fill: DCOL.muted }));
+  els.push(txt(16, yM0 - 6, "Eğilme Momenti My", 8.5, { fill: DCOL.muted }));
   els.push(ln(xL, yM0, xR, yM0, DCOL.muted, 0.9));
 
   const spanPx = xR - xL;

@@ -116,7 +116,10 @@ export function CouplingDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          {/* `sm:` öneki olmadan iki sütun 328px'lik pencerede alan başına
+              ~130px bırakıyor, "Maks. delik çapı dmax [mm]" gibi etiketler üç
+              satıra sarıyordu. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label>Tip</Label>
               <Select value={type} onValueChange={setType}>
@@ -135,7 +138,7 @@ export function CouplingDialog({
               <Input id="cp-brand" value={brand} onChange={(e) => setBrand(e.target.value)} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="cp-series">Seri</Label>
               <Input id="cp-series" value={series} onChange={(e) => setSeries(e.target.value)} required />
@@ -145,7 +148,7 @@ export function CouplingDialog({
               <Input id="cp-model" value={model} onChange={(e) => setModel(e.target.value)} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="cp-dmax">Maks. delik çapı dmax [mm]</Label>
               <Input
@@ -161,7 +164,7 @@ export function CouplingDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="cp-radial">Radyal yük [N] (opsiyonel)</Label>
               <Input

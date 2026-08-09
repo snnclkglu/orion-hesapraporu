@@ -58,7 +58,9 @@ async function main() {
   for (const level of REPORT_LEVELS) {
     const buffer = await renderReportPdf({
       project: {
-        doc_no: "0055-HR-001",
+        // Doküman no = İŞ KALEMİ NUMARASI; belge kodu ORC-HR-0055-01-R05 olur.
+        // Fikstür daha önce "0055-HR-001" idi ve kodda "HR" iki kez çıkıyordu.
+        doc_no: "0055-01",
         name: "AMONYUM SÜLFAT VİNCİ",
         customer: "İSDEMİR",
         crane_type: "Çift Kirişli Gezer Köprülü Vinç",
@@ -71,7 +73,7 @@ async function main() {
       level,
     });
 
-    const outFile = path.join(outDir, `0055-HR-001-V5-${level}.pdf`);
+    const outFile = path.join(outDir, `0055-01-V5-${level}.pdf`);
     fs.writeFileSync(outFile, buffer);
 
     const header = buffer.subarray(0, 5).toString("latin1");

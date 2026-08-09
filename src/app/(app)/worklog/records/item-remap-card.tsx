@@ -98,25 +98,30 @@ export function ItemRemapCard({ rows, jobs }: { rows: WorkLogRow[]; jobs: WorkJo
             · {totalRecords} kayıt · {fmtManHours(totalHours)} adam·saat bir işe bağlı değil
           </span>
         </div>
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <label className="flex min-h-9 items-center gap-2 text-[11px] text-muted-foreground pointer-coarse:min-h-10">
           <input
             type="checkbox"
             checked={rewrite}
             onChange={(e) => setRewrite(e.target.checked)}
-            className="size-3.5 accent-[var(--primary)]"
+            className="size-4 shrink-0 accent-[var(--primary)]"
           />
           Kayıttaki numarayı da hedefin numarasına çevir
         </label>
       </div>
 
-      <div className="grid gap-2 px-4 py-3">
+      {/* Dört sabit sütun 360px'te bilgi metnini yok ediyor, hedef seçicisini
+          ~30px'e indiriyor ve ekranı işlevsiz bırakıyordu: telefonda numara +
+          özet üstte, seçici ile "Bağla" altta durur. */}
+      <div className="grid gap-3 px-4 py-3 sm:gap-2">
         {unmatched.map((u) => (
           <div
             key={u.itemNo}
-            className="grid grid-cols-[7rem_1fr_minmax(0,18rem)_auto] items-center gap-3"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-destructive/15 pb-3 last:border-b-0 last:pb-0 sm:grid-cols-[7rem_1fr_minmax(0,18rem)_auto] sm:border-b-0 sm:pb-0"
           >
-            <span className="font-mono text-sm font-medium text-destructive">{u.itemNo}</span>
-            <span className="truncate text-[11px] text-muted-foreground">
+            <span className="col-span-2 font-mono text-sm font-medium text-destructive sm:col-span-1">
+              {u.itemNo}
+            </span>
+            <span className="col-span-2 truncate text-[11px] text-muted-foreground sm:col-span-1">
               {u.records} kayıt · {fmtManHours(u.manHours)} adam·saat ·{" "}
               {u.firstDate.slice(0, 7)} – {u.lastDate.slice(0, 7)}
             </span>
@@ -126,8 +131,8 @@ export function ItemRemapCard({ rows, jobs }: { rows: WorkLogRow[]; jobs: WorkJo
               onChange={(v) => setTarget((t) => ({ ...t, [u.itemNo]: v }))}
               placeholder="Hedef iş kalemi seçin"
               searchPlaceholder="Kalem no, ürün veya müşteri…"
-              className="h-8"
-              contentClassName="min-w-[24rem]"
+              className="h-8 pointer-coarse:h-10"
+              contentClassName="min-w-[min(24rem,calc(100vw-1.5rem))]"
             />
             <Button
               size="sm"

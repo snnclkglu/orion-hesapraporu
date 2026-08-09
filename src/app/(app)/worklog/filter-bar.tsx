@@ -103,8 +103,11 @@ export function FilterBar({
   const presetValue = customOpen ? "custom" : preset;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
-      <span className="oc-kicker mr-1 text-muted-foreground">Filtre</span>
+    // Beş sabit genişlikli süzgeç 735px istiyordu; 360px'te şerit altı satıra
+    // dağılıp ekranın dörtte birini yiyordu. Telefonda süzgeçler ikişerli bir
+    // ızgaradır, `sm` üstünde eski sarmalı şerit geri gelir.
+    <div className="grid grid-cols-2 items-center gap-2 rounded-lg border bg-card px-3 py-2 sm:flex sm:flex-wrap">
+      <span className="oc-kicker col-span-2 text-muted-foreground sm:mr-1">Filtre</span>
 
       <Select
         value={presetValue}
@@ -121,7 +124,7 @@ export function FilterBar({
           set({ from: r.from, to: r.to });
         }}
       >
-        <SelectTrigger size="sm" className="w-[135px]">
+        <SelectTrigger size="sm" className="w-full sm:w-[135px]">
           <SelectValue placeholder="Dönem" />
         </SelectTrigger>
         <SelectContent>
@@ -146,28 +149,31 @@ export function FilterBar({
           {shortDate(filters.from)} – {shortDate(filters.to)}
         </span>
       )}
+      {/* İki tarih kutusu + ayraç 334px istiyordu; ayrı ayrı sarınca "–" ilk
+          satırın sonunda askıda kalıyordu. İkili kendi sarmalayıcısında durur
+          ve kutular kalan yeri paylaşır. */}
       {(customOpen || preset === "custom") && (
-        <>
+        <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
           <Input
             type="date"
             value={filters.from}
             onChange={(e) => set({ from: e.target.value })}
-            className="h-8 w-[9.5rem]"
+            className="h-8 min-w-0 flex-1 pointer-coarse:h-10 sm:w-[9.5rem] sm:flex-none"
             aria-label="Başlangıç tarihi"
           />
-          <span className="text-xs text-muted-foreground">–</span>
+          <span className="shrink-0 text-xs text-muted-foreground">–</span>
           <Input
             type="date"
             value={filters.to}
             onChange={(e) => set({ to: e.target.value })}
-            className="h-8 w-[9.5rem]"
+            className="h-8 min-w-0 flex-1 pointer-coarse:h-10 sm:w-[9.5rem] sm:flex-none"
             aria-label="Bitiş tarihi"
           />
-        </>
+        </div>
       )}
 
       <Select value={filters.customer} onValueChange={(v) => set({ customer: v })}>
-        <SelectTrigger size="sm" className="w-[165px]">
+        <SelectTrigger size="sm" className="w-full sm:w-[165px]">
           <SelectValue placeholder="Müşteri" />
         </SelectTrigger>
         <SelectContent>
@@ -181,7 +187,7 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.item} onValueChange={(v) => set({ item: v })}>
-        <SelectTrigger size="sm" className="w-[145px]">
+        <SelectTrigger size="sm" className="w-full sm:w-[145px]">
           <SelectValue placeholder="İş kalemi" />
         </SelectTrigger>
         <SelectContent>
@@ -198,7 +204,7 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.part} onValueChange={(v) => set({ part: v })}>
-        <SelectTrigger size="sm" className="w-[150px]">
+        <SelectTrigger size="sm" className="w-full sm:w-[150px]">
           <SelectValue placeholder="Parça" />
         </SelectTrigger>
         <SelectContent>
@@ -212,7 +218,7 @@ export function FilterBar({
       </Select>
 
       <Select value={filters.category} onValueChange={(v) => set({ category: v })}>
-        <SelectTrigger size="sm" className="w-[140px]">
+        <SelectTrigger size="sm" className="w-full sm:w-[140px]">
           <SelectValue placeholder="İmalat türü" />
         </SelectTrigger>
         <SelectContent>
@@ -232,26 +238,30 @@ export function FilterBar({
         value={filters.query}
         onChange={(e) => set({ query: e.target.value })}
         placeholder="Kalem, ürün, parça veya not ara…"
-        className="h-8 w-full flex-1 sm:w-auto sm:min-w-[160px]"
+        className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[160px]"
       />
 
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        {shown} / {total}
-      </span>
-      {active > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1 text-xs"
-          onClick={() => {
-            setCustomOpen(false);
-            onChange({ ...EMPTY_FILTERS });
-          }}
-        >
-          <X className="size-3.5" /> Temizle
-        </Button>
-      )}
-      {extra}
+      {/* Sayaç + Temizle + dış eylemler telefonda tek satırda toplanır;
+          `sm:contents` ile şerit kipinde sarmalayıcı yok olur. */}
+      <div className="col-span-2 flex flex-wrap items-center gap-2 sm:contents">
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {shown} / {total}
+        </span>
+        {active > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={() => {
+              setCustomOpen(false);
+              onChange({ ...EMPTY_FILTERS });
+            }}
+          >
+            <X className="size-3.5" /> Temizle
+          </Button>
+        )}
+        {extra}
+      </div>
     </div>
   );
 }
