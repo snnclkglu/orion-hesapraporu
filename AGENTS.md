@@ -544,6 +544,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    - Sol menünün daralt/genişlet düğmesi MENÜNÜN İÇİNDEDİR. Üst şeritte de bir
      eşi var ama orada ikon tek başına durduğu için neyi daralttığı
      anlaşılmıyordu: denetim, denetlediği yüzeyin üzerinde durur.
+   - **Sol menü revizyon ekranlarına girilince KENDİLİĞİNDEN DARALIR**
+     (`isRevisionScreen`, app-shell.tsx — editör + ekipman paneli; yeni rapor
+     oluşturmak da buraya yönlendirdiği için ayrı kural gerekmez). Daralma
+     ZİYARETE ÖZELDİR: mühendis orada genişletebilir ama bu localStorage'daki
+     kalıcı tercihe YAZILMAZ, yani revizyondan çıkınca normal sayfalar
+     kullanıcının kendi tercihine döner ve revizyona her girişte menü yine
+     daralır. Kalıcı yazılsaydı editörde bir kez genişletmek bütün uygulamanın
+     tercihini değiştirirdi. Kural `isFrame`ten AYRIDIR: `isFrame` sabit
+     çerçeve YERLEŞİMİNİ seçer ve alt sayfaları bilinçli dışarıda bırakır,
+     daralma ise revizyonun tamamı boyunca sürer.
+   - Dar ray 4,5rem'dir (`SIDEBAR_W_COLLAPSED`), 3,5rem değil: etiketsiz
+     16px'lik ikonlar okunmuyordu, ikon 24px'e çıktı ve satır 44px'lik dokunma
+     hedefi oldu. Dar kipte marka SEMBOLÜ basılır (`orion-symbol-white.svg`);
+     lockup'ı `object-cover` ile kırpmak sembolün tam üstüne denk gelip logoyu
+     yarıda kesiyordu.
    - "+ Bölüm Notu" düğmesi bölüm BAŞLIĞINDA, kontrol rozetinin solundadır.
      İçeriğin ilk satırında dururken her bölümde bir satır boyu yer yiyordu ve
      çoğu bölümde hiç kullanılmıyor. Not KUTUSU yalnız not açıkken görünür.

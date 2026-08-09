@@ -5,6 +5,7 @@
 // oraya girmek oturum istiyordu; tercih localStorage'da tutulduğu için de
 // "açılışta doğru genişlikte mi çiziliyor" sorusu ancak burada sınanabilir.
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
@@ -29,6 +30,12 @@ export default function ShellPreviewPage() {
           tarayıcıda saklanır ve sonraki açılışta korunur (Ctrl+B de aynı işi
           yapar).
         </p>
+        <Link
+          href="/dev/shell-preview/revisions/ornek"
+          className="text-sm text-primary hover:underline"
+        >
+          → Revizyon ekranına geç (menü kendiliğinden daralmalı)
+        </Link>
         <div className="h-64 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
           İçerik alanı — menü daraldığında bu kutu genişler.
         </div>

@@ -15,10 +15,11 @@
 // editörün kendi bölgeleri kayar. Böylece durum çubuğu ve adım şeridi gerçek
 // çerçeve kenarı olur, `sticky` ile belge akışında sürüklenmez.
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useStoredFlag } from "@/lib/use-stored-flag";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 import { PageHeaderHost } from "@/components/page-header";
@@ -54,6 +55,18 @@ const NAV_ITEMS: {
 ];
 
 const COLLAPSE_KEY = "orion.sidebar.collapsed";
+
+/**
+ * Dar ray genişliği. 3.5rem (56px) idi: etiketsiz 16px'lik ikonlar 56px'lik
+ * rayda kayboluyor, marka sembolü de sığmıyordu. 4.5rem'de ikon 24px'e çıkar,
+ * satır 44px'lik dokunma hedefi olur ve sembol kırpılmadan durur.
+ * Geniş kip 15rem'de kalır — orada etiketler zaten okunuyor.
+ */
+const SIDEBAR_W_COLLAPSED = "4.5rem";
+const SIDEBAR_W_EXPANDED = "15rem";
+
+/** Hiç değişmeyen depo — yalnız "hidrasyon bitti mi" sorusu için. */
+const subscribeNever = () => () => {};
 
 function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
@@ -102,16 +115,17 @@ function SidebarContent({
         title={collapsed ? `${COMPANY_NAME} · ${APP_NAME}` : undefined}
         className={cn("block pt-5 pb-4", collapsed ? "px-2" : "px-4")}
       >
+        {/* Dar kipte MARKA SEMBOLÜ basılır, kısaltılmış lockup değil.
+            Daha önce lockup `max-w-[26px] object-cover` ile kırpılıyordu;
+            sembol 18px yükseklikte 27,7px yer tuttuğu için kırpma tam
+            sembolün üstüne düşüyor ve logo yarıda kesiliyordu. Sembolün kendi
+            dosyası zaten var (`orion-symbol-white.svg`) — kırpmaya gerek yok
+            ve dar rayda büyütülebiliyor. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/orion-logo-white.svg"
+          src={collapsed ? "/brand/orion-symbol-white.svg" : "/brand/orion-logo-white.svg"}
           alt="Orion Cranes"
-          className={cn(
-            "h-[18px] w-auto",
-            // Dar kipte logonun yalnız kilit (ikon) kısmı görünür: ayrı bir
-            // ikon dosyası eklemeden kırpma ile aynı sonucu verir.
-            collapsed && "max-w-[26px] object-cover object-left"
-          )}
+          className={cn("w-auto", collapsed ? "mx-auto h-6" : "h-[18px]")}
         />
         {!collapsed && (
           <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
@@ -144,13 +158,19 @@ function SidebarContent({
                     // Dokunmatikte satır 36px'ten 40px'e çıkar — mobil çekmece
                     // menünün tek hâli, hedefler orada daralmamalı.
                     "flex items-center gap-2.5 border-l-2 border-l-transparent py-2 text-sm transition-colors pointer-coarse:py-2.5",
-                    collapsed ? "justify-center px-0" : "px-2.5",
+                    // Dar kipte ikon TEK göstergedir: 16px'lik ikon etiketsiz
+                    // kalınca hangi bölüm olduğu okunmuyordu. Ray da bu yüzden
+                    // genişletildi (bkz. `SIDEBAR_W_COLLAPSED`).
+                    collapsed ? "justify-center px-0 py-2.5" : "px-2.5",
                     active
                       ? "border-l-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                   )}
                 >
-                  <BrandIcon name={item.icon} className="size-4 shrink-0" />
+                  <BrandIcon
+                    name={item.icon}
+                    className={cn("shrink-0", collapsed ? "size-6" : "size-4")}
+                  />
                   {!collapsed && item.label}
                 </Link>
               </li>
@@ -175,12 +195,12 @@ function SidebarContent({
             aria-pressed={collapsed}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-md py-2 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-              collapsed ? "justify-center px-0" : "px-2.5"
+              collapsed ? "justify-center px-0 py-2.5" : "px-2.5"
             )}
           >
             <BrandIcon
               name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
-              className="size-4 shrink-0"
+              className={cn("shrink-0", collapsed ? "size-5" : "size-4")}
             />
             {!collapsed && "Menüyü daralt"}
           </button>
@@ -214,8 +234,46 @@ function SidebarContent({
 }
 
 export function AppShell({ role, displayName, email, children }: AppShellProps) {
+  const pathname = usePathname();
+
+  // Revizyon ekranı: hesap raporu editörü ve onun alt sayfaları (ekipman
+  // paneli). Mühendis günün büyük kısmını burada geçirir ve ekranın yatay
+  // genişliğine ihtiyaç duyar — MENÜ BURAYA GİRİLDİĞİNDE KENDİLİĞİNDEN DARALIR.
+  // Yeni hesap raporu oluşturmak da buraya yönlendirir, ayrı bir kural
+  // gerekmez. Kalıp `isFrame`ten AYRIDIR ve daha geniştir: `isFrame` sabit
+  // çerçeve yerleşimini seçer ve alt sayfaları bilinçli olarak dışarıda
+  // bırakır (aşağıdaki nota bakın); daralma ise revizyonun tamamı boyunca
+  // sürmelidir, yoksa editörden ekipman paneline geçince menü geri açılırdı.
+  const isRevisionScreen = /\/revisions\/[^/]+/.test(pathname ?? "");
+
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  /**
+   * Kullanıcının KALICI daralt tercihi — normal sayfalarda geçerlidir.
+   * `useStoredFlag` tam bu iş için var: efekt içinde `setState` ile okumak hem
+   * ilk kareyi yanlış genişlikte boyuyor hem zincirleme render tetikliyordu.
+   */
+  const [storedCollapsed, toggleStored] = useStoredFlag(COLLAPSE_KEY);
+  /**
+   * Revizyon ziyaretine özel geçersiz kılma.
+   *
+   * Editör her girişte daralmış açılır; mühendis isterse orada genişletir ama
+   * bu KALICI DEĞİLDİR: revizyondan çıkıp geri girince menü yine daralır ve
+   * normal sayfalardaki tercihi bozulmaz. Kalıcı yazılsaydı editörde bir kez
+   * genişletmek bütün uygulamanın tercihini değiştirirdi.
+   */
+  const [revisionOverride, setRevisionOverride] = useState<boolean | null>(null);
+  /**
+   * Rota sınıfı değişince ziyarete özel geçersiz kılma sıfırlanır. Efekt
+   * değil, RENDER SIRASINDA düzeltme: efektle yapılsaydı menü bir kare yanlış
+   * genişlikte boyanırdı (React'in "bir prop değişince state'i ayarlama"
+   * kalıbı).
+   */
+  const [prevIsRevisionScreen, setPrevIsRevisionScreen] = useState(isRevisionScreen);
+  if (prevIsRevisionScreen !== isRevisionScreen) {
+    setPrevIsRevisionScreen(isRevisionScreen);
+    setRevisionOverride(null);
+  }
+  const collapsed = isRevisionScreen ? (revisionOverride ?? true) : storedCollapsed;
   /**
    * Mobil çekmece açıkken ARKA SAYFA KAYMAZ ve Esc kapatır.
    *
@@ -238,31 +296,26 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
-  /** İlk okuma bitene kadar genişlik geçişi kapalı — açılışta kayma olmasın */
-  const [ready, setReady] = useState(false);
-  const pathname = usePathname();
+  /**
+   * Genişlik geçişi HİDRASYONDAN SONRA açılır: sunucu tercihi bilemez ve geniş
+   * çizer, istemci daralmış okuduğunda sidebar her açılışta 240px'ten kayarak
+   * daralırdı. Hiç değişmeyen bir depoya abone olmak bu soruyu `setState`li
+   * bir efekte gerek kalmadan sorar (react-hooks/set-state-in-effect).
+   */
+  const ready = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false
+  );
 
-  // Tercih boyamadan önce okunur; ilk kare doğru genişlikle çizilir.
-  useLayoutEffect(() => {
-    try {
-      setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
-    } catch {
-      /* localStorage kapalıysa varsayılan geniş kalır */
-    }
-    setReady(true);
-  }, []);
-
+  // Düğme ve Ctrl+B revizyon ekranında ZİYARETE ÖZEL, dışarıda KALICI yazar.
   const toggleCollapsed = useCallback(() => {
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      } catch {
-        /* yoksay */
-      }
-      return next;
-    });
-  }, []);
+    if (isRevisionScreen) {
+      setRevisionOverride((v) => !(v ?? true));
+      return;
+    }
+    toggleStored();
+  }, [isRevisionScreen, toggleStored]);
 
   // Ctrl/⌘ + B — masaüstünde menüyü daralt/genişlet
   useEffect(() => {
@@ -295,7 +348,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
     /^\/worklog(\/|$)/.test(pathname ?? "");
-  const sidebarW = collapsed ? "3.5rem" : "15rem";
+  const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
     <div
