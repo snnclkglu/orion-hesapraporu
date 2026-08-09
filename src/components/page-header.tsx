@@ -71,7 +71,7 @@ function HeaderSlot({ children }: { children: React.ReactNode }) {
  * Sayfa başlığı ve eylemleri.
  *
  * ```tsx
- * <PageHeader title="Projeler" hint="Hesap raporu projeleri ve revizyon arşivi">
+ * <PageHeader title="Mühendislik" hint="Hesap raporu projeleri ve revizyon arşivi">
  *   <NewProjectDialog … />
  * </PageHeader>
  * ```

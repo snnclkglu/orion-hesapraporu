@@ -42,7 +42,7 @@ export default async function CatalogSheetPage({
         </p>
         <div>
           <Button asChild variant="outline" size="sm">
-            <Link href="/projects">Projelere dön</Link>
+            <Link href="/projects">Mühendisliğe dön</Link>
           </Button>
         </div>
       </div>

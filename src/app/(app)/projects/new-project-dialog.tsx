@@ -1,6 +1,6 @@
 "use client";
 
-// "Yeni Hesap Raporu" — hesap raporları YALNIZCA Projeler bölümünden açılır.
+// "Yeni Hesap Raporu" — hesap raporları YALNIZCA Mühendislik bölümünden açılır.
 // Açılışta istenirse doğrudan bir iş emri kalemine bağlanır; bağlanmazsa rapor
 // bağımsız kalır ve sonradan "İşe Bağla" ile bir işe bağlanabilir.
 // Akış: İş seçilir → o işin kalemleri (ürün + iş no) listelenir → kalem

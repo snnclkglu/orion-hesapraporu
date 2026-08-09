@@ -47,7 +47,7 @@ const projectSchema = z.object({
   name: z.string().trim().min(1, "Proje adı gerekli"),
   customer: z.string().trim().min(1, "Müşteri gerekli"),
   crane_type: z.string().trim().min(1),
-  // İş emri bağlantısı: Projeler bölümünde iş seçilirse dolu gelir;
+  // İş emri bağlantısı: Mühendislik bölümünde iş seçilirse dolu gelir;
   // bağımsız raporlarda null kalır (sonradan "İşe Bağla" ile bağlanabilir).
   job_id: z.uuid().nullable(),
 });
@@ -109,7 +109,7 @@ const projectDetailsSchema = z.object({
 
 export type ProjectDetailsInput = z.infer<typeof projectDetailsSchema>;
 
-/** Projeler listesinden proje/iş adı ile müşteri bilgisini günceller. */
+/** Mühendislik listesinden proje/iş adı ile müşteri bilgisini günceller. */
 export async function updateProjectDetails(
   projectId: string,
   input: ProjectDetailsInput

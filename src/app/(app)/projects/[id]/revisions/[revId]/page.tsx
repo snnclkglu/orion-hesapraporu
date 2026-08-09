@@ -61,12 +61,12 @@ export default async function RevisionPage({
     <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Başlık ve eylemler kabuğun üst şeridine taşındı: editör ekranında
           çalışma alanı kutsaldır ve bir başlık satırı burada en pahalı
-          yerdedir. Kırıntı yolu (Projeler / 0055 / V1) başlığın önünde,
+          yerdedir. Kırıntı yolu (Mühendislik / 0055 / V1) başlığın önünde,
           yalnız geniş ekranda görünür. */}
       <PageHeader
         kicker={
           <span className="flex items-center gap-1">
-            <Link href="/projects" className="hover:underline">Projeler</Link>
+            <Link href="/projects" className="hover:underline">Mühendislik</Link>
             <span aria-hidden>/</span>
             <Link href={`/projects/${id}`} className="hover:underline">
               {project?.doc_no}

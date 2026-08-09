@@ -189,7 +189,7 @@ function Header({ project }: { project: { id: string; doc_no: string; name: stri
   return (
     <div>
       <div className="text-sm text-muted-foreground">
-        <Link href="/projects" className="hover:underline">Projeler</Link>
+        <Link href="/projects" className="hover:underline">Mühendislik</Link>
         {" / "}
         <Link href={`/projects/${project.id}`} className="hover:underline">
           <span className="font-mono">{project.doc_no}</span>

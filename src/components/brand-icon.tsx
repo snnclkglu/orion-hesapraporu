@@ -81,6 +81,18 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <path d="M12 13 L12 14.75 L13.5 15.75" />
     </>
   ),
+  // Teknik resimler: pafta + antet şeridi + ölçü çizgisi. Anlatılan şey
+  // "dosya" değil ÇİZİMDİR — bu yüzden klasör ya da kâğıt köşesi değil,
+  // teknik resmi teknik resim yapan iki öğe (antet ve ölçülendirme) çizilir.
+  blueprint: (
+    <>
+      <rect x="3" y="5" width="18" height="14" />
+      <line x1="3" y1="15.5" x2="21" y2="15.5" />
+      <line x1="14" y1="15.5" x2="14" y2="19" />
+      <path d="M7 9 L9.5 9 M7 9 L7.9 8.2 M7 9 L7.9 9.8" />
+      <path d="M13 9 L10.5 9 M13 9 L12.1 8.2 M13 9 L12.1 9.8" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -123,6 +135,7 @@ export type BrandIconName =
   | "seat"
   | "ledger"
   | "timesheet"
+  | "blueprint"
   | "menu"
   | "close"
   | "sidebarCollapse"

@@ -219,7 +219,7 @@ export default async function JobPage({
           </Table>
         )}
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          Hesap raporu iş kalemine bağlanır. Bağlamak için Projeler bölümünde
+          Hesap raporu iş kalemine bağlanır. Bağlamak için Mühendislik bölümünde
           raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve kalemi seçin.
         </p>
       </div>
@@ -287,7 +287,7 @@ export default async function JobPage({
             Kaleme Bağlanmamış Hesap Raporları
           </h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Bu raporlar işe bağlı ama bir iş kalemine atanmamış. Projeler
+            Bu raporlar işe bağlı ama bir iş kalemine atanmamış. Mühendislik
             bölümündeki &quot;İşe Bağla&quot; ile kalem seçerek eşleştirin.
           </p>
           {/* SÜTUN ÖNCELİKLENDİRME — vinç tipi ve son revizyon telefonda

@@ -25,7 +25,7 @@ export const USER_ROLE_HINTS: Record<UserRole, string> = {
   admin: "Tüm yetkiler: yönetim paneli, kullanıcılar, katalog ve satış.",
   manager: "Satış takibini görür ve düzenler; yönetim paneline giremez.",
   engineer: "Hesap raporu ve iş emri; taslak revizyonu siler, satış rakamlarını göremez.",
-  draftsman: "Teknik çizim takibi; satış rakamlarını göremez.",
+  draftsman: "Teknik resim paketlerini yükler ve içe aktarır; satış rakamlarını göremez.",
 };
 
 /**
@@ -81,4 +81,28 @@ export function canEditReports(value: string | null | undefined): boolean {
 export function canSeeWorkLog(value: string | null | undefined): boolean {
   const r = roleOf(value);
   return r === "admin" || r === "manager";
+}
+
+/**
+ * Teknik Resimler bölümü: paket yükleme, yeniden eşleştirme, elle bağlama.
+ *
+ * GÖRME SORULMAZ ve bu bilinçlidir — teknik resim atölyenin ortak gerçeğidir;
+ * hesabı yapan mühendis de, işi izleyen müdür de aynı resme bakar. Satış
+ * rakamından farklı olarak gizlenecek bir yanı yoktur, RLS'te okuma `true`dur.
+ * `canSeeDrawings` diye bir soru EKLEMEYİN; önce bu paragrafı çürütün.
+ *
+ * YAZMA üç roldedir ve bu küme uygulamadaki DİĞER ÜÇ KÜMENİN HİÇBİRİNE eşit
+ * değildir — sorunun ayrı sorulma sebebi budur:
+ *   · Teknik Ressam paketi ÜRETEN kişidir (rolün tanımı zaten bu).
+ *   · Mühendis yanlış kaleme düşmüş bir paketi düzeltip yeniden
+ *     eşleştirebilmelidir; ressamı beklemek imalatı durdurur.
+ *   · Müdür mühendislik ürünü yazmaz (satış rakamını görür, resmi çizmez).
+ *
+ * PAKETİ SİLMEK bu soruya DÂHİL DEĞİLDİR: silme 450'yi aşkın depo nesnesini
+ * birlikte götürür ve yalnız Yöneticidedir (`is_admin()`), tıpkı projeyi
+ * silmek gibi. Veritabanı karşılığı `can_edit_drawings()`.
+ */
+export function canEditDrawings(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "engineer" || r === "draftsman";
 }

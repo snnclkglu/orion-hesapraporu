@@ -65,7 +65,7 @@ export default async function AuditPage({
     <div className="grid gap-4">
       <div>
         <div className="text-sm text-muted-foreground">
-          <Link href="/projects" className="hover:underline">Projeler</Link>
+          <Link href="/projects" className="hover:underline">Mühendislik</Link>
           {" / "}
           <Link href={`/projects/${id}`} className="hover:underline">
             <span className="font-mono">{project.doc_no}</span>

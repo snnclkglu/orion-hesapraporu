@@ -1,7 +1,7 @@
 "use client";
 
 // Hesap raporu satır/sayfa eylemleri: Kopyala · İşe Bağla · Sil.
-// Hem Projeler listesinde (satır menüsü) hem proje detayında (satır içi
+// Hem Mühendislik listesinde (satır menüsü) hem proje detayında (satır içi
 // butonlar) kullanılır; dialoglar kontrollüdür, tetikleyiciyi çağıran kurar.
 
 import { useMemo, useState, useTransition } from "react";
@@ -451,7 +451,7 @@ export function DeleteProjectDialog({
     startTransition(async () => {
       const result = await deleteProject(project.id);
       if (result?.error) toast.error(result.error);
-      // Başarıda action Projeler listesine yönlendirir.
+      // Başarıda action Mühendislik listesine yönlendirir.
     });
   }
 
@@ -494,7 +494,7 @@ export function DeleteProjectDialog({
 
 type ActiveDialog = "edit" | "duplicate" | "assign" | "delete" | null;
 
-/** Projeler listesi satır menüsü — satırı kaplayan link ile çakışmaz (z-10) */
+/** Mühendislik listesi satır menüsü — satırı kaplayan link ile çakışmaz (z-10) */
 export function ProjectRowActions({
   project,
   jobs,

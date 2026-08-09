@@ -64,7 +64,7 @@ export function ProjectDetailHeader({
                 </Link>
               </>
             ) : (
-              <Link href="/projects" className="hover:underline">Projeler</Link>
+              <Link href="/projects" className="hover:underline">Mühendislik</Link>
             )}
             {" / "}
             <span className="font-mono">{project.doc_no}</span>

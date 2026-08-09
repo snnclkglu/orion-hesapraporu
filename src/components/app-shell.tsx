@@ -48,7 +48,11 @@ const NAV_ITEMS: {
   visible?: (role: string) => boolean;
 }[] = [
   { href: "/jobs", label: "İşler", icon: "bolt" },
-  { href: "/projects", label: "Projeler", icon: "panel" },
+  { href: "/projects", label: "Mühendislik", icon: "panel" },
+  // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
+  // atölyenin ortak gerçeğidir, dört rol de görür. Yazma yetkisi
+  // `canEditDrawings` ile ekranın içinde sorulur.
+  { href: "/drawings", label: "Teknik Resimler", icon: "blueprint" },
   { href: "/worklog", label: "İş Takibi", icon: "timesheet", visible: canSeeWorkLog },
   { href: "/sales", label: "Satış Takibi", icon: "ledger", visible: canSeeSales },
   { href: "/admin", label: "Yönetim", icon: "gauge", visible: isAdminRole },
@@ -72,7 +76,8 @@ function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
   if (pathname.startsWith("/admin")) return "Yönetim";
   if (pathname.startsWith("/jobs")) return "İşler";
-  if (pathname.startsWith("/projects")) return "Projeler";
+  if (pathname.startsWith("/projects")) return "Mühendislik";
+  if (pathname.startsWith("/drawings")) return "Teknik Resimler";
   if (pathname.startsWith("/sales")) return "Satış Takibi";
   if (pathname.startsWith("/worklog")) return "İş Takibi";
   return "";
@@ -345,9 +350,13 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // durum menüsü kırpılır. Form ve rapor sayfaları dar kalmaya devam eder.
   // İş Takibi'nin ÜÇ sayfası da geniştir: günlük girişte satırlar yan yana
   // uzar, analiz grafik ızgarası, kayıtlar çok sütunlu tablodur.
+  // Teknik Resimler'in DÖRT sayfası da geniştir: paket listesi çok sütunlu,
+  // parça defteri daha da geniş, montaj ağacı derin girintili, rapor uzun
+  // metinli. Dar kip hiçbirine yaramaz.
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
-    /^\/worklog(\/|$)/.test(pathname ?? "");
+    /^\/worklog(\/|$)/.test(pathname ?? "") ||
+    /^\/drawings(\/|$)/.test(pathname ?? "");
   const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
@@ -461,7 +470,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
           {/*
             Bölüm adı YALNIZ DAR EKRANDA görünür.
             Geniş ekranda sayfa başlığı yuvaya geliyor ve bölüm adını zaten
-            içeriyor ("Projeler" / "İş Takibi"); ikisi yan yana durunca aynı
+            içeriyor ("Mühendislik" / "İş Takibi"); ikisi yan yana durunca aynı
             kelime iki kez okunuyordu. Telefonda ise yuva çoğu zaman yalnız
             eylem düğmelerini taşır, orada bölüm adı tek kimliktir.
             `min-w-0 truncate`: uzun ad sağdaki içeriğin üstüne binmesin.
