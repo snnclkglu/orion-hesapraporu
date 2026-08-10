@@ -19,7 +19,15 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Loader2, Minus, Plus, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Plus,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +49,7 @@ import {
   type StageSuggestion,
   type TrackedPart,
 } from "@/lib/drawings/progress";
+import { setReviewMark } from "../../actions";
 import { applyFolderSuggestion, markStage, setPartStage } from "./actions";
 
 /** İşaret haritası: anahtar → aşama → işaretlenen adet (0 = adet girilmemiş). */
@@ -270,6 +279,42 @@ export function ProgressBoard({
     });
   }
 
+  // ————————————————————————————————— revizyon devri: gözden geçirilecekler
+  //
+  // Bir revizyonda parça değişince kaydı SİLMİYORUZ (belki hâlâ kullanılabilir)
+  // ama "kesildi" demeyi sürdürmek de atölyeye yalan söylemek olurdu. Kayıt
+  // devroluyor, işaretleniyor ve kararı insan veriyor.
+  //
+  // ŞERİT EN ÜSTTE ve tahtanın kendi durumundan BAĞIMSIZDIR: işaret sunucudan
+  // gelir ve iyimser çip haritasına hiç girmez (`doneAt`/`note` ile aynı
+  // gerekçe — tek dokunuşluk bir çip için üç alanı kopyalamak gerekirdi).
+  const gozdenGecir = useMemo(
+    () => marks.filter((m) => m.reviewRequired && m.id),
+    [marks]
+  );
+
+  function isaretiKaldir(m: ProgressMark) {
+    basla(async () => {
+      const sonuc = await setReviewMark({
+        packageId,
+        progressId: m.id ?? "",
+        reviewRequired: false,
+      });
+      if (sonuc.error) toast.error(sonuc.error);
+      else toast.success("Kayıt onaylandı.");
+      router.refresh();
+    });
+  }
+
+  function kaydiSifirla(m: ProgressMark) {
+    basla(async () => {
+      const sonuc = await markStage({ packageId, stage: m.stage, keys: [m.key], mode: "kaldir" });
+      if (sonuc.error) toast.error(sonuc.error);
+      else toast.success("İşaret kaldırıldı; parça yeniden üretilecek olarak duruyor.");
+      router.refresh();
+    });
+  }
+
   // ————————————————————————————————— adet penceresi
   const [pencere, setPencere] = useState<{ part: TrackedPart; stage: StageDef } | null>(null);
 
@@ -284,6 +329,70 @@ export function ProgressBoard({
           İşaretler kaydedilir; migration uygulandığında defterdeki adlar ve
           renkler devreye girer.
         </p>
+      )}
+
+      {/* GÖZDEN GEÇİRİLECEKLER EN ÜSTTE — özet şeridinin bile üstünde.
+          Atölyenin bakması gereken tek acil şey budur: elindeki kayıt hâlâ
+          geçerli mi? */}
+      {gozdenGecir.length > 0 && (
+        <section className="border border-amber-500/50 bg-amber-500/5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <TriangleAlert className="size-4 text-amber-600 dark:text-amber-400" />
+              Yeni revizyonda değişen parçalar ({gozdenGecir.length})
+            </h2>
+          </header>
+          <p className="border-b px-3 py-2 text-[11px] text-muted-foreground">
+            Bu parçalar yeni revizyonda <strong>imalatı etkileyecek biçimde</strong> değişti
+            (ölçü · malzeme · kalınlık · adet · kategori). Kayıtlar KAYBOLMADI, taşındı — ama
+            elinizdeki parça hâlâ geçerli mi, buna insan karar vermeli.
+          </p>
+          <ul className="divide-y">
+            {gozdenGecir.map((m) => (
+              <li
+                key={m.id}
+                className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
+              >
+                <div className="min-w-0">
+                  <span className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-mono text-[12px] font-medium">{m.key}</span>
+                    <span className="border bg-muted px-1.5 font-mono text-[11px] text-muted-foreground">
+                      {asamaAdi(m.stage)}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    {m.reviewReason || "Parça yeni revizyonda değişti."}
+                  </span>
+                </div>
+                {canWrite && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={calisiyor}
+                      onClick={() => isaretiKaldir(m)}
+                      title="Kayıt geçerli — işareti kaldır."
+                    >
+                      Onayla
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive"
+                      disabled={calisiyor}
+                      onClick={() => kaydiSifirla(m)}
+                      title="Parça yeniden üretilecek — bu aşama işaretini kaldır."
+                    >
+                      Sıfırla
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <SummaryStrip ozet={ozet} />

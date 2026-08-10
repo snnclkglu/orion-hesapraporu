@@ -113,17 +113,25 @@ export async function POST(
     .eq("package_id", packageId)
     .order("rel_path");
 
+  // DEPODA OLAN ya da BİLEREK ATLANMIŞ satırlar okunabilir.
+  //
+  // Atlanmış bir satır (bayt bayt kopya) KENDİ nesnesini taşımaz ama
+  // `storage_path`i ASLININKİNİ gösterir; dışarıda bırakılsaydı içerik
+  // aşaması onun imza grubuna hiç girmez ve o dosyaya `meta` yazılmazdı.
+  // Süzgeç dışında kalması gereken tek şey GERÇEKTEN ULAŞMAMIŞ dosyadır —
+  // onu indirmeye çalışmak `okunamayan`ı sahte hatalarla doldururdu.
+  const DEPODA = "stored.is.true,upload_skipped.is.true";
+
   if (asama === "excel") {
-    sorgu = sorgu.eq("role", "bom");
+    // Excel de aynı süzgeci alır: eskiden almıyordu ve depoya ulaşmamış bir
+    // BOM dosyası her turda indirilmeye çalışılıp `okunamayan`a düşüyordu.
+    sorgu = sorgu.eq("role", "bom").or(DEPODA);
   } else if (asama === "pdf") {
-    // BÜKÜM klasöründeki PDF'ler de resimdir; `kopya`/`haric` olanlar deftere
+    // BÜKÜM klasöründeki PDF'ler de resimdir; `haric` olanlar deftere
     // girmediği için okunmaz da.
-    sorgu = sorgu
-      .in("role", ["resim", "bukum"])
-      .eq("stored", true)
-      .not("lifecycle", "in", "(kopya,haric)");
+    sorgu = sorgu.in("role", ["resim", "bukum"]).or(DEPODA).not("lifecycle", "eq", "haric");
   } else {
-    sorgu = sorgu.eq("role", "kesim").eq("stored", true).not("lifecycle", "in", "(kopya,haric)");
+    sorgu = sorgu.eq("role", "kesim").or(DEPODA).not("lifecycle", "eq", "haric");
   }
 
   const { data: hepsi, error: listeHatasi } = await sorgu;
@@ -245,10 +253,18 @@ async function excelAsamasi(
 
   const sonrakiOfset = ofset + dilim.length;
   const kalan = Math.max(0, toplam - sonrakiOfset);
-  if (kalan === 0) await damgala(supabase, packageId);
+  // BOŞ İŞ KÜMESİ DAMGALANMAZ. `parsed_at` "bu paketin içeriği okundu" demektir;
+  // okunacak hiçbir dosya bulunmadığında onu yazmak, hiç okunmamış bir paketi
+  // okunmuş göstermekti.
+  if (kalan === 0 && toplam > 0) await damgala(supabase, packageId);
 
   return NextResponse.json({
     toplam,
+    // BOŞ İŞ KÜMESİ İLE BAŞARI AYNI YANIT DEĞİLDİR. İkisi de `{kalan: 0}`
+    // döndüğü için istemci "yedi Excel okudum" ile "hiç Excel yoktu"yu ayırt
+    // edemiyordu — ve depoya hiç ulaşmamış bir paket tam olarak ikincisi gibi
+    // görünüyordu.
+    bos: toplam === 0,
     islenen: dilim.length,
     yazilanSatir,
     kalan,
@@ -335,11 +351,12 @@ async function icerikAsamasi(
 
   const sonrakiOfset = ofset + dilim.length;
   const kalan = Math.max(0, toplam - sonrakiOfset);
-  if (kalan === 0) await damgala(supabase, packageId);
+  if (kalan === 0 && toplam > 0) await damgala(supabase, packageId);
 
   return NextResponse.json({
     asama,
     toplam,
+    bos: toplam === 0,
     islenen: dilim.length,
     yazilanDosya,
     kalan,

@@ -148,6 +148,21 @@ export interface ProgressMark {
   qtyDone: number;
   doneAt?: string | null;
   note?: string;
+  /**
+   * Satırın kendi kimliği — YALNIZ revizyon işaretini kaldırmak için.
+   *
+   * İlerlemenin anahtarı hâlâ (kalem no, parça kodu, aşama) METNİDİR; bu alan
+   * o kuralı değiştirmez, tek bir satırı adresleyebilmek içindir.
+   */
+  id?: string;
+  /**
+   * Parça yeni revizyonda İMALATI ETKİLEYECEK biçimde değişti; kayıt devroldu
+   * ama insan bakmalı. Sac büyüdüyse eskiden kesilen parça artık yanlıştır ve
+   * "kesildi" demeyi sürdürmek atölyeye yalan söylemektir.
+   */
+  reviewRequired?: boolean;
+  /** "Adet 2 → 4 · Kalınlık 8 → 10" */
+  reviewReason?: string;
 }
 
 export type StageState = "yok" | "kismi" | "tamam";

@@ -29,6 +29,7 @@ import { tumSatirlar } from "../../data";
 import { packageDiff, type DiffFile, type DiffPart, type PackageSide } from "@/lib/drawings/diff";
 import { formatNum } from "@/lib/drawings/labels";
 import type { DwgPackageStatus, FileLifecycle, FileRole } from "@/lib/drawings/types";
+import { EventTimeline, type PackageEvent } from "./event-timeline";
 import { VersionList, type VersionBlockData } from "./version-list";
 
 /** PostgREST `max_rows` sınırının altında bir sayfa. */
@@ -149,12 +150,14 @@ async function tarafOku(supabase: SupabaseClient, packageId: string): Promise<Pa
       material: string;
       weight_kg: number | string | null;
       thickness_mm: number | string | null;
+      cut_length_mm: number | string | null;
       category: string;
     }>((bas, son) =>
       supabase
         .from("drawing_parts")
         .select(
-          "register_key, part_code, description, qty, material, weight_kg, thickness_mm, category"
+          "register_key, part_code, description, qty, material, weight_kg, thickness_mm, " +
+            "cut_length_mm, category"
         )
         .eq("package_id", packageId)
         .order("sort")
@@ -179,9 +182,20 @@ async function tarafOku(supabase: SupabaseClient, packageId: string): Promise<Pa
     // kabul eder ve ölçeğine yuvarlayarak karşılaştırır.
     weightKg: p.weight_kg,
     thicknessMm: p.thickness_mm,
+    cutLengthMm: p.cut_length_mm,
     category: p.category,
   }));
   return { files, parts };
+}
+
+/** `drawing_package_events` satırının okunan yüzü. */
+interface EventRow {
+  id: string;
+  package_id: string | null;
+  event: string;
+  detail: Record<string, unknown> | null;
+  at: string;
+  profiles: { full_name: string | null } | null;
 }
 
 export default async function PackageVersionsPage({
@@ -232,6 +246,28 @@ export default async function PackageVersionsPage({
   const bagsiz = bloklar.filter((b) => !b.zincirBagli);
   const kopukZincir = zincir.some((s) => s.rev_no > 1 && !s.supersedes_id);
 
+  // DENETİM AKIŞI — zincirin BÜTÜN paketleri için, tek sorguda.
+  //
+  // Sürüm bloklarının anlatamadığı şey ZAMAN ve FAİLDİR: kim yükledi, kim
+  // doğruladı, hangi revizyonda kaç üretim kaydı taşındı. `audit_log` bu iş
+  // için kullanılamazdı — o tablo `project_id`/`revision_id` ile hesap
+  // raporuna bağlıdır ve teknik resim paketi bambaşka bir tanedir.
+  const { data: olayVerisi } = await supabase
+    .from("drawing_package_events")
+    .select("id, package_id, event, detail, at, profiles:actor (full_name)")
+    .in("package_id", zincir.map((s) => s.id))
+    .order("at", { ascending: false })
+    .limit(60);
+
+  const olaylar: PackageEvent[] = ((olayVerisi ?? []) as unknown as EventRow[]).map((o) => ({
+    id: o.id,
+    event: o.event,
+    at: o.at,
+    actor: o.profiles?.full_name ?? "",
+    detail: o.detail ?? {},
+    revNo: zincir.find((s) => s.id === o.package_id)?.rev_no ?? null,
+  }));
+
   return (
     <div className="grid gap-4">
       <section className="border bg-card p-4">
@@ -271,6 +307,8 @@ export default async function PackageVersionsPage({
       )}
 
       <VersionList surumler={[...bloklar].reverse()} />
+
+      <EventTimeline olaylar={olaylar} />
     </div>
   );
 }

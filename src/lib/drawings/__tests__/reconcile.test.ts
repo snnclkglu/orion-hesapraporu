@@ -258,6 +258,41 @@ describe("SESSİZLİK — yanlış alarm basılmayan durumlar", () => {
     expect(mtcAgirlikli.weightSource).toBe("excel");
   });
 
+  it("depo eksiği BİLDİRİLMEDİĞİNDE hiçbir bulgu üretilmez", () => {
+    // `missingStorage` İSTEĞE BAĞLIDIR ve çekirdek deponun varlığından
+    // habersizdir. Verilmediğinde bulgu SUSAR — fikstürler, betikler ve
+    // önizleme sayfası bu yüzden hiç değişmedi.
+    expect(say(monoray, "DOSYA_DEPODA_YOK")).toBe(0);
+    expect(say(mtc, "DOSYA_DEPODA_YOK")).toBe(0);
+  });
+
+  it("depoya ulaşmayan dosyalar PAKET BAŞINA TEK bulgu üretir", () => {
+    // Dosya başına yazılsaydı 162 satır ederdi; `ICERIK_OKUNMADI` dersinde
+    // bunun bedelini zaten ölçtük.
+    const eksikli = reconcile({
+      ...anlikGoruntu(MONORAY, MONORAY_SHEETS),
+      missingStorage: MONORAY.files.slice(0, 162).map((f) => f.path),
+    });
+    const bulgular = eksikli.findings.filter((f) => f.code === "DOSYA_DEPODA_YOK");
+    expect(bulgular).toHaveLength(1);
+    expect(bulgular[0].kind).toBe("eksik");
+    expect(bulgular[0].title).toContain("162");
+    // Ve eksik düzeyi 2'den 3'e çıkar — bulgu gerçekten sayılıyor.
+    expect(eksikli.findings.filter((f) => f.kind === "eksik")).toHaveLength(3);
+  });
+
+  it("depo eksiği varken “sonra okunabilir” DENMEZ", () => {
+    // Baytlar yoksa okuma hiç gerçekleşemez; eski metin kullanıcıyı boşuna
+    // "İçerikleri Yeniden Oku" düğmesine bastırıyordu.
+    const eksikli = reconcile({
+      ...anlikGoruntu(MONORAY, MONORAY_SHEETS),
+      missingStorage: [MONORAY.files[0].path],
+    });
+    const icerik = eksikli.findings.find((f) => f.code === "ICERIK_OKUNMADI")!;
+    expect(icerik.detail).toContain("depoya hiç ulaşmadığı");
+    expect(icerik.detail).not.toContain("Yeniden Oku");
+  });
+
   it("hiçbir bulgu ENGELLEYİCİ değildir — öyle bir düzey yoktur", () => {
     for (const r of [monoray, mtc]) {
       for (const f of r.findings) {

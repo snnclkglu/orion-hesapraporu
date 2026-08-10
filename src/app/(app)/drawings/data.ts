@@ -50,9 +50,22 @@ export interface PackageRow {
   description: string;
   capacity: string;
   rev_no: number;
+  supersedes_id: string | null;
   status: DwgPackageStatus;
+  /** İSTEMCİNİN BEYANI: paket açılırken yazılır, satır sayısıdır. */
   file_count: number;
   bytes_total: number;
+  /**
+   * ÖLÇÜM: `verifyStorage` bucket'ı listeleyerek yazar.
+   *
+   * `file_count` ile arasındaki fark ya ATLANMIŞ (skipped_count) ya da
+   * ULAŞMAMIŞ dosyadır; ekranlar bu ikisini asla karıştırmamalıdır.
+   */
+  stored_count: number;
+  stored_bytes: number;
+  skipped_count: number;
+  skipped_bytes: number;
+  verified_at: string | null;
   part_count: number;
   unrecognized_count: number;
   finding_counts: Partial<Record<FindingKind, number>>;
@@ -65,9 +78,64 @@ export interface PackageRow {
 
 const PAKET_ALANLARI =
   "id, folder_name, recognized_by, item_no, job_id, job_item_id, job_code, group_code, " +
-  "description, capacity, rev_no, status, file_count, bytes_total, part_count, " +
+  "description, capacity, rev_no, supersedes_id, status, file_count, bytes_total, " +
+  "stored_count, stored_bytes, skipped_count, skipped_bytes, verified_at, part_count, " +
   "unrecognized_count, finding_counts, recognition_pct, reconciled_at, reconciler_version, " +
   "created_at, jobs (job_no, title)";
+
+/**
+ * Paketin DEPO DURUMU — üç sayı, üç ayrı soru.
+ *
+ * Ekranların hiçbiri bu hesabı kendi yapmaz: "kaç dosya bekleniyor" sorusunun
+ * cevabı `file_count` DEĞİLDİR (atlananlar düşülür) ve her ekranda yeniden
+ * yazılsaydı biri er geç yanlış sayardı.
+ */
+export interface StorageState {
+  /** Depoda KENDİ nesnesi olması gereken satır sayısı. */
+  expected: number;
+  /** Gerçekten olan. */
+  stored: number;
+  /** Bilerek yüklenmemiş (yedek dosya + bayt bayt kopya). */
+  skipped: number;
+  /** Kayıt var, bayt yok. */
+  missing: number;
+  storedBytes: number;
+  /**
+   * Depoda OLMASI GEREKEN bayt = bütün satırlar − atlananlar.
+   *
+   * `bytes_total` ile doğrudan karşılaştırmak elmayla armuttu: o toplam
+   * atlananları (yedek dosyalar + bayt bayt kopyalar) İÇERİR, `stored_bytes`
+   * ise bucket'taki nesnelerdir ve atlananların nesnesi hiç yoktur. Fark bu
+   * yüzden hiçbir bayt kaybetmemiş HER pakette kalıcı olarak görünüyordu —
+   * MTC ölçüsüyle "91,6 MB / 107 MB". Gerçek bir kayıp olduğunda da aynı yerde
+   * büyüdüğü için ikisi ayırt edilemezdi.
+   */
+  expectedBytes: number;
+  /** Hiç doğrulanmadıysa sayılar DEVRALINMIŞTIR, ölçülmemiştir. */
+  verifiedAt: string | null;
+}
+
+export function storageState(p: {
+  file_count: number;
+  bytes_total: number;
+  stored_count: number;
+  stored_bytes: number;
+  skipped_count: number;
+  skipped_bytes: number;
+  verified_at: string | null;
+}): StorageState {
+  const expected = Math.max(0, Number(p.file_count ?? 0) - Number(p.skipped_count ?? 0));
+  const stored = Number(p.stored_count ?? 0);
+  return {
+    expected,
+    stored,
+    skipped: Number(p.skipped_count ?? 0),
+    missing: Math.max(0, expected - stored),
+    storedBytes: Number(p.stored_bytes ?? 0),
+    expectedBytes: Math.max(0, Number(p.bytes_total ?? 0) - Number(p.skipped_bytes ?? 0)),
+    verifiedAt: p.verified_at ?? null,
+  };
+}
 
 export async function loadPackages(supabase: SupabaseClient): Promise<PackageRow[]> {
   return tumSatirlar<PackageRow>((bas, son) =>
@@ -107,7 +175,12 @@ export interface FileRow {
   recognized_by: string;
   size_bytes: number;
   storage_path: string;
+  /** Bu satırın KENDİ nesnesi depoda var mı (`verifyStorage` yazar). */
   stored: boolean;
+  /** Baytları BİLEREK gönderilmedi: yedek dosya ya da bayt bayt kopya. */
+  upload_skipped: boolean;
+  /** Ulaşmadıysa SEBEBİ — bu metin eskiden atılıyordu. */
+  upload_error: string;
   /** Okunmuş içerik (antet / DXF başlığı). İçerik okunmadıysa boş nesne. */
   meta: Record<string, unknown> | null;
 }
@@ -118,7 +191,8 @@ export async function loadFiles(supabase: SupabaseClient, packageId: string): Pr
       .from("drawing_files")
       .select(
         "id, rel_path, folder, file_name, ext, role, lifecycle, part_code, material, " +
-          "thickness_mm, qty, label, recognized_by, size_bytes, storage_path, stored, meta"
+          "thickness_mm, qty, label, recognized_by, size_bytes, storage_path, stored, " +
+          "upload_skipped, upload_error, meta"
       )
       .eq("package_id", packageId)
       .order("rel_path")

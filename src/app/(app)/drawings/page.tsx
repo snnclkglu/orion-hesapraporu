@@ -13,7 +13,7 @@ import { canEditDrawings } from "@/lib/roles";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
-import { loadItemOptions, loadPackages } from "./data";
+import { loadItemOptions, loadPackages, storageState } from "./data";
 import { PackagesTable } from "./packages-table";
 import { ResumeCard } from "./resume-card";
 import { UnmatchedCard } from "./unmatched-card";
@@ -34,8 +34,14 @@ export default async function DrawingsPage() {
   ]);
 
   const eslesmemis = paketler.filter((p) => !p.job_item_id);
-  const toplamDosya = paketler.reduce((t, p) => t + p.file_count, 0);
-  const toplamBayt = paketler.reduce((t, p) => t + Number(p.bytes_total ?? 0), 0);
+  // ÖZET KARTLARI DA GERÇEK BAYTI SAYAR. `bytes_total` istemcinin beyanıdır ve
+  // paket açılırken bir kez yazılır; depoya hiçbir şey ulaşmasa bile aynı
+  // rakamı gösterirdi.
+  const depolar = paketler.map((p) => storageState(p));
+  const toplamDosya = depolar.reduce((t, d) => t + d.stored, 0);
+  const beklenenDosya = depolar.reduce((t, d) => t + d.expected, 0);
+  const toplamBayt = depolar.reduce((t, d) => t + d.storedBytes, 0);
+  const toplamUlasmayan = depolar.reduce((t, d) => t + d.missing, 0);
   const toplamEksik = paketler.reduce((t, p) => t + (p.finding_counts?.eksik ?? 0), 0);
 
   return (
@@ -48,9 +54,13 @@ export default async function DrawingsPage() {
           icon={Layers}
         />
         <StatCard
-          label="Dosya"
+          label="Depodaki Dosya"
           value={formatNum(toplamDosya)}
-          hint={formatBytes(toplamBayt)}
+          hint={
+            toplamUlasmayan > 0
+              ? `${formatBytes(toplamBayt)} · ${formatNum(toplamUlasmayan)} dosya ulaşmamış`
+              : `${formatBytes(toplamBayt)} · ${formatNum(beklenenDosya)} bekleniyor`
+          }
           icon={FolderTree}
         />
         <StatCard

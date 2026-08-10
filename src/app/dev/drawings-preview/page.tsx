@@ -73,7 +73,13 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
     recognized_by: f.recognizedBy,
     size_bytes: f.size,
     storage_path: "",
-    stored: false,
+    // ÖNİZLEMENİN DEPOSU YOK. Her satır "depoda yok" görünseydi ekran baştan
+    // sona kırmızı olur ve rozetin gerçekten ne zaman çıktığı görülemezdi;
+    // bu yüzden hepsi yüklenmiş SAYILIR. Rozeti görmek için her yirminci dosya
+    // bilerek eksik bırakılır — tasarım önizlemesinin işi budur.
+    stored: i % 20 !== 7,
+    upload_skipped: false,
+    upload_error: i % 20 === 7 ? "önizleme: bu satır bilerek eksik bırakıldı" : "",
     meta: null,
   }));
   const yolKimlik = new Map(files.map((f) => [f.rel_path, f.id]));

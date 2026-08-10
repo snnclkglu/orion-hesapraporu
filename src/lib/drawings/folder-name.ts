@@ -144,6 +144,62 @@ export function folderCodeFromContents(fileNames: readonly string[]): string | n
   return ortak.length > 0 ? `${itemNo}-${ortak.join("-")}` : null;
 }
 
+/**
+ * Sonradan eklenen bir dosya PAKETİN NERESİNE düşmeli?
+ *
+ * Ressam sonradan tek bir resim çiziyor ya da bir resmin yeni sürümünü
+ * veriyor. Bugüne kadar tek yol bütün klasörü (200 MB) yeniden yüklemekti ve o
+ * da ikinci bir paket açıyordu.
+ *
+ * HEDEF TAHMİN EDİLİR, SORULMAZ — ama değiştirilebilir. Öneri paketin GERÇEK
+ * klasör ağacından kurulur; uydurma bir yol AÇILMAZ. Ressamın kurduğu düzen
+ * sistemin uydurduğu bir düzene çevrilmez (dosya gezgininin var oluş
+ * gerekçesiyle aynı ilke) — bu yüzden aday listesi yalnız var olan
+ * klasörlerdir ve hiçbiri uymazsa `""` döner, yani kullanıcı seçer.
+ *
+ * Sıralama en özelden en genele:
+ *   1. malzeme + kalınlık ikisi birden geçen klasör  (`DXF/S235JR-8MM`)
+ *   2. yalnız malzeme geçen klasör
+ *   3. aynı ROLDEN dosyaların EN ÇOK bulunduğu klasör (`DWG/` resimler için)
+ */
+export function suggestFolder(
+  file: { role: string; material: string; thicknessMm: number | null },
+  folders: readonly { folder: string; role: string }[]
+): string {
+  const adlar = [...new Set(folders.map((f) => f.folder))].filter((f) => f !== "");
+  if (adlar.length === 0) return "";
+
+  const malzeme = trKatla(file.material).replace(/\s+/g, "");
+  const kalinlik = file.thicknessMm == null ? "" : String(file.thicknessMm).replace(/\.0+$/, "");
+
+  if (malzeme) {
+    const katlanmis = adlar.map((a) => ({ ad: a, k: trKatla(a).replace(/\s+/g, "") }));
+    if (kalinlik) {
+      const tam = katlanmis.find((a) => a.k.includes(malzeme) && a.k.includes(`${kalinlik}MM`));
+      if (tam) return tam.ad;
+    }
+    const yalnizMalzeme = katlanmis.find((a) => a.k.includes(malzeme));
+    if (yalnizMalzeme) return yalnizMalzeme.ad;
+  }
+
+  // Aynı rolden dosyaların en yoğun olduğu klasör. Rol tek başına zayıf bir
+  // ipucudur ama "hangi klasörde resim duruyor" sorusunun cevabı budur.
+  const sayac = new Map<string, number>();
+  for (const f of folders) {
+    if (f.role !== file.role || f.folder === "") continue;
+    sayac.set(f.folder, (sayac.get(f.folder) ?? 0) + 1);
+  }
+  let enCok = "";
+  let enCokSayi = 0;
+  for (const [ad, n] of sayac) {
+    if (n > enCokSayi) {
+      enCokSayi = n;
+      enCok = ad;
+    }
+  }
+  return enCok;
+}
+
 /** İçerikten çıkarılan kodu bir `FolderName`e çevirir (ad klasörün adıdır). */
 export function folderNameFromContents(
   raw: string,

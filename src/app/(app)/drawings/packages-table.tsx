@@ -8,7 +8,7 @@
 // hücrenin içinde `md:hidden` ikinci satıra iner. İkinci bir kart markup'ı
 // YAZILMAZ — sıralama ve süzme mantığını ikiye böler.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Select,
@@ -28,16 +28,20 @@ import {
 import { PACKAGE_STATUSES } from "@/lib/drawings/types";
 import { PACKAGE_STATUS_LABELS, formatNum, recognitionClass } from "@/lib/drawings/labels";
 import { RECONCILER_VERSION } from "@/lib/drawings/reconcile";
-import type { PackageRow } from "./data";
+import { storageState, type PackageRow } from "./data";
 import {
   ALL,
   EMPTY_PACKAGE_FILTERS,
+  groupPackages,
   matchesPackage,
   sortPackages,
   type PackageFilters,
   type PackageSortKey,
 } from "./filters";
 import { FilterBar, SearchBox, SortableHead } from "./sortable-head";
+
+/** Tablodaki sütun sayısı — grup başlığının `colSpan`ı buradan okunur. */
+const SUTUN = 8;
 
 export function PackagesTable({ packages }: { packages: PackageRow[] }) {
   const [f, setF] = useState<PackageFilters>(EMPTY_PACKAGE_FILTERS);
@@ -48,6 +52,14 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
     () => sortPackages(packages.filter((p) => matchesPackage(p, f)), sortKey, desc),
     [packages, f, sortKey, desc]
   );
+
+  // KALEME GÖRE GRUPLAMA yalnız kalem sıralamasındayken açılır. Başka bir
+  // sütuna göre sıralarken gruplamak, kullanıcının istediği sırayı bozar:
+  // "en çok parçalı paket hangisi" sorusunun cevabı grup başlıklarının arasına
+  // dağılırdı. Kalem sıralaması ise zaten aynı işin satırlarını yan yana
+  // getirir — gruplama orada yalnız görüneni adlandırır.
+  const gruplu = sortKey === "kalem";
+  const gruplar = useMemo(() => (gruplu ? groupPackages(gorunen) : []), [gruplu, gorunen]);
 
   function sirala(key: PackageSortKey) {
     if (key === sortKey) setDesc((d) => !d);
@@ -124,7 +136,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                   align="right"
                   className="hidden md:table-cell"
                 >
-                  Dosya
+                  Depoda
                 </SortableHead>
                 <SortableHead
                   sortKey="parca"
@@ -152,98 +164,145 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gorunen.map((p) => {
-                const eksik = p.finding_counts?.eksik ?? 0;
-                const celiski = p.finding_counts?.celiski ?? 0;
-                const eskiKural =
-                  p.reconciler_version > 0 && p.reconciler_version < RECONCILER_VERSION;
-                return (
-                  <TableRow key={p.id} className="relative">
-                    <TableCell className="font-mono text-sm">
-                      <Link
-                        href={`/drawings/${p.id}`}
-                        className="absolute inset-0"
-                        aria-label={p.folder_name}
-                      />
-                      {p.item_no || <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-
-                    <TableCell className="min-w-0">
-                      <span className="block truncate font-medium" title={p.folder_name}>
-                        {p.description || p.folder_name}
-                        {p.capacity && (
-                          <span className="ml-1 text-muted-foreground">({p.capacity})</span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground md:hidden">
-                        {[
-                          p.group_code && `grup ${p.group_code}`,
-                          `${formatNum(p.file_count)} dosya`,
-                          `${formatNum(p.part_count)} parça`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="hidden font-mono text-sm text-muted-foreground lg:table-cell">
-                      {p.group_code || "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-right font-mono text-sm md:table-cell">
-                      {formatNum(p.file_count)}
-                    </TableCell>
-                    <TableCell className="hidden text-right font-mono text-sm md:table-cell">
-                      {formatNum(p.part_count)}
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <span
-                        className={`font-mono text-sm font-medium ${recognitionClass(p.recognition_pct)}`}
-                      >
-                        {p.recognition_pct == null ? "—" : `%${p.recognition_pct}`}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="flex flex-wrap gap-1">
-                        {eksik > 0 && (
-                          <span className="border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive">
-                            {eksik} eksik
+              {gruplu
+                ? gruplar.map((g) => (
+                    <Fragment key={g.itemNo || "(kalemsiz)"}>
+                      {/* GRUP BAŞLIĞI — bir işin bütün paketleri bir arada.
+                          Bazı projeler grup grup çiziliyor ve bir iş için 3–5
+                          ayrı yükleme geliyor; liste onları birbirinden
+                          bağımsız satırlar olarak gösteriyordu. */}
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={SUTUN} className="py-1.5">
+                          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <span className="font-mono text-sm font-semibold">
+                              {g.itemNo || "kalem eşleşmemiş"}
+                            </span>
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                              {formatNum(g.rows.length)} paket ·{" "}
+                              <span className={g.missing > 0 ? "text-destructive" : undefined}>
+                                {formatNum(g.storedCount)}/{formatNum(g.fileCount)} dosya depoda
+                              </span>{" "}
+                              · {formatNum(g.partCount)} parça
+                            </span>
+                            {g.rows[0]?.jobs?.title && (
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {g.rows[0].jobs.title}
+                              </span>
+                            )}
                           </span>
-                        )}
-                        {celiski > 0 && (
-                          <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
-                            {celiski} çelişki
-                          </span>
-                        )}
-                        {eksik === 0 && celiski === 0 && (
-                          <span className="font-mono text-[11px] text-muted-foreground">—</span>
-                        )}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="flex flex-wrap items-center gap-1">
-                        <span className="border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                          {PACKAGE_STATUS_LABELS[p.status]}
-                        </span>
-                        {eskiKural && (
-                          <span
-                            className="relative z-10 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400"
-                            title="Tanıma kuralları güncellendi; yeniden eşleştirilebilir."
-                          >
-                            kural eski
-                          </span>
-                        )}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                        </TableCell>
+                      </TableRow>
+                      {g.rows.map((p) => (
+                        <PaketSatiri key={p.id} p={p} />
+                      ))}
+                    </Fragment>
+                  ))
+                : gorunen.map((p) => <PaketSatiri key={p.id} p={p} />)}
             </TableBody>
           </Table>
         </div>
       )}
     </div>
+  );
+}
+
+function PaketSatiri({ p }: { p: PackageRow }) {
+  const eksik = p.finding_counts?.eksik ?? 0;
+  const celiski = p.finding_counts?.celiski ?? 0;
+  const eskiKural = p.reconciler_version > 0 && p.reconciler_version < RECONCILER_VERSION;
+  const depo = storageState(p);
+  return (
+    <TableRow className="relative">
+      <TableCell className="font-mono text-sm">
+        <Link href={`/drawings/${p.id}`} className="absolute inset-0" aria-label={p.folder_name} />
+        {p.item_no || <span className="text-muted-foreground">—</span>}
+      </TableCell>
+
+      <TableCell className="min-w-0">
+        <span className="block truncate font-medium" title={p.folder_name}>
+          {p.description || p.folder_name}
+          {p.capacity && <span className="ml-1 text-muted-foreground">({p.capacity})</span>}
+        </span>
+        <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground md:hidden">
+          {[
+            p.group_code && `grup ${p.group_code}`,
+            `${formatNum(depo.stored)}/${formatNum(depo.expected)} dosya`,
+            `${formatNum(p.part_count)} parça`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </TableCell>
+
+      <TableCell className="hidden font-mono text-sm text-muted-foreground lg:table-cell">
+        {p.group_code || "—"}
+      </TableCell>
+
+      {/* DOSYA SÜTUNU BEYANI DEĞİL ÖLÇÜMÜ BASAR. `file_count` paket açılırken
+          bir kez yazılıyor ve bir daha güncellenmiyor; depoya hiçbir bayt
+          ulaşmasa bile aynı sayıyı gösterirdi. */}
+      <TableCell className="hidden text-right font-mono text-sm md:table-cell">
+        <span className={depo.missing > 0 ? "font-semibold text-destructive" : undefined}>
+          {formatNum(depo.stored)}/{formatNum(depo.expected)}
+        </span>
+      </TableCell>
+
+      <TableCell className="hidden text-right font-mono text-sm md:table-cell">
+        {formatNum(p.part_count)}
+      </TableCell>
+
+      <TableCell className="text-right">
+        <span className={`font-mono text-sm font-medium ${recognitionClass(p.recognition_pct)}`}>
+          {p.recognition_pct == null ? "—" : `%${p.recognition_pct}`}
+        </span>
+      </TableCell>
+
+      <TableCell>
+        <span className="flex flex-wrap gap-1">
+          {depo.missing > 0 && (
+            <span
+              className="relative z-10 border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive"
+              title="Kayıt var, bayt yok. “Depoyu Doğrula” ile ölçülür, “Eksikleri Yükle” ile tamamlanır."
+            >
+              {formatNum(depo.missing)} depoda yok
+            </span>
+          )}
+          {eksik > 0 && (
+            <span className="border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive">
+              {eksik} eksik
+            </span>
+          )}
+          {celiski > 0 && (
+            <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
+              {celiski} çelişki
+            </span>
+          )}
+          {depo.missing === 0 && eksik === 0 && celiski === 0 && (
+            <span className="font-mono text-[11px] text-muted-foreground">—</span>
+          )}
+        </span>
+      </TableCell>
+
+      <TableCell>
+        <span className="flex flex-wrap items-center gap-1">
+          <span className="border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+            {PACKAGE_STATUS_LABELS[p.status]}
+          </span>
+          {p.rev_no > 1 && (
+            <span className="border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+              R{String(p.rev_no).padStart(2, "0")}
+            </span>
+          )}
+          {eskiKural && (
+            <span
+              className="relative z-10 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400"
+              title="Tanıma kuralları güncellendi; yeniden eşleştirilebilir."
+            >
+              kural eski
+            </span>
+          )}
+        </span>
+      </TableCell>
+    </TableRow>
   );
 }

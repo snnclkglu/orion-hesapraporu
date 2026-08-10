@@ -149,6 +149,54 @@ export function sortPackages(
   return desc ? kopya.reverse() : kopya;
 }
 
+/** Bir işin bütün paketleri — kalem numarası başlığı altında. */
+export interface PackageGroup {
+  itemNo: string;
+  rows: PackageRow[];
+  fileCount: number;
+  storedCount: number;
+  partCount: number;
+  /** Depoya ulaşmamış toplam dosya (grup başlığı bunu kırmızı basar). */
+  missing: number;
+}
+
+/**
+ * BİR İŞİN BİRDEN ÇOK PAKETİ OLABİLİR ve bu ilk günden beri destekleniyor:
+ * anahtar (kalem, grup) çiftidir, tekillik kısıtı BİLİNÇLİ olarak yoktur.
+ * `0057-00`+`0500` (monoray) ile `0057-00`+`2000` (köprü) ayrı paketlerdir ve
+ * birbirini etkilemez.
+ *
+ * Eksik olan LİSTELEMEYDİ: aynı işin parçaları listede beş bağımsız satır
+ * olarak duruyor ve yan yana gelmiyordu. Kalemsiz paketler kendi başlığı
+ * altında toplanır — "eşleşmemiş" bir grup adı değildir ama listede kaybolmak
+ * da olmaz.
+ */
+export function groupPackages(rows: PackageRow[]): PackageGroup[] {
+  const gruplar = new Map<string, PackageRow[]>();
+  for (const r of rows) {
+    const anahtar = (r.item_no || "").trim();
+    const liste = gruplar.get(anahtar);
+    if (liste) liste.push(r);
+    else gruplar.set(anahtar, [r]);
+  }
+  // Sıra GELDİĞİ GİBİ korunur: gruplama sıralamayı ezmemeli, yalnız aynı
+  // kalemin satırlarını bir araya toplamalı.
+  return [...gruplar.entries()].map(([itemNo, satirlar]) => {
+    let fileCount = 0;
+    let storedCount = 0;
+    let partCount = 0;
+    let missing = 0;
+    for (const r of satirlar) {
+      const beklenen = Math.max(0, r.file_count - r.skipped_count);
+      fileCount += beklenen;
+      storedCount += r.stored_count;
+      partCount += r.part_count;
+      missing += Math.max(0, beklenen - r.stored_count);
+    }
+    return { itemNo, rows: satirlar, fileCount, storedCount, partCount, missing };
+  });
+}
+
 // ————————————————————————————————————————————————————————— dosya gezgini
 
 export function matchesFile(row: FileRow, query: string): boolean {

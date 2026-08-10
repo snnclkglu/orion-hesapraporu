@@ -25,7 +25,7 @@
 import Link from "next/link";
 import { CloudUpload, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { canEditDrawings, isAdminRole } from "@/lib/roles";
+import { canEditDrawings } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { PACKAGE_STATUS_LABELS, formatNum } from "@/lib/drawings/labels";
 import type { DwgPackageStatus } from "@/lib/drawings/types";
@@ -97,7 +97,6 @@ export async function ResumeCard() {
     ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
     : { data: null };
   const yazabilir = canEditDrawings(profile?.role);
-  const yonetici = isAdminRole(profile?.role);
 
   const sinir = yarimSayilmaSiniri();
 
@@ -116,10 +115,14 @@ export async function ResumeCard() {
   const eksikSayaci = new Map<string, number>();
   let kesik = false;
   for (let bas = 0; bas < EN_COK_EKSIK_SATIR; bas += SAYFA) {
+    // ATLANANLAR EKSİK DEĞİLDİR. Yedek dosyalar ve bayt bayt kopyalar bilerek
+    // yüklenmiyor; `upload_skipped` süzülmezse kart her paketi "yarım kalmış"
+    // sayar ve ilk günden sonra kimse ona bakmaz.
     const { data, error } = await supabase
       .from("drawing_files")
       .select("package_id")
       .eq("stored", false)
+      .eq("upload_skipped", false)
       .range(bas, bas + SAYFA - 1);
     if (error) break;
     const dilim = (data ?? []) as { package_id: string }[];
@@ -147,6 +150,12 @@ export async function ResumeCard() {
   eksikPaketler = eksikPaketler.filter(
     (p) => !(p.status === "yukleniyor" && p.created_at >= sinir)
   );
+
+  // SÜPERSE EDİLMİŞ PAKET "YARIM" DEĞİLDİR. Emekli edilmiş bir revizyonun
+  // eksik dosyalarını tamamlamaya çağırmak, onu diriltmeye çağırmaktır: akış
+  // `finalizeUpload`tan geçiyor ve paket yeniden listeye çıkardı. Eski
+  // revizyonun eksiği bir arşiv gerçeğidir, bir görev değil.
+  eksikPaketler = eksikPaketler.filter((p) => p.status !== "superse");
 
   const satirlar: YarimPaket[] = [
     ...((yarimlar ?? []) as unknown as PaketSatiri[]),
@@ -225,17 +234,17 @@ export async function ResumeCard() {
                     Eksik Dosyaları Yükle
                   </Link>
                 </Button>
-                {yonetici && (
-                  // Silme YIKICI bir işlemdir ve onayı paket sayfasındaki
-                  // düğmededir; RLS de `drawing_packages` silmeyi `is_admin()`
-                  // ile kesiyor. Ressama gösterip başarısız olmak kartın en kötü
-                  // hâli olurdu — o yüzden düğme yalnız Yöneticide görünür.
-                  <Button asChild size="sm" variant="ghost" className="text-destructive">
-                    <Link href={`/drawings/${p.id}`} title="Silme onayı paket sayfasındadır.">
-                      Sil…
-                    </Link>
-                  </Button>
-                )}
+                {/* SİLME DÜĞMESİ ARTIK RESSAMA DA GÖRÜNÜR. Paketi ÜRETEN
+                    kişi odur ve yanlış klasörü fark eden ilk kişi de odur;
+                    yetki `can_edit_drawings()`e çekildi (emsal: mühendisin
+                    kendi taslak revizyonunu silebilmesi). Onay hâlâ paket
+                    sayfasındadır — orada ne kaybedileceği sayıyla yazılı ve
+                    paket adının yazılması isteniyor. */}
+                <Button asChild size="sm" variant="ghost" className="text-destructive">
+                  <Link href={`/drawings/${p.id}`} title="Silme onayı paket sayfasındadır.">
+                    Sil…
+                  </Link>
+                </Button>
               </div>
             )}
           </li>

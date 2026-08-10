@@ -12,7 +12,15 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
 import { FolderPicker } from "./folder-picker";
 
-export default async function NewDrawingPackagePage() {
+export default async function NewDrawingPackagePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ devam?: string }>;
+}) {
+  // SÜRDÜRME KİPİ. `resume-card` bu adresi ("Eksik Dosyaları Yükle") üretiyordu
+  // ama parametre hiçbir yerde OKUNMUYORDU: düğme boş bir sihirbaza gidiyor ve
+  // aynı klasör seçilince ikinci bir paket açılıyordu.
+  const { devam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,10 +39,10 @@ export default async function NewDrawingPackagePage() {
           Teknik Resimler
         </Link>
         <span aria-hidden>/</span>
-        <span className="text-foreground">Klasör Yükle</span>
+        <span className="text-foreground">{devam ? "Eksikleri Yükle" : "Klasör Yükle"}</span>
       </nav>
 
-      <FolderPicker />
+      <FolderPicker devamPackageId={devam ?? ""} />
     </div>
   );
 }

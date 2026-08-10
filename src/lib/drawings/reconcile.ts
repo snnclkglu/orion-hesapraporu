@@ -59,6 +59,19 @@ export interface PackageSnapshot {
   systemItemNo?: string;
   /** Okunmuş dosya içerikleri, `relPath` anahtarlı. Yoksa Faz 1 davranışı. */
   content?: Record<string, FileContent>;
+  /**
+   * DEPOYA ULAŞMAMIŞ dosyaların yolları.
+   *
+   * Kayıt satırı yazıldığı hâlde baytları depoda BULUNMAYAN dosyalar. Bilerek
+   * atlananlar (yedek dosyalar ve bayt bayt kopyalar) BURAYA GİRMEZ — onları
+   * "eksik" saymak, modülün en büyük düşmanı olan yanlış alarmı doğrudan
+   * üretirdi.
+   *
+   * Alan İSTEĞE BAĞLIDIR ve verilmediğinde hiçbir bulgu değişmez: çekirdek saf
+   * kalır, fikstürler ve betikler deponun varlığından habersiz çalışmayı
+   * sürdürür. Doğruyu bilen tek yer `verifyStorage`tır ve o da burayı doldurur.
+   */
+  missingStorage?: string[];
 }
 
 export interface RegisterPart {
@@ -707,6 +720,35 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     });
   }
 
+  // DOSYA DEPODA YOK — PAKET BAŞINA TEK BULGU.
+  //
+  // Kayıt satırı var, baytlar yok. Bu, modülün uzun süre GÖREMEDİĞİ tek
+  // durumdu: sihirbaz yalnız başarılı yolları bildiriyor, sayaçlar denemeyi
+  // sayıyor ve hiçbir ekran gerçeği sormuyordu. Artık `verifyStorage` bucket'ı
+  // listeliyor ve cevabı buraya taşıyor.
+  //
+  // TEK BULGU, çünkü dosya başına yazılsaydı 162 satır ederdi — `ICERIK_OKUNMADI`
+  // dersinde bunu zaten ölçtük: bir gürültü listesine dönen rapora kimse bakmaz.
+  //
+  // ATLANANLAR BURAYA GİRMEZ: yedek dosyaları ve bayt bayt kopyaları bilerek
+  // yüklemiyoruz, onları "eksik" diye saymak yanlış alarmın ta kendisi olurdu.
+  const depodaYok = snap.missingStorage ?? [];
+  if (depodaYok.length > 0) {
+    ekle({
+      code: "DOSYA_DEPODA_YOK",
+      kind: "eksik",
+      subject: snap.folder?.code || snap.folderName,
+      title:
+        depodaYok.length === snap.files.length
+          ? `${depodaYok.length} dosyanın hiçbiri depoya ulaşmamış. Kayıtlar var, baytlar yok.`
+          : `${snap.files.length} dosyanın ${depodaYok.length} tanesi depoya ulaşmamış. Kayıtlar var, baytlar yok.`,
+      detail:
+        "“Eksikleri Yükle” ile aynı klasör seçilir ve yalnız ulaşmayan dosyalar gönderilir; " +
+        "yeni bir paket açılmaz. Bu dosyalar açılamaz ve içerikleri okunamaz.",
+      data: { ornekler: depodaYok.slice(0, 5), toplam: depodaYok.length },
+    });
+  }
+
   // İÇERİK OKUNMADI — PAKET BAŞINA TEK BULGU.
   //
   // Dosya başına yazılsaydı MONORAY 104, MTC 270 satır üretirdi; bugünkü toplam
@@ -715,6 +757,10 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
   const icerikAdaylari = kullanilir.filter((f) => f.role === "resim" || f.role === "kesim");
   const okunmus = icerikAdaylari.filter((f) => snap.content?.[f.relPath]).length;
   if (icerikAdaylari.length > 0 && okunmus < icerikAdaylari.length) {
+    // BAYTLAR YOKSA "SONRA OKUNABİLİR" DEMEK YALANDIR. Eski metin okumayı bir
+    // zamanlama sorunu gibi anlatıyordu; oysa dosya depoda değilse okuma hiç
+    // gerçekleşemez ve kullanıcı boşuna "Yeniden Oku" düğmesine basar.
+    const depoEksigiVar = depodaYok.length > 0;
     ekle({
       code: "ICERIK_OKUNMADI",
       kind: "bilgi",
@@ -723,9 +769,10 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
         okunmus === 0
           ? `${icerikAdaylari.length} resim/kesim dosyasının içeriği henüz okunmadı.`
           : `${icerikAdaylari.length} dosyanın ${icerikAdaylari.length - okunmus} tanesinin içeriği okunmadı.`,
-      detail:
-        "Antetteki ağırlık ve DXF'in gerçek kesim ölçüsü bu okumadan gelir. " +
-        "“İçerikleri Yeniden Oku” ile alınabilir; defter onsuz da çalışır.",
+      detail: depoEksigiVar
+        ? "Bunların bir bölümü depoya hiç ulaşmadığı için okunamaz da; önce eksik dosyalar tamamlanmalı."
+        : "Antetteki ağırlık ve DXF'in gerçek kesim ölçüsü bu okumadan gelir. " +
+          "“İçerikleri Yeniden Oku” ile alınabilir; defter onsuz da çalışır.",
     });
   }
 

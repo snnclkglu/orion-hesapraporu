@@ -33,15 +33,19 @@ interface StageRow {
 }
 
 interface ProgressRow {
+  id: string;
   item_no: string;
   part_code: string;
   stage: string;
   qty_done: number | null;
   done_at: string | null;
   note: string | null;
+  review_required: boolean | null;
+  review_reason: string | null;
 }
 
-const ILERLEME_ALANLARI = "item_no, part_code, stage, qty_done, done_at, note";
+const ILERLEME_ALANLARI =
+  "id, item_no, part_code, stage, qty_done, done_at, note, review_required, review_reason";
 
 export default async function PackageProgressPage({
   params,
@@ -142,6 +146,9 @@ export default async function PackageProgressPage({
         qtyDone: r.qty_done ?? 0,
         doneAt: r.done_at,
         note: r.note ?? "",
+        id: r.id,
+        reviewRequired: r.review_required === true,
+        reviewReason: r.review_reason ?? "",
       }));
   }
 

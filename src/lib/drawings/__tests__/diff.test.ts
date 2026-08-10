@@ -138,6 +138,7 @@ function diffParcasi(p: RegisterPart): DiffPart {
     material: p.material,
     weightKg: p.weightKg,
     thicknessMm: p.thicknessMm,
+    cutLengthMm: p.cutLengthMm,
     category: p.category,
   };
 }
@@ -245,7 +246,7 @@ describe("MONORAY — kodlu parçalar", () => {
     expect(mono.yeni.side.parts).toHaveLength(121);
   });
 
-  it("kodlu tarafta 0 yeni, 0 silinen, 6 değişen", () => {
+  it("kodlu tarafta 0 yeni, 0 silinen, 8 değişen", () => {
     expect(monoFark.yeniParcalar.filter((p) => p.partCode)).toEqual([]);
     expect(monoFark.silinenParcalar.filter((p) => p.partCode)).toEqual([]);
     expect(monoFark.degisenParcalar.filter((c) => c.yeni.partCode).map((c) => c.yeni.partCode))
@@ -253,8 +254,14 @@ describe("MONORAY — kodlu parçalar", () => {
         "0057-00-0700-02",
         "0057-00-1000-02",
         "0057-00-1000-03",
+        // -04 ve -09 KESİM BOYU alanı eklenene kadar görünmüyordu: ikisinin de
+        // profil boyu değişmiş (462 → 240 ve 148 → 240). `kalinlik` sac
+        // parçanın ölçüsüdür ve boya kesilen profili hiç anlatmaz; testere
+        // kalemlerinin bütün imalat talimatı bu sayıdadır.
+        "0057-00-1000-04",
         "0057-00-1000-05",
         "0057-00-1000-08",
+        "0057-00-1000-09",
         "0057-00-1000-14",
       ]);
   });
@@ -313,24 +320,32 @@ describe("MONORAY — kodsuz (satın alma) parçalar", () => {
       degisenDosya: 5,
       yeniParca: 2,
       silinenParca: 0,
-      degisenParca: 13,
-      alanSayaci: { adet: 4, malzeme: 5, agirlik: 0, kalinlik: 0, kategori: 5, tanim: 2 },
+      degisenParca: 15,
+      alanSayaci: {
+        adet: 4,
+        malzeme: 5,
+        agirlik: 0,
+        kalinlik: 0,
+        kesimBoyu: 2,
+        kategori: 5,
+        tanim: 2,
+      },
       bos: false,
     });
-    expect(diffOzetMetni(monoFark.ozet)).toBe("5 dosya değişti · +2 parça · 13 parça değişti");
+    expect(diffOzetMetni(monoFark.ozet)).toBe("5 dosya değişti · +2 parça · 15 parça değişti");
   });
 });
 
 describe("ANAHTAR SEÇİMİ — `register_key` kullanılsaydı ne olurdu", () => {
-  it("konumsal anahtar 13 gerçek değişikliği 46'ya çıkarır", () => {
+  it("konumsal anahtar 15 gerçek değişikliği 48'e çıkarır", () => {
     // MALİYET TESTTE YAZILI OLSUN: bir gün biri anahtarı "basitleştirmek"
     // isterse 33 sahte değişikliğin bedelini burada görür. Sebep şemadaki
     // `register_key`in kodsuz satırda konumsal olmasıdır ('SATIR:' || bom_seq);
     // MONORAY'a iki satın alma kalemi eklenince sonraki bütün satır numaraları
     // kayıyor ve aynı cıvata "tanımı değişmiş" görünüyor.
     const konumsal = packageDiff(mono.eski.side, mono.yeni.side, { partKey: "registerKey" });
-    expect(konumsal.ozet.degisenParca).toBe(46);
-    expect(monoFark.ozet.degisenParca).toBe(13);
+    expect(konumsal.ozet.degisenParca).toBe(48);
+    expect(monoFark.ozet.degisenParca).toBe(15);
     expect(konumsal.ozet.degisenParca - monoFark.ozet.degisenParca).toBe(33);
   });
 
@@ -345,6 +360,7 @@ describe("ANAHTAR SEÇİMİ — `register_key` kullanılsaydı ne olurdu", () =>
       material: "FST",
       weightKg: null,
       thicknessMm: null,
+      cutLengthMm: null,
       category: "",
     };
     expect(partDiffKey(p)).toBe("TANIM:PUL RONDELA M8 DIN125");
@@ -434,7 +450,18 @@ describe("MTC — 261 parçalık paket, ikinci teslim", () => {
       yeniParca: 91,
       silinenParca: 47,
       degisenParca: 131,
-      alanSayaci: { adet: 86, malzeme: 24, agirlik: 110, kalinlik: 10, kategori: 56, tanim: 86 },
+      alanSayaci: {
+        adet: 86,
+        malzeme: 24,
+        agirlik: 110,
+        kalinlik: 10,
+        // Kesim boyu 18 parçada değişmiş ama `degisenParca` ARTMIYOR: hepsi
+        // zaten başka bir alandan da değişmişti. Yeni alan gürültü eklemedi,
+        // var olan satırlara ATÖLYENİN OKUYACAĞI sayıyı ekledi.
+        kesimBoyu: 18,
+        kategori: 56,
+        tanim: 86,
+      },
       bos: false,
     });
   });
@@ -522,6 +549,7 @@ describe("sayısal kararlılık — `numeric` sütun METİN dönebilir", () => {
     material: "S355JR",
     weightKg: 1498.457,
     thicknessMm: 8,
+    cutLengthMm: null,
     category: "Komple",
   };
   const tek = (a: DiffPart, b: DiffPart) =>
@@ -586,6 +614,7 @@ describe("sınır durumları — hiçbir koşulda çökmez", () => {
       material: "",
       weightKg: null,
       thicknessMm: null,
+      cutLengthMm: null,
       category: "",
     };
     expect(partDiffKey(p)).toBe("SIRA:SATIR:12");
@@ -603,6 +632,7 @@ describe("sınır durumları — hiçbir koşulda çökmez", () => {
       material: "",
       weightKg: null,
       thicknessMm: null,
+      cutLengthMm: null,
       category: "",
     };
     const b: DiffPart = { ...a, description: "LİMİT_51_67_DZC0Z_499P" };
@@ -658,7 +688,7 @@ describe("EKRAN — sürüm listesi", () => {
 
   it("fark satırı çekirdekten gelen ÖZETİN ta kendisidir", () => {
     const html = markup([blok(monoFark), eskiBlok]);
-    expect(html).toContain("5 dosya değişti · +2 parça · 13 parça değişti");
+    expect(html).toContain("5 dosya değişti · +2 parça · 15 parça değişti");
     expect(html).toContain("R2");
     expect(html).toContain("R1");
     // Ayrıntı JS'siz açılır.

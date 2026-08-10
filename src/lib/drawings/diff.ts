@@ -40,10 +40,34 @@ export const DIFF_FIELDS = [
   "malzeme",
   "agirlik",
   "kalinlik",
+  "kesimBoyu",
   "kategori",
   "tanim",
 ] as const;
 export type DiffField = (typeof DIFF_FIELDS)[number];
+
+/**
+ * İMALATI ETKİLEYEN ALANLAR — revizyon devrinin dayandığı liste.
+ *
+ * Bir revizyonda parça değişmişse atölyenin "kesildi" kaydı devrolur ama
+ * GÖZDEN GEÇİRİLMESİ istenir. Hangi değişikliğin bunu hak ettiği BURADA
+ * tanımlıdır ve tek yerdedir.
+ *
+ * `agirlik` ve `tanim` BİLİNÇLİ OLARAK DIŞARIDADIR:
+ *   · Ağırlık TÜRETİLMİŞ bir sayıdır — modelin yeniden hesaplanması onu
+ *     gramla oynatır ve kesilmiş parçayı yanlış yapmaz.
+ *   · Tanım metnindeki bir düzeltme ("LIMIT" → "LİMİT") imalat talimatı
+ *     değiştirmez.
+ * İkisi de listeye girseydi her revizyonda neredeyse her kayıt işaretlenir ve
+ * işaret anlamını yitirirdi — bu modülde yanlış alarm en büyük düşmandır.
+ */
+export const MANUFACTURING_DIFF_FIELDS: readonly DiffField[] = [
+  "adet",
+  "malzeme",
+  "kalinlik",
+  "kesimBoyu",
+  "kategori",
+];
 
 /**
  * Alan etiketleri çekirdekte durur (`types.ts`teki `FILE_ROLE_LABELS` ile aynı
@@ -56,6 +80,7 @@ export const DIFF_FIELD_LABELS: Record<DiffField, string> = {
   malzeme: "Malzeme",
   agirlik: "Ağırlık",
   kalinlik: "Kalınlık",
+  kesimBoyu: "Kesim boyu",
   kategori: "Kategori",
   tanim: "Tanım",
 };
@@ -71,6 +96,7 @@ export const DIFF_FIELD_LABELS: Record<DiffField, string> = {
 const OLCEK: Partial<Record<DiffField, number>> = {
   adet: 0,
   kalinlik: 2,
+  kesimBoyu: 2,
   agirlik: 3,
 };
 
@@ -98,6 +124,14 @@ export interface DiffPart {
   material: string;
   weightKg: Sayisal;
   thicknessMm: Sayisal;
+  /**
+   * Testere/profil kalemlerinin KESİM BOYU (`cut_length_mm`).
+   *
+   * `kalinlik` sac parçanın ölçüsüdür; boya kesilen standart profilin ölçüsü
+   * budur ve imalat talimatının kendisidir. İkisi ayrı alan olmasaydı bir
+   * NPL 50x50x5'in 23500 mm'den 24000 mm'ye çıkması farkta hiç görünmezdi.
+   */
+  cutLengthMm: Sayisal;
   category: string;
 }
 
@@ -300,6 +334,7 @@ function alanFarki(eski: DiffPart, yeni: DiffPart): PartFieldChange[] {
   metinFarki("malzeme", eski.material, yeni.material);
   sayisalFark("agirlik", eski.weightKg, yeni.weightKg);
   sayisalFark("kalinlik", eski.thicknessMm, yeni.thicknessMm);
+  sayisalFark("kesimBoyu", eski.cutLengthMm, yeni.cutLengthMm);
   metinFarki("kategori", eski.category, yeni.category);
   metinFarki("tanim", eski.description, yeni.description);
 

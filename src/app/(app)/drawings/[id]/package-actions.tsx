@@ -1,30 +1,99 @@
 "use client";
 
-// Paket eylemleri — "Yeniden Eşleştir" ve "Sil".
+// Paket eylemleri — "Yeniden Eşleştir", "İçerikleri Yeniden Oku",
+// "Depoyu Doğrula" ve "Sil".
 //
-// İKİ AYRI MALİYET, İKİ AYRI DÜĞME olacak şekilde tasarlandı ve bu Faz 1'de
-// İKİ AYRI MALİYET, İKİ AYRI DÜĞME — ve fark her ikisinin `title`ında yazılı:
-//   "Yeniden Eşleştir"      depoya HİÇ dokunmaz, saniyenin altında biter
+// AYRI MALİYET, AYRI DÜĞME — ve fark her birinin `title`ında yazılı:
+//   "Yeniden Eşleştir"       depoya HİÇ dokunmaz, saniyenin altında biter
+//   "Depoyu Doğrula"         yalnız LİSTELER, dosya indirmez; saniyeler sürer
 //   "İçerikleri Yeniden Oku" her resmi ve DXF'i YENİDEN İNDİRİR, dakikalar sürer
 // Tek düğmede birleşselerdi kullanıcı ucuz olanı pahalı sanıp hiç kullanmazdı.
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookOpenCheck, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { BookOpenCheck, CloudUpload, Loader2, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { deletePackage, reconcilePackage } from "../actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { formatBytes, formatNum } from "@/lib/drawings/labels";
+import { deletePackage, reconcilePackage, verifyStorage } from "../actions";
 
-export function PackageActions({ packageId }: { packageId: string }) {
+export interface PackageActionsProps {
+  packageId: string;
+  folderName: string;
+  /** Silme onayında NE KAYBEDİLECEĞİNİ sayıyla söylemek için. */
+  storedCount: number;
+  bytes: number;
+  partCount: number;
+  /** Üretime girmiş bir paket silinemez — düğme daha tıklanmadan söyler. */
+  progressCount: number;
+  missing: number;
+}
+
+export function PackageActions({
+  packageId,
+  folderName,
+  storedCount,
+  bytes,
+  partCount,
+  progressCount,
+  missing,
+}: PackageActionsProps) {
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
-  const [silmeOnayi, setSilmeOnayi] = useState(false);
+  const [silmeAcik, setSilmeAcik] = useState(false);
+  const [onayAdi, setOnayAdi] = useState("");
 
   function yenidenEslestir() {
     basla(async () => {
       const sonuc = await reconcilePackage({ packageId });
       if (sonuc.error) toast.error(sonuc.error);
-      else toast.success(`Defter yeniden kuruldu — tanıma %${sonuc.recognitionPct ?? 0}.`);
+      else if (sonuc.missing) {
+        toast.warning(
+          `Defter kuruldu ama ${formatNum(sonuc.missing)} dosya depoda yok — tanıma %${sonuc.recognitionPct ?? 0}.`
+        );
+      } else toast.success(`Defter yeniden kuruldu — tanıma %${sonuc.recognitionPct ?? 0}.`);
+      router.refresh();
+    });
+  }
+
+  /**
+   * Depoyu doğrula — "bayt ulaştı mı" sorusunun TEK YETKİLİ CEVABI.
+   *
+   * Bucket'ı listeler ve `stored` alanını GERÇEĞE göre yazar. Öncesinde bu alan
+   * istemcinin beyanından yazılıyordu: sihirbaz "hata almadım" dediği için
+   * `true` oluyordu ve hiçbir şey bunu bir daha sorgulamıyordu.
+   */
+  function depoyuDogrula() {
+    basla(async () => {
+      const sonuc = await verifyStorage({ packageId });
+      if (sonuc.error) {
+        toast.error(sonuc.error);
+        return;
+      }
+      const eksik = sonuc.missing ?? 0;
+      const atlanan = sonuc.skippedCount ?? 0;
+      const kuyruk = atlanan > 0 ? ` · ${formatNum(atlanan)} dosya atlandı` : "";
+      if (eksik > 0) {
+        toast.error(
+          `${formatNum(eksik)} dosya depoda YOK. ${formatNum(sonuc.storedCount ?? 0)}/${formatNum(sonuc.expectedCount ?? 0)} dosya · ${formatBytes(sonuc.storedBytes ?? 0)}${kuyruk}`,
+          { duration: Infinity, closeButton: true }
+        );
+      } else {
+        toast.success(
+          `Depo doğrulandı — ${formatNum(sonuc.storedCount ?? 0)}/${formatNum(sonuc.expectedCount ?? 0)} dosya · ${formatBytes(sonuc.storedBytes ?? 0)}${kuyruk}`
+        );
+      }
       router.refresh();
     });
   }
@@ -41,6 +110,7 @@ export function PackageActions({ packageId }: { packageId: string }) {
     basla(async () => {
       for (const asama of ["pdf", "dxf"] as const) {
         let ofset = 0;
+        const okunamayan: { file: string; reason: string }[] = [];
         for (let tur = 0; tur < 200; tur++) {
           const yanit = await fetch(
             `/drawings/${packageId}/import?asama=${asama}&ofset=${ofset}&adet=${asama === "pdf" ? 20 : 25}`,
@@ -50,9 +120,34 @@ export function PackageActions({ packageId }: { packageId: string }) {
             toast.error(`${asama.toUpperCase()} okuma tamamlanamadı.`);
             return;
           }
-          const sonuc = (await yanit.json()) as { kalan: number; sonraki: number | null };
+          const sonuc = (await yanit.json()) as {
+            toplam: number;
+            kalan: number;
+            sonraki: number | null;
+            okunamayan?: { file: string; reason: string }[];
+          };
+          if (sonuc.okunamayan?.length) okunamayan.push(...sonuc.okunamayan);
+          // BOŞ İŞ KÜMESİ BAŞARI DEĞİLDİR. Okunacak hiç dosya yoksa bu bir
+          // sonuç değil bir DURUMDUR ve söylenmelidir; sessizce "okundu"
+          // demek, depoya hiç ulaşmamış bir paketi başarılı göstermekti.
+          if (sonuc.toplam === 0) {
+            toast.warning(
+              `${asama.toUpperCase()}: okunacak dosya bulunamadı (depoda olan resim/kesim dosyası yok).`
+            );
+            break;
+          }
           if (!sonuc.kalan || sonuc.sonraki == null) break;
           ofset = sonuc.sonraki;
+        }
+        if (okunamayan.length) {
+          const ornek = okunamayan
+            .slice(0, 3)
+            .map((o) => `${o.file.split("/").pop()} (${o.reason})`)
+            .join(" · ");
+          toast.error(
+            `${asama.toUpperCase()}: ${okunamayan.length} dosya okunamadı — ${ornek}${okunamayan.length > 3 ? " …" : ""}`,
+            { duration: Infinity, closeButton: true }
+          );
         }
       }
       const es = await reconcilePackage({ packageId });
@@ -63,21 +158,23 @@ export function PackageActions({ packageId }: { packageId: string }) {
   }
 
   function sil() {
-    if (!silmeOnayi) {
-      setSilmeOnayi(true);
-      return;
-    }
     basla(async () => {
-      const sonuc = await deletePackage({ packageId });
+      const sonuc = await deletePackage({ packageId, confirmName: onayAdi });
       if (sonuc.error) {
-        toast.error(sonuc.error);
-        setSilmeOnayi(false);
+        toast.error(sonuc.error, { duration: Infinity, closeButton: true });
         return;
       }
-      toast.success("Paket silindi.");
+      toast.success("Paket ve bütün depo dosyaları silindi.");
       router.push("/drawings");
     });
   }
+
+  // ÜRETİME GİRMİŞ PAKET SİLİNEMEZ ve bu düğmeden anlaşılmalı. Kural asıl olarak
+  // veritabanı tetikleyicisindedir (`guard_drawing_package_delete`); buradaki
+  // kilit yalnız kullanıcıyı boşuna uğraştırmamak içindir — proje silmedeki
+  // `blocked` kalıbının aynısı.
+  const kilitli = progressCount > 0;
+  const adUyuyor = onayAdi.trim().localeCompare(folderName.trim(), "tr", { sensitivity: "base" }) === 0;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -97,6 +194,27 @@ export function PackageActions({ packageId }: { packageId: string }) {
         type="button"
         variant="outline"
         size="sm"
+        onClick={depoyuDogrula}
+        disabled={calisiyor}
+        title="Bucket'ı listeler ve hangi dosyanın gerçekten orada olduğunu yazar. Dosya indirmez."
+      >
+        {calisiyor ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" />}
+        Depoyu Doğrula
+      </Button>
+
+      {missing > 0 && (
+        <Button asChild size="sm" variant="outline" className="border-destructive/40 text-destructive">
+          <Link href={`/drawings/new?devam=${packageId}`}>
+            <CloudUpload className="size-3.5" />
+            Eksikleri Yükle ({formatNum(missing)})
+          </Link>
+        </Button>
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
         onClick={icerikleriOku}
         disabled={calisiyor}
         title="Her resmi ve DXF'i depodan YENİDEN İNDİRİR — pakette yüzlerce dosya varsa dakikalar sürebilir."
@@ -110,13 +228,87 @@ export function PackageActions({ packageId }: { packageId: string }) {
         variant="ghost"
         size="sm"
         className="text-destructive"
-        onClick={sil}
+        onClick={() => {
+          setOnayAdi("");
+          setSilmeAcik(true);
+        }}
         disabled={calisiyor}
-        title="Paketi ve bütün depo dosyalarını siler — yalnız Yönetici."
+        title={
+          kilitli
+            ? "Bu paket üretime girmiş; silinemez."
+            : "Paketi, defterini ve bütün depo dosyalarını siler."
+        }
       >
         <Trash2 className="size-3.5" />
-        {silmeOnayi ? "Emin misiniz?" : "Sil"}
+        Sil
       </Button>
+
+      {silmeAcik && (
+        <Dialog open onOpenChange={(o) => !o && setSilmeAcik(false)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Paketi Sil</DialogTitle>
+              <DialogDescription asChild>
+                <div className="grid gap-2">
+                  {kilitli ? (
+                    <p>
+                      Bu paket <strong>üretime girmiş</strong>: atölye {formatNum(progressCount)}{" "}
+                      üretim kaydı yazmış. Üretime girmiş bir paket bir taslak değil{" "}
+                      <strong>arşiv belgesidir</strong> ve silinemez. Yerine{" "}
+                      <strong>yeni revizyon</strong> yükleyin — dosyalar yenilenir, atölyenin
+                      kaydı korunur.
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        <strong>{formatNum(storedCount)} depo dosyası</strong> (
+                        {formatBytes(bytes)}), <strong>{formatNum(partCount)} parça defteri
+                        kaydı</strong> ve paketin bütün bulguları kalıcı olarak silinecek.
+                      </p>
+                      <p>
+                        Yanlış bir klasör yüklediyseniz silmek yerine{" "}
+                        <strong>yeni revizyon</strong> yüklemeyi düşünün: geçmişi yok etmez.
+                      </p>
+                      <p>Bu işlem geri alınamaz.</p>
+                    </>
+                  )}
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+
+            {!kilitli && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="silOnay">
+                  Onaylamak için paket adını yazın:{" "}
+                  <span className="font-mono text-foreground">{folderName}</span>
+                </Label>
+                <Input
+                  id="silOnay"
+                  value={onayAdi}
+                  onChange={(e) => setOnayAdi(e.target.value)}
+                  placeholder={folderName}
+                  className="font-mono"
+                  autoComplete="off"
+                />
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setSilmeAcik(false)}>
+                Vazgeç
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={calisiyor || kilitli || !adUyuyor}
+                onClick={sil}
+              >
+                {calisiyor ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
