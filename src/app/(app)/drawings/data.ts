@@ -159,6 +159,78 @@ export async function loadPackage(
   return (data as unknown as PackageRow) ?? null;
 }
 
+/**
+ * KARDEŞ PAKET satırının okunan yüzü.
+ *
+ * `PackageRow`un tamamı okunmaz: şerit yalnız "hangi grup, ne, hangi durumda"
+ * sorusuna cevap verir. Depo ölçümü ve sayaçlar paketin KENDİ künyesinin
+ * işidir; kardeş şeridinde tekrar etmeleri geçiş kararına hiçbir şey katmaz,
+ * yalnız çipi büyütürdü.
+ */
+export interface SiblingPackageRow {
+  id: string;
+  group_code: string;
+  description: string;
+  folder_name: string;
+  rev_no: number;
+  status: DwgPackageStatus;
+}
+
+/**
+ * Şeritte en çok kaç kardeş gösterilir.
+ *
+ * Bir işin 3–5 paketle gelmesi bekleniyor; 12 o beklentinin epeyce üstünde bir
+ * TAVANdır ve şeridin bir kalemin bütün arşivine dönüşmesini engeller.
+ *
+ * Sorgu bir FAZLASINI okur (`+ 1`): "liste kesildi mi" sorusunun cevabı ancak
+ * böyle KESİN olur. Tam sınır kadar satır dönmesi ile sınırda kesilmiş olmak
+ * aynı şey değildir; ikisini ayırt etmeden "ilk 12" yazmak, 12 kardeşi olan
+ * pakette yanlış alarm olurdu.
+ */
+export const KARDES_SINIRI = 12;
+
+/**
+ * Aynı iş kalemini paylaşan DİĞER paketler.
+ *
+ * `item_no` BOŞSA SORGU HİÇ YAPILMAZ. Boş kalem numarası bir değer değil bir
+ * EKSİKLİKTİR (sütun `text not null default ''`); `eq("item_no", "")` henüz
+ * eşleşmemiş bütün paketleri birbirinin kardeşi sayardı ve birbiriyle ilgisiz
+ * teslimler birbirinin başlığında görünürdü. Aynı tuzak `versions/page.tsx`in
+ * zincir taramasında da belgelidir.
+ *
+ * Numara KANONİKLEŞTİRİLMEZ (`itemNoOf` ÇAĞRILMAZ) ve bu, komşu ekranla
+ * kasıtlı bir farktır. `projects/[id]/drawing-packages-card.tsx` iki AYRI
+ * kaynağı eşleştirir (iş kalemi defteri ↔ paket) ve orada yazım farkını
+ * kapatmak gerekir. Burada karşılaştırılan iki taraf da AYNI SÜTUNDUR: bir
+ * tarafı normalleştirip diğerini olduğu gibi bırakmak, "00057-00" yazan bir
+ * paketin kardeşlerini sessizce KAYBETTİRİRDİ. Aynı sütun kendisiyle birebir
+ * karşılaştırılır.
+ *
+ * Sayfalama YOK ve bu bilinçli: okuma zaten `KARDES_SINIRI` ile sınırlı,
+ * `max_rows` kırpması söz konusu değil — bu dosyanın `tumSatirlar` kalıbı
+ * SINIRSIZ okumalar içindir.
+ *
+ * Sıra GRUP KODUNADIR, tarihe değil: aynı grubun sürümleri (R02 · R01) yan
+ * yana düşsün ki kullanıcı hangisinin geçerli olduğunu tek bakışta ayırt
+ * edebilsin. `dwg_packages_item_idx` tam bu sorgu için duruyor.
+ */
+export async function loadSiblingPackages(
+  supabase: SupabaseClient,
+  itemNo: string,
+  exceptId: string
+): Promise<SiblingPackageRow[]> {
+  if (!itemNo || !itemNo.trim()) return [];
+  const { data } = await supabase
+    .from("drawing_packages")
+    .select("id, group_code, description, folder_name, rev_no, status")
+    .eq("item_no", itemNo)
+    .neq("id", exceptId)
+    .order("group_code")
+    .order("rev_no", { ascending: false })
+    .limit(KARDES_SINIRI + 1);
+  return (data ?? []) as unknown as SiblingPackageRow[];
+}
+
 export interface FileRow {
   id: string;
   rel_path: string;

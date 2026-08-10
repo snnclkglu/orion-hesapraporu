@@ -1,23 +1,27 @@
 // Parça defteri Excel çıktısı.
 //
 // SAF: DB/HTTP bağımlılığı yok — route handler veriyi süzer, burası çalışma
-// kitabını kurar. Marka dili İş Takibi ve ekipman listesiyle aynı: kömür
-// başlık, kırmızı ince ayraç, mono teknik metin, ayrı künye sayfası.
+// kitabını kurar. Marka dili Teknik Resimler'in diğer üç Excel çıktısıyla
+// AYNIDIR ve tanımı `excel/brand.ts`tedir: kömür başlık bandı, kırmızı ince
+// ayraç, mono teknik metin, ayrı künye sayfası.
+//
+// Bu dosya bandı uzun süre HİÇ BASMIYORDU: başlık dolgusuz, varsayılan yazı
+// tipiyle düz siyah yazılıyordu. Aynı paketin dört dosyasını yan yana açan
+// kullanıcı birinin markasız olduğunu görüyordu; sapma buradan kapandı.
 //
 // SÜZGEÇ ÖZETİ KÜNYEYE YAZILIR. Bu bir nezaket değil zorunluluk: aynı paketten
 // iki farklı süzgeçle alınan iki dosya klasörde yan yana durunca hangisinin ne
 // olduğu ancak künyeden anlaşılır.
 
 import ExcelJS from "exceljs";
-
-// Marka renkleri (design-system/readme.md)
-const CHARCOAL = "FF262626";
-const ORION_RED = "FFA41E1E";
-const PAPER_200 = "FFE7E4E2";
-
-const BASLIK_DOLGU: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: CHARCOAL } };
-const KIRMIZI_DOLGU: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: ORION_RED } };
-const MONTAJ_DOLGU: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: PAPER_200 } };
+import {
+  COL_FILL,
+  HEADER_FILL,
+  MODULE_PREFIX,
+  MONO_FONT,
+  PAPER,
+  writeTitleBlock,
+} from "@/lib/excel/brand";
 
 export interface RegisterPartOut {
   partCode: string;
@@ -64,13 +68,46 @@ const SUTUNLAR: { baslik: string; genislik: number; sag?: boolean }[] = [
   { baslik: "Kesim", genislik: 7 },
 ];
 
+/**
+ * Sayfanın marka bandı — kardeş çıktılarla (satın alma · kesim · imalat) AYNI
+ * önek ve AYNI künye düzeni.
+ *
+ * Künyeye paket adı da girer: bu dosyanın başlığı sayfanın adıdır ("Parça
+ * Defteri"), hangi pakete ait olduğu ancak künye satırından okunur. Boş
+ * alanları `writeTitleBlock` kendisi eler; kalem numarası olmayan (eşleşmemiş)
+ * paketlerde satır kısalır, "kalem —" gibi bir yer tutucu basılmaz.
+ */
+function markaBandi(
+  ws: ExcelJS.Worksheet,
+  baslik: string,
+  meta: RegisterMeta,
+  sutunSayisi: number
+): number {
+  return writeTitleBlock(ws, baslik, sutunSayisi, {
+    prefix: MODULE_PREFIX.drawings,
+    meta: [
+      meta.packageTitle,
+      meta.docCode,
+      meta.itemNo ? `kalem ${meta.itemNo}` : null,
+      meta.filterText,
+      meta.generatedAt,
+      meta.preparedBy,
+    ],
+  });
+}
+
+/**
+ * Tablo başlığı. Ortak `styleHeaderRow` KULLANILMAZ: o açık zeminli ve tek
+ * satırlıktır; on üç sütunlu defterde başlıklar ancak SARILARAK sığıyor ve
+ * sağa dayalı sayı sütunları başlıkta da sağa dayanmalı.
+ */
 function baslikSatiri(ws: ExcelJS.Worksheet, row: number): void {
   const r = ws.getRow(row);
   SUTUNLAR.forEach((s, i) => {
     const c = r.getCell(i + 1);
     c.value = s.baslik;
-    c.fill = BASLIK_DOLGU;
-    c.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+    c.fill = HEADER_FILL;
+    c.font = { bold: true, size: 9, color: { argb: PAPER } };
     c.alignment = { vertical: "middle", horizontal: s.sag ? "right" : "left", wrapText: true };
   });
   r.height = 22;
@@ -85,31 +122,19 @@ export function buildRegisterWorkbook(
 
   // ————————————————————————————————————————————————— Parça Defteri
   const ws = wb.addWorksheet("Parça Defteri", {
-    views: [{ state: "frozen", ySplit: 4 }],
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
+  // Sütun genişlikleri ELLE verilir (`SUTUNLAR`), `autoWidth` ile ölçülmez:
+  // tanım ve montaj sütunları uzun metin taşır ve ölçüme bırakılırsa tablo
+  // yatay sığmaz — defter tek sayfa enine basılan bir atölye belgesidir.
   ws.columns = SUTUNLAR.map((s) => ({ width: s.genislik }));
 
-  ws.mergeCells(1, 1, 1, SUTUNLAR.length);
-  const t = ws.getCell(1, 1);
-  t.value = meta.packageTitle;
-  t.font = { bold: true, size: 13 };
-  ws.getRow(1).height = 20;
-
-  ws.mergeCells(2, 1, 2, SUTUNLAR.length);
-  const alt = ws.getCell(2, 1);
-  alt.value = `${meta.docCode} · kalem ${meta.itemNo || "—"} · ${meta.filterText}`;
-  alt.font = { size: 8, color: { argb: "FF666666" }, name: "Consolas" };
-
-  // Kırmızı ince ayraç — marka omurgasının tablodaki karşılığı.
-  ws.mergeCells(3, 1, 3, SUTUNLAR.length);
-  ws.getCell(3, 1).fill = KIRMIZI_DOLGU;
-  ws.getRow(3).height = 3;
-
-  baslikSatiri(ws, 4);
+  const baslikNo = markaBandi(ws, "Parça Defteri", meta, SUTUNLAR.length);
+  baslikSatiri(ws, baslikNo);
+  ws.views = [{ state: "frozen", ySplit: baslikNo }];
 
   parts.forEach((p, i) => {
-    const r = ws.getRow(5 + i);
+    const r = ws.getRow(baslikNo + 1 + i);
     r.values = [
       p.partCode || "—",
       p.description,
@@ -126,10 +151,13 @@ export function buildRegisterWorkbook(
       p.hasCut ? "✓" : "",
     ];
     r.font = { size: 9 };
-    r.getCell(1).font = { size: 9, name: "Consolas", bold: p.isMontaj };
+    // Parça kodu mono yazılır ve mono ARTIK MARKANINKİDİR: aynı paketin imalat
+    // listesi kodu IBM Plex Mono ile basıyordu, defter Consolas ile — yan yana
+    // duran iki dosya iki ayrı belge gibi görünüyordu.
+    r.getCell(1).font = { size: 9, name: MONO_FONT, bold: p.isMontaj };
     if (p.isMontaj) {
       // Montaj satırı ayırt edilir — ekrandaki kuralın Excel'deki karşılığı.
-      for (let c = 1; c <= SUTUNLAR.length; c++) r.getCell(c).fill = MONTAJ_DOLGU;
+      for (let c = 1; c <= SUTUNLAR.length; c++) r.getCell(c).fill = COL_FILL;
       r.getCell(2).font = { size: 9, bold: true };
     }
     for (const c of [6, 8, 9, 10]) {
@@ -139,11 +167,17 @@ export function buildRegisterWorkbook(
     for (const c of [11, 12, 13]) r.getCell(c).alignment = { horizontal: "center" };
   });
 
-  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: SUTUNLAR.length } };
+  ws.autoFilter = {
+    from: { row: baslikNo, column: 1 },
+    to: { row: baslikNo, column: SUTUNLAR.length },
+  };
 
   // ————————————————————————————————————————————————— Künye
   const k = wb.addWorksheet("Künye");
   k.columns = [{ width: 24 }, { width: 72 }];
+  // Künye sayfası da bandı basar: bir kullanıcı dosyayı ikinci sekmesinden
+  // açtığında belgeyi tanıyabilmeli — kardeş çıktıların künyesi de böyledir.
+  const kunyeBas = markaBandi(k, "Künye", meta, 2);
   const satirlar: [string, string][] = [
     ["Paket", meta.packageTitle],
     ["Klasör adı", meta.folderName],
@@ -157,7 +191,7 @@ export function buildRegisterWorkbook(
     ["Üreten", meta.preparedBy],
   ];
   satirlar.forEach(([ad, deger], i) => {
-    const r = k.getRow(i + 1);
+    const r = k.getRow(kunyeBas + i);
     r.getCell(1).value = ad;
     r.getCell(1).font = { bold: true, size: 9 };
     r.getCell(2).value = deger;

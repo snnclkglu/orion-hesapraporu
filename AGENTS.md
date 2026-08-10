@@ -9,9 +9,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 Vinç işlerinin tek yerden takibi: iş emri → ürün → mühendislik → imalat → satış.
 Uygulama bir HESAP RAPORU aracı olarak başladı ve adı bir süre onu taşıdı; bugün
 hesap raporu bölümlerden BİRİDİR. Kapsam: iş emirleri (`/jobs`), hesap raporu
-projeleri ve revizyon arşivi (`/projects`), teknik çizim takibi, ekipman
-listeleri, üretici katalogları (`/katalog`), atölye çalışma saatleri
-(`/worklog`) ve satış takibi (`/sales`). Çok kullanıcılı, dört rollü.
+projeleri ve revizyon arşivi (`/projects`), **teknik resim paketleri**
+(`/drawings` — ressamın klasörü olduğu gibi girer, md. 18), ekipman listeleri,
+üretici katalogları (`/katalog`), atölye çalışma saatleri (`/worklog`) ve satış
+takibi (`/sales`). Çok kullanıcılı, dört rollü.
 
 Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
 `APP_TITLE`, `APP_TAGLINE`) — kabuk, giriş sayfası ve sekme başlığı oradan okur.
@@ -58,6 +59,12 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
   sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
+- `npx tsx scripts/test-drawings.ts` — iki gerçek teslim klasörünün içe
+  aktarım raporunu bas (Teknik Resimler duman testi)
+- `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri
+  ve üç türev çalışma kitabını gerçekten üret ve geri oku
+- `/dev/drawings-preview` — Teknik Resimler ekranlarının AUTH'SUZ görsel
+  önizlemesi (yalnız development). Ekran değiştirdiysen ÖNCE orada bak
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
 
 ## Mimari ilkeler
@@ -513,6 +520,85 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     dosyanın adı tarih ve saat taşır (`downloadName`): aynı süzgeçle alınan iki
     dosya klasörde birbirini ezmez.
 
+18. **Teknik Resimler HOŞGÖRÜLÜ ANLAR, biçim DAYATMAZ.** `/drawings` teknik
+    ressamın klasörünü olduğu gibi alır, içindekini okur ve **neyi
+    anlayamadığını söyler**. Kural şu ölçülmüş gerçekten çıktı: incelenen iki
+    teslim klasörü birbirine benzemiyordu (`0057-00-0500 - MONORAY (1 TON)` —
+    174 dosya, düz yapı, tireli ad ↔ `0043-00-0000_MTC PASLANMAZ` — 454 dosya,
+    üç seviye iç içe, alt çizgili ad; 1 ↔ 7 Excel; 7/9/11/13/14 sütun).
+    Üçüncüsü de benzemeyecek. **Bir ressamın klasörünü sistemin reddetmesi, o
+    ressamın bir daha sistemi kullanmaması demektir.**
+
+    Dört ilke, dördü de pazarlığa kapalı:
+
+    1. **HİÇBİR KURAL BİR YÜKLEMEYİ ENGELLEMEZ.** Tanınmayan dosya reddedilmez —
+       saklanır, "tanınmadı" diye listelenir, elle bağlanabilir ve o bağ
+       `drawing_aliases`a yazılıp **hatırlanır**. Sistem kullanıldıkça
+       hoşgörüsünü kaybetmeden daha çoğunu anlar.
+    2. **`engelleyici` DİYE BİR BULGU DÜZEYİ YOKTUR** ve eklenmeyecek. Üç düzey
+       vardır: `eksik · celiski · bilgi` (`lib/drawings/types.ts`). Hesap
+       motorundaki `engelleyici`nin (md. 4) burada karşılığı OLAMAZ, çünkü
+       yükleme her zaman başarılıdır; rapor yalnız insanın neye bakması
+       gerektiğini söyler.
+    3. **YANLIŞ ALARM BU MODÜLÜN EN BÜYÜK DÜŞMANIDIR.** Yeni bulgu eklemeden
+       önce fikstüre karşı KAÇ KEZ tetiklendiğini ÖLÇ. Üç kural ölçülüp
+       kesildi: `Testere` kalemlerinden resim beklemek (13 bulgunun 12'si
+       yanlıştı), alt montajdan DXF beklemek, gevşek `GRUP_BOLUNMUS` (7 yanlış
+       alarm). `ICERIK_OKUNMADI` ve `DOSYA_DEPODA_YOK` **paket başına TEK**
+       bulgudur — dosya başına yazılsalardı MTC'de 270 ve 162 satır ederdi ve
+       gerçek bulgular o gürültüde kaybolurdu. Sessizlik çoğu zaman doğruluktur.
+    4. **RAPOR DİLİ SUÇLAMAZ.** "Standart dışı" değil "tanıyamadım"; "hatalı"
+       değil "iki kaynak farklı söylüyor". Tanıma oranı ressamın notu değil
+       **sistemin kavrayışıdır** — `recognitionClass`ta kırmızı yoktur.
+
+    **Çekirdek SAFTIR** (`src/lib/drawings/`, DB/HTTP importu yok): `reconcile`
+    bir anlık görüntü alır, defter + bulgu döndürür. Bu sayede kural
+    değiştiğinde 200 MB'lık paket YENİDEN İNDİRİLMEDEN yeniden çalıştırılır
+    (`RECONCILER_VERSION`, hesap motorundaki `ENGINE_VERSION` ile aynı ruhta).
+    Tek regex yerine **sıralı tanıyıcı listesi** (`recognize.ts`); dosya adı
+    `" - "` ile bölünüp her parça kendi başına sınıflandırılır, **sıra
+    önemsenmez**. Excel sabit şemayla değil **sütun sözlüğüyle** okunur.
+
+    **BEYAN İLE ÖLÇÜM AYRI DURUR.** `file_count`/`bytes_total` satırlardan,
+    `stored_*`/`skipped_*` ise bucket'ın kendisinden gelir ve dördünü de tek
+    bir yer yazar: `verifyStorage`. İkinci bir yazan eklenirse ekran
+    "170/169 dosya depoda" gibi kendi kendiyle çelişen sayılar basar — bu bir
+    kez yaşandı. **Atlanan dosya EKSİK DEĞİLDİR:** yedek dosyalar ve bayt bayt
+    kopyalar bilerek yüklenmez (`upload_skipped`) ve onları "ulaşmamış" saymak
+    doğrudan md. 3'ü çiğner. Bayt karşılaştırmasının paydası da
+    `bytes_total − skipped_bytes`tir; ham toplamla karşılaştırmak hiçbir bayt
+    kaybetmemiş pakette bile kalıcı olarak "15 MB eksik" gösterirdi.
+
+    **İLERLEME PAKETE DEĞİL PARÇAYA BAĞLIDIR.** `drawing_parts` TÜRETİLMİŞTİR
+    ve her eşleştirmede silinip yeniden kurulur; atölyenin "bu parça kesildi"
+    kaydı o döngüde kaybolmamalıdır. Anahtar bu yüzden `(item_no, part_code,
+    stage)` METNİDİR, `package_id`/`part_id` yalnız kolaylık bağıdır
+    (`on delete set null`) — İş Takibi'nin dersinin (md. 17) birebir aynısı.
+    Revizyonda kayıt **devrolur**; imalatı etkileyen bir değişiklik varsa
+    (`MANUFACTURING_DIFF_FIELDS`: ölçü · malzeme · kalınlık · adet · kategori)
+    `review_required` işareti alır. Tanım ya da ağırlık değişikliği işaret
+    ÜRETMEZ: ağırlık türetilmiş bir sayıdır, tanım düzeltmesi kesilmiş parçayı
+    yanlış yapmaz — ikisi de listeye girseydi her revizyonda her kayıt
+    işaretlenir ve işaret anlamını yitirirdi. **İşaret bir SORUDUR ve onu
+    yalnız insan kapatır** (`setReviewMark`); devir işaret KOYAR, KALDIRMAZ.
+
+    **YIKICI İŞLEMDE SIRA "ÖNCE UCUZ OLANI KAYBET"TİR.** `deletePackage` önce
+    satırı siler (yetki + `count` okunarak), ANCAK SONRA depo nesnelerini.
+    Ters sıra bir kez yazıldı ve sessiz veri kaybı üretiyordu: depo RLS'i
+    ressamı geçiriyor, tablo RLS'i geçirmiyordu — baytlar gidiyor, kayıtlar
+    kalıyordu. Satır gidip depo temizliği yarıda kalırsa yetim nesne kalır ve
+    bu GERİ ALINABİLİR bir hatadır. **KİM** silebilir sorusunu RLS,
+    **NE** silinebilir sorusunu tetikleyici cevaplar (`guard_issued_revision`
+    ile aynı ayrım): üretime girmiş paket silinemez, yerine revizyon yüklenir.
+
+    Kalem numarası METİNDİR, bağlantı TÜREVDİR (md. 17 ile aynı kural).
+    Bir işin BİRDEN ÇOK paketi olabilir — anahtar `(item_no, group_code)` ve
+    **tekillik kısıtı bilinçli olarak YOKTUR**; aynı çift ikinci kez gelince
+    veritabanı reddetmez, sihirbaz "öncekini süperse edeyim mi?" diye SORAR.
+    Soru yalnız `group_code` DOLUYKEN sorulur: adı çözülemeyen iki paket boş
+    grupla eşleşir ve grup grup çalışılan bir projede bu en sık karşılaşılacak
+    yanlış alarm olurdu.
+
 7. **Revizyon = snapshot.** `revisions` tablosunda inputs/selections/results
    JSONB. `draft` düzenlenebilir, `issued` kilitli (DB trigger). Kapatılan hesap
    bölümleri `inputs.disabledModules` listesinde tutulur; girdileri korunur.
@@ -801,6 +887,17 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
   `filters.ts` üç ekranın ortak süzgeç tanımı
+- `src/lib/drawings/` — Teknik Resimler ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
+  `recognize` · `folder-name` · `file-name` · `part-code` · `tr-text` ·
+  `excel` · `reconcile` · `titleblock` · `dxf-header` · `derive` · `diff` ·
+  `revision` · `progress` · `types` · `labels` · `mime` · `standard`
+- `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı, montaj ağacı,
+  dosya gezgini, parça defteri, içe aktarım raporu, sürümler, üretim durumu,
+  aşama defteri; `[id]/import/` içerik okuma ucu (Node çalışma zamanı),
+  `[id]/export/` türev çıktılar
+- `docs/teknik-resim-adlandirma-onerileri.md` — ressama ÖNERİLER (Ö-1…Ö-9).
+  Kural listesi DEĞİL kazanç listesidir; hiçbir madde bir yüklemeyi engellemez
+  ve `lib/drawings/standard.ts` ile iki yönlü koruma testine bağlıdır
 - `src/lib/work-log.ts` — İş Takibi sözlüğü + saf toplama/pivot/dönem çekirdeği
 - `src/components/charts.tsx` — pano grafikleri (zaman serisi, sıralı çubuk,
   halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ

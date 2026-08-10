@@ -26,7 +26,19 @@
 //    2 = 2996,914 kg, 24 çocuğun toplamı 2996,920 kg). Bütün defteri toplamak
 //    MTC'de 21 209 kg gibi uydurma bir sayı üretir. Toplam YALNIZ YAPRAK
 //    satırlardan alınır; grup ara toplamı kökün KENDİ ağırlığındandır.
+//
+// 4. SATIN ALMA KİMLİĞİ TEK YERDEN GELİR — `progress.ts`ten. Bu dosya bir süre
+//    kendi tekilleştirmesini `registerKey` üzerinden yapmaya çalıştı; ama
+//    `register_key` kodsuz satırlarda KONUMSALDIR (`SATIR:n`) ve her satırda
+//    zaten tekildir, yani o süzgeç hiçbir şeyi birleştirmiyordu. Sonuç ölçüldü:
+//    aynı paket için satın alma Excel'i MTC'de 90 satır, üretim tahtası 68
+//    kalem söylüyordu. `SOMUN M16 DIN934` defterde DÖRT satırdı (2 + 4 + 4 + 51)
+//    ve dosyada bu dördü toplayan hiçbir hücre yoktu — satınalmacı 61'i elle
+//    toplamak zorundaydı. Artık anahtar `progressKeyOf`tur (kodlu parçada kod,
+//    kodsuzda `SATINALMA:<katlanmış tanım>`) ve iki belge AYNI kalemi sayar.
+//    Anahtar dizgisi burada ÜÇÜNCÜ bir kez yazılmaz; ayrışırsa çatlak geri gelir.
 
+import { isPurchaseKey, progressKeyOf } from "./progress";
 import { trKatla } from "./tr-text";
 import type { FileLifecycle, FileRole, PartKind } from "./types";
 
@@ -186,16 +198,56 @@ export function satinAlmaSinifi(tanim: string): SatinAlmaSinifi {
   return "Diğer";
 }
 
-export interface SatinAlmaSatiri {
+/**
+ * Satın alma kaleminin BİR kaynak satırı.
+ *
+ * Birleştirme sessiz bir kayıp olmamalıdır: `SOMUN M16` dört ayrı montajda
+ * geçiyor ve satınalmacı "61 adet nereden çıktı" diye sorduğunda cevabın
+ * dosyanın içinde olması gerekir. Yapısal iz satırda durur; Excel onu tek bir
+ * hücreye özetler (`kaynak`).
+ */
+export interface SatinAlmaKaynagi {
+  /** Defter anahtarı: kodlu parçada kod, kodsuzda `SATIR:n` (konumsaldır). */
   registerKey: string;
+  /** Ürün ağacındaki yol: "3.14". Depo sayfasından gelen satırda boştur. */
+  itemPath: string;
+  /** Satırın bağlı olduğu montajın kodu; çözülemezse "" */
+  montajKodu: string;
+  /** Montajın adı ("KÖPRÜ YÜRÜTME GRUBU"); çözülemezse "" */
+  montajAdi: string;
+  /** Excel izi. DB yolunda BUGÜN BOŞ GELİR — `bomRef` sorguya girmiyor. */
+  bomRef: { file: string; sheet: string; rowNo: number } | null;
+  /** O satırdaki adet — birleşik adedin nasıl oluştuğu ancak böyle okunur. */
+  adet: number | null;
+}
+
+export interface SatinAlmaSatiri {
+  /** İlerleme anahtarı — `progress.ts` ile AYNI. İki ekran aynı kalemi sayar. */
+  key: string;
   sinif: SatinAlmaSinifi;
   tanim: string;
+  /** İlk dolu malzeme — `trackedParts` ile aynı davranış. */
   malzeme: string;
+  /**
+   * Birleşen satırlarda geçen FARKLI malzemeler; çelişki varsa uzunluk > 1.
+   *
+   * Aynı tanımın iki malzemeyle geçmesi gerçek bir çelişkidir ve sessizce
+   * yutulmaz — Excel hücresi "S235JR / S355JR" yazar. ÖLÇÜLDÜ: iki gerçek
+   * pakette de sıfır kez tetikleniyor (MONORAY 54 kalem, MTC 72 kalem), yani
+   * yeni bir yanlış alarm kaynağı değil.
+   */
+  malzemeler: string[];
+  /** Birleşen satırların adetleri TOPLANIR. */
   adet: number | null;
+  /** Birleşen satırların birim ağırlığı ayrışıyorsa `null` — tek sayı yoktur. */
   birimAgirlikKg: number | null;
+  /** Satır satır toplanır; birim × birleşik adet ile YENİDEN HESAPLANMAZ. */
   toplamAgirlikKg: number | null;
   parcaKodu: string;
-  /** "EXCEL/…xlsx · Sayfa1 · 42" — satırın defterdeki izi. Boş olabilir. */
+  /** Kaç defter satırından birleşti. 1 = tekrar etmeyen kalem. */
+  sourceRows: number;
+  izler: SatinAlmaKaynagi[];
+  /** İzlerin insan okunur özeti — Excel'in "Kaynak" sütunu. Boş olabilir. */
   kaynak: string;
 }
 
@@ -208,43 +260,203 @@ export interface SatinAlmaSonucu {
   toplamAgirlikKg: number | null;
   agirligiBilinen: number;
   malzemesiBilinen: number;
+  /** Birleşmeden ÖNCEKİ defter satırı sayısı (Σ sourceRows). */
+  kaynakSatiri: number;
+  /** Birden çok satırdan birleşen kalem sayısı. */
+  birlesenKalem: number;
+  /** Parça numarası olmayan (kodsuz) kalem sayısı. */
+  kodsuzKalem: number;
+  /** Aynı kalemin satırlarında FARKLI malzeme geçen kalem sayısı. */
+  malzemeCeliskisi: number;
+}
+
+/**
+ * Satın alma kaleminin tanımı — `progress.ts`teki `label` kuralının AYNISI.
+ *
+ * `tanimOf` üçüncü yedek olarak `assemblyTitle` kullanır; `progress.ts`
+ * kullanmaz. Bu ayrım kimlik için ölümcüldür: tanımı boş bir satır burada
+ * montaj başlığıyla, tahtada `SATINALMA:?` ile anahtarlanır ve aynı kalem iki
+ * ekranda iki ayrı adla — hatta iki ayrı kalem olarak — görünürdü. Montaj
+ * başlığı yalnız KODLU satırda yedektir (orada anahtar zaten koddur, kimliği
+ * bozmaz); kodsuz satırda yedek YOKTUR.
+ */
+function satinAlmaTanimi(p: TurevParca): string {
+  const tanim = (p.description || p.name || "").trim();
+  if (tanim) return tanim;
+  return p.partCode ? p.assemblyTitle.trim() || p.partCode : "";
+}
+
+/** Ürün ağacı yolu → parça. Kaynak izindeki montaj bundan çözülür. */
+function itemPathHaritasi(parts: readonly TurevParca[]): Map<string, TurevParca> {
+  const harita = new Map<string, TurevParca>();
+  for (const p of parts) if (p.itemPath && p.partCode) harita.set(p.itemPath, p);
+  return harita;
+}
+
+/**
+ * Satırın bağlı olduğu montaj — ürün ağacı yolunun üstünden yukarı doğru.
+ *
+ * ÖLÇÜLDÜ: MTC'nin 90 satın alma satırının 89'unda ürün ağacı yolu var ve
+ * 83'ü bir montaja bağlanıyor; bağlanmayan 6'sı yolu NOKTASIZ olan (yani ürün
+ * ağacının en üst düzeyindeki) satırlardır ve gerçekten bir montajın altında
+ * değildir — `SOMUN M16`ın 51 adetlik dördüncü satırı bunlardan biridir.
+ * MONORAY'da ürün ağacı hiç yok, orada iz Excel satırına düşer.
+ *
+ * DOĞRUDAN ÜST BULUNAMAZSA YUKARI TIRMANILIR. İki fikstürde de tırmanmaya
+ * gerek kalmadı (çözülen 83 izin hepsi ilk adımda çözüldü); tırmanma ara
+ * montajın defterde satırı olmadığı hâl içindir ve yanlış bilgi üretemez —
+ * ata yine atadır. Orada durmak izi tamamen silerdi.
+ */
+function ustMontaj(itemPath: string, yollar: Map<string, TurevParca>): TurevParca | null {
+  let yol = itemPath;
+  while (yol.includes(".")) {
+    yol = yol.slice(0, yol.lastIndexOf("."));
+    const ust = yollar.get(yol);
+    if (ust) return ust;
+  }
+  return null;
+}
+
+function kaynakIzi(p: TurevParca, yollar: Map<string, TurevParca>): SatinAlmaKaynagi {
+  const montaj = ustMontaj(p.itemPath, yollar);
+  return {
+    registerKey: p.registerKey,
+    itemPath: p.itemPath,
+    montajKodu: montaj?.partCode ?? "",
+    montajAdi: montaj
+      ? (montaj.description || montaj.assemblyTitle || montaj.name || "").trim()
+      : "",
+    bomRef: p.bomRef ?? null,
+    adet: p.qty != null && Number.isFinite(p.qty) ? p.qty : null,
+  };
+}
+
+/**
+ * İzlerin tek hücrelik özeti.
+ *
+ * MONTAJ VARSA O YAZILIR, Excel adı değil: satınalmacının sorusu "hangi
+ * montajın cıvatası" olur, "hangi dosyanın 54. satırı" değil. Montaj
+ * çözülemediğinde defterdeki Excel izine düşülür ve aynı sayfadan gelen
+ * satırlar TEK ize toplanır — dosya adını dört kez yazmak hücreyi okunmaz
+ * yapardı. Birleşme varsa her izin adedi de yazılır: "61 adet" sayısının
+ * 2 + 4 + 4 + 51 olduğu ancak böyle görünür.
+ */
+function kaynakOzeti(izler: readonly SatinAlmaKaynagi[]): string {
+  const birlesik = izler.length > 1;
+  const parcalar: string[] = [];
+  const sayfalar = new Map<string, string[]>();
+
+  for (const iz of izler) {
+    const adetEki = birlesik && iz.adet != null ? ` ×${iz.adet}` : "";
+    if (iz.montajKodu) {
+      parcalar.push(`${iz.montajKodu}${iz.itemPath ? ` (${iz.itemPath})` : ""}${adetEki}`);
+    } else if (iz.itemPath) {
+      parcalar.push(`ürün ağacı ${iz.itemPath}${adetEki}`);
+    } else if (iz.bomRef) {
+      const sayfa = `${iz.bomRef.file} · ${iz.bomRef.sheet}`;
+      const satir = `${iz.bomRef.rowNo}${adetEki}`;
+      const liste = sayfalar.get(sayfa);
+      if (liste) liste.push(satir);
+      else sayfalar.set(sayfa, [satir]);
+    }
+  }
+
+  for (const [sayfa, satirlar] of sayfalar) parcalar.push(`${sayfa} · ${satirlar.join(", ")}`);
+  return parcalar.join(" · ");
 }
 
 /**
  * Satın alınacaklar listesi.
  *
  * İki kaynak birleşir: `Purchased` yapısındaki satırlar ve PARÇA NUMARASI
- * OLMAYAN satırlar. İkincisi listenin büyük kısmıdır (MONORAY 50/55,
- * MTC 86/90) — cıvata, segman, rulman gibi kalemlerin kodu yoktur ve onları
- * düşürmek modülün var oluş sebebini yok ederdi.
+ * OLMAYAN satırlar. İkincisi listenin büyük kısmıdır (defter satırı olarak
+ * MONORAY 50/55, MTC 86/90) — cıvata, segman, rulman gibi kalemlerin kodu
+ * yoktur ve onları düşürmek modülün var oluş sebebini yok ederdi.
+ *
+ * TEKRARLAR TEK KALEMDE BİRLEŞİR ve adetler TOPLANIR (bkz. dosya başlığı,
+ * karar 4). Sipariş kararı satır başına değil KALEM başınadır. Ölçüldü:
+ * MONORAY 55 satır → 54 kalem (1 birleşme), MTC 90 satır → 72 kalem
+ * (11 birleşme). Toplam adet İKİSİNDE DE DEĞİŞMEZ (323 · 595): birleştirme bir
+ * kayıp değil, o güne kadar yapılmamış bir toplamadır.
+ *
+ * AĞIRLIK SATIR SATIR TOPLANIR, birim × birleşik adet ile yeniden
+ * HESAPLANMAZ: MTC'nin 90 satın alma satırının 89'unda ağırlık, yalnız
+ * 24'ünde malzeme yazılı — eksik bir birim ağırlıktan geri çarpmak sessiz
+ * sapma üretirdi. Ağırlığı yazılmamış satır toplama sıfır katkı yapar;
+ * o kalemde artık tek bir birim ağırlık da YOKTUR ve hücre tire gösterir.
  *
  * TEDARİKÇİ VE FİYAT SÜTUNU YOKTUR. Kaynak Excel'de bu bilgi hiç geçmiyor;
  * boş bir sütun koymak dosyayı "eksik doldurulmuş" gösterirdi, uydurmak ise
  * satınalmaya yalan söylemek olurdu.
  */
 export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu {
-  const gorulen = new Set<string>();
-  const satirlar: SatinAlmaSatiri[] = [];
+  const yollar = itemPathHaritasi(parts);
+  const kalemler = new Map<string, SatinAlmaSatiri>();
+  // Birim ağırlıklar kalem başına AYRI izlenir: satırda tek bir sayı ancak
+  // BÜTÜN kaynak satırlar aynı değeri söylüyorsa yazılabilir. Satırlardan
+  // birinin ağırlığı hiç yoksa da tek bir birim ağırlık yoktur — toplam o
+  // satırı saymadan çıkar ve "birim × adet" ile tutmaz.
+  const birimler = new Map<string, { degerler: Set<number>; satir: number }>();
 
   for (const p of parts) {
     if (p.kind !== "satinalma" && p.partCode) continue;
-    if (gorulen.has(p.registerKey)) continue;
-    gorulen.add(p.registerKey);
 
-    const tanim = tanimOf(p);
+    const key = progressKeyOf(p);
     const adet = p.qty != null && Number.isFinite(p.qty) ? p.qty : null;
     const birim = p.weightKg != null && Number.isFinite(p.weightKg) ? p.weightKg : null;
-    satirlar.push({
-      registerKey: p.registerKey,
+    const satirAgirligi = birim == null ? null : birim * (adet ?? 1);
+    const malzeme = p.material.trim();
+    const iz = kaynakIzi(p, yollar);
+
+    const varOlan = kalemler.get(key);
+    if (varOlan) {
+      varOlan.sourceRows += 1;
+      varOlan.izler.push(iz);
+      if (adet != null) varOlan.adet = (varOlan.adet ?? 0) + adet;
+      if (satirAgirligi != null) {
+        varOlan.toplamAgirlikKg = (varOlan.toplamAgirlikKg ?? 0) + satirAgirligi;
+      }
+      const izleyici = birimler.get(key);
+      if (izleyici && birim != null) {
+        izleyici.degerler.add(birim);
+        izleyici.satir += 1;
+      }
+      // MALZEME İLK DOLU DEĞERDEN gelir; sonrakiler yutulmaz, listeye yazılır.
+      if (malzeme && !varOlan.malzemeler.includes(malzeme)) varOlan.malzemeler.push(malzeme);
+      if (!varOlan.malzeme) varOlan.malzeme = malzeme;
+      continue;
+    }
+
+    const tanim = satinAlmaTanimi(p);
+    birimler.set(key, {
+      degerler: new Set(birim == null ? [] : [birim]),
+      satir: birim == null ? 0 : 1,
+    });
+    kalemler.set(key, {
+      key,
       sinif: satinAlmaSinifi(tanim),
       tanim,
-      malzeme: p.material.trim(),
+      malzeme,
+      malzemeler: malzeme ? [malzeme] : [],
       adet,
       birimAgirlikKg: birim,
-      toplamAgirlikKg: birim == null ? null : birim * (adet ?? 1),
+      toplamAgirlikKg: satirAgirligi,
       parcaKodu: p.partCode,
-      kaynak: p.bomRef ? `${p.bomRef.file} · ${p.bomRef.sheet} · ${p.bomRef.rowNo}` : "",
+      sourceRows: 1,
+      izler: [iz],
+      kaynak: "",
     });
+  }
+
+  const satirlar = [...kalemler.values()];
+  for (const s of satirlar) {
+    s.kaynak = kaynakOzeti(s.izler);
+    const b = birimler.get(s.key);
+    // Birim ağırlıklar ayrışıyorsa ya da bir satırın ağırlığı hiç yoksa TEK BİR
+    // SAYI YOKTUR: hücre tire gösterir ve kimse toplamı geri çarpmaya çalışmaz.
+    // Toplam yine satır satır toplamdır.
+    s.birimAgirlikKg =
+      b && b.degerler.size === 1 && b.satir === s.sourceRows ? [...b.degerler][0] : null;
   }
 
   const siniflar = SATIN_ALMA_SINIFLARI.map((sinif) => {
@@ -266,6 +478,12 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
       : null,
     agirligiBilinen: agirlikli.length,
     malzemesiBilinen: satirlar.filter((s) => s.malzeme).length,
+    kaynakSatiri: satirlar.reduce((t, s) => t + s.sourceRows, 0),
+    birlesenKalem: satirlar.filter((s) => s.sourceRows > 1).length,
+    // "Kodsuz" sorusu artık anahtardan sorulur — `!parcaKodu` ile aynı cevabı
+    // verir ama tahtayla AYNI kelimeyi kullanır.
+    kodsuzKalem: satirlar.filter((s) => isPurchaseKey(s.key)).length,
+    malzemeCeliskisi: satirlar.filter((s) => s.malzemeler.length > 1).length,
   };
 }
 

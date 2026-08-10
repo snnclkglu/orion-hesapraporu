@@ -14,12 +14,34 @@
 // rel_path)` tekil olduğu için çakışma kesin yakalanır; kullanıcı "eskisinin
 // yerine geçsin" derse eski satır ressamın kendi sözlüğüyle (`İPTAL/`)
 // arşivlenir ve BAYTLARI KALIR.
+//
+// ————————————————————————————————— LİSTE BİR YIĞIN DEĞİL, YOL KÜMESİDİR
+//
+// Pencerenin ilk sürümü aday listesini yalnız BÜYÜYEN bir yığın olarak
+// görüyordu ve üç kusuru vardı; üçü de aynı kökten geliyordu — listenin
+// kimliği YOKTU, dolayısıyla tek bir satır hakkında hiçbir şey söylenemiyordu:
+//
+//   1. Satır çıkarılamıyordu. 15 DXF seçip birinin yanlış olduğunu fark eden
+//      ressamın tek çıkışı pencereyi kapatmaktı; o da doğru seçilmiş 14
+//      dosyayı siliyordu. Üstelik pencerenin kendi uyarı metni "seçimden
+//      çıkarın" diyor, kullanıcı olmayan bir düğmeyi arıyordu.
+//   2. Yeniden seçmek satırı DEĞİŞTİRMİYOR, KOPYA ekliyordu. Aynı hedef yolu
+//      üreten iki aday sunucuya kadar gidiyor ve kullanıcı sebebini ancak
+//      Ekle'ye bastıktan SONRA öğreniyordu.
+//   3. Çakışma kararı BÜTÜN ÖBEĞE veriliyordu: tek dosya çakışsa bile karar
+//      hepsini bağlıyor, "Vazgeç" seçilince Ekle düğmesi tamamen kilitleniyordu
+//      — kullanıcı ya hepsini süperse etmeyi kabul ediyor ya hiç ekleyemiyordu.
+//
+// Bugün liste bir YOL KÜMESİDİR: her satırın kalıcı bir kimliği, kendi çıkarma
+// düğmesi ve çakışıyorsa KENDİ kararı vardır. Sunucuya yalnız gerçekten
+// eklenecek satırlar gider.
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FilePlus2, Loader2 } from "lucide-react";
+import { FilePlus2, Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,11 +66,42 @@ export interface PackageFolderInfo {
 }
 
 interface Aday {
+  /**
+   * Satırın kalıcı kimliği — dizin DEĞİL.
+   *
+   * Aradan satır çıkarılabildiği için dizin artık kimlik olamaz: React
+   * anahtarı olarak kullanılsa çıkarılan satırın altındakilerin tamamı yeniden
+   * eşlenir ve odak/kaydırma yerinden oynar. Sayaç yalnız bu pencere yaşarken
+   * artar; kalıcı bir yerde saklanmadığı için benzersizliği oturum içinde
+   * yeter.
+   */
+  id: number;
   file: File;
   /** Önerilen ya da kullanıcının düzelttiği hedef klasör ("" = kök). */
   klasor: string;
   /** Bu yol pakette zaten var mı? */
   cakisma: boolean;
+  /**
+   * Çakışan satırın kendi kararı.
+   *
+   * `yeniSurum` — eski satır İPTAL'e taşınıp süperse edilir (varsayılan; bu
+   *   dosyanın açılış varsayımı "aynı yol = yeni sürüm"dür).
+   * `vazgec` — bu satır SUNUCUYA HİÇ GİTMEZ. Listede kalır, çünkü karar tek
+   *   tıkla geri alınabilmelidir; satırı anında silmek, düzeltilmek istenen
+   *   "yanlış tık duvara çarpıyor" davranışının ta kendisiydi.
+   *
+   * Çakışmayan satırda bu alan OKUNMAZ (bkz. `gonderilecek`): kullanıcı
+   * hedef klasörü değiştirip çakışmayı kaldırdığında satır kendiliğinden geri
+   * gelir, ama çakışma geri gelirse eski "ekleme" kararı da geri gelir —
+   * kararı sessizce süperse yönüne çevirmek en tehlikeli yön olurdu.
+   */
+  karar: "yeniSurum" | "vazgec";
+}
+
+/** Adayın üreteceği hedef yol. Saf — satırdan başka hiçbir şeye bakmaz. */
+function yolOf(a: Aday): string {
+  const ad = a.file.name.normalize("NFC");
+  return a.klasor ? `${a.klasor}/${ad}` : ad;
 }
 
 export function AddFilesButton({
@@ -64,10 +117,9 @@ export function AddFilesButton({
   resimsizParca: number;
 }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [acik, setAcik] = useState(false);
   const [adaylar, setAdaylar] = useState<Aday[]>([]);
-  const [cakismaKarari, setCakismaKarari] = useState<"yeniSurum" | "vazgec">("yeniSurum");
+  const [sonrakiId, setSonrakiId] = useState(1);
   const [calisiyor, setCalisiyor] = useState(false);
 
   const varOlanYollar = useMemo(() => new Set(mevcutYollar), [mevcutYollar]);
@@ -76,29 +128,65 @@ export function AddFilesButton({
     [folders]
   );
 
-  function yolOf(a: Aday): string {
-    const ad = a.file.name.normalize("NFC");
-    return a.klasor ? `${a.klasor}/${ad}` : ad;
-  }
-
+  // AYNI YOLU ÜRETEN İKİNCİ ADAY LİSTEYE ALINMAZ.
+  //
+  // İki seçenek vardı: (a) almamak, (b) alıp "bu seçimde zaten var" diye
+  // işaretleyip Ekle'yi engellemek. Seçim ALMAMAK yönünde, çünkü bu anda iki
+  // satır BİRBİRİNİN AYNIDIR — aynı dosya adı aynı öneriye düşer, yani ikinci
+  // satır sıfır bilgi taşır ve kullanıcının yapabileceği tek şey onu geri
+  // silmektir. Kendi kendine düzelmesi mümkün olmayan bir satırı listeye
+  // koyup sonra Ekle'yi kilitlemek, düzeltmeye çalıştığımız hastalığın
+  // kendisidir.
+  //
+  // Reddedilen dosya SESSİZCE düşmez: adıyla söylenir. "Atlanan ≠ eksik"
+  // kuralı burada da geçerli — kullanıcı 15 seçip 13 satır gördüğünde sebebini
+  // aramak zorunda kalmamalıdır.
+  //
+  // Bu aynı zamanda 2. kusuru kökten kapatır: aynı dosyayı yeniden seçmek
+  // artık KOPYA üretmez, hiçbir şey olmaz.
+  //
+  // Kullanıcının hedef klasörü ELLE değiştirerek ürettiği çakışma ayrı bir
+  // durumdur ve orada reddetmek anlamsızdır (geri sıçrayan bir açılır kutu
+  // kimseye bir şey anlatmaz); o durum satırda işaretlenir, aşağıya bakınız.
   function dosyalariAl(secilenler: File[]) {
     if (secilenler.length === 0) return;
-    const yeni = secilenler.map((file) => {
+    const yollar = new Set(adaylar.map(yolOf));
+    const yeni: Aday[] = [];
+    const yinelenen: string[] = [];
+    let id = sonrakiId;
+
+    for (const file of secilenler) {
       // ÖNERİ AYNI TANIYICILARDAN GELİR. Dosya adı zaten malzemeyi ve
       // kalınlığı söylüyor; hedef klasörü sormak, sistemin bildiği bir şeyi
       // kullanıcıya sordurmak olurdu.
       const cozulmus = parseFile({ relPath: file.name, size: file.size });
       const klasor = suggestFolder(cozulmus, folders);
       const yol = klasor ? `${klasor}/${file.name.normalize("NFC")}` : file.name.normalize("NFC");
-      return { file, klasor, cakisma: varOlanYollar.has(yol) };
-    });
-    setAdaylar((s) => [...s, ...yeni]);
+      if (yollar.has(yol)) {
+        yinelenen.push(yol);
+        continue;
+      }
+      yollar.add(yol);
+      yeni.push({ id: id++, file, klasor, cakisma: varOlanYollar.has(yol), karar: "yeniSurum" });
+    }
+
+    if (yeni.length > 0) {
+      setAdaylar((s) => [...s, ...yeni]);
+      setSonrakiId(id);
+    }
+    if (yinelenen.length > 0) {
+      toast.info(
+        yinelenen.length === 1
+          ? `Bu hedef yol listede zaten var, ikinci kez eklenmedi: ${yinelenen[0]}`
+          : `${formatNum(yinelenen.length)} dosya listeye alınmadı — hedef yolları listede zaten var (ör. ${yinelenen[0]}).`
+      );
+    }
   }
 
-  function klasoruDegistir(i: number, klasor: string) {
+  function klasoruDegistir(id: number, klasor: string) {
     setAdaylar((s) =>
-      s.map((a, j) => {
-        if (j !== i) return a;
+      s.map((a) => {
+        if (a.id !== id) return a;
         const ad = a.file.name.normalize("NFC");
         const yol = klasor ? `${klasor}/${ad}` : ad;
         return { ...a, klasor, cakisma: varOlanYollar.has(yol) };
@@ -106,17 +194,55 @@ export function AddFilesButton({
     );
   }
 
+  function kararVer(id: number, karar: Aday["karar"]) {
+    setAdaylar((s) => s.map((a) => (a.id === id ? { ...a, karar } : a)));
+  }
+
+  function adayiCikar(id: number) {
+    setAdaylar((s) => s.filter((a) => a.id !== id));
+  }
+
   const cakisanlar = adaylar.filter((a) => a.cakisma);
-  const engelli = cakisanlar.length > 0 && cakismaKarari === "vazgec";
+
+  /** SUNUCUYA GERÇEKTEN GİDECEK satırlar — "ekleme" denen çakışmalar düşer. */
+  const gonderilecek = useMemo(
+    () => adaylar.filter((a) => !(a.cakisma && a.karar === "vazgec")),
+    [adaylar]
+  );
+  const dusurulen = adaylar.length - gonderilecek.length;
+
+  // ELLE ÜRETİLMİŞ YOL ÇAKIŞMASI. Seçim anında engellenemeyen tek durum:
+  // kullanıcı iki satırın hedef klasörünü aynı yola getirmiş. Sayım yalnız
+  // GÖNDERİLECEK satırlar üzerinden yapılır — gönderilmeyen bir satırın
+  // yolu sunucuda hiçbir şeye çarpmaz, onu da saymak yanlış alarm olurdu.
+  const yinelenenYollar = useMemo(() => {
+    const sayim = new Map<string, number>();
+    for (const a of gonderilecek) {
+      const yol = yolOf(a);
+      sayim.set(yol, (sayim.get(yol) ?? 0) + 1);
+    }
+    return new Set([...sayim].filter(([, n]) => n > 1).map(([yol]) => yol));
+  }, [gonderilecek]);
+
+  const engelli = yinelenenYollar.size > 0;
 
   async function ekle() {
-    if (adaylar.length === 0) return;
+    if (gonderilecek.length === 0 || engelli) return;
     setCalisiyor(true);
     try {
       const cevap = await addPackageFiles({
         packageId,
-        files: adaylar.map((a) => ({ relPath: yolOf(a), size: a.file.size, checksum: "" })),
-        onConflict: cakisanlar.length > 0 ? "yeniSurum" : "hata",
+        files: gonderilecek.map((a) => ({ relPath: yolOf(a), size: a.file.size, checksum: "" })),
+        // SUNUCU SÖZLEŞMESİ ÖBEK DÜZEYİNDEDİR, karar ise satır düzeyinde.
+        // İkisi şöyle uzlaşır: "ekleme" denen satırlar listeden düştüğü için
+        // sunucunun çakışma dalına yalnız kullanıcının AÇIKÇA "yerine geçsin"
+        // dediği satırlar girebilir.
+        //
+        // Hiç çakışma görünmüyorsa bilinçli olarak `hata` gönderilir:
+        // `mevcutYollar` sayfa basıldığı andaki fotoğraftır ve bu arada başka
+        // biri aynı yolu yazmış olabilir. `yeniSurum` göndermek o resmi
+        // sessizce İPTAL'e taşırdı; `hata` ise kullanıcıyı durdurur.
+        onConflict: gonderilecek.some((a) => a.cakisma) ? "yeniSurum" : "hata",
       });
       if (cevap.error || !cevap.uploads) {
         toast.error(cevap.error ?? "Dosya kayıtları yazılamadı.", {
@@ -126,7 +252,7 @@ export function AddFilesButton({
         return;
       }
 
-      const dosyaIle = new Map(adaylar.map((a) => [yolOf(a), a.file]));
+      const dosyaIle = new Map(gonderilecek.map((a) => [yolOf(a), a.file]));
       const basarili: string[] = [];
       const dusen: { fileId: string; message: string }[] = [];
       const supabase = createClient();
@@ -162,9 +288,12 @@ export function AddFilesButton({
         );
       } else {
         // KAZANÇ GÖRÜNÜR OLSUN. Modülün amacı kusuru bulmak değil,
-        // kapatılmasını kolaylaştırmaktır.
+        // kapatılmasını kolaylaştırmaktır. Kullanıcının eklememeyi seçtiği
+        // dosyalar da ayrıca sayılır: karar onun olsa bile sonuç sessiz
+        // kalmamalıdır.
         toast.success(
-          `${formatNum(basarili.length)} dosya eklendi — defter yenilendi, tanıma %${es.recognitionPct ?? 0}.`
+          `${formatNum(basarili.length)} dosya eklendi — defter yenilendi, tanıma %${es.recognitionPct ?? 0}.` +
+            (dusurulen > 0 ? ` ${formatNum(dusurulen)} dosya isteğinizle eklenmedi.` : "")
         );
       }
       setAcik(false);
@@ -183,7 +312,6 @@ export function AddFilesButton({
         variant="outline"
         onClick={() => {
           setAdaylar([]);
-          setCakismaKarari("yeniSurum");
           setAcik(true);
         }}
       >
@@ -209,7 +337,6 @@ export function AddFilesButton({
               <FilePlus2 className="size-4 shrink-0" />
               <span>Dosya seçmek için tıklayın (çoklu seçim yapılabilir)</span>
               <input
-                ref={inputRef}
                 type="file"
                 multiple
                 className="hidden"
@@ -222,83 +349,170 @@ export function AddFilesButton({
               />
             </label>
 
-            {adaylar.length > 0 && (
-              <ul className="max-h-72 divide-y overflow-y-auto border">
-                {adaylar.map((a, i) => (
-                  <li key={`${a.file.name}-${i}`} className="grid gap-1.5 px-3 py-2">
-                    <span className="flex flex-wrap items-baseline gap-2">
-                      <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
-                        {a.file.name}
-                      </span>
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {formatBytes(a.file.size)}
-                      </span>
-                      {a.cakisma && (
-                        <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
-                          bu yol zaten var
-                        </span>
-                      )}
-                    </span>
-                    <span className="grid gap-1 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-2">
-                      <Label
-                        htmlFor={`klasor-${i}`}
-                        className="text-[11px] text-muted-foreground"
-                      >
-                        Hedef klasör
-                      </Label>
-                      <select
-                        id={`klasor-${i}`}
-                        value={a.klasor}
-                        onChange={(e) => klasoruDegistir(i, e.target.value)}
-                        disabled={calisiyor}
-                        className="min-h-9 w-full border bg-background px-2 font-mono text-base pointer-fine:text-xs"
-                      >
-                        <option value="">(kök)</option>
-                        {klasorSecenekleri.map((k) => (
-                          <option key={k} value={k}>
-                            {k}
-                          </option>
-                        ))}
-                      </select>
-                    </span>
-                    <span className="truncate font-mono text-[11px] text-muted-foreground/70">
-                      → {yolOf(a)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            {/* BOŞ LİSTE KENDİNİ SÖYLER. Hem hiç seçilmemiş hem "hepsi
+                çıkarıldı" hâli buraya düşer; ikisini ayırmak için ayrı bir
+                durum tutmaya değmez, çünkü kullanıcıya söylenecek şey aynı. */}
+            {adaylar.length === 0 && (
+              <p className="border border-dashed px-3 py-4 text-center text-[12px] text-muted-foreground">
+                Listede dosya yok. Yukarıdan bir ya da daha çok dosya seçin.
+              </p>
             )}
 
             {cakisanlar.length > 0 && (
               <div className="border border-amber-500/40 bg-amber-500/5 p-3">
                 <p className="text-[12px]">
                   {formatNum(cakisanlar.length)} dosyanın yolu pakette zaten var. Bu bir hata
-                  değil, büyük olasılıkla <strong>yeni bir sürüm</strong>.
+                  değil, büyük olasılıkla <strong>yeni bir sürüm</strong> — kararı{" "}
+                  <strong>her satır kendi verir</strong>.
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={cakismaKarari === "yeniSurum" ? "default" : "outline"}
-                    onClick={() => setCakismaKarari("yeniSurum")}
-                  >
-                    Eskisinin yerine geçsin
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={cakismaKarari === "vazgec" ? "default" : "outline"}
-                    onClick={() => setCakismaKarari("vazgec")}
-                  >
-                    Vazgeç
-                  </Button>
-                </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {cakismaKarari === "yeniSurum"
-                    ? "Eski satır İPTAL klasörüne taşınıp süperse edilir — BAYTLARI SİLİNMEZ, gezginde “Süperse · kopya · hariç” katında durur."
-                    : "Çakışan dosyalar için önce hedef klasörü değiştirin ya da seçimden çıkarın."}
+                  “Eskisinin yerine geçsin” eski satırı İPTAL klasörüne taşıyıp süperse eder —
+                  BAYTLARI SİLİNMEZ, gezginde “Süperse · kopya · hariç” katında durur. “Bu
+                  dosyayı ekleme” yalnız o satırı gönderimden düşürür; hedef klasörü
+                  değiştirmek de çakışmayı kaldırır.
                 </p>
               </div>
+            )}
+
+            {adaylar.length > 0 && (
+              <ul className="max-h-72 divide-y overflow-y-auto border">
+                {adaylar.map((a) => {
+                  const yol = yolOf(a);
+                  const gonderilir = !(a.cakisma && a.karar === "vazgec");
+                  const yinelendi = gonderilir && yinelenenYollar.has(yol);
+                  return (
+                    <li
+                      key={a.id}
+                      className={cn("grid gap-1.5 px-3 py-2", !gonderilir && "opacity-60")}
+                    >
+                      {/* Ad küçülür, boyut ve ÇIKAR küçülmez: 375px'te taşan
+                          şey her zaman en uzun olan dosya adıdır. */}
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="min-w-0 flex-1 truncate font-mono text-[12px]"
+                          title={a.file.name}
+                        >
+                          {a.file.name}
+                        </span>
+                        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                          {formatBytes(a.file.size)}
+                        </span>
+                        {/* Dokunma payı `.oc-tap-square`tan gelir (Button
+                            `icon-sm` varyantı taşır) — kutu 32px kalır,
+                            parmağın bulduğu alan 44px olur. */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="-my-1 shrink-0 text-muted-foreground hover:text-destructive"
+                          disabled={calisiyor}
+                          aria-label={`${a.file.name} dosyasını seçimden çıkar`}
+                          title="Seçimden çıkar"
+                          onClick={() => adayiCikar(a.id)}
+                        >
+                          <X />
+                        </Button>
+                      </span>
+
+                      {(a.cakisma || yinelendi || !gonderilir) && (
+                        <span className="flex flex-wrap gap-1.5">
+                          {a.cakisma && (
+                            <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
+                              bu yol pakette zaten var
+                            </span>
+                          )}
+                          {yinelendi && (
+                            <span className="border border-destructive/40 bg-destructive/10 px-1.5 font-mono text-[11px] text-destructive">
+                              bu seçimde zaten var
+                            </span>
+                          )}
+                          {!gonderilir && (
+                            <span className="border px-1.5 font-mono text-[11px] text-muted-foreground">
+                              eklenmeyecek
+                            </span>
+                          )}
+                        </span>
+                      )}
+
+                      <span className="grid gap-1 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-2">
+                        <Label
+                          htmlFor={`klasor-${a.id}`}
+                          className="text-[11px] text-muted-foreground"
+                        >
+                          Hedef klasör
+                        </Label>
+                        <select
+                          id={`klasor-${a.id}`}
+                          value={a.klasor}
+                          onChange={(e) => klasoruDegistir(a.id, e.target.value)}
+                          disabled={calisiyor}
+                          className="min-h-9 w-full border bg-background px-2 font-mono text-base pointer-fine:text-xs"
+                        >
+                          <option value="">(kök)</option>
+                          {klasorSecenekleri.map((k) => (
+                            <option key={k} value={k}>
+                              {k}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+
+                      <span
+                        className={cn(
+                          "truncate font-mono text-[11px] text-muted-foreground/70",
+                          !gonderilir && "line-through"
+                        )}
+                      >
+                        → {yol}
+                      </span>
+
+                      {/* ÇAKIŞMA KARARI SATIRIN KENDİSİNDE. Tek bir çakışmanın
+                          bütün öbeği kilitlemesinin sebebi kararın öbeğe ait
+                          olmasıydı; karar satıra inince 14 doğru dosya 1 yanlış
+                          dosyayı beklemez. */}
+                      {a.cakisma && (
+                        <span className="flex flex-wrap gap-1.5 pt-0.5">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={a.karar === "yeniSurum" ? "default" : "outline"}
+                            aria-pressed={a.karar === "yeniSurum"}
+                            disabled={calisiyor}
+                            onClick={() => kararVer(a.id, "yeniSurum")}
+                          >
+                            Eskisinin yerine geçsin
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={a.karar === "vazgec" ? "default" : "outline"}
+                            aria-pressed={a.karar === "vazgec"}
+                            disabled={calisiyor}
+                            onClick={() => kararVer(a.id, "vazgec")}
+                          >
+                            Bu dosyayı ekleme
+                          </Button>
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {engelli && (
+              <p className="border border-destructive/40 bg-destructive/10 p-3 text-[12px] text-destructive">
+                {formatNum(yinelenenYollar.size)} hedef yolu birden çok satır üretiyor. Aynı yol
+                tek bir dosyaya aittir: işaretli satırların hedef klasörünü değiştirin ya da
+                fazlasını seçimden çıkarın.
+              </p>
+            )}
+
+            {!engelli && adaylar.length > 0 && gonderilecek.length === 0 && (
+              <p className="border border-dashed p-3 text-[12px] text-muted-foreground">
+                Listedeki dosyaların tümü “eklenmeyecek” işaretli. En az birinde “Eskisinin
+                yerine geçsin” seçin ya da hedef klasörünü değiştirin.
+              </p>
             )}
 
             <DialogFooter>
@@ -312,11 +526,11 @@ export function AddFilesButton({
               </Button>
               <Button
                 type="button"
-                disabled={calisiyor || adaylar.length === 0 || engelli}
+                disabled={calisiyor || gonderilecek.length === 0 || engelli}
                 onClick={() => void ekle()}
               >
                 {calisiyor && <Loader2 className="size-4 animate-spin" />}
-                {calisiyor ? "Ekleniyor…" : `Ekle (${formatNum(adaylar.length)})`}
+                {calisiyor ? "Ekleniyor…" : `Ekle (${formatNum(gonderilecek.length)})`}
               </Button>
             </DialogFooter>
           </DialogContent>

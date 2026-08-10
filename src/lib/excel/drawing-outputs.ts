@@ -5,13 +5,21 @@
 // yalnız biçim vardır. Marka dili İş Takibi ve Ekipman Listesi ile AYNIDIR —
 // kömür başlık, künye satırı, kırmızı ince kural, dondurulmuş başlık, süzgeç.
 //
-// MARKA YARDIMCILARI NEDEN ÇOĞALTILDI: `work-log.ts` `writeTitleBlock` /
-// `styleHeaderRow` / `autoWidth` üçlüsünü DIŞA AKTARMIYOR ve o dosya bu fazın
-// sahipliğinde değil. Üçüncü kopya oluştuğu için ortak bir `excel/brand.ts`e
-// çıkarılması artık gerekçelidir; bu faz kapsamında yapılmadı, notu ROADMAP'e
-// düşülüyor. Renkler design-system/readme.md'den birebir alınmıştır.
+// MARKA YARDIMCILARI ARTIK `excel/brand.ts`TE. Bir zamanlar bu dosya kendi
+// `writeTitleBlock`/`styleHeaderRow`/`autoWidth` kopyasını taşıyordu ve
+// `work-log.ts` ile 64 satırı BİREBİR aynıydı; marka kırmızısı dört ayrı
+// dosyada tanımlıydı ve sapma zaten gerçekleşmişti (Parça Defteri marka bandı
+// hiç basmıyordu). Renk bir kez tanımlanır, dört belge onu paylaşır.
 
 import ExcelJS from "exceljs";
+import {
+  autoWidth,
+  MODULE_PREFIX,
+  ORION_RED,
+  styleHeaderRow,
+  TOTAL_FILL,
+  writeTitleBlock,
+} from "./brand";
 import type {
   ImalatKoku,
   ImalatSonucu,
@@ -20,23 +28,6 @@ import type {
   SatinAlmaSonucu,
   TestereSonucu,
 } from "@/lib/drawings/derive";
-
-const CHARCOAL = "FF262626";
-const PAPER = "FFF4F1EF";
-const ORION_RED = "FFA41E1E";
-
-const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: CHARCOAL } };
-const RED_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: ORION_RED } };
-const COL_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: "FFE7E4E2" }, // Kağıt 200
-};
-const TOTAL_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: "FFF1EEEC" }, // Kağıt 150
-};
 
 /** Boş hücreye 0 değil TİRE yazılır: "0 kg" ile "bilinmiyor" aynı şey değildir. */
 const YOK = "—";
@@ -56,80 +47,11 @@ export interface DrawingExportMeta {
   preparedBy: string;
 }
 
-// ————————————————————————————————————————————————— marka blokları
-
-function colLetter(n: number): string {
-  let s = "";
-  let x = n;
-  while (x > 0) {
-    const rem = (x - 1) % 26;
-    s = String.fromCharCode(65 + rem) + s;
-    x = Math.floor((x - 1) / 26);
-  }
-  return s;
-}
-
-/** Kömür başlık + künye + kırmızı ayraç. Tablo başlığının satır numarasını döner. */
-function writeTitleBlock(
-  ws: ExcelJS.Worksheet,
-  title: string,
-  meta: DrawingExportMeta,
-  colCount: number
-): number {
-  const last = colLetter(Math.max(colCount, 1));
-
-  ws.mergeCells(`A1:${last}1`);
-  const t = ws.getCell("A1");
-  t.value = `ORION — TEKNİK RESİMLER · ${title}`;
-  t.font = { name: "Archivo", bold: true, size: 14, color: { argb: PAPER } };
-  t.alignment = { horizontal: "left", vertical: "middle" };
-  ws.getRow(1).height = 26;
-
-  ws.mergeCells(`A2:${last}2`);
-  const k = ws.getCell("A2");
-  k.value = [meta.paketAdi, meta.belgeKodu, meta.generatedAt, meta.preparedBy]
-    .filter(Boolean)
-    .join(" · ");
-  k.font = { name: "IBM Plex Mono", size: 9, color: { argb: PAPER } };
-  k.alignment = { horizontal: "left", vertical: "middle" };
-  ws.getRow(2).height = 16;
-
-  // Birleşik hücrelerin kenar kolonları merge sonrası boyasız kalmasın.
-  for (let r = 1; r <= 2; r++) {
-    for (let c = 1; c <= colCount; c++) ws.getRow(r).getCell(c).fill = HEADER_FILL;
-  }
-
-  ws.mergeCells(`A3:${last}3`);
-  for (let c = 1; c <= colCount; c++) ws.getRow(3).getCell(c).fill = RED_FILL;
-  ws.getRow(3).height = 3;
-
-  return 5; // satır 4 boş; tablo başlığı 5. satırda
-}
-
-function styleHeaderRow(row: ExcelJS.Row, colCount: number): void {
-  row.height = 18;
-  for (let c = 1; c <= colCount; c++) {
-    const cell = row.getCell(c);
-    cell.fill = COL_FILL;
-    cell.font = { name: "Archivo", bold: true, size: 10 };
-    cell.border = { bottom: { style: "thin", color: { argb: "FF9CA3AF" } } };
-  }
-}
-
-function autoWidth(ws: ExcelJS.Worksheet, min = 9, max = 46): void {
-  ws.columns.forEach((col) => {
-    let width = min;
-    col.eachCell?.({ includeEmpty: false }, (cell) => {
-      if (cell.isMerged) return;
-      const len = String(cell.value ?? "").length + 2;
-      if (len > width) width = len;
-    });
-    col.width = Math.min(width, max);
-  });
-}
-
 function writeHeader(ws: ExcelJS.Worksheet, baslik: string, sutunlar: readonly string[], meta: DrawingExportMeta): number {
-  const headerRow = writeTitleBlock(ws, baslik, meta, sutunlar.length);
+  const headerRow = writeTitleBlock(ws, baslik, sutunlar.length, {
+    prefix: MODULE_PREFIX.drawings,
+    meta: [meta.paketAdi, meta.belgeKodu, meta.generatedAt, meta.preparedBy],
+  });
   const head = ws.getRow(headerRow);
   sutunlar.forEach((label, i) => (head.getCell(i + 1).value = label));
   styleHeaderRow(head, sutunlar.length);
@@ -178,7 +100,10 @@ function writeKunye(
   kapsam: string[]
 ): void {
   const ws = wb.addWorksheet("Künye", { pageSetup: { orientation: "portrait" } });
-  const bas = writeTitleBlock(ws, "Künye", meta, 2);
+  const bas = writeTitleBlock(ws, "Künye", 2, {
+    prefix: MODULE_PREFIX.drawings,
+    meta: [meta.paketAdi, meta.belgeKodu, meta.generatedAt, meta.preparedBy],
+  });
 
   const tum: [string, string | number][] = [
     ["Paket", meta.paketAdi],
@@ -216,6 +141,10 @@ function writeKunye(
 
 // —————————————————————————————————————————————————— 1. Satın alma kitabı
 
+// "Defter Satırı" sütunu BİRLEŞTİRMENİN KENDİSİNİ görünür kılar: satınalmacı
+// 61 adetlik somunun dört ayrı montaj satırından toplandığını yalnız burada ve
+// "Kaynak" hücresinde görebilir. Birleştirmeyi yapıp izini göstermemek, elle
+// toplama zahmetini gizli bir güven sorununa çevirirdi.
 const SATIN_ALMA_SUTUNLARI = [
   "Sınıf",
   "Tanım",
@@ -224,6 +153,7 @@ const SATIN_ALMA_SUTUNLARI = [
   "Birim kg",
   "Toplam kg",
   "Parça Kodu",
+  "Defter Satırı",
   "Kaynak",
 ];
 
@@ -238,20 +168,30 @@ function writeSatinAlmaSheet(
     const row = ws.getRow(bas + 1 + i);
     row.getCell(1).value = s.sinif;
     row.getCell(2).value = s.tanim || YOK;
-    row.getCell(3).value = s.malzeme || YOK;
+    // ÇELİŞKİ GİZLENMEZ: aynı kalem iki malzemeyle geçtiyse ikisi de yazılır.
+    const malzeme = row.getCell(3);
+    malzeme.value = s.malzemeler.length > 1 ? s.malzemeler.join(" / ") : s.malzeme || YOK;
+    if (s.malzemeler.length > 1) malzeme.font = { bold: true, color: { argb: ORION_RED } };
     sayiHucresi(row, 4, s.adet);
     sayiHucresi(row, 5, s.birimAgirlikKg);
     sayiHucresi(row, 6, s.toplamAgirlikKg);
     row.getCell(7).value = s.parcaKodu || YOK;
-    row.getCell(8).value = s.kaynak || YOK;
+    sayiHucresi(row, 8, s.sourceRows);
+    if (s.sourceRows > 1) row.getCell(8).font = { bold: true };
+    row.getCell(9).value = s.kaynak || YOK;
   });
 
   const toplam = totalRow(ws, bas + 1 + veri.satirlar.length, SATIN_ALMA_SUTUNLARI.length);
   toplam.getCell(1).value = "TOPLAM";
-  toplam.getCell(2).value = `${veri.satirlar.length} satır`;
+  // Künye ve bu hücre BİRLEŞTİRİLMİŞ sayıyı söyler: "kalem" satın alma
+  // kararının birimi, "defter satırı" ise onun kaynağıdır.
+  toplam.getCell(2).value =
+    `${veri.satirlar.length} kalem · ${veri.kaynakSatiri} defter satırı` +
+    (veri.birlesenKalem ? ` (${veri.birlesenKalem} kalem birleşti)` : "");
   sayiHucresi(toplam, 4, veri.toplamAdet);
   sayiHucresi(toplam, 6, veri.toplamAgirlikKg);
   toplam.getCell(6).font = { bold: true };
+  sayiHucresi(toplam, 8, veri.kaynakSatiri);
 
   ws.autoFilter = {
     from: { row: bas, column: 1 },
@@ -434,10 +374,13 @@ export function buildSatinAlmaWorkbook(
     wb,
     meta,
     [
-      ["Satın alma satırı", veri.satinAlma.satirlar.length],
+      ["Satın alma kalemi", veri.satinAlma.satirlar.length],
+      ["Kaynak defter satırı", veri.satinAlma.kaynakSatiri],
+      ["Birleşen kalem", veri.satinAlma.birlesenKalem],
+      ["Parça numarası olmayan kalem", veri.satinAlma.kodsuzKalem],
       ["Toplam adet", veri.satinAlma.toplamAdet],
-      ["Malzemesi yazılı satır", veri.satinAlma.malzemesiBilinen],
-      ["Ağırlığı bilinen satır", veri.satinAlma.agirligiBilinen],
+      ["Malzemesi yazılı kalem", veri.satinAlma.malzemesiBilinen],
+      ["Ağırlığı bilinen kalem", veri.satinAlma.agirligiBilinen],
       ["Sac grubu", veri.sac.gruplar.length],
       ["Net sac alanı (m²)", Number((veri.sac.netAlanMm2 / 1_000_000).toFixed(3))],
       ["Yerleşim payı", veri.sac.yerlesimPayi],
@@ -470,6 +413,29 @@ export function buildSatinAlmaWorkbook(
         : "Testere satırlarında adet ile toplam boy birbirini tutuyor.",
       "Satın alma listesi iki kaynağı birleştirir: BOM'da 'Purchased' yapısındaki " +
         "satırlar ve parça numarası olmayan satırlar (cıvata, segman, rulman…).",
+      veri.satinAlma.birlesenKalem > 0
+        ? "AYNI KALEMİN TEKRARLARI TEK SATIRDA BİRLEŞTİRİLDİ ve adetleri toplandı: " +
+          `${veri.satinAlma.kaynakSatiri} defter satırı ${veri.satinAlma.satirlar.length} ` +
+          `kaleme indi (${veri.satinAlma.birlesenKalem} kalem birden çok satırdan geldi). ` +
+          "Sipariş kararı satır başına değil KALEM başınadır; aynı somun dört ayrı " +
+          "montajda geçtiğinde satınalmacının dört satırı elle toplaması gerekirdi. " +
+          "Hangi satırlardan birleştiği 'Defter Satırı' ve 'Kaynak' sütunlarında yazar; " +
+          "üretim durumu ekranı da AYNI kalemleri sayar."
+        : "Bu pakette aynı kalem birden çok satırda geçmiyor; her satır bir kalemdir. " +
+          "Yine de kimlik üretim durumu ekranıyla aynı kuraldan çıkar: kodlu parçada " +
+          "parça kodu, kodsuz satırda tanımın kendisi.",
+      "'Kaynak' sütunu satırın hangi montajdan geldiğini söyler (ürün ağacındaki " +
+        "üst montajın kodu ve yolu). Ürün ağacı olmayan pakette bunun yerine BOM " +
+        "Excel'inin dosya adı, sayfası ve satır numarası yazar.",
+      veri.satinAlma.malzemeCeliskisi > 0
+        ? `${veri.satinAlma.malzemeCeliskisi} kalemde birleşen satırlar FARKLI malzeme ` +
+          "söylüyor. Biri seçilip diğeri yutulmadı: hücrede ikisi de yazar ve kırmızıdır."
+        : "Birleşen satırların malzemeleri birbiriyle çelişmiyor.",
+      "AĞIRLIK SATIR SATIR TOPLANIR. Birleşik adet ile birim ağırlığı çarpmak " +
+        "kolay olurdu ama satırların yalnız bir kısmında malzeme ve ağırlık yazılı; " +
+        "geri çarpım sessiz bir sapma üretirdi. Birleşen satırların birim ağırlığı " +
+        "birbirini tutmuyorsa 'Birim kg' hücresi tire gösterir — o kalemin tek bir " +
+        "birim ağırlığı YOKTUR, toplam yine gerçek satırların toplamıdır.",
     ]
   );
 

@@ -103,12 +103,25 @@ async function bas(pkg: FixturePackage, sheets: FixtureSheet[]): Promise<void> {
 
   const sa = satinAlmaListesi(parts);
   console.log(
-    `SATIN ALMA  ${sa.satirlar.length} satır · ${sa.toplamAdet} adet · ` +
-      `kodsuz ${sa.satirlar.filter((s) => !s.parcaKodu).length} · ` +
+    `SATIN ALMA  ${sa.satirlar.length} kalem ← ${sa.kaynakSatiri} defter satırı · ` +
+      `${sa.toplamAdet} adet · kodsuz ${sa.kodsuzKalem} · ` +
       `malzemeli ${sa.malzemesiBilinen} · ağırlıklı ${sa.agirligiBilinen} · ` +
       `toplam ${kg(sa.toplamAgirlikKg)} kg`
   );
   console.log("  sınıf: " + sa.siniflar.map((s) => `${s.sinif} ${s.satirSayisi}`).join(" · "));
+  // BİRLEŞEN KALEMLER tek tek basılır: bu modülün en pahalı hatası, aynı
+  // kalemin dört satıra dağılıp hiçbir hücrede toplanmamasıydı. Sayı değil
+  // SATIRLARIN KENDİSİ gösterilir ki iz doğru mu, gözle görülebilsin.
+  console.log(`  birleşen kalem: ${sa.birlesenKalem} · malzeme çelişkisi ${sa.malzemeCeliskisi}`);
+  for (const s of sa.satirlar.filter((x) => x.sourceRows > 1)) {
+    console.log(
+      `  · "${s.tanim}" ${s.sourceRows} satır → ${s.adet} adet · ` +
+        `${kg(s.toplamAgirlikKg)} kg\n      ${s.kaynak}`
+    );
+  }
+  for (const s of sa.satirlar.filter((x) => x.malzemeler.length > 1)) {
+    console.log(`  · MALZEME ÇELİŞKİSİ "${s.tanim}" → ${s.malzemeler.join(" / ")}`);
+  }
 
   const sac = sacIhtiyaci(parts);
   console.log(

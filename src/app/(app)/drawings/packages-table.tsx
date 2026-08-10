@@ -43,21 +43,59 @@ import { FilterBar, SearchBox, SortableHead } from "./sortable-head";
 /** Tablodaki sütun sayısı — grup başlığının `colSpan`ı buradan okunur. */
 const SUTUN = 8;
 
+/**
+ * Grup başlığı ancak bir kalemin EN AZ bu kadar paketi varken basılır.
+ *
+ * Gruplama artık ilk açılışta devrede olduğu için başlık artık istisna değil
+ * kural olurdu: tek paketli her kaleme de başlık koymak satır sayısını ikiye
+ * katlar ve o başlık, satırın kendi hücrelerinde ZATEN yazan sayıları tekrar
+ * ederdi. Başlığın taşıdığı asıl bilgi "bu iş PARÇA PARÇA teslim edildi"dir —
+ * tek paketli bir kalemde böyle bir bilgi yoktur, dolayısıyla başlık da yoktur.
+ */
+const GRUP_BASLIK_ESIGI = 2;
+
 export function PackagesTable({ packages }: { packages: PackageRow[] }) {
   const [f, setF] = useState<PackageFilters>(EMPTY_PACKAGE_FILTERS);
-  const [sortKey, setSortKey] = useState<PackageSortKey>("tarih");
-  const [desc, setDesc] = useState(true);
+  // GRUPLAMA ÖNTANIMLI AÇIKTIR ve bedeli ÖNTANIMLI SIRALAMADIR.
+  //
+  // Gruplama yazılmıştı ama liste tarihe göre açılıyordu; kullanıcı "Kalem No"
+  // başlığına tıklamadan gruplamayı hiç görmüyordu. Var olan ama keşfedilmeyen
+  // bir özellik, olmayan özelliktir.
+  //
+  // İki yol vardı: (a) öntanımlı sıralamayı kaleme çevirmek, (b) gruplamayı
+  // sıralamadan bağımsız bir aç/kapa yapmak. (a) SEÇİLDİ:
+  //   · Gruplama bir görüntü tercihi değil VERİNİN GERÇEĞİDİR. Bir iş 3–5 ayrı
+  //     teslimle gelir ve mühendisin aklında tuttuğu kimlik kalem numarasıdır
+  //     ("0057-00'ın köprüsü"). Listenin ilk cevaplaması gereken soru "bu iş
+  //     için ne var"dır; ölçüye göre sıralama ikincil bir sorudur.
+  //   · (b) düzeltmeye çalıştığımız kusurun bir eşini üretirdi: keşfedilmesi,
+  //     hatırlanması ve kalıcılaştırılması gereken İKİNCİ bir denetim. Üstelik
+  //     o anahtarın ilginç konumu zaten YANLIŞTIR — "parça"ya göre sıralarken
+  //     gruplamak, "en çok parçalı paket hangisi" sorusunun cevabını grup
+  //     başlıklarının arasına dağıtır. Tek doğru konumu olan bir anahtar,
+  //     anahtar değildir.
+  //
+  // Tarih sırası kaybolmuyor, bir tık uzakta (Durum başlığı). "Ne yeni geldi"
+  // sorusunun asıl cevabı da zaten tablonun ÜSTÜNDEKİ iki karttır: yarım
+  // kalmış yükleme ve eşleşmemiş paket.
+  //
+  // KABUL EDİLEN SONUÇ: kalem numarası boş paketler artan sırada BAŞA düşer ve
+  // "kalem eşleşmemiş" başlığı altında toplanır. Modülün kuralı eşleşmeyeni
+  // gizlemek değil GÖRÜNÜR kılmaktır; listenin başında durmaları bu kurala
+  // aykırı değildir. (Sona alınmaları istenirse yeri burası değil
+  // `filters.ts`teki `PACKAGE_SORTS.kalem` karşılaştırıcısıdır.)
+  const [sortKey, setSortKey] = useState<PackageSortKey>("kalem");
+  const [desc, setDesc] = useState(false);
 
   const gorunen = useMemo(
     () => sortPackages(packages.filter((p) => matchesPackage(p, f)), sortKey, desc),
     [packages, f, sortKey, desc]
   );
 
-  // KALEME GÖRE GRUPLAMA yalnız kalem sıralamasındayken açılır. Başka bir
-  // sütuna göre sıralarken gruplamak, kullanıcının istediği sırayı bozar:
-  // "en çok parçalı paket hangisi" sorusunun cevabı grup başlıklarının arasına
-  // dağılırdı. Kalem sıralaması ise zaten aynı işin satırlarını yan yana
-  // getirir — gruplama orada yalnız görüneni adlandırır.
+  // Gruplama KALEM SIRALAMASINA bağlı kalır (yukarıdaki karar): başka bir
+  // sütuna göre sıralarken gruplamak kullanıcının istediği sırayı bozar. Kalem
+  // sıralaması ise aynı işin satırlarını zaten yan yana getirir — gruplama
+  // orada yalnız görüneni ADLANDIRIR, sırayı değiştirmez.
   const gruplu = sortKey === "kalem";
   const gruplar = useMemo(() => (gruplu ? groupPackages(gorunen) : []), [gruplu, gorunen]);
 
@@ -170,28 +208,33 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                       {/* GRUP BAŞLIĞI — bir işin bütün paketleri bir arada.
                           Bazı projeler grup grup çiziliyor ve bir iş için 3–5
                           ayrı yükleme geliyor; liste onları birbirinden
-                          bağımsız satırlar olarak gösteriyordu. */}
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={SUTUN} className="py-1.5">
-                          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                            <span className="font-mono text-sm font-semibold">
-                              {g.itemNo || "kalem eşleşmemiş"}
-                            </span>
-                            <span className="font-mono text-[11px] text-muted-foreground">
-                              {formatNum(g.rows.length)} paket ·{" "}
-                              <span className={g.missing > 0 ? "text-destructive" : undefined}>
-                                {formatNum(g.storedCount)}/{formatNum(g.fileCount)} dosya depoda
-                              </span>{" "}
-                              · {formatNum(g.partCount)} parça
-                            </span>
-                            {g.rows[0]?.jobs?.title && (
-                              <span className="truncate text-[11px] text-muted-foreground">
-                                {g.rows[0].jobs.title}
+                          bağımsız satırlar olarak gösteriyordu. Başlık ÇOK
+                          PAKETLİ kalemlerde çizilir (`GRUP_BASLIK_ESIGI`):
+                          tek paketli işe başlık koymak bilgi vermez, yalnız
+                          listeyi iki katına çıkarırdı. */}
+                      {g.rows.length >= GRUP_BASLIK_ESIGI && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={SUTUN} className="py-1.5">
+                            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                              <span className="font-mono text-sm font-semibold">
+                                {g.itemNo || "kalem eşleşmemiş"}
                               </span>
-                            )}
-                          </span>
-                        </TableCell>
-                      </TableRow>
+                              <span className="font-mono text-[11px] text-muted-foreground">
+                                {formatNum(g.rows.length)} paket ·{" "}
+                                <span className={g.missing > 0 ? "text-destructive" : undefined}>
+                                  {formatNum(g.storedCount)}/{formatNum(g.fileCount)} dosya depoda
+                                </span>{" "}
+                                · {formatNum(g.partCount)} parça
+                              </span>
+                              {g.rows[0]?.jobs?.title && (
+                                <span className="truncate text-[11px] text-muted-foreground">
+                                  {g.rows[0].jobs.title}
+                                </span>
+                              )}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      )}
                       {g.rows.map((p) => (
                         <PaketSatiri key={p.id} p={p} />
                       ))}

@@ -12,6 +12,7 @@ import { loadPackage, storageState } from "../data";
 import { PackageNav } from "./package-nav";
 import { PackageActions } from "./package-actions";
 import { PackageOutputs } from "./package-outputs";
+import { PackageSiblings } from "./package-siblings";
 
 export default async function PackageLayout({
   children,
@@ -152,6 +153,13 @@ export default async function PackageLayout({
           )}
         </div>
       </header>
+
+      {/* KARDEŞ PAKETLER KÜNYENİN HEMEN ALTINDA. "Bu vincin başka paketi var
+          mı" sorusu paketin KİMLİĞİNE aittir, bir alt sayfaya değil — bu yüzden
+          bölüm rayının üstünde ve her sekmede durur. Kardeş yoksa bileşen hiç
+          render edilmez; boş bir kutu bırakmaz (`grid gap-3` de o yüzden
+          fazladan boşluk üretmez). */}
+      <PackageSiblings itemNo={paket.item_no} packageId={paket.id} />
 
       <PackageNav packageId={paket.id} />
 

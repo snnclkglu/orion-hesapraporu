@@ -681,12 +681,31 @@ hatası, ve V2 içerik okumasında üç resmin antedindeki proje no çelişkisi.
   parçaya** bağlıdır (`item_no` + `part_code`), çünkü `drawing_parts` türetilmiş
   bir tablodur ve her eşleştirmede silinip yeniden kurulur.
 
+- **V6** — depo bütünlüğü: sistem baytların depoya ULAŞIP ULAŞMADIĞINI hiç
+  kontrol etmiyordu. `file_count`/`bytes_total` paket açılırken bir kez yazılıp
+  bir daha güncellenmiyordu — yani ekrandaki her sayı İSTEMCİNİN BEYANIYDI ve
+  altı ayrı yerde hata yutuluyordu (en kötüsü: sihirbaz `error.message`i atıp
+  sayaçları hata dalının DIŞINDA artırıyordu; bütün baytlar reddedilse bile
+  ekran "174/174 dosya · 107 MB" yazıp rapora atlıyordu).
+
+  Teşhis notu: **bayt kaybı yoktu** — `storage.objects` sayımı 911 nesne /
+  604 MB gösterdi ve beyanla birebir uyuştu. Paneldeki "6 MB" periyodik
+  hesaplanan bir istatistiktir. Kusur kaybın kendisi değil, sistemin bunu
+  KANITLAYAMAMASIYDI.
+
+  `verifyStorage` bucket'ı sayfalayarak listeler ve **dört sayacın da tek
+  yazanıdır**. `finalizeUpload` yol yerine KİMLİK alır (200 yol = 22–26 KB URL;
+  bir gün 414 ile sessizce düşecekti) ve ulaşmayanın SEBEBİNİ saklar. Silme
+  sırası tersine çevrildi (önce satır, sonra nesne), yetki
+  `can_edit_drawings()`e çekildi ve üretime girmiş paketi bir tetikleyici
+  korur. Revizyon/süperse + üretim kaydı devri, sürdürme kipi (`?devam=`
+  yıllardır okunmuyordu), tek dosya ekleme, yedek/kopya dosyaların hiç
+  yüklenmemesi. `diff.ts`e kesim boyu eklenince MONORAY'da iki gerçek
+  değişiklik ortaya çıktı (462 → 240 ve 148 → 240).
+
 ### Açık kalanlar
 
-- Birleşik imalat PDF'i (`pdf-lib` gerektirir; `@react-pdf/renderer` mevcut
-  PDF'leri birleştiremez)
-- Satın alma kimliği: `derive.satinAlmaListesi` konumsal anahtar kullanıyor,
-  `progress.ts` tanımdan birleştiriyor — MTC'de 90 satır ↔ 68 kalem farkı var
-  ve iki ekran farklı sayı söylüyor
-- Aşama defteri yönetim ekranı (bugün yalnız tohum aşamalar)
-- `src/lib/excel/` marka bloğu üç dosyada tekrarlanıyor, ortak modüle çıkarılmalı
+- Dosya gezgini 2000 satırı DOM'a basar; ölçüldü, bugünkü en büyük paket
+  682 dosya ve sorun ölçülebilir düzeyde değil. Sanallaştırma **şimdilik
+  gereksiz** — 1500 dosyayı aşan bir paket geldiğinde ilk bakılacak yer burası
+  (arama kutusunda debounce yok, `aramaVar` bütün katları açıyor)

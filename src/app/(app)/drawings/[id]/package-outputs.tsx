@@ -55,6 +55,17 @@ export function PackageOutputs({ packageId }: { packageId: string }) {
           ad: "İmalat Resim Listesi (Excel)",
           ipucu: "Ağaç sıralı, adet ve ağırlıkla",
         },
+        // İKİ AYRI MALİYET, İKİ AYRI İPUCU. Yukarıdaki Excel tek sorgudan
+        // saniyeler içinde çıkar; bu uç aynı listenin RESİMLERİNİ depodan tek
+        // tek indirip birleştirir (MTC ölçüsü: 171 dosya, ~100 MB). Kullanıcı
+        // bunu TIKLAMADAN ÖNCE bilmelidir — bağlantı düz `<a>` olduğu için
+        // tarayıcıda hiçbir ilerleme göstergesi yok, sabırsız kullanıcı bir
+        // şey olmadığını sanıp üst üste tıklar.
+        {
+          href: `${kok}/production-pdf`,
+          ad: "İmalat Resimleri (Birleşik PDF)",
+          ipucu: "Baskıya hazır tek dosya · yüzlerce resim iner, dakikalar sürebilir",
+        },
       ],
     },
   ];

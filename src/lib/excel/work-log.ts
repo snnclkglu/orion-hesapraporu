@@ -6,10 +6,18 @@
 //   4. "Parça Özeti"     — parça × imalat türü çapraz tablosu
 //
 // Saf fonksiyondur (DB/HTTP bağımlılığı yok): route handler veriyi çeker,
-// burası çalışma kitabını kurar. Ekipman listesiyle aynı marka dili
-// kullanılır — kömür başlık, kırmızı ince ayraç, mono teknik metin.
+// burası çalışma kitabını kurar. Marka dili (kömür başlık, kırmızı ince ayraç,
+// mono teknik metin) artık burada TANIMLI DEĞİL, `excel/brand.ts`ten gelir:
+// aynı bant dört Excel çıktısında birden basılıyor.
 
 import ExcelJS from "exceljs";
+import {
+  MODULE_PREFIX,
+  TOTAL_FILL,
+  autoWidth,
+  styleHeaderRow,
+  writeTitleBlock,
+} from "@/lib/excel/brand";
 import {
   breakdown,
   bucketKey,
@@ -21,32 +29,6 @@ import {
   type WorkLogRow,
 } from "@/lib/work-log";
 
-// Marka renkleri (design-system/readme.md)
-const CHARCOAL = "FF262626";
-const PAPER = "FFF4F1EF";
-const ORION_RED = "FFA41E1E";
-
-const HEADER_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: CHARCOAL },
-};
-const RED_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: ORION_RED },
-};
-const COL_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: "FFE7E4E2" }, // Kağıt 200
-};
-const TOTAL_FILL: ExcelJS.Fill = {
-  type: "pattern",
-  pattern: "solid",
-  fgColor: { argb: "FFF1EEEC" }, // Kağıt 150
-};
-
 export interface WorkLogExportMeta {
   /** Süzgeçlerin insan okunur özeti */
   filterText: string;
@@ -56,73 +38,19 @@ export interface WorkLogExportMeta {
   preparedBy: string;
 }
 
-function colLetter(n: number): string {
-  let s = "";
-  let x = n;
-  while (x > 0) {
-    const rem = (x - 1) % 26;
-    s = String.fromCharCode(65 + rem) + s;
-    x = Math.floor((x - 1) / 26);
-  }
-  return s;
-}
-
-/** Kömür başlık + künye + kırmızı ayraç. Tablo başlığının satır numarasını döner. */
-function writeTitleBlock(
+/**
+ * Sayfanın marka bandı. Künye üç parçalıdır ve boş üreten (arka plan işi)
+ * satırı `writeTitleBlock` kendisi eler.
+ */
+function writeBand(
   ws: ExcelJS.Worksheet,
   title: string,
   meta: WorkLogExportMeta,
   colCount: number
 ): number {
-  const last = colLetter(Math.max(colCount, 1));
-
-  ws.mergeCells(`A1:${last}1`);
-  const t = ws.getCell("A1");
-  t.value = `ORION — İŞ TAKİBİ · ${title}`;
-  t.font = { name: "Archivo", bold: true, size: 14, color: { argb: PAPER } };
-  t.alignment = { horizontal: "left", vertical: "middle" };
-  ws.getRow(1).height = 26;
-
-  ws.mergeCells(`A2:${last}2`);
-  const k = ws.getCell("A2");
-  k.value = `${meta.filterText} · ${meta.generatedAt}${
-    meta.preparedBy ? ` · ${meta.preparedBy}` : ""
-  }`;
-  k.font = { name: "IBM Plex Mono", size: 9, color: { argb: PAPER } };
-  k.alignment = { horizontal: "left", vertical: "middle" };
-  ws.getRow(2).height = 16;
-
-  // Birleşik hücrelerin kenar kolonları merge sonrası boyasız kalmasın.
-  for (let r = 1; r <= 2; r++) {
-    for (let c = 1; c <= colCount; c++) ws.getRow(r).getCell(c).fill = HEADER_FILL;
-  }
-
-  ws.mergeCells(`A3:${last}3`);
-  for (let c = 1; c <= colCount; c++) ws.getRow(3).getCell(c).fill = RED_FILL;
-  ws.getRow(3).height = 3;
-
-  return 5; // satır 4 boş; tablo başlığı 5. satırda
-}
-
-function styleHeaderRow(row: ExcelJS.Row, colCount: number): void {
-  row.height = 18;
-  for (let c = 1; c <= colCount; c++) {
-    const cell = row.getCell(c);
-    cell.fill = COL_FILL;
-    cell.font = { name: "Archivo", bold: true, size: 10 };
-    cell.border = { bottom: { style: "thin", color: { argb: "FF9CA3AF" } } };
-  }
-}
-
-function autoWidth(ws: ExcelJS.Worksheet, min = 9, max = 46): void {
-  ws.columns.forEach((col) => {
-    let width = min;
-    col.eachCell?.({ includeEmpty: false }, (cell) => {
-      if (cell.isMerged) return;
-      const len = String(cell.value ?? "").length + 2;
-      if (len > width) width = len;
-    });
-    col.width = Math.min(width, max);
+  return writeTitleBlock(ws, title, colCount, {
+    prefix: MODULE_PREFIX.workLog,
+    meta: [meta.filterText, meta.generatedAt, meta.preparedBy],
   });
 }
 
@@ -148,7 +76,7 @@ function writeDetailSheet(
   rows: readonly WorkLogRow[],
   meta: WorkLogExportMeta
 ): void {
-  const headerRow = writeTitleBlock(ws, "Kayıtlar", meta, DETAIL_COLUMNS.length);
+  const headerRow = writeBand(ws, "Kayıtlar", meta, DETAIL_COLUMNS.length);
 
   const head = ws.getRow(headerRow);
   DETAIL_COLUMNS.forEach((label, i) => (head.getCell(i + 1).value = label));
@@ -244,7 +172,7 @@ function writeCrossSheet(
       : [...rowTotals.entries()].sort((a, b) => b[1].total - a[1].total);
 
   const colCount = 2 + colBuckets.length + 2; // ad + açıklama + türler + kayıt + toplam
-  const headerRow = writeTitleBlock(ws, title, meta, colCount);
+  const headerRow = writeBand(ws, title, meta, colCount);
 
   const head = ws.getRow(headerRow);
   head.getCell(1).value = rowDim === "month" ? "Ay" : "Ad";
@@ -337,7 +265,7 @@ export function buildWorkLogWorkbook(
   // üretildiği. Bir Excel dosyası e-postayla dolaşır; bağlamını kendi
   // taşımalıdır.
   const info = wb.addWorksheet("Künye", { pageSetup: { orientation: "portrait" } });
-  const infoHeader = writeTitleBlock(info, "Künye", meta, 2);
+  const infoHeader = writeBand(info, "Künye", meta, 2);
   const s = summarize(rows);
   const facts: [string, string | number][] = [
     ["Süzgeç", meta.filterText],
