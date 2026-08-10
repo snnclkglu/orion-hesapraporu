@@ -395,7 +395,7 @@ export function DayEntry({
           aria-label="Tarih seç"
         />
         {date !== today && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => goto(today)}>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => goto(today)}>
             Bugüne dön
           </Button>
         )}

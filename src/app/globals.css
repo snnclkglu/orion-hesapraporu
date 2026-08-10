@@ -182,6 +182,51 @@
   }
 
   /*
+   * DOKUNMA HEDEFİ BÜYÜR, KUTU BÜYÜMEZ.
+   *
+   * Dokunmatik payı bugüne kadar öğenin KENDİSİNİ büyüterek veriliyordu
+   * (`pointer-coarse:h-10`): 32 px'lik bir düğme telefonda 40 px oluyordu.
+   * Doğru hedefti ama sonuç şuydu — atölyede telefondan bakan mühendis için
+   * ekran düğmeden görünmüyordu; yan yana üç eylem satırın yarısını yiyordu.
+   *
+   * Ölçülmesi gereken iki şey AYNI ŞEY DEĞİL: görsel yoğunluk ve dokunma
+   * güvenilirliği. Görünmez bir `::after` genişletici ikisini ayırır — kutu
+   * 32 px kalır, parmağın bulduğu alan 44 px olur. Yani AGENTS md. 1'in
+   * tabanı gevşemez, 40 px'ten 44 px'e ÇIKAR.
+   *
+   * Yalnız `pointer: coarse` altında kurulur: farede genişletici gereksizdir ve
+   * komşu öğelerin üstüne binmesi masaüstünde hatalı tıklama üretirdi.
+   *
+   * `.oc-tap` yalnız DİKEY büyür (`left/right: 0`): yan yana duran düğmeler
+   * birbirinin dokunuşunu çalmasın. Kare ikon düğmeleri iki eksende de dar
+   * olduğu için `.oc-tap-square` kullanır.
+   */
+  .oc-tap,
+  .oc-tap-square {
+    position: relative;
+  }
+  @media (pointer: coarse) {
+    .oc-tap::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: max(100%, 44px);
+      transform: translateY(-50%);
+    }
+    .oc-tap-square::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  /*
    * Pastel etiket — müşteri adı ve satış kapsamı (lib/tags.ts).
    *
    * Renk `--oc-hue` ile TON AÇISI olarak gelir; doygunluk ve parlaklık BURADA
@@ -328,7 +373,20 @@
    *
    * `:where()` özgüllüğü sıfırlar: hiçbir bileşen kuralı bu yüzden ezilmez.
    */
-  :where(div, section, main, nav, article, aside, form, ul, ol, li, figure) {
+  :where(div, section, main, nav, article, aside, form, ul, ol, li, figure, header, footer) {
     min-width: 0;
+  }
+
+  /*
+   * KABUK ŞERİDİNİN GERÇEK YÜKSEKLİĞİ.
+   *
+   * Buradaki değer YALNIZ TABANDIR: gerçeği `AppShell` bir `ResizeObserver` ile
+   * ölçüp `documentElement` üzerine yazar. Şerit `lg` altında bir ya da İKİ
+   * satır olabilir (sayfanın eylemi varsa ikinci satır çizilir), yani sabit
+   * 48 px varsayan her tüketici bir sayfada yanılırdı: toast eylem düğmelerinin
+   * üstüne biner, bölüm listesi tabakası şeridin altını örterdi.
+   */
+  :root {
+    --app-header-h: 48px;
   }
 }

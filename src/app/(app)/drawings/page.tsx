@@ -11,6 +11,7 @@ import { FolderTree, Layers, PackageSearch, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
 import { StatCard } from "@/components/stat-card";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
 import { loadItemOptions, loadPackages, storageState } from "./data";
@@ -46,6 +47,10 @@ export default async function DrawingsPage() {
 
   return (
     <div className="grid gap-4">
+      <PageHeader
+        title="Teknik Resimler"
+        hint="Teknik ressamın klasörü olduğu gibi yüklenir; sistem içindekini okur ve neyi anlayamadığını söyler"
+      />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Paket"

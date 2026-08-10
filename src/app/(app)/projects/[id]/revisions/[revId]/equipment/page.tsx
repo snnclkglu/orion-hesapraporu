@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/page-header";
 import {
   altsFromRevision,
   calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson,
@@ -100,20 +101,31 @@ export default async function EquipmentPage({
   // katlanır (madde 35 düzeltmesiyle bu sayfa normal kipe geçti).
   return (
     <div className="w-full">
+      {/* Kimlik ve dönüş kabuğun yapışkan üst şeridine çıkar: ekipman tablosu
+          uzundur ve aşağı kayan kullanıcı "Revizyona dön" bağlantısını
+          kaybediyordu. */}
+      <PageHeader
+        backHref={`/projects/${id}/revisions/${revId}`}
+        backLabel={`V${revision.rev_no}`}
+        title="Ekipman Listesi"
+        hint={`${project.doc_no} · V${revision.rev_no} · ${project.name}`}
+      />
       <div className="mb-4">
+        {/* Sayfa içi dönüş bağlantısı `xl` altında geri okuyla yineleniyordu. */}
         <Link
           href={`/projects/${id}/revisions/${revId}`}
-          className="inline-flex min-h-9 items-center gap-1 text-sm text-muted-foreground hover:text-foreground pointer-coarse:min-h-10"
+          className="hidden min-h-9 items-center gap-1 text-sm text-muted-foreground hover:text-foreground xl:inline-flex"
         >
           <ChevronLeft className="size-4" />
           Revizyona dön
         </Link>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight">
+        {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
+        <h2 className="mt-1 text-xl font-semibold tracking-tight">
           Ekipman Listesi{" "}
           <span className="font-mono text-base text-muted-foreground">
             {project.doc_no} · V{revision.rev_no}
           </span>
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">
           {project.name} — {project.customer}
         </p>

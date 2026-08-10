@@ -31,3 +31,21 @@ export const APP_TAGLINE =
  * İkisi birleşince her sayfada bir başlık satırı boyu içerik kazanılır.
  */
 export const APP_HEADER_SLOT_ID = "sayfa-baslik-yuvasi";
+
+/**
+ * Kabuğun SAYFA EYLEMLERİ YUVASI — başlık yuvasından AYRIDIR.
+ *
+ * `lg` üstünde bu yuva başlık şeridinin sağ ucundadır ve görünüm bir tek
+ * satırdır. `lg` ALTINDA kendi satırına iner ve yatay kayar.
+ *
+ * NEDEN İKİ YUVA: eylemler başlıkla aynı 48 px'lik satırda duruyordu ve kap
+ * `shrink-0` olduğu için KÜÇÜLEMİYORDU. Hesap raporu ekranında altı eylem
+ * (durum şeridi · PDF Rapor · Ekipman Listesi · rozetler · Yayınla) doğal
+ * genişlikte ~520-560 px tutuyor; 375 px'lik telefonda şerit taşıyor, belge
+ * yatay kayıyor ve `position: sticky` YALNIZ DİKEY sabitlediği için sağa
+ * kaydırınca şeridin zemini ekrandan çıkıyordu ("üst bar kayıyor").
+ * İki ayrı yuva, eylemleri tek bir DOM örneği olarak taşımanın tek yoludur:
+ * aynı düğümleri iki yere birden portallamak `EDITOR_STATUS_SLOT_ID` gibi
+ * `getElementById` hedeflerini ikizleyip sessizce bozardı.
+ */
+export const APP_ACTIONS_SLOT_ID = "sayfa-eylem-yuvasi";

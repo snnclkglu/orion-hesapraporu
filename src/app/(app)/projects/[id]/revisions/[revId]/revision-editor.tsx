@@ -110,6 +110,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useOverlay } from "@/lib/use-overlay";
 import { useStoredFlag } from "@/lib/use-stored-flag";
 import { saveRevision } from "./actions";
 
@@ -744,7 +745,10 @@ function SectionTable({
   return (
     <div className="grid gap-2">
       <h3 className="oc-kicker text-muted-foreground">{table.title}</h3>
-      <div className="overflow-x-auto rounded-lg border">
+      {/* `.oc-scrollx`: hücreler `whitespace-nowrap` olduğu için çok sütunlu
+          sonuç tablosu telefonda kabın birkaç katına çıkıyor ve sessizce
+          kırpılıyordu (AGENTS md. 8). Bölümdeki tek ipuçsuz kaydırıcıydı. */}
+      <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-lg border [--oc-scroll-bg:var(--card)]">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/60">
@@ -930,6 +934,9 @@ const NAV_COLLAPSE_KEY = "orion.editor.nav.collapsed";
 /** Bölüm listesinin kimliği — mobil aç/kapa düğmesi `aria-controls` ile bağlanır. */
 const NAV_LIST_ID = "hesap-bolum-listesi";
 
+/** Bölüm panelinin (mobilde alt tabaka) kimliği — iki denetim de buna bağlanır. */
+const NAV_PANEL_ID = "hesap-bolum-paneli";
+
 /**
  * Durum şeridinin sayfa başlığındaki yuvası.
  *
@@ -1058,14 +1065,32 @@ export function RevisionEditor({
    */
   const narrowNav = navCollapsed && isDesktop;
   /**
-   * Bölüm rayı telefonda/tablet portrede KAPALI başlar.
+   * Bölüm rayı telefonda/tablet portrede KAPALI başlar ve ALT TABAKA olarak
+   * açılır.
    *
-   * lg altında ray içeriğin ÜSTÜNDE ve tam genişliktedir: başlık + arama +
-   * liste ≈ 350px, yani kullanıcı her adımda önce bu listeyi geçmek zorunda
-   * kalıyordu. Masaüstünde ray kendi sütunundadır, bu durum orada bir şey
-   * değiştirmez (liste `lg` üstünde her zaman açıktır).
+   * Eskiden ray `lg` altında içeriğin ÜSTÜNDE, akışın içinde duruyordu:
+   * başlık + arama + liste ≈ 350px, yani kullanıcı her adımda önce bu listeyi
+   * geçmek zorundaydı. Kapalı tutmak o sorunu çözdü ama yenisini yarattı —
+   * 100+ adımlık bir sihirbazda telefonda geriye yalnız Geri/İleri kalıyordu
+   * ve uzak bir bölüme atlamanın yolu yoktu.
+   *
+   * Çözüm konumdur, görünürlük değil: ray akıştan çıkar (içerik yerini geri
+   * alır) ve adım şeridindeki "12/117 · bölüm adı" etiketine dokununca alttan
+   * yükselir. Başparmak zaten orada. JSX ÇOĞALTILMAZ — aynı `<nav>` yalnız
+   * `max-lg:` sınıflarıyla yeniden konumlanır; ikinci bir kopya `NAV_LIST_ID`
+   * ile birlikte `aria-current` ve arama durumunu da ikizlerdi.
    */
   const [navOpenMobile, setNavOpenMobile] = useState(false);
+  /** Alt tabakayı açan düğme — kapanışta odak buraya döner (`useOverlay`). */
+  const navPanelRef = useRef<HTMLElement>(null);
+  const closeNavMobile = useCallback(() => setNavOpenMobile(false), []);
+  /**
+   * Tabaka davranışı kabuğun mobil çekmecesiyle ORTAK (`useOverlay`): gövde
+   * kaymaz, Esc kapatır, Tab tabakanın içinde döner, kapanınca odak geri gider.
+   * `isDesktop` kapısı şart — telefonda açıkken pencere genişletilirse ray
+   * kendi sütununa döner ve gövde kaydırması kilitli kalırdı.
+   */
+  useOverlay(navOpenMobile && !isDesktop, closeNavMobile, navPanelRef);
   const [pending, startTransition] = useTransition();
 
   // Kaydedilmemiş değişiklik takibi: kaydedilen state'lerden herhangi biri
@@ -2153,9 +2178,11 @@ export function RevisionEditor({
           </>
         )}
       </div>
-      {/* Kaydet lg ALTINDA burada değil, sabitlenmiş adım şeridindedir: sayfa
-          başlığı mobilde sticky değil ve bölüm kartı çok uzun — kaydetmek için
-          her seferinde sayfanın en başına dönmek gerekiyordu. */}
+      {/* Kaydet lg ALTINDA burada değil, sabitlenmiş adım şeridindedir.
+          Gerekçe artık "başlık mobilde sticky değil" DEĞİLDİR (şerit her
+          genişlikte `sticky`): eylem şeridi dar ekranda yatay kayan bir
+          şerittir ve Kaydet orada sağa doğru kaybolabilir. Adım şeridi ise
+          ekranın altına sabittir — her zaman elin altında. */}
       {!readOnly && (
         <Button onClick={handleSave} disabled={pending} size="sm" className="hidden lg:inline-flex">
           {pending ? "Kaydediliyor..." : "Kaydet"}
@@ -2171,10 +2198,39 @@ export function RevisionEditor({
     <div className="flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
       <StatusSlot>{statusStrip}</StatusSlot>
 
-      {/* Bölüm navigasyonu — dar kipte yalnız bölüm numaraları */}
+      {/* Örtü — alt tabaka açıkken. Yalnız telefonda/tablet portrede vardır;
+          `lg` üstünde ray zaten kendi sütunundadır ve örtülecek bir şey yok. */}
+      {navOpenMobile && !isDesktop && (
+        <div
+          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+          onClick={closeNavMobile}
+          aria-hidden
+        />
+      )}
+
+      {/* Bölüm navigasyonu.
+          `lg` ÜSTÜNDE: bugünkü ray — dar/geniş kip, kalıcı tercih, kendi
+          sütunu. Hiçbir şey değişmedi.
+          `lg` ALTINDA: ALT TABAKA. Ray akıştan çıkar (içerik ~40px kazanır) ve
+          adım şeridindeki etikete dokununca alttan yükselir. `translate-y-full`
+          ile kapanır — `hidden` yerine dönüşüm, çünkü açılış/kapanış hareketi
+          kullanıcıya listenin NEREDEN geldiğini söyler.
+          `dvh` (`vh` DEĞİL, md. 3): adres çubuğu açıkken `vh` tabakayı ekranın
+          altına taşırırdı. */}
       <nav
+        ref={navPanelRef}
+        id={NAV_PANEL_ID}
+        aria-label="Hesap bölümleri"
+        // Kapalı tabaka ekranın altında DURUYOR, yok olmuyor: `hidden`
+        // verilseydi açılış hareketi de olmazdı. Ama duran bir tabaka Tab ile
+        // hâlâ gezilebilir — 117 görünmez düğme klavye ve ekran okuyucu için
+        // sayfayı kullanılamaz yapardı. `inert` ikisini birden keser.
+        inert={!isDesktop && !navOpenMobile}
         className={cn(
-          "flex min-h-0 min-w-0 shrink-0 flex-col transition-[width] duration-200 ease-out",
+          "flex min-h-0 min-w-0 flex-col",
+          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[78dvh] max-lg:border-t max-lg:bg-card max-lg:px-3 max-lg:pt-2 max-lg:pb-3 max-lg:shadow-[0_-8px_24px_-8px_rgb(0_0_0/0.28)] max-lg:transition-transform max-lg:duration-200 max-lg:ease-out",
+          !navOpenMobile && "max-lg:translate-y-full",
+          "lg:shrink-0 lg:transition-[width] lg:duration-200 lg:ease-out",
           navCollapsed ? "lg:w-[3.25rem] xl:w-[3.25rem]" : "lg:w-[260px] xl:w-[286px]"
         )}
       >
@@ -2186,25 +2242,22 @@ export function RevisionEditor({
         >
           {!narrowNav && (
             <>
-              {/* lg ALTINDA başlık aynı zamanda listenin aç/kapa düğmesidir:
-                  ray orada tam genişlikte ve içeriğin üstündedir, açık liste
-                  her adımda kullanıcıyı bölüm içeriğinden uzaklaştırıyordu.
+              {/* lg ALTINDA bu satır TABAKANIN BAŞLIĞIDIR ve tabakayı kapatır
+                  (açan denetim adım şeridindedir — başparmağın olduğu yerde).
                   lg üstünde ray kendi sütunundadır ve düğme etkisizdir. */}
               <button
                 type="button"
-                onClick={() => setNavOpenMobile((v) => !v)}
+                onClick={closeNavMobile}
                 aria-expanded={navOpenMobile}
-                aria-controls={NAV_LIST_ID}
-                className="flex min-h-9 min-w-0 items-center gap-1.5 text-left transition-colors hover:text-foreground pointer-coarse:min-h-10 lg:pointer-events-none lg:min-h-0"
+                aria-controls={NAV_PANEL_ID}
+                title="Bölüm listesini kapat"
+                className="oc-tap flex min-h-9 min-w-0 items-center gap-1.5 text-left transition-colors hover:text-foreground lg:pointer-events-none lg:min-h-0"
               >
                 <span
                   aria-hidden
-                  className={cn(
-                    "shrink-0 font-mono text-[11px] leading-none text-muted-foreground transition-transform lg:hidden",
-                    navOpenMobile && "rotate-90"
-                  )}
+                  className="shrink-0 font-mono text-[11px] leading-none text-muted-foreground lg:hidden"
                 >
-                  ›
+                  ✕
                 </span>
                 <span className="oc-kicker text-muted-foreground">Bölümler</span>
                 <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground lg:hidden">
@@ -2235,14 +2288,18 @@ export function RevisionEditor({
           </button>
         </div>
 
-        {/* Bölüm arama kutusu — dar kipte yer kaplamaz (ada göre arıyor) */}
+        {/* Bölüm arama kutusu — dar kipte yer kaplamaz (ada göre arıyor).
+            Panelin kendisi gizlendiği için ayrıca gizlemeye gerek yok. */}
         {!narrowNav && (
-          <div className={cn("mb-2 shrink-0 px-1", !navOpenMobile && "hidden lg:block")}>
+          <div className="mb-2 shrink-0 px-1">
             <Input
               value={navQuery}
               onChange={(e) => setNavQuery(e.target.value)}
               placeholder="ARA · bölüm adı"
-              className="h-8 bg-background text-sm placeholder:font-mono placeholder:text-xs pointer-coarse:h-10"
+              // `text-sm` YAZILMAZ: taban `text-base pointer-fine:text-sm`tir ve
+              // elle ezmek iOS Safari'nin odakta OTOMATİK YAKINLAŞTIRMASINI geri
+              // getiriyordu (AGENTS md. 2) — uygulamadaki tek ihlal buydu.
+              className="h-8 bg-background placeholder:font-mono placeholder:text-xs pointer-coarse:h-10"
               aria-label="Bölüm ara"
             />
           </div>
@@ -2253,19 +2310,17 @@ export function RevisionEditor({
         {narrowNav ? (
           <ol
             id={NAV_LIST_ID}
-            className="grid max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto pb-2 lg:max-h-none lg:flex-1"
+            className="grid min-h-0 flex-1 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2"
           >
             {STEPS.map((s, i) => navChip(s, i))}
           </ol>
         ) : (
-        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar; lg altında ise
-           yalnız kullanıcı açtığında yer kaplar (bkz. navOpenMobile). */
+        /* Uzun bölüm listesi yalnız KENDİ bölgesinde kayar. `max-h-72` kalktı:
+           mobilde artık tabakanın kendisi yükseklik kelepçesini taşıyor
+           (`max-lg:max-h-[78dvh]`), yani liste tabakanın kalanını doldurur. */
         <ol
           id={NAV_LIST_ID}
-          className={cn(
-            "max-h-72 min-h-0 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2 pr-1 text-sm lg:max-h-none lg:flex-1",
-            navOpenMobile ? "grid" : "hidden lg:grid"
-          )}>
+          className="grid min-h-0 flex-1 auto-rows-max gap-0.5 overflow-y-auto overscroll-y-contain pb-2 pr-1 text-sm">
           {NAV_GROUPS.map((group) => {
             const groupTitleMatch =
               navQ !== "" &&
@@ -2427,14 +2482,30 @@ export function RevisionEditor({
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              {/* Bulunulan bölüm 640px altında da GÖRÜNÜR: kullanıcının hangi
-                  adımda olduğunu gösteren tek yazı budur (ray mobilde kapalı). */}
-              <span
-                className="max-w-[60%] shrink truncate font-mono text-[11px] tabular-nums text-muted-foreground"
+              {/* BÖLÜM LİSTESİNİN GİRİŞİ.
+                  Bulunulan bölüm 640px altında da görünür — kullanıcının hangi
+                  adımda olduğunu gösteren tek yazı budur. Listeyi de o açar:
+                  ray `lg` altında alt tabakadadır ve tabakayı açacak denetim,
+                  adım bilgisiyle aynı yerde, başparmağın altında olmalıdır.
+                  `lg` üstünde ray zaten hep açık — düğme etkisizleşir. */}
+              {/* Odağın kapanışta buraya dönmesi için ayrı bir ref gerekmez:
+                  `useOverlay` açılış anındaki etkin öğeyi hatırlar ve o zaten
+                  bu düğmedir. */}
+              <button
+                type="button"
+                onClick={() => setNavOpenMobile((v) => !v)}
+                aria-expanded={navOpenMobile}
+                aria-controls={NAV_PANEL_ID}
                 title={`${stepIndex + 1}/${STEPS.length} · ${step.title}`}
+                className="oc-tap flex max-w-[60%] min-w-0 shrink items-center gap-1.5 rounded-md text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:pointer-events-none lg:hover:bg-transparent"
               >
-                {stepIndex + 1}/{STEPS.length} · {step.title}
-              </span>
+                <span aria-hidden className="shrink-0 leading-none lg:hidden">
+                  ☰
+                </span>
+                <span className="min-w-0 truncate">
+                  {stepIndex + 1}/{STEPS.length} · {step.title}
+                </span>
+              </button>
               {step.kind === "module" && stepChecks.length > 0 && (
                 <span
                   className={cn(

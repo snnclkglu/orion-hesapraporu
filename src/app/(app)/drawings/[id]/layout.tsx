@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/page-header";
 import { canEditDrawings } from "@/lib/roles";
 import { PACKAGE_STATUS_LABELS, formatBytes, formatNum, recognitionClass } from "@/lib/drawings/labels";
 import { RECONCILER_VERSION } from "@/lib/drawings/reconcile";
@@ -45,7 +46,18 @@ export default async function PackageLayout({
 
   return (
     <div className="grid gap-3">
-      <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+      {/* Paketin kimliği kabuğun üst şeridine de çıkar: telefonda şerit
+          yapışkandır, yani kullanıcı listeyi aşağı kaydırırken hangi pakette
+          olduğunu ve nasıl geri döneceğini kaybetmez. */}
+      <PageHeader
+        backHref="/drawings"
+        backLabel="Teknik Resimler"
+        title={paket.description || paket.folder_name}
+        hint={paket.capacity ?? undefined}
+      />
+      {/* Kırıntı yolu YALNIZ `xl` üstünde: altında aynı işi üst şeritteki geri
+          oku görüyor ve iki "yukarı" göstergesi yan yana gürültü oluyordu. */}
+      <nav className="hidden flex-wrap items-center gap-1 text-sm text-muted-foreground xl:flex">
         <Link href="/drawings" className="inline-flex items-center hover:underline">
           <ChevronLeft className="size-4" />
           Teknik Resimler
@@ -58,10 +70,11 @@ export default async function PackageLayout({
 
       <header className="flex flex-wrap items-start justify-between gap-3 border bg-card p-4">
         <div className="min-w-0">
-          <h1 className="truncate text-base font-medium" title={paket.folder_name}>
+          {/* `h2`: sayfanın `h1`i artık kabuğun üst şeridindedir (PageHeader). */}
+          <h2 className="truncate text-base font-medium" title={paket.folder_name}>
             {paket.description || paket.folder_name}
             {paket.capacity && <span className="ml-1 text-muted-foreground">({paket.capacity})</span>}
-          </h1>
+          </h2>
           {/* KÜNYE ARTIK BEYANI DEĞİL ÖLÇÜMÜ BASAR.
               Eski satır `file_count` ve `bytes_total` yazıyordu; ikisi de paket
               AÇILIRKEN bir kez yazılıp bir daha güncellenmiyordu. Yani 107 MB'ın

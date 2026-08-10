@@ -53,7 +53,7 @@ export function ContractOpenButton({
       type="button"
       variant="outline"
       size="sm"
-      className="w-full max-sm:h-10 max-sm:px-3 sm:w-auto"
+      className="w-full sm:w-auto"
       onClick={open}
       disabled={opening}
     >
@@ -147,7 +147,7 @@ export function ContractUpload({
           type="button"
           variant="outline"
           size="sm"
-          className="flex-1 max-sm:h-10 max-sm:px-3 sm:flex-none"
+          className="flex-1 sm:flex-none"
           onClick={open}
           disabled={opening}
         >
@@ -158,7 +158,7 @@ export function ContractUpload({
             type="button"
             variant="ghost"
             size="sm"
-            className="flex-1 text-destructive max-sm:h-10 max-sm:px-3 sm:flex-none"
+            className="flex-1 text-destructive sm:flex-none"
             onClick={remove}
             disabled={busy}
           >

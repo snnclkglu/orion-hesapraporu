@@ -137,7 +137,7 @@ export function ItemRemapCard({ rows, jobs }: { rows: WorkLogRow[]; jobs: WorkJo
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-xs"
+              className="gap-1.5 text-xs"
               disabled={pending || !target[u.itemNo]}
               onClick={() => apply(u.itemNo)}
             >

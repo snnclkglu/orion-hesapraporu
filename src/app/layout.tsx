@@ -57,12 +57,28 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         {/*
-          Bildirim şeridi üstte ortalıdır. Telefonda kabuğun 48px'lik yapışkan
-          üst şeridi de oradadır: varsayılan 16px'lik mobil payla bildirim
-          hamburgerin ve bölüm başlığının üzerine oturuyor, kullanıcı bildirimi
-          okurken menüye erişemiyordu. Pay şeridin altına indirilir.
+          Bildirim şeridi üstte ortalıdır. Telefonda kabuğun yapışkan üst şeridi
+          de oradadır: varsayılan 16px'lik mobil payla bildirim hamburgerin ve
+          bölüm başlığının üzerine oturuyor, kullanıcı bildirimi okurken menüye
+          erişemiyordu. Pay şeridin altına indirilir.
+
+          SABİT 60px DEĞİL: şerit `lg` altında bir ya da İKİ satırdır (sayfanın
+          eylemi varsa eylem şeridi de çizilir) ve sabit pay o sayfalarda
+          bildirimi Kaydet/Yayınla düğmelerinin üstüne bindiriyordu. Gerçek
+          yüksekliği `AppShell` ölçüp `--app-header-h`ye yazar.
+
+          `offset` DE verilir, yalnız `mobileOffset` YETMEZ: sonner'ın mobil
+          kuralı `@media (max-width: 600px)` içindedir, yani 601–1023px'te
+          (tam olarak iPad portre) masaüstünün varsayılan 24px'lik payı
+          geçerliydi ve toaster'ın z-index'i şeridi örttüğü için bildirim
+          hamburgerin üstüne oturuyordu. Bu, bugün de var olan bir hatadır.
         */}
-        <Toaster richColors position="top-center" mobileOffset={{ top: "60px" }} />
+        <Toaster
+          richColors
+          position="top-center"
+          offset={{ top: "calc(var(--app-header-h, 48px) + 12px)" }}
+          mobileOffset={{ top: "calc(var(--app-header-h, 48px) + 8px)" }}
+        />
       </body>
     </html>
   );

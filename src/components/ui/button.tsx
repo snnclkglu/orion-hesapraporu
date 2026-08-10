@@ -23,26 +23,35 @@ const buttonVariants = cva(
       size: {
         // Marka kontrol yükseklikleri: md 40px, lg 48px (--control-h-*)
         //
-        // DOKUNMATİK PAYI — `pointer-coarse:` ile verilir, kırılımla DEĞİL.
-        // Küçük boylar (xs/sm/icon-sm) masaüstünde bilinçli bir yoğunluk
-        // tercihidir: fare imleci 1px hedefi tutar. Parmak tutmaz — WCAG 2.5.8
-        // en az 24px, kullanılabilirlik araştırması 40–44px ister ve 32px'lik
-        // ikon düğmeleri tabloda satır bağlantısının üstünde durduğu için
-        // ıskalanan her dokunuş kullanıcıyı istemediği sayfaya götürüyordu.
-        // Kırılım (`max-sm:`) yanlış soruyu sorar: dar pencere ≠ dokunmatik,
-        // 1280px'lik bir tablet de parmakla kullanılır. Sorulması gereken
-        // "işaretleme aygıtı kaba mı" — `pointer: coarse` tam olarak budur.
+        // DOKUNMATİK PAYI — KUTUYU BÜYÜTEREK DEĞİL, `.oc-tap` ile.
+        //
+        // Kural hâlâ aynı soruyu sorar: "işaretleme aygıtı kaba mı"
+        // (`pointer: coarse`). Kırılım (`max-sm:`) yanlış sorudur — dar pencere
+        // ≠ dokunmatik, 1280px'lik bir tablet de parmakla kullanılır.
+        //
+        // DEĞİŞEN: pay eskiden yüksekliği büyütüyordu (`pointer-coarse:h-10`),
+        // yani 32px'lik bir düğme telefonda 40px oluyordu. Hedef doğruydu ama
+        // bedeli görünürdü: atölyede telefondan bakınca ekran düğmeden
+        // görünmüyordu, yan yana üç eylem satırın yarısını yiyordu. Görsel
+        // yoğunluk ile dokunma güvenilirliği AYNI ŞEY DEĞİL: `.oc-tap`
+        // görünmez bir `::after` ile hedefi 44px'e çıkarır, kutu olduğu yerde
+        // kalır. Yani taban 40px'ten 44px'e ÇIKAR (WCAG 2.5.8 en az 24px
+        // ister; 32px'lik ikon düğmeleri tabloda satır bağlantısının üstünde
+        // durduğu için ıskalanan her dokunuş kullanıcıyı yanlış sayfaya
+        // götürüyordu — o hata artık daha da uzak).
+        //
+        // `lg` genişletici ALMAZ: 48px zaten tabanın üstünde.
         default:
-          "h-10 gap-1.5 px-3 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 pointer-coarse:h-8 pointer-coarse:px-2.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 pointer-coarse:h-10 pointer-coarse:px-3",
+          "oc-tap h-10 gap-1.5 px-3 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 pointer-coarse:h-9 pointer-coarse:px-2.5",
+        xs: "oc-tap h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "oc-tap h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
         lg: "h-12 gap-1.5 px-3.5 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
-        icon: "size-10",
+        icon: "oc-tap-square size-10 pointer-coarse:size-9",
         "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md pointer-coarse:size-8 [&_svg:not([class*='size-'])]:size-3",
+          "oc-tap-square size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
-          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md pointer-coarse:size-10",
-        "icon-lg": "size-10",
+          "oc-tap-square size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
+        "icon-lg": "oc-tap-square size-10",
       },
     },
     defaultVariants: {

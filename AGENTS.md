@@ -627,13 +627,24 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 Uygulama atölyede ve sahada telefondan/tabletten de açılır. Aşağıdakiler
 tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
 
-1. **Dokunma hedefi kırılımla değil `pointer-coarse:` ile büyür.** Dar pencere
-   ≠ dokunmatik; 1280px'lik bir tablet de parmakla kullanılır, 500px'e
-   daraltılmış bir masaüstü penceresi de fareyle. Sorulacak soru "işaretleme
-   aygıtı kaba mı"dır. `Button` boyları (`sm`/`xs`/`icon-sm`/`icon-xs`),
-   `SelectTrigger size=sm` ve menü/liste satırları bu varyantla büyür;
-   masaüstü yoğunluğu hiç değişmez. Elle yazılmış tıklanabilir öğelerde
-   (ham `<button>`, çip, rozet-düğme) aynı kalıp uygulanır.
+1. **Dokunma hedefi kırılımla değil `pointer-coarse:` ile büyür — ve KUTUYU
+   BÜYÜTEREK değil `.oc-tap` ile.** Dar pencere ≠ dokunmatik; 1280px'lik bir
+   tablet de parmakla kullanılır, 500px'e daraltılmış bir masaüstü penceresi de
+   fareyle. Sorulacak soru "işaretleme aygıtı kaba mı"dır.
+
+   Pay eskiden öğenin kendisini büyütüyordu (`pointer-coarse:h-10`): 32px'lik
+   bir düğme telefonda 40px oluyordu. Hedef doğruydu ama görsel yoğunluk ile
+   dokunma güvenilirliği AYNI ŞEY DEĞİL — atölyede telefondan bakınca ekran
+   düğme duvarına dönüyordu. `globals.css`teki **`.oc-tap` / `.oc-tap-square`**
+   görünmez bir `::after` katmanıyla hedefi **44px**'e tamamlar, kutu kendi
+   boyunda kalır. Taban böylece gevşemez, 40px'ten 44px'e ÇIKAR.
+
+   `Button` boyları, `SelectTrigger` ve elle yazılmış tıklanabilir öğeler
+   (ham `<button>`, çip, rozet-düğme, ikon bağlantısı) bu sınıfı taşır.
+   Menü/liste SATIRLARI (`SelectItem`, `DropdownMenuItem`, `CommandItem`)
+   istisnadır: orada yükseklik zaten liste ritmidir, `pointer-coarse:py-*` ile
+   büyümeye devam eder. Çağrı yerinde `h-8`/`h-7` gibi elle yükseklik YAZILMAZ —
+   boy varyantın kendisinden gelir.
 
 2. **Girdi yazısı dokunmatikte 16px'tir** (`text-base pointer-fine:text-sm`).
    iOS Safari 16px'ten küçük yazılı alana odaklanınca sayfayı KENDİLİĞİNDEN
@@ -688,6 +699,37 @@ tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
 11. **İçerik metninde 11px altına inilmez.** `text-[9px]`/`text-[10px]` yalnız
     salt dekoratif işaretlerde kabul edilebilir; sayısal rozetler ve etiketler
     en az `text-[11px]`dir.
+
+12. **Sayfa eylemleri `lg` altında KENDİ SATIRINDADIR.** Üst şeride
+    `shrink-0` bir eylem kümesi konmaz: küçülemeyen bir kutu 375px'lik ekranı
+    kaçınılmaz olarak taşırır ve `position: sticky` YALNIZ DİKEY sabitlediği
+    için sağa kaydırınca şeridin zemin bandı geride kalır — kullanıcının
+    gördüğü şey "üst bar kayıyor"dur. Eylemler bu yüzden ayrı bir portal
+    yuvasındadır (`APP_ACTIONS_SLOT_ID`): dar ekranda ikinci satıra iner ve
+    `.oc-scrollx` ile yatay kayar, `lg` üstünde şeridin sağ ucuna döner. İki
+    yuva da **tek** DOM örneğidir — aynı düğümleri iki yere portallamak
+    `EDITOR_STATUS_SLOT_ID` gibi `getElementById` hedeflerini ikizler.
+
+    Yuva `empty:hidden` taşır: eylemi olmayan sayfada satır hiç çizilmez.
+    Bunun bir koşulu var — `:empty` `display:none` bir çocuğu da ÇOCUK sayar,
+    yani yuvaya `hidden lg:inline` bir öğe konursa telefonda boş bir bant
+    kalır. Bilgi rozetleri (yetki künyesi gibi) eylem değildir, sayfa gövdesine
+    yazılır.
+
+    Şeridin gerçek yüksekliği `--app-header-h`dedir (`AppShell` ölçer). Sabit
+    48px varsayan hiçbir tüketici yazılmaz; `Toaster` payı bu değişkeni okur ve
+    `mobileOffset` TEK BAŞINA yetmez — sonner'ın mobil kuralı
+    `@media (max-width: 600px)` içindedir, 601–1023px'te `offset` geçerlidir.
+
+13. **1280px altında her derin sayfa `backHref` verir.** Kırıntı yolu
+    (`PageHeader.kicker`) yalnız `xl:inline`dir; altında geri oku onun yerini
+    tutar, yoksa kullanıcıda hiçbir "yukarı" bağlantısı kalmaz. Sayfa kendi
+    kırıntı satırını da çiziyorsa o satır `xl` altında gizlenir (ikisi
+    yinelenmesin).
+
+    **Bir ekranda YALNIZ BİR `PageHeader` olur.** İkisi aynı yuvaya yazar ve
+    ikisi birden çizilir — iç içe düzenlerde başlığı yalnız tek bir katman
+    basar. Sayfanın kendi büyük başlığı `h2`dir; `h1` üst şerittedir.
 
 ## Yeni bir hesap eklerken
 

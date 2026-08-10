@@ -15,14 +15,15 @@
 // editörün kendi bölgeleri kayar. Böylece durum çubuğu ve adım şeridi gerçek
 // çerçeve kenarı olur, `sticky` ile belge akışında sürüklenmez.
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useOverlay } from "@/lib/use-overlay";
 import { useStoredFlag } from "@/lib/use-stored-flag";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
-import { PageHeaderHost } from "@/components/page-header";
+import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
 import { canSeeSales, canSeeWorkLog, isAdminRole, roleLabel } from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 
@@ -133,7 +134,7 @@ function SidebarContent({
           className={cn("w-auto", collapsed ? "mx-auto h-6" : "h-[18px]")}
         />
         {!collapsed && (
-          <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
+          <span className="mt-1.5 block font-mono text-[11px] uppercase tracking-[0.14em] text-sidebar-foreground/60">
             {APP_NAME}
           </span>
         )}
@@ -144,7 +145,7 @@ function SidebarContent({
       {/* Navigasyon */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {!collapsed && (
-          <div className="px-2 pb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/50">
+          <div className="px-2 pb-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/50">
             Çalışma Alanı
           </div>
         )}
@@ -280,27 +281,64 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   }
   const collapsed = isRevisionScreen ? (revisionOverride ?? true) : storedCollapsed;
   /**
-   * Mobil çekmece açıkken ARKA SAYFA KAYMAZ ve Esc kapatır.
+   * Mobil çekmece açıkken ARKA SAYFA KAYMAZ, Esc kapatır ve Tab çekmecenin
+   * İÇİNDE döner.
    *
    * Çekmece `fixed` bir örtüdür ama gövde kaydırması engellenmediği için
    * telefonda menüde parmak sürüklemek arkadaki uzun listeyi kaydırıyordu:
    * kullanıcı menüyü kapattığında sayfa bambaşka bir yerdeydi. Klavye
-   * kullanıcısı için de tek çıkış yolu örtüye tıklamaktı.
+   * kullanıcısı için de tek çıkış yolu örtüye tıklamaktı — üstelik `aria-modal`
+   * yazmasına rağmen odak tuzağı YOKTU ve Tab arkadaki görünmez bağlantılara
+   * geçiyordu. Üçü de artık `useOverlay`da, bölüm listesi tabakasıyla ORTAK.
    */
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeDrawer = useCallback(() => setOpen(false), []);
+  useOverlay(open, closeDrawer, drawerRef);
+  /**
+   * ŞERİDİN GERÇEK YÜKSEKLİĞİ bir CSS değişkenine yazılır.
+   *
+   * Şerit `lg` altında bir ya da İKİ satır olabilir (eylem yuvası boşsa hiç
+   * çizilmez). Buna bağlı üç yer var ve üçü de sabit 48 px varsayamaz: toast
+   * konumu (`layout.tsx`), bölüm listesi tabakasının üst kenarı ve çapa
+   * kaydırması. Ölçüm tek yerde yapılır, tüketiciler `var(--app-header-h)`
+   * okur; varsayılanı `globals.css`te 48 px'tir (sunucu boyaması ve ilk kare).
+   */
+  const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (!open) return;
-    const { body } = document;
-    const prev = body.style.overflow;
-    body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
+    const el = headerRef.current;
+    if (!el) return;
+    // `getBoundingClientRect` (sınır kutusu), `contentRect` DEĞİL: şeridin
+    // `border-b`si de altındaki içeriği ittiği için paya girmelidir.
+    const write = () =>
+      document.documentElement.style.setProperty(
+        "--app-header-h",
+        `${Math.round(el.getBoundingClientRect().height)}px`
+      );
+    // ÜÇ TETİKLEYİCİ, çünkü hiçbiri tek başına yetmiyor:
+    //
+    // 1) SENKRON ilk ölçüm — efekt düzen hesaplandıktan sonra çalışır.
+    // 2) `MutationObserver` — eylemler şeride PORTALLA gelir ve portal, kabuk
+    //    boyandıktan SONRAKİ bir commit'te basılır; ilk ölçüm o yüzden hep tek
+    //    satırı (49px) görüyordu. Mutation geri çağrıları mikrogörevdir, yani
+    //    boyama döngüsünden bağımsız olarak HER ZAMAN teslim edilir.
+    // 3) `ResizeObserver` — yazı tipi yüklenmesi, sarma, `lg` eşiğini geçen
+    //    pencere boyu gibi saf ölçü değişiklikleri.
+    //
+    // (2) olmadan sekme arka plandayken değişken 48px'te takılıyordu: `RO` geri
+    // çağrıları boyama döngüsünde teslim edilir ve görünmeyen sekmede o döngü
+    // durur — iki satırlı şeritte bildirim eylem düğmelerinin üstüne otururdu.
+    write();
+    const mo = new MutationObserver(write);
+    mo.observe(el, { childList: true, subtree: true });
+    const ro = new ResizeObserver(write);
+    ro.observe(el);
     return () => {
-      body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
+      mo.disconnect();
+      ro.disconnect();
     };
-  }, [open]);
+    // `pathname`e bağlı: sayfanın eylemi olup olmaması şeridin yüksekliğini
+    // değiştirir; her gezinmede taze bir senkron ölçüm istiyoruz.
+  }, [pathname]);
   /**
    * Genişlik geçişi HİDRASYONDAN SONRA açılır: sunucu tercihi bilemez ve geniş
    * çizer, istemci daralmış okuduğunda sidebar her açılışta 240px'ten kayarak
@@ -404,6 +442,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
             aria-hidden
           />
           <aside
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Ana menü"
@@ -417,7 +456,14 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
               onClick={() => setOpen(false)}
               // 40px dokunma hedefi (eskiden 24px); konum optik olarak aynı
               // kalsın diye negatif marj yerine kenar boşluğu kısıldı.
-              className="absolute top-2 right-1.5 rounded-md p-2.5 text-sidebar-foreground/70 hover:bg-sidebar-accent"
+              //
+              // `absolute` DEĞİL `sticky`: kap `overflow-y-auto` olduğu için
+              // mutlak konumlu düğme İÇERİĞİN tepesine çakılıydı ve kısa
+              // ekranda (yatay tutulan telefon) menü kaydırılınca yukarı
+              // kayıp gözden kayboluyordu — çekmeceyi kapatmanın görünür yolu
+              // kalmıyordu. `-mb-10` düğmenin kendi yüksekliğini (40px) geri
+              // alır, yani akışta yer kaplamaz ve marka bloğu yerinden oynamaz.
+              className="sticky top-2 z-10 -mb-10 mr-1.5 ml-auto block rounded-md p-2.5 text-sidebar-foreground/70 hover:bg-sidebar-accent"
               aria-label="Menüyü kapat"
             >
               <BrandIcon name="close" className="size-5" />
@@ -440,53 +486,81 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
           isFrame && "lg:min-h-0"
         )}
       >
-        <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-1 border-b bg-background px-3 sm:gap-2 sm:px-4 lg:px-6">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            // 40px dokunma hedefi (eskiden 28px). Telefonda ve 768px tablet
-            // portrede gezinmenin TEK yolu bu düğme; negatif marj ile optik
-            // hizası korunurken tıklama alanı şeridin tamamına yayılır.
-            className="-ml-2 rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
-            aria-label="Menüyü aç"
-            aria-expanded={open}
-          >
-            <BrandIcon name="menu" className="size-5" />
-          </button>
-          {/* Daralt/genişlet — yalnız masaüstünde anlamlı */}
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-pressed={collapsed}
-            title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
-            aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-            className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
-          >
-            <BrandIcon
-              name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
-              className="size-4"
-            />
-          </button>
-          {/*
-            Bölüm adı YALNIZ DAR EKRANDA görünür.
-            Geniş ekranda sayfa başlığı yuvaya geliyor ve bölüm adını zaten
-            içeriyor ("Mühendislik" / "İş Takibi"); ikisi yan yana durunca aynı
-            kelime iki kez okunuyordu. Telefonda ise yuva çoğu zaman yalnız
-            eylem düğmelerini taşır, orada bölüm adı tek kimliktir.
-            `min-w-0 truncate`: uzun ad sağdaki içeriğin üstüne binmesin.
-          */}
-          <div className="oc-kicker min-w-0 truncate text-foreground/80 lg:hidden">
-            {sectionLabel(pathname)}
+        {/*
+          ÜST ŞERİT — `lg` üstünde TEK satır (48 px), `lg` altında İKİ satır.
+          Kimlik satırı (hamburger · bölüm adı · sayfa başlığı) her zaman
+          48 px'tir; eylemler dar ekranda kendi satırına iner ve yatay kayar.
+
+          NEDEN BÖLÜNDÜ: eylem kümesi `shrink-0`dır ve küçülemez. Hesap raporu
+          ekranında doğal genişliği ~520-560 px; 375 px'lik telefonda şerit
+          taşıyor, belge yatay kayıyordu. `position: sticky` YALNIZ DİKEY
+          sabitler — sağa kaydırınca şeridin zemini ekrandan çıkıyor ve şerit
+          "kayıyor" görünüyordu. Şeridi daha da sıkıştırmak çözüm değildi:
+          altı eylem bir satıra hiçbir sıkıştırmayla sığmaz.
+        */}
+        <header
+          ref={headerRef}
+          className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-background lg:h-12 lg:flex-row lg:items-center lg:gap-2 lg:px-6"
+        >
+          {/* KİMLİK SATIRI — her genişlikte tam 48 px, hiçbir zaman sarmaz. */}
+          {/* `lg:min-w-[10rem]` — `lg:min-w-0` DEĞİL. Esnek kutuda daralma
+              taban genişliğiyle ağırlıklandırılır: bu satırın tabanı `flex-1`
+              yüzünden 0'dır, yani yer daralınca DARALMAZ, buna karşılık
+              eylemler bütün açığı kapatmak zorunda kalır ve başlık sıfıra
+              çöker. 160px'lik kelepçe sayfa kimliğini garanti eder; artan
+              daralmayı eylem şeridi kendi içinde kaydırarak karşılar. */}
+          <div className="flex h-12 shrink-0 items-center gap-1 px-3 sm:gap-2 sm:px-4 lg:h-auto lg:min-w-[10rem] lg:flex-1 lg:px-0">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              // 40px dokunma hedefi (eskiden 28px). Telefonda ve 768px tablet
+              // portrede gezinmenin TEK yolu bu düğme; negatif marj ile optik
+              // hizası korunurken tıklama alanı şeridin tamamına yayılır.
+              className="-ml-2 rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              aria-label="Menüyü aç"
+              aria-expanded={open}
+            >
+              <BrandIcon name="menu" className="size-5" />
+            </button>
+            {/* Daralt/genişlet — yalnız masaüstünde anlamlı */}
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-pressed={collapsed}
+              title={collapsed ? "Menüyü genişlet (Ctrl+B)" : "Menüyü daralt (Ctrl+B)"}
+              aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+              className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
+            >
+              <BrandIcon
+                name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
+                className="size-4"
+              />
+            </button>
+            {/*
+              Bölüm adı YALNIZ DAR EKRANDA görünür.
+              Geniş ekranda sayfa başlığı yuvaya geliyor ve bölüm adını zaten
+              içeriyor ("Mühendislik" / "İş Takibi"); ikisi yan yana durunca aynı
+              kelime iki kez okunuyordu. Telefonda ise başlığı olmayan sayfalarda
+              bölüm adı tek kimliktir.
+              `min-w-0 truncate`: uzun ad sağdaki içeriğin üstüne binmesin.
+            */}
+            <div className="oc-kicker min-w-0 truncate text-foreground/80 lg:hidden">
+              {sectionLabel(pathname)}
+            </div>
+            {/*
+              SAYFA KİMLİĞİ YUVASI — geri oku, kırıntı yolu, başlık ve açıklama
+              buraya portalla gelir (components/page-header.tsx). EYLEMLER ayrı
+              yuvadadır (aşağıda). Standart künyesi (FEM 1.001 · DIN 15018 ·
+              CMAA 70) buradan KALDIRILDI: uygulama yalnız hesap raporu değil,
+              künye beş bölümün üçünde konu dışıydı. Standart referansları asıl
+              yerlerinde — hesap satırlarındaki tıklanabilir rozetlerde — duruyor.
+            */}
+            <PageHeaderHost />
           </div>
-          {/*
-            SAYFA BAŞLIĞI YUVASI — başlık, açıklama ve eylem düğmeleri buraya
-            portalla gelir (components/page-header.tsx). Standart künyesi
-            (FEM 1.001 · DIN 15018 · CMAA 70) buradan KALDIRILDI: uygulama
-            yalnız hesap raporu değil, künye beş bölümün üçünde konu dışıydı.
-            Standart referansları asıl yerlerinde — hesap satırlarındaki
-            tıklanabilir rozetlerde — duruyor.
-          */}
-          <PageHeaderHost />
+          {/* EYLEM SATIRI — dar ekranda ikinci satır ve yatay kayar, `lg`
+              üstünde şeridin sağ ucu. Eylemi olmayan sayfada `empty:hidden`
+              ile hiç çizilmez, yani dikey yer yemez. */}
+          <PageActionsHost />
         </header>
         <main
           // Telefonda kenar boşluğu bir kademe kısılır: 375px ekranda

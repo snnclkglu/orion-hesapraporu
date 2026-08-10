@@ -250,7 +250,7 @@ export function AnalysisView({
         shown={filtered.length}
         total={rows.length}
         extra={
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+          <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
             <a href={exportHref}>
               <Download className="size-3.5" /> Excel indir
             </a>
@@ -332,7 +332,7 @@ export function AnalysisView({
                     type="button"
                     variant={bucket === b ? "secondary" : "ghost"}
                     size="sm"
-                    className="h-8 rounded-none px-2.5 text-xs first:border-l last:border-r border-y"
+                    className="rounded-none border-y px-2.5 text-xs first:border-l last:border-r"
                     onClick={() => setBucket(b)}
                     aria-pressed={bucket === b}
                   >

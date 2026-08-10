@@ -51,7 +51,12 @@ export function AssemblyTree({
         </p>
       ) : (
         <div className="oc-scrollx overflow-x-auto [--oc-scroll-bg:var(--card)]">
-          <ul className="min-w-[34rem] divide-y">
+          {/* En küçük genişlik `sm` ÜSTÜNDE kapılır: 375px'lik ekranda 544px'lik
+              taban ağacı sürekli yatay kaydırmaya mahkûm ediyordu, oysa girinti
+              ve parça kodları o genişlikte de sarabiliyor
+              (`body { overflow-wrap: break-word }`). Günlük girişteki
+              `lg:min-w-[62rem]` ile aynı kalıp. */}
+          <ul className="divide-y sm:min-w-[34rem]">
             {kokler.map((k) => (
               <Dugum
                 key={k.register_key}

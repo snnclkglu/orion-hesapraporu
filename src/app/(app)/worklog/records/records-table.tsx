@@ -181,7 +181,7 @@ export function RecordsTable({
         shown={filtered.length}
         total={rows.length}
         extra={
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+          <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
             <a href={exportHref}>
               <Download className="size-3.5" /> Excel indir
             </a>

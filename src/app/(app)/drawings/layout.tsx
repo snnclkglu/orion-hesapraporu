@@ -10,18 +10,17 @@
 // yalnız yetkisi olana görünür, eylemler ayrıca kendileri de sorar ve asıl
 // engel yine RLS'tir.
 
-import { PageHeader } from "@/components/page-header";
+// BAŞLIK BURADA DEĞİL, HER SAYFANIN KENDİSİNDEDİR.
+//
+// Kabuğun başlık yuvası TEK bir portal hedefidir: bu katman bir `PageHeader`
+// bassaydı `[id]/layout.tsx`in kendi başlığı onu DEĞİŞTİRMEZ, yanına EKLENİRDİ
+// (iki başlık, iki geri oku). Bölüm kabuğu bu yüzden yalnız ızgarayı kurar;
+// "Teknik Resimler" başlığı liste sayfasına (`page.tsx`), paket başlığı da
+// paket kabuğuna (`[id]/layout.tsx`) taşındı — böylece paket sayfalarında üst
+// şerit paketin adını ve `/drawings`e dönüş okunu gösterebiliyor.
 
 export default function DrawingsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <div className="grid gap-4">
-      <PageHeader
-        title="Teknik Resimler"
-        hint="Teknik ressamın klasörü olduğu gibi yüklenir; sistem içindekini okur ve neyi anlayamadığını söyler"
-      />
-      {children}
-    </div>
-  );
+  return <div className="grid gap-4">{children}</div>;
 }

@@ -101,7 +101,7 @@ export function CatalogSheetButton({
         size="sm"
         disabled
         title={reason}
-        className="h-7 gap-1.5 text-xs"
+        className="gap-1.5 text-xs"
       >
         <BookOpen className="size-3.5" />
         Katalog Sayfası
@@ -122,7 +122,7 @@ export function CatalogSheetButton({
         size="sm"
         onClick={() => setOpen(true)}
         title={`${sheet.title} — ${sheet.source} ${sheet.printedPages}`}
-        className="h-7 gap-1.5 text-xs"
+        className="gap-1.5 text-xs"
       >
         <BookOpen className="size-3.5 text-primary" />
         Katalog Sayfası
@@ -165,13 +165,13 @@ export function CatalogSheetButton({
               )}
               {level.next}
             </Button>
-            <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
               <a href={catalogSheetUrl(sheet.images[0])} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="size-3.5" />
                 Yeni sekmede aç
               </a>
             </Button>
-            <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
               <a
                 href={catalogSheetUrl(sheet.images[0])}
                 download={`${sheet.title} — ${sheet.printedPages}.webp`}

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditReports, isAdminRole } from "@/lib/roles";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -111,6 +112,17 @@ export default async function ProjectPage({
 
   return (
     <div className="grid gap-6">
+      {/* Sayfanın kimliği kabuğun yapışkan üst şeridine de çıkar; künye bloğu
+          (aşağıda) ayrıntıyı taşımaya devam eder. `xl` altında geri oku
+          kırıntı yolunun yerini tutar — telefonda projeden çıkmanın tek yolu
+          tarayıcı geri tuşuydu. */}
+      <PageHeader
+        backHref={job ? `/jobs/${job.id}` : "/projects"}
+        backLabel={job?.job_no ?? "Mühendislik"}
+        title={project.name}
+        hint={`${project.customer} · ${project.crane_type}`}
+      />
+
       <ProjectDetailHeader
         project={{
           id: project.id,

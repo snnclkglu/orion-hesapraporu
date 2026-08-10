@@ -374,7 +374,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             {filtered.length} / {rows.length}
           </span>
           {activeFilters > 0 && (
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
+            <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={clearFilters}>
               <X className="size-3.5" /> Temizle
             </Button>
           )}

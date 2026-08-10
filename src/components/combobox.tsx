@@ -185,7 +185,7 @@ export function Combobox({
                     )}
                   </span>
                   {o.badge && (
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
+                    <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
                       {o.badge}
                     </span>
                   )}

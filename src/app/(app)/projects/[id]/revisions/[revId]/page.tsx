@@ -4,6 +4,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EDITOR_STATUS_SLOT_ID, RevisionEditor } from "./revision-editor";
 import { IssueRevisionButton } from "./issue-button";
@@ -64,6 +65,11 @@ export default async function RevisionPage({
           yerdedir. Kırıntı yolu (Mühendislik / 0055 / V1) başlığın önünde,
           yalnız geniş ekranda görünür. */}
       <PageHeader
+        // Kırıntı yolu yalnız `xl` üstünde görünür; altında geri oku onun
+        // yerini tutar (bkz. PageHeader.backHref). Telefonda editörden projeye
+        // dönmenin başka bir yolu yoktu.
+        backHref={`/projects/${id}`}
+        backLabel="Projeye dön"
         kicker={
           <span className="flex items-center gap-1">
             <Link href="/projects" className="hover:underline">Mühendislik</Link>
@@ -84,21 +90,28 @@ export default async function RevisionPage({
       >
           {/* Kontrol özeti + Kaydet buraya, PDF Rapor'un SOLUNA gelir; editör
               onları bu yuvaya portalla taşır (bkz. EDITOR_STATUS_SLOT_ID).
-              Böylece çalışma alanı üstteki durum kartından kurtulur. */}
-          <div id={EDITOR_STATUS_SLOT_ID} className="flex flex-wrap items-center gap-2" />
+              Böylece çalışma alanı üstteki durum kartından kurtulur.
+
+              `flex-wrap` DEĞİL `shrink-0`: eylem şeridi dar ekranda yatay
+              KAYAR, sarmaz. Sarma orada satırı ikiye bölüp kaydırmayı anlamsız
+              kılıyordu. */}
+          <div id={EDITOR_STATUS_SLOT_ID} className="flex shrink-0 items-center gap-2" />
           <ReportMenu projectId={id} revisionId={revision.id} />
-          <a
-            href={`/projects/${id}/revisions/${revision.id}/equipment`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
-            title="Ekipman listesi panelini aç (tablo görünümü + Excel/PDF indirme)"
-          >
-            <FileSpreadsheet className="size-3.5 text-muted-foreground" />
-            Ekipman Listesi
-          </a>
+          {/* Boy `size="sm"`in kendisinden gelir: elle yazılan `h-8` dokunmatik
+              payını eziyordu (AGENTS md. 1). */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/projects/${id}/revisions/${revision.id}/equipment`}
+              title="Ekipman listesi panelini aç (tablo görünümü + Excel/PDF indirme)"
+            >
+              <FileSpreadsheet className="size-3.5 text-muted-foreground" />
+              Ekipman Listesi
+            </a>
+          </Button>
           {revision.is_template && (
-            <Badge variant="outline" className="border-primary/40 text-primary">ŞABLON</Badge>
+            <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">ŞABLON</Badge>
           )}
-          <Badge variant={revisionStatusVariant(revision.status)}>
+          <Badge variant={revisionStatusVariant(revision.status)} className="shrink-0">
             {revisionStatusLabel(revision.status)}
           </Badge>
           {isAdmin && revision.status === "issued" && (

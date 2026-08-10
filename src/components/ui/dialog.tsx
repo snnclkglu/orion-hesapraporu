@@ -74,6 +74,21 @@ function DialogContent({
            */
           "max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain",
           /*
+           * TELEFONDA PENCERE DEĞİL ALT TABAKA (640px altı).
+           *
+           * Ortalanmış kart 375px'lik ekranda iki yandan 12px pay bırakıp
+           * dikeyde ortada asılı duruyordu: form uzunsa üstten de alttan da
+           * kırpılmış görünüyor, Kaydet düğmesi klavye açılınca parmağın
+           * uzağında kalıyordu. Alttan yapışan tabaka hem tam genişliği
+           * kullanır hem eylemleri başparmağın olduğu yere getirir.
+           *
+           * Burada KIRILIM doğrudur: soru "işaretleme aygıtı kaba mı" değil
+           * "ekran dar mı" — md. 1 yalnız DOKUNMA HEDEFİ içindir. `sm` üstü
+           * hiç değişmez, md. 6'nın tablet kalıbı ve çağrı yerlerinin
+           * `sm:max-w-[min(...)]` kelepçeleri yürürlükte kalır.
+           */
+          "max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[85dvh] max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none",
+          /*
            * TAM KENARLI pencere isteyen çağrı yeri `p-0 sm:p-0` (ve gerekiyorsa
            * `gap-0 sm:gap-0`) yazmalıdır: iç boşluk artık kırılımlı olduğu için
            * tek başına `p-0` yalnız ön eksiz sınıfı ezer, `sm:p-6` yürürlükte

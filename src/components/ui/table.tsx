@@ -4,11 +4,28 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  /**
+   * Kaydırma KABININ sınıfı — `className` tablonun kendisine gider.
+   *
+   * Kap sınıfı sabit yazılıydı ve çağrı yeri ona hiçbir şey ekleyemiyordu; bu
+   * yüzden `.oc-scrollx` ipucunu isteyen ekranlar tabloyu İKİNCİ bir kaba
+   * sarmak zorunda kalıyor, sarmayanlarda (satış ve işler listeleri) tablo
+   * telefonda SESSİZCE kayıyordu — mobil tarayıcı kaydırma çubuğu çizmez,
+   * kullanıcı sağda sütun olduğunu bilmiyordu (AGENTS md. 8).
+   */
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & { containerClassName?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      // `.oc-scrollx` artık VARSAYILANDIR: gölge yalnız gerçekten taşma varken
+      // görünür ve sona gelince kendiliğinden söner (saf CSS, JS yok), yani
+      // taşmayan tabloya bedeli yoktur. Zemin varsayılanı `--card`; kart
+      // dışında duran tablo `containerClassName` ile kendi zeminini verir.
+      className={cn("oc-scrollx relative w-full overflow-x-auto overscroll-x-contain", containerClassName)}
     >
       <table
         data-slot="table"

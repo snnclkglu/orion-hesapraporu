@@ -69,7 +69,8 @@ export function ProjectDetailHeader({
             {" / "}
             <span className="font-mono">{project.doc_no}</span>
           </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{project.name}</h1>
+          {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight">{project.name}</h2>
           <p className="text-sm text-muted-foreground">
             {project.customer} · {project.crane_type}
           </p>

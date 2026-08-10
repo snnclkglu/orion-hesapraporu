@@ -251,7 +251,7 @@ export function FilterBar({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-1 text-xs"
+            className="gap-1 text-xs"
             onClick={() => {
               setCustomOpen(false);
               onChange({ ...EMPTY_FILTERS });

@@ -122,14 +122,17 @@ export default async function SalesPage() {
 
   return (
     <div className="grid gap-4">
+      {/* Yetki rozeti şeridin EYLEM yuvasında DEĞİL sayfanın içindedir.
+          Eylem yuvası dar ekranda kendi satırını açar; sayfanın tek "eylemi"
+          bir bilgi rozeti olduğunda o satır sırf rozet için ~40px yiyordu.
+          Rozet bir eylem değil bir künyedir, yeri de içeriktir. */}
       <PageHeader
         title="Satış Takibi"
         hint="İş kalemi başına fiyat, termin ve sevk takibi — ciro avro karşılığıyla toplanır"
-      >
-        <span className="shrink-0 border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-primary uppercase">
-          Yönetici · Müdür
-        </span>
-      </PageHeader>
+      />
+      <span className="w-fit border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-[0.14em] text-primary uppercase">
+        Yönetici · Müdür
+      </span>
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 border bg-card px-6 py-16 text-center">
