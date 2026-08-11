@@ -462,6 +462,31 @@ describe("aşama sözlüğü ↔ migration", () => {
     }
   });
 
+  it("SİLME KORUMASI satın alma zincirini saymaz — SQL ile kod aynı listeyi taşır", () => {
+    // Sahada görülen hata: satınalmacı tek bir civatayı "satın alındı"
+    // işaretleyince paket kalıcı olarak silinemez oluyor ve pencere "atölye 1
+    // üretim kaydı yazmış" diyordu. Atölye hiçbir şey yazmamıştı.
+    //
+    // Tetikleyici slug listesini SQL içinde dizi olarak taşır; o dizi ile
+    // `PURCHASE_STAGE_SLUGS` ayrışırsa hiçbir test kırılmaz ve kural sessizce
+    // yanlış çalışır (aşama defteri korumasının aynı gerekçesi).
+    const sql = readFileSync(
+      join(
+        process.cwd(),
+        "supabase",
+        "migrations",
+        "20260811000002_package_delete_guard_purchasing.sql"
+      ),
+      "utf-8"
+    );
+    const m = sql.match(/satin_alma_asamalari\s+text\[\]\s*:=\s*array\[([^\]]+)\]/);
+    expect(m).not.toBeNull();
+    const sqlSluglari = [...m![1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+    expect(sqlSluglari).toEqual([...PURCHASE_STAGE_SLUGS].sort());
+    // Süzgeç gerçekten uygulanıyor mu — dizi tanımlanıp kullanılmamış olabilir.
+    expect(sql).toContain("not (p.stage = any (satin_alma_asamalari))");
+  });
+
   it("satın alma zinciri SIRALIDIR: önce sipariş, sonra teslim", () => {
     // `purchaseStages` defterin `sort`una değil bu listenin sırasına uyar;
     // kullanıcı aşama defterinde sırayı değiştirse bile ekran anlamlı kalır.

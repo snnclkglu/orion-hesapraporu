@@ -617,6 +617,18 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **NE** silinebilir sorusunu tetikleyici cevaplar (`guard_issued_revision`
     ile aynı ayrım): üretime girmiş paket silinemez, yerine revizyon yüklenir.
 
+    **SATIN ALMA KAYDI ÜRETİM KAYDI DEĞİLDİR.** Silme koruması bir süre bütün
+    `drawing_part_progress`i saydı ve satınalmacı tek bir civatayı "satın
+    alındı" işaretleyince paket kalıcı olarak kilitleniyor, pencere de "atölye
+    1 üretim kaydı yazmış" diyordu — atölye hiçbir şey yazmamıştı. Kuralın
+    gerekçesi "atölye o RESİMLERE bakarak iş yaptı"dır; sipariş vermek o
+    değildir. Üstelik satın alma kaydı anahtarını parça kodundan değil
+    KATLANMIŞ TANIMDAN alır ve `package_id` `on delete set null` taşır: paket
+    silinse de "bu somun alındı" bilgisi yaşar, yeni yükleme onu yeniden bulur.
+    Tetikleyici (`20260811000002`) ve ekrandaki sayaç aynı listeyi
+    (`PURCHASE_STAGE_SLUGS`) dışarıda bırakır; ikisinin ayrışmasını
+    `progress.test.ts` migration dosyasını okuyarak engeller.
+
     Kalem numarası METİNDİR, bağlantı TÜREVDİR (md. 17 ile aynı kural).
     Bir işin BİRDEN ÇOK paketi olabilir — anahtar `(item_no, group_code)` ve
     **tekillik kısıtı bilinçli olarak YOKTUR**; aynı çift ikinci kez gelince

@@ -26,6 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { GitBranch, Unlink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
+import { PURCHASE_STAGE_SLUGS } from "@/lib/drawings/progress";
 import { loadPackage, storageState, tumSatirlar } from "../../data";
 import { PackageActions } from "../package-actions";
 import { packageDiff, type DiffFile, type DiffPart, type PackageSide } from "@/lib/drawings/diff";
@@ -293,11 +294,19 @@ export default async function PackageVersionsPage({
   // (projeyi silmedeki `hasIssuedRevision` kalıbının aynısı). Anlamlı ilerleme
   // aranır: pano bir aşamayı geri alırken sıfır satır bırakabilir ve o satır
   // yüzünden silmeyi kilitlemek yanlış alarm olurdu.
+  //
+  // SATIN ALMA ZİNCİRİ SAYILMAZ. Sayım eskiden bütün `drawing_part_progress`i
+  // kapsıyordu ve satınalmacı tek bir civatayı işaretleyince paket kilitlenip
+  // pencere "atölye 1 üretim kaydı yazmış" diyordu — atölye hiçbir şey
+  // yazmamıştı. Kural veritabanında da aynı biçimde daraltıldı
+  // (20260811000002); buradaki süzgeç onun ekran karşılığıdır ve ikisi
+  // ayrışırsa düğme ile tetikleyici çelişir.
   const { count: uretimKaydi } = await supabase
     .from("drawing_part_progress")
     .select("id", { count: "exact", head: true })
     .eq("package_id", paket.id)
-    .gt("qty_done", 0);
+    .gt("qty_done", 0)
+    .not("stage", "in", `(${PURCHASE_STAGE_SLUGS.join(",")})`);
 
   return (
     <div className="grid gap-4">
