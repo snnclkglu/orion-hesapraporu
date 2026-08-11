@@ -45,6 +45,7 @@ import type { FileRow, PartRow } from "../../data";
 import {
   ALL,
   EMPTY_PART_FILTERS,
+  kategoriGoster,
   matchesPart,
   partOptions,
   sortParts,
@@ -268,7 +269,7 @@ export function PartsTable({
                         {[
                           p.material,
                           p.thickness_mm != null && `${formatNum(p.thickness_mm, 1)}mm`,
-                          p.category,
+                          kategoriGoster(p.category),
                         ]
                           .filter(Boolean)
                           .join(" · ") || "—"}
@@ -294,7 +295,7 @@ export function PartsTable({
                       {p.thickness_mm == null ? "—" : formatNum(p.thickness_mm, 1)}
                     </TableCell>
                     <TableCell className="hidden align-top text-[12px] whitespace-normal lg:table-cell">
-                      {p.category || "—"}
+                      {kategoriGoster(p.category) || "—"}
                     </TableCell>
                     <TableCell className="hidden align-top text-right font-mono text-[12px] xl:table-cell">
                       {p.weight_kg == null ? "—" : formatNum(p.weight_kg, 3)}
@@ -361,7 +362,7 @@ function Suzgec({
         <SelectValue placeholder={bos} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>{bos}: tümü</SelectItem>
+        <SelectItem value={ALL}>{bos}: Tümü</SelectItem>
         {secenekler.map((s) => (
           <SelectItem key={s.value} value={s.value}>
             {s.label}

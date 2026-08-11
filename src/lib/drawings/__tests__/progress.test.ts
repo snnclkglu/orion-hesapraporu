@@ -21,8 +21,11 @@ import { reconcile, type PackageSnapshot, type ReconcileResult } from "../reconc
 import {
   FALLBACK_STAGES,
   PURCHASE_PREFIX,
+  PURCHASE_STAGE_SLUGS,
   STAGE_SLUGS,
   orphanMarks,
+  productionStages,
+  purchaseStages,
   packageProgress,
   partProgress,
   progressItemNo,
@@ -324,7 +327,9 @@ describe("özet — ULAŞILAN aşama histogramı", () => {
     const p = partProgress({ key: "X", qty: 4 }, [{ key: "X", stage: "boya", qtyDone: 4 }], FALLBACK_STAGES);
     expect(p.reached).toBe("boya");
     expect(p.states.kesildi).toBe("yok");
-    expect(p.pct).toBe(Math.round((1 / 7) * 100));
+    // Payda DEFTERİN KENDİSİNDEN okunur, sabit yazılmaz: aşama eklemek bu
+    // iddiayı kırmamalı, çünkü iddia oran hesabı değil "geriye gitmez"dir.
+    expect(p.pct).toBe(Math.round((1 / FALLBACK_STAGES.length) * 100));
   });
 
   it("son aşama tamamlanınca oran yükselir", () => {
@@ -358,19 +363,49 @@ const MIGRATION = readFileSync(
   "utf-8"
 );
 
-/** Tohum `insert` bloğundaki (slug, ad, sıra, ton) dörtlüleri. */
+/**
+ * AŞAMA TOHUMU ARTIK TEK DOSYADA DEĞİL.
+ *
+ * `teslim_alindi` sonradan, kendi migration'ında eklendi ("uygulanmış bir
+ * migration düzenlenmez"). Koruma yalnız ilk dosyayı okusaydı yeni aşamayı
+ * "kodda var, tohumda yok" diye kırar ve doğru olan işi engellerdi. Tohumlayan
+ * HER migration okunur; sıra dosya adının kendisidir (zaman damgası).
+ */
+const TOHUM_MIGRATIONLARI = [
+  "20260810000002_drawing_progress.sql",
+  "20260811000001_drawing_purchasing.sql",
+];
+
+function tohumBloklari(): string[] {
+  return TOHUM_MIGRATIONLARI.map((ad) =>
+    readFileSync(join(process.cwd(), "supabase", "migrations", ad), "utf-8")
+  )
+    .map((metin) => {
+      const bas = metin.indexOf("insert into public.drawing_stages");
+      if (bas < 0) return "";
+      const son = metin.indexOf("on conflict (slug)", bas);
+      expect(son).toBeGreaterThan(bas);
+      return metin.slice(bas, son);
+    })
+    .filter(Boolean);
+}
+
+/** Tohum `insert` bloklarındaki (slug, ad, sıra, ton) dörtlüleri — `sort` sıralı. */
 function tohumAsamalar(): { slug: string; name: string; sort: number; hue: number }[] {
-  const bas = MIGRATION.indexOf("insert into public.drawing_stages");
-  const son = MIGRATION.indexOf("on conflict (slug)", bas);
-  expect(bas).toBeGreaterThan(-1);
-  expect(son).toBeGreaterThan(bas);
-  const blok = MIGRATION.slice(bas, son);
-  return [...blok.matchAll(/\('([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)\)/g)].map((m) => ({
-    slug: m[1],
-    name: m[2],
-    sort: Number(m[3]),
-    hue: Number(m[4]),
-  }));
+  const bloklar = tohumBloklari();
+  expect(bloklar.length).toBe(TOHUM_MIGRATIONLARI.length);
+  return bloklar
+    .flatMap((blok) =>
+      [...blok.matchAll(/\('([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+)\)/g)].map((m) => ({
+        slug: m[1],
+        name: m[2],
+        sort: Number(m[3]),
+        hue: Number(m[4]),
+      }))
+    )
+    // FALLBACK_STAGES ile karşılaştırma yapılacağı için sıra defterin kendi
+    // sırasıdır (`order("sort")` sunucuda da böyle okur), dosya sırası değil.
+    .sort((a, b) => a.sort - b.sort);
 }
 
 describe("aşama sözlüğü ↔ migration", () => {
@@ -400,16 +435,42 @@ describe("aşama sözlüğü ↔ migration", () => {
     expect(new Set(tohum.map((t) => t.name)).size).toBe(tohum.length);
   });
 
-  it("komşu tonlar en az 40 derece ayrıdır", () => {
-    // Aşama çipleri bir parça satırında YAN YANA durur; ayırt edilebilirlik
-    // veriyle değil KURALLA garanti edilir (`nextDistinctHue` ile aynı ruh).
-    const tonlar = tohum.map((t) => t.hue).sort((a, b) => a - b);
-    for (let i = 0; i < tonlar.length; i++) {
-      const a = tonlar[i];
-      const b = tonlar[(i + 1) % tonlar.length];
-      const d = Math.abs(b - a);
-      expect(Math.min(d, 360 - d)).toBeGreaterThanOrEqual(40);
+  it("komşu tonlar GRUP İÇİNDE en az 40 derece ayrıdır", () => {
+    // Kuralın gerekçesi çiplerin BİR SATIRDA yan yana durmasıdır; ayırt
+    // edilebilirlik veriyle değil KURALLA garanti edilir (`nextDistinctHue`
+    // ile aynı ruh).
+    //
+    // KURAL GRUBA İNDİ. Satın alma ve üretim çipleri artık aynı satırda hiç
+    // görünmüyor (ayrı ekranlar, `purchaseStages` / `productionStages`) ve
+    // sekizinci aşama 40 derece aralıkla çembere zaten SIĞMIYORDU: yedi ton
+    // 280 derece yer kaplıyor, en büyük boşluk 65 derece ve ortasına konan bir
+    // ton komşularına ancak 32 derece uzak düşüyor. Kuralı yaşatmanın yolu onu
+    // gerekçesinin kapsamına çekmekti.
+    const grupla = (slugs: readonly string[]) =>
+      tohum.filter((t) => slugs.includes(t.slug)).map((t) => t.hue);
+    const uretim = tohum.filter((t) => !PURCHASE_STAGE_SLUGS.includes(t.slug)).map((t) => t.hue);
+
+    for (const tonlar of [uretim, grupla(PURCHASE_STAGE_SLUGS)]) {
+      if (tonlar.length < 2) continue;
+      const sirali = [...tonlar].sort((a, b) => a - b);
+      for (let i = 0; i < sirali.length; i++) {
+        const a = sirali[i];
+        const b = sirali[(i + 1) % sirali.length];
+        const d = Math.abs(b - a);
+        expect(Math.min(d, 360 - d)).toBeGreaterThanOrEqual(40);
+      }
     }
+  });
+
+  it("satın alma zinciri SIRALIDIR: önce sipariş, sonra teslim", () => {
+    // `purchaseStages` defterin `sort`una değil bu listenin sırasına uyar;
+    // kullanıcı aşama defterinde sırayı değiştirse bile ekran anlamlı kalır.
+    const sirali = purchaseStages(FALLBACK_STAGES).map((s) => s.slug);
+    expect(sirali).toEqual([...PURCHASE_STAGE_SLUGS]);
+    // İki ekranın aşamaları ARTIKSIZ bölünür: bir aşama ya orada ya burada.
+    const uretim = productionStages(FALLBACK_STAGES).map((s) => s.slug);
+    expect([...uretim, ...sirali].sort()).toEqual([...FALLBACK_STAGES.map((s) => s.slug)].sort());
+    expect(uretim.filter((s) => sirali.includes(s))).toEqual([]);
   });
 
   it("ipucu sözlüğünün hedeflediği aşamalar defterde vardır", () => {

@@ -25,7 +25,9 @@ import { notFound } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GitBranch, Unlink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { tumSatirlar } from "../../data";
+import { canEditDrawings } from "@/lib/roles";
+import { loadPackage, storageState, tumSatirlar } from "../../data";
+import { PackageActions } from "../package-actions";
 import { packageDiff, type DiffFile, type DiffPart, type PackageSide } from "@/lib/drawings/diff";
 import { formatNum } from "@/lib/drawings/labels";
 import type { DwgPackageStatus, FileLifecycle, FileRole } from "@/lib/drawings/types";
@@ -268,8 +270,59 @@ export default async function PackageVersionsPage({
     revNo: zincir.find((s) => s.id === o.package_id)?.rev_no ?? null,
   }));
 
+  // ————————————————————————————————— paketin bakım eylemleri
+  //
+  // BU DÜĞMELER ARTIK KABUKTA DEĞİL BURADA. Her sekmede duruyorlardı ve bu
+  // sayfayı atölye, satınalma ve müdür de açıyor; onların işi paketi yeniden
+  // kurmak değil okumaktır. Arşiv ve bakım aynı yerde toplanır.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const yazabilir = canEditDrawings(profile?.role);
+
+  // Silme onayı NE KAYBEDİLECEĞİNİ sayıyla söyler; bu ekranın kendi `SurumRow`u
+  // depo ölçümünü taşımadığı için paketin tam satırı okunur.
+  const tamPaket = yazabilir ? await loadPackage(supabase, id) : null;
+  const depo = tamPaket ? storageState(tamPaket) : null;
+
+  // ÜRETİME GİRMİŞ PAKET SİLİNEMEZ. Kural veritabanı tetikleyicisindedir; bu
+  // sayı yalnız düğmenin daha tıklanmadan bunu SÖYLEYEBİLMESİ için okunur
+  // (projeyi silmedeki `hasIssuedRevision` kalıbının aynısı). Anlamlı ilerleme
+  // aranır: pano bir aşamayı geri alırken sıfır satır bırakabilir ve o satır
+  // yüzünden silmeyi kilitlemek yanlış alarm olurdu.
+  const { count: uretimKaydi } = await supabase
+    .from("drawing_part_progress")
+    .select("id", { count: "exact", head: true })
+    .eq("package_id", paket.id)
+    .gt("qty_done", 0);
+
   return (
     <div className="grid gap-4">
+      {yazabilir && depo && (
+        <section className="border bg-card px-4 py-3">
+          <h2 className="text-sm font-medium">Paket Bakımı</h2>
+          <p className="mt-1 mb-2 max-w-prose text-[12px] text-muted-foreground">
+            Paketi yeniden kuran ve silen eylemler. Üç düğmenin maliyeti çok
+            farklıdır ve her birinin üstünde yazılıdır: <strong>Yeniden
+            Eşleştir</strong> depoya hiç dokunmaz, <strong>Depoyu Doğrula</strong>{" "}
+            yalnız listeler, <strong>İçerikleri Yeniden Oku</strong> her resmi ve
+            DXF&apos;i yeniden indirir.
+          </p>
+          <PackageActions
+            packageId={paket.id}
+            folderName={paket.folder_name}
+            storedCount={depo.stored}
+            bytes={depo.storedBytes || depo.expectedBytes}
+            partCount={paket.part_count}
+            progressCount={uretimKaydi ?? 0}
+            missing={depo.missing}
+          />
+        </section>
+      )}
+
       <section className="border bg-card p-4">
         <h1 className="flex items-center gap-2 text-sm font-medium">
           <GitBranch className="size-4 text-primary" />

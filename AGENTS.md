@@ -63,6 +63,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri
   ve üç türev çalışma kitabını gerçekten üret ve geri oku
+- `npx tsx scripts/test-drawings-purchasing.ts` — satın alma talebi Excel'ini
+  ve PDF'ini üret (süzgeçli/seçili liste çıktısının duman testi)
 - `/dev/drawings-preview` — Teknik Resimler ekranlarının AUTH'SUZ görsel
   önizlemesi (yalnız development). Ekran değiştirdiysen ÖNCE orada bak
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)

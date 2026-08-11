@@ -47,6 +47,7 @@ import type { PartKind } from "./types";
  */
 export const STAGE_SLUGS = [
   "satinalindi",
+  "teslim_alindi",
   "kesildi",
   "bukuldu",
   "talasli",
@@ -72,6 +73,7 @@ export interface StageDef {
  */
 export const FALLBACK_STAGES: StageDef[] = [
   { slug: "satinalindi", name: "Satın alındı", sort: 10, colorHue: 265 },
+  { slug: "teslim_alindi", name: "Teslim alındı", sort: 15, colorHue: 352 },
   { slug: "kesildi", name: "Kesildi", sort: 20, colorHue: 25 },
   { slug: "bukuldu", name: "Büküldü", sort: 30, colorHue: 65 },
   { slug: "talasli", name: "Talaşlı imalat", sort: 40, colorHue: 200 },
@@ -115,18 +117,39 @@ export const PURCHASE_PREFIX = "SATINALMA:";
  */
 export const PURCHASE_STAGE_SLUG = "satinalindi";
 
-/** Atölye tahtasının aşamaları — satın alma AŞAMASI HARİÇ. */
+/**
+ * TESLİM ALINDI AYRI BİR AŞAMADIR.
+ *
+ * "Satın alındı" siparişin verildiğini söyler; malzeme altı hafta sonra
+ * gelebilir. İkisini tek işarete sıkıştırmak, "satın alındı" görüp malzemeyi
+ * rafta arayan bir insan üretirdi. Atölyenin beklediği şey siparişin değil
+ * TESLİMİN gerçekleşmesidir.
+ */
+export const RECEIVED_STAGE_SLUG = "teslim_alindi";
+
+/** Satın alma zincirinin aşamaları — SIRA anlamlıdır: önce sipariş, sonra teslim. */
+export const PURCHASE_STAGE_SLUGS: readonly string[] = [
+  PURCHASE_STAGE_SLUG,
+  RECEIVED_STAGE_SLUG,
+];
+
+/** Atölye tahtasının aşamaları — satın alma zinciri HARİÇ. */
 export function productionStages(stages: readonly StageDef[]): StageDef[] {
-  return stages.filter((s) => s.slug !== PURCHASE_STAGE_SLUG);
+  return stages.filter((s) => !PURCHASE_STAGE_SLUGS.includes(s.slug));
 }
 
 /**
- * Satın alma ekranının aşamaları — bugün tek eleman, yarın belki "sipariş
- * verildi / teslim alındı". Dizi döner ki ekran döngüyü değiştirmeden büyüsün;
- * defterden silinmişse BOŞ döner ve ekran çipsiz ama çalışır kalır.
+ * Satın alma ekranının aşamaları, ZİNCİR SIRASINDA.
+ *
+ * Defterin kendi `sort`u değil bu listenin sırası kullanılır: kullanıcı aşama
+ * defterinde sıraları değiştirebilir ve "teslim alındı"nın "satın alındı"dan
+ * önce gelmesi ekranı anlamsız yapardı. Defterden silinmiş aşama listeye
+ * girmez; ekran çipsiz ama çalışır kalır.
  */
 export function purchaseStages(stages: readonly StageDef[]): StageDef[] {
-  return stages.filter((s) => s.slug === PURCHASE_STAGE_SLUG);
+  return PURCHASE_STAGE_SLUGS.map((slug) => stages.find((s) => s.slug === slug)).filter(
+    (s): s is StageDef => Boolean(s)
+  );
 }
 
 /**

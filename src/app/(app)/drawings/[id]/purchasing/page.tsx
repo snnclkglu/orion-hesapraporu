@@ -17,18 +17,17 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
-import { satinAlmaListesi } from "@/lib/drawings/derive";
+import { satinAlmaKategoriSirasi, satinAlmaListesi } from "@/lib/drawings/derive";
 import {
   FALLBACK_STAGES,
   progressItemNo,
   purchaseStages,
   registerItemNo,
-  type ProgressMark,
   type StageDef,
 } from "@/lib/drawings/progress";
 import { loadPackage, loadParts } from "../../data";
 import { partToTurev } from "../export/shared";
-import { PurchasingTable } from "./purchasing-table";
+import { PurchasingTable, type PurchaseMark } from "./purchasing-table";
 
 interface StageRow {
   slug: string;
@@ -43,10 +42,25 @@ interface ProgressRow {
   stage: string;
   qty_done: number | null;
   done_at: string | null;
+  due_at?: string | null;
   note: string | null;
   review_required: boolean | null;
   review_reason: string | null;
 }
+
+/**
+ * İLERLEME SÜTUNLARI İKİ DENEMEDE OKUNUR.
+ *
+ * `due_at` 20260811 migration'ıyla geliyor; o uygulanmadan önce sütunu isteyen
+ * bir `select` BÜTÜN sorguyu düşürür ve ekran satın alma kayıtlarını hiç
+ * göremez. Bir alanın eksikliği yüzünden bütün listeyi kaybetmek, bu modülün
+ * "hiçbir kural bir yüklemeyi engellemez" ilkesinin ekran tarafındaki
+ * karşılığıdır: önce zengin sütun listesi denenir, olmazsa dar olanına düşülür.
+ */
+const ILERLEME_ALANLARI =
+  "id, part_code, stage, qty_done, done_at, due_at, note, review_required, review_reason";
+const ILERLEME_ALANLARI_DAR =
+  "id, part_code, stage, qty_done, done_at, note, review_required, review_reason";
 
 export default async function PackagePurchasingPage({
   params,
@@ -68,7 +82,33 @@ export default async function PackagePurchasingPage({
     : { data: null };
   const yazabilir = canEditDrawings(profile?.role);
 
-  const liste = satinAlmaListesi(parcalar.map(partToTurev));
+  // ————————————————————————————————— kategori defterleri
+  //
+  // İKİSİ DE OLMAYABİLİR (20260811 migration'ı ana oturumda uygulanacak).
+  // Okunamıyorsa ekran sözlükle çalışır ve düzeltme araçları kapanır; bir
+  // ekranın 500 vermesi kullanıcının modüle olan güvenini bir defada bitirir.
+  const [{ data: duzeltmeSatirlari }, { data: kategoriSatirlari }] = await Promise.all([
+    supabase.from("drawing_purchase_overrides").select("match_key, category"),
+    supabase
+      .from("drawing_purchase_categories")
+      .select("name, sort")
+      .eq("active", true)
+      .order("sort")
+      .order("name"),
+  ]);
+
+  const duzeltmeler = new Map(
+    ((duzeltmeSatirlari ?? []) as { match_key: string; category: string }[]).map((r) => [
+      r.match_key,
+      r.category,
+    ])
+  );
+  const ekKategoriler = ((kategoriSatirlari ?? []) as { name: string }[]).map((r) => r.name);
+  // Defter okunamadıysa (migration yok) düzeltme araçları gösterilmez: var
+  // olmayan bir tabloya yazmayı denemek kullanıcıya anlaşılmaz bir hata verirdi.
+  const kategoriDefteriVar = duzeltmeSatirlari != null && kategoriSatirlari != null;
+
+  const liste = satinAlmaListesi(parcalar.map(partToTurev), { duzeltmeler, ekKategoriler });
 
   if (liste.satirlar.length === 0) {
     return (
@@ -117,26 +157,34 @@ export default async function PackagePurchasingPage({
     Boolean
   );
 
-  let marks: ProgressMark[] = [];
+  let marks: PurchaseMark[] = [];
   if (kalemler.length > 0 && asamalar.length > 0) {
-    const { data } = await supabase
-      .from("drawing_part_progress")
-      .select("id, part_code, stage, qty_done, done_at, note, review_required, review_reason")
-      .in("item_no", kalemler)
-      .in(
-        "stage",
-        asamalar.map((s) => s.slug)
-      );
+    const slugs = asamalar.map((s) => s.slug);
+    const oku = (alanlar: string) =>
+      supabase
+        .from("drawing_part_progress")
+        .select(alanlar)
+        .in("item_no", kalemler)
+        .in("stage", slugs);
+
+    // `data` yeniden atanır, `error` atanmaz — ESLint bunu ayırmamızı ister.
+    const ilk = await oku(ILERLEME_ALANLARI);
+    let data = ilk.data;
+    // `due_at` sütunu henüz yoksa dar listeye düşülür; teslim tarihi görünmez
+    // ama işaretler görünür. Tersi (hiç satır göstermemek) çok daha kötüdür.
+    if (ilk.error) ({ data } = await oku(ILERLEME_ALANLARI_DAR));
+
     // Aynı kalem numarasını paylaşan BAŞKA bir paketin satırları da gelir; bu
     // ekrana yalnız bu paketin listesinde karşılığı olanlar girer.
     const bilinen = new Set(liste.satirlar.map((s) => s.key));
-    marks = ((data ?? []) as ProgressRow[])
+    marks = ((data ?? []) as unknown as ProgressRow[])
       .filter((r) => bilinen.has(r.part_code))
       .map((r) => ({
         key: r.part_code,
         stage: r.stage,
         qtyDone: r.qty_done ?? 0,
         doneAt: r.done_at,
+        dueAt: r.due_at ?? null,
         note: r.note ?? "",
         id: r.id,
         reviewRequired: r.review_required === true,
@@ -150,7 +198,9 @@ export default async function PackagePurchasingPage({
       liste={liste}
       stages={asamalar}
       marks={marks}
+      kategoriler={satinAlmaKategoriSirasi(ekKategoriler)}
       canWrite={yazabilir}
+      canEditCategories={yazabilir && kategoriDefteriVar}
       ledgerMissing={defterYok}
     />
   );

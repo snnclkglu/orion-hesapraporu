@@ -48,6 +48,15 @@ export const setPartStageSchema = z.object({
    */
   qtyDone: z.number().int().min(1).max(1_000_000),
   doneAt: z.string().max(10).default(""),
+  /**
+   * TAHMİNİ teslim tarihi — `doneAt` ile karıştırılmaz.
+   *
+   * `doneAt` işaretin konduğu gündür (geçmiş), `dueAt` malzemenin beklendiği
+   * gündür (gelecek). Satın alma ekranı ikisini ayrı sorar; tek alanda
+   * tutulsalardı "üç hafta sonra gelecek" ile "üç hafta önce sipariş edildi"
+   * aynı hücreye yazılırdı.
+   */
+  dueAt: z.string().max(10).default(""),
   note: z.string().max(500).default(""),
 });
 

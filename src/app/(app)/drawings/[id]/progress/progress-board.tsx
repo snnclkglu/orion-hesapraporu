@@ -672,30 +672,38 @@ function SummaryStrip({ ozet }: { ozet: ReturnType<typeof packageProgress> }) {
         </p>
       </div>
 
-      <ul className="oc-scrollx mt-2 flex items-end gap-2 overflow-x-auto pb-1 [--oc-scroll-bg:var(--card)]">
+      {/* ÇUBUKLAR AYNI TABANDAN KALKAR. Eskiden sütunlar `items-end` ile
+          hizalanıyordu ve etiketi iki satıra sığan bir aşama ("Montaja hazır")
+          bütün sütununu bir satır boyu YUKARI kaydırıyordu — çubuk komşusuyla
+          aynı zeminde durmuyordu. Artık her sütun aynı yükseklikte: çubuk alanı
+          sabit (`h-14`, çubuk içinden dibe yaslanır) ve etiket alanı iki satır
+          alacak kadar sabit (`h-7`). */}
+      <ul className="oc-scrollx mt-2 flex items-stretch gap-2 overflow-x-auto pb-1 [--oc-scroll-bg:var(--card)]">
         <li className="flex w-16 shrink-0 flex-col items-center gap-1">
           <span className="font-mono text-[12px] tabular-nums">{formatNum(ozet.notStarted)}</span>
-          <span
-            className="w-full bg-muted"
-            style={{ height: `${Math.max(3, (ozet.notStarted / enBuyuk) * 56)}px` }}
-            aria-hidden
-          />
-          <span className="text-center text-[11px] leading-tight text-muted-foreground">
+          <span className="flex h-14 w-full items-end" aria-hidden>
+            <span
+              className="w-full bg-muted"
+              style={{ height: `${Math.max(3, (ozet.notStarted / enBuyuk) * 56)}px` }}
+            />
+          </span>
+          <span className="flex h-7 items-start text-center text-[11px] leading-tight text-muted-foreground">
             Başlanmadı
           </span>
         </li>
         {ozet.buckets.map((b) => (
           <li key={b.stage.slug} className="flex w-16 shrink-0 flex-col items-center gap-1">
             <span className="font-mono text-[12px] tabular-nums">{formatNum(b.parts)}</span>
-            <span
-              className="oc-series-bg w-full"
-              style={{
-                ...tagStyle(b.stage.colorHue),
-                height: `${Math.max(3, (b.parts / enBuyuk) * 56)}px`,
-              }}
-              aria-hidden
-            />
-            <span className="text-center text-[11px] leading-tight text-muted-foreground">
+            <span className="flex h-14 w-full items-end" aria-hidden>
+              <span
+                className="oc-series-bg w-full"
+                style={{
+                  ...tagStyle(b.stage.colorHue),
+                  height: `${Math.max(3, (b.parts / enBuyuk) * 56)}px`,
+                }}
+              />
+            </span>
+            <span className="flex h-7 items-start text-center text-[11px] leading-tight text-muted-foreground">
               {b.stage.name}
             </span>
           </li>
@@ -712,7 +720,7 @@ function SummaryStrip({ ozet }: { ozet: ReturnType<typeof packageProgress> }) {
             darboğaz değil, henüz sıraya girmemiş iştir.
           </>
         ) : (
-          <>Henüz hiçbir parça işaretlenmemiş. Tahta sessiz başlar.</>
+          <>Henüz hiçbir parça işaretlenmemiş.</>
         )}
       </p>
     </section>

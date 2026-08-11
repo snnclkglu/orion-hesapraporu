@@ -1,25 +1,36 @@
 "use client";
 
-// Satın Alma tablosu — arama, kategori süzgeci ve "satın alındı" işareti.
+// Satın Alma tablosu — sipariş, teslim tarihi ve kategori düzeltmesi.
 //
-// ASIL KULLANICI SATINALMACIDIR ve sorusu tek: "neyi sipariş etmem gerekiyor,
-// neyi ettim?" Ekran bu yüzden Üretim tahtasından iki noktada ayrılır:
+// ASIL KULLANICI SATINALMACIDIR ve üç sorusu vardır: neyi sipariş etmeliyim,
+// ne zaman gelecek, geldi mi? Ekran bu üçüne göre kurulmuştur.
 //
-// · TEK AŞAMA VAR. Yedi çipli bir satır burada gürültüdür; satın almanın
-//   defterdeki tek aşaması "satın alındı"dır ve o da bir onay kutusu gibi
-//   davranır. Aşama listesi yine de DİZİdir (`purchaseStages`) — yarın
-//   "sipariş verildi" eklenirse döngü değişmeden büyür.
-// · KATEGORİ BİRİNCİL SÜTUNDUR. Sipariş tedarikçi başına verilir; aynı ailenin
-//   kalemleri yan yana durmazsa liste kullanılamaz. Varsayılan sıra bu yüzden
-//   kategoridir, kod ya da defter sırası değil.
+// ————————————————————————————————————————————————— ÜÇ KARAR
+//
+// 1. YAZMA BİRİKTİRİLİR, EKRAN BEKLEMEZ. Her tıklamada bir sunucu eylemi + bir
+//    `router.refresh()` çalışıyordu; 672 parçalık bir pakette refresh bütün
+//    sunucu bileşenini yeniden koşturuyor ve çip saniyelerce kilitli kalıyordu.
+//    Kullanıcının gördüğü şey "satın alındı tuşu çok geç geliyor" ve daha
+//    kötüsü "geri alamıyorum"du — çünkü bekleyen geçiş bütün çipleri pasif
+//    yapıyordu. Artık işaret ANINDA boyanır, yazma kuyruğa girer ve boşta
+//    kalınca tek çağrıda gider. `router.refresh()` HİÇ çağrılmaz: ekranın
+//    doğruluk kaynağı yerel durumdur, sunucu yalnız ilk yüklemede okunur.
+//
+// 2. SİPARİŞ İLE TESLİM AYRI HÂLLERDİR. "Satın alındı" siparişin verildiğini
+//    söyler; malzeme altı hafta sonra gelebilir. Atölyenin beklediği şey
+//    teslimdir, bu yüzden `teslim_alindi` ayrı bir aşamadır ve tarih sütunu
+//    onun rengini taşır.
+//
+// 3. SÖZLÜK BİLEMEDİĞİNDE İNSAN SÖYLER. "Diğer" bir çöp kutusu olamaz: seçili
+//    kalemler başka bir kategoriye taşınabilir, gerekirse yeni kategori
+//    açılabilir ve düzeltme deftere yazılıp HATIRLANIR.
 //
 // SÜZGEÇ TANIMI BURADA DEĞİL `../../filters.ts`TE — parça defterindeki kuralın
 // aynısı; iki yerde yazılan bir süzgeç zamanla ayrışır.
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Check, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Check, FileSpreadsheet, FileText, FolderInput, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +41,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -47,8 +66,8 @@ import {
 } from "@/components/ui/table";
 import { tagStyle } from "@/lib/tags";
 import { formatNum } from "@/lib/drawings/labels";
-import { SATIN_ALMA_SINIFLARI, type SatinAlmaSonucu } from "@/lib/drawings/derive";
-import type { ProgressMark, StageDef } from "@/lib/drawings/progress";
+import type { SatinAlmaSonucu } from "@/lib/drawings/derive";
+import { PURCHASE_STAGE_SLUG, RECEIVED_STAGE_SLUG, type StageDef } from "@/lib/drawings/progress";
 import {
   ALL,
   EMPTY_PURCHASE_FILTERS,
@@ -60,12 +79,46 @@ import {
 } from "../../filters";
 import { FilterBar, SearchBox, SortableHead } from "../../sortable-head";
 import { markStage, setPartStage } from "../progress/actions";
+import { createPurchaseCategory, movePurchaseCategory } from "./actions";
+
+/** Satın alma ekranının okuduğu ilerleme kaydı — `due_at` ile birlikte. */
+export interface PurchaseMark {
+  key: string;
+  stage: string;
+  qtyDone: number;
+  doneAt?: string | null;
+  /** TAHMİNİ teslim tarihi; sütun henüz yoksa `null` gelir. */
+  dueAt?: string | null;
+  note?: string;
+  id?: string;
+}
+
+/** Kuyruğun boşta ne kadar bekleyeceği (ms) — kullanıcı tıklamayı bitirsin. */
+const BEKLEME = 900;
+/** İlk değişiklikten sonra en geç ne kadarda yazılacağı (ms). */
+const EN_GEC = 4000;
+
+/**
+ * TESLİM TARİHİ RENGİ — eşikler.
+ *
+ * Kullanıcının istediği okuma şudur: "bugüne çok uzaksa kırmızı, çok yakınsa
+ * sarı". Satınalmacı için hem GECİKMİŞ hem de ÇOK UZAK aynı şeyi söyler —
+ * bu kalem takvimi tehdit ediyor — ve ikisi de kırmızıdır; ipucu metni
+ * hangisi olduğunu yazar. Arada kalan aralık sakin bırakılır: her satırı
+ * renklendirmek rengi anlamsız yapardı.
+ */
+const YAKIN_GUN = 14;
+const UZAK_GUN = 42;
+
+/** Pop-up'taki hızlı seçenekler; "Hemen" bugünü, kalanı N haftayı gösterir. */
+const HAZIR_HAFTALAR = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 /** Süzgece giren satır — defter satırı + ilerleme kaydının birleşimi. */
 interface Satir {
   key: string;
   tanim: string;
   sinif: string;
+  duzeltilmis: boolean;
   malzeme: string;
   malzemeler: string[];
   parcaKodu: string;
@@ -74,8 +127,92 @@ interface Satir {
   sourceRows: number;
   kaynak: string;
   alindi: boolean;
+  teslim: boolean;
+  dueAt: string;
   tarih: string;
   not: string;
+}
+
+/** Bir kalemin yerel durumu — sunucudan gelen kayıtların düzleştirilmiş hâli. */
+interface Durum {
+  alindi: boolean;
+  teslim: boolean;
+  dueAt: string;
+  doneAt: string;
+  note: string;
+}
+
+function durumHaritasi(marks: readonly PurchaseMark[]): Map<string, Durum> {
+  const h = new Map<string, Durum>();
+  for (const m of marks) {
+    const d = h.get(m.key) ?? { alindi: false, teslim: false, dueAt: "", doneAt: "", note: "" };
+    if (m.stage === PURCHASE_STAGE_SLUG) {
+      d.alindi = true;
+      d.dueAt = m.dueAt ?? d.dueAt;
+      d.doneAt = m.doneAt ?? d.doneAt;
+      d.note = m.note || d.note;
+    }
+    if (m.stage === RECEIVED_STAGE_SLUG) d.teslim = true;
+    h.set(m.key, d);
+  }
+  return h;
+}
+
+/** `YYYY-MM-DD` — yerel gün, UTC değil (bir günlük kayma teslim tarihini bozar). */
+function bugunISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function haftaSonrasi(hafta: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + hafta * 7);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** İki ISO gün arasındaki fark (gün). Geçersiz tarihte `null`. */
+function gunFarki(iso: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const hedef = new Date(`${iso}T00:00:00`);
+  const bugun = new Date(`${bugunISO()}T00:00:00`);
+  if (Number.isNaN(hedef.getTime())) return null;
+  return Math.round((hedef.getTime() - bugun.getTime()) / 86_400_000);
+}
+
+function tarihGoster(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("tr-TR");
+}
+
+/** Teslim tarihi hücresinin rengi ve ipucu. */
+function teslimGorunumu(s: Satir): { sinif: string; ipucu: string } {
+  if (s.teslim) {
+    return {
+      sinif: "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400",
+      ipucu: "Teslim alındı.",
+    };
+  }
+  const fark = s.dueAt ? gunFarki(s.dueAt) : null;
+  if (fark == null) return { sinif: "text-muted-foreground", ipucu: "Teslim tarihi girilmemiş." };
+  if (fark < 0) {
+    return {
+      sinif: "border-destructive/40 bg-destructive/10 text-destructive",
+      ipucu: `${Math.abs(fark)} gün gecikti.`,
+    };
+  }
+  if (fark <= YAKIN_GUN) {
+    return {
+      sinif: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      ipucu: `${fark} gün kaldı.`,
+    };
+  }
+  if (fark > UZAK_GUN) {
+    return {
+      sinif: "border-destructive/40 bg-destructive/10 text-destructive",
+      ipucu: `${fark} gün var — takvimi tehdit ediyor.`,
+    };
+  }
+  return { sinif: "text-foreground", ipucu: `${fark} gün var.` };
 }
 
 export function PurchasingTable({
@@ -83,52 +220,135 @@ export function PurchasingTable({
   liste,
   stages,
   marks,
+  kategoriler,
   canWrite,
+  canEditCategories,
   ledgerMissing,
 }: {
   packageId: string;
   liste: SatinAlmaSonucu;
-  /** Satın alma aşamaları — bugün tek eleman; defterde yoksa boş. */
+  /** Satın alma aşamaları, zincir sırasında: satın alındı → teslim alındı. */
   stages: StageDef[];
-  marks: ProgressMark[];
+  marks: PurchaseMark[];
+  /** Sözlük + kullanıcı kategorileri, gösterim sırasında. */
+  kategoriler: string[];
   canWrite: boolean;
+  /** Kategori defteri kurulmuş mu (migration uygulandı mı)? */
+  canEditCategories: boolean;
   ledgerMissing: boolean;
 }) {
-  const router = useRouter();
+  const siparis = stages.find((s) => s.slug === PURCHASE_STAGE_SLUG) ?? null;
+  const teslimAsamasi = stages.find((s) => s.slug === RECEIVED_STAGE_SLUG) ?? null;
+
+  const [durumlar, setDurumlar] = useState<Map<string, Durum>>(() => durumHaritasi(marks));
+  const [bekleyenSayisi, setBekleyenSayisi] = useState(0);
   const [calisiyor, basla] = useTransition();
 
-  const asama = stages[0] ?? null;
+  // ————————————————————————————————————————————————————— yazma kuyruğu
+  //
+  // Anahtar `aşama|mod`, değeri anahtar kümesidir. Aynı kalem art arda açılıp
+  // kapatılırsa TERS moddan düşürülür: kuyruk kullanıcının SON kararını taşır,
+  // aradaki gidiş gelişleri değil.
+  const kuyruk = useRef(new Map<string, Set<string>>());
+  const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ilkDegisiklik = useRef(0);
 
-  // İYİMSER DURUM: sunucu yanıtı beklenmeden satır boyanır. Sunucudan gelen
-  // yeni imza durumu yeniden kurar — imza karşılaştırması olmadan her yeniden
-  // çizim uçuştaki değişikliği geri alırdı (Üretim tahtasındaki kalıbın aynısı).
-  const sunucuImza = useMemo(
-    () => marks.map((m) => `${m.key}|${m.qtyDone}`).sort().join(";"),
-    [marks]
+  const bosalt = useCallback(() => {
+    if (zamanlayici.current) {
+      clearTimeout(zamanlayici.current);
+      zamanlayici.current = null;
+    }
+    ilkDegisiklik.current = 0;
+    const isler = [...kuyruk.current.entries()].filter(([, k]) => k.size > 0);
+    kuyruk.current.clear();
+    setBekleyenSayisi(0);
+    if (isler.length === 0) return;
+
+    basla(async () => {
+      for (const [anahtar, anahtarlar] of isler) {
+        const [stage, mode] = anahtar.split("|") as [string, "isaretle" | "kaldir"];
+        const sonuc = await markStage({ packageId, stage, keys: [...anahtarlar], mode });
+        // HATA SESSİZ KALMAZ ama ekran da geri sarılmaz: kullanıcı o arada
+        // başka kalemleri işaretlemiş olabilir ve hepsini geri almak, bir
+        // satırın hatasını yirmi satırın kaybına çevirirdi. Sayfa yenilendiğinde
+        // sunucunun gerçeği zaten görünür.
+        if (sonuc.error) toast.error(`Kaydedilemedi: ${sonuc.error}`);
+      }
+    });
+  }, [packageId]);
+
+  const planla = useCallback(() => {
+    const simdi = Date.now();
+    if (!ilkDegisiklik.current) ilkDegisiklik.current = simdi;
+    if (zamanlayici.current) clearTimeout(zamanlayici.current);
+    // EN GEÇ SINIRI: kullanıcı hiç durmadan tıklarsa boşta bekleme hiç
+    // gelmez ve yazma sonsuza ertelenirdi.
+    const kalan = Math.max(0, EN_GEC - (simdi - ilkDegisiklik.current));
+    zamanlayici.current = setTimeout(bosalt, Math.min(BEKLEME, kalan));
+  }, [bosalt]);
+
+  const kuyrukla = useCallback(
+    (anahtarlar: string[], stage: string, mode: "isaretle" | "kaldir") => {
+      const ters = `${stage}|${mode === "isaretle" ? "kaldir" : "isaretle"}`;
+      const kendi = `${stage}|${mode}`;
+      const hedef = kuyruk.current.get(kendi) ?? new Set<string>();
+      for (const k of anahtarlar) {
+        kuyruk.current.get(ters)?.delete(k);
+        hedef.add(k);
+      }
+      kuyruk.current.set(kendi, hedef);
+      setBekleyenSayisi([...kuyruk.current.values()].reduce((t, s) => t + s.size, 0));
+      planla();
+    },
+    [planla]
   );
-  const [alinanlar, setAlinanlar] = useState<Set<string>>(
-    () => new Set(marks.map((m) => m.key))
-  );
-  const [sonImza, setSonImza] = useState(sunucuImza);
-  if (sonImza !== sunucuImza) {
-    setSonImza(sunucuImza);
-    setAlinanlar(new Set(marks.map((m) => m.key)));
+
+  // Sayfadan ayrılırken kuyruk boşaltılır; tarayıcı da uyarır. `beforeunload`
+  // sunucu eylemini bekleyemez — uyarı, kullanıcının kalıp kaydetmesi içindir.
+  useEffect(() => {
+    const uyar = (e: BeforeUnloadEvent) => {
+      if (kuyruk.current.size > 0) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", uyar);
+    return () => {
+      window.removeEventListener("beforeunload", uyar);
+      bosalt();
+    };
+  }, [bosalt]);
+
+  function isaretle(anahtarlar: string[], stage: string, isaretli: boolean) {
+    if (!canWrite || anahtarlar.length === 0) return;
+    const alan = stage === RECEIVED_STAGE_SLUG ? "teslim" : "alindi";
+    setDurumlar((o) => {
+      const y = new Map(o);
+      for (const k of anahtarlar) {
+        const d = { ...(y.get(k) ?? { alindi: false, teslim: false, dueAt: "", doneAt: "", note: "" }) };
+        d[alan] = isaretli;
+        // TESLİM ALINDIYSA SATIN DA ALINMIŞTIR. Tersi doğru değildir; sipariş
+        // verilmemiş bir malın teslim alınması bir veri hatasıdır ve ekranın
+        // onu sessizce üretmesi yanlış olurdu.
+        if (alan === "teslim" && isaretli) d.alindi = true;
+        y.set(k, d);
+      }
+      return y;
+    });
+    kuyrukla(anahtarlar, stage, isaretli ? "isaretle" : "kaldir");
+    if (alan === "teslim" && isaretli) {
+      const eksik = anahtarlar.filter((k) => !durumlar.get(k)?.alindi);
+      if (eksik.length > 0) kuyrukla(eksik, PURCHASE_STAGE_SLUG, "isaretle");
+    }
   }
 
-  const ayrintilar = useMemo(() => {
-    const h = new Map<string, { doneAt: string; note: string }>();
-    for (const m of marks) h.set(m.key, { doneAt: m.doneAt ?? "", note: m.note ?? "" });
-    return h;
-  }, [marks]);
-
+  // ————————————————————————————————————————————————————— satırlar
   const satirlar: Satir[] = useMemo(
     () =>
       liste.satirlar.map((s) => {
-        const ek = ayrintilar.get(s.key);
+        const d = durumlar.get(s.key);
         return {
           key: s.key,
           tanim: s.tanim,
           sinif: s.sinif,
+          duzeltilmis: s.duzeltilmis,
           malzeme: s.malzeme,
           malzemeler: s.malzemeler,
           parcaKodu: s.parcaKodu,
@@ -136,12 +356,14 @@ export function PurchasingTable({
           toplamAgirlikKg: s.toplamAgirlikKg,
           sourceRows: s.sourceRows,
           kaynak: s.kaynak,
-          alindi: alinanlar.has(s.key),
-          tarih: ek?.doneAt ?? "",
-          not: ek?.note ?? "",
+          alindi: d?.alindi ?? false,
+          teslim: d?.teslim ?? false,
+          dueAt: d?.dueAt ?? "",
+          tarih: d?.doneAt ?? "",
+          not: d?.note ?? "",
         };
       }),
-    [liste.satirlar, alinanlar, ayrintilar]
+    [liste.satirlar, durumlar]
   );
 
   const [f, setF] = useState<PurchaseFilters>(EMPTY_PURCHASE_FILTERS);
@@ -149,14 +371,12 @@ export function PurchasingTable({
   const [desc, setDesc] = useState(false);
   const [secili, setSecili] = useState<Set<string>>(new Set());
 
-  const secenekler = useMemo(
-    () => purchaseOptions(satirlar, SATIN_ALMA_SINIFLARI),
-    [satirlar]
-  );
+  const secenekler = useMemo(() => purchaseOptions(satirlar, kategoriler), [satirlar, kategoriler]);
 
   const gorunen = useMemo(
-    () => sortPurchases(satirlar.filter((s) => matchesPurchase(s, f)), sortKey, desc, SATIN_ALMA_SINIFLARI),
-    [satirlar, f, sortKey, desc]
+    () =>
+      sortPurchases(satirlar.filter((s) => matchesPurchase(s, f)), sortKey, desc, kategoriler),
+    [satirlar, f, sortKey, desc, kategoriler]
   );
 
   function sirala(key: PurchaseSortKey) {
@@ -169,42 +389,30 @@ export function PurchasingTable({
 
   const temiz = JSON.stringify(f) === JSON.stringify(EMPTY_PURCHASE_FILTERS);
   const alinan = satirlar.filter((s) => s.alindi).length;
+  const teslimAlinan = satirlar.filter((s) => s.teslim).length;
   const gorunenAgirlik = gorunen.reduce((t, s) => t + (s.toplamAgirlikKg ?? 0), 0);
 
-  // ————————————————————————————————————————————————————————— yazma
-  function yaz(anahtarlar: string[], mode: "isaretle" | "kaldir") {
-    if (!canWrite || !asama || anahtarlar.length === 0) return;
+  const [pencere, setPencere] = useState<Satir | null>(null);
+  const [yeniKategori, setYeniKategori] = useState(false);
+  const seciliListe = [...secili];
 
-    setAlinanlar((o) => {
-      const y = new Set(o);
-      for (const k of anahtarlar) {
-        if (mode === "kaldir") y.delete(k);
-        else y.add(k);
-      }
-      return y;
-    });
-
+  // ————————————————————————————————————————————————————— kategori taşıma
+  function tasi(kategori: string) {
+    if (!canEditCategories || seciliListe.length === 0) return;
     basla(async () => {
-      const sonuc = await markStage({
-        packageId,
-        stage: asama.slug,
-        keys: anahtarlar,
-        mode,
-      });
+      const sonuc = await movePurchaseCategory({ packageId, keys: seciliListe, category: kategori });
       if (sonuc.error) {
         toast.error(sonuc.error);
-        setAlinanlar(new Set(marks.map((m) => m.key)));
         return;
       }
-      if (mode === "kaldir") toast.success(`${anahtarlar.length} kalemin işareti kaldırıldı.`);
-      else if ((sonuc.ok ?? 0) === 0) toast.info("Hepsi zaten işaretliydi.");
-      else toast.success(`${sonuc.ok} kalem “${asama.name}” işaretlendi.`);
-      router.refresh();
+      toast.success(`${sonuc.ok ?? 0} kalem “${kategori}” kategorisine taşındı.`);
+      setSecili(new Set());
+      // KATEGORİ SUNUCUDAN GELİR (defterden okunup listeye uygulanıyor), bu
+      // yüzden burada sayfa yenilenir — işaretlerin aksine bunun yerel bir
+      // karşılığı yok ve düzeltme kalıcıdır, sık yapılmaz.
+      window.location.reload();
     });
   }
-
-  const [pencere, setPencere] = useState<Satir | null>(null);
-  const seciliListe = [...secili];
 
   return (
     <div className="grid gap-3">
@@ -215,8 +423,15 @@ export function PurchasingTable({
           devreye girer.
         </p>
       )}
+      {canWrite && !canEditCategories && (
+        <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+          Kategori düzeltme defteri henüz kurulmamış. Liste ve işaretler
+          çalışıyor; kalem taşıma ve yeni kategori, migration uygulandığında
+          açılır.
+        </p>
+      )}
 
-      <SummaryStrip liste={liste} alinan={alinan} />
+      <SummaryStrip liste={liste} alinan={alinan} teslim={teslimAlinan} />
 
       <FilterBar
         gorunen={gorunen.length}
@@ -249,23 +464,14 @@ export function PurchasingTable({
           secenekler={[
             { value: "bekliyor", label: "Bekliyor" },
             { value: "alindi", label: "Satın alındı" },
+            { value: "yolda", label: "Yolda (alındı, gelmedi)" },
+            { value: "teslim", label: "Teslim alındı" },
           ]}
         />
 
         <span className="hidden h-5 w-px bg-border sm:block" />
 
-        {/* SÜZGEÇ BU BAĞLANTIYA GEÇMEZ ve bu açıkça yazılır: uç bütün paketi
-            basar (satın alma + sac ihtiyacı + testere kesim). Süzgeci sessizce
-            yok saymak, indirilen dosyayı ekrandakiyle aynı sanmaya yol açardı. */}
-        <Button asChild variant="outline" size="xs">
-          <a
-            href={`/drawings/${packageId}/export/purchasing`}
-            title="Paketin tam satın alma kitabı — ekrandaki süzgeç uygulanmaz."
-          >
-            <FileSpreadsheet className="size-3" />
-            Excel (tüm liste)
-          </a>
-        </Button>
+        <CiktiFormu packageId={packageId} filtre={f} sortKey={sortKey} desc={desc} keys={seciliListe} />
       </FilterBar>
 
       {gorunen.length === 0 ? (
@@ -279,7 +485,7 @@ export function PurchasingTable({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                {canWrite && asama && (
+                {canWrite && (
                   <TableHead className="w-10 p-0">
                     <SecimKutusu
                       checked={gorunen.every((s) => secili.has(s.key))}
@@ -312,172 +518,218 @@ export function PurchasingTable({
                 >
                   Adet
                 </SortableHead>
+                <SortableHead sortKey="teslim" current={sortKey} desc={desc} onSort={sirala}>
+                  Tahmini Teslim
+                </SortableHead>
                 <SortableHead
                   sortKey="kod"
                   current={sortKey}
                   desc={desc}
                   onSort={sirala}
-                  className="hidden lg:table-cell"
+                  className="hidden xl:table-cell"
                 >
                   Parça Kodu
                 </SortableHead>
-                <TableHead className="hidden md:table-cell">Malzeme</TableHead>
-                <SortableHead
-                  sortKey="agirlik"
-                  current={sortKey}
-                  desc={desc}
-                  onSort={sirala}
-                  align="right"
-                  className="hidden xl:table-cell"
-                >
-                  Toplam kg
-                </SortableHead>
+                <TableHead className="hidden lg:table-cell">Malzeme</TableHead>
                 <SortableHead sortKey="durum" current={sortKey} desc={desc} onSort={sirala}>
                   Durum
                 </SortableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gorunen.map((s) => (
-                <TableRow key={s.key} className={secili.has(s.key) ? "bg-primary/[0.05]" : undefined}>
-                  {canWrite && asama && (
-                    <TableCell className="p-0 align-top">
-                      <SecimKutusu
-                        checked={secili.has(s.key)}
-                        onChange={() =>
-                          setSecili((o) => {
-                            const y = new Set(o);
-                            if (y.has(s.key)) y.delete(s.key);
-                            else y.add(s.key);
-                            return y;
-                          })
-                        }
-                        label={`${s.tanim} kalemini seç`}
-                      />
-                    </TableCell>
-                  )}
-
-                  <TableCell className="align-top text-[12px] whitespace-normal">
-                    {s.sinif}
-                  </TableCell>
-
-                  {/* TANIM SARAR, kırpılmaz: "YILMAZ REDUKTOR DR373-3E90L-4D -
-                      i57.79 - MOTOR 1,5kW 1500d-d" satırın kimliğidir ve üç
-                      nokta ile bitince sipariş edilemez. */}
-                  <TableCell className="min-w-0 align-top whitespace-normal">
-                    <span className="block text-[13px]">{s.tanim || "—"}</span>
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground md:hidden">
-                      {[s.malzeme, s.parcaKodu].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                    {s.sourceRows > 1 && (
-                      <span
-                        className="mt-0.5 block font-mono text-[11px] text-muted-foreground"
-                        title={s.kaynak}
-                      >
-                        {formatNum(s.sourceRows)} defter satırından birleşti
-                      </span>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="align-top text-right font-mono text-sm">
-                    {s.adet ?? "—"}
-                  </TableCell>
-
-                  <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal lg:table-cell">
-                    {s.parcaKodu || <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-
-                  <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal md:table-cell">
-                    {/* ÇELİŞKİ GİZLENMEZ: aynı kalem iki malzemeyle geçtiyse
-                        ikisi de yazılır — Excel'deki kuralın aynısı. */}
-                    {s.malzemeler.length > 1 ? (
-                      <span className="font-semibold text-destructive" title="Kaynak satırlar farklı malzeme söylüyor">
-                        {s.malzemeler.join(" / ")}
-                      </span>
-                    ) : (
-                      s.malzeme || <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="hidden align-top text-right font-mono text-[12px] xl:table-cell">
-                    {s.toplamAgirlikKg == null ? "—" : formatNum(s.toplamAgirlikKg, 3)}
-                  </TableCell>
-
-                  <TableCell className="align-top">
-                    {asama ? (
-                      <span className="inline-flex">
-                        <button
-                          type="button"
-                          disabled={!canWrite || calisiyor}
-                          onClick={() => yaz([s.key], s.alindi ? "kaldir" : "isaretle")}
-                          aria-pressed={s.alindi}
-                          title={
-                            s.alindi
-                              ? `${asama.name}${[s.tarih, s.not].filter(Boolean).length ? ` — ${[s.tarih, s.not].filter(Boolean).join(" · ")}` : ""} — dokunmak işareti kaldırır`
-                              : `${asama.name} olarak işaretle`
+              {gorunen.map((s) => {
+                const teslim = teslimGorunumu(s);
+                return (
+                  <TableRow
+                    key={s.key}
+                    className={secili.has(s.key) ? "bg-primary/[0.05]" : undefined}
+                  >
+                    {canWrite && (
+                      <TableCell className="p-0 align-top">
+                        <SecimKutusu
+                          checked={secili.has(s.key)}
+                          onChange={() =>
+                            setSecili((o) => {
+                              const y = new Set(o);
+                              if (y.has(s.key)) y.delete(s.key);
+                              else y.add(s.key);
+                              return y;
+                            })
                           }
-                          style={s.alindi ? tagStyle(asama.colorHue) : undefined}
-                          className={
-                            "inline-flex min-h-8 items-center gap-1 px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-10 pointer-coarse:px-2 disabled:cursor-default " +
-                            (s.alindi
-                              ? "oc-tag"
-                              : "border border-dashed border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground")
-                          }
+                          label={`${s.tanim} kalemini seç`}
+                        />
+                      </TableCell>
+                    )}
+
+                    <TableCell className="align-top text-[12px] whitespace-normal">
+                      {s.sinif}
+                      {s.duzeltilmis && (
+                        <span
+                          className="ml-1 text-muted-foreground"
+                          title="Kategori sözlükten değil, elle düzeltildi."
                         >
-                          {s.alindi ? (
-                            <Check className="size-3" aria-hidden />
-                          ) : (
-                            <span
-                              className="oc-tag-dot opacity-40"
-                              style={tagStyle(asama.colorHue)}
-                              aria-hidden
-                            />
-                          )}
-                          {s.alindi ? asama.name : "Bekliyor"}
-                        </button>
-                        {canWrite && s.alindi && (
+                          ✎
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* TANIM SÜTUNU DARALTILDI ve iki satıra sarar: eskiden
+                        bütün genişliği yiyor, teslim tarihi sütununa yer
+                        kalmıyordu. Kırpılmaz — kırpılmış bir tanım sipariş
+                        edilemez. */}
+                    <TableCell className="max-w-[22rem] min-w-0 align-top whitespace-normal">
+                      <span className="block text-[13px] leading-snug">{s.tanim || "—"}</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
+                        {[s.malzeme, s.parcaKodu].filter(Boolean).join(" · ") || "—"}
+                      </span>
+                      {s.sourceRows > 1 && (
+                        <span
+                          className="mt-0.5 block font-mono text-[11px] text-muted-foreground"
+                          title={s.kaynak}
+                        >
+                          {formatNum(s.sourceRows)} defter satırından birleşti
+                        </span>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="align-top text-right font-mono text-sm">
+                      {s.adet ?? "—"}
+                    </TableCell>
+
+                    {/* TAHMİNİ TESLİM — renk bir durum ölçüsüdür: gecikmiş ya da
+                        çok uzak kırmızı, yaklaşan sarı, teslim alınmış yeşil. */}
+                    <TableCell className="align-top whitespace-nowrap">
+                      <span className="flex flex-wrap items-center gap-1">
+                        <span
+                          className={
+                            "inline-flex min-h-7 items-center border px-1.5 font-mono text-[11px] " +
+                            (teslim.sinif.includes("text-muted") ? "border-dashed " : "") +
+                            teslim.sinif
+                          }
+                          title={teslim.ipucu}
+                        >
+                          {s.teslim ? "Teslim alındı" : s.dueAt ? tarihGoster(s.dueAt) : "—"}
+                        </span>
+                        {canWrite && teslimAsamasi && (
                           <button
                             type="button"
-                            onClick={() => setPencere(s)}
-                            aria-label="Sipariş ayrıntısı"
+                            onClick={() => isaretle([s.key], RECEIVED_STAGE_SLUG, !s.teslim)}
+                            aria-pressed={s.teslim}
                             title={
-                              [s.tarih, s.not].filter(Boolean).join(" · ") ||
-                              "Adet, tarih ve not"
+                              s.teslim
+                                ? "Teslim işaretini kaldır"
+                                : "Malzeme elimize geçti — teslim alındı işaretle"
                             }
-                            className={
-                              "inline-flex min-h-8 items-center border border-l-0 px-1 text-[11px] transition-colors pointer-coarse:min-h-10 hover:text-foreground " +
-                              (s.tarih || s.not ? "text-foreground" : "text-muted-foreground")
-                            }
+                            className="inline-flex min-h-7 items-center border border-dashed px-1.5 text-[11px] text-muted-foreground transition-colors pointer-coarse:min-h-9 hover:border-foreground/40 hover:text-foreground"
                           >
-                            {s.tarih || s.not ? "•" : "…"}
+                            {s.teslim ? "Geri al" : "Teslim Alındı"}
                           </button>
                         )}
                       </span>
-                    ) : (
-                      <span className="font-mono text-[11px] text-muted-foreground">—</span>
-                    )}
-                    {s.tarih && (
-                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                        {s.tarih}
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+
+                    <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal xl:table-cell">
+                      {s.parcaKodu || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+
+                    <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal lg:table-cell">
+                      {/* ÇELİŞKİ GİZLENMEZ: aynı kalem iki malzemeyle geçtiyse
+                          ikisi de yazılır — Excel'deki kuralın aynısı. */}
+                      {s.malzemeler.length > 1 ? (
+                        <span
+                          className="font-semibold text-destructive"
+                          title="Kaynak satırlar farklı malzeme söylüyor"
+                        >
+                          {s.malzemeler.join(" / ")}
+                        </span>
+                      ) : (
+                        s.malzeme || <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="align-top">
+                      {siparis ? (
+                        <span className="inline-flex">
+                          <button
+                            type="button"
+                            disabled={!canWrite}
+                            onClick={() => isaretle([s.key], PURCHASE_STAGE_SLUG, !s.alindi)}
+                            aria-pressed={s.alindi}
+                            title={
+                              s.alindi
+                                ? "Dokunmak işareti kaldırır"
+                                : `${siparis.name} olarak işaretle`
+                            }
+                            style={s.alindi ? tagStyle(siparis.colorHue) : undefined}
+                            className={
+                              "inline-flex min-h-8 items-center gap-1 px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-10 pointer-coarse:px-2 disabled:cursor-default " +
+                              (s.alindi
+                                ? "oc-tag"
+                                : "border border-dashed border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground")
+                            }
+                          >
+                            {s.alindi ? (
+                              <Check className="size-3" aria-hidden />
+                            ) : (
+                              <span
+                                className="oc-tag-dot opacity-40"
+                                style={tagStyle(siparis.colorHue)}
+                                aria-hidden
+                              />
+                            )}
+                            {s.alindi ? siparis.name : "Bekliyor"}
+                          </button>
+                          {canWrite && s.alindi && (
+                            <button
+                              type="button"
+                              onClick={() => setPencere(s)}
+                              aria-label="Sipariş ayrıntısı"
+                              title={
+                                [s.tarih && `sipariş ${tarihGoster(s.tarih)}`, s.not]
+                                  .filter(Boolean)
+                                  .join(" · ") || "Teslim tarihi, adet ve not"
+                              }
+                              className={
+                                "inline-flex min-h-8 items-center border border-l-0 px-1 text-[11px] transition-colors pointer-coarse:min-h-10 hover:text-foreground " +
+                                (s.tarih || s.not ? "text-foreground" : "text-muted-foreground")
+                              }
+                            >
+                              {s.tarih || s.not ? "•" : "…"}
+                            </button>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[11px] text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       )}
 
-      <p className="font-mono text-[11px] text-muted-foreground">
-        {formatNum(gorunen.length)} Kalem Görünüyor ·{" "}
-        {formatNum(gorunen.filter((s) => s.alindi).length)} Alındı
-        {gorunenAgirlik > 0 && ` · ${formatNum(gorunenAgirlik, 1)} kg`}
+      <p className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground">
+        <span>
+          {formatNum(gorunen.length)} Kalem Görünüyor ·{" "}
+          {formatNum(gorunen.filter((s) => s.alindi).length)} Alındı ·{" "}
+          {formatNum(gorunen.filter((s) => s.teslim).length)} Teslim
+          {gorunenAgirlik > 0 && ` · ${formatNum(gorunenAgirlik, 1)} kg`}
+        </span>
+        {/* YAZMA DURUMU GÖRÜNÜR AMA ENGELLEMEZ. Eskiden bekleyen geçiş bütün
+            çipleri pasif yapıyordu ve kullanıcı "geri alamıyorum" diyordu. */}
+        {(bekleyenSayisi > 0 || calisiyor) && (
+          <span className="inline-flex items-center gap-1 text-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            {bekleyenSayisi > 0 ? `${formatNum(bekleyenSayisi)} değişiklik kaydediliyor` : "Kaydediliyor"}
+          </span>
+        )}
       </p>
 
       {/* Yapışkan toplu şerit — 72 kalemlik bir listede seçim yapıp düğmeye
           ulaşmak için sayfanın dibine inmek gerekmemeli. */}
-      {canWrite && asama && secili.size > 0 && (
+      {canWrite && secili.size > 0 && (
         <div className="sticky bottom-2 z-20 flex flex-wrap items-center gap-2 border bg-card p-2 shadow-lg">
           <span className="font-mono text-[12px] font-medium">
             {formatNum(secili.size)} Kalem Seçili
@@ -485,43 +737,111 @@ export function PurchasingTable({
           <Button type="button" size="xs" variant="ghost" onClick={() => setSecili(new Set())}>
             Seçimi bırak
           </Button>
-          {calisiyor && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
-            <button
+            {canEditCategories && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" size="xs" variant="outline" disabled={calisiyor}>
+                    <FolderInput className="size-3" />
+                    Kategoriye Taşı
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="max-h-[min(24rem,60dvh)] min-w-[min(16rem,calc(100vw-1.5rem))] overflow-y-auto"
+                >
+                  <DropdownMenuLabel className="oc-kicker text-muted-foreground">
+                    Seçili {formatNum(secili.size)} kalem
+                  </DropdownMenuLabel>
+                  {kategoriler.map((k) => (
+                    <DropdownMenuItem key={k} onSelect={() => tasi(k)}>
+                      {k}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setYeniKategori(true)}>
+                    <Plus className="size-3.5" />
+                    Yeni kategori…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {siparis && (
+              <button
+                type="button"
+                onClick={() => isaretle(seciliListe, PURCHASE_STAGE_SLUG, true)}
+                style={tagStyle(siparis.colorHue)}
+                className="oc-tag min-h-9 px-2 py-1 text-[12px] transition-opacity pointer-coarse:min-h-11"
+              >
+                {siparis.name} İşaretle
+              </button>
+            )}
+            {teslimAsamasi && (
+              <button
+                type="button"
+                onClick={() => isaretle(seciliListe, RECEIVED_STAGE_SLUG, true)}
+                style={tagStyle(teslimAsamasi.colorHue)}
+                className="oc-tag min-h-9 px-2 py-1 text-[12px] transition-opacity pointer-coarse:min-h-11"
+              >
+                {teslimAsamasi.name} İşaretle
+              </button>
+            )}
+            {/* "−Satın alındı" ANLAŞILMIYORDU: eksi işareti bir kısayoldu ama
+                düğmenin ne yaptığını söylemiyordu. Etiket artık eylemi yazar. */}
+            <Button
               type="button"
-              disabled={calisiyor}
-              onClick={() => yaz(seciliListe, "isaretle")}
-              style={tagStyle(asama.colorHue)}
-              className="oc-tag min-h-9 px-2 py-1 text-[12px] transition-opacity pointer-coarse:min-h-11 disabled:opacity-50"
+              size="xs"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                isaretle(seciliListe, PURCHASE_STAGE_SLUG, false);
+                if (teslimAsamasi) isaretle(seciliListe, RECEIVED_STAGE_SLUG, false);
+              }}
+              title="Seçili kalemleri yeniden “bekliyor” yapar; sipariş ve teslim işaretlerini kaldırır."
             >
-              {asama.name} İşaretle
-            </button>
-            <button
-              type="button"
-              disabled={calisiyor}
-              onClick={() => yaz(seciliListe, "kaldir")}
-              className="inline-flex min-h-9 items-center border border-dashed px-2 py-1 font-mono text-[11px] text-muted-foreground transition-colors pointer-coarse:min-h-11 hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
-            >
-              −{asama.name}
-            </button>
+              İşareti Kaldır
+            </Button>
           </span>
         </div>
       )}
 
-      {pencere && asama && (
+      {pencere && siparis && (
         <DetailDialog
           key={pencere.key}
           packageId={packageId}
           satir={pencere}
-          stage={asama}
+          stage={siparis}
           onClose={() => setPencere(null)}
-          onSaved={() => {
+          onSaved={(d) => {
+            setDurumlar((o) => {
+              const y = new Map(o);
+              const eski = y.get(pencere.key) ?? {
+                alindi: true,
+                teslim: false,
+                dueAt: "",
+                doneAt: "",
+                note: "",
+              };
+              y.set(pencere.key, { ...eski, ...d, alindi: true });
+              return y;
+            });
             setPencere(null);
-            router.refresh();
           }}
           onCleared={() => {
-            yaz([pencere.key], "kaldir");
+            isaretle([pencere.key], PURCHASE_STAGE_SLUG, false);
             setPencere(null);
+          }}
+        />
+      )}
+
+      {yeniKategori && (
+        <NewCategoryDialog
+          onClose={() => setYeniKategori(false)}
+          onCreated={(ad) => {
+            setYeniKategori(false);
+            tasi(ad);
           }}
         />
       )}
@@ -529,22 +849,93 @@ export function PurchasingTable({
   );
 }
 
+// ------------------------------------------------------------------ çıktı
+
+/**
+ * Excel ve PDF — SÜZGEÇ VE SEÇİM TAŞINIR.
+ *
+ * `GET` bağlantısı yerine FORM kullanılır: seçili kalemlerin anahtarları
+ * (satın alma kalemlerinde katlanmış tanım, yani uzun metin) adres çubuğuna
+ * sığmaz — 2000 kalemlik bir seçim onlarca KB eder ve sunucu isteği reddeder.
+ * `POST` gövdesi bu sınırı hiç görmez ve tarayıcı yanıtı yine indirir.
+ */
+function CiktiFormu({
+  packageId,
+  filtre,
+  sortKey,
+  desc,
+  keys,
+}: {
+  packageId: string;
+  filtre: PurchaseFilters;
+  sortKey: PurchaseSortKey;
+  desc: boolean;
+  keys: string[];
+}) {
+  const alanlar = (
+    <>
+      <input type="hidden" name="q" value={filtre.query} />
+      <input type="hidden" name="kategori" value={filtre.sinif} />
+      <input type="hidden" name="malzeme" value={filtre.malzeme} />
+      <input type="hidden" name="durum" value={filtre.durum} />
+      <input type="hidden" name="sira" value={sortKey} />
+      <input type="hidden" name="ters" value={desc ? "1" : ""} />
+      <input type="hidden" name="secim" value={keys.join("\n")} />
+    </>
+  );
+  const ipucu =
+    keys.length > 0
+      ? `Yalnız seçili ${keys.length} kalem`
+      : "Ekrandaki süzgeçle aynı liste";
+
+  return (
+    <span className="flex items-center gap-2">
+      <form method="POST" action={`/drawings/${packageId}/purchasing/download?bicim=xlsx`}>
+        {alanlar}
+        <Button type="submit" variant="outline" size="xs" title={ipucu}>
+          <FileSpreadsheet className="size-3" />
+          Excel
+        </Button>
+      </form>
+      <form method="POST" action={`/drawings/${packageId}/purchasing/download?bicim=pdf`}>
+        {alanlar}
+        <Button type="submit" variant="outline" size="xs" title={`${ipucu} — satın alma talebi`}>
+          <FileText className="size-3" />
+          PDF
+        </Button>
+      </form>
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------ özet
 
-function SummaryStrip({ liste, alinan }: { liste: SatinAlmaSonucu; alinan: number }) {
+function SummaryStrip({
+  liste,
+  alinan,
+  teslim,
+}: {
+  liste: SatinAlmaSonucu;
+  alinan: number;
+  teslim: number;
+}) {
   const toplam = liste.satirlar.length;
   const oran = toplam > 0 ? Math.round((alinan / toplam) * 100) : 0;
+  const teslimOran = toplam > 0 ? Math.round((teslim / toplam) * 100) : 0;
   return (
     <section className="border bg-card p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">Sipariş Durumu</h2>
         <p className="font-mono text-[11px] text-muted-foreground">
-          {formatNum(alinan)}/{formatNum(toplam)} Kalem Alındı · %{oran}
+          {formatNum(alinan)}/{formatNum(toplam)} Sipariş · {formatNum(teslim)} Teslim
         </p>
       </div>
 
-      <span className="mt-2 block h-1.5 w-full bg-muted" aria-hidden>
-        <span className="block h-full bg-primary" style={{ width: `${oran}%` }} />
+      {/* İKİ ÇUBUK ÜST ÜSTE DEĞİL İÇ İÇE: teslim her zaman siparişin bir alt
+          kümesidir ve ayrı iki çubuk toplamı yüzü aşıyormuş gibi görünürdü. */}
+      <span className="relative mt-2 block h-1.5 w-full bg-muted" aria-hidden>
+        <span className="absolute inset-y-0 left-0 bg-primary/40" style={{ width: `${oran}%` }} />
+        <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${teslimOran}%` }} />
       </span>
 
       <ul className="oc-scrollx mt-2 flex flex-wrap items-center gap-1.5 [--oc-scroll-bg:var(--card)]">
@@ -565,6 +956,8 @@ function SummaryStrip({ liste, alinan }: { liste: SatinAlmaSonucu; alinan: numbe
         {liste.birlesenKalem > 0 && ` (${formatNum(liste.birlesenKalem)} kalem birleşti)`} ·{" "}
         {formatNum(liste.toplamAdet)} adet
         {liste.toplamAgirlikKg != null && ` · ${formatNum(liste.toplamAgirlikKg, 1)} kg`}.
+        {liste.duzeltilmisKalem > 0 &&
+          ` ${formatNum(liste.duzeltilmisKalem)} kalemin kategorisi elle düzeltilmiş.`}
         {liste.malzemeCeliskisi > 0 &&
           ` ${formatNum(liste.malzemeCeliskisi)} kalemde kaynak satırlar farklı malzeme söylüyor.`}
       </p>
@@ -586,17 +979,19 @@ function DetailDialog({
   satir: Satir;
   stage: StageDef;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (d: { dueAt: string; doneAt: string; note: string }) => void;
   onCleared: () => void;
 }) {
   const [calisiyor, basla] = useTransition();
   // TABAN 1'DİR: sıfır "alındı ama hiç alınmadı" gibi belirsiz bir hâl
   // üretirdi. 1'in altına inmek işareti KALDIRIR (Üretim tahtasıyla aynı kural).
   const [adet, setAdet] = useState(String(satir.adet ?? 1));
-  const [gun, setGun] = useState(satir.tarih);
+  const [siparisGunu, setSiparisGunu] = useState(satir.tarih);
+  const [teslimGunu, setTeslimGunu] = useState(satir.dueAt);
   const [not, setNot] = useState(satir.not);
 
   const sayi = Number(adet.replace(/[^\d]/g, "")) || 0;
+  const kalanGun = teslimGunu ? gunFarki(teslimGunu) : null;
 
   function kaydet() {
     if (sayi < 1) {
@@ -609,20 +1004,21 @@ function DetailDialog({
         stage: stage.slug,
         key: satir.key,
         qtyDone: sayi,
-        doneAt: gun,
+        doneAt: siparisGunu,
+        dueAt: teslimGunu,
         note: not,
       });
       if (sonuc.error) toast.error(sonuc.error);
       else {
         toast.success("Kaydedildi.");
-        onSaved();
+        onSaved({ dueAt: teslimGunu, doneAt: siparisGunu, note: not });
       }
     });
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(30rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="text-base">{stage.name}</DialogTitle>
           <DialogDescription className="text-[12px]">{satir.tanim}</DialogDescription>
@@ -647,14 +1043,53 @@ function DetailDialog({
             )}
           </div>
 
+          {/* TEDARİK SÜRESİ HAFTA İLE KONUŞULUR. Tedarikçi "altı hafta" der,
+              takvimden gün saymaz; ekranın onu tarihe çevirmesi gerekir.
+              Kullanıcı yine de kesin tarihi elle girebilir — hızlı seçim bir
+              KISAYOLDUR, bir kısıt değil. */}
+          <div>
+            <span className="oc-kicker block text-muted-foreground">Tahmini teslim</span>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <Select
+                value=""
+                onValueChange={(v) => setTeslimGunu(haftaSonrasi(Number(v)))}
+              >
+                <SelectTrigger size="sm" className="w-auto min-w-[9rem] text-base pointer-fine:text-sm">
+                  <SelectValue placeholder="Hazır süreler…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {HAZIR_HAFTALAR.map((h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {h === 0 ? "Hemen teslim" : `${h} hafta`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={teslimGunu}
+                onChange={(e) => setTeslimGunu(e.target.value)}
+                className="h-10 min-w-[10rem] flex-1 font-mono text-base pointer-fine:text-sm"
+                aria-label="Tahmini teslim tarihi"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {kalanGun == null
+                ? "On haftadan uzun bir süre için tarihi doğrudan yazabilirsiniz."
+                : kalanGun < 0
+                  ? `${Math.abs(kalanGun)} gün gecikmiş görünüyor.`
+                  : `Bugünden ${kalanGun} gün sonra (${tarihGoster(teslimGunu)}).`}
+            </p>
+          </div>
+
           <div>
             <span className="oc-kicker block text-muted-foreground">
-              Sipariş / teslim tarihi (isteğe bağlı)
+              Sipariş tarihi (isteğe bağlı)
             </span>
             <Input
               type="date"
-              value={gun}
-              onChange={(e) => setGun(e.target.value)}
+              value={siparisGunu}
+              onChange={(e) => setSiparisGunu(e.target.value)}
               className="mt-1 h-10 w-full font-mono text-base pointer-fine:text-sm"
             />
           </div>
@@ -685,6 +1120,63 @@ function DetailDialog({
   );
 }
 
+function NewCategoryDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (ad: string) => void;
+}) {
+  const [calisiyor, basla] = useTransition();
+  const [ad, setAd] = useState("");
+
+  function kaydet() {
+    const temiz = ad.trim();
+    if (!temiz) return;
+    basla(async () => {
+      const sonuc = await createPurchaseCategory({ name: temiz });
+      if (sonuc.error) toast.error(sonuc.error);
+      else onCreated(temiz);
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[min(26rem,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="text-base">Yeni Kategori</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            Kategori bütün paketlerde kullanılabilir olur; seçili kalemler
+            kaydedildiği anda buraya taşınır.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
+          value={ad}
+          onChange={(e) => setAd(e.target.value)}
+          maxLength={60}
+          placeholder="Örn. Hidrolik"
+          className="h-10 w-full text-base pointer-fine:text-sm"
+          aria-label="Kategori adı"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") kaydet();
+          }}
+        />
+
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={calisiyor}>
+            Vazgeç
+          </Button>
+          <Button type="button" onClick={kaydet} disabled={calisiyor || !ad.trim()}>
+            {calisiyor && <Loader2 className="size-4 animate-spin" />}
+            Oluştur ve Taşı
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ------------------------------------------------------------------ ufaklar
 
 /** Süzgeç açılırı — "Tümü" seçeneği ALL sabitiyle taşınır (boş string yasak). */
@@ -706,7 +1198,7 @@ function Suzgec({
         <SelectValue placeholder={bos} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>{bos}: tümü</SelectItem>
+        <SelectItem value={ALL}>{bos}: Tümü</SelectItem>
         {secenekler.map((s) => (
           <SelectItem key={s.value} value={s.value}>
             {s.label}

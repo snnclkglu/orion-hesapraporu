@@ -213,8 +213,15 @@ interface SinifKurali {
  * satınalmacı "Diğer"e bakar, yanlış kategoriye bakmaz.
  */
 const SINIF_KURALLARI: SinifKurali[] = [
-  { sinif: "Redüktör", onEk: ["REDUKTOR", "REDÜKTÖR"] },
-  { sinif: "Rulman", onEk: ["RULMAN"] },
+  // MARKA DA BİR ANAHTARDIR. "ARABA_YILMAZ_HT0824-i-118,42_M1" satırında
+  // "redüktör" sözcüğü hiç geçmiyor ama ürün Yılmaz redüktörüdür ve sipariş
+  // oraya gider; kullanıcı bunu açıkça istedi. Marka anahtarı yalnız TEK BİR
+  // ürün ailesi üreten markalar için konur — iki aile üreten bir marka kategoriyi
+  // yanlış tarafa çekerdi.
+  { sinif: "Redüktör", onEk: ["REDUKTOR", "REDÜKTÖR", "YILMAZ"] },
+  // "KARE YATAK - UCF 208" bir rulman yatağıdır; satın alma onu rulmanla
+  // birlikte, aynı tedarikçiden alır.
+  { sinif: "Rulman", onEk: ["RULMAN", "YATAK"] },
   { sinif: "Motor", onEk: ["MOTOR"] },
   // Vinç freni bağımsız bir kalemdir (SIBRE/Galvi) ve kullanıcı bunu açıkça
   // saydı; fikstürde satırı yok, sözlükte var — yanlış alarm üretmez, yalnız
@@ -248,6 +255,12 @@ const SINIF_KURALLARI: SinifKurali[] = [
       "GUPİLYA", // MTC "GUPİLYA 8x63 DIN94"
       // Eski ORION App defterinden devralınan, fikstürde henüz geçmeyen ikisi:
       "SAPLAMA", "PERÇİN",
+      // ÜNSÜZ YUMUŞAMASI İÇİN İKİ GÖVDE: Türkçede "sübap" iyelik ekiyle
+      // "sübabı" olur ve `SUBAP` ön eki `SUBABI`yı TUTMAZ. Ön ek eşleşmesi
+      // eki karşılar ama gövdenin kendi değişimini karşılamaz; yumuşayan
+      // biçim listeye AYRICA yazılır. (0053-01 paketinde "BASINÇ TAHLİYE
+      // SÜBABI M10x1" olarak geçiyor.)
+      "SÜBAP", "SÜBAB",
     ],
   },
 ];
@@ -259,6 +272,9 @@ const KATLI_KURALLAR = SINIF_KURALLARI.map((k) => ({
   tam: new Set((k.tam ?? []).map(trKatla)),
 }));
 
+/** Sınıflanamayan satırın düştüğü kategori — LİSTEDEN düşmez, kategorisiz kalır. */
+export const SATIN_ALMA_DIGER: SatinAlmaSinifi = "Diğer";
+
 /** Tanımdan satın alma kategorisi. Hiçbir anahtar tutmazsa "Diğer" — satır DÜŞMEZ. */
 export function satinAlmaSinifi(tanim: string): SatinAlmaSinifi {
   const kelimeler = sozcukler(tanim);
@@ -268,7 +284,31 @@ export function satinAlmaSinifi(tanim: string): SatinAlmaSinifi {
       if (kural.onEk.some((a) => k.startsWith(a))) return kural.sinif;
     }
   }
-  return "Diğer";
+  return SATIN_ALMA_DIGER;
+}
+
+/**
+ * Ekranda ve çıktıda kullanılacak TAM kategori sırası.
+ *
+ * Sözlüğün sırası bir TERCİH DEĞİL KURALDIR (Redüktör Motor'dan önce gelir);
+ * kullanıcının eklediği kategoriler ondan SONRA, "Diğer" ise HER ZAMAN en
+ * sonda durur — "Diğer" bir ürün ailesi değil, henüz sınıflanmamışların
+ * bekleme yeridir ve listenin ortasında görünmesi onu bir aile gibi gösterirdi.
+ *
+ * Yinelenen ad düşürülür: kullanıcı sözlükte zaten var olan bir adı yeniden
+ * tanımlamış olabilir ve iki kez göstermek bir hata gibi görünürdü.
+ */
+export function satinAlmaKategoriSirasi(ekKategoriler: readonly string[] = []): string[] {
+  const govde = SATIN_ALMA_SINIFLARI.filter((s) => s !== SATIN_ALMA_DIGER);
+  const gorulen = new Set<string>(govde);
+  const ekler: string[] = [];
+  for (const ad of ekKategoriler) {
+    const temiz = ad.trim();
+    if (!temiz || temiz === SATIN_ALMA_DIGER || gorulen.has(temiz)) continue;
+    gorulen.add(temiz);
+    ekler.push(temiz);
+  }
+  return [...govde, ...ekler, SATIN_ALMA_DIGER];
 }
 
 /**
@@ -297,7 +337,15 @@ export interface SatinAlmaKaynagi {
 export interface SatinAlmaSatiri {
   /** İlerleme anahtarı — `progress.ts` ile AYNI. İki ekran aynı kalemi sayar. */
   key: string;
-  sinif: SatinAlmaSinifi;
+  /**
+   * Kategori. Tipi `SatinAlmaSinifi` DEĞİL `string`tir: kullanıcı kendi
+   * kategorisini tanımlayabilir ve düzeltme defteri bir kalemi oraya taşıyabilir
+   * (`drawing_purchase_categories` / `drawing_purchase_overrides`). Sözlüğün
+   * ürettiği değer hâlâ dar tiptir; genişleyen yalnız SONUÇtur.
+   */
+  sinif: string;
+  /** Kategori sözlükten mi geldi yoksa insan mı düzeltti? */
+  duzeltilmis: boolean;
   tanim: string;
   /** İlk dolu malzeme — `trackedParts` ile aynı davranış. */
   malzeme: string;
@@ -327,7 +375,7 @@ export interface SatinAlmaSatiri {
 export interface SatinAlmaSonucu {
   satirlar: SatinAlmaSatiri[];
   /** Sınıf dağılımı — künyede ve sayfa dibinde görünür. */
-  siniflar: { sinif: SatinAlmaSinifi; satirSayisi: number; adet: number }[];
+  siniflar: { sinif: string; satirSayisi: number; adet: number }[];
   toplamAdet: number;
   /** Hiçbir satırda ağırlık yoksa `null` — 0 yazmak "sıfır kilo" derdi. */
   toplamAgirlikKg: number | null;
@@ -341,7 +389,18 @@ export interface SatinAlmaSonucu {
   kodsuzKalem: number;
   /** Aynı kalemin satırlarında FARKLI malzeme geçen kalem sayısı. */
   malzemeCeliskisi: number;
+  /** Kategorisi insan tarafından düzeltilmiş kalem sayısı. */
+  duzeltilmisKalem: number;
 }
+
+/**
+ * Kategori düzeltme defteri — katlanmış tanım → kategori adı.
+ *
+ * `satinAlmaListesi`ye DIŞARIDAN verilir; çekirdek veritabanını bilmez
+ * (`src/lib/drawings/` saf kalır). Anahtarın katlanmış olması zorunludur:
+ * "CİVATA" ile "CIVATA" aynı kalemdir ve iki ayrı düzeltme satırı açmamalıdır.
+ */
+export type KategoriDuzeltmeleri = ReadonlyMap<string, string>;
 
 /**
  * Satın alma kaleminin tanımı — `progress.ts`teki `label` kuralının AYNISI.
@@ -462,7 +521,16 @@ function kaynakOzeti(izler: readonly SatinAlmaKaynagi[]): string {
  * boş bir sütun koymak dosyayı "eksik doldurulmuş" gösterirdi, uydurmak ise
  * satınalmaya yalan söylemek olurdu.
  */
-export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu {
+export function satinAlmaListesi(
+  parts: readonly TurevParca[],
+  secenekler: {
+    /** İnsanın yaptığı kategori düzeltmeleri — sözlüğün ÜSTÜNE uygulanır. */
+    duzeltmeler?: KategoriDuzeltmeleri;
+    /** Kullanıcının tanımladığı ek kategoriler; yalnız DAĞILIM sırasına girer. */
+    ekKategoriler?: readonly string[];
+  } = {}
+): SatinAlmaSonucu {
+  const { duzeltmeler, ekKategoriler } = secenekler;
   const yollar = itemPathHaritasi(parts);
   const kalemler = new Map<string, SatinAlmaSatiri>();
   // Birim ağırlıklar kalem başına AYRI izlenir: satırda tek bir sayı ancak
@@ -505,9 +573,13 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
       degerler: new Set(birim == null ? [] : [birim]),
       satir: birim == null ? 0 : 1,
     });
+    // DÜZELTME SÖZLÜĞÜ YENER. Sözlük bir tahmin, düzeltme bir karardır;
+    // insanın verdiği karar bir sonraki eşleştirmede tahmine yenilmemelidir.
+    const duzeltme = duzeltmeler?.get(trKatla(tanim));
     kalemler.set(key, {
       key,
-      sinif: satinAlmaSinifi(tanim),
+      sinif: duzeltme || satinAlmaSinifi(tanim),
+      duzeltilmis: Boolean(duzeltme),
       tanim,
       malzeme,
       malzemeler: malzeme ? [malzeme] : [],
@@ -536,14 +608,24 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
   // hepsini birden içermez (MONORAY 7, MTC 8); on beşini de basmak dağılımı
   // sıfırların arasında kaybederdi. Sıra sözlüğün kendi sırasıdır — kategori
   // listesi ekranda da, Excel'de de aynı düzende görünsün.
-  const siniflar = SATIN_ALMA_SINIFLARI.map((sinif) => {
-    const grup = satirlar.filter((s) => s.sinif === sinif);
-    return {
-      sinif,
-      satirSayisi: grup.length,
-      adet: grup.reduce((t, s) => t + (s.adet ?? 0), 0),
-    };
-  }).filter((s) => s.satirSayisi > 0);
+  // Sıra sözlüğün + kullanıcı kategorilerinin sırasıdır. Defterde karşılığı
+  // olmayan bir kategoriye taşınmış kalem (kategori sonradan pasife alınmış
+  // olabilir) listenin SONUNA eklenir — sessizce kaybolması, satınalmacının o
+  // kalemi bir daha hiç görmemesi demekti.
+  const sira = satinAlmaKategoriSirasi(ekKategoriler);
+  const gecenler = [...new Set(satirlar.map((s) => s.sinif))];
+  const tamSira = [...sira, ...gecenler.filter((g) => !sira.includes(g))];
+
+  const siniflar = tamSira
+    .map((sinif) => {
+      const grup = satirlar.filter((s) => s.sinif === sinif);
+      return {
+        sinif,
+        satirSayisi: grup.length,
+        adet: grup.reduce((t, s) => t + (s.adet ?? 0), 0),
+      };
+    })
+    .filter((s) => s.satirSayisi > 0);
 
   const agirlikli = satirlar.filter((s) => s.toplamAgirlikKg != null);
   return {
@@ -561,6 +643,7 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
     // verir ama tahtayla AYNI kelimeyi kullanır.
     kodsuzKalem: satirlar.filter((s) => isPurchaseKey(s.key)).length,
     malzemeCeliskisi: satirlar.filter((s) => s.malzemeler.length > 1).length,
+    duzeltilmisKalem: satirlar.filter((s) => s.duzeltilmis).length,
   };
 }
 

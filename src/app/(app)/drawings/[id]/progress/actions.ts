@@ -18,11 +18,9 @@
 
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
 // Yetki sorusu TEK YERDE: `../../actions.ts`. Bu dosya kendi kopyasını
 // taşıyordu (dosya sahipliği kuralının bedeli); birleştirmede tekile indi.
 import { requireWrite } from "../../actions";
-import { canEditDrawings } from "@/lib/roles";
 import {
   progressItemNo,
   registerItemNo,
@@ -113,6 +111,26 @@ function tazele(packageId: string) {
 function tarih(raw: string): string | null {
   const t = raw.trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
+}
+
+/**
+ * TAHMİNİ teslim tarihini yazar — SÜTUN OLMAYABİLİR.
+ *
+ * `due_at` 20260811 migration'ıyla geliyor ve o migration ana oturumda
+ * uygulanacak. Alanı ana yüke katmak, migration uygulanmadan önce YAPILAN HER
+ * İŞARETİ düşürürdü: "satın alındı" diyemeyen bir ekran, teslim tarihi
+ * girilemeyen bir ekrandan çok daha kötüdür. Bu yüzden alan ikinci ve AYRI bir
+ * güncellemede gider; başarısız olursa yalnız tarih yazılmamış olur.
+ *
+ * `null` da yazılır: kullanıcı tarihi TEMİZLEMİŞ olabilir ve sessizce eski
+ * tarihi bırakmak yanlış bilgi göstermek olurdu.
+ */
+async function dueAtYaz(
+  supabase: SupabaseClient,
+  id: string,
+  due: string | null
+): Promise<void> {
+  await supabase.from("drawing_part_progress").update({ due_at: due }).eq("id", id);
 }
 
 interface YazilacakSatir {
@@ -245,7 +263,7 @@ export async function setPartStage(input: SetPartStageInput): Promise<ProgressAc
 
   const parsed = setPartStageSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { packageId, stage, key, qtyDone, doneAt, note } = parsed.data;
+  const { packageId, stage, key, qtyDone, doneAt, dueAt, note } = parsed.data;
 
   try {
     const defter = await defteriOku(supabase, packageId);
@@ -266,6 +284,11 @@ export async function setPartStage(input: SetPartStageInput): Promise<ProgressAc
     if (okumaHatasi) return { error: okumaHatasi.message };
 
     const gun = tarih(doneAt);
+    // TAHMİNİ TESLİM TARİHİ SÜTUNU HENÜZ OLMAYABİLİR (migration ana oturumda
+    // uygulanacak). Yükten çıkarmak yerine yazıp hatayı yutmak, sessizce yanlış
+    // veri yazma riskidir; bu yüzden alan AYRI bir güncellemede gider ve
+    // başarısız olursa yalnız o alan yazılmamış olur — işaretin kendisi durur.
+    const teslim = tarih(dueAt);
 
     if (mevcut?.id) {
       const { error } = await supabase
@@ -273,6 +296,7 @@ export async function setPartStage(input: SetPartStageInput): Promise<ProgressAc
         .update({ qty_done: qtyDone, done_at: gun, note })
         .eq("id", mevcut.id);
       if (error) return { error: error.message };
+      await dueAtYaz(supabase, mevcut.id, teslim);
     } else {
       const asamaId = await asamaKimligi(supabase, stage);
       const satir: YazilacakSatir & { note: string } = {
@@ -286,8 +310,13 @@ export async function setPartStage(input: SetPartStageInput): Promise<ProgressAc
         created_by: userId,
       };
       if (asamaId !== undefined) satir.stage_id = asamaId;
-      const { error } = await supabase.from("drawing_part_progress").insert(satir);
+      const { data: yeni, error } = await supabase
+        .from("drawing_part_progress")
+        .insert(satir)
+        .select("id")
+        .maybeSingle();
       if (error) return { error: error.message };
+      if (yeni?.id) await dueAtYaz(supabase, yeni.id as string, teslim);
     }
 
     tazele(packageId);

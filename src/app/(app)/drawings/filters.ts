@@ -8,12 +8,29 @@
 // Arama TÜRKÇE KATLAMAYLA yapılır: "ŞASE" yazan biri "şase"yi bulmalı, "ISLEME"
 // yazan "İŞLEME"yi. `trKatla` i ailesini ve aksanları tek harfe indirir.
 
-import { trKatla } from "@/lib/drawings/tr-text";
+import { trKatla, trTekBicim } from "@/lib/drawings/tr-text";
 import { comparePartCodes } from "@/lib/drawings/part-code";
 import type { PartRow, PackageRow, FileRow, FindingRow } from "./data";
 
 /** "Tümü" seçeneği — Select boş string değere izin vermez. */
 export const ALL = "__all__";
+
+/**
+ * KATEGORİ TEK YAZIMA İNER.
+ *
+ * Ressamın Excel'inde `Talaşlı imalat` ve `Talaşlı İmalat` yan yana geçiyordu;
+ * süzgeç iki ayrı seçenek gösteriyor ve birini seçmek diğerinin parçalarını
+ * listeden düşürüyordu. Karşılaştırma KATLANMIŞ anahtarla, gösterim tek biçimle
+ * yapılır — saklanan veriye dokunulmaz (bkz. `trTekBicim` başlığı: deftere
+ * yazmak revizyonda yüzlerce yanlış "gözden geçirilecek" işareti üretirdi).
+ */
+export function kategoriAnahtar(value: string | null | undefined): string {
+  return trKatla(value ?? "");
+}
+
+export function kategoriGoster(value: string | null | undefined): string {
+  return value ? trTekBicim(value) : "";
+}
 
 // ————————————————————————————————————————————————————————— parça defteri
 
@@ -36,7 +53,11 @@ export const EMPTY_PART_FILTERS: PartFilters = {
 
 export function matchesPart(row: PartRow, f: PartFilters): boolean {
   if (f.kind !== ALL && row.kind !== f.kind) return false;
-  if (f.category !== ALL && (row.category || "") !== f.category) return false;
+  // Kategori KATLANMIŞ karşılaştırılır: "Talaşlı imalat" seçimi "Talaşlı
+  // İmalat" satırlarını da getirir. Malzemede aynı sorun ölçülmedi, orada
+  // birebir karşılaştırma sürüyor.
+  if (f.category !== ALL && kategoriAnahtar(row.category) !== kategoriAnahtar(f.category))
+    return false;
   if (f.material !== ALL && (row.material || "") !== f.material) return false;
 
   if (f.dosya === "resimli" && !row.has_sheet) return false;
@@ -56,13 +77,24 @@ export function matchesPart(row: PartRow, f: PartFilters): boolean {
   return true;
 }
 
-/** Süzgeç seçeneklerini VERİDEN üretir — sabit liste veriyle ayrışırdı. */
+/**
+ * Süzgeç seçeneklerini VERİDEN üretir — sabit liste veriyle ayrışırdı.
+ *
+ * Kategori listesi KATLANMIŞ anahtara göre tekilleşir: aynı kategorinin iki
+ * yazımı tek seçenek olur ve gösterimde ilk görülen satırın yazımı değil TEK
+ * BİÇİM kullanılır (ressamın hangi satırı önce yazdığı bir tercih değildir).
+ */
 export function partOptions(rows: PartRow[]) {
-  const tekil = (sec: (r: PartRow) => string) =>
-    [...new Set(rows.map(sec).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr"));
+  const kategoriler = new Map<string, string>();
+  for (const r of rows) {
+    const anahtar = kategoriAnahtar(r.category);
+    if (anahtar && !kategoriler.has(anahtar)) kategoriler.set(anahtar, kategoriGoster(r.category));
+  }
   return {
-    categories: tekil((r) => r.category),
-    materials: tekil((r) => r.material),
+    categories: [...kategoriler.values()].sort((a, b) => a.localeCompare(b, "tr")),
+    materials: [...new Set(rows.map((r) => r.material).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, "tr")
+    ),
   };
 }
 
@@ -119,14 +151,19 @@ export interface PurchaseFilterRow {
   parcaKodu: string;
   adet: number | null;
   toplamAgirlikKg: number | null;
+  /** Sipariş verildi mi? */
   alindi: boolean;
+  /** Malzeme elimize geçti mi? `alindi`nin alt kümesidir. */
+  teslim: boolean;
+  /** TAHMİNİ teslim tarihi (`YYYY-MM-DD`); girilmemişse boş. */
+  dueAt: string;
 }
 
 export interface PurchaseFilters {
   query: string;
   sinif: string;
   malzeme: string;
-  /** hepsi | alindi | bekliyor */
+  /** hepsi | alindi | bekliyor | teslim | yolda */
   durum: string;
 }
 
@@ -140,8 +177,13 @@ export const EMPTY_PURCHASE_FILTERS: PurchaseFilters = {
 export function matchesPurchase(row: PurchaseFilterRow, f: PurchaseFilters): boolean {
   if (f.sinif !== ALL && row.sinif !== f.sinif) return false;
   if (f.malzeme !== ALL && (row.malzeme || "") !== f.malzeme) return false;
+  // "Alındı" TESLİM ALINANLARI DA KAPSAR: teslim, siparişin alt kümesidir ve
+  // "sipariş verilmişleri göster" diyen biri gelmiş olanı da görmek ister.
   if (f.durum === "alindi" && !row.alindi) return false;
   if (f.durum === "bekliyor" && row.alindi) return false;
+  if (f.durum === "teslim" && !row.teslim) return false;
+  // "Yolda" = sipariş verildi ama daha gelmedi — satınalmacının takip listesi.
+  if (f.durum === "yolda" && (!row.alindi || row.teslim)) return false;
 
   if (f.query.trim()) {
     // Kod da havuzdadır: satın almacı bazen "M16", bazen "DIN934", bazen
@@ -172,7 +214,14 @@ export function purchaseOptions(rows: PurchaseFilterRow[], sinifSirasi: readonly
   };
 }
 
-export type PurchaseSortKey = "kategori" | "tanim" | "adet" | "agirlik" | "kod" | "durum";
+export type PurchaseSortKey =
+  | "kategori"
+  | "tanim"
+  | "adet"
+  | "agirlik"
+  | "kod"
+  | "teslim"
+  | "durum";
 
 export const PURCHASE_SORTS: Record<
   PurchaseSortKey,
@@ -195,7 +244,21 @@ export const PURCHASE_SORTS: Record<
         : b.parcaKodu
           ? 1
           : a.tanim.localeCompare(b.tanim, "tr"),
-  durum: (a, b) => Number(a.alindi) - Number(b.alindi),
+  /**
+   * TARİHSİZ SATIR SONA DÜŞER, başa değil.
+   *
+   * Boş dizge alfabetik olarak her tarihten küçüktür; düz karşılaştırma
+   * "tarihi girilmemiş" kalemleri listenin başına toplar ve satınalmacının
+   * gerçekten bakması gereken YAKLAŞAN teslimleri aşağı iter.
+   */
+  teslim: (a, b) => {
+    if (!a.dueAt && !b.dueAt) return a.tanim.localeCompare(b.tanim, "tr");
+    if (!a.dueAt) return 1;
+    if (!b.dueAt) return -1;
+    return a.dueAt.localeCompare(b.dueAt);
+  },
+  // Sıra "bekliyor → sipariş verildi → teslim alındı": zincirin kendi yönü.
+  durum: (a, b) => (Number(a.alindi) + Number(a.teslim)) - (Number(b.alindi) + Number(b.teslim)),
 };
 
 export function sortPurchases<T extends PurchaseFilterRow>(

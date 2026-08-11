@@ -60,6 +60,40 @@ export function trKatla(value: string): string {
 }
 
 /**
+ * GÖSTERİM İÇİN TEK BİÇİM — aynı sözcüğün iki yazımını birleştirir.
+ *
+ * Gerçek bir pakette Excel'in kategori sütununda hem `Talaşlı imalat` hem
+ * `Talaşlı İmalat` geçiyordu ve süzgeç açılırında İKİ AYRI seçenek oluyordu;
+ * kullanıcı birini seçince diğerinin parçaları listeden düşüyordu. Ressamın
+ * elindeki tabloyu düzeltmesini beklemek bu modülün ilkesine aykırıdır
+ * (md. 18/1: hiçbir kural bir yüklemeyi engellemez) — düzeltmeyi kod yapar.
+ *
+ * SAKLANAN VERİ DEĞİŞMEZ, yalnız gösterim ve süzgeç birleşir. Deftere
+ * normalleştirilmiş yazmak `diff.ts`in `kategori` karşılaştırmasını tetikler ve
+ * bir sonraki revizyonda YÜZLERCE parça "gözden geçirilecek" işareti alırdı;
+ * işaret o anda anlamını yitirir (md. 18/3'ün ta kendisi).
+ *
+ * Kural: her sözcüğün ilk harfi tr-TR büyük, kalanı tr-TR küçük. Tamamı büyük
+ * yazılmış sözcükler (`DIN`, `NPL`, `UCF`) OLDUĞU GİBİ kalır — onlar yazım
+ * tercihi değil kısaltmadır ve küçültmek bilgi kaybıdır.
+ */
+export function trTekBicim(value: string): string {
+  return value
+    .normalize("NFC")
+    .trim()
+    .split(/(\s+)/)
+    .map((parca) => {
+      if (!parca.trim()) return parca;
+      // Kısaltma mı? İki+ harfin tamamı büyükse dokunulmaz.
+      const harfler = parca.replace(/[^\p{L}]/gu, "");
+      if (harfler.length >= 2 && harfler === trBuyuk(harfler)) return parca;
+      return trBuyuk(parca.slice(0, 1)) + parca.slice(1).toLocaleLowerCase("tr-TR");
+    })
+    .join(" ")
+    .replace(/\s+/g, " ");
+}
+
+/**
  * `İPTAL` klasörü mü?
  *
  * Noktasız yazım (`IPTAL`) da kabul edilir: ressam Türkçe klavye kullanmadan

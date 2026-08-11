@@ -5,12 +5,10 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
-import { canEditDrawings } from "@/lib/roles";
 import { PACKAGE_STATUS_LABELS, formatBytes, formatNum, recognitionClass } from "@/lib/drawings/labels";
 import { RECONCILER_VERSION } from "@/lib/drawings/reconcile";
 import { loadPackage, storageState } from "../data";
 import { PackageNav } from "./package-nav";
-import { PackageActions } from "./package-actions";
 import { PackageOutputs } from "./package-outputs";
 import { PackageSiblings } from "./package-siblings";
 
@@ -23,27 +21,8 @@ export default async function PackageLayout({
   const paket = await loadPackage(supabase, id);
   if (!paket) notFound();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
-    : { data: null };
-  const yazabilir = canEditDrawings(profile?.role);
-
   const eskiKural = paket.reconciler_version > 0 && paket.reconciler_version < RECONCILER_VERSION;
   const depo = storageState(paket);
-
-  // ÜRETİME GİRMİŞ PAKET SİLİNEMEZ. Kural veritabanı tetikleyicisindedir; bu
-  // sayı yalnız düğmenin daha tıklanmadan bunu SÖYLEYEBİLMESİ için okunur
-  // (projeyi silmedeki `hasIssuedRevision` kalıbının aynısı). Anlamlı ilerleme
-  // aranır: pano bir aşamayı geri alırken sıfır satır bırakabilir ve o satır
-  // yüzünden silmeyi kilitlemek yanlış alarm olurdu.
-  const { count: uretimKaydi } = await supabase
-    .from("drawing_part_progress")
-    .select("id", { count: "exact", head: true })
-    .eq("package_id", paket.id)
-    .gt("qty_done", 0);
 
   return (
     <div className="grid gap-3">
@@ -143,19 +122,16 @@ export default async function PackageLayout({
           )}
           {/* ÇIKTILAR yetki kapısının DIŞINDA: indirmek okumadır, paketi
               değiştirmez. Müdürün satın alma listesine erişememesi anlamsız
-              olurdu. Değiştiren eylemler (Yeniden Eşleştir · Sil) içeride. */}
+              olurdu.
+
+              PAKETİ DEĞİŞTİREN EYLEMLER BU ŞERİTTE DEĞİL, SÜRÜMLER BÖLÜMÜNDE.
+              "Yeniden Eşleştir · Depoyu Doğrula · İçerikleri Yeniden Oku ·
+              Sil" her sekmede görünüyordu; oysa bu sayfayı atölye, satınalma
+              ve müdür de açıyor ve onların işi paketi yeniden kurmak değil
+              okumaktır. Yetkisi olmayan zaten göremiyordu ama yetkisi OLAN da
+              günde otuz kez yanından geçtiği bir düğmeye yanlışlıkla basabilir.
+              Arşiv ve bakım işleri arşiv sekmesinde durur. */}
           <PackageOutputs packageId={paket.id} />
-          {yazabilir && (
-            <PackageActions
-              packageId={paket.id}
-              folderName={paket.folder_name}
-              storedCount={depo.stored}
-              bytes={depo.storedBytes || depo.expectedBytes}
-              partCount={paket.part_count}
-              progressCount={uretimKaydi ?? 0}
-              missing={depo.missing}
-            />
-          )}
         </div>
       </header>
 

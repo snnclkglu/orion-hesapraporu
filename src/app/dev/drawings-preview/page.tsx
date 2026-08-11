@@ -31,8 +31,12 @@ import {
   formatNum,
   recognitionClass,
 } from "@/lib/drawings/labels";
-import { satinAlmaListesi, type TurevParca } from "@/lib/drawings/derive";
-import { FALLBACK_STAGES, purchaseStages } from "@/lib/drawings/progress";
+import {
+  satinAlmaKategoriSirasi,
+  satinAlmaListesi,
+  type TurevParca,
+} from "@/lib/drawings/derive";
+import { FALLBACK_STAGES, RECEIVED_STAGE_SLUG, purchaseStages } from "@/lib/drawings/progress";
 import { AssemblyTree } from "@/app/(app)/drawings/[id]/assembly-tree";
 import { FileBrowser } from "@/app/(app)/drawings/[id]/file-browser";
 import { PartsTable } from "@/app/(app)/drawings/[id]/parts/parts-table";
@@ -122,11 +126,29 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
   // ölçülüyor (MONORAY'da hiçbir satır "Diğer"e düşmüyor, MTC'de bir tane) ve
   // bunu ancak ekranda görerek doğrulayabilirsiniz.
   const alim = satinAlmaListesi(sonuc.parts as unknown as TurevParca[]);
-  // Her yedinci kalem "satın alındı" sayılır: iki durum da görünsün ki çipin
-  // ne zaman dolduğu anlaşılsın (dosya rozetindeki kuralın aynısı).
-  const alimIsaretleri = alim.satirlar
-    .filter((_, i) => i % 7 === 3)
-    .map((s) => ({ key: s.key, stage: "satinalindi", qtyDone: s.adet ?? 1, doneAt: null, note: "" }));
+  // Her yedinci kalem sipariş edilmiş, her on üçüncüsü de teslim alınmış
+  // sayılır: teslim tarihi sütununun dört rengi (gecikmiş · yaklaşan · uzak ·
+  // teslim) ancak veri çeşitliyken görülür.
+  const alimIsaretleri = alim.satirlar.flatMap((s, i) => {
+    if (i % 7 !== 3) return [];
+    const gun = new Date();
+    gun.setDate(gun.getDate() + ((i % 5) - 1) * 21);
+    const iso = gun.toISOString().slice(0, 10);
+    const satir = [
+      { key: s.key, stage: "satinalindi", qtyDone: s.adet ?? 1, doneAt: null, dueAt: iso, note: "" },
+    ];
+    if (i % 13 === 3) {
+      satir.push({
+        key: s.key,
+        stage: RECEIVED_STAGE_SLUG,
+        qtyDone: s.adet ?? 1,
+        doneAt: null,
+        dueAt: iso,
+        note: "",
+      });
+    }
+    return satir;
+  });
 
   return { pkg, sonuc, files, parts, bayt, alim, alimIsaretleri };
 }
@@ -189,6 +211,10 @@ export default function DrawingsPreviewPage() {
             liste={alim}
             stages={purchaseStages(FALLBACK_STAGES)}
             marks={alimIsaretleri}
+            kategoriler={satinAlmaKategoriSirasi()}
+            // Kategori defteri önizlemede YOK (veritabanı bağlantısı yok):
+            // taşıma araçları kapalı görünür, uyarı şeridi de basılır.
+            canEditCategories={false}
             // Yazma AÇIK: ekranın tamamı (seçim kutuları, yapışkan şerit)
             // ancak böyle görünür. Tıklamak sunucuda yetkiye takılır ve
             // kullanıcıya anlaşılır bir hata düşer — beklenen davranış.

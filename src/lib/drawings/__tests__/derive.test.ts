@@ -34,6 +34,7 @@ import {
   kesimListesi,
   sacIhtiyaci,
   satinAlmaListesi,
+  satinAlmaKategoriSirasi,
   satinAlmaSinifi,
   testereKesim,
   type KesimDosyasi,
@@ -46,6 +47,7 @@ import {
   buildKesimWorkbook,
   buildSatinAlmaWorkbook,
 } from "@/lib/excel/drawing-outputs";
+import { trKatla } from "../tr-text";
 import { MONORAY, MTC, type FixturePackage } from "./fixtures/packages";
 import { MONORAY_SHEETS, MTC_SHEETS, type FixtureSheet } from "./fixtures/bom-sheets";
 
@@ -364,6 +366,47 @@ describe("SINIFLANDIRMA — baş sözcük tuzağı", () => {
 
   it("YAYLI RONDELA bağlantı elemanıdır — yay kategorisi bilerek yoktur", () => {
     expect(satinAlmaSinifi("YAYLI RONDELA M10 DIN127   (GALVANİZLİ)")).toBe("Bağlantı Elemanı");
+  });
+
+  it("ÜNSÜZ YUMUŞAMASI: 'SÜBAP' ön eki 'SÜBABI'yı tutmaz, ikinci gövde şarttır", () => {
+    // 0053-01 paketinde satır "BASINÇ TAHLİYE SÜBABI M10x1" olarak geçiyor.
+    // Bu iddia, birileri `SÜBAB` gövdesini gereksiz sanıp silerse kırılır.
+    expect(satinAlmaSinifi("BASINÇ TAHLİYE SÜBABI M10x1")).toBe("Bağlantı Elemanı");
+    expect(satinAlmaSinifi("SÜBAP M10x1")).toBe("Bağlantı Elemanı");
+  });
+
+  it("marka da bir anahtardır: YILMAZ redüktöre, YATAK rulmana gider", () => {
+    expect(satinAlmaSinifi("ARABA_YILMAZ_HT0824-i-118,42_M1 (Cift giris Tek cıkıs Sag Tertip)")).toBe(
+      "Redüktör"
+    );
+    expect(satinAlmaSinifi("KARE YATAK - UCF 208")).toBe("Rulman");
+  });
+
+  it("DÜZELTME SÖZLÜĞÜ YENER — insanın kararı tahmine yenilmez", () => {
+    // Sözlük bir tahmin, düzeltme bir karardır. "STEP AP214" hiçbir anahtara
+    // uymaz ve "Diğer"e düşer; kullanıcı onu taşıdığında bir sonraki
+    // eşleştirmede geri dönmemelidir.
+    const parca = mtc.parts.find((p) => !p.partCode && p.description)!;
+    const duzeltmeler = new Map([[trKatla(parca.description), "Hidrolik"]]);
+    const sa = satinAlmaListesi(mtc.parts, { duzeltmeler, ekKategoriler: ["Hidrolik"] });
+    const satir = sa.satirlar.find((s) => s.tanim === parca.description)!;
+    expect(satir.sinif).toBe("Hidrolik");
+    expect(satir.duzeltilmis).toBe(true);
+    expect(sa.duzeltilmisKalem).toBe(1);
+    // Dağılım da düzeltmeyi görür — özet ile satırlar ayrışamaz.
+    expect(sa.siniflar.find((s) => s.sinif === "Hidrolik")?.satirSayisi).toBe(1);
+  });
+
+  it("KATEGORİ SIRASI: sözlük → kullanıcı kategorileri → Diğer", () => {
+    // "Diğer" alfabetik olarak ortalara düşerdi; bir ürün ailesi gibi
+    // görünmesin diye HER ZAMAN sondadır. Kullanıcının eklediği kategori
+    // sözlüğün sırasını bozmaz, arkasına eklenir.
+    const sira = satinAlmaKategoriSirasi(["Hidrolik", "Ambalaj"]);
+    expect(sira[0]).toBe("Redüktör");
+    expect(sira[sira.length - 1]).toBe("Diğer");
+    expect(sira.slice(-3)).toEqual(["Hidrolik", "Ambalaj", "Diğer"]);
+    // Sözlükte zaten olan bir ad ikinci kez eklenmez.
+    expect(satinAlmaKategoriSirasi(["Rulman"])).toEqual(satinAlmaKategoriSirasi());
   });
 
   it("sınıflanamayan satır Diğer'e düşer ama LİSTEDEN DÜŞMEZ", () => {
