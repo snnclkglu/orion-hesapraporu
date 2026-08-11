@@ -1,5 +1,19 @@
 import type { NextConfig } from "next";
 
+// Supabase kökeni CSP'ye ELLE YAZILMAZ, env'den türetilir. Adres iki yerde
+// birden durduğunda (Vercel değişkeni + bu dosya) biri güncellenip diğeri
+// unutuluyor ve tarayıcı bütün istekleri sessizce engelliyor — Frankfurt
+// taşımasında bu tuzağa bir kez düşüldü. Tek kaynak: NEXT_PUBLIC_SUPABASE_URL.
+const supabaseOrigin = (() => {
+  const ham = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!ham) return "";
+  try {
+    return new URL(ham).origin;
+  } catch {
+    return "";
+  }
+})();
+
 // Güvenlik başlıkları: şirket verisi barındıran dahili uygulama —
 // iframe'e gömülme, MIME sniffing ve izinsiz tarayıcı API'leri kapalı.
 const securityHeaders = [
@@ -17,7 +31,9 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://xizhqgussaojthmjzzeu.supabase.co",
+      ["connect-src 'self'", supabaseOrigin, supabaseOrigin.replace(/^https:/, "wss:")]
+        .filter(Boolean)
+        .join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
