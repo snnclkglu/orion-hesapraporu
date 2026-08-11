@@ -45,7 +45,15 @@ function extents(r: PartRow): { x: number | null; y: number | null } {
   return { x: say(ham.extents_x_mm), y: say(ham.extents_y_mm) };
 }
 
-function partToTurev(r: PartRow): TurevParca {
+/**
+ * Defter satırı → türev katmanın parçası.
+ *
+ * `export`tir çünkü Satın Alma EKRANI da aynı dönüşümü yapar: ekranda görünen
+ * liste ile indirilen Excel aynı `satinAlmaListesi` çağrısından çıkmalıdır.
+ * İkinci bir eşleme yazılsaydı bir alan (ör. `bomRef`) birinde taşınıp
+ * diğerinde düşer ve iki liste sessizce ayrışırdı.
+ */
+export function partToTurev(r: PartRow): TurevParca {
   const e = extents(r);
   return {
     registerKey: r.register_key,

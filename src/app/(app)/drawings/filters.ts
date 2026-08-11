@@ -102,6 +102,123 @@ export function sortParts(rows: PartRow[], key: PartSortKey, desc: boolean): Par
   return desc ? kopya.reverse() : kopya;
 }
 
+// ————————————————————————————————————————————————————————— satın alma
+
+/**
+ * Satın alma satırının SÜZÜLEBİLİR yüzü.
+ *
+ * `SatinAlmaSatiri` tipine bağlanmaz, YAPISAL bir arayüzdür (`ProgressPart`
+ * kalıbının aynısı): süzgeç tanımı çekirdeğin satır şeklini değil yalnız
+ * süzdüğü alanları bilmelidir. `alindi` defterin değil İLERLEME KAYDININ
+ * bilgisidir ve sayfa onu birleştirip verir.
+ */
+export interface PurchaseFilterRow {
+  tanim: string;
+  sinif: string;
+  malzeme: string;
+  parcaKodu: string;
+  adet: number | null;
+  toplamAgirlikKg: number | null;
+  alindi: boolean;
+}
+
+export interface PurchaseFilters {
+  query: string;
+  sinif: string;
+  malzeme: string;
+  /** hepsi | alindi | bekliyor */
+  durum: string;
+}
+
+export const EMPTY_PURCHASE_FILTERS: PurchaseFilters = {
+  query: "",
+  sinif: ALL,
+  malzeme: ALL,
+  durum: ALL,
+};
+
+export function matchesPurchase(row: PurchaseFilterRow, f: PurchaseFilters): boolean {
+  if (f.sinif !== ALL && row.sinif !== f.sinif) return false;
+  if (f.malzeme !== ALL && (row.malzeme || "") !== f.malzeme) return false;
+  if (f.durum === "alindi" && !row.alindi) return false;
+  if (f.durum === "bekliyor" && row.alindi) return false;
+
+  if (f.query.trim()) {
+    // Kod da havuzdadır: satın almacı bazen "M16", bazen "DIN934", bazen
+    // parça numarasını yazar; hangisini yazdığını sormaya gerek yok.
+    const havuz = trKatla([row.tanim, row.malzeme, row.parcaKodu, row.sinif].join(" "));
+    for (const kelime of trKatla(f.query).split(/\s+/).filter(Boolean)) {
+      if (!havuz.includes(kelime)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Süzgeç seçenekleri VERİDEN üretilir.
+ *
+ * Kategori listesi sabit sözlükten DEĞİL bu paketin satırlarından çıkar:
+ * sözlük on beş kategori tanıyor ama tek bir pakette ancak yedi sekizi geçiyor
+ * ve boş bir açılır liste kullanıcıya olmayan bir seçenek gösterirdi. Sıra
+ * `SATIN_ALMA_SINIFLARI`nın kendi sırasıdır; onu çağıran verir.
+ */
+export function purchaseOptions(rows: PurchaseFilterRow[], sinifSirasi: readonly string[]) {
+  const gecen = new Set(rows.map((r) => r.sinif).filter(Boolean));
+  return {
+    siniflar: sinifSirasi.filter((s) => gecen.has(s)),
+    materials: [...new Set(rows.map((r) => r.malzeme).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, "tr")
+    ),
+  };
+}
+
+export type PurchaseSortKey = "kategori" | "tanim" | "adet" | "agirlik" | "kod" | "durum";
+
+export const PURCHASE_SORTS: Record<
+  PurchaseSortKey,
+  (a: PurchaseFilterRow, b: PurchaseFilterRow) => number
+> = {
+  // Kategori kendi içinde tanıma göre sıralanır: aynı ailenin kalemleri yan
+  // yana ve okunur bir düzende dursun (satınalmacı tedarikçi başına bakar).
+  kategori: (a, b) =>
+    a.sinif === b.sinif
+      ? a.tanim.localeCompare(b.tanim, "tr")
+      : a.sinif.localeCompare(b.sinif, "tr"),
+  tanim: (a, b) => a.tanim.localeCompare(b.tanim, "tr"),
+  adet: (a, b) => (a.adet ?? -1) - (b.adet ?? -1),
+  agirlik: (a, b) => (a.toplamAgirlikKg ?? -1) - (b.toplamAgirlikKg ?? -1),
+  kod: (a, b) =>
+    a.parcaKodu && b.parcaKodu
+      ? comparePartCodes(a.parcaKodu, b.parcaKodu)
+      : a.parcaKodu
+        ? -1
+        : b.parcaKodu
+          ? 1
+          : a.tanim.localeCompare(b.tanim, "tr"),
+  durum: (a, b) => Number(a.alindi) - Number(b.alindi),
+};
+
+export function sortPurchases<T extends PurchaseFilterRow>(
+  rows: T[],
+  key: PurchaseSortKey,
+  desc: boolean,
+  sinifSirasi: readonly string[]
+): T[] {
+  // KATEGORİ SIRASI ALFABETİK DEĞİL SÖZLÜĞÜN SIRASIDIR: "Bağlantı Elemanı"
+  // alfabede başa düşer ama listenin başında motor/redüktör görmek istenir —
+  // sözlük zaten ürün ailesi önceliğine göre dizilmiştir.
+  if (key === "kategori") {
+    const yer = new Map(sinifSirasi.map((s, i) => [s, i]));
+    const kopya = [...rows].sort((a, b) => {
+      const d = (yer.get(a.sinif) ?? 999) - (yer.get(b.sinif) ?? 999);
+      return d !== 0 ? d : a.tanim.localeCompare(b.tanim, "tr");
+    });
+    return desc ? kopya.reverse() : kopya;
+  }
+  const kopya = [...rows].sort(PURCHASE_SORTS[key]);
+  return desc ? kopya.reverse() : kopya;
+}
+
 // ————————————————————————————————————————————————————————— paket listesi
 
 export interface PackageFilters {

@@ -14,7 +14,9 @@ import { createClient } from "@/lib/supabase/server";
 import { canEditDrawings } from "@/lib/roles";
 import {
   FALLBACK_STAGES,
+  isPurchaseRow,
   orphanMarks,
+  productionStages,
   progressItemNo,
   suggestStagesFromFolders,
   trackedParts,
@@ -78,7 +80,7 @@ export default async function PackageProgressPage({
     .order("sort");
 
   const defterYok = Boolean(asamaHatasi);
-  const stages: StageDef[] =
+  const tumAsamalar: StageDef[] =
     !defterYok && asamaSatirlari && asamaSatirlari.length > 0
       ? (asamaSatirlari as StageRow[]).map((s) => ({
           slug: s.slug,
@@ -87,6 +89,11 @@ export default async function PackageProgressPage({
           colorHue: s.color_hue ?? 0,
         }))
       : FALLBACK_STAGES;
+
+  // SATIN ALINDI BU TAHTADA YOKTUR. Sipariş kaydı tezgâhın değil satınalmanın
+  // işidir ve kendi bölümünde yaşar (`/purchasing`). Ayrım çekirdekte tanımlı
+  // (`productionStages`), burada yalnız uygulanır.
+  const stages = productionStages(tumAsamalar);
 
   // ————————————————————————————————— defter → izlenen birimler
   const izlenen = trackedParts(
@@ -102,6 +109,14 @@ export default async function PackageProgressPage({
     })),
     paket.item_no
   );
+
+  // ÜRETİM TAHTASI DEFTERİN İMALAT YÜZÜDÜR. Satın alınan kalemler — kodsuz
+  // satırlar VE satın alma yapısındaki kodlu satırlar (motor, redüktör, halat)
+  // — kendi bölümüne taşındı: atölyeye "bu motoru kesildi mi" diye sormanın
+  // anlamı yok. İkili bölme `isPurchaseRow` ile TEK kuraldan çıkar, yani hiçbir
+  // satır iki ekranda birden ya da hiçbirinde görünmez.
+  const uretimParcalari = izlenen.coded.filter((p) => !isPurchaseRow(p));
+  const uretimAnahtarlari = new Set(uretimParcalari.map((p) => p.key));
 
   if (izlenen.all.length === 0) {
     return (
@@ -133,13 +148,17 @@ export default async function PackageProgressPage({
       .from("drawing_part_progress")
       .select(ILERLEME_ALANLARI)
       .in("item_no", kalemler);
-    const bilinen = new Set(izlenen.all.map((p) => p.key));
     marks = ((data ?? []) as ProgressRow[])
       // Aynı kalem numarasını paylaşan BAŞKA bir paketin satırları da gelir
       // (0043-00 altında birden çok grup olabilir). Bu tahtaya yalnız bu
       // paketin defterinde karşılığı olanlar girer; kalanı `orphanMarks`
       // gibi sessizce düşmez, zaten kendi paketinin tahtasında görünür.
-      .filter((r) => bilinen.has(r.part_code))
+      //
+      // SATIN ALMA KALEMLERİNİN KAYITLARI DA BURAYA GELMEZ: `bilinen` yalnız
+      // üretim parçalarıdır. Gelselerdi revizyon şeridi ("gözden geçirilecek")
+      // bu tahtada satınalmanın kaydını sorar, düzeltme yeri ise başka bir
+      // ekran olurdu — kullanıcı işaretin peşinden gidemezdi.
+      .filter((r) => uretimAnahtarlari.has(r.part_code))
       .map((r) => ({
         key: r.part_code,
         stage: r.stage,
@@ -182,7 +201,7 @@ export default async function PackageProgressPage({
 
   const suggestions = suggestStagesFromFolders({
     files: oneriDosyalari,
-    parts: izlenen.all,
+    parts: uretimParcalari,
     marks,
     stages,
   });
@@ -191,8 +210,7 @@ export default async function PackageProgressPage({
     <ProgressBoard
       packageId={id}
       stages={stages}
-      coded={izlenen.coded}
-      purchases={izlenen.purchases}
+      coded={uretimParcalari}
       marks={marks}
       suggestions={suggestions}
       orphans={oksuzler}

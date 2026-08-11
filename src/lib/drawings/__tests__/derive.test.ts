@@ -129,13 +129,21 @@ describe("satın alma listesi — MONORAY", () => {
     expect(civata.kaynak.split(" · ").filter((p) => p.endsWith(".xlsx"))).toHaveLength(1);
   });
 
-  it("sınıf dağılımı dondurulur", () => {
+  it("kategori dağılımı dondurulur — hiçbir satır Diğer'e düşmüyor", () => {
     expect(sinif(sa)).toEqual({
-      "Bağlantı Elemanı": 36,
+      Redüktör: 3,
       Rulman: 6,
-      "Satın Alma Ünitesi": 9,
-      Diğer: 3,
+      Motor: 1,
+      "Halat ve Zincir": 1,
+      Tampon: 1,
+      "Keçe ve Sızdırmazlık": 1,
+      Yağlama: 1,
+      "Elektrik ve Otomasyon": 4,
+      "Bağlantı Elemanı": 36,
     });
+    // BOŞ KATEGORİ YAZILMAZ: sözlük on beş kategori tanıyor, bu paket dokuzunu
+    // kullanıyor ve kalan altısı listeye hiç girmiyor.
+    expect(sa.siniflar.every((s) => s.satirSayisi > 0)).toBe(true);
   });
 
   it("sınıf toplamı kalem sayısına eşittir — hiçbir satır düşmez", () => {
@@ -169,12 +177,25 @@ describe("satın alma listesi — MTC", () => {
     expect(sa.toplamAgirlikKg).toBeCloseTo(satirToplami, 6);
   });
 
-  it("sınıf dağılımı dondurulur", () => {
+  it("kategori dağılımı dondurulur — Diğer 11'den 1'e indi", () => {
+    // Üç sınıflı eski sözlükte 11 kalem "Diğer"deydi (keçe, gresörlük, dirsek,
+    // feston arabası…). Kategoriler ürün ailesine bölününce geriye YALNIZ bir
+    // satır kaldı: "ÇEKME YAYI IKI UCU KANCALI". Yay için kategori AÇILMADI —
+    // `YAY` ön eki 17 satırlık "YAYLI RONDELA"yı da yakalardı ve bir satırı
+    // kazanmak için kırk ikisini kaybetmek olurdu.
     expect(sinif(sa)).toEqual({
-      "Bağlantı Elemanı": 42,
+      Redüktör: 3,
       Rulman: 6,
-      "Satın Alma Ünitesi": 13,
-      Diğer: 11,
+      "Halat ve Zincir": 2,
+      Tampon: 2,
+      "Kaldırma Aksesuarı": 1,
+      "Keçe ve Sızdırmazlık": 4,
+      Yağlama: 2,
+      "Elektrik ve Otomasyon": 4,
+      "Enerji İletim": 3,
+      "Hazır Malzeme": 2,
+      "Bağlantı Elemanı": 42,
+      Diğer: 1,
     });
   });
 
@@ -320,13 +341,33 @@ describe("SINIFLANDIRMA — baş sözcük tuzağı", () => {
     expect(satinAlmaSinifi("SOMUN M6 DIN934")).toBe("Bağlantı Elemanı");
   });
 
-  it("öncelik: rulman > ünite > bağlantı", () => {
+  it("öncelik: bağlantı elemanı EN SONDADIR", () => {
+    // "RULMAN YATAĞI SOMUNU" bir rulman kalemidir, somun değil.
     expect(satinAlmaSinifi("RULMAN YATAĞI SOMUNU")).toBe("Rulman");
-    expect(satinAlmaSinifi("KALDIRMA MOTOR 1.1 kW 1500 d-d")).toBe("Satın Alma Ünitesi");
+  });
+
+  it("MOTORLU REDÜKTÖR redüktördür — sipariş redüktör tedarikçisine gider", () => {
+    // İki sözcük de tanımda geçiyor; kazanan SIRAdır. Bu iddia, birileri
+    // kategori listesini alfabetik sıralarsa anında kırılır.
+    expect(satinAlmaSinifi("YILMAZ REDUKTOR DR373-3E90L-4D - i57.79 - MOTOR 1,5kW 1500d-d")).toBe(
+      "Redüktör"
+    );
+    expect(satinAlmaSinifi("KALDIRMA MOTOR 1.1 kW 1500 d-d")).toBe("Motor");
+  });
+
+  it("KANCA tam sözcüktür, ön ek değil — 'KANCALI' bir yaydır", () => {
+    // MTC "ÇEKME YAYI IKI UCU KANCALI Ø8xØ6 L=500" gerçek bir satırdır ve
+    // `KANCA` ön ek olsaydı kaldırma aksesuarı sanılırdı.
+    expect(satinAlmaSinifi("KANCA DIN15401 No:10")).toBe("Kaldırma Aksesuarı");
+    expect(satinAlmaSinifi("ÇEKME YAYI IKI UCU KANCALI  Ø8xØ6 L=500")).toBe("Diğer");
+  });
+
+  it("YAYLI RONDELA bağlantı elemanıdır — yay kategorisi bilerek yoktur", () => {
+    expect(satinAlmaSinifi("YAYLI RONDELA M10 DIN127   (GALVANİZLİ)")).toBe("Bağlantı Elemanı");
   });
 
   it("sınıflanamayan satır Diğer'e düşer ama LİSTEDEN DÜŞMEZ", () => {
-    expect(satinAlmaSinifi("DÜZ GRESÖRLÜK W1/4 DIN71412 H1")).toBe("Diğer");
+    expect(satinAlmaSinifi("PLASTİK TAPA")).toBe("Diğer");
     const sa = satinAlmaListesi(monoray.parts);
     expect(sa.satirlar.some((s) => s.tanim.startsWith("DÜZ GRESÖRLÜK"))).toBe(true);
   });

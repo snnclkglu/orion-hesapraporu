@@ -15,12 +15,22 @@ export function PackageNav({ packageId }: { packageId: string }) {
   const pathname = usePathname() ?? "";
   const kok = `/drawings/${packageId}`;
   // SIRA İŞ AKIŞINI İZLER, dosya adlarını değil: paket açılır (Genel Bakış),
-  // içindekiler okunur (Parça Defteri), atölyeye iner (Üretim), sonra denetim
-  // (Rapor) ve en sonda arşiv (Sürümler). İki faz bu rayı ayrı ayrı genişletmek
-  // istedi; tek düzenlemede birleştirildi.
+  // teslim edilen dosyalara bakılır (Dosyalar), içindekiler okunur (Parçalar),
+  // sipariş verilir (Satın Alma), atölyeye iner (Üretim), sonra denetim (Rapor)
+  // ve en sonda arşiv (Sürümler).
+  //
+  // SATIN ALMA ÜRETİMDEN AYRIDIR ve bu bir düzen tercihi değil bir YETKİ
+  // ayrımıdır: "satın alındı" işareti yalnız o bölümden konur, atölye
+  // tahtasında o çip hiç yoktur (`productionStages`). Satınalmacının 149 sac
+  // parçasına, foreman'ın da sipariş kalemlerine bakması gerekmiyor.
+  //
+  // "Parçalar" — eskiden "Parça Defteri"ydi. Defter kod içindeki alan adıdır;
+  // ekranda kullanıcının gördüğü şey parçaların listesidir.
   const sekmeler = [
     { href: kok, label: "Genel Bakış", exact: true },
-    { href: `${kok}/parts`, label: "Parça Defteri", exact: false },
+    { href: `${kok}/files`, label: "Dosyalar", exact: false },
+    { href: `${kok}/parts`, label: "Parçalar", exact: false },
+    { href: `${kok}/purchasing`, label: "Satın Alma", exact: false },
     { href: `${kok}/progress`, label: "Üretim", exact: false },
     { href: `${kok}/report`, label: "İçe Aktarım Raporu", exact: false },
     { href: `${kok}/versions`, label: "Sürümler", exact: false },

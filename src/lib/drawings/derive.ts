@@ -142,57 +142,130 @@ function sozcukler(text: string): string[] {
 
 // ————————————————————————————————————————————————————— 1. Satın alma
 
+/**
+ * Satın alma kategorileri.
+ *
+ * ÖNCE ÜÇ SINIF VARDI (bağlantı elemanı · rulman · satın alma ünitesi) ve
+ * "ünite" satınalmacıya hiçbir şey söylemiyordu: motor, redüktör, halat, pano,
+ * tampon ve feston arabası aynı torbaya giriyordu. Oysa satın alma o torbayı
+ * TEDARİKÇİYE göre böler — motoru bir yerden, redüktörü başka yerden alır.
+ * Kategori bu yüzden ürün ailesidir.
+ *
+ * SIRA ÖNCELİKTİR ve iki yerde gerçekten belirleyicidir:
+ *   · Redüktör, Motor'dan ÖNCE gelir — "YILMAZ REDUKTOR DR373-3E90L-4D -
+ *     i57.79 - MOTOR 1,5kW 1500d-d" tek bir motorlu redüktördür ve redüktör
+ *     tedarikçisinden alınır.
+ *   · Bağlantı Elemanı EN SONDADIR — "RULMAN YATAĞI SOMUNU" bir rulman
+ *     kalemidir, somun değil.
+ */
 export const SATIN_ALMA_SINIFLARI = [
-  "Bağlantı Elemanı",
+  "Redüktör",
   "Rulman",
-  "Satın Alma Ünitesi",
+  "Motor",
+  "Fren",
+  "Kaplin",
+  "Halat ve Zincir",
+  "Tampon",
+  "Kaldırma Aksesuarı",
+  "Keçe ve Sızdırmazlık",
+  "Yağlama",
+  "Elektrik ve Otomasyon",
+  "Enerji İletim",
+  "Hazır Malzeme",
+  "Bağlantı Elemanı",
   "Diğer",
 ] as const;
 export type SatinAlmaSinifi = (typeof SATIN_ALMA_SINIFLARI)[number];
 
 /**
- * Sınıf anahtarları — SÖZCÜK ÖN EKİ olarak aranır, harf dizisi içinde DEĞİL.
+ * Bir kategorinin anahtar sözcükleri.
  *
- * "Tanımın BAŞ SÖZCÜĞÜ" kuralı gerçek veride çöküyor: MTC'nin 90 satın alma
- * satırının 44'ü "Diğer"e düşüyordu, çünkü tanımlar "YAYLI RONDELA" (17 satır),
- * "DÜZ RONDELA", "İMBUS CİVATA", "DELİK SEGMANI Ø68 DIN472" (6 satır) gibi
- * NİTELEYİCİ ile başlıyor. Her sözcüğe bakınca "Diğer" 18'e iniyor.
+ * `onEk` — SÖZCÜK ÖN EKİ olarak aranır, harf dizisi içinde DEĞİL. "Tanımın BAŞ
+ * SÖZCÜĞÜ" kuralı gerçek veride çöküyor: MTC'nin 90 satın alma satırının 44'ü
+ * "Diğer"e düşüyordu, çünkü tanımlar "YAYLI RONDELA" (17 satır), "DÜZ RONDELA",
+ * "İMBUS CİVATA", "DELİK SEGMANI Ø68 DIN472" (6 satır) gibi NİTELEYİCİ ile
+ * başlıyor. Her sözcüğe bakınca "Diğer" 18'e iniyor. Ön ek olmasının sebebi
+ * Türkçe iyelik ekidir ("SEGMAN" → "SEGMANI"); harf dizisi içinde arama
+ * YAPILMAZ — "PUL" bir başka sözcüğün ortasına denk gelebilirdi.
  *
- * Eşleşme TAM değil ÖN EK'tir: Türkçe iyelik eki sözcüğü değiştirir
- * ("SEGMAN" → "SEGMANI"). Harf dizisi içinde arama YAPILMAZ — "PUL" bir başka
- * sözcüğün ortasına denk gelebilirdi.
+ * `tam` — ÖN EK ÇOK GENİŞ kalınca kullanılır ve gerçek bir yanlış eşleşmeden
+ * doğdu: MTC'de "ÇEKME YAYI IKI UCU KANCALI Ø8xØ6 L=500" satırı bir yaydır ama
+ * `KANCA` ön eki "KANCALI" sözcüğünü yakalayıp onu kaldırma aksesuarı yapardı.
+ * Kanca tam sözcük olarak arandığında "KANCA DIN15401 No:10" yine bulunur,
+ * "KANCALI" bulunmaz. Aynı tuzağın tersi de var: `YAY` ön eki olsaydı 17
+ * satırlık "YAYLI RONDELA" yay sanılırdı — bu yüzden yay kendi kategorisini
+ * hiç almadı, o satır "Diğer"de duruyor.
  */
-const BAGLANTI_ANAHTARLARI = [
-  // Temel liste — iki paketin ortak çekirdeği.
-  "CIVATA", "SOMUN", "RONDELA", "SEGMAN", "PUL", "GİJON", "KAMA",
-  // Fikstür kanıtlı ek; listeye ancak GERÇEK bir satır gösterebilirse girer:
-  "GUPİLYA", // MTC "GUPİLYA 8x63 DIN94"
+interface SinifKurali {
+  sinif: SatinAlmaSinifi;
+  onEk?: string[];
+  tam?: string[];
+}
+
+/**
+ * Anahtar sözlüğü.
+ *
+ * Kaynak iki yerdir ve her satır birine dayanır: (a) iki gerçek teslim
+ * klasörünün 145 satın alma satırı, (b) eski ORION App'in "MalzemeGrupları"
+ * defteri (BAĞLANTI ELEMANLARI · RULMAN · KEÇE · ELEKTRİK / OTOMASYON · MOTOR ·
+ * REDÜKTÖR · HALAT · TAMPON · PROFİL · BORU). Kanıtsız anahtar EKLENMEZ:
+ * eşleşmeyen satırın "Diğer"de durması, yanlış kategoriye girmesinden iyidir —
+ * satınalmacı "Diğer"e bakar, yanlış kategoriye bakmaz.
+ */
+const SINIF_KURALLARI: SinifKurali[] = [
+  { sinif: "Redüktör", onEk: ["REDUKTOR", "REDÜKTÖR"] },
+  { sinif: "Rulman", onEk: ["RULMAN"] },
+  { sinif: "Motor", onEk: ["MOTOR"] },
+  // Vinç freni bağımsız bir kalemdir (SIBRE/Galvi) ve kullanıcı bunu açıkça
+  // saydı; fikstürde satırı yok, sözlükte var — yanlış alarm üretmez, yalnız
+  // gelecek paketi karşılar.
+  { sinif: "Fren", onEk: ["FREN", "KALIPER"] },
+  { sinif: "Kaplin", onEk: ["KAPLİN", "KAPLIN"] },
+  { sinif: "Halat ve Zincir", onEk: ["HALAT", "ZİNCİR"] },
+  { sinif: "Tampon", onEk: ["TAMPON"] },
+  { sinif: "Kaldırma Aksesuarı", onEk: ["SAPAN", "MAPA", "TRAVERS"], tam: ["KANCA"] },
+  { sinif: "Keçe ve Sızdırmazlık", onEk: ["KEÇE", "KECE", "ORING", "SIZDIRMAZ"] },
+  { sinif: "Yağlama", onEk: ["GRESÖR", "GRESOR", "NİPEL"] },
+  {
+    sinif: "Elektrik ve Otomasyon",
+    onEk: [
+      "PANO", "LİMİT", "LOADCELL", "ADAPTOR", "ADAPTÖR", "ENKODER",
+      "SENSÖR", "SENSOR", "BUTON", "KABLO", "ŞALTER", "TRAFO", "SÜRÜCÜ",
+    ],
+  },
+  // Feston: MTC'nin üç "ARABACIK VS1028T3-86-4" satırı ve C rayı buradan çıkar.
+  { sinif: "Enerji İletim", onEk: ["ARABACIK", "FESTON", "BUSBAR"] },
+  {
+    sinif: "Hazır Malzeme",
+    onEk: ["BORU", "PROFİL", "PROFIL", "LAMA", "KÖŞEBENT", "DİRSEK", "FLANŞ", "NPL", "UNP", "IPE", "IPN", "HEA", "HEB"],
+  },
+  {
+    sinif: "Bağlantı Elemanı",
+    onEk: [
+      // Temel liste — iki paketin ortak çekirdeği.
+      "CIVATA", "SOMUN", "RONDELA", "SEGMAN", "PUL", "GİJON", "KAMA",
+      // Fikstür kanıtlı ek; listeye ancak GERÇEK bir satır gösterebilirse girer:
+      "GUPİLYA", // MTC "GUPİLYA 8x63 DIN94"
+      // Eski ORION App defterinden devralınan, fikstürde henüz geçmeyen ikisi:
+      "SAPLAMA", "PERÇİN",
+    ],
+  },
 ];
 
-const RULMAN_ANAHTARLARI = ["RULMAN"];
+/** Karşılaştırma HER ZAMAN katlanmış yapılır; sözlük bir kez katlanır. */
+const KATLI_KURALLAR = SINIF_KURALLARI.map((k) => ({
+  sinif: k.sinif,
+  onEk: (k.onEk ?? []).map(trKatla),
+  tam: new Set((k.tam ?? []).map(trKatla)),
+}));
 
-const UNITE_ANAHTARLARI = [
-  // Temel liste.
-  "MOTOR", "REDUKTOR", "HALAT", "LOADCELL", "PANO", "KAPLİN", "LİMİT",
-  // Fikstür kanıtlı ekler:
-  "TAMPON", // MONORAY "KAUÇUK TAMPON ∅30x20" · MTC "KAUÇUK TAMPON Ø50x40"
-  "ARABACIK", // MTC "ARABACIK VS1028T3-86-4 (HAREKETLİ)" — feston arabası
-];
-
-/** Katlanmış anahtar listeleri — karşılaştırma her zaman katlanmış yapılır. */
-const SINIF_KURALLARI: { sinif: SatinAlmaSinifi; anahtarlar: string[] }[] = [
-  // SIRA ÖNCELİKTİR: "RULMAN YATAĞI SOMUNU" bir rulman kalemidir.
-  { sinif: "Rulman", anahtarlar: RULMAN_ANAHTARLARI.map(trKatla) },
-  { sinif: "Satın Alma Ünitesi", anahtarlar: UNITE_ANAHTARLARI.map(trKatla) },
-  { sinif: "Bağlantı Elemanı", anahtarlar: BAGLANTI_ANAHTARLARI.map(trKatla) },
-];
-
-/** Tanımdan satın alma sınıfı. Hiçbir anahtar tutmazsa "Diğer" — satır DÜŞMEZ. */
+/** Tanımdan satın alma kategorisi. Hiçbir anahtar tutmazsa "Diğer" — satır DÜŞMEZ. */
 export function satinAlmaSinifi(tanim: string): SatinAlmaSinifi {
   const kelimeler = sozcukler(tanim);
-  for (const kural of SINIF_KURALLARI) {
+  for (const kural of KATLI_KURALLAR) {
     for (const k of kelimeler) {
-      if (kural.anahtarlar.some((a) => k.startsWith(a))) return kural.sinif;
+      if (kural.tam.has(k)) return kural.sinif;
+      if (kural.onEk.some((a) => k.startsWith(a))) return kural.sinif;
     }
   }
   return "Diğer";
@@ -459,6 +532,10 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
       b && b.degerler.size === 1 && b.satir === s.sourceRows ? [...b.degerler][0] : null;
   }
 
+  // BOŞ KATEGORİ YAZILMAZ. Sözlük on beş kategori tanıyor ama tek bir paket
+  // hepsini birden içermez (MONORAY 7, MTC 8); on beşini de basmak dağılımı
+  // sıfırların arasında kaybederdi. Sıra sözlüğün kendi sırasıdır — kategori
+  // listesi ekranda da, Excel'de de aynı düzende görünsün.
   const siniflar = SATIN_ALMA_SINIFLARI.map((sinif) => {
     const grup = satirlar.filter((s) => s.sinif === sinif);
     return {
@@ -466,7 +543,7 @@ export function satinAlmaListesi(parts: readonly TurevParca[]): SatinAlmaSonucu 
       satirSayisi: grup.length,
       adet: grup.reduce((t, s) => t + (s.adet ?? 0), 0),
     };
-  });
+  }).filter((s) => s.satirSayisi > 0);
 
   const agirlikli = satirlar.filter((s) => s.toplamAgirlikKg != null);
   return {

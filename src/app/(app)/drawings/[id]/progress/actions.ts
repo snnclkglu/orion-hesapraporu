@@ -101,6 +101,10 @@ async function asamaKimligi(
 
 function tazele(packageId: string) {
   revalidatePath(`/drawings/${packageId}/progress`);
+  // SATIN ALMA EKRANI DA AYNI TABLOYU OKUR. Bu eylemler oradan da çağrılır
+  // ("satın alındı" yalnız orada işaretlenir); yolu tazelemeyi unutmak,
+  // işaretlenen kalemin sayfa yenilenene kadar bekliyor görünmesi demekti.
+  revalidatePath(`/drawings/${packageId}/purchasing`);
   revalidatePath(`/drawings/${packageId}/parts`);
   revalidatePath("/drawings");
 }

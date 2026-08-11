@@ -31,8 +31,12 @@ import {
   formatNum,
   recognitionClass,
 } from "@/lib/drawings/labels";
+import { satinAlmaListesi, type TurevParca } from "@/lib/drawings/derive";
+import { FALLBACK_STAGES, purchaseStages } from "@/lib/drawings/progress";
 import { AssemblyTree } from "@/app/(app)/drawings/[id]/assembly-tree";
 import { FileBrowser } from "@/app/(app)/drawings/[id]/file-browser";
+import { PartsTable } from "@/app/(app)/drawings/[id]/parts/parts-table";
+import { PurchasingTable } from "@/app/(app)/drawings/[id]/purchasing/purchasing-table";
 import type { FileRow, PartRow } from "@/app/(app)/drawings/data";
 
 function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
@@ -113,7 +117,18 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
   }));
 
   const bayt = pkg.files.reduce((t, f) => t + f.size, 0);
-  return { pkg, sonuc, files, parts, bayt };
+
+  // SATIN ALMA EKRANI DA ÖNİZLEMEDE. Kategori sözlüğü gerçek veriye karşı
+  // ölçülüyor (MONORAY'da hiçbir satır "Diğer"e düşmüyor, MTC'de bir tane) ve
+  // bunu ancak ekranda görerek doğrulayabilirsiniz.
+  const alim = satinAlmaListesi(sonuc.parts as unknown as TurevParca[]);
+  // Her yedinci kalem "satın alındı" sayılır: iki durum da görünsün ki çipin
+  // ne zaman dolduğu anlaşılsın (dosya rozetindeki kuralın aynısı).
+  const alimIsaretleri = alim.satirlar
+    .filter((_, i) => i % 7 === 3)
+    .map((s) => ({ key: s.key, stage: "satinalindi", qtyDone: s.adet ?? 1, doneAt: null, note: "" }));
+
+  return { pkg, sonuc, files, parts, bayt, alim, alimIsaretleri };
 }
 
 export default function DrawingsPreviewPage() {
@@ -132,7 +147,7 @@ export default function DrawingsPreviewPage() {
         </p>
       </header>
 
-      {paketler.map(({ pkg, sonuc, files, parts, bayt }) => (
+      {paketler.map(({ pkg, sonuc, files, parts, bayt, alim, alimIsaretleri }) => (
         <section key={pkg.folder} className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
             <div>
@@ -152,10 +167,34 @@ export default function DrawingsPreviewPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <AssemblyTree parts={parts} filesById={new Map(files.map((f) => [f.id, f]))} />
-            <FileBrowser dosyalar={files} />
-          </div>
+          {/* Genel Bakış ile Dosyalar ARTIK AYRI BÖLÜM; önizleme ikisini alt
+              alta basar, uygulamadaki gibi her biri tam genişlikte. */}
+          <AssemblyTree
+            parts={parts}
+            files={files.map((f) => ({
+              id: f.id,
+              storage_path: f.storage_path,
+              file_name: f.file_name,
+            }))}
+          />
+          <FileBrowser dosyalar={files} />
+
+          {/* PARÇALAR: sütunların yatayda sığıp sığmadığı ancak burada
+              görülür — dokuz sütunlu tablo tarayıcıda ölçülmeden "sığıyor"
+              denemez. */}
+          <PartsTable packageId="onizleme" parts={parts} files={files} />
+
+          <PurchasingTable
+            packageId="onizleme"
+            liste={alim}
+            stages={purchaseStages(FALLBACK_STAGES)}
+            marks={alimIsaretleri}
+            // Yazma AÇIK: ekranın tamamı (seçim kutuları, yapışkan şerit)
+            // ancak böyle görünür. Tıklamak sunucuda yetkiye takılır ve
+            // kullanıcıya anlaşılır bir hata düşer — beklenen davranış.
+            canWrite
+            ledgerMissing={false}
+          />
 
           <div className="grid gap-3 lg:grid-cols-3">
             {FINDING_SECTIONS.map((bolum) => {

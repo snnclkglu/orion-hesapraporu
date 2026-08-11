@@ -1,6 +1,18 @@
 "use client";
 
-// Parça defteri tablosu — arama, süzgeç, sıralama ve indirme.
+// Parçalar tablosu — arama, süzgeç, sıralama ve indirme.
+//
+// TABLO YATAYDA SIĞAR. `TableHead`/`TableCell` tabanı `whitespace-nowrap`tır ve
+// dokuz sütunla birlikte sayfayı kendi genişliğinin iki katına çıkarıyordu;
+// kullanıcı defteri okumak için sürekli yana kaydırıyordu. Metin taşıyan
+// sütunlar (kod · tanım · malzeme · kategori) artık SARAR: altı segmentli bir
+// kod (`0043-00-0802-00-02-06`) tirelerinden bölünüp iki satır kaplar, ki
+// kırpılmış bir koddan iyidir — kırpılan kod parçayı adresleyemez.
+//
+// ÖLÇÜLDÜ: 1280px'de dokuz sütunun tamamı sığıyor ve tabloda yatay kaydırma
+// KALMIYOR. Telefonda (375px) düşük öncelikli sütunlar zaten gizli, kalan
+// dördü yine de kabın dışına taşıyor — orada kaydırma kaçınılmazdır ve
+// `Table`ın kendi `.oc-scrollx` kabı onu GÖRÜNÜR kılar (AGENTS md. 8).
 //
 // SÜZGEÇ TANIMI BURADA DEĞİL `../../filters.ts`TE. İndirme uçları AYNI tanımı
 // çağırır; iki yerde yazılsaydı indirilen dosya ile ekrandaki tablo sessizce
@@ -149,10 +161,10 @@ export function PartsTable({
       </FilterBar>
 
       <p className="font-mono text-[11px] text-muted-foreground">
-        {formatNum(gorunen.filter((p) => p.kind === "imalat").length)} imalat ·{" "}
-        {formatNum(gorunen.filter((p) => p.kind === "satinalma").length)} satın alma ·{" "}
-        {formatNum(gorunen.filter((p) => p.kind === "montaj").length)} montaj
-        {agirlikToplam > 0 && ` · kök ağırlık ${formatNum(agirlikToplam, 1)} kg`}
+        {formatNum(gorunen.filter((p) => p.kind === "imalat").length)} İmalat ·{" "}
+        {formatNum(gorunen.filter((p) => p.kind === "satinalma").length)} Satın Alma ·{" "}
+        {formatNum(gorunen.filter((p) => p.kind === "montaj").length)} Montaj
+        {agirlikToplam > 0 && ` · Kök Ağırlık ${formatNum(agirlikToplam, 1)} kg`}
       </p>
 
       {gorunen.length === 0 ? (
@@ -162,7 +174,11 @@ export function PartsTable({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx overflow-x-auto border bg-card [--oc-scroll-bg:var(--card)]">
+        // İKİNCİ BİR KAYDIRMA KABI YOK. `Table` kendi kabını `.oc-scrollx` ile
+        // zaten kuruyor; dıştan bir `overflow-x-auto` daha sarmak iç içe iki
+        // kaydırma alanı yapardı ve telefonda parmak hangisini süreceğini
+        // şaşırırdı. Bu kutu yalnız çerçeve ve zemin verir.
+        <div className="border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -227,9 +243,10 @@ export function PartsTable({
                   <TableRow key={p.register_key} className={montaj ? "bg-muted/30" : undefined}>
                     <TableCell
                       className={
-                        montaj
+                        "align-top whitespace-normal " +
+                        (montaj
                           ? "font-mono text-[12px] font-bold tracking-tight"
-                          : "font-mono text-[12px]"
+                          : "font-mono text-[12px]")
                       }
                     >
                       {p.part_code || (
@@ -242,12 +259,12 @@ export function PartsTable({
                       )}
                     </TableCell>
 
-                    <TableCell className="min-w-0 max-w-[22rem]">
-                      <span className={"block truncate" + (montaj ? " font-medium" : "")} title={p.description}>
+                    <TableCell className="min-w-0 align-top whitespace-normal">
+                      <span className={"block" + (montaj ? " font-medium" : "")}>
                         {p.description || p.name || p.assembly_title || "—"}
                       </span>
                       {/* Dar ekranda gizlenen sütunların kritik olanı buraya iner */}
-                      <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground md:hidden">
+                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground md:hidden">
                         {[
                           p.material,
                           p.thickness_mm != null && `${formatNum(p.thickness_mm, 1)}mm`,
@@ -258,7 +275,7 @@ export function PartsTable({
                       </span>
                     </TableCell>
 
-                    <TableCell className="text-right font-mono text-sm">
+                    <TableCell className="align-top text-right font-mono text-sm">
                       {p.qty ?? "—"}
                       {p.cut_length_mm != null && (
                         <span
@@ -270,23 +287,23 @@ export function PartsTable({
                       )}
                     </TableCell>
 
-                    <TableCell className="hidden font-mono text-[12px] md:table-cell">
+                    <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal md:table-cell">
                       {p.material || <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="hidden text-right font-mono text-[12px] lg:table-cell">
+                    <TableCell className="hidden align-top text-right font-mono text-[12px] lg:table-cell">
                       {p.thickness_mm == null ? "—" : formatNum(p.thickness_mm, 1)}
                     </TableCell>
-                    <TableCell className="hidden text-[12px] lg:table-cell">
+                    <TableCell className="hidden align-top text-[12px] whitespace-normal lg:table-cell">
                       {p.category || "—"}
                     </TableCell>
-                    <TableCell className="hidden text-right font-mono text-[12px] xl:table-cell">
+                    <TableCell className="hidden align-top text-right font-mono text-[12px] xl:table-cell">
                       {p.weight_kg == null ? "—" : formatNum(p.weight_kg, 3)}
                     </TableCell>
-                    <TableCell className="hidden text-[12px] text-muted-foreground xl:table-cell">
+                    <TableCell className="hidden align-top text-[12px] text-muted-foreground xl:table-cell">
                       {PART_KIND_LABELS[p.kind]}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell className="align-top">
                       <span className="flex flex-wrap items-center gap-1">
                         {resim && (
                           <FileOpenButton

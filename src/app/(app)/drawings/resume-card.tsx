@@ -204,12 +204,12 @@ export async function ResumeCard() {
                 <span className="border bg-muted px-1.5 py-0.5">
                   {PACKAGE_STATUS_LABELS[p.status]}
                 </span>
-                <span>{p.itemNo || "kalem eşleşmemiş"}</span>
+                <span>{p.itemNo || "Kalem Eşleşmemiş"}</span>
                 <span>{gecenSure(p.createdAt)}</span>
                 {p.eksikDosya > 0 ? (
                   <span className="text-amber-700 dark:text-amber-400">
                     {p.eksikKesik ? "en az " : ""}
-                    {formatNum(p.eksikDosya)} / {formatNum(p.fileCount)} dosya depoda yok
+                    {formatNum(p.eksikDosya)} / {formatNum(p.fileCount)} Dosya Depoda Yok
                   </span>
                 ) : (
                   // Sihirbaz yarım kalmışsa `drawing_files` satırı bile

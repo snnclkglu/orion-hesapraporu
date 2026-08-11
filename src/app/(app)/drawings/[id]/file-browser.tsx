@@ -28,12 +28,12 @@ function depoDurumu(d: FileRow): { eksik: boolean; rozet: string; ipucu: string 
     // Kopyanın yolu ASLININKİNİ gösterir: dosya yine açılır, yalnız ikinci bir
     // nesne yazılmamıştır. Yolu boş olan ise yedek/çalışma dosyasıdır.
     return d.storage_path
-      ? { eksik: false, rozet: "tek kopya", ipucu: "Bayt bayt aynısı zaten depoda; aynı nesneden açılır." }
-      : { eksik: false, rozet: "depoya alınmadı", ipucu: "Yedek/çalışma dosyası — deftere de girmiyor." };
+      ? { eksik: false, rozet: "Tek Kopya", ipucu: "Bayt bayt aynısı zaten depoda; aynı nesneden açılır." }
+      : { eksik: false, rozet: "Depoya Alınmadı", ipucu: "Yedek/çalışma dosyası — deftere de girmiyor." };
   }
   return {
     eksik: true,
-    rozet: "depoda yok",
+    rozet: "Depoda Yok",
     ipucu: d.upload_error || "Kaydı var ama baytları depoya ulaşmamış.",
   };
 }
@@ -82,9 +82,9 @@ export function FileBrowser({
         <h2 className="text-sm font-medium">Dosya Gezgini</h2>
         {ekle}
         <span className="font-mono text-[11px] text-muted-foreground">
-          {formatNum(canli.length)} canlı · {formatNum(digerleri.length)} diğer
+          {formatNum(canli.length)} Canlı · {formatNum(digerleri.length)} Diğer
           {eksikSayisi > 0 && (
-            <span className="ml-2 text-destructive">{formatNum(eksikSayisi)} depoda yok</span>
+            <span className="ml-2 text-destructive">{formatNum(eksikSayisi)} Depoda Yok</span>
           )}
         </span>
       </header>

@@ -114,8 +114,8 @@ export function FilterBar({
       {children}
       <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
         {gorunen === toplam
-          ? `${toplam.toLocaleString("tr-TR")} satır`
-          : `${gorunen.toLocaleString("tr-TR")} / ${toplam.toLocaleString("tr-TR")} satır`}
+          ? `${toplam.toLocaleString("tr-TR")} Satır`
+          : `${gorunen.toLocaleString("tr-TR")} / ${toplam.toLocaleString("tr-TR")} Satır`}
       </span>
       {!temiz && (
         <Button type="button" variant="ghost" size="xs" onClick={onTemizle}>

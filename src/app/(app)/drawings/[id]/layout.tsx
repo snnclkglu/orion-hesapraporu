@@ -81,17 +81,22 @@ export default async function PackageLayout({
               AÇILIRKEN bir kez yazılıp bir daha güncellenmiyordu. Yani 107 MB'ın
               hiçbiri depoya ulaşmasa bile başlık "174 dosya · 107 MB" diyordu.
               Artık depodaki gerçek sayı yazılır; eksik varsa kırmızı görünür. */}
+          {/* KÜNYE BAŞLIK DÜZENİNDE YAZILIR. Küçük harfli "kalem … · grup … ·
+              174/174 dosya depoda" satırı bir not gibi duruyordu; bu satır
+              paketin kimliğidir ve müşteriye giden belgelerle aynı ağırlıkta
+              görünmelidir. Sözcük başları büyük, KODLAR VE BİRİMLER olduğu
+              gibi ("0057-00", "MB") — bir kod büyütülmez, bir birim küçültülmez. */}
           <p className="mt-1 font-mono text-[11px] text-muted-foreground">
             {[
-              paket.item_no ? `kalem ${paket.item_no}` : "kalem eşleşmemiş",
-              paket.group_code && `grup ${paket.group_code}`,
+              paket.item_no ? `Kalem ${paket.item_no}` : "Kalem Eşleşmemiş",
+              paket.group_code && `Grup ${paket.group_code}`,
               paket.rev_no > 1 && `R${String(paket.rev_no).padStart(2, "0")}`,
             ]
               .filter(Boolean)
               .join(" · ")}
             {" · "}
             <span className={depo.missing > 0 ? "font-semibold text-destructive" : undefined}>
-              {formatNum(depo.stored)}/{formatNum(depo.expected)} dosya depoda
+              {formatNum(depo.stored)}/{formatNum(depo.expected)} Dosya Depoda
             </span>
             {" · "}
             {formatBytes(depo.storedBytes)}
@@ -106,9 +111,9 @@ export default async function PackageLayout({
               </span>
             )}
             {" · "}
-            {formatNum(paket.part_count)} parça
-            {depo.skipped > 0 && ` · ${formatNum(depo.skipped)} dosya atlandı`}
-            {!depo.verifiedAt && " · henüz doğrulanmadı"}
+            {formatNum(paket.part_count)} Parça
+            {depo.skipped > 0 && ` · ${formatNum(depo.skipped)} Dosya Atlandı`}
+            {!depo.verifiedAt && " · Henüz Doğrulanmadı"}
           </p>
           <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground/70" title={paket.folder_name}>
             {paket.folder_name}
@@ -133,7 +138,7 @@ export default async function PackageLayout({
           </span>
           {eskiKural && (
             <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
-              kural eski
+              Kural Eski
             </span>
           )}
           {/* ÇIKTILAR yetki kapısının DIŞINDA: indirmek okumadır, paketi

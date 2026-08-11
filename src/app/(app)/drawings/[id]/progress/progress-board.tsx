@@ -9,8 +9,11 @@
 // · Tek dokunuş bir aşamayı TAM işaretler. Adet, tarih ve not ikinci dokunuşun
 //   arkasındadır — çoğu durumda parçanın tamamı birlikte kesilir ve her seferde
 //   adet sormak ekranı kullanılamaz yapardı.
-// · Gruplar VARSAYILAN OLARAK KAPALIDIR. 261 parça × 7 çip ~1200 DOM düğümü
+// · Gruplar VARSAYILAN OLARAK KAPALIDIR. 261 parça × 6 çip ~1000 DOM düğümü
 //   eder; foreman zaten tek bir grupla çalışır ve onu açar.
+// · SATIN ALMA BURADA DEĞİL. Kodsuz kalemler ve satın alma yapısındaki kodlu
+//   satırlar `/purchasing`e taşındı, `satinalindi` çipi de bu tahtada yok
+//   (`productionStages`): sipariş kaydı tezgâhın değil satınalmanın işidir.
 // · Toplu işaretleme ŞART. 261 parçayı tek tek işaretlemek kullanılamaz bir
 //   ekran olurdu; seçim + yapışkan şerit bunu tek harekete indirir.
 // · Öneri kartı SUÇLAMAZ ve ipucunun bir kanıt olmadığını açıkça yazar.
@@ -75,7 +78,6 @@ export function ProgressBoard({
   packageId,
   stages,
   coded,
-  purchases,
   marks,
   suggestions,
   orphans,
@@ -83,9 +85,10 @@ export function ProgressBoard({
   ledgerMissing,
 }: {
   packageId: string;
+  /** Satın alma aşaması HARİÇ — o çip Satın Alma bölümündedir. */
   stages: StageDef[];
+  /** Yalnız imalat/montaj parçaları; satın alınanlar kendi bölümünde. */
   coded: TrackedPart[];
-  purchases: TrackedPart[];
   marks: ProgressMark[];
   suggestions: StageSuggestion[];
   orphans: ProgressMark[];
@@ -139,10 +142,9 @@ export function ProgressBoard({
     return h;
   }, [etkinIsaretler]);
 
-  const tumParcalar = useMemo(() => [...coded, ...purchases], [coded, purchases]);
   const ozet = useMemo(
-    () => packageProgress(tumParcalar, etkinIsaretler, stages),
-    [tumParcalar, etkinIsaretler, stages]
+    () => packageProgress(coded, etkinIsaretler, stages),
+    [coded, etkinIsaretler, stages]
   );
 
   // ————————————————————————————————— süzgeç
@@ -167,11 +169,6 @@ export function ProgressBoard({
     () => coded.filter(suzgectenGecer),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [coded, aramaAnahtari, yalnizBaslanmamis, asamaSuzgeci, isaretHarita]
-  );
-  const suzulmusAlim = useMemo(
-    () => purchases.filter(suzgectenGecer),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [purchases, aramaAnahtari, yalnizBaslanmamis, asamaSuzgeci, isaretHarita]
   );
 
   const gruplar = useMemo(() => {
@@ -465,9 +462,9 @@ export function ProgressBoard({
       <div className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-[11px] text-muted-foreground">
-            {formatNum(suzulmusKodlu.length)} / {formatNum(coded.length)} parça ·{" "}
-            {formatNum(gruplar.length)} grup
-            {secili.size > 0 && ` · ${formatNum(secili.size)} seçili`}
+            {formatNum(suzulmusKodlu.length)} / {formatNum(coded.length)} Parça ·{" "}
+            {formatNum(gruplar.length)} Grup
+            {secili.size > 0 && ` · ${formatNum(secili.size)} Seçili`}
           </p>
           <span className="flex items-center gap-1">
             <Button
@@ -555,42 +552,14 @@ export function ProgressBoard({
         })}
       </div>
 
-      {/* ————————————————————————————————— satın alma kalemleri */}
-      {purchases.length > 0 && (
-        <section className="border bg-card">
-          <header className="border-b bg-muted/40 px-3 py-2">
-            <h2 className="text-sm font-medium">Satın alma kalemleri</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Parça numarası olmayan defter satırları — civata, somun, segman, keçe,
-              kama. Aynı kalemin farklı montajlardaki tekrarları TEK satırda
-              birleştirildi: satın alma kararı satır başına değil kalem başınadır.
-            </p>
-          </header>
-          <ul className="divide-y">
-            {suzulmusAlim.map((p) => (
-              <PartRow
-                key={p.key}
-                part={p}
-                stages={stages}
-                progress={partProgress(p, isaretHarita.get(p.key) ?? [], stages)}
-                ayrintilar={ayrintilar}
-                secili={secili.has(p.key)}
-                canWrite={canWrite}
-                onSelect={() => secimCevir(p.key)}
-                onToggleStage={(stage, isaretli) =>
-                  yaz([p.key], stage, isaretli ? "kaldir" : "isaretle", new Map([[p.key, p.qty]]))
-                }
-                onDetail={(stage) => setPencere({ part: p, stage })}
-              />
-            ))}
-            {suzulmusAlim.length === 0 && (
-              <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-                Süzgece uyan kalem yok.
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
+      {/* SATIN ALMA KALEMLERİ ARTIK BURADA DEĞİL.
+          Kodsuz satırlar (civata, somun, segman, keçe) ve satın alma
+          yapısındaki kodlu satırlar (motor, redüktör, halat) kendi bölümüne
+          taşındı: `/drawings/<paket>/purchasing`. Sebep kullanıcının kendi
+          cümlesiydi — "satın almacının tüm sacları görmesine gerek yok" ve
+          "satın alındı işaretlemesi sadece satın alma bölümünden yapılsın".
+          Aynı gerekçeyle `satinalindi` çipi de bu tahtanın aşama listesinde
+          yoktur (`productionStages`, progress/page.tsx). */}
 
       {orphans.length > 0 && (
         <details className="border bg-card px-3 py-2">
@@ -619,7 +588,7 @@ export function ProgressBoard({
         <div className="sticky bottom-2 z-20 border bg-card p-2 shadow-lg">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[12px] font-medium">
-              {formatNum(secili.size)} parça seçili
+              {formatNum(secili.size)} Parça Seçili
             </span>
             <Button type="button" size="xs" variant="ghost" onClick={() => setSecili(new Set())}>
               Seçimi bırak
@@ -634,7 +603,7 @@ export function ProgressBoard({
                 disabled={calisiyor}
                 onClick={() => {
                   const adetler = new Map(
-                    tumParcalar.filter((p) => secili.has(p.key)).map((p) => [p.key, p.qty])
+                    coded.filter((p) => secili.has(p.key)).map((p) => [p.key, p.qty])
                   );
                   yaz(seciliListe, s.slug, "isaretle", adetler);
                 }}
@@ -698,7 +667,7 @@ function SummaryStrip({ ozet }: { ozet: ReturnType<typeof packageProgress> }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">Ulaşılan aşama</h2>
         <p className="font-mono text-[11px] text-muted-foreground">
-          {formatNum(ozet.started)}/{formatNum(ozet.total)} parçaya dokunuldu · montaja
+          {formatNum(ozet.started)}/{formatNum(ozet.total)} Parçaya Dokunuldu · Montaja
           hazır %{Math.round(ozet.completedRatio * 100)}
         </p>
       </div>
@@ -712,7 +681,7 @@ function SummaryStrip({ ozet }: { ozet: ReturnType<typeof packageProgress> }) {
             aria-hidden
           />
           <span className="text-center text-[11px] leading-tight text-muted-foreground">
-            başlanmadı
+            Başlanmadı
           </span>
         </li>
         {ozet.buckets.map((b) => (

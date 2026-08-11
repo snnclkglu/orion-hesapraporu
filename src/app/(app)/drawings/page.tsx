@@ -63,8 +63,8 @@ export default async function DrawingsPage() {
           value={formatNum(toplamDosya)}
           hint={
             toplamUlasmayan > 0
-              ? `${formatBytes(toplamBayt)} · ${formatNum(toplamUlasmayan)} dosya ulaşmamış`
-              : `${formatBytes(toplamBayt)} · ${formatNum(beklenenDosya)} bekleniyor`
+              ? `${formatBytes(toplamBayt)} · ${formatNum(toplamUlasmayan)} Dosya Ulaşmamış`
+              : `${formatBytes(toplamBayt)} · ${formatNum(beklenenDosya)} Bekleniyor`
           }
           icon={FolderTree}
         />

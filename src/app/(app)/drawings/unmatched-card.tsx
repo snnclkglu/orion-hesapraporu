@@ -83,7 +83,7 @@ export function UnmatchedCard({
                 {p.folderName}
               </span>
               <span className="font-mono text-[11px] text-muted-foreground">
-                paket kalem no: {p.itemNo || "—"}
+                Paket Kalem No: {p.itemNo || "—"}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">

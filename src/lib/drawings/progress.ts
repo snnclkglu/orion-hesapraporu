@@ -101,6 +101,46 @@ const IPUCU_ASAMA: Record<string, StageSlug> = {
 /** Kodsuz satın alma kalemlerinin anahtar uzayı öneki. */
 export const PURCHASE_PREFIX = "SATINALMA:";
 
+/**
+ * SATIN ALMA AŞAMASI ATÖLYENİN AŞAMASI DEĞİLDİR.
+ *
+ * "Satın alındı" defterdeki tek aşamadır ki karşılığı tezgâhta değil SİPARİŞTE
+ * olur; onu kim işaretler sorusunun cevabı da başkadır (satınalmacı, foreman
+ * değil). Kullanıcının isteği tam olarak buydu: "satın alındı işaretlemesi
+ * sadece satın alma bölümünden yapılsın, üretim bölümünden yapılmasın."
+ *
+ * Ayrım BURADA, tek yerde tanımlıdır. İki ekran kendi listesini elle
+ * süzseydi biri er geç ötekinden ayrışır ve aynı çip iki yerde birden
+ * (ya da hiçbir yerde) görünürdü.
+ */
+export const PURCHASE_STAGE_SLUG = "satinalindi";
+
+/** Atölye tahtasının aşamaları — satın alma AŞAMASI HARİÇ. */
+export function productionStages(stages: readonly StageDef[]): StageDef[] {
+  return stages.filter((s) => s.slug !== PURCHASE_STAGE_SLUG);
+}
+
+/**
+ * Satın alma ekranının aşamaları — bugün tek eleman, yarın belki "sipariş
+ * verildi / teslim alındı". Dizi döner ki ekran döngüyü değiştirmeden büyüsün;
+ * defterden silinmişse BOŞ döner ve ekran çipsiz ama çalışır kalır.
+ */
+export function purchaseStages(stages: readonly StageDef[]): StageDef[] {
+  return stages.filter((s) => s.slug === PURCHASE_STAGE_SLUG);
+}
+
+/**
+ * Bu defter satırı SATIN ALMA satırı mı?
+ *
+ * `derive.ts`teki `satinAlmaListesi` ile BİREBİR aynı kural: satın alma
+ * yapısındaki satır ya da parça numarası hiç olmayan satır. İki ekranın
+ * defteri ARTIKSIZ bölmesi buna bağlıdır — bir satır ya Satın Alma'da ya
+ * Üretim'de görünür, ikisinde birden ya da hiçbirinde değil.
+ */
+export function isPurchaseRow(part: { kind?: PartKind; partCode?: string }): boolean {
+  return part.kind === "satinalma" || !part.partCode?.trim();
+}
+
 // ------------------------------------------------------------------ tipler
 
 /**

@@ -582,6 +582,30 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     işaretlenir ve işaret anlamını yitirirdi. **İşaret bir SORUDUR ve onu
     yalnız insan kapatır** (`setReviewMark`); devir işaret KOYAR, KALDIRMAZ.
 
+    **SATIN ALMA İLE ÜRETİM AYRI EKRANLARDIR VE DEFTERİ ARTIKSIZ BÖLER.**
+    Satın alınan kalemler (`kind = "satinalma"` ya da parça numarası olmayan
+    satırlar) `/purchasing`te, imalat ve montaj parçaları `/progress`te durur.
+    Bölme kuralı TEK yerdedir — `isPurchaseRow` — ve `derive.ts`teki
+    `satinAlmaListesi` ile birebir aynıdır; bir satır iki ekranda birden ya da
+    hiçbirinde görünemez. **`satinalindi` aşamasının çipi atölye tahtasında
+    YOKTUR** (`productionStages`): sipariş kaydı tezgâhın değil satınalmanın
+    işidir ve foreman'ın onu işaretleyebilmesi kimin ne zaman sipariş verdiğini
+    belirsizleştirirdi. Bu bir YETKİ engeli değil bir SORUMLULUK ayrımıdır —
+    ikisinin de yazma yetkisi aynı `can_edit_drawings()`tir.
+
+    **Satın alma KATEGORİSİ tanımdan okunur** (`satinAlmaSinifi`, on beş ürün
+    ailesi). Sipariş tedarikçi başına verilir; "satın alma ünitesi" diye tek bir
+    torba satınalmacıya hiçbir şey söylemiyordu. Sözlük iki kanıta dayanır: iki
+    gerçek teslim klasörünün 145 satın alma satırı ve eski ORION App'in
+    "MalzemeGrupları" defteri. Anahtar SÖZCÜK ÖN EKİdir (Türkçe iyelik eki:
+    `SEGMAN` → `SEGMANI`); ön ekin fazla geniş kaldığı yerde TAM sözcük aranır
+    (`KANCA` ön ek olsaydı "ÇEKME YAYI IKI UCU KANCALI" bir kaldırma aksesuarı
+    olurdu). Sıra önceliktir: Redüktör Motor'dan önce gelir (motorlu redüktör
+    redüktör tedarikçisinden alınır), Bağlantı Elemanı en sondadır ("RULMAN
+    YATAĞI SOMUNU" bir rulman kalemidir). Yeni anahtar ancak GERÇEK bir satır
+    gösterebilirse girer; eşleşmeyenin "Diğer"de durması yanlış kategoriye
+    girmesinden iyidir. Dağılım `derive.test.ts`te dondurulmuştur.
+
     **YIKICI İŞLEMDE SIRA "ÖNCE UCUZ OLANI KAYBET"TİR.** `deletePackage` önce
     satırı siler (yetki + `count` okunarak), ANCAK SONRA depo nesnelerini.
     Ters sıra bir kez yazıldı ve sessiz veri kaybı üretiyordu: depo RLS'i
@@ -891,10 +915,11 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `recognize` · `folder-name` · `file-name` · `part-code` · `tr-text` ·
   `excel` · `reconcile` · `titleblock` · `dxf-header` · `derive` · `diff` ·
   `revision` · `progress` · `types` · `labels` · `mime` · `standard`
-- `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı, montaj ağacı,
-  dosya gezgini, parça defteri, içe aktarım raporu, sürümler, üretim durumu,
-  aşama defteri; `[id]/import/` içerik okuma ucu (Node çalışma zamanı),
-  `[id]/export/` türev çıktılar
+- `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı ve paketin yedi
+  bölümü: Genel Bakış (montaj ağacı) · Dosyalar (gezgin) · Parçalar (defter) ·
+  **Satın Alma** · Üretim · İçe Aktarım Raporu · Sürümler; ayrıca aşama defteri.
+  `[id]/import/` içerik okuma ucu (Node çalışma zamanı), `[id]/export/` türev
+  çıktılar
 - `docs/teknik-resim-adlandirma-onerileri.md` — ressama ÖNERİLER (Ö-1…Ö-9).
   Kural listesi DEĞİL kazanç listesidir; hiçbir madde bir yüklemeyi engellemez
   ve `lib/drawings/standard.ts` ile iki yönlü koruma testine bağlıdır

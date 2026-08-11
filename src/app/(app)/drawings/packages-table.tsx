@@ -217,14 +217,14 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                           <TableCell colSpan={SUTUN} className="py-1.5">
                             <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                               <span className="font-mono text-sm font-semibold">
-                                {g.itemNo || "kalem eşleşmemiş"}
+                                {g.itemNo || "Kalem Eşleşmemiş"}
                               </span>
                               <span className="font-mono text-[11px] text-muted-foreground">
-                                {formatNum(g.rows.length)} paket ·{" "}
+                                {formatNum(g.rows.length)} Paket ·{" "}
                                 <span className={g.missing > 0 ? "text-destructive" : undefined}>
-                                  {formatNum(g.storedCount)}/{formatNum(g.fileCount)} dosya depoda
+                                  {formatNum(g.storedCount)}/{formatNum(g.fileCount)} Dosya Depoda
                                 </span>{" "}
-                                · {formatNum(g.partCount)} parça
+                                · {formatNum(g.partCount)} Parça
                               </span>
                               {g.rows[0]?.jobs?.title && (
                                 <span className="truncate text-[11px] text-muted-foreground">
@@ -268,9 +268,9 @@ function PaketSatiri({ p }: { p: PackageRow }) {
         </span>
         <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground md:hidden">
           {[
-            p.group_code && `grup ${p.group_code}`,
-            `${formatNum(depo.stored)}/${formatNum(depo.expected)} dosya`,
-            `${formatNum(p.part_count)} parça`,
+            p.group_code && `Grup ${p.group_code}`,
+            `${formatNum(depo.stored)}/${formatNum(depo.expected)} Dosya`,
+            `${formatNum(p.part_count)} Parça`,
           ]
             .filter(Boolean)
             .join(" · ")}
