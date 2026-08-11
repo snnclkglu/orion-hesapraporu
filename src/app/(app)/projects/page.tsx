@@ -1,20 +1,13 @@
-import Link from "next/link";
 import {
+  Archive,
   CircleCheck,
   Clock3,
   FolderKanban,
-  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 import { NewProjectDialog, type JobItemOption } from "./new-project-dialog";
-import { ProjectRowActions } from "./project-actions";
+import { ProjectsTable, type ProjectRow } from "./projects-table";
 import { getReportSettings } from "@/lib/settings";
-import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 
@@ -56,9 +49,29 @@ export default async function ProjectsPage() {
   const allRevs = list.flatMap((p) => p.revisions ?? []);
   const draftCount = allRevs.filter((r) => r.status === "draft").length;
   const issuedCount = allRevs.filter((r) => r.status === "issued").length;
-  const lastCreated = list[0]?.created_at
-    ? new Date(list[0].created_at).toLocaleDateString("tr-TR")
-    : "—";
+  const archivedCount = list.filter((p) => p.status === "archived").length;
+
+  // Süzme ve sıralama İSTEMCİDE yapılır (`ProjectsTable`); sunucu yalnız
+  // satırları düz bir biçime indirir. Revizyonların tamamı listeye taşınmaz —
+  // ekranda görünen tek şey SON revizyondur ve "yayınlanmışı var mı" sorusu
+  // silme penceresinin uyarısı içindir.
+  const rows: ProjectRow[] = list.map((p) => {
+    const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
+    return {
+      id: p.id,
+      doc_no: p.doc_no,
+      name: p.name,
+      customer: p.customer,
+      crane_type: p.crane_type,
+      status: p.status,
+      created_at: p.created_at,
+      job_id: (p.job_id as string | null) ?? null,
+      job_no: (p.jobs as unknown as { job_no: string } | null)?.job_no ?? null,
+      lastRevNo: lastRev?.rev_no ?? null,
+      lastRevStatus: lastRev?.status ?? null,
+      hasIssuedRevision: (p.revisions ?? []).some((r) => r.status === "issued"),
+    };
+  });
 
   return (
     <div className="grid gap-4">
@@ -66,31 +79,42 @@ export default async function ProjectsPage() {
         <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
       </PageHeader>
 
-      {/* İstatistik kartları */}
+      {/* İstatistik kartları SÜZGEÇTEN ETKİLENMEZ: portföyün tamamını
+          özetlerler ve filtre değiştikçe oynayan bir "toplam proje" sayısı
+          kartı anlamsız kılardı. Süzgecin sonucu tablonun üstündeki
+          "x / y" sayacındadır.
+
+          Dördüncü kart ARŞİVDİR — "arşivlediğim proje nereye gitti?"
+          sorusunun cevabı budur (kullanıcı sorusu, 11.08.2026): hiçbir yere
+          gitmez, aynı listede kalır ve Durum süzgeciyle ayrı görülür. */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Toplam Proje"
           value={String(list.length)}
-          hint={`${list.filter((p) => p.status === "active").length} Aktif`}
+          hint={`${list.length - archivedCount} Aktif`}
           icon={FolderKanban}
         />
         <StatCard
           label="Taslak Revizyon"
           value={String(draftCount)}
-          hint="düzenlemeye açık"
+          hint="Düzenlemeye Açık"
           icon={Clock3}
         />
         <StatCard
           label="Yayınlanan Revizyon"
           value={String(issuedCount)}
-          hint="kilitli snapshot"
+          hint="Kilitli Snapshot"
           icon={CircleCheck}
         />
         <StatCard
-          label="Son Proje"
-          value={lastCreated}
-          hint={list[0]?.doc_no ?? "kayıt yok"}
-          icon={History}
+          label="Arşivlenen Proje"
+          value={String(archivedCount)}
+          hint={
+            archivedCount > 0
+              ? "Listede kalır — Durum süzgecinden görülür"
+              : "Arşivlenmiş proje yok"
+          }
+          icon={Archive}
         />
       </div>
 
@@ -112,127 +136,7 @@ export default async function ProjectsPage() {
           <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
-                  (~341px) bir buçuk katıydı ve sağdaki Durum/İşlem hiç
-                  görünmüyordu. Mobilde yalnız Doküman No · Proje · Durum ·
-                  İşlem kalır; gizlenenlerin kritik olanları proje adının
-                  altına iner (aşağıdaki md:hidden satır). */}
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="hidden md:table-cell">İş No</TableHead>
-                <TableHead>Doküman No</TableHead>
-                <TableHead>Proje</TableHead>
-                <TableHead className="hidden md:table-cell">Müşteri</TableHead>
-                <TableHead className="hidden lg:table-cell">Vinç Tipi</TableHead>
-                <TableHead className="hidden md:table-cell">Son Revizyon</TableHead>
-                <TableHead>Durum</TableHead>
-                <TableHead className="w-12 text-right">İşlem</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.map((p) => {
-                const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
-                const jobNo = (p.jobs as unknown as { job_no: string } | null)?.job_no;
-                return (
-                  <TableRow key={p.id} className="relative cursor-pointer">
-                    <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">
-                      {jobNo && p.job_id ? (
-                        <Link
-                          href={`/jobs/${p.job_id}`}
-                          className="relative z-10 inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
-                        >
-                          {jobNo}
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground/60">bağımsız</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm font-medium text-primary">
-                      <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
-                        {p.doc_no}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium whitespace-normal">
-                      {p.name}
-                      {/* Mobilde gizlenen sütunların kritik olanları — kart
-                          markup'ı çoğaltmadan, aynı hücrenin ikinci satırı. */}
-                      <div className="mt-0.5 text-[11px] font-normal whitespace-normal text-muted-foreground md:hidden">
-                        {/* İş no BURADA DA BAĞLANTIDIR: sütunu gizlemek bilgiyi
-                            korur ama iş emrine geçişi telefonda tümüyle
-                            kaybettiriyordu. `relative z-10` satırın tamamını
-                            kaplayan proje bağlantısının üstünde kalmasını
-                            sağlar (aksi hâlde dokunuş projeye giderdi). */}
-                        {jobNo && p.job_id ? (
-                          <>
-                            <Link
-                              href={`/jobs/${p.job_id}`}
-                              className="relative z-10 font-mono text-primary hover:underline"
-                            >
-                              {jobNo}
-                            </Link>
-                            {" · "}
-                          </>
-                        ) : null}
-                        {p.customer}
-                        {lastRev
-                          ? ` · V${lastRev.rev_no} ${revisionStatusLabel(lastRev.status)}`
-                          : ""}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {p.customer}
-                    </TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
-                      {p.crane_type}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {lastRev ? (
-                        <span className="inline-flex items-center gap-1.5 text-sm">
-                          <span className="font-mono">V{lastRev.rev_no}</span>
-                          <Badge variant={revisionStatusVariant(lastRev.status)}>
-                            {revisionStatusLabel(lastRev.status)}
-                          </Badge>
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1.5 text-sm">
-                        <span
-                          className={cn(
-                            "size-2",
-                            p.status === "active" ? "bg-success" : "bg-muted-foreground/40"
-                          )}
-                        />
-                        {p.status === "active" ? "Aktif" : "Arşiv"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ProjectRowActions
-                        project={{
-                          id: p.id,
-                          doc_no: p.doc_no,
-                          name: p.name,
-                          customer: p.customer,
-                          job_id: p.job_id ?? null,
-                          job_no: jobNo ?? null,
-                          hasIssuedRevision: (p.revisions ?? []).some(
-                            (r) => r.status === "issued"
-                          ),
-                        }}
-                        jobs={jobs}
-                        canDelete={isAdmin}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <ProjectsTable projects={rows} jobs={jobs} canDelete={isAdmin} />
       )}
     </div>
   );

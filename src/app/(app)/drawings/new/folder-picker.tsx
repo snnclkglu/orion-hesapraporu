@@ -812,7 +812,6 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
                     id="kalemNo"
                     value={kalemNo}
                     onChange={(e) => setKalemNo(e.target.value)}
-                    placeholder="0057-00"
                     className="font-mono"
                   />
                 </div>

@@ -102,7 +102,6 @@ export function FindingRow({
               <Input
                 value={kod}
                 onChange={(e) => setKod(e.target.value)}
-                placeholder="0057-00-0510-04"
                 className="h-8 w-[min(16rem,calc(100vw-4rem))] font-mono"
               />
               <Button type="button" size="xs" variant="outline" onClick={bagla} disabled={calisiyor}>

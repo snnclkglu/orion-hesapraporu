@@ -93,7 +93,7 @@ export function FileBrowser({
         <SearchBox
           value={arama}
           onChange={setArama}
-          placeholder="Dosya adı, kod, malzeme ara…"
+          placeholder="Dosya Adı, Kod, Malzeme Ara…"
         />
       </div>
 

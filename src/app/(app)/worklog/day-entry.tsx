@@ -586,7 +586,7 @@ export function DayEntry({
                           setRow(row.key, { itemNo: v });
                           applyCodeHint(row.key, v, row.partId, row.partCode);
                         }}
-                        placeholder="İş kalemi"
+                        placeholder="İş Kalemi"
                         searchPlaceholder="Kalem no, ürün veya müşteri…"
                         className="h-8 pointer-coarse:h-10"
                         contentClassName="min-w-[min(26rem,calc(100vw-1.5rem))]"
@@ -625,7 +625,7 @@ export function DayEntry({
                           applyCodeHint(row.key, row.itemNo, v, row.partCode);
                         }}
                         placeholder="Parça"
-                        searchPlaceholder="Parça ara…"
+                        searchPlaceholder="Parça Ara…"
                         onCreate={(name) => addPart(name, row.key)}
                         createLabel="Yeni parça"
                         className="h-8 pointer-coarse:h-10"
@@ -640,7 +640,7 @@ export function DayEntry({
                         onValueChange={(v) => setRow(row.key, { categoryId: v })}
                       >
                         <SelectTrigger size="sm" className="w-full">
-                          <SelectValue placeholder="İmalat türü" />
+                          <SelectValue placeholder="İmalat Türü" />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((c) => (
@@ -664,8 +664,7 @@ export function DayEntry({
                       <Input
                         value={row.partCode}
                         onChange={(e) => setRow(row.key, { partCode: e.target.value })}
-                        placeholder="0200"
-                        title="Çizim grubu kodu — işe göre değişir, zorunlu değildir"
+                                                title="Çizim grubu kodu — işe göre değişir, zorunlu değildir"
                         className="h-8 px-2 font-mono text-base pointer-coarse:h-10 pointer-fine:text-xs"
                       />
                     </div>

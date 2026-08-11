@@ -18,6 +18,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { ProjectDetailHeader } from "@/app/(app)/projects/[id]/project-header";
 import { ProjectTabsNav } from "@/app/(app)/projects/[id]/project-tabs";
 import { DrawingPlanCard } from "@/app/(app)/projects/[id]/drawing-plan-card";
+import type { DrawingPlanRow } from "@/lib/drawing-plan";
 
 const PEOPLE: SignatoryOption[] = [
   { id: "p1", full_name: "Alkım Kelleci", role: "engineer" },
@@ -28,16 +29,19 @@ const PEOPLE: SignatoryOption[] = [
 // `/projects/<id>` geniş sayfa DEĞİLDİR, app-shell ona `max-w-6xl` (1152px)
 // verir. Eylem şeridinin sağa dayanması tam da bu genişlikte sınanır.
 /**
- * Teknik Resim Takibi fikstürü — gerçek 0055 antedinden. Üç bandı da taşır ki
- * bant başlıkları ve kod aralıkları gözle görülebilsin; biri "çizildi".
+ * Teknik Resim Takibi fikstürü — gerçek 0055 antedinden. DÖRT bandı da taşır ki
+ * bant başlıkları ve kod aralıkları gözle görülebilsin; durumlar da farklıdır,
+ * yoksa başlıktaki ilerleme çubuğu ya %0 ya %100 görünür ve ara değerin nasıl
+ * çizildiği hiç sınanmazdı.
  */
-const DRAWING_PLAN = [
-  { id: "d1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
-  { id: "d2", code: "0200", name: "ANAKİRİŞ", drawn: false, note: "2 adet" },
-  { id: "d3", code: "0300", name: "BAŞKİRİŞ", drawn: false, note: "" },
-  { id: "d4", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
-  { id: "d5", code: "1600", name: "ARABA YÜRÜTME GRUBU", drawn: false, note: "" },
-  { id: "d6", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+const DRAWING_PLAN: DrawingPlanRow[] = [
+  { id: "d1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
+  { id: "d2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "2 adet" },
+  { id: "d3", code: "0300", name: "BAŞKİRİŞ", status: "ciziliyor", note: "" },
+  { id: "d4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "revize", note: "" },
+  { id: "d5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", note: "" },
+  { id: "d6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
+  { id: "d7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
 ];
 
 const PROJECT = {

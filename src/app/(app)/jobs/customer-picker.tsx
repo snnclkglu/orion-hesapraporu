@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { CustomerTag } from "@/components/tags";
 import { autoShortName } from "@/lib/tags";
+import { adBuyuk } from "@/lib/tr-text";
 
 /** Henüz müşteri seçilmemiş satır — Select boş string değere izin vermez. */
 export const NO_CUSTOMER = "__none__";
@@ -48,7 +49,10 @@ export interface CustomerFields {
 /** Defter kaydını iş emri alanlarına çevirir. */
 export function fieldsFromCustomer(c: CustomerOption): CustomerFields {
   return {
-    customer: c.name,
+    // Defterdeki eski kayıtlar karışık kiple yazılmış olabilir; iş emrine
+    // BÜYÜK HARFLE girer (firma kuralı, `adBuyuk`) — alan salt-okunur olduğu
+    // için kullanıcının düzeltme şansı da yok.
+    customer: adBuyuk(c.name),
     customer_address: c.address ?? "",
     customer_tax_office: c.tax_office ?? "",
     customer_tax_no: c.tax_no ?? "",
@@ -121,8 +125,7 @@ export function NewCustomerDialog({
               <Input
                 id="new_customer_name"
                 value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                placeholder="İSKENDERUN DEMİR VE ÇELİK A.Ş."
+                onChange={(e) => set("name", adBuyuk(e.target.value))}
                 autoFocus
                 required
               />
@@ -134,9 +137,8 @@ export function NewCustomerDialog({
                 value={shortName}
                 onChange={(e) => {
                   setAutoShort(false);
-                  set("short_name", e.target.value);
+                  set("short_name", adBuyuk(e.target.value));
                 }}
-                placeholder="İSDEMİR"
                 title="İşler ve Satış Takibi listelerinde bu ad görünür"
               />
             </div>
@@ -152,7 +154,6 @@ export function NewCustomerDialog({
               id="new_customer_address"
               value={form.address}
               onChange={(e) => set("address", e.target.value)}
-              placeholder="Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1 Payas/Hatay"
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -178,7 +179,6 @@ export function NewCustomerDialog({
                 id="new_customer_phone"
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
-                placeholder="+90 326 758 40 40"
               />
             </div>
             <div className="grid gap-1.5">
@@ -245,11 +245,11 @@ export function CustomerPicker({
             }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Müşteri seçin" />
+              <SelectValue placeholder="Müşteri Seçin" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NO_CUSTOMER} disabled>
-                {unlinked ? `Deftere bağlı değil: ${currentName}` : "Müşteri seçin"}
+                {unlinked ? `Deftere bağlı değil: ${currentName}` : "Müşteri Seçin"}
               </SelectItem>
               {sorted.map((c) => (
                 <SelectItem key={c.id} value={c.id}>

@@ -204,7 +204,6 @@ export function EquipmentDialog({
             <Label htmlFor="eq-datasheet">Katalog / Datasheet linki</Label>
             <Input
               id="eq-datasheet" type="url" inputMode="url"
-              placeholder="https://üretici.com/…/urun.pdf"
               value={datasheetUrl}
               onChange={(e) => setDatasheetUrl(e.target.value)}
             />
@@ -234,7 +233,7 @@ export function EquipmentDialog({
               <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
                 <div className="grid gap-0.5">
                   <Input
-                    placeholder="anahtar (ör. power_kw)"
+                    placeholder="Anahtar"
                     value={row.key}
                     onChange={(e) => setAttrRow(i, { key: e.target.value })}
                   />
@@ -247,7 +246,7 @@ export function EquipmentDialog({
                   )}
                 </div>
                 <Input
-                  placeholder="değer"
+                  placeholder="Değer"
                   value={row.value}
                   onChange={(e) => setAttrRow(i, { value: e.target.value })}
                 />

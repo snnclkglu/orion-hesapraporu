@@ -29,6 +29,7 @@ import {
 // Saf yardımcı (dosya sistemi/PDF bağımlılığı yok) — kod önizlemesi ile basılan
 // belge AYNI fonksiyondan çıksın diye buradan okunur.
 import { docCode } from "@/lib/pdf/doc-naming";
+import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 
 /** Vinç tipi seçenekleri (ileride hesap varyantları bu tiplere bağlanacak) */
@@ -102,7 +103,9 @@ export function NewProjectDialog({
     setSelectedItemId(NO_ITEM);
     const job = jobs?.find((j) => j.id === id);
     if (job) {
-      setCustomer(job.customer);
+      // Ön-doldurulan değer de kuraldan geçer: iş emri eski bir kayıtsa küçük
+      // harfli gelebilir ve alan "otomatik doldu" diye kuralın dışında kalamaz.
+      setCustomer(adBuyuk(job.customer));
       // Kalemi OLAN işte doküman no kalem seçilince dolar. Körlemesine
       // "0055-01" önermek, o numaranın gerçek kalemine açılacak raporla
       // çakışırdı; öneri yalnız hiç kalemi olmayan işlerde yapılır.
@@ -116,7 +119,7 @@ export function NewProjectDialog({
     const item = items.find((i) => i.id === itemId);
     if (item) {
       if (item.item_no) setDocNo(item.item_no);
-      if (item.product_name) setName(item.product_name);
+      if (item.product_name) setName(adBuyuk(item.product_name));
     }
   }
 
@@ -205,7 +208,6 @@ export function NewProjectDialog({
               onChange={(e) => setDocNo(e.target.value)}
               readOnly={!!selectedItem}
               className={cn(selectedItem && "bg-muted text-muted-foreground")}
-              placeholder="0055-01"
               title={
                 selectedItem
                   ? "İş kalemi numarasından gelir — elle yazmak için \"Kalem Seçilmedi\"yi seçin"
@@ -221,14 +223,17 @@ export function NewProjectDialog({
               <span className="font-mono">{docCode("HR", docNo || "0055-01", 1)}</span>
             </p>
           </div>
+          {/* AD ALANLARI YAZILIRKEN BÜYÜR (firma kuralı, `adBuyuk`). Dönüşüm
+              yalnız kaydetmede yapılsaydı kullanıcı yazdığı hâli görüp
+              kaydettikten sonra başka bir metinle karşılaşırdı; sunucu tarafı
+              (`projectSchema`) yine de son sözü söyler. */}
           <div className="grid gap-2">
             <Label htmlFor="name">Rapor / Vinç Adı</Label>
             <Input
               id="name"
               name="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="AMONYUM SÜLFAT VİNCİ"
+              onChange={(e) => setName(adBuyuk(e.target.value))}
               required
             />
           </div>
@@ -237,9 +242,8 @@ export function NewProjectDialog({
             <Input
               id="customer"
               name="customer"
-              placeholder="İSDEMİR"
               value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
+              onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
             />
           </div>

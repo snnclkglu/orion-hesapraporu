@@ -418,7 +418,7 @@ export function ProgressBoard({
         <Input
           value={arama}
           onChange={(e) => setArama(e.target.value)}
-          placeholder="Kod, tanım, kategori ya da malzeme ara…"
+          placeholder="Kod, Tanım, Kategori ya da Malzeme Ara…"
           className="h-9 font-mono text-base pointer-coarse:h-11 pointer-fine:text-sm"
           aria-label="Parça ara"
         />
@@ -1017,7 +1017,7 @@ function DetailDialog({
               value={not}
               onChange={(e) => setNot(e.target.value)}
               maxLength={500}
-              placeholder="Örn. iki sac fire verdi"
+              placeholder="Not"
               className="mt-1 h-10 w-full text-base pointer-fine:text-sm"
             />
           </div>

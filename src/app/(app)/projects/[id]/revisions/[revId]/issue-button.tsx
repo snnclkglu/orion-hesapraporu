@@ -65,7 +65,7 @@ export function IssueRevisionButton({
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="label">Revizyon etiketi</Label>
-            <Input id="label" name="label" defaultValue={defaultLabel} placeholder="ör. Müşteri onayına sunuldu" />
+            <Input id="label" name="label" defaultValue={defaultLabel} placeholder="Etiket" />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>

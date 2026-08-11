@@ -336,7 +336,7 @@ export function JobsTable({
               <SelectValue placeholder="Yıl" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tüm yıllar</SelectItem>
+              <SelectItem value={ALL}>Tüm Yıllar</SelectItem>
               {years.map((y) => (
                 <SelectItem key={y} value={y}>{y}</SelectItem>
               ))}
@@ -348,7 +348,7 @@ export function JobsTable({
               <SelectValue placeholder="Müşteri" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
+              <SelectItem value={ALL}>Tüm Müşteriler</SelectItem>
               {customers.map((c) => (
                 <SelectItem key={c.name} value={c.name}>
                   <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
@@ -362,7 +362,7 @@ export function JobsTable({
               <SelectValue placeholder="Durum" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tüm durumlar</SelectItem>
+              <SelectItem value={ALL}>Tüm Durumlar</SelectItem>
               {JOB_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>{JOB_STATUS_LABELS[s]}</SelectItem>
               ))}
@@ -373,7 +373,7 @@ export function JobsTable({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="İş no, ad veya müşteri ara…"
+          placeholder="İş No, Ad veya Müşteri Ara…"
           className="h-10 w-full flex-1 sm:h-8 sm:w-auto sm:min-w-[200px] sm:pointer-coarse:h-10"
         />
 

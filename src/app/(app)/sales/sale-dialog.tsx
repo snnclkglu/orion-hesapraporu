@@ -97,20 +97,53 @@ export function SaleDialog({
   // (`{editing && <SaleDialog …/>}`), kapanınca sökülür — her açılış zaten
   // taze bir bileşendir.
 
+  /**
+   * BOŞ MİKTAR SIFIR DEĞİLDİR.
+   *
+   * Miktar bir süre `?? 0` ile okunuyordu ve kutunun yer tutucusu "1" yazıyordu:
+   * kullanıcı birim fiyatı giriyor, toplam "0 €" kalıyordu (kullanıcı
+   * bildirimi, 11.08.2026). Grileşmiş "1" girilmiş bir değer sanılıyordu —
+   * yer tutucu kalktı, boş miktar artık toplamı SIFIR yapmıyor `null` yapıyor
+   * ve kutu "—" gösteriyor. Sıfır bir cevaptır; burada cevap yoktu.
+   */
   const totals = useMemo(() => {
-    const q = parseNum(quantity) ?? 0;
-    const w = parseNum(unitWeight) ?? 0;
-    const p = parseNum(unitPrice) ?? 0;
+    const q = parseNum(quantity);
+    const w = parseNum(unitWeight);
+    const p = parseNum(unitPrice);
     const fx = currency === "EUR" ? 1 : parseNum(fxRate);
-    const total = q * p;
+    const total = q !== null && p !== null ? q * p : null;
     return {
-      weight: q * w,
+      weight: q !== null && w !== null ? q * w : null,
       total,
-      eur: fx && fx > 0 ? total / fx : null,
+      eur: total !== null && fx !== null && fx > 0 ? total / fx : null,
     };
   }, [quantity, unitWeight, unitPrice, fxRate, currency]);
 
+  /**
+   * KUR EKSİKKEN KAYIT YAPILMAZ (kullanıcı kararı, 11.08.2026).
+   *
+   * Eskiden kuru boş bırakılan satır kaydediliyor, ciroya girmiyor ve sayfanın
+   * üstündeki "Kuru Eksik" kartında sayılıyordu. Kart, olmaması gereken bir
+   * durumun sayacıydı; doğrusu o durumu hiç doğurmamaktır. Kart kalktı, kural
+   * buraya taşındı — fiyat girilmişse kur da girilmiş olmalıdır.
+   *
+   * Kontrol yalnız FİYAT GİRİLMİŞSE çalışır: kapsam ya da termin tarihi yazıp
+   * fiyatı sonraya bırakmak meşru bir kullanımdır ve engellenmemelidir.
+   */
   function handleSave() {
+    const q = parseNum(quantity);
+    const p = parseNum(unitPrice);
+    const fx = currency === "EUR" ? 1 : parseNum(fxRate);
+    if (p !== null && q === null) {
+      toast.error("Miktar girilmeden birim fiyat kaydedilemez.");
+      return;
+    }
+    if (p !== null && (fx === null || fx <= 0)) {
+      toast.error(
+        `Kur girilmeden ${CURRENCY_LABELS[currency]} fiyatı kaydedilemez — ciro avroda toplanır.`
+      );
+      return;
+    }
     startTransition(async () => {
       const res = await saveSale(row.itemId, {
         scope: scope.trim(),
@@ -186,7 +219,7 @@ export function SaleDialog({
               <Input
                 value={scope}
                 onChange={(e) => setScope(e.target.value)}
-                placeholder="Kapsamı yazın"
+                placeholder="Kapsamı Yazın"
                 autoFocus
               />
             ) : (
@@ -203,7 +236,7 @@ export function SaleDialog({
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Kapsam seçin" />
+                  <SelectValue placeholder="Kapsam Seçin" />
                 </SelectTrigger>
                 <SelectContent>
                   {scopeOptions.map((sc) => (
@@ -211,7 +244,7 @@ export function SaleDialog({
                       <ScopeTag scope={sc} />
                     </SelectItem>
                   ))}
-                  <SelectItem value={SCOPE_OTHER}>Diğer (elle yaz)…</SelectItem>
+                  <SelectItem value={SCOPE_OTHER}>Diğer (Elle Yaz)…</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -228,7 +261,6 @@ export function SaleDialog({
               <Input
                 value={shipmentPlace}
                 onChange={(e) => setShipmentPlace(e.target.value)}
-                placeholder="TÜRKİYE"
               />
             </Field>
           </div>
@@ -237,16 +269,17 @@ export function SaleDialog({
               Ağırlık (kg)") üç satıra kırılıyordu. */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Miktar">
+              {/* YER TUTUCU YOK — grileşmiş "1" girilmiş bir değer sanılıyordu
+                  ve toplam fiyat sessizce 0 kalıyordu (bkz. `totals`). */}
               <Input
                 inputMode="decimal"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className="font-mono tabular-nums"
-                placeholder="1"
               />
             </Field>
             <Field label="Birim">
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Adet" />
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
             </Field>
             <Field label="Birim Ağırlık (kg)">
               <Input
@@ -260,7 +293,11 @@ export function SaleDialog({
               {/* Hesaplanan kutular komşu `Input`larla aynı boyda olmalı (40px),
                   yoksa ızgara satırında hiza kayıyordu. */}
               <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
-                {fmtNum(totals.weight)}
+                {totals.weight === null ? (
+                  <span className="text-muted-foreground/60">—</span>
+                ) : (
+                  fmtNum(totals.weight)
+                )}
               </div>
             </Field>
           </div>
@@ -298,27 +335,32 @@ export function SaleDialog({
                 onChange={(e) => setFxRate(e.target.value)}
                 disabled={currency === "EUR"}
                 className="font-mono tabular-nums"
-                placeholder={currency === "TRY" ? "48,53" : "1,15"}
               />
             </Field>
             <Field label="Toplam Fiyat">
               <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 font-mono text-sm tabular-nums">
-                {fmtNum(totals.total)} {CURRENCY_SYMBOLS[currency]}
+                {totals.total === null ? (
+                  <span className="text-muted-foreground/60">—</span>
+                ) : (
+                  <>
+                    {fmtNum(totals.total)} {CURRENCY_SYMBOLS[currency]}
+                  </>
+                )}
               </div>
             </Field>
           </div>
 
           {/* Avro karşılığı ayrı ve vurgulu: firmanın ciroyu topladığı büyüklük */}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
+            {/* AÇIKLAMA KALDIRILDI (kullanıcı kararı, 11.08.2026): kutunun
+                başlığı zaten "Avro Karşılığı" ve firma ciroyu avroda topluyor —
+                cümle her açılışta aynı şeyi ikinci kez söylüyordu. */}
             <div className="min-w-0">
               <div className="oc-kicker text-muted-foreground">Avro Karşılığı</div>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Ciro toplamlarına bu tutar girer
-              </p>
             </div>
             <div className="font-mono text-xl font-semibold tabular-nums">
               {totals.eur === null ? (
-                <span className="text-sm font-normal text-destructive">kur girilmedi</span>
+                <span className="text-sm font-normal text-muted-foreground/60">—</span>
               ) : (
                 `${fmtNum(totals.eur)} €`
               )}

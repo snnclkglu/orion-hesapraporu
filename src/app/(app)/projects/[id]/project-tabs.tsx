@@ -23,10 +23,25 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
  * alınır. `after:hidden`: `line` varyantının kendi alt çizgi çubuğu şeridin
  * `p-[3px]` iç boşluğuna göre konumlanır, iç boşluk sıfırlanınca çizgi bölüm
  * çizgisinin 3px altına düşerdi — çizgiyi tetikleyicinin KENDİ alt kenarı
- * çizer (`border-b-2`) ve `-mb-px` ile şeridin çizgisine tam oturur.
+ * çizer (`border-b-2`).
+ *
+ * HİÇBİR ÖĞE ŞERİDİN KUTUSUNDAN TAŞMAZ — ve bu bir yerleşim zarafeti değil,
+ * bir HATA DÜZELTMESİDİR (kullanıcı bildirimi, 11.08.2026): şeridin sağ ucunda
+ * "Ekipman Listesi (V1)"in yanında minik bir DİKEY KAYDIRMA OKU çıkıyordu.
+ * Sebep iki katlıydı — (a) bağlantı `min-h-9` taşırken sekmeler dolgudan gelen
+ * daha kısa bir boydaydı, (b) sekmeler `-mb-px` ile şeridin ALT ÇİZGİSİNİN
+ * üzerine taşıyordu. CSS'te `overflow-x` görünürlükten çıkınca `overflow-y` de
+ * `visible` KALAMAZ, kendiliğinden `auto` olur; tek piksellik bir taşma bile
+ * gerçek bir kaydırma çubuğu doğurur.
+ *
+ * Çözüm taşmayı gidermektir, kırpmak değil: dikey ölçü iki öğede de tek bir
+ * sabitten gelir (`RAIL_BOX`) ve şeridin alt çizgisi `border-b` yerine İÇ
+ * GÖLGEDİR — gölge dolgu kutusunun içine boyanır, yani aktif sekmenin kırmızı
+ * çizgisi negatif kenar boşluğuna gerek kalmadan onun tam üstüne oturur.
  */
-const TAB =
-  "h-auto flex-none -mb-px rounded-none border-0 border-b-2 border-transparent px-1 pt-1 pb-2.5 text-[15px] font-medium text-muted-foreground after:hidden hover:text-foreground data-active:border-primary data-active:text-foreground";
+const RAIL_BOX = "px-1 pt-1 pb-2.5 pointer-coarse:pt-2.5 pointer-coarse:pb-4";
+
+const TAB = `h-auto flex-none rounded-none border-0 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium text-muted-foreground after:hidden hover:text-foreground data-active:border-primary data-active:text-foreground`;
 
 /** Sekmedeki sayaç rozeti — etiketin ağırlığını bozmayan ince bir sayı. */
 const COUNT =
@@ -45,7 +60,14 @@ export function ProjectTabsNav({
   equipmentLabel?: string;
 }) {
   return (
-    <div className="oc-scrollx flex items-center gap-5 overflow-x-auto overscroll-x-contain border-b [--oc-scroll-bg:var(--background)]">
+    // `items-end`: alt çizgili bir rayda hem sekmeler hem yanındaki bağlantı
+    // şeridin ALT kenarına oturmalıdır; ortalanınca aktif sekmenin kırmızı
+    // çizgisi bölüm çizgisinden kopardı.
+    // Alt çizgi `border-b` DEĞİL iç gölgedir (bkz. RAIL_BOX başlığı) ve
+    // `overflow-y-hidden` bir emniyet kemeridir: taşma zaten giderildi, bu
+    // yalnız ileride eklenecek bir öğenin sessizce kaydırma çubuğu
+    // doğurmasını engeller.
+    <div className="oc-scrollx flex items-end gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain shadow-[inset_0_-1px_0_var(--border)] [--oc-scroll-bg:var(--background)]">
       <TabsList
         variant="line"
         // Taban şerit yüksekliğini `group-data-horizontal/tabs:h-9` ile
@@ -71,7 +93,7 @@ export function ProjectTabsNav({
       {equipmentHref && (
         <a
           href={equipmentHref}
-          className="-mb-px ml-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-1 pt-1 pb-2.5 text-[15px] font-medium whitespace-nowrap text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium whitespace-nowrap text-muted-foreground hover:text-foreground`}
         >
           <FileDown className="size-4" />
           {equipmentLabel}

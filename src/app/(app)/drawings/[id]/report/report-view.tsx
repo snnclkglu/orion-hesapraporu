@@ -44,7 +44,7 @@ export function ReportView({
         <SearchBox
           value={arama}
           onChange={setArama}
-          placeholder="Bulgu kodu, parça, dosya ara…"
+          placeholder="Bulgu Kodu, Parça, Dosya Ara…"
           className="w-[min(22rem,calc(100vw-4rem))]"
         />
         <Button

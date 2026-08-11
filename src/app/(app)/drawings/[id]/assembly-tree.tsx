@@ -150,7 +150,7 @@ export function AssemblyTree({ parts, files }: { parts: PartRow[]; files: TreeFi
       </header>
 
       <div className="border-b px-3 py-2">
-        <SearchBox value={arama} onChange={setArama} placeholder="Kod, tanım, malzeme ara…" />
+        <SearchBox value={arama} onChange={setArama} placeholder="Kod, Tanım, Malzeme Ara…" />
       </div>
 
       {kokler.length === 0 ? (

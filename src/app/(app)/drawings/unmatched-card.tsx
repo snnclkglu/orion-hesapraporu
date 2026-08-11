@@ -91,7 +91,7 @@ export function UnmatchedCard({
                 value={secim[p.id] ?? ""}
                 onChange={(v) => setSecim((s) => ({ ...s, [p.id]: v }))}
                 options={items.map((i) => ({ value: i.id, label: i.label }))}
-                placeholder="İş kalemi seç…"
+                placeholder="İş Kalemi Seç…"
                 className="min-w-[min(18rem,calc(100vw-3rem))]"
               />
               <Button size="sm" onClick={() => bagla(p)} disabled={kaydediliyor}>

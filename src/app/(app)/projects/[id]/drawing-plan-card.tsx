@@ -1,6 +1,6 @@
 "use client";
 
-// TEKNİK RESİM TAKİBİ — ana grup numaralandırma defteri.
+// TEKNİK RESİM TAKİBİ — ana grup numaralandırma ve ilerleme defteri.
 //
 // Ressam çizime oturmadan önce mühendise "bu grup kaç olacak?" diye sorar ve
 // cevabı bugüne kadar telefonla ya da hafızadan veriliyordu. Bu kart o soruyu
@@ -11,8 +11,13 @@
 // EKRAN OTOMATİK DOLDURMAZ. Numaralandırma projenin BAŞINDA verilen bir
 // karardır; hesap raporundaki bölümlerden türetilseydi mühendisin henüz
 // vermediği bir kararı uygulama vermiş olurdu. Öneri listesi vardır, dayatma
-// yoktur (`SALE_SCOPES` ile aynı ilke): listede olmayan bir ad aramada
-// yazılarak eklenir.
+// yoktur: grup adı alanı serbest metin kutusudur (`EditableCombobox`), liste
+// yalnız yazmayı hızlandırır.
+//
+// YÜZDE ELLE GİRİLMEZ. Tamamlanma oranı satırların durumlarından TÜRETİLİR
+// (`drawingPlanProgress`): elle girilen bir yüzde ilk haftadan sonra kimsenin
+// güncellemediği bir sayı olur, buradaki ise bir grup eklendiği anda
+// kendiliğinden düşer.
 //
 // TEKNİK RESİMLER MODÜLÜNE BAĞLI DEĞİLDİR (kullanıcı kararı). Aynı sekmedeki
 // "Teknik Resim Paketleri" kartı ressamın TESLİM ETTİĞİNİ gösterir; bu kart
@@ -24,16 +29,24 @@ import { toast } from "sonner";
 import { ListOrdered, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Combobox, type ComboOption } from "@/components/combobox";
+import { EditableCombobox } from "@/components/editable-combobox";
 import {
   DRAWING_BANDS,
   DRAWING_GROUP_PRESETS,
+  DRAWING_PLAN_STATUSES,
+  bandOfCode,
   codesOfBand,
+  drawingPlanProgress,
   fullDrawingNo,
   groupDrawingPlan,
   nextFreeCode,
   type DrawingBand,
   type DrawingPlanRow,
+  type DrawingPlanStatus,
 } from "@/lib/drawing-plan";
 import { saveDrawingPlan } from "./drawing-plan-actions";
 
@@ -47,7 +60,7 @@ interface PlanRowState {
   dbId?: string;
   code: string;
   name: string;
-  drawn: boolean;
+  status: DrawingPlanStatus;
   note: string;
 }
 
@@ -61,7 +74,7 @@ function toState(rows: readonly DrawingPlanRow[]): PlanRowState[] {
     dbId: r.id,
     code: r.code,
     name: r.name,
-    drawn: r.drawn,
+    status: r.status,
     note: r.note,
   }));
 }
@@ -69,48 +82,48 @@ function toState(rows: readonly DrawingPlanRow[]): PlanRowState[] {
 /** Kaydedilmemiş değişiklik var mı — "Kaydet" düğmesi buna göre canlanır. */
 function imza(rows: readonly PlanRowState[]): string {
   return JSON.stringify(
-    rows.map((r) => [r.dbId ?? "", r.code, r.name, r.drawn, r.note])
+    rows.map((r) => [r.dbId ?? "", r.code, r.name, r.status, r.note])
   );
 }
 
-/** Ana grup adı önerileri — bütün bantlar tek listede, bandı ipucu olarak. */
-const AD_ONERILERI: ComboOption[] = DRAWING_BANDS.flatMap((b) =>
-  DRAWING_GROUP_PRESETS[b.band].map((ad) => ({
-    value: ad,
-    label: ad,
-    hint: b.label,
-  }))
-);
-
 /**
- * Seçim kutusu — `components/ui`da Checkbox yoktur (progress-board.tsx ile aynı
- * gerekçe): ham kutu 13px'lik bir hedeftir, 44px'lik bir `label` içine sarmak
- * dokunma kuralını karşılamanın en ucuz yoludur.
+ * Bir bandın ad önerileri: ÖNCE kendi bandınınkiler, sonra diğerleri.
+ *
+ * Liste bant başına daraltılmaz — köprü grubuna araba adı yazmak yasak
+ * değildir, yalnız olası değildir. Kendi bandını başa almak, aranan adın ilk
+ * üç satırda çıkmasını sağlar.
  */
-function CizildiKutusu({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
+function adOnerileri(band: DrawingBand | null): string[] {
+  const oncelikli = band ? DRAWING_GROUP_PRESETS[band] : [];
+  const gorulen = new Set(oncelikli);
+  const kalan = DRAWING_BANDS.flatMap((b) => DRAWING_GROUP_PRESETS[b.band]).filter(
+    (ad) => !gorulen.has(ad)
+  );
+  return [...oncelikli, ...kalan];
+}
+
+/** İlerleme çubuğu — başlıktaki tek satırlık özet. */
+function IlerlemeCubugu({ percent, done, total }: { percent: number; done: number; total: number }) {
   return (
-    <label
-      className="flex min-h-9 cursor-pointer items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground pointer-coarse:min-h-11"
-      title="Bu ana grubun resimleri çizildi mi?"
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="size-4 accent-[var(--primary)]"
-        aria-label="Çizildi"
-      />
-      Çizildi
-    </label>
+    <div className="flex min-w-[10rem] flex-1 items-center gap-2 sm:max-w-[18rem]">
+      <div
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Teknik resim tamamlanma oranı"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
+          style={{ width: `${Math.max(percent, percent > 0 ? 2 : 0)}%` }}
+        />
+      </div>
+      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums">%{percent}</span>
+      <span className="shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
+        {done}/{total} Çizildi
+      </span>
+    </div>
   );
 }
 
@@ -148,12 +161,14 @@ export function DrawingPlanCard({
           id: r.key,
           code: r.code,
           name: r.name,
-          drawn: r.drawn,
+          status: r.status,
           note: r.note,
         }))
       ),
     [rows]
   );
+
+  const ilerleme = useMemo(() => drawingPlanProgress(rows), [rows]);
 
   function setRow(key: string, patch: Partial<PlanRowState>) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -169,7 +184,10 @@ export function DrawingPlanCard({
       toast.error("Bu bandın bütün numaraları kullanılmış.");
       return;
     }
-    setRows((prev) => [...prev, { key: yeniAnahtar(), code, name: "", drawn: false, note: "" }]);
+    setRows((prev) => [
+      ...prev,
+      { key: yeniAnahtar(), code, name: "", status: "bekliyor", note: "" },
+    ]);
   }
 
   function kaydet() {
@@ -185,7 +203,7 @@ export function DrawingPlanCard({
           id: r.dbId,
           code: r.code,
           name: r.name,
-          drawn: r.drawn,
+          status: r.status,
           note: r.note,
         }))
       );
@@ -204,9 +222,15 @@ export function DrawingPlanCard({
     });
   }
 
-  /** Bir satırın kod seçenekleri: kendi kodu + hiç kullanılmamışlar. */
+  /**
+   * Bir satırın kod seçenekleri: kendi kodu + hiç kullanılmamışlar.
+   *
+   * Kendi kodu havuzda OLMASA DA listeye girer (ilk satır): numaralandırma bir
+   * süre 50'şer adımlıydı ve o dönemde yazılmış bir "0150" havuzda yoktur —
+   * seçeneği hiç sunmamak, kutuyu açan mühendise kendi numarasını kaybettirirdi.
+   */
   function kodSecenekleri(row: PlanRowState): ComboOption[] {
-    return DRAWING_BANDS.flatMap((b) =>
+    const havuz = DRAWING_BANDS.flatMap((b) =>
       codesOfBand(b.band)
         .filter((c) => c === row.code || !kullanilan.has(c))
         .map((c) => ({
@@ -216,26 +240,31 @@ export function DrawingPlanCard({
           keywords: [c, b.label],
         }))
     );
-  }
-
-  function adSecenekleri(row: PlanRowState): ComboOption[] {
-    const ad = row.name.trim();
-    if (!ad || AD_ONERILERI.some((o) => o.value === ad)) return AD_ONERILERI;
-    // Listede olmayan ad KENDİ SEÇENEĞİ olarak korunur; aksi hâlde tetikleyici
-    // boş görünür ve ilk düzenlemede kullanıcının yazdığı ad silinirdi.
-    return [{ value: ad, label: ad, hint: "Elle yazıldı" }, ...AD_ONERILERI];
+    if (row.code && !havuz.some((o) => o.value === row.code)) {
+      const band = bandOfCode(row.code);
+      havuz.unshift({
+        value: row.code,
+        label: fullDrawingNo(itemNo, row.code),
+        hint: band ? DRAWING_BANDS.find((b) => b.band === band)!.label : "Bant Dışı",
+        keywords: [row.code],
+      });
+    }
+    return havuz;
   }
 
   return (
     <section className="border bg-card">
-      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b bg-muted/40 px-4 py-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/40 px-4 py-2.5">
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <ListOrdered className="size-4 text-primary" />
           Teknik Resim Takibi
           <span className="font-mono text-[11px] font-normal text-muted-foreground">
-            ({rows.length} ana grup)
+            {rows.length} Grup
           </span>
         </h3>
+        {/* İlerleme başlıktadır: kart açıldığında ilk okunan sayı "ne kadarı
+            bitti"dir, satırların tek tek durumu ondan sonra gelir. */}
+        {rows.length > 0 && <IlerlemeCubugu {...ilerleme} />}
         {canEdit && (
           <Button type="button" size="sm" onClick={kaydet} disabled={pending || !kirli}>
             <Save className="size-3.5" />
@@ -243,21 +272,6 @@ export function DrawingPlanCard({
           </Button>
         )}
       </header>
-
-      <p className="border-b px-4 py-2 text-[11px] text-muted-foreground">
-        Ana grup numaralandırması projenin başında burada verilir; ressam
-        numarayı buradan okur. Numara{" "}
-        <span className="font-mono">
-          {itemNo ? `${itemNo}-` : ""}
-          <span className="text-foreground">XXXX</span>
-        </span>{" "}
-        biçimindedir — köprü grupları {DRAWING_BANDS[0].rangeText}, araba
-        grupları {DRAWING_BANDS[1].rangeText}, ekstra gruplar (kepçe, mıknatıs…){" "}
-        {DRAWING_BANDS[2].rangeText}{" "}
-        arasında numaralanır. Aynı liste ekipman
-        listesindeki Teknik Ressam Özeti&apos;nin ve onun Excel/PDF çıktısının
-        sonunda da görünür.
-      </p>
 
       {gruplar.length === 0 && (
         <p className="px-4 py-4 text-sm text-muted-foreground">
@@ -271,7 +285,14 @@ export function DrawingPlanCard({
       <div className="divide-y">
         {gruplar.map((grup) => (
           <div key={grup.label} className="px-4 py-3">
-            <div className="mb-2 text-xs font-semibold tracking-wide text-primary uppercase">
+            <div
+              className="mb-2 text-xs font-semibold tracking-wide text-primary uppercase"
+              title={
+                grup.band
+                  ? `Numara aralığı ${DRAWING_BANDS.find((b) => b.band === grup.band)?.rangeText}`
+                  : undefined
+              }
+            >
               {grup.label}
             </div>
             <ul className="grid gap-2">
@@ -279,22 +300,22 @@ export function DrawingPlanCard({
                 const row = rows.find((r) => r.key === satir.id);
                 if (!row) return null;
                 // DAR EKRANDA ÜÇ SATIR, beş değil: numara ve ad kendi tam
-                // genişlik satırlarını alır, "çizildi · not · sil" tek satırda
+                // genişlik satırlarını alır, "durum · not · sil" tek satırda
                 // toplanır. Beşi alt alta inince tek bir grup satırı 224px
                 // tutuyordu ve altı gruplu bir listede ekran sonsuz kayıyordu.
                 return (
                   <li
                     key={row.key}
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 md:grid-cols-[10.5rem_1fr_6rem_12rem_2.5rem]"
+                    className="grid grid-cols-[1fr_auto] items-center gap-2 md:grid-cols-[10.5rem_1fr_11rem_12rem_2.5rem]"
                   >
-                    <div className="col-span-3 md:col-span-1">
+                    <div className="col-span-2 md:col-span-1">
                       {canEdit ? (
                         <Combobox
                           options={kodSecenekleri(row)}
                           value={row.code}
                           onChange={(v) => setRow(row.key, { code: v })}
                           placeholder="Numara"
-                          searchPlaceholder="Numara ara…"
+                          searchPlaceholder="Numara Ara…"
                           className="h-9 font-mono text-xs pointer-coarse:h-11"
                         />
                       ) : (
@@ -304,34 +325,57 @@ export function DrawingPlanCard({
                       )}
                     </div>
 
-                    <div className="col-span-3 md:col-span-1">
+                    <div className="col-span-2 md:col-span-1">
                       {canEdit ? (
-                        <Combobox
-                          options={adSecenekleri(row)}
-                          value={row.name.trim() || null}
+                        // Ad ALANI YAZILABİLİRDİR ve listeden de seçilir:
+                        // ekstra gruplarda (kepçe, mıknatıs, müşteriye özel
+                        // aparat) hazır listenin karşılığı çoğu zaman yoktur.
+                        <EditableCombobox
+                          options={adOnerileri(bandOfCode(row.code))}
+                          value={row.name}
                           onChange={(v) => setRow(row.key, { name: v })}
-                          onCreate={(v) => setRow(row.key, { name: v.toLocaleUpperCase("tr") })}
-                          createLabel="Yeni grup adı"
-                          placeholder="Ana grup adı"
-                          searchPlaceholder="Grup ara ya da yaz…"
-                          className="h-9 pointer-coarse:h-11"
+                          placeholder="Grup Adı"
+                          aria-label="Grup adı"
+                          uppercase
+                          inputClassName="h-9 pointer-coarse:h-11"
                         />
                       ) : (
                         <span className="text-sm font-medium">{row.name || "—"}</span>
                       )}
                     </div>
 
-                    <CizildiKutusu
-                      checked={row.drawn}
-                      disabled={!canEdit}
-                      onChange={(v) => setRow(row.key, { drawn: v })}
-                    />
+                    {canEdit ? (
+                      <Select
+                        value={row.status}
+                        onValueChange={(v) =>
+                          setRow(row.key, { status: v as DrawingPlanStatus })
+                        }
+                      >
+                        <SelectTrigger
+                          className="h-9 w-full text-xs pointer-coarse:h-11"
+                          aria-label="Çizim durumu"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DRAWING_PLAN_STATUSES.map((s) => (
+                            <SelectItem key={s.status} value={s.status}>
+                              {s.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {DRAWING_PLAN_STATUSES.find((s) => s.status === row.status)?.label}
+                      </span>
+                    )}
 
                     {canEdit ? (
                       <Input
                         value={row.note}
                         onChange={(e) => setRow(row.key, { note: e.target.value })}
-                        placeholder="Not (isteğe bağlı)"
+                        placeholder="Not"
                         className="h-9 pointer-coarse:h-11"
                       />
                     ) : (
@@ -350,8 +394,8 @@ export function DrawingPlanCard({
                         <Trash2 className="size-3.5" />
                       </Button>
                     ) : (
-                      // Salt-okunur kipte de bir hücre bırakılır: üç sütunlu
-                      // ızgarada boşluk atlanırsa not sütunu kayar.
+                      // Salt-okunur kipte de bir hücre bırakılır: ızgarada
+                      // boşluk atlanırsa not sütunu kayar.
                       <span aria-hidden />
                     )}
                   </li>
@@ -373,7 +417,7 @@ export function DrawingPlanCard({
               onClick={() => addRow(b.band)}
             >
               <Plus className="size-3.5" />
-              {b.label}
+              {b.shortLabel}
             </Button>
           ))}
         </div>

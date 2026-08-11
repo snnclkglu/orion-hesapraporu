@@ -91,7 +91,7 @@ export function UserRow({
           id={`title-${profile.id}`}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Unvan (ör. Makine Mühendisi)"
+          placeholder="Unvan"
           className="h-8 w-full pointer-coarse:h-10 xl:max-w-64"
         />
       </TableCell>

@@ -3,6 +3,16 @@
 // alınır ve hem server action hem client form buradan kullanır.
 
 import { z } from "zod";
+import { adBuyuk } from "@/lib/tr-text";
+
+/**
+ * AD ALANI — kayda BÜYÜK HARFLE girer (firma kuralı, bkz. `adBuyuk`).
+ *
+ * Dönüşüm sunucuda da yapılır, yalnız formda değil: iş emri başka bir yoldan
+ * (içe aktarma, ileride bir API) yazıldığında da aynı yazımla durmalıdır.
+ */
+const upperText = (max: number) =>
+  z.string().trim().max(max).default("").transform(adBuyuk);
 
 const dateOrNull = z
   .string()
@@ -28,14 +38,14 @@ export const jobScopeSchema = z.object({
 
 export const jobItemSchema = z.object({
   item_no: z.string().trim().max(40).default(""),
-  product_name: z.string().trim().max(300).default(""),
+  product_name: upperText(300),
   quantity: z.string().trim().max(40).default(""),
 });
 
 export const jobInputSchema = z.object({
   job_no: z.string().trim().min(1, "İş no gerekli"),
-  title: z.string().trim().min(1, "İş adı gerekli"),
-  customer: z.string().trim().min(1, "Müşteri gerekli"),
+  title: z.string().trim().min(1, "İş adı gerekli").transform(adBuyuk),
+  customer: z.string().trim().min(1, "Müşteri gerekli").transform(adBuyuk),
   /**
    * Müşteri defteri kaydı. Metin alanları (customer, customer_address…) KALIR:
    * iş emri basıldığı andaki müşteri bilgisinin fotoğrafıdır — defter sonradan
@@ -79,9 +89,9 @@ export type JobItemInput = z.infer<typeof jobItemSchema>;
  * yazmaya iterdi.
  */
 export const customerInputSchema = z.object({
-  name: z.string().trim().min(1, "Müşteri adı gerekli").max(200),
+  name: z.string().trim().min(1, "Müşteri adı gerekli").max(200).transform(adBuyuk),
   /** Liste ekranlarındaki kısaltma. Boş bırakılırsa adın ilk kelimesi kullanılır. */
-  short_name: z.string().trim().max(40).default(""),
+  short_name: upperText(40),
   address: z.string().trim().max(400).default(""),
   tax_office: z.string().trim().max(120).default(""),
   tax_no: z.string().trim().max(60).default(""),

@@ -7,10 +7,10 @@
 // zamanla ayrışırdı (İş Takibi süzgeçlerinin dersinin aynısı, AGENTS md. 17).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DrawingPlanRow } from "@/lib/drawing-plan";
+import { toDrawingStatus, type DrawingPlanRow } from "@/lib/drawing-plan";
 
 /** `project_drawing_plan` satırının okunan sütunları. */
-const PLAN_COLUMNS = "id, code, name, drawn, note";
+const PLAN_COLUMNS = "id, code, name, status, note";
 
 /**
  * Projenin ana grup numaralandırması. Tablo yoksa/erişilemezse BOŞ döner —
@@ -27,13 +27,14 @@ export async function loadDrawingPlan(
     .eq("project_id", projectId)
     .order("code", { ascending: true });
 
-  return ((data ?? []) as unknown as DrawingPlanRow[]).map((r) => ({
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
     code: String(r.code ?? ""),
     name: String(r.name ?? ""),
-    drawn: Boolean(r.drawn),
+    // Tanınmayan durum satırı DÜŞÜRMEZ, "Bekliyor"a düşer (bkz. çekirdek).
+    status: toDrawingStatus(r.status),
     note: String(r.note ?? ""),
-  }));
+  })) satisfies DrawingPlanRow[];
 }
 
 /**

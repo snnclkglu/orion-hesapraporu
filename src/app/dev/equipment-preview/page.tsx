@@ -34,10 +34,11 @@ export default function EquipmentPreviewPage() {
   const summary = buildSummarySections(V5_TEMPLATE, runCalc(V5_TEMPLATE), {
     itemNo: "0055-00",
     rows: [
-      { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
-      { id: "b", code: "0200", name: "ANA KİRİŞ", drawn: false, note: "" },
-      { id: "c", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
-      { id: "d", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+      { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
+      { id: "b", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "" },
+      { id: "c", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", note: "" },
+      { id: "d", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
+      { id: "e", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
     ],
   });
   const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(groups));

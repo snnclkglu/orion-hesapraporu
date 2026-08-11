@@ -321,27 +321,24 @@ export default async function ProjectPage({
 
             {/* DEFTER KAPANDI ama SİLİNMEDİ. Yeni kayıt yolları (Yeni Çizim ·
                 Düzenle · Sil) kalktı; yazılmış satırlar ve Drive bağlantıları
-                olduğu gibi durur. Metin SUÇLAMAZ: burada kimse yanlış bir şey
-                yapmadı, defterin işi bitti. */}
-            {/* Cümle içi bağlantıya `.oc-tap` VERİLMEZ: sınıfın 44px'lik
-                görünmez `::after` katmanı satır yüksekliğini aşıp üstteki
-                paket kartının son satırının dokunuşunu çalardı. Sınıf ayrı
-                duran denetimler içindir (AGENTS dokunmatik md. 1). */}
-            <p className="text-sm text-muted-foreground">
-              Bu defter artık yeni kayıt almıyor; aşağıdaki satırlar ve Google
-              Drive bağlantıları arşiv olarak duruyor. Doğrulanmış teknik resim
-              paketleri{" "}
-              <Link href="/drawings" className="text-primary hover:underline">
-                Teknik Resimler
-              </Link>{" "}
-              bölümündedir.
-            </p>
+                olduğu gibi durur.
 
-            {/* Satır yoksa tablo hiç çizilmez. Eski boş durum "Yeni Çizim ile
+                AÇIKLAMA CÜMLESİ KALDIRILDI (kullanıcı kararı, 11.08.2026):
+                sekmenin üç katmanı artık kendini anlatıyor ve paragraf her
+                projede aynı üç satırı tekrarlıyordu. Yerine yalnız bir BAŞLIK
+                kaldı — başlıksız bir "Çizim No / Kategori / Rev" tablosu, üstte
+                duran paket kartının devamı sanılırdı.
+
+                Satır yoksa bölüm hiç çizilmez. Eski boş durum "Yeni Çizim ile
                 başlayın" diyordu — artık var olmayan bir düğmeyi tarif eden bir
                 yönerge, boşluktan daha kötüdür. */}
             {drawingList.length > 0 && (
               <div className="overflow-hidden rounded-lg border bg-card">
+                <div className="border-b bg-muted/40 px-4 py-2.5">
+                  <span className="oc-kicker text-muted-foreground">
+                    Eski Çizim Defteri · Arşiv
+                  </span>
+                </div>
                 <Table>
                   <TableHeader>
                     {/* SÜTUN ÖNCELİKLENDİRME — "İşlem" sütunu defterle birlikte

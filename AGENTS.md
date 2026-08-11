@@ -396,17 +396,42 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     plan → doğrulanmış paketler → kapanmış eski Drive defteri.
 
     Numara `<iş kalemi no>-<grup kodu>`dur (`0055-00-0100`). Bant kuralı
-    firmanındır ve TEK yerdedir (`lib/drawing-plan.ts`): köprü 0100–1450, araba
-    1500–2950, ekstra 3000–3950. **Bant bir sütun DEĞİL koddan türeyen bir
-    sonuçtur.** Adım 50'dir — gerçek antedlerde ara numara var
-    (`0019-00-0950`). Kalem numarası deftere KOPYALANMAZ; `job_items.item_no`
-    tek kaynaktır ve `autoItemNos` onu kaydırabilir (md. 14).
+    firmanındır ve TEK yerdedir (`lib/drawing-plan.ts`): köprü 0100–1400,
+    **ANA ARABA 1500–2200, YARDIMCI ARABA 2300–2900**, ekstra 3000–3900.
+    **Bant bir sütun DEĞİL koddan türeyen bir sonuçtur.** Vinçte iki araba
+    olabilir ve ikisinin resimleri ressam için ayrı iki takımdır; aradaki
+    2201–2299 boşluğu bilinçlidir. **ADIM 100'DÜR** (kullanıcı kararı,
+    11.08.2026) — bir süre 50 idi çünkü devralınan antedlerde ara numara vardı
+    (`0019-00-0950`); firma numaralandırmayı yüzlüklere sabitledi. Ara numara
+    YASAK DEĞİLDİR: yazılmış bir "0950" kendi bandında görünmeye devam eder ve
+    seçicide kendi seçeneği olarak korunur, yalnız yeni numara olarak
+    önerilmez. Kalem numarası deftere KOPYALANMAZ; `job_items.item_no` tek
+    kaynaktır ve `autoItemNos` onu kaydırabilir (md. 14).
 
-    Ekran OTOMATİK DOLDURMAZ (karar mühendisin); öneri listesi gerçek
-    antedlerden derlendi ve KAPALI DEĞİLDİR. Grup adedi ve ağırlık SORULMAZ —
-    onlara ressam çizerken karar verir. Defter Teknik Ressam Özeti'nin sonuna
-    basılır (panel + Excel + PDF) ama `CalcInput`a GİRMEZ: snapshot'a
-    gömülseydi proje başında verilmiş karar her revizyonda donardı.
+    **DURUM BİR KUTU DEĞİL BİR ETİKETTİR ve yüzde ondan TÜRETİLİR.** İlk
+    sürümde tek bir `drawn` boolean'ı vardı; gerekçesi "ara durumlar teslim
+    edilmiş paketin durumudur" idi ve YANLIŞTI — paket teslim edilene kadar
+    `drawing_packages` hiçbir şey bilmez, o aylar boyunca "bu grup ne durumda?"
+    sorusunun tek cevabı bu defterdir. Beş değer: `bekliyor · ciziliyor ·
+    revize · kontrol · cizildi` ve her birinin bir AĞIRLIĞI var (0 · 50 · 60 ·
+    80 · 100, TAM SAYI — ondalık ağırlıklarda 0,5 + 0,8 kayan noktada dört
+    gruplu bir defterde yüzdeyi bir puan kaydırıyordu). Liste `check` kısıtıyla
+    kapalıdır: serbest metin bir sayıya çevrilemezdi. `drawn` sütunu DÜŞÜRÜLDÜ,
+    yanında bırakılmadı. **%100 yalnız her satır "Çizildi" iken çıkar** —
+    50 çizilmiş grubun yanındaki tek kontrol satırı %99,6 eder ve yuvarlama
+    bitmemiş bir işi bitmiş gösterirdi; `drawingPlanProgress` orada %99'da
+    kelepçeler.
+
+    Ekran OTOMATİK DOLDURMAZ (karar mühendisin). **Grup adı alanı SERBEST
+    METİN kutusudur** (`components/editable-combobox.tsx`), açılır liste değil:
+    ekstra gruplarda (kepçe, mıknatıs, müşteriye özel aparat) hazır listenin
+    karşılığı çoğu zaman yoktur ve `Combobox`ta listede olmayan bir ad ancak
+    arama kutusuna yazıp "+ Ekle" satırına basarak giriliyordu — iki adım, ve
+    kutunun yazılabilir olduğu ilk bakışta görünmüyordu. Öneriler satırın
+    KENDİ BANDINDAN başlar. Grup adedi ve ağırlık SORULMAZ — onlara ressam
+    çizerken karar verir. Defter Teknik Ressam Özeti'nin sonuna basılır
+    (panel + Excel + PDF) ama `CalcInput`a GİRMEZ: snapshot'a gömülseydi proje
+    başında verilmiş karar her revizyonda donardı.
 
     **Sayfa MARKA + MODEL ile bulunur; bölümün o kimliği SAKLIYOR olması
     gerekir.** Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8)
@@ -470,6 +495,15 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     ESKİ KAYITLAR DÖNÜŞTÜRÜLMEDİ (kullanıcı kararı): yayınlanmış raporların
     kodu teslim edilmiş PDF'lerle aynı kalmalıdır.
 
+    **AD ALANLARI BÜYÜK HARFLE SAKLANIR** (kullanıcı kararı, 11.08.2026):
+    proje / rapor adı, iş adı, ürün adı ve müşteri adı. Dönüşüm `adBuyuk`
+    (`lib/tr-text.ts`, `toLocaleUpperCase("tr-TR")`) ile İKİ YERDE birden
+    yapılır — kullanıcı yazarken (anında görsün) ve Zod şemasında (kayıt hangi
+    kapıdan girerse girsin öyle olsun). Tek yerde yapılsaydı aynı ad iki
+    yazımla saklanır, listede "Amonyum Sülfat" ile "AMONYUM SÜLFAT" iki ayrı
+    satır gibi sıralanır ve dosya adı (`pdf/doc-naming.ts`, zaten BÜYÜK basar)
+    ile ekran ayrışırdı. `toUpperCase()` KULLANILMAZ: "i" harfini "I" yapar.
+
     **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
     `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
     sonradan güncellenince yayınlanmış iş emri değişmez. Müşteri yalnız
@@ -527,6 +561,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     değiştiğinde geçmiş cironun avro karşılığı da değişirdi. Firma ciroyu
     AVRODA toplar; kuru girilmemiş satır toplama girmez ve sayfada ayrıca
     sayılır ki sessizce kaybolmasın.
+
+    **KUR EKSİKKEN KAYIT YAPILMAZ** (kullanıcı kararı, 11.08.2026). Sayfada
+    bir süre "Kuru Eksik" adlı bir özet kartı vardı: olmaması gereken bir
+    durumun sayacıydı. Doğrusu o durumu hiç doğurmamaktır — kart kalktı, kural
+    `sale-dialog.tsx`in kaydetme yoluna taşındı ve fiyat girilmişse hem miktar
+    hem kur zorunludur. Kontrol yalnız FİYAT GİRİLMİŞSE çalışır: kapsam ya da
+    termin yazıp fiyatı sonraya bırakmak meşru bir kullanımdır.
+
+    **YER TUTUCU BİR DEĞER DEĞİLDİR.** Miktar kutusunun yer tutucusu "1"
+    yazıyor, kutu ise boştu; toplam `?? 0` ile okunduğu için kullanıcı birim
+    fiyatı giriyor ve toplam sessizce "0 €" kalıyordu (kullanıcı bildirimi,
+    11.08.2026). Üç şey birden düzeltildi ve üçü de kuraldır: veri örneği
+    taşıyan yer tutucular uygulamadan KALDIRILDI, boş miktar artık sıfır değil
+    `null` üretiyor (kutu "—" gösterir) ve yeni satırın miktarı GERÇEK bir
+    değer olarak 1'dir (`EMPTY_SALE`).
 
     **Kapsam açılır listedir ama liste KAPALI DEĞİLDİR** (`SALE_SCOPES`,
     lib/tags.ts). Sabit seçenekler devralınan verideki gerçek kapsamlardan
@@ -911,6 +960,23 @@ tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
     ikisi birden çizilir — iç içe düzenlerde başlığı yalnız tek bir katman
     basar. Sayfanın kendi büyük başlığı `h2`dir; `h1` üst şerittedir.
 
+14. **`overflow-x` veren kap `overflow-y`yi de kaybeder.** CSS'te bir eksende
+    görünürlükten çıkan taşma diğerini `visible` bırakamaz, kendiliğinden
+    `auto` olur. Yani `.oc-scrollx` gibi yatay kayan bir şeritte TEK PİKSELLİK
+    dikey taşma gerçek bir dikey kaydırma çubuğu doğurur — Windows'ta ok
+    düğmeleriyle birlikte, ve kullanıcı onu bir arıza olarak bildirir (proje
+    sekme rayı, 11.08.2026).
+
+    İki kaynağı vardı ve ikisi de kuraldır: (a) aynı şeritteki öğeler dikey
+    ölçüyü TEK bir sabitten almalıdır (`min-h-9` taşıyan bir bağlantı ile
+    dolgudan boy alan bir sekme aynı satırda duramaz), (b) alt çizgiyi `-mb-px`
+    ile ezmek yerine `border-b`yi İÇ GÖLGEYE çevirin
+    (`shadow-[inset_0_-1px_0_var(--border)]`) — gölge dolgu kutusunun içine
+    boyandığı için aktif sekmenin çizgisi negatif kenar boşluğu olmadan onun
+    üstüne oturur. `overflow-y-hidden` bir çözüm değil emniyet kemeridir:
+    taşmayı kırpar, sebebini gidermez ve `.oc-tap` gibi kutu dışına taşan
+    dokunma katmanlarını da keser.
+
 ## Yeni bir hesap eklerken
 
 1. **Standardın maddesini bul** ve `docs/standards/` altındaki inceleme
@@ -977,6 +1043,16 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`
 - `src/lib/use-stored-flag.ts` — tarayıcıda kalıcı aç/kapa tercihi
   (`useSyncExternalStore`; ilk boyamada doğru genişlik, hidrasyon uyumlu)
+- `src/app/(app)/projects/projects-table.tsx` — Mühendislik listesi: hızlı
+  süzgeçler (yıl · müşteri · durum) + proje adı araması. **Arşivli proje AYRI
+  BİR EKRANDA DEĞİLDİR**: aynı listede kalır, "Arşiv" rozetiyle görünür ve
+  Durum süzgeciyle ayrılır — arşivlemek bir silme değil bir işarettir. Yıl
+  varsayılanı "Tümü"dür (İşler'in aksine, orada bu yıl): iki yıl önceki bir
+  vincin raporuna revizyon açmak sıradan bir iştir ve süzgeç onu gizlerse
+  kullanıcı raporu silinmiş sanır
+- `src/components/editable-combobox.tsx` — hem yazılan hem seçilen alan
+  (serbest metin + öneri listesi); `combobox.tsx` ile KARIŞTIRILMAZ, orada
+  değer yalnız listeden seçilir
 - `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür)
 - `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·

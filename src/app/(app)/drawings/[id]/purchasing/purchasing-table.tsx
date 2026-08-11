@@ -442,7 +442,7 @@ export function PurchasingTable({
         <SearchBox
           value={f.query}
           onChange={(v) => setF((s) => ({ ...s, query: v }))}
-          placeholder="Tanım, kod, malzeme ara…"
+          placeholder="Tanım, Kod, Malzeme Ara…"
           className="w-[min(20rem,calc(100vw-4rem))]"
         />
         <Suzgec
@@ -1055,7 +1055,7 @@ function DetailDialog({
                 onValueChange={(v) => setTeslimGunu(haftaSonrasi(Number(v)))}
               >
                 <SelectTrigger size="sm" className="w-auto min-w-[9rem] text-base pointer-fine:text-sm">
-                  <SelectValue placeholder="Hazır süreler…" />
+                  <SelectValue placeholder="Termin" />
                 </SelectTrigger>
                 <SelectContent>
                   {HAZIR_HAFTALAR.map((h) => (
@@ -1100,7 +1100,7 @@ function DetailDialog({
               value={not}
               onChange={(e) => setNot(e.target.value)}
               maxLength={500}
-              placeholder="Örn. tedarikçi, sipariş no"
+              placeholder="Not"
               className="mt-1 h-10 w-full text-base pointer-fine:text-sm"
             />
           </div>
@@ -1155,7 +1155,7 @@ function NewCategoryDialog({
           value={ad}
           onChange={(e) => setAd(e.target.value)}
           maxLength={60}
-          placeholder="Örn. Hidrolik"
+          placeholder="Kategori"
           className="h-10 w-full text-base pointer-fine:text-sm"
           aria-label="Kategori adı"
           onKeyDown={(e) => {

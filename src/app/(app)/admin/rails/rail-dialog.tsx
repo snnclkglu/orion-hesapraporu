@@ -82,7 +82,6 @@ export function RailDialog({ item }: { item?: RailRow }) {
               <Input
                 id="rail-code" value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="A75 veya 50x50"
                 required disabled={isEdit}
               />
             </div>
@@ -100,7 +99,6 @@ export function RailDialog({ item }: { item?: RailRow }) {
               <Input
                 id="rail-radius" type="number" step="any" min="0"
                 value={radius} onChange={(e) => setRadius(e.target.value)}
-                placeholder="kare rayda boş"
               />
             </div>
             <div className="grid gap-2">

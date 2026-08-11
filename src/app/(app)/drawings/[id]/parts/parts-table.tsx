@@ -112,7 +112,7 @@ export function PartsTable({
         <SearchBox
           value={f.query}
           onChange={(v) => setF((s) => ({ ...s, query: v }))}
-          placeholder="Kod, tanım, malzeme ara…"
+          placeholder="Kod, Tanım, Malzeme Ara…"
           className="w-[min(20rem,calc(100vw-4rem))]"
         />
 

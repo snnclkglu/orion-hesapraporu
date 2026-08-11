@@ -12,7 +12,7 @@ import { runCalc } from "../src/lib/calc/engine";
 import {
   buildCatalogSheetUrls, buildEquipmentGroups, buildEquipmentWorkbook, buildSummarySections,
   mergeExtras,
-  type EquipmentExtraRow, type EquipmentNotes,
+  type EquipmentDrawingPlan, type EquipmentExtraRow, type EquipmentNotes,
 } from "../src/lib/excel/equipment";
 import { orderAttachmentsForAppendix } from "../src/lib/equipment-attachments";
 import { collectCatalogSheetPages } from "../src/lib/pdf/catalog-sheet-images";
@@ -68,15 +68,18 @@ const NOTES: EquipmentNotes = {
  * antedlerinden. Üç bandın da temsil edilmesi bilinçli: köprü, araba ve
  * ekstra grupların özette AYRI başlıklar altında çıkması sınanıyor.
  */
-const DRAWING_PLAN = {
+// DÖRT BANT: köprü · ana araba · yardımcı araba · ekstra. Vinçte iki araba
+// olabilir ve ikisi ayrı numara takımıdır (`lib/drawing-plan.ts`).
+const DRAWING_PLAN: EquipmentDrawingPlan = {
   itemNo: "0055-01",
   rows: [
-    { id: "1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
-    { id: "2", code: "0200", name: "ANAKİRİŞ", drawn: false, note: "" },
-    { id: "3", code: "0300", name: "BAŞKİRİŞ", drawn: false, note: "" },
-    { id: "4", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
-    { id: "5", code: "1600", name: "ARABA YÜRÜTME GRUBU", drawn: false, note: "" },
-    { id: "6", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+    { id: "1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
+    { id: "2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "" },
+    { id: "3", code: "0300", name: "BAŞKİRİŞ", status: "bekliyor", note: "" },
+    { id: "4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", note: "" },
+    { id: "5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", note: "" },
+    { id: "6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
+    { id: "7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
   ],
 };
 
@@ -329,7 +332,7 @@ async function main() {
   // köprü ve araba grupları alt alta, kalem numarası kökü ile birlikte.
   const summary = buildSummarySections(V5_TEMPLATE, calcResult, DRAWING_PLAN);
   const planBolumleri = summary.filter((s) => s.name.startsWith("Teknik Resim No"));
-  if (planBolumleri.length !== 3) {
+  if (planBolumleri.length !== 4) {
     console.error(
       `HATA: teknik resim numaralandırması özete girmedi (${planBolumleri.length} bölüm).`
     );

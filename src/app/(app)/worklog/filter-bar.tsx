@@ -177,7 +177,7 @@ export function FilterBar({
           <SelectValue placeholder="Müşteri" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
+          <SelectItem value={ALL}>Tüm Müşteriler</SelectItem>
           {options.customers.map(([name, meta]) => (
             <SelectItem key={name} value={name}>
               <CustomerTag name={name} shortName={meta.short} hue={meta.hue} />
@@ -188,10 +188,10 @@ export function FilterBar({
 
       <Select value={filters.item} onValueChange={(v) => set({ item: v })}>
         <SelectTrigger size="sm" className="w-full sm:w-[145px]">
-          <SelectValue placeholder="İş kalemi" />
+          <SelectValue placeholder="İş Kalemi" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm kalemler</SelectItem>
+          <SelectItem value={ALL}>Tüm Kalemler</SelectItem>
           {options.items.map(([no, product]) => (
             <SelectItem key={no} value={no}>
               <span className="font-mono text-xs">{no}</span>
@@ -208,7 +208,7 @@ export function FilterBar({
           <SelectValue placeholder="Parça" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm parçalar</SelectItem>
+          <SelectItem value={ALL}>Tüm Parçalar</SelectItem>
           {options.parts.map((p) => (
             <SelectItem key={p} value={p}>
               {p}
@@ -219,10 +219,10 @@ export function FilterBar({
 
       <Select value={filters.category} onValueChange={(v) => set({ category: v })}>
         <SelectTrigger size="sm" className="w-full sm:w-[140px]">
-          <SelectValue placeholder="İmalat türü" />
+          <SelectValue placeholder="İmalat Türü" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tüm türler</SelectItem>
+          <SelectItem value={ALL}>Tüm Türler</SelectItem>
           {options.categories.map(([name, hue]) => (
             <SelectItem key={name} value={name}>
               <span className="flex items-center gap-1.5">
@@ -237,7 +237,7 @@ export function FilterBar({
       <Input
         value={filters.query}
         onChange={(e) => set({ query: e.target.value })}
-        placeholder="Kalem, ürün, parça veya not ara…"
+        placeholder="Kalem, Ürün, Parça veya Not Ara…"
         className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[160px]"
       />
 

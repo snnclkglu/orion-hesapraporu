@@ -62,12 +62,20 @@ export interface SaleRow {
   eurAmount: number | null;
 }
 
-/** Boş ticari kayıt — henüz fiyat girilmemiş kalem için. */
+/**
+ * Boş ticari kayıt — henüz fiyat girilmemiş kalem için.
+ *
+ * MİKTAR 1'DİR, boş değil. Pencere bir süre miktarı boş açıp kutuya yer tutucu
+ * olarak "1" yazıyordu; kullanıcı birim fiyatı giriyor ve toplam "0 €"
+ * kalıyordu (kullanıcı bildirimi, 11.08.2026). Yer tutucu bir DEĞER DEĞİLDİR.
+ * Vinç kalemlerinin ezici çoğunluğu tek adettir ve birim zaten "Adet"tir;
+ * doğru olan varsayılanı gerçek bir değer olarak koymaktır.
+ */
 export const EMPTY_SALE: SaleInput = {
   scope: "",
   due_date: null,
   shipment_date: null,
-  quantity: null,
+  quantity: 1,
   unit: "Adet",
   unit_weight_kg: null,
   unit_price: null,

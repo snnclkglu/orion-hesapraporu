@@ -56,7 +56,7 @@ export function ProjectSignatoryCard({
       {/* Sabit 240px: etiketle birlikte ~310px tutuyor, 360px telefonda kartın
           iç genişliği (296px) yetmiyor ve kutu kartı taşırıyordu. */}
       <SelectTrigger id={id} size="sm" className="w-full min-w-0 sm:w-[15rem]">
-        <SelectValue placeholder="Kişi seçin" />
+        <SelectValue placeholder="Kişi Seçin" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE}>Seçilmedi</SelectItem>

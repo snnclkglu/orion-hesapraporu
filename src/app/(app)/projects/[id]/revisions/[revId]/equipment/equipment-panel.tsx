@@ -126,7 +126,7 @@ function NoteCell({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => void kaydet(value)}
-        placeholder="Ek özellik yaz…"
+        placeholder="Ek Özellik"
         aria-label="Ek özellikler"
         // Ham `<textarea>` de dokunmatik payını korumalıdır (sözleşme §3):
         // iOS Safari 16px altındaki alana odaklanınca sayfayı kendiliğinden
@@ -602,10 +602,10 @@ export function EquipmentPanel({
                       <Input className="h-8 pointer-coarse:h-10" placeholder="Marka" value={r.brand} onChange={(e) => setRow(i, { brand: e.target.value })} />
                     </ExtraField>
                     <ExtraField label="Model / Özellik">
-                      <Input className="h-8 pointer-coarse:h-10" placeholder="Model / özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="Model / Özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
                     </ExtraField>
                     <ExtraField label="Adet">
-                      <Input className="h-8 pointer-coarse:h-10" placeholder="1" value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
+                      <Input className="h-8 pointer-coarse:h-10" value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
                     </ExtraField>
                     <Button
                       type="button"

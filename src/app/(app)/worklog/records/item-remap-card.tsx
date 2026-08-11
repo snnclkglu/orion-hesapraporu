@@ -129,7 +129,7 @@ export function ItemRemapCard({ rows, jobs }: { rows: WorkLogRow[]; jobs: WorkJo
               options={options}
               value={target[u.itemNo] ?? null}
               onChange={(v) => setTarget((t) => ({ ...t, [u.itemNo]: v }))}
-              placeholder="Hedef iş kalemi seçin"
+              placeholder="Hedef İş Kalemi Seçin"
               searchPlaceholder="Kalem no, ürün veya müşteri…"
               className="h-8 pointer-coarse:h-10"
               contentClassName="min-w-[min(24rem,calc(100vw-1.5rem))]"

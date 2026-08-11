@@ -14,6 +14,17 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { DRAWING_PLAN_STATUSES } from "@/lib/drawing-plan";
+
+/**
+ * Durum listesi ÇEKİRDEKTEN okunur, burada tekrar yazılmaz: yüzde ağırlıkları
+ * ile kabul edilen değerler aynı listeden çıkmalıdır, aksi hâlde ekranda
+ * seçilebilen bir durum sunucuda reddedilirdi.
+ */
+const STATUS_VALUES = DRAWING_PLAN_STATUSES.map((s) => s.status) as [
+  string,
+  ...string[],
+];
 
 const rowSchema = z.object({
   /** Var olan satırın kimliği; yeni satırda boş gelir. */
@@ -23,7 +34,7 @@ const rowSchema = z.object({
     .trim()
     .regex(/^[0-9]{4}$/, "Grup kodu dört rakam olmalı (ör. 0100)"),
   name: z.string().trim().max(120).default(""),
-  drawn: z.boolean().default(false),
+  status: z.enum(STATUS_VALUES).default("bekliyor"),
   note: z.string().trim().max(300).default(""),
 });
 
@@ -114,7 +125,7 @@ export async function saveDrawingPlan(
     project_id: projectId,
     code: r.code,
     name: r.name,
-    drawn: r.drawn,
+    status: r.status,
     note: r.note,
     updated_at: simdi,
     updated_by: user.id,

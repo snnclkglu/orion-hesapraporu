@@ -31,6 +31,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 
 /** Formun kullandığı kullanıcı kaydı (iş lideri / hazırlayan listeleri). */
@@ -144,11 +145,14 @@ function QtyStepper({ value, onChange }: { value: string; onChange: (v: string) 
       <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-r-none pointer-coarse:size-10" onClick={() => step(-1)}>
         <Minus className="size-3.5" />
       </Button>
+      {/* YER TUTUCU YOK (kullanıcı kararı, 11.08.2026): grileşmiş bir "1"
+          girilmiş bir değer sanılıyordu. Aynı yanılgı Satış Takibi'nde toplam
+          fiyatın 0 çıkmasına yol açtı — orada yer tutucu "1" derken kutu
+          gerçekte boştu. */}
       <Input
         className="h-8 w-full rounded-none border-x-0 text-center pointer-coarse:h-10"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="1"
       />
       <Button type="button" size="icon" variant="outline" className="size-8 shrink-0 rounded-l-none pointer-coarse:size-10" onClick={() => step(1)}>
         <Plus className="size-3.5" />
@@ -289,7 +293,6 @@ export function JobForm({
     () => autoItemNos(form.job_no, form.items.length),
     [form.job_no, form.items.length]
   );
-  const derivedQty = useMemo(() => autoQuantityText(form.items), [form.items]);
 
   // Türetilen değerleri GİRDİYE yazar: motor, PDF ve liste aynı sayıyı görür.
   // Efekt yalnız gerçekten farklıysa yazar, aksi hâlde döngüye girerdi.
@@ -352,7 +355,6 @@ export function JobForm({
               id="job_no"
               value={form.job_no}
               onChange={(e) => set("job_no", e.target.value)}
-              placeholder="0075"
               className="font-mono"
               title="Yalnız iş numarası — kalem numaraları buradan türer"
               required
@@ -364,7 +366,10 @@ export function JobForm({
           </div>
           <div className="grid gap-1.5 sm:col-span-2">
             <Label htmlFor="title">İşin Adı</Label>
-            <Input id="title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Muhtelif Vinçler" required />
+            {/* AD ALANLARI BÜYÜK HARFE ÇEVRİLİR (firma kuralı, `adBuyuk`);
+                şema da aynı dönüşümü uygular, yani kayıt her yoldan aynı
+                yazımla girer. */}
+            <Input id="title" value={form.title} onChange={(e) => set("title", adBuyuk(e.target.value))} required />
           </div>
         </div>
       </Section>
@@ -417,11 +422,10 @@ export function JobForm({
                     onChange={(e) => setItem(i, { item_no: e.target.value })}
                     readOnly={autoNos}
                     title={autoNos ? "Otomatik — değiştirmek için anahtarı kapatın" : undefined}
-                    placeholder={derivedNos[i]}
                   />
                 </ItemField>
                 <ItemField label="Ürün Adı">
-                  <Input className="h-8 pointer-coarse:h-10" value={it.product_name} onChange={(e) => setItem(i, { product_name: e.target.value })} placeholder="1 t x 19 m Tek Kirişli Köprülü Vinç" />
+                  <Input className="h-8 pointer-coarse:h-10" value={it.product_name} onChange={(e) => setItem(i, { product_name: adBuyuk(e.target.value) })} />
                 </ItemField>
                 {/* Silme düğmesi "+" adımının 8px yanındaydı; ızgara aralığı
                     12px'e, düğme dokunmatikte 40px'e çıkar. */}
@@ -466,14 +470,14 @@ export function JobForm({
               value={form.customer}
               readOnly
               className="bg-muted text-muted-foreground"
-              placeholder="Listeden müşteri seçin"
+              placeholder="Listeden Müşteri Seçin"
               title="Müşteri adı defterden gelir — değiştirmek için listeden başka bir müşteri seçin"
               required
             />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="customer_address">Adresi</Label>
-            <Input id="customer_address" value={form.customer_address} onChange={(e) => set("customer_address", e.target.value)} placeholder="ASO 2. ve 3. OSB, Sincan/Ankara" />
+            <Input id="customer_address" value={form.customer_address} onChange={(e) => set("customer_address", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="customer_tax_office">Vergi Dairesi</Label>
@@ -485,18 +489,18 @@ export function JobForm({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="customer_phone">Telefon</Label>
-            <Input id="customer_phone" value={form.customer_phone} onChange={(e) => set("customer_phone", e.target.value)} placeholder="+90 312 267 01 56" />
+            <Input id="customer_phone" value={form.customer_phone} onChange={(e) => set("customer_phone", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="customer_fax">Faks</Label>
             <Input id="customer_fax" value={form.customer_fax} onChange={(e) => set("customer_fax", e.target.value)} />
           </div>
         </div>
-        {/* Çok satırlı açıklama 11px'te telefonda okunmuyordu. */}
-        <p className="mt-2 text-xs text-muted-foreground">
-          Bu alanlar iş emrinin BASILDIĞI ANDAKİ bilgilerdir; listeden seçtikten
-          sonra da düzenlenebilir ve defteri değiştirmez.
-        </p>
+        {/* AÇIKLAMA KALDIRILDI (kullanıcı kararı, 11.08.2026). Kuralın kendisi
+            geçerliliğini koruyor — bu alanlar iş emrinin basıldığı andaki
+            fotoğrafıdır ve düzenlenmeleri müşteri defterini değiştirmez
+            (AGENTS md. 14) — ama her iş emri açılışında okunan iki satırlık bir
+            hatırlatma olmaktan çıktı; yeri belgenin kendisi değil AGENTS'tir. */}
       </Section>
 
       {/* İş Bilgileri + Kapsam */}
@@ -520,7 +524,7 @@ export function JobForm({
                 altına kaydırıyordu — hedef korunur, yerleşim korunur. */}
             <div className="-my-2 flex items-center justify-between gap-2">
               <Label htmlFor="quantity_text">Adet</Label>
-              <AutoToggle checked={autoQty} onChange={setAutoQty} label="oto" />
+              <AutoToggle checked={autoQty} onChange={setAutoQty} label="Otomatik" />
             </div>
             <Input
               id="quantity_text"
@@ -528,7 +532,6 @@ export function JobForm({
               onChange={(e) => set("quantity_text", e.target.value)}
               readOnly={autoQty}
               className={cn(autoQty && "bg-muted text-muted-foreground")}
-              placeholder={derivedQty || "Muhtelif"}
               title={autoQty ? "Kalem adetlerinin toplamı — değiştirmek için anahtarı kapatın" : undefined}
             />
           </div>
@@ -537,14 +540,13 @@ export function JobForm({
             <PersonSelect
               people={people}
               value={form.job_leader}
-              placeholder="İş lideri seçin"
+              placeholder="İş Lideri Seçin"
               onPick={(p) => set("job_leader", p ? p.full_name : "")}
             />
             {!people.some((p) => p.full_name === form.job_leader) && (
               <Input
                 value={form.job_leader}
                 onChange={(e) => set("job_leader", e.target.value)}
-                placeholder="Akif Ergüven"
               />
             )}
           </div>
@@ -588,7 +590,7 @@ export function JobForm({
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="notes">Açıklamalar</Label>
-            <Textarea id="notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="SAT-SAS No: 410034613&#10;Sözleşme No: 2026-30" />
+            <Textarea id="notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
@@ -596,7 +598,7 @@ export function JobForm({
               <PersonSelect
                 people={people}
                 value={form.prepared_by_name}
-                placeholder="Hazırlayan seçin"
+                placeholder="Hazırlayan Seçin"
                 onPick={(p) =>
                   setForm((f) => ({
                     ...f,
@@ -610,7 +612,6 @@ export function JobForm({
                 <Input
                   value={form.prepared_by_name}
                   onChange={(e) => set("prepared_by_name", e.target.value)}
-                  placeholder="Salih Ergüven"
                 />
               )}
             </div>
@@ -618,7 +619,7 @@ export function JobForm({
               {/* Negatif dikey boşluk — "Adet" alanındakiyle aynı gerekçe. */}
               <div className="-my-2 flex items-center justify-between gap-2">
                 <Label htmlFor="prepared_by_title">Unvanı</Label>
-                <AutoToggle checked={autoTitle} onChange={setAutoTitle} label="profilden" />
+                <AutoToggle checked={autoTitle} onChange={setAutoTitle} label="Otomatik" />
               </div>
               <Input
                 id="prepared_by_title"
@@ -626,7 +627,6 @@ export function JobForm({
                 onChange={(e) => set("prepared_by_title", e.target.value)}
                 readOnly={autoTitle}
                 className={cn(autoTitle && "bg-muted text-muted-foreground")}
-                placeholder="Genel Müdür"
                 title={autoTitle ? "Seçilen kullanıcının profilinden — değiştirmek için anahtarı kapatın" : undefined}
               />
             </div>

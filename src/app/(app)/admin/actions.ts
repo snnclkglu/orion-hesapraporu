@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
+import { adBuyuk } from "@/lib/tr-text";
 import type { ReportSettings } from "@/lib/settings";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
@@ -113,8 +114,11 @@ export async function updateUserProfile(
  * okunmayan bir renk seçebilirdi.
  */
 const customerAdminSchema = z.object({
-  name: z.string().trim().min(1, "Müşteri adı gerekli").max(200),
-  short_name: z.string().trim().max(40),
+  // Müşteri adı ve kısaltması BÜYÜK HARFLE saklanır (firma kuralı, `adBuyuk`):
+  // defteri düzenleyen yönetici de kuralın dışında değildir, yoksa aynı ad
+  // iş emrinde büyük, defterde karışık kiple dururdu.
+  name: z.string().trim().min(1, "Müşteri adı gerekli").max(200).transform(adBuyuk),
+  short_name: z.string().trim().max(40).transform(adBuyuk),
   color_hue: z.number().int().min(0).max(359),
   address: z.string().trim().max(400),
   tax_office: z.string().trim().max(120),

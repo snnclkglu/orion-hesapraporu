@@ -223,7 +223,7 @@ function AsamaPenceresi({
                 id={`ad-${alanOn}`}
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="Sevk edildi"
+                placeholder="Aşama Adı"
                 required
                 maxLength={60}
               />
@@ -291,7 +291,7 @@ function AsamaPenceresi({
               onChange={(e) => set("note", e.target.value)}
               rows={2}
               maxLength={500}
-              placeholder="Bu aşama tam olarak neyi anlatıyor? (atölyenin kendi tanımı)"
+              placeholder="Aşama Açıklaması"
             />
           </div>
 

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 // Saf yardımcı — kod önizlemesi ile basılan belge AYNI fonksiyondan çıkar.
 import { docCode } from "@/lib/pdf/doc-naming";
+import { adBuyuk } from "@/lib/tr-text";
 
 export interface ProjectSummary {
   id: string;
@@ -118,7 +119,8 @@ export function DuplicateProjectDialog({
     setJobId(id);
     setItemId(NO_ITEM);
     const job = jobOptions.find((j) => j.id === id);
-    if (job) setCustomer(job.customer);
+    // Ön-doldurulan ad da BÜYÜK HARF kuralından geçer (bkz. `adBuyuk`).
+    if (job) setCustomer(adBuyuk(job.customer));
   }
 
   function onPickItem(id: string) {
@@ -126,7 +128,7 @@ export function DuplicateProjectDialog({
     const item = items.find((it) => it.id === id);
     if (item) {
       if (item.item_no) setDocNo(item.item_no);
-      if (item.product_name) setName(item.product_name);
+      if (item.product_name) setName(adBuyuk(item.product_name));
     }
   }
 
@@ -203,7 +205,6 @@ export function DuplicateProjectDialog({
               id="dup_doc_no"
               value={docNo}
               onChange={(e) => setDocNo(e.target.value)}
-              placeholder="0055-02"
               required
             />
             <p className="text-[11px] text-muted-foreground">
@@ -216,7 +217,7 @@ export function DuplicateProjectDialog({
             <Input
               id="dup_name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(adBuyuk(e.target.value))}
               required
             />
           </div>
@@ -225,7 +226,7 @@ export function DuplicateProjectDialog({
             <Input
               id="dup_customer"
               value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
+              onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
             />
           </div>
@@ -288,7 +289,7 @@ export function EditProjectDetailsDialog({
             <Input
               id="project_name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(adBuyuk(e.target.value))}
               required
             />
           </div>
@@ -297,7 +298,7 @@ export function EditProjectDetailsDialog({
             <Input
               id="project_customer"
               value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
+              onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
             />
           </div>

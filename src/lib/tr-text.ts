@@ -55,6 +55,23 @@ export function trBuyuk(text: string): string {
   return text.toLocaleUpperCase("tr-TR");
 }
 
+/**
+ * AD ALANLARININ NORMALLEŞTİRİCİSİ — proje adı, iş adı, ürün adı, müşteri adı.
+ *
+ * Firma kuralı (kullanıcı kararı, 11.08.2026): bu adlar hem ekranda hem
+ * kayıtta BÜYÜK HARFLE durur. Kural yalnız arayüzde uygulansaydı aynı ad iki
+ * yazımla saklanır, listede "Amonyum Sülfat" ile "AMONYUM SÜLFAT" iki ayrı
+ * satır gibi sıralanır ve dosya adı (`pdf/doc-naming.ts`, zaten BÜYÜK basar)
+ * ile ekran ayrışırdı. Bu yüzden dönüşüm İKİ YERDE birden yapılır: kullanıcı
+ * yazarken (anında görsün) ve Zod şemasında (kaydın kendisi öyle olsun).
+ *
+ * `toUpperCase()` KULLANILMAZ — "i" harfini "I" yapar, "İSDEMİR" "ISDEMIR"
+ * olurdu.
+ */
+export function adBuyuk(text: string | null | undefined): string {
+  return trBuyuk(text ?? "");
+}
+
 /** Türkçe küçük harf — "I" → "ı", "İ" → "i". */
 export function trKucuk(text: string): string {
   return text.toLocaleLowerCase("tr-TR");

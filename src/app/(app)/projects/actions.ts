@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { adBuyuk } from "@/lib/tr-text";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
 import {
   EQUIPMENT_ATTACHMENT_BUCKET,
@@ -96,10 +97,21 @@ async function copyEquipmentAttachments(
   }
 }
 
+/**
+ * Proje ve müşteri adı KAYDA BÜYÜK HARFLE girer (firma kuralı, `adBuyuk`).
+ *
+ * Dönüşüm formda da yapılır (kullanıcı yazarken görsün) ama asıl yeri burasıdır:
+ * kopyalama ve düzenleme yolları da aynı şemadan geçer, yani ad hangi kapıdan
+ * girerse girsin tek bir yazımla saklanır. Rapor DOSYA ADI zaten büyük harf
+ * basıyordu (`pdf/doc-naming.ts`); kural olmadan ekran ile dosya ayrışıyordu.
+ */
+const adAlani = (mesaj: string) =>
+  z.string().trim().min(1, mesaj).transform(adBuyuk);
+
 const projectSchema = z.object({
   doc_no: z.string().trim().min(1, "Doküman no gerekli"),
-  name: z.string().trim().min(1, "Proje adı gerekli"),
-  customer: z.string().trim().min(1, "Müşteri gerekli"),
+  name: adAlani("Proje adı gerekli"),
+  customer: adAlani("Müşteri gerekli"),
   crane_type: z.string().trim().min(1),
   // İş emri bağlantısı: Mühendislik bölümünde iş seçilirse dolu gelir;
   // bağımsız raporlarda null kalır (sonradan "İşe Bağla" ile bağlanabilir).
@@ -157,8 +169,8 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
 // ----------------------------------------------------- Proje bilgisi düzenleme
 
 const projectDetailsSchema = z.object({
-  name: z.string().trim().min(1, "Proje / iş adı gerekli"),
-  customer: z.string().trim().min(1, "Müşteri gerekli"),
+  name: adAlani("Proje / iş adı gerekli"),
+  customer: adAlani("Müşteri gerekli"),
 });
 
 export type ProjectDetailsInput = z.infer<typeof projectDetailsSchema>;
@@ -285,8 +297,8 @@ export async function updateProjectSignatories(
 
 const duplicateSchema = z.object({
   doc_no: z.string().trim().min(1, "Doküman no gerekli"),
-  name: z.string().trim().min(1, "Rapor adı gerekli"),
-  customer: z.string().trim().min(1, "Müşteri gerekli"),
+  name: adAlani("Rapor adı gerekli"),
+  customer: adAlani("Müşteri gerekli"),
   /** Hedef iş emri; boş bırakılırsa kopya bağımsız kalır. */
   job_id: z.uuid("Geçersiz iş seçimi").nullable(),
   /** Hedef işin kalemi; seçilirse kalem yeni rapora yönlendirilir. */

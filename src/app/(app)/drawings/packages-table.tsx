@@ -120,7 +120,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
         <SearchBox
           value={f.query}
           onChange={(v) => setF((s) => ({ ...s, query: v }))}
-          placeholder="Kalem no, paket adı, grup ara…"
+          placeholder="Kalem No, Paket Adı, Grup Ara…"
           className="w-[min(22rem,calc(100vw-4rem))]"
         />
         <Select value={f.status} onValueChange={(v) => setF((s) => ({ ...s, status: v }))}>
@@ -128,7 +128,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
             <SelectValue placeholder="Durum" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Durum: tümü</SelectItem>
+            <SelectItem value={ALL}>Durum: Tümü</SelectItem>
             {PACKAGE_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
                 {PACKAGE_STATUS_LABELS[s]}
@@ -141,7 +141,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
             <SelectValue placeholder="Eşleşme" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Eşleşme: tümü</SelectItem>
+            <SelectItem value={ALL}>Eşleşme: Tümü</SelectItem>
             <SelectItem value="eslesmis">İş kalemine bağlı</SelectItem>
             <SelectItem value="eslesmemis">Eşleşmemiş</SelectItem>
           </SelectContent>

@@ -143,7 +143,7 @@ export function RecordDialog({
               options={jobOptions}
               value={itemNo || null}
               onChange={setItemNo}
-              placeholder="İş kalemi"
+              placeholder="İş Kalemi"
               searchPlaceholder="Kalem no, ürün veya müşteri…"
               contentClassName="min-w-[min(24rem,calc(100vw-1.5rem))]"
             />
@@ -156,7 +156,7 @@ export function RecordDialog({
               value={partId || null}
               onChange={setPartId}
               placeholder="Parça"
-              searchPlaceholder="Parça ara…"
+              searchPlaceholder="Parça Ara…"
             />
           </div>
 
@@ -164,7 +164,7 @@ export function RecordDialog({
             <Label>İmalat Türü</Label>
             <Select value={categoryId || undefined} onValueChange={setCategoryId}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="İmalat türü" />
+                <SelectValue placeholder="İmalat Türü" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -185,8 +185,7 @@ export function RecordDialog({
               id="wl-code"
               value={partCode}
               onChange={(e) => setPartCode(e.target.value)}
-              placeholder="0200"
-              className="font-mono"
+                            className="font-mono"
             />
           </div>
 
@@ -227,7 +226,7 @@ export function RecordDialog({
               id="wl-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="İsteğe bağlı"
+              placeholder="Not"
             />
           </div>
         </div>

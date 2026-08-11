@@ -1685,7 +1685,7 @@ export function RevisionEditor({
                 value={sectionNote}
                 disabled={readOnly}
                 onChange={(event) => updateSectionNote(event.target.value)}
-                placeholder="Bu hesap alt bölümü için not yazın…"
+                placeholder="Not"
                 rows={3}
               />
             </section>
@@ -2295,7 +2295,7 @@ export function RevisionEditor({
             <Input
               value={navQuery}
               onChange={(e) => setNavQuery(e.target.value)}
-              placeholder="ARA · bölüm adı"
+              placeholder="ARA · Bölüm Adı"
               // `text-sm` YAZILMAZ: taban `text-base pointer-fine:text-sm`tir ve
               // elle ezmek iOS Safari'nin odakta OTOMATİK YAKINLAŞTIRMASINI geri
               // getiriyordu (AGENTS md. 2) — uygulamadaki tek ihlal buydu.

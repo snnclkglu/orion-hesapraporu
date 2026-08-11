@@ -13,7 +13,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ChevronDown, ChevronUp, ChevronsUpDown, CircleAlert, Coins, Package, Scale, X,
+  ChevronDown, ChevronUp, ChevronsUpDown, Coins, Package, Scale, X,
 } from "lucide-react";
 import { SaleDialog } from "./sale-dialog";
 import { saleYear, type SaleRow } from "./schema";
@@ -71,23 +71,25 @@ const SORT_VALUE: Record<SortKey, (r: SaleRow) => string | number> = {
   totalWeightKg: (r) => r.totalWeightKg ?? -1,
 };
 
+/**
+ * Özet kartı.
+ *
+ * `tone="warn"` VARYANTI KALKTI: tek kullanıcısı "Kuru Eksik" kartıydı ve o
+ * kart, olmaması gereken bir durumun sayacıydı (kullanıcı kararı, 11.08.2026).
+ * Kur artık kayıt anında zorunludur (`sale-dialog.tsx`), yani sayılacak bir
+ * eksik kalmıyor.
+ */
 function StatCard({
-  label, value, hint, icon: Icon, tone,
+  label, value, hint, icon: Icon,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone?: "warn";
 }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
-      <span
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-md",
-          tone === "warn" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-        )}
-      >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
         <Icon className="size-4" />
       </span>
       <div className="min-w-0 leading-tight">
@@ -220,14 +222,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
     let eur = 0;
     let weight = 0;
     let priced = 0;
-    let missingFx = 0;
     const byCustomer = new Map<
       string,
       { eur: number; count: number; short: string | null; hue: number | null }
     >();
     for (const r of filtered) {
       if (r.sale.unit_price !== null) priced += 1;
-      if (r.sale.unit_price !== null && r.eurAmount === null) missingFx += 1;
       weight += r.totalWeightKg ?? 0;
       if (r.eurAmount !== null) {
         eur += r.eurAmount;
@@ -242,7 +242,6 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
       eur,
       weight,
       priced,
-      missingFx,
       byCustomer: [...byCustomer.entries()].sort((a, b) => b[1].eur - a[1].eur),
     };
   }, [filtered]);
@@ -262,11 +261,13 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
 
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ÜÇ KART, dört değil: "Kuru Eksik" kaldırıldı (madde 22). Dördüncü bir
+          kutuyu doldurmak için ölçü uydurulmadı — sayılacak yeni bir şey yok. */}
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
           label="Ciro (Avro)"
           value={fmtCompactEur(summary.eur)}
-          hint={`${summary.byCustomer.length} müşteri`}
+          hint={`${summary.byCustomer.length} Müşteri`}
           icon={Coins}
         />
         <StatCard
@@ -274,23 +275,16 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           value={`${summary.priced} / ${filtered.length}`}
           hint={
             filtered.length - summary.priced > 0
-              ? `${filtered.length - summary.priced} kalemin fiyatı girilmedi`
-              : "tamamı fiyatlandı"
+              ? `${filtered.length - summary.priced} Kalemin Fiyatı Girilmedi`
+              : "Tamamı Fiyatlandı"
           }
           icon={Package}
         />
         <StatCard
           label="Toplam Ağırlık"
           value={`${fmtNum(Math.round(summary.weight))} kg`}
-          hint="süzgeçten geçen kalemler"
+          hint="Süzgeçten Geçen Kalemler"
           icon={Scale}
-        />
-        <StatCard
-          label="Kuru Eksik"
-          value={String(summary.missingFx)}
-          hint={summary.missingFx > 0 ? "ciroya girmiyor — kur girin" : "tüm satırlar ciroda"}
-          icon={CircleAlert}
-          tone={summary.missingFx > 0 ? "warn" : undefined}
         />
       </div>
 
@@ -304,7 +298,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             <SelectValue placeholder="Yıl" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tüm yıllar</SelectItem>
+            <SelectItem value={ALL}>Tüm Yıllar</SelectItem>
             {years.map((y) => (
               <SelectItem key={y} value={y}>{y}</SelectItem>
             ))}
@@ -316,7 +310,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             <SelectValue placeholder="Müşteri" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tüm müşteriler</SelectItem>
+            <SelectItem value={ALL}>Tüm Müşteriler</SelectItem>
             {customers.map((c) => (
               <SelectItem key={c.name} value={c.name}>
                 <CustomerTag name={c.name} shortName={c.short} hue={c.hue} />
@@ -330,7 +324,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             <SelectValue placeholder="Kapsam" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tüm kapsamlar</SelectItem>
+            <SelectItem value={ALL}>Tüm Kapsamlar</SelectItem>
             {scopes.map((sc) => (
               <SelectItem key={sc} value={sc}>
                 <ScopeTag scope={sc} />
@@ -341,10 +335,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
 
         <Select value={currency} onValueChange={setCurrency}>
           <SelectTrigger size="sm" className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Para birimi" />
+            <SelectValue placeholder="Para Birimi" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tüm para birimleri</SelectItem>
+            <SelectItem value={ALL}>Tüm Para Birimleri</SelectItem>
             {CURRENCIES.map((c) => (
               <SelectItem key={c} value={c}>{CURRENCY_LABELS[c]}</SelectItem>
             ))}
@@ -356,16 +350,16 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
             <SelectValue placeholder="Fiyat" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Fiyat farketmez</SelectItem>
-            <SelectItem value={PRICED}>Fiyatı girilmiş</SelectItem>
-            <SelectItem value={UNPRICED}>Fiyatı girilmemiş</SelectItem>
+            <SelectItem value={ALL}>Fiyat Farketmez</SelectItem>
+            <SelectItem value={PRICED}>Fiyatı Girilmiş</SelectItem>
+            <SelectItem value={UNPRICED}>Fiyatı Girilmemiş</SelectItem>
           </SelectContent>
         </Select>
 
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Kalem no, ürün, müşteri veya kapsam ara…"
+          placeholder="Kalem No, Ürün, Müşteri veya Kapsam Ara…"
           className="col-span-2 h-8 w-full flex-1 pointer-coarse:h-10 sm:col-span-1 sm:w-auto sm:min-w-[200px]"
         />
 
@@ -475,7 +469,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   </TableCell>
                   <TableCell className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
                     {r.sale.unit_price === null ? (
-                      <span className="text-muted-foreground/60">fiyat yok</span>
+                      <span className="text-muted-foreground/60">Fiyat Yok</span>
                     ) : (
                       <>
                         {fmtNum(r.totalPrice)}{" "}
@@ -492,7 +486,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       r.sale.unit_price === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
-                        <span className="text-destructive">kur yok</span>
+                        <span className="text-destructive">Kur Yok</span>
                       )
                     ) : (
                       `${fmtNum(r.eurAmount)} €`

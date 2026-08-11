@@ -93,7 +93,7 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
               PDF rapor sayfalarının altbilgisinde firma iletişim bilgileri olarak gösterilir.
             </p>
             <Input
-              id="st-address" placeholder="Adres (ör. OSTİM OSB, Ankara)"
+              id="st-address" placeholder="Adres"
               value={form.address ?? ""} onChange={(e) => set("address", e.target.value)}
             />
             {/* Üç sütun 360px'lik telefonda alan başına ~85px bırakıyordu —
