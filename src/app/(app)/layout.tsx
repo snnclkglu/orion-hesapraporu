@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/app-shell";
+import { tagsOf } from "@/lib/roles";
 
 export default async function AppLayout({
   children,
@@ -11,11 +12,23 @@ export default async function AppLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  // ETİKET SÜTUNU İKİ DENEMEDE OKUNUR (satın alma sayfasındaki `due_at`
+  // kalıbının aynısı): `tags` migration'ı uygulanmadan önce onu isteyen bir
+  // `select` BÜTÜN sorguyu düşürür ve kullanıcı adsız/rolsüz bir kabukla
+  // karşılaşırdı. Bir sütunun eksikliği yüzünden uygulamayı kaybetmek,
+  // eksikliğin kendisinden çok daha pahalıdır.
+  let { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role")
+    .select("full_name, role, tags")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+  if (!profile) {
+    ({ data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", user.id)
+      .maybeSingle());
+  }
 
   return (
     <>
@@ -28,6 +41,7 @@ export default async function AppLayout({
       </a>
       <AppShell
         role={profile?.role ?? "engineer"}
+        tags={tagsOf((profile as { tags?: string[] } | null)?.tags)}
         displayName={profile?.full_name || user.email || "Kullanıcı"}
         email={user.email ?? ""}
       >

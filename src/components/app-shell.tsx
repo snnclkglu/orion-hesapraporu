@@ -24,40 +24,27 @@ import { useStoredFlag } from "@/lib/use-stored-flag";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
-import { canSeeSales, canSeeWorkLog, isAdminRole, roleLabel } from "@/lib/roles";
+import { WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 
 interface AppShellProps {
   role: string;
+  /** Görev etiketleri (`satinalma` · `planlama` · `uretim`) — rolün YANINDA. */
+  tags: readonly string[];
   displayName: string;
   email: string;
   children: React.ReactNode;
 }
 
 /**
- * Menü yetkiye göre süzülür. `visible` bir ROL LİSTESİ değil bir SORUDUR
- * (`isAdminRole` / `canSeeSales`): yetkinin tanımı `lib/roles.ts`te tek yerde
- * durur, menü ile RLS aynı kaynağı okur.
+ * MENÜNÜN KAYNAĞI ARTIK BURADA DEĞİL — `lib/roles.ts`teki `WORKSPACE_SECTIONS`.
  *
- * Menüden gizlemek yalnız görgü kuralıdır — Satış Takibi'ni asıl kapatan
- * `job_item_sales` üzerindeki RLS'tir.
+ * Liste bir süre bu dosyada yaşadı; Yönetim'e "hangi bölüm kime açık" ekranı
+ * eklenince (md. 4) İKİNCİ bir liste yazma ihtiyacı doğdu ve iki listenin
+ * ayrışması yetki ekranında olabilecek en kötü hatadır: matris, menünün
+ * gerçekte yaptığından başka bir şey anlatırdı. `visible` yine bir ROL LİSTESİ
+ * değil bir SORUDUR; menüden gizlemek yalnız görgü kuralıdır, asıl engel RLS.
  */
-const NAV_ITEMS: {
-  href: string;
-  label: string;
-  icon: BrandIconName;
-  visible?: (role: string) => boolean;
-}[] = [
-  { href: "/jobs", label: "İşler", icon: "bolt" },
-  { href: "/projects", label: "Mühendislik", icon: "panel" },
-  // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
-  // atölyenin ortak gerçeğidir, dört rol de görür. Yazma yetkisi
-  // `canEditDrawings` ile ekranın içinde sorulur.
-  { href: "/drawings", label: "Teknik Resimler", icon: "blueprint" },
-  { href: "/worklog", label: "İş Takibi", icon: "timesheet", visible: canSeeWorkLog },
-  { href: "/sales", label: "Satış Takibi", icon: "ledger", visible: canSeeSales },
-  { href: "/admin", label: "Yönetim", icon: "gauge", visible: isAdminRole },
-];
 
 const COLLAPSE_KEY = "orion.sidebar.collapsed";
 
@@ -73,15 +60,22 @@ const SIDEBAR_W_EXPANDED = "15rem";
 /** Hiç değişmeyen depo — yalnız "hidrasyon bitti mi" sorusu için. */
 const subscribeNever = () => () => {};
 
+/**
+ * Dar ekrandaki bölüm adı — aynı deftere sorulur.
+ *
+ * Elle yazılmış bir `if` zinciriydi; yeni bölüm eklendiğinde güncellenmesi
+ * unutulduğunda telefonda başlıksız kalırdı. En UZUN eşleşen adres kazanır:
+ * `/purchasing` ile `/purchasing/teslimat` aynı bölümdür ama iki bölümün
+ * adresi birbirinin öneki olursa (bugün olmuyor, yarın olabilir) daha
+ * belirgin olanı seçilmelidir.
+ */
 function sectionLabel(pathname: string | null): string {
   if (!pathname) return "";
-  if (pathname.startsWith("/admin")) return "Yönetim";
-  if (pathname.startsWith("/jobs")) return "İşler";
-  if (pathname.startsWith("/projects")) return "Mühendislik";
-  if (pathname.startsWith("/drawings")) return "Teknik Resimler";
-  if (pathname.startsWith("/sales")) return "Satış Takibi";
-  if (pathname.startsWith("/worklog")) return "İş Takibi";
-  return "";
+  let en = "";
+  for (const s of WORKSPACE_SECTIONS) {
+    if (pathname.startsWith(s.href) && s.href.length > en.length) en = s.href;
+  }
+  return WORKSPACE_SECTIONS.find((s) => s.href === en)?.label ?? "";
 }
 
 function initials(name: string): string {
@@ -95,6 +89,7 @@ function initials(name: string): string {
 
 function SidebarContent({
   role,
+  tags,
   displayName,
   email,
   pathname,
@@ -103,6 +98,7 @@ function SidebarContent({
   onToggleCollapse,
 }: {
   role: string;
+  tags: readonly string[];
   displayName: string;
   email: string;
   pathname: string | null;
@@ -150,14 +146,16 @@ function SidebarContent({
           </div>
         )}
         <ul className="grid gap-0.5">
-          {NAV_ITEMS.filter((item) => !item.visible || item.visible(role)).map((item) => {
+          {visibleSections({ role, tags }).map((item) => {
             const active = pathname?.startsWith(item.href);
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   onClick={onNavigate}
-                  title={collapsed ? item.label : undefined}
+                  // Dar kipte etiket yok, ipucu bölümün ADIDIR; geniş kipte
+                  // etiket zaten okunuyor, ipucu ne işe yaradığını söyler.
+                  title={collapsed ? item.label : item.hint}
                   className={cn(
                     // Kırmızı sol çentik: omurga motifinin menüdeki devamı;
                     // pasifte şeffaf tutulur ki aktifleşince metin kaymasın.
@@ -174,7 +172,7 @@ function SidebarContent({
                   )}
                 >
                   <BrandIcon
-                    name={item.icon}
+                    name={item.icon as BrandIconName}
                     className={cn("shrink-0", collapsed ? "size-6" : "size-4")}
                   />
                   {!collapsed && item.label}
@@ -239,7 +237,7 @@ function SidebarContent({
   );
 }
 
-export function AppShell({ role, displayName, email, children }: AppShellProps) {
+export function AppShell({ role, tags, displayName, email, children }: AppShellProps) {
   const pathname = usePathname();
 
   // Revizyon ekranı: hesap raporu editörü ve onun alt sayfaları (ekipman
@@ -391,9 +389,13 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // Teknik Resimler'in DÖRT sayfası da geniştir: paket listesi çok sütunlu,
   // parça defteri daha da geniş, montaj ağacı derin girintili, rapor uzun
   // metinli. Dar kip hiçbirine yaramaz.
+  // Satın Alma'nın DÖRT sayfası da geniştir: talep havuzu on sütunlu, teslim ve
+  // ödeme takvimleri ay ay yan yana açılır, fiyat arşivi geçmiş satırları
+  // tarih tarih sıralar. Dar kip hiçbirine yaramaz.
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||
+    /^\/purchasing(\/|$)/.test(pathname ?? "") ||
     /^\/drawings(\/|$)/.test(pathname ?? "");
   const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
@@ -425,6 +427,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
       >
         <SidebarContent
           role={role}
+          tags={tags}
           displayName={displayName}
           email={email}
           pathname={pathname}
@@ -470,6 +473,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
             </button>
             <SidebarContent
               role={role}
+              tags={tags}
               displayName={displayName}
               email={email}
               pathname={pathname}

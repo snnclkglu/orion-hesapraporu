@@ -93,6 +93,18 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <path d="M13 9 L10.5 9 M13 9 L12.1 8.2 M13 9 L12.1 9.8" />
     </>
   ),
+  // Satın alma: DIŞARIDAN İÇERİ gelen malzeme — açık tepeli tekne + inen ok.
+  // Alışveriş arabası bilinçli olarak kullanılmadı (bu bir perakende motifi ve
+  // marka dili endüstriyel); kapalı dikdörtgen de kullanılmadı, çünkü setteki
+  // dört ikon (cabin · panel · blueprint · timesheet) zaten dikdörtgenle
+  // başlıyor ve dar rayda etiketsiz durduklarında ayırt edilemezlerdi.
+  cart: (
+    <>
+      <path d="M4 13 L4 19 L20 19 L20 13" />
+      <line x1="12" y1="3.5" x2="12" y2="14" />
+      <path d="M8.5 10.5 L12 14 L15.5 10.5" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -136,6 +148,7 @@ export type BrandIconName =
   | "ledger"
   | "timesheet"
   | "blueprint"
+  | "cart"
   | "menu"
   | "close"
   | "sidebarCollapse"

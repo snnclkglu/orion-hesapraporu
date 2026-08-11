@@ -89,3 +89,98 @@ describe("roleOf", () => {
     expect(roleLabel("engineer")).toBe("Mühendis");
   });
 });
+
+// ═══════════════════════════════════════════ GÖREV ETİKETLERİ (11.08.2026)
+//
+// Etiket rolün YERİNE geçmez, YANINA gelir. Aşağıdaki testler o sözü
+// dondurur: bir etiket eklemek hiçbir mevcut yetkiyi DEĞİŞTİRMEMELİDİR.
+
+describe("görev etiketleri", () => {
+  const { USER_TAGS, canSeePurchasing, canEditPurchasing, hasTag, tagsOf } = rolesModule;
+
+  it("etiket YALNIZ KAPI AÇAR, hiçbirini kapatmaz", () => {
+    const rolsuz = { role: "engineer", tags: [] as string[] };
+    const etiketli = { role: "engineer", tags: ["satinalma"] };
+    // Etiketten önce ve sonra DİĞER yetkiler aynı kalır.
+    for (const y of [rolsuz, etiketli]) {
+      expect(canEditReports(y.role)).toBe(true);
+      expect(canSeeSales(y.role)).toBe(false);
+      expect(isAdminRole(y.role)).toBe(false);
+    }
+    // Değişen tek şey satın almadır.
+    expect(canSeePurchasing(rolsuz)).toBe(false);
+    expect(canSeePurchasing(etiketli)).toBe(true);
+  });
+
+  it("Satın Alma: Yönetici + «satinalma» + «planlama» — MÜDÜR DEĞİL", () => {
+    // Kullanıcı kararı: "Yönetici Admin Satın Alma ve Planlama bölümlerine
+    // açık olsun." Müdür listede YOKTUR ve bu bir gözden kaçma değildir.
+    expect(canSeePurchasing({ role: "admin", tags: [] })).toBe(true);
+    expect(canSeePurchasing({ role: "manager", tags: [] })).toBe(false);
+    expect(canSeePurchasing({ role: "engineer", tags: ["satinalma"] })).toBe(true);
+    expect(canSeePurchasing({ role: "manager", tags: ["planlama"] })).toBe(true);
+    expect(canSeePurchasing({ role: "draftsman", tags: ["uretim"] })).toBe(false);
+  });
+
+  it("yazma bugün görmeyle aynı kümedir ama AYRI bir sorudur", () => {
+    for (const y of [
+      { role: "admin", tags: [] },
+      { role: "engineer", tags: ["satinalma"] },
+      { role: "draftsman", tags: [] },
+    ]) {
+      expect(canEditPurchasing(y)).toBe(canSeePurchasing(y));
+    }
+  });
+
+  it("tagsOf bilinmeyeni düşürür ve SIRAYI sabitler", () => {
+    expect(tagsOf(["uretim", "satinalma", "yok"])).toEqual(["satinalma", "uretim"]);
+    expect(tagsOf(null)).toEqual([]);
+    expect(tagsOf(undefined)).toEqual([]);
+  });
+
+  it("etiket kümesi dondurulmuştur", () => {
+    expect([...USER_TAGS]).toEqual(["satinalma", "planlama", "uretim"]);
+  });
+
+  it("hasTag boş listede yetki vermez", () => {
+    expect(hasTag({ role: "admin", tags: [] }, "satinalma")).toBe(false);
+  });
+});
+
+describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
+  const { WORKSPACE_SECTIONS, visibleSections } = rolesModule;
+
+  it("her bölümün insan okunur bir yetki özeti vardır", () => {
+    // Matris `kime` alanını basar; boş bırakılan bir bölüm ekranda "—" olur
+    // ve kullanıcı yetkiyi hiç öğrenemez.
+    for (const s of WORKSPACE_SECTIONS) {
+      expect(s.kime.trim(), `${s.href} için 'kime' boş`).not.toBe("");
+      expect(s.hint.trim(), `${s.href} için 'hint' boş`).not.toBe("");
+    }
+  });
+
+  it("Yönetici bütün bölümleri görür", () => {
+    expect(visibleSections({ role: "admin", tags: [] })).toHaveLength(
+      WORKSPACE_SECTIONS.length
+    );
+  });
+
+  it("Teknik Ressam satış, iş takibi, satın alma ve yönetimi GÖRMEZ", () => {
+    const gorunen = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
+    expect(gorunen).toContain("/drawings");
+    expect(gorunen).toContain("/jobs");
+    expect(gorunen).not.toContain("/sales");
+    expect(gorunen).not.toContain("/worklog");
+    expect(gorunen).not.toContain("/purchasing");
+    expect(gorunen).not.toContain("/admin");
+  });
+
+  it("«satinalma» etiketi YALNIZ Satın Alma'yı ekler", () => {
+    const once = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
+    const sonra = visibleSections({ role: "draftsman", tags: ["satinalma"] }).map((s) => s.href);
+    expect(sonra).toEqual([...once, "/purchasing"].sort((a, b) =>
+      WORKSPACE_SECTIONS.findIndex((s) => s.href === a) -
+      WORKSPACE_SECTIONS.findIndex((s) => s.href === b)
+    ));
+  });
+});

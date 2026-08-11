@@ -10,9 +10,11 @@ Vinç işlerinin tek yerden takibi: iş emri → ürün → mühendislik → ima
 Uygulama bir HESAP RAPORU aracı olarak başladı ve adı bir süre onu taşıdı; bugün
 hesap raporu bölümlerden BİRİDİR. Kapsam: iş emirleri (`/jobs`), hesap raporu
 projeleri ve revizyon arşivi (`/projects`), **teknik resim paketleri**
-(`/drawings` — ressamın klasörü olduğu gibi girer, md. 18), ekipman listeleri,
-üretici katalogları (`/katalog`), atölye çalışma saatleri (`/worklog`) ve satış
-takibi (`/sales`). Çok kullanıcılı, dört rollü.
+(`/drawings` — ressamın klasörü olduğu gibi girer, md. 18), **satın alma**
+(`/purchasing` — çok projeli talep havuzu, teklif, sipariş, teslim ve ödeme
+takvimi, fiyat arşivi; md. 21), ekipman listeleri, üretici katalogları
+(`/katalog`), atölye çalışma saatleri (`/worklog`) ve satış takibi (`/sales`).
+Çok kullanıcılı: **dört rol + üç görev etiketi** (md. 15).
 
 Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
 `APP_TITLE`, `APP_TAGLINE`) — kabuk, giriş sayfası ve sekme başlığı oradan okur.
@@ -55,6 +57,10 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   (sayfa dengesi görsel kontrolü)
 - `npx tsx scripts/test-work-log-excel.ts` — İş Takibi Excel çıktısını üret
   (sayfa yapısı, süzgeç, dondurulmuş başlık — duman testi)
+- `npx tsx scripts/test-job-list.ts` — Güncel İş Listesi PDF'ini GERÇEK liste
+  (88 kalem) ve BEŞ KATIYLA (440 kalem) üret; ikincisi büyüme sınamasıdır —
+  başlık satırı her sayfada tekrar ediyor mu, yıl bandı sayfa dibinde yalnız
+  kalıyor mu, satır ikiye bölünüyor mu
 - `npx tsx scripts/test-safety-brake-diagram.tsx` — emniyet freni şemasını altı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
@@ -63,6 +69,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri
   ve üç türev çalışma kitabını gerçekten üret ve geri oku
+- `npx tsx scripts/test-normalize.ts` — tanım normalizasyonunu iki GERÇEK teslim
+  klasörünün tamamına uygula; hangi kuralın kaç kez çalıştığını, hangi ham
+  yazımların tek anahtarda BİRLEŞTİĞİNİ ve ana grup adlarını bas. Sözlüğe kural
+  eklemeden önce koştur: yanlış birleşme (iki farklı ürünün tek kaleme düşmesi)
+  "BİRLEŞENLER" listesinde görünür
+- `npx tsx scripts/test-purchasing-pool.ts` — talep havuzunu CANLI veritabanı
+  satırlarıyla kur ve bas (çarpan, çok projeli birleşme, ana grup adı). Salt
+  okunur; `.env.admin`deki Management API jetonunu ister
 - `npx tsx scripts/test-drawings-purchasing.ts` — satın alma talebi Excel'ini
   ve PDF'ini üret (süzgeçli/seçili liste çıktısının duman testi)
 - `/dev/drawings-preview` — Teknik Resimler ekranlarının AUTH'SUZ görsel
@@ -463,6 +477,85 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     MD 20.1 böyle haritalanır ve yalnız YATAY montaj bölümleri (böl. 4 ve 6)
     alınır — defter model başına tek sayfa seti tutar.
 
+21. **SATIN ALMA PAKETİN ÜSTÜNDE BİR KATMANDIR** (`/purchasing`, kullanıcı
+    kararı 12.08.2026). `/drawings/[id]/purchasing` bir PAKETİN satın alma
+    yüzüdür ve öyle kalır; bu modül ise satınalmacının gerçekte yaptığı işi
+    modeller: *"projeleri tek tek ele almıyor, birden fazla projenin siparişini
+    bir arada biriktirip veriyor."*
+
+    **ANAHTAR PAKET DEĞİL TANIMDIR.** Havuz, teklif, sipariş ve fiyat arşivi
+    `normAnahtar(tanım)` ile anahtarlanır — `drawing_purchase_overrides` ile
+    BİREBİR aynı dilbilgisi. İki ayrı anahtar şeması, kategori düzeltmesi ile
+    fiyat geçmişini birbirinden habersiz bırakırdı. `package_id`/`item_no`
+    satırda durur ama BAĞ DEĞİL BAĞLAMdır (`on delete set null`): paket silinse
+    de "bu rulman şu tarihte şu fiyata alındı" bilgisi yaşamalıdır.
+
+    **ADETLER İŞ KALEMİ ADEDİYLE ÇARPILIR** (`drawingCarpani`). Ressam BİR
+    ürün için çizer; iş emrinde üç adet varsa üç katı alınır. `job_items.qty`
+    SAYISALdır ve `quantity` METNİNDEN AYRIDIR: metin iş emri PDF'ine olduğu
+    gibi basılır ("1 Takım", "Muhtelif") ve bir sayıya indirgenemez — ölçüldü,
+    74 kalemin 21'i boş, ikisi "Muhtelif", biri "90x2 180 m". `qty` NULL
+    YAPILABİLİR ve `null` "BİLİNMİYOR" demektir; 1 varsayılmaz çünkü sessiz bir
+    varsayım, üç adetlik bir işi bir adet sipariş ettirmenin en kolay yoludur.
+    Ekran belirsizliği AÇIKÇA yazar. İki kalem tek resim takımı paylaşıyorsa
+    (`shares_drawings_with`) çarpan ikisinin TOPLAMIdır; zincir ve döngü
+    `guard_item_share` tetikleyicisiyle kesilir. Bağ `updateJob`ın sil-yaz
+    yolunda `item_no` METNİ üzerinden korunur (proje bağlantısıyla aynı kalıp).
+
+    **TANIM NORMALLEŞTİRİLİR — UYDURULMAZ** (`lib/drawings/normalize.ts`).
+    Kullanıcının talimatı nettir: *"uydurma bir veri girmeyeceğiz, sadece olan
+    hataları düzeltip standart bir formata çevirmiş olacağız."* Bu yüzden
+    GALVANİZ yazmayan cıvataya galvaniz, DIN'i olmayan kamaya DIN 6885
+    EKLENMEZ. Sözlükteki her kural iki gerçek teslim klasörünün 317 ham tanımına
+    ya da satın alma ekibinin 178 satırlık İŞ HAZIRLAMA LİSTESİ dosyasına
+    dayanır; kanıtsız kural girmez — yanlış birleştirme (iki farklı ürünün tek
+    kaleme düşmesi), ayrı kalmaktan çok daha pahalıdır. Kullanıcının açık örneği
+    kuralın özetidir: **"RULMAN EKSENEL 51106" değil "RULMAN 51106"**; sonek
+    (`-Z`, `-ZZ`) ise kimliğin PARÇASIDIR ve düşürülmez. Fonksiyon
+    DEĞİŞMEZDİR (`f(f(x)) === f(x)`) ve bu bir testle korunur — değilse
+    saklanmış bir tanım her okumada bir kez daha değişir ve fiyat arşivi kendi
+    kendine bölünür. Tanımlar BÜYÜK HARFLE saklanır (`adBuyuk` kuralı, md. 14).
+
+    **ANA GRUP ADI İKİ KAYNAKTAN, ÜÇÜNCÜSÜ YOK.** (a) grubun KENDİ defter
+    satırı varsa tanımı ad olur (ürün ağacı; otoriter), (b) yoksa alt
+    parçaların montaj başlığı OYBİRLİĞİYLE aynıysa o kullanılır. Başlıklar
+    çelişiyorsa AD ÜRETİLMEZ: MTC'de 17 grubun 9'unda DEPO'nun `Title` sütunu
+    ürün ağacıyla çelişiyor ve yanlış bir grup adı, adsız bir gruptan çok daha
+    pahalıdır. **"Son iki hane 00" kuralı YANLIŞTIR** — MTC'de 17 grubun 7'si
+    00 ile bitmiyor (`0043-00-0801` ARABA ŞASİ); doğru kural son bloğu
+    KIRPMAKTIR, gerekirse birden çok kez. Satın alma satırlarının ÇOĞUNUN KODU
+    YOKTUR (MONORAY 50/55, MTC 86/90), o yüzden havuzda grup adı çoğunlukla
+    parçanın `assembly_title` alanından gelir.
+
+    **ÖDEME GÜNÜ TESLİMDEN SAYILIR, SİPARİŞ TARİHİNDEN DEĞİL** (kullanıcı
+    kararı): `coalesce(received_at, due_at) + payment_term_days`. Kural İKİ
+    yerde yaşar — `lib/purchasing/terms.ts` (ekran + Excel) ve
+    `purchase_order_totals` görünümü (SQL) — ve ikisinin ayrışmasını
+    `terms.test.ts` migration dosyasını OKUYARAK engeller. Avans ise SİPARİŞ
+    GÜNÜNDE çıkar; peşinatın tanımı budur. Ödeme biçimi ile vade GÜNÜ ayrı
+    sütunlardır: "Peşin"/"Kredi Kartı" bir biçim, "30 gün" bir vadedir ve tek
+    alanda tutulsalardı ödeme günü hesaplanamazdı ("kredi kartı kaç gün eder?").
+
+    **PARA HER YERDE AVRODA GÖRÜNÜR** (md. 16 ile aynı sözleşme): `fx_rate`
+    = 1 avro kaç birim eder, avro satırında 1'dir, karşılık TÜRETİLİR ve kur
+    SATIRIN KENDİNDEDİR. Kuru olmayan fiyat `null` üretir — SIFIR DEĞİL: sıfır
+    "bedava" derdi ve en ucuz teklif olarak kazanırdı. Kur eksikken KAYIT
+    YAPILMAZ (Zod şemasında, ekranda bir uyarı olarak değil).
+
+    **SİPARİŞ VERMEK İKİ ŞEY YAZAR:** ticari kayıt (`purchase_orders` +
+    `_lines`) ve paket ekranındaki `satinalindi` İŞARETİ. İkincisi olmasaydı
+    satınalmacı havuzdan sipariş verir, paketin Satın Alma sekmesi hâlâ
+    "bekliyor" gösterirdi — atölye o ekrana bakıyor. Ters yön geçerli DEĞİLDİR:
+    paket ekranından işaretlemek bir sipariş kaydı ÜRETMEZ (orası hızlı bir
+    işaret, burası ticari kayıt). RLS bu yüzden aşama düzeyinde ayrılır:
+    satınalmacı yalnız `satinalindi`/`teslim_alindi` yazabilir, "kesildi"
+    yazamaz — atölye de "satın alındı" işaretleyemez (md. 18'in kuralı).
+
+    **VERİTABANI SÜTUNU OLMAYABİLİR VARSAYIMI HER OKUMADA GEÇERLİDİR.**
+    `tags`, `qty`, `shares_drawings_with`, `due_at` — hepsi ZENGİN sorgu +
+    DAR yedek kalıbıyla okunur. Bir sütunun eksikliği yüzünden BÜTÜN sayfayı
+    kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -543,6 +636,27 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     `lib/__tests__/roles.test.ts`te dondurulmuştur: bir yetkiyi genişleten,
     hangi rollerin etkilendiğini orada görür.
 
+    **GÖREV ETİKETİ ROLÜN YANINA GELİR** (`profiles.tags`, kullanıcı kararı
+    12.08.2026): `satinalma` · `planlama` · `uretim`. Beşinci bir rol
+    AÇILMADI ve bu bilinçlidir — rol TEK DEĞERLİdir ve kişinin uygulamadaki
+    ana kimliğini taşır; satınalmacıyı "Satın Alma" rolüne almak onun mühendis
+    mi müdür mü olduğunu SİLERDİ. Üretim Planlama Sorumlusu hem Müdür'dür
+    (satış takibini görür) hem Planlama işini yapar (satın almayı görür) ve tek
+    değerli bir alanda bu ifade edilemez. Etiket YALNIZ KAPI AÇAR, kapatmaz:
+    etiketi olmayan kimse bugünkü hiçbir yetkisini kaybetmez ve bu bir testle
+    dondurulmuştur. Küme `check (tags <@ array[...])` ile KAPALIDIR — serbest
+    metin bir etiket, bir sabah yetki sorusunun görmediği bir değere dönüşür.
+    Veritabanı karşılığı `has_tag()` ve `can_see_purchasing()`.
+
+    **MENÜ İLE YETKİ MATRİSİ TEK KAYNAKTAN OKUR** — `WORKSPACE_SECTIONS`
+    (`lib/roles.ts`). Liste bir süre `app-shell.tsx`in içindeydi; Yönetim'e
+    "hangi bölüm kime açık" ekranı eklenince (`/admin/access`) ikinci bir liste
+    yazma ihtiyacı doğdu ve iki listenin ayrışması bir yetki ekranında
+    olabilecek EN KÖTÜ hatadır: matris, menünün gerçekte yaptığından başka bir
+    şey anlatırdı. Matriste elle yazılmış tek bir yetki bilgisi yoktur —
+    her hücre `visible()` sorusunun cevabıdır, menünün çağırdığı fonksiyonun
+    aynısı. `kime` alanı yalnız o sorunun İNSAN OKUNUR özetidir.
+
 16. **Satış Takibi İŞ KALEMİNE bağlanır ve AYRI TABLODADIR.**
     `job_item_sales` (kapsam, termin/sevk, miktar, ağırlık, birim fiyat, para
     birimi, kur) yalnız Yönetici ve Müdür'e açıktır. Alanlar `job_items`
@@ -583,6 +697,25 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     korur ve "Diğer" ile serbest metin yazılabilir. Aksi hâlde eski satırlardaki
     ayrıntılı kapsam metinleri ilk kaydetmede sessizce silinirdi. Her kapsam
     kendi pastel tonunu taşır (sık kullanılanlar sabit, diğerleri metinden).
+
+    **GÜNCEL İŞ LİSTESİ aynı satırlardan çıkar ama FİYATSIZDIR** (`sales/
+    is-listesi` ucu + `lib/pdf/job-list.tsx`). Teklif isteyen müşteri "başka
+    neler yaptınız" diye sorar; belge o sorunun cevabıdır ve teklif ekinde
+    rakip firmalara da ulaşabilir. Fiyatsızlık bir "unutmayalım" notu değil
+    TİP SEVİYESİNDE bir engeldir: `JobListRow` birim fiyat, tutar, para birimi
+    ve kur alanı TAŞIMAZ; koruma testi üretilen PDF'in METNİNİ de tarar
+    (`__tests__/job-list.test.tsx` — ham bayt değil, `unpdf` ile çözülmüş
+    metin; sıkıştırılmış akışlar rastgele "$" üretiyordu).
+
+    Sorgu ve eşleme `sales/data.ts`tedir: EKRAN İLE BELGE AYNI YERDEN OKUR.
+    İki sorgu yazılsaydı müşteriye giden liste ile ekrandaki tablo sessizce
+    ayrışırdı (İş Takibi'nde bir kez yaşandı, bkz. `worklog/filters.ts`).
+    Belge A4 YATAYdır, yıllara gruplanır ve müşteri kırılımıyla kapanır;
+    sıra ekranın tersinedir (0001-00 → …), çünkü ekran bir çalışma listesi,
+    belge ise kronolojik bir özgeçmiştir. Müşteri sütununda defterdeki
+    KISALTMA görünür — resmî unvan yatay A4'te bile üç satıra sarıyordu.
+    Belgenin sürümü YOKTUR, DÖNEMİ vardır (`ORC-IL-2026-08`): iş listesi bir
+    projenin revizyonu değil firmanın o ayki fotoğrafıdır.
 
 17. **İş Takibi bir GÜN × KALEM × PARÇA × TÜR çizelgesidir.** `work_logs` bir
     satırda tarih, iş kalemi, parça, imalat türü, KİŞİ SAYISI ve saat tutar;
@@ -1037,7 +1170,14 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
-- `src/lib/roles.ts` — kullanıcı rolleri ve yetki soruları (`canSeeSales` vb.)
+- `src/lib/roles.ts` — kullanıcı rolleri, GÖREV ETİKETLERİ ve yetki soruları
+  (`canSeeSales` · `canSeePurchasing` vb.) + `WORKSPACE_SECTIONS`: sol menünün
+  ve `/admin/access` yetki matrisinin TEK kaynağı
+- `src/lib/purchasing/` — Satın Alma ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
+  `demand.ts` (talep havuzu + `drawingCarpani` resim çarpanı) ·
+  `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro)
+- `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
+  tanımı (saf, değişmez); ayrıca ana grup kodu ve grup adı çıkarımı
 - `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
 - `src/lib/tags.ts` + `src/components/tags.tsx` — pastel etiket dili (müşteri
   kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`
@@ -1053,7 +1193,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/components/editable-combobox.tsx` — hem yazılan hem seçilen alan
   (serbest metin + öneri listesi); `combobox.tsx` ile KARIŞTIRILMAZ, orada
   değer yalnız listeden seçilir
-- `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür)
+- `src/app/(app)/sales/` — Satış Takibi (Yönetici + Müdür): `data.ts` ekran ve
+  belge için ORTAK okuma katmanı · `is-listesi/` müşteriye giden **Güncel İş
+  Listesi** PDF ucu (fiyatsız) · `job-list-button.tsx` başlık şeridindeki eylem
 - `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
   `filters.ts` üç ekranın ortak süzgeç tanımı
@@ -1073,6 +1215,13 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/components/charts.tsx` — pano grafikleri (zaman serisi, sıralı çubuk,
   halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ
 - `src/components/combobox.tsx` — aranabilir tek seçimli liste (Türkçe süzgeç)
+- `src/app/(app)/purchasing/` — Satın Alma (Yönetici + «Satın Alma»/«Planlama»
+  etiketi): `data.ts` beş ekranın ORTAK okuma katmanı · `page.tsx` talep havuzu ·
+  `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `export/` Excel ucu
+- `src/app/(app)/admin/access/` — YETKİ MATRİSİ; hesaplanır, elle yazılmaz
+- `src/app/(app)/jobs/[id]/drawing-qty-card.tsx` — resim çarpanı ve kalem
+  eşleştirme kartı (iş emri formunda DEĞİL: orada satır kimlikleri her
+  kaydetmede değişir ve eşleştirme bağı kopardı)
 - `src/app/(app)/admin/customers/` — müşteri defteri yönetimi (kısaltma + renk)
 - `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
   Excel ve PDF ekipman ADINDAN buraya bağlanır

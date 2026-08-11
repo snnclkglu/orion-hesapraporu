@@ -48,6 +48,7 @@ import {
   type ProgressRef,
 } from "@/lib/drawings/revision";
 import { PURCHASE_PREFIX } from "@/lib/drawings/progress";
+import { grupAdlariCikar } from "@/lib/drawings/normalize";
 import { trKatla } from "@/lib/drawings/tr-text";
 import type { BomRow, ParsedFile } from "@/lib/drawings/types";
 import {
@@ -943,6 +944,51 @@ export async function reconcilePackage(input: {
   for (let i = 0; i < partRows.length; i += YIGIN) {
     const { error } = await supabase.from("drawing_parts").insert(partRows.slice(i, i + YIGIN));
     if (error) return { error: `Parça defteri yazılamadı: ${error.message}` };
+  }
+
+  // ANA GRUP ADI DEFTERİ — kod → grup adı (0057-00-0700 → 1 TON KANCA BLOĞU).
+  //
+  // Ad UYDURULMAZ, defterden ÇIKARILIR: ürün ağacında grubun kendi satırı
+  // varsa tanımı ad olur, yoksa alt parçaların montaj başlığı OYBİRLİĞİYLE
+  // aynıysa o kullanılır (`grupAdlariCikar`). Çelişen başlıktan ad üretilmez.
+  //
+  // ELLE DÜZELTİLMİŞ AD EZİLMEZ (`manual = true`): insanın verdiği karar bir
+  // sonraki eşleştirmede tahmine yenilmemelidir — kategori düzeltme defteriyle
+  // aynı felsefe. Bu yüzden `upsert` değil, önce mevcut manuel kayıtlar okunur.
+  //
+  // BAŞARISIZLIK SESSİZ GEÇİLİR: defter bir KOLAYLIKTIR, eşleştirmenin kendisi
+  // değil. Grup adı yazılamadı diye 450 dosyalık bir içe aktarımı düşürmek,
+  // md. 18/1'i ("hiçbir kural bir yüklemeyi engellemez") çiğnemek olurdu.
+  try {
+    const adaylar = grupAdlariCikar(
+      sonuc.parts.map((p) => ({
+        partCode: p.partCode,
+        description: p.description,
+        assemblyTitle: p.assemblyTitle,
+        name: p.name,
+      }))
+    );
+    if (adaylar.length > 0) {
+      const { data: mevcut } = await supabase
+        .from("drawing_group_names")
+        .select("group_code, manual")
+        .in("group_code", adaylar.map((a) => a.groupCode));
+      const elle = new Set(
+        ((mevcut ?? []) as { group_code: string; manual: boolean }[])
+          .filter((r) => r.manual)
+          .map((r) => r.group_code)
+      );
+      const yazilacak = adaylar
+        .filter((a) => a.name && !elle.has(a.groupCode))
+        .map((a) => ({ group_code: a.groupCode, name: a.name, manual: false }));
+      if (yazilacak.length > 0) {
+        await supabase
+          .from("drawing_group_names")
+          .upsert(yazilacak, { onConflict: "group_code" });
+      }
+    }
+  } catch {
+    // yut — bkz. yukarıdaki gerekçe
   }
 
   const findingRows = sonuc.findings.map((f) => ({

@@ -224,6 +224,9 @@ export function PurchasingTable({
   canWrite,
   canEditCategories,
   ledgerMissing,
+  carpan,
+  carpanBelirsiz,
+  carpanKalemleri,
 }: {
   packageId: string;
   liste: SatinAlmaSonucu;
@@ -236,6 +239,15 @@ export function PurchasingTable({
   /** Kategori defteri kurulmuş mu (migration uygulandı mı)? */
   canEditCategories: boolean;
   ledgerMissing: boolean;
+  /**
+   * RESİM ÇARPANI (md. 6) — iş kalemi adedi. Ressam bire göre çizer; listedeki
+   * adetler bununla çarpılarak gösterilir.
+   */
+  carpan: number;
+  /** Çarpan bir VARSAYIM mı? Ekran bunu açıkça yazar, sessizce 1 saymaz. */
+  carpanBelirsiz: boolean;
+  /** Çarpana katılan iş kalemi numaraları — ipucunda gösterilir. */
+  carpanKalemleri: string[];
 }) {
   const siparis = stages.find((s) => s.slug === PURCHASE_STAGE_SLUG) ?? null;
   const teslimAsamasi = stages.find((s) => s.slug === RECEIVED_STAGE_SLUG) ?? null;
@@ -431,6 +443,27 @@ export function PurchasingTable({
         </p>
       )}
 
+      {/* RESİM ÇARPANI ŞERİDİ — sayının neden defterdekinden farklı olduğunu
+          ekranın kendisi söyler. Sessiz bir çarpma, satınalmacının listeye
+          güvenini bitirirdi. */}
+      {carpan > 1 && (
+        <p className="border border-primary/30 bg-primary/[0.04] px-3 py-2 text-[12px]">
+          Adetler <strong>×{formatNum(carpan)}</strong> ile gösteriliyor — ressam bir adede
+          göre çizer, iş emrinde{" "}
+          {carpanKalemleri.length > 1
+            ? `${carpanKalemleri.join(" + ")} kalemleri bu resimleri paylaşıyor`
+            : "bu kalemden birden fazla var"}
+          .
+        </p>
+      )}
+      {carpanBelirsiz && (
+        <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+          İş kaleminin sayısal adedi girilmemiş; çarpan <strong>1</strong> kabul edildi.
+          Doğru sipariş adedi için İşler → ilgili iş → <strong>Resim Çarpanı</strong> kartından
+          adedi doldurun.
+        </p>
+      )}
+
       <SummaryStrip liste={liste} alinan={alinan} teslim={teslimAlinan} />
 
       <FilterBar
@@ -592,8 +625,18 @@ export function PurchasingTable({
                       )}
                     </TableCell>
 
+                    {/* ADET ÇARPILMIŞ GÖSTERİLİR (md. 6) ama HAM DEĞER GİZLENMEZ:
+                        çarpan 1'den büyükse hücre "144" yazar ve altında
+                        "48 × 3" durur. Yalnız çarpımı göstermek, defterdeki
+                        sayıyla ekrandaki sayının neden tutmadığını
+                        açıklanamaz yapardı. */}
                     <TableCell className="align-top text-right font-mono text-sm">
-                      {s.adet ?? "—"}
+                      {s.adet == null ? "—" : formatNum(s.adet * carpan)}
+                      {s.adet != null && carpan > 1 && (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {formatNum(s.adet)} × {formatNum(carpan)}
+                        </span>
+                      )}
                     </TableCell>
 
                     {/* TAHMİNİ TESLİM — renk bir durum ölçüsüdür: gecikmiş ya da

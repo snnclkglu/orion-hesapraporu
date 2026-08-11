@@ -91,14 +91,41 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     return { error: error.code === "23505" ? "Bu iş no zaten kayıtlı" : error.message };
   }
 
-  // İş kalemlerini tam yenile; proje bağlantılarını item_no ile geri bağla
-  const { data: existing } = await supabase
+  // İŞ KALEMLERİ TAM YENİLENİR ve bu yol satır KİMLİKLERİNİ değiştirir.
+  //
+  // Kimliğe bağlı ne varsa `item_no` METNİ üzerinden geri kurulmalıdır — proje
+  // bağlantısı baştan beri böyle korunuyordu; RESİM ÇARPANI (`qty`) ve KALEM
+  // EŞLEŞTİRMESİ (`shares_drawings_with`) de aynı yolu izler. Korunmasalardı
+  // iş emrini bir kez düzenlemek bütün satın alma adetlerini "belirsiz" yapardı
+  // ve kullanıcı bunu ancak yanlış sipariş verdiğinde fark ederdi.
+  //
+  // Eşleştirme İKİ ADIMDA yazılır: hedef satır INSERT edilmeden ona işaret
+  // eden bir satır yazılamaz (yabancı anahtar), bu yüzden önce kalemler
+  // açılır, sonra bağlar kurulur.
+  const zenginOkuma = await supabase
     .from("job_items")
-    .select("item_no, project_id")
+    .select("item_no, project_id, qty, shares_drawings_with, id")
     .eq("job_id", jobId);
+  const carpanSutunlariVar = !zenginOkuma.error;
+  const existing = carpanSutunlariVar
+    ? zenginOkuma.data
+    : (await supabase.from("job_items").select("item_no, project_id, id").eq("job_id", jobId)).data;
+
   const linkByNo = new Map<string, string>();
-  for (const r of existing ?? []) {
-    if (r.project_id && r.item_no) linkByNo.set(r.item_no, r.project_id as string);
+  const qtyByNo = new Map<string, number>();
+  /** eski kimlik → kalem no; eşleştirmeyi numaraya çevirmek için. */
+  const noById = new Map<string, string>();
+  const shareByNo = new Map<string, string>();
+  for (const r of (existing ?? []) as Record<string, unknown>[]) {
+    const no = String(r.item_no ?? "");
+    if (r.project_id && no) linkByNo.set(no, r.project_id as string);
+    if (r.id && no) noById.set(String(r.id), no);
+    if (r.qty != null && no) qtyByNo.set(no, Number(r.qty));
+  }
+  for (const r of (existing ?? []) as Record<string, unknown>[]) {
+    const no = String(r.item_no ?? "");
+    const hedef = r.shares_drawings_with as string | null | undefined;
+    if (no && hedef && noById.has(hedef)) shareByNo.set(no, noById.get(hedef)!);
   }
 
   await supabase.from("job_items").delete().eq("job_id", jobId);
@@ -110,9 +137,33 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
         ...it,
         job_id: jobId,
         project_id: linkByNo.get(it.item_no) ?? null,
+        ...(carpanSutunlariVar ? { qty: qtyByNo.get(it.item_no) ?? null } : {}),
       }))
     );
     if (itemsError) return { error: itemsError.message };
+
+    if (carpanSutunlariVar && shareByNo.size > 0) {
+      const { data: yeni } = await supabase
+        .from("job_items")
+        .select("id, item_no")
+        .eq("job_id", jobId);
+      const idByNo = new Map(
+        ((yeni ?? []) as { id: string; item_no: string }[]).map((r) => [r.item_no, r.id])
+      );
+      for (const [no, hedefNo] of shareByNo) {
+        const kaynak = idByNo.get(no);
+        const hedef = idByNo.get(hedefNo);
+        // Kalem numarası değişmiş (ör. `autoItemNos` kaydırmış) ya da kalem
+        // silinmişse bağ SESSİZCE DÜŞER — yanlış bir kaleme bağlamaktansa
+        // bağsız kalmak iyidir; kullanıcı kartta yeniden kurabilir.
+        if (kaynak && hedef && kaynak !== hedef) {
+          await supabase
+            .from("job_items")
+            .update({ shares_drawings_with: hedef })
+            .eq("id", kaynak);
+        }
+      }
+    }
   }
 
   await supabase.from("audit_log").insert({

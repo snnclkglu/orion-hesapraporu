@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 export default function ShellPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
   return (
-    <AppShell role="admin" displayName="Sinan Çolakoğlu" email="sinan@vigowood.com">
+    <AppShell role="admin" tags={["satinalma"]} displayName="Sinan Çolakoğlu" email="sinan@vigowood.com">
       <div className="grid gap-3">
         {/* Başlık ve eylemler ÜST ŞERİDE çıkar (components/page-header.tsx);
             kabuk önizlemesinin işe yaraması için bu taşıma da görülebilmeli. */}

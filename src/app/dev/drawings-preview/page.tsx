@@ -212,6 +212,12 @@ export default function DrawingsPreviewPage() {
             stages={purchaseStages(FALLBACK_STAGES)}
             marks={alimIsaretleri}
             kategoriler={satinAlmaKategoriSirasi()}
+            // ÇARPAN ÖNİZLEMEDE 3'TÜR ve bu bilinçli: çarpılmış adet ile ham
+            // adedin aynı hücrede sığıp sığmadığı ancak 1'den büyük bir
+            // çarpanla görülür (önizlemenin var oluş sebebi).
+            carpan={3}
+            carpanBelirsiz={false}
+            carpanKalemleri={["0057-01", "0057-02"]}
             // Kategori defteri önizlemede YOK (veritabanı bağlantısı yok):
             // taşıma araçları kapalı görünür, uyarı şeridi de basılır.
             canEditCategories={false}

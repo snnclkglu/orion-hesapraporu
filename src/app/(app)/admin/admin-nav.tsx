@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/admin/users", label: "Kullanıcılar" },
+  // Yetkiler KULLANICILARIN HEMEN ALTINDA (kullanıcı kararı, md. 4): rolü
+  // değiştiren kişi, o değişikliğin hangi bölümü açtığını bir sonraki
+  // maddeden görür.
+  { href: "/admin/access", label: "Yetkiler" },
   { href: "/admin/customers", label: "Müşteriler" },
   { href: "/admin/equipment", label: "Ekipman Katalogu" },
   { href: "/admin/couplings", label: "Kaplin Katalogu" },

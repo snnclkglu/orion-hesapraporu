@@ -25,6 +25,7 @@ import {
   registerItemNo,
   type StageDef,
 } from "@/lib/drawings/progress";
+import { drawingCarpani } from "@/lib/purchasing/demand";
 import { loadPackage, loadParts } from "../../data";
 import { partToTurev } from "../export/shared";
 import { PurchasingTable, type PurchaseMark } from "./purchasing-table";
@@ -109,6 +110,29 @@ export default async function PackagePurchasingPage({
   const kategoriDefteriVar = duzeltmeSatirlari != null && kategoriSatirlari != null;
 
   const liste = satinAlmaListesi(parcalar.map(partToTurev), { duzeltmeler, ekKategoriler });
+
+  // ————————————————————————————————— RESİM ÇARPANI (md. 6)
+  //
+  // Ressam BİR ürün için çizer; iş emrinde üç adet varsa üç katı satın alınır.
+  // Çarpan iş kalemi defterinden gelir ve iki kalem resimlerini paylaşıyorsa
+  // adetleri TOPLANIR (`drawingCarpani`).
+  //
+  // SÜTUNLAR OLMAYABİLİR: `qty` ve `shares_drawings_with` 20260812 ile geliyor.
+  // Yoksa çarpan 1'dir ve ekran bunu "belirsiz" olarak yazar — sessizce doğru
+  // varsaymaz.
+  const kalemSorgusu = await supabase
+    .from("job_items")
+    .select("id, item_no, qty, shares_drawings_with");
+  const carpanHazir = !kalemSorgusu.error;
+  const kalemDefteri = carpanHazir
+    ? ((kalemSorgusu.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id),
+        itemNo: String(r.item_no ?? ""),
+        qty: r.qty == null ? null : Number(r.qty),
+        sharesWith: (r.shares_drawings_with as string | null) ?? null,
+      }))
+    : [];
+  const carpanBilgisi = drawingCarpani(paket.job_item_id, paket.item_no, kalemDefteri);
 
   if (liste.satirlar.length === 0) {
     return (
@@ -202,6 +226,9 @@ export default async function PackagePurchasingPage({
       canWrite={yazabilir}
       canEditCategories={yazabilir && kategoriDefteriVar}
       ledgerMissing={defterYok}
+      carpan={carpanBilgisi.carpan}
+      carpanBelirsiz={carpanBilgisi.belirsiz || !carpanHazir}
+      carpanKalemleri={carpanBilgisi.katilanlar}
     />
   );
 }

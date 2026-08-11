@@ -106,3 +106,196 @@ export function canEditDrawings(value: string | null | undefined): boolean {
   const r = roleOf(value);
   return r === "admin" || r === "engineer" || r === "draftsman";
 }
+
+// ————————————————————————————————————————————————————————————— ETİKETLER
+
+/**
+ * GÖREV ETİKETLERİ — rolün YERİNE geçmez, YANINA gelir.
+ *
+ * Rol kişinin uygulamadaki ana kimliğidir (mühendis, ressam, müdür) ve TEKTİR.
+ * Etiket ise kişinin firmadaki İŞİDİR ve birden çok olabilir: üretim planlama
+ * sorumlusu hem Müdür rolündedir hem Planlama işini yapar; satın almacı Mühendis
+ * rolünde de olabilir Müdür rolünde de.
+ *
+ * Beşinci bir rol AÇILMADI ve bu bilinçli bir karardır. Rol tek değerlidir;
+ * satınalmacıyı "Satın Alma" rolüne almak, o kişinin mühendis mi müdür mü
+ * olduğunu SİLERDİ — Akif Ergüven'in hem Müdür (satış takibini görür) hem
+ * Planlama (satın almayı görür) olması gerekiyor ve tek değerli bir alanda bu
+ * ifade edilemez.
+ *
+ * Etiket YALNIZ KAPI AÇAR, kapatmaz: bir etiketi olmayan kimse bugünkü hiçbir
+ * yetkisini kaybetmez. Yeni bir bölüm açılırken kural hep bu yönde kurulur.
+ */
+export const USER_TAGS = ["satinalma", "planlama", "uretim"] as const;
+
+export type UserTag = (typeof USER_TAGS)[number];
+
+export const USER_TAG_LABELS: Record<UserTag, string> = {
+  satinalma: "Satın Alma",
+  planlama: "Planlama",
+  uretim: "Üretim",
+};
+
+export const USER_TAG_HINTS: Record<UserTag, string> = {
+  satinalma: "Satın Alma bölümünü görür ve düzenler: teklif, sipariş, teslim, ödeme.",
+  planlama: "Satın Alma bölümünü görür ve düzenler; iş sırasını planlar.",
+  uretim: "Üretim tarafındaki kişi; bugün ek bir kapı açmaz.",
+};
+
+/**
+ * Bilinmeyen değeri düşürerek etiket listesi üretir.
+ *
+ * Kaynak `text[]` bir sütundur ve `null` gelebilir; enum'a sonradan değer
+ * eklenip sonra kaldırılırsa arayüz çökmemelidir (`roleOf` ile aynı gerekçe).
+ * Sıra `USER_TAGS`in sırasına SABİTLENİR: aynı iki etiket iki kullanıcıda iki
+ * ayrı düzende görünürse liste okunmaz.
+ */
+export function tagsOf(value: readonly string[] | null | undefined): UserTag[] {
+  const küme = new Set(value ?? []);
+  return USER_TAGS.filter((t) => küme.has(t));
+}
+
+export function tagLabel(value: string): string {
+  return USER_TAG_LABELS[value as UserTag] ?? value;
+}
+
+/**
+ * Bir kişinin yetki künyesi: rol + etiketler.
+ *
+ * Tek bir nesne olarak taşınır çünkü bölüm görünürlüğü artık İKİ alana birden
+ * bakar ve her çağrı yerinde iki argüman taşımak, birini unutmayı kolaylaştırır
+ * — unutulan argüman `undefined` olur ve kapı SESSİZCE kapanır.
+ */
+export interface Yetki {
+  role: string;
+  tags: readonly string[];
+}
+
+export function hasTag(y: Yetki, tag: UserTag): boolean {
+  return (y.tags ?? []).includes(tag);
+}
+
+/**
+ * Satın Alma bölümü: talep havuzu, teklifler, siparişler, teslim ve ödeme
+ * takvimi, fiyat arşivi.
+ *
+ * Kullanıcı kararı (11.08.2026): "Yönetici, Satın Alma ve Planlama". Müdür
+ * BURADA YOKTUR ve bu bir gözden kaçma değildir — müdür satış rakamını görür,
+ * satın alma ise tedarikçi fiyatı ve ödeme vadesi taşır; ikisi ayrı bilgidir.
+ * Müdürün girmesi gerekiyorsa ona `satinalma` etiketi verilir, kural
+ * genişletilmez.
+ *
+ * Veritabanı karşılığı `can_see_purchasing()`; menüden gizlemek yalnız görgü
+ * kuralıdır, asıl engel RLS'tir.
+ */
+export function canSeePurchasing(y: Yetki): boolean {
+  return isAdminRole(y.role) || hasTag(y, "satinalma") || hasTag(y, "planlama");
+}
+
+/**
+ * Satın alma kaydı YAZMA yetkisi.
+ *
+ * Bugün GÖRME ile aynı kümedir ama AYRI bir sorudur (`canSeeWorkLog` ile aynı
+ * gerekçe): ileride "planlama görür, yalnız satınalma yazar" ayrımı istenirse
+ * bütün çağrı yerlerini gözden geçirme borcu doğmasın.
+ */
+export function canEditPurchasing(y: Yetki): boolean {
+  return canSeePurchasing(y);
+}
+
+// ——————————————————————————————————————————————————————— ÇALIŞMA ALANI
+
+/**
+ * ÇALIŞMA ALANI BÖLÜMLERİ — sol menünün ve yetki matrisinin TEK KAYNAĞI.
+ *
+ * Daha önce menü listesi `app-shell.tsx`in içindeydi ve "hangi bölüm kime
+ * açık" sorusunun cevabı hiçbir yerde YAZILI DEĞİLDİ; kullanıcı bunu bir ekran
+ * olarak istedi (md. 4). İki liste yazılsaydı biri er geç ötekinden ayrışır ve
+ * matris, menünün gerçekte yaptığından başka bir şey anlatırdı — bu, yetki
+ * ekranında olabilecek en kötü hatadır.
+ *
+ * `visible` bir ROL LİSTESİ DEĞİL bir SORUDUR: yetkinin tanımı yukarıdaki
+ * fonksiyonlarda tek yerde durur, menü de matris de RLS de aynı kaynağı okur.
+ * `kime` yalnız o sorunun İNSAN OKUNUR özetidir ve matriste basılır.
+ */
+export interface WorkspaceSection {
+  href: string;
+  label: string;
+  /** `BrandIconName` — tip bağı `app-shell.tsx`te kurulur (ikon defteri orada). */
+  icon: string;
+  /** Bölümün ne işe yaradığı; matriste ve menü ipucunda görünür. */
+  hint: string;
+  /** Görünürlük SORUSU. Verilmeyen bölüm herkese açıktır. */
+  visible?: (y: Yetki) => boolean;
+  /** Sorunun insan okunur özeti — matrisin "Kimler görür" sütunu. */
+  kime: string;
+  /** Yazma yetkisinin özeti; görmekle yazmak ayrıştığında dolar. */
+  yazma?: string;
+}
+
+export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
+  {
+    href: "/jobs",
+    label: "İşler",
+    icon: "bolt",
+    hint: "İş emirleri, iş kalemleri ve müşteri bilgileri",
+    kime: "Herkes",
+  },
+  {
+    href: "/projects",
+    label: "Mühendislik",
+    icon: "panel",
+    hint: "Hesap raporu projeleri ve revizyon arşivi",
+    kime: "Herkes",
+    yazma: "Yönetici · Mühendis (canEditReports)",
+  },
+  // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
+  // atölyenin ortak gerçeğidir, bütün roller görür. Yazma yetkisi
+  // `canEditDrawings` ile ekranın içinde sorulur.
+  {
+    href: "/drawings",
+    label: "Teknik Resimler",
+    icon: "blueprint",
+    hint: "Teknik resim paketleri, parça defteri ve üretim tahtası",
+    kime: "Herkes",
+    yazma: "Yönetici · Mühendis · Teknik Ressam (canEditDrawings)",
+  },
+  {
+    href: "/purchasing",
+    label: "Satın Alma",
+    icon: "cart",
+    hint: "Talep havuzu, teklifler, siparişler, teslim ve ödeme takvimi",
+    visible: canSeePurchasing,
+    kime: "Yönetici · «Satın Alma» etiketi · «Planlama» etiketi",
+    yazma: "Görenlerin tamamı (canEditPurchasing)",
+  },
+  {
+    href: "/worklog",
+    label: "İş Takibi",
+    icon: "timesheet",
+    hint: "Atölye çalışma saatleri ve adam·saat analizi",
+    visible: (y) => canSeeWorkLog(y.role),
+    kime: "Yönetici · Müdür",
+  },
+  {
+    href: "/sales",
+    label: "Satış Takibi",
+    icon: "ledger",
+    hint: "Sözleşme tutarları, ciro ve Güncel İş Listesi",
+    visible: (y) => canSeeSales(y.role),
+    kime: "Yönetici · Müdür",
+  },
+  {
+    href: "/admin",
+    label: "Yönetim",
+    icon: "gauge",
+    hint: "Kullanıcılar, yetkiler, kataloglar ve rapor ayarları",
+    visible: (y) => isAdminRole(y.role),
+    kime: "Yalnız Yönetici",
+  },
+];
+
+/** Kullanıcının gerçekten görebildiği bölümler — menü ve matris bunu çağırır. */
+export function visibleSections(y: Yetki): WorkspaceSection[] {
+  return WORKSPACE_SECTIONS.filter((s) => !s.visible || s.visible(y));
+}

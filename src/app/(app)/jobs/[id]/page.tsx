@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { DrawingQtyCard } from "./drawing-qty-card";
 
 const SCOPE_LABELS: [string, string][] = [
   ["proje", "Proje"], ["devreyeAlma", "Devreye Alma"], ["malzeme", "Malzeme"],
@@ -44,6 +45,23 @@ function KV({
       </span>
     </div>
   );
+}
+
+/**
+ * İş kalemi satırının okunan yüzü.
+ *
+ * `qty` / `shares_drawings_with` İSTEĞE BAĞLIDIR: sorgu iki denemede okunur ve
+ * migration uygulanmadan önce o iki alan hiç gelmez (bkz. aşağıdaki not).
+ */
+interface ItemRow {
+  id: string;
+  item_no: string;
+  product_name: string;
+  quantity: string;
+  project_id: string | null;
+  projects: LinkedReport | LinkedReport[] | null;
+  qty?: number | null;
+  shares_drawings_with?: string | null;
 }
 
 /** Kaleme bağlı hesap raporunun özeti (son revizyon rozetiyle) */
@@ -96,14 +114,33 @@ export default async function JobPage({
   // Hesap raporu İŞE değil İŞ KALEMİNE bağlanır: bir iş emrinde birden çok
   // ürün olur ve her ürünün kendi raporu vardır. Kalem satırı raporunu
   // doğrudan taşır; kaleme bağlanmamış raporlar ayrı listelenir.
-  const [{ data: items }, { data: cranes }] = await Promise.all([
-    supabase
-      .from("job_items")
-      .select(
-        "item_no, product_name, quantity, project_id, projects:project_id(id, doc_no, name, status, revisions(rev_no, status))"
-      )
-      .eq("job_id", id)
-      .order("sort", { ascending: true }),
+  // RESİM ÇARPANI SÜTUNLARI İKİ DENEMEDE OKUNUR (`due_at` kalıbının aynısı):
+  // `qty` ve `shares_drawings_with` 20260812 migration'ıyla geliyor. Onlar
+  // olmadan sorgunun tamamı düşerdi ve iş detayı hiç açılmazdı — bir sütunun
+  // eksikliği yüzünden sayfayı kaybetmek, eksikliğin kendisinden pahalıdır.
+  const ITEM_FIELDS =
+    "id, item_no, product_name, quantity, project_id, " +
+    "projects:project_id(id, doc_no, name, status, revisions(rev_no, status))";
+  const carpanSorgusu = supabase
+    .from("job_items")
+    .select(`${ITEM_FIELDS}, qty, shares_drawings_with`)
+    .eq("job_id", id)
+    .order("sort", { ascending: true });
+
+  // İki sorgunun DÖNÜŞ TİPİ farklıdır (biri iki sütun fazla taşır) ve
+  // supabase-js onları birleştiremez; sonuç elle daraltılır. Kaçış kapısı
+  // DEĞİL, iki şeklin ortak paydası: `ItemRow` alanların hepsini isteğe bağlı
+  // tutar ve okuma yerleri zaten `?? ""` ile korunuyor.
+  const [{ data: rawItems }, { data: cranes }] = await Promise.all([
+    carpanSorgusu.then(async (r) =>
+      r.error
+        ? await supabase
+            .from("job_items")
+            .select(ITEM_FIELDS)
+            .eq("job_id", id)
+            .order("sort", { ascending: true })
+        : r
+    ),
     supabase
       .from("projects")
       .select("id, doc_no, name, crane_type, status, created_at, revisions(rev_no, status)")
@@ -111,7 +148,16 @@ export default async function JobPage({
       .order("doc_no", { ascending: true }),
   ]);
 
-  const itemList = items ?? [];
+  const itemList = (rawItems ?? []) as unknown as ItemRow[];
+  const carpanHazir = itemList.length === 0 || "qty" in itemList[0];
+  const carpanKalemleri = itemList.map((it) => ({
+    id: String(it.id ?? ""),
+    itemNo: String(it.item_no ?? ""),
+    productName: String(it.product_name ?? ""),
+    quantityText: String(it.quantity ?? ""),
+    qty: it.qty == null ? null : Number(it.qty),
+    sharesWith: it.shares_drawings_with ?? null,
+  }));
   const linkedProjectIds = new Set(
     itemList.map((it) => it.project_id).filter((v): v is string => Boolean(v))
   );
@@ -235,6 +281,11 @@ export default async function JobPage({
           raporun satır menüsünden &quot;İşe Bağla&quot; ile bu işi ve kalemi seçin.
         </p>
       </div>
+
+      {/* Resim çarpanı — teknik resim ve satın alma adetlerinin kaynağı.
+          İş kalemleri tablosunun HEMEN ALTINDA: aynı satırların başka bir
+          sorusudur ve iki tabloyu ayırmak kullanıcıyı sayfada gezdirirdi. */}
+      <DrawingQtyCard jobId={id} kalemler={carpanKalemleri} hazir={carpanHazir} />
 
       {/* Müşteri + iş bilgileri */}
       <div className="grid gap-4 lg:grid-cols-2">
