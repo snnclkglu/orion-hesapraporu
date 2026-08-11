@@ -306,9 +306,9 @@ export function DrawingPlanCard({
                 return (
                   <li
                     key={row.key}
-                    className="grid grid-cols-[1fr_auto] items-center gap-2 md:grid-cols-[10.5rem_1fr_11rem_12rem_2.5rem]"
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 md:grid-cols-[10.5rem_1fr_11rem_12rem_2.5rem]"
                   >
-                    <div className="col-span-2 md:col-span-1">
+                    <div className="col-span-3 md:col-span-1">
                       {canEdit ? (
                         <Combobox
                           options={kodSecenekleri(row)}
@@ -325,7 +325,7 @@ export function DrawingPlanCard({
                       )}
                     </div>
 
-                    <div className="col-span-2 md:col-span-1">
+                    <div className="col-span-3 md:col-span-1">
                       {canEdit ? (
                         // Ad ALANI YAZILABİLİRDİR ve listeden de seçilir:
                         // ekstra gruplarda (kepçe, mıknatıs, müşteriye özel
