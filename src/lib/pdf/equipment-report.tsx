@@ -14,7 +14,9 @@ import { Document, Image, Link, StyleSheet, Text, View, renderToBuffer } from "@
 import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
-import { canLinkEquipmentModel, dsKey, rowSheetUrl } from "@/lib/excel/equipment";
+import {
+  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowSheetUrl,
+} from "@/lib/excel/equipment";
 import {
   BRAND, BrandBand, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper,
   type CompanyInfo,
@@ -50,14 +52,17 @@ const s = StyleSheet.create({
   // Ekipman listesi A4 yataydır. Uzun katalog kodlarının özellik hücresine
   // taşmaması için model sütunu özellikle geniş tutulur.
   cComp: { width: "15%" },
-  cBrand: { width: "11%" },
-  cModel: { width: "18%" },
-  cSpec: { width: "34%" },
+  cBrand: { width: "10%" },
+  cModel: { width: "17%" },
+  cSpec: { width: "30%" },
   // Ek Özellikler: kullanıcının satıra yazdığı serbest açıklama (madde 34).
   // Renk ayrı stildedir; genişlik stili başlık satırında da kullanılıyor ve
   // oradaki paper100 metin rengini ezmemelidir.
-  cNote: { width: "16%" },
+  cNote: { width: "14%" },
   noteText: { color: BRAND.gray700 },
+  // Ek Belge: satıra elle yüklenmiş PDF'in sayfa adedi. Dar tutulur — hücrede
+  // bir cümle değil bir ölçü durur ("2 sayfa").
+  cAttach: { width: "8%" },
   cQty: { width: "6%", textAlign: "right" as const },
   custom: { color: BRAND.red },
   // Alternatif (seçenekli) satır: aktif seçim ana satırdır, alternatifler onun
@@ -91,6 +96,19 @@ export interface EquipmentMetaPdf {
 }
 
 /**
+ * Ek yaprağının tek bir görüntüsü.
+ *
+ * `orientation` ÇAĞIRANDAN gelir çünkü kararı ölçü verir: görüntü eninden
+ * uzunsa yaprak yatay basılır (bkz. `catalog-sheet-images.ts`). PDF katmanı
+ * dosyayı hiç görmediği için bunu kendisi ölçemez.
+ */
+export interface CatalogSheetImage {
+  data: Buffer;
+  format: "png" | "jpg";
+  orientation: "portrait" | "landscape";
+}
+
+/**
  * Detaylı listenin ekindeki bir katalog sayfası.
  *
  * Görüntü BURAYA HAZIR gelir (`data` + `format`): kaynak dosyalar .webp'tir ve
@@ -109,7 +127,32 @@ export interface CatalogSheetPage {
   model: string;
   source: string;
   printedPages: string;
-  images: { data: Buffer; format: "png" | "jpg" }[];
+  images: CatalogSheetImage[];
+}
+
+/**
+ * Kullanıcının ekipman satırına ELLE eklediği PDF ekinin KAPAK yaprağı.
+ *
+ * Belgenin kendi sayfaları buraya GİRMEZ: onlar var olan bir PDF'in
+ * sayfalarıdır ve react-pdf var olan bir PDF'i okuyamaz (bkz. `pdf/merge.ts`
+ * başlığı). Bu yüzden react-pdf yalnız kapağı basar, gerçek sayfalar
+ * indirme ucunda pdf-lib ile kapağın HEMEN ARDINA eklenir.
+ *
+ * Kapak neden var: birleştirilmiş sayfalara Türkçe başlık BASILAMAZ (pdf-lib'in
+ * gömülü standart fontları WinAnsi'dir, "ş/ğ/ı/İ" kodlanamaz — merge.ts bunu
+ * belgeliyor). Kapak olmasa otuz sayfalık bir ekin ortasındaki yaprağın hangi
+ * ekipmana ait olduğu okunamazdı; üstelik listedeki bağlantının gideceği bir
+ * çapa da kalmazdı.
+ */
+export interface EquipmentAttachmentCover {
+  /** `dsKey(kind, brand, model)` DEĞİL, satırın `rowKey`i — ek satıra bağlıdır. */
+  rowKey: string;
+  /** Ekipman adı (listede görünen hâli) */
+  component: string;
+  /** Kullanıcının dosya adı */
+  fileName: string;
+  /** Sunucunun okuyarak saydığı sayfa adedi */
+  pageCount: number;
 }
 
 export interface EquipmentPdfProps {
@@ -130,11 +173,44 @@ export interface EquipmentPdfProps {
    * listedir.
    */
   sheetPages?: CatalogSheetPage[];
+  /**
+   * Detaylı listede kullanıcının yüklediği PDF eklerinin KAPAKLARI — belgenin
+   * en sonunda, katalog sayfalarından sonra. Ekin gerçek sayfaları burada
+   * DEĞİLDİR; onları indirme ucu pdf-lib ile her kapağın ardına ekler
+   * (`EquipmentAttachmentCover`).
+   */
+  attachmentCovers?: EquipmentAttachmentCover[];
 }
+
+/**
+ * Ek yaprağındaki görüntünün EN ÇOK yüksekliği (pt), sayfa yönüne göre.
+ *
+ * NEDEN GEREKLİ: görüntüye yalnız `width: "100%"` verildiğinde yükseklik en/boy
+ * oranından türer. Dikey bir taramada bu sığar; YATAY bir taramada (~1,41 oran)
+ * türeyen yükseklik sayfanın kalanını aşar ve react-pdf yaprağı ikiye bölüp
+ * "IMAGE can't wrap between pages" uyarısı verir. Kutu yukarıdan kelepçelenince
+ * `objectFit: contain` görüntüyü içine oturtur.
+ *
+ * Türetme (A4, `PAGE` marjları): sayfa boyu − üst marj mm(16) − alt marj
+ * mm(13) − altbilgi payı 14pt − başlık bloğu (kicker + kural + ad + künye +
+ * boşluk ≈ 55pt).
+ *   dikey : 842 − 45 − 37 − 14 − 55 ≈ 690
+ *   yatay : 595 − 45 − 37 − 14 − 55 ≈ 444
+ */
+const SHEET_MAX_HEIGHT = { portrait: 690, landscape: 444 } as const;
 
 /** Ek sayfa çapası — `Link src="#…"` ile `View id="…"` bu adı paylaşır. */
 function anchorId(key: string): string {
   return `katalog-${key.replace(/[^a-z0-9]+/gi, "-")}`;
+}
+
+/**
+ * Elle yüklenen ekin çapası. Katalog sayfası çapasından AYRI ad alanı taşır:
+ * bir ürünün hem defterden gelen sayfası hem kullanıcının yüklediği yaprağı
+ * olabilir ve ikisi belgenin farklı yerlerinde durur.
+ */
+export function attachmentAnchorId(rowKey: string): string {
+  return `ek-belge-${rowKey.replace(/[^a-z0-9]+/gi, "-")}`;
 }
 
 /** Uzun katalog kodlarının sütun sınırında güvenle kırılabileceği işaretler. */
@@ -203,10 +279,37 @@ function ComponentCell({
   );
 }
 
+/**
+ * "Ek Belge" hücresi — satıra yüklenmiş PDF'in ölçüsü ("2 sayfa · katalog.pdf").
+ *
+ * Detaylı listede belgenin sonundaki yaprağa bağlanır; standart listede düz
+ * metindir çünkü ek o dosyada YOKTUR ve var olmayan bir hedefe bağlantı vermek,
+ * tıklayınca hiçbir şey olmaması demektir.
+ */
+function AttachmentCell({
+  row,
+  href,
+}: {
+  row: EqGroup["rows"][number];
+  href?: string;
+}) {
+  const text = attachmentSummaryText(row.attachments);
+  if (!text) return <Text style={[s.td, s.cAttach]} />;
+  if (!href) return <Text style={[s.td, s.cAttach, s.noteText]}>{text}</Text>;
+  return (
+    <View style={[s.td, s.cAttach]}>
+      <Link src={href} style={{ color: BRAND.steel, textDecoration: "underline" }}>
+        {text}
+      </Link>
+    </View>
+  );
+}
+
 export function EquipmentDocument({
-  meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages,
+  meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages, attachmentCovers,
 }: EquipmentPdfProps) {
-  const detailed = !!sheetPages && sheetPages.length > 0;
+  const covers = attachmentCovers ?? [];
+  const detailed = (!!sheetPages && sheetPages.length > 0) || covers.length > 0;
   /**
    * Ürün anahtarı → belge içi çapa. Çapa sayfanın İLK ürününün anahtarından
    * türer; aynı sayfayı paylaşan diğer ürünler de oraya gider (yoksa
@@ -217,14 +320,31 @@ export function EquipmentDocument({
     const anchor = anchorId(page.keys[0] ?? "");
     for (const key of page.keys) anchorByKey.set(key, anchor);
   }
+  /** Ekin kapağı basılan satırlar — listedeki "Ek Belge" hücresi oraya bağlanır. */
+  const coverKeys = new Set(covers.map((c) => c.rowKey));
   const linkFor = (row: EqGroup["rows"][number]): string | undefined => {
-    if (!row.kind) return undefined;
     if (detailed) {
-      const anchor = anchorByKey.get(dsKey(row.kind, row.brand, row.model));
-      return anchor ? `#${anchor}` : undefined;
+      // ÖNCELİK DEFTERDEN GELEN KATALOG SAYFASINDADIR: ürünün üretici sayfası
+      // kimliğin kendisidir. Kullanıcının yüklediği ek onu tamamlar; sayfa
+      // yoksa ad doğrudan eke gider, böylece defterde karşılığı olmayan
+      // ürünlerin (kanca, makara, teker…) adı da tıklanabilir olur.
+      const sheetAnchor = row.kind
+        ? anchorByKey.get(dsKey(row.kind, row.brand, row.model))
+        : undefined;
+      if (sheetAnchor) return `#${sheetAnchor}`;
+      if (row.rowKey && coverKeys.has(row.rowKey)) {
+        return `#${attachmentAnchorId(row.rowKey)}`;
+      }
+      return undefined;
     }
+    if (!row.kind) return undefined;
     return rowSheetUrl(row, sheetUrls);
   };
+  /** "Ek Belge" hücresi — detaylı listede belgenin sonundaki yaprağa bağlanır. */
+  const attachmentLinkFor = (row: EqGroup["rows"][number]): string | undefined =>
+    detailed && row.rowKey && coverKeys.has(row.rowKey)
+      ? `#${attachmentAnchorId(row.rowKey)}`
+      : undefined;
   const rev = String(meta.revNo).padStart(2, "0");
   const year = /(\d{4})/.exec(meta.date)?.[1] ?? String(new Date().getFullYear());
   const code = docCode("EQ", meta.docNo, meta.revNo);
@@ -278,6 +398,7 @@ export function EquipmentDocument({
           <Text style={[s.th, s.cModel]}>{trUpper("Model")}</Text>
           <Text style={[s.th, s.cSpec]}>{trUpper("Özellikler")}</Text>
           <Text style={[s.th, s.cNote]}>{trUpper("Ek Özellikler")}</Text>
+          <Text style={[s.th, s.cAttach]}>{trUpper("Ek Belge")}</Text>
           <Text style={[s.th, s.cQty]}>{trUpper("Adet")}</Text>
         </View>
 
@@ -299,6 +420,7 @@ export function EquipmentDocument({
                 <ModelCell row={r} urls={datasheetUrls} />
                 <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
                 <Text style={[s.td, s.cNote, s.noteText]}>{r.note ?? ""}</Text>
+                <AttachmentCell row={r} href={attachmentLinkFor(r)} />
                 <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
               </View>
             ))}
@@ -337,10 +459,13 @@ export function EquipmentDocument({
 
       {/*
         EK — KATALOG SAYFALARI (yalnız detaylı liste).
-        Sayfalar DİKEY basılır: kaynak katalog sayfaları dikey taranmıştır,
-        yatay bir sayfada yüksekliğe sığdırmak görüntüyü üçte bire indirir ve
-        ölçü tablolarını okunmaz yapardı. Her katalog sayfası kendi yaprağını
-        alır; listeden gelen iç bağlantı ilk yaprağın çapasına düşer.
+        YAPRAK YÖNÜ GÖRÜNTÜNÜN KENDİSİNDEN gelir (`image.orientation`). Bir
+        süre hepsi dikey basıldı; gerekçe "kaynak taramalar dikeydir" idi ve
+        yanlıştı — çok sütunlu boy tabloları yatay basılır ve dikey A4'e
+        sığdırılınca okunmaz oluyordu (kullanıcı bildirimi). Ölçüyü sharp
+        yapar, karar `catalog-sheet-images.ts`tedir.
+        Her katalog sayfası kendi yaprağını alır; listeden gelen iç bağlantı
+        ilk yaprağın çapasına düşer.
       */}
       {(sheetPages ?? []).flatMap((sheet) =>
         sheet.images.map((image, i) => (
@@ -348,8 +473,13 @@ export function EquipmentDocument({
             key={`${sheet.keys[0]}-${i}`}
             docLine={`ORION CRANES · KATALOG SAYFASI · REV ${rev} · ${year}`}
             docCode={code}
+            orientation={image.orientation}
           >
-            <View id={i === 0 ? anchorId(sheet.keys[0] ?? "") : undefined} style={s.sheetHead}>
+            {/* `id` ALANI HİÇ VERİLMEZ — `id={undefined}` AYNI ŞEY DEĞİLDİR:
+                @react-pdf `'id' in props` diye bakar ve tanımsız değeri de bir
+                hedef sayar, belgeye "undefined" adlı bir adlandırılmış hedef
+                yazar (çok yapraklı her katalog sayfası bunu üretiyordu). */}
+            <View {...(i === 0 ? { id: anchorId(sheet.keys[0] ?? "") } : {})} style={s.sheetHead}>
               <Text style={T.kicker}>KATALOG SAYFASI</Text>
               <RuleRed />
               <Text style={[s.sheetTitle, { marginTop: 5 }]}>
@@ -360,10 +490,51 @@ export function EquipmentDocument({
                 {sheet.images.length > 1 ? ` · sayfa ${i + 1}/${sheet.images.length}` : ""}
               </Text>
             </View>
-            <Image src={image} style={s.sheetImage} />
+            <Image
+              src={image}
+              style={[s.sheetImage, { maxHeight: SHEET_MAX_HEIGHT[image.orientation] }]}
+            />
           </BrandPage>
         ))
       )}
+
+      {/*
+        EK — KULLANICININ YÜKLEDİĞİ BELGELER (yalnız detaylı liste).
+        Burada YALNIZ KAPAK vardır; ekin gerçek sayfaları var olan bir PDF'in
+        sayfalarıdır ve react-pdf onları okuyamaz. İndirme ucu bu kapağın
+        HEMEN ARDINA pdf-lib ile ekler (bkz. `EquipmentAttachmentCover`).
+        Kapak sırası listedeki satır sırasıdır — deste, tabloyu izler.
+      */}
+      {covers.map((cover, i) => (
+        <BrandPage
+          key={`${cover.rowKey}-${i}`}
+          docLine={`ORION CRANES · EK BELGE · REV ${rev} · ${year}`}
+          docCode={code}
+        >
+          {/* Çapa YALNIZ satırın İLK kapağındadır: bir ekipmana iki belge
+              yüklenmişse ikisi de aynı adı taşıyıp adlandırılmış hedefi
+              ikizlerdi. Listeden gelen bağlantı ilk yaprağa düşer, ikincisi
+              onun hemen ardındadır. */}
+          <View
+            {...(covers.findIndex((c) => c.rowKey === cover.rowKey) === i
+              ? { id: attachmentAnchorId(cover.rowKey) }
+              : {})}
+            style={s.sheetHead}
+          >
+            <Text style={T.kicker}>EK BELGE</Text>
+            <RuleRed />
+            <Text style={[s.sheetTitle, { marginTop: 5 }]}>{cover.component}</Text>
+            <Text style={s.sheetMeta}>
+              {cover.fileName}
+              {cover.pageCount > 0 ? ` · ${cover.pageCount} sayfa` : ""}
+            </Text>
+          </View>
+          <Text style={s.hint}>
+            Bu sayfadan sonraki {cover.pageCount > 0 ? `${cover.pageCount} sayfa` : "sayfalar"}{" "}
+            yukarıdaki ekipmana ait ektir.
+          </Text>
+        </BrandPage>
+      ))}
     </Document>
   );
 }

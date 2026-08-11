@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { PDFDocument, PDFName } from "pdf-lib";
 import { V5_TEMPLATE } from "../src/lib/calc/defaults";
 import { runCalc } from "../src/lib/calc/engine";
 import {
@@ -13,8 +14,10 @@ import {
   mergeExtras,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "../src/lib/excel/equipment";
+import { orderAttachmentsForAppendix } from "../src/lib/equipment-attachments";
 import { collectCatalogSheetPages } from "../src/lib/pdf/catalog-sheet-images";
 import { renderEquipmentPdf } from "../src/lib/pdf/equipment-report";
+import { pdfEkleriYerlestir } from "../src/lib/pdf/merge";
 import type { RevisionAlts } from "../src/lib/revision-load";
 import { baslikDuzeni } from "../src/lib/tr-text";
 import { DEFAULT_REPORT_SETTINGS } from "../src/lib/settings";
@@ -60,6 +63,36 @@ const NOTES: EquipmentNotes = {
   "bridge:wheel": "Ray DIN 536 A65 kabulüyle",
 };
 
+/**
+ * Teknik Resim Takibi fikstürü — gerçek iş emirlerinin (0019, 0055) resim
+ * antedlerinden. Üç bandın da temsil edilmesi bilinçli: köprü, araba ve
+ * ekstra grupların özette AYRI başlıklar altında çıkması sınanıyor.
+ */
+const DRAWING_PLAN = {
+  itemNo: "0055-01",
+  rows: [
+    { id: "1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
+    { id: "2", code: "0200", name: "ANAKİRİŞ", drawn: false, note: "" },
+    { id: "3", code: "0300", name: "BAŞKİRİŞ", drawn: false, note: "" },
+    { id: "4", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
+    { id: "5", code: "1600", name: "ARABA YÜRÜTME GRUBU", drawn: false, note: "" },
+    { id: "6", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+  ],
+};
+
+/**
+ * "Ek Belge" fikstürü — mühendisin kendi elindeki katalog yaprağı. Bir satırda
+ * İKİ ek var: ek kapağının çapası yalnız İLKİNDE olmalı (adlandırılmış hedef
+ * ikizlenirse bağlantı hangi yaprağa gideceğini bilemez).
+ */
+const ATTACHMENTS = {
+  "main:gearbox": [
+    { fileName: "YILMAZ HT0823 olcu.pdf", pageCount: 2 },
+    { fileName: "Baglanti detayi.pdf", pageCount: 1 },
+  ],
+  "bridge:wheel": [{ fileName: "Teker resmi.pdf", pageCount: 1 }],
+};
+
 const META = {
   docNo: "0055-01", // doküman no = iş kalemi numarası
   projectName: "İSDEMİR - Amonyum Sülfat Vinci (V5 şablon)",
@@ -94,6 +127,8 @@ async function main() {
     extras: EXTRAS,
     notes: NOTES,
     alts: ALTS,
+    attachments: ATTACHMENTS,
+    drawingPlan: DRAWING_PLAN,
   });
   await workbook.xlsx.writeFile(outPath);
 
@@ -142,10 +177,13 @@ async function main() {
       }
     }
     const headerRow = eqWs.getRow(headerRowNo > 0 ? headerRowNo : 8);
-    const headers = [1, 2, 3, 4, 5, 6].map((c) => String(headerRow.getCell(c).value ?? ""));
+    const headers = [1, 2, 3, 4, 5, 6, 7].map((c) => String(headerRow.getCell(c).value ?? ""));
     console.log(`Başlıklar: ${headers.join(" | ")}`);
-    // Madde 34: "Ek Özellikler" Özellikler ile Adet arasında yer alır.
-    const expectedHeaders = ["Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Adet"];
+    // Madde 34: "Ek Özellikler" Özellikler ile Adet arasında; "Ek Belge"
+    // (11.08.2026) onun sağında, adetten önce.
+    const expectedHeaders = [
+      "Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet",
+    ];
     if (expectedHeaders.join("|") !== headers.join("|")) {
       console.error("HATA: ekipman başlıkları beklenenle eşleşmiyor.");
       process.exitCode = 1;
@@ -160,11 +198,11 @@ async function main() {
       if (r <= headerRowNo) return;
       const ekipman = String(row.getCell(1).value ?? "");
       if (ekipman === "") return;
-      // Grup başlığı ve altbilgi satırları A:F BİRLEŞİKTİR; exceljs birleşik
+      // Grup başlığı ve altbilgi satırları A:G BİRLEŞİKTİR; exceljs birleşik
       // aralıktaki her hücreye ana hücrenin değerini verir, bu yüzden "değer
       // var mı" ölçütü yetmez — birleşik satırlar veri değildir, elenir.
-      if (row.getCell(6).isMerged) return;
-      const adet = row.getCell(6).value;
+      if (row.getCell(7).isMerged) return;
+      const adet = row.getCell(7).value;
       if (adet === null || adet === undefined || adet === "") return;
       ekipmanSutunu.push(ekipman);
       const not = String(row.getCell(5).value ?? "");
@@ -272,7 +310,10 @@ async function main() {
   }
 
   // PDF üretimi (müşteri + tam) — react-pdf hata vermeden buffer üretmeli
-  const groups = mergeExtras(buildEquipmentGroups(V5_TEMPLATE, NOTES, ALTS), EXTRAS);
+  const groups = mergeExtras(
+    buildEquipmentGroups(V5_TEMPLATE, NOTES, ALTS, ATTACHMENTS),
+    EXTRAS
+  );
   // Grup adları da başlık düzeninden geçmeli (madde 33).
   // Ölçüt "her sözcük büyük harfle başlar" DEĞİLDİR: `baslikDuzeni` bağlaçları
   // ("ve", "ile") bilinçli olarak küçük bırakır — "Kabin ve Elektrik Odası"
@@ -284,7 +325,29 @@ async function main() {
   } else {
     console.log(`Grup adları ✓ ${groups.map((g) => g.name).join(" · ")}`);
   }
-  const summary = buildSummarySections(V5_TEMPLATE, calcResult);
+  // Teknik Ressam Özeti'nin SONUNDA ana grup numaralandırması (11.08.2026):
+  // köprü ve araba grupları alt alta, kalem numarası kökü ile birlikte.
+  const summary = buildSummarySections(V5_TEMPLATE, calcResult, DRAWING_PLAN);
+  const planBolumleri = summary.filter((s) => s.name.startsWith("Teknik Resim No"));
+  if (planBolumleri.length !== 3) {
+    console.error(
+      `HATA: teknik resim numaralandırması özete girmedi (${planBolumleri.length} bölüm).`
+    );
+    process.exitCode = 1;
+  } else {
+    const numaralar = planBolumleri.flatMap((s) => s.rows.map((r) => String(r.value)));
+    if (!numaralar.includes("0055-01-0100") || !numaralar.includes("0055-01-1500")) {
+      console.error(`HATA: tam resim numarası kurulmamış: ${numaralar.join(" · ")}`);
+      process.exitCode = 1;
+    } else {
+      console.log(
+        `Teknik resim numaralandırması ✓ ${planBolumleri
+          .map((s) => `${s.name} (${s.rows.length})`)
+          .join(" · ")}`
+      );
+    }
+  }
+
   const outDir = path.join(process.cwd(), ".test-output");
   mkdirSync(outDir, { recursive: true });
 
@@ -314,9 +377,85 @@ async function main() {
     );
     process.exitCode = 1;
   }
-  const pdfDetailed = await renderEquipmentPdf({ meta: META, groups, summary, sheetPages, settings: SETTINGS });
+  // Sayfa yönü artık görüntüden okunuyor: yatay taranmış bir katalog sayfası
+  // dikey A4'e sığdırılınca ölçü tablosu okunmuyordu (kullanıcı bildirimi).
+  const yon = { portrait: 0, landscape: 0 };
+  for (const p of sheetPages) for (const im of p.images) yon[im.orientation] += 1;
+  console.log(`Ek yaprak yönü: ${yon.portrait} dikey · ${yon.landscape} yatay`);
+  if (yon.portrait + yon.landscape !== yaprak) {
+    console.error("HATA: her yaprağın yönü belirlenmemiş.");
+    process.exitCode = 1;
+  }
+
+  // Ek belgeler: kapaklar react-pdf'te basılır, gerçek sayfalar pdf-lib ile
+  // kapağın ARDINA konur. Sıra `orderAttachmentsForAppendix`ten gelir ve
+  // `pdfEkleriYerlestir` tam onu bekler — sözleşme burada uçtan uca sınanır.
+  const attachmentRows = Object.entries(ATTACHMENTS).flatMap(([rowKey, list]) =>
+    list.map((a, i) => ({
+      id: `${rowKey}-${i}`,
+      rowKey,
+      fileName: a.fileName,
+      storagePath: `test/${rowKey}-${i}.pdf`,
+      pageCount: a.pageCount,
+      sort: i,
+    }))
+  );
+  const ordered = orderAttachmentsForAppendix(groups, attachmentRows);
+  console.log(`Ek belge kapağı: ${ordered.length} — ${ordered.map((a) => a.component).join(" · ")}`);
+  if (ordered.length !== attachmentRows.length) {
+    console.error("HATA: ek belgelerin bir kısmı listede karşılık bulamadı.");
+    process.exitCode = 1;
+  }
+
+  const pdfDetailed = await renderEquipmentPdf({
+    meta: META, groups, summary, sheetPages, settings: SETTINGS,
+    attachmentCovers: ordered.map((a) => ({
+      rowKey: a.rowKey,
+      component: a.component,
+      fileName: a.fileName,
+      pageCount: a.pageCount,
+    })),
+  });
+
+  // Sahte ek dosyaları — gerçek yükleme yerine pdf-lib ile üretilir; sınanan
+  // şey sayfa AKTARIMI ve bağlantıların yaşaması, belgenin içeriği değil.
+  const ekler = await Promise.all(
+    ordered.map(async (a) => {
+      const belge = await PDFDocument.create();
+      for (let i = 0; i < a.pageCount; i += 1) belge.addPage([595, 842]);
+      return { ad: a.fileName, bytes: await belge.save() };
+    })
+  );
+  const kapakOncesi = (await PDFDocument.load(pdfDetailed, { updateMetadata: false }))
+    .getPageCount();
+  const birlesik = await pdfEkleriYerlestir(new Uint8Array(pdfDetailed), ekler);
+  const beklenenSayfa = kapakOncesi + ekler.reduce((n, _e, i) => n + ordered[i].pageCount, 0);
+  const sonBelge = await PDFDocument.load(birlesik.bytes, { updateMetadata: false });
+  console.log(
+    `Detaylı deste: ${kapakOncesi} → ${sonBelge.getPageCount()} sayfa ` +
+      `(${birlesik.eklenen} ek · ${birlesik.eklenenSayfa} sayfa)`
+  );
+  if (sonBelge.getPageCount() !== beklenenSayfa || birlesik.atlananlar.length > 0) {
+    console.error(
+      `HATA: ek yerleştirme beklenen sayfa sayısını vermedi (${sonBelge.getPageCount()} ≠ ${beklenenSayfa}).`
+    );
+    process.exitCode = 1;
+  }
+  // İÇ BAĞLANTILAR YAŞADI MI: @react-pdf'in `View id` çapaları katalogun
+  // `/Names /Dests` ağacındadır. Birleştirme bu ağacı taşımazsa "ekipman adına
+  // tıkla" bağlantılarının HEPSİ sessizce ölür.
+  const adAgaci = String(
+    sonBelge.context.lookup(sonBelge.catalog.get(PDFName.of("Names"))) ?? ""
+  );
+  if (!adAgaci.includes("ek-belge-") || !adAgaci.includes("katalog-")) {
+    console.error("HATA: birleştirmeden sonra iç bağlantı çapaları kayboldu.");
+    process.exitCode = 1;
+  } else {
+    console.log("İç bağlantı çapaları birleştirmeden sağ çıktı ✓");
+  }
+
   const pDetailPath = path.join(outDir, "ekipman-listesi-detayli.pdf");
-  writeFileSync(pDetailPath, pdfDetailed);
+  writeFileSync(pDetailPath, birlesik.bytes);
 
   for (const [label, p, min] of [
     ["müşteri", pCustPath, 4],

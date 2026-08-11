@@ -14,7 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { ProjectSignatoryCard, type SignatoryOption } from "@/app/(app)/projects/[id]/signatory-card";
 import { DeleteRevisionButton } from "@/app/(app)/projects/[id]/delete-revision-button";
+import { Tabs } from "@/components/ui/tabs";
 import { ProjectDetailHeader } from "@/app/(app)/projects/[id]/project-header";
+import { ProjectTabsNav } from "@/app/(app)/projects/[id]/project-tabs";
+import { DrawingPlanCard } from "@/app/(app)/projects/[id]/drawing-plan-card";
 
 const PEOPLE: SignatoryOption[] = [
   { id: "p1", full_name: "Alkım Kelleci", role: "engineer" },
@@ -24,6 +27,19 @@ const PEOPLE: SignatoryOption[] = [
 // Başlık bloğu gerçek sayfadakiyle AYNI genişlik kabında ölçülmelidir:
 // `/projects/<id>` geniş sayfa DEĞİLDİR, app-shell ona `max-w-6xl` (1152px)
 // verir. Eylem şeridinin sağa dayanması tam da bu genişlikte sınanır.
+/**
+ * Teknik Resim Takibi fikstürü — gerçek 0055 antedinden. Üç bandı da taşır ki
+ * bant başlıkları ve kod aralıkları gözle görülebilsin; biri "çizildi".
+ */
+const DRAWING_PLAN = [
+  { id: "d1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
+  { id: "d2", code: "0200", name: "ANAKİRİŞ", drawn: false, note: "2 adet" },
+  { id: "d3", code: "0300", name: "BAŞKİRİŞ", drawn: false, note: "" },
+  { id: "d4", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
+  { id: "d5", code: "1600", name: "ARABA YÜRÜTME GRUBU", drawn: false, note: "" },
+  { id: "d6", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+];
+
 const PROJECT = {
   id: "dev",
   doc_no: "0055-00",
@@ -51,6 +67,9 @@ export default function ProjectPreviewPage() {
       <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-6 px-4 py-6 lg:px-8">
         <ProjectDetailHeader
           project={PROJECT}
+          // Kırıntı yolu "İşler / 0055 / 0055-00" okur: son durak İŞ KALEMİ
+          // numarasıdır, mühendisin yazdığı belge kodu değil.
+          itemNo="0055-00"
           job={{ id: "j1", job_no: "0055" }}
           summary={{
             id: PROJECT.id,
@@ -72,6 +91,28 @@ export default function ProjectPreviewPage() {
           people={PEOPLE}
           preparedBy="p1"
           checkedBy="p2"
+        />
+
+        {/* Bölüm rayı GERÇEK bileşendir (`project-tabs.tsx`); iki paneli de
+            burada basmak sayfanın markup'ını kopyalamak olurdu — ray tek
+            başına sınanır: sekmelerin belirginliği, sayaçlar ve ekipman
+            bağlantısının sağa dayanması. */}
+        <Tabs defaultValue="drawings">
+          <ProjectTabsNav
+            revisionCount={REVISIONS.length}
+            drawingPlanCount={DRAWING_PLAN.length}
+            equipmentHref="/projects/dev/revisions/r1/equipment"
+            equipmentLabel="Ekipman Listesi (V1)"
+          />
+        </Tabs>
+
+        {/* Gerçek sayfada "Teknik Resim Takibi" sekmesinin en üstündedir;
+            önizleme sekme kabuğunu değil KARTIN KENDİSİNİ gösterir. */}
+        <DrawingPlanCard
+          projectId="dev"
+          itemNo="0055-00"
+          initialRows={DRAWING_PLAN}
+          canEdit
         />
 
         <div className="overflow-hidden rounded-lg border bg-card">

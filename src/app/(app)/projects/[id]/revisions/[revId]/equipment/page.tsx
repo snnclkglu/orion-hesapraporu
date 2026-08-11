@@ -16,6 +16,11 @@ import {
   buildCatalogSheetUrls, buildEquipmentGroups, buildSummarySections, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
+import { loadDrawingPlan, resolveProjectItemNo } from "@/lib/drawing-plan-data";
+import {
+  attachmentsByRowKey,
+  loadEquipmentAttachments,
+} from "@/lib/equipment-attachments";
 import { EquipmentPanel } from "./equipment-panel";
 
 export default async function EquipmentPage({
@@ -62,13 +67,27 @@ export default async function EquipmentPage({
     notes[n.row_key] = n.note;
   }
 
+  // "Ek Belge" yüklemeleri — satırlara row_key ile bağlanır (notlarla aynı kimlik)
+  const attachmentRows = await loadEquipmentAttachments(supabase, revId);
+
   const autoGroups = buildEquipmentGroups(
     calcInput,
     notes,
     // Seçenekli (alternatif) seçimler panelde de ana satırın altında görünür.
-    altsFromRevision(revision.selections as RevisionSelectionsJson | null)
+    altsFromRevision(revision.selections as RevisionSelectionsJson | null),
+    attachmentsByRowKey(attachmentRows)
   );
-  const summary = buildSummarySections(calcInput, calcResult);
+  // Teknik Resim Takibi defteri özetin SONUNA basılır. Ressamın mühendise
+  // sorduğu son soru numaralandırmadır; cevabı çizim için hazırlanan bu
+  // özetin dışında bırakmak, soruyu telefona geri taşırdı.
+  const [drawingPlan, itemNo] = await Promise.all([
+    loadDrawingPlan(supabase, id),
+    resolveProjectItemNo(supabase, id, project.doc_no),
+  ]);
+  const summary = buildSummarySections(calcInput, calcResult, {
+    itemNo,
+    rows: drawingPlan,
+  });
 
   let extras: EquipmentExtraRow[] = [];
   const { data: extrasRow } = await supabase
@@ -137,6 +156,12 @@ export default async function EquipmentPage({
         autoGroups={autoGroups}
         summary={summary}
         initialExtras={extras}
+        initialAttachments={attachmentRows.map((a) => ({
+          id: a.id,
+          rowKey: a.rowKey,
+          fileName: a.fileName,
+          pageCount: a.pageCount,
+        }))}
         datasheetUrls={datasheetUrls}
         sheetUrls={sheetUrls}
         locked={revision.status === "issued"}

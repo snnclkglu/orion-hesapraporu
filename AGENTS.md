@@ -344,13 +344,69 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **Ekipman listesi PDF'i iki seviyelidir.** *Standart* liste bugünkü
     tablodur ve adı dış adrese bağlar. *Detaylı* liste (`?detay=1`) aynı
     tablonun arkasına ürünlerin katalog sayfalarını EKLER; ad artık belge
-    içindeki o yaprağa gider (`Link src="#…"` + `View id="…"`). Ek sayfalar
-    DİKEY basılır — kaynak taramalar dikeydir, yatay sayfada yüksekliğe
-    sığdırmak ölçü tablosunu okunmaz yapardı. Görüntüler `.webp`tir ve react-pdf
-    webp çözmez: dönüştürme `pdf/catalog-sheet-images.ts`te sharp ile yapılır
-    (JPEG, 1400 px) ve PDF katmanına hazır tampon olarak girer. Aynı katalog
-    sayfasına düşen iki ürün yaprağı iki kez bastırmaz, ikisi de aynı çapaya
-    bağlanır (`CatalogSheetPage.keys` çoğuldur).
+    içindeki o yaprağa gider (`Link src="#…"` + `View id="…"`). Görüntüler
+    `.webp`tir ve react-pdf webp çözmez: dönüştürme
+    `pdf/catalog-sheet-images.ts`te sharp ile yapılır (JPEG, 1400 px) ve PDF
+    katmanına hazır tampon olarak girer. Aynı katalog sayfasına düşen iki ürün
+    yaprağı iki kez bastırmaz, ikisi de aynı çapaya bağlanır
+    (`CatalogSheetPage.keys` çoğuldur).
+
+    **Ek yaprağın YÖNÜ ölçülür, varsayılmaz.** Sayfalar bir süre HEPSİ dikey
+    basıldı ("kaynak taramalar dikeydir"); varsayım yanlıştı — çok sütunlu boy
+    tabloları yatay basılır ve dikey A4'e sığdırılınca ölçü tablosu okunmaz
+    oluyordu. `orientation` sharp'ın DÖNÜŞTÜRME SONRASI ölçüsünden gelir
+    (EXIF döndürmesi dahil), eşik 1,05'tir. Görüntüye ayrıca sayfa yönüne göre
+    `maxHeight` verilir; yoksa yatay yaprak sayfayı taşırıp ikiye bölünür.
+
+    **`id={undefined}`, `id` VERMEMEKLE AYNI ŞEY DEĞİLDİR.** @react-pdf
+    `'id' in props` diye bakar ve tanımsız değeri de bir hedef sayıp belgeye
+    "undefined" adlı bir adlandırılmış hedef yazar. Çapasız yaprakta alan
+    KOŞULLU SPREAD ile hiç verilmez.
+
+19. **"Ek Belge" mühendisin kendi katalog yaprağıdır.** Defter
+    (`manifest.json`) yalnız kaynak PDF'i workspace'te olan üreticileri kapsar;
+    kanca, makara, teker, ray ve müşteriye özel imalatın sayfası orada YOKTUR.
+    `equipment_attachments` bir PDF'i ekipman SATIRINA bağlar — anahtar
+    `equipment_notes` ile birebir aynıdır (`<modulKey>:<slug>`).
+
+    - **Baytlar server action'dan GEÇMEZ:** dosyayı tarayıcı doğrudan depoya
+      yükler (`folder-picker.tsx` deseni), action yalnız kaydı yazar. Action
+      gövdesinin varsayılan sınırı 1 MB'tır ve taranmış bir yaprak bunu aşar.
+    - **Sayfa adedi BEYAN DEĞİL ÖLÇÜMdür** (`verifyStorage` ile aynı ilke):
+      action dosyayı depodan indirip pdf-lib ile açar ve sayar. Açılamayan
+      dosya kayda GİRMEZ, yüklenen nesne silinir.
+    - **Yeni revizyona KOPYALANIR** (satır + depo nesnesi). Paylaşılsaydı eski
+      revizyonun eki yenisinden silinince kaybolurdu; teslim edilmiş bir
+      listenin eki sonradan değişmemelidir.
+    - Silme sırası "önce ucuz olanı kaybet": önce satır, sonra depo nesnesi.
+
+    **PDF'te KAPAK + `pdfEkleriYerlestir`.** react-pdf var olan bir PDF'i
+    okuyamaz, pdf-lib ise Türkçe başlık basamaz (gömülü fontlar WinAnsi). Bu
+    yüzden react-pdf her ek için bir kapak yaprağı basar, pdf-lib gerçek
+    sayfaları o kapağın hemen ardına koyar. **Temel belge YERİNDE açılır, yeni
+    bir belgeye KOPYALANMAZ** — `pdfBirlestir` gibi kopyalayan bir yol
+    `/Root /Names /Dests` ağacını taşımaz ve bütün iç bağlantılar sessizce
+    ölür. Okunamayan ekin KAPAĞI DA silinir: belge var olmayan sayfa vaat etmez.
+
+20. **Teknik Resim Takibi PLANDIR, teslim değil.** `project_drawing_plan`
+    mühendisin proje BAŞINDA verdiği ana grup numaralandırmasıdır ve
+    `/drawings` modülüne HİÇ BAĞLANMAZ (kullanıcı kararı): `drawing_packages`
+    ressamın teslim ettiğinden doğar, bu defter teslimden aylar önce yazılır.
+    Proje sayfasındaki sekme bu yüzden üç katmanlıdır ve sıra ZAMAN SIRASIDIR —
+    plan → doğrulanmış paketler → kapanmış eski Drive defteri.
+
+    Numara `<iş kalemi no>-<grup kodu>`dur (`0055-00-0100`). Bant kuralı
+    firmanındır ve TEK yerdedir (`lib/drawing-plan.ts`): köprü 0100–1450, araba
+    1500–2950, ekstra 3000–3950. **Bant bir sütun DEĞİL koddan türeyen bir
+    sonuçtur.** Adım 50'dir — gerçek antedlerde ara numara var
+    (`0019-00-0950`). Kalem numarası deftere KOPYALANMAZ; `job_items.item_no`
+    tek kaynaktır ve `autoItemNos` onu kaydırabilir (md. 14).
+
+    Ekran OTOMATİK DOLDURMAZ (karar mühendisin); öneri listesi gerçek
+    antedlerden derlendi ve KAPALI DEĞİLDİR. Grup adedi ve ağırlık SORULMAZ —
+    onlara ressam çizerken karar verir. Defter Teknik Ressam Özeti'nin sonuna
+    basılır (panel + Excel + PDF) ama `CalcInput`a GİRMEZ: snapshot'a
+    gömülseydi proje başında verilmiş karar her revizyonda donardı.
 
     **Sayfa MARKA + MODEL ile bulunur; bölümün o kimliği SAKLIYOR olması
     gerekir.** Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8)

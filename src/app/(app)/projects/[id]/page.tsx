@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canEditReports, isAdminRole } from "@/lib/roles";
+import { loadDrawingPlan, resolveProjectItemNo } from "@/lib/drawing-plan-data";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DRAWING_STATUS_LABELS, type DrawingStatus } from "@/lib/drawings";
 import { DeleteRevisionButton } from "./delete-revision-button";
 import { ProjectDetailHeader } from "./project-header";
 import { DrawingPackagesCard } from "./drawing-packages-card";
+import { DrawingPlanCard } from "./drawing-plan-card";
+import { ProjectTabsNav } from "./project-tabs";
 import { ProjectSignatoryCard, type SignatoryOption } from "./signatory-card";
 import type { JobItemOption } from "../new-project-dialog";
 
@@ -63,8 +65,14 @@ export default async function ProjectPage({
     title: string;
   } | null) ?? null;
 
-  const [{ data: revisions }, { data: drawings }, { data: jobsData }, { data: signatoryProfiles }] =
-    await Promise.all([
+  const [
+    { data: revisions },
+    { data: drawings },
+    { data: jobsData },
+    { data: signatoryProfiles },
+    drawingPlan,
+    itemNo,
+  ] = await Promise.all([
       supabase
         .from("revisions")
         .select("id, rev_no, label, status, engine_version, created_at, issued_at, created_by, profiles:created_by(full_name)")
@@ -88,6 +96,12 @@ export default async function ProjectPage({
         .select("id, full_name, role")
         .in("role", ["admin", "engineer"])
         .order("full_name", { ascending: true }),
+      // Teknik Resim Takibi defteri + resim numarasının kökü. İkisi de
+      // `lib/drawing-plan-data.ts`ten okunur; ekipman paneli ve indirme ucu da
+      // aynı iki fonksiyonu çağırır, böylece ekrandaki numara ile indirilen
+      // dosyadaki numara ayrışamaz.
+      loadDrawingPlan(supabase, id),
+      resolveProjectItemNo(supabase, id, project.doc_no),
     ]);
 
   // İKİ AYRI SORU: PROJEYİ silmek yöneticiye özeldir (projects DELETE
@@ -101,7 +115,12 @@ export default async function ProjectPage({
     ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
     : { data: null };
   const isAdmin = isAdminRole(profile?.role);
-  const canDeleteRevision = canEditReports(profile?.role);
+  // AYNI SORU, İKİ AYRI YER: taslak silme ve Teknik Resim Takibi'ne yazma
+  // yetkisi de "hesap raporunu kim yazar"dır (Yönetici + Mühendis). Numarayı
+  // mühendis verir; müdür ve teknik ressam okur ama değiştiremez — asıl engel
+  // RLS'tedir (`can_edit_reports()`), buradaki yalnız ekranı sadeleştirir.
+  const canWriteReports = canEditReports(profile?.role);
+  const canDeleteRevision = canWriteReports;
 
   const jobs = (jobsData ?? []).map((j) => ({
     id: j.id,
@@ -141,6 +160,7 @@ export default async function ProjectPage({
       />
 
       <ProjectDetailHeader
+        itemNo={itemNo}
         project={{
           id: project.id,
           doc_no: project.doc_no,
@@ -165,32 +185,18 @@ export default async function ProjectPage({
       />
 
       <Tabs defaultValue="report">
-        {/* Link, role=tablist içinde kalmasın diye TabsList'in kardeşi olarak durur */}
-        <div className="flex flex-wrap items-center gap-1">
-          <TabsList>
-            <TabsTrigger value="report">Hesap Raporu</TabsTrigger>
-            <TabsTrigger value="drawings">
-              Teknik Çizimler
-              {drawingList.length > 0 && (
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  ({drawingList.length})
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-          {/* Ekipman listesi revizyon snapshot'ından üretilir; sekme yerine
-              son revizyonun indirme linki verilir. Yalnız `py-1` ile hedef
-              ~26px kalıyordu, sekmelerin yanında parmakla tutulmuyordu. */}
-          {latestRev && (
-            <a
-              href={`/projects/${project.id}/revisions/${latestRev.id}/equipment`}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 hover:text-foreground pointer-coarse:min-h-10"
-            >
-              <FileDown className="size-3.5" />
-              Ekipman Listesi (V{latestRev.rev_no})
-            </a>
-          )}
-        </div>
+        {/* Bölüm rayı kendi dosyasındadır (`project-tabs.tsx`) ki
+            `/dev/project-preview` GERÇEK rayı bassın; gerekçe orada. */}
+        <ProjectTabsNav
+          revisionCount={revisionList.length}
+          drawingPlanCount={drawingPlan.length}
+          equipmentHref={
+            latestRev
+              ? `/projects/${project.id}/revisions/${latestRev.id}/equipment`
+              : undefined
+          }
+          equipmentLabel={latestRev ? `Ekipman Listesi (V${latestRev.rev_no})` : undefined}
+        />
 
         {/* ------------------------------------------------ Hesap Raporu */}
         <TabsContent value="report">
@@ -294,13 +300,23 @@ export default async function ProjectPage({
           </div>
         </TabsContent>
 
-        {/* --------------------------------------------- Teknik Çizimler */}
-        {/* SEKME ARTIK İKİ KATMANLIDIR: üstte GERÇEK (doğrulanmış paketler),
-            altta NİYET (eski defter). Sıra bilinçlidir — mühendis aynı vinç
-            için iki ayrı gerçek görüyordu ve hangisinin bağlayıcı olduğunu
-            ekran söylemiyordu. */}
+        {/* ----------------------------------------- Teknik Resim Takibi */}
+        {/* SEKME ÜÇ KATMANLIDIR ve sıra ZAMAN SIRASIDIR:
+              1. PLAN    — mühendisin proje başında verdiği ana grup numaraları
+              2. GERÇEK  — ressamın teslim ettiği doğrulanmış paketler
+              3. NİYET   — kapanmış eski Drive defteri (arşiv)
+            Plan en üsttedir çünkü diğer ikisi ondan sonra doğar. Üç katman
+            birbirine BAĞLANMAZ: plan Teknik Resimler modülünü hiç bilmez
+            (kullanıcı kararı) ve paket kartı da planı okumaz. */}
         <TabsContent value="drawings">
           <div className="grid gap-3">
+            <DrawingPlanCard
+              projectId={project.id}
+              itemNo={itemNo}
+              initialRows={drawingPlan}
+              canEdit={canWriteReports}
+            />
+
             <DrawingPackagesCard projectId={project.id} docNo={project.doc_no} />
 
             {/* DEFTER KAPANDI ama SİLİNMEDİ. Yeni kayıt yolları (Yeni Çizim ·

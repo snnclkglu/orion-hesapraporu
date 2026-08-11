@@ -31,6 +31,7 @@ export function ProjectDetailHeader({
   canDelete,
   latestRev,
   isFirstRevision,
+  itemNo,
 }: {
   project: { id: string; doc_no: string; name: string; customer: string; crane_type: string; archived: boolean };
   job: HeaderJob | null;
@@ -39,6 +40,19 @@ export function ProjectDetailHeader({
   canDelete: boolean;
   latestRev: HeaderRevision | null;
   isFirstRevision: boolean;
+  /**
+   * İŞ KALEMİ NUMARASI — kırıntı yolunun son durağı.
+   *
+   * Eskiden burada `projects.doc_no` duruyordu ve yol "İşler / 0055 / 0055"
+   * gibi kendini tekrar ediyordu: iş kökü ile belge kodu aynı görünüyor,
+   * raporun HANGİ KALEME ait olduğu okunmuyordu. Doğrusu "İşler / 0055 /
+   * 0055-00"dır. Alan `doc_no`dan DEĞİL `job_items.item_no`dan gelir
+   * (`resolveProjectItemNo`): eski raporların `doc_no`su bilinçli olarak
+   * kalemsiz bırakıldı — yayınlanmış PDF'lerin belge kodu değişmemeli
+   * (AGENTS md. 14) — ama ekranda gezinme yolu sistemin kendi numarasını
+   * göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
+   */
+  itemNo?: string;
 }) {
   const hasDraft = latestRev?.status === "draft";
 
@@ -67,7 +81,7 @@ export function ProjectDetailHeader({
               <Link href="/projects" className="hover:underline">Mühendislik</Link>
             )}
             {" / "}
-            <span className="font-mono">{project.doc_no}</span>
+            <span className="font-mono">{itemNo?.trim() || project.doc_no}</span>
           </div>
           {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
           <h2 className="mt-1 text-2xl font-semibold tracking-tight">{project.name}</h2>

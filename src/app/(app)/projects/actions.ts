@@ -6,6 +6,10 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
 import {
+  EQUIPMENT_ATTACHMENT_BUCKET,
+  loadEquipmentAttachments,
+} from "@/lib/equipment-attachments";
+import {
   notesForRevision,
   type EquipmentNoteRow,
 } from "./[id]/revisions/[revId]/equipment/notes";
@@ -40,6 +44,56 @@ async function copyEquipmentNotes(
   );
   if (rows.length === 0) return;
   await supabase.from("equipment_notes").insert(rows);
+}
+
+/**
+ * Kaynak revizyonun "Ek Belge" PDF'lerini yeni revizyona taşır.
+ *
+ * NOTLARLA AYNI GEREKÇE (yukarıdaki blok): ekler `equipment_attachments`
+ * tablosunda ve depoda durur, revizyon snapshot'ında değil; kopyalanmazsa
+ * mühendis her versiyonda aynı katalog yapraklarını yeniden yüklerdi.
+ *
+ * BAYTLAR DA KOPYALANIR, PAYLAŞILMAZ. İki revizyon aynı depo nesnesini
+ * gösterseydi eski revizyonun eki YENİSİNDEN silinince kaybolurdu — teslim
+ * edilmiş bir listenin eki sonradan değişmemelidir. `storage.copy` sunucu
+ * tarafında, aynı bölgede çalışır; ekler satır başına birkaç tanedir.
+ *
+ * Hata YUTULUR: ek taşınması revizyon açmayı bozmamalıdır. Kopyalanamayan bir
+ * ekin SATIRI DA yazılmaz — kayıt var, baytı yok bir ek, detaylı listeyi her
+ * seferinde eksik bastırırdı.
+ */
+async function copyEquipmentAttachments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fromRevisionId: string | null | undefined,
+  toRevisionId: string,
+  actorId: string
+): Promise<void> {
+  if (!fromRevisionId) return;
+  const rows = await loadEquipmentAttachments(supabase, fromRevisionId);
+  if (rows.length === 0) return;
+
+  const yeniler: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    const yeniId = crypto.randomUUID();
+    const hedef = `${toRevisionId}/${yeniId}.pdf`;
+    const { error } = await supabase.storage
+      .from(EQUIPMENT_ATTACHMENT_BUCKET)
+      .copy(row.storagePath, hedef);
+    if (error) continue;
+    yeniler.push({
+      id: yeniId,
+      revision_id: toRevisionId,
+      row_key: row.rowKey,
+      file_name: row.fileName,
+      storage_path: hedef,
+      page_count: row.pageCount,
+      sort: row.sort,
+      created_by: actorId,
+    });
+  }
+  if (yeniler.length > 0) {
+    await supabase.from("equipment_attachments").insert(yeniler);
+  }
 }
 
 const projectSchema = z.object({
@@ -313,8 +367,10 @@ export async function duplicateProject(
       .single();
     if (revError) return { error: revError.message };
     copiedRevisionId = revision.id;
-    // Ekipman listesine yazılmış "Ek Özellikler" notları da kopyaya taşınır
+    // Ekipman listesine yazılmış "Ek Özellikler" notları ve "Ek Belge"
+    // PDF'leri de kopyaya taşınır
     await copyEquipmentNotes(supabase, last.id, revision.id, user.id);
+    await copyEquipmentAttachments(supabase, last.id, revision.id, user.id);
   }
 
   // Seçilen iş kalemi bu yeni rapora bağlanır (kalem başka rapora bağlıysa devralınır)
@@ -593,9 +649,10 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
 
   if (error) return { error: error.message };
 
-  // Snapshot gibi ekipman notları da devralınır — şablondan gelen ilk
-  // revizyonda şablonun notları, sonrakilerde bir önceki revizyonunkiler.
+  // Snapshot gibi ekipman notları ve ekleri de devralınır — şablondan gelen
+  // ilk revizyonda şablonunkiler, sonrakilerde bir önceki revizyonunkiler.
   await copyEquipmentNotes(supabase, last?.id, revision.id, user.id);
+  await copyEquipmentAttachments(supabase, last?.id, revision.id, user.id);
 
   await supabase.from("audit_log").insert({
     project_id: projectId,

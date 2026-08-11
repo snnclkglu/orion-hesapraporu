@@ -709,3 +709,98 @@ hatası, ve V2 içerik okumasında üç resmin antedindeki proje no çelişkisi.
   682 dosya ve sorun ölçülebilir düzeyde değil. Sanallaştırma **şimdilik
   gereksiz** — 1500 dosyayı aşan bir paket geldiğinde ilk bakılacak yer burası
   (arama kutusunda debounce yok, `aramaVar` bütün katları açıyor)
+
+## Faz Y — Teknik Resim Takibi, ek belgeler ve sekme rayı (2026-08-11)
+
+Sinan'ın beş maddelik geri bildirimi. Dördü ekipman listesi ve proje sayfası
+etrafında, biri yeni bir bölüm.
+
+### 1. Teknik Resim Takibi — planlanan numaralandırma (yeni bölüm)
+
+Ressam çizime oturmadan önce mühendise **"bu ana grup kaç olacak?"** diye
+soruyor ve cevap bugüne kadar telefonla veriliyordu. Proje sayfasındaki
+"Teknik Çizimler" sekmesi **Teknik Resim Takibi** oldu; en üstüne mühendisin
+proje BAŞINDA doldurduğu ana grup defteri kondu (`project_drawing_plan`).
+
+**Teknik Resimler modülüne (`/drawings`) HİÇ BAĞLANMAZ** — kullanıcı kararı.
+Gerekçe zaman sırasıdır: `drawing_packages` ressamın TESLİM ETTİĞİNDEN doğar,
+bu defter ise teslimden aylar önce yazılır. İki defteri bağlamak, henüz var
+olmayan bir teslimi bekleyen bir soruya cevap vermek olurdu. Sekme bu yüzden üç
+katmanlıdır ve sıra zaman sırasıdır: **plan → gerçek paketler → kapanmış eski
+Drive defteri**.
+
+**Numara = `<iş kalemi no>-<grup kodu>`** (`0055-00-0100`). Bant kuralı
+firmanındır ve tek yerde tanımlıdır (`lib/drawing-plan.ts`): köprü 0100–1450,
+araba 1500–2950, ekstra (kepçe, mıknatıs…) 3000–3950. **Bant bir sütun DEĞİL
+koddan türeyen bir sonuçtur** — iki yerde tutulsaydı biri güncellenip diğeri
+unutulurdu. Adım **50**'dir, 100 değil: gerçek antedlerde ara numaralar var
+(`0019-00-0950` ELEKTRİK GRUBU, 0800 ile 1000 arasına sıkışmış).
+
+Ekran otomatik doldurmaz — numaralandırma mühendisin kararıdır. Öneri listesi
+gerçek antedlerden derlendi (0019 · 0043 · 0055 · 0057) ve **KAPALI DEĞİLDİR**
+(`SALE_SCOPES` ilkesi): listede olmayan ad aramada yazılıp eklenir. Grup adedi
+ve ağırlık **sorulmaz**; onlara ressam çizerken karar verir ve sonuç zaten
+`drawing_parts`ta ölçülür.
+
+Aynı liste **Teknik Ressam Özeti'nin sonuna** basılır — panelde, Excel'de ve
+PDF'te; ressamın mühendise sorduğu son soru orada cevaplanmış olur. Defter
+`CalcInput`a GİRMEZ (ayrı parametre): revizyon snapshot'ına gömülseydi proje
+başında verilmiş bir karar her yeni revizyonda donardı.
+
+### 2. Ek Belge — ekipman satırına PDF eklemek
+
+Detaylı ekipman listesi yalnız defterdeki (`manifest.json`) katalog
+sayfalarını ekleyebiliyordu; kanca, makara, teker, ray ve müşteriye özel
+imalatın sayfası orada YOK ve olmayacak. Yeni **"Ek Belge"** sütunu mühendisin
+kendi PDF'ini satıra bağlar (`equipment_attachments` + aynı adlı bucket).
+Anahtar `equipment_notes` ile BİREBİR aynıdır (`<modulKey>:<slug>`).
+
+- **Baytlar server action'dan geçmez**: dosyayı tarayıcı doğrudan depoya
+  yükler (`folder-picker.tsx` deseni; action gövdesi 1 MB ile sınırlı).
+- **Sayfa adedi BEYAN değil ÖLÇÜMdür**: action dosyayı depodan indirip pdf-lib
+  ile açar ve sayar. Açılamayan dosya kayda GİRMEZ, yüklenen nesne silinir —
+  kullanıcı hatayı yüklerken görür, aylar sonra eksik basılmış bir destede
+  değil.
+- **Yeni revizyona kopyalanır** (satır + depo nesnesi), notlarla aynı adımda.
+  Paylaşılsaydı eski revizyonun eki yenisinden silinince kaybolurdu.
+- Silme sırası "önce ucuz olanı kaybet": önce satır, sonra depo nesnesi.
+
+**PDF'te kapak + pdf-lib yerleştirme.** react-pdf var olan bir PDF'i okuyamaz;
+pdf-lib ise Türkçe başlık basamaz (gömülü fontlar WinAnsi). Bu yüzden react-pdf
+her ek için bir KAPAK yaprağı basar, `pdfEkleriYerlestir` gerçek sayfaları o
+kapağın hemen ardına koyar. **Temel belge YERİNDE açılır, yeni bir belgeye
+KOPYALANMAZ**: kopyalasaydı `/Root /Names /Dests` ağacı taşınmaz ve "ekipman
+adına tıkla, ekine git" bağlantılarının hepsi sessizce ölürdü. Okunamayan ekin
+KAPAĞI DA silinir — belge var olmayan sayfaları vaat etmez.
+
+### 3. Katalog sayfası yönü artık ÖLÇÜLÜR
+
+Ek yapraklar "kaynak taramalar dikeydir" gerekçesiyle hepsi dikey basılıyordu
+ve bu varsayım yanlıştı: V5 şablonunun dokuz yaprağından **ikisi yataydır** ve
+dikey A4'e sığdırılınca ölçü tablosu okunmuyordu. Yön `catalog-sheet-images.ts`
+içinde sharp'ın DÖNÜŞTÜRME SONRASI ölçüsünden okunur (EXIF döndürmesi dahil);
+eşik 1,05'tir, tam 1,0 değil — taranmış sayfalardaki birkaç piksellik kırpma
+oynaması kare görünen dikey sayfaları yatay bastırırdı. Görüntüye ayrıca sayfa
+yönüne göre `maxHeight` verildi: yoksa yatay yaprak sayfayı taşırıp ikiye
+bölünüyordu ("IMAGE can't wrap between pages").
+
+**Yan bulgu (düzeltildi):** `id={undefined}` @react-pdf'te `id` VERMEMEKLE aynı
+şey değil — `'id' in props` diye bakılıyor ve belgeye "undefined" adlı bir
+adlandırılmış hedef yazılıyordu. Çok yapraklı her katalog sayfası bunu
+üretiyordu; alan artık koşullu SPREAD ile verilir.
+
+### 4. Bölüm rayı belirginleşti
+
+Sekmeler soluk gri bir hapın içindeydi ve "Teknik Çizimler" gözden kaçıyordu.
+Ray `PackageNav` ile aynı dili konuşuyor artık: alt çizgili şerit, ikon, 15px
+kalın etiket, sayaç rozeti ve bölüm çizgisi. Kendi dosyasında
+(`project-tabs.tsx`) ki `/dev/project-preview` GERÇEK rayı bassın.
+
+### 5. Kırıntı yolu ve etiket
+
+- "İşler / 0055 / **0055**" → "İşler / 0055 / **0055-00**". Son durak artık
+  `job_items.item_no`dur (`resolveProjectItemNo`), `projects.doc_no` değil:
+  eski raporların `doc_no`su bilinçli olarak kalemsiz bırakıldı (yayınlanmış
+  PDF'lerin belge kodu değişmemeli, md. 14) ama ekranda gezinme yolu sistemin
+  kendi numarasını göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
+- İndirme çubuğunda "Müşteri (yalnız liste)" → **"Müşteri"**.

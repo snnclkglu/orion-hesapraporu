@@ -36,6 +36,7 @@ import {
 } from "@/lib/calc/fields";
 import { attrValueLabel } from "@/lib/catalog-mapping";
 import { catalogSheetPageUrl, findCatalogSheet } from "@/lib/catalog-sheets";
+import { fullDrawingNo, groupDrawingPlan, type DrawingPlanRow } from "@/lib/drawing-plan";
 import {
   cabinHasAirConditioner,
   computeCabin,
@@ -175,6 +176,13 @@ export interface EqRow {
   spec: string;
   /** "Ek Özellikler" — kullanıcının satıra elle yazdığı serbest açıklama */
   note?: string;
+  /**
+   * "Ek Belge" — kullanıcının bu satıra yüklediği PDF ekleri
+   * (`equipment_attachments`). Katalog SAYFASINDAN farklıdır: o defterden
+   * (manifest.json) gelir ve yalnız kaynak PDF'i workspace'te olan üreticileri
+   * kapsar; bu ise mühendisin kendi elindeki yaprağıdır.
+   */
+  attachments?: EqAttachmentRef[];
   qty: number | string;
   /** Panelden eklenen serbest satır (silinebilir/düzenlenebilir) */
   custom?: boolean;
@@ -182,6 +190,33 @@ export interface EqRow {
 
 /** row_key → not metni (equipment_notes tablosundan okunur) */
 export type EquipmentNotes = Record<string, string>;
+
+/** Bir satıra yüklenmiş PDF ekinin listedeki görünen yüzü. */
+export interface EqAttachmentRef {
+  /** Kullanıcının dosya adı — ek kapağında ve Excel hücresinde görünür */
+  fileName: string;
+  /** Sunucunun OKUYARAK saydığı sayfa adedi (0 = dosya açılamadı) */
+  pageCount: number;
+}
+
+/** row_key → o satıra yüklenmiş ekler (equipment_attachments) */
+export type EquipmentAttachments = Record<string, EqAttachmentRef[]>;
+
+/**
+ * "Ek Belge" hücresinin metni — listede, Excel'de ve PDF'te AYNI cümle.
+ *
+ * Sayfa adedi yazılır çünkü listeyi okuyanın sorusu "ek var mı" değil "kaç
+ * sayfa geliyor"dur: detaylı PDF'in kalınlığı buradan tahmin edilir. Tek
+ * belgede dosya adı da yazılır; iki ve üstünde ad yerine sayı yazılır, aksi
+ * hâlde hücre bir dosya adı listesine dönerdi.
+ */
+export function attachmentSummaryText(list?: EqAttachmentRef[]): string {
+  if (!list || list.length === 0) return "";
+  const sayfa = list.reduce((n, a) => n + (a.pageCount || 0), 0);
+  const sayfaMetni = sayfa > 0 ? `${sayfa} sayfa` : "sayfa okunamadı";
+  if (list.length === 1) return `${sayfaMetni} · ${list[0].fileName}`;
+  return `${list.length} belge · ${sayfaMetni}`;
+}
 
 export interface EqGroup {
   name: string;
@@ -732,7 +767,9 @@ export function buildEquipmentGroups(
   input: CalcInput,
   notes?: EquipmentNotes,
   /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
-  alts?: RevisionAlts
+  alts?: RevisionAlts,
+  /** row_key → yüklenmiş PDF ekleri (equipment_attachments) */
+  attachments?: EquipmentAttachments
 ): EqGroup[] {
   const groups: EqGroup[] = [];
   // Mahal ısı yükleri satın alma satırında da gösterilir; hesap saf olduğu
@@ -766,12 +803,23 @@ export function buildEquipmentGroups(
           })),
     });
   }
-  // Notlar satırlara KARARLI anahtarla bağlanır, ardından başlık düzeni
-  // uygulanır. Sıra bu yöndedir: anahtar önce, biçimleme sonra.
+  // Notlar ve ekler satırlara KARARLI anahtarla bağlanır, ardından başlık
+  // düzeni uygulanır. Sıra bu yöndedir: anahtar önce, biçimleme sonra —
+  // `baslikDuzeni` etiketi değiştirir, anahtar ondan türetilseydi kopardı.
   return groups.map((g) => ({
     name: g.name,
     rows: g.rows.map((r) =>
-      baslikDuzeniniUygula(r.rowKey ? { ...r, note: notes?.[r.rowKey] ?? "" } : r)
+      baslikDuzeniniUygula(
+        r.rowKey
+          ? {
+              ...r,
+              note: notes?.[r.rowKey] ?? "",
+              ...(attachments?.[r.rowKey]?.length
+                ? { attachments: attachments[r.rowKey] }
+                : {}),
+            }
+          : r
+      )
     ),
   }));
 }
@@ -786,9 +834,10 @@ function writeEquipmentSheet(
   /** Ekipman ADINA bağlanan katalog sayfası adresleri (mutlak) */
   sheetUrls?: Map<string, string>
 ): number {
-  // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Adet
-  const COL_COUNT = 6;
-  const QTY_COL = 6;
+  // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Ek Belge · Adet
+  const COL_COUNT = 7;
+  const QTY_COL = 7;
+  const ATTACH_COL = 6;
   const headerRowNo = writeBand(ws, "EKİPMAN LİSTESİ", meta, COL_COUNT);
 
   // Tablo başlığı — müşteriye teslim edilebilir profesyonel sütunlar.
@@ -796,7 +845,7 @@ function writeEquipmentSheet(
   // çıktıların başlığıdır; müşteri belgesi kömür zeminli, çerçeveli ve adet
   // sütunu sağa dayalı başlık taşır.
   const header = ws.getRow(headerRowNo);
-  ["Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Adet"].forEach((h, i) => {
+  ["Ekipman", "Marka", "Model", "Özellikler", "Ek Özellikler", "Ek Belge", "Adet"].forEach((h, i) => {
     const cell = header.getCell(i + 1);
     cell.value = h;
     cell.font = { name: TITLE_FONT, bold: true, color: { argb: PAPER } };
@@ -821,7 +870,7 @@ function writeEquipmentSheet(
 
   groups.forEach((group) => {
     // Grup başlığı: birleşik satır (marka kırmızısı üst çizgi, nötr dolgu)
-    ws.mergeCells(`A${rowNo}:F${rowNo}`);
+    ws.mergeCells(`A${rowNo}:${colLetter(COL_COUNT)}${rowNo}`);
     const gc = ws.getCell(`A${rowNo}`);
     gc.value = group.name;
     gc.font = { bold: true };
@@ -857,6 +906,11 @@ function writeEquipmentSheet(
       }
       row.getCell(4).value = r.spec;
       row.getCell(5).value = r.note ?? "";
+      // "Ek Belge": baytlar Excel'e GİRMEZ, yalnız sayfa adedi ve dosya adı
+      // yazılır. Ekin kendisi DETAYLI PDF'in sonundadır; çalışma kitabına
+      // gömülü bir PDF, dosyayı hem şişirir hem de her açanda güven uyarısı
+      // çıkarırdı.
+      row.getCell(ATTACH_COL).value = attachmentSummaryText(r.attachments);
       row.getCell(QTY_COL).value = r.qty;
       // Adet: sayılar TR ayraçlı, sağa dayalı, mono
       if (typeof r.qty === "number") {
@@ -869,7 +923,7 @@ function writeEquipmentSheet(
         cell.alignment = {
           horizontal: c === QTY_COL ? "right" : "left",
           vertical: "middle",
-          wrapText: c === 4 || c === 5,
+          wrapText: c === 4 || c === 5 || c === ATTACH_COL,
           // Alternatif satır ana satırın altında GİRİNTİLİ durur: satın alma
           // listesinde hangi satırın asıl seçim olduğu tek bakışta görünsün.
           indent: r.alt && c === 1 ? 1 : undefined,
@@ -891,6 +945,7 @@ function writeEquipmentSheet(
   autoWidth(ws, WIDTH_MIN, WIDTH_MAX);
   ws.getColumn(4).width = 46; // özellik metni uzun; sabit geniş + wrap
   ws.getColumn(5).width = 32; // ek özellikler: kullanıcı metni, wrap
+  ws.getColumn(ATTACH_COL).width = 26; // ek belge: sayfa adedi + dosya adı
   return componentCount;
 }
 
@@ -1012,7 +1067,25 @@ const ENDCARRIAGE_PLATE_KEYS: (keyof EndCarriageInputs & string)[] = [
   "bottomPlateThicknessMm", "bottomPlateWidthMm",
 ];
 
-export function buildSummarySections(input: CalcInput, result: CalcResult): SummarySection[] {
+/**
+ * Teknik Resim Takibi defterinin özete düşen hâli.
+ *
+ * Ekipman listesi hesap motorundan beslenir, bu defter ise projeden — ikisi
+ * ayrı kaynaktır, bu yüzden AYRI BİR PARAMETRE olarak girer. `CalcInput`a
+ * konsaydı numaralandırma revizyon snapshot'ına gömülür ve proje başında
+ * verilmiş bir karar, sonradan açılan her revizyonda donardı.
+ */
+export interface EquipmentDrawingPlan {
+  /** Tam resim numarasının kökü — iş kalemi no ("0055-00"). Boşsa yalnız kod basılır. */
+  itemNo: string;
+  rows: DrawingPlanRow[];
+}
+
+export function buildSummarySections(
+  input: CalcInput,
+  result: CalcResult,
+  drawingPlan?: EquipmentDrawingPlan
+): SummarySection[] {
   const specs = input.specs;
   const sections: SummarySection[] = [];
 
@@ -1218,6 +1291,21 @@ export function buildSummarySections(input: CalcInput, result: CalcResult): Summ
     sections.push({ name: "Ağırlıklar", rows: weightRows });
   }
 
+  // TEKNİK RESİM NUMARALANDIRMASI EN SONDADIR ve bilinçli olarak öyledir:
+  // ressam özeti yukarıdan aşağı "neyi çizeceğim"i anlatır, en altta da
+  // "hangi numarayı vereceğim" durur. Ressamın mühendise sorduğu son soru budur.
+  // Köprü ve araba grupları alt alta ayrı başlıklar hâlinde basılır — bant
+  // ayrımı numaranın kendisinde saklıdır ve okuyan onu başlıkta görmelidir.
+  for (const grup of groupDrawingPlan(drawingPlan?.rows ?? [])) {
+    sections.push({
+      name: `Teknik Resim No · ${grup.label}`,
+      rows: grup.rows.map((r) => ({
+        label: r.name.trim() || "(adı girilmemiş grup)",
+        value: fullDrawingNo(drawingPlan?.itemNo, r.code),
+      })),
+    });
+  }
+
   return sections;
 }
 
@@ -1225,7 +1313,8 @@ function writeSummarySheet(
   ws: ExcelJS.Worksheet,
   input: CalcInput,
   result: CalcResult,
-  meta: EquipmentMeta
+  meta: EquipmentMeta,
+  drawingPlan?: EquipmentDrawingPlan
 ): void {
   const headerRowNo = writeBand(ws, "TEKNİK RESSAM ÖZETİ", meta, 3);
 
@@ -1245,7 +1334,7 @@ function writeSummarySheet(
   ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 3 } };
 
   let rowNo = headerRowNo + 1;
-  const sections = buildSummarySections(input, result);
+  const sections = buildSummarySections(input, result, drawingPlan);
   for (const section of sections) {
     // Bölüm başlığı (birleşik hücre, dolgu)
     ws.mergeCells(`A${rowNo}:C${rowNo}`);
@@ -1294,6 +1383,8 @@ export interface EquipmentWorkbookOptions {
   extras?: EquipmentExtraRow[];
   /** row_key → "Ek Özellikler" notu (equipment_notes) */
   notes?: EquipmentNotes;
+  /** row_key → "Ek Belge" yüklemeleri (equipment_attachments) */
+  attachments?: EquipmentAttachments;
   /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
   alts?: RevisionAlts;
   /**
@@ -1303,6 +1394,12 @@ export interface EquipmentWorkbookOptions {
    * (ör. birim testi) bağlantı hiç kurulmaz.
    */
   appOrigin?: string;
+  /**
+   * Teknik Resim Takibi defteri — Teknik Ressam Özeti sayfasının sonuna ana
+   * grup numaralandırması olarak basılır. Yalnız `scope: "full"` çıktısında
+   * görünür (özet sayfasının kendisi gibi).
+   */
+  drawingPlan?: EquipmentDrawingPlan;
 }
 
 export function buildEquipmentWorkbook(
@@ -1316,7 +1413,7 @@ export function buildEquipmentWorkbook(
   wb.created = new Date();
 
   const groups = mergeExtras(
-    buildEquipmentGroups(calcInput, options.notes, options.alts),
+    buildEquipmentGroups(calcInput, options.notes, options.alts, options.attachments),
     options.extras
   );
 
@@ -1333,7 +1430,7 @@ export function buildEquipmentWorkbook(
     const wsSummary = wb.addWorksheet("Teknik Ressam Özeti", {
       pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
-    writeSummarySheet(wsSummary, calcInput, calcResult, meta);
+    writeSummarySheet(wsSummary, calcInput, calcResult, meta, options.drawingPlan);
   }
 
   return wb;

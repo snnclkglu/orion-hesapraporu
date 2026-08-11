@@ -22,10 +22,18 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BookOpen, ExternalLink, FileDown, FileSpreadsheet, Plus, Save, Trash2 } from "lucide-react";
+import {
+  BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Loader2, Plus, Save, Trash2,
+} from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { dsKey } from "@/lib/excel/equipment";
+import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
+import { createClient } from "@/lib/supabase/client";
 import { saveEquipmentExtras, saveEquipmentNote } from "./actions";
+import {
+  deleteEquipmentAttachment,
+  registerEquipmentAttachment,
+} from "./attachment-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -138,20 +146,37 @@ function NoteCell({
   );
 }
 
+/** Ekranda tutulan ek kaydı — baytlar değil, kimlik + ölçü. */
+export interface PanelAttachment {
+  id: string;
+  rowKey: string;
+  fileName: string;
+  pageCount: number;
+}
+
+/** Bucket'ın kabul ettiği en büyük dosya (migration ile aynı sayı). */
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
 export function EquipmentPanel({
-  projectId, revisionId, autoGroups, summary, initialExtras, datasheetUrls, sheetUrls, locked,
+  projectId, revisionId, autoGroups, summary, initialExtras, initialAttachments,
+  datasheetUrls, sheetUrls, locked,
 }: {
   projectId: string;
   revisionId: string;
   autoGroups: EqGroup[];
   summary: SummarySection[];
   initialExtras: EquipmentExtraRow[];
+  /** Satırlara yüklenmiş PDF ekleri (equipment_attachments) */
+  initialAttachments: PanelAttachment[];
   datasheetUrls: Record<string, string>;
   /** kind|brand|model → uygulamadaki katalog sayfası adresi (ekipman adına bağlanır) */
   sheetUrls: Record<string, string>;
   locked: boolean;
 }) {
   const [extras, setExtras] = useState<EquipmentExtraRow[]>(initialExtras);
+  const [attachments, setAttachments] = useState<PanelAttachment[]>(initialAttachments);
+  /** Yükleme/silme sürerken o satırın denetimleri kilitlenir. */
+  const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [scope, setScope] = useState<Scope>("customer");
   const [pending, startTransition] = useTransition();
 
@@ -184,6 +209,160 @@ export function EquipmentPanel({
       if (result?.error) toast.error(result.error);
       else toast.success("Ek satırlar kaydedildi");
     });
+  }
+
+  // ------------------------------------------------------------- Ek Belge
+  //
+  // BAYTLAR SUNUCU ACTION'INDAN GEÇMEZ: dosya doğrudan depoya yüklenir
+  // (`folder-picker.tsx` deseni), action yalnız kaydı yazar ve dosyayı
+  // depodan OKUYUP sayfasını sayar. Server action gövdesinin varsayılan
+  // sınırı 1 MB'tır; taranmış bir katalog yaprağı bunu rahatça aşar.
+
+  const setRowBusy = useCallback((rowKey: string, busy: boolean) => {
+    setBusyRows((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(rowKey);
+      else next.delete(rowKey);
+      return next;
+    });
+  }, []);
+
+  const uploadAttachments = useCallback(
+    async (rowKey: string, files: File[]) => {
+      if (files.length === 0) return;
+      setRowBusy(rowKey, true);
+      const supabase = createClient();
+      // Sıra numarası mevcut ek adedinden devam eder: kullanıcının yükleme
+      // sırası destede de korunur.
+      let sort = attachments.filter((a) => a.rowKey === rowKey).length;
+
+      for (const file of files) {
+        const pdfMi =
+          file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+        if (!pdfMi) {
+          toast.error(`${file.name}: yalnız PDF eklenebilir.`);
+          continue;
+        }
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          toast.error(`${file.name}: dosya 25 MB sınırını aşıyor.`);
+          continue;
+        }
+
+        const attachmentId = crypto.randomUUID();
+        // TİP DOĞRU OLSUN DİYE `slice`: storage-js, gövde bir File olduğunda
+        // `contentType` seçeneğini YOK SAYAR ve nesne octet-stream olarak
+        // yazılırdı (folder-picker.tsx'te belgelenmiş tuzak). `slice` kopya
+        // çıkarmaz, yalnız tipi olan yeni bir görünüm verir.
+        const govde = file.slice(0, file.size, "application/pdf");
+        const { error } = await supabase.storage
+          .from(EQUIPMENT_ATTACHMENT_BUCKET)
+          .upload(`${revisionId}/${attachmentId}.pdf`, govde, {
+            contentType: "application/pdf",
+          });
+        if (error) {
+          toast.error(`${file.name}: yüklenemedi — ${error.message}`);
+          continue;
+        }
+
+        const sonuc = await registerEquipmentAttachment(projectId, revisionId, {
+          attachmentId,
+          rowKey,
+          fileName: file.name,
+          sort,
+        });
+        if (sonuc?.error) {
+          toast.error(`${file.name}: ${sonuc.error}`);
+          continue;
+        }
+        sort += 1;
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: attachmentId,
+            rowKey,
+            fileName: file.name,
+            pageCount: sonuc?.pageCount ?? 0,
+          },
+        ]);
+        toast.success(`${file.name} eklendi (${sonuc?.pageCount ?? 0} sayfa)`);
+      }
+      setRowBusy(rowKey, false);
+    },
+    [attachments, projectId, revisionId, setRowBusy]
+  );
+
+  const removeAttachment = useCallback(
+    async (attachment: PanelAttachment) => {
+      setRowBusy(attachment.rowKey, true);
+      const sonuc = await deleteEquipmentAttachment(projectId, revisionId, attachment.id);
+      setRowBusy(attachment.rowKey, false);
+      if (sonuc?.error) {
+        toast.error(sonuc.error);
+        return;
+      }
+      setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+    },
+    [projectId, revisionId, setRowBusy]
+  );
+
+  /**
+   * Bir satırın "Ek Belge" hücresi.
+   *
+   * Katalog sayfası düğmesinden (ekipman adındaki kitap ikonu) FARKLIDIR: o,
+   * defterden gelen üretici sayfasını açar; bu, defterin kapsamı dışında kalan
+   * ürünler için mühendisin kendi yaprağını ekler. İkisi bir arada durabilir ve
+   * detaylı PDF'te ikisi de basılır.
+   */
+  function AttachmentCell({ rowKey }: { rowKey: string }) {
+    const list = attachments.filter((a) => a.rowKey === rowKey);
+    const busy = busyRows.has(rowKey);
+    return (
+      <div className="grid gap-1">
+        {list.map((a) => (
+          <span key={a.id} className="flex items-start gap-1">
+            <span className="min-w-0 flex-1 text-[11px] leading-tight break-words">
+              <span className="font-mono text-muted-foreground">{a.pageCount} sf</span>{" "}
+              <span title={a.fileName}>{a.fileName}</span>
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void removeAttachment(a)}
+              aria-label={`${a.fileName} ekini kaldır`}
+              className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded text-destructive hover:bg-destructive/10 disabled:opacity-40"
+            >
+              <Trash2 className="size-3" />
+            </button>
+          </span>
+        ))}
+        {/* Dosya girdisi görünmez, TETİKLEYİCİ ETİKETTİR: ham `<input
+            type="file">` düğmesi tarayıcıdan tarayıcıya değişir ve Türkçe
+            metni yazdırılamaz. `label` hem hedefi 44px'e taşır hem metni
+            uygulamanın diline getirir. */}
+        <label className="oc-tap inline-flex min-h-8 cursor-pointer items-center gap-1 text-[11px] text-primary hover:underline pointer-coarse:min-h-10">
+          {busy ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <FilePlus2 className="size-3" />
+          )}
+          {busy ? "Yükleniyor…" : "PDF ekle"}
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            disabled={busy}
+            className="sr-only"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              // Girdi SIFIRLANIR: aynı dosya ikinci kez seçildiğinde `change`
+              // olayı yoksa kullanıcı hiçbir şey olmadığını sanır.
+              e.target.value = "";
+              void uploadAttachments(rowKey, files);
+            }}
+          />
+        </label>
+      </div>
+    );
   }
 
   function ModelCell({ row }: { row: EqGroup["rows"][number] }) {
@@ -240,7 +419,7 @@ export function EquipmentPanel({
             onClick={() => setScope("customer")}
             className={`inline-flex min-h-9 items-center px-3 py-1.5 text-xs pointer-coarse:min-h-10 ${scope === "customer" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
           >
-            Müşteri (yalnız liste)
+            Müşteri
           </button>
           <button
             type="button"
@@ -268,7 +447,7 @@ export function EquipmentPanel({
         </a>
         <a
           href={dl("pdf", true)}
-          title="Ekipman listesi + ürünlerin katalog sayfaları; ad tıklanınca ilgili sayfaya gider"
+          title="Ekipman listesi + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri; ad tıklanınca ilgili sayfaya gider"
           className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
         >
           <BookOpen className="size-3.5 text-red-600" />
@@ -279,6 +458,8 @@ export function EquipmentPanel({
         <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:text-right">
           {autoGroups.reduce((n, g) => n + g.rows.length, 0)} otomatik · {extras.length} ek satır
           {Object.keys(sheetUrls).length > 0 && ` · ${Object.keys(sheetUrls).length} katalog sayfası`}
+          {attachments.length > 0 &&
+            ` · ${attachments.length} ek belge (${attachments.reduce((n, a) => n + a.pageCount, 0)} sayfa)`}
         </span>
       </div>
 
@@ -305,10 +486,15 @@ export function EquipmentPanel({
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[46%] md:w-[17%]">Ekipman</TableHead>
-                  <TableHead className="hidden md:table-cell md:w-[10%]">Marka</TableHead>
-                  <TableHead className="hidden md:table-cell md:w-[14%]">Model</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[9%]">Marka</TableHead>
+                  <TableHead className="hidden md:table-cell md:w-[13%]">Model</TableHead>
                   <TableHead className="hidden md:table-cell">Özellikler</TableHead>
-                  <TableHead className="w-[36%] md:w-[18%]">Ek Özellikler</TableHead>
+                  <TableHead className="w-[36%] md:w-[16%]">Ek Özellikler</TableHead>
+                  {/* Ek Belge YALNIZ lg üstünde kendi sütunudur; altında
+                      denetim ekipman adının altına iner (sözleşme §7 —
+                      ikinci bir kart markup'ı yazılmaz, aynı bileşen
+                      kırılıma göre bir kez basılır). */}
+                  <TableHead className="hidden lg:table-cell lg:w-[13%]">Ek Belge</TableHead>
                   <TableHead className="w-[18%] text-center md:w-[6%]">Adet</TableHead>
                 </TableRow>
               </TableHeader>
@@ -316,7 +502,7 @@ export function EquipmentPanel({
                 {autoGroups.map((g) => (
                   <Fragment key={`g-${g.name}`}>
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableCell colSpan={6} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                      <TableCell colSpan={7} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
                         {g.name}
                       </TableCell>
                     </TableRow>
@@ -335,6 +521,13 @@ export function EquipmentPanel({
                               {r.spec}
                             </div>
                           )}
+                          {/* Ek Belge denetimi lg ALTINDA burada durur: dar
+                              ekranda yedi sütun okunmaz hâle geliyordu. */}
+                          {r.rowKey && (
+                            <div className="mt-1 font-normal lg:hidden">
+                              <AttachmentCell rowKey={r.rowKey} />
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="hidden whitespace-normal md:table-cell">{r.brand}</TableCell>
                         <TableCell className="hidden break-words whitespace-normal md:table-cell"><ModelCell row={r} /></TableCell>
@@ -350,6 +543,13 @@ export function EquipmentPanel({
                             />
                           ) : (
                             <span className="px-2 text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden align-top lg:table-cell">
+                          {r.rowKey ? (
+                            <AttachmentCell rowKey={r.rowKey} />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell className="text-center tabular-nums">{String(r.qty)}</TableCell>

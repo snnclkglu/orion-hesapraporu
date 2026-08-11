@@ -16,10 +16,30 @@ import { EquipmentPanel } from "@/app/(app)/projects/[id]/revisions/[revId]/equi
 export default function EquipmentPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
-  const groups = buildEquipmentGroups(V5_TEMPLATE, {
-    "main:rope": "Galvanizli, müşteri onayına tabi",
+  // "Ek Belge" sütunu da GERÇEK veriyle bakılabilsin diye bir satıra iki
+  // yükleme takılır; önizlemede yükleme/silme depoya gitmez (kimlikler sahte),
+  // amaç sütun genişliği ve satır yüksekliğinin görünmesidir.
+  const attachments = {
+    "main:gearbox": [
+      { fileName: "YILMAZ HT0823 ölçü sayfası.pdf", pageCount: 2 },
+      { fileName: "Bağlantı deliği detayı.pdf", pageCount: 1 },
+    ],
+  };
+  const groups = buildEquipmentGroups(
+    V5_TEMPLATE,
+    { "main:rope": "Galvanizli, müşteri onayına tabi" },
+    undefined,
+    attachments
+  );
+  const summary = buildSummarySections(V5_TEMPLATE, runCalc(V5_TEMPLATE), {
+    itemNo: "0055-00",
+    rows: [
+      { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", drawn: true, note: "" },
+      { id: "b", code: "0200", name: "ANA KİRİŞ", drawn: false, note: "" },
+      { id: "c", code: "1500", name: "ARABA KOMPLE", drawn: false, note: "" },
+      { id: "d", code: "3000", name: "MEKANİK KEPÇE", drawn: false, note: "" },
+    ],
   });
-  const summary = buildSummarySections(V5_TEMPLATE, runCalc(V5_TEMPLATE));
   const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(groups));
 
   return (
@@ -38,6 +58,20 @@ export default function EquipmentPreviewPage() {
             {
               group: "Ek Ekipman", component: "Uzaktan kumanda", brand: "HBC",
               model: "radiomatic", spec: "6 fonksiyon, 433 MHz", qty: "1",
+            },
+          ]}
+          initialAttachments={[
+            {
+              id: "00000000-0000-4000-8000-000000000001",
+              rowKey: "main:gearbox",
+              fileName: "YILMAZ HT0823 ölçü sayfası.pdf",
+              pageCount: 2,
+            },
+            {
+              id: "00000000-0000-4000-8000-000000000002",
+              rowKey: "main:gearbox",
+              fileName: "Bağlantı deliği detayı.pdf",
+              pageCount: 1,
             },
           ]}
           datasheetUrls={{}}

@@ -20,9 +20,17 @@ import {
   mergeExtras, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
+import { loadDrawingPlan, resolveProjectItemNo } from "@/lib/drawing-plan-data";
+import {
+  EQUIPMENT_ATTACHMENT_BUCKET,
+  attachmentsByRowKey,
+  loadEquipmentAttachments,
+  orderAttachmentsForAppendix,
+} from "@/lib/equipment-attachments";
 import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
 import { docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
+import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
@@ -98,6 +106,12 @@ export async function GET(
     notes[n.row_key] = n.note;
   }
 
+  // "Ek Belge" yüklemeleri — sütun HER İKİ kapsamda da yazılır (müşteri
+  // listesinde de ekipmanın ekinin kaç sayfa olduğu bilgisi anlamlıdır);
+  // ekin SAYFALARI ise yalnız detaylı PDF'e girer.
+  const attachmentRows = await loadEquipmentAttachments(supabase, revId);
+  const attachments = attachmentsByRowKey(attachmentRows);
+
   // Katalog datasheet linkleri
   const datasheetUrls = new Map<string, string>();
   const { data: catRows } = await supabase
@@ -122,35 +136,97 @@ export async function GET(
     checkedBy: nameOf(project.checked_by),
   };
 
-  let raw: Buffer | ArrayBuffer;
+  // `Uint8Array<ArrayBuffer>` — çıplak `Uint8Array` DEĞİL: TS 5.7'den beri
+  // `BodyInit` yalnız `ArrayBuffer` tabanlı görünümleri kabul ediyor
+  // (`pdf/merge.ts` aynı daraltmayı belgeliyor).
+  let body: Uint8Array<ArrayBuffer>;
   let contentType: string;
   let ext: string;
+  /** Deste eksik basıldıysa kaç ek atlandı — yanıt başlığına yazılır. */
+  let atlananEk = 0;
 
   // Seçenekli (alternatif) seçimler ekipman listesinde ana satırın altına iner.
   const alts = altsFromRevision(revision.selections as RevisionSelectionsJson | null);
 
+  // Teknik Resim Takibi defteri YALNIZ teknik özet istendiğinde okunur: müşteri
+  // kapsamında özet sayfası hiç basılmaz, sorguyu boşuna atmanın anlamı yok.
+  const drawingPlan =
+    scope === "customer"
+      ? undefined
+      : {
+          itemNo: await resolveProjectItemNo(supabase, id, project.doc_no),
+          rows: await loadDrawingPlan(supabase, id),
+        };
+
   if (format === "pdf") {
-    const groups = mergeExtras(buildEquipmentGroups(calcInput, notes, alts), extras);
-    const summary = scope === "customer" ? undefined : buildSummarySections(calcInput, calcResult);
+    const groups = mergeExtras(
+      buildEquipmentGroups(calcInput, notes, alts, attachments),
+      extras
+    );
+    const summary =
+      scope === "customer"
+        ? undefined
+        : buildSummarySections(calcInput, calcResult, drawingPlan);
     // Detaylı listede ekipman adı belge İÇİNDEKİ katalog sayfasına bağlanır,
     // standart listede uygulamadaki görüntüleyiciye — ikisi aynı anda gerekmez.
     const sheetPages = detailed ? await collectCatalogSheetPages(groups) : undefined;
     const sheetUrls = detailed ? undefined : buildCatalogSheetUrls(groups, appOrigin);
-    raw = await renderEquipmentPdf({
+
+    // Ek belgeler: kapaklar react-pdf ile basılır, GERÇEK SAYFALAR sonradan
+    // pdf-lib ile kapağın ardına konur. Sıra listeyi izler
+    // (`orderAttachmentsForAppendix`) ve `pdfEkleriYerlestir` tam bu sırayı
+    // bekler — ikisi arasındaki sözleşme budur.
+    const orderedAttachments = detailed
+      ? orderAttachmentsForAppendix(groups, attachmentRows)
+      : [];
+    const basePdf = await renderEquipmentPdf({
       meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages,
+      attachmentCovers: orderedAttachments.map((a) => ({
+        rowKey: a.rowKey,
+        component: a.component,
+        fileName: a.fileName,
+        pageCount: a.pageCount,
+      })),
     });
+
+    if (orderedAttachments.length === 0) {
+      body = new Uint8Array(basePdf);
+    } else {
+      const ekler = await Promise.all(
+        orderedAttachments.map(async (a) => {
+          const { data } = await supabase.storage
+            .from(EQUIPMENT_ATTACHMENT_BUCKET)
+            .download(a.storagePath);
+          return {
+            ad: a.fileName,
+            bytes: data ? new Uint8Array(await data.arrayBuffer()) : new Uint8Array(0),
+          };
+        })
+      );
+      const sonuc = await pdfEkleriYerlestir(new Uint8Array(basePdf), ekler);
+      body = sonuc.bytes;
+      atlananEk = sonuc.atlananlar.length;
+      // SESSİZ ATLAMA YOKTUR (merge.ts sözleşmesi). Yükleme anında dosya zaten
+      // okunup sayfası sayıldığı için buraya düşmek depo anomalisidir; belge
+      // yine de tutarlı basılır (atlanan ekin KAPAĞI da silinir) ve durum hem
+      // sunucu günlüğüne hem yanıt başlığına yazılır.
+      for (const atlanan of sonuc.atlananlar) {
+        console.warn(
+          `[ekipman-listesi] ek eklenemedi: ${atlanan.ad} — ${atlanan.sebep}`
+        );
+      }
+    }
     contentType = "application/pdf";
     ext = "pdf";
   } else {
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
-      datasheetUrls, scope, extras, notes, alts, appOrigin,
+      datasheetUrls, scope, extras, notes, alts, appOrigin, drawingPlan, attachments,
     });
-    raw = await workbook.xlsx.writeBuffer();
+    body = new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     ext = "xlsx";
   }
 
-  const body = new Uint8Array(raw as ArrayBuffer);
   // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - TÜR (bkz. pdf/doc-naming).
   // Teknik özet DAHİLİ bir çıktıdır; adında görünmesi, müşteriye yanlış dosyayı
   // göndermeyi zorlaştırır.
@@ -174,6 +250,9 @@ export async function GET(
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
       "Cache-Control": "no-store",
+      // Deste eksik basıldıysa bu bir SESSİZLİK olmasın: dosya indirilir ama
+      // durum başlıkta durur ve sunucu günlüğünde sebebiyle yazar.
+      ...(atlananEk > 0 ? { "X-Orion-Atlanan-Ek": String(atlananEk) } : {}),
     },
   });
 }

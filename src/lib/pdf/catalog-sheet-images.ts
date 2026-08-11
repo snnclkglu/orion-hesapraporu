@@ -9,25 +9,52 @@
 // olurdu. Genişlik 1400 pikselle sınırlanır — A4 dikey sayfada 487 pt genişliğe
 // basılan bir görüntü için ~205 dpi eder, ölçü tablosu okunur ve dosya makul
 // kalır.
+//
+// SAYFA YÖNÜ GÖRÜNTÜDEN OKUNUR. Ek sayfalar bir süre HEPSİ DİKEY basıldı;
+// gerekçe "kaynak taramalar dikeydir" idi ve o varsayım yanlıştı: bazı
+// üreticiler ölçü tablolarını yatay basar (özellikle çok sütunlu boy
+// tabloları). Yatay bir tarama dikey A4'e sığdırılınca genişlik kelepçesi
+// yüksekliği üçte birine indirir ve tablo okunmaz olur — kullanıcının
+// bildirdiği hata tam olarak budur. Karar artık ölçüyle verilir: en > boy ise
+// yaprak YATAY basılır.
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { findCatalogSheet } from "@/lib/catalog-sheets";
 import { catalogIdentityOf, dsKey, type EqGroup } from "@/lib/excel/equipment";
-import type { CatalogSheetPage } from "@/lib/pdf/equipment-report";
+import type { CatalogSheetImage, CatalogSheetPage } from "@/lib/pdf/equipment-report";
 
 const MAX_WIDTH = 1400;
 const JPEG_QUALITY = 78;
 
-async function loadImage(relativePath: string): Promise<Buffer | null> {
+/**
+ * Yatay sayılmak için gereken en/boy oranı.
+ *
+ * Tam 1,0 EŞİK OLAMAZ: taranmış sayfalarda kenar kırpması birkaç piksellik
+ * oynama bırakır ve kare gibi görünen bir dikey sayfa (oran 1,004) yatay
+ * basılırdı. %5'lik pay, gerçek yatay sayfaları (A4 yatay ≈ 1,41) rahatça
+ * yakalarken bu gürültüyü dışarıda tutar.
+ */
+const LANDSCAPE_RATIO = 1.05;
+
+async function loadImage(relativePath: string): Promise<CatalogSheetImage | null> {
   try {
     const raw = await readFile(path.join(process.cwd(), "catalog-sheets", relativePath));
-    return await sharp(raw)
+    const pipeline = sharp(raw)
       .resize({ width: MAX_WIDTH, withoutEnlargement: true })
       .flatten({ background: "#ffffff" }) // saydam zemin PDF'te siyah basılır
-      .jpeg({ quality: JPEG_QUALITY, progressive: false })
-      .toBuffer();
+      .jpeg({ quality: JPEG_QUALITY, progressive: false });
+
+    // `info` DÖNÜŞTÜKTEN SONRAKİ ölçüdür — EXIF döndürmesi ve yeniden
+    // boyutlandırma uygulanmış hâli. Ham dosyanın metadata'sını okumak, 90°
+    // döndürme bilgisi taşıyan taramalarda yönü ters bildirirdi.
+    const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+    const orientation =
+      info.height > 0 && info.width / info.height >= LANDSCAPE_RATIO
+        ? ("landscape" as const)
+        : ("portrait" as const);
+    return { data, format: "jpg", orientation };
   } catch {
     // Defterde var ama diskte yok (sayfa üretimi koşulmamış) ya da bozuk
     // dosya: EK O ÜRÜNSÜZ üretilir. Tüm indirmeyi düşürmek, kataloğu olan
@@ -74,8 +101,8 @@ export async function collectCatalogSheetPages(
 
       const images: CatalogSheetPage["images"] = [];
       for (const image of sheet.images) {
-        const data = await loadImage(image);
-        if (data) images.push({ data, format: "jpg" });
+        const yaprak = await loadImage(image);
+        if (yaprak) images.push(yaprak);
       }
       if (images.length === 0) continue;
 

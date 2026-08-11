@@ -209,3 +209,107 @@ export async function pdfBirlestir(
 
   return { bytes, sayfaSayisi, birlesen, atlananlar };
 }
+
+// ---------------------------------------------------- kapak + ek yerleştirme
+
+/** Kapağının ardına yerleştirilecek tek bir ek. */
+export interface YerlestirilecekEk {
+  /** Yalnız rapor için — dosya adı değil. */
+  ad: string;
+  bytes: Uint8Array;
+}
+
+export interface EkYerlestirmeSonucu {
+  bytes: Uint8Array<ArrayBuffer>;
+  /** Kaç EK yerleştirildi (sayfa değil). */
+  eklenen: number;
+  /** Yerleştirilen toplam sayfa. */
+  eklenenSayfa: number;
+  atlananlar: AtlananPdf[];
+}
+
+/**
+ * Ekleri, TEMEL BELGENİN SON SAYFALARINDAKİ kapaklarının hemen ardına
+ * yerleştirir.
+ *
+ * SÖZLEŞME: temel belgenin SON `ekler.length` sayfası, `ekler` ile AYNI
+ * SIRADAKİ kapaklardır. Çağıran (ekipman listesi PDF'i) kapakları tam bu
+ * sırayla basar; sözleşme bozulursa ek yanlış kapağın altına düşer.
+ *
+ * NEDEN `pdfBirlestir` DEĞİL: o, sayfaları YENİ bir belgeye kopyalar ve
+ * kaynağın `/Root /Names /Dests` ağacı yeni belgeye taşınmaz. Ekipman
+ * listesindeki "ekipman adına tıkla, ekine git" bağlantıları tam olarak o
+ * ağaçtan çalışır (@react-pdf `View id` → adlandırılmış hedef); birleştirme
+ * sonrası hepsi ÖLÜRDÜ. Burada temel belge YERİNDE açılır ve sayfalar İÇİNE
+ * eklenir: katalog, ad ağacı ve bağlantı çapaları olduğu gibi kalır. Sayfa
+ * ekleme çapaları bozmaz — hedefler sayfa SIRA NUMARASINA değil sayfa
+ * NESNESİNE bağlıdır.
+ *
+ * BOZUK EK BÜTÜN BELGEYİ DÜŞÜRMEZ (merge.ts başlığındaki ilkenin aynısı) ama
+ * KAPAĞI DA KALMAZ: okunamayan ekin kapağı silinir. Kalsaydı belge "bundan
+ * sonraki 3 sayfa şu ekipmanın ekidir" der, ardından başka bir ekipmanın
+ * kapağı gelirdi — sessiz bir yalan. Atlananlar adıyla ve sebebiyle döner ve
+ * çağıran bunu kullanıcıya taşımak ZORUNDADIR.
+ */
+export async function pdfEkleriYerlestir(
+  temelPdf: Uint8Array,
+  ekler: readonly YerlestirilecekEk[]
+): Promise<EkYerlestirmeSonucu> {
+  const hedef = await PDFDocument.load(temelPdf, { updateMetadata: false });
+  const atlananlar: AtlananPdf[] = [];
+  let eklenen = 0;
+  let eklenenSayfa = 0;
+
+  // Kapak indisleri BAŞTAN hesaplanır ve SONDAN BAŞA işlenir: her yerleştirme
+  // yalnız kendisinden SONRAKİ indisleri kaydırır, öndekiler geçerli kalır.
+  const kapakSayisi = ekler.length;
+  const ilkKapak = hedef.getPageCount() - kapakSayisi;
+  if (ilkKapak < 0) {
+    throw new Error(
+      "Ek yerleştirme sözleşmesi bozuldu: temel belgede kapak sayısı kadar sayfa yok."
+    );
+  }
+
+  for (let i = kapakSayisi - 1; i >= 0; i--) {
+    const ek = ekler[i];
+    const ad = ek.ad.trim() || "(adsız belge)";
+    const kapakIndisi = ilkKapak + i;
+
+    if (!ek.bytes || ek.bytes.byteLength === 0) {
+      atlananlar.push({ ad, sebep: "dosya boş geldi" });
+      hedef.removePage(kapakIndisi);
+      continue;
+    }
+
+    try {
+      const kaynak = await PDFDocument.load(ek.bytes, { updateMetadata: false });
+      const indisler = kaynak.getPageIndices();
+      if (indisler.length === 0) {
+        atlananlar.push({ ad, sebep: "belgede hiç sayfa yok" });
+        hedef.removePage(kapakIndisi);
+        continue;
+      }
+      // ÖNCE hepsi kopyalanır, SONRA eklenir: kopyalama ortasında hata çıkarsa
+      // belgeye yarım bir ek girmiş olmaz.
+      const sayfalar = await hedef.copyPages(kaynak, indisler);
+      sayfalar.forEach((sayfa, k) => hedef.insertPage(kapakIndisi + 1 + k, sayfa));
+      eklenen += 1;
+      eklenenSayfa += sayfalar.length;
+    } catch (e) {
+      atlananlar.push({ ad, sebep: sebepMetni(e) });
+      hedef.removePage(kapakIndisi);
+    }
+  }
+
+  const ham = await hedef.save({
+    useObjectStreams: false,
+    objectsPerTick: SAVE_NESNE_ADIMI,
+  });
+  // Kopya DEĞİL görünüm (yukarıdaki gerekçe).
+  const bytes = new Uint8Array(ham.buffer as ArrayBuffer, ham.byteOffset, ham.byteLength);
+  // Döngü SONDAN BAŞA gitti; rapor BELGE SIRASINDA okunmalı. Ters sıradaki bir
+  // atlama listesi, "kaçıncı ek eksik" sorusunu okuyanın kafasında çevirmesini
+  // isterdi.
+  atlananlar.reverse();
+  return { bytes, eklenen, eklenenSayfa, atlananlar };
+}
