@@ -26,6 +26,15 @@
 -- kalem başına 1'e iner, birim ağırlık ve birim fiyat aynen taşınır — toplam
 -- ağırlık ve toplam bedel Excel'inkiyle birebir aynı çıkar.
 --
+-- 0028-00 BU AKTARIMIN DIŞINDADIR — çelişki çözülmeden veri yazılmaz.
+-- Listede satır "ORION CRANES · 10 t x 20,05 m Çift Kirişli Köprülü Tavan
+-- Vinci"dir (0006-00 satırının bire bir aynısı, yalnız sözleşme tarihi
+-- farklı); iş emrinde ise 0028 "ASTOR A.Ş. · 30 t x 21,7 m"dir. İkisi aynı
+-- iş olamaz ve hangisinin doğru olduğu belgelerden çıkmıyor. Yazılsaydı
+-- ASTOR'un iş emrinin altında ORION'un vinci görünürdü — sessiz ve fark
+-- edilmesi güç bir hata. Aynı satır 20260808000008'de de bu sebeple
+-- atlanmıştı; karar kullanıcınındır.
+--
 -- Migration TEKRAR ÇALIŞTIRILABİLİR.
 
 -- ------------------------------------------------------------ yeni müşteriler
@@ -141,10 +150,13 @@ update public.work_logs set item_no = '0034-01' where item_no = '0034-00';
 -- ------------------------------------------------------------ iş kalemleri
 -- İKİ AYRI CÜMLE: aynı cümlede hem INSERT hem UPDATE yapan bir CTE, iki alt
 -- cümlenin AYNI anlık görüntüyü görmesi yüzünden okunması zor bir yapı olurdu.
-create temporary table if not exists tmp_is_listesi_kalem (
+-- `on commit drop` KULLANILMAZ: migration'ın açık bir işlem bloğunda koşup
+-- koşmadığı çalıştırıcıya bağlıdır ve işlem bloğu YOKSA tablo daha ikinci
+-- cümleye gelmeden düşerdi. Açık `drop` her iki durumda da doğrudur.
+drop table if exists tmp_is_listesi_kalem;
+create temporary table tmp_is_listesi_kalem (
   job_no text, item_no text, product_name text, quantity text, sort int
-) on commit drop;
-truncate tmp_is_listesi_kalem;
+);
 insert into tmp_is_listesi_kalem (job_no, item_no, product_name, quantity, sort) values
   ('0001', '0001-00', 'Emniyet Freni Konsol İmalatı (SHI 105FC)', '1 Adet', 0),
   ('0002', '0002-00', '100/50 t x 21,00 m Kapasiteli Dört Kirişli Köprülü Tavan Vinci (Cüruf Pota Tumba Tesisi)', '2 Adet', 0),
@@ -179,7 +191,6 @@ insert into tmp_is_listesi_kalem (job_no, item_no, product_name, quantity, sort)
   ('0026', '0026-01', '100 t x 14,85 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci', '1 Adet', 0),
   ('0026', '0026-02', 'Yürüme Yolu 30 m', '1 Adet', 1),
   ('0027', '0027-00', '2 x 15 t x 23,50 m Kapasiteli Portal Vinç Mühendislik ve Tasarım Hizmeti', '1 Adet', 0),
-  ('0028', '0028-00', '10 t x 20,05 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci', '1 Adet', 0),
   ('0029', '0029-00', 'Pergel Vinç Demontaj', '1 Adet', 0),
   ('0030', '0030-00', '0,5 t Kapasiteli Pergel Vinç Kumandası ve Servis Hizmeti (0021-01)', '1 Adet', 0),
   ('0031', '0031-00', 'Bakım ve Onarım Hizmeti', '', 0),
@@ -244,17 +255,22 @@ where not exists (
   select 1 from public.job_items i where i.job_id = j.id and i.item_no = s.item_no
 );
 
--- …var olanların ADI, MİKTARI ve SIRASI listedekiyle eşitlenir.
+-- …var olanların ADI ve SIRASI listedekiyle eşitlenir.
+--
+-- MİKTAR METNİ (`quantity`) EŞİTLENMEZ ve bu bilinçlidir: o alanı yalnız iş
+-- emri formu basar ("2 Takım", "1+1", "90x2 180 m") ve basılmış bir formun
+-- ifadesini listeye uydurmak için değiştirmek kazanç getirmez — Satış Takibi
+-- de İş Listesi de miktarı ticari kayıttan okur. Yeni açılan kalemlerde alan
+-- yukarıdaki INSERT ile listeden dolar, çünkü orada yazılı bir form yoktur.
 update public.job_items i
 set product_name = s.product_name,
-    quantity = s.quantity,
     sort = s.sort
 from tmp_is_listesi_kalem s
 join public.jobs j on j.job_no = s.job_no
 where i.job_id = j.id and i.item_no = s.item_no
-  and (i.product_name is distinct from s.product_name
-       or i.quantity is distinct from s.quantity
-       or i.sort is distinct from s.sort);
+  and (i.product_name is distinct from s.product_name or i.sort is distinct from s.sort);
+
+drop table if exists tmp_is_listesi_kalem;
 
 -- ------------------------------------------------------ sözleşme tarihleri
 -- Satış Takibi satırın YILINI sözleşme tarihinden okur (`saleYear`) ve İş
@@ -287,7 +303,6 @@ with src (job_no, contract_date) as (values
   ('0025', '2025-04-02'),
   ('0026', '2025-04-17'),
   ('0027', '2025-04-17'),
-  ('0028', '2025-05-09'),
   ('0029', '2025-06-23'),
   ('0030', '2025-07-05'),
   ('0031', '2025-07-05'),
@@ -389,7 +404,6 @@ Elektrik, Devreye Alma ve Araba Hariç', '2024-04-15', '2024-04-16', 1.0, 'Adet'
   ('0026-01', 'Komple İmalat', '2025-06-30', '2025-07-24', 1.0, 'Adet', 33000.0, 208000.0, 'EUR', 1.0, 'TÜRKİYE'),
   ('0026-02', 'İşçilik', '2025-06-30', '2025-07-24', 1.0, 'Adet', 7000.0, 17000.0, 'EUR', 1.0, 'TÜRKİYE'),
   ('0027-00', 'Mühendislik ve Tasarım Hizmeti', '2025-06-17', null, 1.0, 'Adet', null, null, 'EUR', 1.0, 'TÜRKİYE'),
-  ('0028-00', 'Komple İmalat', null, null, 1.0, 'Adet', 11000.0, null, 'EUR', 1.0, 'TÜRKİYE'),
   ('0029-00', 'İşçilik', '2025-06-25', '2025-06-24', 1.0, 'Adet', null, 12500.0, 'TRY', 45.608, 'TÜRKİYE'),
   ('0030-00', 'Malzeme Satışı', '2025-07-05', '2025-07-05', 1.0, 'Adet', null, null, 'EUR', 1.0, 'TÜRKİYE'),
   ('0031-00', 'İşçilik', null, null, null, 'Adet', null, null, 'EUR', 1.0, 'TÜRKİYE'),
@@ -444,17 +458,28 @@ Elektrik, Devreye Alma ve Araba Hariç', '2024-04-15', '2024-04-16', 1.0, 'Adet'
   ('0060-00', '', '2026-07-20', '2026-07-17', 1.0, 'Set', 69395.0, 51814.25, 'USD', 1.15, 'TÜRKİYE'),
   ('0061-00', 'Komple İmalat', '2026-08-17', null, 12.0, 'Adet', 115.0, 1200.0, 'EUR', 1.0, 'TÜRKİYE'),
   ('0062-00', 'Komple İmalat', '2026-10-15', null, 2.0, 'Adet', 1970.0, 6300.0, 'EUR', 1.0, 'TÜRKİYE')
+),
+-- Kaynak AYRI BİR CTE'dedir: `cross join … on conflict` dizilimi ayrıştırıcı
+-- için ikircikli okunur (`ON` bir birleştirme koşulu sanılabilir). Birleşim
+-- CTE'ye alınınca `on conflict` düz bir `from` sonrasına düşer.
+kaynak as (
+  select
+    i.id as job_item_id, s.scope, s.due_date::date as due_date,
+    s.shipment_date::date as shipment_date, s.quantity, s.unit,
+    s.unit_weight_kg, s.unit_price, s.currency, s.fx_rate, s.shipment_place,
+    a.id as updated_by
+  from src s
+  join public.job_items i on i.item_no = s.item_no
+  cross join actor a
 )
 insert into public.job_item_sales (
   job_item_id, scope, due_date, shipment_date, quantity, unit,
   unit_weight_kg, unit_price, currency, fx_rate, shipment_place, updated_by
 )
 select
-  i.id, s.scope, s.due_date::date, s.shipment_date::date, s.quantity, s.unit,
-  s.unit_weight_kg, s.unit_price, s.currency, s.fx_rate, s.shipment_place, a.id
-from src s
-join public.job_items i on i.item_no = s.item_no
-cross join actor a
+  job_item_id, scope, due_date, shipment_date, quantity, unit,
+  unit_weight_kg, unit_price, currency, fx_rate, shipment_place, updated_by
+from kaynak
 on conflict (job_item_id) do update set
   scope = excluded.scope,
   due_date = excluded.due_date,

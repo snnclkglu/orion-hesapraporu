@@ -8,6 +8,8 @@
 
 import { notFound } from "next/navigation";
 import { SalesTable } from "@/app/(app)/sales/sales-table";
+import { JobListButton } from "@/app/(app)/sales/job-list-button";
+import { PageHeader } from "@/components/page-header";
 import { EMPTY_SALE, type SaleRow } from "@/app/(app)/sales/schema";
 import type { SaleInput } from "@/app/(app)/sales/schema";
 
@@ -87,6 +89,14 @@ export default function SalesPreviewPage() {
         <div className="text-sm font-medium">Satış Takibi Önizleme (dev · sahte veri)</div>
       </header>
       <div className="grid w-full flex-1 gap-8 px-4 py-6 lg:px-8">
+        {/* Başlık yuvası bu bağlamda YOKTUR: `PageHeader` yerinde çizilir ve
+            İş Listesi düğmesi de auth'suz görülebilir. */}
+        <PageHeader
+          title="Satış Takibi"
+          hint="İş kalemi başına fiyat, termin ve sevk takibi"
+        >
+          <JobListButton years={["2026", "2025", "2024"]} />
+        </PageHeader>
         <SalesTable rows={ROWS} />
       </div>
     </div>

@@ -21,6 +21,28 @@ export function docCode(kind: "HR" | "EQ" | "TR", docNo: string, revNo: number):
   return `ORC-${kind}-${docNo}-R${String(revNo).padStart(2, "0")}`;
 }
 
+/** Aylar — belge dönemi ve dosya adı için (tr-TR, büyük harf kullanıma hazır). */
+const AYLAR = [
+  "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+] as const;
+
+/**
+ * Güncel İş Listesi'nin dönemi: "Ağustos 2026".
+ *
+ * REVİZYON NUMARASI YOKTUR ve bu bilinçlidir. Hesap raporu bir PROJENİN
+ * sürümlenen belgesidir; iş listesi ise firmanın o AYKİ fotoğrafıdır ve iki
+ * kez üretildiğinde ikisi de aynı belgedir. Dönemi ay verir, revizyon değil.
+ */
+export function jobListPeriod(date: Date): string {
+  return `${AYLAR[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/** `ORC-IL-2026-08` — Güncel İş Listesi belge kimliği (IL = İş Listesi). */
+export function jobListDocCode(date: Date): string {
+  return `ORC-IL-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
  * Windows/macOS dosya adında kullanılamayan karakterler.
  * Nokta ve tire KALIR: doküman kodunun bir parçasıdırlar.
