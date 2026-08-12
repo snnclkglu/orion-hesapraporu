@@ -13,17 +13,17 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DonutChart, RankBars, TimeBarChart } from "@/components/charts";
 import { fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
-import {
-  ayDonemi,
-  bugunISO,
-  gunFarki,
-  haftaDonemi,
-  tarihGoster,
-  type Donem,
-} from "@/lib/purchasing/terms";
+import { bugunISO, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
+import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
+import { hueFromText } from "@/lib/tags";
+import { FilterBar, SearchBox } from "../../drawings/sortable-head";
+import { CokluSuzgec } from "../filters";
+import { Bant, KipSecici, PanoKabugu } from "../board-ui";
 import { updateOrder } from "../actions";
 
 export interface OdemeSatiri {
@@ -49,7 +49,14 @@ const TUR_ETIKET: Record<OdemeSatiri["tur"], string> = {
   tamami: "Tamamı",
 };
 
-type Kip = "ay" | "hafta";
+interface Filtreler {
+  query: string;
+  tedarikciler: string[];
+  turler: string[];
+  isler: string[];
+}
+
+const BOS: Filtreler = { query: "", tedarikciler: [], turler: [], isler: [] };
 
 export function PaymentBoard({
   satirlar,
@@ -61,38 +68,71 @@ export function PaymentBoard({
   const router = useRouter();
   const [kip, setKip] = useState<Kip>("ay");
   const [odenenler, setOdenenler] = useState(false);
+  const [pano, setPano] = useState(true);
+  const [f, setF] = useState<Filtreler>(BOS);
 
   const bugun = bugunISO();
+  const kapsam = useMemo(
+    () => satirlar.filter((s) => odenenler || !s.odendi),
+    [satirlar, odenenler]
+  );
+
+  const secenekler = useMemo(() => {
+    const say = (fn: (s: OdemeSatiri) => string[]) => {
+      const m = new Map<string, number>();
+      for (const s of kapsam) for (const v of fn(s)) m.set(v, (m.get(v) ?? 0) + 1);
+      return m;
+    };
+    const ted = say((s) => [s.supplier]);
+    const tur = say((s) => [s.tur]);
+    const is = say((s) => s.isler);
+    return {
+      tedarikciler: [...ted.keys()]
+        .sort((a, b) => a.localeCompare(b, "tr"))
+        .map((v) => ({ value: v, label: v, count: ted.get(v) })),
+      turler: (["avans", "bakiye", "tamami"] as OdemeSatiri["tur"][])
+        .filter((t) => tur.has(t))
+        .map((t) => ({ value: t, label: TUR_ETIKET[t], count: tur.get(t) })),
+      isler: [...is.keys()]
+        .sort((a, b) => a.localeCompare(b, "tr"))
+        .map((v) => ({ value: v, label: v, count: is.get(v) })),
+    };
+  }, [kapsam]);
+
+  const gorunen = useMemo(() => {
+    const q = f.query.trim().toLocaleLowerCase("tr-TR");
+    const ted = new Set(f.tedarikciler);
+    const tur = new Set(f.turler);
+    const is = new Set(f.isler);
+    return kapsam.filter((s) => {
+      if (ted.size > 0 && !ted.has(s.supplier)) return false;
+      if (tur.size > 0 && !tur.has(s.tur)) return false;
+      if (is.size > 0 && !s.isler.some((n) => is.has(n))) return false;
+      if (!q) return true;
+      return [s.supplier, s.orderNo, ...s.isler]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR")
+        .includes(q);
+    });
+  }, [kapsam, f]);
 
   const { tarihsiz, gecikmis, kutular, toplamEur, kursuz } = useMemo(() => {
-    const kapsam = satirlar.filter((s) => odenenler || !s.odendi);
-    const tarihsiz = kapsam.filter((s) => !s.gun);
-    const gecikmis = kapsam
+    const tarihsiz = gorunen.filter((s) => !s.gun);
+    const gecikmis = gorunen
       .filter((s) => s.gun && !s.odendi && (gunFarki(s.gun, bugun) ?? 0) < 0)
       .sort((a, b) => (a.gun ?? "").localeCompare(b.gun ?? ""));
-    const gelecek = kapsam.filter(
+    const gelecek = gorunen.filter(
       (s) => s.gun && (s.odendi || (gunFarki(s.gun, bugun) ?? 0) >= 0)
     );
-
-    const harita = new Map<string, { donem: Donem; satirlar: OdemeSatiri[]; toplam: number }>();
-    for (const s of gelecek) {
-      const d = kip === "ay" ? ayDonemi(s.gun!) : haftaDonemi(s.gun!);
-      const kutu = harita.get(d.key) ?? { donem: d, satirlar: [], toplam: 0 };
-      kutu.satirlar.push(s);
-      kutu.toplam += s.tutarEur ?? 0;
-      harita.set(d.key, kutu);
-    }
-    const kutular = [...harita.values()].sort((a, b) => a.donem.start.localeCompare(b.donem.start));
-    for (const k of kutular) k.satirlar.sort((a, b) => (a.gun ?? "").localeCompare(b.gun ?? ""));
-
+    const { kutular } = donemlere(gelecek, (s) => s.gun, (s) => s.tutarEur ?? 0, kip);
     return {
       tarihsiz,
       gecikmis,
       kutular,
-      toplamEur: kapsam.filter((s) => !s.odendi).reduce((t, s) => t + (s.tutarEur ?? 0), 0),
-      kursuz: kapsam.filter((s) => s.tutarEur == null).length,
+      toplamEur: gorunen.filter((s) => !s.odendi).reduce((t, s) => t + (s.tutarEur ?? 0), 0),
+      kursuz: gorunen.filter((s) => s.tutarEur == null).length,
     };
-  }, [satirlar, kip, odenenler, bugun]);
+  }, [gorunen, kip, bugun]);
 
   function odendiIsaretle(s: OdemeSatiri) {
     if (!canWrite) return;
@@ -105,6 +145,56 @@ export function PaymentBoard({
       }
     });
   }
+
+  const eurFmt = (v: number) => fmtMoney(v, "EUR");
+
+  const zamanSerisi = useMemo(
+    () =>
+      kutular.map((k) => ({
+        key: k.donem.key,
+        label: k.donem.label,
+        total: k.toplam,
+        parts: {
+          avans: k.kayitlar
+            .filter((s) => s.tur === "avans")
+            .reduce((t, s) => t + (s.tutarEur ?? 0), 0),
+          bakiye: k.kayitlar
+            .filter((s) => s.tur !== "avans")
+            .reduce((t, s) => t + (s.tutarEur ?? 0), 0),
+        },
+      })),
+    [kutular]
+  );
+
+  const tedarikciCubuklari = useMemo(
+    () =>
+      sirala(
+        gorunen.filter((s) => !s.odendi),
+        (s) => s.supplier,
+        (s) => s.tutarEur ?? 0,
+        { ipucu: (_a, l) => `${l.length} ödeme` }
+      ),
+    [gorunen]
+  );
+
+  const turHalkasi = useMemo(() => {
+    const acik = gorunen.filter((s) => !s.odendi);
+    const toplam = acik.reduce((t, s) => t + (s.tutarEur ?? 0), 0);
+    return (["avans", "bakiye", "tamami"] as OdemeSatiri["tur"][])
+      .map((t) => {
+        const grup = acik.filter((s) => s.tur === t);
+        const value = grup.reduce((x, s) => x + (s.tutarEur ?? 0), 0);
+        return {
+          key: t,
+          label: TUR_ETIKET[t],
+          hue: hueFromText(t),
+          value,
+          share: toplam > 0 ? value / toplam : 0,
+          records: grup.length,
+        };
+      })
+      .filter((x) => x.value > 0);
+  }, [gorunen]);
 
   return (
     <div className="grid gap-3">
@@ -132,18 +222,104 @@ export function PaymentBoard({
             </span>
           </div>
         )}
-        <span className="ml-auto flex items-center gap-1">
-          <KipDugmesi etkin={kip === "ay"} onClick={() => setKip("ay")}>
-            Aylık
-          </KipDugmesi>
-          <KipDugmesi etkin={kip === "hafta"} onClick={() => setKip("hafta")}>
-            Haftalık
-          </KipDugmesi>
-          <KipDugmesi etkin={odenenler} onClick={() => setOdenenler((o) => !o)}>
+        <span className="ml-auto flex items-center gap-2">
+          <KipSecici kip={kip} onChange={setKip} />
+          <Button
+            type="button"
+            size="xs"
+            variant={odenenler ? "default" : "outline"}
+            onClick={() => setOdenenler((o) => !o)}
+          >
             Ödenenler
-          </KipDugmesi>
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant={pano ? "default" : "outline"}
+            onClick={() => setPano((p) => !p)}
+          >
+            <BarChart3 className="size-3" />
+            Pano
+          </Button>
         </span>
       </section>
+
+      {pano && gorunen.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <PanoKabugu baslik="Nakit Çıkış Planı" alt={`${zamanSerisi.length} dönem`}>
+            <TimeBarChart
+              columns={zamanSerisi}
+              series={[
+                { key: "avans", label: "Avans", hue: 30 },
+                { key: "bakiye", label: "Bakiye", hue: 210 },
+              ]}
+              valueLabel="€"
+              format={eurFmt}
+              height={180}
+            />
+          </PanoKabugu>
+          <PanoKabugu baslik="Tedarikçi Dağılımı" alt={`${tedarikciCubuklari.length} tedarikçi`}>
+            <RankBars
+              items={tedarikciCubuklari}
+              limit={8}
+              valueLabel="€"
+              format={eurFmt}
+              emptyText="Ödenecek yok"
+              onSelect={(k) =>
+                setF((s) => ({
+                  ...s,
+                  tedarikciler: s.tedarikciler.includes(k)
+                    ? s.tedarikciler.filter((x) => x !== k)
+                    : [...s.tedarikciler, k],
+                }))
+              }
+              selected={f.tedarikciler.length === 1 ? f.tedarikciler[0] : null}
+            />
+          </PanoKabugu>
+          {turHalkasi.length > 0 && (
+            <PanoKabugu baslik="Avans / Bakiye" alt="ödenmemiş" className="lg:col-span-2">
+              <DonutChart
+                items={turHalkasi}
+                centerValue={fmtMoney(toplamEur, "EUR")}
+                centerLabel="Ödenecek"
+                format={eurFmt}
+              />
+            </PanoKabugu>
+          )}
+        </div>
+      )}
+
+      <FilterBar
+        gorunen={gorunen.length}
+        toplam={kapsam.length}
+        temiz={JSON.stringify(f) === JSON.stringify(BOS)}
+        onTemizle={() => setF(BOS)}
+      >
+        <SearchBox
+          value={f.query}
+          onChange={(v) => setF((s) => ({ ...s, query: v }))}
+          placeholder="Tedarikçi, Sipariş No, İş Ara…"
+          className="w-[min(18rem,calc(100vw-4rem))]"
+        />
+        <CokluSuzgec
+          baslik="Tedarikçi"
+          secenekler={secenekler.tedarikciler}
+          secili={f.tedarikciler}
+          onChange={(v) => setF((s) => ({ ...s, tedarikciler: v }))}
+        />
+        <CokluSuzgec
+          baslik="İş"
+          secenekler={secenekler.isler}
+          secili={f.isler}
+          onChange={(v) => setF((s) => ({ ...s, isler: v }))}
+        />
+        <CokluSuzgec
+          baslik="Tür"
+          secenekler={secenekler.turler}
+          secili={f.turler}
+          onChange={(v) => setF((s) => ({ ...s, turler: v }))}
+        />
+      </FilterBar>
 
       {gecikmis.length > 0 && (
         <Bant
@@ -175,7 +351,9 @@ export function PaymentBoard({
       {kutular.length === 0 && gecikmis.length === 0 && tarihsiz.length === 0 ? (
         <div className="border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Planlanmış ödeme yok. Sipariş açıldığında avans ve bakiye ödemeleri buraya düşer.
+            {satirlar.length === 0
+              ? "Planlanmış ödeme yok. Sipariş açıldığında avans ve bakiye ödemeleri buraya düşer."
+              : "Bu süzgeçle eşleşen ödeme yok."}
           </p>
         </div>
       ) : (
@@ -183,10 +361,9 @@ export function PaymentBoard({
           <Bant
             key={k.donem.key}
             baslik={k.donem.label}
-            renk="normal"
-            alt={`${formatNum(k.satirlar.length)} ödeme · ${fmtMoney(k.toplam, "EUR")}`}
+            alt={`${formatNum(k.kayitlar.length)} ödeme · ${fmtMoney(k.toplam, "EUR")}`}
           >
-            {k.satirlar.map((s) => (
+            {k.kayitlar.map((s) => (
               <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odendiIsaretle} />
             ))}
           </Bant>
@@ -268,65 +445,5 @@ function Satir({
         )
       )}
     </li>
-  );
-}
-
-function Bant({
-  baslik,
-  alt,
-  renk,
-  children,
-}: {
-  baslik: string;
-  alt: string;
-  renk: "normal" | "kirmizi" | "sari";
-  children: React.ReactNode;
-}) {
-  const kenar =
-    renk === "kirmizi"
-      ? "border-destructive/40"
-      : renk === "sari"
-        ? "border-amber-500/40"
-        : "border-border";
-  const zemin =
-    renk === "kirmizi"
-      ? "bg-destructive/[0.06]"
-      : renk === "sari"
-        ? "bg-amber-500/[0.08]"
-        : "bg-muted/50";
-  return (
-    <section className={`border bg-card ${kenar}`}>
-      <div className={`flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 ${zemin}`}>
-        <h2 className="text-sm font-medium">{baslik}</h2>
-        <p className="font-mono text-[11px] text-muted-foreground">{alt}</p>
-      </div>
-      <ul>{children}</ul>
-    </section>
-  );
-}
-
-function KipDugmesi({
-  etkin,
-  onClick,
-  children,
-}: {
-  etkin: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={etkin}
-      className={
-        "min-h-8 border px-2 text-[12px] transition-colors pointer-coarse:min-h-10 " +
-        (etkin
-          ? "border-primary bg-primary/10 font-medium text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground")
-      }
-    >
-      {children}
-    </button>
   );
 }

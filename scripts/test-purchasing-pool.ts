@@ -178,10 +178,38 @@ async function main() {
     console.log(`  ${s.tanim.padEnd(46)} ${s.anaGruplar.join(" · ")}`);
   }
 
-  console.log(`\nİLK 20 KALEM`);
-  for (const s of h.satirlar.slice(0, 20)) {
+  // ————————————————————————— İŞ HAZIRLAMA SÜTUNLARI (kullanıcı kararı md. 2)
+  //
+  // Tablo satın alma ekibinin çalışma dosyasına benzeyecekse sütunların GERÇEK
+  // veriyle DOLU gelmesi gerekir; boş bir sütun "benzemek" değildir. Bu döküm
+  // her sütunun kaç satırda dolduğunu sayar.
+  const dolu = (fn: (s: (typeof h.satirlar)[number]) => boolean) =>
+    h.satirlar.filter(fn).length;
+  console.log(`\nSÜTUN DOLULUĞU (${h.toplamKalem} kalem)`);
+  console.log(`  İş Numarası     : ${dolu((s) => s.paylar.some((p) => p.itemNo))}`);
+  console.log(`  Resim Numarası  : ${dolu((s) => s.parcaKodlari.length > 0)}`);
+  console.log(`  Kullanıldığı Yer: ${dolu((s) => s.anaGruplar.length > 0)}`);
+  console.log(`  Kalite          : ${dolu((s) => Boolean(s.malzeme))}`);
+  console.log(`  İç Çap          : ${dolu((s) => s.olculer.icCapMm != null)}`);
+  console.log(`  Dış Çap         : ${dolu((s) => s.olculer.disCapMm != null)}`);
+  console.log(`  Boy             : ${dolu((s) => s.olculer.boyMm != null)}`);
+  console.log(`  Ağırlık         : ${dolu((s) => s.toplamAgirlikKg != null)}`);
+  console.log(`  Not             : ${dolu((s) => Boolean(s.not))}`);
+
+  console.log(`\nÖLÇÜSÜ AYIKLANAN İLK 12 KALEM`);
+  for (const s of h.satirlar.filter((x) => x.olculer.disCapMm != null).slice(0, 12)) {
+    const o = s.olculer;
     console.log(
-      `  ${s.sinif.padEnd(20)} ${String(s.adet ?? "—").padStart(6)}  ${s.tanim}`
+      `  ${s.tanim.padEnd(40)} iç=${o.icCapMm ?? "—"} dış=${o.disCapMm ?? "—"} boy=${o.boyMm ?? "—"}`
+    );
+  }
+
+  console.log(`\nİLK 20 KALEM (İŞ NO · KOD · YER · TANIM)`);
+  for (const s of h.satirlar.slice(0, 20)) {
+    const isler = [...new Set(s.paylar.map((p) => p.itemNo).filter(Boolean))].join(",");
+    console.log(
+      `  ${isler.padEnd(10)} ${(s.parcaKodlari[0] ?? "—").padEnd(20)} ` +
+        `${(s.anaGruplar[0] ?? "—").padEnd(22)} ${String(s.adet ?? "—").padStart(5)}  ${s.tanim}`
     );
   }
 }

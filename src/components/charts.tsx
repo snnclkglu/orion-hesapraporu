@@ -105,12 +105,15 @@ export function TimeBarChart({
   series,
   height = 200,
   valueLabel = "adam·saat",
+  format = fmtManHours,
   className,
 }: {
   columns: readonly ChartColumn[];
   series: readonly ChartSeries[];
   height?: number;
   valueLabel?: string;
+  /** Eksen ve ipucu biçimi — bkz. `RankBars.format`. */
+  format?: (v: number) => string;
   className?: string;
 }) {
   const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(new Set());
@@ -166,7 +169,7 @@ export function TimeBarChart({
               className="absolute right-0 -translate-y-1/2"
               style={{ bottom: `${(t / top) * 100}%` }}
             >
-              {fmtManHours(t)}
+              {format(t)}
             </span>
           ))}
         </div>
@@ -194,7 +197,7 @@ export function TimeBarChart({
                     <div
                       key={col.key}
                       className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
-                      title={`${col.label} · ${fmtManHours(colTotal)} ${valueLabel}`}
+                      title={`${col.label} · ${format(colTotal)} ${valueLabel}`}
                     >
                       {/* Vurgu: sütunun tamamı hover'da hafifçe zeminlenir */}
                       <span
@@ -209,7 +212,7 @@ export function TimeBarChart({
                             key={s.key}
                             className="oc-series-bg block w-full"
                             style={{ ...tagStyle(s.hue), height: `${(v / top) * 100}%` }}
-                            title={`${col.label} · ${s.label} · ${fmtManHours(v)} ${valueLabel}`}
+                            title={`${col.label} · ${s.label} · ${format(v)} ${valueLabel}`}
                           />
                         );
                       })}
@@ -275,6 +278,7 @@ export function RankBars({
   emptyText = "Kayıt yok",
   onSelect,
   selected,
+  format = fmtManHours,
   className,
 }: {
   items: readonly RankItem[];
@@ -283,6 +287,13 @@ export function RankBars({
   emptyText?: string;
   onSelect?: (key: string) => void;
   selected?: string | null;
+  /**
+   * Değer biçimlendirici. Varsayılanı adam·saattir çünkü bileşen İş
+   * Takibi için doğdu; Satın Alma aynı çubuğu AVRO ve ADET için kullanıyor
+   * ve "1.250" ile "1.250 €" arasındaki fark okurun kafasında değil ekranda
+   * durmalıdır. Varsayılan korunur, çağıran değiştirir.
+   */
+  format?: (v: number) => string;
   className?: string;
 }) {
   const shown = limit ? items.slice(0, limit) : items;
@@ -327,7 +338,7 @@ export function RankBars({
               />
             </span>
             <span className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
-              <span className="w-16 text-right font-medium">{fmtManHours(item.value)}</span>
+              <span className="w-16 text-right font-medium">{format(item.value)}</span>
               <span className="w-11 text-right text-muted-foreground">
                 %{fmtManHours(item.share * 100)}
               </span>
@@ -339,7 +350,7 @@ export function RankBars({
         <p className="px-1 pt-1 text-[11px] text-muted-foreground">
           + {rest.length} kalem daha ·{" "}
           <span className="font-mono tabular-nums">
-            {fmtManHours(rest.reduce((s, i) => s + i.value, 0))} {valueLabel}
+            {format(rest.reduce((s, i) => s + i.value, 0))} {valueLabel}
           </span>
         </p>
       )}
@@ -361,12 +372,15 @@ export function DonutChart({
   centerValue,
   centerLabel,
   size = 168,
+  format = fmtManHours,
   className,
 }: {
   items: readonly RankItem[];
   centerValue: string;
   centerLabel: string;
   size?: number;
+  /** Efsanedeki değer biçimi — bkz. `RankBars.format`. */
+  format?: (v: number) => string;
   className?: string;
 }) {
   const titleId = useId();
@@ -412,7 +426,7 @@ export function DonutChart({
                 // başlar ve okuyucu payı yanlış yerden aramaya başlardı.
                 transform="rotate(-90 50 50)"
               >
-                <title>{`${item.label} · ${fmtManHours(item.value)} a·s · %${fmtManHours(
+                <title>{`${item.label} · ${format(item.value)} · %${fmtManHours(
                   item.share * 100
                 )}`}</title>
               </circle>
@@ -444,7 +458,7 @@ export function DonutChart({
             <span className="oc-tag-dot" style={tagStyle(item.hue)} aria-hidden />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             <span className="shrink-0 font-mono text-[11px] tabular-nums">
-              {fmtManHours(item.value)}
+              {format(item.value)}
             </span>
             <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
               %{fmtManHours(item.share * 100)}
@@ -592,9 +606,16 @@ export function StatCard({
       >
         <Icon className="size-4" />
       </span>
-      <div className="min-w-0 leading-tight">
+      {/* `min-w-0` TEK BAŞINA YETMEZ: alttaki satır `flex` ve içindeki iki
+          `span` de büzülemiyordu (metin `min-content`ten dar olamaz). Dört
+          kartın iki sütuna indiği 375px'lik ekranda uzun bir tutar + değişim
+          rozeti ("721.417,78 ₺" + "▼ %4,7") kartı ~9px taşırıyor ve o taşma
+          BÜTÜN SAYFAYI yatay kaydırıyordu (Finans özet kartlarında ölçüldü,
+          12.08.2026). `flex-wrap` rozeti gerektiğinde alt satıra indirir;
+          geniş ekranda görünüm birebir aynı kalır. */}
+      <div className="min-w-0 flex-1 leading-tight">
         <div className="oc-kicker text-muted-foreground">{label}</div>
-        <div className="mt-0.5 flex items-baseline gap-2">
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
           <span className="font-mono text-lg font-semibold tracking-tight tabular-nums">{value}</span>
           {delta !== null && delta !== undefined && Number.isFinite(delta) && (
             <span

@@ -13,7 +13,9 @@ projeleri ve revizyon arşivi (`/projects`), **teknik resim paketleri**
 (`/drawings` — ressamın klasörü olduğu gibi girer, md. 18), **satın alma**
 (`/purchasing` — çok projeli talep havuzu, teklif, sipariş, teslim ve ödeme
 takvimi, fiyat arşivi; md. 21), ekipman listeleri, üretici katalogları
-(`/katalog`), atölye çalışma saatleri (`/worklog`) ve satış takibi (`/sales`).
+(`/katalog`), atölye çalışma saatleri (`/worklog`), satış takibi (`/sales`) ve
+**finans** (`/finance` — personel künyesi ve özlük dosyaları, maaş ve fazla
+mesai, bordro, harcirah, aylık ortalama döviz kurları; md. 22).
 Çok kullanıcılı: **dört rol + üç görev etiketi** (md. 15).
 
 Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
@@ -77,10 +79,20 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npx tsx scripts/test-purchasing-pool.ts` — talep havuzunu CANLI veritabanı
   satırlarıyla kur ve bas (çarpan, çok projeli birleşme, ana grup adı). Salt
   okunur; `.env.admin`deki Management API jetonunu ister
-- `npx tsx scripts/test-drawings-purchasing.ts` — satın alma talebi Excel'ini
-  ve PDF'ini üret (süzgeçli/seçili liste çıktısının duman testi)
-- `/dev/drawings-preview` — Teknik Resimler ekranlarının AUTH'SUZ görsel
-  önizlemesi (yalnız development). Ekran değiştirdiysen ÖNCE orada bak
+- `npx tsx scripts/test-purchase-request.ts` — satın alma talebi PDF'ini
+  40 ve 400 kalemle üret ve GERİ OKU: yatay sayfa + Türkçe karakter + on
+  sütunlu tablo bir arada ilk kez burada kullanılıyor. Betik ayrıca belgede
+  FİYAT İZİ olmadığını da doğrular (talep belgesi fiyatsızdır)
+- `npx tsx scripts/test-fx-source.ts [gün]` — döviz kuru kaynağını GERÇEK
+  servise karşı sına: TCMB kaç günü okudu, hangi günler tatil, ECB yedeği aynı
+  aralığı veriyor mu ve **iki kaynağın aylık ortalaması %0,3'ten fazla
+  ayrışıyor mu**. Ayrıca paritenin gün gün hesaplandığını sayıyla gösterir
+- `npx tsx scripts/test-payroll-docs.ts` — ücret pusulasını (kurlu + kursuz
+  varyant) ve Personel/Maaş Excel'ini üret; Excel'i GERİ OKUYUP kuru girilmemiş
+  ayın avro hücresinin BOŞ (sıfır değil) olduğunu doğrula
+- `/dev/drawings-preview` · `/dev/finance-preview` — Teknik Resimler ve Finans
+  ekranlarının AUTH'SUZ görsel önizlemesi (yalnız development). Ekran
+  değiştirdiysen ÖNCE orada bak
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
 
 ## Mimari ilkeler
@@ -551,10 +563,124 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     satınalmacı yalnız `satinalindi`/`teslim_alindi` yazabilir, "kesildi"
     yazamaz — atölye de "satın alındı" işaretleyemez (md. 18'in kuralı).
 
+    **TABLO SATIN ALMA EKİBİNİN SÜTUN DÜZENİNDEDİR** (kullanıcı kararı
+    12.08.2026): İŞ HAZIRLAMA LİSTESİ'nin sırası birebir taşınır — İş Numarası
+    · Resim Numarası · Kullanıldığı Yer · Kategori · Tanımı · Kalite · İç/Dış
+    Çap · Boy · Miktar · Ağırlık · Not · Sipariş durumu. Düzen bir zevk değil
+    bir ALIŞKANLIKtır; uydurulmuş bir sıra aracı kullanılmaz yapardı. Havuzun
+    Excel'den FAZLASI (Sipariş · Kalan · Teklif sütunları ve bir satırın çok
+    projeli olabilmesi) modülün var oluş sebebidir.
+
+    **İÇ/DIŞ ÇAP VE BOY TANIMDAN AYIKLANIR** (`tanimOlculeri`) ve kural
+    TUTUCUDUR: yalnız Ø taşıyan tanımlar okunur, iki Ø varsa küçüğü iç
+    büyüğü dıştır, `L=`/`L` boydur. Ø yoksa HİÇBİR ŞEY yazılmaz — "SAC
+    15x240x285" bir dikdörtgendir, "M16" bir diş ölçüsüdür. Emin olunamayan
+    ölçü boş kalır; yanlış bir çap, boş bir çaptan çok daha pahalıdır.
+
+    **"RESİM NUMARASI" SÜTUNUNA GERÇEK KOD GİRER, HER METİN DEĞİL.** Canlı
+    veride ölçüldü: `drawing_parts.part_code` satın alma satırlarında çoğu
+    zaman kod değil tedarikçi kodudur ("RULMAN 6022 - Z", "28X16X80"). İçe
+    aktarım onları olduğu gibi taşır ve doğrusu budur (md. 18/1); ama o sütunun
+    başlığı "Resim Numarası"dır ve orada bir rulman kodu görmek satınalmacıyı
+    olmayan bir resmi aramaya iter. `parsePartCode` süzer ve EN AZ BİR ALT
+    SEGMENT şart koşar (`0057-00` bir kalem numarasıdır, resim numarası değil).
+    Süzgeç 186 kalemin 105'ini 32'ye indirdi — düşenlerin hiçbiri kod değildi.
+
+    **DURUM ÇİPİ BİR DÜĞMEDİR** (kullanıcı kararı): "Bekliyor" ya da "Teklif
+    alındı" üzerine basınca o kalem için sipariş penceresi açılır. Satınalmacının
+    en sık yaptığı hareket budur; önce kalemi seçip sonra şeritteki düğmeye
+    gitmek iki fazladan adımdı.
+
+    **SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER.** `CokluSuzgec` `Select`
+    değil `DropdownMenu` kullanır çünkü Radix `Select` tek değerlidir ve çoklu
+    seçimde liste her tıklamada kapanırdı. Excel ve PDF ekranda GÖRÜNEN listeyi
+    indirir; seçim varsa yalnız seçilenleri. Kapsamı İSTEMCİ söyler (anahtar
+    listesi olarak), sunucu yeniden hesaplamaz — iki listenin ayrışmaması
+    ancak böyle garanti edilir (md. 16'nın dersi).
+
+    **TEKLİFTE ADET SORULMAZ** (kullanıcı kararı): teklif BİRİM FİYATtır ve
+    adet zaten havuzda yazar; iki yerde adet tutmak "hangisi doğru" sorusunu
+    doğururdu. Girilmiş teklif YERİNDE DÜZENLENİR — silip yeniden girmek teklif
+    TARİHİNİ de değiştiriyordu.
+
     **VERİTABANI SÜTUNU OLMAYABİLİR VARSAYIMI HER OKUMADA GEÇERLİDİR.**
     `tags`, `qty`, `shares_drawings_with`, `due_at` — hepsi ZENGİN sorgu +
     DAR yedek kalıbıyla okunur. Bir sütunun eksikliği yüzünden BÜTÜN sayfayı
     kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
+
+22. **FİNANS: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR** (`/finance`,
+    kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e açıktır
+    (`can_see_finance()` / `canSeeFinance`) ve beş ekrandır: Personel · Maaş ·
+    Özet · Harcirah · Kurlar. Kaynak devralınan "ORİON - Personel ve Maaş
+    Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş satırı).
+
+    **Giriş/çıkış tarihi künyede DEĞİL `fin_employment`tadır.** Devralınan
+    veride bir kişi aynı TC ile İKİ KEZ çalışmış (FURKAN AYTEKİN: 2025-01→04 ve
+    2026-03→06). Tarihler künyede olsaydı ya kişi ikizlenir ve kıdem bölünürdü
+    ya da ilk dönem kaybolurdu. Kıdem BÜTÜN dönemlerin toplamıdır; aynı anda
+    en fazla bir dönem AÇIK olabilir (kısmi tekil indeks). İşten ayrılan kişi
+    SİLİNMEZ, dönemi KAPANIR — ve ayrılanlar AYRI BİR EKRANDA DEĞİL aynı
+    listede, "Ayrıldı" rozetiyle durur (Mühendislik'teki arşiv kuralı).
+    **Maaş kaydı olan personel silinemez**: silme `cascade` ile ödenmiş ayların
+    kaydını da götürürdü.
+
+    **FAZLA MESAİ TÜRETİLİR, GİRİLMEZ.** 4857 md. 41:
+
+        tutar = net / 225 × (saat%50 × 1,5 + saat%100 × 2)
+
+    225 aylık normal çalışma saatidir (30 × 7,5) ve TEK yerdedir
+    (`AYLIK_CALISMA_SAATI`). Bağıntı devralınan 566 satırın TAMAMINDA sıfır
+    sapmayla doğrulandı, bu yüzden `fin_payroll.overtime_amount`
+    `generated always as … stored` olabildi. Aynı bağıntı bir kez
+    TypeScript'te (`fazlaMesaiTutari` — kullanıcı kaydetmeden önce görsün) bir
+    kez Postgres'te yazılıdır; ikisinin ayrışmasını
+    `lib/finance/__tests__/payroll.test.ts` engeller.
+
+    **AYIN KURU SATIRIN KENDİNDEDİR** (`fin_periods.eur_try_rate`), merkezî kur
+    tablosundan OKUNMAZ — md. 16'nın (`job_item_sales.fx_rate`) birebir aynı
+    gerekçesi: tablo tazelendiğinde geçmiş ayların avro karşılığı da
+    değişirdi. Ekran `fin_fx_monthly` ortalamasını ÖNERİR, kullanıcı onaylar,
+    değer donar. Devralınan 27 ayın kuru Excel'den geldi ve **ortalama
+    değildir** (ay sonu spot kuru; 2025 Mart'ta fark %7,8) — olduğu gibi
+    korundu.
+
+    **İZİN VE RAPOR SAATİ AY DÜZEYİNDEDİR** (`fin_periods`), kişi başına değil:
+    firma bugün de öyle tutuyor. Kişi bazlı izin takibi ayrı bir fazdır;
+    bugün uydurulmuş bir dağıtım yazmak veriyi olduğundan kesin gösterirdi.
+
+    **EXCEL'İN KENDİ İKİ SAYFASI ÇELİŞİYORDU** ve çözüm üçüncü bir sayı değil,
+    BOŞLUĞU GÖSTERMEKTİR. "Maaş Özet Tablo"daki kişi sayısı elle yapıştırılmış
+    bir değerdi ve "Aylık Çalışma Saatleri" ile yedi ayda uyuşmuyordu; sebebi
+    maaş satırı GİRİLMEMİŞ çalışanlardı. Uygulama sayıyı maaş satırlarından
+    üretir (tek kaynak) ve o ay çalışıyor görünüp maaşı olmayan kişiyi Maaş
+    ekranında AYRICA sayar.
+
+    **ÖZLÜK DOSYASI KATALOG YAPRAĞI DEĞİLDİR.** `personnel` bucket'ının
+    politikası `drawings` düzeyindedir — okuma dahil dördü de
+    `can_see_finance()`ten geçer, `equipment-attachments` gibi "authenticated
+    okur" DEĞİL. Gerekçe: `createSignedUrl` bir kez üretildikten sonra 120
+    saniye oturumsuz açılabilir ve uygulama katmanındaki rolü taşımaz; bir
+    sağlık raporunda bu fark gerçek bir sızıntıdır. Aynı sebeple imzalı
+    bağlantı İSTEMCİDE değil SUNUCUDA üretilir (`signDocumentUrl`) ve denetim
+    izine yazılır. Baytlar yine server action'dan GEÇMEZ (md. 19 kuralı),
+    sayfa sayısı yine ÖLÇÜLÜR. **Süreli belgeler** (İSG eğitimi 6331 md. 17,
+    periyodik muayene md. 15, operatör/kaynakçı belgesi) `expires_on` taşır ve
+    süresi dolan belge ENGELLEYİCİ DEĞİL bir HATIRLATMAdır.
+
+    **BORDRO BUGÜN HESAPLAMAZ, SAKLAR VE BASAR.** Brüt/SGK/vergi alanları
+    şemada vardır ama yasal brüt→net dönüşümü (SGK matrahı, kümülatif dilim,
+    asgari ücret istisnası) YAPILMAZ: bağıntı her yıl iki kez değişir ve
+    muhasebeden gelen gerçek rakamı uydurulmuş bir hesapla ezmek bordroyu
+    yanlış yapardı. Pusula bunu kendi üzerinde açıkça yazar. Yasal kesinti
+    bloğu alanlar BOŞSA hiç çizilmez — boş bir vergi tablosu basmak belgeyi
+    olduğundan resmî gösterirdi.
+
+    **KURLAR: kaynak TCMB, ölçüm gün gün.** Ayrıntı `docs/finans-kur-kaynagi.md`
+    (kaynak seçiminin gerekçesi, ECB yedeği, cron kurulumu). Üç kural burada
+    da tekrarlanır çünkü sessizce yanlış yazılabilirler:
+    `avg(EUR/USD) ≠ avg(EUR/TRY)/avg(USD/TRY)` (parite gün gün ortalanır) ·
+    yayın yapılmayan günün kuru YOKTUR, sıfır değildir · ortalamanın kaç
+    günden çıktığı (`day_count`) bir künyedir, gizlenmez.
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
@@ -596,6 +722,15 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     yazımla saklanır, listede "Amonyum Sülfat" ile "AMONYUM SÜLFAT" iki ayrı
     satır gibi sıralanır ve dosya adı (`pdf/doc-naming.ts`, zaten BÜYÜK basar)
     ile ekran ayrışırdı. `toUpperCase()` KULLANILMAZ: "i" harfini "I" yapar.
+
+    **DEVRALINAN SATIRLAR DA ÇEVRİLDİ** (12.08.2026, `20260812120000`): kural
+    yalnız formdan geçen kayıtlara işliyordu, iki büyük içe aktarımın satırları
+    (55 iş emri + 88 iş kalemi) kaynak dosyanın yazımını taşıyordu. Dönüşüm
+    SQL'DE YAPILMAZ — Postgres'in `upper()`'ı Türkçe farkında değildir
+    ("İSDEMİR" → "ISDEMIR"); değerler `adBuyuk` ile hesaplanıp migration'a tek
+    tek yazılır. Bedeli kabul edilmiştir: "10 t x 21,70 m" → "10 T X 21,70 M"
+    (birimler de büyür). `baslikDuzeni` bunu GERİ ALAMAZ — o yardımcı
+    küçük→başlık yönünde çalışır ve tümü büyük sözcüğü kısaltma sayıp korur.
 
     **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
     `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
@@ -710,12 +845,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Sorgu ve eşleme `sales/data.ts`tedir: EKRAN İLE BELGE AYNI YERDEN OKUR.
     İki sorgu yazılsaydı müşteriye giden liste ile ekrandaki tablo sessizce
     ayrışırdı (İş Takibi'nde bir kez yaşandı, bkz. `worklog/filters.ts`).
-    Belge A4 YATAYdır, yıllara gruplanır ve müşteri kırılımıyla kapanır;
-    sıra ekranın tersinedir (0001-00 → …), çünkü ekran bir çalışma listesi,
-    belge ise kronolojik bir özgeçmiştir. Müşteri sütununda defterdeki
-    KISALTMA görünür — resmî unvan yatay A4'te bile üç satıra sarıyordu.
-    Belgenin sürümü YOKTUR, DÖNEMİ vardır (`ORC-IL-2026-08`): iş listesi bir
-    projenin revizyonu değil firmanın o ayki fotoğrafıdır.
+    Belge A4 YATAYdır ve TEK BİR ÇİZELGEDİR; sıra İŞ NUMARASINA GÖRE
+    BÜYÜKTEN KÜÇÜĞEDİR (en yeni iş üstte) ve yıl bantları bunun kendiliğinden
+    çıkan sonucudur. SIRALAMA BELGENİN İŞİDİR, indirme ucunun değil — iki
+    tüketici ayrı sıralarsa aynı belge iki düzende basılırdı. Müşteri
+    sütununda defterdeki KISALTMA görünür (resmî unvan yatay A4'te bile üç
+    satıra sarıyordu). Belgenin sürümü YOKTUR, DÖNEMİ vardır
+    (`ORC-IL-2026-08`): iş listesi bir projenin revizyonu değil firmanın o
+    ayki fotoğrafıdır.
+
+    **BELGE FİRMANIN TOPLAM İŞ HACMİNİ RAKAMLA AÇIKLAMAZ** (kullanıcı kararı,
+    12.08.2026). Sayfa başındaki ölçü şeridi ("88 iş kalemi · 23 müşteri ·
+    1.134 ton") ve sondaki "Müşteri Referansları" kapanış sayfası (müşteri
+    başına adet ve tonaj) ikisi de KALDIRILDI. Çizelgenin kendisi aynı bilgiyi
+    kanıtla verir; özetlemesi gerekmez. Koruma testi kapanış sayfasının geri
+    gelmediğini de doğrular.
 
 17. **İş Takibi bir GÜN × KALEM × PARÇA × TÜR çizelgesidir.** `work_logs` bir
     satırda tarih, iş kalemi, parça, imalat türü, KİŞİ SAYISI ve saat tutar;
@@ -1199,13 +1343,31 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
   `filters.ts` üç ekranın ortak süzgeç tanımı
+- `src/lib/finance/` — Finans ÇEKİRDEĞİ, **saf** (DB/HTTP yok): `payroll.ts`
+  (fazla mesai bağıntısı, dönem özeti, kıdem) · `fx.ts` (aylık ortalama,
+  parite, eksik gün penceresi) · `personnel.ts` (kategori/belge/sözleşme
+  sözlükleri, TC doğrulama, geçerlilik durumu). Tek istisna `fx-source.ts` —
+  uygulamadaki TEK dış servis çağrısı (TCMB XML + Frankfurter JSON, timeout +
+  üstel bekleme) — ve `fx-refresh.ts`, iki çağıranın (server action + cron)
+  ortak yolu
+- `src/app/(app)/finance/` — Finans (Yönetici + Müdür): `page.tsx` personel
+  listesi · `[id]/` personel profili + özlük dosyaları · `maas/` aylık maaş
+  girişi · `ozet/` analiz · `harcirah/` tarife · `kurlar/` ortalama kurlar ·
+  `bordro/` ücret pusulası PDF'i · `export/` Excel ucu ·
+  `document-actions.ts` özlük dosyası yükleme/silme/imzalı bağlantı
+- `src/app/api/cron/fx/` — aylık otomatik kur tazeleme (Vercel Cron;
+  `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` ister, `proxy.ts`te muaf)
+- `docs/finans-kur-kaynagi.md` — kur kaynağının seçim gerekçesi (TCMB ↔ ECB
+  ölçümü), parite kuralı ve cron kurulumu
 - `src/lib/drawings/` — Teknik Resimler ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
   `recognize` · `folder-name` · `file-name` · `part-code` · `tr-text` ·
   `excel` · `reconcile` · `titleblock` · `dxf-header` · `derive` · `diff` ·
   `revision` · `progress` · `types` · `labels` · `mime` · `standard`
 - `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı ve paketin yedi
   bölümü: Genel Bakış (montaj ağacı) · Dosyalar (gezgin) · Parçalar (defter) ·
-  **Satın Alma** · Üretim · İçe Aktarım Raporu · Sürümler; ayrıca aşama defteri.
+  Üretim · İçe Aktarım Raporu · Sürümler; ayrıca aşama defteri. **Satın Alma
+  sekmesi 12.08.2026'da KALDIRILDI** — yerini `/purchasing` bölümü aldı
+  (md. 21); satın alma AŞAMALARI yerinde durur ve o bölüm tarafından yazılır.
   `[id]/import/` içerik okuma ucu (Node çalışma zamanı), `[id]/export/` türev
   çıktılar
 - `docs/teknik-resim-adlandirma-onerileri.md` — ressama ÖNERİLER (Ö-1…Ö-9).
@@ -1227,7 +1389,10 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   Excel ve PDF ekipman ADINDAN buraya bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
   development; production'da 404): kabuk, editör, işler, satış, ekipman listesi,
-  **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar)
+  **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
+  **finans** (`/dev/finance-preview` — altı ekranı üst üste basar; fikstür
+  GERÇEK büyüklüklerdedir: 71.000 ₺'lik maaş ve 48.753,33 ₺'lik mesai tutarı
+  sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor, ekipman listesi ve iş takibi çıktıları
 - `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri

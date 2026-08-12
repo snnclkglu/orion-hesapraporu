@@ -29,7 +29,31 @@
 // ÇEKİRDEK SAFTIR: DB/HTTP importu yok, `drawings/` çekirdeğiyle aynı kural.
 
 import { satinAlmaSinifi } from "@/lib/drawings/derive";
-import { normalizeTanim } from "@/lib/drawings/normalize";
+import { normalizeTanim, tanimOlculeri, type TanimOlculeri } from "@/lib/drawings/normalize";
+import { parsePartCode } from "@/lib/drawings/part-code";
+
+/**
+ * "Resim Numarası" sütununa GERÇEK KOD girer, her metin değil.
+ *
+ * CANLI VERİDE ÖLÇÜLDÜ (12.08.2026): `drawing_parts.part_code` satın alma
+ * satırlarında çoğu zaman kod DEĞİL, tedarikçi kodu ya da tanımın kendisidir —
+ * "RULMAN 6022 - Z", "YAG KECESI_90X110X10 KK-T", "28X16X80". Depo Excel'inin
+ * "Part Number" sütununa ressam bunları yazmış ve içe aktarım onları olduğu
+ * gibi taşımış (md. 18/1: hiçbir kural bir yüklemeyi engellemez — doğru olan
+ * da bu).
+ *
+ * Ama SATIN ALMA EKRANINDA o sütunun başlığı "Resim Numarası"dır ve orada bir
+ * rulman kodu görmek, satınalmacıyı olmayan bir teknik resmi aramaya iter.
+ * Kod olmayan değer sessizce DÜŞÜRÜLÜR — bilgi kaybı değildir, aynı metin
+ * zaten Tanım sütununda duruyor.
+ */
+function gercekKod(raw: string): string {
+  const kod = parsePartCode(raw);
+  // EN AZ BİR ALT SEGMENT ŞART: `0057-00` bir KALEM numarasıdır, bir resim
+  // numarası değil — o zaten "İş No" sütununda duruyor ve iki sütunda aynı
+  // sayıyı göstermek okuyucuya "bunlar farklı şeyler" der.
+  return kod && kod.level >= 1 ? kod.code : "";
+}
 
 // ————————————————————————————————————————————————————————— girdi tipleri
 
@@ -105,6 +129,29 @@ export interface TalepSatiri {
   key: string;
   /** Standart tanım — BÜYÜK HARF, kalıba dizilmiş. */
   tanim: string;
+  /**
+   * RESİM NUMARASI — İŞ HAZIRLAMA LİSTESİ'ndeki sütunun karşılığı.
+   *
+   * Satın alma satırlarının ÇOĞUNDA BOŞTUR (ölçüldü: MONORAY 50/55, MTC 86/90
+   * kodsuz) — cıvatanın, segmanın kodu olmaz. Boş olması bir eksiklik değil
+   * kalemin doğasıdır; sütun yine de durur çünkü kodu OLANLARDA satınalmacı
+   * onu ressama sormadan bulabilmelidir. Birden çok kod varsa hepsi taşınır.
+   */
+  parcaKodlari: string[];
+  /**
+   * Birim — İŞ HAZIRLAMA'daki "Ana Miktar Birimi". Defterde birim alanı
+   * yoktur; satın alma satırları adetle sayılır ve sabit "Adet"tir. Sütun
+   * yine de bir alandır: profil/halat gibi metreyle alınan kalemler geldiğinde
+   * satırın kendisi söyleyebilsin.
+   */
+  birim: string;
+  /**
+   * TANIMDAN ayıklanmış ölçüler (`tanimOlculeri`). Emin olunamayan ölçü
+   * `null`dur ve hücre boş kalır — yanlış bir çap, boş bir çaptan pahalıdır.
+   */
+  olculer: TanimOlculeri;
+  /** İnsanın bu kaleme yazdığı not (`purchase_item_meta.note`). */
+  not: string;
   /**
    * Havuza giren FARKLI ham yazımlar.
    *
@@ -232,7 +279,11 @@ function birimAgirligiCoz(degerler: Set<number>, satirSayisi: number, beklenen: 
 export function talepHavuzu(
   paketler: readonly HavuzPaketi[],
   satirlar: readonly HavuzSatiri[],
-  secenekler: { duzeltmeler?: ReadonlyMap<string, string> } = {}
+  secenekler: {
+    duzeltmeler?: ReadonlyMap<string, string>;
+    /** `purchase_item_meta.note` — anahtar → insanın bu kaleme yazdığı not. */
+    notlar?: ReadonlyMap<string, string>;
+  } = {}
 ): TalepHavuzu {
   const paketHaritasi = new Map(paketler.map((p) => [p.packageId, p]));
   const kalemler = new Map<string, TalepSatiri>();
@@ -275,6 +326,8 @@ export function talepHavuzu(
         varOlan.toplamAgirlikKg = (varOlan.toplamAgirlikKg ?? 0) + satirAgirligi;
       }
       if (!varOlan.hamTanimlar.includes(s.tanim) && s.tanim) varOlan.hamTanimlar.push(s.tanim);
+      const kod = gercekKod(s.partCode);
+      if (kod && !varOlan.parcaKodlari.includes(kod)) varOlan.parcaKodlari.push(kod);
       const mal = s.material.trim();
       if (mal && !varOlan.malzemeler.includes(mal)) varOlan.malzemeler.push(mal);
       if (!varOlan.malzeme) varOlan.malzeme = mal;
@@ -306,6 +359,12 @@ export function talepHavuzu(
     kalemler.set(norm.key, {
       key: norm.key,
       tanim: norm.tanim,
+      // ÖLÇÜ STANDART TANIMDAN okunur, ham tanımdan DEĞİL: ham hâlde çap
+      // simgesi iki ayrı Unicode olabilir (Ø / ∅) ve boşluklar dağınıktır.
+      olculer: tanimOlculeri(norm.tanim),
+      parcaKodlari: gercekKod(s.partCode) ? [gercekKod(s.partCode)] : [],
+      birim: "Adet",
+      not: secenekler.notlar?.get(norm.key) ?? "",
       hamTanimlar: s.tanim ? [s.tanim] : [],
       sinif: duzeltme || satinAlmaSinifi(norm.tanim),
       malzeme: mal,

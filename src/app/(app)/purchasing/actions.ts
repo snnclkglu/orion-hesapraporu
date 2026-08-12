@@ -26,11 +26,13 @@ import {
   deleteOrderSchema,
   deleteQuoteSchema,
   saveGroupNameSchema,
+  saveItemMetaSchema,
   saveQuoteSchema,
   updateOrderSchema,
   type CreateOrderInput,
   type PurchasingActionResult,
   type SaveGroupNameInput,
+  type SaveItemMetaInput,
   type SaveQuoteInput,
   type UpdateOrderInput,
 } from "./schema";
@@ -102,8 +104,6 @@ export async function saveQuote(input: SaveQuoteInput): Promise<PurchasingAction
     unit_price: q.unitPrice,
     currency: q.currency,
     fx_rate: q.currency === "EUR" ? 1 : q.fxRate,
-    qty: q.qty,
-    unit: q.unit,
     quoted_at: q.quotedAt ?? new Date().toISOString().slice(0, 10),
     valid_until: q.validUntil,
     note: q.note,
@@ -362,6 +362,57 @@ export async function deleteOrder(id: string): Promise<PurchasingActionResult> {
   if (error) return { error: error.message };
   tazele();
   return { ok: 1 };
+}
+
+// ═══════════════════════════════════════════════════════ KALEM DEFTERİ
+
+/**
+ * Seçili kalemlerin kategorisini ve/veya notunu yazar.
+ *
+ * TÜMÜ DEĞİL SEÇİLİ OLANLAR: "Diğer"deki otuz kalemin hepsi aynı yere gitmez.
+ * `null` ile boş dizge AYRI ANLAMLIDIR — `null` "bu alana dokunma", boş dizge
+ * "temizle" demektir. Karıştırılsaydı kategori taşırken notlar silinirdi.
+ */
+export async function saveItemMeta(input: SaveItemMetaInput): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = saveItemMetaSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { keys, samples, category, note } = parsed.data;
+
+  // Var olan satırlar okunur: `upsert` bütün sütunları yazar ve dokunulmaması
+  // gereken alan (not ya da kategori) sessizce sıfırlanırdı.
+  const { data: mevcut } = await supabase
+    .from("purchase_item_meta")
+    .select("match_key, category, note")
+    .in("match_key", keys);
+  const eski = new Map(
+    ((mevcut ?? []) as { match_key: string; category: string | null; note: string | null }[]).map(
+      (r) => [r.match_key, r]
+    )
+  );
+
+  const yuk = keys.map((k, i) => {
+    const o = eski.get(k);
+    return {
+      match_key: k,
+      sample: samples[i] ?? o?.category ?? "",
+      // Boş dizge düzeltmeyi KALDIRIR (sözlüğe dönülür); `null` dokunmaz.
+      category: category === null ? (o?.category ?? null) : category || null,
+      note: note === null ? (o?.note ?? "") : note,
+      created_by: userId,
+    };
+  });
+
+  const { error } = await supabase
+    .from("purchase_item_meta")
+    .upsert(yuk, { onConflict: "match_key" });
+  if (error) return { error: error.message };
+
+  tazele();
+  return { ok: keys.length };
 }
 
 // ═══════════════════════════════════════════════════════ ANA GRUP DEFTERİ

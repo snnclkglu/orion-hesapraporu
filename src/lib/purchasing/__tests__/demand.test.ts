@@ -227,3 +227,74 @@ describe("satın alma satırı kuralı TEK YERDEDİR", () => {
     expect(isPurchaseRow({ kind: "imalat", partCode: "0043-00-0100-01" })).toBe(false);
   });
 });
+
+// ═══════════════════════════ İŞ HAZIRLAMA SÜTUNLARI (kullanıcı kararı md. 2)
+
+describe("talepHavuzu — İŞ HAZIRLAMA LİSTESİ sütunlarını taşır", () => {
+  it("resim numarası (parça kodu) toplanır, birden çoksa hepsi", () => {
+    const h = talepHavuzu(
+      [paket()],
+      [
+        satir({ partCode: "0057-00-0700-07", tanim: "MİL Ø75x235" }),
+        satir({ partCode: "0057-00-0800-03", tanim: "MİL Ø75x235" }),
+      ]
+    );
+    expect(h.satirlar[0].parcaKodlari).toEqual(["0057-00-0700-07", "0057-00-0800-03"]);
+  });
+
+  it("kodsuz satırda liste BOŞ kalır — cıvatanın kodu olmaz", () => {
+    const h = talepHavuzu([paket()], [satir({ partCode: "" })]);
+    expect(h.satirlar[0].parcaKodlari).toEqual([]);
+  });
+
+  it("ölçüler STANDART tanımdan ayıklanır", () => {
+    const h = talepHavuzu([paket()], [satir({ tanim: "BURÇ Ø80xØ50,4 L=66" })]);
+    expect(h.satirlar[0].olculer).toEqual({ icCapMm: 50.4, disCapMm: 80, boyMm: 66 });
+  });
+
+  it("çapı olmayan kalemde ölçü hücreleri BOŞ kalır", () => {
+    const h = talepHavuzu([paket()], [satir({ tanim: "CİVATA M16x120 DIN931" })]);
+    expect(h.satirlar[0].olculer).toEqual({ icCapMm: null, disCapMm: null, boyMm: null });
+  });
+
+  it("not defterden gelir ve anahtara bağlıdır", () => {
+    const h = talepHavuzu([paket()], [satir({ tanim: "RULMAN 6205" })], {
+      notlar: new Map([[normAnahtar("RULMAN 6205"), "%100 GARANTİLİ"]]),
+    });
+    expect(h.satirlar[0].not).toBe("%100 GARANTİLİ");
+  });
+
+  it("notu olmayan kalemde alan boş dizgedir, undefined değil", () => {
+    const h = talepHavuzu([paket()], [satir()]);
+    expect(h.satirlar[0].not).toBe("");
+    expect(h.satirlar[0].birim).toBe("Adet");
+  });
+});
+
+describe("Resim Numarası — GERÇEK kod, her metin değil", () => {
+  it("kod biçimindeki değer geçer", () => {
+    const h = talepHavuzu([paket()], [satir({ partCode: "0053-01-0902-03" })]);
+    expect(h.satirlar[0].parcaKodlari).toEqual(["0053-01-0902-03"]);
+  });
+
+  it("KOD OLMAYAN değer DÜŞER — canlı veride ölçüldü", () => {
+    // Depo Excel'inin "Part Number" sütununda bunlar gerçekten var; satın alma
+    // ekranında "Resim Numarası" başlığı altında görünmeleri, satınalmacıyı
+    // olmayan bir teknik resmi aramaya iterdi.
+    for (const sahte of [
+      "RULMAN 6022 - Z",
+      "YAG KECESI_90X110X10 KK-T",
+      "28X16X80",
+      "CIVATA M12X40 DIN933",
+      "KALIN RONDELA M24 DIN7989",
+    ]) {
+      const h = talepHavuzu([paket()], [satir({ partCode: sahte, tanim: `X ${sahte}` })]);
+      expect(h.satirlar[0].parcaKodlari, `${sahte} kod sanıldı`).toEqual([]);
+    }
+  });
+
+  it("kalem numarası TEK BAŞINA parça kodu değildir", () => {
+    const h = talepHavuzu([paket()], [satir({ partCode: "0057-00" })]);
+    expect(h.satirlar[0].parcaKodlari).toEqual([]);
+  });
+});

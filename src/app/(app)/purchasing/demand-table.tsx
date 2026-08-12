@@ -2,39 +2,71 @@
 
 // Talep Havuzu tablosu — satınalmacının çalışma yüzeyi.
 //
+// ═════════════════════════════ SÜTUN DÜZENİ SATIN ALMA EKİBİNİNDİR
+//
+// Kullanıcı kararı (12.08.2026, md. 2): tablo İŞ HAZIRLAMA LİSTESİ dosyasına
+// benzemeli. O dosya ekibin bugün gerçekten kullandığı çalışma dosyasıdır ve
+// sütun düzeni bir zevk değil bir ALIŞKANLIKtır; uydurulmuş bir düzen aracı
+// kullanılmaz yapardı. Eşleme birebirdir:
+//
+//   İş Numarası → paylardaki kalem no · Resim Numarası → parça kodu
+//   Kullanıldığı Yer → ana grup · Kategori · Tanımı · Kalite → malzeme
+//   Miktar/Birimi → resimdeki adet · Ana Miktar → çarpılmış adet
+//   İç/Dış Çap · Boy → tanımdan ayıklanır · Ağırlık · Not
+//   Sipariş Verildi mi? → Durum
+//
+// Havuzun Excel'den FAZLASI da var ve o fazlalık modülün var oluş sebebidir:
+// bir satır birden çok işe hizmet edebilir (Excel'de aynı kalem beş kez
+// yazılıyordu), Teklif sütunu ve Kalan sütunu Excel'de hiç yok.
+//
 // ————————————————————————————————————————————————— DÖRT KARAR
 //
 // 1. SATIR BİR KALEMDİR, BİR PROJE SATIRI DEĞİL. Aynı somun beş projede
-//    geçiyorsa tek satırdır ve adedi toplamdır; hangi projeden ne kadar
-//    geldiği satırın AÇILIR ayrıntısındadır. Satınalmacı tedarikçiyle tek bir
-//    sayı konuşur.
+//    geçiyorsa tek satırdır; hangi projeden ne kadar geldiği satırın AÇILIR
+//    ayrıntısındadır. Satınalmacı tedarikçiyle tek bir sayı konuşur.
 //
-// 2. "GEREKEN" İLE "SİPARİŞ EDİLEN" YAN YANA DURUR. Üçüncü sütun ikisinin
-//    farkıdır ve ekranın asıl sayısı odur: sıfırlanmış bir satır iş bitmiş
-//    demektir. Tek bir "durum" çipi bu bilgiyi taşıyamazdı — kısmi sipariş
-//    gerçektir (100 cıvatanın 60'ı).
+// 2. "GEREKEN" İLE "SİPARİŞ EDİLEN" YAN YANA DURUR; üçüncü sütun farktır ve
+//    ekranın asıl sayısı odur. Tek bir "durum" çipi kısmi siparişi taşıyamazdı.
 //
-// 3. TEKLİF BİR SÜTUNDUR, BİR EKRAN DEĞİL. Kullanıcı "Firma 1, Firma 2, Firma 3
-//    gibi alınan teklif fiyatları BASİTÇE sisteme girilebilecek" dedi; ayrı bir
-//    teklif ekranına gitmek o basitliği bitirirdi. Sütun en iyi (en ucuz) avro
-//    fiyatı ve teklif sayısını gösterir, pencere tamamını.
+// 3. DURUM ÇİPİ BİR DÜĞMEDİR (md. 4): "Bekliyor" ya da "Teklif alındı"
+//    üzerine basınca o kalem için sipariş penceresi açılır. Satınalmacının en
+//    sık yaptığı hareket budur ve önce kalemi seçip sonra şeritteki düğmeye
+//    gitmek iki fazladan adımdı.
 //
-// 4. SEÇİM ÇOK PROJELİDİR. Satınalmacı farklı işlerden kalemleri işaretler ve
-//    TEK sipariş açar (md. 7) — yapışkan şerit seçili kalem sayısını ve
-//    tahmini tutarı taşır.
+// 4. SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER (md. 6-7): ekranda ne
+//    görünüyorsa Excel ve PDF onu indirir; seçim varsa yalnız seçilenleri.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, FileSpreadsheet, Loader2, Plus, Tag } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  ChevronDown,
+  ChevronRight,
+  FileSpreadsheet,
+  FileText,
+  FolderInput,
+  Loader2,
+  Plus,
+  StickyNote,
+  Tag,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -48,46 +80,80 @@ import { formatNum } from "@/lib/drawings/labels";
 import { fmtMoney } from "@/lib/currency";
 import type { TalepHavuzu, TalepSatiri } from "@/lib/purchasing/demand";
 import { FilterBar, SearchBox, SortableHead } from "../drawings/sortable-head";
+import { CokluSuzgec } from "./filters";
 import type { TeklifSatiri } from "./data";
 import { QuoteDialog } from "./quote-dialog";
-import { OrderDialog } from "./order-dialog";
+import { OrderDialog, type SiparisKalemi } from "./order-dialog";
+import { saveItemMeta } from "./actions";
 
-/** Süzgeç açılırlarının "Tümü" değeri — boş dizge Radix'te yasaktır. */
-const ALL = "__all__";
+type SortKey =
+  | "kategori"
+  | "tanim"
+  | "adet"
+  | "kalan"
+  | "is"
+  | "teklif"
+  | "agirlik"
+  | "kod"
+  | "yer";
 
-type SortKey = "kategori" | "tanim" | "adet" | "kalan" | "is" | "teklif";
+export type Durum = "bekliyor" | "teklifli" | "kismi" | "tamam";
+
+const DURUM_ETIKET: Record<Durum, string> = {
+  bekliyor: "Bekliyor",
+  teklifli: "Teklif alındı",
+  kismi: "Kısmi sipariş",
+  tamam: "Sipariş edildi",
+};
 
 interface Filtreler {
   query: string;
-  sinif: string;
-  durum: string;
+  siniflar: string[];
+  durumlar: string[];
+  isler: string[];
 }
 
-const BOS: Filtreler = { query: "", sinif: ALL, durum: ALL };
+const BOS: Filtreler = { query: "", siniflar: [], durumlar: [], isler: [] };
 
 /** Satır + türetilmiş sipariş/teklif bilgisi. */
-interface Gorunum {
+export interface Gorunum {
   satir: TalepSatiri;
   siparisEdilen: number;
   kalan: number;
   teklifler: TeklifSatiri[];
   /** En ucuz AVRO teklifi; kuru olmayan teklifler yarışa girmez. */
   enIyi: TeklifSatiri | null;
+  durum: Durum;
 }
 
-function durumu(g: Gorunum): "bekliyor" | "teklifli" | "kismi" | "tamam" {
-  if (g.satir.adet != null && g.siparisEdilen >= g.satir.adet && g.satir.adet > 0) return "tamam";
-  if (g.siparisEdilen > 0) return "kismi";
-  if (g.teklifler.length > 0) return "teklifli";
+function durumu(
+  satir: TalepSatiri,
+  siparisEdilen: number,
+  teklifSayisi: number
+): Durum {
+  if (satir.adet != null && satir.adet > 0 && siparisEdilen >= satir.adet) return "tamam";
+  if (siparisEdilen > 0) return "kismi";
+  if (teklifSayisi > 0) return "teklifli";
   return "bekliyor";
 }
 
-const DURUM_ETIKET: Record<ReturnType<typeof durumu>, string> = {
-  bekliyor: "Bekliyor",
-  teklifli: "Teklif alındı",
-  kismi: "Kısmi sipariş",
-  tamam: "Sipariş edildi",
-};
+/** `Gorunum` → sipariş penceresinin beklediği kalem. Tek yerde kurulur. */
+function siparisKalemi(g: Gorunum): SiparisKalemi {
+  return {
+    matchKey: g.satir.key,
+    tanim: g.satir.tanim,
+    kalan: g.kalan || g.satir.adet || 1,
+    birimFiyat: g.enIyi?.unitPrice ?? null,
+    paraBirimi: g.enIyi?.currency ?? null,
+    tedarikci: g.enIyi?.supplier ?? "",
+    paylar: g.satir.paylar.map((p) => ({
+      itemNo: p.itemNo,
+      packageId: p.packageId,
+      partKey: p.partKey,
+      adet: p.adet ?? 0,
+    })),
+  };
+}
 
 export function DemandTable({
   havuz,
@@ -96,7 +162,6 @@ export function DemandTable({
   tedarikciler,
   kategoriler,
   isler,
-  seciliIsler,
   canWrite,
 }: {
   havuz: TalepHavuzu;
@@ -105,8 +170,7 @@ export function DemandTable({
   siparisAdetleri: [string, number][];
   tedarikciler: string[];
   kategoriler: string[];
-  isler: { id: string; label: string }[];
-  seciliIsler: string[];
+  isler: { id: string; itemNos: string[]; label: string }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -118,7 +182,8 @@ export function DemandTable({
   const [secili, setSecili] = useState<Set<string>>(new Set());
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [teklifPenceresi, setTeklifPenceresi] = useState<Gorunum | null>(null);
-  const [siparisPenceresi, setSiparisPenceresi] = useState(false);
+  const [siparisKalemleri, setSiparisKalemleri] = useState<SiparisKalemi[] | null>(null);
+  const [notPenceresi, setNotPenceresi] = useState<Gorunum | null>(null);
 
   // ————————————————————————————————————————————————————— türetilmiş satırlar
   const gorunumler: Gorunum[] = useMemo(() => {
@@ -146,26 +211,62 @@ export function DemandTable({
         kalan: satir.adet == null ? 0 : Math.max(0, satir.adet - siparisEdilen),
         teklifler: kendi,
         enIyi: secilmis ?? enUcuz,
+        durum: durumu(satir, siparisEdilen, kendi.length),
       };
     });
   }, [havuz.satirlar, teklifler, siparisAdetleri]);
 
-  const siniflar = useMemo(
-    () => [...new Set(gorunumler.map((g) => g.satir.sinif))].sort(
-      (a, b) => kategoriler.indexOf(a) - kategoriler.indexOf(b)
-    ),
-    [gorunumler, kategoriler]
-  );
+  // ————————————————————————————————————————————————————— süzgeç seçenekleri
+  //
+  // SAYAÇLAR SÜZGEÇSİZ LİSTEDEN gelir: seçenek listesi kendi süzgecine göre
+  // daralırsa kullanıcı bir kategoriyi seçtiği anda diğerleri kaybolur ve
+  // ikinci bir kategori ekleyemez.
+  const secenekler = useMemo(() => {
+    const say = (fn: (g: Gorunum) => string[]) => {
+      const m = new Map<string, number>();
+      for (const g of gorunumler) for (const v of fn(g)) m.set(v, (m.get(v) ?? 0) + 1);
+      return m;
+    };
+    const sinifSayaci = say((g) => [g.satir.sinif]);
+    const durumSayaci = say((g) => [g.durum]);
+    const isSayaci = say((g) => [...new Set(g.satir.paylar.map((p) => p.itemNo).filter(Boolean))]);
+
+    return {
+      siniflar: [...sinifSayaci.keys()]
+        .sort((a, b) => kategoriler.indexOf(a) - kategoriler.indexOf(b))
+        .map((s) => ({ value: s, label: s, count: sinifSayaci.get(s) })),
+      durumlar: (["bekliyor", "teklifli", "kismi", "tamam"] as Durum[])
+        .filter((d) => durumSayaci.has(d))
+        .map((d) => ({ value: d, label: DURUM_ETIKET[d], count: durumSayaci.get(d) })),
+      isler: isler
+        .map((i) => ({
+          value: i.id,
+          label: i.label,
+          count: i.itemNos.reduce((t, n) => t + (isSayaci.get(n) ?? 0), 0),
+        }))
+        .filter((i) => i.count > 0),
+    };
+  }, [gorunumler, kategoriler, isler]);
+
+  /** İş kimliği → o işin kalem numaraları; süzgeç eşleşmesi bununla yapılır. */
+  const isKalemleri = useMemo(() => new Map(isler.map((i) => [i.id, new Set(i.itemNos)])), [isler]);
 
   const gorunen = useMemo(() => {
     const q = f.query.trim().toLocaleLowerCase("tr-TR");
+    const sinifKume = new Set(f.siniflar);
+    const durumKume = new Set(f.durumlar);
+    const isKume = new Set(f.isler.flatMap((id) => [...(isKalemleri.get(id) ?? [])]));
+
     const suzulmus = gorunumler.filter((g) => {
-      if (f.sinif !== ALL && g.satir.sinif !== f.sinif) return false;
-      if (f.durum !== ALL && durumu(g) !== f.durum) return false;
+      if (sinifKume.size > 0 && !sinifKume.has(g.satir.sinif)) return false;
+      if (durumKume.size > 0 && !durumKume.has(g.durum)) return false;
+      if (isKume.size > 0 && !g.satir.paylar.some((p) => isKume.has(p.itemNo))) return false;
       if (!q) return true;
       const havuzMetni = [
         g.satir.tanim,
         g.satir.malzeme,
+        g.satir.not,
+        ...g.satir.parcaKodlari,
         ...g.satir.anaGruplar,
         ...g.satir.paylar.map((p) => `${p.itemNo} ${p.jobTitle} ${p.customer}`),
       ]
@@ -175,10 +276,11 @@ export function DemandTable({
     });
 
     const yon = desc ? -1 : 1;
+    const metin = (a: string, b: string) => a.localeCompare(b, "tr");
     return [...suzulmus].sort((a, b) => {
       switch (sortKey) {
         case "tanim":
-          return yon * a.satir.tanim.localeCompare(b.satir.tanim, "tr");
+          return yon * metin(a.satir.tanim, b.satir.tanim);
         case "adet":
           return yon * ((a.satir.adet ?? 0) - (b.satir.adet ?? 0));
         case "kalan":
@@ -187,13 +289,19 @@ export function DemandTable({
           return yon * (a.satir.isSayisi - b.satir.isSayisi);
         case "teklif":
           return yon * (a.teklifler.length - b.teklifler.length);
+        case "agirlik":
+          return yon * ((a.satir.toplamAgirlikKg ?? 0) - (b.satir.toplamAgirlikKg ?? 0));
+        case "kod":
+          return yon * metin(a.satir.parcaKodlari[0] ?? "", b.satir.parcaKodlari[0] ?? "");
+        case "yer":
+          return yon * metin(a.satir.anaGruplar[0] ?? "", b.satir.anaGruplar[0] ?? "");
         default: {
           const fark = kategoriler.indexOf(a.satir.sinif) - kategoriler.indexOf(b.satir.sinif);
-          return yon * (fark !== 0 ? fark : a.satir.tanim.localeCompare(b.satir.tanim, "tr"));
+          return yon * (fark !== 0 ? fark : metin(a.satir.tanim, b.satir.tanim));
         }
       }
     });
-  }, [gorunumler, f, sortKey, desc, kategoriler]);
+  }, [gorunumler, f, sortKey, desc, kategoriler, isKalemleri]);
 
   function sirala(k: SortKey) {
     if (k === sortKey) setDesc((d) => !d);
@@ -205,10 +313,25 @@ export function DemandTable({
 
   const temiz = JSON.stringify(f) === JSON.stringify(BOS);
   const seciliGorunumler = gorunen.filter((g) => secili.has(g.satir.key));
+  /** ÇIKTIYA GİDEN LİSTE: seçim varsa o, yoksa ekrandaki süzgeçli liste. */
+  const ciktiListesi = seciliGorunumler.length > 0 ? seciliGorunumler : gorunen;
 
-  function isSuzgeci(deger: string) {
-    const adres = deger === ALL ? "/purchasing" : `/purchasing?is=${deger}`;
-    basla(() => router.push(adres));
+  function kategoriyeTasi(kategori: string) {
+    if (seciliGorunumler.length === 0) return;
+    basla(async () => {
+      const sonuc = await saveItemMeta({
+        keys: seciliGorunumler.map((g) => g.satir.key),
+        samples: seciliGorunumler.map((g) => g.satir.tanim),
+        category: kategori,
+        note: null,
+      });
+      if (sonuc.error) toast.error(sonuc.error);
+      else {
+        toast.success(`${formatNum(sonuc.ok ?? 0)} kalem “${kategori}” kategorisine taşındı.`);
+        setSecili(new Set());
+        router.refresh();
+      }
+    });
   }
 
   return (
@@ -224,59 +347,42 @@ export function DemandTable({
         <SearchBox
           value={f.query}
           onChange={(v) => setF((s) => ({ ...s, query: v }))}
-          placeholder="Tanım, Grup, İş, Müşteri Ara…"
-          className="w-[min(20rem,calc(100vw-4rem))]"
+          placeholder="Tanım, Kod, Grup, İş, Not Ara…"
+          className="w-[min(18rem,calc(100vw-4rem))]"
         />
-        <Suzgec
-          value={f.sinif}
-          onChange={(v) => setF((s) => ({ ...s, sinif: v }))}
-          bos="Kategori"
-          secenekler={siniflar.map((s) => ({ value: s, label: s }))}
+        <CokluSuzgec
+          baslik="İş"
+          secenekler={secenekler.isler}
+          secili={f.isler}
+          onChange={(v) => setF((s) => ({ ...s, isler: v }))}
         />
-        <Suzgec
-          value={f.durum}
-          onChange={(v) => setF((s) => ({ ...s, durum: v }))}
-          bos="Durum"
-          secenekler={[
-            { value: "bekliyor", label: "Bekliyor" },
-            { value: "teklifli", label: "Teklif alındı" },
-            { value: "kismi", label: "Kısmi sipariş" },
-            { value: "tamam", label: "Sipariş edildi" },
-          ]}
+        <CokluSuzgec
+          baslik="Kategori"
+          secenekler={secenekler.siniflar}
+          secili={f.siniflar}
+          onChange={(v) => setF((s) => ({ ...s, siniflar: v }))}
+        />
+        <CokluSuzgec
+          baslik="Durum"
+          secenekler={secenekler.durumlar}
+          secili={f.durumlar}
+          onChange={(v) => setF((s) => ({ ...s, durumlar: v }))}
         />
 
         <span className="hidden h-5 w-px bg-border sm:block" />
 
-        {/* İŞ SÜZGECİ ADRESİ DEĞİŞTİRİR: havuzun kapsamı sunucuda belirlenir,
-            çünkü daraltmak yalnız görünümü değil OKUNAN VERİYİ de küçültür. */}
-        <Select value={seciliIsler[0] ?? ALL} onValueChange={isSuzgeci}>
-          <SelectTrigger size="sm" className="w-auto min-w-[10rem] text-base pointer-fine:text-sm">
-            <SelectValue placeholder="İş" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[min(24rem,60dvh)]">
-            <SelectItem value={ALL}>İş: Tümü</SelectItem>
-            {isler.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <form method="POST" action="/purchasing/export">
-          <input type="hidden" name="anahtarlar" value={gorunen.map((g) => g.satir.key).join("\n")} />
-          <Button type="submit" variant="outline" size="xs" title="Ekrandaki süzgeçle aynı liste">
-            <FileSpreadsheet className="size-3" />
-            Excel
-          </Button>
-        </form>
+        <CiktiFormu
+          anahtarlar={ciktiListesi.map((g) => g.satir.key)}
+          secimVar={seciliGorunumler.length > 0}
+          suzgecOzeti={suzgecOzeti(f, secenekler)}
+        />
       </FilterBar>
 
       {havuz.belirsizKalem > 0 && (
         <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
           <strong>{formatNum(havuz.belirsizKalem)} kalemin adedi belirsiz.</strong> İş kaleminin
           sayısal adedi girilmediği için çarpan <strong>1</strong> kabul edildi. Doğru sipariş
-          adedi için İşler → ilgili iş kalemi → “Adet” alanını doldurun.
+          adedi için İşler → ilgili iş → “Resim Çarpanı” kartından adedi doldurun.
         </p>
       )}
 
@@ -289,7 +395,7 @@ export function DemandTable({
           </p>
         </div>
       ) : (
-        <div className="border bg-card">
+        <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -312,60 +418,105 @@ export function DemandTable({
                   </TableHead>
                 )}
                 <TableHead className="w-8 p-0" />
+                {/* SÜTUN ÖNCELİKLENDİRME: on dört sütun telefona sığmaz.
+                    Düşük öncelikliler `hidden …:table-cell` ile çekilir ve
+                    kritik olanı birincil hücrenin altına iner (kabuk kuralı 7). */}
+                <SortableHead sortKey="is" current={sortKey} desc={desc} onSort={sirala}>
+                  İş No
+                </SortableHead>
+                <SortableHead
+                  sortKey="kod"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className="hidden 2xl:table-cell"
+                >
+                  Resim No
+                </SortableHead>
+                <SortableHead
+                  sortKey="yer"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className="hidden xl:table-cell"
+                >
+                  Kullanıldığı Yer
+                </SortableHead>
                 <SortableHead sortKey="kategori" current={sortKey} desc={desc} onSort={sirala}>
                   Kategori
                 </SortableHead>
                 <SortableHead sortKey="tanim" current={sortKey} desc={desc} onSort={sirala}>
-                  Tanım
+                  Tanımı
                 </SortableHead>
-                <SortableHead sortKey="is" current={sortKey} desc={desc} onSort={sirala}>
-                  İşler
-                </SortableHead>
-                <SortableHead sortKey="adet" current={sortKey} desc={desc} onSort={sirala} align="right">
-                  Gereken
+                <TableHead className="hidden lg:table-cell">Kalite</TableHead>
+                <TableHead className="hidden text-right 2xl:table-cell">Ø İç</TableHead>
+                <TableHead className="hidden text-right 2xl:table-cell">Ø Dış</TableHead>
+                <TableHead className="hidden text-right 2xl:table-cell">Boy</TableHead>
+                <SortableHead
+                  sortKey="adet"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  align="right"
+                >
+                  Miktar
                 </SortableHead>
                 <TableHead className="text-right">Sipariş</TableHead>
-                <SortableHead sortKey="kalan" current={sortKey} desc={desc} onSort={sirala} align="right">
+                <SortableHead
+                  sortKey="kalan"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  align="right"
+                >
                   Kalan
+                </SortableHead>
+                <SortableHead
+                  sortKey="agirlik"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  align="right"
+                  className="hidden xl:table-cell"
+                >
+                  Ağırlık
                 </SortableHead>
                 <SortableHead sortKey="teklif" current={sortKey} desc={desc} onSort={sirala}>
                   Teklif
                 </SortableHead>
+                <TableHead className="hidden lg:table-cell">Not</TableHead>
                 <TableHead>Durum</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gorunen.map((g) => {
-                const d = durumu(g);
-                const genis = acik.has(g.satir.key);
-                return (
-                  <Satir
-                    key={g.satir.key}
-                    g={g}
-                    durum={d}
-                    genis={genis}
-                    secili={secili.has(g.satir.key)}
-                    canWrite={canWrite}
-                    onSec={() =>
-                      setSecili((o) => {
-                        const y = new Set(o);
-                        if (y.has(g.satir.key)) y.delete(g.satir.key);
-                        else y.add(g.satir.key);
-                        return y;
-                      })
-                    }
-                    onGenislet={() =>
-                      setAcik((o) => {
-                        const y = new Set(o);
-                        if (y.has(g.satir.key)) y.delete(g.satir.key);
-                        else y.add(g.satir.key);
-                        return y;
-                      })
-                    }
-                    onTeklif={() => setTeklifPenceresi(g)}
-                  />
-                );
-              })}
+              {gorunen.map((g) => (
+                <Satir
+                  key={g.satir.key}
+                  g={g}
+                  genis={acik.has(g.satir.key)}
+                  secili={secili.has(g.satir.key)}
+                  canWrite={canWrite}
+                  onSec={() =>
+                    setSecili((o) => {
+                      const y = new Set(o);
+                      if (y.has(g.satir.key)) y.delete(g.satir.key);
+                      else y.add(g.satir.key);
+                      return y;
+                    })
+                  }
+                  onGenislet={() =>
+                    setAcik((o) => {
+                      const y = new Set(o);
+                      if (y.has(g.satir.key)) y.delete(g.satir.key);
+                      else y.add(g.satir.key);
+                      return y;
+                    })
+                  }
+                  onTeklif={() => setTeklifPenceresi(g)}
+                  onSiparis={() => setSiparisKalemleri([siparisKalemi(g)])}
+                  onNot={() => setNotPenceresi(g)}
+                />
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -378,13 +529,11 @@ export function DemandTable({
         </span>
         {calisiyor && (
           <span className="inline-flex items-center gap-1 text-foreground">
-            <Loader2 className="size-3 animate-spin" /> Yükleniyor
+            <Loader2 className="size-3 animate-spin" /> Kaydediliyor
           </span>
         )}
       </p>
 
-      {/* Yapışkan toplu şerit — seçim yapıp düğmeye ulaşmak için sayfanın
-          dibine inmek gerekmemeli (paket ekranındaki kuralın aynısı). */}
       {canWrite && secili.size > 0 && (
         <div className="sticky bottom-2 z-20 flex flex-wrap items-center gap-2 border bg-card p-2 shadow-lg">
           <span className="font-mono text-[12px] font-medium">
@@ -397,10 +546,31 @@ export function DemandTable({
             Seçimi bırak
           </Button>
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="xs" variant="outline" disabled={calisiyor}>
+                  <FolderInput className="size-3" />
+                  Kategoriye Taşı
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="max-h-[min(24rem,60dvh)] min-w-[min(16rem,calc(100vw-1.5rem))] overflow-y-auto"
+              >
+                <DropdownMenuLabel className="oc-kicker text-muted-foreground">
+                  Seçili {formatNum(secili.size)} kalem
+                </DropdownMenuLabel>
+                {kategoriler.map((k) => (
+                  <DropdownMenuItem key={k} onSelect={() => kategoriyeTasi(k)}>
+                    {k}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               size="xs"
-              onClick={() => setSiparisPenceresi(true)}
+              onClick={() => setSiparisKalemleri(seciliGorunumler.map(siparisKalemi))}
               disabled={seciliGorunumler.length === 0}
             >
               <Plus className="size-3" />
@@ -419,30 +589,30 @@ export function DemandTable({
           tedarikciler={tedarikciler}
           canWrite={canWrite}
           onClose={() => setTeklifPenceresi(null)}
+          onChanged={() => router.refresh()}
         />
       )}
 
-      {siparisPenceresi && (
+      {siparisKalemleri && (
         <OrderDialog
-          kalemler={seciliGorunumler.map((g) => ({
-            matchKey: g.satir.key,
-            tanim: g.satir.tanim,
-            kalan: g.kalan || g.satir.adet || 1,
-            birimFiyat: g.enIyi?.unitPrice ?? null,
-            paraBirimi: g.enIyi?.currency ?? null,
-            tedarikci: g.enIyi?.supplier ?? "",
-            paylar: g.satir.paylar.map((p) => ({
-              itemNo: p.itemNo,
-              packageId: p.packageId,
-              partKey: p.partKey,
-              adet: p.adet ?? 0,
-            })),
-          }))}
+          kalemler={siparisKalemleri}
           tedarikciler={tedarikciler}
-          onClose={() => setSiparisPenceresi(false)}
+          onClose={() => setSiparisKalemleri(null)}
           onSaved={() => {
-            setSiparisPenceresi(false);
+            setSiparisKalemleri(null);
             setSecili(new Set());
+            router.refresh();
+          }}
+        />
+      )}
+
+      {notPenceresi && (
+        <NotDialog
+          key={`not-${notPenceresi.satir.key}`}
+          g={notPenceresi}
+          onClose={() => setNotPenceresi(null)}
+          onSaved={() => {
+            setNotPenceresi(null);
             router.refresh();
           }}
         />
@@ -455,24 +625,30 @@ export function DemandTable({
 
 function Satir({
   g,
-  durum,
   genis,
   secili,
   canWrite,
   onSec,
   onGenislet,
   onTeklif,
+  onSiparis,
+  onNot,
 }: {
   g: Gorunum;
-  durum: ReturnType<typeof durumu>;
   genis: boolean;
   secili: boolean;
   canWrite: boolean;
   onSec: () => void;
   onGenislet: () => void;
   onTeklif: () => void;
+  onSiparis: () => void;
+  onNot: () => void;
 }) {
   const s = g.satir;
+  const isler = [...new Set(s.paylar.map((p) => p.itemNo).filter(Boolean))];
+  const musteriler = [...new Set(s.paylar.map((p) => p.customer))].filter(Boolean);
+  const sutunSayisi = canWrite ? 18 : 17;
+
   return (
     <>
       <TableRow className={secili ? "bg-primary/[0.05]" : undefined}>
@@ -493,34 +669,38 @@ function Satir({
           </button>
         </TableCell>
 
+        {/* İŞ NO — birden çok iş varsa hepsi; müşteri etiketi altta. */}
+        <TableCell className="align-top font-mono text-[12px] whitespace-normal">
+          {isler.length > 0 ? isler.join(", ") : <span className="text-muted-foreground">—</span>}
+          {musteriler.length > 0 && (
+            <span className="mt-0.5 flex flex-wrap gap-1">
+              {musteriler.slice(0, 2).map((c) => (
+                <CustomerTag key={c} name={c} shortName={c} />
+              ))}
+            </span>
+          )}
+        </TableCell>
+
+        <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal 2xl:table-cell">
+          {s.parcaKodlari.length > 0 ? (
+            s.parcaKodlari.join(", ")
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </TableCell>
+
+        <TableCell className="hidden max-w-[12rem] align-top text-[12px] whitespace-normal xl:table-cell">
+          {s.anaGruplar.join(" · ") || <span className="text-muted-foreground">—</span>}
+        </TableCell>
+
         <TableCell className="align-top text-[12px] whitespace-normal">{s.sinif}</TableCell>
 
-        <TableCell className="max-w-[24rem] min-w-0 align-top whitespace-normal">
+        <TableCell className="max-w-[22rem] min-w-0 align-top whitespace-normal">
           <span className="block text-[13px] leading-snug">{s.tanim || "—"}</span>
-          {/* ANA GRUP — kullanıcı bunu açıkça istedi (md. 9): "hangi grup
-              içerisinde olduğunun bilinmesi gerekiyor". */}
-          {s.anaGruplar.length > 0 && (
-            <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-              {s.anaGruplar.join(" · ")}
-            </span>
-          )}
-          {/* ÇELİŞKİ GİZLENMEZ: aynı kalem iki malzemeyle geçtiyse ikisi de yazılır. */}
-          {s.malzemeler.length > 1 ? (
-            <span
-              className="mt-0.5 block font-mono text-[11px] font-semibold text-destructive"
-              title="Kaynak satırlar farklı malzeme söylüyor"
-            >
-              {s.malzemeler.join(" / ")}
-            </span>
-          ) : (
-            s.malzeme && (
-              <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                {s.malzeme}
-              </span>
-            )
-          )}
-          {/* Normalleştirme gerçekten iş yaptıysa ham yazımlar görünür: sistem
-              ne anladığını söyler, sessizce düzeltmez (md. 18/4). */}
+          {/* Dar ekranda gizlenen sütunların karşılığı — kritik olanlar. */}
+          <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
+            {[s.malzeme, ...s.anaGruplar].filter(Boolean).join(" · ") || "—"}
+          </span>
           {s.hamTanimlar.length > 1 && (
             <span
               className="mt-0.5 block font-mono text-[11px] text-muted-foreground"
@@ -531,24 +711,34 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className="align-top">
-          <span className="flex flex-wrap items-center gap-1">
-            {[...new Set(s.paylar.map((p) => p.customer))].filter(Boolean).slice(0, 3).map((c) => (
-              <CustomerTag key={c} name={c} shortName={c} />
-            ))}
-            {s.isSayisi > 1 && (
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {formatNum(s.isSayisi)} iş
-              </span>
-            )}
-          </span>
+        {/* KALİTE — İŞ HAZIRLAMA'daki sütun. Çelişki gizlenmez. */}
+        <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal lg:table-cell">
+          {s.malzemeler.length > 1 ? (
+            <span
+              className="font-semibold text-destructive"
+              title="Kaynak satırlar farklı malzeme söylüyor"
+            >
+              {s.malzemeler.join(" / ")}
+            </span>
+          ) : (
+            s.malzeme || <span className="text-muted-foreground">—</span>
+          )}
         </TableCell>
 
+        <Olcu v={s.olculer.icCapMm} />
+        <Olcu v={s.olculer.disCapMm} />
+        <Olcu v={s.olculer.boyMm} />
+
+        {/* MİKTAR — çarpılmış toplam; altında ham adet × çarpan. */}
         <TableCell className="align-top text-right font-mono text-sm tabular-nums">
           {s.adet == null ? "—" : formatNum(s.adet)}
+          <span className="block text-[11px] font-normal text-muted-foreground">{s.birim}</span>
           {s.carpanBelirsiz && (
-            <span className="ml-1 text-amber-600 dark:text-amber-400" title="Adet belirsiz — çarpan 1 kabul edildi">
-              ?
+            <span
+              className="block text-[11px] text-amber-600 dark:text-amber-400"
+              title="İş kalemi adedi girilmemiş — çarpan 1 kabul edildi"
+            >
+              belirsiz
             </span>
           )}
         </TableCell>
@@ -559,6 +749,14 @@ function Satir({
 
         <TableCell className="align-top text-right font-mono text-sm font-medium tabular-nums">
           {g.kalan > 0 ? formatNum(g.kalan) : <span className="text-muted-foreground">0</span>}
+        </TableCell>
+
+        <TableCell className="hidden align-top text-right font-mono text-[12px] tabular-nums xl:table-cell">
+          {s.toplamAgirlikKg == null ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            formatNum(s.toplamAgirlikKg, 1)
+          )}
         </TableCell>
 
         <TableCell className="align-top">
@@ -586,23 +784,40 @@ function Satir({
           </button>
         </TableCell>
 
+        {/* NOT — İŞ HAZIRLAMA'daki sütun; tıklanınca düzenlenir. */}
+        <TableCell className="hidden max-w-[12rem] align-top whitespace-normal lg:table-cell">
+          <button
+            type="button"
+            onClick={onNot}
+            disabled={!canWrite}
+            title={s.not || "Not ekle"}
+            className="inline-flex min-h-7 max-w-full items-center gap-1 text-left text-[12px] transition-colors disabled:cursor-default hover:text-foreground"
+          >
+            <StickyNote className="size-3 shrink-0 text-muted-foreground" />
+            <span className={s.not ? "" : "text-muted-foreground"}>{s.not || "—"}</span>
+          </button>
+        </TableCell>
+
+        {/* DURUM BİR DÜĞMEDİR (md. 4): bekliyor/teklifli iken basınca sipariş
+            penceresi açılır — satınalmacının en sık yaptığı hareket budur. */}
         <TableCell className="align-top">
-          <DurumCipi durum={durum} />
+          <DurumCipi
+            durum={g.durum}
+            onClick={canWrite && (g.durum === "bekliyor" || g.durum === "teklifli") ? onSiparis : undefined}
+          />
         </TableCell>
       </TableRow>
 
-      {/* AYRINTI: hangi işten ne kadar. Satırın kendisi bir TOPLAMdır; bölünmüş
-          hâli sipariş bölünürken ve fatura kesilirken gerekir. */}
       {genis && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={canWrite ? 10 : 9} className="whitespace-normal p-0">
+          <TableCell colSpan={sutunSayisi} className="whitespace-normal p-0">
             <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="text-muted-foreground">
                     <th className="py-1 pr-3 text-left font-normal">İş Kalemi</th>
                     <th className="py-1 pr-3 text-left font-normal">Paket</th>
-                    <th className="py-1 pr-3 text-left font-normal">Ana Grup</th>
+                    <th className="py-1 pr-3 text-left font-normal">Kullanıldığı Yer</th>
                     <th className="py-1 pr-3 text-right font-normal">Resimde</th>
                     <th className="py-1 pr-3 text-right font-normal">× Adet</th>
                     <th className="py-1 text-right font-normal">Gereken</th>
@@ -640,9 +855,18 @@ function Satir({
   );
 }
 
+/** Ölçü hücresi — boş değer TİRE gösterir, sıfır göstermez. */
+function Olcu({ v }: { v: number | null }) {
+  return (
+    <TableCell className="hidden align-top text-right font-mono text-[12px] tabular-nums 2xl:table-cell">
+      {v == null ? <span className="text-muted-foreground">—</span> : formatNum(v, 1)}
+    </TableCell>
+  );
+}
+
 // ------------------------------------------------------------------ ufaklar
 
-function DurumCipi({ durum }: { durum: ReturnType<typeof durumu> }) {
+function DurumCipi({ durum, onClick }: { durum: Durum; onClick?: () => void }) {
   const sinif =
     durum === "tamam"
       ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
@@ -652,23 +876,148 @@ function DurumCipi({ durum }: { durum: ReturnType<typeof durumu> }) {
           ? "border-sky-600/40 bg-sky-600/10 text-sky-700 dark:text-sky-400"
           : "border-dashed border-border text-muted-foreground";
   return (
-    <span
-      className={`inline-flex min-h-7 items-center border px-1.5 text-[11px] whitespace-nowrap ${sinif}`}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      title={onClick ? "Sipariş aç" : undefined}
+      className={
+        "inline-flex min-h-7 items-center border px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-9 disabled:cursor-default " +
+        sinif +
+        (onClick ? " hover:border-foreground/40 hover:text-foreground" : "")
+      }
     >
       {DURUM_ETIKET[durum]}
+    </button>
+  );
+}
+
+/** Süzgecin insan okunur özeti — PDF'in künyesine yazılır. */
+function suzgecOzeti(
+  f: Filtreler,
+  secenekler: { siniflar: { value: string; label: string }[]; durumlar: { value: string; label: string }[]; isler: { value: string; label: string }[] }
+): string {
+  const parca: string[] = [];
+  if (f.query.trim()) parca.push(`arama "${f.query.trim()}"`);
+  const ad = (liste: { value: string; label: string }[], v: string[]) =>
+    v.map((x) => liste.find((s) => s.value === x)?.label ?? x).join(", ");
+  if (f.isler.length) parca.push(`iş: ${ad(secenekler.isler, f.isler)}`);
+  if (f.siniflar.length) parca.push(`kategori: ${ad(secenekler.siniflar, f.siniflar)}`);
+  if (f.durumlar.length) parca.push(`durum: ${ad(secenekler.durumlar, f.durumlar)}`);
+  return parca.length ? parca.join(" · ") : "tümü";
+}
+
+/**
+ * Excel ve PDF — SÜZGEÇ VE SEÇİM TAŞINIR (md. 7).
+ *
+ * `POST` kullanılır, `GET` değil: havuz anahtarı normalleştirilmiş TANIMDIR
+ * ("CIVATA M16X120 DIN 931 GALVANİZLİ") ve iki yüz kalem adres çubuğuna
+ * sığmaz. Aynı gerekçe paket içi indirmede de yazılıydı.
+ */
+function CiktiFormu({
+  anahtarlar,
+  secimVar,
+  suzgecOzeti,
+}: {
+  anahtarlar: string[];
+  secimVar: boolean;
+  suzgecOzeti: string;
+}) {
+  const alanlar = (
+    <>
+      <input type="hidden" name="anahtarlar" value={anahtarlar.join("\n")} />
+      <input type="hidden" name="suzgec" value={suzgecOzeti} />
+    </>
+  );
+  const ipucu = secimVar
+    ? `Yalnız seçili ${anahtarlar.length} kalem`
+    : `Ekrandaki süzgeçle aynı ${anahtarlar.length} kalem`;
+
+  return (
+    <span className="flex items-center gap-2">
+      <form method="POST" action="/purchasing/export?bicim=xlsx">
+        {alanlar}
+        <Button type="submit" variant="outline" size="xs" title={ipucu}>
+          <FileSpreadsheet className="size-3" />
+          Excel
+        </Button>
+      </form>
+      <form method="POST" action="/purchasing/export?bicim=pdf">
+        {alanlar}
+        <Button type="submit" variant="outline" size="xs" title={`${ipucu} — satın alma talebi`}>
+          <FileText className="size-3" />
+          PDF
+        </Button>
+      </form>
     </span>
   );
 }
 
-function SummaryStrip({
-  havuz,
-  gorunumler,
+function NotDialog({
+  g,
+  onClose,
+  onSaved,
 }: {
-  havuz: TalepHavuzu;
-  gorunumler: Gorunum[];
+  g: Gorunum;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
+  const [calisiyor, basla] = useTransition();
+  const [not, setNot] = useState(g.satir.not);
+
+  function kaydet() {
+    basla(async () => {
+      const sonuc = await saveItemMeta({
+        keys: [g.satir.key],
+        samples: [g.satir.tanim],
+        category: null,
+        note: not,
+      });
+      if (sonuc.error) toast.error(sonuc.error);
+      else {
+        toast.success("Not kaydedildi.");
+        onSaved();
+      }
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="text-base">Not</DialogTitle>
+          <DialogDescription className="text-[12px]">{g.satir.tanim}</DialogDescription>
+        </DialogHeader>
+        <Input
+          value={not}
+          onChange={(e) => setNot(e.target.value)}
+          maxLength={500}
+          className="h-10 w-full text-base pointer-fine:text-sm"
+          aria-label="Not"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") kaydet();
+          }}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Not kaleme bağlıdır, projeye değil: aynı kalem her projede aynı notu taşır.
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={calisiyor}>
+            Vazgeç
+          </Button>
+          <Button type="button" onClick={kaydet} disabled={calisiyor}>
+            {calisiyor && <Loader2 className="size-4 animate-spin" />}
+            Kaydet
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SummaryStrip({ havuz, gorunumler }: { havuz: TalepHavuzu; gorunumler: Gorunum[] }) {
   const toplam = gorunumler.length;
-  const tamam = gorunumler.filter((g) => durumu(g) === "tamam").length;
+  const tamam = gorunumler.filter((g) => g.durum === "tamam").length;
   const teklifli = gorunumler.filter((g) => g.teklifler.length > 0).length;
   const oran = toplam > 0 ? Math.round((tamam / toplam) * 100) : 0;
   const teklifOran = toplam > 0 ? Math.round((teklifli / toplam) * 100) : 0;
@@ -682,9 +1031,6 @@ function SummaryStrip({
         </p>
       </div>
 
-      {/* İKİ ÇUBUK İÇ İÇE: sipariş edilen her kalem zaten tekliflidir (ya da
-          teklif alınmadan alınmıştır) — ayrı iki çubuk toplamı yüzü aşıyormuş
-          gibi gösterirdi. */}
       <span className="relative mt-2 block h-1.5 w-full bg-muted" aria-hidden>
         <span className="absolute inset-y-0 left-0 bg-primary/40" style={{ width: `${teklifOran}%` }} />
         <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${oran}%` }} />
@@ -715,40 +1061,10 @@ function SummaryStrip({
   );
 }
 
-/** Süzgeç açılırı — "Tümü" seçeneği ALL sabitiyle taşınır (boş dizge yasak). */
-function Suzgec({
-  value,
-  onChange,
-  bos,
-  secenekler,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  bos: string;
-  secenekler: { value: string; label: string }[];
-}) {
-  if (secenekler.length === 0) return null;
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger size="sm" className="w-auto min-w-[7.5rem] text-base pointer-fine:text-sm">
-        <SelectValue placeholder={bos} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL}>{bos}: Tümü</SelectItem>
-        {secenekler.map((s) => (
-          <SelectItem key={s.value} value={s.value}>
-            {s.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 /**
  * Seçim kutusu — `components/ui`da Checkbox yok. Ham `<input type="checkbox">`
  * 13px'lik bir hedeftir; 44px'lik bir `label` içine sarmak dokunma hedefi
- * kuralını karşılamanın en ucuz yoludur (paket ekranıyla aynı bileşen).
+ * kuralını karşılamanın en ucuz yoludur.
  */
 function SecimKutusu({
   checked,
@@ -773,10 +1089,4 @@ function SecimKutusu({
       />
     </label>
   );
-}
-
-/** Toast yardımcısı — action sonuçlarını tek yerde yorumlar. */
-export function bildir(sonuc: { error?: string; ok?: number }, basarili: string) {
-  if (sonuc.error) toast.error(sonuc.error);
-  else toast.success(basarili);
 }

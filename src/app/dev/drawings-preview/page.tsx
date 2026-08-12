@@ -31,16 +31,10 @@ import {
   formatNum,
   recognitionClass,
 } from "@/lib/drawings/labels";
-import {
-  satinAlmaKategoriSirasi,
-  satinAlmaListesi,
-  type TurevParca,
-} from "@/lib/drawings/derive";
-import { FALLBACK_STAGES, RECEIVED_STAGE_SLUG, purchaseStages } from "@/lib/drawings/progress";
+import { satinAlmaListesi, type TurevParca } from "@/lib/drawings/derive";
 import { AssemblyTree } from "@/app/(app)/drawings/[id]/assembly-tree";
 import { FileBrowser } from "@/app/(app)/drawings/[id]/file-browser";
 import { PartsTable } from "@/app/(app)/drawings/[id]/parts/parts-table";
-import { PurchasingTable } from "@/app/(app)/drawings/[id]/purchasing/purchasing-table";
 import type { FileRow, PartRow } from "@/app/(app)/drawings/data";
 
 function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
@@ -122,35 +116,12 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
 
   const bayt = pkg.files.reduce((t, f) => t + f.size, 0);
 
-  // SATIN ALMA EKRANI DA ÖNİZLEMEDE. Kategori sözlüğü gerçek veriye karşı
-  // ölçülüyor (MONORAY'da hiçbir satır "Diğer"e düşmüyor, MTC'de bir tane) ve
-  // bunu ancak ekranda görerek doğrulayabilirsiniz.
+  // SATIN ALMA EKRANI KALKTI ama KATEGORİ SÖZLÜĞÜ ölçülmeye devam ediyor:
+  // liste yalnız sayı olarak basılır (MONORAY'da hiçbir satır "Diğer"e
+  // düşmüyor, MTC'de bir tane) — sözlük bozulursa o sayı burada görünür.
   const alim = satinAlmaListesi(sonuc.parts as unknown as TurevParca[]);
-  // Her yedinci kalem sipariş edilmiş, her on üçüncüsü de teslim alınmış
-  // sayılır: teslim tarihi sütununun dört rengi (gecikmiş · yaklaşan · uzak ·
-  // teslim) ancak veri çeşitliyken görülür.
-  const alimIsaretleri = alim.satirlar.flatMap((s, i) => {
-    if (i % 7 !== 3) return [];
-    const gun = new Date();
-    gun.setDate(gun.getDate() + ((i % 5) - 1) * 21);
-    const iso = gun.toISOString().slice(0, 10);
-    const satir = [
-      { key: s.key, stage: "satinalindi", qtyDone: s.adet ?? 1, doneAt: null, dueAt: iso, note: "" },
-    ];
-    if (i % 13 === 3) {
-      satir.push({
-        key: s.key,
-        stage: RECEIVED_STAGE_SLUG,
-        qtyDone: s.adet ?? 1,
-        doneAt: null,
-        dueAt: iso,
-        note: "",
-      });
-    }
-    return satir;
-  });
 
-  return { pkg, sonuc, files, parts, bayt, alim, alimIsaretleri };
+  return { pkg, sonuc, files, parts, bayt, alim };
 }
 
 export default function DrawingsPreviewPage() {
@@ -169,7 +140,7 @@ export default function DrawingsPreviewPage() {
         </p>
       </header>
 
-      {paketler.map(({ pkg, sonuc, files, parts, bayt, alim, alimIsaretleri }) => (
+      {paketler.map(({ pkg, sonuc, files, parts, bayt, alim }) => (
         <section key={pkg.folder} className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
             <div>
@@ -206,27 +177,17 @@ export default function DrawingsPreviewPage() {
               denemez. */}
           <PartsTable packageId="onizleme" parts={parts} files={files} />
 
-          <PurchasingTable
-            packageId="onizleme"
-            liste={alim}
-            stages={purchaseStages(FALLBACK_STAGES)}
-            marks={alimIsaretleri}
-            kategoriler={satinAlmaKategoriSirasi()}
-            // ÇARPAN ÖNİZLEMEDE 3'TÜR ve bu bilinçli: çarpılmış adet ile ham
-            // adedin aynı hücrede sığıp sığmadığı ancak 1'den büyük bir
-            // çarpanla görülür (önizlemenin var oluş sebebi).
-            carpan={3}
-            carpanBelirsiz={false}
-            carpanKalemleri={["0057-01", "0057-02"]}
-            // Kategori defteri önizlemede YOK (veritabanı bağlantısı yok):
-            // taşıma araçları kapalı görünür, uyarı şeridi de basılır.
-            canEditCategories={false}
-            // Yazma AÇIK: ekranın tamamı (seçim kutuları, yapışkan şerit)
-            // ancak böyle görünür. Tıklamak sunucuda yetkiye takılır ve
-            // kullanıcıya anlaşılır bir hata düşer — beklenen davranış.
-            canWrite
-            ledgerMissing={false}
-          />
+          {/* SATIN ALMA TABLOSU BURADAN KALKTI (12.08.2026): paket içi Satın
+              Alma sekmesi kaldırıldı ve yerini `/purchasing` bölümü aldı.
+              Havuz tablosu ÇOK PAKETLİDİR ve tek paketlik bir fikstürle
+              anlamlı bir önizlemesi yapılamaz — o ekranın duman testi
+              `scripts/test-purchasing-pool.ts`tir ve CANLI veriyle koşar.
+              Kategori DAĞILIMI yine de basılır: sözlük bu iki gerçek pakete
+              karşı ölçülüyor ve bozulursa buradan görünür. */}
+          <p className="font-mono text-[11px] text-muted-foreground">
+            Satın alma: {formatNum(alim.satirlar.length)} kalem ·{" "}
+            {alim.siniflar.map((s) => `${s.sinif} ${s.satirSayisi}`).join(" · ")}
+          </p>
 
           <div className="grid gap-3 lg:grid-cols-3">
             {FINDING_SECTIONS.map((bolum) => {

@@ -495,6 +495,83 @@ export function normAnahtar(raw: string | null | undefined): string {
   return normalizeTanim(raw).key;
 }
 
+// ══════════════════════════════════════════════ TANIMDAN ÖLÇÜ AYIKLAMA
+//
+// İŞ HAZIRLAMA LİSTESİ'nde İç Çap · Dış Çap · Boy AYRI SÜTUNLARDIR; depo
+// Excel'inde ise ölçü TANIMIN İÇİNDEDİR ("BURÇ Ø80xØ50,4 L=66"). Talep havuzu
+// satın alma ekibinin sütun düzenini taşıyacaksa (kullanıcı kararı, md. 2) bu
+// üç sayının çıkarılması gerekir.
+//
+// KURAL TUTUCUDUR ve bu bilinçli: emin olunamayan ölçü YAZILMAZ, hücre boş
+// kalır. Yanlış bir çap, boş bir çaptan çok daha pahalıdır — satınalmacı ona
+// bakarak sipariş verir. Bu yüzden yalnız İKİ kalıp okunur:
+//
+//   1. Ø ile başlayan çap(lar). İKİ tane varsa küçüğü İÇ, büyüğü DIŞ çaptır
+//      (boru ve burç böyle yazılır: "Ø80xØ50,4" = dış 80, iç 50,4). TEK tane
+//      varsa DIŞ çaptır — dolu mil ve teker böyle yazılır ("MİL Ø75x235").
+//   2. `L=` öneki ya da tek Ø'dan sonra gelen ikinci sayı BOYdur.
+//
+// Ø HİÇ YOKSA HİÇBİR ŞEY OKUNMAZ. "SAC 15x240x285" üç ölçülü bir dikdörtgendir
+// ve çapı yoktur; onu çap sütunlarına yazmak sayıyı anlamsız yapardı.
+// "CIVATA M16X120" da öyle: M16 bir çap değil bir DİŞ ÖLÇÜSÜdür.
+
+export interface TanimOlculeri {
+  icCapMm: number | null;
+  disCapMm: number | null;
+  boyMm: number | null;
+}
+
+const BOS_OLCU: TanimOlculeri = { icCapMm: null, disCapMm: null, boyMm: null };
+
+function say(s: string): number | null {
+  const n = Number(s.replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function tanimOlculeri(tanim: string | null | undefined): TanimOlculeri {
+  const t = (tanim ?? "").trim();
+  if (!t || !t.includes("Ø")) return BOS_OLCU;
+
+  const capYazilari = [...t.matchAll(/Ø\s*(\d+(?:[.,]\d+)?)/g)]
+    .map((m) => say(m[1]))
+    .filter((n): n is number => n != null);
+  if (capYazilari.length === 0) return BOS_OLCU;
+
+  let icCapMm: number | null = null;
+  let disCapMm: number | null = null;
+  if (capYazilari.length === 1) {
+    disCapMm = capYazilari[0];
+  } else {
+    // İKİDEN ÇOK Ø olduğunda da uç değerler alınır: "Ø8xØ10x44,5" gibi
+    // saplama borusu yazımları var ve orada da en küçük iç, en büyük dıştır.
+    icCapMm = Math.min(...capYazilari);
+    disCapMm = Math.max(...capYazilari);
+  }
+
+  // BOY: önce açık `L=` yazımı; yoksa SON çaptan sonra gelen ilk sayı.
+  // İkincisi yalnız tek çaplı yazımlarda güvenlidir ("MİL Ø75x235"); çift
+  // çaplı yazımda son sayı çoğu zaman kalınlıktır ("KEÇE Ø50XØ62X7") ve onu
+  // boy sanmak yanlış olurdu.
+  //
+  // `L=3800` ve `L3800` İKİSİ DE okunur: canlı veride aynı halat iki yazımla
+  // geçiyor ("ÇELİKHALAT SAPAN Ø36 L=3800" ve "… Ø36 L3800") ve yalnız birini
+  // tanımak aynı ürünün boyunu bir satırda gösterip ötekinde göstermezdi.
+  // Kural Ø VARLIĞINA bağlı olduğu için (fonksiyonun başındaki kapı) rastgele
+  // bir "L1200" model kodunu boy sanma riski yoktur.
+  let boyMm: number | null = null;
+  const acikBoy = t.match(/\bL\s*=?\s*(\d+(?:[.,]\d+)?)/i);
+  if (acikBoy) {
+    boyMm = say(acikBoy[1]);
+  } else if (capYazilari.length === 1) {
+    const sonCap = t.lastIndexOf("Ø");
+    const kalan = t.slice(sonCap);
+    const ikinci = kalan.match(/Ø\s*\d+(?:[.,]\d+)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)/);
+    if (ikinci) boyMm = say(ikinci[1]);
+  }
+
+  return { icCapMm, disCapMm, boyMm };
+}
+
 // ═══════════════════════════════════════════════════════ ANA GRUP DEFTERİ
 //
 // Kullanıcı kararı (md. 9): "0057-00-0700'ün 1 TON KANCA BLOĞU olduğunu

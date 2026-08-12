@@ -64,8 +64,10 @@ export const saveQuoteSchema = z
     unitPrice: z.number().nonnegative("Fiyat negatif olamaz."),
     currency: paraBirimi,
     fxRate: z.number().positive().nullable(),
-    qty: z.number().positive().nullable(),
-    unit: z.string().trim().max(20).default("Adet"),
+    // ADET SORULMAZ (kullanıcı kararı 12.08.2026): teklif BİRİM FİYATtır ve
+    // adet zaten talep havuzunda yazar. İki yerde adet tutmak, ikisinin
+    // ayrışması demekti. Alan şemadan tamamen kalktı; sütun eski kayıtlar için
+    // veritabanında duruyor ve yeni kayıtlarda `null` gider.
     quotedAt: gun,
     validUntil: gun,
     note: z.string().trim().max(500).default(""),
@@ -149,6 +151,28 @@ export const updateOrderSchema = z.object({
 });
 
 export const deleteOrderSchema = z.object({ id: z.uuid() });
+
+// ————————————————————————————————————————————————————————— KALEM DEFTERİ
+
+/**
+ * Kalemin kategorisini düzeltir ve/veya notunu yazar.
+ *
+ * Bu araç Teknik Resimler'in Satın Alma sekmesinden BURAYA TAŞINDI (o sekme
+ * kaldırıldı): "Diğer" bir çöp kutusu olamaz ve sözlüğün bilemediğini insan
+ * söyleyebilmelidir. Anahtar artık NORMALLEŞTİRİLMİŞ tanımdır, yani düzeltme
+ * bir kez yapılır ve o kalem her projede doğru kategoride görünür.
+ */
+export const saveItemMetaSchema = z.object({
+  keys: z.array(anahtar).min(1).max(2000),
+  /** Örnek tanım — defter tek başına okunduğunda anlaşılsın diye. */
+  samples: z.array(z.string().trim().max(300)).max(2000).default([]),
+  /** `null` = kategoriye dokunma; boş dizge = düzeltmeyi kaldır (sözlüğe dön). */
+  category: z.string().trim().max(60).nullable().default(null),
+  /** `null` = nota dokunma. */
+  note: z.string().trim().max(500).nullable().default(null),
+});
+
+export type SaveItemMetaInput = z.input<typeof saveItemMetaSchema>;
 
 // —————————————————————————————————————————————————————— ANA GRUP DEFTERİ
 

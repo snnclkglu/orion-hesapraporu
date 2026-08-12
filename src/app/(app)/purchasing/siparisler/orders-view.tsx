@@ -1,6 +1,6 @@
 "use client";
 
-// Siparişler listesi — hâl değiştirme burada yapılır.
+// Siparişler listesi — hâl değiştirme, süzgeç ve pano.
 //
 // DÖRT HÂL, DÖRDÜ DE BİR TARİHTİR ve hiçbiri bir boolean değildir:
 //   sipariş verildi (ordered_at) · teslim alındı (received_at)
@@ -12,11 +12,16 @@
 // SİPARİŞ SATIRLARI BURADA DÜZENLENMEZ (bkz. `updateOrderSchema`): verilmiş bir
 // siparişin kalemlerini değiştirmek, ona bağlı teslim ve ödeme kayıtlarını
 // sessizce geçersizleştirirdi. Yanlış sipariş İPTAL edilir, yenisi açılır.
+//
+// PANO GRAFİKLERİ `lib/diagrams` KULLANMAZ (İş Takibi'nin kuralı): o katman
+// PDF'e de basılan şematik teknik resimler içindir. Burada kategorik eksen ve
+// etkileşim var; `components/charts.tsx` kullanılır ve renk veriden yalnız TON
+// AÇISI olarak gelir.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DonutChart, RankBars, TimeBarChart } from "@/components/charts";
 import { fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import {
@@ -37,7 +43,11 @@ import {
   paymentTermLabel,
   tarihGoster,
 } from "@/lib/purchasing/terms";
+import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
+import { hueFromText } from "@/lib/tags";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
+import { CokluSuzgec } from "../filters";
+import { KipSecici, PanoKabugu } from "../board-ui";
 import type { Siparis } from "../data";
 import { updateOrder } from "../actions";
 
@@ -45,13 +55,15 @@ function toplamOf(s: Siparis): number {
   return s.satirlar.reduce((t, l) => t + l.qty * (l.unitPrice ?? 0), 0);
 }
 
+function eurOf(s: Siparis): number {
+  return eurKarsiligi(toplamOf(s), s.currency, s.fxRate) ?? 0;
+}
+
 /**
  * Siparişin değişebilen alanları — `id` HARİÇ.
  *
- * `Parameters<typeof updateOrder>[0]` kullanılamaz: o tip `id`yi ZORUNLU
- * taşır ve çağrı yerleri onu vermez (kimliği `yaz` ekler). Tipi burada
- * daraltmak, `{ [k: string]: string }` gibi her şeyi kabul eden bir kaçış
- * kapısından iyidir — yanlış alan adı derlemede yakalanır.
+ * `Parameters<typeof updateOrder>[0]` kullanılamaz: o tip `id`yi ZORUNLU taşır
+ * ve çağrı yerleri onu vermez (kimliği `yaz` ekler).
  */
 type OrderPatch = {
   dueAt?: string;
@@ -62,6 +74,31 @@ type OrderPatch = {
   note?: string;
 };
 
+type SiparisDurum = "acik" | "teslim" | "odendi" | "iptal";
+
+const DURUM_ETIKET: Record<SiparisDurum, string> = {
+  acik: "Teslim bekliyor",
+  teslim: "Teslim alındı",
+  odendi: "Ödendi",
+  iptal: "İptal",
+};
+
+function durumu(s: Siparis): SiparisDurum {
+  if (s.cancelledAt) return "iptal";
+  if (s.balancePaidAt) return "odendi";
+  if (s.receivedAt) return "teslim";
+  return "acik";
+}
+
+interface Filtreler {
+  query: string;
+  tedarikciler: string[];
+  durumlar: string[];
+  isler: string[];
+}
+
+const BOS: Filtreler = { query: "", tedarikciler: [], durumlar: [], isler: [] };
+
 export function OrdersView({
   siparisler,
   canWrite,
@@ -71,21 +108,55 @@ export function OrdersView({
 }) {
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
-  const [q, setQ] = useState("");
+  const [f, setF] = useState<Filtreler>(BOS);
   const [acik, setAcik] = useState<Set<string>>(new Set());
+  const [pano, setPano] = useState(true);
+  const [kip, setKip] = useState<Kip>("ay");
+
+  const isNolari = useMemo(
+    () => (s: Siparis) => [...new Set(s.satirlar.map((l) => l.itemNo).filter(Boolean))],
+    []
+  );
+
+  const secenekler = useMemo(() => {
+    const say = (fn: (s: Siparis) => string[]) => {
+      const m = new Map<string, number>();
+      for (const s of siparisler) for (const v of fn(s)) m.set(v, (m.get(v) ?? 0) + 1);
+      return m;
+    };
+    const ted = say((s) => [s.supplier]);
+    const dur = say((s) => [durumu(s)]);
+    const is = say(isNolari);
+    return {
+      tedarikciler: [...ted.keys()]
+        .sort((a, b) => a.localeCompare(b, "tr"))
+        .map((v) => ({ value: v, label: v, count: ted.get(v) })),
+      durumlar: (["acik", "teslim", "odendi", "iptal"] as SiparisDurum[])
+        .filter((d) => dur.has(d))
+        .map((d) => ({ value: d, label: DURUM_ETIKET[d], count: dur.get(d) })),
+      isler: [...is.keys()]
+        .sort((a, b) => a.localeCompare(b, "tr"))
+        .map((v) => ({ value: v, label: v, count: is.get(v) })),
+    };
+  }, [siparisler, isNolari]);
 
   const gorunen = useMemo(() => {
-    const a = q.trim().toLocaleLowerCase("tr-TR");
-    if (!a) return siparisler;
-    return siparisler.filter((s) =>
-      [s.supplier, s.orderNo, s.note, ...s.satirlar.map((l) => `${l.sample} ${l.itemNo}`)]
+    const q = f.query.trim().toLocaleLowerCase("tr-TR");
+    const ted = new Set(f.tedarikciler);
+    const dur = new Set(f.durumlar);
+    const is = new Set(f.isler);
+    return siparisler.filter((s) => {
+      if (ted.size > 0 && !ted.has(s.supplier)) return false;
+      if (dur.size > 0 && !dur.has(durumu(s))) return false;
+      if (is.size > 0 && !isNolari(s).some((n) => is.has(n))) return false;
+      if (!q) return true;
+      return [s.supplier, s.orderNo, s.note, ...s.satirlar.map((l) => `${l.sample} ${l.itemNo}`)]
         .join(" ")
         .toLocaleLowerCase("tr-TR")
-        .includes(a)
-    );
-  }, [siparisler, q]);
+        .includes(q);
+    });
+  }, [siparisler, f, isNolari]);
 
-  /** Hâl değiştiren alanlar — `id` çağıranda değil burada eklenir. */
   function yaz(id: string, alanlar: OrderPatch, mesaj: string) {
     basla(async () => {
       const sonuc = await updateOrder({ ...alanlar, id });
@@ -97,28 +168,159 @@ export function OrdersView({
     });
   }
 
-  const acikSiparis = gorunen.filter((s) => !s.cancelledAt);
+  // MEMOLANIR ÇÜNKÜ ALTINDAKİ ÜÇ `useMemo` BUNA BAĞLI. Satır içi `.filter()`
+  // her boyamada yeni bir dizi üretir; React Compiler o diziyi "sonradan
+  // değişebilir" sayıp bütün bileşenin optimizasyonunu atlıyordu (lint hatası).
+  const acikSiparis = useMemo(() => gorunen.filter((s) => !s.cancelledAt), [gorunen]);
   const bekleyenTutar = acikSiparis
     .filter((s) => !s.balancePaidAt)
-    .reduce((t, s) => t + (eurKarsiligi(toplamOf(s), s.currency, s.fxRate) ?? 0), 0);
+    .reduce((t, s) => t + eurOf(s), 0);
+
+  // ————————————————————————————————————————————————————————————— pano
+  const tedarikciCubuklari = useMemo(
+    () =>
+      sirala(acikSiparis, (s) => s.supplier, eurOf, {
+        ipucu: (_ad, liste) => `${liste.length} sipariş`,
+      }),
+    [acikSiparis]
+  );
+
+  const durumHalkasi = useMemo(() => {
+    const toplam = gorunen.reduce((t, s) => t + eurOf(s), 0);
+    return (["acik", "teslim", "odendi", "iptal"] as SiparisDurum[])
+      .map((d) => {
+        const grup = gorunen.filter((s) => durumu(s) === d);
+        const value = grup.reduce((t, s) => t + eurOf(s), 0);
+        return {
+          key: d,
+          label: DURUM_ETIKET[d],
+          hue: hueFromText(d),
+          value,
+          share: toplam > 0 ? value / toplam : 0,
+          records: grup.length,
+        };
+      })
+      .filter((x) => x.value > 0);
+  }, [gorunen]);
+
+  const zamanSerisi = useMemo(() => {
+    const { kutular } = donemlere(acikSiparis, (s) => s.orderedAt || null, eurOf, kip);
+    return kutular.map((k) => ({
+      key: k.donem.key,
+      label: k.donem.label,
+      total: k.toplam,
+      parts: { siparis: k.toplam },
+    }));
+  }, [acikSiparis, kip]);
+
+  const eurFmt = (v: number) => fmtMoney(v, "EUR");
 
   return (
     <div className="grid gap-3">
-      <section className="grid gap-2 border bg-card p-3 sm:grid-cols-3">
+      <section className="grid gap-2 border bg-card p-3 sm:grid-cols-4">
         <Ozet baslik="Açık Sipariş" deger={formatNum(acikSiparis.length)} />
         <Ozet
           baslik="Teslim Bekleyen"
           deger={formatNum(acikSiparis.filter((s) => !s.receivedAt).length)}
         />
         <Ozet baslik="Ödenmemiş (avro)" deger={fmtMoney(bekleyenTutar, "EUR")} />
+        <div className="flex items-end justify-end">
+          <Button
+            type="button"
+            size="xs"
+            variant={pano ? "default" : "outline"}
+            onClick={() => setPano((p) => !p)}
+          >
+            <BarChart3 className="size-3" />
+            Pano
+          </Button>
+        </div>
       </section>
 
-      <FilterBar gorunen={gorunen.length} toplam={siparisler.length} temiz={!q} onTemizle={() => setQ("")}>
+      {pano && gorunen.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <PanoKabugu
+            baslik="Sipariş Akışı"
+            alt={`${zamanSerisi.length} dönem · ${fmtMoney(
+              acikSiparis.reduce((t, s) => t + eurOf(s), 0),
+              "EUR"
+            )}`}
+            eylem={<KipSecici kip={kip} onChange={setKip} />}
+          >
+            <TimeBarChart
+              columns={zamanSerisi}
+              series={[{ key: "siparis", label: "Sipariş tutarı", hue: 210 }]}
+              valueLabel="€"
+              format={eurFmt}
+              height={180}
+            />
+          </PanoKabugu>
+
+          <PanoKabugu
+            baslik="Tedarikçi Dağılımı"
+            alt={`${tedarikciCubuklari.length} tedarikçi`}
+          >
+            <RankBars
+              items={tedarikciCubuklari}
+              limit={8}
+              valueLabel="€"
+              format={eurFmt}
+              emptyText="Açık sipariş yok"
+              onSelect={(k) =>
+                setF((s) => ({
+                  ...s,
+                  tedarikciler: s.tedarikciler.includes(k)
+                    ? s.tedarikciler.filter((x) => x !== k)
+                    : [...s.tedarikciler, k],
+                }))
+              }
+              selected={f.tedarikciler.length === 1 ? f.tedarikciler[0] : null}
+            />
+          </PanoKabugu>
+
+          <PanoKabugu baslik="Durum Kırılımı" alt={`${gorunen.length} sipariş`} className="lg:col-span-2">
+            <DonutChart
+              items={durumHalkasi}
+              centerValue={fmtMoney(
+                gorunen.reduce((t, s) => t + eurOf(s), 0),
+                "EUR"
+              )}
+              centerLabel="Toplam"
+              format={eurFmt}
+            />
+          </PanoKabugu>
+        </div>
+      )}
+
+      <FilterBar
+        gorunen={gorunen.length}
+        toplam={siparisler.length}
+        temiz={JSON.stringify(f) === JSON.stringify(BOS)}
+        onTemizle={() => setF(BOS)}
+      >
         <SearchBox
-          value={q}
-          onChange={setQ}
+          value={f.query}
+          onChange={(v) => setF((s) => ({ ...s, query: v }))}
           placeholder="Tedarikçi, Sipariş No, Kalem Ara…"
-          className="w-[min(22rem,calc(100vw-4rem))]"
+          className="w-[min(18rem,calc(100vw-4rem))]"
+        />
+        <CokluSuzgec
+          baslik="Tedarikçi"
+          secenekler={secenekler.tedarikciler}
+          secili={f.tedarikciler}
+          onChange={(v) => setF((s) => ({ ...s, tedarikciler: v }))}
+        />
+        <CokluSuzgec
+          baslik="İş"
+          secenekler={secenekler.isler}
+          secili={f.isler}
+          onChange={(v) => setF((s) => ({ ...s, isler: v }))}
+        />
+        <CokluSuzgec
+          baslik="Durum"
+          secenekler={secenekler.durumlar}
+          secili={f.durumlar}
+          onChange={(v) => setF((s) => ({ ...s, durumlar: v }))}
         />
         {calisiyor && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
       </FilterBar>
@@ -128,11 +330,11 @@ export function OrdersView({
           <p className="text-sm text-muted-foreground">
             {siparisler.length === 0
               ? "Henüz sipariş açılmamış. Talep Havuzu'ndan kalem seçip “Sipariş Aç” ile başlayın."
-              : "Bu aramayla eşleşen sipariş yok."}
+              : "Bu süzgeçle eşleşen sipariş yok."}
           </p>
         </div>
       ) : (
-        <div className="border bg-card">
+        <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -183,8 +385,7 @@ export function OrdersView({
                         <span className="block text-[13px] font-medium">{s.supplier}</span>
                         <span className="block font-mono text-[11px] text-muted-foreground">
                           {formatNum(s.satirlar.length)} kalem
-                          {new Set(s.satirlar.map((l) => l.itemNo).filter(Boolean)).size > 1 &&
-                            ` · ${new Set(s.satirlar.map((l) => l.itemNo).filter(Boolean)).size} iş`}
+                          {isNolari(s).length > 0 && ` · ${isNolari(s).join(", ")}`}
                         </span>
                       </TableCell>
                       <TableCell className="hidden align-top font-mono text-[12px] md:table-cell">
@@ -303,9 +504,7 @@ export function OrdersView({
  * Hâl çipleri — her biri bir TARİH yazar.
  *
  * Tarih alanı çipin yanında durur ve boş bırakılabilir: satınalmacı çoğu zaman
- * "geldi" der ama günü sonra hatırlar. Bugünü varsayılan yazmak, gerçekte üç
- * gün önce gelmiş bir malı bugün gelmiş göstermekten iyidir ÇÜNKÜ alan
- * düzeltilebilir; hiç tarih yazmamak ise takvimden düşmek demektir.
+ * "geldi" der ama günü sonra hatırlar.
  */
 function HalCipleri({
   s,
@@ -319,6 +518,7 @@ function HalCipleri({
   onYaz: (id: string, alanlar: OrderPatch, mesaj: string) => void;
 }) {
   const [teslimGunu, setTeslimGunu] = useState("");
+  const bugun = new Date().toISOString().slice(0, 10);
 
   if (s.cancelledAt) {
     return (
@@ -351,13 +551,7 @@ function HalCipleri({
               type="button"
               size="xs"
               variant="outline"
-              onClick={() =>
-                onYaz(
-                  s.id,
-                  { receivedAt: teslimGunu || new Date().toISOString().slice(0, 10) },
-                  "Teslim alındı."
-                )
-              }
+              onClick={() => onYaz(s.id, { receivedAt: teslimGunu || bugun }, "Teslim alındı.")}
             >
               Teslim
             </Button>
@@ -377,9 +571,7 @@ function HalCipleri({
             <Cip
               renk="bos"
               etiket="Avans ödendi"
-              onClick={() =>
-                onYaz(s.id, { advancePaidAt: new Date().toISOString().slice(0, 10) }, "Avans ödendi.")
-              }
+              onClick={() => onYaz(s.id, { advancePaidAt: bugun }, "Avans ödendi.")}
             />
           )
         ))}
@@ -395,9 +587,7 @@ function HalCipleri({
           <Cip
             renk="bos"
             etiket="Bakiye ödendi"
-            onClick={() =>
-              onYaz(s.id, { balancePaidAt: new Date().toISOString().slice(0, 10) }, "Ödeme kaydedildi.")
-            }
+            onClick={() => onYaz(s.id, { balancePaidAt: bugun }, "Ödeme kaydedildi.")}
           />
         )
       )}
@@ -407,7 +597,7 @@ function HalCipleri({
           type="button"
           onClick={() => {
             if (window.confirm("Sipariş iptal edilsin mi? Kayıt silinmez, takvimlerden düşer."))
-              onYaz(s.id, { cancelledAt: new Date().toISOString().slice(0, 10) }, "Sipariş iptal edildi.");
+              onYaz(s.id, { cancelledAt: bugun }, "Sipariş iptal edildi.");
           }}
           className="text-[11px] text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
         >

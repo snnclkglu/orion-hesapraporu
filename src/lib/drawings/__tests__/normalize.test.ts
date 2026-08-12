@@ -15,6 +15,7 @@ import {
   grupAdlariCikar,
   normAnahtar,
   normalizeTanim,
+  tanimOlculeri,
 } from "../normalize";
 
 /** Kısayol — testlerin okunur kalması için. */
@@ -296,5 +297,51 @@ describe("normalizeTanim — gerçek havuzda yakalanan boşluklar", () => {
 
   it("SEGMAN: iki yazım canlı veride birleşti", () => {
     expect(normAnahtar("DELİK SEGMANI Ø180 DIN472")).toBe(normAnahtar("SEGMAN Ø180 DIN472"));
+  });
+});
+
+describe("tanimOlculeri — TUTUCU ayıklama, emin olunamayan yazılmaz", () => {
+  it("iki Ø: küçüğü iç, büyüğü dış çap", () => {
+    expect(tanimOlculeri("BURÇ Ø80XØ50,4 L=66")).toEqual({
+      icCapMm: 50.4,
+      disCapMm: 80,
+      boyMm: 66,
+    });
+    expect(tanimOlculeri("KEÇE Ø50XØ62X7")).toEqual({
+      icCapMm: 50,
+      disCapMm: 62,
+      // Çift çaplı yazımda son sayı KALINLIKtır; boy sanılmaz.
+      boyMm: null,
+    });
+  });
+
+  it("tek Ø: dış çap, ardından gelen sayı boy", () => {
+    expect(tanimOlculeri("MİL Ø75X235")).toEqual({ icCapMm: null, disCapMm: 75, boyMm: 235 });
+    expect(tanimOlculeri("TEKERLEK Ø315X105")).toEqual({
+      icCapMm: null,
+      disCapMm: 315,
+      boyMm: 105,
+    });
+    expect(tanimOlculeri("MAKARA Ø280")).toEqual({ icCapMm: null, disCapMm: 280, boyMm: null });
+  });
+
+  it("Ø YOKSA HİÇBİR ŞEY okunmaz", () => {
+    // "SAC 15x240x285" bir dikdörtgendir; M16 bir çap değil diş ölçüsüdür.
+    expect(tanimOlculeri("SAC 15X240X285")).toEqual({
+      icCapMm: null,
+      disCapMm: null,
+      boyMm: null,
+    });
+    expect(tanimOlculeri("CIVATA M16X120 DIN 931 GALVANİZLİ")).toEqual({
+      icCapMm: null,
+      disCapMm: null,
+      boyMm: null,
+    });
+    expect(tanimOlculeri("")).toEqual({ icCapMm: null, disCapMm: null, boyMm: null });
+    expect(tanimOlculeri(null)).toEqual({ icCapMm: null, disCapMm: null, boyMm: null });
+  });
+
+  it("ondalık virgül okunur", () => {
+    expect(tanimOlculeri("KORKULUK BORUSU Ø33,7X3,25").disCapMm).toBe(33.7);
   });
 });

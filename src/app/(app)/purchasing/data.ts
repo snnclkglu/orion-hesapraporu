@@ -159,16 +159,23 @@ export async function loadHavuz(
   );
   const bilinenGruplar = new Set(grupAdlari.keys());
 
-  // ————————————————————————————————— 4. kategori düzeltmeleri
-  const { data: duzeltmeVerisi } = await supabase
-    .from("drawing_purchase_overrides")
-    .select("match_key, category");
+  // ————————————————————————————————— 4. kalem defteri (kategori + not)
+  //
+  // `purchase_item_meta` anahtarı NORMALLEŞTİRİLMİŞ tanımdır; eski
+  // `drawing_purchase_overrides` ham tanımla anahtarlıyordu ve iki şema bir
+  // arada yaşayamazdı (bkz. 20260812000003 migration notu).
+  const { data: defterVerisi } = await supabase
+    .from("purchase_item_meta")
+    .select("match_key, category, note");
+  const defter = (defterVerisi ?? []) as {
+    match_key: string;
+    category: string | null;
+    note: string | null;
+  }[];
   const duzeltmeler = new Map(
-    ((duzeltmeVerisi ?? []) as { match_key: string; category: string }[]).map((r) => [
-      r.match_key,
-      r.category,
-    ])
+    defter.filter((r) => r.category).map((r) => [r.match_key, r.category as string])
   );
+  const notlar = new Map(defter.filter((r) => r.note).map((r) => [r.match_key, r.note as string]));
 
   // ————————————————————————————————— 5. paket künyeleri + çarpanlar
   const carpanlar = new Map<string, { carpan: number; belirsiz: boolean; katilanlar: string[] }>();
@@ -259,10 +266,10 @@ export async function loadHavuz(
   }
 
   return {
-    havuz: talepHavuzu(havuzPaketleri, satirlar, { duzeltmeler }),
+    havuz: talepHavuzu(havuzPaketleri, satirlar, { duzeltmeler, notlar }),
     paketler: paketKunyeleri,
     carpanlar,
-    kategoriDefteriVar: duzeltmeVerisi != null,
+    kategoriDefteriVar: defterVerisi != null,
     grupAdlari,
   };
 }

@@ -17,22 +17,20 @@ import { satinAlmaKategoriSirasi } from "@/lib/drawings/derive";
 import { loadHavuz, loadSiparisler, loadTedarikciler, loadTeklifler } from "./data";
 import { DemandTable } from "./demand-table";
 
-export default async function PurchasingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ is?: string }>;
-}) {
-  const { is } = await searchParams;
+export default async function PurchasingPage() {
   const supabase = await createClient();
 
-  // İŞ SÜZGECİ ADRESTE DURUR, istemci durumunda değil: satınalmacı "şu üç
-  // projeyi bir arada alacağım" diye çalışır ve o görünümü meslektaşına
-  // bağlantı olarak yollayabilmelidir.
-  const jobIds = (is ?? "").split(",").filter(Boolean);
-
+  // HAVUZ TAM OKUNUR, iş süzgeci İSTEMCİDE uygulanır (kullanıcı kararı, md. 6:
+  // "bir veya daha fazla işi seçebilmeliyim"). Süzgeç sunucuda olsaydı her
+  // seçim bir gidiş-dönüş olurdu ve çoklu seçimde bu kullanılamaz hâle
+  // gelirdi. Okunan satır sayısı zaten dar: yalnız SATIN ALMA satırları
+  // geliyor (üç canlı pakette 222 satır).
   const [{ data: kullanici }, { data: isler }] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("jobs").select("id, job_no, title").order("job_no", { ascending: false }),
+    supabase
+      .from("jobs")
+      .select("id, job_no, title, job_items (item_no)")
+      .order("job_no", { ascending: false }),
   ]);
 
   const zengin = kullanici.user
@@ -52,7 +50,7 @@ export default async function PurchasingPage({
     tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
   });
 
-  const veri = await loadHavuz(supabase, { jobIds });
+  const veri = await loadHavuz(supabase);
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);
 
   const [teklifler, siparisler, tedarikciler] = await Promise.all([
@@ -78,11 +76,20 @@ export default async function PurchasingPage({
       siparisAdetleri={[...siparisAdetleri.entries()]}
       tedarikciler={tedarikciler}
       kategoriler={satinAlmaKategoriSirasi()}
-      isler={((isler ?? []) as { id: string; job_no: string; title: string }[]).map((j) => ({
+      // İŞ SÜZGECİ KALEM NUMARASIYLA eşleşir, iş kimliğiyle değil: havuz
+      // satırları `item_no` METNİ taşır (md. 17/18'in kuralı — bağ türevdir).
+      isler={(
+        (isler ?? []) as {
+          id: string;
+          job_no: string;
+          title: string;
+          job_items: { item_no: string }[] | null;
+        }[]
+      ).map((j) => ({
         id: j.id,
+        itemNos: (j.job_items ?? []).map((i) => i.item_no).filter(Boolean),
         label: `${j.job_no} · ${j.title}`,
       }))}
-      seciliIsler={jobIds}
       canWrite={yazabilir}
     />
   );
