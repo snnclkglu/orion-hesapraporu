@@ -18,7 +18,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { ProjectDetailHeader } from "@/app/(app)/projects/[id]/project-header";
 import { ProjectTabsNav } from "@/app/(app)/projects/[id]/project-tabs";
 import { DrawingPlanCard } from "@/app/(app)/projects/[id]/drawing-plan-card";
-import type { DrawingPlanRow } from "@/lib/drawing-plan";
+import type { DrawingAuthor, DrawingPlanRow } from "@/lib/drawing-plan";
 
 const PEOPLE: SignatoryOption[] = [
   { id: "p1", full_name: "Alkım Kelleci", role: "engineer" },
@@ -34,14 +34,24 @@ const PEOPLE: SignatoryOption[] = [
  * yoksa başlıktaki ilerleme çubuğu ya %0 ya %100 görünür ve ara değerin nasıl
  * çizildiği hiç sınanmazdı.
  */
+const DRAWING_AUTHORS: DrawingAuthor[] = [
+  // ÖNCE RESSAMLAR — gerçek sıra `loadDrawingAuthors`tan gelir; fikstür onu
+  // taklit eder ki grup başlıklarının düzeni gözle sınanabilsin.
+  { id: "p1", name: "Mehmet Yıldız", role: "draftsman" },
+  { id: "p2", name: "Zeynep Arslan", role: "draftsman" },
+  { id: "p3", name: "Alkım Kelleci", role: "engineer" },
+];
+
 const DRAWING_PLAN: DrawingPlanRow[] = [
-  { id: "d1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
-  { id: "d2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "2 adet" },
-  { id: "d3", code: "0300", name: "BAŞKİRİŞ", status: "ciziliyor", note: "" },
-  { id: "d4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "revize", note: "" },
-  { id: "d5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", note: "" },
-  { id: "d6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
-  { id: "d7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
+  { id: "d1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", drawnBy: "p1", drawnByName: "Mehmet Yıldız", note: "" },
+  { id: "d2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", drawnBy: "p1", drawnByName: "Mehmet Yıldız", note: "2 adet" },
+  { id: "d3", code: "0300", name: "BAŞKİRİŞ", status: "ciziliyor", drawnBy: "p2", drawnByName: "Zeynep Arslan", note: "" },
+  { id: "d4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "revize", drawnBy: "p3", drawnByName: "Alkım Kelleci", note: "" },
+  { id: "d5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+  { id: "d6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+  // LİSTEDEN DÜŞMÜŞ ÇİZEN: rolü değişmiş bir kişi. Seçici onu "Listede Değil"
+  // başlığı altında korumalı, alan boş görünmemeli.
+  { id: "d7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", drawnBy: "p9", drawnByName: "Eski Ressam", note: "" },
 ];
 
 const PROJECT = {
@@ -116,6 +126,7 @@ export default function ProjectPreviewPage() {
           projectId="dev"
           itemNo="0055-00"
           initialRows={DRAWING_PLAN}
+          authors={DRAWING_AUTHORS}
           canEdit
         />
 

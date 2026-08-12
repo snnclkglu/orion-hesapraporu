@@ -12,7 +12,7 @@
 // Bütün parçaları çekip istemcide süzmek elli pakette otuz bin satır ederdi.
 
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing, tagsOf } from "@/lib/roles";
+import { canEditPurchasing } from "@/lib/roles";
 import { satinAlmaKategoriSirasi } from "@/lib/drawings/derive";
 import { loadHavuz, loadSiparisler, loadTedarikciler, loadTeklifler } from "./data";
 import { DemandTable } from "./demand-table";
@@ -33,22 +33,10 @@ export default async function PurchasingPage() {
       .order("job_no", { ascending: false }),
   ]);
 
-  const zengin = kullanici.user
-    ? await supabase.from("profiles").select("role, tags").eq("id", kullanici.user.id).maybeSingle()
-    : { data: null, error: null };
-  const profil = zengin.error
-    ? (
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", kullanici.user!.id)
-          .maybeSingle()
-      ).data
-    : zengin.data;
-  const yazabilir = canEditPurchasing({
-    role: (profil as { role?: string } | null)?.role ?? "",
-    tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
-  });
+  const { data: profil } = kullanici.user
+    ? await supabase.from("profiles").select("role").eq("id", kullanici.user.id).maybeSingle()
+    : { data: null };
+  const yazabilir = canEditPurchasing(profil?.role);
 
   const veri = await loadHavuz(supabase);
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);

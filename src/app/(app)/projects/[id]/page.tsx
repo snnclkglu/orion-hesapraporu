@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canEditReports, isAdminRole } from "@/lib/roles";
-import { loadDrawingPlan, resolveProjectItemNo } from "@/lib/drawing-plan-data";
+import {
+  loadDrawingAuthors,
+  loadDrawingPlan,
+  resolveProjectItemNo,
+} from "@/lib/drawing-plan-data";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
@@ -71,6 +75,7 @@ export default async function ProjectPage({
     { data: jobsData },
     { data: signatoryProfiles },
     drawingPlan,
+    drawingAuthors,
     itemNo,
   ] = await Promise.all([
       supabase
@@ -101,6 +106,9 @@ export default async function ProjectPage({
       // aynı iki fonksiyonu çağırır, böylece ekrandaki numara ile indirilen
       // dosyadaki numara ayrışamaz.
       loadDrawingPlan(supabase, id),
+      // "Çizen" seçicisinin listesi — Teknik Ressam + Mühendis, önce ressamlar.
+      // Sıra ORADA verilir; ekran onu yeniden sıralamaz (md. 4).
+      loadDrawingAuthors(supabase),
       resolveProjectItemNo(supabase, id, project.doc_no),
     ]);
 
@@ -314,6 +322,7 @@ export default async function ProjectPage({
               projectId={project.id}
               itemNo={itemNo}
               initialRows={drawingPlan}
+              authors={drawingAuthors}
               canEdit={canWriteReports}
             />
 

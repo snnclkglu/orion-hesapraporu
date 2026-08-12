@@ -16,10 +16,33 @@ takvimi, fiyat arşivi; md. 21), ekipman listeleri, üretici katalogları
 (`/katalog`), atölye çalışma saatleri (`/worklog`), satış takibi (`/sales`) ve
 **personel** (`/personnel` — künye ve özlük dosyaları, maaş ve fazla mesai,
 bordro, harcirah, döviz kurları; md. 22).
-Çok kullanıcılı: **dört rol + üç görev etiketi** (md. 15).
+Çok kullanıcılı: **sekiz rol**, görev etiketi YOK (md. 15).
 
 Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
-`APP_TITLE`, `APP_TAGLINE`) — kabuk, giriş sayfası ve sekme başlığı oradan okur.
+`APP_TITLE`, `APP_SHORT_NAME`, `APP_TAGLINE`) — kabuk, giriş sayfası, sekme
+başlığı ve telefondaki kısayol oradan okur.
+
+**SEKME BAŞLIĞI BÜYÜK HARFTİR — ve dönüşüm VERİDE yapılır** (kullanıcı kararı,
+12.08.2026). Kabukta ad zaten büyük görünüyordu ama harfleri CSS büyütüyordu
+(`.oc-kicker { text-transform: uppercase }`); sekmeye, yer imine ve ana ekran
+kısayoluna metnin KENDİSİ gidiyor ve orada küçük harfle duruyordu. `adBuyuk`
+kullanılır, `toUpperCase()` DEĞİL (md. 14 kuralı: "İş" → "IS" olurdu).
+`APP_SHORT_NAME` ayrıdır çünkü ana ekran ikonunun altında ~12 karakter
+görünür — orada kimlik markanın kendisidir ("ORION").
+
+**İKONLAR ÜRETİLİR, ELLE ÇİZİLMEZ** (`scripts/make-icons.ts`). Tek kaynak
+`public/brand/orion-symbol.svg`; betik ondan sekme ikonunu (`app/icon.svg`,
+`favicon.ico` — 16·32·48 PNG'li gerçek bir ICO kabı), iOS ana ekran ikonunu
+(`app/apple-icon.png`) ve PWA ikonlarını üretir. **MASKELENEBİLİR SÜRÜM
+AYRIDIR**: Android launcher ikonu daireye/squircle'a kırpar ve yalnız ortadaki
+%80'i garanti eder, o yüzden orada sembol küçülür ve köşe yuvarlaması olmaz.
+Tek dosyayı ikisine birden vermek sembolü kenarlarından kestirirdi.
+
+**MANİFEST ÇEREZSİZ İSTENİR.** `proxy.ts` matcher'ı `manifest.webmanifest`i
+MUAF TUTAR: tarayıcı manifesti `credentials: "omit"` ile çeker, muafiyet
+olmadan oturumsuz sayılıp `/login`e yönlendiriliyordu ve Chrome bir HTML
+sayfası okuyup manifesti geçersiz sayıyordu — telefona eklenen kısayolda ne ad
+ne logo çıkmasının sebebi buydu. İkon dosyaları uzantılarıyla zaten muaftı.
 
 ## Temel ilke: hesap yöntemi standartlara dayanır, bir tabloya değil
 
@@ -67,6 +90,10 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
   sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
+- `npx tsx scripts/make-icons.ts` — sekme ve uygulama ikonlarını MARKA
+  SEMBOLÜNDEN üret (`app/icon.svg` · `favicon.ico` · `apple-icon.png` ·
+  `public/brand/icon-{192,512,maskable-512}.png`). Üretilen dosyalar elle
+  düzenlenmez; sembol değişirse betik yeniden koşturulur
 - `npx tsx scripts/test-drawings.ts` — iki gerçek teslim klasörünün içe
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri
@@ -472,6 +499,25 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     (panel + Excel + PDF) ama `CalcInput`a GİRMEZ: snapshot'a gömülseydi proje
     başında verilmiş karar her revizyonda donardı.
 
+    **ÇİZEN BİR BAĞDIR, SERBEST METİN DEĞİL** (`drawn_by` → `profiles.id`,
+    kullanıcı kararı 12.08.2026: *"Not bölümünün soluna, çizen teknik ressamı
+    dropdown seçebileyim. Ressam ve Mühendis rolündekiler listelensin. Önce
+    ressamlar."*). Ad metin olarak yazılsaydı aynı kişi "Alkım", "Alkım
+    Kelleci" ve "A. Kelleci" olarak üç ayrı kişi gibi görünür ve "bu kişi neler
+    çiziyor" sorusu hiç cevaplanamazdı (md. 17'deki parça adı dersinin aynısı).
+    Kişi silinirse alan BOŞALIR, satır silinmez (`on delete set null`).
+
+    **ROL SÜZGECİ VERİTABANINDA DEĞİL** (`lib/roles.ts:DRAWING_AUTHOR_ROLES`,
+    sıra dâhil): hangi rollerin listeleneceği bir SUNUM kararıdır ve zamanla
+    değişir. `check (role in ...)` gibi bir kısıt konsaydı, bir kişinin rolü
+    değiştiğinde ONUN GEÇMİŞTE ÇİZDİĞİ satırlar da geçersiz olurdu — oysa o
+    resimleri gerçekten o çizdi. Aynı sebeple seçici, listeden düşmüş bir kişiyi
+    "Listede Değil" başlığı altında SEÇENEK OLARAK KORUR; korumasaydı dolu bir
+    alan ekranda boş görünür ve kullanıcı üzerine yazardı. Ad hem kimlikle
+    birlikte taşınır (`drawnByName`) çünkü salt-okunur kipin elinde kişi listesi
+    olmayabilir. Sütun ekipman listesi ÇIKTILARINA (Excel/PDF) BASILMAZ — o
+    belgeler "hangi numara" sorusunu cevaplar, "kim çizdi" sorusunu değil.
+
     **Sayfa MARKA + MODEL ile bulunur; bölümün o kimliği SAKLIYOR olması
     gerekir.** Redüktör (2.3 / 5.5), yürütme freni (5.5b) ve tampon (5.8)
     eşlemelerinde kimlik tek bir birleşik `brand_model` alanındadır;
@@ -865,9 +911,11 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     olmayan ad ise metinden türetilir (`hueFromText`), yani ekran hiçbir zaman
     renksiz kalmaz. Aynı mekanizma satış kapsamı etiketlerini de renklendirir.
 
-15. **Roller yetki SORUSUYLA sorulur, listeyle değil.** `user_role` dört değer
+15. **Roller yetki SORUSUYLA sorulur, listeyle değil.** `user_role` sekiz değer
     taşır: `admin` (Yönetici) · `manager` (Müdür) · `engineer` (Mühendis) ·
-    `draftsman` (Teknik Ressam). Kod hiçbir yerde rol listesi karşılaştırmaz;
+    `draftsman` (Teknik Ressam) · `purchasing` (Satın Alma) · `planning`
+    (Planlama) · `quality` (Kalite) · `production` (Üretim). Kod hiçbir yerde
+    rol listesi karşılaştırmaz;
     `lib/roles.ts`teki `isAdminRole` / `canSeeSales` / `canEditReports` sorulur.
     Roller HİYERARŞİ DEĞİLDİR — müdür satış rakamlarını görür ama yönetim
     paneline giremez ve hesap raporu yazamaz; mühendis rapor yazar ve taslağını
@@ -877,17 +925,39 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     `lib/__tests__/roles.test.ts`te dondurulmuştur: bir yetkiyi genişleten,
     hangi rollerin etkilendiğini orada görür.
 
-    **GÖREV ETİKETİ ROLÜN YANINA GELİR** (`profiles.tags`, kullanıcı kararı
-    12.08.2026): `satinalma` · `planlama` · `uretim`. Beşinci bir rol
-    AÇILMADI ve bu bilinçlidir — rol TEK DEĞERLİdir ve kişinin uygulamadaki
-    ana kimliğini taşır; satınalmacıyı "Satın Alma" rolüne almak onun mühendis
-    mi müdür mü olduğunu SİLERDİ. Üretim Planlama Sorumlusu hem Müdür'dür
-    (satış takibini görür) hem Planlama işini yapar (satın almayı görür) ve tek
-    değerli bir alanda bu ifade edilemez. Etiket YALNIZ KAPI AÇAR, kapatmaz:
-    etiketi olmayan kimse bugünkü hiçbir yetkisini kaybetmez ve bu bir testle
-    dondurulmuştur. Küme `check (tags <@ array[...])` ile KAPALIDIR — serbest
-    metin bir etiket, bir sabah yetki sorusunun görmediği bir değere dönüşür.
-    Veritabanı karşılığı `has_tag()` ve `can_see_purchasing()`.
+    **GÖREV ETİKETLERİ AÇILDI VE AYNI GÜN KALDIRILDI — dördü de artık ROL**
+    (kullanıcı kararı, 12.08.2026). Satın Alma · Planlama · Üretim sabah
+    `profiles.tags` altında ÇOK DEĞERLİ etiketler olarak açılmıştı; gerekçe
+    "rol tek değerlidir ve «hem Müdür hem Planlama» olan kişiyi ifade edemez"
+    idi. Kullanıcı akşam bunu tersine çevirdi — *"görev etiketi olarak değil
+    direkt Rol olarak … görev etiketine gerek yok"* — ve dördüncüsünü ekledi:
+    *"Hatta Kalite de olsun toplam 4 olsun."*
+
+    **BEDELİ AÇIKÇA KABUL EDİLDİ:** rol TEK DEĞERLİdir, yani Planlama
+    rolündeki bir kişi aynı anda Müdür olamaz (satış, iş takibi ve personel
+    bölümlerini göremez). Kişinin hangi kimlikte duracağı kullanıcının
+    kararıdır. GEÇİŞ YARIM BIRAKILMADI: `profiles.tags` sütunu, `has_tag()`
+    ve `tagsOf`/`hasTag` yardımcıları hem koddan hem veritabanından
+    DÜŞÜRÜLDÜ (migration `20260812150000`) — ikisi bir arada yaşasaydı aynı
+    yetki iki ayrı yerden sorulabilir hâle gelirdi (`drawn` sütununun düşürülme
+    gerekçesiyle birebir aynı). Veri kaybı YOKTU: sütun beş profilin beşinde de
+    boştu, ölçüldü.
+
+    **KALİTE VE ÜRETİM BUGÜN EK BİR KAPI AÇMAZ** ve bu bir eksiklik değil bir
+    kuraldır: rol bir KİMLİKtir, kapı açmak AYRI bir karardır. İkisi de yalnız
+    herkese açık bölümleri görür (İşler · Mühendislik · Teknik Resimler) ve bu
+    `roles.test.ts`te dondurulmuştur. Satın Alma kümesi taşınırken DEĞİŞMEDİ:
+    Yönetici · Satın Alma · Planlama — müdür orada hâlâ yoktur. Veritabanı
+    karşılığı `can_see_purchasing()`.
+
+    **YETKİ EKRANINDA KOD ADI GEÇMEZ** (kullanıcı bildirimi, 12.08.2026:
+    *"yetkiler sayfası biraz karmaşık, İngilizce terimler var"*).
+    `WorkspaceSection.kime`/`yazma` doğrudan ekrana basılır; oraya
+    `(canEditReports)` gibi bir iç ad yazmak, ekranı okuyan yöneticiye hiçbir
+    şey anlatmaz. Kural bir testle korunur (`roles.test.ts` — metinlerde
+    `can[A-Z]` ve `()` aranır). Aynı sebeple `/admin/access` sayfasından bölüm
+    ADRESLERİ (`/jobs`, `/drawings`) ve "RLS" kısaltması kaldırıldı; etiket
+    sözlüğünün yerini ROL sözlüğü aldı.
 
     **MENÜ İLE YETKİ MATRİSİ TEK KAYNAKTAN OKUR** — `WORKSPACE_SECTIONS`
     (`lib/roles.ts`). Liste bir süre `app-shell.tsx`in içindeydi; Yönetim'e
@@ -1355,6 +1425,17 @@ tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
    bir kart markup'ı yazmak sıralama/seçim mantığını ikiye böler ve zamanla
    ayrışır.
 
+   **SÜTUN GİZLEMEK YETMEZ: ESNEK SÜTUN KELEPÇELENİR** (kullanıcı bildirimi,
+   12.08.2026 — Satış Takibi). Tablo düzeni `auto`dur ve bir hücrenin EN DAR
+   hâli metninin tamamı kadardır; `whitespace-nowrap` taşıyan genişlik sınırsız
+   bir sütun, tek bir uzun kayıt yüzünden tabloyu ekranın dışına iter. Ürün adı
+   gibi UZUNLUĞU VERİDEN GELEN her sütun bu yüzden `max-width` + `truncate`
+   taşır ve tam metni `title` ile verir. `max-w-full` bu işi GÖRMEZ — kabın
+   kendisi zaten büyüyor. Sınır tek bir sabit değil kırılım kırılım açılır
+   (`md:max-w-[16rem] … 2xl:max-w-[34rem]`): tek değer ya geniş ekranda yeri
+   boşa harcar ya dar ekranda hâlâ taşırır. Kırpma `md`den başlar; telefonda
+   metin SARAR, çünkü orada kırpılmış metni okutacak bir fare yoktur.
+
 8. **Yatay kaydırma varsa GÖRÜNMELİDİR.** Mobil tarayıcı kaydırma çubuğu
    çizmez; kullanıcı sağda sütun olduğunu bilmez. `globals.css`teki
    `.oc-scrollx` yardımcısı `background-attachment: local/scroll` ikilisiyle
@@ -1482,9 +1563,11 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/lib/calc/presentation/` — sunum tanımları: bölümler, alan metadata'sı,
   kontrol bağlantıları, modül erişimi
 - `src/lib/standards/` — standart kayıt defteri (tablolar + bağıntılar)
-- `src/lib/roles.ts` — kullanıcı rolleri, GÖREV ETİKETLERİ ve yetki soruları
-  (`canSeeSales` · `canSeePurchasing` vb.) + `WORKSPACE_SECTIONS`: sol menünün
-  ve `/admin/access` yetki matrisinin TEK kaynağı
+- `src/lib/roles.ts` — SEKİZ kullanıcı rolü ve yetki soruları
+  (`canSeeSales` · `canSeePurchasing` vb.), `DRAWING_AUTHOR_ROLES` (Teknik
+  Resim Takibi'ndeki "Çizen" seçicisinin sırası) + `WORKSPACE_SECTIONS`: sol
+  menünün ve `/admin/access` yetki matrisinin TEK kaynağı. Görev etiketleri
+  (`profiles.tags`) 12.08.2026'da role dönüştü ve mekanizma kaldırıldı
 - `src/lib/purchasing/` — Satın Alma ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
   `demand.ts` (talep havuzu + `drawingCarpani` resim çarpanı) ·
   `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro) ·
@@ -1552,8 +1635,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/components/charts.tsx` — pano grafikleri (zaman serisi, sıralı çubuk,
   halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ
 - `src/components/combobox.tsx` — aranabilir tek seçimli liste (Türkçe süzgeç)
-- `src/app/(app)/purchasing/` — Satın Alma (Yönetici + «Satın Alma»/«Planlama»
-  etiketi): `data.ts` beş ekranın ORTAK okuma katmanı · `page.tsx` talep havuzu ·
+- `src/app/(app)/purchasing/` — Satın Alma (Yönetici · Satın Alma · Planlama
+  ROLLERİ): `data.ts` beş ekranın ORTAK okuma katmanı · `page.tsx` talep havuzu ·
   `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `export/` Excel ucu
 - `src/app/(app)/admin/access/` — YETKİ MATRİSİ; hesaplanır, elle yazılmaz
 - `src/app/(app)/jobs/[id]/drawing-qty-card.tsx` — resim çarpanı ve kalem

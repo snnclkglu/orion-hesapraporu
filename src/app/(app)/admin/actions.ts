@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { USER_ROLES, USER_TAGS, type UserRole, type UserTag } from "@/lib/roles";
+import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
 import type { ReportSettings } from "@/lib/settings";
 
@@ -49,24 +49,19 @@ async function audit(
 
 // ------------------------------------------------------------------ Kullanıcılar
 
+// GÖREV ETİKETLERİ KALDIRILDI (12.08.2026, kullanıcı kararı): Satın Alma ·
+// Planlama · Üretim artık `role` enum'unun kendi değerleridir. Şemadaki `tags`
+// alanı ve onun "undefined ≠ boş dizi" ayrımı bu yüzden gitti — yazacak bir
+// sütun kalmadı (bkz. migration 20260812150000).
 const userSchema = z.object({
   full_name: z.string().trim().min(1, "Ad soyad gerekli").max(120),
   role: z.enum(USER_ROLES),
   title: z.string().trim().max(120),
-  /**
-   * GÖREV ETİKETLERİ — `undefined` ile boş dizi AYNI ŞEY DEĞİLDİR.
-   *
-   * `undefined` = "etiketlere dokunma" (sütun henüz yok, migration
-   * uygulanmamış); `[]` = "bütün etiketleri kaldır". İkisini karıştırmak,
-   * migration uygulanmadan yapılan her kaydetmede etiketleri sessizce
-   * silmeye çalışırdı.
-   */
-  tags: z.array(z.enum(USER_TAGS)).optional(),
 });
 
 export async function updateUserProfile(
   userId: string,
-  input: { full_name: string; role: UserRole; title: string; tags?: UserTag[] }
+  input: { full_name: string; role: UserRole; title: string }
 ): Promise<AdminActionResult> {
   const ctx = await requireAdmin();
   if ("error" in ctx) return { error: ctx.error };
@@ -95,32 +90,23 @@ export async function updateUserProfile(
     }
   }
 
-  const yuk: Record<string, unknown> = {
-    full_name: parsed.data.full_name,
-    role: parsed.data.role,
-    title: parsed.data.title,
-  };
-  if (parsed.data.tags !== undefined) yuk.tags = parsed.data.tags;
-
-  const { error } = await supabase.from("profiles").update(yuk).eq("id", userId);
-  if (error) {
-    // ETİKET SÜTUNU HENÜZ OLMAYABİLİR (migration ana oturumda uygulanacak).
-    // Bütün kaydetmeyi düşürmek yerine etiketsiz yeniden denenir: rol ve unvan
-    // düzenlemesi bir sütunun yokluğu yüzünden kullanılamaz olmamalı.
-    if (parsed.data.tags === undefined) return { error: error.message };
-    delete yuk.tags;
-    const tekrar = await supabase.from("profiles").update(yuk).eq("id", userId);
-    if (tekrar.error) return { error: tekrar.error.message };
-    return { error: "Rol ve unvan kaydedildi; görev etiketleri için migration gerekiyor." };
-  }
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      full_name: parsed.data.full_name,
+      role: parsed.data.role,
+      title: parsed.data.title,
+    })
+    .eq("id", userId);
+  if (error) return { error: error.message };
 
   await audit(supabase, user.id, "admin.user_update", {
     target_id: userId,
     previous_name: target.full_name,
+    previous_role: target.role,
     full_name: parsed.data.full_name,
     role: parsed.data.role,
     title: parsed.data.title,
-    tags: parsed.data.tags,
   });
 
   revalidatePath("/admin/users");

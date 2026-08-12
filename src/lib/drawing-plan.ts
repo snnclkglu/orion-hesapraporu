@@ -336,7 +336,31 @@ export interface DrawingPlanRow {
   code: string;
   name: string;
   status: DrawingPlanStatus;
+  /**
+   * Grubu ÇİZEN kişinin kimliği (`profiles.id`); atanmamışsa `null`.
+   *
+   * SERBEST METİN DEĞİL BİR BAĞ: ad yazılsaydı aynı kişi "Alkım", "Alkım
+   * Kelleci" ve "A. Kelleci" olarak üç ayrı kişi gibi görünür ve "bu kişi
+   * neler çiziyor" sorusu hiç cevaplanamazdı (İş Takibi'ndeki parça adı
+   * dersinin aynısı, AGENTS md. 17).
+   */
+  drawnBy: string | null;
+  /**
+   * Çizenin görünen adı — okuma katmanı defterden ÇÖZER, ekran uydurmaz.
+   *
+   * Kimlik yanında adın da taşınması bilinçlidir: salt-okunur kipte kartın
+   * elinde kişi listesi olmayabilir (ya da kişinin rolü sonradan değişip
+   * listeden düşmüş olabilir) ve o zaman ekranda dolu bir alan boş görünürdü.
+   */
+  drawnByName: string;
   note: string;
+}
+
+/** "Çizen" seçicisinin bir satırı — ad + rol, sıra `loadDrawingAuthors`ta. */
+export interface DrawingAuthor {
+  id: string;
+  name: string;
+  role: string;
 }
 
 export interface DrawingPlanBandGroup {

@@ -8,8 +8,40 @@
 // Veritabanı karşılığı `public.user_role` enum'udur; RLS tarafında `is_admin()`,
 // `can_see_sales()` ve `can_edit_reports()` fonksiyonları aynı ayrımı uygular
 // (arayüzdeki gizleme tek başına yeterli değildir).
+//
+// ═══════════════════════════════════ GÖREV ETİKETLERİ KALDIRILDI (12.08.2026)
+//
+// Satın Alma · Planlama · Üretim bir süre `profiles.tags` altında ÇOK DEĞERLİ
+// görev etiketleriydi; gerekçesi "bir kişi hem Müdür hem Planlama olabilir" idi.
+// KULLANICI KARARI bunu tersine çevirdi: *"Satın Alma, Planlama ve Üretim'i
+// görev etiketi olarak değil direkt Rol olarak eklemek istiyorum. Görev
+// etiketine gerek yok."* — ve aynı turda dördüncüsü eklendi: *"Hatta Kalite de
+// olsun toplam 4 olsun."*
+//
+// KALİTE VE ÜRETİM BUGÜN EK BİR KAPI AÇMAZ. İkisi de herkese açık bölümleri
+// (İşler · Mühendislik · Teknik Resimler) görür ve başka hiçbir şeyi. Bu bir
+// eksiklik değil bir KURALDIR: bir rol açılırken ona ne verileceği ayrı bir
+// karardır ve sessizce genişletilmez — `uretim` etiketi de tam olarak bu
+// tanımla açılmıştı. Kalite'ye ileride kendi ekranı gerektiğinde soru
+// `canSeeQuality` olarak buraya tek satırla eklenir.
+//
+// Bedeli bilerek kabul edilmiştir ve burada yazılıdır: rol TEK DEĞERLİdir, yani
+// Planlama rolündeki bir kişi aynı anda Müdür OLAMAZ — satış takibini, iş
+// takibini ve personel bölümünü göremez. İki kimlik gerekiyorsa karar
+// kullanıcınındır: kişi hangi rolde duracaksa o role alınır. Etiket mekanizması
+// (`profiles.tags`, `has_tag()`) hem koddan hem veritabanından KALDIRILDI —
+// yanında bırakılsaydı aynı yetki iki ayrı yerden sorulabilir hâle gelirdi.
 
-export const USER_ROLES = ["admin", "manager", "engineer", "draftsman"] as const;
+export const USER_ROLES = [
+  "admin",
+  "manager",
+  "engineer",
+  "draftsman",
+  "purchasing",
+  "planning",
+  "quality",
+  "production",
+] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
@@ -18,14 +50,22 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   manager: "Müdür",
   engineer: "Mühendis",
   draftsman: "Teknik Ressam",
+  purchasing: "Satın Alma",
+  planning: "Planlama",
+  quality: "Kalite",
+  production: "Üretim",
 };
 
 /** Rolün ne yapabildiğini kullanıcıya bir cümleyle anlatan açıklama. */
 export const USER_ROLE_HINTS: Record<UserRole, string> = {
   admin: "Tüm yetkiler: yönetim paneli, kullanıcılar, katalog ve satış.",
-  manager: "Satış takibini görür ve düzenler; yönetim paneline giremez.",
+  manager: "Satış, iş takibi ve personel bölümlerini görür; yönetim paneline giremez.",
   engineer: "Hesap raporu ve iş emri; taslak revizyonu siler, satış rakamlarını göremez.",
   draftsman: "Teknik resim paketlerini yükler ve içe aktarır; satış rakamlarını göremez.",
+  purchasing: "Satın Alma bölümünü görür ve düzenler: teklif, sipariş, teslim, ödeme.",
+  planning: "Satın Alma bölümünü görür ve düzenler; iş sırasını planlar.",
+  quality: "Kalite kontrol tarafındaki kişi; işler, mühendislik ve teknik resimleri görür.",
+  production: "Üretim tarafındaki kişi; işler, mühendislik ve teknik resimleri görür.",
 };
 
 /**
@@ -135,12 +175,17 @@ export function canEditPersonnel(value: string | null | undefined): boolean {
  * rakamından farklı olarak gizlenecek bir yanı yoktur, RLS'te okuma `true`dur.
  * `canSeeDrawings` diye bir soru EKLEMEYİN; önce bu paragrafı çürütün.
  *
- * YAZMA üç roldedir ve bu küme uygulamadaki DİĞER ÜÇ KÜMENİN HİÇBİRİNE eşit
+ * YAZMA üç roldedir ve bu küme uygulamadaki DİĞER KÜMELERİN HİÇBİRİNE eşit
  * değildir — sorunun ayrı sorulma sebebi budur:
  *   · Teknik Ressam paketi ÜRETEN kişidir (rolün tanımı zaten bu).
  *   · Mühendis yanlış kaleme düşmüş bir paketi düzeltip yeniden
  *     eşleştirebilmelidir; ressamı beklemek imalatı durdurur.
  *   · Müdür mühendislik ürünü yazmaz (satış rakamını görür, resmi çizmez).
+ *
+ * ÜRETİM ROLÜ DE BURADA YOKTUR (12.08.2026): rol etiketten devralındı ve
+ * etiket "bugün ek bir kapı açmaz" diye tanımlıydı. Atölyenin üretim tahtasına
+ * yazması isteniyorsa bu ayrı bir karardır ve burada tek satırla verilir —
+ * rol açılırken sessizce genişletilmez.
  *
  * PAKETİ SİLMEK bu soruya DÂHİL DEĞİLDİR: silme 450'yi aşkın depo nesnesini
  * birlikte götürür ve yalnız Yöneticidedir (`is_admin()`), tıpkı projeyi
@@ -151,89 +196,21 @@ export function canEditDrawings(value: string | null | undefined): boolean {
   return r === "admin" || r === "engineer" || r === "draftsman";
 }
 
-// ————————————————————————————————————————————————————————————— ETİKETLER
-
-/**
- * GÖREV ETİKETLERİ — rolün YERİNE geçmez, YANINA gelir.
- *
- * Rol kişinin uygulamadaki ana kimliğidir (mühendis, ressam, müdür) ve TEKTİR.
- * Etiket ise kişinin firmadaki İŞİDİR ve birden çok olabilir: üretim planlama
- * sorumlusu hem Müdür rolündedir hem Planlama işini yapar; satın almacı Mühendis
- * rolünde de olabilir Müdür rolünde de.
- *
- * Beşinci bir rol AÇILMADI ve bu bilinçli bir karardır. Rol tek değerlidir;
- * satınalmacıyı "Satın Alma" rolüne almak, o kişinin mühendis mi müdür mü
- * olduğunu SİLERDİ — Akif Ergüven'in hem Müdür (satış takibini görür) hem
- * Planlama (satın almayı görür) olması gerekiyor ve tek değerli bir alanda bu
- * ifade edilemez.
- *
- * Etiket YALNIZ KAPI AÇAR, kapatmaz: bir etiketi olmayan kimse bugünkü hiçbir
- * yetkisini kaybetmez. Yeni bir bölüm açılırken kural hep bu yönde kurulur.
- */
-export const USER_TAGS = ["satinalma", "planlama", "uretim"] as const;
-
-export type UserTag = (typeof USER_TAGS)[number];
-
-export const USER_TAG_LABELS: Record<UserTag, string> = {
-  satinalma: "Satın Alma",
-  planlama: "Planlama",
-  uretim: "Üretim",
-};
-
-export const USER_TAG_HINTS: Record<UserTag, string> = {
-  satinalma: "Satın Alma bölümünü görür ve düzenler: teklif, sipariş, teslim, ödeme.",
-  planlama: "Satın Alma bölümünü görür ve düzenler; iş sırasını planlar.",
-  uretim: "Üretim tarafındaki kişi; bugün ek bir kapı açmaz.",
-};
-
-/**
- * Bilinmeyen değeri düşürerek etiket listesi üretir.
- *
- * Kaynak `text[]` bir sütundur ve `null` gelebilir; enum'a sonradan değer
- * eklenip sonra kaldırılırsa arayüz çökmemelidir (`roleOf` ile aynı gerekçe).
- * Sıra `USER_TAGS`in sırasına SABİTLENİR: aynı iki etiket iki kullanıcıda iki
- * ayrı düzende görünürse liste okunmaz.
- */
-export function tagsOf(value: readonly string[] | null | undefined): UserTag[] {
-  const küme = new Set(value ?? []);
-  return USER_TAGS.filter((t) => küme.has(t));
-}
-
-export function tagLabel(value: string): string {
-  return USER_TAG_LABELS[value as UserTag] ?? value;
-}
-
-/**
- * Bir kişinin yetki künyesi: rol + etiketler.
- *
- * Tek bir nesne olarak taşınır çünkü bölüm görünürlüğü artık İKİ alana birden
- * bakar ve her çağrı yerinde iki argüman taşımak, birini unutmayı kolaylaştırır
- * — unutulan argüman `undefined` olur ve kapı SESSİZCE kapanır.
- */
-export interface Yetki {
-  role: string;
-  tags: readonly string[];
-}
-
-export function hasTag(y: Yetki, tag: UserTag): boolean {
-  return (y.tags ?? []).includes(tag);
-}
-
 /**
  * Satın Alma bölümü: talep havuzu, teklifler, siparişler, teslim ve ödeme
  * takvimi, fiyat arşivi.
  *
- * Kullanıcı kararı (11.08.2026): "Yönetici, Satın Alma ve Planlama". Müdür
- * BURADA YOKTUR ve bu bir gözden kaçma değildir — müdür satış rakamını görür,
- * satın alma ise tedarikçi fiyatı ve ödeme vadesi taşır; ikisi ayrı bilgidir.
- * Müdürün girmesi gerekiyorsa ona `satinalma` etiketi verilir, kural
- * genişletilmez.
+ * Kullanıcı kararı (11.08.2026): "Yönetici, Satın Alma ve Planlama". Küme
+ * 12.08.2026'da ETİKETTEN ROLE taşındı ama DEĞİŞMEDİ — müdür burada hâlâ
+ * yoktur ve bu bir gözden kaçma değildir: müdür satış rakamını görür, satın
+ * alma ise tedarikçi fiyatı ve ödeme vadesi taşır; ikisi ayrı bilgidir.
  *
  * Veritabanı karşılığı `can_see_purchasing()`; menüden gizlemek yalnız görgü
  * kuralıdır, asıl engel RLS'tir.
  */
-export function canSeePurchasing(y: Yetki): boolean {
-  return isAdminRole(y.role) || hasTag(y, "satinalma") || hasTag(y, "planlama");
+export function canSeePurchasing(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "purchasing" || r === "planning";
 }
 
 /**
@@ -243,8 +220,25 @@ export function canSeePurchasing(y: Yetki): boolean {
  * gerekçe): ileride "planlama görür, yalnız satınalma yazar" ayrımı istenirse
  * bütün çağrı yerlerini gözden geçirme borcu doğmasın.
  */
-export function canEditPurchasing(y: Yetki): boolean {
-  return canSeePurchasing(y);
+export function canEditPurchasing(value: string | null | undefined): boolean {
+  return canSeePurchasing(value);
+}
+
+/**
+ * TEKNİK RESMİ ÇİZEBİLECEK roller — Teknik Resim Takibi'ndeki "Çizen"
+ * seçicisinin listesi (kullanıcı kararı, 12.08.2026: *"Ressam ve Mühendis
+ * rolündekiler listelensin. Önce ressamlar."*).
+ *
+ * SIRA ANLAMLIDIR ve bu yüzden bir dizi döner, bir küme değil: seçici listeyi
+ * bu sırada basar. Ressam işin ASIL sahibidir; mühendis çizim yaptığında
+ * istisnadır ve listenin altında durur. Yönetici bilinçli olarak YOKTUR —
+ * yönetici bir yetki düzeyidir, bir çizim masası değil; gerçekten çizen bir
+ * yönetici varsa ona Mühendis ya da Teknik Ressam rolü verilir.
+ */
+export const DRAWING_AUTHOR_ROLES: readonly UserRole[] = ["draftsman", "engineer"];
+
+export function canBeDrawingAuthor(value: string | null | undefined): boolean {
+  return (DRAWING_AUTHOR_ROLES as readonly string[]).includes(roleOf(value));
 }
 
 // ——————————————————————————————————————————————————————— ÇALIŞMA ALANI
@@ -261,6 +255,11 @@ export function canEditPurchasing(y: Yetki): boolean {
  * `visible` bir ROL LİSTESİ DEĞİL bir SORUDUR: yetkinin tanımı yukarıdaki
  * fonksiyonlarda tek yerde durur, menü de matris de RLS de aynı kaynağı okur.
  * `kime` yalnız o sorunun İNSAN OKUNUR özetidir ve matriste basılır.
+ *
+ * `kime`/`yazma` metinlerinde FONKSİYON ADI GEÇMEZ (kullanıcı bildirimi,
+ * 12.08.2026: *"yetkiler sayfası biraz karmaşık, İngilizce terimler var"*).
+ * Yetki ekranını okuyan kişi yönetici, mühendis ya da müdürdür — kodun iç
+ * adları ona hiçbir şey anlatmaz, yalnız ekranı okunmaz yapar.
  */
 export interface WorkspaceSection {
   href: string;
@@ -270,8 +269,8 @@ export interface WorkspaceSection {
   /** Bölümün ne işe yaradığı; matriste ve menü ipucunda görünür. */
   hint: string;
   /** Görünürlük SORUSU. Verilmeyen bölüm herkese açıktır. */
-  visible?: (y: Yetki) => boolean;
-  /** Sorunun insan okunur özeti — matrisin "Kimler görür" sütunu. */
+  visible?: (role: string) => boolean;
+  /** Sorunun insan okunur özeti — matrisin "Kimler görebilir" sütunu. */
   kime: string;
   /** Yazma yetkisinin özeti; görmekle yazmak ayrıştığında dolar. */
   yazma?: string;
@@ -291,7 +290,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "panel",
     hint: "Hesap raporu projeleri ve revizyon arşivi",
     kime: "Herkes",
-    yazma: "Yönetici · Mühendis (canEditReports)",
+    yazma: "Yönetici · Mühendis",
   },
   // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
   // atölyenin ortak gerçeğidir, bütün roller görür. Yazma yetkisi
@@ -302,7 +301,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "blueprint",
     hint: "Teknik resim paketleri, parça defteri ve üretim tahtası",
     kime: "Herkes",
-    yazma: "Yönetici · Mühendis · Teknik Ressam (canEditDrawings)",
+    yazma: "Yönetici · Mühendis · Teknik Ressam",
   },
   {
     href: "/purchasing",
@@ -310,15 +309,15 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "cart",
     hint: "Talep havuzu, teklifler, siparişler, teslim ve ödeme takvimi",
     visible: canSeePurchasing,
-    kime: "Yönetici · «Satın Alma» etiketi · «Planlama» etiketi",
-    yazma: "Görenlerin tamamı (canEditPurchasing)",
+    kime: "Yönetici · Satın Alma · Planlama",
+    yazma: "Görebilenlerin tamamı",
   },
   {
     href: "/worklog",
     label: "İş Takibi",
     icon: "timesheet",
     hint: "Atölye çalışma saatleri ve adam·saat analizi",
-    visible: (y) => canSeeWorkLog(y.role),
+    visible: canSeeWorkLog,
     kime: "Yönetici · Müdür",
   },
   {
@@ -326,7 +325,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     label: "Satış Takibi",
     icon: "ledger",
     hint: "Sözleşme tutarları, ciro ve Güncel İş Listesi",
-    visible: (y) => canSeeSales(y.role),
+    visible: canSeeSales,
     kime: "Yönetici · Müdür",
   },
   {
@@ -334,21 +333,21 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     label: "Personel",
     icon: "wallet",
     hint: "Personel künyesi ve özlük dosyaları, maaş, bordro, harcirah ve kurlar",
-    visible: (y) => canSeePersonnel(y.role),
+    visible: canSeePersonnel,
     kime: "Yönetici · Müdür",
-    yazma: "Görenlerin tamamı (canEditPersonnel)",
+    yazma: "Görebilenlerin tamamı",
   },
   {
     href: "/admin",
     label: "Yönetim",
     icon: "gauge",
     hint: "Kullanıcılar, yetkiler, kataloglar ve rapor ayarları",
-    visible: (y) => isAdminRole(y.role),
+    visible: isAdminRole,
     kime: "Yalnız Yönetici",
   },
 ];
 
 /** Kullanıcının gerçekten görebildiği bölümler — menü ve matris bunu çağırır. */
-export function visibleSections(y: Yetki): WorkspaceSection[] {
-  return WORKSPACE_SECTIONS.filter((s) => !s.visible || s.visible(y));
+export function visibleSections(role: string): WorkspaceSection[] {
+  return WORKSPACE_SECTIONS.filter((s) => !s.visible || s.visible(role));
 }

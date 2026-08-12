@@ -30,7 +30,7 @@ import { ListOrdered, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Combobox, type ComboOption } from "@/components/combobox";
 import { EditableCombobox } from "@/components/editable-combobox";
@@ -44,10 +44,12 @@ import {
   fullDrawingNo,
   groupDrawingPlan,
   nextFreeCode,
+  type DrawingAuthor,
   type DrawingBand,
   type DrawingPlanRow,
   type DrawingPlanStatus,
 } from "@/lib/drawing-plan";
+import { DRAWING_AUTHOR_ROLES, roleLabel } from "@/lib/roles";
 import { saveDrawingPlan } from "./drawing-plan-actions";
 
 /**
@@ -61,8 +63,20 @@ interface PlanRowState {
   code: string;
   name: string;
   status: DrawingPlanStatus;
+  /** Çizen kişinin kimliği; ATANMADI = kimse seçilmemiş (bkz. sentinel). */
+  drawnBy: string;
   note: string;
 }
+
+/**
+ * "Atanmadı" SEÇENEĞİNİN DEĞERİ — boş dizge OLAMAZ.
+ *
+ * Radix `Select` boş dizgeyi "değer yok" olarak okur ve o seçeneğe basıldığında
+ * tetikleyici yer tutucuya döner; kullanıcı seçimi kaldıramaz, yalnız listeyi
+ * kapatmış olur. Sunucuya giderken bu değer boş dizgeye çevrilir ve orada
+ * `null`a düşer.
+ */
+const ATANMADI = "__yok__";
 
 function yeniAnahtar(): string {
   return `yeni-${crypto.randomUUID()}`;
@@ -75,6 +89,7 @@ function toState(rows: readonly DrawingPlanRow[]): PlanRowState[] {
     code: r.code,
     name: r.name,
     status: r.status,
+    drawnBy: r.drawnBy ?? "",
     note: r.note,
   }));
 }
@@ -82,7 +97,7 @@ function toState(rows: readonly DrawingPlanRow[]): PlanRowState[] {
 /** Kaydedilmemiş değişiklik var mı — "Kaydet" düğmesi buna göre canlanır. */
 function imza(rows: readonly PlanRowState[]): string {
   return JSON.stringify(
-    rows.map((r) => [r.dbId ?? "", r.code, r.name, r.status, r.note])
+    rows.map((r) => [r.dbId ?? "", r.code, r.name, r.status, r.drawnBy, r.note])
   );
 }
 
@@ -131,12 +146,19 @@ export function DrawingPlanCard({
   projectId,
   itemNo,
   initialRows,
+  authors,
   canEdit,
 }: {
   projectId: string;
   /** Resim numarasının kökü ("0055-00"); boşsa yalnız grup kodu gösterilir. */
   itemNo: string;
   initialRows: DrawingPlanRow[];
+  /**
+   * "Çizen" seçicisinin listesi — Teknik Ressam ve Mühendis, ÖNCE RESSAMLAR.
+   * Sıra SUNUCUDA verilir (`loadDrawingAuthors`); burada yeniden sıralanmaz,
+   * yoksa iki sıralama kuralı bir gün ayrışırdı.
+   */
+  authors: DrawingAuthor[];
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<PlanRowState[]>(() => toState(initialRows));
@@ -154,6 +176,22 @@ export function DrawingPlanCard({
     [rows]
   );
 
+  /**
+   * Kimlik → görünen ad. DEFTERDEN GELEN AD DA GİRER, yalnız seçici listesi
+   * değil: bir kişinin rolü sonradan değişirse (ya da işten ayrılırsa) listeden
+   * düşer ve o kişinin çizdiği satırlar ekranda BOŞ görünürdü — oysa o
+   * resimleri gerçekten o çizdi. Güncel liste sonra yazılır, yani ad değişmişse
+   * yeni yazım kazanır.
+   */
+  const adDefteri = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of initialRows) if (r.drawnBy && r.drawnByName) m.set(r.drawnBy, r.drawnByName);
+    for (const a of authors) m.set(a.id, a.name);
+    return m;
+  }, [initialRows, authors]);
+
+  const adiCoz = (id: string): string => (id ? (adDefteri.get(id) ?? "—") : "");
+
   const gruplar = useMemo(
     () =>
       groupDrawingPlan(
@@ -162,6 +200,12 @@ export function DrawingPlanCard({
           code: r.code,
           name: r.name,
           status: r.status,
+          drawnBy: r.drawnBy || null,
+          // GRUPLAMA ÇİZENE BAKMAZ — bant yalnız koddan türer. Ad burada
+          // çözülmez: hesaplanan değer hiçbir yerde okunmadığı hâlde `useMemo`
+          // bağımlılıklarına girer ve liste, kişi defteri her değiştiğinde
+          // boşuna yeniden gruplanırdı. Ekranda okunan ad `adiCoz`tan gelir.
+          drawnByName: "",
           note: r.note,
         }))
       ),
@@ -186,7 +230,7 @@ export function DrawingPlanCard({
     }
     setRows((prev) => [
       ...prev,
-      { key: yeniAnahtar(), code, name: "", status: "bekliyor", note: "" },
+      { key: yeniAnahtar(), code, name: "", status: "bekliyor", drawnBy: "", note: "" },
     ]);
   }
 
@@ -204,6 +248,7 @@ export function DrawingPlanCard({
           code: r.code,
           name: r.name,
           status: r.status,
+          drawnBy: r.drawnBy,
           note: r.note,
         }))
       );
@@ -299,16 +344,22 @@ export function DrawingPlanCard({
               {grup.rows.map((satir) => {
                 const row = rows.find((r) => r.key === satir.id);
                 if (!row) return null;
-                // DAR EKRANDA ÜÇ SATIR, beş değil: numara ve ad kendi tam
-                // genişlik satırlarını alır, "durum · not · sil" tek satırda
-                // toplanır. Beşi alt alta inince tek bir grup satırı 224px
-                // tutuyordu ve altı gruplu bir listede ekran sonsuz kayıyordu.
+                // DAR EKRANDA DÖRT SATIR, altı değil: numara ve ad kendi tam
+                // genişlik satırlarını alır, kalan dört alan İKİŞERLİ iner
+                // ("durum · çizen", sonra "not · sil"). Altısı alt alta inince
+                // tek bir grup satırı 270px'i geçiyordu ve altı gruplu bir
+                // listede ekran sonsuz kayıyordu.
+                //
+                // Izgara `grid-cols-2`dir, `[auto_1fr_auto]` DEĞİL: "çizen"
+                // eklendikten sonra tek satıra sığmayan alanlar üçlü ızgarada
+                // yarım satırlar bırakıyor, sil düğmesi tek başına bir satıra
+                // düşüyordu.
                 return (
                   <li
                     key={row.key}
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 md:grid-cols-[10.5rem_1fr_11rem_12rem_2.5rem]"
+                    className="grid grid-cols-2 items-center gap-2 md:grid-cols-[9.5rem_1fr_9.5rem_10rem_9.5rem_2.5rem]"
                   >
-                    <div className="col-span-3 md:col-span-1">
+                    <div className="col-span-2 md:col-span-1">
                       {canEdit ? (
                         <Combobox
                           options={kodSecenekleri(row)}
@@ -325,7 +376,7 @@ export function DrawingPlanCard({
                       )}
                     </div>
 
-                    <div className="col-span-3 md:col-span-1">
+                    <div className="col-span-2 md:col-span-1">
                       {canEdit ? (
                         // Ad ALANI YAZILABİLİRDİR ve listeden de seçilir:
                         // ekstra gruplarda (kepçe, mıknatıs, müşteriye özel
@@ -368,6 +419,67 @@ export function DrawingPlanCard({
                     ) : (
                       <span className="text-xs text-muted-foreground">
                         {DRAWING_PLAN_STATUSES.find((s) => s.status === row.status)?.label}
+                      </span>
+                    )}
+
+                    {/*
+                      ÇİZEN — NOT'UN HEMEN SOLUNDA (kullanıcı kararı, 12.08.2026).
+                      Liste Teknik Ressam ve Mühendis rollerini taşır ve
+                      ÖNCE RESSAMLARI basar; sıra sunucudan gelir
+                      (`loadDrawingAuthors`), burada yeniden sıralanmaz.
+                      Roller BAŞLIK olarak ayrılır: "önce ressamlar" kuralı
+                      ancak görünürse bir kural olur, yoksa listedeki sıra
+                      rastlantı gibi okunur.
+                    */}
+                    {canEdit ? (
+                      <Select
+                        value={row.drawnBy || ATANMADI}
+                        onValueChange={(v) =>
+                          setRow(row.key, { drawnBy: v === ATANMADI ? "" : v })
+                        }
+                      >
+                        <SelectTrigger
+                          className="h-9 w-full text-xs pointer-coarse:h-11"
+                          aria-label="Çizen"
+                        >
+                          <SelectValue placeholder="Çizen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ATANMADI}>
+                            <span className="text-muted-foreground">Çizen Atanmadı</span>
+                          </SelectItem>
+                          {DRAWING_AUTHOR_ROLES.map((rol) => {
+                            const kisiler = authors.filter((a) => a.role === rol);
+                            if (kisiler.length === 0) return null;
+                            return (
+                              <SelectGroup key={rol}>
+                                <SelectLabel>{roleLabel(rol)}</SelectLabel>
+                                {kisiler.map((a) => (
+                                  <SelectItem key={a.id} value={a.id}>
+                                    {a.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            );
+                          })}
+                          {/*
+                            LİSTEDEN DÜŞMÜŞ KİŞİ SEÇENEK OLARAK KORUNUR: rolü
+                            değişen ya da işten ayrılan birinin çizdiği satır
+                            açıldığında `Select` bilinmeyen bir değerle kalır ve
+                            tetikleyici BOŞ görünürdü — kullanıcı da dolu bir
+                            alanı boş sanıp üzerine yazardı.
+                          */}
+                          {row.drawnBy && !authors.some((a) => a.id === row.drawnBy) && (
+                            <SelectGroup>
+                              <SelectLabel>Listede Değil</SelectLabel>
+                              <SelectItem value={row.drawnBy}>{adiCoz(row.drawnBy)}</SelectItem>
+                            </SelectGroup>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {adiCoz(row.drawnBy) || "—"}
                       </span>
                     )}
 

@@ -30,8 +30,6 @@ import { UploadIndicator } from "@/app/(app)/drawings/new/upload-indicator";
 
 interface AppShellProps {
   role: string;
-  /** Görev etiketleri (`satinalma` · `planlama` · `uretim`) — rolün YANINDA. */
-  tags: readonly string[];
   displayName: string;
   email: string;
   children: React.ReactNode;
@@ -90,7 +88,6 @@ function initials(name: string): string {
 
 function SidebarContent({
   role,
-  tags,
   displayName,
   email,
   pathname,
@@ -99,7 +96,6 @@ function SidebarContent({
   onToggleCollapse,
 }: {
   role: string;
-  tags: readonly string[];
   displayName: string;
   email: string;
   pathname: string | null;
@@ -147,7 +143,7 @@ function SidebarContent({
           </div>
         )}
         <ul className="grid gap-0.5">
-          {visibleSections({ role, tags }).map((item) => {
+          {visibleSections(role).map((item) => {
             const active = pathname?.startsWith(item.href);
             return (
               <li key={item.href}>
@@ -238,7 +234,7 @@ function SidebarContent({
   );
 }
 
-export function AppShell({ role, tags, displayName, email, children }: AppShellProps) {
+export function AppShell({ role, displayName, email, children }: AppShellProps) {
   const pathname = usePathname();
 
   // Revizyon ekranı: hesap raporu editörü ve onun alt sayfaları (ekipman
@@ -434,7 +430,6 @@ export function AppShell({ role, tags, displayName, email, children }: AppShellP
       >
         <SidebarContent
           role={role}
-          tags={tags}
           displayName={displayName}
           email={email}
           pathname={pathname}
@@ -480,7 +475,6 @@ export function AppShell({ role, tags, displayName, email, children }: AppShellP
             </button>
             <SidebarContent
               role={role}
-              tags={tags}
               displayName={displayName}
               email={email}
               pathname={pathname}

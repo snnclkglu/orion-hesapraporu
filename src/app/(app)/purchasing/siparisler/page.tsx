@@ -5,7 +5,7 @@
 // sipariş birden çok kalemi, birden çok projeyi taşır (md. 7).
 
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing, tagsOf } from "@/lib/roles";
+import { canEditPurchasing } from "@/lib/roles";
 import { loadSiparisler } from "../data";
 import { OrdersView } from "./orders-view";
 
@@ -15,17 +15,11 @@ export default async function OrdersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const zengin = user
-    ? await supabase.from("profiles").select("role, tags").eq("id", user.id).maybeSingle()
-    : { data: null, error: null };
-  const profil = zengin.error
-    ? (await supabase.from("profiles").select("role").eq("id", user!.id).maybeSingle()).data
-    : zengin.data;
+  const { data: profil } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
 
-  const yazabilir = canEditPurchasing({
-    role: (profil as { role?: string } | null)?.role ?? "",
-    tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
-  });
+  const yazabilir = canEditPurchasing(profil?.role);
 
   // İPTAL EDİLENLER DE OKUNUR: ekran onları soluk gösterir. Sorgudan düşürmek,
   // "bu siparişi ben iptal etmiştim" diyen kullanıcının kaydını yok etmek olurdu.

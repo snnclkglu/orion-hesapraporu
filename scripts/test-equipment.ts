@@ -73,13 +73,13 @@ const NOTES: EquipmentNotes = {
 const DRAWING_PLAN: EquipmentDrawingPlan = {
   itemNo: "0055-01",
   rows: [
-    { id: "1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
-    { id: "2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "" },
-    { id: "3", code: "0300", name: "BAŞKİRİŞ", status: "bekliyor", note: "" },
-    { id: "4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", note: "" },
-    { id: "5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", note: "" },
-    { id: "6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
-    { id: "7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
+    { id: "1", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", drawnBy: null, drawnByName: "", note: "" },
+    { id: "2", code: "0200", name: "ANA KİRİŞ", status: "kontrol", drawnBy: null, drawnByName: "", note: "" },
+    { id: "3", code: "0300", name: "BAŞKİRİŞ", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+    { id: "4", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", drawnBy: null, drawnByName: "", note: "" },
+    { id: "5", code: "1600", name: "ARABA YÜRÜTME GRUBU", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+    { id: "6", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+    { id: "7", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
   ],
 };
 

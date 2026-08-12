@@ -18,7 +18,7 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing, tagsOf } from "@/lib/roles";
+import { canEditPurchasing } from "@/lib/roles";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import {
   chooseQuoteSchema,
@@ -52,20 +52,13 @@ async function requireWrite(): Promise<Ctx | { error: string }> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı." };
 
-  const zengin = await supabase
+  const { data: profil } = await supabase
     .from("profiles")
-    .select("role, tags")
+    .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const profil = zengin.error
-    ? (await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()).data
-    : zengin.data;
 
-  const yetki = {
-    role: (profil as { role?: string } | null)?.role ?? "",
-    tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
-  };
-  if (!canEditPurchasing(yetki)) {
+  if (!canEditPurchasing(profil?.role)) {
     return { error: "Bu işlem için Satın Alma yetkisi gerekir." };
   }
   return { supabase, userId: user.id };

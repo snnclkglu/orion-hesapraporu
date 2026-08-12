@@ -8,7 +8,7 @@
 // siparişin avansı ile bakiyesi AYRI aylara düşer ve tek satırda gösterilemez.
 
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing, tagsOf } from "@/lib/roles";
+import { canEditPurchasing } from "@/lib/roles";
 import { loadSiparisler } from "../data";
 import { PaymentBoard, type OdemeSatiri } from "./payment-board";
 import { advanceAmount, avansGunu, eurKarsiligi, odemeGunu } from "@/lib/purchasing/terms";
@@ -19,16 +19,10 @@ export default async function PaymentsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const zengin = user
-    ? await supabase.from("profiles").select("role, tags").eq("id", user.id).maybeSingle()
-    : { data: null, error: null };
-  const profil = zengin.error
-    ? (await supabase.from("profiles").select("role").eq("id", user!.id).maybeSingle()).data
-    : zengin.data;
-  const yazabilir = canEditPurchasing({
-    role: (profil as { role?: string } | null)?.role ?? "",
-    tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
-  });
+  const { data: profil } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const yazabilir = canEditPurchasing(profil?.role);
 
   const siparisler = await loadSiparisler(supabase);
 

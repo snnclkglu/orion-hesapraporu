@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/page-header";
 export default function ShellRevisionPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
   return (
-    <AppShell role="admin" tags={["satinalma"]} displayName="Sinan Çolakoğlu" email="sinan@vigowood.com">
+    <AppShell role="admin" displayName="Sinan Çolakoğlu" email="sinan@vigowood.com">
       <div className="grid gap-3">
         <PageHeader
           title="Kabuk · Revizyon Ekranı (dev)"

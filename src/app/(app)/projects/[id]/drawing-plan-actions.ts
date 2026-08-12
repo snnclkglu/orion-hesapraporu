@@ -35,6 +35,14 @@ const rowSchema = z.object({
     .regex(/^[0-9]{4}$/, "Grup kodu dört rakam olmalı (ör. 0100)"),
   name: z.string().trim().max(120).default(""),
   status: z.enum(STATUS_VALUES).default("bekliyor"),
+  /**
+   * Grubu çizen kişi (`profiles.id`) — BOŞ DİZGE `null` demektir.
+   *
+   * Ekran "Atanmadı"yı bir sentinel değerle taşır ve buraya boş dizge olarak
+   * gelir; `null` ile boş dizge aynı şey sayılmazsa Postgres uuid sütununa
+   * `""` yazmayı dener ve satır tümüyle reddedilirdi.
+   */
+  drawnBy: z.union([z.uuid(), z.literal("")]).optional().default(""),
   note: z.string().trim().max(300).default(""),
 });
 
@@ -126,6 +134,7 @@ export async function saveDrawingPlan(
     code: r.code,
     name: r.name,
     status: r.status,
+    drawn_by: r.drawnBy || null,
     note: r.note,
     updated_at: simdi,
     updated_by: user.id,

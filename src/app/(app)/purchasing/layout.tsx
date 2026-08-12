@@ -8,7 +8,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canSeePurchasing, tagsOf } from "@/lib/roles";
+import { canSeePurchasing } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PurchasingNav } from "./purchasing-nav";
 
@@ -20,23 +20,15 @@ export default async function PurchasingLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Etiket sütunu iki denemede okunur — migration uygulanmadan önce sorgunun
-  // tamamı düşerdi ve YÖNETİCİ bile bölüme giremezdi (kabuktaki kalıbın aynısı).
-  let profil: { role?: string; tags?: string[] } | null = null;
-  if (user) {
-    const zengin = await supabase
-      .from("profiles")
-      .select("role, tags")
-      .eq("id", user.id)
-      .maybeSingle();
-    profil = zengin.error
-      ? (
-          await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
-        ).data
-      : zengin.data;
-  }
+  // Yetki artık TEK BİR SÜTUNDAN okunur (12.08.2026): görev etiketleri role
+  // dönüştü, `tags` sütunu düşürüldü. Etiket döneminden kalan "zengin sorgu +
+  // dar yedek" ikilisi de bu yüzden kalktı — okunan alan `profiles`ın ilk
+  // günden beri var olan `role` sütunudur, düşecek bir sorgu yoktur.
+  const { data: profil } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
 
-  if (!canSeePurchasing({ role: profil?.role ?? "", tags: tagsOf(profil?.tags) })) {
+  if (!canSeePurchasing(profil?.role)) {
     redirect("/jobs");
   }
 

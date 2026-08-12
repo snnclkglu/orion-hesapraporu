@@ -48,6 +48,28 @@ const AT_SM = "hidden sm:table-cell";
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
 
+/**
+ * ÜRÜN ADI KIRPILIR — sütun genişliği ürün adına göre BÜYÜYEMEZ.
+ *
+ * Kullanıcı bildirimi (12.08.2026): *"bazı işlerin ismi çok uzun olduğu için
+ * sayfa yatayda sığmamış."* Sebep tek bir sınıftı: ürün hücresi `md` üstünde
+ * `whitespace-nowrap` taşıyordu ve genişlik sınırı YOKTU. Tablo düzeni
+ * `auto`dur, yani bir hücrenin en dar hâli metninin tamamı kadardır —
+ * "CÜRUF POTA TUMBA TESİSİ 100/50 TON KÖPRÜLÜ VİNÇ" gibi bir ad tek başına
+ * sütunu 30rem'e çıkarıyor ve tabloyu ekranın dışına itiyordu.
+ *
+ * ÇÖZÜM KAPSAYICIDA DEĞİL HÜCREDE: `max-width` taşıyan bir blok, hücrenin
+ * "doğal" genişliğini de o değere kelepçeler. Kırpma `md`den başlar; telefonda
+ * ad SARAR, çünkü orada kırpılan metni okutacak bir fare yoktur ve satırın
+ * ikinci bilgi şeridi zaten oradadır.
+ *
+ * Sınır ekranla birlikte açılır: dar masaüstünde 16rem, geniş ekranda 34rem.
+ * Tek bir sabit değer ya geniş ekranda yeri boşa harcar ya dar ekranda hâlâ
+ * taşırdı. Tam ad `title` ile durur (kullanıcının istediği davranış).
+ */
+const URUN_GENISLIK =
+  "md:max-w-[16rem] md:truncate lg:max-w-[20rem] xl:max-w-[26rem] 2xl:max-w-[34rem]";
+
 function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -421,7 +443,9 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     {r.itemNo || "—"}
                   </TableCell>
                   <TableCell className="font-medium whitespace-normal md:whitespace-nowrap">
-                    {r.productName}
+                    <span className={cn("block", URUN_GENISLIK)} title={r.productName}>
+                      {r.productName}
+                    </span>
                     {/* Telefonda düşen sütunların kritik olanları burada durur. */}
                     <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground md:hidden">
                       {[
@@ -447,7 +471,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     />
                   </TableCell>
                   <TableCell className={AT_LG}>
-                    <ScopeTag scope={r.sale.scope} />
+                    {/* Kapsam da başlıktaki 15rem'e kelepçelenir: `scopeLabel`
+                        metni 46 karakterde kesiyor ama 46 karakter de ~18rem
+                        eder ve sütun sessizce başlığından geniş çıkardı.
+                        Kırpmayı etiketin İÇİNDEKİ span yapar (bkz. tags.tsx),
+                        tam metin `title` ile durur. */}
+                    <ScopeTag scope={r.sale.scope} className="max-w-[15rem]" />
                   </TableCell>
                   <TableCell
                     className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_MD)}

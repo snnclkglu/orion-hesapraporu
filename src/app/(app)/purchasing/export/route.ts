@@ -19,7 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import ExcelJS from "exceljs";
 import { createClient } from "@/lib/supabase/server";
 import { COMPANY_NAME } from "@/lib/app";
-import { canSeePurchasing, tagsOf } from "@/lib/roles";
+import { canSeePurchasing } from "@/lib/roles";
 import { autoWidth, styleHeaderRow, writeTitleBlock } from "@/lib/excel/brand";
 import { getReportSettings } from "@/lib/settings";
 import { renderPurchaseRequestPdf, type PurchaseRequestRow } from "@/lib/pdf/purchase-request";
@@ -81,24 +81,15 @@ async function uret(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Oturum bulunamadı.", { status: 401 });
 
-  const zengin = await supabase
+  const { data: profil } = await supabase
     .from("profiles")
-    .select("role, tags, full_name")
+    .select("role, full_name")
     .eq("id", user.id)
     .maybeSingle();
-  const profil = zengin.error
-    ? (await supabase.from("profiles").select("role, full_name").eq("id", user.id).maybeSingle())
-        .data
-    : zengin.data;
 
   // YETKİ BURADA DA SORULUR. RLS zaten keser ama boş bir Excel indirmek,
   // "yetkiniz yok" demekten çok daha kafa karıştırıcıdır.
-  if (
-    !canSeePurchasing({
-      role: (profil as { role?: string } | null)?.role ?? "",
-      tags: tagsOf((profil as { tags?: string[] } | null)?.tags),
-    })
-  ) {
+  if (!canSeePurchasing(profil?.role)) {
     return new NextResponse("Bu bölüm için yetkiniz yok.", { status: 403 });
   }
 

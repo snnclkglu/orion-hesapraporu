@@ -8,11 +8,15 @@
 import { describe, expect, it } from "vitest";
 import * as rolesModule from "../roles";
 import {
+  DRAWING_AUTHOR_ROLES,
   USER_ROLES,
+  canBeDrawingAuthor,
   canEditDrawings,
   canEditPersonnel,
+  canEditPurchasing,
   canEditReports,
   canSeePersonnel,
+  canSeePurchasing,
   canSeeSales,
   canSeeWorkLog,
   isAdminRole,
@@ -64,7 +68,7 @@ describe("yetki soruları", () => {
 
   it("teknik resim yükleme Yönetici, Mühendis ve Teknik Ressamda", () => {
     // Ressam paketi üretir; mühendis yanlış kaleme düşmüş paketi düzeltmek
-    // için ressamı beklememelidir. Bu küme diğer üçünün hiçbirine eşit değil.
+    // için ressamı beklememelidir. Bu küme diğerlerinin hiçbirine eşit değil.
     expect(evetDiyenler(canEditDrawings)).toEqual(["admin", "engineer", "draftsman"]);
   });
 
@@ -103,68 +107,92 @@ describe("roleOf", () => {
     // Güvenli düşüş yetki VERMEMELİ.
     expect(isAdminRole("bilinmeyen")).toBe(false);
     expect(canSeeSales(null)).toBe(false);
+    expect(canSeePurchasing("bilinmeyen")).toBe(false);
   });
 
   it("etiketler Türkçedir", () => {
     expect(roleLabel("admin")).toBe("Yönetici");
     expect(roleLabel("engineer")).toBe("Mühendis");
+    expect(roleLabel("purchasing")).toBe("Satın Alma");
+    expect(roleLabel("planning")).toBe("Planlama");
+    expect(roleLabel("quality")).toBe("Kalite");
+    expect(roleLabel("production")).toBe("Üretim");
   });
 });
 
-// ═══════════════════════════════════════════ GÖREV ETİKETLERİ (11.08.2026)
+// ═════════════════════════ SATIN ALMA · PLANLAMA · ÜRETİM ROLLERİ (12.08.2026)
 //
-// Etiket rolün YERİNE geçmez, YANINA gelir. Aşağıdaki testler o sözü
-// dondurur: bir etiket eklemek hiçbir mevcut yetkiyi DEĞİŞTİRMEMELİDİR.
+// Bu üçü bir gün önce ÇOK DEĞERLİ görev etiketleriydi (`profiles.tags`) ve
+// kullanıcı kararıyla ROL oldu: *"görev etiketi olarak değil direkt Rol olarak
+// … görev etiketine gerek yok."* Aşağıdaki testler iki şeyi birden dondurur:
+// (a) kümenin kendisi taşınırken DEĞİŞMEDİ, (b) etiket mekanizması gerçekten
+// kalktı — yarısı kalmış bir geçiş, aynı yetkinin iki yerden sorulması demek
+// olurdu.
 
-describe("görev etiketleri", () => {
-  const { USER_TAGS, canSeePurchasing, canEditPurchasing, hasTag, tagsOf } = rolesModule;
-
-  it("etiket YALNIZ KAPI AÇAR, hiçbirini kapatmaz", () => {
-    const rolsuz = { role: "engineer", tags: [] as string[] };
-    const etiketli = { role: "engineer", tags: ["satinalma"] };
-    // Etiketten önce ve sonra DİĞER yetkiler aynı kalır.
-    for (const y of [rolsuz, etiketli]) {
-      expect(canEditReports(y.role)).toBe(true);
-      expect(canSeeSales(y.role)).toBe(false);
-      expect(isAdminRole(y.role)).toBe(false);
-    }
-    // Değişen tek şey satın almadır.
-    expect(canSeePurchasing(rolsuz)).toBe(false);
-    expect(canSeePurchasing(etiketli)).toBe(true);
-  });
-
-  it("Satın Alma: Yönetici + «satinalma» + «planlama» — MÜDÜR DEĞİL", () => {
-    // Kullanıcı kararı: "Yönetici Admin Satın Alma ve Planlama bölümlerine
-    // açık olsun." Müdür listede YOKTUR ve bu bir gözden kaçma değildir.
-    expect(canSeePurchasing({ role: "admin", tags: [] })).toBe(true);
-    expect(canSeePurchasing({ role: "manager", tags: [] })).toBe(false);
-    expect(canSeePurchasing({ role: "engineer", tags: ["satinalma"] })).toBe(true);
-    expect(canSeePurchasing({ role: "manager", tags: ["planlama"] })).toBe(true);
-    expect(canSeePurchasing({ role: "draftsman", tags: ["uretim"] })).toBe(false);
+describe("satın alma rolleri", () => {
+  it("Satın Alma: Yönetici · Satın Alma · Planlama — MÜDÜR DEĞİL", () => {
+    // Küme etiket döneminden AYNEN devralındı. Müdür listede YOKTUR ve bu bir
+    // gözden kaçma değildir: müdür satış rakamını görür, satın alma tedarikçi
+    // fiyatı ve ödeme vadesi taşır.
+    expect(evetDiyenler(canSeePurchasing)).toEqual(["admin", "purchasing", "planning"]);
   });
 
   it("yazma bugün görmeyle aynı kümedir ama AYRI bir sorudur", () => {
-    for (const y of [
-      { role: "admin", tags: [] },
-      { role: "engineer", tags: ["satinalma"] },
-      { role: "draftsman", tags: [] },
-    ]) {
-      expect(canEditPurchasing(y)).toBe(canSeePurchasing(y));
+    for (const r of USER_ROLES) expect(canEditPurchasing(r)).toBe(canSeePurchasing(r));
+  });
+
+  it("KALİTE ve ÜRETİM rolleri bugün ek bir kapı AÇMAZ", () => {
+    // `uretim` etiketi de öyle tanımlıydı ("bugün ek bir kapı açmaz") ve rol
+    // olurken sessizce genişletilmedi; Kalite aynı gün aynı tanımla eklendi.
+    // Birine ekran açmak AYRI bir karardır ve o gün buraya tek satır yazılır.
+    for (const rol of ["quality", "production"]) {
+      expect(canSeePurchasing(rol), rol).toBe(false);
+      expect(canEditDrawings(rol), rol).toBe(false);
+      expect(canSeeSales(rol), rol).toBe(false);
+      expect(canSeeWorkLog(rol), rol).toBe(false);
+      expect(canSeePersonnel(rol), rol).toBe(false);
+      expect(canEditReports(rol), rol).toBe(false);
+      expect(isAdminRole(rol), rol).toBe(false);
     }
   });
 
-  it("tagsOf bilinmeyeni düşürür ve SIRAYI sabitler", () => {
-    expect(tagsOf(["uretim", "satinalma", "yok"])).toEqual(["satinalma", "uretim"]);
-    expect(tagsOf(null)).toEqual([]);
-    expect(tagsOf(undefined)).toEqual([]);
+  it("rol kümesi dondurulmuştur", () => {
+    expect([...USER_ROLES]).toEqual([
+      "admin",
+      "manager",
+      "engineer",
+      "draftsman",
+      "purchasing",
+      "planning",
+      "quality",
+      "production",
+    ]);
   });
 
-  it("etiket kümesi dondurulmuştur", () => {
-    expect([...USER_TAGS]).toEqual(["satinalma", "planlama", "uretim"]);
+  it("GÖREV ETİKETİ MEKANİZMASI KALDIRILDI", () => {
+    // Yarım bırakılmış bir geçiş en pahalı sonuçtur: aynı yetki iki yerden
+    // sorulabilir hâle gelir. Modülde etiketten kalan hiçbir dışa aktarım
+    // OLMAMALIDIR.
+    for (const ad of ["USER_TAGS", "USER_TAG_LABELS", "USER_TAG_HINTS", "tagsOf", "tagLabel", "hasTag"]) {
+      expect(Object.keys(rolesModule), `${ad} hâlâ dışa aktarılıyor`).not.toContain(ad);
+    }
+  });
+});
+
+// ══════════════════════════════════════════════ TEKNİK RESMİ ÇİZEN (md. 4)
+
+describe("çizen rolleri", () => {
+  it("Teknik Ressam ve Mühendis — ÖNCE RESSAMLAR", () => {
+    // Kullanıcı kararı (12.08.2026): "Ressam ve Mühendis rolündekiler
+    // listelensin. Önce ressamlar." SIRA testin konusudur; bir küme değil bir
+    // dizidir ve seçici listeyi bu sırada basar.
+    expect([...DRAWING_AUTHOR_ROLES]).toEqual(["draftsman", "engineer"]);
   });
 
-  it("hasTag boş listede yetki vermez", () => {
-    expect(hasTag({ role: "admin", tags: [] }, "satinalma")).toBe(false);
+  it("başka hiçbir rol çizen olarak listelenmez", () => {
+    expect(evetDiyenler(canBeDrawingAuthor)).toEqual(["engineer", "draftsman"]);
+    expect(canBeDrawingAuthor("admin")).toBe(false);
+    expect(canBeDrawingAuthor("production")).toBe(false);
   });
 });
 
@@ -180,14 +208,23 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     }
   });
 
+  it("özet metinlerinde FONKSİYON ADI geçmez", () => {
+    // Kullanıcı bildirimi (12.08.2026): "İngilizce terimler var." `kime` ve
+    // `yazma` doğrudan ekrana basılır; oraya `canEditReports` gibi bir iç ad
+    // yazmak, yetki ekranını okuyan yöneticiye hiçbir şey anlatmaz.
+    for (const s of WORKSPACE_SECTIONS) {
+      for (const metin of [s.kime, s.yazma ?? ""]) {
+        expect(metin, `${s.href}: '${metin}' kod adı taşıyor`).not.toMatch(/can[A-Z]|\(\)/);
+      }
+    }
+  });
+
   it("Yönetici bütün bölümleri görür", () => {
-    expect(visibleSections({ role: "admin", tags: [] })).toHaveLength(
-      WORKSPACE_SECTIONS.length
-    );
+    expect(visibleSections("admin")).toHaveLength(WORKSPACE_SECTIONS.length);
   });
 
   it("Teknik Ressam satış, iş takibi, satın alma, personel ve yönetimi GÖRMEZ", () => {
-    const gorunen = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
+    const gorunen = visibleSections("draftsman").map((s) => s.href);
     expect(gorunen).toContain("/drawings");
     expect(gorunen).toContain("/jobs");
     expect(gorunen).not.toContain("/sales");
@@ -198,12 +235,8 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
   });
 
   it("Müdür personel bölümünü görür, Mühendis görmez", () => {
-    expect(visibleSections({ role: "manager", tags: [] }).map((s) => s.href)).toContain(
-      "/personnel"
-    );
-    expect(visibleSections({ role: "engineer", tags: [] }).map((s) => s.href)).not.toContain(
-      "/personnel"
-    );
+    expect(visibleSections("manager").map((s) => s.href)).toContain("/personnel");
+    expect(visibleSections("engineer").map((s) => s.href)).not.toContain("/personnel");
   });
 
   it("her bölümün ikonu ikon defterinde VARDIR", async () => {
@@ -217,12 +250,25 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     }
   });
 
-  it("«satinalma» etiketi YALNIZ Satın Alma'yı ekler", () => {
-    const once = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
-    const sonra = visibleSections({ role: "draftsman", tags: ["satinalma"] }).map((s) => s.href);
-    expect(sonra).toEqual([...once, "/purchasing"].sort((a, b) =>
-      WORKSPACE_SECTIONS.findIndex((s) => s.href === a) -
-      WORKSPACE_SECTIONS.findIndex((s) => s.href === b)
-    ));
+  it("Satın Alma rolü YALNIZ Satın Alma'yı ekler", () => {
+    // Etiket döneminin sözü ("etiket yalnız kapı açar") rol düzeninde de
+    // ölçülür: Satın Alma rolü, Teknik Ressam'ın gördüklerine yalnız tek bir
+    // bölüm ekler — daha fazlasını değil.
+    const ressam = visibleSections("draftsman").map((s) => s.href);
+    const satinalma = visibleSections("purchasing").map((s) => s.href);
+    expect(satinalma).toEqual(
+      [...ressam, "/purchasing"].sort(
+        (a, b) =>
+          WORKSPACE_SECTIONS.findIndex((s) => s.href === a) -
+          WORKSPACE_SECTIONS.findIndex((s) => s.href === b)
+      )
+    );
+  });
+
+  it("Kalite ve Üretim rolleri Teknik Ressam ile AYNI bölümleri görür", () => {
+    const ressam = visibleSections("draftsman").map((s) => s.href);
+    for (const rol of ["quality", "production"]) {
+      expect(visibleSections(rol).map((s) => s.href), rol).toEqual(ressam);
+    }
   });
 });

@@ -34,11 +34,11 @@ export default function EquipmentPreviewPage() {
   const summary = buildSummarySections(V5_TEMPLATE, runCalc(V5_TEMPLATE), {
     itemNo: "0055-00",
     rows: [
-      { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", note: "" },
-      { id: "b", code: "0200", name: "ANA KİRİŞ", status: "kontrol", note: "" },
-      { id: "c", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", note: "" },
-      { id: "d", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", note: "" },
-      { id: "e", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", note: "" },
+      { id: "a", code: "0100", name: "KÖPRÜ YÜRÜTME GRUBU", status: "cizildi", drawnBy: null, drawnByName: "", note: "" },
+      { id: "b", code: "0200", name: "ANA KİRİŞ", status: "kontrol", drawnBy: null, drawnByName: "", note: "" },
+      { id: "c", code: "1500", name: "ANA ARABA KOMPLESİ", status: "ciziliyor", drawnBy: null, drawnByName: "", note: "" },
+      { id: "d", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
+      { id: "e", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
     ],
   });
   const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(groups));

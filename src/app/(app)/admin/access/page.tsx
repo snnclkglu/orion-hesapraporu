@@ -15,22 +15,31 @@
 // anlatabilir ve bu, bir yetki ekranında olabilecek en kötü hatadır. Kural
 // değişince matris kendiliğinden değişir; kimse güncellemeyi unutamaz.
 //
-// EKRAN İKİ TABLODUR ÇÜNKÜ İKİ AYRI SORU VAR:
-//   1. KURAL — bölüm hangi role/etikete açık? (tanım)
-//   2. KİŞİ  — bugün kim neyi görüyor? (gerçek)
-// İkincisi olmadan yönetici "Akif bu sayfayı görüyor mu" sorusunu ancak Akif'in
-// hesabına girerek cevaplayabilirdi.
+// ═════════════════════════════ EKRAN SADELEŞTİRİLDİ (12.08.2026, kullanıcı)
+//
+// Bildirim aynen şuydu: *"yetkiler sayfası biraz karmaşık. İngilizce terimler
+// var. düzeltelim."* Üç şey kaldırıldı ve üçü de KURALDIR:
+//
+//   1. FONKSİYON ADLARI. Sütunlarda "Yönetici · Mühendis (canEditReports)"
+//      yazıyordu. Bu ekranı okuyan kişi yönetici ya da müdürdür; kodun iç adı
+//      ona hiçbir şey anlatmaz, yalnız cümleyi okunmaz yapar. Kodun kaynağı
+//      zaten `lib/roles.ts`tir ve orayı açan kişinin ekrana ihtiyacı yoktur.
+//   2. ADRESLER. Bölüm adının altında `/jobs`, `/drawings` gibi yollar duruyordu
+//      — bölümün kimliği ekranda ADIdır, adresi değil.
+//   3. KISALTMALAR. "RLS" yerine ne olduğu Türkçe yazılır.
+//
+// Etiket sözlüğünün yerini ROL sözlüğü aldı: görev etiketleri (Satın Alma ·
+// Planlama · Üretim) aynı gün role dönüştü, yani artık tek bir sözlük var.
 
 import { Check, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
-  USER_TAGS,
-  USER_TAG_HINTS,
-  USER_TAG_LABELS,
+  USER_ROLES,
+  USER_ROLE_HINTS,
+  USER_ROLE_LABELS,
   WORKSPACE_SECTIONS,
   roleLabel,
-  tagsOf,
-  type Yetki,
+  roleOf,
 } from "@/lib/roles";
 import {
   Table,
@@ -44,25 +53,15 @@ import {
 export default async function AdminAccessPage() {
   const supabase = await createClient();
 
-  // Etiket sütunu iki denemede okunur (migration öncesi de çalışsın).
-  const zengin = await supabase
+  const { data: profiller } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, tags")
+    .select("id, full_name, email, role")
     .order("full_name");
-  const profiller = (zengin.error
-    ? (
-        await supabase.from("profiles").select("id, full_name, email, role").order("full_name")
-      ).data
-    : zengin.data) as
-    | { id: string; full_name: string; email: string; role: string; tags?: string[] }[]
-    | null;
-  const etiketDefteriVar = !zengin.error;
 
   const kisiler = (profiller ?? []).map((p) => ({
     id: p.id,
     ad: p.full_name || p.email || "—",
-    email: p.email ?? "",
-    yetki: { role: p.role ?? "", tags: tagsOf(p.tags) } satisfies Yetki,
+    rol: p.role ?? "",
   }));
 
   return (
@@ -70,43 +69,41 @@ export default async function AdminAccessPage() {
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Yetkiler</h2>
         <p className="text-sm text-muted-foreground">
-          Çalışma Alanındaki her bölümün kimlere açık olduğunu gösterir. Tablo{" "}
+          Her kullanıcının <strong>tek bir rolü</strong> vardır; uygulamada neyi görebildiğini
+          ve neyi değiştirebildiğini o rol belirler. Aşağıdaki tablolar elle yazılmaz,{" "}
           <strong>hesaplanır</strong>: sol menü ile bu sayfa aynı kaynağı okur, ayrışamazlar.
-          Menüden gizlemek yalnız görgü kuralıdır — asıl engel veritabanındaki satır düzeyi
-          güvenliktir (RLS).
+          Rolü değiştirmek için <strong>Kullanıcılar</strong> sayfasına gidin.
         </p>
       </div>
 
-      {/* ————————————————————————————————————— 1. KURAL TABLOSU */}
+      {/* ————————————————————————————————————— 1. ROL SÖZLÜĞÜ */}
       <section className="grid gap-2">
-        <h3 className="text-sm font-medium">Bölüm Kuralları</h3>
-        <div className="oc-scrollx rounded-lg border [--oc-scroll-bg:var(--card)]">
+        <h3 className="text-sm font-medium">Roller</h3>
+        <div className="rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Bölüm</TableHead>
-                <TableHead>Ne işe yarar</TableHead>
-                <TableHead>Kimler görür</TableHead>
-                <TableHead className="hidden lg:table-cell">Kimler yazar</TableHead>
+                <TableHead className="w-44">Rol</TableHead>
+                <TableHead>Ne yapabilir</TableHead>
+                <TableHead className="w-40 whitespace-normal">Görebildiği bölümler</TableHead>
+                <TableHead className="w-20 text-right">Kişi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {WORKSPACE_SECTIONS.map((s) => (
-                <TableRow key={s.href}>
-                  <TableCell className="align-top font-medium whitespace-nowrap">
-                    {s.label}
-                    <span className="block font-mono text-[11px] text-muted-foreground">
-                      {s.href}
-                    </span>
+              {USER_ROLES.map((r) => (
+                <TableRow key={r}>
+                  <TableCell className="align-top font-medium">{USER_ROLE_LABELS[r]}</TableCell>
+                  <TableCell className="align-top text-[12px] whitespace-normal text-muted-foreground">
+                    {USER_ROLE_HINTS[r]}
                   </TableCell>
-                  <TableCell className="max-w-[22rem] align-top text-[12px] whitespace-normal text-muted-foreground">
-                    {s.hint}
-                  </TableCell>
+                  {/* Sayı da SORULARIN cevabından çıkar, elle yazılmaz. */}
                   <TableCell className="align-top text-[12px] whitespace-normal">
-                    {s.kime}
+                    {WORKSPACE_SECTIONS.filter((s) => !s.visible || s.visible(r))
+                      .map((s) => s.label)
+                      .join(" · ")}
                   </TableCell>
-                  <TableCell className="hidden max-w-[18rem] align-top text-[12px] whitespace-normal text-muted-foreground lg:table-cell">
-                    {s.yazma ?? "Görenlerin tamamı"}
+                  <TableCell className="align-top text-right font-mono text-[12px] tabular-nums">
+                    {kisiler.filter((k) => roleOf(k.rol) === r).length}
                   </TableCell>
                 </TableRow>
               ))}
@@ -115,12 +112,54 @@ export default async function AdminAccessPage() {
         </div>
       </section>
 
-      {/* ————————————————————————————————————— 2. KİŞİ MATRİSİ */}
+      {/* ————————————————————————————————————— 2. BÖLÜM KURALLARI */}
+      <section className="grid gap-2">
+        <h3 className="text-sm font-medium">Bölümler</h3>
+        <div className="oc-scrollx rounded-lg border [--oc-scroll-bg:var(--card)]">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-40">Bölüm</TableHead>
+                <TableHead>Ne işe yarar</TableHead>
+                <TableHead className="w-52">Kimler görebilir</TableHead>
+                <TableHead className="hidden w-52 lg:table-cell">
+                  Kimler değiştirebilir
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {WORKSPACE_SECTIONS.map((s) => (
+                <TableRow key={s.href}>
+                  <TableCell className="align-top font-medium whitespace-normal">
+                    {s.label}
+                  </TableCell>
+                  <TableCell className="max-w-[22rem] align-top text-[12px] whitespace-normal text-muted-foreground">
+                    {s.hint}
+                  </TableCell>
+                  <TableCell className="align-top text-[12px] whitespace-normal">
+                    {s.kime}
+                  </TableCell>
+                  <TableCell className="hidden align-top text-[12px] whitespace-normal text-muted-foreground lg:table-cell">
+                    {s.yazma ?? "Görebilenlerin tamamı"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      {/* ————————————————————————————————————— 3. KİŞİ MATRİSİ */}
       <section className="grid gap-2">
         <h3 className="text-sm font-medium">Kişi Bazında Erişim</h3>
-        <p className="text-[12px] text-muted-foreground">
-          Her hücre, sol menünün o kullanıcı için sorduğu sorunun cevabıdır. Rolü ve görev
-          etiketlerini değiştirmek için <strong>Kullanıcılar</strong> sayfasına gidin.
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+          <span>Her hücre, sol menünün o kullanıcı için verdiği cevaptır.</span>
+          <span className="inline-flex items-center gap-1">
+            <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" /> açık
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Minus className="size-3.5 text-muted-foreground/40" /> kapalı
+          </span>
         </p>
         <div className="oc-scrollx rounded-lg border [--oc-scroll-bg:var(--card)]">
           <Table>
@@ -140,13 +179,11 @@ export default async function AdminAccessPage() {
                   <TableCell className="sticky left-0 bg-card align-top whitespace-nowrap">
                     <span className="block text-[13px] font-medium">{k.ad}</span>
                     <span className="block text-[11px] text-muted-foreground">
-                      {roleLabel(k.yetki.role)}
-                      {k.yetki.tags.length > 0 &&
-                        ` · ${k.yetki.tags.map((t) => USER_TAG_LABELS[t]).join(" · ")}`}
+                      {roleLabel(k.rol)}
                     </span>
                   </TableCell>
                   {WORKSPACE_SECTIONS.map((s) => {
-                    const acik = !s.visible || s.visible(k.yetki);
+                    const acik = !s.visible || s.visible(k.rol);
                     return (
                       <TableCell key={s.href} className="text-center align-top">
                         {acik ? (
@@ -180,46 +217,11 @@ export default async function AdminAccessPage() {
         </div>
       </section>
 
-      {/* ————————————————————————————————————— 3. ETİKET SÖZLÜĞÜ */}
-      <section className="grid gap-2">
-        <h3 className="text-sm font-medium">Görev Etiketleri</h3>
-        <p className="text-[12px] text-muted-foreground">
-          Etiket rolün <strong>yerine geçmez, yanına gelir</strong>: rol tek değerlidir (kişinin
-          uygulamadaki ana kimliği), etiket birden çok olabilir (kişinin firmadaki işi). Etiket
-          yalnız <strong>kapı açar</strong> — bir etiketi olmayan kimse bugünkü yetkilerinden
-          hiçbirini kaybetmez.
-        </p>
-        {!etiketDefteriVar && (
-          <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
-            Etiket defteri henüz kurulmamış (migration uygulanmadı); tablodaki etiket sütunları
-            boş görünür.
-          </p>
-        )}
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-40">Etiket</TableHead>
-                <TableHead>Ne açar</TableHead>
-                <TableHead className="w-24 text-right">Kişi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {USER_TAGS.map((t) => (
-                <TableRow key={t}>
-                  <TableCell className="font-medium">{USER_TAG_LABELS[t]}</TableCell>
-                  <TableCell className="text-[12px] whitespace-normal text-muted-foreground">
-                    {USER_TAG_HINTS[t]}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-[12px] tabular-nums">
-                    {kisiler.filter((k) => k.yetki.tags.includes(t)).length}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
+      <p className="text-[12px] text-muted-foreground">
+        Bir bölümü menüden gizlemek tek başına yeterli değildir; asıl engel veritabanının
+        kendi güvenlik kurallarındadır ve aynı soru orada bir kez daha sorulur. Yani adresi
+        elle yazan bir kullanıcı da veriyi göremez.
+      </p>
     </div>
   );
 }

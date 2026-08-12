@@ -12,22 +12,13 @@ export default async function AdminUsersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // ETİKET SÜTUNU İKİ DENEMEDE OKUNUR: `tags` 20260812 migration'ıyla geliyor
-  // ve o uygulanmadan önce sütunu isteyen bir `select` BÜTÜN listeyi düşürür —
-  // yönetici kullanıcıları hiç göremezdi. Sütun yoksa etiket seçici kapanır.
-  const zengin = await supabase
+  // Tek sorgu, yedeksiz: görev etiketleri role dönüştü ve `tags` sütunu
+  // düşürüldü (12.08.2026), yani "sütun henüz yoksa listeyi kaybetme" kalıbının
+  // koruduğu bir şey kalmadı.
+  const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, email, title, role, tags, created_at")
+    .select("id, full_name, email, title, role, created_at")
     .order("created_at", { ascending: true });
-  const profiles = zengin.error
-    ? (
-        await supabase
-          .from("profiles")
-          .select("id, full_name, email, title, role, created_at")
-          .order("created_at", { ascending: true })
-      ).data
-    : zengin.data;
-  const etiketDefteriVar = !zengin.error;
 
   const adminCount = (profiles ?? []).filter((p) => p.role === "admin").length;
 
@@ -36,18 +27,12 @@ export default async function AdminUsersPage() {
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Kullanıcılar</h2>
         <p className="text-sm text-muted-foreground">
-          Rol, unvan ve görev etiketi düzenleme. Yeni kullanıcılar Supabase Auth üzerinden
+          Ad soyad, unvan ve rol düzenleme. Her kullanıcının <strong>tek bir rolü</strong> vardır
+          ve uygulamada neyi görebildiğini o belirler. Yeni kullanıcılar Supabase Auth üzerinden
           davet edilir; burada sadece profil bilgileri yönetilir. Hangi bölümün kime açık
           olduğunu <strong>Yetkiler</strong> sayfası gösterir.
         </p>
       </div>
-      {!etiketDefteriVar && (
-        <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
-          Görev etiketi defteri henüz kurulmamış (migration uygulanmadı). Rol ve unvan
-          düzenlemesi çalışıyor; Satın Alma · Planlama · Üretim etiketleri migration
-          uygulandığında açılır.
-        </p>
-      )}
       <div className="rounded-lg border">
         {/* `max-xl:block`: dar kipte tablo yerleşimi tamamen bırakılır (tablo ·
             gövde · satır · hücre blok olur), satırlar ızgaraya döner. Yalnız
@@ -57,8 +42,8 @@ export default async function AdminUsersPage() {
         <Table className="max-xl:block">
           {/*
             SÜTUN BAŞLIKLARI YALNIZ GENİŞ EKRANDA. Bu tablo aslında satır başına
-            bir FORMdur: dört düzenleme alanı + Kaydet yan yana ~730px istiyor
-            ve 360px'te satır iki buçuk ekran genişliğine çıkıyordu — kullanıcı
+            bir FORMdur: üç düzenleme alanı + Kaydet yan yana ~640px istiyor
+            ve 360px'te satır iki ekran genişliğine çıkıyordu — kullanıcı
             adını yazarken Kaydet düğmesi ekranın dışında kalıyordu.
 
             Kırılım `xl`, `lg` DEĞİL: yönetim panelinde kullanılabilir genişlik
@@ -75,7 +60,6 @@ export default async function AdminUsersPage() {
               <TableHead>E-posta</TableHead>
               <TableHead>Unvan</TableHead>
               <TableHead>Rol</TableHead>
-              <TableHead>Görev Etiketleri</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -83,16 +67,15 @@ export default async function AdminUsersPage() {
             {(profiles ?? []).map((p) => (
               <UserRow
                 key={p.id}
-                profile={{ ...p, tags: (p as { tags?: string[] }).tags ?? [] }}
+                profile={p}
                 isSelf={p.id === user?.id}
                 adminCount={adminCount}
-                canEditTags={etiketDefteriVar}
               />
             ))}
             {(profiles ?? []).length === 0 && (
               <TableRow className="max-xl:block">
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="h-24 text-center text-muted-foreground max-xl:grid max-xl:place-items-center"
                 >
                   Kayıtlı kullanıcı yok.

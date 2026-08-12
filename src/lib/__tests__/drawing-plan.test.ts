@@ -195,6 +195,11 @@ describe("gruplama", () => {
     code,
     name,
     status: "bekliyor" as DrawingPlanStatus,
+    // Gruplama ÇİZENE bakmaz — bant koddan türer. Alanlar yalnız tipi
+    // karşılamak için burada; bir değer taşısalardı testin konusu
+    // bulanıklaşırdı.
+    drawnBy: null,
+    drawnByName: "",
     note: "",
   });
 
