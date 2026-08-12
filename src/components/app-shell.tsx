@@ -26,6 +26,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
 import { WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
+import { UploadIndicator } from "@/app/(app)/drawings/new/upload-indicator";
 
 interface AppShellProps {
   role: string;
@@ -593,6 +594,11 @@ export function AppShell({ role, tags, displayName, email, children }: AppShellP
           </div>
         </main>
       </div>
+      {/* ARKA PLANDAKİ TEKNİK RESİM YÜKLEMESİ — kabuğun içinde olmak zorunda.
+          Yükleme artık sihirbaz sökülse de sürüyor (drawings/new/upload-store.ts);
+          görünmeyen bir iş olmayan bir iştir ve kullanıcı sekmeyi kapatıp
+          kendi yüklemesini keser. Gösterge iş yokken hiçbir şey çizmez. */}
+      <UploadIndicator />
     </div>
   );
 }

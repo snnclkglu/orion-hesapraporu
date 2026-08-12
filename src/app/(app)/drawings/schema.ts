@@ -100,15 +100,21 @@ export const finalizeUploadSchema = z.object({
 export const packageIdSchema = z.object({ packageId: z.uuid() });
 
 /**
- * Paket silme — AD YAZILARAK onaylanır.
+ * Paket silme — TEK BİR SÖZCÜK yazılarak onaylanır.
  *
  * 174 dosya, 121 parça ve yüzlerce depo nesnesi yok eden bir işlem için iki
- * tıklık "Emin misiniz?" yeterli değildi. Yönetim panelindeki proje silmeyle
- * aynı ağırlıkta bir işlemdir; onay da öyle olmalı.
+ * tıklık "Emin misiniz?" yeterli değil; ama PAKET ADININ TAMAMINI yazdırmak da
+ * yanlış taraftaydı (kullanıcı bildirimi, 12.08.2026). Gerçek adlar
+ * `0054-00-0000 - 75Ton KAPASİTELİ KALDIRMA KİRİŞİ` gibi uzun, karışık harfli
+ * ve TÜRKÇE İ/I ayrımı taşıyan dizgiler: kopyalanamadığı için elle yazılıyor,
+ * elle yazılınca tutmuyor ve kullanıcı silmekten değil YAZMAKTAN vazgeçiyordu.
+ * Onayın işi kararı YAVAŞLATMAKtır, imla sınavı yapmak değil.
  */
+export const SILME_ONAY_SOZU = "ONAY";
+
 export const deletePackageSchema = z.object({
   packageId: z.uuid(),
-  /** Kullanıcının yazdığı paket adı — sunucuda da karşılaştırılır. */
+  /** Kullanıcının yazdığı onay sözcüğü — sunucuda da karşılaştırılır. */
   confirmName: z.string().max(512).default(""),
 });
 

@@ -616,6 +616,26 @@ export function anaGrupKodu(partCode: string, bilinen?: ReadonlySet<string>): st
   return adaylar[adaylar.length - 1];
 }
 
+/**
+ * `xxxx-xx-0000` FİRMANIN GENEL KOMPLE NUMARASIDIR (kullanıcı kararı,
+ * 12.08.2026): *"Bu her zaman bizim GENEL KOMPLE dediğimiz bir numara."*
+ *
+ * Bu bir tahmin değil bir FİRMA KURALIDIR ve tam da bu yüzden yazılabilir:
+ * "ad uydurulmaz" ilkesi (md. 21) kaynağı BELİRSİZ adları yasaklar, firmanın
+ * kendi numaralandırma sözleşmesini değil. Yine de kural EN SONA konur —
+ * DEPO Excel'i ya da ürün ağacı o grubu adlandırmışsa o ad kazanır; kural
+ * yalnız iki kaynağın da susduğu yeri doldurur.
+ *
+ * Kalıp ÜÇ BLOKLUDUR (`0054-00-0000`): daha derin bir kodun son bloğunun 0000
+ * olması bir genel komple değil, alt montajın kendi sayısıdır.
+ */
+export const GENEL_KOMPLE_ADI = "GENEL KOMPLE";
+
+export function genelKompleMu(groupCode: string): boolean {
+  const bloklar = (groupCode ?? "").trim().split("-");
+  return bloklar.length === 3 && bloklar[2] === "0000";
+}
+
 /** Grup adı çıkarımının bir satırı — kaynağıyla birlikte. */
 export interface GrupAdi {
   groupCode: string;
@@ -624,9 +644,10 @@ export interface GrupAdi {
    * Adın nereden geldiği:
    *   `satir`   — grubun KENDİ defter satırı var, tanımı orada (ÜRÜN AĞACI)
    *   `baslik`  — alt parçaların montaj başlığı OYBİRLİĞİYLE aynı (DEPO)
-   * Üçüncü bir kaynak YOKTUR: çelişen başlıklardan ad üretilmez.
+   *   `kural`   — firmanın numaralandırma sözleşmesi (`-0000` → GENEL KOMPLE)
+   * Dördüncü bir kaynak YOKTUR: çelişen başlıklardan ad üretilmez.
    */
-  kaynak: "satir" | "baslik";
+  kaynak: "satir" | "baslik" | "kural";
 }
 
 interface GrupKaynagi {
@@ -698,17 +719,23 @@ export function grupAdlariCikar(
       const b = bosluk(p.assemblyTitle);
       if (b) basliklar.add(trKatla(b));
     }
-    if (basliklar.size !== 1) continue;
-
-    const ornek = parts.find(
-      (p) => p.partCode.startsWith(`${grup}-`) && bosluk(p.assemblyTitle)
-    );
+    const ornek =
+      basliklar.size === 1
+        ? parts.find((p) => p.partCode.startsWith(`${grup}-`) && bosluk(p.assemblyTitle))
+        : undefined;
     if (ornek) {
       sonuc.push({
         groupCode: grup,
         name: normalizeTanim(ornek.assemblyTitle).tanim,
         kaynak: "baslik",
       });
+      continue;
+    }
+
+    // 3 — firma sözleşmesi. İki kaynak da susuyorsa `-0000` grubunun adı
+    // bilinir: GENEL KOMPLE. Bkz. `GENEL_KOMPLE_ADI`.
+    if (genelKompleMu(grup)) {
+      sonuc.push({ groupCode: grup, name: GENEL_KOMPLE_ADI, kaynak: "kural" });
     }
   }
   return sonuc;

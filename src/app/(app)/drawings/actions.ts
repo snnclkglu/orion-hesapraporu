@@ -62,6 +62,7 @@ import {
   packageIdSchema,
   remapItemSchema,
   reviewMarkSchema,
+  SILME_ONAY_SOZU,
   supersedeSchema,
   type AckFindingInput,
   type ActivePackageQueryInput,
@@ -85,6 +86,28 @@ const KUME = 50;
 const YIGIN = 300;
 /** Depo listelemesinin sayfa boyu — Storage API'nin kendi tavanı. */
 const DEPO_SAYFA = 1000;
+
+/**
+ * SATIN ALMA HAVUZU BU MODÜLDEN BESLENİR — o yüzden buradan tazelenir.
+ *
+ * `/purchasing` ayrı bir tablo tutmaz: talep havuzu, teslimat ve ödeme
+ * takvimleri `drawing_packages` + `drawing_parts` üzerinden TÜRETİLİR
+ * (md. 21). Yani teknik resim tarafındaki her paket/defter değişikliği o beş
+ * ekranı da eskitir; buradan tazelenmediğinde satınalmacı yeni yüklenmiş bir
+ * paketi görmek için sayfayı elle yenilemek zorunda kalıyordu ve bunu
+ * "proje satın almaya düşmedi" diye yaşıyordu (kullanıcı bildirimi,
+ * 12.08.2026).
+ *
+ * Ters yön ZATEN VAR: `purchasing/actions.ts` paket ekranını
+ * (`/drawings/<id>/purchasing`) tazeliyor. Bu, o simetrinin eksik yarısıdır.
+ */
+function satinAlmayiTazele() {
+  revalidatePath("/purchasing");
+  revalidatePath("/purchasing/siparisler");
+  revalidatePath("/purchasing/teslimat");
+  revalidatePath("/purchasing/odemeler");
+  revalidatePath("/purchasing/fiyatlar");
+}
 
 /**
  * Yazma yetkisi + oturum. Asıl engel RLS'tir; bu yalnız anlaşılır mesaj içindir.
@@ -568,6 +591,7 @@ export async function finalizeUpload(input: FinalizeUploadInput): Promise<Drawin
   if (durumHatasi) return { error: `Paket durumu yazılamadı: ${durumHatasi.message}` };
 
   revalidatePath("/drawings");
+  satinAlmayiTazele();
   return {};
 }
 
@@ -1036,6 +1060,7 @@ export async function reconcilePackage(input: {
 
   revalidatePath("/drawings");
   revalidatePath(`/drawings/${packageId}`);
+  satinAlmayiTazele();
   return { recognitionPct: sonuc.recognition.pct, missing: missingStorage.length };
 }
 
@@ -1127,6 +1152,7 @@ export async function remapPackageItemNo(input: RemapItemInput): Promise<Drawing
 
   revalidatePath("/drawings");
   revalidatePath(`/drawings/${packageId}`);
+  satinAlmayiTazele();
   return {};
 }
 
@@ -1219,9 +1245,10 @@ export async function deletePackage(input: DeletePackageInput): Promise<DrawingA
 
   // Onay SUNUCUDA da sınanır: arayüzdeki düğme kilidi bir görgü kuralıdır,
   // asıl kapı burasıdır (RLS'in arayüz gizlemesine üstün olmasıyla aynı ilke).
-  const beklenen = trKatla((paket.folder_name as string) ?? "").trim();
-  if (trKatla(confirmName).trim() !== beklenen) {
-    return { error: "Onay için paket adını birebir yazmanız gerekiyor." };
+  // Beklenen dizgi PAKET ADI DEĞİL tek bir sözcüktür — gerekçesi
+  // `SILME_ONAY_SOZU`nun yanındadır.
+  if (trKatla(confirmName).trim() !== trKatla(SILME_ONAY_SOZU)) {
+    return { error: `Onaylamak için kutuya "${SILME_ONAY_SOZU}" yazmanız gerekiyor.` };
   }
 
   const { error, count } = await supabase
@@ -1266,6 +1293,7 @@ export async function deletePackage(input: DeletePackageInput): Promise<DrawingA
   });
 
   revalidatePath("/drawings");
+  satinAlmayiTazele();
   return {};
 }
 
@@ -1467,6 +1495,7 @@ export async function supersedePackage(input: SupersedeInput): Promise<
   revalidatePath("/drawings");
   revalidatePath(`/drawings/${packageId}`);
   revalidatePath(`/drawings/${supersedesId}`);
+  satinAlmayiTazele();
   return { summary: metin, review: ozet.gozdenGecir, orphan: ozet.karsiliksiz };
 }
 

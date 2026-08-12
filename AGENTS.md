@@ -552,6 +552,26 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     YOKTUR (MONORAY 50/55, MTC 86/90), o yüzden havuzda grup adı çoğunlukla
     parçanın `assembly_title` alanından gelir.
 
+    **ÜÇÜNCÜ BASAMAK BİR FİRMA SÖZLEŞMESİDİR, TAHMİN DEĞİL** (kullanıcı kararı,
+    12.08.2026): `xxxx-xx-0000` her zaman **GENEL KOMPLE**'dir. "Ad
+    uydurulmaz" ilkesi kaynağı BELİRSİZ adları yasaklar, firmanın kendi
+    numaralandırma sözleşmesini değil — DEPO Excel'i o grubu adlandıramadığında
+    kod ekranda adsız kalıyordu. Kural EN SONDADIR (`genelKompleMu` /
+    `GENEL_KOMPLE_ADI`, normalize.ts): iki gerçek kaynaktan biri konuşuyorsa o
+    kazanır. Kalıp ÜÇ BLOKLUDUR — daha derin bir kodun `0000`'ı bir genel
+    komple değil alt montajın kendi sayısıdır. Havuz kuralı defterden BAĞIMSIZ
+    okur (`purchasing/data.ts`): eski paketler yeniden eşleştirme beklemeden
+    grubunu gösterir.
+
+    **HAVUZ `/drawings` EYLEMLERİNDEN TAZELENİR.** `/purchasing` ayrı bir tablo
+    tutmaz; beş ekranı da `drawing_packages` + `drawing_parts` üzerinden
+    türetir. Bu yüzden `drawings/actions.ts`teki paket/defter değiştiren her
+    eylem `satinAlmayiTazele()` çağırır — yoksa yeni yüklenmiş bir paket
+    satınalmacıya "düşmemiş" görünüyordu (kullanıcı bildirimi, 12.08.2026).
+    Ters yön zaten vardı (`purchasing/actions.ts` → `/drawings/<id>/purchasing`);
+    bu, o simetrinin eksik yarısıdır. **Havuza yalnız `yuklendi`/`aktif`
+    paketler girer**: yarım kalmış (`yukleniyor`) bir paketten sipariş verilmez.
+
     **ÖDEME GÜNÜ TESLİMDEN SAYILIR, SİPARİŞ TARİHİNDEN DEĞİL** (kullanıcı
     kararı): `coalesce(received_at, due_at) + payment_term_days`. Kural İKİ
     yerde yaşar — `lib/purchasing/terms.ts` (ekran + Excel) ve
@@ -1029,6 +1049,29 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     `" - "` ile bölünüp her parça kendi başına sınıflandırılır, **sıra
     önemsenmez**. Excel sabit şemayla değil **sütun sözlüğüyle** okunur.
 
+    **YÜKLEME AKIŞI BİLEŞENDE DEĞİL MODÜLDE YAŞAR** (kullanıcı bildirimi,
+    12.08.2026: *"klasörü yükle'ye bastıktan sonra kullanıcı sayfadan çıkarsa
+    yükleme duruyor"*). Duruyordu, çünkü akış `folder-picker.tsx`in
+    gövdesindeydi ve istemci gezinmesi bileşeni SÖKER. Durum ve akış bir kat
+    yukarı alındı: `new/upload-store.ts` (modül düzeyinde `useSyncExternalStore`
+    deposu) + `new/upload-runner.ts` (akışın kendisi). Bir ES modülü sekme ömrü
+    boyunca tek kez değerlendirilir ve gezinmede sökülmez; bileşen artık o
+    durumun bir GÖRÜNTÜSÜDÜR ve geri dönüldüğünde kaldığı yeri bulur.
+    Üç kural bunun parçasıdır:
+    - **YÖNLENDİRMEYİ AKIŞ YAPMAZ.** Biten yükleme yalnız `tamamlananPaketId`
+      yazar; rapora gitme kararını "o an ekranda olan taraf" verir. Başka bir
+      sayfadaki kullanıcıyı rapora atmak arka planda çalışmanın anlamını
+      götürürdü.
+    - **GÖRÜNMEYEN İŞ OLMAYAN İŞTİR.** `new/upload-indicator.tsx` kabuğun
+      içindedir (`AppShell`), sihirbazın kendi sayfasında çizilmez ve iş yokken
+      hiçbir şey basmaz. `beforeunload` uyarısı da oradadır.
+    - **SINIR AÇIKÇA SÖYLENİR:** bu bir servis işçisi değildir — sekmeyi
+      kapatmak ya da sayfayı YENİLEMEK akışı yine keser. Kesilen yükleme
+      kaybolmaz; paket açılmıştır ve "Eksikleri Yükle" sürdürme kipi kaldığı
+      yerden devam eder. Durum `localStorage`a YAZILMAZ: içinde canlı `File`
+      tutamaçları var ve arkasında hiçbir şey koşmayan bir ilerleme çubuğu
+      göstermek bu ekranın en pahalı hatasıdır.
+
     **BEYAN İLE ÖLÇÜM AYRI DURUR.** `file_count`/`bytes_total` satırlardan,
     `stored_*`/`skipped_*` ise bucket'ın kendisinden gelir ve dördünü de tek
     bir yer yazar: `verifyStorage`. İkinci bir yazan eklenirse ekran
@@ -1063,6 +1106,37 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     belirsizleştirirdi. Bu bir YETKİ engeli değil bir SORUMLULUK ayrımıdır —
     ikisinin de yazma yetkisi aynı `can_edit_drawings()`tir.
 
+    **PAKETİN "SATIN ALMA" SEKMESİ BİR EKRAN DEĞİL BİR PENCEREDİR** (kullanıcı
+    kararı, 12.08.2026 — sekmenin kaldırılmasından SONRA gelen ikinci karar).
+    Kaldırılan şey bir İŞLEM ekranıydı ve gerekçesi duruyor: iki YAZAN ekran
+    "hangisi doğru" sorusunu doğururdu. Geri gelen şey salt okunurdur:
+    *"Mühendis ya da ressam bu ekipman satın alınmış mı diye bakabilsin ve
+    teslim süresini görebilsin. Fiyat ve kimden alındığı gibi bilgilere gerek
+    yok."* Mühendis ve ressam `/purchasing` bölümünü GÖRMÜYOR; bu soruyu bugüne
+    kadar telefonla soruyorlardı. Sayfada tek bir düğme, form ya da server
+    action yoktur — yazan taraf hâlâ tektir.
+
+    **FİYAT GİZLENMEZ, HİÇ GETİRİLMEZ.** `purchase_orders` okuması
+    `can_see_purchasing()`e kapalıdır ve öyle kalır. Aradaki tek geçit
+    `drawing_purchase_summary(uuid)` fonksiyonudur (migration 20260812140000):
+    `security definer`dır — evin `security_invoker = true` görünüm kuralının
+    BİLİNÇLİ istisnası, çünkü invoker bir görünüm mühendise hiçbir şey
+    gösteremezdi. İstisnayı güvenli kılan şey, geçirilen şeyin bir TABLO değil
+    adı tek tek yazılmış bir PROJEKSİYON olmasıdır: adet, sipariş günü, termin,
+    teslim. **Güvenlik sınırı fonksiyonun `returns table` listesidir** ve orada
+    para, tedarikçi, kur ya da ödeme koşulu geçmez; kural migration dosyasını
+    OKUYAN bir koruma testine bağlıdır (`purchasing/__tests__/package-summary.test.ts`).
+    `anon` çağıramaz; kapı teknik resim okumasının kapısıyla aynıdır
+    (`authenticated`).
+
+    **DURUM İKİ TANIKLI OKUNUR** (`lib/purchasing/package-summary.ts`): "teslim
+    alındı" demek için hem adedin tamamlanmış hem açık siparişin kalmamış
+    olması gerekir. Yalnız adede bakmak, satırı güncelleyip siparişi
+    kapatmayan bir hâlde "geldi" derdi; yalnız kapanışa bakmak kısmi teslimi
+    yutardı. **GECİKME YALNIZ AÇIK TERMİNDE ANLAMLIDIR** — teslim alınmış bir
+    kalemin geçmiş termini bir gecikme değil bir geçmiştir ve kırmızıya
+    boyanması md. 18/3'ün yasakladığı yanlış alarmın ta kendisidir.
+
     **Satın alma KATEGORİSİ tanımdan okunur** (`satinAlmaSinifi`, on beş ürün
     ailesi). Sipariş tedarikçi başına verilir; "satın alma ünitesi" diye tek bir
     torba satınalmacıya hiçbir şey söylemiyordu. Sözlük iki kanıta dayanır: iki
@@ -1084,6 +1158,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     bu GERİ ALINABİLİR bir hatadır. **KİM** silebilir sorusunu RLS,
     **NE** silinebilir sorusunu tetikleyici cevaplar (`guard_issued_revision`
     ile aynı ayrım): üretime girmiş paket silinemez, yerine revizyon yüklenir.
+
+    **ONAY KUTUSUNA PAKET ADI DEĞİL "ONAY" YAZILIR** (kullanıcı bildirimi,
+    12.08.2026). Adın tamamını yazdırmak yanlış taraftaydı: gerçek adlar
+    (`0054-00-0000 - 75Ton KAPASİTELİ KALDIRMA KİRİŞİ`) uzun, karışık harfli ve
+    Türkçe İ/I ayrımı taşıyor; kopyalanamadığı için elle yazılıyor, elle
+    yazılınca tutmuyordu. Onayın işi kararı YAVAŞLATMAKtır, imla sınavı yapmak
+    değil. Beklenen dizgi TEK yerdedir (`SILME_ONAY_SOZU`, drawings/schema.ts)
+    ve iki kapı da (ekran + `deletePackage`) aynı `trKatla` ile karşılaştırır.
 
     **SATIN ALMA KAYDI ÜRETİM KAYDI DEĞİLDİR.** Silme koruması bir süre bütün
     `drawing_part_progress`i saydı ve satınalmacı tek bir civatayı "satın
@@ -1405,7 +1487,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   ve `/admin/access` yetki matrisinin TEK kaynağı
 - `src/lib/purchasing/` — Satın Alma ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
   `demand.ts` (talep havuzu + `drawingCarpani` resim çarpanı) ·
-  `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro)
+  `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro) ·
+  `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
+  çıkarımı ve gecikme; fiyat/tedarikçi taşımaz)
 - `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
   tanımı (saf, değişmez); ayrıca ana grup kodu ve grup adı çıkarımı
 - `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
@@ -1452,13 +1536,15 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `recognize` · `folder-name` · `file-name` · `part-code` · `tr-text` ·
   `excel` · `reconcile` · `titleblock` · `dxf-header` · `derive` · `diff` ·
   `revision` · `progress` · `types` · `labels` · `mime` · `standard`
-- `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı ve paketin yedi
-  bölümü: Genel Bakış (montaj ağacı) · Dosyalar (gezgin) · Parçalar (defter) ·
-  Üretim · İçe Aktarım Raporu · Sürümler; ayrıca aşama defteri. **Satın Alma
-  sekmesi 12.08.2026'da KALDIRILDI** — yerini `/purchasing` bölümü aldı
-  (md. 21); satın alma AŞAMALARI yerinde durur ve o bölüm tarafından yazılır.
-  `[id]/import/` içerik okuma ucu (Node çalışma zamanı), `[id]/export/` türev
-  çıktılar
+- `src/app/(app)/drawings/` — paket listesi, yükleme sihirbazı
+  (`new/` — akış modül düzeyindedir, md. 18) ve paketin altı bölümü: Genel
+  Bakış (montaj ağacı) · Dosyalar (gezgin) · Parçalar (defter) · **Satın Alma
+  (SALT OKUNUR özet)** · Üretim · İçe Aktarım Raporu · Sürümler; ayrıca aşama
+  defteri. Satın Alma sekmesi 12.08.2026'da önce bir İŞLEM ekranı olarak
+  KALDIRILDI, sonra bir PENCERE olarak döndü: sipariş/teklif/işaret hâlâ yalnız
+  `/purchasing`te yazılır (md. 21), bu sekme yalnız "geldi mi, ne zaman gelir"i
+  gösterir ve fiyat/tedarikçi TAŞIMAZ. `[id]/import/` içerik okuma ucu (Node
+  çalışma zamanı), `[id]/export/` türev çıktılar
 - `docs/teknik-resim-adlandirma-onerileri.md` — ressama ÖNERİLER (Ö-1…Ö-9).
   Kural listesi DEĞİL kazanç listesidir; hiçbir madde bir yüklemeyi engellemez
   ve `lib/drawings/standard.ts` ile iki yönlü koruma testine bağlıdır

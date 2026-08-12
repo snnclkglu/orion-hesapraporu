@@ -26,6 +26,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
+import { trKatla } from "@/lib/drawings/tr-text";
+import { SILME_ONAY_SOZU } from "../schema";
 import { deletePackage, reconcilePackage, verifyStorage } from "../actions";
 
 export interface PackageActionsProps {
@@ -174,7 +176,10 @@ export function PackageActions({
   // kilit yalnız kullanıcıyı boşuna uğraştırmamak içindir — proje silmedeki
   // `blocked` kalıbının aynısı.
   const kilitli = progressCount > 0;
-  const adUyuyor = onayAdi.trim().localeCompare(folderName.trim(), "tr", { sensitivity: "base" }) === 0;
+  // ONAY TEK SÖZCÜKTÜR, paket adı DEĞİL (kullanıcı bildirimi, 12.08.2026).
+  // Gerekçe `SILME_ONAY_SOZU`nun tanımında; karşılaştırma sunucudakiyle AYNI
+  // yardımcıdan geçer (`trKatla`) ki iki kapı aynı dizgiyi kabul etsin.
+  const onayUyuyor = trKatla(onayAdi).trim() === trKatla(SILME_ONAY_SOZU);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -279,17 +284,24 @@ export function PackageActions({
             {!kilitli && (
               <div className="grid gap-1.5">
                 <Label htmlFor="silOnay">
-                  Onaylamak için paket adını yazın:{" "}
-                  <span className="font-mono text-foreground">{folderName}</span>
+                  Onaylamak için kutuya{" "}
+                  <span className="font-mono text-foreground">{SILME_ONAY_SOZU}</span> yazın:
                 </Label>
                 <Input
                   id="silOnay"
                   value={onayAdi}
                   onChange={(e) => setOnayAdi(e.target.value)}
-                  placeholder={folderName}
                   className="font-mono"
                   autoComplete="off"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && onayUyuyor && !calisiyor) sil();
+                  }}
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Silinecek paket:{" "}
+                  <span className="font-mono text-foreground">{folderName}</span>
+                </p>
               </div>
             )}
 
@@ -300,7 +312,7 @@ export function PackageActions({
               <Button
                 type="button"
                 variant="destructive"
-                disabled={calisiyor || kilitli || !adUyuyor}
+                disabled={calisiyor || kilitli || !onayUyuyor}
                 onClick={sil}
               >
                 {calisiyor ? "Siliniyor…" : "Kalıcı Olarak Sil"}

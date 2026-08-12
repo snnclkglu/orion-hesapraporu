@@ -1,6 +1,6 @@
 "use client";
 
-// Klasör yükleme sihirbazı.
+// Klasör yükleme sihirbazı — AKIŞIN GÖRÜNTÜSÜ.
 //
 // NEDEN ZIP DEĞİL, DOĞRUDAN KLASÖR:
 //   1. 200 MB'lık bir ZIP sunucuya ULAŞAMAZ. Server Action gövdesi 1 MB,
@@ -16,115 +16,50 @@
 // imzadır; kaydı yazan `addPackageFiles` aynı saf işlevleri KENDİSİ çağırır.
 // Tek doğruluk kaynağı sunucudur.
 //
-// ————————————————————————————————————————— HATA BİR DAHA YUTULMAZ
+// ————————————————————————————————— BU BİLEŞEN ARTIK DURUM TUTMAZ
 //
-// Bu ekranın düzeltilen kusuru şuydu: yükleme hatası yakalanıyor ama
-// `error.message` ATILIYOR, sayaçlar hata dalının DIŞINDA artıyor ve başarı
-// bildirimi KOŞULSUZ basılıyordu. Yani bütün baytlar reddedilse bile ekran
-// "174/174 dosya · 107 MB" yazıp rapora atlıyordu. Üç kural artık değişmez:
-//   1. Sayaç YALNIZ başarıda artar — ilerleme çubuğu denemeyi değil ULAŞANI
-//      gösterir.
-//   2. Sebep saklanır ve sunucuya gider (`upload_error`).
-//   3. Eksik varsa RAPORA ATLANMAZ; önce bir özet ekranı çıkar.
+// Akışın tamamı `upload-runner.ts`te, durumu `upload-store.ts`te yaşar.
+// Sebebi bir kullanıcı bildirimidir (12.08.2026): yükleme başladıktan sonra
+// başka bir sayfaya geçmek yüklemeyi DURDURUYORDU, çünkü akış bu bileşenin
+// gövdesindeydi ve gezinme bileşeni söküyordu. Şimdi bileşen yalnız bir
+// GÖRÜNTÜDÜR: abone olur, çizer, düğmelere basıldığında modüle haber verir.
+// Kullanıcı yükleme sürerken çıkabilir; geri döndüğünde sihirbazı kaldığı
+// yerde bulur, çıkmasa bile ekranın altındaki gösterge işi izler.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2, FolderUp, Loader2, TriangleAlert } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseFile } from "@/lib/drawings/file-name";
 import { folderNameFromContents, parseFolderName } from "@/lib/drawings/folder-name";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
-import { contentTypeFor } from "@/lib/drawings/mime";
-import {
-  addPackageFiles,
-  createPackage,
-  finalizeUpload,
-  findActivePackage,
-  loadMissingUploads,
-  reconcilePackage,
-  sealPackageFiles,
-  supersedePackage,
-  verifyStorage,
-} from "../actions";
-import type { UploadTarget } from "../schema";
+import { findActivePackage, loadMissingUploads } from "../actions";
+import { dosyalariSec, yuklemeyiBaslat } from "./upload-runner";
+import { useYukleme, yuklemeDurumu, yuklemeSifirla, yuklemeYaz } from "./upload-store";
 
-const BUCKET = "drawings";
-/** Tarayıcı köken başına ~6 bağlantı verir; 4 metadata yazmalarına pay bırakır. */
-const ESZAMANLI = 4;
-/** Bir `addPackageFiles` çağrısının taşıyacağı satır sayısı (1 MB gövde sınırı). */
-const SATIR_OBEGI = 500;
-/** Başarısız bir yüklemenin toplam deneme sayısı (ilk deneme dâhil). */
-const DENEME = 3;
 /** Ofis hattı kabulü — tahmini süre için (bayt/sn). */
 const TAHMINI_HIZ = 2_500_000;
-
-interface SecilenDosya {
-  file: File;
-  relPath: string;
-  checksum: string;
-}
-
-interface Basarisiz {
-  relPath: string;
-  message: string;
-  status: number | null;
-}
-
-type Asama =
-  | "secim"
-  | "imza"
-  | "onizleme"
-  | "yukleme"
-  | "dogrulama"
-  | "okuma"
-  | "eslestirme"
-  | "ozet";
-
-interface Sonuc {
-  packageId: string;
-  storedCount: number;
-  expectedCount: number;
-  skippedCount: number;
-  storedBytes: number;
-  missing: number;
-  recognitionPct: number;
-  devirOzeti: string;
-}
-
-/** Sihirbazın bulduğu, aynı (kalem, grup) için açık paket. */
-interface AcikPaket {
-  id: string;
-  folderName: string;
-  revNo: number;
-  fileCount: number;
-  partCount: number;
-}
 
 export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [asama, setAsama] = useState<Asama>("secim");
-  const [klasorAdi, setKlasorAdi] = useState("");
-  const [dosyalar, setDosyalar] = useState<SecilenDosya[]>([]);
-  const [kalemNo, setKalemNo] = useState("");
-  const [ilerleme, setIlerleme] = useState({ yapilan: 0, toplam: 0, bayt: 0 });
-  const [basarisiz, setBasarisiz] = useState<Basarisiz[]>([]);
-  const [durumMetni, setDurumMetni] = useState("");
-  const [sonuc, setSonuc] = useState<Sonuc | null>(null);
-
-  // Sürdürme kipi: paket ZATEN AÇIK, yalnız eksik baytlar gönderilecek.
-  const [devam, setDevam] = useState<{
-    folderName: string;
-    targets: { relPath: string; fileId: string; storagePath: string }[];
-  } | null>(null);
-
-  // Süperse sorusu — yükleme başlamadan ÖNCE sorulur.
-  const [acikPaket, setAcikPaket] = useState<AcikPaket | null>(null);
-  const [supersedeKarari, setSupersedeKarari] = useState<"" | "revizyon" | "ayri">("");
+  const durum = useYukleme();
+  const {
+    asama,
+    klasorAdi,
+    dosyalar,
+    kalemNo,
+    devam,
+    acikPaket,
+    supersedeKarari,
+    ilerleme,
+    basarisiz,
+    durumMetni,
+    sonuc,
+  } = durum;
 
   // `webkitdirectory` React'in JSX tiplemesinde yok; öznitelik olarak konur.
   // Spread ile `any` kaçırmaktansa ref üzerinden yazmak hem tip güvenli hem
@@ -140,17 +75,33 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
   // ama parametre HİÇBİR YERDE OKUNMUYORDU: düğme boş bir sihirbaza gidiyor ve
   // aynı klasör seçilince İKİNCİ BİR PAKET açılıyordu. Söz verilen davranış
   // buydu; artık gerçekten yapılıyor.
+  //
+  // ARKA PLANDAKİ İŞ EZİLMEZ: sayfaya bir yükleme sürerken dönülmüş olabilir
+  // ve o durumu sıfırlamak, süren akışın altındaki zemini çekmek olurdu.
   useEffect(() => {
-    if (!devamPackageId) return;
+    const mevcut = yuklemeDurumu();
+    if (mevcut.calisiyor) return;
+    if (mevcut.devamPackageId === devamPackageId) return;
+
+    // Durum yazımı EFEKT GÖVDESİNDE DEĞİL geri çağrıdadır: senkron yazma
+    // zincirleme render tetikler (`react-hooks/set-state-in-effect` ile aynı
+    // gerekçe). Temizleme de aynı yoldan geçer.
     let iptal = false;
     void (async () => {
+      if (!devamPackageId) {
+        if (!iptal) yuklemeSifirla();
+        return;
+      }
+      yuklemeYaz({ devamPackageId, devam: null });
       const cevap = await loadMissingUploads({ packageId: devamPackageId });
       if (iptal) return;
       if (cevap.error) {
         toast.error(cevap.error);
         return;
       }
-      setDevam({ folderName: cevap.folderName ?? "", targets: cevap.targets ?? [] });
+      yuklemeYaz({
+        devam: { folderName: cevap.folderName ?? "", targets: cevap.targets ?? [] },
+      });
       if ((cevap.targets ?? []).length === 0) {
         toast.success("Bu pakette depoya ulaşmamış dosya kalmamış.");
       }
@@ -159,6 +110,21 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
       iptal = true;
     };
   }, [devamPackageId]);
+
+  /**
+   * EKSİKSİZ BİTEN YÜKLEME RAPORA GİDER — ama yalnız sihirbaz EKRANDAYSA.
+   *
+   * Yönlendirmeyi akışın kendisi yapmıyor (bkz. `upload-runner.ts` sonu):
+   * kullanıcı yükleme sürerken Satın Alma'ya geçmiş olabilir ve onu oradan
+   * koparıp rapora atmak arka planda çalışmanın anlamını götürürdü. Karar bu
+   * yüzden burada, yani "ekranda olan taraf"tadır.
+   */
+  useEffect(() => {
+    if (!durum.tamamlananPaketId) return;
+    const hedef = durum.tamamlananPaketId;
+    yuklemeSifirla();
+    router.push(`/drawings/${hedef}/report`);
+  }, [durum.tamamlananPaketId, router]);
 
   const onizleme = useMemo(() => {
     if (dosyalar.length === 0) return null;
@@ -232,431 +198,18 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
     const grup = klasorTanima?.group?.trim() ?? "";
     const kalem = klasorTanima?.itemNo?.trim() ?? "";
     let iptal = false;
-    // Durum yazımı EFEKT GÖVDESİNDE DEĞİL geri çağrıdadır: senkron `setState`
-    // zincirleme render tetikler (`react-hooks/set-state-in-effect`). Temizleme
-    // de aynı yoldan geçer ki "grup boşaldı" hâli sıraya girsin.
     void (async () => {
       if (!grup || !kalem) {
-        if (!iptal) setAcikPaket(null);
+        if (!iptal) yuklemeYaz({ acikPaket: null });
         return;
       }
       const cevap = await findActivePackage({ itemNo: kalem, groupCode: grup });
-      if (!iptal) setAcikPaket(cevap.package ?? null);
+      if (!iptal) yuklemeYaz({ acikPaket: cevap.package ?? null });
     })();
     return () => {
       iptal = true;
     };
   }, [klasorTanima, devamPackageId]);
-
-  async function dosyalariAl(hepsi: File[]) {
-    // SESSİZ DÖNÜŞ YOK. Kullanıcı bir klasör seçtiyse ekranda bir şey olmalı;
-    // "tıkladım, hiçbir şey olmadı" bu ekranın en kötü hâlidir ve bir kez
-    // yaşandı (canlı FileList temizlenince seçim sıfırlanıyordu).
-    if (hepsi.length === 0) {
-      toast.error("Klasörden hiç dosya okunamadı. Boş bir klasör seçmiş olabilirsiniz.");
-      return;
-    }
-
-    // Kök klasör adı ilk parçadır. `webkitRelativePath` boşsa (iOS Safari)
-    // klasör bilgisi hiç yoktur: yükleme YİNE yapılır, yalnız İPTAL/malzeme
-    // klasörü gibi yola dayalı ipuçları okunamaz.
-    const ilkYol = hepsi[0].webkitRelativePath ?? "";
-    const kok = ilkYol.split("/")[0] ?? "";
-    if (!ilkYol) {
-      toast.warning(
-        "Tarayıcı klasör yollarını vermedi. Dosyalar yüklenir ama İPTAL ve malzeme klasörü ipuçları okunamaz."
-      );
-    }
-    setKlasorAdi(kok || "Adsız paket");
-
-    // SÜRDÜRME KİPİNDE İMZA HESAPLANMAZ. Satırlar zaten yazılı; eşleştirme
-    // yola göre yapılır ve 107 MB'ı yeniden SHA-256'dan geçirmek dakikaları
-    // hiçbir kazanç olmadan yakardı.
-    if (devam) {
-      const gerekli = new Map(devam.targets.map((t) => [t.relPath, t]));
-      const secilen: SecilenDosya[] = [];
-      for (const f of hepsi) {
-        const tam = (f.webkitRelativePath || f.name).normalize("NFC");
-        const rel = kok && tam.startsWith(`${kok}/`) ? tam.slice(kok.length + 1) : tam;
-        if (gerekli.has(rel)) secilen.push({ file: f, relPath: rel, checksum: "" });
-      }
-      if (secilen.length === 0) {
-        toast.error(
-          "Seçilen klasörde bu paketin eksik dosyalarından hiçbiri bulunamadı. Doğru klasörü seçtiğinizden emin olun."
-        );
-        return;
-      }
-      if (secilen.length < devam.targets.length) {
-        toast.warning(
-          `${devam.targets.length} eksik dosyadan ${secilen.length} tanesi bu klasörde bulundu.`
-        );
-      }
-      setDosyalar(secilen);
-      setAsama("onizleme");
-      return;
-    }
-
-    setAsama("imza");
-    setIlerleme({ yapilan: 0, toplam: hepsi.length, bayt: 0 });
-    const secilen: SecilenDosya[] = [];
-    for (let i = 0; i < hepsi.length; i++) {
-      const f = hepsi[i];
-      const tam = (f.webkitRelativePath || f.name).normalize("NFC");
-      const rel = kok && tam.startsWith(`${kok}/`) ? tam.slice(kok.length + 1) : tam;
-      secilen.push({ file: f, relPath: rel, checksum: await imzala(f) });
-      if (i % 10 === 0 || i === hepsi.length - 1) {
-        setIlerleme({ yapilan: i + 1, toplam: hepsi.length, bayt: 0 });
-        // Tarayıcı 454 dosyalık döngüde donmasın; her onda bir nefes.
-        await new Promise((r) => setTimeout(r, 0));
-      }
-    }
-    setDosyalar(secilen);
-    setAsama("onizleme");
-  }
-
-  /** Depo hedeflerine baytları yazar; SEBEBİYLE birlikte sonucu döner. */
-  const baytlariGonder = useCallback(
-    async (hedefler: (UploadTarget & { file: File })[]) => {
-      const supabase = createClient();
-      const basarili: string[] = [];
-      const dusen: (Basarisiz & { fileId: string })[] = [];
-      let gidenBayt = 0;
-      let bitti = 0;
-
-      setIlerleme({ yapilan: 0, toplam: hedefler.length, bayt: 0 });
-
-      let sonraki = 0;
-      async function isci() {
-        for (;;) {
-          const i = sonraki++;
-          if (i >= hedefler.length) return;
-          const h = hedefler[i];
-
-          // ATLANANLAR HİÇ GÖNDERİLMEZ (yedek dosya · bayt bayt kopya) ve
-          // sayaçlara da girmezler: "gönderilmedi" ile "gönderilemedi" aynı
-          // şey değildir ve karıştırılırsa doğrulama yanlış alarm üretir.
-          if (h.skip) continue;
-
-          const sonHata = await yukleTekrarli(supabase, h.storagePath, h.file);
-          if (sonHata) {
-            dusen.push({
-              fileId: h.fileId,
-              relPath: h.relPath,
-              message: sonHata.message,
-              status: sonHata.status,
-            });
-            // İLERLEME YALNIZ BAŞARIDA ARTAR. Eski kod sayaçları hata dalının
-            // dışında artırıyordu ve ekran her bayt reddedilse bile
-            // "174/174 · 107 MB" yazıyordu.
-            console.error("[drawings] yükleme başarısız", h.relPath, sonHata);
-          } else {
-            basarili.push(h.fileId);
-            gidenBayt += h.file.size;
-          }
-
-          bitti += 1;
-          if (bitti % 5 === 0 || bitti === hedefler.length) {
-            setIlerleme({ yapilan: basarili.length, toplam: hedefler.length, bayt: gidenBayt });
-          }
-        }
-      }
-      await Promise.all(Array.from({ length: ESZAMANLI }, isci));
-      setIlerleme({ yapilan: basarili.length, toplam: hedefler.length, bayt: gidenBayt });
-      return { basarili, dusen };
-    },
-    []
-  );
-
-  /**
-   * İçe aktarma aşaması — `okunamayan[]` ARTIK OKUNUR.
-   *
-   * Route bu diziyi ilk günden beri döndürüyordu ama hiçbir çağıran ona
-   * bakmıyordu: bozuk ya da indirilemeyen bir dosya sessizce atlanıyor,
-   * kullanıcı "her şey okundu" sanıyordu.
-   */
-  const asamayiKostur = useCallback(
-    async (
-      packageId: string,
-      asamaAdi: "excel" | "pdf" | "dxf",
-      adet: number
-    ): Promise<{ ok: boolean; toplam: number; okunamayan: { file: string; reason: string }[] }> => {
-      let ofset = 0;
-      let toplam = 0;
-      const okunamayan: { file: string; reason: string }[] = [];
-      for (let tur = 0; tur < 200; tur++) {
-        const yanit = await fetch(
-          `/drawings/${packageId}/import?asama=${asamaAdi}&ofset=${ofset}&adet=${adet}`,
-          { method: "POST" }
-        );
-        if (!yanit.ok) return { ok: false, toplam, okunamayan };
-        const cevap = (await yanit.json()) as {
-          toplam: number;
-          bos?: boolean;
-          kalan: number;
-          sonraki: number | null;
-          okunamayan?: { file: string; reason: string }[];
-        };
-        toplam = cevap.toplam;
-        if (cevap.okunamayan?.length) okunamayan.push(...cevap.okunamayan);
-        if (cevap.toplam > 0) {
-          setIlerleme({
-            yapilan: cevap.toplam - cevap.kalan,
-            toplam: cevap.toplam,
-            bayt: 0,
-          });
-        }
-        if (!cevap.kalan || cevap.sonraki == null) return { ok: true, toplam, okunamayan };
-        ofset = cevap.sonraki;
-      }
-      return { ok: false, toplam, okunamayan };
-    },
-    []
-  );
-
-  function okunamayaniBildir(asamaAdi: string, liste: { file: string; reason: string }[]) {
-    if (!liste.length) return;
-    const ornek = liste
-      .slice(0, 3)
-      .map((o) => `${o.file.split("/").pop()} (${o.reason})`)
-      .join(" · ");
-    toast.error(
-      `${asamaAdi}: ${liste.length} dosya okunamadı — ${ornek}${liste.length > 3 ? " …" : ""}`,
-      { duration: Infinity, closeButton: true }
-    );
-  }
-
-  /**
-   * Yükleme akışının SARMALAYICISI — hiçbir hata ekranı kilitleyemez.
-   *
-   * `yukle()` içindeki sunucu eylemlerinin bir kısmı `{error}` DÖNMEZ,
-   * FIRLATIR: `tumSayfalar` PostgREST hatasında `throw` eder ve `asamayiKostur`
-   * ham `fetch` kullanır. 107 MB'lık bir yükleme on dakika sürerken ofis
-   * hattının bir kez kopması yeterdi: `void yukle()` reddi yutuyor, `asama`
-   * "okuma"da kalıyor, `calisiyor` sonsuza dek true oluyordu — dönen bir
-   * spinner, tek bir toast yok, klasör girişi ve düğme kapalı. Kullanıcı
-   * `packageId`yi bile öğrenemediği için "Eksikleri Yeniden Dene" bağlantısına
-   * da ulaşamıyordu.
-   *
-   * Bu dosyanın başlığındaki söz ("hata bir daha yutulmaz") tam da burada
-   * tutulur: en kötü durumda bile ekranda bir mesaj ve bir çıkış yolu kalır.
-   */
-  async function yukleGuvenli() {
-    // Paket kimliği hata yolunda da lazım: ressamın elinde en azından
-    // "Eksikleri Yeniden Dene" bağlantısı kalmalı.
-    const kimlik = { packageId: devamPackageId };
-    try {
-      await yukle(kimlik);
-    } catch (e) {
-      const mesaj = e instanceof Error ? e.message : String(e);
-      console.error("[drawings] yükleme akışı düştü", e);
-      toast.error(`Yükleme yarıda kaldı: ${mesaj}`, { duration: Infinity, closeButton: true });
-      if (kimlik.packageId) {
-        // Paket açılmışsa özet ekranına düşülür; oradaki "Eksikleri Yeniden
-        // Dene" düğmesi sürdürme kipine götürür ve İKİNCİ BİR PAKET AÇMAZ.
-        setSonuc({
-          packageId: kimlik.packageId,
-          storedCount: 0,
-          expectedCount: 0,
-          skippedCount: 0,
-          storedBytes: 0,
-          missing: 0,
-          recognitionPct: 0,
-          devirOzeti: "",
-        });
-        setAsama("ozet");
-      } else {
-        setAsama("onizleme");
-      }
-    }
-  }
-
-  async function yukle(kimlik: { packageId: string }) {
-    if (dosyalar.length === 0) return;
-    setAsama("yukleme");
-    setBasarisiz([]);
-
-    // ————————————————————————————————————— 1. Paket ve dosya satırları
-    let packageId = devamPackageId;
-    let hedefler: (UploadTarget & { file: File })[] = [];
-
-    // SÜRDÜRME KİPİ SESSİZCE "YENİ PAKET AÇ"A DÜŞMEZ.
-    //
-    // Akış `devam` STATE'ine bakıyordu, `devamPackageId` PROP'una değil:
-    // `loadMissingUploads` hata dönerse ya da fırlatırsa `devam` null kalıyor,
-    // amber şerit hiç çıkmıyor ve kullanıcı eksikleri tamamladığını sanırken
-    // İKİNCİ BİR PAKET açıyordu.
-    if (devamPackageId && !devam) {
-      toast.error(
-        "Eksik dosya listesi okunamadı; ikinci bir paket açmamak için yükleme başlatılmadı. Sayfayı yenileyip tekrar deneyin.",
-        { duration: Infinity, closeButton: true }
-      );
-      setAsama("onizleme");
-      return;
-    }
-
-    if (devam) {
-      setDurumMetni("Eksik dosyalar hazırlanıyor…");
-      const yolIle = new Map(devam.targets.map((t) => [t.relPath, t]));
-      hedefler = dosyalar
-        .map((d) => {
-          const t = yolIle.get(d.relPath);
-          return t
-            ? { fileId: t.fileId, relPath: t.relPath, storagePath: t.storagePath, skip: false, file: d.file }
-            : null;
-        })
-        .filter((x): x is UploadTarget & { file: File } => x !== null);
-    } else {
-      setDurumMetni("Paket kaydı açılıyor…");
-      const kayit = await createPackage({
-        folderName: klasorAdi,
-        itemNoOverride: kalemNo.trim(),
-        supersedesId: supersedeKarari === "revizyon" ? acikPaket?.id : undefined,
-      });
-      if (kayit.error || !kayit.packageId) {
-        toast.error(kayit.error ?? "Paket kaydı açılamadı.");
-        setAsama("onizleme");
-        return;
-      }
-      packageId = kayit.packageId;
-      // Kimliği HEMEN dışarı yaz: bundan sonraki her adım fırlatabilir ve
-      // sarmalayıcının elinde bir kurtarma bağlantısı olmalı.
-      kimlik.packageId = packageId;
-
-      // SATIRLAR ÖBEK ÖBEK. Hepsi tek gövdede gitseydi 2000 dosyada ~340 KB,
-      // 5000 dosyada ~850 KB ederdi ve Server Action gövde sınırı 1 MB'tır.
-      const dosyaIle = new Map(dosyalar.map((d) => [d.relPath, d.file]));
-      for (let i = 0; i < dosyalar.length; i += SATIR_OBEGI) {
-        setDurumMetni(
-          `Dosya kayıtları yazılıyor… ${Math.min(i + SATIR_OBEGI, dosyalar.length)}/${dosyalar.length}`
-        );
-        const obek = dosyalar.slice(i, i + SATIR_OBEGI);
-        const cevap = await addPackageFiles({
-          packageId,
-          files: obek.map((d) => ({ relPath: d.relPath, size: d.file.size, checksum: d.checksum })),
-        });
-        if (cevap.error || !cevap.uploads) {
-          toast.error(cevap.error ?? "Dosya kayıtları yazılamadı.", {
-            duration: Infinity,
-            closeButton: true,
-          });
-          setAsama("onizleme");
-          return;
-        }
-        for (const u of cevap.uploads) {
-          const f = dosyaIle.get(u.relPath);
-          if (f) hedefler.push({ ...u, file: f });
-        }
-      }
-
-      setDurumMetni("Klasör tanınıyor…");
-      const muhur = await sealPackageFiles({ packageId });
-      if (muhur.error) toast.warning(muhur.error);
-    }
-
-    // ————————————————————————————————————————————————— 2. Baytlar
-    setDurumMetni("Dosyalar yükleniyor…");
-    const { basarili, dusen } = await baytlariGonder(hedefler);
-    setBasarisiz(dusen.map(({ relPath, message, status }) => ({ relPath, message, status })));
-
-    // ——————————————————————————————— 3. Sonucu yaz, sonra GERÇEĞİ ÖLÇ
-    const kapanis = await finalizeUpload({
-      packageId,
-      storedFileIds: basarili,
-      failed: dusen.map((d) => ({
-        fileId: d.fileId,
-        message: d.status ? `${d.status} · ${d.message}` : d.message,
-      })),
-    });
-    // DÖNÜŞ OKUNUR. Eski kod `await finalizeUpload(...)` yazıp sonucu hiç
-    // kontrol etmiyordu; hata dönse bile ekran başarıya devam ediyordu.
-    if (kapanis.error) {
-      toast.error(kapanis.error, { duration: Infinity, closeButton: true });
-    }
-
-    setAsama("dogrulama");
-    setDurumMetni("Depo doğrulanıyor…");
-    const dogrulama = await verifyStorage({ packageId });
-    if (dogrulama.error) {
-      toast.error(dogrulama.error, { duration: Infinity, closeButton: true });
-    }
-
-    // ————————————————————————————————————————————————— 4. İçerik okuma
-    //
-    // SIRA ÖNEMLİ: defterin omurgası Excel'den kurulur; antet ve DXF kutusu
-    // yalnız BOŞ ALANI doldurur. Ters sırada çalışsalardı antetteki anlık
-    // ağırlık, ressamın onayladığı ürün ağacındakini ezerdi.
-    //
-    // İçerik aşamaları BAŞARISIZ OLABİLİR ve bu yüklemeyi bozmaz: paket zaten
-    // açılmıştır, defter Excel'den kurulur, kullanıcı sonra "İçerikleri
-    // Yeniden Oku" ile tamamlayabilir.
-    setAsama("okuma");
-    for (const [ad, anahtar, adet] of [
-      ["Excel dosyaları okunuyor…", "excel", 10],
-      ["Resim antetleri okunuyor…", "pdf", 20],
-      ["Kesim dosyaları okunuyor…", "dxf", 25],
-    ] as const) {
-      setDurumMetni(ad);
-      const cevap = await asamayiKostur(packageId, anahtar, adet);
-      if (!cevap.ok) {
-        toast.warning(`${anahtar.toUpperCase()} okuma tamamlanamadı; paket yine de açıldı.`);
-      } else if (cevap.toplam === 0) {
-        // BOŞ İŞ KÜMESİ BAŞARI DEĞİLDİR. Sunucu ikisine de `{kalan: 0}`
-        // dönüyordu ve istemci "hiç dosya yoktu"yu "hepsi okundu" sanıyordu —
-        // depoya hiç ulaşmamış bir paket tam olarak böyle sessiz kalırdı.
-        toast.warning(`${anahtar.toUpperCase()}: okunacak dosya bulunamadı.`);
-      }
-      okunamayaniBildir(anahtar.toUpperCase(), cevap.okunamayan);
-    }
-
-    // ————————————————————————————————————————————————— 5. Defter
-    setAsama("eslestirme");
-    setDurumMetni("Defter kuruluyor…");
-    const es = await reconcilePackage({ packageId });
-    if (es.error) toast.error(es.error, { duration: Infinity, closeButton: true });
-
-    // ———————————————————————— 6. Revizyonsa ESKİYİ ŞİMDİ düşür
-    //
-    // EN SONDA, çünkü yarıda kalan bir revizyon eski paketi düşürseydi atölye
-    // bakacak resim bulamazdı. Süperse SİLMEK DEĞİLDİR: eski paket ve bütün
-    // dosyaları durur, yalnız listede geri plana düşer.
-    let devirOzeti = "";
-    if (!devam && supersedeKarari === "revizyon" && acikPaket) {
-      setDurumMetni("Üretim kayıtları yeni revizyona taşınıyor…");
-      const devir = await supersedePackage({ packageId, supersedesId: acikPaket.id });
-      if (devir.error) toast.error(devir.error, { duration: Infinity, closeButton: true });
-      else devirOzeti = devir.summary ?? "";
-    }
-
-    const eksik = dogrulama.missing ?? dusen.length;
-    setSonuc({
-      packageId,
-      storedCount: dogrulama.storedCount ?? 0,
-      expectedCount: dogrulama.expectedCount ?? hedefler.length,
-      skippedCount: dogrulama.skippedCount ?? 0,
-      storedBytes: dogrulama.storedBytes ?? 0,
-      missing: eksik,
-      recognitionPct: es.recognitionPct ?? 0,
-      devirOzeti,
-    });
-
-    // EKSİK VARSA RAPORA ATLANMAZ. Eski akış `router.push` ile bileşeni
-    // unmount ediyordu ve tek uyarı satırı onunla birlikte yok oluyordu —
-    // fonksiyondaki toast'sız tek hata dalı buydu, üstüne koşulsuz bir
-    // `toast.success` basılıyordu.
-    if (eksik > 0 || dusen.length > 0) {
-      setAsama("ozet");
-      toast.error(`${formatNum(eksik)} dosya depoya ulaşmadı. Ayrıntı aşağıda.`, {
-        duration: Infinity,
-        closeButton: true,
-      });
-      return;
-    }
-
-    toast.success(
-      devirOzeti || `Paket açıldı — sistem %${es.recognitionPct ?? 0}'ini tanıdı.`
-    );
-    router.push(`/drawings/${packageId}/report`);
-  }
 
   const calisiyor =
     asama === "yukleme" || asama === "dogrulama" || asama === "okuma" || asama === "eslestirme";
@@ -720,7 +273,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
               // `change` olayını yeniden tetiklemesi için gerekli.
               const secilenler = Array.from(e.target.files ?? []);
               e.target.value = "";
-              void dosyalariAl(secilenler);
+              void dosyalariSec(secilenler);
             }}
           />
         </label>
@@ -781,9 +334,10 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
           {!devam && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               {formatNum(gonderilecek)} dosya · {formatBytes(gonderilecekBayt)} gönderilecek —
-              ofis hattında yaklaşık{" "}
-              <strong>{sureMetni(gonderilecekBayt)}</strong>. Bu sekmeyi açık bırakın; kapatırsanız
-              yükleme durur (kaldığı yerden sürdürülebilir).
+              ofis hattında yaklaşık <strong>{sureMetni(gonderilecekBayt)}</strong>.{" "}
+              <strong>Başka sayfalara geçebilirsiniz</strong>: yükleme arka planda sürer ve ekranın
+              altındaki göstergeden izlenir. Yalnız <strong>bu sekmeyi kapatmayın</strong> ya da
+              sayfayı yenilemeyin (kaldığı yerden sürdürülebilir).
             </p>
           )}
 
@@ -811,7 +365,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
                   <Input
                     id="kalemNo"
                     value={kalemNo}
-                    onChange={(e) => setKalemNo(e.target.value)}
+                    onChange={(e) => yuklemeYaz({ kalemNo: e.target.value })}
                     className="font-mono"
                   />
                 </div>
@@ -838,7 +392,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
                   type="button"
                   size="sm"
                   variant={supersedeKarari === "revizyon" ? "default" : "outline"}
-                  onClick={() => setSupersedeKarari("revizyon")}
+                  onClick={() => yuklemeYaz({ supersedeKarari: "revizyon" })}
                 >
                   Yeni revizyon (önerilen)
                 </Button>
@@ -846,7 +400,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
                   type="button"
                   size="sm"
                   variant={supersedeKarari === "ayri" ? "default" : "outline"}
-                  onClick={() => setSupersedeKarari("ayri")}
+                  onClick={() => yuklemeYaz({ supersedeKarari: "ayri" })}
                 >
                   İkisi ayrı dursun
                 </Button>
@@ -862,7 +416,7 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
           )}
 
           <div className="mt-4 flex justify-end">
-            <Button onClick={() => void yukleGuvenli()} disabled={calisiyor || surumeHazir}>
+            <Button onClick={() => void yuklemeyiBaslat()} disabled={calisiyor || surumeHazir}>
               {calisiyor ? <Loader2 className="size-4 animate-spin" /> : null}
               {devam ? "Eksikleri Yükle" : "Yüklemeyi Başlat"}
             </Button>
@@ -945,11 +499,25 @@ export function FolderPicker({ devamPackageId = "" }: { devamPackageId?: string 
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push(`/drawings/new?devam=${sonuc.packageId}`)}
+                onClick={() => {
+                  // ÖNCE SIFIRLA: sürdürme kipi kurulumu `devamPackageId`
+                  // değişimine bakıyor ve eski turun özeti elde kalırsa
+                  // "Eksikleri Yükle" ekranı kırmızı kartın altında açılırdı.
+                  const hedef = sonuc.packageId;
+                  yuklemeSifirla();
+                  router.push(`/drawings/new?devam=${hedef}`);
+                }}
               >
                 Eksikleri Yeniden Dene
               </Button>
-              <Button type="button" onClick={() => router.push(`/drawings/${sonuc.packageId}/report`)}>
+              <Button
+                type="button"
+                onClick={() => {
+                  const hedef = sonuc.packageId;
+                  yuklemeSifirla();
+                  router.push(`/drawings/${hedef}/report`);
+                }}
+              >
                 <CheckCircle2 className="size-4" />
                 Rapora Git
               </Button>
@@ -971,67 +539,9 @@ function Kutu({ k, d, alt }: { k: string; d: string; alt?: string }) {
   );
 }
 
-/**
- * Tek dosyayı ÜÇ DENEMEYE kadar yükler; başarısızsa SEBEBİ döner.
- *
- * Bugüne kadar tek bir kopan bağlantı dosyayı kalıcı olarak kaybettiriyordu:
- * 454 dosyalık bir pakette bu neredeyse kaçınılmaz. Üstel bekleme, geçici bir
- * ağ dalgalanmasının bütün bir yüklemeyi eksik bırakmasını engeller.
- */
-async function yukleTekrarli(
-  supabase: ReturnType<typeof createClient>,
-  hedef: string,
-  dosya: File
-): Promise<{ message: string; status: number | null } | null> {
-  if (!hedef) return { message: "depo yolu üretilmedi", status: null };
-
-  // TİP DOĞRU OLSUN DİYE BLOB. `upload` seçeneklerindeki `contentType`,
-  // gövde bir `Blob`/`File` olduğunda storage-js'in FormData dalına düşer ve
-  // YOK SAYILIR — bucket'taki her DXF `application/octet-stream` oluyordu.
-  // `slice` kopya çıkarmaz, yalnız tipi olan yeni bir görünüm verir.
-  const mime = contentTypeFor(dosya.name, dosya.type);
-  const govde = dosya.slice(0, dosya.size, mime);
-
-  let son: { message: string; status: number | null } = { message: "bilinmeyen hata", status: null };
-  for (let deneme = 0; deneme < DENEME; deneme++) {
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(hedef, govde, { upsert: true, contentType: mime });
-    if (!error) return null;
-    const durum = (error as { statusCode?: string | number }).statusCode;
-    son = {
-      message: error.message || "bilinmeyen hata",
-      status: durum == null ? null : Number(durum) || null,
-    };
-    if (deneme < DENEME - 1) await new Promise((r) => setTimeout(r, 400 * 2 ** deneme));
-  }
-  return son;
-}
-
 /** "yaklaşık 1 dk" · "yaklaşık 7 dk" */
 function sureMetni(bayt: number): string {
   const sn = Math.round(bayt / TAHMINI_HIZ);
   if (sn < 60) return `${Math.max(1, sn)} sn`;
   return `${Math.round(sn / 60)} dk`;
-}
-
-/**
- * SHA-256 — kopya dosyaları bulmanın tek yolu.
- *
- * WebCrypto'da MD5 yok; kopya kararı için SHA-256 aynı sonucu verir. Bu imza
- * sayesinde BÜKÜM PDF'lerinin DWG altındakilerin aynısı olduğu ve — MTC'de
- * gerçekten olduğu gibi — İKİ FARKLI PARÇANIN aynı PDF'i taşıdığı görülür.
- * Aynı imza artık ikinci kez YÜKLENMEZ de: satır aslın yolunu gösterir.
- */
-async function imzala(file: File): Promise<string> {
-  try {
-    const buf = await file.arrayBuffer();
-    const hash = await crypto.subtle.digest("SHA-256", buf);
-    return Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  } catch {
-    // İmza alınamazsa kopya tespiti düşer ama YÜKLEME DÜŞMEZ.
-    return "";
-  }
 }

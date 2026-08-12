@@ -77,6 +77,13 @@ function tazele() {
   revalidatePath("/purchasing/teslimat");
   revalidatePath("/purchasing/odemeler");
   revalidatePath("/purchasing/fiyatlar");
+  // TEKNİK RESİMLER'İN ÖZETİ DE ESKİR. Mühendisin gördüğü "geldi mi" cevabı
+  // buradaki her sipariş hareketinden türer (12.08.2026 kararı); teslim
+  // işaretlendiği hâlde ressamın ekranında "yolda" yazması, o ekranın güvenini
+  // ilk günden bitirirdi. Hangi paketleri etkilediği burada BİLİNMEZ —
+  // `updateOrder` yalnız sipariş kimliği alır — bu yüzden dinamik yolun
+  // TAMAMI tazelenir (`type: "page"`).
+  revalidatePath("/drawings/[id]/purchasing", "page");
 }
 
 // ═══════════════════════════════════════════════════════════════ TEKLİFLER

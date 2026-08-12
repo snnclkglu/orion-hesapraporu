@@ -34,7 +34,13 @@ import {
 import { satinAlmaListesi, type TurevParca } from "@/lib/drawings/derive";
 import { AssemblyTree } from "@/app/(app)/drawings/[id]/assembly-tree";
 import { FileBrowser } from "@/app/(app)/drawings/[id]/file-browser";
+import {
+  paketSatinAlmaOzeti,
+  type SiparisOzeti,
+} from "@/lib/purchasing/package-summary";
+import { PackageActions } from "@/app/(app)/drawings/[id]/package-actions";
 import { PartsTable } from "@/app/(app)/drawings/[id]/parts/parts-table";
+import { PurchaseSummaryTable } from "@/app/(app)/drawings/[id]/purchasing/summary-table";
 import type { FileRow, PartRow } from "@/app/(app)/drawings/data";
 
 function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
@@ -124,6 +130,41 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
   return { pkg, sonuc, files, parts, bayt, alim };
 }
 
+/**
+ * Satın alma özetinin fikstürü — SİPARİŞ KAYITLARI UYDURULMUŞTUR.
+ *
+ * Ekranın anlatmak istediği şey dört durumun ve gecikme rozetinin bir arada
+ * nasıl durduğudur; gerçek pakette hiç sipariş yok, yani "hepsi bekliyor"
+ * görüntüsü hiçbir yerleşim sorusunu cevaplamazdı. Bugün de SABİTTİR
+ * (`ONIZLEME_BUGUN`): tarihe göre kayan bir önizleme, iki gün sonra başka bir
+ * ekran gösterirdi ve karşılaştırma yapılamazdı.
+ */
+const ONIZLEME_BUGUN = "2026-08-12";
+
+function ozetKur(satirlar: readonly { key: string; tanim: string; sinif: string; malzeme: string; parcaKodu: string; adet: number | null }[]) {
+  const ozetler: SiparisOzeti[] = [];
+  satirlar.forEach((s, i) => {
+    // Her dördüncü kalem sipariş edilmemiş bırakılır: "bekliyor" da bir hâldir.
+    if (i % 4 === 0) return;
+    const adet = s.adet ?? 1;
+    const teslim = i % 4 === 2 ? adet : i % 4 === 3 ? Math.max(1, Math.floor(adet / 2)) : 0;
+    const kapali = teslim >= adet;
+    ozetler.push({
+      partKey: s.key,
+      matchKey: s.key,
+      orderedQty: adet,
+      receivedQty: teslim,
+      firstOrderedAt: "2026-06-20",
+      // Bir grup termin GEÇMİŞTİR — gecikme rozeti ancak öyle görünür.
+      nextDueAt: kapali ? null : i % 3 === 0 ? "2026-08-01" : "2026-09-15",
+      lastReceivedAt: kapali ? "2026-08-05" : null,
+      orderCount: 1,
+      openOrderCount: kapali ? 0 : 1,
+    });
+  });
+  return paketSatinAlmaOzeti(satirlar, ozetler, [], ONIZLEME_BUGUN);
+}
+
 export default function DrawingsPreviewPage() {
   // Üretimde 404 — dev önizlemelerinin evdeki kuralı.
   if (process.env.NODE_ENV !== "development") notFound();
@@ -160,6 +201,20 @@ export default function DrawingsPreviewPage() {
             </div>
           </div>
 
+          {/* PAKET EYLEMLERİ — asıl görülmesi gereken şey SİLME PENCERESİDİR.
+              Onay kutusuna paket adı yerine "ONAY" yazılıyor (12.08.2026) ve
+              bu değişiklik ancak pencere gerçekten açılınca doğrulanabilir.
+              Düğmeler burada depoya ulaşamaz; amaç yerleşim ve metindir. */}
+          <PackageActions
+            packageId="00000000-0000-4000-8000-000000000000"
+            folderName={pkg.folder}
+            storedCount={pkg.files.length}
+            bytes={bayt}
+            partCount={parts.length}
+            progressCount={0}
+            missing={0}
+          />
+
           {/* Genel Bakış ile Dosyalar ARTIK AYRI BÖLÜM; önizleme ikisini alt
               alta basar, uygulamadaki gibi her biri tam genişlikte. */}
           <AssemblyTree
@@ -177,17 +232,20 @@ export default function DrawingsPreviewPage() {
               denemez. */}
           <PartsTable packageId="onizleme" parts={parts} files={files} />
 
-          {/* SATIN ALMA TABLOSU BURADAN KALKTI (12.08.2026): paket içi Satın
-              Alma sekmesi kaldırıldı ve yerini `/purchasing` bölümü aldı.
-              Havuz tablosu ÇOK PAKETLİDİR ve tek paketlik bir fikstürle
-              anlamlı bir önizlemesi yapılamaz — o ekranın duman testi
-              `scripts/test-purchasing-pool.ts`tir ve CANLI veriyle koşar.
-              Kategori DAĞILIMI yine de basılır: sözlük bu iki gerçek pakete
-              karşı ölçülüyor ve bozulursa buradan görünür. */}
+          {/* SATIN ALMA ÖZETİ — paketin SALT OKUNUR penceresi (12.08.2026).
+              Havuzun kendisi ÇOK PAKETLİDİR ve burada önizlenemez (onun duman
+              testi `scripts/test-purchasing-pool.ts`, canlı veriyle koşar); bu
+              ekran ise tek paketliktir ve tam olarak burada görülür.
+              Sipariş kayıtları UYDURULMUŞTUR ve öyle olmak zorundadır: dört
+              durumun (bekliyor · sipariş · kısmi · teslim) ve gecikme
+              rozetinin bir arada nasıl durduğu ancak dördü de varken
+              ölçülebilir. Kategori DAĞILIMI da basılır: sözlük bu iki gerçek
+              pakete karşı ölçülüyor ve bozulursa buradan görünür. */}
           <p className="font-mono text-[11px] text-muted-foreground">
             Satın alma: {formatNum(alim.satirlar.length)} kalem ·{" "}
             {alim.siniflar.map((s) => `${s.sinif} ${s.satirSayisi}`).join(" · ")}
           </p>
+          <PurchaseSummaryTable ozet={ozetKur(alim.satirlar)} ozetKapisiVar />
 
           <div className="grid gap-3 lg:grid-cols-3">
             {FINDING_SECTIONS.map((bolum) => {

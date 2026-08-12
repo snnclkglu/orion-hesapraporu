@@ -9,9 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  GENEL_KOMPLE_ADI,
   NORMALIZE_VERSION,
   anaGrupAdaylari,
   anaGrupKodu,
+  genelKompleMu,
   grupAdlariCikar,
   normAnahtar,
   normalizeTanim,
@@ -280,6 +282,33 @@ describe("grupAdlariCikar — ad UYDURULMAZ, kaynaktan çıkarılır", () => {
       name: "KÖPRÜ YÜRÜTME GRUBU",
       kaynak: "satir",
     });
+  });
+
+  it("`-0000` adsız kalırsa GENEL KOMPLE olur (firma sözleşmesi)", () => {
+    const adlar = grupAdlariCikar([
+      // Başlıklar çelişiyor: iki kaynak da susuyor, üçüncü basamak devrede.
+      p("0054-00-0000-01", "SAC 15x240x285", "KALDIRMA KİRİŞİ"),
+      p("0054-00-0000-02", "SAC 15x240x285", "ARABA ŞASİ"),
+    ]);
+    expect(adlar).toContainEqual({
+      groupCode: "0054-00-0000",
+      name: GENEL_KOMPLE_ADI,
+      kaynak: "kural",
+    });
+  });
+
+  it("kural EN SONDADIR: gerçek bir ad varsa GENEL KOMPLE yazılmaz", () => {
+    const adlar = grupAdlariCikar([
+      p("0054-00-0000", "75 TON KAPASİTELİ KALDIRMA KİRİŞİ"),
+      p("0054-00-0000-01", "SAC 15x240x285", "75 TON KAPASİTELİ KALDIRMA KİRİŞİ"),
+    ]);
+    expect(adlar.find((a) => a.groupCode === "0054-00-0000")?.kaynak).toBe("satir");
+  });
+
+  it("kural YALNIZ üç bloklu koda işler — alt montajın 0000'ı grup değildir", () => {
+    expect(genelKompleMu("0054-00-0000")).toBe(true);
+    expect(genelKompleMu("0054-00-0802-0000")).toBe(false);
+    expect(genelKompleMu("0054-00-0100")).toBe(false);
   });
 });
 

@@ -18,12 +18,19 @@ export function PackageNav({ packageId }: { packageId: string }) {
   // teslim edilen dosyalara bakılır (Dosyalar), içindekiler okunur (Parçalar),
   // atölyeye iner (Üretim), sonra denetim (Rapor) ve en sonda arşiv (Sürümler).
   //
-  // SATIN ALMA SEKMESİ KALDIRILDI (kullanıcı kararı, 12.08.2026): "Teknik
-  // Resimler bölümündeki satın almayı iptal edeceğiz, zaten yeni bölüm
-  // yaptık." Sekme paket başına bir liste gösteriyordu; satınalmacı ise
-  // projeleri tek tek ele almıyor, birden çok projenin siparişini bir arada
-  // biriktiriyor. `/purchasing` bölümü tam olarak o işi modelliyor ve iki
-  // ekranın bir arada yaşaması "hangisi doğru" sorusunu doğururdu.
+  // SATIN ALMA SEKMESİ BİR KEZ KALDIRILDI, SONRA BAŞKA BİR ŞEY OLARAK DÖNDÜ
+  // (kullanıcı kararları, 12.08.2026).
+  //
+  // Kaldırılan şey bir İŞLEM ekranıydı: paket başına sipariş/teklif listesi.
+  // Gerekçesi duruyor — satınalmacı projeleri tek tek ele almaz, birden çok
+  // projenin siparişini bir arada biriktirir; `/purchasing` tam olarak o işi
+  // modelliyor ve iki YAZAN ekran "hangisi doğru" sorusunu doğururdu.
+  //
+  // Geri gelen şey bir PENCEREdir: *"Mühendis ya da ressam bu ekipman satın
+  // alınmış mı diye bakabilsin ve teslim süresini görebilsin."* Mühendis ve
+  // ressam `/purchasing` bölümünü görmüyor; sayfa salt okunurdur, fiyat ve
+  // tedarikçi TAŞIMAZ ve tek bir yazma yolu yoktur. Çelişki bu yüzden
+  // doğmaz: yazan taraf hâlâ tektir.
   //
   // Satın alma AŞAMALARI (`satinalindi` · `teslim_alindi`) yerinde duruyor:
   // sipariş açıldığında `/purchasing` onları yazıyor ve atölye tahtasında o
@@ -35,6 +42,7 @@ export function PackageNav({ packageId }: { packageId: string }) {
     { href: kok, label: "Genel Bakış", exact: true },
     { href: `${kok}/files`, label: "Dosyalar", exact: false },
     { href: `${kok}/parts`, label: "Parçalar", exact: false },
+    { href: `${kok}/purchasing`, label: "Satın Alma", exact: false },
     { href: `${kok}/progress`, label: "Üretim", exact: false },
     { href: `${kok}/report`, label: "İçe Aktarım Raporu", exact: false },
     { href: `${kok}/versions`, label: "Sürümler", exact: false },

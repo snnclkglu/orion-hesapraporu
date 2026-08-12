@@ -14,7 +14,13 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tumSatirlar } from "../drawings/data";
-import { anaGrupKodu, normalizeTanim } from "@/lib/drawings/normalize";
+import {
+  anaGrupAdaylari,
+  anaGrupKodu,
+  genelKompleMu,
+  normalizeTanim,
+  GENEL_KOMPLE_ADI,
+} from "@/lib/drawings/normalize";
 import { progressKeyOf } from "@/lib/drawings/progress";
 import {
   drawingCarpani,
@@ -227,7 +233,15 @@ export async function loadHavuz(
 
     for (const r of ham) {
       const tanim = (r.description || r.name || "").trim();
-      const groupCode = anaGrupKodu(r.part_code ?? "", bilinenGruplar);
+      // GENEL KOMPLE DEFTERE BAĞLI DEĞİLDİR. `anaGrupKodu` bilinen kodlar
+      // arasından seçer ve defterde karşılığı yoksa BOŞ döner; `-0000` ise
+      // firmanın numaralandırma sözleşmesiyle kendi başına tanınır, yani bu
+      // kural yazılmadan önce eşleştirilmiş paketler de yeniden eşleştirme
+      // beklemeden grubunu gösterir.
+      const groupCode =
+        anaGrupKodu(r.part_code ?? "", bilinenGruplar) ||
+        anaGrupAdaylari(r.part_code ?? "").find(genelKompleMu) ||
+        "";
       /**
        * ANA GRUP ADI İKİ KAYNAKTAN GELİR — ve ikincisi asıl kaynaktır.
        *
@@ -242,8 +256,18 @@ export async function loadHavuz(
        * ağacından çıkarılmış OTORİTER ad kullanılır.
        */
       const defterAdi = groupCode ? grupAdlari.get(groupCode) : undefined;
+      // Üçüncü basamak FİRMA SÖZLEŞMESİDİR (`-0000` → GENEL KOMPLE) ve defter
+      // burada da devreye girer: eski paketler bu kural yazılmadan önce
+      // eşleştirildi, yeniden eşleştirilmedikçe `drawing_group_names`te
+      // karşılıkları yok. Kural burada da okununca o paketler ekranda adsız
+      // kalmaz — yeniden eşleştirme beklemeden.
       const groupName =
-        defterAdi ?? (r.assembly_title ? normalizeTanim(r.assembly_title).tanim : "");
+        defterAdi ??
+        (r.assembly_title
+          ? normalizeTanim(r.assembly_title).tanim
+          : genelKompleMu(groupCode)
+            ? GENEL_KOMPLE_ADI
+            : "");
       satirlar.push({
         packageId: r.package_id,
         // Anahtar `progressKeyOf` ile ÜRETİLİR, elle kurulmaz: paket
