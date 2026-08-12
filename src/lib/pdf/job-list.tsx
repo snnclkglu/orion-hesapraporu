@@ -16,8 +16,13 @@
 //
 // YAPI BÜYÜMEYE HAZIRDIR. Bugün 88 satır; yüzlerce satırda da aynı belge
 // çıkar: başlık satırı her sayfada tekrar eder (`fixed`), yıl bandı sayfa
-// dibinde yalnız kalmaz (`minPresenceAhead`), satırlar sayfa arasında
-// bölünmez (`wrap={false}`) ve müşteri özeti veriden türer, elle yazılmaz.
+// dibinde yalnız kalmaz (`minPresenceAhead`) ve satırlar sayfa arasında
+// bölünmez (`wrap={false}`).
+//
+// BELGE TEK BİR ÇİZELGEDİR. Bir süre sonuna "Müşteri Referansları" kapanış
+// sayfası eklenmişti (müşteri başına iş adedi ve tonaj); kaldırıldı
+// (kullanıcı kararı, 12.08.2026) — sayfa başındaki ölçü şeridiyle aynı
+// gerekçe: firmanın toplam iş hacmi teklif ekinde rakamla açıklanmıyor.
 
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import {
@@ -84,8 +89,8 @@ const SUTUNLAR: { baslik: string; pay: number; hiza?: "right" | "center" }[] = [
   { baslik: "No", pay: 2.5, hiza: "right" },
   { baslik: "İş No", pay: 5.5 },
   { baslik: "Müşteri", pay: 9 },
-  { baslik: "İşin Adı", pay: 24 },
-  { baslik: "Kapsam", pay: 13.5 },
+  { baslik: "İşin Adı", pay: 25.5 },
+  { baslik: "Kapsam", pay: 12 },
   { baslik: "Miktar", pay: 6.5, hiza: "right" },
   { baslik: "Ağırlık", pay: 7, hiza: "right" },
   { baslik: "Sözleşme", pay: 6, hiza: "center" },
@@ -93,16 +98,6 @@ const SUTUNLAR: { baslik: string; pay: number; hiza?: "right" | "center" }[] = [
   { baslik: "Sevk", pay: 6, hiza: "center" },
   { baslik: "Sevk Yeri", pay: 6.5, hiza: "center" },
   { baslik: "Durum", pay: 7.5 },
-];
-
-/** Kapanış sayfasının sütunları — çizelgeden AYRI bir ızgaradır. */
-const OZET_SUTUNLAR: { baslik: string; pay: number; hiza?: "right" | "center" }[] = [
-  { baslik: "No", pay: 5, hiza: "right" },
-  { baslik: "Müşteri", pay: 33 },
-  { baslik: "İş Kalemi", pay: 10, hiza: "right" },
-  { baslik: "Toplam Ağırlık (kg)", pay: 14, hiza: "right" },
-  { baslik: "Dönem", pay: 12, hiza: "center" },
-  { baslik: "Pay", pay: 26 },
 ];
 
 const S = StyleSheet.create({
@@ -154,18 +149,6 @@ const S = StyleSheet.create({
   nokta: { width: 4, height: 4, borderRadius: 2 },
   durumYazi: { fontFamily: FONTS.sans, fontSize: 6.4, fontWeight: 500 },
 
-  // ---- müşteri özeti
-  // Kapanış satırı ÇİZELGE SATIRINDAN DAHA SIK: yirmi üç müşteri tek sayfaya
-  // sığmalı, kırk müşteride de sayfa başına en çok satır düşmelidir.
-  ozetSatir: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 0.4,
-    borderBottomColor: BRAND.hairline,
-  },
-  ozetHucre: { paddingVertical: 2 },
-  cubukKap: { height: 3, backgroundColor: BRAND.paper200 },
-  cubuk: { height: 3, backgroundColor: BRAND.red },
   dipnot: { ...T.caption, fontSize: 6.8, color: BRAND.gray600, marginTop: 8 },
 });
 
@@ -232,10 +215,12 @@ function Hucre({
 /**
  * Yıl → o yılın satırları. Yılsızlar en sona, "Tarihsiz" başlığıyla.
  *
- * YILLAR YENİDEN ESKİYE SIRALANIR (kullanıcı kararı, 11.08.2026): belge bir
- * arşiv değil bir REFERANStır ve teklif alan müşteri önce "şu anda ne
- * yapıyorlar" diye bakar. Yıl İÇİNDE sıra iş numarasıdır, yani o yılın işleri
- * kendi içinde kronolojik okunur.
+ * SIRA BAŞTAN SONA İŞ NUMARASINA GÖRE BÜYÜKTEN KÜÇÜĞEDİR (kullanıcı kararı,
+ * 12.08.2026): en yeni iş en üstte. Yıl bantları bunun kendiliğinden çıkan
+ * sonucudur — numara kronolojik arttığı için yıllar da yeniden eskiye dizilir
+ * ve bant içindeki satırlar aynı yönü sürdürür. SIRALAMA BELGENİN KENDİ
+ * İŞİDİR, çağıranın değil: iki tüketici (indirme ucu ve duman testi) ayrı
+ * sıralarsa aynı belge iki farklı düzende basılırdı.
  *
  * SIRA NUMARASI BURADA VERİLİR, çizim sırasında değil: numara çizelge boyunca
  * AKAR (yıl bandı sıfırlamaz) ve bunu boyama sırasında bir sayaçla üretmek
@@ -245,7 +230,10 @@ function yillaraBol(
   rows: JobListRow[]
 ): { yil: string; satirlar: { r: JobListRow; sira: number }[] }[] {
   const harita = new Map<string, JobListRow[]>();
-  for (const r of rows) {
+  const sirali = [...rows].sort((a, b) =>
+    b.itemNo.localeCompare(a.itemNo, "tr", { numeric: true })
+  );
+  for (const r of sirali) {
     const y = jobListYear(r);
     const liste = harita.get(y);
     if (liste) liste.push(r);
@@ -262,27 +250,9 @@ function yillaraBol(
     }));
 }
 
-/** Müşteri kırılımı — belgenin kapanış sayfası. */
-function musteriOzeti(rows: JobListRow[]) {
-  const harita = new Map<string, { adet: number; kg: number; ilk: string; son: string }>();
-  for (const r of rows) {
-    const ad = r.customer.trim() || "—";
-    const y = jobListYear(r);
-    const v = harita.get(ad) ?? { adet: 0, kg: 0, ilk: y, son: y };
-    v.adet += 1;
-    v.kg += r.totalWeightKg ?? 0;
-    if (y && (!v.ilk || y < v.ilk)) v.ilk = y;
-    if (y && (!v.son || y > v.son)) v.son = y;
-    harita.set(ad, v);
-  }
-  return [...harita.entries()].sort((a, b) => b[1].adet - a[1].adet || b[1].kg - a[1].kg);
-}
-
 export function JobListDocument({ rows, meta, company }: JobListDocProps) {
   const bugun = new Date().toISOString().slice(0, 10);
   const gruplar = yillaraBol(rows);
-  const ozet = musteriOzeti(rows);
-  const enBuyukAdet = ozet[0]?.[1].adet ?? 1;
 
   return (
     <Document
@@ -387,72 +357,11 @@ export function JobListDocument({ rows, meta, company }: JobListDocProps) {
         <Text style={S.dipnot}>
           Ağırlık sütunu imal edilen çelik konstrüksiyonun toplam ağırlığıdır
           (kg). Durum sütunu sevk tarihine göre üretilir; tarihler sözleşme,
-          taahhüt edilen termin ve gerçekleşen sevk tarihleridir.
+          taahhüt edilen termin ve gerçekleşen sevk tarihleridir. Liste
+          {" "}{meta.generatedAt} tarihli kayıtlardan üretilmiştir.
         </Text>
       </BrandPage>
 
-      {/* Kapanış: müşteri kırılımı. Çizelgenin kendisi kaleme, bu sayfa
-          FİRMAYA bakar — "kimlerle, kaç iş, ne kadar tonaj". */}
-      <BrandPage
-        orientation="landscape"
-        docLine={trUpper(`Orion Cranes · Güncel İş Listesi · ${meta.periodLabel}`)}
-        docCode={meta.docCode}
-        company={company}
-      >
-        <PageHeader
-          kicker="Kapanış"
-          title="Müşteri Referansları"
-          meta={trUpper(meta.periodLabel)}
-        />
-
-        {/* Bu başlık da `fixed`: müşteri sayısı arttıkça kapanış da sayfaya
-            sığmayacak ve ikinci sayfa başlıksız kalmamalı. */}
-        <View style={S.baslikSatiri} fixed>
-          {OZET_SUTUNLAR.map((s) => (
-            <Text
-              key={s.baslik}
-              style={[S.baslikYazi, { width: `${s.pay}%`, textAlign: s.hiza ?? "left" }]}
-            >
-              {trUpper(s.baslik)}
-            </Text>
-          ))}
-        </View>
-
-        {ozet.map(([ad, v], i) => {
-          const h = [S.hucre, S.ozetHucre];
-          return (
-            <View key={ad} style={[S.ozetSatir, ...(i % 2 === 1 ? [S.satirAlt] : [])]} wrap={false}>
-              <Text style={[...h, S.mono, S.sonuk, { width: "5%", textAlign: "right" }]}>
-                {i + 1}
-              </Text>
-              <Text style={[...h, S.urunAdi, { width: "33%" }]}>{ad}</Text>
-              <Text style={[...h, S.mono, { width: "10%", textAlign: "right" }]}>{v.adet}</Text>
-              <Text style={[...h, S.mono, { width: "14%", textAlign: "right" }]}>
-                {v.kg ? fmtNum(Math.round(v.kg)) : "–"}
-              </Text>
-              <Text style={[...h, S.mono, S.sonuk, { width: "12%", textAlign: "center" }]}>
-                {v.ilk === v.son ? v.ilk || "–" : `${v.ilk}–${v.son}`}
-              </Text>
-              <View style={{ width: "26%", paddingHorizontal: 3, paddingVertical: 4 }}>
-                <View style={S.cubukKap}>
-                  <View
-                    style={[
-                      S.cubuk,
-                      { width: `${Math.max((v.adet / enBuyukAdet) * 100, 2)}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-          );
-        })}
-
-        <Text style={S.dipnot}>
-          Pay çubuğu iş kalemi adedine göredir. Liste {meta.generatedAt} tarihli
-          kayıtlardan üretilmiştir; güncel durum için Orion Vinç Mühendislik ile
-          irtibata geçiniz.
-        </Text>
-      </BrandPage>
     </Document>
   );
 }

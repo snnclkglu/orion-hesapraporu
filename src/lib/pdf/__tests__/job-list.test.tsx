@@ -124,13 +124,35 @@ describe("fiyat sızıntısı", () => {
   });
 });
 
+describe("sıralama", () => {
+  it("iş numarasına göre BÜYÜKTEN KÜÇÜĞE, çağıranın verdiği sıra ne olursa olsun", async () => {
+    // Satırlar bilerek karışık verilir: sıra belgenin kendi işidir, indirme
+    // ucunun değil (iki yerde sıralansaydı aynı belge iki düzende basılırdı).
+    const karisik = [ROWS[0], ROWS[2], ROWS[1]];
+    const buf = await renderJobListPdf({ rows: karisik, meta: META, company: COMPANY });
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: true });
+    const metin = Array.isArray(text) ? text.join(" ") : text;
+    // Beklenen düzen: 2026 bandı → 2024 bandı → TARİHSİZ. İş numarası
+    // kronolojik arttığı için "numaraya göre büyükten küçüğe" ile "yıllara
+    // göre yeniden eskiye" GERÇEK VERİDE aynı sırayı verir; tarihsiz satır
+    // bir yıl değil bir eksik olduğu için yönden bağımsız olarak sonda durur.
+    const yerler = ["0055-00", "0002-00", "0099-00"].map((k) => metin.indexOf(k));
+    expect(yerler.every((y) => y >= 0)).toBe(true);
+    expect(yerler[0]).toBeLessThan(yerler[1]);
+    expect(yerler[1]).toBeLessThan(yerler[2]);
+  });
+});
+
 describe("belge", () => {
-  it("çizelge + kapanış sayfası birlikte üretilir", async () => {
+  it("tek bir çizelgedir — kapanış özeti sayfası YOKTUR", async () => {
     const buf = await renderJobListPdf({ rows: ROWS, meta: META, company: COMPANY });
     expect(buf.subarray(0, 4).toString()).toBe("%PDF");
-    // Çizelge sayfası + müşteri referansları sayfası = en az iki sayfa.
-    const sayfa = (buf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
-    expect(sayfa).toBeGreaterThanOrEqual(2);
+    const metin = await pdfMetni();
+    // "Müşteri Referansları" sayfası kaldırıldı (kullanıcı kararı 12.08.2026):
+    // firmanın toplam iş hacmi teklif ekinde rakamla açıklanmıyor.
+    expect(metin.includes("MÜŞTERİ REFERANSLARI")).toBe(false);
   });
 
   it("boş listede de belge üretilir (çöküş yok)", async () => {

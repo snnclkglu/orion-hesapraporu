@@ -1,7 +1,7 @@
 [
  {
   "itemNo": "0001-00",
-  "productName": "Emniyet Freni Konsol İmalatı (SHI 105FC)",
+  "productName": "EMNİYET FRENİ KONSOL İMALATI (SHI 105FC)",
   "customer": "Sİ-MA",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -14,7 +14,7 @@
  },
  {
   "itemNo": "0002-00",
-  "productName": "100/50 t x 21,00 m Kapasiteli Dört Kirişli Köprülü Tavan Vinci (Cüruf Pota Tumba Tesisi)",
+  "productName": "100/50 T X 21,00 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ (CÜRUF POTA TUMBA TESİSİ)",
   "customer": "KARÇEL",
   "scope": "Hazır Ekipmanlar ve Elektrik Hariç.\nMühendislik, Tasarım, İmalat, Nakliye, Devreye Alma",
   "quantity": 2.0,
@@ -27,7 +27,7 @@
  },
  {
   "itemNo": "0003-00",
-  "productName": "1,5 t Kapasiteli Köprülü Tavan Vinci",
+  "productName": "1,5 T KAPASİTELİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "PLASTIC MASTER",
   "scope": "Köprü İmalatı.\nElektrik, Devreye Alma ve Araba Hariç",
   "quantity": 1.0,
@@ -40,7 +40,7 @@
  },
  {
   "itemNo": "0004-00",
-  "productName": "30 t Kapasiteli Tekabül Arabası Mühendislik ve Tasarım Hizmeti",
+  "productName": "30 T KAPASİTELİ TEKABÜL ARABASI MÜHENDİSLİK VE TASARIM HİZMETİ",
   "customer": "KARÇEL",
   "scope": "Mühendislik ve Tasarım Hizmeti",
   "quantity": 1.0,
@@ -53,7 +53,7 @@
  },
  {
   "itemNo": "0005-01",
-  "productName": "10 t x 21,70 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "10 T X 21,70 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -66,7 +66,7 @@
  },
  {
   "itemNo": "0005-02",
-  "productName": "20 t x 21,70 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "20 T X 21,70 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -79,7 +79,7 @@
  },
  {
   "itemNo": "0005-03",
-  "productName": "Yürüme Yolu Montajı 140 m",
+  "productName": "YÜRÜME YOLU MONTAJI 140 M",
   "customer": "ASTOR",
   "scope": "İşçilik",
   "quantity": 2.0,
@@ -92,7 +92,7 @@
  },
  {
   "itemNo": "0006-00",
-  "productName": "10 t x 20,05 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "10 T X 20,05 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ORION",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -105,7 +105,7 @@
  },
  {
   "itemNo": "0007-00",
-  "productName": "Emniyet Freni Konsol İmalatı (5732.00)",
+  "productName": "EMNİYET FRENİ KONSOL İMALATI (5732.00)",
   "customer": "Sİ-MA",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -118,7 +118,7 @@
  },
  {
   "itemNo": "0008-00",
-  "productName": "15 t x 8,51 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci Mühendislik ve Tasarım Hizmeti (SDM Vakum Tesisi)",
+  "productName": "15 T X 8,51 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ MÜHENDİSLİK VE TASARIM HİZMETİ (SDM VAKUM TESİSİ)",
   "customer": "KARÇEL",
   "scope": "Mühendislik ve Tasarım Hizmeti",
   "quantity": 1.0,
@@ -131,7 +131,7 @@
  },
  {
   "itemNo": "0009-00",
-  "productName": "10 t x 14,11 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "10 T X 14,11 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -144,7 +144,7 @@
  },
  {
   "itemNo": "0010-00",
-  "productName": "Lamel Kanca ve Semer İmalatı (100/35/10 t x 30,00 m Şarj Vinci)",
+  "productName": "LAMEL KANCA VE SEMER İMALATI (100/35/10 T X 30,00 M ŞARJ VİNCİ)",
   "customer": "KARDEMİR ÇH",
   "scope": "Komple İmalat",
   "quantity": 2.0,
@@ -157,7 +157,7 @@
  },
  {
   "itemNo": "0011-00",
-  "productName": "185 t Kapasiteli Kaldırma Kirişi Analiz ve Detay Proje Hizmeti",
+  "productName": "185 T KAPASİTELİ KALDIRMA KİRİŞİ ANALİZ VE DETAY PROJE HİZMETİ",
   "customer": "KARÇEL",
   "scope": "Hesap Raporu Analizi Hazırlanması",
   "quantity": 1.0,
@@ -170,7 +170,7 @@
  },
  {
   "itemNo": "0012-00",
-  "productName": "SDM-2 Tandiş Vinci-1 Revizyon Elektrik Odası İmalatı (Kardemir)",
+  "productName": "SDM-2 TANDİŞ VİNCİ-1 REVİZYON ELEKTRİK ODASI İMALATI (KARDEMİR)",
   "customer": "İNFEED",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -183,7 +183,7 @@
  },
  {
   "itemNo": "0013-00",
-  "productName": "Sıcak Haddehane A3 50/10 t Atölye Vinci Elektrik Odası İmalatı (Habaş)",
+  "productName": "SICAK HADDEHANE A3 50/10 T ATÖLYE VİNCİ ELEKTRİK ODASI İMALATI (HABAŞ)",
   "customer": "İNFEED",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -196,7 +196,7 @@
  },
  {
   "itemNo": "0014-00",
-  "productName": "Tekerlek Ø500mm",
+  "productName": "TEKERLEK Ø500MM",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 6.0,
@@ -209,7 +209,7 @@
  },
  {
   "itemNo": "0015-00",
-  "productName": "Pinyon Mil ve Fren Kasnağı",
+  "productName": "PİNYON MİL VE FREN KASNAĞI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 2.0,
@@ -222,7 +222,7 @@
  },
  {
   "itemNo": "0016-00",
-  "productName": "Burç (0383.01.2800/7)",
+  "productName": "BURÇ (0383.01.2800/7)",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -235,7 +235,7 @@
  },
  {
   "itemNo": "0017-00",
-  "productName": "120 t Kapasiteli Kaldırma Kirişi",
+  "productName": "120 T KAPASİTELİ KALDIRMA KİRİŞİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -248,7 +248,7 @@
  },
  {
   "itemNo": "0018-00",
-  "productName": "3 t Kapasiteli Monoray Vinç",
+  "productName": "3 T KAPASİTELİ MONORAY VİNÇ",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -261,7 +261,7 @@
  },
  {
   "itemNo": "0019-00",
-  "productName": "185/40 t x 18,28 m Kapasiteli Dört Kirişli Köprülü Tavan Vinci Mühendislik ve Tasarım Hizmeti (Çelikhane Şarj Holü Tesisi)",
+  "productName": "185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ MÜHENDİSLİK VE TASARIM HİZMETİ (ÇELİKHANE ŞARJ HOLÜ TESİSİ)",
   "customer": "KARÇEL",
   "scope": "Mühendislik ve Tasarım Hizmeti",
   "quantity": 1.0,
@@ -274,7 +274,7 @@
  },
  {
   "itemNo": "0020-00",
-  "productName": "185/40 t x 18,28 m Kapasiteli Dört Kirişli Köprülü Tavan Vinci (Çelikhane Şarj Holü Tesisi)",
+  "productName": "185/40 T X 18,28 M KAPASİTELİ DÖRT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ (ÇELİKHANE ŞARJ HOLÜ TESİSİ)",
   "customer": "KARÇEL",
   "scope": "Hazır Ekipmanlar ve Elektrik Hariç",
   "quantity": 1.0,
@@ -287,7 +287,7 @@
  },
  {
   "itemNo": "0021-01",
-  "productName": "0,5 t Kapasiteli Pergel Vinç",
+  "productName": "0,5 T KAPASİTELİ PERGEL VİNÇ",
   "customer": "MKE",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -300,7 +300,7 @@
  },
  {
   "itemNo": "0021-02",
-  "productName": "1,0 t Kapasiteli Pergel Vinç",
+  "productName": "1,0 T KAPASİTELİ PERGEL VİNÇ",
   "customer": "MKE",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -313,7 +313,7 @@
  },
  {
   "itemNo": "0021-03",
-  "productName": "1,5 t Kapasiteli Pergel Vinç",
+  "productName": "1,5 T KAPASİTELİ PERGEL VİNÇ",
   "customer": "MKE",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -326,7 +326,7 @@
  },
  {
   "itemNo": "0022-00",
-  "productName": "Sac Ø890x90mm S355J2+N",
+  "productName": "SAC Ø890X90MM S355J2+N",
   "customer": "YILMAZLAR",
   "scope": "Malzeme Satışı",
   "quantity": 3.0,
@@ -339,7 +339,7 @@
  },
  {
   "itemNo": "0023-01",
-  "productName": "10 t Kapasiteli Kanca Bloğu",
+  "productName": "10 T KAPASİTELİ KANCA BLOĞU",
   "customer": "KARDEMİR ÇH",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -352,7 +352,7 @@
  },
  {
   "itemNo": "0023-02",
-  "productName": "10 t Kapasiteli Üst Makara Bloğu",
+  "productName": "10 T KAPASİTELİ ÜST MAKARA BLOĞU",
   "customer": "KARDEMİR ÇH",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -365,7 +365,7 @@
  },
  {
   "itemNo": "0024-00",
-  "productName": "RPH_Motor Koruma Kapakları",
+  "productName": "RPH_MOTOR KORUMA KAPAKLARI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 13.0,
@@ -378,7 +378,7 @@
  },
  {
   "itemNo": "0025-00",
-  "productName": "20 t x 30,00 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci (Kütük Holü-2)",
+  "productName": "20 T X 30,00 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ (KÜTÜK HOLÜ-2)",
   "customer": "İDÇ",
   "scope": "Araba ve Elektrik Hariç",
   "quantity": 1.0,
@@ -391,7 +391,7 @@
  },
  {
   "itemNo": "0026-01",
-  "productName": "100 t x 14,85 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "100 T X 14,85 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -404,7 +404,7 @@
  },
  {
   "itemNo": "0026-02",
-  "productName": "Yürüme Yolu 30 m",
+  "productName": "YÜRÜME YOLU 30 M",
   "customer": "ASTOR",
   "scope": "İşçilik",
   "quantity": 1.0,
@@ -417,7 +417,7 @@
  },
  {
   "itemNo": "0027-00",
-  "productName": "2 x 15 t x 23,50 m Kapasiteli Portal Vinç Mühendislik ve Tasarım Hizmeti",
+  "productName": "2 X 15 T X 23,50 M KAPASİTELİ PORTAL VİNÇ MÜHENDİSLİK VE TASARIM HİZMETİ",
   "customer": "KARÇEL",
   "scope": "Mühendislik ve Tasarım Hizmeti",
   "quantity": 1.0,
@@ -430,20 +430,20 @@
  },
  {
   "itemNo": "0028-00",
-  "productName": "30 t x 21,7 m KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
-  "customer": "ASTOR",
-  "scope": "",
-  "quantity": null,
+  "productName": "10 T X 20,05 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
+  "customer": "ORION",
+  "scope": "Komple İmalat",
+  "quantity": 1.0,
   "unit": "Adet",
-  "totalWeightKg": null,
-  "contractDate": "2025-04-22",
+  "totalWeightKg": 11000.0,
+  "contractDate": "2025-05-09",
   "dueDate": null,
   "shipmentDate": null,
-  "shipmentPlace": ""
+  "shipmentPlace": "TÜRKİYE"
  },
  {
   "itemNo": "0029-00",
-  "productName": "Pergel Vinç Demontaj",
+  "productName": "PERGEL VİNÇ DEMONTAJ",
   "customer": "GALVASUN",
   "scope": "İşçilik",
   "quantity": 1.0,
@@ -456,7 +456,7 @@
  },
  {
   "itemNo": "0030-00",
-  "productName": "0,5 t Kapasiteli Pergel Vinç Kumandası ve Servis Hizmeti (0021-01)",
+  "productName": "0,5 T KAPASİTELİ PERGEL VİNÇ KUMANDASI VE SERVİS HİZMETİ (0021-01)",
   "customer": "MKE",
   "scope": "Malzeme Satışı",
   "quantity": 1.0,
@@ -469,7 +469,7 @@
  },
  {
   "itemNo": "0031-00",
-  "productName": "Bakım ve Onarım Hizmeti",
+  "productName": "BAKIM VE ONARIM HİZMETİ",
   "customer": "PİMSUN",
   "scope": "İşçilik",
   "quantity": null,
@@ -482,7 +482,7 @@
  },
  {
   "itemNo": "0032-00",
-  "productName": "Boru Döndürme Aparatı",
+  "productName": "BORU DÖNDÜRME APARATI",
   "customer": "ORION",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -495,7 +495,7 @@
  },
  {
   "itemNo": "0033-00",
-  "productName": "6 Butonlu Kablosuz Vinç Kumandası",
+  "productName": "6 BUTONLU KABLOSUZ VİNÇ KUMANDASI",
   "customer": "MKE",
   "scope": "Malzeme Satışı",
   "quantity": 2.0,
@@ -508,7 +508,7 @@
  },
  {
   "itemNo": "0034-01",
-  "productName": "Çelik Panel İmalatı (06-3618)",
+  "productName": "ÇELİK PANEL İMALATI (06-3618)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 775.0,
@@ -521,7 +521,7 @@
  },
  {
   "itemNo": "0034-02",
-  "productName": "Çelik Panel İmalatı (06-4406)",
+  "productName": "ÇELİK PANEL İMALATI (06-4406)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 40.0,
@@ -534,7 +534,7 @@
  },
  {
   "itemNo": "0034-03",
-  "productName": "Çelik Panel İmalatı (06-4405)",
+  "productName": "ÇELİK PANEL İMALATI (06-4405)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 22.0,
@@ -547,7 +547,7 @@
  },
  {
   "itemNo": "0034-04",
-  "productName": "Çelik Panel İmalatı (5995-1710)",
+  "productName": "ÇELİK PANEL İMALATI (5995-1710)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -560,7 +560,7 @@
  },
  {
   "itemNo": "0034-05",
-  "productName": "Çelik Panel İmalatı (5995-1720)",
+  "productName": "ÇELİK PANEL İMALATI (5995-1720)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -573,7 +573,7 @@
  },
  {
   "itemNo": "0034-06",
-  "productName": "Çelik Panel İmalatı (5995-1730)",
+  "productName": "ÇELİK PANEL İMALATI (5995-1730)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -586,7 +586,7 @@
  },
  {
   "itemNo": "0034-07",
-  "productName": "Çelik Panel İmalatı (5995-1740)",
+  "productName": "ÇELİK PANEL İMALATI (5995-1740)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -599,7 +599,7 @@
  },
  {
   "itemNo": "0035-00",
-  "productName": "SDM-3 Kütük Vinçleri Elektrik ve Otomasyon Sistem Revizyonu",
+  "productName": "SDM-3 KÜTÜK VİNÇLERİ ELEKTRİK VE OTOMASYON SİSTEM REVİZYONU",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 2.0,
@@ -612,7 +612,7 @@
  },
  {
   "itemNo": "0036-00",
-  "productName": "Bakım ve Onarım Hizmeti",
+  "productName": "BAKIM VE ONARIM HİZMETİ",
   "customer": "MKE",
   "scope": "İşçilik",
   "quantity": 1.0,
@@ -625,7 +625,7 @@
  },
  {
   "itemNo": "0037-00",
-  "productName": "10 t Kapasiteli Monoray Vinç",
+  "productName": "10 T KAPASİTELİ MONORAY VİNÇ",
   "customer": "KARDEMİR ÇH",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -638,7 +638,7 @@
  },
  {
   "itemNo": "0038-00",
-  "productName": "Kanca Bloğu Kaportası Ø240mm",
+  "productName": "KANCA BLOĞU KAPORTASI Ø240MM",
   "customer": "SAKA",
   "scope": "Komple İmalat",
   "quantity": 10.0,
@@ -651,7 +651,7 @@
  },
  {
   "itemNo": "0039-01",
-  "productName": "35 t Kapasiteli Tambur",
+  "productName": "35 T KAPASİTELİ TAMBUR",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -664,7 +664,7 @@
  },
  {
   "itemNo": "0039-02",
-  "productName": "35 t Kapasiteli Kanca Bloğu",
+  "productName": "35 T KAPASİTELİ KANCA BLOĞU",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -677,7 +677,7 @@
  },
  {
   "itemNo": "0040-00",
-  "productName": "Çelik Panel İmalatı (06-3618)",
+  "productName": "ÇELİK PANEL İMALATI (06-3618)",
   "customer": "YALCO",
   "scope": "Komple İmalat",
   "quantity": 13.0,
@@ -690,7 +690,7 @@
  },
  {
   "itemNo": "0041-00",
-  "productName": "170/40/12,5 t Kapasiteli Pota Vinci Baş Kiriş İmalatı",
+  "productName": "170/40/12,5 T KAPASİTELİ POTA VİNCİ BAŞ KİRİŞ İMALATI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -703,7 +703,7 @@
  },
  {
   "itemNo": "0042-01",
-  "productName": "Emniyet Freni Konsol İmalatı (SHI 107)",
+  "productName": "EMNİYET FRENİ KONSOL İMALATI (SHI 107)",
   "customer": "Sİ-MA",
   "scope": "Komple İmalat",
   "quantity": 3.0,
@@ -716,7 +716,7 @@
  },
  {
   "itemNo": "0042-02",
-  "productName": "Emniyet Freni Diski BHV02-004-001",
+  "productName": "EMNİYET FRENİ DİSKİ BHV02-004-001",
   "customer": "Sİ-MA",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -729,7 +729,7 @@
  },
  {
   "itemNo": "0042-03",
-  "productName": "Emniyet Freni Diski HV4-004-009",
+  "productName": "EMNİYET FRENİ DİSKİ HV4-004-009",
   "customer": "Sİ-MA",
   "scope": "Komple İmalat",
   "quantity": 2.0,
@@ -742,7 +742,7 @@
  },
  {
   "itemNo": "0043-00",
-  "productName": "15 t x 24 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "15 T X 24 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "MTC",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -755,7 +755,7 @@
  },
  {
   "itemNo": "0044-00",
-  "productName": "Bilezik İmalatı",
+  "productName": "BİLEZİK İMALATI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 60.0,
@@ -768,7 +768,7 @@
  },
  {
   "itemNo": "0045-01",
-  "productName": "2x30 t x 29,5 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "2X30 T X 29,5 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "HABAŞ",
   "scope": "Ana Kiriş, Platform Hariç",
   "quantity": 1.0,
@@ -781,7 +781,7 @@
  },
  {
   "itemNo": "0045-02",
-  "productName": "2x30 t x 29,5 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "2X30 T X 29,5 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "HABAŞ",
   "scope": "Ana Kiriş, Platform Hariç",
   "quantity": 1.0,
@@ -794,7 +794,7 @@
  },
  {
   "itemNo": "0046-01",
-  "productName": "Elektrik Odası İmalatı",
+  "productName": "ELEKTRİK ODASI İMALATI",
   "customer": "ORHUN",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -807,7 +807,7 @@
  },
  {
   "itemNo": "0046-02",
-  "productName": "Araba Komple İmalatı",
+  "productName": "ARABA KOMPLE İMALATI",
   "customer": "ORHUN",
   "scope": "Teknolojik Ekipmanlar Hariç",
   "quantity": 1.0,
@@ -820,7 +820,7 @@
  },
  {
   "itemNo": "0047-00",
-  "productName": "Hurda Kovası İmalatı",
+  "productName": "HURDA KOVASI İMALATI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -833,7 +833,7 @@
  },
  {
   "itemNo": "0048-00",
-  "productName": "Yürüme Yolu Montajı 260 m",
+  "productName": "YÜRÜME YOLU MONTAJI 260 M",
   "customer": "LITEC",
   "scope": "Komple İmalat",
   "quantity": 260.0,
@@ -846,7 +846,7 @@
  },
  {
   "itemNo": "0049-00",
-  "productName": "Muhtelif Yedek Parça İmalatı (185/40 t Şarj Vinci)",
+  "productName": "MUHTELİF YEDEK PARÇA İMALATI (185/40 T ŞARJ VİNCİ)",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -859,7 +859,7 @@
  },
  {
   "itemNo": "0050-00",
-  "productName": "Muhtelif Yedek Parça İmalatı",
+  "productName": "MUHTELİF YEDEK PARÇA İMALATI",
   "customer": "KARDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -872,7 +872,7 @@
  },
  {
   "itemNo": "0051-00",
-  "productName": "Operatör Kabini Yedek Parça Temini",
+  "productName": "OPERATÖR KABİNİ YEDEK PARÇA TEMİNİ",
   "customer": "ERDEMİR",
   "scope": "",
   "quantity": 20.0,
@@ -885,7 +885,7 @@
  },
  {
   "itemNo": "0052-00",
-  "productName": "SD10 Vinci Operatör Kabini Yenilenmesi",
+  "productName": "SD10 VİNCİ OPERATÖR KABİNİ YENİLENMESİ",
   "customer": "İSDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -898,7 +898,7 @@
  },
  {
   "itemNo": "0053-01",
-  "productName": "40 t x 16,7 m Kapasiteli Portal Vinci",
+  "productName": "40 T X 16,7 M KAPASİTELİ PORTAL VİNCİ",
   "customer": "LITEC",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -911,7 +911,7 @@
  },
  {
   "itemNo": "0053-02",
-  "productName": "Mekanik Spreader Beam",
+  "productName": "MEKANİK SPREADER BEAM",
   "customer": "LITEC",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -924,7 +924,7 @@
  },
  {
   "itemNo": "0054-00",
-  "productName": "75 t Kapasiteli Kaldırma Kirişi",
+  "productName": "75 T KAPASİTELİ KALDIRMA KİRİŞİ",
   "customer": "LITEC",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -937,7 +937,7 @@
  },
  {
   "itemNo": "0055-00",
-  "productName": "İsdemir Amonyum Sülfat Tesisi 2M³ Kapasiteli Kepçeli Çift Kirişli Tavan Vinci",
+  "productName": "İSDEMİR AMONYUM SÜLFAT TESİSİ 2M³ KAPASİTELİ KEPÇELİ ÇİFT KİRİŞLİ TAVAN VİNCİ",
   "customer": "İSDEMİR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -950,7 +950,7 @@
  },
  {
   "itemNo": "0056-00",
-  "productName": "32 t Kapasiteli Döner Arabalı Portal Vinç Mühendislik ve Tasarım Hizmeti",
+  "productName": "32 T KAPASİTELİ DÖNER ARABALI PORTAL VİNÇ MÜHENDİSLİK VE TASARIM HİZMETİ",
   "customer": "KARÇEL",
   "scope": "Mühendislik ve Tasarım Hizmeti",
   "quantity": 1.0,
@@ -963,12 +963,12 @@
  },
  {
   "itemNo": "0057-01",
-  "productName": "1 t x 19,00 m Kapasiteli Tek Kirişli Köprülü Tavan Vinci",
+  "productName": "1 T X 19,00 M KAPASİTELİ TEK KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 3.0,
   "unit": "Adet",
-  "totalWeightKg": 10000.0,
+  "totalWeightKg": 9999.999,
   "contractDate": "2026-06-17",
   "dueDate": "2026-08-17",
   "shipmentDate": null,
@@ -976,7 +976,7 @@
  },
  {
   "itemNo": "0057-02",
-  "productName": "Yürüme Yolu ve Bara Montajı 1 t x 19 m (Dikme Ayaklar Dahil)",
+  "productName": "YÜRÜME YOLU VE BARA MONTAJI 1 T X 19 M (DİKME AYAKLAR DAHİL)",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 3.0,
@@ -989,7 +989,7 @@
  },
  {
   "itemNo": "0057-03",
-  "productName": "1 t x 4,00 m Kapasiteli Tek Kirişli Köprülü Tavan Vinci",
+  "productName": "1 T X 4,00 M KAPASİTELİ TEK KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 3.0,
@@ -1002,7 +1002,7 @@
  },
  {
   "itemNo": "0057-04",
-  "productName": "Yürüme Yolu ve Bara Montajı 1 t x 18 m (Dikme Ayaklar Dahil)",
+  "productName": "YÜRÜME YOLU VE BARA MONTAJI 1 T X 18 M (DİKME AYAKLAR DAHİL)",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -1015,7 +1015,7 @@
  },
  {
   "itemNo": "0057-05",
-  "productName": "Yürüme Yolu ve Bara Montajı 1 t x 9 m (Dikme Ayaklar Dahil)",
+  "productName": "YÜRÜME YOLU VE BARA MONTAJI 1 T X 9 M (DİKME AYAKLAR DAHİL)",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -1028,7 +1028,7 @@
  },
  {
   "itemNo": "0057-06",
-  "productName": "1,0 t Kapasiteli Pergel Vinç",
+  "productName": "1,0 T KAPASİTELİ PERGEL VİNÇ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -1041,7 +1041,7 @@
  },
  {
   "itemNo": "0057-07",
-  "productName": "5 t x 21,30 m Kapasiteli Çift Kirişli Köprülü Tavan Vinci",
+  "productName": "5 T X 21,30 M KAPASİTELİ ÇİFT KİRİŞLİ KÖPRÜLÜ TAVAN VİNCİ",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 3.0,
@@ -1054,7 +1054,7 @@
  },
  {
   "itemNo": "0057-08",
-  "productName": "Yürüme Yolu ve Bara Montajı Hol Boyu 290 m (A55 Ray+Krapo+Sac Giydirme+Grout Beton+Conductix Bara)",
+  "productName": "YÜRÜME YOLU VE BARA MONTAJI HOL BOYU 290 M (A55 RAY+KRAPO+SAC GİYDİRME+GROUT BETON+CONDUCTİX BARA)",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -1067,7 +1067,7 @@
  },
  {
   "itemNo": "0057-09",
-  "productName": "Yürüme Yolu ve Bara Montajı Hol Boyu 37,5 m (A55 Ray+Krapo+Sac Giydirme+Grout Beton+Conductix Bara)",
+  "productName": "YÜRÜME YOLU VE BARA MONTAJI HOL BOYU 37,5 M (A55 RAY+KRAPO+SAC GİYDİRME+GROUT BETON+CONDUCTİX BARA)",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 2.0,
@@ -1080,7 +1080,7 @@
  },
  {
   "itemNo": "0058-00",
-  "productName": "1 t Kapasiteli C Kanca İmalatı CE Belgeli",
+  "productName": "1 T KAPASİTELİ C KANCA İMALATI CE BELGELİ",
   "customer": "TOSÇELİK",
   "scope": "Komple İmalat",
   "quantity": 1.0,
@@ -1093,7 +1093,7 @@
  },
  {
   "itemNo": "0059-00",
-  "productName": "Tampon Karşılığı ve Rüzgar Emniyet Kilidi (0053-01 Portal Vinç)",
+  "productName": "TAMPON KARŞILIĞI VE RÜZGAR EMNİYET KİLİDİ (0053-01 PORTAL VİNÇ)",
   "customer": "LITEC",
   "scope": "Komple İmalat",
   "quantity": 4.0,
@@ -1106,7 +1106,7 @@
  },
  {
   "itemNo": "0060-00",
-  "productName": "10, 12, 15, 20, 30mm S235JR Kalite Saclar",
+  "productName": "10, 12, 15, 20, 30MM S235JR KALİTE SACLAR",
   "customer": "SMT",
   "scope": "",
   "quantity": 1.0,
@@ -1119,7 +1119,7 @@
  },
  {
   "itemNo": "0061-00",
-  "productName": "Duvar Tipi Manuel Pergel Vinç Kolu 250 Kg Kapasiteli, 180° Dönebilir, 4,5m",
+  "productName": "DUVAR TİPİ MANUEL PERGEL VİNÇ KOLU 250 KG KAPASİTELİ, 180° DÖNEBİLİR, 4,5M",
   "customer": "ASTOR",
   "scope": "Komple İmalat",
   "quantity": 12.0,
@@ -1132,7 +1132,7 @@
  },
  {
   "itemNo": "0062-00",
-  "productName": "170 Ton Lamelli Kanca İmalatı (Şarj Vinci)",
+  "productName": "170 TON LAMELLİ KANCA İMALATI (ŞARJ VİNCİ)",
   "customer": "İDÇ",
   "scope": "Komple İmalat",
   "quantity": 2.0,

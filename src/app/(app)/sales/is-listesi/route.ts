@@ -44,13 +44,9 @@ export async function GET(request: NextRequest) {
   const tumu = await loadSaleRows(supabase);
   const secili = yil ? tumu.filter((r) => saleYear(r) === yil) : tumu;
 
-  // Sıra ARTAN kalem numarasıdır: ekran en yeniyi üste alır (çalışma listesi),
-  // referans belgesi ise işleri kronolojik okutur (0001-00 → 0062-00).
-  const sirali = [...secili].sort((a, b) =>
-    a.itemNo.localeCompare(b.itemNo, "tr", { numeric: true })
-  );
-
-  const rows: JobListRow[] = sirali.map((r) => ({
+  // SIRALAMA BURADA YAPILMAZ — belgenin kendi işidir (`yillaraBol`). İki yerde
+  // yazılsaydı indirme ucu ile duman testi aynı listeyi farklı düzende basardı.
+  const rows: JobListRow[] = secili.map((r) => ({
     itemNo: r.itemNo,
     productName: r.productName,
     // Müşteri sütununda DEFTERDEKİ KISALTMA görünür. Resmî unvan

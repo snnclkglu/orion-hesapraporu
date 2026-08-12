@@ -1,7 +1,7 @@
 // Güncel İş Listesi PDF duman testi.
 // Çalıştırma: npx tsx scripts/test-job-list.ts [çıktı-dizini]
 //
-// İKİ BELGE üretir:
+// ÜÇ BELGE üretir:
 //   1) GERÇEK LİSTE — `job-list-fixture.json` (ORİON-İş Listesi, 88 kalem,
 //      FİYATSIZ). Müşteriye giden belgenin bugünkü hâli budur.
 //   2) BÜYÜME SINAMASI — aynı satırlar beş katına çıkarılır (440 kalem).
