@@ -10,7 +10,9 @@ import * as rolesModule from "../roles";
 import {
   USER_ROLES,
   canEditDrawings,
+  canEditFinance,
   canEditReports,
+  canSeeFinance,
   canSeeSales,
   canSeeWorkLog,
   isAdminRole,
@@ -33,6 +35,25 @@ describe("yetki soruları", () => {
 
   it("iş takibi Yönetici ve Müdürde", () => {
     expect(evetDiyenler(canSeeWorkLog)).toEqual(["admin", "manager"]);
+  });
+
+  it("finans Yönetici ve Müdürde", () => {
+    // Kullanıcı kararı (11.08.2026): "Finans bölümü Admin yönetici ve
+    // müdürlere açık olsun." Küme satış ve iş takibiyle AYNIdır ama soru
+    // ayrıdır: personel özlük dosyası ile ciro rakamı farklı iki bilgidir ve
+    // biri açılırken öbürü kapalı kalabilmelidir.
+    expect(evetDiyenler(canSeeFinance)).toEqual(["admin", "manager"]);
+  });
+
+  it("finans yazma bugün görmeyle aynı kümededir ama AYRI bir sorudur", () => {
+    for (const r of USER_ROLES) expect(canEditFinance(r)).toBe(canSeeFinance(r));
+  });
+
+  it("mühendis ve teknik ressam personel/maaş verisini GÖRMEZ", () => {
+    // Kişisel veri (TC kimlik no, IBAN, sağlık raporu) bu iki rolde yoktur.
+    expect(canSeeFinance("engineer")).toBe(false);
+    expect(canSeeFinance("draftsman")).toBe(false);
+    expect(canEditFinance("engineer")).toBe(false);
   });
 
   it("hesap raporu yazma (taslak revizyon silme) Yönetici ve Mühendiste", () => {
@@ -165,14 +186,35 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     );
   });
 
-  it("Teknik Ressam satış, iş takibi, satın alma ve yönetimi GÖRMEZ", () => {
+  it("Teknik Ressam satış, iş takibi, satın alma, finans ve yönetimi GÖRMEZ", () => {
     const gorunen = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
     expect(gorunen).toContain("/drawings");
     expect(gorunen).toContain("/jobs");
     expect(gorunen).not.toContain("/sales");
     expect(gorunen).not.toContain("/worklog");
     expect(gorunen).not.toContain("/purchasing");
+    expect(gorunen).not.toContain("/finance");
     expect(gorunen).not.toContain("/admin");
+  });
+
+  it("Müdür finansı görür, Mühendis görmez", () => {
+    expect(visibleSections({ role: "manager", tags: [] }).map((s) => s.href)).toContain(
+      "/finance"
+    );
+    expect(visibleSections({ role: "engineer", tags: [] }).map((s) => s.href)).not.toContain(
+      "/finance"
+    );
+  });
+
+  it("her bölümün ikonu ikon defterinde VARDIR", async () => {
+    // `WorkspaceSection.icon` `string` tipindedir ve `app-shell.tsx`te
+    // `as BrandIconName` ile cast edilir: yanlış yazılmış bir ikon adı
+    // derlemeyi GEÇER ve menüde boş bir <svg> çizilir. Bağı ancak bir test
+    // koruyabilir.
+    const { BrandIconNames } = await import("@/components/brand-icon");
+    for (const s of WORKSPACE_SECTIONS) {
+      expect(BrandIconNames, `${s.href} ikonu (${s.icon}) defterde yok`).toContain(s.icon);
+    }
   });
 
   it("«satinalma» etiketi YALNIZ Satın Alma'yı ekler", () => {

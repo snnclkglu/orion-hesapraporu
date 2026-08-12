@@ -44,6 +44,27 @@ export function jobListDocCode(date: Date): string {
 }
 
 /**
+ * `ORC-BR-2026-08` — ücret pusulası (BR = Bordro) belge kimliği.
+ *
+ * `docCode` İMZASI BOZULMADI ve bu bilinçli: o fonksiyon `<kod>-<no>-R<rev>`
+ * biçimindedir ve REVİZYON NUMARASI ister. Bordronun revizyonu yoktur, DÖNEMİ
+ * vardır — iş listesiyle (`jobListDocCode`) aynı gerekçe: aynı ayın bordrosu
+ * iki kez basıldığında ikisi de aynı belgedir. Kişi kimliği koda GİRMEZ;
+ * dosya adı zaten kişinin adını taşır ve TC/sicil no bir belge kodunda
+ * dolaşmamalıdır.
+ */
+export function payslipDocCode(period: string): string {
+  return `ORC-BR-${period.slice(0, 7).replace("-", "-")}`;
+}
+
+/** Bordro dönem etiketi: `2026-08` → "AĞUSTOS 2026". */
+export function payslipPeriodLabel(period: string): string {
+  const [y, m] = period.slice(0, 7).split("-");
+  const ay = AYLAR[Number(m) - 1] ?? m;
+  return `${ay} ${y}`.toLocaleUpperCase("tr-TR");
+}
+
+/**
  * Windows/macOS dosya adında kullanılamayan karakterler.
  * Nokta ve tire KALIR: doküman kodunun bir parçasıdırlar.
  */

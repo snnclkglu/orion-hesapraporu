@@ -105,6 +105,20 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <path d="M8.5 10.5 L12 14 L15.5 10.5" />
     </>
   ),
+  // Finans: madeni para yığını. Setteki TEK eliptik gövde budur ve bu bilinçli
+  // — dört ikon (cabin · panel · blueprint · timesheet) ve iki kenar çubuğu
+  // ikonu zaten dikdörtgenle başlıyor; dar rayda (etiketsiz, 24px) yedinci bir
+  // dikdörtgen ayırt edilemezdi. Para SİMGESİ kullanılmaz: bölüm üç para
+  // birimiyle birden çalışır (ledger ikonundaki aynı gerekçe). Üç dilim
+  // "yığın" der; tek bölmeli uzun bir silindir veritabanı ikonuna benzerdi.
+  wallet: (
+    <>
+      <ellipse cx="12" cy="7" rx="7" ry="2.6" />
+      <path d="M5 7 L5 17 A7 2.6 0 0 0 19 17 L19 7" />
+      <path d="M5 10.4 A7 2.6 0 0 0 19 10.4" />
+      <path d="M5 13.8 A7 2.6 0 0 0 19 13.8" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -149,10 +163,22 @@ export type BrandIconName =
   | "timesheet"
   | "blueprint"
   | "cart"
+  | "wallet"
   | "menu"
   | "close"
   | "sidebarCollapse"
   | "sidebarExpand";
+
+/**
+ * İkon adlarının ÇALIŞMA ZAMANI listesi — defterin kendisinden türetilir.
+ *
+ * `BrandIconName` bir tiptir ve tip çalışma zamanında yoktur; `roles.ts`teki
+ * `WorkspaceSection.icon` alanı ise `string`tir ve `app-shell.tsx`te
+ * `as BrandIconName` ile CAST edilir. Yani menüye yanlış yazılmış bir ikon adı
+ * derlemeyi geçer ve kullanıcı boş bir `<svg>` görür. Bu dizi o bağı bir teste
+ * bağlanabilir kılar (`lib/__tests__/roles.test.ts`).
+ */
+export const BrandIconNames = Object.keys(ICON_PATHS) as BrandIconName[];
 
 export function BrandIcon({
   name,

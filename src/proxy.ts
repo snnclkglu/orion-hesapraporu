@@ -40,6 +40,18 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // ZAMANLANMIŞ İŞ UCU ÇEREZ TAŞIMAZ.
+  //
+  // Matcher `/api/...`i de kapsar ve aşağıdaki `!user` dalı çerezsiz her isteği
+  // `/login`e yönlendirir. Vercel Cron'un GET'i handler'a HİÇ ULAŞMAZ, 307
+  // döner ve cron kendini BAŞARILI sayar — yani kur sessizce hiç güncellenmez.
+  // Bu yüzden muafiyet AÇIKÇA yazılır; doğrulama handler'ın kendi içinde
+  // `Authorization: Bearer <CRON_SECRET>` ile yapılır (gizli anahtar yoksa uç
+  // 403 döner, yani muafiyet tek başına bir kapı açmaz).
+  if (request.nextUrl.pathname.startsWith("/api/cron/")) {
+    return response;
+  }
+
   if (!user && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

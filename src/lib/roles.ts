@@ -84,6 +84,44 @@ export function canSeeWorkLog(value: string | null | undefined): boolean {
 }
 
 /**
+ * FİNANS bölümü: personel künyesi ve özlük dosyaları, maaş ve fazla mesai
+ * kayıtları, bordro, harcirah tarifesi ve aylık ortalama döviz kurları.
+ *
+ * Kullanıcı kararı (11.08.2026): "Finans bölümü Admin yönetici ve müdürlere
+ * açık olsun." Yani `canSeeSales`/`canSeeWorkLog` ile AYNI rol kümesi — ama
+ * yine AYRI bir soru (o ikisinin gerekçesiyle birebir aynı: üç bölüm ileride
+ * ayrışabilir ve o gün tek satır değişmesi yeter).
+ *
+ * Bu bölüm diğerlerinden BİR AÇIDAN FARKLIDIR ve fark yetki tanımını değil
+ * yaklaşımı belirler: burada KİŞİSEL VERİ vardır (TC kimlik no, doğum tarihi,
+ * IBAN, sağlık raporu). Menüden gizlemek her zamanki gibi yalnız görgü
+ * kuralıdır; asıl engel RLS'tir ve BURADA DEPO POLİTİKASI DA aynı soruyu
+ * sorar (`personnel` bucket'ı `drawings` düzeyindedir, gevşek değil) —
+ * imzalı bağlantı uygulama katmanındaki rolü taşımaz, bir özlük dosyasında
+ * bu fark gerçek bir sızıntı demektir.
+ *
+ * Veritabanı karşılığı `can_see_finance()`.
+ */
+export function canSeeFinance(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "manager";
+}
+
+/**
+ * Finans kaydı YAZMA yetkisi — personel açma/kapatma, maaş girme, belge
+ * yükleme, kur tazeleme.
+ *
+ * Bugün GÖRME ile aynı kümedir ama AYRI bir sorudur (`canEditPurchasing` ile
+ * aynı gerekçe): "müdür görür, yalnız yönetici yazar" ayrımı istenirse bütün
+ * çağrı yerlerini gözden geçirme borcu doğmasın.
+ *
+ * Veritabanı karşılığı `can_edit_finance()`.
+ */
+export function canEditFinance(value: string | null | undefined): boolean {
+  return canSeeFinance(value);
+}
+
+/**
  * Teknik Resimler bölümü: paket yükleme, yeniden eşleştirme, elle bağlama.
  *
  * GÖRME SORULMAZ ve bu bilinçlidir — teknik resim atölyenin ortak gerçeğidir;
@@ -284,6 +322,15 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     hint: "Sözleşme tutarları, ciro ve Güncel İş Listesi",
     visible: (y) => canSeeSales(y.role),
     kime: "Yönetici · Müdür",
+  },
+  {
+    href: "/finance",
+    label: "Finans",
+    icon: "wallet",
+    hint: "Personel ve maaş, özlük dosyaları, harcirah ve ortalama döviz kurları",
+    visible: (y) => canSeeFinance(y.role),
+    kime: "Yönetici · Müdür",
+    yazma: "Görenlerin tamamı (canEditFinance)",
   },
   {
     href: "/admin",

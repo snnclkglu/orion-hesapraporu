@@ -86,6 +86,7 @@ export const TOTAL_FILL: ExcelJS.Fill = {
 export const MODULE_PREFIX = {
   workLog: "ORION — İŞ TAKİBİ",
   drawings: "ORION — TEKNİK RESİMLER",
+  finance: "ORION — PERSONEL VE MAAŞ",
 } as const;
 
 // --- yardımcılar -------------------------------------------------------------

@@ -392,10 +392,16 @@ export function AppShell({ role, tags, displayName, email, children }: AppShellP
   // Satın Alma'nın DÖRT sayfası da geniştir: talep havuzu on sütunlu, teslim ve
   // ödeme takvimleri ay ay yan yana açılır, fiyat arşivi geçmiş satırları
   // tarih tarih sıralar. Dar kip hiçbirine yaramaz.
+  // Finans'ın BEŞ sayfası da geniştir: personel listesi on sütunlu (ad · görev ·
+  // kategori · giriş · kıdem · telefon · belge), maaş tablosu ay boyunca bütün
+  // personeli net + iki mesai sütunu + tutarla yan yana dizer, özet yıl ay
+  // çapraz tablosudur, kur tablosu dört kur çiftini birlikte gösterir. Dar kip
+  // hiçbirine yaramaz.
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||
     /^\/purchasing(\/|$)/.test(pathname ?? "") ||
+    /^\/finance(\/|$)/.test(pathname ?? "") ||
     /^\/drawings(\/|$)/.test(pathname ?? "");
   const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
