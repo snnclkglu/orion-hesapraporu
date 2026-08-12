@@ -14,8 +14,8 @@ projeleri ve revizyon arşivi (`/projects`), **teknik resim paketleri**
 (`/purchasing` — çok projeli talep havuzu, teklif, sipariş, teslim ve ödeme
 takvimi, fiyat arşivi; md. 21), ekipman listeleri, üretici katalogları
 (`/katalog`), atölye çalışma saatleri (`/worklog`), satış takibi (`/sales`) ve
-**finans** (`/finance` — personel künyesi ve özlük dosyaları, maaş ve fazla
-mesai, bordro, harcirah, aylık ortalama döviz kurları; md. 22).
+**personel** (`/personnel` — künye ve özlük dosyaları, maaş ve fazla mesai,
+bordro, harcirah, döviz kurları; md. 22).
 Çok kullanıcılı: **dört rol + üç görev etiketi** (md. 15).
 
 Uygulamanın adı TEK YERDE tanımlıdır: `src/lib/app.ts` (`APP_NAME`,
@@ -87,10 +87,11 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   servise karşı sına: TCMB kaç günü okudu, hangi günler tatil, ECB yedeği aynı
   aralığı veriyor mu ve **iki kaynağın aylık ortalaması %0,3'ten fazla
   ayrışıyor mu**. Ayrıca paritenin gün gün hesaplandığını sayıyla gösterir
-- `npx tsx scripts/test-payroll-docs.ts` — ücret pusulasını (kurlu + kursuz
-  varyant) ve Personel/Maaş Excel'ini üret; Excel'i GERİ OKUYUP kuru girilmemiş
-  ayın avro hücresinin BOŞ (sıfır değil) olduğunu doğrula
-- `/dev/drawings-preview` · `/dev/finance-preview` — Teknik Resimler ve Finans
+- `npx tsx scripts/test-payroll-docs.ts` — ücret bordrosunu ÜÇ varyantta
+  (parametreli · parametresiz · toplu) ve Personel/Maaş Excel'ini üret;
+  brütleştirmenin kendi içinde tuttuğunu (brüt − kesinti = net) ve Excel'de
+  kuru girilmemiş ayın avro hücresinin BOŞ (sıfır değil) olduğunu doğrula
+- `/dev/drawings-preview` · `/dev/personnel-preview` — Teknik Resimler ve Personel
   ekranlarının AUTH'SUZ görsel önizlemesi (yalnız development). Ekran
   değiştirdiysen ÖNCE orada bak
 - Migration push: `npx supabase db push` (SUPABASE_ACCESS_TOKEN env ile; token asla commit etme)
@@ -389,6 +390,18 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     "undefined" adlı bir adlandırılmış hedef yazar. Çapasız yaprakta alan
     KOŞULLU SPREAD ile hiç verilmez.
 
+    **GRUP SARMALAYICI KUTUYA KONMAZ** (kullanıcı bildirimi, 12.08.2026 — ilk
+    sayfa boş çıkıyordu). Tablo grubunun TAMAMINI saran bir `View`e
+    `minPresenceAhead` konduğunda @react-pdf, grup sayfaya SIĞSA BİLE
+    bitişinden sonra istenen boşluk kalmıyorsa bloğu bütünüyle sonraki yaprağa
+    atar; ilk sayfada yalnız marka bandı, künye ve tablo başlığı kalır. Aynı
+    tuzak hesap raporunda bir kez yaşanmış ve `report.tsx`te belgelenmişti;
+    ekipman listesi de artık aynı yapıyı kullanır — grup başlığı İLK SATIRIYLA
+    tek bir `wrap={false}` kutudadır, kalan satırlar düz kardeş olarak akar.
+    Koşul dar olduğu için (grup, sayfanın son ~30pt'sinde bitiyorsa) koruma
+    testi tek fikstürle değil GRUP BOYUNU TARAYARAK koşar
+    (`__tests__/equipment-report.test.tsx`).
+
 19. **"Ek Belge" mühendisin kendi katalog yaprağıdır.** Defter
     (`manifest.json`) yalnız kaynak PDF'i workspace'te olan üreticileri kapsar;
     kanca, makara, teker, ray ve müşteriye özel imalatın sayfası orada YOKTUR.
@@ -468,7 +481,7 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     düğme sessizce pasif kalır: koruma `__tests__/catalog-sheets.test.ts`tedir.
 
     Kapsam: kaplin · rulman · rulman yatağı · fren · tampon · redüktör
-    (Yılmaz + FLENDER + POLAT + SEW) · motor (ABB, GAMAK, INNOMATICS, SEW) ·
+    (Yılmaz + FLENDER + POLAT + SEW) · motor (ABB, GAMAK, INNOMOTICS, SEW) ·
     feston (Vasel + Conductix-Wampfler) · **halat** (CASAR, Haşçelik,
     OLIVEIRA, DIEPA). Kanca, makara, teker ve ray kataloglarının kaynak PDF'i
     workspace'te olmadığı için deftere giremez; TMS klima kataloğu ise yalnız
@@ -608,13 +621,22 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     DAR yedek kalıbıyla okunur. Bir sütunun eksikliği yüzünden BÜTÜN sayfayı
     kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
 
-22. **FİNANS: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR** (`/finance`,
-    kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e açıktır
-    (`can_see_finance()` / `canSeeFinance`) ve beş ekrandır: Personel · Maaş ·
-    Özet · Harcirah · Kurlar. Kaynak devralınan "ORİON - Personel ve Maaş
-    Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş satırı).
+22. **PERSONEL: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR**
+    (`/personnel`, kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e
+    açıktır (`can_see_personnel()` / `canSeePersonnel`) ve beş ekrandır:
+    Personel · Maaş · Özet · Harcirah · Kurlar. Kaynak devralınan "ORİON -
+    Personel ve Maaş Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş satırı).
 
-    **Giriş/çıkış tarihi künyede DEĞİL `fin_employment`tadır.** Devralınan
+    **BÖLÜMÜN ADI ÖNCE "FİNANS"TI ve aynı gün değişti.** Kullanıcının
+    gerekçesi: *"Finans'ta farklı şeyler yaparız; bu bölüm tamamen personelle
+    ilgili oldu."* Değişiklik ekranla sınırlı KALMADI — `/finance` adresi ve
+    `fin_` tablo öneki ileride açılacak gerçek finans bölümüne ayrıldı
+    (`hr_*`), çünkü o gün geldiğinde `fin_payroll` ile `fin_cari` yan yana
+    durur ve hangisinin hangi bölüme ait olduğu okunmazdı. **Kur tabloları
+    ikisine de ait değildir** (`fx_rate_daily` / `fx_rate_monthly`): kur kamuya
+    açık REFERANS veridir, bir bölümün malı değil.
+
+    **Giriş/çıkış tarihi künyede DEĞİL `hr_employment`tadır.** Devralınan
     veride bir kişi aynı TC ile İKİ KEZ çalışmış (FURKAN AYTEKİN: 2025-01→04 ve
     2026-03→06). Tarihler künyede olsaydı ya kişi ikizlenir ve kıdem bölünürdü
     ya da ilk dönem kaybolurdu. Kıdem BÜTÜN dönemlerin toplamıdır; aynı anda
@@ -630,21 +652,31 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
     225 aylık normal çalışma saatidir (30 × 7,5) ve TEK yerdedir
     (`AYLIK_CALISMA_SAATI`). Bağıntı devralınan 566 satırın TAMAMINDA sıfır
-    sapmayla doğrulandı, bu yüzden `fin_payroll.overtime_amount`
+    sapmayla doğrulandı, bu yüzden `hr_payroll.overtime_amount`
     `generated always as … stored` olabildi. Aynı bağıntı bir kez
     TypeScript'te (`fazlaMesaiTutari` — kullanıcı kaydetmeden önce görsün) bir
     kez Postgres'te yazılıdır; ikisinin ayrışmasını
-    `lib/finance/__tests__/payroll.test.ts` engeller.
+    `lib/personnel/__tests__/payroll.test.ts` engeller.
 
-    **AYIN KURU SATIRIN KENDİNDEDİR** (`fin_periods.eur_try_rate`), merkezî kur
+    **AYIN KURU SATIRIN KENDİNDEDİR** (`hr_periods.eur_try_rate`), merkezî kur
     tablosundan OKUNMAZ — md. 16'nın (`job_item_sales.fx_rate`) birebir aynı
-    gerekçesi: tablo tazelendiğinde geçmiş ayların avro karşılığı da
-    değişirdi. Ekran `fin_fx_monthly` ortalamasını ÖNERİR, kullanıcı onaylar,
-    değer donar. Devralınan 27 ayın kuru Excel'den geldi ve **ortalama
-    değildir** (ay sonu spot kuru; 2025 Mart'ta fark %7,8) — olduğu gibi
-    korundu.
+    gerekçesi: tablo tazelendiğinde geçmiş ayların avro karşılığı da değişirdi.
 
-    **İZİN VE RAPOR SAATİ AY DÜZEYİNDEDİR** (`fin_periods`), kişi başına değil:
+    **AMA KULLANICIYA SORULMAZ** (kullanıcı kararı, 12.08.2026): *"Kur
+    mevzusunu otomatikleştirmeliyiz, kullanıcıdan almak istemiyorum."* Ay
+    kapandığında `ensurePeriodRates` o ayın **son YAYIN gününün** TCMB kurunu
+    yazar ve orada donar. "Son gün" takvimin 31'i DEĞİLDİR: ay hafta sonu ya
+    da resmî tatille bitiyorsa o günün kuru yoktur ve bir öncekine düşülür.
+    Eylem Maaş ekranı açıldığında bir kez çalışır, İDEMPOTENTtir ve
+    **YAZILMIŞ KURU EZMEZ** (`is("eur_try_rate", null)` süzgeci) — devralınan
+    27 ayın Excel'den gelen kuru bu yüzden yerinde kalır. İÇİNDE BULUNULAN AY
+    ATLANIR: ay bitmeden "ay sonu kuru" diye bir şey yoktur. Aylık ortalama
+    artık yalnız KARŞILAŞTIRMA için gösterilir.
+
+    Devralınan 27 ayın kuru da **ortalama değildi** (ay sonu spot kuru; 2025
+    Mart'ta fark %7,8) — olduğu gibi korundu.
+
+    **İZİN VE RAPOR SAATİ AY DÜZEYİNDEDİR** (`hr_periods`), kişi başına değil:
     firma bugün de öyle tutuyor. Kişi bazlı izin takibi ayrı bir fazdır;
     bugün uydurulmuş bir dağıtım yazmak veriyi olduğundan kesin gösterirdi.
 
@@ -657,7 +689,7 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
     **ÖZLÜK DOSYASI KATALOG YAPRAĞI DEĞİLDİR.** `personnel` bucket'ının
     politikası `drawings` düzeyindedir — okuma dahil dördü de
-    `can_see_finance()`ten geçer, `equipment-attachments` gibi "authenticated
+    `can_see_personnel()`ten geçer, `equipment-attachments` gibi "authenticated
     okur" DEĞİL. Gerekçe: `createSignedUrl` bir kez üretildikten sonra 120
     saniye oturumsuz açılabilir ve uygulama katmanındaki rolü taşımaz; bir
     sağlık raporunda bu fark gerçek bir sızıntıdır. Aynı sebeple imzalı
@@ -667,15 +699,58 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     periyodik muayene md. 15, operatör/kaynakçı belgesi) `expires_on` taşır ve
     süresi dolan belge ENGELLEYİCİ DEĞİL bir HATIRLATMAdır.
 
-    **BORDRO BUGÜN HESAPLAMAZ, SAKLAR VE BASAR.** Brüt/SGK/vergi alanları
-    şemada vardır ama yasal brüt→net dönüşümü (SGK matrahı, kümülatif dilim,
-    asgari ücret istisnası) YAPILMAZ: bağıntı her yıl iki kez değişir ve
-    muhasebeden gelen gerçek rakamı uydurulmuş bir hesapla ezmek bordroyu
-    yanlış yapardı. Pusula bunu kendi üzerinde açıkça yazar. Yasal kesinti
-    bloğu alanlar BOŞSA hiç çizilmez — boş bir vergi tablosu basmak belgeyi
-    olduğundan resmî gösterirdi.
+    **BORDRO GERÇEK BİR ÜCRET HESAP PUSULASIDIR** (4857 md. 37) ve dört
+    bloktur: işveren+çalışan künyesi → KAZANÇLAR (brüt, gün/saat × birim) →
+    YASAL KESİNTİLER (matrah × oran) → NET ÖDENEN + kümülatif matrah.
+    **ORAN VE MATRAH SATIRDA GÖRÜNÜR**: "gelir vergisi 25.850,82 ₺" tek başına
+    doğrulanamaz bir sayıdır ve pusulanın varlık sebebi denetlenebilirliktir.
 
-    **KURLAR: kaynak TCMB, ölçüm gün gün.** Ayrıntı `docs/finans-kur-kaynagi.md`
+    **FİRMA NETTEN ANLAŞIYOR, BORDRO BRÜTTEN BAŞLAR.** Brüt `bordro.ts` ile
+    TÜRETİLİR (brütleştirme) ve bu düz bir çarpma değildir — gelir vergisi
+    kümülatif matraha, matrah brüte, brüt de nete bağlıdır. Kapalı çözüm
+    yoktur; `brutBul` İKİLİ ARAMA ile çözer (net brüte göre kesin artandır,
+    yani daima yakınsar; Newton dilim sınırında güvenilmez). Kalemlerin brüt
+    karşılığı net paylarıyla ORANTILI dağıtılır ve yuvarlama artığı İLK kaleme
+    yazılır — üç satırı ayrı yuvarlayıp toplamak bir kuruş sapma bırakır ve
+    pusulayı elde kontrol eden kişi onu hata sanar.
+
+    **YASAL PARAMETRELER KODA GÖMÜLMEZ, VERİDİR** (`hr_payroll_params`,
+    yıl yıl). Asgari ücret, SGK tavanı, dilimler ve istisnalar her yıl değişir;
+    koda yazılsaydı her ocakta bir dağıtım gerekir ve eski bir bordroyu
+    yeniden basmak onu YENİ oranlarla basardı. **Parametresi olmayan dönemde
+    hesap YAPILMAZ**: çekirdek `null` döner, belge kesinti bloğunu hiç çizmez
+    ve nedenini yazar — uydurulmuş bir oran pusulayı olduğundan resmî
+    gösterirdi.
+
+    2026 satırının doğruluğu ÇAPRAZ SINANMIŞTIR: brüt asgari ücret (33.030)
+    girildiğinde çıkan net, ilan edilen net asgari ücretin (28.075,50) TA
+    KENDİSİDİR. Bu tek sınama SGK oranını, işsizlik oranını, vergi dilimini ve
+    iki istisnayı AYNI ANDA doğrular (`__tests__/bordro.test.ts`).
+
+    **BORDRODA AVRO YOKTUR** (kullanıcı kararı, 12.08.2026): yasal belgenin
+    tek para birimi Türk lirasıdır. Avro karşılığı yönetim raporlamasının
+    işidir ve Özet ekranında durur.
+
+    **DÖNEM SİLİNEBİLİR** ama kapalı dönem önce AÇILIR: bir ayı baştan girmenin
+    yolu satır satır silmek olmamalı, kapatma işareti de kazara silmeye karşı
+    ilk kapı olmalı. **BORDROLARI İNDİR** dönemin bütün pusulalarını tek PDF'te
+    verir, kişi başına bir sayfa (pusula kişiye imzalatılır).
+
+    **PRİM · HARCİRAH · AVANS · KESİNTİ MAAŞ EKRANINDA GİRİLİR** (kullanıcı
+    kararı, 12.08.2026). Önce yalnız kişinin profilindeydiler; ay kapatılırken
+    kırk kişinin sayfasını tek tek dolaşmak gerçek bir iş akışı değildi.
+    Harcirah ve avans bordro MATRAHINA GİRMEZ: harcirah masraf karşılığıdır
+    (GVK md. 24), avans zaten ödenmiş ücretin mahsubudur.
+
+    **ÖZET TABLOSUNDA ONDALIK YOKTUR** (kullanıcı kararı): on üç sütunlu bir
+    karşılaştırma ızgarasında aranan "hangi ay daha pahalıydı"dır, kuruş
+    değil. Kuruş gereken yer bordrodur. **SAATLİK MALİYET (€)** kartı ve sütunu
+    teklif fiyatlandırmasının girdisidir; payda NET ÇALIŞMA SAATİDİR
+    (normal + mesai − izin − rapor), "kişi × 225" değil — ödenen para izinli
+    geçen saate de dağılır ve 225'e bölmek maliyeti olduğundan DÜŞÜK
+    gösterirdi.
+
+    **KURLAR: kaynak TCMB, ölçüm gün gün.** Ayrıntı `docs/personel-kur-kaynagi.md`
     (kaynak seçiminin gerekçesi, ECB yedeği, cron kurulumu). Üç kural burada
     da tekrarlanır çünkü sessizce yanlış yazılabilirler:
     `avg(EUR/USD) ≠ avg(EUR/TRY)/avg(USD/TRY)` (parite gün gün ortalanır) ·
@@ -731,6 +806,17 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     tek yazılır. Bedeli kabul edilmiştir: "10 t x 21,70 m" → "10 T X 21,70 M"
     (birimler de büyür). `baslikDuzeni` bunu GERİ ALAMAZ — o yardımcı
     küçük→başlık yönünde çalışır ve tümü büyük sözcüğü kısaltma sayıp korur.
+
+    **EKİPMAN LİSTESİNDE MARKA VE MODEL DE BÜYÜKTÜR** (kullanıcı kararı,
+    12.08.2026) ama dönüşüm `adBuyuk` DEĞİL **`kimlikBuyuk`**tur. Ekipman adı
+    ve özellikler bir cümledir ve "Baş Harfler Büyük" kalır (md. 33); marka ile
+    model ise ürünün KİMLİĞİDİR ve siparişe o yazımla geçer. Ayrı bir yardımcı
+    gerekliydi çünkü listedeki markaların çoğu YABANCIDIR: Türkçe büyütme
+    "Conductix-Wampfler"i "CONDUCTİX-WAMPFLER" yapıyordu, düz `toUpperCase()`
+    ise "Haşçelik"i "HAŞÇELIK" yapardı. `kimlikBuyuk` kararı metnin kendisinden
+    verir — Türkçe'ye özgü harf (ş ğ ı İ ç ö ü) taşıyorsa tr-TR, taşımıyorsa
+    yerelsiz büyütür. Katalog eşlemeleri bundan ETKİLENMEZ: `dsKey` tr-küçük,
+    katalog defterinin `norm`u aksansız büyük harfe indirger.
 
     **Müşteri defteri** (`customers`) iş emrinden ayrıdır: iş emrindeki
     `customer_*` metin alanları basıldığı andaki bilginin FOTOĞRAFIDIR, defter
@@ -1343,22 +1429,25 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/worklog/` — İş Takibi (Yönetici + Müdür): günlük giriş ·
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
   `filters.ts` üç ekranın ortak süzgeç tanımı
-- `src/lib/finance/` — Finans ÇEKİRDEĞİ, **saf** (DB/HTTP yok): `payroll.ts`
-  (fazla mesai bağıntısı, dönem özeti, kıdem) · `fx.ts` (aylık ortalama,
-  parite, eksik gün penceresi) · `personnel.ts` (kategori/belge/sözleşme
-  sözlükleri, TC doğrulama, geçerlilik durumu). Tek istisna `fx-source.ts` —
-  uygulamadaki TEK dış servis çağrısı (TCMB XML + Frankfurter JSON, timeout +
-  üstel bekleme) — ve `fx-refresh.ts`, iki çağıranın (server action + cron)
-  ortak yolu
-- `src/app/(app)/finance/` — Finans (Yönetici + Müdür): `page.tsx` personel
+- `src/lib/personnel/` — Personel ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
+  `payroll.ts` (fazla mesai bağıntısı, dönem özeti, kıdem) · `bordro.ts`
+  (brüt↔net, kümülatif vergi matrahı, asgari ücret istisnası, saatlik
+  maliyet) · `employee.ts` (kategori/belge/sözleşme sözlükleri, TC doğrulama,
+  belge geçerliliği, depo yolu kuralı)
+- `src/lib/fx/` — döviz kuru, bölümden BAĞIMSIZ: `rates.ts` (aylık ortalama,
+  parite, eksik gün penceresi) · `source.ts` uygulamadaki TEK dış servis
+  çağrısı (TCMB XML + Frankfurter JSON, timeout + üstel bekleme) ·
+  `refresh.ts` iki çağıranın (server action + cron) ortak yolu
+- `src/app/(app)/personnel/` — Personel (Yönetici + Müdür): `page.tsx` personel
   listesi · `[id]/` personel profili + özlük dosyaları · `maas/` aylık maaş
   girişi · `ozet/` analiz · `harcirah/` tarife · `kurlar/` ortalama kurlar ·
-  `bordro/` ücret pusulası PDF'i · `export/` Excel ucu ·
-  `document-actions.ts` özlük dosyası yükleme/silme/imzalı bağlantı
+  `bordro/` ücret bordrosu PDF'i (tek kişi ya da `&hepsi=1` ile dönemin
+  tamamı) · `export/` Excel ucu · `document-actions.ts` özlük dosyası
+  yükleme/silme/imzalı bağlantı
 - `src/app/api/cron/fx/` — aylık otomatik kur tazeleme (Vercel Cron;
   `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` ister, `proxy.ts`te muaf)
-- `docs/finans-kur-kaynagi.md` — kur kaynağının seçim gerekçesi (TCMB ↔ ECB
-  ölçümü), parite kuralı ve cron kurulumu
+- `docs/personel-kur-kaynagi.md` — kur kaynağının seçim gerekçesi (TCMB ↔ ECB
+  ölçümü), parite kuralı, dönem kurunun otomatik yazılması ve cron kurulumu
 - `src/lib/drawings/` — Teknik Resimler ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
   `recognize` · `folder-name` · `file-name` · `part-code` · `tr-text` ·
   `excel` · `reconcile` · `titleblock` · `dxf-header` · `derive` · `diff` ·
@@ -1390,7 +1479,7 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
   development; production'da 404): kabuk, editör, işler, satış, ekipman listesi,
   **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
-  **finans** (`/dev/finance-preview` — altı ekranı üst üste basar; fikstür
+  **personel** (`/dev/personnel-preview` — altı ekranı üst üste basar; fikstür
   GERÇEK büyüklüklerdedir: 71.000 ₺'lik maaş ve 48.753,33 ₺'lik mesai tutarı
   sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)

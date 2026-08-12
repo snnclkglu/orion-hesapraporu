@@ -31,7 +31,7 @@ import {
   netCalismaSaati,
   periodLabel,
   type PayrollRowLike,
-} from "@/lib/finance/payroll";
+} from "@/lib/personnel/payroll";
 import {
   CONTRACT_TYPE_LABELS,
   WORK_MODE_LABELS,
@@ -39,7 +39,7 @@ import {
   yonetimMi,
   type ContractType,
   type WorkMode,
-} from "@/lib/finance/personnel";
+} from "@/lib/personnel/employee";
 
 export interface PayrollExportEmployee {
   id: string;
@@ -102,7 +102,7 @@ function band(
   colCount: number
 ): number {
   return writeTitleBlock(ws, title, colCount, {
-    prefix: MODULE_PREFIX.finance,
+    prefix: MODULE_PREFIX.personnel,
     meta: [meta.filterText, meta.generatedAt, meta.preparedBy],
   });
 }

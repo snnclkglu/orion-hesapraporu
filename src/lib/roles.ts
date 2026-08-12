@@ -84,13 +84,19 @@ export function canSeeWorkLog(value: string | null | undefined): boolean {
 }
 
 /**
- * FİNANS bölümü: personel künyesi ve özlük dosyaları, maaş ve fazla mesai
- * kayıtları, bordro, harcirah tarifesi ve aylık ortalama döviz kurları.
+ * PERSONEL bölümü: künye ve özlük dosyaları, maaş ve fazla mesai kayıtları,
+ * bordro, harcirah tarifesi ve kurlar.
  *
- * Kullanıcı kararı (11.08.2026): "Finans bölümü Admin yönetici ve müdürlere
- * açık olsun." Yani `canSeeSales`/`canSeeWorkLog` ile AYNI rol kümesi — ama
- * yine AYRI bir soru (o ikisinin gerekçesiyle birebir aynı: üç bölüm ileride
- * ayrışabilir ve o gün tek satır değişmesi yeter).
+ * BÖLÜMÜN ADI ÖNCE "FİNANS"TI (12.08.2026'da değişti). Kullanıcının gerekçesi:
+ * "Finans'ta farklı şeyler yaparız; bu bölüm tamamen personelle ilgili oldu."
+ * Yani `/finance` adresi ve `fin_` öneki ileride açılacak gerçek finans
+ * bölümüne ayrıldı — ad yalnız ekranda değiştirilseydi o gün iki bölümün
+ * tabloları birbirine karışırdı.
+ *
+ * Kullanıcı kararı (11.08.2026): "Admin yönetici ve müdürlere açık olsun."
+ * Yani `canSeeSales`/`canSeeWorkLog` ile AYNI rol kümesi — ama yine AYRI bir
+ * soru (o ikisinin gerekçesiyle birebir aynı: üç bölüm ileride ayrışabilir ve
+ * o gün tek satır değişmesi yeter).
  *
  * Bu bölüm diğerlerinden BİR AÇIDAN FARKLIDIR ve fark yetki tanımını değil
  * yaklaşımı belirler: burada KİŞİSEL VERİ vardır (TC kimlik no, doğum tarihi,
@@ -100,25 +106,25 @@ export function canSeeWorkLog(value: string | null | undefined): boolean {
  * imzalı bağlantı uygulama katmanındaki rolü taşımaz, bir özlük dosyasında
  * bu fark gerçek bir sızıntı demektir.
  *
- * Veritabanı karşılığı `can_see_finance()`.
+ * Veritabanı karşılığı `can_see_personnel()`.
  */
-export function canSeeFinance(value: string | null | undefined): boolean {
+export function canSeePersonnel(value: string | null | undefined): boolean {
   const r = roleOf(value);
   return r === "admin" || r === "manager";
 }
 
 /**
- * Finans kaydı YAZMA yetkisi — personel açma/kapatma, maaş girme, belge
+ * Personel kaydı YAZMA yetkisi — personel açma/kapatma, maaş girme, belge
  * yükleme, kur tazeleme.
  *
  * Bugün GÖRME ile aynı kümedir ama AYRI bir sorudur (`canEditPurchasing` ile
  * aynı gerekçe): "müdür görür, yalnız yönetici yazar" ayrımı istenirse bütün
  * çağrı yerlerini gözden geçirme borcu doğmasın.
  *
- * Veritabanı karşılığı `can_edit_finance()`.
+ * Veritabanı karşılığı `can_edit_personnel()`.
  */
-export function canEditFinance(value: string | null | undefined): boolean {
-  return canSeeFinance(value);
+export function canEditPersonnel(value: string | null | undefined): boolean {
+  return canSeePersonnel(value);
 }
 
 /**
@@ -324,13 +330,13 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     kime: "Yönetici · Müdür",
   },
   {
-    href: "/finance",
-    label: "Finans",
+    href: "/personnel",
+    label: "Personel",
     icon: "wallet",
-    hint: "Personel ve maaş, özlük dosyaları, harcirah ve ortalama döviz kurları",
-    visible: (y) => canSeeFinance(y.role),
+    hint: "Personel künyesi ve özlük dosyaları, maaş, bordro, harcirah ve kurlar",
+    visible: (y) => canSeePersonnel(y.role),
     kime: "Yönetici · Müdür",
-    yazma: "Görenlerin tamamı (canEditFinance)",
+    yazma: "Görenlerin tamamı (canEditPersonnel)",
   },
   {
     href: "/admin",

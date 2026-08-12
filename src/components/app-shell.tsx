@@ -401,7 +401,7 @@ export function AppShell({ role, tags, displayName, email, children }: AppShellP
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||
     /^\/purchasing(\/|$)/.test(pathname ?? "") ||
-    /^\/finance(\/|$)/.test(pathname ?? "") ||
+    /^\/personnel(\/|$)/.test(pathname ?? "") ||
     /^\/drawings(\/|$)/.test(pathname ?? "");
   const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 

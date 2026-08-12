@@ -10,9 +10,9 @@ import * as rolesModule from "../roles";
 import {
   USER_ROLES,
   canEditDrawings,
-  canEditFinance,
+  canEditPersonnel,
   canEditReports,
-  canSeeFinance,
+  canSeePersonnel,
   canSeeSales,
   canSeeWorkLog,
   isAdminRole,
@@ -37,23 +37,23 @@ describe("yetki soruları", () => {
     expect(evetDiyenler(canSeeWorkLog)).toEqual(["admin", "manager"]);
   });
 
-  it("finans Yönetici ve Müdürde", () => {
-    // Kullanıcı kararı (11.08.2026): "Finans bölümü Admin yönetici ve
-    // müdürlere açık olsun." Küme satış ve iş takibiyle AYNIdır ama soru
+  it("personel bölümü Yönetici ve Müdürde", () => {
+    // Kullanıcı kararı (11.08.2026): "Admin yönetici ve müdürlere açık
+    // olsun." (Bölümün adı 12.08.2026'da Finans → Personel oldu.) Küme satış ve iş takibiyle AYNIdır ama soru
     // ayrıdır: personel özlük dosyası ile ciro rakamı farklı iki bilgidir ve
     // biri açılırken öbürü kapalı kalabilmelidir.
-    expect(evetDiyenler(canSeeFinance)).toEqual(["admin", "manager"]);
+    expect(evetDiyenler(canSeePersonnel)).toEqual(["admin", "manager"]);
   });
 
-  it("finans yazma bugün görmeyle aynı kümededir ama AYRI bir sorudur", () => {
-    for (const r of USER_ROLES) expect(canEditFinance(r)).toBe(canSeeFinance(r));
+  it("personel yazma bugün görmeyle aynı kümededir ama AYRI bir sorudur", () => {
+    for (const r of USER_ROLES) expect(canEditPersonnel(r)).toBe(canSeePersonnel(r));
   });
 
   it("mühendis ve teknik ressam personel/maaş verisini GÖRMEZ", () => {
     // Kişisel veri (TC kimlik no, IBAN, sağlık raporu) bu iki rolde yoktur.
-    expect(canSeeFinance("engineer")).toBe(false);
-    expect(canSeeFinance("draftsman")).toBe(false);
-    expect(canEditFinance("engineer")).toBe(false);
+    expect(canSeePersonnel("engineer")).toBe(false);
+    expect(canSeePersonnel("draftsman")).toBe(false);
+    expect(canEditPersonnel("engineer")).toBe(false);
   });
 
   it("hesap raporu yazma (taslak revizyon silme) Yönetici ve Mühendiste", () => {
@@ -186,23 +186,23 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     );
   });
 
-  it("Teknik Ressam satış, iş takibi, satın alma, finans ve yönetimi GÖRMEZ", () => {
+  it("Teknik Ressam satış, iş takibi, satın alma, personel ve yönetimi GÖRMEZ", () => {
     const gorunen = visibleSections({ role: "draftsman", tags: [] }).map((s) => s.href);
     expect(gorunen).toContain("/drawings");
     expect(gorunen).toContain("/jobs");
     expect(gorunen).not.toContain("/sales");
     expect(gorunen).not.toContain("/worklog");
     expect(gorunen).not.toContain("/purchasing");
-    expect(gorunen).not.toContain("/finance");
+    expect(gorunen).not.toContain("/personnel");
     expect(gorunen).not.toContain("/admin");
   });
 
-  it("Müdür finansı görür, Mühendis görmez", () => {
+  it("Müdür personel bölümünü görür, Mühendis görmez", () => {
     expect(visibleSections({ role: "manager", tags: [] }).map((s) => s.href)).toContain(
-      "/finance"
+      "/personnel"
     );
     expect(visibleSections({ role: "engineer", tags: [] }).map((s) => s.href)).not.toContain(
-      "/finance"
+      "/personnel"
     );
   });
 

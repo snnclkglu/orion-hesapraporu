@@ -16,8 +16,8 @@ import {
   gunAraligi,
   haftaSonu,
   type FxDaily,
-} from "../src/lib/finance/fx";
-import { cekGunlukKurlar, ecbAralik } from "../src/lib/finance/fx-source";
+} from "../src/lib/fx/rates";
+import { cekGunlukKurlar, ecbAralik } from "../src/lib/fx/source";
 
 const GUN = Number(process.argv[2] ?? 30);
 
