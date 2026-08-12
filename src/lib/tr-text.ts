@@ -72,6 +72,27 @@ export function adBuyuk(text: string | null | undefined): string {
   return trBuyuk(text ?? "");
 }
 
+/** Türkçe'ye özgü harfler — büyütmenin hangi dilde yapılacağını bunlar söyler. */
+const TURKCE_HARFLER = /[şŞğĞıİçÇöÖüÜ]/;
+
+/**
+ * ÜRÜN KİMLİĞİNİN BÜYÜK HARFİ — marka ve model kodu.
+ *
+ * `adBuyuk` burada KULLANILAMAZ. O, Türkçe adlar için yazılmıştır ve "i"yi
+ * "İ" yapar; ekipman listesindeki markaların çoğu ise yabancıdır ve
+ * "Conductix-Wampfler" → "CONDUCTİX-WAMPFLER" olurdu. Düz `toUpperCase()` de
+ * çözüm değildir: bu kez Türk üreticiler bozulur ("Haşçelik" → "HAŞÇELIK").
+ *
+ * Ayrım metnin KENDİSİNDEN okunur: Türkçe'ye özgü bir harf taşıyorsa metin
+ * Türkçedir ve tr-TR ile büyür; taşımıyorsa (saf ASCII marka ve katalog kodu)
+ * yerelsiz büyütülür. Bir markanın hangi ülkeden olduğunu ayrıca listelemek
+ * gerekmez — yazımın kendisi söylüyor.
+ */
+export function kimlikBuyuk(text: string | null | undefined): string {
+  const t = text ?? "";
+  return TURKCE_HARFLER.test(t) ? trBuyuk(t) : t.toUpperCase();
+}
+
 /** Türkçe küçük harf — "I" → "ı", "İ" → "i". */
 export function trKucuk(text: string): string {
   return text.toLocaleLowerCase("tr-TR");

@@ -5,11 +5,13 @@
 // linki varsa köprülenir (çelik mavisi); klima satırları düz metindir.
 // scope="full" → Teknik Ressam Özeti.
 //
-// Sütun metinleri `buildEquipmentGroups` içinde `baslikDuzeni` ile "Baş Harfler
-// Büyük" düzenine getirilmiş olarak gelir (madde 33) — burada yeniden
-// biçimlenmez. "Ek Özellikler" sütunu kullanıcının satıra yazdığı serbest
+// Sütun metinleri `buildEquipmentGroups` içinde biçimlenmiş olarak gelir ve
+// burada yeniden dokunulmaz: ekipman adı ile özellikler "Baş Harfler Büyük"
+// (madde 33), MARKA ve MODEL ise BÜYÜK HARF (12.08.2026 kararı — ikisi de ürün
+// kimliğidir). "Ek Özellikler" sütunu kullanıcının satıra yazdığı serbest
 // nottur (equipment_notes, madde 34).
 
+import React from "react";
 import { Document, Image, Link, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import type {
   EqGroup, SummarySection,
@@ -402,30 +404,51 @@ export function EquipmentDocument({
           <Text style={[s.th, s.cQty]}>{trUpper("Adet")}</Text>
         </View>
 
-        {groups.map((g) => (
-          <View key={g.name} minPresenceAhead={30}>
-            <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
-            {g.rows.map((r, i) => (
-              <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
-                <ComponentCell
-                  row={r}
-                  href={linkFor(r)}
-                  style={[
-                    s.td, s.cComp,
-                    r.custom ? s.custom : {},
-                    r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
-                  ]}
-                />
-                <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{r.brand}</Text>
-                <ModelCell row={r} urls={datasheetUrls} />
-                <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
-                <Text style={[s.td, s.cNote, s.noteText]}>{r.note ?? ""}</Text>
-                <AttachmentCell row={r} href={attachmentLinkFor(r)} />
-                <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
+        {/*
+          GRUP SARMALAYICI KUTUYA KONMAZ — düz bir kardeş dizisi olarak akar
+          (hesap raporunun bölüm düzeniyle aynı gerekçe, `report.tsx`).
+          Grubun TAMAMINI kapsayan kutuya `minPresenceAhead` konduğunda
+          react-pdf "kutunun hepsi + istenen boşluk sığmıyor" deyip bloğu
+          bütünüyle sonraki sayfaya atıyor ve geride BOŞ BİR SAYFA kalıyordu:
+          ilk yaprakta yalnız marka bandı, künye ve tablo başlığı duruyordu
+          (kullanıcı bildirimi, 12.08.2026 — detaylı ekipman listesi). Koşul
+          dardır ve bu yüzden gözden kaçmıştı: grup sayfaya SIĞIYOR ama
+          bitişinden sonra 30pt kalmıyorsa tetiklenir.
+
+          Grup başlığı yerine İLK SATIRIYLA aynı bölünemez kutuya konur:
+          başlık nereye giderse en az bir satır onunla birlikte gider ve
+          hiçbir zaman sayfa dibinde yalnız kalmaz.
+        */}
+        {groups.map((g) => {
+          const rows = g.rows.map((r, i) => (
+            <View key={i} style={[s.tr, r.alt ? s.altRow : {}]} wrap={false}>
+              <ComponentCell
+                row={r}
+                href={linkFor(r)}
+                style={[
+                  s.td, s.cComp,
+                  r.custom ? s.custom : {},
+                  r.alt ? s.altText : {}, r.alt ? s.altIndent : {},
+                ]}
+              />
+              <Text style={[s.td, s.cBrand, r.alt ? s.altText : {}]}>{r.brand}</Text>
+              <ModelCell row={r} urls={datasheetUrls} />
+              <Text style={[s.td, s.cSpec, r.alt ? s.altText : {}]}>{r.spec}</Text>
+              <Text style={[s.td, s.cNote, s.noteText]}>{r.note ?? ""}</Text>
+              <AttachmentCell row={r} href={attachmentLinkFor(r)} />
+              <Text style={[s.td, s.mono, s.cQty, r.alt ? s.altText : {}]}>{String(r.qty)}</Text>
+            </View>
+          ));
+          return (
+            <React.Fragment key={g.name}>
+              <View wrap={false}>
+                <View style={s.groupRow}><Text style={s.groupCell}>{trUpper(g.name)}</Text></View>
+                {rows[0]}
               </View>
-            ))}
-          </View>
-        ))}
+              {rows.slice(1)}
+            </React.Fragment>
+          );
+        })}
 
         {summary && summary.length > 0 && (
           <View break>
@@ -441,18 +464,26 @@ export function EquipmentDocument({
               <Text style={[s.th, s.sVal]}>{trUpper("Değer")}</Text>
               <Text style={[s.th, s.sUnit]}>{trUpper("Birim")}</Text>
             </View>
-            {summary.map((sec) => (
-              <View key={sec.name} minPresenceAhead={30}>
-                <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
-                {sec.rows.map((r, i) => (
-                  <View key={i} style={s.tr} wrap={false}>
-                    <Text style={[s.td, s.sLabel]}>{r.label}</Text>
-                    <Text style={[s.td, s.mono, s.sVal]}>{String(r.value)}</Text>
-                    <Text style={[s.td, s.mono, s.sUnit, { color: BRAND.gray600 }]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
+            {/* Ekipman tablosuyla aynı yapı, aynı gerekçe: başlık ilk satırıyla
+                birlikte taşınır, bölüm bir kutuya sarılmaz. */}
+            {summary.map((sec) => {
+              const rows = sec.rows.map((r, i) => (
+                <View key={i} style={s.tr} wrap={false}>
+                  <Text style={[s.td, s.sLabel]}>{r.label}</Text>
+                  <Text style={[s.td, s.mono, s.sVal]}>{String(r.value)}</Text>
+                  <Text style={[s.td, s.mono, s.sUnit, { color: BRAND.gray600 }]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
+                </View>
+              ));
+              return (
+                <React.Fragment key={sec.name}>
+                  <View wrap={false}>
+                    <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
+                    {rows[0]}
                   </View>
-                ))}
-              </View>
-            ))}
+                  {rows.slice(1)}
+                </React.Fragment>
+              );
+            })}
           </View>
         )}
       </BrandPage>

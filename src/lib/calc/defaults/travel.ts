@@ -80,7 +80,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   bearingCode: "22210",
   bearingDynCKn: 159,
   bearingStatC0Kn: 166,
-  motorBrand: "INNOMATICS/SEW/ABB",
+  motorBrand: "INNOMOTICS/SEW/ABB",
   // Tip kodu tarihsel V5 referansında yok; katalogdan seçilince dolar.
   motorModel: "",
   motorPowerKw: 3,
@@ -170,7 +170,7 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   bearingCode: "22216",
   bearingDynCKn: 243,
   bearingStatC0Kn: 270,
-  motorBrand: "INNOMATICS/SEW/ABB",
+  motorBrand: "INNOMOTICS/SEW/ABB",
   // Tip kodu tarihsel V5 referansında yok; katalogdan seçilince dolar.
   motorModel: "",
   motorPowerKw: 3,

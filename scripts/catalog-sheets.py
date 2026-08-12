@@ -339,9 +339,9 @@ DISCOVER = [
     ("motor", "motors/gamak.json", "gamak", None,
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
      "GAMAK Motor"),
-    ("motor", "motors/innomatics.json", "siemens", None,
+    ("motor", "motors/innomotics.json", "siemens", None,
      ["power_kw", "speed_rpm", "torque_nm", "efficiency_pct", "current_a", "weight_kg"],
-     "SIEMENS / INNOMATICS Motor"),
+     "SIEMENS / INNOMOTICS Motor"),
     # --------------------------------- "Diğer kataloglar" (2026-08-09)
     ("gearbox", "reducers/yilmaz_k.json", "yilmaz_k", "model",
      ["ratio", "output_torque_Nm", "output_speed_rpm"],

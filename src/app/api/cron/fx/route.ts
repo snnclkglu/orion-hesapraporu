@@ -16,8 +16,8 @@
 //    güncellenmemesi, bu işin en kötü sonucudur.
 //
 // ═══════════════════════════════ NEDEN SERVICE-ROLE, NEDEN ÇEREZ DEĞİL
-// Cron isteği bir OTURUM TAŞIMAZ. `fin_fx_daily` yazma politikası
-// `can_edit_finance()` ister ve o soru `auth.uid()`e bakar — kullanıcısı
+// Cron isteği bir OTURUM TAŞIMAZ. `fx_rate_daily` yazma politikası
+// `can_edit_personnel()` ister ve o soru `auth.uid()`e bakar — kullanıcısı
 // olmayan bir istek RLS'i geçemez. Service-role anahtarı RLS'i aşar ve bu
 // yüzden YALNIZ BURADA, yalnız sunucuda kullanılır; `NEXT_PUBLIC_` öneki
 // ALMAZ (alsaydı tarayıcı paketine girerdi).
@@ -29,7 +29,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
-import { tazeleKurlar } from "@/lib/finance/fx-refresh";
+import { tazeleKurlar } from "@/lib/fx/refresh";
 
 export const runtime = "nodejs";
 // TCMB gün başına bir istek ister; 62 günlük pencere en kötü ihtimalle ~44 iş
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     // `actor` boştur: bunu bir kullanıcı yapmadı, zamanlayıcı yaptı. Sahte bir
     // kullanıcı kimliği yazmak denetim izini yalan söyletirdi.
     actor: null,
-    action: "finance.fx.cron",
+    action: "personnel.fx.cron",
     detail: {
       from: sonuc.aralik?.from ?? null,
       to: sonuc.aralik?.to ?? null,

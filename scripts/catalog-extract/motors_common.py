@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Motor kataloğu çıkarımının ortak parçaları.
 
-Üç motor kataloğu (ABB, INNOMATICS/Siemens, GAMAK) üç ayrı sayfa düzeni
+Üç motor kataloğu (ABB, INNOMOTICS/Siemens, GAMAK) üç ayrı sayfa düzeni
 kullanır; ancak hepsinde aynı büyüklükler aranır. Bu modül düzenden bağımsız
 olan kısmı toplar: sütun sınırlarına dayalı satır okuyucu, IEC 60072-1 mil ucu
 çapı defteri, gövde (frame) kodu ayrıştırma ve JSON yazımı.

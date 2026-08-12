@@ -8048,60 +8048,60 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p140",
+   "id": "motor/innomotics-innomotics-p140",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.140",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.140",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.140",
    "images": [
-    "motor/innomatics-innomatics-p140.webp"
+    "motor/innomotics-innomotics-p140.webp"
    ],
    "models": [
     "1LE1603-1CB2"
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p141",
+   "id": "motor/innomotics-innomotics-p141",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.141",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.141",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.141",
    "images": [
-    "motor/innomatics-innomatics-p141.webp"
+    "motor/innomotics-innomotics-p141.webp"
    ],
    "models": [
     "1LE1603-2BA2"
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p142",
+   "id": "motor/innomotics-innomotics-p142",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.142",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.142",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.142",
    "images": [
-    "motor/innomatics-innomatics-p142.webp"
+    "motor/innomotics-innomotics-p142.webp"
    ],
    "models": [
     "1LE1603-2DB2"
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p145",
+   "id": "motor/innomotics-innomotics-p145",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.145",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.145",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.145",
    "images": [
-    "motor/innomatics-innomatics-p145.webp"
+    "motor/innomotics-innomotics-p145.webp"
    ],
    "models": [
     "1LE1503-0DA2",
@@ -8111,15 +8111,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p146",
+   "id": "motor/innomotics-innomotics-p146",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.146",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.146",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.146",
    "images": [
-    "motor/innomatics-innomatics-p146.webp"
+    "motor/innomotics-innomotics-p146.webp"
    ],
    "models": [
     "1LE1503-0DB2",
@@ -8128,15 +8128,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p147",
+   "id": "motor/innomotics-innomotics-p147",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.147",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.147",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.147",
    "images": [
-    "motor/innomatics-innomatics-p147.webp"
+    "motor/innomotics-innomotics-p147.webp"
    ],
    "models": [
     "1LE1503-0DC2",
@@ -8159,15 +8159,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p148",
+   "id": "motor/innomotics-innomotics-p148",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.148",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.148",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.148",
    "images": [
-    "motor/innomatics-innomatics-p148.webp"
+    "motor/innomotics-innomotics-p148.webp"
    ],
    "models": [
     "1LE1603-2AA4",
@@ -8175,30 +8175,30 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p149",
+   "id": "motor/innomotics-innomotics-p149",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.149",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.149",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.149",
    "images": [
-    "motor/innomatics-innomatics-p149.webp"
+    "motor/innomotics-innomotics-p149.webp"
    ],
    "models": [
     "1LE1603-1CB0"
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p150",
+   "id": "motor/innomotics-innomotics-p150",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.150",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.150",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.150",
    "images": [
-    "motor/innomatics-innomatics-p150.webp"
+    "motor/innomotics-innomotics-p150.webp"
    ],
    "models": [
     "1LE1503-0CA2",
@@ -8222,15 +8222,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p151",
+   "id": "motor/innomotics-innomotics-p151",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.151",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.151",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.151",
    "images": [
-    "motor/innomatics-innomatics-p151.webp"
+    "motor/innomotics-innomotics-p151.webp"
    ],
    "models": [
     "1LE1503-0CB2",
@@ -8254,15 +8254,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p152",
+   "id": "motor/innomotics-innomotics-p152",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.152",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.152",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.152",
    "images": [
-    "motor/innomatics-innomatics-p152.webp"
+    "motor/innomotics-innomotics-p152.webp"
    ],
    "models": [
     "1LE1503-0CC2",
@@ -8283,15 +8283,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p153",
+   "id": "motor/innomotics-innomotics-p153",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.153",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.153",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.153",
    "images": [
-    "motor/innomatics-innomatics-p153.webp"
+    "motor/innomotics-innomotics-p153.webp"
    ],
    "models": [
     "1LE1503-0CD2",
@@ -8301,15 +8301,15 @@
    ]
   },
   {
-   "id": "motor/innomatics-innomatics-p157",
+   "id": "motor/innomotics-innomotics-p157",
    "kind": "motor",
-   "brand": "INNOMATICS",
+   "brand": "INNOMOTICS",
    "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603",
-   "title": "SIEMENS / INNOMATICS Motor — katalog s.157",
+   "title": "SIEMENS / INNOMOTICS Motor — katalog s.157",
    "source": "SIEMENS MOTOR KATALOG.pdf",
    "printedPages": "PDF s.157",
    "images": [
-    "motor/innomatics-innomatics-p157.webp"
+    "motor/innomotics-innomotics-p157.webp"
    ],
    "models": [
     "1LE1603-1DD2",

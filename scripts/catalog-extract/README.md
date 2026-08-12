@@ -641,11 +641,11 @@ Dikkat edilecekler:
 
 # Motor katalogları (`catalog_data/motors/`)
 
-`abb.json` · `innomatics.json` · `gamak.json` — üç üretici PDF kataloğundan
+`abb.json` · `innomotics.json` · `gamak.json` — üç üretici PDF kataloğundan
 (workspace kökünde, repo dışında) `pymupdf` ile çıkarılır.
 
-**Marka adı:** Siemens'in bu ürün hattı **INNOMATICS** adıyla yenilenmiştir.
-Dosya adı `innomatics.json`, `meta.brand` = "INNOMATICS"; kaynak PDF adı ve
+**Marka adı:** Siemens'in bu ürün hattı **INNOMOTICS** adıyla yenilenmiştir.
+Dosya adı `innomotics.json`, `meta.brand` = "INNOMOTICS"; kaynak PDF adı ve
 doküman numarası meta'da Siemens olarak korunur — veri oradan gelmektedir,
 kaynağın gizlenmesi doğru olmaz.
 
@@ -673,7 +673,7 @@ python motors_validate.py    # tutarlılık raporu (çıkış kodu 0 = HATA yok)
 | Marka | Kaynak | Performans tabloları | Mil çapı (D) tablosu | Satır |
 |---|---|---|---|---|
 | ABB | `abb-ozel-elektrik-motor-katalog.pdf` (9AKK105944 EN 02-2020) | s.43 (2K) · s.44 (4K) · s.46 (6K) IE3 CENELEC-design · s.26 (8K) IE2 CENELEC-design | s.88 (IE3) · s.86 (IE2) | 115 |
-| INNOMATICS | `SIEMENS MOTOR KATALOG.pdf` (Siemens D 81.1 · 12/2021) | s.150-153 SIMOTICS SD 1LE1503 Basic Line · s.154-157 1LE1603 Performance Line (2/4/6/8 kutup, IE3) | s.306 (gövde 71-160) · s.307+308 (gövde 180-315) | 100 |
+| INNOMOTICS | `SIEMENS MOTOR KATALOG.pdf` (Siemens D 81.1 · 12/2021) | s.150-153 SIMOTICS SD 1LE1503 Basic Line · s.154-157 1LE1603 Performance Line (2/4/6/8 kutup, IE3) | s.306 (gövde 71-160) · s.307+308 (gövde 180-315) | 100 |
 | GAMAK | `GAMAK MOTOR.pdf` (Teknik Katalog 2022) | s.21-26 üç fazlı işletme değerleri (standart / yüksek verimli / premium verimli) | s.31 (gövde 56-200) · s.32 (132-450) | 148 |
 
 Sayfa numaraları PDF sayfa numarasıdır (SIMOTICS kataloğunun kendi "3/18"
@@ -682,7 +682,7 @@ biçimindeki bölüm numarası ayrıca `meta.page_range` içindedir).
 | Marka | 2K | 4K | 6K | 8K | Güç aralığı |
 |---|---|---|---|---|---|
 | ABB | 26 | 27 | 26 | 36 | 0,09 – 630 kW |
-| INNOMATICS | 24 | 25 | 25 | 26 | 0,09 – 200 kW |
+| INNOMOTICS | 24 | 25 | 25 | 26 | 0,09 – 200 kW |
 | GAMAK | 40 | 40 | 35 | 33 | 0,06 – 1000 kW |
 
 ## Alanlar
@@ -718,19 +718,19 @@ birden çok gövde/varyantla bastığı yerlerde tek satır seçilir ve elenenle
   K kuşağının 2 kutuplu sayfasında yalnız "B design" bulunur ve karışık kuşak
   seçmek gövde-güç atamasını bozar. Her sayfadaki "High-output design"
   bölümü aynı gücü daha büyük gövdeyle tekrarladığı için ALINMAZ.
-- **INNOMATICS — iki ürün hattı birleşik.** Tek hat dört kutup sayısını da
+- **INNOMOTICS — iki ürün hattı birleşik.** Tek hat dört kutup sayısını da
   kapsamıyor: Basic Line (1LE1503) 8 kutupta 1,5 kW'ta biter, Performance
   Line (1LE1603) 2 kutupta 3 kW'tan başlar. İkisi de alınmış, aynı
   (güç, kutup) için Performance Line tercih edilmiştir; `series` alanı hangi
   hattan geldiğini söyler. İki hat AYNI boyut tablosunu paylaşır (s.306-309
   başlıkları hem `1LE15.3-` hem `1LE16.3-` listeler), dolayısıyla gövde
   ölçüsü ve mil çapı ortaktır.
-- **INNOMATICS — metin katmanı onarımı.** 8 kutuplu sayfalarda 1,5 kW
+- **INNOMOTICS — metin katmanı onarımı.** 8 kutuplu sayfalarda 1,5 kW
   satırının gövde sütunu metin katmanında "1112" üretiyor. Baştaki fazla
   basamak atılarak geçerli IEC kademesi (112) aranır; hiçbiri tutmazsa satır
   eksik sayılır — tahmin edilmez. Ürün kodu (`1BD2` → 1B = 112) bunu bağımsız
   olarak doğrular.
-- **INNOMATICS — ürün no. ile ağırlık aynı kelimeye yapışıyor.**
+- **INNOMOTICS — ürün no. ile ağırlık aynı kelimeye yapışıyor.**
   `1LE1503-0CA2■-■■■■13` tek bir kelimedir; ağırlık desenle ayrılır
   (`ARTICLE_RE`). Ürün kodu parçası (`0CA2`) aynı zamanda 180-315 gövde
   aralığında mil çapı eşlemesinin anahtarıdır.
@@ -812,11 +812,11 @@ büyütmeyle görüntü olarak denetlendi):
 | ABB | 30 kW · 4K · M3BP 200MLA · 1483 · 193 Nm · %93,6 · 292 kg · 54,8 A | s.44 | ✓ |
 | ABB | 55 kW · 4K · M3BP 250SMA · 1482 · 354 Nm · %94,6 · 406 kg · 100 A | s.44 | ✓ |
 | ABB | mil çapı 132 → 38 · 160 → 42 · 200 → 55 · 250 → 60 (2K) / 65 (4-8K) | s.88 | ✓ |
-| INNOMATICS | 5,5 kW · 4K · 1LE1603-1CB0 · 132 S · 1470 · 35,5 Nm · %89,6 · 74 kg | s.155 | ✓ |
-| INNOMATICS | 30 kW · 4K · 1LE1603-2AB5 · 200 L · 1470 · 195 Nm · %93,6 · 240 kg | s.155 | ✓ |
-| INNOMATICS | 55 kW · 4K · 1LE1603-2CB2 · 250 M · 1482 · 355 Nm · %94,6 · 420 kg | s.155 | ✓ |
-| INNOMATICS | 90 kW · 4K · 1LE1603-2DB2 · 280 M · 1485 · 580 Nm · %95,2 · 670 kg | s.155 | ✓ |
-| INNOMATICS | mil çapı 71 M → 14 · 80 M → 19 · 90 S/L → 24 · 100 L → 28 | s.307 | ✓ |
+| INNOMOTICS | 5,5 kW · 4K · 1LE1603-1CB0 · 132 S · 1470 · 35,5 Nm · %89,6 · 74 kg | s.155 | ✓ |
+| INNOMOTICS | 30 kW · 4K · 1LE1603-2AB5 · 200 L · 1470 · 195 Nm · %93,6 · 240 kg | s.155 | ✓ |
+| INNOMOTICS | 55 kW · 4K · 1LE1603-2CB2 · 250 M · 1482 · 355 Nm · %94,6 · 420 kg | s.155 | ✓ |
+| INNOMOTICS | 90 kW · 4K · 1LE1603-2DB2 · 280 M · 1485 · 580 Nm · %95,2 · 670 kg | s.155 | ✓ |
+| INNOMOTICS | mil çapı 71 M → 14 · 80 M → 19 · 90 S/L → 24 · 100 L → 28 | s.307 | ✓ |
 | GAMAK | 5,5 kW · 4K · GM2E 132 S 4a · 1465 · 35,9 Nm · %87,7 · 53 kg · 11,2 A | s.22 | ✓ |
 | GAMAK | 11 kW · 4K · GM2E 160 M 4a · 1465 · 71,7 Nm · %89,8 · 115 kg · 21,3 A | s.22 | ✓ |
 | GAMAK | 18,5 kW · 4K · GM2E 180 M 4a · 1470 · 120,2 Nm · %91,2 · 165 kg | s.22 | ✓ |
@@ -829,7 +829,7 @@ büyütmeyle görüntü olarak denetlendi):
 `scripts/seed-catalog.ts` ve `src/lib/catalog-mapping.ts` başka bir fazın
 kapsamındadır. Gereken değişiklikler:
 
-1. `seed-catalog.ts` motor dosya listesine **`motors/innomatics.json`**
+1. `seed-catalog.ts` motor dosya listesine **`motors/innomotics.json`**
    eklenmeli (şu an yalnız `gamak.json` ve `abb.json` okunuyor).
 2. Aynı bloktaki `rename` haritasına `shaft_diameter_mm: "shaft_mm"`
    eklenmeli — redüktördeki `output_shaft_mm` / `input_shaft_mm` deseniyle
@@ -842,12 +842,12 @@ kapsamındadır. Gereken değişiklikler:
    hesap girdisini eski değerde bırakıyor.
 4. `motor` kind'ının `columns` listesine mil çapı (`shaft_mm`, "Mil Çapı",
    mm) ve verim sınıfı sütunları, `facets`e `efficiency_class` eklenmeli.
-   INNOMATICS eklendiğinde `series` faceti üç markanın seri adlarını birlikte
+   INNOMOTICS eklendiğinde `series` faceti üç markanın seri adlarını birlikte
    listeler; marka süzgeci zaten `brand` üzerindendir.
 5. Uygulanmış seed migration'ı düzenlenmez; yenileme migration'ı üretilir:
    `npx tsx scripts/seed-catalog.ts --kinds motor --out <YYYYMMDDHHMMSS>_motor_reseed`
 6. `catalog_data/_version.json` (başka ajanda) `sources.motors` satırı
-   güncellenmeli: `"ABB M3BP (115) + INNOMATICS SIMOTICS SD (100, eski
+   güncellenmeli: `"ABB M3BP (115) + INNOMOTICS SIMOTICS SD (100, eski
    Siemens) + GAMAK (148) — 2/4/6/8 kutup, mil çapı dahil, PDF çıkarımı
    2026-08-06"`.
 

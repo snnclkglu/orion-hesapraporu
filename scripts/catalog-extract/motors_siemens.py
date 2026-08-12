@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""SIMOTICS SD dökme gövde motor kataloğu çıkarımı (marka: INNOMATICS).
+"""SIMOTICS SD dökme gövde motor kataloğu çıkarımı (marka: INNOMOTICS).
 
 Kaynak: `SIEMENS MOTOR KATALOG.pdf` — Siemens Catalog D 81.1, 12/2021,
 E86060-K5581-A111-B5, "SIMOTICS GP, SD, XP, DP Low-Voltage Motors".
 
-MARKA ADI: Siemens'in bu ürün hattı INNOMATICS adıyla yenilenmiştir; üretilen
-dosya `catalog_data/motors/innomatics.json` ve `meta.brand` = "INNOMATICS".
+MARKA ADI: Siemens'in bu ürün hattı INNOMOTICS adıyla yenilenmiştir; üretilen
+dosya `catalog_data/motors/innomotics.json` ve `meta.brand` = "INNOMOTICS".
 Kaynak PDF adı ve doküman numarası meta'da Siemens olarak korunur — veri
 oradan gelmektedir, kaynağın gizlenmesi doğru olmaz.
 
@@ -288,7 +288,7 @@ def dedupe(items):
 
 
 META = {
-    "brand": "INNOMATICS",
+    "brand": "INNOMOTICS",
     "equipment_type": "motor",
     "series": "SIMOTICS SD 1LE1503 Basic Line / 1LE1603 Performance Line (dökme gövde, IE3)",
     "source_pdf": "SIEMENS MOTOR KATALOG.pdf",
@@ -298,7 +298,7 @@ META = {
                   "(1LE1603, katalog 3/22-3/25); mil çapları PDF s.306 "
                   "(gövde 71-160) ve s.307-308 (gövde 180-315)",
     "notes": (
-        "Siemens motor kataloğu; marka INNOMATICS olarak yenilendi. "
+        "Siemens motor kataloğu; marka INNOMOTICS olarak yenilendi. "
         "400 V / 50 Hz, IP55, IC411, termik sınıf 155 (F), IE3 Premium "
         "Efficiency. Dökme gövde SIMOTICS SD seçilmiştir; alüminyum SIMOTICS GP, "
         "IE1/IE2/IE4 ve bölgesel hatlar (APAC/ABNT/Eagle) kapsam dışıdır. "
@@ -316,14 +316,14 @@ META = {
 
 def build():
     items, pages, missing, dropped = extract()
-    path = mc.os.path.join(mc.CATALOG_DATA, "motors", "innomatics.json")
+    path = mc.os.path.join(mc.CATALOG_DATA, "motors", "innomotics.json")
     n = mc.write_catalog(path, META, items)
     return n, pages, missing, dropped, path
 
 
 if __name__ == "__main__":
     n, pages, miss, drop, path = build()
-    print("INNOMATICS satır:", n, "->", path)
+    print("INNOMOTICS satır:", n, "->", path)
     for p, k, line, cnt in pages:
         print(f"  s.{p} · {k} kutup · {line} · {cnt} satır")
     if drop:

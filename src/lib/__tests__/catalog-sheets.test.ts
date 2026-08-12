@@ -158,7 +158,7 @@ describe("model → sayfa eşlemesi", () => {
       ["gearbox", undefined, "FLENDER H3-14"],
       // motorBrand + motorModel (from: "brand" + "model")
       ["motor", "GAMAK", "AGM2E 80 M 2a"],
-      ["motor", "INNOMATICS", "1LE1603-1CB2"],
+      ["motor", "INNOMOTICS", "1LE1603-1CB2"],
       // 5.5b brakeBrand = "MARKA MODEL"
       ["brake", undefined, "SIBRE TE 160 Ed 23/5"],
       // 5.8 bufferModel = "MARKA MODEL"

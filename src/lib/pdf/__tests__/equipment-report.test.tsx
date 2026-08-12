@@ -142,3 +142,51 @@ describe("detaylı listenin ek sayfaları", () => {
     expect(belge.getPageCount()).toBeGreaterThanOrEqual(3);
   }, 120_000);
 });
+
+/**
+ * BOŞ İLK SAYFA KORUMASI (kullanıcı bildirimi, 12.08.2026).
+ *
+ * Grubun tamamını saran kutuya `minPresenceAhead` konduğunda react-pdf, grup
+ * sayfaya SIĞSA BİLE bitişinden sonra istenen boşluk kalmıyorsa bloğu bütünüyle
+ * sonraki yaprağa atıyordu: ilk sayfada yalnız marka bandı, künye ve tablo
+ * başlığı kalıyor, tek bir satır bile basılmıyordu.
+ *
+ * Koşul DAR olduğu için tek bir fikstür yetmez — grup boyu taranır. Ölçüt
+ * "ilk sayfada en az bir EKİPMAN SATIRI var mı"dır; sayfa sayısı değil, çünkü
+ * hata sayfa sayısını her zaman artırmıyordu.
+ */
+describe("ilk sayfa boş kalmaz", () => {
+  function satirlar(n: number, ofs = 0) {
+    return Array.from({ length: n }, (_, i) => ({
+      rowKey: `r${ofs + i}`,
+      component: `Ekipman ${ofs + i + 1}`,
+      brand: "SKF",
+      model: `MODEL-${ofs + i + 1}`,
+      spec: "C = 331 kN, C0 = 375 kN",
+      qty: 2,
+    }));
+  }
+
+  it("grup boyu ne olursa olsun tablo İLK sayfada başlar", async () => {
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const bos: number[] = [];
+    // 6…22 satır: hatayı 16 ve 17 satırda üretiyordu (yatay A4, künyeli altbilgi).
+    for (let n = 6; n <= 22; n += 1) {
+      const pdf = await renderEquipmentPdf({
+        meta: {
+          docNo: "EQ-03", projectName: "Boş Sayfa Testi", customer: "ORION",
+          revLabel: "V0", revNo: 0, date: "12.08.2026",
+        },
+        groups: [
+          { name: "Ana Kaldırma", rows: satirlar(n) },
+          { name: "Köprü Yürütme", rows: satirlar(12, 100) },
+        ],
+      });
+      const doc = await getDocumentProxy(new Uint8Array(pdf));
+      const { text } = await extractText(doc, { mergePages: false });
+      const ilkSayfa = (text as string[])[0].replace(/\s+/g, " ");
+      if (!ilkSayfa.includes("Ekipman 1 ")) bos.push(n);
+    }
+    expect(bos, `boş ilk sayfa üreten grup boyları: ${bos.join(", ")}`).toEqual([]);
+  }, 300_000);
+});

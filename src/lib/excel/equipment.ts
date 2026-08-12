@@ -19,7 +19,7 @@ import {
   colLetter,
   writeTitleBlock,
 } from "@/lib/excel/brand";
-import { baslikDuzeni } from "@/lib/tr-text";
+import { baslikDuzeni, kimlikBuyuk } from "@/lib/tr-text";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import { moduleState } from "@/lib/calc/presentation/module-access";
 import {
@@ -467,8 +467,11 @@ export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): Eq
     const groupName = baslikDuzeni(ex.group.trim()) || "Ek Ekipman";
     const row: EqRow = {
       component: baslikDuzeni(ex.component),
-      brand: baslikDuzeni(ex.brand) || "-",
-      model: ex.model || "-", // model kodu: dokunulmaz
+      // Marka ve model BÜYÜK HARF — otomatik satırlarla aynı kural
+      // (`baslikDuzeniniUygula`). Elle eklenen satır listede onlarla yan yana
+      // durur; iki farklı yazım tek tabloda kabul edilemez.
+      brand: kimlikBuyuk(ex.brand) || "-",
+      model: kimlikBuyuk(ex.model) || "-",
       spec: baslikDuzeni(ex.spec),
       qty: ex.qty || "-",
       custom: true,
@@ -551,19 +554,35 @@ function groupName(key: string): string {
 }
 
 /**
- * Satır metinlerini "Baş Harfler Büyük" düzenine getirir (madde 33).
- * Model kodu ve adet DIŞARIDA bırakılır: model bir katalog kimliğidir
- * ("22212 E", "HT0823"), adet ise sayıdır. `rowKey` zaten ham slug'tan
- * üretildiği için bu adımdan etkilenmez.
+ * Satır metinlerini yazım düzenine sokar.
  *
- * "Ek Özellikler" (note) de dışarıda kalır: orası kullanıcının KENDİ yazdığı
- * serbest metindir, ekranda ne yazdıysa çıktıda da odur.
+ * EKİPMAN ADI ve ÖZELLİKLER "Baş Harfler Büyük" düzenindedir (madde 33) —
+ * onlar cümledir, okunmak için yazılır.
+ *
+ * MARKA VE MODEL ise BÜYÜK HARFLİDİR (kullanıcı kararı, 12.08.2026): ikisi de
+ * bir ürünün KİMLİĞİDİR, siparişe ve teklife o yazımla geçer. Üreticiler kendi
+ * adlarını zaten büyük basar ("SIBRE", "SKF", "INNOMOTICS") ve katalogdan
+ * gelen satır ile elle yazılan satırın aynı markayı iki yazımla göstermesi
+ * ("Haşçelik" / "HAŞÇELİK") listeyi iki ayrı üründen söz ediyor gibi
+ * gösteriyordu. Model kodu bir süre HİÇ dokunulmadan bırakılıyordu; gerekçesi
+ * "kod katalog kimliğidir" idi ve doğruydu ama eksikti — kimliğin tek yazımı
+ * olmalıdır, ham hâli değil.
+ *
+ * Büyütme `kimlikBuyuk` iledir: markaların çoğu yabancıdır ve Türkçe
+ * büyütme "Conductix-Wampfler"i "CONDUCTİX-WAMPFLER" yapardı. Katalog sayfası
+ * ve datasheet eşlemeleri bundan ETKİLENMEZ: `dsKey` tr-küçük harfe, katalog
+ * defterinin `norm`u büyük harfe indirger — ikisi de yazımdan bağımsızdır.
+ *
+ * Adet dışarıdadır (sayıdır); `rowKey` ham slug'tan üretildiği için bu adımdan
+ * etkilenmez. "Ek Özellikler" (note) de dışarıda kalır: orası kullanıcının
+ * KENDİ yazdığı serbest metindir, ekranda ne yazdıysa çıktıda da odur.
  */
 function baslikDuzeniniUygula(row: EqRow): EqRow {
   return {
     ...row,
     component: baslikDuzeni(row.component),
-    brand: baslikDuzeni(row.brand),
+    brand: kimlikBuyuk(row.brand),
+    model: kimlikBuyuk(row.model),
     spec: baslikDuzeni(row.spec),
   };
 }

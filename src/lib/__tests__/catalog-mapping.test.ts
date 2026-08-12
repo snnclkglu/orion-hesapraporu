@@ -197,10 +197,10 @@ describe("redüktör seçici yapılandırması", () => {
 // çap kaplin mili çapını (maks(motorShaftMm, gearboxInputShaftMm)) yani
 // motorCoupling.bore kontrolünü besliyor.
 
-/** Seed betiğinin bir INNOMATICS (Siemens 1LE1603) motoru için ürettiği satır. */
+/** Seed betiğinin bir INNOMOTICS (Siemens 1LE1603) motoru için ürettiği satır. */
 const MOTOR_ROW: CatalogRow = {
   id: "m",
-  brand: "INNOMATICS",
+  brand: "INNOMOTICS",
   model: "1LE1603-1DB4",
   attrs: {
     power_kw: 15,
@@ -239,7 +239,7 @@ describe.each([
   it("güç ve markayı doldurur", () => {
     const sel = applyCatalogPick(mapping, MOTOR_ROW);
     expect(sel.motorPowerKw).toBe(15);
-    expect(sel.motorBrand).toBe("INNOMATICS");
+    expect(sel.motorBrand).toBe("INNOMOTICS");
   });
 
   it("katalogda mil çapı yoksa elle girilen değeri korur", () => {

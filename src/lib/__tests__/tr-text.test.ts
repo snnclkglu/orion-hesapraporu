@@ -2,7 +2,7 @@
 // Büyük" düzenine geçerken kısaltma/birim/model kodu bozulmamalıdır.
 
 import { describe, expect, it } from "vitest";
-import { baslikDuzeni, trBuyuk, trKucuk } from "../tr-text";
+import { baslikDuzeni, kimlikBuyuk, trBuyuk, trKucuk } from "../tr-text";
 
 describe("baslikDuzeni — temel Türkçe büyütme", () => {
   it("sözcüklerin baş harfini büyütür", () => {
@@ -144,5 +144,29 @@ describe("trBuyuk / trKucuk", () => {
     expect(trBuyuk("ışık")).toBe("IŞIK");
     expect(trKucuk("İŞLETME")).toBe("işletme");
     expect(trKucuk("IŞIK")).toBe("ışık");
+  });
+});
+
+describe("kimlikBuyuk — marka ve model kodu", () => {
+  it("Türk üreticiyi tr-TR ile büyütür", () => {
+    expect(kimlikBuyuk("Haşçelik")).toBe("HAŞÇELİK");
+    expect(kimlikBuyuk("Yılmaz Redüktör")).toBe("YILMAZ REDÜKTÖR");
+    expect(kimlikBuyuk("İzmit A.Ş.")).toBe("İZMİT A.Ş.");
+    expect(kimlikBuyuk("Özgün")).toBe("ÖZGÜN");
+  });
+
+  it("yabancı markanın 'i' harfini NOKTALI yapmaz", () => {
+    // Asıl gerekçe budur: `adBuyuk` burada "CONDUCTİX-WAMPFLER" üretiyordu ve
+    // müşteriye giden ekipman listesine öyle basılıyordu.
+    expect(kimlikBuyuk("Conductix-Wampfler")).toBe("CONDUCTIX-WAMPFLER");
+    expect(kimlikBuyuk("Galvi Newcomen")).toBe("GALVI NEWCOMEN");
+    expect(kimlikBuyuk("Innomotics")).toBe("INNOMOTICS");
+  });
+
+  it("katalog kodunu ve boş değeri bozmaz", () => {
+    expect(kimlikBuyuk("1LE1603-1CB2")).toBe("1LE1603-1CB2");
+    expect(kimlikBuyuk("SNL 218")).toBe("SNL 218");
+    expect(kimlikBuyuk("-")).toBe("-");
+    expect(kimlikBuyuk(null)).toBe("");
   });
 });

@@ -59,9 +59,11 @@ describe("festoon ekipman listesi", () => {
       .flatMap((group) => group.rows)
       .find((row) => row.rowKey === "trolley:festoon");
 
+    // Marka ve model listede BÜYÜK HARFTİR (12.08.2026 kararı). "i" harfi
+    // TÜRKÇE büyütülmez: yabancı marka "CONDUCTİX" olurdu (`kimlikBuyuk`).
     expect(trolleyRow).toMatchObject({
       kind: "festoon",
-      brand: "Conductix-Wampfler",
+      brand: "CONDUCTIX-WAMPFLER",
       model: "0320",
       qty: 4,
     });
@@ -77,7 +79,7 @@ describe("festoon ekipman listesi", () => {
       .flatMap((group) => group.rows)
       .find((row) => row.rowKey === "bridge:festoon");
 
-    expect(bridgeRow).toMatchObject({ brand: "Vasel", model: "VS2060", qty: 2 });
+    expect(bridgeRow).toMatchObject({ brand: "VASEL", model: "VS2060", qty: 2 });
     expect(bridgeRow?.spec).toContain("VS2060A-FB50A…");
   });
 

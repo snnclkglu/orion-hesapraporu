@@ -109,7 +109,7 @@ function push(
 
 // ------------------------------------------------------------------ motors
 for (const file of [
-  "motors/gamak.json", "motors/abb.json", "motors/innomatics.json",
+  "motors/gamak.json", "motors/abb.json", "motors/innomotics.json",
   "motors/sew_drn.json",
 ]) {
   const { meta, items } = readJson(file);

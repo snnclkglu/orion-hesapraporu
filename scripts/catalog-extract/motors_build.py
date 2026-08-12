@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Üç motor kataloğunu tek komutla üretir.
 
-    python motors_build.py        # catalog_data/motors/{abb,innomatics,gamak}.json
+    python motors_build.py        # catalog_data/motors/{abb,innomotics,gamak}.json
     python motors_validate.py     # tutarlılık raporu
 
 Her marka kendi modülünde çözümlenir (sayfa düzenleri birbirine benzemez);
@@ -22,7 +22,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 BUILDERS = [
     ("ABB", motors_abb),
-    ("INNOMATICS (Siemens)", motors_siemens),
+    ("INNOMOTICS (Siemens)", motors_siemens),
     ("GAMAK", motors_gamak),
 ]
 

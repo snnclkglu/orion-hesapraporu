@@ -53,8 +53,9 @@ describe("kabin ve elektrik odası", () => {
     const rows = buildEquipmentGroups(input).flatMap((group) => group.rows);
 
     expect(rows.find((r) => r.rowKey === "cabin:operator-cabin")).toMatchObject({
-      // Model hücresi ürün kodudur; başlık düzeninden GEÇMEZ (dokunulmaz).
-      model: "İzole operatör kabini",
+      // Model hücresi ürün KİMLİĞİDİR: başlık düzeninden değil BÜYÜK HARF
+      // kuralından geçer (12.08.2026 kararı, `kimlikBuyuk`).
+      model: "İZOLE OPERATÖR KABİNİ",
     });
     expect(rows.find((r) => r.rowKey === "cabin:cabinAc")).toMatchObject({
       kind: "air_conditioner", brand: "TMS", model: "VKS-VS", qty: 1,

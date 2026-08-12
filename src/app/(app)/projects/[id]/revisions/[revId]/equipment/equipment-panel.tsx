@@ -29,6 +29,7 @@ import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equ
 import { dsKey } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { createClient } from "@/lib/supabase/client";
+import { kimlikBuyuk } from "@/lib/tr-text";
 import { saveEquipmentExtras, saveEquipmentNote } from "./actions";
 import {
   deleteEquipmentAttachment,
@@ -599,7 +600,11 @@ export function EquipmentPanel({
                       <Input className="h-8 pointer-coarse:h-10" placeholder="Ekipman" value={r.component} onChange={(e) => setRow(i, { component: e.target.value })} />
                     </ExtraField>
                     <ExtraField label="Marka">
-                      <Input className="h-8 pointer-coarse:h-10" placeholder="Marka" value={r.brand} onChange={(e) => setRow(i, { brand: e.target.value })} />
+                      {/* Marka BÜYÜK HARF yazılır — listedeki otomatik
+                          satırlarla aynı kural (`baslikDuzeniniUygula`).
+                          Dönüşüm burada da yapılır ki kullanıcı yazarken
+                          görsün; kaydın kendisini `mergeExtras` garanti eder. */}
+                      <Input className="h-8 pointer-coarse:h-10" placeholder="MARKA" value={r.brand} onChange={(e) => setRow(i, { brand: kimlikBuyuk(e.target.value) })} />
                     </ExtraField>
                     <ExtraField label="Model / Özellik">
                       <Input className="h-8 pointer-coarse:h-10" placeholder="Model / Özellik" value={r.spec || r.model} onChange={(e) => setRow(i, { spec: e.target.value })} />
