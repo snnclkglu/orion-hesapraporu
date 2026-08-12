@@ -66,6 +66,20 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+/*
+ * MANİFEST ÇEREZSİZ İSTENİR — muafiyet bu yüzden ŞART.
+ *
+ * Tarayıcı `<link rel="manifest">`i şartnameye göre `credentials: "omit"` ile
+ * çeker. Muaf tutulmasaydı istek oturumsuz görünür, aşağıdaki `!user` dalı onu
+ * `/login`e 307'lerdi ve Chrome bir HTML sayfası okuyup manifesti "geçersiz"
+ * sayardı: telefona eklenen kısayolda ne ad ne logo çıkardı — kullanıcının
+ * bildirdiği hatanın ta kendisi (12.08.2026).
+ *
+ * Açılan kapı yok: manifest yalnız uygulama adını, renklerini ve ikon
+ * yollarını taşır; ikon dosyaları zaten uzantılarıyla muaftı.
+ */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { APP_TAGLINE, APP_TITLE } from "@/lib/app";
+import { APP_SHORT_NAME, APP_TAGLINE, APP_TITLE } from "@/lib/app";
 import { Toaster } from "@/components/ui/sonner";
 
 // Orion Cranes marka tipografisi (Marka Kimliği Kılavuzu REV 01):
@@ -19,9 +19,30 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-mono",
 });
 
+/*
+ * Sekme ve ana ekran kimliği.
+ *
+ * İKONLAR BURADA YAZILMAZ: Next `app/icon.svg`, `app/favicon.ico` ve
+ * `app/apple-icon.png` dosyalarını METADATA DOSYASI olarak tanır ve `<link>`
+ * etiketlerini kendisi basar; `app/manifest.ts` de öyle. Üçünü de
+ * `scripts/make-icons.ts` marka sembolünden üretir — elle düzenlenmezler.
+ *
+ * `appleWebApp` iOS'un ana ekrana eklenen kısayolu için gerekir: onsuz kısayol
+ * Safari sekmesi olarak açılır ve üst şeritte adres çubuğu kalır. Başlık
+ * ayrıca verilir çünkü iOS `short_name`i okumaz.
+ */
 export const metadata: Metadata = {
   title: APP_TITLE,
   description: APP_TAGLINE,
+  applicationName: APP_TITLE,
+  appleWebApp: {
+    capable: true,
+    title: APP_SHORT_NAME,
+    // "default": durum çubuğu yazıları koyu, zemin sayfanın kendi rengi.
+    // "black-translucent" içeriği çentiğin altına iter ve kabuğun yapışkan
+    // üst şeridi oraya sıkışırdı.
+    statusBarStyle: "default",
+  },
 };
 
 /*

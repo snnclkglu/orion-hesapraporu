@@ -9,13 +9,35 @@
 // BİRİDİR. Yeni ad uygulamanın omurgasını söyler: her kayıt bir İŞE bağlanır
 // (iş emri → ürün → hesap/çizim/imalat/sevk), bölüm adları da o dili konuşur.
 
+import { adBuyuk } from "./tr-text";
+
 export const COMPANY_NAME = "ORION Cranes";
 
 /** Logo altındaki kicker ve giriş sayfası künyesi. */
 export const APP_NAME = "İş Yönetim Sistemi";
 
-/** Tarayıcı sekmesi. */
-export const APP_TITLE = `${COMPANY_NAME} — ${APP_NAME}`;
+/**
+ * Tarayıcı sekmesi — BÜYÜK HARF (kullanıcı kararı, 12.08.2026).
+ *
+ * Kabukta bu ad zaten büyük görünüyordu ama harfleri CSS büyütüyordu
+ * (`.oc-kicker { text-transform: uppercase }`); sekme başlığına, yer imine ve
+ * telefondaki uygulama adına ise metnin KENDİSİ gidiyor ve orada "İş Yönetim
+ * Sis…" diye küçük harfle duruyordu. Dönüşüm bu yüzden veride yapılır.
+ *
+ * `adBuyuk` (tr-TR) kullanılır, düz `toUpperCase()` DEĞİL: o "İş"i "IS" yapar.
+ * Marka adında Türkçe'ye özgü harf yok, yani `kimlikBuyuk` ile aynı sonucu
+ * verir — ikisinden birini seçmek gerekti ve cümlenin baskın dili Türkçe.
+ */
+export const APP_TITLE = adBuyuk(`${COMPANY_NAME} — ${APP_NAME}`);
+
+/**
+ * Ana ekran kısayolunun altındaki ad.
+ *
+ * Android ikonun altında ~12 karakter gösterir, gerisini kırpar; iOS de
+ * benzer davranır. Tam başlık orada "ORION CRANES —…" olurdu — kısayolun
+ * kimliği markanın kendisidir.
+ */
+export const APP_SHORT_NAME = "ORION";
 
 /** Sekme açıklaması ve giriş sayfasının tek cümlesi. */
 export const APP_TAGLINE =
