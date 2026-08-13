@@ -52,7 +52,7 @@ import {
 } from "@/lib/revision-load";
 import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
-import type { TravelInputs } from "@/lib/calc/modules/travelGroup";
+import type { TravelInputs, TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
@@ -1560,6 +1560,26 @@ export function RevisionEditor({
     const ctx = ctxFor(key);
     const inputs = mods[key].inputs as object;
     const sel = mods[key].selections as object;
+    const bufferGuideValues = section.rawId === "5.8" && isTravelKey(key)
+      ? (moduleResult(key)?.values as TravelValues | undefined)
+      : undefined;
+    const bufferGuideSnapshot = bufferGuideValues
+      ? {
+          model: (sel as { bufferModel?: string }).bufferModel,
+          type: bufferGuideValues.bufferType,
+          impactSpeedMps: bufferGuideValues.bufferImpactSpeedMps,
+          massPerBufferT: bufferGuideValues.collisionLoadT,
+          impactEnergyKj: bufferGuideValues.impactEnergyKj,
+          driveEnergyKj: bufferGuideValues.bufferDriveEnergyKj,
+          totalEnergyKj: bufferGuideValues.totalEnergyKj,
+          catalogEnergyKj: bufferGuideValues.bufferCatalogEnergyAtImpactKj,
+          compressionPct: bufferGuideValues.bufferCompressionPct,
+          compressionLimitPct: (sel as { bufferMaxCompressionPct?: number }).bufferMaxCompressionPct,
+          reactionForceKn: bufferGuideValues.bufferForceKn,
+          avgDecelerationMps2: bufferGuideValues.bufferAvgDecelerationMps2,
+          maxDecelerationMps2: bufferGuideValues.bufferMaxDecelerationMps2,
+        }
+      : undefined;
     const checks = sectionChecks(key, section);
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
@@ -1884,6 +1904,7 @@ export function RevisionEditor({
                       <BufferCalculationGuide
                         installedCount={(inputs as TravelInputs).bufferCount}
                         axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+                        snapshot={bufferGuideSnapshot}
                       />
                     )}
                     {/* Seçilen ürünün üretici kataloğundaki gerçek sayfası.
@@ -2002,6 +2023,7 @@ export function RevisionEditor({
                     <BufferCalculationGuide
                       installedCount={(inputs as TravelInputs).bufferCount}
                       axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+                      snapshot={bufferGuideSnapshot}
                     />
                   )}
                 </div>
