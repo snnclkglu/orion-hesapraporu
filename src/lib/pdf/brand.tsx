@@ -287,7 +287,7 @@ export function BrandPage({
         {company ? <CompanyBlock {...company} /> : null}
         <View
           style={{
-            borderTopWidth: company || hideFooterRule ? 0 : 0.75,
+            borderTopWidth: hideFooterRule ? 0 : 0.75,
             borderTopColor: BRAND.line300,
             paddingTop: 4,
             flexDirection: "row",
@@ -357,6 +357,13 @@ export function BrandBand({
  * iletişim satırı da adresin devamı gibi duruyordu. Blok iki sütuna ayrıldı —
  * solda KİMLİK (firma adı kömür/kalın + adres), sağda İLETİŞİM — ve firma adı
  * gövde ailesine alındı; künye artık bir imza gibi okunuyor.
+ *
+ * **AYIRICI ÇİZGİ KÜNYENİN ÜSTÜNDE DEĞİL ALTINDADIR** (kullanıcı bildirimi,
+ * 12.08.2026: *"ilk sayfa footer bana hâlâ karmaşık geliyor"*). Çizgi üstteyken
+ * künye ile folio satırı tek bir üç satırlık gri yığın olarak okunuyordu —
+ * adresin nerede bitip doküman satırının nerede başladığı ayırt edilemiyordu.
+ * Çizgi araya alınınca iki bölge ayrışır: üstte FİRMA KİMLİĞİ, altta BELGE
+ * KİMLİĞİ. Çizgi hâlâ TEKTİR; künye yokken aynı çizgiyi folio satırı çizer.
  */
 export function CompanyBlock({
   company,
@@ -373,8 +380,7 @@ export function CompanyBlock({
 }) {
   const contact = [email, web].map((v) => (v ?? "").trim()).filter(Boolean).join("  ·  ");
   return (
-    <View>
-      <View style={{ height: 0.75, backgroundColor: BRAND.line300, marginBottom: 5 }} />
+    <View style={{ marginBottom: 5 }}>
       <View
         style={{
           flexDirection: "row",

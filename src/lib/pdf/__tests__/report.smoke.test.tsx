@@ -138,3 +138,104 @@ describe("hesap raporu PDF duman testi", () => {
     expect(kontroller).toBeGreaterThan(pageOf["bolum-endCarriage"]);
   }, 240_000);
 });
+
+// ---------------------------------------------------------------- Seviyeler
+//
+// Kullanıcı kararı, 12.08.2026 — üç seviye artık İÇERİKÇE de ayrışır:
+//   · Kontrol Özeti YALNIZ detaylı raporda,
+//   · Özet raporda İçindekiler, Ek (Kaynaklar) ve gizlilik koşulları YOK,
+//   · Gizlilik koşulları detaylıda TAM, standartta KISA metinle basılır.
+// Kural PDF'in METNİNDEN ölçülür (job-list.test.tsx deseni): bileşen ağacına
+// bakmak, seviyenin gerçekten belgeye yansıdığını göstermez.
+
+/** Sayfa sayfa çözülmüş metin; harf aralıklı kicker'lar için boşluklar da atılır. */
+async function pagesOf(buf: Buffer): Promise<{ pages: string[]; all: string; squeezed: string }> {
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  const doc = await getDocumentProxy(new Uint8Array(buf));
+  const { text } = await extractText(doc);
+  const pages = (Array.isArray(text) ? text : [text]).map((p) => p.replace(/\s+/g, " "));
+  const all = pages.join(" ");
+  return { pages, all, squeezed: all.replace(/\s+/g, "") };
+}
+
+// Her seviye bir kez render edilir (detaylı ~90 sayfa); testler çıktıyı paylaşır.
+const levelBuf = new Map<string, Promise<Buffer>>();
+const atLevel = (level: "detayli" | "standart" | "ozet") => {
+  let p = levelBuf.get(level);
+  if (!p) {
+    p = renderToBuffer(<ReportDocument {...props} level={level} />) as Promise<Buffer>;
+    levelBuf.set(level, p);
+  }
+  return p;
+};
+
+describe("rapor seviyeleri — bölüm kapsamı", () => {
+  it("kontrol özeti yalnız DETAYLI raporda basılır", async () => {
+    const detayli = await pagesOf(await atLevel("detayli"));
+    const standart = await pagesOf(await atLevel("standart"));
+    const ozet = await pagesOf(await atLevel("ozet"));
+
+    expect(detayli.squeezed).toContain("KONTROLÖZETİ");
+    expect(standart.squeezed).not.toContain("KONTROLÖZETİ");
+    expect(ozet.squeezed).not.toContain("KONTROLÖZETİ");
+  }, 300_000);
+
+  it("özet rapor içindekiler, Ek ve gizlilik koşulları taşımaz", async () => {
+    const ozet = await pagesOf(await atLevel("ozet"));
+
+    expect(ozet.squeezed).not.toContain("İÇİNDEKİLER");
+    expect(ozet.squeezed).not.toContain("KAYNAKLARVESTANDARTLAR");
+    expect(ozet.squeezed).not.toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
+    // Kapak + özet: belge iki sayfadır, dizinden kısa.
+    expect(ozet.pages.length).toBeLessThanOrEqual(3);
+  }, 300_000);
+
+  it("standart rapor içindekiler ve Ek taşır, gizlilik metni KISADIR", async () => {
+    const standart = await pagesOf(await atLevel("standart"));
+
+    expect(standart.squeezed).toContain("İÇİNDEKİLER");
+    expect(standart.squeezed).toContain("KAYNAKLARVESTANDARTLAR");
+    expect(standart.squeezed).toContain("GİZLİLİKVEKULLANIMKOŞULLARI");
+    // Kısa metinde olan / olmayan paragraflar
+    expect(standart.all).toContain("Taraflar arasındaki sözleşme ve gizlilik anlaşmaları saklıdır.");
+    expect(standart.all).not.toContain("Teknik bilginin kullanımı.");
+    expect(standart.all).not.toContain("know-how içermektedir");
+  }, 300_000);
+
+  it("detaylı raporda gizlilik metni TAM basılır", async () => {
+    const detayli = await pagesOf(await atLevel("detayli"));
+
+    for (const lead of [
+      "Mülkiyet.",
+      "Kullanım ve gizlilik.",
+      "Teknik bilginin kullanımı.",
+      "Teknik geçerlilik.",
+    ]) {
+      expect(detayli.all, `«${lead}» paragrafı`).toContain(lead);
+    }
+    expect(detayli.all).toContain("ORION VİNÇ MÜHENDİSLİK SAN. VE TİC. LTD. ŞTİ.");
+    expect(detayli.all).toContain("mevzuattan doğan hakları saklıdır.");
+  }, 300_000);
+
+  // ---- kullanıcı kararı: "Ek ve bu yazı 1 sayfayı geçmesin"
+  it("Ek ile gizlilik koşulları TEK sayfaya sığar ve belgenin son sayfasıdır", async () => {
+    for (const level of ["detayli", "standart"] as const) {
+      const { pages } = await pagesOf(await atLevel(level));
+      const son = pages.length - 1;
+      const squeezedPage = (i: number) => pages[i].replace(/\s+/g, "");
+
+      // Kaynak listesi, gizlilik başlığı ve metnin SON cümlesi aynı yaprakta
+      expect(squeezedPage(son), `${level}: Ek son sayfada`).toContain("KAYNAKLARVESTANDARTLAR");
+      expect(squeezedPage(son), `${level}: gizlilik başlığı son sayfada`).toContain(
+        "GİZLİLİKVEKULLANIMKOŞULLARI"
+      );
+      expect(pages[son], `${level}: gizlilik metni son sayfada bitiyor`).toContain(
+        "gizlilik anlaşmaları saklıdır"
+      );
+      // Ek yalnız BİR yaprak: önceki sayfaya taşmamış
+      expect(squeezedPage(son - 1), `${level}: Ek ikinci yaprağa taşmamalı`).not.toContain(
+        "KAYNAKLARVESTANDARTLAR"
+      );
+    }
+  }, 300_000);
+});

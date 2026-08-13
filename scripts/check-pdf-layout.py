@@ -285,9 +285,28 @@ def norm(text: str) -> str:
     return " ".join(folded.upper().split())
 
 
+def has_module_sections(doc) -> bool:
+    """Belgede hesap bölümü sayfası var mı (PageHeader kicker'ı "BÖLÜM …")?
+
+    ÖZET rapor kapak + özetten ibarettir ve İÇİNDEKİLER TAŞIMAZ (kullanıcı
+    kararı, 12.08.2026): iki sayfalık bir belgede dizin, gösterdiği içerikten
+    uzun olurdu. Bu ayrım DOSYA ADINDAN değil belgenin kendisinden okunur —
+    denetçi `.test-output/` dışındaki bir rapora da doğrulanmış girdi gibi
+    bakabilmelidir. Kicker mono ve harf aralıklı dizildiği için (`letterSpacing`)
+    metin boşluklarından arındırılarak aranır: "B Ö L Ü M 0 2" → "BÖLÜM02".
+    """
+    for pno in range(doc.page_count):
+        if "BÖLÜM" in "".join(doc[pno].get_text().split()):
+            return True
+    return False
+
+
 def check_toc(doc, f: Findings) -> None:
     tp = find_toc_page(doc)
     if tp is None:
+        # Hesap bölümü olmayan rapor (özet) içindekiler basmaz — eksiklik değil.
+        if not has_module_sections(doc):
+            return
         f.toc.append("İçindekiler sayfası bulunamadı")
         return
     pages = heading_pages(doc)

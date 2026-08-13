@@ -113,10 +113,15 @@ export interface ReportRevision {
 }
 
 /**
- * Rapor seviyesi:
- * - "ozet": kapak + içindekiler + özet bölümü (kontroller dahil)
- * - "standart": + modül bölümleri (hesap satırlarında yalnız sonuç) + diyagramlar
- * - "detayli": tam rapor (formül/değer yerine koyma satırları dahil) — varsayılan
+ * Rapor seviyesi (kullanıcı kararı, 12.08.2026 — seviyeler içerikçe ayrıştı):
+ * - "ozet": kapak + özet bölümü. İçindekiler, kontrol özeti, Ek (Kaynaklar) ve
+ *   gizlilik koşulları YOKTUR — iki sayfalık bir belgede dizin ve ek, gösterdiği
+ *   içerikten uzun olurdu.
+ * - "standart": + modül bölümleri (hesap satırlarında yalnız sonuç) +
+ *   diyagramlar + içindekiler + Ek (gizlilik koşullarının KISA metniyle).
+ *   Kontrol özeti YOKTUR; satır içi kontroller bölümlerinde durur.
+ * - "detayli": tam rapor (formül/değer yerine koyma satırları, kontrol özeti ve
+ *   gizlilik koşullarının TAM metni dahil) — varsayılan.
  */
 export type ReportLevel = "detayli" | "standart" | "ozet";
 
@@ -177,8 +182,21 @@ function reportDateLabel(revision: ReportRevision): string {
 
 /** Altbilgi doküman satırı: `ORION CRANES · HESAP RAPORU · REV 03 · 2026` */
 function docLineFor(revision: ReportRevision): string {
+  return `ORION CRANES · ${coverDocLineFor(revision)}`;
+}
+
+/**
+ * KAPAK altbilgisinin doküman satırı — marka öneki YOKTUR.
+ *
+ * Kapakta firma künyesi bu satırın hemen üstündedir; "ORION CRANES" ikisinde
+ * birden yazınca altbilgi aynı adı iki kez tekrarlıyor ve üç satırlık gri bir
+ * yığına dönüşüyordu (kullanıcı bildirimi, 12.08.2026). Diğer sayfalarda künye
+ * BASILMAZ, orada marka önekini taşıyan tek şey bu satırdır — bu yüzden önek
+ * kaldırılmaz, yalnız kapakta düşürülür.
+ */
+function coverDocLineFor(revision: ReportRevision): string {
   const rev = String(revision.rev_no).padStart(2, "0");
-  return `ORION CRANES · HESAP RAPORU · REV ${rev} · ${reportDate(revision).getFullYear()}`;
+  return `HESAP RAPORU · REV ${rev} · ${reportDate(revision).getFullYear()}`;
 }
 
 /** Doküman kodu: `ORC-HR-412-R03` */
@@ -1023,7 +1041,7 @@ function CoverPage(props: ReportProps) {
     // künye ile sayfa altbilgisi arasında doldurulmamış bir şerit kalıyordu
     // (altbilgi sayfanın en altına sabit, künye ise içeriğin bittiği yere).
     <BrandPage
-      docLine={docLineFor(revision)}
+      docLine={coverDocLineFor(revision)}
       docCode={docCode}
       company={{
         company: st.company,
@@ -1121,25 +1139,20 @@ function tocEntries(
 ): TocEntry[] {
   const out: TocEntry[] = [
     { no: "—", title: "Özet Hesap Raporu", anchor: anchorFor("ozet") },
+    { no: "01", title: "Teknik Özellikler", anchor: anchorFor("specs") },
   ];
-  // Kontrol özeti belgenin EN SONUNDADIR (madde 24) — içindekilerde de en son
-  // satırdır, hangi seviyede olursa olsun basılır.
-  const checksEntry: TocEntry = {
-    no: "—",
-    title: "Kontrol Özeti",
-    anchor: anchorFor("kontroller"),
-  };
-  if (level === "ozet") {
-    out.push(checksEntry);
-    return out;
-  }
-  out.push({ no: "01", title: "Teknik Özellikler", anchor: anchorFor("specs") });
   for (const a of MODULE_ADAPTERS) {
     if (!present(a.key)) continue;
     const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
     out.push({ no, title: rest.join(" · "), anchor: anchorFor(a.key) });
   }
-  out.push(checksEntry);
+  // Kontrol özeti belgenin EN SONUNDADIR (madde 24) ve içindekilerde de son
+  // satırdır — ama YALNIZ DETAYLI raporda basılır, bkz. ReportDocument.
+  // İçindekiler basılmayan bir bölümü listeleyemez: satırın sayfa numarası
+  // "—" kalır ve bağlantı hiçbir yere gitmezdi.
+  if (level === "detayli") {
+    out.push({ no: "—", title: "Kontrol Özeti", anchor: anchorFor("kontroller") });
+  }
   return out;
 }
 
@@ -1832,8 +1845,142 @@ const REPORT_SOURCES = [
   "ISO 9927-1:2013 — Cranes; Inspections; Part 1: General",
 ] as const;
 
-/** Hesap ve tasarımda başvurulan standartların tam adları, belgenin son sayfasında yer alır. */
-function SourcesSection({ project, revision }: Pick<ReportProps, "project" | "revision">) {
+/** Ticari unvan — hukukî metinde ticari ad değil TÜZEL KİŞİ adı geçer. */
+const LEGAL_ENTITY = "ORION VİNÇ MÜHENDİSLİK SAN. VE TİC. LTD. ŞTİ.";
+
+interface LegalParagraph {
+  /** Paragraf başı vurgusu ("Mülkiyet.") — yoksa paragraf düz akar */
+  lead?: string;
+  text: string;
+}
+
+/**
+ * DETAYLI raporun tam gizlilik ve kullanım metni (kullanıcı tarafından
+ * yazılmıştır; sözcükleri DEĞİŞTİRİLMEZ — hukukî bir beyandır).
+ */
+const LEGAL_TERMS_FULL: readonly LegalParagraph[] = [
+  {
+    lead: "Mülkiyet.",
+    text:
+      `Bu rapor ${LEGAL_ENTITY} (“ORION CRANES”) tarafından kapakta belirtilen proje için ` +
+      "hazırlanmıştır. Raporda yer alan özgün hesap düzeni, tasarım kabulleri, mühendislik " +
+      "çözümleri ve seçim metodolojisi ORION CRANES'e ait fikri haklar ile gizli teknik bilgi " +
+      "ve know-how içermektedir. Üçüncü kişilere ait standart, katalog ve ürün verileri " +
+      "üzerindeki haklar ilgili hak sahiplerine aittir.",
+  },
+  {
+    lead: "Kullanım ve gizlilik.",
+    text:
+      "Rapor yalnızca kapakta belirtilen Müşteri'ye, ilgili projenin teknik değerlendirme, onay " +
+      "ve uygulama süreçlerinde kullanılmak üzere sunulmuştur. Rapor erişiminin proje kapsamında " +
+      "bilmesi gereken personelle sınırlandırılması esastır. Başka bir üretici, tedarikçi veya " +
+      "mühendislik kuruluşuyla paylaşılması ya da alternatif teklif, tasarım veya imalat amacıyla " +
+      "kullanılması ORION CRANES'in önceden yazılı iznine tabidir. Mevzuat gereği zorunlu " +
+      "açıklamalar ile bağımsız muayene ve belgelendirme süreçleri bu kapsamın dışındadır.",
+  },
+  {
+    lead: "Teknik bilginin kullanımı.",
+    text:
+      "Rapordaki hesap yöntemleri, mühendislik çözümleri ve bileşen boyutlandırmaları, ORION " +
+      "CRANES'in yazılı izni olmaksızın başka bir vinç, bileşen, şartname veya imalatın " +
+      "geliştirilmesinde referans olarak kullanılamaz.",
+  },
+  {
+    lead: "Teknik geçerlilik.",
+    text:
+      "Hesaplar yalnızca raporda tanımlanan proje parametreleri ve tasarım kabulleri için " +
+      "geçerlidir. Rapor, doküman numarası ve revizyonuyla bir bütündür; münferit bölümler " +
+      "bağlamından koparılarak veya farklı revizyonlarla birleştirilerek kullanılamaz. ORION " +
+      "CRANES'in onayı dışında yapılan değişikliklerden veya amaç dışı kullanımdan doğacak " +
+      "sonuçlardan ORION CRANES sorumlu tutulamaz.",
+  },
+  {
+    text:
+      "Taraflar arasındaki sözleşme ve gizlilik anlaşmaları saklıdır; çelişki hâlinde sözleşme " +
+      "hükümleri uygulanır. ORION CRANES'in yürürlükteki mevzuattan doğan hakları saklıdır.",
+  },
+];
+
+/**
+ * STANDART raporun kısaltılmış metni (kullanıcı kararı: *"Standart rapor için
+ * bunu da kısaltalım"*). Tam metnin dört başlığı iki paragrafa indirilir;
+ * hiçbir koşul GEVŞETİLMEZ, yalnız aynı koşullar daha az sözcükle söylenir.
+ */
+const LEGAL_TERMS_SHORT: readonly LegalParagraph[] = [
+  {
+    lead: "Mülkiyet ve gizlilik.",
+    text:
+      `Bu rapor ${LEGAL_ENTITY} (“ORION CRANES”) tarafından kapakta belirtilen proje ve Müşteri ` +
+      "için hazırlanmıştır; özgün hesap düzeni, tasarım kabulleri ve mühendislik çözümleri ORION " +
+      "CRANES'e ait fikri haklar ile gizli teknik bilgi içerir. Rapor yalnızca ilgili projenin " +
+      "teknik değerlendirme, onay ve uygulama süreçlerinde kullanılır; başka bir üretici, " +
+      "tedarikçi veya mühendislik kuruluşuyla paylaşılması ya da alternatif teklif, tasarım veya " +
+      "imalat amacıyla kullanılması ORION CRANES'in önceden yazılı iznine tabidir. Mevzuat gereği " +
+      "zorunlu açıklamalar ile bağımsız muayene ve belgelendirme süreçleri bu kapsamın dışındadır.",
+  },
+  {
+    lead: "Teknik geçerlilik.",
+    text:
+      "Hesaplar yalnızca raporda tanımlanan proje parametreleri ve tasarım kabulleri için " +
+      "geçerlidir; rapor doküman numarası ve revizyonuyla bir bütündür ve münferit bölümleri " +
+      "bağlamından koparılarak kullanılamaz. Taraflar arasındaki sözleşme ve gizlilik anlaşmaları " +
+      "saklıdır.",
+  },
+];
+
+/**
+ * GİZLİLİK VE KULLANIM KOŞULLARI — Ek'in (Kaynaklar) ALTINDA, aynı yaprakta.
+ *
+ * Kullanıcı kararı (12.08.2026): *"Ek ve bu yazı 1 sayfayı geçmesin."* Bu yüzden
+ * metin AYRI BİR SAYFA DEĞİLDİR ve daha küçük puntoyla, daha silik basılır —
+ * kaynak listesiyle aynı ağırlıkta dizilseydi belgenin son sözü mühendislik
+ * değil hukuk metni olurdu. Punto 6,5'tir (md. "içerik metninde 11px altına
+ * inilmez" kuralı EKRAN içindir; basılı A4'te 6,5pt rahat okunur ve marka
+ * kılavuzunun `micro` ölçeğiyle aynı ailededir).
+ *
+ * `wrap={false}` KONMAZ: blok kaynak listesiyle birlikte tek sayfaya sığar,
+ * ama sığmadığı bir gün gelirse (kaynak listesi büyürse) metnin kırpılması
+ * değil taşması doğrudur — hukukî beyan yarım basılamaz.
+ */
+function LegalTermsBlock({ level }: { level: ReportLevel }) {
+  const paragraphs = level === "detayli" ? LEGAL_TERMS_FULL : LEGAL_TERMS_SHORT;
+  return (
+    <View style={{ marginTop: 18, borderTopWidth: 0.75, borderTopColor: BRAND.line300, paddingTop: 8 }}>
+      <Text style={{ ...T.kickerInk, fontSize: 6.5, color: BRAND.gray450, marginBottom: 5 }}>
+        GİZLİLİK VE KULLANIM KOŞULLARI
+      </Text>
+      {paragraphs.map((p, i) => (
+        <Text
+          key={i}
+          style={{
+            fontFamily: FONTS.sans,
+            fontSize: 6.5,
+            lineHeight: 1.5,
+            color: BRAND.gray500,
+            textAlign: "justify",
+            marginTop: i === 0 ? 0 : 4,
+          }}
+        >
+          {p.lead ? (
+            <Text style={{ fontWeight: 700, color: BRAND.gray600 }}>{p.lead} </Text>
+          ) : null}
+          {p.text}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Hesap ve tasarımda başvurulan standartların tam adları, belgenin son
+ * sayfasında yer alır; gizlilik ve kullanım koşulları da AYNI yaprağın altına
+ * girer (kullanıcı kararı: ikisi birlikte tek sayfayı geçmez).
+ */
+function SourcesSection({
+  project,
+  revision,
+  level,
+}: Pick<ReportProps, "project" | "revision"> & { level: ReportLevel }) {
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
       <PageHeader kicker="EK" title="Kaynaklar ve Standartlar" />
@@ -1851,6 +1998,7 @@ function SourcesSection({ project, revision }: Pick<ReportProps, "project" | "re
           </View>
         ))}
       </View>
+      <LegalTermsBlock level={level} />
     </BrandPage>
   );
 }
@@ -1997,8 +2145,9 @@ function ModulePage({
           for (const n of sectionTableParts(section.table, ctx)) add(n);
         }
 
-        if (section.rows.length > 0) {
-          const rowNodes = section.rows.map((r, i) => (
+        const visibleRows = section.rows.filter((r) => !r.visible || r.visible(ctx));
+        if (visibleRows.length > 0) {
+          const rowNodes = visibleRows.map((r, i) => (
             <CalcRowLine
               key={r.key}
               row={r}
@@ -2085,13 +2234,17 @@ export function ReportDocument(
       language="tr"
     >
       <CoverPage {...props} />
-      <TocPage
-        {...props}
-        level={level}
-        numbers={numbers}
-        present={present}
-        pageOf={pageOf ?? {}}
-      />
+      {/* ÖZET rapor içindekiler taşımaz (kullanıcı kararı): iki sayfalık bir
+          belgede dizin, gösterdiği içerikten uzun olurdu. */}
+      {level !== "ozet" && (
+        <TocPage
+          {...props}
+          level={level}
+          numbers={numbers}
+          present={present}
+          pageOf={pageOf ?? {}}
+        />
+      )}
       <SummarySection {...props} numbers={numbers} collect={collect} />
       {level !== "ozet" &&
         MODULE_ADAPTERS.filter((a) => present(a.key)).map((adapter) => (
@@ -2105,14 +2258,22 @@ export function ReportDocument(
             collect={collect}
           />
         ))}
-      {/* Kontroller hesap bölümlerinin ardından toplanır. */}
-      <ChecksSummarySection
-        {...props}
-        numbers={numbers}
-        pageOf={pageOf ?? {}}
-        collect={collect}
-      />
-      <SourcesSection {...props} />
+      {/* KONTROL ÖZETİ YALNIZ DETAYLI RAPORDADIR (kullanıcı kararı,
+          12.08.2026). Liste bir DİZİNdir: her satırın solunda kontrolün
+          dayandığı hesabın sayfası vardır ve o hesap yalnız detaylı raporda
+          tam olarak basılır. Standart raporda satır içi kontroller zaten
+          bölümlerinde durur, özet raporda ise gidilecek bir hesap sayfası
+          yoktur — dizin ikisinde de kendi kaynağını gösteremezdi. */}
+      {level === "detayli" && (
+        <ChecksSummarySection
+          {...props}
+          numbers={numbers}
+          pageOf={pageOf ?? {}}
+          collect={collect}
+        />
+      )}
+      {/* ÖZET raporda Ek (Kaynaklar) ve gizlilik koşulları da yoktur. */}
+      {level !== "ozet" && <SourcesSection {...props} level={level} />}
     </Document>
   );
 }
