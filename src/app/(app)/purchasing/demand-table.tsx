@@ -81,7 +81,7 @@ import { fmtMoney } from "@/lib/currency";
 import type { TalepHavuzu, TalepSatiri } from "@/lib/purchasing/demand";
 import { FilterBar, SearchBox, SortableHead } from "../drawings/sortable-head";
 import { CokluSuzgec } from "./filters";
-import type { TeklifSatiri } from "./data";
+import type { TedarikciKaydi, TeklifSatiri } from "./data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
 import { QuoteDialog } from "./quote-dialog";
 import { OrderDialog, type SiparisKalemi } from "./order-dialog";
@@ -201,6 +201,8 @@ export function DemandTable({
   teklifler,
   siparisAdetleri,
   tedarikciler,
+  defter,
+  siparisNolari,
   sonKur,
   kategoriler,
   isler,
@@ -211,6 +213,10 @@ export function DemandTable({
   /** [matchKey, sipariş edilen adet] — sunucuda toplanır, burada bölünmez. */
   siparisAdetleri: [string, number][];
   tedarikciler: string[];
+  /** Firma defteri (ad + kod) — sipariş numarası önerisi kodlardan türer. */
+  defter: TedarikciKaydi[];
+  /** Kullanılmış bütün sipariş numaraları; öneri ve çakışma denetimi için. */
+  siparisNolari: string[];
   /** En son yayımlanmış günlük kur; teklif ve sipariş pencerelerine iner. */
   sonKur?: GunlukKur | null;
   kategoriler: string[];
@@ -642,6 +648,8 @@ export function DemandTable({
         <OrderDialog
           kalemler={siparisKalemleri}
           tedarikciler={tedarikciler}
+          defter={defter}
+          siparisNolari={siparisNolari}
           sonKur={sonKur}
           onClose={() => setSiparisKalemleri(null)}
           onSaved={() => {

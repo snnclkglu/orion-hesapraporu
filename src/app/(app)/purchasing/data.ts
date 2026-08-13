@@ -539,7 +539,7 @@ export async function loadSiparisler(
 export async function loadTedarikciler(supabase: SupabaseClient): Promise<string[]> {
   // ————————————————————————————— 1. DEFTER (birincil kaynak)
   //
-  // `purchase_suppliers` 13.08.2026'da açıldı (migration 20260813000001) ve
+  // `purchase_suppliers` 13.08.2026'da açıldı (migration 20260813010001) ve
   // devralınan 285 firma oraya yazıldı. Defter öneri listesinin ASIL kaynağıdır:
   // öncesinde liste yalnız DAHA ÖNCE TEKLİF GİRİLMİŞ firmaları biliyordu, yani
   // ilk kez çalışılan her firma her seferinde elle yazılıyordu.
@@ -569,6 +569,58 @@ export async function loadTedarikciler(supabase: SupabaseClient): Promise<string
   for (const r of (teklif.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   for (const r of (siparis.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   return [...adlar].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+/** Defterdeki bir firma — ad + kimlik kodu (`TD0007`). */
+export interface TedarikciKaydi {
+  name: string;
+  code: string;
+  active: boolean;
+}
+
+/**
+ * TEDARİKÇİ DEFTERİ — kodlarıyla birlikte.
+ *
+ * `loadTedarikciler`den AYRI durur ve ikisi farklı soruları cevaplar: o,
+ * öneri listesidir (teklif ve sipariş defterlerinden gelen adları da kapsar);
+ * bu, KİMLİK defteridir ve sipariş numarası önerisinin kaynağıdır.
+ *
+ * PASİF FİRMA DA OKUNUR: öneri listesinden düşmüş bir firmanın kodu, o firmaya
+ * daha önce verilmiş siparişin numarasını okumak için hâlâ gerekli.
+ *
+ * SÜTUN OLMAYABİLİR VARSAYIMI (md. 21): `code` 20260813010004 ile geliyor.
+ * Uygulanmamış bir ortamda zengin sorgu düşer, dar sorgu adları getirir ve
+ * sipariş numarası önerisi sessizce devre dışı kalır — sayfa AÇILIR.
+ */
+export async function loadTedarikciDefteri(supabase: SupabaseClient): Promise<TedarikciKaydi[]> {
+  const zengin = await supabase.from("purchase_suppliers").select("name, code, active").order("name");
+  if (!zengin.error) {
+    return ((zengin.data ?? []) as { name: string; code: string | null; active: boolean }[]).map(
+      (r) => ({ name: r.name ?? "", code: r.code ?? "", active: r.active !== false })
+    );
+  }
+
+  const dar = await supabase.from("purchase_suppliers").select("name, active").order("name");
+  if (dar.error) return [];
+  return ((dar.data ?? []) as { name: string; active: boolean }[]).map((r) => ({
+    name: r.name ?? "",
+    code: "",
+    active: r.active !== false,
+  }));
+}
+
+/**
+ * Kullanılmış BÜTÜN sipariş numaraları — iptal edilenler DÂHİL.
+ *
+ * Öneri ve çakışma denetimi aynı listeyi okur. İptal edilmiş bir siparişin
+ * numarası yeniden kullanılamaz: kayıt duruyor, tedarikçi o numarayı biliyor ve
+ * aynı numaralı ikinci bir sipariş "hangisi iptal olan?" sorusunu doğururdu.
+ */
+export async function loadSiparisNolari(supabase: SupabaseClient): Promise<string[]> {
+  const veri = await tumSatirlar<{ order_no: string | null }>((bas, son) =>
+    supabase.from("purchase_orders").select("order_no").order("id").range(bas, son)
+  );
+  return veri.map((r) => (r.order_no ?? "").trim()).filter(Boolean);
 }
 
 /**
@@ -604,7 +656,7 @@ export interface GecmisOzeti {
  *
  * Öncesinde `purchase_price_history` 900'erli sayfalarla okunuyordu (4722
  * satır → altı ardışık gidiş-dönüş) ve tamamı istemciye gidiyordu. Görünüm
- * (`purchase_price_archive`, migration 20260813000003) toplamayı veritabanına
+ * (`purchase_price_archive`, migration 20260813010003) toplamayı veritabanına
  * taşıdı: bir sorgu, 1675 satır, %72 daha az yük.
  *
  * GÖRÜNÜM YOKSA BOŞ DÖNER: migration uygulanmamış bir ortamda arşivin
@@ -642,6 +694,150 @@ export async function loadGecmisOzetleri(supabase: SupabaseClient): Promise<Gecm
   } catch {
     return [];
   }
+}
+
+// ═══════════════════════════════════════════ FİYAT ARŞİVİ — SUNUCU SÜZGECİ
+
+/** Arşiv listesinin bir satırı — `purchase_price_index` görünümünden. */
+export interface ArsivSatiri {
+  matchKey: string;
+  sample: string;
+  sonHareket: string;
+  sonAlisGun: string;
+  sonAlisFirma: string;
+  sonAlisEur: number | null;
+  sonAlisBirim: number | null;
+  sonAlisPara: string;
+  enDusuk: number | null;
+  enYuksek: number | null;
+  teklifSayisi: number;
+  siparisSayisi: number;
+  gecmisSayisi: number;
+  firmalar: string[];
+  kategoriler: string[];
+}
+
+export interface ArsivSorgusu {
+  q?: string;
+  kategoriler?: readonly string[];
+  tedarikciler?: readonly string[];
+  kaynaklar?: readonly string[];
+  sayfa?: number;
+  sayfaBoyu?: number;
+}
+
+export interface ArsivSonucu {
+  satirlar: ArsivSatiri[];
+  /** SÜZGEÇTEN GEÇEN toplam — sayfa sayısı bundan çıkar. */
+  toplam: number;
+  sayfa: number;
+  sayfaBoyu: number;
+}
+
+/** Aramanın SQL karşılığı — ekrandaki `trKatla` ile aynı katlama. */
+function aramaKatla(q: string): string {
+  return q
+    .normalize("NFC")
+    .trim()
+    .replace(/[iıİIçÇğĞöÖşŞüÜ]/g, (h) =>
+      ({ i: "I", ı: "I", İ: "I", I: "I", ç: "C", Ç: "C", ğ: "G", Ğ: "G", ö: "O", Ö: "O", ş: "S", Ş: "S", ü: "U", Ü: "U" })[h] ?? h
+    )
+    .toUpperCase();
+}
+
+/**
+ * Arşivin BİR SAYFASI — süzgeç veritabanında.
+ *
+ * Kullanıcı bildirimi (13.08.2026, ikinci tur): sayfa hâlâ yavaştı. Ölçüldü:
+ * görünümün kendisi 54 ms, asıl maliyet 1675 satırın (360 KB) her ziyarette
+ * taşınıp istemcide süzülmesiydi — ekranda 100 satır var.
+ *
+ * SÜZGEÇ TÜM ARŞİVDE ÇALIŞIR ve bu kullanıcının şartıydı ("arama ve filtreyi
+ * tüm sayfalar için yapsın"). Sunucuya taşınınca şart gevşemedi, tersine
+ * gerçek anlamını kazandı: artık istemciye HİÇ GELMEMİŞ satırlarda da arıyor.
+ */
+export async function loadFiyatDizini(
+  supabase: SupabaseClient,
+  sorgu: ArsivSorgusu = {}
+): Promise<ArsivSonucu> {
+  const sayfaBoyu = Math.min(Math.max(sorgu.sayfaBoyu ?? 100, 10), 200);
+  const sayfa = Math.max(1, sorgu.sayfa ?? 1);
+
+  try {
+    let q = supabase
+      .from("purchase_price_index")
+      .select(
+        "match_key, sample, son_hareket, son_alis_gun, son_alis_firma, son_alis_eur, " +
+          "son_alis_birim, son_alis_para, en_dusuk, en_yuksek, teklif_sayisi, " +
+          "siparis_sayisi, gecmis_sayisi, firmalar, kategoriler, turler",
+        { count: "exact" }
+      );
+
+    const ara = aramaKatla(sorgu.q ?? "");
+    // `%` ve `_` KAÇIRILIR: kullanıcının yazdığı bir alt çizgi joker olmamalı.
+    if (ara) q = q.like("ara", `%${ara.replace(/[%_]/g, "\$&")}%`);
+    if (sorgu.kategoriler?.length) q = q.overlaps("kategoriler", sorgu.kategoriler as string[]);
+    if (sorgu.tedarikciler?.length) q = q.overlaps("firmalar", sorgu.tedarikciler as string[]);
+    if (sorgu.kaynaklar?.length) q = q.overlaps("turler", sorgu.kaynaklar as string[]);
+
+    // SIRA: EN SON HAREKET, YENİDEN ESKİYE (kullanıcı kararı). Beraberliği
+    // anahtar bozar ki sayfalar arasında satır atlanmasın/yinelenmesin.
+    const bas = (sayfa - 1) * sayfaBoyu;
+    const { data, count, error } = await q
+      .order("son_hareket", { ascending: false, nullsFirst: false })
+      .order("match_key")
+      .range(bas, bas + sayfaBoyu - 1);
+    if (error) throw error;
+
+    return {
+      satirlar: ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+        matchKey: String(r.match_key ?? ""),
+        sample: String(r.sample ?? ""),
+        sonHareket: String(r.son_hareket ?? "").slice(0, 10),
+        sonAlisGun: String(r.son_alis_gun ?? "").slice(0, 10),
+        sonAlisFirma: String(r.son_alis_firma ?? ""),
+        sonAlisEur: r.son_alis_eur == null ? null : Number(r.son_alis_eur),
+        sonAlisBirim: r.son_alis_birim == null ? null : Number(r.son_alis_birim),
+        sonAlisPara: String(r.son_alis_para ?? "TRY"),
+        enDusuk: r.en_dusuk == null ? null : Number(r.en_dusuk),
+        enYuksek: r.en_yuksek == null ? null : Number(r.en_yuksek),
+        teklifSayisi: Number(r.teklif_sayisi ?? 0),
+        siparisSayisi: Number(r.siparis_sayisi ?? 0),
+        gecmisSayisi: Number(r.gecmis_sayisi ?? 0),
+        firmalar: (r.firmalar as string[] | null) ?? [],
+        kategoriler: (r.kategoriler as string[] | null) ?? [],
+      })),
+      toplam: count ?? 0,
+      sayfa,
+      sayfaBoyu,
+    };
+  } catch {
+    return { satirlar: [], toplam: 0, sayfa, sayfaBoyu };
+  }
+}
+
+/**
+ * Süzgeç seçenekleri — kategori ve tedarikçi listesi.
+ *
+ * Dizinden değil KAYNAK TABLODAN okunur: dizin kalem başına tekilleştirilmiş
+ * diziler taşıyor ve onları açmak (unnest) her sayfa isteğinde bütün görünümü
+ * yeniden hesaplatırdı. Buradaki iki sorgu küçüktür ve süzgeç açılmadan da
+ * gerekir.
+ */
+export async function loadArsivSecenekleri(
+  supabase: SupabaseClient
+): Promise<{ kategoriler: string[]; tedarikciler: string[] }> {
+  const [kat, ted] = await Promise.all([
+    supabase.from("purchase_price_history").select("category").neq("category", ""),
+    supabase.from("purchase_suppliers").select("name").eq("active", true),
+  ]);
+  const kategoriler = [
+    ...new Set(((kat.data ?? []) as { category: string }[]).map((r) => r.category)),
+  ].sort((a, b) => a.localeCompare(b, "tr"));
+  const tedarikciler = [
+    ...new Set(((ted.data ?? []) as { name: string }[]).map((r) => r.name)),
+  ].sort((a, b) => a.localeCompare(b, "tr"));
+  return { kategoriler, tedarikciler };
 }
 
 /** Bir kalemin devralınan alım satırları — YALNIZ satır açıldığında. */
@@ -684,6 +880,123 @@ export async function loadGecmisSatirlari(
     itemNo: String(r.item_no ?? ""),
     category: String(r.category ?? ""),
   }));
+}
+
+/**
+ * Bir kalemin BÜTÜN fiyat olayları — YALNIZ satır açıldığında.
+ *
+ * Liste artık kalem başına özet gösteriyor (`purchase_price_index`); ayrıntı
+ * 1675 kalemin yalnız açılanı için istenir. Üç kaynak da burada birleşir ve
+ * TÜRÜ satırda durur — hangi fiyatın denetlenebilir bir sipariş, hangisinin
+ * dışarıdan gelmiş bir fatura olduğu okunabilmeli.
+ */
+export interface ArsivOlayi {
+  id: string;
+  tur: "teklif" | "siparis" | "gecmis";
+  supplier: string;
+  gun: string;
+  birim: number;
+  currency: string;
+  birimEur: number | null;
+  adet: number | null;
+  itemNo: string;
+  kategori: string;
+  secildi: boolean;
+  iptal: boolean;
+  /** Yalnız devralınan satır silinebilir (yönetici); diğerlerinin kendi yolu var. */
+  silinebilir: boolean;
+}
+
+export async function loadArsivOlaylari(
+  supabase: SupabaseClient,
+  matchKey: string
+): Promise<ArsivOlayi[]> {
+  if (!matchKey) return [];
+  const [teklif, satir, gecmis] = await Promise.all([
+    supabase
+      .from("purchase_quotes")
+      .select("id, supplier, unit_price, currency, unit_price_eur, qty, quoted_at, chosen, item_no")
+      .eq("match_key", matchKey)
+      .limit(200),
+    supabase
+      .from("purchase_order_lines")
+      .select(
+        "id, sample, qty, unit_price, item_no, purchase_orders (supplier, ordered_at, currency, fx_rate, cancelled_at)"
+      )
+      .eq("match_key", matchKey)
+      .limit(200),
+    supabase
+      .from("purchase_price_history")
+      .select("id, supplier, priced_at, qty, unit_price, currency, unit_price_eur, item_no, category")
+      .eq("match_key", matchKey)
+      .order("priced_at", { ascending: false })
+      .limit(500),
+  ]);
+
+  const olaylar: ArsivOlayi[] = [];
+
+  for (const r of (teklif.data ?? []) as Record<string, unknown>[]) {
+    olaylar.push({
+      id: `t-${r.id}`,
+      tur: "teklif",
+      supplier: String(r.supplier ?? ""),
+      gun: String(r.quoted_at ?? "").slice(0, 10),
+      birim: Number(r.unit_price ?? 0),
+      currency: String(r.currency ?? "EUR"),
+      birimEur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
+      adet: r.qty == null ? null : Number(r.qty),
+      itemNo: String(r.item_no ?? ""),
+      kategori: "",
+      secildi: r.chosen === true,
+      iptal: false,
+      silinebilir: false,
+    });
+  }
+
+  for (const r of (satir.data ?? []) as Record<string, unknown>[]) {
+    const o = r.purchase_orders as
+      | { supplier: string; ordered_at: string; currency: string; fx_rate: number | null; cancelled_at: string | null }
+      | null;
+    if (r.unit_price == null) continue;
+    const birim = Number(r.unit_price);
+    const kur = o?.fx_rate == null ? null : Number(o.fx_rate);
+    olaylar.push({
+      id: `s-${r.id}`,
+      tur: "siparis",
+      supplier: o?.supplier ?? "",
+      gun: String(o?.ordered_at ?? "").slice(0, 10),
+      birim,
+      currency: o?.currency ?? "EUR",
+      birimEur: kur && kur > 0 ? birim / kur : null,
+      adet: r.qty == null ? null : Number(r.qty),
+      itemNo: String(r.item_no ?? ""),
+      kategori: "",
+      secildi: false,
+      iptal: Boolean(o?.cancelled_at),
+      silinebilir: false,
+    });
+  }
+
+  for (const r of (gecmis.data ?? []) as Record<string, unknown>[]) {
+    olaylar.push({
+      id: String(r.id),
+      tur: "gecmis",
+      supplier: String(r.supplier ?? ""),
+      gun: String(r.priced_at ?? "").slice(0, 10),
+      birim: Number(r.unit_price ?? 0),
+      currency: String(r.currency ?? "TRY"),
+      birimEur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
+      adet: r.qty == null ? null : Number(r.qty),
+      itemNo: String(r.item_no ?? ""),
+      kategori: String(r.category ?? ""),
+      secildi: false,
+      iptal: false,
+      silinebilir: true,
+    });
+  }
+
+  // Yeniden eskiye: son fiyat üstte, referans odur.
+  return olaylar.sort((a, b) => b.gun.localeCompare(a.gun));
 }
 
 /**

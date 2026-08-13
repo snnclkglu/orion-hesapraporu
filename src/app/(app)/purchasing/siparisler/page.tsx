@@ -6,7 +6,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing } from "@/lib/roles";
-import { loadSiparisler } from "../data";
+import {
+  loadSiparisNolari,
+  loadSiparisler,
+  loadSonKur,
+  loadTedarikciDefteri,
+  loadTedarikciler,
+} from "../data";
 import { OrdersView } from "./orders-view";
 
 export default async function OrdersPage() {
@@ -23,7 +29,27 @@ export default async function OrdersPage() {
 
   // İPTAL EDİLENLER DE OKUNUR: ekran onları soluk gösterir. Sorgudan düşürmek,
   // "bu siparişi ben iptal etmiştim" diyen kullanıcının kaydını yok etmek olurdu.
-  const siparisler = await loadSiparisler(supabase, { iptalDahil: true });
+  //
+  // DÜZENLEME PENCERESİ HAVUZUN VERİSİNİ İSTER (tedarikçi listesi, firma
+  // defteri, kullanılmış numaralar, günlük kur): sipariş açan pencere ile aynı
+  // alanları yazıyor ve ikisinin farklı bir öneri üretmesi, aynı kaydın iki
+  // ekranda iki kural izlemesi demek olurdu.
+  const [siparisler, tedarikciler, defter, siparisNolari, sonKur] = await Promise.all([
+    loadSiparisler(supabase, { iptalDahil: true }),
+    loadTedarikciler(supabase),
+    loadTedarikciDefteri(supabase),
+    loadSiparisNolari(supabase),
+    loadSonKur(supabase),
+  ]);
 
-  return <OrdersView siparisler={siparisler} canWrite={yazabilir} />;
+  return (
+    <OrdersView
+      siparisler={siparisler}
+      tedarikciler={tedarikciler}
+      defter={defter}
+      siparisNolari={siparisNolari}
+      sonKur={sonKur}
+      canWrite={yazabilir}
+    />
+  );
 }

@@ -92,7 +92,7 @@ export default async function PricesPage() {
   // ÖZET GELİR, OLAY DEĞİL. 4722 satırın tamamını istemciye göndermek 1,3 MB
   // ediyordu ve ekran satır başına yedi sayı gösteriyor; ayrıntı yalnız
   // kullanıcı satırı açtığında çekilir (`loadGecmisSatirlari`). Ölçüm ve
-  // gerekçe: migration 20260813000003.
+  // gerekçe: migration 20260813010003.
   for (const g of gecmis) {
     kalem(g.matchKey, g.sample).gecmis = g;
   }

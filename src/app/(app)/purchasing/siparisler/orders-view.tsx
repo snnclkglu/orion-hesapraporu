@@ -9,9 +9,15 @@
 // Boolean tutulsalardı takvim sayfaları "ne zaman" sorusuna cevap veremezdi ve
 // ödeme günü ile ödeme GERÇEĞİ ayrışamazdı. Tarih hem hâli hem zamanı taşır.
 //
-// SİPARİŞ SATIRLARI BURADA DÜZENLENMEZ (bkz. `updateOrderSchema`): verilmiş bir
-// siparişin kalemlerini değiştirmek, ona bağlı teslim ve ödeme kayıtlarını
-// sessizce geçersizleştirirdi. Yanlış sipariş İPTAL edilir, yenisi açılır.
+// SİPARİŞ ARTIK DÜZENLENEBİLİR (kullanıcı kararı, 13.08.2026). Bir süre
+// düzenlenemiyordu ve gerekçesi "yanlış sipariş İPTAL edilir, yenisi açılır"
+// idi; iptal + yeniden açmak yanlış yazılmış tek bir birim fiyat için çok
+// pahalı bir yoldu (numara yanıyor, teslim ve ödeme işaretleri baştan
+// giriliyor). Riskin nasıl kapatıldığı `editOrderSchema`da yazılı.
+//
+// EKRAN İKİ AYRI YAZMA YOLU TAŞIR ve ikisi karıştırılmaz: ÇİPLER tek bir
+// OLGUYU işaretler (teslim alındı, ödendi, termin girildi) ve tek alan yazar;
+// DÜZENLE penceresi kaydın tamamını yeniden yazar.
 //
 // PANO GRAFİKLERİ `lib/diagrams` KULLANMAZ (İş Takibi'nin kuralı): o katman
 // PDF'e de basılan şematik teknik resimler içindir. Burada kategorik eksen ve
@@ -21,7 +27,7 @@
 import { forwardRef, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarChart3, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DonutChart, RankBars, TimeBarChart } from "@/components/charts";
+import { RankBars, SplitBar, TimeBarChart } from "@/components/charts";
 import { fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import {
@@ -57,8 +63,10 @@ import { hueFromText } from "@/lib/tags";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
 import { KipSecici, PanoKabugu } from "../board-ui";
-import type { Siparis } from "../data";
+import type { Siparis, TedarikciKaydi } from "../data";
+import type { GunlukKur } from "@/lib/purchasing/kur";
 import { updateOrder } from "../actions";
+import { OrderEditDialog } from "./order-edit-dialog";
 
 function toplamOf(s: Siparis): number {
   return s.satirlar.reduce((t, l) => t + l.qty * (l.unitPrice ?? 0), 0);
@@ -110,15 +118,27 @@ const BOS: Filtreler = { query: "", tedarikciler: [], durumlar: [], isler: [] };
 
 export function OrdersView({
   siparisler,
+  tedarikciler,
+  defter,
+  siparisNolari,
+  sonKur,
   canWrite,
 }: {
   siparisler: Siparis[];
+  /** Düzenleme penceresinin tedarikçi önerileri. */
+  tedarikciler: string[];
+  /** Firma defteri (ad + kod). */
+  defter: TedarikciKaydi[];
+  /** Kullanılmış bütün sipariş numaraları — çakışma denetimi için. */
+  siparisNolari: string[];
+  sonKur?: GunlukKur | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
   const [f, setF] = useState<Filtreler>(BOS);
   const [acik, setAcik] = useState<Set<string>>(new Set());
+  const [duzenlenen, setDuzenlenen] = useState<Siparis | null>(null);
   const [pano, setPano] = useState(true);
   const [kip, setKip] = useState<Kip>("ay");
 
@@ -194,7 +214,7 @@ export function OrdersView({
     [acikSiparis]
   );
 
-  const durumHalkasi = useMemo(() => {
+  const durumSeridi = useMemo(() => {
     const toplam = gorunen.reduce((t, s) => t + eurOf(s), 0);
     return (["acik", "teslim", "odendi", "iptal"] as SiparisDurum[])
       .map((d) => {
@@ -287,15 +307,17 @@ export function OrdersView({
             />
           </PanoKabugu>
 
+          {/* DURUM BİR AŞAMA SIRASIDIR, bir pasta dilimi değil (kullanıcı
+              bildirimi, 13.08.2026): bekleyen → teslim alınan → ödenen. Şerit
+              soldan sağa okunur ve iki yakın payı uzunlukla karşılaştırır;
+              halkada bu ancak yandaki sayıdan anlaşılıyordu. */}
           <PanoKabugu baslik="Durum Kırılımı" alt={`${gorunen.length} sipariş`} className="lg:col-span-2">
-            <DonutChart
-              items={durumHalkasi}
-              centerValue={fmtMoney(
-                gorunen.reduce((t, s) => t + eurOf(s), 0),
-                "EUR"
-              )}
-              centerLabel="Toplam"
+            <SplitBar
+              items={durumSeridi}
               format={eurFmt}
+              valueLabel="€"
+              emptyText="Sipariş yok"
+              toplamEtiketi="Toplam"
             />
           </PanoKabugu>
         </div>
@@ -333,6 +355,22 @@ export function OrdersView({
         />
         {calisiyor && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
       </FilterBar>
+
+      {duzenlenen && (
+        <OrderEditDialog
+          key={duzenlenen.id}
+          siparis={duzenlenen}
+          tedarikciler={tedarikciler}
+          defter={defter}
+          siparisNolari={siparisNolari}
+          sonKur={sonKur}
+          onClose={() => setDuzenlenen(null)}
+          onSaved={() => {
+            setDuzenlenen(null);
+            router.refresh();
+          }}
+        />
+      )}
 
       {gorunen.length === 0 ? (
         <div className="border bg-card px-6 py-12 text-center">
@@ -408,27 +446,21 @@ export function OrdersView({
                           <span className="text-emerald-700 dark:text-emerald-400">
                             {tarihGoster(s.receivedAt)} ✓
                           </span>
-                        ) : s.dueAt ? (
-                          <span
-                            className={
-                              kalanGun != null && kalanGun < 0
-                                ? "text-destructive"
-                                : kalanGun != null && kalanGun <= 14
-                                  ? "text-amber-700 dark:text-amber-400"
-                                  : ""
-                            }
-                            title={
-                              kalanGun == null
-                                ? undefined
-                                : kalanGun < 0
-                                  ? `${Math.abs(kalanGun)} gün gecikti`
-                                  : `${kalanGun} gün kaldı`
-                            }
-                          >
-                            {tarihGoster(s.dueAt)}
-                          </span>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <TerminAlani
+                            // DEĞER PROP'TAN TAZELENİR ve bunun yolu KİMLİKtir,
+                            // bir `useEffect` değil: kutunun kendi durumu
+                            // kaydetme tamamlanana kadar kullanıcının seçtiği
+                            // günü göstermeli, sunucudan yeni bir tarih
+                            // geldiğinde ise sıfırlanmalıdır. `key` değişince
+                            // React bileşeni yeniden kurar — efektle yapılan
+                            // senkronizasyon basamaklı boyama üretirdi.
+                            key={s.dueAt ?? "bos"}
+                            s={s}
+                            canWrite={canWrite && !s.cancelledAt}
+                            kalanGun={kalanGun}
+                            onYaz={yaz}
+                          />
                         )}
                       </TableCell>
                       <TableCell className="hidden align-top text-[12px] lg:table-cell">
@@ -455,7 +487,13 @@ export function OrdersView({
                         )}
                       </TableCell>
                       <TableCell className="align-top">
-                        <HalCipleri s={s} canWrite={canWrite} onYaz={yaz} avans={avans} />
+                        <HalCipleri
+                          s={s}
+                          canWrite={canWrite}
+                          onYaz={yaz}
+                          avans={avans}
+                          onDuzenle={() => setDuzenlenen(s)}
+                        />
                       </TableCell>
                     </TableRow>
 
@@ -510,6 +548,85 @@ export function OrdersView({
 }
 
 /**
+ * TERMİN HÜCRESİ — okunur ve YAZILIR.
+ *
+ * Kullanıcı kararı (13.08.2026): *"Termin tarihi girilmeden sipariş
+ * açılabilsin ancak daha sonra siparişler bölümünden termin tarihi
+ * girilebilsin. Termin tarihi girilmiş bir siparişin termin tarihi
+ * değiştirilebilsin."*
+ *
+ * TERMİN BİR TAHMİNDİR ve tahmin değişir: tedarikçi "iki hafta gecikecek"
+ * dediğinde bunu yazacak bir yer olmalıydı. Alanın kendisi bir kutudur, ayrı
+ * bir düzenleme penceresi değil — satınalmacının en sık yaptığı düzeltme budur
+ * ve pencere açtırmak onu üç tıka çıkarırdı (durum çipinin kuralının aynısı).
+ *
+ * DEĞER PROP'TAN TAZELENİR ama bunu bir `useEffect` YAPMAZ: çağrı yerindeki
+ * `key` tarihin kendisidir, yani sunucudan yeni bir termin geldiğinde bileşen
+ * yeniden kurulur. Efektle senkronize etmek basamaklı boyama üretir (projenin
+ * `react-hooks/set-state-in-effect` kuralı) ve gerekmiyor.
+ */
+function TerminAlani({
+  s,
+  canWrite,
+  kalanGun,
+  onYaz,
+}: {
+  s: Siparis;
+  canWrite: boolean;
+  kalanGun: number | null;
+  onYaz: (id: string, alanlar: OrderPatch, mesaj: string) => void;
+}) {
+  const [gun, setGun] = useState(s.dueAt ?? "");
+
+  const renk =
+    kalanGun != null && kalanGun < 0
+      ? "text-destructive"
+      : kalanGun != null && kalanGun <= 14
+        ? "text-amber-700 dark:text-amber-400"
+        : "";
+  const ipucu =
+    kalanGun == null
+      ? undefined
+      : kalanGun < 0
+        ? `${Math.abs(kalanGun)} gün gecikti`
+        : `${kalanGun} gün kaldı`;
+
+  if (!canWrite) {
+    return s.dueAt ? (
+      <span className={renk} title={ipucu}>
+        {tarihGoster(s.dueAt)}
+      </span>
+    ) : (
+      <span className="text-muted-foreground">—</span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <Input
+        type="date"
+        value={gun}
+        onChange={(e) => {
+          const yeni = e.target.value;
+          setGun(yeni);
+          onYaz(
+            s.id,
+            { dueAt: yeni },
+            yeni ? `Termin ${tarihGoster(yeni)} olarak kaydedildi.` : "Termin temizlendi."
+          );
+        }}
+        title={ipucu}
+        aria-label={`${s.supplier} siparişinin termini`}
+        className={`h-7 w-[8.5rem] font-mono text-base pointer-fine:text-xs ${renk}`}
+      />
+      {kalanGun != null && kalanGun < 0 && (
+        <span className="text-[10px] text-destructive">{Math.abs(kalanGun)}g</span>
+      )}
+    </span>
+  );
+}
+
+/**
  * Hâl çipleri — her biri bir TARİH yazar.
  *
  * Tarih alanı çipin yanında durur ve boş bırakılabilir: satınalmacı çoğu zaman
@@ -520,11 +637,13 @@ function HalCipleri({
   canWrite,
   avans,
   onYaz,
+  onDuzenle,
 }: {
   s: Siparis;
   canWrite: boolean;
   avans: number;
   onYaz: (id: string, alanlar: OrderPatch, mesaj: string) => void;
+  onDuzenle: () => void;
 }) {
   const [teslimGunu, setTeslimGunu] = useState("");
   const bugun = new Date().toISOString().slice(0, 10);
@@ -625,6 +744,20 @@ function HalCipleri({
         </OdemeTarihi>
       ) : (
         s.balancePaidAt && <Cip renk="yesil" etiket={`Ödendi · ${tarihGoster(s.balancePaidAt)}`} />
+      )}
+
+      {/* DÜZENLE İPTALİN SOLUNDADIR: sık olan hareket odur ve yıkıcı olanla
+          yan yana durduğunda parmakla yanlış düğmeye basmak kolaylaşır. */}
+      {canWrite && (
+        <button
+          type="button"
+          onClick={onDuzenle}
+          title="Siparişi düzenle — tedarikçi, numara, tarih, ödeme koşulu ve kalemler"
+          className="oc-tap inline-flex min-h-7 items-center gap-1 border border-dashed px-1.5 text-[11px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+        >
+          <Pencil className="size-3" />
+          Düzenle
+        </button>
       )}
 
       {canWrite && !s.receivedAt && (

@@ -1,44 +1,26 @@
 "use client";
 
-// SİPARİŞ PENCERESİ — kullanıcı kararı (md. 11):
+// SİPARİŞ DÜZENLEME — kullanıcı kararı (13.08.2026):
+// *"Siparişler sayfasında önceden girilen sipariş düzenlenebilsin."*
 //
-//   "Durum kısmında üzerine basıldığında 'Satın Alındı' olması yerine pop-up
-//    açılsa, termini ve sipariş tarihini girse daha iyi olur. Ayrıca pop-up
-//    içerisine ödeme vadesi de dropdown seçilsin: Peşin, Kredi Kartı, 15 gün
-//    30 gün 45 gün 60 gün 90 gün gibi. Ayrıca Avans miktarı da zorunlu
-//    olmasada girilebilsin — dropdown %5 10 15 20 25 30 gibi, ayrıca elle
-//    fiyat da yazılabilsin. Ödeme vadesi var ise ürün teslimi + vade süresi
-//    şeklinde öderiz. Sipariş tarihi + Vade DEĞİL."
+// PENCERE "SİPARİŞ AÇ"IN İKİZİ DEĞİLDİR ve ayrı bir dosyada durmasının sebebi
+// budur. İkisi yüzeyde benziyor ama farkları kuraldır:
 //
-// Son cümle penceredeki en önemli bilgidir ve ekranda CANLI olarak gösterilir:
-// kullanıcı vadeyi seçtiği anda "ödeme günü şu olur" yazısını görür. Kural bir
-// dipnot değil, pencerenin ürettiği asıl çıktıdır.
+//   · Burada KALEM EKLENMEZ. Bir kalemin havuzdaki karşılığı (paket, iş
+//     kalemi, pay dağılımı) yalnız Talep Havuzu'nda bilinir; buradan
+//     eklenen bir satır o bağların hiçbirini taşıyamaz ve paket ekranında
+//     görünmeyen bir sipariş satırı üretirdi.
+//   · Satır ÇIKARILABİLİR ve çıkarıldığında paketteki "satın alındı" işareti
+//     de geri alınır (`editOrder`) — yoksa atölye sipariş edilmemiş bir kalemi
+//     beklemeye devam ederdi.
+//   · Numara çakışması SİPARİŞİN KENDİSİ HARİÇ sorulur: pencereyi açıp hiçbir
+//     şey değiştirmeden kaydetmek hata vermemelidir.
 //
-// PENCERE ÇOK KALEMLİDİR (md. 7): havuzdan seçilen bütün kalemler tek siparişe
-// girer ve her satır kendi işine bağlı kalır. Tek kalemlik bir pencere,
-// satınalmacının gerçekte yaptığı işi modelleyemezdi.
-//
-// ————————————————————————————————————————————————— 13.08.2026 düzenlemeleri
-//
-// KUTU ADLARI "Baş Harfler Büyük"tür (kullanıcı kararı): *"kutu yazılarının
-// isimleri örneğin Sipariş no, sipariş tarihi, Birim Fiyat, Para birimi gibi
-// yazıların baş harfi büyük olsun."* Metinler ELLE öyle yazılır, bir
-// dönüştürücüden geçirilmez — Personel özet kartlarında verilen kararın aynısı:
-// aralarında simge ve kısaltma var ("1 € = ?", "Avans %").
-//
-// ALT BAŞLIK KALDIRILDI ("7 kalem · tek tedarikçi. Kalemler birden çok işe
-// gidiyor…", kullanıcı kararı). Yazı doğruydu ama pencerenin en üstünde,
-// kullanıcının hiçbir kararını değiştirmeyen bir dipnottu: satır bölünmesi
-// zaten kaydetmede olur ve kalem sayısı tablonun kendisinde yazar.
-//
-// TEDARİKÇİ ADI YENİYSE DEFTERE KENDİLİĞİNDEN GİRER (kullanıcı kararı):
-// *"Sipariş Aç bölümüne yeni bir tedarikçi ismi girilirse, otomatik yeni bir
-// tedarikçi açılsın."* Eskiden yanında bir "+" düğmesi vardı ve BASILMASI
-// gerekiyordu; basılmadığında firma defterde görünmüyordu. Kayıt alandan
-// ÇIKILDIĞINDA yapılır, çünkü kodu hemen gerekiyor: sipariş numarası ondan
-// türer.
+// TESLİM VE ÖDEME İŞARETLERİ BURADA DEĞİLDİR: onlar satırdaki çiplerin işidir
+// ve günü ayrıca sorarlar (`OdemeTarihi`). Aynı gerçeği iki pencereden yazmak,
+// hangisinin son sözü söylediğini belirsizleştirirdi.
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,47 +45,38 @@ import {
   ADVANCE_PERCENTS,
   PAYMENT_TERMS,
   advanceAmount,
-  bugunISO,
   eurKarsiligi,
-  gunFarki,
   kurGerekli,
   odemeGunu,
+  paymentTermValue,
   tarihGoster,
 } from "@/lib/purchasing/terms";
 import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
-import { siparisNoCakisiyorMu, siparisNoOner } from "@/lib/purchasing/order-no";
-import { createOrder, ensureSupplier } from "./actions";
-import type { TedarikciKaydi } from "./data";
-import type { OrderLineInput } from "./schema";
+import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
+import { editOrder, ensureSupplier } from "../actions";
+import type { Siparis, TedarikciKaydi } from "../data";
 
-/** Havuzdan gelen bir kalemin sipariş penceresindeki hâli. */
-export interface SiparisKalemi {
-  matchKey: string;
-  tanim: string;
-  kalan: number;
-  birimFiyat: number | null;
-  paraBirimi: string | null;
-  tedarikci: string;
-  /** Kalemin işlere dağılımı — satırın hangi pakete işaret yazacağını belirler. */
-  paylar: { itemNo: string; packageId: string; partKey: string; adet: number }[];
-}
-
-/** Kullanıcının pencerede düzenlediği satır. */
-interface Satir {
-  matchKey: string;
-  tanim: string;
-  adet: string;
-  fiyat: string;
-  paylar: SiparisKalemi["paylar"];
-}
-
-/** Serbest gün girişi için açılırdaki özel değer. */
+/** Serbest gün girişi için açılırdaki özel değer (sipariş penceresiyle aynı). */
 const OZEL = "ozel";
 
-export function OrderDialog({
-  kalemler,
+interface Satir {
+  id: string;
+  matchKey: string;
+  tanim: string;
+  itemNo: string;
+  packageId: string | null;
+  partKey: string;
+  unit: string;
+  adet: string;
+  fiyat: string;
+  /** Teslim alınmış adet — satırı çıkarmak bu sayıyı da düşürür. */
+  teslimAlinan: number;
+}
+
+export function OrderEditDialog({
+  siparis,
   tedarikciler,
   defter,
   siparisNolari,
@@ -111,77 +84,54 @@ export function OrderDialog({
   onClose,
   onSaved,
 }: {
-  kalemler: SiparisKalemi[];
+  siparis: Siparis;
   tedarikciler: string[];
-  /** Firma defteri — sipariş numarası önerisinin kaynağı olan KODLAR burada. */
   defter: TedarikciKaydi[];
-  /** Kullanılmış bütün sipariş numaraları (iptaller dâhil). */
   siparisNolari: string[];
-  /** En son yayımlanmış günlük kur — kur kutusunun önerisi buradan gelir. */
   sonKur?: GunlukKur | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [calisiyor, basla] = useTransition();
 
-  /**
-   * Katlanmış firma adı → kod.
-   *
-   * Pencere açıkken YENİ FİRMA da eklenebilir (`firmaKesinlestir`), o yüzden
-   * harita bir `useMemo` değil bir DURUMdur: yeni kod anında burada belirir ve
-   * numara önerisi bir sayfa yenilemesi beklemez.
-   */
   const [kodlar, setKodlar] = useState<Map<string, string>>(
     () => new Map(defter.filter((t) => t.code).map((t) => [trKatla(t.name), t.code]))
   );
-
-  // TEDARİKÇİ SEÇİLİ TEKLİFTEN ÖNERİLİR. Satınalmacı çoğu zaman en ucuz
-  // teklifi verene sipariş açar; boş bir alan sunmak o bilgiyi çöpe atardı.
-  const ilkFirma = kalemler.find((k) => k.tedarikci)?.tedarikci ?? "";
-  const [firma, setFirma] = useState(ilkFirma);
-  const [firmaKodu, setFirmaKodu] = useState(() => kodlar.get(trKatla(ilkFirma)) ?? "");
+  const [firma, setFirma] = useState(siparis.supplier);
   const [firmaYaziliyor, setFirmaYaziliyor] = useState(false);
-  const [yeniFirmaKodu, setYeniFirmaKodu] = useState("");
-  // SİPARİŞ NUMARASI ÖNERİLİR, DAYATILMAZ: kullanıcı kutuya dokunduğu anda
-  // öneri susar (uygulamanın `*Auto` deseninin aynısı — türetilen değer,
-  // insanın yazdığını asla ezmez).
-  const [noDokunuldu, setNoDokunuldu] = useState(false);
-  const [siparisNo, setSiparisNo] = useState(() =>
-    siparisNoOner(kodlar.get(trKatla(ilkFirma)) ?? "", siparisNolari)
+  const [siparisNo, setSiparisNo] = useState(siparis.orderNo);
+  const [siparisTarihi, setSiparisTarihi] = useState(siparis.orderedAt);
+  const [termin, setTermin] = useState(siparis.dueAt ?? "");
+  const [vade, setVade] = useState(
+    paymentTermValue(siparis.paymentMethod, siparis.paymentTermDays)
   );
-  const [siparisTarihi, setSiparisTarihi] = useState(bugunISO());
-  const [termin, setTermin] = useState("");
-  const [vade, setVade] = useState("pesin");
-  const [ozelGun, setOzelGun] = useState("");
-  const [avansYuzde, setAvansYuzde] = useState("");
-  const [avansTutar, setAvansTutar] = useState("");
-  const [paraBirimi, setParaBirimi] = useState(
-    currencyOf(kalemler.find((k) => k.paraBirimi)?.paraBirimi ?? "EUR")
+  const [ozelGun, setOzelGun] = useState(
+    paymentTermValue(siparis.paymentMethod, siparis.paymentTermDays) === OZEL
+      ? String(siparis.paymentTermDays)
+      : ""
   );
-  // KUR AÇILIŞTA DOLU GELİR (kullanıcı kararı, 13.08.2026). Seçili para birimi
-  // teklif satırından geliyor; kutuyu boş bırakmak, referansı elinde olan bir
-  // uygulamada kullanıcıyı TCMB sayfasına göndermekti.
-  const [kur, setKur] = useState(() => {
-    const o = kurOnerisi(
-      currencyOf(kalemler.find((k) => k.paraBirimi)?.paraBirimi ?? "EUR"),
-      sonKur
-    );
-    return o ? kurMetni(o.kur) : "";
-  });
-  const [not, setNot] = useState("");
+  const [avansYuzde, setAvansYuzde] = useState(
+    siparis.advancePct ? String(siparis.advancePct) : ""
+  );
+  const [avansTutar, setAvansTutar] = useState(
+    siparis.advanceAmount ? String(siparis.advanceAmount) : ""
+  );
+  const [paraBirimi, setParaBirimi] = useState(currencyOf(siparis.currency));
+  const [kur, setKur] = useState(siparis.fxRate ? kurMetni(siparis.fxRate) : "");
+  const [not, setNot] = useState(siparis.note);
 
   const [satirlar, setSatirlar] = useState<Satir[]>(() =>
-    kalemler.map((k) => ({
-      matchKey: k.matchKey,
-      tanim: k.tanim,
-      adet: String(k.kalan || 1),
-      // Fiyat SEÇİLİ TEKLİFTEN gelir ama yalnız para birimi tutuyorsa: farklı
-      // para biriminden bir fiyatı sessizce taşımak yanlış tutar üretirdi.
-      fiyat:
-        k.birimFiyat != null && currencyOf(k.paraBirimi) === currencyOf(paraBirimi)
-          ? String(k.birimFiyat)
-          : "",
-      paylar: k.paylar,
+    siparis.satirlar.map((l) => ({
+      id: l.id,
+      matchKey: l.matchKey,
+      tanim: l.sample,
+      itemNo: l.itemNo,
+      packageId: l.packageId,
+      partKey: l.partKey,
+      unit: l.unit,
+      adet: String(l.qty),
+      fiyat: l.unitPrice == null ? "" : String(l.unitPrice),
+      teslimAlinan: l.receivedQty,
     }))
   );
 
@@ -191,30 +141,22 @@ export function OrderDialog({
   const vadeBicimi = vade === OZEL ? "vadeli" : (secenek?.method ?? "pesin");
 
   const kurLazim = kurGerekli(paraBirimi);
-  /** Kur kutusunun altındaki kaynak satırı — öneri bir kilit değil bir ipucu. */
   const kurOneri = kurLazim ? kurOnerisi(paraBirimi, sonKur) : null;
   const kurSayi = parseNum(kur);
 
-  const toplam = useMemo(
-    () =>
-      satirlar.reduce((t, s) => {
-        const a = parseNum(s.adet) ?? 0;
-        const f = parseNum(s.fiyat) ?? 0;
-        return t + a * f;
-      }, 0),
-    [satirlar]
+  const toplam = satirlar.reduce(
+    (t, s) => t + (parseNum(s.adet) ?? 0) * (parseNum(s.fiyat) ?? 0),
+    0
   );
   const toplamEur = eurKarsiligi(toplam, paraBirimi, kurLazim ? kurSayi : 1);
-
   const avans = advanceAmount(toplam, parseNum(avansYuzde), parseNum(avansTutar));
   const odeme = odemeGunu({
     dueAt: termin || null,
-    receivedAt: null,
+    receivedAt: siparis.receivedAt,
     paymentTermDays: vadeBicimi === "vadeli" ? vadeGunu : 0,
   });
 
-  /** Numara başka bir siparişte kullanılıyor mu? Kaydetmeyi ENGELLER. */
-  const noCakisiyor = siparisNoCakisiyorMu(siparisNo, siparisNolari);
+  const noCakisiyor = siparisNoCakisiyorMu(siparisNo, siparisNolari, siparis.orderNo);
 
   const gecerli =
     firma.trim().length > 0 &&
@@ -225,55 +167,21 @@ export function OrderDialog({
     (vadeBicimi !== "vadeli" || vadeGunu > 0) &&
     !noCakisiyor;
 
-  function guncelle(i: number, alan: "adet" | "fiyat", deger: string) {
-    setSatirlar((o) => o.map((s, j) => (j === i ? { ...s, [alan]: deger } : s)));
+  function guncelle(id: string, alan: "adet" | "fiyat", deger: string) {
+    setSatirlar((o) => o.map((s) => (s.id === id ? { ...s, [alan]: deger } : s)));
   }
 
-  /** Kod değişince numara önerisi tazelenir — kutuya dokunulmadıysa. */
-  function koduUygula(kod: string) {
-    setFirmaKodu(kod);
-    if (!noDokunuldu) setSiparisNo(siparisNoOner(kod, siparisNolari));
-  }
-
-  function firmaAdiYaz(v: string) {
-    setFirma(v);
-    setYeniFirmaKodu("");
-    // Listeden seçilen (ya da birebir yazılan) ad kodunu ANINDA getirir;
-    // tanınmayan ad kodu boşaltır ve numara önerisi susar.
-    koduUygula(kodlar.get(trKatla(v)) ?? "");
-  }
-
-  /**
-   * Alandan çıkıldığında firmayı deftere yazar — YOKSA.
-   *
-   * Kullanıcının cümlesi net: *"yeni bir tedarikçi ismi girilirse, otomatik
-   * yeni bir tedarikçi açılsın."* Kayıt burada, yani KAYDETMEDEN ÖNCE yapılır
-   * çünkü sipariş numarası firmanın kodundan türüyor; sipariş kaydedilirken
-   * yazılsaydı numara alanı o ana kadar boş kalır ve kullanıcı elle bir şey
-   * uydururdu.
-   *
-   * BAŞARISIZLIK SESSİZDİR: defter bir öneri kaynağıdır, siparişin şartı değil
-   * (`createOrder` ayrıca dener). Ekranda bir hata kutusu göstermek,
-   * kullanıcının asıl işini yarıda kesmek olurdu.
-   */
+  /** Yeni firma adı yazıldıysa deftere girer (sipariş penceresiyle aynı kural). */
   function firmaKesinlestir() {
     const ad = firma.trim();
-    if (ad.length < 2 || firmaYaziliyor) return;
-    if (kodlar.has(trKatla(ad))) return;
-
+    if (ad.length < 2 || firmaYaziliyor || kodlar.has(trKatla(ad))) return;
     setFirmaYaziliyor(true);
     ensureSupplier({ name: ad })
       .then((sonuc) => {
         if (sonuc.error || !sonuc.name) return;
-        const kayitliAd = sonuc.name;
-        const kod = sonuc.code ?? "";
-        setKodlar((o) => new Map(o).set(trKatla(kayitliAd), kod));
-        setFirma(kayitliAd);
-        koduUygula(kod);
-        if (sonuc.ok) {
-          setYeniFirmaKodu(kod);
-          toast.success(`${kayitliAd} tedarikçi defterine eklendi${kod ? ` · ${kod}` : ""}.`);
-        }
+        setKodlar((o) => new Map(o).set(trKatla(sonuc.name as string), sonuc.code ?? ""));
+        setFirma(sonuc.name as string);
+        if (sonuc.ok) toast.success(`${sonuc.name} tedarikçi defterine eklendi.`);
       })
       .finally(() => setFirmaYaziliyor(false));
   }
@@ -281,56 +189,8 @@ export function OrderDialog({
   function kaydet() {
     if (!gecerli) return;
     basla(async () => {
-      // BİR KALEM BİRDEN ÇOK İŞE GİDİYORSA SATIR BÖLÜNÜR. Sipariş tek olsa da
-      // satırlar iş kalemine bağlı kalmalıdır: hangi projeye ne kadar
-      // düştüğü sonradan hesaplanamaz, o an bilinir. Adet paylara ORANLA
-      // dağıtılır ve yuvarlama farkı SON satıra eklenir — toplam hiçbir zaman
-      // kaymaz.
-      const lines: OrderLineInput[] = [];
-      for (const s of satirlar) {
-        const adet = parseNum(s.adet) ?? 0;
-        const fiyat = parseNum(s.fiyat);
-        const paylar = s.paylar.filter((p) => p.packageId);
-        const payToplami = paylar.reduce((t, p) => t + p.adet, 0);
-
-        if (paylar.length === 0 || payToplami <= 0) {
-          lines.push({
-            matchKey: s.matchKey,
-            sample: s.tanim,
-            itemNo: "",
-            packageId: null,
-            partKey: "",
-            qty: adet,
-            unit: "Adet",
-            unitPrice: fiyat,
-            note: "",
-          });
-          continue;
-        }
-
-        let dagitilan = 0;
-        paylar.forEach((p, i) => {
-          const son = i === paylar.length - 1;
-          const pay = son
-            ? Math.max(0, adet - dagitilan)
-            : Math.round((adet * p.adet) / payToplami);
-          dagitilan += pay;
-          if (pay <= 0) return;
-          lines.push({
-            matchKey: s.matchKey,
-            sample: s.tanim,
-            itemNo: p.itemNo,
-            packageId: p.packageId,
-            partKey: p.partKey,
-            qty: pay,
-            unit: "Adet",
-            unitPrice: fiyat,
-            note: "",
-          });
-        });
-      }
-
-      const sonuc = await createOrder({
+      const sonuc = await editOrder({
+        id: siparis.id,
         orderNo: siparisNo,
         supplier: firma,
         orderedAt: siparisTarihi,
@@ -342,34 +202,38 @@ export function OrderDialog({
         currency: paraBirimi,
         fxRate: kurLazim ? kurSayi : 1,
         note: not,
-        lines,
+        lines: satirlar.map((s) => ({
+          id: s.id,
+          matchKey: s.matchKey,
+          sample: s.tanim,
+          itemNo: s.itemNo,
+          packageId: s.packageId,
+          partKey: s.partKey,
+          qty: parseNum(s.adet) ?? 0,
+          unit: s.unit,
+          unitPrice: parseNum(s.fiyat),
+          note: "",
+        })),
       });
-
       if (sonuc.error) {
         toast.error(sonuc.error);
         return;
       }
-      toast.success(
-        sonuc.ok
-          ? `Sipariş açıldı; ${formatNum(sonuc.ok)} kalem paket ekranında “satın alındı” işaretlendi.`
-          : "Sipariş açıldı."
-      );
+      toast.success("Sipariş güncellendi.");
       onSaved();
     });
   }
 
-  const terminGun = gunFarki(termin);
+  const cikarilan = siparis.satirlar.length - satirlar.length;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[min(52rem,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="text-base">Sipariş Aç</DialogTitle>
-          {/* ALT BAŞLIK YOK (kullanıcı kararı, 13.08.2026). `DialogDescription`
-              erişilebilirlik için gereklidir ama EKRANDA görünmez: Radix
-              `aria-describedby` bağını arar ve bulamayınca konsola uyarı basar. */}
-          <DialogDescription className="sr-only">
-            Seçili kalemler için tek tedarikçiye sipariş açar.
+          <DialogTitle className="text-base">Siparişi Düzenle</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            Kalem eklemek için Talep Havuzu&apos;ndan yeni sipariş açın; burada var
+            olan satırlar düzeltilir ya da çıkarılır.
           </DialogDescription>
         </DialogHeader>
 
@@ -381,9 +245,9 @@ export function OrderDialog({
               <span className="relative flex items-center">
                 <Input
                   value={firma}
-                  onChange={(e) => firmaAdiYaz(e.target.value)}
+                  onChange={(e) => setFirma(e.target.value)}
                   onBlur={firmaKesinlestir}
-                  list="siparis-tedarikci"
+                  list="siparis-duzenle-tedarikci"
                   maxLength={120}
                   className="h-9 flex-1 text-base pointer-fine:text-sm"
                 />
@@ -391,26 +255,13 @@ export function OrderDialog({
                   <Loader2 className="absolute right-2 size-4 animate-spin text-muted-foreground" />
                 )}
               </span>
-              {/* Kod bir SONUÇtur, bir alan değil: kullanıcı onu yazmaz, defter
-                  verir ve sipariş numarası ondan türer. */}
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {firmaKodu
-                  ? `${firmaKodu}${yeniFirmaKodu ? " · yeni firma deftere eklendi" : ""}`
-                  : firma.trim()
-                    ? "Defterde yok — kaydedilirken otomatik eklenecek"
-                    : ""}
-              </span>
             </label>
             <label className="grid w-40 gap-1">
               <span className="text-[11px] text-muted-foreground">Sipariş No</span>
               <Input
                 value={siparisNo}
-                onChange={(e) => {
-                  setNoDokunuldu(true);
-                  setSiparisNo(e.target.value);
-                }}
+                onChange={(e) => setSiparisNo(e.target.value)}
                 maxLength={60}
-                placeholder={firmaKodu ? "" : "—"}
                 aria-invalid={noCakisiyor}
                 className="h-9 font-mono text-base pointer-fine:text-sm"
               />
@@ -428,9 +279,6 @@ export function OrderDialog({
               />
             </label>
             <label className="grid w-36 gap-1">
-              {/* TERMİN İSTEĞE BAĞLIDIR (kullanıcı kararı, 13.08.2026) ve
-                  etiket bunu söyler: boş bırakılan bir alan, unutulmuş mu
-                  yoksa bilinmiyor mu, ekrandan anlaşılmalıdır. */}
               <span className="text-[11px] text-muted-foreground">Termin (İsteğe Bağlı)</span>
               <Input
                 type="date"
@@ -455,8 +303,6 @@ export function OrderDialog({
                       {t.label}
                     </SelectItem>
                   ))}
-                  {/* Liste KAPALI DEĞİLDİR: 120 gün için migration yazmak
-                      gerekmemeli (SALE_SCOPES kuralının aynısı). */}
                   <SelectItem value={OZEL}>Diğer (Gün Gir)</SelectItem>
                 </SelectContent>
               </Select>
@@ -474,7 +320,10 @@ export function OrderDialog({
             )}
             <label className="grid w-28 gap-1">
               <span className="text-[11px] text-muted-foreground">Avans %</span>
-              <Select value={avansYuzde || "yok"} onValueChange={(v) => setAvansYuzde(v === "yok" ? "" : v)}>
+              <Select
+                value={avansYuzde || "yok"}
+                onValueChange={(v) => setAvansYuzde(v === "yok" ? "" : v)}
+              >
                 <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -502,9 +351,9 @@ export function OrderDialog({
               <Select
                 value={paraBirimi}
                 onValueChange={(v) => {
-                  // PARA BİRİMİ VE KUR BİRLİKTE DEĞİŞİR: dolardan liraya
-                  // geçilip kur alanı 1,08'de kalsaydı sipariş otuz kat ucuz
-                  // kaydedilirdi (quote-dialog'daki kuralın aynısı).
+                  // PARA BİRİMİ VE KUR BİRLİKTE DEĞİŞİR (sipariş penceresinin
+                  // kuralı): dolardan liraya geçilip kur 1,08'de kalsaydı
+                  // sipariş otuz kat ucuz kaydedilirdi.
                   const yeni = currencyOf(v);
                   setParaBirimi(yeni);
                   const o = kurOnerisi(yeni, sonKur);
@@ -530,7 +379,6 @@ export function OrderDialog({
                   value={kur}
                   onChange={(e) => setKur(e.target.value)}
                   inputMode="decimal"
-                  placeholder="35,50"
                   className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                 />
                 {kurOneri && (
@@ -541,33 +389,20 @@ export function OrderDialog({
                     className="text-left text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                   >
                     {tarihGoster(kurOneri.gun)} · {kurMetni(kurOneri.kur)}
-                    {kurOneri.yas > 3 ? ` (${formatNum(kurOneri.yas)} gün önce)` : ""}
                   </button>
                 )}
               </label>
             )}
           </div>
 
-          {/* ÖDEME GÜNÜ CANLI HESAPLANIR — kuralın kendisi ekranda görünür. */}
           <p className="border-l-2 border-primary/40 bg-primary/[0.04] px-2 py-1.5 text-[12px]">
-            {vadeBicimi === "vadeli" ? (
-              termin ? (
-                <>
-                  Ödeme <strong>teslimden {vadeGunu} gün sonra</strong>:{" "}
-                  <strong>{tarihGoster(odeme)}</strong>. Termin{" "}
-                  {terminGun == null ? "girilmedi" : `${terminGun} gün sonra`}.
-                </>
-              ) : (
-                <>
-                  Vade <strong>{vadeGunu} gün</strong> — ödeme günü TERMİNDEN sayılır, sipariş
-                  tarihinden değil. Termin girilmeden ödeme günü hesaplanamaz.
-                </>
-              )
-            ) : (
+            {odeme ? (
               <>
-                Peşin/kredi kartı: ödeme <strong>{termin ? tarihGoster(termin) : "teslim günü"}</strong>{" "}
-                yapılır.
+                Ödeme günü <strong>{tarihGoster(odeme)}</strong>
+                {vadeBicimi === "vadeli" ? ` (teslimden ${vadeGunu} gün sonra)` : ""}.
               </>
+            ) : (
+              <>Termin ya da teslim tarihi girilmeden ödeme günü hesaplanamaz.</>
             )}
             {avans > 0 && (
               <>
@@ -591,22 +426,22 @@ export function OrderDialog({
                 </tr>
               </thead>
               <tbody>
-                {satirlar.map((s, i) => {
+                {satirlar.map((s) => {
                   const a = parseNum(s.adet) ?? 0;
                   const fi = parseNum(s.fiyat) ?? 0;
                   return (
-                    <tr key={s.matchKey} className="border-t">
+                    <tr key={s.id} className="border-t">
                       <td className="px-2 py-1.5">
                         <span className="block">{s.tanim}</span>
                         <span className="block font-mono text-[11px] text-muted-foreground">
-                          {[...new Set(s.paylar.map((p) => p.itemNo).filter(Boolean))].join(" · ") ||
-                            "iş kalemi yok"}
+                          {s.itemNo || "iş kalemi yok"}
+                          {s.teslimAlinan > 0 && ` · ${formatNum(s.teslimAlinan)} teslim alındı`}
                         </span>
                       </td>
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.adet}
-                          onChange={(e) => guncelle(i, "adet", e.target.value)}
+                          onChange={(e) => guncelle(s.id, "adet", e.target.value)}
                           inputMode="numeric"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                           aria-label={`${s.tanim} adedi`}
@@ -615,7 +450,7 @@ export function OrderDialog({
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.fiyat}
-                          onChange={(e) => guncelle(i, "fiyat", e.target.value)}
+                          onChange={(e) => guncelle(s.id, "fiyat", e.target.value)}
                           inputMode="decimal"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                           aria-label={`${s.tanim} birim fiyatı`}
@@ -625,11 +460,19 @@ export function OrderDialog({
                         {fmtMoney(a * fi, paraBirimi)}
                       </td>
                       <td className="px-1 py-1.5">
+                        {/* SON SATIR ÇIKARILAMAZ: kalemsiz bir sipariş bir
+                            kayıt değil bir boşluktur; onun yolu İPTALdir. */}
                         <button
                           type="button"
-                          onClick={() => setSatirlar((o) => o.filter((_, j) => j !== i))}
+                          disabled={satirlar.length <= 1}
+                          onClick={() => setSatirlar((o) => o.filter((x) => x.id !== s.id))}
                           aria-label={`${s.tanim} kalemini çıkar`}
-                          className="grid size-7 place-items-center text-muted-foreground transition-colors pointer-coarse:size-9 hover:text-destructive"
+                          title={
+                            satirlar.length <= 1
+                              ? "Tek kalem çıkarılamaz — siparişi iptal edin"
+                              : "Kalemi siparişten çıkar"
+                          }
+                          className="grid size-7 place-items-center text-muted-foreground transition-colors pointer-coarse:size-9 hover:text-destructive disabled:opacity-30 disabled:hover:text-muted-foreground"
                         >
                           <X className="size-3.5" />
                         </button>
@@ -640,6 +483,13 @@ export function OrderDialog({
               </tbody>
             </table>
           </div>
+
+          {cikarilan > 0 && (
+            <p className="border-l-2 border-destructive/50 bg-destructive/[0.05] px-2 py-1.5 text-[12px]">
+              {formatNum(cikarilan)} kalem siparişten çıkarılacak. Paket ekranındaki
+              &quot;satın alındı&quot; işaretleri de geri alınır.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid min-w-[12rem] flex-1 gap-1">
@@ -663,7 +513,7 @@ export function OrderDialog({
           </div>
         </div>
 
-        <datalist id="siparis-tedarikci">
+        <datalist id="siparis-duzenle-tedarikci">
           {tedarikciler.map((t) => (
             <option key={t} value={t} />
           ))}
@@ -675,7 +525,7 @@ export function OrderDialog({
           </Button>
           <Button type="button" onClick={kaydet} disabled={!gecerli || calisiyor}>
             {calisiyor && <Loader2 className="size-4 animate-spin" />}
-            Siparişi Kaydet
+            Değişiklikleri Kaydet
           </Button>
         </DialogFooter>
       </DialogContent>

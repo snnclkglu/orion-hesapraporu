@@ -679,6 +679,102 @@ export function DonutChart({
   );
 }
 
+// ------------------------------------------------------------- oranlı şerit
+
+/**
+ * ORANLI ŞERİT — bir bütünün parçaları, HALKA YERİNE.
+ *
+ * Kullanıcı bildirimi (13.08.2026): *"Sipariş sayfasında durum kırılımında
+ * yuvarlak pasta şeklinde olan grafik yapısı mantıklı değil değiştirelim"* ve
+ * aynısı Ödeme Takvimi'nin avans/bakiye kırılımı için. Haklı ve gerekçesi
+ * ölçülebilir:
+ *
+ *  · Halka AÇI okutur, insan gözü açıyı UZUNLUKTAN çok daha kötü karşılaştırır.
+ *    İki dilim yakın olduğunda hangisinin büyük olduğu ancak yandaki sayıdan
+ *    anlaşılıyordu — yani grafiğin kendisi bir şey söylemiyordu.
+ *  · Sipariş durumları bir AŞAMA SIRASIDIR (bekliyor → teslim → ödendi):
+ *    çemberde başı ve sonu yoktur, şeritte soldan sağa akar.
+ *  · Halka 168px'lik bir kare yer kaplıyordu; şerit kartın tam genişliğini
+ *    kullanır ve dar ekranda da okunur kalır.
+ *
+ * DİLİM SIRASI ÇAĞIRANIN VERDİĞİ SIRADIR, büyüklüğe göre değil: aşama sırasını
+ * yeniden dizmek okuyucunun kafasındaki akışı bozardı.
+ */
+export function SplitBar({
+  items,
+  format = fmtManHours,
+  valueLabel = "",
+  emptyText = "Kayıt yok",
+  toplamEtiketi = "Toplam",
+  className,
+}: {
+  items: readonly RankItem[];
+  format?: (v: number) => string;
+  valueLabel?: string;
+  emptyText?: string;
+  toplamEtiketi?: string;
+  className?: string;
+}) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+
+  if (items.length === 0 || total <= 0) {
+    return <p className={cn("py-6 text-center text-sm text-muted-foreground", className)}>{emptyText}</p>;
+  }
+
+  return (
+    <div className={cn("grid gap-3", className)}>
+      {/* ŞERİT: dilim genişliği PAYIN KENDİSİDİR. En küçük dilim bile görünür
+          kalsın diye 2px taban verilir — yoksa %0,3'lük bir kalem şeritten
+          düşer ve efsanedeki satırın karşılığı ekranda hiç bulunmazdı. */}
+      <div className="flex h-4 w-full overflow-hidden bg-muted/70" role="presentation">
+        {items.map((item) => (
+          <span
+            key={item.key}
+            className="oc-series-bg block h-full"
+            style={{
+              ...tagStyle(item.hue),
+              width: `${Math.max((item.value / total) * 100, 0.5)}%`,
+              minWidth: 2,
+            }}
+            title={`${item.label} · ${format(item.value)} ${valueLabel} · %${fmtManHours(
+              item.share * 100
+            )}`}
+          />
+        ))}
+      </div>
+
+      {/* EFSANE BİR TABLODUR: sayılar sütun sütun hizalanır, yoksa üç haneli
+          bir tutarla altı haneli bir tutar yan yana okunmaz. */}
+      <div className="grid gap-1">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center gap-2 text-xs">
+            <span className="oc-tag-dot" style={tagStyle(item.hue)} aria-hidden />
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {item.records != null && (
+              <span className="w-16 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                {fmtManHours(item.records)} kayıt
+              </span>
+            )}
+            <span className="w-20 shrink-0 text-right font-mono text-[11px] tabular-nums">
+              {format(item.value)}
+            </span>
+            <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+              %{fmtManHours(item.share * 100)}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 border-t pt-1 text-xs">
+          <span className="min-w-0 flex-1 truncate font-medium">{toplamEtiketi}</span>
+          <span className="w-20 shrink-0 text-right font-mono text-[11px] font-medium tabular-nums">
+            {format(total)}
+          </span>
+          <span className="w-10 shrink-0" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --------------------------------------------------------------- ısı haritası
 
 export interface HeatRow {

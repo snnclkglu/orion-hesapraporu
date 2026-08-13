@@ -731,7 +731,7 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     eski değerde kalsaydı parite bir lira kuru gibi kaydedilirdi.
 
     **TEDARİKÇİ DEFTERİ AÇILDI — ÖNCEKİ KARAR TERSİNE ÇEVRİLDİ**
-    (`purchase_suppliers`, migration 20260813000001, kullanıcı kararı
+    (`purchase_suppliers`, migration 20260813010001, kullanıcı kararı
     13.08.2026). 12.08.2026'da bilerek açılmamıştı ("üçüncü bir yönetim ekranı
     teklif girmeyi yavaşlatırdı"); eski gerekçe ÇÜRÜMEDİ, KARŞILANDI: yeni firma
     teklif/sipariş penceresinin İÇİNDEN yazılır (`ensureSupplier`), ayrı ekran
@@ -741,6 +741,38 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     müşteri fotoğrafı kuralı): defter düzeltilince yayınlanmış sipariş
     değişmemeli. Tedarikçi olmayan devralınan kayıtlar (banka, otel, kargo)
     SİLİNMEZ, `active = false` ile öneriden düşer.
+
+    **DEFTERİN YERİ YÖNETİM, KAPISI SATIN ALMA** (`/admin/suppliers`, migration
+    20260813010004, kullanıcı kararı 13.08.2026: *"Satın Alma bölümündeki
+    tedarikçileri Yönetim bölümüne Tedarikçiler adında bir sayfa ekleyerek
+    oraya taşıyalım. Her tedarikçiye benzersiz bir kod verelim. TD ile
+    başlayabilir."*). İki şey ayrıdır ve karıştırılmaz: listeyi DÜZENLEMEK
+    (ad düzeltme, kod verme, pasife çekme) bir yönetim işidir ve ekran admin'e
+    kapalıdır; YENİ FİRMA AÇMAK ise akışın içinde kalır. Yukarıdaki gerekçe
+    böylece hâlâ ayaktadır — satınalmacı yönetim ekranına gönderilmez.
+
+    **KOD BİR ETİKET DEĞİL, SİPARİŞ NUMARASININ KÖKÜDÜR.** `TD0007` firmaya bir
+    kez verilir; sipariş numarası ondan türer (`TD0007-01`, `lib/purchasing/
+    order-no.ts`, saf + testli). Numara ÖNERİdir, dayatma değil: kullanıcı
+    kutuya dokunduğu anda öneri susar (`*Auto` deseni) ve elle yazdığı numara
+    korunur. Sıra MEVCUT NUMARALARDAN okunur, kayıt sayısından değil — iptal
+    edilmiş bir siparişin numarası yeniden kullanılmaz. Çakışma İKİ yerde
+    sorulur (ekran + `createOrder`/`editOrder`): iki satınalmacı aynı dakikada
+    sipariş açarsa ekranın listesi ikisine de aynı numarayı önerirdi.
+    **KOD SIRA SAYACINDAN GELİR** (`purchase_supplier_code_seq`), `max()+1`den
+    değil; `ensureSupplier` de bu yüzden `upsert` değil ÖNCE OKUR SONRA YAZAR —
+    çakışan bir upsert sayacı tüketir ve defter birkaç haftada boşluklarla
+    dolardı. **VERİTABANINDA `unique` KISIT YOKTUR** sipariş numarasında:
+    devralınan kayıtlar arasında çakışma olabilir ve bir `unique` indeks
+    migration'ın kendisini düşürürdü.
+
+    **YENİ TEDARİKÇİ ADI KENDİLİĞİNDEN DEFTERE GİRER** (kullanıcı kararı:
+    *"Sipariş Aç bölümüne yeni bir tedarikçi ismi girilirse, otomatik yeni bir
+    tedarikçi açılsın."*). Eskiden alanın yanında bir "+" düğmesi vardı ve
+    BASILMASI gerekiyordu (`components/yeni-firma.tsx`, teklif penceresinde
+    hâlâ öyle); basılmadığında firma defterde görünmüyordu. Sipariş
+    penceresinde kayıt alandan ÇIKILDIĞINDA yapılır, çünkü kod hemen gerekir —
+    sipariş numarası ondan türüyor.
 
     **DEVRALINAN FİYAT ARŞİVİ ÜÇÜNCÜ BİR KAYNAKTIR** (`purchase_price_history`,
     4722 satır, 2024-03…2026-12). `purchase_orders`a YAZILMADI ve bu bilinçli:
@@ -767,10 +799,71 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     doğururdu. Girilmiş teklif YERİNDE DÜZENLENİR — silip yeniden girmek teklif
     TARİHİNİ de değiştiriyordu.
 
+    **VERİLMİŞ SİPARİŞ DÜZENLENEBİLİR — ÖNCEKİ KARAR TERSİNE ÇEVRİLDİ**
+    (`editOrder` + `siparisler/order-edit-dialog.tsx`, kullanıcı kararı
+    13.08.2026: *"Siparişler sayfasında önceden girilen sipariş
+    düzenlenebilsin."*). Eski kural "yanlış sipariş İPTAL edilir, yenisi
+    açılır" idi ve riski doğru okuyordu — satırları değiştirmek, onlara bağlı
+    teslim ve ödeme kayıtlarını sessizce geçersizleştirebilir. Ama iptal +
+    yeniden açmak yanlış yazılmış TEK bir birim fiyat için çok pahalıydı:
+    numara yanıyor, teslim ve ödeme işaretleri baştan giriliyordu. Risk
+    KAPATILDI, yok sayılmadı:
+      · Satır KİMLİĞİYLE güncellenir (`upsert`, silip-yazma yok) ve yüke
+        `received_qty` HİÇ GİRMEZ — kısmi teslim almış bir siparişte fiyat
+        düzeltmek, gelen malı "gelmedi" yapmamalı.
+      · ÇIKARILAN satırın paket işareti geri alınır
+        (`anahtarIsaretleriniKaldir`, iptal yolunun aynısı).
+      · YENİ KALEM EKLENMEZ: kalemin paket/iş kalemi/pay bağları yalnız Talep
+        Havuzu'nda bilinir. Ek kalem için yeni sipariş.
+      · Numara çakışması siparişin KENDİSİ hariç sorulur.
+    Ekranda İKİ yazma yolu vardır ve karıştırılmaz: ÇİPLER tek bir olguyu
+    işaretler (teslim · avans · bakiye · termin), DÜZENLE penceresi kaydın
+    tamamını yeniden yazar.
+
+    **TERMİN SONRADAN GİRİLİR VE DEĞİŞTİRİLİR** (kullanıcı kararı 13.08.2026).
+    Sipariş termin olmadan açılabilir (şemada zaten öyleydi) ama Siparişler
+    ekranında yazacak bir yer yoktu. Termin hücresi artık bir KUTUdur, ayrı bir
+    pencere değil — satınalmacının en sık yaptığı düzeltme budur ("tedarikçi
+    iki hafta gecikeceğini söyledi") ve pencere açtırmak onu üç tıka çıkarırdı
+    (durum çipi kuralının aynısı). Kutunun değeri `key` ile tazelenir, bir
+    `useEffect` ile DEĞİL: projede `react-hooks/set-state-in-effect` kapalıdır
+    ve efektle senkronizasyon basamaklı boyama üretir.
+
+    **HALKA GRAFİK ORANLI ŞERİDE DÖNDÜ** (`SplitBar`, kullanıcı bildirimi
+    13.08.2026: *"durum kırılımında yuvarlak pasta şeklinde olan grafik yapısı
+    mantıklı değil"* — aynısı Ödeme Takvimi'nin avans/bakiye kırılımı için).
+    Gerekçe ölçülebilir: halka AÇI okutur ve göz açıyı uzunluktan çok daha kötü
+    karşılaştırır — iki yakın dilimde grafiğin kendisi hiçbir şey söylemiyor,
+    cevap yandaki sayıdan okunuyordu. Üstelik sipariş durumları bir AŞAMA
+    SIRASIDIR (bekliyor → teslim → ödendi) ve çemberin başı sonu yoktur.
+    `DonutChart` KALDIRILMADI: İş Takibi'nde payların toplamı gerçekten bir
+    bütündür ve orada sıra yoktur.
+
+    **PENCERE KUTULARININ ADI "Baş Harfler Büyük"tür** (kullanıcı kararı,
+    13.08.2026 — Sipariş Aç ve Siparişi Düzenle): "Sipariş No", "Sipariş
+    Tarihi", "Birim Fiyat", "Para Birimi". Metinler ELLE öyle yazılır, bir
+    dönüştürücüden geçirilmez (Personel özet kartlarının kuralı): aralarında
+    simge ve kısaltma var ("1 € = ?", "Avans %"). Sipariş Aç penceresinin ALT
+    BAŞLIĞI da kaldırıldı ("7 kalem · tek tedarikçi. Kalemler birden çok işe
+    gidiyor…"): doğru ama kullanıcının hiçbir kararını değiştirmeyen bir
+    dipnottu. `DialogDescription` yine de basılır, `sr-only` olarak — Radix
+    `aria-describedby` bağını arar.
+
     **VERİTABANI SÜTUNU OLMAYABİLİR VARSAYIMI HER OKUMADA GEÇERLİDİR.**
-    `tags`, `qty`, `shares_drawings_with`, `due_at` — hepsi ZENGİN sorgu +
-    DAR yedek kalıbıyla okunur. Bir sütunun eksikliği yüzünden BÜTÜN sayfayı
-    kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
+    `tags`, `qty`, `shares_drawings_with`, `due_at`, `purchase_suppliers.code`
+    — hepsi ZENGİN sorgu + DAR yedek kalıbıyla okunur. Bir sütunun eksikliği
+    yüzünden BÜTÜN sayfayı kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
+
+    **İKİ MIGRATION AYNI SÜRÜM NUMARASINI TAŞIYAMAZ** (13.08.2026'da ölçüldü).
+    `20260813000001` iki dosyaya birden verilmişti (personel ücret planı +
+    satın alma tedarikçi defteri); ikisi ayrı oturumlarda yazıldığı için
+    çakışma yerelde görünmedi. `db push` uzak veritabanında patladı —
+    `schema_migrations` birincil anahtarı SÜRÜMdür ve ikinci dosya
+    "duplicate key" verdi. Uygulanmamış satın alma bloğu bu yüzden
+    `20260813010001…010005` olarak yeniden numaralandı (göreli SIRA korunarak:
+    `import_price_history` kendinden önceki tablolara yazıyor). Kural: yeni
+    migration eklerken `ls supabase/migrations` ile aynı gün başka bir dosyanın
+    aynı damgayı taşımadığı DOĞRULANIR.
 
 22. **PERSONEL: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR**
     (`/personnel`, kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e
@@ -2033,6 +2126,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   (`profiles.tags`) 12.08.2026'da role dönüştü ve mekanizma kaldırıldı
 - `src/lib/purchasing/` — Satın Alma ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
   `demand.ts` (talep havuzu + `drawingCarpani` resim çarpanı) ·
+  `order-no.ts` (tedarikçi kodundan sipariş numarası ÖNERİSİ + çakışma
+  denetimi; öneri bir kilit değildir) ·
   `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
   çıkarımı ve gecikme; fiyat/tedarikçi taşımaz)
@@ -2121,6 +2216,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   eşleştirme kartı (iş emri formunda DEĞİL: orada satır kimlikleri her
   kaydetmede değişir ve eşleştirme bağı kopardı)
 - `src/app/(app)/admin/customers/` — müşteri defteri yönetimi (kısaltma + renk)
+- `src/app/(app)/admin/suppliers/` — TEDARİKÇİ DEFTERİ yönetimi (kod, pasife
+  çekme, kullanım izi). Defterin YERİ buradadır ama KAPISI Satın Alma'dır:
+  yeni firma teklif/sipariş penceresinden de açılır (md. 21)
 - `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
   Excel ve PDF ekipman ADINDAN buraya bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız

@@ -11,6 +11,10 @@ const ITEMS = [
   // maddeden görür.
   { href: "/admin/access", label: "Yetkiler" },
   { href: "/admin/customers", label: "Müşteriler" },
+  // Tedarikçiler MÜŞTERİLERİN HEMEN ALTINDA: ikisi de bir CARİ defteridir ve
+  // aynı sorulara cevap verir (ad düzeltme, kod, pasife çekme). Kataloglar
+  // altta kalır — onlar ürün defteridir, firma defteri değil.
+  { href: "/admin/suppliers", label: "Tedarikçiler" },
   { href: "/admin/equipment", label: "Ekipman Katalogu" },
   { href: "/admin/couplings", label: "Kaplin Katalogu" },
   { href: "/admin/rails", label: "Raylar" },

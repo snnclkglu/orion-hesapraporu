@@ -10,6 +10,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
+import { trKatla } from "@/lib/drawings/tr-text";
 import type { ReportSettings } from "@/lib/settings";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
@@ -200,6 +201,136 @@ export async function deleteCustomer(id: string): Promise<AdminActionResult> {
 
   await audit(supabase, user.id, "admin.customer_delete", { id, name: item?.name });
   revalidateCustomerViews();
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ Tedarikçiler
+
+/**
+ * TEDARİKÇİ DEFTERİ YÖNETİME TAŞINDI (kullanıcı kararı, 13.08.2026):
+ * *"Satın Alma bölümündeki tedarikçileri Yönetim bölümüne Tedarikçiler adında
+ * bir sayfa ekleyerek oraya taşıyalım. Her tedarikçiye benzersiz bir kod
+ * verelim."*
+ *
+ * DEFTERİN YERİ İLE KAPISI AYRI ŞEYLERDİR. Firma listesini DÜZENLEMEK bir
+ * yönetim işidir (ad düzeltmek, kod vermek, tedarikçi olmayan devralınan
+ * kayıtları pasife çekmek) ve bu ekran admin'e kapalıdır. Ama YENİ FİRMA yine
+ * sipariş/teklif penceresinden açılır (`ensureSupplier`, satın alma yetkisi):
+ * satınalmacıyı yönetim ekranına göndermek, defterin 12.08.2026'da hiç
+ * açılmama gerekçesiydi ve o gerekçe hâlâ geçerli.
+ *
+ * AD BÜYÜK HARFLE saklanır (`adBuyuk`, md. 14) ve `match_key` KATLANMIŞ addır:
+ * "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
+ */
+const supplierSchema = z.object({
+  name: z.string().trim().min(2, "Firma adı gerekli").max(120).transform(adBuyuk),
+  // Kod BOŞ BIRAKILABİLİR ve o zaman veritabanı sırayı kendisi verir
+  // (`purchase_supplier_code_seq`). Elle yazılan kod serbesttir ama biçimi
+  // kısıtlıdır: kod bir sipariş numarasının önekidir ve boşluk taşıyan bir
+  // önek numarayı okunmaz yapardı.
+  code: z
+    .string()
+    .trim()
+    .max(20)
+    .transform((v) => v.toLocaleUpperCase("tr-TR"))
+    .refine((v) => v === "" || /^[A-Z0-9ÇĞİÖŞÜ._-]+$/.test(v), "Kod boşluk ve simge taşıyamaz."),
+  active: z.boolean(),
+  note: z.string().trim().max(500),
+});
+
+export type SupplierInput = z.infer<typeof supplierSchema>;
+
+function revalidateSupplierViews() {
+  revalidatePath("/admin/suppliers");
+  revalidatePath("/purchasing");
+  revalidatePath("/purchasing/siparisler");
+}
+
+/** Çakışma hangi indeksten geldi? İki tekillik var ve mesajları ayrı olmalı. */
+function supplierConflictMessage(message: string): string {
+  return message.includes("code")
+    ? "Bu kod başka bir tedarikçide kullanılıyor."
+    : "Bu firma zaten defterde kayıtlı.";
+}
+
+export async function createSupplier(input: SupplierInput): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = supplierSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, code, active, note } = parsed.data;
+
+  const { error } = await supabase.from("purchase_suppliers").insert({
+    name,
+    match_key: trKatla(name),
+    // Boş kod GÖNDERİLMEZ: sütun varsayılanı ancak alan hiç yokken çalışır.
+    ...(code ? { code } : {}),
+    active,
+    note,
+    created_by: user.id,
+  });
+  if (error) {
+    return { error: error.code === "23505" ? supplierConflictMessage(error.message) : error.message };
+  }
+
+  await audit(supabase, user.id, "admin.supplier_create", { name, code });
+  revalidateSupplierViews();
+  return { ok: true };
+}
+
+export async function updateSupplier(
+  id: string,
+  input: SupplierInput
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = supplierSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, code, active, note } = parsed.data;
+  if (!code) return { error: "Kod boş bırakılamaz." };
+
+  const { error } = await supabase
+    .from("purchase_suppliers")
+    .update({ name, match_key: trKatla(name), code, active, note })
+    .eq("id", id);
+  if (error) {
+    return { error: error.code === "23505" ? supplierConflictMessage(error.message) : error.message };
+  }
+
+  await audit(supabase, user.id, "admin.supplier_update", { id, name, code, active });
+  revalidateSupplierViews();
+  return { ok: true };
+}
+
+/**
+ * Tedarikçiyi defterden siler.
+ *
+ * YAYINLANMIŞ SİPARİŞ DEĞİŞMEZ: `purchase_orders.supplier` bir METİNdir, bu
+ * kayda bağlı değil (md. 14'ün müşteri fotoğrafı kuralı). Silinen firmanın
+ * geçmiş siparişleri ve teklifleri olduğu gibi durur; kaybolan tek şey öneri
+ * listesindeki satır ve kodudur — o yüzden ekran "silmek yerine pasife çek"i
+ * önerir.
+ */
+export async function deleteSupplier(id: string): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const { data: item } = await supabase
+    .from("purchase_suppliers")
+    .select("name, code")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("purchase_suppliers").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await audit(supabase, user.id, "admin.supplier_delete", { id, ...(item ?? {}) });
+  revalidateSupplierViews();
   return { ok: true };
 }
 

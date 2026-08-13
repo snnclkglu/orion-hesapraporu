@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DonutChart, RankBars, TimeBarChart } from "@/components/charts";
+import { RankBars, SplitBar, TimeBarChart } from "@/components/charts";
 import { fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import { bugunISO, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
@@ -194,7 +194,7 @@ export function PaymentBoard({
     [gorunen]
   );
 
-  const turHalkasi = useMemo(() => {
+  const turSeridi = useMemo(() => {
     const acik = gorunen.filter((s) => !s.odendi);
     const toplam = acik.reduce((t, s) => t + (s.tutarEur ?? 0), 0);
     return (["avans", "bakiye", "tamami"] as OdemeSatiri["tur"][])
@@ -293,13 +293,19 @@ export function PaymentBoard({
               selected={f.tedarikciler.length === 1 ? f.tedarikciler[0] : null}
             />
           </PanoKabugu>
-          {turHalkasi.length > 0 && (
+          {/* AVANS VE BAKİYE BİR BÜTÜNÜN İKİ PARÇASIDIR ve toplamları
+              "ödenecek"tir — ama iki dilimli bir halka, iki sayıyı yan yana
+              yazmaktan fazlasını söylemiyordu (kullanıcı bildirimi,
+              13.08.2026). Şerit oranı doğrudan uzunlukla verir ve kartın
+              genişliğini kullanır. */}
+          {turSeridi.length > 0 && (
             <PanoKabugu baslik="Avans / Bakiye" alt="ödenmemiş" className="lg:col-span-2">
-              <DonutChart
-                items={turHalkasi}
-                centerValue={fmtMoney(toplamEur, "EUR")}
-                centerLabel="Ödenecek"
+              <SplitBar
+                items={turSeridi}
                 format={eurFmt}
+                valueLabel="€"
+                emptyText="Ödenecek yok"
+                toplamEtiketi="Ödenecek"
               />
             </PanoKabugu>
           )}

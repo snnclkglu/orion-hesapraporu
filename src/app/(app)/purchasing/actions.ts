@@ -20,19 +20,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
-import { loadGecmisSatirlari, type GecmisSatiri } from "./data";
+import { loadGecmisSatirlari, loadSiparisNolari, type GecmisSatiri } from "./data";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
+import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
 import {
   chooseQuoteSchema,
   createOrderSchema,
   deleteOrderSchema,
   deleteQuoteSchema,
+  editOrderSchema,
   saveGroupNameSchema,
   saveItemMetaSchema,
   saveQuoteSchema,
   updateOrderSchema,
   type CreateOrderInput,
+  type EditOrderInput,
   type PurchasingActionResult,
   type SaveGroupNameInput,
   type SaveItemMetaInput,
@@ -81,6 +84,10 @@ function tazele() {
   // `updateOrder` yalnız sipariş kimliği alır — bu yüzden dinamik yolun
   // TAMAMI tazelenir (`type: "page"`).
   revalidatePath("/drawings/[id]/purchasing", "page");
+  // TEDARİKÇİ DEFTERİ ARTIK YÖNETİMDEDİR (13.08.2026): sipariş penceresinden
+  // açılan bir firma o listede de anında görünmelidir, yoksa yönetici defteri
+  // eksik sanıp aynı firmayı ikinci kez yazar.
+  revalidatePath("/admin/suppliers");
 }
 
 // ═══════════════════════════════════════════════════════════════ TEKLİFLER
@@ -272,6 +279,20 @@ export async function createOrder(input: CreateOrderInput): Promise<PurchasingAc
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const o = parsed.data;
 
+  // NUMARA ÇAKIŞMASI SUNUCUDA DA SORULUR. Ekran öneriyi kendi listesinden
+  // üretir ve o liste sayfanın açıldığı andaki fotoğraftır; iki satınalmacı
+  // aynı dakikada sipariş açarsa ikisi de aynı numarayı önerir.
+  if (siparisNoCakisiyorMu(o.orderNo, await loadSiparisNolari(supabase))) {
+    return { error: `"${o.orderNo}" numarası başka bir siparişte kullanılıyor.` };
+  }
+
+  // YENİ FİRMA KENDİLİĞİNDEN DEFTERE GİRER (kullanıcı kararı, 13.08.2026).
+  // Pencere bunu tedarikçi alanından çıkılırken zaten yapıyor (kodu görmek
+  // için); burası o yolun KAPANMADIĞINI garanti eder — klavyeyle doldurulup
+  // doğrudan kaydedilen bir pencere defteri atlardı. Hata YUTULUR: defter bir
+  // öneri kaynağıdır, siparişin şartı değil.
+  await firmayiDeftereYaz(supabase, userId, o.supplier);
+
   const { data: baslik, error: baslikHatasi } = await supabase
     .from("purchase_orders")
     .insert({
@@ -382,12 +403,28 @@ async function siparisIsaretleriniKaldir(
     .from("purchase_order_lines")
     .select("part_key, package_id")
     .eq("order_id", orderId);
-  const anahtarlar = [
-    ...new Set(
-      ((satirlar ?? []) as { part_key: string }[]).map((r) => r.part_key).filter(Boolean)
-    ),
-  ];
+  await anahtarIsaretleriniKaldir(
+    supabase,
+    (satirlar ?? []) as { part_key: string; package_id: string | null }[],
+    orderId
+  );
+}
+
+/**
+ * Verilen satırların paket işaretlerini geri alır.
+ *
+ * `siparisIsaretleriniKaldir` bunu siparişin TAMAMI için çağırır (iptal),
+ * `editOrder` ise yalnız ÇIKARILAN satırlar için (düzenleme). Kural ikisinde de
+ * aynıdır ve tek yerde durur: başka CANLI siparişte geçen anahtar korunur.
+ */
+async function anahtarIsaretleriniKaldir(
+  supabase: Ctx["supabase"],
+  satirlar: readonly { part_key: string; package_id: string | null }[],
+  haricOrderId: string
+): Promise<void> {
+  const anahtarlar = [...new Set(satirlar.map((r) => r.part_key).filter(Boolean))];
   if (anahtarlar.length === 0) return;
+  const orderId = haricOrderId;
 
   // Başka CANLI siparişte geçen anahtarlar korunur.
   const { data: digerleri } = await supabase
@@ -411,12 +448,123 @@ async function siparisIsaretleriniKaldir(
 
   const paketler = [
     ...new Set(
-      ((satirlar ?? []) as { package_id: string | null }[])
+      ((satirlar ?? []) as unknown as { package_id: string | null }[])
         .map((r) => r.package_id)
         .filter((x): x is string => Boolean(x))
     ),
   ];
   for (const p of paketler) revalidatePath(`/drawings/${p}/purchasing`);
+}
+
+/**
+ * Verilmiş bir siparişi DÜZENLER — başlık + var olan satırlar.
+ *
+ * Kullanıcı kararı (13.08.2026): *"Siparişler sayfasında önceden girilen
+ * sipariş düzenlenebilsin."* Gerekçe ve sınırlar `editOrderSchema`da yazılı.
+ *
+ * SATIR KİMLİĞİYLE GÜNCELLENİR, silinip yeniden yazılmaz: `received_qty` o
+ * satırın kendi geçmişidir ve kısmi teslim almış bir siparişte fiyatı
+ * düzeltmek, gelen malı "gelmedi" yapmamalıdır. Bu yüzden `upsert` yükünde
+ * `received_qty` HİÇ GEÇMEZ — PostgREST yalnız gönderilen sütunları yazar.
+ *
+ * BAŞKA SİPARİŞİN SATIRI TAŞINAMAZ: gelen kimliklerin hepsi bu siparişe ait
+ * olmalıdır. Kontrol bir güvenlik kapısı değil (RLS zaten var) bir BÜTÜNLÜK
+ * kapısıdır — açık duran eski bir sekmeden gelen istek, başka bir siparişin
+ * satırını sessizce buraya çekebilirdi.
+ */
+export async function editOrder(input: EditOrderInput): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = editOrderSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const o = parsed.data;
+
+  const { data: mevcut } = await supabase
+    .from("purchase_orders")
+    .select("order_no")
+    .eq("id", o.id)
+    .maybeSingle();
+  if (!mevcut) return { error: "Sipariş bulunamadı." };
+
+  if (
+    siparisNoCakisiyorMu(
+      o.orderNo,
+      await loadSiparisNolari(supabase),
+      String((mevcut as { order_no: string }).order_no ?? "")
+    )
+  ) {
+    return { error: `"${o.orderNo}" numarası başka bir siparişte kullanılıyor.` };
+  }
+
+  const { data: eskiVerisi } = await supabase
+    .from("purchase_order_lines")
+    .select("id, part_key, package_id")
+    .eq("order_id", o.id);
+  const eski = (eskiVerisi ?? []) as { id: string; part_key: string; package_id: string | null }[];
+  const bilinen = new Set(eski.map((e) => e.id));
+  if (o.lines.some((l) => !bilinen.has(l.id))) {
+    return { error: "Sipariş satırı bulunamadı; sayfayı yenileyip tekrar deneyin." };
+  }
+
+  await firmayiDeftereYaz(supabase, userId, o.supplier);
+
+  const { error: baslikHatasi } = await supabase
+    .from("purchase_orders")
+    .update({
+      order_no: o.orderNo,
+      supplier: o.supplier,
+      ordered_at: o.orderedAt,
+      due_at: o.dueAt,
+      payment_method: o.paymentMethod,
+      payment_term_days: o.paymentMethod === "vadeli" ? o.paymentTermDays : 0,
+      advance_pct: o.advancePct && o.advancePct > 0 ? o.advancePct : null,
+      advance_amount: o.advanceAmount && o.advanceAmount > 0 ? o.advanceAmount : null,
+      currency: o.currency,
+      fx_rate: o.currency === "EUR" ? 1 : o.fxRate,
+      note: o.note,
+    })
+    .eq("id", o.id);
+  if (baslikHatasi) return { error: baslikHatasi.message };
+
+  const { error: satirHatasi } = await supabase.from("purchase_order_lines").upsert(
+    o.lines.map((l) => ({
+      id: l.id,
+      order_id: o.id,
+      match_key: l.matchKey,
+      sample: l.sample,
+      item_no: l.itemNo,
+      package_id: l.packageId,
+      part_key: l.partKey,
+      qty: l.qty,
+      unit: l.unit,
+      unit_price: l.unitPrice,
+      note: l.note,
+    })),
+    { onConflict: "id" }
+  );
+  if (satirHatasi) return { error: satirHatasi.message };
+
+  // ÇIKARILAN SATIRIN İŞARETİ DE GİDER (iptal kuralının aynısı): sipariş
+  // edilmemiş bir kalem paket ekranında "ısmarlandı" görünmeye devam ederse
+  // atölye onu bekler ve kimse yeniden sipariş etmez.
+  const kalan = new Set(o.lines.map((l) => l.id));
+  const cikarilan = eski.filter((e) => !kalan.has(e.id));
+  if (cikarilan.length > 0) {
+    const { error: silmeHatasi } = await supabase
+      .from("purchase_order_lines")
+      .delete()
+      .in(
+        "id",
+        cikarilan.map((c) => c.id)
+      );
+    if (silmeHatasi) return { error: silmeHatasi.message };
+    await anahtarIsaretleriniKaldir(supabase, cikarilan, o.id);
+  }
+
+  tazele();
+  return { ok: o.lines.length };
 }
 
 /**
@@ -534,38 +682,97 @@ export async function saveGroupName(
 
 // ═══════════════════════════════════════════════ TEDARİKÇİ DEFTERİ ve ARŞİV
 
-/**
- * Firmayı deftere yazar — YOKSA.
- *
- * Kullanıcı kararı (13.08.2026): *"Kullanıcı sipariş açarken veya teklif
- * girerken eğer yeni bir firma ise hemen orda yeni firma olarak
- * kaydedebilsin."* Yani akış KESİLMEZ: ayrı bir yönetim ekranına gidip gelmek,
- * teklif girmeyi yavaşlatırdı ve o zaman hiç girilmezdi (`purchase_suppliers`
- * migration'ındaki gerekçenin ta kendisi).
- *
- * ANAHTAR KATLANMIŞ ADDIR: "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
- * Çakışma bir HATA DEĞİLDİR — `do nothing` ile geçilir ve çağıran yine
- * başarılı sayar; kullanıcının derdi "bu ad listede olsun", "ben yarattım"
- * değil.
- */
-export async function ensureSupplier(
-  input: { name: string }
-): Promise<PurchasingActionResult & { name?: string }> {
-  const ctx = await requireWrite();
-  if ("error" in ctx) return { error: ctx.error };
-  const { supabase, userId } = ctx;
+// DEFTER YÖNETİMDE, KAPI BURADA (kullanıcı kararı, 13.08.2026).
+//
+// Firmaların listesi artık Yönetim → Tedarikçiler ekranında yaşıyor ve kod
+// oradan verilir; ama YENİ BİR FİRMA YİNE AKIŞIN İÇİNDEN AÇILIR:
+// *"Sipariş Aç bölümüne yeni bir tedarikçi ismi girilirse, otomatik yeni bir
+// tedarikçi açılsın."* Satınalmacıyı yönetim ekranına göndermek, teklif ve
+// sipariş girişini durdururdu — 12.08.2026'da defterin hiç açılmama gerekçesi
+// buydu ve o gerekçe hâlâ geçerli.
+//
+// ANAHTAR KATLANMIŞ ADDIR: "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
 
-  const ad = adBuyuk((input.name ?? "").trim()).slice(0, 120);
+/** Defterdeki bir firmanın kimliği; `code` eski ortamlarda boş olabilir. */
+type FirmaKimligi = { name: string; code: string };
+
+/**
+ * Katlanmış ada göre defter satırını okur.
+ *
+ * SÜTUN OLMAYABİLİR (md. 21): `code` 20260813010004 ile geliyor ve onu isteyen
+ * bir `select` uygulanmamış ortamda BÜTÜN sorguyu düşürür — firma kaydı da
+ * sipariş de o yüzden hiç yazılamazdı.
+ */
+async function firmaOku(supabase: SupabaseClient, anahtar: string): Promise<FirmaKimligi | null> {
+  const zengin = await supabase
+    .from("purchase_suppliers")
+    .select("name, code")
+    .eq("match_key", anahtar)
+    .maybeSingle();
+  if (!zengin.error) {
+    const r = zengin.data as { name: string; code: string | null } | null;
+    return r ? { name: r.name ?? "", code: r.code ?? "" } : null;
+  }
+
+  const dar = await supabase
+    .from("purchase_suppliers")
+    .select("name")
+    .eq("match_key", anahtar)
+    .maybeSingle();
+  const r = dar.data as { name: string } | null;
+  return r ? { name: r.name ?? "", code: "" } : null;
+}
+
+/**
+ * Firmayı deftere yazar — YOKSA. Kodu veritabanı verir (sıra sayacı).
+ *
+ * ÖNCE OKUR, SONRA YAZAR ve bu `upsert`ten bilinçli bir sapmadır: `code`
+ * sütununun varsayılanı `nextval(...)`tır ve çakışan bir `upsert` de o sayacı
+ * TÜKETİR. Sipariş açılışında her seferinde çağrıldığı için defter birkaç
+ * haftada dört haneyi doldurur ve kodlar arasında yüzlerce boşluk kalırdı.
+ */
+async function firmayiDeftereYaz(
+  supabase: SupabaseClient,
+  userId: string,
+  ham: string
+): Promise<{ error?: string; firma?: FirmaKimligi; yeni?: boolean }> {
+  const ad = adBuyuk((ham ?? "").trim()).slice(0, 120);
   if (!ad) return { error: "Firma adı boş olamaz." };
   const anahtar = trKatla(ad);
 
-  const { error } = await supabase
-    .from("purchase_suppliers")
-    .upsert({ name: ad, match_key: anahtar, created_by: userId }, { onConflict: "match_key" });
-  if (error) return { error: `Firma kaydedilemedi: ${error.message}` };
+  const mevcut = await firmaOku(supabase, anahtar);
+  if (mevcut) return { firma: mevcut, yeni: false };
 
-  tazele();
-  return { ok: 1, name: ad };
+  const { data, error } = await supabase
+    .from("purchase_suppliers")
+    .insert({ name: ad, match_key: anahtar, created_by: userId })
+    .select("name, code")
+    .maybeSingle();
+
+  if (error) {
+    // YARIŞ ÇAKIŞMASI BİR HATA DEĞİLDİR: aynı anda başka biri (ya da aynı
+    // kullanıcının ikinci sekmesi) yazmış olabilir. Kullanıcının derdi "bu ad
+    // listede olsun", "ben yarattım" değil.
+    const tekrar = await firmaOku(supabase, anahtar);
+    if (tekrar) return { firma: tekrar, yeni: false };
+    return { error: `Firma kaydedilemedi: ${error.message}` };
+  }
+
+  const r = data as { name: string; code: string | null } | null;
+  return { firma: { name: r?.name ?? ad, code: r?.code ?? "" }, yeni: true };
+}
+
+export async function ensureSupplier(
+  input: { name: string }
+): Promise<PurchasingActionResult & { name?: string; code?: string }> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const sonuc = await firmayiDeftereYaz(ctx.supabase, ctx.userId, input.name);
+  if (sonuc.error) return { error: sonuc.error };
+
+  if (sonuc.yeni) tazele();
+  return { ok: sonuc.yeni ? 1 : 0, name: sonuc.firma?.name, code: sonuc.firma?.code };
 }
 
 /**
