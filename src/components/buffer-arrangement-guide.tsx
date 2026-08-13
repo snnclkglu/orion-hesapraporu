@@ -42,11 +42,29 @@ const arrangementCopy = (count: 1 | 2 | 4) => {
   return "Tek hareket yönünde paralel iki tampon aynı anda yük alır (2W). Bu uygulamadaki tipik seçim budur.";
 };
 
-function BufferSymbol({ x, y, active }: { x: number; y: number; active: boolean }) {
+/** Tampon, sabit dayamaya değil hareketli kütlenin gövdesine bağlı çizilir. */
+function VehicleMountedBuffer({
+  mountX,
+  y,
+  side,
+  active,
+  length = 38,
+}: {
+  mountX: number;
+  y: number;
+  side: "left" | "right";
+  active: boolean;
+  length?: number;
+}) {
+  const x = side === "left" ? mountX - length : mountX;
+  const plateX = side === "left" ? mountX - 3 : mountX - 1;
+  const headX = side === "left" ? x - 3 : x + length;
   return (
     <g>
-      <rect x={x} y={y} width="28" height="10" rx="3" fill={active ? "#1d8a68" : "#94a3b8"} />
-      <rect x={x + 4} y={y + 2} width="20" height="6" rx="2" fill="white" opacity=".35" />
+      <rect x={plateX} y={y - 2} width="4" height="14" fill="var(--foreground)" opacity=".7" />
+      <rect x={x} y={y} width={length} height="10" rx="3" fill={active ? "var(--primary)" : "var(--muted-foreground)"} opacity={active ? 1 : .55} />
+      <rect x={headX} y={y - 1} width="3" height="12" fill={active ? "var(--primary)" : "var(--muted-foreground)"} opacity={active ? 1 : .55} />
+      <circle cx={side === "left" ? mountX - 1 : mountX + 1} cy={y + 5} r="1.15" fill="var(--background)" />
     </g>
   );
 }
@@ -59,11 +77,11 @@ function ArrangementMini({ count }: { count: 1 | 2 | 4 }) {
         <rect x="9" y="8" width="12" height="57" fill="var(--muted)" stroke="var(--border)" />
         <rect x="169" y="8" width="12" height="57" fill="var(--muted)" stroke="var(--border)" />
         <rect x="73" y="24" width="44" height="27" rx="3" fill="var(--accent)" stroke="var(--border)" />
-        {count === 1 && <rect x="25" y="32" width="23" height="9" rx="2" fill="var(--primary)" />}
-        {count >= 2 && <><rect x="25" y="19" width="23" height="9" rx="2" fill="var(--primary)" /><rect x="25" y="47" width="23" height="9" rx="2" fill="var(--primary)" /></>}
-        {count === 4 && <><rect x="142" y="19" width="23" height="9" rx="2" fill="var(--muted-foreground)" opacity=".55" /><rect x="142" y="47" width="23" height="9" rx="2" fill="var(--muted-foreground)" opacity=".55" /></>}
-        <path d="M123 38h16m-5-5 5 5-5 5" fill="none" stroke="var(--primary)" strokeWidth="1.8" />
-        <text x="95" y="80" textAnchor="middle" fontSize="10" fill="var(--muted-foreground)">yeşil: bu çarpmada çalışan</text>
+        {count === 1 && <VehicleMountedBuffer mountX={73} y={32} side="left" active length={36} />}
+        {count >= 2 && <><VehicleMountedBuffer mountX={73} y={19} side="left" active length={36} /><VehicleMountedBuffer mountX={73} y={47} side="left" active length={36} /></>}
+        {count === 4 && <><VehicleMountedBuffer mountX={117} y={19} side="right" active={false} length={36} /><VehicleMountedBuffer mountX={117} y={47} side="right" active={false} length={36} /></>}
+        <path d="M151 18h-20m7-6-7 6 7 6" fill="none" stroke="var(--primary)" strokeWidth="1.8" />
+        <text x="95" y="80" textAnchor="middle" fontSize="10" fill="var(--muted-foreground)">renkli: bu çarpmada çalışan</text>
       </svg>
       <p className="mt-1 text-center text-sm font-medium">{count} kurulu / {active} aktif</p>
     </div>
@@ -213,11 +231,13 @@ export function BufferArrangementSchematic({ installedCount, axisTitle }: Buffer
         <rect x="260" y="19" width="18" height="94" fill="url(#buffer-hatch)" stroke="#64748b" />
         <rect x="106" y="36" width="88" height="60" rx="5" fill="#e2e8f0" stroke="#64748b" />
         <text x="150" y="70" textAnchor="middle" fontSize="10" fill="#334155">hareketli kütle</text>
-        {count === 1 && <BufferSymbol x={45} y={61} active />}
-        {showLeftPair && <><BufferSymbol x={45} y={40} active /><BufferSymbol x={45} y={82} active /></>}
-        {showRightPair && <><BufferSymbol x={227} y={40} active={false} /><BufferSymbol x={227} y={82} active={false} /></>}
-        <path d="M205 66h35m-7-6 7 6-7 6" fill="none" stroke="#1d8a68" strokeWidth="2" />
-        <text x="150" y="126" textAnchor="middle" fontSize="10" fill="#475569">yeşil: bu çarpmada aktif tamponlar</text>
+        <text x="150" y="84" textAnchor="middle" fontSize="8" fill="#475569">tamponlar gövdeye bağlı</text>
+        {count === 1 && <VehicleMountedBuffer mountX={106} y={61} side="left" active length={42} />}
+        {showLeftPair && <><VehicleMountedBuffer mountX={106} y={42} side="left" active length={42} /><VehicleMountedBuffer mountX={106} y={80} side="left" active length={42} /></>}
+        {showRightPair && <><VehicleMountedBuffer mountX={194} y={42} side="right" active={false} length={42} /><VehicleMountedBuffer mountX={194} y={80} side="right" active={false} length={42} /></>}
+        <path d="M233 28h-34m8-7-8 7 8 7" fill="none" stroke="#1d8a68" strokeWidth="2" />
+        <text x="215" y="18" textAnchor="middle" fontSize="8" fill="#1d8a68">çarpma yönü</text>
+        <text x="150" y="126" textAnchor="middle" fontSize="10" fill="#475569">renkli: bu çarpmada aktif tamponlar</text>
       </svg>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">{arrangementCopy(count)}</p>
     </aside>
