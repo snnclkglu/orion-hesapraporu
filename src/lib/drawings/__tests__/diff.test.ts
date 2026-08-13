@@ -368,10 +368,15 @@ describe("ANAHTAR SEÇİMİ — `register_key` kullanılsaydı ne olurdu", () =>
   });
 });
 
-describe("MTC — 261 parçalık paket, ikinci teslim", () => {
-  it("defter 217'den 261'e çıkmış", () => {
-    expect(mtc.eski.side.parts).toHaveLength(217);
-    expect(mtc.yeni.side.parts).toHaveLength(261);
+describe("MTC — 267 parçalık paket, ikinci teslim", () => {
+  it("defter 223'ten 267'ye çıkmış", () => {
+    // 217→223 ve 261→267: grup başına kazanan sayfa kuralı (13.08.2026) İKİ
+    // TARAFI DA aynı altı satır kadar büyüttü. Farkın kendisi bu yüzden
+    // değişmedi — aşağıdaki `degisenParca` hâlâ 131 ve yeni parça listesi
+    // aynı. Bir kural düzeltmesinin geçmişi yeniden yazmaması budur:
+    // eşleştirme her iki anlık görüntüye de aynı şekilde uygulanır.
+    expect(mtc.eski.side.parts).toHaveLength(223);
+    expect(mtc.yeni.side.parts).toHaveLength(267);
     expect(MTC.files).toHaveLength(454);
     expect(mtc.yeni.side.files.filter((f) => f.lifecycle === "haric")).toHaveLength(10);
   });
@@ -485,7 +490,10 @@ describe("SESSİZLİK — basılmayan farklar (en değerli iddialar)", () => {
       if (e.itemPath !== p.itemPath) itemPathKaymasi += 1;
       if (e.assemblyTitle !== p.assemblyTitle) baslikKaymasi += 1;
     }
-    expect(ortak).toBe(170);
+    // 170→176: grup başına kazanan sayfa kuralıyla geri gelen altı kodsuz
+    // satır ESKİ tarafta zaten vardı, yani ortak kümeye giriyorlar. Asıl
+    // iddia bozulmadan duruyor — aşağıdaki `degisenParca` hâlâ 131.
+    expect(ortak).toBe(176);
     expect(itemPathKaymasi).toBe(122);
     expect(baslikKaymasi).toBe(57);
 

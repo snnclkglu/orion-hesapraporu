@@ -1170,7 +1170,39 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     satırlar) `/purchasing`te, imalat ve montaj parçaları `/progress`te durur.
     Bölme kuralı TEK yerdedir — `isPurchaseRow` — ve `derive.ts`teki
     `satinAlmaListesi` ile birebir aynıdır; bir satır iki ekranda birden ya da
-    hiçbirinde görünemez. **`satinalindi` aşamasının çipi atölye tahtasında
+    hiçbirinde görünemez. Kural ÜÇÜNCÜ bir yerde daha yaşıyor ve orası
+    ayrışabilir: havuz sorgusunun `or("kind.eq.satinalma,part_code.eq.")`
+    dizgisi. `part_code = ''` ile `!partCode.trim()` aynı şey DEĞİLDİR;
+    ayrışmayı `purchasing/__tests__/purchasing-split.test.ts` dosyanın
+    KAYNAĞINI okuyarak engeller (`terms.test.ts` deseninin aynısı). Atıf bir
+    süre vardı ama dosya yoktu — boşta duran bir atıf, olmayan bir korumadır.
+
+    **KODSUZ SATIRIN KAZANAN SAYFASI GRUP BAŞINADIR, PAKET BAŞINA DEĞİL**
+    (ölçüldü, 13.08.2026 — kullanıcı bildirimi: *"yüklediğim proje Satın Alma
+    modülüne gitmiyor"*). `bomBirlestir` kodsuz satırları (civata, segman,
+    rulman — satın alma listesinin ta kendisi) tek bir sayfadan alır ve
+    gerekçesi doğrudur: aynı grubun ÜRÜN AĞACI ile DEPO sayfaları örtüşür,
+    ikisini toplamak aynı cıvatayı iki kez saydırırdı. Ama örtüşme AYNI
+    GRUBUN iki sayfası arasındadır; kural bütün pakette tek bir sayfa seçince
+    BAŞKA GRUPLARIN Excel'i bütünüyle düşüyordu. MTC'de ölçüm: düşen 76
+    satırın 67'si kazananla aynı gruptandı (54'ü kazanan sayfada birebir
+    duruyor — kural orada haklı), 9'u başka gruplardandı ve **hiçbiri kazanan
+    sayfada yoktu**. Ressam grup grup Excel verdiğinde — firmanın
+    numaralandırması tam olarak bunu teşvik ediyor — paketin satın alma
+    listesi tek bir gruba iniyordu. Beraberlikte ÜRÜN AĞACI kazanır (`oncelik`
+    zaten bunu söylüyor); kazananı girdi sırasına bırakmak kararı rastlantıya
+    bırakırdı.
+
+    **"SATIN ALINIYOR" DEĞERİ DE İKİ DİLLİDİR** (`SATIN_ALMA_YAPISI`).
+    `excel.ts`teki başlık sözlüğü `bomStructure` için `BOM STRUCTURE · YAPI ·
+    TÜR` kabul ediyordu ama değer karşılaştırması yalnız İngilizce
+    `PURCHASED`ı tanıyordu. Bu asimetri sessiz ve pahalıydı: Türkçe arayüzle
+    verilmiş bir listede sütun OKUNUYOR, değeri TANINMIYOR, satır `imalat`a
+    düşüyor ve parça numarası dolu olduğu için `part_code = ''` kapısından da
+    geçemiyordu — kalem Satın Alma'da hiç görünmeyip atölye tahtasına
+    çıkıyordu. Liste UYDURMA DEĞİL ÇEVİRİDİR: her giriş `Purchased` ile
+    birebir aynı şeyi söyler. Anlamı GENİŞLETEN bir değer (ör. SolidWorks'ün
+    `Toolbox`u) gerçek bir teslim klasöründe görülmeden girmez. **`satinalindi` aşamasının çipi atölye tahtasında
     YOKTUR** (`productionStages`): sipariş kaydı tezgâhın değil satınalmanın
     işidir ve foreman'ın onu işaretleyebilmesi kimin ne zaman sipariş verdiğini
     belirsizleştirirdi. Bu bir YETKİ engeli değil bir SORUMLULUK ayrımıdır —

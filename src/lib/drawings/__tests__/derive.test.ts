@@ -157,12 +157,20 @@ describe("satın alma listesi — MONORAY", () => {
 describe("satın alma listesi — MTC", () => {
   const sa = satinAlmaListesi(mtc.parts);
 
-  it("90 defter satırı → 72 kalem: 68 kodsuz + 4 kodlu, toplam 595 adet", () => {
-    expect(sa.satirlar).toHaveLength(72);
-    expect(sa.kaynakSatiri).toBe(90);
-    expect(sa.kodsuzKalem).toBe(68);
+  it("96 defter satırı → 78 kalem: 74 kodsuz + 4 kodlu, toplam 611 adet", () => {
+    // SAYILAR 13.08.2026'DA 90/72/68'DEN YÜKSELDİ ve sebebi bir kural
+    // düzeltmesidir: `bomBirlestir` kodsuz satırların kazanan sayfasını PAKET
+    // BAŞINA seçiyordu, artık GRUP BAŞINA seçiyor. `0043-00-0050` ve
+    // `0043-00-0850` gruplarının kendi DEPO Excel'lerindeki altı satır bu
+    // yüzden hiç görünmüyordu (ölçüldü: kazanan sayfada karşılıkları YOKTU).
+    //
+    // Gelenler galvanizsiz bağlantı elemanlarıdır ve galvanizli eşlerinden
+    // AYRI kalem sayılırlar — md. 21'in kuralı: yazmayana galvaniz eklenmez.
+    expect(sa.satirlar).toHaveLength(78);
+    expect(sa.kaynakSatiri).toBe(96);
+    expect(sa.kodsuzKalem).toBe(74);
     expect(sa.satirlar.filter((s) => s.parcaKodu)).toHaveLength(4);
-    expect(sa.toplamAdet).toBe(595);
+    expect(sa.toplamAdet).toBe(611);
     expect(sa.birlesenKalem).toBe(11);
   });
 
@@ -170,9 +178,9 @@ describe("satın alma listesi — MTC", () => {
     // Toplam 829,487 kg BİRLEŞTİRMEDEN ÖNCEKİ ile aynı sayıdır: birleşik adet
     // × birim ağırlık ile yeniden hesaplansaydı ağırlığı yazılmamış satırlar
     // sessizce kaybolur ya da yuvarlama sapması eklenirdi.
-    expect(sa.agirligiBilinen).toBe(71);
-    expect(sa.toplamAgirlikKg).toBeCloseTo(829.487, 3);
-    expect(sa.malzemesiBilinen).toBe(14);
+    expect(sa.agirligiBilinen).toBe(74);
+    expect(sa.toplamAgirlikKg).toBeCloseTo(829.576, 3);
+    expect(sa.malzemesiBilinen).toBe(15);
     const satirToplami = mtc.parts
       .filter((p) => (p.kind === "satinalma" || !p.partCode) && p.weightKg != null)
       .reduce((t, p) => t + (p.weightKg as number) * (p.qty ?? 1), 0);
@@ -196,7 +204,9 @@ describe("satın alma listesi — MTC", () => {
       "Elektrik ve Otomasyon": 4,
       "Enerji İletim": 3,
       "Hazır Malzeme": 2,
-      "Bağlantı Elemanı": 42,
+      // 42'den 48'e: grup başına kazanan sayfa kuralıyla geri gelen altı
+      // galvanizsiz bağlantı elemanı. Sınıflandırma değişmedi, KAPSAM büyüdü.
+      "Bağlantı Elemanı": 48,
       Diğer: 1,
     });
   });
@@ -217,10 +227,10 @@ describe("SATIN ALMA KİMLİĞİ — tahta ile aynı kalem sayılır", () => {
   const sa = satinAlmaListesi(mtc.parts);
   const defter = trackedParts(mtc.parts);
 
-  it("MTC'de kodsuz kalem sayısı progress.test.ts'teki 68 ile UYUŞUR", () => {
+  it("MTC'de kodsuz kalem sayısı progress.test.ts'teki 74 ile UYUŞUR", () => {
     // İki dosya ayrı ayrı dondurulduğu için çatlak fark edilmemişti: satın alma
     // Excel'i 90, tahta 68 diyordu. Bu iddia iki çekirdeği birbirine bağlar.
-    expect(defter.purchases).toHaveLength(68);
+    expect(defter.purchases).toHaveLength(74);
     expect(sa.kodsuzKalem).toBe(defter.purchases.length);
   });
 
@@ -241,25 +251,38 @@ describe("SATIN ALMA KİMLİĞİ — tahta ile aynı kalem sayılır", () => {
     // SOMUN M16 DIN934 defterde dört satırdır: 2 + 4 + 4 + 51 = 61. Dosyada bu
     // dördü toplayan hiçbir hücre yoktu; satınalmacı ya eksik ya mükerrer
     // sipariş verirdi.
-    const somun = sa.satirlar.filter((s) => s.tanim.startsWith("SOMUN M16 DIN934"));
+    //
+    // TANIM TAM YAZILIR, ÖN EK İLE ARANMAZ. `startsWith("SOMUN M16 DIN934")`
+    // 13.08.2026'dan beri İKİ kalem yakalıyor: galvanizli olan (61 adet) ve
+    // `0043-00-0050`den geri gelen GALVANİZSİZ olan (4 adet). İkisi ayrı
+    // üründür (md. 21) ve testin hangisini kastettiği belirsiz kalamaz.
+    const somun = sa.satirlar.filter((s) => s.tanim === "SOMUN M16 DIN934 (GALVANİZLİ)");
     expect(somun).toHaveLength(1);
     expect(somun[0].sourceRows).toBe(4);
     expect(somun[0].adet).toBe(61);
     expect(somun[0].izler.map((i) => i.adet)).toEqual([2, 4, 4, 51]);
+
+    // Galvanizsiz eşi AYRI bir kalemdir ve birleşmemiştir.
+    const duz = sa.satirlar.filter((s) => s.tanim === "SOMUN M16 DIN934");
+    expect(duz).toHaveLength(1);
+    expect(duz[0].adet).toBe(4);
+    expect(duz[0].key).not.toBe(somun[0].key);
     // Ağırlık satır satır toplanır; dört satırın birim ağırlığı aynı olduğu
     // için tek birim ağırlık yazılabilir.
     expect(somun[0].birimAgirlikKg).toBeCloseTo(0.034, 3);
     expect(somun[0].toplamAgirlikKg).toBeCloseTo(2.074, 3);
 
     // Tahtadaki karşılığı BİREBİR aynı kalemdir.
-    const tahtada = defter.purchases.find((p) => p.label.startsWith("SOMUN M16 DIN934"))!;
+    const tahtada = defter.purchases.find(
+      (p) => p.label === "SOMUN M16 DIN934 (GALVANİZLİ)"
+    )!;
     expect(tahtada.key).toBe(somun[0].key);
     expect(tahtada.qty).toBe(somun[0].adet);
     expect(tahtada.sourceRows).toBe(somun[0].sourceRows);
   });
 
   it("KAYNAK İZİ KAYBOLMAZ: hangi montajdan geldiği satırda durur", () => {
-    const somun = sa.satirlar.find((s) => s.tanim.startsWith("SOMUN M16 DIN934"))!;
+    const somun = sa.satirlar.find((s) => s.tanim === "SOMUN M16 DIN934 (GALVANİZLİ)")!;
     expect(somun.izler.map((i) => i.montajKodu)).toEqual([
       "0043-00-0300",
       "0043-00-0803",
@@ -421,10 +444,12 @@ describe("SINIFLANDIRMA — baş sözcük tuzağı", () => {
       sa.satirlar.filter((s) => s.tanim.includes(parca));
     // KALEM sayısı DEFTER SATIRI sayısından azdır (birleştirme); tuzağın
     // kendisi satır sayısında değil, sınıflandırmanın doğruluğundadır.
-    expect(bul("YAYLI RONDELA")).toHaveLength(7);
-    expect(bul("YAYLI RONDELA").reduce((t, s) => t + s.sourceRows, 0)).toBe(17);
+    // 7→8 ve 3→4: `0043-00-0850`den geri gelen galvanizsiz YAYLI RONDELA M8
+    // ile İMBUS CİVATA M8x60. Tuzağın kendisi değişmedi, kapsam büyüdü.
+    expect(bul("YAYLI RONDELA")).toHaveLength(8);
+    expect(bul("YAYLI RONDELA").reduce((t, s) => t + s.sourceRows, 0)).toBe(18);
     expect(bul("YAYLI RONDELA").every((s) => s.sinif === "Bağlantı Elemanı")).toBe(true);
-    expect(bul("İMBUS CİVATA")).toHaveLength(3);
+    expect(bul("İMBUS CİVATA")).toHaveLength(4);
     expect(bul("DELİK SEGMANI").every((s) => s.sinif === "Bağlantı Elemanı")).toBe(true);
     expect(bul("GUPİLYA").every((s) => s.sinif === "Bağlantı Elemanı")).toBe(true);
   });
@@ -743,24 +768,24 @@ describe("çalışma kitapları", () => {
   });
 
   it("künye BİRLEŞTİRMEYİ açıkça söyler ve TOPLAM birleşik sayıyı yazar", () => {
-    // Dosya e-postayla dolaşır; "72 kalem" gören satınalmacı defterde 90 satır
+    // Dosya e-postayla dolaşır; "78 kalem" gören satınalmacı defterde 96 satır
     // olduğunu ve hangilerinin birleştiğini dosyanın İÇİNDEN öğrenebilmeli.
     const wb = satinAlmaKitabi();
     const metin: string[] = [];
     wb.getWorksheet("Künye")!.eachRow((row) => row.eachCell((c) => metin.push(String(c.value ?? ""))));
     expect(metin.some((t) => t.includes("TEK SATIRDA BİRLEŞTİRİLDİ"))).toBe(true);
-    expect(metin.some((t) => t.includes("90 defter satırı 72 kaleme indi"))).toBe(true);
+    expect(metin.some((t) => t.includes("96 defter satırı 78 kaleme indi"))).toBe(true);
     expect(metin).toContain("Satın alma kalemi");
     expect(metin).toContain("Kaynak defter satırı");
 
     const liste = wb.getWorksheet("Satın Alınacaklar")!;
-    const toplamSatiri = liste.getRow(5 + 1 + 72);
+    const toplamSatiri = liste.getRow(5 + 1 + 78);
     expect(String(toplamSatiri.getCell(1).value)).toBe("TOPLAM");
     expect(String(toplamSatiri.getCell(2).value)).toBe(
-      "72 kalem · 90 defter satırı (11 kalem birleşti)"
+      "78 kalem · 96 defter satırı (11 kalem birleşti)"
     );
-    expect(toplamSatiri.getCell(4).value).toBe(595);
-    expect(toplamSatiri.getCell(8).value).toBe(90);
+    expect(toplamSatiri.getCell(4).value).toBe(611);
+    expect(toplamSatiri.getCell(8).value).toBe(96);
   });
 
   it("MALZEME ÇELİŞKİSİ Excel hücresinde de görünür", () => {
@@ -785,7 +810,8 @@ describe("çalışma kitapları", () => {
     const liste = satinAlmaKitabi().getWorksheet("Satın Alınacaklar")!;
     let bulundu = 0;
     liste.eachRow((row) => {
-      if (!String(row.getCell(2).value ?? "").startsWith("SOMUN M16 DIN934")) return;
+      // TAM EŞLEŞME: galvanizsiz "SOMUN M16 DIN934" ayrı bir satırdır.
+      if (String(row.getCell(2).value ?? "") !== "SOMUN M16 DIN934 (GALVANİZLİ)") return;
       bulundu += 1;
       expect(row.getCell(4).value).toBe(61);
       expect(row.getCell(8).value).toBe(4);

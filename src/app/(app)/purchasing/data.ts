@@ -228,6 +228,13 @@ export async function loadHavuz(
         .in("package_id", paketIdleri)
         // `isPurchaseRow`un SQL karşılığı — satın alma yapısı VEYA kodsuz satır.
         .or("kind.eq.satinalma,part_code.eq.")
+        // SIRALAMASIZ SAYFALAMA BİR HATADIR. `range()` ile sayfalanan bir sorgu
+        // `order by` taşımıyorsa Postgres satır sırasını GARANTİ ETMEZ: aynı
+        // satır iki sayfada birden gelebilir, bir başkası hiç gelmeyebilir.
+        // Bugün üç canlı pakette toplam ~222 satır var ve tek sayfaya sığıyor,
+        // yani hata GİZLİ — havuz elli pakete çıktığında sessizce kalem
+        // kaybetmeye başlardı. `id` benzersizdir, yani sıra TAM belirlidir.
+        .order("id")
         .range(bas, son)
     );
 
@@ -350,7 +357,9 @@ export async function loadTeklifler(
   const veri = await tumSatirlar<Record<string, unknown>>((bas, son) => {
     let q = supabase.from("purchase_quotes").select(TEKLIF_ALANLARI);
     if (keys && keys.length > 0) q = q.in("match_key", keys as string[]);
-    return q.order("quoted_at", { ascending: false }).range(bas, son);
+    // `id` bir EŞİTLİK BOZUCUDUR: aynı gün girilmiş iki teklifin sırası
+    // `quoted_at` ile belirlenmez ve sayfalanan sorguda bu satır kaybettirir.
+    return q.order("quoted_at", { ascending: false }).order("id").range(bas, son);
   });
   return veri.map(teklifEsle);
 }
@@ -412,7 +421,7 @@ export async function loadSiparisler(
   const basliklar = await tumSatirlar<Record<string, unknown>>((bas, son) => {
     let q = supabase.from("purchase_orders").select(SIPARIS_ALANLARI);
     if (!secenekler.iptalDahil) q = q.is("cancelled_at", null);
-    return q.order("ordered_at", { ascending: false }).range(bas, son);
+    return q.order("ordered_at", { ascending: false }).order("id").range(bas, son);
   });
   if (basliklar.length === 0) return [];
 
@@ -423,6 +432,7 @@ export async function loadSiparisler(
       .select(SIPARIS_SATIR_ALANLARI)
       .in("order_id", idler)
       .order("sample")
+      .order("id")
       .range(bas, son)
   );
 

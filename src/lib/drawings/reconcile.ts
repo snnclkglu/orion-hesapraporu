@@ -28,8 +28,19 @@ import type { FolderName } from "./folder-name";
  * ruhta. Paket bu damgayı saklar; sürüm ilerlediğinde liste ekranı "kural
  * sürümü eski" çipi basar ve tek tıkla yeniden eşleştirilir. Tanıyıcı listesi
  * büyüdükçe ESKİ PAKETLER DE İYİLEŞİR — hoşgörülü tasarımın asıl kazancı bu.
+ *
+ * SÜRÜM 2 (13.08.2026) — İKİ KURAL DÜZELDİ, İKİSİ DE SATIN ALMAYA AKIYOR:
+ *   · kodsuz satırların kazanan sayfası PAKET değil GRUP başına seçiliyor
+ *     (`bomBirlestir`); başka grupların satın alma listesi düşüyordu.
+ *   · "satın alınıyor" değer sözlüğü Türkçe yazımları da tanıyor
+ *     (`SATIN_ALMA_YAPISI`); sütun başlığı zaten iki dilliydi.
+ *
+ * Sürümü ilerletmek ZORUNLUDUR: depoda duran paketler eski kuralla
+ * eşleştirildi ve defterleri eksik. Yükseltme onlara "kural sürümü eski"
+ * çipini bastırır ve tek tıkla yeniden eşleştirilmelerini sağlar — yeniden
+ * yükleme GEREKMEZ, `reconcile` saf olduğu için baytlara dokunulmaz.
  */
-export const RECONCILER_VERSION = 1;
+export const RECONCILER_VERSION = 2;
 
 /**
  * Bir dosyanın OKUNMUŞ içeriği (`drawing_files.meta`).
@@ -177,6 +188,30 @@ function tamSayi(raw: string): number | null {
 }
 
 /**
+ * "Bu satır satın alınıyor" DEĞERLERİ — sütun başlığı gibi İKİ DİLLİ.
+ *
+ * `excel.ts`teki başlık sözlüğü `bomStructure` için zaten `BOM STRUCTURE ·
+ * YAPI · TÜR` kabul ediyor; değer karşılaştırması ise yalnız İngilizce
+ * `PURCHASED`ı tanıyordu. Bu asimetri sessiz ve pahalıydı: Türkçe arayüzle
+ * verilmiş bir listede sütun OKUNUYOR, değeri TANINMIYOR ve satır `imalat`a
+ * düşüyordu. Parça numarası dolu olduğu için `part_code = ''` kapısından da
+ * geçemiyor, yani kalem Satın Alma'da HİÇ görünmeyip Üretim tahtasına
+ * çıkıyordu — atölyenin kesmesi beklenen bir rulman.
+ *
+ * Liste UYDURMA DEĞİL ÇEVİRİDİR (md. 21'in "uydurma veri girme" kuralı):
+ * her giriş `Purchased` ile birebir aynı şeyi söyleyen Türkçe yazımdır.
+ * Anlamı genişleten bir değer (ör. SolidWorks'ün `Toolbox`u) BURAYA GERÇEK
+ * BİR TESLİM KLASÖRÜNDE GÖRÜLMEDEN girmez.
+ */
+const SATIN_ALMA_YAPISI = new Set([
+  "PURCHASED",
+  "SATIN ALMA",
+  "SATINALMA",
+  "SATIN ALINAN",
+  "SATIN ALINMIS",
+]);
+
+/**
  * BOM satırlarını birleştirir.
  *
  * Aynı parça birden çok sayfada geçebilir: MTC'de ÜRÜN AĞACI 246 satır,
@@ -187,11 +222,22 @@ function tamSayi(raw: string): number | null {
  *   · KODLU satırlar birleştirilir — aynı kod aynı parçadır, alanlar
  *     tamamlanır (ağırlık ÜRÜN AĞACI'ndan, kategori DEPO'dan gelebilir) ve
  *     adet TOPLANMAZ, en büyüğü alınır.
- *   · KODSUZ satırlar (civata, segman, rulman) YALNIZ TEK BİR SAYFADAN alınır.
- *     Tanım+malzemeye göre birleştirmek iki farklı montajdaki aynı cıvatayı
- *     tek satıra indirir; iki sayfadan toplamak ise aynı cıvatayı iki kez
- *     saydırırdı. En çok kodsuz satır taşıyan sayfa "satın alma kaynağı"
- *     seçilir — o zaten satınalmaya giden listedir.
+ *   · KODSUZ satırlar (civata, segman, rulman) HER GRUPTAN yalnız TEK BİR
+ *     SAYFADAN alınır. Tanım+malzemeye göre birleştirmek iki farklı montajdaki
+ *     aynı cıvatayı tek satıra indirir; AYNI GRUBUN iki sayfasından toplamak
+ *     ise aynı cıvatayı iki kez saydırırdı. Grup içinde en çok kodsuz satır
+ *     taşıyan sayfa "satın alma kaynağı" seçilir — o zaten satınalmaya giden
+ *     listedir.
+ *
+ * KAZANAN SAYFA GRUP BAŞINADIR, PAKET BAŞINA DEĞİL (ölçüldü, 13.08.2026).
+ * Kural bir süre bütün pakette TEK bir sayfa seçiyordu ve gerekçesi yalnız
+ * ÖRTÜŞMEYİ anlatıyordu — oysa örtüşme AYNI GRUBUN iki sayfası arasındadır.
+ * MTC'de ölçüm şunu verdi: düşen 76 kodsuz satırın 67'si kazananla aynı gruba
+ * ait (54'ü kazanan sayfada birebir duruyor — kural orada haklı), ama 9'u
+ * BAŞKA gruplarındı (`0043-00-0050` ve `0043-00-0850`) ve hiçbiri kazanan
+ * sayfada YOKTU: o iki grubun satın alma listesi bütünüyle kayboluyordu.
+ * Ressam grup grup Excel veriyorsa — ki firmanın numaralandırması tam olarak
+ * bunu teşvik ediyor — paketin satın alma listesi tek bir gruba iner.
  */
 function bomBirlestir(bom: BomRow[]): Map<string, BomRow[]> {
   const oncelik = (r: BomRow) => (r.sourceKind === "urun_agaci" ? 0 : 1);
@@ -199,18 +245,37 @@ function bomBirlestir(bom: BomRow[]): Map<string, BomRow[]> {
   const kodlu = bom.filter((r) => r.partNumber.trim());
   const kodsuz = bom.filter((r) => !r.partNumber.trim());
 
-  const sayfaSayaci = new Map<string, number>();
+  // Grup kimliği BOM dosyasının ADINDAN gelir (`1.0043-00-0850_DEPO_….xlsx`).
+  // Kod çözülemeyen dosya KENDİ BAŞINA bir gruptur: adı okunamayan iki Excel'i
+  // tek gruba toplamak, aralarında olmayan bir örtüşme varsayardı.
+  const grupKodu = (r: BomRow) =>
+    parseBomFileName(r.fileRelPath.split("/").pop() ?? "").code || r.fileRelPath;
+
+  const grupSayaclari = new Map<string, Map<string, { adet: number; oncelik: number }>>();
   for (const r of kodsuz) {
+    const g = grupKodu(r);
     const k = `${r.fileRelPath}#${r.sheetName}`;
-    sayfaSayaci.set(k, (sayfaSayaci.get(k) ?? 0) + 1);
+    const sayac = grupSayaclari.get(g) ?? new Map<string, { adet: number; oncelik: number }>();
+    const v = sayac.get(k) ?? { adet: 0, oncelik: oncelik(r) };
+    v.adet += 1;
+    sayac.set(k, v);
+    grupSayaclari.set(g, sayac);
   }
-  let satinalmaSayfasi = "";
-  let enCok = 0;
-  for (const [k, n] of sayfaSayaci) {
-    if (n > enCok) {
-      enCok = n;
-      satinalmaSayfasi = k;
+  const satinalmaSayfalari = new Set<string>();
+  for (const sayac of grupSayaclari.values()) {
+    let kazanan = "";
+    let enIyi = { adet: -1, oncelik: 9 };
+    // ÖNCE SATIR SAYISI, BERABERLİKTE ÜRÜN AĞACI. `0043-00-0850`in DEPO'su ile
+    // ÜRÜN AĞACI'nın ikisi de üçer kodsuz satır taşıyor; kazananı girdi
+    // sırasına bırakmak kararı rastlantıya bırakırdı. Ürün ağacı ressamın
+    // onayladığı listedir ve `oncelik` bunu zaten bir kez söylüyor.
+    for (const [k, v] of sayac) {
+      if (v.adet > enIyi.adet || (v.adet === enIyi.adet && v.oncelik < enIyi.oncelik)) {
+        enIyi = v;
+        kazanan = k;
+      }
     }
+    if (kazanan) satinalmaSayfalari.add(kazanan);
   }
 
   const gruplar = new Map<string, BomRow[]>();
@@ -227,7 +292,7 @@ function bomBirlestir(bom: BomRow[]): Map<string, BomRow[]> {
 
   let sira = 0;
   for (const r of kodsuz) {
-    if (`${r.fileRelPath}#${r.sheetName}` !== satinalmaSayfasi) continue;
+    if (!satinalmaSayfalari.has(`${r.fileRelPath}#${r.sheetName}`)) continue;
     sira += 1;
     ekle(`SATIR:${sira}`, r);
   }
@@ -478,7 +543,7 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     p.thicknessMm = kalinlikTanimdan(p.description);
 
     const yapi = trKatla(ilkDolu(satirlar, (r) => r.bomStructure));
-    if (yapi === "PURCHASED") p.kind = "satinalma";
+    if (SATIN_ALMA_YAPISI.has(yapi)) p.kind = "satinalma";
     else if (trKatla(p.category) === "KOMPLE") p.kind = "montaj";
     else if (yapi === "NORMAL") p.kind = "imalat";
 
