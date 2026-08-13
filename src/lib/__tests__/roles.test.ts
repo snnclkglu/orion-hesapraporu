@@ -196,6 +196,69 @@ describe("çizen rolleri", () => {
   });
 });
 
+// ═════════════════════════════════ YETKİ IZGARASI — ÜÇ DEĞERLİ HÜCRE (13.08)
+//
+// `/admin/access` üç tablodan tek bir rol × bölüm ızgarasına indi. Hücre
+// hesaplanır (`sectionAccess`) ve ÜÇ değerlidir: "görür" ile "görür ve
+// değiştirir" arasındaki fark bu uygulamanın en sık sorulan sorusudur ve tek
+// bir ✓ onu gizlerdi.
+
+describe("sectionAccess — ızgaranın hücresi", () => {
+  const { WORKSPACE_SECTIONS, sectionAccess } = rolesModule;
+  const bolum = (href: string) => WORKSPACE_SECTIONS.find((s) => s.href === href)!;
+
+  it("görünmeyen bölüm KAPALIdır", () => {
+    expect(sectionAccess(bolum("/sales"), "engineer")).toBe("kapali");
+    expect(sectionAccess(bolum("/personnel"), "draftsman")).toBe("kapali");
+    expect(sectionAccess(bolum("/admin"), "manager")).toBe("kapali");
+  });
+
+  it("GÖRÜR ile YAZAR ayrımı gerçekten çıkar", () => {
+    // Müdür teknik resmi ve hesap raporunu görür ama yazmaz; mühendis yazar.
+    expect(sectionAccess(bolum("/drawings"), "manager")).toBe("gorur");
+    expect(sectionAccess(bolum("/drawings"), "engineer")).toBe("yazar");
+    expect(sectionAccess(bolum("/projects"), "manager")).toBe("gorur");
+    expect(sectionAccess(bolum("/projects"), "engineer")).toBe("yazar");
+    // Teknik ressam resmi yazar ama raporu yazmaz.
+    expect(sectionAccess(bolum("/drawings"), "draftsman")).toBe("yazar");
+    expect(sectionAccess(bolum("/projects"), "draftsman")).toBe("gorur");
+  });
+
+  it("yazma sorusu OLMAYAN bölümde gören YAZAR", () => {
+    // `jobs` · `sales` · `worklog` politikaları yazmayı ayrıca sormaz; burada
+    // "bilinmiyor" diye üçüncü bir hâl uydurmak, ekranın veriden fazlasını
+    // iddia etmesi olurdu.
+    expect(bolum("/jobs").yazabilir).toBeUndefined();
+    expect(sectionAccess(bolum("/jobs"), "production")).toBe("yazar");
+    expect(sectionAccess(bolum("/sales"), "manager")).toBe("yazar");
+  });
+
+  it("Yönetici HER bölümde yazar", () => {
+    for (const s of WORKSPACE_SECTIONS) {
+      expect(sectionAccess(s, "admin"), s.href).toBe("yazar");
+    }
+  });
+
+  it("ızgara ile MENÜ aynı cevabı verir", () => {
+    // İki listenin ayrışması bir yetki ekranında olabilecek en kötü hatadır:
+    // "kapali" olmayan her hücre menüde de görünmelidir.
+    for (const r of USER_ROLES) {
+      const menude = new Set(rolesModule.visibleSections(r).map((s) => s.href));
+      for (const s of WORKSPACE_SECTIONS) {
+        expect(sectionAccess(s, r) !== "kapali", `${r} / ${s.href}`).toBe(menude.has(s.href));
+      }
+    }
+  });
+
+  it("yazma SORUSU olan bölümde `yazma` metni de vardır", () => {
+    // Metin ızgarada sütun ipucu olarak basılır; soru varken metnin olmaması
+    // kullanıcıya "neden bu hücre göz, öbürü kalem" sorusunu cevapsız bırakır.
+    for (const s of WORKSPACE_SECTIONS) {
+      if (s.yazabilir) expect(s.yazma?.trim(), s.href).toBeTruthy();
+    }
+  });
+});
+
 describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
   const { WORKSPACE_SECTIONS, visibleSections } = rolesModule;
 

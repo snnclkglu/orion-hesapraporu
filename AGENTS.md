@@ -1256,6 +1256,35 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Yönetici · Satın Alma · Planlama — müdür orada hâlâ yoktur. Veritabanı
     karşılığı `can_see_purchasing()`.
 
+    **YETKİ EKRANI ÜÇ TABLODAN TEK IZGARAYA İNDİ** (kullanıcı bildirimi,
+    13.08.2026: *"üst bölümdeki Roller kısmı ve Bölümler kısmı anlamsız
+    geliyor bana."*). Haklıydı: "Roller" ve "Bölümler" AYNI gerçeği iki kez,
+    üstelik düzyazıyla anlatıyordu — biri satır, öbürü sütun okumasıydı.
+    Izgaranın kendisini basmak ikisini birden yapar. **HÜCRE ÜÇ DEĞERLİDİR**
+    (`sectionAccess`): "görür" ile "görür ve değiştirir" farkı bu uygulamanın
+    en sık sorulan sorusudur (mühendis teknik resmi yazar, müdür yazmaz) ve
+    tek bir ✓ onu gizlerdi. Yazma sorusu OLMAYAN bölümde gören yazar — orada
+    "bilinmiyor" diye üçüncü bir hâl uydurmak, ekranın veriden fazlasını iddia
+    etmesi olurdu. Kişi matrisi KALDI: ızgara KURALI, o tablo GERÇEĞİ söyler.
+
+    **YETKİLER EKRANDAN DEĞİŞTİRİLMEZ — bilerek** (kullanıcı kararı,
+    13.08.2026). Kullanıcı rol yetkilerini açıp kapatmayı sordu; riskler
+    ölçülüp vazgeçildi. Karar üç bulguya dayanıyor ve tekrar sorulursa cevap
+    burada:
+      · **Yeni bir saldırı yolu açmazdı.** Ele geçirilmiş bir yönetici hesabı
+        BUGÜN de Kullanıcılar sayfasından herkesi Yönetici yapabiliyor; editör
+        tavanı değil yalnız inceliği değiştirirdi.
+      · **Yeni bir KAZA yolu açardı.** Yanlış bir tık Personel'i (TC kimlik no,
+        IBAN, sağlık raporu) atölyeye açardı — saldırı değil ama sonuç aynı.
+      · **Asıl risk uygulamadaydı.** 128 RLS politikası dokuz yetki
+        fonksiyonuna bağlı; biri yanlış yazılırsa veri SESSİZCE sızar ve ekran
+        doğru görünmeye devam eder.
+    Yapılacaksa ŞARTI şudur: değişiklikten sonra her rolün kimliğiyle
+    veritabanına gerçekten sorgu atıp kapıyı ölçen bir sınama takımı. Onsuz
+    "ekranda kapalı ama gerçekte açık" durumu görünmez kalır. Düğmelerin yalnız
+    menüyü etkilediği sığ sürüm ise ASLA yapılmaz: o ekran iki yönde birden
+    yalan söyler.
+
     **YETKİ EKRANINDA KOD ADI GEÇMEZ** (kullanıcı bildirimi, 12.08.2026:
     *"yetkiler sayfası biraz karmaşık, İngilizce terimler var"*).
     `WorkspaceSection.kime`/`yazma` doğrudan ekrana basılır; oraya
@@ -2083,7 +2112,11 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/purchasing/` — Satın Alma (Yönetici · Satın Alma · Planlama
   ROLLERİ): `data.ts` beş ekranın ORTAK okuma katmanı · `page.tsx` talep havuzu ·
   `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `export/` Excel ucu
-- `src/app/(app)/admin/access/` — YETKİ MATRİSİ; hesaplanır, elle yazılmaz
+- `src/app/(app)/admin/access/` — YETKİ IZGARASI (rol × bölüm, üç değerli
+  hücre) + kişi matrisi; hesaplanır, elle yazılmaz ve EKRANDAN
+  DEĞİŞTİRİLMEZ (md. 15'teki gerekçe). `access-grid.tsx` görünüm,
+  `page.tsx` yalnız kişileri okur — `/dev/access-preview` aynı görünümü
+  auth'suz basar
 - `src/app/(app)/jobs/[id]/drawing-qty-card.tsx` — resim çarpanı ve kalem
   eşleştirme kartı (iş emri formunda DEĞİL: orada satır kimlikleri her
   kaydetmede değişir ve eşleştirme bağı kopardı)

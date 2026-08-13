@@ -270,10 +270,36 @@ export interface WorkspaceSection {
   hint: string;
   /** Görünürlük SORUSU. Verilmeyen bölüm herkese açıktır. */
   visible?: (role: string) => boolean;
-  /** Sorunun insan okunur özeti — matrisin "Kimler görebilir" sütunu. */
+  /**
+   * YAZMA SORUSU. Verilmeyen bölümde görebilen herkes yazabilir.
+   *
+   * Bir SORU olması `visible` ile aynı gerekçedendir: yetki ekranı bunu bir
+   * metinden okuyamaz, HESAPLAMALIDIR. `yazma` alanı yalnız insan okunur
+   * özettir ve ızgarada ipucu olarak durur; kararı bu fonksiyon verir.
+   */
+  yazabilir?: (role: string) => boolean;
+  /** Sorunun insan okunur özeti — sütun başlığının ipucunda görünür. */
   kime: string;
   /** Yazma yetkisinin özeti; görmekle yazmak ayrıştığında dolar. */
   yazma?: string;
+}
+
+/**
+ * Bir rolün bir bölümdeki ERİŞİM DÜZEYİ — yetki ızgarasının tek hücresi.
+ *
+ * Üç değer, ikisi değil: "görür" ile "görür ve değiştirir" arasındaki fark bu
+ * uygulamanın en sık sorulan sorusudur (mühendis teknik resmi yazar, müdür
+ * yazmaz) ve tek bir ✓ onu gizlerdi.
+ */
+export type SectionAccess = "kapali" | "gorur" | "yazar";
+
+export function sectionAccess(section: WorkspaceSection, role: string): SectionAccess {
+  if (section.visible && !section.visible(role)) return "kapali";
+  // Yazma sorusu OLMAYAN bölümde görebilen yazabilir — bugünkü davranışın
+  // kendisi budur (`jobs`, `sales`, `worklog` politikaları yazmayı ayrıca
+  // sormaz). Burada "bilinmiyor" diye bir üçüncü hâl uydurmak, ekranın
+  // veriden fazlasını iddia etmesi olurdu.
+  return !section.yazabilir || section.yazabilir(role) ? "yazar" : "gorur";
 }
 
 export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
@@ -300,6 +326,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "panel",
     hint: "Hesap raporu projeleri ve revizyon arşivi",
     kime: "Herkes",
+    yazabilir: canEditReports,
     yazma: "Yönetici · Mühendis",
   },
   // Teknik Resimler'de `visible` YOKTUR ve bu bilinçlidir: teknik resim
@@ -311,6 +338,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "blueprint",
     hint: "Teknik resim paketleri, parça defteri ve üretim tahtası",
     kime: "Herkes",
+    yazabilir: canEditDrawings,
     yazma: "Yönetici · Mühendis · Teknik Ressam",
   },
   {
@@ -319,6 +347,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "cart",
     hint: "Talep havuzu, teklifler, siparişler, teslim ve ödeme takvimi",
     visible: canSeePurchasing,
+    yazabilir: canEditPurchasing,
     kime: "Yönetici · Satın Alma · Planlama",
     yazma: "Görebilenlerin tamamı",
   },
@@ -344,6 +373,7 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "wallet",
     hint: "Personel künyesi ve özlük dosyaları, maaş, bordro, harcirah ve kurlar",
     visible: canSeePersonnel,
+    yazabilir: canEditPersonnel,
     kime: "Yönetici · Müdür",
     yazma: "Görebilenlerin tamamı",
   },
