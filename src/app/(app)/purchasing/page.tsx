@@ -14,7 +14,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing } from "@/lib/roles";
 import { satinAlmaKategoriSirasi } from "@/lib/drawings/derive";
-import { loadHavuz, loadSiparisler, loadTedarikciler, loadTeklifler } from "./data";
+import { loadHavuz, loadSiparisler, loadSonKur, loadTedarikciler, loadTeklifler } from "./data";
 import { DemandTable } from "./demand-table";
 
 export default async function PurchasingPage() {
@@ -41,10 +41,11 @@ export default async function PurchasingPage() {
   const veri = await loadHavuz(supabase);
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);
 
-  const [teklifler, siparisler, tedarikciler] = await Promise.all([
+  const [teklifler, siparisler, tedarikciler, sonKur] = await Promise.all([
     anahtarlar.length > 0 ? loadTeklifler(supabase, anahtarlar) : Promise.resolve([]),
     loadSiparisler(supabase),
     loadTedarikciler(supabase),
+    loadSonKur(supabase),
   ]);
 
   // Sipariş edilmiş adetler kalem başına toplanır: havuz "ne lazım" der,
@@ -63,6 +64,7 @@ export default async function PurchasingPage() {
       teklifler={teklifler}
       siparisAdetleri={[...siparisAdetleri.entries()]}
       tedarikciler={tedarikciler}
+      sonKur={sonKur}
       kategoriler={satinAlmaKategoriSirasi()}
       // İŞ SÜZGECİ KALEM NUMARASIYLA eşleşir, iş kimliğiyle değil: havuz
       // satırları `item_no` METNİ taşır (md. 17/18'in kuralı — bağ türevdir).

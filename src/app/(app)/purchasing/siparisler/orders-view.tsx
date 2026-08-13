@@ -18,12 +18,13 @@
 // etkileşim var; `components/charts.tsx` kullanılır ve renk veriden yalnız TON
 // AÇISI olarak gelir.
 
-import { useMemo, useState, useTransition } from "react";
+import { forwardRef, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OdemeTarihi } from "@/components/odeme-tarihi";
 import {
   Table,
   TableBody,
@@ -559,37 +560,57 @@ function HalCipleri({
         )
       )}
 
+      {/* ÖDEME GÜNÜ SORULUR (kullanıcı kararı, 13.08.2026). İşaretli çipe
+          dokunmak da aynı pencereyi açar: yanlış girilmiş bir günü düzeltmenin
+          yolu "kaldır + yeniden işaretle" olmamalı — o iki adım, ve arada
+          kaydın ödeme takviminden düşmesi demek. */}
       {avans > 0 &&
-        (s.advancePaidAt ? (
-          <Cip
-            renk="yesil"
-            etiket={`Avans ödendi · ${tarihGoster(s.advancePaidAt)}`}
-            onClick={canWrite ? () => onYaz(s.id, { advancePaidAt: "" }, "Avans işareti kaldırıldı.") : undefined}
-          />
-        ) : (
-          canWrite && (
+        (canWrite ? (
+          <OdemeTarihi
+            baslik="Avans ödendi"
+            varsayilan={s.advancePaidAt ?? undefined}
+            onSec={(t) => onYaz(s.id, { advancePaidAt: t }, "Avans ödendi.")}
+            onKaldir={
+              s.advancePaidAt
+                ? () => onYaz(s.id, { advancePaidAt: "" }, "Avans işareti kaldırıldı.")
+                : undefined
+            }
+          >
             <Cip
-              renk="bos"
-              etiket="Avans ödendi"
-              onClick={() => onYaz(s.id, { advancePaidAt: bugun }, "Avans ödendi.")}
+              renk={s.advancePaidAt ? "yesil" : "bos"}
+              etiket={
+                s.advancePaidAt ? `Avans ödendi · ${tarihGoster(s.advancePaidAt)}` : "Avans ödendi"
+              }
+              tetikleyici
+              baslik="Ödeme gününü seç"
             />
+          </OdemeTarihi>
+        ) : (
+          s.advancePaidAt && (
+            <Cip renk="yesil" etiket={`Avans ödendi · ${tarihGoster(s.advancePaidAt)}`} />
           )
         ))}
 
-      {s.balancePaidAt ? (
-        <Cip
-          renk="yesil"
-          etiket={`Ödendi · ${tarihGoster(s.balancePaidAt)}`}
-          onClick={canWrite ? () => onYaz(s.id, { balancePaidAt: "" }, "Ödeme işareti kaldırıldı.") : undefined}
-        />
-      ) : (
-        canWrite && (
+      {canWrite ? (
+        <OdemeTarihi
+          baslik="Bakiye ödendi"
+          varsayilan={s.balancePaidAt ?? undefined}
+          onSec={(t) => onYaz(s.id, { balancePaidAt: t }, "Ödeme kaydedildi.")}
+          onKaldir={
+            s.balancePaidAt
+              ? () => onYaz(s.id, { balancePaidAt: "" }, "Ödeme işareti kaldırıldı.")
+              : undefined
+          }
+        >
           <Cip
-            renk="bos"
-            etiket="Bakiye ödendi"
-            onClick={() => onYaz(s.id, { balancePaidAt: bugun }, "Ödeme kaydedildi.")}
+            renk={s.balancePaidAt ? "yesil" : "bos"}
+            etiket={s.balancePaidAt ? `Ödendi · ${tarihGoster(s.balancePaidAt)}` : "Bakiye ödendi"}
+            tetikleyici
+            baslik="Ödeme gününü seç"
           />
-        )
+        </OdemeTarihi>
+      ) : (
+        s.balancePaidAt && <Cip renk="yesil" etiket={`Ödendi · ${tarihGoster(s.balancePaidAt)}`} />
       )}
 
       {canWrite && !s.receivedAt && (
@@ -608,33 +629,46 @@ function HalCipleri({
   );
 }
 
-function Cip({
-  renk,
-  etiket,
-  onClick,
-  baslik,
-}: {
-  renk: "yesil" | "bos";
-  etiket: string;
-  onClick?: () => void;
-  baslik?: string;
-}) {
+/**
+ * REF İLETİR — `PopoverTrigger asChild` bunu şart koşar.
+ *
+ * Radix tetikleyiciyi çocuğun KENDİSİ yapar (fazladan bir sarmalayıcı düğüm
+ * eklemez) ve bunun için ref'e ihtiyacı vardır; düz bir fonksiyon bileşeni
+ * verilseydi popover konumlanamaz ve konsola uyarı basardı.
+ *
+ * `onClick` VERİLMEDİĞİNDE ÇİP PASİFTİR ama popover tetikleyicisi olarak
+ * kullanıldığında tıklamayı Radix'in kendisi bağlar; o yüzden `tetikleyici`
+ * ayrı bir bayraktır — no-op bir `onClick` geçmek "bu düğme bir şey yapıyor"
+ * yalanını koda yazmak olurdu.
+ */
+const Cip = forwardRef<
+  HTMLButtonElement,
+  {
+    renk: "yesil" | "bos";
+    etiket: string;
+    onClick?: () => void;
+    baslik?: string;
+    tetikleyici?: boolean;
+  } & React.ComponentPropsWithoutRef<"button">
+>(function Cip({ renk, etiket, onClick, baslik, tetikleyici, ...rest }, ref) {
   const sinif =
     renk === "yesil"
       ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
       : "border-dashed border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground";
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
-      disabled={!onClick}
+      disabled={!onClick && !tetikleyici}
       title={baslik}
       className={`inline-flex min-h-7 items-center border px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-9 disabled:cursor-default ${sinif}`}
+      {...rest}
     >
       {etiket}
     </button>
   );
-}
+});
 
 function Ozet({ baslik, deger }: { baslik: string; deger: string }) {
   return (

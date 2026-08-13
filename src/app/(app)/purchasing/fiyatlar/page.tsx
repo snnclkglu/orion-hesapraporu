@@ -18,17 +18,24 @@
 // ekran havuzu DEĞİL doğrudan teklif ve sipariş defterlerini okur.
 
 import { createClient } from "@/lib/supabase/server";
-import { loadSiparisler, loadTeklifler } from "../data";
+import { loadGecmisFiyatlar, loadSiparisler, loadTeklifler } from "../data";
+import { isAdminRole } from "@/lib/roles";
 import { PriceArchive, type FiyatKalemi, type FiyatOlayi } from "./price-archive";
 import { eurKarsiligi } from "@/lib/purchasing/terms";
 
 export default async function PricesPage() {
   const supabase = await createClient();
 
-  const [teklifler, siparisler] = await Promise.all([
+  const [teklifler, siparisler, gecmis, { data: kullanici }] = await Promise.all([
     loadTeklifler(supabase),
     loadSiparisler(supabase, { iptalDahil: true }),
+    loadGecmisFiyatlar(supabase),
+    supabase.auth.getUser(),
   ]);
+
+  const { data: profil } = kullanici.user
+    ? await supabase.from("profiles").select("role").eq("id", kullanici.user.id).maybeSingle()
+    : { data: null };
 
   const kalemler = new Map<string, FiyatKalemi>();
 
@@ -80,12 +87,34 @@ export default async function PricesPage() {
     }
   }
 
+  // ————————————————————————————————— DEVRALINAN KATMAN (üçüncü kaynak)
+  //
+  // 4722 satırlık geçmiş alım verisi (`purchase_price_history`, md. 21).
+  // `purchase_orders`a yazılmadığı için Siparişler ekranını ve ödeme takvimini
+  // kirletmez; arşiv onu YALNIZ BURADA, ayrı bir tür olarak gösterir.
+  for (const g of gecmis) {
+    kalem(g.matchKey, g.sample).olaylar.push({
+      id: `g-${g.id}`,
+      tur: "gecmis",
+      supplier: g.supplier,
+      gun: g.pricedAt,
+      birim: g.unitPrice,
+      currency: g.currency,
+      birimEur: g.unitPriceEur,
+      adet: g.qty,
+      secildi: false,
+      iptal: false,
+      itemNo: g.itemNo,
+      kategori: g.category,
+    });
+  }
+
   // Olaylar TARİHE göre yeniden eskiye: son fiyat en üstte, referans odur.
   const liste = [...kalemler.values()];
   for (const k of liste) k.olaylar.sort((a, b) => b.gun.localeCompare(a.gun));
   liste.sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
 
-  return <PriceArchive kalemler={liste} />;
+  return <PriceArchive kalemler={liste} isAdmin={isAdminRole(profil?.role)} />;
 }
 
 export type { FiyatKalemi, FiyatOlayi };

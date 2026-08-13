@@ -31,6 +31,7 @@ import {
   type TalepHavuzu,
 } from "@/lib/purchasing/demand";
 import type { PartKind } from "@/lib/drawings/types";
+import type { GunlukKur } from "@/lib/purchasing/kur";
 
 // ————————————————————————————————————————————————————————————— paketler
 
@@ -536,14 +537,123 @@ export async function loadSiparisler(
  * firma üç yazımla girilir ve fiyat karşılaştırması bölünürdü.
  */
 export async function loadTedarikciler(supabase: SupabaseClient): Promise<string[]> {
+  // ————————————————————————————— 1. DEFTER (birincil kaynak)
+  //
+  // `purchase_suppliers` 13.08.2026'da açıldı (migration 20260813000001) ve
+  // devralınan 285 firma oraya yazıldı. Defter öneri listesinin ASIL kaynağıdır:
+  // öncesinde liste yalnız DAHA ÖNCE TEKLİF GİRİLMİŞ firmaları biliyordu, yani
+  // ilk kez çalışılan her firma her seferinde elle yazılıyordu.
+  //
+  // PASİF FİRMA ÖNERİLMEZ. Devralınan listede banka, otel ve kargo da var;
+  // kullanıcı onları pasife çeker ve öneri listesinden düşerler — kayıt durur.
+  const defter = await supabase
+    .from("purchase_suppliers")
+    .select("name")
+    .eq("active", true);
+
+  const adlar = new Set<string>();
+  if (!defter.error) {
+    for (const r of (defter.data ?? []) as { name: string }[]) if (r.name) adlar.add(r.name);
+  }
+
+  // ————————————————————————————— 2. DEFTERLERDEN GELENLER (yedek + tamamlayıcı)
+  //
+  // Tablo henüz uygulanmamış olabilir (`defter.error`) ya da geçmişte elle
+  // yazılmış bir ad deftere hiç girmemiş olabilir. İki kaynağın BİRLEŞİMİ
+  // alınır: bir adın öneri listesinden düşmesi, o adla girilmiş kaydı
+  // görünmez yapmaz ama kullanıcıyı aynı firmayı yeniden yazmaya iter.
   const [teklif, siparis] = await Promise.all([
     supabase.from("purchase_quotes").select("supplier"),
     supabase.from("purchase_orders").select("supplier"),
   ]);
-  const adlar = new Set<string>();
   for (const r of (teklif.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   for (const r of (siparis.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   return [...adlar].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+/** Fiyat arşivinin devralınan katmanı — `purchase_price_history`. */
+export interface GecmisFiyat {
+  id: string;
+  matchKey: string;
+  sample: string;
+  supplier: string;
+  itemNo: string;
+  category: string;
+  qty: number | null;
+  unit: string;
+  unitPrice: number;
+  currency: string;
+  unitPriceEur: number | null;
+  pricedAt: string;
+}
+
+/**
+ * Devralınan fiyat geçmişi.
+ *
+ * TABLO YOKSA BOŞ DÖNER: migration uygulanmamış bir ortamda fiyat arşivi
+ * ekranının tamamen kaybolması, devralınan verinin yokluğundan çok daha
+ * pahalıdır (md. 21'in "sütun olmayabilir" kuralının tablo hâli).
+ */
+export async function loadGecmisFiyatlar(supabase: SupabaseClient): Promise<GecmisFiyat[]> {
+  try {
+    const veri = await tumSatirlar<Record<string, unknown>>((bas, son) =>
+      supabase
+        .from("purchase_price_history")
+        .select(
+          "id, match_key, sample, supplier, item_no, category, qty, unit, " +
+            "unit_price, currency, unit_price_eur, priced_at"
+        )
+        .order("priced_at", { ascending: false })
+        .order("id")
+        .range(bas, son)
+    );
+    return veri.map((r) => ({
+      id: String(r.id),
+      matchKey: String(r.match_key ?? ""),
+      sample: String(r.sample ?? ""),
+      supplier: String(r.supplier ?? ""),
+      itemNo: String(r.item_no ?? ""),
+      category: String(r.category ?? ""),
+      qty: r.qty == null ? null : Number(r.qty),
+      unit: String(r.unit ?? "Adet"),
+      unitPrice: Number(r.unit_price ?? 0),
+      currency: String(r.currency ?? "TRY"),
+      unitPriceEur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
+      pricedAt: String(r.priced_at ?? "").slice(0, 10),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * EN SON YAYIMLANMIŞ GÜNLÜK KUR — teklif/sipariş pencerelerinin referansı.
+ *
+ * "En yakın tarih" kullanıcının sözü (13.08.2026) ve tam olarak doğru olan da
+ * budur: TCMB hafta sonu ve resmî tatilde yayın yapmaz, yani "bugünün kuru"
+ * diye bir şey her gün yoktur. `order by rate_date desc limit 1` en son GERÇEK
+ * yayını verir ve ekran gününü yazar — kullanıcı kaç günlük bir kura baktığını
+ * görür.
+ *
+ * SESSİZCE BAŞARISIZ OLUR: kur tablosu hiç doldurulmamışsa (`null`) pencere
+ * kutuyu boş bırakır ve kullanıcı elle yazar. Bir referansın yokluğu yüzünden
+ * teklif girişini engellemek, referansın kendisinden çok daha pahalıdır.
+ */
+export async function loadSonKur(supabase: SupabaseClient): Promise<GunlukKur | null> {
+  const { data, error } = await supabase
+    .from("fx_rate_daily")
+    .select("rate_date, usd_try, eur_try")
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const r = data as { rate_date: string; usd_try: number | null; eur_try: number | null };
+  if (r.eur_try == null) return null;
+  return {
+    rateDate: String(r.rate_date).slice(0, 10),
+    usdTry: Number(r.usd_try ?? 0),
+    eurTry: Number(r.eur_try),
+  };
 }
 
 /** Bir tanımın normalleştirilmiş anahtarı — action ve ekran aynı yolu kullanır. */

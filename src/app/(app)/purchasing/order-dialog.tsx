@@ -51,6 +51,8 @@ import {
   tarihGoster,
 } from "@/lib/purchasing/terms";
 import { formatNum } from "@/lib/drawings/labels";
+import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
+import { YeniFirma } from "@/components/yeni-firma";
 import { createOrder } from "./actions";
 import type { OrderLineInput } from "./schema";
 
@@ -81,11 +83,14 @@ const OZEL = "ozel";
 export function OrderDialog({
   kalemler,
   tedarikciler,
+  sonKur,
   onClose,
   onSaved,
 }: {
   kalemler: SiparisKalemi[];
   tedarikciler: string[];
+  /** En son yayımlanmış günlük kur — kur kutusunun önerisi buradan gelir. */
+  sonKur?: GunlukKur | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -104,7 +109,16 @@ export function OrderDialog({
   const [paraBirimi, setParaBirimi] = useState(
     currencyOf(kalemler.find((k) => k.paraBirimi)?.paraBirimi ?? "EUR")
   );
-  const [kur, setKur] = useState("");
+  // KUR AÇILIŞTA DOLU GELİR (kullanıcı kararı, 13.08.2026). Seçili para birimi
+  // teklif satırından geliyor; kutuyu boş bırakmak, referansı elinde olan bir
+  // uygulamada kullanıcıyı TCMB sayfasına göndermekti.
+  const [kur, setKur] = useState(() => {
+    const o = kurOnerisi(
+      currencyOf(kalemler.find((k) => k.paraBirimi)?.paraBirimi ?? "EUR"),
+      sonKur
+    );
+    return o ? kurMetni(o.kur) : "";
+  });
   const [not, setNot] = useState("");
 
   const [satirlar, setSatirlar] = useState<Satir[]>(() =>
@@ -128,6 +142,8 @@ export function OrderDialog({
   const vadeBicimi = vade === OZEL ? "vadeli" : (secenek?.method ?? "pesin");
 
   const kurLazim = kurGerekli(paraBirimi);
+  /** Kur kutusunun altındaki kaynak satırı — öneri bir kilit değil bir ipucu. */
+  const kurOneri = kurLazim ? kurOnerisi(paraBirimi, sonKur) : null;
   const kurSayi = parseNum(kur);
 
   const toplam = useMemo(
@@ -259,13 +275,16 @@ export function OrderDialog({
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid min-w-[12rem] flex-1 gap-1">
               <span className="text-[11px] text-muted-foreground">Tedarikçi</span>
-              <Input
-                value={firma}
-                onChange={(e) => setFirma(e.target.value)}
-                list="siparis-tedarikci"
-                maxLength={120}
-                className="h-9 text-base pointer-fine:text-sm"
-              />
+              <span className="flex items-center gap-1">
+                <Input
+                  value={firma}
+                  onChange={(e) => setFirma(e.target.value)}
+                  list="siparis-tedarikci"
+                  maxLength={120}
+                  className="h-9 flex-1 text-base pointer-fine:text-sm"
+                />
+                <YeniFirma ad={firma} tedarikciler={tedarikciler} />
+              </span>
             </label>
             <label className="grid w-36 gap-1">
               <span className="text-[11px] text-muted-foreground">Sipariş no</span>
@@ -354,7 +373,18 @@ export function OrderDialog({
             </label>
             <label className="grid w-28 gap-1">
               <span className="text-[11px] text-muted-foreground">Para birimi</span>
-              <Select value={paraBirimi} onValueChange={(v) => setParaBirimi(currencyOf(v))}>
+              <Select
+                value={paraBirimi}
+                onValueChange={(v) => {
+                  // PARA BİRİMİ VE KUR BİRLİKTE DEĞİŞİR: dolardan liraya
+                  // geçilip kur alanı 1,08'de kalsaydı sipariş otuz kat ucuz
+                  // kaydedilirdi (quote-dialog'daki kuralın aynısı).
+                  const yeni = currencyOf(v);
+                  setParaBirimi(yeni);
+                  const o = kurOnerisi(yeni, sonKur);
+                  setKur(o ? kurMetni(o.kur) : "");
+                }}
+              >
                 <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -368,7 +398,7 @@ export function OrderDialog({
               </Select>
             </label>
             {kurLazim && (
-              <label className="grid w-28 gap-1">
+              <label className="grid w-32 gap-1">
                 <span className="text-[11px] text-muted-foreground">1 € = ?</span>
                 <Input
                   value={kur}
@@ -377,6 +407,17 @@ export function OrderDialog({
                   placeholder="35,50"
                   className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                 />
+                {kurOneri && (
+                  <button
+                    type="button"
+                    onClick={() => setKur(kurMetni(kurOneri.kur))}
+                    title={`TCMB ${tarihGoster(kurOneri.gun)} — dokunmak kutuyu bu kurla doldurur`}
+                    className="text-left text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    {tarihGoster(kurOneri.gun)} · {kurMetni(kurOneri.kur)}
+                    {kurOneri.yas > 3 ? ` (${formatNum(kurOneri.yas)} gün önce)` : ""}
+                  </button>
+                )}
               </label>
             )}
           </div>

@@ -82,6 +82,7 @@ import type { TalepHavuzu, TalepSatiri } from "@/lib/purchasing/demand";
 import { FilterBar, SearchBox, SortableHead } from "../drawings/sortable-head";
 import { CokluSuzgec } from "./filters";
 import type { TeklifSatiri } from "./data";
+import type { GunlukKur } from "@/lib/purchasing/kur";
 import { QuoteDialog } from "./quote-dialog";
 import { OrderDialog, type SiparisKalemi } from "./order-dialog";
 import { saveItemMeta } from "./actions";
@@ -106,6 +107,23 @@ const DURUM_ETIKET: Record<Durum, string> = {
   tamam: "Sipariş edildi",
 };
 
+/**
+ * SÜTUN ZEMİNİ DURUM ÇİPİNİN RENGİNİ TEKRAR EDER (kullanıcı kararı,
+ * 13.08.2026: "Teklif alınan sütun arka plan rengi değişsin, sipariş verilen
+ * sütunun arka plan rengi değişsin").
+ *
+ * Renk UYDURULMAZ, `DurumCipi`den alınır: teklif SKY, sipariş EMERALD.
+ * Uydurulmuş üçüncü bir renk, aynı kavramı iki ayrı dille anlatırdı — bir
+ * tabloda "yeşil ne demekti" sorusu sorulmaya başlandığı an renk bilgi
+ * taşımayı bırakır. Ton çok siliktir (%6): sütunu AYIRIR, satırı boyamaz;
+ * seçili satırın kendi zemini (`bg-primary/[0.05]`) üstte kalmalıdır.
+ *
+ * Başlık ve hücre AYNI sabiti okur; ikisi ayrı yazılsaydı bir sütun eklendiğinde
+ * biri kayar ve zemin yanlış sütunu boyardı.
+ */
+const SIPARIS_SUTUNU = "bg-emerald-600/[0.06]";
+const TEKLIF_SUTUNU = "bg-sky-600/[0.06]";
+
 interface Filtreler {
   query: string;
   siniflar: string[];
@@ -114,6 +132,18 @@ interface Filtreler {
 }
 
 const BOS: Filtreler = { query: "", siniflar: [], durumlar: [], isler: [] };
+
+/**
+ * AÇILIŞ SÜZGECİ — "bugün ne sipariş etmeliyim?" sorusunun ta kendisi
+ * (kullanıcı kararı, 13.08.2026: *"Durum ilk açıldığında Bekliyor ve Teklif
+ * Alındı olanlar gelsin."*).
+ *
+ * Sipariş edilmiş kalemler ekranın varsayılan görüntüsünde YER KAPLIYORDU;
+ * satınalmacının işi bitmiş satırlar arasında bitmemişleri aramak değil.
+ * `BOS` ile AYRI durur: "Temizle" gerçekten HEPSİNİ gösterir — açılış bir
+ * öneridir, bir hapis değil.
+ */
+const ACILIS: Filtreler = { ...BOS, durumlar: ["bekliyor", "teklifli"] };
 
 /** Satır + türetilmiş sipariş/teklif bilgisi. */
 export interface Gorunum {
@@ -160,6 +190,7 @@ export function DemandTable({
   teklifler,
   siparisAdetleri,
   tedarikciler,
+  sonKur,
   kategoriler,
   isler,
   canWrite,
@@ -169,6 +200,8 @@ export function DemandTable({
   /** [matchKey, sipariş edilen adet] — sunucuda toplanır, burada bölünmez. */
   siparisAdetleri: [string, number][];
   tedarikciler: string[];
+  /** En son yayımlanmış günlük kur; teklif ve sipariş pencerelerine iner. */
+  sonKur?: GunlukKur | null;
   kategoriler: string[];
   isler: { id: string; itemNos: string[]; label: string }[];
   canWrite: boolean;
@@ -176,7 +209,7 @@ export function DemandTable({
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
 
-  const [f, setF] = useState<Filtreler>(BOS);
+  const [f, setF] = useState<Filtreler>(ACILIS);
   const [sortKey, setSortKey] = useState<SortKey>("kategori");
   const [desc, setDesc] = useState(false);
   const [secili, setSecili] = useState<Set<string>>(new Set());
@@ -461,7 +494,7 @@ export function DemandTable({
                 >
                   Miktar
                 </SortableHead>
-                <TableHead className="text-right">Sipariş</TableHead>
+                <TableHead className={`text-right ${SIPARIS_SUTUNU}`}>Sipariş</TableHead>
                 <SortableHead
                   sortKey="kalan"
                   current={sortKey}
@@ -481,7 +514,13 @@ export function DemandTable({
                 >
                   Ağırlık
                 </SortableHead>
-                <SortableHead sortKey="teklif" current={sortKey} desc={desc} onSort={sirala}>
+                <SortableHead
+                  sortKey="teklif"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className={TEKLIF_SUTUNU}
+                >
                   Teklif
                 </SortableHead>
                 <TableHead className="hidden lg:table-cell">Not</TableHead>
@@ -587,6 +626,7 @@ export function DemandTable({
           tanim={teklifPenceresi.satir.tanim}
           teklifler={teklifPenceresi.teklifler}
           tedarikciler={tedarikciler}
+          sonKur={sonKur}
           canWrite={canWrite}
           onClose={() => setTeklifPenceresi(null)}
           onChanged={() => router.refresh()}
@@ -597,6 +637,7 @@ export function DemandTable({
         <OrderDialog
           kalemler={siparisKalemleri}
           tedarikciler={tedarikciler}
+          sonKur={sonKur}
           onClose={() => setSiparisKalemleri(null)}
           onSaved={() => {
             setSiparisKalemleri(null);
@@ -743,7 +784,9 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className="align-top text-right font-mono text-sm tabular-nums text-muted-foreground">
+        <TableCell
+          className={`align-top text-right font-mono text-sm tabular-nums text-muted-foreground ${SIPARIS_SUTUNU}`}
+        >
           {g.siparisEdilen > 0 ? formatNum(g.siparisEdilen) : "—"}
         </TableCell>
 
@@ -759,7 +802,7 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className="align-top">
+        <TableCell className={`align-top ${TEKLIF_SUTUNU}`}>
           <button
             type="button"
             onClick={onTeklif}

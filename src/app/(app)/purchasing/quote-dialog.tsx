@@ -43,6 +43,9 @@ import {
 } from "@/components/ui/select";
 import { CURRENCIES, CURRENCY_LABELS, currencyOf, fmtMoney, parseNum } from "@/lib/currency";
 import { bugunISO, kurGerekli, tarihGoster } from "@/lib/purchasing/terms";
+import { formatNum } from "@/lib/drawings/labels";
+import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
+import { YeniFirma } from "@/components/yeni-firma";
 import type { TeklifSatiri } from "./data";
 import { chooseQuote, deleteQuote, saveQuote } from "./actions";
 
@@ -81,6 +84,7 @@ export function QuoteDialog({
   tanim,
   teklifler,
   tedarikciler,
+  sonKur,
   canWrite,
   onClose,
   onChanged,
@@ -89,6 +93,8 @@ export function QuoteDialog({
   tanim: string;
   teklifler: TeklifSatiri[];
   tedarikciler: string[];
+  /** En son yayımlanmış günlük kur — kur kutusunun önerisi buradan gelir. */
+  sonKur?: GunlukKur | null;
   canWrite: boolean;
   onClose: () => void;
   /** Pencere kapanınca listenin tazelenmesi için — kaydetmeler yereldir. */
@@ -237,6 +243,7 @@ export function QuoteDialog({
                           f={duzenForm}
                           onChange={setDuzenForm}
                           tedarikciler={tedarikciler}
+                          sonKur={sonKur}
                           baslik="Teklifi düzenle"
                           gecerli={gecerliMi(duzenForm)}
                           calisiyor={calisiyor}
@@ -325,6 +332,7 @@ export function QuoteDialog({
               f={yeni}
               onChange={setYeni}
               tedarikciler={tedarikciler}
+              sonKur={sonKur}
               baslik="Yeni Teklif"
               gecerli={gecerliMi(yeni)}
               calisiyor={calisiyor}
@@ -354,6 +362,7 @@ function TeklifFormu({
   f,
   onChange,
   tedarikciler,
+  sonKur,
   baslik,
   gecerli,
   calisiyor,
@@ -364,6 +373,7 @@ function TeklifFormu({
   f: Form;
   onChange: (f: Form) => void;
   tedarikciler: string[];
+  sonKur?: GunlukKur | null;
   baslik: string;
   gecerli: boolean;
   calisiyor: boolean;
@@ -375,20 +385,37 @@ function TeklifFormu({
   const kurSayi = parseNum(f.kur);
   const set = (p: Partial<Form>) => onChange({ ...f, ...p });
 
+  /**
+   * PARA BİRİMİ DEĞİŞİNCE KUR DA DEĞİŞİR (kullanıcı kararı, 13.08.2026).
+   *
+   * Dolardan liraya geçilip kur alanı eski değerde kalsaydı, 1,08 (parite) bir
+   * lira kuru gibi kaydedilir ve teklif otuz kat ucuz görünürdü. Alan bu yüzden
+   * BİRLİKTE yazılır: yeni birimin önerisi neyse o gelir.
+   */
+  function paraBirimiSec(v: string) {
+    const oneri = kurOnerisi(v, sonKur);
+    set({ paraBirimi: v, kur: oneri ? kurMetni(oneri.kur) : "" });
+  }
+
+  const oneri = kurLazim ? kurOnerisi(f.paraBirimi, sonKur) : null;
+
   return (
     <div className="grid gap-2">
       <span className="oc-kicker text-muted-foreground">{baslik}</span>
       <div className="flex flex-wrap items-end gap-2">
         <label className="grid min-w-[10rem] flex-1 gap-1">
           <span className="text-[11px] text-muted-foreground">Firma</span>
-          <Input
-            value={f.firma}
-            onChange={(e) => set({ firma: e.target.value })}
-            list="tedarikci-listesi"
-            placeholder="Firma"
-            maxLength={120}
-            className="h-9 text-base pointer-fine:text-sm"
-          />
+          <span className="flex items-center gap-1">
+            <Input
+              value={f.firma}
+              onChange={(e) => set({ firma: e.target.value })}
+              list="tedarikci-listesi"
+              placeholder="Firma"
+              maxLength={120}
+              className="h-9 flex-1 text-base pointer-fine:text-sm"
+            />
+            <YeniFirma ad={f.firma} tedarikciler={tedarikciler} />
+          </span>
         </label>
         <label className="grid w-28 gap-1">
           <span className="text-[11px] text-muted-foreground">Birim fiyat</span>
@@ -404,7 +431,7 @@ function TeklifFormu({
         </label>
         <label className="grid w-28 gap-1">
           <span className="text-[11px] text-muted-foreground">Para birimi</span>
-          <Select value={f.paraBirimi} onValueChange={(v) => set({ paraBirimi: v })}>
+          <Select value={f.paraBirimi} onValueChange={paraBirimiSec}>
             <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
               <SelectValue />
             </SelectTrigger>
@@ -419,7 +446,7 @@ function TeklifFormu({
         </label>
         {/* KUR ALANI YALNIZ GEREKİNCE BELİRİR — avroda sorulmaz (hep 1). */}
         {kurLazim && (
-          <label className="grid w-28 gap-1">
+          <label className="grid w-32 gap-1">
             <span className="text-[11px] text-muted-foreground">1 € = ?</span>
             <Input
               value={f.kur}
@@ -428,6 +455,20 @@ function TeklifFormu({
               placeholder="35,50"
               className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
             />
+            {/* KAYNAK YAZILIR — kullanıcı kaç günlük bir kura baktığını görsün.
+                Öneri bir KİLİT değil: kutu her zaman yazılabilir ve sözleşmedeki
+                kur biliniyorsa o girilir. */}
+            {oneri && (
+              <button
+                type="button"
+                onClick={() => set({ kur: kurMetni(oneri.kur) })}
+                title={`TCMB ${tarihGoster(oneri.gun)} — dokunmak kutuyu bu kurla doldurur`}
+                className="text-left text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                {tarihGoster(oneri.gun)} · {kurMetni(oneri.kur)}
+                {oneri.yas > 3 ? ` (${formatNum(oneri.yas)} gün önce)` : ""}
+              </button>
+            )}
           </label>
         )}
         <label className="grid w-36 gap-1">

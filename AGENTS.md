@@ -702,6 +702,59 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     en sık yaptığı hareket budur; önce kalemi seçip sonra şeritteki düğmeye
     gitmek iki fazladan adımdı.
 
+    **AÇILIŞ SÜZGECİ `BOS` DEĞİLDİR** (kullanıcı kararı, 13.08.2026): havuz
+    "Bekliyor + Teklif Alındı" ile açılır (`ACILIS`), çünkü ekranın sorusu
+    "bugün ne sipariş etmeliyim". "Temizle" yine HEPSİNİ gösterir — açılış bir
+    öneridir, bir hapis değil. Teklif ve Sipariş sütunları zemin rengi taşır ve
+    renk UYDURULMAZ, `DurumCipi`den alınır (teklif SKY, sipariş EMERALD): aynı
+    kavramı iki ayrı dille anlatmak, rengin bilgi taşımasını bitirirdi.
+
+    **ÖDEME GÜNÜ SORULUR, VARSAYILMAZ** (`components/odeme-tarihi.tsx`,
+    kullanıcı kararı 13.08.2026). "Avans ödendi" ve "Bakiye ödendi" sessizce
+    bugünü yazıyordu; ödeme günü bu uygulamada türetilmiş bir sayı değil bir
+    OLGUdur (`terms.ts` vade, takvim ve dönem gruplamasını ondan çıkarır) ve
+    dekont çoğu zaman bir iki gün geriden gelir. Popover üç hızlı seçim (bugün ·
+    dün · önceki İŞ GÜNÜ — havale cuma çıkar, pazartesi sorulur) ve serbest
+    tarih verir. **İŞARETLİ ÇİPE DOKUNMAK DA AYNI PENCEREYİ AÇAR**: yanlış günü
+    düzeltmenin yolu "kaldır + yeniden işaretle" olmamalı. **ÖDEME TAKVİMİNDE DE
+    GERİ ALINIR** (kullanıcı bildirimi): aynı veriyi yazan iki ekranın biri
+    kapıyı açık bırakıp diğerinin kilitlemesi bir tasarım değil bir eksiklikti.
+
+    **KUR OTOMATİK GELİR, KİLİT DEĞİL** (`lib/purchasing/kur.ts`, kullanıcı
+    kararı 13.08.2026). Personel bölümünün çektiği `fx_rate_daily` teklif ve
+    sipariş pencerelerine referans olur: **en son YAYIN gününün** kuru gelir
+    (TCMB hafta sonu yayın yapmaz, "bugünün kuru" her gün yoktur) ve kutunun
+    altında günü yazar. **DÖNÜŞÜM ŞART**: `fx_rate_daily` TL cinsinden tutar,
+    satın almanın sözleşmesi ise "1 avro kaç BİRİM eder" — dolar için
+    `eur_try / usd_try`. İkisi karıştırılırsa dolarlık bir teklif otuz kat ucuz
+    görünür ve yarışı kazanır. **PARA BİRİMİ DEĞİŞİNCE KUR DA DEĞİŞİR**; alan
+    eski değerde kalsaydı parite bir lira kuru gibi kaydedilirdi.
+
+    **TEDARİKÇİ DEFTERİ AÇILDI — ÖNCEKİ KARAR TERSİNE ÇEVRİLDİ**
+    (`purchase_suppliers`, migration 20260813000001, kullanıcı kararı
+    13.08.2026). 12.08.2026'da bilerek açılmamıştı ("üçüncü bir yönetim ekranı
+    teklif girmeyi yavaşlatırdı"); eski gerekçe ÇÜRÜMEDİ, KARŞILANDI: yeni firma
+    teklif/sipariş penceresinin İÇİNDEN yazılır (`ensureSupplier`), ayrı ekran
+    şart değildir. Kazanç ölçülü — öneri listesi eskiden yalnız DAHA ÖNCE TEKLİF
+    GİRİLMİŞ firmaları biliyordu, şimdi devralınan 285 firmayı da biliyor.
+    **AD HÂLÂ `supplier` METNİNDE DURUR**, yabancı anahtara çevrilmez (md. 14'ün
+    müşteri fotoğrafı kuralı): defter düzeltilince yayınlanmış sipariş
+    değişmemeli. Tedarikçi olmayan devralınan kayıtlar (banka, otel, kargo)
+    SİLİNMEZ, `active = false` ile öneriden düşer.
+
+    **DEVRALINAN FİYAT ARŞİVİ ÜÇÜNCÜ BİR KAYNAKTIR** (`purchase_price_history`,
+    4722 satır, 2024-03…2026-12). `purchase_orders`a YAZILMADI ve bu bilinçli:
+    o tablo canlı bir iş akışıdır (Siparişler, ödeme ve teslim takvimi, gecikme
+    rozetleri) ve 5083 devralınan fatura oraya konsaydı modül ilk açılışta
+    kullanılamaz olurdu. Fiyat Arşivi üç kaynağı AYRI gösterir — teklif ·
+    sipariş · devralınan — çünkü uygulamanın kendi kaydıyla dışarıdan gelen bir
+    fatura aynı güvende değildir. Kaynak dosyanın 5083 satırının 361'i
+    aktarılmadı (357 tanımsız, 4 fiyatsız) ve sayı migration'ın başında yazar:
+    tanımı olmayan satırın fiyat arşivinde karşılığı olamaz. **SİLME YALNIZ
+    YÖNETİCİDE ve yalnız DEVRALINAN satırda** (kullanıcı kararı): teklif ve
+    siparişin kendi silme yolu var, tek düğmenin üç defteri birden silmesi
+    kullanıcının neyi kaybettiğini bilmemesi demekti.
+
     **SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER.** `CokluSuzgec` `Select`
     değil `DropdownMenu` kullanır çünkü Radix `Select` tek değerlidir ve çoklu
     seçimde liste her tıklamada kapanırdı. Excel ve PDF ekranda GÖRÜNEN listeyi

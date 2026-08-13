@@ -11,8 +11,10 @@
 // Ortalama HESAPLANMAZ — üç yıl önceki bir fiyatla bugünkünü ortalamak,
 // enflasyon altında anlamsız bir sayı üretir ve kullanıcıyı yanıltırdı.
 
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -26,10 +28,22 @@ import { formatNum } from "@/lib/drawings/labels";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { tarihGoster } from "@/lib/purchasing/terms";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
+import { CokluSuzgec } from "../filters";
+import { deletePriceHistory } from "../actions";
 
 export interface FiyatOlayi {
   id: string;
-  tur: "teklif" | "siparis";
+  /**
+   * ÜÇ KAYNAK, ÜÇÜ DE AYRI DURUR:
+   *   teklif  — istenen fiyat, alınmamış olabilir
+   *   siparis — bu uygulamadan verilmiş sipariş
+   *   gecmis  — DEVRALINAN alım (Excel, 2024-03…2026-12; md. 21)
+   *
+   * Devralınanı "sipariş" saymak, uygulamanın kendi kaydıyla dışarıdan gelen
+   * bir faturayı aynı güvenle göstermek olurdu; kullanıcı hangisinin
+   * denetlenebilir olduğunu ayırt edebilmeli.
+   */
+  tur: "teklif" | "siparis" | "gecmis";
   supplier: string;
   gun: string;
   birim: number;
@@ -39,6 +53,8 @@ export interface FiyatOlayi {
   secildi: boolean;
   iptal: boolean;
   itemNo: string;
+  /** Devralınan satırın kaynak kategorisi ("Rulman ve Rulman Yatakları"). */
+  kategori?: string;
 }
 
 export interface FiyatKalemi {
@@ -49,7 +65,12 @@ export interface FiyatKalemi {
 
 /** Bir kalemin özeti — son sipariş, son teklif, en düşük/yüksek. */
 function ozet(k: FiyatKalemi) {
-  const siparisler = k.olaylar.filter((o) => o.tur === "siparis" && !o.iptal && o.birimEur != null);
+  // GERÇEKLEŞMİŞ ALIM = kendi siparişimiz + devralınan fatura. Arşivin sorusu
+  // "kaça ALDIK"tır; devralınanı dışarıda bırakmak 4722 satırlık geçmişi
+  // "referansı yok" gösterirdi.
+  const siparisler = k.olaylar.filter(
+    (o) => (o.tur === "siparis" || o.tur === "gecmis") && !o.iptal && o.birimEur != null
+  );
   const teklifler = k.olaylar.filter((o) => o.tur === "teklif" && o.birimEur != null);
   const eurler = siparisler.map((o) => o.birimEur ?? 0);
   return {
@@ -62,32 +83,122 @@ function ozet(k: FiyatKalemi) {
   };
 }
 
-export function PriceArchive({ kalemler }: { kalemler: FiyatKalemi[] }) {
+export function PriceArchive({
+  kalemler,
+  isAdmin = false,
+}: {
+  kalemler: FiyatKalemi[];
+  /** Devralınan satırı YALNIZ yönetici silebilir (kullanıcı kararı 13.08.2026). */
+  isAdmin?: boolean;
+}) {
+  const router = useRouter();
+  const [calisiyor, basla] = useTransition();
   const [q, setQ] = useState("");
   const [acik, setAcik] = useState<Set<string>>(new Set());
+  const [kategoriler, setKategoriler] = useState<string[]>([]);
+  const [tedarikciler, setTedarikciler] = useState<string[]>([]);
+  const [kaynaklar, setKaynaklar] = useState<string[]>([]);
+
+  // SÜZGEÇ SEÇENEKLERİ VERİDEN ÇIKAR, elle yazılmaz: devralınan kategoriler
+  // uygulamanın kendi on beş ürün ailesiyle AYNI DEĞİL (kaynak dosya kendi
+  // dilini konuşuyor) ve sabit bir liste onları gizlerdi.
+  const secenekler = useMemo(() => {
+    const say = (fn: (o: FiyatOlayi) => string[]) => {
+      const m = new Map<string, number>();
+      for (const k of kalemler) for (const o of k.olaylar) for (const v of fn(o)) {
+        if (v) m.set(v, (m.get(v) ?? 0) + 1);
+      }
+      return [...m.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "tr"))
+        .map(([value, count]) => ({ value, label: value, count }));
+    };
+    return {
+      kategoriler: say((o) => [o.kategori ?? ""]),
+      tedarikciler: say((o) => [o.supplier]),
+      kaynaklar: [
+        { value: "gecmis", label: "Devralınan", count: undefined },
+        { value: "siparis", label: "Sipariş", count: undefined },
+        { value: "teklif", label: "Teklif", count: undefined },
+      ],
+    };
+  }, [kalemler]);
+
+  const temiz =
+    !q && kategoriler.length === 0 && tedarikciler.length === 0 && kaynaklar.length === 0;
 
   const gorunen = useMemo(() => {
     const a = trKatla(q);
-    if (!a) return kalemler;
+    const kat = new Set(kategoriler);
+    const ted = new Set(tedarikciler);
+    const kay = new Set(kaynaklar);
     return kalemler.filter((k) => {
+      // SÜZGEÇ OLAY DÜZEYİNDE ELER, KALEM DÜZEYİNDE GÖSTERİR: bir kalemin
+      // BİR olayı "Rulman" kategorisindeyse kalem listede kalır. Kalemi
+      // bütünüyle düşürmek, aynı ürünün başka bir alımını da gizlerdi.
+      if (kat.size > 0 && !k.olaylar.some((o) => kat.has(o.kategori ?? ""))) return false;
+      if (ted.size > 0 && !k.olaylar.some((o) => ted.has(o.supplier))) return false;
+      if (kay.size > 0 && !k.olaylar.some((o) => kay.has(o.tur))) return false;
+      if (!a) return true;
       const havuz = [k.tanim, ...k.olaylar.map((o) => `${o.supplier} ${o.itemNo}`)].join(" ");
       return trKatla(havuz).includes(a);
     });
-  }, [kalemler, q]);
+  }, [kalemler, q, kategoriler, tedarikciler, kaynaklar]);
+
+  /** Devralınan satırı siler. Teklif/sipariş BURADAN silinmez — kendi yolları var. */
+  function sil(olay: FiyatOlayi) {
+    if (!isAdmin || olay.tur !== "gecmis") return;
+    if (!window.confirm(`Devralınan fiyat kaydı silinsin mi?
+
+${olay.supplier} · ${olay.gun}`)) return;
+    basla(async () => {
+      const sonuc = await deletePriceHistory({ ids: [olay.id.replace(/^g-/, "")] });
+      if (sonuc.error) toast.error(sonuc.error);
+      else {
+        toast.success("Arşiv kaydı silindi.");
+        router.refresh();
+      }
+    });
+  }
 
   return (
     <div className="grid gap-3">
       <FilterBar
         gorunen={gorunen.length}
         toplam={kalemler.length}
-        temiz={!q}
-        onTemizle={() => setQ("")}
+        temiz={temiz}
+        onTemizle={() => {
+          setQ("");
+          setKategoriler([]);
+          setTedarikciler([]);
+          setKaynaklar([]);
+        }}
       >
         <SearchBox
           value={q}
           onChange={setQ}
           placeholder="Ürün, Tedarikçi Ara… (ör. rulman 6205)"
           className="w-[min(24rem,calc(100vw-4rem))]"
+        />
+        {/* Talep havuzuyla AYNI süzgeç bileşeni (kullanıcı isteği 13.08.2026):
+            iki ekranın süzgeci farklı davranırsa kullanıcı her seferinde
+            yeniden öğrenir. */}
+        <CokluSuzgec
+          baslik="Kategori"
+          secenekler={secenekler.kategoriler}
+          secili={kategoriler}
+          onChange={setKategoriler}
+        />
+        <CokluSuzgec
+          baslik="Tedarikçi"
+          secenekler={secenekler.tedarikciler}
+          secili={tedarikciler}
+          onChange={setTedarikciler}
+        />
+        <CokluSuzgec
+          baslik="Kaynak"
+          secenekler={secenekler.kaynaklar}
+          secili={kaynaklar}
+          onChange={setKaynaklar}
         />
       </FilterBar>
 
@@ -198,6 +309,7 @@ export function PriceArchive({ kalemler }: { kalemler: FiyatKalemi[] }) {
                                   <th className="py-1 pr-3 text-right font-normal">Adet</th>
                                   <th className="py-1 pr-3 text-right font-normal">Birim</th>
                                   <th className="py-1 text-right font-normal">Avro</th>
+                                  {isAdmin && <th className="w-8" />}
                                 </tr>
                               </thead>
                               <tbody>
@@ -215,6 +327,16 @@ export function PriceArchive({ kalemler }: { kalemler: FiyatKalemi[] }) {
                                       {ol.tur === "siparis" ? (
                                         <span className="text-foreground">
                                           Sipariş{ol.iptal && " (iptal)"}
+                                        </span>
+                                      ) : ol.tur === "gecmis" ? (
+                                        // DEVRALINAN AYIRT EDİLİR: uygulamanın
+                                        // kendi kaydıyla dışarıdan gelen bir
+                                        // fatura aynı güvende değildir.
+                                        <span
+                                          className="text-muted-foreground"
+                                          title={ol.kategori || "Devralınan alım kaydı"}
+                                        >
+                                          Devralınan
                                         </span>
                                       ) : (
                                         <span className="text-muted-foreground">
@@ -239,6 +361,26 @@ export function PriceArchive({ kalemler }: { kalemler: FiyatKalemi[] }) {
                                         fmtMoney(ol.birimEur, "EUR")
                                       )}
                                     </td>
+                                    {/* SİLME YALNIZ YÖNETİCİDE ve YALNIZ
+                                        DEVRALINAN satırda. Teklif ve siparişin
+                                        kendi yolu var; tek düğmenin üç defteri
+                                        birden silmesi, kullanıcının neyi
+                                        kaybettiğini bilmemesi demekti. */}
+                                    {isAdmin && (
+                                      <td className="py-1 pl-3 text-right">
+                                        {ol.tur === "gecmis" && (
+                                          <button
+                                            type="button"
+                                            onClick={() => sil(ol)}
+                                            disabled={calisiyor}
+                                            title="Devralınan kaydı sil"
+                                            className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                                          >
+                                            <Trash2 className="size-3.5" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    )}
                                   </tr>
                                 ))}
                               </tbody>

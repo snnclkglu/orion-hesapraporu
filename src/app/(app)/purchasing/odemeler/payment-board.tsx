@@ -25,6 +25,7 @@ import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
 import { Bant, KipSecici, PanoKabugu } from "../board-ui";
 import { updateOrder } from "../actions";
+import { OdemeTarihi } from "@/components/odeme-tarihi";
 
 export interface OdemeSatiri {
   id: string;
@@ -134,13 +135,29 @@ export function PaymentBoard({
     };
   }, [gorunen, kip, bugun]);
 
-  function odendiIsaretle(s: OdemeSatiri) {
+  /**
+   * Ödeme işaretini YAZAR ya da KALDIRIR.
+   *
+   * Kullanıcı bildirimi (13.08.2026): *"Ödeme takviminde ödendiye basıldığında
+   * geri alınmıyor. Yanlışlıkla basabilir kullanıcı. Tekrar bastığında iptal
+   * edilsin."* Haklı ve tek yönlü olması bir tasarım kararı değil bir
+   * eksiklikti: Siparişler ekranında aynı işaret baştan beri geri alınabiliyor
+   * (`orders-view.tsx`), takvimde alınamıyordu — aynı veriyi yazan iki ekranın
+   * biri kapıyı açık bırakıp diğeri kilitliyordu.
+   *
+   * `tarih` boş dizgi ise alan TEMİZLENİR (`updateOrder`ın kuralı).
+   */
+  function odemeYaz(s: OdemeSatiri, tarih: string) {
     if (!canWrite) return;
-    const alan = s.tur === "avans" ? { advancePaidAt: bugun } : { balancePaidAt: bugun };
+    const alan = s.tur === "avans" ? { advancePaidAt: tarih } : { balancePaidAt: tarih };
     updateOrder({ id: s.orderId, ...alan }).then((sonuc) => {
       if (sonuc.error) toast.error(sonuc.error);
       else {
-        toast.success(`${s.supplier} · ${TUR_ETIKET[s.tur]} ödendi.`);
+        toast.success(
+          tarih
+            ? `${s.supplier} · ${TUR_ETIKET[s.tur]} ödendi.`
+            : `${s.supplier} · ${TUR_ETIKET[s.tur]} ödeme işareti kaldırıldı.`
+        );
         router.refresh();
       }
     });
@@ -331,7 +348,7 @@ export function PaymentBoard({
           )}`}
         >
           {gecikmis.map((s) => (
-            <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odendiIsaretle} />
+            <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odemeYaz} />
           ))}
         </Bant>
       )}
@@ -343,7 +360,7 @@ export function PaymentBoard({
           alt={`${formatNum(tarihsiz.length)} ödeme — termin ya da teslim tarihi girilmemiş`}
         >
           {tarihsiz.map((s) => (
-            <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odendiIsaretle} />
+            <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odemeYaz} />
           ))}
         </Bant>
       )}
@@ -364,7 +381,7 @@ export function PaymentBoard({
             alt={`${formatNum(k.kayitlar.length)} ödeme · ${fmtMoney(k.toplam, "EUR")}`}
           >
             {k.kayitlar.map((s) => (
-              <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odendiIsaretle} />
+              <Satir key={s.id} s={s} bugun={bugun} canWrite={canWrite} onOde={odemeYaz} />
             ))}
           </Bant>
         ))
@@ -382,7 +399,7 @@ function Satir({
   s: OdemeSatiri;
   bugun: string;
   canWrite: boolean;
-  onOde: (s: OdemeSatiri) => void;
+  onOde: (s: OdemeSatiri, tarih: string) => void;
 }) {
   const kalan = gunFarki(s.gun, bugun);
   return (
@@ -433,15 +450,34 @@ function Satir({
         )}
       </span>
 
-      {s.odendi ? (
-        <span className="inline-flex min-h-7 items-center border border-emerald-600/40 bg-emerald-600/10 px-1.5 text-[11px] whitespace-nowrap text-emerald-700 dark:text-emerald-400">
-          Ödendi {s.odendiGun ? `· ${tarihGoster(s.odendiGun)}` : ""}
-        </span>
+      {/* İŞARET GERİ ALINABİLİR ve GÜNÜ SORULUR — Siparişler ekranındaki
+          davranışın aynısı. Salt-okunur kullanıcı yalnız sonucu görür. */}
+      {canWrite ? (
+        <OdemeTarihi
+          baslik={TUR_ETIKET[s.tur]}
+          varsayilan={s.odendiGun ?? undefined}
+          onSec={(t) => onOde(s, t)}
+          onKaldir={s.odendi ? () => onOde(s, "") : undefined}
+        >
+          {s.odendi ? (
+            <button
+              type="button"
+              title="Ödeme gününü düzelt ya da işareti kaldır"
+              className="inline-flex min-h-7 items-center border border-emerald-600/40 bg-emerald-600/10 px-1.5 text-[11px] whitespace-nowrap text-emerald-700 transition-colors hover:border-emerald-600/70 dark:text-emerald-400"
+            >
+              Ödendi {s.odendiGun ? `· ${tarihGoster(s.odendiGun)}` : ""}
+            </button>
+          ) : (
+            <Button type="button" size="xs" variant="outline">
+              Ödendi
+            </Button>
+          )}
+        </OdemeTarihi>
       ) : (
-        canWrite && (
-          <Button type="button" size="xs" variant="outline" onClick={() => onOde(s)}>
-            Ödendi
-          </Button>
+        s.odendi && (
+          <span className="inline-flex min-h-7 items-center border border-emerald-600/40 bg-emerald-600/10 px-1.5 text-[11px] whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+            Ödendi {s.odendiGun ? `· ${tarihGoster(s.odendiGun)}` : ""}
+          </span>
         )
       )}
     </li>

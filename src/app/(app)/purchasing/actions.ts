@@ -18,7 +18,9 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing } from "@/lib/roles";
+import { canEditPurchasing, isAdminRole } from "@/lib/roles";
+import { adBuyuk } from "@/lib/tr-text";
+import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import {
   chooseQuoteSchema,
@@ -454,4 +456,81 @@ export async function saveGroupName(
   if (error) return { error: error.message };
   tazele();
   return { ok: 1 };
+}
+
+// ═══════════════════════════════════════════════ TEDARİKÇİ DEFTERİ ve ARŞİV
+
+/**
+ * Firmayı deftere yazar — YOKSA.
+ *
+ * Kullanıcı kararı (13.08.2026): *"Kullanıcı sipariş açarken veya teklif
+ * girerken eğer yeni bir firma ise hemen orda yeni firma olarak
+ * kaydedebilsin."* Yani akış KESİLMEZ: ayrı bir yönetim ekranına gidip gelmek,
+ * teklif girmeyi yavaşlatırdı ve o zaman hiç girilmezdi (`purchase_suppliers`
+ * migration'ındaki gerekçenin ta kendisi).
+ *
+ * ANAHTAR KATLANMIŞ ADDIR: "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
+ * Çakışma bir HATA DEĞİLDİR — `do nothing` ile geçilir ve çağıran yine
+ * başarılı sayar; kullanıcının derdi "bu ad listede olsun", "ben yarattım"
+ * değil.
+ */
+export async function ensureSupplier(
+  input: { name: string }
+): Promise<PurchasingActionResult & { name?: string }> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const ad = adBuyuk((input.name ?? "").trim()).slice(0, 120);
+  if (!ad) return { error: "Firma adı boş olamaz." };
+  const anahtar = trKatla(ad);
+
+  const { error } = await supabase
+    .from("purchase_suppliers")
+    .upsert({ name: ad, match_key: anahtar, created_by: userId }, { onConflict: "match_key" });
+  if (error) return { error: `Firma kaydedilemedi: ${error.message}` };
+
+  tazele();
+  return { ok: 1, name: ad };
+}
+
+/**
+ * Devralınan fiyat satırını siler — YALNIZ YÖNETİCİ.
+ *
+ * Kullanıcı kararı (13.08.2026): *"Fiyat arşivinde adminin silebilme özelliği
+ * olsun."* Kapı `can_edit_purchasing()`ten DAR tutulur: satın alma ekibi
+ * arşivi okur ve kendi tekliflerini yönetir, ama DEVRALINAN bir kaydı silmek
+ * geri alınamaz ve o kaydın kaynağı artık elimizde olmayabilir.
+ *
+ * Teklif ve sipariş satırları BURADAN SİLİNMEZ: onların kendi yolu var
+ * (`deleteQuote`, sipariş iptali) ve arşiv onları yalnız OKUR. Tek bir "sil"
+ * düğmesinin üç ayrı defteri silmesi, kullanıcının neyi kaybettiğini
+ * bilmemesi demekti.
+ */
+export async function deletePriceHistory(
+  input: { ids: string[] }
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const { data: kullanici } = await supabase.auth.getUser();
+  const { data: profil } = kullanici.user
+    ? await supabase.from("profiles").select("role").eq("id", kullanici.user.id).maybeSingle()
+    : { data: null };
+  if (!isAdminRole(profil?.role)) {
+    return { error: "Arşiv kaydını yalnız yönetici silebilir." };
+  }
+
+  const idler = (input.ids ?? []).filter(Boolean).slice(0, 500);
+  if (idler.length === 0) return { ok: 0 };
+
+  const { error, count } = await supabase
+    .from("purchase_price_history")
+    .delete({ count: "exact" })
+    .in("id", idler);
+  if (error) return { error: `Silinemedi: ${error.message}` };
+
+  tazele();
+  return { ok: count ?? idler.length };
 }
