@@ -293,10 +293,28 @@ export default function PersonnelPreviewPage() {
 
       <Bolum
         baslik="Ücret Planı"
-        aciklama="Yıl başı zammı: taban geçen yılın ARALIK ayında geçerli ücrettir. e2'nin planı YOK — tabanı ödenen son maaştan okunmalı ve gri görünmeli. e5'in temmuz ayarlaması alttaki tabloda çıkmalı."
+        aciklama="KARARLARI VERİLMİŞ YIL: oranlar gerçek değerlerini gösterir, Kaydet pasiftir. Ücret ve oran büyüklüğe göre renklenir (az kızıl, çok yeşil). e5'in temmuz ayarlaması AYRI BİR BÖLÜMDE değil, satırındaki çipte durur ve oradan silinir."
       >
         <SalaryPlanBoard
           yil={2026}
+          buYil={2026}
+          employees={EMPLOYEES}
+          plans={SALARY_PLAN}
+          payroll={PAYROLL}
+          canWrite
+        />
+      </Bolum>
+
+      {/* TAZE YIL AYRI BİR FİKSTÜRDÜR ve gereklidir: "sayfa zam uygulanmamış
+          açılsın" kuralı yalnız KARARI OLMAYAN bir yılda görünür — 2026'da
+          bütün satırların kararı kayıtlı olduğu için orada hiçbir şey
+          kanıtlamaz. Gerçek kullanım da budur: ocak ayında yeni yıl açılır. */}
+      <Bolum
+        baslik="Ücret Planı — Taze Yıl (2027)"
+        aciklama="Hiçbir kararın verilmediği yıl: her satır %0 ile ve ücret TABANIN KENDİSİYLE açılmalı, Kaydet PASİF olmalı (kullanıcı hiçbir karar vermedi). Taban 2026 Aralık'ta geçerli ücrettir — e5'te bu, temmuz ayarlamasıdır (95.000), ocak kararı (85.000) DEĞİL."
+      >
+        <SalaryPlanBoard
+          yil={2027}
           buYil={2026}
           employees={EMPLOYEES}
           plans={SALARY_PLAN}

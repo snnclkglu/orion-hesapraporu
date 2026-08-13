@@ -69,6 +69,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatCard } from "@/components/stat-card";
+import { ParaInput } from "@/components/para-input";
 import { fmtNum, fmtTutar, parseNum } from "@/lib/currency";
 import { tagStyle } from "@/lib/tags";
 import { degisimYuzde } from "@/lib/fx/rates";
@@ -162,26 +163,6 @@ function girdiMetni(v: number | null | undefined): string {
 }
 
 /**
- * GÖSTERİM BİÇİMİ — kutu odakta DEĞİLKEN (bkz. `ParaInput`).
- *
- * Binlik ayıraç vardır ("200000" → "200.000"), ondalık ancak GERÇEKTEN varsa
- * basılır: her satıra ",00" yazmak kullanıcının kaldırılmasını istediği
- * gürültünün ta kendisiydi, ama var olan bir kuruşu gizlemek düzenlenebilir
- * bir kutuda yalan olurdu.
- */
-const GOSTER_FMT = new Intl.NumberFormat("tr-TR", {
-  useGrouping: true,
-  maximumFractionDigits: 2,
-});
-
-function gosterimMetni(ham: string): string {
-  const n = parseNum(ham);
-  // Çözülemeyen metin OLDUĞU GİBİ kalır: kullanıcı "45.000," yazmış olabilir
-  // ve onu silmek, yazmayı imkânsız kılardı.
-  return n === null ? ham : GOSTER_FMT.format(n);
-}
-
-/**
  * Saat alanında SIFIR BİLGİ DEĞİLDİR: çalışanların çoğunda mesai yoktur ve
  * tablo baştan aşağı "0" duvarına dönerdi. Boş hücre "mesai yok" der.
  */
@@ -233,48 +214,6 @@ function payrollGirdisi(
  */
 function paraMetni(v: number | null | undefined): string {
   return v && v > 0 ? girdiMetni(v) : "";
-}
-
-/**
- * BİNLİK AYIRAÇLI PARA KUTUSU (kullanıcı kararı, 13.08.2026: "Net maaş 200000
- * se örneğin 200.000 gibi yazsın").
- *
- * Ayıraç YALNIZ ODAK DIŞINDA basılır. Yazarken de basmak iki şeyi birden
- * bozardı: imleç her tuşta sona sıçrar (metin yeniden kurulduğu için) ve
- * "200.0" gibi yarım bir sayı ayıraçlanınca kullanıcının yazdığından başka
- * bir sayı görünür. Kutunun DEĞERİ değişmez — yalnız GÖRÜNÜŞÜ değişir; dışarı
- * hep ham metin gider ve `parseNum` onu okur.
- */
-function ParaInput({
-  value,
-  onChange,
-  disabled,
-  ariaLabel,
-  autoFocus,
-  className,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  ariaLabel: string;
-  autoFocus?: boolean;
-  className?: string;
-}) {
-  const [odakta, setOdakta] = useState(false);
-  return (
-    <Input
-      value={odakta ? value : gosterimMetni(value)}
-      onChange={(e) => onChange(e.target.value)}
-      onFocus={() => setOdakta(true)}
-      onBlur={() => setOdakta(false)}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      inputMode="decimal"
-      disabled={disabled}
-      autoFocus={autoFocus}
-      className={className}
-      aria-label={ariaLabel}
-    />
-  );
 }
 
 /**
@@ -923,20 +862,26 @@ export function PayrollBoard({
 
       {/* ————————————————————————————— özet kartları — ALTISI TEK SATIRDA
           (kullanıcı kararı, 13.08.2026). `dense` dolguyu ve sayı boyunu bir
-          kademe kısar; etiket, sayı ve ipucu üçü de yerinde kalır. */}
+          kademe kısar; etiket, sayı ve ipucu üçü de yerinde kalır.
+
+          KART İÇİ NOTLARDA HER SÖZCÜĞÜN BAŞ HARFİ BÜYÜKTÜR (kullanıcı kararı,
+          13.08.2026). Metinler ELLE öyle yazılır, bir dönüştürücüden
+          GEÇİRİLMEZ: notların içinde sayı, simge ve kısaltma var
+          ("1 € = 54,8231 ₺", "%50: 12 · %100: 8") ve genel bir başlık düzeni
+          onları da "düzeltmeye" kalkardı. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <StatCard
           dense
           label="Kişi"
           value={String(toplamlar.ozet.count)}
-          hint={`${toplamlar.personel.count} personel · ${toplamlar.yonetim.count} yönetim`}
+          hint={`${toplamlar.personel.count} Personel · ${toplamlar.yonetim.count} Yönetim`}
           icon={Users}
         />
         <StatCard
           dense
           label="Toplam Net Maaş"
           value={`${fmtTutar(toplamlar.ozet.netTotal)} ₺`}
-          hint={`kişi başı ort. ${fmtTutar(toplamlar.ozet.netAverage)} ₺`}
+          hint={`Kişi Başı Ort. ${fmtTutar(toplamlar.ozet.netAverage)} ₺`}
           icon={Banknote}
         />
         <StatCard
@@ -952,8 +897,8 @@ export function PayrollBoard({
           value={`${fmtTutar(toplamlar.ozet.overtimeTotal)} ₺`}
           hint={
             toplamlar.ozet.overtimeHours > 0
-              ? `saat başı ${fmtTutar(toplamlar.ozet.overtimeHourCost)} ₺`
-              : "bu ay mesai girilmedi"
+              ? `Saat Başı ${fmtTutar(toplamlar.ozet.overtimeHourCost)} ₺`
+              : "Bu Ay Mesai Girilmedi"
           }
           icon={Clock}
         />
@@ -961,14 +906,14 @@ export function PayrollBoard({
           dense
           label="Genel Toplam"
           value={`${fmtTutar(toplamlar.genelToplam)} ₺`}
-          hint={`personel ${fmtTutar(toplamlar.personel.grandTotal)} · yönetim ${fmtTutar(toplamlar.yonetim.grandTotal)}`}
+          hint={`Personel ${fmtTutar(toplamlar.personel.grandTotal)} · Yönetim ${fmtTutar(toplamlar.yonetim.grandTotal)}`}
           icon={Sigma}
         />
         <StatCard
           dense
           label="Avro Karşılığı"
           value={toplamlar.avro === null ? "—" : `${fmtTutar(toplamlar.avro)} €`}
-          hint={kur ? `1 € = ${fmtKur(kur)} ₺` : "dönem kuru henüz yazılmadı"}
+          hint={kur ? `1 € = ${fmtKur(kur)} ₺` : "Dönem Kuru Henüz Yazılmadı"}
           icon={Euro}
         />
       </div>

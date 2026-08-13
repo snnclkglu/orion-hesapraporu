@@ -15,13 +15,19 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ROUND_STEP,
+  EN_ESKI_PLAN_YILI,
+  OLCEK_AZ_TON,
+  OLCEK_COK_TON,
   RAISE_PRESETS,
+  ROUND_STEPS,
   gecerliUcret,
+  olcekTonu,
   planSapmasi,
   yilBasi,
   yilBasiTabani,
   yuvarla,
   zamOrani,
+  zamTonu,
   zamliUcret,
 } from "../salary-plan";
 
@@ -33,21 +39,75 @@ const PLAN = [
 ];
 
 describe("yuvarlama", () => {
-  it("varsayılan adım 100 ₺'dir (devralınan 566 satırın tamamı yüzlüktü)", () => {
-    expect(DEFAULT_ROUND_STEP).toBe(100);
+  it("seçenekler 500 ve 1000'dir, varsayılan 500 (kullanıcı kararı)", () => {
+    expect([...ROUND_STEPS]).toEqual([500, 1000]);
+    expect(DEFAULT_ROUND_STEP).toBe(500);
+    // Varsayılan LİSTEDE olmalı: ekran adımı düğmelerle seçtiriyor ve listede
+    // olmayan bir varsayılan hiçbir düğmeyi seçili göstermezdi.
+    expect((ROUND_STEPS as readonly number[]).includes(DEFAULT_ROUND_STEP)).toBe(true);
   });
 
   it("adımına en yakın değere gider", () => {
-    expect(yuvarla(53675, 100)).toBe(53700);
-    expect(yuvarla(53625, 100)).toBe(53600);
-    expect(yuvarla(53675, 1000)).toBe(54000);
     expect(yuvarla(53675, 500)).toBe(53500);
+    expect(yuvarla(53750, 500)).toBe(54000);
+    expect(yuvarla(53675, 1000)).toBe(54000);
+    expect(yuvarla(53400, 1000)).toBe(53000);
   });
 
-  it("adım 1 yuvarlamayı kapatır ve bozuk adım 1 sayılır", () => {
+  it("bozuk adım yuvarlamayı kapatır (1 sayılır), çökertmez", () => {
     expect(yuvarla(53675.4, 1)).toBe(53675);
     expect(yuvarla(53675.4, 0)).toBe(53675);
     expect(yuvarla(53675.4, Number.NaN)).toBe(53675);
+  });
+});
+
+/**
+ * ÖLÇEK RENGİ — "az kırmızı, fazla yeşil" (kullanıcı isteği, 13.08.2026).
+ *
+ * Testin işi UÇLARI ve DEJENERE ARALIĞI dondurmaktır: `min === max` olduğunda
+ * (bütün maaşlar eşit) sıfıra bölünme `NaN` üretir ve CSS'te `--oc-hue: NaN`
+ * sessizce siyah bir metin bırakırdı — okunur ama yalan söyleyen bir renk.
+ */
+describe("ölçek tonu", () => {
+  it("uçlar kızıl ve yeşildir", () => {
+    expect(OLCEK_AZ_TON).toBe(25);
+    expect(OLCEK_COK_TON).toBe(145);
+    expect(olcekTonu(100, 100, 200)).toBe(OLCEK_AZ_TON);
+    expect(olcekTonu(200, 100, 200)).toBe(OLCEK_COK_TON);
+    expect(olcekTonu(150, 100, 200)).toBe(85); // tam orta
+  });
+
+  it("aralık dışı değerler kelepçelenir", () => {
+    expect(olcekTonu(50, 100, 200)).toBe(OLCEK_AZ_TON);
+    expect(olcekTonu(500, 100, 200)).toBe(OLCEK_COK_TON);
+  });
+
+  it("dejenere aralıkta NaN DEĞİL ölçeğin ortası döner", () => {
+    const t = olcekTonu(100, 100, 100);
+    expect(Number.isFinite(t)).toBe(true);
+    expect(t).toBe(85);
+  });
+
+  it("geçersiz girdi kızıla düşer, NaN üretmez", () => {
+    for (const v of [null, undefined, Number.NaN]) {
+      expect(olcekTonu(v, 0, 100)).toBe(OLCEK_AZ_TON);
+    }
+  });
+
+  it("ZAM ÖLÇEĞİ MUTLAKTIR: %0 kızıl, %25 yeşil", () => {
+    // Listeye göreli olsaydı herkese %15 verilen bir yılda en düşük satır
+    // kırmızı görünür ve "buna az verdim" diye yanlış bir şey söylerdi.
+    expect(zamTonu(0)).toBe(OLCEK_AZ_TON);
+    expect(zamTonu(25)).toBe(OLCEK_COK_TON);
+    expect(zamTonu(40)).toBe(OLCEK_COK_TON);
+    expect(zamTonu(-5)).toBe(OLCEK_AZ_TON);
+    expect(zamTonu(null)).toBe(OLCEK_AZ_TON);
+  });
+});
+
+describe("defterin başlangıç yılı", () => {
+  it("2024'tür — devralınan maaş kaydı Mayıs 2024'te başlar", () => {
+    expect(EN_ESKI_PLAN_YILI).toBe(2024);
   });
 });
 

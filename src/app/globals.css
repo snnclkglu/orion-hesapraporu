@@ -292,6 +292,33 @@
   .dark .oc-series-stroke {
     stroke: oklch(0.7 0.13 var(--oc-hue));
   }
+  /*
+   * ÖLÇEK METNİ — sayının BÜYÜKLÜĞÜNÜ renkle söyler (kullanıcı isteği,
+   * 13.08.2026: "maaş fiyat büyüklüğüne göre renklendirilsin, zam oranı
+   * büyüklüğüne göre renklendirilsin; az kırmızı fazla yeşil").
+   *
+   * TON AÇISI VERİDEN GELİR (`olcekTonu`), doygunluk ve parlaklık BURADA ve
+   * TEMA BAŞINA verilir — `.oc-tag` ile aynı sözleşme (AGENTS md. 14). Kırmızı
+   * uç 25°, yeşil uç 145°'dir ve arası doğrusaldır.
+   *
+   * BU BİR ETİKET DEĞİL METİN RENGİDİR: sayı zemin üzerinde okunacak, o yüzden
+   * açık temada `.oc-series-bg`den KOYU (0,62 → 0,50), koyu temada AÇIK
+   * (0,7 → 0,80) tutulur. Doygunluk 0,12'de kelepçelidir: marka dilinde tek
+   * gerçekten doygun renk Orion Kırmızısıdır ve bir maaş sütunu onun önüne
+   * geçmemelidir.
+   *
+   * `oklch` sarı-yeşil bandında (100–130°) aynı L'de daha parlak görünür;
+   * bu bilinçli olarak düzeltilmemiştir — ölçeğin ORTASININ göze biraz daha
+   * çarpması, uçları ayırt etmeyi kolaylaştırır.
+   */
+  .oc-scale {
+    --oc-hue: 25;
+    color: oklch(0.5 0.12 var(--oc-hue));
+  }
+  .dark .oc-scale {
+    color: oklch(0.8 0.12 var(--oc-hue));
+  }
+
   /* Isı haritası hücresi: yoğunluk `--oc-level` (0–1) ile verilir. Renk değil
      DOYGUNLUK+PARLAKLIK değişir; boş hücre zeminle aynı kalır, dolusu koyulaşır. */
   .oc-heat {

@@ -530,10 +530,13 @@ export function SummaryView({
     <div className="grid gap-3">
       {/* ÖZET KARTLARI */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
+        {/* KART İÇİ NOTLARDA HER SÖZCÜĞÜN BAŞ HARFİ BÜYÜKTÜR (kullanıcı
+            kararı, 13.08.2026). Metinler ELLE öyle yazılır, bir dönüştürücüden
+            geçirilmez: notların içinde sayı, simge ve kısaltma var. */}
         <StatCard
           label="Aktif Çalışan"
           value={String(aktifSayisi)}
-          hint="bugün açık çalışma dönemi olan"
+          hint="Bugün Açık Çalışma Dönemi Olan"
           icon={Users}
         />
         {/* SEÇİLİ YILIN TOPLAMI — kullanıcı isteği (13.08.2026). Avro
@@ -544,8 +547,8 @@ export function SummaryView({
           value={`${fmtTutar(toplamlar.grandTotal)} ₺`}
           hint={
             toplamlar.kursuzAy > 0
-              ? `${fmtTutar(toplamlar.eur)} € · ${toplamlar.kursuzAy} ayın kuru yok`
-              : `${fmtTutar(toplamlar.eur)} € · ${toplamlar.ay} ay`
+              ? `${fmtTutar(toplamlar.eur)} € · ${toplamlar.kursuzAy} Ayın Kuru Yok`
+              : `${fmtTutar(toplamlar.eur)} € · ${toplamlar.ay} Ay`
           }
           icon={CalendarRange}
           tone={toplamlar.kursuzAy > 0 ? "warn" : undefined}
@@ -555,8 +558,8 @@ export function SummaryView({
           value={sonAy ? `${fmtTutar(kapsamli(sonAy).grandTotal)} ₺` : "—"}
           hint={
             sonAy?.rate
-              ? `${fmtTutar(kapsamli(sonAy).grandTotal / sonAy.rate)} € · kur ${fmtNum(sonAy.rate, true)}`
-              : "dönem kuru girilmemiş"
+              ? `${fmtTutar(kapsamli(sonAy).grandTotal / sonAy.rate)} € · Kur ${fmtNum(sonAy.rate, true)}`
+              : "Dönem Kuru Girilmemiş"
           }
           icon={Banknote}
           delta={
@@ -578,8 +581,8 @@ export function SummaryView({
           value={sonAySaatlik?.eur != null ? `${eur2(sonAySaatlik.eur)} €` : "—"}
           hint={
             sonAySaatlik
-              ? `${sonAy ? periodLabel(sonAy.period) : ""} · ${tam(sonAySaatlik.try)} ₺/sa · ${tam(sonAySaatlik.hours)} net saat`
-              : "dönem kuru girilmemiş"
+              ? `${sonAy ? periodLabel(sonAy.period) : ""} · ${tam(sonAySaatlik.try)} ₺/sa · ${tam(sonAySaatlik.hours)} Net Saat`
+              : "Dönem Kuru Girilmemiş"
           }
           icon={Euro}
           tone={sonAySaatlik?.eur == null ? "warn" : undefined}

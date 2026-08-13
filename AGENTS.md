@@ -818,15 +818,56 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     VERİTABANINDA KESİRDİR (0,15)**; dönüşüm yalnız iki yerdedir
     (`loadSalaryPlan` okurken, `oranKesre` yazarken) ve çekirdeğin tamamı yüzde
     konuşur — kayması sessizdir, çünkü sonuç hâlâ makul görünür.
-    Yuvarlama adımı varsayılan 100 ₺'dir: devralınan 566 maaş satırının tamamı
-    yüzlüktü, kural veriden okundu. Defter migration'da UYDURULMADI, ödenmiş
-    maaş satırlarından türetildi — net maaşın DEĞİŞTİĞİ her ay bir karar
-    satırıdır.
+    Yuvarlama **500 ya da 1000 ₺**'dir (kullanıcı kararı 13.08.2026; önce beş
+    seçenek ve 100 varsayılanı vardı, sayı devralınan 566 satırın yüzlüğe
+    yuvarlı olmasından okunmuştu — kullanıcı ölçeği kendi kararıyla büyüttü).
+    "Yuvarlama yok" seçeneği de kalktı: ham çarpım (53.675) bir ücret kararı
+    değil bir ara sonuçtur. Defter migration'da UYDURULMADI, ödenmiş maaş
+    satırlarından türetildi — net maaşın DEĞİŞTİĞİ her ay bir karar satırıdır.
+
+    **EKRAN "ZAM UYGULANMAMIŞ" AÇILIR** (kullanıcı kararı, 13.08.2026): kararı
+    verilmemiş satırda oran %0, yeni ücret TABANIN KENDİSİDİR. Boş kutu aynı
+    şeyi söylemiyordu — toplam kartı belirlenmemiş kişiyi saymak zorunda
+    kalıyor, "0 mı yoksa henüz mü?" ekranda cevapsız duruyordu. Kaydedilmiş bir
+    karar EZİLMEZ (155.000 tabanının yanında 180.000 yazıp "%0" demek ekranın
+    kendisiyle çelişmesi olurdu). Kaydet düğmesi **DOKUNULMUŞLUĞA** bakar
+    (`taslaklar[id] !== undefined`), değere değil: yoksa varsayılanlar yüzünden
+    ekran açılır açılmaz "Kaydet (40)" yanardı.
+
+    **YIL İÇİ AYARLAMANIN AYRI BİR TABLO BÖLÜMÜ YOKTUR** (kullanıcı kararı,
+    13.08.2026): yılda bir iki kez olan bir kayıt için kendi başlığı ve sütun
+    düzeni olan bir bölüm çok yer kaplıyordu. Kayıt kişinin KENDİ SATIRINDA bir
+    çip olarak durur ve silme oradadır — görünmez olsaydı yanlış girilmiş bir
+    ayarlamayı geri almanın yolu kalmazdı.
+
+    **DEFTER 2024'TEN GERİYE GİTMEZ** (`EN_ESKI_PLAN_YILI`): devralınan maaş
+    kaydı Mayıs 2024'te başlar, öncesinde ne karar ne taban vardır ve boş bir
+    yıl, olmayan bir yıldan çok daha kafa karıştırıcıdır. Kelepçe İKİ YERDEdir
+    — düğme (pasif) ve sunucu (`Math.max`): ok kapalıyken bile `?yil=2019` elle
+    yazılabilir.
+
+    **ÜCRET VE ZAM ORANI BÜYÜKLÜĞÜNE GÖRE RENKLENİR** (kullanıcı isteği,
+    13.08.2026: *"az kırmızı fazla yeşil"*). Renk yine HEX DEĞİL AÇIDIR
+    (`olcekTonu` → 25° kızıl … 145° yeşil); doygunluk ve parlaklık
+    `globals.css` `.oc-scale` kuralında ve tema başına verilir. **İki ölçeğin
+    dayanağı AYRIDIR ve bu kasıtlıdır:** ücret ölçeği LİSTEYE GÖRELİdir (aynı
+    listede 33.000 ₺ yemekhane ile 205.000 ₺ genel müdür yan yana; sabit bir
+    eşik hepsini tek renge boyardı), zam ölçeği MUTLAKtır (%0–%25) — göreli
+    olsaydı herkese %15 verilen bir yılda en düşük satır kırmızı görünür ve
+    "buna az verdim" diye yanlış bir şey söylerdi.
 
     Maaş ekranı yeni satır açarken net ücreti buradan okur ve **plandan sapmayı
     bir UYARI olarak** gösterir, bir engel olarak değil: eksik gün, ücretsiz
     izin ve ay ortası giriş meşru sapmalardır ve uygulama hangisi olduğunu
     bilemez.
+
+    **EKRAN KENDİNİ YILDAN YILA GÜNCELLER** — hiçbir yıl sabit yazılmaz. Taban
+    her zaman "seçili yıldan bir önceki yılın ARALIK ayında geçerli ücret"tir
+    ve sütun başlıkları `yil`den türer; 2027'de "2026 Sonu / 2027 Net" olur.
+    Yıl içi ayarlama bir SONRAKİ yılın tabanına doğal olarak devrolur (temmuzda
+    95.000'e çıkan kişinin ertesi yıl tabanı 95.000'dir, ocak kararı 85.000
+    değil). `/dev/personnel-preview` bu durumu AYRI BİR FİKSTÜRLE gösterir
+    ("Taze Yıl 2027"): kuralın kendisi ancak kararı olmayan bir yılda görünür.
 
     **EXCEL'İN KENDİ İKİ SAYFASI ÇELİŞİYORDU** ve çözüm üçüncü bir sayı değil,
     BOŞLUĞU GÖSTERMEKTİR. "Maaş Özet Tablo"daki kişi sayısı elle yapıştırılmış
@@ -900,6 +941,12 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     tutar değildir: **KUR** (54,8231 ile 54,4900 aynı sayı gibi görünürdü) ve
     **SAATLİK MALİYET** (12–15 € bandında kuruş gerçek bir farktır — "14 €"
     ile "14,80 €" arasında teklif fiyatında %6 var).
+
+    **ÖZET KARTLARININ İÇ NOTLARINDA HER SÖZCÜĞÜN BAŞ HARFİ BÜYÜKTÜR**
+    (kullanıcı kararı, 13.08.2026). Metinler ELLE öyle yazılır, `baslikDuzeni`
+    gibi bir dönüştürücüden GEÇİRİLMEZ: notların içinde sayı, simge ve kısaltma
+    var ("1 € = 54,8231 ₺", "%50: 12 · %100: 8", "Kişi Başı Ort.") ve genel bir
+    başlık düzeni onları da "düzeltmeye" kalkardı.
 
     **ÖZET TABLOSU YATAYDA SIĞAR** (kullanıcı kararı, 13.08.2026) ve başlık
     hizası YAPISAL olarak korunur: sütun tanımı TEKTİR (`SUTUNLAR`), başlık ·

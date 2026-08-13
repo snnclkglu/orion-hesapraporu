@@ -40,12 +40,78 @@ export const RAISE_PRESETS = [5, 10, 15, 20, 25] as const;
  * yazmaz; yuvarlar. Yuvarlamayı kullanıcıya bırakmak (kutuyu elle düzelttirmek)
  * kırk kişilik bir listede kırk düzeltme demekti.
  *
- * Varsayılan 100 ₺'dir: devralınan 566 maaş satırının tamamı yüzlüğe
- * yuvarlıydı — kural veriden okundu, uydurulmadı.
+ * LİSTE İKİYE İNDİ (kullanıcı kararı, 13.08.2026: "yuvarlama sadece 500 ve
+ * 1000 olsun"). Önce beş seçenek vardı (1 · 10 · 100 · 500 · 1000) ve
+ * varsayılan 100'dü; sayı devralınan 566 maaş satırının yüzlüğe yuvarlı
+ * olmasından okunmuştu. Kullanıcı ölçeği kendi kararıyla büyüttü — bugünkü
+ * maaş büyüklüklerinde (85.000–205.000 ₺) yüz liralık bir basamak zaten
+ * anlamsız bir hassasiyet. "Yuvarlama yok" seçeneği de kalktı: ham çarpım
+ * (53.675) bir ücret kararı değil bir ara sonuçtur.
  */
-export const ROUND_STEPS = [1, 10, 100, 500, 1000] as const;
+export const ROUND_STEPS = [500, 1000] as const;
 export type RoundStep = (typeof ROUND_STEPS)[number];
-export const DEFAULT_ROUND_STEP: RoundStep = 100;
+export const DEFAULT_ROUND_STEP: RoundStep = 500;
+
+/**
+ * DEFTERİN BAŞLANGIÇ YILI — daha geriye gidilmez (kullanıcı kararı,
+ * 13.08.2026: "2024'ten geriye gitmemize gerek yok").
+ *
+ * Sayı keyfi değil: devralınan maaş kaydı **Mayıs 2024**'te başlar, yani
+ * 2023 ve öncesi için ne bir ücret kararı ne de bir zam tabanı vardır. Ekran
+ * oraya gidebilseydi kullanıcı boş bir tablo görüp "veri kaybolmuş" sanardı —
+ * boş bir yıl, olmayan bir yıldan çok daha kafa karıştırıcıdır.
+ */
+export const EN_ESKI_PLAN_YILI = 2024;
+
+// ————————————————————————————————————————————————————————————— ölçek rengi
+
+/**
+ * ÖLÇEĞİN İKİ UCU — kırmızı (az) ve yeşil (çok), OKLCH ton açısı olarak.
+ *
+ * HEX DEĞİL AÇI (AGENTS md. 14): aynı hex açık ve koyu temada birden okunmaz.
+ * Doygunluk ve parlaklık `globals.css`teki `.oc-scale` kuralında ve tema
+ * başına verilir; veri yalnız TON taşır.
+ */
+export const OLCEK_AZ_TON = 25; // kızıl
+export const OLCEK_COK_TON = 145; // yeşil
+
+/**
+ * Bir değeri ölçekteki yerine göre TON AÇISINA çevirir (kullanıcı isteği,
+ * 13.08.2026: "az kırmızı fazla yeşil").
+ *
+ * Aralık DEJENERE olabilir (bütün maaşlar eşitse `min === max`); o durumda
+ * ölçeğin ORTASI döner. Sıfıra bölmek `NaN` üretir ve CSS'te `--oc-hue: NaN`
+ * sessizce siyah bir metin bırakırdı — okunur ama yalan söyleyen bir renk.
+ */
+export function olcekTonu(
+  deger: number | null | undefined,
+  min: number,
+  max: number
+): number {
+  const v = Number(deger);
+  if (!Number.isFinite(v) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    return OLCEK_AZ_TON;
+  }
+  if (max <= min) return (OLCEK_AZ_TON + OLCEK_COK_TON) / 2;
+  const t = Math.min(1, Math.max(0, (v - min) / (max - min)));
+  return OLCEK_AZ_TON + t * (OLCEK_COK_TON - OLCEK_AZ_TON);
+}
+
+/**
+ * ZAM ORANININ ölçek sınırları — MUTLAKtır, listeye göre DEĞİL.
+ *
+ * Ücret ölçeği listeye görelidir (bir yemekhane ücretiyle genel müdür ücretini
+ * mutlak bir eşiğe vurmak anlamsızdır), ama zam oranı kendi başına okunur bir
+ * büyüklüktür: %0 zam yapılmadı demektir, %25 kullanıcının en yüksek hazır
+ * oranıdır. Listeye göreli olsaydı herkese %15 verilen bir yılda en düşük
+ * satır kırmızı görünür ve "bu kişiye az verdim" diye YANLIŞ bir şey söylerdi.
+ */
+export const ZAM_OLCEK_MIN = 0;
+export const ZAM_OLCEK_MAX = 25;
+
+export function zamTonu(oranYuzde: number | null | undefined): number {
+  return olcekTonu(oranYuzde, ZAM_OLCEK_MIN, ZAM_OLCEK_MAX);
+}
 
 /** Ondalıksız, adımına yuvarlanmış tutar. `adim = 1` yuvarlamayı kapatır. */
 export function yuvarla(tutar: number, adim: number = DEFAULT_ROUND_STEP): number {

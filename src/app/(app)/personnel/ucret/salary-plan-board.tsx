@@ -12,9 +12,11 @@
 // olsaydı "şu kişiyi 60.000'e çıkaralım" gibi son derece sıradan bir karar
 // hesap makinesi gerektirirdi.
 //
-// YUVARLAMA EKRANDA YAPILIR, BORDRODA DEĞİL: 47.500'e %13 zam 53.675 eder ve
-// firma bu sayıyı yazmaz. Adım varsayılan 100 ₺'dir — devralınan 566 maaş
-// satırının tamamı yüzlüğe yuvarlıydı, kural veriden okundu.
+// EKRAN KENDİNİ YILDAN YILA GÜNCELLER — hiçbir yıl sabit yazılmaz. Taban her
+// zaman "seçili yıldan bir önceki yılın ARALIK ayında geçerli ücret"tir
+// (`yilBasiTabani`), sütun başlıkları da `yil`den türer. 2027 Ocak'ta sayfa
+// açıldığında "2026 Sonu Ücret" / "2027 Net Ücret" olur; 2028'de aynısı 2027
+// için işler. Yeni bir kod ya da migration gerekmez.
 //
 // SAYILAR METİN OLARAK TUTULUR ve yalnız kaydederken sayıya çevrilir
 // (`parseNum`, projenin her yerdeki kalıbı).
@@ -29,10 +31,10 @@ import {
   Percent,
   Save,
   Sigma,
-  Trash2,
   TrendingUp,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,18 +56,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { StatCard } from "@/components/stat-card";
+import { ParaInput } from "@/components/para-input";
 import { fmtNum, fmtTutar, parseNum } from "@/lib/currency";
 import { tagStyle } from "@/lib/tags";
 import { categoryHue, categoryLabel } from "@/lib/personnel/employee";
 import { periodLabel } from "@/lib/personnel/payroll";
 import {
   DEFAULT_ROUND_STEP,
+  EN_ESKI_PLAN_YILI,
   RAISE_PRESETS,
   RAISE_REASON_LABELS,
   ROUND_STEPS,
   gecerliUcret,
+  olcekTonu,
   yilBasiTabani,
   zamOrani,
+  zamTonu,
   zamliUcret,
   type RaiseReason,
 } from "@/lib/personnel/salary-plan";
@@ -147,6 +153,9 @@ export function SalaryPlanBoard({
   }
 
   const donem = `${yil}-01`;
+  // 2024'ten geriye gidilmez (kullanıcı kararı): devralınan maaş kaydı Mayıs
+  // 2024'te başlar, öncesinde ne ücret kararı ne zam tabanı var.
+  const geriGidilir = yil > EN_ESKI_PLAN_YILI;
 
   function goYil(y: number) {
     router.replace(`/personnel/ucret?yil=${y}`);
@@ -165,16 +174,27 @@ export function SalaryPlanBoard({
     return m;
   }, [payroll, donem]);
 
-  /** Yıl içi (ocak DIŞI) ayarlamalar — ayrı bir tabloda listelenir. */
-  const araKararlar = useMemo(
-    () =>
-      plans
-        .filter((p) => p.effectiveFrom.startsWith(`${yil}-`) && !p.effectiveFrom.endsWith("-01"))
-        .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1)),
-    [plans, yil]
-  );
-
-  const kisiHarita = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
+  /**
+   * Yıl içi (ocak DIŞI) ayarlamalar — KİŞİ BAŞINA.
+   *
+   * AYRI BİR TABLO BÖLÜMÜ YOKTUR (kullanıcı kararı, 13.08.2026: "2026 Yıl İçi
+   * Ayarlamaları bölümünü kaldıralım"). Ayarlama yılda bir iki kez olur ve
+   * kendi başlığı, kendi sütun düzeni ve kendi boşluğu olan bir bölüm o
+   * seyrekliğe göre çok yer kaplıyordu. Ama kayıt GÖRÜNMEZ OLAMAZ — yanlış
+   * girilmiş bir ayarlamayı silmenin başka yolu kalmazdı; bu yüzden kişinin
+   * KENDİ SATIRINDA küçük bir çip olarak durur.
+   */
+  const araKararlar = useMemo(() => {
+    const m = new Map<string, SalaryPlanRow[]>();
+    for (const p of plans) {
+      if (!p.effectiveFrom.startsWith(`${yil}-`) || p.effectiveFrom.endsWith("-01")) continue;
+      const liste = m.get(p.employeeId) ?? [];
+      liste.push(p);
+      m.set(p.employeeId, liste);
+    }
+    for (const liste of m.values()) liste.sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1));
+    return m;
+  }, [plans, yil]);
 
   const satirlar = useMemo(() => {
     return employees
@@ -184,20 +204,11 @@ export function SalaryPlanBoard({
         const mevcut =
           plans.find((p) => p.employeeId === e.id && p.effectiveFrom === donem) ?? null;
 
-        // TABAN ÜÇ KAYNAKTAN, BU SIRAYLA — hepsi GERÇEK bir kayıttır, hiçbiri
-        // tahmin değildir:
-        //
-        //  1. Bir önceki yılın ARALIK ayında geçerli ücret KARARI. Yılın
-        //     ortalaması ya da ocak ayındaki ücreti DEĞİL: kişi eylülde ara
-        //     ayarlama aldıysa yıl başı zammı o ayarlanmış ücretin üstünedir.
-        //  2. Hedef yıldan önce ÖDENMİŞ son maaş. Ücret planı yeni bir
-        //     defterdir ve geçmişi yoktur; ödenen maaş o boşluğu doldurur.
-        //  3. BU YILIN KARARININ KENDİ KAYITLI TABANI (`previousNet`).
-        //     İlk ikisi ekranda "—" bırakıyordu ama karar satırı tabanı zaten
-        //     TAŞIYOR — zam yapılırken ne olduğu oraya yazılmıştı. Onu
-        //     görmezden gelmek, elimizdeki veriyi saklamak olurdu: sütun boş
-        //     kalıyor, zam oranı hesaplanamıyor ve toplam fark ("+325.000")
-        //     tabansız kişileri sıfırdan çıkmış gibi gösterip şişiyordu.
+        // TABAN ÜÇ KAYNAKTAN, BU SIRAYLA — hepsi GERÇEK bir kayıttır:
+        //  1. Bir önceki yılın ARALIK ayında geçerli ücret KARARI (kişi
+        //     eylülde ara ayarlama aldıysa zam onun üstünedir).
+        //  2. Hedef yıldan önce ÖDENMİŞ son maaş (plan defteri yenidir).
+        //  3. Bu yılın kararının KENDİ kayıtlı tabanı (`previousNet`).
         const tabanPlan = yilBasiTabani(plans, e.id, yil);
         const odenen = sonOdenen.get(e.id) ?? null;
         const taban = tabanPlan?.netSalary ?? odenen?.net ?? mevcut?.previousNet ?? null;
@@ -209,11 +220,36 @@ export function SalaryPlanBoard({
               ? "karar"
               : "yok";
 
+        // KULLANICI DOKUNDU MU? Taslak sözlüğüne yalnız gerçek bir düzenleme
+        // (satır girişi ya da toplu zam) yazar; varsayılan değerler ORAYA
+        // GİRMEZ. Fark önemli: aşağıdaki "sayfa 0 ile açılsın" kuralı yüzünden
+        // her satır dolu görünür ve dokunulmuşluk sorulmasaydı ekran açılır
+        // açılmaz "Kaydet (40)" yanardı — kullanıcı hiçbir karar vermemişken.
+        const dokunuldu = taslaklar[e.id] !== undefined;
+
+        /*
+         * SAYFA "ZAM UYGULANMAMIŞ" AÇILIR (kullanıcı kararı, 13.08.2026).
+         *
+         * Kararı henüz verilmemiş satırda oran 0, yeni ücret ise TABANIN
+         * KENDİSİDİR — yani ekran "bu yıl henüz zam yok" der ve kullanıcı
+         * orana basınca hepsi birden hareket eder. Boş kutu bırakmak aynı şeyi
+         * söylemiyordu: toplam kartı belirlenmemiş kişileri saymak zorunda
+         * kalıyor, "0 mı yoksa henüz mü?" sorusu ekranda cevapsız duruyordu.
+         *
+         * KAYDEDİLMİŞ KARAR EZİLMEZ: orada gerçek oran görünür. 155.000
+         * tabanının yanında 180.000 yazıp "%0" demek, ekranın kendisiyle
+         * çelişmesi olurdu.
+         */
         const taslak: Taslak =
           taslaklar[e.id] ??
           (mevcut
-            ? { net: girdiMetni(mevcut.netSalary), oran: oranMetni(zamOrani(taban, mevcut.netSalary)) }
-            : { net: "", oran: "" });
+            ? {
+                net: girdiMetni(mevcut.netSalary),
+                oran: oranMetni(zamOrani(taban, mevcut.netSalary)),
+              }
+            : taban !== null
+              ? { net: girdiMetni(taban), oran: "0" }
+              : { net: "", oran: "" });
 
         const yeni = parseNum(taslak.net);
         const oran = zamOrani(taban, yeni);
@@ -223,12 +259,14 @@ export function SalaryPlanBoard({
           tabanKaynak,
           tabanDonem: tabanPlan?.effectiveFrom ?? odenen?.period ?? null,
           mevcut,
+          ara: araKararlar.get(e.id) ?? [],
           taslak,
           yeni,
           oran,
           fark: taban !== null && yeni !== null ? yeni - taban : null,
-          // Kaydedilecek mi? Yeni bir sayı VE mevcut karardan farklı.
-          degisti: yeni !== null && yeni > 0 && (mevcut === null || mevcut.netSalary !== yeni),
+          // Kaydedilecek mi? Kullanıcı DOKUNDU ve sonuç kayıtlı karardan farklı.
+          degisti:
+            dokunuldu && yeni !== null && yeni > 0 && (mevcut === null || mevcut.netSalary !== yeni),
         };
       })
       .sort(
@@ -236,7 +274,27 @@ export function SalaryPlanBoard({
           a.emp.category.localeCompare(b.emp.category, "tr") ||
           a.emp.fullName.localeCompare(b.emp.fullName, "tr")
       );
-  }, [employees, plans, taslaklar, yil, donem, sonOdenen, ayrilanlar]);
+  }, [employees, plans, taslaklar, yil, donem, sonOdenen, ayrilanlar, araKararlar]);
+
+  /**
+   * ÜCRET RENK ÖLÇEĞİNİN UÇLARI — LİSTEYE GÖRELİ (kullanıcı isteği,
+   * 13.08.2026: "maaş fiyat büyüklüğüne göre fiyatta renklendirme olsun; az
+   * kırmızı fazla yeşil").
+   *
+   * Mutlak bir eşik olamazdı: bu listede 33.000 ₺'lik bir yemekhane ücretiyle
+   * 205.000 ₺'lik bir genel müdür ücreti yan yana duruyor ve sabit bir sınır
+   * ya hepsini kırmızı ya hepsini yeşil yapardı. Uçlar EKRANDA GÖRÜNEN
+   * satırlardan çıkar; ayrılanları açmak ölçeği yeniden gerer ve doğrusu budur
+   * — renk "bu listede nerede duruyor" sorusunun cevabıdır.
+   */
+  const ucretAraligi = useMemo(() => {
+    const degerler = satirlar
+      .map((r) => r.yeni ?? r.taban)
+      .filter((v): v is number => v !== null && Number.isFinite(v) && v > 0);
+    return degerler.length > 0
+      ? { min: Math.min(...degerler), max: Math.max(...degerler) }
+      : { min: 0, max: 0 };
+  }, [satirlar]);
 
   const toplamlar = useMemo(() => {
     let tabanToplam = 0;
@@ -250,7 +308,7 @@ export function SalaryPlanBoard({
       // "0" yazmak, henüz karar verilmemiş bir kişiyi "ücretsiz" göstermek
       // olurdu ve toplam farkı olduğundan büyük çıkardı.
       yeniToplam += r.yeni ?? r.taban ?? 0;
-      if (r.yeni !== null && r.yeni > 0) kararli += 1;
+      if (r.mevcut !== null || r.degisti) kararli += 1;
       if (r.oran !== null) {
         oranli += 1;
         oranToplam += r.oran;
@@ -352,7 +410,7 @@ export function SalaryPlanBoard({
         toast.error(res.error);
         return;
       }
-      toast.success(`${ad} — ara ayarlama silindi.`);
+      toast.success(`${ad} — yıl içi ayarlama silindi.`);
       router.refresh();
     });
   }
@@ -368,6 +426,12 @@ export function SalaryPlanBoard({
             variant="outline"
             size="icon-sm"
             onClick={() => goYil(yil - 1)}
+            disabled={!geriGidilir}
+            title={
+              geriGidilir
+                ? "Önceki yıl"
+                : `${EN_ESKI_PLAN_YILI} defterin ilk yılıdır — devralınan maaş kaydı Mayıs ${EN_ESKI_PLAN_YILI}'te başlıyor`
+            }
             aria-label="Önceki yıl"
           >
             <ChevronLeft className="size-4" />
@@ -427,41 +491,44 @@ export function SalaryPlanBoard({
         </div>
       </div>
 
-      {/* ——————————————————————————————————————————————— özet kartları */}
+      {/* ——————————————————————————————————————————————— özet kartları
+          Kart içi notlarda HER SÖZCÜĞÜN BAŞ HARFİ BÜYÜKTÜR (kullanıcı kararı,
+          13.08.2026). Metinler elle öyle yazılır, bir dönüştürücüden
+          geçirilmez: içlerinde sayı, simge ve kısaltma var. */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           dense
           label="Kişi"
           value={String(toplamlar.kisi)}
-          hint={`${toplamlar.kararli} kişinin ücreti belirlendi`}
+          hint={`${toplamlar.kararli} Kişinin Ücreti Belirlendi`}
           icon={Users}
         />
         <StatCard
           dense
           label={`${yil - 1} Sonu Toplam`}
           value={`${fmtTutar(toplamlar.tabanToplam)} ₺`}
-          hint="aylık net ücret toplamı (zam tabanı)"
+          hint="Aylık Net Ücret Toplamı (Zam Tabanı)"
           icon={Sigma}
         />
         <StatCard
           dense
           label={`${yil} Toplam`}
           value={`${fmtTutar(toplamlar.yeniToplam)} ₺`}
-          hint="belirlenmemiş kişiler tabanıyla sayıldı"
+          hint="Belirlenmemiş Kişiler Tabanıyla Sayıldı"
           icon={Wallet}
         />
         <StatCard
           dense
           label="Aylık Fark"
           value={`${toplamlar.fark >= 0 ? "+" : "−"}${fmtTutar(Math.abs(toplamlar.fark))} ₺`}
-          hint={`yıllık ${fmtTutar(Math.abs(toplamlar.fark) * 12)} ₺`}
+          hint={`Yıllık ${fmtTutar(Math.abs(toplamlar.fark) * 12)} ₺`}
           icon={TrendingUp}
         />
         <StatCard
           dense
           label="Ortalama Zam"
           value={toplamlar.ortalamaOran === null ? "—" : `%${fmtNum(toplamlar.ortalamaOran, true)}`}
-          hint="ücreti belirlenmiş kişilerin ortalaması"
+          hint="Tabanı Olan Kişilerin Ortalaması"
           icon={Percent}
         />
       </div>
@@ -493,7 +560,6 @@ export function SalaryPlanBoard({
                 if (o !== null) toplu(o);
               }}
               inputMode="decimal"
-              placeholder=""
               aria-label="Serbest zam oranı (%)"
               disabled={!yazilabilir || bekleyen}
               className="h-8 w-20 text-right font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-sm"
@@ -512,6 +578,9 @@ export function SalaryPlanBoard({
             </Button>
           </div>
 
+          {/* YUVARLAMA İKİ SEÇENEKTİR (kullanıcı kararı, 13.08.2026). Önce
+              beş vardı (1 · 10 · 100 · 500 · 1000); bugünkü maaş
+              büyüklüklerinde yüz liralık basamak anlamsız bir hassasiyetti. */}
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-muted-foreground">Yuvarlama</span>
             {ROUND_STEPS.map((s) => (
@@ -521,9 +590,9 @@ export function SalaryPlanBoard({
                 size="sm"
                 className="oc-tap font-mono text-[11px]"
                 onClick={() => setAdim(s)}
-                title={s === 1 ? "Yuvarlama yok" : `${s} ₺'ye yuvarla`}
+                title={`Zam sonucunu ${fmtNum(s)} ₺'ye yuvarla`}
               >
-                {s === 1 ? "yok" : fmtNum(s)}
+                {fmtNum(s)}
               </Button>
             ))}
           </div>
@@ -555,8 +624,10 @@ export function SalaryPlanBoard({
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          Oran <span className="font-medium">tabanın üstüne</span> uygulanır ve sonuç seçilen
-          adıma yuvarlanır. Hiçbir şey kaydedilmez — sayıları gözden geçirip{" "}
+          Sayfa <span className="font-medium">zam uygulanmamış</span> açılır: kararı verilmemiş
+          satırlarda oran %0&apos;dır ve ücret tabanın kendisidir. Oran{" "}
+          <span className="font-medium">tabanın üstüne</span> uygulanır ve sonuç seçilen adıma
+          yuvarlanır. Hiçbir şey kaydedilmez — sayıları gözden geçirip{" "}
           <span className="font-medium">Kaydet</span>&apos;e basmanız gerekir. Bir kişiyi ayrı
           tutmak için satırındaki oranı ya da ücreti doğrudan yazın.
         </p>
@@ -580,9 +651,7 @@ export function SalaryPlanBoard({
               </TableHead>
               <TableHead>Ad Soyad</TableHead>
               <TableHead className={cn("w-[10rem]", AT_LG)}>Görev</TableHead>
-              <TableHead className="w-[9rem] text-right">
-                {yil - 1} Sonu Ücret (₺)
-              </TableHead>
+              <TableHead className="w-[9rem] text-right">{yil - 1} Sonu Ücret (₺)</TableHead>
               <TableHead className="w-[6rem] text-right">Zam %</TableHead>
               <TableHead className="w-[9rem] text-right">{yil} Net Ücret (₺)</TableHead>
               <TableHead className={cn("w-[8rem] text-right", AT_MD)}>Fark (₺)</TableHead>
@@ -601,10 +670,7 @@ export function SalaryPlanBoard({
               satirlar.map((r) => {
                 const id = r.emp.id;
                 return (
-                  <TableRow
-                    key={id}
-                    className={cn(r.degisti && "bg-primary/[0.05]")}
-                  >
+                  <TableRow key={id} className={cn(r.degisti && "bg-primary/[0.05]")}>
                     <TableCell>
                       <input
                         type="checkbox"
@@ -641,7 +707,7 @@ export function SalaryPlanBoard({
                           ikinci bir kart markup'ı YAZILMAZ. */}
                       <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground lg:hidden">
                         {r.emp.title || categoryLabel(r.emp.category)}
-                        {r.fark !== null && (
+                        {r.fark !== null && r.fark !== 0 && (
                           <span className="font-mono tabular-nums md:hidden">
                             {" · "}
                             {r.fark >= 0 ? "+" : "−"}
@@ -649,6 +715,37 @@ export function SalaryPlanBoard({
                           </span>
                         )}
                       </span>
+                      {/* YIL İÇİ AYARLAMA ÇİPİ — ayrı bölüm kalktı, kayıt
+                          kişinin kendi satırına indi. Silme burada durur:
+                          yanlış girilmiş bir ayarlamayı geri almanın başka
+                          yolu olmamalı. */}
+                      {r.ara.map((a) => (
+                        <span
+                          key={a.id}
+                          className="mt-1 flex w-fit max-w-full items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-normal"
+                          title={
+                            a.note ||
+                            `${periodLabel(a.effectiveFrom)}'dan itibaren geçerli yıl içi ayarlama`
+                          }
+                        >
+                          <span className="font-mono tabular-nums">
+                            {periodLabel(a.effectiveFrom)} → {fmtTutar(a.netSalary)} ₺
+                            {a.raisePct !== null && ` (%${fmtNum(a.raisePct, true)})`}
+                          </span>
+                          {yazilabilir && (
+                            <button
+                              type="button"
+                              onClick={() => araKarariSil(a.id, r.emp.fullName)}
+                              disabled={bekleyen}
+                              title="Yıl içi ayarlamayı sil"
+                              aria-label={`${r.emp.fullName} ${periodLabel(a.effectiveFrom)} ayarlamasını sil`}
+                              className="oc-tap shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          )}
+                        </span>
+                      ))}
                     </TableCell>
 
                     <TableCell className={cn("text-muted-foreground", AT_LG)}>
@@ -679,6 +776,11 @@ export function SalaryPlanBoard({
                       )}
                     </TableCell>
 
+                    {/* ZAM ORANI BÜYÜKLÜĞÜNE GÖRE RENKLİDİR (kullanıcı isteği):
+                        %0 kızıl, %25 yeşil. Ölçek MUTLAKtır — listeye göreli
+                        olsaydı herkese %15 verilen bir yılda en düşük satır
+                        kırmızı görünür ve "buna az verdim" diye yanlış bir şey
+                        söylerdi. */}
                     <TableCell>
                       <Input
                         value={r.taslak.oran}
@@ -686,31 +788,45 @@ export function SalaryPlanBoard({
                         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                         inputMode="decimal"
                         disabled={!yazilabilir || bekleyen || r.taban === null}
-                        className={HUCRE_INPUT}
+                        className={cn(
+                          HUCRE_INPUT,
+                          r.oran !== null && "oc-scale font-semibold"
+                        )}
+                        style={r.oran !== null ? { "--oc-hue": zamTonu(r.oran) } as React.CSSProperties : undefined}
                         aria-label={`${r.emp.fullName} zam oranı`}
                       />
                     </TableCell>
 
+                    {/* ÜCRET BÜYÜKLÜĞÜNE GÖRE RENKLİDİR: ölçek listedeki en
+                        düşük ve en yüksek ücret arasında gerilir. */}
                     <TableCell>
-                      <Input
+                      <ParaInput
                         value={r.taslak.net}
-                        onChange={(e) => netYaz(r, e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                        inputMode="decimal"
+                        onChange={(v) => netYaz(r, v)}
                         disabled={!yazilabilir || bekleyen}
-                        className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} ${yil} net ücreti`}
+                        className={cn(
+                          HUCRE_INPUT,
+                          r.yeni !== null && r.yeni > 0 && "oc-scale font-semibold"
+                        )}
+                        style={
+                          r.yeni !== null && r.yeni > 0
+                            ? ({
+                                "--oc-hue": olcekTonu(r.yeni, ucretAraligi.min, ucretAraligi.max),
+                              } as React.CSSProperties)
+                            : undefined
+                        }
+                        ariaLabel={`${r.emp.fullName} ${yil} net ücreti`}
                       />
                     </TableCell>
 
-                    <TableCell
-                      className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}
-                    >
+                    <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
                       {r.fark === null ? (
                         <span className="text-muted-foreground/60">—</span>
+                      ) : r.fark === 0 ? (
+                        <span className="text-muted-foreground/60">—</span>
                       ) : (
-                        <span className={r.fark > 0 ? "text-success" : r.fark < 0 ? "text-destructive" : undefined}>
-                          {r.fark >= 0 ? "+" : "−"}
+                        <span className={r.fark > 0 ? "text-success" : "text-destructive"}>
+                          {r.fark > 0 ? "+" : "−"}
                           {fmtTutar(Math.abs(r.fark))}
                         </span>
                       )}
@@ -726,7 +842,7 @@ export function SalaryPlanBoard({
                       ) : r.taban === null ? (
                         <span className="text-muted-foreground/70">taban yok — ücreti yazın</span>
                       ) : (
-                        <span className="text-muted-foreground/70">belirlenmedi</span>
+                        <span className="text-muted-foreground/70">zam uygulanmadı</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -753,8 +869,14 @@ export function SalaryPlanBoard({
                   {fmtTutar(toplamlar.yeniToplam)}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
-                  {toplamlar.fark >= 0 ? "+" : "−"}
-                  {fmtTutar(Math.abs(toplamlar.fark))}
+                  {toplamlar.fark === 0 ? (
+                    "—"
+                  ) : (
+                    <>
+                      {toplamlar.fark > 0 ? "+" : "−"}
+                      {fmtTutar(Math.abs(toplamlar.fark))}
+                    </>
+                  )}
                 </TableCell>
                 <TableCell className={AT_MD} />
               </TableRow>
@@ -766,73 +888,13 @@ export function SalaryPlanBoard({
       <p className="text-[11px] text-muted-foreground">
         Bu ekran <span className="font-medium">kararı</span> yazar, ödemeyi değil: kaydedilen ücret
         Maaş ekranında yeni satır açarken ön değer olarak gelir ve orada gerekirse
-        düzeltilebilir. Taban gri görünüyorsa o kişinin geçen yıl için ücret kararı yoktur ve sayı{" "}
-        <span className="font-medium">ödenen son maaştan</span> ya da{" "}
-        <span className="font-medium">bu yılın kararının kendi kayıtlı tabanından</span>{" "}
-        okunmuştur; hangisi olduğunu hücrenin üstüne gelince görürsünüz.
+        düzeltilebilir. Ücret ve zam oranı <span className="font-medium">büyüklüklerine göre</span>{" "}
+        renklenir (az kızıl, çok yeşil); ücret ölçeği listedeki en düşük ve en yüksek arasında,
+        zam ölçeği %0 ile %25 arasında gerilir. Taban gri görünüyorsa o kişinin geçen yıl için
+        ücret kararı yoktur ve sayı ödenen son maaştan ya da bu yılın kararının kendi kayıtlı
+        tabanından okunmuştur; hangisi olduğunu hücrenin üstüne gelince görürsünüz.
         {!canWrite && " Yazma yetkiniz olmadığı için alanlar kapalıdır."}
       </p>
-
-      {/* ————————————————————————————————— yıl içi ayarlamalar (ocak dışı) */}
-      {araKararlar.length > 0 && (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <div className="border-b bg-muted/40 px-4 py-2.5">
-            <span className="oc-kicker text-foreground/80">{yil} Yıl İçi Ayarlamaları</span>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Geçerlilik</TableHead>
-                <TableHead>Ad Soyad</TableHead>
-                <TableHead className="text-right">Önceki (₺)</TableHead>
-                <TableHead className="text-right">Yeni (₺)</TableHead>
-                <TableHead className={cn("text-right", AT_MD)}>Oran</TableHead>
-                <TableHead className={AT_LG}>Not</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {araKararlar.map((p) => {
-                const ad = kisiHarita.get(p.employeeId)?.fullName ?? "—";
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono text-sm tabular-nums">
-                      {periodLabel(p.effectiveFrom)}
-                    </TableCell>
-                    <TableCell className="font-medium">{ad}</TableCell>
-                    <TableCell className="text-right font-mono text-sm tabular-nums">
-                      {p.previousNet === null ? "—" : fmtTutar(p.previousNet)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm tabular-nums">
-                      {fmtTutar(p.netSalary)}
-                    </TableCell>
-                    <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
-                      {p.raisePct === null ? "—" : `%${fmtNum(p.raisePct, true)}`}
-                    </TableCell>
-                    <TableCell className={cn("text-xs text-muted-foreground", AT_LG)}>
-                      <span className="block max-w-[16rem] truncate" title={p.note}>
-                        {p.note || RAISE_REASON_LABELS[p.reason as RaiseReason] || "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-destructive"
-                        disabled={!yazilabilir || bekleyen}
-                        title="Ayarlamayı sil"
-                        onClick={() => araKarariSil(p.id, ad)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
 
       {araPencere && (
         <AraAyarlamaDialog
@@ -860,7 +922,7 @@ export function SalaryPlanBoard({
  * NADİR OLDUĞU İÇİN PENCEREDE: yıl başı kararı bir TABLO işidir (kırk satır bir
  * arada), yıl içi ayarlama tek bir kişiye tek bir tarihte verilir. İkisini aynı
  * tabloya sıkıştırmak, her satıra bir tarih sütunu eklemek ve o sütunun %98'ini
- * boş bırakmak demekti.
+ * boş bırakmak demekti. Sonuç kişinin satırında bir ÇİP olarak görünür.
  */
 function AraAyarlamaDialog({
   yil,
@@ -933,7 +995,7 @@ function AraAyarlamaDialog({
           <DialogTitle>Yıl içi ücret ayarlaması</DialogTitle>
           <DialogDescription>
             Seçilen aydan itibaren geçerli olur ve bir sonraki karara kadar sürer. Yıl başı planı
-            değişmez.
+            değişmez; kayıt kişinin satırında bir işaret olarak görünür.
           </DialogDescription>
         </DialogHeader>
 
@@ -1004,19 +1066,19 @@ function AraAyarlamaDialog({
                 className="text-right font-mono tabular-nums"
               />
             </label>
-            <label className="grid gap-1">
+            <div className="grid gap-1">
               <span className="oc-kicker text-muted-foreground">Yeni Net Ücret (₺)</span>
-              <Input
+              <ParaInput
                 value={net}
-                onChange={(e) => {
-                  setNet(e.target.value);
-                  const o = zamOrani(taban, parseNum(e.target.value));
+                onChange={(v) => {
+                  setNet(v);
+                  const o = zamOrani(taban, parseNum(v));
                   setOran(o === null ? "" : oranMetni(o));
                 }}
-                inputMode="decimal"
                 className="text-right font-mono tabular-nums"
+                ariaLabel="Yeni net ücret"
               />
-            </label>
+            </div>
           </div>
 
           <label className="grid gap-1">

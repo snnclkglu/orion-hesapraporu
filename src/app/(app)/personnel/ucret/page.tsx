@@ -18,6 +18,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canEditPersonnel } from "@/lib/roles";
 import { todayIso } from "@/lib/work-log";
+import { EN_ESKI_PLAN_YILI } from "@/lib/personnel/salary-plan";
 import { loadEmployees, loadPayroll, loadSalaryPlan } from "../data";
 import { SalaryPlanBoard } from "./salary-plan-board";
 
@@ -30,7 +31,14 @@ export default async function SalaryPlanPage({
   const bugun = todayIso();
   const buYil = Number(bugun.slice(0, 4));
   // Adres çubuğuna elle yazılan bozuk bir yıl sayfayı ÇÖKERTMEZ, bu yıla düşer.
-  const yil = /^\d{4}$/.test(sp.yil ?? "") ? Number(sp.yil) : buYil;
+  //
+  // ALT SINIR KELEPÇESİ SUNUCUDADIR, yalnız düğmede değil (kullanıcı kararı,
+  // 13.08.2026: "2024'ten geriye gitmemize gerek yok"). Ekrandaki ok
+  // pasifleştirilmiş olsa bile `?yil=2019` elle yazılabilir ve orada kullanıcı
+  // boş bir tablo görüp veriyi kaybolmuş sanardı — devralınan maaş kaydı
+  // Mayıs 2024'te başlar.
+  const ham = /^\d{4}$/.test(sp.yil ?? "") ? Number(sp.yil) : buYil;
+  const yil = Math.max(EN_ESKI_PLAN_YILI, ham);
 
   const supabase = await createClient();
   const {
