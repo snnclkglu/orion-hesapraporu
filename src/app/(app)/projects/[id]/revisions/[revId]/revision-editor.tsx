@@ -676,6 +676,7 @@ function CalcRow({
   checks?: AnyCheck[];
   context?: StandardContext;
 }) {
+  if (row.visible && !row.visible(ctx)) return null;
   const raw = row.read(ctx);
   const { value, unit } = toDisplayUnit(raw, row.unit);
   // Sözel durumlar (ör. katalog yük diyagramı yok) sayısal birim almaz.
@@ -707,7 +708,11 @@ function CalcRow({
       {row.formula && (
         // `oc-scrollx`: mobil tarayıcı kaydırma çubuğu çizmez; uzun formülün
         // sağa devam ettiğini gösteren tek ipucu kenar gölgesidir (sözleşme §6).
-        <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90 [--oc-scroll-bg:var(--muted)]">
+        <div
+          className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90 [--oc-scroll-bg:var(--muted)]"
+          title={row.formulaHint}
+          aria-label={row.formulaHint ? `Formül açıklaması: ${row.formulaHint}` : undefined}
+        >
           <MathFormula formula={row.formula} />
         </div>
       )}

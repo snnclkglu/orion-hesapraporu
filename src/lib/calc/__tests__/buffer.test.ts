@@ -274,7 +274,7 @@ describe("kauçuk tampon — eğriden çözüm", () => {
       .toBeCloseTo(r.values.maxDecelerationMps2, 12);
   });
 
-  it("hücresel eğri çarpma hızında enterpole edilir ve 4 m/s üstünde hesaplanmaz", () => {
+  it("hücresel eğride ara hız için emniyetli alt/üst katalog eğrileri kullanılır ve 4 m/s üstünde hesaplanmaz", () => {
     const curves = cellularSpeedCurvesForModel("Conductix-Wampfler 018112-080x080");
     const staticCurve = cellularCurvesAtImpactSpeed(curves, 0, 31)!;
     const dynamicCurve = cellularCurvesAtImpactSpeed(curves, 4, 31)!;
@@ -282,7 +282,11 @@ describe("kauçuk tampon — eğriden çözüm", () => {
 
     expect(staticCurve.energyCapacityKj).toBeCloseTo(0.6966, 4);
     expect(dynamicCurve.energyCapacityKj).toBeCloseTo(1.5084, 4);
-    expect(midpoint.energyCapacityKj).toBeCloseTo((0.6966 + 0.8843) / 2, 4);
+    // Katalog ara hız eğrisi yayımlamadığı için enerji kapasitesi iyimser
+    // enterpole edilmez; kuvvet ise daha yüksek hız eğrisinden okunur.
+    expect(midpoint.energyCapacityKj).toBeCloseTo(0.6966, 4);
+    expect(midpoint.energyCurveSpeedMps).toBe(0);
+    expect(midpoint.forceCurveSpeedMps).toBe(1);
     expect(dynamicCurve.forceCapacityKn).toBeCloseTo(31 * 1.6197, 4);
     expect(cellularCurvesAtImpactSpeed(curves, 4.01, 31)).toBeUndefined();
   });

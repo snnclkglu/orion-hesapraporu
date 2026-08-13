@@ -37,8 +37,10 @@ export interface BufferDiagramParams {
   reactionForceKn: number;
   /** Katalog azami son kuvveti [kN] */
   catalogMaxForceKn: number;
-  /** Hücresel eğrinin seçildiği gerçek çarpma hızı [m/s] */
-  catalogCurveSpeedMps?: number;
+  /** Hücreselde kapasite için kullanılan düşük hız katalog eğrisi [m/s] */
+  catalogEnergyCurveSpeedMps?: number;
+  /** Hücreselde kuvvet için kullanılan yüksek hız katalog eğrisi [m/s] */
+  catalogForceCurveSpeedMps?: number;
   /** Kauçuk: enerji–sıkışma eğrisi [[%, J], …] */
   energyCurve?: readonly (readonly [number, number])[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[%, kN], …] */
@@ -94,7 +96,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       16, 34,
       curveDriven
         ? cellular
-          ? `${p.model ?? "—"} · KAT0180 hız eğrisinden enterpolasyon · v_ç = ${fmtN(finite(p.catalogCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
+          ? `${p.model ?? "—"} · KAT0180: enerji ${fmtN(finite(p.catalogEnergyCurveSpeedMps), 3)} m/s, kuvvet ${fmtN(finite(p.catalogForceCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
           : `${p.model ?? "—"} · katalog yük diyagramından enterpolasyon · s = ${fmtN(height)} mm`
         : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
@@ -215,11 +217,11 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   pushLegend(els, 62, legendY, [
     {
       color: DCOL.ink,
-      label: cellular ? "KAT0180 hız enterpolasyonlu enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
+      label: cellular ? "KAT0180 düşük hız katalog enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
     },
     {
       color: DCOL.accent,
-      label: cellular ? "KAT0180 hız enterpolasyonlu kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
+      label: cellular ? "KAT0180 yüksek hız katalog kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
     },
   ]);
 

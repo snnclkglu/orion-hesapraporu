@@ -192,8 +192,10 @@ export interface CellularBufferCurves {
   energyCapacityKj: number;
   /** Çarpma hızındaki eğrinin son kuvveti [kN] */
   forceCapacityKn: number;
-  /** Enterpolasyonda kullanılan gerçek çarpma hızı [m/s] */
-  speedMps: number;
+  /** Enerji için kullanılan, çarpma hızını aşmayan katalog eğrisi [m/s] */
+  energyCurveSpeedMps: number;
+  /** Kuvvet için kullanılan, çarpma hızının altına inmeyen katalog eğrisi [m/s] */
+  forceCurveSpeedMps: number;
 }
 
 const speedCurvePoints = (curve: readonly (readonly [number, number])[]): CurvePoint[] =>
@@ -201,8 +203,12 @@ const speedCurvePoints = (curve: readonly (readonly [number, number])[]): CurveP
 
 /**
  * KAT0180 kuvvet eğrileri, katalogdaki statik son kuvvete göre çarpan olarak
- * saklanır. Bu fonksiyon enerji ve kuvveti AYNI hızdaki komşu eğriler arasında
- * enterpole eder; enerji eğrisini J'e çevirerek hesap çekirdeğine verir.
+ * saklanır. Katalog yalnız ayrık hız eğrileri yayımlar; iki hız arasındaki eğri
+ * üretici tarafından tanımlanmadığı için doğrusal enterpolasyon yapılmaz.
+ * Enerji kapasitesi için çarpma hızını aşmayan en yakın düşük hız eğrisi,
+ * kuvvet/yavaşlama için çarpma hızının altına inmeyen en yakın yüksek hız eğrisi
+ * kullanılır. Böylece hem kapasite hem tepe kuvveti kontrolü emniyetli tarafta
+ * kalır.
  */
 export function cellularCurvesAtImpactSpeed(
   curves: readonly CellularSpeedCurveData[] | undefined,
@@ -234,24 +240,13 @@ export function cellularCurvesAtImpactSpeed(
   const last = usable[usable.length - 1];
   if (impactSpeedMps > last.speed + 1e-9) return undefined;
 
-  const upperIndex = usable.findIndex((curve) => curve.speed >= impactSpeedMps);
-  const upper = upperIndex < 0 ? last : usable[upperIndex];
-  const lower = upperIndex <= 0 ? first : usable[upperIndex - 1];
-  const blend = upper.speed === lower.speed
-    ? 0
-    : (impactSpeedMps - lower.speed) / (upper.speed - lower.speed);
-  const valueAt = (a: readonly CurvePoint[], b: readonly CurvePoint[], pct: number) => {
-    const ay = interpolateCurve(a, pct) ?? 0;
-    const by = interpolateCurve(b, pct) ?? ay;
-    return ay + (by - ay) * blend;
-  };
-  const percentages = (a: readonly CurvePoint[], b: readonly CurvePoint[]) =>
-    [...new Set([...a, ...b].map(([pct]) => pct))].sort((x, y) => x - y);
-  const energyCurve = percentages(lower.energy, upper.energy).map(
-    (pct) => [pct, valueAt(lower.energy, upper.energy, pct) * 1000] as CurvePoint
+  const lower = [...usable].reverse().find((curve) => curve.speed <= impactSpeedMps + 1e-9) ?? first;
+  const upper = usable.find((curve) => curve.speed >= impactSpeedMps - 1e-9) ?? last;
+  const energyCurve = lower.energy.map(
+    ([pct, energyKj]) => [pct, energyKj * 1000] as CurvePoint
   );
-  const forceCurve = percentages(lower.forceFactor, upper.forceFactor).map(
-    (pct) => [pct, valueAt(lower.forceFactor, upper.forceFactor, pct) * staticMaxForceKn] as CurvePoint
+  const forceCurve = upper.forceFactor.map(
+    ([pct, factor]) => [pct, factor * staticMaxForceKn] as CurvePoint
   );
   const energyCapacityKj = (energyCurve[energyCurve.length - 1]?.[1] ?? 0) / 1000;
   const forceCapacityKn = forceCurve[forceCurve.length - 1]?.[1] ?? 0;
@@ -262,7 +257,8 @@ export function cellularCurvesAtImpactSpeed(
     forceCurve,
     energyCapacityKj,
     forceCapacityKn,
-    speedMps: impactSpeedMps,
+    energyCurveSpeedMps: lower.speed,
+    forceCurveSpeedMps: upper.speed,
   };
 }
 
@@ -363,8 +359,10 @@ export interface BufferValues {
   catalogEnergyAtImpactKj: number;
   /** Çarpma hızındaki katalog son kuvveti [kN] */
   catalogForceAtImpactKn: number;
-  /** Hız-bağımlı katalog eğrisinin kullanıldığı çarpma hızı [m/s] */
-  catalogCurveSpeedMps?: number;
+  /** Enerji için kullanılan hücresel katalog eğrisi [m/s] */
+  catalogEnergyCurveSpeedMps?: number;
+  /** Kuvvet için kullanılan hücresel katalog eğrisi [m/s] */
+  catalogForceCurveSpeedMps?: number;
   /** Tepki yapıya aktarılıyor mu (FEM Kitapçık 9 md. 9.4.2) */
   transferredToStructure: boolean;
   /** Hesap yapılabildi mi (tip "yok" ya da eğri verisi eksikse false) */
@@ -467,7 +465,10 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   set("buffer.collisionLoad", massPerBufferT);
   set("buffer.catalogEnergyAtImpact", catalogEnergyAtImpactKj);
   set("buffer.catalogForceAtImpact", catalogForceAtImpactKn);
-  if (cellularCatalog) set("buffer.catalogCurveSpeed", cellularCatalog.speedMps);
+  if (cellularCatalog) {
+    set("buffer.catalogEnergyCurveSpeed", cellularCatalog.energyCurveSpeedMps);
+    set("buffer.catalogForceCurveSpeed", cellularCatalog.forceCurveSpeedMps);
+  }
 
   // 1) Çarpma (kinetik) enerjisi. t · (m/s)² = kJ — birim dönüşümü gerekmez.
   const impactEnergyKj = 0.5 * massPerBufferT * impactSpeedMps ** 2;
@@ -556,7 +557,8 @@ export function computeBuffer(inp: BufferInput): BufferResult {
         maxDecelerationMps2: 0,
         catalogEnergyAtImpactKj: 0,
         catalogForceAtImpactKn: 0,
-        catalogCurveSpeedMps: undefined,
+        catalogEnergyCurveSpeedMps: undefined,
+        catalogForceCurveSpeedMps: undefined,
         transferredToStructure: false,
         computed: false,
       },
@@ -740,8 +742,8 @@ export function computeBuffer(inp: BufferInput): BufferResult {
     });
   }
 
-  // Tasarım kütlesi her tipte yayımlanır (rapor iskeleti sabit kalsın);
-  // kısma iğnesi kontrolü yalnız hidrolikte anlamlıdır.
+  // Hücre anahtarı her tipte korunur; rapor, kısma iğnesi satırlarını yalnız
+  // hidrolik tamponlarda gösterir. Kontrol de yalnız hidrolikte anlamlıdır.
   set("buffer.designMass", massPerBufferT);
   if (inp.type === "hidrolik") {
     if (pos(inp.catalogDesignMassMaxT) > 0) {
@@ -749,7 +751,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       // hesaplanan tampon başına kütle sınıf tavanını aşamaz.
       checks.push({
         id: id("buffer.designMass"),
-        label: "Kısma İğnesi Tasarım Kütlesi Sınıfı",
+        label: "Kısma İğnesi Seçim Kütlesi Sınıfı",
         required: massPerBufferT,
         provided: inp.catalogDesignMassMaxT,
         unit: "t",
@@ -780,7 +782,8 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       maxDecelerationMps2: maxDecel,
       catalogEnergyAtImpactKj,
       catalogForceAtImpactKn,
-      catalogCurveSpeedMps: cellularCatalog?.speedMps,
+      catalogEnergyCurveSpeedMps: cellularCatalog?.energyCurveSpeedMps,
+      catalogForceCurveSpeedMps: cellularCatalog?.forceCurveSpeedMps,
       transferredToStructure: transferred,
       computed,
     },

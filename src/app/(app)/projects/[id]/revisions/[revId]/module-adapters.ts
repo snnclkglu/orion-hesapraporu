@@ -167,6 +167,7 @@ export interface AdapterRow {
   anchorId: string;
   label: string;
   formula?: string;
+  formulaHint?: string;
   unit?: string;
   digits?: number;
   standard?: string;
@@ -174,6 +175,7 @@ export interface AdapterRow {
   subst?: (ctx: unknown) => string;
   /** Satırın sonucu bir ÇAPtır: değerin başına "Ø" konur (arayüz + PDF) */
   diameter?: boolean;
+  visible?: (ctx: unknown) => boolean;
 }
 
 /**
@@ -530,10 +532,12 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
             anchorId: r.key,
             label: r.label,
             formula: r.formula,
+            formulaHint: r.formulaHint,
             unit: r.unit,
             digits: r.digits,
             standard: r.standard,
             diameter: diameterFlag(r),
+            visible: r.visible ? (ctx: unknown) => r.visible!(ctx as TravelCtx) : undefined,
             read: (ctx: unknown) =>
               valueFrom ? valueFrom(ctx as TravelCtx) : (ctx as TravelCtx).c[r.key],
             subst: sub ? (ctx: unknown) => sub(ctx as TravelCtx) : undefined,

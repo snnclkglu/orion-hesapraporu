@@ -198,11 +198,10 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     hint: "Katalog satırından gelir; Kauçuk ailesinde kauçuk veya hücresel poliüretan olabilir.",
   },
   {
-    key: "bufferStrokeMm", label: "Tampon Stroğu / Yüksekliği", unit: "mm", type: "number",
+    key: "bufferStrokeMm", label: "Tampon Kullanılabilir Sıkışma Yolu", unit: "mm", type: "number",
     hint:
-      "Hidrolik tamponda TAM STROK s; kauçuk tamponda tamponun GÖVDE " +
-      "YÜKSEKLİĞİ h (sıkışma yolu f′ = sıkışma % · h / 100 olarak yük " +
-      "diyagramından çıkar).",
+      "Hidrolik tamponda tam strok; kauçuk ve hücresel tamponlarda katalogdaki " +
+      "izinli en büyük sıkışmaya karşılık gelen yoldur. Gövde yüksekliği değildir.",
   },
   { key: "bufferEnergyKj", label: "Tampon Enerji Kapasitesi", unit: "kJ", type: "number" },
   {

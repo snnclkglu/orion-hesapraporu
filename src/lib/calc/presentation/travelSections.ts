@@ -34,6 +34,8 @@ export interface TravelRowDef {
   key: string;
   label: string;
   formula?: string;           // sembolik formül
+  /** Formülün üzerine gelindiğinde gösterilen kısa, sade açıklama. */
+  formulaHint?: string;
   /** Motor hücresi yerine sunuma dönüştürülmüş değer. */
   valueFrom?: (ctx: TravelCtx) => number | string;
   subst?: (ctx: TravelCtx) => string; // sayılar yerine konmuş hali
@@ -47,6 +49,8 @@ export interface TravelRowDef {
   diameter?: true;
   /** Satır yalnız bu varyantta üretilir; diğerinde gösterilmez */
   variant?: TravelWhich;
+  /** Satır yalnız bu hesap bağlamında anlamlıysa gösterilir. */
+  visible?: (ctx: TravelCtx) => boolean;
 }
 
 export interface TravelSectionDef {
@@ -539,12 +543,14 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "buffer.impactSpeedRatio", label: "Çarpma Hızı Oranı k",
         formula: "k = teknik özelliklerden (FEM 1.001 2.2.3.4.1: 0,7)",
+        formulaHint: "Nominal hızın çarpma anında alınacak oranı; köprüde varsayılan %70'tir.",
         subst: (x) => `${n(x.v.bufferImpactSpeedRatio, 2)}`,
         standard: "FEM 1.001 2.2.3.4.1", digits: 2,
       },
       {
         key: "buffer.impactSpeed", label: "Çarpma Hızı v_ç",
         formula: "v_ç = (v/60) · k",
+        formulaHint: "Nominal yürüyüş hızı metre/saniyeye çevrilir ve çarpma hızı oranı ile azaltılır.",
         subst: (x) => `(${n(x.v.actualSpeedMpm)}/60) · ${n(x.v.bufferImpactSpeedRatio, 2)}`,
         unit: "m/s", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
       },
@@ -552,6 +558,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         key: "buffer.collisionLoad", label: "Tampon Başına Çarpışan Kütle m_t",
         formula:
           "m_t = G_araba / n  (köprüde: [G_köprü/2 + G_araba·(L−y)/L] / (n/2))",
+        formulaHint: "Çarpışma enerjisini taşıyan ve aynı anda temas eden tamponlara paylaştırılan hareketli kütledir.",
         subst: (x) =>
           x.which !== "bridge"
             ? `${n(num(x.c["weight.trolley"]))} / ${n(num(x.c["buffer.count"]))}`
@@ -561,6 +568,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "buffer.impactEnergy", label: "Çarpma Enerjisi E_kin",
         formula: "E_kin = 0,5 · m_t · v_ç²",
+        formulaHint: "Tamponun, tampon başına gelen hareketli kütleyi çarpma hızından durdururken yutması gereken kinetik enerjidir.",
         subst: (x) =>
           `0,5 · ${n(x.v.collisionLoadT, 3)} · ${n(x.v.bufferImpactSpeedMps, 3)}²`,
         unit: "kJ", digits: 3,
@@ -568,6 +576,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "buffer.driveForcePerMotor", label: "Motor Başına Tahrik Kuvveti F₀″",
         formula: "F₀ = P[W] / v[m/s]   (= T_çıkış / r_teker)",
+        formulaHint: "Motor gücünün o hızdaki eşdeğer çekiş kuvvetidir; çıkış torkunun teker yarıçapına bölünmesine eşittir.",
         subst: (x) =>
           `${n(num(x.c["buffer.drivePower"]) * 1000)} / (${n(x.v.actualSpeedMpm)}/60)`,
         unit: "N", digits: 1,
@@ -575,18 +584,21 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "buffer.totalDriveForce", label: "Toplam Tahrik Kuvveti F₀′",
         formula: "F₀′ = F₀″ · motor sayısı",
+        formulaHint: "Aynı hareket yönünde çalışan tüm yürüyüş motorlarının toplam itme kuvvetidir.",
         subst: (x) => `${n(x.v.driveLoadPerMotorN, 1)} · ${n(x.sel.motorCount)}`,
         unit: "N", digits: 1,
       },
       {
         key: "buffer.driveForcePerBuffer", label: "Tampon Başına Tahrik Kuvveti F₀",
         formula: "F₀ = F₀′ / n",
+        formulaHint: "Toplam tahrik kuvvetinin aynı anda temas eden tamponlar arasındaki payıdır.",
         subst: (x) => `${n(x.v.totalDriveLoadN, 1)} / ${n(num(x.c["buffer.count"]))}`,
         unit: "N", digits: 1,
       },
       {
-        key: "buffer.strokeUsed", label: "Sıkışma Yolu f′",
+        key: "buffer.strokeUsed", label: "Hesaplanan Sıkışma Yolu f′",
         formula: "hidrolik: f′ = s · elastomer: f′ = (sıkışma % / izin %) · s_izin",
+        formulaHint: "Hidrolikte tam strok kullanılır; kauçuk ve hücresel tamponlarda yol, enerji-sıkışma eğrisinden bulunur.",
         subst: (x) =>
           x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
             ? `${n(x.v.bufferCompressionPct, 1)} % / ${n(x.sel.bufferMaxCompressionPct)} % · ${n(x.sel.bufferStrokeMm)}`
@@ -594,33 +606,37 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         unit: "mm", digits: 1,
       },
       {
-        key: "buffer.driveEnergy", label: "Tahrik Enerjisi E_pot",
+        key: "buffer.driveEnergy", label: "Tahrikin Eklediği Enerji E_tahrik",
         formula: "E_pot = F₀ · f′ / 10⁶",
+        formulaHint: "Tampon sıkışırken tahrik devam ederse, itme kuvvetinin sıkışma yolu boyunca yaptığı ek iştir.",
         subst: (x) => `${n(x.v.bufferDriveLoadN, 1)} · ${n(x.v.bufferStrokeUsedMm, 1)} / 10⁶`,
         unit: "kJ", digits: 4,
       },
       {
-        key: "buffer.totalEnergy", label: "Sönümlenmesi Gereken Toplam Enerji E_a",
+        key: "buffer.totalEnergy", label: "Tampon Başına Sönümlenmesi Gereken Enerji E_a",
         formula: "E_a = E_kin + E_pot",
+        formulaHint: "Tamponun yutması gereken talep enerjisidir. Katalogdaki W_maks ise tamponun izin verilen kapasitesidir.",
         subst: (x) => `${n(x.v.impactEnergyKj, 3)} + ${n(x.v.bufferDriveEnergyKj, 4)}`,
         unit: "kJ", digits: 3, standard: "FEM 1.001 2.2.3.4.1",
       },
       {
-        key: "buffer.catalogEnergyAtImpact", label: "Çarpma Hızındaki Katalog Enerji Kapasitesi W_maks",
+        key: "buffer.catalogEnergyAtImpact", label: "Katalog İzinli Enerji Kapasitesi W_maks",
         valueFrom: (x) => x.v.bufferCatalogEnergyAtImpactKj,
-        formula: "hücresel: KAT0180 0 / 1 / 2 / 3 / 4 m/s eğrileri arasında enterpolasyon · diğer: seçilen katalog satırı",
+        formula: "hücresel: çarpma hızını aşmayan en yakın düşük hız eğrisi · diğer: seçilen katalog satırı",
+        formulaHint: "Bu kapasite, talep edilen E_a ile karşılaştırılan katalog sınırıdır; hücreselde ara hızlar için kapasite iyimserleştirilmez.",
         subst: (x) => x.v.bufferType === "hucresel"
-          ? `v_ç = ${n(x.v.bufferCatalogCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
+          ? `enerji eğrisi: ${n(x.v.bufferCatalogEnergyCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
           : x.sel.bufferModel || "—",
         unit: "kJ", digits: 3,
       },
       {
-        key: "buffer.compression", label: "Gerçekleşen Sıkışma",
+        key: "buffer.compression", label: "Hesaplanan Sıkışma Oranı",
         valueFrom: (x) =>
           (x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel") && !x.v.bufferComputed
             ? "Yük diyagramı yok"
             : x.v.bufferCompressionPct,
         formula: "kauçuk / hücresel: enerji–sıkışma eğrisinden (E_a → %)",
+        formulaHint: "Gereken E_a değeri katalogdaki enerji-sıkışma eğrisi üzerinde hangi sıkışmaya karşılık geliyorsa o oran okunur.",
         subst: (x) =>
           x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
             ? x.v.bufferComputed
@@ -630,10 +646,11 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         unit: "%", digits: 1,
       },
       {
-        key: "buffer.maxCompressionLimit", label: "Katalog Azami Sıkışma",
+        key: "buffer.maxCompressionLimit", label: "Katalog İzinli En Büyük Sıkışma",
         valueFrom: (x) => x.sel.bufferMaxCompressionPct || "Katalog verisi yok",
         unit: "%", digits: 1,
         formula: "Program 0170: %50 · Program 0180: %80",
+        formulaHint: "Üreticinin izin verdiği sıkışma üst sınırıdır; hesaplanan sıkışma bu değeri geçemez.",
       },
       {
         key: "buffer.reactionForce", label: "Tampon Tepki Kuvveti F_t",
@@ -644,6 +661,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         formula:
           "hidrolik: F_t = E_a / (s · η), η = 0,85 · " +
           "kauçuk / hücresel: F_t = kuvvet eğrisi(sıkışma %)",
+        formulaHint: "Tamponun durdurma anındaki direnç kuvvetidir. Elastomer tamponlarda aynı sıkışma oranındaki katalog kuvvet eğrisinden okunur.",
         subst: (x) =>
           x.v.bufferType === "kaucuk" || x.v.bufferType === "hucresel"
             ? x.v.bufferComputed
@@ -653,17 +671,19 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         unit: "kN", digits: 2,
       },
       {
-        key: "buffer.catalogForceAtImpact", label: "Çarpma Hızındaki Katalog Son Kuvveti",
+        key: "buffer.catalogForceAtImpact", label: "Katalog Son Kuvvet Sınırı",
         valueFrom: (x) => x.v.bufferCatalogForceAtImpactKn,
-        formula: "hücresel: KAT0180 kuvvet eğrisi, v_ç hızında enterpolasyon · diğer: seçilen katalog satırı",
+        formula: "hücresel: çarpma hızının altına inmeyen en yakın yüksek hız kuvvet eğrisi · diğer: seçilen katalog satırı",
+        formulaHint: "Tampon kuvveti bu katalog sınırını geçmemelidir; hücreselde tepe kuvveti ara hızda küçümsenmez.",
         subst: (x) => x.v.bufferType === "hucresel"
-          ? `v_ç = ${n(x.v.bufferCatalogCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
+          ? `kuvvet eğrisi: ${n(x.v.bufferCatalogForceCurveSpeedMps ?? x.v.bufferImpactSpeedMps, 3)} m/s`
           : x.sel.bufferModel || "—",
         unit: "kN", digits: 2,
       },
       {
         key: "buffer.avgDeceleration", label: "Ortalama Yavaşlama (Kinematik) a_ort",
         formula: "a_ort = v_ç² / (2 · f′)",
+        formulaHint: "Aynı çarpma hızında sıkışma yolu uzadıkça bu ortalama yavaşlama azalır.",
         subst: (x) =>
           `${n(x.v.bufferImpactSpeedMps, 3)}² / (2 · ${n(x.v.bufferStrokeUsedMm / 1000, 3)})`,
         unit: "m/s²", digits: 2, standard: "FEM 1.001 7.7.1.2",
@@ -671,25 +691,31 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "buffer.maxDeceleration", label: "Tepe Yavaşlama (Tampon Kuvvetinden) a_maks",
         formula: "a_maks = (F_t − F₀) / m_t   (tahrik itmesi yavaşlatmaz)",
+        formulaHint: "Tepe yavaşlama, seçilen tamponun o sıkışmadaki tepki kuvvetine bağlıdır. Sadece strok sayısını değiştirmek onu otomatik azaltmaz; uygun yeni katalog eğrisi gerekir.",
         subst: (x) =>
           `(${n(x.v.bufferForceKn * 1000, 0)} − ${n(x.v.bufferDriveLoadN, 0)}) / ${n(x.v.collisionLoadT * 1000, 0)}`,
         unit: "m/s²", digits: 2, standard: "FEM 1.001 7.7.1.2",
       },
       {
-        key: "buffer.designMass", label: "Kısma İğnesi Tasarım Kütlesi",
+        key: "buffer.designMass", label: "Kısma İğnesi Seçim Kütlesi (Tampon Başına)",
         formula: "m_a = m_t (tampon başına)",
+        formulaHint: "Yalnız hidrolik tamponlarda, uygun kısma iğnesi sınıfını seçmek için kullanılan tampon başına hareketli kütledir.",
         subst: (x) => `${n(x.v.collisionLoadT, 3)}`,
         unit: "t", digits: 3,
+        visible: (x) => x.v.bufferType === "hidrolik",
       },
       {
-        key: "buffer.meteringPinCode", label: "Otomatik Kısma İğnesi Kodu",
+        key: "buffer.meteringPinCode", label: "Seçilen Kısma İğnesi Kodu",
         valueFrom: (x) => x.v.bufferMeteringPinCode || "Katalog tablosu yok",
         formula: "seçilen strokta m_a değerini karşılayan en küçük katalog sınıfı",
+        formulaHint: "Hidrolik tampon için, tasarım kütlesini karşılayan en küçük üretici kısma iğnesi sınıfı seçilir.",
+        visible: (x) => x.v.bufferType === "hidrolik",
       },
       {
         key: "buffer.meteringPinMassClass", label: "İğne Kütle Sınıfı",
         valueFrom: (x) => x.v.bufferDesignMassMaxT || "—",
         unit: "t", digits: 3,
+        visible: (x) => x.v.bufferType === "hidrolik",
       },
     ],
     checkSuffixes: [

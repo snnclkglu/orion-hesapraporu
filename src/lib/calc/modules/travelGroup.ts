@@ -367,8 +367,10 @@ export interface TravelValues {
   bufferCatalogEnergyAtImpactKj: number;
   /** Çarpma hızındaki hücresel katalog son kuvveti [kN] */
   bufferCatalogForceAtImpactKn: number;
-  /** Hücresel hız eğrisinin enterpole edildiği çarpma hızı [m/s] */
-  bufferCatalogCurveSpeedMps?: number;
+  /** Enerji için kullanılan hücresel katalog eğrisi [m/s] */
+  bufferCatalogEnergyCurveSpeedMps?: number;
+  /** Kuvvet için kullanılan hücresel katalog eğrisi [m/s] */
+  bufferCatalogForceCurveSpeedMps?: number;
   /** SIBRE SP için hesaplanan kütle sınıfından otomatik seçilen iğne kodu. */
   bufferMeteringPinCode: string;
   /** Otomatik iğne sınıfının katalogdaki tasarım kütlesi üst sınırı [t]. */
@@ -1166,7 +1168,8 @@ export function computeTravelGroup(
     bufferMaxDecelerationMps2: bv.maxDecelerationMps2,
     bufferCatalogEnergyAtImpactKj: bv.catalogEnergyAtImpactKj,
     bufferCatalogForceAtImpactKn: bv.catalogForceAtImpactKn,
-    bufferCatalogCurveSpeedMps: bv.catalogCurveSpeedMps,
+    bufferCatalogEnergyCurveSpeedMps: bv.catalogEnergyCurveSpeedMps,
+    bufferCatalogForceCurveSpeedMps: bv.catalogForceCurveSpeedMps,
     bufferMeteringPinCode: meteringPinCode,
     bufferDesignMassMaxT: meteringPinMassMaxT,
     bufferTransferredToStructure: bv.transferredToStructure,
