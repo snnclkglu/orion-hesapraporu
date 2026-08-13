@@ -187,6 +187,10 @@ export function PurchaseSummaryTable({
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>Tanım</TableHead>
+                {/* Kullanıcı bildirimi 13.08.2026: "Satın alma bunların hangi
+                    grup içerisinde olduğunu görmek istiyor." Sütun `md`den
+                    açılır; dar ekranda birincil hücrenin altına iner. */}
+                <TableHead className="hidden md:table-cell">Kullanıldığı Yer</TableHead>
                 <TableHead className="hidden lg:table-cell">Kategori</TableHead>
                 <TableHead className="hidden xl:table-cell">Malzeme</TableHead>
                 <TableHead className="text-right">Gereken</TableHead>
@@ -222,9 +226,19 @@ function Satir({ s }: { s: OzetSatiri }) {
         {/* DAR EKRANDA GİZLENEN SÜTUNUN KRİTİK PARÇASI BİRİNCİL HÜCREYE İNER
             (AGENTS md. 7); ikinci bir kart markup'ı yazılmaz. */}
         <span className="mt-0.5 block text-[11px] text-muted-foreground md:hidden">
+          {s.kullanildigiYer ? `${s.kullanildigiYer} · ` : ""}
           {s.siparisAdedi ? `Sipariş ${formatNum(s.siparisAdedi)}` : "Sipariş yok"}
           {s.teslimAdedi ? ` · Teslim ${formatNum(s.teslimAdedi)}` : ""}
         </span>
+      </TableCell>
+      {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR (AGENTS md. 7): grup adları
+          "15 T X 24 M … GENEL KOMPLE" kadar uzayabilir ve tek satır tabloyu
+          ekranın dışına iterdi. Tam metin `title` ile durur. */}
+      <TableCell
+        className="hidden max-w-[12rem] truncate align-top text-[12px] md:table-cell xl:max-w-[18rem]"
+        title={s.kullanildigiYer || undefined}
+      >
+        {s.kullanildigiYer || "—"}
       </TableCell>
       <TableCell className="hidden align-top text-[12px] whitespace-normal lg:table-cell">
         {s.sinif || "—"}

@@ -576,8 +576,40 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **TANIM NORMALLEŞTİRİLİR — UYDURULMAZ** (`lib/drawings/normalize.ts`).
     Kullanıcının talimatı nettir: *"uydurma bir veri girmeyeceğiz, sadece olan
     hataları düzeltip standart bir formata çevirmiş olacağız."* Bu yüzden
-    GALVANİZ yazmayan cıvataya galvaniz, DIN'i olmayan kamaya DIN 6885
-    EKLENMEZ. Sözlükteki her kural iki gerçek teslim klasörünün 317 ham tanımına
+    DIN'i olmayan kamaya DIN 6885, bilinmeyen bir kaleme malzeme EKLENMEZ.
+
+    **FİRMA KABULLERİ AYRI BİR KAPIDIR** (`firmaKabulleri`, kullanıcı kararı
+    13.08.2026). Yukarıdaki kuralın TEK istisnası ve ayrı bir fonksiyonda
+    durmasının sebebi tam da bu: `normalizeTanim`ın sözleşmesi bozulmasın ve
+    "bu değer nereden geldi" sorusu cevaplanabilsin (`FirmaKuralKodu`).
+    Üç kabul, üçü de bir tahmin değil firmanın her siparişte aynı olan
+    tercihi:
+    - *"Cıvata ve somunda eğer belirtilmemişse her zaman galvanizli olarak
+      sonuna ekle. Bazılarında var bazılarında unutulabiliyor. Ama her zaman
+      galvanizli alıyoruz."*
+    - *"Cıvatanın kalitesi yoksa otomatik 8.8, somunun kalitesi yoksa
+      otomatik 8."* — sayısal ham değer (10.9) EZİLMEZ, yalnız BOŞ doldurulur.
+    - *"Yaylı rondelaların malzemesi her zaman YAY ÇELİĞİ olsun."* Tek EZEN
+      kural budur ve kullanıcı açıkça istedi.
+
+    EŞLEŞME TANIMIN BAŞINDANDIR, sözcük arayarak değil: fikstürdeki
+    `KANCA SOMUNU Ø55 L=30` bir kanca parçasıdır ve "SOMUN" arayan bir kural
+    ona galvaniz eklerdi (`RULMAN YATAĞI SOMUNU` dersinin aynısı). Kabuller
+    DEFTERE yazılır (`reconcile`), sunum katmanında hesaplanmaz — Parçalar,
+    paketin Satın Alma sekmesi ve havuz aynı satırı okur ve üçünde farklı bir
+    tanım görmek "hangisi doğru" sorusunu doğururdu. **Bedeli açıkça kabul
+    edildi:** kodsuz satırın ilerleme anahtarı katlanmış TANIMDIR, yani
+    galvaniz eki alan bir kalemin eski "satın alındı" işareti yetim kalır
+    (`orphanMarks` gösterir). Karşılığında galvanizli ve galvanizsiz yazılmış
+    AYNI cıvata artık TEK kalemdir — ölçüldü: MTC'de 78 kalem 74'e indi.
+
+    **`xxxx-xx-0000` ADI ÜRÜNÜN ADINI TAŞIR** (`genelKompleAdi`, kullanıcı
+    kararı 13.08.2026): *"bu tarz numaralar bizim için her zaman o iş
+    kaleminin ÜRÜN ADI + GENEL KOMPLE olarak adlandırılır."* Sebep listede
+    görünür: satınalmacı birden çok projenin kalemini bir arada görüyor ve yan
+    yana duran üç "GENEL KOMPLE" satırı hangisinin hangi vince ait olduğunu
+    söylemez. Ad `job_items.product_name`den gelir, yoksa klasörün kendi
+    açıklamasına (`MTC PASLANMAZ`) düşülür, o da yoksa sade hâli yazılır. Sözlükteki her kural iki gerçek teslim klasörünün 317 ham tanımına
     ya da satın alma ekibinin 178 satırlık İŞ HAZIRLAMA LİSTESİ dosyasına
     dayanır; kanıtsız kural girmez — yanlış birleştirme (iki farklı ürünün tek
     kaleme düşmesi), ayrı kalmaktan çok daha pahalıdır. Kullanıcının açık örneği
@@ -690,11 +722,13 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 22. **PERSONEL: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR**
     (`/personnel`, kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e
     açıktır (`can_see_personnel()` / `canSeePersonnel`) ve altı ekrandır:
-    Personel · **Ücret Planı** · Maaş · Özet · Harcirah · Kurlar. Sıra İŞ
-    AKIŞIDIR ve Ücret Planı'nın Maaş'tan önce gelmesi bir zevk değil bir BAĞdır:
-    maaş satırı yeni açılırken net ücreti oradan okur. Kaynak devralınan
-    "ORİON - Personel ve Maaş Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş
-    satırı).
+    Personel · Maaş · Özet · Harcirah · Kurlar · **Ücret Planı**. İlk beşinin
+    sırası İŞ AKIŞIDIR; **Ücret Planı en sağdadır ve bu SIKLIK sıralamasıdır**
+    (kullanıcı kararı, 13.08.2026: *"bu sayfa çok az kullanılacak"*). Bir gün
+    önce Maaş'tan ÖNCE konmuştu çünkü maaş satırı net ücreti ondan okur; bağ
+    hâlâ doğru ama ray, günlük işi en yakın tutmalıdır — ücret planı yılda bir
+    açılır, Maaş her ay. Kaynak devralınan "ORİON - Personel ve Maaş Listesi"
+    Excel'idir (46 kişi · 27 ay · 566 maaş satırı).
 
     **BÖLÜMÜN ADI ÖNCE "FİNANS"TI ve aynı gün değişti.** Kullanıcının
     gerekçesi: *"Finans'ta farklı şeyler yaparız; bu bölüm tamamen personelle
@@ -1270,6 +1304,28 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     listesi tek bir gruba iniyordu. Beraberlikte ÜRÜN AĞACI kazanır (`oncelik`
     zaten bunu söylüyor); kazananı girdi sırasına bırakmak kararı rastlantıya
     bırakırdı.
+
+    **KODSUZ SATIRIN GRUBU ÜRÜN AĞACININ `Item` YOLUNDAN ÇÖZÜLÜR**
+    (kullanıcı bildirimi, 13.08.2026: *"Depo excelde bazı parçaların hangi
+    gruba ait olduğu görülmüyor. Satın alma bunların hangi grup içerisinde
+    olduğunu görmek istiyor."*). Ölçüldü ve doğru: DEPO'nun 67 kodsuz
+    satırının YALNIZ BİRİNDE `Title` dolu. ÜRÜN AĞACI ise satırın yerini
+    `Item` sütununda taşır ("3.14" → "3" → `0043-00-0300 KÖPRÜ YÜRÜTME
+    GRUBU`) ve canlı veride 96 satın alma satırının 89'unda bu yol var.
+    `derive.ts` bunu zaten çözüyordu ama YALNIZ KENDİ İÇİNDE (`kaynakIzi`);
+    `drawing_parts.parent_code`a yazılmadığı için Parçalar ekranı, paketin
+    Satın Alma sekmesi ve `/purchasing` havuzu üçü de grubu göremiyordu.
+    Çözüm artık DEFTERE yazılır — tek kaynak, üç tüketici.
+
+    **ÜRÜN AĞACININ KÖKÜNDEKİ SATIN ALMA SATIRI PAKETİN KENDİ GRUBUNA AİTTİR.**
+    MTC'de altı satır böyle (grupları birbirine bağlayan cıvata, somun,
+    rondela, kauçuk tampon) ve gerçekten bir alt montajın altında değiller.
+
+    **ÜRÜN AĞACI YOKSA HİÇBİR ŞEY OLMAZ** (kullanıcı şartı: *"Eğer ürün ağacı
+    yoksa yine sistem kilitlenmesin, DEPO exceline göre devam etsin."*).
+    `itemPathVar` false ise blok hiç çalışmaz; MONORAY ve PERGEL paketleri
+    bugün tam olarak öyle çalışıyor. Havuzun grup zinciri de iki koda bakar —
+    önce satırın KENDİ kodu, sonra ağaçtaki üstü (`purchasing/data.ts`).
 
     **"SATIN ALINIYOR" DEĞERİ DE İKİ DİLLİDİR** (`SATIN_ALMA_YAPISI`).
     `excel.ts`teki başlık sözlüğü `bomStructure` için `BOM STRUCTURE · YAPI ·

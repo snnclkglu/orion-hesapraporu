@@ -19,7 +19,7 @@ import {
   anaGrupKodu,
   genelKompleMu,
   normalizeTanim,
-  GENEL_KOMPLE_ADI,
+  genelKompleAdi,
 } from "@/lib/drawings/normalize";
 import { progressKeyOf } from "@/lib/drawings/progress";
 import {
@@ -79,6 +79,17 @@ export interface PaketKunye {
 interface ParcaSatiri {
   package_id: string;
   part_code: string;
+  /**
+   * SATIRIN AĞAÇTAKİ ÜSTÜ — kodsuz satırın grubu BURADAN okunur.
+   *
+   * Satın alma satırlarının çoğunun kendi kodu yoktur (cıvatanın, rulmanın
+   * resmi olmaz) ve DEPO Excel'i onların montaj başlığını da yazmaz — canlı
+   * veride ölçüldü: MTC'nin 96 satırının yalnız 3'ünde `assembly_title` dolu.
+   * ÜRÜN AĞACI ise satırın yerini `Item` sütununda taşır ve `reconcile` onu
+   * `parent_code`a çözer (89/96). Grup adı zinciri bu yüzden `part_code` ile
+   * bitmez, `parent_code` ile devam eder.
+   */
+  parent_code: string;
   register_key: string;
   kind: PartKind;
   name: string;
@@ -90,8 +101,8 @@ interface ParcaSatiri {
 }
 
 const PARCA_ALANLARI =
-  "package_id, part_code, register_key, kind, name, description, assembly_title, " +
-  "material, qty, weight_kg";
+  "package_id, part_code, parent_code, register_key, kind, name, description, " +
+  "assembly_title, material, qty, weight_kg";
 
 // —————————————————————————————————————————————————————————————— sonuç
 
@@ -135,17 +146,26 @@ export async function loadHavuz(
   let kalemVerisi: unknown[] | null = null;
   let carpanSutunlariVar = true;
   {
+    // `product_name` dar yedekte de istenir: o sütun eski ve `qty` ile birlikte
+    // düşmesi için bir sebep yok. Genel komplenin adı ondan kuruluyor.
     const zengin = await supabase
       .from("job_items")
-      .select("id, item_no, qty, shares_drawings_with");
+      .select("id, item_no, product_name, qty, shares_drawings_with");
     if (zengin.error) {
       carpanSutunlariVar = false;
-      const dar = await supabase.from("job_items").select("id, item_no");
+      const dar = await supabase.from("job_items").select("id, item_no, product_name");
       kalemVerisi = dar.data;
     } else {
       kalemVerisi = zengin.data;
     }
   }
+  /** Kalem kimliği → ürün adı; `xxxx-xx-0000` grubunun adı bundan kurulur. */
+  const urunAdlari = new Map(
+    ((kalemVerisi ?? []) as Record<string, unknown>[]).map((r) => [
+      String(r.id),
+      String(r.product_name ?? ""),
+    ])
+  );
   const kalemler: KalemAdedi[] = ((kalemVerisi ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
     itemNo: String(r.item_no ?? ""),
@@ -187,8 +207,20 @@ export async function loadHavuz(
   const carpanlar = new Map<string, { carpan: number; belirsiz: boolean; katilanlar: string[] }>();
   const havuzPaketleri: HavuzPaketi[] = [];
   const paketKunyeleri: PaketKunye[] = [];
+  /**
+   * Paket kimliği → ürün adı.
+   *
+   * İş kalemine bağlı değilse KLASÖRÜN açıklamasına düşülür ("MTC PASLANMAZ"):
+   * genel komplenin hangi ürüne ait olduğu orada da yazıyor ve boş bırakmak
+   * satınalmacıya hiçbir şey söylemezdi.
+   */
+  const paketUrunAdlari = new Map<string, string>();
 
   for (const p of paketSatirlari) {
+    paketUrunAdlari.set(
+      p.id,
+      (p.job_item_id ? urunAdlari.get(p.job_item_id) : "") || p.description || ""
+    );
     const c = drawingCarpani(p.job_item_id, p.item_no, kalemler);
     // Çarpan sütunları hiç yoksa çarpan bir VARSAYIMdır ve öyle işaretlenir.
     const belirsiz = c.belirsiz || !carpanSutunlariVar;
@@ -245,10 +277,26 @@ export async function loadHavuz(
       // firmanın numaralandırma sözleşmesiyle kendi başına tanınır, yani bu
       // kural yazılmadan önce eşleştirilmiş paketler de yeniden eşleştirme
       // beklemeden grubunu gösterir.
-      const groupCode =
-        anaGrupKodu(r.part_code ?? "", bilinenGruplar) ||
-        anaGrupAdaylari(r.part_code ?? "").find(genelKompleMu) ||
-        "";
+      //
+      // ZİNCİR İKİ KODA BAKAR: önce satırın KENDİ kodu, sonra AĞAÇTAKİ ÜSTÜ.
+      // İkincisi olmadan kodsuz satırların hiçbiri grup gösteremiyordu —
+      // kullanıcı bildirimi 13.08.2026: *"Satın alma bunların hangi grup
+      // içerisinde olduğunu görmek istiyor."*
+      //
+      // KODUN KENDİSİ BİR GRUP OLABİLİR. `anaGrupAdaylari` üç bloktan KISA
+      // adaylar üretmez, yani `0043-00-0850` gibi grubun kendisi olan bir kod
+      // eski zincirde BOŞ dönüyordu; `parent_code` çoğu zaman tam olarak öyle
+      // bir koddur ve kontrol en başa konur.
+      const grupCoz = (kod: string): string => {
+        const k = (kod ?? "").trim();
+        if (!k) return "";
+        if (bilinenGruplar.has(k)) return k;
+        if (genelKompleMu(k)) return k;
+        return (
+          anaGrupKodu(k, bilinenGruplar) || anaGrupAdaylari(k).find(genelKompleMu) || ""
+        );
+      };
+      const groupCode = grupCoz(r.part_code ?? "") || grupCoz(r.parent_code ?? "");
       /**
        * ANA GRUP ADI İKİ KAYNAKTAN GELİR — ve ikincisi asıl kaynaktır.
        *
@@ -273,7 +321,10 @@ export async function loadHavuz(
         (r.assembly_title
           ? normalizeTanim(r.assembly_title).tanim
           : genelKompleMu(groupCode)
-            ? GENEL_KOMPLE_ADI
+            ? // ÜRÜN ADIYLA yazılır: çok projeli bir listede yan yana duran üç
+              // "GENEL KOMPLE" satırı hangisinin hangi vince ait olduğunu
+              // söylemez (kullanıcı kararı, 13.08.2026).
+              genelKompleAdi(paketUrunAdlari.get(r.package_id))
             : "");
       satirlar.push({
         packageId: r.package_id,

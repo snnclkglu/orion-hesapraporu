@@ -84,32 +84,34 @@ describe("izlenen defter — kodlu parçalar ve birleştirilmiş satın alma kal
     expect(civata.qty).toBe(8);
   });
 
-  it("MTC: 267 defter satırı → 175 kodlu parça + 74 satın alma kalemi", () => {
-    // 261→267 ve 68→74: `bomBirlestir`in kazanan sayfası artık PAKET değil
-    // GRUP başınadır (13.08.2026). `0043-00-0050` ve `0043-00-0850`
-    // gruplarının kendi Excel'lerindeki altı kodsuz satır bütünüyle
-    // düşüyordu. KODLU parça sayısı DEĞİŞMEDİ — kural yalnız kodsuzları
-    // ilgilendirir ve bu, düzeltmenin kapsamının kanıtıdır.
+  it("MTC: 267 defter satırı → 175 kodlu parça + 70 satın alma kalemi", () => {
+    // 261→267: `bomBirlestir`in kazanan sayfası artık PAKET değil GRUP
+    // başınadır (13.08.2026). `0043-00-0050` ve `0043-00-0850` gruplarının
+    // kendi Excel'lerindeki altı kodsuz satır bütünüyle düşüyordu.
+    // 68→74→70: aynı altı satır geldi, sonra `firmaKabulleri` galvanizli ve
+    // galvanizsiz yazılmış aynı ürünleri tek kaleme indirdi.
+    //
+    // KODLU parça sayısı İKİ KURALDA DA DEĞİŞMEDİ (175) — ikisi de yalnız
+    // kodsuz satırları ilgilendirir ve bu, kapsamlarının kanıtıdır.
     expect(mtc.parts).toHaveLength(267);
     expect(mtcDefter.coded).toHaveLength(175);
-    expect(mtcDefter.purchases).toHaveLength(74);
+    expect(mtcDefter.purchases).toHaveLength(70);
 
-    // 92 kodsuz satırın 18'i tekrardır ve hepsi AYNI kalemin farklı alt
-    // montajlardaki kaydıdır — 11 kalem birden çok satırdan birleşir.
+    // 92 kodsuz satır, 13 kalemde birleşiyor.
     const birlesenler = mtcDefter.purchases.filter((p) => p.sourceRows > 1);
-    expect(birlesenler).toHaveLength(11);
+    expect(birlesenler).toHaveLength(13);
     expect(mtcDefter.purchases.reduce((t, p) => t + p.sourceRows, 0)).toBe(92);
   });
 
-  it("MTC: SOMUN M16 DIN934 dört satırdan tek kaleme iner, adet 61 olur", () => {
-    // 2 + 4 + 4 + 51. Dört ayrı montaj, tek sipariş kalemi.
-    // TAM AD ile aranır: galvanizsiz "SOMUN M16 DIN934" ayrı bir kalemdir.
-    const somun = mtcDefter.purchases.find(
-      (p) => p.label === "SOMUN M16 DIN934 (GALVANİZLİ)"
-    )!;
-    expect(somun.sourceRows).toBe(4);
-    expect(somun.qty).toBe(61);
-    expect(somun.key.startsWith(PURCHASE_PREFIX)).toBe(true);
+  it("MTC: SOMUN M16 DIN934 beş satırdan tek kaleme iner, adet 65 olur", () => {
+    // 4 + 2 + 4 + 4 + 51. Beşincisi `0043-00-0050`nin DEPO'sunda GALVANİZSİZ
+    // yazılmıştı; `firmaKabulleri` onu da galvanizli sayınca aynı kaleme
+    // düştü (kullanıcı kararı: "her zaman galvanizli alıyoruz").
+    const somun = mtcDefter.purchases.filter((p) => p.label.startsWith("SOMUN M16 DIN934"));
+    expect(somun).toHaveLength(1);
+    expect(somun[0].sourceRows).toBe(5);
+    expect(somun[0].qty).toBe(65);
+    expect(somun[0].key.startsWith(PURCHASE_PREFIX)).toBe(true);
   });
 
   it("adedi bilinmeyen parçalar defterde kalır — MONORAY 9, MTC 6", () => {

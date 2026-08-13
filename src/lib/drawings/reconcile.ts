@@ -17,6 +17,9 @@ import {
   parsePartCode,
 } from "./part-code";
 import { parseBomFileName } from "./file-name";
+// `normalize.ts` yalnız `tr-text`e bağlıdır; bu yön tek yönlüdür ve çember
+// üretmez (çekirdeğin saflık kuralı bozulmaz).
+import { firmaKabulleri } from "./normalize";
 import type { DxfHeader } from "./dxf-header";
 import type { SheetBomRow, TitleBlock } from "./titleblock";
 import { trBuyuk, trKatla, trSayi } from "./tr-text";
@@ -35,12 +38,23 @@ import type { FolderName } from "./folder-name";
  *   · "satın alınıyor" değer sözlüğü Türkçe yazımları da tanıyor
  *     (`SATIN_ALMA_YAPISI`); sütun başlığı zaten iki dilliydi.
  *
+ * SÜRÜM 3 (13.08.2026, aynı gün) — DEFTERİN İÇERİĞİ DEĞİŞTİ:
+ *   · kodsuz satırın GRUBU ürün ağacının `Item` yolundan çözülüyor ve
+ *     `parentCode`/`assemblyTitle` olarak deftere YAZILIYOR; kökteki satır
+ *     paketin kendi grubuna bağlanıyor.
+ *   · FİRMA KABULLERİ satıra işleniyor (`firmaKabulleri`): cıvata/somun
+ *     kalitesi ve galvaniz eki, yaylı rondela malzemesi.
+ *
  * Sürümü ilerletmek ZORUNLUDUR: depoda duran paketler eski kuralla
  * eşleştirildi ve defterleri eksik. Yükseltme onlara "kural sürümü eski"
  * çipini bastırır ve tek tıkla yeniden eşleştirilmelerini sağlar — yeniden
  * yükleme GEREKMEZ, `reconcile` saf olduğu için baytlara dokunulmaz.
+ *
+ * SÜRÜM 3'TE BİR BEDEL VAR ve sessiz değildir: galvaniz eki alan kodsuz
+ * satırın ilerleme anahtarı (katlanmış tanım) değişir, yani o kalemin eski
+ * "satın alındı" işareti yetim kalır. `orphanMarks` onları gösterir.
  */
-export const RECONCILER_VERSION = 2;
+export const RECONCILER_VERSION = 3;
 
 /**
  * Bir dosyanın OKUNMUŞ içeriği (`drawing_files.meta`).
@@ -524,6 +538,29 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     p.category = ilkDolu(satirlar, (r) => r.category);
     p.itemPath = ilkDolu(satirlar, (r) => r.itemPath);
 
+    // FİRMA KABULLERİ DEFTERE YAZILIR, EKRANDA HESAPLANMAZ.
+    //
+    // Cıvata/somun kalitesi ve galvaniz eki ile yaylı rondela malzemesi
+    // (kullanıcı kararı, 13.08.2026 — gerekçesi `normalize.ts`te). Defterin
+    // KENDİSİNE yazılmalarının sebebi tek: Parçalar ekranı, paketin Satın Alma
+    // sekmesi ve `/purchasing` havuzu aynı satırı okur ve üçünde farklı bir
+    // tanım görmek "hangisi doğru" sorusunu doğururdu. Sunum katmanında
+    // hesaplansaydı üç ayrı yerde üç kez yazılırdı.
+    //
+    // BEDELİ AÇIKÇA KABUL EDİLDİ: kodsuz satırın ilerleme anahtarı katlanmış
+    // TANIMDIR (`progressKeyOf`), yani galvaniz eki alan bir kalemin eski
+    // "satın alındı" işareti yetim kalır. Zaten `orphanMarks` onu gösterir ve
+    // kazanç bunun karşılığını fazlasıyla veriyor: galvanizli ve galvanizsiz
+    // yazılmış AYNI cıvata bundan sonra TEK kalemdir — firma zaten hep
+    // galvanizli alıyor.
+    const kabul = firmaKabulleri({
+      tanim: p.description,
+      malzeme: p.material,
+      malzemeHam: p.materialRaw,
+    });
+    p.description = kabul.tanim;
+    p.material = kabul.malzeme;
+
     // Adet TOPLANMAZ: aynı parça iki sayfada da geçebilir.
     const adetler = satirlar.map((r) => tamSayi(r.itemQtyRaw) ?? tamSayi(r.qtyRaw)).filter(
       (n): n is number => n != null
@@ -611,9 +648,14 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
   // ————————————————————————————————————————————— 5. Ağaç: iki kaynak
   const kodluParts = [...parts.values()].filter((p) => p.partCode);
   const itemPathVar = kodluParts.some((p) => p.itemPath);
+  const yolaGoreParca = new Map<string, RegisterPart>();
   if (itemPathVar) {
     const yolaGoreKod = new Map<string, string>();
-    for (const p of kodluParts) if (p.itemPath) yolaGoreKod.set(p.itemPath, p.partCode);
+    for (const p of kodluParts) {
+      if (!p.itemPath) continue;
+      yolaGoreKod.set(p.itemPath, p.partCode);
+      yolaGoreParca.set(p.itemPath, p);
+    }
     for (const p of kodluParts) {
       if (!p.itemPath) continue;
       const ustYol = parentItemPath(p.itemPath);
@@ -628,6 +670,57 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
         });
       }
       if (ustKodItem) p.parentCode = ustKodItem;
+    }
+  }
+
+  // ————————————————————————————— 5b. KODSUZ SATIRIN GRUBU DA AĞAÇTAN ÇÖZÜLÜR
+  //
+  // Kullanıcı bildirimi (13.08.2026): *"Depo excelde bazı parçaların hangi
+  // gruba ait olduğu görülmüyor. Satın alma bunların hangi grup içerisinde
+  // olduğunu görmek istiyor."* Ölçüldü ve doğru: DEPO'nun 67 kodsuz satırının
+  // YALNIZ BİRİNDE `Title` dolu — cıvatanın, rulmanın montaj başlığı yok.
+  //
+  // ÜRÜN AĞACI o bilgiyi `Item` sütununda TAŞIYOR: "3.14" satırı "3"ün, yani
+  // `0043-00-0300 KÖPRÜ YÜRÜTME GRUBU`nun altındadır. Canlı veride 96 satın
+  // alma satırının 89'unda bu yol var. `derive.ts` bunu zaten çözüyordu ama
+  // YALNIZ KENDİ İÇİNDE (`kaynakIzi`); `drawing_parts`a yazılmadığı için
+  // Parçalar ekranı, paketin Satın Alma sekmesi ve `/purchasing` havuzu üçü de
+  // grubu göremiyordu. Çözüm defterin KENDİSİNE yazılır — tek kaynak.
+  //
+  // ÜRÜN AĞACI YOKSA HİÇBİR ŞEY OLMAZ (kullanıcı şartı: *"Eğer ürün ağacı
+  // yoksa yine sistem kilitlenmesin, DEPO exceline göre devam etsin"*).
+  // `itemPathVar` false ise bu blok hiç çalışmaz; MONORAY ve PERGEL paketleri
+  // bugün tam olarak öyle.
+  const paketGrupKodu =
+    snap.folder?.itemNo && snap.folder.group ? `${snap.folder.itemNo}-${snap.folder.group}` : "";
+  if (itemPathVar) {
+    for (const p of parts.values()) {
+      if (p.partCode || !p.itemPath) continue;
+
+      // ÜSTE TIRMANILIR: ara montajın defterde satırı olmayabilir ve orada
+      // durmak izi tamamen silerdi (`derive.ts`teki `ustMontaj` ile aynı kural
+      // — iki yerde iki farklı ağaç yürüyüşü olamaz).
+      let yol = p.itemPath;
+      let ust: RegisterPart | undefined;
+      while (yol.includes(".")) {
+        yol = yol.slice(0, yol.lastIndexOf("."));
+        ust = yolaGoreParca.get(yol);
+        if (ust) break;
+      }
+
+      if (ust) {
+        p.parentCode = ust.partCode;
+        // Başlık YALNIZ BOŞSA yazılır: Excel'in kendi `Title` sütunu bir
+        // beyandır, türetilmiş ad ise bir çıkarım — beyan ezilmez.
+        if (!p.assemblyTitle) p.assemblyTitle = ust.description || ust.name || "";
+        continue;
+      }
+
+      // ÜRÜN AĞACININ KÖKÜNDEKİ SATIN ALMA SATIRI PAKETİN KENDİ GRUBUNA AİT.
+      // MTC'de altı satır böyle (Item 9…14: gruplari birbirine bağlayan
+      // cıvata, somun, rondela ve kauçuk tampon) ve gerçekten bir alt montajın
+      // altında değiller — paketin genel kompleşinin parçalarıdır.
+      if (!yol.includes(".") && paketGrupKodu) p.parentCode = paketGrupKodu;
     }
   }
 

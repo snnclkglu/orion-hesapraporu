@@ -117,26 +117,58 @@ describe("KODSUZ SATIRIN KAZANAN SAYFASI GRUP BAŞINADIR", () => {
   // `0043-00-0050` ve `0043-00-0850`). Ressam grup grup Excel verdiğinde —
   // firmanın numaralandırması tam olarak bunu teşvik ediyor — paketin satın
   // alma listesi tek bir gruba iniyordu.
+  /** Kodsuz parçaların KAYNAK DOSYASINA göre sayımı — iddia budur. */
+  function kodsuzKaynakSayisi(dosyaParcasi: string): number {
+    return mtc.parts.filter(
+      (p) => !p.partCode && (p.bomRef?.file ?? "").includes(dosyaParcasi)
+    ).length;
+  }
+
   it("MTC'de her iki küçük grubun kodsuz satırları da deftere girer", () => {
-    const tanimlar = new Set(mtc.parts.filter((p) => !p.partCode).map((p) => p.description));
-    for (const t of [
-      "CİVATA M10x25 DIN933", // 0043-00-0050
-      "SOMUN M10 DIN934",
-      "SOMUN M16 DIN934",
-      "İMBUS CİVATA M8x60 DIN912", // 0043-00-0850
-      "CİVATA M8x50 DIN933",
-      "YAYLI RONDELA M8 DIN127",
-    ]) {
-      expect(tanimlar.has(t), `${t} defterde olmalı`).toBe(true);
-    }
+    // İDDİA TANIM METNİNE DEĞİL KAYNAK DOSYAYA dayanır. Tanım metni bir
+    // sözlük kuralıyla (ör. galvaniz eki) değişebilir ve test o zaman
+    // kuralı değil KENDİ varsayımını sınamış olurdu; "şu Excel'in satırları
+    // deftere girdi mi" sorusu ise kuralın tam olarak sorduğu sorudur.
+    expect(kodsuzKaynakSayisi("1.0043-00-0050_DEPO"), "0043-00-0050 DEPO").toBe(3);
+    expect(kodsuzKaynakSayisi("0043-00-0850"), "0043-00-0850 (tek sayfa)").toBe(3);
   });
 
   it("AYNI GRUBUN iki sayfası hâlâ İKİ KEZ SAYILMAZ", () => {
-    // `0043-00-0850`in DEPO'su ile ÜRÜN AĞACI'nın ikisi de aynı üç satırı
-    // taşıyor; yalnız biri alınır. Kuralın gevşetilmediğinin kanıtı budur.
-    const imbus = mtc.parts.filter(
-      (p) => !p.partCode && p.description === "İMBUS CİVATA M8x60 DIN912"
+    // `0043-00-0850`in DEPO'su ile ÜRÜN AĞACI'nın ikisi de aynı ÜÇ satırı
+    // taşıyor. Grup başına tek sayfa alındığı için toplam altı değil ÜÇtür;
+    // kuralın gevşetilmediğinin kanıtı budur.
+    expect(kodsuzKaynakSayisi("1.0043-00-0850_DEPO")).toBe(0);
+    expect(kodsuzKaynakSayisi("1.0043-00-0850_URUN AGACI")).toBe(3);
+  });
+
+  it("FİRMA KABULLERİ DEFTERE YAZILMIŞTIR — ekranda hesaplanmaz", () => {
+    // `firmaKabulleri` (13.08.2026) `reconcile` içinde çalışır; üç ekran da
+    // aynı satırı okuduğu için burada ölçülmesi üçünü birden korur.
+    const kodsuz = mtc.parts.filter((p) => !p.partCode);
+    const civataSomun = kodsuz.filter((p) =>
+      /^(?:İMBUS\s+)?CİVATA\b|^SOMUN\b/.test(p.description.toUpperCase())
     );
-    expect(imbus).toHaveLength(1);
+    expect(civataSomun.length).toBeGreaterThan(20);
+    for (const p of civataSomun) {
+      expect(p.description.toUpperCase(), p.description).toContain("GALVAN");
+      expect(p.material, p.description).not.toBe("");
+    }
+    const yayli = kodsuz.filter((p) => /^YAYLI\s+RONDELA\b/.test(p.description.toUpperCase()));
+    expect(yayli.length).toBeGreaterThan(10);
+    for (const p of yayli) expect(p.material).toBe("YAY ÇELİĞİ");
+  });
+
+  it("KODSUZ SATIRIN GRUBU ÜRÜN AĞACINDAN ÇÖZÜLÜR — ürün ağacı yoksa çözülmez", () => {
+    // Kullanıcı şartı: *"Eğer ürün ağacı yoksa yine sistem kilitlenmesin,
+    // DEPO exceline göre devam etsin."* MONORAY'da ürün ağacı HİÇ YOK ve
+    // paket sorunsuz kuruluyor; MTC'de var ve satırların ezici çoğunluğu
+    // grubuna bağlanıyor.
+    const mtcKodsuz = mtc.parts.filter((p) => !p.partCode);
+    const bagli = mtcKodsuz.filter((p) => p.parentCode);
+    expect(bagli.length / mtcKodsuz.length).toBeGreaterThan(0.9);
+
+    const monKodsuz = monoray.parts.filter((p) => !p.partCode);
+    expect(monKodsuz.length).toBeGreaterThan(40); // paket YİNE kuruldu
+    expect(monKodsuz.every((p) => !p.itemPath)).toBe(true); // ağaç gerçekten yok
   });
 });

@@ -147,6 +147,11 @@ export default async function PackagePurchasingPage({
       sinif: s.sinif,
       malzeme: s.malzeme,
       parcaKodu: s.parcaKodu,
+      // KULLANILDIĞI YER — kalemin bağlı olduğu ana grubun ADI. Kaynak izleri
+      // zaten montajı taşıyor (`kaynakIzi`); ilk ÇÖZÜLMÜŞ olanı yazılır.
+      // Kalem birden çok montajda geçiyorsa ilki temsil eder ve sütun dar bir
+      // ipucudur — tam dağılım `/purchasing` havuzundadır.
+      kullanildigiYer: s.izler.find((i) => i.montajAdi)?.montajAdi ?? "",
       adet: s.adet,
     })),
     ozetler,

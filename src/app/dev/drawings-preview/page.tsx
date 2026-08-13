@@ -141,7 +141,17 @@ function kur(pkg: FixturePackage, sheets: FixtureSheet[]) {
  */
 const ONIZLEME_BUGUN = "2026-08-12";
 
-function ozetKur(satirlar: readonly { key: string; tanim: string; sinif: string; malzeme: string; parcaKodu: string; adet: number | null }[]) {
+function ozetKur(
+  satirlar: readonly {
+    key: string;
+    tanim: string;
+    sinif: string;
+    malzeme: string;
+    parcaKodu: string;
+    kullanildigiYer?: string;
+    adet: number | null;
+  }[]
+) {
   const ozetler: SiparisOzeti[] = [];
   satirlar.forEach((s, i) => {
     // Her dördüncü kalem sipariş edilmemiş bırakılır: "bekliyor" da bir hâldir.
@@ -245,7 +255,18 @@ export default function DrawingsPreviewPage() {
             Satın alma: {formatNum(alim.satirlar.length)} kalem ·{" "}
             {alim.siniflar.map((s) => `${s.sinif} ${s.satirSayisi}`).join(" · ")}
           </p>
-          <PurchaseSummaryTable ozet={ozetKur(alim.satirlar)} ozetKapisiVar />
+          {/* "Kullanıldığı Yer" GERÇEK veriyle basılır: sütunun boş görünmesi
+              ile kalemin grubunun çözülememesi AYNI ŞEY DEĞİLDİR ve önizleme
+              ikisini ayırt ettirmelidir. */}
+          <PurchaseSummaryTable
+            ozet={ozetKur(
+              alim.satirlar.map((s) => ({
+                ...s,
+                kullanildigiYer: s.izler.find((i) => i.montajAdi)?.montajAdi ?? "",
+              }))
+            )}
+            ozetKapisiVar
+          />
 
           <div className="grid gap-3 lg:grid-cols-3">
             {FINDING_SECTIONS.map((bolum) => {

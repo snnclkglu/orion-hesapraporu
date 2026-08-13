@@ -251,11 +251,20 @@ export function PartsTable({
                       }
                     >
                       {p.part_code || (
+                        // KODU YOKSA AİT OLDUĞU GRUP YAZILIR. Cıvatanın resmi
+                        // olmaz ama bir yere takılır; "—" o soruyu cevapsız
+                        // bırakıyordu (kullanıcı bildirimi, 13.08.2026). Kod
+                        // ÜRÜN AĞACININ item yolundan çözülür, ağaç yoksa yine
+                        // "—" kalır — uydurulmuş bir grup yazılmaz.
                         <span
                           className="font-sans text-muted-foreground"
-                          title="Parça numarası olmayan satın alma satırı"
+                          title={
+                            p.parent_code
+                              ? `Parça numarası yok — ${p.parent_code} grubunun satın alma satırı`
+                              : "Parça numarası olmayan satın alma satırı"
+                          }
                         >
-                          —
+                          {p.parent_code ? `↳ ${p.parent_code}` : "—"}
                         </span>
                       )}
                     </TableCell>

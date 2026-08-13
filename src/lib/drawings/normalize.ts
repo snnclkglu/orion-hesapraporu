@@ -21,15 +21,22 @@
 //
 // ═════════════════════════════════════════ ÜÇ KURAL, ÜÇÜ DE PAZARLIĞA KAPALI
 //
-// 1. UYDURMA YOK. Kullanıcının açık talimatı: "tabi uydurma bir veri
-//    girmeyeceğiz sadece olan hataları düzeltecek ve standart bir formata
-//    çevirmiş olacağız." Bu yüzden burada EKLEME YAPILMAZ:
-//      · "GALVANİZLİ" yazmayan bir cıvataya galvaniz EKLENMEZ
+// 1. `normalizeTanim` UYDURMAZ. Kullanıcının açık talimatı: "tabi uydurma bir
+//    veri girmeyeceğiz sadece olan hataları düzeltecek ve standart bir formata
+//    çevirmiş olacağız." Bu yüzden BU FONKSİYONDA EKLEME YAPILMAZ:
 //      · DIN numarası olmayan bir kamaya DIN 6885 EKLENMEZ
 //      · Eksik ölçü tamamlanmaz
+//      · Bilinmeyen bir malzeme tahmin edilmez
 //    Yalnız YAZILANI düzeltir ve yeniden dizeriz. Eksik bilgi eksik kalır ve
 //    ekranda öyle görünür — sessizce doldurulmuş bir alan, boş bir alandan çok
 //    daha tehlikelidir.
+//
+//    BUNUN BİR İSTİSNASI VAR VE AYRI BİR KAPIDA DURUYOR: `firmaKabulleri`
+//    (13.08.2026). Cıvata/somun kalitesi ve galvaniz eki ile yaylı rondela
+//    malzemesi, kullanıcının açık kararıyla YAZILIR — çünkü onlar bir tahmin
+//    değil firmanın her siparişte aynı olan tercihidir. Ayrı fonksiyon
+//    olmalarının sebebi tam da budur: bu fonksiyonun sözleşmesi bozulmasın ve
+//    "bu değer nereden geldi" sorusu cevaplanabilsin. Ayrıntı orada.
 //
 // 2. HER KURALIN BİR KANITI VAR. Sözlükteki her satır iki gerçek teslim
 //    klasörünün 317 ham tanımından ya da satın alma ekibinin 178 satırlık
@@ -88,6 +95,122 @@ export const NORM_KURAL_ADLARI: Record<NormKuralKodu, string> = {
   AILE: "Ürün ailesi kalıbına getirildi",
   OLCU: "Ölçü yazımı düzeltildi",
 };
+
+// ═══════════════════════════════════════════════ FİRMA KABULLERİ (AYRI KAPI)
+//
+// `normalizeTanim`ın "UYDURMA YOK" sözleşmesi YÜRÜRLÜKTEDİR ve bu dosyada
+// hiçbir yerde delinmez. Ama kullanıcı 13.08.2026'da bundan AYRI bir kapı
+// açtı ve gerekçesi bir tahmin değil bir SATIN ALMA GERÇEĞİ:
+//
+//   *"Cıvata ve somunda eğer belirtilmemişse her zaman galvanizli olarak
+//    sonuna ekle. Bazılarında var bazılarında unutulabiliyor. Ama her zaman
+//    galvanizli alıyoruz."*
+//   *"cıvatanın kalitesi yoksa otomatik 8.8, somunun kalitesi yoksa otomatik
+//    8 olarak gelsin."*
+//   *"Yaylı rondelaların malzemesi her zaman YAY ÇELİĞİ olsun. Farklı bir
+//    şeyse de değiştirip yay çeliği yapalım."*
+//
+// AYRI FONKSİYON OLMASI BİLİNÇLİDİR. `normalizeTanim` YAZILANI düzeltir;
+// `firmaKabulleri` firmanın her seferinde aynı olan tercihini YAZAR. İkisi tek
+// fonksiyonda birleşseydi "bu değer nereden geldi" sorusunun cevabı
+// kaybolurdu — kural kodları (`FirmaKuralKodu`) tam olarak bu yüzden var.
+//
+// ÖLÇÜLDÜ (iki gerçek teslim klasörünün 739 BOM satırı, 13.08.2026):
+//   · 64 satırın malzemesi SAYISAL ("8.8" ya da "8") ve HEPSİ cıvata/somun —
+//     yani `malzemeNormalize`ın sayısal değerleri atması tam da satınalmacının
+//     istediği KALİTEyi çöpe atıyordu.
+//   · 20 cıvata + 6 somun satırında GALVANİZ yazmıyor.
+//   · 31 yaylı rondelanın 5'inin malzemesi yanlış ("FSt", "Steel, Mild").
+//
+// EŞLEŞME TANIMIN BAŞINDAN yapılır, sözcük arayarak DEĞİL. Fikstürde tam bir
+// tuzak var: `KANCA SOMUNU Ø55 L=30` bir kanca parçasıdır, somun değil —
+// "SOMUN" sözcüğünü arayan bir kural ona galvaniz ekler ve kalite yazardı.
+// (`satinAlmaSinifi` sözlüğündeki "RULMAN YATAĞI SOMUNU" dersinin aynısı.)
+
+/** Firma kabulünün kimliği — ekran "bu değer nereden geldi" diye sorar. */
+export type FirmaKuralKodu = "KALITE" | "GALVANIZ" | "YAY_CELIGI";
+
+export const FIRMA_KURAL_ADLARI: Record<FirmaKuralKodu, string> = {
+  KALITE: "Bağlantı elemanı kalitesi yazıldı",
+  GALVANIZ: "Galvanizli olarak işaretlendi",
+  YAY_CELIGI: "Yaylı rondela malzemesi yay çeliğine çevrildi",
+};
+
+/** Cıvata kalitesi yazılmamışsa firmanın standardı. */
+const CIVATA_KALITESI = "8.8";
+/** Somun kalitesi yazılmamışsa firmanın standardı. */
+const SOMUN_KALITESI = "8";
+const YAY_CELIGI = "YAY ÇELİĞİ";
+
+const CIVATA_KALIBI = /^(?:İMBUS\s+)?CİVATA\b/;
+const SOMUN_KALIBI = /^SOMUN\b/;
+const YAYLI_RONDELA_KALIBI = /^YAYLI\s+RONDELA\b/;
+
+export interface FirmaKabulSonucu {
+  tanim: string;
+  malzeme: string;
+  /** Çalışan kabuller; boşsa satır zaten firmanın standardındaydı. */
+  kurallar: FirmaKuralKodu[];
+}
+
+/**
+ * Firma kabullerini uygular — DEĞİŞMEZDİR (`f(f(x)) === f(x)`).
+ *
+ * `normalizeTanim` gibi bu da idempotent olmak ZORUNDA: galvaniz eki iki kez
+ * yazılırsa tanım her okumada bir kez daha uzar ve fiyat arşivi kendi kendine
+ * bölünür. Ek YALNIZ yoksa yazılır, kalite YALNIZ boşsa doldurulur.
+ *
+ * `malzemeHam` verilirse SAYISAL kalite ondan okunur: `10.9` bir yüksek
+ * mukavemet cıvatasıdır ve 8.8'e düşürülmesi gerçek bir hata olurdu. Kural
+ * "boşu doldur"dur, "yazılanı ez" değil — tek istisnası yaylı rondeladır ve
+ * onu kullanıcı açıkça istedi.
+ */
+export function firmaKabulleri(girdi: {
+  tanim: string;
+  malzeme: string;
+  /** Ham malzeme hücresi; sayısal kalite (8.8 / 10.9) buradan kurtarılır. */
+  malzemeHam?: string;
+}): FirmaKabulSonucu {
+  const kurallar: FirmaKuralKodu[] = [];
+  let tanim = (girdi.tanim ?? "").trim();
+  let malzeme = (girdi.malzeme ?? "").trim();
+  if (!tanim) return { tanim, malzeme, kurallar };
+
+  // Kalıplar BÜYÜK HARF üzerinde çalışır ama katlanmış metin üzerinde DEĞİL:
+  // `trKatla` "İ"yi "I" yapar ve "İMBUS" ile "IMBUS" ayrımı zaten önemsizdir;
+  // yine de eşleşmeyi ham metnin büyütülmüş hâlinde yapmak, kalıbı okuyanın
+  // ekranda gördüğü yazımla aynı tutar.
+  const buyuk = trBuyuk(tanim);
+  const katlanmis = trKatla(tanim);
+
+  const civataMi = CIVATA_KALIBI.test(buyuk) || /^(?:IMBUS\s+)?CIVATA\b/.test(katlanmis);
+  const somunMu = SOMUN_KALIBI.test(buyuk) || /^SOMUN\b/.test(katlanmis);
+
+  if (civataMi || somunMu) {
+    if (!malzeme) {
+      const ham = (girdi.malzemeHam ?? "").trim();
+      // Sayısal ham değer bir MALZEME değil bir KALİTE sınıfıdır ve
+      // `malzemeNormalize` onu attığı için buraya boş geliyor. Kurtarılır.
+      malzeme = /^[\d.,]+$/.test(ham) ? ham : civataMi ? CIVATA_KALITESI : SOMUN_KALITESI;
+      kurallar.push("KALITE");
+    }
+    if (!katlanmis.includes("GALVANIZ")) {
+      // Kaynağın kendi yazımıyla aynı biçim: parantez içinde, sonda.
+      // `normalizeTanim`ın `kaplama` kuralı onu oradan alıp kalıba dizer.
+      tanim = `${tanim} (GALVANİZLİ)`;
+      kurallar.push("GALVANIZ");
+    }
+  } else if (YAYLI_RONDELA_KALIBI.test(buyuk) || /^YAYLI\s+RONDELA\b/.test(katlanmis)) {
+    // TEK EZEN KURAL. Yaylı rondela tanımı gereği yay çeliğidir; kaynakta
+    // "FSt" ya da "Steel, Mild" yazması ressamın şablon hatasıdır.
+    if (trKatla(malzeme) !== trKatla(YAY_CELIGI)) {
+      malzeme = YAY_CELIGI;
+      kurallar.push("YAY_CELIGI");
+    }
+  }
+
+  return { tanim, malzeme, kurallar };
+}
 
 export interface NormSonucu {
   /** Standart tanım — BÜYÜK HARF, tek boşluk, kalıba dizilmiş. */
@@ -631,6 +754,26 @@ export function anaGrupKodu(partCode: string, bilinen?: ReadonlySet<string>): st
  */
 export const GENEL_KOMPLE_ADI = "GENEL KOMPLE";
 
+/**
+ * GENEL KOMPLE ADI ÜRÜNÜN ADINI TAŞIR (kullanıcı kararı, 13.08.2026):
+ * *"Depo excelde `xxxx-xx-0000` kodlarının ismi yok ise … bu tarz numaralar
+ * bizim için her zaman o iş kaleminin ÜRÜN ADI + GENEL KOMPLE olarak
+ * adlandırılır."*
+ *
+ * Sebep listede görünür: bir satınalmacı birden çok projenin kalemini bir
+ * arada görüyor (md. 21) ve yan yana duran üç satırın "Kullanıldığı Yer"
+ * sütununda üç kez "GENEL KOMPLE" yazması hiçbir şey ayırt ettirmez —
+ * hangisinin hangi vince ait olduğu okunamaz.
+ *
+ * ÜRÜN ADI YOKSA SADE HÂLİNE DÜŞÜLÜR. Paket bir iş kalemine bağlanmamış
+ * olabilir; o zaman "GENEL KOMPLE" yazmak, uydurulmuş bir ada da boş bir
+ * hücreye de yeğdir.
+ */
+export function genelKompleAdi(urunAdi?: string | null): string {
+  const ad = trBuyuk((urunAdi ?? "").trim());
+  return ad ? `${ad} ${GENEL_KOMPLE_ADI}` : GENEL_KOMPLE_ADI;
+}
+
 export function genelKompleMu(groupCode: string): boolean {
   const bloklar = (groupCode ?? "").trim().split("-");
   return bloklar.length === 3 && bloklar[2] === "0000";
@@ -683,7 +826,15 @@ export function grupAdlariCikar(
     description: string;
     assemblyTitle: string;
     name: string;
-  }[]
+  }[],
+  secenekler: {
+    /**
+     * İş kaleminin ÜRÜN ADI — yalnız `xxxx-xx-0000` grubunun adında kullanılır
+     * (`genelKompleAdi`). Verilmezse sade "GENEL KOMPLE" yazılır; çekirdek saf
+     * kalsın diye ad DIŞARIDAN gelir, burada aranmaz.
+     */
+    urunAdi?: string | null;
+  } = {}
 ): GrupAdi[] {
   const kodlar = new Set(parts.map((p) => p.partCode).filter(Boolean));
   const satirlar = new Map<string, GrupKaynagi>();
@@ -733,9 +884,13 @@ export function grupAdlariCikar(
     }
 
     // 3 — firma sözleşmesi. İki kaynak da susuyorsa `-0000` grubunun adı
-    // bilinir: GENEL KOMPLE. Bkz. `GENEL_KOMPLE_ADI`.
+    // bilinir: <ÜRÜN ADI> GENEL KOMPLE. Bkz. `genelKompleAdi`.
     if (genelKompleMu(grup)) {
-      sonuc.push({ groupCode: grup, name: GENEL_KOMPLE_ADI, kaynak: "kural" });
+      sonuc.push({
+        groupCode: grup,
+        name: genelKompleAdi(secenekler.urunAdi),
+        kaynak: "kural",
+      });
     }
   }
   return sonuc;

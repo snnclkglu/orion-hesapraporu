@@ -846,14 +846,31 @@ export async function reconcilePackage(input: {
     }));
 
   // Sistemdeki güncel kalem numarası: kaymışsa `bilgi` bulgusu basılır.
+  //
+  // ÜRÜN ADI DA BURADAN OKUNUR — `xxxx-xx-0000` grubunun adı onu taşır
+  // (`genelKompleAdi`, kullanıcı kararı 13.08.2026). ZENGİN SORGU + DAR YEDEK
+  // kalıbı (md. 21): `product_name` okunamıyorsa kalem numarası yine alınır ve
+  // genel komple sade adıyla yazılır — bir sütun yüzünden eşleştirmenin
+  // tamamını kaybetmek, o sütunun eksikliğinden çok daha pahalıdır.
   let systemItemNo = "";
+  let urunAdi = "";
   if (paket.job_item_id) {
-    const { data: kalem } = await supabase
+    const zengin = await supabase
       .from("job_items")
-      .select("item_no")
+      .select("item_no, product_name")
       .eq("id", paket.job_item_id)
       .maybeSingle();
-    systemItemNo = (kalem?.item_no as string) ?? "";
+    if (zengin.error) {
+      const dar = await supabase
+        .from("job_items")
+        .select("item_no")
+        .eq("id", paket.job_item_id)
+        .maybeSingle();
+      systemItemNo = (dar.data?.item_no as string) ?? "";
+    } else {
+      systemItemNo = (zengin.data?.item_no as string) ?? "";
+      urunAdi = (zengin.data?.product_name as string) ?? "";
+    }
   }
 
   const folderName = paket.folder_name as string;
@@ -990,7 +1007,11 @@ export async function reconcilePackage(input: {
         description: p.description,
         assemblyTitle: p.assemblyTitle,
         name: p.name,
-      }))
+      })),
+      // Ürün adı yoksa klasörün kendi açıklamasına düşülür ("MTC PASLANMAZ"):
+      // paket bir iş kalemine bağlanmamış olabilir ve o zaman bile genel
+      // komplenin hangi ürüne ait olduğu klasör adında yazıyor.
+      { urunAdi: urunAdi || tanima.value?.description || "" }
     );
     if (adaylar.length > 0) {
       const { data: mevcut } = await supabase

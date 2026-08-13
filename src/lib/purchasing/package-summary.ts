@@ -58,6 +58,8 @@ export interface OzetKalemi {
   sinif: string;
   malzeme: string;
   parcaKodu: string;
+  /** Kalemin bağlı olduğu ana grubun adı; çözülemezse "". */
+  kullanildigiYer?: string;
   adet: number | null;
 }
 
@@ -73,6 +75,16 @@ export interface OzetSatiri {
   sinif: string;
   malzeme: string;
   parcaKodu: string;
+  /**
+   * KULLANILDIĞI YER — kalemin bağlı olduğu ana grubun adı; çözülemezse "".
+   *
+   * Kullanıcı bildirimi (13.08.2026): *"Satın alma bunların hangi grup
+   * içerisinde olduğunu görmek istiyor."* Mühendis ve ressam `/purchasing`
+   * bölümünü görmüyor (md. 18) — "bu cıvata neyin cıvatası" sorusunu bu
+   * ekranda soruyorlar. Ad ÜRÜN AĞACININ item yolundan çözülür; ağaç yoksa
+   * alan boş kalır ve sütun "—" gösterir, uydurma bir grup adı yazılmaz.
+   */
+  kullanildigiYer: string;
   /** Pakette GEREKEN adet (defterden). Sipariş adediyle karıştırılmaz. */
   gereken: number | null;
   durum: SatinAlmaDurumu;
@@ -174,6 +186,7 @@ export function paketSatinAlmaOzeti(
       sinif: k.sinif,
       malzeme: k.malzeme,
       parcaKodu: k.parcaKodu,
+      kullanildigiYer: k.kullanildigiYer ?? "",
       gereken: k.adet,
       durum,
       siparisAdedi: o ? sayi(o.orderedQty) : null,

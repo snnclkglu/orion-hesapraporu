@@ -301,15 +301,19 @@ describe("MONORAY — kodsuz (satın alma) parçalar", () => {
     expect(monoFark.silinenParcalar).toEqual([]);
   });
 
-  it("kodsuz tarafta yedi gerçek değişiklik var", () => {
+  it("kodsuz tarafta beş gerçek değişiklik var", () => {
     const kodsuz = monoFark.degisenParcalar.filter((c) => !c.yeni.partCode);
-    expect(kodsuz).toHaveLength(7);
+    // 7 → 5 (13.08.2026): iki değişiklik GERÇEK DEĞİLDİ, yazım gürültüsüydü.
+    // Yaylı rondelanın malzemesi bir teslimde "FSt" bir teslimde boştu ve
+    // `firmaKabulleri` ikisini de YAY ÇELİĞİ yaptığı için fark kalmadı.
+    // Bir kural düzeltmesinin fark raporunu SESSİZLEŞTİRMESİ iyi haberdir:
+    // md. 18/3'ün yasakladığı yanlış alarm tam olarak buydu.
+    expect(kodsuz).toHaveLength(5);
     expect(alan("DELİK SEGMANI Ø47 DIN472", "adet")).toBe("4 → 2");
     expect(alan("Rulman 6005 - Z", "adet")).toBe("8 → 4");
     expect(alan("PANO 900x200x300", "kategori")).toBe(" → Komple");
-    // Dördü de "FST" yazımından boşa düşmüş — malzeme kimliğe GİRMEDİĞİ için
-    // bunlar sil+ekle çiftine dönüşmüyor, değişiklik olarak görünüyor.
-    expect(kodsuz.filter((c) => c.changes.some((x) => x.field === "malzeme"))).toHaveLength(4);
+    // Kalan malzeme farkları yaylı rondela DIŞINDAKİ kalemlerdedir.
+    expect(kodsuz.filter((c) => c.changes.some((x) => x.field === "malzeme"))).toHaveLength(2);
     expect(alan("PUL RONDELA M8 DIN125", "malzeme")).toBe("FST → ");
   });
 
@@ -320,10 +324,12 @@ describe("MONORAY — kodsuz (satın alma) parçalar", () => {
       degisenDosya: 5,
       yeniParca: 2,
       silinenParca: 0,
-      degisenParca: 15,
+      degisenParca: 13,
       alanSayaci: {
         adet: 4,
-        malzeme: 5,
+        // 5 → 3: yaylı rondelanın "FSt" ↔ boş salınımı `firmaKabulleri` ile
+        // ortadan kalktı; kalan üçü gerçek malzeme değişikliğidir.
+        malzeme: 3,
         agirlik: 0,
         kalinlik: 0,
         kesimBoyu: 2,
@@ -332,12 +338,12 @@ describe("MONORAY — kodsuz (satın alma) parçalar", () => {
       },
       bos: false,
     });
-    expect(diffOzetMetni(monoFark.ozet)).toBe("5 dosya değişti · +2 parça · 15 parça değişti");
+    expect(diffOzetMetni(monoFark.ozet)).toBe("5 dosya değişti · +2 parça · 13 parça değişti");
   });
 });
 
 describe("ANAHTAR SEÇİMİ — `register_key` kullanılsaydı ne olurdu", () => {
-  it("konumsal anahtar 15 gerçek değişikliği 48'e çıkarır", () => {
+  it("konumsal anahtar 13 gerçek değişikliği 48'e çıkarır", () => {
     // MALİYET TESTTE YAZILI OLSUN: bir gün biri anahtarı "basitleştirmek"
     // isterse 33 sahte değişikliğin bedelini burada görür. Sebep şemadaki
     // `register_key`in kodsuz satırda konumsal olmasıdır ('SATIR:' || bom_seq);
@@ -345,8 +351,8 @@ describe("ANAHTAR SEÇİMİ — `register_key` kullanılsaydı ne olurdu", () =>
     // kayıyor ve aynı cıvata "tanımı değişmiş" görünüyor.
     const konumsal = packageDiff(mono.eski.side, mono.yeni.side, { partKey: "registerKey" });
     expect(konumsal.ozet.degisenParca).toBe(48);
-    expect(monoFark.ozet.degisenParca).toBe(15);
-    expect(konumsal.ozet.degisenParca - monoFark.ozet.degisenParca).toBe(33);
+    expect(monoFark.ozet.degisenParca).toBe(13);
+    expect(konumsal.ozet.degisenParca - monoFark.ozet.degisenParca).toBe(35);
   });
 
   it("MALZEME kimliğe girmez — girseydi değişen parça sil+ekle olurdu", () => {
@@ -475,7 +481,7 @@ describe("MTC — 267 parçalık paket, ikinci teslim", () => {
 // ————————————————————————————————————————————————————————————————— SESSİZLİK
 
 describe("SESSİZLİK — basılmayan farklar (en değerli iddialar)", () => {
-  it("122 item_path ve 57 başlık kayması HİÇBİR değişiklik üretmez", () => {
+  it("130 item_path ve 64 başlık kayması HİÇBİR değişiklik üretmez", () => {
     // MTC'de tek bir montaj eklemesi ürün ağacının numaralandırmasını baştan
     // kaydırıyor. Bunu parça başına basmak 131 satırı 253'e çıkarır ve raporu
     // okunmaz yapar — o yüzden iki alan da karşılaştırma dışıdır.
@@ -490,12 +496,15 @@ describe("SESSİZLİK — basılmayan farklar (en değerli iddialar)", () => {
       if (e.itemPath !== p.itemPath) itemPathKaymasi += 1;
       if (e.assemblyTitle !== p.assemblyTitle) baslikKaymasi += 1;
     }
-    // 170→176: grup başına kazanan sayfa kuralıyla geri gelen altı kodsuz
-    // satır ESKİ tarafta zaten vardı, yani ortak kümeye giriyorlar. Asıl
-    // iddia bozulmadan duruyor — aşağıdaki `degisenParca` hâlâ 131.
-    expect(ortak).toBe(176);
-    expect(itemPathKaymasi).toBe(122);
-    expect(baslikKaymasi).toBe(57);
+    // 170 → 176 → 184: önce grup başına kazanan sayfa kuralı altı kodsuz
+    // satırı geri getirdi, sonra `firmaKabulleri` iki tarafın yazımını
+    // eşitleyip sekiz satırı daha ORTAK kümeye soktu. Asıl iddia bozulmadan
+    // duruyor — aşağıdaki `degisenParca` hâlâ 131.
+    expect(ortak).toBe(184);
+    // 122 → 130: ortak küme büyüyünce kayma sayan satır da büyüdü. Kaymanın
+    // ORANI değişmedi ve asıl iddia aynı — hiçbiri farka girmiyor.
+    expect(itemPathKaymasi).toBe(130);
+    expect(baslikKaymasi).toBe(64);
 
     // Kaymaların hiçbiri farka girmedi: değişen parça sayısı 131'de kaldı.
     expect(mtcFark.ozet.degisenParca).toBe(131);
@@ -696,7 +705,7 @@ describe("EKRAN — sürüm listesi", () => {
 
   it("fark satırı çekirdekten gelen ÖZETİN ta kendisidir", () => {
     const html = markup([blok(monoFark), eskiBlok]);
-    expect(html).toContain("5 dosya değişti · +2 parça · 15 parça değişti");
+    expect(html).toContain("5 dosya değişti · +2 parça · 13 parça değişti");
     expect(html).toContain("R2");
     expect(html).toContain("R1");
     // Ayrıntı JS'siz açılır.
