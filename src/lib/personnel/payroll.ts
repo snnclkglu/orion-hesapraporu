@@ -81,6 +81,10 @@ export interface PayrollRowLike {
   bonus?: number | null;
   perDiem?: number | null;
   deduction?: number | null;
+  /** KİŞİ BAZINDA izin saati (kullanıcı kararı, 13.08.2026). */
+  leaveHours?: number | null;
+  /** KİŞİ BAZINDA raporlu saat. */
+  reportHours?: number | null;
 }
 
 export interface PeriodSummary {
@@ -98,6 +102,10 @@ export interface PeriodSummary {
   overtimeHourCost: number;
   /** Net + mesai + ek ödemeler − kesinti. */
   grandTotal: number;
+  /** KİŞİ SATIRLARINDAN toplanan izin saati (13.08.2026 sonrası tek kaynak). */
+  leaveHours: number;
+  /** KİŞİ SATIRLARINDAN toplanan raporlu saat. */
+  reportHours: number;
 }
 
 const BOS_OZET: PeriodSummary = {
@@ -109,6 +117,8 @@ const BOS_OZET: PeriodSummary = {
   overtimeTotal: 0,
   overtimeHourCost: 0,
   grandTotal: 0,
+  leaveHours: 0,
+  reportHours: 0,
 };
 
 /**
@@ -125,11 +135,15 @@ export function donemOzeti(rows: readonly PayrollRowLike[]): PeriodSummary {
   let overtimeHours = 0;
   let overtimeTotal = 0;
   let grandTotal = 0;
+  let leaveHours = 0;
+  let reportHours = 0;
   for (const r of rows) {
     netTotal += Number(r.netSalary) || 0;
     overtimeHours += (Number(r.overtimeHours50) || 0) + (Number(r.overtimeHours100) || 0);
     overtimeTotal += Number(r.overtimeAmount) || 0;
     grandTotal += aylikOdeme(r);
+    leaveHours += Number(r.leaveHours) || 0;
+    reportHours += Number(r.reportHours) || 0;
   }
   const count = rows.length;
   return {
@@ -141,7 +155,43 @@ export function donemOzeti(rows: readonly PayrollRowLike[]): PeriodSummary {
     overtimeTotal,
     overtimeHourCost: overtimeHours > 0 ? overtimeTotal / overtimeHours : 0,
     grandTotal,
+    leaveHours,
+    reportHours,
   };
+}
+
+/**
+ * BİR AYIN İZİN VE RAPOR SAATİ — hangi kaynağın konuştuğu dâhil.
+ *
+ * 13.08.2026'dan itibaren izin ve rapor KİŞİ BAZINDADIR (`hr_payroll`).
+ * Devralınan 27 ayın değerleri ise AY DÜZEYİNDE geldi (`hr_periods`) ve
+ * kişilere dağıtılamaz — uydurulmuş bir dağıtım, boş bir hücreden çok daha
+ * pahalıdır.
+ *
+ * KURAL: iki kaynak asla TOPLANMAZ, biri diğerinin YERİNE geçer. Kişi
+ * satırlarında tek bir saat bile varsa yalnız onlar sayılır; hiç yoksa
+ * devralınan ay değeri okunur ve `devralinan: true` ile künyelenir — ekran
+ * sayının nereden geldiğini söyleyebilsin.
+ */
+export function donemIzinRapor(
+  rows: readonly PayrollRowLike[],
+  legacy?: { leaveHours?: number | null; reportHours?: number | null } | null
+): { leaveHours: number; reportHours: number; devralinan: boolean } {
+  let leaveHours = 0;
+  let reportHours = 0;
+  for (const r of rows) {
+    leaveHours += Number(r.leaveHours) || 0;
+    reportHours += Number(r.reportHours) || 0;
+  }
+  if (leaveHours > 0 || reportHours > 0) {
+    return { leaveHours, reportHours, devralinan: false };
+  }
+  const eskiIzin = Number(legacy?.leaveHours) || 0;
+  const eskiRapor = Number(legacy?.reportHours) || 0;
+  if (eskiIzin > 0 || eskiRapor > 0) {
+    return { leaveHours: eskiIzin, reportHours: eskiRapor, devralinan: true };
+  }
+  return { leaveHours: 0, reportHours: 0, devralinan: false };
 }
 
 /**

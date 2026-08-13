@@ -20,16 +20,21 @@ import {
   payrollSchema,
   perDiemSchema,
   periodSchema,
+  raiseBatchSchema,
+  salaryPlanSchema,
   type EmployeeInput,
   type EmploymentInput,
   type PersonnelActionResult,
   type PayrollInput,
   type PerDiemInput,
   type PeriodInput,
+  type RaiseBatchInput,
+  type SalaryPlanInput,
 } from "./schema";
 
 function tazele() {
   revalidatePath("/personnel");
+  revalidatePath("/personnel/ucret");
   revalidatePath("/personnel/maas");
   revalidatePath("/personnel/ozet");
   revalidatePath("/personnel/harcirah");
@@ -315,6 +320,8 @@ export async function savePayroll(input: PayrollInput): Promise<PersonnelActionR
       per_diem: d.perDiem,
       advance: d.advance,
       deduction: d.deduction,
+      leave_hours: d.leaveHours,
+      report_hours: d.reportHours,
       worked_days: d.workedDays,
       paid_on: d.paidOn,
       note: d.note,
@@ -376,15 +383,18 @@ export async function savePeriod(input: PeriodInput): Promise<PersonnelActionRes
   if (!parsed.success) return { error: ilkHata(parsed.error.issues) };
   const d = parsed.data;
 
-  // KUR BURADAN YAZILMAZ (kullanıcı kararı, 12.08.2026): ayın son yayın
-  // gününün TCMB kuru `ensurePeriodRates` ile otomatik gelir. Alanı bu eyleme
-  // bırakmak, kullanıcıya sorulmayacak bir değeri arka kapıdan sordurmak
-  // olurdu.
+  // ÜÇ SÜTUNA HİÇ DOKUNULMAZ ve gerekçeleri ayrıdır:
+  //
+  //   • KUR (12.08.2026): ayın son yayın gününün TCMB kuru `ensurePeriodRates`
+  //     ile otomatik gelir. Alanı bu eyleme bırakmak, kullanıcıya
+  //     sorulmayacak bir değeri arka kapıdan sordurmak olurdu.
+  //   • İZİN / RAPOR SAATİ (13.08.2026): ikisi de KİŞİ BAZINA indi
+  //     (`hr_payroll`). Buradaki sütunlar DEVRALINAN 27 ayın Excel'den gelen
+  //     ay düzeyi değerleridir ve korunur — üzerine sıfır yazmak, dağıtılamaz
+  //     ama gerçek olan bir veriyi silmek olurdu.
   const { error } = await supabase.from("hr_periods").upsert(
     {
       period: d.period,
-      leave_hours: d.leaveHours,
-      report_hours: d.reportHours,
       closed: d.closed,
       note: d.note,
     },
@@ -542,6 +552,153 @@ export async function ensurePeriodRates(): Promise<PeriodRateResult> {
   return { yazilan, eklenenGun: tazeleme.eklenen };
 }
 
+// ═══════════════════════════════════════════════════════════ ücret planı
+
+/**
+ * ORAN EKRANDA YÜZDE, VERİTABANINDA KESİRDİR.
+ *
+ * Dönüşüm iki yerde ve YALNIZ iki yerde yapılır: burada (yazarken) ve
+ * `data.ts → loadSalaryPlan`ta (okurken). Arayüzün tamamı yüzde konuşur;
+ * iki birimi bileşenler arasında dolaştırmak, sıfır bir zammı yüzde bir
+ * küçültmenin en kolay yoluydu.
+ */
+function oranKesre(yuzde: number | null | undefined): number | null {
+  return yuzde === null || yuzde === undefined || !Number.isFinite(yuzde)
+    ? null
+    : Number((yuzde / 100).toFixed(4));
+}
+
+/**
+ * TEK BİR ÜCRET KARARINI yazar (yeni ya da düzenleme).
+ *
+ * Kullanıcı kararı (13.08.2026): "Yıl içinde bazen nadiren ayarlama
+ * yapabilirim; düzenleme seçeneği olsun."
+ *
+ * ANAHTAR (kişi, dönem)dir ve UPSERT'tir: aynı aya ikinci bir karar yazmak bir
+ * hata değil bir DÜZELTMEdir. Yanlış girilmiş bir zammı silip yeniden
+ * girdirmek, kararın kendi geçmişini (kim ne zaman yazdı) yok ederdi.
+ */
+export async function saveSalaryPlan(input: SalaryPlanInput): Promise<PersonnelActionResult> {
+  const ctx = await requirePersonnelWrite();
+  if ("error" in ctx) return ctx;
+  const { supabase, user } = ctx;
+
+  const parsed = salaryPlanSchema.safeParse(input);
+  if (!parsed.success) return { error: ilkHata(parsed.error.issues) };
+  const d = parsed.data;
+
+  const { error } = await supabase.from("hr_salary_plan").upsert(
+    {
+      employee_id: d.employeeId,
+      effective_from: d.effectiveFrom,
+      net_salary: d.netSalary,
+      previous_net: d.previousNet,
+      raise_pct: oranKesre(d.raisePct),
+      reason: d.reason,
+      note: d.note,
+      created_by: user.id,
+    },
+    { onConflict: "employee_id,effective_from" }
+  );
+  if (error) return { error: temizHata(error.message) };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "personnel.salary_plan.save",
+    detail: {
+      employee_id: d.employeeId,
+      effective_from: d.effectiveFrom,
+      net_salary: d.netSalary,
+      raise_pct: d.raisePct,
+      reason: d.reason,
+    },
+  });
+  tazele();
+  revalidatePath(`/personnel/${d.employeeId}`);
+  return { ok: true };
+}
+
+/**
+ * TOPLU ZAM — bir yılın kararını tek işlemde yazar.
+ *
+ * Kullanıcı kararı: "%5 10 15 20 25 veya kendi istediğim oranda kişilere zam
+ * verebileyim." Kırk kişiye tek tek yazmak bir iş akışı değildi.
+ *
+ * SATIRLAR SIRAYLA YAZILIR, tek bir `upsert` dizisiyle değil: bir satırın
+ * kısıta takılması ötekilerin yazılmasını engellememeli ve kaçının yazıldığı
+ * kullanıcıya SAYIYLA dönmelidir ("geçen ayı kopyala" ile aynı kalıp).
+ * Denetim izi TEK satırdır — kırk satırlık bir zam kararı kırk kayıt değil bir
+ * karardır.
+ */
+export async function applyRaiseBatch(
+  input: RaiseBatchInput
+): Promise<PersonnelActionResult & { yazilan?: number }> {
+  const ctx = await requirePersonnelWrite();
+  if ("error" in ctx) return ctx;
+  const { supabase, user } = ctx;
+
+  const parsed = raiseBatchSchema.safeParse(input);
+  if (!parsed.success) return { error: ilkHata(parsed.error.issues) };
+  const d = parsed.data;
+
+  let yazilan = 0;
+  const hatalar: string[] = [];
+  for (const r of d.rows) {
+    const { error } = await supabase.from("hr_salary_plan").upsert(
+      {
+        employee_id: r.employeeId,
+        effective_from: d.effectiveFrom,
+        net_salary: r.netSalary,
+        previous_net: r.previousNet,
+        raise_pct: oranKesre(r.raisePct),
+        reason: d.reason,
+        note: d.note,
+        created_by: user.id,
+      },
+      { onConflict: "employee_id,effective_from" }
+    );
+    if (error) hatalar.push(temizHata(error.message));
+    else yazilan += 1;
+  }
+
+  if (yazilan > 0) {
+    await supabase.from("audit_log").insert({
+      actor: user.id,
+      action: "personnel.salary_plan.batch",
+      detail: {
+        effective_from: d.effectiveFrom,
+        reason: d.reason,
+        kisi: yazilan,
+        hata: hatalar.length,
+      },
+    });
+    tazele();
+  }
+  // Eksiklik GİZLENMEZ: kaç satırın yazılamadığı çağrı yerine döner.
+  return hatalar.length > 0
+    ? { ok: yazilan > 0, yazilan, error: `${hatalar.length} satır yazılamadı: ${hatalar[0]}` }
+    : { ok: true, yazilan };
+}
+
+export async function deleteSalaryPlan(id: string): Promise<PersonnelActionResult> {
+  const ctx = await requirePersonnelWrite();
+  if ("error" in ctx) return ctx;
+  const { supabase, user } = ctx;
+  const { error, count } = await supabase
+    .from("hr_salary_plan")
+    .delete({ count: "exact" })
+    .eq("id", id);
+  if (error) return { error: temizHata(error.message) };
+  if (!count) return { error: "Ücret kaydı silinemedi; yetkiniz olmayabilir." };
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "personnel.salary_plan.delete",
+    detail: { id },
+  });
+  tazele();
+  return { ok: true };
+}
+
 // ═══════════════════════════════════════════════════════════════ harcirah
 
 export async function savePerDiem(input: PerDiemInput): Promise<PersonnelActionResult> {
@@ -674,6 +831,13 @@ function temizHata(mesaj: string): string {
   }
   if (mesaj.includes("hr_employment_order")) {
     return "Çıkış tarihi giriş tarihinden önce olamaz.";
+  }
+  if (mesaj.includes("hr_salary_plan")) {
+    // Tablonun kendisi yoksa (migration uygulanmamışsa) mesaj "relation …
+    // does not exist" olur; kullanıcıya kısıt adı değil YAPILACAK İŞ söylenir.
+    return mesaj.includes("does not exist")
+      ? "Ücret planı tablosu henüz kurulmamış (migration uygulanmalı)."
+      : "Bu kişi için bu dönemde zaten bir ücret kararı var.";
   }
   if (mesaj.includes("row-level security")) {
     return "Bu işlem için yetkiniz yok.";

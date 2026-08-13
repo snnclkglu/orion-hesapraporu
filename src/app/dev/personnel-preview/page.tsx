@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { PersonnelNav } from "@/app/(app)/personnel/personnel-nav";
 import { PersonnelTable } from "@/app/(app)/personnel/personnel-table";
 import { PayrollBoard } from "@/app/(app)/personnel/maas/payroll-board";
+import { SalaryPlanBoard } from "@/app/(app)/personnel/ucret/salary-plan-board";
 import { SummaryView } from "@/app/(app)/personnel/ozet/summary-view";
 import { FxView } from "@/app/(app)/personnel/kurlar/fx-view";
 import { PerDiemTable } from "@/app/(app)/personnel/harcirah/per-diem-table";
@@ -25,6 +26,7 @@ import type {
   PayrollRow,
   PerDiemRow,
   PeriodRow,
+  SalaryPlanRow,
 } from "@/app/(app)/personnel/schema";
 import { fazlaMesaiTutari } from "@/lib/personnel/payroll";
 
@@ -116,7 +118,9 @@ function maas(
   period: string,
   netSalary: number,
   h50 = 0,
-  h100 = 0
+  h100 = 0,
+  /** KİŞİ BAZINDA izin/rapor saati (13.08.2026): [izin, rapor]. */
+  saat: [number, number] = [0, 0]
 ): PayrollRow {
   return {
     id: `${employeeId}-${period}`,
@@ -136,6 +140,8 @@ function maas(
     perDiem: 0,
     advance: 0,
     deduction: 0,
+    leaveHours: saat[0],
+    reportHours: saat[1],
     paidOn: null,
     note: "",
     workedDays: 30,
@@ -146,12 +152,17 @@ function maas(
 
 const AYLAR = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"];
 
+// İZİN/RAPOR SAATİ FİKSTÜRDE İKİ TÜRLÜ DURUR ve bu bilinçli: son üç ayda
+// KİŞİ satırlarında saat var (yeni yol), ilk üç ayda hiç yok ve yalnız
+// `PERIODS`teki devralınan ay değeri konuşuyor (eski yol). `donemIzinRapor`ın
+// "biri diğerinin yerine geçer, toplanmaz" kuralı ancak ikisi de fikstürde
+// varken gözle görülebilir.
 const PAYROLL: PayrollRow[] = AYLAR.flatMap((ay, i) => [
-  maas("e1", ay, 180000 + i * 5000),
+  maas("e1", ay, 180000 + i * 5000, 0, 0, i >= 3 ? [7.5, 0] : [0, 0]),
   maas("e2", ay, 150000 + i * 4000),
-  maas("e3", ay, 95000 + i * 3000),
-  maas("e5", ay, 85000 + i * 2000, [12, 40, 103, 16, 24, 8][i]),
-  maas("e6", ay, 87000 + i * 2000, [0, 8, 16, 0, 4, 0][i]),
+  maas("e3", ay, 95000 + i * 3000, 0, 0, i >= 3 ? [15, 0] : [0, 0]),
+  maas("e5", ay, 85000 + i * 2000, [12, 40, 103, 16, 24, 8][i], 0, i >= 3 ? [0, 22.5] : [0, 0]),
+  maas("e6", ay, 87000 + i * 2000, [0, 8, 16, 0, 4, 0][i], 0, i >= 3 ? [37.5, 0] : [0, 0]),
   // GÖNÜL KIYAK son ayda YOK: çalışıyor ama maaşı girilmemiş — Maaş
   // ekranındaki "girilmemiş" bandı bu satırla sınanır.
   ...(i < AYLAR.length - 1 ? [maas("e7", ay, 33000 + i * 1000, 0, [0, 0, 8, 0, 0, 4][i])] : []),
@@ -159,6 +170,23 @@ const PAYROLL: PayrollRow[] = AYLAR.flatMap((ay, i) => [
   // görebilmek için son aylarda satırı YOK.
   ...(i < 3 ? [maas("e4", ay, 71000 + i * 4000, [45, 103, 22.5][i])] : []),
 ]);
+
+/**
+ * ÜCRET PLANI FİKSTÜRÜ — üç durumu birden taşır:
+ *   • yıl başı zammı olan kişiler (e1, e3, e5, e6)
+ *   • yıl içi ayarlama (e5, temmuz) — ayrı tabloda görünmeli
+ *   • planı HİÇ OLMAYAN kişi (e2) — taban "ödenen son maaş"tan okunmalı ve
+ *     ekranda gri görünmeli
+ */
+const SALARY_PLAN: SalaryPlanRow[] = [
+  { id: "sp1", employeeId: "e1", effectiveFrom: "2025-01", netSalary: 155000, previousNet: 135000, raisePct: 14.81, reason: "yillik", note: "" },
+  { id: "sp2", employeeId: "e1", effectiveFrom: "2026-01", netSalary: 180000, previousNet: 155000, raisePct: 16.13, reason: "yillik", note: "" },
+  { id: "sp3", employeeId: "e3", effectiveFrom: "2026-01", netSalary: 95000, previousNet: 82000, raisePct: 15.85, reason: "yillik", note: "" },
+  { id: "sp4", employeeId: "e5", effectiveFrom: "2026-01", netSalary: 85000, previousNet: 74000, raisePct: 14.86, reason: "yillik", note: "" },
+  { id: "sp5", employeeId: "e5", effectiveFrom: "2026-07", netSalary: 95000, previousNet: 85000, raisePct: 11.76, reason: "ara", note: "Kaynakçı belgesi sonrası ayarlama" },
+  { id: "sp6", employeeId: "e6", effectiveFrom: "2026-01", netSalary: 87000, previousNet: 76000, raisePct: 14.47, reason: "yillik", note: "" },
+  { id: "sp7", employeeId: "e7", effectiveFrom: "2026-01", netSalary: 33000, previousNet: null, raisePct: null, reason: "ilk", note: "" },
+];
 
 const FX_MONTHLY: FxMonthlyRow[] = [
   { period: "2026-08", eurTry: 54.8231, usdTry: 47.5303, eurUsd: 1.153433, usdEur: 0.866978, dayCount: 7, firstDay: "2026-08-03", lastDay: "2026-08-11", sources: ["TCMB"] },
@@ -264,8 +292,22 @@ export default function PersonnelPreviewPage() {
       </Bolum>
 
       <Bolum
+        baslik="Ücret Planı"
+        aciklama="Yıl başı zammı: taban geçen yılın ARALIK ayında geçerli ücrettir. e2'nin planı YOK — tabanı ödenen son maaştan okunmalı ve gri görünmeli. e5'in temmuz ayarlaması alttaki tabloda çıkmalı."
+      >
+        <SalaryPlanBoard
+          yil={2026}
+          buYil={2026}
+          employees={EMPLOYEES}
+          plans={SALARY_PLAN}
+          payroll={PAYROLL}
+          canWrite
+        />
+      </Bolum>
+
+      <Bolum
         baslik="Aylık Maaş"
-        aciklama="Ağustos 2026 kuru GİRİLMEMİŞ: dönem şeridi ortalamayı önermeli. ORHAN KILIÇ'ın satırı yok — 'maaşı girilmemiş' bandı çıkmalı."
+        aciklama="Ağustos 2026 kuru GİRİLMEMİŞ: ay şeridi 'ay kapanınca yazılır' demeli. ORHAN KILIÇ'ın satırı yok — 'maaşı girilmemiş' bandı ve 'Ücret planından doldur' düğmesi çıkmalı. Altı kart TEK SATIRDA olmalı (xl); izin/rapor sütunları kişi bazında."
       >
         <PayrollBoard
           ay="2026-08"
@@ -275,19 +317,20 @@ export default function PersonnelPreviewPage() {
           previousPayroll={PAYROLL.filter((p) => p.period === "2026-07")}
           periods={PERIODS}
           fxMonthly={FX_MONTHLY}
+          plans={SALARY_PLAN}
           canWrite
         />
       </Bolum>
 
       <Bolum
         baslik="Özet"
-        aciklama="Bütün sayılar maaş satırlarından türetilir. Kuru olmayan ayın avro hücresi boş, satırda 'kur yok' işareti."
+        aciklama="Bütün sayılar maaş satırlarından türetilir. Grafikler ÇİZGİdir; tablonun dibinde toplam satırı var ve yıl süzgeciyle değişir. Mart–Mayıs izin/rapor DEVRALINAN ay değerinden (gri), Haziran–Ağustos kişi satırlarından okunmalı."
       >
         <SummaryView
           employees={EMPLOYEES}
           payroll={PAYROLL}
           periods={PERIODS}
-          year={null}
+          year="2026"
           scope={null}
           canWrite
         />

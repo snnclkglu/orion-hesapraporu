@@ -12,7 +12,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { canEditPersonnel } from "@/lib/roles";
-import { loadEmployees, loadFxMonthly, loadPayroll, loadPeriods } from "../data";
+import {
+  loadEmployees,
+  loadFxMonthly,
+  loadPayroll,
+  loadPeriods,
+  loadSalaryPlan,
+} from "../data";
 import { PayrollBoard } from "./payroll-board";
 
 /**
@@ -60,12 +66,17 @@ export default async function PayrollPage({
     : { data: null };
   const canWrite = canEditPersonnel((profile as { role?: string } | null)?.role);
 
-  const [employees, payroll, previousPayroll, periods, fxMonthly] = await Promise.all([
+  // ÜCRET PLANI DA YÜKLENİR: yeni açılan satırın net maaşı oradan gelir
+  // (kullanıcı kararı, 13.08.2026). Sonradan ikinci bir istekle çekmek,
+  // "Ücret planından doldur" düğmesinin bir şey yapıp yapmayacağını ancak
+  // basıldıktan sonra öğrenmek demekti ("geçen ayı kopyala" ile aynı gerekçe).
+  const [employees, payroll, previousPayroll, periods, fxMonthly, plans] = await Promise.all([
     loadEmployees(supabase, bugun),
     loadPayroll(supabase, { period: ay }),
     loadPayroll(supabase, { period: oncekiAy(ay) }),
     loadPeriods(supabase),
     loadFxMonthly(supabase),
+    loadSalaryPlan(supabase),
   ]);
 
   // BOŞ DURUM sunucuda basılır: personel defteri boşken maaş panosunun bütün
@@ -93,6 +104,7 @@ export default async function PayrollPage({
       previousPayroll={previousPayroll}
       periods={periods}
       fxMonthly={fxMonthly}
+      plans={plans}
       canWrite={canWrite}
     />
   );

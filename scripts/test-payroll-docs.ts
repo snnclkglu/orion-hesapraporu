@@ -219,8 +219,23 @@ async function main() {
       console.log(`✗ İlk satır ${periodLabel("2025-11")} olmalıydı.`);
       sorun++;
     }
+    // SÜTUN NUMARASI SABİT YAZILMAZ, BAŞLIKTAN BULUNUR. Sabit "16" bir kez
+    // yazıldı ve 13.08.2026'da tabloya iki sütun (İzin/Rapor) eklenince
+    // denetim yanlış hücreye baktı: avro sanılan yerde artık toplam vardı ve
+    // test GERÇEK OLMAYAN bir hata bildirdi. Başlıktan aramak, sütun düzeni
+    // değiştiğinde denetimin kendisini de taşır.
+    const baslik = ws.getRow(baslikSatiri);
+    let avroSutunu = 0;
+    baslik.eachCell((c, i) => {
+      if (String(c.value ?? "") === "Toplam (€)") avroSutunu = i;
+    });
+    if (!avroSutunu) {
+      console.log('✗ "Toplam (€)" sütunu bulunamadı.');
+      sorun++;
+      avroSutunu = 1;
+    }
     const kursuz = ws.getRow(baslikSatiri + 3);
-    const avro = kursuz.getCell(16).value;
+    const avro = kursuz.getCell(avroSutunu).value;
     if (avro !== "" && avro !== null && avro !== undefined) {
       console.log(`✗ Kuru olmayan ayın avro hücresi boş olmalıydı, "${String(avro)}" çıktı.`);
       sorun++;

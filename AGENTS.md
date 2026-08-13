@@ -689,9 +689,12 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 
 22. **PERSONEL: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR**
     (`/personnel`, kullanıcı kararı 12.08.2026). Bölüm Yönetici + Müdür'e
-    açıktır (`can_see_personnel()` / `canSeePersonnel`) ve beş ekrandır:
-    Personel · Maaş · Özet · Harcirah · Kurlar. Kaynak devralınan "ORİON -
-    Personel ve Maaş Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş satırı).
+    açıktır (`can_see_personnel()` / `canSeePersonnel`) ve altı ekrandır:
+    Personel · **Ücret Planı** · Maaş · Özet · Harcirah · Kurlar. Sıra İŞ
+    AKIŞIDIR ve Ücret Planı'nın Maaş'tan önce gelmesi bir zevk değil bir BAĞdır:
+    maaş satırı yeni açılırken net ücreti oradan okur. Kaynak devralınan
+    "ORİON - Personel ve Maaş Listesi" Excel'idir (46 kişi · 27 ay · 566 maaş
+    satırı).
 
     **BÖLÜMÜN ADI ÖNCE "FİNANS"TI ve aynı gün değişti.** Kullanıcının
     gerekçesi: *"Finans'ta farklı şeyler yaparız; bu bölüm tamamen personelle
@@ -742,9 +745,54 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Devralınan 27 ayın kuru da **ortalama değildi** (ay sonu spot kuru; 2025
     Mart'ta fark %7,8) — olduğu gibi korundu.
 
-    **İZİN VE RAPOR SAATİ AY DÜZEYİNDEDİR** (`hr_periods`), kişi başına değil:
-    firma bugün de öyle tutuyor. Kişi bazlı izin takibi ayrı bir fazdır;
-    bugün uydurulmuş bir dağıtım yazmak veriyi olduğundan kesin gösterirdi.
+    **İZİN VE RAPOR SAATİ ARTIK KİŞİ BAZINDADIR** (`hr_payroll.leave_hours` /
+    `report_hours`, kullanıcı kararı 13.08.2026: *"personel birkaç gün
+    gelmediyse bunu sisteme girmek isterim; dönem ayarlarında değil kişi
+    bazında gireyim"*). Bir süre ay düzeyindeydi (`hr_periods`) çünkü firma da
+    öyle tutuyordu; bu, o kararın söylediği "ayrı faz"dır.
+
+    **DÖNEM SÜTUNLARI DÜŞÜRÜLMEDİ** ve bu, `drawn`/`profiles.tags`
+    düşürülmelerinin İSTİSNASIDIR: orada iki kaynak da AYNI soruyu
+    cevaplıyordu ve biri boştu; burada eski sütunda GERÇEK VERİ var —
+    devralınan 27 ayın izin/rapor saatleri Excel'den ay düzeyinde geldi ve
+    kişilere DAĞITILAMAZ (md. 21'in "uydurma veri girmeyeceğiz" kuralı).
+    Ayrışma riski TEK BİR KURALLA kapanır ve kural saf çekirdektedir
+    (`payroll.ts → donemIzinRapor`): bir ayda kişi satırlarında saat VARSA
+    yalnız onlar sayılır, HİÇ YOKSA devralınan ay değeri okunur ve
+    `devralinan: true` ile künyelenir. **İKİ KAYNAK ASLA TOPLANMAZ** — toplama
+    net çalışma saatini iki kat düşürür ve saatlik maliyeti (teklif
+    fiyatlandırmasının girdisi) sessizce şişirirdi. Ekran, Excel ve özet aynı
+    fonksiyonu çağırır; koruma `__tests__/payroll.test.ts`tedir.
+
+    **ÜCRET PLANI KARARDIR, MAAŞ SATIRI OLGUDUR** (`hr_salary_plan`,
+    `/personnel/ucret` — kullanıcı kararı 13.08.2026: *"biz yıl başında zam
+    yapıyoruz; kişinin net maaşının 50 bin TL olduğu belirleniyor, sonra kişi
+    yıl boyunca o maaşı alıyor"*). Bir satır "şu tarihten itibaren bu kişinin
+    net ücreti şudur" der ve BİTİŞ TAŞIMAZ — bir sonraki satır bitirir; iki
+    uçlu aralık "boşluk mu var, çakışma mı var" diye cevaplanamaz bir soru
+    doğururdu. Ayrı tablo olmasının üç gerekçesi: karar İLERİ tarihli olabilir
+    (aralıkta 2027 zammı girilir, ocak maaşı henüz yoktur), ay ortasında işe
+    girenin maaş satırı eksik gündür ama ücreti tamdır, ve zammın TABANI ile
+    ORANI iki maaş satırının farkından geri hesaplanamaz (araya prim, eksik gün
+    ve düzeltmeler girer).
+
+    Zam tabanı **bir önceki yılın ARALIK ayında geçerli ücrettir**, yılın
+    ortalaması ya da ocak ücreti değil: eylülde ara ayarlama almış kişide fark
+    gerçek paradır. Taban üç kaynaktan bu sırayla okunur ve üçü de gerçek bir
+    kayıttır — önceki yılın kararı → hedef yıldan önce ödenmiş son maaş → bu
+    yılın kararının kendi kayıtlı `previous_net`i. **ORAN EKRANDA YÜZDE (15),
+    VERİTABANINDA KESİRDİR (0,15)**; dönüşüm yalnız iki yerdedir
+    (`loadSalaryPlan` okurken, `oranKesre` yazarken) ve çekirdeğin tamamı yüzde
+    konuşur — kayması sessizdir, çünkü sonuç hâlâ makul görünür.
+    Yuvarlama adımı varsayılan 100 ₺'dir: devralınan 566 maaş satırının tamamı
+    yüzlüktü, kural veriden okundu. Defter migration'da UYDURULMADI, ödenmiş
+    maaş satırlarından türetildi — net maaşın DEĞİŞTİĞİ her ay bir karar
+    satırıdır.
+
+    Maaş ekranı yeni satır açarken net ücreti buradan okur ve **plandan sapmayı
+    bir UYARI olarak** gösterir, bir engel olarak değil: eksik gün, ücretsiz
+    izin ve ay ortası giriş meşru sapmalardır ve uygulama hangisi olduğunu
+    bilemez.
 
     **EXCEL'İN KENDİ İKİ SAYFASI ÇELİŞİYORDU** ve çözüm üçüncü bir sayı değil,
     BOŞLUĞU GÖSTERMEKTİR. "Maaş Özet Tablo"daki kişi sayısı elle yapıştırılmış
@@ -808,9 +856,39 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Harcirah ve avans bordro MATRAHINA GİRMEZ: harcirah masraf karşılığıdır
     (GVK md. 24), avans zaten ödenmiş ücretin mahsubudur.
 
-    **ÖZET TABLOSUNDA ONDALIK YOKTUR** (kullanıcı kararı): on üç sütunlu bir
-    karşılaştırma ızgarasında aranan "hangi ay daha pahalıydı"dır, kuruş
-    değil. Kuruş gereken yer bordrodur. **SAATLİK MALİYET (€)** kartı ve sütunu
+    **EKRANDAKİ TUTARLARDA ONDALIK YOKTUR** (`fmtTutar`; kullanıcı kararı
+    12.08.2026'da özet tablosu için, 13.08.2026'da bütün bölüme genişletildi:
+    *"sayfalarda tutarlarda virgülden sonraki kısımlar görünmesin"*). Bir maaş
+    listesinde aranan "kim ne kadar aldı"dır; ",00" her sütunu üç karakter
+    genişletiyor ve on iki sütunlu bir tabloyu ekranın dışına itiyordu.
+    **KURUŞ GEREKEN YER BORDRODUR** ve orada tam basılır — pusula 4857 md.
+    37'ye göre denetlenebilir olmalıdır. İki İSTİSNA vardır ve ikisi de
+    tutar değildir: **KUR** (54,8231 ile 54,4900 aynı sayı gibi görünürdü) ve
+    **SAATLİK MALİYET** (12–15 € bandında kuruş gerçek bir farktır — "14 €"
+    ile "14,80 €" arasında teklif fiyatında %6 var).
+
+    **ÖZET TABLOSU YATAYDA SIĞAR** (kullanıcı kararı, 13.08.2026) ve başlık
+    hizası YAPISAL olarak korunur: sütun tanımı TEKTİR (`SUTUNLAR`), başlık ·
+    hücre · toplam üçü de aynı `cls`/hizalamayı ondan okur. Eskiden hizalama ve
+    kırılım sınıfı otuz dokuz yerde elle yazılıyordu; biri şaşınca sütun
+    kayıyor, dar ekranda başlık ile hücre farklı kırılımda düşüp tablo
+    tamamen kayıyordu. **TOPLAM SATIRI** tablodaki AYNI satırlardan çıkar, yani
+    yıl süzgeciyle kendiliğinden değişir; kişi sayısı TOPLANMAZ, ORTALANIR
+    (aynı kişi her ay yeniden sayılırdı) ve avro AY AY, her ayın kendi kuruyla
+    çevrilip toplanır. **VARSAYILAN YIL İÇİNDE BULUNULAN YILDIR**; "Tümü" artık
+    açık bir seçimdir (`yil=tumu`), çünkü boş adres varsayılanı seçemezdi.
+
+    **ÖZET GRAFİKLERİ ÇİZGİDİR, ÇUBUK DEĞİL** (`TimeLineChart`, kullanıcı
+    kararı 13.08.2026). Ayrı bir bileşendir: çubuk YIĞILIR (dilimler üst üste,
+    toplam görünür), çizgi YIĞILMAZ — her seri kendi eğrisidir. SVG orada
+    meşrudur ama yalnız EĞRİ için (`preserveAspectRatio="none"` +
+    `vectorEffect="non-scaling-stroke"`); grafiğin içinde HİÇ YAZI YOKTUR,
+    eksen etiketleri HTML'dedir — dosya başlığındaki "SVG'de yazı ölçeklenir"
+    kuralı böylece çiğnenmez. Nokta işaretleri de HTML'dedir (gerilmiş tuvalde
+    daire elips olurdu) ve kap 3px yatay dolgu taşır: uçtaki yarım nokta
+    `scrollWidth`i büyütüp kaydırma gölgesini yalancı yakıyordu.
+
+    **SAATLİK MALİYET (€)** kartı ve sütunu
     teklif fiyatlandırmasının girdisidir; payda NET ÇALIŞMA SAATİDİR
     (normal + mesai − izin − rapor), "kişi × 225" değil — ödenen para izinli
     geçen saate de dağılır ve 225'e bölmek maliyeti olduğundan DÜŞÜK
@@ -1676,7 +1754,10 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `analysis/` grafik panosu · `records/` kayıt listesi · `export/` Excel ucu ·
   `filters.ts` üç ekranın ortak süzgeç tanımı
 - `src/lib/personnel/` — Personel ÇEKİRDEĞİ, **saf** (DB/HTTP yok):
-  `payroll.ts` (fazla mesai bağıntısı, dönem özeti, kıdem) · `bordro.ts`
+  `payroll.ts` (fazla mesai bağıntısı, dönem özeti, kıdem, `donemIzinRapor` —
+  izin/rapor saatinin kişi mi devralınan ay değeri mi olduğuna karar veren tek
+  yer) · `salary-plan.ts` (zam aritmetiği, yuvarlama adımı, bir dönemde
+  geçerli ücret, plandan sapma) · `bordro.ts`
   (brüt↔net, kümülatif vergi matrahı, asgari ücret istisnası, saatlik
   maliyet) · `employee.ts` (kategori/belge/sözleşme sözlükleri, TC doğrulama,
   belge geçerliliği, depo yolu kuralı)
@@ -1685,8 +1766,10 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   çağrısı (TCMB XML + Frankfurter JSON, timeout + üstel bekleme) ·
   `refresh.ts` iki çağıranın (server action + cron) ortak yolu
 - `src/app/(app)/personnel/` — Personel (Yönetici + Müdür): `page.tsx` personel
-  listesi · `[id]/` personel profili + özlük dosyaları · `maas/` aylık maaş
-  girişi · `ozet/` analiz · `harcirah/` tarife · `kurlar/` ortalama kurlar ·
+  listesi · `[id]/` personel profili + özlük dosyaları · `ucret/` **Ücret
+  Planı** (yıl başı zammı + yıl içi ayarlama; maaşı besleyen karar defteri) ·
+  `maas/` aylık maaş girişi · `ozet/` analiz · `harcirah/` tarife ·
+  `kurlar/` ortalama kurlar ·
   `bordro/` ücret bordrosu PDF'i (tek kişi ya da `&hepsi=1` ile dönemin
   tamamı) · `export/` Excel ucu · `document-actions.ts` özlük dosyası
   yükleme/silme/imzalı bağlantı

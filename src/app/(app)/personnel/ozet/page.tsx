@@ -21,12 +21,27 @@ export default async function PersonnelSummaryPage({
   searchParams: Promise<{ yil?: string; kapsam?: string }>;
 }) {
   const sp = await searchParams;
-  // SÜZGEÇ ADRESTE DURUR ama adres çubuğuna elle yazılan bozuk bir değer
-  // sayfayı ÇÖKERTMEZ: doğrulamayı geçemeyen değer "Tümü"ye düşer.
-  const yil = /^\d{4}$/.test(sp.yil ?? "") ? (sp.yil as string) : null;
+  const bugun = todayIso();
+
+  // VARSAYILAN YIL İÇİNDE BULUNULAN YILDIR (kullanıcı kararı, 13.08.2026:
+  // "Özet sayfası otomatik olarak ilk açıldığında içinde bulunduğumuz yıl
+  // gelsin"). Gerekçe ekrandan okundu: "Tümü" açıldığında yirmi yedi aylık bir
+  // çizelge geliyor ve bu yılın toplamı — sayfanın en çok bakılan sayısı — yirmi
+  // yedi ayın içinde kayboluyordu.
+  //
+  // "TÜMÜ" KAYBOLMADI, AÇIK BİR SEÇİM OLDU: `yil=tumu`. Boş bırakmak varsayılanı
+  // seçemezdi — "süzgeç yok" ile "bu yıl" aynı adres olurdu ve kullanıcı
+  // Tümü'ye bastığında sayfa yine bu yıla dönerdi.
+  //
+  // Adres çubuğuna elle yazılan bozuk bir değer sayfayı ÇÖKERTMEZ, bu yıla düşer.
+  const yil =
+    sp.yil === "tumu"
+      ? null
+      : /^\d{4}$/.test(sp.yil ?? "")
+        ? (sp.yil as string)
+        : bugun.slice(0, 4);
   const kapsam = sp.kapsam === "personel" || sp.kapsam === "yonetim" ? sp.kapsam : null;
 
-  const bugun = todayIso();
   const supabase = await createClient();
 
   // Yetki KAPISI bölüm kabuğundadır (`finance/layout.tsx`); burada sorulan

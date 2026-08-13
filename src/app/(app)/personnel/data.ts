@@ -19,6 +19,7 @@ import type {
   PayrollRow,
   PerDiemRow,
   PeriodRow,
+  SalaryPlanRow,
 } from "./schema";
 
 /** PostgREST `max_rows` bu projede 1000'dir ve `.limit()` onu AŞAMAZ. */
@@ -232,7 +233,17 @@ export async function loadEmployee(
 const PAYROLL_SELECT = `id, employee_id, period, net_salary, overtime_hours_50,
 overtime_hours_100, overtime_amount, gross_salary, sgk_employee, sgk_employer,
 unemployment_employee, income_tax, stamp_tax, bonus, per_diem, advance, deduction,
+leave_hours, report_hours,
 paid_on, note, worked_days, cumulative_tax_base, params_valid_from`;
+
+/**
+ * DAR YEDEK — `leave_hours`/`report_hours` migration'ı henüz uygulanmamışsa.
+ *
+ * "Veritabanı sütunu olmayabilir varsayımı her okumada geçerlidir"
+ * (AGENTS md. 21): bir sütunun eksikliği yüzünden BÜTÜN maaş ekranını
+ * kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
+ */
+const PAYROLL_SELECT_DAR = PAYROLL_SELECT.replace("leave_hours, report_hours,\n", "");
 
 interface PayrollDb {
   id: string;
@@ -252,6 +263,8 @@ interface PayrollDb {
   per_diem: number | string | null;
   advance: number | string | null;
   deduction: number | string | null;
+  leave_hours?: number | string | null;
+  report_hours?: number | string | null;
   paid_on: string | null;
   note: string | null;
   worked_days: number | string | null;
@@ -278,6 +291,8 @@ function toPayroll(p: PayrollDb): PayrollRow {
     perDiem: num(p.per_diem),
     advance: num(p.advance),
     deduction: num(p.deduction),
+    leaveHours: num(p.leave_hours),
+    reportHours: num(p.report_hours),
     paidOn: p.paid_on,
     note: str(p.note),
     // Tam ay 30 gündür; sütun sonradan eklendiği için eski satırlarda null
@@ -293,13 +308,66 @@ export async function loadPayroll(
   supabase: SupabaseClient,
   opts: { period?: string; employeeId?: string } = {}
 ): Promise<PayrollRow[]> {
-  const rows = await tumSatirlar<PayrollDb>((bas, son) => {
-    let q = supabase.from("hr_payroll").select(PAYROLL_SELECT);
+  const sorgu = (secim: string) => (bas: number, son: number) => {
+    let q = supabase.from("hr_payroll").select(secim);
     if (opts.period) q = q.eq("period", `${opts.period.slice(0, 7)}-01`);
     if (opts.employeeId) q = q.eq("employee_id", opts.employeeId);
-    return q.order("period", { ascending: false }).range(bas, son);
-  });
+    return q.order("period", { ascending: false }).range(bas, son) as unknown as PromiseLike<{
+      data: PayrollDb[] | null;
+      error: { message: string } | null;
+    }>;
+  };
+  // ZENGİN sorgu + DAR yedek (AGENTS md. 21): izin/rapor sütunları henüz
+  // yoksa satırlar yine gelir, yalnız iki alan sıfır kalır.
+  let rows: PayrollDb[];
+  try {
+    rows = await tumSatirlar<PayrollDb>(sorgu(PAYROLL_SELECT));
+  } catch {
+    rows = await tumSatirlar<PayrollDb>(sorgu(PAYROLL_SELECT_DAR));
+  }
   return rows.map(toPayroll);
+}
+
+// ═══════════════════════════════════════════════════════════ ücret planı
+
+/**
+ * ÜCRET PLANI — kişi × geçerlilik tarihi.
+ *
+ * Tablo yoksa (migration uygulanmamışsa) BOŞ liste döner, hata FIRLATMAZ:
+ * plan bir zorunluluk değil bir kolaylıktır ve yokluğu maaş ekranını
+ * kapatmamalıdır (`loadPayrollParams` ile aynı gerekçe).
+ */
+export async function loadSalaryPlan(
+  supabase: SupabaseClient,
+  employeeId?: string
+): Promise<SalaryPlanRow[]> {
+  let q = supabase
+    .from("hr_salary_plan")
+    .select("id, employee_id, effective_from, net_salary, previous_net, raise_pct, reason, note")
+    .order("effective_from", { ascending: false })
+    .limit(PAGE * 4);
+  if (employeeId) q = q.eq("employee_id", employeeId);
+  const { data, error } = await q;
+  if (error) return [];
+  return (data ?? []).map((r) => {
+    const p = r as Record<string, unknown>;
+    return {
+      id: String(p.id ?? ""),
+      employeeId: String(p.employee_id ?? ""),
+      effectiveFrom: String(p.effective_from ?? "").slice(0, 7),
+      netSalary: num(p.net_salary as number),
+      previousNet: numOrNull(p.previous_net as number),
+      // ORAN VERİTABANINDA KESİRDİR (0,15), EKRANDA YÜZDEDİR (15).
+      // Dönüşüm TEK YERDE, tam burada yapılır: iki birimi arayüzde
+      // dolaştırmak, sıfır bir zammı yüzde bir küçültmenin en kolay yoluydu.
+      raisePct: (() => {
+        const v = numOrNull(p.raise_pct as number);
+        return v === null ? null : v * 100;
+      })(),
+      reason: str(p.reason as string) || "yillik",
+      note: str(p.note as string),
+    };
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════ dönem

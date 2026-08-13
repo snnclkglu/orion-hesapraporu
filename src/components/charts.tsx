@@ -252,6 +252,215 @@ export function TimeBarChart({
   );
 }
 
+// ------------------------------------------------------- zaman serisi (çizgi)
+
+/**
+ * ÇİZGİ GRAFİK — aynı veri, çubuk yerine eğri (kullanıcı kararı, 13.08.2026:
+ * "tablolar bar şeklinde değil çizgi şeklinde olsun").
+ *
+ * NEDEN AYRI BİR BİLEŞEN: çubuk YIĞILIRdı (dilimler üst üste, toplam görünür),
+ * çizgi YIĞILMAZ — her seri kendi eğrisidir ve okunan şey "hangisi hangisinin
+ * üstünde"dir. İkisini tek bileşende bir bayrakla anlatmak, yığma mantığını
+ * her okuyanın kafasında iki kez çözmesini gerektirirdi.
+ *
+ * SVG BURADA MEŞRUDUR ama yalnız EĞRİ İÇİN: `viewBox` + `preserveAspectRatio
+ * ="none"` ile tuval kabına gerilir, `vectorEffect="non-scaling-stroke"` ile
+ * çizgi kalınlığı gerilmeden korunur. Grafiğin İÇİNDE HİÇ YAZI YOKTUR — eksen
+ * etiketleri ve tik değerleri SVG'nin dışında, düz HTML'dedir. Dosya
+ * başlığındaki kural ("SVG'de yazı ölçeklenir, dar kolonda okunmaz") böylece
+ * çiğnenmez; halka grafiğiyle aynı istisna.
+ *
+ * BOŞ KOVA ÇİZGİYİ KESMEZ, sıfıra iner: aradaki ayı atlamak iki kayıtlı ayı
+ * yan yana getirir ve duraklamayı gizlerdi (`TimeBarChart` ile aynı kural).
+ * Tek noktalı seri çizgi çizemez; orada yalnız işaret kalır.
+ */
+export function TimeLineChart({
+  columns,
+  series,
+  height = 200,
+  valueLabel = "adam·saat",
+  format = fmtManHours,
+  className,
+}: {
+  columns: readonly ChartColumn[];
+  series: readonly ChartSeries[];
+  height?: number;
+  valueLabel?: string;
+  format?: (v: number) => string;
+  className?: string;
+}) {
+  const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(new Set());
+  const visible = series.filter((s) => !hiddenKeys.has(s.key));
+
+  let peak = 0;
+  for (const c of columns) {
+    for (const s of visible) peak = Math.max(peak, c.parts[s.key] ?? 0);
+  }
+  const ticks = niceTicks(0, peak || 1, 4);
+  const top = Math.max(peak, ticks[ticks.length - 1] ?? peak) || 1;
+
+  function toggle(key: string) {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      // Son görünen seriyi de kapatmak grafiği boşaltırdı; izin verilmez.
+      return next.size >= series.length ? prev : next;
+    });
+  }
+
+  const labelStep = columns.length > 26 ? Math.ceil(columns.length / 13) : 1;
+  // Çizgi grafikte sütun genişliği çubuktakinden dardır (48 → 40 gerekmez):
+  // okunan şey kutu değil eğim, ve dar aralık eğimi belirginleştirir. Yine de
+  // X etiketi ("Oca 26" ≈ 34px) sığmalıdır.
+  const plotMinWidth = Math.min(Math.max(columns.length, 2) * 40, 1600);
+
+  /** Noktanın tuval koordinatı — tuval 0…100 × 0…100 birimindedir. */
+  const x = (i: number) =>
+    columns.length <= 1 ? 50 : (i / (columns.length - 1)) * 100;
+  const y = (v: number) => 100 - (v / top) * 100;
+
+  return (
+    <div className={cn("grid gap-2", className)}>
+      <div className="flex gap-2">
+        {/* Y ekseni — kaydırma kabının DIŞINDA: kayarken tikler yerinde kalır */}
+        <div
+          className="relative w-12 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
+          style={{ height }}
+          aria-hidden
+        >
+          {ticks.map((t) => (
+            <span
+              key={t}
+              className="absolute right-0 -translate-y-1/2"
+              style={{ bottom: `${(t / top) * 100}%` }}
+            >
+              {format(t)}
+            </span>
+          ))}
+        </div>
+
+        <div className="oc-scrollx min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
+          {/* YATAY 3px DOLGU ZORUNLUDUR ve süs değildir: ilk ve son nokta
+              işareti tam kenardadır (`left: 0%` / `100%`) ve `-translate-x-1/2`
+              ile yarısı kabın DIŞINA taşar. Sağdaki yarım nokta `scrollWidth`i
+              3px büyütüyor, bu da `.oc-scrollx`in kenar gölgesini yakıyor ve
+              "kaydırılacak içerik var" diye YALAN söylüyordu — üstelik
+              `overflow-x` veren kap `overflow-y`yi de kaybettiği için
+              (AGENTS md. 14) tek piksellik bir taşma gerçek bir kaydırma
+              çubuğu doğurabiliyor. Dolgu, noktanın yarıçapı kadardır. */}
+          <div className="px-[3px]" style={{ minWidth: plotMinWidth }}>
+            <div className="relative" style={{ height }}>
+              {/* Izgara — eğrilerin ALTINDA, saç teli kalınlığında */}
+              {ticks.map((t) => (
+                <div
+                  key={t}
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-0 border-t",
+                    t === 0 ? "border-border" : "border-border/50"
+                  )}
+                  style={{ bottom: `${(t / top) * 100}%` }}
+                />
+              ))}
+
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                className="absolute inset-0 h-full w-full overflow-visible"
+                aria-hidden
+              >
+                {visible.map((s) => {
+                  const noktalar = columns.map((c, i) => ({
+                    cx: x(i),
+                    cy: y(c.parts[s.key] ?? 0),
+                  }));
+                  const d = noktalar
+                    .map((p, i) => `${i === 0 ? "M" : "L"}${p.cx} ${p.cy}`)
+                    .join(" ");
+                  return (
+                    <g key={s.key}>
+                      {noktalar.length > 1 && (
+                        <path
+                          d={d}
+                          fill="none"
+                          className="oc-series-stroke"
+                          style={tagStyle(s.hue)}
+                          strokeWidth={2}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          // Tuval gerildiği için kalınlık da gerilirdi; bu
+                          // özellik çizgiyi ekran pikselinde sabit tutar.
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      {/* Nokta işaretleri: `r` de gerilirdi, o yüzden çember
+                          değil kare değil — `circle` + `non-scaling-stroke`
+                          yerine sabit yarıçaplı bir daire ancak `viewBox`
+                          gerilmediğinde çalışır. Bunun yerine noktalar HTML
+                          katmanında basılır (aşağıda). */}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* NOKTALAR VE İPUÇLARI HTML'DE: SVG tuvali gerildiği için orada
+                  çizilen bir daire elips olurdu. Aynı katman `title` ipucunu da
+                  taşır — dokunmatikte olmasa da farede sayıyı okutan tek yer. */}
+              <div className="absolute inset-0">
+                {visible.map((s) =>
+                  columns.map((c, i) => {
+                    const v = c.parts[s.key] ?? 0;
+                    return (
+                      <span
+                        key={`${s.key}-${c.key}`}
+                        className="oc-series-bg absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                        style={{
+                          ...tagStyle(s.hue),
+                          left: `${x(i)}%`,
+                          top: `${y(v)}%`,
+                        }}
+                        title={`${c.label} · ${s.label} · ${format(v)} ${valueLabel}`}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* X ekseni etiketleri — eğriyle AYNI kaydırma kabında, yoksa
+                kaydırınca etiket ile nokta birbirinden ayrılırdı. */}
+            <div className="mt-2 flex">
+              {columns.map((col, i) => (
+                <div
+                  key={col.key}
+                  className={cn(
+                    "min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground",
+                    // İlk ve son etiket kabın dışına taşmasın: uçlarda nokta
+                    // tam kenardadır, ortalanmış etiket yarısını kaybederdi.
+                    i === 0 ? "text-left" : i === columns.length - 1 ? "text-right" : "text-center"
+                  )}
+                >
+                  {i % labelStep === 0 || i === columns.length - 1 ? col.label : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {series.length > 1 && (
+        <ChartLegend
+          series={series}
+          hidden={hiddenKeys}
+          onToggle={toggle}
+          className="pl-0 sm:pl-14"
+        />
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------- sıralı çubuklar
 
 export interface RankItem {

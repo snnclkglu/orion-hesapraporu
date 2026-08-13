@@ -6,9 +6,14 @@
 // ADRESLERdir (her biri kendi verisini sunucudan çeker, paylaşılabilir ve
 // yenilenebilir). Gerekçenin tamamı `worklog/worklog-nav.tsx`te.
 //
-// SIRA İŞ AKIŞIDIR: kim çalışıyor (Personel) → bu ay ne ödedik (Maaş) → aylar
-// nasıl gidiyor (Özet) → sahada günlük ne veriyoruz (Harcirah) → bunları
-// avroya çevirirken hangi kuru kullanıyoruz (Kurlar).
+// SIRA İŞ AKIŞIDIR: kim çalışıyor (Personel) → ücreti ne olacak (Ücret Planı)
+// → bu ay ne ödedik (Maaş) → aylar nasıl gidiyor (Özet) → sahada günlük ne
+// veriyoruz (Harcirah) → bunları avroya çevirirken hangi kuru kullanıyoruz
+// (Kurlar).
+//
+// ÜCRET PLANI MAAŞTAN ÖNCEDİR ve bu bir zevk değil bir BAĞ: maaş satırı yeni
+// açılırken net ücreti oradan okur (kullanıcı kararı, 13.08.2026). Sonraya
+// konsaydı ekran, kendisini besleyen kararı kendinden sonra gösterirdi.
 //
 // ALT ÇİZGİ `border-b` DEĞİL İÇ GÖLGEDİR (AGENTS md. 14). `overflow-x` veren
 // bir kap `overflow-y`yi de kaybeder ve `-mb-px` ile bir piksel taşan sekme
@@ -23,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/personnel", label: "Personel", exact: true },
+  { href: "/personnel/ucret", label: "Ücret Planı", exact: false },
   { href: "/personnel/maas", label: "Maaş", exact: false },
   { href: "/personnel/ozet", label: "Özet", exact: false },
   { href: "/personnel/harcirah", label: "Harcirah", exact: false },

@@ -26,6 +26,7 @@ import {
 } from "@/lib/excel/brand";
 import {
   aylikOdeme,
+  donemIzinRapor,
   donemOzeti,
   hizmetGunu,
   netCalismaSaati,
@@ -73,6 +74,10 @@ export interface PayrollExportRow {
   perDiem: number;
   advance: number;
   deduction: number;
+  /** KİŞİ BAZINDA izin saati (13.08.2026'dan beri). */
+  leaveHours?: number;
+  /** KİŞİ BAZINDA raporlu saat. */
+  reportHours?: number;
   paidOn: string | null;
   note: string;
 }
@@ -80,7 +85,9 @@ export interface PayrollExportRow {
 export interface PayrollExportPeriod {
   period: string;
   eurTryRate: number | null;
+  /** DEVRALINAN ay düzeyi izin saati — kişi girişi yoksa yedek olarak okunur. */
   leaveHours: number;
+  /** DEVRALINAN ay düzeyi rapor saati. */
   reportHours: number;
 }
 
@@ -129,9 +136,14 @@ function paraHucresi(row: ExcelJS.Row, col: number, v: number | null): void {
 
 // ─────────────────────────────────────────────────────────── 1. Maaş Listesi
 
+// İZİN VE RAPOR SAATİ SATIR SEVİYESİNDEDİR (kullanıcı kararı, 13.08.2026):
+// asıl sayfa ham veridir ve kullanıcı kendi pivotunu burada kurar — iki saati
+// yalnız Özet sayfasında bırakmak, "kim kaç gün gelmedi" sorusunu Excel'de
+// cevaplanamaz yapardı.
 const MAAS_SUTUNLARI = [
   "Dönem", "Ad Soyad", "Kategori", "Görev", "İşe Giriş",
   "Net Maaş (₺)", "FM %50 (saat)", "FM %100 (saat)", "FM Tutarı (₺)",
+  "İzin (saat)", "Rapor (saat)",
   "Prim (₺)", "Harcirah (₺)", "Avans (₺)", "Kesinti (₺)",
   "Toplam (₺)", "Kur (₺/€)", "Toplam (€)", "Ödeme Tarihi", "Not",
 ];
@@ -184,31 +196,37 @@ function writeMaasSheet(
       row.getCell(c).alignment = { horizontal: "right" };
     }
     paraHucresi(row, 9, r.overtimeAmount);
-    paraHucresi(row, 10, r.bonus || null);
-    paraHucresi(row, 11, r.perDiem || null);
-    paraHucresi(row, 12, r.advance || null);
-    paraHucresi(row, 13, r.deduction || null);
-    paraHucresi(row, 14, toplam);
-    const kurH = row.getCell(15);
+    row.getCell(10).value = r.leaveHours || "";
+    row.getCell(11).value = r.reportHours || "";
+    for (const c of [10, 11]) {
+      row.getCell(c).numFmt = SAAT;
+      row.getCell(c).alignment = { horizontal: "right" };
+    }
+    paraHucresi(row, 12, r.bonus || null);
+    paraHucresi(row, 13, r.perDiem || null);
+    paraHucresi(row, 14, r.advance || null);
+    paraHucresi(row, 15, r.deduction || null);
+    paraHucresi(row, 16, toplam);
+    const kurH = row.getCell(17);
     kurH.value = kur && kur > 0 ? kur : "";
     kurH.numFmt = "#,##0.0000";
     kurH.alignment = { horizontal: "right" };
-    paraHucresi(row, 16, kur && kur > 0 ? toplam / kur : null);
-    tarihHucresi(row, 17, r.paidOn);
-    row.getCell(18).value = r.note || "";
+    paraHucresi(row, 18, kur && kur > 0 ? toplam / kur : null);
+    tarihHucresi(row, 19, r.paidOn);
+    row.getCell(20).value = r.note || "";
   });
 
   // TOPLAM SATIRI — hesaplanmış değer, formül değil.
   const toplamSatiri = ws.getRow(headerRow + 1 + sirali.length);
   toplamSatiri.getCell(1).value = "TOPLAM";
   toplamSatiri.getCell(1).font = { bold: true };
-  paraHucresi(toplamSatiri, 14, toplamTl);
-  paraHucresi(toplamSatiri, 16, toplamEur);
-  toplamSatiri.getCell(14).font = { bold: true };
+  paraHucresi(toplamSatiri, 16, toplamTl);
+  paraHucresi(toplamSatiri, 18, toplamEur);
   toplamSatiri.getCell(16).font = { bold: true };
+  toplamSatiri.getCell(18).font = { bold: true };
   if (kursuz > 0) {
     // Eksiklik GİZLENMEZ: avro toplamı kaç satırı kapsamıyor, orada yazar.
-    toplamSatiri.getCell(18).value = `${kursuz} satırın dönem kuru girilmemiş; avro toplamı onları içermez.`;
+    toplamSatiri.getCell(20).value = `${kursuz} satırın dönem kuru girilmemiş; avro toplamı onları içermez.`;
   }
   for (let c = 1; c <= MAAS_SUTUNLARI.length; c++) {
     toplamSatiri.getCell(c).fill = TOTAL_FILL;
@@ -265,6 +283,10 @@ function writeOzetSheet(
     const d = donemHarita.get(period);
     const kur = d?.eurTryRate ?? null;
     const cevir = (v: number) => (kur && kur > 0 ? v / kur : null);
+    // İZİN/RAPOR TEK KAYNAKTAN (13.08.2026): kişi satırlarında varsa onlar,
+    // hiç yoksa devralınan ay değeri. İkisi asla TOPLANMAZ — ekran ve dosya
+    // aynı fonksiyonu çağırdığı için ayrışamaz.
+    const saat = donemIzinRapor(ile(() => true), d);
 
     const row = ws.getRow(headerRow + 1 + i);
     row.getCell(1).value = periodLabel(period);
@@ -282,13 +304,13 @@ function writeOzetSheet(
     paraHucresi(row, 13, cevir(y.netTotal));
     paraHucresi(row, 14, t.grandTotal);
     paraHucresi(row, 15, cevir(t.grandTotal));
-    row.getCell(16).value = d?.leaveHours || "";
-    row.getCell(17).value = d?.reportHours || "";
+    row.getCell(16).value = saat.leaveHours || "";
+    row.getCell(17).value = saat.reportHours || "";
     row.getCell(18).value = netCalismaSaati(
       t.normalHours,
       t.overtimeHours,
-      d?.leaveHours ?? 0,
-      d?.reportHours ?? 0
+      saat.leaveHours,
+      saat.reportHours
     );
     for (const c of [3, 7, 11, 16, 17, 18]) {
       row.getCell(c).numFmt = SAAT;

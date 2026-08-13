@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import { adBuyuk } from "@/lib/tr-text";
+import { RAISE_REASONS } from "@/lib/personnel/salary-plan";
 import {
   CONTRACT_TYPES,
   DOCUMENT_KINDS,
@@ -175,6 +176,13 @@ export const payrollSchema = z.object({
   perDiem: z.number().min(0).default(0),
   advance: z.number().min(0).default(0),
   deduction: z.number().min(0).default(0),
+
+  // İZİN VE RAPOR SAATİ KİŞİ BAZINDADIR (kullanıcı kararı, 13.08.2026):
+  // "personel birkaç gün gelmediyse bunu sisteme girmek isterim … dönem
+  // ayarlarında değil, kişi bazında." Üst sınır bir aylık normal çalışma
+  // saatinin iki katıdır: 450'yi aşan bir izin saati bir yazım hatasıdır.
+  leaveHours: z.number().min(0).max(450).default(0),
+  reportHours: z.number().min(0).max(450).default(0),
   // SGK GÜN SAYISI: tam ay 30'dur (31 çeken aylarda da 30). Giriş/çıkış
   // ayında ve ücretsiz izinde düşer; bordronun ve SGK bildiriminin girdisidir.
   workedDays: z.number().int().min(0).max(31).default(30),
@@ -185,12 +193,17 @@ export const payrollSchema = z.object({
 export type PayrollInput = z.input<typeof payrollSchema>;
 
 /**
- * DÖNEM AYARLARI — ay düzeyindeki izin/rapor saatleri ve dönem kuru.
+ * DÖNEM AYARLARI — bugün yalnız KAPANIŞ İŞARETİ ve not.
  *
- * KUR ARTIK KULLANICIDAN ALINMIYOR (kullanıcı kararı, 12.08.2026): ayın SON
- * YAYIN GÜNÜNÜN TCMB kuru otomatik yazılır (`donemKuruUygula`). Alan şemada
+ * KUR KULLANICIDAN ALINMIYOR (kullanıcı kararı, 12.08.2026): ayın SON YAYIN
+ * GÜNÜNÜN TCMB kuru otomatik yazılır (`ensurePeriodRates`). Alan şemada
  * duruyor çünkü değer hâlâ SATIRIN KENDİNDE donar (AGENTS md. 16) — değişen
  * şey onu kimin yazdığıdır, nerede durduğu değil.
+ *
+ * İZİN VE RAPOR SAATİ DE ALINMIYOR (kullanıcı kararı, 13.08.2026): ikisi de
+ * kişi bazına indi (`payrollSchema`). Alanlar burada DEVRALINAN değeri taşımak
+ * için duruyor — 27 ayın Excel'den gelen ay düzeyi saatleri silinmez, yalnız
+ * artık buradan YAZILMAZ (`savePeriod` iki sütuna hiç dokunmaz).
  */
 export const periodSchema = z.object({
   period: isoDonem,
@@ -203,6 +216,52 @@ export const periodSchema = z.object({
 });
 
 export type PeriodInput = z.input<typeof periodSchema>;
+
+// —————————————————————————————————————————————————————————— ücret planı
+
+/**
+ * ÜCRET PLANI — "şu tarihten itibaren bu kişinin net ücreti şudur".
+ *
+ * Geçerlilik AYIN İLK GÜNÜNE oturur (`isoDonem`): ücret ay ortasında
+ * değişmez, bordro dönemi aydır. Kullanıcı ekranda bir AY seçer, bir gün
+ * değil — ve şema o sözleşmeyi burada da uygular ki kayıt hangi kapıdan
+ * girerse girsin aynı ızgaraya düşsün.
+ */
+export const salaryPlanSchema = z.object({
+  id: z.uuid().optional(),
+  employeeId: z.uuid(),
+  effectiveFrom: isoDonem,
+  netSalary: z.number().min(0, "Net maaş negatif olamaz").max(100_000_000),
+  // ZAMMIN KÜNYESİ — ikisi de isteğe bağlıdır: elle yazılan bir ücret
+  // kararının tabanı ve oranı olmayabilir ve uydurmak yanlış olurdu.
+  previousNet: paraOptional,
+  raisePct: z.number().finite().min(-100).max(1000).nullable().optional().default(null),
+  reason: z.enum(RAISE_REASONS).default("yillik"),
+  note: metin(300),
+});
+
+export type SalaryPlanInput = z.input<typeof salaryPlanSchema>;
+
+/** TOPLU ZAM girdisi — bir yılın kararını tek işlemde yazar. */
+export const raiseBatchSchema = z.object({
+  /** Kararın geçerli olacağı dönem (genelde `yyyy-01`). */
+  effectiveFrom: isoDonem,
+  reason: z.enum(RAISE_REASONS).default("yillik"),
+  note: metin(300),
+  rows: z
+    .array(
+      z.object({
+        employeeId: z.uuid(),
+        netSalary: z.number().min(0).max(100_000_000),
+        previousNet: paraOptional,
+        raisePct: z.number().finite().min(-100).max(1000).nullable().optional().default(null),
+      })
+    )
+    .min(1, "Kaydedilecek satır yok")
+    .max(500),
+});
+
+export type RaiseBatchInput = z.input<typeof raiseBatchSchema>;
 
 // ——————————————————————————————————————————————————————————————— belge
 
@@ -308,6 +367,10 @@ export interface PayrollRow {
   perDiem: number;
   advance: number;
   deduction: number;
+  /** Kişinin o aydaki izin saati (13.08.2026'dan beri kişi bazında). */
+  leaveHours: number;
+  /** Kişinin o aydaki raporlu saati. */
+  reportHours: number;
   paidOn: string | null;
   note: string;
   /** SGK gün sayısı. Tam ay 30'dur; giriş/çıkış ayında ve ücretsiz izinde düşer. */
@@ -340,9 +403,24 @@ export interface PeriodRow {
   period: string;
   eurTryRate: number | null;
   usdTryRate: number | null;
+  /** DEVRALINAN ay düzeyi izin saati — yeni kayıt kişi satırına yazılır. */
   leaveHours: number;
+  /** DEVRALINAN ay düzeyi rapor saati. */
   reportHours: number;
   closed: boolean;
+  note: string;
+}
+
+export interface SalaryPlanRow {
+  id: string;
+  employeeId: string;
+  /** `yyyy-aa` — geçerliliğin başladığı dönem. */
+  effectiveFrom: string;
+  netSalary: number;
+  previousNet: number | null;
+  /** Uygulanan zam oranı (yüzde; 15 = %15). Elle yazılan kararda null olabilir. */
+  raisePct: number | null;
+  reason: string;
   note: string;
 }
 

@@ -16,8 +16,26 @@
 // SAYILAR METİN OLARAK TUTULUR ve yalnız kaydederken sayıya çevrilir
 // (`parseNum`, projenin her yerdeki kalıbı): "45.000," yazarken alan
 // boşalmaz, Türkçe klavyede ondalık ayıracı virgüldür.
+//
+// ————————————————————————————————————— 13.08.2026 kullanıcı kararları
+//
+//  • İZİN VE RAPOR SAATİ KİŞİ BAZINDA girilir: "personel birkaç gün
+//    gelmediyse bunu sisteme girmek isterim … dönem ayarlarında değil."
+//    İki sütun tabloya indi.
+//  • "DÖNEM AYARLARI KISMINA GEREK KALMIYOR": kart kaldırıldı. İçindeki üç
+//    şeyin biri (izin/rapor) satıra indi, kalan ikisi (kur künyesi, dönemi
+//    kapat/sil) ay şeridine taşındı — ekranın üstünde iki kutu daha az.
+//  • "6 KUTUYU TEK SATIRDA": özet kartları `dense` ve `xl:grid-cols-6`.
+//  • "TUTARLARDA VİRGÜLDEN SONRAKİ KISIM GÖRÜNMESİN": ekrandaki her tutar
+//    `fmtTutar`tan geçer. Kuruş gereken yer bordrodur, orada tam basılır.
+//  • "NET MAAŞ 200000 SE 200.000 GİBİ YAZSIN": giriş kutusu odakta değilken
+//    binlik ayıraçlı gösterir (`ParaInput`).
+//  • "MAAŞ BÖLÜMÜNE ÜCRET PLANINDAN NET MAAŞ VERİSİ GELSİN": yeni açılan
+//    satırın net maaşı `hr_salary_plan`ten ön-dolu gelir ve plandan sapan
+//    satır ad hücresinde işaretlenir.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -37,6 +55,7 @@ import {
   Trash2,
   Unlock,
   Users,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,18 +69,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatCard } from "@/components/stat-card";
-import { fmtNum, parseNum } from "@/lib/currency";
+import { fmtNum, fmtTutar, parseNum } from "@/lib/currency";
 import { tagStyle } from "@/lib/tags";
 import { degisimYuzde } from "@/lib/fx/rates";
 import { categoryHue, categoryLabel, yonetimMi } from "@/lib/personnel/employee";
 import {
   AYLIK_CALISMA_SAATI,
   aylikOdeme,
+  donemIzinRapor,
   donemOzeti,
   fazlaMesaiTutari,
   netCalismaSaati,
   periodLabel,
 } from "@/lib/personnel/payroll";
+import { gecerliUcret, planSapmasi } from "@/lib/personnel/salary-plan";
 import { cn } from "@/lib/utils";
 import { deletePeriod, ensurePeriodRates, savePayroll, savePeriod } from "../actions";
 import {
@@ -79,6 +100,7 @@ import type {
   PayrollRow,
   PeriodInput,
   PeriodRow,
+  SalaryPlanRow,
 } from "../schema";
 
 // ————————————————————————————————————————————————————————————— yardımcılar
@@ -112,6 +134,10 @@ function calisiyorMu(emp: EmployeeRow, ilk: string, son: string): boolean {
  * Kur DÖRT HANEDİR (`FX_PAIRS.digits`) — `fmtNum` en çok iki hane basar ve
  * önerilen 54,8231'i 54,82 gösterirdi. Kullanıcının onayladığı sayı ile
  * kaydedilen sayı aynı görünmelidir.
+ *
+ * KUR BİR TUTAR DEĞİLDİR: "virgülden sonrası görünmesin" kuralı (13.08.2026)
+ * ödenen paralar içindir; bir kurun ondalığı onun BİLGİSİDİR ve atılırsa
+ * 54,8231 ile 54,4900 aynı sayı gibi görünür.
  */
 const KUR_FMT = new Intl.NumberFormat("tr-TR", {
   minimumFractionDigits: 4,
@@ -133,6 +159,26 @@ const GIRDI_FMT = new Intl.NumberFormat("tr-TR", {
 
 function girdiMetni(v: number | null | undefined): string {
   return v === null || v === undefined || !Number.isFinite(v) ? "" : GIRDI_FMT.format(v);
+}
+
+/**
+ * GÖSTERİM BİÇİMİ — kutu odakta DEĞİLKEN (bkz. `ParaInput`).
+ *
+ * Binlik ayıraç vardır ("200000" → "200.000"), ondalık ancak GERÇEKTEN varsa
+ * basılır: her satıra ",00" yazmak kullanıcının kaldırılmasını istediği
+ * gürültünün ta kendisiydi, ama var olan bir kuruşu gizlemek düzenlenebilir
+ * bir kutuda yalan olurdu.
+ */
+const GOSTER_FMT = new Intl.NumberFormat("tr-TR", {
+  useGrouping: true,
+  maximumFractionDigits: 2,
+});
+
+function gosterimMetni(ham: string): string {
+  const n = parseNum(ham);
+  // Çözülemeyen metin OLDUĞU GİBİ kalır: kullanıcı "45.000," yazmış olabilir
+  // ve onu silmek, yazmayı imkânsız kılardı.
+  return n === null ? ham : GOSTER_FMT.format(n);
 }
 
 /**
@@ -161,6 +207,8 @@ function payrollGirdisi(
     perDiem: number;
     advance: number;
     deduction: number;
+    leaveHours: number;
+    reportHours: number;
     workedDays: number;
   }
 ): PayrollInput {
@@ -188,12 +236,55 @@ function paraMetni(v: number | null | undefined): string {
 }
 
 /**
+ * BİNLİK AYIRAÇLI PARA KUTUSU (kullanıcı kararı, 13.08.2026: "Net maaş 200000
+ * se örneğin 200.000 gibi yazsın").
+ *
+ * Ayıraç YALNIZ ODAK DIŞINDA basılır. Yazarken de basmak iki şeyi birden
+ * bozardı: imleç her tuşta sona sıçrar (metin yeniden kurulduğu için) ve
+ * "200.0" gibi yarım bir sayı ayıraçlanınca kullanıcının yazdığından başka
+ * bir sayı görünür. Kutunun DEĞERİ değişmez — yalnız GÖRÜNÜŞÜ değişir; dışarı
+ * hep ham metin gider ve `parseNum` onu okur.
+ */
+function ParaInput({
+  value,
+  onChange,
+  disabled,
+  ariaLabel,
+  autoFocus,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+  autoFocus?: boolean;
+  className?: string;
+}) {
+  const [odakta, setOdakta] = useState(false);
+  return (
+    <Input
+      value={odakta ? value : gosterimMetni(value)}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={() => setOdakta(true)}
+      onBlur={() => setOdakta(false)}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      inputMode="decimal"
+      disabled={disabled}
+      autoFocus={autoFocus}
+      className={className}
+      aria-label={ariaLabel}
+    />
+  );
+}
+
+/**
  * Satırın düzenlenen alanları — hepsi metindir (bkz. dosya başlığı).
  *
  * PRİM, HARCİRAH, AVANS VE KESİNTİ BURADADIR (kullanıcı kararı, 12.08.2026).
  * Önce yalnız kişinin kendi sayfasından giriliyorlardı; ay kapatılırken kırk
  * kişinin sayfasını tek tek dolaşmak gerçek bir iş akışı değildi. Dördü de
- * AYIN OLGUSUDUR ve ay ekranında girilir.
+ * AYIN OLGUSUDUR ve ay ekranında girilir. İZİN VE RAPOR SAATİ de 13.08.2026'da
+ * aynı gerekçeyle buraya indi.
  */
 interface RowDraft {
   net: string;
@@ -203,24 +294,22 @@ interface RowDraft {
   harcirah: string;
   avans: string;
   kesinti: string;
+  izin: string;
+  rapor: string;
   /** SGK gün sayısı — tam ay 30. */
   gun: string;
 }
 
-/** Dönem şeridinin düzenlenen alanları. Kur ARTIK ELLE GİRİLMEZ. */
-interface PeriodDraft {
-  izin: string;
-  rapor: string;
-}
-
 /**
- * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik md. 7). Sekiz sütunun üçü giriş
- * alanıdır ve daraltılamaz; telefonda görev ve avro karşılığı düşer, düşen
- * bilgi ad hücresinin ikinci satırına iner. İkinci bir kart markup'ı YAZILMAZ.
+ * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik md. 7). Onbeş sütunun dokuzu giriş
+ * alanıdır ve daraltılamaz; telefonda görev, ek ödemeler ve avro karşılığı
+ * düşer, düşen bilginin kritik olanı ad hücresinin ikinci satırına iner.
+ * İkinci bir kart markup'ı YAZILMAZ.
  */
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
 const AT_XL = "hidden xl:table-cell";
+const AT_2XL = "hidden 2xl:table-cell";
 
 /** Satır içi sayı alanı — tabloda yoğunluk, parmakta tam boy. */
 const HUCRE_INPUT =
@@ -234,6 +323,7 @@ export function PayrollBoard({
   previousPayroll,
   periods,
   fxMonthly,
+  plans = [],
   canWrite,
 }: {
   ay: string;
@@ -243,6 +333,8 @@ export function PayrollBoard({
   previousPayroll: PayrollRow[];
   periods: PeriodRow[];
   fxMonthly: FxMonthlyRow[];
+  /** Ücret planı — yeni satırın net maaşı buradan ön-dolu gelir. */
+  plans?: SalaryPlanRow[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -251,10 +343,6 @@ export function PayrollBoard({
   const ortalama = useMemo(() => fxMonthly.find((f) => f.period === ay) ?? null, [fxMonthly, ay]);
 
   const [taslaklar, setTaslaklar] = useState<Record<string, RowDraft>>({});
-  const [donemTaslak, setDonemTaslak] = useState<PeriodDraft>(() => ({
-    izin: saatMetni(donem?.leaveHours),
-    rapor: saatMetni(donem?.reportHours),
-  }));
   /** Dönem silme onayı. */
   const [silOnay, setSilOnay] = useState(false);
   /** Elle açılan (maaşı henüz girilmemiş) satırlar. */
@@ -280,10 +368,6 @@ export function PayrollBoard({
     setAcilanlar([]);
     setOdakId(null);
     setIsaretli(new Set());
-    setDonemTaslak({
-      izin: saatMetni(donem?.leaveHours),
-      rapor: saatMetni(donem?.reportHours),
-    });
   }
 
   const aralik = useMemo(() => ayAraligi(ay), [ay]);
@@ -313,20 +397,36 @@ export function PayrollBoard({
 
   const acikSet = useMemo(() => new Set(acilanlar), [acilanlar]);
 
+  /** Bu ayda geçerli ücret kararı — kişi başına (ücret planından). */
+  const planliUcret = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of employees) {
+      const p = gecerliUcret(plans, e.id, ay);
+      if (p && p.netSalary > 0) m.set(e.id, p.netSalary);
+    }
+    return m;
+  }, [plans, employees, ay]);
+
   /** Tabloda görünen satırlar: maaş kaydı olanlar + elle açılanlar. */
   const satirlar = useMemo(() => {
     return employees
       .filter((e) => kayitlar.has(e.id) || acikSet.has(e.id))
       .map((e) => {
         const kayit = kayitlar.get(e.id) ?? null;
+        const planNet = planliUcret.get(e.id) ?? null;
         const taslak: RowDraft = taslaklar[e.id] ?? {
-          net: girdiMetni(kayit?.netSalary ?? null),
+          // YENİ SATIRIN NET MAAŞI ÜCRET PLANINDAN GELİR (kullanıcı kararı,
+          // 13.08.2026). Kayıt varsa kayıt kazanır: ödenmiş bir ayı plandaki
+          // kararla ezmek, olguyu kararla değiştirmek olurdu.
+          net: girdiMetni(kayit?.netSalary ?? planNet ?? null),
           ot50: saatMetni(kayit?.overtimeHours50),
           ot100: saatMetni(kayit?.overtimeHours100),
           prim: paraMetni(kayit?.bonus),
           harcirah: paraMetni(kayit?.perDiem),
           avans: paraMetni(kayit?.advance),
           kesinti: paraMetni(kayit?.deduction),
+          izin: saatMetni(kayit?.leaveHours),
+          rapor: saatMetni(kayit?.reportHours),
           gun: girdiMetni(kayit?.workedDays ?? 30),
         };
         const net = parseNum(taslak.net);
@@ -336,6 +436,8 @@ export function PayrollBoard({
         const harcirah = parseNum(taslak.harcirah) ?? 0;
         const avans = parseNum(taslak.avans) ?? 0;
         const kesinti = parseNum(taslak.kesinti) ?? 0;
+        const izin = parseNum(taslak.izin) ?? 0;
+        const rapor = parseNum(taslak.rapor) ?? 0;
         const gunSayisi = parseNum(taslak.gun) ?? 30;
         // Mesai tutarı ANINDA gösterilir: sunucudaki türetilmiş sütunla
         // (`hr_payroll.overtime_amount`) aynı bağıntının saf kopyası, kullanıcı
@@ -363,9 +465,16 @@ export function PayrollBoard({
           harcirah,
           avans,
           kesinti,
+          izin,
+          rapor,
           gunSayisi,
           mesai,
           toplam,
+          planNet,
+          // PLANDAN SAPMA bir UYARIDIR, bir ENGEL değil: eksik gün, ücretsiz
+          // izin ve ay ortası giriş meşru sapmalardır ve uygulama hangisi
+          // olduğunu bilemez. Sayıyı gösterir, kararı insan verir.
+          sapma: planSapmasi(planNet, net),
           avro: kur && kur > 0 ? toplam / kur : null,
         };
       })
@@ -374,7 +483,7 @@ export function PayrollBoard({
           a.emp.category.localeCompare(b.emp.category, "tr") ||
           a.emp.fullName.localeCompare(b.emp.fullName, "tr")
       );
-  }, [employees, kayitlar, acikSet, taslaklar, kur]);
+  }, [employees, kayitlar, acikSet, taslaklar, kur, planliUcret]);
 
   /** Toplamlar TASLAKTAN çıkar: kullanıcı yazarken kartlar da hareket eder. */
   const toplamlar = useMemo(() => {
@@ -393,8 +502,13 @@ export function PayrollBoard({
       bonus: r.prim,
       perDiem: r.harcirah,
       deduction: r.kesinti,
+      leaveHours: r.izin,
+      reportHours: r.rapor,
     }));
     const genelToplam = sayilan.reduce((t, r) => t + r.toplam, 0);
+    // İZİN/RAPOR TEK KAYNAKTAN: kişi satırlarında varsa onlar, hiç yoksa
+    // devralınan ay değeri. İkisi asla TOPLANMAZ (`donemIzinRapor`).
+    const izinRapor = donemIzinRapor(ozetGirdisi, donem);
     return {
       ozet: donemOzeti(ozetGirdisi),
       personel: donemOzeti(ozetGirdisi.filter((r) => !yonetimMi(r.category))),
@@ -405,11 +519,12 @@ export function PayrollBoard({
       harcirah: sayilan.reduce((t, r) => t + r.harcirah, 0),
       avans: sayilan.reduce((t, r) => t + r.avans, 0),
       kesinti: sayilan.reduce((t, r) => t + r.kesinti, 0),
+      izinRapor,
       // Genel toplam AVANSI da düşer; `donemOzeti` avansı bilmez.
       genelToplam,
       avro: kur && kur > 0 ? genelToplam / kur : null,
     };
-  }, [satirlar, kur]);
+  }, [satirlar, kur, donem]);
 
   /**
    * MAAŞI GİRİLMEMİŞ ÇALIŞANLAR.
@@ -427,6 +542,12 @@ export function PayrollBoard({
           calisiyorMu(e, aralik.ilk, aralik.son)
       ),
     [employees, kayitlar, acikSet, aralik]
+  );
+
+  /** Ücret planından doldurulabilecek satırlar — düğme basılmadan sayısı bilinir. */
+  const plandanDolar = useMemo(
+    () => eksikler.filter((e) => (planliUcret.get(e.id) ?? 0) > 0),
+    [eksikler, planliUcret]
   );
 
   /** Geçen aydan taşınabilecek satırlar — düğme basılmadan önce sayısı bilinir. */
@@ -517,7 +638,9 @@ export function PayrollBoard({
       if (net === null) {
         // Net maaş olmadan satır yazılamaz (şema zorunlu kılar). Boş bir satırı
         // dokunmadan bırakmak normaldir; saat girilmişse kullanıcı uyarılır.
-        if (satir.s50 > 0 || satir.s100 > 0) toast.error("Önce net maaşı girin.");
+        if (satir.s50 > 0 || satir.s100 > 0 || satir.izin > 0 || satir.rapor > 0) {
+          toast.error("Önce net maaşı girin.");
+        }
         return;
       }
       const mevcut = satir.kayit;
@@ -530,6 +653,8 @@ export function PayrollBoard({
         mevcut.perDiem === satir.harcirah &&
         mevcut.advance === satir.avans &&
         mevcut.deduction === satir.kesinti &&
+        mevcut.leaveHours === satir.izin &&
+        mevcut.reportHours === satir.rapor &&
         mevcut.workedDays === satir.gunSayisi
       ) {
         return; // değişmemiş satır denetim izine yazılmaz
@@ -545,6 +670,8 @@ export function PayrollBoard({
           perDiem: satir.harcirah,
           advance: satir.avans,
           deduction: satir.kesinti,
+          leaveHours: satir.izin,
+          reportHours: satir.rapor,
           workedDays: satir.gunSayisi,
         })
       );
@@ -566,21 +693,23 @@ export function PayrollBoard({
   );
 
   /**
-   * GEÇEN AYI KOPYALA — net maaşları taşır.
+   * Toplu satır açma — net maaşı verilen kaynaktan alır.
    *
-   * MESAİ SAATLERİ KOPYALANMAZ: onlar ayın kendi olgusudur ve geçen ayın
-   * saatlerini taşımak, düzeltilmediğinde yanlış bir ödeme üretirdi. Prim,
-   * harcırah, avans ve kesinti de aynı sebeple sıfırdan başlar.
+   * MESAİ, İZİN VE RAPOR SAATLERİ TAŞINMAZ: onlar ayın kendi olgusudur ve
+   * geçen ayın saatlerini taşımak, düzeltilmediğinde yanlış bir ödeme
+   * üretirdi. Prim, harcırah, avans ve kesinti de aynı sebeple sıfırdan başlar.
    */
-  function geceniKopyala() {
-    if (!yazilabilir || kopyalanabilir.length === 0) return;
-    const onceki = ayKaydir(ay, -1);
+  function topluAc(
+    kaynak: { employeeId: string; netSalary: number }[],
+    basariMesaji: (eklenen: number) => string
+  ) {
+    if (!yazilabilir || kaynak.length === 0) return;
     startTransition(async () => {
       let eklenen = 0;
       let hata = 0;
       // Sıralı yazılır: kırk satırı aynı anda göndermek hem denetim izini
       // karıştırır hem de tek bir hatayı görünmez kılardı.
-      for (const p of kopyalanabilir) {
+      for (const p of kaynak) {
         const res = await savePayroll(
           payrollGirdisi(p.employeeId, ay, null, {
             netSalary: p.netSalary,
@@ -590,6 +719,8 @@ export function PayrollBoard({
             perDiem: 0,
             advance: 0,
             deduction: 0,
+            leaveHours: 0,
+            reportHours: 0,
             workedDays: 30,
           })
         );
@@ -597,27 +728,22 @@ export function PayrollBoard({
         else eklenen += 1;
       }
       if (hata > 0) toast.error(`${hata} satır yazılamadı.`);
-      if (eklenen > 0) {
-        toast.success(
-          `${periodLabel(onceki)} listesinden ${eklenen} satır eklendi — mesai saatleri boş bırakıldı.`
-        );
-      }
+      if (eklenen > 0) toast.success(basariMesaji(eklenen));
       router.refresh();
     });
   }
 
-  /** Dönem ayarları — kur, izin/rapor saatleri ve kapanış tek satırda yazılır. */
+  /** Dönem ayarları — bugün yalnız KAPANIŞ İŞARETİ (kur ve izin/rapor değil). */
   function donemiYaz(patch: Partial<PeriodInput>, basariMesaji: string) {
     if (!canWrite) return;
     const girdi: PeriodInput = {
       period: ay,
-      // KUR BU EYLEMDEN YAZILMAZ: `savePeriod` kur sütunlarına hiç dokunmaz,
-      // onları `ensurePeriodRates` ay sonu kurundan doldurur. Alanlar tip
-      // uyumu için taşınır.
+      // Kur ve izin/rapor alanları tip uyumu için taşınır; `savePeriod` üçüne
+      // de DOKUNMAZ (bkz. actions.ts).
       eurTryRate: donem?.eurTryRate ?? null,
       usdTryRate: donem?.usdTryRate ?? null,
-      leaveHours: parseNum(donemTaslak.izin) ?? 0,
-      reportHours: parseNum(donemTaslak.rapor) ?? 0,
+      leaveHours: donem?.leaveHours ?? 0,
+      reportHours: donem?.reportHours ?? 0,
       closed: kapali,
       note: donem?.note ?? "",
       ...patch,
@@ -628,10 +754,6 @@ export function PayrollBoard({
         toast.error(res.error);
         return;
       }
-      setDonemTaslak({
-        izin: saatMetni(girdi.leaveHours),
-        rapor: saatMetni(girdi.reportHours),
-      });
       toast.success(basariMesaji);
       router.refresh();
     });
@@ -644,19 +766,22 @@ export function PayrollBoard({
 
   // ——————————————————————————————————————————————————————————————— sunum
 
-  const kurSapmasi =
-    kur && ortalama ? degisimYuzde(kur, ortalama.eurTry) : null;
+  const kurSapmasi = kur && ortalama ? degisimYuzde(kur, ortalama.eurTry) : null;
   const netSaat = netCalismaSaati(
     toplamlar.ozet.normalHours,
     toplamlar.ozet.overtimeHours,
-    donem?.leaveHours ?? 0,
-    donem?.reportHours ?? 0
+    toplamlar.izinRapor.leaveHours,
+    toplamlar.izinRapor.reportHours
   );
 
   return (
-    <div className="grid gap-4">
-      {/* ————————————————————————————————————————————————— ay seçici */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-3 py-2.5">
+    <div className="grid gap-3">
+      {/* ————————————————————————————————————————————————— ay şeridi
+          "DÖNEM AYARLARI" KARTI KALDIRILDI (kullanıcı kararı, 13.08.2026):
+          içindeki izin/rapor kutuları kişi satırına indi, geriye kalan kur
+          künyesi ile dönem kapat/sil düğmeleri buraya taşındı. Ayrı bir kart
+          artık tek bir okunur sayı ve iki düğme için ekranda ~120px yerdi. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2.5">
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
@@ -684,6 +809,11 @@ export function PayrollBoard({
               Bu Ay
             </span>
           )}
+          {kapali && (
+            <span className="oc-tag px-1.5 py-0.5 text-xs" style={tagStyle(0)}>
+              Kapalı
+            </span>
+          )}
         </div>
 
         <Input
@@ -699,218 +829,146 @@ export function PayrollBoard({
           </Button>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* BORDROLARI İNDİR — dönemin bütün pusulaları TEK PDF, kişi başına
-              bir sayfa. Elli kişilik bir ayı tek tek indirmek gerçek bir iş
-              akışı değildi (kullanıcı kararı, 12.08.2026). */}
+        {/* KUR OKUNUR, GİRİLMEZ (kullanıcı kararı, 12.08.2026): ayın son yayın
+            gününün TCMB kuru otomatik yazılır. Bir `Input` olsaydı
+            "değiştirebilirim" derdi ve o söz tutulmazdı. */}
+        <span
+          className="flex items-center gap-1.5 border bg-background px-2 py-1 font-mono text-xs tabular-nums"
+          title={
+            kurKaynagi
+              ? `${kurKaynagi} tarihli TCMB kuru — ödenmiş ayın avro karşılığı sonradan değişmez`
+              : "Ay kapandığında TCMB'nin son yayın gününden otomatik yazılır"
+          }
+        >
+          <Euro className="size-3.5 shrink-0 text-primary" aria-hidden />
+          {kur === null ? (
+            <span className="font-sans text-muted-foreground">
+              {ay >= bugunAy ? "ay kapanınca yazılır" : "kur bekleniyor"}
+            </span>
+          ) : (
+            <>
+              <span className="font-semibold">{fmtKur(kur)} ₺</span>
+              {kurKaynagi && (
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  {kurKaynagi.slice(8, 10)}.{kurKaynagi.slice(5, 7)} · TCMB
+                </span>
+              )}
+              {/* Ortalama BİLGİDİR: dönem kuru ay sonundan gelir, ortalamadan
+                  değil. Yalnız gözle görülür bir ayrışma varsa basılır. */}
+              {kurSapmasi !== null && Math.abs(kurSapmasi) >= 0.05 && (
+                <span
+                  className="text-[11px] font-normal text-muted-foreground"
+                  title={`${periodLabel(ay)} ortalaması ${fmtKur(ortalama?.eurTry)} ₺ (${ortalama?.dayCount} yayın günü)`}
+                >
+                  ort. %{fmtNum(Math.abs(kurSapmasi), true)} {kurSapmasi > 0 ? "altında" : "üstünde"}
+                </span>
+              )}
+            </>
+          )}
+        </span>
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={!canWrite || bekleyen}
+            onClick={() =>
+              donemiYaz(
+                { closed: !kapali },
+                kapali ? `${periodLabel(ay)} yeniden açıldı.` : `${periodLabel(ay)} kapatıldı.`
+              )
+            }
+          >
+            {kapali ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+            {kapali ? "Dönemi aç" : "Dönemi kapat"}
+          </Button>
+          {/* DÖNEMİ SİL — bir ayı baştan girmenin yolu satır satır silmek
+              olmamalı (kullanıcı kararı, 12.08.2026). Kapalı dönem önce
+              AÇILIR: kapatma işareti kazara silmeye karşı ilk kapıdır. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs text-destructive"
+            disabled={!canWrite || bekleyen || kapali || satirlar.length === 0}
+            title={
+              kapali
+                ? "Kapalı dönem silinemez — önce dönemi açın"
+                : `${periodLabel(ay)} dönemini ve maaş satırlarını siler`
+            }
+            onClick={() => setSilOnay(true)}
+          >
+            <Trash2 className="size-3.5" />
+            Dönemi sil
+          </Button>
           <Button
             asChild
             variant="outline"
             size="sm"
             className={cn("gap-1.5 text-xs", satirlar.length === 0 && "pointer-events-none opacity-50")}
           >
+            {/* BORDROLARI İNDİR — dönemin bütün pusulaları TEK PDF, kişi başına
+                bir sayfa (kullanıcı kararı, 12.08.2026). */}
             <a href={`/personnel/bordro?donem=${ay}&hepsi=1`}>
-              <FileText className="size-3.5" /> Bordroları İndir
+              <FileText className="size-3.5" /> Bordrolar
             </a>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
             <a href={`/personnel/export?ay=${ay}`}>
-              <Download className="size-3.5" /> Excel indir
+              <Download className="size-3.5" /> Excel
             </a>
           </Button>
         </div>
       </div>
 
-      {/* ——————————————————————————————————————————————— dönem şeridi */}
-      <div className="rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <Clock className="size-4 shrink-0 text-primary" />
-            <span className="oc-kicker text-foreground/80">Dönem Ayarları</span>
-            {kapali && (
-              <span className="oc-tag px-1.5 py-0.5 text-xs" style={tagStyle(0)}>
-                Kapalı
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs"
-              disabled={!canWrite || bekleyen}
-              onClick={() =>
-                donemiYaz(
-                  { closed: !kapali },
-                  kapali ? `${periodLabel(ay)} yeniden açıldı.` : `${periodLabel(ay)} kapatıldı.`
-                )
-              }
-            >
-              {kapali ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
-              {kapali ? "Dönemi aç" : "Dönemi kapat"}
-            </Button>
-            {/* DÖNEMİ SİL — bir ayı baştan girmenin yolu satır satır silmek
-                olmamalı (kullanıcı kararı, 12.08.2026). Kapalı dönem önce
-                AÇILIR: kapatma işareti kazara silmeye karşı ilk kapıdır. */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs text-destructive"
-              disabled={!canWrite || bekleyen || kapali || satirlar.length === 0}
-              title={
-                kapali
-                  ? "Kapalı dönem silinemez — önce dönemi açın"
-                  : `${periodLabel(ay)} dönemini ve maaş satırlarını siler`
-              }
-              onClick={() => setSilOnay(true)}
-            >
-              <Trash2 className="size-3.5" />
-              Dönemi sil
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="grid gap-1">
-            <span className="oc-kicker text-muted-foreground">Avro Kuru (₺)</span>
-            {/* KUR OKUNUR, GİRİLMEZ (kullanıcı kararı, 12.08.2026): ayın son
-                yayın gününün TCMB kuru otomatik yazılır. Alan bir `Input`
-                olsaydı "değiştirebilirim" derdi ve o söz tutulmazdı. */}
-            <span
-              className="flex h-10 items-center gap-2 font-mono text-sm font-semibold tabular-nums"
-              title={
-                kurKaynagi
-                  ? `${kurKaynagi} tarihli TCMB kuru`
-                  : "Ay kapandığında otomatik yazılır"
-              }
-            >
-              {kur === null ? (
-                <span className="text-sm font-normal text-muted-foreground">
-                  {ay >= bugunAy ? "ay kapanınca yazılır" : "bekleniyor…"}
-                </span>
-              ) : (
-                <>
-                  {fmtKur(kur)}
-                  {kurKaynagi && (
-                    <span className="font-mono text-[11px] font-normal text-muted-foreground">
-                      {kurKaynagi.slice(8, 10)}.{kurKaynagi.slice(5, 7)} · TCMB
-                    </span>
-                  )}
-                </>
-              )}
-            </span>
-          </div>
-          <label className="grid gap-1">
-            <span className="oc-kicker text-muted-foreground">İzin Saati</span>
-            <Input
-              value={donemTaslak.izin}
-              onChange={(e) => setDonemTaslak((p) => ({ ...p, izin: e.target.value }))}
-              onBlur={() => {
-                if ((parseNum(donemTaslak.izin) ?? 0) !== (donem?.leaveHours ?? 0)) {
-                  donemiYaz({}, `${periodLabel(ay)} izin saati kaydedildi.`);
-                }
-              }}
-              inputMode="decimal"
-              disabled={!yazilabilir || bekleyen}
-              className="font-mono tabular-nums"
-              aria-label="Ayın toplam izin saati"
-            />
-          </label>
-          <label className="grid gap-1">
-            <span className="oc-kicker text-muted-foreground">Rapor Saati</span>
-            <Input
-              value={donemTaslak.rapor}
-              onChange={(e) => setDonemTaslak((p) => ({ ...p, rapor: e.target.value }))}
-              onBlur={() => {
-                if ((parseNum(donemTaslak.rapor) ?? 0) !== (donem?.reportHours ?? 0)) {
-                  donemiYaz({}, `${periodLabel(ay)} rapor saati kaydedildi.`);
-                }
-              }}
-              inputMode="decimal"
-              disabled={!yazilabilir || bekleyen}
-              className="font-mono tabular-nums"
-              aria-label="Ayın toplam rapor saati"
-            />
-          </label>
-          <div className="grid gap-1">
-            <span className="oc-kicker text-muted-foreground">Net Çalışma Saati</span>
-            <span
-              className="flex h-10 items-center font-mono text-sm font-semibold tabular-nums"
-              title="Normal + fazla mesai − izin − rapor"
-            >
-              {fmtNum(netSaat)}
-            </span>
-          </div>
-        </div>
-
-        {/* Ortalama BİLGİDİR: dönem kuru ay sonundan gelir, ortalamadan değil. */}
-        {ortalama && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-4 py-2.5 text-sm">
-            <span className="text-muted-foreground">
-              {periodLabel(ay)} <span className="font-medium text-foreground">ortalaması</span>{" "}
-              <span className="font-mono font-semibold tabular-nums text-foreground">
-                {fmtKur(ortalama.eurTry)} ₺
-              </span>{" "}
-              ({ortalama.dayCount} yayın günü)
-            </span>
-            {kur !== null && kurSapmasi !== null && Math.abs(kurSapmasi) >= 0.05 && (
-              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                ay sonu kuru ortalamadan %{fmtNum(Math.abs(kurSapmasi), true)}{" "}
-                {kurSapmasi > 0 ? "yüksek" : "düşük"}
-              </span>
-            )}
-          </div>
-        )}
-
-        <p className="border-t px-4 py-2.5 text-[11px] text-muted-foreground">
-          Dönem kuru <span className="font-medium">otomatiktir</span>: ay kapandığında TCMB&apos;nin
-          o ayki <span className="font-medium">son yayın gününün</span> kuru yazılır ve orada{" "}
-          <span className="font-medium">donar</span> — ödenmiş bir ayın avro karşılığı, kur tablosu
-          sonradan tazelendiğinde değişmemelidir. Ortalama yalnız karşılaştırma içindir. İzin ve
-          rapor saatleri ay düzeyinde tutulur (kişi başına değil); firma bugün de öyle tutuyor.
-        </p>
-      </div>
-
-      {/* ————————————————————————————————————————————————— özet kartları */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ————————————————————————————— özet kartları — ALTISI TEK SATIRDA
+          (kullanıcı kararı, 13.08.2026). `dense` dolguyu ve sayı boyunu bir
+          kademe kısar; etiket, sayı ve ipucu üçü de yerinde kalır. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <StatCard
+          dense
           label="Kişi"
           value={String(toplamlar.ozet.count)}
           hint={`${toplamlar.personel.count} personel · ${toplamlar.yonetim.count} yönetim`}
           icon={Users}
         />
         <StatCard
+          dense
           label="Toplam Net Maaş"
-          value={`${fmtNum(toplamlar.ozet.netTotal, true)} ₺`}
-          hint={`kişi başı ort. ${fmtNum(toplamlar.ozet.netAverage, true)} ₺`}
+          value={`${fmtTutar(toplamlar.ozet.netTotal)} ₺`}
+          hint={`kişi başı ort. ${fmtTutar(toplamlar.ozet.netAverage)} ₺`}
           icon={Banknote}
         />
         <StatCard
+          dense
           label="Fazla Mesai Saati"
           value={fmtNum(toplamlar.ozet.overtimeHours)}
-          hint={`%50: ${fmtNum(toplamlar.s50)} · %100: ${fmtNum(toplamlar.s100)} · normal ${fmtNum(toplamlar.ozet.normalHours)}`}
+          hint={`%50: ${fmtNum(toplamlar.s50)} · %100: ${fmtNum(toplamlar.s100)}`}
           icon={Timer}
         />
         <StatCard
+          dense
           label="Fazla Mesai Tutarı"
-          value={`${fmtNum(toplamlar.ozet.overtimeTotal, true)} ₺`}
+          value={`${fmtTutar(toplamlar.ozet.overtimeTotal)} ₺`}
           hint={
             toplamlar.ozet.overtimeHours > 0
-              ? `saat başı ${fmtNum(toplamlar.ozet.overtimeHourCost, true)} ₺`
+              ? `saat başı ${fmtTutar(toplamlar.ozet.overtimeHourCost)} ₺`
               : "bu ay mesai girilmedi"
           }
           icon={Clock}
         />
         <StatCard
+          dense
           label="Genel Toplam"
-          value={`${fmtNum(toplamlar.ozet.grandTotal, true)} ₺`}
-          hint={`personel ${fmtNum(toplamlar.personel.grandTotal, true)} · yönetim ${fmtNum(toplamlar.yonetim.grandTotal, true)}`}
+          value={`${fmtTutar(toplamlar.genelToplam)} ₺`}
+          hint={`personel ${fmtTutar(toplamlar.personel.grandTotal)} · yönetim ${fmtTutar(toplamlar.yonetim.grandTotal)}`}
           icon={Sigma}
         />
         <StatCard
+          dense
           label="Avro Karşılığı"
-          value={toplamlar.avro === null ? "—" : `${fmtNum(toplamlar.avro, true)} €`}
-          hint={kur ? `1 € = ${fmtKur(kur)} ₺` : "dönem kuru girilmedi"}
+          value={toplamlar.avro === null ? "—" : `${fmtTutar(toplamlar.avro)} €`}
+          hint={kur ? `1 € = ${fmtKur(kur)} ₺` : "dönem kuru henüz yazılmadı"}
           icon={Euro}
         />
       </div>
@@ -924,18 +982,49 @@ export function PayrollBoard({
               Bu ay maaşı girilmemiş:{" "}
               <span className="font-mono font-semibold tabular-nums">{eksikler.length}</span> kişi
             </span>
+            {/* ÜCRET PLANINDAN DOLDUR — kullanıcının asıl istediği yol
+                (13.08.2026): net maaş yıl başında belirlenmiştir, ay ay
+                kopyalanacak bir şey değildir. "Geçen ayı kopyala" ikinci
+                sıraya düşer ama KALIR: planı olmayan kişide tek yol odur. */}
+            {plandanDolar.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={!yazilabilir || bekleyen}
+                onClick={() =>
+                  topluAc(
+                    plandanDolar.map((e) => ({
+                      employeeId: e.id,
+                      netSalary: planliUcret.get(e.id) as number,
+                    })),
+                    (n) => `Ücret planından ${n} satır eklendi — mesai ve izin saatleri boş.`
+                  )
+                }
+              >
+                <Wallet className="size-3.5" />
+                {bekleyen ? "Yazılıyor…" : `Ücret planından doldur (${plandanDolar.length})`}
+              </Button>
+            )}
             {kopyalanabilir.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs"
                 disabled={!yazilabilir || bekleyen}
-                onClick={geceniKopyala}
+                onClick={() =>
+                  topluAc(
+                    kopyalanabilir.map((p) => ({
+                      employeeId: p.employeeId,
+                      netSalary: p.netSalary,
+                    })),
+                    (n) =>
+                      `${periodLabel(ayKaydir(ay, -1))} listesinden ${n} satır eklendi — mesai ve izin saatleri boş.`
+                  )
+                }
               >
                 <Copy className="size-3.5" />
-                {bekleyen
-                  ? "Kopyalanıyor…"
-                  : `Geçen ayı kopyala (${kopyalanabilir.length} satır)`}
+                {bekleyen ? "Kopyalanıyor…" : `Geçen ayı kopyala (${kopyalanabilir.length})`}
               </Button>
             )}
           </div>
@@ -943,19 +1032,31 @@ export function PayrollBoard({
           {/* Kişiye dokununca satırı açılır — eksikliği görmekle doldurmak
               arasında ikinci bir ekran yoktur. */}
           <div className="flex flex-wrap gap-1.5">
-            {eksikler.map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                onClick={() => satirAc(e.id)}
-                disabled={!yazilabilir}
-                title={`${e.title || categoryLabel(e.category)} — satırı aç`}
-                className="oc-tap flex min-h-8 max-w-full items-center gap-1.5 border bg-background px-2 py-1 text-xs transition-colors disabled:opacity-50 hover:border-primary/50 hover:bg-primary/5"
-              >
-                <span className="oc-tag-dot" style={tagStyle(categoryHue(e.category))} aria-hidden />
-                <span className="min-w-0 truncate">{e.fullName}</span>
-              </button>
-            ))}
+            {eksikler.map((e) => {
+              const plan = planliUcret.get(e.id) ?? null;
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => satirAc(e.id)}
+                  disabled={!yazilabilir}
+                  title={
+                    plan
+                      ? `${e.title || categoryLabel(e.category)} — planlı ücret ${fmtTutar(plan)} ₺`
+                      : `${e.title || categoryLabel(e.category)} — satırı aç`
+                  }
+                  className="oc-tap flex min-h-8 max-w-full items-center gap-1.5 border bg-background px-2 py-1 text-xs transition-colors disabled:opacity-50 hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <span className="oc-tag-dot" style={tagStyle(categoryHue(e.category))} aria-hidden />
+                  <span className="min-w-0 truncate">{e.fullName}</span>
+                  {plan !== null && (
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {fmtTutar(plan)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <p className="text-[11px] text-foreground/70">
@@ -966,36 +1067,41 @@ export function PayrollBoard({
       )}
 
       {/* ——————————————————————————————————————————————————————— tablo */}
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="oc-scrollx overflow-x-auto rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Ad Soyad</TableHead>
-              <TableHead className={cn("w-[10rem]", AT_XL)}>Görev</TableHead>
-              <TableHead className={cn("w-[4.5rem] text-right", AT_XL)}>SGK Gün</TableHead>
-              <TableHead className="w-[8rem] text-right">Net Maaş (₺)</TableHead>
+              <TableHead className={cn("w-[10rem]", AT_2XL)}>Görev</TableHead>
+              <TableHead className={cn("w-[4.5rem] text-right", AT_2XL)}>SGK Gün</TableHead>
+              <TableHead className="w-[8.5rem] text-right">Net Maaş (₺)</TableHead>
               <TableHead className="w-[5.5rem] text-right">%50 Saat</TableHead>
               <TableHead className="w-[5.5rem] text-right">%100 Saat</TableHead>
               <TableHead className="w-[8rem] text-right">Mesai Tutarı (₺)</TableHead>
+              {/* İZİN VE RAPOR SAATİ ARTIK BURADA (kullanıcı kararı,
+                  13.08.2026): "personel birkaç gün gelmediyse bunu kişi
+                  bazında gireyim". Dönem ayarlarındaki iki kutu kalktı. */}
+              <TableHead className={cn("w-[5.5rem] text-right", AT_MD)}>İzin (saat)</TableHead>
+              <TableHead className={cn("w-[5.5rem] text-right", AT_MD)}>Rapor (saat)</TableHead>
               {/* DÖRT PARA SÜTUNU (kullanıcı kararı, 12.08.2026): ay
                   kapatılırken kırk kişinin profilini tek tek dolaşmak yerine
-                  hepsi burada girilir. `md` altında düşerler ve toplam
-                  hücresinin altında özetlenirler. */}
-              <TableHead className={cn("w-[7rem] text-right", AT_MD)}>Prim (₺)</TableHead>
-              <TableHead className={cn("w-[7rem] text-right", AT_MD)}>Harcirah (₺)</TableHead>
-              <TableHead className={cn("w-[7rem] text-right", AT_LG)}>Avans (₺)</TableHead>
-              <TableHead className={cn("w-[7rem] text-right", AT_LG)}>Kesinti (₺)</TableHead>
+                  hepsi burada girilir. Dar ekranda düşerler ve ad hücresinin
+                  altında özetlenirler. */}
+              <TableHead className={cn("w-[6.5rem] text-right", AT_LG)}>Prim (₺)</TableHead>
+              <TableHead className={cn("w-[6.5rem] text-right", AT_LG)}>Harcirah (₺)</TableHead>
+              <TableHead className={cn("w-[6.5rem] text-right", AT_XL)}>Avans (₺)</TableHead>
+              <TableHead className={cn("w-[6.5rem] text-right", AT_XL)}>Kesinti (₺)</TableHead>
               <TableHead className="w-[9rem] text-right">Toplam (₺)</TableHead>
-              <TableHead className={cn("w-[8rem] text-right", AT_XL)}>Avro Karşılığı</TableHead>
+              <TableHead className={cn("w-[8rem] text-right", AT_2XL)}>Avro Karşılığı</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {satirlar.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={13} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={15} className="py-10 text-center text-sm text-muted-foreground">
                   {periodLabel(ay)} için henüz maaş satırı yok. Yukarıdaki listeden bir kişiye
-                  dokunun ya da geçen ayı kopyalayın.
+                  dokunun, ücret planından doldurun ya da geçen ayı kopyalayın.
                 </TableCell>
               </TableRow>
             ) : (
@@ -1036,20 +1142,29 @@ export function PayrollBoard({
                       </span>
                       {/* Telefonda düşen sütunların kritik olanı burada durur —
                           ikinci bir kart markup'ı YAZILMAZ. */}
-                      {/* Telefonda düşen sütunların kritik olanı burada durur —
-                          ikinci bir kart markup'ı YAZILMAZ. */}
-                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground xl:hidden">
-                        <span className="xl:hidden">
+                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground 2xl:hidden">
+                        <span className="2xl:hidden">
                           {r.emp.title || categoryLabel(r.emp.category)}
                         </span>
-                        {(r.prim > 0 || r.harcirah > 0 || r.avans > 0 || r.kesinti > 0) && (
-                          <span className="font-mono tabular-nums lg:hidden">
+                        {(r.izin > 0 || r.rapor > 0) && (
+                          <span className="font-mono tabular-nums md:hidden">
                             {" · "}
                             {[
-                              r.prim > 0 ? `prim ${fmtNum(r.prim)}` : "",
-                              r.harcirah > 0 ? `harc. ${fmtNum(r.harcirah)}` : "",
-                              r.avans > 0 ? `avans −${fmtNum(r.avans)}` : "",
-                              r.kesinti > 0 ? `kes. −${fmtNum(r.kesinti)}` : "",
+                              r.izin > 0 ? `izin ${fmtNum(r.izin)} sa` : "",
+                              r.rapor > 0 ? `rapor ${fmtNum(r.rapor)} sa` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                        {(r.prim > 0 || r.harcirah > 0 || r.avans > 0 || r.kesinti > 0) && (
+                          <span className="font-mono tabular-nums xl:hidden">
+                            {" · "}
+                            {[
+                              r.prim > 0 ? `prim ${fmtTutar(r.prim)}` : "",
+                              r.harcirah > 0 ? `harc. ${fmtTutar(r.harcirah)}` : "",
+                              r.avans > 0 ? `avans −${fmtTutar(r.avans)}` : "",
+                              r.kesinti > 0 ? `kes. −${fmtTutar(r.kesinti)}` : "",
                             ]
                               .filter(Boolean)
                               .join(" · ")}
@@ -1058,19 +1173,29 @@ export function PayrollBoard({
                         {r.avro !== null && (
                           <span className="font-mono tabular-nums">
                             {" · "}
-                            {fmtNum(r.avro, true)} €
+                            {fmtTutar(r.avro)} €
                           </span>
                         )}
                       </span>
+                      {/* PLANDAN SAPMA — bir uyarı, bir engel değil. */}
+                      {r.sapma !== null && (
+                        <span
+                          className="mt-0.5 block font-mono text-[11px] font-normal text-amber-600 tabular-nums dark:text-amber-400"
+                          title={`Ücret planında ${fmtTutar(r.planNet)} ₺ yazıyor. Eksik gün ya da ücretsiz izin varsa bu normaldir.`}
+                        >
+                          plan {fmtTutar(r.planNet)} ₺ ({r.sapma > 0 ? "+" : "−"}
+                          {fmtTutar(Math.abs(r.sapma))})
+                        </span>
+                      )}
                     </TableCell>
 
-                    <TableCell className={cn("text-muted-foreground", AT_XL)}>
+                    <TableCell className={cn("text-muted-foreground", AT_2XL)}>
                       <span className="block max-w-[10rem] truncate" title={r.emp.title}>
                         {r.emp.title || "—"}
                       </span>
                     </TableCell>
 
-                    <TableCell className={AT_XL}>
+                    <TableCell className={AT_2XL}>
                       <Input
                         value={r.taslak.gun}
                         onChange={(e) => setSatir(id, { gun: e.target.value }, r.taslak)}
@@ -1083,16 +1208,13 @@ export function PayrollBoard({
                     </TableCell>
 
                     <TableCell>
-                      <Input
+                      <ParaInput
                         value={r.taslak.net}
-                        onChange={(e) => setSatir(id, { net: e.target.value }, r.taslak)}
-                        // Enter satırı ODAKTAN ÇIKARIR; kaydetme yolu tektir.
-                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                        inputMode="decimal"
+                        onChange={(v) => setSatir(id, { net: v }, r.taslak)}
                         disabled={!yazilabilir || busy}
                         autoFocus={odakId === id}
                         className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} net maaş`}
+                        ariaLabel={`${r.emp.fullName} net maaş`}
                       />
                     </TableCell>
 
@@ -1127,7 +1249,7 @@ export function PayrollBoard({
                       title="Net maaş ÷ 225 saat × (%50 saat × 1,5 + %100 saat × 2)"
                     >
                       {r.mesai > 0 ? (
-                        fmtNum(r.mesai, true)
+                        fmtTutar(r.mesai)
                       ) : (
                         <span className="text-muted-foreground/60">—</span>
                       )}
@@ -1135,49 +1257,67 @@ export function PayrollBoard({
 
                     <TableCell className={AT_MD}>
                       <Input
-                        value={r.taslak.prim}
-                        onChange={(e) => setSatir(id, { prim: e.target.value }, r.taslak)}
+                        value={r.taslak.izin}
+                        onChange={(e) => setSatir(id, { izin: e.target.value }, r.taslak)}
                         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                         inputMode="decimal"
                         disabled={!yazilabilir || busy}
                         className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} prim / ikramiye`}
+                        aria-label={`${r.emp.fullName} izin saati`}
+                        title="Kişinin bu aydaki izin saati — net çalışma saatinden düşülür"
                       />
                     </TableCell>
 
                     <TableCell className={AT_MD}>
                       <Input
+                        value={r.taslak.rapor}
+                        onChange={(e) => setSatir(id, { rapor: e.target.value }, r.taslak)}
+                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                        inputMode="decimal"
+                        disabled={!yazilabilir || busy}
+                        className={HUCRE_INPUT}
+                        aria-label={`${r.emp.fullName} raporlu saat`}
+                        title="Kişinin bu aydaki raporlu (istirahat) saati"
+                      />
+                    </TableCell>
+
+                    <TableCell className={AT_LG}>
+                      <ParaInput
+                        value={r.taslak.prim}
+                        onChange={(v) => setSatir(id, { prim: v }, r.taslak)}
+                        disabled={!yazilabilir || busy}
+                        className={HUCRE_INPUT}
+                        ariaLabel={`${r.emp.fullName} prim / ikramiye`}
+                      />
+                    </TableCell>
+
+                    <TableCell className={AT_LG}>
+                      <ParaInput
                         value={r.taslak.harcirah}
-                        onChange={(e) => setSatir(id, { harcirah: e.target.value }, r.taslak)}
-                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                        inputMode="decimal"
+                        onChange={(v) => setSatir(id, { harcirah: v }, r.taslak)}
                         disabled={!yazilabilir || busy}
                         className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} harcirah`}
+                        ariaLabel={`${r.emp.fullName} harcirah`}
                       />
                     </TableCell>
 
-                    <TableCell className={AT_LG}>
-                      <Input
+                    <TableCell className={AT_XL}>
+                      <ParaInput
                         value={r.taslak.avans}
-                        onChange={(e) => setSatir(id, { avans: e.target.value }, r.taslak)}
-                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                        inputMode="decimal"
+                        onChange={(v) => setSatir(id, { avans: v }, r.taslak)}
                         disabled={!yazilabilir || busy}
                         className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} avans`}
+                        ariaLabel={`${r.emp.fullName} avans`}
                       />
                     </TableCell>
 
-                    <TableCell className={AT_LG}>
-                      <Input
+                    <TableCell className={AT_XL}>
+                      <ParaInput
                         value={r.taslak.kesinti}
-                        onChange={(e) => setSatir(id, { kesinti: e.target.value }, r.taslak)}
-                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                        inputMode="decimal"
+                        onChange={(v) => setSatir(id, { kesinti: v }, r.taslak)}
                         disabled={!yazilabilir || busy}
                         className={HUCRE_INPUT}
-                        aria-label={`${r.emp.fullName} diğer kesinti`}
+                        ariaLabel={`${r.emp.fullName} diğer kesinti`}
                       />
                     </TableCell>
 
@@ -1185,17 +1325,17 @@ export function PayrollBoard({
                       {r.net === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
-                        fmtNum(r.toplam, true)
+                        fmtTutar(r.toplam)
                       )}
                     </TableCell>
 
                     <TableCell
-                      className={cn("text-right font-mono text-sm tabular-nums", AT_XL)}
+                      className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)}
                     >
                       {r.avro === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
-                        `${fmtNum(r.avro, true)} €`
+                        `${fmtTutar(r.avro)} €`
                       )}
                     </TableCell>
                   </TableRow>
@@ -1209,18 +1349,18 @@ export function PayrollBoard({
               <TableRow className="hover:bg-transparent">
                 <TableCell className="font-medium">
                   {toplamlar.ozet.count} kişi
-                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground md:hidden">
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground 2xl:hidden">
                     normal {fmtNum(toplamlar.ozet.normalHours)} saat
                   </span>
                 </TableCell>
-                <TableCell className={cn("text-muted-foreground", AT_XL)}>
+                <TableCell className={cn("text-muted-foreground", AT_2XL)}>
                   <span className="font-mono text-[11px] tabular-nums">
                     {toplamlar.ozet.count} × {AYLIK_CALISMA_SAATI} saat
                   </span>
                 </TableCell>
-                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_XL)} />
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)} />
                 <TableCell className="text-right font-mono text-sm tabular-nums">
-                  {fmtNum(toplamlar.ozet.netTotal, true)}
+                  {fmtTutar(toplamlar.ozet.netTotal)}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm tabular-nums">
                   {fmtNum(toplamlar.s50)}
@@ -1229,25 +1369,35 @@ export function PayrollBoard({
                   {fmtNum(toplamlar.s100)}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm tabular-nums">
-                  {fmtNum(toplamlar.ozet.overtimeTotal, true)}
+                  {fmtTutar(toplamlar.ozet.overtimeTotal)}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
-                  {toplamlar.prim > 0 ? fmtNum(toplamlar.prim, true) : "—"}
+                  {toplamlar.izinRapor.leaveHours > 0
+                    ? fmtNum(toplamlar.izinRapor.leaveHours)
+                    : "—"}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
-                  {toplamlar.harcirah > 0 ? fmtNum(toplamlar.harcirah, true) : "—"}
+                  {toplamlar.izinRapor.reportHours > 0
+                    ? fmtNum(toplamlar.izinRapor.reportHours)
+                    : "—"}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_LG)}>
-                  {toplamlar.avans > 0 ? `−${fmtNum(toplamlar.avans, true)}` : "—"}
+                  {toplamlar.prim > 0 ? fmtTutar(toplamlar.prim) : "—"}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_LG)}>
-                  {toplamlar.kesinti > 0 ? `−${fmtNum(toplamlar.kesinti, true)}` : "—"}
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                  {fmtNum(toplamlar.genelToplam, true)}
+                  {toplamlar.harcirah > 0 ? fmtTutar(toplamlar.harcirah) : "—"}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_XL)}>
-                  {toplamlar.avro === null ? "—" : `${fmtNum(toplamlar.avro, true)} €`}
+                  {toplamlar.avans > 0 ? `−${fmtTutar(toplamlar.avans)}` : "—"}
+                </TableCell>
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_XL)}>
+                  {toplamlar.kesinti > 0 ? `−${fmtTutar(toplamlar.kesinti)}` : "—"}
+                </TableCell>
+                <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
+                  {fmtTutar(toplamlar.genelToplam)}
+                </TableCell>
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)}>
+                  {toplamlar.avro === null ? "—" : `${fmtTutar(toplamlar.avro)} €`}
                 </TableCell>
               </TableRow>
             </TableFooter>
@@ -1255,15 +1405,41 @@ export function PayrollBoard({
         </Table>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        Bütün alanlar doğrudan tabloda düzenlenir; satırdan çıktığınızda ya da Enter&apos;a
-        bastığınızda kaydedilir. Mesai tutarı <span className="font-medium">hesaplanır</span> —
-        aylık 225 saat (30 gün × 7,5) üzerinden saatlik ücret bulunur, %50 zamlı saat 1,5 %100
-        zamlı saat 2 katıyla çarpılır (4857 sayılı İş Kanunu md. 41). Avans ve kesinti toplamdan
-        düşülür; harcirah ve prim eklenir. Dar ekranda düşen sütunlar ad hücresinin altında
-        özetlenir.
-        {!canWrite && " Yazma yetkiniz olmadığı için alanlar kapalıdır."}
-      </p>
+      <div className="grid gap-1 text-[11px] text-muted-foreground">
+        <p>
+          Bütün alanlar doğrudan tabloda düzenlenir; satırdan çıktığınızda ya da Enter&apos;a
+          bastığınızda kaydedilir. Mesai tutarı <span className="font-medium">hesaplanır</span> —
+          aylık 225 saat (30 gün × 7,5) üzerinden saatlik ücret bulunur, %50 zamlı saat 1,5 %100
+          zamlı saat 2 katıyla çarpılır (4857 sayılı İş Kanunu md. 41). Avans ve kesinti toplamdan
+          düşülür; harcirah ve prim eklenir. Dar ekranda düşen sütunlar ad hücresinin altında
+          özetlenir.
+        </p>
+        <p>
+          <span className="font-medium">Net çalışma saati {fmtNum(netSaat)}</span> = normal{" "}
+          {fmtNum(toplamlar.ozet.normalHours)} + mesai {fmtNum(toplamlar.ozet.overtimeHours)} − izin{" "}
+          {fmtNum(toplamlar.izinRapor.leaveHours)} − rapor {fmtNum(toplamlar.izinRapor.reportHours)}.
+          {toplamlar.izinRapor.devralinan && (
+            <>
+              {" "}
+              <span className="text-amber-600 dark:text-amber-400">
+                İzin ve rapor saatleri bu ay <strong>devralınan ay toplamından</strong> okundu (kişi
+                bazlı giriş yok) — bir satıra saat yazdığınızda o toplam devre dışı kalır.
+              </span>
+            </>
+          )}
+        </p>
+        <p>
+          Dönem kuru <span className="font-medium">otomatiktir</span>: ay kapandığında TCMB&apos;nin
+          o ayki <span className="font-medium">son yayın gününün</span> kuru yazılır ve orada{" "}
+          <span className="font-medium">donar</span> — ödenmiş bir ayın avro karşılığı, kur tablosu
+          sonradan tazelendiğinde değişmemelidir. Net maaş{" "}
+          <Link href="/personnel/ucret" className="underline">
+            Ücret Planı
+          </Link>{" "}
+          ekranında belirlenir; buradaki değer ondan gelir ve gerektiğinde düzeltilebilir.
+          {!canWrite && " Yazma yetkiniz olmadığı için alanlar kapalıdır."}
+        </p>
+      </div>
 
       {/* DÖNEMİ SİL — geri alınamaz, sayı ONAY PENCERESİNDE görünür. */}
       {silOnay && (
@@ -1272,8 +1448,8 @@ export function PayrollBoard({
             <DialogHeader>
               <DialogTitle>{periodLabel(ay)} dönemi silinsin mi?</DialogTitle>
               <DialogDescription>
-                Bu ayın <strong>{satirlar.length} maaş satırı</strong> ve dönem ayarları (izin,
-                rapor saatleri, kur) kalıcı olarak silinecek. Personel kayıtları ve diğer aylar
+                Bu ayın <strong>{satirlar.length} maaş satırı</strong> ve dönem kaydı (kur, kapanış
+                işareti) kalıcı olarak silinecek. Personel kayıtları, ücret planı ve diğer aylar
                 etkilenmez. Bu işlem geri alınamaz.
               </DialogDescription>
             </DialogHeader>

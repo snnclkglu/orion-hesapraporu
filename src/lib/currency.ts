@@ -45,12 +45,41 @@ const NUM_FIXED = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 2,
 });
 
+const NUM_TAM = new Intl.NumberFormat("tr-TR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 /** Sayıyı tr-TR biçiminde döndürür; boş/geçersizse tire. */
 export function fmtNum(v: number | string | null | undefined, fixed = false): string {
   if (v === null || v === undefined || v === "") return "—";
   const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n)) return "—";
   return (fixed ? NUM_FIXED : NUM).format(n);
+}
+
+/**
+ * TUTAR — ONDALIKSIZ, BİNLİK AYIRAÇLI: `200000` → `200.000`.
+ *
+ * KULLANICI KARARI (13.08.2026): "Sayfalarda tutarlarda virgülden sonraki
+ * kısımlar görünmesin." Gerekçe ekrandan okundu: bir maaş listesinde aranan
+ * şey "kim ne kadar aldı"dır, kuruş değil; ",00" her sütunu üç karakter
+ * genişletiyor ve on üç sütunlu bir tabloyu ekranın dışına itiyordu.
+ *
+ * KURUŞ GEREKEN YER BORDRODUR ve orada tam basılır (`lib/pdf/bordro`): ücret
+ * hesap pusulası 4857 md. 37'ye göre denetlenebilir olmalıdır ve bir kuruşluk
+ * fark orada gerçek bir hatadır. Bu fonksiyon EKRAN içindir.
+ *
+ * `Math.round` AÇIKÇA yapılır, `maximumFractionDigits: 0`a bırakılmaz:
+ * biçimleyicinin yuvarlaması yerel ayara bağlı bir davranıştır ve toplamlar
+ * ile satırların ayrı ayrı yuvarlanması bir liralık sapma bırakabilir. Sapma
+ * kalmasın diye toplamlar HAM sayıdan alınır, yalnız basılırken yuvarlanır.
+ */
+export function fmtTutar(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return NUM_TAM.format(Math.round(n));
 }
 
 /** Tutar + para birimi simgesi ("1.575.000 €"). */

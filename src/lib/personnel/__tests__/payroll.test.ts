@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AYLIK_CALISMA_SAATI,
+  donemIzinRapor,
   donemOzeti,
   fazlaMesaiTutari,
   hizmetGunu,
@@ -115,6 +116,75 @@ describe("net çalışma saati", () => {
     expect(netCalismaSaati(2025, 72.5, 12, 0)).toBe(2085.5);
     // 2025-06: 5400 + 470 − 116,5 − 227 = 5526,5
     expect(netCalismaSaati(5400, 470, 116.5, 227)).toBe(5526.5);
+  });
+});
+
+/**
+ * İZİN VE RAPOR SAATİ İKİ KAYNAKTAN OKUNUR AMA ASLA TOPLANMAZ.
+ *
+ * 13.08.2026'dan itibaren ikisi de KİŞİ BAZINDADIR (`hr_payroll`). Devralınan
+ * 27 ayın değerleri ise AY DÜZEYİNDE geldi (`hr_periods`) ve kişilere
+ * dağıtılamaz. Kural: kişi satırlarında tek bir saat bile varsa YALNIZ onlar
+ * sayılır; hiç yoksa devralınan değer okunur ve `devralinan` ile künyelenir.
+ *
+ * Bu testin var oluş sebebi TOPLAMAYI ENGELLEMEKtir: iki kaynağın toplanması
+ * net çalışma saatini iki kat düşürür ve saatlik maliyeti — teklif
+ * fiyatlandırmasının girdisini — sessizce yükseltirdi.
+ */
+describe("dönem izin/rapor kaynağı", () => {
+  const ay = { leaveHours: 216.5, reportHours: 30 };
+
+  it("kişi satırları konuşuyorsa devralınan değer HİÇ okunmaz", () => {
+    const r = donemIzinRapor(
+      [
+        { employeeId: "a", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0, leaveHours: 7.5, reportHours: 0 },
+        { employeeId: "b", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0, leaveHours: 15, reportHours: 22.5 },
+      ],
+      ay
+    );
+    expect(r.leaveHours).toBe(22.5);
+    expect(r.reportHours).toBe(22.5);
+    expect(r.devralinan).toBe(false);
+    // TOPLAMA OLSAYDI 239 ve 52,5 çıkardı; bu satır tam olarak onu yasaklar.
+    expect(r.leaveHours).not.toBe(22.5 + ay.leaveHours);
+  });
+
+  it("yalnız RAPOR girilmişse bile kişi kaynağı kazanır", () => {
+    // "İzin sıfır" bir veridir: o ay kimse izin kullanmadı demektir ve
+    // devralınan 216,5 saati geri çağırmak o veriyi ezerdi.
+    const r = donemIzinRapor(
+      [{ employeeId: "a", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0, leaveHours: 0, reportHours: 8 }],
+      ay
+    );
+    expect(r).toEqual({ leaveHours: 0, reportHours: 8, devralinan: false });
+  });
+
+  it("kişi girişi hiç yoksa devralınan ay değeri okunur ve künyelenir", () => {
+    const r = donemIzinRapor(
+      [{ employeeId: "a", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0 }],
+      ay
+    );
+    expect(r).toEqual({ leaveHours: 216.5, reportHours: 30, devralinan: true });
+  });
+
+  it("iki kaynak da boşsa sıfırdır ve 'devralınan' DEĞİLDİR", () => {
+    // Devralınan sayılsaydı ekran boş bir ayda "bu sayı eski yoldan geldi"
+    // uyarısı basar ve kullanıcı olmayan bir veriyi arardı.
+    expect(donemIzinRapor([], null)).toEqual({
+      leaveHours: 0,
+      reportHours: 0,
+      devralinan: false,
+    });
+    expect(donemIzinRapor([], { leaveHours: 0, reportHours: 0 }).devralinan).toBe(false);
+  });
+
+  it("dönem özeti de kişi saatlerini toplar", () => {
+    const o = donemOzeti([
+      { employeeId: "a", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0, leaveHours: 7.5, reportHours: 3 },
+      { employeeId: "b", netSalary: 1, overtimeHours50: 0, overtimeHours100: 0, overtimeAmount: 0, leaveHours: 15, reportHours: 0 },
+    ]);
+    expect(o.leaveHours).toBe(22.5);
+    expect(o.reportHours).toBe(3);
   });
 });
 
