@@ -163,6 +163,17 @@ export function SaleDialog({
         return;
       }
       toast.success(`${row.itemNo} satış bilgisi kaydedildi.`);
+      // OTOMATİK DURUM DEĞİŞİKLİĞİ AYRI BİR BİLDİRİMDİR. Başka bir sayfadaki
+      // bir kaydın sessizce değişmesi, kullanıcının onu bir arıza olarak
+      // bildirmesinin en kısa yoludur; üstelik burada geri alınabilir bir
+      // karar var (İşler sayfasındaki durum rozeti) ve kullanıcı ancak
+      // değişikliği bilirse ona dokunmayı düşünebilir.
+      if (res?.jobCompleted !== undefined) {
+        toast.info(
+          `${res.jobCompleted || row.jobNo} işinin bütün kalemleri sevk edildi — durum "Tamamlandı" yapıldı.`,
+          { description: "İşler sayfasından değiştirebilirsiniz." }
+        );
+      }
       onOpenChange(false);
       router.refresh();
     });

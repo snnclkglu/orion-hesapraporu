@@ -7,11 +7,23 @@
 // adresi doğrudan yazılabilir.
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSales } from "@/lib/roles";
+import { allItemsShipped, autoCompletesOnShipment } from "@/lib/job-status";
 import { saleInputSchema, type SaleInput } from "./schema";
 
-export type SalesActionResult = { error?: string; ok?: boolean };
+export type SalesActionResult = {
+  error?: string;
+  ok?: boolean;
+  /**
+   * Sevk tarihi girildiği için işin durumu KENDİLİĞİNDEN "Tamamlandı" olduysa
+   * işin numarası. Pencere bunu ayrı bir bildirimle söyler — GÖRÜNMEYEN İŞ
+   * OLMAYAN İŞTİR: kullanıcı, başka bir sayfadaki bir kaydın sessizce
+   * değiştiğini fark edemez ve sonra onu bir arıza olarak bildirir.
+   */
+  jobCompleted?: string;
+};
 
 async function requireSalesAccess() {
   const supabase = await createClient();
@@ -32,6 +44,91 @@ async function requireSalesAccess() {
 }
 
 /**
+ * SEVK TARİHİ GİRİLDİ → İŞ "TAMAMLANDI" (kullanıcı kararı, 13.08.2026).
+ *
+ * Kural saf çekirdekte tanımlıdır (`lib/job-status.ts`): işin BÜTÜN kalemleri
+ * sevk edilmişse ve iş hâlâ VARSAYILAN durumdaysa (`active`) durum
+ * "Tamamlandı"ya çekilir. Kullanıcının istediği manuel müdahale güvencesi tam
+ * da buradadır — Pasif/Tamamlandı/Arşiv bir insan kararıdır ve otomatik kural
+ * onlara dokunmaz.
+ *
+ * TETİKLEYİCİ DEĞİL EYLEM: kural iki tablonun (kalemler + ticari kayıtlar)
+ * kesişiminden okunur ve `jobs`a yazar; bunu bir veritabanı tetikleyicisiyle
+ * yapmak `security definer` bir yol açmayı gerektirirdi. Buna karşılık BEDELİ
+ * yazılıdır: doğrudan SQL ile girilen bir sevk tarihi durumu değiştirmez.
+ *
+ * SESSİZ ÇALIŞMAZ: değişiklik denetim izine yazılır ve çağırana bildirilir.
+ *
+ * Yalnız SEVK TARİHİNİN YENİ GİRİLDİĞİ kaydetmede çağrılır (`onceSevkli`
+ * false idi): fiyat düzeltmek için açılan bir pencere, kullanıcının elle
+ * Aktif'e çektiği bir işi yeniden tamamlamamalıdır.
+ */
+async function sevkSonrasiIsiTamamla(
+  supabase: SupabaseClient,
+  userId: string,
+  jobItemId: string
+): Promise<string | undefined> {
+  const { data: kalem } = await supabase
+    .from("job_items")
+    .select("job_id")
+    .eq("id", jobItemId)
+    .maybeSingle();
+  const jobId = (kalem as { job_id?: string } | null)?.job_id;
+  if (!jobId) return undefined;
+
+  const { data: is } = await supabase
+    .from("jobs")
+    .select("job_no, status")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!is || !autoCompletesOnShipment((is as { status?: string }).status)) return undefined;
+
+  // İki AYRI sorgu, gömülü ilişki DEĞİL: `job_item_sales` satırları önceden
+  // üretilmez, yani "kaydı hiç olmayan kalem" de bir cevaptır ve sol
+  // birleştirmenin boş tarafını saymak gerekir.
+  const { data: kalemler } = await supabase
+    .from("job_items")
+    .select("id")
+    .eq("job_id", jobId);
+  const kimlikler = ((kalemler ?? []) as { id: string }[]).map((k) => k.id);
+  if (kimlikler.length === 0) return undefined;
+
+  const { data: sevkliler } = await supabase
+    .from("job_item_sales")
+    .select("job_item_id")
+    .in("job_item_id", kimlikler)
+    .not("shipment_date", "is", null);
+  const sevkliKume = new Set(
+    ((sevkliler ?? []) as { job_item_id: string }[]).map((s) => s.job_item_id)
+  );
+
+  if (!allItemsShipped(kimlikler.map((id) => ({ shipmentDate: sevkliKume.has(id) ? "x" : null })))) {
+    return undefined;
+  }
+
+  const { error } = await supabase
+    .from("jobs")
+    .update({ status: "completed" })
+    .eq("id", jobId);
+  if (error) return undefined;
+
+  await supabase.from("audit_log").insert({
+    actor: userId,
+    action: "job.status.auto",
+    detail: {
+      job_id: jobId,
+      status: "completed",
+      reason: "Bütün iş kalemlerinin sevk tarihi girildi",
+      trigger_item_id: jobItemId,
+    },
+  });
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  return (is as { job_no?: string }).job_no ?? "";
+}
+
+/**
  * Kalemin ticari kaydını yazar. Kayıt yoksa açar, varsa günceller —
  * `job_item_id` ünik olduğu için tek `upsert` yeter; satırların önceden
  * üretilmesine gerek kalmaz.
@@ -46,6 +143,15 @@ export async function saveSale(
 
   const parsed = saleInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  // Sevk tarihi bu kaydetmede mi girildi? Cevap yazmadan ÖNCE okunur; sonra
+  // sorulsaydı "zaten doluydu" ile "az önce doldu" ayırt edilemezdi.
+  const { data: onceki } = await supabase
+    .from("job_item_sales")
+    .select("shipment_date")
+    .eq("job_item_id", jobItemId)
+    .maybeSingle();
+  const onceSevkliydi = !!(onceki as { shipment_date?: string | null } | null)?.shipment_date;
 
   // Avro satırında kur her zaman 1'dir; kullanıcı başka bir şey yazmışsa bile
   // avro karşılığı bozulmasın diye burada sabitlenir.
@@ -70,8 +176,13 @@ export async function saveSale(
     detail: { job_item_id: jobItemId, currency: data.currency, unit_price: data.unit_price },
   });
 
+  const jobCompleted =
+    data.shipment_date && !onceSevkliydi
+      ? await sevkSonrasiIsiTamamla(supabase, user.id, jobItemId)
+      : undefined;
+
   revalidatePath("/sales");
-  return { ok: true };
+  return { ok: true, ...(jobCompleted !== undefined ? { jobCompleted } : {}) };
 }
 
 /** Kalemin ticari kaydını tamamen siler (fiyat girilmemiş hâline döner). */
