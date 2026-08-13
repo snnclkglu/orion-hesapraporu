@@ -20,7 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
-import { loadGecmisSatirlari, loadSiparisNolari, type GecmisSatiri } from "./data";
+import { loadArsivOlaylari, loadSiparisNolari, type ArsivOlayi } from "./data";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
@@ -822,7 +822,7 @@ export async function deletePriceHistory(
  * Kullanıcı bildirimi (13.08.2026): *"Fiyat arşivine tıkladığımda biraz kasma
  * yapıyor."* Ölçüldü: 4722 devralınan satırın tamamı her ziyarette istemciye
  * gidiyordu (1,3 MB) ve altı ardışık sorguyla okunuyordu. Liste artık kalem
- * başına ÖZET alıyor (`purchase_price_archive` görünümü); ayrıntıyı yalnız
+ * başına ÖZET alıyor (`purchase_price_index` görünümü); ayrıntıyı yalnız
  * açılan satır ister ve o da tek bir sorgudur.
  *
  * 1675 kalemin 1674'ünün ayrıntısı hiç açılmıyor — onları baştan göndermek,
@@ -830,12 +830,12 @@ export async function deletePriceHistory(
  */
 export async function fetchPriceHistory(
   input: { matchKey: string }
-): Promise<{ error?: string; satirlar?: GecmisSatiri[] }> {
+): Promise<{ error?: string; satirlar?: ArsivOlayi[] }> {
   const supabase = await createClient();
   const { data: kullanici } = await supabase.auth.getUser();
   if (!kullanici.user) return { error: "Oturum bulunamadı." };
   // OKUMA KAPISI RLS'TEDİR (`can_see_purchasing()`); burada ayrıca rol
   // sorulmaz — iki kapı zamanla ayrışır ve biri gevşerse fark edilmez.
-  const satirlar = await loadGecmisSatirlari(supabase, input.matchKey ?? "");
+  const satirlar = await loadArsivOlaylari(supabase, input.matchKey ?? "");
   return { satirlar };
 }

@@ -96,3 +96,14 @@ group by o.match_key, s.gun, s.supplier, s.eur, s.birim, s.currency;
 comment on view public.purchase_price_index is
   'Fiyat arşivinin kalem başına dizini (teklif + sipariş + devralınan). '
   'Ekran bunu SÜZER ve SAYFALAR; ayrıntı satırları ayrıca istenir.';
+
+-- ————————————————————————————————————— ESKİ ÖZET GÖRÜNÜMÜ DÜŞER
+--
+-- `purchase_price_archive` (20260813010003) yalnız DEVRALINAN katmanı
+-- topluyordu ve ekran onu birkaç saat kullandı. `purchase_price_index` üç
+-- kaynağı birden topluyor, yani öteki artık ölü koddur.
+--
+-- UYGULANMIŞ MIGRATION DÜZENLENMEZ (evin kuralı, katalog seed'lerindeki
+-- kalıbın aynısı): eski dosya olduğu gibi durur, düşürme YENİ migration'da
+-- yapılır. Böylece sıfırdan kurulan bir veritabanı da aynı yoldan geçer.
+drop view if exists public.purchase_price_archive;

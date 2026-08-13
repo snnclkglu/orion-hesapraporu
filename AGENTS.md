@@ -787,6 +787,30 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     siparişin kendi silme yolu var, tek düğmenin üç defteri birden silmesi
     kullanıcının neyi kaybettiğini bilmemesi demekti.
 
+    **FİYAT ARŞİVİNDE SÜZGEÇ SUNUCUDADIR, DURUM ADRESTE** (`purchase_price_index`
+    görünümü, migration 20260813010005). Kullanıcı iki kez "yavaş" dedi ve
+    ölçüm ikisinde de aynı yeri gösterdi: görünümün KENDİSİ 54 ms; maliyet
+    1675 kalemin (360 KB) her ziyarette taşınıp istemcide süzülmesiydi —
+    ekranda 100 satır var. Üç kaynak artık SQL'de birleşir, sayfa yalnız
+    görünen dilimi çeker (~58 KB) ve arama `where` ile TÜM arşivde çalışır.
+    Kullanıcının şartı ("arama ve filtreyi tüm sayfalar için yapsın")
+    GEVŞEMEDİ, gerçek anlamını kazandı: artık istemciye hiç gelmemiş
+    satırlarda da arıyor. Ayrıntı satırları YALNIZ açılan kalem için istenir
+    (`loadArsivOlaylari`) — 1675 kalemin 1674'ünün ayrıntısı hiç açılmıyor.
+
+    **SAYFALAMA TEK BAŞINA YETMEZ** ve bu ders pahalıya öğrenildi: ilk turda
+    yalnız DOM sınırlandı (100 satır çizilir), veri yine tamamen gidiyordu.
+    Bir listede "kasıyor" denince sorulacak ilk soru "kaç satır çiziliyor"
+    değil **"kaç bayt taşınıyor"**dur.
+
+    ARAMA GECİKTİRİLİR (350 ms), SÜZGEÇ GECİKMEZ: açılır süzgeçte tıklama
+    zaten nihai bir karardır. Sıralama SQL'dedir (`son_hareket desc`) ve
+    beraberliği anahtar bozar — sayfalar arasında satır atlanmaz/yinelenmez.
+    Sıralamanın istemcide kalması bir kez gerçek bir hata üretti: geçmiş
+    kalemlerinin olay dizisi boşalınca hepsi `gun=""` ile eşitlenip alfabetik
+    sıralandı ve listenin başına devralınan satırı OLMAYAN kalemler düştü —
+    yönetici silme düğmesini bu yüzden hiç göremedi.
+
     **SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER.** `CokluSuzgec` `Select`
     değil `DropdownMenu` kullanır çünkü Radix `Select` tek değerlidir ve çoklu
     seçimde liste her tıklamada kapanırdı. Excel ve PDF ekranda GÖRÜNEN listeyi
