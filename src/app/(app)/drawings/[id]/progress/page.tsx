@@ -24,6 +24,7 @@ import {
   type StageDef,
   type SuggestionFile,
 } from "@/lib/drawings/progress";
+import { parsePartCode } from "@/lib/drawings/part-code";
 import { loadFiles, loadPackage, loadParts } from "../../data";
 import { ProgressBoard } from "./progress-board";
 
@@ -118,6 +119,41 @@ export default async function PackageProgressPage({
   const uretimParcalari = izlenen.coded.filter((p) => !isPurchaseRow(p));
   const uretimAnahtarlari = new Set(uretimParcalari.map((p) => p.key));
 
+  // ————————————————————————————————— grup adları (kullanıcı isteği, 13.08.2026)
+  //
+  // *"0000 0/2 gibi yazan ana yerin yanına o projenin ismini de yazalım …
+  // açmadan da görmek isterim, hem ismini hem adedini."* Grup başlığı bugüne
+  // kadar yalnız KODU gösteriyordu; foreman hangi grubu açacağını anlamak için
+  // tek tek açıp kapatıyordu.
+  //
+  // AD YENİDEN ÇIKARILMAZ, DEFTERDEN OKUNUR (`drawing_group_names`). Kural
+  // `grupAdlariCikar`dadır ve eşleştirmede bir kez çalışır; burada ikinci bir
+  // çıkarım yazmak, satın alma havuzunun gösterdiği adla atölye tahtasının
+  // gösterdiği adın bir gün ayrışması demekti. Defter elle düzeltmeyi de
+  // taşır (`manual`) — ekran o düzeltmeyi görmezden gelemez.
+  const grupKodlari = new Set<string>();
+  for (const p of uretimParcalari) {
+    const kod = parsePartCode(p.partCode);
+    if (kod && kod.segments.length > 0) grupKodlari.add(`${kod.itemNo}-${kod.segments[0]}`);
+  }
+  const { data: grupAdSatirlari } = grupKodlari.size
+    ? await supabase
+        .from("drawing_group_names")
+        .select("group_code, name")
+        .in("group_code", [...grupKodlari])
+    : { data: [] };
+
+  // Anahtar KISA segmenttir çünkü tahta grupları öyle anahtarlıyor
+  // (`groupOf` = kodun ilk alt segmenti). ADI KODUN KENDİSİ OLAN satır
+  // DÜŞÜRÜLÜR: defter adı çözemediğinde kodu yazıyor ve başlıkta aynı kodu iki
+  // kez basmak bir bilgi değil bir gürültüdür.
+  const grupAdlari: Record<string, string> = {};
+  for (const r of (grupAdSatirlari ?? []) as { group_code: string; name: string }[]) {
+    const kisa = r.group_code.split("-").at(-1) ?? "";
+    const ad = (r.name ?? "").trim();
+    if (kisa && ad && ad !== r.group_code) grupAdlari[kisa] = ad;
+  }
+
   if (izlenen.all.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 border bg-card px-6 py-16 text-center">
@@ -211,6 +247,7 @@ export default async function PackageProgressPage({
       packageId={id}
       stages={stages}
       coded={uretimParcalari}
+      groupNames={grupAdlari}
       marks={marks}
       suggestions={suggestions}
       orphans={oksuzler}

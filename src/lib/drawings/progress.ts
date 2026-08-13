@@ -333,6 +333,25 @@ export function groupOf(partCode: string): string {
   return parsePartCode(partCode)?.segments[0] ?? "";
 }
 
+/**
+ * Grubun KENDİ defter satırı — kodu alt segment TAŞIMAYAN satır
+ * (`0043-00-1000`, altındaki `0043-00-1000-01` değil).
+ *
+ * Ürün ağacında bu satır montajın kendisidir: adı `assemblyTitle`inde, KAÇ
+ * ADET imal edileceği `qty`sindedir. Atölye tahtasının grup başlığı ikisini de
+ * oradan okur (kullanıcı isteği, 13.08.2026: *"açmadan da görmek isterim, hem
+ * ismini hem adedini"*).
+ *
+ * SATIR HER PAKETTE YOKTUR: ürün ağacı olmayan tesliminde (MONORAY) grubun
+ * kendi satırı da yoktur ve fonksiyon `undefined` döner. Çağıran o zaman adet
+ * BASMAZ — uydurulmuş bir "1 ad", boş bir alandan çok daha pahalıdır.
+ */
+export function groupOwnPart(
+  parts: readonly TrackedPart[]
+): TrackedPart | undefined {
+  return parts.find((p) => parsePartCode(p.partCode)?.level === 1);
+}
+
 // ------------------------------------------------------------ izlenen defter
 
 export interface TrackedRegister {

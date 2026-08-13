@@ -23,6 +23,8 @@ import {
   PURCHASE_PREFIX,
   PURCHASE_STAGE_SLUGS,
   STAGE_SLUGS,
+  groupOf,
+  groupOwnPart,
   orphanMarks,
   productionStages,
   purchaseStages,
@@ -119,6 +121,63 @@ describe("izlenen defter — kodlu parçalar ve birleştirilmiş satın alma kal
     // sayar (bkz. `partProgress`).
     expect(monorayDefter.coded.filter((p) => p.qty == null)).toHaveLength(9);
     expect(mtcDefter.coded.filter((p) => p.qty == null)).toHaveLength(6);
+  });
+});
+
+describe("grup başlığı — AÇMADAN ad ve adet (13.08.2026)", () => {
+  // Kullanıcı isteği: *"0000 0/2 gibi yazan ana yerin yanına o projenin ismini
+  // de yazalım … açmadan da görmek isterim, hem ismini hem adedini."*
+  // Tahtanın başlığı bu iki alanı grubun KENDİ defter satırından okur.
+
+  /** Tahtanın gruplaması: `groupOf` = kodun ilk alt segmenti. */
+  function grup(defter: typeof mtcDefter, kisaKod: string) {
+    return defter.coded.filter((p) => groupOf(p.partCode) === kisaKod);
+  }
+
+  it("MTC: grubun kendi satırı bulunur, adı ve adedi oradadır", () => {
+    const kendi = groupOwnPart(grup(mtcDefter, "0600"))!;
+    expect(kendi.partCode).toBe("0043-00-0600");
+    // Kod alt segment TAŞIMAZ — montajın kendisidir, parçası değil.
+    expect(kendi.partCode.split("-")).toHaveLength(3);
+    expect(kendi.label).toBeTruthy();
+  });
+
+  it("kendi satırı ALT PARÇALARDAN ayırt edilir", () => {
+    const parcalar = grup(mtcDefter, "0600");
+    expect(parcalar.length).toBeGreaterThan(1);
+    const kendi = groupOwnPart(parcalar)!;
+    // Grubun geri kalanının hepsi alt segment taşır.
+    for (const p of parcalar) {
+      if (p.key === kendi.key) continue;
+      expect(p.partCode.startsWith("0043-00-0600-"), p.partCode).toBe(true);
+    }
+  });
+
+  it("MONORAY'da da kendi satırı VARDIR — ölçüldü, varsayılmadı", () => {
+    // İlk yazımda "ürün ağacı olmayan teslimde kendi satırı yoktur" diye bir
+    // iddia vardı ve fikstür onu ÇÜRÜTTÜ: MONORAY'ın sekiz grubunun sekizinde
+    // de montaj satırı var. Yani başlık iki gerçek teslimde de ad ve adet
+    // gösterebiliyor — özellik bir pakete özel değil.
+    const gruplar = [...new Set(monorayDefter.coded.map((p) => groupOf(p.partCode)))].sort();
+    const kendiOlanlar = gruplar.filter((g) =>
+      groupOwnPart(monorayDefter.coded.filter((p) => groupOf(p.partCode) === g))
+    );
+    expect(kendiOlanlar).toEqual(gruplar);
+  });
+
+  it("kendi satırı OLMAYAN grupta adet basılmaz", () => {
+    // Sessizlik iddiası: alt parçalardan bir adet TÜRETİLMEZ. Grubun kendi
+    // satırı yoksa "kaç takım imal edilecek" sorusunun cevabı defterde yoktur
+    // ve uydurulmuş bir "1 ad", boş bir alandan çok daha pahalıdır.
+    const yalnizAltParcalar = mtcDefter.coded.filter(
+      (p) => groupOf(p.partCode) === "0600" && p.partCode !== "0043-00-0600"
+    );
+    expect(yalnizAltParcalar.length).toBeGreaterThan(0);
+    expect(groupOwnPart(yalnizAltParcalar)).toBeUndefined();
+  });
+
+  it("boş grupta çökmez", () => {
+    expect(groupOwnPart([])).toBeUndefined();
   });
 });
 

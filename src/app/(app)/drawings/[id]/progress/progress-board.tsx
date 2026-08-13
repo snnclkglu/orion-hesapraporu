@@ -45,6 +45,7 @@ import { tagStyle } from "@/lib/tags";
 import { formatNum } from "@/lib/drawings/labels";
 import { trKatla } from "@/lib/drawings/tr-text";
 import {
+  groupOwnPart,
   packageProgress,
   partProgress,
   type ProgressMark,
@@ -78,6 +79,7 @@ export function ProgressBoard({
   packageId,
   stages,
   coded,
+  groupNames,
   marks,
   suggestions,
   orphans,
@@ -89,6 +91,12 @@ export function ProgressBoard({
   stages: StageDef[];
   /** Yalnız imalat/montaj parçaları; satın alınanlar kendi bölümünde. */
   coded: TrackedPart[];
+  /**
+   * Kısa grup kodu → ad ("0100" → "ANA KİRİŞ"). Defterden gelir
+   * (`drawing_group_names`), burada ÜRETİLMEZ; adı çözülemeyen grup listede
+   * hiç yoktur ve başlık yalnız kodunu gösterir.
+   */
+  groupNames: Record<string, string>;
   marks: ProgressMark[];
   suggestions: StageSuggestion[];
   orphans: ProgressMark[];
@@ -493,6 +501,14 @@ export function ProgressBoard({
             (p) => (isaretHarita.get(p.key) ?? []).length > 0
           ).length;
           const hepsiSecili = parcalar.every((p) => secili.has(p.key));
+          // BAŞLIK GRUBU AÇMADAN TANITIR (kullanıcı isteği, 13.08.2026).
+          // Ad defterden gelir; yoksa grubun KENDİ defter satırının etiketine
+          // düşülür — o zaten bir satır aşağıda, açılınca görünen metnin ta
+          // kendisidir, yani uydurma değil AYNI kaynaktır. Adet de o satırdan
+          // okunur (`groupOwnPart`) ve satır yoksa HİÇ BASILMAZ.
+          const kendi = groupOwnPart(parcalar);
+          const grupAdi = groupNames[ad] ?? kendi?.label ?? "";
+          const grupAdedi = kendi?.qty ?? null;
           return (
             <section key={ad} className="border bg-card">
               <div className="flex items-center gap-1 border-b bg-muted/40 pr-2">
@@ -514,11 +530,27 @@ export function ProgressBoard({
                   ) : (
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                   )}
-                  <span className="font-mono text-[13px] font-medium">{ad}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
+                  <span className="shrink-0 font-mono text-[13px] font-medium">{ad}</span>
+                  {/* Ad ESNEK sütundur ve KIRPILIR: "ARABA GENEL GÖRÜNÜŞÜ" gibi
+                      bir başlık telefonda sayaç ile ilerleme çubuğunu ekranın
+                      dışına iterdi (Satış Takibi'nde öğrenilen kural). Tam ad
+                      `title` ile durur. Ad yoksa kutu yine çizilir — boş
+                      esneme, sayacı sağa iten şeydir. */}
+                  <span
+                    className="min-w-0 flex-1 truncate text-left text-[12px] text-foreground/80"
+                    title={grupAdi || undefined}
+                  >
+                    {grupAdi}
+                  </span>
+                  {grupAdedi !== null && (
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {formatNum(grupAdedi)} ad
+                    </span>
+                  )}
+                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                     {formatNum(tamamlanan)}/{formatNum(parcalar.length)}
                   </span>
-                  <span className="ml-auto h-1.5 w-16 shrink-0 bg-muted" aria-hidden>
+                  <span className="h-1.5 w-16 shrink-0 bg-muted" aria-hidden>
                     <span
                       className="block h-full bg-primary"
                       style={{ width: `${Math.round((tamamlanan / parcalar.length) * 100)}%` }}
