@@ -112,12 +112,13 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
   { key: "wheelCouplingServiceFactor", label: "Teker Kaplini Emniyet Katsayısı", type: "number" },
   { key: "bufferApproachM", label: "Tampon Hesabı Araba Yanaşması", unit: "m", type: "number" }, // sadece köprü
   {
-    key: "bufferCount", label: "Tampon Adedi", type: "select",
+    key: "bufferCount", label: "Kurulu Tampon Adedi", type: "select",
     options: ["1", "2", "4"], numeric: true,
     hint:
-      "Çarpışmada AYNI ANDA temas eden tampon adedi. Araba iki kirişin, köprü " +
-      "iki rayın ucundaki durdurucuya çarpar → tipik değer 2. Çarpışan kütle " +
-      "bu adede paylaştırılır.",
+      "Varsayılan 2'dir: tek çarpma yönünde iki tampon aynı anda yük alır. " +
+      "4, iki hareket yönünde ikişer tampon kurulu olduğunu gösterir; tek çarpmada " +
+      "yalnız çarpılan taraftaki iki tampon aktiftir. KAT0170, s.6'daki yerleşim " +
+      "şeması için aşağıdaki 'Yerleşim rehberi'ne bakın.",
   },
   {
     key: "bufferLoadRigidlyGuided", label: "Yük Rijit Kılavuzlu", type: "select",

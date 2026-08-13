@@ -158,8 +158,7 @@ describe("enerji dengesi ve birim tutarlılığı", () => {
     const strokeM = r.values.strokeUsedMm / 1000;
     const expectedResistanceKn = r.values.totalEnergyKj / (strokeM * HYDRAULIC_DAMPING_EFFICIENCY);
     const expectedDeceleration =
-      (expectedResistanceKn * 1000 - r.values.driveForcePerBufferN) /
-      (r.values.massPerBufferT * 1000);
+      (expectedResistanceKn * 1000) / (r.values.massPerBufferT * 1000);
 
     expect(r.values.reactionForceKn).toBeCloseTo(expectedResistanceKn, 9);
     expect(r.values.maxDecelerationMps2).toBeCloseTo(expectedDeceleration, 9);
@@ -274,7 +273,7 @@ describe("kauçuk tampon — eğriden çözüm", () => {
       .toBeCloseTo(r.values.maxDecelerationMps2, 12);
   });
 
-  it("hücresel eğride ara hız için emniyetli alt/üst katalog eğrileri kullanılır ve 4 m/s üstünde hesaplanmaz", () => {
+  it("hücresel eğride ara hız için enerji ve kuvvet aynı enterpole eğriden okunur; 4 m/s üstünde hesaplanmaz", () => {
     const curves = cellularSpeedCurvesForModel("Conductix-Wampfler 018112-080x080");
     const staticCurve = cellularCurvesAtImpactSpeed(curves, 0, 31)!;
     const dynamicCurve = cellularCurvesAtImpactSpeed(curves, 4, 31)!;
@@ -282,11 +281,11 @@ describe("kauçuk tampon — eğriden çözüm", () => {
 
     expect(staticCurve.energyCapacityKj).toBeCloseTo(0.6966, 4);
     expect(dynamicCurve.energyCapacityKj).toBeCloseTo(1.5084, 4);
-    // Katalog ara hız eğrisi yayımlamadığı için enerji kapasitesi iyimser
-    // enterpole edilmez; kuvvet ise daha yüksek hız eğrisinden okunur.
-    expect(midpoint.energyCapacityKj).toBeCloseTo(0.6966, 4);
-    expect(midpoint.energyCurveSpeedMps).toBe(0);
-    expect(midpoint.forceCurveSpeedMps).toBe(1);
+    expect(midpoint.energyCapacityKj).toBeGreaterThan(staticCurve.energyCapacityKj);
+    expect(midpoint.energyCapacityKj).toBeLessThan(dynamicCurve.energyCapacityKj);
+    expect(midpoint.curveSpeedMps).toBe(0.5);
+    expect(midpoint.lowerCurveSpeedMps).toBe(0);
+    expect(midpoint.upperCurveSpeedMps).toBe(1);
     expect(dynamicCurve.forceCapacityKn).toBeCloseTo(31 * 1.6197, 4);
     expect(cellularCurvesAtImpactSpeed(curves, 4.01, 31)).toBeUndefined();
   });
@@ -344,7 +343,7 @@ describe("kontroller ve standart eşikleri", () => {
     const r = computeBuffer({ ...BASE, strokeMm: 100 });
     expect(r.values.avgDecelerationMps2).toBeCloseTo(5, 9);
     // Sık yanaşmada aynı tasarım UYGUN ÇIKMAZ
-    const sik = computeBuffer({ ...BASE, frequentEndApproach: true });
+    const sik = computeBuffer({ ...BASE, frequentEndApproach: true, decelerationLimitApplies: true });
     expect(check(sik, "buffer.deceleration")!.pass).toBe(false);
   });
 
@@ -464,8 +463,10 @@ describe("yürütme modülünde tampon", () => {
       V5_SPECS, "trolley", { ...V5_TROLLEY_INPUTS, bufferCount: 4 },
       V5_TROLLEY_SELECTIONS, V5_TRAVEL_DEPS
     ).values;
-    expect(dort.collisionLoadT / iki.collisionLoadT).toBeCloseTo(0.5, 9);
-    expect(dort.impactEnergyKj / iki.impactEnergyKj).toBeCloseTo(0.5, 9);
+    expect(dort.bufferInstalledCount).toBe(4);
+    expect(dort.bufferActiveCount).toBe(2);
+    expect(dort.collisionLoadT / iki.collisionLoadT).toBeCloseTo(1, 9);
+    expect(dort.impactEnergyKj / iki.impactEnergyKj).toBeCloseTo(1, 9);
   });
 
   it("tampon tipi \"yok\" seçilince tampon kontrolleri üretilmez", () => {

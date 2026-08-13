@@ -11,21 +11,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * Seviye açıklamaları BELGENİN GERÇEK KAPSAMINI anlatır.
+ *
+ * Tek doğru kaynak `pdf/report.tsx`teki `ReportLevel` yorumudur (ve kuralı
+ * `report.smoke.test.tsx` PDF metninden ölçer); burası onun insan okunur
+ * özetidir. **Kapsam değişirse bu satırlar da değişir** — 12.08.2026'da
+ * kontrol özeti standart ve özet raporlardan kaldırıldı ama açıklama
+ * "Kapak + özet + kontroller" demeye devam ediyordu; kullanıcı, indirdiği
+ * belgede olmayan bir bölüm için o seçeneği seçiyordu.
+ */
 const LEVELS = [
   {
     level: "detayli",
     label: "Detaylı",
-    hint: "Tüm formüller + diyagramlar",
+    hint: "Tüm formüller, diyagramlar ve kontrol özeti",
   },
   {
     level: "standart",
     label: "Standart",
-    hint: "Hesap sonuçları + diyagramlar",
+    hint: "Hesap sonuçları ve diyagramlar (formülsüz)",
   },
   {
     level: "ozet",
     label: "Özet",
-    hint: "Kapak + özet + kontroller",
+    hint: "Yalnız kapak, teknik özellikler ve ekipman seçimi",
   },
 ] as const;
 
@@ -39,7 +49,10 @@ export function ReportMenu({ projectId, revisionId }: { projectId: string; revis
         PDF Rapor
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      {/* w-56 dardı: açıklamalar üç satıra sarıyor ve seviyeler birbirine
+          giriyordu. Genişlik dokunmatik sözleşmesi §5'e uyar — 18rem, 375px'lik
+          ekranda bile kenar boşluğu bırakır. */}
+      <DropdownMenuContent align="end" className="w-72">
         {LEVELS.map((l) => (
           <DropdownMenuItem key={l.level} asChild>
             <a href={`${base}?level=${l.level}`} className="flex flex-col items-start gap-0.5">

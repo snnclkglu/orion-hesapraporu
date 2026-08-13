@@ -535,6 +535,7 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
     columns: [
       { attr: "model", label: "Model" },
       { attr: "type", label: "Tip" },
+      { attr: "mounting", label: "Bağlantı" },
       { attr: "stroke_mm", label: "Strok", unit: "mm" },
       { attr: "energy_kj", label: "Enerji", unit: "kJ" },
       { attr: "max_force_kn", label: "Maks. Kuvvet", unit: "kN" },

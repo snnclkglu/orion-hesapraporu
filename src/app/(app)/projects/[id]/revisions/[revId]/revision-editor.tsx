@@ -89,11 +89,16 @@ import {
   catalogIdentityFields,
   getCatalogMapping,
   catalogKindLabel,
+  attrValueLabel,
 } from "@/lib/catalog-mapping";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { CatalogSheetButton } from "@/components/catalog-sheet-dialog";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
 import { FestoonSchematic } from "@/components/festoon-schematic";
+import {
+  BufferArrangementSchematic,
+  BufferCalculationGuide,
+} from "@/components/buffer-arrangement-guide";
 import { travelFestoonDistanceM } from "@/lib/calc/modules/travelGroup";
 import { MathFormula } from "@/components/math/math-formula";
 import { StandardRefBadge } from "@/components/standard-ref-dialog";
@@ -343,7 +348,13 @@ function Field({
               auto?.on && "border-primary/30 bg-primary/5"
             )}
             inputMode={def.type === "number" ? "decimal" : undefined}
-            value={def.type === "number" && draft !== null ? draft : String(v ?? "")}
+            value={
+              def.type === "number" && draft !== null
+                ? draft
+                : def.key === "bufferCatalogType"
+                  ? attrValueLabel("type", v)
+                  : String(v ?? "")
+            }
             disabled={locked}
             aria-invalid={numError ? true : undefined}
             onChange={(e) => {
@@ -1696,12 +1707,27 @@ export function RevisionEditor({
             </section>
           )}
           {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım) */}
-          <SectionDiagram
-            moduleKey={key}
-            sectionId={section.rawId}
-            input={calcInput}
-            result={result}
-          />
+          {section.rawId === "5.8" && isTravelKey(key) ? (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+              <SectionDiagram
+                moduleKey={key}
+                sectionId={section.rawId}
+                input={calcInput}
+                result={result}
+              />
+              <BufferArrangementSchematic
+                installedCount={(inputs as TravelInputs).bufferCount}
+                axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+              />
+            </div>
+          ) : (
+            <SectionDiagram
+              moduleKey={key}
+              sectionId={section.rawId}
+              input={calcInput}
+              result={result}
+            />
+          )}
           {/* Özel düzenleyici: teker düzeni ölçü zinciri (10.1). Teker adedi
               Köprü Yürütme bölümünden okunur; geometri BİR RAY için girilir. */}
           {section.editor === "wheelSpacing" && (
@@ -1854,6 +1880,12 @@ export function RevisionEditor({
                         }}
                       />
                     )}
+                    {section.rawId === "5.8" && isTravelKey(key) && (
+                      <BufferCalculationGuide
+                        installedCount={(inputs as TravelInputs).bufferCount}
+                        axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+                      />
+                    )}
                     {/* Seçilen ürünün üretici kataloğundaki gerçek sayfası.
                         Salt-okunur revizyonda da görünür: yayınlanmış bir
                         raporu okuyan mühendis de sayfaya bakabilmelidir. */}
@@ -1962,9 +1994,17 @@ export function RevisionEditor({
             <>
               <Separator />
               <div>
-                <h3 className="oc-kicker mb-2 text-muted-foreground">
-                  Hesap ve Kontroller
-                </h3>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="oc-kicker text-muted-foreground">
+                    Hesap ve Kontroller
+                  </h3>
+                  {section.rawId === "5.8" && isTravelKey(key) && (
+                    <BufferCalculationGuide
+                      installedCount={(inputs as TravelInputs).bufferCount}
+                      axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+                    />
+                  )}
+                </div>
                 {/* Geniş ekranda iki kolon: tek ekranda daha çok hesap görünür */}
                 <div className="rounded-lg border bg-background px-3 dark:bg-card xl:grid xl:grid-cols-2 xl:gap-x-6">
                   {section.rows.map((r) => (

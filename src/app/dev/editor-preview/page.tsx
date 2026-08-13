@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   EDITOR_STATUS_SLOT_ID, RevisionEditor,
 } from "@/app/(app)/projects/[id]/revisions/[revId]/revision-editor";
+import { ReportMenu } from "@/app/(app)/projects/[id]/revisions/[revId]/report-menu";
 import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 
 export default function EditorPreviewPage() {
@@ -15,8 +16,13 @@ export default function EditorPreviewPage() {
       <header className="sticky top-0 z-30 flex h-12 items-center border-b bg-background/90 px-4">
         <div className="text-sm font-medium">Editör Önizleme (dev)</div>
         {/* Gerçek sayfadaki gibi durum yuvası: kontrol özeti + Kaydet buraya
-            portalla taşınır (bkz. EDITOR_STATUS_SLOT_ID). */}
+            portalla taşınır (bkz. EDITOR_STATUS_SLOT_ID). Yanında PDF Rapor
+            menüsü durur — seviye açıklamaları belgenin gerçek kapsamını
+            anlatmalıdır ve o metin ancak burada gözle görülür. */}
         <div id={EDITOR_STATUS_SLOT_ID} className="ml-auto flex items-center gap-2" />
+        <div className="ml-2">
+          <ReportMenu projectId="dev" revisionId="dev" />
+        </div>
       </header>
       <div className="mx-auto w-full flex-1 px-4 py-6 lg:px-8">
         <RevisionEditor

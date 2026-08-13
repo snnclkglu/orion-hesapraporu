@@ -192,10 +192,12 @@ export interface CellularBufferCurves {
   energyCapacityKj: number;
   /** Çarpma hızındaki eğrinin son kuvveti [kN] */
   forceCapacityKn: number;
-  /** Enerji için kullanılan, çarpma hızını aşmayan katalog eğrisi [m/s] */
-  energyCurveSpeedMps: number;
-  /** Kuvvet için kullanılan, çarpma hızının altına inmeyen katalog eğrisi [m/s] */
-  forceCurveSpeedMps: number;
+  /** Hesap eğrisinin ait olduğu gerçek çarpma hızı [m/s]. */
+  curveSpeedMps: number;
+  /** Ara hız hesabında kullanılan alt katalog eğrisi [m/s]. */
+  lowerCurveSpeedMps: number;
+  /** Ara hız hesabında kullanılan üst katalog eğrisi [m/s]. */
+  upperCurveSpeedMps: number;
 }
 
 const speedCurvePoints = (curve: readonly (readonly [number, number])[]): CurvePoint[] =>
@@ -203,12 +205,12 @@ const speedCurvePoints = (curve: readonly (readonly [number, number])[]): CurveP
 
 /**
  * KAT0180 kuvvet eğrileri, katalogdaki statik son kuvvete göre çarpan olarak
- * saklanır. Katalog yalnız ayrık hız eğrileri yayımlar; iki hız arasındaki eğri
- * üretici tarafından tanımlanmadığı için doğrusal enterpolasyon yapılmaz.
- * Enerji kapasitesi için çarpma hızını aşmayan en yakın düşük hız eğrisi,
- * kuvvet/yavaşlama için çarpma hızının altına inmeyen en yakın yüksek hız eğrisi
- * kullanılır. Böylece hem kapasite hem tepe kuvveti kontrolü emniyetli tarafta
- * kalır.
+ * saklanır. Katalog 0 / 1 / 2 / 3 / 4 m/s için ayrı eğriler verir. Ara hızda
+ * enerji ve kuvvet, AYNI çalışma hızındaki iki komşu eğri arasında doğrusal
+ * enterpolasyonla bulunur. Enerjiyi düşük, kuvveti yüksek hız eğrisinden almak
+ * fiziksel olarak tek bir tampon çalışma durumu oluşturmaz ve E_a - sıkışma -
+ * F_t zincirini koparır. Ara hız sonucu katalogdan sayısallaştırılmış bir
+ * hesap yaklaşımıdır; kritik seçimlerde üretici teyidi gerekir.
  */
 export function cellularCurvesAtImpactSpeed(
   curves: readonly CellularSpeedCurveData[] | undefined,
@@ -242,11 +244,24 @@ export function cellularCurvesAtImpactSpeed(
 
   const lower = [...usable].reverse().find((curve) => curve.speed <= impactSpeedMps + 1e-9) ?? first;
   const upper = usable.find((curve) => curve.speed >= impactSpeedMps - 1e-9) ?? last;
-  const energyCurve = lower.energy.map(
-    ([pct, energyKj]) => [pct, energyKj * 1000] as CurvePoint
-  );
-  const forceCurve = upper.forceFactor.map(
-    ([pct, factor]) => [pct, factor * staticMaxForceKn] as CurvePoint
+  const speedSpan = upper.speed - lower.speed;
+  const ratio = speedSpan > 1e-9 ? (impactSpeedMps - lower.speed) / speedSpan : 0;
+  const percentPoints = (a: readonly CurvePoint[], b: readonly CurvePoint[]) =>
+    [...new Set([...a.map(([pct]) => pct), ...b.map(([pct]) => pct)])].sort((a, b) => a - b);
+  const betweenSpeeds = (
+    lowerCurve: readonly CurvePoint[],
+    upperCurve: readonly CurvePoint[],
+    scale = 1
+  ): CurvePoint[] => percentPoints(lowerCurve, upperCurve).map((pct) => {
+    const low = interpolateCurve(lowerCurve, pct) ?? 0;
+    const high = interpolateCurve(upperCurve, pct) ?? low;
+    return [pct, (low + (high - low) * ratio) * scale] as CurvePoint;
+  });
+  const energyCurve = betweenSpeeds(lower.energy, upper.energy, 1000);
+  const forceCurve = betweenSpeeds(
+    lower.forceFactor,
+    upper.forceFactor,
+    staticMaxForceKn
   );
   const energyCapacityKj = (energyCurve[energyCurve.length - 1]?.[1] ?? 0) / 1000;
   const forceCapacityKn = forceCurve[forceCurve.length - 1]?.[1] ?? 0;
@@ -257,8 +272,9 @@ export function cellularCurvesAtImpactSpeed(
     forceCurve,
     energyCapacityKj,
     forceCapacityKn,
-    energyCurveSpeedMps: lower.speed,
-    forceCurveSpeedMps: upper.speed,
+    curveSpeedMps: impactSpeedMps,
+    lowerCurveSpeedMps: lower.speed,
+    upperCurveSpeedMps: upper.speed,
   };
 }
 
@@ -325,6 +341,8 @@ export interface BufferInput {
   maxCompressionPct: number;
   /** Yürüyüş sınırına normal işletmede sık ulaşılıyor mu (FEM 7.7.1.2) */
   frequentEndApproach: boolean;
+  /** FEM 7.7.1.2 kabin yavaşlama sınırı bu hareket eksenine uygulanıyor mu? */
+  decelerationLimitApplies?: boolean;
 }
 
 export interface BufferValues {
@@ -359,10 +377,12 @@ export interface BufferValues {
   catalogEnergyAtImpactKj: number;
   /** Çarpma hızındaki katalog son kuvveti [kN] */
   catalogForceAtImpactKn: number;
-  /** Enerji için kullanılan hücresel katalog eğrisi [m/s] */
-  catalogEnergyCurveSpeedMps?: number;
-  /** Kuvvet için kullanılan hücresel katalog eğrisi [m/s] */
-  catalogForceCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki çalışma hızı [m/s]. */
+  catalogCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki alt katalog eğrisi [m/s]. */
+  catalogLowerCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki üst katalog eğrisi [m/s]. */
+  catalogUpperCurveSpeedMps?: number;
   /** Tepki yapıya aktarılıyor mu (FEM Kitapçık 9 md. 9.4.2) */
   transferredToStructure: boolean;
   /** Hesap yapılabildi mi (tip "yok" ya da eğri verisi eksikse false) */
@@ -466,8 +486,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   set("buffer.catalogEnergyAtImpact", catalogEnergyAtImpactKj);
   set("buffer.catalogForceAtImpact", catalogForceAtImpactKn);
   if (cellularCatalog) {
-    set("buffer.catalogEnergyCurveSpeed", cellularCatalog.energyCurveSpeedMps);
-    set("buffer.catalogForceCurveSpeed", cellularCatalog.forceCurveSpeedMps);
+    set("buffer.catalogCurveSpeed", cellularCatalog.curveSpeedMps);
+    set("buffer.catalogLowerCurveSpeed", cellularCatalog.lowerCurveSpeedMps);
+    set("buffer.catalogUpperCurveSpeed", cellularCatalog.upperCurveSpeedMps);
   }
 
   // 1) Çarpma (kinetik) enerjisi. t · (m/s)² = kJ — birim dönüşümü gerekmez.
@@ -557,8 +578,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
         maxDecelerationMps2: 0,
         catalogEnergyAtImpactKj: 0,
         catalogForceAtImpactKn: 0,
-        catalogEnergyCurveSpeedMps: undefined,
-        catalogForceCurveSpeedMps: undefined,
+        catalogCurveSpeedMps: undefined,
+        catalogLowerCurveSpeedMps: undefined,
+        catalogUpperCurveSpeedMps: undefined,
         transferredToStructure: false,
         computed: false,
       },
@@ -643,24 +665,17 @@ export function computeBuffer(inp: BufferInput): BufferResult {
   set("buffer.reactionForce", reactionForceKn);
   set("buffer.compression", compressionPct);
 
-  // 4) Yavaşlama (FEM 1.001 md. 7.7.1.2)
+  // 4) Yavaşlama
   //
   // ORTALAMA yavaşlama saf kinematiktir: kütle v_ç hızından f′ yolunda durur.
-  // AZAMİ yavaşlama, tamponun TEPE KUVVETİNDEN çıkar. `reactionForceKn`,
-  // tamponun yapıya aktardığı gerçek direnç kuvvetidir. Tahrik kuvveti F₀
-  // hareket yönünde kaldığından net yavaşlatan kuvvet F_tampon − F₀'dır.
-  // F₀, enerji denklemine zaten ek iş olarak girmiştir; burada bir kez daha
-  // net kuvvetten düşülmesi gerekir. Önceki uygulama F₀'ı hem katalog
-  // kuvvetine ekliyor hem de ivme hesabında düşmüyordu; özellikle araba
-  // tamponunda yavaşlama gereğinden büyük çıkıyordu.
+  // AZAMİ yavaşlama, KAT0170/0180 s.7'de verilen şekilde tamponun o
+  // sıkışmadaki tepki kuvvetinden çıkar: a_maks = F_t / m_t. Tahrik kuvveti
+  // ayrıca çıkarılmaz; F₀ etkisi E_a = E_kin + F₀·f′ denkleminde sıkışma ve
+  // dolayısıyla katalogdan okunan F_t üzerinde zaten hesaba katılmıştır.
   const strokeUsedM = strokeUsedMm / 1000;
   const avgDecel = strokeUsedM > 0 ? impactSpeedMps ** 2 / (2 * strokeUsedM) : 0;
   const massPerBufferKg = massPerBufferT * 1000;
-  const netDeceleratingForceN = Math.max(
-    0,
-    reactionForceKn * 1000 - driveForcePerBufferN
-  );
-  const maxDecel = massPerBufferKg > 0 ? netDeceleratingForceN / massPerBufferKg : 0;
+  const maxDecel = massPerBufferKg > 0 ? (reactionForceKn * 1000) / massPerBufferKg : 0;
   set("buffer.avgDeceleration", avgDecel);
   set("buffer.maxDeceleration", maxDecel);
 
@@ -704,23 +719,37 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       kind: "uretici",
       severity: "engelleyici",
     });
-    checks.push({
-      id: id("buffer.deceleration"),
-      // KAT0170 / KAT0180 seçim yöntemi, izin verilen azami yavaşlamayı
-      // tamponun son kuvvetinden okunan TEPE değerle karşılaştırır:
-      // a_maks = (F_t − F₀) / m_t. Kinematik ortalama a_ort raporda ayrıca
-      // gösterilir; fakat katalog seçiminin yerine geçen bir tepe değer değildir.
-      label: "Tampon Tepe Yavaşlaması a_maks",
-      required: maxDecel,
-      provided: decelLimit,
-      unit: "m/s²",
-      op: ">=",
-      computedSide: "required",
-      pass: decelLimit >= maxDecel,
-      standard: "FEM 1.001 7.7.1.2",
-      kind: "standart",
-      severity: "engelleyici",
-    });
+    checks.push(
+      inp.decelerationLimitApplies === true
+        ? {
+            id: id("buffer.deceleration"),
+            label: "Tampon Tepe Yavaşlaması a_maks (Operatör Kabini)",
+            required: maxDecel,
+            provided: decelLimit,
+            unit: "m/s²",
+            op: ">=",
+            computedSide: "required",
+            pass: decelLimit >= maxDecel,
+            standard: "FEM 1.001 7.7.1.2",
+            kind: "standart",
+            severity: "engelleyici",
+          }
+        : {
+            id: id("buffer.deceleration"),
+            label: "Tampon Tepe Yavaşlaması a_maks — Kabin Sınırı Bu Eksen İçin Uygulanmaz",
+            required: maxDecel,
+            provided: decelLimit,
+            unit: "m/s²",
+            op: ">=",
+            computedSide: "required",
+            // FEM 7.7.1.2 kabin içindeki insan ivmesini sınırlar. Araba ekseni
+            // veya kabinsiz köprü için sayı yapısal/tampon bilgisi olarak kalır.
+            pass: true,
+            standard: "FEM 1.001 7.7.1.2",
+            kind: "bilgi",
+            severity: "uyari",
+          }
+    );
   }
 
   if (curveDriven && computed && pos(inp.maxCompressionPct) > 0) {
@@ -782,8 +811,9 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       maxDecelerationMps2: maxDecel,
       catalogEnergyAtImpactKj,
       catalogForceAtImpactKn,
-      catalogEnergyCurveSpeedMps: cellularCatalog?.energyCurveSpeedMps,
-      catalogForceCurveSpeedMps: cellularCatalog?.forceCurveSpeedMps,
+      catalogCurveSpeedMps: cellularCatalog?.curveSpeedMps,
+      catalogLowerCurveSpeedMps: cellularCatalog?.lowerCurveSpeedMps,
+      catalogUpperCurveSpeedMps: cellularCatalog?.upperCurveSpeedMps,
       transferredToStructure: transferred,
       computed,
     },

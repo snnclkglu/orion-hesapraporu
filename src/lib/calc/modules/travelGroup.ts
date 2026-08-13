@@ -156,9 +156,9 @@ export interface TravelInputs {
   wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
   bufferApproachM: number;      // tampon hesabında araba yanaşması [m] (sadece köprü)
   /**
-   * Çarpışmada AYNI ANDA temas eden tampon adedi. Araba iki kirişin ucundaki
-   * iki durdurucuya, köprü de iki rayın ucundaki iki durdurucuya çarpar →
-   * varsayılan 2. Çarpışan kütle bu adede paylaştırılır.
+   * Kurulu tampon adedi. Varsayılan 2: tek çarpma yönünde iki tampon aynı anda
+   * çalışır. 4, iki çarpma yönünde ikişer tampon kurulu olduğunu belirtir;
+   * tek çarpmada yalnız o yöndeki iki tampon aktiftir.
    */
   bufferCount?: number;
   /**
@@ -344,6 +344,10 @@ export interface TravelValues {
   wheelCouplingSafety: number;
   // Tampon
   bufferType: BufferType;
+  /** Kurulu toplam tampon adedi (1 / 2 / 4). */
+  bufferInstalledCount: number;
+  /** Bu çarpmada aynı anda çalışan tampon adedi. */
+  bufferActiveCount: number;
   /** Tampon başına çarpışan kütle [t] */
   collisionLoadT: number;
   /** Çarpma hızı oranı k (v_ç = v/60 · k) */
@@ -367,10 +371,12 @@ export interface TravelValues {
   bufferCatalogEnergyAtImpactKj: number;
   /** Çarpma hızındaki hücresel katalog son kuvveti [kN] */
   bufferCatalogForceAtImpactKn: number;
-  /** Enerji için kullanılan hücresel katalog eğrisi [m/s] */
-  bufferCatalogEnergyCurveSpeedMps?: number;
-  /** Kuvvet için kullanılan hücresel katalog eğrisi [m/s] */
-  bufferCatalogForceCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki çalışma hızı [m/s]. */
+  bufferCatalogCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki alt katalog eğrisi [m/s]. */
+  bufferCatalogLowerCurveSpeedMps?: number;
+  /** Hücresel ara hız hesabındaki üst katalog eğrisi [m/s]. */
+  bufferCatalogUpperCurveSpeedMps?: number;
   /** SIBRE SP için hesaplanan kütle sınıfından otomatik seçilen iğne kodu. */
   bufferMeteringPinCode: string;
   /** Otomatik iğne sınıfının katalogdaki tasarım kütlesi üst sınırı [t]. */
@@ -449,6 +455,24 @@ export interface TravelSpecView {
 const posOr = (v: number | undefined, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fallback;
 
+/**
+ * KAT0170 s.6'daki yerleşim mantığı için tek çarpmada yük alan tampon sayısı.
+ * Dört tamponlu uygulamada iki adet her iki hareket yönünün karşılıklı
+ * durdurucularındadır; tek çarpma anında yalnız bir taraftaki ikili çalışır.
+ */
+export function activeBufferCountForImpact(installedCount: number | undefined): number {
+  const count = Math.round(posOr(installedCount, 2));
+  if (count >= 4) return 2;
+  return count === 2 ? 2 : 1;
+}
+
+/** Kullanıcı arayüzünün desteklediği kurulu tampon seçeneklerini tekilleştirir. */
+function installedBufferCountOr(value: number | undefined): 1 | 2 | 4 {
+  const count = Math.round(posOr(value, 2));
+  if (count >= 4) return 4;
+  return count === 1 ? 1 : 2;
+}
+
 /** Geçerli bir tampon tipi mi (eski revizyonlarda alan hiç bulunmaz). */
 function bufferTypeOr(v: BufferType | undefined, fallback: BufferType): BufferType {
   // Eski revizyonlardaki hücresel üst seçimi yeni arayüzdeki Kauçuk/Elastomer
@@ -510,7 +534,8 @@ export function travelBufferCalculationType(
   selections: Pick<TravelSelections, "bufferCatalogType"> | undefined
 ): BufferType {
   const family = travelBufferType(specs, which);
-  return family === "kaucuk" && selections?.bufferCatalogType === "hücresel"
+  return family === "kaucuk" &&
+    selections?.bufferCatalogType?.toLocaleLowerCase("tr-TR") === "hücresel"
     ? "hucresel"
     : family;
 }
@@ -974,25 +999,27 @@ export function computeTravelGroup(
   // ÇARPIŞAN KÜTLE (FEM 1.001 md. 2.2.3.4.1 / CMAA 70 md. 3.3.2.1.3.2):
   // yük SALINABİLİYORSA hariçtir; RİJİT KILAVUZLUYSA kapasite + kanca donanımı
   // eklenir. Aşağıdaki iki bağıntı da BİR TAMPONA gelen kütleyi verir:
-  //   · Araba simetriktir → toplam kütle tampon adedine bölünür.
+  //   · Araba simetriktir → toplam kütle aktif tampon adedine bölünür.
   //   · Köprüde araba eksantriktir → yakın raya düşen pay (köprü/2 + araba·
   //     (L−y)/L) o raydaki tamponlara (n/2 adet) bölünür.
   // İkinci bir "n'e bölme" YAPILMAZ; köprü bağıntısındaki /2 zaten iki paralel
   // tamponun payıdır (çift sayma olurdu).
-  const bufferCount = Math.max(1, Math.round(posOr(inp.bufferCount, 2)));
-  set("buffer.count", bufferCount);
+  const installedBufferCount = installedBufferCountOr(inp.bufferCount);
+  const activeBufferCount = activeBufferCountForImpact(installedBufferCount);
+  set("buffer.count", installedBufferCount);
+  set("buffer.activeCount", activeBufferCount);
   const rigidLoad = inp.bufferLoadRigidlyGuided === TRAVEL_YES;
   const rigidExtraT = rigidLoad ? capacityT + deps.hookEquipmentT : 0;
   set("buffer.rigidGuidedLoad", rigidLoad ? 1 : 0);
 
   let massPerBufferT: number;
   if (isTrolley) {
-    massPerBufferT = (trolleyWeightT + rigidExtraT) / bufferCount;
+    massPerBufferT = (trolleyWeightT + rigidExtraT) / activeBufferCount;
   } else {
     const nearRailShareT =
       bridgeWeightT / 2 +
       ((trolleyWeightT + rigidExtraT) * (specs.spanM - inp.bufferApproachM)) / specs.spanM;
-    massPerBufferT = nearRailShareT / Math.max(1, bufferCount / 2);
+    massPerBufferT = nearRailShareT / Math.max(1, activeBufferCount / 2);
   }
 
   // Tampon sıkışırken tahrik itmeye devam eder: arabada motor başına GEREKLİ
@@ -1021,7 +1048,7 @@ export function computeTravelGroup(
     nominalSpeedMpm: actualSpeed,
     impactSpeedRatio: view.bufferImpactSpeedRatio,
     massPerBufferT,
-    bufferCount,
+    bufferCount: activeBufferCount,
     drivePowerTotalKw: bufferPowerKw * sel.motorCount,
     strokeMm: sel.bufferStrokeMm,
     catalogEnergyKj: sel.bufferEnergyKj,
@@ -1034,6 +1061,7 @@ export function computeTravelGroup(
       : undefined,
     maxCompressionPct: sel.bufferMaxCompressionPct ?? 0,
     frequentEndApproach: inp.bufferFrequentEndApproach === TRAVEL_YES,
+    decelerationLimitApplies: which === "bridge" && specs.hasOperatorCabin === "yes",
   });
   for (const [key, value] of Object.entries(bufferResult.cells)) set(key, value);
   checks.push(...bufferResult.checks);
@@ -1152,6 +1180,8 @@ export function computeTravelGroup(
     requiredWheelCouplingTorqueNm: requiredWheelCouplingTorque,
     wheelCouplingSafety,
     bufferType: bv.type,
+    bufferInstalledCount: installedBufferCount,
+    bufferActiveCount: activeBufferCount,
     collisionLoadT: bv.massPerBufferT,
     bufferImpactSpeedRatio: view.bufferImpactSpeedRatio,
     bufferImpactSpeedMps: bv.impactSpeedMps,
@@ -1168,8 +1198,9 @@ export function computeTravelGroup(
     bufferMaxDecelerationMps2: bv.maxDecelerationMps2,
     bufferCatalogEnergyAtImpactKj: bv.catalogEnergyAtImpactKj,
     bufferCatalogForceAtImpactKn: bv.catalogForceAtImpactKn,
-    bufferCatalogEnergyCurveSpeedMps: bv.catalogEnergyCurveSpeedMps,
-    bufferCatalogForceCurveSpeedMps: bv.catalogForceCurveSpeedMps,
+    bufferCatalogCurveSpeedMps: bv.catalogCurveSpeedMps,
+    bufferCatalogLowerCurveSpeedMps: bv.catalogLowerCurveSpeedMps,
+    bufferCatalogUpperCurveSpeedMps: bv.catalogUpperCurveSpeedMps,
     bufferMeteringPinCode: meteringPinCode,
     bufferDesignMassMaxT: meteringPinMassMaxT,
     bufferTransferredToStructure: bv.transferredToStructure,

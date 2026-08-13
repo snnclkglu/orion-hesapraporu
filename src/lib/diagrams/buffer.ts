@@ -37,10 +37,12 @@ export interface BufferDiagramParams {
   reactionForceKn: number;
   /** Katalog azami son kuvveti [kN] */
   catalogMaxForceKn: number;
-  /** Hücreselde kapasite için kullanılan düşük hız katalog eğrisi [m/s] */
-  catalogEnergyCurveSpeedMps?: number;
-  /** Hücreselde kuvvet için kullanılan yüksek hız katalog eğrisi [m/s] */
-  catalogForceCurveSpeedMps?: number;
+  /** Hücreselde hesaplanan çalışma hızı [m/s]. */
+  catalogCurveSpeedMps?: number;
+  /** Ara hız hesabındaki alt katalog eğrisi [m/s]. */
+  catalogLowerCurveSpeedMps?: number;
+  /** Ara hız hesabındaki üst katalog eğrisi [m/s]. */
+  catalogUpperCurveSpeedMps?: number;
   /** Kauçuk: enerji–sıkışma eğrisi [[%, J], …] */
   energyCurve?: readonly (readonly [number, number])[];
   /** Kauçuk: kuvvet–sıkışma eğrisi [[%, kN], …] */
@@ -96,7 +98,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       16, 34,
       curveDriven
         ? cellular
-          ? `${p.model ?? "—"} · KAT0180: enerji ${fmtN(finite(p.catalogEnergyCurveSpeedMps), 3)} m/s, kuvvet ${fmtN(finite(p.catalogForceCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
+          ? `${p.model ?? "—"} · KAT0180: ${fmtN(finite(p.catalogLowerCurveSpeedMps), 3)}–${fmtN(finite(p.catalogUpperCurveSpeedMps), 3)} m/s eğrilerinden vç=${fmtN(finite(p.catalogCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
           : `${p.model ?? "—"} · katalog yük diyagramından enterpolasyon · s = ${fmtN(height)} mm`
         : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
