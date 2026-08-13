@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import { trKatla } from "@/lib/drawings/tr-text";
@@ -144,6 +145,38 @@ export function PriceArchive({
     });
   }, [kalemler, q, kategoriler, tedarikciler, kaynaklar]);
 
+  /**
+   * SAYFALAMA — SÜZGEÇTEN SONRA (kullanıcı bildirimi, 13.08.2026: *"Fiyat
+   * arşivinde çok satır olduğu için sanırım kasma yapıyor … 100'erli sayfalara
+   * ayıralım. Ama arama ve filtreyi TÜM SAYFALAR için yapsın."*).
+   *
+   * SIRA ÖNEMLİ ve tam olarak kullanıcının söylediği gibi: önce bütün arşiv
+   * süzülür, SONRA görünen dilim kesilir. Ters sırada çalışan bir sayfalama
+   * (önce 100 satır al, sonra içinde ara) aramayı "bu sayfada ara"ya
+   * indirgerdi ve arşivin var oluş sebebini bitirirdi.
+   *
+   * KASMANIN SEBEBİ SATIR SAYISI DEĞİL DOM: 1675 kalem × açılır ayrıntı
+   * tablosu, tarayıcının tek seferde çizemeyeceği bir ağaç. Dilim yalnız
+   * ÇİZİMİ sınırlar; süzgeç ve sayaçlar hep tam veri üzerinde çalışır.
+   */
+  const SAYFA_BOYU = 100;
+  const [sayfa, setSayfa] = useState(1);
+  const sayfaSayisi = Math.max(1, Math.ceil(gorunen.length / SAYFA_BOYU));
+  // Süzgeç daraldığında elde olmayan bir sayfada kalınmaz.
+  const gecerliSayfa = Math.min(sayfa, sayfaSayisi);
+  const dilim = useMemo(
+    () => gorunen.slice((gecerliSayfa - 1) * SAYFA_BOYU, gecerliSayfa * SAYFA_BOYU),
+    [gorunen, gecerliSayfa]
+  );
+
+  /** Süzgeç değişince ilk sayfaya dönülür — olay içinde, efektte değil. */
+  function suzgecDegisti<T>(ayarla: (v: T) => void) {
+    return (v: T) => {
+      ayarla(v);
+      setSayfa(1);
+    };
+  }
+
   /** Devralınan satırı siler. Teklif/sipariş BURADAN silinmez — kendi yolları var. */
   function sil(olay: FiyatOlayi) {
     if (!isAdmin || olay.tur !== "gecmis") return;
@@ -171,11 +204,12 @@ ${olay.supplier} · ${olay.gun}`)) return;
           setKategoriler([]);
           setTedarikciler([]);
           setKaynaklar([]);
+          setSayfa(1);
         }}
       >
         <SearchBox
           value={q}
-          onChange={setQ}
+          onChange={suzgecDegisti(setQ)}
           placeholder="Ürün, Tedarikçi Ara… (ör. rulman 6205)"
           className="w-[min(24rem,calc(100vw-4rem))]"
         />
@@ -186,19 +220,19 @@ ${olay.supplier} · ${olay.gun}`)) return;
           baslik="Kategori"
           secenekler={secenekler.kategoriler}
           secili={kategoriler}
-          onChange={setKategoriler}
+          onChange={suzgecDegisti(setKategoriler)}
         />
         <CokluSuzgec
           baslik="Tedarikçi"
           secenekler={secenekler.tedarikciler}
           secili={tedarikciler}
-          onChange={setTedarikciler}
+          onChange={suzgecDegisti(setTedarikciler)}
         />
         <CokluSuzgec
           baslik="Kaynak"
           secenekler={secenekler.kaynaklar}
           secili={kaynaklar}
-          onChange={setKaynaklar}
+          onChange={suzgecDegisti(setKaynaklar)}
         />
       </FilterBar>
 
@@ -225,7 +259,7 @@ ${olay.supplier} · ${olay.gun}`)) return;
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gorunen.map((k) => {
+              {dilim.map((k) => {
                 const o = ozet(k);
                 const genis = acik.has(k.key);
                 return (
@@ -394,6 +428,61 @@ ${olay.supplier} · ${olay.gun}`)) return;
               })}
             </TableBody>
           </Table>
+
+          {/* SAYFA ŞERİDİ — YALNIZ GEREKİNCE. Tek sayfalık bir listede
+              "1/1" yazmak, kullanıcıya olmayan bir karmaşıklık gösterirdi. */}
+          {sayfaSayisi > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {formatNum((gecerliSayfa - 1) * SAYFA_BOYU + 1)}–
+                {formatNum(Math.min(gecerliSayfa * SAYFA_BOYU, gorunen.length))} /{" "}
+                {formatNum(gorunen.length)} kalem
+              </span>
+              <span className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={gecerliSayfa <= 1}
+                  onClick={() => setSayfa(1)}
+                  title="İlk sayfa"
+                >
+                  «
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={gecerliSayfa <= 1}
+                  onClick={() => setSayfa(gecerliSayfa - 1)}
+                >
+                  Önceki
+                </Button>
+                <span className="px-2 font-mono text-[12px] tabular-nums">
+                  {formatNum(gecerliSayfa)} / {formatNum(sayfaSayisi)}
+                </span>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={gecerliSayfa >= sayfaSayisi}
+                  onClick={() => setSayfa(gecerliSayfa + 1)}
+                >
+                  Sonraki
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={gecerliSayfa >= sayfaSayisi}
+                  onClick={() => setSayfa(sayfaSayisi)}
+                  title="Son sayfa"
+                >
+                  »
+                </Button>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

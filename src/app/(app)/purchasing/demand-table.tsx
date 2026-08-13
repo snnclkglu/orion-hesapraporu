@@ -108,21 +108,32 @@ const DURUM_ETIKET: Record<Durum, string> = {
 };
 
 /**
- * SÜTUN ZEMİNİ DURUM ÇİPİNİN RENGİNİ TEKRAR EDER (kullanıcı kararı,
- * 13.08.2026: "Teklif alınan sütun arka plan rengi değişsin, sipariş verilen
- * sütunun arka plan rengi değişsin").
+ * SATIR ZEMİNİ DURUMU SÖYLER — SÜTUN DEĞİL.
  *
- * Renk UYDURULMAZ, `DurumCipi`den alınır: teklif SKY, sipariş EMERALD.
- * Uydurulmuş üçüncü bir renk, aynı kavramı iki ayrı dille anlatırdı — bir
- * tabloda "yeşil ne demekti" sorusu sorulmaya başlandığı an renk bilgi
- * taşımayı bırakır. Ton çok siliktir (%6): sütunu AYIRIR, satırı boyamaz;
- * seçili satırın kendi zemini (`bg-primary/[0.05]`) üstte kalmalıdır.
+ * İlk denemede Teklif ve Sipariş SÜTUNLARI boyanmıştı; kullanıcı düzeltti
+ * (13.08.2026): *"Sipariş edildi ve teklif alındı sütunlarını değil
+ * SATIRLARINI farklı renge boyamak istemiştim. Örneğin teklif alınan bir
+ * ürünün satırı farklı arka plan olsun, kolay ayırt edilebilsin. Sütun olarak
+ * renklendirmeye gerek yok."*
  *
- * Başlık ve hücre AYNI sabiti okur; ikisi ayrı yazılsaydı bir sütun eklendiğinde
- * biri kayar ve zemin yanlış sütunu boyardı.
+ * Haklı ve sebebi tarama biçiminde: satınalmacı listeyi SATIR SATIR tarıyor,
+ * "bu kalemin durumu ne" diye. Boyalı bir sütun o soruya cevap vermiyordu —
+ * yalnız sütunun kendisini işaretliyordu, oysa aranan şey SATIRIN hâliydi.
+ *
+ * Renk UYDURULMAZ, `DurumCipi`den alınır: teklifli SKY, kısmi AMBER, sipariş
+ * edildi EMERALD, bekleyen RENKSİZ. "Bekliyor" boyanmaz çünkü o bir kusur
+ * değil başlangıç hâlidir ve her satırı boyamak hiçbir satırı boyamamakla
+ * aynı şeydir.
+ *
+ * TON ÇOK SİLİK (%4–5): satırı AYIRIR, okunurluğu bozmaz. Seçili satırın
+ * kendi zemini üstte kalır — seçim bir EYLEM hâlidir ve durumdan önce gelir.
  */
-const SIPARIS_SUTUNU = "bg-emerald-600/[0.06]";
-const TEKLIF_SUTUNU = "bg-sky-600/[0.06]";
+const DURUM_SATIRI: Record<Durum, string> = {
+  bekliyor: "",
+  teklifli: "bg-sky-600/[0.05] hover:bg-sky-600/[0.08]",
+  kismi: "bg-amber-500/[0.05] hover:bg-amber-500/[0.08]",
+  tamam: "bg-emerald-600/[0.05] hover:bg-emerald-600/[0.08]",
+};
 
 interface Filtreler {
   query: string;
@@ -494,7 +505,7 @@ export function DemandTable({
                 >
                   Miktar
                 </SortableHead>
-                <TableHead className={`text-right ${SIPARIS_SUTUNU}`}>Sipariş</TableHead>
+                <TableHead className="text-right">Sipariş</TableHead>
                 <SortableHead
                   sortKey="kalan"
                   current={sortKey}
@@ -514,13 +525,7 @@ export function DemandTable({
                 >
                   Ağırlık
                 </SortableHead>
-                <SortableHead
-                  sortKey="teklif"
-                  current={sortKey}
-                  desc={desc}
-                  onSort={sirala}
-                  className={TEKLIF_SUTUNU}
-                >
+                <SortableHead sortKey="teklif" current={sortKey} desc={desc} onSort={sirala}>
                   Teklif
                 </SortableHead>
                 <TableHead className="hidden lg:table-cell">Not</TableHead>
@@ -692,7 +697,14 @@ function Satir({
 
   return (
     <>
-      <TableRow className={secili ? "bg-primary/[0.05]" : undefined}>
+      <TableRow
+        className={
+          // SEÇİM DURUMDAN ÖNCE GELİR: seçili satır bir eylemin içindedir ve
+          // onu durum rengiyle boyamak "hangi satırları seçtim" sorusunu
+          // cevapsız bırakırdı.
+          secili ? "bg-primary/[0.05] hover:bg-primary/[0.08]" : DURUM_SATIRI[g.durum] || undefined
+        }
+      >
         {canWrite && (
           <TableCell className="p-0 align-top">
             <SecimKutusu checked={secili} onChange={onSec} label={`${s.tanim} kalemini seç`} />
@@ -784,9 +796,7 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell
-          className={`align-top text-right font-mono text-sm tabular-nums text-muted-foreground ${SIPARIS_SUTUNU}`}
-        >
+        <TableCell className="align-top text-right font-mono text-sm tabular-nums text-muted-foreground">
           {g.siparisEdilen > 0 ? formatNum(g.siparisEdilen) : "—"}
         </TableCell>
 
@@ -802,7 +812,7 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className={`align-top ${TEKLIF_SUTUNU}`}>
+        <TableCell className="align-top">
           <button
             type="button"
             onClick={onTeklif}

@@ -24,6 +24,14 @@ import { toast } from "sonner";
 import { BarChart3, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { OdemeTarihi } from "@/components/odeme-tarihi";
 import {
   Table,
@@ -529,8 +537,14 @@ function HalCipleri({
     );
   }
 
+  // DÖRT DENETİM YAN YANA (kullanıcı bildirimi, 13.08.2026: *"Siparişler
+  // sayfasında satır çok yer kaplıyor … Bakiye ödendi ve İptal et tuşu
+  // Teslim'in yanına alınsın"*). Alt alta dizildiklerinde tek bir sipariş
+  // satırı dört satır boyu yer kaplıyordu ve on siparişlik bir liste ekrana
+  // sığmıyordu. `flex-wrap` dar ekranda yine alt alta iner — md. 12'nin
+  // "eylemler küçülemeyen bir kutu olmaz" kuralı.
   return (
-    <span className="flex flex-col items-start gap-1">
+    <span className="flex flex-wrap items-center gap-1">
       {s.receivedAt ? (
         <Cip
           renk="yesil"
@@ -614,16 +628,7 @@ function HalCipleri({
       )}
 
       {canWrite && !s.receivedAt && (
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm("Sipariş iptal edilsin mi? Kayıt silinmez, takvimlerden düşer."))
-              onYaz(s.id, { cancelledAt: bugun }, "Sipariş iptal edildi.");
-          }}
-          className="text-[11px] text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
-        >
-          İptal et
-        </button>
+        <IptalOnayi s={s} onIptal={() => onYaz(s.id, { cancelledAt: bugun }, "Sipariş iptal edildi.")} />
       )}
     </span>
   );
@@ -676,5 +681,83 @@ function Ozet({ baslik, deger }: { baslik: string; deger: string }) {
       <span className="oc-kicker block text-muted-foreground">{baslik}</span>
       <span className="block font-mono text-lg tabular-nums">{deger}</span>
     </div>
+  );
+}
+
+/**
+ * İPTAL ONAYI — `window.confirm` DEĞİL.
+ *
+ * Kullanıcı kararı (13.08.2026): *"İptal Et tuşuna basıldığında pop-up açılsın,
+ * oradan soru sorulsun 'emin misin' gibi."* Tarayıcının kendi kutusu üç şeyi
+ * birden yapamıyordu: uygulamanın dilinde konuşmak, NEYİN iptal edildiğini
+ * (firma, tutar, kalem sayısı) göstermek ve ne olacağını yazmak.
+ *
+ * PENCERE KARARI YAVAŞLATIR ama ZORLAŞTIRMAZ: silme onayındaki gibi bir
+ * sözcük yazdırmaz (md. 18) — iptal GERİ ALINABİLİR bir işarettir, kayıt
+ * silinmez ve yanlışlıkla basılırsa aynı yerden geri alınır.
+ */
+function IptalOnayi({ s, onIptal }: { s: Siparis; onIptal: () => void }) {
+  const [acik, setAcik] = useState(false);
+  const toplam = toplamOf(s);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAcik(true)}
+        className="oc-tap min-h-7 px-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+      >
+        İptal et
+      </button>
+
+      <Dialog open={acik} onOpenChange={setAcik}>
+        <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Sipariş iptal edilsin mi?</DialogTitle>
+            <DialogDescription className="text-[12px]">
+              Kayıt SİLİNMEZ; sipariş iptal işareti alır, teslim ve ödeme
+              takvimlerinden düşer ve kalemleri talep havuzuna geri döner.
+            </DialogDescription>
+          </DialogHeader>
+
+          <dl className="grid gap-1 border bg-muted/30 p-3 text-[12px]">
+            <span className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Tedarikçi</dt>
+              <dd className="font-medium">{s.supplier}</dd>
+            </span>
+            {s.orderNo && (
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Sipariş no</dt>
+                <dd className="font-mono">{s.orderNo}</dd>
+              </span>
+            )}
+            <span className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Kalem</dt>
+              <dd className="font-mono tabular-nums">{formatNum(s.satirlar.length)}</dd>
+            </span>
+            <span className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Tutar</dt>
+              <dd className="font-mono tabular-nums">{fmtMoney(toplam, s.currency)}</dd>
+            </span>
+          </dl>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setAcik(false)}>
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                onIptal();
+                setAcik(false);
+              }}
+            >
+              Siparişi iptal et
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

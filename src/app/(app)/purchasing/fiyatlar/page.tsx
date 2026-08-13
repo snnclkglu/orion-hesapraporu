@@ -112,7 +112,15 @@ export default async function PricesPage() {
   // Olaylar TARİHE göre yeniden eskiye: son fiyat en üstte, referans odur.
   const liste = [...kalemler.values()];
   for (const k of liste) k.olaylar.sort((a, b) => b.gun.localeCompare(a.gun));
-  liste.sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
+  // SIRALAMA TARİHE GÖRE YENİDEN ESKİYE (kullanıcı kararı, 13.08.2026).
+  // Alfabetik sıra arşivin sorusuna cevap vermiyordu: "en son ne aldık"
+  // sorusunun cevabı listenin BAŞINDA olmalı. Olaylar zaten yeniden eskiye
+  // sıralı, yani her kalemin ilk olayı onun EN SON hareketidir.
+  liste.sort((a, b) => {
+    const ax = a.olaylar[0]?.gun ?? "";
+    const bx = b.olaylar[0]?.gun ?? "";
+    return bx.localeCompare(ax) || a.tanim.localeCompare(b.tanim, "tr");
+  });
 
   return <PriceArchive kalemler={liste} isAdmin={isAdminRole(profil?.role)} />;
 }

@@ -341,8 +341,80 @@ export async function updateOrder(input: UpdateOrderInput): Promise<PurchasingAc
 
   const { error } = await ctx.supabase.from("purchase_orders").update(yuk).eq("id", id);
   if (error) return { error: error.message };
+
+  // İPTAL EDİLEN SİPARİŞ TALEP HAVUZUNA GERİ DÜŞER — İŞARETİYLE BİRLİKTE.
+  //
+  // Kullanıcı bildirimi (13.08.2026): *"Siparişler sayfasında siparişi iptal
+  // ettiğimde talep havuzuna geri düşsün istiyorum."* Havuzun ADEDİ zaten
+  // düşüyordu (`loadSiparisler` iptalleri hiç okumaz) ama paketin Satın Alma
+  // sekmesindeki `satinalindi` İŞARETİ kalıyordu: canlı veride ölçüldü,
+  // iptal edilmiş üç sipariş satırının üçü de hâlâ işaretliydi. Atölye ve
+  // mühendis o ekrana bakıyor ve "ısmarlandı" görüyordu — oysa sipariş yok.
+  //
+  // İŞARET YALNIZ BAŞKA CANLI SİPARİŞ YOKSA KALDIRILIR. Aynı kalem iki ayrı
+  // siparişte geçebilir; birini iptal etmek diğerinin kaydını silmemelidir.
+  if (yuk.cancelled_at) {
+    await siparisIsaretleriniKaldir(ctx.supabase, id);
+  }
+
   tazele();
   return { ok: 1 };
+}
+
+/**
+ * Bir siparişin yazdığı `satinalindi` işaretlerini geri alır.
+ *
+ * TESLİM ALINDI İŞARETİNE DOKUNULMAZ: o, malın fiziksel olarak geldiğini
+ * söyler ve siparişin iptali onu yalanlamaz — gelmiş bir malı "gelmedi"
+ * yapmak, atölyenin elindeki gerçeği silmek olurdu.
+ *
+ * SESSİZ BAŞARISIZLIK KABUL: işaret silinemezse sipariş yine iptal olur.
+ * İptali bir yan kayıt yüzünden düşürmek, kullanıcıyı iptal edemez hâle
+ * getirirdi.
+ */
+async function siparisIsaretleriniKaldir(
+  supabase: Ctx["supabase"],
+  orderId: string
+): Promise<void> {
+  const { data: satirlar } = await supabase
+    .from("purchase_order_lines")
+    .select("part_key, package_id")
+    .eq("order_id", orderId);
+  const anahtarlar = [
+    ...new Set(
+      ((satirlar ?? []) as { part_key: string }[]).map((r) => r.part_key).filter(Boolean)
+    ),
+  ];
+  if (anahtarlar.length === 0) return;
+
+  // Başka CANLI siparişte geçen anahtarlar korunur.
+  const { data: digerleri } = await supabase
+    .from("purchase_order_lines")
+    .select("part_key, purchase_orders!inner (cancelled_at)")
+    .in("part_key", anahtarlar)
+    .neq("order_id", orderId)
+    .is("purchase_orders.cancelled_at", null);
+  const korunan = new Set(
+    ((digerleri ?? []) as { part_key: string }[]).map((r) => r.part_key)
+  );
+
+  const silinecek = anahtarlar.filter((k) => !korunan.has(k));
+  if (silinecek.length === 0) return;
+
+  await supabase
+    .from("drawing_part_progress")
+    .delete()
+    .eq("stage", PURCHASE_STAGE_SLUG)
+    .in("part_code", silinecek);
+
+  const paketler = [
+    ...new Set(
+      ((satirlar ?? []) as { package_id: string | null }[])
+        .map((r) => r.package_id)
+        .filter((x): x is string => Boolean(x))
+    ),
+  ];
+  for (const p of paketler) revalidatePath(`/drawings/${p}/purchasing`);
 }
 
 /**
