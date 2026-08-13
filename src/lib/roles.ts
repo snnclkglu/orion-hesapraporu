@@ -277,6 +277,16 @@ export interface WorkspaceSection {
 }
 
 export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
+  // AÇILIŞ PANOSU LİSTENİN BAŞINDADIR ve adresi KÖKTÜR. Menüde ilk sırada
+  // durması bir düzen tercihi değil bir gerçektir: giriş sonrası açılan
+  // ekran odur ve "başa dön" bağlantısı da odur.
+  {
+    href: "/",
+    label: "Panel",
+    icon: "console",
+    hint: "Arama, dikkat isteyenler ve yaklaşan tarihler",
+    kime: "Herkes",
+  },
   {
     href: "/jobs",
     label: "İşler",

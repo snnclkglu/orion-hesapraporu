@@ -1035,6 +1035,72 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     yayın yapılmayan günün kuru YOKTUR, sıfır değildir · ortalamanın kaç
     günden çıktığı (`day_count`) bir künyedir, gizlenmez.
 
+23. **AÇILIŞ PANOSU GİRİŞ SONRASI İLK EKRANDIR** (`/`, kullanıcı kararı
+    13.08.2026: *"login sonrası açılış sayfası yapalım … diğer sayfalara
+    geçişin yapılacağı bir giriş sayfası gibi kurgulansın"*). Adres KÖKTÜR;
+    giriş bir yönlendirme zinciri (`/` → `/panel` → …) kurmaz — her oturumda
+    fazladan bir gidiş-dönüş eder ve geri tuşunu kırardı. Sayfa `(app)`
+    grubundadır, yani kabuğu ve yetki kapısını diğer bölümlerle paylaşır.
+
+    **ARAMA SAYFANIN KAHRAMANIDIR.** Panonun sorusu "nereye gideceğim" değil
+    "hangi işe bakacağım"dır ve cevap çoğu zaman bir NUMARADIR (`0057`,
+    `0043-00-1000`, `ASTOR`). Bu yüzden arama bir köşe büyüteci değil ilk ve en
+    büyük öğedir; `Ctrl/⌘ K` ile her yerden odaklanır ve KISAYOL EKRANDA YAZAR
+    (görünmeyen kısayol, olmayan kısayoldur). PENCERE DEĞİLDİR: korunmuş bir
+    odağa ihtiyacı yok ve pencere arkasındaki panoyu kapatırdı.
+
+    **EŞLEŞME `trKatla` İLEDİR, `toLowerCase` DEĞİL.** Adlar BÜYÜK HARFLE
+    saklanıyor (md. 14), kullanıcı küçük yazıyor ve düz küçültme Türkçe'nin
+    noktalı/noktasız i ayrımını çözemez — "isdemir" yazan biri "İSDEMİR"i
+    bulamazdı. Tarayıcıda ölçüldü: `isdemir` · `ISDEMIR` · `İSDEMİR` üçü de
+    aynı satırı buluyor. Sorgu boşluklardan bölünür ve HER PARÇA TEK BİR
+    SATIRDA geçmek zorundadır; bu yüzden kalem satırının ipucuna müşteri de
+    yazılır, yoksa "astor pergel" hiçbir şey bulmazdı (bu da ölçüldü).
+
+    **PARÇA DEFTERİ ARAMAYA GİRMEZ** ve bu bilinçli bir sınırdır: defter
+    istemciye bütün olarak gider (süzme orada yapılır, her tuşta Frankfurt'a
+    gidilmez) ve bugün üç pakette 490 parça var — yirmi pakette on binleri
+    bulur, taşınamaz olurdu. Parçanın yerine ANA GRUP adları girer; atölyenin
+    aradığı zaten gruptur ve grup bulununca Parçalar ekranı bir tık uzaktadır.
+
+    **HİÇBİR SAYI UYDURULMAZ.** Sıfır sayan sinyal listeye GİRMEZ ("0 gecikme"
+    bir uyarı değil gürültüdür), okunamayan tablo panoyu DÜŞÜRMEZ (sayaç 0
+    olur), boş bölüm ne olduğunu yazar. **BİLDİRİM KUTUSU BİLEREK BOŞTUR**
+    (kullanıcı kararı): defter sonra gelecek, yeri şimdiden ayrıldı ve kutu
+    sahte bir akış yerine ne olduğunu söylüyor — uydurma bir "3 yeni bildirim",
+    panoya olan güveni ilk gün bitirirdi. Sinyaller bildirim DEĞİLDİR: okunmaz,
+    kapanmaz, birikmez; veriden türer ve sebebi kalkınca kendiliğinden gider.
+
+    **YETKİ İKİ KEZ SORULUR.** RLS zaten keser ama kesilmiş bir sorgu BOŞ döner
+    ve ekranda "0 gecikme" gibi görünürdü — yani yokluk iyi haber sanılırdı.
+    Sorgu rol sorusundan geçmeden hiç çalışmaz ve o bölüm panoda hiç çizilmez.
+    Bölüm listesi `WORKSPACE_SECTIONS`ten okunur (menüyle TEK KAYNAK) ve pano
+    KENDİNİ listeden düşer.
+
+    **BÖLÜMLER KART IZGARASI DEĞİL DEFTER SATIRIDIR.** Eşit boyda
+    ikon+başlık+açıklama kartları bir sayfa yapısı değil bir dolgudur: sekiz
+    kart aynı ağırlıkta bağırır ve göz nereye bakacağını bilemez. Satır teknik
+    resmin antet tablosu gibidir ve CANLI BİR SAYI taşır ("62 iş · 4 aktif") —
+    o sayı ekranı bir başlatıcıdan bir duruma çevirir.
+
+    **TAKVIM IZGARASI YOK, YAKLAŞAN ŞERİDİ VAR** (kullanıcı kararı): bugünkü
+    veri yoğunluğunda ayın günlerinin çoğu boş kalırdı ve boş bir ızgara dolu
+    bir listeden az şey söyler. Şerit GEÇMİŞ tarihleri de alır — "termini üç
+    gün önce geçmiş", "yarın termin var"dan aciltir — ama pencere dar tutulur
+    (±30 gün): altı ay önce kapanmamış bir kayıt hatırlatma değil arşiv
+    sorunudur. Gün adı YALNIZ BİR HAFTA İÇİNDE kullanılır; "Perşembe" iki hafta
+    sonrası için de doğrudur ama okuyan onu BU haftanınki sanar.
+
+    **BUGÜN İSTANBUL SAATİYLEDİR** (`bugunIstanbul`). Vercel UTC'de koşar ve
+    `new Date().toISOString()` Türkiye'de gece 00:00–03:00 arasında bir önceki
+    günü verir; gecikme kıyası, "Bugün" bandı ve otuz günlük pencere o saatlerde
+    bir gün kayardı.
+
+    Çekirdek saftır ve testlidir (`lib/panel.ts` — eşleşme, sıralama, gün adı,
+    bantlama, sinyal süzgeci); okuma katmanı `(app)/panel/data.ts`, görünüm
+    `panel-view.tsx`, arama `panel-search.tsx`. Görünüm veriden AYRIDIR çünkü
+    `/dev/panel-preview` onu auth'suz basar ve iki kopya zamanla ayrışırdı.
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -1105,6 +1171,34 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     kayıtta zorunlu tek alan MÜŞTERİ ADIDIR; defter Yönetim → Müşteriler'den
     düzenlenir ve silinir (`jobs.customer_id` `on delete set null`, iş emri
     silinmez).
+
+    **SEVK TARİHİ GİRİLİNCE İŞ KENDİLİĞİNDEN "TAMAMLANDI" OLUR** (kullanıcı
+    kararı, 13.08.2026). Kural saf çekirdektedir (`lib/job-status.ts`) ve iki
+    yarısı vardır:
+
+    - **HEPSİ, herhangi biri DEĞİL** (`allItemsShipped`): işin BÜTÜN
+      kalemlerinin sevk tarihi girilmiş olmalıdır. Fark yalnız çok kalemli
+      işlerde görünür (canlı defterde 62 işin 11'i; en büyüğü dokuz kalemli
+      "MUHTELİF VİNÇLER") ve orada ilk vincin sevki işi bitirmez. Kalemsiz iş
+      sevk edilmiş SAYILMAZ — `[].every` doğru döner ve kelepçe olmasaydı yeni
+      açılan her iş anında "Tamamlandı" olurdu.
+    - **YALNIZ VARSAYILAN DURUM DEĞİŞİR** (`autoCompletesOnShipment`): geçiş
+      sadece `active`ten yapılır. Kullanıcının istediği *"manuel müdahale"*
+      güvencesi budur ve AYRI BİR "elle ayarlandı" SÜTUNUNA GEREK BIRAKMAZ:
+      `active` sütunun varsayılanıdır ("kimse bir şey söylemedi"), Pasif ·
+      Tamamlandı · Arşiv ise üçü de bir insan kararıdır. Beklemeye alınmış bir
+      işi sevk tarihi yüzünden tamamlamak, kullanıcının az önce verdiği kararı
+      ezmek olurdu.
+
+    Etki `saveSale`tedir, TETİKLEYİCİDE DEĞİL: kural iki tablonun kesişiminden
+    okunur ve `jobs`a yazar, bunu SQL'de yapmak `security definer` bir yol
+    açmayı gerektirirdi. Bedeli yazılıdır — doğrudan SQL ile girilen bir sevk
+    tarihi durumu değiştirmez. Yalnız sevk tarihinin YENİ girildiği kaydetmede
+    çalışır: fiyat düzeltmek için açılan bir pencere, kullanıcının elle Aktif'e
+    çektiği bir işi yeniden tamamlamamalıdır. **SESSİZ DEĞİLDİR** — denetim
+    izine `job.status.auto` yazılır ve pencere ayrı bir bildirimle söyler;
+    başka bir sayfadaki bir kaydın sessizce değişmesi, kullanıcının onu bir
+    arıza olarak bildirmesinin en kısa yoludur.
 
     **İş durumu** `job_status` enum'udur (aktif · pasif · tamamlandı · arşiv);
     `projects.status` ile karıştırılmaz, etiket/renk `lib/job-status.ts`tedir.
@@ -1376,6 +1470,33 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     yanlış yapmaz — ikisi de listeye girseydi her revizyonda her kayıt
     işaretlenir ve işaret anlamını yitirirdi. **İşaret bir SORUDUR ve onu
     yalnız insan kapatır** (`setReviewMark`); devir işaret KOYAR, KALDIRMAZ.
+
+    **ATÖLYE TAHTASININ GRUP BAŞLIĞI GRUBU AÇMADAN TANITIR** (kullanıcı
+    isteği, 13.08.2026: *"0000 0/2 gibi yazan ana yerin yanına o projenin
+    ismini de yazalım … açmadan da görmek isterim, hem ismini hem adedini."*).
+    Başlık yalnız kodu gösteriyordu ve gruplar varsayılan olarak KAPALI
+    olduğundan foreman hangi grubu açacağını anlamak için tek tek açıp
+    kapatıyordu.
+
+    **AD YENİDEN ÇIKARILMAZ, DEFTERDEN OKUNUR** (`drawing_group_names`). Kural
+    `grupAdlariCikar`dadır ve eşleştirmede bir kez çalışır; burada ikinci bir
+    çıkarım yazmak, satın alma havuzunun gösterdiği adla atölye tahtasının
+    gösterdiği adın bir gün ayrışması demekti — üstelik defter elle düzeltmeyi
+    de taşır (`manual`) ve ekran onu görmezden gelemez. **ADI KODUN KENDİSİ
+    OLAN satır DÜŞÜRÜLÜR**: defter adı çözemediğinde kodu yazıyor ve başlıkta
+    aynı kodu iki kez basmak bilgi değil gürültüdür.
+
+    **ADET GRUBUN KENDİ DEFTER SATIRINDAN OKUNUR** (`groupOwnPart` — kodu alt
+    segment TAŞIMAYAN satır, `0043-00-1000`). O satır ürün ağacında montajın
+    kendisidir ve `qty`si "kaç takım imal edilecek" sorusunun cevabıdır. Satır
+    yoksa adet HİÇ BASILMAZ; alt parçalardan bir adet türetilmez — uydurulmuş
+    bir "1 ad", boş bir alandan çok daha pahalıdır. (İlk yazımda "ürün ağacı
+    olmayan MONORAY'da bu satır yoktur" diye bir varsayım vardı ve fikstür onu
+    ÇÜRÜTTÜ: sekiz grubun sekizinde de var.)
+
+    Ad ESNEK sütundur ve KIRPILIR (Satış Takibi'nde öğrenilen kural, dar ekran
+    md. 7): "ARABA GENEL GÖRÜNÜŞÜ" gibi bir başlık telefonda sayacı ve ilerleme
+    çubuğunu ekranın dışına iterdi.
 
     **SATIN ALMA İLE ÜRETİM AYRI EKRANLARDIR VE DEFTERİ ARTIKSIZ BÖLER.**
     Satın alınan kalemler (`kind = "satinalma"` ya da parça numarası olmayan
@@ -1888,6 +2009,12 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   çıkarımı ve gecikme; fiyat/tedarikçi taşımaz)
 - `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
   tanımı (saf, değişmez); ayrıca ana grup kodu ve grup adı çıkarımı
+- `src/lib/panel.ts` — AÇILIŞ PANOSU çekirdeği, **saf**: arama eşleşmesi
+  (`trKatla` ile Türkçe katlama), tür sırası, gün adı ve ±30 günlük bantlama,
+  sinyal süzgeci (sıfır sayan sinyal listeye girmez)
+- `src/app/(app)/page.tsx` + `panel/` — giriş sonrası açılış panosu (`/`):
+  `data.ts` rol bazlı okuma · `panel-view.tsx` görünüm (önizlemeyle ORTAK) ·
+  `panel-search.tsx` istemci araması (Ctrl/⌘ K)
 - `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
 - `src/lib/tags.ts` + `src/components/tags.tsx` — pastel etiket dili (müşteri
   kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`
@@ -1964,7 +2091,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
   Excel ve PDF ekipman ADINDAN buraya bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
-  development; production'da 404): kabuk, editör, işler, satış, ekipman listesi,
+  development; production'da 404): **açılış panosu** (`/dev/panel-preview` —
+  yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek
+  rolle sınamak, kesilen tarafı hiç görmemektir), kabuk, editör, işler, satış, ekipman listesi,
   **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
   **personel** (`/dev/personnel-preview` — altı ekranı üst üste basar; fikstür
   GERÇEK büyüklüklerdedir: 71.000 ₺'lik maaş ve 48.753,33 ₺'lik mesai tutarı

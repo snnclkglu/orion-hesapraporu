@@ -1,0 +1,194 @@
+"use client";
+
+// PANONUN KAHRAMANI ARAMADIR.
+//
+// Sayfanın sorusu "nereye gideceğim" değil "hangi işe bakacağım"dır ve cevabı
+// çoğu zaman bir NUMARADIR: 0057, 0043-00-1000, ASTOR. Bu yüzden arama bir
+// köşedeki büyüteç değil, sayfanın ilk ve en büyük öğesidir.
+//
+// PENCERE (modal) DEĞİL: aramanın korunmuş bir odağa ihtiyacı yok ve pencere,
+// arkasındaki panoyu kapatıp kullanıcıyı bir kararın içine hapsederdi. Sonuçlar
+// alanın hemen altında, sayfanın akışında açılır.
+//
+// SÜZME İSTEMCİDEDİR (defter sunucudan bütün olarak gelir): her tuş vuruşunda
+// Frankfurt'a gitmek aramayı yavaş yapardı ve kullanıcı yazarken bekleyemez.
+
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Search, CornerDownLeft } from "lucide-react";
+import { panelAra, PANEL_KIND_LABELS, type PanelHit } from "@/lib/panel";
+import { cn } from "@/lib/utils";
+
+export function PanelSearch({ hits }: { hits: PanelHit[] }) {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [aktif, setAktif] = useState(0);
+  const [odakli, setOdakli] = useState(false);
+  const girdiRef = useRef<HTMLInputElement>(null);
+  const listeId = useId();
+
+  const { gruplar, toplam } = useMemo(() => panelAra(hits, q), [hits, q]);
+  const duz = useMemo(() => gruplar.flatMap((g) => g.hits), [gruplar]);
+  const acik = q.trim().length >= 2;
+
+  // ⌘K / Ctrl+K — sayfanın her yerinden aramaya döner. Kısayol EKRANDA YAZAR
+  // (sağdaki rozet): görünmeyen bir kısayol, olmayan bir kısayoldur.
+  useEffect(() => {
+    function tus(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        girdiRef.current?.focus();
+        girdiRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", tus);
+    return () => window.removeEventListener("keydown", tus);
+  }, []);
+
+  function klavye(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Escape") {
+      setQ("");
+      girdiRef.current?.blur();
+      return;
+    }
+    if (!acik || duz.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAktif((i) => (i + 1) % duz.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAktif((i) => (i - 1 + duz.length) % duz.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const secilen = duz[aktif];
+      if (secilen) router.push(secilen.href);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <div
+        className={cn(
+          "flex items-center gap-3 border bg-card px-4 transition-colors",
+          // Odak kırmızı omurgayla değil TAM ÇERÇEVEYLE gösterilir: kalın renkli
+          // bir sol kenar bu dilde sol menünün yapısal imzasıdır, bir girdi
+          // durumu değil.
+          odakli ? "border-primary" : "border-border"
+        )}
+      >
+        <Search className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+        <input
+          ref={girdiRef}
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            // Seçim SORGUYLA BİRLİKTE sıfırlanır ve bunu bir `useEffect`
+            // yapmaz: sorgu zaten burada değişiyor, etkiye taşımak aynı işi
+            // bir tur sonra ve fazladan bir çizimle yapardı. Eski indeks yeni
+            // listede başka bir kaydı gösterir ve Enter kullanıcıyı
+            // istemediği sayfaya götürürdü.
+            setAktif(0);
+          }}
+          onKeyDown={klavye}
+          onFocus={() => setOdakli(true)}
+          onBlur={() => setOdakli(false)}
+          type="search"
+          role="combobox"
+          aria-expanded={acik}
+          aria-controls={listeId}
+          aria-autocomplete="list"
+          aria-label="İş, kalem, müşteri, rapor ya da resim grubu ara"
+          placeholder="İş no, ürün, müşteri, rapor ya da resim grubu ara…"
+          className="h-14 w-full min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground/70 pointer-fine:text-sm"
+        />
+        <kbd className="hidden shrink-0 border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">
+          Ctrl K
+        </kbd>
+      </div>
+
+      {acik && (
+        <div
+          id={listeId}
+          role="listbox"
+          aria-label="Arama sonuçları"
+          // Sonuçlar sayfanın AKIŞINDA değil ÜSTÜNDE durur: liste açılıp
+          // kapandıkça altındaki pano zıplasaydı, kullanıcı yazarken bakışını
+          // kaybederdi.
+          className="absolute inset-x-0 top-full z-20 mt-1 max-h-[60dvh] overflow-y-auto border bg-card shadow-lg"
+        >
+          {duz.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{q.trim()}</span> için kayıt
+              bulunamadı. İş numarası (<span className="font-mono">0057</span>), kalem numarası
+              (<span className="font-mono">0057-03</span>) ya da müşteri adıyla deneyin.
+            </p>
+          ) : (
+            <>
+              {gruplar.map((grup) => (
+                <section key={grup.kind}>
+                  <h3 className="oc-kicker sticky top-0 z-10 border-b bg-muted/70 px-4 py-2 text-muted-foreground backdrop-blur-sm">
+                    {PANEL_KIND_LABELS[grup.kind]}
+                  </h3>
+                  <ul>
+                    {grup.hits.map((hit) => {
+                      const i = duz.indexOf(hit);
+                      return (
+                        <li key={`${hit.kind}-${hit.code}-${hit.href}-${hit.label}`}>
+                          <Link
+                            href={hit.href}
+                            role="option"
+                            aria-selected={i === aktif}
+                            onMouseEnter={() => setAktif(i)}
+                            // `onMouseDown` ile gidilir: `blur` sonuç listesini
+                            // kapatıyor ve `click` hiç ulaşmıyordu.
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              router.push(hit.href);
+                            }}
+                            className={cn(
+                              "flex items-baseline gap-3 border-b px-4 py-2.5 text-sm last:border-b-0",
+                              i === aktif ? "bg-muted" : "hover:bg-muted/50"
+                            )}
+                          >
+                            <span className="shrink-0 font-mono text-[13px] font-medium text-primary">
+                              {hit.code || "—"}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate" title={hit.label}>
+                              {hit.label}
+                            </span>
+                            {hit.hint && (
+                              <span
+                                className="hidden max-w-[16rem] shrink-0 truncate text-[12px] text-muted-foreground sm:block"
+                                title={hit.hint}
+                              >
+                                {hit.hint}
+                              </span>
+                            )}
+                            {i === aktif && (
+                              <CornerDownLeft
+                                className="size-3.5 shrink-0 text-muted-foreground"
+                                aria-hidden
+                              />
+                            )}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+              {/* KIRPMA SESSİZ OLMAZ: grup başına altı satır gösteriliyor ve
+                  kaç tanesinin görünmediği yazılıyor. */}
+              {toplam > duz.length && (
+                <p className="border-t px-4 py-2 text-[12px] text-muted-foreground">
+                  {toplam} kayıttan {duz.length} tanesi gösteriliyor — aramayı daraltın.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

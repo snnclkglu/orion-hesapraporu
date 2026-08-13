@@ -144,7 +144,10 @@ function SidebarContent({
         )}
         <ul className="grid gap-0.5">
           {visibleSections(role).map((item) => {
-            const active = pathname?.startsWith(item.href);
+            // KÖK ADRES TAM EŞLEŞİR. `startsWith("/")` her yolu doğrular ve
+            // Panel satırı bütün bölümlerde birden aktif görünürdü.
+            const active =
+              item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
             return (
               <li key={item.href}>
                 <Link

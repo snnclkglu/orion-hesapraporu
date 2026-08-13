@@ -27,7 +27,9 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.replace("/projects");
+    // Giriş sonrası AÇILIŞ PANOSU (kullanıcı kararı, 13.08.2026) — eskiden
+    // doğrudan Mühendislik listesine düşüyordu.
+    router.replace("/");
     router.refresh();
   }
 
