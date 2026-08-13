@@ -18,7 +18,7 @@
 // ekran havuzu DEĞİL doğrudan teklif ve sipariş defterlerini okur.
 
 import { createClient } from "@/lib/supabase/server";
-import { loadGecmisFiyatlar, loadSiparisler, loadTeklifler } from "../data";
+import { loadGecmisOzetleri, loadSiparisler, loadTeklifler } from "../data";
 import { isAdminRole } from "@/lib/roles";
 import { PriceArchive, type FiyatKalemi, type FiyatOlayi } from "./price-archive";
 import { eurKarsiligi } from "@/lib/purchasing/terms";
@@ -29,7 +29,7 @@ export default async function PricesPage() {
   const [teklifler, siparisler, gecmis, { data: kullanici }] = await Promise.all([
     loadTeklifler(supabase),
     loadSiparisler(supabase, { iptalDahil: true }),
-    loadGecmisFiyatlar(supabase),
+    loadGecmisOzetleri(supabase),
     supabase.auth.getUser(),
   ]);
 
@@ -89,24 +89,12 @@ export default async function PricesPage() {
 
   // ————————————————————————————————— DEVRALINAN KATMAN (üçüncü kaynak)
   //
-  // 4722 satırlık geçmiş alım verisi (`purchase_price_history`, md. 21).
-  // `purchase_orders`a yazılmadığı için Siparişler ekranını ve ödeme takvimini
-  // kirletmez; arşiv onu YALNIZ BURADA, ayrı bir tür olarak gösterir.
+  // ÖZET GELİR, OLAY DEĞİL. 4722 satırın tamamını istemciye göndermek 1,3 MB
+  // ediyordu ve ekran satır başına yedi sayı gösteriyor; ayrıntı yalnız
+  // kullanıcı satırı açtığında çekilir (`loadGecmisSatirlari`). Ölçüm ve
+  // gerekçe: migration 20260813000003.
   for (const g of gecmis) {
-    kalem(g.matchKey, g.sample).olaylar.push({
-      id: `g-${g.id}`,
-      tur: "gecmis",
-      supplier: g.supplier,
-      gun: g.pricedAt,
-      birim: g.unitPrice,
-      currency: g.currency,
-      birimEur: g.unitPriceEur,
-      adet: g.qty,
-      secildi: false,
-      iptal: false,
-      itemNo: g.itemNo,
-      kategori: g.category,
-    });
+    kalem(g.matchKey, g.sample).gecmis = g;
   }
 
   // Olaylar TARİHE göre yeniden eskiye: son fiyat en üstte, referans odur.

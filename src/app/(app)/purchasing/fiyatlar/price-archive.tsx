@@ -30,7 +30,8 @@ import { trKatla } from "@/lib/drawings/tr-text";
 import { tarihGoster } from "@/lib/purchasing/terms";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
-import { deletePriceHistory } from "../actions";
+import { deletePriceHistory, fetchPriceHistory } from "../actions";
+import type { GecmisOzeti, GecmisSatiri } from "../data";
 
 export interface FiyatOlayi {
   id: string;
@@ -61,11 +62,21 @@ export interface FiyatOlayi {
 export interface FiyatKalemi {
   key: string;
   tanim: string;
+  /** Teklif ve sipariş olayları — küçüktür, tamamı gelir. */
   olaylar: FiyatOlayi[];
+  /**
+   * DEVRALINAN KATMANIN ÖZETİ — olayları DEĞİL.
+   *
+   * 4722 devralınan satırın tamamını istemciye göndermek 1,3 MB ediyordu ve
+   * sayfa açılışta kasıyordu (kullanıcı bildirimi, 13.08.2026). Liste satır
+   * başına yedi sayı gösteriyor; ayrıntı yalnız satır AÇILDIĞINDA çekilir.
+   */
+  gecmis?: GecmisOzeti;
 }
 
 /** Bir kalemin özeti — son sipariş, son teklif, en düşük/yüksek. */
 function ozet(k: FiyatKalemi) {
+  const g = k.gecmis;
   // GERÇEKLEŞMİŞ ALIM = kendi siparişimiz + devralınan fatura. Arşivin sorusu
   // "kaça ALDIK"tır; devralınanı dışarıda bırakmak 4722 satırlık geçmişi
   // "referansı yok" gösterirdi.
@@ -74,12 +85,36 @@ function ozet(k: FiyatKalemi) {
   );
   const teklifler = k.olaylar.filter((o) => o.tur === "teklif" && o.birimEur != null);
   const eurler = siparisler.map((o) => o.birimEur ?? 0);
+  // DEVRALINAN ÖZET DE YARIŞA GİRER: aralık ve "son alış" iki kaynağın
+  // BİRLEŞİMİdir. Yalnız uygulamanın kendi siparişlerine bakmak, 4722
+  // satırlık geçmişi "referansı yok" gösterirdi.
+  if (g?.enDusuk != null) eurler.push(g.enDusuk);
+  if (g?.enYuksek != null) eurler.push(g.enYuksek);
+
+  const sonKendi = siparisler[0] ?? null;
+  const gecmisDahaYeni = g && (!sonKendi || g.sonGun > sonKendi.gun);
+  const sonSiparis: FiyatOlayi | null = gecmisDahaYeni
+    ? {
+        id: `g-son-${g.matchKey}`,
+        tur: "gecmis",
+        supplier: g.sonFirma,
+        gun: g.sonGun,
+        birim: g.sonBirim,
+        currency: g.sonPara,
+        birimEur: g.sonEur,
+        adet: null,
+        secildi: false,
+        iptal: false,
+        itemNo: "",
+      }
+    : sonKendi;
+
   return {
-    sonSiparis: siparisler[0] ?? null,
+    sonSiparis,
     sonTeklif: teklifler[0] ?? null,
     enDusuk: eurler.length ? Math.min(...eurler) : null,
     enYuksek: eurler.length ? Math.max(...eurler) : null,
-    siparisSayisi: siparisler.length,
+    siparisSayisi: siparisler.length + (g?.kayit ?? 0),
     teklifSayisi: teklifler.length,
   };
 }
@@ -104,9 +139,12 @@ export function PriceArchive({
   // uygulamanın kendi on beş ürün ailesiyle AYNI DEĞİL (kaynak dosya kendi
   // dilini konuşuyor) ve sabit bir liste onları gizlerdi.
   const secenekler = useMemo(() => {
-    const say = (fn: (o: FiyatOlayi) => string[]) => {
+    // SEÇENEKLER İKİ KAYNAKTAN: kendi olaylarımız + devralınan özetin
+    // dizileri. Özet zaten TEKİLLEŞTİRİLMİŞ geliyor (SQL `array_agg
+    // distinct`), yani sayaç kalem sayısını gösterir — satır sayısını değil.
+    const say = (fn: (k: FiyatKalemi) => string[]) => {
       const m = new Map<string, number>();
-      for (const k of kalemler) for (const o of k.olaylar) for (const v of fn(o)) {
+      for (const k of kalemler) for (const v of new Set(fn(k))) {
         if (v) m.set(v, (m.get(v) ?? 0) + 1);
       }
       return [...m.entries()]
@@ -114,8 +152,11 @@ export function PriceArchive({
         .map(([value, count]) => ({ value, label: value, count }));
     };
     return {
-      kategoriler: say((o) => [o.kategori ?? ""]),
-      tedarikciler: say((o) => [o.supplier]),
+      kategoriler: say((k) => k.gecmis?.kategoriler ?? []),
+      tedarikciler: say((k) => [
+        ...k.olaylar.map((o) => o.supplier),
+        ...(k.gecmis?.firmalar ?? []),
+      ]),
       kaynaklar: [
         { value: "gecmis", label: "Devralınan", count: undefined },
         { value: "siparis", label: "Sipariş", count: undefined },
@@ -136,11 +177,29 @@ export function PriceArchive({
       // SÜZGEÇ OLAY DÜZEYİNDE ELER, KALEM DÜZEYİNDE GÖSTERİR: bir kalemin
       // BİR olayı "Rulman" kategorisindeyse kalem listede kalır. Kalemi
       // bütünüyle düşürmek, aynı ürünün başka bir alımını da gizlerdi.
-      if (kat.size > 0 && !k.olaylar.some((o) => kat.has(o.kategori ?? ""))) return false;
-      if (ted.size > 0 && !k.olaylar.some((o) => ted.has(o.supplier))) return false;
-      if (kay.size > 0 && !k.olaylar.some((o) => kay.has(o.tur))) return false;
+      if (kat.size > 0 && !(k.gecmis?.kategoriler ?? []).some((c: string) => kat.has(c))) return false;
+      if (
+        ted.size > 0 &&
+        !k.olaylar.some((o) => ted.has(o.supplier)) &&
+        !(k.gecmis?.firmalar ?? []).some((c: string) => ted.has(c))
+      ) {
+        return false;
+      }
+      if (kay.size > 0) {
+        const turler = new Set<string>(k.olaylar.map((o) => o.tur));
+        if (k.gecmis) turler.add("gecmis");
+        if (![...kay].some((t) => turler.has(t))) return false;
+      }
       if (!a) return true;
-      const havuz = [k.tanim, ...k.olaylar.map((o) => `${o.supplier} ${o.itemNo}`)].join(" ");
+      // ARAMA TÜM ARŞİVDE: devralınan katmanın firmaları ve iş numaraları
+      // özetin içinde geliyor (`isler` tek dizgide) — ayrıntı satırları
+      // yüklenmemiş olsa da arama onları bulur.
+      const havuz = [
+        k.tanim,
+        ...k.olaylar.map((o) => `${o.supplier} ${o.itemNo}`),
+        ...(k.gecmis?.firmalar ?? []),
+        k.gecmis?.isler ?? "",
+      ].join(" ");
       return trKatla(havuz).includes(a);
     });
   }, [kalemler, q, kategoriler, tedarikciler, kaynaklar]);
@@ -177,17 +236,60 @@ export function PriceArchive({
     };
   }
 
-  /** Devralınan satırı siler. Teklif/sipariş BURADAN silinmez — kendi yolları var. */
-  function sil(olay: FiyatOlayi) {
-    if (!isAdmin || olay.tur !== "gecmis") return;
-    if (!window.confirm(`Devralınan fiyat kaydı silinsin mi?
+  /**
+   * AÇILAN SATIRIN DEVRALINAN AYRINTISI — TALEP ÜZERİNE.
+   *
+   * Anahtar → satırlar. `undefined` "hiç istenmedi", boş dizi "istendi, yok".
+   * İkisi ayrılmazsa kayıtsız bir kalem her açılışta yeniden sorgulanırdı.
+   */
+  const [gecmisSatirlari, setGecmisSatirlari] = useState<Record<string, GecmisSatiri[]>>({});
+  const [yukleniyor, setYukleniyor] = useState<Set<string>>(new Set());
 
-${olay.supplier} · ${olay.gun}`)) return;
+  function ac(k: FiyatKalemi) {
+    setAcik((s) => {
+      const y = new Set(s);
+      if (y.has(k.key)) y.delete(k.key);
+      else y.add(k.key);
+      return y;
+    });
+    // Devralınan kaydı olmayan kalemde sorgu HİÇ AÇILMAZ.
+    if (!k.gecmis || gecmisSatirlari[k.key] !== undefined || yukleniyor.has(k.key)) return;
+    setYukleniyor((s) => new Set(s).add(k.key));
+    fetchPriceHistory({ matchKey: k.key }).then((sonuc) => {
+      setGecmisSatirlari((o) => ({ ...o, [k.key]: sonuc.satirlar ?? [] }));
+      setYukleniyor((s) => {
+        const y = new Set(s);
+        y.delete(k.key);
+        return y;
+      });
+      if (sonuc.error) toast.error(sonuc.error);
+    });
+  }
+
+  /** Devralınan satırı siler. Teklif/sipariş BURADAN silinmez — kendi yolları var. */
+  function sil(kalemKey: string, satir: GecmisSatiri) {
+    if (!isAdmin) return;
+    if (
+      !window.confirm(
+        `Devralınan fiyat kaydı silinsin mi?
+
+${satir.supplier} · ${satir.pricedAt}`
+      )
+    ) {
+      return;
+    }
     basla(async () => {
-      const sonuc = await deletePriceHistory({ ids: [olay.id.replace(/^g-/, "")] });
+      const sonuc = await deletePriceHistory({ ids: [satir.id] });
       if (sonuc.error) toast.error(sonuc.error);
       else {
         toast.success("Arşiv kaydı silindi.");
+        // Açık satırın ayrıntısı yeniden çekilsin; `router.refresh()` yalnız
+        // ÖZETİ tazeler, tembel yüklenen ayrıntıyı bilmez.
+        setGecmisSatirlari((o) => {
+          const y = { ...o };
+          delete y[kalemKey];
+          return y;
+        });
         router.refresh();
       }
     });
@@ -268,14 +370,7 @@ ${olay.supplier} · ${olay.gun}`)) return;
                       <TableCell className="p-0 align-top">
                         <button
                           type="button"
-                          onClick={() =>
-                            setAcik((s) => {
-                              const y = new Set(s);
-                              if (y.has(k.key)) y.delete(k.key);
-                              else y.add(k.key);
-                              return y;
-                            })
-                          }
+                          onClick={() => ac(k)}
                           aria-expanded={genis}
                           aria-label={genis ? "Geçmişi gizle" : "Fiyat geçmişini göster"}
                           className="flex min-h-10 w-8 items-center justify-center text-muted-foreground pointer-coarse:min-h-11 hover:text-foreground"
@@ -395,28 +490,63 @@ ${olay.supplier} · ${olay.gun}`)) return;
                                         fmtMoney(ol.birimEur, "EUR")
                                       )}
                                     </td>
-                                    {/* SİLME YALNIZ YÖNETİCİDE ve YALNIZ
-                                        DEVRALINAN satırda. Teklif ve siparişin
-                                        kendi yolu var; tek düğmenin üç defteri
-                                        birden silmesi, kullanıcının neyi
-                                        kaybettiğini bilmemesi demekti. */}
+                                  </tr>
+                                ))}
+
+                                {/* DEVRALINAN AYRINTI — talep üzerine geldi. */}
+                                {(gecmisSatirlari[k.key] ?? []).map((h) => (
+                                  <tr key={h.id} className="border-t border-border/50">
+                                    <td className="py-1 pr-3 font-mono whitespace-nowrap">
+                                      {tarihGoster(h.pricedAt)}
+                                    </td>
+                                    <td className="py-1 pr-3">
+                                      <span
+                                        className="text-muted-foreground"
+                                        title={h.category || "Devralınan alım kaydı"}
+                                      >
+                                        Devralınan
+                                      </span>
+                                    </td>
+                                    <td className="py-1 pr-3">{h.supplier}</td>
+                                    <td className="py-1 pr-3 font-mono">{h.itemNo || "—"}</td>
+                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                      {h.qty == null ? "—" : formatNum(h.qty)}
+                                    </td>
+                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                      {fmtMoney(h.unitPrice, h.currency)}
+                                    </td>
+                                    <td className="py-1 text-right font-mono tabular-nums">
+                                      {h.unitPriceEur == null ? (
+                                        <span className="text-amber-700 dark:text-amber-400">
+                                          kur yok
+                                        </span>
+                                      ) : (
+                                        fmtMoney(h.unitPriceEur, "EUR")
+                                      )}
+                                    </td>
                                     {isAdmin && (
                                       <td className="py-1 pl-3 text-right">
-                                        {ol.tur === "gecmis" && (
-                                          <button
-                                            type="button"
-                                            onClick={() => sil(ol)}
-                                            disabled={calisiyor}
-                                            title="Devralınan kaydı sil"
-                                            className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
-                                          >
-                                            <Trash2 className="size-3.5" />
-                                          </button>
-                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => sil(k.key, h)}
+                                          disabled={calisiyor}
+                                          title="Devralınan kaydı sil"
+                                          className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </button>
                                       </td>
                                     )}
                                   </tr>
                                 ))}
+
+                                {yukleniyor.has(k.key) && (
+                                  <tr className="border-t border-border/50">
+                                    <td colSpan={isAdmin ? 8 : 7} className="py-2 text-center text-muted-foreground">
+                                      Geçmiş yükleniyor…
+                                    </td>
+                                  </tr>
+                                )}
                               </tbody>
                             </table>
                           </div>

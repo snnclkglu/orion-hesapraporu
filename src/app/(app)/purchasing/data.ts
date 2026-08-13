@@ -571,59 +571,119 @@ export async function loadTedarikciler(supabase: SupabaseClient): Promise<string
   return [...adlar].sort((a, b) => a.localeCompare(b, "tr"));
 }
 
-/** Fiyat arşivinin devralınan katmanı — `purchase_price_history`. */
-export interface GecmisFiyat {
-  id: string;
+/**
+ * Fiyat arşivinin devralınan katmanı — KALEM BAŞINA ÖZET.
+ *
+ * Ayrıntı (hangi tarihte hangi firmadan kaça) BURADA GELMEZ: 1675 kalemin
+ * ayrıntısı 4722 satır ve 1,3 MB eder, oysa liste satır başına yedi sayı
+ * gösteriyor. Ayrıntı yalnız kullanıcı satırı AÇTIĞINDA çekilir
+ * (`loadGecmisSatirlari`).
+ */
+export interface GecmisOzeti {
   matchKey: string;
   sample: string;
+  /** Kaç devralınan alım kaydı var? */
+  kayit: number;
+  sonGun: string;
+  sonFirma: string;
+  sonEur: number | null;
+  sonBirim: number;
+  sonPara: string;
+  enDusuk: number | null;
+  enYuksek: number | null;
+  /** Süzgeç için: kalemin geçtiği farklı firmalar. */
+  firmalar: string[];
+  /** Süzgeç için: kaynak dosyanın kategorileri. */
+  kategoriler: string[];
+  /** Arama için: iş numaraları tek dizgide. */
+  isler: string;
+}
+
+/**
+ * Devralınan arşivin özeti — TEK SORGU.
+ *
+ * Öncesinde `purchase_price_history` 900'erli sayfalarla okunuyordu (4722
+ * satır → altı ardışık gidiş-dönüş) ve tamamı istemciye gidiyordu. Görünüm
+ * (`purchase_price_archive`, migration 20260813000003) toplamayı veritabanına
+ * taşıdı: bir sorgu, 1675 satır, %72 daha az yük.
+ *
+ * GÖRÜNÜM YOKSA BOŞ DÖNER: migration uygulanmamış bir ortamda arşivin
+ * devralınan katmanı görünmez ama sayfa AÇILIR — teklif ve sipariş katmanları
+ * yerinde kalır.
+ */
+export async function loadGecmisOzetleri(supabase: SupabaseClient): Promise<GecmisOzeti[]> {
+  try {
+    const veri = await tumSatirlar<Record<string, unknown>>((bas, son) =>
+      supabase
+        .from("purchase_price_archive")
+        .select(
+          "match_key, sample, kayit, son_gun, son_firma, son_eur, son_birim, son_para, " +
+            "en_dusuk, en_yuksek, firmalar, kategoriler, isler"
+        )
+        .order("son_gun", { ascending: false })
+        .order("match_key")
+        .range(bas, son)
+    );
+    return veri.map((r) => ({
+      matchKey: String(r.match_key ?? ""),
+      sample: String(r.sample ?? ""),
+      kayit: Number(r.kayit ?? 0),
+      sonGun: String(r.son_gun ?? "").slice(0, 10),
+      sonFirma: String(r.son_firma ?? ""),
+      sonEur: r.son_eur == null ? null : Number(r.son_eur),
+      sonBirim: Number(r.son_birim ?? 0),
+      sonPara: String(r.son_para ?? "TRY"),
+      enDusuk: r.en_dusuk == null ? null : Number(r.en_dusuk),
+      enYuksek: r.en_yuksek == null ? null : Number(r.en_yuksek),
+      firmalar: (r.firmalar as string[] | null) ?? [],
+      kategoriler: (r.kategoriler as string[] | null) ?? [],
+      isler: String(r.isler ?? ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Bir kalemin devralınan alım satırları — YALNIZ satır açıldığında. */
+export interface GecmisSatiri {
+  id: string;
   supplier: string;
-  itemNo: string;
-  category: string;
+  pricedAt: string;
   qty: number | null;
   unit: string;
   unitPrice: number;
   currency: string;
   unitPriceEur: number | null;
-  pricedAt: string;
+  itemNo: string;
+  category: string;
 }
 
-/**
- * Devralınan fiyat geçmişi.
- *
- * TABLO YOKSA BOŞ DÖNER: migration uygulanmamış bir ortamda fiyat arşivi
- * ekranının tamamen kaybolması, devralınan verinin yokluğundan çok daha
- * pahalıdır (md. 21'in "sütun olmayabilir" kuralının tablo hâli).
- */
-export async function loadGecmisFiyatlar(supabase: SupabaseClient): Promise<GecmisFiyat[]> {
-  try {
-    const veri = await tumSatirlar<Record<string, unknown>>((bas, son) =>
-      supabase
-        .from("purchase_price_history")
-        .select(
-          "id, match_key, sample, supplier, item_no, category, qty, unit, " +
-            "unit_price, currency, unit_price_eur, priced_at"
-        )
-        .order("priced_at", { ascending: false })
-        .order("id")
-        .range(bas, son)
-    );
-    return veri.map((r) => ({
-      id: String(r.id),
-      matchKey: String(r.match_key ?? ""),
-      sample: String(r.sample ?? ""),
-      supplier: String(r.supplier ?? ""),
-      itemNo: String(r.item_no ?? ""),
-      category: String(r.category ?? ""),
-      qty: r.qty == null ? null : Number(r.qty),
-      unit: String(r.unit ?? "Adet"),
-      unitPrice: Number(r.unit_price ?? 0),
-      currency: String(r.currency ?? "TRY"),
-      unitPriceEur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
-      pricedAt: String(r.priced_at ?? "").slice(0, 10),
-    }));
-  } catch {
-    return [];
-  }
+export async function loadGecmisSatirlari(
+  supabase: SupabaseClient,
+  matchKey: string
+): Promise<GecmisSatiri[]> {
+  const { data, error } = await supabase
+    .from("purchase_price_history")
+    .select(
+      "id, supplier, priced_at, qty, unit, unit_price, currency, unit_price_eur, item_no, category"
+    )
+    .eq("match_key", matchKey)
+    .order("priced_at", { ascending: false })
+    .order("id")
+    .limit(500);
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    supplier: String(r.supplier ?? ""),
+    pricedAt: String(r.priced_at ?? "").slice(0, 10),
+    qty: r.qty == null ? null : Number(r.qty),
+    unit: String(r.unit ?? "Adet"),
+    unitPrice: Number(r.unit_price ?? 0),
+    currency: String(r.currency ?? "TRY"),
+    unitPriceEur: r.unit_price_eur == null ? null : Number(r.unit_price_eur),
+    itemNo: String(r.item_no ?? ""),
+    category: String(r.category ?? ""),
+  }));
 }
 
 /**
@@ -632,12 +692,10 @@ export async function loadGecmisFiyatlar(supabase: SupabaseClient): Promise<Gecm
  * "En yakın tarih" kullanıcının sözü (13.08.2026) ve tam olarak doğru olan da
  * budur: TCMB hafta sonu ve resmî tatilde yayın yapmaz, yani "bugünün kuru"
  * diye bir şey her gün yoktur. `order by rate_date desc limit 1` en son GERÇEK
- * yayını verir ve ekran gününü yazar — kullanıcı kaç günlük bir kura baktığını
- * görür.
+ * yayını verir ve ekran gününü yazar.
  *
  * SESSİZCE BAŞARISIZ OLUR: kur tablosu hiç doldurulmamışsa (`null`) pencere
- * kutuyu boş bırakır ve kullanıcı elle yazar. Bir referansın yokluğu yüzünden
- * teklif girişini engellemek, referansın kendisinden çok daha pahalıdır.
+ * kutuyu boş bırakır ve kullanıcı elle yazar.
  */
 export async function loadSonKur(supabase: SupabaseClient): Promise<GunlukKur | null> {
   const { data, error } = await supabase

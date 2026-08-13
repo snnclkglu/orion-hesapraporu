@@ -20,6 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
+import { loadGecmisSatirlari, type GecmisSatiri } from "./data";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import {
@@ -42,10 +43,11 @@ import {
 type Ctx = { supabase: SupabaseClient; userId: string };
 
 /**
- * Yazma yetkisi — rol VE etiket birlikte okunur.
+ * Yazma yetkisi — TEK BİR SÜTUNDAN, rolden.
  *
- * Etiket sütunu iki denemede okunur: migration uygulanmadan önce sorgunun
- * tamamı düşer ve YÖNETİCİ bile yazamaz hâle gelirdi.
+ * Burada bir süre "rol VE etiket birlikte okunur" yazıyordu ve yanındaki kod
+ * `tags` sütununu zengin/dar sorgu ikilisiyle çekiyordu; görev etiketleri
+ * 12.08.2026'da role dönüşüp sütun düşürülünce ikisi de kalktı.
  */
 async function requireWrite(): Promise<Ctx | { error: string }> {
   const supabase = await createClient();
@@ -605,4 +607,28 @@ export async function deletePriceHistory(
 
   tazele();
   return { ok: count ?? idler.length };
+}
+
+/**
+ * Bir kalemin devralınan alım satırları — SATIR AÇILDIĞINDA.
+ *
+ * Kullanıcı bildirimi (13.08.2026): *"Fiyat arşivine tıkladığımda biraz kasma
+ * yapıyor."* Ölçüldü: 4722 devralınan satırın tamamı her ziyarette istemciye
+ * gidiyordu (1,3 MB) ve altı ardışık sorguyla okunuyordu. Liste artık kalem
+ * başına ÖZET alıyor (`purchase_price_archive` görünümü); ayrıntıyı yalnız
+ * açılan satır ister ve o da tek bir sorgudur.
+ *
+ * 1675 kalemin 1674'ünün ayrıntısı hiç açılmıyor — onları baştan göndermek,
+ * okunmayan bir kitabı her sayfa açılışında basmaktı.
+ */
+export async function fetchPriceHistory(
+  input: { matchKey: string }
+): Promise<{ error?: string; satirlar?: GecmisSatiri[] }> {
+  const supabase = await createClient();
+  const { data: kullanici } = await supabase.auth.getUser();
+  if (!kullanici.user) return { error: "Oturum bulunamadı." };
+  // OKUMA KAPISI RLS'TEDİR (`can_see_purchasing()`); burada ayrıca rol
+  // sorulmaz — iki kapı zamanla ayrışır ve biri gevşerse fark edilmez.
+  const satirlar = await loadGecmisSatirlari(supabase, input.matchKey ?? "");
+  return { satirlar };
 }
