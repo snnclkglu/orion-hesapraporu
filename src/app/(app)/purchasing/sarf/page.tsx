@@ -26,6 +26,7 @@ export default async function ConsumableEntryPage() {
           initialItems={catalogs.items}
           initialSuppliers={catalogs.suppliers}
           groups={catalogs.groups}
+          initialDepartments={catalogs.departments}
         />
       ) : (
         <div className="flex items-start gap-3 border bg-muted/30 p-4">

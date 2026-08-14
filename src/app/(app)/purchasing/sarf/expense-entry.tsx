@@ -25,6 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { Combobox, type ComboOption } from "@/components/combobox";
 import { CURRENCIES, CURRENCY_LABELS, fmtMoney, parseNum, type Currency } from "@/lib/currency";
+import {
+  calculateConsumableVatTotals,
+  CONSUMABLE_VAT_RATES,
+  type ConsumableVatRate,
+} from "@/lib/purchasing/consumable-vat";
 import { ensureSupplier } from "../actions";
 import {
   createConsumableExpenses,
@@ -39,11 +44,20 @@ interface EntryLine {
   quantity: string;
   unit: string;
   unitPrice: string;
+  vatRate: ConsumableVatRate;
   note: string;
 }
 
 function blankLine(key: number): EntryLine {
-  return { key, itemId: null, quantity: "1", unit: "Adet", unitPrice: "", note: "" };
+  return {
+    key,
+    itemId: null,
+    quantity: "1",
+    unit: "Adet",
+    unitPrice: "",
+    vatRate: 20,
+    note: "",
+  };
 }
 
 function isoToday(): string {
@@ -55,15 +69,18 @@ export function ExpenseEntry({
   initialItems,
   initialSuppliers,
   groups,
+  initialDepartments,
 }: {
   initialItems: ConsumableItemOption[];
   initialSuppliers: ConsumableSupplierOption[];
   groups: string[];
+  initialDepartments: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(initialItems);
   const [suppliers, setSuppliers] = useState(initialSuppliers);
+  const [departments, setDepartments] = useState(initialDepartments);
   const [expenseDate, setExpenseDate] = useState(isoToday);
   const [supplierId, setSupplierId] = useState<string | null>(null);
   const [documentNo, setDocumentNo] = useState("");
@@ -107,6 +124,10 @@ export function ExpenseEntry({
         })),
     [suppliers]
   );
+  const departmentOptions: ComboOption[] = useMemo(
+    () => departments.map((name) => ({ value: name, label: name })),
+    [departments]
+  );
 
   useEffect(() => {
     const request = ++rateRequest.current;
@@ -120,13 +141,16 @@ export function ExpenseEntry({
     });
   }, [currency, expenseDate]);
 
-  const nativeTotal = lines.reduce((sum, line) => {
-    const qty = parseNum(line.quantity) ?? 0;
-    const unitPrice = parseNum(line.unitPrice) ?? 0;
-    return sum + qty * unitPrice;
-  }, 0);
+  const nativeTotals = calculateConsumableVatTotals(
+    lines.map((line) => ({
+      net: (parseNum(line.quantity) ?? 0) * (parseNum(line.unitPrice) ?? 0),
+      vatRate: line.vatRate,
+    }))
+  );
   const parsedRate = currency === "EUR" ? 1 : (parseNum(fxRate) ?? 0);
-  const eurTotal = parsedRate > 0 ? nativeTotal / parsedRate : 0;
+  const eurNet = parsedRate > 0 ? nativeTotals.net / parsedRate : 0;
+  const eurVat = parsedRate > 0 ? nativeTotals.vat / parsedRate : 0;
+  const eurGross = parsedRate > 0 ? nativeTotals.gross / parsedRate : 0;
 
   function patchLine(key: number, patch: Partial<EntryLine>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -250,8 +274,8 @@ export function ExpenseEntry({
             </p>
           </div>
           <div className="text-right">
-            <div className="font-mono text-sm font-semibold tabular-nums">{fmtMoney(eurTotal, "EUR")}</div>
-            <div className="text-[11px] text-muted-foreground">Avro karşılığı</div>
+            <div className="font-mono text-sm font-semibold tabular-nums">{fmtMoney(eurNet, "EUR")}</div>
+            <div className="text-[11px] text-muted-foreground">KDV hariç Avro karşılığı</div>
           </div>
         </div>
 
@@ -292,13 +316,24 @@ export function ExpenseEntry({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="sarf-department">Bölüm</Label>
-            <Input
-              id="sarf-department"
+            <Label>Bölüm</Label>
+            <Combobox
+              options={departmentOptions}
               value={department}
-              onChange={(event) => setDepartment(event.target.value)}
-              maxLength={120}
-              placeholder="Atölye, araç…"
+              onChange={setDepartment}
+              onCreate={(name) => {
+                const next = name.trim();
+                if (!next) return;
+                setDepartments((current) =>
+                  current.some((value) => value.toLocaleLowerCase("tr") === next.toLocaleLowerCase("tr"))
+                    ? current
+                    : [...current, next].sort((left, right) => left.localeCompare(right, "tr"))
+                );
+                setDepartment(next);
+              }}
+              createLabel="Yeni bölüm"
+              placeholder="Bölüm seçin veya yazın"
+              searchPlaceholder="Bölüm ara veya yeni bölüm yaz…"
               className="text-base pointer-fine:text-sm"
             />
           </div>
@@ -354,22 +389,25 @@ export function ExpenseEntry({
         </div>
 
         <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
-          <div className="min-w-[50rem]">
-            <div className="grid grid-cols-[minmax(17rem,1fr)_7rem_7rem_10rem_9rem_2.75rem] gap-2 border-b bg-muted/50 px-2 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          <div className="min-w-[64rem]">
+            <div className="grid grid-cols-[minmax(15rem,1fr)_6rem_6rem_9rem_5rem_8rem_9rem_2.75rem] gap-2 border-b bg-muted/50 px-2 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               <span>Sarf Malzeme</span>
               <span>Miktar</span>
               <span>Birim</span>
-              <span>Birim Fiyat</span>
+              <span>Birim Fiyat <span className="normal-case">(KDV hariç)</span></span>
+              <span>KDV</span>
               <span className="text-right">Tutar</span>
+              <span className="text-right">KDV Dahil Tutar</span>
               <span />
             </div>
             {lines.map((line, index) => {
               const selected = items.find((item) => item.id === line.itemId);
               const lineTotal = (parseNum(line.quantity) ?? 0) * (parseNum(line.unitPrice) ?? 0);
+              const lineGross = lineTotal * (1 + line.vatRate / 100);
               return (
                 <div
                   key={line.key}
-                  className="grid grid-cols-[minmax(17rem,1fr)_7rem_7rem_10rem_9rem_2.75rem] gap-2 border-b px-2 py-2 last:border-b-0"
+                  className="grid grid-cols-[minmax(15rem,1fr)_6rem_6rem_9rem_5rem_8rem_9rem_2.75rem] gap-2 border-b px-2 py-2 last:border-b-0"
                 >
                   <Combobox
                     options={itemOptions}
@@ -414,8 +452,28 @@ export function ExpenseEntry({
                     onChange={(event) => patchLine(line.key, { unitPrice: event.target.value })}
                     className="h-9 font-mono text-base tabular-nums pointer-fine:text-sm"
                   />
+                  <Select
+                    value={String(line.vatRate)}
+                    onValueChange={(value) =>
+                      patchLine(line.key, { vatRate: Number(value) as ConsumableVatRate })
+                    }
+                  >
+                    <SelectTrigger className="h-9 w-full px-2 font-mono text-base pointer-fine:text-sm">
+                      <SelectValue>{line.vatRate}%</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONSUMABLE_VAT_RATES.map((rate) => (
+                        <SelectItem key={rate} value={String(rate)}>
+                          %{rate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <div className="flex h-9 items-center justify-end font-mono text-sm tabular-nums">
                     {fmtMoney(lineTotal, currency)}
+                  </div>
+                  <div className="flex h-9 items-center justify-end font-mono text-sm font-medium tabular-nums">
+                    {fmtMoney(lineGross, currency)}
                   </div>
                   <Button
                     type="button"
@@ -442,9 +500,16 @@ export function ExpenseEntry({
           >
             <Plus /> Satır Ekle
           </Button>
-          <div className="grid min-w-[15rem] gap-1 text-right">
-            <span className="font-mono text-sm tabular-nums">{fmtMoney(nativeTotal, currency)}</span>
-            <span className="font-mono text-lg font-semibold tabular-nums">{fmtMoney(eurTotal, "EUR")}</span>
+          <div className="grid w-full grid-cols-[auto_auto_auto] gap-x-3 gap-y-1 text-right text-sm sm:w-auto sm:min-w-[22rem]">
+            <span className="text-muted-foreground">KDV Hariç Tutar</span>
+            <span className="font-mono tabular-nums">{fmtMoney(nativeTotals.net, currency)}</span>
+            <span className="font-mono tabular-nums text-muted-foreground">{fmtMoney(eurNet, "EUR")}</span>
+            <span className="text-muted-foreground">KDV</span>
+            <span className="font-mono tabular-nums">{fmtMoney(nativeTotals.vat, currency)}</span>
+            <span className="font-mono tabular-nums text-muted-foreground">{fmtMoney(eurVat, "EUR")}</span>
+            <span className="font-semibold">KDV Dahil Tutar</span>
+            <span className="font-mono font-semibold tabular-nums">{fmtMoney(nativeTotals.gross, currency)}</span>
+            <span className="font-mono font-semibold tabular-nums">{fmtMoney(eurGross, "EUR")}</span>
           </div>
         </div>
 

@@ -134,7 +134,10 @@ export function Combobox({
       <PopoverContent
         align="start"
         className={cn(
-          "w-(--radix-popover-trigger-width) min-w-[min(16rem,calc(100vw-1.5rem))] gap-0 p-0",
+          // Çok geniş tablo tetikleyicisi açılır listeyi bütün sayfa boyunca
+          // uzatıyordu. Liste tetikleyiciden genişlemez; masaüstünde 28rem'de,
+          // telefonda görünür alanda kalır ve her zaman sol kenara bağlanır.
+          "w-[min(var(--radix-popover-trigger-width),28rem,calc(100vw-1.5rem))] min-w-0 gap-0 p-0",
           contentClassName
         )}
       >

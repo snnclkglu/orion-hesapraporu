@@ -48,6 +48,25 @@ const SUPPLIERS: ConsumableSupplierOption[] = [
   active: true,
 }));
 
+const DEPARTMENTS = [
+  "Ana Kiriş",
+  "Borverk Tezgahı",
+  "Kalite Kontrol",
+  "Kiriş Sehpası",
+  "Kompresör Odası",
+  "MONTAJ",
+  "MURAT ASLAN",
+  "OFİS",
+  "RADYAL MATKAP",
+  "RESİMHANE",
+  "Silindir (Düzeltme Makinesi)",
+  "Spot Tezgahı",
+  "TALAŞLI İMALAT - TORNA SN 71",
+  "TOPLANTI ODASI",
+  "Tüp Odası ve Atık Yeri",
+  "YEMEKHANE",
+];
+
 function buildRows(): ConsumableExpenseRow[] {
   const rows: ConsumableExpenseRow[] = [];
   let sequence = 0;
@@ -174,7 +193,12 @@ export default async function ConsumablesPreviewPage({
       </nav>
       {view === "giris" && (
         <div className="grid gap-5">
-          <ExpenseEntry initialItems={ITEMS} initialSuppliers={SUPPLIERS} groups={["Sarf Gider-Atölye", "Sarf Gider-Ofis"]} />
+          <ExpenseEntry
+            initialItems={ITEMS}
+            initialSuppliers={SUPPLIERS}
+            groups={["Sarf Gider-Atölye", "Sarf Gider-Ofis"]}
+            initialDepartments={DEPARTMENTS}
+          />
           <RecentExpenses rows={ROWS.slice(0, 12)} />
         </div>
       )}

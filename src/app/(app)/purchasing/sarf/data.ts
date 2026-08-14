@@ -19,6 +19,25 @@ export interface ConsumableSupplierOption {
   active: boolean;
 }
 
+const LEGACY_DEPARTMENTS = [
+  "Ana Kiriş",
+  "Borverk Tezgahı",
+  "Kalite Kontrol",
+  "Kiriş Sehpası",
+  "Kompresör Odası",
+  "MONTAJ",
+  "MURAT ASLAN",
+  "OFİS",
+  "RADYAL MATKAP",
+  "RESİMHANE",
+  "Silindir (Düzeltme Makinesi)",
+  "Spot Tezgahı",
+  "TALAŞLI İMALAT - TORNA SN 71",
+  "TOPLANTI ODASI",
+  "Tüp Odası ve Atık Yeri",
+  "YEMEKHANE",
+] as const;
+
 export interface ConsumableExpenseRow {
   id: string;
   expenseDate: string;
@@ -137,13 +156,15 @@ export async function loadConsumableCatalogs(supabase: SupabaseClient): Promise<
   items: ConsumableItemOption[];
   suppliers: ConsumableSupplierOption[];
   groups: string[];
+  departments: string[];
 }> {
-  const [itemsResult, suppliersResult] = await Promise.all([
+  const [itemsResult, suppliersResult, liveDepartments] = await Promise.all([
     supabase
       .from("purchase_consumable_items")
       .select("id, code, name, group_name, default_unit, active")
       .order("name"),
     supabase.from("purchase_suppliers").select("id, code, name, active").order("name"),
+    loadConsumableDepartments(supabase),
   ]);
 
   const items = ((itemsResult.data ?? []) as {
@@ -177,7 +198,29 @@ export async function loadConsumableCatalogs(supabase: SupabaseClient): Promise<
   const groups = [...new Set(items.map((row) => row.groupName).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "tr")
   );
-  return { items, suppliers, groups };
+  const departments = [...new Set([...LEGACY_DEPARTMENTS, ...liveDepartments])].sort((a, b) =>
+    a.localeCompare(b, "tr")
+  );
+  return { items, suppliers, groups, departments };
+}
+
+async function loadConsumableDepartments(supabase: SupabaseClient): Promise<string[]> {
+  const departments = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("purchase_consumable_expenses")
+      .select("department")
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) break;
+    const page = (data ?? []) as { department: string | null }[];
+    for (const row of page) {
+      const value = row.department?.trim();
+      if (value) departments.add(value);
+    }
+    if (page.length < 1000) break;
+  }
+  return [...departments];
 }
 
 export async function loadRecentConsumableExpenses(

@@ -40,6 +40,12 @@ export interface ChartColumn {
   parts: Record<string, number>;
 }
 
+export interface ChartReferenceLine {
+  key: string;
+  label: string;
+  value: number;
+}
+
 // ------------------------------------------------------------------- efsane
 
 export function ChartLegend({
@@ -277,6 +283,7 @@ export function TimeBarChart({
 export function TimeLineChart({
   columns,
   series,
+  referenceLines = [],
   height = 200,
   valueLabel = "adam·saat",
   format = fmtManHours,
@@ -284,6 +291,7 @@ export function TimeLineChart({
 }: {
   columns: readonly ChartColumn[];
   series: readonly ChartSeries[];
+  referenceLines?: readonly ChartReferenceLine[];
   height?: number;
   valueLabel?: string;
   format?: (v: number) => string;
@@ -295,6 +303,9 @@ export function TimeLineChart({
   let peak = 0;
   for (const c of columns) {
     for (const s of visible) peak = Math.max(peak, c.parts[s.key] ?? 0);
+  }
+  for (const line of referenceLines) {
+    if (Number.isFinite(line.value)) peak = Math.max(peak, line.value);
   }
   const ticks = niceTicks(0, peak || 1, 4);
   const top = Math.max(peak, ticks[ticks.length - 1] ?? peak) || 1;
@@ -363,6 +374,22 @@ export function TimeLineChart({
                   style={{ bottom: `${(t / top) * 100}%` }}
                 />
               ))}
+
+              {referenceLines.map((line) => {
+                if (!Number.isFinite(line.value) || line.value < 0) return null;
+                return (
+                  <div
+                    key={line.key}
+                    aria-label={`${line.label}: ${format(line.value)} ${valueLabel}`}
+                    className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-primary/70"
+                    style={{ bottom: `${(line.value / top) * 100}%` }}
+                  >
+                    <span className="absolute right-0 -translate-y-full bg-card px-1 font-mono text-[10px] text-primary">
+                      {line.label} {format(line.value)}
+                    </span>
+                  </div>
+                );
+              })}
 
               <svg
                 viewBox="0 0 100 100"

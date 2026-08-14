@@ -271,6 +271,13 @@ export function ConsumableAnalysisView({
   const groupRanking = rankItems(groupRows, total);
   const columns = lineColumns(monthlySeries);
   const series: ChartSeries[] = [{ key: "total", label: "Aylık Sarf", hue: hueFromText("Aylık Sarf") }];
+  const completedMonths = monthlySeries.filter(
+    (month) => (month as ConsumableMonthlyEurPoint & { isFuture?: boolean }).isFuture !== true
+  );
+  const chartAverage =
+    completedMonths.length > 0
+      ? completedMonths.reduce((sum, month) => sum + month.amountEur, 0) / completedMonths.length
+      : 0;
 
   function write(changes: Record<string, string | undefined>) {
     const next = new URLSearchParams(params.toString());
@@ -320,7 +327,13 @@ export function ConsumableAnalysisView({
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,1fr)]">
         <PanoKabugu baslik="Aylık Sarf Gideri" alt={fmtCompactEur(total)}>
-          <TimeLineChart columns={columns} series={series} valueLabel="EUR" format={fmtCompactEur} />
+          <TimeLineChart
+            columns={columns}
+            series={series}
+            referenceLines={[{ key: "monthly-average", label: "Ort.", value: chartAverage }]}
+            valueLabel="EUR"
+            format={fmtCompactEur}
+          />
         </PanoKabugu>
         <PanoKabugu baslik="Sarf Grupları" alt={`${groupRows.length} grup`}>
           <RankBars items={groupRanking} limit={10} valueLabel="EUR" format={fmtCompactEur} />

@@ -853,6 +853,20 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     grafik ve anomali matrisi yalnız dondurulmuş **Aylık Tutar (€)** üzerinden
     karşılaştırılır.
 
+    **SARF KDV'Sİ SUNUM HESABIDIR, DEFTER TUTARI DEĞİLDİR** (kullanıcı kararı
+    14.08.2026). Hızlı girişte birim fiyat ve satır tutarı KDV HARİÇTİR; satır
+    oranı varsayılan %20, seçenekleri %10 ve %1'dir. KDV ile KDV dahil tutar
+    fatura kontrolü için satırda ve alt toplamda hesaplanır fakat action
+    payload'ına girmez: `amount`, `amount_eur`, kayıt listesi ve bütün analizler
+    daima KDV hariç kalır. Bu ayrım ileride sessizce vergi dahil analize
+    çevrilmez (`lib/purchasing/consumable-vat.ts`).
+
+    **SARF BÖLÜMÜ OLUŞTURULABİLİR SEÇİMDİR.** Excel J sütunundaki 16 gerçek
+    bölüm başlangıç sözlüğüdür; canlı giderlerdeki yeni bölüm adları da listeye
+    katılır. Kullanıcı aradığı bölüm yoksa aynı `Combobox` içinde yazar, anında
+    seçer ve gider kaydıyla kalıcı hale getirir. Ayrı bir zorunlu master/FK
+    kurulmaz; eski kayıtlardaki bölüm snapshot'ı korunur.
+
     **AYLIK KIRMIZI HÜCRE GRUBUN KENDİ GEÇMİŞİNE GÖREDİR** (`lib/purchasing/
     consumables.ts`, saf + testli). Hücre HARİÇ diğer pozitif ve gelecek
     olmayan aylardan en az üçü varsa, tutar onların ortalamasının `>1,5×`
