@@ -27,7 +27,8 @@
 import { forwardRef, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarChart3, ChevronDown, ChevronRight, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, ChevronDown, ChevronRight, FileText, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -534,6 +535,18 @@ export function OrdersView({
                       </TableCell>
                       <TableCell className="hidden align-top font-mono text-[12px] md:table-cell">
                         {s.orderNo || "—"}
+                        {/* SİPARİŞ ONAYI PDF (md. 6): sipariş no altında indirme
+                            bağlantısı — müşteriye/tedarikçiye gönderilir. */}
+                        <Link
+                          href={`/purchasing/siparisler/${s.id}/pdf`}
+                          target="_blank"
+                          rel="noopener"
+                          title="Sipariş onayı PDF"
+                          className="oc-tap mt-0.5 inline-flex min-h-6 items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <FileText className="size-3" />
+                          PDF
+                        </Link>
                       </TableCell>
                       <TableCell className="align-top font-mono text-[12px] whitespace-nowrap">
                         {tarihGoster(s.orderedAt)}

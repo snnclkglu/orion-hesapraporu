@@ -9,8 +9,12 @@
 //  2. SÜTUN DÜZENİ İŞ HAZIRLAMA LİSTESİ'nindir (kullanıcı kararı, md. 2):
 //     ekip belgeyi o düzende okumaya alışkın ve tedarikçiyle onu paylaşıyor.
 //
-// A4 YATAY — dokuz sütun dikey sayfada okunmaz. Paket belgesi yedi sütunla
-// dikey basılıyordu; tercih körü körüne devralınmadı, sütun sayısı değişti.
+// A4 DİKEY (kullanıcı kararı, 14.08.2026: "Satın almadaki pdf'leri dikeye
+// çevirelim"). On sütunlu yatay düzen sekize indirildi ("Kullanıldığı Yer" ve
+// "Ağırlık" düştü); kalan sütunlar dikey sayfada rahat okunur ve satır yüksekliği
+// yazı uzadıkça büyür (hücreler `alignItems: flex-start`, `Text` kendi
+// genişliğinde sarar), satırlar iç içe geçmez. Belge çok sayfalı olabilir;
+// başlık satırı `fixed` ile her sayfada tekrar eder.
 //
 // FİYAT SÜTUNU YOKTUR ve bu bilinçlidir: belge tedarikçiye TEKLİF İSTEMEK için
 // gider ve elimizdeki fiyatı göstermek pazarlığı baştan kaybettirirdi. Satış
@@ -20,18 +24,16 @@ import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/ren
 import { BRAND, BrandBand, BrandPage, FONTS, T, trUpper } from "@/lib/pdf/brand";
 import type { CompanyInfo } from "@/lib/pdf/brand";
 
-/** Sütun payları — toplamı 100. İŞ HAZIRLAMA LİSTESİ'nin sırası. */
+/** Sütun payları — toplamı 100. Dikey sayfa için sadeleştirilmiş düzen. */
 const SUTUNLAR: { baslik: string; pay: number; sag?: boolean }[] = [
-  { baslik: "#", pay: 3.5, sag: true },
-  { baslik: "İş No", pay: 9 },
-  { baslik: "Resim No", pay: 9 },
-  { baslik: "Kullanıldığı Yer", pay: 12 },
-  { baslik: "Tanımı", pay: 26 },
-  { baslik: "Kalite", pay: 8 },
-  { baslik: "Miktar", pay: 7, sag: true },
-  { baslik: "Birim", pay: 5 },
-  { baslik: "Ağırlık", pay: 7, sag: true },
-  { baslik: "Not", pay: 13.5 },
+  { baslik: "#", pay: 4, sag: true },
+  { baslik: "İş No", pay: 11 },
+  { baslik: "Resim No", pay: 11 },
+  { baslik: "Tanımı", pay: 33 },
+  { baslik: "Kalite", pay: 10 },
+  { baslik: "Miktar", pay: 8, sag: true },
+  { baslik: "Birim", pay: 7 },
+  { baslik: "Not", pay: 16 },
 ];
 
 const S = StyleSheet.create({
@@ -106,12 +108,11 @@ export function PurchaseRequestDocument({ rows, meta, company }: PurchaseRequest
   return (
     <Document title="Satın Alma Talebi" author="Orion Cranes" subject={meta.docCode}>
       <BrandPage
-        orientation="landscape"
         docLine={trUpper("Orion Cranes · Satın Alma Talebi")}
         docCode={meta.docCode}
         company={company}
       >
-        <BrandBand docCode={meta.docCode} lines={[meta.generatedAt]} logoWidth={130} />
+        <BrandBand docCode={meta.docCode} lines={[meta.generatedAt]} logoWidth={120} />
 
         {/* KÜNYE NOTLARI KALDIRILDI (kullanıcı kararı, 14.08.2026): kalem/adet/
             kg özeti ile süzgeç ve "Hazırlayan" satırı belgeden çıkarıldı —
@@ -154,19 +155,13 @@ export function PurchaseRequestDocument({ rows, meta, company }: PurchaseRequest
                   <Text style={[S.mono, { width: `${SUTUNLAR[2].pay}%` }]}>
                     {r.parcaKodlari.join(", ")}
                   </Text>
-                  <Text style={[S.hucre, { width: `${SUTUNLAR[3].pay}%` }]}>
-                    {r.kullanildigiYer}
-                  </Text>
-                  <Text style={[S.hucre, { width: `${SUTUNLAR[4].pay}%` }]}>{r.tanim}</Text>
-                  <Text style={[S.mono, { width: `${SUTUNLAR[5].pay}%` }]}>{r.malzeme}</Text>
-                  <Text style={[S.mono, { width: `${SUTUNLAR[6].pay}%`, textAlign: "right" }]}>
+                  <Text style={[S.hucre, { width: `${SUTUNLAR[3].pay}%` }]}>{r.tanim}</Text>
+                  <Text style={[S.mono, { width: `${SUTUNLAR[4].pay}%` }]}>{r.malzeme}</Text>
+                  <Text style={[S.mono, { width: `${SUTUNLAR[5].pay}%`, textAlign: "right" }]}>
                     {say(r.adet)}
                   </Text>
-                  <Text style={[S.hucre, { width: `${SUTUNLAR[7].pay}%` }]}>{r.birim}</Text>
-                  <Text style={[S.mono, { width: `${SUTUNLAR[8].pay}%`, textAlign: "right" }]}>
-                    {say(r.toplamAgirlikKg, 1)}
-                  </Text>
-                  <Text style={[S.hucre, { width: `${SUTUNLAR[9].pay}%` }]}>{r.not}</Text>
+                  <Text style={[S.hucre, { width: `${SUTUNLAR[6].pay}%` }]}>{r.birim}</Text>
+                  <Text style={[S.hucre, { width: `${SUTUNLAR[7].pay}%` }]}>{r.not}</Text>
                 </View>
               );
             })}
@@ -174,19 +169,15 @@ export function PurchaseRequestDocument({ rows, meta, company }: PurchaseRequest
         ))}
 
         {/* TOPLAM SATIRI listenin sonunda: tedarikçi teklifi verirken kaç
-            kalem ve kaç kilo konuştuğumuzu tek bakışta görmeli. */}
+            kalem ve kaç adet konuştuğumuzu tek bakışta görmeli. */}
         <View style={[S.satir, { borderTopWidth: 0.8, borderTopColor: BRAND.ink, marginTop: 2 }]} wrap={false}>
-          <Text style={[S.hucre, { width: "58.5%", fontFamily: FONTS.sans }]}>
-            TOPLAM — {rows.length} kalem
+          <Text style={[S.hucre, { width: "69%", fontFamily: FONTS.sans }]}>
+            TOPLAM — {rows.length} kalem{toplamAgirlik > 0 ? ` · ${say(toplamAgirlik, 1)} kg` : ""}
           </Text>
-          <Text style={[S.mono, { width: "7%", textAlign: "right", fontFamily: FONTS.sans }]}>
+          <Text style={[S.mono, { width: "8%", textAlign: "right", fontFamily: FONTS.sans }]}>
             {say(toplamAdet)}
           </Text>
-          <Text style={[S.hucre, { width: "5%" }]} />
-          <Text style={[S.mono, { width: "7%", textAlign: "right", fontFamily: FONTS.sans }]}>
-            {say(toplamAgirlik, 1)}
-          </Text>
-          <Text style={[S.hucre, { width: "13.5%" }]} />
+          <Text style={[S.hucre, { width: "23%" }]} />
         </View>
 
         {/* İmza kutuları: belge basılıp elden de dolaşıyor. */}
