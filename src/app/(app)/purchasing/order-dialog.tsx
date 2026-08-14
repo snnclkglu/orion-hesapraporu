@@ -28,21 +28,35 @@
 //
 // ALT BAŞLIK KALDIRILDI ("7 kalem · tek tedarikçi. Kalemler birden çok işe
 // gidiyor…", kullanıcı kararı). Yazı doğruydu ama pencerenin en üstünde,
-// kullanıcının hiçbir kararını değiştirmeyen bir dipnottu: satır bölünmesi
-// zaten kaydetmede olur ve kalem sayısı tablonun kendisinde yazar.
+// kullanıcının hiçbir kararını değiştirmeyen bir dipnottu.
 //
-// TEDARİKÇİ ADI YENİYSE DEFTERE KENDİLİĞİNDEN GİRER (kullanıcı kararı):
-// *"Sipariş Aç bölümüne yeni bir tedarikçi ismi girilirse, otomatik yeni bir
-// tedarikçi açılsın."* Eskiden yanında bir "+" düğmesi vardı ve BASILMASI
-// gerekiyordu; basılmadığında firma defterde görünmüyordu. Kayıt alandan
-// ÇIKILDIĞINDA yapılır, çünkü kodu hemen gerekiyor: sipariş numarası ondan
-// türer.
+// ————————————————————————————————————————————————— 14.08.2026 düzenlemeleri
+//
+// PENCERE "SARF GİDERİ GİR" EKRANININ GÖRSEL YAPISINI ALDI (kullanıcı kararı).
+// Üç şey değişti ve üçü de o ekranda zaten çözülmüş sorunlardı:
+//
+//   · TEDARİKÇİ ARTIK ARANABİLİR BİR LİSTEDİR (`Combobox`), `datalist` taşıyan
+//     bir metin kutusu değil. `datalist` tarayıcıya bırakılmış bir öneridir:
+//     Türkçe katlaması yoktur ("isdemir" yazan "İSDEMİR"i bulamıyordu), kodu
+//     (TD0007) göstermez ve dokunmatikte açılmaz. Yeni firma yine BURADAN
+//     açılır — listede yoksa "+ Yeni tedarikçi" satırı yazılan adı deftere
+//     yazar ve kodu anında gelir (sipariş numarası ondan türüyor).
+//   · ALANLAR ETİKETLİ BÖLÜMLERE ayrıldı (`Label` + `border bg-muted/30`):
+//     tek bir `flex-wrap` şeritte on kutu yan yana duruyordu ve hangisinin
+//     hangi başlığa ait olduğu dar ekranda okunmuyordu.
+//   · HIZLI TERMİN eklendi (`DELIVERY_WEEKS`) — sarf girişindeki listenin
+//     aynısı, artı kullanıcının istediği 10/12/16/20 hafta.
+//
+// KDV SATIRDADIR (kullanıcı kararı): *"kullanıcı hep kdv hariç fiyat girer,
+// kdv otomatik gelir."* Birim fiyat KDV HARİÇ kaydedilir ve fiyat arşivi ile
+// bütün panolar onu okur; KDV yalnız fatura kontrolü ve ÖDEME TAKVİMİ içindir.
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -58,18 +72,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox, type ComboOption } from "@/components/combobox";
 import { CURRENCIES, CURRENCY_LABELS, currencyOf, fmtMoney, parseNum } from "@/lib/currency";
 import {
   ADVANCE_PERCENTS,
+  DELIVERY_WEEKS,
   PAYMENT_TERMS,
   advanceAmount,
   bugunISO,
   eurKarsiligi,
+  gunEkle,
   gunFarki,
   kurGerekli,
   odemeGunu,
   tarihGoster,
 } from "@/lib/purchasing/terms";
+import { DEFAULT_VAT_RATE, VAT_RATES, vatTotals, type VatRate } from "@/lib/purchasing/vat";
 import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
@@ -96,11 +114,16 @@ interface Satir {
   tanim: string;
   adet: string;
   fiyat: string;
+  kdv: VatRate;
   paylar: SiparisKalemi["paylar"];
 }
 
 /** Serbest gün girişi için açılırdaki özel değer. */
 const OZEL = "ozel";
+/** Hızlı terminde "tarih girilmedi" — termin İSTEĞE BAĞLIDIR. */
+const TERMIN_YOK = "yok";
+/** Hızlı terminde "takvimden seç". */
+const TERMIN_SERBEST = "serbest";
 
 export function OrderDialog({
   kalemler,
@@ -127,9 +150,9 @@ export function OrderDialog({
   /**
    * Katlanmış firma adı → kod.
    *
-   * Pencere açıkken YENİ FİRMA da eklenebilir (`firmaKesinlestir`), o yüzden
-   * harita bir `useMemo` değil bir DURUMdur: yeni kod anında burada belirir ve
-   * numara önerisi bir sayfa yenilemesi beklemez.
+   * Pencere açıkken YENİ FİRMA da eklenebilir (`firmaOlustur`), o yüzden harita
+   * bir `useMemo` değil bir DURUMdur: yeni kod anında burada belirir ve numara
+   * önerisi bir sayfa yenilemesi beklemez.
    */
   const [kodlar, setKodlar] = useState<Map<string, string>>(
     () => new Map(defter.filter((t) => t.code).map((t) => [trKatla(t.name), t.code]))
@@ -151,6 +174,7 @@ export function OrderDialog({
   );
   const [siparisTarihi, setSiparisTarihi] = useState(bugunISO());
   const [termin, setTermin] = useState("");
+  const [terminSecimi, setTerminSecimi] = useState(TERMIN_YOK);
   const [vade, setVade] = useState("pesin");
   const [ozelGun, setOzelGun] = useState("");
   const [avansYuzde, setAvansYuzde] = useState("");
@@ -181,9 +205,30 @@ export function OrderDialog({
         k.birimFiyat != null && currencyOf(k.paraBirimi) === currencyOf(paraBirimi)
           ? String(k.birimFiyat)
           : "",
+      kdv: DEFAULT_VAT_RATE,
       paylar: k.paylar,
     }))
   );
+
+  /**
+   * Tedarikçi seçenekleri — ÖNERİ LİSTESİ, defterin tamamı değil.
+   *
+   * Pasif firmalar (banka, otel, kargo) `loadTedarikciler` tarafında zaten
+   * elenmiştir; kod ise defterden gelir ve rozet olarak görünür. Seçili firma
+   * listede yoksa KENDİ SEÇENEĞİ olarak korunur — korunmasaydı dolu bir alan
+   * ekranda boş görünürdü (Teknik Resim Takibi'ndeki "Çizen" kuralının aynısı).
+   */
+  const firmaSecenekleri: ComboOption[] = useMemo(() => {
+    const harita = new Map<string, ComboOption>();
+    for (const ad of tedarikciler) {
+      const kod = kodlar.get(trKatla(ad)) ?? "";
+      harita.set(trKatla(ad), { value: ad, label: ad, badge: kod, keywords: kod ? [kod] : [] });
+    }
+    if (firma && !harita.has(trKatla(firma))) {
+      harita.set(trKatla(firma), { value: firma, label: firma, badge: firmaKodu });
+    }
+    return [...harita.values()].sort((a, b) => a.label.localeCompare(b.label, "tr"));
+  }, [tedarikciler, kodlar, firma, firmaKodu]);
 
   const secenek = PAYMENT_TERMS.find((t) => t.value === vade);
   const vadeGunu =
@@ -195,18 +240,26 @@ export function OrderDialog({
   const kurOneri = kurLazim ? kurOnerisi(paraBirimi, sonKur) : null;
   const kurSayi = parseNum(kur);
 
-  const toplam = useMemo(
+  // ÜÇ TOPLAM: net (deftere yazılan), KDV, KDV dahil (kasadan çıkan).
+  const toplamlar = useMemo(
     () =>
-      satirlar.reduce((t, s) => {
-        const a = parseNum(s.adet) ?? 0;
-        const f = parseNum(s.fiyat) ?? 0;
-        return t + a * f;
-      }, 0),
+      vatTotals(
+        satirlar.map((s) => ({
+          net: (parseNum(s.adet) ?? 0) * (parseNum(s.fiyat) ?? 0),
+          vatRate: s.kdv,
+        }))
+      ),
     [satirlar]
   );
-  const toplamEur = eurKarsiligi(toplam, paraBirimi, kurLazim ? kurSayi : 1);
+  const kurBolen = kurLazim ? kurSayi : 1;
+  const netEur = eurKarsiligi(toplamlar.net, paraBirimi, kurBolen);
+  const kdvEur = eurKarsiligi(toplamlar.vat, paraBirimi, kurBolen);
+  const brutEur = eurKarsiligi(toplamlar.gross, paraBirimi, kurBolen);
 
-  const avans = advanceAmount(toplam, parseNum(avansYuzde), parseNum(avansTutar));
+  // AVANS KDV DAHİL TUTARDAN HESAPLANIR: peşinat kasadan çıkan paranın bir
+  // yüzdesidir ve tedarikçi faturanın tamamı üzerinden ister. Elle yazılmış
+  // tutar yine yüzdeyi yener (`advanceAmount`).
+  const avans = advanceAmount(toplamlar.gross, parseNum(avansYuzde), parseNum(avansTutar));
   const odeme = odemeGunu({
     dueAt: termin || null,
     receivedAt: null,
@@ -225,8 +278,8 @@ export function OrderDialog({
     (vadeBicimi !== "vadeli" || vadeGunu > 0) &&
     !noCakisiyor;
 
-  function guncelle(i: number, alan: "adet" | "fiyat", deger: string) {
-    setSatirlar((o) => o.map((s, j) => (j === i ? { ...s, [alan]: deger } : s)));
+  function guncelle(i: number, yama: Partial<Satir>) {
+    setSatirlar((o) => o.map((s, j) => (j === i ? { ...s, ...yama } : s)));
   }
 
   /** Kod değişince numara önerisi tazelenir — kutuya dokunulmadıysa. */
@@ -235,36 +288,46 @@ export function OrderDialog({
     if (!noDokunuldu) setSiparisNo(siparisNoOner(kod, siparisNolari));
   }
 
-  function firmaAdiYaz(v: string) {
-    setFirma(v);
+  function firmaSec(ad: string) {
+    setFirma(ad);
     setYeniFirmaKodu("");
-    // Listeden seçilen (ya da birebir yazılan) ad kodunu ANINDA getirir;
-    // tanınmayan ad kodu boşaltır ve numara önerisi susar.
-    koduUygula(kodlar.get(trKatla(v)) ?? "");
+    koduUygula(kodlar.get(trKatla(ad)) ?? "");
+  }
+
+  /** Hızlı termin — sipariş tarihinden itibaren kaç hafta. */
+  function terminSec(deger: string) {
+    setTerminSecimi(deger);
+    if (deger === TERMIN_YOK) setTermin("");
+    else if (deger !== TERMIN_SERBEST) setTermin(gunEkle(siparisTarihi, Number(deger)));
+  }
+
+  function siparisTarihiYaz(deger: string) {
+    setSiparisTarihi(deger);
+    // Hafta seçiliyken sipariş tarihi değişirse termin ONA GÖRE kayar: "altı
+    // hafta sonra" bir tarih değil bir mesafedir.
+    if (deger && terminSecimi !== TERMIN_YOK && terminSecimi !== TERMIN_SERBEST) {
+      setTermin(gunEkle(deger, Number(terminSecimi)));
+    }
   }
 
   /**
-   * Alandan çıkıldığında firmayı deftere yazar — YOKSA.
+   * Yazılan yeni firmayı deftere yazar ve seçer.
    *
    * Kullanıcının cümlesi net: *"yeni bir tedarikçi ismi girilirse, otomatik
-   * yeni bir tedarikçi açılsın."* Kayıt burada, yani KAYDETMEDEN ÖNCE yapılır
-   * çünkü sipariş numarası firmanın kodundan türüyor; sipariş kaydedilirken
-   * yazılsaydı numara alanı o ana kadar boş kalır ve kullanıcı elle bir şey
-   * uydururdu.
-   *
-   * BAŞARISIZLIK SESSİZDİR: defter bir öneri kaynağıdır, siparişin şartı değil
-   * (`createOrder` ayrıca dener). Ekranda bir hata kutusu göstermek,
-   * kullanıcının asıl işini yarıda kesmek olurdu.
+   * yeni bir tedarikçi açılsın."* Kayıt KAYDETMEDEN ÖNCE yapılır çünkü sipariş
+   * numarası firmanın kodundan türüyor; sipariş kaydedilirken yazılsaydı numara
+   * alanı o ana kadar boş kalır ve kullanıcı elle bir şey uydururdu.
    */
-  function firmaKesinlestir() {
-    const ad = firma.trim();
-    if (ad.length < 2 || firmaYaziliyor) return;
-    if (kodlar.has(trKatla(ad))) return;
-
+  function firmaOlustur(ad: string) {
+    const temiz = ad.trim();
+    if (temiz.length < 2 || firmaYaziliyor) return;
     setFirmaYaziliyor(true);
-    ensureSupplier({ name: ad })
+    ensureSupplier({ name: temiz })
       .then((sonuc) => {
-        if (sonuc.error || !sonuc.name) return;
+        if (sonuc.error || !sonuc.name) {
+          toast.error(sonuc.error ?? "Tedarikçi oluşturulamadı.");
+          return;
+        }
         const kayitliAd = sonuc.name;
         const kod = sonuc.code ?? "";
         setKodlar((o) => new Map(o).set(trKatla(kayitliAd), kod));
@@ -303,6 +366,7 @@ export function OrderDialog({
             qty: adet,
             unit: "Adet",
             unitPrice: fiyat,
+            vatRate: s.kdv,
             note: "",
           });
           continue;
@@ -325,6 +389,7 @@ export function OrderDialog({
             qty: pay,
             unit: "Adet",
             unitPrice: fiyat,
+            vatRate: s.kdv,
             note: "",
           });
         });
@@ -362,33 +427,47 @@ export function OrderDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(52rem,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(58rem,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="text-base">Sipariş Aç</DialogTitle>
-          {/* ALT BAŞLIK YOK (kullanıcı kararı, 13.08.2026). `DialogDescription`
-              erişilebilirlik için gereklidir ama EKRANDA görünmez: Radix
-              `aria-describedby` bağını arar ve bulamayınca konsola uyarı basar. */}
-          <DialogDescription className="sr-only">
-            Seçili kalemler için tek tedarikçiye sipariş açar.
-          </DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <DialogTitle className="text-base">Sipariş Aç</DialogTitle>
+              {/* ALT BAŞLIK YOK (kullanıcı kararı, 13.08.2026). `DialogDescription`
+                  erişilebilirlik için gereklidir ama EKRANDA görünmez: Radix
+                  `aria-describedby` bağını arar ve bulamayınca uyarı basar. */}
+              <DialogDescription className="sr-only">
+                Seçili kalemler için tek tedarikçiye sipariş açar.
+              </DialogDescription>
+            </div>
+            {/* Sarf girişinin başlık şeridiyle aynı: karar verdiren sayı
+                başlığın hizasında durur ve aşağı kaydırmak gerekmez. */}
+            <div className="text-right">
+              <div className="font-mono text-sm font-semibold tabular-nums">
+                {netEur == null ? "—" : fmtMoney(netEur, "EUR")}
+              </div>
+              <div className="text-[11px] text-muted-foreground">KDV hariç Avro karşılığı</div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="grid gap-3">
-          {/* ————————————————————————————————— başlık */}
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="grid min-w-[12rem] flex-1 gap-1">
-              <span className="text-[11px] text-muted-foreground">Tedarikçi</span>
+          {/* ————————————————————————————————— künye */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1fr)_10rem_9rem]">
+            <div className="grid content-start gap-1.5">
+              <Label>Tedarikçi</Label>
               <span className="relative flex items-center">
-                <Input
-                  value={firma}
-                  onChange={(e) => firmaAdiYaz(e.target.value)}
-                  onBlur={firmaKesinlestir}
-                  list="siparis-tedarikci"
-                  maxLength={120}
-                  className="h-9 flex-1 text-base pointer-fine:text-sm"
+                <Combobox
+                  options={firmaSecenekleri}
+                  value={firma || null}
+                  onChange={firmaSec}
+                  onCreate={firmaOlustur}
+                  createLabel="Yeni tedarikçi"
+                  placeholder="Tedarikçi seçin veya yazın"
+                  searchPlaceholder="Firma adı veya TD kodu…"
+                  className="h-9 text-base pointer-fine:text-sm"
                 />
                 {firmaYaziliyor && (
-                  <Loader2 className="absolute right-2 size-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="pointer-events-none absolute right-7 size-4 animate-spin text-muted-foreground" />
                 )}
               </span>
               {/* Kod bir SONUÇtur, bir alan değil: kullanıcı onu yazmaz, defter
@@ -397,13 +476,14 @@ export function OrderDialog({
                 {firmaKodu
                   ? `${firmaKodu}${yeniFirmaKodu ? " · yeni firma deftere eklendi" : ""}`
                   : firma.trim()
-                    ? "Defterde yok — kaydedilirken otomatik eklenecek"
+                    ? "Defterde kodu yok — kaydedilirken eklenecek"
                     : ""}
               </span>
-            </label>
-            <label className="grid w-40 gap-1">
-              <span className="text-[11px] text-muted-foreground">Sipariş No</span>
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="siparis-no">Sipariş No</Label>
               <Input
+                id="siparis-no"
                 value={siparisNo}
                 onChange={(e) => {
                   setNoDokunuldu(true);
@@ -417,36 +497,117 @@ export function OrderDialog({
               {noCakisiyor && (
                 <span className="text-[10px] text-destructive">Bu numara zaten kullanılmış.</span>
               )}
-            </label>
-            <label className="grid w-36 gap-1">
-              <span className="text-[11px] text-muted-foreground">Sipariş Tarihi</span>
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="siparis-tarihi">Sipariş Tarihi</Label>
               <Input
+                id="siparis-tarihi"
                 type="date"
                 value={siparisTarihi}
-                onChange={(e) => setSiparisTarihi(e.target.value)}
+                onChange={(e) => siparisTarihiYaz(e.target.value)}
                 className="h-9 font-mono text-base pointer-fine:text-sm"
               />
-            </label>
-            <label className="grid w-36 gap-1">
-              {/* TERMİN İSTEĞE BAĞLIDIR (kullanıcı kararı, 13.08.2026) ve
-                  etiket bunu söyler: boş bırakılan bir alan, unutulmuş mu
-                  yoksa bilinmiyor mu, ekrandan anlaşılmalıdır. */}
-              <span className="text-[11px] text-muted-foreground">Termin (İsteğe Bağlı)</span>
-              <Input
-                type="date"
-                value={termin}
-                onChange={(e) => setTermin(e.target.value)}
-                className="h-9 font-mono text-base pointer-fine:text-sm"
-              />
-            </label>
+            </div>
           </div>
 
-          {/* ————————————————————————————————— ödeme koşulu */}
-          <div className="flex flex-wrap items-end gap-2 border bg-muted/30 p-2">
-            <label className="grid w-40 gap-1">
-              <span className="text-[11px] text-muted-foreground">Ödeme Vadesi</span>
+          {/* ————————————————————————————————— para birimi + kur */}
+          <div className="grid gap-3 border bg-muted/30 p-3 sm:grid-cols-[10rem_10rem_1fr]">
+            <div className="grid content-start gap-1.5">
+              <Label>Para Birimi</Label>
+              <Select
+                value={paraBirimi}
+                onValueChange={(v) => {
+                  // PARA BİRİMİ VE KUR BİRLİKTE DEĞİŞİR: dolardan liraya
+                  // geçilip kur alanı 1,08'de kalsaydı sipariş otuz kat ucuz
+                  // kaydedilirdi (quote-dialog'daki kuralın aynısı).
+                  const yeni = currencyOf(v);
+                  setParaBirimi(yeni);
+                  const o = kurOnerisi(yeni, sonKur);
+                  setKur(o ? kurMetni(o.kur) : "");
+                }}
+              >
+                <SelectTrigger className="w-full text-base pointer-fine:text-sm">
+                  <SelectValue>
+                    {paraBirimi} · {CURRENCY_LABELS[paraBirimi]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c} · {CURRENCY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="siparis-kur">1 € = ?</Label>
+              <Input
+                id="siparis-kur"
+                value={kurLazim ? kur : "1"}
+                onChange={(e) => setKur(e.target.value)}
+                inputMode="decimal"
+                disabled={!kurLazim}
+                className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+              />
+            </div>
+            <div className="self-end text-[12px] text-muted-foreground">
+              1 EUR = {kurLazim ? kur || "—" : "1"} {paraBirimi}
+              {kurOneri && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => setKur(kurMetni(kurOneri.kur))}
+                    title={`TCMB ${tarihGoster(kurOneri.gun)} — dokunmak kutuyu bu kurla doldurur`}
+                    className="underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    {tarihGoster(kurOneri.gun)} · {kurMetni(kurOneri.kur)}
+                    {kurOneri.yas > 3 ? ` (${formatNum(kurOneri.yas)} gün önce)` : ""}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ————————————————————————————————— termin + ödeme koşulu */}
+          <div className="grid gap-3 border bg-muted/30 p-3 lg:grid-cols-[minmax(16rem,1fr)_minmax(14rem,1fr)_minmax(16rem,1fr)]">
+            <div className="grid content-start gap-1.5">
+              <Label>Hızlı Termin</Label>
+              <Select value={terminSecimi} onValueChange={terminSec}>
+                <SelectTrigger className="w-full text-base pointer-fine:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* TERMİN İSTEĞE BAĞLIDIR (kullanıcı kararı, 13.08.2026):
+                      boş bırakılan bir alan, unutulmuş mu yoksa bilinmiyor mu,
+                      ekrandan anlaşılmalıdır. */}
+                  <SelectItem value={TERMIN_YOK}>Termin Yok</SelectItem>
+                  <SelectItem value="0">Hemen</SelectItem>
+                  {DELIVERY_WEEKS.map((hafta) => (
+                    <SelectItem key={hafta} value={String(hafta * 7)}>
+                      {hafta} hafta
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={TERMIN_SERBEST}>Tarih Seç</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                aria-label="Termin tarihi"
+                type="date"
+                value={termin}
+                onChange={(e) => {
+                  setTermin(e.target.value);
+                  setTerminSecimi(e.target.value ? TERMIN_SERBEST : TERMIN_YOK);
+                }}
+                className="font-mono text-base pointer-fine:text-sm"
+              />
+            </div>
+
+            <div className="grid content-start gap-1.5">
+              <Label>Ödeme Vadesi</Label>
               <Select value={vade} onValueChange={setVade}>
-                <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
+                <SelectTrigger className="w-full text-base pointer-fine:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -460,133 +621,99 @@ export function OrderDialog({
                   <SelectItem value={OZEL}>Diğer (Gün Gir)</SelectItem>
                 </SelectContent>
               </Select>
-            </label>
-            {vade === OZEL && (
-              <label className="grid w-24 gap-1">
-                <span className="text-[11px] text-muted-foreground">Gün</span>
+              {vade === OZEL && (
                 <Input
+                  aria-label="Özel vade gün sayısı"
                   value={ozelGun}
                   onChange={(e) => setOzelGun(e.target.value)}
                   inputMode="numeric"
-                  className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+                  placeholder="Örn. 120"
+                  className="font-mono text-base tabular-nums pointer-fine:text-sm"
                 />
-              </label>
-            )}
-            <label className="grid w-28 gap-1">
-              <span className="text-[11px] text-muted-foreground">Avans %</span>
-              <Select value={avansYuzde || "yok"} onValueChange={(v) => setAvansYuzde(v === "yok" ? "" : v)}>
-                <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yok">Yok</SelectItem>
-                  {ADVANCE_PERCENTS.map((p) => (
-                    <SelectItem key={p} value={String(p)}>
-                      %{p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="grid w-32 gap-1">
-              <span className="text-[11px] text-muted-foreground">Veya Avans Tutarı</span>
-              <Input
-                value={avansTutar}
-                onChange={(e) => setAvansTutar(e.target.value)}
-                inputMode="decimal"
-                className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-              />
-            </label>
-            <label className="grid w-28 gap-1">
-              <span className="text-[11px] text-muted-foreground">Para Birimi</span>
-              <Select
-                value={paraBirimi}
-                onValueChange={(v) => {
-                  // PARA BİRİMİ VE KUR BİRLİKTE DEĞİŞİR: dolardan liraya
-                  // geçilip kur alanı 1,08'de kalsaydı sipariş otuz kat ucuz
-                  // kaydedilirdi (quote-dialog'daki kuralın aynısı).
-                  const yeni = currencyOf(v);
-                  setParaBirimi(yeni);
-                  const o = kurOnerisi(yeni, sonKur);
-                  setKur(o ? kurMetni(o.kur) : "");
-                }}
-              >
-                <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CURRENCY_LABELS[c]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            {kurLazim && (
-              <label className="grid w-32 gap-1">
-                <span className="text-[11px] text-muted-foreground">1 € = ?</span>
-                <Input
-                  value={kur}
-                  onChange={(e) => setKur(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="35,50"
-                  className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-                />
-                {kurOneri && (
-                  <button
-                    type="button"
-                    onClick={() => setKur(kurMetni(kurOneri.kur))}
-                    title={`TCMB ${tarihGoster(kurOneri.gun)} — dokunmak kutuyu bu kurla doldurur`}
-                    className="text-left text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <span className="grid gap-1.5">
+                  <Label className="text-[11px]">Avans %</Label>
+                  <Select
+                    value={avansYuzde || "yok"}
+                    onValueChange={(v) => setAvansYuzde(v === "yok" ? "" : v)}
                   >
-                    {tarihGoster(kurOneri.gun)} · {kurMetni(kurOneri.kur)}
-                    {kurOneri.yas > 3 ? ` (${formatNum(kurOneri.yas)} gün önce)` : ""}
-                  </button>
-                )}
-              </label>
-            )}
-          </div>
+                    <SelectTrigger size="sm" className="w-full text-base pointer-fine:text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yok">Yok</SelectItem>
+                      {ADVANCE_PERCENTS.map((p) => (
+                        <SelectItem key={p} value={String(p)}>
+                          %{p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </span>
+                <span className="grid gap-1.5">
+                  <Label className="text-[11px]" htmlFor="avans-tutar">
+                    Veya Avans Tutarı
+                  </Label>
+                  <Input
+                    id="avans-tutar"
+                    value={avansTutar}
+                    onChange={(e) => setAvansTutar(e.target.value)}
+                    inputMode="decimal"
+                    className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+                  />
+                </span>
+              </div>
+            </div>
 
-          {/* ÖDEME GÜNÜ CANLI HESAPLANIR — kuralın kendisi ekranda görünür. */}
-          <p className="border-l-2 border-primary/40 bg-primary/[0.04] px-2 py-1.5 text-[12px]">
-            {vadeBicimi === "vadeli" ? (
-              termin ? (
-                <>
-                  Ödeme <strong>teslimden {vadeGunu} gün sonra</strong>:{" "}
-                  <strong>{tarihGoster(odeme)}</strong>. Termin{" "}
-                  {terminGun == null ? "girilmedi" : `${terminGun} gün sonra`}.
-                </>
-              ) : (
-                <>
-                  Vade <strong>{vadeGunu} gün</strong> — ödeme günü TERMİNDEN sayılır, sipariş
-                  tarihinden değil. Termin girilmeden ödeme günü hesaplanamaz.
-                </>
-              )
-            ) : (
-              <>
-                Peşin/kredi kartı: ödeme <strong>{termin ? tarihGoster(termin) : "teslim günü"}</strong>{" "}
-                yapılır.
-              </>
-            )}
-            {avans > 0 && (
-              <>
-                {" "}
-                Avans <strong>{fmtMoney(avans, paraBirimi)}</strong> sipariş günü (
-                {tarihGoster(siparisTarihi)}) ödenir.
-              </>
-            )}
-          </p>
+            {/* ÖDEME GÜNÜ CANLI HESAPLANIR — kuralın kendisi ekranda görünür. */}
+            <div className="grid content-start gap-1.5">
+              <Label>Planlanan Ödeme</Label>
+              <div className="min-h-10 border-l-2 border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm">
+                <strong>{odeme ? tarihGoster(odeme) : "—"}</strong>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {vadeBicimi === "vadeli" ? (
+                    termin ? (
+                      <>
+                        Termin {tarihGoster(termin)} + {vadeGunu} gün vade
+                        {terminGun != null && ` · termine ${terminGun} gün`}
+                      </>
+                    ) : (
+                      <>
+                        Vade {vadeGunu} gün — ödeme günü TERMİNDEN sayılır, sipariş tarihinden
+                        değil. Termin girilmeden hesaplanamaz.
+                      </>
+                    )
+                  ) : (
+                    <>
+                      Peşin/kredi kartı: ödeme{" "}
+                      {termin ? tarihGoster(termin) : "teslim günü"} yapılır.
+                    </>
+                  )}
+                </span>
+              </div>
+              {avans > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  Avans <strong>{fmtMoney(avans, paraBirimi)}</strong> sipariş günü (
+                  {tarihGoster(siparisTarihi)}) ödenir · KDV dahil tutardan.
+                </span>
+              )}
+            </div>
+          </div>
 
           {/* ————————————————————————————————— kalemler */}
           <div className="oc-scrollx max-h-[38dvh] overflow-y-auto border [--oc-scroll-bg:var(--card)]">
-            <table className="w-full text-[12px]">
+            <table className="w-full min-w-[46rem] text-[12px]">
               <thead className="sticky top-0 bg-muted/80 text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
-                  <th className="w-24 px-2 py-1.5 text-right font-normal">Adet</th>
-                  <th className="w-28 px-2 py-1.5 text-right font-normal">Birim Fiyat</th>
+                  <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>
+                  <th className="w-28 px-2 py-1.5 text-right font-normal">
+                    Birim Fiyat <span className="block text-[10px]">(KDV hariç)</span>
+                  </th>
+                  <th className="w-20 px-2 py-1.5 text-left font-normal">KDV</th>
                   <th className="w-28 px-2 py-1.5 text-right font-normal">Tutar</th>
+                  <th className="w-28 px-2 py-1.5 text-right font-normal">KDV Dahil</th>
                   <th className="w-8 px-1 py-1.5" />
                 </tr>
               </thead>
@@ -594,6 +721,7 @@ export function OrderDialog({
                 {satirlar.map((s, i) => {
                   const a = parseNum(s.adet) ?? 0;
                   const fi = parseNum(s.fiyat) ?? 0;
+                  const net = a * fi;
                   return (
                     <tr key={s.matchKey} className="border-t">
                       <td className="px-2 py-1.5">
@@ -606,7 +734,7 @@ export function OrderDialog({
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.adet}
-                          onChange={(e) => guncelle(i, "adet", e.target.value)}
+                          onChange={(e) => guncelle(i, { adet: e.target.value })}
                           inputMode="numeric"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                           aria-label={`${s.tanim} adedi`}
@@ -615,14 +743,38 @@ export function OrderDialog({
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.fiyat}
-                          onChange={(e) => guncelle(i, "fiyat", e.target.value)}
+                          onChange={(e) => guncelle(i, { fiyat: e.target.value })}
                           inputMode="decimal"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-                          aria-label={`${s.tanim} birim fiyatı`}
+                          aria-label={`${s.tanim} birim fiyatı (KDV hariç)`}
                         />
                       </td>
+                      <td className="px-2 py-1.5">
+                        <Select
+                          value={String(s.kdv)}
+                          onValueChange={(v) => guncelle(i, { kdv: Number(v) as VatRate })}
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className="w-full px-2 font-mono text-base pointer-fine:text-sm"
+                            aria-label={`${s.tanim} KDV oranı`}
+                          >
+                            <SelectValue>%{s.kdv}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VAT_RATES.map((oran) => (
+                              <SelectItem key={oran} value={String(oran)}>
+                                %{oran}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
                       <td className="px-2 py-1.5 text-right font-mono tabular-nums">
-                        {fmtMoney(a * fi, paraBirimi)}
+                        {fmtMoney(net, paraBirimi)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-mono font-medium tabular-nums">
+                        {fmtMoney(net * (1 + s.kdv / 100), paraBirimi)}
                       </td>
                       <td className="px-1 py-1.5">
                         <button
@@ -641,33 +793,42 @@ export function OrderDialog({
             </table>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="grid min-w-[12rem] flex-1 gap-1">
-              <span className="text-[11px] text-muted-foreground">Not (İsteğe Bağlı)</span>
+          {/* ————————————————————————————————— toplamlar */}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid min-w-[12rem] flex-1 gap-1.5">
+              <Label htmlFor="siparis-not">Not (İsteğe Bağlı)</Label>
               <Input
+                id="siparis-not"
                 value={not}
                 onChange={(e) => setNot(e.target.value)}
                 maxLength={1000}
                 className="h-9 text-base pointer-fine:text-sm"
               />
-            </label>
-            <p className="ml-auto text-right font-mono text-sm tabular-nums">
-              <span className="block text-[11px] text-muted-foreground">Sipariş Toplamı</span>
-              {fmtMoney(toplam, paraBirimi)}
-              {toplamEur != null && paraBirimi !== "EUR" && (
-                <span className="block text-[11px] text-muted-foreground">
-                  {fmtMoney(toplamEur, "EUR")}
-                </span>
-              )}
-            </p>
+            </div>
+            <div className="grid w-full grid-cols-[auto_auto_auto] gap-x-3 gap-y-1 text-right text-sm sm:w-auto sm:min-w-[22rem]">
+              <span className="text-muted-foreground">KDV Hariç Tutar</span>
+              <span className="font-mono tabular-nums">{fmtMoney(toplamlar.net, paraBirimi)}</span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {netEur == null ? "—" : fmtMoney(netEur, "EUR")}
+              </span>
+              <span className="text-muted-foreground">KDV</span>
+              <span className="font-mono tabular-nums">{fmtMoney(toplamlar.vat, paraBirimi)}</span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {kdvEur == null ? "—" : fmtMoney(kdvEur, "EUR")}
+              </span>
+              <span className="font-semibold">KDV Dahil Tutar</span>
+              <span className="font-mono font-semibold tabular-nums">
+                {fmtMoney(toplamlar.gross, paraBirimi)}
+              </span>
+              <span className="font-mono font-semibold tabular-nums">
+                {brutEur == null ? "—" : fmtMoney(brutEur, "EUR")}
+              </span>
+              <span className="col-span-3 text-[11px] text-muted-foreground">
+                Fiyat arşivi ve panolar KDV hariç okur; Ödeme Takvimine KDV dahil tutar düşer.
+              </span>
+            </div>
           </div>
         </div>
-
-        <datalist id="siparis-tedarikci">
-          {tedarikciler.map((t) => (
-            <option key={t} value={t} />
-          ))}
-        </datalist>
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose} disabled={calisiyor}>

@@ -26,6 +26,7 @@ import {
 import { Combobox, type ComboOption } from "@/components/combobox";
 import { CURRENCIES, CURRENCY_LABELS, fmtMoney, parseNum, type Currency } from "@/lib/currency";
 import {
+  DELIVERY_WEEKS,
   gunEkle,
   odemeGunu,
   PAYMENT_TERMS,
@@ -33,10 +34,11 @@ import {
   type PaymentMethod,
 } from "@/lib/purchasing/terms";
 import {
-  calculateConsumableVatTotals,
-  CONSUMABLE_VAT_RATES,
-  type ConsumableVatRate,
-} from "@/lib/purchasing/consumable-vat";
+  DEFAULT_VAT_RATE,
+  VAT_RATES,
+  vatTotals,
+  type VatRate,
+} from "@/lib/purchasing/vat";
 import { ensureSupplier } from "../actions";
 import {
   createConsumableExpenses,
@@ -51,7 +53,7 @@ interface EntryLine {
   quantity: string;
   unit: string;
   unitPrice: string;
-  vatRate: ConsumableVatRate;
+  vatRate: VatRate;
   note: string;
 }
 
@@ -62,7 +64,7 @@ function blankLine(key: number): EntryLine {
     quantity: "1",
     unit: "Adet",
     unitPrice: "",
-    vatRate: 20,
+    vatRate: DEFAULT_VAT_RATE,
     note: "",
   };
 }
@@ -152,7 +154,7 @@ export function ExpenseEntry({
     });
   }, [currency, expenseDate]);
 
-  const nativeTotals = calculateConsumableVatTotals(
+  const nativeTotals = vatTotals(
     lines.map((line) => ({
       net: (parseNum(line.quantity) ?? 0) * (parseNum(line.unitPrice) ?? 0),
       vatRate: line.vatRate,
@@ -435,7 +437,7 @@ export function ExpenseEntry({
               <SelectTrigger className="w-full text-base pointer-fine:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="0">Hemen</SelectItem>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((week) => (
+                {DELIVERY_WEEKS.map((week) => (
                   <SelectItem key={week} value={String(week * 7)}>{week} hafta</SelectItem>
                 ))}
                 <SelectItem value="custom">Tarih Seç</SelectItem>
@@ -552,14 +554,14 @@ export function ExpenseEntry({
                   <Select
                     value={String(line.vatRate)}
                     onValueChange={(value) =>
-                      patchLine(line.key, { vatRate: Number(value) as ConsumableVatRate })
+                      patchLine(line.key, { vatRate: Number(value) as VatRate })
                     }
                   >
                     <SelectTrigger className="h-9 w-full px-2 font-mono text-base pointer-fine:text-sm">
                       <SelectValue>{line.vatRate}%</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {CONSUMABLE_VAT_RATES.map((rate) => (
+                      {VAT_RATES.map((rate) => (
                         <SelectItem key={rate} value={String(rate)}>
                           %{rate}
                         </SelectItem>

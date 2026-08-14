@@ -859,7 +859,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     fatura kontrolü için satırda ve alt toplamda hesaplanır fakat action
     payload'ına girmez: `amount`, `amount_eur`, kayıt listesi ve bütün analizler
     daima KDV hariç kalır. Bu ayrım ileride sessizce vergi dahil analize
-    çevrilmez (`lib/purchasing/consumable-vat.ts`).
+    çevrilmez (`lib/purchasing/vat.ts` — 14.08.2026'da sipariş tarafıyla ORTAK
+    hâle geldi ve %0 oranı eklendi).
 
     **SARF BÖLÜMÜ OLUŞTURULABİLİR SEÇİMDİR.** Excel J sütunundaki 16 gerçek
     bölüm başlangıç sözlüğüdür; canlı giderlerdeki yeni bölüm adları da listeye
@@ -900,6 +901,36 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     indirir; seçim varsa yalnız seçilenleri. Kapsamı İSTEMCİ söyler (anahtar
     listesi olarak), sunucu yeniden hesaplamaz — iki listenin ayrışmaması
     ancak böyle garanti edilir (md. 16'nın dersi).
+
+    **KDV SİPARİŞTE DE SATIRDADIR — VE TEK BİR SÖZLÜK VARDIR**
+    (`lib/purchasing/vat.ts`, migration 20260814000004, kullanıcı kararı
+    14.08.2026: *"Sipariş açma bölümüne de Sarf Gideri Gir bölümüyle aynı
+    mantıkla kdv ekleyelim. 20 10 1 ve 0 % kdv olsun. Kullanıcı hep kdv hariç
+    fiyat girer, kdv otomatik gelir. Fiyat arşivi vb diğer grafiklerde her zaman
+    kdv hariç fiyat üzerinden gösterim yapılır."*). Oran BAŞLIKTA DEĞİL SATIRDA
+    durur: tek bir siparişte %20'lik bir rulman ile %1'lik bir kalem yan yana
+    olabilir. Liste sarf ile ORTAKTIR (%0 sarfa da açıldı) — iki ayrı liste,
+    aynı modülde aynı soruya iki cevap demekti; ayrışmayı `__tests__/vat.test.ts`
+    migration'ı OKUYARAK engeller.
+
+    **NET DEFTER, BRÜT KASA.** `unit_price` KDV HARİÇTİR ve fiyat arşivi,
+    tedarikçi dağılımı, sipariş akışı, sarf panosu — hepsi onu okur (KDV mahsup
+    edilen bir vergidir, maliyet karşılaştırmasına girmez). KDV DAHİL tutar
+    yalnız iki yerde çıkar: fatura kontrolü (pencere) ve **Ödeme Takvimi**;
+    orada satır "net + KDV" kırılımını da yazar. **AVANS DA KDV DAHİL TUTARDAN**
+    hesaplanır — tedarikçi peşinatı faturanın tamamı üzerinden ister. Sipariş
+    satırlarının `vat_rate` varsayılanı %20'dir ve GERİYE de işler: KDV kavramı
+    yokken girilmiş fiyatlar zaten KDV hariç yazılmıştı.
+
+    **SİPARİŞ PENCERESİ SARF GİRİŞİNİN GÖRSEL YAPISINI ALDI** (kullanıcı
+    kararı, 14.08.2026). Tedarikçi alanı `datalist` taşıyan bir metin kutusuydu
+    ve tarayıcıya bırakılmış bir öneri Türkçe katlamayı bilmiyor ("isdemir"
+    yazan "İSDEMİR"i bulamıyordu), TD kodunu göstermiyor ve dokunmatikte
+    açılmıyordu; artık `Combobox`tur ve yeni firma yine oradan deftere girer.
+    Alanlar etiketli bölümlere ayrıldı ve **HIZLI TERMİN** eklendi
+    (`DELIVERY_WEEKS` — sarfla ORTAK liste, kullanıcının istediği 10/12/16/20
+    hafta dâhil). Hafta seçiliyken sipariş tarihi değişirse termin ONA GÖRE
+    kayar: "altı hafta sonra" bir tarih değil bir mesafedir.
 
     **TEKLİFTE ADET SORULMAZ** (kullanıcı kararı): teklif BİRİM FİYATtır ve
     adet zaten havuzda yazar; iki yerde adet tutmak "hangisi doğru" sorusunu
@@ -2235,7 +2266,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `demand.ts` (talep havuzu + `drawingCarpani` resim çarpanı) ·
   `order-no.ts` (tedarikçi kodundan sipariş numarası ÖNERİSİ + çakışma
   denetimi; öneri bir kilit değildir) ·
-  `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro) ·
+  `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro,
+  `DELIVERY_WEEKS` hızlı termin) ·
+  `vat.ts` (KDV oranları ve üç toplam — sipariş ve sarf ORTAK kullanır) ·
   `consumables.ts` (dense ay/yıl serisi, grup matrisi, anomali ve tedarikçi
   drilldown) · `consumable-key.ts` (SM tekillik anahtarı) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CURRENCIES } from "@/lib/currency";
 import { PAYMENT_METHODS } from "@/lib/purchasing/terms";
+import { DEFAULT_VAT_RATE } from "@/lib/purchasing/vat";
 
 const isoDate = z
   .string()
@@ -31,7 +32,11 @@ export const consumableExpenseLineSchema = z.object({
   unit: z.string().trim().min(1, "Birim gerekli.").max(30),
   unitPrice: z.number().nonnegative("Birim fiyat negatif olamaz."),
   note: z.string().trim().max(500).default(""),
-  vatRate: z.union([z.literal(1), z.literal(10), z.literal(20)]).default(20),
+  // Oran listesi SİPARİŞLE ORTAKTIR (`lib/purchasing/vat.ts`); %0 14.08.2026'da
+  // eklendi ve iki ekran da aynı listeyi gösterir.
+  vatRate: z
+    .union([z.literal(20), z.literal(10), z.literal(1), z.literal(0)])
+    .default(DEFAULT_VAT_RATE),
 });
 
 function validateFx(

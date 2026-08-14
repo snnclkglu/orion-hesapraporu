@@ -7,6 +7,17 @@
 import { z } from "zod";
 import { CURRENCIES } from "@/lib/currency";
 import { PAYMENT_METHODS } from "@/lib/purchasing/terms";
+import { DEFAULT_VAT_RATE } from "@/lib/purchasing/vat";
+
+/**
+ * KDV oranı — liste `lib/purchasing/vat.ts`teki `VAT_RATES` ile aynıdır ve
+ * ayrışmasını `__tests__/vat.test.ts` engeller (veritabanı kısıtı dâhil).
+ * Zod'un literal birleşimi burada elle yazılır çünkü çekirdek saf kalır: sayı
+ * listesinden şema üretmek `vat.ts`e zod bağımlılığı sokardı.
+ */
+const kdvOrani = z
+  .union([z.literal(20), z.literal(10), z.literal(1), z.literal(0)])
+  .default(DEFAULT_VAT_RATE);
 
 /** `YYYY-MM-DD` ya da boş. Boş metin `null` olur — tarih her zaman bilinmez. */
 const gun = z
@@ -95,7 +106,11 @@ export const orderLineSchema = z.object({
   partKey: z.string().trim().max(300).default(""),
   qty: z.number().positive("Sipariş adedi sıfırdan büyük olmalı."),
   unit: z.string().trim().max(20).default("Adet"),
+  // FİYAT KDV HARİÇTİR (kullanıcı kararı, 14.08.2026): "kullanıcı hep kdv
+  // hariç fiyat girer, kdv otomatik gelir". Fiyat arşivi ve bütün panolar bu
+  // sayıyı okuyor; KDV yalnız ödenecek tutarı büyütür.
   unitPrice: z.number().nonnegative().nullable(),
+  vatRate: kdvOrani,
   note: z.string().trim().max(300).default(""),
 });
 

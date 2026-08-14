@@ -325,7 +325,10 @@ export async function createOrder(input: CreateOrderInput): Promise<PurchasingAc
       part_key: l.partKey,
       qty: l.qty,
       unit: l.unit,
+      // FİYAT KDV HARİÇ YAZILIR; oran ayrı bir sütundur ve ödenecek tutarı
+      // yalnız ödeme takvimi büyütür (md. 21).
       unit_price: l.unitPrice,
+      vat_rate: l.vatRate,
       note: l.note,
     }))
   );
@@ -540,6 +543,7 @@ export async function editOrder(input: EditOrderInput): Promise<PurchasingAction
       qty: l.qty,
       unit: l.unit,
       unit_price: l.unitPrice,
+      vat_rate: l.vatRate,
       note: l.note,
     })),
     { onConflict: "id" }

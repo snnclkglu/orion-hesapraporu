@@ -37,7 +37,18 @@ export interface OdemeSatiri {
   orderNo: string;
   /** Ödeme günü; hesaplanamıyorsa `null` (termin de teslim de yok). */
   gun: string | null;
+  /**
+   * ÖDENECEK tutar — KDV DAHİL (kullanıcı kararı, 14.08.2026).
+   *
+   * Bu ekranın müşterisi finanstır ve sorusu "kasadan ne çıkacak"tır; KDV o
+   * paranın parçasıdır. Maliyet sorusunun cevabı `tutarNet`tir ve bütün
+   * analizler (fiyat arşivi, tedarikçi dağılımı, sarf panosu) onu okur.
+   */
   tutar: number;
+  /** KDV hariç karşılığı; kaynak sütunu yoksa `null` (uydurulmaz). */
+  tutarNet: number | null;
+  /** Ödemenin içindeki KDV; kaynak sütunu yoksa `null`. */
+  tutarKdv: number | null;
   currency: string;
   tutarEur: number | null;
   odendi: boolean;
@@ -230,7 +241,7 @@ export function PaymentBoard({
     <div className="grid gap-3">
       <section className="flex flex-wrap items-center gap-4 border bg-card p-3">
         <div>
-          <span className="oc-kicker block text-muted-foreground">Ödenecek Toplam</span>
+          <span className="oc-kicker block text-muted-foreground">Ödenecek Toplam (KDV Dahil)</span>
           <span className="block font-mono text-lg tabular-nums">{fmtMoney(toplamEur, "EUR")}</span>
         </div>
         {gecikmis.length > 0 && (
@@ -458,6 +469,15 @@ function Satir({
 
       <span className="text-right font-mono text-[12px] tabular-nums">
         {fmtMoney(s.tutar, s.currency)}
+        {/* KDV KIRILIMI SATIRDA GÖRÜNÜR (kullanıcı kararı, 14.08.2026): büyük
+            sayı ödenecek paradır, altındaki satır onun neresinin vergi
+            olduğunu söyler. Kaynak sütunu yoksa hiçbir şey yazılmaz —
+            uydurulmuş bir kırılım, boş bir alandan pahalıdır. */}
+        {s.tutarNet != null && s.tutarKdv != null && (
+          <span className="block text-[11px] text-muted-foreground">
+            net {fmtMoney(s.tutarNet, s.currency)} + KDV {fmtMoney(s.tutarKdv, s.currency)}
+          </span>
+        )}
         {s.tutarEur == null ? (
           <span className="block text-[11px] text-amber-700 dark:text-amber-400">kur yok</span>
         ) : (

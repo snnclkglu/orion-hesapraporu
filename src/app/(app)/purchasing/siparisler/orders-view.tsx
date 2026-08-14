@@ -58,6 +58,7 @@ import {
   paymentTermLabel,
   tarihGoster,
 } from "@/lib/purchasing/terms";
+import { orderVatTotals, vatRateOf } from "@/lib/purchasing/vat";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
 import { hueFromText } from "@/lib/tags";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
@@ -68,8 +69,21 @@ import type { GunlukKur } from "@/lib/purchasing/kur";
 import { updateOrder } from "../actions";
 import { OrderEditDialog } from "./order-edit-dialog";
 
+/**
+ * SİPARİŞİN ÜÇ TOPLAMI — net · KDV · KDV dahil.
+ *
+ * PANOLAR VE SÜZGEÇLER NET OKUR (kullanıcı kararı, 14.08.2026: *"fiyat arşivi
+ * vb diğer grafiklerde her zaman kdv hariç fiyat üzerinden gösterim
+ * yapılır"*): tedarikçi dağılımı ve sipariş akışı bir MALİYET karşılaştırmasıdır
+ * ve KDV mahsup edilen bir vergidir. KDV dahil tutar yalnız ÖDENECEK parayı
+ * anlatır ve o soru Ödeme Takvimi'nindir.
+ */
+function toplamlariOf(s: Siparis) {
+  return orderVatTotals(s.satirlar);
+}
+
 function toplamOf(s: Siparis): number {
-  return s.satirlar.reduce((t, l) => t + l.qty * (l.unitPrice ?? 0), 0);
+  return toplamlariOf(s).net;
 }
 
 function eurOf(s: Siparis): number {
@@ -201,9 +215,14 @@ export function OrdersView({
   // her boyamada yeni bir dizi üretir; React Compiler o diziyi "sonradan
   // değişebilir" sayıp bütün bileşenin optimizasyonunu atlıyordu (lint hatası).
   const acikSiparis = useMemo(() => gorunen.filter((s) => !s.cancelledAt), [gorunen]);
+  // ÖDENMEMİŞ KDV DAHİLDİR: kart bir maliyet değil bir NAKİT ÇIKIŞI söyler ve
+  // kasadan çıkan para KDV'yi de içerir (Ödeme Takvimi'yle aynı sayı).
   const bekleyenTutar = acikSiparis
     .filter((s) => !s.balancePaidAt)
-    .reduce((t, s) => t + eurOf(s), 0);
+    .reduce(
+      (t, s) => t + (eurKarsiligi(toplamlariOf(s).gross, s.currency, s.fxRate) ?? 0),
+      0
+    );
 
   // ————————————————————————————————————————————————————————————— pano
   const tedarikciCubuklari = useMemo(
@@ -252,7 +271,7 @@ export function OrdersView({
           baslik="Teslim Bekleyen"
           deger={formatNum(acikSiparis.filter((s) => !s.receivedAt).length)}
         />
-        <Ozet baslik="Ödenmemiş (avro)" deger={fmtMoney(bekleyenTutar, "EUR")} />
+        <Ozet baslik="Ödenmemiş (KDV Dahil, €)" deger={fmtMoney(bekleyenTutar, "EUR")} />
         <div className="flex items-end justify-end">
           <Button
             type="button"
@@ -391,18 +410,19 @@ export function OrdersView({
                 <TableHead>Sipariş</TableHead>
                 <TableHead>Termin</TableHead>
                 <TableHead className="hidden lg:table-cell">Ödeme</TableHead>
-                <TableHead className="text-right">Tutar</TableHead>
+                <TableHead className="text-right">Tutar (KDV Hariç)</TableHead>
                 <TableHead>Durum</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {gorunen.map((s) => {
                 const genis = acik.has(s.id);
-                const toplam = toplamOf(s);
+                const toplamlar = toplamlariOf(s);
+                const toplam = toplamlar.net;
                 const eur = eurKarsiligi(toplam, s.currency, s.fxRate);
                 const odeme = odemeGunu(s);
                 const kalanGun = gunFarki(s.dueAt);
-                const avans = advanceAmount(toplam, s.advancePct, s.advanceAmount);
+                const avans = advanceAmount(toplamlar.gross, s.advancePct, s.advanceAmount);
                 return (
                   <>
                     <TableRow key={s.id} className={s.cancelledAt ? "opacity-50" : undefined}>
@@ -480,6 +500,15 @@ export function OrdersView({
                             {fmtMoney(eur, "EUR")}
                           </span>
                         )}
+                        {/* KDV DAHİL TUTAR ÖDENECEK PARADIR ve satırda görünür
+                            (kullanıcı kararı, 14.08.2026). Net ile yan yana
+                            durması gerekiyor: biri maliyet, öbürü nakit. */}
+                        <span className="block text-[11px] text-muted-foreground">
+                          KDV {fmtMoney(toplamlar.vat, s.currency)} · dahil{" "}
+                          <span className="text-foreground">
+                            {fmtMoney(toplamlar.gross, s.currency)}
+                          </span>
+                        </span>
                         {avans > 0 && (
                           <span className="block text-[11px] text-muted-foreground">
                             avans {fmtMoney(avans, s.currency)}
@@ -507,26 +536,42 @@ export function OrdersView({
                                   <th className="py-1 pr-3 text-left font-normal">Kalem</th>
                                   <th className="py-1 pr-3 text-left font-normal">İş</th>
                                   <th className="py-1 pr-3 text-right font-normal">Adet</th>
-                                  <th className="py-1 pr-3 text-right font-normal">Birim</th>
-                                  <th className="py-1 text-right font-normal">Tutar</th>
+                                  <th className="py-1 pr-3 text-right font-normal">
+                                    Birim (KDV Hariç)
+                                  </th>
+                                  <th className="py-1 pr-3 text-right font-normal">KDV</th>
+                                  <th className="py-1 pr-3 text-right font-normal">Tutar</th>
+                                  <th className="py-1 text-right font-normal">KDV Dahil</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {s.satirlar.map((l) => (
-                                  <tr key={l.id} className="border-t border-border/50">
-                                    <td className="py-1 pr-3">{l.sample}</td>
-                                    <td className="py-1 pr-3 font-mono">{l.itemNo || "—"}</td>
-                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
-                                      {formatNum(l.qty)}
-                                    </td>
-                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
-                                      {l.unitPrice == null ? "—" : fmtMoney(l.unitPrice, s.currency)}
-                                    </td>
-                                    <td className="py-1 text-right font-mono tabular-nums">
-                                      {fmtMoney(l.qty * (l.unitPrice ?? 0), s.currency)}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {s.satirlar.map((l) => {
+                                  const oran = vatRateOf(l.vatRate);
+                                  const net = l.qty * (l.unitPrice ?? 0);
+                                  return (
+                                    <tr key={l.id} className="border-t border-border/50">
+                                      <td className="py-1 pr-3">{l.sample}</td>
+                                      <td className="py-1 pr-3 font-mono">{l.itemNo || "—"}</td>
+                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                        {formatNum(l.qty)}
+                                      </td>
+                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                        {l.unitPrice == null
+                                          ? "—"
+                                          : fmtMoney(l.unitPrice, s.currency)}
+                                      </td>
+                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                        %{oran}
+                                      </td>
+                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                        {fmtMoney(net, s.currency)}
+                                      </td>
+                                      <td className="py-1 text-right font-mono tabular-nums">
+                                        {fmtMoney(net * (1 + oran / 100), s.currency)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                             {s.note && (

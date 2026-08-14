@@ -70,6 +70,21 @@ export function paymentTermLabel(method: string, days: number): string {
   return `${days} gün vadeli`;
 }
 
+/**
+ * HIZLI TERMİN — "kaç hafta sonra".
+ *
+ * Sarf girişinde 1–8 hafta vardı; kullanıcı sipariş penceresi için uzun
+ * terminleri de istedi (14.08.2026): *"Sipariş aç termine ayrıca 10 12 16 20
+ * hafta olarak termin haftası eklemesi de yapalım."* Redüktör, motor ve tampon
+ * gibi kalemlerde tedarikçinin verdiği süre aylarla ölçülür ve her seferinde
+ * takvimden gün saymak gerçek bir iş kaybıydı.
+ *
+ * LİSTE TEKTİR ve iki ekran da onu okur: iki ayrı dizi tutulsaydı biri
+ * güncellenip diğeri unutulurdu. Sarfın kısa terminleri listenin başında zaten
+ * duruyor, yani orada hiçbir şey kaybolmaz.
+ */
+export const DELIVERY_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20] as const;
+
 // ═══════════════════════════════════════════════════════════════════ AVANS
 //
 // İki yol: açılır listeden yüzde, ya da elle tutar. İkisi de İSTEĞE BAĞLIDIR

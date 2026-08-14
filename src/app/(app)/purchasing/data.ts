@@ -32,6 +32,7 @@ import {
 } from "@/lib/purchasing/demand";
 import type { PartKind } from "@/lib/drawings/types";
 import type { GunlukKur } from "@/lib/purchasing/kur";
+import { vatRateOf } from "@/lib/purchasing/vat";
 
 // ————————————————————————————————————————————————————————————— paketler
 
@@ -425,7 +426,10 @@ export interface SiparisSatiri {
   partKey: string;
   qty: number;
   unit: string;
+  /** KDV HARİÇ birim fiyat — fiyat arşivi ve bütün panolar bunu okur. */
   unitPrice: number | null;
+  /** Satır KDV oranı (%); yalnız ödenecek tutarı büyütür. */
+  vatRate: number;
   receivedQty: number;
   note: string;
 }
@@ -457,7 +461,17 @@ const SIPARIS_ALANLARI =
 
 const SIPARIS_SATIR_ALANLARI =
   "id, order_id, match_key, sample, item_no, package_id, part_key, qty, unit, " +
-  "unit_price, received_qty, note";
+  "unit_price, vat_rate, received_qty, note";
+
+/**
+ * `vat_rate` OLMAYABİLİR (md. 21'in ZENGİN + DAR kalıbı).
+ *
+ * Sütun 20260814000004 ile geliyor; uygulanmamış bir ortamda onu isteyen bir
+ * `select` BÜTÜN siparişleri düşürürdü ve ekran "hiç sipariş yok" derdi. Eksik
+ * sütun `vatRateOf` ile varsayılana düşer — bilinmeyen bir oranı sıfır saymak
+ * ödeme takvimini olduğundan düşük gösterirdi.
+ */
+const SIPARIS_SATIR_ALANLARI_DAR = SIPARIS_SATIR_ALANLARI.replace(", vat_rate", "");
 
 /**
  * Siparişleri satırlarıyla birlikte okur.
@@ -478,10 +492,14 @@ export async function loadSiparisler(
   if (basliklar.length === 0) return [];
 
   const idler = basliklar.map((b) => String(b.id));
+  // Sütun yoklaması SAYFALAMADAN ÖNCE yapılır: `tumSatirlar` içinde denemek,
+  // ilk sayfa düştüğünde geri kalanı da düşürürdü.
+  const yoklama = await supabase.from("purchase_order_lines").select("vat_rate").limit(1);
+  const alanlar = yoklama.error ? SIPARIS_SATIR_ALANLARI_DAR : SIPARIS_SATIR_ALANLARI;
   const satirlar = await tumSatirlar<Record<string, unknown>>((bas, son) =>
     supabase
       .from("purchase_order_lines")
-      .select(SIPARIS_SATIR_ALANLARI)
+      .select(alanlar)
       .in("order_id", idler)
       .order("sample")
       .order("id")
@@ -502,6 +520,7 @@ export async function loadSiparisler(
       qty: Number(s.qty ?? 0),
       unit: String(s.unit ?? "Adet"),
       unitPrice: s.unit_price == null ? null : Number(s.unit_price),
+      vatRate: vatRateOf(s.vat_rate),
       receivedQty: Number(s.received_qty ?? 0),
       note: String(s.note ?? ""),
     });

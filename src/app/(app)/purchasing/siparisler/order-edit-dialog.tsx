@@ -51,6 +51,7 @@ import {
   paymentTermValue,
   tarihGoster,
 } from "@/lib/purchasing/terms";
+import { VAT_RATES, vatRateOf, vatTotals, type VatRate } from "@/lib/purchasing/vat";
 import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
@@ -70,7 +71,9 @@ interface Satir {
   partKey: string;
   unit: string;
   adet: string;
+  /** KDV HARİÇ birim fiyat — deftere yazılan ve arşive giren sayı budur. */
   fiyat: string;
+  kdv: VatRate;
   /** Teslim alınmış adet — satırı çıkarmak bu sayıyı da düşürür. */
   teslimAlinan: number;
 }
@@ -131,6 +134,7 @@ export function OrderEditDialog({
       unit: l.unit,
       adet: String(l.qty),
       fiyat: l.unitPrice == null ? "" : String(l.unitPrice),
+      kdv: vatRateOf(l.vatRate),
       teslimAlinan: l.receivedQty,
     }))
   );
@@ -144,12 +148,20 @@ export function OrderEditDialog({
   const kurOneri = kurLazim ? kurOnerisi(paraBirimi, sonKur) : null;
   const kurSayi = parseNum(kur);
 
-  const toplam = satirlar.reduce(
-    (t, s) => t + (parseNum(s.adet) ?? 0) * (parseNum(s.fiyat) ?? 0),
-    0
+  // ÜÇ TOPLAM (sipariş penceresinin aynısı): net deftere yazılan, brüt kasadan
+  // çıkan tutardır. Avans KDV DAHİL tutardan hesaplanır — tedarikçi peşinatı
+  // faturanın tamamı üzerinden ister.
+  const toplamlar = vatTotals(
+    satirlar.map((s) => ({
+      net: (parseNum(s.adet) ?? 0) * (parseNum(s.fiyat) ?? 0),
+      vatRate: s.kdv,
+    }))
   );
-  const toplamEur = eurKarsiligi(toplam, paraBirimi, kurLazim ? kurSayi : 1);
-  const avans = advanceAmount(toplam, parseNum(avansYuzde), parseNum(avansTutar));
+  const toplam = toplamlar.net;
+  const kurBolen = kurLazim ? kurSayi : 1;
+  const toplamEur = eurKarsiligi(toplam, paraBirimi, kurBolen);
+  const brutEur = eurKarsiligi(toplamlar.gross, paraBirimi, kurBolen);
+  const avans = advanceAmount(toplamlar.gross, parseNum(avansYuzde), parseNum(avansTutar));
   const odeme = odemeGunu({
     dueAt: termin || null,
     receivedAt: siparis.receivedAt,
@@ -167,8 +179,8 @@ export function OrderEditDialog({
     (vadeBicimi !== "vadeli" || vadeGunu > 0) &&
     !noCakisiyor;
 
-  function guncelle(id: string, alan: "adet" | "fiyat", deger: string) {
-    setSatirlar((o) => o.map((s) => (s.id === id ? { ...s, [alan]: deger } : s)));
+  function guncelle(id: string, yama: Partial<Satir>) {
+    setSatirlar((o) => o.map((s) => (s.id === id ? { ...s, ...yama } : s)));
   }
 
   /** Yeni firma adı yazıldıysa deftere girer (sipariş penceresiyle aynı kural). */
@@ -212,6 +224,7 @@ export function OrderEditDialog({
           qty: parseNum(s.adet) ?? 0,
           unit: s.unit,
           unitPrice: parseNum(s.fiyat),
+          vatRate: s.kdv,
           note: "",
         })),
       });
@@ -228,7 +241,7 @@ export function OrderEditDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(52rem,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(58rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="text-base">Siparişi Düzenle</DialogTitle>
           <DialogDescription className="text-[12px]">
@@ -415,13 +428,17 @@ export function OrderEditDialog({
 
           {/* ————————————————————————————————— kalemler */}
           <div className="oc-scrollx max-h-[38dvh] overflow-y-auto border [--oc-scroll-bg:var(--card)]">
-            <table className="w-full text-[12px]">
+            <table className="w-full min-w-[46rem] text-[12px]">
               <thead className="sticky top-0 bg-muted/80 text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
-                  <th className="w-24 px-2 py-1.5 text-right font-normal">Adet</th>
-                  <th className="w-28 px-2 py-1.5 text-right font-normal">Birim Fiyat</th>
+                  <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>
+                  <th className="w-28 px-2 py-1.5 text-right font-normal">
+                    Birim Fiyat <span className="block text-[10px]">(KDV hariç)</span>
+                  </th>
+                  <th className="w-20 px-2 py-1.5 text-left font-normal">KDV</th>
                   <th className="w-28 px-2 py-1.5 text-right font-normal">Tutar</th>
+                  <th className="w-28 px-2 py-1.5 text-right font-normal">KDV Dahil</th>
                   <th className="w-8 px-1 py-1.5" />
                 </tr>
               </thead>
@@ -429,6 +446,7 @@ export function OrderEditDialog({
                 {satirlar.map((s) => {
                   const a = parseNum(s.adet) ?? 0;
                   const fi = parseNum(s.fiyat) ?? 0;
+                  const net = a * fi;
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="px-2 py-1.5">
@@ -441,7 +459,7 @@ export function OrderEditDialog({
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.adet}
-                          onChange={(e) => guncelle(s.id, "adet", e.target.value)}
+                          onChange={(e) => guncelle(s.id, { adet: e.target.value })}
                           inputMode="numeric"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                           aria-label={`${s.tanim} adedi`}
@@ -450,14 +468,38 @@ export function OrderEditDialog({
                       <td className="px-2 py-1.5">
                         <Input
                           value={s.fiyat}
-                          onChange={(e) => guncelle(s.id, "fiyat", e.target.value)}
+                          onChange={(e) => guncelle(s.id, { fiyat: e.target.value })}
                           inputMode="decimal"
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-                          aria-label={`${s.tanim} birim fiyatı`}
+                          aria-label={`${s.tanim} birim fiyatı (KDV hariç)`}
                         />
                       </td>
+                      <td className="px-2 py-1.5">
+                        <Select
+                          value={String(s.kdv)}
+                          onValueChange={(v) => guncelle(s.id, { kdv: Number(v) as VatRate })}
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className="w-full px-2 font-mono text-base pointer-fine:text-sm"
+                            aria-label={`${s.tanim} KDV oranı`}
+                          >
+                            <SelectValue>%{s.kdv}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VAT_RATES.map((oran) => (
+                              <SelectItem key={oran} value={String(oran)}>
+                                %{oran}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
                       <td className="px-2 py-1.5 text-right font-mono tabular-nums">
-                        {fmtMoney(a * fi, paraBirimi)}
+                        {fmtMoney(net, paraBirimi)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-mono font-medium tabular-nums">
+                        {fmtMoney(net * (1 + s.kdv / 100), paraBirimi)}
                       </td>
                       <td className="px-1 py-1.5">
                         {/* SON SATIR ÇIKARILAMAZ: kalemsiz bir sipariş bir
@@ -501,15 +543,23 @@ export function OrderEditDialog({
                 className="h-9 text-base pointer-fine:text-sm"
               />
             </label>
-            <p className="ml-auto text-right font-mono text-sm tabular-nums">
-              <span className="block text-[11px] text-muted-foreground">Sipariş Toplamı</span>
-              {fmtMoney(toplam, paraBirimi)}
-              {toplamEur != null && paraBirimi !== "EUR" && (
-                <span className="block text-[11px] text-muted-foreground">
-                  {fmtMoney(toplamEur, "EUR")}
-                </span>
-              )}
-            </p>
+            <div className="ml-auto grid grid-cols-[auto_auto_auto] gap-x-3 gap-y-1 text-right text-sm">
+              <span className="text-muted-foreground">KDV Hariç Tutar</span>
+              <span className="font-mono tabular-nums">{fmtMoney(toplam, paraBirimi)}</span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {toplamEur == null ? "—" : fmtMoney(toplamEur, "EUR")}
+              </span>
+              <span className="text-muted-foreground">KDV</span>
+              <span className="font-mono tabular-nums">{fmtMoney(toplamlar.vat, paraBirimi)}</span>
+              <span />
+              <span className="font-semibold">KDV Dahil Tutar</span>
+              <span className="font-mono font-semibold tabular-nums">
+                {fmtMoney(toplamlar.gross, paraBirimi)}
+              </span>
+              <span className="font-mono font-semibold tabular-nums">
+                {brutEur == null ? "—" : fmtMoney(brutEur, "EUR")}
+              </span>
+            </div>
           </div>
         </div>
 
