@@ -12,8 +12,10 @@ import {
   createInvoiceCustomerSchema,
   createInvoiceSchema,
   deleteInvoiceSchema,
+  editInvoiceSchema,
   type CreateInvoiceCustomerInput,
   type CreateInvoiceInput,
+  type EditInvoiceInput,
   type SalesInvoiceActionResult,
 } from "./schema";
 
@@ -66,6 +68,36 @@ export async function createSalesInvoice(
     source: "app",
     created_by: user.id,
   });
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+export async function editSalesInvoice(input: EditInvoiceInput): Promise<SalesInvoiceActionResult> {
+  const ctx = await requireSales();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const parsed = editInvoiceSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+
+  const { error } = await supabase
+    .from("sales_invoices")
+    .update({
+      item_no: v.itemNo,
+      invoice_year: Number(v.invoiceDate.slice(0, 4)),
+      invoice_date: v.invoiceDate,
+      invoice_no: v.invoiceNo,
+      customer: adBuyuk(v.customer),
+      customer_id: v.customerId,
+      qty: v.qty,
+      unit_price: v.unitPrice,
+      currency: v.currency,
+      fx_rate: v.currency === "EUR" ? 1 : v.fxRate,
+      note: v.note,
+    })
+    .eq("id", v.id);
   if (error) return { error: error.message };
   tazele();
   return { ok: 1 };
