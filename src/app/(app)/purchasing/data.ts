@@ -20,6 +20,7 @@ import {
   genelKompleMu,
   normalizeTanim,
   genelKompleAdi,
+  tanimOlculeri,
 } from "@/lib/drawings/normalize";
 import { progressKeyOf } from "@/lib/drawings/progress";
 import {
@@ -29,6 +30,7 @@ import {
   type HavuzSatiri,
   type KalemAdedi,
   type TalepHavuzu,
+  type TalepSatiri,
 } from "@/lib/purchasing/demand";
 import type { PartKind } from "@/lib/drawings/types";
 import type { GunlukKur } from "@/lib/purchasing/kur";
@@ -192,18 +194,37 @@ export async function loadHavuz(
   // `purchase_item_meta` anahtarı NORMALLEŞTİRİLMİŞ tanımdır; eski
   // `drawing_purchase_overrides` ham tanımla anahtarlıyordu ve iki şema bir
   // arada yaşayamazdı (bkz. 20260812000003 migration notu).
-  const { data: defterVerisi } = await supabase
+  // ZENGİN + DAR (md. 21): label_override / qty_override 20260814000006 ile
+  // geliyor; uygulanmamışsa dar sorguya düşülür ve override boş kalır.
+  const zenginMeta = await supabase
     .from("purchase_item_meta")
-    .select("match_key, category, note");
+    .select("match_key, category, note, label_override, qty_override");
+  const defterVerisi = zenginMeta.error
+    ? (await supabase.from("purchase_item_meta").select("match_key, category, note")).data
+    : zenginMeta.data;
   const defter = (defterVerisi ?? []) as {
     match_key: string;
     category: string | null;
     note: string | null;
+    label_override?: string | null;
+    qty_override?: number | null;
   }[];
   const duzeltmeler = new Map(
     defter.filter((r) => r.category).map((r) => [r.match_key, r.category as string])
   );
   const notlar = new Map(defter.filter((r) => r.note).map((r) => [r.match_key, r.note as string]));
+  // OTOMATİK SATIR DÜZELTMESİ (md. 1): görünen tanım ve adet override edilir;
+  // match_key sabittir, teklif/sipariş bağı bozulmaz.
+  const etiketDuzeltme = new Map(
+    defter
+      .filter((r) => r.label_override && r.label_override.trim())
+      .map((r) => [r.match_key, (r.label_override as string).trim()])
+  );
+  const adetDuzeltme = new Map(
+    defter
+      .filter((r) => r.qty_override != null)
+      .map((r) => [r.match_key, Number(r.qty_override)])
+  );
 
   // ————————————————————————————————— 5. paket künyeleri + çarpanlar
   const carpanlar = new Map<string, { carpan: number; belirsiz: boolean; katilanlar: string[] }>();
@@ -349,13 +370,122 @@ export async function loadHavuz(
     }
   }
 
+  const havuz = talepHavuzu(havuzPaketleri, satirlar, { duzeltmeler, notlar });
+
+  // ————————————————————————————————— 7. otomatik satır düzeltmeleri (md. 1)
+  if (etiketDuzeltme.size > 0 || adetDuzeltme.size > 0) {
+    for (const row of havuz.satirlar) {
+      const yeniTanim = etiketDuzeltme.get(row.key);
+      if (yeniTanim) {
+        row.tanim = yeniTanim;
+        row.olculer = tanimOlculeri(yeniTanim);
+      }
+      const yeniAdet = adetDuzeltme.get(row.key);
+      if (yeniAdet != null) row.adet = yeniAdet;
+    }
+  }
+
+  // ————————————————————————————————— 8. manuel talepler (md. 21)
+  const manuel = await loadManualDemands(supabase);
+  if (manuel.length > 0) havuz.satirlar.push(...manuel);
+
+  // Override ve manuel satırlar toplamı/kategori dağılımını değiştirir; özet
+  // yeniden hesaplanır (çekirdek saf kalsın diye burada, DB katmanında).
+  havuzOzetiniTazele(havuz);
+
   return {
-    havuz: talepHavuzu(havuzPaketleri, satirlar, { duzeltmeler, notlar }),
+    havuz,
     paketler: paketKunyeleri,
     carpanlar,
     kategoriDefteriVar: defterVerisi != null,
     grupAdlari,
   };
+}
+
+/** Manuel talepleri okuyup havuz satırına çevirir (md. 21). */
+async function loadManualDemands(supabase: SupabaseClient): Promise<TalepSatiri[]> {
+  const { data, error } = await supabase
+    .from("purchase_manual_demands")
+    .select("id, match_key, sample, category, item_no, quantity, unit, weight_kg, quality, note")
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return ((data ?? []) as {
+    id: string;
+    match_key: string;
+    sample: string;
+    category: string;
+    item_no: string;
+    quantity: number | null;
+    unit: string;
+    weight_kg: number | null;
+    quality: string;
+    note: string;
+  }[]).map((r) => {
+    const tanim = (r.sample || "").trim();
+    const key = r.match_key || `manual:${r.id}`;
+    const adet = r.quantity == null ? null : Number(r.quantity);
+    const agirlik = r.weight_kg == null ? null : Number(r.weight_kg);
+    const kalite = (r.quality || "").trim();
+    return {
+      key,
+      tanim,
+      parcaKodlari: [],
+      birim: r.unit || "Adet",
+      olculer: tanimOlculeri(tanim),
+      not: r.note || "",
+      hamTanimlar: [tanim],
+      sinif: r.category || "Diğer",
+      malzeme: kalite,
+      malzemeler: kalite ? [kalite] : [],
+      anaGruplar: [],
+      adet,
+      birimAgirlikKg: null,
+      toplamAgirlikKg: agirlik,
+      paylar: [
+        {
+          packageId: "",
+          packageLabel: "Manuel talep",
+          itemNo: r.item_no || "",
+          jobNo: "",
+          jobTitle: "",
+          customer: "",
+          birimAdet: adet,
+          carpan: 1,
+          carpanBelirsiz: false,
+          adet,
+          partKey: "",
+          groupName: "",
+        },
+      ],
+      isSayisi: r.item_no ? 1 : 0,
+      carpanBelirsiz: false,
+      manualId: r.id,
+    } satisfies TalepSatiri;
+  });
+}
+
+/** Override/manuel satır sonrası havuz özetini yeniden türetir. */
+function havuzOzetiniTazele(havuz: TalepHavuzu): void {
+  const liste = havuz.satirlar;
+  havuz.siniflar = [...new Set(liste.map((k) => k.sinif))]
+    .map((sinif) => {
+      const grup = liste.filter((k) => k.sinif === sinif);
+      return {
+        sinif,
+        satirSayisi: grup.length,
+        adet: grup.reduce((t, k) => t + (k.adet ?? 0), 0),
+      };
+    })
+    .sort((a, b) => b.satirSayisi - a.satirSayisi);
+  havuz.toplamKalem = liste.length;
+  havuz.toplamAdet = liste.reduce((t, k) => t + (k.adet ?? 0), 0);
+  havuz.kaynakSatiri = liste.reduce((t, k) => t + k.paylar.length, 0);
+  havuz.cokIsliKalem = liste.filter((k) => k.isSayisi > 1).length;
+  havuz.belirsizKalem = liste.filter((k) => k.carpanBelirsiz).length;
+  havuz.paketSayisi = new Set(
+    liste.flatMap((k) => k.paylar.map((p) => p.packageId).filter(Boolean))
+  ).size;
 }
 
 // ═══════════════════════════════════════════════════════ TEKLİF ve SİPARİŞ

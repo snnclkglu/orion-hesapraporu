@@ -46,7 +46,9 @@ import {
   FileText,
   FolderInput,
   Loader2,
+  Pencil,
   Plus,
+  PlusCircle,
   StickyNote,
   Tag,
 } from "lucide-react";
@@ -86,6 +88,7 @@ import type { GunlukKur } from "@/lib/purchasing/kur";
 import { QuoteDialog } from "./quote-dialog";
 import { BulkQuoteDialog, type TopluTeklifKalemi } from "./bulk-quote-dialog";
 import { OrderDialog, type SiparisKalemi } from "./order-dialog";
+import { ManualDemandDialog, RowOverrideDialog } from "./demand-dialogs";
 import { saveItemMeta } from "./actions";
 
 type SortKey =
@@ -239,6 +242,8 @@ export function DemandTable({
   const [topluTeklif, setTopluTeklif] = useState<TopluTeklifKalemi[] | null>(null);
   const [siparisKalemleri, setSiparisKalemleri] = useState<SiparisKalemi[] | null>(null);
   const [notPenceresi, setNotPenceresi] = useState<Gorunum | null>(null);
+  const [duzenlenen, setDuzenlenen] = useState<Gorunum | null>(null);
+  const [yeniTalep, setYeniTalep] = useState(false);
 
   // ————————————————————————————————————————————————————— türetilmiş satırlar
   const gorunumler: Gorunum[] = useMemo(() => {
@@ -431,6 +436,15 @@ export function DemandTable({
           secimVar={seciliGorunumler.length > 0}
           suzgecOzeti={suzgecOzeti(f, secenekler)}
         />
+
+        {/* YENİ TALEP (md. 21): PDF'in yanında; teknik resimden gelmeyen bir
+            kalemi elle havuza ekler. */}
+        {canWrite && (
+          <Button type="button" variant="outline" size="xs" onClick={() => setYeniTalep(true)}>
+            <PlusCircle className="size-3" />
+            Yeni Talep
+          </Button>
+        )}
       </FilterBar>
 
       {havuz.belirsizKalem > 0 && (
@@ -570,6 +584,7 @@ export function DemandTable({
                   onTeklif={() => setTeklifPenceresi(g)}
                   onSiparis={() => setSiparisKalemleri([siparisKalemi(g)])}
                   onNot={() => setNotPenceresi(g)}
+                  onDuzenle={() => setDuzenlenen(g)}
                 />
               ))}
             </TableBody>
@@ -705,6 +720,36 @@ export function DemandTable({
           }}
         />
       )}
+
+      {duzenlenen && (
+        <RowOverrideDialog
+          key={`edit-${duzenlenen.satir.key}`}
+          satirKey={duzenlenen.satir.key}
+          tanim={duzenlenen.satir.tanim}
+          adet={duzenlenen.satir.adet}
+          kategori={duzenlenen.satir.sinif}
+          not={duzenlenen.satir.not}
+          manualId={duzenlenen.satir.manualId}
+          kategoriler={kategoriler}
+          onClose={() => setDuzenlenen(null)}
+          onSaved={() => {
+            setDuzenlenen(null);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {yeniTalep && (
+        <ManualDemandDialog
+          kategoriler={kategoriler}
+          qualities={qualities}
+          onClose={() => setYeniTalep(false)}
+          onSaved={() => {
+            setYeniTalep(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -721,6 +766,7 @@ function Satir({
   onTeklif,
   onSiparis,
   onNot,
+  onDuzenle,
 }: {
   g: Gorunum;
   genis: boolean;
@@ -731,6 +777,7 @@ function Satir({
   onTeklif: () => void;
   onSiparis: () => void;
   onNot: () => void;
+  onDuzenle: () => void;
 }) {
   const s = g.satir;
   const isler = [...new Set(s.paylar.map((p) => p.itemNo).filter(Boolean))];
@@ -791,7 +838,30 @@ function Satir({
         <TableCell className="align-top text-[12px] whitespace-normal">{s.sinif}</TableCell>
 
         <TableCell className="max-w-[22rem] min-w-0 align-top whitespace-normal">
-          <span className="block text-[13px] leading-snug">{s.tanim || "—"}</span>
+          <span className="flex items-start gap-1.5">
+            <span className="block flex-1 text-[13px] leading-snug">{s.tanim || "—"}</span>
+            {s.manualId && (
+              <span
+                className="mt-0.5 shrink-0 border border-dashed border-sky-500/50 px-1 text-[9px] font-medium text-sky-700 dark:text-sky-400"
+                title="Elle eklenmiş talep"
+              >
+                MANUEL
+              </span>
+            )}
+            {/* SATIR DÜZELTME (md. 1): otomatik tanım/adet yanlışsa kullanıcı
+                düzeltir; manuel satırda ayrıca siler. */}
+            {canWrite && (
+              <button
+                type="button"
+                onClick={onDuzenle}
+                title="Talebi düzenle (tanım / adet / kategori)"
+                className="oc-tap-square mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={`${s.tanim} talebini düzenle`}
+              >
+                <Pencil className="size-3" />
+              </button>
+            )}
+          </span>
           {/* Dar ekranda gizlenen sütunların karşılığı — kritik olanlar. */}
           <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
             {[s.malzeme, ...s.anaGruplar].filter(Boolean).join(" · ") || "—"}

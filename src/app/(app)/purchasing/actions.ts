@@ -20,26 +20,30 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
-import { loadArsivOlaylari, loadSiparisNolari, type ArsivOlayi } from "./data";
+import { anahtarla, loadArsivOlaylari, loadSiparisNolari, type ArsivOlayi } from "./data";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
 import { bugunISO } from "@/lib/purchasing/terms";
 import {
   chooseQuoteSchema,
+  createManualDemandSchema,
   createOrderSchema,
   deleteOrderSchema,
   deleteQuoteSchema,
   editOrderSchema,
   ensureQualitySchema,
+  saveDemandOverrideSchema,
   saveGroupNameSchema,
   saveItemMetaSchema,
   saveQuoteSchema,
   updateOrderSchema,
+  type CreateManualDemandInput,
   type CreateOrderInput,
   type EditOrderInput,
   type EnsureQualityInput,
   type PurchasingActionResult,
+  type SaveDemandOverrideInput,
   type SaveGroupNameInput,
   type SaveItemMetaInput,
   type SaveQuoteInput,
@@ -753,6 +757,84 @@ export async function ensureQuality(
     .insert({ name: ad, match_key: ad, created_by: userId });
   if (error) return { error: error.message };
   return { ok: 1, name: ad };
+}
+
+// ═══════════════════════════════════════════════ HAVUZ DÜZELTME + MANUEL
+
+/**
+ * TALEP HAVUZU SATIR DÜZELTMESİ (md. 1): otomatik çekilen tanım/adet yanlışsa
+ * kullanıcı düzeltir. `match_key` DEĞİŞMEZ — yalnız GÖRÜNEN değerler override
+ * edilir (`purchase_item_meta.label_override` / `qty_override`), böylece
+ * teklif/sipariş/fiyat arşivi bağı bozulmaz.
+ */
+export async function saveDemandOverride(
+  input: SaveDemandOverrideInput
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = saveDemandOverrideSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+
+  const { error } = await supabase.from("purchase_item_meta").upsert(
+    {
+      match_key: v.key,
+      sample: v.sample,
+      category: v.category ? v.category : null,
+      note: v.note,
+      // Boş etiket / null adet override'ı KALDIRIR (türetilmiş değere döner).
+      label_override: v.label.trim() ? v.label.trim() : null,
+      qty_override: v.qty,
+      created_by: userId,
+    },
+    { onConflict: "match_key" }
+  );
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+/** MANUEL TALEP EKLER (md. 21): havuza teknik resimden gelmeyen bir kalem. */
+export async function createManualDemand(
+  input: CreateManualDemandInput
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = createManualDemandSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const { key, tanim } = anahtarla(v.sample);
+
+  const { error } = await supabase.from("purchase_manual_demands").insert({
+    match_key: key || tanim,
+    sample: tanim,
+    category: v.category || "Diğer",
+    item_no: v.itemNo,
+    quantity: v.quantity,
+    unit: v.unit || "Adet",
+    weight_kg: v.weightKg,
+    quality: v.quality,
+    note: v.note,
+    created_by: userId,
+  });
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+/** Manuel talebi siler (md. 21). */
+export async function deleteManualDemand(id: string): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: "Geçersiz talep." };
+  const { error } = await ctx.supabase.from("purchase_manual_demands").delete().eq("id", id);
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
 }
 
 // ═══════════════════════════════════════════════════════ KALEM DEFTERİ

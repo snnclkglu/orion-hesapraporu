@@ -253,6 +253,35 @@ export const saveItemMetaSchema = z.object({
 
 export type SaveItemMetaInput = z.input<typeof saveItemMetaSchema>;
 
+/**
+ * TALEP HAVUZU SATIR DÜZELTMESİ (md. 1) — otomatik çekilen tanım/adet yanlışsa.
+ *
+ * `key` (match_key) SABİTtir: yalnız GÖRÜNEN tanım (`label`) ve adet (`qty`)
+ * override edilir; boş `label` / null `qty` override'ı KALDIRIR.
+ */
+export const saveDemandOverrideSchema = z.object({
+  key: anahtar,
+  sample: z.string().trim().max(300).default(""),
+  label: z.string().trim().max(300).default(""),
+  qty: z.number().nonnegative().nullable().default(null),
+  category: z.string().trim().max(60).default(""),
+  note: z.string().trim().max(500).default(""),
+});
+export type SaveDemandOverrideInput = z.input<typeof saveDemandOverrideSchema>;
+
+/** MANUEL TALEP (md. 21) — havuza elle eklenen kalem. */
+export const createManualDemandSchema = z.object({
+  sample: z.string().trim().min(1, "Tanım gerekli.").max(300),
+  category: z.string().trim().max(60).default("Diğer"),
+  itemNo: z.string().trim().max(40).default(""),
+  quantity: z.number().nonnegative().nullable().default(null),
+  unit: z.string().trim().max(30).default("Adet"),
+  weightKg: z.number().nonnegative().nullable().default(null),
+  quality: z.string().trim().max(120).default(""),
+  note: z.string().trim().max(500).default(""),
+});
+export type CreateManualDemandInput = z.input<typeof createManualDemandSchema>;
+
 // —————————————————————————————————————————————————————— ANA GRUP DEFTERİ
 
 export const saveGroupNameSchema = z.object({

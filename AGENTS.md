@@ -932,6 +932,41 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     hafta dâhil). Hafta seçiliyken sipariş tarihi değişirse termin ONA GÖRE
     kayar: "altı hafta sonra" bir tarih değil bir mesafedir.
 
+    **14.08.2026 TURU — SİPARİŞ/TESLİM/HAVUZ AKIŞI DÜZENLENDİ.** Kullanıcının
+    21 maddelik listesi. Kalıcı kararlar:
+    - **ÖDEME TAKVİMİ KALDIRILDI** (md. 15): sayfa + nav sekmesi silindi,
+      "ödendi bilgisi takip etmeyelim". Siparişler ekranındaki Teslim / Avans /
+      Bakiye ödendi çipleri de gitti (md. 13) — Siparişler'de yalnız Düzenle +
+      İptal kaldı. Ödeme sütunları DB'de duruyor ama UI'da okunmuyor.
+    - **TESLİM ARTIK KALEM BAZINDA** (md. 14, Teslim Takvimi): sipariş satırı
+      açılıp Kalem·İş·Adet (FİYATSIZ) gösterir; tamamı ya da satır satır teslim
+      alınır (`receiveOrderLines`), `received_at` TÜRETİLİR (bütün satırlar
+      dolduğunda bugüne yazılır, biri eksikse temizlenir), %oran kırmızı→yeşil
+      (`oranRengi`, OKLCH açı).
+    - **İPTAL GERİ ALINIR + YÖNETİCİ SİLER** (md. 8/9): `reopenOrder` iptal
+      damgasını temizleyip paket işaretlerini yeniden yazar; `deleteOrder`
+      yalnız yönetici + iptal edilmiş kayıtta.
+    - **SİPARİŞ ONAYI PDF'i** (md. 6/11): `lib/pdf/order-confirmation.tsx`,
+      A4 DİKEY, fiyatlı (talep PDF'i fiyatsız); künye/süzgeç notu YOK.
+      `/purchasing/siparisler/[id]/pdf` GET, satırdaki bağlantıdan iner.
+    - **SATIN ALMA PDF'LERİ DİKEY** (md. 12): talep PDF'i yatay→dikey, sütun
+      10→8, satır `wrap` ile uzun yazıda büyür (iç içe geçmez), çok sayfalı.
+    - **SÖZLÜ İSKONTO** (md. 4): Sipariş Aç'ta KDV Hariç Tutar düzenlenebilir;
+      yeni hedefe göre birim fiyatlar oranlanır (`iskontoUygula`). Toplam tek
+      sütun (avro ikincil). Çift scroll kaldırıldı, KDV başlığı opaklaştı (md.
+      3/5). Pano Siparişler/Teslim'de KAPALI açılır (md. 7).
+    - **TOPLU TEKLİF** (md. 2): havuzdan çoklu seçim → `BulkQuoteDialog`, tek
+      tedarikçi + satır satır birim fiyat.
+    - **HAVUZ SATIR DÜZELTME + MANUEL TALEP** (md. 1/21, migration
+      20260814000006). Düzeltme SNAPSHOT DEĞİL GÖRÜNÜM: `match_key` sabittir,
+      yalnız `purchase_item_meta.label_override`/`qty_override` ile görünen
+      tanım/adet ezilir — teklif/sipariş/fiyat arşivi bağı bozulmaz. Manuel
+      talep `purchase_manual_demands`ta durur, türetilmiş havuza EK satır olarak
+      katılır (`loadManualDemands`, `manualId` taşır) ve `drawing_parts`a
+      dokunmaz; özet override/manuel sonrası `havuzOzetiniTazele` ile yeniden
+      türetilir (çekirdek `demand.ts` DEĞİŞMEDİ). "Yeni Talep" düğmesi PDF'in
+      yanında.
+
     **TEKLİFTE ADET SORULMAZ** (kullanıcı kararı): teklif BİRİM FİYATtır ve
     adet zaten havuzda yazar; iki yerde adet tutmak "hangisi doğru" sorusunu
     doğururdu. Girilmiş teklif YERİNDE DÜZENLENİR — silip yeniden girmek teklif
