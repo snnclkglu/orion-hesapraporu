@@ -225,6 +225,30 @@ export function canEditPurchasing(value: string | null | undefined): boolean {
 }
 
 /**
+ * Sarf Giderleri OKUMA yetkisi.
+ *
+ * Sarf alımları Satın Alma bölümünün bir parçasıdır; dolayısıyla görünürlük
+ * aynı kapıdan geçer: Yönetici · Satın Alma · Planlama. Ayrı bir soru olarak
+ * tutulması, sarf giderlerinin yazma yetkisi gibi ileride bağımsız değişmesine
+ * imkân verir.
+ */
+export function canSeeConsumableExpenses(value: string | null | undefined): boolean {
+  return canSeePurchasing(value);
+}
+
+/**
+ * Sarf Giderleri YAZMA yetkisi.
+ *
+ * Kullanıcı kararı: Yönetici ve Satın Alma kayıt ekleyebilir, düzenleyebilir ve
+ * silebilir; Planlama Satın Alma bölümünü görmeye devam eder ama sarf giderinde
+ * salt okunurdur.
+ */
+export function canEditConsumableExpenses(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "purchasing";
+}
+
+/**
  * TEKNİK RESMİ ÇİZEBİLECEK roller — Teknik Resim Takibi'ndeki "Çizen"
  * seçicisinin listesi (kullanıcı kararı, 12.08.2026: *"Ressam ve Mühendis
  * rolündekiler listelensin. Önce ressamlar."*).

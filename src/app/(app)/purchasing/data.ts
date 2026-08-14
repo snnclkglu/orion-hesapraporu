@@ -573,6 +573,7 @@ export async function loadTedarikciler(supabase: SupabaseClient): Promise<string
 
 /** Defterdeki bir firma — ad + kimlik kodu (`TD0007`). */
 export interface TedarikciKaydi {
+  id: string;
   name: string;
   code: string;
   active: boolean;
@@ -593,16 +594,17 @@ export interface TedarikciKaydi {
  * sipariş numarası önerisi sessizce devre dışı kalır — sayfa AÇILIR.
  */
 export async function loadTedarikciDefteri(supabase: SupabaseClient): Promise<TedarikciKaydi[]> {
-  const zengin = await supabase.from("purchase_suppliers").select("name, code, active").order("name");
+  const zengin = await supabase.from("purchase_suppliers").select("id, name, code, active").order("name");
   if (!zengin.error) {
-    return ((zengin.data ?? []) as { name: string; code: string | null; active: boolean }[]).map(
-      (r) => ({ name: r.name ?? "", code: r.code ?? "", active: r.active !== false })
+    return ((zengin.data ?? []) as { id: string; name: string; code: string | null; active: boolean }[]).map(
+      (r) => ({ id: r.id, name: r.name ?? "", code: r.code ?? "", active: r.active !== false })
     );
   }
 
-  const dar = await supabase.from("purchase_suppliers").select("name, active").order("name");
+  const dar = await supabase.from("purchase_suppliers").select("id, name, active").order("name");
   if (dar.error) return [];
-  return ((dar.data ?? []) as { name: string; active: boolean }[]).map((r) => ({
+  return ((dar.data ?? []) as { id: string; name: string; active: boolean }[]).map((r) => ({
+    id: r.id,
     name: r.name ?? "",
     code: "",
     active: r.active !== false,

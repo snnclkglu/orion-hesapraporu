@@ -36,7 +36,7 @@ export default async function PurchasingLayout({
     <div className="grid gap-3">
       <PageHeader
         title="Satın Alma"
-        hint="Talep havuzu, teklifler, siparişler; teslim ve ödeme takvimi"
+        hint="Proje alımları, fiyat geçmişi ve fabrikanın sarf giderleri"
       />
       {/* Yetki rozeti şeridin EYLEM yuvasında DEĞİL sayfanın içindedir: rozet
           bir eylem değil bir künyedir ve dar ekranda eylem satırını sırf kendisi

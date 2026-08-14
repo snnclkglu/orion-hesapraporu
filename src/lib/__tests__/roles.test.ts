@@ -11,10 +11,12 @@ import {
   DRAWING_AUTHOR_ROLES,
   USER_ROLES,
   canBeDrawingAuthor,
+  canEditConsumableExpenses,
   canEditDrawings,
   canEditPersonnel,
   canEditPurchasing,
   canEditReports,
+  canSeeConsumableExpenses,
   canSeePersonnel,
   canSeePurchasing,
   canSeeSales,
@@ -141,12 +143,31 @@ describe("satın alma rolleri", () => {
     for (const r of USER_ROLES) expect(canEditPurchasing(r)).toBe(canSeePurchasing(r));
   });
 
+  it("sarf giderlerini Satın Alma ile aynı roller görür", () => {
+    expect(evetDiyenler(canSeeConsumableExpenses)).toEqual([
+      "admin",
+      "purchasing",
+      "planning",
+    ]);
+    for (const r of USER_ROLES) {
+      expect(canSeeConsumableExpenses(r), r).toBe(canSeePurchasing(r));
+    }
+  });
+
+  it("sarf giderini yalnız Yönetici ve Satın Alma düzenler — Planlama salt okunur", () => {
+    expect(evetDiyenler(canEditConsumableExpenses)).toEqual(["admin", "purchasing"]);
+    expect(canSeeConsumableExpenses("planning")).toBe(true);
+    expect(canEditConsumableExpenses("planning")).toBe(false);
+  });
+
   it("KALİTE ve ÜRETİM rolleri bugün ek bir kapı AÇMAZ", () => {
     // `uretim` etiketi de öyle tanımlıydı ("bugün ek bir kapı açmaz") ve rol
     // olurken sessizce genişletilmedi; Kalite aynı gün aynı tanımla eklendi.
     // Birine ekran açmak AYRI bir karardır ve o gün buraya tek satır yazılır.
     for (const rol of ["quality", "production"]) {
       expect(canSeePurchasing(rol), rol).toBe(false);
+      expect(canSeeConsumableExpenses(rol), rol).toBe(false);
+      expect(canEditConsumableExpenses(rol), rol).toBe(false);
       expect(canEditDrawings(rol), rol).toBe(false);
       expect(canSeeSales(rol), rol).toBe(false);
       expect(canSeeWorkLog(rol), rol).toBe(false);

@@ -1,6 +1,6 @@
 "use client";
 
-// Satın Alma bölüm rayı — beş ekran arasındaki geçiş.
+// Satın Alma bölüm rayı — proje alımları ve fabrika sarfları arasındaki geçiş.
 //
 // `Tabs` bileşeni KULLANILMAZ: sekmeler aynı sayfanın panelleri değil AYRI
 // ADRESLERdir (her biri kendi verisini sunucudan çeker, paylaşılabilir ve
@@ -20,6 +20,9 @@ const TABS = [
   { href: "/purchasing/teslimat", label: "Teslim Takvimi", exact: false },
   { href: "/purchasing/odemeler", label: "Ödeme Takvimi", exact: false },
   { href: "/purchasing/fiyatlar", label: "Fiyat Arşivi", exact: false },
+  { href: "/purchasing/sarf", label: "Sarf Girişi", exact: true },
+  { href: "/purchasing/sarf/kayitlar", label: "Sarf Kayıtları", exact: false },
+  { href: "/purchasing/sarf/analiz", label: "Sarf Analizi", exact: false },
 ];
 
 export function PurchasingNav() {
@@ -37,10 +40,10 @@ export function PurchasingNav() {
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+              "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
               active
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}

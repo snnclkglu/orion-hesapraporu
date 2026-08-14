@@ -694,7 +694,7 @@ export async function saveGroupName(
 // ANAHTAR KATLANMIŞ ADDIR: "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
 
 /** Defterdeki bir firmanın kimliği; `code` eski ortamlarda boş olabilir. */
-type FirmaKimligi = { name: string; code: string };
+type FirmaKimligi = { id: string; name: string; code: string };
 
 /**
  * Katlanmış ada göre defter satırını okur.
@@ -706,21 +706,21 @@ type FirmaKimligi = { name: string; code: string };
 async function firmaOku(supabase: SupabaseClient, anahtar: string): Promise<FirmaKimligi | null> {
   const zengin = await supabase
     .from("purchase_suppliers")
-    .select("name, code")
+    .select("id, name, code")
     .eq("match_key", anahtar)
     .maybeSingle();
   if (!zengin.error) {
-    const r = zengin.data as { name: string; code: string | null } | null;
-    return r ? { name: r.name ?? "", code: r.code ?? "" } : null;
+    const r = zengin.data as { id: string; name: string; code: string | null } | null;
+    return r ? { id: r.id, name: r.name ?? "", code: r.code ?? "" } : null;
   }
 
   const dar = await supabase
     .from("purchase_suppliers")
-    .select("name")
+    .select("id, name")
     .eq("match_key", anahtar)
     .maybeSingle();
-  const r = dar.data as { name: string } | null;
-  return r ? { name: r.name ?? "", code: "" } : null;
+  const r = dar.data as { id: string; name: string } | null;
+  return r ? { id: r.id, name: r.name ?? "", code: "" } : null;
 }
 
 /**
@@ -746,7 +746,7 @@ async function firmayiDeftereYaz(
   const { data, error } = await supabase
     .from("purchase_suppliers")
     .insert({ name: ad, match_key: anahtar, created_by: userId })
-    .select("name, code")
+    .select("id, name, code")
     .maybeSingle();
 
   if (error) {
@@ -758,8 +758,9 @@ async function firmayiDeftereYaz(
     return { error: `Firma kaydedilemedi: ${error.message}` };
   }
 
-  const r = data as { name: string; code: string | null } | null;
-  return { firma: { name: r?.name ?? ad, code: r?.code ?? "" }, yeni: true };
+  const r = data as { id: string; name: string; code: string | null } | null;
+  if (!r?.id) return { error: "Firma kaydedildi ancak kimliği okunamadı." };
+  return { firma: { id: r.id, name: r.name ?? ad, code: r.code ?? "" }, yeni: true };
 }
 
 export async function ensureSupplier(
@@ -772,7 +773,12 @@ export async function ensureSupplier(
   if (sonuc.error) return { error: sonuc.error };
 
   if (sonuc.yeni) tazele();
-  return { ok: sonuc.yeni ? 1 : 0, name: sonuc.firma?.name, code: sonuc.firma?.code };
+  return {
+    ok: sonuc.yeni ? 1 : 0,
+    id: sonuc.firma?.id,
+    name: sonuc.firma?.name,
+    code: sonuc.firma?.code,
+  };
 }
 
 /**

@@ -35,6 +35,8 @@ export interface SupplierAdminRow {
   /** Bu adla açılmış sipariş sayısı — bağ değil KULLANIM İZİ. */
   orderCount: number;
   quoteCount: number;
+  /** `supplier_id` ile bağlı sarf gideri sayısı. */
+  consumableCount: number;
 }
 
 function EditDialog({
@@ -157,7 +159,7 @@ function DeleteDialog({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const kullanim = row.orderCount + row.quoteCount;
+  const kullanim = row.orderCount + row.quoteCount + row.consumableCount;
 
   function handleDelete() {
     startTransition(async () => {
@@ -183,9 +185,10 @@ function DeleteDialog({
             {kullanim > 0 && (
               <>
                 {" "}
-                Bu adla {row.orderCount} sipariş ve {row.quoteCount} teklif kayıtlı;
-                onlar SİLİNMEZ ama firma öneri listesinden ve kod defterinden
-                düşer. Kaydı korumak için silmek yerine <em>pasife</em> çekin.
+                Bu firmaya bağlı {row.orderCount} sipariş, {row.quoteCount} teklif ve {" "}
+                {row.consumableCount} sarf gideri kayıtlı; onlar SİLİNMEZ. Sarf giderlerinde
+                firma adı snapshot olarak kalır, tedarikçi bağı düşer. Kaydı ve bağı korumak
+                için silmek yerine <em>pasife</em> çekin.
               </>
             )}{" "}
             Bu işlem geri alınamaz.
@@ -224,6 +227,7 @@ export function SupplierRow({ row }: { row: SupplierAdminRow }) {
             {[
               `${row.orderCount} sipariş`,
               `${row.quoteCount} teklif`,
+              `${row.consumableCount} sarf`,
               row.note || null,
             ]
               .filter(Boolean)
@@ -235,6 +239,9 @@ export function SupplierRow({ row }: { row: SupplierAdminRow }) {
         </TableCell>
         <TableCell className="hidden text-right font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
           {row.quoteCount || "—"}
+        </TableCell>
+        <TableCell className="hidden text-right font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
+          {row.consumableCount || "—"}
         </TableCell>
         <TableCell className="hidden text-sm whitespace-normal text-muted-foreground md:table-cell">
           {row.note || "—"}

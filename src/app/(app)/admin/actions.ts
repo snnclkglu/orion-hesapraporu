@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
 import { trKatla } from "@/lib/drawings/tr-text";
+import { consumableMatchKey } from "@/lib/purchasing/consumable-key";
 import type { ReportSettings } from "@/lib/settings";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
@@ -244,6 +245,9 @@ function revalidateSupplierViews() {
   revalidatePath("/admin/suppliers");
   revalidatePath("/purchasing");
   revalidatePath("/purchasing/siparisler");
+  revalidatePath("/purchasing/sarf");
+  revalidatePath("/purchasing/sarf/kayitlar");
+  revalidatePath("/purchasing/sarf/analiz");
 }
 
 /** Çakışma hangi indeksten geldi? İki tekillik var ve mesajları ayrı olmalı. */
@@ -331,6 +335,156 @@ export async function deleteSupplier(id: string): Promise<AdminActionResult> {
 
   await audit(supabase, user.id, "admin.supplier_delete", { id, ...(item ?? {}) });
   revalidateSupplierViews();
+  return { ok: true };
+}
+
+// ------------------------------------------------------------ Sarf Malzemeleri
+//
+// SM kodu veritabanının verdiği DEĞİŞMEZ kimliktir. Yönetim ad, grup, birim,
+// not ve aktifliği düzeltir; update payload'ında `code` bilinçli olarak yoktur.
+// Import üreticisiyle canlı kayıt AYNI `consumableMatchKey` fonksiyonunu
+// kullanır. İkinci bir normalizasyon yazmak, aynı malzemeyi iki anahtara
+// bölmek veya iki ayrı malzemeyi tek anahtarda birleştirmek olurdu.
+const consumableItemSchema = z
+  .object({
+    name: z.string().trim().min(2, "Malzeme adı gerekli.").max(200).transform(adBuyuk),
+    groupName: z.string().trim().min(1, "Sarf grubu gerekli.").max(120),
+    defaultUnit: z.string().trim().min(1, "Varsayılan birim gerekli.").max(30),
+    active: z.boolean(),
+    note: z.string().trim().max(500),
+  })
+  .strict();
+
+const consumableItemIdSchema = z.uuid("Geçersiz sarf malzeme kimliği.");
+
+export type ConsumableItemInput = z.input<typeof consumableItemSchema>;
+
+function revalidateConsumableViews() {
+  revalidatePath("/admin/consumables");
+  revalidatePath("/purchasing/sarf");
+  revalidatePath("/purchasing/sarf/kayitlar");
+  revalidatePath("/purchasing/sarf/analiz");
+}
+
+function consumableItemDatabaseError(error: { code?: string; message: string }): string {
+  if (error.code === "23505") {
+    return error.message.includes("code")
+      ? "Yeni SM kodu üretilemedi; sayacın güncellenmesi gerekiyor."
+      : "Bu sarf malzeme zaten defterde kayıtlı.";
+  }
+  if (error.code === "23503" || /foreign key|still referenced/i.test(error.message)) {
+    return "Bu sarf malzeme gider kayıtlarında kullanılıyor; silmek yerine pasife alın.";
+  }
+  return error.message;
+}
+
+export async function createConsumableItem(
+  input: ConsumableItemInput
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = consumableItemSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz kayıt." };
+  const { name, groupName, defaultUnit, active, note } = parsed.data;
+
+  const { data, error } = await supabase
+    .from("purchase_consumable_items")
+    .insert({
+      name,
+      match_key: consumableMatchKey(name),
+      group_name: groupName,
+      default_unit: defaultUnit,
+      active,
+      note,
+      created_by: user.id,
+      updated_by: user.id,
+    })
+    .select("id, code")
+    .single();
+  if (error) return { error: consumableItemDatabaseError(error) };
+  if (!data) return { error: "Sarf malzeme kaydedildi ancak SM kodu okunamadı." };
+
+  await audit(supabase, user.id, "admin.consumable_item_create", {
+    id: data.id,
+    code: data.code,
+    name,
+    group_name: groupName,
+    default_unit: defaultUnit,
+    active,
+  });
+  revalidateConsumableViews();
+  return { ok: true };
+}
+
+export async function updateConsumableItem(
+  id: string,
+  input: ConsumableItemInput
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsedId = consumableItemIdSchema.safeParse(id);
+  if (!parsedId.success) return { error: parsedId.error.issues[0]?.message };
+  const parsed = consumableItemSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz kayıt." };
+  const { name, groupName, defaultUnit, active, note } = parsed.data;
+
+  const { data: before } = await supabase
+    .from("purchase_consumable_items")
+    .select("id, code, name, group_name, default_unit, active, note")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!before) return { error: "Sarf malzeme bulunamadı." };
+
+  const { error } = await supabase
+    .from("purchase_consumable_items")
+    .update({
+      name,
+      match_key: consumableMatchKey(name),
+      group_name: groupName,
+      default_unit: defaultUnit,
+      active,
+      note,
+      updated_by: user.id,
+    })
+    .eq("id", parsedId.data);
+  if (error) return { error: consumableItemDatabaseError(error) };
+
+  await audit(supabase, user.id, "admin.consumable_item_update", {
+    id: parsedId.data,
+    code: before.code,
+    before,
+    after: { name, group_name: groupName, default_unit: defaultUnit, active, note },
+  });
+  revalidateConsumableViews();
+  return { ok: true };
+}
+
+export async function deleteConsumableItem(id: string): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsedId = consumableItemIdSchema.safeParse(id);
+  if (!parsedId.success) return { error: parsedId.error.issues[0]?.message };
+  const { data: item } = await supabase
+    .from("purchase_consumable_items")
+    .select("id, code, name, group_name, default_unit, active")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!item) return { error: "Sarf malzeme bulunamadı." };
+
+  const { error } = await supabase
+    .from("purchase_consumable_items")
+    .delete()
+    .eq("id", parsedId.data);
+  if (error) return { error: consumableItemDatabaseError(error) };
+
+  await audit(supabase, user.id, "admin.consumable_item_delete", item);
+  revalidateConsumableViews();
   return { ok: true };
 }
 

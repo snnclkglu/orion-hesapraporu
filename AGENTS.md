@@ -811,6 +811,75 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     sıralandı ve listenin başına devralınan satırı OLMAYAN kalemler düştü —
     yönetici silme düğmesini bu yüzden hiç göremedi.
 
+    **SARF GİDERİ PROJE SİPARİŞİ DEĞİLDİR** (`purchase_consumable_expenses`,
+    migration 20260814000001, kullanıcı kararı 14.08.2026). Fabrikanın Atölye
+    ve Ofis ihtiyaçları herhangi bir işe/pakete bağlanmaz; bu yüzden
+    `purchase_orders`a yazılmaz, teslim/ödeme takviminde sahte bekleyen sipariş
+    üretmez. Satın Alma rayında Fiyat Arşivi'nin sağında üç ayrı adres yaşar:
+    `/purchasing/sarf` hızlı giriş · `/purchasing/sarf/kayitlar` sunucu
+    araması/sıralaması · `/purchasing/sarf/analiz` EUR pano ve matris. Giriş,
+    kayıt ve analiz tek dev bileşene yığılmaz.
+
+    **SARF YAZMA KÜMESİ GENEL SATIN ALMADAN DAHA DARDIR.** Görme yetkisi
+    Yönetici · Satın Alma · Planlama (`canSeeConsumableExpenses` /
+    `can_see_consumable_expenses()`); ekleme, düzenleme ve silme yalnız
+    Yönetici · Satın Alma (`canEditConsumableExpenses` /
+    `can_edit_consumable_expenses()`). Planlama kayıtları ve analizi salt
+    okunur görür. UI düğmesini gizlemek güvenlik değildir; aynı küme RLS'te
+    sabitlenir ve `roles.test.ts`te korunur.
+
+    **SARF MALZEME DEFTERİNİN YERİ YÖNETİM, KAPISI HIZLI GİRİŞTİR**
+    (`/admin/consumables`, `purchase_consumable_items`). Kod sequence'ten
+    değişmez `SM0001` biçiminde gelir. Yönetici ad/grup/birim/not/aktifliği
+    yönetir; Yönetici ve Satın Alma, hızlı girişte aradığı malzeme yoksa küçük
+    pencerede ad + grup + varsayılan birimle onu anında açar ve yeni satır
+    otomatik seçilir. Kullanılmış malzeme silinmez (`ON DELETE RESTRICT`),
+    pasife alınır. Kanonik seçim `Combobox`tur; serbest metin
+    `EditableCombobox` analitiği aynı malzemenin yazım varyantlarına bölerdi.
+
+    **MALZEME TEKİLLİĞİ `consumableMatchKey` İLE ÜRETİLİR** (`lib/purchasing/
+    consumable-key.ts`): NFKC → tr-TR büyük → `&` = `VE` → apostrof,
+    noktalama/boşluk ve opsiyonel `Ø` çap işareti katlama. Genel `trKatla`
+    burada tek başına yeterli değildir; 1364 satırlık kaynakta aynı malzemeyi
+    noktalama varyantlarıyla bölerdi. Import üreticisi ve canlı oluşturma aynı
+    fonksiyonu byte-for-byte izler; iki ayrı normalleştirme sözlüğü tutulmaz.
+
+    **SARF PARA SÖZLEŞMESİ SATIRDA DONAR.** Kullanıcı TRY/EUR/USD girebilir;
+    `fx_rate` yine “1 EUR kaç ilgili para birimi”dir, EUR satırında tam 1'dir
+    ve `amount_eur = amount / fx_rate` generated kolondur. Geri tarihli sarf
+    kaydında “en son kur” değil, `expense_date` gününden eski/eşit en yakın
+    `fx_rate_daily` yayını önerilir; kullanıcı değiştirirse `fx_source=manual`
+    olur. Farklı birimler (Adet · Kg · Litre · Metre…) TOPLANMAZ; ana tablo,
+    grafik ve anomali matrisi yalnız dondurulmuş **Aylık Tutar (€)** üzerinden
+    karşılaştırılır.
+
+    **AYLIK KIRMIZI HÜCRE GRUBUN KENDİ GEÇMİŞİNE GÖREDİR** (`lib/purchasing/
+    consumables.ts`, saf + testli). Hücre HARİÇ diğer pozitif ve gelecek
+    olmayan aylardan en az üçü varsa, tutar onların ortalamasının `>1,5×`
+    üstünde kırmızı; `>2×` üstünde güçlü kırmızıdır. Tam eşikler alarm değildir.
+    Renk tek taşıyıcı olmaz, hücre `▲` ve oran ipucu da taşır. İçinde bulunulan
+    yıl varsayılandır; bu yıl/önceki yıl/iki yıl önce/Tümü hızlı seçilir. Tümü
+    görünümünde 36 aylık matris yerine grup × yıl matrisi kullanılır.
+
+    **SARF EXCEL AKTARIMI KAYIP VERMEDEN, KAYNAK SATIR İZİYLE YAPILIR**
+    (`20260814000002_import_consumable_expenses.sql`, üretici
+    `scripts/generate-consumable-import.mjs`). `SARF GİDERLER ESKİ VERİ.xlsx`
+    içindeki 07.03.2024–06.08.2026 tarihli **1364 satırın tamamı** aktarılır;
+    iş benzerliğine göre dedupe yapılmaz. Beş mükerrer çift silinmez,
+    `duplicate_candidate` işareti taşır. C sütunu tarih gerçeğidir; A/B dönem
+    uyumsuzlukları raw JSON ve `period_mismatch` olarak kalır. 101 boş Tanım
+    için uydurma SM kaydı açılmaz (`item_id NULL`, `blank_item`); iki boş Cari
+    aynı biçimde `blank_supplier` kalır. Her import satırı `source_ref` ile
+    tektir, ham A–Z değerleri immutable `legacy_payload`ta korunur.
+
+    **DEVREDİLEN SARF SAYILARI BİR SÖZLEŞMEDİR:** 97 kanonik tedarikçi adayı,
+    751 kanonik malzeme tanımı, 1364 gider satırı; kaynak toplamı
+    5.156.297,55 ₺ / 118.577,65 €'dur. Tedarikçi insert'i `ON CONFLICT DO
+    NOTHING` kullanmaz: çakışan aday bile TD sequence'ini tüketir. Önce
+    `WHERE NOT EXISTS(match_key)` sorulur. Aynı nedenle SM tanımları
+    deterministik kodlanır ve generator ikinci çalışmada byte-identical çıktı
+    vermelidir.
+
     **SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER.** `CokluSuzgec` `Select`
     değil `DropdownMenu` kullanır çünkü Radix `Select` tek değerlidir ve çoklu
     seçimde liste her tıklamada kapanırdı. Excel ve PDF ekranda GÖRÜNEN listeyi
@@ -2153,6 +2222,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `order-no.ts` (tedarikçi kodundan sipariş numarası ÖNERİSİ + çakışma
   denetimi; öneri bir kilit değildir) ·
   `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro) ·
+  `consumables.ts` (dense ay/yıl serisi, grup matrisi, anomali ve tedarikçi
+  drilldown) · `consumable-key.ts` (SM tekillik anahtarı) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
   çıkarımı ve gecikme; fiyat/tedarikçi taşımaz)
 - `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
@@ -2229,8 +2300,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ
 - `src/components/combobox.tsx` — aranabilir tek seçimli liste (Türkçe süzgeç)
 - `src/app/(app)/purchasing/` — Satın Alma (Yönetici · Satın Alma · Planlama
-  ROLLERİ): `data.ts` beş ekranın ORTAK okuma katmanı · `page.tsx` talep havuzu ·
-  `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `export/` Excel ucu
+  ROLLERİ): `data.ts` proje alımlarının ORTAK okuma katmanı · `page.tsx` talep
+  havuzu · `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `sarf/`
+  (hızlı giriş + sunucu kayıt listesi + EUR analiz) · `export/` Excel ucu
 - `src/app/(app)/admin/access/` — YETKİ IZGARASI (rol × bölüm, üç değerli
   hücre) + kişi matrisi; hesaplanır, elle yazılmaz ve EKRANDAN
   DEĞİŞTİRİLMEZ (md. 15'teki gerekçe). `access-grid.tsx` görünüm,
@@ -2243,6 +2315,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/admin/suppliers/` — TEDARİKÇİ DEFTERİ yönetimi (kod, pasife
   çekme, kullanım izi). Defterin YERİ buradadır ama KAPISI Satın Alma'dır:
   yeni firma teklif/sipariş penceresinden de açılır (md. 21)
+- `src/app/(app)/admin/consumables/` — SARF MALZEME DEFTERİ yönetimi (SM kodu,
+  grup, varsayılan birim, kullanım izi, pasif); yeni tanım hızlı sarf girişinden
+  de açılır
 - `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
   Excel ve PDF ekipman ADINDAN buraya bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız

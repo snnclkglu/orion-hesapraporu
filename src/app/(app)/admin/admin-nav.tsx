@@ -15,6 +15,7 @@ const ITEMS = [
   // aynı sorulara cevap verir (ad düzeltme, kod, pasife çekme). Kataloglar
   // altta kalır — onlar ürün defteridir, firma defteri değil.
   { href: "/admin/suppliers", label: "Tedarikçiler" },
+  { href: "/admin/consumables", label: "Sarf Malzemeleri" },
   { href: "/admin/equipment", label: "Ekipman Katalogu" },
   { href: "/admin/couplings", label: "Kaplin Katalogu" },
   { href: "/admin/rails", label: "Raylar" },

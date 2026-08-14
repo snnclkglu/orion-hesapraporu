@@ -110,7 +110,9 @@ export function Combobox({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-full justify-between px-2 font-normal", className)}
+          // `min-w-0` uzun firma/malzeme adının Button tabanındaki
+          // `shrink-0` ile birleşip mobil grid'i genişletmesini engeller.
+          className={cn("min-w-0 w-full justify-between px-2 font-normal", className)}
         >
           <span className={cn("min-w-0 truncate text-left", !selected && "text-muted-foreground")}>
             {renderTrigger ? renderTrigger(selected) : (selected?.label ?? placeholder)}
