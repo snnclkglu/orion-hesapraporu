@@ -16,13 +16,14 @@
 //    gelmiş malı göstermek listeyi zamanla okunmaz yapardı. Geçmiş kayıt
 //    Siparişler ekranındadır.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RankBars, TimeLineChart } from "@/components/charts";
-import { fmtCompactEur, fmtCompactEur1, fmtMoney } from "@/lib/currency";
+import { fmtCompactEur, fmtCompactEur1, fmtMoney, parseNum } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import { bugunISO, eurKarsiligi, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
@@ -30,10 +31,24 @@ import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
 import { Bant, KipSecici, PanoKabugu } from "../board-ui";
 import type { Siparis } from "../data";
-import { updateOrder } from "../actions";
+import { receiveOrderLines } from "../actions";
 
 function tutar(s: Siparis): number {
   return s.satirlar.reduce((t, l) => t + l.qty * (l.unitPrice ?? 0), 0);
+}
+
+/** Siparişin genel teslim oranı — kalem adetlerinin ağırlıklı ortalaması. */
+function teslimOrani(s: Siparis): number {
+  const toplam = s.satirlar.reduce((t, l) => t + l.qty, 0);
+  if (toplam <= 0) return 0;
+  const alinan = s.satirlar.reduce((t, l) => t + Math.min(l.qty, l.receivedQty), 0);
+  return Math.max(0, Math.min(1, alinan / toplam));
+}
+
+/** Teslim oranına göre KIRMIZI→YEŞİL renk (kullanıcı isteği, 14.08.2026). */
+function oranRengi(oran: number): string {
+  // 0 → 0° (kırmızı), 1 → 140° (yeşil). OKLCH sabit L/C ile okunur kalır.
+  return `oklch(0.58 0.16 ${Math.round(oran * 140)})`;
 }
 
 function eur(s: Siparis): number {
@@ -78,9 +93,12 @@ export function DeliveryBoard({
   canWrite: boolean;
 }) {
   const router = useRouter();
+  const [, basla] = useTransition();
   const [kip, setKip] = useState<Kip>("ay");
-  const [pano, setPano] = useState(true);
+  // PANO KAPALI AÇILIR (kullanıcı kararı, 14.08.2026).
+  const [pano, setPano] = useState(false);
   const [f, setF] = useState<Filtreler>(BOS);
+  const [acik, setAcik] = useState<Set<string>>(new Set());
 
   const bugun = bugunISO();
   // EKRANIN KAPSAMI: teslim alınmamış siparişler. "Ne bekliyorum" sorusu bu.
@@ -138,14 +156,43 @@ export function DeliveryBoard({
     };
   }, [gorunen, kip, bugun]);
 
-  function teslimAl(s: Siparis) {
-    if (!canWrite) return;
-    updateOrder({ id: s.id, receivedAt: bugun }).then((sonuc) => {
+  function teslimGonder(
+    s: Siparis,
+    updates: { lineId: string; receivedQty: number }[],
+    mesaj: string
+  ) {
+    if (!canWrite || updates.length === 0) return;
+    basla(async () => {
+      const sonuc = await receiveOrderLines({ orderId: s.id, updates });
       if (sonuc.error) toast.error(sonuc.error);
       else {
-        toast.success(`${s.supplier} siparişi teslim alındı.`);
+        toast.success(mesaj);
         router.refresh();
       }
+    });
+  }
+
+  /** Bütün kalemleri sipariş adediyle teslim al — sipariş listeden düşer. */
+  function tumunuTeslimAl(s: Siparis) {
+    teslimGonder(
+      s,
+      s.satirlar.map((l) => ({ lineId: l.id, receivedQty: l.qty })),
+      `${s.supplier} siparişi tamamen teslim alındı.`
+    );
+  }
+
+  /** Tek bir kalemin teslim adedini yaz. */
+  function satirTeslim(s: Siparis, lineId: string, deger: string) {
+    const adet = parseNum(deger) ?? 0;
+    teslimGonder(s, [{ lineId, receivedQty: adet }], "Teslim güncellendi.");
+  }
+
+  function genislet(id: string) {
+    setAcik((o) => {
+      const y = new Set(o);
+      if (y.has(id)) y.delete(id);
+      else y.add(id);
+      return y;
     });
   }
 
@@ -293,7 +340,16 @@ export function DeliveryBoard({
           )}`}
         >
           {gecikmis.map((s) => (
-            <SiparisSatiri key={s.id} s={s} bugun={bugun} canWrite={canWrite} onTeslim={teslimAl} />
+            <SiparisSatiri
+              key={s.id}
+              s={s}
+              bugun={bugun}
+              canWrite={canWrite}
+              genis={acik.has(s.id)}
+              onToggle={() => genislet(s.id)}
+              onTumTeslim={() => tumunuTeslimAl(s)}
+              onSatirTeslim={(lineId, deger) => satirTeslim(s, lineId, deger)}
+            />
           ))}
         </Bant>
       )}
@@ -305,7 +361,16 @@ export function DeliveryBoard({
           alt={`${formatNum(terminsiz.length)} sipariş — ne zaman geleceği bilinmiyor`}
         >
           {terminsiz.map((s) => (
-            <SiparisSatiri key={s.id} s={s} bugun={bugun} canWrite={canWrite} onTeslim={teslimAl} />
+            <SiparisSatiri
+              key={s.id}
+              s={s}
+              bugun={bugun}
+              canWrite={canWrite}
+              genis={acik.has(s.id)}
+              onToggle={() => genislet(s.id)}
+              onTumTeslim={() => tumunuTeslimAl(s)}
+              onSatirTeslim={(lineId, deger) => satirTeslim(s, lineId, deger)}
+            />
           ))}
         </Bant>
       )}
@@ -326,7 +391,16 @@ export function DeliveryBoard({
             alt={`${formatNum(k.kayitlar.length)} sipariş · ${fmtMoney(k.toplam, "EUR")}`}
           >
             {k.kayitlar.map((s) => (
-              <SiparisSatiri key={s.id} s={s} bugun={bugun} canWrite={canWrite} onTeslim={teslimAl} />
+              <SiparisSatiri
+              key={s.id}
+              s={s}
+              bugun={bugun}
+              canWrite={canWrite}
+              genis={acik.has(s.id)}
+              onToggle={() => genislet(s.id)}
+              onTumTeslim={() => tumunuTeslimAl(s)}
+              onSatirTeslim={(lineId, deger) => satirTeslim(s, lineId, deger)}
+            />
             ))}
           </Bant>
         ))
@@ -335,53 +409,142 @@ export function DeliveryBoard({
   );
 }
 
+/**
+ * TESLİM SATIRI — açılır kalem detayı (kullanıcı kararı, 14.08.2026):
+ * *"Teslim takviminde sipariş iç detayı gibi açılsın, FİYAT OLMASIN, sadece
+ * Kalem · İş · Adet. Tamamını ya da kalem bazında teslim al; kalem bazında
+ * %kaçı teslim alındığı küçük yazsın ve %oranına göre kırmızıdan yeşile
+ * renklensin."*
+ *
+ * Fiyat başlıkta (özet) durur ama AÇILAN DETAYDA YOKTUR: teslim bir miktar
+ * hareketidir, para değil.
+ */
 function SiparisSatiri({
   s,
   bugun,
   canWrite,
-  onTeslim,
+  genis,
+  onToggle,
+  onTumTeslim,
+  onSatirTeslim,
 }: {
   s: Siparis;
   bugun: string;
   canWrite: boolean;
-  onTeslim: (s: Siparis) => void;
+  genis: boolean;
+  onToggle: () => void;
+  onTumTeslim: () => void;
+  onSatirTeslim: (lineId: string, deger: string) => void;
 }) {
   const kalan = gunFarki(s.dueAt, bugun);
   const isler = isNolari(s);
+  const oran = teslimOrani(s);
+  const kismi = oran > 0 && oran < 1;
+
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 first:border-t-0">
-      <span className="min-w-[8rem] font-mono text-[12px] whitespace-nowrap">
-        {s.dueAt ? tarihGoster(s.dueAt) : <span className="text-muted-foreground">termin yok</span>}
-        {kalan != null && (
-          <span
-            className={
-              "ml-1.5 " +
-              (kalan < 0
-                ? "text-destructive"
-                : kalan <= 14
-                  ? "text-amber-700 dark:text-amber-400"
-                  : "text-muted-foreground")
-            }
-          >
-            {kalan < 0 ? `${Math.abs(kalan)} gün geçti` : `${kalan} gün`}
-          </span>
-        )}
-      </span>
-      <span className="min-w-0 flex-1 text-[13px]">
-        <span className="font-medium">{s.supplier}</span>
-        {s.orderNo && (
-          <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{s.orderNo}</span>
-        )}
-        <span className="block font-mono text-[11px] text-muted-foreground">
-          {formatNum(s.satirlar.length)} kalem
-          {isler.length > 0 && ` · ${isler.slice(0, 4).join(", ")}${isler.length > 4 ? "…" : ""}`}
+    <li className="border-t first:border-t-0">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={genis}
+          aria-label={genis ? "Kalemleri gizle" : "Kalemleri göster"}
+          className="grid size-6 shrink-0 place-items-center text-muted-foreground pointer-coarse:size-9 hover:text-foreground"
+        >
+          {genis ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        </button>
+        <span className="min-w-[8rem] font-mono text-[12px] whitespace-nowrap">
+          {s.dueAt ? tarihGoster(s.dueAt) : <span className="text-muted-foreground">termin yok</span>}
+          {kalan != null && (
+            <span
+              className={
+                "ml-1.5 " +
+                (kalan < 0
+                  ? "text-destructive"
+                  : kalan <= 14
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-muted-foreground")
+              }
+            >
+              {kalan < 0 ? `${Math.abs(kalan)} gün geçti` : `${kalan} gün`}
+            </span>
+          )}
         </span>
-      </span>
-      <span className="font-mono text-[12px] tabular-nums">{fmtMoney(tutar(s), s.currency)}</span>
-      {canWrite && (
-        <Button type="button" size="xs" variant="outline" onClick={() => onTeslim(s)}>
-          Teslim Alındı
-        </Button>
+        <span className="min-w-0 flex-1 text-[13px]">
+          <span className="font-medium">{s.supplier}</span>
+          {s.orderNo && (
+            <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{s.orderNo}</span>
+          )}
+          <span className="block font-mono text-[11px] text-muted-foreground">
+            {formatNum(s.satirlar.length)} kalem
+            {isler.length > 0 && ` · ${isler.slice(0, 4).join(", ")}${isler.length > 4 ? "…" : ""}`}
+            {kismi && (
+              <span className="ml-1.5" style={{ color: oranRengi(oran) }}>
+                · %{Math.round(oran * 100)} teslim
+              </span>
+            )}
+          </span>
+        </span>
+        <span className="font-mono text-[12px] tabular-nums">{fmtMoney(tutar(s), s.currency)}</span>
+        {canWrite && (
+          <Button type="button" size="xs" variant="outline" onClick={onTumTeslim}>
+            Tamamını Teslim Al
+          </Button>
+        )}
+      </div>
+
+      {genis && (
+        <div className="oc-scrollx border-t bg-muted/20 px-3 py-2 [--oc-scroll-bg:var(--muted)]">
+          <table className="w-full text-[12px]">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3 text-left font-normal">Kalem</th>
+                <th className="py-1 pr-3 text-left font-normal">İş</th>
+                <th className="py-1 pr-3 text-right font-normal">Adet</th>
+                <th className="py-1 pr-3 text-right font-normal">Teslim</th>
+                <th className="py-1 text-right font-normal">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.satirlar.map((l) => {
+                const satirOran = l.qty > 0 ? Math.min(1, l.receivedQty / l.qty) : 0;
+                return (
+                  <tr key={l.id} className="border-t border-border/50">
+                    <td className="py-1 pr-3">{l.sample}</td>
+                    <td className="py-1 pr-3 font-mono text-muted-foreground">{l.itemNo || "—"}</td>
+                    <td className="py-1 pr-3 text-right font-mono tabular-nums">{formatNum(l.qty)}</td>
+                    <td className="py-1 pr-3 text-right">
+                      {canWrite ? (
+                        <Input
+                          key={`${l.id}-${l.receivedQty}`}
+                          defaultValue={l.receivedQty > 0 ? String(Number(l.receivedQty)) : ""}
+                          onBlur={(e) => {
+                            if ((parseNum(e.target.value) ?? 0) !== l.receivedQty)
+                              onSatirTeslim(l.id, e.target.value);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                          inputMode="decimal"
+                          aria-label={`${l.sample} teslim adedi`}
+                          className="ml-auto h-7 w-20 text-right font-mono text-base tabular-nums pointer-fine:text-xs"
+                        />
+                      ) : (
+                        <span className="font-mono tabular-nums">{formatNum(l.receivedQty)}</span>
+                      )}
+                    </td>
+                    <td
+                      className="py-1 text-right font-mono font-medium tabular-nums"
+                      style={{ color: oranRengi(satirOran) }}
+                    >
+                      %{Math.round(satirOran * 100)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </li>
   );

@@ -105,7 +105,6 @@ function satinAlmayiTazele() {
   revalidatePath("/purchasing");
   revalidatePath("/purchasing/siparisler");
   revalidatePath("/purchasing/teslimat");
-  revalidatePath("/purchasing/odemeler");
   revalidatePath("/purchasing/fiyatlar");
 }
 

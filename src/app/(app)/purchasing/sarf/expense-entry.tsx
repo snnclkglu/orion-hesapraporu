@@ -24,6 +24,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Combobox, type ComboOption } from "@/components/combobox";
+import { adBuyuk } from "@/lib/tr-text";
+import { CONSUMABLE_UNITS } from "@/lib/purchasing/units";
 import { CURRENCIES, CURRENCY_LABELS, fmtMoney, parseNum, type Currency } from "@/lib/currency";
 import {
   DELIVERY_WEEKS,
@@ -62,7 +64,7 @@ function blankLine(key: number): EntryLine {
     key,
     itemId: null,
     quantity: "1",
-    unit: "Adet",
+    unit: "ADET",
     unitPrice: "",
     vatRate: DEFAULT_VAT_RATE,
     note: "",
@@ -137,10 +139,16 @@ export function ExpenseEntry({
         })),
     [suppliers]
   );
-  const departmentOptions: ComboOption[] = useMemo(
-    () => departments.map((name) => ({ value: name, label: name })),
-    [departments]
-  );
+  // BÖLÜM ADLARI BÜYÜK HARF (kullanıcı kararı, 14.08.2026). Büyük harfe
+  // katlanmış ada göre tekilleştirilir: "Ofis" ile "OFİS" tek seçenek olur.
+  const departmentOptions: ComboOption[] = useMemo(() => {
+    const harita = new Map<string, ComboOption>();
+    for (const name of departments) {
+      const buyuk = adBuyuk(name);
+      if (buyuk) harita.set(buyuk, { value: buyuk, label: buyuk });
+    }
+    return [...harita.values()].sort((a, b) => a.label.localeCompare(b.label, "tr"));
+  }, [departments]);
 
   useEffect(() => {
     const request = ++rateRequest.current;
@@ -221,7 +229,7 @@ export function ExpenseEntry({
       };
       setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
       if (newItemTarget != null) {
-        patchLine(newItemTarget, { itemId: item.id, unit: item.defaultUnit });
+        patchLine(newItemTarget, { itemId: item.id, unit: adBuyuk(item.defaultUnit) });
       }
       setNewItemOpen(false);
       toast.success(result.ok ? `${item.code} sarf malzemesi eklendi.` : "Malzeme seçildi.");
@@ -358,10 +366,10 @@ export function ExpenseEntry({
               value={department}
               onChange={setDepartment}
               onCreate={(name) => {
-                const next = name.trim();
+                const next = adBuyuk(name.trim());
                 if (!next) return;
                 setDepartments((current) =>
-                  current.some((value) => value.toLocaleLowerCase("tr") === next.toLocaleLowerCase("tr"))
+                  current.some((value) => adBuyuk(value) === next)
                     ? current
                     : [...current, next].sort((left, right) => left.localeCompare(right, "tr"))
                 );
@@ -513,13 +521,22 @@ export function ExpenseEntry({
                     value={line.itemId}
                     onChange={(id) => {
                       const item = items.find((row) => row.id === id);
-                      patchLine(line.key, { itemId: id, unit: item?.defaultUnit ?? line.unit });
+                      patchLine(line.key, {
+                        itemId: id,
+                        unit: item ? adBuyuk(item.defaultUnit) : line.unit,
+                      });
                     }}
                     onCreate={(name) => openNewItem(line.key, name)}
                     createLabel="Yeni sarf malzeme"
                     placeholder={`${index + 1}. malzemeyi seçin`}
                     searchPlaceholder="Malzeme adı veya SM kodu…"
                     className="h-9 text-base pointer-fine:text-sm"
+                    // DROPDOWN GENİŞLETİLDİ (kullanıcı kararı, 14.08.2026): sarf
+                    // adları uzun ("ŞERİT TESTERE BIÇAĞI 34X1,10MM…") ve dar
+                    // hücre genişliğindeki liste okunmuyordu. Popover tetikleyici
+                    // genişliğinden bağımsız 34rem'e açılır (dar ekranda görünür
+                    // alanla kelepçeli).
+                    contentClassName="w-[min(34rem,calc(100vw-1.5rem))]"
                     renderTrigger={() =>
                       selected ? (
                         <span className="flex min-w-0 items-center gap-2">
@@ -538,10 +555,23 @@ export function ExpenseEntry({
                     onChange={(event) => patchLine(line.key, { quantity: event.target.value })}
                     className="h-9 font-mono text-base tabular-nums pointer-fine:text-sm"
                   />
-                  <Input
-                    aria-label={`${index + 1}. satır birim`}
-                    value={line.unit}
-                    onChange={(event) => patchLine(line.key, { unit: event.target.value })}
+                  {/* BİRİM DROPDOWN (kullanıcı kararı, 14.08.2026): SARF
+                      GİDERLER excelindeki on birim listelenir; liste kapalı
+                      değildir — kullanıcı yeni birim yazabilir, hepsi büyük
+                      harfe katlanır. */}
+                  <Combobox
+                    options={[
+                      ...new Set([...CONSUMABLE_UNITS, adBuyuk(line.unit)].filter(Boolean)),
+                    ].map((u) => ({ value: u, label: u }))}
+                    value={adBuyuk(line.unit) || null}
+                    onChange={(value) => patchLine(line.key, { unit: value })}
+                    onCreate={(name) => {
+                      const buyuk = adBuyuk(name.trim());
+                      if (buyuk) patchLine(line.key, { unit: buyuk });
+                    }}
+                    createLabel="Yeni birim"
+                    placeholder="Birim"
+                    searchPlaceholder="Birim ara veya yaz…"
                     className="h-9 text-base pointer-fine:text-sm"
                   />
                   <Input

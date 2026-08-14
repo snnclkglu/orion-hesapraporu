@@ -5,7 +5,7 @@
 // sipariş birden çok kalemi, birden çok projeyi taşır (md. 7).
 
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing } from "@/lib/roles";
+import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import {
   loadSiparisNolari,
   loadSiparisler,
@@ -26,6 +26,10 @@ export default async function OrdersPage() {
     : { data: null };
 
   const yazabilir = canEditPurchasing(profil?.role);
+  // YÖNETİCİ İPTAL EDİLEN SİPARİŞİ SİLEBİLİR (kullanıcı kararı, 14.08.2026):
+  // "denemeler yapıyoruz, gerekiyor". Silme yalnız yönetici + yalnız iptal
+  // edilmiş sipariş.
+  const yonetici = isAdminRole(profil?.role);
 
   // İPTAL EDİLENLER DE OKUNUR: ekran onları soluk gösterir. Sorgudan düşürmek,
   // "bu siparişi ben iptal etmiştim" diyen kullanıcının kaydını yok etmek olurdu.
@@ -50,6 +54,7 @@ export default async function OrdersPage() {
       siparisNolari={siparisNolari}
       sonKur={sonKur}
       canWrite={yazabilir}
+      isAdmin={yonetici}
     />
   );
 }

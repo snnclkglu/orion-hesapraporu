@@ -253,8 +253,30 @@ export function OrderDialog({
   );
   const kurBolen = kurLazim ? kurSayi : 1;
   const netEur = eurKarsiligi(toplamlar.net, paraBirimi, kurBolen);
-  const kdvEur = eurKarsiligi(toplamlar.vat, paraBirimi, kurBolen);
   const brutEur = eurKarsiligi(toplamlar.gross, paraBirimi, kurBolen);
+
+  /**
+   * SÖZLÜ İSKONTO — hedef KDV hariç tutara göre birim fiyatları oranlar.
+   *
+   * Katsayı = hedef / mevcut net; her satırın birim fiyatı bununla çarpılır.
+   * Fiyatı girilmemiş satır (null) atlanır — sıfırla çarpmak onu "bedava"
+   * yapardı. Yuvarlama satır fiyatındadır (4 hane); toplam hedeften kuruş
+   * sapabilir ama birim fiyatlar tedarikçiye yazılabilir sayılar kalır.
+   */
+  function iskontoUygula(ham: string) {
+    const hedef = parseNum(ham);
+    const mevcut = toplamlar.net;
+    if (hedef == null || hedef <= 0 || mevcut <= 0) return;
+    const katsayi = hedef / mevcut;
+    if (Math.abs(katsayi - 1) < 1e-9) return;
+    setSatirlar((o) =>
+      o.map((s) => {
+        const f = parseNum(s.fiyat);
+        if (f == null) return s;
+        return { ...s, fiyat: String(Number((f * katsayi).toFixed(4))) };
+      })
+    );
+  }
 
   // AVANS KDV DAHİL TUTARDAN HESAPLANIR: peşinat kasadan çıkan paranın bir
   // yüzdesidir ve tedarikçi faturanın tamamı üzerinden ister. Elle yazılmış
@@ -701,10 +723,17 @@ export function OrderDialog({
             </div>
           </div>
 
-          {/* ————————————————————————————————— kalemler */}
-          <div className="oc-scrollx max-h-[38dvh] overflow-y-auto border [--oc-scroll-bg:var(--card)]">
+          {/* ————————————————————————————————— kalemler
+              ÇİFT SCROLL YOK (kullanıcı bildirimi, 14.08.2026): kalem
+              bölümünün kendi dikey kaydırması kaldırıldı; pencerenin tamamı
+              tek bir kaydırma kabıdır (DialogContent). Yalnız yatay taşma
+              (dar ekranda 46rem tablo) kendi içinde kayar. Başlık ARTIK
+              OPAKtır (`bg-muted`, yarı saydam + backdrop-blur değil): kaydırma
+              sırasında satırdaki KDV açılırının başlığın içinden görünüp iç
+              içe geçmesinin sebebi yarı saydam zemindi. */}
+          <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
             <table className="w-full min-w-[46rem] text-[12px]">
-              <thead className="sticky top-0 bg-muted/80 text-muted-foreground backdrop-blur">
+              <thead className="sticky top-0 z-20 bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
                   <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>
@@ -793,7 +822,19 @@ export function OrderDialog({
             </table>
           </div>
 
-          {/* ————————————————————————————————— toplamlar */}
+          {/* ————————————————————————————————— toplamlar
+              TEK SÜTUN (kullanıcı bildirimi, 14.08.2026: "iki kere yazıyor
+              gerek yok, tek olsun"): yerel para ile avro aynı kolonda
+              yazılıyordu; avro yalnız para birimi avro DIŞINDAYSA ikincil bir
+              satır olur.
+
+              KDV HARİÇ TUTAR DÜZENLENEBİLİR — SÖZLÜ İSKONTO (kullanıcı isteği):
+              *"birim fiyatları 500 girdim, sonra 450 anlaştık; KDV hariç tutara
+              450 yazınca birim fiyatlar o oranda düşsün."* Alana yazılan hedef
+              net, mevcut nete oranlanır ve bütün birim fiyatlar aynı katsayıyla
+              çarpılır. Değer `key` ile tazelenir (bir `useEffect` DEĞİL —
+              projenin `TerminAlani` deseni): satırlar değişince kutu yeni net
+              ile yeniden kurulur, kullanıcının yazdığını efekt ezmez. */}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid min-w-[12rem] flex-1 gap-1.5">
               <Label htmlFor="siparis-not">Not (İsteğe Bağlı)</Label>
@@ -805,27 +846,47 @@ export function OrderDialog({
                 className="h-9 text-base pointer-fine:text-sm"
               />
             </div>
-            <div className="grid w-full grid-cols-[auto_auto_auto] gap-x-3 gap-y-1 text-right text-sm sm:w-auto sm:min-w-[22rem]">
-              <span className="text-muted-foreground">KDV Hariç Tutar</span>
-              <span className="font-mono tabular-nums">{fmtMoney(toplamlar.net, paraBirimi)}</span>
-              <span className="font-mono tabular-nums text-muted-foreground">
-                {netEur == null ? "—" : fmtMoney(netEur, "EUR")}
-              </span>
-              <span className="text-muted-foreground">KDV</span>
-              <span className="font-mono tabular-nums">{fmtMoney(toplamlar.vat, paraBirimi)}</span>
-              <span className="font-mono tabular-nums text-muted-foreground">
-                {kdvEur == null ? "—" : fmtMoney(kdvEur, "EUR")}
-              </span>
-              <span className="font-semibold">KDV Dahil Tutar</span>
-              <span className="font-mono font-semibold tabular-nums">
-                {fmtMoney(toplamlar.gross, paraBirimi)}
-              </span>
-              <span className="font-mono font-semibold tabular-nums">
-                {brutEur == null ? "—" : fmtMoney(brutEur, "EUR")}
-              </span>
-              <span className="col-span-3 text-[11px] text-muted-foreground">
-                Fiyat arşivi ve panolar KDV hariç okur; Ödeme Takvimine KDV dahil tutar düşer.
-              </span>
+            <div className="grid w-full gap-1.5 text-sm sm:w-auto sm:min-w-[20rem]">
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="siparis-net" className="text-muted-foreground">
+                  KDV Hariç Tutar
+                </Label>
+                <Input
+                  id="siparis-net"
+                  key={`net-${Math.round(toplamlar.net * 100)}`}
+                  defaultValue={toplamlar.net > 0 ? String(Number(toplamlar.net.toFixed(2))) : ""}
+                  onBlur={(e) => iskontoUygula(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      iskontoUygula((e.target as HTMLInputElement).value);
+                    }
+                  }}
+                  inputMode="decimal"
+                  aria-label="KDV hariç tutar — yeni değer yazınca birim fiyatlar oranlanır"
+                  className="h-8 w-32 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground">KDV</span>
+                <span className="font-mono tabular-nums">{fmtMoney(toplamlar.vat, paraBirimi)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 border-t pt-1">
+                <span className="font-semibold">KDV Dahil Tutar</span>
+                <span className="font-mono font-semibold tabular-nums">
+                  {fmtMoney(toplamlar.gross, paraBirimi)}
+                </span>
+              </div>
+              {paraBirimi !== "EUR" && (
+                <div className="text-right font-mono text-[11px] text-muted-foreground">
+                  ≈ {netEur == null ? "—" : fmtMoney(netEur, "EUR")} ·{" "}
+                  {brutEur == null ? "—" : fmtMoney(brutEur, "EUR")} dahil
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                İskonto: KDV Hariç Tutar’a yeni değer yazın; birim fiyatlar aynı oranda düşer.
+                Fiyat arşivi ve panolar KDV hariç okur.
+              </p>
             </div>
           </div>
         </div>

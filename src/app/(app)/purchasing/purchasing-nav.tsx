@@ -7,8 +7,13 @@
 // yenilenebilir). Gerekçenin tamamı `worklog/worklog-nav.tsx`te.
 //
 // SIRA İŞ AKIŞIDIR, alfabe değil: ihtiyaç doğar (Talep Havuzu) → sipariş verilir
-// (Siparişler) → mal gelir (Teslim Takvimi) → para çıkar (Ödeme Takvimi) →
-// bir dahaki sefere ne kadara aldığımıza bakarız (Fiyat Arşivi).
+// (Siparişler) → mal gelir (Teslim Takvimi) → bir dahaki sefere ne kadara
+// aldığımıza bakarız (Fiyat Arşivi).
+//
+// ÖDEME TAKVİMİ KALDIRILDI (kullanıcı kararı, 14.08.2026: "Ödeme Takvimi
+// sayfasını satın alma bölümünde iptal edelim. Ödendi bilgisi takip
+// etmeyelim."). Sayfa ve nav sekmesi silindi; ödeme işaretleri Siparişler
+// ekranından da kaldırıldı.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +23,6 @@ const TABS = [
   { href: "/purchasing", label: "Talep Havuzu", exact: true },
   { href: "/purchasing/siparisler", label: "Siparişler", exact: false },
   { href: "/purchasing/teslimat", label: "Teslim Takvimi", exact: false },
-  { href: "/purchasing/odemeler", label: "Ödeme Takvimi", exact: false },
   { href: "/purchasing/fiyatlar", label: "Fiyat Arşivi", exact: false },
   { href: "/purchasing/sarf", label: "Sarf Girişi", exact: true },
   { href: "/purchasing/sarf/kayitlar", label: "Sarf Kayıtları", exact: false },

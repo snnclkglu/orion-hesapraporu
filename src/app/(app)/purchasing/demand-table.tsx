@@ -84,6 +84,7 @@ import { CokluSuzgec } from "./filters";
 import type { TedarikciKaydi, TeklifSatiri } from "./data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
 import { QuoteDialog } from "./quote-dialog";
+import { BulkQuoteDialog, type TopluTeklifKalemi } from "./bulk-quote-dialog";
 import { OrderDialog, type SiparisKalemi } from "./order-dialog";
 import { saveItemMeta } from "./actions";
 
@@ -232,6 +233,7 @@ export function DemandTable({
   const [secili, setSecili] = useState<Set<string>>(new Set());
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [teklifPenceresi, setTeklifPenceresi] = useState<Gorunum | null>(null);
+  const [topluTeklif, setTopluTeklif] = useState<TopluTeklifKalemi[] | null>(null);
   const [siparisKalemleri, setSiparisKalemleri] = useState<SiparisKalemi[] | null>(null);
   const [notPenceresi, setNotPenceresi] = useState<Gorunum | null>(null);
 
@@ -620,6 +622,20 @@ export function DemandTable({
             <Button
               type="button"
               size="xs"
+              variant="outline"
+              onClick={() =>
+                setTopluTeklif(
+                  seciliGorunumler.map((g) => ({ matchKey: g.satir.key, tanim: g.satir.tanim }))
+                )
+              }
+              disabled={seciliGorunumler.length === 0}
+            >
+              <Tag className="size-3" />
+              Teklif Aç
+            </Button>
+            <Button
+              type="button"
+              size="xs"
               onClick={() => setSiparisKalemleri(seciliGorunumler.map(siparisKalemi))}
               disabled={seciliGorunumler.length === 0}
             >
@@ -641,6 +657,20 @@ export function DemandTable({
           canWrite={canWrite}
           onClose={() => setTeklifPenceresi(null)}
           onChanged={() => router.refresh()}
+        />
+      )}
+
+      {topluTeklif && (
+        <BulkQuoteDialog
+          kalemler={topluTeklif}
+          tedarikciler={tedarikciler}
+          sonKur={sonKur}
+          onClose={() => setTopluTeklif(null)}
+          onSaved={() => {
+            setTopluTeklif(null);
+            setSecili(new Set());
+            router.refresh();
+          }}
         />
       )}
 

@@ -427,9 +427,9 @@ export function OrderEditDialog({
           </p>
 
           {/* ————————————————————————————————— kalemler */}
-          <div className="oc-scrollx max-h-[38dvh] overflow-y-auto border [--oc-scroll-bg:var(--card)]">
+          <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
             <table className="w-full min-w-[46rem] text-[12px]">
-              <thead className="sticky top-0 bg-muted/80 text-muted-foreground backdrop-blur">
+              <thead className="sticky top-0 z-20 bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
                   <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>

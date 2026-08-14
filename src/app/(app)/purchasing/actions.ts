@@ -24,6 +24,7 @@ import { loadArsivOlaylari, loadSiparisNolari, type ArsivOlayi } from "./data";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
+import { bugunISO } from "@/lib/purchasing/terms";
 import {
   chooseQuoteSchema,
   createOrderSchema,
@@ -75,7 +76,6 @@ function tazele() {
   revalidatePath("/purchasing");
   revalidatePath("/purchasing/siparisler");
   revalidatePath("/purchasing/teslimat");
-  revalidatePath("/purchasing/odemeler");
   revalidatePath("/purchasing/fiyatlar");
   // TEKNİK RESİMLER'İN ÖZETİ DE ESKİR. Mühendisin gördüğü "geldi mi" cevabı
   // buradaki her sipariş hareketinden türer (12.08.2026 kararı); teslim
@@ -590,6 +590,129 @@ export async function deleteOrder(id: string): Promise<PurchasingActionResult> {
   if (error) return { error: error.message };
   tazele();
   return { ok: 1 };
+}
+
+/**
+ * İPTAL EDİLMİŞ BİR SİPARİŞİ GERİ AÇAR (kullanıcı kararı, 14.08.2026:
+ * *"Yanlışlıkla iptal etmiş olabilir, siparişi geri açma özelliği de olsun."*).
+ *
+ * İptal `cancelled_at`i yazar ve paket işaretlerini KALDIRIR; geri açmak ikisini
+ * de tersine çevirir: damga temizlenir ve satırların paket "satın alındı"
+ * işaretleri yeniden yazılır (iptalin aynadaki hareketi). Yalnız İPTAL EDİLMİŞ
+ * bir sipariş geri açılabilir — açık bir siparişi "geri açmak" anlamsızdır.
+ */
+export async function reopenOrder(id: string): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+  const parsed = deleteOrderSchema.safeParse({ id });
+  if (!parsed.success) return { error: "Geçersiz sipariş." };
+
+  const { data: mevcut } = await supabase
+    .from("purchase_orders")
+    .select("ordered_at, cancelled_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!mevcut) return { error: "Sipariş bulunamadı." };
+  if (!(mevcut as { cancelled_at: string | null }).cancelled_at) {
+    return { error: "Sipariş zaten açık." };
+  }
+
+  const { error } = await supabase
+    .from("purchase_orders")
+    .update({ cancelled_at: null })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  const { data: satirlar } = await supabase
+    .from("purchase_order_lines")
+    .select("part_key, package_id")
+    .eq("order_id", id);
+  const isaret = await siparisIsaretle(
+    supabase,
+    userId,
+    ((satirlar ?? []) as { part_key: string; package_id: string | null }[]).map((r) => ({
+      partKey: r.part_key,
+      packageId: r.package_id,
+    })),
+    String((mevcut as { ordered_at: string | null }).ordered_at ?? "") || null
+  );
+  tazele();
+  return { ok: isaret };
+}
+
+/**
+ * KALEM BAZINDA TESLİM — Teslim Takvimi'nden yazılır (kullanıcı kararı,
+ * 14.08.2026). Satırın `received_qty`si güncellenir; siparişin `received_at`i
+ * TÜREVDİR: bütün satırlar tamamlandığında (received ≥ qty) bugüne yazılır,
+ * biri bile eksikse temizlenir. Böylece "teslim alındı" tek bir gerçekten
+ * (kısmi mi tam mı) okunur, iki ayrı yere elle girilmez.
+ *
+ * `updates` boş bırakılamaz; her satır bu siparişe ait olmalıdır (bütünlük
+ * kapısı, `editOrder`daki kuralın aynısı).
+ */
+export async function receiveOrderLines(input: {
+  orderId: string;
+  updates: { lineId: string; receivedQty: number }[];
+}): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const orderId = String(input.orderId ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(orderId)) return { error: "Geçersiz sipariş." };
+  const updates = (input.updates ?? []).filter((u) => /^[0-9a-f-]{36}$/i.test(u.lineId));
+  if (updates.length === 0) return { error: "Güncellenecek satır yok." };
+
+  const { data: satirVerisi } = await supabase
+    .from("purchase_order_lines")
+    .select("id, qty")
+    .eq("order_id", orderId);
+  const satirlar = (satirVerisi ?? []) as { id: string; qty: number }[];
+  const bilinen = new Map(satirlar.map((s) => [s.id, Number(s.qty)]));
+  if (updates.some((u) => !bilinen.has(u.lineId))) {
+    return { error: "Sipariş satırı bulunamadı; sayfayı yenileyin." };
+  }
+
+  for (const u of updates) {
+    const tavan = bilinen.get(u.lineId) ?? 0;
+    // Teslim alınan adet [0, sipariş adedi] arasına kelepçelenir: fazla teslim
+    // bir veri hatasıdır, eksi teslim anlamsızdır.
+    const deger = Math.max(0, Math.min(tavan, Number(u.receivedQty) || 0));
+    const { error } = await supabase
+      .from("purchase_order_lines")
+      .update({ received_qty: deger })
+      .eq("id", u.lineId)
+      .eq("order_id", orderId);
+    if (error) return { error: error.message };
+  }
+
+  // received_at TÜRETİLİR: bütün satırların güncel received_qty'si okunup
+  // kıyaslanır (elle girilen bir tarihe güvenilmez).
+  const { data: guncel } = await supabase
+    .from("purchase_order_lines")
+    .select("qty, received_qty")
+    .eq("order_id", orderId);
+  const hepsi = (guncel ?? []) as { qty: number; received_qty: number }[];
+  const tumuTeslim =
+    hepsi.length > 0 && hepsi.every((s) => Number(s.received_qty) >= Number(s.qty));
+  const { data: bas } = await supabase
+    .from("purchase_orders")
+    .select("received_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  const mevcutTeslim = (bas as { received_at: string | null } | null)?.received_at ?? null;
+  if (tumuTeslim && !mevcutTeslim) {
+    await supabase
+      .from("purchase_orders")
+      .update({ received_at: bugunISO() })
+      .eq("id", orderId);
+  } else if (!tumuTeslim && mevcutTeslim) {
+    await supabase.from("purchase_orders").update({ received_at: null }).eq("id", orderId);
+  }
+
+  tazele();
+  return { ok: updates.length };
 }
 
 // ═══════════════════════════════════════════════════════ KALEM DEFTERİ

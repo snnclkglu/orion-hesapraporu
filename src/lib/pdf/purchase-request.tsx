@@ -100,7 +100,6 @@ export function PurchaseRequestDocument({ rows, meta, company }: PurchaseRequest
 
   const toplamAdet = rows.reduce((t, r) => t + (r.adet ?? 0), 0);
   const toplamAgirlik = rows.reduce((t, r) => t + (r.toplamAgirlikKg ?? 0), 0);
-  const isler = [...new Set(rows.flatMap((r) => r.isNolari))].sort();
 
   let sira = 0;
 
@@ -114,21 +113,11 @@ export function PurchaseRequestDocument({ rows, meta, company }: PurchaseRequest
       >
         <BrandBand docCode={meta.docCode} lines={[meta.generatedAt]} logoWidth={130} />
 
-        <Text style={[T.heading, { fontSize: 11, marginBottom: 2 }]}>SATIN ALMA TALEBİ</Text>
-        <Text style={[T.micro, { marginBottom: 2 }]}>
-          {[
-            `${rows.length} kalem`,
-            toplamAdet > 0 && `${say(toplamAdet)} adet`,
-            toplamAgirlik > 0 && `${say(toplamAgirlik, 1)} kg`,
-            isler.length > 0 && `İş: ${isler.join(", ")}`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </Text>
-        <Text style={[T.micro, { marginBottom: 8, color: BRAND.gray600 }]}>
-          {meta.scopeText} · Süzgeç: {meta.filterText}
-          {meta.preparedBy ? ` · Hazırlayan: ${meta.preparedBy}` : ""}
-        </Text>
+        {/* KÜNYE NOTLARI KALDIRILDI (kullanıcı kararı, 14.08.2026): kalem/adet/
+            kg özeti ile süzgeç ve "Hazırlayan" satırı belgeden çıkarıldı —
+            tedarikçiye giden talepte iç süzgeç bilgisi gürültüdür ve toplam
+            zaten sonda yazar. */}
+        <Text style={[T.heading, { fontSize: 11, marginBottom: 8 }]}>SATIN ALMA TALEBİ</Text>
 
         {/* Başlık satırı her sayfada tekrar eder. */}
         <View style={S.baslikSatiri} fixed>

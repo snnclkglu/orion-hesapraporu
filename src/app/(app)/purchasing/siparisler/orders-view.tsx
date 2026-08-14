@@ -27,7 +27,7 @@
 import { forwardRef, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarChart3, ChevronDown, ChevronRight, Loader2, Pencil } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,7 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { OdemeTarihi } from "@/components/odeme-tarihi";
 import {
   Table,
   TableBody,
@@ -66,7 +65,7 @@ import { CokluSuzgec } from "../filters";
 import { KipSecici, PanoKabugu } from "../board-ui";
 import type { Siparis, TedarikciKaydi } from "../data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
-import { updateOrder } from "../actions";
+import { deleteOrder, reopenOrder, updateOrder } from "../actions";
 import { OrderEditDialog } from "./order-edit-dialog";
 
 /**
@@ -137,6 +136,7 @@ export function OrdersView({
   siparisNolari,
   sonKur,
   canWrite,
+  isAdmin,
 }: {
   siparisler: Siparis[];
   /** Düzenleme penceresinin tedarikçi önerileri. */
@@ -147,13 +147,18 @@ export function OrdersView({
   siparisNolari: string[];
   sonKur?: GunlukKur | null;
   canWrite: boolean;
+  /** Yönetici mi — iptal edilmiş siparişi SİLEBİLİR. */
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
   const [f, setF] = useState<Filtreler>(BOS);
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [duzenlenen, setDuzenlenen] = useState<Siparis | null>(null);
-  const [pano, setPano] = useState(true);
+  const [silinecek, setSilinecek] = useState<Siparis | null>(null);
+  // PANO KAPALI AÇILIR (kullanıcı kararı, 14.08.2026): sayfanın asıl işi sipariş
+  // listesidir; grafik isteyen açar.
+  const [pano, setPano] = useState(false);
   const [kip, setKip] = useState<Kip>("ay");
 
   const isNolari = useMemo(
@@ -206,6 +211,31 @@ export function OrdersView({
       if (sonuc.error) toast.error(sonuc.error);
       else {
         toast.success(mesaj);
+        router.refresh();
+      }
+    });
+  }
+
+  function geriAc(s: Siparis) {
+    basla(async () => {
+      const sonuc = await reopenOrder(s.id);
+      if (sonuc.error) toast.error(sonuc.error);
+      else {
+        toast.success(`${s.supplier} siparişi geri açıldı.`);
+        router.refresh();
+      }
+    });
+  }
+
+  function sil() {
+    if (!silinecek) return;
+    const s = silinecek;
+    basla(async () => {
+      const sonuc = await deleteOrder(s.id);
+      if (sonuc.error) toast.error(sonuc.error);
+      else {
+        toast.success(`${s.supplier} siparişi silindi.`);
+        setSilinecek(null);
         router.refresh();
       }
     });
@@ -393,6 +423,47 @@ export function OrdersView({
         />
       )}
 
+      {/* SİLME ONAYI — yalnız iptal edilmiş sipariş, yalnız yönetici (md. 8).
+          İptalden farkı KALICIdır: kayıt geri gelmez, o yüzden ayrı bir onay. */}
+      <Dialog open={silinecek != null} onOpenChange={(o) => !o && setSilinecek(null)}>
+        <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Sipariş kalıcı olarak silinsin mi?</DialogTitle>
+            <DialogDescription className="text-[12px]">
+              Bu iptal edilmiş sipariş ve satırları KALICI olarak silinir; geri
+              alınamaz. İptali geri almak istiyorsanız “Geri Aç”ı kullanın.
+            </DialogDescription>
+          </DialogHeader>
+          {silinecek && (
+            <dl className="grid gap-1 border bg-muted/30 p-3 text-[12px]">
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tedarikçi</dt>
+                <dd className="font-medium">{silinecek.supplier}</dd>
+              </span>
+              {silinecek.orderNo && (
+                <span className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Sipariş no</dt>
+                  <dd className="font-mono">{silinecek.orderNo}</dd>
+                </span>
+              )}
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Kalem</dt>
+                <dd className="font-mono tabular-nums">{formatNum(silinecek.satirlar.length)}</dd>
+              </span>
+            </dl>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setSilinecek(null)} disabled={calisiyor}>
+              Vazgeç
+            </Button>
+            <Button type="button" variant="destructive" onClick={sil} disabled={calisiyor}>
+              {calisiyor && <Loader2 className="size-4 animate-spin" />}
+              Kalıcı Olarak Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {gorunen.length === 0 ? (
         <div className="border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
@@ -521,9 +592,17 @@ export function OrdersView({
                         <HalCipleri
                           s={s}
                           canWrite={canWrite}
-                          onYaz={yaz}
-                          avans={avans}
+                          isAdmin={isAdmin}
                           onDuzenle={() => setDuzenlenen(s)}
+                          onGeriAc={() => geriAc(s)}
+                          onSil={() => setSilinecek(s)}
+                          onIptal={() =>
+                            yaz(
+                              s.id,
+                              { cancelledAt: new Date().toISOString().slice(0, 10) },
+                              "Sipariş iptal edildi."
+                            )
+                          }
                         />
                       </TableCell>
                     </TableRow>
@@ -674,127 +753,71 @@ function TerminAlani({
 }
 
 /**
- * Hâl çipleri — her biri bir TARİH yazar.
+ * Hâl denetimleri — SİPARİŞLER SAYFASI ARTIK YALNIZ DÜZENLE + İPTAL taşır.
  *
- * Tarih alanı çipin yanında durur ve boş bırakılabilir: satınalmacı çoğu zaman
- * "geldi" der ama günü sonra hatırlar.
+ * TESLİM VE ÖDEME İŞARETLERİ BURADAN KALDIRILDI (kullanıcı kararı, 14.08.2026):
+ *  · "Bakiye ödendi" ve "Teslim" düğmeleri bu sayfada olmasın — teslim zaten
+ *    Teslim Takvimi'nde yapılıyor (md. 14).
+ *  · Ödeme Takvimi kaldırıldı ve "ödendi bilgisi takip etmeyelim" dendi (md. 15);
+ *    avans/bakiye ödeme çipleri de gitti.
+ *
+ * İPTAL EDİLMİŞ SİPARİŞ GERİ AÇILABİLİR (md. 9) ve yönetici onu SİLEBİLİR
+ * (md. 8) — ikisi de yalnız iptal edilmiş kayıtta görünür.
  */
 function HalCipleri({
   s,
   canWrite,
-  avans,
-  onYaz,
+  isAdmin,
   onDuzenle,
+  onGeriAc,
+  onSil,
+  onIptal,
 }: {
   s: Siparis;
   canWrite: boolean;
-  avans: number;
-  onYaz: (id: string, alanlar: OrderPatch, mesaj: string) => void;
+  isAdmin: boolean;
   onDuzenle: () => void;
+  onGeriAc: () => void;
+  onSil: () => void;
+  onIptal: () => void;
 }) {
-  const [teslimGunu, setTeslimGunu] = useState("");
-  const bugun = new Date().toISOString().slice(0, 10);
-
   if (s.cancelledAt) {
     return (
-      <span className="inline-flex min-h-7 items-center border border-dashed px-1.5 text-[11px] text-muted-foreground">
-        İptal · {tarihGoster(s.cancelledAt)}
+      <span className="flex flex-wrap items-center gap-1">
+        <span className="inline-flex min-h-7 items-center border border-dashed px-1.5 text-[11px] text-muted-foreground">
+          İptal · {tarihGoster(s.cancelledAt)}
+        </span>
+        {canWrite && (
+          <button
+            type="button"
+            onClick={onGeriAc}
+            title="Siparişi geri aç — iptal geri alınır, paket işaretleri yeniden yazılır"
+            className="oc-tap inline-flex min-h-7 items-center gap-1 border border-dashed px-1.5 text-[11px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+          >
+            <RotateCcw className="size-3" />
+            Geri Aç
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onSil}
+            title="Siparişi kalıcı olarak sil (yalnız yönetici)"
+            className="oc-tap inline-flex min-h-7 items-center gap-1 border border-dashed border-destructive/40 px-1.5 text-[11px] text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="size-3" />
+            Sil
+          </button>
+        )}
       </span>
     );
   }
 
-  // DÖRT DENETİM YAN YANA (kullanıcı bildirimi, 13.08.2026: *"Siparişler
-  // sayfasında satır çok yer kaplıyor … Bakiye ödendi ve İptal et tuşu
-  // Teslim'in yanına alınsın"*). Alt alta dizildiklerinde tek bir sipariş
-  // satırı dört satır boyu yer kaplıyordu ve on siparişlik bir liste ekrana
-  // sığmıyordu. `flex-wrap` dar ekranda yine alt alta iner — md. 12'nin
-  // "eylemler küçülemeyen bir kutu olmaz" kuralı.
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {s.receivedAt ? (
-        <Cip
-          renk="yesil"
-          etiket="Teslim alındı"
-          onClick={canWrite ? () => onYaz(s.id, { receivedAt: "" }, "Teslim işareti kaldırıldı.") : undefined}
-          baslik="Dokunmak teslim işaretini kaldırır"
-        />
-      ) : (
-        canWrite && (
-          <span className="flex items-center gap-1">
-            <Input
-              type="date"
-              value={teslimGunu}
-              onChange={(e) => setTeslimGunu(e.target.value)}
-              className="h-7 w-[8.5rem] font-mono text-base pointer-fine:text-xs"
-              aria-label="Teslim günü"
-            />
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              onClick={() => onYaz(s.id, { receivedAt: teslimGunu || bugun }, "Teslim alındı.")}
-            >
-              Teslim
-            </Button>
-          </span>
-        )
+      {s.receivedAt && (
+        <Cip renk="yesil" etiket={`Teslim · ${tarihGoster(s.receivedAt)}`} />
       )}
-
-      {/* ÖDEME GÜNÜ SORULUR (kullanıcı kararı, 13.08.2026). İşaretli çipe
-          dokunmak da aynı pencereyi açar: yanlış girilmiş bir günü düzeltmenin
-          yolu "kaldır + yeniden işaretle" olmamalı — o iki adım, ve arada
-          kaydın ödeme takviminden düşmesi demek. */}
-      {avans > 0 &&
-        (canWrite ? (
-          <OdemeTarihi
-            baslik="Avans ödendi"
-            varsayilan={s.advancePaidAt ?? undefined}
-            onSec={(t) => onYaz(s.id, { advancePaidAt: t }, "Avans ödendi.")}
-            onKaldir={
-              s.advancePaidAt
-                ? () => onYaz(s.id, { advancePaidAt: "" }, "Avans işareti kaldırıldı.")
-                : undefined
-            }
-          >
-            <Cip
-              renk={s.advancePaidAt ? "yesil" : "bos"}
-              etiket={
-                s.advancePaidAt ? `Avans ödendi · ${tarihGoster(s.advancePaidAt)}` : "Avans ödendi"
-              }
-              tetikleyici
-              baslik="Ödeme gününü seç"
-            />
-          </OdemeTarihi>
-        ) : (
-          s.advancePaidAt && (
-            <Cip renk="yesil" etiket={`Avans ödendi · ${tarihGoster(s.advancePaidAt)}`} />
-          )
-        ))}
-
-      {canWrite ? (
-        <OdemeTarihi
-          baslik="Bakiye ödendi"
-          varsayilan={s.balancePaidAt ?? undefined}
-          onSec={(t) => onYaz(s.id, { balancePaidAt: t }, "Ödeme kaydedildi.")}
-          onKaldir={
-            s.balancePaidAt
-              ? () => onYaz(s.id, { balancePaidAt: "" }, "Ödeme işareti kaldırıldı.")
-              : undefined
-          }
-        >
-          <Cip
-            renk={s.balancePaidAt ? "yesil" : "bos"}
-            etiket={s.balancePaidAt ? `Ödendi · ${tarihGoster(s.balancePaidAt)}` : "Bakiye ödendi"}
-            tetikleyici
-            baslik="Ödeme gününü seç"
-          />
-        </OdemeTarihi>
-      ) : (
-        s.balancePaidAt && <Cip renk="yesil" etiket={`Ödendi · ${tarihGoster(s.balancePaidAt)}`} />
-      )}
-
-      {/* DÜZENLE İPTALİN SOLUNDADIR: sık olan hareket odur ve yıkıcı olanla
-          yan yana durduğunda parmakla yanlış düğmeye basmak kolaylaşır. */}
       {canWrite && (
         <button
           type="button"
@@ -806,10 +829,7 @@ function HalCipleri({
           Düzenle
         </button>
       )}
-
-      {canWrite && !s.receivedAt && (
-        <IptalOnayi s={s} onIptal={() => onYaz(s.id, { cancelledAt: bugun }, "Sipariş iptal edildi.")} />
-      )}
+      {canWrite && !s.receivedAt && <IptalOnayi s={s} onIptal={onIptal} />}
     </span>
   );
 }
