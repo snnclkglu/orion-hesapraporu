@@ -26,6 +26,13 @@ import {
 import { Combobox, type ComboOption } from "@/components/combobox";
 import { CURRENCIES, CURRENCY_LABELS, fmtMoney, parseNum, type Currency } from "@/lib/currency";
 import {
+  gunEkle,
+  odemeGunu,
+  PAYMENT_TERMS,
+  tarihGoster,
+  type PaymentMethod,
+} from "@/lib/purchasing/terms";
+import {
   calculateConsumableVatTotals,
   CONSUMABLE_VAT_RATES,
   type ConsumableVatRate,
@@ -85,6 +92,10 @@ export function ExpenseEntry({
   const [supplierId, setSupplierId] = useState<string | null>(null);
   const [documentNo, setDocumentNo] = useState("");
   const [department, setDepartment] = useState("");
+  const [deliveryPreset, setDeliveryPreset] = useState("0");
+  const [dueAt, setDueAt] = useState(isoToday);
+  const [paymentTerm, setPaymentTerm] = useState("pesin");
+  const [customPaymentDays, setCustomPaymentDays] = useState("");
   const [currency, setCurrency] = useState<Currency>("TRY");
   const [fxRate, setFxRate] = useState("");
   const [fxRateDate, setFxRateDate] = useState<string | null>(null);
@@ -151,6 +162,12 @@ export function ExpenseEntry({
   const eurNet = parsedRate > 0 ? nativeTotals.net / parsedRate : 0;
   const eurVat = parsedRate > 0 ? nativeTotals.vat / parsedRate : 0;
   const eurGross = parsedRate > 0 ? nativeTotals.gross / parsedRate : 0;
+  const paymentOption = PAYMENT_TERMS.find((option) => option.value === paymentTerm);
+  const paymentMethod: PaymentMethod = paymentTerm === "custom" ? "vadeli" : (paymentOption?.method ?? "pesin");
+  const paymentTermDays = paymentTerm === "custom"
+    ? Math.max(0, Math.round(parseNum(customPaymentDays) ?? 0))
+    : (paymentOption?.days ?? 0);
+  const paymentDueAt = odemeGunu({ dueAt, receivedAt: null, paymentTermDays });
 
   function patchLine(key: number, patch: Partial<EntryLine>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -226,9 +243,18 @@ export function ExpenseEntry({
       unit: line.unit,
       unitPrice: parseNum(line.unitPrice),
       note: line.note,
+      vatRate: line.vatRate,
     }));
     if (parsedLines.some((line) => !line.itemId || line.quantity == null || line.unitPrice == null)) {
       toast.error("Bütün satırlarda malzeme, miktar ve birim fiyat bulunmalı.");
+      return;
+    }
+    if (!dueAt) {
+      toast.error("Termin tarihini seçin.");
+      return;
+    }
+    if (paymentMethod === "vadeli" && paymentTermDays <= 0) {
+      toast.error("Özel vade için gün sayısını girin.");
       return;
     }
 
@@ -238,6 +264,9 @@ export function ExpenseEntry({
         supplierId,
         documentNo,
         department,
+        dueAt,
+        paymentMethod,
+        paymentTermDays,
         currency,
         fxRate: rate,
         fxRateDate: currency === "EUR" ? null : fxRateDate,
@@ -249,6 +278,7 @@ export function ExpenseEntry({
           unit: line.unit,
           unitPrice: line.unitPrice!,
           note: line.note,
+          vatRate: line.vatRate,
         })),
       });
       if (result.error) {
@@ -286,7 +316,11 @@ export function ExpenseEntry({
               id="sarf-date"
               type="date"
               value={expenseDate}
-              onChange={(event) => setExpenseDate(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                setExpenseDate(next);
+                if (deliveryPreset !== "custom" && next) setDueAt(gunEkle(next, Number(deliveryPreset)));
+              }}
               required
               className="text-base pointer-fine:text-sm"
             />
@@ -385,6 +419,69 @@ export function ExpenseEntry({
             1 EUR = {fxRate || "—"} {currency}
             {fxRateDate ? ` · ${fxRateDate} tarihli yayın` : ""}
             {fxSource === "manual" && currency !== "EUR" ? " · elle değiştirildi" : ""}
+          </div>
+        </div>
+
+        <div className="grid gap-3 border bg-muted/30 p-3 lg:grid-cols-[minmax(18rem,1fr)_minmax(16rem,1fr)_minmax(16rem,1fr)]">
+          <div className="grid gap-1.5">
+            <Label>Hızlı Termin</Label>
+            <Select
+              value={deliveryPreset}
+              onValueChange={(value) => {
+                setDeliveryPreset(value);
+                if (value !== "custom") setDueAt(gunEkle(expenseDate, Number(value)));
+              }}
+            >
+              <SelectTrigger className="w-full text-base pointer-fine:text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Hemen</SelectItem>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((week) => (
+                  <SelectItem key={week} value={String(week * 7)}>{week} hafta</SelectItem>
+                ))}
+                <SelectItem value="custom">Tarih Seç</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              aria-label="Termin tarihi"
+              type="date"
+              value={dueAt}
+              onChange={(event) => { setDueAt(event.target.value); setDeliveryPreset("custom"); }}
+              required
+              className="font-mono text-base pointer-fine:text-sm"
+            />
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label>Ödeme Vadesi</Label>
+            <Select value={paymentTerm} onValueChange={setPaymentTerm}>
+              <SelectTrigger className="w-full text-base pointer-fine:text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAYMENT_TERMS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+                <SelectItem value="custom">Diğer (Gün Gir)</SelectItem>
+              </SelectContent>
+            </Select>
+            {paymentTerm === "custom" && (
+              <Input
+                aria-label="Özel vade gün sayısı"
+                inputMode="numeric"
+                value={customPaymentDays}
+                onChange={(event) => setCustomPaymentDays(event.target.value)}
+                placeholder="Örn. 120"
+                className="font-mono text-base pointer-fine:text-sm"
+              />
+            )}
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label>Planlanan Ödeme</Label>
+            <div className="min-h-10 border-l-2 border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm">
+              <strong>{paymentDueAt ? tarihGoster(paymentDueAt) : "—"}</strong>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Termin {dueAt ? tarihGoster(dueAt) : "seçilmedi"}
+                {paymentTermDays > 0 ? ` + ${paymentTermDays} gün vade` : " · vade yok"}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground">Ödeme Takvimine KDV dahil fiş toplamıyla eklenir.</span>
           </div>
         </div>
 

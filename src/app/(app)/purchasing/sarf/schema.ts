@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CURRENCIES } from "@/lib/currency";
+import { PAYMENT_METHODS } from "@/lib/purchasing/terms";
 
 const isoDate = z
   .string()
@@ -18,16 +19,23 @@ const expenseHeader = {
   note: z.string().trim().max(1000).default(""),
 };
 
+const paymentHeader = {
+  dueAt: isoDate,
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  paymentTermDays: z.number().int().min(0).max(365),
+};
+
 export const consumableExpenseLineSchema = z.object({
   itemId: z.uuid("Sarf malzeme seçin."),
   quantity: z.number().positive("Miktar sıfırdan büyük olmalı."),
   unit: z.string().trim().min(1, "Birim gerekli.").max(30),
   unitPrice: z.number().nonnegative("Birim fiyat negatif olamaz."),
   note: z.string().trim().max(500).default(""),
+  vatRate: z.union([z.literal(1), z.literal(10), z.literal(20)]).default(20),
 });
 
 function validateFx(
-  value: { currency: string; fxRate: number },
+  value: { currency: string; fxRate: number; paymentMethod?: string; paymentTermDays?: number },
   ctx: z.RefinementCtx
 ) {
   if (value.currency === "EUR" && value.fxRate !== 1) {
@@ -37,11 +45,18 @@ function validateFx(
       message: "Avro kaydında kur 1 olmalıdır.",
     });
   }
+  if (value.paymentMethod === "vadeli" && (value.paymentTermDays ?? 0) <= 0) {
+    ctx.addIssue({ code: "custom", path: ["paymentTermDays"], message: "Vadeli ödeme için gün girin." });
+  }
+  if (value.paymentMethod && value.paymentMethod !== "vadeli" && value.paymentTermDays !== 0) {
+    ctx.addIssue({ code: "custom", path: ["paymentTermDays"], message: "Peşin ve kredi kartında vade 0 gündür." });
+  }
 }
 
 export const createConsumableExpenseSchema = z
   .object({
     ...expenseHeader,
+    ...paymentHeader,
     lines: z.array(consumableExpenseLineSchema).min(1, "En az bir satır ekleyin.").max(50),
   })
   .superRefine(validateFx);

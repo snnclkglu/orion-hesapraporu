@@ -25,12 +25,14 @@ import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
 import { Bant, KipSecici, PanoKabugu } from "../board-ui";
 import { updateOrder } from "../actions";
+import { updateConsumablePaymentPaidAt } from "../sarf/actions";
 import { OdemeTarihi } from "@/components/odeme-tarihi";
 
 export interface OdemeSatiri {
   id: string;
   orderId: string;
-  tur: "avans" | "bakiye" | "tamami";
+  tur: "avans" | "bakiye" | "tamami" | "sarf";
+  source: "order" | "consumable";
   supplier: string;
   orderNo: string;
   /** Ödeme günü; hesaplanamıyorsa `null` (termin de teslim de yok). */
@@ -48,6 +50,7 @@ const TUR_ETIKET: Record<OdemeSatiri["tur"], string> = {
   avans: "Avans",
   bakiye: "Bakiye",
   tamami: "Tamamı",
+  sarf: "Sarf Gideri",
 };
 
 interface Filtreler {
@@ -91,7 +94,7 @@ export function PaymentBoard({
       tedarikciler: [...ted.keys()]
         .sort((a, b) => a.localeCompare(b, "tr"))
         .map((v) => ({ value: v, label: v, count: ted.get(v) })),
-      turler: (["avans", "bakiye", "tamami"] as OdemeSatiri["tur"][])
+      turler: (["avans", "bakiye", "tamami", "sarf"] as OdemeSatiri["tur"][])
         .filter((t) => tur.has(t))
         .map((t) => ({ value: t, label: TUR_ETIKET[t], count: tur.get(t) })),
       isler: [...is.keys()]
@@ -149,6 +152,16 @@ export function PaymentBoard({
    */
   function odemeYaz(s: OdemeSatiri, tarih: string) {
     if (!canWrite) return;
+    if (s.source === "consumable") {
+      updateConsumablePaymentPaidAt({ paymentGroupId: s.orderId, paidAt: tarih }).then((sonuc) => {
+        if (sonuc.error) toast.error(sonuc.error);
+        else {
+          toast.success(tarih ? `${s.supplier} · Sarf gideri ödendi.` : `${s.supplier} · Sarf ödeme işareti kaldırıldı.`);
+          router.refresh();
+        }
+      });
+      return;
+    }
     const alan = s.tur === "avans" ? { advancePaidAt: tarih } : { balancePaidAt: tarih };
     updateOrder({ id: s.orderId, ...alan }).then((sonuc) => {
       if (sonuc.error) toast.error(sonuc.error);
@@ -197,7 +210,7 @@ export function PaymentBoard({
   const turSeridi = useMemo(() => {
     const acik = gorunen.filter((s) => !s.odendi);
     const toplam = acik.reduce((t, s) => t + (s.tutarEur ?? 0), 0);
-    return (["avans", "bakiye", "tamami"] as OdemeSatiri["tur"][])
+    return (["avans", "bakiye", "tamami", "sarf"] as OdemeSatiri["tur"][])
       .map((t) => {
         const grup = acik.filter((s) => s.tur === t);
         const value = grup.reduce((x, s) => x + (s.tutarEur ?? 0), 0);
@@ -409,7 +422,7 @@ function Satir({
 }) {
   const kalan = gunFarki(s.gun, bugun);
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 first:border-t-0">
+    <li className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 first:border-t-0 ${s.source === "consumable" ? "bg-sky-500/[0.07] dark:bg-sky-400/[0.08]" : ""}`}>
       <span className="min-w-[8rem] font-mono text-[12px] whitespace-nowrap">
         {s.gun ? tarihGoster(s.gun) : <span className="text-muted-foreground">tarih yok</span>}
         {kalan != null && !s.odendi && (

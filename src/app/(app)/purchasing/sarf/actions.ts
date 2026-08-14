@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canEditConsumableExpenses } from "@/lib/roles";
@@ -45,6 +46,7 @@ function refreshConsumables() {
   revalidatePath("/purchasing/sarf/analiz");
   revalidatePath("/admin/consumables");
   revalidatePath("/admin/suppliers");
+  revalidatePath("/purchasing/odemeler");
 }
 
 async function audit(
@@ -119,6 +121,10 @@ export async function createConsumableExpenses(
   if (missing) return { error: "Seçilen sarf malzemelerinden biri defterde bulunamadı." };
 
   const fxRate = value.currency === "EUR" ? 1 : value.fxRate;
+  const paymentGroupId = crypto.randomUUID();
+  const paymentDueAt = new Date(`${value.dueAt}T00:00:00`);
+  paymentDueAt.setDate(paymentDueAt.getDate() + value.paymentTermDays);
+  const paymentDueIso = `${paymentDueAt.getFullYear()}-${String(paymentDueAt.getMonth() + 1).padStart(2, "0")}-${String(paymentDueAt.getDate()).padStart(2, "0")}`;
   const payload = value.lines.map((line) => {
     const item = items.get(line.itemId)!;
     return {
@@ -135,6 +141,12 @@ export async function createConsumableExpenses(
       unit: line.unit,
       unit_price: line.unitPrice,
       amount: line.quantity * line.unitPrice,
+      vat_rate: line.vatRate,
+      payment_group_id: paymentGroupId,
+      due_at: value.dueAt,
+      payment_method: value.paymentMethod,
+      payment_term_days: value.paymentTermDays,
+      payment_due_at: paymentDueIso,
       currency: value.currency,
       fx_rate: fxRate,
       fx_rate_date: value.currency === "EUR" ? null : value.fxRateDate,
@@ -251,6 +263,32 @@ export async function deleteConsumableExpense(input: {
   await audit(ctx.supabase, ctx.userId, "purchase.consumable_expense_delete", before);
   refreshConsumables();
   return { ok: 1 };
+}
+
+export async function updateConsumablePaymentPaidAt(input: {
+  paymentGroupId: string;
+  paidAt: string;
+}): Promise<ConsumableActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const parsed = z.object({
+    paymentGroupId: z.uuid(),
+    paidAt: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+  }).safeParse(input);
+  if (!parsed.success) return { error: "Geçersiz ödeme bilgisi." };
+  const { data, error } = await ctx.supabase
+    .from("purchase_consumable_expenses")
+    .update({ payment_paid_at: parsed.data.paidAt || null, updated_by: ctx.userId })
+    .eq("payment_group_id", parsed.data.paymentGroupId)
+    .select("id");
+  if (error) return { error: databaseError(error.message) };
+  if (!data?.length) return { error: "Sarf ödeme fişi bulunamadı." };
+  await audit(ctx.supabase, ctx.userId, "purchase.consumable_payment_paid", {
+    payment_group_id: parsed.data.paymentGroupId,
+    paid_at: parsed.data.paidAt || null,
+  });
+  refreshConsumables();
+  return { ok: data.length };
 }
 
 export async function ensureConsumableItem(
