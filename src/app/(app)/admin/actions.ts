@@ -773,3 +773,86 @@ export async function updateReportSettings(
   revalidatePath("/projects");
   return { ok: true };
 }
+
+// ------------------------------------------------------------ Marka / Kalite
+//
+// Sipariş satırı ve sarf gideri değeri kendi `quality` metninde dondurur (md.
+// 16/18'in tedarikçi defteri kuralı): defter düzeltilse de yayınlanmış kayıt
+// değişmez. Yönetim adı düzeltir, pasife çeker ve yeni değer ekler.
+const qualitySchema = z
+  .object({
+    name: z.string().trim().min(1, "Marka/Kalite gerekli.").max(120).transform(adBuyuk),
+    active: z.boolean(),
+  })
+  .strict();
+
+export type QualityInput = z.input<typeof qualitySchema>;
+
+function revalidateQualityViews() {
+  revalidatePath("/admin/qualities");
+  revalidatePath("/purchasing");
+  revalidatePath("/purchasing/siparisler");
+  revalidatePath("/purchasing/sarf");
+}
+
+export async function createQuality(input: QualityInput): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = qualitySchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, active } = parsed.data;
+
+  const { error } = await supabase
+    .from("purchase_qualities")
+    .insert({ name, match_key: name, active, created_by: user.id });
+  if (error) {
+    return { error: error.code === "23505" ? "Bu marka/kalite zaten defterde." : error.message };
+  }
+  await audit(supabase, user.id, "admin.quality_create", { name });
+  revalidateQualityViews();
+  return { ok: true };
+}
+
+export async function updateQuality(id: string, input: QualityInput): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsed = qualitySchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, active } = parsed.data;
+
+  const { error } = await supabase
+    .from("purchase_qualities")
+    .update({ name, match_key: name, active })
+    .eq("id", id);
+  if (error) {
+    return { error: error.code === "23505" ? "Bu marka/kalite zaten defterde." : error.message };
+  }
+  await audit(supabase, user.id, "admin.quality_update", { id, name, active });
+  revalidateQualityViews();
+  return { ok: true };
+}
+
+/**
+ * Marka/Kaliteyi defterden siler. Yayınlanmış sipariş/sarf DEĞİŞMEZ (değer
+ * satırın kendi metnindedir); kaybolan tek şey öneri listesindeki satırdır.
+ */
+export async function deleteQuality(id: string): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const { data: item } = await supabase
+    .from("purchase_qualities")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+  const { error } = await supabase.from("purchase_qualities").delete().eq("id", id);
+  if (error) return { error: error.message };
+  await audit(supabase, user.id, "admin.quality_delete", { id, ...(item ?? {}) });
+  revalidateQualityViews();
+  return { ok: true };
+}

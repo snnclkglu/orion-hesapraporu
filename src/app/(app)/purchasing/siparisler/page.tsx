@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import {
+  loadQualities,
   loadSiparisNolari,
   loadSiparisler,
   loadSonKur,
@@ -38,12 +39,13 @@ export default async function OrdersPage() {
   // defteri, kullanılmış numaralar, günlük kur): sipariş açan pencere ile aynı
   // alanları yazıyor ve ikisinin farklı bir öneri üretmesi, aynı kaydın iki
   // ekranda iki kural izlemesi demek olurdu.
-  const [siparisler, tedarikciler, defter, siparisNolari, sonKur] = await Promise.all([
+  const [siparisler, tedarikciler, defter, siparisNolari, sonKur, qualities] = await Promise.all([
     loadSiparisler(supabase, { iptalDahil: true }),
     loadTedarikciler(supabase),
     loadTedarikciDefteri(supabase),
     loadSiparisNolari(supabase),
     loadSonKur(supabase),
+    loadQualities(supabase),
   ]);
 
   return (
@@ -53,6 +55,7 @@ export default async function OrdersPage() {
       defter={defter}
       siparisNolari={siparisNolari}
       sonKur={sonKur}
+      qualities={qualities}
       canWrite={yazabilir}
       isAdmin={yonetici}
     />

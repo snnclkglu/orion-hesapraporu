@@ -31,12 +31,14 @@ import {
   deleteOrderSchema,
   deleteQuoteSchema,
   editOrderSchema,
+  ensureQualitySchema,
   saveGroupNameSchema,
   saveItemMetaSchema,
   saveQuoteSchema,
   updateOrderSchema,
   type CreateOrderInput,
   type EditOrderInput,
+  type EnsureQualityInput,
   type PurchasingActionResult,
   type SaveGroupNameInput,
   type SaveItemMetaInput,
@@ -329,6 +331,7 @@ export async function createOrder(input: CreateOrderInput): Promise<PurchasingAc
       // yalnız ödeme takvimi büyütür (md. 21).
       unit_price: l.unitPrice,
       vat_rate: l.vatRate,
+      quality: l.quality ?? "",
       note: l.note,
     }))
   );
@@ -544,6 +547,7 @@ export async function editOrder(input: EditOrderInput): Promise<PurchasingAction
       unit: l.unit,
       unit_price: l.unitPrice,
       vat_rate: l.vatRate,
+      quality: l.quality ?? "",
       note: l.note,
     })),
     { onConflict: "id" }
@@ -713,6 +717,42 @@ export async function receiveOrderLines(input: {
 
   tazele();
   return { ok: updates.length };
+}
+
+// ═══════════════════════════════════════════════════════ MARKA/KALİTE
+
+/**
+ * MARKA/KALİTE öneri defterine yeni bir değer yazar (md. 16).
+ *
+ * TEDARİKÇİ DEFTERİNİN KURALININ AYNISI: önce katlanmış anahtarla ARANIR
+ * (`upsert` değil), yoksa yazılır. Ad BÜYÜK HARFLE saklanır (`adBuyuk`, md. 14)
+ * — seed değerleri de büyük harftir ve "logitech" ile "LOGITECH" tek kayıt olur.
+ * Yetki `can_edit_purchasing` ya da sarf düzenleme; RLS de aynı kapıyı tutar.
+ */
+export async function ensureQuality(
+  input: EnsureQualityInput
+): Promise<PurchasingActionResult & { name?: string }> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = ensureQualitySchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const ad = adBuyuk(parsed.data.name.trim());
+  if (!ad) return { error: "Marka/Kalite gerekli." };
+
+  const { data: mevcut } = await supabase
+    .from("purchase_qualities")
+    .select("id, name")
+    .eq("match_key", ad)
+    .maybeSingle();
+  if (mevcut) return { ok: 0, name: (mevcut as { name: string }).name };
+
+  const { error } = await supabase
+    .from("purchase_qualities")
+    .insert({ name: ad, match_key: ad, created_by: userId });
+  if (error) return { error: error.message };
+  return { ok: 1, name: ad };
 }
 
 // ═══════════════════════════════════════════════════════ KALEM DEFTERİ

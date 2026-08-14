@@ -205,6 +205,7 @@ export function DemandTable({
   defter,
   siparisNolari,
   sonKur,
+  qualities = [],
   kategoriler,
   isler,
   canWrite,
@@ -220,6 +221,8 @@ export function DemandTable({
   siparisNolari: string[];
   /** En son yayımlanmış günlük kur; teklif ve sipariş pencerelerine iner. */
   sonKur?: GunlukKur | null;
+  /** Marka/Kalite öneri listesi (md. 16). */
+  qualities?: string[];
   kategoriler: string[];
   isler: { id: string; itemNos: string[]; label: string }[];
   canWrite: boolean;
@@ -681,6 +684,7 @@ export function DemandTable({
           defter={defter}
           siparisNolari={siparisNolari}
           sonKur={sonKur}
+          qualities={qualities}
           onClose={() => setSiparisKalemleri(null)}
           onSaved={() => {
             setSiparisKalemleri(null);

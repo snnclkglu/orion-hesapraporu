@@ -135,6 +135,7 @@ export function OrdersView({
   defter,
   siparisNolari,
   sonKur,
+  qualities = [],
   canWrite,
   isAdmin,
 }: {
@@ -146,6 +147,8 @@ export function OrdersView({
   /** Kullanılmış bütün sipariş numaraları — çakışma denetimi için. */
   siparisNolari: string[];
   sonKur?: GunlukKur | null;
+  /** Marka/Kalite öneri listesi (md. 16). */
+  qualities?: string[];
   canWrite: boolean;
   /** Yönetici mi — iptal edilmiş siparişi SİLEBİLİR. */
   isAdmin: boolean;
@@ -415,6 +418,7 @@ export function OrdersView({
           defter={defter}
           siparisNolari={siparisNolari}
           sonKur={sonKur}
+          qualities={qualities}
           onClose={() => setDuzenlenen(null)}
           onSaved={() => {
             setDuzenlenen(null);

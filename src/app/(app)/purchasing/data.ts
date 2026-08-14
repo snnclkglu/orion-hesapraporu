@@ -430,6 +430,8 @@ export interface SiparisSatiri {
   unitPrice: number | null;
   /** Satır KDV oranı (%); yalnız ödenecek tutarı büyütür. */
   vatRate: number;
+  /** Satırın MARKA/KALİTE snapshotu (md. 16). */
+  quality: string;
   receivedQty: number;
   note: string;
 }
@@ -461,17 +463,19 @@ const SIPARIS_ALANLARI =
 
 const SIPARIS_SATIR_ALANLARI =
   "id, order_id, match_key, sample, item_no, package_id, part_key, qty, unit, " +
-  "unit_price, vat_rate, received_qty, note";
+  "unit_price, vat_rate, quality, received_qty, note";
 
 /**
- * `vat_rate` OLMAYABİLİR (md. 21'in ZENGİN + DAR kalıbı).
+ * `vat_rate`/`quality` OLMAYABİLİR (md. 21'in ZENGİN + DAR kalıbı).
  *
- * Sütun 20260814000004 ile geliyor; uygulanmamış bir ortamda onu isteyen bir
- * `select` BÜTÜN siparişleri düşürürdü ve ekran "hiç sipariş yok" derdi. Eksik
- * sütun `vatRateOf` ile varsayılana düşer — bilinmeyen bir oranı sıfır saymak
- * ödeme takvimini olduğundan düşük gösterirdi.
+ * Sütunlar 20260814000004/000005 ile geliyor; uygulanmamış bir ortamda onları
+ * isteyen bir `select` BÜTÜN siparişleri düşürürdü. Eksik oran `vatRateOf` ile
+ * varsayılana, eksik marka/kalite boş metne düşer.
  */
-const SIPARIS_SATIR_ALANLARI_DAR = SIPARIS_SATIR_ALANLARI.replace(", vat_rate", "");
+const SIPARIS_SATIR_ALANLARI_DAR = SIPARIS_SATIR_ALANLARI.replace(", vat_rate", "").replace(
+  ", quality",
+  ""
+);
 
 /**
  * Siparişleri satırlarıyla birlikte okur.
@@ -494,7 +498,7 @@ export async function loadSiparisler(
   const idler = basliklar.map((b) => String(b.id));
   // Sütun yoklaması SAYFALAMADAN ÖNCE yapılır: `tumSatirlar` içinde denemek,
   // ilk sayfa düştüğünde geri kalanı da düşürürdü.
-  const yoklama = await supabase.from("purchase_order_lines").select("vat_rate").limit(1);
+  const yoklama = await supabase.from("purchase_order_lines").select("vat_rate, quality").limit(1);
   const alanlar = yoklama.error ? SIPARIS_SATIR_ALANLARI_DAR : SIPARIS_SATIR_ALANLARI;
   const satirlar = await tumSatirlar<Record<string, unknown>>((bas, son) =>
     supabase
@@ -521,6 +525,7 @@ export async function loadSiparisler(
       unit: String(s.unit ?? "Adet"),
       unitPrice: s.unit_price == null ? null : Number(s.unit_price),
       vatRate: vatRateOf(s.vat_rate),
+      quality: String(s.quality ?? ""),
       receivedQty: Number(s.received_qty ?? 0),
       note: String(s.note ?? ""),
     });
@@ -588,6 +593,22 @@ export async function loadTedarikciler(supabase: SupabaseClient): Promise<string
   for (const r of (teklif.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   for (const r of (siparis.data ?? []) as { supplier: string }[]) if (r.supplier) adlar.add(r.supplier);
   return [...adlar].sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+/**
+ * MARKA/KALİTE öneri listesi — aktif kayıtların adları (md. 16).
+ *
+ * SÜTUN/TABLO OLMAYABİLİR (md. 21): 20260814000005 uygulanmamışsa sorgu düşer
+ * ve boş liste döner — sipariş/sarf ekranı yine açılır, yalnız öneri boş kalır.
+ */
+export async function loadQualities(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("purchase_qualities")
+    .select("name")
+    .eq("active", true)
+    .order("name");
+  if (error) return [];
+  return [...new Set(((data ?? []) as { name: string }[]).map((r) => r.name).filter(Boolean))];
 }
 
 /** Defterdeki bir firma — ad + kimlik kodu (`TD0007`). */

@@ -111,8 +111,16 @@ export const orderLineSchema = z.object({
   // sayıyı okuyor; KDV yalnız ödenecek tutarı büyütür.
   unitPrice: z.number().nonnegative().nullable(),
   vatRate: kdvOrani,
+  /** Satırın MARKA/KALİTE snapshotu (md. 16). */
+  quality: z.string().trim().max(120).default(""),
   note: z.string().trim().max(300).default(""),
 });
+
+/** Öneri defterine yeni bir marka/kalite yazar (case-folded tekil). */
+export const ensureQualitySchema = z.object({
+  name: z.string().trim().min(1, "Marka/Kalite gerekli.").max(120),
+});
+export type EnsureQualityInput = z.input<typeof ensureQualitySchema>;
 
 /**
  * Sipariş BAŞLIĞININ alanları — açma ve düzenleme aynı sözlüğü paylaşır.

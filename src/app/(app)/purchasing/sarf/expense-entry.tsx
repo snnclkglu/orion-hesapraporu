@@ -41,7 +41,7 @@ import {
   vatTotals,
   type VatRate,
 } from "@/lib/purchasing/vat";
-import { ensureSupplier } from "../actions";
+import { ensureQuality, ensureSupplier } from "../actions";
 import {
   createConsumableExpenses,
   ensureConsumableItem,
@@ -56,6 +56,8 @@ interface EntryLine {
   unit: string;
   unitPrice: string;
   vatRate: VatRate;
+  /** MARKA/KALİTE (md. 18) — snapshot olarak kaydedilir. */
+  quality: string;
   note: string;
 }
 
@@ -67,6 +69,7 @@ function blankLine(key: number): EntryLine {
     unit: "ADET",
     unitPrice: "",
     vatRate: DEFAULT_VAT_RATE,
+    quality: "",
     note: "",
   };
 }
@@ -81,17 +84,20 @@ export function ExpenseEntry({
   initialSuppliers,
   groups,
   initialDepartments,
+  initialQualities = [],
 }: {
   initialItems: ConsumableItemOption[];
   initialSuppliers: ConsumableSupplierOption[];
   groups: string[];
   initialDepartments: string[];
+  initialQualities?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(initialItems);
   const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [departments, setDepartments] = useState(initialDepartments);
+  const [qualities, setQualities] = useState<string[]>(initialQualities);
   const [expenseDate, setExpenseDate] = useState(isoToday);
   const [supplierId, setSupplierId] = useState<string | null>(null);
   const [documentNo, setDocumentNo] = useState("");
@@ -179,8 +185,27 @@ export function ExpenseEntry({
     : (paymentOption?.days ?? 0);
   const paymentDueAt = odemeGunu({ dueAt, receivedAt: null, paymentTermDays });
 
+  const qualityOptions: ComboOption[] = useMemo(
+    () => qualities.map((q) => ({ value: q, label: q })),
+    [qualities]
+  );
+
   function patchLine(key: number, patch: Partial<EntryLine>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  }
+
+  /** Yeni marka/kalite deftere yazılır ve satıra uygulanır (md. 18). */
+  function kaliteEkle(key: number, ad: string) {
+    const temiz = ad.trim();
+    if (!temiz) return;
+    patchLine(key, { quality: temiz.toLocaleUpperCase("tr-TR") });
+    ensureQuality({ name: temiz }).then((sonuc) => {
+      if (sonuc.error || !sonuc.name) return;
+      setQualities((o) =>
+        o.includes(sonuc.name!) ? o : [...o, sonuc.name!].sort((a, b) => a.localeCompare(b, "tr"))
+      );
+      patchLine(key, { quality: sonuc.name! });
+    });
   }
 
   async function createSupplierFromQuery(name: string) {
@@ -254,6 +279,7 @@ export function ExpenseEntry({
       unitPrice: parseNum(line.unitPrice),
       note: line.note,
       vatRate: line.vatRate,
+      quality: line.quality,
     }));
     if (parsedLines.some((line) => !line.itemId || line.quantity == null || line.unitPrice == null)) {
       toast.error("Bütün satırlarda malzeme, miktar ve birim fiyat bulunmalı.");
@@ -289,6 +315,7 @@ export function ExpenseEntry({
           unitPrice: line.unitPrice!,
           note: line.note,
           vatRate: line.vatRate,
+          quality: line.quality,
         })),
       });
       if (result.error) {
@@ -496,11 +523,12 @@ export function ExpenseEntry({
         </div>
 
         <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
-          <div className="min-w-[64rem]">
-            <div className="grid grid-cols-[minmax(15rem,1fr)_6rem_6rem_9rem_5rem_8rem_9rem_2.75rem] gap-2 border-b bg-muted/50 px-2 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          <div className="min-w-[78rem]">
+            <div className="grid grid-cols-[minmax(14rem,1fr)_5.5rem_5.5rem_10rem_8rem_4.5rem_7rem_8rem_2.75rem] gap-2 border-b bg-muted/50 px-2 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               <span>Sarf Malzeme</span>
               <span>Miktar</span>
               <span>Birim</span>
+              <span>Marka/Kalite</span>
               <span>Birim Fiyat <span className="normal-case">(KDV hariç)</span></span>
               <span>KDV</span>
               <span className="text-right">Tutar</span>
@@ -514,7 +542,7 @@ export function ExpenseEntry({
               return (
                 <div
                   key={line.key}
-                  className="grid grid-cols-[minmax(15rem,1fr)_6rem_6rem_9rem_5rem_8rem_9rem_2.75rem] gap-2 border-b px-2 py-2 last:border-b-0"
+                  className="grid grid-cols-[minmax(14rem,1fr)_5.5rem_5.5rem_10rem_8rem_4.5rem_7rem_8rem_2.75rem] gap-2 border-b px-2 py-2 last:border-b-0"
                 >
                   <Combobox
                     options={itemOptions}
@@ -573,6 +601,19 @@ export function ExpenseEntry({
                     placeholder="Birim"
                     searchPlaceholder="Birim ara veya yaz…"
                     className="h-9 text-base pointer-fine:text-sm"
+                  />
+                  {/* MARKA/KALİTE (md. 18) — sipariş dialoguyla ORTAK öneri
+                      defteri (purchase_qualities); yeni değer yazınca kaydedilir. */}
+                  <Combobox
+                    options={qualityOptions}
+                    value={line.quality || null}
+                    onChange={(value) => patchLine(line.key, { quality: value })}
+                    onCreate={(name) => kaliteEkle(line.key, name)}
+                    createLabel="Yeni marka/kalite"
+                    placeholder="—"
+                    searchPlaceholder="Marka/Kalite ara veya yaz…"
+                    className="h-9 text-base pointer-fine:text-sm"
+                    contentClassName="w-[min(24rem,calc(100vw-1.5rem))]"
                   />
                   <Input
                     aria-label={`${index + 1}. satır birim fiyat`}

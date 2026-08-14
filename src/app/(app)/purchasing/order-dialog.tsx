@@ -92,7 +92,7 @@ import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { siparisNoCakisiyorMu, siparisNoOner } from "@/lib/purchasing/order-no";
-import { createOrder, ensureSupplier } from "./actions";
+import { createOrder, ensureQuality, ensureSupplier } from "./actions";
 import type { TedarikciKaydi } from "./data";
 import type { OrderLineInput } from "./schema";
 
@@ -115,6 +115,8 @@ interface Satir {
   adet: string;
   fiyat: string;
   kdv: VatRate;
+  /** MARKA/KALİTE (md. 16) — snapshot olarak kaydedilir. */
+  kalite: string;
   paylar: SiparisKalemi["paylar"];
 }
 
@@ -131,6 +133,7 @@ export function OrderDialog({
   defter,
   siparisNolari,
   sonKur,
+  qualities = [],
   onClose,
   onSaved,
 }: {
@@ -142,10 +145,13 @@ export function OrderDialog({
   siparisNolari: string[];
   /** En son yayımlanmış günlük kur — kur kutusunun önerisi buradan gelir. */
   sonKur?: GunlukKur | null;
+  /** Marka/Kalite öneri listesi (md. 16). */
+  qualities?: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [calisiyor, basla] = useTransition();
+  const [kaliteler, setKaliteler] = useState<string[]>(qualities);
 
   /**
    * Katlanmış firma adı → kod.
@@ -206,9 +212,27 @@ export function OrderDialog({
           ? String(k.birimFiyat)
           : "",
       kdv: DEFAULT_VAT_RATE,
+      kalite: "",
       paylar: k.paylar,
     }))
   );
+
+  const kaliteSecenekleri: ComboOption[] = useMemo(
+    () => kaliteler.map((k) => ({ value: k, label: k })),
+    [kaliteler]
+  );
+
+  /** Yeni marka/kalite deftere yazılır ve satıra uygulanır (md. 16). */
+  function kaliteEkle(i: number, ad: string) {
+    const temiz = ad.trim();
+    if (!temiz) return;
+    guncelle(i, { kalite: temiz.toLocaleUpperCase("tr-TR") });
+    ensureQuality({ name: temiz }).then((sonuc) => {
+      if (sonuc.error || !sonuc.name) return;
+      setKaliteler((o) => (o.includes(sonuc.name!) ? o : [...o, sonuc.name!].sort((a, b) => a.localeCompare(b, "tr"))));
+      guncelle(i, { kalite: sonuc.name! });
+    });
+  }
 
   /**
    * Tedarikçi seçenekleri — ÖNERİ LİSTESİ, defterin tamamı değil.
@@ -389,6 +413,7 @@ export function OrderDialog({
             unit: "Adet",
             unitPrice: fiyat,
             vatRate: s.kdv,
+            quality: s.kalite,
             note: "",
           });
           continue;
@@ -412,6 +437,7 @@ export function OrderDialog({
             unit: "Adet",
             unitPrice: fiyat,
             vatRate: s.kdv,
+            quality: s.kalite,
             note: "",
           });
         });
@@ -732,10 +758,11 @@ export function OrderDialog({
               sırasında satırdaki KDV açılırının başlığın içinden görünüp iç
               içe geçmesinin sebebi yarı saydam zemindi. */}
           <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
-            <table className="w-full min-w-[46rem] text-[12px]">
+            <table className="w-full min-w-[58rem] text-[12px]">
               <thead className="sticky top-0 z-20 bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
+                  <th className="w-40 px-2 py-1.5 text-left font-normal">Marka/Kalite</th>
                   <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>
                   <th className="w-28 px-2 py-1.5 text-right font-normal">
                     Birim Fiyat <span className="block text-[10px]">(KDV hariç)</span>
@@ -759,6 +786,19 @@ export function OrderDialog({
                           {[...new Set(s.paylar.map((p) => p.itemNo).filter(Boolean))].join(" · ") ||
                             "iş kalemi yok"}
                         </span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Combobox
+                          options={kaliteSecenekleri}
+                          value={s.kalite || null}
+                          onChange={(v) => guncelle(i, { kalite: v })}
+                          onCreate={(name) => kaliteEkle(i, name)}
+                          createLabel="Yeni marka/kalite"
+                          placeholder="—"
+                          searchPlaceholder="Marka/Kalite ara veya yaz…"
+                          className="h-8 text-base pointer-fine:text-sm"
+                          contentClassName="w-[min(24rem,calc(100vw-1.5rem))]"
+                        />
                       </td>
                       <td className="px-2 py-1.5">
                         <Input

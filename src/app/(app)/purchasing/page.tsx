@@ -16,6 +16,7 @@ import { canEditPurchasing } from "@/lib/roles";
 import { satinAlmaKategoriSirasi } from "@/lib/drawings/derive";
 import {
   loadHavuz,
+  loadQualities,
   loadSiparisNolari,
   loadSiparisler,
   loadSonKur,
@@ -49,17 +50,19 @@ export default async function PurchasingPage() {
   const veri = await loadHavuz(supabase);
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);
 
-  const [teklifler, siparisler, tedarikciler, defter, siparisNolari, sonKur] = await Promise.all([
-    anahtarlar.length > 0 ? loadTeklifler(supabase, anahtarlar) : Promise.resolve([]),
-    loadSiparisler(supabase),
-    loadTedarikciler(supabase),
-    // KOD DEFTERİ AYRI OKUNUR: öneri listesi (`loadTedarikciler`) teklif ve
-    // sipariş satırlarından gelen adları da kapsar; sipariş numarası ise yalnız
-    // DEFTERDEKİ koddan türeyebilir.
-    loadTedarikciDefteri(supabase),
-    loadSiparisNolari(supabase),
-    loadSonKur(supabase),
-  ]);
+  const [teklifler, siparisler, tedarikciler, defter, siparisNolari, sonKur, qualities] =
+    await Promise.all([
+      anahtarlar.length > 0 ? loadTeklifler(supabase, anahtarlar) : Promise.resolve([]),
+      loadSiparisler(supabase),
+      loadTedarikciler(supabase),
+      // KOD DEFTERİ AYRI OKUNUR: öneri listesi (`loadTedarikciler`) teklif ve
+      // sipariş satırlarından gelen adları da kapsar; sipariş numarası ise yalnız
+      // DEFTERDEKİ koddan türeyebilir.
+      loadTedarikciDefteri(supabase),
+      loadSiparisNolari(supabase),
+      loadSonKur(supabase),
+      loadQualities(supabase),
+    ]);
 
   // Sipariş edilmiş adetler kalem başına toplanır: havuz "ne lazım" der,
   // siparişler "ne alındı" der ve satınalmacının asıl baktığı sayı İKİSİNİN
@@ -80,6 +83,7 @@ export default async function PurchasingPage() {
       defter={defter}
       siparisNolari={siparisNolari}
       sonKur={sonKur}
+      qualities={qualities}
       kategoriler={satinAlmaKategoriSirasi()}
       // İŞ SÜZGECİ KALEM NUMARASIYLA eşleşir, iş kimliğiyle değil: havuz
       // satırları `item_no` METNİ taşır (md. 17/18'in kuralı — bağ türevdir).

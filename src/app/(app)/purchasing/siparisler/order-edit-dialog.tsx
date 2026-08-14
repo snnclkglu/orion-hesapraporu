@@ -20,11 +20,12 @@
 // ve günü ayrıca sorarlar (`OdemeTarihi`). Aynı gerçeği iki pencereden yazmak,
 // hangisinin son sözü söylediğini belirsizleştirirdi.
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Combobox, type ComboOption } from "@/components/combobox";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,7 @@ import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
-import { editOrder, ensureSupplier } from "../actions";
+import { editOrder, ensureQuality, ensureSupplier } from "../actions";
 import type { Siparis, TedarikciKaydi } from "../data";
 
 /** Serbest gün girişi için açılırdaki özel değer (sipariş penceresiyle aynı). */
@@ -74,6 +75,8 @@ interface Satir {
   /** KDV HARİÇ birim fiyat — deftere yazılan ve arşive giren sayı budur. */
   fiyat: string;
   kdv: VatRate;
+  /** MARKA/KALİTE snapshotu (md. 16) — düzenlemede korunur. */
+  kalite: string;
   /** Teslim alınmış adet — satırı çıkarmak bu sayıyı da düşürür. */
   teslimAlinan: number;
 }
@@ -84,6 +87,7 @@ export function OrderEditDialog({
   defter,
   siparisNolari,
   sonKur,
+  qualities = [],
   onClose,
   onSaved,
 }: {
@@ -92,10 +96,16 @@ export function OrderEditDialog({
   defter: TedarikciKaydi[];
   siparisNolari: string[];
   sonKur?: GunlukKur | null;
+  qualities?: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [calisiyor, basla] = useTransition();
+  const [kaliteler, setKaliteler] = useState<string[]>(qualities);
+  const kaliteSecenekleri: ComboOption[] = useMemo(
+    () => kaliteler.map((k) => ({ value: k, label: k })),
+    [kaliteler]
+  );
 
   const [kodlar, setKodlar] = useState<Map<string, string>>(
     () => new Map(defter.filter((t) => t.code).map((t) => [trKatla(t.name), t.code]))
@@ -135,6 +145,7 @@ export function OrderEditDialog({
       adet: String(l.qty),
       fiyat: l.unitPrice == null ? "" : String(l.unitPrice),
       kdv: vatRateOf(l.vatRate),
+      kalite: l.quality,
       teslimAlinan: l.receivedQty,
     }))
   );
@@ -183,6 +194,19 @@ export function OrderEditDialog({
     setSatirlar((o) => o.map((s) => (s.id === id ? { ...s, ...yama } : s)));
   }
 
+  function kaliteEkle(id: string, ad: string) {
+    const temiz = ad.trim();
+    if (!temiz) return;
+    guncelle(id, { kalite: temiz.toLocaleUpperCase("tr-TR") });
+    ensureQuality({ name: temiz }).then((sonuc) => {
+      if (sonuc.error || !sonuc.name) return;
+      setKaliteler((o) =>
+        o.includes(sonuc.name!) ? o : [...o, sonuc.name!].sort((a, b) => a.localeCompare(b, "tr"))
+      );
+      guncelle(id, { kalite: sonuc.name! });
+    });
+  }
+
   /** Yeni firma adı yazıldıysa deftere girer (sipariş penceresiyle aynı kural). */
   function firmaKesinlestir() {
     const ad = firma.trim();
@@ -225,6 +249,7 @@ export function OrderEditDialog({
           unit: s.unit,
           unitPrice: parseNum(s.fiyat),
           vatRate: s.kdv,
+          quality: s.kalite,
           note: "",
         })),
       });
@@ -428,10 +453,11 @@ export function OrderEditDialog({
 
           {/* ————————————————————————————————— kalemler */}
           <div className="oc-scrollx overflow-x-auto border [--oc-scroll-bg:var(--card)]">
-            <table className="w-full min-w-[46rem] text-[12px]">
+            <table className="w-full min-w-[58rem] text-[12px]">
               <thead className="sticky top-0 z-20 bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
+                  <th className="w-40 px-2 py-1.5 text-left font-normal">Marka/Kalite</th>
                   <th className="w-20 px-2 py-1.5 text-right font-normal">Adet</th>
                   <th className="w-28 px-2 py-1.5 text-right font-normal">
                     Birim Fiyat <span className="block text-[10px]">(KDV hariç)</span>
@@ -455,6 +481,19 @@ export function OrderEditDialog({
                           {s.itemNo || "iş kalemi yok"}
                           {s.teslimAlinan > 0 && ` · ${formatNum(s.teslimAlinan)} teslim alındı`}
                         </span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Combobox
+                          options={kaliteSecenekleri}
+                          value={s.kalite || null}
+                          onChange={(v) => guncelle(s.id, { kalite: v })}
+                          onCreate={(name) => kaliteEkle(s.id, name)}
+                          createLabel="Yeni marka/kalite"
+                          placeholder="—"
+                          searchPlaceholder="Marka/Kalite ara veya yaz…"
+                          className="h-8 text-base pointer-fine:text-sm"
+                          contentClassName="w-[min(24rem,calc(100vw-1.5rem))]"
+                        />
                       </td>
                       <td className="px-2 py-1.5">
                         <Input

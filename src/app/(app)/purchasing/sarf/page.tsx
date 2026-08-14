@@ -3,16 +3,18 @@ import { BarChart3, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { canEditConsumableExpenses } from "@/lib/roles";
+import { loadQualities } from "../data";
 import { ExpenseEntry } from "./expense-entry";
 import { RecentExpenses } from "./recent-expenses";
 import { loadConsumableCatalogs, loadRecentConsumableExpenses } from "./data";
 
 export default async function ConsumableEntryPage() {
   const supabase = await createClient();
-  const [{ data: auth }, catalogs, recent] = await Promise.all([
+  const [{ data: auth }, catalogs, recent, qualities] = await Promise.all([
     supabase.auth.getUser(),
     loadConsumableCatalogs(supabase),
     loadRecentConsumableExpenses(supabase),
+    loadQualities(supabase),
   ]);
   const { data: profile } = auth.user
     ? await supabase.from("profiles").select("role").eq("id", auth.user.id).maybeSingle()
@@ -27,6 +29,7 @@ export default async function ConsumableEntryPage() {
           initialSuppliers={catalogs.suppliers}
           groups={catalogs.groups}
           initialDepartments={catalogs.departments}
+          initialQualities={qualities}
         />
       ) : (
         <div className="flex items-start gap-3 border bg-muted/30 p-4">
