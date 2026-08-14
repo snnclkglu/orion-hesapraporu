@@ -3,6 +3,8 @@ import {
   annualGroupMatrix,
   classifyConsumableSpike,
   denseMonthlyEurRange,
+  materialBreakdown,
+  materialDrilldownAggregate,
   selectedYearGroupMatrix,
   selectedYearMonthlyEurSeries,
   supplierDrilldownAggregate,
@@ -263,6 +265,68 @@ describe("supplierDrilldownAggregate — tek tedarikçinin EUR geçmişi", () =>
     expect(
       supplierDrilldownAggregate([expense({ amountEur: null })], "supplier-a")
     ).toBeNull();
+  });
+});
+
+describe("materialBreakdown — en çok kullanılan malzemeler", () => {
+  it("malzeme başına EUR toplar ve büyükten küçüğe sıralar", () => {
+    const rows = [
+      expense({ materialKey: "sm-001", materialLabel: "Bez", amountEur: 100 }),
+      expense({ materialKey: "sm-002", materialLabel: "Kağıt", amountEur: 300 }),
+      expense({ materialKey: "sm-001", materialLabel: "Bez", amountEur: 100 }),
+      expense({ materialKey: "sm-003", materialLabel: "Kalem", amountEur: null }),
+    ];
+    const result = materialBreakdown(rows);
+    expect(result.map((row) => [row.key, row.amountEur, row.recordCount, row.shareOfTotal])).toEqual([
+      ["sm-002", 300, 1, 0.6],
+      ["sm-001", 200, 2, 0.4],
+    ]);
+  });
+});
+
+describe("materialDrilldownAggregate — tek malzemenin seyri", () => {
+  it("aylık seriyi ve TEDARİKÇİ kırılımını verir", () => {
+    const rows = [
+      expense({
+        expenseDate: "2025-01-10",
+        materialKey: "sm-002",
+        materialLabel: "Kağıt",
+        supplierKey: "supplier-a",
+        supplierLabel: "A Tedarik",
+        amountEur: 200,
+      }),
+      expense({
+        expenseDate: "2025-03-10",
+        materialKey: "sm-002",
+        materialLabel: "Kağıt",
+        supplierKey: "supplier-b",
+        supplierLabel: "B Tedarik",
+        amountEur: 300,
+      }),
+      expense({ materialKey: "sm-001", amountEur: 9_999 }),
+    ];
+    const result = materialDrilldownAggregate(rows, "sm-002")!;
+    expect(result).toMatchObject({
+      materialKey: "sm-002",
+      materialLabel: "Kağıt",
+      totalEur: 500,
+      recordCount: 2,
+      firstExpenseDate: "2025-01-10",
+      lastExpenseDate: "2025-03-10",
+    });
+    expect(result.monthly.map((month) => [month.monthKey, month.amountEur])).toEqual([
+      ["2025-01", 200],
+      ["2025-02", 0],
+      ["2025-03", 300],
+    ]);
+    expect(result.suppliers.map((row) => [row.key, row.amountEur])).toEqual([
+      ["supplier-b", 300],
+      ["supplier-a", 200],
+    ]);
+  });
+
+  it("kaydı olmayan malzemede null döner", () => {
+    expect(materialDrilldownAggregate([], "sm-002")).toBeNull();
   });
 });
 

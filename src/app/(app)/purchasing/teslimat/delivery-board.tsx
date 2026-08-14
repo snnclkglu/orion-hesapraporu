@@ -21,8 +21,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RankBars, TimeBarChart } from "@/components/charts";
-import { fmtMoney } from "@/lib/currency";
+import { RankBars, TimeLineChart } from "@/components/charts";
+import { fmtCompactEur, fmtCompactEur1, fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import { bugunISO, eurKarsiligi, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
@@ -217,14 +217,16 @@ export function DeliveryBoard({
       {pano && gorunen.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
           <PanoKabugu baslik="Teslim Akışı" alt={`${zamanSerisi.length} dönem`}>
-            <TimeBarChart
+            <TimeLineChart
               columns={zamanSerisi}
               series={[
                 { key: "yakin", label: "14 gün içinde", hue: 45 },
                 { key: "planli", label: "Planlı", hue: 210 },
               ]}
               valueLabel="€"
-              format={eurFmt}
+              format={fmtCompactEur}
+              valueLabels
+              valueFormat={fmtCompactEur1}
               height={180}
             />
           </PanoKabugu>

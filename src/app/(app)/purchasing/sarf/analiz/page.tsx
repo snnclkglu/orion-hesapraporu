@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   annualGroupMatrix,
   denseMonthlyEurRange,
+  materialBreakdown,
+  materialDrilldownAggregate,
   selectedYearGroupMatrix,
   supplierDrilldownAggregate,
 } from "@/lib/purchasing/consumables";
@@ -40,6 +42,7 @@ export default async function ConsumableAnalysisPage({
   const rawYear = param(params.yil);
   const selectedYear = rawYear === "tumu" ? null : /^\d{4}$/.test(rawYear) ? Number(rawYear) : currentYear;
   const selectedSupplierId = param(params.tedarikci);
+  const selectedMaterialKey = param(params.malzeme);
   const supabase = await createClient();
 
   const [rows, catalogs, years] = await Promise.all([
@@ -64,6 +67,15 @@ export default async function ConsumableAnalysisPage({
     : [];
   const supplierCount = new Set(rows.map((row) => row.supplierKey).filter(Boolean)).size;
 
+  // MALZEME KIRILIMI VE SEYRİ aynı `rows`tan türer — ekstra sorgu yok. Seçenek
+  // listesi de buradan gelir: dönemde gideri olan her malzeme listelenir, boş
+  // bir katalog satırı öneriye girmez.
+  const materialRanking = materialBreakdown(rows);
+  const materialDrilldown = selectedMaterialKey
+    ? materialDrilldownAggregate(rows, selectedMaterialKey)
+    : null;
+  const materialOptions = materialRanking.map((row) => ({ key: row.key, label: row.label }));
+
   return (
     <ConsumableAnalysisView
       currentYear={currentYear}
@@ -76,6 +88,10 @@ export default async function ConsumableAnalysisPage({
       selectedSupplierId={selectedSupplierId}
       drilldown={drilldown}
       supplierHistory={supplierHistory}
+      materialRanking={materialRanking}
+      materialOptions={materialOptions}
+      selectedMaterialKey={selectedMaterialKey}
+      materialDrilldown={materialDrilldown}
     />
   );
 }

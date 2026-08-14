@@ -977,6 +977,41 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     `DonutChart` KALDIRILMADI: İş Takibi'nde payların toplamı gerçekten bir
     bütündür ve orada sıra yoktur.
 
+    **ZAMAN SERİSİ PANOLARI ÇUBUK DEĞİL ÇİZGİDİR** (kullanıcı kararı,
+    14.08.2026: *"Siparişler, teslim takvimi ve ödeme takvimindeki grafikleri
+    de benzer yapıya çevirelim"* — Sarf Analizi'nin çizgi grafiğine). Sipariş
+    Akışı, Teslim Akışı ve Nakit Çıkış Planı `TimeBarChart` yerine
+    `TimeLineChart` kullanır. `TimeBarChart` KALDIRILMADI: İş Takibi analizi ve
+    Personel kur ekranı hâlâ YIĞILMIŞ çubuk ister (dilimlerin üst üste binip
+    toplamı vermesi orada asıl bilgidir); satın alma panolarında ise okunan şey
+    eğimdir.
+
+    **NOKTA DEĞERİ EĞRİNİN ÜSTÜNE YAZILIR** (`TimeLineChart valueLabels`,
+    kullanıcı kararı 14.08.2026: *"grafik üstüne değeri yazalım, virgülden
+    sonra 1 basamak olsun"*). Biçim `fmtCompactEur1`dir — kısaltma eksenle
+    aynı ama ondalık HER ZAMAN tek basamaktır (eksen 2 haneye açılır, etiket
+    tek basamağa iner ki on iki ay yan yana okunsun). Etiket YALNIZ TEK SERİ
+    GÖRÜNÜRKEN çizilir: iki eğrinin değerleri üst üste binince okunmaz bir
+    yığın olur, o yüzden `valueLabels` bütün panolara güvenle geçilir ve
+    ödeme/teslim gibi iki serili kartlarda ancak kullanıcı efsaneden birini
+    kapatınca belirir. Etiket [0, height] içinde kalır (tepedeki nokta değerini
+    ALTINA alır): `overflow-x` veren kaydırma kabı `overflow-y`yi de auto'ya
+    çevirdiğinden (dokunmatik md. 14) tuval dışına taşan bir yazı yalancı bir
+    dikey kaydırma doğururdu.
+
+    **SARF ANALİZİNDE MALZEME BOYUTU** (`materialBreakdown` +
+    `materialDrilldownAggregate`, kullanıcı kararı 14.08.2026: *"En çok
+    kullanılan sarf malzemelerini listeleyelim; bir malzeme seçip seyrinin
+    grafiğini de görebileyim"*). Grup matrisinin altında bir sıralama tablosu
+    (ilk 25, kalanı seçicide) ve seçilen malzemenin aylık kullanım seyri +
+    tedarikçi kırılımı durur. `malzeme` adres parametresiyle taşınır
+    (tedarikçi seçicisinin aynısı) — grafik sunucuda üretildiği için seçim
+    paylaşılabilir bir bağlantıdır. Malzeme ve tedarikçi drilldown'ları ORTAK
+    `commonDrilldown` iskeletini paylaşır (dense aylık seri + ilk/son tarih +
+    en güncel etiket); yalnız ikinci boyutları farklıdır (tedarikçi →
+    grup+malzeme, malzeme → grup+tedarikçi). İskeleti iki kez yazmak, birinde
+    düzeltilen bir tarih hatasının ötekinde kalması demekti.
+
     **PENCERE KUTULARININ ADI "Baş Harfler Büyük"tür** (kullanıcı kararı,
     13.08.2026 — Sipariş Aç ve Siparişi Düzenle): "Sipariş No", "Sipariş
     Tarihi", "Birim Fiyat", "Para Birimi". Metinler ELLE öyle yazılır, bir
@@ -1515,6 +1550,14 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     "ekranda kapalı ama gerçekte açık" durumu görünmez kalır. Düğmelerin yalnız
     menüyü etkilediği sığ sürüm ise ASLA yapılmaz: o ekran iki yönde birden
     yalan söyler.
+
+    **SATIN ALMA YETKİ ROZETİ ÜST BARDADIR** (kullanıcı kararı, 14.08.2026:
+    *"Yönetici · Satın Alma · Planlama yazıyı üst bara alalım, bu bölümde yer
+    kaybetmemiş oluruz"*). Rozet önce sayfanın içinde ayrı bir satırdaydı çünkü
+    bir künyedir, eylem değildir; ama o satır bölümün en dar olduğu yerde bir
+    kat yer yiyordu. `PageHeader`ın çocuğu olarak verilince EYLEM yuvasına (üst
+    şeridin sağı) portallanır — `lg` üstünde başlığın hizasında, `lg` altında
+    kendi kayan satırında durur ve dikey yer yemez.
 
     **YETKİ EKRANINDA KOD ADI GEÇMEZ** (kullanıcı bildirimi, 12.08.2026:
     *"yetkiler sayfası biraz karmaşık, İngilizce terimler var"*).

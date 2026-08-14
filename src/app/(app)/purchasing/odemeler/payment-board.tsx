@@ -15,8 +15,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RankBars, SplitBar, TimeBarChart } from "@/components/charts";
-import { fmtMoney } from "@/lib/currency";
+import { RankBars, SplitBar, TimeLineChart } from "@/components/charts";
+import { fmtCompactEur, fmtCompactEur1, fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import { bugunISO, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
@@ -288,14 +288,16 @@ export function PaymentBoard({
       {pano && gorunen.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
           <PanoKabugu baslik="Nakit Çıkış Planı" alt={`${zamanSerisi.length} dönem`}>
-            <TimeBarChart
+            <TimeLineChart
               columns={zamanSerisi}
               series={[
                 { key: "avans", label: "Avans", hue: 30 },
                 { key: "bakiye", label: "Bakiye", hue: 210 },
               ]}
               valueLabel="€"
-              format={eurFmt}
+              format={fmtCompactEur}
+              valueLabels
+              valueFormat={fmtCompactEur1}
               height={180}
             />
           </PanoKabugu>

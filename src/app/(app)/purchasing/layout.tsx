@@ -34,16 +34,21 @@ export default async function PurchasingLayout({
 
   return (
     <div className="grid gap-3">
+      {/* YETKİ ROZETİ ÜST BARDADIR (kullanıcı kararı, 14.08.2026: "üst bara
+          alalım, bu bölümde yer kaybetmemiş oluruz"). Önce sayfanın içinde ayrı
+          bir satırdaydı ve bir künye olduğu için oraya konmuştu; ama o satır
+          bölümün en dar olduğu yerde bir kat yer yiyordu. `PageHeader`ın
+          çocukları EYLEM yuvasına (üst şeridin sağı) portallanır — rozet orada
+          `lg` üstünde başlığın hizasında durur, `lg` altında kendi satırında
+          yatay kayar ve dikey yer yemez. */}
       <PageHeader
         title="Satın Alma"
         hint="Proje alımları, fiyat geçmişi ve fabrikanın sarf giderleri"
-      />
-      {/* Yetki rozeti şeridin EYLEM yuvasında DEĞİL sayfanın içindedir: rozet
-          bir eylem değil bir künyedir ve dar ekranda eylem satırını sırf kendisi
-          için açtırmamalıdır (İş Takibi'nde belgelenen kural). */}
-      <span className="w-fit border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-[0.14em] text-primary uppercase">
-        Yönetici · Satın Alma · Planlama
-      </span>
+      >
+        <span className="border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-[0.14em] text-primary uppercase">
+          Yönetici · Satın Alma · Planlama
+        </span>
+      </PageHeader>
 
       <PurchasingNav />
 

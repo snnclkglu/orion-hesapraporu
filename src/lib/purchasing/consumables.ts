@@ -150,6 +150,20 @@ export interface ConsumableSupplierDrilldown {
   materials: ConsumableBreakdownRow[];
 }
 
+export interface ConsumableMaterialDrilldown {
+  materialKey: string;
+  materialLabel: string;
+  totalEur: number;
+  recordCount: number;
+  firstExpenseDate: string;
+  lastExpenseDate: string;
+  averageMonthlyEur: number;
+  monthly: ConsumableMonthlyEurPoint[];
+  annual: ConsumableAnnualEurPoint[];
+  groups: ConsumableBreakdownRow[];
+  suppliers: ConsumableBreakdownRow[];
+}
+
 interface ParsedIsoDate {
   year: number;
   month: number;
@@ -633,17 +647,37 @@ function breakdown(
     .sort(sortByTotalThenLabel);
 }
 
+interface DrilldownCommon {
+  key: string;
+  label: string;
+  matching: NormalizedAnalyticsRow[];
+  totalEur: number;
+  recordCount: number;
+  firstExpenseDate: string;
+  lastExpenseDate: string;
+  averageMonthlyEur: number;
+  monthly: ConsumableMonthlyEurPoint[];
+  annual: ConsumableAnnualEurPoint[];
+}
+
 /**
- * Tek tedarikçinin tüm EUR geçmişini; dense aylık seri, yıllık toplam ve grup /
- * malzeme kırılımlarıyla döndürür. Geçerli EUR kaydı yoksa `null` döner.
+ * Bir BOYUTUN (tedarikçi ya da malzeme) tek değeri için ortak geçmiş:
+ * dense aylık seri, yıllık toplam, ilk/son tarih ve en güncel etiket.
+ *
+ * Tedarikçi ve malzeme kırılımları AYNI iskeleti paylaşır; ayrıldıkları tek
+ * yer, hangi ikinci boyutlara bölündükleridir (tedarikçi → grup+malzeme,
+ * malzeme → grup+tedarikçi). İskeleti iki kez yazmak, birinde düzeltilen bir
+ * tarih hatasının ötekinde kalması demekti.
  */
-export function supplierDrilldownAggregate(
+function commonDrilldown(
   rows: readonly ConsumableExpenseAnalyticsRow[],
-  supplierKey: string
-): ConsumableSupplierDrilldown | null {
-  const normalizedSupplierKey = clean(supplierKey);
-  if (!normalizedSupplierKey) return null;
-  const matching = normalizeRows(rows).filter((row) => row.supplierKey === normalizedSupplierKey);
+  targetKey: string,
+  keyOf: (row: NormalizedAnalyticsRow) => string,
+  labelOf: (row: NormalizedAnalyticsRow) => string
+): DrilldownCommon | null {
+  const normalizedKey = clean(targetKey);
+  if (!normalizedKey) return null;
+  const matching = normalizeRows(rows).filter((row) => keyOf(row) === normalizedKey);
   if (matching.length === 0) return null;
 
   const totalEur = matching.reduce((sum, row) => sum + row.amountEur, 0);
@@ -659,25 +693,19 @@ export function supplierDrilldownAggregate(
   const orderedByDate = [...matching].sort((a, b) =>
     a.source.expenseDate.localeCompare(b.source.expenseDate)
   );
-  let supplierLabel = normalizedSupplierKey;
-  let supplierLabelDate = "";
+  let label = normalizedKey;
+  let labelDate = "";
   for (const row of matching) {
-    if (
-      shouldReplaceLabel(
-        supplierLabelDate,
-        supplierLabel,
-        row.source.expenseDate,
-        row.supplierLabel
-      )
-    ) {
-      supplierLabel = row.supplierLabel;
-      supplierLabelDate = row.source.expenseDate;
+    if (shouldReplaceLabel(labelDate, label, row.source.expenseDate, labelOf(row))) {
+      label = labelOf(row);
+      labelDate = row.source.expenseDate;
     }
   }
 
   return {
-    supplierKey: normalizedSupplierKey,
-    supplierLabel,
+    key: normalizedKey,
+    label,
+    matching,
     totalEur,
     recordCount: matching.length,
     firstExpenseDate: orderedByDate[0].source.expenseDate,
@@ -685,13 +713,85 @@ export function supplierDrilldownAggregate(
     averageMonthlyEur: monthly.length === 0 ? 0 : totalEur / monthly.length,
     monthly,
     annual: [...annualByYear.entries()].map(([year, value]) => ({ year, ...value })),
-    groups: breakdown(matching, totalEur, (row) => ({
+  };
+}
+
+/**
+ * Tek tedarikçinin tüm EUR geçmişini; dense aylık seri, yıllık toplam ve grup /
+ * malzeme kırılımlarıyla döndürür. Geçerli EUR kaydı yoksa `null` döner.
+ */
+export function supplierDrilldownAggregate(
+  rows: readonly ConsumableExpenseAnalyticsRow[],
+  supplierKey: string
+): ConsumableSupplierDrilldown | null {
+  const c = commonDrilldown(rows, supplierKey, (row) => row.supplierKey, (row) => row.supplierLabel);
+  if (!c) return null;
+  return {
+    supplierKey: c.key,
+    supplierLabel: c.label,
+    totalEur: c.totalEur,
+    recordCount: c.recordCount,
+    firstExpenseDate: c.firstExpenseDate,
+    lastExpenseDate: c.lastExpenseDate,
+    averageMonthlyEur: c.averageMonthlyEur,
+    monthly: c.monthly,
+    annual: c.annual,
+    groups: breakdown(c.matching, c.totalEur, (row) => ({
       key: row.groupKey,
       label: row.groupLabel,
     })),
-    materials: breakdown(matching, totalEur, (row) => ({
+    materials: breakdown(c.matching, c.totalEur, (row) => ({
       key: row.materialKey,
       label: row.materialLabel,
+    })),
+  };
+}
+
+/**
+ * Tüm dönem için MALZEME BAŞINA EUR toplamı (kullanıcı kararı, 14.08.2026:
+ * "En çok kullanılan sarf malzemelerini listeleyelim"). Kırılım
+ * `supplierDrilldownAggregate.materials` ile aynı biçimdedir; fark, tek
+ * tedarikçiyle sınırlı olmayıp bütün kayıtları kapsamasıdır.
+ */
+export function materialBreakdown(
+  rows: readonly ConsumableExpenseAnalyticsRow[]
+): ConsumableBreakdownRow[] {
+  const normalized = normalizeRows(rows);
+  const totalEur = normalized.reduce((sum, row) => sum + row.amountEur, 0);
+  return breakdown(normalized, totalEur, (row) => ({
+    key: row.materialKey,
+    label: row.materialLabel,
+  }));
+}
+
+/**
+ * Tek MALZEMENİN seyri (kullanıcı kararı, 14.08.2026: "bir malzemenin seyrini
+ * grafiğini de görebileyim"). Tedarikçi kırılımının aynası: burada ikinci
+ * boyutlar grup ve TEDARİKÇİdir — "bu malzemeyi en çok kimden alıyoruz".
+ */
+export function materialDrilldownAggregate(
+  rows: readonly ConsumableExpenseAnalyticsRow[],
+  materialKey: string
+): ConsumableMaterialDrilldown | null {
+  const c = commonDrilldown(rows, materialKey, (row) => row.materialKey, (row) => row.materialLabel);
+  if (!c) return null;
+  return {
+    materialKey: c.key,
+    materialLabel: c.label,
+    totalEur: c.totalEur,
+    recordCount: c.recordCount,
+    firstExpenseDate: c.firstExpenseDate,
+    lastExpenseDate: c.lastExpenseDate,
+    averageMonthlyEur: c.averageMonthlyEur,
+    monthly: c.monthly,
+    annual: c.annual,
+    groups: breakdown(c.matching, c.totalEur, (row) => ({
+      key: row.groupKey,
+      label: row.groupLabel,
+    })),
+    suppliers: breakdown(c.matching, c.totalEur, (row) => ({
+      key: row.supplierKey,
+      label: row.supplierLabel,
     })),
   };
 }

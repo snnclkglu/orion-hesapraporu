@@ -14,6 +14,8 @@ import type {
   ConsumableSupplierOption,
 } from "@/app/(app)/purchasing/sarf/data";
 import {
+  materialBreakdown,
+  materialDrilldownAggregate,
   selectedYearGroupMatrix,
   supplierDrilldownAggregate,
   type ConsumableExpenseAnalyticsRow,
@@ -149,6 +151,11 @@ export default async function ConsumablesPreviewPage({
   const selectedRows = ANALYTICS.filter((row) => row.expenseDate.startsWith("2026-"));
   const matrix = selectedYearGroupMatrix(selectedRows, 2026, "2026-08-14");
   const drilldown = supplierDrilldownAggregate(selectedRows, selectedSupplier);
+  const materialRanking = materialBreakdown(selectedRows);
+  const selectedMaterialKey = materialRanking[0]?.key ?? "";
+  const materialDrilldown = selectedMaterialKey
+    ? materialDrilldownAggregate(selectedRows, selectedMaterialKey)
+    : null;
 
   const filters: ConsumableRecordFilters = {
     q: "",
@@ -225,6 +232,10 @@ export default async function ConsumablesPreviewPage({
           selectedSupplierId={selectedSupplier}
           drilldown={drilldown}
           supplierHistory={ROWS.filter((row) => row.supplierId === selectedSupplier && row.expenseDate.startsWith("2026-")).slice(0, 100)}
+          materialRanking={materialRanking}
+          materialOptions={materialRanking.map((row) => ({ key: row.key, label: row.label }))}
+          selectedMaterialKey={selectedMaterialKey}
+          materialDrilldown={materialDrilldown}
         />
       )}
     </main>

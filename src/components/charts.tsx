@@ -287,6 +287,18 @@ export function TimeLineChart({
   height = 200,
   valueLabel = "adam·saat",
   format = fmtManHours,
+  /**
+   * NOKTA DEĞERLERİNİ EĞRİNİN ÜSTÜNE YAZ (kullanıcı kararı, 14.08.2026).
+   *
+   * YALNIZ TEK SERİ GÖRÜNÜRKEN çizilir: iki eğrinin değerleri üst üste
+   * bindiğinde okunmaz bir yığın olur ve grafiğin kendisi zaten "hangisi
+   * hangisinin üstünde"yi gösterir. İki serili bir kartta (avans/bakiye,
+   * teslim akışı) etiket, kullanıcı efsaneden birini kapatıp tek eğri
+   * bıraktığında belirir — bu yüzden bayrağı bütün grafiklere geçmek güvenlidir.
+   */
+  valueLabels = false,
+  /** Etiketin biçimi; verilmezse eksenle aynı `format` kullanılır. */
+  valueFormat,
   className,
 }: {
   columns: readonly ChartColumn[];
@@ -295,10 +307,14 @@ export function TimeLineChart({
   height?: number;
   valueLabel?: string;
   format?: (v: number) => string;
+  valueLabels?: boolean;
+  valueFormat?: (v: number) => string;
   className?: string;
 }) {
   const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(new Set());
   const visible = series.filter((s) => !hiddenKeys.has(s.key));
+  const showValues = valueLabels && visible.length === 1;
+  const fmtValue = valueFormat ?? format;
 
   let peak = 0;
   for (const c of columns) {
@@ -453,6 +469,39 @@ export function TimeLineChart({
                   })
                 )}
               </div>
+
+              {/* NOKTA DEĞERLERİ — eğrinin üstünde (tepeye yakınsa altında).
+                  Etiket [0, height] aralığında kalır: `overflow-x` veren
+                  kaydırma kabı `overflow-y`yi de auto'ya çevirir (AGENTS md. 14)
+                  ve tuvalin dışına taşan bir yazı yalancı bir dikey kaydırma
+                  doğururdu. Bu yüzden tepedeki nokta (~%18'in üstünde) etiketi
+                  ALTINA alır; uçlardaki nokta yatayda hizalanır ki yarısı kabın
+                  dışına düşmesin (X ekseni etiketiyle aynı kural). */}
+              {showValues &&
+                visible.map((s) =>
+                  columns.map((c, i) => {
+                    if (i % labelStep !== 0 && i !== columns.length - 1) return null;
+                    const v = c.parts[s.key] ?? 0;
+                    const yv = y(v);
+                    const altta = yv < 18;
+                    const tx = i === 0 ? "0" : i === columns.length - 1 ? "-100%" : "-50%";
+                    const ty = altta ? "0.3rem" : "calc(-100% - 0.3rem)";
+                    return (
+                      <span
+                        key={`v-${s.key}-${c.key}`}
+                        aria-hidden
+                        className="pointer-events-none absolute z-10 font-mono text-[10px] font-medium tabular-nums text-foreground"
+                        style={{
+                          left: `${x(i)}%`,
+                          top: `${yv}%`,
+                          transform: `translate(${tx}, ${ty})`,
+                        }}
+                      >
+                        {fmtValue(v)}
+                      </span>
+                    );
+                  })
+                )}
             </div>
 
             {/* X ekseni etiketleri — eğriyle AYNI kaydırma kabında, yoksa

@@ -23,12 +23,14 @@ import { Combobox, type ComboOption } from "@/components/combobox";
 import { StatCard } from "@/components/stat-card";
 import { RankBars, TimeLineChart, type ChartColumn, type ChartSeries, type RankItem } from "@/components/charts";
 import { PanoKabugu } from "../../board-ui";
-import { fmtCompactEur, fmtMoney, fmtTutar } from "@/lib/currency";
+import { fmtCompactEur, fmtCompactEur1, fmtMoney, fmtTutar } from "@/lib/currency";
 import { hueFromText } from "@/lib/tags";
 import { tarihGoster } from "@/lib/purchasing/terms";
 import type {
   ConsumableAnnualGroupMatrix,
+  ConsumableBreakdownRow,
   ConsumableGroupMonthCell,
+  ConsumableMaterialDrilldown,
   ConsumableMonthlyEurPoint,
   ConsumableSelectedYearGroupMatrix,
   ConsumableSupplierDrilldown,
@@ -200,7 +202,14 @@ function SupplierSection({
             </div>
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]">
               <PanoKabugu baslik="Aylık Alım Seyri" alt={fmtCompactEur(drilldown.totalEur)}>
-                <TimeLineChart columns={lineColumns(drilldown.monthly, "supplier")} series={series} valueLabel="EUR" format={fmtCompactEur} />
+                <TimeLineChart
+                  columns={lineColumns(drilldown.monthly, "supplier")}
+                  series={series}
+                  valueLabel="EUR"
+                  format={fmtCompactEur}
+                  valueLabels
+                  valueFormat={fmtCompactEur1}
+                />
               </PanoKabugu>
               <PanoKabugu baslik="En Çok Alınan Malzemeler" alt={`${materialItems.length} kalem`}>
                 <RankBars items={materialItems} limit={10} valueLabel="EUR" format={fmtCompactEur} />
@@ -232,6 +241,141 @@ function SupplierSection({
   );
 }
 
+/**
+ * EN ÇOK KULLANILAN MALZEMELER + tek malzemenin seyri (kullanıcı kararı,
+ * 14.08.2026). Tablo bir SEÇİCİDİR: satıra basmak o malzemenin grafiğini açar;
+ * ayrıca üstteki `Combobox`tan da seçilebilir. İki yol da adres çubuğuna
+ * `malzeme` yazar — grafik sunucuda üretildiği için seçim paylaşılabilir bir
+ * bağlantı olur (tedarikçi seçicisiyle aynı desen).
+ */
+function MaterialSection({
+  ranking,
+  options,
+  selectedMaterialKey,
+  drilldown,
+  onMaterial,
+}: {
+  ranking: ConsumableBreakdownRow[];
+  options: { key: string; label: string }[];
+  selectedMaterialKey: string;
+  drilldown: ConsumableMaterialDrilldown | null;
+  onMaterial: (value: string | undefined) => void;
+}) {
+  const comboOptions: ComboOption[] = options.map((option) => ({
+    value: option.key,
+    label: option.label,
+  }));
+  // İLK 25: 751 malzemenin tamamı listede değil — "en çok kullanılan" sorusu
+  // baştaki avucu ister. Kalanı seçicide aranır.
+  const shown = ranking.slice(0, 25);
+  const rest = ranking.slice(25);
+  const series: ChartSeries[] = [
+    {
+      key: "material",
+      label: drilldown?.materialLabel ?? "Malzeme",
+      hue: hueFromText(drilldown?.materialKey ?? "material"),
+    },
+  ];
+  const supplierItems: RankItem[] = (drilldown?.suppliers ?? []).map((row) => ({
+    key: row.key,
+    label: row.label,
+    hue: hueFromText(row.key),
+    value: row.amountEur,
+    share: row.shareOfTotal ?? 0,
+    records: row.recordCount,
+  }));
+
+  return (
+    <PanoKabugu baslik="En Çok Kullanılan Sarf Malzemeleri" alt={`${ranking.length} malzeme`}>
+      <div className="grid gap-4">
+        <Combobox
+          options={comboOptions}
+          value={selectedMaterialKey || null}
+          onChange={(value) => onMaterial(value || undefined)}
+          placeholder="Malzeme seçin — seyrini görün"
+          searchPlaceholder="Malzeme adı ara…"
+          className="max-w-xl"
+        />
+
+        <div className="oc-scrollx overflow-x-auto [--oc-scroll-bg:var(--card)]">
+          <Table className="min-w-[36rem]">
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-10 text-right">#</TableHead>
+                <TableHead>Malzeme</TableHead>
+                <TableHead className="w-24 text-right">Kayıt</TableHead>
+                <TableHead className="w-28 text-right">Toplam (€)</TableHead>
+                <TableHead className="w-16 text-right">Pay</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {shown.map((row, index) => {
+                const active = row.key === selectedMaterialKey;
+                return (
+                  <TableRow
+                    key={row.key}
+                    onClick={() => onMaterial(active ? undefined : row.key)}
+                    className={`cursor-pointer ${active ? "bg-primary/10 hover:bg-primary/10" : ""}`}
+                    title="Malzemenin seyrini göster"
+                  >
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="whitespace-normal font-medium">{row.label}</TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums">
+                      {row.recordCount.toLocaleString("tr-TR")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                      {fmtTutar(row.amountEur)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                      {row.shareOfTotal == null ? "—" : `%${fmtTutar(row.shareOfTotal * 100)}`}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        {rest.length > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            + {rest.length.toLocaleString("tr-TR")} malzeme daha ·{" "}
+            <span className="font-mono tabular-nums">
+              {fmtCompactEur(rest.reduce((sum, row) => sum + row.amountEur, 0))}
+            </span>{" "}
+            · seçiciden arayın
+          </p>
+        )}
+
+        {drilldown && (
+          <>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <StatCard dense label="Malzeme Toplamı" value={fmtCompactEur(drilldown.totalEur)} icon={WalletCards} />
+              <StatCard dense label="Kayıt Sayısı" value={drilldown.recordCount.toLocaleString("tr-TR")} icon={ReceiptText} />
+              <StatCard dense label="Son Alım" value={tarihGoster(drilldown.lastExpenseDate)} hint={`İlk: ${tarihGoster(drilldown.firstExpenseDate)}`} icon={CalendarRange} />
+            </div>
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]">
+              <PanoKabugu baslik="Aylık Kullanım Seyri" alt={fmtCompactEur(drilldown.totalEur)}>
+                <TimeLineChart
+                  columns={lineColumns(drilldown.monthly, "material")}
+                  series={series}
+                  valueLabel="EUR"
+                  format={fmtCompactEur}
+                  valueLabels
+                  valueFormat={fmtCompactEur1}
+                />
+              </PanoKabugu>
+              <PanoKabugu baslik="En Çok Alınan Tedarikçiler" alt={`${supplierItems.length} tedarikçi`}>
+                <RankBars items={supplierItems} limit={8} valueLabel="EUR" format={fmtCompactEur} />
+              </PanoKabugu>
+            </div>
+          </>
+        )}
+      </div>
+    </PanoKabugu>
+  );
+}
+
 export function ConsumableAnalysisView({
   currentYear,
   selectedYear,
@@ -243,6 +387,10 @@ export function ConsumableAnalysisView({
   selectedSupplierId,
   drilldown,
   supplierHistory,
+  materialRanking,
+  materialOptions,
+  selectedMaterialKey,
+  materialDrilldown,
 }: {
   currentYear: number;
   selectedYear: number | null;
@@ -254,6 +402,10 @@ export function ConsumableAnalysisView({
   selectedSupplierId: string;
   drilldown: ConsumableSupplierDrilldown | null;
   supplierHistory: ConsumableExpenseRow[];
+  materialRanking: ConsumableBreakdownRow[];
+  materialOptions: { key: string; label: string }[];
+  selectedMaterialKey: string;
+  materialDrilldown: ConsumableMaterialDrilldown | null;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -333,6 +485,8 @@ export function ConsumableAnalysisView({
             referenceLines={[{ key: "monthly-average", label: "Ort.", value: chartAverage }]}
             valueLabel="EUR"
             format={fmtCompactEur}
+            valueLabels
+            valueFormat={fmtCompactEur1}
           />
         </PanoKabugu>
         <PanoKabugu baslik="Sarf Grupları" alt={`${groupRows.length} grup`}>
@@ -346,6 +500,14 @@ export function ConsumableAnalysisView({
       >
         {matrix.kind === "monthly" ? <MonthlyMatrix matrix={matrix.value} /> : <AnnualMatrix matrix={matrix.value} />}
       </PanoKabugu>
+
+      <MaterialSection
+        ranking={materialRanking}
+        options={materialOptions}
+        selectedMaterialKey={selectedMaterialKey}
+        drilldown={materialDrilldown}
+        onMaterial={(value) => write({ malzeme: value })}
+      />
 
       <SupplierSection
         suppliers={suppliers}

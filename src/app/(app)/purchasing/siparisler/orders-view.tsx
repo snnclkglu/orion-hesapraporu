@@ -47,8 +47,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RankBars, SplitBar, TimeBarChart } from "@/components/charts";
-import { fmtMoney } from "@/lib/currency";
+import { RankBars, SplitBar, TimeLineChart } from "@/components/charts";
+import { fmtCompactEur, fmtCompactEur1, fmtMoney } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
 import {
   advanceAmount,
@@ -295,11 +295,13 @@ export function OrdersView({
             )}`}
             eylem={<KipSecici kip={kip} onChange={setKip} />}
           >
-            <TimeBarChart
+            <TimeLineChart
               columns={zamanSerisi}
               series={[{ key: "siparis", label: "Sipariş tutarı", hue: 210 }]}
               valueLabel="€"
-              format={eurFmt}
+              format={fmtCompactEur}
+              valueLabels
+              valueFormat={fmtCompactEur1}
               height={180}
             />
           </PanoKabugu>

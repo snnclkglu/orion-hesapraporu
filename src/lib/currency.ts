@@ -104,6 +104,27 @@ export function fmtCompactEur(v: number | null | undefined): string {
   return `${NUM.format(v)} €`;
 }
 
+const NUM_1 = new Intl.NumberFormat("tr-TR", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/**
+ * Grafik ÜSTÜNE yazılan nokta değeri (kullanıcı kararı, 14.08.2026):
+ * "grafik üstüne değeri yazalım, virgülden sonra 1 basamak olsun". Kısaltma
+ * biçimi `fmtCompactEur` ile aynıdır ama ondalık HER ZAMAN tam bir basamaktır:
+ * eksende 2 haneye kadar açılan değer, eğrinin üstünde tek basamağa iner ki
+ * on iki ayın etiketi yan yana okunabilsin. Sıfır "0,0 €" olur, tire değil —
+ * grafik noktası gerçek bir sıfırdır (kayıtsız ay), boş bir hücre değil.
+ */
+export function fmtCompactEur1(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `${NUM_1.format(v / 1_000_000)} M€`;
+  if (abs >= 1_000) return `${NUM_1.format(v / 1_000)} B€`;
+  return `${NUM_1.format(v)} €`;
+}
+
 /**
  * Kullanıcının yazdığı sayıyı okur: "1.575.000,50" ve "1575000.50" ikisi de
  * geçerlidir. Türkçe klavyede ondalık ayıracı virgüldür; nokta binlik ayıracı
