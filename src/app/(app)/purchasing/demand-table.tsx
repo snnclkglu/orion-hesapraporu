@@ -437,10 +437,10 @@ export function DemandTable({
           suzgecOzeti={suzgecOzeti(f, secenekler)}
         />
 
-        {/* YENİ TALEP (md. 21): PDF'in yanında; teknik resimden gelmeyen bir
-            kalemi elle havuza ekler. */}
+        {/* YENİ TALEP (md. 21): PDF'in yanında. KIRMIZI/DOLGU (kullanıcı isteği,
+            14.08.2026: "göze çarpsın") — `default` varyantı marka kırmızısıdır. */}
         {canWrite && (
-          <Button type="button" variant="outline" size="xs" onClick={() => setYeniTalep(true)}>
+          <Button type="button" size="xs" onClick={() => setYeniTalep(true)}>
             <PlusCircle className="size-3" />
             Yeni Talep
           </Button>
@@ -743,6 +743,12 @@ export function DemandTable({
         <ManualDemandDialog
           kategoriler={kategoriler}
           qualities={qualities}
+          tanimlar={[...new Set(gorunumler.map((g) => g.satir.tanim).filter(Boolean))].sort(
+            (a, b) => a.localeCompare(b, "tr")
+          )}
+          isSecenekleri={isler.flatMap((i) =>
+            i.itemNos.map((n) => ({ value: n, label: `${n} · ${i.label}` }))
+          )}
           onClose={() => setYeniTalep(false)}
           onSaved={() => {
             setYeniTalep(false);

@@ -35,11 +35,17 @@ import { createManualDemand, deleteManualDemand, saveDemandOverride } from "./ac
 export function ManualDemandDialog({
   kategoriler,
   qualities,
+  tanimlar = [],
+  isSecenekleri = [],
   onClose,
   onSaved,
 }: {
   kategoriler: string[];
   qualities: string[];
+  /** Havuzdaki mevcut tanımlar — dropdown önerisi (md. 4). */
+  tanimlar?: string[];
+  /** İş kalemi numaraları (İşler bölümünden) — İş No seçimi (md. 4). */
+  isSecenekleri?: { value: string; label: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -53,6 +59,14 @@ export function ManualDemandDialog({
   const [kalite, setKalite] = useState("");
   const [not, setNot] = useState("");
 
+  // KG SEÇİLİRSE MİKTAR = AĞIRLIK (md. 5): kg cinsinden alınan bir kalemde adet
+  // ile ağırlık aynı sayıdır; kullanıcı miktarı girer, ağırlık ondan gelir.
+  const kgMi = birim === "KG";
+  const gorunenAgirlik = kgMi ? adet : agirlik;
+
+  const tanimSecenekleri: ComboOption[] = [
+    ...new Set([...tanimlar, tanim].filter(Boolean)),
+  ].map((t) => ({ value: t, label: t }));
   const kaliteSecenekleri: ComboOption[] = qualities.map((q) => ({ value: q, label: q }));
   const birimSecenekleri: ComboOption[] = [
     ...new Set([...CONSUMABLE_UNITS, birim].filter(Boolean)),
@@ -70,7 +84,7 @@ export function ManualDemandDialog({
         itemNo: isNo,
         quantity: parseNum(adet),
         unit: birim,
-        weightKg: parseNum(agirlik),
+        weightKg: parseNum(gorunenAgirlik),
         quality: kalite,
         note: not,
       });
@@ -96,15 +110,19 @@ export function ManualDemandDialog({
 
         <div className="grid gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="mt-tanim">Tanımı</Label>
-            <Input
-              id="mt-tanim"
-              value={tanim}
-              onChange={(e) => setTanim(e.target.value)}
-              maxLength={300}
-              autoFocus
-              placeholder="Örn. CIVATA M16X60 DIN 933"
+            <Label>Tanımı</Label>
+            {/* TANIM DROPDOWN (md. 4): önceki tanımları listeler; yeni tanım
+                yazılabilir ("+ Yeni tanım"). */}
+            <Combobox
+              options={tanimSecenekleri}
+              value={tanim || null}
+              onChange={setTanim}
+              onCreate={(name) => setTanim(name.trim())}
+              createLabel="Yeni tanım"
+              placeholder="Tanım seçin veya yazın"
+              searchPlaceholder="Tanım ara veya yaz…"
               className="text-base pointer-fine:text-sm"
+              contentClassName="w-[min(38rem,calc(100vw-1.5rem))]"
             />
           </div>
 
@@ -125,14 +143,19 @@ export function ManualDemandDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="mt-is">İş No (İsteğe Bağlı)</Label>
-              <Input
-                id="mt-is"
-                value={isNo}
-                onChange={(e) => setIsNo(e.target.value)}
-                maxLength={40}
-                placeholder="0043-00"
-                className="font-mono text-base pointer-fine:text-sm"
+              <Label>İş No (İsteğe Bağlı)</Label>
+              {/* İŞ NO İŞLER BÖLÜMÜNDEN (md. 4): kalem bazında seçilir ya da
+                  boş bırakılır (ortak alım). Serbest yazım da açık. */}
+              <Combobox
+                options={isSecenekleri}
+                value={isNo || null}
+                onChange={setIsNo}
+                onCreate={(name) => setIsNo(name.trim())}
+                createLabel="Elle iş no"
+                placeholder="Seçin veya boş bırakın"
+                searchPlaceholder="İş / kalem no ara…"
+                className="text-base pointer-fine:text-sm"
+                contentClassName="w-[min(30rem,calc(100vw-1.5rem))]"
               />
             </div>
             <div className="grid gap-1.5">
@@ -179,10 +202,12 @@ export function ManualDemandDialog({
               <Label htmlFor="mt-agirlik">Ağırlık (Kg)</Label>
               <Input
                 id="mt-agirlik"
-                value={agirlik}
+                value={gorunenAgirlik}
                 onChange={(e) => setAgirlik(e.target.value)}
                 inputMode="decimal"
                 placeholder="—"
+                disabled={kgMi}
+                title={kgMi ? "Birim KG — ağırlık miktarla eşittir" : undefined}
                 className="text-right font-mono text-base tabular-nums pointer-fine:text-sm"
               />
             </div>

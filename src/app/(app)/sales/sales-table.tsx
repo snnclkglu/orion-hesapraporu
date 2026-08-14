@@ -411,7 +411,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                 active={sort.key === "productName"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Müşteri" sortKey="customer" className={cn("w-[10rem]", AT_MD)}
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Kapsam" sortKey="scope" className={cn("w-[15rem]", AT_LG)}
+              <SortHead label="Kapsam" sortKey="scope" className={cn("w-[9rem]", AT_LG)}
                 active={sort.key === "scope"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Termin" sortKey="dueDate" className={cn("w-[6.5rem]", AT_MD)}
                 active={sort.key === "dueDate"} dir={sort.dir} onSort={toggleSort} />
@@ -476,7 +476,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                         eder ve sütun sessizce başlığından geniş çıkardı.
                         Kırpmayı etiketin İÇİNDEKİ span yapar (bkz. tags.tsx),
                         tam metin `title` ile durur. */}
-                    <ScopeTag scope={r.sale.scope} className="max-w-[15rem]" />
+                    <ScopeTag scope={r.sale.scope} className="max-w-[9rem]" />
                   </TableCell>
                   <TableCell
                     className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_MD)}
@@ -528,77 +528,8 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </Table>
       </div>
 
-      {/* Müşteri kırılımı — Excel'deki "Satış Toplamları" sayfasının karşılığı */}
-      {summary.byCustomer.length > 0 && (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2.5">
-            <span className="oc-kicker text-muted-foreground">Müşteri Bazında Ciro</span>
-            <span className="font-mono text-sm font-semibold tabular-nums">
-              {fmtNum(summary.eur)} €
-            </span>
-          </div>
-          <Table>
-            <TableHeader>
-              {/* Beş sütun telefonda 400px'i geçiyordu; sıra no, kalem sayısı ve
-                  pay çubuğu ikincil bilgidir. */}
-              <TableRow className="hover:bg-transparent">
-                <TableHead className={cn("w-10 text-right", AT_SM)}>#</TableHead>
-                <TableHead>Müşteri</TableHead>
-                <TableHead className={cn("w-[6rem] text-right", AT_SM)}>Kalem</TableHead>
-                <TableHead className="w-[10rem] text-right">Ciro (Avro)</TableHead>
-                <TableHead className={cn("w-[24%]", AT_MD)}>Pay</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summary.byCustomer.map(([name, v], i) => {
-                const share = summary.eur > 0 ? v.eur / summary.eur : 0;
-                return (
-                  <TableRow key={name} className="hover:bg-transparent">
-                    <TableCell
-                      className={cn(
-                        "text-right font-mono text-xs tabular-nums text-muted-foreground",
-                        AT_SM
-                      )}
-                    >
-                      {i + 1}
-                    </TableCell>
-                    <TableCell>
-                      <CustomerTag name={name} shortName={v.short} hue={v.hue} />
-                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground sm:hidden">
-                        {v.count} kalem · %{fmtNum(share * 100)}
-                      </span>
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right font-mono text-sm tabular-nums text-muted-foreground",
-                        AT_SM
-                      )}
-                    >
-                      {v.count}
-                    </TableCell>
-                    <TableCell className="text-right align-top font-mono text-sm tabular-nums sm:align-middle">
-                      {fmtNum(v.eur)} €
-                    </TableCell>
-                    <TableCell className={AT_MD}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{ width: `${Math.max(share * 100, 0.5)}%` }}
-                          />
-                        </div>
-                        <span className="w-11 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                          %{fmtNum(share * 100)}
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {/* MÜŞTERİ BAZINDA CİRO AYRI SAYFAYA TAŞINDI (kullanıcı kararı,
+          14.08.2026): /sales/ciro. Bu sayfa yalnız kalem listesidir. */}
 
       <p className="text-[11px] text-muted-foreground">
         Satırlar iş emirlerinden gelir; yeni bir iş açtığınızda kalemleri burada

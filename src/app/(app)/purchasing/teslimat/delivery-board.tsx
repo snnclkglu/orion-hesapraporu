@@ -21,7 +21,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { RankBars, TimeLineChart } from "@/components/charts";
 import { fmtCompactEur, fmtCompactEur1, fmtMoney, parseNum } from "@/lib/currency";
 import { formatNum } from "@/lib/drawings/labels";
@@ -103,6 +102,16 @@ export function DeliveryBoard({
   const bugun = bugunISO();
   // EKRANIN KAPSAMI: teslim alınmamış siparişler. "Ne bekliyorum" sorusu bu.
   const bekleyen = useMemo(() => siparisler.filter((s) => !s.receivedAt), [siparisler]);
+  // TESLİM ALINANLAR ayrı bir bantta altta durur (kullanıcı isteği,
+  // 14.08.2026): tamamı teslim alınınca sipariş bekleyenden düşer ama gözden
+  // kaybolmamalı — en son teslim üstte.
+  const teslimAlinanlar = useMemo(
+    () =>
+      siparisler
+        .filter((s) => s.receivedAt)
+        .sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? "")),
+    [siparisler]
+  );
 
   const secenekler = useMemo(() => {
     const say = (fn: (s: Siparis) => string[]) => {
@@ -185,6 +194,15 @@ export function DeliveryBoard({
   function satirTeslim(s: Siparis, lineId: string, deger: string) {
     const adet = parseNum(deger) ?? 0;
     teslimGonder(s, [{ lineId, receivedQty: adet }], "Teslim güncellendi.");
+  }
+
+  /** Teslimi geri al: bütün satırları sıfırla — sipariş bekleyene döner. */
+  function teslimGeriAl(s: Siparis) {
+    teslimGonder(
+      s,
+      s.satirlar.map((l) => ({ lineId: l.id, receivedQty: 0 })),
+      `${s.supplier} teslimi geri alındı.`
+    );
   }
 
   function genislet(id: string) {
@@ -405,6 +423,55 @@ export function DeliveryBoard({
           </Bant>
         ))
       )}
+
+      {/* TESLİM ALINANLAR — en altta, ayrı bant (kullanıcı isteği). Geri Al ile
+          yanlış işaret düzeltilir; sipariş yeniden bekleyene döner. */}
+      {teslimAlinanlar.length > 0 && (
+        <Bant
+          baslik="Teslim Alınanlar"
+          alt={`${formatNum(teslimAlinanlar.length)} sipariş`}
+        >
+          {teslimAlinanlar.map((s) => {
+            const isler = isNolari(s);
+            return (
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 first:border-t-0"
+              >
+                <span className="min-w-[7rem] font-mono text-[12px] whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+                  {tarihGoster(s.receivedAt)} ✓
+                </span>
+                <span className="min-w-0 flex-1 text-[13px]">
+                  <span className="font-medium">{s.supplier}</span>
+                  {s.orderNo && (
+                    <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+                      {s.orderNo}
+                    </span>
+                  )}
+                  <span className="block font-mono text-[11px] text-muted-foreground">
+                    {formatNum(s.satirlar.length)} kalem
+                    {isler.length > 0 &&
+                      ` · ${isler.slice(0, 4).join(", ")}${isler.length > 4 ? "…" : ""}`}
+                  </span>
+                </span>
+                <span className="font-mono text-[12px] tabular-nums">
+                  {fmtMoney(tutar(s), s.currency)}
+                </span>
+                {canWrite && (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => teslimGeriAl(s)}
+                  >
+                    Geri Al
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </Bant>
+      )}
     </div>
   );
 }
@@ -508,27 +575,38 @@ function SiparisSatiri({
             <tbody>
               {s.satirlar.map((l) => {
                 const satirOran = l.qty > 0 ? Math.min(1, l.receivedQty / l.qty) : 0;
+                const satirTam = l.qty > 0 && l.receivedQty >= l.qty;
                 return (
                   <tr key={l.id} className="border-t border-border/50">
                     <td className="py-1 pr-3">{l.sample}</td>
                     <td className="py-1 pr-3 font-mono text-muted-foreground">{l.itemNo || "—"}</td>
                     <td className="py-1 pr-3 text-right font-mono tabular-nums">{formatNum(l.qty)}</td>
                     <td className="py-1 pr-3 text-right">
+                      {/* TESLİM = BUTON, kutu DEĞİL (kullanıcı bildirimi,
+                          14.08.2026: "sadece kutu açmışız içine yazı yazılıyor,
+                          bu şekilde olmasın; buton olsun, tekrar bastığında
+                          iptal"). Satır bazında teslim İKİLİdir: al → sipariş
+                          adedi, tekrar bas → sıfır. */}
                       {canWrite ? (
-                        <Input
-                          key={`${l.id}-${l.receivedQty}`}
-                          defaultValue={l.receivedQty > 0 ? String(Number(l.receivedQty)) : ""}
-                          onBlur={(e) => {
-                            if ((parseNum(e.target.value) ?? 0) !== l.receivedQty)
-                              onSatirTeslim(l.id, e.target.value);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                          }}
-                          inputMode="decimal"
-                          aria-label={`${l.sample} teslim adedi`}
-                          className="ml-auto h-7 w-20 text-right font-mono text-base tabular-nums pointer-fine:text-xs"
-                        />
+                        satirTam ? (
+                          <button
+                            type="button"
+                            onClick={() => onSatirTeslim(l.id, "0")}
+                            title="Teslimi geri al"
+                            className="inline-flex min-h-7 items-center gap-1 border border-emerald-600/40 bg-emerald-600/10 px-1.5 text-[11px] whitespace-nowrap text-emerald-700 transition-colors hover:border-emerald-600/70 pointer-coarse:min-h-9 dark:text-emerald-400"
+                          >
+                            Teslim Alındı ✓
+                          </button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => onSatirTeslim(l.id, String(l.qty))}
+                          >
+                            Teslim Al
+                          </Button>
+                        )
                       ) : (
                         <span className="font-mono tabular-nums">{formatNum(l.receivedQty)}</span>
                       )}

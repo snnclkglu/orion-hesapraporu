@@ -20,13 +20,14 @@ import { orderVatTotals, vatRateOf } from "@/lib/purchasing/vat";
 
 const SUTUNLAR: { baslik: string; pay: number; sag?: boolean }[] = [
   { baslik: "#", pay: 4, sag: true },
-  { baslik: "Kalem", pay: 30 },
-  { baslik: "Marka/Kalite", pay: 14 },
-  { baslik: "Adet", pay: 8, sag: true },
-  { baslik: "Birim Fiyat", pay: 13, sag: true },
-  { baslik: "KDV", pay: 6, sag: true },
-  { baslik: "Tutar", pay: 12, sag: true },
-  { baslik: "KDV Dahil", pay: 13, sag: true },
+  { baslik: "Kalem", pay: 26 },
+  { baslik: "İş No", pay: 9 },
+  { baslik: "Marka/Kalite", pay: 12 },
+  { baslik: "Adet", pay: 7, sag: true },
+  { baslik: "Birim Fiyat", pay: 12, sag: true },
+  { baslik: "KDV", pay: 5, sag: true },
+  { baslik: "Tutar", pay: 11, sag: true },
+  { baslik: "KDV Dahil", pay: 14, sag: true },
 ];
 
 const S = StyleSheet.create({
@@ -76,7 +77,8 @@ export interface OrderConfirmationOrder {
 
 export interface OrderConfirmationProps {
   order: OrderConfirmationOrder;
-  meta: { docCode: string; generatedAt: string };
+  /** `preparedBy` — PDF'i basan kullanıcının adı; "Sipariş Veren" imzasına yazılır (md. 8). */
+  meta: { docCode: string; generatedAt: string; preparedBy?: string };
   company: CompanyInfo;
 }
 
@@ -134,22 +136,20 @@ export function OrderConfirmationDocument({ order, meta, company }: OrderConfirm
           return (
             <View key={i} style={[S.satir, S.ayrac]} wrap={false}>
               <Text style={[S.mono, { width: `${SUTUNLAR[0].pay}%`, textAlign: "right" }]}>{i + 1}</Text>
-              <Text style={[S.hucre, { width: `${SUTUNLAR[1].pay}%` }]}>
-                {l.sample}
-                {l.itemNo ? ` (${l.itemNo})` : ""}
-              </Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[2].pay}%` }]}>{l.quality || "—"}</Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[3].pay}%`, textAlign: "right" }]}>
+              <Text style={[S.hucre, { width: `${SUTUNLAR[1].pay}%` }]}>{l.sample}</Text>
+              <Text style={[S.mono, { width: `${SUTUNLAR[2].pay}%` }]}>{l.itemNo || "—"}</Text>
+              <Text style={[S.mono, { width: `${SUTUNLAR[3].pay}%` }]}>{l.quality || "—"}</Text>
+              <Text style={[S.mono, { width: `${SUTUNLAR[4].pay}%`, textAlign: "right" }]}>
                 {say(l.qty)}
               </Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[4].pay}%`, textAlign: "right" }]}>
+              <Text style={[S.mono, { width: `${SUTUNLAR[5].pay}%`, textAlign: "right" }]}>
                 {l.unitPrice == null ? "—" : fmtMoney(l.unitPrice, cur)}
               </Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[5].pay}%`, textAlign: "right" }]}>%{oran}</Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[6].pay}%`, textAlign: "right" }]}>
+              <Text style={[S.mono, { width: `${SUTUNLAR[6].pay}%`, textAlign: "right" }]}>%{oran}</Text>
+              <Text style={[S.mono, { width: `${SUTUNLAR[7].pay}%`, textAlign: "right" }]}>
                 {fmtMoney(net, cur)}
               </Text>
-              <Text style={[S.mono, { width: `${SUTUNLAR[7].pay}%`, textAlign: "right" }]}>
+              <Text style={[S.mono, { width: `${SUTUNLAR[8].pay}%`, textAlign: "right" }]}>
                 {fmtMoney(net * (1 + oran / 100), cur)}
               </Text>
             </View>
@@ -178,6 +178,12 @@ export function OrderConfirmationDocument({ order, meta, company }: OrderConfirm
         <View style={S.imza} wrap={false}>
           <View style={S.imzaKutu}>
             <Text style={T.micro}>Sipariş Veren</Text>
+            {/* PDF'İ BASAN KİŞİNİN ADI (md. 8): boşsa satır yine imzaya açıktır. */}
+            {meta.preparedBy ? (
+              <Text style={{ fontSize: 8, fontFamily: FONTS.sans, marginTop: 2 }}>
+                {meta.preparedBy}
+              </Text>
+            ) : null}
           </View>
           <View style={S.imzaKutu}>
             <Text style={T.micro}>Onaylayan</Text>

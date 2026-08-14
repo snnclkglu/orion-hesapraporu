@@ -50,6 +50,17 @@ describe("siparisNoOner", () => {
     // "TD0007-01-R2" bir revizyon yazımıdır ve sıra sayısı değildir.
     expect(siparisNoOner("TD0007", ["TD0007-01-R2", "TD0007"])).toBe("TD0007-01");
   });
+
+  it("tarih verilince önek AY+YIL taşır (md. 9)", () => {
+    // TD0053 + 08(ağustos) + 26(2026) + 01.
+    expect(siparisNoOner("TD0053", [], "2026-08-14")).toBe("TD00530826" + "01");
+    expect(siparisNoOner("TD0053", ["TD00530826" + "01"], "2026-08-14")).toBe("TD00530826" + "02");
+  });
+
+  it("yeni ayda sıra 01'den başlar", () => {
+    // Ağustostaki numaralar eylül önerisini kaydırmaz.
+    expect(siparisNoOner("TD0053", ["TD00530826" + "05"], "2026-09-01")).toBe("TD00530926" + "01");
+  });
 });
 
 describe("siparisNoCakisiyorMu", () => {

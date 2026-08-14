@@ -20,9 +20,6 @@ export const TEDARIKCI_KODU_ONEKI = "TD";
 /** Sipariş numarasının sıra bölümü en az bu kadar basamak taşır. */
 const SIRA_BASAMAK = 2;
 
-/** Ayraç ELLE SEÇİLDİ: tire, kod ile sırayı gözle ayırır (`TD0007-01`). */
-const AYRAC = "-";
-
 function duzelt(v: string | null | undefined): string {
   return (v ?? "").trim().toLocaleUpperCase("tr-TR");
 }
@@ -32,21 +29,40 @@ function regexKacir(v: string): string {
 }
 
 /**
- * Bir tedarikçi koduna göre sıradaki sipariş numarası.
+ * Sipariş numarasının ÖNEKİ — tedarikçi kodu + AY + YIL (kullanıcı kararı,
+ * 14.08.2026: *"kod içine ay ve yılı da gömsek iyi olur; TD0053-01 gibi değil
+ * TD0053082601 gibi"*). Tarih verilmezse eski `TD0053-` öneki (tireli) kullanılır
+ * — böylece devralınan/eski numaralar bozulmaz ve testler ayakta kalır.
+ */
+function onekUret(kod: string, isoTarih?: string | null): string {
+  const m = isoTarih ? /^(\d{4})-(\d{2})-\d{2}/.exec(isoTarih.trim()) : null;
+  if (!m) return `${kod}-`;
+  return `${kod}${m[2]}${m[1].slice(2)}`;
+}
+
+/**
+ * Bir tedarikçi koduna (ve varsa sipariş tarihine) göre sıradaki sipariş
+ * numarası.
  *
  * KOD YOKSA ÖNERİ DE YOKTUR — boş dizge döner ve kutu boş kalır. Uydurulmuş
  * bir önek (firma adının ilk harfleri gibi) iki firmada çakışır ve numarayı
  * kimliksiz bırakırdı.
  *
  * SIRA MEVCUT NUMARALARDAN OKUNUR, sayılmaz: iptal edilmiş ya da silinmiş bir
- * siparişin numarası yeniden kullanılmamalıdır. `TD0007-03` varken kayıt sayısı
- * 1 olsa bile öneri `TD0007-04`tür.
+ * siparişin numarası yeniden kullanılmamalıdır. Sıra AY-YIL öneki başına
+ * sayılır — `TD0053082603` varken öneri `TD0053082604`tür; yeni bir ayda sıra
+ * yeniden 01'den başlar.
  */
-export function siparisNoOner(tedarikciKodu: string | null | undefined, mevcut: readonly string[]): string {
+export function siparisNoOner(
+  tedarikciKodu: string | null | undefined,
+  mevcut: readonly string[],
+  isoTarih?: string | null
+): string {
   const kod = duzelt(tedarikciKodu);
   if (!kod) return "";
 
-  const desen = new RegExp(`^${regexKacir(kod)}${regexKacir(AYRAC)}(\\d+)$`);
+  const onek = onekUret(kod, isoTarih);
+  const desen = new RegExp(`^${regexKacir(onek)}(\\d+)$`);
   let enBuyuk = 0;
   for (const ham of mevcut) {
     const eslesme = desen.exec(duzelt(ham));
@@ -54,7 +70,7 @@ export function siparisNoOner(tedarikciKodu: string | null | undefined, mevcut: 
   }
 
   const sira = enBuyuk + 1;
-  return `${kod}${AYRAC}${String(sira).padStart(SIRA_BASAMAK, "0")}`;
+  return `${onek}${String(sira).padStart(SIRA_BASAMAK, "0")}`;
 }
 
 /**

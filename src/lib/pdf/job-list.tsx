@@ -85,19 +85,20 @@ export interface JobListDocProps {
  * olur. Ağırlık sütununun başlığı bu yüzden birimsizdir ("Ağırlık (kg)" tek
  * satıra sığmıyordu); birim çizelgenin altındaki dipnotta söylenir.
  */
+// KAPSAM VE TERMİN SÜTUNLARI KALDIRILDI (kullanıcı kararı, 14.08.2026):
+// müşteriye giden referans belgesinde iç kapsam metni ve taahhüt tarihi
+// gereksizdir. Kalan on sütun daha rahat okunur; boşalan pay İşin Adı'na gitti.
 const SUTUNLAR: { baslik: string; pay: number; hiza?: "right" | "center" }[] = [
   { baslik: "No", pay: 2.5, hiza: "right" },
-  { baslik: "İş No", pay: 5.5 },
-  { baslik: "Müşteri", pay: 9 },
-  { baslik: "İşin Adı", pay: 25.5 },
-  { baslik: "Kapsam", pay: 12 },
-  { baslik: "Miktar", pay: 6.5, hiza: "right" },
-  { baslik: "Ağırlık", pay: 7, hiza: "right" },
-  { baslik: "Sözleşme", pay: 6, hiza: "center" },
-  { baslik: "Termin", pay: 6, hiza: "center" },
-  { baslik: "Sevk", pay: 6, hiza: "center" },
-  { baslik: "Sevk Yeri", pay: 6.5, hiza: "center" },
-  { baslik: "Durum", pay: 7.5 },
+  { baslik: "İş No", pay: 6 },
+  { baslik: "Müşteri", pay: 11 },
+  { baslik: "İşin Adı", pay: 34 },
+  { baslik: "Miktar", pay: 7, hiza: "right" },
+  { baslik: "Ağırlık", pay: 8, hiza: "right" },
+  { baslik: "Sözleşme", pay: 7, hiza: "center" },
+  { baslik: "Sevk", pay: 7, hiza: "center" },
+  { baslik: "Sevk Yeri", pay: 8, hiza: "center" },
+  { baslik: "Durum", pay: 9.5 },
 ];
 
 const S = StyleSheet.create({
@@ -323,28 +324,22 @@ export function JobListDocument({ rows, meta, company }: JobListDocProps) {
                   <Hucre i={3} kalin>
                     {r.productName || "–"}
                   </Hucre>
-                  <Hucre i={4} sonuk>
-                    {r.scope || "–"}
-                  </Hucre>
-                  <Hucre i={5} mono>
+                  <Hucre i={4} mono>
                     {miktar(r)}
                   </Hucre>
-                  <Hucre i={6} mono>
+                  <Hucre i={5} mono>
                     {r.totalWeightKg ? fmtNum(Math.round(r.totalWeightKg)) : "–"}
                   </Hucre>
-                  <Hucre i={7} mono sonuk>
+                  <Hucre i={6} mono sonuk>
                     {tarih(r.contractDate)}
                   </Hucre>
-                  <Hucre i={8} mono sonuk>
-                    {tarih(r.dueDate)}
-                  </Hucre>
-                  <Hucre i={9} mono sonuk>
+                  <Hucre i={7} mono sonuk>
                     {tarih(r.shipmentDate)}
                   </Hucre>
-                  <Hucre i={10} sonuk>
+                  <Hucre i={8} sonuk>
                     {r.shipmentPlace || "–"}
                   </Hucre>
-                  <View style={[S.durum, { width: `${SUTUNLAR[11].pay}%` }]}>
+                  <View style={[S.durum, { width: `${SUTUNLAR[9].pay}%` }]}>
                     <View style={[S.nokta, { backgroundColor: d.renk }]} />
                     <Text style={[S.durumYazi, { color: d.renk }]}>{d.yazi}</Text>
                   </View>

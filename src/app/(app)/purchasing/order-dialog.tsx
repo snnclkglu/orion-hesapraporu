@@ -175,10 +175,10 @@ export function OrderDialog({
   // öneri susar (uygulamanın `*Auto` deseninin aynısı — türetilen değer,
   // insanın yazdığını asla ezmez).
   const [noDokunuldu, setNoDokunuldu] = useState(false);
-  const [siparisNo, setSiparisNo] = useState(() =>
-    siparisNoOner(kodlar.get(trKatla(ilkFirma)) ?? "", siparisNolari)
-  );
   const [siparisTarihi, setSiparisTarihi] = useState(bugunISO());
+  const [siparisNo, setSiparisNo] = useState(() =>
+    siparisNoOner(kodlar.get(trKatla(ilkFirma)) ?? "", siparisNolari, bugunISO())
+  );
   const [termin, setTermin] = useState("");
   const [terminSecimi, setTerminSecimi] = useState(TERMIN_YOK);
   const [vade, setVade] = useState("pesin");
@@ -331,7 +331,7 @@ export function OrderDialog({
   /** Kod değişince numara önerisi tazelenir — kutuya dokunulmadıysa. */
   function koduUygula(kod: string) {
     setFirmaKodu(kod);
-    if (!noDokunuldu) setSiparisNo(siparisNoOner(kod, siparisNolari));
+    if (!noDokunuldu) setSiparisNo(siparisNoOner(kod, siparisNolari, siparisTarihi));
   }
 
   function firmaSec(ad: string) {
@@ -354,6 +354,9 @@ export function OrderDialog({
     if (deger && terminSecimi !== TERMIN_YOK && terminSecimi !== TERMIN_SERBEST) {
       setTermin(gunEkle(deger, Number(terminSecimi)));
     }
+    // NUMARA ÖNEKİ AY-YIL TAŞIR (md. 9): tarih değişince öneri tazelenir —
+    // kutuya dokunulmadıysa.
+    if (deger && !noDokunuldu) setSiparisNo(siparisNoOner(firmaKodu, siparisNolari, deger));
   }
 
   /**
@@ -475,7 +478,7 @@ export function OrderDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(58rem,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(72rem,calc(100%-2rem))]">
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>

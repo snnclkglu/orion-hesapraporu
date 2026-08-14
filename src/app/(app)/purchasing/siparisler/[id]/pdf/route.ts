@@ -29,11 +29,12 @@ export async function GET(
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profil } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase.from("profiles").select("role, full_name").eq("id", user.id).maybeSingle()
     : { data: null };
   if (!canSeePurchasing(profil?.role)) {
     return new NextResponse("Yetkisiz", { status: 403 });
   }
+  const hazirlayan = (profil as { full_name?: string } | null)?.full_name ?? "";
 
   const siparisler = await loadSiparisler(supabase, { iptalDahil: true });
   const siparis = siparisler.find((s) => s.id === id);
@@ -61,7 +62,7 @@ export async function GET(
       currency: siparis.currency,
       lines,
     },
-    meta: { docCode, generatedAt: new Date().toLocaleDateString("tr-TR") },
+    meta: { docCode, generatedAt: new Date().toLocaleDateString("tr-TR"), preparedBy: hazirlayan },
     company: {
       company: ayarlar.company,
       address: ayarlar.address ?? "",

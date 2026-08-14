@@ -14,6 +14,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing } from "@/lib/roles";
 import { satinAlmaKategoriSirasi } from "@/lib/drawings/derive";
+import { HIZMET_TALEP_KATEGORILERI } from "@/lib/purchasing/categories";
 import {
   loadHavuz,
   loadQualities,
@@ -84,7 +85,7 @@ export default async function PurchasingPage() {
       siparisNolari={siparisNolari}
       sonKur={sonKur}
       qualities={qualities}
-      kategoriler={satinAlmaKategoriSirasi()}
+      kategoriler={satinAlmaKategoriSirasi(HIZMET_TALEP_KATEGORILERI)}
       // İŞ SÜZGECİ KALEM NUMARASIYLA eşleşir, iş kimliğiyle değil: havuz
       // satırları `item_no` METNİ taşır (md. 17/18'in kuralı — bağ türevdir).
       isler={(

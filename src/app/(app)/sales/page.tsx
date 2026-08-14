@@ -7,28 +7,17 @@
 // Sorgu ve eşleme `data.ts`tedir: aynı satırları müşteriye giden İş Listesi
 // PDF'i de okur ve iki liste ayrışamaz.
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canSeeSales } from "@/lib/roles";
 import { SalesTable } from "./sales-table";
 import { saleYear } from "./schema";
 import { JobListButton } from "./job-list-button";
 import { loadSaleRows } from "./data";
 import { PageHeader } from "@/components/page-header";
 
+// Yetki + bölüm rayı `sales/layout.tsx`tedir; bu sayfa yalnız Satış Takibi
+// tablosunu basar.
 export default async function SalesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
-    : { data: null };
-
-  // Menüden gizlemek yetmez: adres doğrudan yazılabilir. RLS zaten satırları
-  // vermez ama boş bir sayfa göstermek yerine kullanıcıyı geri yollarız.
-  if (!canSeeSales(profile?.role)) redirect("/jobs");
 
   const rows = await loadSaleRows(supabase);
   // Yıl listesi TABLONUN süzgeciyle aynı kaynaktan çıkar (`saleYear`), yeniden
