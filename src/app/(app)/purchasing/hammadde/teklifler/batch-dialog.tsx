@@ -53,7 +53,7 @@ import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { cn } from "@/lib/utils";
 import { editQuoteBatch } from "../../actions";
-import type { PartiOzeti } from "./compare-view";
+import type { PartiOzeti } from "./types";
 
 /** Formdaki teslim seçiminin gün karşılığı; `null` = sorulmadı. */
 function teslimGunu(v: string): number | null {

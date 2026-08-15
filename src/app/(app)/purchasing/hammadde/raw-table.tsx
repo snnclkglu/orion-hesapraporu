@@ -54,11 +54,15 @@ import { CokluSuzgec } from "../filters";
 import { FilterBar, SearchBox, SortableHead } from "../../drawings/sortable-head";
 import { OrderDialog, type SiparisKalemi } from "../order-dialog";
 import { QuoteDialog } from "../quote-dialog";
-import { BulkQuoteDialog } from "../bulk-quote-dialog";
+import { BulkQuoteDialog, type TopluTeklifKalemi } from "../bulk-quote-dialog";
 import type { TedarikciKaydi, TeklifSatiri } from "../data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
 import { formatNum } from "@/lib/drawings/labels";
-import type { HammaddeHavuzu, HammaddeSatiri } from "@/lib/purchasing/hammadde/havuz";
+import {
+  stokMiktari,
+  type HammaddeHavuzu,
+  type HammaddeSatiri,
+} from "@/lib/purchasing/hammadde/havuz";
 import {
   HAMMADDE_ADLARI,
   HAMMADDE_SINIFLARI,
@@ -141,21 +145,12 @@ interface Gorunum {
 }
 
 /**
- * SİPARİŞ BİRİMİ SINIFA GÖRE DEĞİŞİR.
- *
- * Sac PLAKA ile alınır ama plaka adedi ancak yerleşim yapılınca bilinir; o
- * yüzden sacda sipariş birimi KİLODUR (tedarikçi de tonaj konuşur). Profil,
- * ray ve boruda BOY adedi vardır. Dolu malzemede yine kilo.
- *
- * Sayı UYDURULMAZ: hesaplanamıyorsa `null` döner ve pencere adedi kullanıcıya
- * sorar.
+ * Sipariş birimi ÇEKİRDEKTEN okunur (`stokMiktari`) — üç ekran tek kuralı
+ * paylaşır. Buradaki sarmalayıcı yalnız eski alan adını (`adet`) koruyor.
  */
 function siparisAdedi(s: HammaddeSatiri): { adet: number | null; birim: string } {
-  if (s.boyAdedi != null && s.boyAdedi > 0) return { adet: s.boyAdedi, birim: "Boy" };
-  if (s.toplamAgirlikKg != null && s.toplamAgirlikKg > 0) {
-    return { adet: Math.ceil(s.toplamAgirlikKg), birim: "Kg" };
-  }
-  return { adet: s.parcaAdedi > 0 ? s.parcaAdedi : null, birim: "Adet" };
+  const m = stokMiktari(s);
+  return { adet: m.miktar, birim: m.birim };
 }
 
 function durumu(gereken: number | null, siparisEdilen: number, teklifSayisi: number): Durum {
@@ -301,7 +296,7 @@ export function RawTable({
   const [olcuParcasi, setOlcuParcasi] = useState<OlcuDuzenlemesi | null>(null);
   const [yeniTalep, setYeniTalep] = useState(false);
   const [teklifPenceresi, setTeklifPenceresi] = useState<Gorunum | null>(null);
-  const [topluTeklif, setTopluTeklif] = useState<{ matchKey: string; tanim: string }[] | null>(null);
+  const [topluTeklif, setTopluTeklif] = useState<TopluTeklifKalemi[] | null>(null);
   const [siparisKalemleri, setSiparisKalemleri] = useState<SiparisKalemi[] | null>(null);
 
   const siparisHaritasi = useMemo(() => new Map(siparisAdetleri), [siparisAdetleri]);
@@ -753,8 +748,19 @@ export function RawTable({
               size="xs"
               variant="outline"
               onClick={() =>
+                // MİKTAR PENCEREYE TAŞINIR (15.08.2026): teklif penceresi
+                // neyin fiyatını sorduğunu göstermeli — "10 mm sactan 3.537
+                // kg" ile "bir kalem sac" aynı soru değildir.
                 setTopluTeklif(
-                  seciliGorunumler.map((g) => ({ matchKey: g.satir.key, tanim: g.satir.tanim }))
+                  seciliGorunumler.map((g) => {
+                    const m = stokMiktari(g.satir);
+                    return {
+                      matchKey: g.satir.key,
+                      tanim: g.satir.tanim,
+                      miktar: m.miktar,
+                      birim: m.birim,
+                    };
+                  })
                 )
               }
             >

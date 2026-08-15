@@ -1,4 +1,4 @@
-// TEKLİF KARŞILAŞTIRMA — sunucu kabuğu.
+// TEKLİFLER — sunucu kabuğu.
 //
 // EKRANIN CEVAPLADIĞI SORU: "bu malzemeleri kimden alayım?"
 //
@@ -7,22 +7,31 @@
 // vade çoğu zaman ÜÇ AYRI FİRMADADIR. Ekran o üçünü yan yana koyar ve kararı
 // insana bırakır.
 //
-// ═══════════════════════════════════ SAYFA ARTIK PARTİ ÜZERİNE KURULU
+// ═══════════════════════════ SAYFANIN SATIRI ARTIK "TALEP"TİR, FİRMA CEVABI DEĞİL
 //
-// Kullanıcı bildirimi (15.08.2026): *"Teklif karşılaştırma sayfası şu anda
-// karmaşık geliyor. Teklif Aç Koduna göre satır satır gelsin. Her açtığım
-// teklifi ayrı ayrı değerlendirebileyim. İstersem bu sayfada teklifleri
-// birleştir ayrı diyebileyim."*
+// Kullanıcı kararı (15.08.2026): *"Teklif Karşılaştırma bölümünü teklifler
+// yapalım. Bu teklifler bölümde istediğim tekliflerin buraya düşmesi. Birkaç
+// firmadan aynı teklifi aldığımda burada görebileyim. Teklifin üstüne
+// tıkladığımda bir pop up açılsın ve hangi firma ne teklif verdi görebileyim."*
 //
-// Eski sayfa doğrudan bir MATRİSLE açılıyordu ve matrisin sütunu TEDARİKÇİYDİ:
-// aynı firmadan iki hafta arayla alınmış iki teklif tek sütunda eriyor,
-// kullanıcı hangi teklifi değerlendirdiğini bilemiyordu. Şimdi sayfa bir
-// LİSTEYLE açılır (her satır bir teklif, kendi koduyla) ve karşılaştırma o
-// listeden SEÇİLENLER üzerinde kurulur.
+// Sabahki sürümde satır BİR FİRMANIN teklifiydi (`TK0006`) ve aynı soruya üç
+// firmadan gelen cevap listede üç ayrı satır olarak duruyordu — "aynı teklifi
+// birkaç firmadan aldım" cümlesinin ekranda karşılığı yoktu. Satır artık
+// TALEPtir (`TT0003`); firmaların cevapları onun altındadır ve karşılaştırma
+// matrisi pop-up'ta açılır.
 //
-// SEÇİM ADRESTE TAŞINIR (`?p=…&gorunum=…`), yerleşim ekranının kuralının
-// aynısı: karşılaştırma paylaşılabilir bir bağlantıdır ve tarayıcı
-// yenilendiğinde aynı tablo çıkar.
+// ═══════════════════════════ PLAKA TEKLİFİ NEDEN GÖRÜNMÜYORDU
+//
+// Kullanıcı bildirimi: *"Fiyat girdiğimde de teklif karşılaştırma bölümüne
+// düşmüyor. Ancak tekliflere kaydedildi diye uyarı geliyor."* Ölçüldü ve
+// doğruydu — kayıt yapılıyor, sayfa okumuyordu. Teklifler YALNIZ havuz
+// anahtarlarıyla isteniyordu ve plaka teklifinin anahtarı havuzda YOKTUR
+// (`SAC 12 X 1500 X 3000 S235JR` bir ÜRÜN, havuzdaki `SAC 12 MM S235JR` bir
+// İHTİYAÇtır). Bu sayfa o duruma zaten hazırlıklıydı (aşağıdaki
+// `kalemKunyesi`); eksik olan bir kat aşağıdaydı ve `loadTeklifDefteri`de
+// düzeltildi — artık kapsamı bu ekran olan partiler de okunuyor.
+//
+// SEÇİM ADRESTE TAŞINIR (`?tur=…`), yerleşim ekranının kuralının aynısı.
 
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
@@ -33,7 +42,8 @@ import {
   loadSonKur,
   loadTedarikciDefteri,
   loadTedarikciler,
-  loadTeklifPartileri,
+  loadTeklifDefteri,
+  type TeklifSatiri,
 } from "../../data";
 import { loadHammaddeHavuzu } from "../data";
 import {
@@ -41,25 +51,23 @@ import {
   type KarsilastirmaKalemi,
   type KarsilastirmaTeklifi,
 } from "@/lib/purchasing/hammadde/karsilastirma";
+import { stokMiktari } from "@/lib/purchasing/hammadde/havuz";
+import { talepBasligi, teklifMiktari } from "@/lib/purchasing/talep";
 import { alimKategorisi } from "@/lib/purchasing/hammadde/alim-analizi";
 import { HAMMADDE_SINIFLARI, type HammaddeSinifi } from "@/lib/purchasing/hammadde/siniflar";
-import { CompareView, type PartiOzeti } from "./compare-view";
+import { QuotesView } from "./quotes-view";
+import type { PartiOzeti, TalepGorunumu } from "./types";
 
-/** Sipariş birimi ve miktarı — havuz tablosundaki kuralın aynısı. */
-function miktarBul(s: {
-  boyAdedi: number | null;
-  toplamAgirlikKg: number | null;
-  parcaAdedi: number;
-}): { miktar: number | null; birim: string } {
-  if (s.boyAdedi != null && s.boyAdedi > 0) return { miktar: s.boyAdedi, birim: "Boy" };
-  if (s.toplamAgirlikKg != null && s.toplamAgirlikKg > 0) {
-    return { miktar: Math.round(s.toplamAgirlikKg), birim: "Kg" };
-  }
-  return { miktar: s.parcaAdedi > 0 ? s.parcaAdedi : null, birim: "Adet" };
-}
-
-function coklu(v: string | string[] | undefined): string[] {
-  return Array.isArray(v) ? v : v ? [v] : [];
+/**
+ * Gruplama künyesini düşürür — ekrana giden `PartiOzeti` `requestId` TAŞIMAZ.
+ *
+ * Pencere partiyi zaten talebin içinden okuyor; ikinci bir bağ, taşınmış bir
+ * partide iki gerçek üretirdi.
+ */
+function partiKunyesi(p: PartiOzeti & { requestId: string | null }): PartiOzeti {
+  const { requestId, ...kalan } = p;
+  void requestId;
+  return kalan;
 }
 
 export default async function TekliflerPage({
@@ -82,16 +90,14 @@ export default async function TekliflerPage({
   const tur = HAMMADDE_SINIFLARI.includes(turHam as HammaddeSinifi)
     ? (turHam as HammaddeSinifi)
     : null;
-  const gorunum = (Array.isArray(sp.gorunum) ? sp.gorunum[0] : sp.gorunum) === "ayri"
-    ? "ayri"
-    : "birlesik";
 
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);
-  const [partiler, siparisler, tedarikciler, defter, siparisNolari, sonKur, qualities] =
+  const [defter, siparisler, tedarikciler, tedarikciDefteri, siparisNolari, sonKur, qualities] =
     await Promise.all([
-      anahtarlar.length > 0
-        ? loadTeklifPartileri(supabase, anahtarlar)
-        : Promise.resolve([]),
+      // KAPSAM DA VERİLİR: havuz anahtarı tutmayan plaka teklifleri ancak
+      // böyle görünür. Havuz boşsa bile sorgu koşar — teklif havuzdan
+      // BAĞIMSIZ olarak açılmış olabilir.
+      loadTeklifDefteri(supabase, anahtarlar, { scope: "hammadde" }),
       loadSiparisler(supabase),
       loadTedarikciler(supabase),
       loadTedarikciDefteri(supabase),
@@ -103,33 +109,22 @@ export default async function TekliflerPage({
   /** Stok anahtarı → havuz satırı (miktar, birim, tanım, sınıf). */
   const havuzHaritasi = new Map(veri.havuz.satirlar.map((s) => [s.key, s]));
 
-  // ————————————————————————————————— parti künyeleri
-  //
-  // Özet HER PARTİ İÇİN kurulur (seçilmiş olsun olmasın): liste satırında
-  // toplam ve kalem sayısı görünmeden kullanıcı hangi teklifi seçeceğini
-  // bilemez.
   /**
-   * HAVUZDA OLMAYAN KALEMİN TEKLİFİ DE GÖRÜNÜR (kullanıcı isteği, 15.08.2026:
-   * plaka teklifi).
+   * KALEMİN KÜNYESİ — havuz konuşuyorsa O, susuyorsa TEKLİFİN KENDİSİ.
    *
-   * PLAKA TEKLİFİNİN ANAHTARI HAVUZDA YOKTUR ve olmamalıdır: havuz `SAC 10 MM
-   * S355JR` (bir İHTİYAÇ) der, plaka teklifi `SAC 10 X 1500 X 6000 ST37` (bir
-   * ÜRÜN) — ikisi ayrı kalemdir ve plaka ölçüsü ancak yerleşimle bilinir
-   * (md. 24). Havuz eşleşmesi ŞART koşulsaydı, kullanıcının yerleşim
-   * ekranından açtığı teklif bu sayfada hiç görünmezdi.
-   *
-   * MİKTAR O ZAMAN BİLİNMEZ ve UYDURULMAZ (`null`): tutar sütunu tire kalır,
-   * karşılaştırma birim fiyat üzerinden yapılır. Sınıf ise stok adından
-   * çözülür — tür şeridi o kalemi de süzebilsin.
+   * Havuz eşleşmesi ŞART DEĞİLDİR (md. 24): plaka teklifinin anahtarı havuzda
+   * yoktur ve olmamalıdır. Miktar `teklifMiktari` ile tek yerde çözülür —
+   * havuzda karşılığı olan kalemde havuz otoriterdir (parçalar değiştikçe o
+   * değişir), plakada ise teklifle birlikte donmuş kilo okunur.
    */
-  const kalemKunyesi = (t: { matchKey: string; sample: string }) => {
+  const kalemKunyesi = (t: TeklifSatiri) => {
     const havuzSatiri = havuzHaritasi.get(t.matchKey);
     if (havuzSatiri) {
-      const m = miktarBul(havuzSatiri);
+      const m = stokMiktari(havuzSatiri);
       return {
         tanim: havuzSatiri.tanim,
         sinif: havuzSatiri.sinif as HammaddeSinifi,
-        miktar: m.miktar,
+        miktar: teklifMiktari(m.miktar, t.qty),
         birim: m.birim,
       };
     }
@@ -139,30 +134,36 @@ export default async function TekliflerPage({
       sinif: (HAMMADDE_SINIFLARI.includes(sinif as HammaddeSinifi)
         ? sinif
         : "DIGER") as HammaddeSinifi,
-      miktar: null,
-      birim: "Kg",
+      miktar: teklifMiktari(null, t.qty),
+      // Birim teklifle birlikte saklanıyorsa o; yoksa hammaddede ticari birim
+      // kilodur (plaka proformasının birimi).
+      birim: t.unit || "Kg",
     };
   };
 
-  const ozetler: PartiOzeti[] = partiler
+  // ————————————————————————————————— firma cevapları (parti künyeleri)
+  //
+  // `requestId` künyeye BURADA eklenir ve gruplamadan sonra düşürülür: ekrana
+  // giden `PartiOzeti` onu taşımaz, çünkü pencere partiyi zaten talebin
+  // içinden okur ve ikinci bir bağ iki gerçek üretirdi.
+  const ozetler: (PartiOzeti & { requestId: string | null })[] = defter.partiler
     .map((p) => {
       const satirlar = p.satirlar
         .filter((t) => tur == null || kalemKunyesi(t).sinif === tur)
         .map((t) => {
           const k = kalemKunyesi(t);
-          const m = { miktar: k.miktar, birim: k.birim };
           return {
             quoteId: t.id,
             key: t.matchKey,
             tanim: k.tanim,
-            miktar: m.miktar,
-            birim: m.birim,
+            miktar: k.miktar,
+            birim: k.birim,
             birimFiyat: t.unitPrice,
             paraBirimi: t.currency,
             kur: t.fxRate,
             birimFiyatEur: t.unitPriceEur,
             tutarEur:
-              m.miktar != null && t.unitPriceEur != null ? m.miktar * t.unitPriceEur : null,
+              k.miktar != null && t.unitPriceEur != null ? k.miktar * t.unitPriceEur : null,
             teslimGun: t.leadTimeDays,
           };
         })
@@ -184,56 +185,92 @@ export default async function TekliflerPage({
         kur: ilk?.fxRate ?? null,
         toplamEur: satirlar.reduce((t, s) => t + (s.tutarEur ?? 0), 0),
         kalemSayisi: satirlar.length,
+        miktarsizKalem: satirlar.filter((s) => s.miktar == null).length,
         satirlar,
+        requestId: p.requestId,
       };
     })
     // TÜR SÜZGECİ SONRASI BOŞALAN PARTİ LİSTEDEN DÜŞER: "0 kalem" yazan bir
     // satır seçilebilir görünür ama karşılaştırmaya hiçbir şey katmaz.
     .filter((p) => p.kalemSayisi > 0);
 
-  // ————————————————————————————————— seçim
-  //
-  // Adreste seçim yoksa AÇIK partilerin hepsi seçilidir: ekranın sorusu "bu
-  // malzemeleri kimden alayım" ve boş bir matris o soruyu cevaplamaz.
-  const istenen = new Set(coklu(sp.p));
-  const secili =
-    istenen.size > 0
-      ? ozetler.filter((p) => istenen.has(p.id))
-      : ozetler.filter((p) => p.status !== "iptal");
+  // ————————————————————————————————— talepler (ekranın satırı)
+  const talepHaritasi = new Map(defter.talepler.map((t) => [t.id, t]));
+  const gruplar = new Map<string, (PartiOzeti & { requestId: string | null })[]>();
+  for (const p of ozetler) {
+    // TALEBİ OLMAYAN PARTİ KAYBOLMAZ, KENDİ BAŞINA BİR TALEP OLUR: migration
+    // uygulanmamış bir ortamda ya da devralınan kayıtta ekran yine çalışır —
+    // yalnız birleştirme/ad değiştirme kapalıdır (`gercek: false`).
+    const anahtar = p.requestId ?? `parti:${p.id}`;
+    const liste = gruplar.get(anahtar);
+    if (liste) liste.push(p);
+    else gruplar.set(anahtar, [p]);
+  }
 
-  // ————————————————————————————————— birleşik matris
-  //
-  // SÜTUN PARTİDİR, TEDARİKÇİ DEĞİL: aynı firmanın iki teklifi iki sütundur ve
-  // ancak öyle ayrı ayrı değerlendirilebilir.
-  const kapsam = [...new Set(secili.flatMap((p) => p.satirlar.map((s) => s.key)))];
-  // KALEM KÜNYESİ SATIRLARDAN OKUNUR, havuzdan DEĞİL: plaka teklifinin
-  // anahtarı havuzda yoktur ve `havuzHaritasi.get(k)!` orada patlardı.
-  const kalemKaynagi = new Map(
-    secili.flatMap((p) => p.satirlar.map((s) => [s.key, s] as const))
-  );
-  const kalemler: KarsilastirmaKalemi[] = kapsam
-    .map((k) => {
-      const s = kalemKaynagi.get(k)!;
-      return { key: k, tanim: s.tanim, miktar: s.miktar, birim: s.birim };
+  const talepler: TalepGorunumu[] = [...gruplar.entries()]
+    .map(([anahtar, partiler]) => {
+      const talep = talepHaritasi.get(anahtar);
+      const sirali = [...partiler].sort(
+        (a, b) => a.quotedAt.localeCompare(b.quotedAt) || a.code.localeCompare(b.code, "tr")
+      );
+
+      // KARŞILAŞTIRMA YALNIZ AÇIK TEKLİFLERDEN KURULUR: iptal edilmiş bir
+      // teklif defterde durur ama yarışa girmez (`loadTeklifler`in kuralı).
+      const acikOlanlar = sirali.filter((p) => p.status !== "iptal");
+      const kapsam = [...new Set(acikOlanlar.flatMap((p) => p.satirlar.map((s) => s.key)))];
+      const kalemKaynagi = new Map(
+        acikOlanlar.flatMap((p) => p.satirlar.map((s) => [s.key, s] as const))
+      );
+      const kalemler: KarsilastirmaKalemi[] = kapsam
+        .map((k) => {
+          const s = kalemKaynagi.get(k)!;
+          return { key: k, tanim: s.tanim, miktar: s.miktar, birim: s.birim };
+        })
+        .sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
+
+      const girdiler: KarsilastirmaTeklifi[] = acikOlanlar.flatMap((p) =>
+        p.satirlar.map((s) => ({
+          key: s.key,
+          // SÜTUN PARTİDİR, TEDARİKÇİ DEĞİL: aynı firmanın iki teklifi iki
+          // sütundur ve ancak öyle ayrı ayrı değerlendirilebilir.
+          sutunKey: p.id,
+          etiket: p.code ? `${p.code} · ${p.supplier}` : p.supplier,
+          tedarikci: p.supplier,
+          birimFiyat: s.birimFiyat,
+          paraBirimi: s.paraBirimi,
+          birimFiyatEur: s.birimFiyatEur,
+          vadeGun: p.vadeGun,
+          teslimGun: s.teslimGun,
+        }))
+      );
+
+      const gunler = sirali.map((p) => p.quotedAt).filter(Boolean).sort();
+      return {
+        id: anahtar,
+        code: talep?.code ?? sirali[0]?.code ?? "",
+        // AD ÜÇ KAYNAKTAN, SIRAYLA: insanın verdiği ad → talebin türetilmiş
+        // adı → kalemlerden anlık türev. Üçüncüsü yalnız talep kaydı olmayan
+        // (devralınan) satırda çalışır ve orada bir ad UYDURMAZ, var olan
+        // kalem adlarını özetler.
+        baslik:
+          talep?.title?.trim() ||
+          talepBasligi([...new Set(sirali.flatMap((p) => p.satirlar.map((s) => s.tanim)))]),
+        gercek: Boolean(talep),
+        partiler: sirali.map((p) => partiKunyesi(p)),
+        tablo: karsilastirmaKur(kalemler, girdiler),
+        kalemSayisi: kapsam.length,
+        firmaSayisi: new Set(acikOlanlar.map((p) => p.supplier)).size,
+        ilkTarih: gunler[0] ?? "",
+        sonTarih: gunler[gunler.length - 1] ?? "",
+        tamameniIptal: acikOlanlar.length === 0,
+      };
     })
-    .sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
+    // EN YENİ ÜSTTE: satınalmacının bugün baktığı teklif dünkü değildir.
+    .sort(
+      (a, b) => b.sonTarih.localeCompare(a.sonTarih) || b.code.localeCompare(a.code, "tr")
+    );
 
-  const girdiler: KarsilastirmaTeklifi[] = secili.flatMap((p) =>
-    p.satirlar.map((s) => ({
-      key: s.key,
-      sutunKey: p.id,
-      etiket: p.code ? `${p.code} · ${p.supplier}` : p.supplier,
-      tedarikci: p.supplier,
-      birimFiyat: s.birimFiyat,
-      paraBirimi: s.paraBirimi,
-      birimFiyatEur: s.birimFiyatEur,
-      vadeGun: p.vadeGun,
-      teslimGun: s.teslimGun,
-    }))
-  );
-
-  const tablo = karsilastirmaKur(kalemler, girdiler);
-
+  // ————————————————————————————————— sipariş penceresinin gerektirdikleri
   const siparisAdetleri = new Map<string, number>();
   for (const s of siparisler) {
     for (const l of s.satirlar) {
@@ -241,25 +278,30 @@ export default async function TekliflerPage({
     }
   }
 
+  const tumAnahtarlar = [
+    ...new Set(talepler.flatMap((t) => t.partiler.flatMap((p) => p.satirlar.map((s) => s.key)))),
+  ];
+
   return (
-    <CompareView
-      tablo={tablo}
-      partiler={ozetler}
-      seciliIdler={secili.map((p) => p.id)}
-      gorunum={gorunum}
+    <QuotesView
+      talepler={talepler}
       tur={tur}
       turSayaclari={HAMMADDE_SINIFLARI.map((s) => ({
         tur: s,
         adet: new Set(
-          partiler
+          defter.partiler
             .flatMap((p) => p.satirlar)
             .filter((t) => kalemKunyesi(t).sinif === s)
             .map((t) => t.matchKey)
         ).size,
       }))}
       siparisAdetleri={[...siparisAdetleri.entries()]}
+      // PAY HARİTASI YALNIZ HAVUZDA KARŞILIĞI OLAN KALEMDE DOLUDUR. Plakanın
+      // payı yoktur ve olamaz: bir plaka onlarca parçanın kaynağıdır ve o bağ
+      // ancak KESİM PLANI yapılırken bilinir (yerleşim ekranı sipariş açarken
+      // onu yazar). Pencere bunu sessizce geçmez, satır altında söyler.
       paylar={Object.fromEntries(
-        kapsam.map((k) => [
+        tumAnahtarlar.map((k) => [
           k,
           (havuzHaritasi.get(k)?.parcalar ?? []).map((p) => ({
             itemNo: p.itemNo,
@@ -269,9 +311,8 @@ export default async function TekliflerPage({
           })),
         ])
       )}
-      birimler={Object.fromEntries(kalemler.map((k) => [k.key, k.birim]))}
       tedarikciler={tedarikciler}
-      defter={defter}
+      defter={tedarikciDefteri}
       siparisNolari={siparisNolari}
       sonKur={sonKur}
       qualities={qualities}

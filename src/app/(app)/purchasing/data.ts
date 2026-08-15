@@ -564,8 +564,31 @@ export interface TeklifPartisi {
   status: string;
   cancelledAt: string | null;
   cancelReason: string;
+  /** Hangi TALEBİN cevabı (migration 20260815000007); yoksa kendi başınadır. */
+  requestId: string | null;
   satirlar: TeklifSatiri[];
 }
+
+/**
+ * TALEP — sorulan soru. Firmaların cevapları `TeklifPartisi` satırlarıdır.
+ *
+ * Kullanıcı kararı (15.08.2026): *"Birkaç firmadan aynı teklifi aldığımda
+ * burada görebileyim."* Ekrandaki liste satırı artık budur.
+ */
+export interface TeklifTalebi {
+  id: string;
+  code: string;
+  title: string;
+  scope: string;
+  status: string;
+  note: string;
+}
+
+/** `loadTeklifler` süzgeci — sorgu kurucusu tipe sarılamadığı için nesne. */
+type TeklifSuzgeci =
+  | { tur: "anahtar"; degerler: string[] }
+  | { tur: "parti"; degerler: string[] }
+  | { tur: "hepsi" };
 
 const TEKLIF_ALANLARI =
   "id, match_key, sample, supplier, unit_price, currency, fx_rate, unit_price_eur, " +
@@ -624,34 +647,72 @@ function teklifEsle(r: Record<string, unknown>): TeklifSatiri {
 export async function loadTeklifler(
   supabase: SupabaseClient,
   keys?: readonly string[],
-  secenekler: { iptalDahil?: boolean } = {}
+  secenekler: { iptalDahil?: boolean; batchIds?: readonly string[] } = {}
 ): Promise<TeklifSatiri[]> {
-  const oku = (alanlar: string) =>
+  // Sorgu kurucusu bir TİPE SARILMAZ (`tumSatirlar`ın uyarısı): supabase-js'in
+  // derin jenerikleri "excessively deep" verir. Süzgeç bu yüzden bir NESNE
+  // olarak taşınır ve kurucunun içinde uygulanır.
+  const oku = (alanlar: string, filtre: TeklifSuzgeci) =>
     tumSatirlar<Record<string, unknown>>((bas, son) => {
       let q = supabase.from("purchase_quotes").select(alanlar);
-      if (keys && keys.length > 0) q = q.in("match_key", keys as string[]);
+      if (filtre.tur === "anahtar") q = q.in("match_key", filtre.degerler);
+      else if (filtre.tur === "parti") q = q.in("batch_id", filtre.degerler);
       // `id` bir EŞİTLİK BOZUCUDUR: aynı gün girilmiş iki teklifin sırası
       // `quoted_at` ile belirlenmez ve sayfalanan sorguda bu satır kaybettirir.
       return q.order("quoted_at", { ascending: false }).order("id").range(bas, son);
     });
 
-  // ZENGİN + DAR: yeni sütunlar yoksa teklifler yine gelir, vade ve teslim
-  // varsayılana düşer (md. 21).
-  let veri: Record<string, unknown>[];
-  try {
-    veri = await oku(TEKLIF_ALANLARI_ZENGIN);
-  } catch {
-    veri = await oku(TEKLIF_ALANLARI);
+  /**
+   * İKİ SORGU, TEK `or(...)` DEĞİL.
+   *
+   * Anahtar ve parti kimliği aynı sorguda `or` ile birleştirilebilirdi ama
+   * PostgREST'in `or` dizgisinde değerler METİN olarak gömülüdür ve
+   * `match_key` içinde virgül, parantez ve tırnak geçebilir — kaçırılmış tek
+   * bir karakter, sessizce YANLIŞ satır kümesi döndürür. İki ayrı sorgu +
+   * kimlikle tekilleştirme bu riski hiç doğurmaz.
+   */
+  const suzgecler: TeklifSuzgeci[] = [];
+  if (keys && keys.length > 0) suzgecler.push({ tur: "anahtar", degerler: [...keys] });
+  if (secenekler.batchIds && secenekler.batchIds.length > 0) {
+    suzgecler.push({ tur: "parti", degerler: [...secenekler.batchIds] });
   }
-  const hepsi = veri.map(teklifEsle);
+  // Hiç süzgeç yoksa TÜMÜ okunur (fiyat arşivinin kullanımı).
+  if (suzgecler.length === 0) suzgecler.push({ tur: "hepsi" });
+
+  // ZENGİN + DAR: yeni sütunlar yoksa teklifler yine gelir, vade ve teslim
+  // varsayılana düşer (md. 21). `batch_id` süzgeci DAR sürümde YOKTUR —
+  // sütunu olmayan bir şemada parti de yoktur, o sorgu sessizce atlanır.
+  const benzersiz = new Map<string, TeklifSatiri>();
+  for (const filtre of suzgecler) {
+    let veri: Record<string, unknown>[];
+    try {
+      veri = await oku(TEKLIF_ALANLARI_ZENGIN, filtre);
+    } catch {
+      if (filtre.tur === "parti") continue;
+      veri = await oku(TEKLIF_ALANLARI, filtre);
+    }
+    for (const r of veri) {
+      const t = teklifEsle(r);
+      benzersiz.set(t.id, t);
+    }
+  }
+
+  const hepsi = [...benzersiz.values()].sort(
+    (a, b) => b.quotedAt.localeCompare(a.quotedAt) || a.id.localeCompare(b.id)
+  );
   return secenekler.iptalDahil ? hepsi : hepsi.filter((t) => t.batchStatus !== "iptal");
 }
 
 const PARTI_ALANLARI =
   "id, code, supplier, quoted_at, scope, note, status, cancelled_at, cancel_reason";
 
+/** `request_id` 20260815000007 ile geliyor — ZENGİN + DAR (md. 21). */
+const PARTI_ALANLARI_ZENGIN = `${PARTI_ALANLARI}, request_id`;
+
+const TALEP_ALANLARI = "id, code, title, scope, status, note";
+
 /**
- * TEKLİF PARTİLERİ — karşılaştırma sayfasının omurgası.
+ * TEKLİF PARTİLERİ — teklifler sayfasının omurgası.
  *
  * Satırlar AYRI okunur ve burada gruplanır: gömülü bir `purchase_quotes (...)`
  * seçimi sayfalamayı parti başına yapardı ve otuz kalemlik bir teklifte
@@ -661,35 +722,81 @@ const PARTI_ALANLARI =
  * parti silinmişse satırlar (tedarikçi, tarih) ikilisinde toplanır ve kodsuz
  * bir parti olarak görünür — kodsuz bir teklif, görünmeyen bir teklifden
  * iyidir.
+ *
+ * ═══════════════════════════ KAPSAM, ANAHTAR LİSTESİNİN YERİNE GEÇMEZ — EKLENİR
+ *
+ * Kullanıcı bildirimi (15.08.2026): *"Fiyat girdiğimde de teklif karşılaştırma
+ * bölümüne düşmüyor. Ancak tekliflere kaydedildi diye uyarı geliyor."* Ölçüldü
+ * ve doğruydu: kayıt yapılıyor, sayfa okumuyordu. Sebebi tek bir süzgeçti —
+ * teklifler YALNIZ havuz anahtarlarıyla isteniyordu ve **plaka teklifinin
+ * anahtarı havuzda YOKTUR** (`SAC 12 X 1500 X 3000 S235JR` bir ÜRÜN,
+ * havuzdaki `SAC 12 MM S235JR` bir İHTİYAÇtır — md. 24 bunu açıkça söylüyor
+ * ve sayfa da bu duruma hazırlıklıydı; eksik olan bir kat aşağıdaydı).
+ *
+ * Artık iki küme BİRLEŞTİRİLİR: (a) anahtarı havuzda geçen satırlar,
+ * (b) kapsamı bu ekran olan PARTİLERİN bütün satırları. Kapsamı tek başına
+ * kullanmak da yanlış olurdu — devralınan kodsuz satırların partisi yoktur.
  */
-export async function loadTeklifPartileri(
+export async function loadTeklifDefteri(
   supabase: SupabaseClient,
   keys?: readonly string[],
   secenekler: { scope?: string } = {}
-): Promise<TeklifPartisi[]> {
-  const satirlar = await loadTeklifler(supabase, keys, { iptalDahil: true });
+): Promise<{ partiler: TeklifPartisi[]; talepler: TeklifTalebi[] }> {
+  // ————————————————————————————————— 1. parti künyeleri
+  const partiOku = async (alanlar: string) =>
+    supabase
+      .from("purchase_quote_batches")
+      .select(alanlar)
+      .order("quoted_at", { ascending: false })
+      .order("code");
 
-  let sorgu = supabase.from("purchase_quote_batches").select(PARTI_ALANLARI);
-  if (secenekler.scope) sorgu = sorgu.eq("scope", secenekler.scope);
-  const { data, error } = await sorgu.order("quoted_at", { ascending: false }).order("code");
-
-  const partiler = new Map<string, TeklifPartisi>();
-  if (!error) {
-    for (const r of (data ?? []) as Record<string, unknown>[]) {
-      partiler.set(String(r.id), {
-        id: String(r.id),
-        code: String(r.code ?? ""),
-        supplier: String(r.supplier ?? ""),
-        quotedAt: String(r.quoted_at ?? ""),
-        scope: String(r.scope ?? "hammadde"),
-        note: String(r.note ?? ""),
-        status: String(r.status ?? "acik"),
-        cancelledAt: (r.cancelled_at as string | null) ?? null,
-        cancelReason: String(r.cancel_reason ?? ""),
-        satirlar: [],
-      });
+  let partiVerisi: Record<string, unknown>[] = [];
+  let talepSutunuVar = true;
+  {
+    const zengin = await partiOku(PARTI_ALANLARI_ZENGIN);
+    if (zengin.error) {
+      talepSutunuVar = false;
+      const dar = await partiOku(PARTI_ALANLARI);
+      partiVerisi = dar.error ? [] : ((dar.data ?? []) as unknown as Record<string, unknown>[]);
+    } else {
+      partiVerisi = (zengin.data ?? []) as unknown as Record<string, unknown>[];
     }
   }
+
+  const partiler = new Map<string, TeklifPartisi>();
+  for (const r of partiVerisi) {
+    partiler.set(String(r.id), {
+      id: String(r.id),
+      code: String(r.code ?? ""),
+      supplier: String(r.supplier ?? ""),
+      quotedAt: String(r.quoted_at ?? ""),
+      scope: String(r.scope ?? "hammadde"),
+      note: String(r.note ?? ""),
+      status: String(r.status ?? "acik"),
+      cancelledAt: (r.cancelled_at as string | null) ?? null,
+      cancelReason: String(r.cancel_reason ?? ""),
+      requestId: (r.request_id as string | null) ?? null,
+      satirlar: [],
+    });
+  }
+
+  // ————————————————————————————————— 2. satırlar (anahtar ∪ kapsam)
+  const kapsamPartileri = secenekler.scope
+    ? [...partiler.values()].filter((p) => p.scope === secenekler.scope).map((p) => p.id)
+    : [];
+
+  // İKİ SÜZGEÇ DE BOŞSA SORGU HİÇ KOŞMAZ. `loadTeklifler` süzgeçsiz
+  // çağrıldığında TÜMÜNÜ okur (fiyat arşivinin kullanımı) — kapsam isteyen bir
+  // çağrıya bütün defteri döndürmek, havuzu boş bir kurulumda hammadde
+  // ekranını ekipman teklifleriyle doldururdu.
+  if (secenekler.scope && (keys?.length ?? 0) === 0 && kapsamPartileri.length === 0) {
+    return { partiler: [], talepler: [] };
+  }
+
+  const satirlar = await loadTeklifler(supabase, keys, {
+    iptalDahil: true,
+    batchIds: kapsamPartileri,
+  });
 
   /** Kodsuz satırlar için sanal parti — kaybolmasınlar. */
   const sanal = new Map<string, TeklifPartisi>();
@@ -714,6 +821,7 @@ export async function loadTeklifPartileri(
         status: "acik",
         cancelledAt: null,
         cancelReason: "",
+        requestId: null,
         satirlar: [],
       };
       sanal.set(anahtar, s);
@@ -723,9 +831,43 @@ export async function loadTeklifPartileri(
 
   // BOŞ PARTİ LİSTEDE DURMAZ: satırları silinmiş bir teklif bir teklif
   // değildir; künyesi defterde kalır ama ekranda gürültü eder.
-  return [...partiler.values(), ...sanal.values()]
-    .filter((p) => p.satirlar.length > 0)
+  //
+  // KAPSAM DIŞI PARTİ DE DURMAZ: bir ekipman teklifinin satırı yalnız
+  // anahtarı hammadde havuzunda geçtiği için okunmuş olabilir; o parti bu
+  // ekranın sorusunun cevabı değildir. (Kapsamı BİLİNMEYEN devralınan parti
+  // istisnadır: onu ancak anahtarı konuşturur ve anahtar onu buraya getirdiyse
+  // yeri burasıdır.)
+  const kapsamUygun = (p: TeklifPartisi) =>
+    !secenekler.scope ||
+    p.scope === secenekler.scope ||
+    p.scope === "" ||
+    p.satirlar.some((t) => keys?.includes(t.matchKey));
+
+  const liste = [...partiler.values(), ...sanal.values()]
+    .filter((p) => p.satirlar.length > 0 && kapsamUygun(p))
     .sort((a, b) => b.quotedAt.localeCompare(a.quotedAt) || a.code.localeCompare(b.code, "tr"));
+
+  // ————————————————————————————————— 3. talepler
+  const talepIdler = [...new Set(liste.map((p) => p.requestId).filter(Boolean))] as string[];
+  let talepler: TeklifTalebi[] = [];
+  if (talepSutunuVar && talepIdler.length > 0) {
+    const { data, error } = await supabase
+      .from("purchase_quote_requests")
+      .select(TALEP_ALANLARI)
+      .in("id", talepIdler);
+    if (!error) {
+      talepler = ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id),
+        code: String(r.code ?? ""),
+        title: String(r.title ?? ""),
+        scope: String(r.scope ?? "hammadde"),
+        status: String(r.status ?? "acik"),
+        note: String(r.note ?? ""),
+      }));
+    }
+  }
+
+  return { partiler: liste, talepler };
 }
 
 export interface SiparisSatiri {

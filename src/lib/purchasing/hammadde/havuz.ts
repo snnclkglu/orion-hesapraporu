@@ -637,6 +637,36 @@ export function hamAnahtar(tanim: string): string {
 }
 
 /**
+ * STOK KALEMİNİN MİKTARI VE BİRİMİ — sınıfa göre değişir, kural TEK YERDE.
+ *
+ * Sac PLAKA ile alınır ama plaka adedi ancak yerleşim yapılınca bilinir; o
+ * yüzden sacda birim KİLODUR (tedarikçi de tonaj konuşur). Profil, ray ve
+ * boruda BOY adedi vardır. Dolu malzemede yine kilo.
+ *
+ * Sayı UYDURULMAZ: hesaplanamıyorsa `null` döner ve pencere adedi kullanıcıya
+ * sorar.
+ *
+ * ═════════════════ FONKSİYON ÜÇ EKRANDA AYRI AYRI YAZILMIŞTI VE AYRIŞMIŞTI
+ *
+ * Havuz tablosu `Math.ceil`, teklif karşılaştırması `Math.round` kullanıyordu
+ * (ölçüldü, 15.08.2026): aynı kalem bir ekranda 361 kg, öbüründe 360 kg
+ * görünebiliyordu ve teklif tutarı ekranlar arasında oynardı. Doğrusu YUKARI
+ * YUVARLAMAKtır — eksik sipariş verdiren bir yuvarlama, fazladan bir kilodan
+ * çok daha pahalıdır.
+ */
+export function stokMiktari(s: {
+  boyAdedi: number | null;
+  toplamAgirlikKg: number | null;
+  parcaAdedi: number;
+}): { miktar: number | null; birim: string } {
+  if (s.boyAdedi != null && s.boyAdedi > 0) return { miktar: s.boyAdedi, birim: "Boy" };
+  if (s.toplamAgirlikKg != null && s.toplamAgirlikKg > 0) {
+    return { miktar: Math.ceil(s.toplamAgirlikKg), birim: "Kg" };
+  }
+  return { miktar: s.parcaAdedi > 0 ? s.parcaAdedi : null, birim: "Adet" };
+}
+
+/**
  * ELLE TAŞINAN SATIRIN STOK KALEMİ.
  *
  * Kullanıcı bir satırı "Boru"dan "Dolu"ya taşıdığında adı da taşınmalıdır;

@@ -18,9 +18,16 @@ import {
   yerlesimDenetimi,
   type YerlesimParcasi,
 } from "@/lib/purchasing/hammadde/nesting";
+import {
+  karsilastirmaKur,
+  type KarsilastirmaKalemi,
+  type KarsilastirmaTeklifi,
+} from "@/lib/purchasing/hammadde/karsilastirma";
 import { PLAKA_BOYLARI, PLAKA_ENLERI } from "@/lib/purchasing/hammadde/siniflar";
 import { RawTable } from "@/app/(app)/purchasing/hammadde/raw-table";
 import { NestingView, type YerlesimGrubu } from "@/app/(app)/purchasing/hammadde/yerlesim/nesting-view";
+import { QuotesView } from "@/app/(app)/purchasing/hammadde/teklifler/quotes-view";
+import type { PartiOzeti, TalepGorunumu } from "@/app/(app)/purchasing/hammadde/teklifler/types";
 
 const PAKETLER: HammaddePaketi[] = [
   {
@@ -87,6 +94,130 @@ const HAM: [string, string, string, number][] = [
   ["RAYALTI LASTİĞİ, 8x220x12000mm DKP SACLI", "-", "Makas", 21],
   ["KANCA DIN 15401-NR.16 T", "S235JR", "Talaşlı İmalat", 1],
 ];
+
+// ————————————————————————————————————————— TEKLİFLER FİKSTÜRÜ
+//
+// SAYILAR KULLANICININ KENDİ ÇALIŞMA DOSYASINDANDIR (15.08.2026 ekran
+// görüntüsü): üç HEA profili, üç firma, toplamlar 266.240 · 261.165 · 298.685.
+// `karsilastirma.test.ts` de aynı fikstürü doğruluyor — önizleme ile test aynı
+// gerçeği gösterir ve ekranda çıkan sayı testte geçen sayıdır.
+const TEKLIF_KALEMLERI: KarsilastirmaKalemi[] = [
+  { key: "HEA 120 S235JR", tanim: "HEA 120 S235JR", miktar: 360, birim: "Kg" },
+  { key: "HEA 200 S235JR", tanim: "HEA 200 S235JR", miktar: 2550, birim: "Kg" },
+  { key: "HEA 240 S235JR", tanim: "HEA 240 S235JR", miktar: 3620, birim: "Kg" },
+];
+
+const TEKLIF_FIRMALARI: {
+  id: string;
+  code: string;
+  supplier: string;
+  quotedAt: string;
+  vadeGun: number;
+  /** kalem sırası TEKLIF_KALEMLERI ile aynı: [birim fiyat, teslim günü]. */
+  fiyatlar: [number, number | null][];
+}[] = [
+  {
+    id: "b1",
+    code: "TK0011",
+    supplier: "EAG DEMİR",
+    quotedAt: "2026-08-14",
+    vadeGun: 90,
+    fiyatlar: [
+      [38, 20],
+      [38, 0],
+      [43, 0],
+    ],
+  },
+  {
+    id: "b2",
+    code: "TK0012",
+    supplier: "ARCELORMİTTAL RZK ÇELİK",
+    quotedAt: "2026-08-15",
+    vadeGun: 90,
+    fiyatlar: [
+      [37.5, 0],
+      [37.5, 0],
+      [42, 0],
+    ],
+  },
+  {
+    id: "b3",
+    code: "TK0013",
+    supplier: "HAKAN SAC METAL",
+    quotedAt: "2026-08-15",
+    vadeGun: 60,
+    fiyatlar: [
+      [42.5, 0],
+      [43.7, 0],
+      [47.5, 0],
+    ],
+  },
+];
+
+function teklifFiksturu(): TalepGorunumu {
+  const partiler: PartiOzeti[] = TEKLIF_FIRMALARI.map((f) => {
+    const satirlar = TEKLIF_KALEMLERI.map((k, i) => {
+      const [fiyat, teslim] = f.fiyatlar[i];
+      return {
+        quoteId: `${f.id}-${i}`,
+        key: k.key,
+        tanim: k.tanim,
+        miktar: k.miktar,
+        birim: k.birim,
+        birimFiyat: fiyat,
+        paraBirimi: "EUR",
+        kur: 1,
+        birimFiyatEur: fiyat,
+        tutarEur: (k.miktar ?? 0) * fiyat,
+        teslimGun: teslim,
+      };
+    });
+    return {
+      id: f.id,
+      code: f.code,
+      supplier: f.supplier,
+      quotedAt: f.quotedAt,
+      status: "acik",
+      note: "",
+      cancelReason: "",
+      vadeGun: f.vadeGun,
+      paraBirimi: "EUR",
+      kur: 1,
+      toplamEur: satirlar.reduce((t, s) => t + (s.tutarEur ?? 0), 0),
+      kalemSayisi: satirlar.length,
+      miktarsizKalem: 0,
+      satirlar,
+    };
+  });
+
+  const girdiler: KarsilastirmaTeklifi[] = partiler.flatMap((p) =>
+    p.satirlar.map((s) => ({
+      key: s.key,
+      sutunKey: p.id,
+      etiket: `${p.code} · ${p.supplier}`,
+      tedarikci: p.supplier,
+      birimFiyat: s.birimFiyat,
+      paraBirimi: s.paraBirimi,
+      birimFiyatEur: s.birimFiyatEur,
+      vadeGun: p.vadeGun,
+      teslimGun: s.teslimGun,
+    }))
+  );
+
+  return {
+    id: "t1",
+    code: "TT0004",
+    baslik: "HEA 120 S235JR + 2 kalem",
+    gercek: true,
+    partiler,
+    tablo: karsilastirmaKur(TEKLIF_KALEMLERI, girdiler),
+    kalemSayisi: TEKLIF_KALEMLERI.length,
+    firmaSayisi: partiler.length,
+    ilkTarih: "2026-08-14",
+    sonTarih: "2026-08-15",
+    tamameniIptal: false,
+  };
+}
 
 export default function HammaddePreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
@@ -193,6 +324,27 @@ export default function HammaddePreviewPage() {
           // yalnız yetkili kullanıcıda çizilir; kapalıyken önizleme onları hiç
           // göstermiyor ve düğmelerin yerleşimi buradan denetlenemiyordu.
           canWrite
+        />
+      </section>
+
+      {/* ÜÇÜNCÜ EKRAN: TEKLİFLER. Listeye tıklayınca açılan pencere asıl görsel
+          riski taşıyor — üç firma altı sütun demektir ve sütun grubunun kime
+          ait olduğu tek bakışta anlaşılmalı. */}
+      <section className="grid gap-3">
+        <h2 className="oc-kicker text-muted-foreground">Teklifler</h2>
+        <QuotesView
+          talepler={[teklifFiksturu()]}
+          tur={null}
+          turSayaclari={[{ tur: "PROFIL", adet: 3 }]}
+          siparisAdetleri={[]}
+          paylar={{}}
+          tedarikciler={["EAG DEMİR", "ARCELORMİTTAL RZK ÇELİK", "HAKAN SAC METAL"]}
+          defter={[]}
+          siparisNolari={[]}
+          sonKur={null}
+          qualities={["S235JR", "S355JR"]}
+          canWrite
+          isAdmin
         />
       </section>
     </div>

@@ -60,7 +60,18 @@ import {
 } from "@/lib/purchasing/terms";
 import { orderVatTotals, vatRateOf } from "@/lib/purchasing/vat";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
+import {
+  SIPARIS_TURU_ETIKET,
+  SIPARIS_TURU_TONU,
+  siparisKilosu,
+  siparisTuru,
+  turSuzgeciUyuyor,
+  type SiparisTuru,
+} from "@/lib/purchasing/siparis-turu";
+import { alimKategorisi } from "@/lib/purchasing/hammadde/alim-analizi";
+import { HAMMADDE_ADLARI } from "@/lib/purchasing/hammadde/siniflar";
 import { hueFromText } from "@/lib/tags";
+import { cn } from "@/lib/utils";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
 import { CokluSuzgec } from "../filters";
 import { KipSecici, PanoKabugu } from "../board-ui";
@@ -126,9 +137,16 @@ interface Filtreler {
   tedarikciler: string[];
   durumlar: string[];
   isler: string[];
+  /** Sipariş türü — hammadde · ekipman · karma (md. 21, 15.08.2026). */
+  turler: string[];
 }
 
-const BOS: Filtreler = { query: "", tedarikciler: [], durumlar: [], isler: [] };
+const BOS: Filtreler = { query: "", tedarikciler: [], durumlar: [], isler: [], turler: [] };
+
+/** Kalem türünün ekrandaki adı — çekirdek ASCII konuşur, ekran Türkçe. */
+function kategoriAdi(k: string): string {
+  return (HAMMADDE_ADLARI as Record<string, string>)[k] ?? k;
+}
 
 export function OrdersView({
   siparisler,
@@ -137,6 +155,7 @@ export function OrdersView({
   siparisNolari,
   sonKur,
   qualities = [],
+  baslangicTurleri = [],
   canWrite,
   isAdmin,
 }: {
@@ -150,13 +169,22 @@ export function OrdersView({
   sonKur?: GunlukKur | null;
   /** Marka/Kalite öneri listesi (md. 16). */
   qualities?: string[];
+  /**
+   * ADRESTEN GELEN TÜR SÜZGECİ (`?tur=hammadde`).
+   *
+   * Hammadde rayındaki "Siparişler" sekmesi bu ekrana buradan girer: iki ayrı
+   * sipariş sayfası kalktı ama hammaddecinin kapısı kalmalı. Süzgeç bir
+   * BAŞLANGIÇtır, bir hapis değil — kullanıcı "Temizle" ile bütün defteri
+   * görür (havuzun açılış süzgeci kuralının aynısı).
+   */
+  baslangicTurleri?: string[];
   canWrite: boolean;
   /** Yönetici mi — iptal edilmiş siparişi SİLEBİLİR. */
   isAdmin: boolean;
 }) {
   const router = useRouter();
   const [calisiyor, basla] = useTransition();
-  const [f, setF] = useState<Filtreler>(BOS);
+  const [f, setF] = useState<Filtreler>({ ...BOS, turler: baslangicTurleri });
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [duzenlenen, setDuzenlenen] = useState<Siparis | null>(null);
   const [silinecek, setSilinecek] = useState<Siparis | null>(null);
@@ -170,6 +198,22 @@ export function OrdersView({
     []
   );
 
+  /**
+   * TÜR VE KİLO SİPARİŞ BAŞINA BİR KEZ ÇÖZÜLÜR.
+   *
+   * `siparisTuru` her satırın adını okuyor; süzgeçte, satırda ve özet
+   * kartında ayrı ayrı çağırmak aynı işi üç kez yapardı ve üç yerin
+   * ayrışabilmesi demekti (`stokMiktari` dersinin aynısı).
+   */
+  const kunye = useMemo(() => {
+    const m = new Map<string, { tur: SiparisTuru; kg: number; kiloDisiSatir: number }>();
+    for (const s of siparisler) {
+      m.set(s.id, { tur: siparisTuru(s.satirlar), ...siparisKilosu(s.satirlar) });
+    }
+    return m;
+  }, [siparisler]);
+  const turOf = (s: Siparis): SiparisTuru => kunye.get(s.id)?.tur ?? "ekipman";
+
   const secenekler = useMemo(() => {
     const say = (fn: (s: Siparis) => string[]) => {
       const m = new Map<string, number>();
@@ -179,6 +223,7 @@ export function OrdersView({
     const ted = say((s) => [s.supplier]);
     const dur = say((s) => [durumu(s)]);
     const is = say(isNolari);
+    const tur = say((s) => [kunye.get(s.id)?.tur ?? "ekipman"]);
     return {
       tedarikciler: [...ted.keys()]
         .sort((a, b) => a.localeCompare(b, "tr"))
@@ -189,8 +234,13 @@ export function OrdersView({
       isler: [...is.keys()]
         .sort((a, b) => a.localeCompare(b, "tr"))
         .map((v) => ({ value: v, label: v, count: is.get(v) })),
+      // SAYAÇ ZORUNLUDUR: sayısız bir süzgeçte kullanıcı "hiçbir şey değişmedi"
+      // der ve haklıdır — değişimi ölçeceği bir şey yoktur (md. 24'ün dersi).
+      turler: (["hammadde", "ekipman", "karma"] as SiparisTuru[])
+        .filter((t) => tur.has(t))
+        .map((t) => ({ value: t, label: SIPARIS_TURU_ETIKET[t], count: tur.get(t) })),
     };
-  }, [siparisler, isNolari]);
+  }, [siparisler, isNolari, kunye]);
 
   const gorunen = useMemo(() => {
     const q = f.query.trim().toLocaleLowerCase("tr-TR");
@@ -201,13 +251,15 @@ export function OrdersView({
       if (ted.size > 0 && !ted.has(s.supplier)) return false;
       if (dur.size > 0 && !dur.has(durumu(s))) return false;
       if (is.size > 0 && !isNolari(s).some((n) => is.has(n))) return false;
+      // KARMA SİPARİŞ İKİ SÜZGECE DE GİRER — kuralı çekirdek söyler.
+      if (!turSuzgeciUyuyor(kunye.get(s.id)?.tur ?? "ekipman", f.turler)) return false;
       if (!q) return true;
       return [s.supplier, s.orderNo, s.note, ...s.satirlar.map((l) => `${l.sample} ${l.itemNo}`)]
         .join(" ")
         .toLocaleLowerCase("tr-TR")
         .includes(q);
     });
-  }, [siparisler, f, isNolari]);
+  }, [siparisler, f, isNolari, kunye]);
 
   function yaz(id: string, alanlar: OrderPatch, mesaj: string) {
     basla(async () => {
@@ -258,6 +310,15 @@ export function OrdersView({
       0
     );
 
+  // TOPLAM SÜZGECİ İZLER: ekranda ne görünüyorsa onun kilosudur (havuz
+  // tablosunun kuralı). İptaller sayılmaz — verilmemiş bir sipariş bir alım
+  // değildir.
+  const toplamKg = acikSiparis.reduce((t, s) => t + (kunye.get(s.id)?.kg ?? 0), 0);
+  const kiloDisiSatir = acikSiparis.reduce(
+    (t, s) => t + (kunye.get(s.id)?.kiloDisiSatir ?? 0),
+    0
+  );
+
   // ————————————————————————————————————————————————————————————— pano
   const tedarikciCubuklari = useMemo(
     () =>
@@ -299,13 +360,27 @@ export function OrdersView({
 
   return (
     <div className="grid gap-3">
-      <section className="grid gap-2 border bg-card p-3 sm:grid-cols-4">
+      <section className="grid gap-2 border bg-card p-3 sm:grid-cols-3 lg:grid-cols-5">
         <Ozet baslik="Açık Sipariş" deger={formatNum(acikSiparis.length)} />
         <Ozet
           baslik="Teslim Bekleyen"
           deger={formatNum(acikSiparis.filter((s) => !s.receivedAt).length)}
         />
         <Ozet baslik="Ödenmemiş (KDV Dahil, €)" deger={fmtMoney(bekleyenTutar, "EUR")} />
+        {/* KİLO ORTAK EKRANA BURADAN GİRDİ: hammaddenin sorusu *"bu ay kaç ton
+            sac aldık"* ve ayrı bir sipariş sayfasının tek gerçek gerekçesi
+            buydu. Ekipman siparişlerinde sayı sıfırdır ve kart o zaman ne
+            olduğunu SÖYLER — boş bir kutu "veri yok" mu "sıfır" mı belli
+            olmazdı. */}
+        <Ozet
+          baslik="Toplam Miktar"
+          deger={`${formatNum(Math.round(toplamKg))} kg`}
+          alt={
+            kiloDisiSatir > 0
+              ? `${formatNum(kiloDisiSatir)} satır kilo dışı birimde`
+              : "kilo birimli satırlar"
+          }
+        />
         <div className="flex items-end justify-end">
           <Button
             type="button"
@@ -389,6 +464,14 @@ export function OrdersView({
           onChange={(v) => setF((s) => ({ ...s, query: v }))}
           placeholder="Tedarikçi, Sipariş No, Kalem Ara…"
           className="w-[min(18rem,calc(100vw-4rem))]"
+        />
+        {/* TÜR SÜZGECİ EN SOLDA: iki sipariş sayfasının yerine geçen şey budur
+            ve satınalmacının ilk daralttığı eksen odur. */}
+        <CokluSuzgec
+          baslik="Tür"
+          secenekler={secenekler.turler}
+          secili={f.turler}
+          onChange={(v) => setF((s) => ({ ...s, turler: v }))}
         />
         <CokluSuzgec
           baslik="Tedarikçi"
@@ -488,6 +571,7 @@ export function OrdersView({
                 <TableHead>Sipariş</TableHead>
                 <TableHead>Termin</TableHead>
                 <TableHead className="hidden lg:table-cell">Ödeme</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">Miktar</TableHead>
                 <TableHead className="text-right">Tutar (KDV Hariç)</TableHead>
                 <TableHead>Durum</TableHead>
               </TableRow>
@@ -501,9 +585,22 @@ export function OrdersView({
                 const odeme = odemeGunu(s);
                 const kalanGun = gunFarki(s.dueAt);
                 const avans = advanceAmount(toplamlar.gross, s.advancePct, s.advanceAmount);
+                const tur = turOf(s);
+                const kg = kunye.get(s.id)?.kg ?? 0;
+                const kiloDisi = kunye.get(s.id)?.kiloDisiSatir ?? 0;
                 return (
                   <>
-                    <TableRow key={s.id} className={s.cancelledAt ? "opacity-50" : undefined}>
+                    {/* SATIRIN ZEMİNİ TÜRÜ SÖYLER (kullanıcı isteği,
+                        15.08.2026: *"hammadde ve ekipman satırların arka planı
+                        farklı renk olsun, göze çarpsın"*). Ton VERİDEN, ayar
+                        `globals.css`ten (md. 14). Renk TEK TAŞIYICI DEĞİLDİR:
+                        aynı bilgi tedarikçi hücresindeki çipte YAZIYLA da
+                        durur — renk körlüğünde satır bilgisiz kalmamalı. */}
+                    <TableRow
+                      key={s.id}
+                      className={cn("oc-row-hue", s.cancelledAt && "opacity-50")}
+                      style={{ "--oc-hue": SIPARIS_TURU_TONU[tur] } as React.CSSProperties}
+                    >
                       <TableCell className="p-0 align-top">
                         <button
                           type="button"
@@ -527,7 +624,15 @@ export function OrdersView({
                         </button>
                       </TableCell>
                       <TableCell className="align-top whitespace-normal">
-                        <span className="block text-[13px] font-medium">{s.supplier}</span>
+                        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                          <span className="text-[13px] font-medium">{s.supplier}</span>
+                          <span
+                            className="oc-tag px-1.5 py-0 text-[10px] font-medium"
+                            style={{ "--oc-hue": SIPARIS_TURU_TONU[tur] } as React.CSSProperties}
+                          >
+                            {SIPARIS_TURU_ETIKET[tur]}
+                          </span>
+                        </span>
                         <span className="block font-mono text-[11px] text-muted-foreground">
                           {formatNum(s.satirlar.length)} kalem
                           {isNolari(s).length > 0 && ` · ${isNolari(s).join(", ")}`}
@@ -583,6 +688,26 @@ export function OrdersView({
                           </span>
                         )}
                       </TableCell>
+                      {/* MİKTAR: hammaddede KİLO, ekipmanda anlamsız. Kilo dışı
+                          satırlar sessizce düşürülmez, "+n" ile sayılır. */}
+                      <TableCell className="hidden align-top text-right font-mono text-[12px] whitespace-nowrap tabular-nums lg:table-cell">
+                        {kg > 0 ? (
+                          <>
+                            {formatNum(Math.round(kg))}
+                            <span className="ml-1 text-[10px] text-muted-foreground">kg</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        {kiloDisi > 0 && (
+                          <span
+                            className="block text-[10px] text-muted-foreground"
+                            title={`${kiloDisi} satır kilo dışı birimde (boy/adet)`}
+                          >
+                            +{formatNum(kiloDisi)} satır
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="align-top text-right font-mono text-[13px] tabular-nums">
                         {fmtMoney(toplam, s.currency)}
                         {eur != null && s.currency !== "EUR" && (
@@ -626,32 +751,48 @@ export function OrdersView({
 
                     {genis && (
                       <TableRow key={`${s.id}-detay`} className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={8} className="whitespace-normal p-0">
+                        <TableCell colSpan={9} className="whitespace-normal p-0">
                           <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
+                            {/* KALEM DETAYI İKİ EKRANIN BİRLEŞİMİDİR: ticari
+                                sütunlar (KDV, KDV dahil) ekipmandan, TÜR ·
+                                KALİTE · TESLİM hammadde ekranından geldi.
+                                Üçü de her siparişte anlamlıdır — bir rulmanın
+                                da markası ve kısmi teslimi olur. */}
                             <table className="w-full text-[12px]">
                               <thead className="text-muted-foreground">
                                 <tr>
                                   <th className="py-1 pr-3 text-left font-normal">Kalem</th>
+                                  <th className="py-1 pr-3 text-left font-normal">Tür</th>
                                   <th className="py-1 pr-3 text-left font-normal">İş</th>
-                                  <th className="py-1 pr-3 text-right font-normal">Adet</th>
+                                  <th className="py-1 pr-3 text-left font-normal">Marka/Kalite</th>
+                                  <th className="py-1 pr-3 text-right font-normal">Miktar</th>
                                   <th className="py-1 pr-3 text-right font-normal">
                                     Birim (KDV Hariç)
                                   </th>
                                   <th className="py-1 pr-3 text-right font-normal">KDV</th>
                                   <th className="py-1 pr-3 text-right font-normal">Tutar</th>
-                                  <th className="py-1 text-right font-normal">KDV Dahil</th>
+                                  <th className="py-1 pr-3 text-right font-normal">KDV Dahil</th>
+                                  <th className="py-1 text-right font-normal">Teslim</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {s.satirlar.map((l) => {
                                   const oran = vatRateOf(l.vatRate);
                                   const net = l.qty * (l.unitPrice ?? 0);
+                                  const kategori = alimKategorisi(l.sample);
                                   return (
                                     <tr key={l.id} className="border-t border-border/50">
                                       <td className="py-1 pr-3">{l.sample}</td>
+                                      <td className="py-1 pr-3 text-muted-foreground">
+                                        {kategori === "DIGER" ? "Ekipman" : kategoriAdi(kategori)}
+                                      </td>
                                       <td className="py-1 pr-3 font-mono">{l.itemNo || "—"}</td>
-                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
-                                        {formatNum(l.qty)}
+                                      <td className="py-1 pr-3">{l.quality || "—"}</td>
+                                      <td className="py-1 pr-3 text-right font-mono whitespace-nowrap tabular-nums">
+                                        {formatNum(l.qty)}{" "}
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {l.unit}
+                                        </span>
                                       </td>
                                       <td className="py-1 pr-3 text-right font-mono tabular-nums">
                                         {l.unitPrice == null
@@ -664,8 +805,24 @@ export function OrdersView({
                                       <td className="py-1 pr-3 text-right font-mono tabular-nums">
                                         {fmtMoney(net, s.currency)}
                                       </td>
-                                      <td className="py-1 text-right font-mono tabular-nums">
+                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
                                         {fmtMoney(net * (1 + oran / 100), s.currency)}
+                                      </td>
+                                      {/* TESLİM SATIRDAN OKUNUR (`received_qty`),
+                                          başlıktan değil: kısmi teslim en sık
+                                          görülen hâldir ve "geldi/gelmedi" onu
+                                          anlatamaz. */}
+                                      <td
+                                        className={cn(
+                                          "py-1 text-right font-mono tabular-nums",
+                                          l.receivedQty >= l.qty
+                                            ? "text-emerald-700 dark:text-emerald-400"
+                                            : l.receivedQty > 0
+                                              ? "text-amber-700 dark:text-amber-400"
+                                              : "text-muted-foreground"
+                                        )}
+                                      >
+                                        {formatNum(l.receivedQty)} / {formatNum(l.qty)}
                                       </td>
                                     </tr>
                                   );
@@ -892,11 +1049,14 @@ const Cip = forwardRef<
   );
 });
 
-function Ozet({ baslik, deger }: { baslik: string; deger: string }) {
+function Ozet({ baslik, deger, alt }: { baslik: string; deger: string; alt?: string }) {
   return (
     <div>
       <span className="oc-kicker block text-muted-foreground">{baslik}</span>
       <span className="block font-mono text-lg tabular-nums">{deger}</span>
+      {/* ALT SATIR SAYININ KAPSAMINI SÖYLER: "56.213 kg" tek başına "hepsi bu
+          mu" sorusunu cevaplamaz; kilo dışı birimdeki satırlar orada yazar. */}
+      {alt && <span className="block text-[11px] text-muted-foreground">{alt}</span>}
     </div>
   );
 }

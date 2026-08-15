@@ -1,8 +1,25 @@
-// Siparişler — açılmış siparişlerin defteri.
+// Siparişler — açılmış siparişlerin defteri. TEK sipariş ekranı.
 //
 // Talep Havuzu "ne lazım" der; bu ekran "ne verdik" der. İkisi ayrı sayfadadır
 // çünkü ayrı sorulardır: havuzda satır KALEMdir, burada satır SİPARİŞtir ve bir
 // sipariş birden çok kalemi, birden çok projeyi taşır (md. 7).
+//
+// ═══════════════════════════ İKİNCİ SİPARİŞ EKRANI KALDIRILDI (15.08.2026)
+//
+// Kullanıcı kararı: *"Hammadde bölümündeki siparişler sayfasını Satın Alma
+// Siparişler sayfasıyla birleştirsek. İki ayrı siparişler sayfası olmasa güzel
+// olur. … Siparişler sayfasının yapısını hem ekipman hem hammaddeye uygun
+// planla."*
+//
+// `/purchasing/hammadde/siparisler` ikinci bir defter DEĞİLDİ — aynı defterin
+// süzülmüş bir okunuşuydu ve tek gerçek gerekçesi KİLOydu ("bu ay kaç ton sac
+// aldık"). Gerekçe çürümedi, KARŞILANDI: kilo artık bu ekranda hem özet
+// kartında hem satırda var, kalem detayı tür/kalite/teslim taşıyor ve TÜR bir
+// süzgeç oldu. Geriye yalnız ikinci ekranın maliyeti kalmıştı — orada yazma
+// yolu yoktu ve kullanıcı düzenlemek için buraya gönderiliyordu.
+//
+// Hammadde rayındaki sekme bu ekrana `?tur=hammadde` ile girer: kapı duruyor,
+// oda tek.
 
 import { createClient } from "@/lib/supabase/server";
 import { canEditPurchasing, isAdminRole } from "@/lib/roles";
@@ -16,7 +33,21 @@ import {
 } from "../data";
 import { OrdersView } from "./orders-view";
 
-export default async function OrdersPage() {
+const TURLER = ["hammadde", "ekipman", "karma"];
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const turHam = sp.tur;
+  // ADRESTEKİ SÜZGEÇ SÜZÜLÜR: elle yazılmış bir `?tur=filan` sessizce boş bir
+  // liste üretip ekranı boşaltırdı.
+  const baslangicTurleri = (Array.isArray(turHam) ? turHam : turHam ? [turHam] : []).filter((t) =>
+    TURLER.includes(t)
+  );
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,6 +87,7 @@ export default async function OrdersPage() {
       siparisNolari={siparisNolari}
       sonKur={sonKur}
       qualities={qualities}
+      baslangicTurleri={baslangicTurleri}
       canWrite={yazabilir}
       isAdmin={yonetici}
     />

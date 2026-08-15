@@ -24,6 +24,7 @@ import { anahtarla, loadArsivOlaylari, loadSiparisNolari, type ArsivOlayi } from
 import { trKatla } from "@/lib/drawings/tr-text";
 import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawings/progress";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
+import { talepBasligi, talepImzasi } from "@/lib/purchasing/talep";
 import { bugunISO } from "@/lib/purchasing/terms";
 import {
   cancelQuoteBatchSchema,
@@ -36,8 +37,11 @@ import {
   editQuoteBatchSchema,
   ensureQualitySchema,
   mergeQuoteBatchesSchema,
+  mergeQuoteRequestsSchema,
   quoteBatchIdSchema,
+  renameQuoteRequestSchema,
   saveBulkQuoteSchema,
+  splitQuoteBatchSchema,
   saveDemandOverrideSchema,
   saveGroupNameSchema,
   saveItemMetaSchema,
@@ -233,6 +237,15 @@ export async function saveBulkQuote(input: SaveBulkQuoteInput): Promise<Purchasi
   const v = parsed.data;
   const gunu = v.quotedAt ?? new Date().toISOString().slice(0, 10);
 
+  // TALEP ÖNCE ÇÖZÜLÜR: parti onun altına açılır ve kullanıcı "aynı teklifi
+  // ikinci firmadan aldım" dediğinde ikisi kendiliğinden yan yana gelir.
+  const talepId = await talepBulVeyaAc(supabase, userId, {
+    requestId: v.requestId ?? null,
+    scope: v.scope,
+    anahtarlar: v.satirlar.map((s) => s.matchKey),
+    tanimlar: v.satirlar.map((s) => s.sample),
+  });
+
   const { data: parti, error: partiHata } = await supabase
     .from("purchase_quote_batches")
     .insert({
@@ -240,6 +253,7 @@ export async function saveBulkQuote(input: SaveBulkQuoteInput): Promise<Purchasi
       quoted_at: gunu,
       scope: v.scope,
       note: v.note,
+      ...(talepId ? { request_id: talepId } : {}),
       created_by: userId,
     })
     .select("id, code")
@@ -255,6 +269,12 @@ export async function saveBulkQuote(input: SaveBulkQuoteInput): Promise<Purchasi
       unit_price: s.unitPrice,
       currency: v.currency,
       fx_rate: v.currency === "EUR" ? 1 : v.fxRate,
+      // MİKTAR TEKLİFLE BİRLİKTE DONAR — ama yalnız bir YEDEKtir
+      // (`teklifMiktari`): havuzda karşılığı olan kalemde havuz konuşur.
+      // Plakanın havuzda karşılığı yoktur ve bu sayı olmadan karşılaştırmanın
+      // "Tutar" sütunu orada kalıcı olarak boş kalırdı.
+      qty: s.qty,
+      unit: s.unit,
       quoted_at: gunu,
       payment_method: v.paymentMethod,
       payment_term_days: v.paymentMethod === "vadeli" ? v.paymentTermDays : 0,
@@ -276,6 +296,213 @@ export async function saveBulkQuote(input: SaveBulkQuoteInput): Promise<Purchasi
 
   tazele();
   return { ok: v.satirlar.length, id: partiId ?? undefined, no: (parti?.code as string) ?? "" };
+}
+
+// ═════════════════════════════════════════════════════════ TEKLİF TALEBİ
+
+/**
+ * TALEBİ BULUR YA DA AÇAR — kalem kümesinin imzasından.
+ *
+ * Kullanıcıya "bu teklif hangi talebe ait" diye SORULMAZ (migration
+ * 20260815000007'nin gerekçesi): üç firmaya aynı listeyi gönderen kullanıcı
+ * üçünün yan yana gelmesini bekler, üç kez de aynı soruyu cevaplamayı değil.
+ *
+ * TALEP AÇILAMAZSA TEKLİF YİNE KAYDEDİLİR (`null` döner) — `partiBulVeyaAc`ın
+ * kuralının aynısı: talep bir künyedir, fiyatın kendisi değil. Migration
+ * uygulanmamış bir ortamda teklif girmeyi durdurmak, kullanıcının asıl işini
+ * engellemek olurdu.
+ */
+async function talepBulVeyaAc(
+  supabase: SupabaseClient,
+  userId: string,
+  v: {
+    requestId: string | null;
+    scope: string;
+    anahtarlar: readonly string[];
+    tanimlar: readonly string[];
+  }
+): Promise<string | null> {
+  if (v.requestId) return v.requestId;
+
+  const imza = talepImzasi(v.anahtarlar);
+  const { data: mevcut, error } = await supabase
+    .from("purchase_quote_requests")
+    .select("id")
+    .eq("scope", v.scope)
+    .eq("signature", imza)
+    .eq("status", "acik")
+    .limit(1)
+    .maybeSingle();
+  // Tablo yoksa (migration uygulanmamış) teklif yine kaydedilir.
+  if (error) return null;
+  if (mevcut?.id) return String(mevcut.id);
+
+  const { data } = await supabase
+    .from("purchase_quote_requests")
+    .insert({
+      scope: v.scope,
+      signature: imza,
+      title: talepBasligi(v.tanimlar),
+      created_by: userId,
+    })
+    .select("id")
+    .maybeSingle();
+  return (data?.id as string) ?? null;
+}
+
+/**
+ * TALEPLERİ BİRLEŞTİR — "bu teklifleri aynı yerde karşılaştırayım".
+ *
+ * Parti birleştirmesinin (`mergeQuoteBatches`) AYNI FİRMA şartı BURADA YOKTUR
+ * ve bu bir gevşeme değil, farklı bir sorudur: orada iki liste TEK bir firmanın
+ * teklifi hâline geliyordu, burada firmalar ayrı ayrı duruyor ve yalnız
+ * karşılaştırma kapsamı birleşiyor. Talebin tanımı zaten "birkaç firmanın
+ * cevapladığı soru"dur.
+ *
+ * BOŞALAN TALEP SİLİNİR: kod defterde bir boşluk bırakır ve bu kabul edilmiştir
+ * (sayaç kuralı) — kalemi ve firması olmayan bir talep, listede cevaplanamayan
+ * bir satır olurdu.
+ */
+export async function mergeQuoteRequests(
+  hedefId: string,
+  kaynakIdler: string[]
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const parsed = mergeQuoteRequestsSchema.safeParse({ hedefId, kaynakIdler });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const kaynaklar = [...new Set(v.kaynakIdler)].filter((k) => k !== v.hedefId);
+  if (kaynaklar.length === 0) return { error: "Birleştirmek için ikinci bir teklif seçin." };
+
+  const { data: hedef } = await supabase
+    .from("purchase_quote_requests")
+    .select("id, code, signature")
+    .eq("id", v.hedefId)
+    .maybeSingle();
+  if (!hedef) return { error: "Hedef teklif bulunamadı." };
+
+  const { error: tasima } = await supabase
+    .from("purchase_quote_batches")
+    .update({ request_id: v.hedefId })
+    .in("request_id", kaynaklar);
+  if (tasima) return { error: tasima.message };
+
+  // İMZA ARTIK BİRLEŞİK KÜMEDİR: yazılmasaydı, kaynak talebin kalem kümesiyle
+  // gelen bir sonraki teklif eski (artık boş) talebi arar, bulamaz ve üçüncü
+  // bir talep açardı — kullanıcı aynı birleştirmeyi her seferinde yeniden
+  // yapmak zorunda kalırdı.
+  const { data: satirlar } = await supabase
+    .from("purchase_quotes")
+    .select("match_key, purchase_quote_batches!inner (request_id)")
+    .eq("purchase_quote_batches.request_id", v.hedefId);
+  const anahtarlar = ((satirlar ?? []) as { match_key: string }[]).map((r) => String(r.match_key));
+  if (anahtarlar.length > 0) {
+    await supabase
+      .from("purchase_quote_requests")
+      .update({ signature: talepImzasi(anahtarlar) })
+      .eq("id", v.hedefId);
+  }
+
+  const { error } = await supabase
+    .from("purchase_quote_requests")
+    .delete()
+    .in("id", kaynaklar);
+  if (error) return { error: error.message };
+
+  tazele();
+  return { ok: kaynaklar.length, no: String(hedef.code ?? "") };
+}
+
+/**
+ * TEKLİFİ AYIR — bir firmanın cevabını talebin dışına çıkarır.
+ *
+ * Kullanıcı isteği: *"teklifi ayır"*. Otomatik eşleşme kalem kümesine bakar ve
+ * bazen fazla cömerttir: aynı kalemler için iki HAFTA arayla alınmış fiyatlar
+ * tek talebe düşer, oysa onlar iki ayrı pazarlıktır. Ayırmak o kararı insana
+ * geri verir.
+ *
+ * YENİ TALEP AYRILAN PARTİNİN KENDİ KALEM KÜMESİNİ alır; imzası eskisiyle aynı
+ * olacağı için `status` 'kapali' yazılır — açık bırakılsaydı bir sonraki teklif
+ * ayrılmış talebe geri düşer ve ayırma kendiliğinden geri alınmış olurdu.
+ */
+export async function splitQuoteBatch(id: string): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = splitQuoteBatchSchema.safeParse({ id });
+  if (!parsed.success) return { error: "Geçersiz teklif." };
+
+  const { data: parti } = await supabase
+    .from("purchase_quote_batches")
+    .select("id, code, supplier, scope, request_id")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (!parti) return { error: "Teklif bulunamadı." };
+
+  const { data: satirlar } = await supabase
+    .from("purchase_quotes")
+    .select("match_key, sample")
+    .eq("batch_id", parsed.data.id);
+  const liste = (satirlar ?? []) as { match_key: string; sample: string }[];
+
+  const { data: yeni, error: acmaHatasi } = await supabase
+    .from("purchase_quote_requests")
+    .insert({
+      scope: String(parti.scope ?? "hammadde"),
+      signature: talepImzasi(liste.map((r) => String(r.match_key))),
+      title: `${talepBasligi(liste.map((r) => String(r.sample)))} · ${parti.supplier}`,
+      status: "kapali",
+      note: "Ayrılmış teklif",
+      created_by: userId,
+    })
+    .select("id, code")
+    .maybeSingle();
+  if (acmaHatasi) return { error: acmaHatasi.message };
+
+  const { error } = await supabase
+    .from("purchase_quote_batches")
+    .update({ request_id: yeni?.id ?? null })
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+
+  // Kaynağı boşaldıysa temizle — ayırma bir ARTIK bırakmamalı.
+  if (parti.request_id) await bosTalebiSil(supabase, String(parti.request_id));
+
+  tazele();
+  return { ok: 1, no: String(yeni?.code ?? "") };
+}
+
+/** Kullanıcının verdiği ad, türetilen addan her zaman iyidir. */
+export async function renameQuoteRequest(
+  id: string,
+  title: string
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const parsed = renameQuoteRequestSchema.safeParse({ id, title });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { error } = await ctx.supabase
+    .from("purchase_quote_requests")
+    .update({ title: parsed.data.title })
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+/** Partisi kalmamış talebi siler; hiçbir eylem arkasında ölü satır bırakmaz. */
+async function bosTalebiSil(supabase: SupabaseClient, talepId: string): Promise<void> {
+  const { count } = await supabase
+    .from("purchase_quote_batches")
+    .select("id", { count: "exact", head: true })
+    .eq("request_id", talepId);
+  if ((count ?? 0) === 0) await supabase.from("purchase_quote_requests").delete().eq("id", talepId);
 }
 
 /** Partinin başlığını ve satır fiyatlarını yeniden yazar. */
@@ -399,7 +626,7 @@ export async function deleteQuoteBatch(id: string): Promise<PurchasingActionResu
 
   const { data: parti } = await supabase
     .from("purchase_quote_batches")
-    .select("status")
+    .select("status, request_id")
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (!parti) return { error: "Teklif bulunamadı." };
@@ -418,6 +645,11 @@ export async function deleteQuoteBatch(id: string): Promise<PurchasingActionResu
     .delete()
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };
+
+  // Son firma da silindiyse TALEP DE GİDER: kimsenin cevaplamadığı bir soru
+  // listede boş bir satır olurdu.
+  if (parti.request_id) await bosTalebiSil(supabase, String(parti.request_id));
+
   tazele();
   return { ok: 1 };
 }

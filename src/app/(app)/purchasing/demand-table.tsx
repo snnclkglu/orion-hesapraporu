@@ -642,8 +642,17 @@ export function DemandTable({
               size="xs"
               variant="outline"
               onClick={() =>
+                // MİKTAR PENCEREYE TAŞINIR (15.08.2026): teklif penceresinin
+                // sorduğu şey "bu kaleme kaç para" değil, "BU KADAR kaleme kaç
+                // para"dır ve tutar ancak öyle görünür. KALAN yazılır, toplam
+                // ihtiyaç değil — sipariş edilmiş kısmı yeniden fiyatlatmıyoruz.
                 setTopluTeklif(
-                  seciliGorunumler.map((g) => ({ matchKey: g.satir.key, tanim: g.satir.tanim }))
+                  seciliGorunumler.map((g) => ({
+                    matchKey: g.satir.key,
+                    tanim: g.satir.tanim,
+                    miktar: g.kalan || g.satir.adet || null,
+                    birim: g.satir.birim || "Adet",
+                  }))
                 )
               }
               disabled={seciliGorunumler.length === 0}

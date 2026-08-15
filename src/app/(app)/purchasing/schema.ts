@@ -126,6 +126,21 @@ export const bulkQuoteLineSchema = z.object({
   unitPrice: z.number().nonnegative("Fiyat negatif olamaz."),
   /** 0 = Hazır · null = sorulmadı. */
   leadTimeDays: z.union([z.number().int().min(0).max(365), z.null()]).default(null),
+  /**
+   * KALEMİN MİKTARI — "adet sorulmaz" kuralının TEK istisnası (15.08.2026).
+   *
+   * Kural şuna dayanıyordu: *"adet zaten havuzda yazar."* Dayanak PLAKADA
+   * ÇÖKER — plakanın havuzda karşılığı yoktur ve olmamalıdır (md. 24). Miktar
+   * hiçbir yerde durmazsa karşılaştırmanın "Tutar" sütunu plakada kalıcı
+   * olarak boş kalır ve karar yalnız birim fiyattan verilir; 3.537 kg'lık bir
+   * kalemde kuruşluk fark gerçek paradır.
+   *
+   * KULLANICIYA YİNE SORULMAZ ve havuzda karşılığı olan kalemde OKUNMAZ:
+   * pencere onu bulunduğu ekrandan (havuz satırı ya da kesim planı) alır,
+   * `teklifMiktari` hangisinin konuşacağına tek yerde karar verir.
+   */
+  qty: z.number().positive().nullable().default(null),
+  unit: z.string().trim().max(20).default("Adet"),
 });
 
 export const saveBulkQuoteSchema = z
@@ -138,6 +153,11 @@ export const saveBulkQuoteSchema = z
     paymentTermDays: z.number().int().min(0).max(365).default(0),
     note: z.string().trim().max(500).default(""),
     scope: z.enum(["hammadde", "ekipman"]).default("hammadde"),
+    /**
+     * HANGİ TALEBİN CEVABI. Verilmezse eylem KALEM KÜMESİNİN İMZASINDAN
+     * eşleştirir (aynı küme → aynı talep), yoksa yeni talep açar.
+     */
+    requestId: z.uuid().nullable().default(null),
     satirlar: z.array(bulkQuoteLineSchema).min(1, "En az bir kaleme fiyat girin.").max(400),
   })
   .superRefine(kurKontrolu);
@@ -192,6 +212,30 @@ export const quoteBatchIdSchema = z.object({ id: z.uuid() });
 export const mergeQuoteBatchesSchema = z.object({
   hedefId: z.uuid(),
   kaynakIdler: z.array(z.uuid()).min(1).max(50),
+});
+
+// ————————————————————————————————————————————————————— TEKLİF TALEBİ
+//
+// Kullanıcı kararı (15.08.2026): *"Bu bölümde teklifi düzenle, teklifi ayır,
+// birleştir vb özellikler de olmalı."*
+//
+// BİRLEŞTİR ve AYIR artık TALEP düzeyindedir: "aynı teklifi birkaç firmadan
+// aldım" demek, o firmaların cevaplarını TEK bir talebin altında toplamaktır.
+// Parti düzeyindeki birleştirme (aynı firmanın iki listesini tek kodda toplama)
+// KALDIRILMADI — o başka bir sorunun cevabıdır ve pencerenin içinde durur.
+
+/** Talepleri tek talepte topla — kalem kümeleri farklı olabilir, şart yok. */
+export const mergeQuoteRequestsSchema = z.object({
+  hedefId: z.uuid(),
+  kaynakIdler: z.array(z.uuid()).min(1).max(50),
+});
+
+/** Bir firmanın teklifini talepten ÇIKAR — kendi talebine taşınır. */
+export const splitQuoteBatchSchema = z.object({ id: z.uuid() });
+
+export const renameQuoteRequestSchema = z.object({
+  id: z.uuid(),
+  title: z.string().trim().min(1, "Teklif adı boş olamaz.").max(160),
 });
 
 // ———————————————————————————————————————————————————————————— SİPARİŞ

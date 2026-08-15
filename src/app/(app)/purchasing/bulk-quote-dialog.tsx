@@ -51,7 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Combobox, type ComboOption } from "@/components/combobox";
-import { CURRENCIES, CURRENCY_LABELS, currencyOf, fmtMoney, parseNum } from "@/lib/currency";
+import { CURRENCIES, CURRENCY_LABELS, currencyOf, parseNum } from "@/lib/currency";
 import {
   PAYMENT_TERMS,
   QUOTE_LEAD_TIMES,
@@ -65,10 +65,30 @@ import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { ensureSupplier, saveBulkQuote } from "./actions";
 
-/** Toplu teklife giren tek kalem. */
+/**
+ * Toplu teklife giren tek kalem.
+ *
+ * ═══════════════════════════ MİKTAR PENCEREYE GELİR — KULLANICIYA SORULMAZ
+ *
+ * Kullanıcı bildirimi (15.08.2026): *"Plaka teklifi aç dediğimde açılan
+ * pop-up'ta teklif detayları düzgün gelmiyor."* Doğruydu: pencere yalnız kalem
+ * ADINI basıyordu. Plakada fiyat KİLO fiyatıdır (proforma: `3.537 KG × 0,690
+ * USD`) ve miktar ekranda yokken kullanıcı ne kadarlık bir teklif girdiğini
+ * göremiyor, verilen fiyatı kendi listesindeki toplamla karşılaştıramıyordu.
+ *
+ * "Teklifte adet SORULMAZ" kuralı (md. 24) çiğnenmedi: miktar bir GİRDİ ALANI
+ * değil, kalemin geldiği ekrandan (havuz satırı ya da kesim planı) taşınan bir
+ * KÜNYEdir. Kullanıcı ona dokunamaz; yalnız neyin fiyatını verdiğini görür.
+ */
 export interface TopluTeklifKalemi {
   matchKey: string;
   tanim: string;
+  /** Sipariş edilecek miktar — tutar bununla çarpılır; bilinmiyorsa `null`. */
+  miktar?: number | null;
+  /** "Kg" · "Boy" · "Adet" — birim fiyatın paydası. */
+  birim?: string;
+  /** Kalemin altına düşen künye: "5 plaka × 707 kg". */
+  not?: string;
 }
 
 /**
@@ -152,6 +172,29 @@ export function BulkQuoteDialog({
     girilen.length > 0 &&
     (!kurLazim || (kurSayi != null && kurSayi > 0));
 
+  /**
+   * TOPLAM — yalnız MİKTARI BİLİNEN ve fiyatı girilmiş kalemlerden.
+   *
+   * Miktarı bilinmeyen kalemi sıfır saymak toplamı olduğundan küçük gösterir;
+   * bir sayıyla göstermek de "hepsi bu" der. Sayı yazılır, dışarıda kalan
+   * kalem sayısı da yanında yazar (`tfoot`).
+   */
+  const toplamlar = girilen.reduce(
+    (t, k) => {
+      const fiyat = parseNum(fiyatlar[k.matchKey] ?? "");
+      const miktar = k.miktar != null && k.miktar > 0 ? k.miktar : null;
+      if (fiyat == null || miktar == null) return { ...t, eksik: t.eksik + 1 };
+      return { tutar: t.tutar + fiyat * miktar, sayi: t.sayi + 1, eksik: t.eksik };
+    },
+    { tutar: 0, sayi: 0, eksik: 0 }
+  );
+  const toplam = toplamlar.sayi > 0 ? toplamlar.tutar : null;
+  const toplamEur =
+    toplam != null && (kurLazim ? (kurSayi ?? 0) > 0 : true)
+      ? toplam / (kurLazim ? (kurSayi ?? 1) : 1)
+      : null;
+  const miktarsizKalem = toplamlar.eksik;
+
   function paraBirimiSec(v: string) {
     const yeni = currencyOf(v);
     setParaBirimi(yeni);
@@ -193,6 +236,10 @@ export function BulkQuoteDialog({
           sample: k.tanim,
           unitPrice: parseNum(fiyatlar[k.matchKey] ?? "") ?? 0,
           leadTimeDays: satirinTeslimi(k.matchKey),
+          // MİKTAR YEDEK OLARAK YAZILIR: havuzda karşılığı olan kalemde
+          // okunmaz (havuz otoriterdir), plakada ise tek kaynaktır.
+          qty: k.miktar != null && k.miktar > 0 ? k.miktar : null,
+          unit: k.birim ?? "Adet",
         })),
       });
       if (sonuc.error) {
@@ -329,29 +376,58 @@ export function BulkQuoteDialog({
             </div>
           </div>
 
+          {/* TABLO KULLANICININ KENDİ ÇALIŞMA DOSYASININ SÜTUN DÜZENİNDEDİR:
+              Tanımı · Miktar-Ağırlık · Birim Fiyat · Tutar. Sütunlar bir zevk
+              değil bir ALIŞKANLIKtır; teklifi telefonla alan satınalmacı
+              rakamları o sırayla duyuyor. */}
           <div className="oc-scrollx max-h-[46dvh] overflow-y-auto overflow-x-auto border [--oc-scroll-bg:var(--card)]">
-            <table className="w-full min-w-[42rem] text-[12px]">
+            <table className="w-full min-w-[48rem] text-[12px]">
               <thead className="sticky top-0 z-20 bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-normal">Kalem</th>
-                  <th className="w-40 px-2 py-1.5 text-right font-normal">
+                  <th className="w-28 px-2 py-1.5 text-right font-normal">Miktar</th>
+                  <th className="w-36 px-2 py-1.5 text-right font-normal">
                     Birim Fiyat ({paraBirimi})
                   </th>
+                  <th className="w-32 px-2 py-1.5 text-right font-normal">Tutar ({paraBirimi})</th>
+                  {kurLazim && <th className="w-28 px-2 py-1.5 text-right font-normal">Tutar €</th>}
                   <th className="w-32 px-2 py-1.5 text-left font-normal">Teslim</th>
-                  <th className="w-28 px-2 py-1.5 text-right font-normal">Avro</th>
                 </tr>
               </thead>
               <tbody>
                 {kalemler.map((k) => {
                   const fiyat = parseNum(fiyatlar[k.matchKey] ?? "");
-                  const eur =
-                    fiyat != null && (kurLazim ? (kurSayi ?? 0) > 0 : true)
-                      ? fiyat / (kurLazim ? (kurSayi ?? 1) : 1)
+                  const miktar = k.miktar != null && k.miktar > 0 ? k.miktar : null;
+                  // TUTAR MİKTARLA ÇARPILIR (karşılaştırma çekirdeğinin kuralı):
+                  // en ucuz birim fiyat en ucuz teklif değildir.
+                  const tutar = fiyat != null && miktar != null ? fiyat * miktar : null;
+                  const tutarEur =
+                    tutar != null && (kurLazim ? (kurSayi ?? 0) > 0 : true)
+                      ? tutar / (kurLazim ? (kurSayi ?? 1) : 1)
                       : null;
                   const secim = satirTeslim[k.matchKey] ?? TOPLU_MIRAS;
                   return (
                     <tr key={k.matchKey} className="border-t">
-                      <td className="px-2 py-1.5">{k.tanim}</td>
+                      <td className="px-2 py-1.5">
+                        {k.tanim}
+                        {k.not && (
+                          <span className="block text-[11px] text-muted-foreground">{k.not}</span>
+                        )}
+                      </td>
+                      {/* MİKTAR BİR KUTU DEĞİL: teklifte adet sorulmaz, yalnız
+                          neyin fiyatı verildiği gösterilir. */}
+                      <td className="px-2 py-1.5 text-right font-mono whitespace-nowrap tabular-nums">
+                        {miktar == null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <>
+                            {formatNum(miktar)}{" "}
+                            <span className="text-[10px] text-muted-foreground">
+                              {k.birim ?? "Adet"}
+                            </span>
+                          </>
+                        )}
+                      </td>
                       <td className="px-2 py-1.5">
                         <Input
                           value={fiyatlar[k.matchKey] ?? ""}
@@ -364,6 +440,18 @@ export function BulkQuoteDialog({
                           className="h-8 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
                         />
                       </td>
+                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                        {tutar == null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          formatNum(Math.round(tutar))
+                        )}
+                      </td>
+                      {kurLazim && (
+                        <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted-foreground">
+                          {tutarEur == null ? "—" : formatNum(Math.round(tutarEur))}
+                        </td>
+                      )}
                       <td className="px-2 py-1.5">
                         <Select
                           value={secim}
@@ -389,13 +477,36 @@ export function BulkQuoteDialog({
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted-foreground">
-                        {eur == null ? "—" : fmtMoney(eur, "EUR")}
-                      </td>
                     </tr>
                   );
                 })}
               </tbody>
+              {/* TOPLAM SATIRI: teklif kâğıdının altında yazan sayı budur ve
+                  satınalmacı önce ona bakar. Miktarı bilinmeyen kalem toplama
+                  GİRMEZ ve bu SÖYLENİR — eksik bir toplamı tam gibi göstermek,
+                  yanlış firmayı kazandırırdı. */}
+              <tfoot>
+                <tr className="border-t-2 border-foreground/20 bg-muted/40 font-mono font-semibold tabular-nums">
+                  <td className="px-2 py-2 font-sans" colSpan={2}>
+                    Toplam
+                    {miktarsizKalem > 0 && (
+                      <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                        {formatNum(miktarsizKalem)} kalemin miktarı bilinmiyor, toplama girmedi
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2" />
+                  <td className="px-2 py-2 text-right">
+                    {toplam == null ? "—" : formatNum(Math.round(toplam))}
+                  </td>
+                  {kurLazim && (
+                    <td className="px-2 py-2 text-right">
+                      {toplamEur == null ? "—" : formatNum(Math.round(toplamEur))}
+                    </td>
+                  )}
+                  <td className="px-2 py-2" />
+                </tr>
+              </tfoot>
             </table>
           </div>
 

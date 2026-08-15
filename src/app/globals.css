@@ -260,6 +260,29 @@
   }
 
   /*
+   * SATIR ZEMİNİ — bir listede satırın TÜRÜNÜ bir bakışta ayırır.
+   *
+   * Kullanıcı isteği (15.08.2026, Siparişler): *"Hammadde ve ekipman
+   * satırların arka planı farklı renk olsun. Göze çarpsın."*
+   *
+   * `.oc-tag` ile AYNI sözleşme (ton veriden, ayar temadan) ama BAŞKA bir
+   * ayarda: etiket bir metin kutusudur ve kendi başına okunur; bu ise BİR
+   * SATIRIN ALTINDA durur ve üstünde tablo metni var. Doygunluk bu yüzden
+   * etiketin bile altındadır — satır rengi bir bilgi taşımalı, tabloyu
+   * okunmaz yapmamalı. Sol kenardaki dolu şerit ayrımı renk körlüğünde de
+   * taşır: aynı bilgi ayrıca `.oc-tag` çipiyle YAZIYLA da verilir.
+   */
+  .oc-row-hue {
+    --oc-hue: 0;
+    background: oklch(0.968 0.022 var(--oc-hue));
+    box-shadow: inset 3px 0 0 0 oklch(0.72 0.12 var(--oc-hue));
+  }
+  .dark .oc-row-hue {
+    background: oklch(0.255 0.02 var(--oc-hue));
+    box-shadow: inset 3px 0 0 0 oklch(0.6 0.1 var(--oc-hue));
+  }
+
+  /*
    * Grafik serisi rengi — etiketle AYNI kaynaktan (ton açısı), farklı ayarda.
    *
    * Etiket bir metnin arkasında durur ve okunurluğu metin belirler; çubuk ya da

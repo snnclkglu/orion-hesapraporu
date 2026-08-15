@@ -1954,9 +1954,46 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     siparişin "hammadde" olduğu SATIRIN ADINDAN okunur — havuz anahtarıyla
     eşleştirme tam da en önemlilerini kaçırırdı, çünkü plaka siparişinin adı
     havuzdakinden FARKLIDIR (`SAC 10 X 1500 X 6000 ST37` ↔ `SAC 10 MM S355JR`).
-    Yazma yolu AÇILMADI: düzenleme, iptal ve teslim alma tek yerde
-    (`/purchasing/siparisler`) kalır — iki yazan ekran "hangisi doğru" sorusunu
-    doğururdu (md. 18'in paket Satın Alma sekmesi dersi).
+
+    **VE ARTIK AYRI BİR EKRAN DA DEĞİLDİR** (kullanıcı kararı, 15.08.2026:
+    *"Hammadde bölümündeki siparişler sayfasını Satın Alma Siparişler
+    sayfasıyla birleştirsek. İki ayrı siparişler sayfası olmasa güzel olur. …
+    Siparişler sayfasının yapısını hem ekipman hem hammaddeye uygun planla.
+    Hammadde ve ekipman satırların arka planı farklı renk olsun, göze çarpsın.
+    Filtre olsun."*). `/purchasing/hammadde/siparisler` KALDIRILDI.
+    · Ayrı ekranın tek gerçek gerekçesi KİLOydu ("bu ay kaç ton sac aldık") ve
+      gerekçe çürümedi, KARŞILANDI: kilo artık ortak ekranda özet kartında,
+      satırda ve kalem detayında var; detay ayrıca TÜR · MARKA/KALİTE · TESLİM
+      taşıyor (üçü de ekipmanda da anlamlıdır — bir rulmanın da markası ve
+      kısmi teslimi olur). Geriye yalnız ikinci ekranın maliyeti kalmıştı:
+      orada yazma yolu yoktu ve kullanıcı düzenlemek için öbür ekrana
+      gönderiliyordu.
+    · **TÜR BİR SÜTUN DEĞİL, SATIRLARDAN TÜREVDİR** (`lib/purchasing/
+      siparis-turu.ts`, saf + testli). Veritabanına "bu sipariş hammaddedir"
+      diye bir alan AÇILMADI: kalemlerin ne olduğu adlarında yazıyor ve ikinci
+      bir alan, düzeltilmiş bir kalem adından sonra sessizce yalan söylerdi.
+    · **KARMA ÜÇÜNCÜ BİR HÂLDİR, bir hata değil**: aynı firmadan hem ray hem
+      cıvata alınır. Üçüncü değer olmasaydı o sipariş iki süzgecin birinde
+      kaybolurdu; şimdi İKİSİNDE DE görünür (`turSuzgeciUyuyor`) — "bu ay ne
+      kadar sac aldım" sorusunun cevabının parçasıdır.
+    · **SINIFLANDIRMA BİR GÖRÜNÜMDÜR, BİR KİLİT DEĞİL.** `alimKategorisi` ada
+      bakar ve yanılabilir ("KARE SOMUN" profil kalıbına takılır); bedeli
+      ölçülüdür ve kabul edilmiştir — yanlış sınıflanan sipariş yanlış RENKTE
+      görünür, KAYBOLMAZ. Eski ekranda aynı yanılgı siparişi listeden tamamen
+      düşürüyordu.
+    · **RENK TEK TAŞIYICI DEĞİLDİR**: satır zemini (`.oc-row-hue`, ton veriden
+      / ayar `globals.css`ten — md. 14) türü bir bakışta verir, aynı bilgi
+      tedarikçi hücresindeki `.oc-tag` çipinde YAZIYLA da durur.
+    · Hammadde rayındaki "Siparişler" sekmesi duruyor ama ortak ekrana
+      `?tur=hammadde` ile girer — kapı duruyor, oda tek. Süzgeç bir BAŞLANGIÇtır,
+      hapis değil: "Temizle" bütün defteri gösterir. Sekmenin aktifliği `href`ten
+      DEĞİL ayrı bir `eslesme` alanından okunur; `usePathname` sorgu dizgisini
+      taşımaz ve `startsWith("…?tur=…")` sessizce hep pasif bir sekme üretirdi.
+    · Görsel sınama: `/dev/siparisler-preview` (auth'suz, üç türü de basar —
+      tek türlü bir fikstür ayrımın çalıştığını gösteremez).
+
+    Yazma yolu yine TEKTİR: düzenleme, iptal ve teslim alma `/purchasing/
+    siparisler`tedir (md. 18'in paket Satın Alma sekmesi dersi).
 
 
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
@@ -2946,6 +2983,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `talep.ts` (TEKLİF TALEBİ: kalem kümesinin kanonik imzası — otomatik
   eşleşmenin tek dayanağı; türetilmiş ad; `teklifMiktari` — havuz mu teklif mi
   konuşur) ·
+  `siparis-turu.ts` (siparişin hammadde/ekipman/karma türü satırlarından
+  TÜRETİLİR — ton açıları, süzgeç kuralı «karma ikisine de girer», kilo
+  toplamı) ·
   `consumables.ts` (dense ay/yıl serisi, grup matrisi, anomali ve tedarikçi
   drilldown) · `consumable-key.ts` (SM tekillik anahtarı) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
@@ -3055,7 +3095,8 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
 - `src/app/(app)/purchasing/` — Satın Alma (Yönetici · Satın Alma · Planlama
   ROLLERİ): `data.ts` proje alımlarının ORTAK okuma katmanı · `page.tsx` EKİPMAN
   talep havuzu · `hammadde/` HAMMADDE havuzu + plaka yerleşimi (md. 24) ·
-  `siparisler/` · `teslimat/` · `fiyatlar/` · `sarf/` (hızlı giriş + sunucu
+  `siparisler/` (TEK sipariş ekranı — hammadde ve ekipman birlikte; tür süzgeci
+  ve satır rengi) · `teslimat/` · `fiyatlar/` · `sarf/` (hızlı giriş + sunucu
   kayıt listesi + EUR analiz) · `export/` Excel ucu
 - `src/app/(app)/admin/access/` — YETKİ IZGARASI (rol × bölüm, üç değerli
   hücre) + kişi matrisi; hesaplanır, elle yazılmaz ve EKRANDAN
@@ -3079,9 +3120,14 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek
   rolle sınamak, kesilen tarafı hiç görmemektir), kabuk, editör, işler, satış, ekipman listesi,
   **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
-  **hammadde** (`/dev/hammadde-preview` — havuz + plaka yerleşimi; fikstür GERÇEK
-  0053 LITEC satırlarıdır, uydurma küçük sayılarla 12 m'lik bir plakanın ne
-  yaptığı görülmez),
+  **hammadde** (`/dev/hammadde-preview` — havuz + plaka yerleşimi + TEKLİFLER;
+  fikstür GERÇEK 0053 LITEC satırlarıdır, uydurma küçük sayılarla 12 m'lik bir
+  plakanın ne yaptığı görülmez; teklif fikstürü ise kullanıcının kendi çalışma
+  dosyasının sayılarıdır — 266.240 · 261.165 · 298.685 — ve
+  `karsilastirma.test.ts` ile AYNI gerçeği gösterir),
+  **siparişler** (`/dev/siparisler-preview` — üç türü de basar: hammadde ·
+  ekipman · karma; tek türlü bir fikstür renk ayrımının çalıştığını
+  gösteremez),
   **personel** (`/dev/personnel-preview` — altı ekranı üst üste basar; fikstür
   GERÇEK büyüklüklerdedir: 71.000 ₺'lik maaş ve 48.753,33 ₺'lik mesai tutarı
   sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)

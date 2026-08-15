@@ -628,12 +628,36 @@ function PlakaOzeti({
    * Ayrı bir anahtar üretilseydi (ör. havuzdaki `SAC 10 MM S355JR`) alınan
    * teklif, verilen siparişle ve fiyat arşiviyle hiç buluşmazdı — plaka
    * ölçüsü ancak yerleşim yapılınca bilindiği için o iki ad zaten FARKLIDIR
-   * (md. 24). Teklifte ADET sorulmaz; miktar sipariş anında yazılır.
+   * (md. 24).
+   *
+   * ═══════════════════ MİKTAR DA GİDER — VE BU BİR İSTİSNADIR, GEVŞEME DEĞİL
+   *
+   * Kullanıcı bildirimi (15.08.2026): *"Plaka teklifi aç dediğimde açılan
+   * pop-up'ta teklif detayları düzgün gelmiyor."* Pencere yalnız plakanın
+   * ADINI basıyordu; oysa plakanın fiyatı KİLO fiyatıdır (proforma: `3.537 KG
+   * × 0,690 USD`) ve kaç kiloluk bir teklif istendiği ekranda yoktu.
+   *
+   * "Teklifte adet sorulmaz" kuralının dayanağı *"adet zaten havuzda yazar"*
+   * idi ve tam burada çöker: PLAKANIN HAVUZDA KARŞILIĞI YOKTUR. Kilo yalnız
+   * bu ekranda, yerleşim yapıldıktan sonra bilinir. Kullanıcıya yine
+   * SORULMUYOR — sayı kesim planından okunuyor ve pencerede salt okunur bir
+   * künye olarak duruyor. Plaka adedi de nota yazılır: sipariş satırının
+   * notuyla AYNI cümle, çünkü ikisi aynı şeyi anlatıyor.
    */
   function teklifKalemleri(): TopluTeklifKalemi[] {
     return liste.map((r) => {
       const ad = plakaStokAdi(r.kalinlikMm, r.enMm, r.boyMm, r.kalite);
-      return { matchKey: trKatla(ad), tanim: ad };
+      const birimKg = plakaAgirligiKg(r.kalinlikMm, r.enMm, r.boyMm);
+      return {
+        matchKey: trKatla(ad),
+        tanim: ad,
+        // TİCARİ MİKTAR KİLODUR (proforma) — sipariş kaleminin birimiyle aynı.
+        miktar: Math.round(r.kg),
+        birim: "Kg",
+        not:
+          `${formatNum(r.adet)} plaka` +
+          (birimKg ? ` × ${formatNum(Math.round(birimKg))} kg` : ""),
+      };
     });
   }
 

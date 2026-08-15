@@ -18,12 +18,18 @@ import { cn } from "@/lib/utils";
 // → verildi mi (sipariş) → ne kadara geliyor (analiz). Analiz en sondadır ve
 // bu bir SIKLIK sıralamasıdır (Ücret Planı'nın kuralı): satınalmacı gün içinde
 // havuzu açar, analizi ayda birkaç kez.
+// SİPARİŞLER BU RAYIN DIŞINA ÇIKAR ve bu bilinçlidir (kullanıcı kararı,
+// 15.08.2026: *"iki ayrı siparişler sayfası olmasa güzel olur"*). Hammaddenin
+// kendi sipariş ekranı KALDIRILDI; sekme ortak ekrana `?tur=hammadde` süzgeciyle
+// girer — kapı duruyor, oda tek. Aktiflik `href`ten değil `eslesme`den okunur:
+// `usePathname` sorgu dizgisini taşımaz ve `startsWith("…?tur=…")` hiçbir zaman
+// tutmazdı (sessizce hep pasif bir sekme).
 const TABS = [
-  { href: "/purchasing/hammadde", label: "Hammadde Havuzu", exact: true },
-  { href: "/purchasing/hammadde/yerlesim", label: "Plaka Yerleşimi", exact: false },
-  { href: "/purchasing/hammadde/teklifler", label: "Teklif Karşılaştırma", exact: false },
-  { href: "/purchasing/hammadde/siparisler", label: "Siparişler", exact: false },
-  { href: "/purchasing/hammadde/analiz", label: "Alım Analizi", exact: false },
+  { href: "/purchasing/hammadde", eslesme: "/purchasing/hammadde", label: "Hammadde Havuzu", exact: true },
+  { href: "/purchasing/hammadde/yerlesim", eslesme: "/purchasing/hammadde/yerlesim", label: "Plaka Yerleşimi", exact: false },
+  { href: "/purchasing/hammadde/teklifler", eslesme: "/purchasing/hammadde/teklifler", label: "Teklifler", exact: false },
+  { href: "/purchasing/siparisler?tur=hammadde", eslesme: "/purchasing/siparisler", label: "Siparişler", exact: false },
+  { href: "/purchasing/hammadde/analiz", eslesme: "/purchasing/hammadde/analiz", label: "Alım Analizi", exact: false },
 ];
 
 export function HammaddeNav() {
@@ -34,7 +40,7 @@ export function HammaddeNav() {
       aria-label="Hammadde ekranları"
     >
       {TABS.map((t) => {
-        const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
+        const active = t.exact ? pathname === t.eslesme : pathname.startsWith(t.eslesme);
         return (
           <Link
             key={t.href}
