@@ -73,6 +73,10 @@ export default async function HammaddePage() {
         }[]
       ).map((j) => ({
         id: j.id,
+        // İŞ NUMARASI ASIL BAĞDIR: paketin `item_no`su her zaman bir iş kalemi
+        // numarası değildir (MONORAY `0057-00` taşıyor ve o numarayla bir
+        // `job_items` satırı yok). Kalem numaraları yedek kalır.
+        jobNo: j.job_no,
         itemNos: (j.job_items ?? []).map((i) => i.item_no).filter(Boolean),
         label: `${j.job_no} · ${j.title}`,
       }))}

@@ -34,8 +34,15 @@ import type { Plaka } from "@/lib/purchasing/hammadde/nesting";
 
 /** Tuvalin plakaya ayrılan genişliği [çizim birimi]. */
 const TUVAL_EN = 1000;
-/** Kenar boşluğu — ölçü okları ve etiketler için. */
-const KENAR = 46;
+/**
+ * Sol kenar boşluğu — dikey ölçü oku ve etiketi buraya sığar.
+ *
+ * "2.000 mm" yazısı 9,5 birimlik yazıda ~44 birim eder ve okun kendisi 18
+ * birim soldadır; 46 birim yetmiyordu, yazı çerçevenin dışına taşıyordu.
+ * `fitDiagram` taşmayı yakalar ama viewBox'ı büyütür ve plaka ekranda
+ * gereksiz küçülürdü.
+ */
+const KENAR = 76;
 /** Numaranın çizilebilmesi için parçanın en az bu kadar birim olması gerekir. */
 const EN_KUCUK_ETIKET = 16;
 
@@ -120,9 +127,15 @@ export function yerlesimDiyagrami(g: YerlesimCizimGirdisi): Diagram {
     }
   }
 
-  // Plaka ölçüleri — kenarda, parçaların dışında.
-  dimH(els, x0, x0 + W, y0 + H + 16, `${fmtN(uzun)} mm`);
-  dimV(els, y0, y0 + H, x0 - 16, `${fmtN(kisa)} mm`);
+  // ÖLÇÜ OKLARI PLAKANIN DIŞINDA DURUR.
+  //
+  // `dimV`nin imzası `(els, x, y1, y2, …)`dır — ilk sayı EKSEN, sonrakiler uç
+  // noktalardır. Argümanlar bir süre `(y1, y2, x)` sırasıyla veriliyordu ve
+  // dikey ölçü plakanın İÇİNE düşüyordu (kullanıcı ekran görüntüsü,
+  // 15.08.2026). Etiket de sola alınır: sağa bakan varsayılan onu plakanın
+  // kenarına bindiriyordu.
+  dimH(els, x0, x0 + W, y0 + H + 18, `${fmtN(uzun)} mm`);
+  dimV(els, x0 - 18, y0, y0 + H, `${fmtN(kisa)} mm`, { labelSide: "left" });
 
   if (g.altNot) {
     els.push(txt(x0, y0 + H + 38, g.altNot, 8.5, { fill: DCOL.muted, fixed: true }));

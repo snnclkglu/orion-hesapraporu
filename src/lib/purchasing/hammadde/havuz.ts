@@ -21,7 +21,7 @@
 // ÇEKİRDEK SAFTIR: DB/HTTP importu yok.
 
 import { trKatla } from "@/lib/drawings/tr-text";
-import { hammaddeCozumle, type HammaddeCozumu } from "./cozumle";
+import { hammaddeCozumle, type HammaddeCozumu, type PayKaynagi } from "./cozumle";
 import { STOK_BOYU_MM, type HammaddeSinifi } from "./siniflar";
 
 // ═════════════════════════════════════════════════════════════ GİRDİLER
@@ -60,6 +60,16 @@ export interface HammaddeKaynagi {
   kesimBoyuMm?: number | null;
   groupCode: string;
   groupName: string;
+  /** Parçanın KENDİ resmi (detay pafta) — depo yolu ve dosya adı. */
+  detayPdf?: DosyaBagi | null;
+  /** Bağlı olduğu MONTAJIN resmi (ana pafta). */
+  anaPdf?: DosyaBagi | null;
+}
+
+/** Depodaki bir dosyaya bağ — imzalı bağlantı istemcide üretilir. */
+export interface DosyaBagi {
+  ad: string;
+  yol: string;
 }
 
 /**
@@ -109,14 +119,26 @@ export interface KesimParcasi {
   carpan: number;
   /** birimAdet × carpan — gerçekten kesilecek adet. */
   adet: number | null;
+  /** SATIN ALINACAK ölçüler — pay uygulanmış hâli. */
   kalinlikMm: number | null;
   enMm: number | null;
   boyMm: number | null;
   disCapMm: number | null;
   icCapMm: number | null;
+  /**
+   * RESİMDEKİ ölçüler — pay varsa `…Mm` alanlarından FARKLIDIR.
+   *
+   * Ekran ikisini yan yana basar: satınalmacı "resimde Ø90 yazıyor, ben neden
+   * Ø95 alıyorum" sorusunu ekranda cevaplayabilmelidir.
+   */
+  resimDisCapMm: number | null;
+  resimBoyMm: number | null;
   birimAgirlikKg: number | null;
+  payKaynagi: PayKaynagi;
   payUygulandi: boolean;
   eksikler: string[];
+  detayPdf: DosyaBagi | null;
+  anaPdf: DosyaBagi | null;
 }
 
 export interface HammaddeSatiri {
@@ -134,6 +156,12 @@ export interface HammaddeSatiri {
   sinif: HammaddeSinifi;
   kesitKodu: string;
   kalite: string;
+  /** Kalite elle mi girildi? Ekran bunu bir rozetle söyler. */
+  kaliteElle?: boolean;
+  /** Adet elle mi ezildi? Türetilen sayı `turetilenAdet`te durur. */
+  adetElle?: boolean;
+  /** Ezilmeden önceki türetilmiş parça adedi — karşılaştırma için. */
+  turetilenAdet?: number;
   /** Metre ağırlığı [kg/m]; sacda null. */
   kgPerM: number | null;
   agirlikKaynagi: HammaddeCozumu["agirlikKaynagi"];
@@ -170,8 +198,9 @@ export interface HammaddeSatiri {
   carpanBelirsiz: boolean;
   /** Kesim parçalarının topladığı okunamayan ölçüler (tekilleştirilmiş). */
   eksikler: string[];
-  /** Ressamın parantez içi satın alma payı en az bir parçada uygulandı mı? */
+  /** Pay uygulandı mı ve kaynağı ne? Ekran bunu açıkça yazar. */
   payUygulandi: boolean;
+  payKaynagi: PayKaynagi;
   /** İnsanın bu stok kalemine yazdığı not. */
   not: string;
   /** Elle eklenmiş satır mı (`purchase_raw_manual`)? */
@@ -226,10 +255,29 @@ export interface HammaddeSecenekleri {
   sinifDuzeltmeleri?: ReadonlyMap<string, HammaddeSinifi>;
   /** Görünen stok adını ezen düzeltme (anahtar: çözücünün stok anahtarı). */
   etiketDuzeltmeleri?: ReadonlyMap<string, string>;
+  /** Kaliteyi ezen düzeltme — ressam yazmamışsa ya da yanlış yazmışsa. */
+  kaliteDuzeltmeleri?: ReadonlyMap<string, string>;
+  /**
+   * ADEDİ EZEN DÜZELTME.
+   *
+   * Türetilmiş adet bir SAYIM sonucudur; satınalmacı bazen fazladan alır
+   * ("yedek koyalım") ya da elde stok vardır. Ezilen değer PARÇA ADEDİDİR;
+   * ağırlık ve boy sayısı ondan yeniden türer, ekranda iki ayrı gerçek olmaz.
+   */
+  adetDuzeltmeleri?: ReadonlyMap<string, number>;
   /** Stok kalemine yazılmış insan notu (anahtar: çözücünün stok anahtarı). */
   notlar?: ReadonlyMap<string, string>;
   /** Havuzdan çıkarılmış stok kalemleri (anahtar: çözücünün stok anahtarı). */
   haricler?: ReadonlySet<string>;
+  /**
+   * EKİPMAN HAVUZUNA TAŞINMIŞ stok kalemleri.
+   *
+   * `haricler`den AYRI TUTULUR ve bu bilinçli: "havuzdan çıkar" bir susturma,
+   * "ekipmana taşı" bir YENİDEN SINIFLANDIRMAdır — satır kaybolmaz, öteki
+   * havuzda görünür. İkisini tek bayrağa indirmek, taşınan bir kalemin
+   * gerçekten karşı tarafa geçip geçmediğini ekranda sorulamaz yapardı.
+   */
+  ekipmanaTasinanlar?: ReadonlySet<string>;
 }
 
 // ═══════════════════════════════════════════════════════════════ KURULUM
@@ -265,12 +313,14 @@ export function hammaddeHavuzu(
     // "DOLU Ø90" olurdu ve iki ekran birbiriyle çelişirdi.
     const kaynakAnahtar = cozum.stokAnahtari;
     if (secenekler.haricler?.has(kaynakAnahtar)) continue;
+    if (secenekler.ekipmanaTasinanlar?.has(kaynakAnahtar)) continue;
     const duzeltme = secenekler.sinifDuzeltmeleri?.get(kaynakAnahtar);
     const sinif = duzeltme ?? cozum.sinif;
     const tasinmis = duzeltme
       ? tasinmisStok(cozum, duzeltme)
       : { key: cozum.stokAnahtari, tanim: cozum.stokTanimi };
     const etiket = secenekler.etiketDuzeltmeleri?.get(kaynakAnahtar);
+    const kaliteDuzeltme = secenekler.kaliteDuzeltmeleri?.get(kaynakAnahtar);
     const key = tasinmis.key;
     const tanim = etiket?.trim() || tasinmis.tanim;
     if (!key) continue;
@@ -297,9 +347,14 @@ export function hammaddeHavuzu(
       boyMm: cozum.olcu.boyMm,
       disCapMm: cozum.olcu.disCapMm,
       icCapMm: cozum.olcu.icCapMm,
+      resimDisCapMm: cozum.resimOlcusu.disCapMm,
+      resimBoyMm: cozum.resimOlcusu.boyMm,
       birimAgirlikKg: cozum.birimAgirlikKg,
+      payKaynagi: cozum.payKaynagi,
       payUygulandi: cozum.payUygulandi,
       eksikler: cozum.eksikler,
+      detayPdf: k.detayPdf ?? null,
+      anaPdf: k.anaPdf ?? null,
     };
 
     let satir = kalemler.get(key);
@@ -310,7 +365,8 @@ export function hammaddeHavuzu(
         tanim,
         sinif,
         kesitKodu: cozum.kesitKodu,
-        kalite: cozum.kalite,
+        kalite: kaliteDuzeltme?.trim() || cozum.kalite,
+        kaliteElle: Boolean(kaliteDuzeltme?.trim()),
         kgPerM: cozum.kgPerM,
         agirlikKaynagi: cozum.agirlikKaynagi,
         celikVarsayildi: cozum.celikVarsayildi,
@@ -328,6 +384,7 @@ export function hammaddeHavuzu(
         carpanBelirsiz: false,
         eksikler: [],
         payUygulandi: false,
+        payKaynagi: "yok",
         not: "",
         sinifElle: duzeltme != null,
       };
@@ -336,13 +393,35 @@ export function hammaddeHavuzu(
 
     satir.parcalar.push(parca);
     if (paket.carpanBelirsiz) satir.carpanBelirsiz = true;
-    if (cozum.payUygulandi) satir.payUygulandi = true;
+    if (cozum.payUygulandi) {
+      satir.payUygulandi = true;
+      // RESSAMIN PAYI OTOMATİĞİ YENER: bir kalemin parçalarından biri elle pay
+      // almışsa satır "ressam" der — o bir karardır ve görünmelidir.
+      if (satir.payKaynagi !== "ressam") satir.payKaynagi = cozum.payKaynagi;
+    }
     for (const e of cozum.eksikler) if (!satir.eksikler.includes(e)) satir.eksikler.push(e);
   }
 
   const liste = [...kalemler.values()];
   for (const s of liste) {
     ozetle(s);
+    // ADET DÜZELTMESİ ÖZETTEN SONRA UYGULANIR ve türetilen sayı SAKLANIR:
+    // ekran ikisini yan yana gösterebilmeli, yoksa "bu 40 nereden geldi"
+    // sorusunun cevabı kaybolur. Ağırlık ve boy sayısı ORANLA taşınır —
+    // yeniden hesaplamak parça ölçülerini değiştirmek olurdu.
+    const yeniAdet = secenekler.adetDuzeltmeleri?.get(s.kaynakAnahtar);
+    if (yeniAdet != null && yeniAdet > 0 && yeniAdet !== s.parcaAdedi) {
+      const oran = s.parcaAdedi > 0 ? yeniAdet / s.parcaAdedi : 0;
+      s.turetilenAdet = s.parcaAdedi;
+      s.adetElle = true;
+      s.parcaAdedi = yeniAdet;
+      if (oran > 0) {
+        if (s.toplamAgirlikKg != null) s.toplamAgirlikKg = Math.round(s.toplamAgirlikKg * oran * 1000) / 1000;
+        if (s.toplamBoyMm != null) s.toplamBoyMm = Math.round(s.toplamBoyMm * oran * 100) / 100;
+        if (s.toplamAlanMm2 != null) s.toplamAlanMm2 = s.toplamAlanMm2 * oran;
+        if (s.boyAdedi != null && s.stokBoyuMm) s.boyAdedi = Math.ceil(s.boyAdedi * oran);
+      }
+    }
     // ADEDİ OKUNAMAYAN SATIR SESSİZ KALMAZ: ağırlık ve boy hesabı o satırda
     // eksik çıkar ve ekran sebebini söylemek zorundadır.
     if (eksikAdet.has(s.key) && !s.eksikler.includes("adet okunamadı")) {

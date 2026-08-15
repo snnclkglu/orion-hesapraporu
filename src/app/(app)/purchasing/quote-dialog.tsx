@@ -56,6 +56,10 @@ interface Form {
   paraBirimi: string;
   kur: string;
   tarih: string;
+  /** Ödeme vadesi GÜN — 0 peşindir. Karşılaştırma başlığına yazılır. */
+  vade: string;
+  /** Teslim süresi GÜN — 0 "Hazır", boş "söylenmedi". */
+  teslim: string;
   not: string;
 }
 
@@ -65,6 +69,8 @@ const BOS_FORM = (): Form => ({
   paraBirimi: "EUR",
   kur: "",
   tarih: bugunISO(),
+  vade: "",
+  teslim: "",
   not: "",
 });
 
@@ -75,6 +81,8 @@ function formaCevir(t: TeklifSatiri): Form {
     paraBirimi: t.currency,
     kur: t.fxRate == null ? "" : String(t.fxRate),
     tarih: t.quotedAt,
+    vade: t.paymentTermDays > 0 ? String(t.paymentTermDays) : "",
+    teslim: t.leadTimeDays == null ? "" : String(t.leadTimeDays),
     not: t.note,
   };
 }
@@ -141,6 +149,11 @@ export function QuoteDialog({
         fxRate: kur,
         quotedAt: f.tarih,
         validUntil: "",
+        // VADE GÜN GİRİLDİYSE ÖDEME BİÇİMİ "VADELİ"DİR: iki alanı ayrı
+        // sormak, kullanıcıyı aynı gerçeği iki kez yazdırmak olurdu.
+        paymentMethod: (parseNum(f.vade) ?? 0) > 0 ? "vadeli" : "pesin",
+        paymentTermDays: Math.round(parseNum(f.vade) ?? 0),
+        leadTimeDays: f.teslim.trim() === "" ? null : Math.round(parseNum(f.teslim) ?? 0),
         note: f.not,
         itemNo: "",
         packageId: null,
@@ -168,6 +181,9 @@ export function QuoteDialog({
         chosen: id ? (liste.find((t) => t.id === id)?.chosen ?? false) : false,
         note: f.not,
         itemNo: "",
+        paymentMethod: (parseNum(f.vade) ?? 0) > 0 ? "vadeli" : "pesin",
+        paymentTermDays: Math.round(parseNum(f.vade) ?? 0),
+        leadTimeDays: f.teslim.trim() === "" ? null : Math.round(parseNum(f.teslim) ?? 0),
       };
 
       // İYİMSER GÜNCELLEME: pencere kapanmadan liste değişir, satınalmacı üç
@@ -478,6 +494,31 @@ function TeklifFormu({
             value={f.tarih}
             onChange={(e) => set({ tarih: e.target.value })}
             className="h-9 font-mono text-base pointer-fine:text-sm"
+          />
+        </label>
+        {/* VADE VE TESLİM SÜRESİ (kullanıcı kararı, 15.08.2026): teklifleri
+            yan yana koyarken en ucuz fiyat tek başına bir cevap değildir —
+            90 gün vadeli ve hazır bir teklif, peşin ve 40 gün terminli bir
+            tekliften pahalı görünse bile kazanabilir. */}
+        <label className="grid w-28 gap-1">
+          <span className="text-[11px] text-muted-foreground">Vade (gün)</span>
+          <Input
+            value={f.vade}
+            onChange={(e) => set({ vade: e.target.value })}
+            inputMode="numeric"
+            placeholder="Peşin"
+            className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+          />
+        </label>
+        <label className="grid w-32 gap-1">
+          <span className="text-[11px] text-muted-foreground">Teslim (gün)</span>
+          <Input
+            value={f.teslim}
+            onChange={(e) => set({ teslim: e.target.value })}
+            inputMode="numeric"
+            placeholder="Sorulmadı"
+            title="0 yazarsanız “Hazır” görünür; boş bırakılırsa tedarikçi söylemedi demektir."
+            className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
           />
         </label>
       </div>

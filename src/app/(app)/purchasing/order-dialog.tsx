@@ -104,6 +104,17 @@ export interface SiparisKalemi {
   birimFiyat: number | null;
   paraBirimi: string | null;
   tedarikci: string;
+  /**
+   * SİPARİŞ BİRİMİ — varsayılan "Adet".
+   *
+   * Sac plakası KİLOYLA sipariş edilir (kullanıcının verdiği DESSAN
+   * proforması: `3.537 KG × 0,690 USD`), plaka adedi bir NİTELİKTİR ve nota
+   * yazılır. Birim satırda taşınmasaydı hammadde siparişi adet gibi
+   * görünür ve birim fiyat kilo fiyatı olduğu için tutar otuz kat şaşardı.
+   */
+  birim?: string;
+  /** Satır notu — plaka siparişinde "5 plaka × 707 kg". */
+  not?: string;
   /** Kalemin işlere dağılımı — satırın hangi pakete işaret yazacağını belirler. */
   paylar: { itemNo: string; packageId: string; partKey: string; adet: number }[];
 }
@@ -117,6 +128,10 @@ interface Satir {
   kdv: VatRate;
   /** MARKA/KALİTE (md. 16) — snapshot olarak kaydedilir. */
   kalite: string;
+  /** Sipariş birimi — sacda "Kg", ekipmanda "Adet". */
+  birim: string;
+  /** Satır notu — plaka siparişinde plaka adedi burada durur. */
+  not: string;
   paylar: SiparisKalemi["paylar"];
 }
 
@@ -213,6 +228,9 @@ export function OrderDialog({
           : "",
       kdv: DEFAULT_VAT_RATE,
       kalite: "",
+      // Birim ve not kalemden gelir; verilmezse ekipman varsayılanı.
+      birim: k.birim ?? "Adet",
+      not: k.not ?? "",
       paylar: k.paylar,
     }))
   );
@@ -413,11 +431,11 @@ export function OrderDialog({
             packageId: null,
             partKey: "",
             qty: adet,
-            unit: "Adet",
+            unit: s.birim,
             unitPrice: fiyat,
             vatRate: s.kdv,
             quality: s.kalite,
-            note: "",
+            note: s.not,
           });
           continue;
         }
@@ -437,11 +455,11 @@ export function OrderDialog({
             packageId: p.packageId,
             partKey: p.partKey,
             qty: pay,
-            unit: "Adet",
+            unit: s.birim,
             unitPrice: fiyat,
             vatRate: s.kdv,
             quality: s.kalite,
-            note: "",
+            note: s.not,
           });
         });
       }

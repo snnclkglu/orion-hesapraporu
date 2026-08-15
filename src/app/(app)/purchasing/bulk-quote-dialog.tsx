@@ -66,6 +66,11 @@ export function BulkQuoteDialog({
   const [paraBirimi, setParaBirimi] = useState(currencyOf("EUR"));
   const [kur, setKur] = useState("");
   const [tarih, setTarih] = useState(bugunISO());
+  // VADE VE TESLİM TEDARİKÇİ BAŞINA TEKTİR: bir firma bütün kalemlere aynı
+  // vadeyi ve aynı termini verir; satır satır sormak yirmi kalemde kırk
+  // fazladan kutu ederdi.
+  const [vade, setVade] = useState("");
+  const [teslim, setTeslim] = useState("");
   const [not, setNot] = useState("");
   const [fiyatlar, setFiyatlar] = useState<Record<string, string>>({});
 
@@ -126,6 +131,9 @@ export function BulkQuoteDialog({
           fxRate: kurDeger,
           quotedAt: tarih,
           validUntil: "",
+          paymentMethod: (parseNum(vade) ?? 0) > 0 ? "vadeli" : "pesin",
+          paymentTermDays: Math.round(parseNum(vade) ?? 0),
+          leadTimeDays: teslim.trim() === "" ? null : Math.round(parseNum(teslim) ?? 0),
           note: not,
           itemNo: "",
           packageId: null,
@@ -215,6 +223,31 @@ export function BulkQuoteDialog({
                 value={tarih}
                 onChange={(e) => setTarih(e.target.value)}
                 className="h-9 font-mono text-base pointer-fine:text-sm"
+              />
+            </div>
+            {/* VADE VE TESLİM SÜRESİ — karşılaştırma tablosunun iki sütunu
+                (kullanıcı kararı, 15.08.2026). Firma başına tektir. */}
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="toplu-vade">Vade (Gün)</Label>
+              <Input
+                id="toplu-vade"
+                value={vade}
+                onChange={(e) => setVade(e.target.value)}
+                inputMode="numeric"
+                placeholder="Peşin"
+                className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
+              />
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="toplu-teslim">Teslim (Gün)</Label>
+              <Input
+                id="toplu-teslim"
+                value={teslim}
+                onChange={(e) => setTeslim(e.target.value)}
+                inputMode="numeric"
+                placeholder="Sorulmadı"
+                title="0 yazarsanız “Hazır” görünür; boş bırakılırsa tedarikçi söylemedi demektir."
+                className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
               />
             </div>
           </div>

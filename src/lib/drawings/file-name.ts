@@ -52,6 +52,22 @@ const HARIC_UZANTILAR = new Set(["bak", "dwl", "dwl2", "tmp", "db", "ini"]);
 /** `0057-00-1000_Sheet.dwg` — Inventor'ın açınım çalışma dosyası; PDF eşi yok. */
 const CALISMA_SONEKI = /_sheet$/i;
 
+/**
+ * OFİS KİLİT DOSYASI — `~$1.0053-01-0000_URUN AGACI_14.08.2026.xlsx`.
+ *
+ * Excel/Word bir belge AÇIKKEN yanına `~$` önekli, birkaç yüz baytlık gizli
+ * bir sahiplik dosyası yazar. Uzantısı `.xlsx`tir ama İÇİ ZIP DEĞİLDİR;
+ * `ExcelJS` onu açmaya kalkınca "Can't find end of central directory" der ve
+ * kullanıcı ekranda kırmızı bir hata görür (kullanıcı bildirimi, 15.08.2026 —
+ * ressam Excel'i açık bırakırken klasörü yüklemiş).
+ *
+ * DOSYA REDDEDİLMEZ, YEDEK SAYILIR (md. 18/1: hiçbir kural bir yüklemeyi
+ * engellemez): depoya yine gider, defterde "yedek/çalışma dosyası" olarak
+ * sayılır ve İÇERİK OKUMASINA girmez. Kural adın BAŞINDADIR — gerçek bir
+ * belge adı `~$` ile başlamaz.
+ */
+const OFIS_KILIT_ONEKI = /^~\$/;
+
 const ADET_KALIBI = /^\(\s*(\d+)\s*ADET\s*\)$/;
 const KALINLIK_KALIBI = /^(\d+(?:[.,]\d+)?)\s*MM$/;
 /** `S235JR-8MM`, `BDS-3,6MM` — malzeme deseni DAYATILMAZ, ne yazıyorsa odur. */
@@ -181,6 +197,10 @@ export function parseFile(input: FileInput): ParsedFile {
 
   let lifecycle: FileLifecycle = ipuclari.lifecycle ?? "canli";
   if (HARIC_UZANTILAR.has(ext)) lifecycle = "haric";
+  if (OFIS_KILIT_ONEKI.test(base)) {
+    lifecycle = "haric";
+    base = base.replace(OFIS_KILIT_ONEKI, "");
+  }
   if (CALISMA_SONEKI.test(base)) {
     lifecycle = "haric";
     base = base.replace(CALISMA_SONEKI, "");

@@ -27,8 +27,20 @@ export const saveRawMetaSchema = z.object({
   note: z.union([bosOlabilir, z.null()]).default(null),
   stockLengthMm: z.union([z.number().positive(), z.literal(0), z.null()]).default(null),
   excluded: z.union([z.boolean(), z.null()]).default(null),
+  /** null = dokunma · "" = düzeltmeyi kaldır · değer = kaliteyi ez */
+  quality: z.union([bosOlabilir, z.null()]).default(null),
+  /** null = dokunma · 0 = düzeltmeyi kaldır · değer = adedi ez */
+  qty: z.union([z.number().positive(), z.literal(0), z.null()]).default(null),
 });
-export type SaveRawMetaInput = z.infer<typeof saveRawMetaSchema>;
+/**
+ * GİRDİ TİPİ `z.input`TİR, `z.infer` DEĞİL.
+ *
+ * Alanların çoğu "dokunma" anlamına gelen `null` varsayılanını taşıyor;
+ * `z.infer` çıktı tipini verir ve çağıranı DOKUNMAYACAĞI alanları da tek tek
+ * `null` yazmaya zorlardı. Tek bir notu kaydeden pencerenin sekiz alan
+ * saymasının hiçbir kazancı yok.
+ */
+export type SaveRawMetaInput = z.input<typeof saveRawMetaSchema>;
 
 export const createRawManualSchema = z.object({
   sample: z.string().trim().min(2, "Tanım gerekli.").max(240),
@@ -52,3 +64,20 @@ export const updateRawManualSchema = createRawManualSchema.extend({
   id: z.string().uuid(),
 });
 export type UpdateRawManualInput = z.infer<typeof updateRawManualSchema>;
+
+/**
+ * EKİPMANA TAŞIMA — hammadde satırını öteki havuza geçirir.
+ *
+ * `hamTanimlar` İSTEMCİDEN GELİR ve bu bilinçli: taşınan şey bir STOK
+ * KALEMİDİR ama ekipman havuzu PARÇA TANIMLARIYLA çalışır. Köprüyü sunucuda
+ * yeniden kurmak, aynı çözümlemeyi ikinci kez yazmak olurdu — ve iki
+ * çözümleme bir gün ayrışırdı.
+ */
+export const moveToEquipmentSchema = z.object({
+  key: z.string().min(1),
+  sample: z.string().trim().max(240).default(""),
+  hamTanimlar: z.array(z.string().trim().min(1)).min(1).max(2000),
+  /** false = geri al (ekipmandan hammaddeye döndür) */
+  tasi: z.boolean().default(true),
+});
+export type MoveToEquipmentInput = z.infer<typeof moveToEquipmentSchema>;

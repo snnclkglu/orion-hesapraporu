@@ -78,6 +78,7 @@ interface ParcaSatiri {
   category: string;
   qty: number | null;
   cut_length_mm: number | null;
+  sheet_file_id: string | null;
 }
 
 /**
@@ -90,7 +91,7 @@ interface ParcaSatiri {
  */
 const PARCA_ALANLARI =
   "package_id, part_code, parent_code, kind, name, description, " +
-  "assembly_title, material, category, qty, cut_length_mm";
+  "assembly_title, material, category, qty, cut_length_mm, sheet_file_id";
 
 /** İMALAT satırının tanımı — ekipman süzgecinin tam tersi. */
 const IMALAT_TURLERI = ["imalat", "bilinmiyor"];
@@ -156,9 +157,17 @@ export async function loadHammaddeHavuzu(
   const bilinenGruplar = new Set(grupAdlari.keys());
 
   // ————————————————————————————————— 4. düzeltme defteri
-  const defter = await supabase
+  // ZENGİN + DAR (md. 21): ikinci tur sütunları (`to_equipment`,
+  // `quality_override`, `qty_override`) 20260815000002 ile geliyor. Onları
+  // isteyen bir `select` migration uygulanmadan önce BÜTÜN sorguyu düşürür ve
+  // havuz hiç görünmezdi.
+  const DAR = "match_key, kind, label_override, stock_length_mm, excluded, note";
+  const zengin = await supabase
     .from("purchase_raw_meta")
-    .select("match_key, kind, label_override, stock_length_mm, excluded, note");
+    .select(`${DAR}, to_equipment, quality_override, qty_override`);
+  const defter = zengin.error
+    ? await supabase.from("purchase_raw_meta").select(DAR)
+    : zengin;
   const defterVar = !defter.error;
   const kayitlar = (defter.data ?? []) as {
     match_key: string;
@@ -167,18 +176,27 @@ export async function loadHammaddeHavuzu(
     stock_length_mm: number | null;
     excluded: boolean;
     note: string | null;
+    to_equipment?: boolean;
+    quality_override?: string | null;
+    qty_override?: number | null;
   }[];
 
   const sinifDuzeltmeleri = new Map<string, HammaddeSinifi>();
   const etiketDuzeltmeleri = new Map<string, string>();
+  const kaliteDuzeltmeleri = new Map<string, string>();
+  const adetDuzeltmeleri = new Map<string, number>();
   const notlar = new Map<string, string>();
   const haricler = new Set<string>();
+  const ekipmanaTasinanlar = new Set<string>();
   const stokBoylari = new Map<string, number>();
   for (const r of kayitlar) {
     if (r.kind && hammaddeSinifiMi(r.kind)) sinifDuzeltmeleri.set(r.match_key, r.kind);
     if (r.label_override?.trim()) etiketDuzeltmeleri.set(r.match_key, r.label_override.trim());
+    if (r.quality_override?.trim()) kaliteDuzeltmeleri.set(r.match_key, r.quality_override.trim());
+    if (r.qty_override != null) adetDuzeltmeleri.set(r.match_key, Number(r.qty_override));
     if (r.note?.trim()) notlar.set(r.match_key, r.note.trim());
     if (r.excluded) haricler.add(r.match_key);
+    if (r.to_equipment) ekipmanaTasinanlar.add(r.match_key);
     if (r.stock_length_mm != null) stokBoylari.set(r.match_key, Number(r.stock_length_mm));
   }
 
@@ -231,6 +249,37 @@ export async function loadHammaddeHavuzu(
         .range(bas, son)
     );
 
+    // ————————————————————————————————— 6b. parça resimleri (PDF)
+    //
+    // Kullanıcı isteği (15.08.2026): *"parçaların pdf'leri satıra gelsin …
+    // hem o hammaddenin kullanıldığı ana paftayı açabilsin hem de sacın detay
+    // paftası varsa onu açabilsin."*
+    //
+    // İKİ AYRI RESİM: parçanın KENDİ paftası (`sheet_file_id`) ve bağlı
+    // olduğu MONTAJIN paftası. İkincisi ayrı bir sorgu değil AYNI DEFTERDEN
+    // çözülür — montajın kendi satırı da bir parçadır ve onun da resmi vardır.
+    const dosyaIdleri = [...new Set(ham.map((r) => r.sheet_file_id).filter(Boolean))] as string[];
+    const dosyalar = new Map<string, { ad: string; yol: string }>();
+    if (dosyaIdleri.length > 0) {
+      const { data: dosyaVerisi } = await supabase
+        .from("drawing_files")
+        .select("id, file_name, storage_path")
+        .in("id", dosyaIdleri);
+      for (const d of (dosyaVerisi ?? []) as {
+        id: string;
+        file_name: string;
+        storage_path: string | null;
+      }[]) {
+        if (d.storage_path) dosyalar.set(d.id, { ad: d.file_name, yol: d.storage_path });
+      }
+    }
+    /** Parça kodu → o kodun kendi resmi. Montaj paftası buradan bulunur. */
+    const koduResmi = new Map<string, { ad: string; yol: string }>();
+    for (const r of ham) {
+      const d = r.sheet_file_id ? dosyalar.get(r.sheet_file_id) : undefined;
+      if (d && r.part_code) koduResmi.set(r.part_code, d);
+    }
+
     for (const r of ham) {
       const grupCoz = (kod: string): string => {
         const k = (kod ?? "").trim();
@@ -265,6 +314,12 @@ export async function loadHammaddeHavuzu(
         kesimBoyuMm: r.cut_length_mm == null ? null : Number(r.cut_length_mm),
         groupCode,
         groupName,
+        // DETAY PAFTA: parçanın kendi resmi. Sacların çoğunda yoktur (plazma
+        // listesinden kesilir) ve o zaman alan boş kalır — düğme çizilmez.
+        detayPdf: r.sheet_file_id ? (dosyalar.get(r.sheet_file_id) ?? null) : null,
+        // ANA PAFTA: bağlı olduğu montajın resmi. Önce ağaçtaki üstü, sonra
+        // çözülmüş grup kodu denenir.
+        anaPdf: koduResmi.get(r.parent_code) ?? (groupCode ? (koduResmi.get(groupCode) ?? null) : null),
       });
     }
   }
@@ -272,8 +327,11 @@ export async function loadHammaddeHavuzu(
   const havuz = hammaddeHavuzu(havuzPaketleri, kaynaklar, {
     sinifDuzeltmeleri,
     etiketDuzeltmeleri,
+    kaliteDuzeltmeleri,
+    adetDuzeltmeleri,
     notlar,
     haricler,
+    ekipmanaTasinanlar,
   });
 
   // ————————————————————————————————— 7. stok boyu düzeltmeleri
@@ -377,9 +435,17 @@ export async function loadRawManual(supabase: SupabaseClient): Promise<HammaddeS
           boyMm: boy,
           disCapMm: m.outer_dia_mm != null ? Number(m.outer_dia_mm) : null,
           icCapMm: m.inner_dia_mm != null ? Number(m.inner_dia_mm) : null,
+          // ELLE AÇILAN TALEBE PAY EKLENMEZ: kullanıcı zaten satın alacağı
+          // ölçüyü yazıyor; üstüne bir de %5 koymak onun kararını ezerdi.
+          resimDisCapMm: m.outer_dia_mm != null ? Number(m.outer_dia_mm) : null,
+          resimBoyMm: boy,
           birimAgirlikKg: agirlik != null && adet ? agirlik / adet : null,
+          payKaynagi: "yok",
           payUygulandi: false,
           eksikler: [],
+          // Elle açılan talebin resmi yoktur — hiçbir teknik resimden gelmiyor.
+          detayPdf: null,
+          anaPdf: null,
         },
       ],
       paylar: m.item_no
@@ -401,6 +467,7 @@ export async function loadRawManual(supabase: SupabaseClient): Promise<HammaddeS
       carpanBelirsiz: false,
       eksikler: [],
       payUygulandi: false,
+      payKaynagi: "yok",
       not: m.note ?? "",
       manualId: m.id,
     };

@@ -81,6 +81,14 @@ export const saveQuoteSchema = z
     // veritabanında duruyor ve yeni kayıtlarda `null` gider.
     quotedAt: gun,
     validUntil: gun,
+    // VADE VE TESLİM SÜRESİ TEKLİFİN PARÇASIDIR (kullanıcı kararı,
+    // 15.08.2026): en ucuz fiyat, üç ay vadeli ve altı hafta sonra teslim
+    // edilecekse en ucuz teklif değildir. Karşılaştırma tablosu bu iki alan
+    // olmadan bir fiyat listesinden ibaret kalırdı.
+    paymentMethod: z.enum(["pesin", "kredi_karti", "vadeli"]).default("pesin"),
+    paymentTermDays: z.number().int().min(0).max(365).default(0),
+    /** 0 = Hazır (stokta) · null = tedarikçi söylemedi. */
+    leadTimeDays: z.union([z.number().int().min(0).max(365), z.null()]).default(null),
     note: z.string().trim().max(500).default(""),
     itemNo: z.string().trim().max(40).default(""),
     packageId: z.uuid().nullable().default(null),

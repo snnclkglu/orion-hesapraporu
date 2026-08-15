@@ -40,6 +40,7 @@ import {
   CELIK_OZKUTLE_KG_MM3,
   kaliteAyikla,
   ozkutleBul,
+  payliOlcu,
   type HammaddeSinifi,
 } from "./siniflar";
 
@@ -66,6 +67,15 @@ const BOS_OLCU: HammaddeOlcusu = {
 
 export type AgirlikKaynagi = "tablo" | "geometri" | "yok";
 
+/**
+ * PAYIN KAYNAĞI — üç hâl ve üçü de ekranda görünür.
+ *
+ * `ressam`  — parantez içinde verilmiş, olduğu gibi kullanılır (otoriter).
+ * `otomatik`— firma kuralı: dolu ve işlenecek boruda %5, en az 2 mm.
+ * `yok`     — sac, profil, ray ve STANDART BORU; kesilir, işlenmez.
+ */
+export type PayKaynagi = "ressam" | "otomatik" | "yok";
+
 export interface HammaddeCozumu {
   sinif: HammaddeSinifi;
   /**
@@ -81,7 +91,18 @@ export interface HammaddeCozumu {
   kesitKodu: string;
   /** Gerçek çelik kalitesi; "Steel, Mild" gibi yer tutucular BOŞ döner. */
   kalite: string;
+  /** SATIN ALINACAK ölçü — pay uygulanmış hâli. */
   olcu: HammaddeOlcusu;
+  /**
+   * RESİMDEKİ ölçü — ressamın yazdığı hâl.
+   *
+   * Pay yokken `olcu` ile aynıdır. Varken İKİSİ DE gösterilir: satınalmacı
+   * "neden Ø95 sipariş ediyorum, resimde Ø90 yazıyor" sorusunu ekranda
+   * cevaplayabilmelidir (kullanıcı isteği: *"verilen paylar satın almaya
+   * gösterilmeli"*).
+   */
+  resimOlcusu: HammaddeOlcusu;
+  payKaynagi: PayKaynagi;
   /** Metre ağırlığı [kg/m] — sac dışındaki sınıflarda anlamlıdır. */
   kgPerM: number | null;
   /** BİR adet parçanın ağırlığı [kg]; ölçü eksikse null. */
@@ -447,14 +468,58 @@ export function hammaddeCozumle(girdi: HammaddeGirdisi): HammaddeCozumu | null {
     parcalar: {
       kesitKodu?: string;
       olcu?: Partial<HammaddeOlcusu>;
-      kgPerM?: number | null;
+      /**
+       * Metre ağırlığı — sabit ya da ÖLÇÜDEN üretilen.
+       *
+       * Pay alan sınıflarda fonksiyon verilir: sipariş edilen çubuk Ø95'tir,
+       * ağırlığı Ø90'dan hesaplamak %11 eksik bir tonaj yazdırırdı.
+       */
+      kgPerM?: number | null | ((o: HammaddeOlcusu) => number | null);
       agirlikKaynagi?: AgirlikKaynagi;
-      /** Stok kaleminin kalite HARİÇ adı. */
-      govde: string;
+      /** Stok kaleminin kalite HARİÇ adı; sabit ya da ölçüden üretilen. */
+      govde: string | ((o: HammaddeOlcusu) => string);
+      /**
+       * Kesit kodu — sabit ya da ölçüden üretilen.
+       *
+       * Pay alan sınıflarda SATIN ALMA ölçüsünden üretilir: havuz bir satın
+       * alma ekranıdır ve "Ölçü" sütunuyla stok adının farklı bir çap
+       * göstermesi (Ø22 ile Ø24) okuyanı hangisinin sipariş edileceği
+       * konusunda tereddüde düşürürdü. Resimdeki ölçü açılır ayrıntıda,
+       * kendi sütununda durur.
+       */
+      kesitKoduUret?: (o: HammaddeOlcusu) => string;
+      /**
+       * TALAŞLI İMALAT PAYI UYGULANSIN MI?
+       *
+       * Yalnız DOLU ve İŞLENECEK BORU (iki çaplı burç/bilezik) için açılır.
+       * Sac, profil, ray ve STANDART BORU kesilir, işlenmez — onlarda pay
+       * fireyi büyütmekten başka bir işe yaramaz.
+       *
+       * Ressam kendi payını verdiyse (`payUygulandi`) ÜSTÜNE EKLENMEZ: onun
+       * sayısı bir karardır, bizimki bir kuraldır ve karar kuralı yener.
+       */
+      otomatikPay?: boolean;
     }
   ): HammaddeCozumu => {
-    const olcu: HammaddeOlcusu = { ...BOS_OLCU, ...(parcalar.olcu ?? {}) };
-    const kgPerM = parcalar.kgPerM ?? null;
+    const resimOlcusu: HammaddeOlcusu = { ...BOS_OLCU, ...(parcalar.olcu ?? {}) };
+
+    // PAY YALNIZ DIŞ ÇAPA VE BOYA UYGULANIR, İÇ ÇAPA DEĞİL.
+    // Kanıt ressamın kendi yazımıdır: `Ø405 ( Ø415)/ Ø358x1870 (1900)` —
+    // dış çap ve boy büyümüş, iç çap AYNI kalmış. Deliği büyütmek onu
+    // küçültmek kadar yanlış olurdu; iç çap işlemede zaten açılır.
+    const otomatik = Boolean(parcalar.otomatikPay) && !payUygulandi;
+    const olcu: HammaddeOlcusu = otomatik
+      ? {
+          ...resimOlcusu,
+          disCapMm: payliOlcu(resimOlcusu.disCapMm) ?? resimOlcusu.disCapMm,
+          boyMm: payliOlcu(resimOlcusu.boyMm) ?? resimOlcusu.boyMm,
+        }
+      : resimOlcusu;
+
+    const payKaynagi: PayKaynagi = payUygulandi ? "ressam" : otomatik ? "otomatik" : "yok";
+
+    const kgPerM =
+      typeof parcalar.kgPerM === "function" ? parcalar.kgPerM(olcu) : (parcalar.kgPerM ?? null);
     let birimAgirlikKg: number | null = null;
     if (sinif === "SAC") {
       if (olcu.kalinlikMm && olcu.enMm && olcu.boyMm) {
@@ -466,22 +531,25 @@ export function hammaddeCozumle(girdi: HammaddeGirdisi): HammaddeCozumu | null {
       birimAgirlikKg = yuvarla((kgPerM * oran * olcu.boyMm) / 1000);
     }
 
-    const stokTanimi = [parcalar.govde, kalite].filter(Boolean).join(" ");
+    const govde = typeof parcalar.govde === "function" ? parcalar.govde(olcu) : parcalar.govde;
+    const stokTanimi = [govde, kalite].filter(Boolean).join(" ");
     if (!kalite && sinif !== "DIGER") eksikler.push("kalite yazılmamış");
 
     return {
       sinif,
       stokTanimi,
       stokAnahtari: trKatla(stokTanimi),
-      kesitKodu: parcalar.kesitKodu ?? "",
+      kesitKodu: parcalar.kesitKoduUret ? parcalar.kesitKoduUret(olcu) : (parcalar.kesitKodu ?? ""),
       kalite,
       olcu,
+      resimOlcusu,
+      payKaynagi,
       kgPerM,
       birimAgirlikKg,
       agirlikKaynagi: parcalar.agirlikKaynagi ?? (kgPerM == null ? "yok" : "geometri"),
       ozkutleKgMm3: ozkutle.kgMm3,
       celikVarsayildi: ozkutle.celikVarsayildi,
-      payUygulandi,
+      payUygulandi: payKaynagi !== "yok",
       eksikler,
     };
   };
@@ -588,6 +656,9 @@ export function hammaddeCozumle(girdi: HammaddeGirdisi): HammaddeCozumu | null {
     // İKİ Ø = İÇİ BOŞ. Küçük olan iç, büyük olan dış çaptır (kullanıcı kuralı
     // ve `tanimOlculeri` ile aynı) — sıraya güvenilmez: canlı veride hem
     // "Ø140xØ90" hem "Ø8xØ10" yazımı var.
+    //
+    // BU FORM İŞLENİR: burç, bilezik, tambur borusu — tornaya bağlanacak bir
+    // parçadır ve talaşlı imalat payı alır.
     const dis = Math.max(...caplar);
     const ic = Math.min(...caplar);
     const kesimBoyu = boy ?? sonCaptanSonra(t);
@@ -595,15 +666,26 @@ export function hammaddeCozumle(girdi: HammaddeGirdisi): HammaddeCozumu | null {
     const kgPerM =
       dis > ic ? yuvarla(((Math.PI / 4) * (dis * dis - ic * ic) * CELIK_OZKUTLE_KG_MM3 * 1000)) : null;
     return bitir("BORU", {
-      kesitKodu: `Ø${olcuYaz(dis)}/Ø${olcuYaz(ic)}`,
-      govde: `BORU Ø${olcuYaz(dis)}/Ø${olcuYaz(ic)}`,
-      kgPerM,
+      kesitKoduUret: (o) => `Ø${olcuYaz(o.disCapMm ?? dis)}/Ø${olcuYaz(o.icCapMm ?? ic)}`,
+      govde: (o) => `BORU Ø${olcuYaz(o.disCapMm ?? dis)}/Ø${olcuYaz(o.icCapMm ?? ic)}`,
+      kgPerM: (o) => {
+        const D = o.disCapMm ?? dis;
+        const d = o.icCapMm ?? ic;
+        return D > d ? yuvarla((Math.PI / 4) * (D * D - d * d) * CELIK_OZKUTLE_KG_MM3 * 1000) : null;
+      },
       agirlikKaynagi: kgPerM == null ? "yok" : "geometri",
       olcu: { disCapMm: dis, icCapMm: ic, boyMm: kesimBoyu },
+      otomatikPay: true,
     });
   }
   if (/^(?:D[İI]K[İI][ŞS]L[İI]|D[İI]K[İI][ŞS]S[İI]Z)?\s*BORU\b/.test(t) && caplar.length === 1) {
     // "DİKİŞLİ BORU Ø33,7x3,25 L=13774" → dış çap × ET KALINLIĞI.
+    //
+    // BU FORMA PAY VERİLMEZ (kullanıcı kararı): *"DİKİŞLİ BORU Ø33 bu korkuluk
+    // borusu buna pay vermeye gerek yok."* Ayrım YAPISALDIR, ad araması değil:
+    // dış çap × et kalınlığı yazımı STANDART BİR BORU PROFİLİDİR — katalogdan
+    // olduğu gibi alınır ve boyuna kesilir, tornaya bağlanmaz. İki çaplı yazım
+    // (burç, bilezik) ise işlenecek bir parçadır ve pay alır.
     const m = t.match(/Ø\s*(\d+(?:[.,]\d+)?)\s*[X*]\s*(\d+(?:[.,]\d+)?)/);
     if (m) {
       const dis = trSayi(m[1]) ?? 0;
@@ -630,13 +712,19 @@ export function hammaddeCozumle(girdi: HammaddeGirdisi): HammaddeCozumu | null {
     const cap = caplar[0];
     const kesimBoyu = boy ?? sonCaptanSonra(t);
     if (kesimBoyu == null) eksikler.push("boy okunamadı");
-    const kgPerM = yuvarla((Math.PI / 4) * cap * cap * CELIK_OZKUTLE_KG_MM3 * 1000);
+    // METRE AĞIRLIĞI PAYLI ÇAPTAN hesaplanır (`bitir` içinde): sipariş edilen
+    // çubuk odur. Burada verilen değer resim çapına göredir ve pay varsa
+    // aşağıda yeniden kurulur.
     return bitir("DOLU", {
-      kesitKodu: `Ø${olcuYaz(cap)}`,
-      govde: `DOLU Ø${olcuYaz(cap)}`,
-      kgPerM,
+      kesitKoduUret: (o) => `Ø${olcuYaz(o.disCapMm ?? cap)}`,
+      govde: (o) => `DOLU Ø${olcuYaz(o.disCapMm ?? cap)}`,
+      kgPerM: (o) => {
+        const D = o.disCapMm ?? cap;
+        return yuvarla((Math.PI / 4) * D * D * CELIK_OZKUTLE_KG_MM3 * 1000);
+      },
       agirlikKaynagi: "geometri",
       olcu: { disCapMm: cap, boyMm: kesimBoyu },
+      otomatikPay: true,
     });
   }
 

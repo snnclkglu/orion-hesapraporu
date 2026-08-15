@@ -1572,6 +1572,116 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     artıksızlığını da sayar) · `/dev/hammadde-preview` (auth'suz görsel
     önizleme, GERÇEK 0053 satırlarıyla).
 
+    ═══════════════════════════ İKİNCİ TUR (15.08.2026, 13 + 3 madde)
+
+    **SAC SİPARİŞİ PARÇA DEĞİL PLAKA SİPARİŞİDİR** — kullanıcı bir DESSAN
+    proforması gösterdi ve karar oradan çıktı: *"Sac siparişinde parçaların bir
+    önemi olmuyor; onların birleştiği plakaları sipariş ediyoruz aslında."*
+    Tedarikçinin satırı birebir şudur:
+
+        10 X 1500 X 6000 | ST37 | Plaka Adet 5 | Plk-Adt/KG 707 | 3.537 KG | 0,690 USD
+
+    Üç sonuç: (a) sipariş kaleminin adı `plakaStokAdi` ile üretilir ve
+    havuzdaki `SAC 10 MM S355JR`den FARKLIDIR — o bir İHTİYAÇ, bu bir ÜRÜNdür
+    ve plaka ölçüsü ancak YERLEŞİM yapılınca bilinir; (b) TİCARİ MİKTAR
+    KİLODUR (`unit: "Kg"`), plaka adedi bir niteliktir ve satır notuna yazılır
+    — birim fiyat kilo fiyatıdır ve adet üzerinden bir sipariş tutarı otuz kat
+    şaşardı; (c) havuzdaki SAC satırının durum çipi sipariş penceresi değil
+    YERLEŞİM ekranını açar, toplu "Sipariş Aç" düğmesi sac seçiliyken pasifleşir
+    ve sebebini söyler.
+
+    **YERLEŞİM EKRANININ İLK CEVABI "ALINACAK PLAKALAR"DIR** (kullanıcı isteği:
+    *"bir veya birkaç projeyi seçtiğimde … bana üste hangi plakadan kaç adet
+    alınması gerektiğini özet olarak versin. Ben plaka enini seçerim, ona göre
+    özet değişir."*). Tablo proformanın sütun düzenindedir ve seçim/plaka
+    ayarıyla birlikte değişir — ikinci bir hesap değil, aynı planın okunuşudur.
+    Plaka enlerine **1000**, boylarına **3000** eklendi.
+
+    **YERLEŞİM KENDİ KENDİNİ DENETLER** (`yerlesimDenetimi`, kullanıcı kararı:
+    *"Nesting çok önemli, yanlış olursa yanlış malzeme siparişi vermemize yol
+    açabilir."*). Beş kontrol: parça sayımı · kalem adetleri · pay ve çakışma ·
+    plaka sınırı · alan dengesi. GEÇENLER DE EKRANDA GÖRÜNÜR ve PDF'e basılır —
+    yalnız hatayı basmak "kontrol edildi mi" sorusunu cevapsız bırakır ve
+    sessizlik bir güvence sanılır. Kontroller algoritmanın iddiasını değil
+    SONUCU ölçer.
+
+    **`dimV`NİN İMZASI `(els, x, y1, y2)`DİR.** Argümanlar bir süre `(y1, y2,
+    x)` sırasıyla veriliyordu ve dikey ölçü oku plakanın İÇİNE düşüyordu
+    (kullanıcı ekran görüntüsü). Etiket de sola alındı; sağa bakan varsayılan
+    onu plaka kenarına bindiriyordu. Sol kenar boşluğu 46 → 76 birim.
+
+    **TALAŞLI İMALAT PAYI** (kullanıcı kararı): *"Teknik ressamın kendi pay
+    vermediği parçalara da biz pay vereceğiz. Dolu ve boru malzemede %5 pay
+    olacak, minimum 2 mm olsun, küsüratlı sayıları düşük ise yukarı
+    yuvarlasın."* Üç kelepçe: (a) yalnız DOLU ve İŞLENECEK BORU (iki çaplı
+    burç/bilezik) alır — sac, profil, ray ve STANDART BORU kesilir, işlenmez
+    (*"DİKİŞLİ BORU Ø33 bu korkuluk borusu buna pay vermeye gerek yok"* — ayrım
+    YAPISALDIR: `Ø × et` yazımı bir katalog profilidir, ad araması değil);
+    (b) pay DIŞ ÇAPA ve BOYA uygulanır, İÇ ÇAPA DEĞİL — kanıt ressamın kendi
+    yazımıdır (`Ø405 ( Ø415)/ Ø358x1870 (1900)`: dış çap ve boy büyümüş, iç çap
+    aynı); (c) RESSAMIN PAYI OTOMATİĞİ YENER — onunki bir karar, bizimki bir
+    kural. Ağırlık ve kesit kodu PAYLI ölçüden hesaplanır (sipariş edilen çubuk
+    odur); resim ölçüsü kaybolmaz, açılır ayrıntıda kendi sütununda durur.
+
+    **TEKLİF KARŞILAŞTIRMA** (`/purchasing/hammadde/teklifler`, kullanıcı bir
+    çalışma dosyası gösterdi): satır kalem, SÜTUN GRUBU TEDARİKÇİ (birim fiyat ·
+    tutar · teslim), başlıkta vade, altta firma toplamları. Teklife iki alan
+    eklendi (`payment_term_days`, `lead_time_days`; migration 20260815000003)
+    çünkü *"hepsinin vadesi, teslim süresi, fiyatı vs farklı oluyor"* ve en ucuz
+    fiyat tek başına bir cevap değildir. `lead_time_days` GÜNDÜR: **0 = Hazır**,
+    `null` = tedarikçi söylemedi — serbest metin olsaydı ("2 hafta", "15-20
+    gün") teklifler sıralanamazdı.
+
+    Çekirdek üç şey hesaplar ve üçü de ekranda durur: satır satır en ucuz
+    (BÖLÜNMÜŞ siparişin tabanı), tek firmadan en ucuz, ve seçili dağılımın
+    bedeli. **TUTAR MİKTARLA ÇARPILIR, BİRİM FİYAT DEĞİL** — 360 kg'lık bir
+    kalemde 0,50 ₺ fark 180 ₺, 3.620 kg'lıkta 1.810 ₺ eder. **EKSİK TEKLİFLİ
+    FİRMA "tek firmadan en ucuz" YARIŞINA GİRMEZ** ve toplamı SOLUK basılır:
+    üç kalemin ikisine fiyat vermiş bir firmanın toplamı ötekilerle
+    karşılaştırılamaz. Sipariş FİRMAYA GÖRE BÖLÜNÜR — kullanıcı *"ya da bölüp
+    de sipariş de verebiliriz"* dedi ve `OrderDialog` tek tedarikçiye yazdığı
+    için iki firma iki ayrı sipariş kaydı olur. Fikstür kullanıcının kendi
+    sayılarıdır ve test onları birebir doğrular (266.240 · 261.165 · 298.685).
+
+    **İŞ SÜZGECİ İŞ NUMARASINDAN KURULUR, KALEM NUMARASINDAN DEĞİL** (kullanıcı
+    bildirimi: *"iş filtrelendiğinde tablo değişmiyor"*). Ölçüldü:
+    `drawing_packages.item_no` her zaman bir `job_items.item_no` DEĞİLDİR —
+    MONORAY paketi `0057-00` taşıyor ve o numarayla bir kalem satırı yok; o
+    paketin 35 kalemi süzgece hiç görünmüyordu. Süzgeç seçeneklerine SAYAÇ da
+    eklendi: sayısız bir listede kullanıcı "hiçbir şey değişmedi" der ve
+    haklıdır — değişimi ölçebileceği bir şey yoktur.
+
+    **OFİS KİLİT DOSYASI YÜKLEMEYİ DÜŞÜRMEZ** (kullanıcı ekran görüntüsü):
+    `~$1.0053-01-0000_URUN AGACI.xlsx` Excel'in belge açıkken yazdığı gizli
+    sahiplik dosyasıdır — uzantısı `.xlsx`tir ama içi zip değildir ve ExcelJS
+    "Can't find end of central directory" diyordu. Dosya REDDEDİLMEZ, YEDEK
+    sayılır (`file-name.ts`, md. 18/1) ve içerik okumasına girmez. Excel
+    aşamasının sorgusuna da `lifecycle <> 'haric'` süzgeci eklendi (PDF ve kesim
+    dallarında zaten vardı) ve daha önce yüklenmiş paketler için ad kuralı okuma
+    döngüsünde ikinci kez sorulur.
+
+    **HAVUZ TABLOSUNUN ÜSTÜNDE TOPLAM SATIRI VARDIR** (*"10 mm sac
+    filtrelediğimde kaç kg gerektiğini bana üste toplamalı"*). Toplam SÜZGECİ
+    İZLER — ekranda ne görünüyorsa onun toplamıdır; havuzun tamamının toplamı
+    ayrıca özet şeridindedir ve ikisi farklı sorulardır. ALTA DEĞİL ÜSTE konur:
+    satınalmacı süzgeci daraltıp sayıyı okuyor, iki yüz satırın dibine inmek
+    zorunda kalmak o hareketi kullanılamaz yapar.
+
+    **SATIR DÜZENLENEBİLİR VE EKİPMANA TAŞINABİLİR** (migration
+    20260815000002). Ad, kalite, adet, tür, stok boyu ve not `purchase_raw_meta`
+    üzerinden ezilir; ADET TÜRETİLENLE AYNIYSA YAZILMAZ, yoksa dondurulmuş bir
+    "40" ertesi hafta 60 parçaya çıkan bir işi 40'ta bırakırdı. *"Diğer kısmında
+    kaplin rulman gibi ekipmanları Ekipman tarafına taşıyabilmem lazım"* —
+    taşıma İKİ DEFTERE birden yazar (`to_equipment` hammaddeden düşürür,
+    `purchase_raw_equipment_keys` ekipman okumasına alır) çünkü iki havuz iki
+    ayrı anahtar uzayında yaşıyor. **KÜME BOŞKEN EKİPMAN EKRANI HİÇ EK SORGU
+    KOŞMAZ.**
+
+    **PARÇANIN PAFTASI SATIRDA AÇILIR**: açılır ayrıntıda her kesim parçasının
+    kendi resmi (`sheet_file_id`) ve bağlı olduğu montajın paftası ayrı
+    düğmelerdir. Montaj paftası ikinci bir sorgu değil AYNI DEFTERDEN çözülür —
+    montajın kendi satırı da bir parçadır. OLMAYAN DÜĞME ÇİZİLMEZ.
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -2527,14 +2637,20 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   ayıklama, stok boyları, plaka/pay sabitleri) · `cozumle.ts` (AYIKLAMA
   DİLBİLGİSİNİN TAMAMI — tek kural yeri) · `havuz.ts` (stok kalemi birleştirme,
   çarpan, 1B boy planı `boyaYerlestir`, `adediCoz`) · `nesting.ts` (2B sac
-  plaka yerleşimi, MaxRects-BSSF + `yerlesimiDenetle`) · `profil-kesitleri.ts`
+  plaka yerleşimi, MaxRects-BSSF + `yerlesimiDenetle` + `yerlesimDenetimi`) ·
+  `karsilastirma.ts` (teklif matrisi: satır kalem, sütun tedarikçi; bölünmüş
+  ve tek firmalı toplamlar) · `profil-kesitleri.ts`
   (ÜRETİLMİŞ — `python scripts/gen-profile-sections.py`, 477 kesit kg/m)
 - `src/lib/diagrams/nesting.ts` — plaka kesim planı çizimi (web + PDF ortak model)
 - `src/app/(app)/purchasing/hammadde/` — Hammadde Havuzu: `data.ts` (imalat
   satırları okuma katmanı — ekipman havuzunun AYNADAKİ görüntüsü) · `raw-table.tsx`
   (tür kipi + değişken ölçü bloğu) · `raw-dialogs.tsx` (taşı/düzenle + yeni talep)
-  · `yerlesim/` (plaka yerleşimi, parametreler adreste) · `export/` (Excel: havuz
-  + kesim listesi; PDF: fiyatsız hammadde talebi)
+  · `yerlesim/` (plaka yerleşimi + alınacak plaka özeti + denetim; parametreler
+  adreste, `yerlesim/pdf/` kesim planı belgesi) · `teklifler/` (teklif
+  karşılaştırma matrisi, firmaya göre bölünmüş sipariş) · `export/` (Excel:
+  havuz + kesim listesi; PDF: fiyatsız hammadde talebi)
+- `src/lib/pdf/nesting-plan.tsx` — A4 YATAY kesim planı: alınacak plakalar,
+  denetim özeti, plaka çizimleri ve parça listesi
 - `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
   tanımı (saf, değişmez); ayrıca ana grup kodu ve grup adı çıkarımı
 - `src/lib/panel.ts` — AÇILIŞ PANOSU çekirdeği, **saf**: arama eşleşmesi

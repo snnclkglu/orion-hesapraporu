@@ -125,7 +125,11 @@ export async function POST(
   if (asama === "excel") {
     // Excel de aynı süzgeci alır: eskiden almıyordu ve depoya ulaşmamış bir
     // BOM dosyası her turda indirilmeye çalışılıp `okunamayan`a düşüyordu.
-    sorgu = sorgu.eq("role", "bom").or(DEPODA);
+    //
+    // `haric` SÜZGECİ BURAYA DA KONDU (15.08.2026): ofis kilit dosyası
+    // (`~$…xlsx`) bir BOM rolü taşıyor ama içi zip değildir; PDF ve kesim
+    // aşamalarında zaten olan süzgeç Excel dalında eksikti.
+    sorgu = sorgu.eq("role", "bom").or(DEPODA).not("lifecycle", "eq", "haric");
   } else if (asama === "pdf") {
     // BÜKÜM klasöründeki PDF'ler de resimdir; `haric` olanlar deftere
     // girmediği için okunmaz da.
@@ -165,6 +169,15 @@ async function excelAsamasi(
   const okunamayan: { file: string; reason: string }[] = [];
 
   for (const dosya of dilim) {
+    // OFİS KİLİT DOSYASI SESSİZCE ATLANIR — `okunamayan`a bile girmez.
+    //
+    // `file-name.ts` artık onu `haric` işaretliyor ve yeni yüklemelerde depoya
+    // hiç gitmiyor; ama DAHA ÖNCE yüklenmiş paketlerin satırları `canli`
+    // damgasını taşıyor ve bir migration'la düzeltmeye değmez. Ad kuralı
+    // burada da sorulur: `~$` ile başlayan bir dosya bir belge değildir,
+    // okunamaması bir arıza değil beklenen davranıştır.
+    if (/^~\$/.test(dosya.file_name ?? "")) continue;
+
     const yol = dosya.storage_path || "";
     if (!yol) {
       okunamayan.push({ file: dosya.rel_path, reason: "depo yolu yok" });

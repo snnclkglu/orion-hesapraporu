@@ -128,6 +128,12 @@ export async function saveQuote(input: SaveQuoteInput): Promise<PurchasingAction
     fx_rate: q.currency === "EUR" ? 1 : q.fxRate,
     quoted_at: q.quotedAt ?? new Date().toISOString().slice(0, 10),
     valid_until: q.validUntil,
+    // VADE VE TESLİM SÜRESİ (15.08.2026): karşılaştırma tablosunun iki
+    // sütunu. `payment_method` "vadeli" değilse gün SIFIRLANIR — "peşin ve
+    // 90 gün" birbirini yalanlayan bir kayıttır.
+    payment_method: q.paymentMethod,
+    payment_term_days: q.paymentMethod === "vadeli" ? q.paymentTermDays : 0,
+    lead_time_days: q.leadTimeDays,
     note: q.note,
     item_no: q.itemNo,
     package_id: q.packageId,

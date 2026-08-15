@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { RAILS } from "@/lib/calc/tables";
 import { hammaddeCozumle } from "../cozumle";
 import { PROFIL_KESITLERI } from "../profil-kesitleri";
-import { CELIK_OZKUTLE_KG_MM3, kaliteAyikla, ozkutleBul } from "../siniflar";
+import { CELIK_OZKUTLE_KG_MM3, kaliteAyikla, ozkutleBul, payliOlcu } from "../siniflar";
 
 /** Varsayılan bağlam: kodu olan bir imalat parçası. */
 function coz(tanim: string, over: { malzeme?: string; kategori?: string; kind?: string } = {}) {
@@ -180,22 +180,28 @@ describe("BORU", () => {
   it("İKİ Ø = içi boş; küçüğü iç, büyüğü dış çaptır", () => {
     const c = coz("İÇ BİLEZİK Ø80xØ65x35", { kategori: "Talaşlı İmalat" });
     expect(c?.sinif).toBe("BORU");
-    expect(c?.olcu.disCapMm).toBe(80);
+    // RESİM ölçüsü ressamın yazdığıdır…
+    expect(c?.resimOlcusu.disCapMm).toBe(80);
+    expect(c?.resimOlcusu.icCapMm).toBe(65);
+    expect(c?.resimOlcusu.boyMm).toBe(35);
+    // …SATIN ALMA ölçüsü işleme payını taşır: dış çap ve boy büyür, İÇ ÇAP AYNI.
+    expect(c?.olcu.disCapMm).toBe(84); // 80 + max(2, 4) = 84
     expect(c?.olcu.icCapMm).toBe(65);
-    expect(c?.olcu.boyMm).toBe(35);
+    expect(c?.olcu.boyMm).toBe(37); // 35 + max(2, 1,75) = 37
+    expect(c?.payKaynagi).toBe("otomatik");
   });
 
   it("çapların YAZILIŞ SIRASI önemsizdir", () => {
     // Canlı veride hem "Ø140xØ90" hem "Ø8xØ10" yazımı var.
     const c = coz("SAPLAMA BORUSU Ø8x Ø10x44,5", { kategori: "Testere" });
-    expect(c?.olcu.disCapMm).toBe(10);
-    expect(c?.olcu.icCapMm).toBe(8);
+    expect(c?.resimOlcusu.disCapMm).toBe(10);
+    expect(c?.resimOlcusu.icCapMm).toBe(8);
   });
 
   it("eğik çizgili yazım da okunur", () => {
     const c = coz("RULMAN YATAĞI Ø34/Ø140 L=64");
-    expect(c?.olcu.disCapMm).toBe(140);
-    expect(c?.olcu.icCapMm).toBe(34);
+    expect(c?.resimOlcusu.disCapMm).toBe(140);
+    expect(c?.resimOlcusu.icCapMm).toBe(34);
   });
 
   it("DİKİŞLİ BORU'da ikinci sayı ET KALINLIĞIDIR, iç çap değil", () => {
@@ -212,20 +218,23 @@ describe("DOLU", () => {
   it("TEK Ø = dolu malzeme; ikinci sayı boydur", () => {
     const c = coz("MİL Ø90x453", { kategori: "Talaşlı İmalat" });
     expect(c?.sinif).toBe("DOLU");
-    expect(c?.olcu.disCapMm).toBe(90);
-    expect(c?.olcu.boyMm).toBe(453);
-    expect(c?.stokTanimi).toBe("DOLU Ø90 S235JR");
+    expect(c?.resimOlcusu.disCapMm).toBe(90);
+    expect(c?.resimOlcusu.boyMm).toBe(453);
+    // SİPARİŞ EDİLEN ÇUBUK PAYLIDIR: Ø90 bir mil Ø90 çubuktan çıkmaz.
+    expect(c?.olcu.disCapMm).toBe(95); // 90 + max(2, 4,5) = 94,5 → 95
+    expect(c?.olcu.boyMm).toBe(476); // 453 + 22,65 = 475,65 → 476
+    expect(c?.stokTanimi).toBe("DOLU Ø95 S235JR");
   });
 
   it("teker, makara, pim ve nervürlü demir de dolu malzemedir", () => {
     expect(coz("TEKER Ø315x105", { malzeme: "C 4140" })?.sinif).toBe("DOLU");
     expect(coz("MAKARA Ø470x74", { malzeme: "S355JR" })?.sinif).toBe("DOLU");
     expect(coz("PIM Ø48 L=180", { malzeme: "S355JR" })?.sinif).toBe("DOLU");
-    expect(coz("NERVÜRLÜ DEMİR Ø22 L=1128,000 mm")?.olcu.boyMm).toBe(1128);
+    expect(coz("NERVÜRLÜ DEMİR Ø22 L=1128,000 mm")?.resimOlcusu.boyMm).toBe(1128);
   });
 
   it("mm eki boyu bozmaz", () => {
-    expect(coz("KANCA MİL Ø110 mm L=582 mm", { malzeme: "Ck45" })?.olcu.boyMm).toBe(582);
+    expect(coz("KANCA MİL Ø110 mm L=582 mm", { malzeme: "Ck45" })?.resimOlcusu.boyMm).toBe(582);
   });
 
   it("BOYU OLMAYAN parça yine de sınıflanır ama BOY BOŞ KALIR", () => {
@@ -255,8 +264,62 @@ describe("parantez içi ölçü SATIN ALMA ölçüsüdür", () => {
     expect(c?.payUygulandi).toBe(true);
   });
 
-  it("payı olmayan tanımda bayrak KAPALIDIR", () => {
-    expect(coz("MİL Ø90x453")?.payUygulandi).toBe(false);
+  it("ressamın payı OTOMATİK PAYI YENER — üstüne eklenmez", () => {
+    // Ressam 164 → 170 demiş; biz 164 + max(2, 8,2) = 173 derdik. Onun sayısı
+    // bir KARARdır, bizimki bir kural — karar kazanır.
+    const c = coz("MİL Ø45x164 (170)", { malzeme: "S355JR" });
+    expect(c?.olcu.boyMm).toBe(170);
+    expect(c?.payKaynagi).toBe("ressam");
+  });
+});
+
+describe("otomatik işleme payı (kullanıcı kararı: %5, en az 2 mm, yukarı yuvarla)", () => {
+  it("SAC ve PROFİLDE PAY YOKTUR — kesilir, işlenmez", () => {
+    const sac = coz("SAC 15x375x1500", { kategori: "Plazma", malzeme: "S355JR" });
+    expect(sac?.payKaynagi).toBe("yok");
+    expect(sac?.olcu).toEqual(sac?.resimOlcusu);
+
+    const profil = coz("NPU 100 L=12000");
+    expect(profil?.payKaynagi).toBe("yok");
+    expect(profil?.olcu.boyMm).toBe(12000);
+  });
+
+  it("RAYDA DA PAY YOKTUR", () => {
+    const c = coz("RAY - A65 - DIN536 GRADE 70 L=12000");
+    expect(c?.payKaynagi).toBe("yok");
+    expect(c?.olcu.boyMm).toBe(12000);
+  });
+
+  it("STANDART BORUYA (Ø × et) PAY VERİLMEZ — korkuluk borusu kesilir", () => {
+    // Kullanıcı kararı: "DİKİŞLİ BORU Ø33 bu korkuluk borusu buna pay vermeye
+    // gerek yok." Ayrım yapısaldır: Ø × et yazımı bir KATALOG PROFİLİDİR.
+    const c = coz("DİKİŞLİ BORU Ø33,7x3,25 L=13774", { malzeme: "S195T (St33)" });
+    expect(c?.payKaynagi).toBe("yok");
+    expect(c?.olcu.disCapMm).toBe(33.7);
+    expect(c?.olcu.boyMm).toBe(13774);
+  });
+
+  it("KÜÇÜK ÖLÇÜDE EN AZ 2 MM — yüzde beş yetmez", () => {
+    // Ø22'nin %5'i 1,1 mm; kural minimumu 2 mm'ye çeker.
+    const c = coz("NERVÜRLÜ DEMİR Ø22 L=1128,000 mm");
+    expect(c?.olcu.disCapMm).toBe(24);
+  });
+
+  it("YUKARI YUVARLANIR — aşağı yuvarlamak payı yok ederdi", () => {
+    // Ø45 → 45 + 2,25 = 47,25 → 48 (aşağı yuvarlansa 47 olurdu ve pay
+    // kullanıcının istediğinden küçük kalırdı).
+    expect(payliOlcu(45)).toBe(48);
+    expect(payliOlcu(10)).toBe(12);
+    expect(payliOlcu(1000)).toBe(1050);
+    expect(payliOlcu(null)).toBeNull();
+    expect(payliOlcu(0)).toBeNull();
+  });
+
+  it("AĞIRLIK PAYLI ÇAPTAN hesaplanır — resim çapından değil", () => {
+    const c = coz("MİL Ø90x453", { kategori: "Talaşlı İmalat" });
+    // Ø95 çubuk, 476 mm: π/4 · 95² · 476 · 7,85e-6
+    const beklenen = (Math.PI / 4) * 95 * 95 * 476 * CELIK_OZKUTLE_KG_MM3;
+    expect(c?.birimAgirlikKg).toBeCloseTo(beklenen, 1);
   });
 });
 

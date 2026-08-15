@@ -67,6 +67,7 @@ import {
 } from "@/lib/purchasing/hammadde/siniflar";
 import { cn } from "@/lib/utils";
 import { saveRawMeta } from "./actions";
+import { FileOpenButton } from "../../drawings/[id]/file-open-button";
 import { RawManualDialog, RawMetaDialog } from "./raw-dialogs";
 
 // ═══════════════════════════════════════════════════════════════ durum
@@ -92,11 +93,20 @@ interface Filtreler {
   query: string;
   tur: HammaddeSinifi | "";
   kaliteler: string[];
+  /** KESİT/ÖLÇÜ süzgeci: sacda "15 mm", profilde "UPN 100", doluda "Ø90". */
+  kesitler: string[];
   durumlar: string[];
   isler: string[];
 }
 
-const BOS: Filtreler = { query: "", tur: "", kaliteler: [], durumlar: [], isler: [] };
+const BOS: Filtreler = {
+  query: "",
+  tur: "",
+  kaliteler: [],
+  kesitler: [],
+  durumlar: [],
+  isler: [],
+};
 
 /**
  * AÇILIŞ SÜZGECİ EKİPMAN TARAFIYLA AYNI MANTIKTA (13.08.2026 kararı):
@@ -246,7 +256,17 @@ export function RawTable({
   qualities?: string[];
   /** Düzeltme defteri okunabildi mi? Okunamadıysa taşıma düğmeleri kapalıdır. */
   defterVar: boolean;
-  isler: { id: string; itemNos: string[]; label: string }[];
+  /**
+   * İŞ LİSTESİ — `jobNo` ZORUNLUDUR.
+   *
+   * Süzgeç bir süre `job_items.item_no` metniyle eşleşiyordu ve canlı veride
+   * SESSİZCE YANLIŞ ÇALIŞIYORDU (kullanıcı bildirimi, 15.08.2026: *"iş
+   * filtrelendiğinde tablo değişmiyor"*): `drawing_packages.item_no` her zaman
+   * bir iş kalemi numarası DEĞİLDİR — MONORAY paketi `0057-00` taşıyor ve o
+   * numarayla bir `job_items` satırı yok. O paketin 35 kalemi süzgece hiç
+   * görünmüyordu. Bağ artık İŞ NUMARASINDAN kurulur; item_no yalnız yedektir.
+   */
+  isler: { id: string; jobNo: string; itemNos: string[]; label: string }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -297,9 +317,21 @@ export function RawTable({
     [havuz.satirlar, siparisHaritasi, teklifHaritasi]
   );
 
-  const isKalemleri = useMemo(
-    () => new Map(isler.map((j) => [j.id, new Set(j.itemNos)])),
+  /** İş kimliği → o işe ait iş numarası ve kalem numaraları. */
+  const isEslesme = useMemo(
+    () => new Map(isler.map((j) => [j.id, { jobNo: j.jobNo, kalemler: new Set(j.itemNos) }])),
     [isler]
+  );
+  /** Bir pay bu işe mi ait? Önce iş numarası, sonra kalem numarası. */
+  const payIse = useMemo(
+    () =>
+      (pay: { jobNo: string; itemNo: string }, jobId: string): boolean => {
+        const e = isEslesme.get(jobId);
+        if (!e) return false;
+        if (e.jobNo && pay.jobNo && e.jobNo === pay.jobNo) return true;
+        return e.kalemler.has(pay.itemNo);
+      },
+    [isEslesme]
   );
 
   // SAYAÇLAR SÜZGEÇSİZ LİSTEDEN GELİR (ekipman tablosunun kasıtlı kuralı):
@@ -317,6 +349,7 @@ export function RawTable({
     const kaliteSay = say((g) => g.satir.kalite || null);
     const durumSay = say((g) => g.durum);
     const turSay = say((g) => g.satir.sinif);
+    const kesitSay = say((g) => g.satir.kesitKodu || null);
     return {
       turler: HAMMADDE_SINIFLARI.map((s) => ({
         value: s,
@@ -326,26 +359,44 @@ export function RawTable({
       kaliteler: [...kaliteSay.entries()]
         .sort((a, b) => a[0].localeCompare(b[0], "tr"))
         .map(([value, count]) => ({ value, label: value, count })),
+      // KESİT SAYISAL SIRALANIR: "10 mm" ile "8 mm" alfabetik sıralandığında
+      // 10 önce gelir ve kalınlık listesi okunmaz olur.
+      kesitler: [...kesitSay.entries()]
+        .sort((a, b) => {
+          const sa = Number.parseFloat(a[0].replace(",", ".").replace(/[^\d.]/g, ""));
+          const sb = Number.parseFloat(b[0].replace(",", ".").replace(/[^\d.]/g, ""));
+          if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb) return sa - sb;
+          return a[0].localeCompare(b[0], "tr");
+        })
+        .map(([value, count]) => ({ value, label: value, count })),
       durumlar: (["bekliyor", "teklifli", "kismi", "tamam"] as Durum[])
         .filter((d) => durumSay.has(d))
         .map((d) => ({ value: d, label: DURUM_ETIKET[d], count: durumSay.get(d) ?? 0 })),
+      // SAYAÇ GÖSTERİLİR: süzgecin gerçekten ne yaptığı ancak sayıyla görünür.
+      // Sayısız bir listede kullanıcı "hiçbir şey değişmedi" der ve haklıdır —
+      // değişip değişmediğini ölçebileceği bir şey yoktur.
       isler: isler
-        .filter((j) => gorunumler.some((g) => g.satir.paylar.some((p) => isKalemleri.get(j.id)?.has(p.itemNo))))
-        .map((j) => ({ value: j.id, label: j.label })),
+        .map((j) => ({
+          value: j.id,
+          label: j.label,
+          count: gorunumler.filter((g) => g.satir.paylar.some((p) => payIse(p, j.id))).length,
+        }))
+        .filter((x) => x.count > 0),
     };
-  }, [gorunumler, isler, isKalemleri]);
+  }, [gorunumler, isler, payIse]);
 
   const gorunen = useMemo(() => {
     const q = f.query.trim().toLocaleLowerCase("tr-TR");
     const kaliteKumesi = new Set(f.kaliteler);
+    const kesitKumesi = new Set(f.kesitler);
     const durumKumesi = new Set(f.durumlar);
-    const isKumesi = f.isler.flatMap((id) => [...(isKalemleri.get(id) ?? [])]);
 
     const liste = gorunumler.filter((g) => {
       if (f.tur && g.satir.sinif !== f.tur) return false;
       if (kaliteKumesi.size > 0 && !kaliteKumesi.has(g.satir.kalite)) return false;
+      if (kesitKumesi.size > 0 && !kesitKumesi.has(g.satir.kesitKodu)) return false;
       if (durumKumesi.size > 0 && !durumKumesi.has(g.durum)) return false;
-      if (isKumesi.length > 0 && !g.satir.paylar.some((p) => isKumesi.includes(p.itemNo))) {
+      if (f.isler.length > 0 && !g.satir.paylar.some((p) => f.isler.some((id) => payIse(p, id)))) {
         return false;
       }
       if (!q) return true;
@@ -378,7 +429,7 @@ export function RawTable({
           return yon * ((a.satir.toplamAgirlikKg ?? 0) - (b.satir.toplamAgirlikKg ?? 0));
       }
     });
-  }, [gorunumler, f, sortKey, desc, isKalemleri]);
+  }, [gorunumler, f, sortKey, desc, payIse]);
 
   const temiz = JSON.stringify(f) === JSON.stringify(BOS);
   const seciliGorunumler = gorunen.filter((g) => secili.has(g.satir.key));
@@ -463,6 +514,15 @@ export function RawTable({
           secenekler={secenekler.kaliteler}
           secili={f.kaliteler}
           onChange={(v) => setF((s) => ({ ...s, kaliteler: v }))}
+        />
+        {/* ÖLÇÜ SÜZGECİ (kullanıcı isteği): sacda kalınlık, profilde kesit.
+            Başlık türle birlikte değişir — "Kalınlık" yazan bir süzgeç profil
+            kipinde yalan söylerdi. */}
+        <CokluSuzgec
+          baslik={f.tur === "SAC" ? "Kalınlık" : f.tur === "DOLU" ? "Çap" : "Ölçü"}
+          secenekler={secenekler.kesitler}
+          secili={f.kesitler}
+          onChange={(v) => setF((s) => ({ ...s, kesitler: v }))}
         />
         <CokluSuzgec
           baslik="Durum"
@@ -565,6 +625,7 @@ export function RawTable({
               </TableRow>
             </TableHeader>
             <TableBody>
+              <ToplamSatiri gorunen={gorunen} sutunlar={sutunlar} />
               {gorunen.map((g) => (
                 <Satir
                   key={g.satir.key}
@@ -591,7 +652,13 @@ export function RawTable({
                     })
                   }
                   onTeklif={() => setTeklifPenceresi(g)}
-                  onSiparis={() => setSiparisKalemleri([siparisKalemi(g)])}
+                  onSiparis={() =>
+                    g.satir.sinif === "SAC"
+                      ? router.push(
+                          `/purchasing/hammadde/yerlesim?k=${encodeURIComponent(g.satir.key)}`
+                        )
+                      : setSiparisKalemleri([siparisKalemi(g)])
+                  }
                   onDuzenle={() => setDuzenlenen(g.satir)}
                 />
               ))}
@@ -672,10 +739,19 @@ export function RawTable({
               <Tag className="size-3" />
               Teklif Aç
             </Button>
+            {/* SAC SEÇİLİYSE SİPARİŞ BURADAN VERİLMEZ: plaka ölçüsü yerleşimden
+                çıkar. Düğme pasifleşir ve sebebini söyler — sessizce kilo
+                üzerinden bir sipariş açmak yanlış kalem yaratırdı. */}
             <Button
               type="button"
               size="xs"
               onClick={() => setSiparisKalemleri(seciliGorunumler.map(siparisKalemi))}
+              disabled={seciliGorunumler.some((g) => g.satir.sinif === "SAC")}
+              title={
+                seciliGorunumler.some((g) => g.satir.sinif === "SAC")
+                  ? "Sac siparişi plaka üzerinden verilir — “Plakaya Yerleştir” ile devam edin"
+                  : undefined
+              }
             >
               <Plus className="size-3" />
               Sipariş Aç
@@ -729,6 +805,7 @@ export function RawTable({
       {duzenlenen && (
         <RawMetaDialog
           satir={duzenlenen}
+          qualities={qualities}
           onClose={() => setDuzenlenen(null)}
           onSaved={() => {
             setDuzenlenen(null);
@@ -912,9 +989,18 @@ function Satir({
           </TableCell>
         );
       case "durum":
+        // SAC SİPARİŞİ HAVUZDAN VERİLMEZ (kullanıcı kararı, 15.08.2026 —
+        // DESSAN proforması örnek verildi): *"Sac siparişinde parçaların bir
+        // önemi olmuyor; onların birleştiği plakaları sipariş ediyoruz."*
+        // Plaka ölçüsü ancak YERLEŞİM yapılınca bilinir, o yüzden çip sipariş
+        // penceresi yerine yerleşim ekranını açar.
         return (
           <TableCell key={k} className={cls}>
-            <DurumCipi durum={g.durum} onClick={canWrite ? onSiparis : undefined} />
+            <DurumCipi
+              durum={g.durum}
+              onClick={canWrite ? onSiparis : undefined}
+              sac={s.sinif === "SAC"}
+            />
           </TableCell>
         );
       default:
@@ -1014,10 +1100,13 @@ function Satir({
                     <th className="pr-3 pb-1 font-normal">Parça</th>
                     <th className="pr-3 pb-1 font-normal">İş Kalemi</th>
                     <th className="pr-3 pb-1 font-normal">Kullanıldığı Yer</th>
+                    <th className="pr-3 pb-1 font-normal">Resim Ölçüsü</th>
+                    <th className="pr-3 pb-1 font-normal">Satın Alma Ölçüsü</th>
                     <th className="pr-3 pb-1 text-right font-normal">Resimde</th>
-                    <th className="pr-3 pb-1 text-right font-normal">× Adet</th>
+                    <th className="pr-3 pb-1 text-right font-normal">× Kalem</th>
                     <th className="pr-3 pb-1 text-right font-normal">Gereken</th>
                     <th className="pr-3 pb-1 text-right font-normal">Birim kg</th>
+                    <th className="pr-3 pb-1 font-normal">Pafta</th>
                   </tr>
                 </thead>
                 <tbody className="font-mono tabular-nums">
@@ -1026,11 +1115,65 @@ function Satir({
                       <td className="py-1 pr-3 font-sans">{p.tanim}</td>
                       <td className="py-1 pr-3">{p.itemNo || "—"}</td>
                       <td className="py-1 pr-3 font-sans">{p.groupName || "—"}</td>
+                      {/* İKİ ÖLÇÜ YAN YANA — kullanıcı isteği: "verilen paylar
+                          satın almaya gösterilmeli". Payı olmayan satırda
+                          ikinci hücre TİRE kalır; aynı sayıyı tekrarlamak
+                          okuyanı bir pay olduğuna inandırırdı. */}
+                      <td className="py-1 pr-3">{olcuYazisi(p, false)}</td>
+                      <td className="py-1 pr-3">
+                        {p.payKaynagi === "yok" ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span
+                            className={
+                              p.payKaynagi === "ressam"
+                                ? "text-sky-700 dark:text-sky-400"
+                                : "text-emerald-700 dark:text-emerald-400"
+                            }
+                            title={
+                              p.payKaynagi === "ressam"
+                                ? "Ressamın parantez içinde verdiği pay"
+                                : "Firma kuralı: %5 işleme payı, en az 2 mm"
+                            }
+                          >
+                            {olcuYazisi(p, true)}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1 pr-3 text-right">{p.birimAdet ?? "—"}</td>
                       <td className="py-1 pr-3 text-right">{p.carpan}</td>
                       <td className="py-1 pr-3 text-right font-medium">{p.adet ?? "—"}</td>
                       <td className="py-1 pr-3 text-right">
                         {p.birimAgirlikKg == null ? "—" : formatNum(p.birimAgirlikKg, 2)}
+                      </td>
+                      <td className="py-1 pr-3">
+                        {/* PAFTA SATIRDA AÇILIR (kullanıcı isteği): "detay"
+                            parçanın kendi resmi, "ana pafta" bağlı olduğu
+                            montajınki. OLMAYAN DÜĞME ÇİZİLMEZ — pasif bir
+                            düğme, dosyanın var olup açılamadığını söylerdi. */}
+                        <span className="flex items-center gap-1.5">
+                          {p.detayPdf && (
+                            <FileOpenButton
+                              storagePath={p.detayPdf.yol}
+                              fileName={p.detayPdf.ad}
+                              label="Detay"
+                              title={p.detayPdf.ad}
+                              className="oc-tap inline-flex items-center border px-1.5 py-0.5 font-sans text-[11px] hover:border-foreground/40"
+                            />
+                          )}
+                          {p.anaPdf && p.anaPdf.yol !== p.detayPdf?.yol && (
+                            <FileOpenButton
+                              storagePath={p.anaPdf.yol}
+                              fileName={p.anaPdf.ad}
+                              label="Ana pafta"
+                              title={p.anaPdf.ad}
+                              className="oc-tap inline-flex items-center border px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                            />
+                          )}
+                          {!p.detayPdf && !p.anaPdf && (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -1044,10 +1187,123 @@ function Satir({
   );
 }
 
+// ══════════════════════════════════════════════════════════ TOPLAM SATIRI
+
+/**
+ * GÖRÜNEN LİSTENİN TOPLAMI — tablonun İLK SATIRININ ÜSTÜNDE.
+ *
+ * Kullanıcı isteği (15.08.2026): *"Hammadde havuzunda 10 mm sac
+ * filtrelediğimde kaç kg gerektiğini bana üste toplamalı."*
+ *
+ * ALTA DEĞİL ÜSTE konur ve sebebi tarama biçimidir: satınalmacı süzgeci
+ * daraltıp sayıyı okumak istiyor; iki yüz satırın dibine inmek zorunda kalmak
+ * o hareketi kullanılamaz yapar. Satır YAPIŞKAN DEĞİLDİR — tablo zaten yatay
+ * kayıyor ve iki eksende birden yapışan bir satır dar ekranda kayma yönünü
+ * belirsizleştirirdi.
+ *
+ * TOPLAM SÜZGECİ İZLER: ekranda ne görünüyorsa onun toplamıdır. Havuzun
+ * TAMAMININ toplamı ayrıca özet şeridinde durur; ikisi farklı sorulardır.
+ */
+function ToplamSatiri({ gorunen, sutunlar }: { gorunen: Gorunum[]; sutunlar: Sutun[] }) {
+  if (gorunen.length === 0) return null;
+
+  const topla = (f: (g: Gorunum) => number | null) => {
+    let t = 0;
+    let varMi = false;
+    for (const g of gorunen) {
+      const v = f(g);
+      if (v != null) {
+        t += v;
+        varMi = true;
+      }
+    }
+    return varMi ? t : null;
+  };
+
+  const agirlik = topla((g) => g.satir.toplamAgirlikKg);
+  const metre = topla((g) => (g.satir.toplamBoyMm == null ? null : g.satir.toplamBoyMm / 1000));
+  const alan = topla((g) => (g.satir.toplamAlanMm2 == null ? null : g.satir.toplamAlanMm2 / 1e6));
+  const boy = topla((g) => g.satir.boyAdedi);
+  const parca = topla((g) => g.satir.parcaAdedi);
+
+  const deger = (k: string): string => {
+    switch (k) {
+      case "alan":
+        return alan == null ? "" : formatNum(alan, 2);
+      case "metre":
+        return metre == null ? "" : formatNum(metre, 1);
+      case "boy":
+        return boy == null ? "" : formatNum(boy);
+      case "parca":
+        return parca == null ? "" : formatNum(parca);
+      case "agirlik":
+        return agirlik == null ? "" : formatNum(Math.round(agirlik));
+      case "tanim":
+        return `${formatNum(gorunen.length)} kalem`;
+      default:
+        return "";
+    }
+  };
+
+  return (
+    <TableRow className="border-b-2 border-foreground/20 bg-muted/60 hover:bg-muted/60">
+      {sutunlar.map((c, i) => {
+        const v = deger(c.key);
+        return (
+          <TableCell
+            key={c.key}
+            className={cn(
+              "align-middle py-1.5 text-[12px] font-semibold",
+              c.sag && "text-right font-mono tabular-nums",
+              c.gizle
+            )}
+          >
+            {i === 0 && !v ? (
+              <span className="oc-kicker text-[10px] font-medium text-muted-foreground">Σ</span>
+            ) : (
+              v
+            )}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════ UFAKLAR
 
 function bos() {
   return <span className="text-muted-foreground">—</span>;
+}
+
+/**
+ * Bir kesim parçasının ölçü yazısı — RESİM ya da SATIN ALMA hâli.
+ *
+ * Biçim sınıfa göre değişir: sacda `t×en×boy`, boruda `Ødış/Øiç×boy`, doluda
+ * `Ø×boy`. Tek bir kalıp üçünü de yanlış anlatırdı.
+ */
+function olcuYazisi(
+  p: {
+    kalinlikMm: number | null;
+    enMm: number | null;
+    boyMm: number | null;
+    disCapMm: number | null;
+    icCapMm: number | null;
+    resimDisCapMm: number | null;
+    resimBoyMm: number | null;
+  },
+  satinAlma: boolean
+): string {
+  const n = (v: number | null) => (v == null ? "?" : formatNum(v, 1));
+  const dis = satinAlma ? p.disCapMm : p.resimDisCapMm;
+  const boy = satinAlma ? p.boyMm : p.resimBoyMm;
+  if (p.kalinlikMm != null && p.enMm != null) {
+    return `${n(p.kalinlikMm)}×${n(p.enMm)}×${n(p.boyMm)}`;
+  }
+  if (dis != null && p.icCapMm != null) return `Ø${n(dis)}/Ø${n(p.icCapMm)}×${n(boy)}`;
+  if (dis != null) return `Ø${n(dis)}×${n(boy)}`;
+  if (boy != null) return `L=${n(boy)}`;
+  return "—";
 }
 
 function sayi(v: number | null | undefined) {
@@ -1186,7 +1442,16 @@ function SecimKutusu({
   );
 }
 
-function DurumCipi({ durum, onClick }: { durum: Durum; onClick?: () => void }) {
+function DurumCipi({
+  durum,
+  onClick,
+  sac,
+}: {
+  durum: Durum;
+  onClick?: () => void;
+  /** Sac satırında düğme sipariş değil YERLEŞİM açar. */
+  sac?: boolean;
+}) {
   const sinif =
     durum === "tamam"
       ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
@@ -1200,7 +1465,7 @@ function DurumCipi({ durum, onClick }: { durum: Durum; onClick?: () => void }) {
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      title={onClick ? "Sipariş aç" : undefined}
+      title={onClick ? (sac ? "Plakaya yerleştir ve sipariş aç" : "Sipariş aç") : undefined}
       className={cn(
         "inline-flex min-h-7 items-center border px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-9 disabled:cursor-default",
         sinif,

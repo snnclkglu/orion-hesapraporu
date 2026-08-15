@@ -520,6 +520,113 @@ export function yerlesimiDenetle(sonuc: YerlesimSonucu): string | null {
   return null;
 }
 
+// ══════════════════════════════════════════════════════════════ DENETİM
+
+export interface DenetimSonucu {
+  ad: string;
+  gecti: boolean;
+  ozet: string;
+}
+
+/**
+ * YERLEŞİM DENETİMİ — plan atölyeye gitmeden önce SORULAN sorular.
+ *
+ * Kullanıcı kararı (15.08.2026): *"Nesting çok önemli, yanlış olursa yanlış
+ * malzeme siparişi vermemize yol açabilir. Nesting'in kendi içinde birkaç
+ * kontrolü olmalı, kontrollerin kısa özetleri ekrana verilmeli."*
+ *
+ * Kontroller ALGORİTMANIN İDDİASINI DEĞİL SONUCU ölçer: yerleştirme kodunda
+ * bir işaret hatası (`+g` yerine `−g`) sessizdir ve ancak atölyede görünürdü.
+ * Beşi de bağımsızdır ve hepsi ekranda listelenir — geçenler de. Yalnız
+ * hatayı göstermek, "kontrol edildi mi" sorusunu cevapsız bırakır.
+ */
+export function yerlesimDenetimi(
+  istenen: readonly YerlesimParcasi[],
+  sonuc: YerlesimSonucu
+): DenetimSonucu[] {
+  const g = sonuc.payMm;
+  const kontroller: DenetimSonucu[] = [];
+
+  // 1 — PARÇA SAYIMI: hiçbir parça kaybolmadı mı?
+  const istenenAdet = istenen.reduce((t, p) => t + Math.max(0, Math.floor(p.adet)), 0);
+  const sigmayan = sonuc.sigmayanlar.reduce((t, s) => t + s.adet, 0);
+  const toplananAdet = sonuc.yerlesenParca + sigmayan;
+  kontroller.push({
+    ad: "Parça sayımı",
+    gecti: toplananAdet === istenenAdet,
+    ozet:
+      toplananAdet === istenenAdet
+        ? `${istenenAdet} parçanın tamamı sayıldı (${sonuc.yerlesenParca} yerleşti${sigmayan > 0 ? `, ${sigmayan} sığmadı` : ""})`
+        : `SAYIM TUTMUYOR: istenen ${istenenAdet}, sayılan ${toplananAdet}`,
+  });
+
+  // 2 — ADET EŞLEŞMESİ: her kalemden istendiği kadar mı yerleşti?
+  const istenenHarita = new Map<string, number>();
+  for (const p of istenen) {
+    istenenHarita.set(p.id, (istenenHarita.get(p.id) ?? 0) + Math.max(0, Math.floor(p.adet)));
+  }
+  const bulunanHarita = new Map<string, number>();
+  for (const plaka of sonuc.plakalar) {
+    for (const p of plaka.parcalar) bulunanHarita.set(p.id, (bulunanHarita.get(p.id) ?? 0) + 1);
+  }
+  for (const s of sonuc.sigmayanlar) {
+    bulunanHarita.set(s.id, (bulunanHarita.get(s.id) ?? 0) + s.adet);
+  }
+  const sapan = [...istenenHarita.entries()].filter(
+    ([id, n]) => (bulunanHarita.get(id) ?? 0) !== n
+  );
+  kontroller.push({
+    ad: "Kalem adetleri",
+    gecti: sapan.length === 0,
+    ozet:
+      sapan.length === 0
+        ? `${istenenHarita.size} kalemin adedi birebir tutuyor`
+        : `${sapan.length} kalemde adet tutmuyor (ör. ${sapan[0][0]}: ${sapan[0][1]} istendi, ${bulunanHarita.get(sapan[0][0]) ?? 0} sayıldı)`,
+  });
+
+  // 3 — ÇAKIŞMA VE PAY: parçalar birbirine ve kenara g mm mesafede mi?
+  const payHatasi = yerlesimiDenetle(sonuc);
+  kontroller.push({
+    ad: `Pay ve çakışma (${g} mm)`,
+    gecti: payHatasi == null,
+    ozet: payHatasi ?? `Bütün parçalar birbirine ve kenara en az ${g} mm mesafede`,
+  });
+
+  // 4 — PLAKA SINIRI: hiçbir parça plakadan taşmıyor mu?
+  let tasan = 0;
+  for (const plaka of sonuc.plakalar) {
+    for (const p of plaka.parcalar) {
+      if (p.x < 0 || p.y < 0 || p.x + p.enMm > plaka.enMm || p.y + p.boyMm > plaka.boyMm) tasan++;
+    }
+  }
+  kontroller.push({
+    ad: "Plaka sınırı",
+    gecti: tasan === 0,
+    ozet:
+      tasan === 0
+        ? `${sonuc.plakalar.length} plakanın hiçbirinde taşma yok`
+        : `${tasan} parça plaka dışına çıkıyor`,
+  });
+
+  // 5 — ALAN DENGESİ: yerleşen parçaların alanı plaka alanını aşamaz.
+  const beklenenAlan = sonuc.plakalar.reduce(
+    (t, p) => t + p.parcalar.reduce((a, x) => a + x.enMm * x.boyMm, 0),
+    0
+  );
+  const alanTutuyor =
+    Math.abs(beklenenAlan - sonuc.kullanilanAlanMm2) < 1 &&
+    sonuc.kullanilanAlanMm2 <= sonuc.plakaAlaniMm2 + 1;
+  kontroller.push({
+    ad: "Alan dengesi",
+    gecti: alanTutuyor,
+    ozet: alanTutuyor
+      ? `Doluluk %${yuvarla(sonuc.dolulukYuzde, 1)} · fire %${yuvarla(sonuc.fireYuzde, 1)}`
+      : "Alan toplamı plaka alanıyla tutmuyor",
+  });
+
+  return kontroller;
+}
+
 // ══════════════════════════════════════════════════════════════ YARDIMCI
 
 function yuvarla(v: number, basamak = 2): number {

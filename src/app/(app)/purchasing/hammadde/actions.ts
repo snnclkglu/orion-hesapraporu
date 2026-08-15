@@ -14,9 +14,11 @@ import { canEditPurchasing } from "@/lib/roles";
 import { hamAnahtar } from "@/lib/purchasing/hammadde/havuz";
 import {
   createRawManualSchema,
+  moveToEquipmentSchema,
   saveRawMetaSchema,
   updateRawManualSchema,
   type CreateRawManualInput,
+  type MoveToEquipmentInput,
   type SaveRawMetaInput,
   type UpdateRawManualInput,
 } from "./schema";
@@ -57,6 +59,9 @@ async function requireWrite() {
 function tazele() {
   revalidatePath("/purchasing/hammadde");
   revalidatePath("/purchasing/hammadde/yerlesim");
+  // EKİPMAN HAVUZU DA ESKİR: bir satır taşındığında iki ekran birden değişir
+  // ve yalnız birini tazelemek, satırı bir an iki yerde birden gösterirdi.
+  revalidatePath("/purchasing");
 }
 
 // ═══════════════════════════════════════════════════════ DÜZELTME DEFTERİ
@@ -81,10 +86,13 @@ export async function saveRawMeta(input: SaveRawMetaInput): Promise<HammaddeActi
 
   const { data: mevcutlar } = await ctx.supabase
     .from("purchase_raw_meta")
-    .select("match_key, kind, label_override, stock_length_mm, excluded, note, sample")
+    .select(
+      "match_key, kind, label_override, stock_length_mm, excluded, note, sample, " +
+        "quality_override, qty_override"
+    )
     .in("match_key", v.keys);
   const mevcut = new Map(
-    ((mevcutlar ?? []) as Record<string, unknown>[]).map((r) => [String(r.match_key), r])
+    ((mevcutlar ?? []) as unknown as Record<string, unknown>[]).map((r) => [String(r.match_key), r])
   );
 
   const satirlar = v.keys.map((key, i) => {
@@ -107,6 +115,18 @@ export async function saveRawMeta(input: SaveRawMetaInput): Promise<HammaddeActi
             : v.stockLengthMm,
       excluded: v.excluded === null ? Boolean(eski?.excluded) : v.excluded,
       note: v.note === null ? String(eski?.note ?? "") : v.note,
+      quality_override:
+        v.quality === null
+          ? ((eski?.quality_override as string | null) ?? null)
+          : v.quality.trim()
+            ? v.quality.trim()
+            : null,
+      qty_override:
+        v.qty === null
+          ? ((eski?.qty_override as number | null) ?? null)
+          : v.qty === 0
+            ? null
+            : v.qty,
       created_by: ctx.userId,
     };
   });
@@ -199,4 +219,67 @@ export async function deleteRawManual(id: string): Promise<HammaddeActionResult>
 
   tazele();
   return { ok: 1 };
+}
+
+// ═══════════════════════════════════════════════════ EKİPMANA TAŞIMA
+
+/**
+ * Bir hammadde satırını EKİPMAN havuzuna taşır (ya da geri alır).
+ *
+ * İKİ DEFTERE BİRDEN YAZAR ve ikisi de gereklidir:
+ *   · `purchase_raw_meta.to_equipment` — hammadde havuzu satırı DÜŞÜRÜR,
+ *   · `purchase_raw_equipment_keys`    — ekipman havuzu o PARÇA TANIMLARINI
+ *     kendi okumasına ALIR.
+ *
+ * Tek bir bayrak yetmezdi: iki havuz iki farklı anahtar uzayında yaşıyor
+ * (stok kalemi ↔ parça tanımı) ve köprü açıkça yazılmalı.
+ */
+export async function moveRawToEquipment(
+  input: MoveToEquipmentInput
+): Promise<HammaddeActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const parsed = moveToEquipmentSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+  const v = parsed.data;
+
+  const anahtarlar = [...new Set(v.hamTanimlar.map((t) => hamAnahtar(t)))].filter(Boolean);
+
+  if (v.tasi) {
+    const { error: metaHata } = await ctx.supabase.from("purchase_raw_meta").upsert(
+      { match_key: v.key, sample: v.sample, to_equipment: true, created_by: ctx.userId },
+      { onConflict: "match_key" }
+    );
+    if (metaHata) return { error: metaHata.message };
+
+    const { error } = await ctx.supabase.from("purchase_raw_equipment_keys").upsert(
+      anahtarlar.map((k) => ({
+        part_key: k,
+        match_key: v.key,
+        sample: v.sample,
+        created_by: ctx.userId,
+      })),
+      { onConflict: "part_key" }
+    );
+    if (error) return { error: error.message };
+  } else {
+    const { error: metaHata } = await ctx.supabase
+      .from("purchase_raw_meta")
+      .update({ to_equipment: false })
+      .eq("match_key", v.key);
+    if (metaHata) return { error: metaHata.message };
+
+    // GERİ ALMA ANAHTARLA DEĞİL KAYNAKLA YAPILIR: aradan geçen sürede o stok
+    // kalemine yeni parçalar katılmış olabilir ve elde tutulan liste eksik
+    // kalırdı. Defter zaten hangi tanımların oradan geldiğini biliyor.
+    const { error } = await ctx.supabase
+      .from("purchase_raw_equipment_keys")
+      .delete()
+      .eq("match_key", v.key);
+    if (error) return { error: error.message };
+  }
+
+  tazele();
+  return { ok: anahtarlar.length };
 }

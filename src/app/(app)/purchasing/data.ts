@@ -23,6 +23,7 @@ import {
   tanimOlculeri,
 } from "@/lib/drawings/normalize";
 import { progressKeyOf } from "@/lib/drawings/progress";
+import { trKatla } from "@/lib/drawings/tr-text";
 import {
   drawingCarpani,
   talepHavuzu,
@@ -273,6 +274,17 @@ export async function loadHavuz(
   }
 
   // ————————————————————————————————— 6. satın alma satırları
+  //
+  // HAMMADDEDEN TAŞINMIŞ SATIRLAR DA BURAYA GİRER (kullanıcı kararı,
+  // 15.08.2026: *"Diğer kısmında kaplin rulman gibi ekipmanları benim Ekipman
+  // tarafına taşıyabilmem lazım."*). Kaplin, rulman ve kanca gibi kalemler
+  // Excel'de PARÇA KODU taşıyor ve `isPurchaseRow` onları üretim tarafına
+  // yolluyor; oysa satın alınıyorlar.
+  //
+  // KÜME BOŞKEN HİÇBİR EK SORGU KOŞMAZ: `purchase_raw_equipment_keys` normalde
+  // boştur ve bu okuma o zaman atlanır — ekipman ekranının maliyeti değişmez.
+  const tasinanAnahtarlar = await loadEquipmentMovedKeys(supabase);
+
   const paketIdleri = paketSatirlari.map((p) => p.id);
   const satirlar: HavuzSatiri[] = [];
   if (paketIdleri.length > 0) {
@@ -292,6 +304,23 @@ export async function loadHavuz(
         .order("id")
         .range(bas, son)
     );
+
+    if (tasinanAnahtarlar.size > 0) {
+      const imalat = await tumSatirlar<ParcaSatiri>((bas, son) =>
+        supabase
+          .from("drawing_parts")
+          .select(PARCA_ALANLARI)
+          .in("package_id", paketIdleri)
+          .in("kind", ["imalat", "bilinmiyor"])
+          .neq("part_code", "")
+          .order("id")
+          .range(bas, son)
+      );
+      for (const r of imalat) {
+        const t = (r.description || r.name || "").trim();
+        if (t && tasinanAnahtarlar.has(trKatla(t.replace(/\s+/g, " ")))) ham.push(r);
+      }
+    }
 
     for (const r of ham) {
       const tanim = (r.description || r.name || "").trim();
@@ -506,11 +535,26 @@ export interface TeklifSatiri {
   chosen: boolean;
   note: string;
   itemNo: string;
+  /** Ödeme biçimi ve vadesi — karşılaştırma başlığında `(90 Gün)` olur. */
+  paymentMethod: string;
+  paymentTermDays: number;
+  /** Teslim süresi GÜN; 0 = Hazır, null = söylenmedi. */
+  leadTimeDays: number | null;
 }
 
 const TEKLIF_ALANLARI =
   "id, match_key, sample, supplier, unit_price, currency, fx_rate, unit_price_eur, " +
   "qty, unit, quoted_at, valid_until, chosen, note, item_no";
+
+/**
+ * ZENGİN SORGU (md. 21'in "sütun olmayabilir" kuralı).
+ *
+ * `payment_*` ve `lead_time_days` 20260815000003 ile geliyor; migration
+ * uygulanmadan önce onları isteyen bir `select` BÜTÜN teklif listesini
+ * düşürür ve havuzun teklif sütunu boşalırdı.
+ */
+const TEKLIF_ALANLARI_ZENGIN =
+  TEKLIF_ALANLARI + ", payment_method, payment_term_days, lead_time_days";
 
 function teklifEsle(r: Record<string, unknown>): TeklifSatiri {
   return {
@@ -529,6 +573,9 @@ function teklifEsle(r: Record<string, unknown>): TeklifSatiri {
     chosen: r.chosen === true,
     note: String(r.note ?? ""),
     itemNo: String(r.item_no ?? ""),
+    paymentMethod: String(r.payment_method ?? "pesin"),
+    paymentTermDays: r.payment_term_days == null ? 0 : Number(r.payment_term_days),
+    leadTimeDays: r.lead_time_days == null ? null : Number(r.lead_time_days),
   };
 }
 
@@ -537,13 +584,23 @@ export async function loadTeklifler(
   supabase: SupabaseClient,
   keys?: readonly string[]
 ): Promise<TeklifSatiri[]> {
-  const veri = await tumSatirlar<Record<string, unknown>>((bas, son) => {
-    let q = supabase.from("purchase_quotes").select(TEKLIF_ALANLARI);
-    if (keys && keys.length > 0) q = q.in("match_key", keys as string[]);
-    // `id` bir EŞİTLİK BOZUCUDUR: aynı gün girilmiş iki teklifin sırası
-    // `quoted_at` ile belirlenmez ve sayfalanan sorguda bu satır kaybettirir.
-    return q.order("quoted_at", { ascending: false }).order("id").range(bas, son);
-  });
+  const oku = (alanlar: string) =>
+    tumSatirlar<Record<string, unknown>>((bas, son) => {
+      let q = supabase.from("purchase_quotes").select(alanlar);
+      if (keys && keys.length > 0) q = q.in("match_key", keys as string[]);
+      // `id` bir EŞİTLİK BOZUCUDUR: aynı gün girilmiş iki teklifin sırası
+      // `quoted_at` ile belirlenmez ve sayfalanan sorguda bu satır kaybettirir.
+      return q.order("quoted_at", { ascending: false }).order("id").range(bas, son);
+    });
+
+  // ZENGİN + DAR: yeni sütunlar yoksa teklifler yine gelir, vade ve teslim
+  // varsayılana düşer (md. 21).
+  let veri: Record<string, unknown>[];
+  try {
+    veri = await oku(TEKLIF_ALANLARI_ZENGIN);
+  } catch {
+    veri = await oku(TEKLIF_ALANLARI);
+  }
   return veri.map(teklifEsle);
 }
 
@@ -1092,4 +1149,20 @@ export async function loadSonKur(supabase: SupabaseClient): Promise<GunlukKur | 
 export function anahtarla(tanim: string): { key: string; tanim: string } {
   const n = normalizeTanim(tanim);
   return { key: n.key, tanim: n.tanim };
+}
+
+/**
+ * HAMMADDEDEN EKİPMANA TAŞINMIŞ PARÇA TANIMLARI.
+ *
+ * Defter yoksa (migration uygulanmamış) BOŞ küme döner ve ekipman havuzu
+ * bugünkü gibi çalışır — "sütun olmayabilir" kuralı (md. 21).
+ */
+export async function loadEquipmentMovedKeys(
+  supabase: SupabaseClient
+): Promise<ReadonlySet<string>> {
+  const { data, error } = await supabase
+    .from("purchase_raw_equipment_keys")
+    .select("part_key");
+  if (error) return new Set();
+  return new Set(((data ?? []) as { part_key: string }[]).map((r) => r.part_key));
 }

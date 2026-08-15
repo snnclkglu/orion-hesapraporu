@@ -161,11 +161,90 @@ export const STOK_BOYU_MM: Record<HammaddeSinifi, number | null> = {
   DIGER: null,
 };
 
-/** Sac plakası standart enleri [mm] — kullanıcı: *"1500 2000 2500 ve 3000"*. */
-export const PLAKA_ENLERI = [1500, 2000, 2500, 3000] as const;
+// ══════════════════════════════════════════════════════ İŞLEME PAYI
 
-/** Sac plakası standart boyları [mm] — *"çoğu zaman 12000 ama bazen 6000"*. */
-export const PLAKA_BOYLARI = [6000, 12000] as const;
+/**
+ * TALAŞLI İMALAT PAYI — kullanıcı kararı (15.08.2026).
+ *
+ * *"Teknik ressamın kendi pay vermediği parçalara da biz pay vereceğiz. Dolu
+ * ve boru malzemede %5 pay olacak, minimum 2 mm olsun, küsüratlı sayıları
+ * düşük ise yukarı yuvarlasın."*
+ *
+ * Gerekçe fiziksel: Ø90 bir mil, Ø90 bir çubuktan çıkmaz — tornada yüzey
+ * alınacaktır. Sac ve profilde pay YOKTUR: onlar kesilir, işlenmez.
+ */
+export const ISLEME_PAYI_ORANI = 0.05;
+export const ISLEME_PAYI_MIN_MM = 2;
+
+/**
+ * Ölçüye işleme payı ekler ve TAM MİLİMETREYE YUKARI yuvarlar.
+ *
+ * Yuvarlama YUKARIDIR ve bu bir tercih değil bir zorunluluktur: aşağı
+ * yuvarlanmış bir pay, payın kendisini yok eder ve parça ölçüsünün altında
+ * malzeme sipariş ettirir.
+ */
+export function payliOlcu(mm: number | null): number | null {
+  if (mm == null || !Number.isFinite(mm) || mm <= 0) return null;
+  return Math.ceil(mm + Math.max(ISLEME_PAYI_MIN_MM, mm * ISLEME_PAYI_ORANI));
+}
+
+/**
+ * Sac plakası standart enleri [mm].
+ *
+ * Kullanıcı önce dördünü saydı (*"1500 2000 2500 ve 3000"*), 15.08.2026'da
+ * **1000**'i ekledi. Liste bir tahmin değil firmanın satın aldığı ölçülerdir;
+ * yeni bir en ancak kullanıcı söylerse girer.
+ */
+export const PLAKA_ENLERI = [1000, 1500, 2000, 2500, 3000] as const;
+
+/**
+ * Sac plakası standart boyları [mm].
+ *
+ * *"Çoğu zaman 12000 ama bazen 6000"* — 15.08.2026'da **3000** eklendi.
+ * Sıra KÜÇÜKTEN BÜYÜĞEDİR: otomatik seçim eşit plaka adedinde en küçük alanı
+ * tercih ediyor ve listenin sırası o kararı etkilemez, ama açılır listede
+ * artan sıra okunmayı kolaylaştırır.
+ */
+export const PLAKA_BOYLARI = [3000, 6000, 12000] as const;
+
+/**
+ * PLAKANIN SİPARİŞ ADI — tedarikçinin kendi yazımıyla.
+ *
+ * Kullanıcı kararı (15.08.2026, DESSAN proforması örnek verildi): *"Sac
+ * siparişinde parçaların bir önemi olmuyor; onların birleştiği plakaları
+ * sipariş ediyoruz aslında."*
+ *
+ * Tedarikçinin satırı birebir şudur:
+ *
+ *     10 X 1500 X 6000 | ST37 | Plaka Adet 5 | Plk-Adt/KG 707 | 3.537 KG
+ *
+ * Yani kimlik `kalınlık × en × boy`dur, kalite ayrı bir alandır ve TİCARİ
+ * MİKTAR KİLODUR — plaka adedi bir niteliktir. Ad bu yüzden havuzdaki
+ * `SAC 10 MM S355JR`den FARKLIDIR: o bir İHTİYAÇTIR (hangi kalınlıktan ne
+ * kadar), bu bir ÜRÜNDÜR (hangi plaka). İkisi aynı anahtar olamaz; yerleşim
+ * yapılmadan plaka ölçüsü bilinmez.
+ *
+ * Ayraç `X`tir ve boşlukludur — proformada öyle yazıyor ve satınalmacı iki
+ * belgeyi yan yana koyup karşılaştırıyor.
+ */
+export function plakaStokAdi(
+  kalinlikMm: number | null,
+  enMm: number,
+  boyMm: number,
+  kalite: string
+): string {
+  const yaz = (v: number | null) =>
+    v == null ? "?" : Number.isInteger(v) ? String(v) : String(v).replace(".", ",");
+  return ["SAC", `${yaz(kalinlikMm)} X ${yaz(enMm)} X ${yaz(boyMm)}`, kalite]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Bir plakanın ağırlığı [kg] — proformadaki "Plk-Adt / KG" sütunu. */
+export function plakaAgirligiKg(kalinlikMm: number | null, enMm: number, boyMm: number): number | null {
+  if (kalinlikMm == null || !(kalinlikMm > 0)) return null;
+  return kalinlikMm * enMm * boyMm * CELIK_OZKUTLE_KG_MM3;
+}
 
 /** Kesim payı seçenekleri [mm] — *"bazen 3 4 5 6 7 8 olabiliyor"*. */
 export const KESIM_PAYLARI = [3, 4, 5, 6, 7, 8] as const;

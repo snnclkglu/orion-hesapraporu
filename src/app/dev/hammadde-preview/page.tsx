@@ -13,7 +13,11 @@
 
 import { notFound } from "next/navigation";
 import { hammaddeHavuzu, type HammaddeKaynagi, type HammaddePaketi } from "@/lib/purchasing/hammadde/havuz";
-import { enIyiPlakaSecimi, type YerlesimParcasi } from "@/lib/purchasing/hammadde/nesting";
+import {
+  enIyiPlakaSecimi,
+  yerlesimDenetimi,
+  type YerlesimParcasi,
+} from "@/lib/purchasing/hammadde/nesting";
 import { PLAKA_BOYLARI, PLAKA_ENLERI } from "@/lib/purchasing/hammadde/siniflar";
 import { RawTable } from "@/app/(app)/purchasing/hammadde/raw-table";
 import { NestingView, type YerlesimGrubu } from "@/app/(app)/purchasing/hammadde/yerlesim/nesting-view";
@@ -120,17 +124,26 @@ export default function HammaddePreviewPage() {
       parcalar.push({ id: p.partKey, ad: p.tanim, enMm: p.enMm, boyMm: p.boyMm, adet: p.adet });
     }
     const kalinlik = satir.parcalar.find((p) => p.kalinlikMm != null)?.kalinlikMm ?? null;
+    const sonuc = enIyiPlakaSecimi(parcalar, adaylar, {
+      payMm: 5,
+      dondur: true,
+      kalinlikMm: kalinlik,
+    });
     return {
       key: satir.key,
       tanim: satir.tanim,
+      kalite: satir.kalite,
       kalinlikMm: kalinlik,
       olcusuzParca: olcusuz,
       hata: "",
-      sonuc: enIyiPlakaSecimi(parcalar, adaylar, {
-        payMm: 5,
-        dondur: true,
-        kalinlikMm: kalinlik,
-      }),
+      sonuc,
+      denetim: sonuc ? yerlesimDenetimi(parcalar, sonuc) : [],
+      paylar: satir.parcalar.map((p) => ({
+        itemNo: p.itemNo,
+        packageId: p.packageId,
+        partKey: p.partKey,
+        adet: p.adet ?? 0,
+      })),
     };
   });
 
@@ -149,8 +162,8 @@ export default function HammaddePreviewPage() {
           qualities={["S235JR", "S355JR", "CK45"]}
           defterVar
           isler={[
-            { id: "j1", itemNos: ["0053-01"], label: "0053 · LITEC PORTAL VİNÇ" },
-            { id: "j2", itemNos: ["0057-00"], label: "0057 · MUHTELİF VİNÇLER" },
+            { id: "j1", jobNo: "0053", itemNos: ["0053-01"], label: "0053 · LITEC PORTAL VİNÇ" },
+            { id: "j2", jobNo: "0057", itemNos: ["0057-00"], label: "0057 · MUHTELİF VİNÇLER" },
           ]}
           canWrite
         />
@@ -166,7 +179,10 @@ export default function HammaddePreviewPage() {
               tanim: s.tanim,
               parcaAdedi: s.parcaAdedi,
               agirlikKg: s.toplamAgirlikKg,
+              isler: [...new Set(s.paylar.map((x) => x.jobNo).filter(Boolean))],
             }))}
+          isSecenekleri={[{ value: "0053", label: "0053 · LITEC PORTAL VİNÇ", count: 5 }]}
+          isSecili={[]}
           secili={sacGruplari.map((s) => s.key)}
           pay={5}
           en={null}

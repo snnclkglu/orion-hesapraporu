@@ -11,7 +11,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Loader2, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,29 +42,36 @@ import {
   type HammaddeSinifi,
 } from "@/lib/purchasing/hammadde/siniflar";
 import { PROFIL_KESITLERI } from "@/lib/purchasing/hammadde/profil-kesitleri";
-import { createRawManual, deleteRawManual, saveRawMeta } from "./actions";
+import { createRawManual, deleteRawManual, moveRawToEquipment, saveRawMeta } from "./actions";
 
 // ═══════════════════════════════════════════════════ SATIR DÜZELTME
 
 export function RawMetaDialog({
   satir,
+  qualities = [],
   onClose,
   onSaved,
 }: {
   satir: HammaddeSatiri;
+  /** Marka/kalite öneri listesi — ekipman tarafıyla ORTAK defter. */
+  qualities?: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [calisiyor, basla] = useTransition();
   const [tur, setTur] = useState<HammaddeSinifi>(satir.sinif);
   const [ad, setAd] = useState(satir.tanim);
+  const [kalite, setKalite] = useState(satir.kalite);
+  const [adet, setAdet] = useState(satir.parcaAdedi > 0 ? String(satir.parcaAdedi) : "");
   const [boy, setBoy] = useState(satir.stokBoyuMm == null ? "" : String(satir.stokBoyuMm));
   const [not, setNot] = useState(satir.not);
 
   const varsayilanBoy = STOK_BOYU_MM[tur];
+  const turetilen = satir.turetilenAdet ?? satir.parcaAdedi;
 
   function kaydet() {
     basla(async () => {
+      const yeniAdet = parseNum(adet);
       const sonuc = await saveRawMeta({
         keys: [satir.kaynakAnahtar],
         samples: [satir.tanim],
@@ -73,6 +80,11 @@ export function RawMetaDialog({
         kind: tur === satir.sinif && !satir.sinifElle ? "" : tur,
         // Ad değişmediyse override yazma — türetilene dön.
         label: ad.trim() === satir.tanim.trim() ? "" : ad,
+        quality: kalite.trim() === satir.kalite.trim() && !satir.kaliteElle ? "" : kalite,
+        // ADET TÜRETİLENLE AYNIYSA EZİLMEZ: paket yeniden yüklendiğinde sayı
+        // kendiliğinden güncellensin. Dondurulmuş bir "40", ertesi hafta 60
+        // parçaya çıkan bir işi 40'ta bırakırdı.
+        qty: yeniAdet == null || yeniAdet === turetilen ? 0 : yeniAdet,
         note: not,
         stockLengthMm: parseNum(boy) ?? 0,
         excluded: null,
@@ -82,6 +94,33 @@ export function RawMetaDialog({
         return;
       }
       toast.success("Satır güncellendi.");
+      onSaved();
+    });
+  }
+
+  /**
+   * EKİPMANA TAŞI — satır hammadde değil, satın alınan bir üründür.
+   *
+   * Kullanıcı isteği: *"Diğer kısmında kaplin rulman gibi ekipmanları benim
+   * Ekipman tarafına taşıyabilmem lazım."* Kaplin ve rulman Excel'de PARÇA
+   * KODU taşıdığı için bölme kuralı onları üretim tarafına yolluyor; karar
+   * insanındır ve iki havuzda birden geçerlidir.
+   */
+  function ekipmanaTasi(tasi: boolean) {
+    basla(async () => {
+      const sonuc = await moveRawToEquipment({
+        key: satir.kaynakAnahtar,
+        sample: satir.tanim,
+        hamTanimlar: [...new Set(satir.parcalar.map((p) => p.tanim).filter(Boolean))],
+        tasi,
+      });
+      if (sonuc.error) {
+        toast.error(sonuc.error);
+        return;
+      }
+      toast.success(
+        tasi ? "Kalem Ekipman havuzuna taşındı." : "Kalem hammadde havuzuna geri alındı."
+      );
       onSaved();
     });
   }
@@ -153,6 +192,33 @@ export function RawMetaDialog({
             <Input id="hm-ad" value={ad} onChange={(e) => setAd(e.target.value)} />
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label>Kalite</Label>
+              <Combobox
+                options={qualities.map((q) => ({ value: q, label: q }))}
+                value={kalite || null}
+                onChange={setKalite}
+                onCreate={(v) => setKalite(v)}
+                placeholder="S235JR…"
+                createLabel="Ekle"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="hm-adet">Adet</Label>
+              <Input
+                id="hm-adet"
+                inputMode="numeric"
+                value={adet}
+                onChange={(e) => setAdet(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Resimlerden türetilen: <strong>{formatNum(turetilen)}</strong>
+                {satir.adetElle && " · şu an elle ezilmiş"}
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-1.5">
             <Label htmlFor="hm-boy">Satın Alma Boyu (mm)</Label>
             <Input
@@ -190,15 +256,27 @@ export function RawMetaDialog({
                 Sil
               </Button>
             ) : (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => haricTut(true)}
-                disabled={calisiyor}
-                title="Bu kalem hammadde havuzunda görünmesin"
-              >
-                Havuzdan Çıkar
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => ekipmanaTasi(true)}
+                  disabled={calisiyor}
+                  title="Bu kalem bir hammadde değil, satın alınan bir ürün"
+                >
+                  <ArrowRightLeft className="size-3.5" />
+                  Ekipmana Taşı
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => haricTut(true)}
+                  disabled={calisiyor}
+                  title="Bu kalem hammadde havuzunda görünmesin"
+                >
+                  Havuzdan Çıkar
+                </Button>
+              </>
             )}
           </span>
           <span className="flex gap-2">

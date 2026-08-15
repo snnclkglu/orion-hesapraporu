@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/purchasing/hammadde", label: "Hammadde Havuzu", exact: true },
   { href: "/purchasing/hammadde/yerlesim", label: "Plaka Yerleşimi", exact: false },
+  { href: "/purchasing/hammadde/teklifler", label: "Teklif Karşılaştırma", exact: false },
 ];
 
 export function HammaddeNav() {
