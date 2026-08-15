@@ -8,7 +8,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, FileText, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Check, FileText, Loader2, Plus, Tag, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CokluSuzgec } from "../../filters";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ import {
 } from "@/lib/purchasing/hammadde/siniflar";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { OrderDialog, type SiparisKalemi } from "../../order-dialog";
+import { BulkQuoteDialog, type TopluTeklifKalemi } from "../../bulk-quote-dialog";
 import type { TedarikciKaydi } from "../../data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ export function NestingView({
   const params = useSearchParams();
   const [gidiyor, basla] = useTransition();
   const [siparisKalemleri, setSiparisKalemleri] = useState<SiparisKalemi[] | null>(null);
+  const [teklifKalemleri, setTeklifKalemleri] = useState<TopluTeklifKalemi[] | null>(null);
 
   /**
    * Adres parametresini günceller — durum TEK yerde, ADRESTE yaşar.
@@ -310,6 +312,7 @@ export function NestingView({
         gruplar={gruplar}
         canWrite={canWrite}
         onSiparis={(kalemler) => setSiparisKalemleri(kalemler)}
+        onTeklif={(kalemler) => setTeklifKalemleri(kalemler)}
       />
 
       {/* ————————————————————————————————————— özet */}
@@ -364,6 +367,26 @@ export function NestingView({
           onClose={() => setSiparisKalemleri(null)}
           onSaved={() => {
             setSiparisKalemleri(null);
+            router.refresh();
+          }}
+        />
+      )}
+      {/* PLAKA TEKLİFİ — sipariş penceresinin kardeşi (kullanıcı isteği,
+          15.08.2026: *"plaka siparişi aç tuşunun yanında plaka teklifi aç
+          tuşu da yapalım"*). Kalem AYNI kalemdir: `plakaStokAdi` ile üretilen
+          ürün adı ve onun katlanmış anahtarı — yani alınan teklif, aynı
+          plakaya verilen siparişle ve fiyat arşiviyle AYNI `match_key`
+          uzayında yaşar. Teklif önce, sipariş sonra: sıra iş akışının
+          kendisidir. */}
+      {teklifKalemleri && (
+        <BulkQuoteDialog
+          kalemler={teklifKalemleri}
+          tedarikciler={tedarikciler}
+          sonKur={sonKur}
+          scope="hammadde"
+          onClose={() => setTeklifKalemleri(null)}
+          onSaved={() => {
+            setTeklifKalemleri(null);
             router.refresh();
           }}
         />
@@ -521,10 +544,12 @@ function PlakaOzeti({
   gruplar,
   canWrite,
   onSiparis,
+  onTeklif,
 }: {
   gruplar: YerlesimGrubu[];
   canWrite: boolean;
   onSiparis: (kalemler: SiparisKalemi[]) => void;
+  onTeklif: (kalemler: TopluTeklifKalemi[]) => void;
 }) {
   const satirlar = new Map<
     string,
@@ -597,6 +622,21 @@ function PlakaOzeti({
    * Paket işaretleri yine PARÇA anahtarlarına yazılır — atölye o resimlere
    * bakıyor ve "sac geldi mi" sorusu orada sorulur.
    */
+  /**
+   * TEKLİF KALEMİ DE PLAKADIR ve anahtarı siparişinkiyle BİREBİR AYNIDIR.
+   *
+   * Ayrı bir anahtar üretilseydi (ör. havuzdaki `SAC 10 MM S355JR`) alınan
+   * teklif, verilen siparişle ve fiyat arşiviyle hiç buluşmazdı — plaka
+   * ölçüsü ancak yerleşim yapılınca bilindiği için o iki ad zaten FARKLIDIR
+   * (md. 24). Teklifte ADET sorulmaz; miktar sipariş anında yazılır.
+   */
+  function teklifKalemleri(): TopluTeklifKalemi[] {
+    return liste.map((r) => {
+      const ad = plakaStokAdi(r.kalinlikMm, r.enMm, r.boyMm, r.kalite);
+      return { matchKey: trKatla(ad), tanim: ad };
+    });
+  }
+
   function siparisKalemleri(): SiparisKalemi[] {
     return liste.map((r) => {
       const ad = plakaStokAdi(r.kalinlikMm, r.enMm, r.boyMm, r.kalite);
@@ -628,7 +668,21 @@ function PlakaOzeti({
           {toplamDoluluk != null && ` · %${formatNum(toplamDoluluk, 1)} kullanım`}
         </span>
         {canWrite && (
-          <span className="ml-auto">
+          <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            {/* TEKLİF SİPARİŞİN SOLUNDADIR: iş akışında önce fiyat sorulur.
+                İkisi de AYNI plaka kalemlerini alır — teklif verilen plaka ile
+                sipariş edilen plaka aynı anahtarı taşır, yoksa alınan fiyat
+                siparişte hiç görünmezdi. */}
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => onTeklif(teklifKalemleri())}
+              title="Bu plakalar için tedarikçilerden fiyat iste"
+            >
+              <Tag className="size-3" />
+              Plaka Teklifi Aç
+            </Button>
             <Button type="button" size="xs" onClick={() => onSiparis(siparisKalemleri())}>
               <Plus className="size-3" />
               Plaka Siparişi Aç

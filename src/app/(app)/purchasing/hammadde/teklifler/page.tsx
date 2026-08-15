@@ -41,6 +41,7 @@ import {
   type KarsilastirmaKalemi,
   type KarsilastirmaTeklifi,
 } from "@/lib/purchasing/hammadde/karsilastirma";
+import { alimKategorisi } from "@/lib/purchasing/hammadde/alim-analizi";
 import { HAMMADDE_SINIFLARI, type HammaddeSinifi } from "@/lib/purchasing/hammadde/siniflar";
 import { CompareView, type PartiOzeti } from "./compare-view";
 
@@ -107,18 +108,53 @@ export default async function TekliflerPage({
   // Özet HER PARTİ İÇİN kurulur (seçilmiş olsun olmasın): liste satırında
   // toplam ve kalem sayısı görünmeden kullanıcı hangi teklifi seçeceğini
   // bilemez.
+  /**
+   * HAVUZDA OLMAYAN KALEMİN TEKLİFİ DE GÖRÜNÜR (kullanıcı isteği, 15.08.2026:
+   * plaka teklifi).
+   *
+   * PLAKA TEKLİFİNİN ANAHTARI HAVUZDA YOKTUR ve olmamalıdır: havuz `SAC 10 MM
+   * S355JR` (bir İHTİYAÇ) der, plaka teklifi `SAC 10 X 1500 X 6000 ST37` (bir
+   * ÜRÜN) — ikisi ayrı kalemdir ve plaka ölçüsü ancak yerleşimle bilinir
+   * (md. 24). Havuz eşleşmesi ŞART koşulsaydı, kullanıcının yerleşim
+   * ekranından açtığı teklif bu sayfada hiç görünmezdi.
+   *
+   * MİKTAR O ZAMAN BİLİNMEZ ve UYDURULMAZ (`null`): tutar sütunu tire kalır,
+   * karşılaştırma birim fiyat üzerinden yapılır. Sınıf ise stok adından
+   * çözülür — tür şeridi o kalemi de süzebilsin.
+   */
+  const kalemKunyesi = (t: { matchKey: string; sample: string }) => {
+    const havuzSatiri = havuzHaritasi.get(t.matchKey);
+    if (havuzSatiri) {
+      const m = miktarBul(havuzSatiri);
+      return {
+        tanim: havuzSatiri.tanim,
+        sinif: havuzSatiri.sinif as HammaddeSinifi,
+        miktar: m.miktar,
+        birim: m.birim,
+      };
+    }
+    const sinif = alimKategorisi(t.sample);
+    return {
+      tanim: t.sample,
+      sinif: (HAMMADDE_SINIFLARI.includes(sinif as HammaddeSinifi)
+        ? sinif
+        : "DIGER") as HammaddeSinifi,
+      miktar: null,
+      birim: "Kg",
+    };
+  };
+
   const ozetler: PartiOzeti[] = partiler
     .map((p) => {
       const satirlar = p.satirlar
-        .filter((t) => havuzHaritasi.has(t.matchKey))
-        .filter((t) => tur == null || havuzHaritasi.get(t.matchKey)?.sinif === tur)
+        .filter((t) => tur == null || kalemKunyesi(t).sinif === tur)
         .map((t) => {
-          const havuzSatiri = havuzHaritasi.get(t.matchKey)!;
-          const m = miktarBul(havuzSatiri);
+          const k = kalemKunyesi(t);
+          const m = { miktar: k.miktar, birim: k.birim };
           return {
             quoteId: t.id,
             key: t.matchKey,
-            tanim: havuzSatiri.tanim,
+            tanim: k.tanim,
             miktar: m.miktar,
             birim: m.birim,
             birimFiyat: t.unitPrice,
@@ -170,11 +206,15 @@ export default async function TekliflerPage({
   // SÜTUN PARTİDİR, TEDARİKÇİ DEĞİL: aynı firmanın iki teklifi iki sütundur ve
   // ancak öyle ayrı ayrı değerlendirilebilir.
   const kapsam = [...new Set(secili.flatMap((p) => p.satirlar.map((s) => s.key)))];
+  // KALEM KÜNYESİ SATIRLARDAN OKUNUR, havuzdan DEĞİL: plaka teklifinin
+  // anahtarı havuzda yoktur ve `havuzHaritasi.get(k)!` orada patlardı.
+  const kalemKaynagi = new Map(
+    secili.flatMap((p) => p.satirlar.map((s) => [s.key, s] as const))
+  );
   const kalemler: KarsilastirmaKalemi[] = kapsam
     .map((k) => {
-      const s = havuzHaritasi.get(k)!;
-      const m = miktarBul(s);
-      return { key: k, tanim: s.tanim, miktar: m.miktar, birim: m.birim };
+      const s = kalemKaynagi.get(k)!;
+      return { key: k, tanim: s.tanim, miktar: s.miktar, birim: s.birim };
     })
     .sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
 
@@ -213,7 +253,7 @@ export default async function TekliflerPage({
         adet: new Set(
           partiler
             .flatMap((p) => p.satirlar)
-            .filter((t) => havuzHaritasi.get(t.matchKey)?.sinif === s)
+            .filter((t) => kalemKunyesi(t).sinif === s)
             .map((t) => t.matchKey)
         ).size,
       }))}

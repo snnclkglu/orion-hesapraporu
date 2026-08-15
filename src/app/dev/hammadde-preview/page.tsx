@@ -189,6 +189,10 @@ export default function HammaddePreviewPage() {
           boy={null}
           dondur
           gruplar={gruplar}
+          // YAZMA AÇIK: "Plaka Teklifi Aç" ve "Plaka Siparişi Aç" düğmeleri
+          // yalnız yetkili kullanıcıda çizilir; kapalıyken önizleme onları hiç
+          // göstermiyor ve düğmelerin yerleşimi buradan denetlenemiyordu.
+          canWrite
         />
       </section>
     </div>

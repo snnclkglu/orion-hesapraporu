@@ -1768,6 +1768,54 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Resimler artık AYRI sorulur (montaj satırları dâhil) ve zincir YAKINDAN
     UZAĞA yürünür (`ustPafta`); düğme hangi paftayı açtığını KODUYLA yazar.
 
+    **KESİM PLANININ ANTEDİ HER YAPRAKTA TEKRAR EDER** (kullanıcı bildirimi,
+    15.08.2026 — indirdiği belgeyi gösterdi: *"yerleşim ve antet doğru
+    değil"*). Belge beş yapraktı ve marka bandı YALNIZ İLK YAPRAKTAYDI; ikinci
+    yapraktan sonra kâğıtta ne belge adı, ne doküman kodu, ne sayfa numarası
+    kalıyordu. Kesim planı atölyeye kâğıtla gider, tezgâhta yapraklar dağılır
+    ve kimliksiz bir yaprak hangi işin hangi plakası olduğunu söyleyemez.
+    · Antet `BrandBand` DEĞİLDİR: o bileşen A4 DİKEY bir kapak bandıdır ve
+      yatay sayfada logo ile kod arasında 800 pt boşluk bırakıyordu. Yerine
+      teknik resim antedi gibi çalışan sabit bir şerit kondu (`Antet`, `fixed`):
+      kimlik · belge adı · kapsam · doküman kodu · gün · **sayfa n/m**.
+    · Künye de sabittir (`Altbilgi`, `fixed`): `CompanyBlock` akışın SONUNA
+      basılan bir imzadır ve beş yapraklık belgede yalnız son yaprağın
+      ortasında görünüyordu.
+    · **`fixed` BİR TABLO BAŞLIĞI İÇİN KULLANILMAZ** ve bu ölçüldü: @react-pdf'te
+      `fixed` öğe BÜTÜN yapraklarda tekrar eder, "tablo devam ettiği sürece"
+      değil — kesim listesinin başlığı, liste bittikten sonra da yaprağın
+      dibinde bir kez daha basılıyordu.
+
+    **ÇİZİM İKİ YÖNDEN BİRDEN KELEPÇELENİR.** `PdfDiagram` yalnız GENİŞLİK
+    alıyordu (760 pt) ve yüksekliği en/boy oranından çıkarıyordu. 12 m'lik
+    plakada bu doğrudur (oran ~0,21 → 160 pt); ama 2000×3000'lik neredeyse KARE
+    bir plakada oran 0,66'ya çıkar ve çizim 500 pt olur — A4 yatayın iç
+    yüksekliği 495 pt. Çizim sayfaya sığmıyor, `wrap={false}` kutusu bir sonraki
+    yaprağa atılıyor ve orada da taşıyordu; üstelik önceki yaprağın dibinde
+    160 pt'lik bir boşluk kalıyordu. Genişlik artık `min(en, maksYükseklik ÷
+    oran)`dır ve bir plaka çizimi içerik yüksekliğinin %45'ini geçemez: uzun
+    plakalar sayfa genişliğini kullanır ve İKİSİ BİR YAPRAĞA sığar, kare
+    plakalar yüksekliğe göre küçülür. Koruma `scripts/test-nesting-plan.ts`tedir
+    ve fikstür bilerek İKİ GRUPLUDUR (biri uzun, biri kare): antetin her
+    yaprakta tekrar ettiğini ancak çok yapraklı bir belgede ölçebilirsiniz.
+
+    **PLAKA TEKLİFİ, PLAKA SİPARİŞİNİN KARDEŞİDİR** (kullanıcı isteği,
+    15.08.2026: *"plaka siparişi aç tuşunun yanında plaka teklifi aç tuşu da
+    yapalım"*). İkisi de "Alınacak Plakalar" özetinden AYNI kalemleri alır ve
+    anahtar `trKatla(plakaStokAdi(...))`tır — teklif verilen plaka ile sipariş
+    edilen plaka aynı `match_key`i taşımasaydı alınan fiyat siparişte ve fiyat
+    arşivinde hiç görünmezdi. Teklif düğmesi siparişin SOLUNDADIR: iş akışında
+    önce fiyat sorulur.
+
+    **TEKLİF KARŞILAŞTIRMASI HAVUZ EŞLEŞMESİ ŞART KOŞMAZ.** Plaka teklifinin
+    anahtarı havuzda YOKTUR ve olmamalıdır (havuz `SAC 10 MM S355JR` bir
+    İHTİYAÇ, plaka `SAC 10 X 1500 X 6000 ST37` bir ÜRÜNdür); eşleşme şart
+    koşulduğu sürece kullanıcının yerleşim ekranından açtığı teklif
+    karşılaştırma sayfasında hiç görünmüyordu. Kalem künyesi artık havuz varsa
+    ondan, yoksa TEKLİFİN KENDİ `sample`ından okunur; miktar o zaman
+    BİLİNMEZ ve uydurulmaz (`null` → tutar sütunu tire, karşılaştırma birim
+    fiyat üzerinden), sınıf ise stok adından çözülür (`alimKategorisi`).
+
     ═══════════════════════════ SAC · PROFİL · RAY ALIM ANALİZİ (15.08.2026)
 
     Kullanıcı bir çalışma dosyası verdi (*"Ben bunları exceldeki gibi takip
