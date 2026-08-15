@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_CRANE_TYPE } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
 import {
@@ -131,7 +132,7 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     doc_no: formData.get("doc_no"),
     name: formData.get("name"),
     customer: formData.get("customer"),
-    crane_type: formData.get("crane_type") || "Çift Kirişli Gezer Köprülü Vinç",
+    crane_type: formData.get("crane_type") || DEFAULT_CRANE_TYPE,
     job_id: formData.get("job_id") || null,
   });
   if (!parsed.success) {
@@ -168,9 +169,19 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
 
 // ----------------------------------------------------- Proje bilgisi düzenleme
 
+/**
+ * Proje bilgisi düzenleme.
+ *
+ * VİNÇ TİPİ BURADA DA DEĞİŞTİRİLİR (kullanıcı kararı, 15.08.2026). Alan bir
+ * süre yalnız rapor AÇILIRKEN soruluyordu; yanlış tiple açılmış bir raporu
+ * düzeltmenin tek yolu raporu kopyalamaktı (kopya yeni bir doküman no ister ve
+ * revizyon geçmişini taşımaz). Serbest metin bırakılır — liste
+ * `lib/crane-types.ts`tedir ama kayıtlı/devralınan bir tip listede olmayabilir.
+ */
 const projectDetailsSchema = z.object({
   name: adAlani("Proje / iş adı gerekli"),
   customer: adAlani("Müşteri gerekli"),
+  crane_type: z.string().trim().min(1, "Vinç tipi gerekli"),
 });
 
 export type ProjectDetailsInput = z.infer<typeof projectDetailsSchema>;
@@ -193,14 +204,18 @@ export async function updateProjectDetails(
 
   const { data: current } = await supabase
     .from("projects")
-    .select("id, name, customer, job_id")
+    .select("id, name, customer, crane_type, job_id")
     .eq("id", parsedId.data)
     .maybeSingle();
   if (!current) return { error: "Hesap raporu bulunamadı" };
 
   const { error } = await supabase
     .from("projects")
-    .update({ name: parsed.data.name, customer: parsed.data.customer })
+    .update({
+      name: parsed.data.name,
+      customer: parsed.data.customer,
+      crane_type: parsed.data.crane_type,
+    })
     .eq("id", parsedId.data);
   if (error) return { error: error.message };
 
@@ -211,8 +226,10 @@ export async function updateProjectDetails(
     detail: {
       previous_name: current.name,
       previous_customer: current.customer,
+      previous_crane_type: current.crane_type,
       name: parsed.data.name,
       customer: parsed.data.customer,
+      crane_type: parsed.data.crane_type,
     },
   });
 

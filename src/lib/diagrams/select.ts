@@ -27,6 +27,7 @@ import {
   isHookBlockKey,
   isTravelKey,
   type HoistKey,
+  type HookBlockKey,
   type ModuleKey,
   type TravelKey,
 } from "@/lib/calc/presentation/module-family";
@@ -39,6 +40,7 @@ import { cellularSpeedCurvesForModel } from "@/lib/calc/cellularBufferSpeedCurve
 import {
   GIRDER_ELASTIC_MODULUS_KG_CM2,
   type GirderValues,
+  type GirderWhich,
 } from "@/lib/calc/modules/mainGirder";
 import type { BucklingValues } from "@/lib/calc/modules/buckling";
 import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling";
@@ -66,6 +68,11 @@ import { drumDiagram } from "./drum";
 import { drumShaftDiagram } from "./drumShaft";
 import { shaftWeldDiagram } from "./shaftWeld";
 import { hookBlockShaftDiagram } from "./hookBlockShaft";
+import {
+  liftingBeamDiagram,
+  liftingBeamMomentDiagram,
+  liftingBeamSectionsDiagram,
+} from "./liftingBeam";
 import { safetyBrakeDiagram } from "./safetyBrake";
 import { deflectionDiagram } from "./deflection";
 import { camberStripDiagram } from "./camberStrip";
@@ -80,6 +87,15 @@ import {
 /** cells hücresi sayı ise değeri, değilse NaN — diyagram girdilerini korur. */
 const numOf = (v: number | string | undefined): number =>
   typeof v === "number" ? v : NaN;
+
+/**
+ * Ana kiriş takımı mı? Dört kirişli köprüde İKİ takım vardır (`girder`,
+ * `girder2`) ve 7.x bölümlerinin bütün şemaları ikisinde de aynıdır — dallanma
+ * anahtarla değil YÜKLEMLE yapılır ki ikinci takım kendiliğinden kapsansın.
+ */
+function isGirderKey(k: string): k is GirderWhich {
+  return k === "girder" || k === "girder2";
+}
 
 export function diagramForSection(
   moduleKey: string,
@@ -153,10 +169,11 @@ export function diagramForSection(
       return null;
     }
 
-    if (moduleKey === "girder" && rawSectionId === "7.1") {
-      const st = input.girder;
+    if (isGirderKey(moduleKey) && rawSectionId === "7.1") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
       if (!st) return null;
-      const v = result.girder?.values as GirderValues | undefined;
+      const v = result[gk]?.values as GirderValues | undefined;
       const i = st.inputs;
       return girderSectionDiagram({
         railHeightMm: i.railHeightMm,
@@ -166,13 +183,19 @@ export function diagramForSection(
         t5Mm: i.t5Mm, b5Mm: i.b5Mm,
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
+        // Ray altı T profili (varsa) — kesitin üstünde, ray ekseninde
+        tWebThkMm: i.railTProfileWebThkMm,
+        tWebHeightMm: i.railTProfileWebHeightMm,
+        tTopThkMm: i.railTProfileTopThkMm,
+        tTopWidthMm: i.railTProfileTopWidthMm,
         czMm: v?.czMm, cyMm: v?.cyMm,
       });
     }
 
-    if (moduleKey === "girder" && rawSectionId === "7.2") {
-      const st = input.girder;
-      const mr = result.girder;
+    if (isGirderKey(moduleKey) && rawSectionId === "7.2") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
+      const mr = result[gk];
       if (!st || !mr) return null;
       const c = (mr.cells ?? {}) as Record<string, number>;
       return girderLoadDiagram({
@@ -185,9 +208,10 @@ export function diagramForSection(
       });
     }
 
-    if (moduleKey === "girder" && rawSectionId === "7.4") {
-      const st = input.girder;
-      const mr = result.girder;
+    if (isGirderKey(moduleKey) && rawSectionId === "7.4") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
+      const mr = result[gk];
       if (!st || !mr) return null;
       const c = (mr.cells ?? {}) as Record<string, number>;
       const v = mr.values as GirderValues | undefined;
@@ -200,6 +224,11 @@ export function diagramForSection(
         t5Mm: i.t5Mm, b5Mm: i.b5Mm,
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
+        // Ray altı T profili (varsa) — kesitin üstünde, ray ekseninde
+        tWebThkMm: i.railTProfileWebThkMm,
+        tWebHeightMm: i.railTProfileWebHeightMm,
+        tTopThkMm: i.railTProfileTopThkMm,
+        tTopWidthMm: i.railTProfileTopWidthMm,
         czMm: v?.czMm, cyMm: v?.cyMm,
         sigma1SelfWeight: c["stress.sigmaXSelfWeightBottom"],
         sigma2Trolley: c["stress.sigmaXTrolleyBottom"],
@@ -279,10 +308,11 @@ export function diagramForSection(
       return null;
     }
 
-    if (moduleKey === "girder" && rawSectionId === "7.6") {
-      const st = input.girder;
+    if (isGirderKey(moduleKey) && rawSectionId === "7.6") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
       if (!st) return null;
-      const v = result.girder?.values as GirderValues | undefined;
+      const v = result[gk]?.values as GirderValues | undefined;
       return deflectionDiagram({
         spanM: input.specs.spanM,
         deflectionMm: v?.deflectionMm ?? 0,
@@ -293,10 +323,11 @@ export function diagramForSection(
 
     // 7.7 — atölye kamber şeridi: kotlar hesap satırlarıyla AYNI saf
     // fonksiyondan (camberProfile) üretilir, ikinci bir yöntem yazılmaz.
-    if (moduleKey === "girder" && rawSectionId === "7.7") {
-      const st = input.girder;
-      const c = result.girder?.cells;
-      const v = result.girder?.values as GirderValues | undefined;
+    if (isGirderKey(moduleKey) && rawSectionId === "7.7") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
+      const c = result[gk]?.cells;
+      const v = result[gk]?.values as GirderValues | undefined;
       if (!st || !c || !v) return null;
       const spanCm = numOf(c["deflection.span"]);
       const inertia = numOf(c["section.inertiaY"]);
@@ -414,8 +445,12 @@ export function diagramForSection(
     }
 
     if (isHookBlockKey(moduleKey as ModuleKey) && rawSectionId === "4.4") {
-      const st = input.hookBlock;
-      const v = result.hookBlock?.values;
+      // Bölüm HANGİ kanca bloğuysa onun girdisi okunur. Sabit `input.hookBlock`
+      // yazılıydı: yardımcı/monoray kanca bloklarının mil şeması ANA bloğun
+      // ölçüleriyle çiziliyordu.
+      const key = moduleKey as HookBlockKey;
+      const st = input[key];
+      const v = result[key]?.values;
       if (!st || !v) return null;
       const i = st.inputs;
       return hookBlockShaftDiagram({
@@ -546,6 +581,10 @@ function bucklingDiagrams(
         t3Mm: gi.t3Mm, h3Mm: gi.h3Mm, t4Mm: gi.t4Mm,
         t5Mm: gi.t5Mm, b5Mm: gi.b5Mm, t6Mm: gi.t6Mm, b6Mm: gi.b6Mm,
         aMm: gi.aMm, xMm: gi.xMm,
+        tWebThkMm: gi.railTProfileWebThkMm,
+        tWebHeightMm: gi.railTProfileWebHeightMm,
+        tTopThkMm: gi.railTProfileTopThkMm,
+        tTopWidthMm: gi.railTProfileTopWidthMm,
         sideWidthMm: v.side.panelWidthMm,
         sideLengthMm: v.side.panelLengthMm,
         topWidthMm: v.top.panelWidthMm,
@@ -608,9 +647,65 @@ function bucklingDiagrams(
 }
 
 /**
+ * 4.6 — KALDIRMA KİRİŞİ görsel seti (üç çizim).
+ *
+ * Sıra bir okuma sırasıdır: önce kirişin KENDİSİ (askılar, yükler, x·y·z ölçü
+ * zinciri, kesit çizgileri), sonra o yüklemenin MOMENT DİYAGRAMI, en sonda
+ * hesabın kullandığı İKİ KESİT. Moment diyagramı motorun kendi çözümünün
+ * düğümlerinden çizilir — ikinci bir kiriş hesabı yazılmaz.
+ */
+function liftingBeamDiagrams(
+  moduleKey: HookBlockKey,
+  input: CalcInput,
+  result: CalcResult
+): Diagram[] {
+  const st = input[moduleKey];
+  const v = result[moduleKey]?.values;
+  if (!st || !v) return [];
+  const i = st.inputs;
+  const spanMm = v.beam.spanCm * 10;
+  return [
+    liftingBeamDiagram({
+      xMm: i.beamXMm, yMm: i.beamYMm, zMm: i.beamZMm,
+      loadPerHookKg: v.fMaxKg,
+      reactionAKg: v.beamReactionAKg,
+      reactionBKg: v.beamReactionBKg,
+      section1HeightMm: i.midWebPlateHeightMm,
+      section2HeightMm: i.thickWebPlateHeightMm,
+      sheaveCount: v.sheaveCount,
+    }),
+    liftingBeamMomentDiagram({
+      stations: v.beamStations,
+      spanMm,
+      load1Mm: v.beam.load1Cm * 10,
+      load2Mm: v.beam.load2Cm * 10,
+      maxMomentKgCm: v.maxMomentKgCm,
+      section2MomentKgCm: v.beamMomentSection2KgCm,
+    }),
+    liftingBeamSectionsDiagram([
+      {
+        title: "KESİT 1 — Açıklık Ortası",
+        topThkMm: i.midTopPlateThkMm, topWidthMm: i.midTopPlateWidthMm,
+        webThkMm: i.midWebPlateThkMm, webHeightMm: i.midWebPlateHeightMm,
+        botThkMm: i.midBottomPlateThkMm, botWidthMm: i.midBottomPlateWidthMm,
+        sectionModulusCm3: v.midSectionModulusCm3,
+        webAreaCm2: v.midWebAreaCm2,
+      },
+      {
+        title: "KESİT 2 — Mesnet / Yük Bölgesi",
+        topThkMm: i.thickTopPlateThkMm, topWidthMm: i.thickTopPlateWidthMm,
+        webThkMm: i.thickWebPlateThkMm, webHeightMm: i.thickWebPlateHeightMm,
+        botThkMm: i.thickBottomPlateThkMm, botWidthMm: i.thickBottomPlateWidthMm,
+        sectionModulusCm3: v.thickSectionModulusCm3,
+        webAreaCm2: v.thickWebAreaCm2,
+      },
+    ]),
+  ];
+}
+
+/**
  * Bölümün TÜM diyagramları, çizim sırasıyla. Çoğu bölüm tek diyagram döndürür;
- * buruşma gibi bölümler bir set döndürür (yerleşim → gerilme → katsayı →
- * etkileşim → indirgeme).
+ * buruşma ve kaldırma kirişi gibi bölümler bir set döndürür.
  */
 export function diagramsForSection(
   moduleKey: string,
@@ -620,6 +715,9 @@ export function diagramsForSection(
 ): Diagram[] {
   try {
     if (moduleKey === "buckling") return bucklingDiagrams(rawSectionId, input, result);
+    if (isHookBlockKey(moduleKey as ModuleKey) && rawSectionId === "4.6") {
+      return liftingBeamDiagrams(moduleKey as HookBlockKey, input, result);
+    }
   } catch {
     // Diyagram hiçbir zaman hesabı/raporu düşürmez
     return [];

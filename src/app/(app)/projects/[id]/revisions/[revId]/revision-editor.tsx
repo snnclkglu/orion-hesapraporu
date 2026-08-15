@@ -59,7 +59,8 @@ import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
-  MODULE_LABELS,
+  adapterTitle,
+  moduleLabelFor,
   MODULE_PARENT,
   OPTIONAL_MODULE_KEYS,
   CONFIG_DRIVEN_MODULE_KEYS,
@@ -202,6 +203,33 @@ interface AutoFieldState {
   warning?: string;
 }
 
+/**
+ * "Elle Gir…" satırının değeri. Radix `Select.Item` BOŞ değer kabul etmez, bu
+ * yüzden gerçek bir seçenekle çakışmayacak bir sözcük kullanılır.
+ */
+const CUSTOM_ENTRY = "__elle__";
+
+/**
+ * Elle girilmiş bir değerden listeye dönerken seçilecek seçenek: sayısal
+ * listelerde en yakın basamak, metin listelerinde ilk seçenek. Boş kutuya
+ * dönmek hesabı geçersiz bir değerle koşturmak olurdu.
+ */
+function nearestOption(options: string[], current: string, numeric: boolean): string | null {
+  if (options.length === 0) return null;
+  if (!numeric) return options.includes(current) ? current : options[0];
+  const cur = parseFloat(current.replace(",", "."));
+  if (!Number.isFinite(cur)) return options[0];
+  let best = options[0];
+  let bestDiff = Infinity;
+  for (const o of options) {
+    const v = parseFloat(o);
+    if (!Number.isFinite(v)) continue;
+    const d = Math.abs(v - cur);
+    if (d < bestDiff) { bestDiff = d; best = o; }
+  }
+  return best;
+}
+
 function Field({
   def, value, onChange, disabled, auto, context, specs,
 }: {
@@ -223,6 +251,10 @@ function Field({
   // geçerli değerle koşar, alan hata gösterir). TR ondalık virgül desteklenir.
   const [draft, setDraft] = useState<string | null>(null);
   const [numError, setNumError] = useState<string | null>(null);
+  // `allowCustom` alanlarında kullanıcı listeden "Elle Gir…"i seçtiyse kutu
+  // serbest kalır. Dış kaynaklı değişimde (katalog seçimi) sıfırlanmaz — kip
+  // kullanıcının kararıdır.
+  const [customEntry, setCustomEntry] = useState(false);
   // Dıştan gelen değişimde (katalog seçimi, alternatif geçişi) taslak sıfırlanır;
   // kendi yazdığımız değer lastSent ile ayırt edilir.
   const lastSent = useRef<unknown>(v);
@@ -293,15 +325,86 @@ function Field({
         const base = (def.optionsFor?.(specs ?? (value as TechnicalSpecs)) ?? def.options ?? []).map(String);
         const cur = v === null || v === undefined || v === "" ? "" : String(v);
         const opts = cur !== "" && !base.includes(cur) ? [cur, ...base] : base;
+
+        // LİSTE BİR ÖNERİ OLABİLİR (`allowCustom`): tambur çapı gibi standart
+        // serilerde mühendisin ara bir değeri elle yazması meşrudur. Elle giriş
+        // kipi ya kullanıcı seçtiği için ya da KAYITLI DEĞER LİSTEDE OLMADIĞI
+        // için açılır — ikincisi olmadan liste dışı bir kayıt açılır açılmaz
+        // "seçilebilir bir seçenek" gibi görünür ve düzenlenemez kalırdı.
+        if (def.allowCustom && (customEntry || (cur !== "" && !base.includes(cur)))) {
+          return (
+            <div className="relative">
+              {def.diameter && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-2 flex items-center font-mono text-sm text-muted-foreground"
+                >
+                  Ø
+                </span>
+              )}
+              <Input
+                id={id}
+                className={cn(
+                  "h-8 bg-background pr-24 font-mono tabular-nums pointer-coarse:h-10",
+                  def.diameter && "pl-6"
+                )}
+                inputMode="decimal"
+                value={draft !== null ? draft : cur}
+                disabled={locked}
+                aria-invalid={numError ? true : undefined}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setDraft(raw);
+                  const nv = parseFloat(raw.trim().replace(",", "."));
+                  if (raw.trim() === "") {
+                    setNumError("Değer gerekli");
+                  } else if (def.numeric && !Number.isFinite(nv)) {
+                    setNumError("Geçersiz sayı");
+                  } else {
+                    setNumError(null);
+                    const next = def.numeric ? nv : raw;
+                    lastSent.current = next;
+                    onChange({ ...value, [def.key]: next });
+                  }
+                }}
+              />
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  setCustomEntry(false);
+                  setDraft(null);
+                  setNumError(null);
+                  // Listeye dönerken en yakın standart değere düşülür: kutu boş
+                  // bırakılsaydı hesap geçersiz bir çapla koşardı.
+                  const nearest = nearestOption(base, cur, def.numeric === true);
+                  if (nearest !== null && nearest !== cur) {
+                    const next = def.numeric ? parseFloat(nearest) : nearest;
+                    lastSent.current = next;
+                    onChange({ ...value, [def.key]: next });
+                  }
+                }}
+                className="absolute inset-y-0 right-0 px-2 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                LİSTEDEN SEÇ
+              </button>
+            </div>
+          );
+        }
         return (
           <Select
             value={cur}
-            onValueChange={(nv) =>
+            onValueChange={(nv) => {
+              if (nv === CUSTOM_ENTRY) {
+                setCustomEntry(true);
+                setDraft(cur);
+                return;
+              }
               onChange({
                 ...value,
                 [def.key]: def.numeric ? parseFloat(nv.replace(",", ".")) : nv,
-              })
-            }
+              });
+            }}
             disabled={locked}
           >
             {/* Yükseklik SelectTrigger'ın kendi `size` değerinden gelir
@@ -320,6 +423,9 @@ function Field({
                   {def.optionLabels?.[o] ?? o}
                 </SelectItem>
               ))}
+              {def.allowCustom && (
+                <SelectItem value={CUSTOM_ENTRY}>Elle Gir…</SelectItem>
+              )}
             </SelectContent>
           </Select>
         );
@@ -880,7 +986,9 @@ function buildNavGroups(
   numbers: Partial<Record<ModuleKey, number>>,
   present: (k: ModuleKey) => boolean,
   /** Vinç konfigürasyonuna göre bu bölüm hiç var olabilir mi */
-  allowed: (k: ModuleKey) => boolean
+  allowed: (k: ModuleKey) => boolean,
+  /** Başlıkları çözmek için teknik özellikler (ör. "Ana Kiriş - 1") */
+  specs?: TechnicalSpecs
 ): NavGroup[] {
   const groups: NavGroup[] = [];
   const specsStep = steps.findIndex((s) => s.kind === "specs");
@@ -903,8 +1011,8 @@ function buildNavGroups(
     groups.push({
       key: `mod-${adapter.key}`,
       title: present(adapter.key)
-        ? renumberTitle(adapter.title, numbers[adapter.key] ?? 0)
-        : MODULE_LABELS[adapter.key],
+        ? renumberTitle(adapterTitle(adapter, specs), numbers[adapter.key] ?? 0)
+        : moduleLabelFor(adapter.key, specs),
       moduleKey: adapter.key,
       optional: OPTIONAL_MODULE_KEYS.includes(adapter.key),
       enabled: present(adapter.key),
@@ -1184,8 +1292,8 @@ export function RevisionEditor({
     [specs, activeSet]
   );
   const NAV_GROUPS = useMemo(
-    () => buildNavGroups(STEPS, numbers, present, allowedByConfig),
-    [STEPS, numbers, present, allowedByConfig]
+    () => buildNavGroups(STEPS, numbers, present, allowedByConfig, specs),
+    [STEPS, numbers, present, allowedByConfig, specs]
   );
   // Modül kapatılınca adım sayısı azalabilir → aktif adımı sınırla
   useEffect(() => {
@@ -1531,7 +1639,7 @@ export function RevisionEditor({
                     )}
                     title={
                       parentOff
-                        ? `Önce ${MODULE_LABELS[parent!]} bölümünü açın`
+                        ? `Önce ${moduleLabelFor(parent!, specs)} bölümünü açın`
                         : fromConfig
                           ? "Vinç konfigürasyonundan geldi"
                           : undefined
@@ -1544,7 +1652,7 @@ export function RevisionEditor({
                       onChange={(e) => toggleModule(k, e.target.checked)}
                       className="size-4 accent-primary"
                     />
-                    {MODULE_LABELS[k]}
+                    {moduleLabelFor(k, specs)}
                   </label>
                 );
               })}
@@ -1663,7 +1771,7 @@ export function RevisionEditor({
                 göre yeniden dizilir (kenar çubuğu "04" derken rozet "05"
                 diyordu). Numara tek kaynaktan — `numbers` haritasından — gelir. */}
             <Badge variant="outline" className="font-normal text-muted-foreground">
-              {renumberTitle(adapter.title, numbers[key] ?? 0)}
+              {renumberTitle(adapterTitle(adapter, specs), numbers[key] ?? 0)}
             </Badge>
             {/* Sağ grup: bölüm notu düğmesi + kontrol rozeti.
                 Not düğmesi eskiden içeriğin ilk satırındaydı ve HER bölümde bir
@@ -2083,7 +2191,7 @@ export function RevisionEditor({
               <section key={adapter.key} className="grid content-start gap-2">
                 <div className="flex items-center justify-between gap-2 border-b pb-1.5">
                   <h3 className="text-sm font-semibold tracking-tight">
-                    {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
+                    {renumberTitle(adapterTitle(adapter, specs), numbers[adapter.key] ?? 0)}
                   </h3>
                   <span
                     className={cn(
@@ -2478,13 +2586,13 @@ export function RevisionEditor({
                       onClick={() => toggleModule(group.moduleKey!, isDisabled)}
                       title={
                         isDisabled
-                          ? `${MODULE_LABELS[group.moduleKey]} bölümünü aç`
-                          : `${MODULE_LABELS[group.moduleKey]} bölümünü gizle (hesaba ve rapora girmez)`
+                          ? `${moduleLabelFor(group.moduleKey, specs)} bölümünü aç`
+                          : `${moduleLabelFor(group.moduleKey, specs)} bölümünü gizle (hesaba ve rapora girmez)`
                       }
                       aria-label={
                         isDisabled
-                          ? `${MODULE_LABELS[group.moduleKey]} bölümünü aç`
-                          : `${MODULE_LABELS[group.moduleKey]} bölümünü gizle`
+                          ? `${moduleLabelFor(group.moduleKey, specs)} bölümünü aç`
+                          : `${moduleLabelFor(group.moduleKey, specs)} bölümünü gizle`
                       }
                       aria-pressed={!isDisabled}
                       className={cn(

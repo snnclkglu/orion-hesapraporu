@@ -14,19 +14,23 @@ export const V5_HOOKBLOCK_INPUTS: HookBlockInputs = {
   shaftSheavePitchMm: 100,        // B
   shaftCenterGapMm: 150,          // D
   shaftD1Mm: 65,                  // D1 — mil gerilme kesiti çapı
-  girderSpanMm: 4800,             // a — kiriş açıklığı
-  loadOffsetMm: 550,              // b — yükün mesnede uzaklığı
-  midTopPlateThkMm: 15,           // orta kesit üst sac
+  // Kaldırma kirişi ölçü zinciri x · y · z. Referans işin eski girdisi
+  // simetrikti (a = 4800, b = 550) ve zincirin karşılığı birebir budur:
+  // x = z = 550, y = 4800 − 2·550 = 3700.
+  beamXMm: 550,
+  beamYMm: 3700,
+  beamZMm: 550,
+  midTopPlateThkMm: 15,           // Kesit 1 (açıklık ortası) üst sac
   midTopPlateWidthMm: 980,
-  midWebPlateThkMm: 10,           // orta kesit yan sac
+  midWebPlateThkMm: 10,           // Kesit 1 yan sac
   midWebPlateHeightMm: 980,
-  midBottomPlateThkMm: 15,        // orta kesit alt sac
+  midBottomPlateThkMm: 15,        // Kesit 1 alt sac
   midBottomPlateWidthMm: 980,
-  thickTopPlateThkMm: 15,         // kalın (mesnet) kesit üst sac
+  thickTopPlateThkMm: 15,         // Kesit 2 (mesnet/yük bölgesi) üst sac
   thickTopPlateWidthMm: 980,
-  thickWebPlateThkMm: 60,         // kalın kesit yan sac
+  thickWebPlateThkMm: 60,         // Kesit 2 yan sac
   thickWebPlateHeightMm: 980,
-  thickBottomPlateThkMm: 60,      // kalın kesit alt sac
+  thickBottomPlateThkMm: 60,      // Kesit 2 alt sac
   thickBottomPlateWidthMm: 980,
   // ψ katsayısı elle EZİLMEZ: teknik özelliklerdeki kaldırma sınıfından
   // (H3/B4 → H3) DIN 15018 Tablo 2 satırı okunur → k = 1,3 · l = 0,0066.

@@ -71,6 +71,7 @@ import {
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
+  adapterTitle,
   type AdapterHeadline,
   type AdapterSection,
   type AnyFieldDef,
@@ -1135,7 +1136,9 @@ interface TocEntry {
 function tocEntries(
   level: ReportLevel,
   numbers: Partial<Record<ModuleKey, number>>,
-  present: (k: ModuleKey) => boolean
+  present: (k: ModuleKey) => boolean,
+  /** Başlıkları çözmek için teknik özellikler (ör. "Ana Kiriş - 1") */
+  specs?: TechnicalSpecs
 ): TocEntry[] {
   const out: TocEntry[] = [
     { no: "—", title: "Özet Hesap Raporu", anchor: anchorFor("ozet") },
@@ -1143,7 +1146,7 @@ function tocEntries(
   ];
   for (const a of MODULE_ADAPTERS) {
     if (!present(a.key)) continue;
-    const [no, ...rest] = renumberTitle(a.title, numbers[a.key] ?? 0).split(" · ");
+    const [no, ...rest] = renumberTitle(adapterTitle(a, specs), numbers[a.key] ?? 0).split(" · ");
     out.push({ no, title: rest.join(" · "), anchor: anchorFor(a.key) });
   }
   // Kontrol özeti belgenin EN SONUNDADIR (madde 24) ve içindekilerde de son
@@ -1157,7 +1160,7 @@ function tocEntries(
 }
 
 function TocPage({
-  project, revision, level,
+  project, revision, level, input,
   numbers, present, pageOf,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
@@ -1165,7 +1168,7 @@ function TocPage({
   /** Çapa → başladığı sayfa numarası (ilk geçişte boş) */
   pageOf: Record<string, number>;
 }) {
-  const entries = tocEntries(level ?? "detayli", numbers, present);
+  const entries = tocEntries(level ?? "detayli", numbers, present, input.specs);
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
       <PageHeader kicker="ORION CRANES · HESAP RAPORU" title="İçindekiler" />
@@ -1545,7 +1548,7 @@ function ChecksSummarySection({
           <React.Fragment key={adapter.key}>
             <KeepWithNext>
               <Text style={[s.sumModuleTitle, { marginTop: 8 }]}>
-                {renumberTitle(adapter.title, numbers[adapter.key] ?? 0)}
+                {renumberTitle(adapterTitle(adapter, input.specs), numbers[adapter.key] ?? 0)}
               </Text>
               {lines[0]}
             </KeepWithNext>
@@ -2042,7 +2045,7 @@ function ModulePage({
   const mr = moduleResult(result, adapter.key);
   if (!state || !mr) return null;
   const ctx = ctxFor(adapter.key, input, result, deps);
-  const [no, ...rest] = renumberTitle(adapter.title, moduleNo).split(" · ");
+  const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
 
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>

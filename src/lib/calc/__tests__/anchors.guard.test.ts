@@ -69,7 +69,13 @@ import type { AnyCheck } from "../types";
 //        yazmak yerine kapsam dışı bıraktığını raporda söyler.
 //   Kapasite kontrolü SAYI OLARAK değişmedi ama artık bilgilendirme değil
 //   GERÇEK bir üretici kontrolüdür: hesaplanan yük ≤ katalog kapasitesi.
-const EXPECTED_CHECK_COUNT = 259;
+// 266 = 259 + 7 (Ana Kiriş - 2, dört kirişli köprünün ikinci takımı):
+//   +7   ana kiriş bölümünün kontrol seti bir kez daha sayılır — iki yükleme
+//        durumu bileşik gerilmesi, dört DIN 15018 yorulma kontrolü ve sehim.
+//        Bölüm YENİ BİR HESAP DEĞİL, aynı hesabın ikinci takım için koşan
+//        örneğidir; bu yüzden bağlantı haritası da aynıdır (`girder` ailesi)
+//        ve yedisi de bağlıdır.
+const EXPECTED_CHECK_COUNT = 266;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

@@ -804,3 +804,137 @@ kalın etiket, sayaç rozeti ve bölüm çizgisi. Kendi dosyasında
   PDF'lerin belge kodu değişmemeli, md. 14) ama ekranda gezinme yolu sistemin
   kendi numarasını göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
 - İndirme çubuğunda "Müşteri (yalnız liste)" → **"Müşteri"**.
+
+---
+
+## Mühendislik turu — 15.08.2026 (Sinan'ın 6 maddesi)
+
+Hepsi hesap raporu (Mühendislik) bölümündedir. Ortak ilke: **tarihsel sonuçlar
+korunur** — yeni geometri modelleri eskisinin genelleştirilmiş hâlidir ve eski
+girdiler göç ettirilir, 1700 testin tamamı yeşildir.
+
+### 1. Şarj / Döküm Vinci + İKİNCİ ANA KİRİŞ TAKIMI
+
+**Vinç tipi listesi tek yere taşındı** (`lib/crane-types.ts`) ve
+"Şarj / Döküm Vinci" eklendi. Liste bir süre "Yeni Hesap Raporu" penceresinin
+içindeydi; aynı listeye üç yer daha ihtiyaç duyunca (yönetim paneli, proje
+düzenleme penceresi, teknik özellikler) ikinci bir kopya kaçınılmaz olurdu.
+Kayıtlı/devralınan bir tip listede yoksa `craneTypeOptions` onu KENDİ SEÇENEĞİ
+olarak korur.
+
+**VİNÇ TİPİ HESAP BÖLÜMÜ AÇMAZ.** `projects.crane_type` bir künye alanıdır ve
+hesap motoruna hiç girmez; topoloji kararları (yardımcı araba, monoray adedi,
+kiriş düzeni) TEKNİK ÖZELLİKLERDEDİR. Yeni alan `specs.girderArrangement`
+(`iki` | `dort`): **Dört Kirişli** seçilince "Ana Kiriş - 2" bölümü açılır,
+birincinin adı da "Ana Kiriş - 1" olur (`adapterTitle` / `moduleLabelFor`).
+
+**Ana Kiriş - 1 ANA kaldırmayı, Ana Kiriş - 2 YARDIMCI kaldırmayı taşır**
+(kullanıcı kararı). Bu ayrım motorun içinde değil BAĞLAYICIDA kurulur
+(`engine.girderDepsFor`): modül artık `specs.mainCapacityT`/`mainLiftSpeedMpm`
+OKUMAZ, taşıdığı yükü `deps.hoistLoadKg` / `deps.liftSpeedMpm` ile alır. İkinci
+takım yardımcı kaldırmanın kanca/halat ağırlıklarını ve — ayrı araba varsa —
+yardımcı arabanın teker/hız verilerini kullanır. Yardımcı kaldırma kapalıysa
+ana kaldırmanın verileriyle koşar; sessizce sıfır yük varsaymak, kirişi olmayan
+bir yükle boyutlandırmak olurdu.
+
+**Köprü öz ağırlığı KİRİŞ ADEDİNE bölünür** (`deps.girdersInBridge`: 2 ya da
+4). Dört kirişliyi 2 saymak her kirişi iki katı ölü yükle hesaplardı.
+
+**Kontrol kimlikleri modül anahtarını taşır** (`girder.stress.case1` ↔
+`girder2.stress.case1`), sunum tarafı ise AYNI aileyi paylaşır — bölüm
+tanımları, kontrol bağlantı haritası ve bütün 7.x şemaları ikinci takımda
+kendiliğinden çalışır (`isGirderKey` yüklemi). **Buruşma BİRİNCİ takımdan
+beslenir** ve tektir; ikinci takımın buruşması bugün kapsam dışıdır ve bu
+`engine.ts`te yazılıdır. ψhA / ψhK türetmesi de takıma göredir
+(`girderDeriveContext(mods, specs, which)`) — kütle oranı hangi kaldırma
+grubunun asılı olduğuna bağlıdır.
+
+Koruma: `__tests__/topology.test.ts` "dört kirişli köprü" bloğu (beş test).
+
+### 2. Vinç tipi artık DÜZENLENEBİLİR
+
+"Proje Bilgilerini Düzenle" penceresine vinç tipi eklendi
+(`updateProjectDetails`). Alan bir süre yalnız rapor AÇILIRKEN soruluyordu ve
+yanlış tiple açılmış bir raporu düzeltmenin tek yolu raporu kopyalamaktı —
+kopya yeni bir doküman no ister ve revizyon geçmişini taşımaz. Denetim izine
+eski değer de yazılır.
+
+### 3. Tambur çapı — liste genişledi, ELLE GİRİŞ açıldı
+
+Seri 800'de bitiyordu; ağır hizmet vinçlerinde tambur çapı 1 metreyi geçiyor.
+Listeye 900 · 1000 · 1100 · 1200 · 1250 · 1300 · 1400 · 1500 eklendi.
+
+**Liste artık KAPALI DEĞİL:** `FieldDef.allowCustom` bayrağı seçim kutusunun
+sonuna "Elle Gir…" satırı koyar ve alan serbest bir kutuya döner
+(`revision-editor.tsx`). Kip iki yoldan açılır: kullanıcı seçtiği için ya da
+KAYITLI DEĞER LİSTEDE OLMADIĞI için — ikincisi olmadan liste dışı bir kayıt
+düzenlenemez kalırdı. "Listeden Seç" düğmesi en yakın standart basamağa döner;
+boş kutuya dönmek hesabı geçersiz bir çapla koşturmak olurdu.
+
+### 4. Kaldırma kirişi — x · y · z ölçü zinciri ve ÜÇ ŞEMA
+
+Kanca bloğunun kaldırma kirişi (§4.6) eskiden iki sayıyla tanımlıydı: açıklık a
+ve yükün mesnede uzaklığı b. Yeni model teknik resmin ölçü zincirini kullanır:
+
+    |<-- x -->|<------- y ------->|<-- z -->|
+    R_A       F₁                  F₂        R_B
+
+Açıklık L = x + y + z olarak TÜRETİLİR. Kiriş `beam.ts` ile çözülür (iki
+mesnet, iki tekil yük); eski model bunun SİMETRİK hâliydi ve göç
+(`revision-load.migrateLiftingBeam`) x = z = b, y = a − 2b yazar — simetrik
+askıda M = F·x ve V = F, yani eski formüllerin verdiği sayıların ta kendisi.
+Asimetrik askı (şarj/döküm vinçlerinde yaygın) ancak bu zincirle modellenir.
+
+**KESİT 1 açıklık ortasıdır** (eğilme tepe yapar), **KESİT 2 mesnet ile yük
+noktası arasıdır** (kesme tepe yapar). Alan ADLARI `mid`/`thick` olarak KALDI —
+yeniden adlandırmak kayıtlı bütün sac ölçülerini şablon değerine düşürürdü;
+değişen yalnız ekrandaki addır. İki kesitin kendi σ/τ/σ_bil değerleri ayrı ayrı
+hesaplanır ve raporda görünür; **kontrol edilen değer ZARFtır**
+(`maks[√(σ₁²+3τ₂²) ; σ_bil,1 ; σ_bil,2]`) — en büyük eğilme ile en büyük kesme
+aynı kesitte olmasa da bir arada değerlendirilir, bilinçli olarak muhafazakâr.
+
+**Üç şema** (`lib/diagrams/liftingBeam.ts`, web + PDF ortak):
+görünüş (askılar, yükler, x·y·z ölçü zinciri, Kesit 1 / Kesit 2 kesit
+çizgileri) → moment diyagramı (motorun KENDİ çözümünün düğümlerinden; ikinci
+bir kiriş hesabı yazılmaz) → iki kutu kesit YAN YANA ve AYNI ÖLÇEKTE (ayrı
+ölçek kullanılsaydı 10 mm ve 60 mm yan sac ekranda aynı görünür, resmin
+söylediği tek şey kaybolurdu). Duman testi:
+`npx tsx scripts/test-lifting-beam-diagram.tsx` (simetrik + asimetrik fikstür).
+
+**Yan bulgu (düzeltildi):** 4.4 kanca bloğu mili şeması sabit `input.hookBlock`
+okuyordu — yardımcı ve monoray kanca bloklarının mili ANA bloğun ölçüleriyle
+çiziliyordu.
+
+### 5. Kaldırma Kirişi ↔ Kaldırma Kirişi Yorulma AYRILDI
+
+§4.6 "Kaldırma Kirişi" (geometri, yükler, kesit özellikleri, statik gerilmeler)
+ve §4.7 "Kaldırma Kirişi Yorulma" (DIN 15018) iki ayrı bölümdür. Kontrol
+bağlantı haritası da bölündü (`check-anchors.ts` 4.6 / 4.7).
+
+### 6. Ray altı T PROFİL (büyük tonajlı vinçler)
+
+Ana kirişte teker basıncı tek bir sacla değil, ray ekseninde duran bir T
+profille aktarılabilir. Dört yeni girdi (`railTProfileWebThkMm` /
+`WebHeightMm` / `TopThkMm` / `TopWidthMm`); **dördü de 0 ise profil YOKTUR** ve
+kesit bugünkü hâliyle çalışır — eski revizyonlar birebir korunur.
+
+**Yerleşim (kullanıcı kararı):** T profil kutunun ÜSTÜNE oturur. Alttan üste:
+ek flanş t6 → alt flanş t5 → gövdeler h3 → üst iç flanş t2 → ray altı sacı t1 →
+**T yan sacı** → **T üst sacı** → RAY. Yan sac üst sacın TAM ORTASINDADIR ve
+ikisi de ray ekseninde durur (b1 ile aynı eksen: x + t3/2).
+
+**Tam kesit hesabına girer** (kullanıcı kararı): alan, ağırlık, Cz, Cy, Iyy,
+Izz, Wyy, Wzz, kesit ağırlığı, sehim ve kamber. Yataydaki dış lif artık
+`maks(b2 ; y_ray + b_T/2)`tır — T'nin üst sacı b2'yi aşarsa Wzz olduğundan
+büyük çıkardı. **BURULMAYA GİRMEZ:** T açık bir kesittir ve kapalı kutunun
+ÜSTÜNDE durur, Bredt akışı yalnız kutunun çeperinden geçer.
+
+**`webDepthAboveCentroid` KUTUNUN kendi yüksekliğinden okunur** (`boxHeightMm`),
+toplam yükseklikten değil: T profil gövde sacına bir şey eklemez ve toplam
+yüksekliği kullanmak T konan bir kirişte kesme gerilmesini sessizce
+değiştirirdi.
+
+Kesit çizimi (`diagrams/girderSection.ts`) T'yi çizer, etiketler ve ölçülendirir
+(h_T, b_T); ray artık T'nin üst sacına oturur. Aynı yerleşim gerilme şemasında
+ve buruşma panel şemasında da kendiliğinden geçerlidir (üçü `layoutBoxSection`
+paylaşır).

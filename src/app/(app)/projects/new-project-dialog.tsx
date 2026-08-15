@@ -29,19 +29,11 @@ import {
 // Saf yardımcı (dosya sistemi/PDF bağımlılığı yok) — kod önizlemesi ile basılan
 // belge AYNI fonksiyondan çıksın diye buradan okunur.
 import { docCode } from "@/lib/pdf/doc-naming";
+// Vinç tipi listesi TEK YERDEDİR (`lib/crane-types.ts`): aynı liste yönetim
+// panelinde, proje düzenleme penceresinde ve burada görünür.
+import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
-
-/** Vinç tipi seçenekleri (ileride hesap varyantları bu tiplere bağlanacak) */
-const CRANE_TYPES = [
-  "Çift Kirişli Gezer Köprülü Vinç",
-  "Tek Kirişli Gezer Köprülü Vinç",
-  "Portal Vinç",
-  "Yarı Portal Vinç",
-  "Pergel Vinç",
-  "Alttan Askılı Vinç",
-  "Konsol Vinç",
-] as const;
 
 export interface JobItemOption {
   /** job_items.id — kalem bağlantısı bu kimlikle güncellenir */
@@ -66,7 +58,7 @@ export const NO_JOB = "__none__";
 export const NO_ITEM = "__no_item__";
 
 export function NewProjectDialog({
-  defaultCraneType = "Çift Kirişli Gezer Köprülü Vinç",
+  defaultCraneType = DEFAULT_CRANE_TYPE,
   jobs,
 }: {
   defaultCraneType?: string;
@@ -75,11 +67,7 @@ export function NewProjectDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const craneTypes: string[] = CRANE_TYPES.includes(
-    defaultCraneType as (typeof CRANE_TYPES)[number]
-  )
-    ? [...CRANE_TYPES]
-    : [defaultCraneType, ...CRANE_TYPES];
+  const craneTypes = craneTypeOptions(defaultCraneType);
   const [craneType, setCraneType] = useState(defaultCraneType);
 
   const showJobSelect = (jobs?.length ?? 0) > 0;

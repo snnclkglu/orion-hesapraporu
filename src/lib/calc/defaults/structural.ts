@@ -14,6 +14,12 @@ import type { GirderDeps, GirderInputs, GirderSelections } from "../modules/main
 
 /** Ana kirişin diğer modüllerden aldığı değerler */
 export const V5_GIRDER_DEPS: GirderDeps = {
+  // Bu kirişin taşıdığı kaldırma grubu: referans işte ANA kaldırma
+  // (4 t kapasite, 35 m/dak). Dört kirişli bir vinçte ikinci takım YARDIMCI
+  // kaldırmanın değerleriyle beslenir (bkz. engine.ts `girderDepsFor`).
+  hoistLoadKg: 4000,
+  liftSpeedMpm: 35,
+  girdersInBridge: 2,
   mainHookBlockWeightKg: 3250,
   mainRopeWeightKg: 250,
   trolleyWeightT: 2.5,
@@ -44,6 +50,13 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   b6Mm: 0,
   aMm: 320,
   xMm: 80,
+  // Ray altı T profil YOKTUR (referans iş 4 tonluk bir vinçtir). Sıfır ölçü
+  // "profil yok" demektir; alanlar burada AÇIKÇA sıfır yazılır ki eski
+  // revizyonlar `withDefaults` ile bu değeri devralsın.
+  railTProfileWebThkMm: 0,
+  railTProfileWebHeightMm: 0,
+  railTProfileTopThkMm: 0,
+  railTProfileTopWidthMm: 0,
   hookTopPositionM: 12,
   bridgeAxleSpacingM: 3.75,
   trolleyWheelSpacingM: 3,

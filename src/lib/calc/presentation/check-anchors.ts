@@ -73,8 +73,13 @@ const HOOKBLOCK_ANCHORS: AnchorMap = {
     "shaft.stress": "shaft.allowableCombined",
   },
   "4.5": { "hookBearing.static": "hookBearing.staticSafety" },
+  // 4.6 Kaldırma Kirişi ile 4.7 Kaldırma Kirişi Yorulma AYRI bölümlerdir
+  // (kullanıcı kararı, 15.08.2026): ilkinde kesit, yükler ve statik gerilmeler,
+  // ikincisinde yalnız DIN 15018 yorulması.
   "4.6": {
     "girder.static": "girder.allowableStress",
+  },
+  "4.7": {
     "fatigue.sigma": "fatigue.allowableSigma",
     "fatigue.tau": "fatigue.allowableTau",
     "fatigue.combined": "fatigue.combined",

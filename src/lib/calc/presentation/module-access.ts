@@ -63,6 +63,8 @@ export function moduleState(
       return input.wheelLoads;
     case "girder":
       return input.girder;
+    case "girder2":
+      return input.girder2;
     case "endCarriage":
       return input.endCarriage;
     case "cabin":
@@ -85,6 +87,8 @@ export function moduleResult(
       return result.wheelLoads;
     case "girder":
       return result.girder;
+    case "girder2":
+      return result.girder2;
     case "endCarriage":
       return result.endCarriage;
     case "cabin":
@@ -167,12 +171,15 @@ export function ctxFor(
       };
       return ctx;
     }
-    case "girder": {
+    case "girder":
+    case "girder2": {
+      // İki takım da AYNI sunum bağlamını kullanır; ayrışan tek şey hangi
+      // kaldırma grubunun yükünü taşıdıklarıdır ve o bilgi `deps`tedir.
       const ctx: GirderCtx = {
         c,
         inp: st.inputs as never,
         sel: st.selections as never,
-        deps: deps.girder,
+        deps: key === "girder2" ? deps.girder2 : deps.girder,
         specs,
       };
       return ctx;

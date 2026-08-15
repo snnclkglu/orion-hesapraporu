@@ -71,6 +71,11 @@ export const V5_SPECS: TechnicalSpecs = {
   // Konfigürasyon ve ağırlıklar
   auxTrolleyMode: "shared",
   monorailCount: 0,
+  // Taşıyıcı kiriş düzeni AÇIKÇA yazılır: alan boş bırakılsaydı seçim
+  // kutusu boş açılır ve "hangisi seçili" sorusu ekrandan
+  // cevaplanamazdı. Değer, alanın hiç olmadığı eski revizyonların
+  // okunuşuyla AYNIDIR (`girderArrangement()` → "iki").
+  girderArrangement: "iki",
   mainTrolleyWeightT: 2.5,
   bridgeWeightT: 17,   // ana kirişler 15 t + başkirişler 2 t
   // Tamponlar — referans işte hidrolik tampon (GLHB 63/100) kullanılmıştır.
@@ -318,6 +323,11 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
 
   auxTrolleyMode: "shared",
   monorailCount: 0,
+  // Taşıyıcı kiriş düzeni AÇIKÇA yazılır: alan boş bırakılsaydı seçim
+  // kutusu boş açılır ve "hangisi seçili" sorusu ekrandan
+  // cevaplanamazdı. Değer, alanın hiç olmadığı eski revizyonların
+  // okunuşuyla AYNIDIR (`girderArrangement()` → "iki").
+  girderArrangement: "iki",
 
   mainTrolleyWeightT: 2.5,
   bridgeWeightT: 12,
@@ -501,6 +511,22 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   girder: {
     // 7.2 / 7.3'ün üç katsayısı (ψhA, ψhK, γc) yeni işte OTOMATİKtir: kütle
     // oranından ve çelik yapı sınıfından türetilip kutulara yazılır.
+    inputs: {
+      ...V5_GIRDER_INPUTS,
+      diaphragmSpacingMm: 1500,
+      deflectionLimitRatio: 1000,
+      psiHAAuto: true,
+      psiHKAuto: true,
+      amplifyYcAuto: true,
+    },
+    selections: V5_GIRDER_SELECTIONS,
+  },
+  // İKİNCİ ANA KİRİŞ TAKIMI şablonda HER ZAMAN doludur ama hesaba yalnız
+  // "Dört Kirişli" seçildiğinde girer (`activeModules`). Şablonda bulunması
+  // ZORUNLUDUR: `revision-load.fullInput` bölüm verisini buradan tamamlar ve
+  // alan yoksa bölüm açıldığında girdisiz kalırdı. Başlangıç kesiti birinciyle
+  // aynıdır; mühendis ikinci takımı kendi geometrisiyle değiştirir.
+  girder2: {
     inputs: {
       ...V5_GIRDER_INPUTS,
       diaphragmSpacingMm: 1500,

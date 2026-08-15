@@ -12,6 +12,8 @@ import {
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { ModuleKey } from "./presentation/module-family";
 import {
+  GIRDER_ARRANGEMENT_LABELS,
+  GIRDER_ARRANGEMENTS,
   HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
   HOIST_EQUIPMENT_ARRANGEMENTS,
   type TechnicalSpecs,
@@ -33,6 +35,16 @@ export interface FieldDef<T> {
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
   /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
   numeric?: boolean;
+  /**
+   * Seçim listesi KAPALI DEĞİLDİR: kullanıcı listede olmayan bir değeri elle
+   * yazabilir. Arayüz seçim kutusunun sonuna "Elle Gir…" satırı koyar ve
+   * seçildiğinde alan serbest bir kutuya döner.
+   *
+   * Sadece listenin bir ÖNERİ olduğu alanlarda kullanılır (tambur çapı gibi
+   * standart seriler). Bir sınıflandırma listesinde (FEM sınıfı, çentik
+   * sınıfı) kullanılmaz — orada liste dışı bir değer tabloya düşemez.
+   */
+  allowCustom?: true;
   /** select seçeneklerinin gösterim etiketi (değer→etiket, ör. "1000"→"1/1000") */
   optionLabels?: Record<string, string>;
   /** Standart referansı (standards/registry.ts anahtarı) — alan yanında rozet */
@@ -305,9 +317,22 @@ export const SAFETY_GROOVE_COUNT_LABELS: Record<string, string> = {
   "4": "4",
 };
 
-/** Tambur çapı standart serisi [mm] */
+/**
+ * Tambur çapı standart serisi [mm].
+ *
+ * Liste 800'de bitiyordu; ağır hizmet (şarj/döküm, pota) vinçlerinde tambur
+ * çapı 1 metreyi rahatça geçiyor ve mühendis listede karşılığını bulamıyordu
+ * (kullanıcı bildirimi, 15.08.2026). Seri R20 basamaklarının üstüne firmanın
+ * fiilen kullandığı yuvarlak çapları (1000 · 1100 · 1250 · 1400 · 1500) ekler.
+ *
+ * LİSTE KAPALI DEĞİLDİR: alan `allowCustom` taşır, yani mühendis listede
+ * olmayan bir çapı ELLE yazabilir (bkz. `FieldDef.allowCustom`). Kayıtlı bir
+ * revizyonun listede olmayan çapı zaten korunuyordu; eksik olan onu YENİ
+ * girebilmekti.
+ */
 export const DRUM_DIA_SERIES_MM = [
-  "200", "250", "290", "315", "355", "400", "450", "500", "560", "630", "710", "800",
+  "200", "250", "290", "315", "355", "400", "450", "500", "560", "630", "710",
+  "800", "900", "1000", "1100", "1200", "1250", "1300", "1400", "1500",
 ] as const;
 
 /**
@@ -486,6 +511,16 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
     options: MONORAIL_COUNTS, optionLabels: MONORAIL_COUNT_LABELS, numeric: true,
     group: "config",
     hint: "Her monoray grubu kendi kaldırma, kanca bloğu ve araba yürütme bölümlerini açar.",
+  },
+  {
+    key: "girderArrangement", label: "Taşıyıcı Kiriş Düzeni", type: "select",
+    options: GIRDER_ARRANGEMENTS, optionLabels: GIRDER_ARRANGEMENT_LABELS,
+    group: "config",
+    hint:
+      "Dört kirişli seçilirse ikinci bir ana kiriş bölümü açılır: " +
+      "Ana Kiriş - 1 ANA kaldırma yükünü, Ana Kiriş - 2 YARDIMCI kaldırma " +
+      "yükünü taşır. Köprü öz ağırlığı dört kirişe paylaştırılır. " +
+      "Şarj / döküm vinçlerinde yaygın düzendir.",
   },
 
   // --- Ağırlıklar (tüm yürütme ve yapı hesapları buradan okur)
@@ -752,7 +787,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "ropeWireStrength", label: "Tel Mukavemeti", unit: "kg/mm²", type: "number" },
   { key: "ropeBreakingLoadKn", label: "Halat Kopma Yükü", unit: "kN", type: "number" },
   { key: "ropeWeightKgPerM", label: "Halat Metre Ağırlığı", unit: "kg/m", type: "number" },
-  { key: "drumDiaMm", label: "Tambur Çapı", unit: "mm", type: "select", options: DRUM_DIA_SERIES_MM, numeric: true, diameter: true },
+  {
+    key: "drumDiaMm", label: "Tambur Çapı", unit: "mm", type: "select",
+    options: DRUM_DIA_SERIES_MM, numeric: true, diameter: true, allowCustom: true,
+    hint: "Liste bir öneridir; ara bir çap gerekiyorsa \"Elle Gir…\" ile yazılabilir.",
+  },
   { key: "drumMaterial", label: "Tambur Malzemesi", type: "select", options: DRUM_MATERIALS },
   {
     key: "drumGrooveLengthText", label: "Yiv Boyu", unit: "mm", type: "text",

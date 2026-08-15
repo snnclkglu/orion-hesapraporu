@@ -73,7 +73,7 @@ import {
   GIRDER_INPUT_FIELDS,
   GIRDER_SELECTION_FIELDS,
 } from "@/lib/calc/presentation/structuralFields";
-import { bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT } from "@/lib/calc/engine";
+import { bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT, girderDepsFor } from "@/lib/calc/engine";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import {
   computeHoistGroup,
@@ -96,6 +96,7 @@ import {
   computeMainGirder,
   type GirderDeps,
   type GirderInputs,
+  type GirderWhich,
 } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
@@ -111,7 +112,7 @@ import {
   type WheelLoadDeps,
 } from "@/lib/calc/modules/wheelLoads";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
-import { hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
+import { hasSecondGirder, hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
 import {
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
@@ -143,6 +144,11 @@ export interface AnyFieldDef {
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
   /** select değerleri sayısal alana yazılır */
   numeric?: boolean;
+  /**
+   * Seçim listesi bir ÖNERİDİR: kullanıcı listede olmayan bir değeri elle
+   * yazabilir ("Elle Gir…"). Bayrağı sunum katmanı koyar; burada yalnız okunur.
+   */
+  allowCustom?: boolean;
   /** select seçeneklerinin gösterim etiketi */
   optionLabels?: Record<string, string>;
   /** Standart referansı (standards/registry.ts anahtarı) */
@@ -267,10 +273,19 @@ export interface AdapterSection {
   visible?: (specs: TechnicalSpecs) => boolean;
 }
 
+/** Ana kiriş takımı anahtarları — adaptör iki takımı da aynı fabrikadan üretir. */
+export type GirderModuleKey = GirderWhich;
+
 export interface ModuleAdapter {
   key: ModuleKey;
   /** Kenar çubuğu / kart başlığı ("02 · Ana Kaldırma") */
   title: string;
+  /**
+   * Teknik özelliklere göre değişen başlık. Dört kirişli köprüde ana kiriş
+   * "Ana Kiriş - 1" olur; tek takımda sade "Ana Kiriş" kalır. Tanımsızsa
+   * `title` geçerlidir.
+   */
+  titleFor?: (specs: TechnicalSpecs) => string;
   /** Kontrol id öneki ("main.", "auxHookBlock.", ...) */
   checkPrefix: string;
   sections: AdapterSection[];
@@ -596,11 +611,19 @@ function wheelLoadAdapter(): ModuleAdapter {
 
 // ---------------------------------------------------------------- Ana kiriş
 
-function girderAdapter(): ModuleAdapter {
+function girderAdapter(key: GirderModuleKey): ModuleAdapter {
+  const ikinci = key === "girder2";
   return {
-    key: "girder",
-    title: "07 · Ana Kiriş",
-    checkPrefix: "girder.",
+    key,
+    // Dört kirişli köprüde iki takım vardır; başlık o zaman "Ana Kiriş - 1" /
+    // "Ana Kiriş - 2" olur. Tek takımda sade "Ana Kiriş" kalır — olmayan bir
+    // ikincinin varlığını ima etmez (`titleFor`, MODULE_LABEL_FOR).
+    title: ikinci ? "07 · Ana Kiriş - 2" : "07 · Ana Kiriş",
+    titleFor: (specs) =>
+      ikinci
+        ? "07 · Ana Kiriş - 2"
+        : hasSecondGirder(specs) ? "07 · Ana Kiriş - 1" : "07 · Ana Kiriş",
+    checkPrefix: `${key}.`,
     sections: GIRDER_SECTIONS.map((s) => {
       const t = s.table;
       return {
@@ -774,7 +797,8 @@ const ADAPTER_FACTORY: Record<ModuleKey, () => ModuleAdapter> = {
   mono2Trolley: () => travelAdapter("mono2Trolley"),
   bridge: () => travelAdapter("bridge"),
   wheelLoads: wheelLoadAdapter,
-  girder: girderAdapter,
+  girder: () => girderAdapter("girder"),
+  girder2: () => girderAdapter("girder2"),
   buckling: bucklingAdapter,
   endCarriage: endCarriageAdapter,
   cabin: cabinAdapter,
@@ -812,6 +836,7 @@ export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
   "mono2Trolley",
   "wheelLoads",
   "girder",
+  "girder2",
   "buckling",
   "endCarriage",
   "cabin",
@@ -824,6 +849,7 @@ export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
  */
 export const CONFIG_DRIVEN_MODULE_KEYS: readonly ModuleKey[] = [
   "auxTrolley",
+  "girder2",
   "cabin",
   "mono1",
   "mono1HookBlock",
@@ -850,6 +876,9 @@ export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): bo
     case "mono2HookBlock":
     case "mono2Trolley":
       return monos >= 2;
+    // İkinci ana kiriş takımı yalnız DÖRT KİRİŞLİ köprüde vardır.
+    case "girder2":
+      return hasSecondGirder(specs);
     // Kabin bölümü ancak vinçte operatör kabini ya da bir elektrik yerleşimi
     // (oda / pano) varsa listede görünür — ikisi de yoksa boş bir bölüm olurdu.
     case "cabin":
@@ -864,6 +893,9 @@ export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): bo
  * hesaba girmez (yardımcı kaldırma kapalıyken yardımcı kanca bloğu olamaz).
  */
 export const MODULE_PARENT: Partial<Record<ModuleKey, ModuleKey>> = {
+  // İkinci kiriş takımı birincisiyle birlikte var olur: ikisi aynı köprünün
+  // iki takımıdır, birincisi kapalıyken ikincisi anlamsızdır.
+  girder2: "girder",
   hookBlock: "main",
   auxHookBlock: "aux",
   auxTrolley: "aux",
@@ -890,10 +922,29 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   bridge: "Köprü Yürütme",
   wheelLoads: "Teker Yükleri",
   girder: "Ana Kiriş",
+  girder2: "Ana Kiriş - 2",
   buckling: "Buruşma",
   endCarriage: "Başkiriş",
   cabin: "Kabin ve Elektrik Odası",
 };
+
+/**
+ * Bölümün TEKNİK ÖZELLİKLERE göre çözülmüş başlığı.
+ *
+ * Çoğu bölümün başlığı sabittir; ana kiriş dört kirişli köprüde "Ana Kiriş - 1"
+ * olur (yanında bir "Ana Kiriş - 2" varken sade "Ana Kiriş" hangi takım olduğunu
+ * söylemez). Numara ayrıca `renumberTitle` ile yeniden dizilir — bu fonksiyon
+ * yalnız ADI çözer.
+ */
+export function adapterTitle(adapter: ModuleAdapter, specs?: TechnicalSpecs): string {
+  return (specs && adapter.titleFor?.(specs)) || adapter.title;
+}
+
+/** Kısa etiketin teknik özelliklere göre çözülmüş hali (aç/kapa kontrolleri). */
+export function moduleLabelFor(key: ModuleKey, specs?: TechnicalSpecs): string {
+  if (key === "girder" && specs && hasSecondGirder(specs)) return "Ana Kiriş - 1";
+  return MODULE_LABELS[key];
+}
 
 export function isOptionalModule(key: ModuleKey): boolean {
   return OPTIONAL_MODULE_KEYS.includes(key);
@@ -943,6 +994,8 @@ export interface ModuleDepsBundle {
   travel: Record<TravelKey, TravelDeps>;
   wheelLoads: WheelLoadDeps;
   girder: GirderDeps;
+  /** İkinci ana kiriş takımı (dört kirişli köprü) */
+  girder2: GirderDeps;
   endCarriage: EndCarriageDeps;
 }
 
@@ -966,6 +1019,39 @@ const EMPTY_HOOKBLOCK_DEPS: HookBlockDeps = {
   drumDiaMm: 0,
   blockSheaveCount: 1,
 };
+
+/**
+ * Ana kiriş bağımlılıklarının YEDEĞİ — köprü ya da araba sonucu henüz yokken.
+ *
+ * Editör ilk çizimde hesap sonucu olmadan da kurulur; motorun bağlayıcısı bu
+ * durumda `undefined` döner ve `deps.girder` alanı zorunlu olduğu için bir
+ * değer gerekir. Yedek sıfır/varsayılan taşır ve hiçbir kontrolü besleyemez —
+ * sonuç geldiğinde gerçek bağlayıcı devreye girer.
+ */
+function girderDepsYedek(
+  specs: TechnicalSpecs,
+  input: CalcInput,
+  result: CalcResult
+): GirderDeps {
+  return {
+    hoistLoadKg: specs.mainCapacityT * 1000,
+    liftSpeedMpm: specs.mainLiftSpeedMpm,
+    girdersInBridge: hasSecondGirder(specs) ? 4 : 2,
+    mainHookBlockWeightKg: input.mainHoist?.inputs.hookBlockWeightKg ?? 0,
+    mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,
+    trolleyWeightT: specs.mainTrolleyWeightT,
+    trolleyWheelCount: input.trolley?.inputs.wheelCount ?? 4,
+    trolleyRailCode: input.trolley?.selections.railCode ?? "",
+    trolleyDrivenWheels: result.trolley?.values.drivenWheels ?? 2,
+    trolleyActualSpeedMpm: result.trolley?.values.actualSpeedMpm ?? 0,
+    trolleyAccelTimeS: result.trolley?.values.startupTimeS ?? 0,
+    bridgeWeightT: specs.bridgeWeightT,
+    bridgeWheelCount: input.bridge?.inputs.wheelCount ?? 4,
+    bridgeDrivenWheels: result.bridge?.values.drivenWheels ?? 2,
+    bridgeActualSpeedMpm: result.bridge?.values.actualSpeedMpm ?? 0,
+    bridgeAccelTimeS: result.bridge?.values.startupTimeS ?? 0,
+  };
+}
 
 export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDepsBundle {
   const specs = input.specs;
@@ -1026,21 +1112,13 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
       trolleyWeightT: bridgeTrolleyT,
       bridgeWeightT: specs.bridgeWeightT,
     }),
-    girder: {
-      mainHookBlockWeightKg: input.mainHoist?.inputs.hookBlockWeightKg ?? 0,
-      mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,
-      trolleyWeightT: specs.mainTrolleyWeightT,
-      trolleyWheelCount: input.trolley?.inputs.wheelCount ?? 4,
-      trolleyRailCode: input.trolley?.selections.railCode ?? "",
-      trolleyDrivenWheels: result.trolley?.values.drivenWheels ?? 2,
-      trolleyActualSpeedMpm: result.trolley?.values.actualSpeedMpm ?? 0,
-      trolleyAccelTimeS: result.trolley?.values.startupTimeS ?? 0,
-      bridgeWeightT: specs.bridgeWeightT,
-      bridgeWheelCount: input.bridge?.inputs.wheelCount ?? 4,
-      bridgeDrivenWheels: result.bridge?.values.drivenWheels ?? 2,
-      bridgeActualSpeedMpm: result.bridge?.values.actualSpeedMpm ?? 0,
-      bridgeAccelTimeS: result.bridge?.values.startupTimeS ?? 0,
-    },
+    // İKİ TAKIM DA MOTORUN KENDİ BAĞLAYICISINDAN gelir (`girderDepsFor`):
+    // "hangi kiriş hangi kaldırma grubunun yükünü taşır" sorusunun tek bir
+    // cevabı olsun. Bağımlılık kurulamıyorsa (köprü/araba sonucu henüz yok)
+    // yedek değerlerle devam edilir — editör açılışta boş sonuçla da çizilir.
+    girder: girderDepsFor(specs, "girder", input, result) ?? girderDepsYedek(specs, input, result),
+    girder2:
+      girderDepsFor(specs, "girder2", input, result) ?? girderDepsYedek(specs, input, result),
     endCarriage: {
       mainHoistTotalLoadKg: result.mainHoist?.values.totalLoadKg ?? 0,
       trolleyWeightT: bridgeTrolleyT,
@@ -1079,12 +1157,29 @@ export interface DerivationWarning {
  */
 const TRAVEL_VIEW_DEPS: TravelDeps = { hookEquipmentT: 0, trolleyWeightT: 0 };
 
-/** Ana kirişin türetmesi ana kaldırma grubunun girdilerinden beslenir. */
-function girderDeriveContext(mods: ModulesState): GirderDeriveContext {
-  const h = mods.main?.inputs as HoistInputs | undefined;
+/**
+ * Ana kirişin türetmesi TAŞIDIĞI kaldırma grubunun girdilerinden beslenir:
+ * birinci takım ana kaldırmayı, dört kirişli köprüde ikinci takım YARDIMCI
+ * kaldırmayı taşır. ψhA / ψhK kütle oranından çıktığı için bu ayrım gerçektir —
+ * ikinci takımı ana kaldırmanın kütlesiyle türetmek yanlış bir yatay dinamik
+ * katsayı yazardı.
+ */
+function girderDeriveContext(
+  mods: ModulesState,
+  specs: TechnicalSpecs,
+  which: GirderWhich = "girder"
+): GirderDeriveContext {
+  const ikinci = which === "girder2";
+  const auxVar = ikinci && mods.aux !== undefined;
+  const h = (auxVar ? mods.aux : mods.main)?.inputs as HoistInputs | undefined;
   return {
     mainHookBlockWeightKg: h?.hookBlockWeightKg ?? 0,
     mainRopeWeightKg: h?.ropeWeightKg ?? 0,
+    hoistLoadKg: (auxVar ? specs.auxCapacityT : specs.mainCapacityT) * 1000,
+    trolleyWeightT:
+      auxVar && hasSeparateAuxTrolley(specs)
+        ? specs.auxTrolleyWeightT ?? specs.mainTrolleyWeightT
+        : specs.mainTrolleyWeightT,
   };
 }
 
@@ -1199,7 +1294,9 @@ export function withDerivedModule(
 ): ModuleState {
   if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
   if (isTravelKey(key)) return withDerivedTravel(state, specs, key);
-  if (key === "girder") return withDerivedGirder(state, specs, girderDeriveContext(all));
+  if (key === "girder" || key === "girder2") {
+    return withDerivedGirder(state, specs, girderDeriveContext(all, specs, key));
+  }
   return state;
 }
 
@@ -1272,7 +1369,7 @@ export function derivationWarnings(
 export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefined {
   if (isHoistKey(key)) return HOIST_AUTO_FIELDS[fieldKey];
   if (isTravelKey(key)) return TRAVEL_AUTO_FIELDS[fieldKey];
-  if (key === "girder") return GIRDER_AUTO_FIELDS[fieldKey];
+  if (key === "girder" || key === "girder2") return GIRDER_AUTO_FIELDS[fieldKey];
   if (key === "cabin") return CABIN_AUTO_FIELDS[fieldKey];
   return undefined;
 }
@@ -1323,7 +1420,11 @@ export function computeModuleChecksWith(
   }
   switch (key) {
     case "girder":
-      return computeMainGirder(specs, inputs as never, selections as never, deps.girder).checks;
+    case "girder2":
+      return computeMainGirder(
+        specs, key, inputs as never, selections as never,
+        key === "girder2" ? deps.girder2 : deps.girder
+      ).checks;
     case "buckling":
       return computeBuckling(inputs as never).checks;
     case "endCarriage":

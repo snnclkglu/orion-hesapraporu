@@ -56,6 +56,30 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "b6Mm", label: "Ek Flanş Genişliği b6", unit: "mm", type: "number" },
   { key: "aMm", label: "Gövde Sacları Arası Mesafe a", unit: "mm", type: "number" },
   { key: "xMm", label: "Kenar Mesafesi x", unit: "mm", type: "number" },
+  // --- Ray altı T profil (büyük tonajlı vinçler) ---------------------------
+  // Dört alan da 0 girilirse profil YOKTUR ve kesit bugünkü hâliyle çalışır.
+  {
+    key: "railTProfileWebThkMm", label: "T Profil Yan Sac Kalınlığı", unit: "mm",
+    type: "number",
+    hint:
+      "Ray altı T profilinin DİKEY sacı. Ray altı sacının (t1) üstüne, ray " +
+      "ekseninde ve T üst sacının TAM ORTASINDA durur. 0 = T profil yok.",
+  },
+  {
+    key: "railTProfileWebHeightMm", label: "T Profil Yan Sac Yüksekliği", unit: "mm",
+    type: "number",
+    hint: "Yan sacın yüksekliği; kesitin toplam yüksekliği bu kadar artar.",
+  },
+  {
+    key: "railTProfileTopThkMm", label: "T Profil Üst Sac Kalınlığı", unit: "mm",
+    type: "number",
+    hint: "Rayın oturduğu sac. Teker basıncı yayılımında taşıyan sac budur.",
+  },
+  {
+    key: "railTProfileTopWidthMm", label: "T Profil Üst Sac Genişliği", unit: "mm",
+    type: "number",
+    hint: "Ray ekseninde ortalanır. Boş/0 bırakılırsa üst sac kesite girmez.",
+  },
   { key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number" },
   { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },
   { key: "trolleyWheelSpacingM", label: "Araba Tekerlek Açıklığı", unit: "m", type: "number" },

@@ -79,6 +79,7 @@ export const MODULE_LABELS: Record<string, string> = {
   bridge: "14 · Köprü Yürütme",
   wheelLoads: "15 · Teker Yükleri",
   girder: "16 · Ana Kiriş",
+  girder2: "16 · Ana Kiriş - 2",
   buckling: "17 · Buruşma",
   endCarriage: "18 · Başkiriş",
   cabin: "19 · Kabin ve Elektrik Odası",

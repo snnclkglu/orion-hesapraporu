@@ -34,9 +34,11 @@ import {
 } from "./modules/travelGroup";
 import {
   computeMainGirder,
+  type GirderDeps,
   type GirderInputs,
   type GirderSelections,
   type GirderValues,
+  type GirderWhich,
 } from "./modules/mainGirder";
 import {
   computeWheelLoads,
@@ -73,7 +75,12 @@ import {
   type TravelKey,
 } from "./presentation/module-family";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "./types";
-import { hasSeparateAuxTrolley, monorailCount } from "./types";
+import {
+  girdersInBridge,
+  hasSecondGirder,
+  hasSeparateAuxTrolley,
+  monorailCount,
+} from "./types";
 
 /**
  * Motor sürümü: formül zinciri değiştiğinde yükseltilir.
@@ -123,6 +130,8 @@ export interface CalcInput {
   wheelLoads?: { inputs: WheelLoadInputs; selections: WheelLoadSelections };
   // Taşıyıcı yapı
   girder?: { inputs: GirderInputs; selections: GirderSelections };
+  /** Dört kirişli köprünün İKİNCİ ana kiriş takımı (yardımcı kaldırmayı taşır) */
+  girder2?: { inputs: GirderInputs; selections: GirderSelections };
   buckling?: { inputs: BucklingInputs };
   endCarriage?: { inputs: EndCarriageInputs; selections: EndCarriageSelections };
   // Kabin ve elektrik odası (klima katalog seçimi dâhil)
@@ -146,6 +155,7 @@ export interface CalcResult {
   bridge?: ModuleResult<TravelValues>;
   wheelLoads?: ModuleResult<WheelLoadValues>;
   girder?: ModuleResult<GirderValues>;
+  girder2?: ModuleResult<GirderValues>;
   buckling?: ModuleResult<BucklingValues>;
   endCarriage?: ModuleResult<EndCarriageValues>;
   cabin?: ModuleResult<CabinValues>;
@@ -229,6 +239,74 @@ export function bridgeMovingTrolleyWeightT(specs: TechnicalSpecs, input: CalcInp
   return total;
 }
 
+/**
+ * Bir ana kiriş takımının bağımlılıkları — HANGİ kaldırma grubunun ve HANGİ
+ * arabanın yükünü taşıdığı BURADA kurulur, modülün içinde değil.
+ *
+ * - `girder`  : ANA kaldırma + ana araba (klasik çift kirişli köprü)
+ * - `girder2` : YARDIMCI kaldırma + (varsa) ayrı yardımcı araba
+ *               (kullanıcı kararı 15.08.2026, dört kirişli / şarj-döküm vinci)
+ *
+ * Yardımcı kaldırmanın ayrı bir arabası yoksa (paylaşımlı) ikinci kiriş yine
+ * ana arabanın teker ve hız verileriyle hesaplanır: araba fiziken oradadır,
+ * yalnız üzerinde iki kaldırma grubu vardır.
+ *
+ * KÖPRÜ ORTAKTIR: teker adedi, hız, ivmelenme süresi ve toplam ağırlık her iki
+ * takımda da aynıdır — köprü tektir. Ayrışan tek şey ölü yük PAYIdır
+ * (`girdersInBridge`).
+ */
+export function girderDepsFor(
+  specs: TechnicalSpecs,
+  which: GirderWhich,
+  input: CalcInput,
+  result: CalcResult
+): GirderDeps | undefined {
+  const bridge = input.bridge;
+  const bridgeRes = result.bridge;
+  if (!bridge || !bridgeRes) return undefined;
+
+  const ikinci = which === "girder2";
+  // İkinci takım yardımcı kaldırmayı taşır; yardımcı kaldırma bölümü kapalıysa
+  // (ya da hiç yoksa) hesap ana kaldırmanın verileriyle koşar — sessizce sıfır
+  // yük varsaymak, kirişi olmayan bir yükle boyutlandırmak olurdu.
+  const hoistInput = ikinci ? input.auxHoist ?? input.mainHoist : input.mainHoist;
+  if (!hoistInput) return undefined;
+  const capacityT = ikinci
+    ? (input.auxHoist ? specs.auxCapacityT : specs.mainCapacityT)
+    : specs.mainCapacityT;
+  const liftSpeedMpm = ikinci
+    ? (input.auxHoist ? specs.auxLiftSpeedMpm : specs.mainLiftSpeedMpm)
+    : specs.mainLiftSpeedMpm;
+
+  const useAuxTrolley = ikinci && input.auxTrolley !== undefined && hasSeparateAuxTrolley(specs);
+  const trolleyInput = useAuxTrolley ? input.auxTrolley! : input.trolley;
+  const trolleyRes = useAuxTrolley ? result.auxTrolley : result.trolley;
+  if (!trolleyInput || !trolleyRes) return undefined;
+  const trolleyWeightT = useAuxTrolley
+    ? specs.auxTrolleyWeightT ?? specs.mainTrolleyWeightT
+    : specs.mainTrolleyWeightT;
+
+  return {
+    hoistLoadKg: capacityT * 1000,
+    liftSpeedMpm,
+    girdersInBridge: girdersInBridge(specs),
+    mainHookBlockWeightKg: hoistInput.inputs.hookBlockWeightKg,
+    mainRopeWeightKg: hoistInput.inputs.ropeWeightKg,
+    trolleyWeightT,
+    trolleyWheelCount: trolleyInput.inputs.wheelCount,
+    trolleyDrivenWheels: trolleyRes.values.drivenWheels,
+    trolleyActualSpeedMpm: trolleyRes.values.actualSpeedMpm,
+    trolleyAccelTimeS: trolleyRes.values.startupTimeS,
+    bridgeWeightT: specs.bridgeWeightT,
+    bridgeWheelCount: bridge.inputs.wheelCount,
+    bridgeDrivenWheels: bridgeRes.values.drivenWheels,
+    bridgeActualSpeedMpm: bridgeRes.values.actualSpeedMpm,
+    bridgeAccelTimeS: bridgeRes.values.startupTimeS,
+    // Ray ana kirişin üstündedir → ARABA rayı (köprü rayı yol kirişinde)
+    trolleyRailCode: trolleyInput.selections.railCode,
+  };
+}
+
 /** Bu hesapta yer alan bölümlerin kümesi (girdi durumu mevcut olanlar). */
 function presentSet(input: CalcInput): Set<string> {
   const src = input as unknown as Record<string, unknown>;
@@ -270,6 +348,9 @@ export function activeModules(
   for (const k of ["wheelLoads", "girder", "buckling", "endCarriage"]) {
     if (on(k)) out.add(k);
   }
+  // İkinci ana kiriş takımı yalnız DÖRT KİRİŞLİ köprüde vardır ve birincisi
+  // açıkken anlamlıdır (ikisi aynı köprünün iki takımıdır).
+  if (out.has("girder") && hasSecondGirder(specs) && on("girder2")) out.add("girder2");
   // Kabin ve elektrik odası bölümü yalnız vinçte operatör kabini ya da bir
   // elektrik yerleşimi (oda / pano) varsa vardır — teknik özellikten gelir.
   if (cabinModuleApplies(specs) && on("cabin")) out.add("cabin");
@@ -390,31 +471,27 @@ export function runCalc(input: CalcInput): CalcResult {
     );
   }
 
-  // --- Ana kiriş: ana kaldırma + ana araba + köprüden beslenir --------------
-  if (input.girder && input.mainHoist && out.trolley && out.bridge && input.trolley && input.bridge) {
-    out.girder = push(
-      computeMainGirder(specs, input.girder.inputs, input.girder.selections, {
-        mainHookBlockWeightKg: input.mainHoist.inputs.hookBlockWeightKg,
-        mainRopeWeightKg: input.mainHoist.inputs.ropeWeightKg,
-        trolleyWeightT: specs.mainTrolleyWeightT,
-        trolleyWheelCount: input.trolley.inputs.wheelCount,
-        trolleyDrivenWheels: out.trolley.values.drivenWheels,
-        trolleyActualSpeedMpm: out.trolley.values.actualSpeedMpm,
-        trolleyAccelTimeS: out.trolley.values.startupTimeS,
-        bridgeWeightT: specs.bridgeWeightT,
-        bridgeWheelCount: input.bridge.inputs.wheelCount,
-        bridgeDrivenWheels: out.bridge.values.drivenWheels,
-        bridgeActualSpeedMpm: out.bridge.values.actualSpeedMpm,
-        bridgeAccelTimeS: out.bridge.values.startupTimeS,
-        // Ray ana kirişin üstündedir → ARABA rayı (köprü rayı yol kirişinde)
-        trolleyRailCode: input.trolley.selections.railCode,
-      })
-    );
+  // --- Ana kiriş takımları --------------------------------------------------
+  // Bir ya da iki takım: `girder` ana kaldırmayı, `girder2` (dört kirişli
+  // köprüde) yardımcı kaldırmayı taşır. Bağımlılıklar tek yerde kurulur
+  // (`girderDepsFor`) — iki takım için iki ayrı bağlama mantığı yazılmaz.
+  for (const key of ["girder", "girder2"] as const) {
+    const m = input[key];
+    if (!m) continue;
+    const deps = girderDepsFor(specs, key, input, out);
+    if (!deps) continue;
+    out[key] = push(computeMainGirder(specs, key, m.inputs, m.selections, deps));
   }
 
   // --- Buruşma: ana kirişin kesit geometrisi ve gerilme analizinden beslenir
   // Panel ölçüleri ve kenar gerilmeleri elle yazılmaz; ana kiriş açıksa
   // oradan türetilir (bkz. modules/buckling.ts `bucklingDepsFrom`).
+  //
+  // KAYNAK BİRİNCİ TAKIMDIR. Dört kirişli köprüde iki ana kiriş vardır ama
+  // buruşma bölümü TEKTİR ve ANA KİRİŞ - 1'in panellerini kontrol eder. İki
+  // takımın panellerini tek bölümde toplamak hangi sacın hangi kirişe ait
+  // olduğunu belirsizleştirirdi; ikinci takımın buruşması gerekirse kendi
+  // bölümü olarak açılır (bugün kapsam dışıdır ve burada yazılıdır).
   out.buckling = push(
     input.buckling &&
       computeBuckling(

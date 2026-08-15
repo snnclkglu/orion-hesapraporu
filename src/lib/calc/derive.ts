@@ -613,10 +613,21 @@ export function deriveTravelInputs(
 
 /** Ana kiriş türetmesinin diğer bölümlerden okuduğu büyüklükler. */
 export interface GirderDeriveContext {
-  /** Ana kanca bloğu / tutucu ağırlığı [kg] (ana kaldırma girdisinden) */
+  /** Kanca bloğu / tutucu ağırlığı [kg] (taşınan kaldırma grubunun girdisinden) */
   mainHookBlockWeightKg: number;
-  /** Askıdaki halat ağırlığı [kg] (ana kaldırma girdisinden) */
+  /** Askıdaki halat ağırlığı [kg] (taşınan kaldırma grubunun girdisinden) */
   mainRopeWeightKg: number;
+  /**
+   * Bu kirişin TAŞIDIĞI kaldırma yükü [kg]. Verilmezse ana kaldırma kapasitesi
+   * kullanılır — dört kirişli köprüde ikinci takım YARDIMCI kaldırmayı taşır ve
+   * kütle oranı (dolayısıyla ψhA / ψhK) o yükten çıkar.
+   */
+  hoistLoadKg?: number;
+  /**
+   * Bu kirişin altındaki arabanın ağırlığı [t]. Verilmezse ana araba. Yardımcı
+   * kaldırmanın kendi arabası varsa ikinci takımda o kullanılır.
+   */
+  trolleyWeightT?: number;
 }
 
 export interface GirderDerivation {
@@ -648,9 +659,9 @@ export function deriveGirderInputs(
   ctx: GirderDeriveContext
 ): GirderDerivation {
   const out: GirderDerivation = {};
-  const hoistLoadKg = specs.mainCapacityT * 1000;
+  const hoistLoadKg = ctx.hoistLoadKg ?? specs.mainCapacityT * 1000;
   const totalLiveLoadKg = hoistLoadKg + ctx.mainHookBlockWeightKg + ctx.mainRopeWeightKg;
-  const trolleyWeightKg = specs.mainTrolleyWeightT * 1000;
+  const trolleyWeightKg = (ctx.trolleyWeightT ?? specs.mainTrolleyWeightT) * 1000;
   const bridgeMovingMassKg = specs.bridgeWeightT * 1000 + trolleyWeightKg;
 
   if (inputs.psiHAAuto) {

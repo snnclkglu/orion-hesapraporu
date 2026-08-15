@@ -412,7 +412,9 @@ describe("revision-editor.tsx bağlantı kilidi", () => {
   it("kart rozeti DİNAMİK bölüm numarasını basar (kenar çubuğuyla aynı)", () => {
     // Eskiden sabit `{adapter.title}` basılıyordu: kenar çubuğu "04 · ANA ARABA
     // YÜRÜTME" derken rozet "05 · Ana Araba Yürütme" diyordu.
-    expect(EDITOR_SRC).toContain("renumberTitle(adapter.title, numbers[key] ?? 0)");
+    // Başlık artık `adapterTitle(adapter, specs)` ile çözülür: dört kirişli
+    // köprüde ana kiriş "Ana Kiriş - 1" olur. Numara yine tek kaynaktan gelir.
+    expect(EDITOR_SRC).toContain("renumberTitle(adapterTitle(adapter, specs), numbers[key] ?? 0)");
     expect(EDITOR_SRC).not.toMatch(/>\s*\{adapter\.title\}\s*</);
   });
 });

@@ -163,23 +163,47 @@ export interface HookBlockInputs {
   shaftCenterGapMm: number;      // D [mm]
   /** D1 — mil gerilme kesiti çapı [mm] */
   shaftD1Mm: number;
-  // §4.6 Kaldırma kirişi kesiti
-  /** a — kiriş açıklığı [mm] */
-  girderSpanMm: number;
-  /** b — yükün mesnede uzaklığı [mm] */
-  loadOffsetMm: number;
-  midTopPlateThkMm: number;      // orta kesit üst sac kalınlığı [mm]
-  midTopPlateWidthMm: number;    // orta kesit üst sac genişliği [mm]
-  midWebPlateThkMm: number;      // orta kesit yan sac kalınlığı [mm]
-  midWebPlateHeightMm: number;   // orta kesit yan sac yüksekliği [mm]
-  midBottomPlateThkMm: number;   // orta kesit alt sac kalınlığı [mm]
-  midBottomPlateWidthMm: number; // orta kesit alt sac genişliği [mm]
-  thickTopPlateThkMm: number;    // kalın kesit üst sac kalınlığı [mm]
-  thickTopPlateWidthMm: number;  // kalın kesit üst sac genişliği [mm]
-  thickWebPlateThkMm: number;    // kalın kesit yan sac kalınlığı [mm]
-  thickWebPlateHeightMm: number; // kalın kesit yan sac yüksekliği [mm]
-  thickBottomPlateThkMm: number; // kalın kesit alt sac kalınlığı [mm]
-  thickBottomPlateWidthMm: number; // kalın kesit alt sac genişliği [mm]
+
+  // ------------------------------------------- §4.6 Kaldırma kirişi geometrisi
+  /**
+   * ÖLÇÜ ZİNCİRİ (teknik resimdeki x · y · z):
+   *
+   *     |<-- x -->|<------- y ------->|<-- z -->|
+   *     R_A       P1                  P2        R_B
+   *
+   *   x : sol mesnetten (askı noktası) BİRİNCİ yük noktasına
+   *   y : iki yük noktası arası
+   *   z : İKİNCİ yük noktasından sağ mesnete
+   *
+   * Kiriş açıklığı L = x + y + z olarak TÜRETİLİR; ayrıca sorulmaz.
+   *
+   * ESKİ MODEL (a = açıklık, b = yük mesafesi) bu zincirin SİMETRİK hâliydi:
+   *   x = z = b, y = a − 2b. Simetrik geometride sonuçlar BİREBİR aynıdır
+   *   (M = F·x, V = F); göç `revision-load.migrateLiftingBeam` ile yapılır.
+   *   Asimetrik askı (şarj/döküm vinçlerinde yaygın) ancak bu zincirle
+   *   modellenebiliyordu.
+   */
+  beamXMm: number;
+  beamYMm: number;
+  beamZMm: number;
+
+  // ------------------------------------------------ §4.6 Kesit 1 (açıklık ortası)
+  // Alan ADLARI "mid"/"thick" olarak KALIR: kayıtlı revizyonlar bu anahtarlarla
+  // saklanıyor ve yeniden adlandırmak mühendisin girdiği bütün sac ölçülerini
+  // sessizce şablon değerine düşürürdü. Ekranda görünen ad Kesit 1 / Kesit 2'dir.
+  midTopPlateThkMm: number;      // Kesit 1 üst sac kalınlığı [mm]
+  midTopPlateWidthMm: number;    // Kesit 1 üst sac genişliği [mm]
+  midWebPlateThkMm: number;      // Kesit 1 yan sac kalınlığı [mm]
+  midWebPlateHeightMm: number;   // Kesit 1 yan sac yüksekliği [mm]
+  midBottomPlateThkMm: number;   // Kesit 1 alt sac kalınlığı [mm]
+  midBottomPlateWidthMm: number; // Kesit 1 alt sac genişliği [mm]
+  // -------------------------------------------- §4.6 Kesit 2 (mesnet/yük bölgesi)
+  thickTopPlateThkMm: number;    // Kesit 2 üst sac kalınlığı [mm]
+  thickTopPlateWidthMm: number;  // Kesit 2 üst sac genişliği [mm]
+  thickWebPlateThkMm: number;    // Kesit 2 yan sac kalınlığı [mm]
+  thickWebPlateHeightMm: number; // Kesit 2 yan sac yüksekliği [mm]
+  thickBottomPlateThkMm: number; // Kesit 2 alt sac kalınlığı [mm]
+  thickBottomPlateWidthMm: number; // Kesit 2 alt sac genişliği [mm]
   /**
    * ψ katsayısının k terimi — ELLE EZME (opsiyonel).
    * Boş bırakılırsa k, teknik özelliklerdeki kaldırma sınıfından
@@ -272,6 +296,20 @@ export interface HookBlockValues {
   // §4.5 Kanca rulmanı
   hookBearingAxialKn: number;
   hookBearingStaticSafety: number;
+  // §4.6 Kaldırma kirişi — geometri ve kesit tesirleri
+  /** Ölçü zincirinden çözülmüş geometri (x · y · z, açıklık, yük konumları) */
+  beam: LiftingBeamGeometry;
+  /** Mesnet tepkileri (tam yük hâli) [kg] */
+  beamReactionAKg: number;
+  beamReactionBKg: number;
+  /** Kesit 2'de (mesnet–yük arası) en büyük kesme kuvveti [kg] */
+  beamShearMaxKg: number;
+  /** Kesit 1'de (yükler arası) kesme kuvveti — simetrik askıda 0 [kg] */
+  beamShearSection1Kg: number;
+  /** Yük noktasındaki moment — Kesit 2'nin eğilmesi [kg·cm] */
+  beamMomentSection2KgCm: number;
+  /** Moment diyagramının düğümleri (şema ve rapor aynı çözümü okur) */
+  beamStations: { xCm: number; momentKgCm: number }[];
   // §4.6 Kiriş kesiti — statik
   fMaxKg: number;
   fMinKg: number;
@@ -298,6 +336,12 @@ export interface HookBlockValues {
   staticBendingStress: number;
   staticShearStress: number;
   staticCombinedStress: number;
+  /** Kesit 1 (açıklık ortası) — kesme ve bileşik gerilme */
+  section1ShearStress: number;
+  section1CombinedStress: number;
+  /** Kesit 2 (mesnet–yük arası) — eğilme ve bileşik gerilme */
+  section2BendingStress: number;
+  section2CombinedStress: number;
   allowableStaticStress: number;
   // §4.6 Yorulma
   sigmaMax: number;
@@ -371,6 +415,46 @@ export function hookShaftGeometry(
   }
   const spanCm = positionsCm[positionsCm.length - 1] + edgeGapCm;
   return { edgeGapCm, pitchCm, centerGapCm, positionsCm, spanCm };
+}
+
+/** Kaldırma kirişinin ölçü zincirinden çözülmüş geometrisi [cm]. */
+export interface LiftingBeamGeometry {
+  xCm: number;
+  yCm: number;
+  zCm: number;
+  /** Toplam açıklık L = x + y + z [cm] */
+  spanCm: number;
+  /** Birinci yük noktası (sol mesnetten) [cm] */
+  load1Cm: number;
+  /** İkinci yük noktası (sol mesnetten) [cm] */
+  load2Cm: number;
+  /** Açıklık ortası — Kesit 1'in yeri [cm] */
+  midCm: number;
+}
+
+/**
+ * Kaldırma kirişi ölçü zincirini (x · y · z) çözer.
+ *
+ * Geçersiz/eksik ölçüler SIFIRA indirgenir ve açıklık yine de pozitif kalır
+ * (en az 1 cm): sıfır açıklıklı bir kiriş `solveBeam`i bölme hatasına
+ * düşürmez ama gerilmeleri sonsuza götürürdü. Ekranda eksik ölçü zaten
+ * görünür; hesabın NaN üretmemesi daha önemlidir.
+ */
+export function liftingBeamGeometry(
+  inp: Pick<HookBlockInputs, "beamXMm" | "beamYMm" | "beamZMm">
+): LiftingBeamGeometry {
+  const mm = (v: number | undefined) =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
+  const xCm = mm(inp.beamXMm) / 10;
+  const yCm = mm(inp.beamYMm) / 10;
+  const zCm = mm(inp.beamZMm) / 10;
+  const spanCm = Math.max(xCm + yCm + zCm, 0.1);
+  return {
+    xCm, yCm, zCm, spanCm,
+    load1Cm: xCm,
+    load2Cm: xCm + yCm,
+    midCm: spanCm / 2,
+  };
 }
 
 /** ψ çözümü: kaldırma sınıfından türetilen (ya da elle ezilen) katsayı çifti. */
@@ -630,13 +714,43 @@ export function computeHookBlock(
   });
 
   // --- §4.6 Kaldırma kirişi — yükler ve kesit özellikleri -------------------
-  // Kanca bloğu iki kaldırma kirişi arasında asılıdır: her kiriş yükün yarısını
-  // taşır ve yük, mesnetten b kadar uzakta etki eder.
+  // Kiriş İKİ NOKTADAN askıdadır (uçlardaki mesnetler) ve İKİ NOKTADAN yüklüdür
+  // (kanca blokları). Ölçü zinciri x · y · z teknik resimden okunur; açıklık
+  // L = x + y + z olarak türetilir.
+  //
+  //   Kesit 1 : açıklık ortası — eğilme momenti burada en büyüktür
+  //   Kesit 2 : mesnet ile yük noktası arası — KESME kuvveti burada en büyüktür
+  //
+  // Yük başına kuvvet: toplam yükün yarısı (iki askı noktası).
   const forceMaxKg = deps.totalLoadKg / 2;
   const forceMinKg = (deps.hookBlockWeightKg + deps.ropeWeightKg) / 2;
-  const loadOffsetCm = inp.loadOffsetMm / 10;
-  const momentMaxKgCm = forceMaxKg * loadOffsetCm;
-  const momentMinKgCm = forceMinKg * loadOffsetCm;
+  const liftBeam = liftingBeamGeometry(inp);
+  const solveLift = (loadKg: number) =>
+    solveBeam({
+      lengthCm: liftBeam.spanCm,
+      supportACm: 0,
+      supportBCm: liftBeam.spanCm,
+      pointLoads: [
+        { xCm: liftBeam.load1Cm, loadKg, label: "1. askı" },
+        { xCm: liftBeam.load2Cm, loadKg, label: "2. askı" },
+      ],
+    });
+  const liftMax = solveLift(forceMaxKg);
+  const liftMin = solveLift(forceMinKg);
+  const momentMaxKgCm = Math.abs(liftMax.maxMomentKgCm);
+  const momentMinKgCm = Math.abs(liftMin.maxMomentKgCm);
+  // Kesme: mesnetle ilk yük arasındaki bölge (Kesit 2) — mutlak en büyük kesme.
+  const shearMaxKg = Math.abs(liftMax.maxShearKg);
+  // Kesit 2'nin momenti: yük noktasındaki moment (mesnet ile yük arasında
+  // doğrusal artar, tepe noktası yükün kendisidir).
+  const moment2KgCm = Math.max(
+    Math.abs(liftMax.momentAt(liftBeam.load1Cm)),
+    Math.abs(liftMax.momentAt(liftBeam.load2Cm))
+  );
+  // Kesit 1'in kesmesi: iki yük ARASINDAKİ bölgenin kesmesi = R_A − P.
+  // Simetrik askıda sıfırdır; asimetrik askıda sıfır değildir ve kesitin
+  // bileşik gerilmesine girer.
+  const shear1Kg = Math.abs(liftMax.reactionAKg - forceMaxKg);
 
   // Orta kesit ve kalın kesit sacları [mm]
   const {
@@ -684,6 +798,15 @@ export function computeHookBlock(
     thickBottomPlateThkMm, thickBottomPlateWidthMm
   );
   Object.assign(cells, {
+    "girder.beamX": inp.beamXMm,
+    "girder.beamY": inp.beamYMm,
+    "girder.beamZ": inp.beamZMm,
+    "girder.span": liftBeam.spanCm * 10,
+    "girder.reactionA": liftMax.reactionAKg,
+    "girder.reactionB": liftMax.reactionBKg,
+    "girder.shearMax": shearMaxKg,
+    "girder.shearSection1": shear1Kg,
+    "girder.momentSection2": moment2KgCm,
     "girder.forceMax": forceMaxKg,
     "girder.forceMin": forceMinKg,
     "girder.momentMax": momentMaxKgCm,
@@ -702,17 +825,43 @@ export function computeHookBlock(
 
   // --- §4.6 Statik gerilmeler (dinamik katsayı ψ ile) -----------------------
   const psi = resolveDynamicFactor(specs, inp, hoistView.liftSpeedMpm);
+  // Kesit 1 — açıklık ortası: eğilme burada tepe yapar, kesme (simetrik askıda)
+  // sıfırdır.
   const staticBendingStress = (momentMaxKgCm * psi.psi) / mid.sectionModulusCm3;
-  // Kesme gerilmesi mesnet bölgesinde kritiktir; orada kesit kalınlaştırılmıştır.
-  const staticShearStress = (forceMaxKg * psi.psi) / thick.webAreaCm2;
-  const staticCombinedStress = Math.sqrt(
-    staticBendingStress ** 2 + 3 * staticShearStress ** 2
+  const section1ShearStress = (shear1Kg * psi.psi) / mid.webAreaCm2;
+  const section1CombinedStress = Math.sqrt(
+    staticBendingStress ** 2 + 3 * section1ShearStress ** 2
+  );
+  // Kesit 2 — mesnet ile yük noktası arası: kesme burada tepe yapar; kesit
+  // genellikle kalınlaştırılmıştır.
+  const staticShearStress = (shearMaxKg * psi.psi) / thick.webAreaCm2;
+  const section2BendingStress = (moment2KgCm * psi.psi) / thick.sectionModulusCm3;
+  const section2CombinedStress = Math.sqrt(
+    section2BendingStress ** 2 + 3 * staticShearStress ** 2
+  );
+  /**
+   * KONTROL EDİLEN DEĞER İKİ KESİTİN BÜYÜĞÜ DEĞİL, ZARFIDIR.
+   *
+   * Zarf = √(σ_Kesit1² + 3·τ_Kesit2²): en büyük eğilme ile en büyük kesme aynı
+   * kesitte olmasa da bir arada değerlendirilir. Bu bilinçli olarak
+   * MUHAFAZAKÂRdır ve tarihsel davranışı korur; iki kesitin kendi bileşik
+   * gerilmeleri de hesaplanır ve zarf onlardan küçük kalamaz (kesit oranları
+   * ters dönerse `Math.max` devreye girer).
+   */
+  const staticCombinedStress = Math.max(
+    Math.sqrt(staticBendingStress ** 2 + 3 * staticShearStress ** 2),
+    section1CombinedStress,
+    section2CombinedStress
   );
   const allowableStaticStress = ALLOWABLE_STATIC_KGCM2[inp.fatigueMaterial];
   Object.assign(cells, {
     "girder.dynamicFactor": psi.psi,
     "girder.bendingStress": staticBendingStress,
     "girder.shearStress": staticShearStress,
+    "girder.section1ShearStress": section1ShearStress,
+    "girder.section1CombinedStress": section1CombinedStress,
+    "girder.section2BendingStress": section2BendingStress,
+    "girder.section2CombinedStress": section2CombinedStress,
     "girder.combinedStress": staticCombinedStress,
     "girder.allowableStress": allowableStaticStress,
   });
@@ -727,11 +876,14 @@ export function computeHookBlock(
 
   // --- §4.6 Yorulma (DIN 15018) --------------------------------------------
   // Gerilme genliği, tam yüklü (maks) ve boş (min) durumların oranından çıkar.
+  // Kesme kuvveti mesnet tepkisinden gelir; simetrik askıda yük başına düşen
+  // kuvvete eşittir (eski model bu eşitliği doğrudan kullanıyordu).
+  const shearMinKg = Math.abs(liftMin.maxShearKg);
   const sigmaMax = momentMaxKgCm / mid.sectionModulusCm3;
-  const tauMax = forceMaxKg / mid.webAreaCm2;
+  const tauMax = shearMaxKg / mid.webAreaCm2;
   const combinedMax = Math.sqrt(sigmaMax ** 2 + 3 * tauMax ** 2);
   const sigmaMin = momentMinKgCm / mid.sectionModulusCm3;
-  const tauMin = forceMinKg / mid.webAreaCm2;
+  const tauMin = shearMinKg / mid.webAreaCm2;
   const combinedMin = Math.sqrt(sigmaMin ** 2 + 3 * tauMin ** 2);
   const kappa = combinedMin / combinedMax; // gerilme oranı x
 
@@ -832,6 +984,16 @@ export function computeHookBlock(
     shaftAllowables: shaftAllow,
     hookBearingAxialKn,
     hookBearingStaticSafety,
+    beam: liftBeam,
+    beamReactionAKg: liftMax.reactionAKg,
+    beamReactionBKg: liftMax.reactionBKg,
+    beamShearMaxKg: shearMaxKg,
+    beamShearSection1Kg: shear1Kg,
+    beamMomentSection2KgCm: moment2KgCm,
+    // Diyagram, hesapla AYNI çözümün düğümlerini çizer — ikinci bir moment
+    // hesabı yazılmaz. Kesme süreksizliğinin iki yüzü aynı momenti verdiği
+    // için yalnız konum + moment taşınır.
+    beamStations: liftMax.stations.map((s) => ({ xCm: s.xCm, momentKgCm: s.momentKgCm })),
     fMaxKg: forceMaxKg,
     fMinKg: forceMinKg,
     maxMomentKgCm: momentMaxKgCm,
@@ -854,6 +1016,10 @@ export function computeHookBlock(
     staticBendingStress,
     staticShearStress,
     staticCombinedStress,
+    section1ShearStress,
+    section1CombinedStress,
+    section2BendingStress,
+    section2CombinedStress,
     allowableStaticStress,
     sigmaMax,
     tauMax,

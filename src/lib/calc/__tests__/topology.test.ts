@@ -229,3 +229,67 @@ describe("eski şema göçü", () => {
     expect(r.input.auxHookBlock).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// DÖRT KİRİŞLİ KÖPRÜ — İKİNCİ ANA KİRİŞ TAKIMI (kullanıcı kararı, 15.08.2026)
+//
+// Şarj / döküm vinçlerinde köprü dört kirişlidir: Ana Kiriş - 1 ANA kaldırma
+// yükünü, Ana Kiriş - 2 YARDIMCI kaldırma yükünü taşır. Buradaki testler
+// davranışı kilitler — sayıları değil, hangi kirişin neyi taşıdığını.
+
+describe("dört kirişli köprü — ikinci ana kiriş takımı", () => {
+  /** Yardımcı kaldırma AÇIK, kiriş düzeni parametreli fikstür. */
+  const kur = (girderArrangement: TechnicalSpecs["girderArrangement"]) => {
+    const specs: TechnicalSpecs = { ...BASE, girderArrangement };
+    const aktif = activeModules(specs, OFF_AUX_ON);
+    const input = { ...NEW_WORK_TEMPLATE, specs };
+    for (const key of MODULE_ORDER) {
+      if (aktif.has(key)) continue;
+      delete (input as unknown as Record<string, unknown>)[CALC_FIELD[key]];
+    }
+    return { specs, aktif, input, result: runCalc(input) };
+  };
+
+  it("ikinci takım YALNIZ dört kirişli düzende hesaba girer", () => {
+    expect(kur("iki").aktif.has("girder2")).toBe(false);
+    expect(kur("dort").aktif.has("girder2")).toBe(true);
+    // Alan hiç verilmemişse (eski revizyon) düzen "iki" okunur.
+    expect(activeModules(BASE, OFF_AUX_ON).has("girder2")).toBe(false);
+  });
+
+  it("Ana Kiriş - 2 YARDIMCI kaldırma yükünü taşır, birincisi ANA kaldırmayı", () => {
+    const { specs, result } = kur("dort");
+    const bir = result.girder!.cells["load.hoistLoad"] as number;
+    const iki = result.girder2!.cells["load.hoistLoad"] as number;
+    expect(bir).toBeCloseTo(specs.mainCapacityT * 1000, 6);
+    expect(iki).toBeCloseTo(specs.auxCapacityT * 1000, 6);
+    // Fikstürde iki kapasite farklıdır; aynı olsaydı test hiçbir şey kanıtlamazdı.
+    expect(specs.mainCapacityT).not.toBe(specs.auxCapacityT);
+  });
+
+  it("köprü öz ağırlığı DÖRT kirişe paylaştırılır", () => {
+    const iki = kur("iki").result.girder!.cells["load.bridgeDeadWeight"] as number;
+    const dort = kur("dort").result.girder!.cells["load.bridgeDeadWeight"] as number;
+    expect(dort).toBeCloseTo(iki / 2, 6);
+  });
+
+  it("iki takımın kontrolleri AYRI kimlik taşır (biri diğerini ezmez)", () => {
+    const { result } = kur("dort");
+    const bir = result.girder!.checks.map((c) => c.id);
+    const iki = result.girder2!.checks.map((c) => c.id);
+    expect(bir).toContain("girder.stress.case1");
+    expect(iki).toContain("girder2.stress.case1");
+    expect(bir.some((id) => iki.includes(id))).toBe(false);
+  });
+
+  it("buruşma BİRİNCİ takımdan beslenir — ikinci takım onu ezmez", () => {
+    const { result } = kur("dort");
+    // Buruşma paneli ana kirişin kesitinden türetilir; ikinci takım açıldığında
+    // panel ölçüsü değişmemelidir (kesitleri başlangıçta aynıdır ama kaynak
+    // BİRİNCİ takımdır ve bu bilinçlidir).
+    const tek = kur("iki").result.buckling;
+    expect(result.buckling?.cells["sidePanel.width"]).toBe(
+      tek?.cells["sidePanel.width"]
+    );
+  });
+});

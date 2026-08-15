@@ -149,6 +149,7 @@ export default async function ProjectPage({
     doc_no: project.doc_no,
     name: project.name,
     customer: project.customer,
+    crane_type: (project.crane_type as string | null) ?? null,
     job_id: (project.job_id as string | null) ?? null,
     job_no: job?.job_no ?? null,
     hasIssuedRevision: revisionList.some((r) => r.status === "issued"),

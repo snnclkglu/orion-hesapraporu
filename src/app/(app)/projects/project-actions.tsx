@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 // Saf yardımcı — kod önizlemesi ile basılan belge AYNI fonksiyondan çıkar.
 import { docCode } from "@/lib/pdf/doc-naming";
+import { DEFAULT_CRANE_TYPE, craneTypeOptions } from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 
 export interface ProjectSummary {
@@ -39,6 +40,12 @@ export interface ProjectSummary {
   doc_no: string;
   name: string;
   customer: string;
+  /**
+   * Vinç tipi — proje bilgisi penceresinden DEĞİŞTİRİLEBİLİR (kullanıcı kararı,
+   * 15.08.2026). Alan bir süre yalnız açılışta soruluyordu; yanlış tiple açılmış
+   * bir raporu düzeltmenin yolu raporu kopyalamaktı.
+   */
+  crane_type?: string | null;
   job_id: string | null;
   /** Bağlı işin numarası — iş arşivlenmişse seçenek listesinde görünmesi için */
   job_no?: string | null;
@@ -258,10 +265,12 @@ export function EditProjectDetailsDialog({
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(project.name);
   const [customer, setCustomer] = useState(project.customer);
+  const [craneType, setCraneType] = useState(project.crane_type || DEFAULT_CRANE_TYPE);
+  const craneTypes = useMemo(() => craneTypeOptions(project.crane_type), [project.crane_type]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const input: ProjectDetailsInput = { name, customer };
+    const input: ProjectDetailsInput = { name, customer, crane_type: craneType };
     startTransition(async () => {
       const result = await updateProjectDetails(project.id, input);
       if (result?.error) {
@@ -279,8 +288,8 @@ export function EditProjectDetailsDialog({
         <DialogHeader>
           <DialogTitle>Proje Bilgilerini Düzenle</DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{project.doc_no}</span> için proje / iş adı ve müşteri
-            bilgisi güncellenir.
+            <span className="font-mono">{project.doc_no}</span> için proje / iş adı, müşteri
+            ve vinç tipi güncellenir.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -301,6 +310,21 @@ export function EditProjectDetailsDialog({
               onChange={(e) => setCustomer(adBuyuk(e.target.value))}
               required
             />
+          </div>
+          {/* Vinç tipi: hesap bölümlerini doğrudan açmaz (topoloji kararı
+              Teknik Özellikler'dedir) ama rapor kapağına ve listeye basılır. */}
+          <div className="grid gap-2">
+            <Label htmlFor="project_crane_type">Vinç Tipi</Label>
+            <Select value={craneType} onValueChange={setCraneType}>
+              <SelectTrigger id="project_crane_type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {craneTypes.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

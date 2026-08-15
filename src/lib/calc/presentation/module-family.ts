@@ -29,6 +29,7 @@ export type ModuleKey =
   | "bridge"
   | "wheelLoads"
   | "girder"
+  | "girder2"
   | "buckling"
   | "endCarriage"
   | "cabin";
@@ -59,6 +60,9 @@ const FAMILY: Record<ModuleKey, ModuleFamily> = {
   bridge: "travel",
   wheelLoads: "wheelLoads",
   girder: "girder",
+  // İkinci ana kiriş takımı AYNI aileyi kullanır: aynı hesap, aynı sunum
+  // tanımları, aynı kontrol bağlantı haritası.
+  girder2: "girder",
   buckling: "buckling",
   endCarriage: "endCarriage",
   cabin: "cabin",
@@ -88,6 +92,7 @@ export const MODULE_ORDER: readonly ModuleKey[] = [
   // bölümlerinden önce verir.
   "wheelLoads",
   "girder",
+  "girder2",
   "buckling",
   "endCarriage",
   // Kabin ve elektrik odası en sonda: hesabın hiçbir bölümünü beslemez,

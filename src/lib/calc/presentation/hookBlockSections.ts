@@ -320,81 +320,125 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
   },
   {
     id: "4.6",
-    title: "Kaldırma Kirişi ve Yorulma",
+    title: "Kaldırma Kirişi",
     description:
-      "Kanca bloğunun kaldırma kirişi: kutu kesit özellikleri, DIN 15018 Tablo 2 " +
-      "dinamik katsayısı ψ ile statik gerilmeler ve DIN 15018 yorulma kontrolü. " +
-      "Yorulma izin gerilmeleri Tablo 17'den (malzeme × çentik sınıfı × yük grubu), " +
-      "gerilme oranına göre düzeltme Tablo 18'den alınır. ψ katsayısının k ve l " +
-      "terimleri serbest sayı değildir: teknik özelliklerdeki kaldırma sınıfının " +
-      "(H1…H4) Tablo 2 satırıdır.",
+      "Kanca bloğunun kaldırma kirişi. Kiriş İKİ UÇTAN askıdadır ve İKİ " +
+      "NOKTADAN yüklüdür; geometri teknik resimdeki x · y · z ölçü zinciriyle " +
+      "verilir ve açıklık L = x + y + z olarak türetilir. İki kesit hesaplanır: " +
+      "KESİT 1 açıklık ortasıdır (eğilme momenti tepe yapar), KESİT 2 mesnet " +
+      "ile yük noktası arasıdır (kesme kuvveti tepe yapar). Statik gerilmeler " +
+      "DIN 15018 Tablo 2 dinamik katsayısı ψ ile büyütülür; ψ'nin k ve l " +
+      "terimleri serbest sayı değildir, teknik özelliklerdeki kaldırma " +
+      "sınıfının (H1…H4) Tablo 2 satırıdır. Yorulma kontrolü ayrı bölümdedir.",
     inputKeys: [
-      "girderSpanMm", "loadOffsetMm",
+      "beamXMm", "beamYMm", "beamZMm",
       "midTopPlateThkMm", "midTopPlateWidthMm", "midWebPlateThkMm", "midWebPlateHeightMm",
       "midBottomPlateThkMm", "midBottomPlateWidthMm",
       "thickTopPlateThkMm", "thickTopPlateWidthMm", "thickWebPlateThkMm", "thickWebPlateHeightMm",
       "thickBottomPlateThkMm", "thickBottomPlateWidthMm",
-      "loadGroup", "notchClass", "fatigueMaterial",
+      "fatigueMaterial",
       "dynamicFactorKOverride", "dynamicFactorLOverride",
     ],
     selectionKeys: [],
     rows: [
       {
-        key: "girder.forceMax", label: "Maksimum Kuvvet", formula: "F_max = G_toplam / 2",
+        key: "girder.span", label: "Kiriş Açıklığı L", formula: "L = x + y + z",
+        subst: (x) => `${n(x.inp.beamXMm)} + ${n(x.inp.beamYMm)} + ${n(x.inp.beamZMm)}`,
+        unit: "mm",
+      },
+      {
+        key: "girder.forceMax", label: "Askı Başına Maksimum Kuvvet", formula: "F_max = G_toplam / 2",
         subst: (x) => `${n(x.deps.totalLoadKg)} / 2`, unit: "kg",
       },
       {
-        key: "girder.forceMin", label: "Minimum Kuvvet",
+        key: "girder.forceMin", label: "Askı Başına Minimum Kuvvet",
         formula: "F_min = (G_blok + G_halat) / 2",
         subst: (x) => `(${n(x.deps.hookBlockWeightKg)} + ${n(x.deps.ropeWeightKg)}) / 2`,
         unit: "kg",
       },
       {
-        key: "girder.momentMax", label: "Maksimum Moment", formula: "M_maks = F_max · b / 10",
-        subst: (x) => `${n(num(x.c["girder.forceMax"]))} · ${n(x.inp.loadOffsetMm)} / 10`,
+        key: "girder.reactionA", label: "Mesnet Tepkisi R_A (Sol Askı)",
+        formula: "R_A = ΣF·(L − x_i) / L",
+        subst: (x) =>
+          `2 × ${n(num(x.c["girder.forceMax"]))} kg · konumlar [${n(x.inp.beamXMm)}; ${n(x.inp.beamXMm + x.inp.beamYMm)}] mm`,
+        unit: "kg",
+      },
+      {
+        key: "girder.reactionB", label: "Mesnet Tepkisi R_B (Sağ Askı)",
+        formula: "R_B = 2·F_max − R_A",
+        subst: (x) =>
+          `2 · ${n(num(x.c["girder.forceMax"]))} − ${n(num(x.c["girder.reactionA"]))}`,
+        unit: "kg",
+      },
+      {
+        key: "girder.momentMax", label: "Maksimum Moment (Kesit 1)",
+        formula: "M_maks = maks[ R_A·x − ΣF·(x − x_i) ]",
+        subst: (x) =>
+          `R_A = ${n(num(x.c["girder.reactionA"]))} kg · L = ${n(num(x.c["girder.span"]))} mm`,
         unit: "kg·cm",
       },
       {
-        key: "girder.momentMin", label: "Minimum Moment", formula: "M_min = F_min · b / 10",
-        subst: (x) => `${n(num(x.c["girder.forceMin"]))} · ${n(x.inp.loadOffsetMm)} / 10`,
+        key: "girder.momentSection2", label: "Yük Noktasındaki Moment (Kesit 2)",
+        formula: "M_2 = M(x_yük)",
+        subst: (x) => `x = ${n(x.inp.beamXMm)} mm  ·  z = ${n(x.inp.beamZMm)} mm`,
         unit: "kg·cm",
       },
       {
-        key: "girder.midUnitWeight", label: "Birim Ağırlık (Orta Kesit)",
+        key: "girder.shearMax", label: "Maksimum Kesme Kuvveti (Kesit 2)",
+        formula: "V_maks = maks(R_A ; R_B)",
+        subst: (x) =>
+          `maks(${n(num(x.c["girder.reactionA"]))} ; ${n(num(x.c["girder.reactionB"]))})`,
+        unit: "kg",
+      },
+      {
+        key: "girder.shearSection1", label: "Askılar Arası Kesme (Kesit 1)",
+        formula: "V_1 = |R_A − F_max|   (simetrik askıda 0)",
+        subst: (x) =>
+          `|${n(num(x.c["girder.reactionA"]))} − ${n(num(x.c["girder.forceMax"]))}|`,
+        unit: "kg",
+      },
+      {
+        key: "girder.momentMin", label: "Minimum Moment (Boş Kiriş)",
+        formula: "M_min = aynı geometri, F_min ile",
+        subst: (x) => `F_min = ${n(num(x.c["girder.forceMin"]))} kg`,
+        unit: "kg·cm",
+      },
+      {
+        key: "girder.midUnitWeight", label: "Birim Ağırlık (Kesit 1)",
         formula: "G = ΣA_sac · 7,85 / 10³",
         subst: (x) => `((${n(x.inp.midTopPlateThkMm)}·${n(x.inp.midTopPlateWidthMm)}) + 2·(${n(x.inp.midWebPlateThkMm)}·${n(x.inp.midWebPlateHeightMm)}) + (${n(x.inp.midBottomPlateThkMm)}·${n(x.inp.midBottomPlateWidthMm)})) · 7,85 / 10³`,
         unit: "kg/m",
       },
       {
-        key: "girder.midInertia", label: "Atalet Momenti (Orta Kesit)",
+        key: "girder.midInertia", label: "Atalet Momenti (Kesit 1)",
         formula: "I = Σ(I₀ + A·y²)",
         subst: (x) => `2·(${n(x.inp.midWebPlateThkMm / 10)}·${n(x.inp.midWebPlateHeightMm / 10)}³/12) + başlık sacları (Steiner)`,
         unit: "cm⁴",
       },
       {
-        key: "girder.midSectionModulus", label: "Kesit Modülü (Orta Kesit)",
+        key: "girder.midSectionModulus", label: "Kesit Modülü (Kesit 1)",
         formula: "w = I / (h/2)",
         subst: (x) => `${n(num(x.c["girder.midInertia"]))} / ${n(x.inp.midWebPlateHeightMm / 20)}`,
         unit: "cm³",
       },
       {
-        key: "girder.midArea", label: "Kesit Alanı (Orta Kesit)", formula: "A = ΣA_sac",
+        key: "girder.midArea", label: "Kesit Alanı (Kesit 1)", formula: "A = ΣA_sac",
         subst: (x) => `${n(num(x.c["girder.midArea"]))}`, unit: "cm²",
       },
       {
-        key: "girder.midWebArea", label: "Yan Sacların Alanı (Orta Kesit)",
+        key: "girder.midWebArea", label: "Yan Sacların Alanı (Kesit 1)",
         formula: "A_y = 2 · t_y · h",
         subst: (x) => `2 · ${n(x.inp.midWebPlateThkMm / 10)} · ${n(x.inp.midWebPlateHeightMm / 10)}`,
         unit: "cm²",
       },
       {
-        key: "girder.thickSectionModulus", label: "Kesit Modülü (Kalın Kesit)",
+        key: "girder.thickSectionModulus", label: "Kesit Modülü (Kesit 2)",
         formula: "w = I / (h/2)",
         subst: (x) => `${n(num(x.c["girder.thickInertia"]))} / ${n(x.inp.thickWebPlateHeightMm / 20)}`,
         unit: "cm³",
       },
       {
-        key: "girder.thickWebArea", label: "Yan Sacların Alanı (Kalın Kesit)",
+        key: "girder.thickWebArea", label: "Yan Sacların Alanı (Kesit 2)",
         formula: "A_y = 2 · t_y · h",
         subst: (x) => `2 · ${n(x.inp.thickWebPlateThkMm / 10)} · ${n(x.inp.thickWebPlateHeightMm / 10)}`,
         unit: "cm²",
@@ -408,19 +452,48 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         digits: 3, standard: "DIN 15018 Tablo 2",
       },
       {
-        key: "girder.bendingStress", label: "Eğilme Gerilmesi", formula: "σ = M_maks · ψ / w",
+        key: "girder.bendingStress", label: "Eğilme Gerilmesi (Kesit 1)",
+        formula: "σ₁ = M_maks · ψ / w₁",
         subst: (x) => `${n(num(x.c["girder.momentMax"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.midSectionModulus"]))}`,
         unit: "kg/cm²",
       },
       {
-        key: "girder.shearStress", label: "Kesme Gerilmesi",
-        formula: "τ = F_max · ψ / A_y (kalın kesit)",
-        subst: (x) => `${n(num(x.c["girder.forceMax"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.thickWebArea"]))}`,
+        key: "girder.section1ShearStress", label: "Kesme Gerilmesi (Kesit 1)",
+        formula: "τ₁ = V₁ · ψ / A_y1",
+        subst: (x) => `${n(num(x.c["girder.shearSection1"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.midWebArea"]))}`,
         unit: "kg/cm²",
       },
       {
-        key: "girder.combinedStress", label: "Bileşik Gerilme", formula: "σ_bil = √(σ² + 3τ²)",
-        subst: (x) => `√(${n(num(x.c["girder.bendingStress"]))}² + 3·${n(num(x.c["girder.shearStress"]))}²)`,
+        key: "girder.section1CombinedStress", label: "Bileşik Gerilme (Kesit 1)",
+        formula: "σ_bil,1 = √(σ₁² + 3τ₁²)",
+        subst: (x) => `√(${n(num(x.c["girder.bendingStress"]))}² + 3·${n(num(x.c["girder.section1ShearStress"]))}²)`,
+        unit: "kg/cm²",
+      },
+      {
+        key: "girder.section2BendingStress", label: "Eğilme Gerilmesi (Kesit 2)",
+        formula: "σ₂ = M₂ · ψ / w₂",
+        subst: (x) => `${n(num(x.c["girder.momentSection2"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.thickSectionModulus"]))}`,
+        unit: "kg/cm²",
+      },
+      {
+        key: "girder.shearStress", label: "Kesme Gerilmesi (Kesit 2)",
+        formula: "τ₂ = V_maks · ψ / A_y2",
+        subst: (x) => `${n(num(x.c["girder.shearMax"]))} · ${n(num(x.c["girder.dynamicFactor"]), 3)} / ${n(num(x.c["girder.thickWebArea"]))}`,
+        unit: "kg/cm²",
+      },
+      {
+        key: "girder.section2CombinedStress", label: "Bileşik Gerilme (Kesit 2)",
+        formula: "σ_bil,2 = √(σ₂² + 3τ₂²)",
+        subst: (x) => `√(${n(num(x.c["girder.section2BendingStress"]))}² + 3·${n(num(x.c["girder.shearStress"]))}²)`,
+        unit: "kg/cm²",
+      },
+      {
+        key: "girder.combinedStress", label: "Kontrol Edilen Bileşik Gerilme (Zarf)",
+        // Zarf: en büyük eğilme ile en büyük kesme aynı kesitte olmasa da bir
+        // arada değerlendirilir — bilinçli olarak muhafazakârdır ve iki kesitin
+        // kendi bileşik gerilmelerinden küçük olamaz.
+        formula: "σ_bil = maks[ √(σ₁² + 3τ₂²) ; σ_bil,1 ; σ_bil,2 ]",
+        subst: (x) => `√(${n(num(x.c["girder.bendingStress"]))}² + 3·${n(num(x.c["girder.shearStress"]))}²) ile karşılaştırılır`,
         unit: "kg/cm²",
       },
       {
@@ -429,14 +502,30 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         subst: (x) => `${x.inp.fatigueMaterial} → ${n(x.v.allowableStaticStress)}`,
         unit: "kg/cm²", standard: "FEM 1.001 T.3.2.1.1",
       },
+    ],
+    checkSuffixes: ["girder.static"],
+  },
+  {
+    id: "4.7",
+    title: "Kaldırma Kirişi Yorulma",
+    description:
+      "Kaldırma kirişinin DIN 15018 yorulma kontrolü — Kesit 1 (açıklık ortası) " +
+      "üzerinden. Gerilme genliği tam yüklü (maks) ve boş (min) hâllerin " +
+      "oranından çıkar. İzin verilen gerilmeler Tablo 17'den (malzeme × çentik " +
+      "sınıfı × yük grubu), gerilme oranına göre düzeltme Tablo 18'den alınır. " +
+      "Statik gerilmelerin aksine YORULMADA ψ KULLANILMAZ: dinamik katsayı bir " +
+      "tepe yük büyütmesidir, gerilme kolektifi değildir.",
+    inputKeys: ["loadGroup", "notchClass"],
+    selectionKeys: [],
+    rows: [
       {
         key: "fatigue.sigmaMax", label: "σmax", formula: "σ_max = M_maks / w",
         subst: (x) => `${n(num(x.c["girder.momentMax"]))} / ${n(num(x.c["girder.midSectionModulus"]))}`,
         unit: "kg/cm²",
       },
       {
-        key: "fatigue.tauMax", label: "τmax", formula: "τ_max = F_max / A_y",
-        subst: (x) => `${n(num(x.c["girder.forceMax"]))} / ${n(num(x.c["girder.midWebArea"]))}`,
+        key: "fatigue.tauMax", label: "τmax", formula: "τ_max = V_maks / A_y",
+        subst: (x) => `${n(num(x.c["girder.shearMax"]))} / ${n(num(x.c["girder.midWebArea"]))}`,
         unit: "kg/cm²",
       },
       {
@@ -451,7 +540,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         unit: "kg/cm²",
       },
       {
-        key: "fatigue.tauMin", label: "τmin", formula: "τ_min = F_min / A_y",
+        key: "fatigue.tauMin", label: "τmin", formula: "τ_min = V_min / A_y",
         subst: (x) => `${n(num(x.c["girder.forceMin"]))} / ${n(num(x.c["girder.midWebArea"]))}`,
         unit: "kg/cm²",
       },
@@ -518,6 +607,6 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         digits: 4, standard: "DIN 15018 Bölüm 7.4.5",
       },
     ],
-    checkSuffixes: ["girder.static", "fatigue.sigma", "fatigue.tau", "fatigue.combined"],
+    checkSuffixes: ["fatigue.sigma", "fatigue.tau", "fatigue.combined"],
   },
 ];

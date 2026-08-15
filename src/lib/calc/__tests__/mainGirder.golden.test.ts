@@ -36,13 +36,27 @@ const run = (
     sel?: Partial<GirderSelections>;
     deps?: Partial<GirderDeps>;
   }
-) =>
-  computeMainGirder(
-    { ...V5_SPECS, ...o?.specs },
+) => {
+  const specs = { ...V5_SPECS, ...o?.specs };
+  return computeMainGirder(
+    specs,
+    // Tarihsel fikstür TEK ana kiriş takımıdır; ikinci takım (dört kirişli
+    // köprü) ayrı bir anahtarla koşar ve bu karşılaştırmaya girmez.
+    "girder",
     { ...V5_GIRDER_INPUTS, ...o?.inp },
     { ...V5_GIRDER_SELECTIONS, ...o?.sel },
-    { ...V5_GIRDER_DEPS, ...o?.deps }
+    {
+      ...V5_GIRDER_DEPS,
+      // Kirişin TAŞIDIĞI kaldırma grubu artık `deps`ten gelir (dört kirişli
+      // köprüde ikinci takım yardımcı kaldırmayı taşır). Bu fikstürde taşınan
+      // grup ANA kaldırmadır, yani iki alan teknik özelliklerden TÜRETİLİR —
+      // testlerin "kapasiteyi/hızı değiştir" kurgusu böylece korunur.
+      hoistLoadKg: specs.mainCapacityT * 1000,
+      liftSpeedMpm: specs.mainLiftSpeedMpm,
+      ...o?.deps,
+    }
   );
+};
 
 const cell = (r: ReturnType<typeof run>, k: string): number => {
   const v = r.cells[k];

@@ -83,19 +83,47 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     title: "Kesit Özellikleri",
     description:
       "Kutu kesit alanı, ağırlık merkezi, atalet ve mukavemet momentleri, burulma sabiti. " +
-      "Ray altı sacı b1, kirişin ortasında değil ray ekseninde oturur.",
+      "Ray altı sacı b1, kirişin ortasında değil ray ekseninde oturur. Büyük " +
+      "tonajlı vinçlerde rayın altına bir T PROFİL konabilir: yan sacı ray " +
+      "ekseninde ve üst sacının tam ortasında durur, kesit yüksekliği ve " +
+      "atalet momenti buna göre artar. Dört T ölçüsü de 0 ise profil yoktur.",
     depKeys: [],
-    inputKeys: ["t1Mm", "b1Mm", "t2Mm", "b2Mm", "t3Mm", "h3Mm", "t4Mm", "t5Mm", "b5Mm", "t6Mm", "b6Mm", "aMm", "xMm"],
+    inputKeys: [
+      "t1Mm", "b1Mm", "t2Mm", "b2Mm", "t3Mm", "h3Mm", "t4Mm", "t5Mm", "b5Mm",
+      "t6Mm", "b6Mm", "aMm", "xMm",
+      "railTProfileWebThkMm", "railTProfileWebHeightMm",
+      "railTProfileTopThkMm", "railTProfileTopWidthMm",
+    ],
     selectionKeys: [],
     rows: [
       {
-        key: "section.height", label: "Toplam Yükseklik h", formula: "h = t1 + t2 + h3 + t5 + t6",
+        key: "section.boxHeight", label: "Kutu Yüksekliği (T Profil Hariç)",
+        formula: "h_kutu = t1 + t2 + h3 + t5 + t6",
         subst: (x) => `${n(x.inp.t1Mm)} + ${n(x.inp.t2Mm)} + ${n(x.inp.h3Mm)} + ${n(x.inp.t5Mm)} + ${n(x.inp.t6Mm)}`,
         unit: "mm",
       },
       {
+        key: "section.height", label: "Toplam Yükseklik h",
+        formula: "h = h_kutu + h_T + t_T   (T profil varsa)",
+        subst: (x) =>
+          `${n(num(x.c["section.boxHeight"]))} + ${n(x.inp.railTProfileWebHeightMm ?? 0)} + ${n(x.inp.railTProfileTopThkMm ?? 0)}`,
+        unit: "mm",
+      },
+      {
+        key: "section.areaTProfileWeb", label: "T Profil Yan Sac Alanı",
+        formula: "A_T,yan = t_T,yan · h_T",
+        subst: (x) => `${n(x.inp.railTProfileWebThkMm ?? 0)} · ${n(x.inp.railTProfileWebHeightMm ?? 0)}`,
+        unit: "mm²",
+      },
+      {
+        key: "section.areaTProfileTop", label: "T Profil Üst Sac Alanı",
+        formula: "A_T,üst = t_T,üst · b_T",
+        subst: (x) => `${n(x.inp.railTProfileTopThkMm ?? 0)} · ${n(x.inp.railTProfileTopWidthMm ?? 0)}`,
+        unit: "mm²",
+      },
+      {
         key: "section.area", label: "Kesit Alanı A", formula: "A = Σ(ti · bi) · 0,01",
-        subst: (x) => `(${n(num(x.c["section.areaTopFlange"]))} + ${n(num(x.c["section.areaTopInnerFlange"]))} + ${n(num(x.c["section.areaMainWeb"]))} + ${n(num(x.c["section.areaSecondaryWeb"]))} + ${n(num(x.c["section.areaBottomFlange"]))} + ${n(num(x.c["section.areaExtraFlange"]))}) · 0,01`,
+        subst: (x) => `(${n(num(x.c["section.areaTopFlange"]))} + ${n(num(x.c["section.areaTopInnerFlange"]))} + ${n(num(x.c["section.areaMainWeb"]))} + ${n(num(x.c["section.areaSecondaryWeb"]))} + ${n(num(x.c["section.areaBottomFlange"]))} + ${n(num(x.c["section.areaExtraFlange"]))} + ${n(num(x.c["section.areaTProfileWeb"]))} + ${n(num(x.c["section.areaTProfileTop"]))}) · 0,01`,
         unit: "cm²",
       },
       {
@@ -133,8 +161,11 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         subst: (x) => `10 · ${n(num(x.c["section.inertiaZ"]))} / ${n(num(x.c["section.centroidY"]))}`, unit: "cm³",
       },
       {
-        key: "section.modulusZTop", label: "Mukavemet Momenti Wzz (Üst)", formula: "Wzz,üst = 10 · Izz / (b2 − Cy)",
-        subst: (x) => `10 · ${n(num(x.c["section.inertiaZ"]))} / (${n(x.inp.b2Mm)} − ${n(num(x.c["section.centroidY"]))})`, unit: "cm³",
+        key: "section.modulusZTop", label: "Mukavemet Momenti Wzz (Üst)",
+        // Yataydaki dış lif normalde b2 kenarıdır; T profilin üst sacı b2'yi
+        // aşarsa dış lif ODUR — aksi hâlde Wzz olduğundan büyük çıkardı.
+        formula: "Wzz,üst = 10 · Izz / (y_dış − Cy),  y_dış = maks(b2 ; y_ray + b_T/2)",
+        subst: (x) => `10 · ${n(num(x.c["section.inertiaZ"]))} / (maks(${n(x.inp.b2Mm)} ; ${n(num(x.c["section.railCenterY"]))} + ${n((x.inp.railTProfileTopWidthMm ?? 0) / 2)}) − ${n(num(x.c["section.centroidY"]))})`, unit: "cm³",
       },
       {
         key: "section.inertiaTorsion", label: "Burulma Sabiti Ixx", formula: "Ixx = 4·(b·h)² / Σ(si/ti)  [kapalı kutu]",

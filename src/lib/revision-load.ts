@@ -39,6 +39,7 @@ export interface RevisionInputsJson {
   mono2Trolley?: TravelInputs | null;
   bridge?: TravelInputs | null;
   girder?: GirderInputs | null;
+  girder2?: GirderInputs | null;
   buckling?: BucklingInputs | null;
   endCarriage?: EndCarriageInputs | null;
   cabin?: CabinInputs | null;
@@ -61,6 +62,7 @@ export interface RevisionSelectionsJson {
   mono2Trolley?: TravelSelections | null;
   bridge?: TravelSelections | null;
   girder?: GirderSelections | null;
+  girder2?: GirderSelections | null;
   endCarriage?: EndCarriageSelections | null;
   cabin?: CabinSelections | null;
   alts?: RevisionAlts;
@@ -190,6 +192,7 @@ export const CALC_FIELD: Record<ModuleKey, keyof CalcInput> = {
   bridge: "bridge",
   wheelLoads: "wheelLoads",
   girder: "girder",
+  girder2: "girder2",
   buckling: "buckling",
   endCarriage: "endCarriage",
   cabin: "cabin",
@@ -400,6 +403,46 @@ export function migrateDrumShaftUnits<T extends object>(
   return changed ? (out as T) : merged;
 }
 
+/**
+ * Kaldırma kirişi geometrisi ESKİDEN İKİ SAYIYDI: `girderSpanMm` (açıklık a) ve
+ * `loadOffsetMm` (yükün mesnede uzaklığı b). Yeni model teknik resmin ölçü
+ * zincirini kullanır (x · y · z) ve asimetrik askıyı da modelleyebilir.
+ *
+ * `withDefaults` AD BAZLI çalışır: eski kayıttaki a/b alanlarını tanımaz ve yeni
+ * x/y/z alanlarını ŞABLON DEĞERİNE düşürür — mühendisin girdiği kiriş sessizce
+ * başka bir kiriş olurdu. Göç bu yüzden ZORUNLUDUR ve eski modelin SİMETRİK
+ * karşılığını yazar:
+ *
+ *     x = z = b        y = a − 2b   (negatifse 0)
+ *
+ * Bu dönüşüm sonuçları değiştirmez: simetrik askıda M = F·b ve V = F, yani eski
+ * formüllerin verdiği sayıların ta kendisi.
+ *
+ * Göç yalnız kayıtta `beamXMm` YOKKEN ve eski alanlardan biri VARKEN uygulanır;
+ * yeni kayıtlar dokunulmadan geçer.
+ */
+export function migrateLiftingBeam<T extends object>(
+  stored: object | null | undefined,
+  merged: T
+): T {
+  if (!stored || typeof stored !== "object") return merged;
+  const rec = stored as Record<string, unknown>;
+  if ("beamXMm" in rec) return merged;
+  const num = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
+  const span = num(rec.girderSpanMm);
+  const offset = num(rec.loadOffsetMm);
+  if (span === undefined && offset === undefined) return merged;
+  const b = offset ?? 0;
+  const a = span ?? 0;
+  return {
+    ...merged,
+    beamXMm: b,
+    beamYMm: Math.max(0, a - 2 * b),
+    beamZMm: b,
+  } as T;
+}
+
 /** Tüm bölümleri (kapalılar dâhil) şablonla tamamlanmış olarak kurar. */
 /**
  * Feston, teknik özellikte tutulan bir "ön seçim kartı" iken yürütme grubunun
@@ -554,9 +597,12 @@ function fullInput(
       // yoksa değer elle girilmiştir ve türetme onu ezmemelidir.
       inputs: keepManualValues(
         storedModuleInputs,
-        migrateDrumShaftUnits(
+        migrateLiftingBeam(
           storedModuleInputs,
-          withDefaults(storedModuleInputs, tpl.inputs)
+          migrateDrumShaftUnits(
+            storedModuleInputs,
+            withDefaults(storedModuleInputs, tpl.inputs)
+          )
         )
       ),
     };

@@ -88,6 +88,10 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   kalıyor mu, satır ikiye bölünüyor mu
 - `npx tsx scripts/test-safety-brake-diagram.tsx` — emniyet freni şemasını altı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
+- `npx tsx scripts/test-lifting-beam-diagram.tsx` — kaldırma kirişinin üç
+  şemasını (görünüş · moment · kesitler) SİMETRİK ve ASİMETRİK askıyla üret
+  (SVG + PNG). İkinci fikstür olmadan "Kesit 1'in kesmesi sıfır değildir" hâli
+  hiç görülmez
 - `python scripts/catalog-sheets.py [--verify] [--only <tür>]` — katalog
   sayfalarını kaynak PDF'lerden kes; `--verify` yalnız haritayı sınar
 - `npx tsx scripts/make-icons.ts` — sekme ve uygulama ikonlarını MARKA
@@ -1812,9 +1816,85 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     İHTİYAÇ, plaka `SAC 10 X 1500 X 6000 ST37` bir ÜRÜNdür); eşleşme şart
     koşulduğu sürece kullanıcının yerleşim ekranından açtığı teklif
     karşılaştırma sayfasında hiç görünmüyordu. Kalem künyesi artık havuz varsa
-    ondan, yoksa TEKLİFİN KENDİ `sample`ından okunur; miktar o zaman
-    BİLİNMEZ ve uydurulmaz (`null` → tutar sütunu tire, karşılaştırma birim
-    fiyat üzerinden), sınıf ise stok adından çözülür (`alimKategorisi`).
+    ondan, yoksa TEKLİFİN KENDİ `sample`ından okunur; sınıf stok adından
+    çözülür (`alimKategorisi`).
+
+    ═══════════════════════════ DÖRDÜNCÜ TUR — "TEKLİFLER" (15.08.2026)
+
+    Kullanıcı bildirimi ve isteği tek cümlede: *"Plaka teklifi aç dediğimde
+    açılan pop-up'ta teklif detayları düzgün gelmiyor. Fiyat girdiğimde de
+    teklif karşılaştırma bölümüne düşmüyor, ancak tekliflere kaydedildi diye
+    uyarı geliyor. … Birkaç firmadan aynı teklifi aldığımda burada
+    görebileyim. Teklifin üstüne tıkladığımda bir pop up açılsın ve hangi firma
+    ne teklif verdi görebileyim. … teklifi düzenle, teklifi ayır, birleştir vb
+    özellikler de olmalı."*
+
+    **DÜZELTME BİR KAT AŞAĞIDAYDI VE ÖLÜ KOD BIRAKMIŞTI.** Yukarıdaki
+    "eşleşme şart koşmaz" kuralı SAYFADA uygulanmıştı ama SORGUDA değil:
+    `loadTeklifPartileri` teklifleri yalnız `in("match_key", havuzAnahtarlari)`
+    ile istiyordu ve plaka anahtarı orada olmadığı için satır daha
+    veritabanında eleniyordu — sayfanın yedeği hiç çalışmıyordu. Canlı veriyle
+    ölçüldü (15.08.2026): eski yol 1 satır, yeni yol 6 satır getiriyor ve
+    aradaki fark tam olarak kullanıcının girdiği iki plaka teklifidir (TK0006
+    `SAC 12 X 1500 X 3000 S235JR`, TK0007 `SAC 5 X 2000 X 12000 BDS`).
+    Okuma artık İKİ KÜMEYİ BİRLEŞTİRİR: anahtarı havuzda geçen satırlar ∪
+    kapsamı bu ekran olan PARTİLERİN satırları. Kapsam tek başına da yetmezdi:
+    devralınan kodsuz satırların partisi yoktur. **Süzgeçler tek bir `or(...)`
+    dizgisinde birleştirilmez** — PostgREST'in `or` sözdiziminde değerler metin
+    olarak gömülüdür ve `match_key` içinde virgül/parantez geçebilir; iki ayrı
+    sorgu + kimlikle tekilleştirme o riski hiç doğurmaz.
+
+    **DEVRALINAN PARTİNİN KAPSAMI 'hammadde' DEĞİL, BİLİNMİYOR.**
+    20260815000004 var olan bütün tekliflere parti verdi ve `scope`
+    varsayılanı 'hammadde' olduğu için hepsi hammadde damgası aldı; ölçüldü,
+    o partilerin ikisi de EKİPMAN teklifidir. 'ekipman' yazmak da bir tahmin
+    olurdu: üçüncü bir değer (`devralinan`) yazılır ve o partiler yalnız
+    KALEMİ bir havuzda karşılık bulduğunda görünür — anahtar hangi havuza
+    düşüyorsa oraya (migration 20260815000007).
+
+    **TEKLİF ARTIK BİR TALEPTİR** (`purchase_quote_requests`, `TT0001`).
+    "Aynı teklifi birkaç firmadan almak" cümlesi, ekranda satır olması gereken
+    şeyin FİRMANIN CEVABI değil SORULAN SORU olduğunu söylüyor. Parti
+    KALDIRILMADI (fiyat arşivi, kazanan işareti ve iptal damgası ona bağlı;
+    ayrıca "hangi firma ne dedi"nin cevabı odur) — talep onun ÜSTÜNE bir
+    kattır ve `on delete set null` taşır.
+    · **EŞLEŞME İMZADAN, SORUDAN DEĞİL**: talep, teklifin KALEM KÜMESİNİN
+      kanonik metnidir (`lib/purchasing/talep.ts:talepImzasi`; SQL karşılığı
+      migration'daki `string_agg(distinct … collate "C")`). Üç firmaya aynı
+      listeyi gönderen kullanıcıya üç kez "bu hangi talep" diye sormak, her
+      teklif girişine bir soru eklemek olurdu. İki tarafın imzası ayrışırsa
+      ZARAR YOKTUR: yalnız yeni bir talep açılır ve kullanıcı birleştirir.
+    · **BİRLEŞTİR TALEP DÜZEYİNDE, AYNI FİRMA ŞARTI YOK** — parti
+      birleştirmesindeki şart (`mergeQuoteBatches`) başka bir sorunun
+      cevabıdır ve pencerenin içinde durur. **AYIR** (`splitQuoteBatch`) bir
+      firmanın cevabını talebin dışına çıkarır; yeni talep `kapali` açılır,
+      yoksa aynı imzalı bir sonraki teklif oraya geri düşer ve ayırma
+      kendiliğinden geri alınırdı. Boşalan talep SİLİNİR.
+    · Ekran iki katmandır: LİSTE (`quotes-view.tsx` — hangi teklife bakacağım)
+      ve PENCERE (`request-dialog.tsx` — ne kadar). Matris sayfanın gövdesinde
+      dururken iki teklif yan yana okunamıyordu. Sekmenin adı da değişti:
+      "Teklif Karşılaştırma" → **"Teklifler"**.
+
+    **TEKLİFTE MİKTAR ARTIK GÖRÜNÜR — VE İSTİSNANIN GEREKÇESİ YAZILIDIR.**
+    "Adet sorulmaz" kuralı *"adet zaten havuzda yazar"*a dayanıyordu ve
+    dayanak PLAKADA ÇÖKER: plakanın havuzda karşılığı yoktur, kilo yalnız
+    yerleşim yapıldıktan sonra bilinir. Pencere miktarı SORMAZ, geldiği
+    ekrandan (havuz satırı ya da kesim planı) taşır ve salt okunur bir künye
+    olarak gösterir; tutar ve toplam ondan çıkar (proforma: `3.537 KG × 0,690
+    USD`). Kayıtta `qty`/`unit` bir YEDEKtir: `teklifMiktari` havuz
+    konuşuyorsa havuzu okur — iki kaynak yine yoktur.
+
+    **MİKTAR KURALI ÜÇ EKRANDA AYRI YAZILMIŞTI VE AYRIŞMIŞTI**: havuz tablosu
+    `Math.ceil`, teklif karşılaştırması `Math.round` kullanıyordu ve aynı kalem
+    bir ekranda 361 kg, öbüründe 360 kg görünebiliyordu. Kural çekirdeğe indi
+    (`havuz.ts:stokMiktari`) ve YUKARI YUVARLAR — eksik sipariş verdiren bir
+    yuvarlama, fazladan bir kilodan pahalıdır.
+
+    **BURADAN VERİLEN PLAKA SİPARİŞİ PAKET İŞARETİ YAZMAZ ve bu SÖYLENİR.**
+    Pay listesi yalnız havuzda karşılığı olan kalemde doludur; bir plaka
+    onlarca parçanın kaynağıdır ve o bağ ancak kesim planı yapılırken bilinir
+    (yerleşim ekranı sipariş açarken onu yazar). Pencere satırın altında
+    uyarır — sessizlik burada bir güvence sanılırdı.
 
     ═══════════════════════════ SAC · PROFİL · RAY ALIM ANALİZİ (15.08.2026)
 
@@ -2554,6 +2634,45 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     **basınç yönüne göre** seçilir — mutlak değerle sıralamak çekme baskın
     panellerde kontrolü sessizce düşürür.
 
+8b. **Köprü İKİ ya da DÖRT kirişli olabilir.** `specs.girderArrangement`
+   (`iki` | `dort`) ikinci bir ana kiriş bölümü açar: **Ana Kiriş - 1 ANA
+   kaldırmayı, Ana Kiriş - 2 YARDIMCI kaldırmayı taşır** (kullanıcı kararı,
+   15.08.2026 — şarj / döküm vinci). VİNÇ TİPİ (`projects.crane_type`) bu
+   kararı VERMEZ: tip bir künye alanıdır ve motora hiç girmez; bütün topoloji
+   kararları teknik özelliklerdedir.
+
+   Hangi kirişin neyi taşıdığı MODÜLÜN İÇİNDE DEĞİL bağlayıcıda kurulur
+   (`engine.girderDepsFor`): `computeMainGirder` artık `specs.mainCapacityT` /
+   `mainLiftSpeedMpm` okumaz, taşıdığı yükü `deps.hoistLoadKg` ve
+   `deps.liftSpeedMpm` ile alır. Köprü öz ağırlığı `deps.girdersInBridge`e (2
+   ya da 4) bölünür. Kontrol kimlikleri modül anahtarını taşır
+   (`${which}.stress.case1`), sunum tarafı ise AYNI aileyi paylaşır — bölüm
+   tanımları, kontrol bağlantı haritası ve 7.x şemalarının tamamı ikinci
+   takımda kendiliğinden çalışır. **Buruşma BİRİNCİ takımdan beslenir** ve
+   tektir; ikinci takımın buruşması bilinçli olarak kapsam dışıdır.
+
+   Başlıklar teknik özelliklere göre çözülür (`adapterTitle` /
+   `moduleLabelFor`): tek takımda sade "Ana Kiriş", dört kirişlide
+   "Ana Kiriş - 1" / "Ana Kiriş - 2".
+
+8c. **Ana kirişte ray altına T PROFİL konabilir** (büyük tonajlı vinçler).
+   Dört girdi (`railTProfile*`); dördü de 0 ise profil yoktur ve kesit bugünkü
+   hâliyle çalışır. T kutunun ÜSTÜNE oturur — yan sac ray ekseninde, üst sac
+   onun tam ortasında, ray T'nin üst sacında — ve TAM KESİT HESABINA girer
+   (alan, Cz/Cy, Iyy/Izz, W, ağırlık, sehim). Burulmaya GİRMEZ: T açık bir
+   kesittir, Bredt akışı yalnız kutunun çeperinden geçer. Gövde kesme alanı ve
+   `webDepthAboveCentroid` KUTUNUN kendi yüksekliğinden (`boxHeightMm`) okunur.
+
+8d. **Kaldırma kirişi x · y · z ölçü zinciriyle tanımlıdır** (§4.6). Açıklık
+   L = x + y + z TÜRETİLİR; kiriş iki uçtan askıda, iki noktadan yüklüdür ve
+   `beam.ts` ile çözülür. KESİT 1 açıklık ortası (eğilme tepe), KESİT 2 mesnet
+   ile yük arası (kesme tepe); ikisinin de gerilmeleri hesaplanır ve kontrol
+   edilen değer ZARFtır. Eski model (a, b) bunun simetrik hâliydi ve
+   `migrateLiftingBeam` ile taşınır — simetrik askıda sonuçlar BİREBİR aynıdır.
+   Alan adları `mid`/`thick` KALDI (yeniden adlandırmak kayıtlı sac ölçülerini
+   şablona düşürürdü); değişen yalnız ekrandaki addır. Yorulma AYRI bölümdedir
+   (§4.7). Üç şema: görünüş · moment diyagramı · iki kesit (AYNI ölçekte).
+
 9. **Ağırlıklar teknik özelliktir.** Ana araba, yardımcı araba ve köprü
    ağırlıkları `TechnicalSpecs`te tutulur; yürütme, ana kiriş ve başkiriş
    hesapları oradan okur. Modül girdisi olarak ağırlık sorulmaz.
@@ -2824,6 +2943,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `terms.ts` (ödeme koşulu, avans, ödeme/teslim günü, dönem gruplama, avro,
   `DELIVERY_WEEKS` hızlı termin) ·
   `vat.ts` (KDV oranları ve üç toplam — sipariş ve sarf ORTAK kullanır) ·
+  `talep.ts` (TEKLİF TALEBİ: kalem kümesinin kanonik imzası — otomatik
+  eşleşmenin tek dayanağı; türetilmiş ad; `teklifMiktari` — havuz mu teklif mi
+  konuşur) ·
   `consumables.ts` (dense ay/yıl serisi, grup matrisi, anomali ve tedarikçi
   drilldown) · `consumable-key.ts` (SM tekillik anahtarı) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
@@ -2849,8 +2971,11 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   satırları okuma katmanı — ekipman havuzunun AYNADAKİ görüntüsü) · `raw-table.tsx`
   (tür kipi + değişken ölçü bloğu) · `raw-dialogs.tsx` (taşı/düzenle + yeni talep)
   · `yerlesim/` (plaka yerleşimi + alınacak plaka özeti + denetim; parametreler
-  adreste, `yerlesim/pdf/` kesim planı belgesi) · `teklifler/` (teklif
-  karşılaştırma matrisi, firmaya göre bölünmüş sipariş) · `export/` (Excel:
+  adreste, `yerlesim/pdf/` kesim planı belgesi) · `teklifler/` (TEKLİFLER:
+  `page.tsx` okuma + talep gruplaması · `quotes-view.tsx` liste ·
+  `request-dialog.tsx` firma karşılaştırma matrisi + ayır/birleştir/sipariş ·
+  `batch-dialog.tsx` bir firmanın teklifini düzenle · `types.ts` ortak
+  sözleşme) · `export/` (Excel:
   havuz + kesim listesi; PDF: fiyatsız hammadde talebi)
 - `src/lib/pdf/nesting-plan.tsx` — A4 YATAY kesim planı: alınacak plakalar,
   denetim özeti, plaka çizimleri ve parça listesi

@@ -362,6 +362,7 @@ export function ProjectsTable({
                         doc_no: p.doc_no,
                         name: p.name,
                         customer: p.customer,
+                        crane_type: p.crane_type,
                         job_id: p.job_id,
                         job_no: p.job_no,
                         hasIssuedRevision: p.hasIssuedRevision,

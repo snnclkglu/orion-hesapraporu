@@ -129,8 +129,32 @@ const WHEELS_PER_DRIVEN_AXLE = 2;
  */
 const TRACTION_LIMIT_DIVISOR = WHEELS_PER_DRIVEN_AXLE / WHEEL_FRICTION_COEFF; // = 14
 
+/**
+ * Ana kiriş takımı anahtarı.
+ *
+ * Dört kirişli köprüde İKİ takım vardır ve AYNI hesap iki kez koşar; hangi
+ * kaldırma grubunun yükünü taşıdığı `GirderDeps` ile gelir (modül specs'ten
+ * kapasite/hız OKUMAZ — bkz. `hoistLoadKg` / `liftSpeedMpm`).
+ */
+export type GirderWhich = "girder" | "girder2";
+
 /** Diğer modüllerden gelen değerler */
 export interface GirderDeps {
+  /**
+   * Bu kirişin taşıdığı KALDIRMA YÜKÜ [kg] (kapasite × 1000).
+   *
+   * Modül bir süre `specs.mainCapacityT`yi doğrudan okuyordu; dört kirişli
+   * köprüde ikinci takım YARDIMCI kaldırmayı taşıdığı için bu okuma taşındı.
+   * Böylece "hangi kirişin hangi yükü taşıdığı" tek bir yerde (engine) kurulur.
+   */
+  hoistLoadKg: number;
+  /** Bu kirişin taşıdığı kaldırma grubunun kaldırma hızı [m/dak] */
+  liftSpeedMpm: number;
+  /**
+   * Köprünün öz ağırlığını paylaşan ana kiriş adedi (çift kirişli 2, dört
+   * kirişli 4). Bir kirişe düşen ölü yük `bridgeWeightT / bu sayı`dır.
+   */
+  girdersInBridge: number;
   mainHookBlockWeightKg: number;
   mainRopeWeightKg: number;
   trolleyWeightT: number;
@@ -168,6 +192,35 @@ export interface GirderInputs {
   b6Mm: number;                // ek flanş genişliği b6
   aMm: number;                 // gövde sacları arası mesafe a
   xMm: number;                 // kenar mesafesi x
+
+  // ------------------------------------------------- Ray altı T profil (opsiyonel)
+  /**
+   * BÜYÜK TONAJLI VİNÇLERDE RAY ALTINA T PROFİL KONUR (kullanıcı kararı,
+   * 15.08.2026). Teker basıncı tek bir sacla değil, ray ekseninde duran bir T
+   * profille gövdeye aktarılır: kutunun ÜSTÜNE, ray altı sacının (t1/b1)
+   * üzerine bir dikey YAN SAC ve onun üstüne bir ÜST SAC kaynaklanır; ray artık
+   * T'nin üst sacına oturur.
+   *
+   * İstiflenme (alttan üste):
+   *   ek flanş t6 → alt flanş t5 → gövdeler h3 → üst iç flanş t2 →
+   *   ray altı sacı t1 → **T yan sacı hT** → **T üst sacı tT** → RAY
+   *
+   * YAN SAC ÜST SACIN TAM ORTASINDADIR ve ikisi de RAY EKSENİNDE durur
+   * (b1 sacıyla aynı eksen: x + t3/2). Bu yüzden T'nin düşey eksen etrafındaki
+   * Steiner payı b1'inkiyle aynı kolu kullanır.
+   *
+   * SIFIR = T PROFİL YOK. Yükseklik ya da kalınlıklardan biri sıfırsa o parça
+   * kesite hiç girmez; eski revizyonlar (alan hiç yok → şablon 0) bugünkü
+   * sonuçlarını BİREBİR korur.
+   *
+   * BURULMAYA GİRMEZ: T açık bir kesittir ve kapalı kutunun ÜSTÜNDE durur;
+   * Bredt akışı yalnız kutunun çeperinden geçer. Katkısını saymak burulma
+   * ataletini emniyetsiz yönde şişirirdi.
+   */
+  railTProfileWebThkMm?: number;    // T yan sacı kalınlığı
+  railTProfileWebHeightMm?: number; // T yan sacı yüksekliği
+  railTProfileTopThkMm?: number;    // T üst sacı kalınlığı
+  railTProfileTopWidthMm?: number;  // T üst sacı genişliği
   hookTopPositionM: number;    // kancanın en üst konumu l [m]
   bridgeAxleSpacingM: number;  // köprü dingil açıklığı [m]
   trolleyWheelSpacingM: number; // araba tekerlek açıklığı [m]
@@ -333,6 +386,45 @@ export interface GirderValues {
   girderTotalWeightKg: number;  // bir ana kirişin toplam ağırlığı
 }
 
+/** Ray altı T profilinin çözülmüş ölçüleri [mm]. */
+export interface RailTProfile {
+  webThkMm: number;
+  webHeightMm: number;
+  topThkMm: number;
+  topWidthMm: number;
+  /** Profil gerçekten var mı (her iki parça da pozitif ölçülü mü) */
+  present: boolean;
+}
+
+/**
+ * Ray altı T profilinin ölçülerini güvenle okur.
+ *
+ * KISMİ GİRDİ BİR PROFİL DEĞİLDİR: yalnız yan sac kalınlığı girilip yüksekliği
+ * boş bırakılmışsa alan sıfırdır ve kesite hiçbir şey eklemez. Bu yüzden her
+ * parça KENDİ İÇİNDE tam olmalıdır; `present` ikisinden en az birinin gerçek
+ * bir alan taşıdığını söyler ve raporda "T profil var mı" satırını besler.
+ *
+ * Eski revizyonlarda alanlar hiç yoktur (`undefined`) → hepsi 0 → bugünkü
+ * sonuçlar birebir korunur.
+ */
+export function railTProfile(inp: Partial<GirderInputs>): RailTProfile {
+  const num = (v: number | undefined): number =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
+  const webThkMm = num(inp.railTProfileWebThkMm);
+  const webHeightMm = num(inp.railTProfileWebHeightMm);
+  const topThkMm = num(inp.railTProfileTopThkMm);
+  const topWidthMm = num(inp.railTProfileTopWidthMm);
+  const web = webThkMm > 0 && webHeightMm > 0;
+  const top = topThkMm > 0 && topWidthMm > 0;
+  return {
+    webThkMm: web ? webThkMm : 0,
+    webHeightMm: web ? webHeightMm : 0,
+    topThkMm: top ? topThkMm : 0,
+    topWidthMm: top ? topWidthMm : 0,
+    present: web || top,
+  };
+}
+
 /** DIN 15018 Tablo 17 lookup */
 function t17(material: FatigueMaterial, notch: NotchClass, group: LoadGroup): number {
   return DIN15018_T17[material === "S355JR" ? "St52" : "St37"][notch][group];
@@ -386,6 +478,7 @@ export function girderLoadGroup(
 
 export function computeMainGirder(
   specs: TechnicalSpecs,
+  which: GirderWhich,
   inp: GirderInputs,
   sel: GirderSelections,
   deps: GirderDeps
@@ -403,40 +496,64 @@ export function computeMainGirder(
   const webGapMm = inp.aMm;                // gövde sacları arası mesafe
   const edgeDistMm = inp.xMm;              // kenar mesafesi
 
+  // Ray altı T profil — sıfır ölçü "yok" demektir (bkz. GirderInputs).
+  const tp = railTProfile(inp);
+  const tTw = tp.webThkMm, hTw = tp.webHeightMm;   // T yan sacı
+  const tTf = tp.topThkMm, bTf = tp.topWidthMm;    // T üst sacı
+
   const areaTopFlange = t1 * b1;           // [mm²]
   const areaTopInnerFlange = t2 * b2;
   const areaMainWeb = t3 * h3;
   const areaSecondaryWeb = h3 * t4;
   const areaBottomFlange = t5 * b5;
   const areaExtraFlange = t6 * b6;
+  const areaTWeb = tTw * hTw;
+  const areaTTop = tTf * bTf;
   const totalAreaMm2 =
     areaTopFlange + areaTopInnerFlange + areaMainWeb +
-    areaSecondaryWeb + areaBottomFlange + areaExtraFlange;
+    areaSecondaryWeb + areaBottomFlange + areaExtraFlange +
+    areaTWeb + areaTTop;
 
-  const heightMm = t1 + t2 + h3 + t5 + t6;
+  /**
+   * Kutunun kendi yüksekliği (T profil HARİÇ). Gövde kesme alanı ve gövdenin
+   * ağırlık merkezi üstünde kalan yüksekliği bu ölçüden okunur — T profil
+   * kutunun ÜSTÜNDE durur, gövde sacına bir şey eklemez.
+   */
+  const boxHeightMm = t1 + t2 + h3 + t5 + t6;
+  /** Kesitin TOPLAM yüksekliği: T profil varsa yan sac + üst sac kadar artar. */
+  const heightMm = boxHeightMm + hTw + tTf;
   const areaCm2 = totalAreaMm2 * 0.01;
   // Kesit saclarının metre ağırlığı: A[cm²] × 100[cm/m] × yoğunluk[kg/cm³]
   const weightPerM = areaCm2 * 100 * STEEL_DENSITY_KG_CM3; // [kg/m]
+  // T profil parçalarının alt yüzden ölçülen ağırlık merkezleri [mm]
+  const zTWebMid = boxHeightMm + 0.5 * hTw;
+  const zTTopMid = boxHeightMm + hTw + 0.5 * tTf;
   // Ağırlık merkezi, alt yüzden ölçülür [mm]
   const centroidZMm =
     ((areaExtraFlange * (0.5 * t6) +
       areaBottomFlange * (t6 + 0.5 * t5) +
       (t3 + t4) * h3 * (t6 + t5 + 0.5 * h3) +
       areaTopInnerFlange * (t6 + t5 + h3 + 0.5 * t2) +
-      areaTopFlange * (t6 + t5 + h3 + t2 + 0.5 * t1)) * 0.01) / areaCm2;
+      areaTopFlange * (t6 + t5 + h3 + t2 + 0.5 * t1) +
+      areaTWeb * zTWebMid +
+      areaTTop * zTTopMid) * 0.01) / areaCm2;
   // Yatay eksen etrafında atalet momenti (Steiner) [cm⁴]
   const inertiaYCm4 =
-    ((1 / 12) * (b1 * t1 ** 3 + b2 * t2 ** 3 + (t3 + t4) * h3 ** 3 + b5 * t5 ** 3 + b6 * t6 ** 3) +
+    ((1 / 12) * (b1 * t1 ** 3 + b2 * t2 ** 3 + (t3 + t4) * h3 ** 3 + b5 * t5 ** 3 + b6 * t6 ** 3
+      + tTw * hTw ** 3 + bTf * tTf ** 3) +
       (centroidZMm - 0.5 * t6) ** 2 * areaExtraFlange +
       (centroidZMm - t6 - 0.5 * t5) ** 2 * areaBottomFlange +
       (centroidZMm - t6 - t5 - 0.5 * h3) ** 2 * (h3 * (t4 + t3)) +
       (centroidZMm - t6 - t5 - h3 - 0.5 * t2) ** 2 * areaTopInnerFlange +
-      (centroidZMm - t6 - t5 - h3 - t2 - 0.5 * t1) ** 2 * areaTopFlange) * 0.1 ** 4;
+      (centroidZMm - t6 - t5 - h3 - t2 - 0.5 * t1) ** 2 * areaTopFlange +
+      (centroidZMm - zTWebMid) ** 2 * areaTWeb +
+      (centroidZMm - zTTopMid) ** 2 * areaTTop) * 0.1 ** 4;
   const modulusYBottomCm3 = (inertiaYCm4 * 10) / centroidZMm;
   const modulusYTopCm3 = (inertiaYCm4 * 10) / (heightMm - centroidZMm);
 
   // Ray, ana gövde sacının (web1) ekseninde durur; "ray altı sacı" b1 de bu
   // eksende ortalanır — kesitin ortasında DEĞİL (b1 merkezi = x + t3/2).
+  // T profilin yan ve üst sacı da AYNI eksendedir.
   const railCenterYMm = edgeDistMm + t3 * 0.5;
 
   // Düşey eksen etrafında ağırlık merkezi ve atalet [mm] / [cm⁴]
@@ -444,18 +561,24 @@ export function computeMainGirder(
     (areaMainWeb * (edgeDistMm + t3 * 0.5) +
       areaSecondaryWeb * (edgeDistMm + t3 + webGapMm + t4 * 0.5) +
       areaTopFlange * railCenterYMm +
+      (areaTWeb + areaTTop) * railCenterYMm +
       areaTopInnerFlange * b2 * 0.5 +
       areaBottomFlange * ((b2 - b5) * 0.5 + b5 * 0.5) +
       areaExtraFlange * ((b2 - b6) * 0.5 + b6 * 0.5)) / totalAreaMm2;
   const inertiaZCm4 =
-    ((1 / 12) * (b1 ** 3 * t1 + b2 ** 3 * t2 + h3 * (t3 ** 3 + t4 ** 3) + b5 ** 3 * t5 + b6 ** 3 * t6) +
+    ((1 / 12) * (b1 ** 3 * t1 + b2 ** 3 * t2 + h3 * (t3 ** 3 + t4 ** 3) + b5 ** 3 * t5 + b6 ** 3 * t6
+      + tTw ** 3 * hTw + bTf ** 3 * tTf) +
       (railCenterYMm - centroidYMm) ** 2 * areaTopFlange +
+      (railCenterYMm - centroidYMm) ** 2 * (areaTWeb + areaTTop) +
       ((edgeDistMm + t3 * 0.5) - centroidYMm) ** 2 * areaMainWeb +
       ((edgeDistMm + t3 + webGapMm + t4 * 0.5) - centroidYMm) ** 2 * areaSecondaryWeb +
       ((b2 - b5) * 0.5 + 0.5 * b5 - centroidYMm) ** 2 * areaBottomFlange +
       ((b2 - b6) * 0.5 + b6 * 0.5 - centroidYMm) ** 2 * areaExtraFlange) / 10 ** 4;
   const modulusZBottomCm3 = (10 * inertiaZCm4) / centroidYMm;
-  const modulusZTopCm3 = (10 * inertiaZCm4) / (b2 - centroidYMm);
+  // Kesitin YATAYDA en dış lifi: normalde üst iç flanşın kenarı (b2), ama T'nin
+  // üst sacı b2'yi aşabilir — bu durumda dış lif odur.
+  const outerRightYMm = Math.max(b2, railCenterYMm + bTf * 0.5);
+  const modulusZTopCm3 = (10 * inertiaZCm4) / (outerRightYMm - centroidYMm);
 
   // Burulma: kapalı kutu (Bredt) — bir gövde sacı yoksa açık kesit (St Venant)
   const inertiaTorsionOpenCm4 =
@@ -477,6 +600,9 @@ export function computeMainGirder(
   const spanToWidthRatio = spanMm / webGapMm;            // L/b ≤ 65
 
   Object.assign(cells, {
+    "section.areaTProfileWeb": areaTWeb,
+    "section.areaTProfileTop": areaTTop,
+    "section.boxHeight": boxHeightMm,
     "section.areaTopFlange": areaTopFlange,
     "section.areaTopInnerFlange": areaTopInnerFlange,
     "section.areaMainWeb": areaMainWeb,
@@ -505,13 +631,16 @@ export function computeMainGirder(
 
   // --- 7.2 Yükler -----------------------------------------------------------
   // Bir ana kirişe düşen köprü öz ağırlığı (iki kiriş) [kg]
-  const bridgeDeadWeightKg = (deps.bridgeWeightT / 2) * 1000;
+  // Bir ana kirişe düşen köprü öz ağırlığı: köprünün toplam ağırlığı, taşıyıcı
+  // kiriş adedine bölünür (çift kirişli 2, dört kirişli 4).
+  const girderShare = deps.girdersInBridge > 0 ? deps.girdersInBridge : 2;
+  const bridgeDeadWeightKg = (deps.bridgeWeightT / girderShare) * 1000;
   const trolleyWeightKg = deps.trolleyWeightT * 1000;
-  const hoistLoadKg = specs.mainCapacityT * 1000;
+  const hoistLoadKg = deps.hoistLoadKg;
   const belowHookWeightKg = deps.mainHookBlockWeightKg + deps.mainRopeWeightKg;
   const totalLiveLoadKg = hoistLoadKg + belowHookWeightKg;
 
-  const liftSpeedMs = specs.mainLiftSpeedMpm / 60;
+  const liftSpeedMs = deps.liftSpeedMpm / 60;
   // FEM 1.001 2.2.2.1.1 dinamik katsayı ψ
   const dynamicFactor =
     liftSpeedMs < 0.25 ? 1.15 : liftSpeedMs > 1 ? 1.6 : 1 + liftSpeedMs * 0.6;
@@ -659,7 +788,11 @@ export function computeMainGirder(
   const shearTorsionHoist = momentTorsionHoist / torsionShearDenominator;
 
   // τ3, τ4, τ5 — kesme kuvveti → gövde saclarında kayma gerilmesi
-  const webDepthAboveCentroidMm = heightMm - centroidZMm - t2;
+  // Gövdenin ağırlık merkezi üstünde kalan yüksekliği KUTUNUN kendi ölçüsünden
+  // okunur: ray altı T profili kutunun üstünde durur ve gövde sacına bir şey
+  // eklemez. `heightMm` (T dahil toplam) kullanılsaydı T profil konan bir
+  // kirişte kesme gerilmesi sessizce değişirdi.
+  const webDepthAboveCentroidMm = boxHeightMm - centroidZMm - t2;
   const mainWebShearAreaCm2 = (h3 * t3) / 100;
   const shearMainSelfWeight =
     (bridgeDeadWeightKg * (inp.diaphragmSpacingMm - 2 * webDepthAboveCentroidMm)) /
@@ -834,7 +967,7 @@ export function computeMainGirder(
 
   const worstCombinedCase1 = Math.max(amplifiedCombinedBottom, amplifiedCombinedTop);
   checks.push({
-    id: "girder.stress.case1",
+    id: `${which}.stress.case1`,
     label: "Yükleme Durumu I Bileşik Gerilme (γc·σcomb)",
     required: worstCombinedCase1, provided: allow.case1, unit: "kg/cm²", op: ">=",
     computedSide: "required",
@@ -843,7 +976,7 @@ export function computeMainGirder(
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "girder.stress.case3",
+    id: `${which}.stress.case3`,
     label: "Yükleme Durumu III Bileşik Gerilme (Test Durumu)",
     required: combinedCase3, provided: allow.case3, unit: "kg/cm²", op: ">=",
     computedSide: "required",
@@ -916,7 +1049,7 @@ export function computeMainGirder(
     "fatigue.combinedLimit": FATIGUE_COMBINED_LIMIT,
   });
   checks.push({
-    id: "girder.fatigue.sigmaX",
+    id: `${which}.fatigue.sigmaX`,
     label: "Yorulma σx,maks ≤ zul σDz(κ)",
     required: fatigueSigmaXMax, provided: allowableSigmaX, unit: "N/mm²", op: ">=",
     computedSide: "required",
@@ -925,7 +1058,7 @@ export function computeMainGirder(
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "girder.fatigue.sigmaY",
+    id: `${which}.fatigue.sigmaY`,
     label: "Yorulma σy,maks ≤ zul σDz(κ)",
     required: fatigueSigmaYMax, provided: allowableSigmaY, unit: "N/mm²", op: ">=",
     computedSide: "required",
@@ -934,7 +1067,7 @@ export function computeMainGirder(
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "girder.fatigue.tau",
+    id: `${which}.fatigue.tau`,
     label: "Yorulma τ,maks ≤ zul τD(κ)",
     required: fatigueTauMax, provided: allowableTau, unit: "N/mm²", op: ">=",
     computedSide: "required",
@@ -943,7 +1076,7 @@ export function computeMainGirder(
     kind: "standart", severity: "engelleyici",
   });
   checks.push({
-    id: "girder.fatigue.combined",
+    id: `${which}.fatigue.combined`,
     label: "Bileşik Yorulma Oranı",
     required: fatigueCombined, provided: FATIGUE_COMBINED_LIMIT, unit: "-", op: ">=",
     computedSide: "required",
@@ -1031,7 +1164,7 @@ export function computeMainGirder(
     "camber.girderTotalWeight": girderTotalWeightKg,
   });
   checks.push({
-    id: "girder.deflection",
+    id: `${which}.deflection`,
     label: "Sehim Oranı (L/δ)",
     required: inp.deflectionLimitRatio, provided: deflectionRatio, unit: "-", op: ">=",
     computedSide: "provided",
