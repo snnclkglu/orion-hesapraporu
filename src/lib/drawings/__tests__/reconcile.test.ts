@@ -321,4 +321,50 @@ describe("defter", () => {
     expect(p.qty).toBe(1);
     expect(p.cutLengthMm).toBeCloseTo(169.3, 1);
   });
+
+  it("BİRİMLİ `QTY` BİR ADET DEĞİLDİR — `Item QTY` yoksa adet BOŞ kalır", () => {
+    // 15.08.2026'da canlı veride ölçüldü: `Item QTY` sütunu olmayan sayfalarda
+    // yedek olarak `QTY` okunuyordu ve o sütun Testere satırlarında TOPLAM
+    // KESİM BOYUdur. `NPL 120x120x10 L=6000` satırının adedi 24.000 yazılmıştı
+    // (gerçekte 4 adet × 6.000 mm) ve hammadde havuzu tek bir köşebent için
+    // 2.900 TON gösteriyordu.
+    const bom = readSheet(
+      {
+        fileRelPath: "EXCEL/1.0099-00-0000_DEPO_15.08.2026.xlsx",
+        sheetName: "BOM",
+        rows: [
+          // `Item QTY` SÜTUNU YOK — gerçek bir sayfa şekli (HALAT KLAVUZU DEPO).
+          ["Part Number", "BOM Structure", "Description", "Material", "QTY", "Category"],
+          [
+            "0099-00-0100-01",
+            "Normal",
+            "NPL 120x120x10 L=6000",
+            "S235JR",
+            "24000,000 mm",
+            "Testere",
+          ],
+          ["0099-00-0100-02", "Normal", "SAC 10x200x300", "S235JR", "6", "Plazma"],
+        ],
+      },
+      "depo"
+    ).rows;
+
+    const r = reconcile({
+      folderName: "0099-00-0000 - BİRİMLİ QTY",
+      folder: parseFolderName("0099-00-0000 - BİRİMLİ QTY").value,
+      files: [],
+      bom,
+    });
+
+    const profil = r.parts.find((p) => p.partCode === "0099-00-0100-01")!;
+    // Adet UYDURULMAZ: bilinmiyor demek 1 demek değildir (md. 21).
+    expect(profil.qty).toBeNull();
+    // Ama sayı KAYBOLMAZ — kesim boyu olarak durur ve gerçek adet ondan türer.
+    expect(profil.cutLengthMm).toBeCloseTo(24000, 1);
+
+    // BİRİMSİZ değer hâlâ bir adettir: kural yalnız "mm" yazanı keser.
+    const sac = r.parts.find((p) => p.partCode === "0099-00-0100-02")!;
+    expect(sac.qty).toBe(6);
+    expect(sac.cutLengthMm).toBeNull();
+  });
 });

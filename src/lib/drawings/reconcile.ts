@@ -179,9 +179,30 @@ function malzemeNormalize(raw: string): string {
   return trBuyuk(raw.trim());
 }
 
-/** "SAC 15x240x285" → 15. Kalınlık tanımın BAŞ SAYISIDIR. */
+/**
+ * "SAC 15x240x285" → 15. Kalınlık ÜÇLÜ ÖLÇÜNÜN İLK SAYISIDIR.
+ *
+ * ÖNCEKİ KURAL TEK SÖZCÜKLÜ AD VARSAYIYORDU (`^[harfler]*\s*(\d+)x`) ve iki
+ * sözcüklü adları sessizce kaçırıyordu — canlı veride ölçüldü:
+ * `KİLİT SACI 5x10x55`, `RULMAN YATAGI SAC 50x257x257`, `TAMBUR FLANSI - 1 SAC
+ * 35x470x470`. Kalınlığı okunamayan parça `sacAdayi` kapısından geçemiyor ve
+ * SAC LİSTESİNDEN TAMAMEN DÜŞÜYORDU; kayıp sessizdi çünkü listede eksik bir
+ * satırı fark etmenin yolu yok.
+ *
+ * Yeni kural üç kelepçe taşır ve üçü de yanlış pozitifi keser:
+ *   1. ÜÇ ölçü olacak — "MİL Ø90x453" iki ölçüdür ve kalınlığı yoktur.
+ *   2. Ø GEÇMEYECEK — çap taşıyan tanım bir plaka değildir.
+ *   3. Üçlü tanımın SONUNDA olacak — "KUTU PROFİL 50x30x3 L=10500"de 50 bir
+ *      kalınlık değil kesit ölçüsüdür ve arkasından boy geliyor.
+ *
+ * Kalınlık YİNE DE tek başına bir parçayı sac yapmaz: `sacAdayi` ayrıca kesim
+ * kategorisi ya da DXF varlığı ister (derive.ts).
+ */
 function kalinlikTanimdan(description: string): number | null {
-  const m = description.match(/^\s*[A-ZÇĞİÖŞÜa-zçğıöşü]*\s*(\d+(?:[.,]\d+)?)\s*[xX×]/);
+  if (/[Ø∅ø⌀]/.test(description)) return null;
+  const m = description.match(
+    /(\d+(?:[.,]\d+)?)\s*[xX×*]\s*(\d+(?:[.,]\d+)?)\s*[xX×*]\s*(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*$/i
+  );
   return m ? trSayi(m[1]) : null;
 }
 
@@ -562,9 +583,24 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     p.material = kabul.malzeme;
 
     // Adet TOPLANMAZ: aynı parça iki sayfada da geçebilir.
-    const adetler = satirlar.map((r) => tamSayi(r.itemQtyRaw) ?? tamSayi(r.qtyRaw)).filter(
-      (n): n is number => n != null
-    );
+    //
+    // BİRİMLİ `QTY` BİR ADET DEĞİLDİR (15.08.2026'da canlı veride ölçüldü).
+    // `Item QTY` sütunu olmayan sayfalarda yedek olarak `QTY` okunuyordu ve o
+    // sütun `Testere` satırlarında TOPLAM KESİM BOYUdur: `NPL 120x120x10
+    // L=6000` satırının adedi 24.000 olarak yazılmıştı (gerçekte 4 adet ×
+    // 6.000 mm). `Math.max` bunu daha da kötüleştiriyordu — bir sayfada 4,
+    // ötekinde 24.000 yazınca 24.000 kazanıyordu.
+    //
+    // Sonuç sessiz ve büyüktü: hammadde havuzu tek bir köşebent için 2.900 TON
+    // gösteriyordu. Değer zaten `cutLengthMm`e AYRI yazılıyor; aynı sayıyı bir
+    // de adet sanmanın hiçbir kazancı yok.
+    //
+    // Adet BULUNAMAZSA `null` KALIR — 1 varsayılmaz (md. 21'in kuralı).
+    // Kesim boyu bilinen profilde gerçek adet ondan türetilir (hammadde
+    // çekirdeği, `havuz.ts`).
+    const adetler = satirlar
+      .map((r) => tamSayi(r.itemQtyRaw) ?? (kesimBoyu(r.qtyRaw) == null ? tamSayi(r.qtyRaw) : null))
+      .filter((n): n is number => n != null);
     p.qty = adetler.length ? Math.max(...adetler) : null;
 
     for (const r of satirlar) {

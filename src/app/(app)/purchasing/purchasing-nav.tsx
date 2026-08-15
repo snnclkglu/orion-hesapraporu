@@ -19,8 +19,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// TALEP HAVUZU İKİYE BÖLÜNDÜ (kullanıcı kararı, 15.08.2026): *"Satın alma
+// bölümü talep havuzuna ikiye ayırmak istiyorum … ilk kısım talep havuzunun
+// ekipman tarafı, ikinci kısım ise hammadde tarafı olmalı."* İki sekme aynı
+// deftere bakar ama farklı yarılarına: ekipman satın alınan ürünü, hammadde
+// imalat parçasının kesileceği malzemeyi sorar.
 const TABS = [
-  { href: "/purchasing", label: "Talep Havuzu", exact: true },
+  { href: "/purchasing", label: "Ekipman", exact: true },
+  { href: "/purchasing/hammadde", label: "Hammadde", exact: false },
   { href: "/purchasing/siparisler", label: "Siparişler", exact: false },
   { href: "/purchasing/teslimat", label: "Teslim Takvimi", exact: false },
   { href: "/purchasing/fiyatlar", label: "Fiyat Arşivi", exact: false },

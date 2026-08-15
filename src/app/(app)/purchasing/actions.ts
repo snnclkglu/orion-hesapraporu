@@ -80,6 +80,11 @@ async function requireWrite(): Promise<Ctx | { error: string }> {
 
 function tazele() {
   revalidatePath("/purchasing");
+  // HAMMADDE HAVUZU DA ESKİR: sipariş ve teklif anahtarları iki havuzda
+  // ORTAKTIR (`match_key`), yani bir sac plakasına verilen sipariş hammadde
+  // ekranındaki "Kalan" sütununu da değiştirir.
+  revalidatePath("/purchasing/hammadde");
+  revalidatePath("/purchasing/hammadde/yerlesim");
   revalidatePath("/purchasing/siparisler");
   revalidatePath("/purchasing/teslimat");
   revalidatePath("/purchasing/fiyatlar");

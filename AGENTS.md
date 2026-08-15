@@ -11,8 +11,8 @@ Uygulama bir HESAP RAPORU aracı olarak başladı ve adı bir süre onu taşıd�
 hesap raporu bölümlerden BİRİDİR. Kapsam: iş emirleri (`/jobs`), hesap raporu
 projeleri ve revizyon arşivi (`/projects`), **teknik resim paketleri**
 (`/drawings` — ressamın klasörü olduğu gibi girer, md. 18), **satın alma**
-(`/purchasing` — çok projeli talep havuzu, teklif, sipariş, teslim ve ödeme
-takvimi, fiyat arşivi; md. 21), ekipman listeleri, üretici katalogları
+(`/purchasing` — çok projeli talep havuzu EKİPMAN ve HAMMADDE olmak üzere iki
+yüzlüdür, teklif, sipariş, teslim, fiyat arşivi, sac plaka yerleşimi; md. 21 + 24), ekipman listeleri, üretici katalogları
 (`/katalog`), atölye çalışma saatleri (`/worklog`), satış takibi (`/sales`) ve
 **personel** (`/personnel` — künye ve özlük dosyaları, maaş ve fazla mesai,
 bordro, harcirah, döviz kurları; md. 22).
@@ -98,6 +98,15 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri
   ve üç türev çalışma kitabını gerçekten üret ve geri oku
+- `npx tsx scripts/test-hammadde.ts [ek-excel…]` — HAMMADDE ayıklama dilbilgisini
+  gerçek teslim Excel'lerine uygula: sınıf dağılımı, DİĞER'e düşen HER tanım ve
+  ölçüsü okunamayan satırlar. Yeni bir kalıp eklemeden önce koştur
+- `npx tsx scripts/test-hammadde-pool.ts` — hammadde havuzunu CANLI veritabanı
+  satırlarıyla kur; defterin ekipman/imalat/montaj olarak ARTIKSIZ bölündüğünü de
+  sayar. Salt okunur; `.env.admin` jetonunu ister
+- `python scripts/gen-profile-sections.py` — profil kesit tablosunu workspace
+  kökündeki `Profiller.xls`ten ÜRET (`src/lib/purchasing/hammadde/
+  profil-kesitleri.ts`). Üretilen dosya elle düzenlenmez
 - `npx tsx scripts/test-normalize.ts` — tanım normalizasyonunu iki GERÇEK teslim
   klasörünün tamamına uygula; hangi kuralın kaç kez çalıştığını, hangi ham
   yazımların tek anahtarda BİRLEŞTİĞİNİ ve ana grup adlarını bas. Sözlüğe kural
@@ -1402,6 +1411,167 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     `panel-view.tsx`, arama `panel-search.tsx`. Görünüm veriden AYRIDIR çünkü
     `/dev/panel-preview` onu auth'suz basar ve iki kopya zamanla ayrışırdı.
 
+24. **HAMMADDE HAVUZU EKİPMAN HAVUZUNUN SÜZGECİ DEĞİL, KARDEŞİDİR**
+    (`/purchasing/hammadde`, kullanıcı kararı 15.08.2026: *"Satın alma bölümü
+    talep havuzuna ikiye ayırmak istiyorum … ilk kısım talep havuzunun ekipman
+    tarafı, ikinci kısım ise hammadde tarafı olmalı."*).
+
+    **DEFTER ARTIKSIZ ÜÇE BÖLÜNÜR** ve bu canlı veriyle ölçülür
+    (`scripts/test-hammadde-pool.ts`, 15.08.2026: 1399 = 512 ekipman + 778
+    imalat + 109 montaj):
+
+        isPurchaseRow(p)                        → /purchasing        EKİPMAN
+        !isPurchaseRow(p) && kind ≠ montaj      → hammadde ADAYI
+        kind = montaj                           → hiçbir havuz (çocukları girer)
+
+    Hammadde var olan bölünmeye ÜÇÜNCÜ BİR KÜME EKLEMEZ: üretim kümesinin
+    üstünde tanımlı bir TÜREVdir. `purchasing/data.ts`teki
+    `.or("kind.eq.satinalma,part_code.eq.")` dizgisi harfi harfine korunur —
+    `purchasing-split.test.ts` onu KAYNAKTAN okuyor. Hammadde okuması bu yüzden
+    AYRI BİR DOSYADADIR (`purchasing/hammadde/data.ts`); aynı dosyaya ikinci
+    bir sorgu yazmak korumanın ya kendisini ya anlamını bozardı.
+
+    **ÇİFTE SAYIM DEĞİLDİR, İKİ FARKLI SORUDUR.** `SAC 15x375x1500` bir imalat
+    parçasıdır (atölye plazmada keser, `/progress`te takip edilir) ve aynı anda
+    bir malzeme ihtiyacıdır (kesileceği plaka satın alınır). Birim bile aynı
+    değil: üretimde ADET, hammaddede m² · metre · BOY · kilo.
+
+    **İKİ KATMANLI KİMLİK.** Havuzun satırı parça değil STOK KALEMİdir:
+    `SAC 15 MM S355JR` · `UPN 100 S235JR` · `RAY A65 S235JR` ·
+    `BORU Ø140/Ø90 S235JR` · `DOLU Ø90 CK45`. Anahtar `trKatla(stok adı)`dır ve
+    `purchase_quotes` · `purchase_order_lines` · `purchase_price_index` ile
+    AYNI `match_key` uzayındadır — teklif, sipariş ve fiyat arşivi hammadde
+    satırlarını EK KOD OLMADAN görür. **KALİTE ANAHTARIN PARÇASIDIR**: S235JR
+    ile S355JR aynı 8 mm'de bile aynı plaka değildir. `Steel, Mild` · `Generic`
+    · `-` bir kalite DEĞİLDİR (`kaliteAyikla`) ve stok adına yazılmaz; aksi
+    hâlde aynı sac iki kaleme bölünürdü.
+
+    **AYIKLAMA `tanimOlculeri`NİN İÇİNE KONMADI.** O fonksiyon bilerek
+    tutucudur (yalnız Ø okur) ve satın alma ekranının "İç/Dış Çap" sütunlarına
+    bir sac kalınlığı yazmamak için öyledir. Hammadde tam olarak onun okumadığı
+    yeri ister; iki sözleşmeyi tek fonksiyona sığdırmak `tanimOlculeri`nin
+    kapsamını sessizce genişletirdi (`firmaKabulleri`nin ayrı bir kapı olma
+    gerekçesinin aynısı). Çözücü `lib/purchasing/hammadde/cozumle.ts`tedir ve
+    SAFTIR.
+
+    **TANIMA SIRASI BİR ÖNCELİKTİR:** parantezli pay → kapsam kapısı → PROFİL
+    öneki → RAY → SAC → BORU → DOLU → DİĞER. `NPL 120x120x10 L=2150` üç ölçü
+    taşır ve önek okunmasaydı bir sac gibi görünürdü. Ölçüm (888 gerçek tanım,
+    üç teslim klasörü): 583 aday, 24'ü DİĞER — ve o 24'ün hepsi gerçekten
+    hammadde değil (kanca, kaplin, rulman, kauçuk, dişli, montaj adı).
+
+    **BEŞ SINIF + BİR TORBA** (`HAMMADDE_SINIFLARI`, ASCII: `PROFIL`/`DIGER` —
+    değer `check` kısıtında geçiyor). Kurallar kullanıcınındır: iki Ø = içi boş
+    (küçüğü iç, büyüğü dış) · tek Ø = dolu · `NPI ≡ IPN`, `NPU ≡ UPN` ·
+    `KARE DEMİR` bir dikdörtgen raydır · profil, ray ve korkuluk borusu 12 m boy
+    alınır · **parantez içi ölçü SATIN ALMAYA GİDEN ölçüdür**
+    (`TAMBUR BORUSU Ø405 ( Ø415)/ Ø358x1870 (1900)` → 415 / 358 / 1900).
+
+    **BOY OKUMADA `\bL` YETMEZ** ve bu gerçek bir tuzaktır: JavaScript'te `\w`
+    yalnız ASCII'dir, yani `PROFİL`in sonundaki `L` ile `İ` arasında bir sözcük
+    sınırı vardır. "DİKDÖRTGEN KUTU PROFİL 50x30x3 L=10500" tanımında naif kalıp
+    boyu **50** sanar. Kapı bu yüzden "önündeki karakter harf ya da rakam
+    olmayacak" biçiminde yazılır.
+
+    **METRE AĞIRLIĞI ÖNCE TABLODAN.** `Profiller.xls`ten üretilen 477 kesit
+    (`python scripts/gen-profile-sections.py` → `profil-kesitleri.ts`) ANMA
+    değeri verir; tabloda olmayan kesit (küçük köşebent, kutu profil, lama)
+    GEOMETRİDEN hesaplanır ve satır bunu SÖYLER (`agirlikKaynagi`, ekranda `*`).
+    Kaynak tablo UPN'de 100'den, IPN'de 120'den başlıyor; atölyenin kullandığı
+    UPN 60·65·80 ve IPN 80·100 **DIN 1026-1 / DIN 1025-1**'den elle eklenir
+    (`KUCUK_KESITLER`) çünkü gövde/flanş kalınlığı tanımda yazmaz ve
+    geometriden çıkarılamaz. Kesişim bir SINAMADIR: UPN 100 ve IPN 120 iki
+    kaynakta da aynı sayıyı söylüyor. A serisi ray kütleleri
+    `lib/calc/tables.ts:RAILS` ile ayrışmaz (test).
+
+    **ÖZKÜTLE 7,85 — AMA ÇELİK OLMAYAN SESSİZCE ÇELİK SAYILMAZ.** Kullanıcının
+    "hepsi 7,85" cümlesi HAMMADDELER içindi; canlı veride üç Kestamid parçası
+    var ve çelik özkütlesiyle yedi kat ağır çıkıyordu. Liste KISADIR ve yalnız
+    gerçek bir satırda görülmüş malzemeleri taşır; tanınmayan malzeme çelik
+    VARSAYILIR ve satır `celikVarsayildi` ile künyelenir.
+
+    **"KAÇ BOY" TOPLAM/12 DEĞİLDİR.** Hata hep AZ yöndedir: on tane 7 m'lik
+    parça 70 m eder (naif: 6 boy) ama her boya yalnız BİR parça sığar — cevap on
+    boydur. `boyaYerlestir` 1B FFD ile yerleştirir; standart boydan UZUN parça
+    hiçbir boya sığmaz, AYRICA sayılır ve ekranda "⚠ ekli" görünür — sessizce
+    bir boya sayılmaz.
+
+    **BİRİMLİ `QTY` BİR ADET DEĞİLDİR** — canlı veride ölçülmüş GERÇEK bir içe
+    aktarım hatası (15.08.2026). `Item QTY` sütunu olmayan sayfalarda
+    `reconcile` yedek olarak `QTY`yi okuyordu ve o sütun `Testere` satırlarında
+    TOPLAM KESİM BOYUdur: `NPL 120x120x10 L=6000` satırının adedi 24.000
+    yazılmıştı (gerçekte 4 adet × 6.000 mm) ve `Math.max` bunu kötüleştiriyordu.
+    Hammadde havuzu tek bir köşebent için **2.900 TON** gösteriyordu. İki yerde
+    birden düzeltildi: `reconcile` birimli değeri artık adet SAYMAZ (adet boş
+    kalır, 1 varsayılmaz) ve `adediCoz` gerçek adedi `toplam boy ÷ birim boy`
+    ile türetir — bölme %1 toleransla tam çıkmalıdır, çıkmazsa deftere dönülür.
+    Aynı turda `kalinlikTanimdan` tek sözcüklü ad varsayımını bıraktı: 25 GERÇEK
+    plaka kalınlık kazandı (`KAPAK-1 30x190x190`, `RULMAN YATAGI SAC
+    50x257x257`), 20 YANLIŞ kalınlık düştü (`NPL 50x50x5 L=530`in kalınlığı 50
+    değildir, kesit ölçüsüdür).
+
+    **SAC PLAKA YERLEŞİMİ SAKLANMAZ, HESAPLANIR**
+    (`/purchasing/hammadde/yerlesim`). `sacYerlesimi` saf ve DETERMİNİSTİKtir;
+    parametreler ADRESTE taşınır (seçim · pay · plaka · döndürme) ve plan her
+    açılışta yeniden çıkar — böylece paylaşılabilir bir bağlantıdır. Tabloya
+    konsaydı parçalar değiştiğinde sessizce eskir ve atölye eski plana bakarak
+    keserdi. Algoritma **MaxRects-BSSF**tir ve gerçek veriyle ölçüldü (1798 sac
+    parçası, 26 kalınlık grubu): yoğun gruplarda doluluk %84–92, toplam 143 ms.
+    Guillotine REDDEDİLDİ (firma PLAZMA ile kesiyor; kenardan kenara kesim
+    kısıtı fireyi büyütürdü), Shelf REDDEDİLDİ (%60'larda kalıyor — sac
+    parçalarının boyları 23 mm ile 11.990 mm arasında değişiyor).
+
+    **PAY MODELİ İKİ YÖNLÜDÜR** ve yarısı sessizce kaybolabilirdi: parça
+    parçaya EN AZ g, parça KENARA EN AZ g. Her parça `(w+g)×(h+g)`ye büyütülür,
+    kullanılabilir alan `(W−g)×(H−g)` sayılır ve parça kutusunun sol-alt
+    köşesinden `+g` kaydırılarak çizilir. "Parçayı büyüt, plakayı olduğu gibi
+    bırak" biçimindeki basit model KENAR PAYINI SIFIR bırakır ve kullanıcının
+    şartının yarısını çiğnerdi. `yerlesimiDenetle` sonucu ÖLÇER (kenar payı ·
+    parça arası pay · taşma) — algoritmanın kendi iddiasına inanılmaz.
+
+    **SIĞMAYAN PARÇA SESSİZCE DÜŞÜRÜLMEZ**: nedeniyle listelenir
+    (`sigmayanlar`). Numaralandırma çizim ile listede TEK KAYNAKTAN gelir
+    (`parcaNumaralari`) — iki yerde ayrı üretilselerdi resimdeki "7" ile
+    listedeki "7" bir gün farklı parçayı gösterirdi ve bu, atölyede yanlış sacın
+    kesilmesi demektir. Kesim listesi parçanın KENDİ ölçüsünü yazar, plakadaki
+    döndürülmüş hâlini değil (`kaynakEnMm`/`kaynakBoyMm`). Çizim
+    `lib/diagrams/` modelini kullanır (`charts.tsx` DEĞİL): kesim planı kağıtla
+    atölyeye gider ve o katman tek yazımla hem web hem PDF'e basar. 12 m'lik
+    plakada 50 mm'lik bir parçanın üstüne yazı sığmaz — sığmayan numara
+    ÇİZİLMEZ, parça listede durur.
+
+    **VERİTABANI YALNIZ İNSANIN KARARINI SAKLAR** (migration
+    `20260815000001_hammadde.sql`): `purchase_raw_meta` (sınıf taşıma · ad
+    düzeltme · stok boyu · hariç tutma · not) ve `purchase_raw_manual` (elle
+    açılan talep). Havuzun kendisi bir tablo DEĞİLDİR — `drawing_parts` her
+    eşleştirmede silinip yeniden kurulduğu için oraya yazılan bir hammadde
+    kararı da kaybolurdu. **DÜZELTME ANAHTARI ÇÖZÜCÜNÜN ÜRETTİĞİ ANAHTARDIR**,
+    taşındıktan sonraki değil: yenisiyle saklansaydı bir sonraki okumada satır
+    zaten yeni anahtarda olur, düzeltme bulunamaz ve satır eski sınıfına geri
+    düşerdi. Düzeltme GRUP BAŞINADIR — o gruba sonradan katılan parçalar kararı
+    kendiliğinden devralır; parça başına kayıt tutulsaydı aynı yanlışı yapan
+    yeni bir resim yüklendiğinde kullanıcı taşımayı yeniden yapardı.
+
+    **TÜR BİR SÜZGEÇ DEĞİL BİR KİPTİR.** Beş kategori çoklu süzgeç değil TEK
+    SEÇİMLİ bir çip şerididir, çünkü SÜTUN DÜZENİNİ o belirler: sacda kalınlık
+    ve m², profilde kesit · kg/m · metre · kaç boy, boruda dış/iç çap. Tek bir
+    tabloya üçünü birden koymak on iki boş sütun doğururdu. **Sütun sayısı ELLE
+    SAYILMAZ** — sütunlar bir diziden üretilir ve açılır ayrıntının `colSpan`ı
+    o dizinin uzunluğudur (ekipman tablosundaki `sutunSayisi` sabiti bir sütun
+    eklendiğinde sessizce kayıyor).
+
+    **TAZELEME LİSTESİNE İKİ YOL EKLENDİ** (`/purchasing/hammadde` ve
+    `…/yerlesim`) hem `purchasing/actions.ts:tazele()` hem
+    `drawings/actions.ts:satinAlmayiTazele()` içinde. Eklenmeseydi yeni
+    yüklenmiş bir paket hammadde ekranına "düşmemiş" görünürdü — ekipman
+    havuzunda 12.08.2026'da birebir yaşanmış hata.
+
+    Duman testleri: `npx tsx scripts/test-hammadde.ts` (gerçek Excel'lere karşı
+    dilbilgisi ölçümü — sınıf dağılımı, DİĞER'e düşenler, okunamayan ölçüler) ·
+    `npx tsx scripts/test-hammadde-pool.ts` (canlı veritabanı; bölünmenin
+    artıksızlığını da sayar) · `/dev/hammadde-preview` (auth'suz görsel
+    önizleme, GERÇEK 0053 satırlarıyla).
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -2350,7 +2520,21 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   `consumables.ts` (dense ay/yıl serisi, grup matrisi, anomali ve tedarikçi
   drilldown) · `consumable-key.ts` (SM tekillik anahtarı) ·
   `package-summary.ts` (Teknik Resimler'in SALT OKUNUR paket özeti: durum
-  çıkarımı ve gecikme; fiyat/tedarikçi taşımaz)
+  çıkarımı ve gecikme; fiyat/tedarikçi taşımaz) ·
+  `hammadde/` HAMMADDE alt çekirdeği (aşağıda ayrıca)
+- `src/lib/purchasing/hammadde/` — HAMMADDE ÇEKİRDEĞİ, **saf** (DB/HTTP/React yok):
+  `siniflar.ts` (beş sınıf + DİĞER, OKLCH tonları, özkütle sözlüğü, kalite
+  ayıklama, stok boyları, plaka/pay sabitleri) · `cozumle.ts` (AYIKLAMA
+  DİLBİLGİSİNİN TAMAMI — tek kural yeri) · `havuz.ts` (stok kalemi birleştirme,
+  çarpan, 1B boy planı `boyaYerlestir`, `adediCoz`) · `nesting.ts` (2B sac
+  plaka yerleşimi, MaxRects-BSSF + `yerlesimiDenetle`) · `profil-kesitleri.ts`
+  (ÜRETİLMİŞ — `python scripts/gen-profile-sections.py`, 477 kesit kg/m)
+- `src/lib/diagrams/nesting.ts` — plaka kesim planı çizimi (web + PDF ortak model)
+- `src/app/(app)/purchasing/hammadde/` — Hammadde Havuzu: `data.ts` (imalat
+  satırları okuma katmanı — ekipman havuzunun AYNADAKİ görüntüsü) · `raw-table.tsx`
+  (tür kipi + değişken ölçü bloğu) · `raw-dialogs.tsx` (taşı/düzenle + yeni talep)
+  · `yerlesim/` (plaka yerleşimi, parametreler adreste) · `export/` (Excel: havuz
+  + kesim listesi; PDF: fiyatsız hammadde talebi)
 - `src/lib/drawings/normalize.ts` — ham depo tanımı → standart satın alma
   tanımı (saf, değişmez); ayrıca ana grup kodu ve grup adı çıkarımı
 - `src/lib/panel.ts` — AÇILIŞ PANOSU çekirdeği, **saf**: arama eşleşmesi
@@ -2425,9 +2609,10 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   halka, ısı haritası, özet kartı); `lib/diagrams` ile KARIŞTIRILMAZ
 - `src/components/combobox.tsx` — aranabilir tek seçimli liste (Türkçe süzgeç)
 - `src/app/(app)/purchasing/` — Satın Alma (Yönetici · Satın Alma · Planlama
-  ROLLERİ): `data.ts` proje alımlarının ORTAK okuma katmanı · `page.tsx` talep
-  havuzu · `siparisler/` · `teslimat/` · `odemeler/` · `fiyatlar/` · `sarf/`
-  (hızlı giriş + sunucu kayıt listesi + EUR analiz) · `export/` Excel ucu
+  ROLLERİ): `data.ts` proje alımlarının ORTAK okuma katmanı · `page.tsx` EKİPMAN
+  talep havuzu · `hammadde/` HAMMADDE havuzu + plaka yerleşimi (md. 24) ·
+  `siparisler/` · `teslimat/` · `fiyatlar/` · `sarf/` (hızlı giriş + sunucu
+  kayıt listesi + EUR analiz) · `export/` Excel ucu
 - `src/app/(app)/admin/access/` — YETKİ IZGARASI (rol × bölüm, üç değerli
   hücre) + kişi matrisi; hesaplanır, elle yazılmaz ve EKRANDAN
   DEĞİŞTİRİLMEZ (md. 15'teki gerekçe). `access-grid.tsx` görünüm,
@@ -2450,6 +2635,9 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek
   rolle sınamak, kesilen tarafı hiç görmemektir), kabuk, editör, işler, satış, ekipman listesi,
   **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
+  **hammadde** (`/dev/hammadde-preview` — havuz + plaka yerleşimi; fikstür GERÇEK
+  0053 LITEC satırlarıdır, uydurma küçük sayılarla 12 m'lik bir plakanın ne
+  yaptığı görülmez),
   **personel** (`/dev/personnel-preview` — altı ekranı üst üste basar; fikstür
   GERÇEK büyüklüklerdedir: 71.000 ₺'lik maaş ve 48.753,33 ₺'lik mesai tutarı
   sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)

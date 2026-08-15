@@ -465,7 +465,15 @@ describe("MTC — 267 parçalık paket, ikinci teslim", () => {
         adet: 86,
         malzeme: 24,
         agirlik: 110,
-        kalinlik: 10,
+        // 15.08.2026'da 10'DAN 8'E DÜŞTÜ ve bu bir İYİLEŞMEDİR:
+        // `kalinlikTanimdan` tek sözcüklü ad varsayımını bıraktı (bkz.
+        // reconcile.ts). Ölçüm: 888 gerçek tanımda 25 GERÇEK plaka kalınlık
+        // kazandı (`KAPAK-1 30x190x190`, `EMNIYET PULU 8x50x50`,
+        // `RULMAN YATAGI SAC 50x257x257`) ve 20 YANLIŞ kalınlık düştü
+        // (`NPL 50x50x5 L=530`in kalınlığı 50 değildir, kesit ölçüsüdür).
+        // Düşen iki fark, iki revizyonda farklı okunan iki profil satırıydı;
+        // yani gerçek olmayan iki "gözden geçir" işareti (md. 18/3).
+        kalinlik: 8,
         // Kesim boyu 18 parçada değişmiş ama `degisenParca` ARTMIYOR: hepsi
         // zaten başka bir alandan da değişmişti. Yeni alan gürültü eklemedi,
         // var olan satırlara ATÖLYENİN OKUYACAĞI sayıyı ekledi.

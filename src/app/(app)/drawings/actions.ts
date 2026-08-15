@@ -103,6 +103,11 @@ const DEPO_SAYFA = 1000;
  */
 function satinAlmayiTazele() {
   revalidatePath("/purchasing");
+  // HAMMADDE HAVUZU DA AYNI DEFTERDEN TÜRER (15.08.2026): yeni yüklenen bir
+  // paketin sac ve profil ihtiyacı buraya düşmezse satınalmacı "proje
+  // hammaddeye gelmedi" der — ekipman havuzunda bir kez yaşanmış hata.
+  revalidatePath("/purchasing/hammadde");
+  revalidatePath("/purchasing/hammadde/yerlesim");
   revalidatePath("/purchasing/siparisler");
   revalidatePath("/purchasing/teslimat");
   revalidatePath("/purchasing/fiyatlar");
