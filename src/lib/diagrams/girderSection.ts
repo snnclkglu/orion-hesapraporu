@@ -25,33 +25,40 @@ export interface BoxPlateDims {
   xMm: number;                  // kenar mesafesi (b2 sol kenarından)
   /**
    * Ray altı T PROFİLİ (opsiyonel, büyük tonajlı vinçler). Kutunun üstünde,
-   * ray ekseninde durur: önce dikey yan sac, onun üstünde üst sac; ray artık
-   * bu üst saca oturur. Ölçüler verilmezse ya da 0 ise çizilmez ve kesitin
-   * bugünkü görünümü birebir korunur.
+   * ray ekseninde durur ve kesitin ÜST BÖLÜMÜNÜN İÇİNE girer — kirişin
+   * üstüne OTURMAZ:
+   *   · T üst sacı, üst iç flanşla (t2) AYNI SEVİYEDEDİR ve b2'yi kendi
+   *     genişliği kadar keser
+   *   · T yan sacı onun altından iner, ana gövde sacı (t3) o kadar kısalır
+   *   · ray altı sacı (t1/b1) İPTALDİR — rayı T'nin üst sacı taşır
+   * Toplam yükseklik DEĞİŞMEZ. Ölçüler verilmezse çizim bugünkü hâlindedir.
    */
+  tProfileOn?: boolean;
   tWebThkMm?: number;
   tWebHeightMm?: number;
   tTopThkMm?: number;
   tTopWidthMm?: number;
 }
 
-/** Kesitteki T profilin çözülmüş (negatif/eksik değerlerden arındırılmış) ölçüleri. */
+/**
+ * Kesitteki T profilin çözülmüş ölçüleri. Motorun `railTProfile()` kuralıyla
+ * AYNI şartı uygular: anahtar açık VE dört ölçü de pozitif olmalıdır — yarım
+ * bir T çizilirse resim hesaptan başka bir kesit gösterirdi.
+ */
 export function tProfileDims(p: BoxPlateDims) {
   const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
   const webThk = num(p.tWebThkMm);
   const webH = num(p.tWebHeightMm);
   const topThk = num(p.tTopThkMm);
   const topW = num(p.tTopWidthMm);
-  const web = webThk > 0 && webH > 0;
-  const top = topThk > 0 && topW > 0;
+  const present =
+    p.tProfileOn === true && webThk > 0 && webH > 0 && topThk > 0 && topW > 0;
   return {
-    webThk: web ? webThk : 0,
-    webH: web ? webH : 0,
-    topThk: top ? topThk : 0,
-    topW: top ? topW : 0,
-    present: web || top,
-    /** T profilin toplam yüksekliği [mm] */
-    totalH: (web ? webH : 0) + (top ? topThk : 0),
+    webThk: present ? webThk : 0,
+    webH: present ? webH : 0,
+    topThk: present ? topThk : 0,
+    topW: present ? topW : 0,
+    present,
   };
 }
 
@@ -72,14 +79,21 @@ export interface BoxLayout {
   railCx: number;        // ray ekseni [px]
   railCenterYMm: number; // ray ekseni = b2 sol kenarından (x + t3/2) [mm]
   yB: number;            // kesit alt kenarı
-  y6: number; y5: number; yWebTop: number; yWebBottom: number; y2: number; y1: number;
-  /** T profil yan sacının üstü (= T üst sacının alt yüzü); T yoksa y1 */
+  y6: number; y5: number; yWebBottom: number; y2: number; y1: number;
+  /** ANA gövde sacının üstü — T profil varsa T'nin yan sacı kadar aşağıdadır */
+  yWebTop: number;
+  /** Gövde BÖLGESİNİN üstü (h3'ün tepesi); dış yan sac buradan başlar */
+  yWebZoneTop: number;
+  /** T profil yan sacının ÜST ucu (= T üst sacının alt yüzü); T yoksa y1 */
   yTWebTop: number;
-  /** T profilin üstü — ray bu kotta oturur; T yoksa y1 */
+  /** Kesitin en üstü — ray bu kotta oturur */
   yTop: number;
   railTop: number;       // ray mantarı üstü
   /** Çözülmüş T profil ölçüleri [mm] */
   t: ReturnType<typeof tProfileDims>;
+  /** Ray altı sacının ÇİZİLECEK ölçüleri — T profil varsa 0 (iptal) */
+  t1Mm: number;
+  b1Mm: number;
   totalHMm: number;
   maxBMm: number;
   railHMm: number;
@@ -100,8 +114,12 @@ export interface BoxLayoutArea {
  */
 export function layoutBoxSection(p: BoxPlateDims, a: BoxLayoutArea): BoxLayout | null {
   const t = tProfileDims(p);
-  const totalHMm = p.t1Mm + p.t2Mm + p.h3Mm + p.t5Mm + p.t6Mm + t.totalH;
-  const maxBMm = Math.max(p.b1Mm, p.b2Mm, p.b5Mm, p.b6Mm, t.topW);
+  // T PROFİL VARKEN RAY ALTI SACI İPTALDİR (motorla aynı kural).
+  const t1Mm = t.present ? 0 : p.t1Mm;
+  const b1Mm = t.present ? 0 : p.b1Mm;
+  // TOPLAM YÜKSEKLİK DEĞİŞMEZ: T profil kesitin İÇİNE girer, üstüne eklenmez.
+  const totalHMm = t1Mm + p.t2Mm + p.h3Mm + p.t5Mm + p.t6Mm;
+  const maxBMm = Math.max(b1Mm, p.b2Mm, p.b5Mm, p.b6Mm, t.topW);
   if (!(totalHMm > 0) || !(maxBMm > 0)) return null;
 
   const railHMm = Math.max(0, p.railHeightMm);
@@ -112,12 +130,15 @@ export function layoutBoxSection(p: BoxPlateDims, a: BoxLayoutArea): BoxLayout |
   const y6 = yB - p.t6Mm * s;
   const y5 = y6 - p.t5Mm * s;
   const yWebBottom = y5;
-  const yWebTop = y5 - p.h3Mm * s;
-  const y2 = yWebTop - p.t2Mm * s;
-  const y1 = y2 - p.t1Mm * s;
-  // T profil kutunun ÜSTÜNE oturur: önce yan sac, onun üstünde üst sac.
-  const yTWebTop = y1 - t.webH * s;
-  const yTop = yTWebTop - t.topThk * s;
+  // GÖVDE BÖLGESİ (h3) — dış yan sac tam boy burayı doldurur.
+  const yWebZoneTop = y5 - p.h3Mm * s;
+  const y2 = yWebZoneTop - p.t2Mm * s;   // üst iç flanşın üst yüzü
+  const y1 = y2 - t1Mm * s;              // kesitin en üstü (T varken = y2)
+  // T profilin üst sacı üst iç flanşla AYNI SEVİYEDE başlar (kesitin üstü);
+  // yan sacı onun altından iner ve ANA gövde sacı o kotun ALTINDA kalır.
+  const yTop = y1;
+  const yTWebTop = yTop + t.topThk * s;
+  const yWebTop = t.present ? yTWebTop + t.webH * s : yWebZoneTop;
 
   const b2Left = a.cx - (p.b2Mm * s) / 2;
   const web1X = b2Left + p.xMm * s;
@@ -128,9 +149,9 @@ export function layoutBoxSection(p: BoxPlateDims, a: BoxLayoutArea): BoxLayout |
 
   return {
     s, cx: a.cx, b2Left, web1X, web2X, railCx, railCenterYMm,
-    yB, y6, y5, yWebTop, yWebBottom, y2, y1, yTWebTop, yTop,
+    yB, y6, y5, yWebTop, yWebZoneTop, yWebBottom, y2, y1, yTWebTop, yTop,
     railTop: yTop - railHMm * s,
-    t,
+    t, t1Mm, b1Mm,
     totalHMm, maxBMm, railHMm,
   };
 }
@@ -144,17 +165,28 @@ export function pushBoxPlates(els: DiagramEl[], p: BoxPlateDims, g: BoxLayout) {
   const s = g.s;
   if (p.t6Mm > 0 && p.b6Mm > 0) els.push(plate(g.cx - (p.b6Mm * s) / 2, g.y6, p.b6Mm * s, p.t6Mm * s));
   if (p.t5Mm > 0 && p.b5Mm > 0) els.push(plate(g.cx - (p.b5Mm * s) / 2, g.y5, p.b5Mm * s, p.t5Mm * s));
-  if (p.t3Mm > 0 && p.h3Mm > 0) els.push(plate(g.web1X, g.yWebTop, p.t3Mm * s, p.h3Mm * s));
-  if (p.t4Mm > 0 && p.h3Mm > 0) els.push(plate(g.web2X, g.yWebTop, p.t4Mm * s, p.h3Mm * s));
-  if (p.t2Mm > 0 && p.b2Mm > 0) els.push(plate(g.cx - (p.b2Mm * s) / 2, g.y2, p.b2Mm * s, p.t2Mm * s));
-  // b1 (ray altı sacı) kirişin ortasında değil, RAYIN ortasında durur
-  if (p.t1Mm > 0 && p.b1Mm > 0) els.push(plate(g.railCx - (p.b1Mm * s) / 2, g.y1, p.b1Mm * s, p.t1Mm * s));
-  // Ray altı T profili: yan sac ray ekseninde, üst sac onun TAM ORTASINDA
-  if (g.t.webH > 0) {
-    els.push(plate(g.railCx - (g.t.webThk * s) / 2, g.yTWebTop, g.t.webThk * s, g.t.webH * s));
+  // ANA GÖVDE SACI, T profilin yan sacı kadar KISALIR (üstten).
+  const mainWebH = g.yWebBottom - g.yWebTop;
+  if (p.t3Mm > 0 && mainWebH > 0) els.push(plate(g.web1X, g.yWebTop, p.t3Mm * s, mainWebH));
+  // Dış (yardımcı) gövde sacı TAM BOY kalır.
+  if (p.t4Mm > 0 && p.h3Mm > 0) els.push(plate(g.web2X, g.yWebZoneTop, p.t4Mm * s, p.h3Mm * s));
+  // ÜST İÇ FLANŞ, T profilin genişliği kadar KESİLİR: iki parça olarak çizilir.
+  if (p.t2Mm > 0 && p.b2Mm > 0) {
+    const left = g.cx - (p.b2Mm * s) / 2;
+    const right = left + p.b2Mm * s;
+    const cutLo = g.t.present ? Math.max(left, g.railCx - (g.t.topW * s) / 2) : right;
+    const cutHi = g.t.present ? Math.min(right, g.railCx + (g.t.topW * s) / 2) : right;
+    if (cutLo > left) els.push(plate(left, g.y2, cutLo - left, p.t2Mm * s));
+    if (right > cutHi) els.push(plate(cutHi, g.y2, right - cutHi, p.t2Mm * s));
   }
-  if (g.t.topW > 0) {
+  // b1 (ray altı sacı) kirişin ortasında değil, RAYIN ortasında durur.
+  // T profil varsa iptaldir (g.t1Mm = 0).
+  if (g.t1Mm > 0 && g.b1Mm > 0) els.push(plate(g.railCx - (g.b1Mm * s) / 2, g.y1, g.b1Mm * s, g.t1Mm * s));
+  // Ray altı T profili: üst sacı kesitin en üstünde ve üst iç flanşla aynı
+  // seviyede, yan sacı onun TAM ORTASINDA aşağı iner.
+  if (g.t.present) {
     els.push(plate(g.railCx - (g.t.topW * s) / 2, g.yTop, g.t.topW * s, g.t.topThk * s));
+    els.push(plate(g.railCx - (g.t.webThk * s) / 2, g.yTWebTop, g.t.webThk * s, g.t.webH * s));
   }
 }
 
@@ -228,23 +260,23 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
 
   // Sol etiketler (açıklayıcı ad + sembol). T profil varsa iki satırı da
   // buraya girer — kesitin üstündeki iki yeni sac adsız kalmamalı.
+  const mainWebH = g.yWebBottom - yWebTop;
   const leftItems = [
-    ...(tp.topW > 0
-      ? [{
-          y: g.yTop + (tp.topThk * s) / 2,
-          edgeX: g.railCx - (tp.topW * s) / 2,
-          text: `T profil üst sacı  ${fmtN(tp.topThk)}`,
-        }]
-      : []),
-    ...(tp.webH > 0
-      ? [{
-          y: g.yTWebTop + (tp.webH * s) / 2,
-          edgeX: g.railCx - (tp.webThk * s) / 2,
-          text: `T profil yan sacı  ${fmtN(tp.webThk)}`,
-        }]
-      : []),
-    { y: y1 + (p.t1Mm * s) / 2, edgeX: g.railCx - (p.b1Mm * s) / 2, text: `ray altı sacı  t1 = ${fmtN(p.t1Mm)}` },
-    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web1X, text: `gövde sacı  t3 = ${fmtN(p.t3Mm)}` },
+    ...(tp.present
+      ? [
+          {
+            y: g.yTop + (tp.topThk * s) / 2,
+            edgeX: g.railCx - (tp.topW * s) / 2,
+            text: `T profil üst sacı  ${fmtN(tp.topThk)}`,
+          },
+          {
+            y: g.yTWebTop + (tp.webH * s) / 2,
+            edgeX: g.railCx - (tp.webThk * s) / 2,
+            text: `T profil yan sacı  ${fmtN(tp.webThk)}`,
+          },
+        ]
+      : [{ y: y1 + (g.t1Mm * s) / 2, edgeX: g.railCx - (g.b1Mm * s) / 2, text: `ray altı sacı  t1 = ${fmtN(g.t1Mm)}` }]),
+    { y: yWebTop + mainWebH * 0.42, edgeX: web1X, text: `gövde sacı  t3 = ${fmtN(p.t3Mm)}` },
     { y: y5 + (p.t5Mm * s) / 2, edgeX: cx - (p.b5Mm * s) / 2, text: `alt başlık  t5 = ${fmtN(p.t5Mm)}` },
   ];
   const leftYs = spread(leftItems.map((i) => i.y));
@@ -256,7 +288,7 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   // Sağ etiketler (açıklayıcı ad + sembol)
   const rightItems = [
     { y: y2 + (p.t2Mm * s) / 2, edgeX: cx + (p.b2Mm * s) / 2, text: `t2 = ${fmtN(p.t2Mm)}  iç başlık` },
-    { y: yWebTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}  gövde sacı` },
+    { y: g.yWebZoneTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}  gövde sacı` },
     { y: y6 + (p.t6Mm * s) / 2, edgeX: cx + (p.b6Mm * s) / 2, text: `t6 = ${fmtN(p.t6Mm)}  ek flanş` },
   ];
   const rightYs = spread(rightItems.map((i) => i.y));
@@ -266,22 +298,20 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   });
 
   // --- Ölçü okları: b1 (üstte, ray ekseninde), b5 (altta), h (sağda), a (gövdeler arası)
-  if (p.b1Mm > 0) {
+  if (g.b1Mm > 0) {
     // "ray" etiketi ray mantarının hemen üstünde durur; b1 ölçüsü ondan da
     // yukarıda olmalı, yoksa ölçü çizgisi etiketin içinden geçiyor.
-    dimH(els, g.railCx - (p.b1Mm * s) / 2, g.railCx + (p.b1Mm * s) / 2, g.railTop - 24, `b1 = ${fmtN(p.b1Mm)}`);
+    dimH(els, g.railCx - (g.b1Mm * s) / 2, g.railCx + (g.b1Mm * s) / 2, g.railTop - 24, `b1 = ${fmtN(g.b1Mm)}`);
   }
   if (p.b5Mm > 0) {
     dimH(els, cx - (p.b5Mm * s) / 2, cx + (p.b5Mm * s) / 2, yB + 30, `b5 = ${fmtN(p.b5Mm)}`, { labelDy: 13 });
   }
   // T profil ölçüleri: yan sac yüksekliği (sol iç) ve üst sac genişliği (üstte)
-  if (tp.webH > 0) {
-    dimV(els, g.railCx - (tp.topW * s) / 2 - 14, g.yTWebTop, g.y1,
+  if (tp.present) {
+    dimV(els, g.railCx - (tp.topW * s) / 2 - 14, g.yTWebTop, yWebTop,
       `h_T = ${fmtN(tp.webH)}`, { labelSide: "left", size: 8.5 });
-  }
-  if (tp.topW > 0) {
     dimH(els, g.railCx - (tp.topW * s) / 2, g.railCx + (tp.topW * s) / 2,
-      g.railTop - 40, `b_T = ${fmtN(tp.topW)}`, { size: 8.5 });
+      g.railTop - 24, `b_T = ${fmtN(tp.topW)}`, { size: 8.5 });
   }
 
   // h — toplam kesit yüksekliği (sağ dış). Sağ etiket sütunundan (rightX)
@@ -295,10 +325,17 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   if (p.aMm > 0 && p.h3Mm > 0) {
     dimH(els, web1X + p.t3Mm * s, web2X, yWebTop + (p.h3Mm * s) * 0.62, `gövde arası a = ${fmtN(p.aMm)}`, { size: 8.5 });
   }
-  // h3 — gövde (web) yüksekliği — sol iç
+  // h3 — gövde (web) yüksekliği — sağ iç. T profil varsa ANA gövde kısaldığı
+  // için ölçü DIŞ gövde sacında (tam boy) gösterilir, yanına da kısalmış ana
+  // gövdenin boyu yazılır; ikisini tek okla göstermek yanlış olurdu.
   if (p.h3Mm > 0) {
-    const h3X = web1X - 12;
-    dimV(els, h3X, yWebTop, yWebBottom, `h3 = ${fmtN(p.h3Mm)}`, { labelSide: "left", size: 8.5 });
+    dimV(els, web2X - 12, g.yWebZoneTop, yWebBottom, `h3 = ${fmtN(p.h3Mm)}`, { labelSide: "left", size: 8.5 });
+    if (tp.present) {
+      const h3MainMm = Math.round(((yWebBottom - yWebTop) / s) * 10) / 10;
+      dimV(els, web1X - 12, yWebTop, yWebBottom, `h3' = ${fmtN(h3MainMm)}`, {
+        labelSide: "left", size: 8.5,
+      });
+    }
   }
   // b2 — üst iç başlık genişliği (üstte, b1'in altında)
   if (p.b2Mm > 0) {

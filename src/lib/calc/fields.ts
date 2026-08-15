@@ -58,6 +58,13 @@ export interface FieldDef<T> {
   /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
   visible?: (specs: TechnicalSpecs) => boolean;
   /**
+   * MODÜLÜN KENDİ GİRDİLERİNE bağlı görünürlük — `visible`den ayrıdır, o
+   * teknik özellikleri okur. Bir anahtarın açtığı alanlarda kullanılır (ray
+   * altı T profil ölçüleri gibi): anahtar kapalıyken kutular gizlenir ama
+   * DEĞERLERİ KORUNUR, sıfırlanmaz.
+   */
+  visibleWhen?: (inputs: Record<string, unknown>) => boolean;
+  /**
    * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur ("Ø 400 mm").
    * Etikete yazılmaz; işaret ölçünün kendisine aittir. Arayüz ve PDF aynı
    * bayrağı okur, `withDiameterSign` ile biçimlendirir (tek kaynak).

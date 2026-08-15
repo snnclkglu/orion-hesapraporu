@@ -149,6 +149,11 @@ export interface AnyFieldDef {
    * yazabilir ("Elle Gir…"). Bayrağı sunum katmanı koyar; burada yalnız okunur.
    */
   allowCustom?: boolean;
+  /**
+   * Modülün KENDİ girdilerine bağlı görünürlük (ör. ray altı T profil ölçüleri
+   * yalnız anahtar "Var" iken görünür). Bayrağı sunum katmanı koyar.
+   */
+  visibleWhen?: (inputs: Record<string, unknown>) => boolean;
   /** select seçeneklerinin gösterim etiketi */
   optionLabels?: Record<string, string>;
   /** Standart referansı (standards/registry.ts anahtarı) */

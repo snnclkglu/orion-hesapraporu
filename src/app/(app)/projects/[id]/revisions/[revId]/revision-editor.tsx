@@ -1884,7 +1884,14 @@ export function RevisionEditor({
                 Girdiler / Tasarım Kabulleri
               </h3>
               <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {section.inputDefs.map((f) => (
+                {/* `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır
+                    (ör. ray altı T profil ölçüleri yalnız anahtar "Var" iken
+                    görünür). Gizlenen alanın DEĞERİ KORUNUR — sıfırlanmaz,
+                    anahtar geri açıldığında geri gelir (bölüm aç/kapa
+                    mantığının aynısı). */}
+                {section.inputDefs
+                  .filter((f) => f.visibleWhen?.(scopedInputs as Record<string, unknown>) ?? true)
+                  .map((f) => (
                   <Field
                     key={f.key}
                     def={f}

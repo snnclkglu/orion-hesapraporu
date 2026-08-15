@@ -914,27 +914,56 @@ bağlantı haritası da bölündü (`check-anchors.ts` 4.6 / 4.7).
 ### 6. Ray altı T PROFİL (büyük tonajlı vinçler)
 
 Ana kirişte teker basıncı tek bir sacla değil, ray ekseninde duran bir T
-profille aktarılabilir. Dört yeni girdi (`railTProfileWebThkMm` /
-`WebHeightMm` / `TopThkMm` / `TopWidthMm`); **dördü de 0 ise profil YOKTUR** ve
-kesit bugünkü hâliyle çalışır — eski revizyonlar birebir korunur.
+profille aktarılır. **Anahtar** `railTProfile` ("Yok" / "Var") dört ölçüyü açar
+(`railTProfileTopThkMm` / `TopWidthMm` / `WebThkMm` / `WebHeightMm`); anahtar
+kapalıyken kutular gizlenir ve **kayıtlı ölçüler korunur** — "0 gir" demek
+kullanıcının girdiğini silmek olurdu. Alan görünürlüğü genel bir kanca ile
+verilir: `FieldDef.visibleWhen(inputs)` — `visible(specs)`ten ayrıdır, o teknik
+özellikleri okur.
 
-**Yerleşim (kullanıcı kararı):** T profil kutunun ÜSTÜNE oturur. Alttan üste:
-ek flanş t6 → alt flanş t5 → gövdeler h3 → üst iç flanş t2 → ray altı sacı t1 →
-**T yan sacı** → **T üst sacı** → RAY. Yan sac üst sacın TAM ORTASINDADIR ve
-ikisi de ray ekseninde durur (b1 ile aynı eksen: x + t3/2).
+**PROFİL KİRİŞİN ÜSTÜNE OTURMAZ, ÜST BÖLÜMÜNÜN İÇİNE GİRER** (kullanıcının
+ikinci ekran görüntüsü ve düzeltmesi): T'nin üst sacı ana kirişin üst sacıyla
+AYNI SEVİYEDEDİR.
 
-**Tam kesit hesabına girer** (kullanıcı kararı): alan, ağırlık, Cz, Cy, Iyy,
-Izz, Wyy, Wzz, kesit ağırlığı, sehim ve kamber. Yataydaki dış lif artık
-`maks(b2 ; y_ray + b_T/2)`tır — T'nin üst sacı b2'yi aşarsa Wzz olduğundan
-büyük çıkardı. **BURULMAYA GİRMEZ:** T açık bir kesittir ve kapalı kutunun
-ÜSTÜNDE durur, Bredt akışı yalnız kutunun çeperinden geçer.
+    ÜST ═══╤═════  üst iç flanş t2  ⟷  T üst sacı (AYNI SEVİYE)
+           │▌      T yan sacı (t_T,yan × h_T), ray ekseninde
+           ║       ana gövde sacı t3 — h_T kadar KISALIR
+           ║
+    ═══════╧═════  alt flanş t5 · ek flanş t6
 
-**`webDepthAboveCentroid` KUTUNUN kendi yüksekliğinden okunur** (`boxHeightMm`),
-toplam yükseklikten değil: T profil gövde sacına bir şey eklemez ve toplam
-yüksekliği kullanmak T konan bir kirişte kesme gerilmesini sessizce
-değiştirirdi.
+Kullanıcının kendi cümlesiyle **"t1 iptal, t2 kısalır, h3 kısalır, diğerleri
+değişmez"**:
 
-Kesit çizimi (`diagrams/girderSection.ts`) T'yi çizer, etiketler ve ölçülendirir
-(h_T, b_T); ray artık T'nin üst sacına oturur. Aynı yerleşim gerilme şemasında
-ve buruşma panel şemasında da kendiliğinden geçerlidir (üçü `layoutBoxSection`
-paylaşır).
+- **RAY ALTI SACI (t1/b1) İPTALDİR** — rayı artık T'nin üst sacı taşır. Alanlar
+  ekranda gizlenir, değerleri korunur.
+- **ÜST İÇ FLANŞ (b2) T'nin genişliği kadar KESİLİR**; o şeridi T'nin üst sacı
+  doldurur. İki plaka aynı düzlemdedir ve ÜST ÜSTE BİNMEZ. Kesilmiş plakanın
+  ağırlık merkezi artık `b2/2` DEĞİLDİR ve kendi ataleti `b2³·t2/12` değildir;
+  ikisi de kesitin sol kenarına göre tam hesaplanıp Steiner ile taşınır. Kesilen
+  aralık b2'nin dışına taşabilir (T flanşı kesitten çıkabilir), o yüzden örtüşme
+  `[0, b2]` aralığına kırpılır.
+- **ANA GÖVDE SACI (t3) T'nin yan sacı kadar KISALIR**:
+  `h3' = h3 + t2 − t_T,üst − h_T`. `t_T,üst = t2` olduğunda sonuç tam olarak
+  `h3 − h_T`'dir. Dış yan sac (t4) TAM BOY kalır.
+- **TOPLAM YÜKSEKLİK DEĞİŞMEZ**: `h = t2 + h3 + t5 + t6` (t1 = 0).
+
+**Tam kesit hesabına girer**: alan, ağırlık, Cz, Cy, Iyy, Izz, Wyy, Wzz, kesit
+ağırlığı, sehim ve kamber. Yataydaki dış lif `maks(b2 ; y_ray + b_T/2)`tır — T'nin
+üst sacı b2'yi aşarsa Wzz olduğundan büyük çıkardı. Ray altındaki gövde
+hattının KESME ALANI iki parçanın toplamıdır (T yan sacı + kısalmış ana gövde);
+yalnız ana gövdeyi saymak kesme gerilmesini olduğundan büyük gösterirdi.
+**BURULMAYA GİRMEZ:** T açık bir kesittir ve Bredt akışı yalnız kapalı kutunun
+çeperinden geçer.
+
+**KAYAN NOKTA UYARISI:** T profil YOKKEN kesit ifadeleri harfi harfine eski
+hâlinde bırakılmıştır (`tp.present` dallanmaları — `(t3+t4)·h3³` ile
+`t3·h3³ + t4·h3³` matematiksel olarak aynı, kayan noktada değil). Tarihsel
+karşılaştırma testi bu farkı görür ve düşer; `mainGirder.golden.test.ts`
+T profil eklendikten sonra da BİT BİT aynı sonuçları veriyor.
+
+Kesit çizimi (`diagrams/girderSection.ts`) yeni geometriyi çizer: üst iç flanş
+İKİ PARÇA olarak (T'nin oturduğu şerit boş), T'nin üst sacı kesitin en üstünde,
+yan sacı aşağı inerken ana gövde onun altında başlar; ölçülendirmede hem `h3`
+(gövde bölgesi, dış sac) hem `h3'` (kısalmış ana gövde) gösterilir. Aynı yerleşim
+gerilme şemasında ve buruşma panel şemasında da geçerlidir (üçü
+`layoutBoxSection` paylaşır).

@@ -39,6 +39,7 @@ import {
 import { cellularSpeedCurvesForModel } from "@/lib/calc/cellularBufferSpeedCurves";
 import {
   GIRDER_ELASTIC_MODULUS_KG_CM2,
+  railTProfile,
   type GirderValues,
   type GirderWhich,
 } from "@/lib/calc/modules/mainGirder";
@@ -183,7 +184,8 @@ export function diagramForSection(
         t5Mm: i.t5Mm, b5Mm: i.b5Mm,
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
-        // Ray altı T profili (varsa) — kesitin üstünde, ray ekseninde
+        // Ray altı T profili (varsa) — kesitin ÜST BÖLÜMÜNÜN İÇİNDE
+        tProfileOn: railTProfile(i).present,
         tWebThkMm: i.railTProfileWebThkMm,
         tWebHeightMm: i.railTProfileWebHeightMm,
         tTopThkMm: i.railTProfileTopThkMm,
@@ -224,7 +226,8 @@ export function diagramForSection(
         t5Mm: i.t5Mm, b5Mm: i.b5Mm,
         t6Mm: i.t6Mm, b6Mm: i.b6Mm,
         aMm: i.aMm, xMm: i.xMm,
-        // Ray altı T profili (varsa) — kesitin üstünde, ray ekseninde
+        // Ray altı T profili (varsa) — kesitin ÜST BÖLÜMÜNÜN İÇİNDE
+        tProfileOn: railTProfile(i).present,
         tWebThkMm: i.railTProfileWebThkMm,
         tWebHeightMm: i.railTProfileWebHeightMm,
         tTopThkMm: i.railTProfileTopThkMm,
@@ -581,6 +584,7 @@ function bucklingDiagrams(
         t3Mm: gi.t3Mm, h3Mm: gi.h3Mm, t4Mm: gi.t4Mm,
         t5Mm: gi.t5Mm, b5Mm: gi.b5Mm, t6Mm: gi.t6Mm, b6Mm: gi.b6Mm,
         aMm: gi.aMm, xMm: gi.xMm,
+        tProfileOn: railTProfile(gi).present,
         tWebThkMm: gi.railTProfileWebThkMm,
         tWebHeightMm: gi.railTProfileWebHeightMm,
         tTopThkMm: gi.railTProfileTopThkMm,

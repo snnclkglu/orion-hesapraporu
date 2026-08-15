@@ -13,6 +13,7 @@ import type {
   EndCarriageInputs,
   EndCarriageSelections,
 } from "../modules/endCarriage";
+import { RAIL_T_PROFILE_ON } from "../modules/mainGirder";
 import type { GirderDeps, GirderInputs, GirderSelections } from "../modules/mainGirder";
 
 export const FATIGUE_MATERIALS = ["S235JR", "S355JR"] as const;
@@ -20,6 +21,12 @@ export const NOTCH_CLASSES = ["W0", "W1", "W2", "K0", "K1", "K2", "K3", "K4"] as
 export const LOAD_GROUPS = ["B1", "B2", "B3", "B4", "B5", "B6"] as const;
 export const GIRDER_STATIC_MATERIALS = ["St37", "St44", "St52"] as const;
 export const HOIST_CLASSES = ["H1", "H2", "H3", "H4"] as const;
+export const RAIL_T_PROFILE_OPTIONS = ["Yok", RAIL_T_PROFILE_ON] as const;
+
+/** Ana kiriş girdilerinde ray altı T profil anahtarı açık mı? */
+function tProfileOn(inputs: Record<string, unknown>): boolean {
+  return String(inputs.railTProfile ?? "").trim() === RAIL_T_PROFILE_ON;
+}
 
 // --- ANA KİRİŞ --------------------------------------------------------------
 
@@ -40,10 +47,17 @@ export const GIRDER_DEP_FIELDS: FieldDef<GirderDeps>[] = [
 
 export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "railHeightMm", label: "Ray Yüksekliği hr", unit: "mm", type: "number" },
-  { key: "t1Mm", label: "Ray Altı Sacı Kalınlığı t1", unit: "mm", type: "number" },
+  // RAY ALTI SACI, T PROFİL VARKEN İPTALDİR: rayı T'nin üst sacı taşır.
+  // Alanlar gizlenir (değerleri korunur, hesaba girmez) — "0 gir" demek
+  // kullanıcının girdiğini silmek olurdu.
+  {
+    key: "t1Mm", label: "Ray Altı Sacı Kalınlığı t1", unit: "mm", type: "number",
+    visibleWhen: (inp) => !tProfileOn(inp),
+  },
   {
     key: "b1Mm", label: "Ray Altı Sacı Genişliği b1", unit: "mm", type: "number",
     hint: "b1'in merkezi kirişin ortasında değil, RAY EKSENİNDEDİR (x + t3/2).",
+    visibleWhen: (inp) => !tProfileOn(inp),
   },
   { key: "t2Mm", label: "Üst İç Flanş Kalınlığı t2", unit: "mm", type: "number" },
   { key: "b2Mm", label: "Üst İç Flanş Genişliği b2", unit: "mm", type: "number" },
@@ -57,28 +71,40 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   { key: "aMm", label: "Gövde Sacları Arası Mesafe a", unit: "mm", type: "number" },
   { key: "xMm", label: "Kenar Mesafesi x", unit: "mm", type: "number" },
   // --- Ray altı T profil (büyük tonajlı vinçler) ---------------------------
-  // Dört alan da 0 girilirse profil YOKTUR ve kesit bugünkü hâliyle çalışır.
+  // Anahtar "Var" olunca dört ölçü sorulur; "Yok"ta kutular gizlenir ve
+  // kayıtlı değerler korunur.
   {
-    key: "railTProfileWebThkMm", label: "T Profil Yan Sac Kalınlığı", unit: "mm",
-    type: "number",
+    key: "railTProfile", label: "Ray Altı T Profil", type: "select",
+    options: RAIL_T_PROFILE_OPTIONS,
     hint:
-      "Ray altı T profilinin DİKEY sacı. Ray altı sacının (t1) üstüne, ray " +
-      "ekseninde ve T üst sacının TAM ORTASINDA durur. 0 = T profil yok.",
-  },
-  {
-    key: "railTProfileWebHeightMm", label: "T Profil Yan Sac Yüksekliği", unit: "mm",
-    type: "number",
-    hint: "Yan sacın yüksekliği; kesitin toplam yüksekliği bu kadar artar.",
+      "Büyük tonajlı vinçlerde ray altına T profil konur. VAR seçilince: ray " +
+      "altı sacı (t1) iptal olur, üst iç flanş T'nin genişliği kadar kesilir " +
+      "ve ana gövde sacı T'nin yan sacı kadar kısalır. Toplam yükseklik " +
+      "değişmez.",
   },
   {
     key: "railTProfileTopThkMm", label: "T Profil Üst Sac Kalınlığı", unit: "mm",
-    type: "number",
-    hint: "Rayın oturduğu sac. Teker basıncı yayılımında taşıyan sac budur.",
+    type: "number", visibleWhen: tProfileOn,
+    hint:
+      "Rayın oturduğu sac. Ana kirişin üst sacıyla AYNI SEVİYEDEDİR; üst iç " +
+      "flanşın (b2) yerini bu genişlik boyunca alır.",
   },
   {
     key: "railTProfileTopWidthMm", label: "T Profil Üst Sac Genişliği", unit: "mm",
-    type: "number",
-    hint: "Ray ekseninde ortalanır. Boş/0 bırakılırsa üst sac kesite girmez.",
+    type: "number", visibleWhen: tProfileOn,
+    hint: "Ray ekseninde ortalanır. Üst iç flanş b2 bu genişlik kadar kesilir.",
+  },
+  {
+    key: "railTProfileWebThkMm", label: "T Profil Yan Sac Kalınlığı", unit: "mm",
+    type: "number", visibleWhen: tProfileOn,
+    hint: "T'nin DİKEY sacı — üst sacın TAM ORTASINDA ve ray ekseninde durur.",
+  },
+  {
+    key: "railTProfileWebHeightMm", label: "T Profil Yan Sac Yüksekliği", unit: "mm",
+    type: "number", visibleWhen: tProfileOn,
+    hint:
+      "Ana gövde sacı (t3) tam bu kadar kısalır; kesitin toplam yüksekliği " +
+      "DEĞİŞMEZ.",
   },
   { key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number" },
   { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },

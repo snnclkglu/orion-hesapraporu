@@ -9,7 +9,7 @@
 // hangi toplama hangi çarpanla girdiği numarasından izlenebilir.
 
 import { camberProfile } from "../camber";
-import { GIRDER_ELASTIC_MODULUS_KG_CM2 } from "../modules/mainGirder";
+import { GIRDER_ELASTIC_MODULUS_KG_CM2, railTProfile } from "../modules/mainGirder";
 import type { GirderDeps, GirderInputs, GirderSelections } from "../modules/mainGirder";
 import type { TechnicalSpecs } from "../types";
 import { KGF_TO_MPA } from "@/lib/units";
@@ -77,6 +77,9 @@ const mpa = (v: number | string | undefined, d = 1): string => {
   });
 };
 
+/** Ray altı T profil bu kesitte kullanılıyor mu (formül metinleri için). */
+const tOn = (x: GirderCtx): boolean => railTProfile(x.inp).present;
+
 export const GIRDER_SECTIONS: GirderSectionDef[] = [
   {
     id: "7.1",
@@ -84,36 +87,47 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     description:
       "Kutu kesit alanı, ağırlık merkezi, atalet ve mukavemet momentleri, burulma sabiti. " +
       "Ray altı sacı b1, kirişin ortasında değil ray ekseninde oturur. Büyük " +
-      "tonajlı vinçlerde rayın altına bir T PROFİL konabilir: yan sacı ray " +
-      "ekseninde ve üst sacının tam ortasında durur, kesit yüksekliği ve " +
-      "atalet momenti buna göre artar. Dört T ölçüsü de 0 ise profil yoktur.",
+      "tonajlı vinçlerde rayın altına bir T PROFİL konur; profil kirişin " +
+      "ÜSTÜNE oturmaz, ÜST BÖLÜMÜNÜN İÇİNE girer: T'nin üst sacı ana kirişin " +
+      "üst sacıyla aynı seviyededir, ray altı sacı (t1) iptal olur, üst iç " +
+      "flanş T'nin genişliği kadar kesilir ve ana gövde sacı T'nin yan sacı " +
+      "kadar kısalır. TOPLAM YÜKSEKLİK DEĞİŞMEZ.",
     depKeys: [],
     inputKeys: [
       "t1Mm", "b1Mm", "t2Mm", "b2Mm", "t3Mm", "h3Mm", "t4Mm", "t5Mm", "b5Mm",
       "t6Mm", "b6Mm", "aMm", "xMm",
-      "railTProfileWebThkMm", "railTProfileWebHeightMm",
+      "railTProfile",
       "railTProfileTopThkMm", "railTProfileTopWidthMm",
+      "railTProfileWebThkMm", "railTProfileWebHeightMm",
     ],
     selectionKeys: [],
     rows: [
       {
-        key: "section.boxHeight", label: "Kutu Yüksekliği (T Profil Hariç)",
-        formula: "h_kutu = t1 + t2 + h3 + t5 + t6",
-        subst: (x) => `${n(x.inp.t1Mm)} + ${n(x.inp.t2Mm)} + ${n(x.inp.h3Mm)} + ${n(x.inp.t5Mm)} + ${n(x.inp.t6Mm)}`,
-        unit: "mm",
-      },
-      {
         key: "section.height", label: "Toplam Yükseklik h",
-        formula: "h = h_kutu + h_T + t_T   (T profil varsa)",
+        // T profil varken t1 = 0'dır (ray altı sacı iptal); ifade değişmez.
+        formula: "h = t1 + t2 + h3 + t5 + t6",
         subst: (x) =>
-          `${n(num(x.c["section.boxHeight"]))} + ${n(x.inp.railTProfileWebHeightMm ?? 0)} + ${n(x.inp.railTProfileTopThkMm ?? 0)}`,
+          `${n(tOn(x) ? 0 : x.inp.t1Mm)} + ${n(x.inp.t2Mm)} + ${n(x.inp.h3Mm)} + ${n(x.inp.t5Mm)} + ${n(x.inp.t6Mm)}` +
+          (tOn(x) ? "   (t1 = 0 · ray altı sacı T profille iptal)" : ""),
         unit: "mm",
       },
       {
-        key: "section.areaTProfileWeb", label: "T Profil Yan Sac Alanı",
-        formula: "A_T,yan = t_T,yan · h_T",
-        subst: (x) => `${n(x.inp.railTProfileWebThkMm ?? 0)} · ${n(x.inp.railTProfileWebHeightMm ?? 0)}`,
-        unit: "mm²",
+        key: "section.mainWebHeight", label: "Ana Gövde Sacı Yüksekliği",
+        formula: "h3' = h3 + t2 − t_T,üst − h_T   (T profil varsa)",
+        subst: (x) =>
+          tOn(x)
+            ? `${n(x.inp.h3Mm)} + ${n(x.inp.t2Mm)} − ${n(x.inp.railTProfileTopThkMm ?? 0)} − ${n(x.inp.railTProfileWebHeightMm ?? 0)}`
+            : `T profil yok → h3 = ${n(x.inp.h3Mm)}`,
+        unit: "mm",
+      },
+      {
+        key: "section.topInnerEffectiveWidth", label: "Üst İç Flanşın Kesilmiş Genişliği",
+        formula: "b2' = b2 − (T üst sacının b2 içindeki payı)",
+        subst: (x) =>
+          tOn(x)
+            ? `${n(x.inp.b2Mm)} − T üst sacı ${n(x.inp.railTProfileTopWidthMm ?? 0)} (ray ekseninde)`
+            : `T profil yok → b2 = ${n(x.inp.b2Mm)}`,
+        unit: "mm",
       },
       {
         key: "section.areaTProfileTop", label: "T Profil Üst Sac Alanı",
@@ -122,8 +136,14 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         unit: "mm²",
       },
       {
+        key: "section.areaTProfileWeb", label: "T Profil Yan Sac Alanı",
+        formula: "A_T,yan = t_T,yan · h_T",
+        subst: (x) => `${n(x.inp.railTProfileWebThkMm ?? 0)} · ${n(x.inp.railTProfileWebHeightMm ?? 0)}`,
+        unit: "mm²",
+      },
+      {
         key: "section.area", label: "Kesit Alanı A", formula: "A = Σ(ti · bi) · 0,01",
-        subst: (x) => `(${n(num(x.c["section.areaTopFlange"]))} + ${n(num(x.c["section.areaTopInnerFlange"]))} + ${n(num(x.c["section.areaMainWeb"]))} + ${n(num(x.c["section.areaSecondaryWeb"]))} + ${n(num(x.c["section.areaBottomFlange"]))} + ${n(num(x.c["section.areaExtraFlange"]))} + ${n(num(x.c["section.areaTProfileWeb"]))} + ${n(num(x.c["section.areaTProfileTop"]))}) · 0,01`,
+        subst: (x) => `(${n(num(x.c["section.areaTopFlange"]))} + ${n(num(x.c["section.areaTopInnerFlange"]))} + ${n(num(x.c["section.areaMainWeb"]))} + ${n(num(x.c["section.areaSecondaryWeb"]))} + ${n(num(x.c["section.areaBottomFlange"]))} + ${n(num(x.c["section.areaExtraFlange"]))} + ${n(num(x.c["section.areaTProfileTop"]))} + ${n(num(x.c["section.areaTProfileWeb"]))}) · 0,01`,
         unit: "cm²",
       },
       {

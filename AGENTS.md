@@ -2692,13 +2692,31 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    `moduleLabelFor`): tek takımda sade "Ana Kiriş", dört kirişlide
    "Ana Kiriş - 1" / "Ana Kiriş - 2".
 
-8c. **Ana kirişte ray altına T PROFİL konabilir** (büyük tonajlı vinçler).
-   Dört girdi (`railTProfile*`); dördü de 0 ise profil yoktur ve kesit bugünkü
-   hâliyle çalışır. T kutunun ÜSTÜNE oturur — yan sac ray ekseninde, üst sac
-   onun tam ortasında, ray T'nin üst sacında — ve TAM KESİT HESABINA girer
-   (alan, Cz/Cy, Iyy/Izz, W, ağırlık, sehim). Burulmaya GİRMEZ: T açık bir
-   kesittir, Bredt akışı yalnız kutunun çeperinden geçer. Gövde kesme alanı ve
-   `webDepthAboveCentroid` KUTUNUN kendi yüksekliğinden (`boxHeightMm`) okunur.
+8c. **Ana kirişte ray altına T PROFİL konur** (büyük tonajlı vinçler). Anahtar
+   `railTProfile = "Var"` dört ölçüyü açar; anahtar kapalıyken ölçüler
+   KORUNUR ama kesite girmez.
+
+   **PROFİL KİRİŞİN ÜSTÜNE OTURMAZ, ÜST BÖLÜMÜNÜN İÇİNE GİRER** (kullanıcı
+   düzeltmesi, 15.08.2026): T'nin üst sacı ana kirişin üst sacıyla AYNI
+   SEVİYEDEDİR. Üç sonuç — kullanıcının kendi cümlesiyle *"t1 iptal, t2
+   kısalır, h3 kısalır, diğerleri değişmez"*:
+     · RAY ALTI SACI (t1/b1) İPTALDİR; rayı T'nin üst sacı taşır.
+     · ÜST İÇ FLANŞ (b2) T'nin genişliği kadar KESİLİR — iki plaka aynı
+       düzlemdedir, üst üste binmez. Kesilmiş plakanın ağırlık merkezi artık
+       b2/2 DEĞİLDİR ve kendi ataleti b2³t2/12 değildir; ikisi de tam
+       hesaplanır.
+     · ANA GÖVDE SACI (t3) T'nin yan sacı kadar KISALIR: h3' = h3 + t2 − t_T − h_T.
+       Dış yan sac (t4) TAM BOY kalır ve TOPLAM YÜKSEKLİK DEĞİŞMEZ.
+
+   TAM KESİT HESABINA girer (alan, Cz/Cy, Iyy/Izz, W, ağırlık, sehim);
+   burulmaya GİRMEZ (açık kesit, Bredt akışı kutunun çeperinden geçer). Ray
+   altındaki gövde hattının kesme alanı iki parçanın toplamıdır (T yan sacı +
+   kısalmış ana gövde).
+
+   **KAYAN NOKTA UYARISI:** T profil YOKKEN kesit ifadeleri harfi harfine
+   eski hâlinde bırakılmıştır (`tp.present` dallanmaları). Matematiksel olarak
+   aynı olan ayrıştırılmış biçim son bitleri kaydırır ve tarihsel
+   karşılaştırma testi bunu görür.
 
 8d. **Kaldırma kirişi x · y · z ölçü zinciriyle tanımlıdır** (§4.6). Açıklık
    L = x + y + z TÜRETİLİR; kiriş iki uçtan askıda, iki noktadan yüklüdür ve

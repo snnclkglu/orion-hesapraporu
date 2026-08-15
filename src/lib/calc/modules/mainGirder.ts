@@ -197,26 +197,33 @@ export interface GirderInputs {
   /**
    * BÜYÜK TONAJLI VİNÇLERDE RAY ALTINA T PROFİL KONUR (kullanıcı kararı,
    * 15.08.2026). Teker basıncı tek bir sacla değil, ray ekseninde duran bir T
-   * profille gövdeye aktarılır: kutunun ÜSTÜNE, ray altı sacının (t1/b1)
-   * üzerine bir dikey YAN SAC ve onun üstüne bir ÜST SAC kaynaklanır; ray artık
-   * T'nin üst sacına oturur.
+   * profille gövdeye aktarılır.
    *
-   * İstiflenme (alttan üste):
-   *   ek flanş t6 → alt flanş t5 → gövdeler h3 → üst iç flanş t2 →
-   *   ray altı sacı t1 → **T yan sacı hT** → **T üst sacı tT** → RAY
+   * PROFİL KİRİŞİN ÜSTÜNE OTURMAZ, ÜST BÖLÜMÜNÜN İÇİNE GİRER:
+   *
+   *   ÜST ═══╤═════  üst iç flanş t2  ⟷  T üst sacı (AYNI SEVİYE)
+   *          │▌      T yan sacı (t_T,yan × h_T), ray ekseninde
+   *          ║       ana gövde sacı t3 — h_T kadar KISALIR
+   *          ║
+   *   ═══════╧═════  alt flanş t5 · ek flanş t6
+   *
+   * Üç sonuç (kullanıcının kendi cümlesiyle: "t1 iptal, t2 kısalır, h3
+   * kısalır, diğerleri değişmez"):
+   *   1. RAY ALTI SACI (t1/b1) İPTALDİR — rayı artık T'nin üst sacı taşır.
+   *   2. ÜST İÇ FLANŞ (b2) T'nin genişliği kadar KESİLİR; o şeridi T'nin üst
+   *      sacı doldurur. İki plaka aynı düzlemdedir, üst üste binmez.
+   *   3. ANA GÖVDE SACI (t3) T'nin yan sacı kadar KISALIR.
+   * TOPLAM YÜKSEKLİK DEĞİŞMEZ: dış yan sac tam boy kalır.
    *
    * YAN SAC ÜST SACIN TAM ORTASINDADIR ve ikisi de RAY EKSENİNDE durur
-   * (b1 sacıyla aynı eksen: x + t3/2). Bu yüzden T'nin düşey eksen etrafındaki
-   * Steiner payı b1'inkiyle aynı kolu kullanır.
+   * (x + t3/2).
    *
-   * SIFIR = T PROFİL YOK. Yükseklik ya da kalınlıklardan biri sıfırsa o parça
-   * kesite hiç girmez; eski revizyonlar (alan hiç yok → şablon 0) bugünkü
-   * sonuçlarını BİREBİR korur.
-   *
-   * BURULMAYA GİRMEZ: T açık bir kesittir ve kapalı kutunun ÜSTÜNDE durur;
-   * Bredt akışı yalnız kutunun çeperinden geçer. Katkısını saymak burulma
-   * ataletini emniyetsiz yönde şişirirdi.
+   * BURULMAYA GİRMEZ: T açık bir kesittir; Bredt akışı kapalı kutunun
+   * çeperinden geçer ve katkısını saymak burulma ataletini emniyetsiz yönde
+   * şişirirdi.
    */
+  /** "Var" ise T profil kesite girer; verilmezse / "Yok" ise girmez. */
+  railTProfile?: string;
   railTProfileWebThkMm?: number;    // T yan sacı kalınlığı
   railTProfileWebHeightMm?: number; // T yan sacı yüksekliği
   railTProfileTopThkMm?: number;    // T üst sacı kalınlığı
@@ -392,36 +399,43 @@ export interface RailTProfile {
   webHeightMm: number;
   topThkMm: number;
   topWidthMm: number;
-  /** Profil gerçekten var mı (her iki parça da pozitif ölçülü mü) */
+  /** Profil kesite giriyor mu (anahtar açık VE dört ölçü de pozitif) */
   present: boolean;
 }
+
+/** T profil anahtarının "açık" değeri (teknik özelliklerdeki Var/Yok dili). */
+export const RAIL_T_PROFILE_ON = "Var";
 
 /**
  * Ray altı T profilinin ölçülerini güvenle okur.
  *
- * KISMİ GİRDİ BİR PROFİL DEĞİLDİR: yalnız yan sac kalınlığı girilip yüksekliği
- * boş bırakılmışsa alan sıfırdır ve kesite hiçbir şey eklemez. Bu yüzden her
- * parça KENDİ İÇİNDE tam olmalıdır; `present` ikisinden en az birinin gerçek
- * bir alan taşıdığını söyler ve raporda "T profil var mı" satırını besler.
+ * PROFİL ANAHTARLA AÇILIR (`railTProfile = "Var"`), ölçülerin dolu olmasıyla
+ * değil: kullanıcı "Var" der, ölçüler ondan sonra sorulur. Anahtar kapalıyken
+ * kayıtlı ölçüler KORUNUR ama kesite girmez — bölüm aç/kapa mantığının aynısı.
  *
- * Eski revizyonlarda alanlar hiç yoktur (`undefined`) → hepsi 0 → bugünkü
- * sonuçlar birebir korunur.
+ * ANAHTAR AÇIK AMA ÖLÇÜ EKSİKSE profil yine kesite girmez: dört ölçünün
+ * dördü de pozitif olmalıdır. Yarım bir T (üst sacı olan, yan sacı olmayan)
+ * bir profil değildir ve kesit özelliklerini sessizce bozardı.
+ *
+ * Eski revizyonlarda alanların hiçbiri yoktur → profil yok → bugünkü sonuçlar
+ * birebir korunur.
  */
 export function railTProfile(inp: Partial<GirderInputs>): RailTProfile {
   const num = (v: number | undefined): number =>
     typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
+  const on = (inp.railTProfile ?? "").trim() === RAIL_T_PROFILE_ON;
   const webThkMm = num(inp.railTProfileWebThkMm);
   const webHeightMm = num(inp.railTProfileWebHeightMm);
   const topThkMm = num(inp.railTProfileTopThkMm);
   const topWidthMm = num(inp.railTProfileTopWidthMm);
-  const web = webThkMm > 0 && webHeightMm > 0;
-  const top = topThkMm > 0 && topWidthMm > 0;
+  const present =
+    on && webThkMm > 0 && webHeightMm > 0 && topThkMm > 0 && topWidthMm > 0;
   return {
-    webThkMm: web ? webThkMm : 0,
-    webHeightMm: web ? webHeightMm : 0,
-    topThkMm: top ? topThkMm : 0,
-    topWidthMm: top ? topWidthMm : 0,
-    present: web || top,
+    webThkMm: present ? webThkMm : 0,
+    webHeightMm: present ? webHeightMm : 0,
+    topThkMm: present ? topThkMm : 0,
+    topWidthMm: present ? topWidthMm : 0,
+    present,
   };
 }
 
@@ -487,7 +501,6 @@ export function computeMainGirder(
   const checks: AnyCheck[] = [];
 
   // --- 7.1 Kesit özellikleri ------------------------------------------------
-  const t1 = inp.t1Mm, b1 = inp.b1Mm;      // ray altı sacı
   const t2 = inp.t2Mm, b2 = inp.b2Mm;      // üst iç flanş
   const t3 = inp.t3Mm, h3 = inp.h3Mm;      // ana gövde sacı
   const t4 = inp.t4Mm;                     // yardımcı gövde sacı
@@ -496,15 +509,47 @@ export function computeMainGirder(
   const webGapMm = inp.aMm;                // gövde sacları arası mesafe
   const edgeDistMm = inp.xMm;              // kenar mesafesi
 
-  // Ray altı T profil — sıfır ölçü "yok" demektir (bkz. GirderInputs).
+  // Ray altı T profil (bkz. GirderInputs). AÇIKKEN RAY ALTI SACI İPTALDİR:
+  // rayı taşıyan sac artık T profilin üst sacıdır.
   const tp = railTProfile(inp);
   const tTw = tp.webThkMm, hTw = tp.webHeightMm;   // T yan sacı
   const tTf = tp.topThkMm, bTf = tp.topWidthMm;    // T üst sacı
+  const t1 = tp.present ? 0 : inp.t1Mm;    // ray altı sacı (T varken iptal)
+  const b1 = tp.present ? 0 : inp.b1Mm;
+
+  // Ray, ana gövde sacının (web1) ekseninde durur; "ray altı sacı" b1 ve T
+  // profilin iki sacı da bu eksende ortalanır — kesitin ortasında DEĞİL.
+  const railCenterYMm = edgeDistMm + t3 * 0.5;
+
+  /**
+   * ÜST İÇ FLANŞ T PROFİLİN GENİŞLİĞİ KADAR KESİLİR.
+   *
+   * T profilin üst sacı ile ana kirişin üst sacı AYNI SEVİYEDEDİR (kullanıcı
+   * kararı, 15.08.2026): T, kirişin üstüne oturmaz, üst bölümünün İÇİNE girer.
+   * Dolayısıyla b2 sacı ray ekseninde T'nin genişliği kadar kesintiye uğrar;
+   * o şeridi T'nin üst sacı doldurur. Kesilen aralık b2'nin dışına taşabilir
+   * (T flanşı kesitten dışarı çıkabilir), bu yüzden örtüşme [0, b2] aralığına
+   * kırpılır.
+   */
+  const tCutLo = Math.max(0, railCenterYMm - bTf * 0.5);
+  const tCutHi = Math.min(b2, railCenterYMm + bTf * 0.5);
+  const tCutWidth = tp.present ? Math.max(0, tCutHi - tCutLo) : 0;
+  const b2Eff = b2 - tCutWidth;
+
+  /**
+   * ANA GÖVDE SACI T PROFİLİN YAN SACI KADAR KISALIR.
+   *
+   * T'nin üst sacı kesitin en üstünden başlar (tTf kalınlığında), yan sacı
+   * onun altından hTw kadar iner. Ana gövde sacı o kotun ALTINDA başlar; yani
+   * gövde bölgesinin toplam yüksekliği (t2 + h3) değişmez, yalnız içindeki
+   * paylaşım değişir. tTf = t2 olduğunda sonuç tam olarak h3 − hTw'dir.
+   */
+  const h3Main = tp.present ? Math.max(0, h3 + t2 - tTf - hTw) : h3;
 
   const areaTopFlange = t1 * b1;           // [mm²]
-  const areaTopInnerFlange = t2 * b2;
-  const areaMainWeb = t3 * h3;
-  const areaSecondaryWeb = h3 * t4;
+  const areaTopInnerFlange = t2 * b2Eff;
+  const areaMainWeb = t3 * h3Main;
+  const areaSecondaryWeb = h3 * t4;        // dış yan sac TAM BOY kalır
   const areaBottomFlange = t5 * b5;
   const areaExtraFlange = t6 * b6;
   const areaTWeb = tTw * hTw;
@@ -515,35 +560,48 @@ export function computeMainGirder(
     areaTWeb + areaTTop;
 
   /**
-   * Kutunun kendi yüksekliği (T profil HARİÇ). Gövde kesme alanı ve gövdenin
-   * ağırlık merkezi üstünde kalan yüksekliği bu ölçüden okunur — T profil
-   * kutunun ÜSTÜNDE durur, gövde sacına bir şey eklemez.
+   * TOPLAM YÜKSEKLİK DEĞİŞMEZ: dış yan sacın boyu + başlık sacları. T profil
+   * kesitin içine girdiği için yüksekliğe bir şey EKLEMEZ; ray altı sacı
+   * iptal olduğundan (t1 = 0) o kalınlık da düşer.
    */
-  const boxHeightMm = t1 + t2 + h3 + t5 + t6;
-  /** Kesitin TOPLAM yüksekliği: T profil varsa yan sac + üst sac kadar artar. */
-  const heightMm = boxHeightMm + hTw + tTf;
+  const heightMm = t1 + t2 + h3 + t5 + t6;
   const areaCm2 = totalAreaMm2 * 0.01;
   // Kesit saclarının metre ağırlığı: A[cm²] × 100[cm/m] × yoğunluk[kg/cm³]
   const weightPerM = areaCm2 * 100 * STEEL_DENSITY_KG_CM3; // [kg/m]
-  // T profil parçalarının alt yüzden ölçülen ağırlık merkezleri [mm]
-  const zTWebMid = boxHeightMm + 0.5 * hTw;
-  const zTTopMid = boxHeightMm + hTw + 0.5 * tTf;
-  // Ağırlık merkezi, alt yüzden ölçülür [mm]
+  // Parçaların alt yüzden ölçülen ağırlık merkezleri [mm]
+  const zTTopMid = heightMm - 0.5 * tTf;              // T üst sacı (en üstte)
+  const zTWebMid = heightMm - tTf - 0.5 * hTw;        // T yan sacı
+  const zMainWebMid = t6 + t5 + 0.5 * h3Main;         // kısalmış ana gövde
+  const zSecondaryWebMid = t6 + t5 + 0.5 * h3;        // dış gövde (tam boy)
+  // Ağırlık merkezi, alt yüzden ölçülür [mm].
+  // T PROFİL YOKKEN ifade harfi harfine eskisidir — iki gövde tek terimde
+  // toplanır. Ayrıştırılmış biçim matematiksel olarak aynıdır ama kayan
+  // noktada son bitleri kaydırır ve tarihsel karşılaştırma bunu görür.
+  const webFirstMoment = tp.present
+    ? areaMainWeb * zMainWebMid + areaSecondaryWeb * zSecondaryWebMid
+    : (t3 + t4) * h3 * (t6 + t5 + 0.5 * h3);
   const centroidZMm =
     ((areaExtraFlange * (0.5 * t6) +
       areaBottomFlange * (t6 + 0.5 * t5) +
-      (t3 + t4) * h3 * (t6 + t5 + 0.5 * h3) +
+      webFirstMoment +
       areaTopInnerFlange * (t6 + t5 + h3 + 0.5 * t2) +
       areaTopFlange * (t6 + t5 + h3 + t2 + 0.5 * t1) +
       areaTWeb * zTWebMid +
       areaTTop * zTTopMid) * 0.01) / areaCm2;
   // Yatay eksen etrafında atalet momenti (Steiner) [cm⁴]
+  const webOwnInertiaY = tp.present
+    ? t3 * h3Main ** 3 + t4 * h3 ** 3
+    : (t3 + t4) * h3 ** 3;
+  const webSteinerY = tp.present
+    ? (centroidZMm - zMainWebMid) ** 2 * areaMainWeb +
+      (centroidZMm - zSecondaryWebMid) ** 2 * areaSecondaryWeb
+    : (centroidZMm - t6 - t5 - 0.5 * h3) ** 2 * (h3 * (t4 + t3));
   const inertiaYCm4 =
-    ((1 / 12) * (b1 * t1 ** 3 + b2 * t2 ** 3 + (t3 + t4) * h3 ** 3 + b5 * t5 ** 3 + b6 * t6 ** 3
+    ((1 / 12) * (b1 * t1 ** 3 + b2Eff * t2 ** 3 + webOwnInertiaY + b5 * t5 ** 3 + b6 * t6 ** 3
       + tTw * hTw ** 3 + bTf * tTf ** 3) +
       (centroidZMm - 0.5 * t6) ** 2 * areaExtraFlange +
       (centroidZMm - t6 - 0.5 * t5) ** 2 * areaBottomFlange +
-      (centroidZMm - t6 - t5 - 0.5 * h3) ** 2 * (h3 * (t4 + t3)) +
+      webSteinerY +
       (centroidZMm - t6 - t5 - h3 - 0.5 * t2) ** 2 * areaTopInnerFlange +
       (centroidZMm - t6 - t5 - h3 - t2 - 0.5 * t1) ** 2 * areaTopFlange +
       (centroidZMm - zTWebMid) ** 2 * areaTWeb +
@@ -551,27 +609,55 @@ export function computeMainGirder(
   const modulusYBottomCm3 = (inertiaYCm4 * 10) / centroidZMm;
   const modulusYTopCm3 = (inertiaYCm4 * 10) / (heightMm - centroidZMm);
 
-  // Ray, ana gövde sacının (web1) ekseninde durur; "ray altı sacı" b1 de bu
-  // eksende ortalanır — kesitin ortasında DEĞİL (b1 merkezi = x + t3/2).
-  // T profilin yan ve üst sacı da AYNI eksendedir.
-  const railCenterYMm = edgeDistMm + t3 * 0.5;
-
+  /**
+   * KESİLMİŞ ÜST İÇ FLANŞIN yatay eksendeki büyüklükleri.
+   *
+   * Plaka [0, b2] aralığından [tCutLo, tCutHi] şeridi çıkarılmış bir dikdörtgen
+   * çiftidir; ağırlık merkezi artık b2/2 DEĞİLDİR ve kendi ataleti de
+   * b2³·t2/12 değildir. İkisi de kesitin sol kenarına (y = 0) göre TAM olarak
+   * hesaplanır, sonra Steiner ile kesitin ağırlık merkezine taşınır.
+   *
+   * T profil yokken (`tCutWidth = 0`) ifadeler harfi harfine eski değerlere
+   * indirgenir; tarihsel karşılaştırma bunu görür, o yüzden dallanma
+   * korunmuştur.
+   */
+  const topInnerCentroidY = tp.present
+    ? (b2 * (b2 * 0.5) - tCutWidth * ((tCutLo + tCutHi) * 0.5)) / Math.max(b2Eff, 1e-9)
+    : b2 * 0.5;
+  // (1/12) çarpanı aşağıdaki grubun TAMAMINA uygulanır; kesilmiş plakanın kendi
+  // ataleti bu forma girmediği için 12 ile çarpılıp gruba konur. T profil
+  // yokken terim harfi harfine `b2³·t2` olur ve tarihsel sonuç bit bit korunur.
+  const topInnerOwnInertiaZ12 = tp.present
+    ? 12 * ((t2 * (b2 ** 3 - (tCutHi ** 3 - tCutLo ** 3))) / 3 -
+        areaTopInnerFlange * topInnerCentroidY ** 2)
+    : b2 ** 3 * t2;
   // Düşey eksen etrafında ağırlık merkezi ve atalet [mm] / [cm⁴]
   const centroidYMm =
     (areaMainWeb * (edgeDistMm + t3 * 0.5) +
       areaSecondaryWeb * (edgeDistMm + t3 + webGapMm + t4 * 0.5) +
       areaTopFlange * railCenterYMm +
       (areaTWeb + areaTTop) * railCenterYMm +
-      areaTopInnerFlange * b2 * 0.5 +
+      areaTopInnerFlange * topInnerCentroidY +
       areaBottomFlange * ((b2 - b5) * 0.5 + b5 * 0.5) +
       areaExtraFlange * ((b2 - b6) * 0.5 + b6 * 0.5)) / totalAreaMm2;
+  // Gövde saclarının kendi ataleti: ana gövde kısaldığı için ayrı yazılır
+  // (T profil yokken tek terimde kalır — bkz. yukarıdaki kayan nokta notu).
+  const webOwnInertiaZ = tp.present
+    ? h3Main * t3 ** 3 + h3 * t4 ** 3
+    : h3 * (t3 ** 3 + t4 ** 3);
+  // Kesilmiş plakanın Steiner payı — T profil YOKKEN bu terim tarihsel ifadede
+  // HİÇ YOKTU; eklemek sonucu değiştirirdi, sıfır eklemek ise etkisizdir.
+  const topInnerSteinerZ = tp.present
+    ? (topInnerCentroidY - centroidYMm) ** 2 * areaTopInnerFlange
+    : 0;
   const inertiaZCm4 =
-    ((1 / 12) * (b1 ** 3 * t1 + b2 ** 3 * t2 + h3 * (t3 ** 3 + t4 ** 3) + b5 ** 3 * t5 + b6 ** 3 * t6
-      + tTw ** 3 * hTw + bTf ** 3 * tTf) +
+    ((1 / 12) * (b1 ** 3 * t1 + topInnerOwnInertiaZ12 + webOwnInertiaZ
+      + b5 ** 3 * t5 + b6 ** 3 * t6 + tTw ** 3 * hTw + bTf ** 3 * tTf) +
       (railCenterYMm - centroidYMm) ** 2 * areaTopFlange +
       (railCenterYMm - centroidYMm) ** 2 * (areaTWeb + areaTTop) +
       ((edgeDistMm + t3 * 0.5) - centroidYMm) ** 2 * areaMainWeb +
       ((edgeDistMm + t3 + webGapMm + t4 * 0.5) - centroidYMm) ** 2 * areaSecondaryWeb +
+      topInnerSteinerZ +
       ((b2 - b5) * 0.5 + 0.5 * b5 - centroidYMm) ** 2 * areaBottomFlange +
       ((b2 - b6) * 0.5 + b6 * 0.5 - centroidYMm) ** 2 * areaExtraFlange) / 10 ** 4;
   const modulusZBottomCm3 = (10 * inertiaZCm4) / centroidYMm;
@@ -602,7 +688,8 @@ export function computeMainGirder(
   Object.assign(cells, {
     "section.areaTProfileWeb": areaTWeb,
     "section.areaTProfileTop": areaTTop,
-    "section.boxHeight": boxHeightMm,
+    "section.mainWebHeight": h3Main,
+    "section.topInnerEffectiveWidth": b2Eff,
     "section.areaTopFlange": areaTopFlange,
     "section.areaTopInnerFlange": areaTopInnerFlange,
     "section.areaMainWeb": areaMainWeb,
@@ -788,12 +875,17 @@ export function computeMainGirder(
   const shearTorsionHoist = momentTorsionHoist / torsionShearDenominator;
 
   // τ3, τ4, τ5 — kesme kuvveti → gövde saclarında kayma gerilmesi
-  // Gövdenin ağırlık merkezi üstünde kalan yüksekliği KUTUNUN kendi ölçüsünden
-  // okunur: ray altı T profili kutunun üstünde durur ve gövde sacına bir şey
-  // eklemez. `heightMm` (T dahil toplam) kullanılsaydı T profil konan bir
-  // kirişte kesme gerilmesi sessizce değişirdi.
-  const webDepthAboveCentroidMm = boxHeightMm - centroidZMm - t2;
-  const mainWebShearAreaCm2 = (h3 * t3) / 100;
+  const webDepthAboveCentroidMm = heightMm - centroidZMm - t2;
+  /**
+   * RAY ALTINDAKİ GÖVDE HATTININ kesme alanı. T profil varsa hat iki
+   * parçadır: üstte T'nin yan sacı (kalın), altta kısalmış ana gövde sacı.
+   * İkisi de aynı düşey kesme akışını taşır ve toplanır — yalnız ana gövdeyi
+   * saymak, T profil konan bir kirişte kesme gerilmesini olduğundan büyük
+   * gösterirdi. T profil yokken ifade harfi harfine eskisidir.
+   */
+  const mainWebShearAreaCm2 = tp.present
+    ? (h3Main * t3 + hTw * tTw) / 100
+    : (h3 * t3) / 100;
   const shearMainSelfWeight =
     (bridgeDeadWeightKg * (inp.diaphragmSpacingMm - 2 * webDepthAboveCentroidMm)) /
     (2 * inp.diaphragmSpacingMm * mainWebShearAreaCm2);
