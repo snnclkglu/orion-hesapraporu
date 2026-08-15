@@ -65,10 +65,27 @@ import {
   HAMMADDE_TONLARI,
   type HammaddeSinifi,
 } from "@/lib/purchasing/hammadde/siniflar";
+import { parcaOlcuAnahtari } from "@/lib/purchasing/hammadde/olcu-duzelt";
 import { cn } from "@/lib/utils";
 import { saveRawMeta } from "./actions";
 import { FileOpenButton } from "../../drawings/[id]/file-open-button";
-import { RawManualDialog, RawMetaDialog } from "./raw-dialogs";
+import { RawManualDialog, RawMetaDialog, RawPartDimsDialog } from "./raw-dialogs";
+
+/** Ölçü penceresine giden parça — havuzdaki `KesimParcasi`nın gerekli yüzü. */
+type OlcuDuzenlemesi = {
+  anahtar: string;
+  sinif: HammaddeSinifi;
+  tanim: string;
+  hamTanim: string;
+  olcuElle: boolean;
+  kalinlikMm: number | null;
+  enMm: number | null;
+  boyMm: number | null;
+  disCapMm: number | null;
+  icCapMm: number | null;
+  resimDisCapMm: number | null;
+  resimBoyMm: number | null;
+};
 
 // ═══════════════════════════════════════════════════════════════ durum
 
@@ -235,6 +252,7 @@ type SortKey = "tur" | "tanim" | "agirlik" | "metre" | "parca";
 
 export function RawTable({
   havuz,
+  stokAdlari = [],
   teklifler,
   siparisAdetleri,
   tedarikciler,
@@ -247,6 +265,8 @@ export function RawTable({
   canWrite,
 }: {
   havuz: HammaddeHavuzu;
+  /** Havuzdaki stok kalemi adları — "Yeni Talep" penceresinin öneri listesi. */
+  stokAdlari?: string[];
   teklifler: TeklifSatiri[];
   siparisAdetleri: [string, number][];
   tedarikciler: string[];
@@ -278,6 +298,7 @@ export function RawTable({
   const [secili, setSecili] = useState<Set<string>>(new Set());
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [duzenlenen, setDuzenlenen] = useState<HammaddeSatiri | null>(null);
+  const [olcuParcasi, setOlcuParcasi] = useState<OlcuDuzenlemesi | null>(null);
   const [yeniTalep, setYeniTalep] = useState(false);
   const [teklifPenceresi, setTeklifPenceresi] = useState<Gorunum | null>(null);
   const [topluTeklif, setTopluTeklif] = useState<{ matchKey: string; tanim: string }[] | null>(null);
@@ -660,6 +681,7 @@ export function RawTable({
                       : setSiparisKalemleri([siparisKalemi(g)])
                   }
                   onDuzenle={() => setDuzenlenen(g.satir)}
+                  onOlcu={setOlcuParcasi}
                 />
               ))}
             </TableBody>
@@ -769,6 +791,7 @@ export function RawTable({
           tedarikciler={tedarikciler}
           sonKur={sonKur}
           canWrite={canWrite}
+          scope="hammadde"
           onClose={() => setTeklifPenceresi(null)}
           onChanged={() => router.refresh()}
         />
@@ -778,6 +801,7 @@ export function RawTable({
           kalemler={topluTeklif}
           tedarikciler={tedarikciler}
           sonKur={sonKur}
+          scope="hammadde"
           onClose={() => setTopluTeklif(null)}
           onSaved={() => {
             setTopluTeklif(null);
@@ -817,9 +841,22 @@ export function RawTable({
         <RawManualDialog
           isler={isler}
           qualities={qualities}
+          stokAdlari={stokAdlari}
           onClose={() => setYeniTalep(false)}
           onSaved={() => {
             setYeniTalep(false);
+            router.refresh();
+          }}
+        />
+      )}
+      {olcuParcasi && (
+        <RawPartDimsDialog
+          key={olcuParcasi.anahtar}
+          parca={olcuParcasi}
+          sinif={olcuParcasi.sinif}
+          onClose={() => setOlcuParcasi(null)}
+          onSaved={() => {
+            setOlcuParcasi(null);
             router.refresh();
           }}
         />
@@ -842,6 +879,7 @@ function Satir({
   onTeklif,
   onSiparis,
   onDuzenle,
+  onOlcu,
 }: {
   g: Gorunum;
   sutunlar: Sutun[];
@@ -854,6 +892,7 @@ function Satir({
   onTeklif: () => void;
   onSiparis: () => void;
   onDuzenle: () => void;
+  onOlcu: (p: OlcuDuzenlemesi) => void;
 }) {
   const s = g.satir;
   const sip = siparisAdedi(s);
@@ -1060,6 +1099,17 @@ function Satir({
                 Pay
               </span>
             )}
+            {/* ÖLÇÜSÜ DEĞİŞTİRİLMİŞ PARÇA VARSA ROZET SATIRIN KENDİSİNDE: satır
+                açılmadan da görünmeli, yoksa "bu kalemi biri değiştirmiş mi"
+                sorusu ancak tek tek açarak cevaplanırdı. */}
+            {s.parcalar.some((p) => p.olcuElle) && (
+              <span
+                className="oc-kicker shrink-0 border border-destructive/40 px-1 text-[10px] text-destructive"
+                title="Bu kalemin bazı parçalarının ölçüsü elle değiştirildi"
+              >
+                Ölçü ✎
+              </span>
+            )}
             {canWrite && (
               <button
                 type="button"
@@ -1111,8 +1161,30 @@ function Satir({
                 </thead>
                 <tbody className="font-mono tabular-nums">
                   {s.parcalar.map((p, i) => (
-                    <tr key={`${p.partKey}-${i}`} className="border-t border-border/50">
-                      <td className="py-1 pr-3 font-sans">{p.tanim}</td>
+                    <tr
+                      key={`${p.partKey}-${i}`}
+                      className={cn(
+                        "border-t border-border/50",
+                        // ÖLÇÜSÜ DEĞİŞTİRİLMİŞ SATIR KIRMIZI (kullanıcı isteği,
+                        // 15.08.2026): *"değiştirdiğim kırmızı renkli olsun,
+                        // değiştirildi gibi göze çarpsın çünkü parçayı
+                        // değiştirmiş oluyoruz."*
+                        p.olcuElle && "bg-destructive/[0.06]"
+                      )}
+                    >
+                      <td className="py-1 pr-3 font-sans">
+                        <span className={cn(p.olcuElle && "font-medium text-destructive")}>
+                          {p.tanim}
+                        </span>
+                        {p.olcuElle && (
+                          <span
+                            className="ml-1.5 border border-destructive/40 px-1 font-mono text-[10px] text-destructive"
+                            title={`Ressamın yazdığı: ${p.hamTanim}`}
+                          >
+                            DEĞİŞTİRİLDİ
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1 pr-3">{p.itemNo || "—"}</td>
                       <td className="py-1 pr-3 font-sans">{p.groupName || "—"}</td>
                       {/* İKİ ÖLÇÜ YAN YANA — kullanıcı isteği: "verilen paylar
@@ -1120,25 +1192,18 @@ function Satir({
                           ikinci hücre TİRE kalır; aynı sayıyı tekrarlamak
                           okuyanı bir pay olduğuna inandırırdı. */}
                       <td className="py-1 pr-3">{olcuYazisi(p, false)}</td>
+                      {/* SATIN ALMA ÖLÇÜSÜ DÜZENLENEBİLİR (kullanıcı isteği,
+                          15.08.2026). Hücrenin kendisi düğmedir: satınalmacının
+                          buradaki hareketi "ölçüyü düzelt"tir ve ayrı bir kalem
+                          ikonu aramak onu üç tıka çıkarırdı (durum çipi
+                          kuralının aynısı). */}
                       <td className="py-1 pr-3">
-                        {p.payKaynagi === "yok" ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <span
-                            className={
-                              p.payKaynagi === "ressam"
-                                ? "text-sky-700 dark:text-sky-400"
-                                : "text-emerald-700 dark:text-emerald-400"
-                            }
-                            title={
-                              p.payKaynagi === "ressam"
-                                ? "Ressamın parantez içinde verdiği pay"
-                                : "Firma kuralı: %5 işleme payı, en az 2 mm"
-                            }
-                          >
-                            {olcuYazisi(p, true)}
-                          </span>
-                        )}
+                        <SatinAlmaOlcusu
+                          p={p}
+                          sinif={s.sinif}
+                          canWrite={canWrite}
+                          onOlcu={onOlcu}
+                        />
                       </td>
                       <td className="py-1 pr-3 text-right">{p.birimAdet ?? "—"}</td>
                       <td className="py-1 pr-3 text-right">{p.carpan}</td>
@@ -1148,9 +1213,13 @@ function Satir({
                       </td>
                       <td className="py-1 pr-3">
                         {/* PAFTA SATIRDA AÇILIR (kullanıcı isteği): "detay"
-                            parçanın kendi resmi, "ana pafta" bağlı olduğu
-                            montajınki. OLMAYAN DÜĞME ÇİZİLMEZ — pasif bir
-                            düğme, dosyanın var olup açılamadığını söylerdi. */}
+                            parçanın kendi resmi, ikincisi BİR ÜST MONTAJIN
+                            paftası — ana grubun değil (kullanıcı düzeltmesi,
+                            15.08.2026: *"ana pafta derken bir üst paftasını
+                            demiştim … 11.1.1 için 11.1, 12.5 için 12"*).
+                            Düğme hangi paftayı açtığını KODUYLA söyler.
+                            OLMAYAN DÜĞME ÇİZİLMEZ — pasif bir düğme, dosyanın
+                            var olup açılamadığını söylerdi. */}
                         <span className="flex items-center gap-1.5">
                           {p.detayPdf && (
                             <FileOpenButton
@@ -1165,8 +1234,8 @@ function Satir({
                             <FileOpenButton
                               storagePath={p.anaPdf.yol}
                               fileName={p.anaPdf.ad}
-                              label="Ana pafta"
-                              title={p.anaPdf.ad}
+                              label={p.anaPdf.kod ? `Üst ${p.anaPdf.kod}` : "Üst pafta"}
+                              title={`Bir üst montajın paftası: ${p.anaPdf.ad}`}
                               className="oc-tap inline-flex items-center border px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground hover:border-foreground/40 hover:text-foreground"
                             />
                           )}
@@ -1184,6 +1253,83 @@ function Satir({
         </TableRow>
       )}
     </>
+  );
+}
+
+/**
+ * SATIN ALMA ÖLÇÜSÜ HÜCRESİ — okunur ve DÜZENLENİR.
+ *
+ * Kullanıcı isteği (15.08.2026): *"Hammadde Havuzu sayfasında Satın Alma
+ * Ölçüsü düzenlenebilir olsun."*
+ *
+ * PAYIN KAYNAĞI RENKTEN OKUNUR ve renk uydurulmaz: mavi ressamın kararı, yeşil
+ * firma kuralı, gri "pay yok". Payı olmayan satır eskiden TİRE basıyordu ve
+ * gerekçesi doğruydu (aynı sayıyı iki kez göstermek okuyanı bir pay olduğuna
+ * inandırır); ölçü düzenlenebilir olunca tire tıklanacak bir şey bırakmıyordu.
+ * Çözüm sayıyı SOLUK basmaktır: bilgi orada ama vurgusu yok.
+ */
+function SatinAlmaOlcusu({
+  p,
+  sinif,
+  canWrite,
+  onOlcu,
+}: {
+  p: HammaddeSatiri["parcalar"][number];
+  sinif: HammaddeSinifi;
+  canWrite: boolean;
+  onOlcu: (x: OlcuDuzenlemesi) => void;
+}) {
+  const metin = olcuYazisi(p, true);
+  const renk =
+    p.payKaynagi === "ressam"
+      ? "text-sky-700 dark:text-sky-400"
+      : p.payKaynagi === "otomatik"
+        ? "text-emerald-700 dark:text-emerald-400"
+        : "text-muted-foreground";
+  const ipucu =
+    p.payKaynagi === "ressam"
+      ? "Ressamın parantez içinde verdiği pay — düzeltmek için tıklayın"
+      : p.payKaynagi === "otomatik"
+        ? "Firma kuralı: %5 işleme payı, en az 2 mm — düzeltmek için tıklayın"
+        : "Pay yok — ölçüyü düzeltmek için tıklayın";
+
+  if (!canWrite || !p.partCode) {
+    return (
+      <span className={renk} title={ipucu}>
+        {metin}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        onOlcu({
+          anahtar: parcaOlcuAnahtari(p.itemNo, p.partCode),
+          sinif,
+          tanim: p.tanim,
+          hamTanim: p.hamTanim,
+          olcuElle: p.olcuElle,
+          kalinlikMm: p.kalinlikMm,
+          enMm: p.enMm,
+          boyMm: p.boyMm,
+          disCapMm: p.disCapMm,
+          icCapMm: p.icCapMm,
+          resimDisCapMm: p.resimDisCapMm,
+          resimBoyMm: p.resimBoyMm,
+        })
+      }
+      title={ipucu}
+      className={cn(
+        "oc-tap inline-flex items-center gap-1 underline-offset-2 hover:underline",
+        renk,
+        p.olcuElle && "font-medium text-destructive"
+      )}
+    >
+      {metin}
+      <Pencil className="size-2.5 opacity-50" aria-hidden />
+    </button>
   );
 }
 

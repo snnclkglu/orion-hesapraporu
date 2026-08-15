@@ -11,7 +11,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowRightLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,20 @@ import {
   type HammaddeSinifi,
 } from "@/lib/purchasing/hammadde/siniflar";
 import { PROFIL_KESITLERI } from "@/lib/purchasing/hammadde/profil-kesitleri";
-import { createRawManual, deleteRawManual, moveRawToEquipment, saveRawMeta } from "./actions";
+import type { HammaddeOlcusu } from "@/lib/purchasing/hammadde/cozumle";
+import {
+  OLCU_ETIKETLERI,
+  duzenlenebilirOlculer,
+  tanimiOlcuyleYaz,
+  type OlcuAlani,
+} from "@/lib/purchasing/hammadde/olcu-duzelt";
+import {
+  createRawManual,
+  deleteRawManual,
+  moveRawToEquipment,
+  saveRawMeta,
+  saveRawPartDims,
+} from "./actions";
 
 // ═══════════════════════════════════════════════════ SATIR DÜZELTME
 
@@ -158,7 +171,21 @@ export function RawMetaDialog({
 
   return (
     <Dialog open onOpenChange={(a) => !a && onClose()}>
-      <DialogContent className="sm:max-w-[min(34rem,calc(100%-2rem))]">
+      {/* ══════════════════════════════════ HİZA DÜZELTMESİ (15.08.2026)
+          Kullanıcı bildirimi: *"Hammadde Satırını Düzenle adlı pop-up'ta
+          kaymalar var."* Üç sebebi vardı ve üçü de burada kapanır:
+
+          1. `Combobox` bir DÜĞMEdir, `Input` bir ALANdır ve taban yükseklikleri
+             farklıdır — yan yana konduklarında biri ötekinden alçak duruyordu.
+             İkisi de artık `h-10` verir.
+          2. Yardımcı satırlar (`Resimlerden türetilen…`) yalnız BİR sütunun
+             altındaydı; ızgara satırı o yüzden asimetrik büyüyordu. Yardımcı
+             metinler artık kendi sabit satırlarındadır.
+          3. Altbilgideki `sm:justify-between` dört düğmeyi iki kümeye bölüyor,
+             dar pencerede kümeler ayrı satırlara düşüp hizayı bozuyordu.
+             Yıkıcı/taşıyıcı eylemler kendi bölümüne alındı; altbilgide yalnız
+             Vazgeç + Kaydet kaldı. */}
+      <DialogContent className="sm:max-w-[min(40rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Hammadde Satırını Düzenle</DialogTitle>
           <DialogDescription>
@@ -167,33 +194,39 @@ export function RawMetaDialog({
         </DialogHeader>
 
         <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="hm-tur">Tür</Label>
-            <Select value={tur} onValueChange={(v) => setTur(v as HammaddeSinifi)}>
-              <SelectTrigger id="hm-tur">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HAMMADDE_SINIFLARI.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {HAMMADDE_ADLARI[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              Sözlüğün çıkardığı tür: <strong>{HAMMADDE_ADLARI[satir.sinif]}</strong>
-              {satir.sinifElle && " (elle taşınmış)"}
-            </p>
+          <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="hm-ad">Stok Kalemi Adı</Label>
+              <Input
+                id="hm-ad"
+                value={ad}
+                onChange={(e) => setAd(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="hm-tur">Tür</Label>
+              <Select value={tur} onValueChange={(v) => setTur(v as HammaddeSinifi)}>
+                <SelectTrigger id="hm-tur" className="h-10! w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HAMMADDE_SINIFLARI.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {HAMMADDE_ADLARI[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <p className="-mt-1 text-[11px] text-muted-foreground">
+            Sözlüğün çıkardığı tür: <strong>{HAMMADDE_ADLARI[satir.sinif]}</strong>
+            {satir.sinifElle && " (elle taşınmış)"}
+          </p>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="hm-ad">Stok Kalemi Adı</Label>
-            <Input id="hm-ad" value={ad} onChange={(e) => setAd(e.target.value)} />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid content-start gap-1.5">
               <Label>Kalite</Label>
               <Combobox
                 options={qualities.map((q) => ({ value: q, label: q }))}
@@ -202,43 +235,52 @@ export function RawMetaDialog({
                 onCreate={(v) => setKalite(v)}
                 placeholder="S235JR…"
                 createLabel="Ekle"
+                className="h-10"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <Label htmlFor="hm-adet">Adet</Label>
               <Input
                 id="hm-adet"
                 inputMode="numeric"
                 value={adet}
                 onChange={(e) => setAdet(e.target.value)}
+                className="h-10 text-right font-mono tabular-nums"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Resimlerden türetilen: <strong>{formatNum(turetilen)}</strong>
-                {satir.adetElle && " · şu an elle ezilmiş"}
-              </p>
+            </div>
+            <div className="grid content-start gap-1.5">
+              <Label htmlFor="hm-boy">Satın Alma Boyu (mm)</Label>
+              <Input
+                id="hm-boy"
+                inputMode="numeric"
+                value={boy}
+                onChange={(e) => setBoy(e.target.value)}
+                placeholder={varsayilanBoy == null ? "—" : String(varsayilanBoy)}
+                className="h-10 text-right font-mono tabular-nums"
+              />
             </div>
           </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="hm-boy">Satın Alma Boyu (mm)</Label>
-            <Input
-              id="hm-boy"
-              inputMode="numeric"
-              value={boy}
-              onChange={(e) => setBoy(e.target.value)}
-              placeholder={varsayilanBoy == null ? "—" : String(varsayilanBoy)}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Boş bırakılırsa varsayılan kullanılır
+          <p className="-mt-1 grid gap-0.5 text-[11px] text-muted-foreground">
+            <span>
+              Resimlerden türetilen adet: <strong>{formatNum(turetilen)}</strong>
+              {satir.adetElle && " · şu an elle ezilmiş"}
+            </span>
+            <span>
+              Boy boş bırakılırsa varsayılan kullanılır
               {varsayilanBoy == null
                 ? " (bu türde standart boy tanımlı değil)."
                 : `: ${formatNum(varsayilanBoy)} mm.`}
-            </p>
-          </div>
+            </span>
+          </p>
 
           <div className="grid gap-1.5">
             <Label htmlFor="hm-not">Not</Label>
-            <Input id="hm-not" value={not} onChange={(e) => setNot(e.target.value)} />
+            <Input
+              id="hm-not"
+              value={not}
+              onChange={(e) => setNot(e.target.value)}
+              className="h-10"
+            />
           </div>
 
           <p className="border bg-muted/40 px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
@@ -246,44 +288,223 @@ export function RawMetaDialog({
             {satir.toplamAgirlikKg != null &&
               ` · ${formatNum(Math.round(satir.toplamAgirlikKg))} kg`}
           </p>
+
+          {/* YIKICI VE TAŞIYICI EYLEMLER KENDİ BÖLÜMÜNDE: altbilgide dört düğme
+              yan yana durduğunda dar pencerede kümeler ayrı satırlara düşüyor
+              ve "Kaydet" bir yıkıcı düğmenin yanında kalıyordu. */}
+          <div className="grid gap-2 border border-dashed px-3 py-2">
+            <p className="oc-kicker text-[10px] text-muted-foreground">Bu Satır İçin</p>
+            <div className="flex flex-wrap gap-2">
+              {satir.manualId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={manuelSil}
+                  disabled={calisiyor}
+                >
+                  <Trash2 className="size-3.5" />
+                  Talebi Sil
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => ekipmanaTasi(true)}
+                    disabled={calisiyor}
+                    title="Bu kalem bir hammadde değil, satın alınan bir ürün"
+                  >
+                    <ArrowRightLeft className="size-3.5" />
+                    Ekipmana Taşı
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => haricTut(true)}
+                    disabled={calisiyor}
+                    title="Bu kalem hammadde havuzunda görünmesin"
+                  >
+                    Havuzdan Çıkar
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={calisiyor}>
+            Vazgeç
+          </Button>
+          <Button type="button" onClick={kaydet} disabled={calisiyor}>
+            {calisiyor && <Loader2 className="size-3.5 animate-spin" />}
+            Kaydet
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════ PARÇA ÖLÇÜSÜ DÜZELTME
+
+/**
+ * BİR KESİM PARÇASININ ÖLÇÜSÜNÜ (VE ADINI) DEĞİŞTİRİR.
+ *
+ * Kullanıcı kararı (15.08.2026): *"Hammadde havuzuna düşen kalemlerin en boy
+ * uzunluk ölçülerini düzenleyebilmek istiyorum … hem parça ismi değişsin
+ * böylece."*
+ *
+ * DÜZENLENEN ŞEY RESİMDEKİ ÖLÇÜDÜR, satın alma ölçüsü değil: metinde yazan
+ * sayı odur ve pay (ressamınki ya da firma kuralı) onun üstüne HER OKUMADA
+ * yeniden uygulanır. Pencere ikisini birden gösterir — düzeltilen Ø90'ın yine
+ * Ø95 sipariş edileceği ekranda görünmelidir.
+ *
+ * ÖNİZLEME KAYDETMEDEN ÖNCE GELİR: yeni tanım (yani parçanın yeni adı) canlı
+ * yazılır. Ad bir yan etki değil, düzeltmenin KENDİSİdir.
+ */
+export function RawPartDimsDialog({
+  parca,
+  sinif,
+  onClose,
+  onSaved,
+}: {
+  parca: {
+    /** `parcaOlcuAnahtari(itemNo, partCode)` — çağıran üretir. */
+    anahtar: string;
+    tanim: string;
+    hamTanim: string;
+    olcuElle: boolean;
+    kalinlikMm: number | null;
+    enMm: number | null;
+    boyMm: number | null;
+    disCapMm: number | null;
+    icCapMm: number | null;
+    resimDisCapMm: number | null;
+    resimBoyMm: number | null;
+  };
+  sinif: HammaddeSinifi;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [calisiyor, basla] = useTransition();
+
+  /** Resimdeki ölçü — pay UYGULANMAMIŞ hâl; metinde yazan sayılar bunlar. */
+  const mevcut: HammaddeOlcusu = {
+    kalinlikMm: parca.kalinlikMm,
+    enMm: parca.enMm,
+    boyMm: parca.resimBoyMm ?? parca.boyMm,
+    disCapMm: parca.resimDisCapMm ?? parca.disCapMm,
+    icCapMm: parca.icCapMm,
+  };
+
+  const alanlar = duzenlenebilirOlculer(sinif, mevcut);
+  const [degerler, setDegerler] = useState<Record<string, string>>(() =>
+    Object.fromEntries(alanlar.map((a) => [a, mevcut[a] == null ? "" : String(mevcut[a])]))
+  );
+
+  const yeni: Partial<Record<OlcuAlani, number | null>> = Object.fromEntries(
+    alanlar.map((a) => [a, parseNum(degerler[a] ?? "")])
+  );
+  const sonuc = tanimiOlcuyleYaz(parca.tanim, sinif, mevcut, yeni);
+  const degisti = sonuc.tanim.trim() !== parca.tanim.trim();
+
+  function kaydet(geriAl = false) {
+    basla(async () => {
+      const cevap = await saveRawPartDims({
+        partKey: parca.anahtar,
+        sample: parca.hamTanim,
+        label: geriAl ? "" : sonuc.tanim,
+      });
+      if (cevap.error) {
+        toast.error(cevap.error);
+        return;
+      }
+      toast.success(geriAl ? "Ölçü düzeltmesi kaldırıldı." : "Parça ölçüsü güncellendi.");
+      onSaved();
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(a) => !a && onClose()}>
+      <DialogContent className="sm:max-w-[min(38rem,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle>Parça Ölçüsünü Düzelt</DialogTitle>
+          <DialogDescription>
+            Ölçü değişince parçanın ADI da değişir; satır havuzda kırmızı görünür.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          {alanlar.length === 0 ? (
+            <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+              Bu parçanın tanımından okunabilen bir ölçü yok, bu yüzden düzeltilecek bir sayı da
+              yok. Adı doğrudan düzeltmek için stok kalemi satırını kullanın.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {alanlar.map((a) => (
+                <div key={a} className="grid content-start gap-1.5">
+                  <Label htmlFor={`po-${a}`}>{OLCU_ETIKETLERI[a]}</Label>
+                  <Input
+                    id={`po-${a}`}
+                    inputMode="decimal"
+                    value={degerler[a] ?? ""}
+                    onChange={(e) => setDegerler((o) => ({ ...o, [a]: e.target.value }))}
+                    className="h-10 text-right font-mono tabular-nums"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Resimde: {mevcut[a] == null ? "—" : formatNum(mevcut[a] as number, 1)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sonuc.yazilamayan.length > 0 && (
+            <p className="border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+              Şu ölçünün tanımda karşılığı bulunamadı ve yazılamadı:{" "}
+              {sonuc.yazilamayan.map((a) => OLCU_ETIKETLERI[a]).join(", ")}. Tanımı elle düzeltmek
+              gerekir.
+            </p>
+          )}
+
+          <div className="grid gap-1 border bg-muted/40 px-3 py-2 font-mono text-[12px]">
+            <span className="oc-kicker text-[10px] text-muted-foreground">Yeni Parça Adı</span>
+            <span className={degisti ? "font-medium text-destructive" : "text-muted-foreground"}>
+              {sonuc.tanim}
+            </span>
+            {(degisti || parca.olcuElle) && (
+              <span className="text-[11px] text-muted-foreground line-through">
+                {parca.hamTanim}
+              </span>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
-          <span className="flex gap-2">
-            {satir.manualId ? (
-              <Button type="button" variant="outline" onClick={manuelSil} disabled={calisiyor}>
-                <Trash2 className="size-3.5" />
-                Sil
+          <span>
+            {parca.olcuElle && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => kaydet(true)}
+                disabled={calisiyor}
+                title="Ressamın yazdığı ölçüye geri dön"
+              >
+                <RotateCcw className="size-3.5" />
+                Düzeltmeyi Kaldır
               </Button>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => ekipmanaTasi(true)}
-                  disabled={calisiyor}
-                  title="Bu kalem bir hammadde değil, satın alınan bir ürün"
-                >
-                  <ArrowRightLeft className="size-3.5" />
-                  Ekipmana Taşı
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => haricTut(true)}
-                  disabled={calisiyor}
-                  title="Bu kalem hammadde havuzunda görünmesin"
-                >
-                  Havuzdan Çıkar
-                </Button>
-              </>
             )}
           </span>
           <span className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose} disabled={calisiyor}>
               Vazgeç
             </Button>
-            <Button type="button" onClick={kaydet} disabled={calisiyor}>
+            <Button type="button" onClick={() => kaydet(false)} disabled={calisiyor || !degisti}>
               {calisiyor && <Loader2 className="size-3.5 animate-spin" />}
               Kaydet
             </Button>
@@ -317,11 +538,22 @@ const ETIKET: Record<string, string> = {
 export function RawManualDialog({
   isler,
   qualities,
+  stokAdlari = [],
   onClose,
   onSaved,
 }: {
   isler: { id: string; itemNos: string[]; label: string }[];
   qualities: string[];
+  /**
+   * HAVUZDA HÂLİHAZIRDA BULUNAN STOK KALEMİ ADLARI.
+   *
+   * Kullanıcı isteği (15.08.2026): *"Stok kalemi adı öncekiler dropdown gelsin.
+   * Kullanıcı isterse hemen orada yeni ekleyebilsin."* Liste bir defter değil,
+   * HAVUZUN KENDİSİDİR: ikinci bir ad defteri tutmak, elle açılan talebin
+   * adının türetilmiş satırın adından ayrışmasının en kısa yoluydu — ve
+   * ayrışırlarsa aynı malzeme havuzda iki satır olurdu.
+   */
+  stokAdlari?: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -450,14 +682,27 @@ export function RawManualDialog({
             </div>
           </div>
 
+          {/* STOK KALEMİ ADI ÖNCE LİSTEDEN SEÇİLİR (15.08.2026). Serbest metin
+              kutusu aynı malzemeyi iki ayrı satıra bölüyordu ("SAC 20 MM
+              S355JR" ile "SAC 20MM S355JR" ayrı anahtarlardır); `Combobox`
+              önce havuzdaki adı önerir, aradığı yoksa kullanıcı yazdığı adı
+              "+ Yeni stok kalemi" ile aynı yerde açar. */}
           <div className="grid gap-1.5">
-            <Label htmlFor="hmm-ad">Stok Kalemi Adı</Label>
-            <Input
-              id="hmm-ad"
-              value={ad}
-              onChange={(e) => setAd(e.target.value)}
+            <Label>Stok Kalemi Adı</Label>
+            <Combobox
+              options={stokAdlari.map((s) => ({ value: s, label: s }))}
+              value={ad || null}
+              onChange={setAd}
+              onCreate={(v) => setAd(v.toLocaleUpperCase("tr-TR"))}
               placeholder="SAC 15 MM S355JR"
+              searchPlaceholder="Stok kalemi ara…"
+              createLabel="Yeni stok kalemi"
+              className="h-10"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Listedeki bir adı seçerseniz talep o stok kalemiyle BİRLEŞİR; yeni bir ad
+              yazarsanız kendi satırı açılır.
+            </p>
           </div>
 
           {(tur === "PROFIL" || tur === "RAY") && (

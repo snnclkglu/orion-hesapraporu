@@ -41,13 +41,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox, type ComboOption } from "@/components/combobox";
 import { CURRENCIES, CURRENCY_LABELS, currencyOf, fmtMoney, parseNum } from "@/lib/currency";
-import { bugunISO, kurGerekli, tarihGoster } from "@/lib/purchasing/terms";
+import {
+  bugunISO,
+  kurGerekli,
+  leadTimeOptions,
+  paymentTermFrom,
+  paymentTermOptions,
+  paymentTermValue,
+  tarihGoster,
+} from "@/lib/purchasing/terms";
+import { teslimYazisi, vadeYazisi } from "@/lib/purchasing/hammadde/karsilastirma";
 import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
-import { YeniFirma } from "@/components/yeni-firma";
+import { trKatla } from "@/lib/drawings/tr-text";
 import type { TeklifSatiri } from "./data";
-import { chooseQuote, deleteQuote, saveQuote } from "./actions";
+import { chooseQuote, deleteQuote, ensureSupplier, saveQuote } from "./actions";
 
 /** Formun tuttuğu ham metinler — girdi alanları metin taşır, sayı değil. */
 interface Form {
@@ -56,9 +66,15 @@ interface Form {
   paraBirimi: string;
   kur: string;
   tarih: string;
-  /** Ödeme vadesi GÜN — 0 peşindir. Karşılaştırma başlığına yazılır. */
+  /**
+   * Ödeme koşulu — AÇILIR LİSTENİN DEĞERİ (`pesin` · `kredi_karti` · `30`).
+   *
+   * Kullanıcı kararı (15.08.2026): *"Vade dropdown gelsin: peşin, kredi kartı,
+   * 15 30 45 60 90 gün."* Serbest sayı kutusu "peşin" ile "0"ı aynı anda iki
+   * ayrı yerde anlatıyordu; liste siparişle ORTAKTIR (`PAYMENT_TERMS`).
+   */
   vade: string;
-  /** Teslim süresi GÜN — 0 "Hazır", boş "söylenmedi". */
+  /** Teslim süresi — açılır liste değeri; `"yok"` = söylenmedi, `"0"` = hazır. */
   teslim: string;
   not: string;
 }
@@ -69,8 +85,8 @@ const BOS_FORM = (): Form => ({
   paraBirimi: "EUR",
   kur: "",
   tarih: bugunISO(),
-  vade: "",
-  teslim: "",
+  vade: "pesin",
+  teslim: "yok",
   not: "",
 });
 
@@ -81,10 +97,17 @@ function formaCevir(t: TeklifSatiri): Form {
     paraBirimi: t.currency,
     kur: t.fxRate == null ? "" : String(t.fxRate),
     tarih: t.quotedAt,
-    vade: t.paymentTermDays > 0 ? String(t.paymentTermDays) : "",
-    teslim: t.leadTimeDays == null ? "" : String(t.leadTimeDays),
+    vade: paymentTermValue(t.paymentMethod, t.paymentTermDays),
+    teslim: t.leadTimeDays == null ? "yok" : String(t.leadTimeDays),
     not: t.note,
   };
+}
+
+/** Formdaki teslim seçiminin gün karşılığı; `null` = sorulmadı. */
+function teslimGunu(v: string): number | null {
+  if (v === "yok" || v.trim() === "") return null;
+  const g = Number.parseInt(v, 10);
+  return Number.isFinite(g) ? g : null;
 }
 
 export function QuoteDialog({
@@ -94,6 +117,7 @@ export function QuoteDialog({
   tedarikciler,
   sonKur,
   canWrite,
+  scope = "ekipman",
   onClose,
   onChanged,
 }: {
@@ -104,6 +128,8 @@ export function QuoteDialog({
   /** En son yayımlanmış günlük kur — kur kutusunun önerisi buradan gelir. */
   sonKur?: GunlukKur | null;
   canWrite: boolean;
+  /** Açılan teklif partisinin kapsamı — hangi havuzdan girildi. */
+  scope?: "hammadde" | "ekipman";
   onClose: () => void;
   /** Pencere kapanınca listenin tazelenmesi için — kaydetmeler yereldir. */
   onChanged: () => void;
@@ -137,6 +163,7 @@ export function QuoteDialog({
     if (!gecerliMi(f) || fiyat == null) return;
     const kurLazim = kurGerekli(f.paraBirimi);
     const kur = kurLazim ? parseNum(f.kur) : 1;
+    const kosul = paymentTermFrom(f.vade);
 
     basla(async () => {
       const sonuc = await saveQuote({
@@ -149,14 +176,15 @@ export function QuoteDialog({
         fxRate: kur,
         quotedAt: f.tarih,
         validUntil: "",
-        // VADE GÜN GİRİLDİYSE ÖDEME BİÇİMİ "VADELİ"DİR: iki alanı ayrı
-        // sormak, kullanıcıyı aynı gerçeği iki kez yazdırmak olurdu.
-        paymentMethod: (parseNum(f.vade) ?? 0) > 0 ? "vadeli" : "pesin",
-        paymentTermDays: Math.round(parseNum(f.vade) ?? 0),
-        leadTimeDays: f.teslim.trim() === "" ? null : Math.round(parseNum(f.teslim) ?? 0),
+        // ÖDEME BİÇİMİ İLE VADE GÜNÜ AYRI SÜTUNLARDIR (md. 21) ama TEK bir
+        // listeden seçilir: satınalmacının kafasında tek soru var.
+        paymentMethod: kosul.method,
+        paymentTermDays: kosul.days,
+        leadTimeDays: teslimGunu(f.teslim),
         note: f.not,
         itemNo: "",
         packageId: null,
+        scope,
       });
       if (sonuc.error) {
         toast.error(sonuc.error);
@@ -165,6 +193,7 @@ export function QuoteDialog({
       setDegisti(true);
       toast.success(id ? "Teklif güncellendi." : "Teklif kaydedildi.");
 
+      const eski = id ? liste.find((t) => t.id === id) : undefined;
       const satir: TeklifSatiri = {
         id: id ?? sonuc.id ?? `yeni-${liste.length}`,
         matchKey,
@@ -178,12 +207,17 @@ export function QuoteDialog({
         unit: "Adet",
         quotedAt: f.tarih,
         validUntil: null,
-        chosen: id ? (liste.find((t) => t.id === id)?.chosen ?? false) : false,
+        chosen: eski?.chosen ?? false,
         note: f.not,
         itemNo: "",
-        paymentMethod: (parseNum(f.vade) ?? 0) > 0 ? "vadeli" : "pesin",
-        paymentTermDays: Math.round(parseNum(f.vade) ?? 0),
-        leadTimeDays: f.teslim.trim() === "" ? null : Math.round(parseNum(f.teslim) ?? 0),
+        paymentMethod: kosul.method,
+        paymentTermDays: kosul.days,
+        leadTimeDays: teslimGunu(f.teslim),
+        // PARTİ KODU SUNUCUDA VERİLİR: iyimser satır onu bilmez ve UYDURMAZ —
+        // pencere kapanınca liste tazelenir ve kod yerine oturur.
+        batchId: eski?.batchId ?? null,
+        batchCode: eski?.batchCode ?? "",
+        batchStatus: eski?.batchStatus ?? "acik",
       };
 
       // İYİMSER GÜNCELLEME: pencere kapanmadan liste değişir, satınalmacı üç
@@ -232,7 +266,10 @@ export function QuoteDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && kapat()}>
-      <DialogContent className="sm:max-w-[min(46rem,calc(100%-2rem))]">
+      {/* GENİŞLİK %50 ARTTI (46 → 69rem, kullanıcı isteği 15.08.2026): forma
+          vade ve teslim kutuları eklendi, dar pencerede alanlar satır atlayıp
+          birbirinden kayıyordu. */}
+      <DialogContent className="sm:max-w-[min(69rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="text-base">Teklifler</DialogTitle>
           <DialogDescription className="text-[12px]">{tanim}</DialogDescription>
@@ -243,9 +280,12 @@ export function QuoteDialog({
             <table className="w-full text-[12px]">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
+                  <th className="px-2 py-1.5 text-left font-normal">Teklif</th>
                   <th className="px-2 py-1.5 text-left font-normal">Firma</th>
                   <th className="px-2 py-1.5 text-right font-normal">Birim Fiyat</th>
                   <th className="px-2 py-1.5 text-right font-normal">Avro</th>
+                  <th className="px-2 py-1.5 text-left font-normal">Vade</th>
+                  <th className="px-2 py-1.5 text-left font-normal">Teslim</th>
                   <th className="px-2 py-1.5 text-left font-normal">Tarih</th>
                   <th className="w-28 px-2 py-1.5" />
                 </tr>
@@ -254,7 +294,7 @@ export function QuoteDialog({
                 {liste.map((t) =>
                   duzenlenen === t.id ? (
                     <tr key={t.id} className="border-t bg-muted/30">
-                      <td colSpan={5} className="px-2 py-2">
+                      <td colSpan={8} className="px-2 py-2">
                         <TeklifFormu
                           f={duzenForm}
                           onChange={setDuzenForm}
@@ -271,6 +311,12 @@ export function QuoteDialog({
                     </tr>
                   ) : (
                     <tr key={t.id} className="border-t">
+                      {/* TEKLİF KODU (15.08.2026): aynı firmadan iki hafta
+                          arayla alınmış iki teklif ayrı satırlardır ve hangisi
+                          olduğu ancak koddan okunur. */}
+                      <td className="px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+                        {t.batchCode || "—"}
+                      </td>
                       <td className="px-2 py-1.5">
                         <span className="flex items-center gap-1">
                           {t.chosen && (
@@ -305,6 +351,19 @@ export function QuoteDialog({
                         ) : (
                           fmtMoney(t.unitPriceEur, "EUR")
                         )}
+                      </td>
+                      <td className="px-2 py-1.5 font-mono whitespace-nowrap text-muted-foreground">
+                        {vadeYazisi(t.paymentTermDays)}
+                      </td>
+                      <td
+                        className={
+                          "px-2 py-1.5 font-mono whitespace-nowrap " +
+                          (t.leadTimeDays === 0
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-muted-foreground")
+                        }
+                      >
+                        {teslimYazisi(t.leadTimeDays)}
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">
                         {tarihGoster(t.quotedAt)}
@@ -415,25 +474,64 @@ function TeklifFormu({
 
   const oneri = kurLazim ? kurOnerisi(f.paraBirimi, sonKur) : null;
 
+  // LİSTE KAPALI DEĞİLDİR: devralınan ya da elle girilmiş bir vade (ör. 120
+  // gün) kendi seçeneği olarak korunur — korunmasaydı kutu boş görünür ve ilk
+  // kaydetmede sessizce "Peşin"e düşerdi (`SALE_SCOPES` kuralı).
+  const vadeSecenekleri = paymentTermOptions(
+    f.vade === "pesin" || f.vade === "kredi_karti" ? f.vade : "vadeli",
+    Number.parseInt(f.vade, 10) || 0
+  );
+
+  const firmaSecenekleri: ComboOption[] = (() => {
+    const harita = new Map<string, ComboOption>();
+    for (const ad of tedarikciler) harita.set(trKatla(ad), { value: ad, label: ad });
+    if (f.firma && !harita.has(trKatla(f.firma))) {
+      harita.set(trKatla(f.firma), { value: f.firma, label: f.firma });
+    }
+    return [...harita.values()].sort((a, b) => a.label.localeCompare(b.label, "tr"));
+  })();
+
+  function firmaOlustur(ad: string) {
+    const temiz = ad.trim();
+    if (temiz.length < 2) return;
+    ensureSupplier({ name: temiz }).then((sonuc) => {
+      if (sonuc.error || !sonuc.name) {
+        toast.error(sonuc.error ?? "Tedarikçi oluşturulamadı.");
+        return;
+      }
+      set({ firma: sonuc.name });
+      if (sonuc.ok) toast.success(`${sonuc.name} tedarikçi defterine eklendi.`);
+    });
+  }
+
   return (
     <div className="grid gap-2">
       <span className="oc-kicker text-muted-foreground">{baslik}</span>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="grid min-w-[10rem] flex-1 gap-1">
+      {/* HİZA `items-end` İLE KURULMAZ (kullanıcı bildirimi, 15.08.2026:
+          *"Teklifler pop-up kayma var"*). Kur kutusunun ALTINDA bir öneri
+          düğmesi var; alt hizaya oturan bir şeritte o kutu ötekilerden bir
+          satır yukarı kayıyordu. Alanlar artık ÜSTTEN hizalanır ve hepsi aynı
+          `h-9` yüksekliğindedir — kutunun altına ne eklenirse eklensin hiza
+          bozulmaz. */}
+      <div className="flex flex-wrap items-start gap-2">
+        <label className="grid min-w-[12rem] flex-1 content-start gap-1">
           <span className="text-[11px] text-muted-foreground">Firma</span>
-          <span className="flex items-center gap-1">
-            <Input
-              value={f.firma}
-              onChange={(e) => set({ firma: e.target.value })}
-              list="tedarikci-listesi"
-              placeholder="Firma"
-              maxLength={120}
-              className="h-9 flex-1 text-base pointer-fine:text-sm"
-            />
-            <YeniFirma ad={f.firma} tedarikciler={tedarikciler} />
-          </span>
+          {/* `datalist` YERİNE `Combobox` (sipariş penceresinin 14.08.2026
+              kararının aynısı): tarayıcıya bırakılmış bir öneri Türkçe
+              katlamayı bilmez ("isdemir" yazan "İSDEMİR"i bulamıyordu) ve
+              dokunmatikte açılmıyordu. Yeni firma da buradan deftere girer. */}
+          <Combobox
+            options={firmaSecenekleri}
+            value={f.firma || null}
+            onChange={(v) => set({ firma: v })}
+            onCreate={firmaOlustur}
+            createLabel="Yeni tedarikçi"
+            placeholder="Tedarikçi seçin veya yazın"
+            searchPlaceholder="Firma adı…"
+            className="h-9 text-base pointer-fine:text-sm"
+          />
         </label>
-        <label className="grid w-28 gap-1">
+        <label className="grid w-28 content-start gap-1">
           <span className="text-[11px] text-muted-foreground">Birim fiyat</span>
           <Input
             value={f.fiyat}
@@ -445,10 +543,10 @@ function TeklifFormu({
             }}
           />
         </label>
-        <label className="grid w-28 gap-1">
+        <label className="grid w-28 content-start gap-1">
           <span className="text-[11px] text-muted-foreground">Para birimi</span>
           <Select value={f.paraBirimi} onValueChange={paraBirimiSec}>
-            <SelectTrigger size="sm" className="text-base pointer-fine:text-sm">
+            <SelectTrigger className="h-9! w-full text-base pointer-fine:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -462,7 +560,7 @@ function TeklifFormu({
         </label>
         {/* KUR ALANI YALNIZ GEREKİNCE BELİRİR — avroda sorulmaz (hep 1). */}
         {kurLazim && (
-          <label className="grid w-32 gap-1">
+          <label className="grid w-32 content-start gap-1">
             <span className="text-[11px] text-muted-foreground">1 € = ?</span>
             <Input
               value={f.kur}
@@ -487,7 +585,7 @@ function TeklifFormu({
             )}
           </label>
         )}
-        <label className="grid w-36 gap-1">
+        <label className="grid w-36 content-start gap-1">
           <span className="text-[11px] text-muted-foreground">Teklif tarihi</span>
           <Input
             type="date"
@@ -496,30 +594,40 @@ function TeklifFormu({
             className="h-9 font-mono text-base pointer-fine:text-sm"
           />
         </label>
-        {/* VADE VE TESLİM SÜRESİ (kullanıcı kararı, 15.08.2026): teklifleri
-            yan yana koyarken en ucuz fiyat tek başına bir cevap değildir —
-            90 gün vadeli ve hazır bir teklif, peşin ve 40 gün terminli bir
-            tekliften pahalı görünse bile kazanabilir. */}
-        <label className="grid w-28 gap-1">
-          <span className="text-[11px] text-muted-foreground">Vade (gün)</span>
-          <Input
-            value={f.vade}
-            onChange={(e) => set({ vade: e.target.value })}
-            inputMode="numeric"
-            placeholder="Peşin"
-            className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-          />
+        {/* VADE VE TESLİM SÜRESİ AÇILIR LİSTEDİR (kullanıcı kararı,
+            15.08.2026). En ucuz fiyat tek başına bir cevap değildir — 90 gün
+            vadeli ve hazır bir teklif, peşin ve 40 gün terminli bir tekliften
+            pahalı görünse bile kazanabilir; ama iki alanın serbest sayı
+            olması aynı vadenin üç farklı yazımla girilmesine yol açıyordu. */}
+        <label className="grid w-36 content-start gap-1">
+          <span className="text-[11px] text-muted-foreground">Vade</span>
+          <Select value={f.vade} onValueChange={(v) => set({ vade: v })}>
+            <SelectTrigger className="h-9! w-full text-base pointer-fine:text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {vadeSecenekleri.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
-        <label className="grid w-32 gap-1">
-          <span className="text-[11px] text-muted-foreground">Teslim (gün)</span>
-          <Input
-            value={f.teslim}
-            onChange={(e) => set({ teslim: e.target.value })}
-            inputMode="numeric"
-            placeholder="Sorulmadı"
-            title="0 yazarsanız “Hazır” görünür; boş bırakılırsa tedarikçi söylemedi demektir."
-            className="h-9 text-right font-mono text-base tabular-nums pointer-fine:text-sm"
-          />
+        <label className="grid w-40 content-start gap-1">
+          <span className="text-[11px] text-muted-foreground">Teslim süresi</span>
+          <Select value={f.teslim} onValueChange={(v) => set({ teslim: v })}>
+            <SelectTrigger className="h-9! w-full text-base pointer-fine:text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {leadTimeOptions(teslimGunu(f.teslim)).map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
       <div className="flex flex-wrap items-end gap-2">
@@ -548,11 +656,6 @@ function TeklifFormu({
           Avro dışı fiyatta kur zorunludur — sistemde bütün fiyatlar avroda karşılaştırılır.
         </p>
       )}
-      <datalist id="tedarikci-listesi">
-        {tedarikciler.map((t) => (
-          <option key={t} value={t} />
-        ))}
-      </datalist>
     </div>
   );
 }

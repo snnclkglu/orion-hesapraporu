@@ -66,6 +66,26 @@ export const updateRawManualSchema = createRawManualSchema.extend({
 export type UpdateRawManualInput = z.infer<typeof updateRawManualSchema>;
 
 /**
+ * PARÇA ÖLÇÜSÜ DÜZELTMESİ.
+ *
+ * YENİ TANIM İSTEMCİDE ÜRETİLİR (`tanimiOlcuyleYaz`) ve sunucu onu OLDUĞU GİBİ
+ * saklar. Sunucuda yeniden üretmek, aynı metin yeniden yazma kuralını ikinci
+ * kez yazmak olurdu — ve iki yazım bir gün ayrışırdı (`moveToEquipmentSchema`
+ * ile aynı gerekçe). Sunucunun işi ölçmek değil, sınırı korumaktır.
+ *
+ * BOŞ TANIM = DÜZELTMEYİ KALDIR (`purchase_item_meta` deseni): satır silinir
+ * ve parça ressamın yazdığı hâline döner.
+ */
+export const saveRawPartDimsSchema = z.object({
+  partKey: z.string().trim().min(1).max(240),
+  /** Ressamın yazdığı ham tanım — kanıt olarak saklanır, ezilmez. */
+  sample: z.string().trim().max(240).default(""),
+  label: z.string().trim().max(240).default(""),
+  note: z.string().trim().max(500).default(""),
+});
+export type SaveRawPartDimsInput = z.input<typeof saveRawPartDimsSchema>;
+
+/**
  * EKİPMANA TAŞIMA — hammadde satırını öteki havuza geçirir.
  *
  * `hamTanimlar` İSTEMCİDEN GELİR ve bu bilinçli: taşınan şey bir STOK

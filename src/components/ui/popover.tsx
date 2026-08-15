@@ -17,17 +17,59 @@ function PopoverTrigger({
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+/**
+ * PENCERE İÇİNDEKİ AÇILIR LİSTE TEKERLEKLE KAYMIYORDU — ve sebebi bizde değil,
+ * kilit mekanizmasındaydı (kullanıcı bildirimi, 15.08.2026: *"Toplu teklif gir
+ * pop-up da tedarikçi dropdown scrol yapmıyor"*).
+ *
+ * Radix `Dialog` açıkken `react-remove-scroll` sayfayı kilitler ve bunu
+ * `document` üzerinde NON-PASSIVE bir `wheel` dinleyicisiyle yapar: olayın
+ * hedefi kilitli kabın DIŞINDAYSA `preventDefault()` çağırır. `Popover`
+ * içeriği `Portal` ile `body`ye taşındığı için tam olarak "dışarısı"dır —
+ * tıklama çalışır, KAYDIRMA çalışmaz. (`Select` bu tuzağa düşmez: kendi
+ * kilidini yığının en üstüne koyar ve öteki kilit erken döner.)
+ *
+ * Çözüm dinleyiciyi devre dışı bırakmak değil, olayı ONA ULAŞTIRMAMAKtır:
+ * içerik düğümünde `stopPropagation` çağrılır ve `document`teki dinleyici hiç
+ * çalışmaz. `preventDefault` ÇAĞRILMAZ — tarayıcı kendi doğal kaydırmasını
+ * yapsın. Sayfanın arkasına taşma riski yok: kutu zaten `overscroll-contain`
+ * taşıyor.
+ */
+function kaydirmaKilidiniAs(node: HTMLElement | null): () => void {
+  if (!node) return () => {};
+  const dur = (e: Event) => e.stopPropagation();
+  node.addEventListener("wheel", dur, { passive: true });
+  node.addEventListener("touchmove", dur, { passive: true });
+  return () => {
+    node.removeEventListener("wheel", dur);
+    node.removeEventListener("touchmove", dur);
+  };
+}
+
 function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
   collisionPadding = 8,
+  ref,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const temizle = React.useRef<() => void>(() => {});
+  const bagla = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      temizle.current();
+      temizle.current = kaydirmaKilidiniAs(node);
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref]
+  );
+
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
+        ref={bagla}
         align={align}
         sideOffset={sideOffset}
         // Radix çarpışmada kutuyu yalnız KAYDIRIR, küçültmez; ekran kenarına

@@ -16,10 +16,12 @@ import {
   createRawManualSchema,
   moveToEquipmentSchema,
   saveRawMetaSchema,
+  saveRawPartDimsSchema,
   updateRawManualSchema,
   type CreateRawManualInput,
   type MoveToEquipmentInput,
   type SaveRawMetaInput,
+  type SaveRawPartDimsInput,
   type UpdateRawManualInput,
 } from "./schema";
 
@@ -59,6 +61,7 @@ async function requireWrite() {
 function tazele() {
   revalidatePath("/purchasing/hammadde");
   revalidatePath("/purchasing/hammadde/yerlesim");
+  revalidatePath("/purchasing/hammadde/teklifler");
   // EKİPMAN HAVUZU DA ESKİR: bir satır taşındığında iki ekran birden değişir
   // ve yalnız birini tazelemek, satırı bir an iki yerde birden gösterirdi.
   revalidatePath("/purchasing");
@@ -138,6 +141,58 @@ export async function saveRawMeta(input: SaveRawMetaInput): Promise<HammaddeActi
 
   tazele();
   return { ok: satirlar.length };
+}
+
+// ═══════════════════════════════════════════════ PARÇA ÖLÇÜSÜ DÜZELTMESİ
+
+/**
+ * Bir kesim parçasının ölçüsünü (dolayısıyla ADINI) düzeltir.
+ *
+ * Kullanıcı kararı (15.08.2026): *"Bazen yanlışlık yapılmış olabilir projede
+ * veya son anda değişiklik istenebilir. Bu esnekliği sunalım."*
+ *
+ * DÜZELTME PARÇA BAŞINADIR, stok kalemi başına DEĞİL: bir sacın eni
+ * değiştiğinde o TEK parça değişir, aynı plakadan kesilen öteki parçalar
+ * değişmez. (Sınıf/ad düzeltmesi ise grup başınadır — orada karar bütün gruba
+ * aittir.)
+ *
+ * BOŞ TANIM DÜZELTMEYİ KALDIRIR: satır silinir, parça ressamın yazdığı ölçüye
+ * geri döner. Geri alma yolu olmayan bir düzeltme, düzeltme değil bir kayıptır.
+ */
+export async function saveRawPartDims(
+  input: SaveRawPartDimsInput
+): Promise<HammaddeActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const parsed = saveRawPartDimsSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+  const v = parsed.data;
+
+  if (!v.label) {
+    const { error } = await ctx.supabase
+      .from("purchase_raw_part_dims")
+      .delete()
+      .eq("part_key", v.partKey);
+    if (error) return { error: error.message };
+    tazele();
+    return { ok: 0 };
+  }
+
+  const { error } = await ctx.supabase.from("purchase_raw_part_dims").upsert(
+    {
+      part_key: v.partKey,
+      sample: v.sample,
+      label_override: v.label.toLocaleUpperCase("tr-TR"),
+      note: v.note,
+      created_by: ctx.userId,
+    },
+    { onConflict: "part_key" }
+  );
+  if (error) return { error: error.message };
+
+  tazele();
+  return { ok: 1 };
 }
 
 // ═══════════════════════════════════════════════════ ELLE AÇILAN TALEP

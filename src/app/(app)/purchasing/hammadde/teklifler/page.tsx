@@ -6,9 +6,26 @@
 // ve cevabı tek bir sayı değildir: en ucuz fiyat, en kısa termin ve en uzun
 // vade çoğu zaman ÜÇ AYRI FİRMADADIR. Ekran o üçünü yan yana koyar ve kararı
 // insana bırakır.
+//
+// ═══════════════════════════════════ SAYFA ARTIK PARTİ ÜZERİNE KURULU
+//
+// Kullanıcı bildirimi (15.08.2026): *"Teklif karşılaştırma sayfası şu anda
+// karmaşık geliyor. Teklif Aç Koduna göre satır satır gelsin. Her açtığım
+// teklifi ayrı ayrı değerlendirebileyim. İstersem bu sayfada teklifleri
+// birleştir ayrı diyebileyim."*
+//
+// Eski sayfa doğrudan bir MATRİSLE açılıyordu ve matrisin sütunu TEDARİKÇİYDİ:
+// aynı firmadan iki hafta arayla alınmış iki teklif tek sütunda eriyor,
+// kullanıcı hangi teklifi değerlendirdiğini bilemiyordu. Şimdi sayfa bir
+// LİSTEYLE açılır (her satır bir teklif, kendi koduyla) ve karşılaştırma o
+// listeden SEÇİLENLER üzerinde kurulur.
+//
+// SEÇİM ADRESTE TAŞINIR (`?p=…&gorunum=…`), yerleşim ekranının kuralının
+// aynısı: karşılaştırma paylaşılabilir bir bağlantıdır ve tarayıcı
+// yenilendiğinde aynı tablo çıkar.
 
 import { createClient } from "@/lib/supabase/server";
-import { canEditPurchasing } from "@/lib/roles";
+import { canEditPurchasing, isAdminRole } from "@/lib/roles";
 import {
   loadQualities,
   loadSiparisNolari,
@@ -16,7 +33,7 @@ import {
   loadSonKur,
   loadTedarikciDefteri,
   loadTedarikciler,
-  loadTeklifler,
+  loadTeklifPartileri,
 } from "../../data";
 import { loadHammaddeHavuzu } from "../data";
 import {
@@ -25,7 +42,7 @@ import {
   type KarsilastirmaTeklifi,
 } from "@/lib/purchasing/hammadde/karsilastirma";
 import { HAMMADDE_SINIFLARI, type HammaddeSinifi } from "@/lib/purchasing/hammadde/siniflar";
-import { CompareView } from "./compare-view";
+import { CompareView, type PartiOzeti } from "./compare-view";
 
 /** Sipariş birimi ve miktarı — havuz tablosundaki kuralın aynısı. */
 function miktarBul(s: {
@@ -38,6 +55,10 @@ function miktarBul(s: {
     return { miktar: Math.round(s.toplamAgirlikKg), birim: "Kg" };
   }
   return { miktar: s.parcaAdedi > 0 ? s.parcaAdedi : null, birim: "Adet" };
+}
+
+function coklu(v: string | string[] | undefined): string[] {
+  return Array.isArray(v) ? v : v ? [v] : [];
 }
 
 export default async function TekliflerPage({
@@ -60,13 +81,16 @@ export default async function TekliflerPage({
   const tur = HAMMADDE_SINIFLARI.includes(turHam as HammaddeSinifi)
     ? (turHam as HammaddeSinifi)
     : null;
+  const gorunum = (Array.isArray(sp.gorunum) ? sp.gorunum[0] : sp.gorunum) === "ayri"
+    ? "ayri"
+    : "birlesik";
 
-  // KARŞILAŞTIRMAYA YALNIZ TEKLİFİ OLAN KALEM GİRER — boş bir sütun matrisi
-  // hiçbir soruyu cevaplamaz. Süzgeç istenirse tür de daraltır.
   const anahtarlar = veri.havuz.satirlar.map((s) => s.key);
-  const [teklifler, siparisler, tedarikciler, defter, siparisNolari, sonKur, qualities] =
+  const [partiler, siparisler, tedarikciler, defter, siparisNolari, sonKur, qualities] =
     await Promise.all([
-      anahtarlar.length > 0 ? loadTeklifler(supabase, anahtarlar) : Promise.resolve([]),
+      anahtarlar.length > 0
+        ? loadTeklifPartileri(supabase, anahtarlar)
+        : Promise.resolve([]),
       loadSiparisler(supabase),
       loadTedarikciler(supabase),
       loadTedarikciDefteri(supabase),
@@ -75,28 +99,98 @@ export default async function TekliflerPage({
       loadQualities(supabase),
     ]);
 
-  const teklifliAnahtarlar = new Set(teklifler.map((t) => t.matchKey));
-  const kapsam = veri.havuz.satirlar.filter(
-    (s) => teklifliAnahtarlar.has(s.key) && (tur == null || s.sinif === tur)
+  /** Stok anahtarı → havuz satırı (miktar, birim, tanım, sınıf). */
+  const havuzHaritasi = new Map(veri.havuz.satirlar.map((s) => [s.key, s]));
+
+  // ————————————————————————————————— parti künyeleri
+  //
+  // Özet HER PARTİ İÇİN kurulur (seçilmiş olsun olmasın): liste satırında
+  // toplam ve kalem sayısı görünmeden kullanıcı hangi teklifi seçeceğini
+  // bilemez.
+  const ozetler: PartiOzeti[] = partiler
+    .map((p) => {
+      const satirlar = p.satirlar
+        .filter((t) => havuzHaritasi.has(t.matchKey))
+        .filter((t) => tur == null || havuzHaritasi.get(t.matchKey)?.sinif === tur)
+        .map((t) => {
+          const havuzSatiri = havuzHaritasi.get(t.matchKey)!;
+          const m = miktarBul(havuzSatiri);
+          return {
+            quoteId: t.id,
+            key: t.matchKey,
+            tanim: havuzSatiri.tanim,
+            miktar: m.miktar,
+            birim: m.birim,
+            birimFiyat: t.unitPrice,
+            paraBirimi: t.currency,
+            kur: t.fxRate,
+            birimFiyatEur: t.unitPriceEur,
+            tutarEur:
+              m.miktar != null && t.unitPriceEur != null ? m.miktar * t.unitPriceEur : null,
+            teslimGun: t.leadTimeDays,
+          };
+        })
+        .sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
+
+      const ilk = p.satirlar[0];
+      return {
+        id: p.id,
+        code: p.code,
+        supplier: p.supplier,
+        quotedAt: p.quotedAt,
+        status: p.status,
+        note: p.note,
+        cancelReason: p.cancelReason,
+        // VADE PARTİ BAŞINADIR ama satırlar çelişebilir: en uzunu yazılır
+        // (çekirdekteki kuralın aynısı — satınalmacı en kötü hâli görmeli).
+        vadeGun: p.satirlar.reduce((m, t) => Math.max(m, t.paymentTermDays), 0),
+        paraBirimi: ilk?.currency ?? "EUR",
+        kur: ilk?.fxRate ?? null,
+        toplamEur: satirlar.reduce((t, s) => t + (s.tutarEur ?? 0), 0),
+        kalemSayisi: satirlar.length,
+        satirlar,
+      };
+    })
+    // TÜR SÜZGECİ SONRASI BOŞALAN PARTİ LİSTEDEN DÜŞER: "0 kalem" yazan bir
+    // satır seçilebilir görünür ama karşılaştırmaya hiçbir şey katmaz.
+    .filter((p) => p.kalemSayisi > 0);
+
+  // ————————————————————————————————— seçim
+  //
+  // Adreste seçim yoksa AÇIK partilerin hepsi seçilidir: ekranın sorusu "bu
+  // malzemeleri kimden alayım" ve boş bir matris o soruyu cevaplamaz.
+  const istenen = new Set(coklu(sp.p));
+  const secili =
+    istenen.size > 0
+      ? ozetler.filter((p) => istenen.has(p.id))
+      : ozetler.filter((p) => p.status !== "iptal");
+
+  // ————————————————————————————————— birleşik matris
+  //
+  // SÜTUN PARTİDİR, TEDARİKÇİ DEĞİL: aynı firmanın iki teklifi iki sütundur ve
+  // ancak öyle ayrı ayrı değerlendirilebilir.
+  const kapsam = [...new Set(secili.flatMap((p) => p.satirlar.map((s) => s.key)))];
+  const kalemler: KarsilastirmaKalemi[] = kapsam
+    .map((k) => {
+      const s = havuzHaritasi.get(k)!;
+      const m = miktarBul(s);
+      return { key: k, tanim: s.tanim, miktar: m.miktar, birim: m.birim };
+    })
+    .sort((a, b) => a.tanim.localeCompare(b.tanim, "tr"));
+
+  const girdiler: KarsilastirmaTeklifi[] = secili.flatMap((p) =>
+    p.satirlar.map((s) => ({
+      key: s.key,
+      sutunKey: p.id,
+      etiket: p.code ? `${p.code} · ${p.supplier}` : p.supplier,
+      tedarikci: p.supplier,
+      birimFiyat: s.birimFiyat,
+      paraBirimi: s.paraBirimi,
+      birimFiyatEur: s.birimFiyatEur,
+      vadeGun: p.vadeGun,
+      teslimGun: s.teslimGun,
+    }))
   );
-
-  const kalemler: KarsilastirmaKalemi[] = kapsam.map((s) => {
-    const m = miktarBul(s);
-    return { key: s.key, tanim: s.tanim, miktar: m.miktar, birim: m.birim };
-  });
-
-  const kapsamKumesi = new Set(kalemler.map((k) => k.key));
-  const girdiler: KarsilastirmaTeklifi[] = teklifler
-    .filter((t) => kapsamKumesi.has(t.matchKey))
-    .map((t) => ({
-      key: t.matchKey,
-      tedarikci: t.supplier,
-      birimFiyat: t.unitPrice,
-      paraBirimi: t.currency,
-      birimFiyatEur: t.unitPriceEur,
-      vadeGun: t.paymentTermDays,
-      teslimGun: t.leadTimeDays,
-    }));
 
   const tablo = karsilastirmaKur(kalemler, girdiler);
 
@@ -110,17 +204,24 @@ export default async function TekliflerPage({
   return (
     <CompareView
       tablo={tablo}
+      partiler={ozetler}
+      seciliIdler={secili.map((p) => p.id)}
+      gorunum={gorunum}
       tur={tur}
       turSayaclari={HAMMADDE_SINIFLARI.map((s) => ({
         tur: s,
-        adet: veri.havuz.satirlar.filter((r) => r.sinif === s && teklifliAnahtarlar.has(r.key))
-          .length,
+        adet: new Set(
+          partiler
+            .flatMap((p) => p.satirlar)
+            .filter((t) => havuzHaritasi.get(t.matchKey)?.sinif === s)
+            .map((t) => t.matchKey)
+        ).size,
       }))}
       siparisAdetleri={[...siparisAdetleri.entries()]}
       paylar={Object.fromEntries(
-        kapsam.map((s) => [
-          s.key,
-          s.parcalar.map((p) => ({
+        kapsam.map((k) => [
+          k,
+          (havuzHaritasi.get(k)?.parcalar ?? []).map((p) => ({
             itemNo: p.itemNo,
             packageId: p.packageId,
             partKey: p.partKey,
@@ -135,6 +236,7 @@ export default async function TekliflerPage({
       sonKur={sonKur}
       qualities={qualities}
       canWrite={canEditPurchasing(profil?.role)}
+      isAdmin={isAdminRole(profil?.role)}
     />
   );
 }

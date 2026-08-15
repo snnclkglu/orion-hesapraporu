@@ -535,6 +535,12 @@ function PlakaOzeti({
       kalite: string;
       adet: number;
       kg: number;
+      /** Plakaların toplam alanı [mm²] — doluluk paydası. */
+      plakaAlaniMm2: number;
+      /** Parçaların kapladığı alan [mm²] — doluluk payı. */
+      kullanilanAlanMm2: number;
+      /** Yerleşen parçaların ağırlığı [kg] — fire buradan çıkar. */
+      parcaKg: number;
       paylar: { itemNo: string; packageId: string; partKey: string; adet: number }[];
     }
   >();
@@ -548,6 +554,9 @@ function PlakaOzeti({
     if (mevcut) {
       mevcut.adet += g.sonuc.plakalar.length;
       mevcut.kg += kg;
+      mevcut.plakaAlaniMm2 += g.sonuc.plakaAlaniMm2;
+      mevcut.kullanilanAlanMm2 += g.sonuc.kullanilanAlanMm2;
+      mevcut.parcaKg += g.sonuc.parcaAgirlikKg ?? 0;
       mevcut.paylar.push(...g.paylar);
     } else {
       satirlar.set(anahtar, {
@@ -557,6 +566,9 @@ function PlakaOzeti({
         kalite: g.kalite,
         adet: g.sonuc.plakalar.length,
         kg,
+        plakaAlaniMm2: g.sonuc.plakaAlaniMm2,
+        kullanilanAlanMm2: g.sonuc.kullanilanAlanMm2,
+        parcaKg: g.sonuc.parcaAgirlikKg ?? 0,
         paylar: [...g.paylar],
       });
     }
@@ -569,6 +581,10 @@ function PlakaOzeti({
   );
   const toplamAdet = liste.reduce((t, r) => t + r.adet, 0);
   const toplamKg = liste.reduce((t, r) => t + r.kg, 0);
+  const toplamParcaKg = liste.reduce((t, r) => t + r.parcaKg, 0);
+  const toplamAlan = liste.reduce((t, r) => t + r.plakaAlaniMm2, 0);
+  const toplamKullanilan = liste.reduce((t, r) => t + r.kullanilanAlanMm2, 0);
+  const toplamDoluluk = toplamAlan > 0 ? (toplamKullanilan / toplamAlan) * 100 : null;
 
   /**
    * SİPARİŞ KALEMİ PLAKADIR, PARÇA DEĞİL.
@@ -608,7 +624,8 @@ function PlakaOzeti({
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
         <p className="oc-kicker text-[10px] text-primary">Alınacak Plakalar</p>
         <span className="font-mono text-[11px] text-muted-foreground">
-          {formatNum(toplamAdet)} plaka · {formatNum(Math.round(toplamKg))} kg
+          {formatNum(toplamAdet)} plaka · {formatNum(Math.round(toplamKg))} kg sipariş
+          {toplamDoluluk != null && ` · %${formatNum(toplamDoluluk, 1)} kullanım`}
         </span>
         {canWrite && (
           <span className="ml-auto">
@@ -622,40 +639,82 @@ function PlakaOzeti({
       <div className="oc-scrollx overflow-x-auto [--oc-scroll-bg:var(--card)]">
         <table className="w-full text-[13px]">
           <thead>
+            {/* KULLANIM ORANI VE SİPARİŞ AĞIRLIĞI (kullanıcı isteği,
+                15.08.2026): *"Alınacak Plakalar bölümünde alınan plakanın %
+                kaçını kullanıyoruz görünsün. Plakanın sipariş ağırlığı da
+                görünsün."* İkisi AYRI sorulardır: oran plakanın ne kadarının
+                parçaya gittiğini, sipariş ağırlığı tedarikçiye söylenecek
+                kiloyu verir — fire ikisinin farkıdır ve satırın altında
+                yazar. */}
             <tr className="border-b text-left text-[11px] text-muted-foreground">
               <th className="py-1 pr-4 font-normal">Plaka Ölçüsü</th>
               <th className="py-1 pr-4 font-normal">Kalınlık</th>
               <th className="py-1 pr-4 font-normal">Kalite</th>
               <th className="py-1 pr-4 text-right font-normal">Plaka Adet</th>
               <th className="py-1 pr-4 text-right font-normal">kg / Plaka</th>
-              <th className="py-1 pr-4 text-right font-normal">Toplam kg</th>
+              <th className="py-1 pr-4 text-right font-normal">Kullanım</th>
+              <th className="py-1 pr-4 text-right font-normal">Sipariş Ağırlığı</th>
             </tr>
           </thead>
           <tbody className="font-mono tabular-nums">
-            {liste.map((r) => (
-              <tr
-                key={`${r.enMm}-${r.boyMm}-${r.kalinlikMm}-${r.kalite}`}
-                className="border-b border-border/40"
-              >
-                <td className="py-1.5 pr-4 font-medium">
-                  {formatNum(r.enMm)} × {formatNum(r.boyMm)} mm
-                </td>
-                <td className="py-1.5 pr-4">
-                  {r.kalinlikMm == null ? "—" : `${formatNum(r.kalinlikMm, 1)} mm`}
-                </td>
-                <td className="py-1.5 pr-4">{r.kalite || "—"}</td>
-                <td className="py-1.5 pr-4 text-right text-[15px] font-semibold">
-                  {formatNum(r.adet)}
-                </td>
-                <td className="py-1.5 pr-4 text-right text-muted-foreground">
-                  {(() => {
-                    const b = plakaAgirligiKg(r.kalinlikMm, r.enMm, r.boyMm);
-                    return b == null ? "—" : formatNum(Math.round(b));
-                  })()}
-                </td>
-                <td className="py-1.5 pr-4 text-right">{formatNum(Math.round(r.kg))}</td>
-              </tr>
-            ))}
+            {liste.map((r) => {
+              const doluluk =
+                r.plakaAlaniMm2 > 0 ? (r.kullanilanAlanMm2 / r.plakaAlaniMm2) * 100 : null;
+              const fireKg = r.parcaKg > 0 ? r.kg - r.parcaKg : null;
+              return (
+                <tr
+                  key={`${r.enMm}-${r.boyMm}-${r.kalinlikMm}-${r.kalite}`}
+                  className="border-b border-border/40"
+                >
+                  <td className="py-1.5 pr-4 font-medium">
+                    {formatNum(r.enMm)} × {formatNum(r.boyMm)} mm
+                  </td>
+                  <td className="py-1.5 pr-4">
+                    {r.kalinlikMm == null ? "—" : `${formatNum(r.kalinlikMm, 1)} mm`}
+                  </td>
+                  <td className="py-1.5 pr-4">{r.kalite || "—"}</td>
+                  <td className="py-1.5 pr-4 text-right text-[15px] font-semibold">
+                    {formatNum(r.adet)}
+                  </td>
+                  <td className="py-1.5 pr-4 text-right text-muted-foreground">
+                    {(() => {
+                      const b = plakaAgirligiKg(r.kalinlikMm, r.enMm, r.boyMm);
+                      return b == null ? "—" : formatNum(Math.round(b));
+                    })()}
+                  </td>
+                  <td className="py-1.5 pr-4 text-right">
+                    {doluluk == null ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <span
+                        className={cn(
+                          "font-medium",
+                          doluluk >= 80
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : doluluk >= 60
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-destructive"
+                        )}
+                        title={`Parçalar plakanın %${formatNum(doluluk, 1)}'ini kaplıyor`}
+                      >
+                        %{formatNum(doluluk, 1)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-4 text-right">
+                    <span className="text-[15px] font-semibold">
+                      {formatNum(Math.round(r.kg))}
+                    </span>
+                    <span className="ml-1 text-[11px] text-muted-foreground">kg</span>
+                    {fireKg != null && fireKg > 0 && (
+                      <span className="block text-[11px] text-muted-foreground">
+                        {formatNum(Math.round(fireKg))} kg fire
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-foreground/20 font-mono font-semibold tabular-nums">
@@ -664,7 +723,18 @@ function PlakaOzeti({
               </td>
               <td className="py-1.5 pr-4 text-right">{formatNum(toplamAdet)}</td>
               <td className="py-1.5 pr-4" />
-              <td className="py-1.5 pr-4 text-right">{formatNum(Math.round(toplamKg))}</td>
+              <td className="py-1.5 pr-4 text-right">
+                {toplamDoluluk == null ? "—" : `%${formatNum(toplamDoluluk, 1)}`}
+              </td>
+              <td className="py-1.5 pr-4 text-right">
+                {formatNum(Math.round(toplamKg))}
+                <span className="ml-1 text-[11px] font-normal text-muted-foreground">kg</span>
+                {toplamParcaKg > 0 && (
+                  <span className="block text-[11px] font-normal text-muted-foreground">
+                    {formatNum(Math.round(toplamKg - toplamParcaKg))} kg fire
+                  </span>
+                )}
+              </td>
             </tr>
           </tfoot>
         </table>

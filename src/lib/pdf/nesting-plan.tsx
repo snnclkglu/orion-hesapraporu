@@ -31,17 +31,29 @@ import { parcaNumaralari, yerlesimDiyagrami } from "@/lib/diagrams/nesting";
 import type { DenetimSonucu, YerlesimSonucu } from "@/lib/purchasing/hammadde/nesting";
 import { plakaAgirligiKg } from "@/lib/purchasing/hammadde/siniflar";
 // `brand.tsx` içe aktarıldığı anda fontları kaydeder (modül yan etkisi).
-import { BrandBand, CompanyBlock, type CompanyInfo } from "./brand";
+import { BrandBand, CompanyBlock, FONTS, type CompanyInfo } from "./brand";
 
+/**
+ * FONT AİLESİ ADI `brand.tsx`TEN OKUNUR, ELLE YAZILMAZ.
+ *
+ * Kullanıcı bildirimi (15.08.2026): *"Kesim planı pdf açılmıyor."* Sebep tek
+ * bir dizgeydi: stiller `fontFamily: "IBMPlexMono"` diyordu ama `brand.tsx` o
+ * aileyi **`PlexMono`** adıyla kaydediyor. @react-pdf tanımadığı aileyi
+ * sessizce yedeklemez, ATAR (`Font family not registered`) — yani belge hiç
+ * üretilmiyor, uç 500 dönüyordu ve kullanıcı yalnız "açılmıyor" görüyordu.
+ * Ad artık `FONTS` sözlüğünden gelir: aile adı değişirse burası kendiliğinden
+ * uyar ve DejaVu yedeği de (Ø, Türkçe harfler) birlikte gelir. Koruma
+ * `npx tsx scripts/test-nesting-plan.ts` ile ölçülür.
+ */
 const S = StyleSheet.create({
-  page: { paddingTop: 28, paddingBottom: 40, paddingHorizontal: 28, fontSize: 8.5 },
-  h1: { fontSize: 12, fontFamily: "Archivo", fontWeight: 700, marginBottom: 2 },
-  h2: { fontSize: 10, fontFamily: "Archivo", fontWeight: 700, marginTop: 10, marginBottom: 4 },
+  page: { paddingTop: 28, paddingBottom: 40, paddingHorizontal: 28, fontSize: 8.5, fontFamily: FONTS.sans },
+  h1: { fontSize: 12, fontFamily: FONTS.sans, fontWeight: 700, marginBottom: 2 },
+  h2: { fontSize: 10, fontFamily: FONTS.sans, fontWeight: 700, marginTop: 10, marginBottom: 4 },
   kunye: { fontSize: 7.5, color: "#6B6560", marginBottom: 8 },
   serit: { flexDirection: "row", gap: 14, marginBottom: 6 },
   kutu: { flexDirection: "column" },
-  kutuBaslik: { fontSize: 6.5, color: "#8A8480", letterSpacing: 0.6, textTransform: "uppercase" },
-  kutuDeger: { fontSize: 10, fontFamily: "IBMPlexMono" },
+  kutuBaslik: { fontSize: 6.5, color: "#8A8480", letterSpacing: 0.6 },
+  kutuDeger: { fontSize: 10, fontFamily: FONTS.mono },
   satir: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#DCD9D7" },
   baslikSatir: {
     flexDirection: "row",
@@ -51,7 +63,7 @@ const S = StyleSheet.create({
     marginTop: 4,
   },
   hucre: { paddingVertical: 2.5, paddingRight: 6, fontSize: 8 },
-  mono: { fontFamily: "IBMPlexMono" },
+  mono: { fontFamily: FONTS.mono },
   denetim: { fontSize: 7.5, marginBottom: 1.5 },
   uyari: { color: "#A41E1E" },
 });
@@ -161,11 +173,26 @@ function PdfDiagram({ diagram, width }: { diagram: Diagram; width: number }) {
   );
 }
 
-/** Alınacak plakaların özeti — ölçü + kalınlık + kalite başına adet ve kilo. */
+/**
+ * Alınacak plakaların özeti — ölçü + kalınlık + kalite başına adet ve kilo.
+ *
+ * KULLANIM ORANI EKRANDAKİYLE AYNI PAYDADAN ÇIKAR (`nesting-view.tsx`):
+ * kullanılan alan ÷ plaka alanı. İki yerde iki farklı payda, kâğıttaki oranın
+ * ekrandakinden farklı çıkması demekti.
+ */
 function plakaOzeti(gruplar: KesimPlaniGrubu[]) {
   const m = new Map<
     string,
-    { enMm: number; boyMm: number; kalinlikMm: number | null; kalite: string; adet: number; kg: number }
+    {
+      enMm: number;
+      boyMm: number;
+      kalinlikMm: number | null;
+      kalite: string;
+      adet: number;
+      kg: number;
+      alan: number;
+      kullanilan: number;
+    }
   >();
   for (const g of gruplar) {
     const { enMm, boyMm } = g.sonuc.plaka;
@@ -174,6 +201,8 @@ function plakaOzeti(gruplar: KesimPlaniGrubu[]) {
     if (v) {
       v.adet += g.sonuc.plakalar.length;
       v.kg += g.sonuc.plakaAgirlikKg ?? 0;
+      v.alan += g.sonuc.plakaAlaniMm2;
+      v.kullanilan += g.sonuc.kullanilanAlanMm2;
     } else {
       m.set(k, {
         enMm,
@@ -182,6 +211,8 @@ function plakaOzeti(gruplar: KesimPlaniGrubu[]) {
         kalite: g.kalite,
         adet: g.sonuc.plakalar.length,
         kg: g.sonuc.plakaAgirlikKg ?? 0,
+        alan: g.sonuc.plakaAlaniMm2,
+        kullanilan: g.sonuc.kullanilanAlanMm2,
       });
     }
   }
@@ -207,21 +238,24 @@ export function KesimPlaniDocument({ gruplar, meta, company }: KesimPlaniProps) 
           {meta.preparedBy ? ` · Hazırlayan: ${meta.preparedBy}` : ""}
         </Text>
 
+        {/* BAŞLIKLAR ELLE BÜYÜK YAZILIR: @react-pdf'in `textTransform`u
+            locale'siz `toUpperCase()` çağırır ve "i" harfini "I" yapar
+            (brand.tsx'in kuralı). */}
         <View style={S.serit}>
           <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>Plaka</Text>
+            <Text style={S.kutuBaslik}>PLAKA</Text>
             <Text style={S.kutuDeger}>{say(toplamPlaka)}</Text>
           </View>
           <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>Plaka Ağırlığı</Text>
+            <Text style={S.kutuBaslik}>PLAKA AĞIRLIĞI</Text>
             <Text style={S.kutuDeger}>{say(Math.round(plakaKg))} kg</Text>
           </View>
           <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>Parça Ağırlığı</Text>
+            <Text style={S.kutuBaslik}>PARÇA AĞIRLIĞI</Text>
             <Text style={S.kutuDeger}>{say(Math.round(parcaKg))} kg</Text>
           </View>
           <View style={S.kutu}>
-            <Text style={S.kutuBaslik}>Fire</Text>
+            <Text style={S.kutuBaslik}>FİRE</Text>
             <Text style={S.kutuDeger}>%{say(fire, 1)}</Text>
           </View>
         </View>
@@ -234,7 +268,8 @@ export function KesimPlaniDocument({ gruplar, meta, company }: KesimPlaniProps) 
           <Text style={[S.hucre, { width: 90 }]}>Kalite</Text>
           <Text style={[S.hucre, S.mono, { width: 60, textAlign: "right" }]}>Plaka Adet</Text>
           <Text style={[S.hucre, S.mono, { width: 60, textAlign: "right" }]}>kg / Plaka</Text>
-          <Text style={[S.hucre, S.mono, { width: 70, textAlign: "right" }]}>Toplam kg</Text>
+          <Text style={[S.hucre, S.mono, { width: 60, textAlign: "right" }]}>Kullanım</Text>
+          <Text style={[S.hucre, S.mono, { width: 80, textAlign: "right" }]}>Sipariş kg</Text>
         </View>
         {plakaOzeti(gruplar).map((r) => (
           <View key={`${r.enMm}-${r.boyMm}-${r.kalinlikMm}-${r.kalite}`} style={S.satir}>
@@ -249,7 +284,10 @@ export function KesimPlaniDocument({ gruplar, meta, company }: KesimPlaniProps) 
             <Text style={[S.hucre, S.mono, { width: 60, textAlign: "right" }]}>
               {say(Math.round(plakaAgirligiKg(r.kalinlikMm, r.enMm, r.boyMm) ?? 0))}
             </Text>
-            <Text style={[S.hucre, S.mono, { width: 70, textAlign: "right" }]}>
+            <Text style={[S.hucre, S.mono, { width: 60, textAlign: "right" }]}>
+              {r.alan > 0 ? `%${say((r.kullanilan / r.alan) * 100, 1)}` : "—"}
+            </Text>
+            <Text style={[S.hucre, S.mono, { width: 80, textAlign: "right" }]}>
               {say(Math.round(r.kg))}
             </Text>
           </View>

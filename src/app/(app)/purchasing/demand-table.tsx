@@ -683,6 +683,7 @@ export function DemandTable({
           kalemler={topluTeklif}
           tedarikciler={tedarikciler}
           sonKur={sonKur}
+          scope="ekipman"
           onClose={() => setTopluTeklif(null)}
           onSaved={() => {
             setTopluTeklif(null);

@@ -31,12 +31,15 @@ import {
   hammaddeHavuzu,
   ozetiKur,
   ozetle,
+  type DosyaBagi,
   type HammaddeHavuzu,
   type HammaddeKaynagi,
   type HammaddePaketi,
   type HammaddeSatiri,
 } from "@/lib/purchasing/hammadde/havuz";
+import { parcaOlcuAnahtari } from "@/lib/purchasing/hammadde/olcu-duzelt";
 import { hammaddeSinifiMi, type HammaddeSinifi } from "@/lib/purchasing/hammadde/siniflar";
+import { ancestorCodes } from "@/lib/drawings/part-code";
 import { trKatla } from "@/lib/drawings/tr-text";
 
 // ————————————————————————————————————————————————————————————— paketler
@@ -200,12 +203,33 @@ export async function loadHammaddeHavuzu(
     if (r.stock_length_mm != null) stokBoylari.set(r.match_key, Number(r.stock_length_mm));
   }
 
+  // ————————————————————————————————— 4b. parça ölçüsü düzeltmeleri
+  //
+  // Kullanıcı kararı (15.08.2026): *"en boy uzunluk ölçülerini
+  // düzenleyebilmek istiyorum … hem parça ismi değişsin."* Düzeltme SAYIYI
+  // değil TANIMI saklar (`olcu-duzelt.ts`in gerekçesi) ve okuma yolu buradadır:
+  // ham tanım çözücüye girmeden ÖNCE değiştirilir, geri kalan her şey (ad,
+  // stok kalemi, ağırlık, yerleşim) kendiliğinden uyar.
+  //
+  // TABLO OLMAYABİLİR (md. 21): migration uygulanmadan önce bu sorgu düşer ve
+  // havuz yine türetilmelidir.
+  const olcuDefteri = await supabase
+    .from("purchase_raw_part_dims")
+    .select("part_key, label_override");
+  const parcaOlculeri = new Map<string, string>();
+  for (const r of (olcuDefteri.data ?? []) as { part_key: string; label_override: string }[]) {
+    if (r.label_override?.trim()) parcaOlculeri.set(r.part_key, r.label_override.trim());
+  }
+
   // ————————————————————————————————— 5. paket künyeleri + çarpanlar
   const havuzPaketleri: HammaddePaketi[] = [];
   const paketKunyeleri: HammaddeVerisi["paketler"] = [];
   const paketUrunAdlari = new Map<string, string>();
+  /** Paket → iş kalemi numarası; ölçü düzeltmesinin anahtarının yarısı. */
+  const paketKalemNolari = new Map<string, string>();
 
   for (const p of paketSatirlari) {
+    paketKalemNolari.set(p.id, p.item_no ?? "");
     paketUrunAdlari.set(
       p.id,
       (p.job_item_id ? urunAdlari.get(p.job_item_id) : "") || p.description || ""
@@ -255,10 +279,35 @@ export async function loadHammaddeHavuzu(
     // hem o hammaddenin kullanıldığı ana paftayı açabilsin hem de sacın detay
     // paftası varsa onu açabilsin."*
     //
-    // İKİ AYRI RESİM: parçanın KENDİ paftası (`sheet_file_id`) ve bağlı
-    // olduğu MONTAJIN paftası. İkincisi ayrı bir sorgu değil AYNI DEFTERDEN
-    // çözülür — montajın kendi satırı da bir parçadır ve onun da resmi vardır.
-    const dosyaIdleri = [...new Set(ham.map((r) => r.sheet_file_id).filter(Boolean))] as string[];
+    // İKİ AYRI RESİM: parçanın KENDİ paftası (`sheet_file_id`) ve BİR ÜST
+    // MONTAJIN paftası.
+    //
+    // ÜST PAFTA DEFTERİ AYRI SORULUR — ve bu bir düzeltmedir (kullanıcı
+    // bildirimi, 15.08.2026: *"ana pafta derken bir üst paftasını demiştim"*).
+    // Yukarıdaki sorgu YALNIZ İMALAT satırlarını okuyor (`kind in imalat`),
+    // yani montaj satırları hiç gelmiyordu; üst paftanın resmi o kümede
+    // olmadığı için düğme ya hiç çıkmıyor ya da elde kalan tek aday olan ANA
+    // GRUBUN paftasına düşüyordu. Üst pafta bir montaj satırıdır: defter o
+    // satırlar için ayrıca okunur.
+    const resimSorgusu = await tumSatirlar<{ part_code: string; sheet_file_id: string | null }>(
+      (bas, son) =>
+        supabase
+          .from("drawing_parts")
+          .select("part_code, sheet_file_id")
+          .in("package_id", paketIdleri)
+          .neq("part_code", "")
+          .not("sheet_file_id", "is", null)
+          .order("id")
+          .range(bas, son)
+    );
+
+    const dosyaIdleri = [
+      ...new Set(
+        [...ham.map((r) => r.sheet_file_id), ...resimSorgusu.map((r) => r.sheet_file_id)].filter(
+          Boolean
+        )
+      ),
+    ] as string[];
     const dosyalar = new Map<string, { ad: string; yol: string }>();
     if (dosyaIdleri.length > 0) {
       const { data: dosyaVerisi } = await supabase
@@ -273,12 +322,38 @@ export async function loadHammaddeHavuzu(
         if (d.storage_path) dosyalar.set(d.id, { ad: d.file_name, yol: d.storage_path });
       }
     }
-    /** Parça kodu → o kodun kendi resmi. Montaj paftası buradan bulunur. */
+    /** Parça kodu → o kodun kendi resmi (montaj satırları DÂHİL). */
     const koduResmi = new Map<string, { ad: string; yol: string }>();
-    for (const r of ham) {
+    for (const r of resimSorgusu) {
       const d = r.sheet_file_id ? dosyalar.get(r.sheet_file_id) : undefined;
       if (d && r.part_code) koduResmi.set(r.part_code, d);
     }
+
+    /**
+     * ÜST PAFTA = BİR ÜST MONTAJ, ANA GRUP DEĞİL.
+     *
+     * Sıra kullanıcının cümlesinin birebir karşılığıdır: `11.1.1` → `11.1`,
+     * `12.5` → `12`. Önce ürün ağacının söylediği üst (`parent_code`, çünkü
+     * `reconcile` onu `Item` yolundan yazar), sonra KODUN kendi üstleri
+     * YAKINDAN UZAĞA denenir. Ana grup ancak zincirin sonunda gelir ve o da
+     * gerçekten bir üsttür — sıçrama yoktur.
+     *
+     * PAFTASI OLMAYAN ÜST ATLANIR ama zincir kırılmaz: ara montajın resmi
+     * yoksa bir üstüne bakılır. Hiçbirinde yoksa düğme ÇİZİLMEZ (evin kuralı:
+     * olmayan düğme çizilmez).
+     */
+    const ustPafta = (partCode: string, parentCode: string): DosyaBagi | null => {
+      const adaylar: string[] = [];
+      if (parentCode?.trim()) adaylar.push(parentCode.trim());
+      for (const k of [...ancestorCodes(partCode ?? "")].reverse()) {
+        if (!adaylar.includes(k)) adaylar.push(k);
+      }
+      for (const kod of adaylar) {
+        const d = koduResmi.get(kod);
+        if (d) return { ...d, kod };
+      }
+      return null;
+    };
 
     for (const r of ham) {
       const grupCoz = (kod: string): string => {
@@ -298,13 +373,23 @@ export async function loadHammaddeHavuzu(
             ? genelKompleAdi(paketUrunAdlari.get(r.package_id))
             : "");
 
+      // ÖLÇÜ DÜZELTMESİ ÇÖZÜCÜDEN ÖNCE UYGULANIR: düzeltilmiş tanım normal bir
+      // tanım gibi okunur ve ad, stok kalemi, ağırlık, yerleşim tek metinden
+      // türemeye devam eder.
+      const hamTanim = (r.description || r.name || "").trim();
+      const paketNo = paketKalemNolari.get(r.package_id) ?? "";
+      const duzeltilmis = parcaOlculeri.get(parcaOlcuAnahtari(paketNo, r.part_code ?? ""));
+      const tanim = duzeltilmis || hamTanim;
+
       kaynaklar.push({
         packageId: r.package_id,
         // Anahtar parça KODUDUR: hammadde satırlarının hepsinin kodu vardır
         // (kodsuz olan zaten ekipman havuzuna gider).
         partKey: r.part_code,
         partCode: r.part_code,
-        tanim: (r.description || r.name || "").trim(),
+        tanim,
+        olcuElle: Boolean(duzeltilmis) && duzeltilmis !== hamTanim,
+        hamTanim,
         malzeme: r.material ?? "",
         kategori: r.category ?? "",
         kind: r.kind ?? "",
@@ -317,9 +402,8 @@ export async function loadHammaddeHavuzu(
         // DETAY PAFTA: parçanın kendi resmi. Sacların çoğunda yoktur (plazma
         // listesinden kesilir) ve o zaman alan boş kalır — düğme çizilmez.
         detayPdf: r.sheet_file_id ? (dosyalar.get(r.sheet_file_id) ?? null) : null,
-        // ANA PAFTA: bağlı olduğu montajın resmi. Önce ağaçtaki üstü, sonra
-        // çözülmüş grup kodu denenir.
-        anaPdf: koduResmi.get(r.parent_code) ?? (groupCode ? (koduResmi.get(groupCode) ?? null) : null),
+        // ÜST PAFTA: bir üst montajın resmi (ana grubunki DEĞİL).
+        anaPdf: ustPafta(r.part_code ?? "", r.parent_code ?? ""),
       });
     }
   }
@@ -446,6 +530,10 @@ export async function loadRawManual(supabase: SupabaseClient): Promise<HammaddeS
           // Elle açılan talebin resmi yoktur — hiçbir teknik resimden gelmiyor.
           detayPdf: null,
           anaPdf: null,
+          // Ölçü zaten kullanıcının kendi girdisidir; "düzeltildi" işareti
+          // burada bir şey söylemez.
+          olcuElle: false,
+          hamTanim: m.sample,
         },
       ],
       paylar: m.item_no

@@ -26,13 +26,18 @@ import { PURCHASE_STAGE_SLUG, progressItemNo, registerItemNo } from "@/lib/drawi
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
 import { bugunISO } from "@/lib/purchasing/terms";
 import {
+  cancelQuoteBatchSchema,
   chooseQuoteSchema,
   createManualDemandSchema,
   createOrderSchema,
   deleteOrderSchema,
   deleteQuoteSchema,
   editOrderSchema,
+  editQuoteBatchSchema,
   ensureQualitySchema,
+  mergeQuoteBatchesSchema,
+  quoteBatchIdSchema,
+  saveBulkQuoteSchema,
   saveDemandOverrideSchema,
   saveGroupNameSchema,
   saveItemMetaSchema,
@@ -41,8 +46,10 @@ import {
   type CreateManualDemandInput,
   type CreateOrderInput,
   type EditOrderInput,
+  type EditQuoteBatchInput,
   type EnsureQualityInput,
   type PurchasingActionResult,
+  type SaveBulkQuoteInput,
   type SaveDemandOverrideInput,
   type SaveGroupNameInput,
   type SaveItemMetaInput,
@@ -85,6 +92,7 @@ function tazele() {
   // ekranındaki "Kalan" sütununu da değiştirir.
   revalidatePath("/purchasing/hammadde");
   revalidatePath("/purchasing/hammadde/yerlesim");
+  revalidatePath("/purchasing/hammadde/teklifler");
   revalidatePath("/purchasing/siparisler");
   revalidatePath("/purchasing/teslimat");
   revalidatePath("/purchasing/fiyatlar");
@@ -110,6 +118,49 @@ function tazele() {
  * alınmıştır. Ayrı bir boolean tutulsaydı iki gerçek ayrışabilir ve ekran
  * "alındı" derken listede tek fiyat görünmeyebilirdi.
  */
+/**
+ * BİR TEKLİF SATIRININ PARTİSİNİ BULUR YA DA AÇAR.
+ *
+ * Tek kalemlik teklif penceresinden girilen fiyatlar da bir koda bağlanmalı
+ * (kullanıcı kararı: *"Her teklif aç dediğimde bu benzersiz bir kodla takip
+ * edilebilsin"*) — ama her satır için ayrı bir parti açmak defteri gereksiz
+ * şişirirdi: satınalmacı aynı firmanın üç kalemine arka arkaya fiyat girerken
+ * TEK bir teklifi giriyordur.
+ *
+ * Bu yüzden AYNI GÜN + AYNI FİRMA + AÇIK parti yeniden kullanılır. Toplu
+ * "Teklif Aç" ise HER ZAMAN yeni bir parti açar: orada kullanıcının kendisi
+ * "bu ayrı bir teklif" demiştir.
+ *
+ * PARTİ AÇILAMAZSA TEKLİF YİNE KAYDEDİLİR (`null` döner): kod bir künyedir,
+ * fiyatın kendisi değil — migration uygulanmamış bir ortamda teklif girmeyi
+ * durdurmak, kullanıcının asıl işini engellemek olurdu.
+ */
+async function partiBulVeyaAc(
+  supabase: SupabaseClient,
+  userId: string,
+  firma: string,
+  gun: string,
+  scope: string
+): Promise<string | null> {
+  const { data: mevcut, error } = await supabase
+    .from("purchase_quote_batches")
+    .select("id")
+    .eq("supplier", firma)
+    .eq("quoted_at", gun)
+    .eq("status", "acik")
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  if (mevcut?.id) return String(mevcut.id);
+
+  const { data } = await supabase
+    .from("purchase_quote_batches")
+    .insert({ supplier: firma, quoted_at: gun, scope, created_by: userId })
+    .select("id")
+    .maybeSingle();
+  return (data?.id as string) ?? null;
+}
+
 export async function saveQuote(input: SaveQuoteInput): Promise<PurchasingActionResult> {
   const ctx = await requireWrite();
   if ("error" in ctx) return { error: ctx.error };
@@ -118,6 +169,11 @@ export async function saveQuote(input: SaveQuoteInput): Promise<PurchasingAction
   const parsed = saveQuoteSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const q = parsed.data;
+
+  const gunu = q.quotedAt ?? new Date().toISOString().slice(0, 10);
+  const partiId = q.id
+    ? null // düzenlemede parti DEĞİŞMEZ: teklif nereye girdiyse orada kalır.
+    : (q.batchId ?? (await partiBulVeyaAc(supabase, userId, q.supplier, gunu, q.scope)));
 
   const yuk = {
     match_key: q.matchKey,
@@ -148,12 +204,279 @@ export async function saveQuote(input: SaveQuoteInput): Promise<PurchasingAction
 
   const { data, error } = await supabase
     .from("purchase_quotes")
-    .insert({ ...yuk, created_by: userId })
+    .insert({ ...yuk, ...(partiId ? { batch_id: partiId } : {}), created_by: userId })
     .select("id")
     .maybeSingle();
   if (error) return { error: error.message };
   tazele();
   return { ok: 1, id: (data?.id as string) ?? undefined };
+}
+
+// ═════════════════════════════════════════════════════════ TEKLİF PARTİSİ
+
+/**
+ * TOPLU TEKLİF — bir firmanın bir teklifi, tek kodla.
+ *
+ * Eskiden pencere satır satır `saveQuote` çağırıyordu; on beş kalemde on beş
+ * gidiş-dönüş ve — daha kötüsü — ortada kesilirse YARIM bir teklif. Artık
+ * satırlar TEK `insert` ile yazılır ve hepsi aynı partiye bağlanır. Yazma
+ * başarısız olursa açılan boş parti geri alınır: kodu tüketilmiş ama satırı
+ * olmayan bir teklif, listede cevaplanamayan bir soru olurdu.
+ */
+export async function saveBulkQuote(input: SaveBulkQuoteInput): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const parsed = saveBulkQuoteSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const gunu = v.quotedAt ?? new Date().toISOString().slice(0, 10);
+
+  const { data: parti, error: partiHata } = await supabase
+    .from("purchase_quote_batches")
+    .insert({
+      supplier: v.supplier,
+      quoted_at: gunu,
+      scope: v.scope,
+      note: v.note,
+      created_by: userId,
+    })
+    .select("id, code")
+    .maybeSingle();
+  if (partiHata) return { error: partiHata.message };
+
+  const partiId = (parti?.id as string) ?? null;
+  const { error } = await supabase.from("purchase_quotes").insert(
+    v.satirlar.map((s) => ({
+      match_key: s.matchKey,
+      sample: s.sample,
+      supplier: v.supplier,
+      unit_price: s.unitPrice,
+      currency: v.currency,
+      fx_rate: v.currency === "EUR" ? 1 : v.fxRate,
+      quoted_at: gunu,
+      payment_method: v.paymentMethod,
+      payment_term_days: v.paymentMethod === "vadeli" ? v.paymentTermDays : 0,
+      // TESLİM SÜRESİ SATIRDA ÇÖZÜLMÜŞ GELİR (şemanın gerekçesi): toplu seçim
+      // ile kalem bazındaki değişikliği pencere birleştirir, sunucu yedekleme
+      // yapmaz — `null` "sorulmadı" demektir ve başka bir şeye dönüşemez.
+      lead_time_days: s.leadTimeDays,
+      note: v.note,
+      item_no: "",
+      package_id: null,
+      ...(partiId ? { batch_id: partiId } : {}),
+      created_by: userId,
+    }))
+  );
+  if (error) {
+    if (partiId) await supabase.from("purchase_quote_batches").delete().eq("id", partiId);
+    return { error: error.message };
+  }
+
+  tazele();
+  return { ok: v.satirlar.length, id: partiId ?? undefined, no: (parti?.code as string) ?? "" };
+}
+
+/** Partinin başlığını ve satır fiyatlarını yeniden yazar. */
+export async function editQuoteBatch(input: EditQuoteBatchInput): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const parsed = editQuoteBatchSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const gunu = v.quotedAt ?? new Date().toISOString().slice(0, 10);
+
+  const { error: basHata } = await supabase
+    .from("purchase_quote_batches")
+    .update({ supplier: v.supplier, quoted_at: gunu, note: v.note })
+    .eq("id", v.id);
+  if (basHata) return { error: basHata.message };
+
+  // SATIRLAR KİMLİKLE GÜNCELLENİR (silip-yazma YOK): teklifin kimliği fiyat
+  // arşivinde ve "kazanan" işaretinde yaşıyor.
+  for (const s of v.satirlar) {
+    const { error } = await supabase
+      .from("purchase_quotes")
+      .update({
+        supplier: v.supplier,
+        quoted_at: gunu,
+        unit_price: s.unitPrice,
+        currency: v.currency,
+        fx_rate: v.currency === "EUR" ? 1 : v.fxRate,
+        payment_method: v.paymentMethod,
+        payment_term_days: v.paymentMethod === "vadeli" ? v.paymentTermDays : 0,
+        lead_time_days: s.leadTimeDays,
+      })
+      .eq("id", s.id)
+      .eq("batch_id", v.id);
+    if (error) return { error: error.message };
+  }
+
+  // YÜKTE OLMAYAN SATIR SİLİNİR: kullanıcı kalemi listeden çıkardıysa o teklif
+  // gerçekten geri alınmıştır.
+  const kalanlar = v.satirlar.map((s) => s.id);
+  let silme = supabase.from("purchase_quotes").delete().eq("batch_id", v.id);
+  if (kalanlar.length > 0) silme = silme.not("id", "in", `(${kalanlar.join(",")})`);
+  const { error: silHata } = await silme;
+  if (silHata) return { error: silHata.message };
+
+  tazele();
+  return { ok: v.satirlar.length };
+}
+
+/**
+ * TEKLİFİ İPTAL ET — silme DEĞİL.
+ *
+ * İptal edilmiş parti karşılaştırmaya, havuzun "en iyi fiyat" sütununa ve
+ * fiyat arşivine GİRMEZ (`loadTeklifler` süzer) ama defterde durur: bir teklif
+ * geri çekildiğinde onun var olduğu bilgisi de bir bilgidir ve geri alınabilir
+ * olmalıdır (siparişin `reopenOrder` kuralının aynısı).
+ */
+export async function cancelQuoteBatch(
+  id: string,
+  reason = ""
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const parsed = cancelQuoteBatchSchema.safeParse({ id, reason });
+  if (!parsed.success) return { error: "Geçersiz teklif." };
+
+  const { error } = await ctx.supabase
+    .from("purchase_quote_batches")
+    .update({
+      status: "iptal",
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: parsed.data.reason,
+    })
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+export async function reopenQuoteBatch(id: string): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const parsed = quoteBatchIdSchema.safeParse({ id });
+  if (!parsed.success) return { error: "Geçersiz teklif." };
+
+  const { error } = await ctx.supabase
+    .from("purchase_quote_batches")
+    .update({ status: "acik", cancelled_at: null, cancel_reason: "" })
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+/**
+ * TEKLİFİ SİL — yalnız YÖNETİCİ ve yalnız İPTAL EDİLMİŞ parti.
+ *
+ * `deleteOrder` ile birebir aynı kelepçe: silmenin önünde iptal adımı durur,
+ * yani kimse tek tıkla bir teklifi yok edemez. Satırlar da gider (teklifin
+ * kendisi onlardır); fiyat arşivi kaydı `purchase_price_index` üzerinden
+ * teklife bağlı olduğu için o da kapanır — istenen budur, iptal edilmiş bir
+ * teklif bir fiyat kanıtı değildir.
+ */
+export async function deleteQuoteBatch(id: string): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, userId } = ctx;
+
+  const { data: profil } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!isAdminRole(profil?.role)) return { error: "Teklifi yalnız yönetici silebilir." };
+
+  const parsed = quoteBatchIdSchema.safeParse({ id });
+  if (!parsed.success) return { error: "Geçersiz teklif." };
+
+  const { data: parti } = await supabase
+    .from("purchase_quote_batches")
+    .select("status")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (!parti) return { error: "Teklif bulunamadı." };
+  if (parti.status !== "iptal") {
+    return { error: "Önce teklifi iptal edin; silme yalnız iptal edilmiş teklifte yapılır." };
+  }
+
+  const { error: satirHata } = await supabase
+    .from("purchase_quotes")
+    .delete()
+    .eq("batch_id", parsed.data.id);
+  if (satirHata) return { error: satirHata.message };
+
+  const { error } = await supabase
+    .from("purchase_quote_batches")
+    .delete()
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+  tazele();
+  return { ok: 1 };
+}
+
+/**
+ * PARTİLERİ BİRLEŞTİR — aynı firmanın ayrı ayrı girilmiş teklifleri tek kodda.
+ *
+ * Kaynak partiler SİLİNMEZ: satırları hedefe taşınır ve kendileri iptal
+ * damgası alır ("TK0007 ile birleştirildi"). Silinselerdi kod defterde bir
+ * boşluk bırakır ve "TK0004 neydi" sorusu cevapsız kalırdı.
+ */
+export async function mergeQuoteBatches(
+  hedefId: string,
+  kaynakIdler: string[]
+): Promise<PurchasingActionResult> {
+  const ctx = await requireWrite();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase } = ctx;
+
+  const parsed = mergeQuoteBatchesSchema.safeParse({ hedefId, kaynakIdler });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const v = parsed.data;
+  const kaynaklar = v.kaynakIdler.filter((k) => k !== v.hedefId);
+  if (kaynaklar.length === 0) return { error: "Birleştirilecek ikinci bir teklif seçin." };
+
+  const { data: partiler } = await supabase
+    .from("purchase_quote_batches")
+    .select("id, code, supplier")
+    .in("id", [v.hedefId, ...kaynaklar]);
+  const liste = (partiler ?? []) as { id: string; code: string; supplier: string }[];
+  const hedef = liste.find((p) => p.id === v.hedefId);
+  if (!hedef) return { error: "Hedef teklif bulunamadı." };
+
+  // AYNI FİRMA ŞARTI (şemanın gerekçesi): parti "bir firmanın bir teklifi"dir.
+  const farkli = liste.find((p) => p.supplier !== hedef.supplier);
+  if (farkli) {
+    return {
+      error: `Yalnız aynı firmanın teklifleri birleştirilir (${hedef.supplier} ≠ ${farkli.supplier}).`,
+    };
+  }
+
+  const { error: tasima } = await supabase
+    .from("purchase_quotes")
+    .update({ batch_id: v.hedefId })
+    .in("batch_id", kaynaklar);
+  if (tasima) return { error: tasima.message };
+
+  const { error } = await supabase
+    .from("purchase_quote_batches")
+    .update({
+      status: "iptal",
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: `${hedef.code} ile birleştirildi`,
+    })
+    .in("id", kaynaklar);
+  if (error) return { error: error.message };
+
+  tazele();
+  return { ok: kaynaklar.length, no: hedef.code };
 }
 
 /**

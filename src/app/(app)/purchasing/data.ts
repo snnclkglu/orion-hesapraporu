@@ -540,6 +540,31 @@ export interface TeklifSatiri {
   paymentTermDays: number;
   /** Teslim süresi GÜN; 0 = Hazır, null = söylenmedi. */
   leadTimeDays: number | null;
+  /**
+   * TEKLİF PARTİSİ — hangi "Teklif Aç" işleminden geldi (md. 24, 15.08.2026).
+   *
+   * `null` yalnız migration uygulanmamışken olur; devralınan satırlara da
+   * (tedarikçi, tarih) ikilisinden parti verildi.
+   */
+  batchId: string | null;
+  /** Partinin benzersiz kodu (`TK0007`); parti yoksa boş. */
+  batchCode: string;
+  /** `acik` · `iptal` — iptal edilmiş parti karşılaştırmaya girmez. */
+  batchStatus: string;
+}
+
+/** Bir firmanın BİR teklifi — altında kalem kalem fiyatlar. */
+export interface TeklifPartisi {
+  id: string;
+  code: string;
+  supplier: string;
+  quotedAt: string;
+  scope: string;
+  note: string;
+  status: string;
+  cancelledAt: string | null;
+  cancelReason: string;
+  satirlar: TeklifSatiri[];
 }
 
 const TEKLIF_ALANLARI =
@@ -554,9 +579,14 @@ const TEKLIF_ALANLARI =
  * düşürür ve havuzun teklif sütunu boşalırdı.
  */
 const TEKLIF_ALANLARI_ZENGIN =
-  TEKLIF_ALANLARI + ", payment_method, payment_term_days, lead_time_days";
+  TEKLIF_ALANLARI +
+  ", payment_method, payment_term_days, lead_time_days" +
+  // PARTİ KÜNYESİ GÖMÜLÜ OKUNUR (20260815000004): ayrı bir sorgu, iptal
+  // edilmiş partinin satırlarını süzmek için ikinci bir gidiş-dönüş ederdi.
+  ", batch_id, purchase_quote_batches (code, status)";
 
 function teklifEsle(r: Record<string, unknown>): TeklifSatiri {
+  const parti = (r.purchase_quote_batches ?? null) as { code?: string; status?: string } | null;
   return {
     id: String(r.id),
     matchKey: String(r.match_key ?? ""),
@@ -576,13 +606,25 @@ function teklifEsle(r: Record<string, unknown>): TeklifSatiri {
     paymentMethod: String(r.payment_method ?? "pesin"),
     paymentTermDays: r.payment_term_days == null ? 0 : Number(r.payment_term_days),
     leadTimeDays: r.lead_time_days == null ? null : Number(r.lead_time_days),
+    batchId: (r.batch_id as string | null) ?? null,
+    batchCode: String(parti?.code ?? ""),
+    batchStatus: String(parti?.status ?? "acik"),
   };
 }
 
-/** Verilen anahtarların teklifleri; anahtar listesi boşsa TÜMÜ (fiyat arşivi). */
+/**
+ * Verilen anahtarların teklifleri; anahtar listesi boşsa TÜMÜ (fiyat arşivi).
+ *
+ * **İPTAL EDİLMİŞ PARTİNİN SATIRLARI DÜŞÜLÜR** ve bu varsayılan bilinçlidir:
+ * iptal edilmiş bir teklif havuzun "en iyi fiyat" sütununda, karşılaştırmada
+ * ya da fiyat arşivinde görünmemelidir — silinmediği için defterde durur ama
+ * yarışa girmez. Teklif ekranının kendisi `iptalDahil` ile hepsini ister:
+ * orada iptalin kendisi bir bilgidir ve geri alınabilir.
+ */
 export async function loadTeklifler(
   supabase: SupabaseClient,
-  keys?: readonly string[]
+  keys?: readonly string[],
+  secenekler: { iptalDahil?: boolean } = {}
 ): Promise<TeklifSatiri[]> {
   const oku = (alanlar: string) =>
     tumSatirlar<Record<string, unknown>>((bas, son) => {
@@ -601,7 +643,89 @@ export async function loadTeklifler(
   } catch {
     veri = await oku(TEKLIF_ALANLARI);
   }
-  return veri.map(teklifEsle);
+  const hepsi = veri.map(teklifEsle);
+  return secenekler.iptalDahil ? hepsi : hepsi.filter((t) => t.batchStatus !== "iptal");
+}
+
+const PARTI_ALANLARI =
+  "id, code, supplier, quoted_at, scope, note, status, cancelled_at, cancel_reason";
+
+/**
+ * TEKLİF PARTİLERİ — karşılaştırma sayfasının omurgası.
+ *
+ * Satırlar AYRI okunur ve burada gruplanır: gömülü bir `purchase_quotes (...)`
+ * seçimi sayfalamayı parti başına yapardı ve otuz kalemlik bir teklifte
+ * satırların bir kısmı sessizce düşerdi (`tumSatirlar`ın var oluş sebebi).
+ *
+ * PARTİSİ OLMAYAN SATIR DA KAYBOLMAZ: migration uygulanmamışsa ya da bir
+ * parti silinmişse satırlar (tedarikçi, tarih) ikilisinde toplanır ve kodsuz
+ * bir parti olarak görünür — kodsuz bir teklif, görünmeyen bir teklifden
+ * iyidir.
+ */
+export async function loadTeklifPartileri(
+  supabase: SupabaseClient,
+  keys?: readonly string[],
+  secenekler: { scope?: string } = {}
+): Promise<TeklifPartisi[]> {
+  const satirlar = await loadTeklifler(supabase, keys, { iptalDahil: true });
+
+  let sorgu = supabase.from("purchase_quote_batches").select(PARTI_ALANLARI);
+  if (secenekler.scope) sorgu = sorgu.eq("scope", secenekler.scope);
+  const { data, error } = await sorgu.order("quoted_at", { ascending: false }).order("code");
+
+  const partiler = new Map<string, TeklifPartisi>();
+  if (!error) {
+    for (const r of (data ?? []) as Record<string, unknown>[]) {
+      partiler.set(String(r.id), {
+        id: String(r.id),
+        code: String(r.code ?? ""),
+        supplier: String(r.supplier ?? ""),
+        quotedAt: String(r.quoted_at ?? ""),
+        scope: String(r.scope ?? "hammadde"),
+        note: String(r.note ?? ""),
+        status: String(r.status ?? "acik"),
+        cancelledAt: (r.cancelled_at as string | null) ?? null,
+        cancelReason: String(r.cancel_reason ?? ""),
+        satirlar: [],
+      });
+    }
+  }
+
+  /** Kodsuz satırlar için sanal parti — kaybolmasınlar. */
+  const sanal = new Map<string, TeklifPartisi>();
+  for (const t of satirlar) {
+    const p = t.batchId ? partiler.get(t.batchId) : undefined;
+    if (p) {
+      p.satirlar.push(t);
+      continue;
+    }
+    // Kapsam süzgeci varken kodsuz satırlar da dışarıda kalmaz: onların
+    // kapsamı bilinmiyor ve bilinmeyeni gizlemek kullanıcıyı yanıltır.
+    const anahtar = `${t.supplier}|${t.quotedAt}`;
+    let s = sanal.get(anahtar);
+    if (!s) {
+      s = {
+        id: `kodsuz:${anahtar}`,
+        code: "",
+        supplier: t.supplier,
+        quotedAt: t.quotedAt,
+        scope: "",
+        note: "",
+        status: "acik",
+        cancelledAt: null,
+        cancelReason: "",
+        satirlar: [],
+      };
+      sanal.set(anahtar, s);
+    }
+    s.satirlar.push(t);
+  }
+
+  // BOŞ PARTİ LİSTEDE DURMAZ: satırları silinmiş bir teklif bir teklif
+  // değildir; künyesi defterde kalır ama ekranda gürültü eder.
+  return [...partiler.values(), ...sanal.values()]
+    .filter((p) => p.satirlar.length > 0)
+    .sort((a, b) => b.quotedAt.localeCompare(a.quotedAt) || a.code.localeCompare(b.code, "tr"));
 }
 
 export interface SiparisSatiri {

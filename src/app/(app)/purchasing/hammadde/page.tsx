@@ -53,9 +53,18 @@ export default async function HammaddePage() {
     }
   }
 
+  // STOK KALEMİ ADI ÖNERİ LİSTESİ (kullanıcı isteği, 15.08.2026): *"Yeni
+  // Hammadde Talebi pop-up'ta stok kalemi adı öncekiler dropdown gelsin."*
+  // Liste havuzun KENDİSİNDEN çıkar — ikinci bir defter tutmak, elle açılan
+  // talebin adının havuzdakiyle ayrışmasının en kısa yoluydu.
+  const stokAdlari = [...new Set(veri.havuz.satirlar.map((s) => s.tanim).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, "tr")
+  );
+
   return (
     <RawTable
       havuz={veri.havuz}
+      stokAdlari={stokAdlari}
       teklifler={teklifler}
       siparisAdetleri={[...siparisAdetleri.entries()]}
       tedarikciler={tedarikciler}

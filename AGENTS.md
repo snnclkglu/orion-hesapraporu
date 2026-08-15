@@ -104,6 +104,15 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
 - `npx tsx scripts/test-hammadde-pool.ts` — hammadde havuzunu CANLI veritabanı
   satırlarıyla kur; defterin ekipman/imalat/montaj olarak ARTIKSIZ bölündüğünü de
   sayar. Salt okunur; `.env.admin` jetonunu ister
+- `npx tsx scripts/test-nesting-plan.ts` — KESİM PLANI PDF'ini gerçekten üret
+  (fontlar kayıtlı mı, çizim ve tablo basılıyor mu). Belge üretilmezse betik
+  yığın iziyle patlar; tarayıcıdan bakmak hatayı 500'ün arkasına saklıyordu
+- `npx tsx scripts/test-alim-analizi.ts` — SAC · PROFİL · RAY alım analizini
+  CANLI veritabanıyla bas: yıl × kategori matrisi kullanıcının kendi Excel
+  "Özet" sayfasıyla yan yana konup karşılaştırılmak içindir. Salt okunur
+- `node scripts/generate-raw-purchase-import.mjs` — devralınan alım geçmişini
+  Excel'den migration'a ÜRET (`20260815000006_import_raw_purchases.sql`).
+  Üretilen dosya elle düzenlenmez; ikinci koşuda bayt bayt aynı çıkar
 - `python scripts/gen-profile-sections.py` — profil kesit tablosunu workspace
   kökündeki `Profiller.xls`ten ÜRET (`src/lib/purchasing/hammadde/
   profil-kesitleri.ts`). Üretilen dosya elle düzenlenmez
@@ -1682,6 +1691,146 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     düğmelerdir. Montaj paftası ikinci bir sorgu değil AYNI DEFTERDEN çözülür —
     montajın kendi satırı da bir parçadır. OLMAYAN DÜĞME ÇİZİLMEZ.
 
+    ═══════════════════════════ ÜÇÜNCÜ TUR (15.08.2026, 13 madde + sipariş/analiz)
+
+    **KESİM PLANI PDF'İ AÇILMIYORDU VE SEBEBİ TEK BİR DİZGEYDİ.** `nesting-plan.tsx`
+    stilleri `fontFamily: "IBMPlexMono"` diyordu; `brand.tsx` o aileyi
+    **`PlexMono`** adıyla kaydediyor. @react-pdf tanımadığı aileyi sessizce
+    yedeklemez, ATAR (`Font family not registered`) — belge hiç üretilmiyor, uç
+    500 dönüyor ve kullanıcı yalnız "açılmıyor" görüyordu. Ad artık `FONTS`
+    sözlüğünden gelir (DejaVu yedeğiyle birlikte) ve koruma
+    `npx tsx scripts/test-nesting-plan.ts`tedir: belge GERÇEKTEN üretilir.
+
+    **PENCERE İÇİNDEKİ AÇILIR LİSTE TEKERLEKLE KAYMIYORDU** ve suç bizde
+    değildi: Radix `Dialog` açıkken `react-remove-scroll` sayfayı kilitler ve
+    bunu `document` üzerinde NON-PASSIVE bir `wheel` dinleyicisiyle yapar —
+    hedef kilitli kabın DIŞINDAYSA `preventDefault()`. `Popover` içeriği
+    `Portal` ile `body`ye taşındığı için tam olarak "dışarısı"dır; tıklama
+    çalışır, kaydırma çalışmaz. (`Select` düşmez: kendi kilidini yığının
+    üstüne koyar.) Çözüm dinleyiciyi kaldırmak değil OLAYI ONA ULAŞTIRMAMAKTIR
+    (`popover.tsx: kaydirmaKilidiniAs` → `stopPropagation`); `preventDefault`
+    çağrılmaz, tarayıcı kendi kaydırmasını yapar.
+
+    **TEKLİF ARTIK BİR PARTİDİR** (`purchase_quote_batches`, migration
+    20260815000004). Kullanıcı kararı: *"Her teklif aç dediğimde bu benzersiz
+    bir kodla takip edilebilsin … Her açtığım teklifi ayrı ayrı
+    değerlendirebileyim."* Parti BİR FİRMANIN BİR TEKLİFİDİR (`TK0001`,
+    sayaçtan) ve karşılaştırma matrisinin SÜTUNU artık odur — tedarikçi değil.
+    Fark gerçek: aynı firmadan iki hafta arayla alınmış iki teklif tek sütunda
+    eriyor ve hangisinin geçerli olduğu ekranda cevapsız kalıyordu.
+    · `purchase_quotes.batch_id` NULL OLABİLİR ve `on delete set null`
+      taşır: parti bir KAPSAM künyesidir, kimlik değil — fiyat arşivi onu hiç
+      bilmeden çalışır. Devralınan satırlara (tedarikçi, tarih) ikilisinden
+      parti verildi.
+    · **İPTAL SİLME DEĞİLDİR** (siparişin kuralı): iptal edilmiş parti
+      karşılaştırmaya, havuzun "en iyi fiyat" sütununa ve fiyat arşivine GİRMEZ
+      (`loadTeklifler` süzer) ama defterde durur ve geri alınır. SİLME yalnız
+      YÖNETİCİDE ve yalnız iptal edilmiş partide.
+    · **BİRLEŞTİRME AYNI FİRMA ŞARTINA BAĞLIDIR** ve bir kolaylık değil bir
+      kelepçedir: iki firmayı tek partiye koymak "bir firmanın bir teklifi"
+      tanımını bozar ve sütun kimin fiyatını gösterdiğini söyleyemez olurdu.
+      Kaynak partiler silinmez, "TK0007 ile birleştirildi" damgası alır.
+    · Ekranın "Birleşik / Ayrı" düğmesi bir GÖRÜNÜM kararıdır ve veriye
+      dokunmaz; veri düzeyinde birleştirme ayrı bir düğmedir.
+
+    **TOPLU TEKLİF TEK KAYITTA YAZILIR** (`saveBulkQuote`). Pencere satır satır
+    `saveQuote` çağırıyordu: on beş kalemde on beş gidiş-dönüş ve ortada
+    kesilirse YARIM bir teklif. Yazma düşerse açılan boş parti geri alınır —
+    kodu tüketilmiş ama satırı olmayan bir teklif, listede cevaplanamayan bir
+    soru olurdu. VADE ve TESLİM artık AÇILIR LİSTEDİR (`PAYMENT_TERMS` ile
+    ORTAK · `QUOTE_LEAD_TIMES`: Hemen · 1…6 · 8 hafta) ve teslim İKİ
+    KATMANLIDIR: üstteki seçim bütün satırlara uygulanır, satırın kendi kutusu
+    onu ezer. **SATIR DEĞERİ SUNUCUYA ÇÖZÜLMÜŞ GİDER** — `satır ?? parti` gibi
+    bir yedekleme, kullanıcının bilerek "Sorulmadı" yaptığı kalemi sessizce
+    partinin süresine döndürürdü; `null` iki şeyi birden anlatamaz.
+    Radix `Select.Item` BOŞ DEĞER KABUL ETMEZ: "sorulmadı" seçeneğinin değeri
+    `"yok"`tur, `""` değil.
+
+    **PARÇANIN ÖLÇÜSÜ DÜZELTİLEBİLİR — VE SAKLANAN ŞEY SAYI DEĞİL TANIMDIR**
+    (`purchase_raw_part_dims`, `lib/purchasing/hammadde/olcu-duzelt.ts`).
+    Kullanıcı kararı: *"en boy uzunluk ölçülerini düzenleyebilmek istiyorum …
+    hem parça ismi değişsin böylece. Değiştirdiğim kırmızı renkli olsun."*
+    Bu modülde ölçünün TEK KAYNAĞI TANIM METNİDİR (`cozumle.ts` sınıfı, kesit
+    kodunu, stok kalemini, metre ağırlığını hep ondan çıkarır); sayıyı ayrıca
+    saklamak ikinci bir gerçek üretir ve adı zaten değiştirmezdi. Düzeltme
+    tanımdaki DOĞRU JETONU değiştirir: alanlar YAZIM SIRASINDA, jetonlar soldan
+    sağa tüketilir ve **DEĞİŞMEYEN ALANIN JETONU DA TÜKETİLİR** — `SAC
+    10x100x100` tanımında yalnız boy değiştirildiğinde atlanan "en" jetonunu
+    bırakıyor ve boy ENİ değiştiriyordu (test yakaladı). `L=` yazımı varsa boy
+    jetonu ÖNCE oradan seçilir. Metinde karşılığı olmayan ölçü UYDURULMAZ,
+    "yazılamadı" diye söylenir. Düzenlenen ölçü RESİMDEKİDİR; pay (ressamınki
+    ya da firma kuralı) her okumada yeniden uygulanır.
+
+    **ÜST PAFTA ANA GRUBUNKİ DEĞİL, BİR ÜST MONTAJINKİDİR** (kullanıcı
+    düzeltmesi): *"11.1.1 için 11.1, 12.5 için 12."* Eski kod `parent_code`
+    bulunamayınca ANA GRUP koduna düşüyordu; üstelik defter sorgusu yalnız
+    İMALAT satırlarını okuduğu için montajın paftası o kümede hiç yoktu.
+    Resimler artık AYRI sorulur (montaj satırları dâhil) ve zincir YAKINDAN
+    UZAĞA yürünür (`ustPafta`); düğme hangi paftayı açtığını KODUYLA yazar.
+
+    ═══════════════════════════ SAC · PROFİL · RAY ALIM ANALİZİ (15.08.2026)
+
+    Kullanıcı bir çalışma dosyası verdi (*"Ben bunları exceldeki gibi takip
+    ediyordum"*) ve iki ekran istedi: **Siparişler** (`/purchasing/hammadde/
+    siparisler`) ve **Alım Analizi** (`…/analiz`).
+
+    **DEVRALINAN VERİ `purchase_orders`A YAZILMADI** (migration 20260815000005 +
+    üretilmiş 20260815000006, `scripts/generate-raw-purchase-import.mjs`).
+    Devralınan fiyat arşivinin birebir aynı gerekçesi: `purchase_orders` CANLI
+    BİR İŞ AKIŞIDIR ve 447 tarihsel alım oraya konsaydı modül ilk açılışta 447
+    "bekleyen sipariş" gösterirdi. `purchase_price_history` de değildir: bu soru
+    üç büyüklük daha ister — KİLO, KATEGORİ ve PLAKA ÖLÇÜSÜ.
+    **SAYILAR BİR SÖZLEŞMEDİR:** 447 satır (0 atlandı), 2024-03-26 → 2026-08-10,
+    13 tedarikçi, 1.056.196,12 kg, 34.793.600,83 ₺ · 886.288,19 $ ·
+    795.792,66 €. Kategori kırılımı SAC 898.747,32 · PROFİL 102.633,80 · RAY
+    54.815,00 kg ve bu üç sayı kullanıcının kendi "Özet" sayfasıyla birebir
+    aynıdır (`npx tsx scripts/test-alim-analizi.ts` yıl × kategori matrisinin
+    tamamını basar). Döviz karşılıkları GENERATED sütundur (TL ÷ o günün kuru)
+    ve dosyanın hazır sütunlarıyla satır satır karşılaştırıldı: 0 sapma.
+
+    **KAYNAĞIN KENDİ KATEGORİSİ ÇEVRİLMEZ.** Dosyada `BORU Ø34X3` satırının
+    kategorisi PROFİL yazıyor ve kullanıcı üç kovayla takip ediyor; uygulamanın
+    altı hammadde sınıfına yeniden sınıflandırmak, geçmiş seriyi kullanıcının
+    kendi defterinden farklı gösterirdi. CANLI sipariş satırları ise stok
+    ADINDAN sınıflanır (`alimKategorisi`) — `hammaddeCozumle` KULLANILMAZ: o
+    fonksiyon bir kesim parçasının üç ölçüsünü okur, burada okunan şey bir stok
+    kaleminin AİLESİDİR.
+
+    **TEDARİKÇİLER EŞLEŞTİRİLDİ, UYDURULMADI.** Dosyadaki 13 addan 12'si
+    defterde vardı; kısaltmalar ELLE eşlendi (`KARÇEL` → `KARÇEL KARDEMİR
+    ÇELİK`, `RZK ÇELİK` → `ARCELORMİTTAL RZK ÇELİK`, `TAŞ ÇELİK` → `TAŞÇELİK
+    DEMİR ÇELİK`, `FZK METAL` → `FZK TEKNİK METAL`, `ANKARA PROFİL BORU` → tam
+    unvan) çünkü otomatik bir benzerlik ölçüsü bunları ya kaçırır ya yanlış
+    firmaya bağlar. Yalnız `AĞIR HADDECİLİK` yeni açıldı (`WHERE NOT EXISTS`;
+    `ON CONFLICT DO NOTHING` TD sayacını tüketirdi).
+
+    **ORTALAMA AĞIRLIKLIDIR: TOPLAM ÷ KİLO** (`lib/purchasing/hammadde/
+    alim-analizi.ts`, saf + testli). Kullanıcının dosyasındaki "Birim Fiyat
+    (Ortalama)" sütunu ölçüldü ve aritmetik DEĞİL: 27.836,6467 € ÷ 38.777,01 kg
+    = 0,7178647 ve dosyanın yazdığı sayı tam olarak budur. Aritmetik ortalama 40
+    kiloluk bir boruyu 12 tonluk bir sac partisiyle eşit sayardı.
+
+    **YALNIZ KİLO KONUŞUR.** Sipariş satırının birimi "Boy" ya da "Adet" ise
+    kilosu BİLİNMEZ ve satır analize GİRMEZ; dışarıda kalanlar sayılır ve
+    ekranda yazar. İptal edilmiş sipariş de girmez — verilmemiş bir sipariş bir
+    alım değildir.
+
+    **İKİ GRAFİK, İKİ AYRI KURAL.** Fiyat eğrisi yalnız ALIM YAPILAN AYLARI
+    çizer (alım olmayan ayın ortalama fiyatı YOKTUR ve sıfır yazmak eğriyi
+    tabana çakardı); miktar eğrisi bütün ayları çizer, çünkü orada sıfır gerçek
+    bir cevaptır. Aylık ortalama alımın paydası GERÇEKTEN GEÇEN AYDIR (ilk
+    alımdan son alıma), takvim yılı değil.
+
+    **SİPARİŞLER EKRANI AYNI DEFTERİ OKUR** (`loadSiparisler`), ikinci bir
+    sipariş tablosu açmaz: süzgeç ve sunum ayrıdır, gerçek tektir. Hangi
+    siparişin "hammadde" olduğu SATIRIN ADINDAN okunur — havuz anahtarıyla
+    eşleştirme tam da en önemlilerini kaçırırdı, çünkü plaka siparişinin adı
+    havuzdakinden FARKLIDIR (`SAC 10 X 1500 X 6000 ST37` ↔ `SAC 10 MM S355JR`).
+    Yazma yolu AÇILMADI: düzenleme, iptal ve teslim alma tek yerde
+    (`/purchasing/siparisler`) kalır — iki yazan ekran "hangisi doğru" sorusunu
+    doğururdu (md. 18'in paket Satın Alma sekmesi dersi).
+
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -2642,6 +2791,12 @@ etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
   ve tek firmalı toplamlar) · `profil-kesitleri.ts`
   (ÜRETİLMİŞ — `python scripts/gen-profile-sections.py`, 477 kesit kg/m)
 - `src/lib/diagrams/nesting.ts` — plaka kesim planı çizimi (web + PDF ortak model)
+- `src/lib/purchasing/hammadde/olcu-duzelt.ts` — KESİM PARÇASININ ölçü
+  düzeltmesi (saf): tanımdaki doğru sayı jetonunu bulup değiştirir; saklanan
+  şey sayı değil TANIMdır
+- `src/lib/purchasing/hammadde/alim-analizi.ts` — SAC · PROFİL · RAY alım
+  analizi çekirdeği (saf): ağırlıklı ortalama, yıl × kategori matrisi, yoğun
+  aylık seri, kalem ve tedarikçi kırılımı, stok adından kategori çözücüsü
 - `src/app/(app)/purchasing/hammadde/` — Hammadde Havuzu: `data.ts` (imalat
   satırları okuma katmanı — ekipman havuzunun AYNADAKİ görüntüsü) · `raw-table.tsx`
   (tür kipi + değişken ölçü bloğu) · `raw-dialogs.tsx` (taşı/düzenle + yeni talep)

@@ -62,14 +62,32 @@ export interface HammaddeKaynagi {
   groupName: string;
   /** Parçanın KENDİ resmi (detay pafta) — depo yolu ve dosya adı. */
   detayPdf?: DosyaBagi | null;
-  /** Bağlı olduğu MONTAJIN resmi (ana pafta). */
+  /** BİR ÜST montajın resmi (üst pafta). */
   anaPdf?: DosyaBagi | null;
+  /**
+   * ÖLÇÜSÜ ELLE DÜZELTİLMİŞ Mİ? (`purchase_raw_part_dims`)
+   *
+   * `tanim` o zaman ressamın yazdığı metin DEĞİL, düzeltilmiş metindir; ham
+   * hâli `hamTanim`da durur ve ekran ikisini yan yana gösterir — kullanıcı
+   * kararı: *"değiştirdiğim kırmızı renkli olsun, değiştirildi gibi göze
+   * çarpsın."*
+   */
+  olcuElle?: boolean;
+  hamTanim?: string;
 }
 
 /** Depodaki bir dosyaya bağ — imzalı bağlantı istemcide üretilir. */
 export interface DosyaBagi {
   ad: string;
   yol: string;
+  /**
+   * Paftanın PARÇA KODU — üst pafta düğmesinin etiketinde görünür.
+   *
+   * Kullanıcı kararı (15.08.2026): *"ana pafta derken bir üst paftasını
+   * demiştim … 11.1.1 numaralı işte bir üst paftası 11.1 olarak gelsin."*
+   * Kodu yazmadan "Üst pafta" demek hangi montaja bakıldığını gizlerdi.
+   */
+  kod?: string;
 }
 
 /**
@@ -139,6 +157,10 @@ export interface KesimParcasi {
   eksikler: string[];
   detayPdf: DosyaBagi | null;
   anaPdf: DosyaBagi | null;
+  /** Ölçüsü elle düzeltildi mi? Ekran satırı KIRMIZI basar. */
+  olcuElle: boolean;
+  /** Ressamın yazdığı ham tanım — düzeltme varsa `tanim`dan farklıdır. */
+  hamTanim: string;
 }
 
 export interface HammaddeSatiri {
@@ -355,6 +377,8 @@ export function hammaddeHavuzu(
       eksikler: cozum.eksikler,
       detayPdf: k.detayPdf ?? null,
       anaPdf: k.anaPdf ?? null,
+      olcuElle: Boolean(k.olcuElle),
+      hamTanim: k.hamTanim || k.tanim,
     };
 
     let satir = kalemler.get(key);

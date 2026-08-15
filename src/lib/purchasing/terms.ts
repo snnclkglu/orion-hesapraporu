@@ -57,6 +57,29 @@ export function paymentTermValue(method: string, days: number): string {
   return hazir ? hazir.value : "ozel";
 }
 
+/**
+ * Açılır liste + KAYITTAKİ DEĞER.
+ *
+ * Listede olmayan bir vade (devralınan ya da elle girilmiş "120 gün") kendi
+ * seçeneği olarak korunur; korunmasaydı kutu boş görünür ve ilk kaydetmede
+ * sessizce "Peşin"e düşerdi (`leadTimeOptions` ile aynı kural).
+ */
+export function paymentTermOptions(method: string, days: number): PaymentTermOption[] {
+  const v = paymentTermValue(method, days);
+  if (v !== "ozel") return PAYMENT_TERMS;
+  return [...PAYMENT_TERMS, { value: String(days), label: `${days} gün`, method: "vadeli", days }];
+}
+
+/** Açılır listenin değerinden (biçim, gün) çiftini kurar. */
+export function paymentTermFrom(value: string): { method: PaymentMethod; days: number } {
+  const hazir = PAYMENT_TERMS.find((t) => t.value === value);
+  if (hazir) return { method: hazir.method, days: hazir.days };
+  const gun = Number.parseInt(value, 10);
+  return Number.isFinite(gun) && gun > 0
+    ? { method: "vadeli", days: gun }
+    : { method: "pesin", days: 0 };
+}
+
 export function methodOf(value: string | null | undefined): PaymentMethod {
   return (PAYMENT_METHODS as readonly string[]).includes(value ?? "")
     ? (value as PaymentMethod)
@@ -84,6 +107,61 @@ export function paymentTermLabel(method: string, days: number): string {
  * duruyor, yani orada hiçbir şey kaybolmaz.
  */
 export const DELIVERY_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20] as const;
+
+// ══════════════════════════════════════════════════════ TEKLİF TESLİM SÜRESİ
+//
+// Kullanıcı kararı (15.08.2026): *"Teslim dropdown gelsin. Hemen 1 2 3 4 5 6 8
+// hafta seçilebilsin."*
+//
+// SİPARİŞTEKİ HIZLI TERMİNDEN AYRI BİR LİSTEDİR ve olmalıdır: orada seçilen şey
+// bir TARİHtir (sipariş günü + n hafta), burada seçilen şey tedarikçinin beyan
+// ettiği SÜREdir ve gün olarak saklanır (`purchase_quotes.lead_time_days`).
+// Aynı diziyi iki anlama birden koşmak, sipariş tarihi değiştiğinde teklifin
+// teslim süresini de kaydırırdı.
+//
+// İKİ UÇ AYRI DEĞERDİR: `0` = HAZIR (stokta), `null` = tedarikçi SÖYLEMEDİ.
+// Tek bir "—" ikisini birden anlatsaydı karşılaştırmada stoktaki mal ile
+// bilinmeyen termin aynı görünürdü.
+export const QUOTE_LEAD_WEEKS = [1, 2, 3, 4, 5, 6, 8] as const;
+
+export interface LeadTimeOption {
+  /**
+   * Açılır listenin değeri; `"yok"` = sorulmadı.
+   *
+   * BOŞ DİZGE KULLANILMAZ: Radix `Select.Item` boş değeri kabul etmez (kutuyu
+   * "değer yok" hâline döndürmek için o değeri kendine ayırır) ve ekran
+   * çalışma anında patlar.
+   */
+  value: string;
+  label: string;
+  /** Gün karşılığı; `null` = sorulmadı. */
+  days: number | null;
+}
+
+export const QUOTE_LEAD_TIMES: LeadTimeOption[] = [
+  { value: "yok", label: "Sorulmadı", days: null },
+  { value: "0", label: "Hemen (stokta)", days: 0 },
+  ...QUOTE_LEAD_WEEKS.map((h) => ({
+    value: String(h * 7),
+    label: `${h} hafta (${h * 7} gün)`,
+    days: h * 7,
+  })),
+];
+
+/**
+ * Kayıttaki gün sayısından açılır listenin değerini bulur.
+ *
+ * LİSTE KAPALI DEĞİLDİR (`SALE_SCOPES` kuralı): devralınan ya da elle girilmiş
+ * bir "20 gün" listede yoktur ve seçici onu KENDİ seçeneği olarak korur —
+ * korumasaydı dolu bir alan ekranda boş görünür ve kullanıcı üzerine yazardı.
+ */
+export function leadTimeOptions(mevcut: number | null): LeadTimeOption[] {
+  if (mevcut == null || QUOTE_LEAD_TIMES.some((o) => o.days === mevcut)) return QUOTE_LEAD_TIMES;
+  return [
+    ...QUOTE_LEAD_TIMES,
+    { value: String(mevcut), label: `${mevcut} gün`, days: mevcut },
+  ];
+}
 
 // ═══════════════════════════════════════════════════════════════════ AVANS
 //

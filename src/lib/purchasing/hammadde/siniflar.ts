@@ -246,7 +246,15 @@ export function plakaAgirligiKg(kalinlikMm: number | null, enMm: number, boyMm: 
   return kalinlikMm * enMm * boyMm * CELIK_OZKUTLE_KG_MM3;
 }
 
-/** Kesim payı seçenekleri [mm] — *"bazen 3 4 5 6 7 8 olabiliyor"*. */
-export const KESIM_PAYLARI = [3, 4, 5, 6, 7, 8] as const;
+/**
+ * Kesim payı seçenekleri [mm] — *"bazen 3 4 5 6 7 8 olabiliyor"*.
+ *
+ * **0 · 1 · 2 SONRADAN EKLENDİ** (kullanıcı isteği, 15.08.2026). Sıfır bir pay
+ * yokluğu değil bir KARARdır: ince sacda lazer kerfi ihmal edilir ve parçalar
+ * bitişik nestlenir. Sıfırda kenar payı da sıfırlanır — `nesting.ts` payı hem
+ * parça arasına hem plaka kenarına uyguluyor ve iki kural TEK sayıdan
+ * beslenir.
+ */
+export const KESIM_PAYLARI = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 export const VARSAYILAN_KESIM_PAYI = 5;

@@ -14,10 +14,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// SIRA İŞ AKIŞIDIR: ne lazım (havuz) → kaç plaka (yerleşim) → kimden (teklif)
+// → verildi mi (sipariş) → ne kadara geliyor (analiz). Analiz en sondadır ve
+// bu bir SIKLIK sıralamasıdır (Ücret Planı'nın kuralı): satınalmacı gün içinde
+// havuzu açar, analizi ayda birkaç kez.
 const TABS = [
   { href: "/purchasing/hammadde", label: "Hammadde Havuzu", exact: true },
   { href: "/purchasing/hammadde/yerlesim", label: "Plaka Yerleşimi", exact: false },
   { href: "/purchasing/hammadde/teklifler", label: "Teklif Karşılaştırma", exact: false },
+  { href: "/purchasing/hammadde/siparisler", label: "Siparişler", exact: false },
+  { href: "/purchasing/hammadde/analiz", label: "Alım Analizi", exact: false },
 ];
 
 export function HammaddeNav() {

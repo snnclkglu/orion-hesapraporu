@@ -92,11 +92,107 @@ export const saveQuoteSchema = z
     note: z.string().trim().max(500).default(""),
     itemNo: z.string().trim().max(40).default(""),
     packageId: z.uuid().nullable().default(null),
+    /**
+     * TEKLİF PARTİSİ (15.08.2026). Verilmezse eylem AYNI GÜN + AYNI FİRMA
+     * partisini arar, yoksa yeni bir parti açar — böylece kodsuz teklif kalmaz.
+     */
+    batchId: z.uuid().nullable().default(null),
+    /** Partinin kapsamı: hangi ekrandan açıldı. */
+    scope: z.enum(["hammadde", "ekipman"]).default("ekipman"),
   })
   .superRefine(kurKontrolu);
 
 export const chooseQuoteSchema = z.object({ id: z.uuid() });
 export const deleteQuoteSchema = z.object({ id: z.uuid() });
+
+// ————————————————————————————————————————————————————— TEKLİF PARTİSİ
+//
+// Kullanıcı kararı (15.08.2026): *"Her teklif aç dediğimde bu benzersiz bir
+// kodla takip edilebilsin … Teklifi değiştir iptal et düzenle vb özellikler de
+// olsun."*
+
+/**
+ * Toplu teklifin TEK bir kalemi — adet SORULMAZ (md. 21).
+ *
+ * TESLİM SÜRESİ SATIRDA ÇÖZÜLMÜŞ HÂLİYLE GELİR: pencere "toplu seçim" ile
+ * "kalem bazında değişiklik"i kendi içinde birleştirir ve sunucuya nihai sayıyı
+ * yollar. Sunucuda `satır ?? parti` gibi bir yedekleme yazılsaydı, kullanıcının
+ * bilerek "Sorulmadı" yaptığı bir kalem sessizce partinin süresine dönerdi —
+ * `null` iki farklı şey anlatamaz.
+ */
+export const bulkQuoteLineSchema = z.object({
+  matchKey: anahtar,
+  sample: z.string().trim().max(300),
+  unitPrice: z.number().nonnegative("Fiyat negatif olamaz."),
+  /** 0 = Hazır · null = sorulmadı. */
+  leadTimeDays: z.union([z.number().int().min(0).max(365), z.null()]).default(null),
+});
+
+export const saveBulkQuoteSchema = z
+  .object({
+    supplier: tedarikci,
+    currency: paraBirimi,
+    fxRate: z.number().positive().nullable(),
+    quotedAt: gun,
+    paymentMethod: z.enum(["pesin", "kredi_karti", "vadeli"]).default("pesin"),
+    paymentTermDays: z.number().int().min(0).max(365).default(0),
+    note: z.string().trim().max(500).default(""),
+    scope: z.enum(["hammadde", "ekipman"]).default("hammadde"),
+    satirlar: z.array(bulkQuoteLineSchema).min(1, "En az bir kaleme fiyat girin.").max(400),
+  })
+  .superRefine(kurKontrolu);
+export type SaveBulkQuoteInput = z.input<typeof saveBulkQuoteSchema>;
+
+/**
+ * PARTİYİ DÜZENLE — başlık + satırlar birlikte yazılır.
+ *
+ * SATIR KİMLİĞİYLE güncellenir, silip-yazma YOK (`editOrder`in dersi): teklif
+ * kimliğine bağlı "kazanan" işareti ve fiyat arşivi izi kaybolmamalı. Yükte
+ * olmayan satır SİLİNİR — kullanıcı bir kalemi listeden çıkardıysa o teklif
+ * gerçekten geri alınmıştır.
+ */
+export const editQuoteBatchSchema = z
+  .object({
+    id: z.uuid(),
+    supplier: tedarikci,
+    quotedAt: gun,
+    currency: paraBirimi,
+    fxRate: z.number().positive().nullable(),
+    paymentMethod: z.enum(["pesin", "kredi_karti", "vadeli"]).default("pesin"),
+    paymentTermDays: z.number().int().min(0).max(365).default(0),
+    note: z.string().trim().max(500).default(""),
+    satirlar: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          unitPrice: z.number().nonnegative(),
+          leadTimeDays: z.union([z.number().int().min(0).max(365), z.null()]).default(null),
+        })
+      )
+      .max(400),
+  })
+  .superRefine(kurKontrolu);
+export type EditQuoteBatchInput = z.input<typeof editQuoteBatchSchema>;
+
+export const cancelQuoteBatchSchema = z.object({
+  id: z.uuid(),
+  reason: z.string().trim().max(300).default(""),
+});
+
+export const quoteBatchIdSchema = z.object({ id: z.uuid() });
+
+/**
+ * PARTİLERİ BİRLEŞTİR — kullanıcı isteği: *"İstersem bu sayfada teklifleri
+ * birleştir ayrı diyebileyim."*
+ *
+ * AYNI FİRMA ŞARTTIR ve bu bir kelepçedir, bir kolaylık değil: parti "bir
+ * firmanın bir teklifi"dir ve iki firmayı tek partiye koymak o tanımı bozar —
+ * karşılaştırma sütunu kimin fiyatını gösterdiğini söyleyemez olurdu.
+ */
+export const mergeQuoteBatchesSchema = z.object({
+  hedefId: z.uuid(),
+  kaynakIdler: z.array(z.uuid()).min(1).max(50),
+});
 
 // ———————————————————————————————————————————————————————————— SİPARİŞ
 
@@ -314,4 +410,5 @@ export type OrderLineInput = z.input<typeof orderLineSchema>;
 export type SaveGroupNameInput = z.input<typeof saveGroupNameSchema>;
 
 /** `progress/schema.ts` ile aynı sözleşme; `ok` işlenen satır sayısını taşır. */
-export type PurchasingActionResult = { error?: string; ok?: number; id?: string };
+/** `no` — kullanıcıya gösterilecek kod (sipariş numarası, teklif parti kodu). */
+export type PurchasingActionResult = { error?: string; ok?: number; id?: string; no?: string };
