@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { APP_SHORT_NAME, APP_TAGLINE, APP_TITLE } from "@/lib/app";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "next-themes";
 
 // Orion Cranes marka tipografisi (Marka Kimliği Kılavuzu REV 01):
 // Archivo — display & metin; IBM Plex Mono — teknik etiket/veri.
@@ -71,12 +72,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // KOYU TEMA (kullanıcı onayı, 16.08.2026): palet CSS'i ilk günden hazırdı
+    // (globals.css .dark bloku), eksik olan tek şey `.dark` sınıfını yazan bir
+    // sağlayıcıydı. `suppressHydrationWarning` ZORUNLU: next-themes sınıfı
+    // ilk boyamadan önce script ile yazar ve React bunu uyuşmazlık sanır.
     <html
       lang="tr"
+      suppressHydrationWarning
       className={cn("h-full", "antialiased", archivo.variable, plexMono.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
         {/*
           Bildirim şeridi üstte ortalıdır. Telefonda kabuğun yapışkan üst şeridi
           de oradadır: varsayılan 16px'lik mobil payla bildirim hamburgerin ve
@@ -100,6 +107,7 @@ export default function RootLayout({
           offset={{ top: "calc(var(--app-header-h, 48px) + 12px)" }}
           mobileOffset={{ top: "calc(var(--app-header-h, 48px) + 8px)" }}
         />
+        </ThemeProvider>
       </body>
     </html>
   );

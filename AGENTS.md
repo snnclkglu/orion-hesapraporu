@@ -2018,6 +2018,94 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     Yazma yolu yine TEKTİR: düzenleme, iptal ve teslim alma `/purchasing/
     siparisler`tedir (md. 18'in paket Satın Alma sekmesi dersi).
 
+25. **İŞLER BİR HUB'DIR** (kullanıcı kararı, 16.08.2026: *"İşler sayfasını
+    Notion gibi gelişmiş bir iş yönetim programına çevirmek istiyorum …
+    tüm kullanıcılara hitap edecek genel iyileştirmeler"* — kapsamın tamamı
+    ve dört tasarım kararı onaylandı). Dokuz fazda kuruldu; kalıcı kurallar:
+
+    **GÖRÜNÜM DURUMU ADRESTEDİR ve sözleşme TEK yerdedir**
+    (`lib/jobs/view-state.ts`): `/jobs?view=tablo|pano|takvim|zaman` +
+    `yil/musteri/durum/q/sirala/grup/ay`. Varsayılan adrese YAZILMAZ (boş
+    adres = varsayılan görünüm; kayıtlı açılış görünümü tam o boşluğa
+    uygulanır ve parametreli girişi ASLA ezmez). SÜZGEÇ KURALI da tektir
+    (`lib/jobs/filter.ts`): tablo, pano, takvim, zaman ve `/jobs/export`
+    Excel ucu AYNI fonksiyondan süzer (İş Takibi'nin worklog/filters dersi).
+    Arama `trKatla` iledir ve parça parça eşleşir; yazım ANINDA süzer,
+    adrese 350 ms gecikmeyle yazar.
+
+    **ÇOCUK KAYITLAR İŞE BAĞLANIR, KALEME DEĞİL:** `updateJob` kalemleri
+    silip yeniden yazar; `job_items.id`ye bağlanan her yeni kayıt ilk
+    düzenlemede yetim kalırdı. Görev/yorum/olay/favori `jobs.id` taşır,
+    kalem bağlamı `item_no` METNİDİR (md. 17'nin kuralı).
+
+    **İŞİN BİYOGRAFİSİ `job_events`TİR** (drawing_package_events'in ikizi;
+    20260817000001): `audit_log`da job_id sütunu yok ve iş olayları jsonb
+    içinde sorgulanamıyordu. audit yazımları KALDIRILMADI — iki defter iki
+    ayrı soruyu cevaplar. Olay yazımı asıl kaydı ASLA bloklamaz (hata
+    yutulur). Akış sekmesi olay + yorumu TEK kronolojide basar; "yorum"
+    OLAYI akışta ayrıca basılmaz (yorumun kendisi satır olarak durur).
+
+    **GÖREVİN DURUMU `done_at` DAMGASIDIR**, enum değil: yapılacakta "yarım"
+    diye bir olgu yok. Atanan `drawn_by` kalıbıdır (set null). Şablon defteri
+    (`job_task_templates`, /admin/task-templates) BOŞ BAŞLAR — hazır madde
+    uydurulmaz. YORUM gövdesi düz metindir, `@AD SOYAD` içinde durur;
+    anılan kimlikler KAYIT ANINDA SON METİNDEN çıkarılır (`lib/jobs/
+    mentions.ts`) — composer'ın eklediği liste değil.
+
+    **BİLDİRİM SİNYAL DEĞİLDİR** (md. 23'ün beklediği defter;
+    20260817000003): kişiye yazılır, okunur, kapanır. Fan-out kuralı SAF
+    çekirdektedir (`lib/jobs/notify.ts`, testli): atama→atanan; anma→
+    anılanlar; durum→favorileyenler ∪ açık görev sahipleri; işlemi yapan
+    HARİÇ. Favori listesi sahibine kapalıdır; fan-out DAR bir security
+    definer geçitten okur (`job_favorite_user_ids` — drawing_purchase_summary
+    kalıbı). Zil 60 sn'de bir İSTEMCİDEN sayar (realtime bilerek yok);
+    "Tümünü okundu say" 90 günden eski OKUNMUŞU fırsatçı siler — okunmamış
+    asla silinmez.
+
+    **PANO YENİ BİR "AŞAMA" ALANI AÇMAZ:** sütun boyutu var olan alanlardan
+    türetilir (durum/müşteri/lider/yıl) ve SÜRÜKLEME YALNIZ DURUMDADIR —
+    bırakma `setJobStatus`un kendisidir, yeni bir yazma yolu değil. Durum
+    sütunlarının dördü de HEP görünür (boş sütun karta hedefdir); öteki
+    boyutlarda boş grup düşer ve adsızlık torbası ("Atanmamış") EN SONDADIR.
+    dnd-kit `DndContext`e SABİT `id` verilir — sayaç kimliği hidrasyonda
+    uyuşmuyordu. Telefonda pano dikey açılır gruplara katlanır (md. 15);
+    kart markup'ı TEKTİR.
+
+    **TAKVİM İZGARASI BURADA VARDIR** (md. 23 panonun kararıydı; İşler'inkini
+    kullanıcı açıkça istedi) ama telefonda AJANDAYA katlanır. ZAMAN görünümü
+    EKSEN KAYDIRMAZ: pencere süzülmüş işlerin min-maks aralığıdır, çubuklar
+    orana çevrilir; teslim tarihi olmayan iş "bugüne kadar" sürer ve AÇIK
+    UÇLU (kesik çerçeve) işaretlenir — bitiş uydurulmaz. Tarihsiz işler
+    sessizce düşmez, altta sayılır.
+
+    **Ctrl/⌘+K'NİN SAHİBİ KOMUT PALETİDİR** (`components/command-palette`);
+    Panel'in satır içi araması kutu olarak kaldı, kısayol rozetini devretti.
+    Hit üretimi ORTAK çekirdeğe çıkarıldı (`lib/panel-index.ts`) — pano ile
+    palet ayrışamaz. Defter palet İLK açıldığında bir kez çekilir
+    (`/api/command-index`), süzme istemcide `panelAra` iledir; cmdk'nın
+    kendi süzgeci KAPALIDIR (slug değerli maddeleri kendisi elerdi).
+
+    **TOPLU İŞLEM TEKLİ YOLUN GÖVDESİNDEN GEÇER** (`bulkSetJobStatus` →
+    `durumYazVeBildir`): olay, denetim ve bildirim iş başına yazılır — toplu
+    bir UPDATE üçünü de sessizce atlardı; N ayrı yazım bilinçli bedeldir.
+    Seçim kutuları `sm` üstündedir; yapışkan bar
+    `env(safe-area-inset-bottom)` taşır (uygulamada İLK kullanım).
+
+    **KOYU TEMA YALNIZ BİR ANAHTARDI:** palet globals.css'te ilk günden
+    tanımlıydı; ThemeProvider (`attribute="class"`) + üst bar anahtarı
+    eklendi. `<html suppressHydrationWarning>` zorunlu; tetik ikonu iki
+    ikonun `.dark` ile seçilen çiftidir — JS beklenmez, hidrasyon şaşmaz.
+
+    **DİĞER KALICI AYRINTILAR:** iş kopyalama `/jobs/new?kaynak=<id>` —
+    kalem/kapsam/müşteri kopyalanır, İŞ NO ve TARİHLER BOŞ kalır (eski
+    tarihi taşımak yanlış termin yazdırmanın en kısa yolu) ve sözleşme PDF'i
+    kopyalanmaz. Detay `(hub)` rota grubudur: form (`/edit`, `/new`) kabuğun
+    ve sekmelerin DIŞINDA, dar düzende kalır. `isWide` `/jobs/[id]` alt
+    ağacını kapsar (edit/new hariç). Liste sorgusu sayımları `count`
+    embed'iyle alır (fiyat arşivi dersi). Son bakılanlar `localStorage`dadır
+    (cihaza özel kolaylık; okuma `useSyncExternalStore`). Excel dökümünde
+    kısaltmanın YANINA resmî unvan da basılır — dosya firma dışına gider.
+
 
 5b. **ALAN ÖBEKLERİ — girdi ızgarası kesitin parçalarına göre ayrılır.**
    `FieldDef.fieldGroup` taşıyan bölümler (ana kiriş 7.1) öbek öbek çizilir:

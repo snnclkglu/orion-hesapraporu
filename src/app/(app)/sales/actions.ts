@@ -11,6 +11,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSales } from "@/lib/roles";
 import { allItemsShipped, autoCompletesOnShipment } from "@/lib/job-status";
+import { isOlayiYaz } from "@/app/(app)/jobs/events";
+import { bildirimYaz } from "@/app/(app)/jobs/notify-write";
+import { notifyTargets } from "@/lib/jobs/notify";
 import { saleInputSchema, type SaleInput } from "./schema";
 
 export type SalesActionResult = {
@@ -121,6 +124,40 @@ async function sevkSonrasiIsiTamamla(
       reason: "Bütün iş kalemlerinin sevk tarihi girildi",
       trigger_item_id: jobItemId,
     },
+  });
+  // İşin kendi "Akış" sekmesi de görsün: otomatik geçiş sessiz değildir.
+  const jobNo = (is as { job_no?: string }).job_no ?? "";
+  await isOlayiYaz(supabase, {
+    jobId,
+    jobNo,
+    event: "durum_oto",
+    detail: { to: "completed", trigger_item_id: jobItemId },
+    actor: userId,
+  });
+  // Bildirim: elle durum değişikliğiyle AYNI kitle (favori ∪ açık görevli).
+  const [favlar, gorevliler] = await Promise.all([
+    supabase.rpc("job_favorite_user_ids", { p_job_id: jobId }),
+    supabase.from("job_tasks").select("assignee").eq("job_id", jobId).is("done_at", null),
+  ]);
+  await bildirimYaz(supabase, {
+    targets: notifyTargets({
+      kind: "durum_degisti",
+      actorId: userId,
+      favoriteUserIds: favlar.error
+        ? []
+        : ((favlar.data ?? []) as unknown as string[]),
+      openTaskAssigneeIds: gorevliler.error
+        ? []
+        : ((gorevliler.data ?? []) as { assignee: string | null }[]).map(
+            (g) => g.assignee
+          ),
+    }),
+    kind: "durum_degisti",
+    jobId,
+    jobNo,
+    title: `${jobNo} · Kendiliğinden tamamlandı (bütün kalemler sevk edildi)`,
+    href: `/jobs/${jobId}`,
+    actor: userId,
   });
 
   revalidatePath("/jobs");

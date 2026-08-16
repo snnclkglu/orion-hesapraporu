@@ -24,6 +24,9 @@ import { useStoredFlag } from "@/lib/use-stored-flag";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
+import { NotificationBell } from "@/components/notification-bell";
+import { CommandPalette } from "@/components/command-palette";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LANDING_PATH, WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 import { UploadIndicator } from "@/app/(app)/drawings/new/upload-indicator";
@@ -401,8 +404,17 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // personeli net + iki mesai sütunu + tutarla yan yana dizer, özet yıl ay
   // çapraz tablosudur, kur tablosu dört kur çiftini birlikte gösterir. Dar kip
   // hiçbirine yaramaz.
+  // İş HUB'ı da geniştir (Genel Bakış · Akış · Bağlantılar): kalem tablosu,
+  // termin tablosu ve olay akışı yan yana genişlikten kazanır. FORMLAR DAR
+  // KALIR — `/jobs/new` ve `/jobs/[id]/edit` okuma değil yazma ekranıdır ve
+  // uzun bir formun satır genişliği okunabilirlik sınırını aşmamalıdır.
+  const jobsHub =
+    /^\/jobs\/[^/]+/.test(pathname ?? "") &&
+    !/^\/jobs\/new(\/|$)/.test(pathname ?? "") &&
+    !/\/edit(\/|$)/.test(pathname ?? "");
   const isWide =
     /^\/(jobs|projects|sales)\/?$/.test(pathname ?? "") ||
+    jobsHub ||
     /^\/worklog(\/|$)/.test(pathname ?? "") ||
     /^\/purchasing(\/|$)/.test(pathname ?? "") ||
     /^\/personnel(\/|$)/.test(pathname ?? "") ||
@@ -568,6 +580,16 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
               yerlerinde — hesap satırlarındaki tıklanabilir rozetlerde — duruyor.
             */}
             <PageHeaderHost />
+            {/* Zil kimlik satırının SAĞ ucunda ve her genişlikte görünür:
+                eylem şeridi sayfadan sayfaya değişir, bildirim ise kişiye
+                aittir ve sayfayla ilgisizdir. Satır 48px kalır — zil kutu
+                büyütmez, dokunma payını `.oc-tap-square` tamamlar. */}
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:ml-0">
+              <ThemeToggle />
+              <NotificationBell />
+            </div>
+            {/* Komut paleti görünmez; Ctrl/⌘+K dinleyicisini taşır. */}
+            <CommandPalette />
           </div>
           {/* EYLEM SATIRI — dar ekranda ikinci satır ve yatay kayar, `lg`
               üstünde şeridin sağ ucu. Eylemi olmayan sayfada `empty:hidden`

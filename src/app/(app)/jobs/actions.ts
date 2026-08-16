@@ -7,8 +7,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { JOB_STATUSES, type JobStatus } from "@/lib/job-status";
+import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from "@/lib/job-status";
 import { autoShortName, nextDistinctHue } from "@/lib/tags";
+import { notifyTargets } from "@/lib/jobs/notify";
+import { isOlayiYaz } from "./events";
+import { bildirimYaz } from "./notify-write";
 import {
   CUSTOMER_COLUMNS,
   customerInputSchema,
@@ -67,6 +70,15 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
     actor: user.id,
     action: "job.create",
     detail: { job_id: job.id, job_no: parsed.data.job_no, title: parsed.data.title },
+  });
+  // audit_log KALIR (yönetici denetimi), olay defteri EK yazılır: işin kendi
+  // "Akış" sekmesi audit'i okuyamaz — orada job_id sütunu yok.
+  await isOlayiYaz(supabase, {
+    jobId: job.id,
+    jobNo: parsed.data.job_no,
+    event: "olusturuldu",
+    detail: { title: parsed.data.title, kalem: items.length },
+    actor: user.id,
   });
 
   revalidatePath("/jobs");
@@ -171,10 +183,84 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
     action: "job.update",
     detail: { job_id: jobId, job_no: parsed.data.job_no },
   });
+  await isOlayiYaz(supabase, {
+    jobId,
+    jobNo: parsed.data.job_no,
+    event: "guncellendi",
+    detail: { kalem: items.length },
+    actor: user.id,
+  });
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
   redirect(`/jobs/${jobId}`);
+}
+
+/**
+ * Tek işin durum yazımı + olay + bildirim — tekli ve TOPLU yol aynı gövdeyi
+ * çağırır; iki yazım, birinde düzeltilen bir kuralın ötekinde kalması demekti.
+ */
+async function durumYazVeBildir(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  jobId: string,
+  status: JobStatus
+): Promise<ActionResult> {
+  // Eski durum yazmadan ÖNCE okunur: "neyden neye" bilgisi olayın kendisidir
+  // ve sonradan geri hesaplanamaz.
+  const { data: onceki } = await supabase
+    .from("jobs")
+    .select("job_no, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("jobs").update({ status }).eq("id", jobId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: userId,
+    action: "job.status",
+    detail: { job_id: jobId, status },
+  });
+  await isOlayiYaz(supabase, {
+    jobId,
+    jobNo: (onceki as { job_no?: string } | null)?.job_no ?? "",
+    event: "durum",
+    detail: { from: (onceki as { status?: string } | null)?.status ?? null, to: status },
+    actor: userId,
+  });
+
+  // Bildirim: favorileyenler ∪ açık görev sahipleri (değiştiren hariç).
+  // Favori satırları sahibine kapalıdır; liste DAR bir security definer
+  // geçitten okunur (job_favorite_user_ids). Tablolar migration bekliyorsa
+  // sorgular hata döner ve hedef listesi boş kalır — bildirim yazılmaz.
+  const jobNo = (onceki as { job_no?: string } | null)?.job_no ?? "";
+  const [favlar, gorevliler] = await Promise.all([
+    supabase.rpc("job_favorite_user_ids", { p_job_id: jobId }),
+    supabase.from("job_tasks").select("assignee").eq("job_id", jobId).is("done_at", null),
+  ]);
+  await bildirimYaz(supabase, {
+    targets: notifyTargets({
+      kind: "durum_degisti",
+      actorId: userId,
+      favoriteUserIds: favlar.error
+        ? []
+        : ((favlar.data ?? []) as unknown as string[]),
+      openTaskAssigneeIds: gorevliler.error
+        ? []
+        : ((gorevliler.data ?? []) as { assignee: string | null }[]).map(
+            (g) => g.assignee
+          ),
+    }),
+    kind: "durum_degisti",
+    jobId,
+    jobNo,
+    title: `${jobNo} · Durum: ${JOB_STATUS_LABELS[status]}`,
+    href: `/jobs/${jobId}`,
+    actor: userId,
+  });
+
+  return {};
 }
 
 /**
@@ -194,18 +280,41 @@ export async function setJobStatus(
   if (!user) return { error: "Oturum bulunamadı" };
   if (!JOB_STATUSES.includes(status)) return { error: "Geçersiz iş durumu" };
 
-  const { error } = await supabase.from("jobs").update({ status }).eq("id", jobId);
-  if (error) return { error: error.message };
-
-  await supabase.from("audit_log").insert({
-    actor: user.id,
-    action: "job.status",
-    detail: { job_id: jobId, status },
-  });
+  const res = await durumYazVeBildir(supabase, user.id, jobId, status);
+  if (res.error) return res;
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
   return {};
+}
+
+/**
+ * TOPLU durum değişikliği (kullanıcı onayı, 16.08.2026 — çoklu seçim).
+ * Her iş TEKLİ yolun gövdesinden geçer: olay, denetim ve bildirim tek tek
+ * yazılır — toplu bir UPDATE üçünü de sessizce atlardı. Seçim onlarla
+ * ölçülür; N ayrı yazım bilinçli bir bedeldir.
+ */
+export async function bulkSetJobStatus(
+  jobIds: string[],
+  status: JobStatus
+): Promise<ActionResult & { updated?: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+  if (!JOB_STATUSES.includes(status)) return { error: "Geçersiz iş durumu" };
+  if (jobIds.length === 0) return { error: "Seçili iş yok" };
+  if (jobIds.length > 100) return { error: "Tek seferde en çok 100 iş" };
+
+  let updated = 0;
+  for (const id of jobIds) {
+    const res = await durumYazVeBildir(supabase, user.id, id, status);
+    if (!res.error) updated += 1;
+  }
+
+  revalidatePath("/jobs");
+  return { updated };
 }
 
 /**
@@ -225,7 +334,7 @@ export async function deleteJob(jobId: string): Promise<ActionResult> {
     .from("jobs")
     .delete()
     .eq("id", jobId)
-    .select("id");
+    .select("id, job_no");
   if (error) return { error: error.message };
   if (!data || data.length === 0) {
     return { error: "İş silinemedi — silme yetkisi yalnız yöneticidedir." };
@@ -235,6 +344,14 @@ export async function deleteJob(jobId: string): Promise<ActionResult> {
     actor: user.id,
     action: "job.delete",
     detail: { job_id: jobId },
+  });
+  // job_id FK `set null`a düşer; kimlik kopyalanan job_no ile yaşar.
+  await isOlayiYaz(supabase, {
+    jobId: null,
+    jobNo: (data[0] as { job_no?: string }).job_no ?? "",
+    event: "silindi",
+    detail: { job_id: jobId },
+    actor: user.id,
   });
 
   revalidatePath("/jobs");

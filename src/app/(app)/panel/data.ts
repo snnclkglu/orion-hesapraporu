@@ -22,7 +22,7 @@ import {
   canSeeWorkLog,
   isAdminRole,
 } from "@/lib/roles";
-import { jobStatusLabel } from "@/lib/job-status";
+import { buildPanelHits } from "@/lib/panel-index";
 import {
   panelSinyalleri,
   panelTakvim,
@@ -131,77 +131,17 @@ export async function loadPanel(
   // listeleriyle aynı gerekçe): satır sayısı yüzlerle ölçülür, her tuş
   // vuruşunda sunucuya gitmek aramayı yavaş ve pahalı yapardı.
   //
-  // PARÇA DEFTERİ BU LİSTEYE GİRMEZ ve bu bilinçli bir sınırdır: bugün üç
-  // pakette 490 parça var, yirmi pakette on binleri bulur ve defteri
-  // taşınamaz yapar. Parçanın yerine ANA GRUP adları girer (`0043-00-1000
-  // ELEKTRİK PANOSU`) — atölyenin aradığı da zaten gruptur; grup bulununca
-  // paketin Parçalar ekranı bir tık uzaktadır.
-  const hits: PanelHit[] = [];
-
-  for (const j of jobRows) {
-    hits.push({
-      kind: "job",
-      code: j.job_no,
-      label: j.title,
-      hint: `${j.customer} · ${jobStatusLabel(j.status)}`,
-      href: `/jobs/${j.id}`,
-    });
-  }
-  for (const i of itemRows) {
-    const is = jobRows.find((j) => j.id === i.job_id);
-    hits.push({
-      kind: "item",
-      code: i.item_no,
-      label: i.product_name,
-      // MÜŞTERİ DE İPUCUNA GİRER ve bu bir süs değil: sorgu parçalarının hepsi
-      // TEK satırda geçmek zorundadır, yani müşteri yazılmasa "astor pergel"
-      // hiçbir kalemi bulamazdı — müşteri işin satırında, ürün adı kalemin
-      // satırındaydı. Tarayıcıda ölçüldü.
-      hint: [is?.title, is?.customer].filter(Boolean).join(" · ") || undefined,
-      href: `/jobs/${i.job_id}`,
-    });
-  }
-  for (const c of (musteriler.data ?? []) as { id: string; name: string; short_name: string }[]) {
-    hits.push({
-      kind: "customer",
-      code: c.short_name || "",
-      label: c.name,
-      hint: `${jobRows.filter((j) => j.customer === c.name).length} iş`,
-      // Müşteri defteri yönetimdedir ama aranan şey çoğu zaman "bu müşterinin
-      // işleri"dir; yönetici olmayan biri deftere zaten giremez.
-      href: yonetici ? "/admin/customers" : "/jobs",
-    });
-  }
-  for (const p of (projeler.data ?? []) as { id: string; name: string; doc_no: string; status: string }[]) {
-    hits.push({
-      kind: "project",
-      code: p.doc_no || "",
-      label: p.name,
-      hint: p.status === "archived" ? "Arşiv" : undefined,
-      href: `/projects/${p.id}`,
-    });
-  }
-  for (const p of pkgRows) {
-    hits.push({
-      kind: "package",
-      code: [p.item_no, p.group_code].filter(Boolean).join("-"),
-      label: p.description || p.item_no,
-      href: `/drawings/${p.id}`,
-    });
-  }
-  for (const g of (grupAdlari.data ?? []) as { group_code: string; name: string }[]) {
-    // Ad kodun kendisiyse defter adı çözememiş demektir; arama sonucunda aynı
-    // kodu iki kez basmak bilgi değil gürültüdür (üretim tahtasıyla aynı kural).
-    if (!g.name || g.name === g.group_code) continue;
-    const paket = pkgRows.find((p) => g.group_code.startsWith(p.item_no));
-    hits.push({
-      kind: "group",
-      code: g.group_code,
-      label: g.name,
-      hint: paket?.description,
-      href: paket ? `/drawings/${paket.id}/parts` : "/drawings",
-    });
-  }
+  // HIT ÜRETİMİ ARTIK ORTAK ÇEKİRDEKTE (`lib/panel-index.ts`): komut paleti
+  // (Ctrl+K) aynı defteri kurar — iki üretici zamanla ayrışırdı.
+  const hits: PanelHit[] = buildPanelHits({
+    jobs: jobRows,
+    items: itemRows,
+    customers: (musteriler.data ?? []) as { id: string; name: string; short_name: string }[],
+    projects: (projeler.data ?? []) as { id: string; name: string; doc_no: string; status: string }[],
+    packages: pkgRows,
+    groupNames: (grupAdlari.data ?? []) as { group_code: string; name: string }[],
+    isAdmin: yonetici,
+  });
 
   // ————————————————————————————————————————————— sinyaller + takvim
   const signals: PanelSignal[] = [];

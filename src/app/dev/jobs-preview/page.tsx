@@ -7,8 +7,14 @@
 
 import { notFound } from "next/navigation";
 import { JobForm, EMPTY_JOB, type PersonOption } from "@/app/(app)/jobs/job-form";
-import { JobsTable, type JobRow } from "@/app/(app)/jobs/jobs-table";
+import type { JobRow } from "@/app/(app)/jobs/jobs-table";
+import { JobsViews } from "@/app/(app)/jobs/jobs-views";
 import type { CustomerOption } from "@/app/(app)/jobs/schema";
+
+// `useSearchParams` kullanan istemci bileşenleri Suspense'e SARILMAZ, sayfa
+// DİNAMİK yapılır (siparisler-preview kalıbı): tablo süzgeç durumunu adreste
+// taşıyor ve statik ön-üretim `useSearchParams`ta build'i düşürürdü.
+export const dynamic = "force-dynamic";
 
 const YEAR = new Date().getFullYear();
 
@@ -18,7 +24,8 @@ const JOBS: JobRow[] = [
     customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.", customerShort: "İSDEMİR", customerHue: 12,
     status: "active",
     work_order_date: `${YEAR}-05-11`, created_at: `${YEAR}-05-11T09:00:00Z`,
-    itemCount: 1, craneCount: 1,
+    itemCount: 1, craneCount: 1, favori: true, jobLeader: "SİNAN ÇOLAKOĞLU",
+    workshopExitDate: `${YEAR}-08-20`, deliveryDate: `${YEAR}-09-15`,
   },
   {
     id: "j2", job_no: "0057", title: "Astor 1T ve 5T Vinçler",
@@ -79,8 +86,23 @@ export default function JobsPreviewPage() {
           sıkışması burada görünmez, sorunu ancak canlıda fark ederdik. */}
       <div className="grid w-full flex-1 gap-8 px-4 py-6 lg:px-8">
         <section className="grid gap-3">
-          <h2 className="text-lg font-semibold tracking-tight">İşler — filtreler ve satır eylemleri</h2>
-          <JobsTable jobs={JOBS} canDelete />
+          <h2 className="text-lg font-semibold tracking-tight">İşler — görünümler, filtreler ve satır eylemleri</h2>
+          <JobsViews
+            jobs={JOBS}
+            canDelete
+            savedViews={[]}
+            extras={{
+              tasks: { j1: { open: 2, overdue: 1 }, j2: { open: 1, overdue: 0 } },
+              termin: { j1: "2026-09-01" },
+              taskDates: [
+                { jobId: "j1", title: "SÖZLEŞME PDF'İNİ YÜKLE", dueDate: `${YEAR}-08-18` },
+              ],
+              salesDates: [
+                { jobId: "j1", dueDate: `${YEAR}-09-01`, shipmentDate: null },
+                { jobId: "j2", dueDate: `${YEAR}-03-01`, shipmentDate: `${YEAR}-03-05` },
+              ],
+            }}
+          />
         </section>
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">Yeni İş Emri formu</h2>

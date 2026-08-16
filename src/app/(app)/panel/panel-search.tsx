@@ -32,19 +32,11 @@ export function PanelSearch({ hits }: { hits: PanelHit[] }) {
   const duz = useMemo(() => gruplar.flatMap((g) => g.hits), [gruplar]);
   const acik = q.trim().length >= 2;
 
-  // ⌘K / Ctrl+K — sayfanın her yerinden aramaya döner. Kısayol EKRANDA YAZAR
-  // (sağdaki rozet): görünmeyen bir kısayol, olmayan bir kısayoldur.
-  useEffect(() => {
-    function tus(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        girdiRef.current?.focus();
-        girdiRef.current?.select();
-      }
-    }
-    window.addEventListener("keydown", tus);
-    return () => window.removeEventListener("keydown", tus);
-  }, []);
+  // ⌘K / Ctrl+K ARTIK BURADA DEĞİL (kullanıcı kararı, 16.08.2026): kısayolun
+  // sahibi her sayfadan açılan KOMUT PALETİdir (components/command-palette).
+  // Bu kutu panonun kahramanı olmayı sürdürür — yalnız kısayol rozetini
+  // devretti; iki dinleyici aynı tuşta yarışsaydı hangisinin kazandığı
+  // sayfaya göre değişirdi.
 
   function klavye(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") {
@@ -102,9 +94,6 @@ export function PanelSearch({ hits }: { hits: PanelHit[] }) {
           placeholder="İş no, ürün, müşteri, rapor ya da resim grubu ara…"
           className="h-14 w-full min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground/70 pointer-fine:text-sm"
         />
-        <kbd className="hidden shrink-0 border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">
-          Ctrl K
-        </kbd>
       </div>
 
       {acik && (

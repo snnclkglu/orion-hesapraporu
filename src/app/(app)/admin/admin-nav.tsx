@@ -16,6 +16,9 @@ const ITEMS = [
   // altta kalır — onlar ürün defteridir, firma defteri değil.
   { href: "/admin/suppliers", label: "Tedarikçiler" },
   { href: "/admin/consumables", label: "Sarf Malzemeleri" },
+  // Görev Şablonu bir İŞ AKIŞI defteridir (İşler'in "Şablondan Ekle" kaynağı);
+  // cari defterlerin altında, ürün kataloglarının üstünde durur.
+  { href: "/admin/task-templates", label: "Görev Şablonu" },
   { href: "/admin/qualities", label: "Marka/Kalite" },
   { href: "/admin/equipment", label: "Ekipman Katalogu" },
   { href: "/admin/couplings", label: "Kaplin Katalogu" },

@@ -87,6 +87,7 @@ export const MODULE_PREFIX = {
   workLog: "ORION — İŞ TAKİBİ",
   drawings: "ORION — TEKNİK RESİMLER",
   personnel: "ORION — PERSONEL VE MAAŞ",
+  jobs: "ORION — İŞLER",
 } as const;
 
 // --- yardımcılar -------------------------------------------------------------
