@@ -6,6 +6,13 @@
 // ADRESLERdir (her biri kendi verisini sunucudan çeker, paylaşılabilir ve
 // yenilenebilir). Gerekçenin tamamı `worklog/worklog-nav.tsx`te.
 //
+// RAY KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: *"üstteki sayfa seçim barı
+// zaten kayıyor … mobilde yatayda kaydırma olmasın"*). Bir süre `.oc-scrollx`
+// ile yatay kayıyordu ve aktif sekmeyi görünür alana kaydıran bir efekt bile
+// gerekmişti; sekiz sekme telefonda iki satıra sarınca ikisi de gereksizleşti —
+// bütün sekmeler her an görünür, gizli sekme diye bir şey kalmadı. Masaüstünde
+// zaten tek satıra sığıyor, sarma orada hiç devreye girmez.
+//
 // SIRA İŞ AKIŞIDIR, alfabe değil: ihtiyaç doğar (Talep Havuzu) → sipariş verilir
 // (Siparişler) → mal gelir (Teslim Takvimi) → bir dahaki sefere ne kadara
 // aldığımıza bakarız (Fiyat Arşivi).
@@ -15,7 +22,6 @@
 // etmeyelim."). Sayfa ve nav sekmesi silindi; ödeme işaretleri Siparişler
 // ekranından da kaldırıldı.
 
-import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -51,22 +57,10 @@ export function PurchasingNav({
   gecikmis?: number;
 }) {
   const pathname = usePathname() ?? "";
-  const ray = useRef<HTMLElement>(null);
-
-  // AKTİF SEKME GÖRÜNÜR ALANA GETİRİLİR: sekiz sekme dar ekranda kayar ve
-  // rayın sağ yarısındaki bir sayfaya (Sarf Analizi) doğrudan adresle gelen
-  // kullanıcı, hangi sekmede olduğunu göremiyordu. `block: "nearest"` dikey
-  // kaydırmayı tetiklemez — sayfa yerinden oynamaz, yalnız ray kayar.
-  useEffect(() => {
-    ray.current
-      ?.querySelector('[aria-current="page"]')
-      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
-  }, [pathname]);
 
   return (
     <nav
-      ref={ray}
-      className="oc-scrollx flex items-center gap-3 overflow-x-auto overscroll-x-contain border-b [--oc-scroll-bg:var(--background)]"
+      className="flex flex-wrap items-center gap-x-3 border-b"
       aria-label="Satın Alma bölümleri"
     >
       {TABS.map((t, i) => {

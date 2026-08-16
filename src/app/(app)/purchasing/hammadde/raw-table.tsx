@@ -1540,7 +1540,9 @@ function TurSeridi({
         : "border-border text-muted-foreground hover:text-foreground"
     );
   return (
-    <div className="oc-scrollx flex items-center gap-1.5 overflow-x-auto overscroll-x-contain [--oc-scroll-bg:var(--background)]">
+    // ŞERİT KAYMAZ, SARAR (16.08.2026 — rayın kuralı): altı çip telefonda
+    // iki satıra iner, hepsi her an görünür.
+    <div className="flex flex-wrap items-center gap-1.5">
       <button type="button" onClick={() => onChange("")} className={cip(secili === "")}>
         Tümü <span className="ml-1 opacity-60">{formatNum(toplam)}</span>
       </button>

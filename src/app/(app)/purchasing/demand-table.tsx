@@ -937,7 +937,10 @@ function Satir({
           {s.sinif}
         </TableCell>
 
-        <TableCell className="max-w-[22rem] min-w-0 align-top whitespace-normal">
+        {/* `break-words` GERÇEK VERİ İÇİNDİR: "Ø405(Ø415)/Ø358X1870(1900)" gibi
+            boşluksuz bir ölçü jetonu telefonda hücrenin en dar hâlini kendi
+            genişliğine çeker ve tabloyu ekran dışına iterdi. */}
+        <TableCell className="max-w-[22rem] min-w-0 align-top break-words whitespace-normal">
           <span className="flex items-start gap-1.5">
             <span className="block flex-1 text-[13px] leading-snug">{s.tanim || "—"}</span>
             {s.manualId && (

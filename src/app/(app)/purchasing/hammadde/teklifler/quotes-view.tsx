@@ -128,8 +128,9 @@ export function QuotesView({
 
   return (
     <div className="grid gap-3">
-      {/* ————————————————————————————————————— tür şeridi */}
-      <div className="oc-scrollx flex items-center gap-1.5 overflow-x-auto overscroll-x-contain [--oc-scroll-bg:var(--background)]">
+      {/* ————————————————————————————————————— tür şeridi
+          ŞERİT KAYMAZ, SARAR (16.08.2026 — rayın kuralı). */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" onClick={() => turSec(null)} className={cip(tur === null)}>
           Tümü{" "}
           <span className="ml-1 opacity-60">

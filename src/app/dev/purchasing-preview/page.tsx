@@ -106,6 +106,21 @@ const SATIRLAR: TalepSatiri[] = [
   talep("SEGMAN Ø90 DIŞ", "Bağlantı Elemanı", 16, {
     olculer: { icCapMm: null, disCapMm: 90, boyMm: null },
   }),
+  // EN KÖTÜ DURUM SATIRI — dar ekran sınaması bunun için: boşluksuz uzun ölçü
+  // jetonu, üç işe giden pay, malzeme çelişkisi, uzun not. Uydurma küçük
+  // fikstürle 375 px'te taşma görülemiyordu (16.08.2026'da yaşandı).
+  talep("TAMBUR BORUSU Ø405(Ø415)/Ø358X1870(1900) ÇELİK ÇEKME DİKİŞSİZ", "Boru", 3, {
+    malzeme: "S355J2H",
+    malzemeler: ["S355J2H", "ST52"],
+    not: "Tedarikçi teyidi bekleniyor — sertifika EN 10204 3.1 istenecek, teslimatta çap toleransı kontrol edilecek.",
+    olculer: { icCapMm: 358, disCapMm: 415, boyMm: 1900 },
+    paylar: [
+      pay("0053-01", 1),
+      pay("0057-00", 1, { customer: "ASTOR" }),
+      pay("0043-00", 1, { customer: "MTC PASLANMAZ" }),
+    ],
+    isSayisi: 3,
+  }),
 ];
 
 const HAVUZ: TalepHavuzu = {

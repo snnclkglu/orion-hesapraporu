@@ -36,7 +36,9 @@ export function HammaddeNav() {
   const pathname = usePathname() ?? "";
   return (
     <nav
-      className="oc-scrollx flex items-center gap-2 overflow-x-auto overscroll-x-contain [--oc-scroll-bg:var(--background)]"
+      // RAY KAYMAZ, SARAR (16.08.2026 — üst rayın kuralı): beş sekme telefonda
+      // iki satıra iner, hepsi her an görünür.
+      className="flex flex-wrap items-center gap-2"
       aria-label="Hammadde ekranları"
     >
       {TABS.map((t) => {
