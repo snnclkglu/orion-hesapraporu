@@ -17,11 +17,13 @@ import {
   HOIST_AUTO_SELECTION_FIELDS,
   HOIST_INPUT_FIELDS,
   HOIST_SELECTION_FIELDS,
+  HOOKBLOCK_AUTO_SELECTION_FIELDS,
   TRAVEL_AUTO_FIELDS,
 } from "@/lib/calc/fields";
 import {
   deriveGirderInputs,
   deriveHoistInputs,
+  deriveHookBlockSelections,
   deriveTravelInputs,
   type GirderDeriveContext,
 } from "@/lib/calc/derive";
@@ -85,6 +87,8 @@ import {
   computeHookBlock,
   hookBlockDepsFromHoist,
   type HookBlockDeps,
+  type HookBlockInputs,
+  type HookBlockSelections,
 } from "@/lib/calc/modules/hookBlock";
 import {
   computeTravelGroup,
@@ -143,6 +147,8 @@ export interface AnyFieldDef {
   options?: readonly string[];
   /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
+  /** Seçenekleri alanın KENDİ kayıt nesnesinden türeten liste (kanca numarası) */
+  optionsFrom?: (source: Record<string, unknown>) => readonly string[];
   /** select değerleri sayısal alana yazılır */
   numeric?: boolean;
   /**
@@ -151,10 +157,11 @@ export interface AnyFieldDef {
    */
   allowCustom?: boolean;
   /**
-   * Modülün KENDİ girdilerine bağlı görünürlük (ör. ray altı T profil ölçüleri
-   * yalnız anahtar "Var" iken görünür). Bayrağı sunum katmanı koyar.
+   * Modülün KENDİ kayıt nesnesine bağlı görünürlük — girdi ızgarasında girdiler
+   * (ray altı T profil ölçüleri), katalog seçimi ızgarasında seçimler (lamel
+   * kancada DIN 15400 mukavemet sınıfı). Bayrağı sunum katmanı koyar.
    */
-  visibleWhen?: (inputs: Record<string, unknown>) => boolean;
+  visibleWhen?: (source: Record<string, unknown>) => boolean;
   /** Alanın görsel öbeği (başlık + renk, `field-groups.ts`) */
   fieldGroup?: FieldGroupKey;
   /** select seçeneklerinin gösterim etiketi */
@@ -468,6 +475,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
       rows: s.rows.map((r) => {
         const sub = r.subst;
         const valueFrom = r.valueFrom;
+        const vis = r.visible;
         const key = r.key;
         return {
           key,
@@ -482,6 +490,8 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
           read: (ctx: unknown) =>
             valueFrom ? valueFrom(ctx as HookBlockCtx) : (ctx as HookBlockCtx).c[key],
           subst: sub ? (ctx: unknown) => sub(ctx as HookBlockCtx) : undefined,
+          // DIN 15407 ölçü satırları yalnız lamel kanca seçiliyken basılır
+          visible: vis ? (ctx: unknown) => vis(ctx as HookBlockCtx) : undefined,
         };
       }),
     })),
@@ -1361,6 +1371,24 @@ export function withDerivedTravel(
   return { ...state, inputs: { ...inputs, ...patch } };
 }
 
+/**
+ * Kanca bloğunun otomatik alanı: "Kanca Tam Tanımı" metni. Anahtar GİRDİLERDE
+ * (`hookDesignationAuto`), türetilen değer SEÇİMLERDE durur — yiv boyunun
+ * (`drumGrooveLengthText`) birebir aynı düzeni.
+ */
+export function withDerivedHookBlock(state: ModuleState): ModuleState {
+  const inputs = state.inputs as HookBlockInputs;
+  const selections = state.selections as HookBlockSelections;
+  const d = deriveHookBlockSelections(inputs, selections);
+  if (d.hookDesignation === undefined || d.hookDesignation === selections.hookDesignation) {
+    return state;
+  }
+  return {
+    ...state,
+    selections: { ...selections, hookDesignation: d.hookDesignation },
+  };
+}
+
 /** Ana kirişin 7.2 / 7.3 otomatik katsayıları: ψhA, ψhK, γc. */
 export function withDerivedGirder(
   state: ModuleState,
@@ -1391,6 +1419,7 @@ export function withDerivedModule(
 ): ModuleState {
   if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
   if (isTravelKey(key)) return withDerivedTravel(state, specs, key);
+  if (isHookBlockKey(key)) return withDerivedHookBlock(state);
   if (key === "girder" || key === "girder2") {
     return withDerivedGirder(state, specs, girderDeriveContext(all, specs, key));
   }
@@ -1478,6 +1507,7 @@ export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefi
  */
 export function autoSelectionFlag(key: ModuleKey, fieldKey: string): string | undefined {
   if (isHoistKey(key)) return HOIST_AUTO_SELECTION_FIELDS[fieldKey];
+  if (isHookBlockKey(key)) return HOOKBLOCK_AUTO_SELECTION_FIELDS[fieldKey];
   return undefined;
 }
 

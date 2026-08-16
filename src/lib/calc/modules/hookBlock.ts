@@ -24,6 +24,15 @@ import {
   smallestHookNumber,
   type HookStrengthClass,
 } from "../hook-table";
+import {
+  din15407Row,
+  hookDesignationText,
+  hookStandardOf,
+  isLamellaHook,
+  smallestDin15407Key,
+  type Din15407Row,
+  type HookStandard,
+} from "../hook-standards";
 import { hoistReeving, hoistSpecView, type HoistInputs } from "./hoistGroup";
 import { HOIST_OF_HOOKBLOCK, type HookBlockKey } from "../presentation/module-family";
 import { deriveReeving } from "../reeving";
@@ -93,6 +102,28 @@ const FATIGUE_STEEL_COLUMN: Record<FatigueMaterial, "St37" | "St52"> = {
   S235JR: "St37",
   S355JR: "St52",
 };
+
+/**
+ * §4.2 — STANDART MAKARA ÇAPINA İNİŞ TOLERANSI [%] (FİRMA KABULÜ).
+ *
+ * FEM 1.001 T.4.2.3.1.1 minimum makara çapını `D_min = H · d` ile verir ve bu
+ * sayı yuvarlak çıkmaz: Ø28 halat ile H = 36'da D_min = 1008 mm eder. Makaralar
+ * ise standart bir çap serisinden imal edilir (tamburla AYNI seri) ve serideki
+ * bir sonraki basamak 1100'dür — 8 mm için bir boy büyüğe geçmek makarayı,
+ * yatağını, kanca bloğunu ve arabayı büyütür.
+ *
+ * Kullanıcı kararı (16.08.2026): *"%2'nin altında fark varsa aşağı yuvarlasın,
+ * yani 1000 mm makara uygun görünsün."* Bu bir standart maddesi DEĞİL bir
+ * FİRMA kabulüdür ve bu yüzden:
+ *   · sapma GÖRÜNÜR — kullanılan tolerans kendi hesap satırındadır,
+ *   · tolerans GERÇEKTEN kullanıldığında rapor ayrı bir kontrolle söyler,
+ *   · %2'yi aşan eksiklik hâlâ ENGELLEYİCİdir.
+ *
+ * Ölçek duygusu: 1008 → 1000 sapması %0,79'dur; 1100 → 1008 gibi bir boy atlama
+ * ise %9. Yani tolerans "bir boy küçüğe kaçmayı" değil yalnız SERİYE OTURMAYI
+ * mümkün kılar.
+ */
+export const SHEAVE_DIA_TOLERANCE_PCT = 2;
 
 /** Dinamik katsayı çifti: ψ = k + l · v_kaldırma */
 export interface DynamicFactorCoefficients {
@@ -219,15 +250,34 @@ export interface HookBlockInputs {
   notchClass: NotchClass;
   /** Kaldırma kirişi malzemesi (yorulma dayanımı bu malzemeden okunur) */
   fatigueMaterial: FatigueMaterial;
+  /**
+   * "Kanca Tanımı" kutusu otomatik doldurulsun mu (uygulamanın `*Auto` deseni).
+   * Anahtar GİRDİLERDE durur, türetilen metin SEÇİMLERE yazılır — yiv boyunun
+   * (`drumGrooveLengthAuto`) birebir aynı düzeni.
+   */
+  hookDesignationAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
 export interface HookBlockSelections {
-  /** Kanca tanımı (ör. "DIN 15401 Nr 10 S") */
+  /**
+   * Kancanın hangi standarda göre seçildiği — DIN 15401 / 15402 (dövme) ya da
+   * DIN 15407 / 15408 (lamel). Eski kayıtlarda yoktur; `hookStandardOf` onları
+   * DIN 15401 sayar (uygulamanın bugüne kadarki tek yolu).
+   */
+  hookStandard?: HookStandard;
+  /** Kanca tanımı (ör. "DIN 15401 Nr 10 S") — standart + numaradan türetilir */
   hookDesignation: string;
-  /** DIN 15400 kanca numarası (ör. "10") — taşıma kapasitesi tablodan gelir */
+  /**
+   * Kanca numarası. Dövme kancada DIN 15400 numarasıdır ("10"), lamel kancada
+   * standardın kendi adlandırmasıdır ("63x150" → "63 × 150"). Tek alandır:
+   * seçenek listesi seçilen standarda göre değişir (`hookNumberOptions`).
+   */
   hookNumber?: string;
-  /** DIN 15400 malzeme mukavemet sınıfı (M/P/S/T/V) */
+  /**
+   * DIN 15400 malzeme mukavemet sınıfı (M/P/S/T/V). YALNIZ dövme kancada
+   * anlamlıdır — lamel kancanın kapasitesi tablonun kendi satırındadır.
+   */
   hookStrengthClass?: HookStrengthClass;
   /** Tablo dışı kanca için elle girilen kapasite [kg] (yedek) */
   hookCapacityKg: number;
@@ -251,7 +301,15 @@ export interface HookBlockSelections {
 
 export interface HookBlockValues {
   // §4.1 Kanca
-  /** DIN 15400 Tablo 3'ten okunan taşıma kapasitesi [kg] (yoksa elle girilen) */
+  /** Çözülmüş kanca tanımı standardı (eksik kayıtlarda DIN 15401) */
+  hookStandard: HookStandard;
+  /** Kanca lamel (sac perçinli) mi — DIN 15407 / 15408 */
+  hookIsLamella: boolean;
+  /** Seçilen DIN 15407 satırı (lamel kanca değilse / tanınmayan boyda yok) */
+  lamellaRow?: Din15407Row;
+  /** Standart + numaradan türetilen tam tanım metni */
+  hookDesignationText: string;
+  /** Tablodan okunan taşıma kapasitesi [kg] (yoksa elle girilen) */
   hookCapacityKg: number;
   /** Kapasite tablodan mı geldi */
   hookCapacityFromTable: boolean;
@@ -261,7 +319,14 @@ export interface HookBlockValues {
   suggestedHookNumber?: string;
   // §4.2 Makaralar
   sheaveCoefficientH: number;
+  /** FEM'in istediği minimum makara çapı D_min = H · d [mm] */
   minSheaveDiaMm: number;
+  /** Standart çap toleransıyla kabul edilen alt sınır [mm] */
+  acceptedMinSheaveDiaMm: number;
+  /** Seçilen çap FEM sınırının ALTINDA ama tolerans bandının İÇİNDE mi */
+  sheaveDiaToleranceUsed: boolean;
+  /** FEM sınırına göre eksiklik [%] — sınırın üstündeyse ≤ 0 */
+  sheaveDiaShortfallPct: number;
   // §4.3 Makara rulmanları
   sheaveBearingRadialKn: number;
   sheaveBearingAxialKn: number;
@@ -518,43 +583,92 @@ export function computeHookBlock(
   const cells: Record<string, number | string> = {};
   const checks: AnyCheck[] = [];
 
-  // --- §4.1 Kanca (DIN 15400 Tablo 3) --------------------------------------
-  // Taşıma kapasitesi kanca numarası + malzeme mukavemet sınıfı + mekanizma
-  // grubu üçlüsüyle belirlenir. FEM M1–M8 sınıfı DIN 15020 grubuna çevrilir.
+  // --- §4.1 Kanca -----------------------------------------------------------
+  // Kapasitenin nereden okunduğunu KANCA TANIMI belirler:
+  //   · DIN 15401 / 15402 (dövme) → DIN 15400 Tablo 3, yani kanca numarası +
+  //     malzeme mukavemet sınıfı + mekanizma grubu üçlüsü. FEM M1–M8 sınıfı
+  //     DIN 15020 grubuna çevrilir.
+  //   · DIN 15407 (lamel)         → tablonun KENDİ satırı ("Tragfähigkeit t").
+  //     Lamel kancada mukavemet sınıfı ve mekanizma grubu kapasiteyi
+  //     DEĞİŞTİRMEZ; standart doğrudan "bu boy şu tonu kaldırır" der.
+  //   · DIN 15408 (çift ağızlı lamel) → tablo uygulamada YOK; kapasite elle
+  //     girilir ve rapor bunu açıkça söyler (aşağıdaki `bilgi` kontrolü).
+  const hookStandard = hookStandardOf(sel.hookStandard);
+  const hookIsLamella = isLamellaHook(hookStandard);
+  const lamellaRow = hookIsLamella ? din15407Row(sel.hookNumber) : undefined;
   const hookDinGroup = din15020Group(mech);
-  const tableCapacityKg =
-    sel.hookNumber && sel.hookStrengthClass
+  const tableCapacityKg = hookIsLamella
+    ? (lamellaRow ? lamellaRow.capacityT * 1000 : undefined)
+    : sel.hookNumber && sel.hookStrengthClass
       ? hookCapacityKg(sel.hookNumber, sel.hookStrengthClass, mech)
       : undefined;
   const hookCapacity = tableCapacityKg ?? sel.hookCapacityKg;
-  const suggestedHookNumber = sel.hookStrengthClass
-    ? smallestHookNumber(deps.loadKg, sel.hookStrengthClass, mech)
-    : undefined;
+  const suggestedHookNumber = hookIsLamella
+    ? smallestDin15407Key(deps.loadKg)
+    : sel.hookStrengthClass
+      ? smallestHookNumber(deps.loadKg, sel.hookStrengthClass, mech)
+      : undefined;
   cells["hook.capacity"] = hookCapacity;
+  // Lamel kancanın ölçüleri hesaba GİRMEZ ama ekipman listesine ve imalat
+  // resmine gider; raporda kendi satırlarıyla basılır (bkz. hookBlockSections).
+  if (lamellaRow) {
+    Object.assign(cells, {
+      "hook.a1": lamellaRow.a1,
+      "hook.a2": lamellaRow.a2,
+      "hook.b1": lamellaRow.b1,
+      "hook.b2": lamellaRow.b2,
+      "hook.d1": lamellaRow.d1,
+      "hook.g1": lamellaRow.g1,
+      "hook.l1": lamellaRow.l1,
+      "hook.l2": lamellaRow.l2,
+      "hook.s1": lamellaRow.s1,
+      "hook.plateCount": lamellaRow.plateCount,
+      "hook.craneCapacity": lamellaRow.craneCapacityT * 1000,
+    });
+  }
   checks.push({
     id: `${which}.hook.capacity`,
     label: "Kanca Taşıma Kapasitesi",
     required: deps.loadKg, provided: hookCapacity, unit: "kg", op: ">=",
     computedSide: "required",
     pass: hookCapacity >= deps.loadKg,
-    standard: "DIN 15400", kind: "standart", severity: "engelleyici",
+    standard: hookIsLamella ? "DIN 15407" : "DIN 15400",
+    kind: "standart", severity: "engelleyici",
   });
+  // Kapasitenin NEREDEN geldiği ayrı bir KONTROL değil bir HESAP SATIRIDIR
+  // (`hook.capacitySource`, hookBlockSections). Bir kontrol her koşulda
+  // üretilmelidir (anchors.guard); "kaynak" ise bir kabul/ret değil bir
+  // künyedir ve her zaman basılır — DIN 15408'de "elle girildi" der.
 
   // --- §4.2 Makaralar -------------------------------------------------------
+  // FEM'in istediği çap D_min = H · d'dir ve yuvarlak çıkmaz; makara ise
+  // standart bir çap serisinden imal edilir. Serinin bir alt basamağı D_min'in
+  // %2'sinden az aşağıdaysa o basamak kabul edilir (bkz. SHEAVE_DIA_TOLERANCE_PCT).
   const sheaveCoefficientH = sheaveCoefficient(mech); // FEM H katsayısı
   const minSheaveDiaMm = sheaveCoefficientH * deps.ropeDiaMm;
+  const acceptedMinSheaveDiaMm = minSheaveDiaMm * (1 - SHEAVE_DIA_TOLERANCE_PCT / 100);
+  const sheaveDiaPass = sel.sheaveDiaMm >= acceptedMinSheaveDiaMm;
+  // Tolerans GERÇEKTEN kullanıldı mı: FEM sınırının altında ama bandın içinde.
+  const sheaveDiaToleranceUsed = sheaveDiaPass && sel.sheaveDiaMm < minSheaveDiaMm;
+  const sheaveDiaShortfallPct =
+    minSheaveDiaMm > 0 ? ((minSheaveDiaMm - sel.sheaveDiaMm) / minSheaveDiaMm) * 100 : 0;
   Object.assign(cells, {
     "sheave.coefficient": sheaveCoefficientH,
     "sheave.minDia": minSheaveDiaMm,
+    "sheave.minDiaAccepted": acceptedMinSheaveDiaMm,
   });
   checks.push({
     id: `${which}.sheave.dia`,
-    label: "Makara Çapı (min H·d)",
-    required: minSheaveDiaMm, provided: sel.sheaveDiaMm, unit: "mm", op: ">=",
+    label: `Makara Çapı (min H·d, %${SHEAVE_DIA_TOLERANCE_PCT} standart çap toleransı)`,
+    required: acceptedMinSheaveDiaMm, provided: sel.sheaveDiaMm, unit: "mm", op: ">=",
     computedSide: "required",
-    pass: sel.sheaveDiaMm >= minSheaveDiaMm,
+    pass: sheaveDiaPass,
     standard: "FEM 1.001 T.4.2.3.1.1", kind: "standart", severity: "engelleyici",
   });
+  // Tolerans kullanıldığında SESSİZ KALINMAZ ama bu da ikinci bir KONTROL
+  // değildir: kontrol bir kabul/ret sorusudur ve "tolerans kullanıldı" bir
+  // olgudur. Rapor bunu `sheave.diaShortfall` satırıyla yazar — satır yalnız
+  // tolerans gerçekten kullanıldığında basılır (md. 18/3: yanlış alarm yok).
 
   // --- §4.3 Makara rulmanları ----------------------------------------------
   // Radyal yük halat kolundan gelir; eksenel yük halat sapma açısından doğan
@@ -952,12 +1066,19 @@ export function computeHookBlock(
   });
 
   const values: HookBlockValues = {
+    hookStandard,
+    hookIsLamella,
+    lamellaRow,
+    hookDesignationText: hookDesignationText(sel) ?? hookStandard,
     hookCapacityKg: hookCapacity,
     hookCapacityFromTable: tableCapacityKg !== undefined,
     hookDinGroup,
     suggestedHookNumber,
     sheaveCoefficientH,
     minSheaveDiaMm,
+    acceptedMinSheaveDiaMm,
+    sheaveDiaToleranceUsed,
+    sheaveDiaShortfallPct,
     sheaveBearingRadialKn: bearingRadialKn,
     sheaveBearingAxialKn: bearingAxialKn,
     sheaveBearingEqStaticKn: bearingEqStaticKn,

@@ -32,6 +32,11 @@ import {
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
 import { HOIST_SECTIONS } from "@/lib/calc/presentation/hoistSections";
 import { HOOKBLOCK_SECTIONS } from "@/lib/calc/presentation/hookBlockSections";
+import {
+  din15407Row,
+  hookStandardOf,
+  isLamellaHook,
+} from "@/lib/calc/hook-standards";
 import { TRAVEL_SECTIONS } from "@/lib/calc/presentation/travelSections";
 import { CABIN_SECTIONS } from "@/lib/calc/presentation/cabinSections";
 import {
@@ -494,6 +499,16 @@ function hookBlockRows(
 ): EqRow[] {
   const sel = m.selections;
   const rk = (slug: string) => `${moduleKey}:${slug}`;
+  // Kancanın kapasitesi hangi standarttan okunuyorsa özellik satırı ONU yazar.
+  // Lamel kancada ölçüler de sipariş bilgisidir: ağız yarıçapı ve lamel adedi
+  // olmadan satır hangi kancanın ısmarlanacağını söylemez.
+  const lamella = din15407Row(sel.hookNumber);
+  const hookSpec = lamella
+    ? `kapasite ${fmt(lamella.capacityT * 1000)} kg · a₁ ${fmt(lamella.a1)} mm · ` +
+      `${fmt(lamella.plateCount)} lamel × ${fmt(lamella.s1)} mm (DIN 15407)`
+    : `kapasite ${fmt(sel.hookCapacityKg)} kg (${
+        isLamellaHook(sel.hookStandard) ? hookStandardOf(sel.hookStandard) : "DIN 15400"
+      })`;
   return [
     {
       rowKey: rk("hook"),
@@ -501,7 +516,7 @@ function hookBlockRows(
       component: "Kanca",
       brand: "-",
       model: textOr(sel.hookDesignation),
-      spec: `kapasite ${fmt(sel.hookCapacityKg)} kg (DIN 15400)`,
+      spec: hookSpec,
       qty: 1,
     },
     {

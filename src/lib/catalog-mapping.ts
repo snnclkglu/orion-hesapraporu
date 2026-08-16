@@ -925,14 +925,14 @@ const CABIN_MAP: Record<string, SectionCatalogMapping> = {
 
 /** Kanca bloğu (4.x) */
 const HOOKBLOCK_MAP: Record<string, SectionCatalogMapping> = {
-  // 4.1 Kanca — kapasite DIN 15400 Tablo 3'ten türetilir, katalog yalnız
-  // tanım ve kanca numarasını doldurur.
+  // 4.1 Kanca — kapasite DIN 15400 Tablo 3'ten türetilir, katalog yalnız kanca
+  // NUMARASINI doldurur. Tanım metni (`hookDesignation`) katalogdan YAZILMAZ:
+  // o alan artık seçilen standart + numaradan türetilir (`hookDesignationAuto`)
+  // ve katalogdan yazılan model dizesi bir sonraki türetme turunda zaten
+  // eziliyordu — çalışmayan bir eşleme, çalışıyor gibi durur.
   "4.1": {
     kind: "hook",
-    fields: [
-      { sel: "hookDesignation", from: "model" },
-      { sel: "hookNumber", from: { attr: "hook_nr" } },
-    ],
+    fields: [{ sel: "hookNumber", from: { attr: "hook_nr" } }],
   },
   // 4.2 Makaralar
   "4.2": {

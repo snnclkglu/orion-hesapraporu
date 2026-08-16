@@ -54,7 +54,9 @@ dayandırır:
   makara/tekerlek/rulman seçimi, plaka burkulması; **Kitapçık 9** ile
   güncellenen dinamik katsayı φ2 (md. 9.3) ve savrulma modeli (md. 9.4.1)
 - **DIN 15018** — çelik yapı yorulması (Tablo 17/18, Tablo 2 dinamik katsayı)
-- **DIN 15400 / 15401 / 15402** — kanca taşıma kapasiteleri
+- **DIN 15400 / 15401 / 15402** — dövme kanca taşıma kapasiteleri
+- **DIN 15407 / 15408** — lamel (sac perçinli) kanca; kapasite ve ana ölçüler
+  standardın kendi satırındadır (bkz. md. 8e)
 - **DIN 15061** — halat yivi adımı
 - **CMAA 70** — motor gücü, mil gerilmeleri, sehim sınırı
 
@@ -188,6 +190,8 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    - `reeving.ts` — halat donanımının tek gerçek kaynağı (mekanik avantaj,
      halat verimi, kanca bloğu makara sayısı, rulman adedi)
    - `hook-table.ts` — DIN 15400 Tablo 3 (kanca no × malzeme sınıfı × grup)
+   - `hook-standards.ts` — KANCA TANIMI (15401/15402/15407/15408), DIN 15407
+     Tablo 1 ana ölçüleri ve tanım metninin kurulması (md. 8e)
    - `safety-brake.ts` — tambur emniyet freni: SIBRE SHI kaliper kataloğu
      (FA / hava aralığı, x ölçüsü, disk çapı sınırları) + tork ve minimum flanş
      çapı bağıntıları. Gereken moment BURADA hesaplanmaz; kaldırma modülünün
@@ -2905,6 +2909,80 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    Alan adları `mid`/`thick` KALDI (yeniden adlandırmak kayıtlı sac ölçülerini
    şablona düşürürdü); değişen yalnız ekrandaki addır. Yorulma AYRI bölümdedir
    (§4.7). Üç şema: görünüş · moment diyagramı · iki kesit (AYNI ölçekte).
+
+8e. **KANCA TANIMI BİR SEÇİMDİR ve kapasitenin nereden okunacağını O belirler**
+   (§4.1, `lib/calc/hook-standards.ts`; kullanıcı kararı 16.08.2026:
+   *"Kanca bölümünde kanca tanımını seçebileceğim bölüm istiyorum. DIN 15401,
+   DIN 15402 ve DIN 15407 Lamel Kanca seçenekleri olsun"* + *"Tek lamel mi çift
+   lamel mi bilgisi de gerekir, bazı vinçlerde çift lamel oluyor"*). Dört tanım,
+   ikişerli iki çift:
+
+       DIN 15401  tek ağızlı dövme kanca   ┐ kapasite DIN 15400 Tablo 3'ten
+       DIN 15402  çift ağızlı dövme kanca  ┘ (kanca no + mukavemet sınıfı + grup)
+       DIN 15407  tek ağızlı LAMEL kanca   ┐ kapasite tablonun KENDİ satırında
+       DIN 15408  çift ağızlı LAMEL kanca  ┘ ("Tragfähigkeit t")
+
+   **LAMEL KANCADA MUKAVEMET SINIFI SORULMAZ** ve mekanizma grubu kapasiteyi
+   DEĞİŞTİRMEZ: sac perçinli kancanın satırı doğrudan "bu boy şu tonu kaldırır"
+   der. Kutu bu yüzden gizlenir — `FieldDef.visibleWhen` artık SEÇİM
+   ızgarasında da geçerlidir (kaynak modülün KENDİ seçimleri) ve süzgeç PDF
+   raporunda da uygulanır; basılmayan bir kutu, seçilmemiş bir kutu değil O
+   BÖLÜMÜN SORUSU OLMAYAN bir kutudur. (Girdi ızgarasının PDF süzgeci
+   DEĞİŞMEDİ.)
+
+   **KANCA NUMARASI TEK ALANDIR, listesi tanıma göre değişir**
+   (`FieldDef.optionsFrom` — `optionsFor`dan ayrıdır, o teknik özellikleri
+   okur, bu alanın KENDİ kayıt nesnesini). Dövme kancada DIN 15400 numarası
+   ("10"), lamel kancada standardın kendi adlandırması ("63x150" → "63 × 150").
+   İki ayrı kutu, biri her zaman boş duran bir ekran demekti.
+
+   **DIN 15407 ANAHTARI KAPASİTE + AĞIZ YARIÇAPIDIR.** Tabloda 25 · 40 · 63 ·
+   100 · 160 · 250 t'nin İKİŞER satırı var ve ikisi farklı a₁ ile farklı
+   kancalardır; standart da kancayı tam bu yüzden "Lamellenhaken DIN 15407 —
+   63 × 150" diye adlandırır. Yalnız tonajla anahtarlamak altı satırı sessizce
+   düşürürdü. **VİNÇ KAPASİTESİ KANCANINKİ DEĞİLDİR** — tablonun son sütunu
+   ("Tragfähigkeit der zugeordneten Gießkrane") kancanın takıldığı döküm
+   vincinin kapasitesidir ve kancanınkinin (R10 serisine oturtulmuş) İKİ
+   KATIDIR: pota iki kancaya asılır. İkisini karıştırmak kancayı iki kat büyük
+   seçtirir.
+
+   **ÖLÇÜLEN SAPMA:** g₁, a₁ = 250 satırında standardın taranmış sayfası **550**
+   yazar, kullanıcının elindeki yeniden dizilmiş tabloda 560 görünüyor. Kaynak
+   standardın kendi baskısı esas alındı ("hesap yöntemi standartlara dayanır,
+   bir tabloya değil"); diğer 219 hücre iki kaynakta da aynıdır.
+
+   **DIN 15408 TABLOSU YOKTUR ve UYDURULMAZ.** Standart seçilebilir (mühendis
+   kancanın çift ağızlı olduğunu rapora yazabilir), kapasite ELLE girilir ve
+   `hook.capacitySource` satırı bunu açıkça yazar. Bu bir KONTROL değil bir
+   KÜNYEdir: kontrol her koşulda üretilmelidir (`anchors.guard`), "kaynak" ise
+   bir kabul/ret değil bir olgudur ve her zaman basılır.
+
+   **KANCA TAM TANIMI TÜRETİLİR** (`hookDesignationText` + `hookDesignationAuto`,
+   yiv boyunun `drumGrooveLengthAuto` düzeninin aynısı: anahtar GİRDİLERDE,
+   değer SEÇİMLERDE). Üç kutunun (tanım · numara · sınıf) elle tutarlı
+   tutulması, birinin ötekilerle çelişmesinin en kısa yoluydu. Anahtar
+   `revision-load` AUTO_FLAGS listesindedir → eski revizyonlarda kapalı sayılır
+   ve teslim edilmiş bir raporun kanca tanımı değişmez. Katalog eşlemesi artık
+   `hookDesignation` YAZMAZ (yazsa bir sonraki türetme turunda zaten
+   eziliyordu — çalışmayan bir eşleme, çalışıyor gibi durur).
+
+   **MAKARA ÇAPI TAMBURLA AYNI STANDART SERİDEN SEÇİLİR** (§4.2, kullanıcı
+   kararı 16.08.2026) ve **%2'LİK BİR İNİŞ TOLERANSI vardır**
+   (`SHEAVE_DIA_TOLERANCE_PCT`, FİRMA kabulü). Gerekçe kullanıcının kendi
+   örneğidir: D_min = H · d = 1008 mm çıkar, seride 1000 var ve sonraki basamak
+   1100'dür — 8 mm (%0,79) için bir boy büyüğe geçmek makarayı, yatağını, kanca
+   bloğunu ve arabayı büyütür. Üç kelepçe:
+   · Kontrol TOLERANSLI sınırla karşılaştırır (`sheave.minDiaAccepted`) ve
+     bağlantı o satırı gösterir — ekranda "1000 ≥ 1008 → UYGUN" gibi kendi
+     kendiyle çelişen bir satır çıkmaz.
+   · **%2'yi AŞAN eksiklik hâlâ ENGELLEYİCİdir**; tolerans "bir boy küçüğe
+     kaçmayı" değil yalnız SERİYE OTURMAYI mümkün kılar (bir boy atlama ~%9).
+   · Tolerans GERÇEKTEN kullanıldığında sapma kendi satırıyla yazılır
+     (`sheave.diaShortfall`, yalnız o hâlde görünür — FEM sınırının üstünde
+     seçilmiş bir makarada "eksiklik −%9" bir yanlış alarmdır, md. 18/3).
+   Liste yine bir ÖNERİDİR (`allowCustom`): ara bir çap elle yazılabilir.
+   **Tolerans TAMBUR çapına UYGULANMADI** — orada böyle bir istek yok ve bir
+   emniyet sınırını istenmeden gevşetmek bu dosyanın en pahalı hatası olurdu.
 
 9. **Ağırlıklar teknik özelliktir.** Ana araba, yardımcı araba ve köprü
    ağırlıkları `TechnicalSpecs`te tutulur; yürütme, ana kiriş ve başkiriş

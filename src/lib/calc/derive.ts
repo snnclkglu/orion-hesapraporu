@@ -8,12 +8,14 @@
 // düzenlenmek istenirse anahtar kapatılıp serbest bırakılabilir.
 
 import { drumGrooveRequirement, drumShaftGeometry, hoistReeving } from "./modules/hoistGroup";
+import { hookDesignationText } from "./hook-standards";
 import { commonReevingByLabel } from "./reeving";
 import {
   STRUCTURE_AMPLIFY_FACTOR,
   horizontalDynamicFactor,
 } from "./modules/mainGirder";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
+import type { HookBlockInputs, HookBlockSelections } from "./modules/hookBlock";
 import type { GirderInputs } from "./modules/mainGirder";
 import type { TravelInputs } from "./modules/travelGroup";
 import type { MechanismClass, TechnicalSpecs } from "./types";
@@ -164,6 +166,32 @@ export function deriveHookBlockWeightKg(capacityT: number): number | undefined {
     HOOK_BLOCK_WEIGHT_ROUND_KG,
     Math.round(raw / HOOK_BLOCK_WEIGHT_ROUND_KG) * HOOK_BLOCK_WEIGHT_ROUND_KG
   );
+}
+
+// ------------------------------------------------------- Kancanın tam tanımı
+
+/**
+ * "Kanca Tam Tanımı" kutusu — seçilen standart ile kanca numarasından türetilir
+ * (`hookDesignationText`). Üç kutunun (tanım · numara · mukavemet sınıfı) elle
+ * tutarlı tutulması, birinin diğerleriyle çelişmesinin en kısa yoluydu.
+ *
+ * Anahtar kapalıysa (`hookDesignationAuto === false`) mühendisin yazdığı metin
+ * korunur — uygulamanın `*Auto` deseni. Kayıtlı eski revizyonlarda anahtar HİÇ
+ * YOKTUR ve `revision-load` onları kapalı sayar, yani teslim edilmiş bir
+ * raporun kanca tanımı değişmez.
+ */
+export interface HookBlockDerivation {
+  /** Otomatik üretilen tam tanım metni (anahtar kapalıysa undefined) */
+  hookDesignation?: string;
+}
+
+export function deriveHookBlockSelections(
+  inputs: Pick<HookBlockInputs, "hookDesignationAuto">,
+  selections: HookBlockSelections
+): HookBlockDerivation {
+  if (!inputs.hookDesignationAuto) return {};
+  const text = hookDesignationText(selections);
+  return text === undefined ? {} : { hookDesignation: text };
 }
 
 // ---------------------------------------------------------- Sıcaklık faktörü

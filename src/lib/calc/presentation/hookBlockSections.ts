@@ -9,11 +9,13 @@
 // haritasında karşılığı olmayan (girdi/bağımlılık yankısı olan) satırlar
 // değerini `valueFrom` ile doğrudan bağlamdan okur.
 
-import type {
-  HookBlockDeps,
-  HookBlockInputs,
-  HookBlockSelections,
-  HookBlockValues,
+import { din15407Label, din15407Row, type Din15407Row } from "../hook-standards";
+import {
+  SHEAVE_DIA_TOLERANCE_PCT,
+  type HookBlockDeps,
+  type HookBlockInputs,
+  type HookBlockSelections,
+  type HookBlockValues,
 } from "../modules/hookBlock";
 import type { TechnicalSpecs } from "../types";
 
@@ -41,6 +43,14 @@ export interface HookBlockRowDef {
   unit?: string;
   digits?: number;
   standard?: string;
+  /** Ölçü bir ÇAPTIR — değerin başına "Ø" konur (arayüz + PDF, `withDiameterSign`) */
+  diameter?: true;
+  /**
+   * Satır yalnız bu koşul sağlandığında basılır (arayüz + PDF ortak).
+   * DIN 15407 lamel kancanın on bir ölçü satırı, dövme kanca seçili bir raporda
+   * "—" dolu bir blok olurdu.
+   */
+  visible?: (ctx: HookBlockCtx) => boolean;
 }
 
 export interface HookBlockSectionDef {
@@ -70,15 +80,84 @@ const n = (v: number | string | undefined, d = 2): string => {
 };
 const num = (v: number | string | undefined): number => (typeof v === "number" ? v : NaN);
 
+/** "63x150" → "63 × 150" (tabloda yoksa anahtarın kendisi). */
+function lamellaLabel(key: string): string {
+  const row = din15407Row(key);
+  return row ? din15407Label(row) : key;
+}
+
+/**
+ * DIN 15407 Tablo 1'in ana ölçü satırları.
+ *
+ * Sütun adları standardın kendi sembolleridir; etiketler o sembolle BAŞLAR
+ * (`a₂ · Ağız Genişliği`) — mühendis raporu standardın sayfasıyla yan yana
+ * okur ve sembol sütunu tek bakışta taranır (alan öbeği kuralının aynısı).
+ */
+function din15407Rows(): HookBlockRowDef[] {
+  const dims: {
+    key: string;
+    label: string;
+    unit?: string;
+    diameter?: true;
+    pick: (r: Din15407Row) => number;
+  }[] = [
+    { key: "hook.a1", label: "a₁ · Ağız Yarıçapı", unit: "mm", pick: (r) => r.a1 },
+    { key: "hook.a2", label: "a₂ · Ağız Genişliği", unit: "mm", pick: (r) => r.a2 },
+    { key: "hook.b1", label: "b₁ · Lamel Paketi Kalınlığı", unit: "mm", pick: (r) => r.b1 },
+    { key: "hook.b2", label: "b₂ · Paketin Dış Genişliği", unit: "mm", pick: (r) => r.b2 },
+    { key: "hook.d1", label: "d₁ · Askı Deliği Çapı (E9)", unit: "mm", diameter: true, pick: (r) => r.d1 },
+    { key: "hook.g1", label: "g₁ · Üst Lamel Genişliği", unit: "mm", pick: (r) => r.g1 },
+    { key: "hook.l1", label: "l₁ · Toplam Boy", unit: "mm", pick: (r) => r.l1 },
+    { key: "hook.l2", label: "l₂ · Üst Delik Ekseninden Boy", unit: "mm", pick: (r) => r.l2 },
+    { key: "hook.s1", label: "s₁ · Tek Lamel Kalınlığı", unit: "mm", pick: (r) => r.s1 },
+    { key: "hook.plateCount", label: "Ana Lamel Adedi", pick: (r) => r.plateCount },
+  ];
+  const rows: HookBlockRowDef[] = dims.map((d) => ({
+    key: d.key,
+    label: d.label,
+    unit: d.unit,
+    diameter: d.diameter,
+    formula: "DIN 15407 Tablo 1",
+    valueFrom: (x) => (x.v.lamellaRow ? d.pick(x.v.lamellaRow) : "—"),
+    subst: (x) => `${x.v.hookDesignationText}`,
+    standard: "DIN 15407",
+    visible: (x) => x.v.lamellaRow !== undefined,
+  }));
+  rows.push({
+    key: "hook.craneCapacity",
+    // Standardın son sütunu: bu kanca HANGİ vincin kancasıdır. Kancanın kendi
+    // kapasitesiyle KARIŞTIRILMAZ — pota iki kancaya asılır, o yüzden vincin
+    // kapasitesi kancanınkinin iki katıdır.
+    label: "Bağlı Olduğu Döküm Vincinin Kapasitesi",
+    unit: "kg",
+    formula: "DIN 15407 Tablo 1 (Tragfähigkeit der zugeordneten Gießkrane)",
+    valueFrom: (x) => (x.v.lamellaRow ? x.v.lamellaRow.craneCapacityT * 1000 : "—"),
+    subst: (x) =>
+      x.v.lamellaRow
+        ? `${n(x.v.lamellaRow.capacityT)} t kanca → ${n(x.v.lamellaRow.craneCapacityT)} t vinç`
+        : "—",
+    standard: "DIN 15407",
+    visible: (x) => x.v.lamellaRow !== undefined,
+  });
+  return rows;
+}
+
 export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
   {
     id: "4.1",
     title: "Kanca",
-    description: "DIN 15400/15401 kanca seçimi.",
+    description:
+      "Kanca tanımı ve seçimi. Dövme kancada (DIN 15401 tek ağızlı, DIN 15402 " +
+      "çift ağızlı) taşıma kapasitesi DIN 15400 Tablo 3'ten kanca numarası + " +
+      "malzeme mukavemet sınıfı + mekanizma grubu üçlüsüyle okunur. LAMEL " +
+      "KANCADA (DIN 15407 tek ağızlı, DIN 15408 çift ağızlı) kapasite " +
+      "standardın kendi satırındadır ve mukavemet sınıfına bağlı değildir; " +
+      "DIN 15407'nin ana ölçüleri de aşağıda listelenir.",
     equipmentSlugs: ["hook"],
     inputKeys: [],
     selectionKeys: [
-      "hookDesignation", "hookNumber", "hookStrengthClass", "hookCapacityKg",
+      "hookStandard", "hookDesignation", "hookNumber", "hookStrengthClass",
+      "hookCapacityKg",
     ],
     rows: [
       {
@@ -88,36 +167,87 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         subst: (x) => `${n(x.deps.loadKg)}`, unit: "kg",
       },
       {
+        key: "hook.standard",
+        label: "Kanca Tanımı",
+        formula: "standart + boy",
+        // Satır standardın ADINI zaten yazıyor; ayrıca sabit bir rozet koymak
+        // seçim değiştiğinde YANLIŞ tabloya bağlanırdı (rozet dinamik değildir).
+        valueFrom: (x) => x.v.hookDesignationText,
+      },
+      {
         key: "hook.dinGroup",
         label: "Mekanizma Grubu (DIN 15020 Karşılığı)",
         formula: "grup = f(FEM sınıfı)",
         valueFrom: (x) => `${x.specs.hoistMechanismClass} → ${x.v.hookDinGroup}`,
         standard: "DIN 15400",
+        // Lamel kancanın kapasitesi çalışma grubuna bağlı değildir; satırı
+        // basmak "bu sayı kapasiteyi belirledi" izlenimi verirdi.
+        visible: (x) => !x.v.hookIsLamella,
       },
       {
         key: "hook.capacity",
         label: "Kanca Taşıma Kapasitesi",
-        formula: "Q_kanca = T3(kanca no, malzeme sınıfı, mekanizma grubu)",
+        formula: "Q_kanca = f(kanca tanımı, kanca no)",
         subst: (x) =>
-          x.v.hookCapacityFromTable
-            ? `Nr ${x.sel.hookNumber} / ${x.sel.hookStrengthClass} / ${x.v.hookDinGroup} → ${n(x.v.hookCapacityKg)}`
-            : `${x.sel.hookDesignation} → ${n(x.v.hookCapacityKg)} (elle)`,
-        unit: "kg", standard: "DIN 15400",
+          !x.v.hookCapacityFromTable
+            ? `${x.v.hookDesignationText} → ${n(x.v.hookCapacityKg)} (elle)`
+            : x.v.lamellaRow
+              ? `${x.v.hookDesignationText} → ${n(x.v.lamellaRow.capacityT)} t`
+              : `Nr ${x.sel.hookNumber} / ${x.sel.hookStrengthClass} / ${x.v.hookDinGroup} → ${n(x.v.hookCapacityKg)}`,
+        // Rozet SABİT olduğu için burada verilmez: kapasite dövme kancada
+        // DIN 15400'den, lamel kancada DIN 15407'den okunur ve satır hangisi
+        // olduğunu değerinde yazar. Doğru standardı kontrolün kendi rozeti
+        // (dinamik) ve aşağıdaki ölçü satırları taşır.
+        unit: "kg",
+      },
+      {
+        // Kapasite hangi defterden okundu — bir kontrol değil bir KÜNYE, o
+        // yüzden her koşulda basılır. DIN 15408'de (tablosu uygulamada yok)
+        // "elle girildi" der; sessizlik, kapasitenin bir standarttan okunduğu
+        // izlenimini verirdi.
+        key: "hook.capacitySource",
+        label: "Kapasitenin Kaynağı",
+        formula: "standardın tablosu ya da elle giriş",
+        valueFrom: (x) =>
+          !x.v.hookCapacityFromTable
+            ? x.v.hookStandard === "DIN 15408"
+              ? "Elle girildi — DIN 15408 tablosu uygulamada yok"
+              : "Elle girildi (tablo dışı kanca)"
+            : x.v.hookIsLamella
+              ? "DIN 15407 Tablo 1"
+              : "DIN 15400 Tablo 3",
       },
       {
         key: "hook.suggestedNumber",
         label: "Bu Yükü Taşıyan En Küçük Kanca",
-        formula: "en küçük Nr (DIN 15400 Tablo 3)",
-        valueFrom: (x) => x.v.suggestedHookNumber ?? "—",
-        standard: "DIN 15400",
+        formula: "en küçük boy (standardın tablosu)",
+        // Öneri LAMEL kancada standardın adlandırmasıyla yazılır ("63 × 150");
+        // ham anahtar ("63x150") sipariş yazışmasına giren bir ad değildir.
+        // Koşul seçili SATIRA değil kancanın TÜRÜNE bakar: numara henüz
+        // seçilmemişken de öneri lamel boyudur.
+        valueFrom: (x) =>
+          x.v.suggestedHookNumber
+            ? (x.v.hookIsLamella ? lamellaLabel(x.v.suggestedHookNumber) : x.v.suggestedHookNumber)
+            : "—",
       },
+      // --- DIN 15407 ana ölçüleri (standardın Tablo 1 satırı) ----------------
+      // Ölçüler HESABA GİRMEZ; imalat resmine ve ekipman listesine giderler ve
+      // mühendisin kancayı sipariş ederken okuduğu sayılardır. Satırlar yalnız
+      // tabloda karşılığı bulunan bir lamel kanca seçiliyken basılır.
+      ...din15407Rows(),
     ],
     checkSuffixes: ["hook.capacity"],
   },
   {
     id: "4.2",
     title: "Makaralar",
-    description: "Minimum makara çapı (FEM H katsayısı) ve makara seçimi.",
+    description:
+      "Minimum makara çapı (FEM H katsayısı) ve makara seçimi. Makara, tambur " +
+      "ile AYNI standart çap serisinden seçilir; FEM'in istediği D_min = H·d " +
+      "yuvarlak çıkmadığı için serinin bir alt basamağı D_min'in %" +
+      `${SHEAVE_DIA_TOLERANCE_PCT}` +
+      "'sinden az aşağıdaysa kabul edilir (firma kabulü) ve tolerans " +
+      "kullanıldığında rapor bunu ayrıca yazar.",
     equipmentSlugs: ["sheave"],
     inputKeys: [],
     selectionKeys: ["sheaveDiaMm"],
@@ -137,7 +267,30 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
       {
         key: "sheave.minDia", label: "Minimum Makara Çapı", formula: "D_min = H · d",
         subst: (x) => `${n(num(x.c["sheave.coefficient"]))} · ${n(x.deps.ropeDiaMm)}`,
-        unit: "mm", standard: "FEM 1.001 T.4.2.3.1.1",
+        unit: "mm", diameter: true, standard: "FEM 1.001 T.4.2.3.1.1",
+      },
+      {
+        // Standart çap serisine oturmayı mümkün kılan alt sınır. Satır HER
+        // ZAMAN basılır (tolerans kullanılmasa da): kontrolün karşılaştırdığı
+        // sayının nereden geldiği raporda görünmeden okunamaz.
+        key: "sheave.minDiaAccepted",
+        label: `Kabul Edilen En Küçük Çap (%${SHEAVE_DIA_TOLERANCE_PCT} Standart Çap Toleransı)`,
+        formula: `D_kabul = D_min · (1 − ${SHEAVE_DIA_TOLERANCE_PCT} / 100)`,
+        subst: (x) =>
+          `${n(num(x.c["sheave.minDia"]))} · ${n(1 - SHEAVE_DIA_TOLERANCE_PCT / 100)}`,
+        unit: "mm", diameter: true,
+      },
+      {
+        key: "sheave.diaShortfall",
+        label: "Seçilen Çapın FEM Sınırından Eksikliği",
+        formula: "Δ = (D_min − D_seçilen) / D_min",
+        valueFrom: (x) => x.v.sheaveDiaShortfallPct,
+        subst: (x) =>
+          `(${n(x.v.minSheaveDiaMm)} − ${n(x.sel.sheaveDiaMm)}) / ${n(x.v.minSheaveDiaMm)}`,
+        unit: "%", digits: 2,
+        // Yalnız tolerans GERÇEKTEN kullanıldığında basılır: FEM sınırının
+        // üstünde seçilmiş bir makarada "eksiklik −%9" satırı gürültüdür.
+        visible: (x) => x.v.sheaveDiaToleranceUsed,
       },
     ],
     checkSuffixes: ["sheave.dia"],

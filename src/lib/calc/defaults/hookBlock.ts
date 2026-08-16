@@ -37,9 +37,14 @@ export const V5_HOOKBLOCK_INPUTS: HookBlockInputs = {
   loadGroup: "B6",                // yorulma yük grubu
   notchClass: "K3",               // kaynak / çentik sınıfı
   fatigueMaterial: "S235JR",      // kaldırma kirişi malzemesi
+  // Kancanın tam tanımı standart + numaradan türetilir; mühendis anahtarı
+  // kapatıp elle yazabilir. Eski revizyonlarda anahtar hiç yoktur ve
+  // `revision-load` onları kapalı sayar (teslim edilmiş tanım değişmesin).
+  hookDesignationAuto: true,
 };
 
 export const V5_HOOKBLOCK_SELECTIONS: HookBlockSelections = {
+  hookStandard: "DIN 15401",      // tek ağızlı dövme kanca
   hookDesignation: "DIN 15401 Nr 10 S",
   hookNumber: "10",               // DIN 15400 kanca no
   hookStrengthClass: "S",         // DIN 15400 mukavemet sınıfı

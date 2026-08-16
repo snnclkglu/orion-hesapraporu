@@ -34,6 +34,14 @@ export interface FieldDef<T> {
   options?: readonly string[];
   /** Teknik özellik seçimlerine göre değişen select seçenekleri. */
   optionsFor?: (specs: TechnicalSpecs) => readonly string[];
+  /**
+   * Seçenekleri ALANIN KENDİ KAYIT NESNESİNDEN türeten liste — `optionsFor`dan
+   * ayrıdır, o teknik özellikleri okur. Aynı ızgaradaki komşu bir alanın değeri
+   * listeyi belirliyorsa kullanılır: kanca numarası, seçilen kanca tanımına
+   * göre ya DIN 15400 numaralarını ya DIN 15407 lamel boylarını gösterir.
+   * `options` yine verilir — o, liste türetilemediğinde düşülecek tabandır.
+   */
+  optionsFrom?: (source: Record<string, unknown>) => readonly string[];
   /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
   numeric?: boolean;
   /**
@@ -65,12 +73,18 @@ export interface FieldDef<T> {
   /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
   visible?: (specs: TechnicalSpecs) => boolean;
   /**
-   * MODÜLÜN KENDİ GİRDİLERİNE bağlı görünürlük — `visible`den ayrıdır, o
+   * MODÜLÜN KENDİ KAYIT NESNESİNE bağlı görünürlük — `visible`den ayrıdır, o
    * teknik özellikleri okur. Bir anahtarın açtığı alanlarda kullanılır (ray
    * altı T profil ölçüleri gibi): anahtar kapalıyken kutular gizlenir ama
    * DEĞERLERİ KORUNUR, sıfırlanmaz.
+   *
+   * Kaynak, alanın YAZILDIĞI nesnedir: girdi ızgarasında modülün girdileri,
+   * katalog seçimi ızgarasında modülün seçimleri (DIN 15407 lamel kanca
+   * seçiliyken DIN 15400 mukavemet sınıfı kutusu gibi). SEÇİM alanlarında
+   * kural PDF raporunda da uygulanır — basılmayan bir kutu, seçilmemiş bir
+   * kutu değildir, o bölümün sorusu değildir.
    */
-  visibleWhen?: (inputs: Record<string, unknown>) => boolean;
+  visibleWhen?: (source: Record<string, unknown>) => boolean;
   /**
    * Ölçü bir ÇAPTIR — gösterilen değerin başına "Ø" konur ("Ø 400 mm").
    * Etikete yazılmaz; işaret ölçünün kendisine aittir. Arayüz ve PDF aynı
@@ -917,6 +931,15 @@ export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
  */
 export const HOIST_AUTO_SELECTION_FIELDS: Record<string, keyof HoistInputs & string> = {
   drumGrooveLengthText: "drumGrooveLengthAuto",
+};
+
+/**
+ * Otomatik doldurulabilen KANCA BLOĞU katalog seçimi alanı: kancanın tam
+ * tanımı, seçilen standart + kanca numarasından türetilir. Anahtar yine
+ * girdilerdedir (`HookBlockInputs.hookDesignationAuto`).
+ */
+export const HOOKBLOCK_AUTO_SELECTION_FIELDS: Record<string, string> = {
+  hookDesignation: "hookDesignationAuto",
 };
 
 /**

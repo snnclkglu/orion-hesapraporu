@@ -61,7 +61,9 @@ const HOIST_ANCHORS: AnchorMap = {
 /** 04 — Kanca Bloğu */
 const HOOKBLOCK_ANCHORS: AnchorMap = {
   "4.1": { "hook.capacity": "hook.capacity" },
-  "4.2": { "sheave.dia": "sheave.minDia" },
+  // Kontrolün karşılaştırdığı sayı FEM'in ham D_min'i DEĞİL, standart çap
+  // toleransıyla kabul edilen alt sınırdır; bağlantı o satırı göstermelidir.
+  "4.2": { "sheave.dia": "sheave.minDiaAccepted" },
   "4.3": {
     "sheaveBearing.static": "sheaveBearing.equivalentStatic",
     "sheaveBearing.life": "sheaveBearing.requiredLifeMin",

@@ -305,6 +305,8 @@ const AUTO_FLAGS = [
   "tempFactorAuto",
   "drumGrooveLengthAuto",
   "drumWeightAuto",
+  // Kanca bloğu
+  "hookDesignationAuto",
   // Yürütme grubu
   "travelApplicationClassAuto",
   "serviceFactorKsAuto",

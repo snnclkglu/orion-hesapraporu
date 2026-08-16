@@ -325,7 +325,15 @@ function Field({
       {def.type === "select" ? (() => {
         // Sayısal select'ler (tambur/teker çapı, sıcaklık) değeri sayı olarak yazar.
         // Kayıtlı değer listede yoksa listeye eklenir (eski revizyonlar bozulmaz).
-        const base = (def.optionsFor?.(specs ?? (value as TechnicalSpecs)) ?? def.options ?? []).map(String);
+        // Liste üç kaynaktan gelebilir: alanın KENDİ kayıt nesnesinden
+        // (`optionsFrom` — kanca numarası, seçilen kanca tanımına göre değişir),
+        // teknik özelliklerden (`optionsFor`) ya da sabit listeden.
+        const base = (
+          def.optionsFrom?.(value as Record<string, unknown>) ??
+          def.optionsFor?.(specs ?? (value as TechnicalSpecs)) ??
+          def.options ??
+          []
+        ).map(String);
         const cur = v === null || v === undefined || v === "" ? "" : String(v);
         const opts = cur !== "" && !base.includes(cur) ? [cur, ...base] : base;
 
@@ -2274,21 +2282,27 @@ export function RevisionEditor({
                     )}
                   </div>
                 </div>
+                {/* `visibleWhen` seçim ızgarasında da geçerlidir; kaynak
+                    modülün KENDİ SEÇİMLERİDİR (girdi ızgarasında girdiler).
+                    DIN 15407 lamel kanca seçiliyken DIN 15400 mukavemet sınıfı
+                    kutusunun sorusu yoktur — değeri yine korunur. */}
                 <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {section.selectionDefs.map((f) => (
+                  {section.selectionDefs.map((f) =>
+                    f.visibleWhen && !f.visibleWhen(sel as Record<string, unknown>) ? null : (
                     <Field
                       key={f.key}
                       def={f}
                       value={sel}
                       onChange={(next) => setModuleSelections(key, next)}
                       disabled={readOnly}
-                      // Seçim alanı da otomatik olabilir (yiv boyu): anahtar
-                      // girdilerde, türetilen değer seçimlerde durur.
+                      // Seçim alanı da otomatik olabilir (yiv boyu, kanca tam
+                      // tanımı): anahtar girdilerde, türetilen değer seçimlerde.
                       auto={autoSelectionStateFor(f.key)}
                       context={stdContext}
                       specs={specs}
                     />
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             );

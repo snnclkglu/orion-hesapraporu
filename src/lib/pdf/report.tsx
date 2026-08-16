@@ -2186,9 +2186,16 @@ function ModulePage({
           );
         }
 
-        if (section.selectionDefs.length > 0) {
+        // `visibleWhen` seçim alanlarında EKRANLA AYNI süzgeci uygular: lamel
+        // kanca seçilmiş bir raporda DIN 15400 mukavemet sınıfı satırı basılsa,
+        // rapor sorulmamış bir soruya cevap veriyor gibi görünürdü. (Girdi
+        // ızgarasının süzgeci ayrıdır ve bugünkü davranışını korur.)
+        const visibleSelectionDefs = section.selectionDefs.filter(
+          (f) => !f.visibleWhen || f.visibleWhen(state.selections as Record<string, unknown>)
+        );
+        if (visibleSelectionDefs.length > 0) {
           const selectionTable = (
-            <FieldTable defs={section.selectionDefs} source={state.selections} labelMono specs={input.specs} />
+            <FieldTable defs={visibleSelectionDefs} source={state.selections} labelMono specs={input.specs} />
           );
           // "catalog" yerleşiminde rozetler başlığın hemen altındadır: başlık
           // ilk parçasıyla birlikte taşınır (KeepWithNext), tablo peşinden gelir.

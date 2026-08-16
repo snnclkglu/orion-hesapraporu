@@ -29,6 +29,7 @@ import {
   HOOK_STRENGTH_CLASS_INFO,
   hookColumnIndex,
 } from "@/lib/calc/hook-table";
+import { DIN15407_ROWS, din15407Label } from "@/lib/calc/hook-standards";
 
 /** Aktif satırın vurgulanması için sihirbazdan gelen sınıf bağlamı. */
 export interface StandardContext {
@@ -180,6 +181,30 @@ function femHoistingClassTable(): StandardTableDef {
     footnote:
       "HC1: hassas kaldırma · HC2: normal · HC3: sert (kepçe, mıknatıs) · " +
       "HC4: çok sert (ağır hizmet).",
+  };
+}
+
+/**
+ * DIN 15407 Teil 1 Tablo 1 — lamel (Lamellen) tek ağızlı kancanın ana ölçüleri.
+ * Satır sırası standardın kendi sırasıdır (ağız yarıçapı a₁ artan).
+ */
+function din15407Table(): StandardTableDef {
+  return {
+    caption: "Tablo 1 — Lamellen-Einfachhaken ana ölçüleri [mm]",
+    headers: [
+      "Kanca", "t", "a₁", "a₂", "b₁", "b₂", "d₁", "g₁", "l₁", "l₂", "s₁",
+      "Lamel", "Vinç [t]",
+    ],
+    rows: DIN15407_ROWS.map((r) => [
+      din15407Label(r), r.capacityT, r.a1, r.a2, r.b1, r.b2, r.d1, r.g1,
+      r.l1, r.l2, r.s1, r.plateCount, r.craneCapacityT,
+    ]),
+    footnote:
+      "Kancanın adı kapasite × ağız yarıçapıdır (\"Lamellenhaken DIN 15407 — " +
+      "63 × 150\"): aynı tonaj iki farklı ağız yarıçapıyla iki ayrı kancadır. " +
+      "Son sütun kancanın KENDİ kapasitesi değil, takıldığı döküm vincinin " +
+      "kapasitesidir — pota iki kancaya asılır. a₁, d₁ ve l₁ özel şartlarda " +
+      "değiştirilebilir (standardın 1 numaralı dipnotu).",
   };
 }
 
@@ -1896,6 +1921,50 @@ const DIN_REFS: Record<string, StandardRef> = {
         "M1–M4 için aynı (1Bm) sütunu kullanılır.",
       "Kanca somun ve mili gerilmeleri ayrıca kontrol edilir (bkz. CMAA 70 4.11.4.1).",
       "Tekli kanca ölçüleri DIN 15401, çift ağızlı kanca ölçüleri DIN 15402'dedir.",
+      "Lamel (sac perçinli) kancalar bu tabloya GİRMEZ: kapasiteleri DIN 15407 " +
+        "(tek ağızlı) ve DIN 15408'in (çift ağızlı) kendi satırlarındadır ve " +
+        "malzeme mukavemet sınıfına bağlı değildir.",
+    ],
+  },
+  "DIN 15407": {
+    code: "DIN 15407 Teil 1",
+    title: "Lamel kanca (tek ağızlı) — ana ölçüler",
+    source:
+      "DIN 15407 Teil 1 (Eylül 1977) — Lasthaken für Krane; " +
+      "Lamellen-Einfachhaken für Roheisen- und Stahlgießpfannen",
+    clause: "Zusammenstellung, Hauptmaße — Tablo 1",
+    summary:
+      "Ham demir ve çelik döküm potaları için sac lamellerden perçinlenen tek " +
+      "ağızlı kanca. Dövme kancadan farkı kapasitenin nereden okunduğudur: " +
+      "burada taşıma kapasitesi tablonun KENDİ satırındadır (\"Tragfähigkeit " +
+      "t\") ve malzeme mukavemet sınıfına ya da mekanizma grubuna bağlı " +
+      "değildir. Kanca kapasite × ağız yarıçapıyla adlandırılır.",
+    tables: [din15407Table()],
+    notes: [
+      "İşaretleme DIN 15404 Teil 2'ye göredir.",
+      "Perçin delikleri 1, 2 ve 3 numaralı lamellerle birlikte delinir.",
+      "160 × 250 boyundan itibaren ilave bir perçin bulunur (standardın 2 " +
+        "numaralı dipnotu).",
+      "Uygulama ölçüleri hesaba SOKMAZ; imalat resmi ve ekipman listesi için " +
+        "taşır. Kontrol edilen tek büyüklük taşıma kapasitesidir.",
+    ],
+  },
+  "DIN 15408": {
+    code: "DIN 15408",
+    title: "Lamel kanca (çift ağızlı)",
+    source:
+      "DIN 15408 — Lasthaken für Krane; Lamellen-Doppelhaken für Roheisen- " +
+      "und Stahlgießpfannen",
+    clause: "—",
+    summary:
+      "DIN 15407'nin çift ağızlı karşılığı. Uygulamada kanca tanımı olarak " +
+      "SEÇİLEBİLİR ama ÖLÇÜ VE KAPASİTE TABLOSU YÜKLÜ DEĞİLDİR: kapasite elle " +
+      "girilir ve rapor bunu bilgilendirme kontrolüyle açıkça söyler. " +
+      "DIN 15407'nin satırlarını çift ağızlı kancaya kopyalamak, ölçü resmine " +
+      "yanlış sayı yazdırmak olurdu.",
+    notes: [
+      "Tablo elde edildiğinde `hook-standards.ts`e eklenir; o ana kadar " +
+        "kapasitenin kaynağı mühendisin kendi girdisidir.",
     ],
   },
 };

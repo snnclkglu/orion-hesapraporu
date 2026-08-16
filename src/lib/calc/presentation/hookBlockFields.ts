@@ -2,12 +2,19 @@
 // key'ler motor tiplerinin (HookBlockInputs, HookBlockSelections) alan
 // adlarıyla birebir aynıdır.
 
-import type { FieldDef } from "../fields";
+import { DRUM_DIA_SERIES_MM, type FieldDef } from "../fields";
 import {
   HOOK_NUMBERS,
   HOOK_STRENGTH_CLASSES,
   HOOK_STRENGTH_CLASS_INFO,
 } from "../hook-table";
+import {
+  DIN15407_LABELS,
+  HOOK_STANDARDS,
+  HOOK_STANDARD_LABELS,
+  hookNumberOptions,
+  isLamellaHook,
+} from "../hook-standards";
 import type { HookBlockInputs, HookBlockSelections } from "../modules/hookBlock";
 
 /** "S" → "S — Rm ≥ 630 N/mm²" biçiminde açıklamalı etiketler */
@@ -67,12 +74,66 @@ export const HOOKBLOCK_INPUT_FIELDS: FieldDef<HookBlockInputs>[] = [
   },
 ];
 
+/** Kanca numarası kutusunun etiketleri: lamel boyları adlandırılır, DIN 15400
+ *  numaraları olduğu gibi görünür (tek sözlük — liste hangisi olursa olsun). */
+const HOOK_NUMBER_LABELS: Record<string, string> = { ...DIN15407_LABELS };
+
 export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
-  { key: "hookDesignation", label: "Kanca Tanımı", type: "text" },
-  { key: "hookNumber", label: "Kanca Numarası", type: "select", options: HOOK_NUMBERS, standardRef: "DIN 15400" },
-  { key: "hookStrengthClass", label: "Kanca Malzeme Sınıfı", type: "select", options: HOOK_STRENGTH_CLASSES, optionLabels: HOOK_CLASS_LABELS, standardRef: "DIN 15400" },
-  { key: "hookCapacityKg", label: "Kanca Kapasitesi (Tablo Dışıysa)", unit: "kg", type: "number", hint: "Kanca no + malzeme sınıfı seçiliyse kapasite DIN 15400 Tablo 3'ten okunur." },
-  { key: "sheaveDiaMm", label: "Halat Ekseninde Makara Çapı", unit: "mm", type: "number", diameter: true },
+  {
+    // Standart rozeti SABİTTİR ve bu kutunun değeri onu değiştirir; yanına
+    // "DIN 15400" koymak, lamel kanca seçiliyken yanlış tabloyu açardı.
+    // Kapasitenin nereden geldiğini alanın kendi ipucu ve hesap satırları söyler.
+    key: "hookStandard", label: "Kanca Tanımı", type: "select",
+    options: HOOK_STANDARDS, optionLabels: HOOK_STANDARD_LABELS,
+    hint:
+      "Dövme kancada (15401/15402) kapasite DIN 15400 Tablo 3'ten, lamel " +
+      "kancada (15407) standardın kendi satırından okunur.",
+  },
+  {
+    key: "hookDesignation", label: "Kanca Tam Tanımı", type: "text",
+    hint: "Otomatik: seçilen standart + kanca numarası (ör. \"DIN 15407 — 63 × 150\").",
+  },
+  {
+    // Seçenekler SEÇİLEN STANDARDA göre değişir: DIN 15400 numaraları ya da
+    // DIN 15407 lamel boyları. İki ayrı kutu, biri her zaman boş duran bir
+    // ekran demekti.
+    key: "hookNumber", label: "Kanca Numarası", type: "select",
+    options: HOOK_NUMBERS,
+    optionsFrom: (sel) =>
+      hookNumberOptions(sel.hookStandard as string | undefined, HOOK_NUMBERS),
+    optionLabels: HOOK_NUMBER_LABELS,
+    hint:
+      "Liste seçilen kanca tanımına göre değişir: DIN 15400 numaraları ya da " +
+      "DIN 15407 lamel boyları (kapasite × ağız yarıçapı).",
+  },
+  {
+    key: "hookStrengthClass", label: "Kanca Malzeme Sınıfı", type: "select",
+    options: HOOK_STRENGTH_CLASSES, optionLabels: HOOK_CLASS_LABELS,
+    standardRef: "DIN 15400",
+    // Lamel kancanın kapasitesi tablonun kendi satırındadır; mukavemet sınıfı
+    // orada bir şey belirlemez ve kutunun ekranda yeri yoktur.
+    visibleWhen: (sel) => !isLamellaHook(sel.hookStandard as string | undefined),
+  },
+  {
+    key: "hookCapacityKg", label: "Kanca Kapasitesi (Tablo Dışıysa)", unit: "kg", type: "number",
+    hint:
+      "Kanca numarası tabloda bulunursa kapasite oradan okunur; bu kutu yalnız " +
+      "tablo dışı kancalarda (ve DIN 15408'de) kullanılır.",
+  },
+  {
+    // Makara çapı da TAMBURLA AYNI standart seriden seçilir (kullanıcı kararı,
+    // 16.08.2026); liste tek yerdedir (`DRUM_DIA_SERIES_MM`), iki ayrı seri
+    // yazmak aynı atölyeye iki farklı çap dünyası anlatırdı. Liste yine bir
+    // ÖNERİDİR: `allowCustom` ile ara bir çap elle yazılabilir.
+    key: "sheaveDiaMm", label: "Halat Ekseninde Makara Çapı", unit: "mm",
+    type: "select", options: DRUM_DIA_SERIES_MM, numeric: true,
+    diameter: true, allowCustom: true,
+    standardRef: "FEM 1.001 T.4.2.3.1.1",
+    hint:
+      "Seri, tambur çapıyla aynıdır. FEM'in istediği D_min = H·d yuvarlak " +
+      "çıkmaz; serinin bir alt basamağı D_min'in %2'sinden az aşağıdaysa kabul " +
+      "edilir (ör. D_min 1008 mm → 1000 mm uygundur) ve rapor bunu yazar.",
+  },
   { key: "sheaveBearingType", label: "Makara Rulmanı Tipi", type: "text" },
   { key: "sheaveBearingCode", label: "Makara Rulmanı Kodu", type: "text" },
   { key: "sheaveBearingDynCKn", label: "Makara Rulmanı Dinamik Yük C", unit: "kN", type: "number" },
