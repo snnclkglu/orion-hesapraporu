@@ -2979,8 +2979,22 @@ tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
     etiketin ötekinde kalması demektir. `.oc-scrollx` kabı KALIR (tablet ara
     genişlikleri hâlâ taşabilir; kural 8 orada geçerlidir). Ölçüt: 375px'te
     kabın `scrollWidth === clientWidth`. İstisnalar gerekçelidir: diyagramlar
-    (kural 9) ve teklif karşılaştırma matrisi gibi doğası yatay artefaktlar
-    içte kaymaya devam eder.
+    (kural 9), grafikler, yetki matrisi ve teklif karşılaştırma matrisi gibi
+    doğası yatay artefaktlar içte kaymaya devam eder.
+
+    İki CSS tuzağı ÖLÇÜLDÜ (16.08.2026) ve katlama yaparken bilinmek zorunda:
+    - `truncate`/`whitespace-nowrap` bir tablo sütununun MIN-CONTENT genişliğini
+      TAM metne kilitler; `break-words` (`overflow-wrap: break-word`) bunu
+      KÜÇÜLTMEZ. Telefonda daralması gereken serbest metin hücresi
+      `whitespace-normal` + `max-sm:[overflow-wrap:anywhere]` taşır — ve
+      `TableCell` varsayılanı nowrap olduğundan sınıf HÜCRENİN KENDİSİNE
+      yazılır, yalnız içteki span'a değil (miras kalan nowrap çip satırını
+      yine kilitliyordu).
+    - Kırılım sınıfı başlıkta değişen sütunun HÜCRESİ ve TOPLAM/altbilgi
+      hücresi de AYNI sınıfı taşımalıdır; ayrışırsa telefonda sütunlar kayar
+      ve tablo taşar (ücret planında yaşandı). Sarmalı süzgeç şeritlerinde iç
+      gruplar da `flex-wrap` olmalı — dış kap sararken `shrink-0` tek parça
+      küme sayfayı yine taşırır.
 
 ## Yeni bir hesap eklerken
 
