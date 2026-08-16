@@ -30,6 +30,7 @@ import { travelApplicationClass } from "@/lib/calc/derive";
 import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
+import { FIELD_GROUPS, FIELD_GROUP_ORDER } from "@/lib/calc/field-groups";
 import {
   ctxFor as buildCtx,
   moduleResult as readModuleResult,
@@ -1735,6 +1736,19 @@ export function RevisionEditor({
     const checks = sectionChecks(key, section);
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
+    // `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır (ör. ray altı T
+    // profil ölçüleri yalnız anahtar "Var" iken görünür). Gizlenen alanın
+    // DEĞERİ KORUNUR — sıfırlanmaz, anahtar geri açıldığında geri gelir
+    // (bölüm aç/kapa mantığının aynısı).
+    const visibleInputDefs = section.inputDefs.filter(
+      (f) => f.visibleWhen?.(scopedInputs as Record<string, unknown>) ?? true
+    );
+    // Öbekli alanlar kendi başlıklı bloklarında, öbeksizler düz ızgarada.
+    const fieldGroupBlocks = FIELD_GROUP_ORDER.flatMap((gk) => {
+      const defs = visibleInputDefs.filter((f) => f.fieldGroup === gk);
+      return defs.length > 0 ? [{ group: FIELD_GROUPS[gk], defs }] : [];
+    });
+    const ungroupedInputDefs = visibleInputDefs.filter((f) => !f.fieldGroup);
     const warnings = warningsByModule[key] ?? [];
     // Başlık kontrolleri: bölümün özünü seçim yapılan yerde tekrar eden özet
     // (madde 3 rozet çifti / madde 7 gerilme şeridi). Ayrıntılı satırlar kalır.
@@ -1965,15 +1979,44 @@ export function RevisionEditor({
               <h3 className="oc-kicker mb-2 text-muted-foreground">
                 Girdiler / Tasarım Kabulleri
               </h3>
+              {/* ÖBEKLİ IZGARA — alanlar kesitin PARÇALARINA göre ayrılmışsa
+                  (ana kiriş 7.1) her öbek kendi başlığı ve RENGİYLE çizilir;
+                  aynı ton kesit çiziminde de kullanılır, göz ikisini renkten
+                  eşler. Öbeksiz bölümler bugünkü düz ızgarada kalır. */}
+              {fieldGroupBlocks.length > 0 && (
+                <div className="mb-4 grid gap-3">
+                  {fieldGroupBlocks.map((block) => (
+                    <section
+                      key={block.group.key}
+                      className="oc-fieldgroup grid gap-1 py-2 pl-3 pr-2"
+                      style={{ "--oc-hue": block.group.hue } as React.CSSProperties}
+                    >
+                      <h4
+                        className="oc-kicker oc-fieldgroup-title"
+                        style={{ "--oc-hue": block.group.hue } as React.CSSProperties}
+                      >
+                        {block.group.title}
+                      </h4>
+                      <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {block.defs.map((f) => (
+                          <Field
+                            key={f.key}
+                            def={f}
+                            value={scopedInputs}
+                            onChange={onInputsChange}
+                            disabled={readOnly}
+                            auto={section.inputScope ? undefined : autoStateFor(f.key)}
+                            context={stdContext}
+                            specs={specs}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
               <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {/* `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır
-                    (ör. ray altı T profil ölçüleri yalnız anahtar "Var" iken
-                    görünür). Gizlenen alanın DEĞERİ KORUNUR — sıfırlanmaz,
-                    anahtar geri açıldığında geri gelir (bölüm aç/kapa
-                    mantığının aynısı). */}
-                {section.inputDefs
-                  .filter((f) => f.visibleWhen?.(scopedInputs as Record<string, unknown>) ?? true)
-                  .map((f) => (
+                {ungroupedInputDefs.map((f) => (
                   <Field
                     key={f.key}
                     def={f}

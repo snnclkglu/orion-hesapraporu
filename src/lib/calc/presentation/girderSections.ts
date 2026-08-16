@@ -93,12 +93,18 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
       "flanş T'nin genişliği kadar kesilir ve ana gövde sacı T'nin yan sacı " +
       "kadar kısalır. TOPLAM YÜKSEKLİK DEĞİŞMEZ.",
     depKeys: [],
+    // SIRA RESMİN SIRASIDIR: yukarıdan aşağıya (ray → üst başlık → T profil →
+    // gövde → alt başlık → yerleşim ölçüleri). Öbek başlıkları ve renkleri
+    // `field-groups.ts`ten gelir ve AYNI renk kesit çiziminde kullanılır.
     inputKeys: [
-      "t1Mm", "b1Mm", "t2Mm", "b2Mm", "t3Mm", "h3Mm", "t4Mm", "t5Mm", "b5Mm",
-      "t6Mm", "b6Mm", "aMm", "xMm",
+      "railHeightMm",
+      "t1Mm", "b1Mm", "t2Mm", "b2Mm",
       "railTProfile",
       "railTProfileTopThkMm", "railTProfileTopWidthMm",
       "railTProfileWebThkMm", "railTProfileWebHeightMm",
+      "t3Mm", "h3Mm", "t4Mm",
+      "t5Mm", "b5Mm", "t6Mm", "b6Mm",
+      "aMm", "xMm",
     ],
     selectionKeys: [],
     rows: [

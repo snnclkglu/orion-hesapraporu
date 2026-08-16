@@ -522,19 +522,21 @@ export function computeMainGirder(
   const railCenterYMm = edgeDistMm + t3 * 0.5;
 
   /**
-   * ÜST İÇ FLANŞ T PROFİLİN GENİŞLİĞİ KADAR KESİLİR.
+   * ÜST İÇ FLANŞ, T PROFİLİN SAĞ UCUNDAN BAŞLAR.
    *
    * T profilin üst sacı ile ana kirişin üst sacı AYNI SEVİYEDEDİR (kullanıcı
    * kararı, 15.08.2026): T, kirişin üstüne oturmaz, üst bölümünün İÇİNE girer.
-   * Dolayısıyla b2 sacı ray ekseninde T'nin genişliği kadar kesintiye uğrar;
-   * o şeridi T'nin üst sacı doldurur. Kesilen aralık b2'nin dışına taşabilir
-   * (T flanşı kesitten dışarı çıkabilir), bu yüzden örtüşme [0, b2] aralığına
-   * kırpılır.
+   * Ray kesitin sol yanındadır ve T profil oraya oturur; **b2 sacının sol
+   * başlangıç noktası T profilin SAĞ BİTİŞ noktasıdır** (kullanıcı düzeltmesi,
+   * ekran görüntüsüyle). Yani T'nin SOLUNDA b2 parçası YOKTUR — kesitin o
+   * yandaki en dış lifi T flanşının kendisidir ve flanş b2'nin nominal sol
+   * kenarından dışarı taşabilir.
+   *
+   * `tCutHi` T'nin sağ ucudur; b2'yi aşarsa (çok geniş T) plaka tümüyle
+   * kaybolur ve `b2Eff` sıfıra iner.
    */
-  const tCutLo = Math.max(0, railCenterYMm - bTf * 0.5);
-  const tCutHi = Math.min(b2, railCenterYMm + bTf * 0.5);
-  const tCutWidth = tp.present ? Math.max(0, tCutHi - tCutLo) : 0;
-  const b2Eff = b2 - tCutWidth;
+  const tCutHi = tp.present ? Math.min(b2, railCenterYMm + bTf * 0.5) : 0;
+  const b2Eff = tp.present ? Math.max(0, b2 - tCutHi) : b2;
 
   /**
    * ANA GÖVDE SACI T PROFİLİN YAN SACI KADAR KISALIR.
@@ -621,14 +623,13 @@ export function computeMainGirder(
    * indirgenir; tarihsel karşılaştırma bunu görür, o yüzden dallanma
    * korunmuştur.
    */
-  const topInnerCentroidY = tp.present
-    ? (b2 * (b2 * 0.5) - tCutWidth * ((tCutLo + tCutHi) * 0.5)) / Math.max(b2Eff, 1e-9)
-    : b2 * 0.5;
+  // Kalan plaka [tCutHi, b2] aralığındaki tek bir dikdörtgendir.
+  const topInnerCentroidY = tp.present ? (tCutHi + b2) * 0.5 : b2 * 0.5;
   // (1/12) çarpanı aşağıdaki grubun TAMAMINA uygulanır; kesilmiş plakanın kendi
   // ataleti bu forma girmediği için 12 ile çarpılıp gruba konur. T profil
   // yokken terim harfi harfine `b2³·t2` olur ve tarihsel sonuç bit bit korunur.
   const topInnerOwnInertiaZ12 = tp.present
-    ? 12 * ((t2 * (b2 ** 3 - (tCutHi ** 3 - tCutLo ** 3))) / 3 -
+    ? 12 * ((t2 * (b2 ** 3 - tCutHi ** 3)) / 3 -
         areaTopInnerFlange * topInnerCentroidY ** 2)
     : b2 ** 3 * t2;
   // Düşey eksen etrafında ağırlık merkezi ve atalet [mm] / [cm⁴]
@@ -660,10 +661,12 @@ export function computeMainGirder(
       topInnerSteinerZ +
       ((b2 - b5) * 0.5 + 0.5 * b5 - centroidYMm) ** 2 * areaBottomFlange +
       ((b2 - b6) * 0.5 + b6 * 0.5 - centroidYMm) ** 2 * areaExtraFlange) / 10 ** 4;
-  const modulusZBottomCm3 = (10 * inertiaZCm4) / centroidYMm;
-  // Kesitin YATAYDA en dış lifi: normalde üst iç flanşın kenarı (b2), ama T'nin
-  // üst sacı b2'yi aşabilir — bu durumda dış lif odur.
-  const outerRightYMm = Math.max(b2, railCenterYMm + bTf * 0.5);
+  // Kesitin YATAYDA en dış lifleri. Normalde plaka kenarlarıdır (0 ve b2), ama
+  // T profilin üst sacı iki yana da taşabilir — özellikle SOLA, çünkü ray
+  // kesitin sol yanındadır ve T flanşı b2'nin nominal sol kenarını geçer.
+  const outerLeftYMm = tp.present ? Math.min(0, railCenterYMm - bTf * 0.5) : 0;
+  const outerRightYMm = tp.present ? Math.max(b2, railCenterYMm + bTf * 0.5) : b2;
+  const modulusZBottomCm3 = (10 * inertiaZCm4) / (centroidYMm - outerLeftYMm);
   const modulusZTopCm3 = (10 * inertiaZCm4) / (outerRightYMm - centroidYMm);
 
   // Burulma: kapalı kutu (Bredt) — bir gövde sacı yoksa açık kesit (St Venant)

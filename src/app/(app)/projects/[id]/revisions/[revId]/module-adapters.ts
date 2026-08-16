@@ -111,6 +111,7 @@ import {
   wheelLoadDepsFrom,
   type WheelLoadDeps,
 } from "@/lib/calc/modules/wheelLoads";
+import type { FieldGroupKey } from "@/lib/calc/field-groups";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
 import { hasSecondGirder, hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
 import {
@@ -154,6 +155,8 @@ export interface AnyFieldDef {
    * yalnız anahtar "Var" iken görünür). Bayrağı sunum katmanı koyar.
    */
   visibleWhen?: (inputs: Record<string, unknown>) => boolean;
+  /** Alanın görsel öbeği (başlık + renk, `field-groups.ts`) */
+  fieldGroup?: FieldGroupKey;
   /** select seçeneklerinin gösterim etiketi */
   optionLabels?: Record<string, string>;
   /** Standart referansı (standards/registry.ts anahtarı) */

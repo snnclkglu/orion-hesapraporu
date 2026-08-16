@@ -46,65 +46,101 @@ export const GIRDER_DEP_FIELDS: FieldDef<GirderDeps>[] = [
 ];
 
 export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
-  { key: "railHeightMm", label: "Ray Yüksekliği hr", unit: "mm", type: "number" },
+  // KESİT ÖLÇÜLERİ — öbekli ve SEMBOL ÖNDE (bkz. `field-groups.ts`). Etiketler
+  // "t2 · Üst İç Flanş Kalınlığı" biçimindedir: sol kenarda taranabilir bir
+  // sembol sütunu oluşur ve mühendis aradığı sacı okumadan bulur.
+  {
+    key: "railHeightMm", label: "hr · Ray Yüksekliği", unit: "mm", type: "number",
+    fieldGroup: "rail",
+  },
   // RAY ALTI SACI, T PROFİL VARKEN İPTALDİR: rayı T'nin üst sacı taşır.
   // Alanlar gizlenir (değerleri korunur, hesaba girmez) — "0 gir" demek
   // kullanıcının girdiğini silmek olurdu.
   {
-    key: "t1Mm", label: "Ray Altı Sacı Kalınlığı t1", unit: "mm", type: "number",
-    visibleWhen: (inp) => !tProfileOn(inp),
+    key: "t1Mm", label: "t1 · Ray Altı Sacı Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "topFlange", visibleWhen: (inp) => !tProfileOn(inp),
   },
   {
-    key: "b1Mm", label: "Ray Altı Sacı Genişliği b1", unit: "mm", type: "number",
-    hint: "b1'in merkezi kirişin ortasında değil, RAY EKSENİNDEDİR (x + t3/2).",
-    visibleWhen: (inp) => !tProfileOn(inp),
+    key: "b1Mm", label: "b1 · Ray Altı Sacı Genişliği", unit: "mm", type: "number",
+    fieldGroup: "topFlange", visibleWhen: (inp) => !tProfileOn(inp),
+    hint: "Merkezi kirişin ortasında değil, RAY EKSENİNDEDİR (x + t3/2).",
   },
-  { key: "t2Mm", label: "Üst İç Flanş Kalınlığı t2", unit: "mm", type: "number" },
-  { key: "b2Mm", label: "Üst İç Flanş Genişliği b2", unit: "mm", type: "number" },
-  { key: "t3Mm", label: "Ana Gövde Sacı Kalınlığı t3", unit: "mm", type: "number" },
-  { key: "h3Mm", label: "Gövde Yüksekliği h3", unit: "mm", type: "number" },
-  { key: "t4Mm", label: "Yardımcı Gövde Sacı Kalınlığı t4", unit: "mm", type: "number" },
-  { key: "t5Mm", label: "Alt Flanş Kalınlığı t5", unit: "mm", type: "number" },
-  { key: "b5Mm", label: "Alt Flanş Genişliği b5", unit: "mm", type: "number" },
-  { key: "t6Mm", label: "Ek Flanş Kalınlığı t6", unit: "mm", type: "number" },
-  { key: "b6Mm", label: "Ek Flanş Genişliği b6", unit: "mm", type: "number" },
-  { key: "aMm", label: "Gövde Sacları Arası Mesafe a", unit: "mm", type: "number" },
-  { key: "xMm", label: "Kenar Mesafesi x", unit: "mm", type: "number" },
+  {
+    key: "t2Mm", label: "t2 · Üst İç Flanş Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "topFlange",
+  },
+  {
+    key: "b2Mm", label: "b2 · Üst İç Flanş Genişliği", unit: "mm", type: "number",
+    fieldGroup: "topFlange",
+    hint: "T profil varken plaka T'nin SAĞ UCUNDAN başlar; sol yanında parça kalmaz.",
+  },
   // --- Ray altı T profil (büyük tonajlı vinçler) ---------------------------
   // Anahtar "Var" olunca dört ölçü sorulur; "Yok"ta kutular gizlenir ve
   // kayıtlı değerler korunur.
   {
     key: "railTProfile", label: "Ray Altı T Profil", type: "select",
-    options: RAIL_T_PROFILE_OPTIONS,
+    options: RAIL_T_PROFILE_OPTIONS, fieldGroup: "tProfile",
     hint:
-      "Büyük tonajlı vinçlerde ray altına T profil konur. VAR seçilince: ray " +
-      "altı sacı (t1) iptal olur, üst iç flanş T'nin genişliği kadar kesilir " +
-      "ve ana gövde sacı T'nin yan sacı kadar kısalır. Toplam yükseklik " +
-      "değişmez.",
+      "VAR seçilince: ray altı sacı (t1) iptal olur, üst iç flanş T'nin sağ " +
+      "ucundan başlar ve ana gövde sacı T'nin yan sacı kadar kısalır. Toplam " +
+      "yükseklik değişmez.",
   },
   {
-    key: "railTProfileTopThkMm", label: "T Profil Üst Sac Kalınlığı", unit: "mm",
-    type: "number", visibleWhen: tProfileOn,
-    hint:
-      "Rayın oturduğu sac. Ana kirişin üst sacıyla AYNI SEVİYEDEDİR; üst iç " +
-      "flanşın (b2) yerini bu genişlik boyunca alır.",
+    key: "railTProfileTopThkMm", label: "tT · T Profil Üst Sac Kalınlığı", unit: "mm",
+    type: "number", fieldGroup: "tProfile", visibleWhen: tProfileOn,
+    hint: "Rayın oturduğu sac; ana kirişin üst sacıyla AYNI SEVİYEDEDİR.",
   },
   {
-    key: "railTProfileTopWidthMm", label: "T Profil Üst Sac Genişliği", unit: "mm",
-    type: "number", visibleWhen: tProfileOn,
-    hint: "Ray ekseninde ortalanır. Üst iç flanş b2 bu genişlik kadar kesilir.",
+    key: "railTProfileTopWidthMm", label: "bT · T Profil Üst Sac Genişliği", unit: "mm",
+    type: "number", fieldGroup: "tProfile", visibleWhen: tProfileOn,
+    hint: "Ray ekseninde ortalanır; b2 bu sacın sağ ucundan başlar.",
   },
   {
-    key: "railTProfileWebThkMm", label: "T Profil Yan Sac Kalınlığı", unit: "mm",
-    type: "number", visibleWhen: tProfileOn,
+    key: "railTProfileWebThkMm", label: "tTy · T Profil Yan Sac Kalınlığı", unit: "mm",
+    type: "number", fieldGroup: "tProfile", visibleWhen: tProfileOn,
     hint: "T'nin DİKEY sacı — üst sacın TAM ORTASINDA ve ray ekseninde durur.",
   },
   {
-    key: "railTProfileWebHeightMm", label: "T Profil Yan Sac Yüksekliği", unit: "mm",
-    type: "number", visibleWhen: tProfileOn,
-    hint:
-      "Ana gövde sacı (t3) tam bu kadar kısalır; kesitin toplam yüksekliği " +
-      "DEĞİŞMEZ.",
+    key: "railTProfileWebHeightMm", label: "hT · T Profil Yan Sac Yüksekliği", unit: "mm",
+    type: "number", fieldGroup: "tProfile", visibleWhen: tProfileOn,
+    hint: "Ana gövde sacı (t3) tam bu kadar kısalır; toplam yükseklik DEĞİŞMEZ.",
+  },
+  {
+    key: "t3Mm", label: "t3 · Ana Gövde Sacı Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "web", hint: "Rayın altındaki gövde sacı.",
+  },
+  {
+    key: "h3Mm", label: "h3 · Gövde Yüksekliği", unit: "mm", type: "number",
+    fieldGroup: "web",
+  },
+  {
+    key: "t4Mm", label: "t4 · Yardımcı Gövde Sacı Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "web", hint: "Dış yan sac; T profil olsa da TAM BOY kalır.",
+  },
+  {
+    key: "t5Mm", label: "t5 · Alt Flanş Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "bottomFlange",
+  },
+  {
+    key: "b5Mm", label: "b5 · Alt Flanş Genişliği", unit: "mm", type: "number",
+    fieldGroup: "bottomFlange",
+  },
+  {
+    key: "t6Mm", label: "t6 · Ek Flanş Kalınlığı", unit: "mm", type: "number",
+    fieldGroup: "bottomFlange", hint: "Ek flanş yoksa 0.",
+  },
+  {
+    key: "b6Mm", label: "b6 · Ek Flanş Genişliği", unit: "mm", type: "number",
+    fieldGroup: "bottomFlange",
+  },
+  {
+    key: "aMm", label: "a · Gövde Sacları Arası Mesafe", unit: "mm", type: "number",
+    fieldGroup: "geometry",
+  },
+  {
+    key: "xMm", label: "x · Kenar Mesafesi", unit: "mm", type: "number",
+    fieldGroup: "geometry",
+    hint: "b2'nin sol kenarından ana gövde sacına; ray ekseni = x + t3/2.",
   },
   { key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number" },
   { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },

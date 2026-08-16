@@ -80,10 +80,12 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   pushBoxPlates(els, p, g);
   pushRail(els, g, { label: false });
 
-  const { s, cx, web1X, web2X, yB, y1, y2, y5, yWebTop } = g;
+  const { s, cx, plateCx, web1X, web2X, yB, y1, y2, y5, yWebTop } = g;
   const halfB2 = (p.b2Mm * s) / 2;
-  const boxLeft = cx - halfB2;
-  const boxRight = cx + halfB2;
+  // Kutunun kenarları b2 sacının MERKEZİNE göredir; `cx` çerçevenin
+  // ortasıdır ve T profil taşarsa ikisi ayrışır (bkz. girderSection.ts).
+  const boxLeft = plateCx - halfB2;
+  const boxRight = plateCx + halfB2;
 
   // --- Tarafsız eksen (Cz) ---
   const naY =

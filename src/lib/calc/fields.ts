@@ -10,6 +10,7 @@ import {
   BRAKE_ARRANGEMENTS, HYDRAULIC_UNIT_CODES, SAFETY_BRAKE_CODES,
 } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
+import type { FieldGroupKey } from "./field-groups";
 import type { ModuleKey } from "./presentation/module-family";
 import {
   GIRDER_ARRANGEMENT_LABELS,
@@ -51,6 +52,12 @@ export interface FieldDef<T> {
   standardRef?: string;
   /** Alanın ait olduğu teknik özellik grubu (yalnız SPEC_FIELDS) */
   group?: SpecGroupKey;
+  /**
+   * Alanın ait olduğu GÖRSEL ÖBEK (bölüm girdi ızgarasında). Öbek başlığı ve
+   * rengi `field-groups.ts`ten gelir; aynı renk kesit çiziminde de kullanılır.
+   * Verilmezse alan öbeksiz akar.
+   */
+  fieldGroup?: FieldGroupKey;
   /** Alan yalnız bu hesap bölümü açıkken gösterilir (yalnız SPEC_FIELDS) */
   requiresModule?: ModuleKey;
   /** Alanın altında gösterilecek kısa açıklama */

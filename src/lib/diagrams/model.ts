@@ -411,7 +411,7 @@ export function arrowHead(
 /** Yatay ölçü oku: uç tikleri + içe bakan ok başları + üstte etiket */
 export function dimH(
   els: DiagramEl[], x1: number, x2: number, y: number, label: string,
-  opts?: { size?: number; color?: string; labelDy?: number }
+  opts?: { size?: number; color?: string; labelDy?: number; labelColor?: string }
 ) {
   const c = opts?.color ?? DCOL.muted;
   els.push(ln(x1, y, x2, y, c, 0.8));
@@ -423,7 +423,9 @@ export function dimH(
   }
   els.push(
     txt((x1 + x2) / 2, y + (opts?.labelDy ?? -4), label, opts?.size ?? 9.5, {
-      anchor: "middle", fill: DCOL.ink,
+      // Ölçü ÇİZGİSİ hep gri kalır; yalnız ETİKET öbek rengini alabilir
+      // (ana kiriş kesitinde form ile resmi eşleyen renk — field-groups.ts).
+      anchor: "middle", fill: opts?.labelColor ?? DCOL.ink,
     })
   );
 }
@@ -431,7 +433,7 @@ export function dimH(
 /** Dikey ölçü oku: etiket çizginin sağında (yatay metin) */
 export function dimV(
   els: DiagramEl[], x: number, y1: number, y2: number, label: string,
-  opts?: { size?: number; color?: string; labelSide?: "left" | "right" }
+  opts?: { size?: number; color?: string; labelSide?: "left" | "right"; labelColor?: string }
 ) {
   const c = opts?.color ?? DCOL.muted;
   els.push(ln(x, y1, x, y2, c, 0.8));
@@ -444,7 +446,7 @@ export function dimV(
   const side = opts?.labelSide ?? "right";
   els.push(
     txt(x + (side === "right" ? 6 : -6), (y1 + y2) / 2 + 3, label, opts?.size ?? 9.5, {
-      anchor: side === "right" ? "start" : "end", fill: DCOL.ink,
+      anchor: side === "right" ? "start" : "end", fill: opts?.labelColor ?? DCOL.ink,
     })
   );
 }

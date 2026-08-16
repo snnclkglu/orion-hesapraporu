@@ -283,6 +283,36 @@
   }
 
   /*
+   * ALAN ÖBEĞİ — bir hesap bölümünün girdilerini kesitin PARÇALARINA göre
+   * ayırır (ana kiriş: ray · üst başlık · T profil · gövde · alt başlık).
+   *
+   * Kullanıcı bildirimi (15.08.2026): *"hangisi üst sac hangi sac gözle
+   * arıyorum hep. bir örüntü, kolaylık yok."* On yedi ölçü tek düz ızgarada
+   * duruyordu.
+   *
+   * `.oc-tag` ile AYNI sözleşme: ton VERİDEN (`--oc-hue`, `field-groups.ts`),
+   * doygunluk ve parlaklık BURADAN ve tema başına. Renk TEK TAŞIYICI DEĞİLDİR
+   * — öbeğin başlığı ayrıca YAZIYLA durur; renk yalnız gözü hızlandırır ve
+   * kesit çizimindeki aynı tonla eşleşir.
+   */
+  .oc-fieldgroup {
+    --oc-hue: 0;
+    border-left: 3px solid oklch(0.72 0.12 var(--oc-hue));
+    background: oklch(0.984 0.012 var(--oc-hue));
+  }
+  .dark .oc-fieldgroup {
+    border-left-color: oklch(0.6 0.1 var(--oc-hue));
+    background: oklch(0.23 0.014 var(--oc-hue));
+  }
+  .oc-fieldgroup-title {
+    --oc-hue: 0;
+    color: oklch(0.44 0.1 var(--oc-hue));
+  }
+  .dark .oc-fieldgroup-title {
+    color: oklch(0.82 0.08 var(--oc-hue));
+  }
+
+  /*
    * Grafik serisi rengi — etiketle AYNI kaynaktan (ton açısı), farklı ayarda.
    *
    * Etiket bir metnin arkasında durur ve okunurluğu metin belirler; çubuk ya da

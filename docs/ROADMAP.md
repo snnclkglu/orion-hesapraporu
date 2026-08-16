@@ -967,3 +967,55 @@ yan sacı aşağı inerken ana gövde onun altında başlar; ölçülendirmede h
 (gövde bölgesi, dış sac) hem `h3'` (kısalmış ana gövde) gösterilir. Aynı yerleşim
 gerilme şemasında ve buruşma panel şemasında da geçerlidir (üçü
 `layoutBoxSection` paylaşır).
+
+---
+
+## Ana kiriş kesit girdileri — öbek + renk düzeni (15.08.2026)
+
+Kullanıcı bildirimi: *"Anakiriş kesit özellikleri kutuları veri girişini daha
+ayırt edici yapamaz mıyız. hangisi üst sac hangi sac gözle arıyorum hep. bir
+örüntü, kolaylık yok. belki renkle de kolay ayırt edilebilirlik eklenebilir ve
+düzen örüntüsü ile."*
+
+7.1'in on dokuz ölçüsü tek bir düz ızgaraya diziliyordu: hepsi aynı ağırlıkta,
+aynı renkte ve kesit çizimindeki yerleriyle hiçbir bağı yoktu. Üç şey birden
+verildi (`lib/calc/field-groups.ts`):
+
+1. **ÖBEK** — alanlar kesitin PARÇALARINA ayrıldı: Ray · Üst Başlık · Ray Altı
+   T Profil · Gövde Sacları · Alt Başlık · Kesit Geometrisi. Sıra RESMİN
+   SIRASIDIR (yukarıdan aşağıya); geometri (a, x) en sonda çünkü o ikisi bir
+   sac değil bir YERLEŞİM ölçüsüdür.
+2. **RENK** — her öbeğin bir TON AÇISI var ve **aynı ton hem formda hem KESİT
+   ÇİZİMİNDE** kullanılıyor: formdaki mavi "Üst Başlık" öbeğiyle resimdeki mavi
+   `t2` etiketi aynı sacı gösterir, göz eşleşmeyi okumadan yapar. T profilin
+   yeşili kullanıcının kendi AutoCAD çiziminde kullandığı renktir.
+3. **ÖRÜNTÜ** — etiketler SEMBOLLE BAŞLIYOR: `t2 · Üst İç Flanş Kalınlığı`.
+   Sol kenarda t1/b1/t2/b2/… diye taranabilir bir sütun oluşuyor; sembol sonda
+   olduğunda her etiketin farklı yerinde duruyor ve göz her satırı sonuna kadar
+   okumak zorunda kalıyordu.
+
+**Renk İKİ sözdiziminde ama TEK renk.** `hue` OKLCH ton açısıdır ve CSS'e gider
+(doygunluk/parlaklık `globals.css` `.oc-fieldgroup` kuralında, tema başına —
+evin kuralı: *renk bir HEX değil AÇIDIR*); `ink` aynı rengin diyagram katmanı
+için sabitlenmiş karşılığıdır, çünkü diyagramlar PDF'e de basılıyor ve orada
+CSS değişkeni yok. **Renk TEK TAŞIYICI DEĞİLDİR:** öbeğin adı ayrıca yazıyla
+duruyor ve etiketler sembolü zaten taşıyor.
+
+Mekanizma jeneriktir: `FieldDef.fieldGroup` taşıyan her bölüm öbekli çizilir,
+taşımayanlar bugünkü düz ızgarada kalır. Aynı turda `FieldDef.visibleWhen`
+eklendi — `visible(specs)`ten AYRIDIR, o teknik özellikleri okur; bu ise
+MODÜLÜN KENDİ girdilerine bakar (T profil anahtarı kapalıyken ölçü kutuları
+gizlenir, değerleri korunur).
+
+### Yan düzeltme — b2, T profilin SAĞ UCUNDAN başlar
+
+Kullanıcının ikinci ekran görüntüsü: T profilin SOLUNDA ince bir b2 parçası
+kalıyordu. Doğrusu, **b2 sacının sol başlangıç noktası T profilin sağ bitiş
+noktasıdır** — o yandaki en dış lif T flanşının kendisidir ve flanş b2'nin
+nominal sol kenarından dışarı taşabilir. Etkisi hesapta da var: kalan plakanın
+alanı, ağırlık merkezi ve ataleti `[T'nin sağ ucu, b2]` aralığından çıkar;
+`modulusZBottom` artık `Cy − y_dış,sol` ile bölünür (`y_dış,sol` negatif
+olabilir). Çizimde kesitin YATAY ZARFI gerçek uçlardan hesaplanır
+(`spanLeftMm` / `spanRightMm`): yalnız b2'ye bakan ölçek, taşan flanşı çerçeve
+dışında bırakıyordu. `BoxLayout.cx` (çerçeve ortası) ile `plateCx` (b2 merkezi)
+artık AYRI — alt/ek flanşlar ikinciye göre ortalanır.

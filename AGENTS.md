@@ -1996,6 +1996,21 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     siparisler`tedir (md. 18'in paket Satın Alma sekmesi dersi).
 
 
+5b. **ALAN ÖBEKLERİ — girdi ızgarası kesitin parçalarına göre ayrılır.**
+   `FieldDef.fieldGroup` taşıyan bölümler (ana kiriş 7.1) öbek öbek çizilir:
+   Ray · Üst Başlık · Ray Altı T Profil · Gövde · Alt Başlık · Geometri, sıra
+   RESMİN sırasıdır. Her öbeğin bir TON AÇISI vardır (`lib/calc/field-groups.ts`)
+   ve **aynı ton kesit çiziminde de kullanılır** — formdaki mavi öbekle
+   resimdeki mavi etiket aynı sacı gösterir. Ton VERİDEN, doygunluk/parlaklık
+   `globals.css` `.oc-fieldgroup` kuralından ve tema başına (`.oc-tag` ile aynı
+   sözleşme). Renk TEK TAŞIYICI DEĞİLDİR: öbek adı yazıyla da durur ve
+   etiketler SEMBOLLE BAŞLAR (`t2 · Üst İç Flanş Kalınlığı`) — sol kenarda
+   taranabilir bir sembol sütunu oluşur.
+
+   `FieldDef.visibleWhen(inputs)` `visible(specs)`ten AYRIDIR: o teknik
+   özellikleri okur, bu MODÜLÜN KENDİ girdilerini. Bir anahtarın açtığı
+   alanlarda kullanılır ve gizlenen alanın DEĞERİ KORUNUR.
+
 6. **Standart referansları tıklanabilir.** `standards/registry.ts` FEM/DIN/CMAA
    maddelerini tablo + bağıntı + açıklama olarak tutar; hesap satırındaki
    `standard` alanı bu deftere çözülür ve arayüzde pop-up açar. Yeni bir
@@ -2733,6 +2748,10 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    burulmaya GİRMEZ (açık kesit, Bredt akışı kutunun çeperinden geçer). Ray
    altındaki gövde hattının kesme alanı iki parçanın toplamıdır (T yan sacı +
    kısalmış ana gövde).
+
+   **b2, T PROFİLİN SAĞ UCUNDAN BAŞLAR** — T'nin solunda b2 parçası YOKTUR
+   ve o yandaki en dış lif T flanşının kendisidir (flanş b2'nin nominal sol
+   kenarını geçebilir; `modulusZBottom` bu yüzden `Cy − y_dış,sol` ile bölünür).
 
    **KAYAN NOKTA UYARISI:** T profil YOKKEN kesit ifadeleri harfi harfine
    eski hâlinde bırakılmıştır (`tp.present` dallanmaları). Matematiksel olarak
