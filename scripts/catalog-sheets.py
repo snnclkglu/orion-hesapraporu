@@ -29,6 +29,12 @@ KULLANIM
   python scripts/catalog-sheets.py            # üret
   python scripts/catalog-sheets.py --verify   # yalnız haritayı sına, dosya yazma
   python scripts/catalog-sheets.py --only motor,bearing   # tek tür üret
+
+  DİKKAT: `--only` MANİFESTİN TAMAMINI o türle yeniden yazar; süzülen türlerin
+  kayıtları defterden DÜŞER (görüntüler diskte kalır ama hiçbir ürün onlara
+  bağlanamaz). Tek bir türe dokunmuş olsanız bile defteri güncellemek için
+  betik SÜZGEÇSİZ koşturulur; `--only` yalnız `--verify` ile ya da atılacak
+  bir denemede anlamlıdır.
 """
 
 from __future__ import annotations

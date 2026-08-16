@@ -1021,6 +1021,78 @@ Sayfa düzeninden gelen üç ayrı zorluk ve çözümleri:
   `catalog_type` ("X.F110") ile arar — model kodu ("X3F110") sayfada hiç
   geçmez.
 
+## FLENDER MD 20.1 (`catalog_data/reducers/flender_md20_1.json`, 6128 satır)
+
+```bash
+python reducers_flender.py            # sına, dosya yazma
+python reducers_flender.py --write    # JSON'u yaz
+```
+
+**Bu dosya 16.08.2026'da ELLE GİRİLMİŞ 7 SATIRLIK BİR ÖZETİN yerine geçti.**
+Eski hâli tip başına bir `variants` matrisiydi ve boy başına TEK bir anma
+momenti taşıyordu. O moment, katalogda ORANA GÖRE değişen T2N sütununun
+MAKSİMUMUydu: H1 boy 3 için 3,3 kNm yazıyordu ama katalogun kendi değeri
+i = 5,6'da 2,3 kNm'dir — **%43 fazla**, ve `gearbox.torque` engelleyici bir
+kontroldür. Çevrim oranı, çıkış devri, güç, ağırlık, mil çapları ve izin
+verilen radyal yük ise hiç yoktu; eksik alan `defaults.ts`teki 60 kN gibi bir
+VARSAYILANLA hesaplanıyordu (kontrol koşuyor ama uydurma bir sayıya karşı).
+
+Kaynak tablolar ve iki yapısal karar:
+
+- **Tip → oran eşleşmesi T2N tablosundan OKUNMAZ.** Katalog momenti tek bir
+  birleşik tabloda basar ve tipi sağdaki "Type" sütununda söyler; o etiket
+  BANDIN ORTASINA basılıdır ve satır satır okunamaz. Üstelik bantlar çakışır:
+  H2 ile H3 ikisi de 22,4 · 25 · 28 oranını, B2/B3 12,5 · 14'ü, B3/B4 80 · 90'ı
+  basar. Eşleşme TİP BAŞINA basılan P2N tablosundan gelir, T2N ise (boy, iN)
+  ile aranır.
+- **ÇAPRAZ SINAMA:** her hücrede `P2N = T2N · n2 / 9550` sınanır. 6193 hücrenin
+  6128'i tuttu, 65'i tutmadı ve **satır ÜRETMEDİ**, 8'inin T2N karşılığı yoktu.
+
+**TOLERANS ÖLÇÜLDÜ, SEÇİLMEDİ.** İlk yazımda simetrik ±%2 kullanıldı ve 10 kW
+bandındaki hücrelerin tamamı yalancı alarma düştü. 6193 hücrenin sapma dağılımı
+sayıldı: işaret 5871'e 322 POZİTİF ve bant medyanı tam olarak `0,5/P` eğrisini
+izliyor (0-20 kW %+2,25 · 20-50 %+1,44 · 50-200 %+0,47 · 200-1000 %+0,11 ·
+1000+ %+0,02). Yani FLENDER anma gücünü **AŞAĞI YUVARLIYOR** (floor). Tolerans
+bu yüzden asimetriktir: `pred − kw ∈ [−δ, 1 + δ]`, δ = T2N ve n2'nin kendi
+basım yuvarlaması. Yanlış alarm 256'dan 65'e indi (md. 18/3).
+
+Üç tuzak ve ölçülmüş sonuçları:
+
+- **Radyal kuvvet sayfasında İKİ TABLO var** (masif mil S, takviyeli yataklı
+  mil V) ve sütun sayıları farklı. Okuma ikincide durmayınca V tablosunun
+  satırları S tablosunun çapalarıyla eşleniyor, değerler YANLIŞ TİPE yazılıyordu:
+  H1'in katalogda hiç yayımlanmamış FR2'si (dipnot 3) altı boyda dolu
+  görünüyordu. Bu alan engelleyici bir kontrolü besliyor.
+- **Sayfa folyosu satırın içine düşer** (bölüm numarası x≈12, boy sütunu x≈56).
+  x'e göre sıralayıp ilk hücreyi boy saymak, boy 13'ün bütün değerlerini boy 9'a
+  yazıyor ve 13'ü tamamen düşürüyordu.
+- **Ölçü sayfalarında iki `d1` sütun grubu vardır** (`iN d1 l1 G1 iN d1 l1 G1`);
+  `dict(anchors)` sonuncuyu tutuyor ve giriş mili çapı H3 · H4 · B2 · B3 · B4'te
+  hiç dolmuyordu. Ayrıca satır aralığı yer yer 4 pt'nin altına iner ve iki tablo
+  satırı tek kümede birleşir (H3'te boy 16 ile 17) — küme y'ye göre yeniden
+  bölünür.
+
+**TERMİK KAPASİTE DÖRT VARYANTLIDIR** (PGA soğutmasız · PGB fanlı · PGC/PGD yağ
+soğutma devreleri). İlk yazımda satırın ilk sayısı okunuyor, yani sessizce PGA
+alınıp öbür üçü kayboluyordu. Ortak şemadaki karşılıkları yazılır: PGA →
+`thermal_power_kw`, PGB → `thermal_power_fan_kw` (YILMAZ H ile aynı alanlar).
+Yağ soğutma devreleri ayrı bir ünite seçimi ister ve redüktörün kendi verisi
+değildir.
+
+**ELLE GİRİLMİŞ ESKİ MATRİSTE OLMAYAN BOYLAR VARDI:** H2-03 · H2-25…28 ve
+B3-03 katalogun anma gücü tablolarında HİÇ GEÇMİYOR (P2N hücresi sıfır). Model
+sayısı 146'dan 140'a bu yüzden indi — kayıp değil düzeltmedir.
+
+**KATALOGUN KENDİ SUSTUĞU YERLER doldurulmaz:** H1 için FR2 yayımlanmamıştır
+(dipnot 3) ve 19-28 boylarında "sizes 19 to 26 on request" yazar; o satırlarda
+alan BOŞ kalır — `defaults.ts` varsayılanına düşmesi mühendisin göreceği bir
+şeydir, uydurulmuş bir sayı değil. İzin verilen radyal kuvvet mil
+versiyonlarının EN KÜÇÜĞÜDÜR: versiyon sipariş anında belli olur ve büyüğünü
+yazmak engelleyici kontrolü gerçekte olmadığı kadar rahat geçirirdi.
+
+Ölçüler YALNIZ YATAY montaj bölümlerinden (4/ helisel, 6/ konik-helisel)
+okunur — katalog sayfası defterinin `HEADER_SCAN` kuralıyla aynı gerekçe.
+
 ## Motor (`catalog_data/motors/sew_drn.json`, 57 satır)
 
 `SEW Dr serisi.pdf` böl. 13. Her kutup sayısı için iki tablo birleştirilir:

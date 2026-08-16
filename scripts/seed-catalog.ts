@@ -336,8 +336,14 @@ for (const file of couplingFiles) {
       static_load_kn: "static_load_kn",
     });
     const model = String(a.designation ?? "");
+    // Üretici ürün sayfası: ekipman listesinde MODEL hücresine bağlanır ve
+    // Excel/PDF çıktısına da geçer (katalog SAYFASI ayrı bir yoldur —
+    // o, kaynak PDF'ten kesilmiş tablo yaprağıdır). Adres KOPYALAMA DEĞİL
+    // BAĞLANTIDIR: veriyi çoğaltmaz ve üretici güncelledikçe güncel kalır.
+    const datasheetUrl = String(a.datasheet_url ?? "");
     delete a.designation;
-    push("bearing", brand, model, a);
+    delete a.datasheet_url;
+    push("bearing", brand, model, a, datasheetUrl);
   }
 }
 

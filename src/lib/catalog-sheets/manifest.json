@@ -4481,7 +4481,45 @@
     "bearing/skf-skf-p802.webp"
    ],
    "models": [
-    "22226 E"
+    "22226 E",
+    "22228 CC/W33",
+    "22228 CCK/W33"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p804",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.804",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.804",
+   "images": [
+    "bearing/skf-skf-p804.webp"
+   ],
+   "models": [
+    "22230 CC/W33",
+    "22232 CC/W33",
+    "22230 CCK/W33",
+    "22232 CCK/W33"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p806",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.806",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.806",
+   "images": [
+    "bearing/skf-skf-p806.webp"
+   ],
+   "models": [
+    "22234 CC/W33",
+    "22236 CC/W33",
+    "22234 CCK/W33",
+    "22236 CCK/W33"
    ]
   },
   {
@@ -14429,25 +14467,6 @@
     "H2-22",
     "H2-23",
     "H2-24"
-   ]
-  },
-  {
-   "id": "gearbox/flender-h2-25-28",
-   "kind": "gearbox",
-   "brand": "FLENDER",
-   "series": "H2",
-   "title": "FLENDER MD 20.1 — Tip H2, boy 25–28 ölçü sayfası",
-   "source": "FLENDER-gear-units-MD20-1-complete-English-2018 (2).pdf",
-   "printedPages": "s.4/14-4/15",
-   "images": [
-    "gearbox/flender-h2-25-28-p1.webp",
-    "gearbox/flender-h2-25-28-p2.webp"
-   ],
-   "models": [
-    "H2-25",
-    "H2-26",
-    "H2-27",
-    "H2-28"
    ]
   },
   {
