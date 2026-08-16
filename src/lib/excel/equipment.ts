@@ -30,6 +30,10 @@ import {
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
+import { HOIST_SECTIONS } from "@/lib/calc/presentation/hoistSections";
+import { HOOKBLOCK_SECTIONS } from "@/lib/calc/presentation/hookBlockSections";
+import { TRAVEL_SECTIONS } from "@/lib/calc/presentation/travelSections";
+import { CABIN_SECTIONS } from "@/lib/calc/presentation/cabinSections";
 import {
   AIR_CONDITIONING_REDUNDANCY_LABELS,
   ROOM_INSULATION_LABELS,
@@ -782,14 +786,60 @@ function withAlternativeRows(
   return out;
 }
 
+/**
+ * Gizlenen alt bölümlerin ekipman satırı slug'ları — MODÜL başına.
+ *
+ * Bölüm → satır bağı bölüm tanımının kendi `equipmentSlugs` bildiriminden
+ * okunur (checkSuffixes ile aynı desen); burada ikinci bir eşleme tutulmaz.
+ * Anahtar biçimi `sectionHideKeyFor` iledir ve HAM bölüm id'sini taşır —
+ * köprüde görünen "6.8" değil, tanımdaki "5.7".
+ */
+function hiddenEquipmentSlugs(key: ModuleKey, hidden: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>();
+  if (hidden.size === 0) return out;
+  const defs: readonly { id: string; equipmentSlugs?: readonly string[] }[] = isHoistKey(key)
+    ? HOIST_SECTIONS
+    : isHookBlockKey(key)
+      ? HOOKBLOCK_SECTIONS
+      : isTravelKey(key)
+        ? TRAVEL_SECTIONS
+        : key === "cabin"
+          ? CABIN_SECTIONS
+          : [];
+  for (const s of defs) {
+    if (!hidden.has(`${key}-${s.id}`)) continue;
+    for (const slug of s.equipmentSlugs ?? []) out.add(slug);
+  }
+  return out;
+}
+
+/**
+ * Satırın slug'ı: `<modulKey>:<slug>`. Alternatif satırlar ana anahtarı
+ * `#<bölüm>-<seçenek>` sonekiyle taşır; gizlenen bölümün alternatifi de ana
+ * satırıyla birlikte düşsün diye sonek atılarak okunur.
+ */
+function rowSlug(rowKey: string | undefined, key: ModuleKey): string | undefined {
+  if (!rowKey || !rowKey.startsWith(`${key}:`)) return undefined;
+  const rest = rowKey.slice(key.length + 1);
+  const hash = rest.indexOf("#");
+  return hash >= 0 ? rest.slice(0, hash) : rest;
+}
+
 export function buildEquipmentGroups(
   input: CalcInput,
   notes?: EquipmentNotes,
   /** Alternatif (seçenekli) seçimler — `selections.alts` (altsFromRevision) */
   alts?: RevisionAlts,
   /** row_key → yüklenmiş PDF ekleri (equipment_attachments) */
-  attachments?: EquipmentAttachments
+  attachments?: EquipmentAttachments,
+  /**
+   * Gizlenen alt bölümler (`inputs.hiddenSections`, `hiddenSectionsFromRevision`
+   * ile okunur). Gizlenen bölümün ekipman satırları listeye GİRMEZ — ekran,
+   * Excel ve PDF aynı fonksiyondan geçtiği için üçü birden düşer.
+   */
+  hiddenSections?: readonly string[]
 ): EqGroup[] {
+  const hiddenSet = new Set(hiddenSections ?? []);
   const groups: EqGroup[] = [];
   // Mahal ısı yükleri satın alma satırında da gösterilir; hesap saf olduğu
   // için burada yeniden koşturulur (sonuç nesnesi bu imzada yok).
@@ -806,6 +856,19 @@ export function buildEquipmentGroups(
     const rowsWithAlternatives = alts
       ? withAlternativeRows(key, state, rows, alts, input.specs, cabinValues)
       : rows;
+    // Gizlenen alt bölümün satırları düşer (alternatifleri dâhil). Süzgeç
+    // slug bazlıdır: bölüm tanımı hangi satırların kendisine ait olduğunu
+    // `equipmentSlugs` ile bildirir.
+    const hiddenSlugs = hiddenEquipmentSlugs(key, hiddenSet);
+    const visibleRows = hiddenSlugs.size === 0
+      ? rowsWithAlternatives
+      : rowsWithAlternatives.filter((row) => {
+          const slug = rowSlug(row.rowKey, key);
+          return !slug || !hiddenSlugs.has(slug);
+        });
+    // Gizleme bir grubun BÜTÜN satırlarını düşürdüyse grup başlığı da düşer —
+    // boş bir grup bandı "satırları unutulmuş" gibi okunurdu.
+    if (visibleRows.length === 0 && rowsWithAlternatives.length > 0) continue;
     // İkiz kaldırma, mühendislik hesabını değil satın alma/montaj için hazır
     // ekipman adetlerini iki katına çıkarır. Kanca bloğu ve diğer gruplar tek
     // hesap düzeninde kalır.
@@ -815,8 +878,8 @@ export function buildEquipmentGroups(
     groups.push({
       name: groupName(key),
       rows: quantityFactor === 1
-        ? rowsWithAlternatives
-        : rowsWithAlternatives.map((row) => ({
+        ? visibleRows
+        : visibleRows.map((row) => ({
             ...row,
             qty: typeof row.qty === "number" ? row.qty * quantityFactor : row.qty,
           })),
@@ -1419,6 +1482,8 @@ export interface EquipmentWorkbookOptions {
    * görünür (özet sayfasının kendisi gibi).
    */
   drawingPlan?: EquipmentDrawingPlan;
+  /** Gizlenen alt bölümler — satırları listeye girmez (buildEquipmentGroups). */
+  hiddenSections?: readonly string[];
 }
 
 export function buildEquipmentWorkbook(
@@ -1432,7 +1497,9 @@ export function buildEquipmentWorkbook(
   wb.created = new Date();
 
   const groups = mergeExtras(
-    buildEquipmentGroups(calcInput, options.notes, options.alts, options.attachments),
+    buildEquipmentGroups(
+      calcInput, options.notes, options.alts, options.attachments, options.hiddenSections
+    ),
     options.extras
   );
 

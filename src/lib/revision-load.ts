@@ -45,6 +45,14 @@ export interface RevisionInputsJson {
   cabin?: CabinInputs | null;
   /** Kullanıcının kapattığı hesap bölümleri (hesaba ve rapora girmez) */
   disabledModules?: string[] | null;
+  /**
+   * Kullanıcının GİZLEDİĞİ alt bölümler (`${moduleKey}-${sectionRawId}`,
+   * ör. "trolley-5.7"). Kapatılan MODÜLDEN farkı: gizlenen alt bölüm hesaba
+   * GİRMEYE devam eder (motor bölüm sınırı bilmez), yalnız sunumdan düşer —
+   * editör soluk gösterir, PDF raporu, kontrol özetleri ve ekipman listesi
+   * hiç basmaz. Girdiler korunur; kutucuk geri açılınca bölüm aynen döner.
+   */
+  hiddenSections?: string[] | null;
 }
 
 export interface RevisionSelectionsJson {
@@ -95,6 +103,35 @@ export type RevisionSectionNotes = Record<string, string>;
 /** Hesap alt bölümünün not anahtarı (editör ve PDF aynı kimliği kullanır). */
 export function sectionNoteKeyFor(moduleKey: string, sectionRawId: string): string {
   return `${moduleKey}-${sectionRawId}`;
+}
+
+/**
+ * Gizlenen alt bölümün anahtarı — not ve alternatif anahtarlarıyla AYNI uzay
+ * (`${moduleKey}-${sectionRawId}`). Üç kayıt da aynı bölümü işaret eder;
+ * üç ayrı anahtar biçimi "hangisi hangi bölüm" sorusunu doğururdu.
+ */
+export function sectionHideKeyFor(moduleKey: string, sectionRawId: string): string {
+  return `${moduleKey}-${sectionRawId}`;
+}
+
+/**
+ * JSONB snapshot'tan gizli alt bölüm listesini güvenle okur. Bozuk/yinelenen
+ * girdiler atlanır; anahtar biçimi (`modul-rawId`) tutmayan değerler düşer —
+ * serbest biçimli JSONB'ye güvenilmez (altsFromRevision ile aynı ilke).
+ */
+export function hiddenSectionsFromRevision(
+  inputs: RevisionInputsJson | null | undefined
+): string[] {
+  const raw = (inputs as { hiddenSections?: unknown } | null | undefined)?.hiddenSections;
+  if (!Array.isArray(raw)) return [];
+  const out = new Set<string>();
+  for (const v of raw) {
+    if (typeof v !== "string") continue;
+    const dash = v.indexOf("-");
+    if (dash <= 0 || dash === v.length - 1) continue;
+    out.add(v);
+  }
+  return [...out];
 }
 
 /** JSONB snapshot'tan güvenli not haritası okur; boş/bozuk girdileri atlar. */

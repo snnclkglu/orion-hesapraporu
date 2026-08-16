@@ -13,7 +13,10 @@
 
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { altsFromRevision, calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson } from "@/lib/revision-load";
+import {
+  altsFromRevision, calcInputFromRevision, hiddenSectionsFromRevision,
+  type RevisionInputsJson, type RevisionSelectionsJson,
+} from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
   buildCatalogSheetUrls, buildEquipmentWorkbook, buildEquipmentGroups, buildSummarySections,
@@ -147,6 +150,8 @@ export async function GET(
 
   // Seçenekli (alternatif) seçimler ekipman listesinde ana satırın altına iner.
   const alts = altsFromRevision(revision.selections as RevisionSelectionsJson | null);
+  // Gizlenen alt bölümlerin satırları hiçbir çıktıya girmez (panelle aynı küme).
+  const hiddenSections = hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson | null);
 
   // Teknik Resim Takibi defteri YALNIZ teknik özet istendiğinde okunur: müşteri
   // kapsamında özet sayfası hiç basılmaz, sorguyu boşuna atmanın anlamı yok.
@@ -160,7 +165,7 @@ export async function GET(
 
   if (format === "pdf") {
     const groups = mergeExtras(
-      buildEquipmentGroups(calcInput, notes, alts, attachments),
+      buildEquipmentGroups(calcInput, notes, alts, attachments, hiddenSections),
       extras
     );
     const summary =
@@ -221,6 +226,7 @@ export async function GET(
   } else {
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
       datasheetUrls, scope, extras, notes, alts, appOrigin, drawingPlan, attachments,
+      hiddenSections,
     });
     body = new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

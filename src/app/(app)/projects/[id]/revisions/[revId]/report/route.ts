@@ -9,6 +9,7 @@ import { runCalc } from "@/lib/calc/engine";
 import {
   altsFromRevision,
   calcInputFromRevision,
+  hiddenSectionsFromRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
@@ -87,6 +88,8 @@ export async function GET(
     // Seçenekli (alternatif) ekipman seçimleri raporda "SEÇENEKLER" bloğu olur.
     alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
     sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
+    // Gizlenen alt bölümler raporun hiçbir seviyesinde basılmaz.
+    hiddenSections: hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson),
   });
 
   // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - SEVİYE (bkz. pdf/doc-naming).

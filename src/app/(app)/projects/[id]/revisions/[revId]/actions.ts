@@ -7,6 +7,7 @@ import {
   CALC_FIELD,
   altsFromRevision,
   calcInputFromRevision,
+  hiddenSectionsFromRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
@@ -89,6 +90,8 @@ export async function issueRevision(
         // Arşivlenen resmî rapor da seçenekli ekipmanları içermelidir.
         alts: altsFromRevision(revision.selections as RevisionSelectionsJson),
         sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
+        // Gizlenen alt bölümler arşiv raporunda da basılmaz (indirme ucuyla aynı).
+        hiddenSections: hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson),
       });
       const { error: uploadError } = await supabase.storage
         .from("reports")
@@ -189,7 +192,9 @@ export async function saveRevision(
   alts?: Record<string, { active: number; options: Record<string, unknown>[] }>,
   fullInput?: CalcInput,
   disabledModules?: string[],
-  sectionNotes?: RevisionSectionNotes
+  sectionNotes?: RevisionSectionNotes,
+  /** Gizlenen alt bölümler (`sectionHideKeyFor` anahtarları, ör. "trolley-5.7") */
+  hiddenSections?: string[]
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -207,6 +212,7 @@ export async function saveRevision(
         ...moduleJson(store, "inputs"),
         specs: calcInput.specs,
         disabledModules: disabledModules ?? [],
+        hiddenSections: hiddenSections ?? [],
       },
       selections: {
         ...moduleJson(store, "selections"),

@@ -816,6 +816,37 @@ export const ADAPTER_BY_KEY: Record<ModuleKey, ModuleAdapter> = Object.fromEntri
   MODULE_ADAPTERS.map((a) => [a.key, a])
 ) as Record<ModuleKey, ModuleAdapter>;
 
+// ------------------------------------------------------ Gizli alt bölümler
+
+/**
+ * Gizlenen alt bölümlerin KONTROL kimlikleri.
+ *
+ * Gizlenen alt bölüm hesaba girmeye devam eder (motor bölüm sınırı bilmez);
+ * kontrolleri `result` içinde durur ama kullanıcıya GÖSTERİLMEZ — durum
+ * şeridi, Özet · Kontrol Panosu ve PDF'teki Kontrol Özeti bu kümeyle süzer.
+ * Süzülmeseydi "vinçte olmayan" bir kaplinin kırmızı kontrolü raporu
+ * yayınlanamaz gösterirdi. Eşleme bölümün kendi `checkSuffixes` bildiriminden
+ * çıkar; ikinci bir liste tutulmaz.
+ *
+ * Anahtar biçimi `sectionHideKeyFor` iledir (`"trolley-5.7"`).
+ */
+export function hiddenSectionCheckIds(
+  hidden: ReadonlySet<string> | readonly string[]
+): Set<string> {
+  const set = hidden instanceof Set ? hidden : new Set(hidden);
+  const out = new Set<string>();
+  if (set.size === 0) return out;
+  for (const adapter of MODULE_ADAPTERS) {
+    for (const section of adapter.sections) {
+      if (!set.has(`${adapter.key}-${section.rawId}`)) continue;
+      for (const suffix of section.checkSuffixes) {
+        out.add(`${adapter.checkPrefix}${suffix}`);
+      }
+    }
+  }
+  return out;
+}
+
 // -------------------------------------------------- Esnek modül / numaralandırma
 // Bazı bölümler vince göre olmayabilir (yardımcı kaldırma yok, kanca yerine
 // kaldırma kirişi/mıknatıs → kanca bloğu yok, monoray yok). Bu bölümler açılıp

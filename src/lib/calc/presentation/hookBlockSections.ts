@@ -52,6 +52,13 @@ export interface HookBlockSectionDef {
   rows: HookBlockRowDef[];
   /** Bölümde gösterilecek kontrol id sonekleri (örn. "sheave.dia") */
   checkSuffixes: string[];
+  /**
+   * Bu bölümün ekipman listesindeki satır slug'ları (`EqRow.rowKey`in
+   * `<modulKey>:` sonrası). Bölüm GİZLENDİĞİNDE bu satırlar da listeden düşer
+   * (ekran + Excel + PDF); bağ koruma testiyle ölçülür
+   * (`hidden-sections-equipment.test.ts`).
+   */
+  equipmentSlugs?: readonly string[];
 }
 
 // Sayı biçimleyici (formül substitüsyonu için, TR yerel)
@@ -68,6 +75,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     id: "4.1",
     title: "Kanca",
     description: "DIN 15400/15401 kanca seçimi.",
+    equipmentSlugs: ["hook"],
     inputKeys: [],
     selectionKeys: [
       "hookDesignation", "hookNumber", "hookStrengthClass", "hookCapacityKg",
@@ -110,6 +118,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     id: "4.2",
     title: "Makaralar",
     description: "Minimum makara çapı (FEM H katsayısı) ve makara seçimi.",
+    equipmentSlugs: ["sheave"],
     inputKeys: [],
     selectionKeys: ["sheaveDiaMm"],
     rows: [
@@ -136,6 +145,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
   {
     id: "4.3",
     title: "Makara Rulmanları",
+    equipmentSlugs: ["sheaveBearing"],
     description:
       "Eşdeğer yükler ve ISO 281 nominal ömrü (bilyalı rulman). Gerekli ömür " +
       "FEM 1.001 T.2.1.3.2 kullanım sınıfı bandından okunur.",
@@ -199,6 +209,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
   {
     id: "4.4",
     title: "Kanca Bloğu Mili",
+    equipmentSlugs: ["shaft"],
     description:
       "Mil, iki yan sac (mesnet) arasında basit kiriştir. Kanca bloğundaki " +
       "makara adedi halat donanımından gelir (n = n_toplam / 2) ve HER MAKARA " +
@@ -302,6 +313,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     id: "4.5",
     title: "Kanca Rulmanı",
     description: "Eksenel rulman statik kontrolü.",
+    equipmentSlugs: ["hookBearing"],
     inputKeys: [],
     selectionKeys: ["hookBearingType", "hookBearingCode", "hookBearingStatC0Kn"],
     rows: [

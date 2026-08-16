@@ -68,6 +68,7 @@ import {
   altOptionPass,
   buildModuleDeps,
   headlineItems,
+  hiddenSectionCheckIds,
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
@@ -147,6 +148,13 @@ export interface ReportProps {
   alts?: RevisionAlts;
   /** Hesap alt bölümlerine ait, revizyon snapshot'ında saklanan mühendis notları. */
   sectionNotes?: RevisionSectionNotes;
+  /**
+   * Kullanıcının GİZLEDİĞİ alt bölümler (`inputs.hiddenSections`,
+   * `hiddenSectionsFromRevision` ile okunur; anahtar `"trolley-5.7"` biçiminde).
+   * Gizlenen bölüm hiç basılmaz; kontrolleri özet sayfasından, Kontrol
+   * Özeti'nden ve "Ana Ekipman Seçimleri" bloğundan da düşer.
+   */
+  hiddenSections?: readonly string[];
   /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
   settings?: ReportSettings;
   /** Rapor seviyesi (varsayılan "detayli") */
@@ -217,6 +225,24 @@ function sectionChecks(
   return section.checkSuffixes
     .map((s) => mr.checks.find((c) => c.id === `${adapter.checkPrefix}${s}`))
     .filter((c): c is AnyCheck => Boolean(c));
+}
+
+/**
+ * Alt bölüm kullanıcı tarafından gizlendi mi (`inputs.hiddenSections`).
+ * Anahtar biçimi `sectionHideKeyFor` iledir; ham bölüm id'si kullanılır
+ * (köprüde görünen "6.8" değil "5.7").
+ */
+function isSectionHidden(
+  hidden: ReadonlySet<string>,
+  key: ModuleKey,
+  rawId: string
+): boolean {
+  return hidden.has(`${key}-${rawId}`);
+}
+
+/** Props'tan gizli bölüm kümesi — bütün sayfa üreticileri aynı kümeyi okur. */
+function hiddenSetOf(props: Pick<ReportProps, "hiddenSections">): Set<string> {
+  return new Set(props.hiddenSections ?? []);
 }
 
 /**
@@ -1253,7 +1279,11 @@ function SectionProbe({
 
 interface SummaryGroup {
   title: string;
-  items: { label: string; value: string }[];
+  /**
+   * `sectionRawId`: satırın karşılık geldiği hesap alt bölümü — bölüm
+   * GİZLENDİĞİNDE satır özetten de düşer. Bölümü olmayan satır her zaman kalır.
+   */
+  items: { label: string; value: string; sectionRawId?: string }[];
 }
 
 function hoistSelectionItems(st: { selections: object } | undefined): SummaryGroup["items"] {
@@ -1264,37 +1294,47 @@ function hoistSelectionItems(st: { selections: object } | undefined): SummaryGro
   return [
     {
       label: "Halat",
+      sectionRawId: "2.1",
       value: `${t("ropeBrand")} Ø${fmt(n("ropeDiaMm"))} mm ${t("ropeConstruction")} ${t(
         "ropeCore"
       )} · ${fmt(n("ropeBreakingLoadKn"))} kN`,
     },
-    { label: "Tambur", value: `Ø${fmt(n("drumDiaMm"))} mm · ${t("drumMaterial")}` },
+    {
+      label: "Tambur",
+      sectionRawId: "2.2.1",
+      value: `Ø${fmt(n("drumDiaMm"))} mm · ${t("drumMaterial")}`,
+    },
     {
       label: "Redüktör",
+      sectionRawId: "2.3",
       value: `${t("gearboxModel")} · i=${fmt(n("gearboxRatio"))} · ${fmt(
         n("gearboxNominalTorqueKnm")
       )} kNm`,
     },
     {
       label: "Motor",
+      sectionRawId: "2.4",
       value: `${t("motorBrand")} ${fmt(n("motorPowerKw"))} kW · ${fmt(
         n("motorRpm")
       )} d/dak × ${fmt(n("motorCount"))}`,
     },
     {
       label: "Fren",
+      sectionRawId: "2.5",
       value: `${t("brakeBrand")} ${t("brakeModel")} · ${fmt(n("brakeTorqueNm"))} Nm × ${fmt(
         n("brakeQty")
       )}`,
     },
     {
       label: "Motor kaplini",
+      sectionRawId: "2.6",
       value: `${t("motorCouplingBrand")} ${t("motorCouplingModel")} · ${fmt(
         n("motorCouplingTorqueNm")
       )} Nm`,
     },
     {
       label: "Tambur kaplini",
+      sectionRawId: "2.7",
       value: `${t("drumCouplingBrand")} ${t("drumCouplingModel")} · ${fmt(
         n("drumCouplingTorqueNm")
       )} Nm`,
@@ -1310,22 +1350,26 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
   return [
     {
       label: "Teker",
+      sectionRawId: "5.1",
       value: `Ø${fmt(n("wheelDiaMm"))} mm · ${t("wheelMaterial")} · ray ${t("railCode")}`,
     },
     {
       label: "Motor",
+      sectionRawId: "5.4",
       value: `${t("motorBrand")} ${fmt(n("motorPowerKw"))} kW · ${fmt(
         n("motorRpm")
       )} d/dak × ${fmt(n("motorCount"))}`,
     },
     {
       label: "Redüktör",
+      sectionRawId: "5.5",
       value: `${t("gearboxModel")} · i=${fmt(n("gearboxRatio"))} · ${fmt(
         n("gearboxOutputTorqueKnm")
       )} kNm`,
     },
     {
       label: "Motor kaplini",
+      sectionRawId: "5.6",
       value: `${t("motorCouplingBrand")} ${t("motorCouplingModel")} · ${fmt(
         n("motorCouplingTorqueNm")
       )} Nm`,
@@ -1344,47 +1388,56 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
  * hangi kaldırma grupları, kanca blokları ve arabalar hesaba giriyorsa hepsi
  * listelenir (yardımcı kanca bloğu, ayrı yardımcı araba, monoraylar dâhil).
  */
-function summaryGroups(input: CalcInput): SummaryGroup[] {
+function summaryGroups(input: CalcInput, hidden: ReadonlySet<string>): SummaryGroup[] {
   const groups: SummaryGroup[] = [];
   for (const key of MODULE_ORDER) {
     const state = moduleState(input, key);
     if (!state) continue;
     const title = (MODULE_LABELS[key] ?? key).replace(/^\d+\s*·\s*/, "");
+    let items: SummaryGroup["items"] | undefined;
     if (isHoistKey(key)) {
-      groups.push({ title, items: hoistSelectionItems(state as never) });
+      items = hoistSelectionItems(state as never);
     } else if (isHookBlockKey(key)) {
       const sel = state.selections as unknown as Record<string, unknown>;
-      groups.push({
-        title,
-        items: [
-          {
-            label: "Kanca",
-            value: `${String(sel.hookDesignation ?? "")} · ${fmt(
-              sel.hookCapacityKg as number
-            )} kg`,
-          },
-          {
-            label: "Makara",
-            value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
-              sel.sheaveBearingCode ?? ""
-            )}`,
-          },
-        ],
-      });
+      items = [
+        {
+          label: "Kanca",
+          sectionRawId: "4.1",
+          value: `${String(sel.hookDesignation ?? "")} · ${fmt(
+            sel.hookCapacityKg as number
+          )} kg`,
+        },
+        {
+          label: "Makara",
+          sectionRawId: "4.2",
+          value: `Ø${fmt(sel.sheaveDiaMm as number)} mm · rulman ${String(
+            sel.sheaveBearingCode ?? ""
+          )}`,
+        },
+      ];
     } else if (isTravelKey(key)) {
-      groups.push({ title, items: travelSelectionItems(state as never) });
+      items = travelSelectionItems(state as never);
     }
+    if (!items) continue;
+    // Gizlenen alt bölümün seçimi özet sayfasına da girmez: raporda hesabı
+    // olmayan bir ekipmanın "ana seçim" olarak durması çelişki olurdu.
+    groups.push({
+      title,
+      items: items.filter(
+        (it) => !it.sectionRawId || !isSectionHidden(hidden, key, it.sectionRawId)
+      ),
+    });
   }
   return groups.filter((g) => g.items.length > 0);
 }
 
 function SummarySection({
-  input, result, project, revision, numbers, collect,
+  input, result, project, revision, numbers, collect, hiddenSections,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   collect?: (anchor: string, page: number) => void;
 }) {
-  const groups = summaryGroups(input);
+  const groups = summaryGroups(input, hiddenSetOf({ hiddenSections }));
   const summarySpecs = summarySpecsForReport(input);
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
@@ -1438,12 +1491,15 @@ function SummarySection({
 function checkSectionAnchors(
   adapter: ModuleAdapter,
   mr: ModuleResult<unknown> | undefined,
-  specs: TechnicalSpecs
+  specs: TechnicalSpecs,
+  /** Kullanıcının gizlediği alt bölümler — basılmayan bölüme sayfa verilmez */
+  hidden: ReadonlySet<string>
 ): Map<string, string> {
   const out = new Map<string, string>();
   if (!mr) return out;
   for (const section of adapter.sections) {
     if (section.visible && !section.visible(specs)) continue;
+    if (isSectionHidden(hidden, adapter.key, section.rawId)) continue;
     for (const c of sectionChecks(adapter, section, mr)) {
       if (!out.has(c.id)) out.set(c.id, sectionAnchor(adapter.key, section.rawId));
     }
@@ -1502,18 +1558,21 @@ function SummaryCheckLine({
  * gibidir — her satırın solunda hesabın yapıldığı sayfa vardır.
  */
 function ChecksSummarySection({
-  input, result, project, revision, numbers, pageOf, collect,
+  input, result, project, revision, numbers, pageOf, collect, hiddenSections,
 }: ReportProps & {
   numbers: Partial<Record<ModuleKey, number>>;
   pageOf: Record<string, number>;
   collect?: (anchor: string, page: number) => void;
 }) {
-  const total = MODULE_ADAPTERS.reduce(
-    (n, a) => n + (moduleResult(result, a.key)?.checks.length ?? 0),
-    0
-  );
+  const hidden = hiddenSetOf({ hiddenSections });
+  // Gizlenen alt bölümün kontrolleri dizine GİRMEZ: bölümün kendisi
+  // basılmıyor, dizin basılmayan bir hesaba sayfa numarası veremezdi.
+  const hiddenIds = hiddenSectionCheckIds(hidden);
+  const checksOf = (a: ModuleAdapter): AnyCheck[] =>
+    (moduleResult(result, a.key)?.checks ?? []).filter((c) => !hiddenIds.has(c.id));
+  const total = MODULE_ADAPTERS.reduce((n, a) => n + checksOf(a).length, 0);
   const failed = MODULE_ADAPTERS.reduce(
-    (n, a) => n + (moduleResult(result, a.key)?.checks.filter((c) => !c.pass).length ?? 0),
+    (n, a) => n + checksOf(a).filter((c) => !c.pass).length,
     0
   );
   return (
@@ -1530,9 +1589,10 @@ function ChecksSummarySection({
       </Text>
       {MODULE_ADAPTERS.map((adapter) => {
         const mr = moduleResult(result, adapter.key);
-        if (!mr || mr.checks.length === 0) return null;
-        const anchors = checkSectionAnchors(adapter, mr, input.specs);
-        const lines = mr.checks.map((c) => {
+        const checks = checksOf(adapter);
+        if (!mr || checks.length === 0) return null;
+        const anchors = checkSectionAnchors(adapter, mr, input.specs, hidden);
+        const lines = checks.map((c) => {
           const anchor = anchors.get(c.id);
           return (
             <SummaryCheckLine
@@ -2045,6 +2105,7 @@ function ModulePage({
   const mr = moduleResult(result, adapter.key);
   if (!state || !mr) return null;
   const ctx = ctxFor(adapter.key, input, result, deps);
+  const hidden = hiddenSetOf(props);
   const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
 
   return (
@@ -2058,7 +2119,10 @@ function ModulePage({
       {adapter.sections
         .filter(
           (section) =>
-            !section.visible || section.visible(input.specs)
+            (!section.visible || section.visible(input.specs)) &&
+            // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri
+            // korunur, kutucuk geri açılınca bölüm aynen döner.
+            !isSectionHidden(hidden, adapter.key, section.rawId)
         )
         .map((section, si) => {
         const inputs = state.inputs;

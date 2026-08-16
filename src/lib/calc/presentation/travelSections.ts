@@ -72,6 +72,13 @@ export interface TravelSectionDef {
   rows: TravelRowDef[];
   /** Bölümde gösterilecek kontrol id sonekleri (örn. "wheel.pressure") */
   checkSuffixes: string[];
+  /**
+   * Bu bölümün ekipman listesindeki satır slug'ları (`EqRow.rowKey`in
+   * `<modulKey>:` sonrası). Bölüm GİZLENDİĞİNDE bu satırlar da listeden düşer
+   * (ekran + Excel + PDF); bağ koruma testiyle ölçülür
+   * (`hidden-sections-equipment.test.ts`).
+   */
+  equipmentSlugs?: readonly string[];
 }
 
 // Sayı biçimleyici (formül substitüsyonu için, TR yerel)
@@ -105,6 +112,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.1",
     title: "Tekerlekler",
+    equipmentSlugs: ["wheel"],
     description:
       "Tekerlek yükleri ve ray temas basıncı kontrolü (FEM 1.001 4.2.4.1). Köprüde maksimum/minimum yükler araba yanaşma eksantrikliğiyle hesaplanır.",
     inputKeys: ["minApproachM", "wheelCount", "wheelsPerMotor"],
@@ -272,6 +280,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.3",
     title: "Tekerlek Rulmanı",
+    equipmentSlugs: ["wheelBearing"],
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM 1.001 T.2.1.3.2).",
     inputKeys: ["bearingCount", "bearingFactorY0", "bearingFactorY1"],
     selectionKeys: ["bearingType", "bearingCode", "bearingDynCKn", "bearingStatC0Kn"],
@@ -322,6 +331,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.4",
     title: "Yürütme Motoru",
+    equipmentSlugs: ["motor"],
     description: "CMAA 70 ivmelenme faktörü yöntemiyle gerekli güç ve motor seçimi.",
     inputKeys: [
       "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
@@ -401,6 +411,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     id: "5.5",
     title: "Yürütme Redüktörü",
     description: "Gerekli çevrim oranı, tork zinciri ve redüktör seçimi.",
+    equipmentSlugs: ["gearbox"],
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
       "gearboxModel", "gearboxRatio", "gearboxOutputTorqueKnm",
@@ -453,6 +464,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     description:
       "Yalnız köprü yürütme mekanizmasında hesaplanır. Fren seçimi yapılmadan kontrol uygun olmaz.",
     bridgeOnly: true,
+    equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
     selectionKeys: ["brakeBrand", "brakeTorqueNm", "brakeWheelDiaMm"],
     rows: [
@@ -467,6 +479,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.6",
     title: "Motor — Redüktör Kaplini",
+    equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: [
       "couplingMotorShaftMm", "motorCouplingBrand", "motorCouplingModel",
@@ -496,6 +509,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.7",
     title: "Teker — Redüktör Kaplini",
+    equipmentSlugs: ["wheelCoupling"],
     inputKeys: ["wheelCouplingServiceFactor"],
     selectionKeys: [
       "wheelShaftDiaMm", "wheelCouplingBrand", "wheelCouplingModel",
@@ -532,6 +546,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       "taşır (FEM Kitapçık 9 md. 9.4.2 eşiğinin üstündeyse).",
     // Bölüm yalnız o grupta tampon seçilmişse görünür (teknik özellikler).
     visible: (specs, which) => travelBufferType(specs, which) !== "yok",
+    equipmentSlugs: ["buffer"],
     inputKeys: [
       "bufferApproachM", "bufferCount", "bufferLoadRigidlyGuided",
       "bufferFrequentEndApproach",
@@ -727,6 +742,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.9",
     title: "Feston Sistemi",
+    equipmentSlugs: ["festoon"],
     description:
       "Bu hareket ekseninin kablo taşıyıcı sistemi. Seri KATALOGDAN seçilir " +
       "(marka → kablo formu → ürün hattı → ürün tablosu); hareket mesafesi ve " +

@@ -77,6 +77,15 @@ export interface HoistSectionDef {
    * çizilmez — boş bir "seçim yapılmadı" bloğu rapora gürültü katardı.
    */
   visible?: (specs: TechnicalSpecs, which: HoistWhich) => boolean;
+  /**
+   * Bu bölümün ekipman listesindeki satır slug'ları (`EqRow.rowKey`in
+   * `<modulKey>:` sonrası). Bölüm GİZLENDİĞİNDE bu satırlar da listeden düşer
+   * (ekran + Excel + PDF). Slug'lar `excel/equipment.ts`teki satır
+   * üreticileriyle birebir aynıdır ve bu bağ bir koruma testiyle ölçülür
+   * (`hidden-sections-equipment.test.ts`) — elle yazılmış bir slug'ın
+   * yazım hatası sessizce "satır düşmüyor"a dönüşmesin.
+   */
+  equipmentSlugs?: readonly string[];
 }
 
 // Sayı biçimleyici (formül substitüsyonu için, TR yerel)
@@ -92,6 +101,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.1",
     title: "Halat",
+    equipmentSlugs: ["rope"],
     description:
       "Donanım, halat verimi, halat yükü ve halat seçimi (FEM 1.001). Tek makara " +
       "verimi, rulmanlı yataklı makara (yüksek verim) standart kabulüdür.",
@@ -166,6 +176,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.2.1",
     title: "Tambur",
+    equipmentSlugs: ["drum"],
     description: "Minimum tambur çapı (FEM H katsayısı) ve tambur sacı gerilme kontrolü.",
     inputKeys: ["drumWallThicknessMm"],
     selectionKeys: ["drumDiaMm", "drumMaterial"],
@@ -596,6 +607,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.2.6",
     title: "Tambur Rulmanı",
+    equipmentSlugs: ["drumBearing"],
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM T.2.1.3.2).",
     inputKeys: ["bearingFactorY1", "bearingFactorY2"],
     selectionKeys: ["bearingType", "bearingCode", "bearingDynCKn", "bearingStatC0Kn"],
@@ -643,6 +655,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.2.7",
     title: "Tambur Rulman Yatağı",
+    equipmentSlugs: ["drumBearingHousing"],
     description: "Seçilen tambur rulmanına uyumlu SKF SNL/SE iki parçalı yatak gövdesi; silindirik yataklama için katalogdan seçilir.",
     inputKeys: [],
     selectionKeys: [
@@ -660,6 +673,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.3",
     title: "Redüktör",
+    equipmentSlugs: ["gearbox"],
     description: "Tambur torku, gerekli çevrim oranı ve redüktör seçimi.",
     inputKeys: ["drumCount", "gearboxServiceFactor", "reducerStages", "stageEfficiency"],
     selectionKeys: ["gearboxModel", "gearboxRatio", "gearboxNominalTorqueKnm", "gearboxInputShaftMm", "gearboxOutputShaftMm", "gearboxAllowedRadialKn"],
@@ -711,6 +725,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.4",
     title: "Motor",
+    equipmentSlugs: ["motor"],
     description: "Motor giriş torku ve gerekli güç (CMAA 70).",
     inputKeys: ["tempFactor", "motorDivisor"],
     selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorShaftMm", "motorCount"],
@@ -742,6 +757,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.5",
     title: "Fren",
+    equipmentSlugs: ["brake"],
     inputKeys: ["brakeServiceFactor"],
     selectionKeys: ["brakeBrand", "brakeModel", "brakeTorqueNm", "brakeWheelDiaMm", "brakeQty"],
     rows: [
@@ -768,6 +784,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.6",
     title: "Motor — Redüktör Kaplini",
+    equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: ["motorCouplingBrand", "motorCouplingModel", "motorCouplingTorqueNm", "motorCouplingDmaxMm"],
     rows: [
@@ -793,6 +810,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.7",
     title: "Tambur Kaplini",
+    equipmentSlugs: ["drumCoupling"],
     inputKeys: ["drumCouplingServiceFactor"],
     selectionKeys: ["drumCouplingBrand", "drumCouplingModel", "drumCouplingTorqueNm", "drumCouplingRadialN", "drumCouplingDmaxMm"],
     rows: [

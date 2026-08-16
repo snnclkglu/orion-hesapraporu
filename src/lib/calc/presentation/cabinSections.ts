@@ -50,6 +50,13 @@ export interface CabinSectionDef {
   rows: CabinRowDef[];
   /** "cabin." öneki hariç kontrol id sonekleri */
   checkSuffixes: string[];
+  /**
+   * Bu bölümün ekipman listesindeki satır slug'ları (`EqRow.rowKey`in
+   * `cabin:` sonrası). Bölüm GİZLENDİĞİNDE bu satırlar da listeden düşer
+   * (ekran + Excel + PDF); bağ koruma testiyle ölçülür
+   * (`hidden-sections-equipment.test.ts`).
+   */
+  equipmentSlugs?: readonly string[];
 }
 
 const n = (v: number | string | undefined, d = 2): string => {
@@ -158,6 +165,7 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       "sıcaklığında okunur. Nihai kapasite üreticinin proje bazlı teyidine " +
       "tabidir.",
     visible: (specs) => hasOperatorCabin(specs),
+    equipmentSlugs: ["operator-cabin", "cabinAc"],
     inputKeys: [
       "cabinWidthM", "cabinLengthM", "cabinHeightM", "cabinInsulation",
       "cabinDoorCount", "cabinGlazingAreaM2", "cabinGlazingKind",
@@ -220,6 +228,7 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       "sorulmaz. Kurulu yedekte kapasite kontrolü TEK üniteye göre yapılır — " +
       "ikincisi yedektir, yükü paylaşmaz.",
     visible: (specs) => hasElectricalRoom(specs),
+    equipmentSlugs: ["electrical-room", "roomAc"],
     inputKeys: [
       "roomWidthM", "roomLengthM", "roomHeightM", "roomInsulation",
       "roomDoorCount", "roomDeviceHeatKw", "roomRadiationKw", "roomAcRedundancy",
@@ -261,6 +270,7 @@ export const CABIN_SECTIONS: CabinSectionDef[] = [
       "koruması geçerlidir; klima adedi ve soğutma yükü pano başına " +
       "hesaplanır. Sızıntı yolu olarak kapı yerine pano kapakları sayılır.",
     visible: (specs) => hasElectricalPanels(specs),
+    equipmentSlugs: ["electrical-panel", "panelAc"],
     inputKeys: [
       "panelCount", "panelIpClass", "panelDeviceHeatKw", "panelRadiationKw",
       "panelAcRedundancy",

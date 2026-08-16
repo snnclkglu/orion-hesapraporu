@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import {
   altsFromRevision,
-  calcInputFromRevision, type RevisionInputsJson, type RevisionSelectionsJson,
+  calcInputFromRevision, hiddenSectionsFromRevision,
+  type RevisionInputsJson, type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import {
@@ -75,7 +76,9 @@ export default async function EquipmentPage({
     notes,
     // Seçenekli (alternatif) seçimler panelde de ana satırın altında görünür.
     altsFromRevision(revision.selections as RevisionSelectionsJson | null),
-    attachmentsByRowKey(attachmentRows)
+    attachmentsByRowKey(attachmentRows),
+    // Gizlenen alt bölümün satırları panelde de görünmez (Excel/PDF ile aynı).
+    hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson | null)
   );
   // Teknik Resim Takibi defteri özetin SONUNA basılır. Ressamın mühendise
   // sorduğu son soru numaralandırmadır; cevabı çizim için hazırlanan bu

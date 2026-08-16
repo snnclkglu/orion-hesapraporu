@@ -44,6 +44,7 @@ import {
 import {
   CALC_FIELD,
   altKeyFor,
+  sectionHideKeyFor,
   sectionNoteKeyFor,
   splitAltKey,
   type RevisionAltState,
@@ -70,6 +71,7 @@ import {
   buildModuleDeps,
   derivationWarnings,
   headlineItems,
+  hiddenSectionCheckIds,
   moduleAllowedByConfig,
   moduleDisplayNumbers,
   renumberSectionId,
@@ -1134,6 +1136,7 @@ function useIsDesktop(): boolean {
 
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
+  initialHidden,
 }: {
   projectId: string;
   revisionId: string;
@@ -1145,11 +1148,21 @@ export function RevisionEditor({
   initialSectionNotes?: RevisionSectionNotes;
   /** Kapalı hesap bölümleri */
   initialDisabled?: string[];
+  /**
+   * Gizlenen alt bölümler (`sectionHideKeyFor` anahtarları, ör. "trolley-5.7").
+   * Gizlenen bölüm hesaba girmeye devam eder ama raporda, PDF'lerde ve
+   * ekipman listesinde görünmez; girdileri korunur.
+   */
+  initialHidden?: string[];
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
   const [alts, setAlts] = useState<AltsMap>(initialAlts ?? {});
   const [sectionNotes, setSectionNotes] = useState<RevisionSectionNotes>(initialSectionNotes ?? {});
+  // Gizlenen alt bölümler — başlıktaki kutucukla açılıp kapanır.
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(
+    () => new Set(initialHidden ?? [])
+  );
   const [stepIndex, setStepIndex] = useState(0);
   /**
    * Kayan gövde. Bölüm değişince başa sarılır: aksi hâlde uzun bir bölümün
@@ -1227,7 +1240,7 @@ export function RevisionEditor({
       return;
     }
     setDirty(true);
-  }, [specs, mods, alts, sectionNotes, enabled]);
+  }, [specs, mods, alts, sectionNotes, enabled, hiddenSections]);
 
   // Kayıp koruması: tarayıcı kapanışı/yenileme için beforeunload, uygulama içi
   // gezinme (Link tıklaması) için capture fazında confirm.
@@ -1336,7 +1349,23 @@ export function RevisionEditor({
   );
   const result = useMemo(() => runCalc(calcInput), [calcInput]);
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
-  const failCount = result.allChecks.filter((c) => !c.pass).length;
+  /** Kayda giden gizli alt bölüm listesi (sıralı — diff satırı kararlı olsun). */
+  const hiddenList = useMemo(() => [...hiddenSections].sort(), [hiddenSections]);
+  /**
+   * Gizlenen alt bölümlerin kontrol kimlikleri. Motor bölüm sınırı bilmez ve
+   * kontrolleri yine üretir; kullanıcıya GÖSTERİLEN sayılar (durum şeridi,
+   * özet pano, ray sayaçları) bu kümeyle süzülür — vinçte olmayan bir
+   * ekipmanın kırmızı kontrolü raporu "uygun değil" gösteremez.
+   */
+  const hiddenCheckIdSet = useMemo(
+    () => hiddenSectionCheckIds(hiddenSections),
+    [hiddenSections]
+  );
+  const visibleChecks = useMemo(
+    () => result.allChecks.filter((c) => !hiddenCheckIdSet.has(c.id)),
+    [result, hiddenCheckIdSet]
+  );
+  const failCount = visibleChecks.filter((c) => !c.pass).length;
   const step = STEPS[Math.min(stepIndex, STEPS.length - 1)] ?? STEPS[0];
 
   // Bağlam aktif bölüme göre kurulur: pop-up'ta vurgulanan satır, o bölümün
@@ -1421,6 +1450,9 @@ export function RevisionEditor({
   }
 
   function sectionStatus(key: ModuleKey, section: AdapterSection): "pass" | "fail" | "none" {
+    // Gizli alt bölüm sayılmaz: rayın grup başlığındaki "n/m" ve kırmızı işaret
+    // yalnız rapora GİREN bölümleri anlatır.
+    if (hiddenSections.has(sectionHideKeyFor(key, section.rawId))) return "none";
     const checks = sectionChecks(key, section);
     if (checks.length === 0) return "none";
     return checks.every((c) => c.pass) ? "pass" : "fail";
@@ -1539,7 +1571,8 @@ export function RevisionEditor({
         syncedAlts(),
         fullCalcInput,
         disabledList,
-        sectionNotes
+        sectionNotes,
+        hiddenList
       );
       if (res.error) toast.error(res.error);
       else {
@@ -1551,6 +1584,17 @@ export function RevisionEditor({
 
   function toggleModule(key: ModuleKey, on: boolean) {
     setEnabled((m) => ({ ...m, [key]: on }));
+  }
+
+  /** Alt bölümü gizle/göster — başlıktaki kutucuktan çağrılır. */
+  function toggleSectionHidden(key: ModuleKey, sectionRawId: string, hide: boolean) {
+    const hideKey = sectionHideKeyFor(key, sectionRawId);
+    setHiddenSections((current) => {
+      const next = new Set(current);
+      if (hide) next.add(hideKey);
+      else next.delete(hideKey);
+      return next;
+    });
   }
 
   // ------------------------------------------------------------ renderers
@@ -1703,6 +1747,9 @@ export function RevisionEditor({
     const noteKey = sectionNoteKeyFor(key, section.rawId);
     const noteIsEnabled = Object.prototype.hasOwnProperty.call(sectionNotes, noteKey);
     const sectionNote = sectionNotes[noteKey] ?? "";
+    // Alt bölüm gizleme: kutucuk başlıktadır, içerik soluk ama düzenlenebilir
+    // kalır (girdiler korunur — bölüm aç/kapa mantığının aynısı).
+    const isHidden = hiddenSections.has(sectionHideKeyFor(key, section.rawId));
 
     function enableSectionNote() {
       setSectionNotes((current) => ({ ...current, [noteKey]: "" }));
@@ -1790,16 +1837,40 @@ export function RevisionEditor({
                   + Bölüm Notu
                 </Button>
               )}
-              {checks.length > 0 && (
-                <Badge
-                  variant={checks.every((c) => c.pass) ? "secondary" : "destructive"}
-                  className={cn(
-                    checks.every((c) => c.pass) &&
-                      "border-transparent bg-success/15 text-success"
-                  )}
+              {/* Alt bölüm gizleme kutucuğu: işaretliyken bölüm hesap
+                  raporunda, PDF'lerde ve ekipman listesinde görünmez.
+                  Girdiler korunur — kutucuk geri açılınca bölüm aynen döner.
+                  Salt-okunur revizyonda kutucuk yerine rozet basılır. */}
+              {!readOnly && (
+                <label
+                  className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-10"
+                  title="Bu alt bölümü gizle: hesap raporunda, PDF'lerde ve ekipman listesinde görünmez. Girdiler korunur."
                 >
-                  {checks.filter((c) => c.pass).length}/{checks.length} uygun
+                  <input
+                    type="checkbox"
+                    checked={isHidden}
+                    onChange={(e) => toggleSectionHidden(key, section.rawId, e.target.checked)}
+                    className="size-3.5 accent-primary"
+                  />
+                  Gizle
+                </label>
+              )}
+              {isHidden ? (
+                <Badge variant="outline" className="font-normal text-muted-foreground">
+                  Gizli
                 </Badge>
+              ) : (
+                checks.length > 0 && (
+                  <Badge
+                    variant={checks.every((c) => c.pass) ? "secondary" : "destructive"}
+                    className={cn(
+                      checks.every((c) => c.pass) &&
+                        "border-transparent bg-success/15 text-success"
+                    )}
+                  >
+                    {checks.filter((c) => c.pass).length}/{checks.length} uygun
+                  </Badge>
+                )
               )}
             </span>
           </CardTitle>
@@ -1807,7 +1878,18 @@ export function RevisionEditor({
             <p className="text-sm text-muted-foreground">{section.description}</p>
           )}
         </CardHeader>
-        <CardContent className="grid gap-5">
+        {/* Gizli bölümün içeriği SOLUK ama düzenlenebilir kalır: mühendis
+            değerleri görmeye ve düzeltmeye devam edebilir, yalnız çıktılar
+            bölümü taşımaz. İçeriği tamamen saklamak, kutucuğu geri açmadan
+            önce "ne gizlediğimi göreyim" ihtiyacını karşılayamazdı. */}
+        {isHidden && (
+          <div className="mx-(--card-spacing) border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            Bu alt bölüm gizli: hesap raporunda, PDF çıktılarında ve ekipman
+            listesinde görünmez; kontrolleri özetlere sayılmaz. Girdiler
+            korunur — «Gizle» kutusunu kaldırınca bölüm aynen geri gelir.
+          </div>
+        )}
+        <CardContent className={cn("grid gap-5", isHidden && "opacity-55")}>
           {/* Not KUTUSU yalnız not açıkken yer kaplar; "not ekle" düğmesi
               başlık satırındadır (bkz. CardTitle). */}
           {noteIsEnabled && (
@@ -2172,28 +2254,32 @@ export function RevisionEditor({
   }
 
   function renderSummary() {
-    const blocks = MODULE_ADAPTERS.filter((a) => {
-      const mr = moduleResult(a.key);
-      return present(a.key) && mr && mr.checks.length > 0;
-    });
-    const totalFail = result.allChecks.filter((c) => !c.pass).length;
+    // Gizlenen alt bölümlerin kontrolleri panoya GİRMEZ (PDF'teki Kontrol
+    // Özeti ile aynı süzgeç): raporda basılmayan bir hesabın kontrolü burada
+    // sayılsaydı iki yüzey farklı toplam söylerdi.
+    const moduleChecks = (key: ModuleKey): AnyCheck[] =>
+      (moduleResult(key)?.checks ?? []).filter((c) => !hiddenCheckIdSet.has(c.id));
+    const blocks = MODULE_ADAPTERS.filter(
+      (a) => present(a.key) && moduleChecks(a.key).length > 0
+    );
+    const totalFail = failCount;
     return (
       <Card className={cardSpacing}>
         <CardHeader className="border-b pb-4">
           <CardTitle className="text-base tracking-tight">Özet · Kontrol Panosu</CardTitle>
           <p className="text-sm text-muted-foreground">
             {totalFail === 0
-              ? `Hesap raporundaki ${result.allChecks.length} kontrolün tamamı uygun.`
-              : `Hesap raporundaki ${result.allChecks.length} kontrolün ${totalFail} tanesi uygun değil. ` +
+              ? `Hesap raporundaki ${visibleChecks.length} kontrolün tamamı uygun.`
+              : `Hesap raporundaki ${visibleChecks.length} kontrolün ${totalFail} tanesi uygun değil. ` +
                 "Kırmızı satıra karşılık gelen bölüme dönüp seçimi gözden geçirin."}
           </p>
         </CardHeader>
         {/* Masaüstünde iki sütun: tüm bölümler tek ekranda görünür */}
         <CardContent className="grid gap-5 lg:grid-cols-2 lg:gap-x-6">
           {blocks.map((adapter) => {
-            const mr = moduleResult(adapter.key)!;
-            const modulePass = mr.checks.filter((c) => c.pass).length;
-            const allOk = modulePass === mr.checks.length;
+            const checks = moduleChecks(adapter.key);
+            const modulePass = checks.filter((c) => c.pass).length;
+            const allOk = modulePass === checks.length;
             return (
               <section key={adapter.key} className="grid content-start gap-2">
                 <div className="flex items-center justify-between gap-2 border-b pb-1.5">
@@ -2206,10 +2292,10 @@ export function RevisionEditor({
                       allOk ? "text-success" : "text-destructive"
                     )}
                   >
-                    {modulePass}/{mr.checks.length} Uygun
+                    {modulePass}/{checks.length} Uygun
                   </span>
                 </div>
-                {mr.checks.map((c) => (
+                {checks.map((c) => (
                   <CheckRow key={c.id} check={c} context={stdContext} />
                 ))}
               </section>
@@ -2221,14 +2307,25 @@ export function RevisionEditor({
   }
 
   // ------------------------------------------------------------ layout
-  const passCount = result.allChecks.length - failCount;
+  const passCount = visibleChecks.length - failCount;
   const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
+  // Gizli bölümün adım şeridi sayacı da susar — bölüm rapora girmiyor.
   const stepChecks =
-    step.kind === "module" ? sectionChecks(step.moduleKey, step.section) : [];
+    step.kind === "module" &&
+    !hiddenSections.has(sectionHideKeyFor(step.moduleKey, step.section.rawId))
+      ? sectionChecks(step.moduleKey, step.section)
+      : [];
 
   /** Adımın ray etiketleri — dar ve geniş kip aynı kaynaktan okur. */
   function stepChip(s: Step): string {
     return s.kind === "module" ? s.section.id : s.kind === "specs" ? "01" : "ÖZ";
+  }
+  /** Adımın bölümü kullanıcı tarafından gizlendi mi (rayda soluk görünür). */
+  function stepHidden(s: Step): boolean {
+    return (
+      s.kind === "module" &&
+      hiddenSections.has(sectionHideKeyFor(s.moduleKey, s.section.rawId))
+    );
   }
   function stepLabel(s: Step): string {
     return s.kind === "module"
@@ -2254,20 +2351,23 @@ export function RevisionEditor({
    * genişliğe sığmaz, ama "burada bir sorun var" bilgisi kaybolmamalıdır.
    */
   function navChip(s: Step, i: number) {
+    const hidden = stepHidden(s);
     const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
-    const failing = checks.some((c) => !c.pass);
+    // Gizli bölümün kontrolü sayılmaz — kırmızı nokta da yakılmaz.
+    const failing = !hidden && checks.some((c) => !c.pass);
     return (
       <li key={s.key}>
         <button
           type="button"
           onClick={() => goToStep(i)}
-          title={`${stepChip(s)} · ${stepLabel(s)}`}
+          title={`${stepChip(s)} · ${stepLabel(s)}${hidden ? " (gizli)" : ""}`}
           aria-current={i === stepIndex ? "step" : undefined}
           className={cn(
             "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors pointer-coarse:min-h-10",
             i === stepIndex
               ? "bg-primary/15 font-medium text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            hidden && "opacity-45"
           )}
         >
           {stepChip(s)}
@@ -2285,6 +2385,7 @@ export function RevisionEditor({
   function navItem(s: Step, i: number) {
     // Numara çipi + kontrol özeti: durum noktası yerine "✓ n/m" sayısı
     // (hepsi geçtiyse nötr, kalan varsa kırmızı).
+    const hidden = stepHidden(s);
     const checks = s.kind === "module" ? sectionChecks(s.moduleKey, s.section) : [];
     const passN = checks.filter((c) => c.pass).length;
     const chip = stepChip(s);
@@ -2311,16 +2412,27 @@ export function RevisionEditor({
           >
             {chip}
           </span>
-          <span className="min-w-0 flex-1 truncate" title={label}>{label}</span>
-          {checks.length > 0 && (
-            <span
-              className={cn(
-                "shrink-0 font-mono text-xs tabular-nums sm:text-[11px]",
-                passN === checks.length ? "text-muted-foreground" : "text-destructive"
-              )}
-            >
-              {passN}/{checks.length}
-            </span>
+          <span
+            className={cn("min-w-0 flex-1 truncate", hidden && "opacity-50")}
+            title={hidden ? `${label} (gizli)` : label}
+          >
+            {label}
+          </span>
+          {/* Gizli bölümün sayacı yerine "gizli" etiketi: kırmızı bir sayaç
+              "burada sorun var" derdi, oysa bölüm rapora hiç girmiyor. */}
+          {hidden ? (
+            <span className="shrink-0 text-[11px] text-muted-foreground/70">gizli</span>
+          ) : (
+            checks.length > 0 && (
+              <span
+                className={cn(
+                  "shrink-0 font-mono text-xs tabular-nums sm:text-[11px]",
+                  passN === checks.length ? "text-muted-foreground" : "text-destructive"
+                )}
+              >
+                {passN}/{checks.length}
+              </span>
+            )
           )}
         </button>
       </li>
@@ -2344,7 +2456,7 @@ export function RevisionEditor({
             <span aria-hidden="true" className="shrink-0 font-mono font-semibold text-success">✓</span>
             <span className="hidden font-medium text-success sm:inline">Tüm kontroller uygun</span>
             <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {result.allChecks.length}
+              {visibleChecks.length}
             </span>
           </>
         ) : (
@@ -2355,7 +2467,7 @@ export function RevisionEditor({
               <span className="hidden sm:inline"> kontrol uygun değil</span>
             </span>
             <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              / {result.allChecks.length}
+              / {visibleChecks.length}
             </span>
           </>
         )}
@@ -2452,7 +2564,7 @@ export function RevisionEditor({
                   failCount === 0 ? "text-success" : "text-destructive"
                 )}
               >
-                {passCount}/{result.allChecks.length} uygun
+                {passCount}/{visibleChecks.length} uygun
               </span>
             </>
           )}

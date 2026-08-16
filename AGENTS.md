@@ -2582,6 +2582,27 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    Motora yeni girdi eklendiğinde eski revizyonlar `revision-load.ts`teki
    `withDefaults` sayesinde bozulmaz.
 
+   **ALT BÖLÜM GİZLENEBİLİR** (`inputs.hiddenSections`, kullanıcı kararı
+   16.08.2026: *"bazı vinçlerde bazı özellikler olmuyor veya müşteriye
+   göstermek istemiyorum"* — ör. araba yürütmede teker–redüktör kaplini yoksa
+   5.7 gizlenir). Anahtar `sectionHideKeyFor` iledir (`"trolley-5.7"` — not ve
+   alternatif anahtarlarıyla AYNI uzay, HAM bölüm id'si; köprüde görünen 6.8
+   değil 5.7). Kutucuk bölüm BAŞLIĞINDADIR; `disabledModules`tan farkı:
+   gizlenen bölüm HESABA GİRMEYE DEVAM EDER (motor bölüm sınırı bilmez), yalnız
+   sunumdan düşer — editör soluk gösterir, PDF raporu (bölüm + "Ana Ekipman
+   Seçimleri" + Kontrol Özeti), editör özet panosu/durum şeridi ve ekipman
+   listesi (ekran + Excel + PDF, alternatif satırlar dâhil) onu taşımaz.
+   Kontrol süzgeci `hiddenSectionCheckIds`tadır (module-adapters.ts) ve bölümün
+   kendi `checkSuffixes` bildiriminden çıkar; ekipman bağı ise bölüm tanımının
+   `equipmentSlugs` bildirimindedir (`*Sections.ts`) ve İKİ YÖNLÜ koruma
+   testine bağlıdır (`hidden-sections-equipment.test.ts`: bildirilen her slug
+   gerçekten üretilir + üretilen her satırın sahibi vardır — yeni ekipman
+   satırı eklerken bölümüne `equipmentSlugs` da eklenir). Bölüm numaraları
+   gizlemede YENİDEN DİZİLMEZ (5.8, 5.7 gizlense de 5.8 kalır — koşullu
+   bölümlerin bugünkü davranışıyla aynı; kararlı numara, atlanmış numaradan
+   iyidir). Gizleme kararı revizyon karşılaştırmasında kendi satırıyla görünür
+   (`revision-diff.ts`, "Gizlenen Alt Bölümler").
+
    **Taslak revizyon SİLİNEBİLİR, yayınlanmış SİLİNEMEZ.** Yanlış açılmış ya da
    yanlış yönde ilerlemiş bir taslağı temizlemenin yolu yoktu. İki kural AYRI
    yerdedir ve karıştırılmaz: NEYİN silinebileceğini `guard_issued_revision`

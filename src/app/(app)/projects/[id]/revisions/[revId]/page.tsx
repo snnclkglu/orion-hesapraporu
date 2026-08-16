@@ -11,11 +11,13 @@ import { IssueRevisionButton } from "./issue-button";
 import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
+  hiddenSectionsFromRevision,
   loadRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
+import { hiddenSectionCheckIds } from "./module-adapters";
 
 export default async function RevisionPage({
   params,
@@ -55,6 +57,11 @@ export default async function RevisionPage({
   // Editör TÜM bölümleri alır (kapalılar dâhil) ve kapalı listesini ayrıca
   // bilir — kapatılan bölümün girdileri korunur, yeniden açılınca geri gelir.
   const loaded = loadRevision(inputs, selections);
+  // Gizlenen alt bölümler: editör soluk gösterir; yayınlama düğmesinin
+  // "uygun değil" sayacı da gizli bölümlerin kontrollerini SAYMAZ — raporda
+  // basılmayan bir hesabın kontrolü yayın uyarısı üretmemeli.
+  const hiddenSections = hiddenSectionsFromRevision(inputs);
+  const hiddenCheckIds = hiddenSectionCheckIds(hiddenSections);
 
   return (
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
@@ -128,8 +135,9 @@ export default async function RevisionPage({
               revNo={revision.rev_no}
               defaultLabel={revision.label || `V${revision.rev_no}`}
               failingChecks={
-                ((revision.results as { allChecks?: { pass: boolean }[] } | null)?.allChecks ?? [])
-                  .filter((c) => !c.pass).length
+                ((revision.results as { allChecks?: { id?: string; pass: boolean }[] } | null)
+                  ?.allChecks ?? [])
+                  .filter((c) => !c.pass && !(c.id && hiddenCheckIds.has(c.id))).length
               }
             />
           )}
@@ -143,6 +151,7 @@ export default async function RevisionPage({
         initialAlts={selections?.alts}
         initialSectionNotes={sectionNotesFromRevision(selections)}
         initialDisabled={loaded.disabled}
+        initialHidden={hiddenSections}
       />
     </div>
   );

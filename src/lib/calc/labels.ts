@@ -94,6 +94,7 @@ export const MODULE_LABELS: Record<string, string> = {
 /** Alan listelerinde yer almayan, yalnız karşılaştırmada görünen anahtarlar. */
 const EXTRA_LABELS: Record<string, FieldLabel> = {
   disabledModules: { label: "Kapatılan Hesap Bölümleri" },
+  hiddenSections: { label: "Gizlenen Alt Bölümler" },
   ropeWeightAuto: { label: "Halat Ağırlığı Otomatik" },
   hookBlockWeightAuto: { label: "Kanca Bloğu Ağırlığı Otomatik" },
   tempFactorAuto: { label: "Sıcaklık Faktörü Otomatik" },

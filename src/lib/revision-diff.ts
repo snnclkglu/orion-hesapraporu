@@ -73,8 +73,9 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
   const bInputs = b.inputs ?? {};
   const moduleKeys = new Set([...Object.keys(aInputs), ...Object.keys(bInputs)]);
   for (const mk of moduleKeys) {
-    // Kapalı bölüm listesi bir modül nesnesi değil, dizidir — ayrı ele alınır.
-    if (mk === "disabledModules") continue;
+    // Kapalı bölüm ve gizli alt bölüm listeleri modül nesnesi değil, dizidir —
+    // ayrı ele alınırlar.
+    if (mk === "disabledModules" || mk === "hiddenSections") continue;
     diffModuleObjects(mk, "input", aInputs[mk], bInputs[mk], fields);
   }
 
@@ -89,6 +90,20 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
       key: "disabledModules",
       a: aOff.length ? aOff.join(", ") : "—",
       b: bOff.length ? bOff.join(", ") : "—",
+    });
+  }
+
+  // Gizlenen alt bölüm değişimi de aynı biçimde ayrı bir satırdır: raporun
+  // içeriğini değiştiren bir karar karşılaştırmada kaybolmamalı.
+  const aHid = Array.isArray(aInputs.hiddenSections) ? [...aInputs.hiddenSections].sort() : [];
+  const bHid = Array.isArray(bInputs.hiddenSections) ? [...bInputs.hiddenSections].sort() : [];
+  if (JSON.stringify(aHid) !== JSON.stringify(bHid)) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "hiddenSections",
+      a: aHid.length ? aHid.join(", ") : "—",
+      b: bHid.length ? bHid.join(", ") : "—",
     });
   }
 
