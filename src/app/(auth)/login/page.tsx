@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LANDING_PATH } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { APP_NAME, APP_TAGLINE, COMPANY_NAME } from "@/lib/app";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,10 +26,21 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    // Giriş sonrası AÇILIŞ PANOSU (kullanıcı kararı, 13.08.2026) — eskiden
-    // doğrudan Mühendislik listesine düşüyordu.
-    router.replace("/");
-    router.refresh();
+    /*
+     * Giriş sonrası AÇILIŞ PANOSU (kullanıcı kararı, 13.08.2026).
+     *
+     * GEÇİŞ TAM SAYFA YÜKLEMESİDİR, istemci gezinmesi değil. `router.replace`
+     * bir RSC isteği atar ve o istek, `signInWithPassword`ün yazdığı oturum
+     * çerezini bazen bir an ıskalar: proxy isteği oturumsuz sayıp `/login`e
+     * döndürür, çerez o arada yerine oturur ve kullanıcı ikinci turda
+     * "oturumu var ama /login'de" dalına düşer. Telefonda çok daha sık olur —
+     * bildirilen "mobilde ilk açılışta mühendislik sayfası geliyor" hatasının
+     * yarısı buydu (öbür yarısı o dalın hedefiydi, bkz. proxy.ts).
+     *
+     * `replace` KORUNUR: geri tuşu giriş formuna dönmemelidir. Adres
+     * `LANDING_PATH`ten okunur — menü, proxy ve bu form tek kaynaktan.
+     */
+    window.location.replace(LANDING_PATH);
   }
 
   return (

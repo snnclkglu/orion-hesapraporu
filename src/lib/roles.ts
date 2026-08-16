@@ -326,12 +326,25 @@ export function sectionAccess(section: WorkspaceSection, role: string): SectionA
   return !section.yazabilir || section.yazabilir(role) ? "yazar" : "gorur";
 }
 
+/**
+ * UYGULAMAYA GİRİŞ ADRESİ — açılış panosu.
+ *
+ * Üç yer buradan okur ve ayrışamaz: giriş formunun kaydırdığı hedef
+ * (`(auth)/login/page.tsx`), oturumu olan kullanıcıyı `/login`den geri
+ * gönderen dal (`proxy.ts`) ve kabuktaki marka bağlantısı ("başa dön",
+ * `app-shell.tsx`). Üçü elle yazılıyken ikisi `/projects`te kalmıştı ve
+ * uygulamanın iki ayrı açılış adresi vardı (kullanıcı bildirimi, 16.08.2026).
+ * Sabit `WORKSPACE_SECTIONS`in İLK satırıyla aynı olmalıdır — koruma
+ * `roles.test.ts`tedir.
+ */
+export const LANDING_PATH = "/";
+
 export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
   // AÇILIŞ PANOSU LİSTENİN BAŞINDADIR ve adresi KÖKTÜR. Menüde ilk sırada
   // durması bir düzen tercihi değil bir gerçektir: giriş sonrası açılan
   // ekran odur ve "başa dön" bağlantısı da odur.
   {
-    href: "/",
+    href: LANDING_PATH,
     label: "Panel",
     icon: "console",
     hint: "Arama, dikkat isteyenler ve yaklaşan tarihler",

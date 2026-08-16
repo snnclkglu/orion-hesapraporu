@@ -1365,6 +1365,29 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
     fazladan bir gidiş-dönüş eder ve geri tuşunu kırardı. Sayfa `(app)`
     grubundadır, yani kabuğu ve yetki kapısını diğer bölümlerle paylaşır.
 
+    **GİRİŞ ADRESİ TEK SABİTTİR: `LANDING_PATH`** (`lib/roles.ts`; kullanıcı
+    bildirimi 16.08.2026: *"uygulamaya girişin Panel sayfasından olmasını
+    istiyorum, mobilde ilk açılışta mühendislik sayfası geliyor"*). Adres ÜÇ
+    kapıda elle yazılıydı ve ikisi panodan önceki dünyada kalmıştı — proxy'nin
+    "oturumu var ama `/login`de" dalı ve kabuktaki MARKA bağlantısı `/projects`e
+    gidiyordu. Uygulamanın iki ayrı açılış adresi vardı; hangisinin çalıştığı
+    kullanıcının o anki çerez durumuna bağlıydı.
+
+    **HATA NEDEN TELEFONDA GÖRÜLDÜ:** giriş adımı orada çok daha sık
+    tekrarlanır ve giriş formu `router.replace` ile İSTEMCİ GEZİNMESİ
+    yapıyordu. O RSC isteği, `signInWithPassword`ün yazdığı çerezi bir an
+    ıskalayabilir: proxy isteği oturumsuz sayıp `/login`e döndürür, çerez
+    aradaki boşlukta yerine oturur ve ikinci turda kullanıcı "oturumu var ama
+    `/login`de" dalına düşerek panonun yanından geçip Mühendislik'e iner.
+    Yarısı hedefti, yarısı yarıştı; ikisi de kapatıldı — geçiş artık TAM SAYFA
+    yüklemesidir (`window.location.replace`, `replace` semantiği korunur ki
+    geri tuşu giriş formuna dönmesin).
+
+    Manifest `start_url`i zaten kökte (`/`); ana ekran kısayolu da panoya açar.
+    Koruma `roles.test.ts`tedir ve KAYNAK DOSYAYI okur (`terms.test.ts`
+    deseni): üç kapı da sabiti içe aktarmalı ve hiçbiri elle bir açılış adresi
+    yazmamalıdır — sabiti içe aktarmayan dosya, değişiklikten habersiz kalır.
+
     **ARAMA SAYFANIN KAHRAMANIDIR.** Panonun sorusu "nereye gideceğim" değil
     "hangi işe bakacağım"dır ve cevap çoğu zaman bir NUMARADIR (`0057`,
     `0043-00-1000`, `ASTOR`). Bu yüzden arama bir köşe büyüteci değil ilk ve en

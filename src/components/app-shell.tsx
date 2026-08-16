@@ -24,7 +24,7 @@ import { useStoredFlag } from "@/lib/use-stored-flag";
 import { BrandIcon, type BrandIconName } from "@/components/brand-icon";
 import { LogoutButton } from "@/components/logout-button";
 import { PageActionsHost, PageHeaderHost } from "@/components/page-header";
-import { WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
+import { LANDING_PATH, WORKSPACE_SECTIONS, roleLabel, visibleSections } from "@/lib/roles";
 import { APP_NAME, COMPANY_NAME } from "@/lib/app";
 import { UploadIndicator } from "@/app/(app)/drawings/new/upload-indicator";
 
@@ -107,9 +107,13 @@ function SidebarContent({
 }) {
   return (
     <div className="flex h-full flex-col">
-      {/* Marka — koyu zeminde beyaz logo (Orion Cranes marka kılavuzu) */}
+      {/* Marka — koyu zeminde beyaz logo (Orion Cranes marka kılavuzu).
+          Bağlantı AÇILIŞ PANOSUNA gider: uygulamanın "başa dön" adresi odur
+          (menünün de ilk satırı). Bir süre `/projects`te kalmıştı — logo
+          uygulamanın en görünür ev bağlantısıdır ve orayı Mühendislik
+          göstermek panonun kendisini bulunmaz yapıyordu. */}
       <Link
-        href="/projects"
+        href={LANDING_PATH}
         onClick={onNavigate}
         title={collapsed ? `${COMPANY_NAME} · ${APP_NAME}` : undefined}
         className={cn("block pt-5 pb-4", collapsed ? "px-2" : "px-4")}

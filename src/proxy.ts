@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { LANDING_PATH } from "@/lib/roles";
 
 // Oturum tazeleme + korumalı rotalar (Next 16: middleware yerine proxy)
 export async function proxy(request: NextRequest) {
@@ -57,9 +58,21 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
+  /*
+   * OTURUMU OLAN KULLANICI AÇILIŞ PANOSUNA DÜŞER — Mühendislik listesine DEĞİL.
+   *
+   * Bu satır panodan (13.08.2026) önce yazılmıştı ve kalınca uygulamanın İKİ
+   * ayrı açılış adresi oldu: giriş formu `/`ye gider, bu dal `/projects`e.
+   * İkincisi telefonda çok daha sık çalışır ve kullanıcının bildirdiği hata
+   * odur (16.08.2026: *"mobilde ilk açılışta mühendislik sayfası geliyor"*) —
+   * oturum çerezi bir an gecikirse `/` isteği `/login`e döner, çerez oraya
+   * yetişir ve bu dal kullanıcıyı panonun yanından geçirip Mühendislik'e
+   * bırakır. Adres `LANDING_PATH`tedir (`lib/roles.ts`): menünün ilk satırı,
+   * giriş formunun hedefi ve bu dal TEK kaynaktan okur.
+   */
   if (user && isLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = "/projects";
+    url.pathname = LANDING_PATH;
     return NextResponse.redirect(url);
   }
 

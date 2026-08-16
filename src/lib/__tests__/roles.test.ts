@@ -5,10 +5,13 @@
 // `is_admin()` · `can_see_sales()` · `can_edit_reports()`; ekrandaki gizleme
 // tek başına yeterli değildir, ikisi birlikte değişmelidir.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as rolesModule from "../roles";
 import {
   DRAWING_AUTHOR_ROLES,
+  LANDING_PATH,
   USER_ROLES,
   canBeDrawingAuthor,
   canEditConsumableExpenses,
@@ -353,6 +356,58 @@ describe("WORKSPACE_SECTIONS — menü ile yetki matrisi TEK KAYNAK", () => {
     const ressam = visibleSections("draftsman").map((s) => s.href);
     for (const rol of ["quality", "production"]) {
       expect(visibleSections(rol).map((s) => s.href), rol).toEqual(ressam);
+    }
+  });
+});
+
+/*
+ * GİRİŞ ADRESİ — üç kapı da AYNI yere açılır.
+ *
+ * Uygulamanın açılış ekranı panodur (`/`) ama adres üç ayrı yerde elle
+ * yazılıydı ve ikisi panodan önceki dünyada kalmıştı: proxy oturumu olan
+ * kullanıcıyı `/login`den `/projects`e, kabuktaki marka bağlantısı da yine
+ * `/projects`e gönderiyordu. Kullanıcı bunu telefonda gördü (16.08.2026) —
+ * orada giriş adımı sık tekrarlandığı için o dal her açılışta çalışıyordu.
+ *
+ * Test KAYNAK DOSYAYI okur (`terms.test.ts` / `purchasing-split.test.ts`
+ * deseni): sabiti içe aktarmayan bir dosya, sabitin değişmesinden habersiz
+ * kalır ve ayrışma yine sessiz olurdu.
+ */
+describe("giriş adresi TEK kaynaktan okunur", () => {
+  const oku = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+
+  it("LANDING_PATH menünün İLK satırıyla aynıdır", () => {
+    const { WORKSPACE_SECTIONS } = rolesModule;
+    expect(LANDING_PATH).toBe("/");
+    expect(WORKSPACE_SECTIONS[0].href).toBe(LANDING_PATH);
+    expect(WORKSPACE_SECTIONS[0].label).toBe("Panel");
+  });
+
+  it("proxy, giriş formu ve marka bağlantısı sabiti içe aktarır", () => {
+    const kapilar = [
+      "src/proxy.ts",
+      "src/app/(auth)/login/page.tsx",
+      "src/components/app-shell.tsx",
+    ];
+    for (const yol of kapilar) {
+      const kaynak = oku(yol);
+      expect(kaynak, `${yol} LANDING_PATH içe aktarmıyor`).toMatch(
+        /import\s*\{[^}]*LANDING_PATH[^}]*\}\s*from\s*"@\/lib\/roles"/
+      );
+    }
+  });
+
+  it("hiçbir kapı elle bir açılış adresi yazmaz", () => {
+    // Yönlendirme/gezinme hedefi olarak yazılmış her sabit adres yakalanır;
+    // `href="/projects"` gibi bir MENÜ bağlantısı zaten bu dosyalarda yok.
+    const yasak =
+      /(?:pathname\s*=\s*|redirect\(|replace\(|push\(|href=\{?["'])["']\/projects["']/;
+    for (const yol of [
+      "src/proxy.ts",
+      "src/app/(auth)/login/page.tsx",
+      "src/components/app-shell.tsx",
+    ]) {
+      expect(oku(yol), `${yol} elle "/projects"e yönlendiriyor`).not.toMatch(yasak);
     }
   });
 });
