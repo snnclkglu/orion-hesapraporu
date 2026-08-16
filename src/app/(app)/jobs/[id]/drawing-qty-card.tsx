@@ -94,12 +94,15 @@ export function DrawingQtyCard({
 
       <Table>
         <TableHeader>
+          {/* TELEFONDA TABLO LİSTEYE KATLANIR (kabuk kuralı 15): sabit genişlikli
+              kalem no + Resimleri sütunları `sm` altında Ürün Adı hücresinin alt
+              satırlarına iner; ekranda Ürün Adı ve Adet kalır, tablo yatay kaymaz. */}
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <TableHead className="w-[8.5rem]">İş Kalemi No</TableHead>
+            <TableHead className="hidden w-[8.5rem] sm:table-cell">İş Kalemi No</TableHead>
             <TableHead>Ürün Adı</TableHead>
             <TableHead className="hidden w-[7rem] md:table-cell">İş Emrinde</TableHead>
             <TableHead className="w-[8rem]">Adet</TableHead>
-            <TableHead className="w-[16rem]">Resimleri</TableHead>
+            <TableHead className="hidden w-[16rem] sm:table-cell">Resimleri</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -177,10 +180,70 @@ function Satir({
       ? [k, ...odunc].reduce((t, o) => t + (o.qty ?? 1), 0)
       : null;
 
+  // RESİMLERİ ALANI İKİ YERDE GÖRÜNÜR — masaüstünde kendi sütununda, telefonda
+  // Ürün Adı hücresinin alt satırında — ama TEK yerde kurulur (kabuk kuralı 15,
+  // Talep Havuzu'ndaki `TeklifDugmesi` deseni): iki yazım, birinde düzeltilen
+  // davranışın ötekinde eski kalması demekti.
+  const resimleri = tasiyici ? (
+    <span className="flex flex-wrap items-center gap-1 text-[12px]">
+      <Link2 className="size-3 shrink-0 text-muted-foreground" />
+      <span className="font-mono">{tasiyici.itemNo || "—"}</span>
+      <span className="text-muted-foreground">kaleminden</span>
+      {hazir && (
+        <button
+          type="button"
+          onClick={() => paylas(KENDI)}
+          disabled={calisiyor}
+          title="Eşleştirmeyi kaldır"
+          className="oc-tap-square grid size-6 place-items-center text-muted-foreground transition-colors hover:text-destructive"
+        >
+          <Link2Off className="size-3" />
+        </button>
+      )}
+    </span>
+  ) : odunc.length > 0 ? (
+    <span className="text-[12px]">
+      <span className="text-muted-foreground">Kendi resimleri · </span>
+      <span className="font-mono">{odunc.map((o) => o.itemNo || "?").join(", ")}</span>
+      <span className="text-muted-foreground"> de kullanıyor</span>
+    </span>
+  ) : hedefSecilebilir && hedefler.length > 0 && hazir ? (
+    <Select value={KENDI} onValueChange={paylas}>
+      <SelectTrigger size="sm" className="w-full text-base pointer-fine:text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={KENDI}>Kendi resimleri</SelectItem>
+        {hedefler.map((h) => (
+          <SelectItem key={h.id} value={h.id}>
+            {h.itemNo || "—"} kaleminin resimleri
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  ) : (
+    <span className="text-[12px] text-muted-foreground">Kendi resimleri</span>
+  );
+
   return (
     <TableRow>
-      <TableCell className="font-mono text-sm text-primary">{k.itemNo || "—"}</TableCell>
-      <TableCell className="font-medium whitespace-normal">{k.productName}</TableCell>
+      <TableCell className="hidden font-mono text-sm text-primary sm:table-cell">
+        {k.itemNo || "—"}
+      </TableCell>
+      <TableCell className="font-medium break-words whitespace-normal">
+        {k.productName}
+        {/* Telefonda gizlenen sütunların karşılığı: kalem no (`sm` altı) ve
+            iş emrindeki serbest metin adet (`md` altı) alt satıra iner. */}
+        <span className="mt-0.5 block font-mono text-[11px] font-normal text-primary sm:hidden">
+          {k.itemNo || "—"}
+        </span>
+        {k.quantityText && (
+          <span className="mt-0.5 block font-mono text-[11px] font-normal text-muted-foreground md:hidden">
+            İş emrinde {k.quantityText}
+          </span>
+        )}
+        <span className="mt-1 block sm:hidden">{resimleri}</span>
+      </TableCell>
       <TableCell className="hidden font-mono text-[12px] text-muted-foreground md:table-cell">
         {k.quantityText || "—"}
       </TableCell>
@@ -227,48 +290,7 @@ function Satir({
         )}
       </TableCell>
 
-      <TableCell>
-        {tasiyici ? (
-          <span className="flex flex-wrap items-center gap-1 text-[12px]">
-            <Link2 className="size-3 shrink-0 text-muted-foreground" />
-            <span className="font-mono">{tasiyici.itemNo || "—"}</span>
-            <span className="text-muted-foreground">kaleminden</span>
-            {hazir && (
-              <button
-                type="button"
-                onClick={() => paylas(KENDI)}
-                disabled={calisiyor}
-                title="Eşleştirmeyi kaldır"
-                className="grid size-6 place-items-center text-muted-foreground transition-colors pointer-coarse:size-9 hover:text-destructive"
-              >
-                <Link2Off className="size-3" />
-              </button>
-            )}
-          </span>
-        ) : odunc.length > 0 ? (
-          <span className="text-[12px]">
-            <span className="text-muted-foreground">Kendi resimleri · </span>
-            <span className="font-mono">{odunc.map((o) => o.itemNo || "?").join(", ")}</span>
-            <span className="text-muted-foreground"> de kullanıyor</span>
-          </span>
-        ) : hedefSecilebilir && hedefler.length > 0 && hazir ? (
-          <Select value={KENDI} onValueChange={paylas}>
-            <SelectTrigger size="sm" className="w-full text-base pointer-fine:text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={KENDI}>Kendi resimleri</SelectItem>
-              {hedefler.map((h) => (
-                <SelectItem key={h.id} value={h.id}>
-                  {h.itemNo || "—"} kaleminin resimleri
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="text-[12px] text-muted-foreground">Kendi resimleri</span>
-        )}
-      </TableCell>
+      <TableCell className="hidden sm:table-cell">{resimleri}</TableCell>
     </TableRow>
   );
 }

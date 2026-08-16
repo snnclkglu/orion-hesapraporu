@@ -141,9 +141,12 @@ export default async function ComparePage({
             <div className="rounded-lg border">
               <Table>
                 <TableHeader>
+                  {/* TELEFONDA TABLO KATLANIR (kabuk kuralı 15): "Tür" sütunu
+                      `sm` altında gizlenir ve etiket alan adının altına iner —
+                      kalan üçlü (Alan · eski · yeni) 375px'e sığar. */}
                   <TableRow>
                     <TableHead>Alan</TableHead>
-                    <TableHead>Tür</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tür</TableHead>
                     <TableHead className="text-right">V{revA.rev_no}</TableHead>
                     <TableHead className="text-right">V{revB.rev_no}</TableHead>
                   </TableRow>
@@ -151,6 +154,9 @@ export default async function ComparePage({
                 <TableBody>
                   {byModule.get(mk)!.map((f) => {
                     const fl = fieldLabel(f.key.split(".").pop()!);
+                    // İki yerde okunur (sütun + telefon alt satırı) — tek
+                    // değişkende kurulur ki iki yazım ayrışamasın (kural 15).
+                    const turEtiketi = f.kind === "selection" ? "seçim" : "girdi";
                     return (
                       <TableRow key={`${f.kind}-${f.key}`}>
                         {/* Alan adı serbest metindir; taban `whitespace-nowrap`
@@ -158,18 +164,21 @@ export default async function ComparePage({
                         <TableCell className="whitespace-normal">
                           {fl.label}
                           {fl.unit ? ` [${fl.unit}]` : ""}
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground sm:hidden">
+                            {turEtiketi}
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {f.kind === "selection" ? "seçim" : "girdi"}
-                          </Badge>
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant="outline">{turEtiketi}</Badge>
                         </TableCell>
                         {/* Eski değer gri, yeni değer koyu — üstü çizili kullanılmaz
-                            (mühendislik dokümanında çizili değer karışıklık yaratır) */}
-                        <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                            (mühendislik dokümanında çizili değer karışıklık yaratır).
+                            Değerler veriden gelir (seçim adları metin olabilir);
+                            `break-words` boşluksuz jetonu da sardırır. */}
+                        <TableCell className="text-right font-mono text-sm break-words whitespace-normal text-muted-foreground">
                           {fmtVal(f.a)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold text-foreground">
+                        <TableCell className="text-right font-mono text-sm font-semibold break-words whitespace-normal text-foreground">
                           {fmtVal(f.b)}
                         </TableCell>
                       </TableRow>
@@ -189,9 +198,11 @@ function Header({ project }: { project: { id: string; doc_no: string; name: stri
   return (
     <div>
       <div className="text-sm text-muted-foreground">
-        <Link href="/projects" className="hover:underline">Mühendislik</Link>
+        {/* `.oc-tap`: kırıntı bağlantısı yazı boyunda kalır, dokunma katmanı
+            44px'e tamamlanır (kutu büyütülmez — md. 1). */}
+        <Link href="/projects" className="oc-tap hover:underline">Mühendislik</Link>
         {" / "}
-        <Link href={`/projects/${project.id}`} className="hover:underline">
+        <Link href={`/projects/${project.id}`} className="oc-tap hover:underline">
           <span className="font-mono">{project.doc_no}</span>
         </Link>
         {" / Karşılaştırma"}

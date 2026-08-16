@@ -17,6 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { cn } from "@/lib/utils";
 
 /**
@@ -225,7 +226,7 @@ export function StandardRefBadge({
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Yükseklik ve kaydırma artık tabandadır (`max-h-[calc(100dvh-1.5rem)]`);
             `sm:max-w-3xl` 768px tablette pencereyi ekranın TAMAMI yapıyordu. */}
-        <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+        <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(48rem,calc(100%-2rem))]`}>
           {/* Kapatma X'i sağdan 16px'te başlayan 32px'lik bir düğmedir;
               tabanın `pr-8`i sarılan başlığı altına almaya yetmiyordu. */}
           <DialogHeader className="pr-12 sm:pr-14">

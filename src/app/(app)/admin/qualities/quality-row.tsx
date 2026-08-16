@@ -156,7 +156,9 @@ export function QualityRow({ row }: { row: QualityAdminRow }) {
   return (
     <>
       <TableRow className={row.active ? undefined : "opacity-60"}>
-        <TableCell className="font-medium whitespace-normal">
+        {/* `break-words`: değer serbest metindir; boşluksuz uzun bir jeton
+            telefonda tabloyu taşırmasın. */}
+        <TableCell className="font-medium break-words whitespace-normal">
           {row.name}
           {!row.active && (
             <span className="ml-1.5 border border-dashed px-1 text-[10px] font-normal text-muted-foreground">

@@ -63,17 +63,22 @@ export function ProjectTabsNav({
     // `items-end`: alt çizgili bir rayda hem sekmeler hem yanındaki bağlantı
     // şeridin ALT kenarına oturmalıdır; ortalanınca aktif sekmenin kırmızı
     // çizgisi bölüm çizgisinden kopardı.
-    // Alt çizgi `border-b` DEĞİL iç gölgedir (bkz. RAIL_BOX başlığı) ve
-    // `overflow-y-hidden` bir emniyet kemeridir: taşma zaten giderildi, bu
-    // yalnız ileride eklenecek bir öğenin sessizce kaydırma çubuğu
-    // doğurmasını engeller.
-    <div className="oc-scrollx flex items-end gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain shadow-[inset_0_-1px_0_var(--border)] [--oc-scroll-bg:var(--background)]">
+    // RAY KAYMAZ, SARAR (kabuk kuralı 15; purchasing-nav ile aynı karar):
+    // `.oc-scrollx` + `overflow-x-auto` kalktı, dar ekranda öğeler ikinci
+    // satıra iner — gizli sekme kalmaz. Alt çizgi yine `border-b` DEĞİL iç
+    // gölgedir (bkz. RAIL_BOX başlığı; md. 14 dersinin kaynağı bu raydı):
+    // aktif sekmenin kırmızı çizgisi negatif kenar boşluğu olmadan onun
+    // üstüne oturur. Taşma kabı kalktığı için `overflow-y-hidden` emniyet
+    // kemerine de gerek kalmadı — kaydırma çubuğu doğuracak bir kap yok.
+    <div className="flex flex-wrap items-end gap-x-5 shadow-[inset_0_-1px_0_var(--border)]">
       <TabsList
         variant="line"
         // Taban şerit yüksekliğini `group-data-horizontal/tabs:h-9` ile
         // veriyor; düz bir `h-auto` onu YENMEZ (aynı özgüllük, sıraya kalır).
         // Ezme AYNI belirteçle yazılır ki tailwind-merge çakışmayı görsün.
-        className="h-auto gap-5 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto"
+        // `flex-wrap`: iki sekme çok dar ekranda tek satıra sığmazsa alt
+        // satıra sarar, raya kaydırma çubuğu sokmaz.
+        className="h-auto flex-wrap gap-x-5 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto"
       >
         <TabsTrigger value="report" className={TAB}>
           <FileSpreadsheet className="size-4" />

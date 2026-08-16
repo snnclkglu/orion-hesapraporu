@@ -237,7 +237,9 @@ export default async function ProjectPage({
                         V{r.rev_no}
                       </Link>
                     </TableCell>
-                    <TableCell className="whitespace-normal">
+                    {/* `break-words`: etiket serbest metindir, boşluksuz uzun
+                        bir jeton telefonda tabloyu taşırmasın (kural 15). */}
+                    <TableCell className="break-words whitespace-normal">
                       {r.label}
                       {/* Mobilde gizlenen tarih + oluşturan bilgisi */}
                       <div className="mt-0.5 text-[11px] whitespace-normal text-muted-foreground md:hidden">
@@ -367,7 +369,8 @@ export default async function ProjectPage({
                     {drawingList.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-mono text-sm">{d.drawing_no}</TableCell>
-                        <TableCell className="font-medium whitespace-normal">
+                        {/* `break-words`: çizim adı veriden gelir (kural 15). */}
+                        <TableCell className="font-medium break-words whitespace-normal">
                           {d.title}
                           {/* Mobilde gizlenen sütunlar — kategori · rev · durum ·
                               dosya bağlantısı burada toplanır. */}

@@ -350,6 +350,9 @@ export function AnalysisView({
             </p>
           ) : (
             <>
+              {/* BİLİNÇLİ İSTİSNA (md. 15): grafik tuvali `TimeBarChart`ın
+                  kendi `.oc-scrollx` kabında İÇTE kayar (md. 9) — çubuk
+                  genişliği okunurluğun alt sınırıdır, telefona sıkıştırılmaz. */}
               <TimeBarChart columns={columns} series={series} height={220} />
               {seriesBuckets.length > seriesShown.length && (
                 <p className="mt-2 pl-0 text-[11px] text-muted-foreground sm:pl-14">
@@ -451,6 +454,9 @@ export function AnalysisView({
           {heat.rows.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Gösterilecek kayıt yok.</p>
           ) : (
+            /* BİLİNÇLİ İSTİSNA (md. 15): ısı haritası ay × kalem MATRİSİDİR —
+               sütunlar veriden doğar, "ikincil" diye gizlenecek sütunu yoktur;
+               tuval `Heatmap`ın kendi kabında içte kayar (md. 9). */
             <Heatmap
               rows={heat.rows}
               columns={heat.columns}
@@ -511,6 +517,10 @@ export function AnalysisView({
           }
         />
         {/* `Table` kendi kaydırma kabını kurar; ipucu tablonun ÜSTÜNDE verilir. */}
+        {/* BİLİNÇLİ İSTİSNA (md. 15): çapraz tablo gerçek bir MATRİSTİR —
+            sütun listesi kullanıcının eksen seçiminden doğar, telefonda
+            gizlenecek "ikincil" sütunu yoktur. İçte kaymaya devam eder;
+            kimlik sütunu sola yapışıktır, ipucu da bu yüzden kalır. */}
         <p className="px-4 pt-2 text-[11px] text-muted-foreground md:hidden">
           → Tabloyu yana kaydırın
         </p>
@@ -634,10 +644,13 @@ export function AnalysisView({
             <TableBody>
               {comparison.map((c) => (
                 <TableRow key={c.key} className="hover:bg-transparent">
-                  <TableCell>
+                  {/* Etiket veriden gelir ve hücre varsayılanı nowrap'tır: tek
+                      uzun ad tabloyu telefonda ekran dışına itiyordu. Metin
+                      SARAR (md. 7 — kırpacak fare yok), `truncate` kalktı. */}
+                  <TableCell className="break-words whitespace-normal">
                     <span className="flex items-center gap-1.5">
-                      <span className="oc-tag-dot" style={tagStyle(c.hue)} aria-hidden />
-                      <span className="truncate font-medium">{c.label}</span>
+                      <span className="oc-tag-dot shrink-0" style={tagStyle(c.hue)} aria-hidden />
+                      <span className="min-w-0 font-medium">{c.label}</span>
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs tabular-nums">

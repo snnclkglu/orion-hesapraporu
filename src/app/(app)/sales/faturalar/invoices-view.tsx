@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { Combobox, type ComboOption } from "@/components/combobox";
 import { CustomerTag } from "@/components/tags";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import {
   CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS, currencyOf, fmtNum, parseNum, type Currency,
 } from "@/lib/currency";
@@ -318,16 +319,21 @@ export function InvoicesView({
         </span>
       </div>
 
-      <div className="oc-scrollx overflow-x-auto rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
+      {/* TELEFONDA TABLO LİSTEYE KATLANIR (kabuk kuralı 15): `sm` altında
+          yalnız Müşteri · Avro · düğmeler kalır; tarih, fatura/iş no ve orijinal
+          tutar Müşteri hücresinin alt satırına iner — kart markup'ı ÇOĞALTILMAZ.
+          Fatura defteri BÜYÜR: kap `md` üstünde 70dvh'ye kelepçelenir, başlık
+          yapışır (`oc-table-clamp` + `oc-sticky-head`). */}
+      <div className="oc-scrollx oc-table-clamp overflow-x-auto rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-[6.5rem]">Tarih</TableHead>
-              <TableHead className="w-[9rem]">Fatura No</TableHead>
-              <TableHead className="w-[6rem]">İş No</TableHead>
+              <TableHead className="hidden w-[6.5rem] sm:table-cell">Tarih</TableHead>
+              <TableHead className="hidden w-[9rem] md:table-cell">Fatura No</TableHead>
+              <TableHead className="hidden w-[6rem] md:table-cell">İş No</TableHead>
               <TableHead>Müşteri</TableHead>
-              <TableHead className="w-[5rem] text-right">Adet</TableHead>
-              <TableHead className="w-[9rem] text-right">Tutar</TableHead>
+              <TableHead className="hidden w-[5rem] text-right lg:table-cell">Adet</TableHead>
+              <TableHead className="hidden w-[9rem] text-right sm:table-cell">Tutar</TableHead>
               <TableHead className="w-[9rem] text-right">Avro</TableHead>
               <TableHead className="w-[5.5rem]" />
             </TableRow>
@@ -342,18 +348,36 @@ export function InvoicesView({
             ) : (
               invoices.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs tabular-nums whitespace-nowrap">
+                  <TableCell className="hidden font-mono text-xs tabular-nums whitespace-nowrap sm:table-cell">
                     {fmtDate(r.invoiceDate)}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{r.invoiceNo || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.itemNo || "—"}</TableCell>
-                  <TableCell className="whitespace-normal">
-                    <CustomerTag name={r.customer || "—"} shortName={null} />
+                  {/* `break-words`: fatura no serbest metindir ("GIB…" uzun tek
+                      jeton olabilir) ve dar sütunu taşırmamalı. */}
+                  <TableCell className="hidden max-w-[9rem] font-mono text-xs break-words whitespace-normal md:table-cell">
+                    {r.invoiceNo || "—"}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">{r.itemNo || "—"}</TableCell>
+                  <TableCell className="break-words whitespace-normal">
+                    <CustomerTag name={r.customer || "—"} shortName={null} />
+                    {/* Telefon katmanı: gizlenen sütunların kritik olanları.
+                        Orijinal tutar yalnız avro dışıysa yazılır — avro
+                        sütunu zaten görünür, aynı sayıyı iki kez basmayalım. */}
+                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground md:hidden">
+                      <span className="sm:hidden">{fmtDate(r.invoiceDate)} · </span>
+                      {r.invoiceNo || "—"}
+                      {r.itemNo && ` · ${r.itemNo}`}
+                      {r.amount != null && r.currency !== "EUR" && (
+                        <span className="sm:hidden">
+                          {" · "}
+                          {fmtNum(r.amount)} {CURRENCY_SYMBOLS[r.currency]}
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground lg:table-cell">
                     {r.qty == null ? "—" : fmtNum(r.qty)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm tabular-nums">
+                  <TableCell className="hidden text-right font-mono text-sm tabular-nums sm:table-cell">
                     {r.amount == null ? "—" : (
                       <>{fmtNum(r.amount)}{" "}<span className="text-muted-foreground">{CURRENCY_SYMBOLS[r.currency]}</span></>
                     )}
@@ -458,7 +482,8 @@ function InvoiceEditDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(56rem,calc(100%-2rem))]">
+      {/* Çok alanlı inceleme penceresi telefonda TAM BOYDUR (pencere.ts kararı). */}
+      <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(56rem,calc(100%-2rem))]`}>
         <DialogHeader>
           <DialogTitle className="text-base">Faturayı Düzenle</DialogTitle>
           <DialogDescription className="text-[12px]">

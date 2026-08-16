@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Combobox, type ComboOption } from "@/components/combobox";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { parseNum } from "@/lib/currency";
 import { tagStyle } from "@/lib/tags";
 import {
@@ -122,8 +123,10 @@ export function RecordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Yükseklik sınırı ve iç kaydırma artık `DialogContent` tabanındadır.
           Genişlik görünür alandan pay bırakacak biçimde kelepçelenir: düz
-          `sm:max-w-2xl` 640px'lik ekranda pencereyi ekrandan taşırıyordu. */}
-      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
+          `sm:max-w-2xl` 640px'lik ekranda pencereyi ekrandan taşırıyordu.
+          Telefonda TAM BOY (`TAM_BOY_PENCERE`): sekiz alanlı form alt
+          tabakada sıkışıyor, Kaydet klavyenin altında kalıyordu. */}
+      <DialogContent className={`sm:max-w-[min(42rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Çalışma Kaydı</DialogTitle>
           <DialogDescription>

@@ -135,9 +135,11 @@ export function PersonnelTable({
         />
       </div>
 
-      {/* SÜZGEÇ ŞERİDİ */}
-      <div className="oc-scrollx flex flex-wrap items-center gap-2 overflow-x-auto border bg-card p-2 [--oc-scroll-bg:var(--card)]">
-        <div className="flex shrink-0 items-center gap-1">
+      {/* SÜZGEÇ ŞERİDİ — kaymaz, sarar (md. 15): telefonda satırlara iner. */}
+      <div className="flex flex-wrap items-center gap-2 border bg-card p-2">
+        {/* İç gruplar da SARAR: dış kap flex-wrap iken `shrink-0` tek parça
+            küme sayfayı yine taşırıyordu (375px'te ölçüldü, md. 15). */}
+        <div className="flex flex-wrap items-center gap-1">
           {(
             [
               ["aktif", "Aktif"],
@@ -158,7 +160,7 @@ export function PersonnelTable({
           ))}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Button
             type="button"
             size="sm"
@@ -204,10 +206,11 @@ export function PersonnelTable({
         )}
       </div>
 
-      {/* TABLO */}
-      <div className="oc-scrollx overflow-x-auto border bg-card">
+      {/* TABLO — kadro büyüdükçe uzayan defterdir: `md` üstünde başlık yapışır
+          (`oc-table-clamp` + `oc-sticky-head` ikilisi, globals.css'teki sözleşme). */}
+      <div className="oc-scrollx oc-table-clamp overflow-x-auto border bg-card">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow>
               <TableHead>Ad Soyad</TableHead>
               <TableHead className={AT_MD}>Kategori</TableHead>

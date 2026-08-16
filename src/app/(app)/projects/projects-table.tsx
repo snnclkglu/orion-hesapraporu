@@ -246,9 +246,13 @@ export function ProjectsTable({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* Proje listesi yıllarla BÜYÜR: `oc-table-clamp` + `oc-sticky-head`
+          uzun listede başlığı tepede tutar (md üstü). Kap `.oc-scrollx`tır —
+          telefonda katlama sayesinde kaymaz ama tablet ara genişlikleri hâlâ
+          taşabilir (kabuk kuralı 8/15). */}
+      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
                 (~341px) bir buçuk katıydı ve sağdaki Durum/İşlem hiç
                 görünmüyordu. Mobilde yalnız Doküman No · Proje · Durum ·
@@ -299,7 +303,9 @@ export function ProjectsTable({
                       {p.doc_no}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-medium whitespace-normal">
+                  {/* `break-words`: proje adı veriden gelir; boşluksuz uzun bir
+                      jeton telefonda hücreyi kendi genişliğine çekmesin. */}
+                  <TableCell className="font-medium break-words whitespace-normal">
                     {p.name}
                     {/* Mobilde gizlenen sütunların kritik olanları — kart
                         markup'ı çoğaltmadan, aynı hücrenin ikinci satırı. */}

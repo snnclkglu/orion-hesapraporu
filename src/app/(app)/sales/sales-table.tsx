@@ -397,13 +397,18 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
         </div>
       </div>
 
+      {/* "Yana kaydırın" ipucu KALKTI: tablo telefonda listeye katlanıyor
+          (kabuk kuralı 15), kaydırılacak bir yan kalmadı. */}
       <p className="text-[11px] text-muted-foreground md:hidden">
-        → Ayrıntı için satıra dokunun; tabloyu yana da kaydırabilirsiniz.
+        → Ayrıntı için satıra dokunun.
       </p>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* `overflow-hidden` yerine `oc-table-clamp`: uzun defter `md` üstünde
+          70dvh'ye kelepçelenir ve başlık yapışır — overflow-hidden kalsaydı
+          kelepçenin dikey kaydırmasını da kırpardı. */}
+      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortHead label="Kalem No" sortKey="itemNo" className="w-[6rem] md:w-[7rem]"
                 active={sort.key === "itemNo"} dir={sort.dir} onSort={toggleSort} />
@@ -442,7 +447,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   <TableCell className="align-top font-mono text-sm font-medium text-primary md:align-middle">
                     {r.itemNo || "—"}
                   </TableCell>
-                  <TableCell className="font-medium whitespace-normal md:whitespace-nowrap">
+                  <TableCell className="font-medium break-words whitespace-normal md:whitespace-nowrap">
                     <span className={cn("block", URUN_GENISLIK)} title={r.productName}>
                       {r.productName}
                     </span>

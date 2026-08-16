@@ -10,9 +10,12 @@
 // kırpılmış bir koddan iyidir — kırpılan kod parçayı adresleyemez.
 //
 // ÖLÇÜLDÜ: 1280px'de dokuz sütunun tamamı sığıyor ve tabloda yatay kaydırma
-// KALMIYOR. Telefonda (375px) düşük öncelikli sütunlar zaten gizli, kalan
-// dördü yine de kabın dışına taşıyor — orada kaydırma kaçınılmazdır ve
-// `Table`ın kendi `.oc-scrollx` kabı onu GÖRÜNÜR kılar (AGENTS md. 8).
+// KALMIYOR. Telefonda (375px) tablo LİSTEYE KATLANIR (kullanıcı kararı,
+// 16.08.2026: "mobilde yatayda kaydırma olmasın" — kabuk kuralı 15): `sm`
+// altında Tanım · Adet · Dosyalar kalır, Kod birincil hücrenin alt satırına
+// iner — kırpılmış bir koddan iyidir, kod orada tam ve sarılı yazılır.
+// Tablet ara genişlikleri hâlâ taşabilir; `Table`ın kendi `.oc-scrollx` kabı
+// oradaki kaydırmayı GÖRÜNÜR kılar (AGENTS md. 8).
 //
 // SÜZGEÇ TANIMI BURADA DEĞİL `../../filters.ts`TE. İndirme uçları AYNI tanımı
 // çağırır; iki yerde yazılsaydı indirilen dosya ile ekrandaki tablo sessizce
@@ -269,7 +272,11 @@ export function PartsTable({
                       )}
                     </TableCell>
 
-                    <TableCell className="min-w-0 align-top whitespace-normal">
+                    {/* `overflow-wrap:anywhere` (yalnız telefonda): `break-word`
+                        tablo sütununun MIN-CONTENT genişliğini küçültmez —
+                        "15x240x285" jetonu sütunu 134px altına inemez kılıyor
+                        ve tablo 375px'te taşıyordu (ölçüldü, md. 15). */}
+                    <TableCell className="min-w-0 align-top break-words whitespace-normal max-sm:[overflow-wrap:anywhere]">
                       <span className={"block" + (montaj ? " font-medium" : "")}>
                         {p.description || p.name || p.assembly_title || "—"}
                       </span>
@@ -288,8 +295,11 @@ export function PartsTable({
                     <TableCell className="align-top text-right font-mono text-sm">
                       {p.qty ?? "—"}
                       {p.cut_length_mm != null && (
+                        // Telefonda ALT SATIRA iner: "24.000 6.000,0mm" tek
+                        // satırda Adet sütununu genişletip tabloyu taşırıyordu
+                        // (AGENTS md. 15 ölçümü).
                         <span
-                          className="ml-1 text-[11px] text-muted-foreground"
+                          className="block text-[11px] text-muted-foreground sm:ml-1 sm:inline"
                           title="Kirli QTY sütunundan çözülen kesim boyu"
                         >
                           {formatNum(p.cut_length_mm, 1)}mm

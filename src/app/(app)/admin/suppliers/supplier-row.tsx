@@ -215,7 +215,9 @@ export function SupplierRow({ row }: { row: SupplierAdminRow }) {
     <>
       <TableRow className={row.active ? undefined : "opacity-60"}>
         <TableCell className="font-mono text-sm">{row.code || "—"}</TableCell>
-        <TableCell className="font-medium whitespace-normal">
+        {/* `break-words`: firma adı veriden gelir; boşluksuz uzun bir jeton
+            telefonda tabloyu taşırmasın. */}
+        <TableCell className="font-medium break-words whitespace-normal">
           {row.name}
           {!row.active && (
             <span className="ml-1.5 border border-dashed px-1 text-[10px] font-normal text-muted-foreground">
@@ -243,7 +245,7 @@ export function SupplierRow({ row }: { row: SupplierAdminRow }) {
         <TableCell className="hidden text-right font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
           {row.consumableCount || "—"}
         </TableCell>
-        <TableCell className="hidden text-sm whitespace-normal text-muted-foreground md:table-cell">
+        <TableCell className="hidden text-sm break-words whitespace-normal text-muted-foreground md:table-cell">
           {row.note || "—"}
         </TableCell>
         <TableCell>

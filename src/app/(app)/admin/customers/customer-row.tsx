@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { CustomerTag } from "@/components/tags";
 import { autoShortName, normalizeHue, tagStyle } from "@/lib/tags";
 
@@ -118,8 +119,9 @@ function EditDialog({
       {/* Dikey kaydırma ve yükseklik sınırı artık `DialogContent` tabanından
           gelir. Genişlik `min(...)` ile verilir: düz `sm:max-w-2xl` (672px)
           640px'lik pencerede taban `max-w-[calc(100%-1.5rem)]` sınırını ezip
-          ekranı taşırıyordu. */}
-      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
+          ekranı taşırıyordu. Dokuz alanlı form telefonda TAM BOYdur
+          (`TAM_BOY_PENCERE`) — alt tabakada Kaydet klavye altında kalıyordu. */}
+      <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(42rem,calc(100%-2rem))]`}>
         <DialogHeader>
           <DialogTitle>Müşteri Kaydı</DialogTitle>
           <DialogDescription>
@@ -293,7 +295,9 @@ export function CustomerRow({ row }: { row: CustomerAdminRow }) {
         <TableCell>
           <CustomerTag name={row.name} shortName={row.short_name} hue={row.color_hue} />
         </TableCell>
-        <TableCell className="font-medium whitespace-normal">
+        {/* `break-words`: unvan veriden gelir; boşluksuz uzun bir jeton
+            telefonda hücreyi kendi genişliğine çekip tabloyu taşırmasın. */}
+        <TableCell className="font-medium break-words whitespace-normal">
           {row.name}
           {/* Dar ekranda gizlenen üç sütunun özeti — sütun kaybolduğunda bilgi
               de kaybolmasın (sözleşme §6.2). */}

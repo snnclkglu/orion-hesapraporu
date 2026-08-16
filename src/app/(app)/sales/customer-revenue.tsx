@@ -101,8 +101,11 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                     </TableCell>
                     <TableCell>
                       <CustomerTag name={name} shortName={v.short} hue={v.hue} />
-                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground sm:hidden">
-                        {v.count} kalem · %{fmtNum(share * 100)}
+                      {/* Alt satır gizlenen sütunun kırılımını izler: kalem
+                          sayısı `sm`de sütuna döner, pay yüzdesi ancak `md`de
+                          (Pay sütunu orada görünür) — arada kaybolmasın. */}
+                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-muted-foreground md:hidden">
+                        <span className="sm:hidden">{v.count} kalem · </span>%{fmtNum(share * 100)}
                       </span>
                     </TableCell>
                     <TableCell

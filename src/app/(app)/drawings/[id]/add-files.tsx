@@ -57,6 +57,7 @@ import { suggestFolder } from "@/lib/drawings/folder-name";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
 import { contentTypeFor } from "@/lib/drawings/mime";
 import { addPackageFiles, finalizeUpload, reconcilePackage, verifyStorage } from "../actions";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 const BUCKET = "drawings";
 
@@ -321,7 +322,7 @@ export function AddFilesButton({
 
       {acik && (
         <Dialog open onOpenChange={(o) => !o && !calisiyor && setAcik(false)}>
-          <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
+          <DialogContent className={`sm:max-w-[min(42rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
             <DialogHeader>
               <DialogTitle>Pakete Dosya Ekle</DialogTitle>
               <DialogDescription>

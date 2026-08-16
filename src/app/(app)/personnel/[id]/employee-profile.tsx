@@ -80,6 +80,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /** Sütun önceliği (AGENTS md. 7): kart markup'ı ÇOĞALTILMAZ, sütun düşer. */
 const AT_SM = "hidden sm:table-cell";
@@ -766,7 +767,7 @@ function EmployeeDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       {/* Geniş pencere tablette kenar boşluğu bırakır (AGENTS md. 6).
           Yükseklik kelepçesi `DialogContent` tabanındadır, tekrar edilmez. */}
-      <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(48rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Personel Künyesi</DialogTitle>
           <DialogDescription>

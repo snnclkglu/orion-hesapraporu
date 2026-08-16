@@ -66,7 +66,7 @@ import {
 } from "../../actions";
 import { QuoteBatchDialog } from "./batch-dialog";
 import type { Pay, PartiOzeti, TalepGorunumu } from "./types";
-import { TAM_BOY_PENCERE } from "../../pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 export function RequestDialog({
   talep,

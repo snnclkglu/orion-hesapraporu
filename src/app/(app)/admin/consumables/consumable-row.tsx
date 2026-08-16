@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 export const CONSUMABLE_UNIT_SUGGESTIONS = [
   "Adet",
@@ -93,7 +94,9 @@ function EditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[min(40rem,calc(100%-2rem))]">
+      {/* Çok alanlı form telefonda TAM BOYdur (`TAM_BOY_PENCERE`) — alt
+          tabakada form kendi içinde kayıyor, Kaydet klavye altında kalıyordu. */}
+      <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(40rem,calc(100%-2rem))]`}>
         <DialogHeader>
           <DialogTitle>Sarf Malzeme Kaydı</DialogTitle>
           <DialogDescription>
@@ -273,7 +276,9 @@ export function ConsumableRow({ row, groups }: { row: ConsumableAdminRow; groups
     <>
       <TableRow className={row.active ? undefined : "opacity-60"}>
         <TableCell className="font-mono text-sm">{row.code || "—"}</TableCell>
-        <TableCell className="font-medium whitespace-normal">
+        {/* `break-words`: malzeme adı veriden gelir; boşluksuz uzun bir jeton
+            telefonda tabloyu taşırmasın. */}
+        <TableCell className="font-medium break-words whitespace-normal">
           {row.name}
           {!row.active && (
             <span className="ml-1.5 border border-dashed px-1 text-[10px] font-normal text-muted-foreground">

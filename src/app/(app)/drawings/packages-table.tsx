@@ -7,6 +7,12 @@
 // HEM `th` HEM `td` üzerinde gizlenir, gizlenenin kritik olanı birincil
 // hücrenin içinde `md:hidden` ikinci satıra iner. İkinci bir kart markup'ı
 // YAZILMAZ — sıralama ve süzme mantığını ikiye böler.
+//
+// TELEFONDA TABLO LİSTEYE KATLANIR (kullanıcı kararı, 16.08.2026: "mobilde
+// yatayda kaydırma olmasın; uygulama gibi davransın" — kabuk kuralı 15).
+// `sm` altında yalnız Kalem No · Paket · Durum kalır; Tanıma ve Bulgu birincil
+// hücrenin alt satırına iner. İki yerde görünen öğe (`Tanima`, `BulguRozetleri`)
+// TEK bileşendir — iki yazım, birinde düzeltilen etiketin ötekinde kalmasıydı.
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
@@ -155,9 +161,12 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx overflow-x-auto border bg-card [--oc-scroll-bg:var(--card)]">
+        // `oc-table-clamp` + `oc-sticky-head`: paket listesi teslimlerle
+        // BÜYÜYEN bir defterdir; uzun kaydırmada başlık kayıpsa "bu sayı
+        // hangi sütundu" sorusu geri gelir (demand-table deseni).
+        <div className="oc-scrollx oc-table-clamp overflow-x-auto border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
-            <TableHeader>
+            <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <SortableHead sortKey="kalem" current={sortKey} desc={desc} onSort={sirala}>
                   Kalem No
@@ -192,10 +201,11 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                   desc={desc}
                   onSort={sirala}
                   align="right"
+                  className="hidden sm:table-cell"
                 >
                   Tanıma
                 </SortableHead>
-                <TableHead>Bulgu</TableHead>
+                <TableHead className="hidden sm:table-cell">Bulgu</TableHead>
                 <SortableHead sortKey="tarih" current={sortKey} desc={desc} onSort={sirala}>
                   Durum
                 </SortableHead>
@@ -250,8 +260,6 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
 }
 
 function PaketSatiri({ p }: { p: PackageRow }) {
-  const eksik = p.finding_counts?.eksik ?? 0;
-  const celiski = p.finding_counts?.celiski ?? 0;
   const eskiKural = p.reconciler_version > 0 && p.reconciler_version < RECONCILER_VERSION;
   const depo = storageState(p);
   return (
@@ -262,11 +270,17 @@ function PaketSatiri({ p }: { p: PackageRow }) {
       </TableCell>
 
       <TableCell className="min-w-0">
-        <span className="block truncate font-medium" title={p.folder_name}>
+        {/* Telefonda ad SARAR (kırpma `sm`den başlar, kabuk kuralı 7):
+            kırpılmış adı okutacak bir fare orada yok. `break-words` gerçek
+            veri içindir — boşluksuz uzun klasör adı tabloyu itmesin. */}
+        <span
+          className="block break-words whitespace-normal font-medium sm:truncate"
+          title={p.folder_name}
+        >
           {p.description || p.folder_name}
           {p.capacity && <span className="ml-1 text-muted-foreground">({p.capacity})</span>}
         </span>
-        <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground md:hidden">
+        <span className="mt-0.5 block break-words font-mono text-[11px] whitespace-normal text-muted-foreground sm:truncate md:hidden">
           {[
             p.group_code && `Grup ${p.group_code}`,
             `${formatNum(depo.stored)}/${formatNum(depo.expected)} Dosya`,
@@ -274,6 +288,12 @@ function PaketSatiri({ p }: { p: PackageRow }) {
           ]
             .filter(Boolean)
             .join(" · ")}
+        </span>
+        {/* TELEFON KATMANI (sm altı): gizlenen Tanıma ve Bulgu buraya iner —
+            tablo listeye katlanır, yatay kaymaz (kabuk kuralı 15). */}
+        <span className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden">
+          <Tanima p={p} />
+          <BulguRozetleri p={p} bosIsaret={false} />
         </span>
       </TableCell>
 
@@ -294,36 +314,12 @@ function PaketSatiri({ p }: { p: PackageRow }) {
         {formatNum(p.part_count)}
       </TableCell>
 
-      <TableCell className="text-right">
-        <span className={`font-mono text-sm font-medium ${recognitionClass(p.recognition_pct)}`}>
-          {p.recognition_pct == null ? "—" : `%${p.recognition_pct}`}
-        </span>
+      <TableCell className="hidden text-right sm:table-cell">
+        <Tanima p={p} />
       </TableCell>
 
-      <TableCell>
-        <span className="flex flex-wrap gap-1">
-          {depo.missing > 0 && (
-            <span
-              className="relative z-10 border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive"
-              title="Kayıt var, bayt yok. “Depoyu Doğrula” ile ölçülür, “Eksikleri Yükle” ile tamamlanır."
-            >
-              {formatNum(depo.missing)} depoda yok
-            </span>
-          )}
-          {eksik > 0 && (
-            <span className="border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive">
-              {eksik} eksik
-            </span>
-          )}
-          {celiski > 0 && (
-            <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
-              {celiski} çelişki
-            </span>
-          )}
-          {depo.missing === 0 && eksik === 0 && celiski === 0 && (
-            <span className="font-mono text-[11px] text-muted-foreground">—</span>
-          )}
-        </span>
+      <TableCell className="hidden sm:table-cell">
+        <BulguRozetleri p={p} />
       </TableCell>
 
       <TableCell>
@@ -347,5 +343,50 @@ function PaketSatiri({ p }: { p: PackageRow }) {
         </span>
       </TableCell>
     </TableRow>
+  );
+}
+
+/** Tanıma yüzdesi — masaüstünde kendi sütununda, telefonda birincil hücrede. */
+function Tanima({ p }: { p: PackageRow }) {
+  return (
+    <span className={`font-mono text-sm font-medium ${recognitionClass(p.recognition_pct)}`}>
+      {p.recognition_pct == null ? "—" : `%${p.recognition_pct}`}
+    </span>
+  );
+}
+
+/**
+ * Bulgu rozetleri — iki yerde görünür, TEK bileşende kurulur (kabuk kuralı 15).
+ * `bosIsaret` yalnız masaüstü sütununda açıktır: telefonda temiz satırın
+ * altına bir "—" basmak gürültü olurdu.
+ */
+function BulguRozetleri({ p, bosIsaret = true }: { p: PackageRow; bosIsaret?: boolean }) {
+  const eksik = p.finding_counts?.eksik ?? 0;
+  const celiski = p.finding_counts?.celiski ?? 0;
+  const depo = storageState(p);
+  return (
+    <span className="flex flex-wrap gap-1">
+      {depo.missing > 0 && (
+        <span
+          className="relative z-10 border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive"
+          title="Kayıt var, bayt yok. “Depoyu Doğrula” ile ölçülür, “Eksikleri Yükle” ile tamamlanır."
+        >
+          {formatNum(depo.missing)} depoda yok
+        </span>
+      )}
+      {eksik > 0 && (
+        <span className="border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive">
+          {eksik} eksik
+        </span>
+      )}
+      {celiski > 0 && (
+        <span className="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400">
+          {celiski} çelişki
+        </span>
+      )}
+      {bosIsaret && depo.missing === 0 && eksik === 0 && celiski === 0 && (
+        <span className="font-mono text-[11px] text-muted-foreground">—</span>
+      )}
+    </span>
   );
 }

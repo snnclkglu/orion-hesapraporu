@@ -245,6 +245,7 @@ interface RowDraft {
  * düşer, düşen bilginin kritik olanı ad hücresinin ikinci satırına iner.
  * İkinci bir kart markup'ı YAZILMAZ.
  */
+const AT_SM = "hidden sm:table-cell";
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
 const AT_XL = "hidden xl:table-cell";
@@ -1019,10 +1020,14 @@ export function PayrollBoard({
               <TableHead>Ad Soyad</TableHead>
               <TableHead className={cn("w-[10rem]", AT_2XL)}>Görev</TableHead>
               <TableHead className={cn("w-[4.5rem] text-right", AT_2XL)}>SGK Gün</TableHead>
-              <TableHead className="w-[8.5rem] text-right">Net Maaş (₺)</TableHead>
-              <TableHead className="w-[5.5rem] text-right">%50 Saat</TableHead>
-              <TableHead className="w-[5.5rem] text-right">%100 Saat</TableHead>
-              <TableHead className="w-[8rem] text-right">Mesai Tutarı (₺)</TableHead>
+              {/* TELEFONDA TABLO LİSTEYE KATLANIR (kullanıcı kararı, 16.08.2026;
+                  AGENTS md. 15): `sm` altında yalnız Ad Soyad + Toplam kalır.
+                  Giriş alanları `sm`den itibaren döner — düşen sayıların özeti
+                  ad hücresinin alt satırındadır, kart markup'ı ÇOĞALTILMAZ. */}
+              <TableHead className={cn("w-[8.5rem] text-right", AT_SM)}>Net Maaş (₺)</TableHead>
+              <TableHead className={cn("w-[5.5rem] text-right", AT_SM)}>%50 Saat</TableHead>
+              <TableHead className={cn("w-[5.5rem] text-right", AT_SM)}>%100 Saat</TableHead>
+              <TableHead className={cn("w-[8rem] text-right", AT_SM)}>Mesai Tutarı (₺)</TableHead>
               {/* İZİN VE RAPOR SAATİ ARTIK BURADA (kullanıcı kararı,
                   13.08.2026): "personel birkaç gün gelmediyse bunu kişi
                   bazında gireyim". Dönem ayarlarındaki iki kutu kalktı. */}
@@ -1067,7 +1072,9 @@ export function PayrollBoard({
                     }}
                     className={cn(r.kayit === null && "bg-primary/[0.04]")}
                   >
-                    <TableCell className="font-medium">
+                    {/* `break-words whitespace-normal`: alt satır özetleri uzun
+                        olabilir ve `nowrap` telefonda tabloyu dışarı iterdi. */}
+                    <TableCell className="max-w-[22rem] font-medium break-words whitespace-normal">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="oc-tag-dot"
@@ -1121,6 +1128,15 @@ export function PayrollBoard({
                             {fmtTutar(r.avro)} €
                           </span>
                         )}
+                        {/* TELEFON KATMANI (md. 15): `sm` altında gizlenen net
+                            maaş ve mesai buraya iner — giriş `sm`den itibaren. */}
+                        {r.net !== null && (
+                          <span className="font-mono tabular-nums sm:hidden">
+                            {" · "}net {fmtTutar(r.net)} ₺
+                            {r.mesai > 0 &&
+                              ` · mesai ${fmtNum(r.s50 + r.s100)} sa → ${fmtTutar(r.mesai)} ₺`}
+                          </span>
+                        )}
                       </span>
                       {/* PLANDAN SAPMA — bir uyarı, bir engel değil. */}
                       {r.sapma !== null && (
@@ -1152,7 +1168,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell className={AT_SM}>
                       <ParaInput
                         value={r.taslak.net}
                         onChange={(v) => setSatir(id, { net: v }, r.taslak)}
@@ -1163,7 +1179,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell className={AT_SM}>
                       <Input
                         value={r.taslak.ot50}
                         onChange={(e) => setSatir(id, { ot50: e.target.value }, r.taslak)}
@@ -1175,7 +1191,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell className={AT_SM}>
                       <Input
                         value={r.taslak.ot100}
                         onChange={(e) => setSatir(id, { ot100: e.target.value }, r.taslak)}
@@ -1190,7 +1206,7 @@ export function PayrollBoard({
                     {/* Türetilmiş sütun: net / 225 × (saat₅₀ × 1,5 + saat₁₀₀ × 2).
                         Elle girilseydi saatlerle çelişebilirdi. */}
                     <TableCell
-                      className="text-right font-mono text-sm tabular-nums"
+                      className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}
                       title="Net maaş ÷ 225 saat × (%50 saat × 1,5 + %100 saat × 2)"
                     >
                       {r.mesai > 0 ? (
@@ -1292,10 +1308,15 @@ export function PayrollBoard({
           {satirlar.length > 0 && (
             <TableFooter>
               <TableRow className="hover:bg-transparent">
-                <TableCell className="font-medium">
+                <TableCell className="font-medium break-words whitespace-normal">
                   {toplamlar.ozet.count} kişi
                   <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground 2xl:hidden">
                     normal {fmtNum(toplamlar.ozet.normalHours)} saat
+                    {/* Telefonda gizlenen sütun toplamları (md. 15). */}
+                    <span className="font-mono tabular-nums sm:hidden">
+                      {" · "}net {fmtTutar(toplamlar.ozet.netTotal)} ₺ · mesai{" "}
+                      {fmtTutar(toplamlar.ozet.overtimeTotal)} ₺
+                    </span>
                   </span>
                 </TableCell>
                 <TableCell className={cn("text-muted-foreground", AT_2XL)}>
@@ -1304,16 +1325,16 @@ export function PayrollBoard({
                   </span>
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)} />
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtTutar(toplamlar.ozet.netTotal)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtNum(toplamlar.s50)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtNum(toplamlar.s100)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtTutar(toplamlar.ozet.overtimeTotal)}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>

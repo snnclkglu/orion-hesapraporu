@@ -26,15 +26,17 @@ export default async function AdminRailsPage() {
         <RailDialog />
       </div>
 
-      {/* `Table` kendi kaydırma kabını kurduğu için ipucu (sözleşme §6) tablonun
-          ÜSTÜNDE verilir; mobil tarayıcı kaydırma çubuğu çizmez. */}
-      <p className="text-[11px] text-muted-foreground lg:hidden">→ Tabloyu yana kaydırın</p>
+      {/* "Tabloyu yana kaydırın" ipucu kalktı: telefonda tablo artık listeye
+          katlanıyor, kaydıracak bir şey kalmadı (md. 15). */}
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Kod</TableHead>
-              <TableHead className="text-right">Baş yarıçapı [mm]</TableHead>
+              {/* Telefonda tablo listeye katlanır (md. 15): iki uzun başlıklı
+                  sayı sütunu + eylemler 375px'i taşırıyordu; opsiyonel olan
+                  baş yarıçapı kodun altına iner. */}
+              <TableHead className="hidden text-right sm:table-cell">Baş yarıçapı [mm]</TableHead>
               <TableHead className="text-right">Temas genişliği [mm]</TableHead>
               {/* Sıra yalnız listeleme düzenidir; dar ekranda kodun altına iner. */}
               <TableHead className="hidden text-right md:table-cell">Sıra</TableHead>
@@ -46,11 +48,15 @@ export default async function AdminRailsPage() {
               <TableRow key={rail.code}>
                 <TableCell className="font-mono font-medium">
                   {rail.code}
+                  {/* Telefon katmanı: gizlenen baş yarıçapı buraya iner (md. 15). */}
+                  <div className="mt-0.5 font-sans text-[11px] font-normal text-muted-foreground sm:hidden">
+                    baş yarıçapı {rail.radius ?? "—"} mm
+                  </div>
                   <div className="mt-0.5 font-sans text-[11px] font-normal text-muted-foreground md:hidden">
                     sıra {rail.sort}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm">
+                <TableCell className="hidden text-right font-mono text-sm sm:table-cell">
                   {rail.radius ?? "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">{rail.head_width}</TableCell>

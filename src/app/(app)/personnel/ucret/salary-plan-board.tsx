@@ -98,6 +98,7 @@ function oranMetni(v: number | null | undefined): string {
     : GIRDI_FMT.format(Math.round(v * 100) / 100);
 }
 
+const AT_SM = "hidden sm:table-cell";
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
 
@@ -633,8 +634,11 @@ export function SalaryPlanBoard({
         </p>
       </div>
 
-      {/* ——————————————————————————————————————————————————————— tablo */}
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* ——————————————————————————————————————————————————————— tablo
+          Kap `overflow-hidden` DEĞİL `.oc-scrollx`: ara genişlikte taşma
+          olursa görünür kayar (md. 8), kırpılıp kaybolmaz. Telefonda tablo
+          zaten listeye katlanır (md. 15), kap orada hiç kaymaz. */}
+      <div className="oc-scrollx overflow-x-auto rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -651,8 +655,14 @@ export function SalaryPlanBoard({
               </TableHead>
               <TableHead>Ad Soyad</TableHead>
               <TableHead className={cn("w-[10rem]", AT_LG)}>Görev</TableHead>
-              <TableHead className="w-[9rem] text-right">{yil - 1} Sonu Ücret (₺)</TableHead>
-              <TableHead className="w-[6rem] text-right">Zam %</TableHead>
+              {/* TELEFONDA LİSTEYE KATLANIR (md. 15): `sm` altında seçim + Ad
+                  Soyad + yeni ücret kalır; taban ve oran ad hücresinin alt
+                  satırına iner. Ücret kutusu çift yönlüdür, telefonda da
+                  ücret yazılabilir — oran `sm`den itibaren döner. */}
+              <TableHead className={cn("w-[9rem] text-right", AT_SM)}>
+                {yil - 1} Sonu Ücret (₺)
+              </TableHead>
+              <TableHead className={cn("w-[6rem] text-right", AT_SM)}>Zam %</TableHead>
               <TableHead className="w-[9rem] text-right">{yil} Net Ücret (₺)</TableHead>
               <TableHead className={cn("w-[8rem] text-right", AT_MD)}>Fark (₺)</TableHead>
               <TableHead className={cn("w-[9rem]", AT_MD)}>Durum</TableHead>
@@ -688,7 +698,9 @@ export function SalaryPlanBoard({
                       />
                     </TableCell>
 
-                    <TableCell className="font-medium">
+                    {/* `break-words whitespace-normal`: alt satır ve ayarlama
+                        çipleri uzayabilir, `nowrap` telefonda tabloyu iterdi. */}
+                    <TableCell className="max-w-[22rem] font-medium break-words whitespace-normal">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="oc-tag-dot"
@@ -712,6 +724,13 @@ export function SalaryPlanBoard({
                             {" · "}
                             {r.fark >= 0 ? "+" : "−"}
                             {fmtTutar(Math.abs(r.fark))} ₺
+                          </span>
+                        )}
+                        {/* TELEFON KATMANI (md. 15): gizlenen taban ve oran. */}
+                        {r.taban !== null && (
+                          <span className="font-mono tabular-nums sm:hidden">
+                            {" · "}taban {fmtTutar(r.taban)} ₺
+                            {r.oran !== null && ` · %${fmtNum(r.oran, true)}`}
                           </span>
                         )}
                       </span>
@@ -757,7 +776,10 @@ export function SalaryPlanBoard({
                     {/* TABAN OKUNUR, GİRİLMEZ: geçen yılın ücreti bir karardır ve
                         o yılın planında durur. Buradan değiştirilebilseydi geçmiş
                         bir karar sessizce yeniden yazılırdı. */}
-                    <TableCell className="text-right font-mono text-sm tabular-nums">
+                    {/* Hücre sınıfı BAŞLIKLA AYNI kırılımı taşımak zorunda:
+                        başlık AT_SM iken hücrenin görünür kalması telefonda
+                        hem sütunları kaydırıyor hem tabloyu taşırıyordu. */}
+                    <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                       {r.taban === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
@@ -781,7 +803,7 @@ export function SalaryPlanBoard({
                         olsaydı herkese %15 verilen bir yılda en düşük satır
                         kırmızı görünür ve "buna az verdim" diye yanlış bir şey
                         söylerdi. */}
-                    <TableCell>
+                    <TableCell className={AT_SM}>
                       <Input
                         value={r.taslak.oran}
                         onChange={(e) => oranYaz(r, e.target.value)}
@@ -857,10 +879,10 @@ export function SalaryPlanBoard({
                 <TableCell />
                 <TableCell className="font-medium">{toplamlar.kisi} kişi</TableCell>
                 <TableCell className={AT_LG} />
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtTutar(toplamlar.tabanToplam)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm tabular-nums">
+                <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {toplamlar.ortalamaOran === null
                     ? "—"
                     : `%${fmtNum(toplamlar.ortalamaOran, true)}`}

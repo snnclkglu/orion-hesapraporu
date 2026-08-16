@@ -123,6 +123,11 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
       </p>
 
       {/* ————————————————————————————————————— 1. ROL × BÖLÜM IZGARASI */}
+      {/* BİLİNÇLİ İSTİSNA (md. 15): bu bir rol × bölüm MATRİSİDİR, listeye
+          katlanmaz — satır ve sütunun kesişimi anlamın kendisidir, sütunları
+          alt satıra indirmek "hangi bölüm" bilgisini yok ederdi. Telefonda
+          içte kaymaya devam eder; kaydırma ipucunu `Table`ın varsayılan
+          `.oc-scrollx` kabı verir, ilk sütun yapışkan kalır. */}
       <section className="grid gap-2">
         <h3 className="text-sm font-medium">Rol Bazında Erişim</h3>
         {/* KAP `Table`in KENDİSİNİNKİDİR, ikinci bir sarmalayıcı DEĞİL.

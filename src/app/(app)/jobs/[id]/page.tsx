@@ -256,7 +256,9 @@ export default async function JobPage({
                 <TableRow key={i}>
                   <TableCell className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{i + 1}</TableCell>
                   <TableCell className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
-                  <TableCell className="font-medium whitespace-normal">
+                  {/* `break-words`: ürün adı veriden gelir; boşluksuz uzun bir
+                      jeton telefonda hücreyi kendi genişliğine çekmesin. */}
+                  <TableCell className="font-medium break-words whitespace-normal">
                     {it.product_name}
                     {/* Gizlenen adet sütununun mobil karşılığı. Alan serbest
                         metindir ("3", "3 Adet", "Muhtelif"); değerin sonuna
@@ -377,7 +379,7 @@ export default async function JobPage({
                           {p.doc_no}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-medium whitespace-normal">
+                      <TableCell className="font-medium break-words whitespace-normal">
                         {p.name}
                         <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
                           {p.crane_type}

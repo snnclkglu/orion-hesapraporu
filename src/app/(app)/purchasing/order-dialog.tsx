@@ -95,7 +95,7 @@ import { siparisNoCakisiyorMu, siparisNoOner } from "@/lib/purchasing/order-no";
 import { createOrder, ensureQuality, ensureSupplier } from "./actions";
 import type { TedarikciKaydi } from "./data";
 import type { OrderLineInput } from "./schema";
-import { TAM_BOY_PENCERE } from "./pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /** Havuzdan gelen bir kalemin sipariş penceresindeki hâli. */
 export interface SiparisKalemi {

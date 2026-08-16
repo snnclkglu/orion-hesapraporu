@@ -36,7 +36,7 @@ import { FilterBar, SearchBox, SortableHead } from "@/app/(app)/drawings/sortabl
 import { CURRENCIES, fmtMoney, fmtNum, parseNum, type Currency } from "@/lib/currency";
 import { tarihGoster } from "@/lib/purchasing/terms";
 import { deleteConsumableExpense, getConsumableExpenseRate, updateConsumableExpense } from "../actions";
-import { TAM_BOY_PENCERE } from "../../pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import type {
   ConsumableExpenseRow,
   ConsumableItemOption,

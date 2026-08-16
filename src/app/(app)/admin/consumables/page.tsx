@@ -110,10 +110,12 @@ export default async function AdminConsumablesPage() {
       )}
 
       <div className="rounded-lg border">
-        <Table>
+        {/* 751 satırlık BÜYÜYEN defter: kap `md` üstünde 70dvh'ye kelepçeli,
+            başlık yapışkan (oc-table-clamp + oc-sticky-head sözleşmesi). */}
+        <Table containerClassName="oc-table-clamp">
           {/* Telefonda kod · ad · eylemler kalır; gizlenen alanlar adın altındaki
               özet satırına iner. Yönetim rayı açıkken masaüstü genişliği de korunur. */}
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow>
               <TableHead className="w-[7rem]">Kod</TableHead>
               <TableHead>Malzeme Adı</TableHead>

@@ -3,6 +3,9 @@
 // Satış bölümü rayı — Satış Takibi · Müşteri Bazında Ciro · Satış Faturaları
 // (kullanıcı kararı, 14.08.2026). Üçü AYRI ADREStir (Satın Alma rayının deseni);
 // her biri kendi verisini sunucudan çeker.
+//
+// RAY KAYMAZ, SARAR (kabuk kuralı 15; gerekçenin tamamı purchasing-nav'da):
+// üç sekme telefonda gerekirse ikinci satıra iner, gizli sekme kalmaz.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +21,7 @@ export function SalesNav() {
   const pathname = usePathname() ?? "";
   return (
     <nav
-      className="oc-scrollx flex items-center gap-3 overflow-x-auto overscroll-x-contain border-b [--oc-scroll-bg:var(--background)]"
+      className="flex flex-wrap items-center gap-x-3 border-b"
       aria-label="Satış bölümleri"
     >
       {TABS.map((t) => {

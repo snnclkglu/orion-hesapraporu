@@ -103,10 +103,13 @@ const STICKY_DATE =
   "md:sticky md:left-0 md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 const STICKY_ITEM =
   "md:sticky md:left-[6.5rem] md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
-/** Başlık şeridinin yapışkan hücreleri — satır zemini yarı saydam olduğu için opak eş değeri. */
-const STICKY_HEAD_DATE = "md:sticky md:left-0 md:z-20 bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+/** Başlık şeridinin yapışkan hücreleri — satır zemini yarı saydam olduğu için opak eş değeri.
+ *  `z-20!` önemlidir: `.oc-sticky-head th` seçicisi (0-1-1) düz `md:z-20`yi (0-1-0)
+ *  ezip köşe hücresini öteki başlıklarla aynı kata indiriyordu — yatayda kaydırınca
+ *  komşu başlıklar köşenin üstüne biniyordu. */
+const STICKY_HEAD_DATE = "md:sticky md:left-0 md:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 const STICKY_HEAD_ITEM =
-  "md:sticky md:left-[6.5rem] md:z-20 bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+  "md:sticky md:left-[6.5rem] md:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 /** Telefonda düşen sütunlar — kritik olanları birincil hücrenin ikinci satırı taşır. */
 const SECONDARY = "hidden md:table-cell";
 
@@ -199,13 +202,19 @@ export function RecordsTable({
         </span>
       </div>
 
+      {/* İpucundaki "yana kaydırın" ifadesi kalktı: telefonda tablo listeye
+          katlanır ve yatay kaymaz (kabuk md. 15). */}
       <p className="text-[11px] text-muted-foreground md:hidden">
-        → Ayrıntı için satıra dokunun; tabloyu yana da kaydırabilirsiniz.
+        → Ayrıntı için satıra dokunun.
       </p>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* Defter BÜYÜR (bugün ~1.700 satır): `.oc-table-clamp` kabı `md` üstünde
+          görünür alana kelepçeler, `.oc-sticky-head` başlığı tepesine yapıştırır —
+          aşağıda "bu sayı hangi sütundu" sorusu kalmasın. `overflow-hidden`
+          kalktı: kırpan kap dikey kaydırmayı, dolayısıyla yapışmayı öldürüyordu. */}
+      <div className="oc-table-clamp rounded-lg border bg-card">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortHead
                 label="Tarih"
@@ -311,7 +320,7 @@ export function RecordsTable({
                     {r.itemNo || "—"}
                     {/* Telefonda düşen sütunların kritik olanları burada ikinci
                         satır olur — kart markup'ı çoğaltılmaz. */}
-                    <span className="mt-0.5 block font-sans text-[11px] font-normal whitespace-normal text-muted-foreground md:hidden">
+                    <span className="mt-0.5 block font-sans text-[11px] font-normal break-words whitespace-normal text-muted-foreground md:hidden">
                       {[
                         r.customerShort || r.customer,
                         r.partName,

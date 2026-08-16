@@ -397,9 +397,13 @@ export function JobsTable({
           iner (aşağıdaki `md:hidden` blok), kalem/rapor sayaçları ise ancak
           `lg`de geri gelir. Gizleme HEM başlıkta HEM hücrede yapılır, yoksa
           sütunlar kayar. */}
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* BÜYÜYEN DEFTER TABLOSU: kap `oc-table-clamp` ile 70dvh'ye kelepçelenir
+          ve başlık satırı yapışır (`oc-sticky-head`, yalnız `md` üstü).
+          `overflow-hidden` kalamazdı — utilities katmanı kelepçenin
+          `overflow-y: auto`sunu ezip dikey kaydırma kabını yok ediyordu. */}
+      <div className="oc-table-clamp rounded-lg border bg-card">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               {(
                 [
@@ -443,8 +447,9 @@ export function JobsTable({
                   </TableCell>
                   {/* `whitespace-normal` tablo hücresinin nowrap varsayılanını
                       ezer: telefonda dar kalan bu sütunda uzun iş adı satırı
-                      taşırmak yerine sarmalıdır. */}
-                  <TableCell className="font-medium whitespace-normal">
+                      taşırmak yerine sarmalıdır. `break-words` veriden gelen
+                      boşluksuz bir jetonun tabloyu itmesini keser. */}
+                  <TableCell className="font-medium break-words whitespace-normal">
                     {j.title}
                     {/* Gizlenen müşteri + tarih sütunlarının mobil karşılığı —
                         kart markup'ı çoğaltılmadan tek kaynaktan. */}

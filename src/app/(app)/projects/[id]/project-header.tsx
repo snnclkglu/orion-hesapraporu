@@ -127,18 +127,19 @@ export function ProjectDetailHeader({
       </div>
 
       {/* İlk iki bağlantı elle yazılmış düğmelerdir; yanlarındaki `size="sm"`
-          Button'lar dokunmatik payını tabandan alıyor, bunlar almıyordu. */}
+          Button'lar dokunmatik payını tabandan alıyor, bunlar almıyordu.
+          `.oc-tap` hedefi 44px'e tamamlar, kutu 40px'te kalır (md. 1). */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         <Link
           href={`/projects/${project.id}/compare`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
+          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
         >
           <GitCompare className="size-3.5 text-muted-foreground" />
           Revizyonları Karşılaştır
         </Link>
         <Link
           href={`/projects/${project.id}/audit`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
+          className="oc-tap inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-muted pointer-coarse:h-10"
         >
           <ScrollText className="size-3.5 text-muted-foreground" />
           İşlem Kaydı

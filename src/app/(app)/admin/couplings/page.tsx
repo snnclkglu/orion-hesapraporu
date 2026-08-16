@@ -39,14 +39,15 @@ export default async function AdminCouplingsPage({
         <CouplingDialog defaultType={activeType} />
       </div>
 
-      {/* Süzgeç çipleri tek satırlık kaydırılabilir şerit (ekipman kataloguyla
-          aynı dil); 28px'lik çipler parmak hedefi değildi. */}
-      <div className="oc-scrollx -mx-3 flex snap-x gap-1.5 overflow-x-auto overscroll-x-contain px-3 [--oc-scroll-bg:var(--background)] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:bg-none lg:px-0">
+      {/* ŞERİT KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026 — kabuk kuralı 15,
+          purchasing-nav deseni; ekipman kataloguyla aynı dil): çipler telefonda
+          satırlara sarar, hepsi her an görünür. Dokunma payları korunur. */}
+      <div className="flex flex-wrap gap-1.5">
         <Link
           href="/admin/couplings"
           className={cn(
             // Ham `<a>`: dokunma payı elle verilir (sözleşme §2).
-            "flex min-h-9 shrink-0 snap-start items-center rounded-md border px-2.5 text-sm pointer-coarse:min-h-10",
+            "flex min-h-9 shrink-0 items-center rounded-md border px-2.5 text-sm pointer-coarse:min-h-10",
             !activeType ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
           )}
         >
@@ -57,7 +58,7 @@ export default async function AdminCouplingsPage({
             key={t.value}
             href={`/admin/couplings?type=${t.value}`}
             className={cn(
-              "flex min-h-9 shrink-0 snap-start items-center rounded-md border px-2.5 text-sm pointer-coarse:min-h-10",
+              "flex min-h-9 shrink-0 items-center rounded-md border px-2.5 text-sm pointer-coarse:min-h-10",
               activeType === t.value
                 ? "bg-muted font-medium"
                 : "text-muted-foreground hover:bg-muted/50"
@@ -68,12 +69,14 @@ export default async function AdminCouplingsPage({
         ))}
       </div>
 
-      {/* `Table` kendi kaydırma kabını kurduğu için ipucu (sözleşme §6) tablonun
-          ÜSTÜNDE verilir; mobil tarayıcı kaydırma çubuğu çizmez. */}
-      <p className="text-[11px] text-muted-foreground lg:hidden">→ Tabloyu yana kaydırın</p>
+      {/* "Tabloyu yana kaydırın" ipucu kalktı: telefonda tablo artık listeye
+          katlanıyor, kaydıracak bir şey kalmadı (md. 15). Ara genişliklerde
+          olası taşmayı `Table`ın kendi `.oc-scrollx` gölgesi gösterir. */}
       <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
+        {/* Uzun katalog defteri: kap `md` üstünde 70dvh'ye kelepçeli, başlık
+            yapışkan (oc-table-clamp + oc-sticky-head sözleşmesi). */}
+        <Table containerClassName="oc-table-clamp">
+          <TableHeader className="oc-sticky-head">
             <TableRow>
               {/* Sekiz sütun ~900px istiyordu. Dar ekranda kimliğin ikincil
                   parçaları (tip, seri) ve ikincil sayılar (dmax, radyal yük)
@@ -82,7 +85,10 @@ export default async function AdminCouplingsPage({
               <TableHead className="hidden md:table-cell">Tip</TableHead>
               <TableHead>Marka</TableHead>
               <TableHead className="hidden md:table-cell">Seri</TableHead>
-              <TableHead>Model</TableHead>
+              {/* Telefonda tablo listeye katlanır (md. 15): model markanın
+                  altına iner — marka + model + tork + eylemler 375px'i
+                  taşırıyordu. */}
+              <TableHead className="hidden sm:table-cell">Model</TableHead>
               <TableHead className="hidden text-right md:table-cell">dmax [mm]</TableHead>
               <TableHead className="text-right">T nominal [Nm]</TableHead>
               <TableHead className="hidden text-right md:table-cell">Radyal yük [N]</TableHead>
@@ -95,8 +101,12 @@ export default async function AdminCouplingsPage({
                 <TableCell className="hidden text-sm md:table-cell">
                   {COUPLING_TYPE_LABELS[item.coupling_type] ?? item.coupling_type}
                 </TableCell>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium break-words whitespace-normal">
                   {item.brand}
+                  {/* Telefon katmanı: gizlenen Model buraya iner (md. 15). */}
+                  <div className="mt-0.5 font-mono text-[12px] font-normal sm:hidden">
+                    {item.model}
+                  </div>
                   <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
                     {[
                       COUPLING_TYPE_LABELS[item.coupling_type] ?? item.coupling_type,
@@ -109,7 +119,7 @@ export default async function AdminCouplingsPage({
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">{item.series}</TableCell>
-                <TableCell>{item.model}</TableCell>
+                <TableCell className="hidden sm:table-cell">{item.model}</TableCell>
                 <TableCell className="hidden text-right font-mono text-sm md:table-cell">
                   {item.dmax}
                 </TableCell>

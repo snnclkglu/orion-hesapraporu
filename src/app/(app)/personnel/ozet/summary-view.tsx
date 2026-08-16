@@ -81,6 +81,12 @@ function eur2(v: number | null | undefined): string {
     : v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// AT_SM: telefonda gizlenen sütunlar (AGENTS md. 15 — tablo yatay kaymaz).
+// Telefonda kalan küme Dönem · Toplam ₺ · Toplam €'dur: özetin sorusu "o ay
+// toplam ne ödedik"tir ve kırılım sütunları geniş ekranın işidir. Katlama
+// SUTUNLAR yapısının KENDİ `cls` alanından yapılır — başlık, hücre ve toplam
+// üçlüsünün hizası ancak böyle bozulmadan kalır (dosyanın tepesindeki kural).
+const AT_SM = "hidden sm:table-cell";
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
 const AT_XL = "hidden xl:table-cell";
@@ -432,6 +438,7 @@ export function SummaryView({
     {
       key: "kisi",
       label: "Kişi",
+      cls: AT_SM,
       hucre: (_a, o) => o.count,
       // KİŞİ SAYISI TOPLANMAZ, ORTALANIR: on iki ayın kişi sayısını toplamak
       // "252 kişi" gibi anlamsız bir sayı üretirdi — aynı kişi her ay yeniden
@@ -441,12 +448,14 @@ export function SummaryView({
     {
       key: "net",
       label: "Ödenen Net (₺)",
+      cls: AT_SM,
       hucre: (_a, o) => fmtTutar(o.netTotal),
       alt: (t) => fmtTutar(t.netTotal),
     },
     {
       key: "fmSaat",
       label: "FM Saati",
+      cls: AT_SM,
       hucre: (_a, o) => tam(o.overtimeHours),
       alt: (t) => tam(t.overtimeHours),
     },
@@ -688,7 +697,13 @@ export function SummaryView({
               {SUTUNLAR.map((s) => (
                 <TableHead
                   key={s.key}
-                  className={cn(s.cls, !s.sol && "text-right", "text-[11px]")}
+                  // Telefonda başlık SARABİLİR: "Toplam Ödeme (₺)" gibi nowrap
+                  // başlıklar 375px'te tabloyu birkaç piksel taşırıyordu.
+                  className={cn(
+                    s.cls,
+                    !s.sol && "text-right",
+                    "text-[11px] max-sm:whitespace-normal"
+                  )}
                 >
                   {s.label}
                 </TableHead>

@@ -104,6 +104,10 @@ export default async function CatalogSheetPage({
               oluyor, yakınlaştırma ya da kaydırma yolu da yoktu. Telefonda
               görüntü DOĞAL boyutunda durur ve kap içinde iki yönde kayar;
               `md` üstünde kaba sığar (orada zaten okunuyor).
+
+              BİLİNÇLİ İSTİSNA (md. 15): katalog sayfası görüntüsü bir ÇİZİMDİR
+              (md. 9 ile aynı sınıf) — listeye katlanamaz, telefonda içte
+              kaymaya devam eder.
             */}
             <div className="oc-scrollx overflow-auto overscroll-x-contain border bg-white [--oc-scroll-bg:#fff] md:overflow-visible md:bg-none">
               {/* eslint-disable-next-line @next/next/no-img-element */}

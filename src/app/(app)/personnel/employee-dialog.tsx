@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { saveEmployee } from "./actions";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { EMPTY_EMPLOYEE, type EmployeeInput } from "./schema";
 
 export function NewEmployeeDialog({ onClose }: { onClose: () => void }) {
@@ -80,7 +81,7 @@ export function NewEmployeeDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(42rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Yeni Personel</DialogTitle>
           <DialogDescription>

@@ -33,6 +33,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { EditableCombobox } from "@/components/editable-combobox";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { cn } from "@/lib/utils";
 
 /** Sütun önceliği — beş sütun 375px'te tabloyu kabın iki katına çıkarıyor. */
@@ -495,7 +496,9 @@ function PerDiemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+      {/* Çok alanlı form penceresi telefonda TAM BOYDUR (kabuk kararı,
+          16.08.2026 — `pencere.ts`). */}
+      <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(48rem,calc(100%-2rem))]`}>
         <DialogHeader>
           <DialogTitle>{row ? "Tarife Satırını Düzenle" : "Harcirah Tarifesi"}</DialogTitle>
           <DialogDescription>

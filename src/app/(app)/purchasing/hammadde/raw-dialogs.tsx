@@ -49,7 +49,7 @@ import {
   tanimiOlcuyleYaz,
   type OlcuAlani,
 } from "@/lib/purchasing/hammadde/olcu-duzelt";
-import { TAM_BOY_PENCERE } from "../pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import {
   createRawManual,
   deleteRawManual,

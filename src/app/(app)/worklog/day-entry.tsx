@@ -426,6 +426,10 @@ export function DayEntry({
 
       {/* Son 14 gün — kayıt sürekliliği tek bakışta görünür, atlanan gün
           göze batar. Tıklanınca o güne gidilir. */}
+      {/* BİLİNÇLİ İSTİSNA (md. 15): bu şerit bir mini GRAFİKTİR — çubuklar tek
+          bir zaman ekseni üzerinde durur ve boyları birbiriyle karşılaştırılır;
+          satıra sarmak ekseni ikiye böler, kıyası bozardı. Telefonda içte
+          kaymaya devam eder (md. 9 diyagram kuralı). */}
       <div className="oc-scrollx flex items-end gap-1 overflow-x-auto overscroll-x-contain rounded-lg border bg-card px-3 py-2">
         <span className="oc-kicker mr-2 shrink-0 self-center text-muted-foreground">Son 14 Gün</span>
         {recentDays.map((d) => (

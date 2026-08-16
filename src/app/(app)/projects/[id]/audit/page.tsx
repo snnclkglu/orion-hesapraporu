@@ -65,9 +65,11 @@ export default async function AuditPage({
     <div className="grid gap-4">
       <div>
         <div className="text-sm text-muted-foreground">
-          <Link href="/projects" className="hover:underline">Mühendislik</Link>
+          {/* `.oc-tap`: kırıntı bağlantısı yazı boyunda kalır, dokunma katmanı
+              44px'e tamamlanır (kutu büyütülmez — md. 1). */}
+          <Link href="/projects" className="oc-tap hover:underline">Mühendislik</Link>
           {" / "}
-          <Link href={`/projects/${id}`} className="hover:underline">
+          <Link href={`/projects/${id}`} className="oc-tap hover:underline">
             <span className="font-mono">{project.doc_no}</span>
           </Link>
           {" / İşlem Kaydı"}
@@ -80,51 +82,58 @@ export default async function AuditPage({
         </p>
       </div>
 
-      {/* İşlem rozeti sarmaz (Badge tabanı `whitespace-nowrap`); dar telefonda
-          tablo yine de kayabilir. Mobil tarayıcı kaydırma çubuğu çizmediği
-          için tek ipucu bu nottur. */}
-      <p className="text-[11px] text-muted-foreground md:hidden">
-        → Tabloyu yana kaydırın
-      </p>
-
-      <div className="rounded-lg border">
+      {/* TELEFONDA TABLO LİSTEYE KATLANIR (kabuk kuralı 15): "yana kaydırın"
+          notu kalktı — `sm` altında yalnız İşlem + Detay kalır, tarih ve
+          kullanıcı rozetin alt satırına iner. Defter BÜYÜR (son 200 kayıt);
+          `oc-table-clamp` + `oc-sticky-head` uzun listede başlığı tepede
+          tutar. `.oc-scrollx` tablet ara genişlikleri için kalır (kural 8). */}
+      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             {/* "Kullanıcı" mobilde işlem rozetinin altına iner; dört sütun
                 + serbest metin detay telefonda tabloyu ~900px yapıyordu. */}
             <TableRow>
-              <TableHead>Tarih</TableHead>
+              <TableHead className="hidden sm:table-cell">Tarih</TableHead>
               <TableHead className="hidden md:table-cell">Kullanıcı</TableHead>
               <TableHead>İşlem</TableHead>
               <TableHead>Detay</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(entries ?? []).map((e) => (
-              <TableRow key={e.id}>
-                {/* Tarih + saat mobilde sarsın: nowrap hâlinde tek başına
-                    ~150px yiyordu. */}
-                <TableCell className="text-sm whitespace-normal text-muted-foreground md:whitespace-nowrap">
-                  {new Date(e.created_at).toLocaleString("tr-TR")}
-                </TableCell>
-                <TableCell className="hidden text-sm md:table-cell">
-                  {(e.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
-                </TableCell>
-                <TableCell className="whitespace-normal">
-                  <Badge variant={e.action === "revision.issue" ? "default" : "outline"}>
-                    {ACTION_LABELS[e.action] ?? e.action}
-                  </Badge>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground md:hidden">
-                    {(e.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
-                  </div>
-                </TableCell>
-                {/* Serbest metin: taban `whitespace-nowrap`u devralınca uzun
-                    detay tabloyu tek başına ~900px'e çıkarıyordu. */}
-                <TableCell className="text-sm whitespace-normal text-muted-foreground md:min-w-[16rem]">
-                  {detailSummary(e.action, (e.detail ?? {}) as Record<string, unknown>)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(entries ?? []).map((e) => {
+              // Tarih ve ad İKİ yerde okunur (sütun + telefon alt satırı);
+              // tek değişkende kurulur ki iki yazım ayrışamasın (kural 15).
+              const tarih = new Date(e.created_at).toLocaleString("tr-TR");
+              const kullanici =
+                (e.profiles as unknown as { full_name: string } | null)?.full_name ?? "—";
+              return (
+                <TableRow key={e.id}>
+                  {/* Tarih + saat tablette sarsın: nowrap hâlinde tek başına
+                      ~150px yiyordu. */}
+                  <TableCell className="hidden text-sm whitespace-normal text-muted-foreground sm:table-cell md:whitespace-nowrap">
+                    {tarih}
+                  </TableCell>
+                  <TableCell className="hidden text-sm md:table-cell">
+                    {kullanici}
+                  </TableCell>
+                  <TableCell className="whitespace-normal">
+                    <Badge variant={e.action === "revision.issue" ? "default" : "outline"}>
+                      {ACTION_LABELS[e.action] ?? e.action}
+                    </Badge>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground md:hidden">
+                      <span className="sm:hidden">{tarih} · </span>
+                      {kullanici}
+                    </div>
+                  </TableCell>
+                  {/* Serbest metin: taban `whitespace-nowrap`u devralınca uzun
+                      detay tabloyu tek başına ~900px'e çıkarıyordu;
+                      `break-words` boşluksuz jetonu da sardırır. */}
+                  <TableCell className="text-sm break-words whitespace-normal text-muted-foreground md:min-w-[16rem]">
+                    {detailSummary(e.action, (e.detail ?? {}) as Record<string, unknown>)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {(entries ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">

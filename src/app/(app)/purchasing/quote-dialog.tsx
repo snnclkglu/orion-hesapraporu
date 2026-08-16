@@ -58,7 +58,7 @@ import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import type { TeklifSatiri } from "./data";
 import { chooseQuote, deleteQuote, ensureSupplier, saveQuote } from "./actions";
-import { TAM_BOY_PENCERE } from "./pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /** Formun tuttuğu ham metinler — girdi alanları metin taşır, sayı değil. */
 interface Form {

@@ -23,11 +23,11 @@ export function WorkLogNav() {
   return (
     //
     // 360px'te üç sekme + rozet 449px istiyordu: etiketler iki satıra kırılıyor
-    // ve alt çizgi göstergesi bozuluyordu. Ray artık kaydırılır, etiketler
-    // kırılmaz; rozet telefonda hiç basılmaz (yetki bilgisi kritik değil,
-    // asıl engel zaten RLS'tir).
+    // ve alt çizgi göstergesi bozuluyordu. Ray bir süre `.oc-scrollx` ile yatay
+    // kaydı; artık KAYMAZ, SARAR (kabuk md. 15, `purchasing-nav` deseni):
+    // sekmeler dar ekranda ikinci satıra iner ve hepsi her an görünür kalır.
     <nav
-      className="oc-scrollx [--oc-scroll-bg:var(--background)] flex items-center gap-3 overflow-x-auto overscroll-x-contain border-b"
+      className="flex flex-wrap items-center gap-x-3 border-b"
       aria-label="İş Takibi bölümleri"
     >
       {TABS.map((t) => {
@@ -42,10 +42,12 @@ export function WorkLogNav() {
               // yalnız RENK adımı (kılavuz: no scale, no shadow lift).
               // 34px'lik sekme dokunmatik eşiğin altındaydı; bölüme girişin
               // tek yolu bu üç bağlantı.
-              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+              // Aktif çizgi `-mb-px border-b-2` değil İÇ GÖLGEDİR (md. 14):
+              // saran rayda negatif kenar boşluğu alt satırın üstüne binerdi.
+              "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
               active
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}

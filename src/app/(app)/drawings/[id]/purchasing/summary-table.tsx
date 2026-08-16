@@ -197,7 +197,8 @@ export function PurchaseSummaryTable({
                 <TableHead className="hidden md:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden md:table-cell text-right">Teslim</TableHead>
                 <TableHead>Durum</TableHead>
-                <TableHead>Termin</TableHead>
+                {/* Telefonda termin Durum hücresinin altına iner (md. 15). */}
+                <TableHead className="hidden sm:table-cell">Termin</TableHead>
                 <TableHead className="hidden lg:table-cell">Teslim Tarihi</TableHead>
               </TableRow>
             </TableHeader>
@@ -216,7 +217,10 @@ export function PurchaseSummaryTable({
 function Satir({ s }: { s: OzetSatiri }) {
   return (
     <TableRow>
-      <TableCell className="align-top whitespace-normal">
+      {/* `overflow-wrap:anywhere` (yalnız telefonda): `break-word` tablo
+          sütununun min-content'ini küçültmez; uzun ölçü jetonu 375px'te
+          tabloyu taşırıyordu (parts-table ölçümünün aynısı, md. 15). */}
+      <TableCell className="align-top whitespace-normal max-sm:[overflow-wrap:anywhere]">
         <span className="text-[12px]">{s.tanim}</span>
         {s.parcaKodu && (
           <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
@@ -275,8 +279,17 @@ function Satir({ s }: { s: OzetSatiri }) {
             {s.acikSiparis > 0 ? ` · ${formatNum(s.acikSiparis)} açık` : ""}
           </span>
         )}
+        {/* Telefonda termin buraya iner — sütunu orada gizli. */}
+        <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground sm:hidden">
+          {tarihGoster(s.termin)}
+          {s.gecikmeGun > 0 && (
+            <span className="ml-1 font-sans text-destructive">
+              {formatNum(s.gecikmeGun)} gün gecikme
+            </span>
+          )}
+        </span>
       </TableCell>
-      <TableCell className="align-top font-mono text-[12px] whitespace-nowrap">
+      <TableCell className="hidden align-top font-mono text-[12px] whitespace-nowrap sm:table-cell">
         {tarihGoster(s.termin)}
         {s.gecikmeGun > 0 && (
           <span className="mt-0.5 block text-[11px] font-sans text-destructive">

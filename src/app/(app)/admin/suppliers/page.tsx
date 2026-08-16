@@ -119,10 +119,12 @@ export default async function AdminSuppliersPage() {
       )}
 
       <div className="rounded-lg border">
-        <Table>
+        {/* 285 satırlık BÜYÜYEN defter: kap `md` üstünde 70dvh'ye kelepçeli,
+            başlık yapışkan — aşağı inince "bu sayı hangi sütundu" sorusu bitsin. */}
+        <Table containerClassName="oc-table-clamp">
           {/* SÜTUN ÖNCELİKLENDİRME (md. 7): dar ekranda kod · ad · eylemler
               kalır; kullanım sayıları ve not adın altına iner. */}
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow>
               <TableHead className="w-[7rem]">Kod</TableHead>
               <TableHead>Firma Adı</TableHead>

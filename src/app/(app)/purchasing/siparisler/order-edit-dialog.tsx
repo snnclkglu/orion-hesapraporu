@@ -59,7 +59,7 @@ import { trKatla } from "@/lib/drawings/tr-text";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
 import { editOrder, ensureQuality, ensureSupplier } from "../actions";
 import type { Siparis, TedarikciKaydi } from "../data";
-import { TAM_BOY_PENCERE } from "../pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /** Serbest gün girişi için açılırdaki özel değer (sipariş penceresiyle aynı). */
 const OZEL = "ozel";

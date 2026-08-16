@@ -710,6 +710,9 @@ function SummaryStrip({ ozet }: { ozet: ReturnType<typeof packageProgress> }) {
           aynı zeminde durmuyordu. Artık her sütun aynı yükseklikte: çubuk alanı
           sabit (`h-14`, çubuk içinden dibe yaslanır) ve etiket alanı iki satır
           alacak kadar sabit (`h-7`). */}
+      {/* İSTİSNA (AGENTS md. 15): bu şerit bir ÇUBUK GRAFİĞİDİR — sütunlar
+          sarılırsa karşılaştırma ekseni kırılır (kural 9'un HTML hâli);
+          telefonda içte kayar ve `.oc-scrollx` gölgesi bunu söyler. */}
       <ul className="oc-scrollx mt-2 flex items-stretch gap-2 overflow-x-auto pb-1 [--oc-scroll-bg:var(--card)]">
         <li className="flex w-16 shrink-0 flex-col items-center gap-1">
           <span className="font-mono text-[12px] tabular-nums">{formatNum(ozet.notStarted)}</span>

@@ -6,6 +6,13 @@
 // (her biri kendi verisini sunucudan çeker, paylaşılabilir, yenilenebilir).
 // Radix `Tabs` içine `<Link>` koymak `role="tablist"` sözleşmesini bozardı.
 // Desen `worklog-nav.tsx` ile birebir aynı.
+//
+// RAY KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: "mobilde yatayda kaydırma
+// olmasın"). Yedi sekme telefonda `.oc-scrollx` ile kayıyordu ve son sekmeler
+// görünmez kalıyordu; sarınca hepsi her an görünür (`purchasing-nav` deseni).
+// Aktif çizgisi alt kenara `-mb-px` ile değil İÇ GÖLGEYLE çizilir: sarılmış
+// ikinci satırda negatif kenar boşluğu çizgiyi rayın dibine değil satır
+// arasına bırakırdı (kabuk kuralı 14).
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -50,7 +57,7 @@ export function PackageNav({ packageId }: { packageId: string }) {
 
   return (
     <nav
-      className="oc-scrollx flex items-center gap-3 overflow-x-auto overscroll-x-contain border-b [--oc-scroll-bg:var(--background)]"
+      className="flex flex-wrap items-center gap-x-3 border-b"
       aria-label="Paket bölümleri"
     >
       {sekmeler.map((t) => {
@@ -61,10 +68,10 @@ export function PackageNav({ packageId }: { packageId: string }) {
             href={t.href}
             aria-current={aktif ? "page" : undefined}
             className={cn(
-              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+              "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
               aktif
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}

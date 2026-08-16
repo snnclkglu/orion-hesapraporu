@@ -31,7 +31,7 @@ import { Combobox, type ComboOption } from "@/components/combobox";
 import { parseNum } from "@/lib/currency";
 import { CONSUMABLE_UNITS } from "@/lib/purchasing/units";
 import { createManualDemand, deleteManualDemand, saveDemandOverride } from "./actions";
-import { TAM_BOY_PENCERE } from "./pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 export function ManualDemandDialog({
   kategoriler,

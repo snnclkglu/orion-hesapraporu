@@ -51,14 +51,13 @@ export async function PackageSiblings({
           : `${formatNum(gosterilen.length)} paket`}
       </p>
 
-      {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (AGENTS dokunmatik md. 8): mobil
-          tarayıcı çubuk çizmez, `.oc-scrollx` yalnız o yönde içerik varken
-          kenar gölgesi gösterir. Negatif kenar boşluğu gölgeyi kartın ta
-          kenarına taşır, `px-3` çiplerin dolgusunu geri verir — aksi hâlde
-          gölge içeriden başlar ve "burada devam ediyor" demez.
-          Çipler `shrink-0`dır: sığdırmak için daralsalardı 375px'te üç kardeş
-          okunamayacak kadar incelir, taşma da hiç görünmezdi. */}
-      <div className="oc-scrollx -mx-3 mt-1.5 flex gap-2 overflow-x-auto overscroll-x-contain px-3 [--oc-scroll-bg:var(--card)]">
+      {/* ŞERİT KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: "mobilde yatayda
+          kaydırma olmasın" — kabuk kuralı 15). Bir süre `.oc-scrollx` ile
+          yatay kayıyordu ve gölge ipucuna rağmen sağdaki kardeş gözden
+          kaçabiliyordu; sarınca bütün kardeşler her an görünür.
+          Çipler `shrink-0` KALIR: sığdırmak için daralsalardı 375px'te üç
+          kardeş okunamayacak kadar incelirdi — sarmada satır kendisi çoğalır. */}
+      <div className="mt-1.5 flex flex-wrap gap-2">
         {gosterilen.map((k) => {
           // SÜPERSE EDİLMİŞ KARDEŞ GİZLENMEZ: emekli bir teslim de o vincin
           // gerçeğidir ve mühendis bazen tam onu arar. Ama hangisinin geçerli

@@ -54,7 +54,7 @@ import { trKatla } from "@/lib/drawings/tr-text";
 import { cn } from "@/lib/utils";
 import { editQuoteBatch } from "../../actions";
 import type { PartiOzeti } from "./types";
-import { TAM_BOY_PENCERE } from "../../pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /** Formdaki teslim seçiminin gün karşılığı; `null` = sorulmadı. */
 function teslimGunu(v: string): number | null {

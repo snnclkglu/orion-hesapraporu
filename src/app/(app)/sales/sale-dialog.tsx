@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -199,8 +200,9 @@ export function SaleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Yükseklik sınırı ve iç kaydırma artık `DialogContent` tabanındadır.
           `sm:max-w-3xl` 768px tablette pencereyi ekranın tamamı yapıyordu;
-          genişlik görünür alandan pay bırakacak biçimde kelepçelenir. */}
-      <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+          genişlik görünür alandan pay bırakacak biçimde kelepçelenir.
+          Çok alanlı form telefonda TAM BOYDUR (pencere.ts kararı). */}
+      <DialogContent className={`${TAM_BOY_PENCERE} sm:max-w-[min(48rem,calc(100%-2rem))]`}>
         <DialogHeader>
           <DialogTitle>
             <span className="font-mono text-primary">{row.itemNo}</span> — Satış Bilgisi

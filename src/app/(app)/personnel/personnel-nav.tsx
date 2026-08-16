@@ -23,6 +23,12 @@
 // yaşandı ve kullanıcı arıza olarak bildirdi. Gölge dolgu kutusunun İÇİNE
 // boyandığı için aktif sekmenin çizgisi negatif kenar boşluğu olmadan onun
 // üstüne oturur.
+//
+// RAY KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: "mobilde yatayda kaydırma
+// olmasın"; AGENTS md. 15). Altı sekme telefonda iki satıra sarar ve hepsi her
+// an görünür kalır; masaüstünde zaten tek satıra sığdığı için sarma orada hiç
+// devreye girmez. İç gölge kuralı yerinde durur — sarınca da her satırın altı
+// tek çizgidir.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,7 +47,7 @@ export function PersonnelNav() {
   const pathname = usePathname() ?? "";
   return (
     <nav
-      className="oc-scrollx flex items-center gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain shadow-[inset_0_-1px_0_var(--border)] [--oc-scroll-bg:var(--background)]"
+      className="flex flex-wrap items-center gap-x-3 shadow-[inset_0_-1px_0_var(--border)]"
       aria-label="Personel bölümleri"
     >
       {TABS.map((t) => {

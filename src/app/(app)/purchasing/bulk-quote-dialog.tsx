@@ -64,7 +64,7 @@ import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { ensureSupplier, saveBulkQuote } from "./actions";
-import { TAM_BOY_PENCERE } from "./pencere";
+import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 /**
  * Toplu teklife giren tek kalem.

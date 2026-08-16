@@ -389,7 +389,8 @@ export function DocumentsPanel({
                   <TableHead>Belge</TableHead>
                   <TableHead className={AT_MD}>Tür</TableHead>
                   <TableHead className={AT_LG}>Tarih</TableHead>
-                  <TableHead>Geçerlilik</TableHead>
+                  {/* Telefonda geçerlilik rozeti Belge hücresine iner (md. 15). */}
+                  <TableHead className="hidden sm:table-cell">Geçerlilik</TableHead>
                   <TableHead className={cn(AT_LG, "text-right")}>Boyut</TableHead>
                   <TableHead className="text-right">İşlem</TableHead>
                 </TableRow>
@@ -399,25 +400,46 @@ export function DocumentsPanel({
                   const durum = expiryState(d.expiresOn, bugun);
                   return (
                     <TableRow key={d.id}>
-                      <TableCell className="max-w-[18rem]">
+                      {/* `whitespace-normal` HÜCREDE: TableCell'in varsayılan
+                          nowrap'ı çip satırına miras kalıp sütunu tam metne
+                          kilitliyordu (md. 15 ölçümü). */}
+                      <TableCell className="max-w-[18rem] whitespace-normal max-sm:[overflow-wrap:anywhere]">
                         <div className="flex items-start gap-2">
                           <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                           <div className="min-w-0">
-                            <div className="truncate font-medium" title={d.title}>
+                            {/* Telefonda `truncate` yerine SARMA: nowrap metin
+                                tablo sütununun min-content'ini tam metne
+                                kilitleyip 375px'te taşırıyordu (md. 15). */}
+                            <div
+                              className="truncate font-medium max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]"
+                              title={d.title}
+                            >
                               {d.title || d.fileName}
                             </div>
-                            <div className="truncate text-xs text-muted-foreground" title={d.fileName}>
+                            <div
+                              className="truncate text-xs text-muted-foreground max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]"
+                              title={d.fileName}
+                            >
                               {d.fileName}
                               {d.pageCount > 0 && ` · ${d.pageCount} sayfa`}
                             </div>
-                            {/* Dar ekranda gizlenen tür bilgisini burada göster. */}
-                            <div className="mt-1 md:hidden">
+                            {/* Dar ekranda gizlenen tür + geçerlilik burada. */}
+                            <div className="mt-1 flex flex-wrap items-center gap-1 md:hidden">
                               <span
                                 className="oc-tag px-1.5 py-0.5 text-[11px]"
                                 style={tagStyle(documentKindHue(d.kind))}
                               >
                                 {documentKindLabel(d.kind)}
                               </span>
+                              {durum !== "yok" && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn("font-normal sm:hidden", DURUM_SINIF[durum])}
+                                  title={`Geçerlilik: ${fmtDate(d.expiresOn)}`}
+                                >
+                                  {EXPIRY_LABELS[durum]}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -433,7 +455,7 @@ export function DocumentsPanel({
                       <TableCell className={cn(AT_LG, "text-muted-foreground")}>
                         {fmtDate(d.issuedOn)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {durum === "yok" ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
