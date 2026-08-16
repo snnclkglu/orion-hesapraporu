@@ -75,8 +75,8 @@ import {
   hiddenSectionCheckIds,
   moduleAllowedByConfig,
   moduleDisplayNumbers,
-  renumberSectionId,
   renumberTitle,
+  sectionDisplayNumbers,
   withDerivedModules,
   type AdapterHeadline,
   type AdapterRow,
@@ -936,6 +936,17 @@ function RoleLegend() {
 }
 
 // ---------------------------------------------------------------- Steps
+
+/**
+ * Gizlenen alt bölümün numara yerine bastığı işaret.
+ *
+ * Gizli bölümün numarası YOKTUR — numara rapordaki sıradır, o bölüm sırada
+ * değildir. Uydurma bir numara basmak (ya da eski numarayı bırakmak) ekrandaki
+ * diziyi PDF'tekinden farklı gösterirdi; tire, "bu bölüm sayılmıyor" der.
+ * Bölümün adı ve içeriği yerinde kalır, kutucuk geri açılınca numara döner.
+ */
+const HIDDEN_SECTION_NO = "—";
+
 type Step =
   | { kind: "specs"; key: string; title: string }
   | { kind: "module"; key: string; title: string; moduleKey: ModuleKey; section: AdapterSection }
@@ -944,16 +955,30 @@ type Step =
 function buildSteps(
   present: (k: ModuleKey) => boolean,
   numbers: Partial<Record<ModuleKey, number>>,
-  specs: TechnicalSpecs
+  specs: TechnicalSpecs,
+  /**
+   * Gizlenen alt bölümler (`sectionHideKeyFor` anahtarları). Bunlar listede
+   * KALIR (soluk, düzenlenebilir) ama NUMARA ALMAZ: numara rapordaki sıradır
+   * ve gizli bölüm rapora girmez. Editör ile PDF numarası ancak böyle aynı
+   * kalır — mühendisin ekranda gördüğü numara müşteriye giden numaradır.
+   */
+  hidden: ReadonlySet<string>
 ): Step[] {
   const steps: Step[] = [{ kind: "specs", key: "specs", title: "01 · Teknik Özellikler" }];
   for (const adapter of MODULE_ADAPTERS) {
     if (!present(adapter.key)) continue;
     const num = numbers[adapter.key] ?? 0;
+    const nos = sectionDisplayNumbers(
+      adapter.sections,
+      num,
+      (section) =>
+        (!section.visible || section.visible(specs)) &&
+        !hidden.has(sectionHideKeyFor(adapter.key, section.rawId))
+    );
     for (const section of adapter.sections) {
       // Koşullu bölüm (ör. emniyet freni olmayan kaldırma grubunda 2.8)
       if (section.visible && !section.visible(specs)) continue;
-      const displayId = renumberSectionId(section.id, num);
+      const displayId = nos.get(section.rawId) ?? HIDDEN_SECTION_NO;
       steps.push({
         kind: "module",
         key: `${adapter.key}-${section.rawId}`,
@@ -1283,7 +1308,13 @@ export function RevisionEditor({
   }, [specs, enabled]);
   const present = useCallback((k: ModuleKey) => activeSet.has(k), [activeSet]);
   const numbers = useMemo(() => moduleDisplayNumbers(present), [present]);
-  const STEPS = useMemo(() => buildSteps(present, numbers, specs), [present, numbers, specs]);
+  // Gizleme kutucuğu numaraları da kaydırdığı için `hiddenSections` bağımlılıktır:
+  // kutucuk işaretlendiği anda sonraki bölümler bir öne kayar (PDF'teki dizinin
+  // aynısı), mühendis kararının sonucunu kaydetmeden görür.
+  const STEPS = useMemo(
+    () => buildSteps(present, numbers, specs, hiddenSections),
+    [present, numbers, specs, hiddenSections]
+  );
   // Bölüm değişince gövde başa sarılır — kayma hissinin ana kaynağı buydu.
   // `bodyRef` kabı YALNIZ lg üstünde kayar (`lg:overflow-y-auto`); lg altında
   // kaydırma sayfanındır ve çağrı sessizce ölüyordu: yeni bölüme geçen kullanıcı
@@ -1823,7 +1854,18 @@ export function RevisionEditor({
       <Card className={cardSpacing}>
         <CardHeader className="border-b pb-4">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
+            {/* Numara gizli bölümde TİRE basar (`HIDDEN_SECTION_NO`): bölüm
+                rapora girmediği için sırada da değildir. Rozet o hâlde
+                solar — canlı bir numarayla karıştırılmasın. */}
+            <span
+              className={cn(
+                "inline-flex h-6 items-center px-2 font-mono text-xs font-semibold tabular-nums",
+                isHidden
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary/10 text-primary"
+              )}
+              title={isHidden ? `Gizli bölüm — numara verilmez (ham id ${section.rawId})` : undefined}
+            >
               {section.id}
             </span>
             <span className="tracking-tight">{section.title}</span>

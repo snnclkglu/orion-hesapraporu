@@ -2,10 +2,11 @@
 //
 // Kullanıcı bir alt bölümü (ör. 5.7 Teker — Redüktör Kaplini) başlığındaki
 // kutucukla gizleyebilir: bölüm hesaba girmeye devam eder ama editör özetleri,
-// PDF raporu ve ekipman listesi onu taşımaz. Bu dosya üç bağı kilitler:
+// PDF raporu ve ekipman listesi onu taşımaz. Bu dosya dört bağı kilitler:
 //   1. `hiddenSectionsFromRevision` — JSONB'den güvenli okuma
 //   2. `hiddenSectionCheckIds` — gizli bölüm → kontrol kimlikleri eşlemesi
-//   3. `diffRevisions` — gizleme kararı karşılaştırmada kaybolmaz
+//   3. `sectionDisplayNumbers` — gizlenen bölüm numarasını da götürür
+//   4. `diffRevisions` — gizleme kararı karşılaştırmada kaybolmaz
 
 import { describe, expect, it } from "vitest";
 import {
@@ -15,7 +16,12 @@ import {
 } from "@/lib/revision-load";
 import { diffRevisions } from "@/lib/revision-diff";
 import { fieldLabel } from "@/lib/calc/labels";
-import { hiddenSectionCheckIds } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
+import {
+  MODULE_ADAPTERS,
+  hiddenSectionCheckIds,
+  sectionDisplayNumbers,
+  type AdapterSection,
+} from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
 
 describe("sectionHideKeyFor", () => {
   it("not/alternatif anahtarlarıyla aynı uzayı kullanır", () => {
@@ -70,6 +76,92 @@ describe("hiddenSectionCheckIds", () => {
 
   it("boş listede boş küme döner", () => {
     expect(hiddenSectionCheckIds([]).size).toBe(0);
+  });
+});
+
+describe("sectionDisplayNumbers", () => {
+  const adapterOf = (key: string) => {
+    const a = MODULE_ADAPTERS.find((m) => m.key === key);
+    if (!a) throw new Error(`adaptör yok: ${key}`);
+    return a;
+  };
+  /** Ham id kümesini düşüren yüklem (gizleme + koşullu bölüm aynı kapıdan). */
+  const without =
+    (...rawIds: string[]) =>
+    (s: AdapterSection) =>
+      !rawIds.includes(s.rawId);
+  const all = () => true;
+
+  it("modül numarasını basar ve alt bölümleri SIRAYLA numaralar", () => {
+    // Ana araba yürütme (5.x) rapora 3. bölüm olarak giriyorsa: 5.1 → 3.1 …
+    const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, all);
+    expect(nos.get("5.1")).toBe("3.1");
+    expect(nos.get("5.7")).toBe("3.7");
+  });
+
+  it("gizlenen bölüm numarasını da götürür — sonrakiler bir öne kayar", () => {
+    // Kullanıcının bildirdiği hâl: 3.6 gizlenince 3.7 boşluk bırakmamalı.
+    const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, without("5.6"));
+    expect(nos.has("5.6")).toBe(false);
+    expect(nos.get("5.5")).toBe("3.5");
+    expect(nos.get("5.7")).toBe("3.6");
+    expect(nos.get("5.8")).toBe("3.7");
+    // Basılan numaralar boşluksuz bir dizidir.
+    expect([...nos.values()]).toEqual(["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8"]);
+  });
+
+  it("koşullu bölüm (o vinçte yok) de boşluk bırakmaz", () => {
+    // Tamponsuz bir arabada 5.8 hiç çizilmez; feston (5.9) onun yerine geçer.
+    const nos = sectionDisplayNumbers(adapterOf("trolley").sections, 3, without("5.8"));
+    expect(nos.get("5.9")).toBe("3.8");
+  });
+
+  it("alt kırılımı korur: 2.2.x ailesi tek üst numara altında 1'den sayar", () => {
+    const nos = sectionDisplayNumbers(adapterOf("main").sections, 2, all);
+    expect(nos.get("2.1")).toBe("2.1");
+    expect(nos.get("2.2.1")).toBe("2.2.1");
+    expect(nos.get("2.2.7")).toBe("2.2.7");
+    expect(nos.get("2.3")).toBe("2.3");
+  });
+
+  it("aile içinden gizlenen bölüm yalnız KARDEŞLERİNİ kaydırır", () => {
+    const nos = sectionDisplayNumbers(adapterOf("main").sections, 2, without("2.2.3"));
+    expect(nos.get("2.2.2")).toBe("2.2.2");
+    expect(nos.get("2.2.4")).toBe("2.2.3");
+    // Ailenin dışı etkilenmez: 2.3 hâlâ 2.3.
+    expect(nos.get("2.3")).toBe("2.3");
+  });
+
+  it("ailenin tamamı gizlenirse üst numara da harcanmaz", () => {
+    const nos = sectionDisplayNumbers(
+      adapterOf("main").sections,
+      2,
+      without("2.2.1", "2.2.2", "2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7")
+    );
+    expect(nos.get("2.1")).toBe("2.1");
+    expect(nos.get("2.3")).toBe("2.2");
+    expect(nos.get("2.4")).toBe("2.3");
+  });
+
+  it("harf sonekli ham id (5.5b) sıradan bir numara alır", () => {
+    // "b" soneki bölümün sonradan araya girdiğini söyler — ham id ANAHTAR
+    // olarak kalır ama müşteriye giden numara sıradan bir sayıdır.
+    const nos = sectionDisplayNumbers(adapterOf("bridge").sections, 6, all);
+    expect(nos.get("5.5")).toBe("6.5");
+    expect(nos.get("5.5b")).toBe("6.6");
+    expect(nos.get("5.6")).toBe("6.7");
+  });
+
+  it("hiçbir modülde numara yinelenmez ya da atlanmaz", () => {
+    for (const adapter of MODULE_ADAPTERS) {
+      const nos = sectionDisplayNumbers(adapter.sections, 4, all);
+      const values = [...nos.values()];
+      expect(new Set(values).size, `${adapter.key} yinelenen numara`).toBe(values.length);
+      // Üst düzey numaralar 1'den başlayıp birer birer artar (alt kırılımın
+      // bütün üyeleri AYNI üst numarayı taşır, o yüzden tekilleştirilir).
+      const tops = [...new Set(values.map((v) => Number(v.split(".")[1])))];
+      expect(tops, `${adapter.key} üst düzey dizisi`).toEqual(tops.map((_, i) => i + 1));
+    }
   });
 });
 

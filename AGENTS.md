@@ -2612,11 +2612,38 @@ Vercel. **Arayüz, rapor ve kod yorumları tamamen Türkçedir**; tanımlayıcı
    `equipmentSlugs` bildirimindedir (`*Sections.ts`) ve İKİ YÖNLÜ koruma
    testine bağlıdır (`hidden-sections-equipment.test.ts`: bildirilen her slug
    gerçekten üretilir + üretilen her satırın sahibi vardır — yeni ekipman
-   satırı eklerken bölümüne `equipmentSlugs` da eklenir). Bölüm numaraları
-   gizlemede YENİDEN DİZİLMEZ (5.8, 5.7 gizlense de 5.8 kalır — koşullu
-   bölümlerin bugünkü davranışıyla aynı; kararlı numara, atlanmış numaradan
-   iyidir). Gizleme kararı revizyon karşılaştırmasında kendi satırıyla görünür
-   (`revision-diff.ts`, "Gizlenen Alt Bölümler").
+   satırı eklerken bölümüne `equipmentSlugs` da eklenir). Gizleme kararı
+   revizyon karşılaştırmasında kendi satırıyla görünür (`revision-diff.ts`,
+   "Gizlenen Alt Bölümler").
+
+   **BÖLÜM NUMARASI BİR AD DEĞİL BİR SIRADIR — ÖNCEKİ KARAR TERSİNE ÇEVRİLDİ**
+   (`sectionDisplayNumbers`, module-adapters.ts; kullanıcı bildirimi
+   16.08.2026: *"bölümü gizlediğinde o numara gizleniyor, 3.6'dan devam
+   ediyor. Bu iyi değil, çünkü hesap raporu PDF'de arada eksik var
+   hissettirir."*). Eski kural "numaralar gizlemede YENİDEN DİZİLMEZ; kararlı
+   numara, atlanmış numaradan iyidir" idi ve yanlış tarafı seçiyordu: kararlı
+   numaranın okuyucusu YOKTUR — müşteriye giden PDF'te 3.5'ten 3.7'ye atlayan
+   bir dizi, olmayan bir bölümün eksik basıldığını söyler. Numara artık
+   RAPORDAKİ SIRADIR; rapordan düşen her bölüm kendinden sonrakileri bir öne
+   çeker. Üç sonucu vardır:
+   · **KOŞULLU BÖLÜM DE BOŞLUK BIRAKMAZ** (`visible(specs)` — tamponsuz
+     arabada 5.8 yok, feston onun yerine geçer). Gizleme ile koşul aynı
+     kapıdan geçer: ikisi de "bu bölüm basılmıyor" der.
+   · **HARF SONEKİ DÜŞER**: `5.5b` (köprü yürütme freni) ham id olarak KALIR —
+     not, gizleme, alternatif ve çapa uzayları hep onunla çalışır — ama basılan
+     numara sıradan bir sayıdır (6.6) ve sonrası kayar. Sonek bölümün sonradan
+     araya girdiğini söyler; bu bir iç kayıttır, müşterinin okuduğu belgede
+     yaması görünmemelidir.
+   · **YAYINLANMIŞ BİR REVİZYON YENİDEN BASILIRSA numaraları değişebilir.**
+     Bedel açıkça kabul edildi: numara zaten snapshot'ta saklanmaz, mevcut
+     modüllerden TÜRETİLİR (`moduleDisplayNumbers` ile aynı ruhta).
+   Numara ile SÜZGEÇ TEK YÜKLEMDEN okur (`sectionPrinted`, report.tsx): ayrı
+   yazılsalardı gizlenen bölüm süzülür ama numarasını harcamaya devam ederdi.
+   Editör gizli bölümü listede TUTAR (soluk, düzenlenebilir) ama numara yerine
+   TİRE basar (`HIDDEN_SECTION_NO`) — uydurma bir numara, ekrandaki diziyi
+   PDF'tekinden ayırırdı. Koruma `hidden-sections.test.ts`tedir ve son madde
+   bütün modülleri tarar: numara yinelenmez, üst düzey dizi 1'den başlayıp
+   birer birer artar.
 
    **Taslak revizyon SİLİNEBİLİR, yayınlanmış SİLİNEMEZ.** Yanlış açılmış ya da
    yanlış yönde ilerlemiş bir taslağı temizlemenin yolu yoktu. İki kural AYRI

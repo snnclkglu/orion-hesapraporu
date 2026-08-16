@@ -1019,6 +1019,64 @@ export function renumberSectionId(id: string, n: number): string {
   return parts.join(".");
 }
 
+/**
+ * Görünen alt bölümlerin numaraları: ham id → görüntü numarası
+ * (`"5.7"` → `"3.6"`, `"2.2.4"` → `"2.2.3"`).
+ *
+ * **NUMARA BİR AD DEĞİL BİR SIRADIR** (kullanıcı kararı, 16.08.2026 — önceki
+ * "kararlı numara, atlanmış numaradan iyidir" kuralının TERSİ). Rapordan düşen
+ * bir alt bölüm — kullanıcının GİZLEDİĞİ ya da o vinçte OLMAYAN (koşullu)
+ * bölüm — kendinden sonraki bütün bölümleri bir öne çeker. Gerekçe belgenin
+ * kendisindedir: müşteriye giden PDF'te "3.5 … 3.7" dizisi, okuyucuya eksik
+ * sayfa aldığını düşündürür; oysa 3.6 diye bir bölüm hiç basılmamıştır.
+ *
+ * HAM ID ANAHTAR OLARAK KALIR. Not (`sectionNoteKeyFor`), gizleme
+ * (`sectionHideKeyFor`), alternatif (`altKeyFor`) ve PDF çapası
+ * (`sectionAnchor`) hep `rawId` ile çalışır; burada üretilen yalnız
+ * GÖRÜNTÜdür ve hiçbir yere kaydedilmez.
+ *
+ * ALT KIRILIM KORUNUR: `2.2.1…2.2.7` ailesi tek bir üst numara altında
+ * toplanır ve kendi içinde 1'den sayılır. Ailenin bütün üyeleri düşerse üst
+ * numara da harcanmaz — "2.2" boş bir başlık olarak ortada kalmaz.
+ *
+ * `counts` yüklemi ÇAĞIRANIN çizdiği listeyle BİREBİR aynı olmalıdır: numara
+ * basılan bölümlerin sırasıdır, listelenenlerin değil (editör gizli bölümü
+ * soluk da olsa çizer ama numara vermez).
+ */
+export function sectionDisplayNumbers(
+  sections: readonly AdapterSection[],
+  moduleNo: number,
+  counts: (section: AdapterSection) => boolean
+): Map<string, string> {
+  const out = new Map<string, string>();
+  // Ham yol ("2" · "2.2") → verilmiş görüntü yolu ("1" · "2"). Aynı aileden
+  // ikinci bölüm geldiğinde üst numara yeniden üretilmez.
+  const given = new Map<string, string>();
+  // Görüntü yolu → o düzeyde son kullanılan numara ("" = modülün kökü).
+  const used = new Map<string, number>();
+  for (const section of sections) {
+    if (!counts(section)) continue;
+    // İlk segment modül numarasıdır (moduleDisplayNumbers verir); yeniden
+    // dizilen kısım ondan SONRASIDIR.
+    const [, ...rest] = section.rawId.split(".");
+    let rawPath = "";
+    let displayPath = "";
+    for (const segment of rest) {
+      rawPath = rawPath ? `${rawPath}.${segment}` : segment;
+      let display = given.get(rawPath);
+      if (display === undefined) {
+        const next = (used.get(displayPath) ?? 0) + 1;
+        used.set(displayPath, next);
+        display = displayPath ? `${displayPath}.${next}` : String(next);
+        given.set(rawPath, display);
+      }
+      displayPath = display;
+    }
+    out.set(section.rawId, displayPath ? `${moduleNo}.${displayPath}` : String(moduleNo));
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- Deps üretimi
 
 /**

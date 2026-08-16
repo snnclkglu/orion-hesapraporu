@@ -72,6 +72,7 @@ import {
   moduleDisplayNumbers,
   renumberSectionId,
   renumberTitle,
+  sectionDisplayNumbers,
   adapterTitle,
   type AdapterHeadline,
   type AdapterSection,
@@ -2107,6 +2108,19 @@ function ModulePage({
   const ctx = ctxFor(adapter.key, input, result, deps);
   const hidden = hiddenSetOf(props);
   const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
+  /**
+   * Bölüm bu rapora giriyor mu — hem SÜZGEÇ hem NUMARANIN dayanağı.
+   * İkisi tek yüklemden okur: numara basılan bölümlerin sırasıdır, ayrı
+   * yazılsalardı gizlenen bölüm süzülür ama numarası harcanmaya devam ederdi.
+   */
+  const sectionPrinted = (section: AdapterSection) =>
+    (!section.visible || section.visible(input.specs)) &&
+    // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri korunur,
+    // kutucuk geri açılınca bölüm aynen döner.
+    !isSectionHidden(hidden, adapter.key, section.rawId);
+  // Numaralar bölümlerden ÖNCE tek seferde çözülür: gizlenen ya da o vinçte
+  // olmayan bölüm numarasını da götürür, sonrakiler bir öne kayar.
+  const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
 
   return (
     <BrandPage docLine={docLineFor(revision)} docCode={docCodeFor(project, revision)}>
@@ -2117,20 +2131,14 @@ function ModulePage({
         meta="FEM 1.001 · DIN 15018 · CMAA 70"
       />
       {adapter.sections
-        .filter(
-          (section) =>
-            (!section.visible || section.visible(input.specs)) &&
-            // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri
-            // korunur, kutucuk geri açılınca bölüm aynen döner.
-            !isSectionHidden(hidden, adapter.key, section.rawId)
-        )
+        .filter(sectionPrinted)
         .map((section, si) => {
         const inputs = state.inputs;
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
         const secChecks = sectionChecks(adapter, section, mr);
         const diagrams = diagramsForSection(adapter.key, section.rawId, input, result);
-        const secNo = renumberSectionId(section.id, moduleNo);
+        const secNo = secNos.get(section.rawId) ?? renumberSectionId(section.id, moduleNo);
 
         // Bölüm gövdesi düz bir PARÇA dizisidir. Her alt başlık kendi ilk
         // satırıyla birlikte tek bir bölünemez kutuya konur (KeepWithNext).
