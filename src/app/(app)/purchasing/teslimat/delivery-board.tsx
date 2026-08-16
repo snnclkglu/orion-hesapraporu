@@ -16,8 +16,8 @@
 //    gelmiş malı göstermek listeyi zamanla okunmaz yapardı. Geçmiş kayıt
 //    Siparişler ekranındadır.
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { formatNum } from "@/lib/drawings/labels";
 import { bugunISO, eurKarsiligi, gunFarki, tarihGoster } from "@/lib/purchasing/terms";
 import { donemlere, sirala, type Kip } from "@/lib/purchasing/summary";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
+import { adreseYaz, listeOku } from "../adres-suzgec";
 import { CokluSuzgec } from "../filters";
 import { Bant, KipSecici, PanoKabugu } from "../board-ui";
 import type { Siparis } from "../data";
@@ -93,11 +94,35 @@ export function DeliveryBoard({
 }) {
   const router = useRouter();
   const [, basla] = useTransition();
+  const params = useSearchParams();
   const [kip, setKip] = useState<Kip>("ay");
   // PANO KAPALI AÇILIR (kullanıcı kararı, 14.08.2026).
   const [pano, setPano] = useState(false);
-  const [f, setF] = useState<Filtreler>(BOS);
+  // SÜZGEÇ ADRESTE YAŞAR (16.08.2026, havuzun kuralı); varsayılan BOŞtur.
+  const [f, setF] = useState<Filtreler>(() => ({
+    query: params.get("q") ?? "",
+    tedarikciler: listeOku(params, "ted"),
+    isler: listeOku(params, "is"),
+    aciliyet: listeOku(params, "acil"),
+  }));
   const [acik, setAcik] = useState<Set<string>>(new Set());
+
+  const ilkBoyama = useRef(true);
+  useEffect(() => {
+    if (ilkBoyama.current) {
+      ilkBoyama.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      adreseYaz({
+        q: f.query.trim() || undefined,
+        ted: f.tedarikciler.join(",") || undefined,
+        is: f.isler.join(",") || undefined,
+        acil: f.aciliyet.join(",") || undefined,
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [f]);
 
   const bugun = bugunISO();
   // EKRANIN KAPSAMI: teslim alınmamış siparişler. "Ne bekliyorum" sorusu bu.
@@ -516,7 +541,7 @@ function SiparisSatiri({
           onClick={onToggle}
           aria-expanded={genis}
           aria-label={genis ? "Kalemleri gizle" : "Kalemleri göster"}
-          className="grid size-6 shrink-0 place-items-center text-muted-foreground pointer-coarse:size-9 hover:text-foreground"
+          className="oc-tap-square grid size-6 shrink-0 place-items-center text-muted-foreground transition-colors hover:text-foreground"
         >
           {genis ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
@@ -564,12 +589,14 @@ function SiparisSatiri({
         <div className="oc-scrollx border-t bg-muted/20 px-3 py-2 [--oc-scroll-bg:var(--muted)]">
           <table className="w-full text-[12px]">
             <thead className="text-muted-foreground">
+              {/* Telefonda Kalem + Adet + Teslim kalır (yatay kaydırma yasağı,
+                  16.08.2026); % oranı zaten renkle Teslim düğmesinde okunur. */}
               <tr>
                 <th className="py-1 pr-3 text-left font-normal">Kalem</th>
-                <th className="py-1 pr-3 text-left font-normal">İş</th>
+                <th className="hidden py-1 pr-3 text-left font-normal sm:table-cell">İş</th>
                 <th className="py-1 pr-3 text-right font-normal">Adet</th>
                 <th className="py-1 pr-3 text-right font-normal">Teslim</th>
-                <th className="py-1 text-right font-normal">%</th>
+                <th className="hidden py-1 text-right font-normal sm:table-cell">%</th>
               </tr>
             </thead>
             <tbody>
@@ -578,8 +605,17 @@ function SiparisSatiri({
                 const satirTam = l.qty > 0 && l.receivedQty >= l.qty;
                 return (
                   <tr key={l.id} className="border-t border-border/50">
-                    <td className="py-1 pr-3">{l.sample}</td>
-                    <td className="py-1 pr-3 font-mono text-muted-foreground">{l.itemNo || "—"}</td>
+                    <td className="py-1 pr-3">
+                      {l.sample}
+                      {l.itemNo && (
+                        <span className="block font-mono text-muted-foreground sm:hidden">
+                          {l.itemNo}
+                        </span>
+                      )}
+                    </td>
+                    <td className="hidden py-1 pr-3 font-mono text-muted-foreground sm:table-cell">
+                      {l.itemNo || "—"}
+                    </td>
                     <td className="py-1 pr-3 text-right font-mono tabular-nums">{formatNum(l.qty)}</td>
                     <td className="py-1 pr-3 text-right">
                       {/* TESLİM = BUTON, kutu DEĞİL (kullanıcı bildirimi,
@@ -612,7 +648,7 @@ function SiparisSatiri({
                       )}
                     </td>
                     <td
-                      className="py-1 text-right font-mono font-medium tabular-nums"
+                      className="hidden py-1 text-right font-mono font-medium tabular-nums sm:table-cell"
                       style={{ color: oranRengi(satirOran) }}
                     >
                       %{Math.round(satirOran * 100)}

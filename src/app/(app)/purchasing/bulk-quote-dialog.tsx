@@ -64,6 +64,7 @@ import { formatNum } from "@/lib/drawings/labels";
 import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { ensureSupplier, saveBulkQuote } from "./actions";
+import { TAM_BOY_PENCERE } from "./pencere";
 
 /**
  * Toplu teklife giren tek kalem.
@@ -257,7 +258,7 @@ export function BulkQuoteDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       {/* GENİŞLİK %50 ARTTI (52 → 78rem): başlık şeridi altı alanı tek satırda
           taşıyor ve tablo dört sütuna çıktı. */}
-      <DialogContent className="sm:max-w-[min(78rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(78rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">Toplu Teklif Gir</DialogTitle>
           <DialogDescription className="text-[12px]">

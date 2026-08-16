@@ -190,34 +190,40 @@ interface Sutun {
   gizle?: string;
 }
 
-/** Türe göre değişen ÖLÇÜ BLOĞU — sabit çerçevenin ortasına girer. */
+/**
+ * Türe göre değişen ÖLÇÜ BLOĞU — sabit çerçevenin ortasına girer.
+ *
+ * TELEFONDA (sm altı) ÖLÇÜ SÜTUNLARININ TAMAMI GİZLİDİR (16.08.2026 — yatay
+ * kaydırma yasağı): değerleri zaten açılır ayrıntıda parça parça var; telefonda
+ * yalnız Stok Kalemi + Durum kalır ve özet birincil hücreye iner.
+ */
 function olcuSutunlari(tur: HammaddeSinifi | ""): Sutun[] {
   switch (tur) {
     case "SAC":
       return [
-        { key: "kalinlik", baslik: "Kalınlık", sag: true },
-        { key: "alan", baslik: "Toplam m²", sag: true },
+        { key: "kalinlik", baslik: "Kalınlık", sag: true, gizle: "hidden sm:table-cell" },
+        { key: "alan", baslik: "Toplam m²", sag: true, gizle: "hidden sm:table-cell" },
       ];
     case "PROFIL":
     case "RAY":
       return [
         { key: "kesit", baslik: "Kesit", gizle: "hidden lg:table-cell" },
         { key: "kgm", baslik: "kg/m", sag: true, gizle: "hidden xl:table-cell" },
-        { key: "metre", baslik: "Toplam m", sag: true },
-        { key: "boy", baslik: "Kaç Boy", sag: true },
+        { key: "metre", baslik: "Toplam m", sag: true, gizle: "hidden sm:table-cell" },
+        { key: "boy", baslik: "Kaç Boy", sag: true, gizle: "hidden sm:table-cell" },
       ];
     case "BORU":
       return [
         { key: "dis", baslik: "Ø Dış", sag: true, gizle: "hidden lg:table-cell" },
         { key: "ic", baslik: "Ø İç", sag: true, gizle: "hidden xl:table-cell" },
-        { key: "metre", baslik: "Toplam m", sag: true },
-        { key: "boy", baslik: "Kaç Boy", sag: true },
+        { key: "metre", baslik: "Toplam m", sag: true, gizle: "hidden sm:table-cell" },
+        { key: "boy", baslik: "Kaç Boy", sag: true, gizle: "hidden sm:table-cell" },
       ];
     case "DOLU":
       return [
         { key: "dis", baslik: "Ø", sag: true, gizle: "hidden lg:table-cell" },
         { key: "kgm", baslik: "kg/m", sag: true, gizle: "hidden xl:table-cell" },
-        { key: "metre", baslik: "Toplam m", sag: true },
+        { key: "metre", baslik: "Toplam m", sag: true, gizle: "hidden sm:table-cell" },
       ];
     default:
       return [{ key: "olcu", baslik: "Ölçü", gizle: "hidden lg:table-cell" }];
@@ -228,15 +234,15 @@ function sutunlariKur(tur: HammaddeSinifi | "", canWrite: boolean): Sutun[] {
   return [
     ...(canWrite ? [{ key: "sec", baslik: "" }] : []),
     { key: "ac", baslik: "" },
-    { key: "is", baslik: "İş No" },
-    ...(tur === "" ? [{ key: "tur", baslik: "Tür" }] : []),
+    { key: "is", baslik: "İş No", gizle: "hidden sm:table-cell" },
+    ...(tur === "" ? [{ key: "tur", baslik: "Tür", gizle: "hidden sm:table-cell" }] : []),
     { key: "tanim", baslik: "Stok Kalemi" },
     { key: "kalite", baslik: "Kalite", gizle: "hidden lg:table-cell" },
     ...olcuSutunlari(tur),
     { key: "parca", baslik: "Parça", sag: true, gizle: "hidden md:table-cell" },
-    { key: "agirlik", baslik: "Ağırlık kg", sag: true },
+    { key: "agirlik", baslik: "Ağırlık kg", sag: true, gizle: "hidden sm:table-cell" },
     { key: "siparis", baslik: "Sipariş", sag: true, gizle: "hidden md:table-cell" },
-    { key: "teklif", baslik: "Teklif" },
+    { key: "teklif", baslik: "Teklif", gizle: "hidden sm:table-cell" },
     { key: "durum", baslik: "Durum" },
   ];
 }
@@ -586,9 +592,9 @@ export function RawTable({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
+        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
-            <TableHeader>
+            <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {sutunlar.map((s) => {
                   if (s.key === "sec") {
@@ -904,6 +910,28 @@ function Satir({
   const sip = siparisAdedi(s);
   const metre = s.toplamBoyMm == null ? null : s.toplamBoyMm / 1000;
 
+  // İş No özeti İKİ yerde okunur (kendi sütunu + telefon katmanı) — tek kez
+  // kurulur, iki yazım ayrışamaz.
+  const isOzeti =
+    s.paylar.length === 0
+      ? null
+      : s.paylar.length === 1
+        ? s.paylar[0].itemNo || null
+        : `${s.paylar[0].itemNo} +${s.paylar.length - 1}`;
+  const isIpucu = s.paylar.map((p) => p.itemNo).join(", ");
+
+  // Teklif düğmesi de öyle: masaüstünde kendi sütununda, telefonda Stok
+  // Kalemi'nin katmanında AYNI öğe.
+  const teklifDugmesi = (
+    <button type="button" onClick={onTeklif} className="oc-tap font-mono underline-offset-2 hover:underline">
+      {g.enIyi?.unitPriceEur != null
+        ? `${formatNum(g.enIyi.unitPriceEur, 2)} €`
+        : g.teklifler.length > 0
+          ? `${g.teklifler.length} teklif`
+          : "—"}
+    </button>
+  );
+
   const hucre = (k: string) => {
     const sutun = sutunlar.find((x) => x.key === k);
     const cls = cn(
@@ -1020,17 +1048,7 @@ function Satir({
       case "teklif":
         return (
           <TableCell key={k} className={cn(cls, "font-mono")}>
-            <button
-              type="button"
-              onClick={onTeklif}
-              className="oc-tap underline-offset-2 hover:underline"
-            >
-              {g.enIyi?.unitPriceEur != null
-                ? `${formatNum(g.enIyi.unitPriceEur, 2)} €`
-                : g.teklifler.length > 0
-                  ? `${g.teklifler.length} teklif`
-                  : "—"}
-            </button>
+            {teklifDugmesi}
           </TableCell>
         );
       case "durum":
@@ -1071,19 +1089,13 @@ function Satir({
             {acik ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
         </TableCell>
-        <TableCell className="align-top font-mono text-[12px] whitespace-nowrap tabular-nums">
-          {s.paylar.length === 0 ? (
-            bos()
-          ) : s.paylar.length === 1 ? (
-            s.paylar[0].itemNo || bos()
-          ) : (
-            <span title={s.paylar.map((p) => p.itemNo).join(", ")}>
-              {s.paylar[0].itemNo} +{s.paylar.length - 1}
-            </span>
-          )}
+        {/* Telefonda İş No ve Tür sütunları gizlidir; bilgi Stok Kalemi'nin
+            katmanına iner (yatay kaydırma yasağı). */}
+        <TableCell className="hidden align-top font-mono text-[12px] whitespace-nowrap tabular-nums sm:table-cell">
+          {isOzeti == null ? bos() : <span title={isIpucu}>{isOzeti}</span>}
         </TableCell>
         {tur === "" && (
-          <TableCell className="align-top">
+          <TableCell className="hidden align-top sm:table-cell">
             <TurCipi sinif={s.sinif} elle={s.sinifElle} />
           </TableCell>
         )}
@@ -1134,6 +1146,27 @@ function Satir({
             </p>
           )}
           {s.not && <p className="mt-0.5 text-[11px] text-muted-foreground">{s.not}</p>}
+          {/* TELEFON KATMANI (sm altı): gizlenen İş No · Tür · Ağırlık ·
+              Sipariş · Teklif buraya iner — tablo listeye katlanır. */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+            {isOzeti != null && (
+              <span className="font-mono text-[11px] text-muted-foreground" title={isIpucu}>
+                {isOzeti}
+              </span>
+            )}
+            {tur === "" && <TurCipi sinif={s.sinif} elle={s.sinifElle} />}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[12px] tabular-nums sm:hidden">
+            {s.toplamAgirlikKg != null && (
+              <span>{formatNum(Math.round(s.toplamAgirlikKg))} kg</span>
+            )}
+            {g.siparisEdilen > 0 && (
+              <span className="text-muted-foreground">
+                {formatNum(g.siparisEdilen)} {sip.birim} sipariş
+              </span>
+            )}
+            {teklifDugmesi}
+          </div>
         </TableCell>
         <TableCell className="hidden align-top font-mono text-[12px] lg:table-cell">
           {s.kalite || bos()}
@@ -1152,17 +1185,19 @@ function Satir({
             <div className="oc-scrollx overflow-x-auto p-3 [--oc-scroll-bg:var(--muted)]">
               <table className="w-full text-[12px]">
                 <thead>
+                  {/* Telefonda Parça + Satın Alma Ölçüsü + Gereken kalır
+                      (yatay kaydırma yasağı); kalanı geniş ekranın işidir. */}
                   <tr className="text-left text-muted-foreground">
                     <th className="pr-3 pb-1 font-normal">Parça</th>
-                    <th className="pr-3 pb-1 font-normal">İş Kalemi</th>
-                    <th className="pr-3 pb-1 font-normal">Kullanıldığı Yer</th>
-                    <th className="pr-3 pb-1 font-normal">Resim Ölçüsü</th>
+                    <th className="hidden pr-3 pb-1 font-normal md:table-cell">İş Kalemi</th>
+                    <th className="hidden pr-3 pb-1 font-normal md:table-cell">Kullanıldığı Yer</th>
+                    <th className="hidden pr-3 pb-1 font-normal sm:table-cell">Resim Ölçüsü</th>
                     <th className="pr-3 pb-1 font-normal">Satın Alma Ölçüsü</th>
-                    <th className="pr-3 pb-1 text-right font-normal">Resimde</th>
-                    <th className="pr-3 pb-1 text-right font-normal">× Kalem</th>
+                    <th className="hidden pr-3 pb-1 text-right font-normal sm:table-cell">Resimde</th>
+                    <th className="hidden pr-3 pb-1 text-right font-normal sm:table-cell">× Kalem</th>
                     <th className="pr-3 pb-1 text-right font-normal">Gereken</th>
-                    <th className="pr-3 pb-1 text-right font-normal">Birim kg</th>
-                    <th className="pr-3 pb-1 font-normal">Pafta</th>
+                    <th className="hidden pr-3 pb-1 text-right font-normal sm:table-cell">Birim kg</th>
+                    <th className="hidden pr-3 pb-1 font-normal sm:table-cell">Pafta</th>
                   </tr>
                 </thead>
                 <tbody className="font-mono tabular-nums">
@@ -1191,13 +1226,13 @@ function Satir({
                           </span>
                         )}
                       </td>
-                      <td className="py-1 pr-3">{p.itemNo || "—"}</td>
-                      <td className="py-1 pr-3 font-sans">{p.groupName || "—"}</td>
+                      <td className="hidden py-1 pr-3 md:table-cell">{p.itemNo || "—"}</td>
+                      <td className="hidden py-1 pr-3 font-sans md:table-cell">{p.groupName || "—"}</td>
                       {/* İKİ ÖLÇÜ YAN YANA — kullanıcı isteği: "verilen paylar
                           satın almaya gösterilmeli". Payı olmayan satırda
                           ikinci hücre TİRE kalır; aynı sayıyı tekrarlamak
                           okuyanı bir pay olduğuna inandırırdı. */}
-                      <td className="py-1 pr-3">{olcuYazisi(p, false)}</td>
+                      <td className="hidden py-1 pr-3 sm:table-cell">{olcuYazisi(p, false)}</td>
                       {/* SATIN ALMA ÖLÇÜSÜ DÜZENLENEBİLİR (kullanıcı isteği,
                           15.08.2026). Hücrenin kendisi düğmedir: satınalmacının
                           buradaki hareketi "ölçüyü düzelt"tir ve ayrı bir kalem
@@ -1211,13 +1246,13 @@ function Satir({
                           onOlcu={onOlcu}
                         />
                       </td>
-                      <td className="py-1 pr-3 text-right">{p.birimAdet ?? "—"}</td>
-                      <td className="py-1 pr-3 text-right">{p.carpan}</td>
+                      <td className="hidden py-1 pr-3 text-right sm:table-cell">{p.birimAdet ?? "—"}</td>
+                      <td className="hidden py-1 pr-3 text-right sm:table-cell">{p.carpan}</td>
                       <td className="py-1 pr-3 text-right font-medium">{p.adet ?? "—"}</td>
-                      <td className="py-1 pr-3 text-right">
+                      <td className="hidden py-1 pr-3 text-right sm:table-cell">
                         {p.birimAgirlikKg == null ? "—" : formatNum(p.birimAgirlikKg, 2)}
                       </td>
-                      <td className="py-1 pr-3">
+                      <td className="hidden py-1 pr-3 sm:table-cell">
                         {/* PAFTA SATIRDA AÇILIR (kullanıcı isteği): "detay"
                             parçanın kendi resmi, ikincisi BİR ÜST MONTAJIN
                             paftası — ana grubun değil (kullanıcı düzeltmesi,

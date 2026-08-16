@@ -24,8 +24,8 @@
 // etkileşim var; `components/charts.tsx` kullanılır ve renk veriden yalnız TON
 // AÇISI olarak gelir.
 
-import { forwardRef, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { forwardRef, Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
 import { BarChart3, ChevronDown, ChevronRight, FileText, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
@@ -73,6 +73,7 @@ import { HAMMADDE_ADLARI } from "@/lib/purchasing/hammadde/siniflar";
 import { hueFromText } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { FilterBar, SearchBox } from "../../drawings/sortable-head";
+import { adreseYaz, listeOku } from "../adres-suzgec";
 import { CokluSuzgec } from "../filters";
 import { KipSecici, PanoKabugu } from "../board-ui";
 import type { Siparis, TedarikciKaydi } from "../data";
@@ -183,8 +184,38 @@ export function OrdersView({
   isAdmin: boolean;
 }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [calisiyor, basla] = useTransition();
-  const [f, setF] = useState<Filtreler>({ ...BOS, turler: baslangicTurleri });
+
+  // SÜZGEÇ ADRESTE YAŞAR (16.08.2026, havuzun kuralı). `?tur=hammadde` kapısı
+  // aynı parametre uzayının parçasıdır: hammadde rayından gelen sekme zaten
+  // adresle geliyor; `baslangicTurleri` yalnız parametresiz eski çağrılara
+  // yedek kalır. Varsayılan BOŞtur — burada bir ACILIS/`tumu` işareti gerekmez.
+  const [f, setF] = useState<Filtreler>(() => ({
+    query: params.get("q") ?? "",
+    tedarikciler: listeOku(params, "ted"),
+    durumlar: listeOku(params, "durum"),
+    isler: listeOku(params, "is"),
+    turler: params.get("tur") ? listeOku(params, "tur") : baslangicTurleri,
+  }));
+
+  const ilkBoyama = useRef(true);
+  useEffect(() => {
+    if (ilkBoyama.current) {
+      ilkBoyama.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      adreseYaz({
+        q: f.query.trim() || undefined,
+        ted: f.tedarikciler.join(",") || undefined,
+        durum: f.durumlar.join(",") || undefined,
+        is: f.isler.join(",") || undefined,
+        tur: f.turler.join(",") || undefined,
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [f]);
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [duzenlenen, setDuzenlenen] = useState<Siparis | null>(null);
   const [silinecek, setSilinecek] = useState<Siparis | null>(null);
@@ -561,18 +592,22 @@ export function OrdersView({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
+        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
-            <TableHeader>
+            <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className="w-8 p-0" />
                 <TableHead>Tedarikçi</TableHead>
+                {/* TELEFONDA TABLO LİSTEYE KATLANIR (16.08.2026 — yatay
+                    kaydırma yasağı): `sm` altında yalnız aç · Tedarikçi ·
+                    Durum kalır; tarih, termin ve tutar tedarikçi hücresinin
+                    alt satırlarına iner. */}
                 <TableHead className="hidden md:table-cell">Sipariş No</TableHead>
-                <TableHead>Sipariş</TableHead>
-                <TableHead>Termin</TableHead>
+                <TableHead className="hidden sm:table-cell">Sipariş</TableHead>
+                <TableHead className="hidden sm:table-cell">Termin</TableHead>
                 <TableHead className="hidden lg:table-cell">Ödeme</TableHead>
                 <TableHead className="hidden text-right lg:table-cell">Miktar</TableHead>
-                <TableHead className="text-right">Tutar (KDV Hariç)</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Tutar (KDV Hariç)</TableHead>
                 <TableHead>Durum</TableHead>
               </TableRow>
             </TableHeader>
@@ -589,7 +624,10 @@ export function OrdersView({
                 const kg = kunye.get(s.id)?.kg ?? 0;
                 const kiloDisi = kunye.get(s.id)?.kiloDisiSatir ?? 0;
                 return (
-                  <>
+                  // LİSTE ÇOCUĞU FRAGMENT'TİR ve `key` ONDADIR: içteki
+                  // `TableRow`un kendi anahtarı React'ın liste uyarısını
+                  // susturmuyordu (konsolda ölçüldü).
+                  <Fragment key={s.id}>
                     {/* SATIRIN ZEMİNİ TÜRÜ SÖYLER (kullanıcı isteği,
                         15.08.2026: *"hammadde ve ekipman satırların arka planı
                         farklı renk olsun, göze çarpsın"*). Ton VERİDEN, ayar
@@ -637,6 +675,59 @@ export function OrdersView({
                           {formatNum(s.satirlar.length)} kalem
                           {isNolari(s).length > 0 && ` · ${isNolari(s).join(", ")}`}
                         </span>
+                        {/* `md` ALTINDA SİPARİŞ NO SÜTUNU GİZLİ — numara ve PDF
+                            bağlantısı telefonda erişilmez kalıyordu; buraya iner
+                            (kabuk kuralı 7: kritik bilgi birincil hücreye). */}
+                        <span className="mt-0.5 flex items-center gap-2 md:hidden">
+                          {s.orderNo && (
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                              {s.orderNo}
+                            </span>
+                          )}
+                          <Link
+                            href={`/purchasing/siparisler/${s.id}/pdf`}
+                            target="_blank"
+                            rel="noopener"
+                            title="Sipariş onayı PDF"
+                            className="oc-tap inline-flex min-h-6 items-center gap-1 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <FileText className="size-3" />
+                            PDF
+                          </Link>
+                        </span>
+                        {/* TELEFON KATMANI (sm altı): tarih · termin · tutar ·
+                            kilo buraya iner — sütunları orada gizli. */}
+                        <span className="mt-1 grid gap-1 sm:hidden">
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px]">
+                            <span className="text-muted-foreground">{tarihGoster(s.orderedAt)}</span>
+                            {s.receivedAt ? (
+                              <span className="text-emerald-700 dark:text-emerald-400">
+                                Teslim {tarihGoster(s.receivedAt)} ✓
+                              </span>
+                            ) : (
+                              <TerminAlani
+                                key={`m-${s.dueAt ?? "bos"}`}
+                                s={s}
+                                canWrite={canWrite && !s.cancelledAt}
+                                kalanGun={kalanGun}
+                                onYaz={yaz}
+                              />
+                            )}
+                          </span>
+                          <span className="font-mono text-[12px] tabular-nums">
+                            {fmtMoney(toplam, s.currency)}
+                            <span className="text-muted-foreground">
+                              {" · dahil "}
+                              {fmtMoney(toplamlar.gross, s.currency)}
+                            </span>
+                            {kg > 0 && (
+                              <span className="text-muted-foreground">
+                                {" · "}
+                                {formatNum(Math.round(kg))} kg
+                              </span>
+                            )}
+                          </span>
+                        </span>
                       </TableCell>
                       <TableCell className="hidden align-top font-mono text-[12px] md:table-cell">
                         {s.orderNo || "—"}
@@ -653,10 +744,10 @@ export function OrdersView({
                           PDF
                         </Link>
                       </TableCell>
-                      <TableCell className="align-top font-mono text-[12px] whitespace-nowrap">
+                      <TableCell className="hidden align-top font-mono text-[12px] whitespace-nowrap sm:table-cell">
                         {tarihGoster(s.orderedAt)}
                       </TableCell>
-                      <TableCell className="align-top font-mono text-[12px] whitespace-nowrap">
+                      <TableCell className="hidden align-top font-mono text-[12px] whitespace-nowrap sm:table-cell">
                         {s.receivedAt ? (
                           <span className="text-emerald-700 dark:text-emerald-400">
                             {tarihGoster(s.receivedAt)} ✓
@@ -708,7 +799,7 @@ export function OrdersView({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="align-top text-right font-mono text-[13px] tabular-nums">
+                      <TableCell className="hidden align-top text-right font-mono text-[13px] tabular-nums sm:table-cell">
                         {fmtMoney(toplam, s.currency)}
                         {eur != null && s.currency !== "EUR" && (
                           <span className="block text-[11px] text-muted-foreground">
@@ -760,19 +851,22 @@ export function OrdersView({
                                 da markası ve kısmi teslimi olur. */}
                             <table className="w-full text-[12px]">
                               <thead className="text-muted-foreground">
+                                {/* Telefonda Kalem + Miktar + Tutar kalır
+                                    (yatay kaydırma yasağı); KDV/Teslim ayrıntısı
+                                    geniş ekranın işidir. */}
                                 <tr>
                                   <th className="py-1 pr-3 text-left font-normal">Kalem</th>
-                                  <th className="py-1 pr-3 text-left font-normal">Tür</th>
-                                  <th className="py-1 pr-3 text-left font-normal">İş</th>
-                                  <th className="py-1 pr-3 text-left font-normal">Marka/Kalite</th>
+                                  <th className="hidden py-1 pr-3 text-left font-normal md:table-cell">Tür</th>
+                                  <th className="hidden py-1 pr-3 text-left font-normal sm:table-cell">İş</th>
+                                  <th className="hidden py-1 pr-3 text-left font-normal md:table-cell">Marka/Kalite</th>
                                   <th className="py-1 pr-3 text-right font-normal">Miktar</th>
-                                  <th className="py-1 pr-3 text-right font-normal">
+                                  <th className="hidden py-1 pr-3 text-right font-normal sm:table-cell">
                                     Birim (KDV Hariç)
                                   </th>
-                                  <th className="py-1 pr-3 text-right font-normal">KDV</th>
+                                  <th className="hidden py-1 pr-3 text-right font-normal md:table-cell">KDV</th>
                                   <th className="py-1 pr-3 text-right font-normal">Tutar</th>
-                                  <th className="py-1 pr-3 text-right font-normal">KDV Dahil</th>
-                                  <th className="py-1 text-right font-normal">Teslim</th>
+                                  <th className="hidden py-1 pr-3 text-right font-normal md:table-cell">KDV Dahil</th>
+                                  <th className="hidden py-1 text-right font-normal sm:table-cell">Teslim</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -783,29 +877,31 @@ export function OrdersView({
                                   return (
                                     <tr key={l.id} className="border-t border-border/50">
                                       <td className="py-1 pr-3">{l.sample}</td>
-                                      <td className="py-1 pr-3 text-muted-foreground">
+                                      <td className="hidden py-1 pr-3 text-muted-foreground md:table-cell">
                                         {kategori === "DIGER" ? "Ekipman" : kategoriAdi(kategori)}
                                       </td>
-                                      <td className="py-1 pr-3 font-mono">{l.itemNo || "—"}</td>
-                                      <td className="py-1 pr-3">{l.quality || "—"}</td>
+                                      <td className="hidden py-1 pr-3 font-mono sm:table-cell">
+                                        {l.itemNo || "—"}
+                                      </td>
+                                      <td className="hidden py-1 pr-3 md:table-cell">{l.quality || "—"}</td>
                                       <td className="py-1 pr-3 text-right font-mono whitespace-nowrap tabular-nums">
                                         {formatNum(l.qty)}{" "}
                                         <span className="text-[10px] text-muted-foreground">
                                           {l.unit}
                                         </span>
                                       </td>
-                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                      <td className="hidden py-1 pr-3 text-right font-mono tabular-nums sm:table-cell">
                                         {l.unitPrice == null
                                           ? "—"
                                           : fmtMoney(l.unitPrice, s.currency)}
                                       </td>
-                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                      <td className="hidden py-1 pr-3 text-right font-mono tabular-nums md:table-cell">
                                         %{oran}
                                       </td>
                                       <td className="py-1 pr-3 text-right font-mono tabular-nums">
                                         {fmtMoney(net, s.currency)}
                                       </td>
-                                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                      <td className="hidden py-1 pr-3 text-right font-mono tabular-nums md:table-cell">
                                         {fmtMoney(net * (1 + oran / 100), s.currency)}
                                       </td>
                                       {/* TESLİM SATIRDAN OKUNUR (`received_qty`),
@@ -814,7 +910,7 @@ export function OrdersView({
                                           anlatamaz. */}
                                       <td
                                         className={cn(
-                                          "py-1 text-right font-mono tabular-nums",
+                                          "hidden py-1 text-right font-mono tabular-nums sm:table-cell",
                                           l.receivedQty >= l.qty
                                             ? "text-emerald-700 dark:text-emerald-400"
                                             : l.receivedQty > 0
@@ -836,7 +932,7 @@ export function OrdersView({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
@@ -917,7 +1013,7 @@ function TerminAlani({
         }}
         title={ipucu}
         aria-label={`${s.supplier} siparişinin termini`}
-        className={`h-7 w-[8.5rem] font-mono text-base pointer-fine:text-xs ${renk}`}
+        className={`h-7 w-[8.5rem] font-mono text-base pointer-fine:text-xs pointer-coarse:h-10 ${renk}`}
       />
       {kalanGun != null && kalanGun < 0 && (
         <span className="text-[10px] text-destructive">{Math.abs(kalanGun)}g</span>

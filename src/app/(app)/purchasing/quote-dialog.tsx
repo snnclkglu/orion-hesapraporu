@@ -58,6 +58,7 @@ import { kurMetni, kurOnerisi, type GunlukKur } from "@/lib/purchasing/kur";
 import { trKatla } from "@/lib/drawings/tr-text";
 import type { TeklifSatiri } from "./data";
 import { chooseQuote, deleteQuote, ensureSupplier, saveQuote } from "./actions";
+import { TAM_BOY_PENCERE } from "./pencere";
 
 /** Formun tuttuğu ham metinler — girdi alanları metin taşır, sayı değil. */
 interface Form {
@@ -269,7 +270,7 @@ export function QuoteDialog({
       {/* GENİŞLİK %50 ARTTI (46 → 69rem, kullanıcı isteği 15.08.2026): forma
           vade ve teslim kutuları eklendi, dar pencerede alanlar satır atlayıp
           birbirinden kayıyordu. */}
-      <DialogContent className="sm:max-w-[min(69rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(69rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">Teklifler</DialogTitle>
           <DialogDescription className="text-[12px]">{tanim}</DialogDescription>

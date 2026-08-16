@@ -59,6 +59,7 @@ import { trKatla } from "@/lib/drawings/tr-text";
 import { siparisNoCakisiyorMu } from "@/lib/purchasing/order-no";
 import { editOrder, ensureQuality, ensureSupplier } from "../actions";
 import type { Siparis, TedarikciKaydi } from "../data";
+import { TAM_BOY_PENCERE } from "../pencere";
 
 /** Serbest gün girişi için açılırdaki özel değer (sipariş penceresiyle aynı). */
 const OZEL = "ozel";
@@ -266,7 +267,7 @@ export function OrderEditDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(72rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(72rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">Siparişi Düzenle</DialogTitle>
           <DialogDescription className="text-[12px]">

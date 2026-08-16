@@ -24,10 +24,18 @@
 // Ortalama HESAPLANMAZ — üç yıl önceki bir fiyatla bugünkünü ortalamak,
 // enflasyon altında anlamsız bir sayı üretir ve kullanıcıyı yanıltırdı.
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -91,6 +99,7 @@ export function PriceArchive({
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [olaylar, setOlaylar] = useState<Record<string, ArsivOlayi[]>>({});
   const [yukleniyor, setYukleniyor] = useState<Set<string>>(new Set());
+  const [silinecek, setSilinecek] = useState<{ matchKey: string; olay: ArsivOlayi } | null>(null);
 
   /** Adresi günceller — verilmeyen alanlar korunur, sayfa BAŞA döner. */
   function adresYaz(degisen: Record<string, string | undefined>, sayfayiKoru = false) {
@@ -146,16 +155,15 @@ export function PriceArchive({
     });
   }
 
-  /** Devralınan satırı siler; teklif ve siparişin kendi yolu var. */
+  /**
+   * Devralınan satırı siler; teklif ve siparişin kendi yolu var.
+   *
+   * ONAY PENCEREYLE SORULUR, `window.confirm` İLE DEĞİL (Siparişler'deki
+   * iptal onayının kuralı): tarayıcının kutusu neyin silindiğini (firma,
+   * tarih, fiyat) gösteremiyor ve kalıcı bir silmede bu künye onayın kendisidir.
+   */
   function sil(matchKey: string, olay: ArsivOlayi) {
     if (!isAdmin || !olay.silinebilir) return;
-    if (
-      !window.confirm(
-        `Devralınan fiyat kaydı silinsin mi?\n\n${olay.supplier} · ${tarihGoster(olay.gun)}`
-      )
-    ) {
-      return;
-    }
     silmeBasla(async () => {
       const cevap = await deletePriceHistory({ ids: [olay.id] });
       if (cevap.error) {
@@ -163,6 +171,7 @@ export function PriceArchive({
         return;
       }
       toast.success("Arşiv kaydı silindi.");
+      setSilinecek(null);
       // Açık satırın ayrıntısı yeniden çekilsin: `router.refresh()` yalnız
       // ÖZETİ tazeler, tembel yüklenen ayrıntıyı bilmez.
       setOlaylar((o) => {
@@ -229,8 +238,12 @@ export function PriceArchive({
         </div>
       ) : (
         <div className={"border bg-card" + (gecis ? " opacity-60 transition-opacity" : "")}>
+          {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8): tablo telefonda
+              taşar ve `.oc-scrollx` kenar gölgesiyle bunu söyler. Sayfa şeridi
+              kabın DIŞINDA kalır — kayan içerikle birlikte kaybolmamalı. */}
+          <div className="oc-scrollx oc-table-clamp [--oc-scroll-bg:var(--card)]">
           <Table>
-            <TableHeader>
+            <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className="w-8 p-0" />
                 <TableHead>Ürün</TableHead>
@@ -238,7 +251,9 @@ export function PriceArchive({
                 <TableHead className="hidden md:table-cell">Tarih</TableHead>
                 <TableHead className="hidden lg:table-cell">Tedarikçi</TableHead>
                 <TableHead className="hidden text-right xl:table-cell">Aralık (€)</TableHead>
-                <TableHead className="text-right">Kayıt</TableHead>
+                {/* Telefonda Kayıt sütunu Ürün alt satırına iner (yatay
+                    kaydırma yasağı, 16.08.2026). */}
+                <TableHead className="hidden text-right sm:table-cell">Kayıt</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -246,8 +261,10 @@ export function PriceArchive({
                 const genis = acik.has(s.matchKey);
                 const kayit = s.teklifSayisi + s.siparisSayisi + s.gecmisSayisi;
                 return (
-                  <>
-                    <TableRow key={s.matchKey}>
+                  // LİSTE ÇOCUĞU FRAGMENT'TİR ve `key` ONDADIR (Siparişler'in
+                  // düzeltmesiyle aynı): içteki satır anahtarı yetmiyordu.
+                  <Fragment key={s.matchKey}>
+                    <TableRow>
                       <TableCell className="p-0 align-top">
                         <button
                           type="button"
@@ -272,6 +289,10 @@ export function PriceArchive({
                         </span>
                         <span className="mt-0.5 block text-[11px] text-muted-foreground md:hidden">
                           {tarihGoster(s.sonAlisGun)} · {s.sonAlisFirma || "—"}
+                          <span className="sm:hidden">
+                            {" · "}
+                            {formatNum(kayit)} kayıt
+                          </span>
                         </span>
                       </TableCell>
 
@@ -301,7 +322,7 @@ export function PriceArchive({
                         )}
                       </TableCell>
 
-                      <TableCell className="align-top text-right font-mono text-[12px] tabular-nums">
+                      <TableCell className="hidden align-top text-right font-mono text-[12px] tabular-nums sm:table-cell">
                         {formatNum(kayit)}
                         {s.teklifSayisi > 0 && (
                           <span
@@ -320,13 +341,15 @@ export function PriceArchive({
                           <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
                             <table className="w-full text-[12px]">
                               <thead className="text-muted-foreground">
+                                {/* Telefonda Tarih + Tedarikçi + Avro kalır
+                                    (yatay kaydırma yasağı). */}
                                 <tr>
                                   <th className="py-1 pr-3 text-left font-normal">Tarih</th>
-                                  <th className="py-1 pr-3 text-left font-normal">Tür</th>
+                                  <th className="hidden py-1 pr-3 text-left font-normal sm:table-cell">Tür</th>
                                   <th className="py-1 pr-3 text-left font-normal">Tedarikçi</th>
-                                  <th className="py-1 pr-3 text-left font-normal">İş</th>
-                                  <th className="py-1 pr-3 text-right font-normal">Adet</th>
-                                  <th className="py-1 pr-3 text-right font-normal">Birim</th>
+                                  <th className="hidden py-1 pr-3 text-left font-normal md:table-cell">İş</th>
+                                  <th className="hidden py-1 pr-3 text-right font-normal sm:table-cell">Adet</th>
+                                  <th className="hidden py-1 pr-3 text-right font-normal sm:table-cell">Birim</th>
                                   <th className="py-1 text-right font-normal">Avro</th>
                                   {isAdmin && <th className="w-8" />}
                                 </tr>
@@ -341,8 +364,14 @@ export function PriceArchive({
                                   >
                                     <td className="py-1 pr-3 font-mono whitespace-nowrap">
                                       {tarihGoster(ol.gun)}
+                                      {/* Telefonda Tür bilgisi tarih altına iner. */}
+                                      <span className="block font-sans text-muted-foreground sm:hidden">
+                                        {TUR_ETIKET[ol.tur]}
+                                        {ol.tur === "siparis" && ol.iptal && " (iptal)"}
+                                        {ol.tur === "teklif" && ol.secildi && " ✓"}
+                                      </span>
                                     </td>
-                                    <td className="py-1 pr-3">
+                                    <td className="hidden py-1 pr-3 sm:table-cell">
                                       <span
                                         className={
                                           ol.tur === "siparis"
@@ -357,11 +386,13 @@ export function PriceArchive({
                                       </span>
                                     </td>
                                     <td className="py-1 pr-3">{ol.supplier || "—"}</td>
-                                    <td className="py-1 pr-3 font-mono">{ol.itemNo || "—"}</td>
-                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                    <td className="hidden py-1 pr-3 font-mono md:table-cell">
+                                      {ol.itemNo || "—"}
+                                    </td>
+                                    <td className="hidden py-1 pr-3 text-right font-mono tabular-nums sm:table-cell">
                                       {ol.adet == null ? "—" : formatNum(ol.adet)}
                                     </td>
-                                    <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                                    <td className="hidden py-1 pr-3 text-right font-mono tabular-nums sm:table-cell">
                                       {fmtMoney(ol.birim, ol.currency)}
                                     </td>
                                     <td className="py-1 text-right font-mono tabular-nums">
@@ -383,10 +414,13 @@ export function PriceArchive({
                                         {ol.silinebilir && (
                                           <button
                                             type="button"
-                                            onClick={() => sil(s.matchKey, ol)}
+                                            onClick={() =>
+                                              setSilinecek({ matchKey: s.matchKey, olay: ol })
+                                            }
                                             disabled={silmeCalisiyor}
                                             title="Devralınan kaydı sil"
-                                            className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                                            aria-label={`${ol.supplier || "Devralınan"} kaydını sil`}
+                                            className="oc-tap-square grid size-6 place-items-center text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
                                           >
                                             <Trash2 className="size-3.5" />
                                           </button>
@@ -424,11 +458,12 @@ export function PriceArchive({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
           </Table>
+          </div>
 
           {/* SAYFA ŞERİDİ — YALNIZ GEREKİNCE. Tek sayfalık bir listede "1/1"
               yazmak, olmayan bir karmaşıklık gösterirdi. */}
@@ -486,6 +521,57 @@ export function PriceArchive({
           )}
         </div>
       )}
+
+      {/* SİLME ONAYI — Siparişler'deki iptal onayıyla aynı desen: pencere
+          NEYİN silindiğini yazar (firma · gün · fiyat) ve karar orada verilir. */}
+      <Dialog open={silinecek != null} onOpenChange={(o) => !o && setSilinecek(null)}>
+        <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Devralınan fiyat kaydı silinsin mi?</DialogTitle>
+            <DialogDescription className="text-[12px]">
+              Yalnız bu devralınan arşiv satırı KALICI olarak silinir; teklif ve
+              sipariş kayıtlarına dokunulmaz.
+            </DialogDescription>
+          </DialogHeader>
+          {silinecek && (
+            <dl className="grid gap-1 border bg-muted/30 p-3 text-[12px]">
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tedarikçi</dt>
+                <dd className="font-medium">{silinecek.olay.supplier || "—"}</dd>
+              </span>
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tarih</dt>
+                <dd className="font-mono">{tarihGoster(silinecek.olay.gun)}</dd>
+              </span>
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Birim fiyat</dt>
+                <dd className="font-mono tabular-nums">
+                  {fmtMoney(silinecek.olay.birim, silinecek.olay.currency)}
+                </dd>
+              </span>
+            </dl>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setSilinecek(null)}
+              disabled={silmeCalisiyor}
+            >
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => silinecek && sil(silinecek.matchKey, silinecek.olay)}
+              disabled={silmeCalisiyor}
+            >
+              {silmeCalisiyor && <Loader2 className="size-4 animate-spin" />}
+              Kalıcı Olarak Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

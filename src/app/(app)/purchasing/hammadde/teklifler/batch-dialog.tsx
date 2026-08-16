@@ -54,6 +54,7 @@ import { trKatla } from "@/lib/drawings/tr-text";
 import { cn } from "@/lib/utils";
 import { editQuoteBatch } from "../../actions";
 import type { PartiOzeti } from "./types";
+import { TAM_BOY_PENCERE } from "../../pencere";
 
 /** Formdaki teslim seçiminin gün karşılığı; `null` = sorulmadı. */
 function teslimGunu(v: string): number | null {
@@ -153,7 +154,7 @@ export function QuoteBatchDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(72rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(72rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">
             Teklifi Düzenle {parti.code && <span className="font-mono">· {parti.code}</span>}

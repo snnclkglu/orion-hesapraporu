@@ -30,11 +30,14 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
         </Button>
       </div>
 
-      <div className="border bg-card">
+      {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8). */}
+      <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>Tarih</TableHead>
+              {/* Telefonda tarih Malzeme alt satırına iner (yatay kaydırma
+                  yasağı, 16.08.2026). */}
+              <TableHead className="hidden sm:table-cell">Tarih</TableHead>
               <TableHead>Malzeme</TableHead>
               <TableHead className="hidden md:table-cell">Tedarikçi</TableHead>
               <TableHead className="hidden lg:table-cell">Miktar</TableHead>
@@ -44,7 +47,7 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs whitespace-nowrap">
+                <TableCell className="hidden font-mono text-xs whitespace-nowrap sm:table-cell">
                   {tarihGoster(row.expenseDate)}
                 </TableCell>
                 <TableCell className="min-w-0 whitespace-normal">
@@ -63,6 +66,7 @@ export function RecentExpenses({ rows }: { rows: ConsumableExpenseRow[] }) {
                           .join(" · ")}
                       </div>
                       <div className="mt-0.5 text-[11px] text-muted-foreground md:hidden">
+                        <span className="font-mono sm:hidden">{tarihGoster(row.expenseDate)} · </span>
                         {row.supplierName || "Tedarikçi belirtilmemiş"}
                       </div>
                     </div>

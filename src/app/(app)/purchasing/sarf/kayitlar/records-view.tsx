@@ -36,6 +36,7 @@ import { FilterBar, SearchBox, SortableHead } from "@/app/(app)/drawings/sortabl
 import { CURRENCIES, fmtMoney, fmtNum, parseNum, type Currency } from "@/lib/currency";
 import { tarihGoster } from "@/lib/purchasing/terms";
 import { deleteConsumableExpense, getConsumableExpenseRate, updateConsumableExpense } from "../actions";
+import { TAM_BOY_PENCERE } from "../../pencere";
 import type {
   ConsumableExpenseRow,
   ConsumableItemOption,
@@ -168,7 +169,7 @@ function EditExpenseDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(48rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Sarf Giderini Düzenle</DialogTitle>
           <DialogDescription>
@@ -282,6 +283,7 @@ export function ConsumableRecordsView({
   const [deleting, startDeleting] = useTransition();
   const [q, setQ] = useState(filters.q);
   const [editing, setEditing] = useState<ConsumableExpenseRow | null>(null);
+  const [removing, setRemoving] = useState<ConsumableExpenseRow | null>(null);
   const first = useRef(true);
 
   function write(changes: Record<string, string | undefined>, preservePage = false) {
@@ -310,8 +312,10 @@ export function ConsumableRecordsView({
     write({ sirala: key, yon: desc ? "desc" : "asc" });
   }
 
+  // ONAY PENCEREYLE SORULUR, `window.confirm` İLE DEĞİL (Siparişler'deki iptal
+  // onayının kuralı): kalıcı bir silmede pencere NEYİN silindiğini (malzeme,
+  // tarih, tutar) göstermelidir — tarayıcının kutusu bunu yapamıyordu.
   function remove(row: ConsumableExpenseRow) {
-    if (!window.confirm(`${row.itemName || "Adsız sarf kaydı"} silinsin mi?\n\nBu işlem geri alınamaz.`)) return;
     startDeleting(async () => {
       const result = await deleteConsumableExpense({ id: row.id });
       if (result.error) {
@@ -319,6 +323,7 @@ export function ConsumableRecordsView({
         return;
       }
       toast.success("Sarf gideri silindi.");
+      setRemoving(null);
       router.refresh();
     });
   }
@@ -349,11 +354,20 @@ export function ConsumableRecordsView({
         {transitioning && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </FilterBar>
 
-      <div className={"border bg-card" + (transitioning ? " opacity-60 transition-opacity" : "")}>
+      {/* YATAY KAYDIRMA GÖRÜNÜR OLMALI (kabuk kuralı 8): tablo telefonda taşar
+          ve `.oc-scrollx` kenar gölgesiyle bunu söyler. */}
+      <div
+        className={
+          "oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]" +
+          (transitioning ? " opacity-60 transition-opacity" : "")
+        }
+      >
         <Table>
-          <TableHeader>
+          <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableHead sortKey="date" current={filters.sort} desc={filters.desc} onSort={sort}>Tarih</SortableHead>
+              {/* Telefonda tarih Malzeme alt satırına iner (yatay kaydırma
+                  yasağı, 16.08.2026). */}
+              <SortableHead sortKey="date" current={filters.sort} desc={filters.desc} onSort={sort} className="hidden sm:table-cell">Tarih</SortableHead>
               <SortableHead sortKey="item" current={filters.sort} desc={filters.desc} onSort={sort}>Malzeme</SortableHead>
               <SortableHead sortKey="group" current={filters.sort} desc={filters.desc} onSort={sort} className="hidden lg:table-cell">Grup</SortableHead>
               <SortableHead sortKey="supplier" current={filters.sort} desc={filters.desc} onSort={sort} className="hidden md:table-cell">Tedarikçi</SortableHead>
@@ -366,7 +380,7 @@ export function ConsumableRecordsView({
           <TableBody>
             {result.rows.map((row) => (
               <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs whitespace-nowrap">{tarihGoster(row.expenseDate)}</TableCell>
+                <TableCell className="hidden font-mono text-xs whitespace-nowrap sm:table-cell">{tarihGoster(row.expenseDate)}</TableCell>
                 <TableCell className="max-w-[25rem] whitespace-normal">
                   <div className="flex items-start gap-1.5">
                     {row.qualityFlags.length > 0 && <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-label={`İnceleme: ${row.qualityFlags.join(", ")}`} />}
@@ -375,6 +389,9 @@ export function ConsumableRecordsView({
                         {row.itemName || "Malzeme belirtilmemiş"}
                       </div>
                       <div className="font-mono text-[11px] text-muted-foreground">{[row.itemCode, `${fmtNum(row.quantity)} ${row.unit}`, row.source === "app" ? "Manuel" : "Devralınan"].filter(Boolean).join(" · ")}</div>
+                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground sm:hidden">
+                        {tarihGoster(row.expenseDate)}
+                      </div>
                       <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground md:hidden">
                         {row.supplierName || "Tedarikçi belirtilmemiş"} · {row.groupName}
                       </div>
@@ -390,7 +407,7 @@ export function ConsumableRecordsView({
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button size="icon-sm" variant="ghost" onClick={() => setEditing(row)} aria-label="Düzenle"><Pencil /></Button>
-                      <Button size="icon-sm" variant="ghost" className="text-destructive" disabled={deleting} onClick={() => remove(row)} aria-label="Sil"><Trash2 /></Button>
+                      <Button size="icon-sm" variant="ghost" className="text-destructive" disabled={deleting} onClick={() => setRemoving(row)} aria-label="Sil"><Trash2 /></Button>
                     </div>
                   </TableCell>
                 )}
@@ -410,6 +427,47 @@ export function ConsumableRecordsView({
         </div>
       </div>
       {editing && <EditExpenseDialog row={editing} items={items} suppliers={suppliers} onClose={() => setEditing(null)} />}
+
+      <Dialog open={removing != null} onOpenChange={(open) => !open && setRemoving(null)}>
+        <DialogContent className="sm:max-w-[min(28rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Sarf gideri silinsin mi?</DialogTitle>
+            <DialogDescription className="text-[12px]">
+              Kayıt KALICI olarak silinir; geri alınamaz.
+            </DialogDescription>
+          </DialogHeader>
+          {removing && (
+            <dl className="grid gap-1 border bg-muted/30 p-3 text-[12px]">
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Malzeme</dt>
+                <dd className="font-medium">{removing.itemName || "Malzeme belirtilmemiş"}</dd>
+              </span>
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tarih</dt>
+                <dd className="font-mono">{tarihGoster(removing.expenseDate)}</dd>
+              </span>
+              <span className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Tutar</dt>
+                <dd className="font-mono tabular-nums">{fmtMoney(removing.amountEur, "EUR")}</dd>
+              </span>
+            </dl>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setRemoving(null)} disabled={deleting}>
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => removing && remove(removing)}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              Kalıcı Olarak Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

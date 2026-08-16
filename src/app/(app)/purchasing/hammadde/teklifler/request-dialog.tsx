@@ -66,6 +66,7 @@ import {
 } from "../../actions";
 import { QuoteBatchDialog } from "./batch-dialog";
 import type { Pay, PartiOzeti, TalepGorunumu } from "./types";
+import { TAM_BOY_PENCERE } from "../../pencere";
 
 export function RequestDialog({
   talep,
@@ -188,7 +189,7 @@ export function RequestDialog({
     // üstteki pencere kapanınca alttaki kaldığı gibi devam eder.
     <>
       <Dialog open onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="sm:max-w-[min(94rem,calc(100%-2rem))]">
+        <DialogContent className={`sm:max-w-[min(94rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-x-2 text-base">
             {talep.code && <span className="font-mono">{talep.code}</span>}

@@ -49,6 +49,7 @@ import {
   tanimiOlcuyleYaz,
   type OlcuAlani,
 } from "@/lib/purchasing/hammadde/olcu-duzelt";
+import { TAM_BOY_PENCERE } from "../pencere";
 import {
   createRawManual,
   deleteRawManual,
@@ -185,7 +186,7 @@ export function RawMetaDialog({
              dar pencerede kümeler ayrı satırlara düşüp hizayı bozuyordu.
              Yıkıcı/taşıyıcı eylemler kendi bölümüne alındı; altbilgide yalnız
              Vazgeç + Kaydet kaldı. */}
-      <DialogContent className="sm:max-w-[min(40rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(40rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Hammadde Satırını Düzenle</DialogTitle>
           <DialogDescription>
@@ -430,7 +431,7 @@ export function RawPartDimsDialog({
 
   return (
     <Dialog open onOpenChange={(a) => !a && onClose()}>
-      <DialogContent className="sm:max-w-[min(38rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(38rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Parça Ölçüsünü Düzelt</DialogTitle>
           <DialogDescription>
@@ -644,7 +645,7 @@ export function RawManualDialog({
 
   return (
     <Dialog open onOpenChange={(a) => !a && onClose()}>
-      <DialogContent className="sm:max-w-[min(38rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(38rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle>Yeni Hammadde Talebi</DialogTitle>
           <DialogDescription>

@@ -95,6 +95,7 @@ import { siparisNoCakisiyorMu, siparisNoOner } from "@/lib/purchasing/order-no";
 import { createOrder, ensureQuality, ensureSupplier } from "./actions";
 import type { TedarikciKaydi } from "./data";
 import type { OrderLineInput } from "./schema";
+import { TAM_BOY_PENCERE } from "./pencere";
 
 /** Havuzdan gelen bir kalemin sipariş penceresindeki hâli. */
 export interface SiparisKalemi {
@@ -496,7 +497,7 @@ export function OrderDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(72rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(72rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>

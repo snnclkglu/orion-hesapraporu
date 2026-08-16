@@ -724,13 +724,15 @@ function PlakaOzeti({
                 parçaya gittiğini, sipariş ağırlığı tedarikçiye söylenecek
                 kiloyu verir — fire ikisinin farkıdır ve satırın altında
                 yazar. */}
+            {/* Telefonda Ölçü + Adet + Sipariş Ağırlığı kalır (yatay kaydırma
+                yasağı, AGENTS md. 15); kalınlık/kalite ölçünün altına iner. */}
             <tr className="border-b text-left text-[11px] text-muted-foreground">
               <th className="py-1 pr-4 font-normal">Plaka Ölçüsü</th>
-              <th className="py-1 pr-4 font-normal">Kalınlık</th>
-              <th className="py-1 pr-4 font-normal">Kalite</th>
+              <th className="hidden py-1 pr-4 font-normal sm:table-cell">Kalınlık</th>
+              <th className="hidden py-1 pr-4 font-normal sm:table-cell">Kalite</th>
               <th className="py-1 pr-4 text-right font-normal">Plaka Adet</th>
-              <th className="py-1 pr-4 text-right font-normal">kg / Plaka</th>
-              <th className="py-1 pr-4 text-right font-normal">Kullanım</th>
+              <th className="hidden py-1 pr-4 text-right font-normal sm:table-cell">kg / Plaka</th>
+              <th className="hidden py-1 pr-4 text-right font-normal sm:table-cell">Kullanım</th>
               <th className="py-1 pr-4 text-right font-normal">Sipariş Ağırlığı</th>
             </tr>
           </thead>
@@ -746,21 +748,25 @@ function PlakaOzeti({
                 >
                   <td className="py-1.5 pr-4 font-medium">
                     {formatNum(r.enMm)} × {formatNum(r.boyMm)} mm
+                    <span className="block text-[11px] font-normal text-muted-foreground sm:hidden">
+                      {r.kalinlikMm == null ? "" : `${formatNum(r.kalinlikMm, 1)} mm`}
+                      {r.kalite ? ` · ${r.kalite}` : ""}
+                    </span>
                   </td>
-                  <td className="py-1.5 pr-4">
+                  <td className="hidden py-1.5 pr-4 sm:table-cell">
                     {r.kalinlikMm == null ? "—" : `${formatNum(r.kalinlikMm, 1)} mm`}
                   </td>
-                  <td className="py-1.5 pr-4">{r.kalite || "—"}</td>
+                  <td className="hidden py-1.5 pr-4 sm:table-cell">{r.kalite || "—"}</td>
                   <td className="py-1.5 pr-4 text-right text-[15px] font-semibold">
                     {formatNum(r.adet)}
                   </td>
-                  <td className="py-1.5 pr-4 text-right text-muted-foreground">
+                  <td className="hidden py-1.5 pr-4 text-right text-muted-foreground sm:table-cell">
                     {(() => {
                       const b = plakaAgirligiKg(r.kalinlikMm, r.enMm, r.boyMm);
                       return b == null ? "—" : formatNum(Math.round(b));
                     })()}
                   </td>
-                  <td className="py-1.5 pr-4 text-right">
+                  <td className="hidden py-1.5 pr-4 text-right sm:table-cell">
                     {doluluk == null ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
@@ -795,13 +801,15 @@ function PlakaOzeti({
             })}
           </tbody>
           <tfoot>
+            {/* Hücreler `colSpan` YERİNE sütun sütun yazılır: gizli sütunlarla
+                `colSpan=3` telefonda yanlış sütunları yutuyordu. */}
             <tr className="border-t-2 border-foreground/20 font-mono font-semibold tabular-nums">
-              <td className="py-1.5 pr-4" colSpan={3}>
-                Toplam
-              </td>
+              <td className="py-1.5 pr-4">Toplam</td>
+              <td className="hidden py-1.5 pr-4 sm:table-cell" />
+              <td className="hidden py-1.5 pr-4 sm:table-cell" />
               <td className="py-1.5 pr-4 text-right">{formatNum(toplamAdet)}</td>
-              <td className="py-1.5 pr-4" />
-              <td className="py-1.5 pr-4 text-right">
+              <td className="hidden py-1.5 pr-4 sm:table-cell" />
+              <td className="hidden py-1.5 pr-4 text-right sm:table-cell">
                 {toplamDoluluk == null ? "—" : `%${formatNum(toplamDoluluk, 1)}`}
               </td>
               <td className="py-1.5 pr-4 text-right">

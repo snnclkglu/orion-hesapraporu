@@ -9,6 +9,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canSeePurchasing } from "@/lib/roles";
+import { bugunISO } from "@/lib/purchasing/terms";
 import { PageHeader } from "@/components/page-header";
 import { PurchasingNav } from "./purchasing-nav";
 
@@ -32,6 +33,20 @@ export default async function PurchasingLayout({
     redirect("/jobs");
   }
 
+  // GECİKME ROZETİ İÇİN UCUZ SAYIM (kullanıcı kararı, 16.08.2026): bölümün
+  // neresinde olursa olsun "bugün ne acil" görünmeli. Sayım `head: true` ile
+  // satır taşımaz; "bugün" İSTANBUL saatiyledir (`bugunISO` — Vercel UTC'de
+  // koşar ve gece 00:00–03:00 arasında naif tarih bir gün geri kayardı, panel
+  // md. 23'ün dersi). Ekipman/Hammadde için "bekleyen kalem" rozeti BİLEREK
+  // yok: o sayı ancak havuz türetmesiyle çıkar ve her sayfa açılışında havuzu
+  // kurmak bir rozet için çok pahalıdır.
+  const { count: gecikmisSiparis } = await supabase
+    .from("purchase_orders")
+    .select("id", { count: "exact", head: true })
+    .is("cancelled_at", null)
+    .is("received_at", null)
+    .lt("due_at", bugunISO());
+
   return (
     <div className="grid gap-3">
       {/* YETKİ ROZETİ ÜST BARDADIR (kullanıcı kararı, 14.08.2026: "üst bara
@@ -50,7 +65,7 @@ export default async function PurchasingLayout({
         </span>
       </PageHeader>
 
-      <PurchasingNav />
+      <PurchasingNav gecikmis={gecikmisSiparis ?? 0} />
 
       {children}
     </div>

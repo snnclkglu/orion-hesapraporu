@@ -31,6 +31,7 @@ import { Combobox, type ComboOption } from "@/components/combobox";
 import { parseNum } from "@/lib/currency";
 import { CONSUMABLE_UNITS } from "@/lib/purchasing/units";
 import { createManualDemand, deleteManualDemand, saveDemandOverride } from "./actions";
+import { TAM_BOY_PENCERE } from "./pencere";
 
 export function ManualDemandDialog({
   kategoriler,
@@ -99,7 +100,7 @@ export function ManualDemandDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(44rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(44rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">Yeni Talep Ekle</DialogTitle>
           <DialogDescription className="text-[12px]">
@@ -302,7 +303,7 @@ export function RowOverrideDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[min(38rem,calc(100%-2rem))]">
+      <DialogContent className={`sm:max-w-[min(38rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>
           <DialogTitle className="text-base">Talebi Düzenle</DialogTitle>
           <DialogDescription className="text-[12px]">

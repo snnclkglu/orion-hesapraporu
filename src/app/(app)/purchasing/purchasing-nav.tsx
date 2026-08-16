@@ -15,6 +15,7 @@
 // etmeyelim."). Sayfa ve nav sekmesi silindi; ödeme işaretleri Siparişler
 // ekranından da kaldırıldı.
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -24,40 +25,77 @@ import { cn } from "@/lib/utils";
 // ekipman tarafı, ikinci kısım ise hammadde tarafı olmalı."* İki sekme aynı
 // deftere bakar ama farklı yarılarına: ekipman satın alınan ürünü, hammadde
 // imalat parçasının kesileceği malzemeyi sorar.
+//
+// `sarf: true` bir GRUP sınırıdır: sarf giderleri herhangi bir işe/pakete
+// bağlanmaz (md. 21) ve raydaki ayraç bu ayrımı gözle de verir — sekiz düz
+// sekme içinde "nerede proje biter, nerede fabrika başlar" okunmuyordu.
 const TABS = [
-  { href: "/purchasing", label: "Ekipman", exact: true },
-  { href: "/purchasing/hammadde", label: "Hammadde", exact: false },
-  { href: "/purchasing/siparisler", label: "Siparişler", exact: false },
-  { href: "/purchasing/teslimat", label: "Teslim Takvimi", exact: false },
-  { href: "/purchasing/fiyatlar", label: "Fiyat Arşivi", exact: false },
-  { href: "/purchasing/sarf", label: "Sarf Girişi", exact: true },
-  { href: "/purchasing/sarf/kayitlar", label: "Sarf Kayıtları", exact: false },
-  { href: "/purchasing/sarf/analiz", label: "Sarf Analizi", exact: false },
+  { href: "/purchasing", label: "Ekipman", exact: true, sarf: false },
+  { href: "/purchasing/hammadde", label: "Hammadde", exact: false, sarf: false },
+  { href: "/purchasing/siparisler", label: "Siparişler", exact: false, sarf: false },
+  { href: "/purchasing/teslimat", label: "Teslim Takvimi", exact: false, sarf: false },
+  { href: "/purchasing/fiyatlar", label: "Fiyat Arşivi", exact: false, sarf: false },
+  { href: "/purchasing/sarf", label: "Sarf Girişi", exact: true, sarf: true },
+  { href: "/purchasing/sarf/kayitlar", label: "Sarf Kayıtları", exact: false, sarf: true },
+  { href: "/purchasing/sarf/analiz", label: "Sarf Analizi", exact: false, sarf: true },
 ];
 
-export function PurchasingNav() {
+export function PurchasingNav({
+  /**
+   * Gecikmiş sipariş sayısı — Teslim Takvimi sekmesine kırmızı rozet.
+   * SIFIR SAYAN ROZET ÇİZİLMEZ (açılış panosu kuralı): "0 gecikme" bir uyarı
+   * değil gürültüdür.
+   */
+  gecikmis = 0,
+}: {
+  gecikmis?: number;
+}) {
   const pathname = usePathname() ?? "";
+  const ray = useRef<HTMLElement>(null);
+
+  // AKTİF SEKME GÖRÜNÜR ALANA GETİRİLİR: sekiz sekme dar ekranda kayar ve
+  // rayın sağ yarısındaki bir sayfaya (Sarf Analizi) doğrudan adresle gelen
+  // kullanıcı, hangi sekmede olduğunu göremiyordu. `block: "nearest"` dikey
+  // kaydırmayı tetiklemez — sayfa yerinden oynamaz, yalnız ray kayar.
+  useEffect(() => {
+    ray.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [pathname]);
+
   return (
     <nav
+      ref={ray}
       className="oc-scrollx flex items-center gap-3 overflow-x-auto overscroll-x-contain border-b [--oc-scroll-bg:var(--background)]"
       aria-label="Satın Alma bölümleri"
     >
-      {TABS.map((t) => {
+      {TABS.map((t, i) => {
         const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
+        const grupSiniri = t.sarf && !TABS[i - 1]?.sarf;
         return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-              active
-                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.label}
-          </Link>
+          <span key={t.href} className="flex shrink-0 items-center gap-3">
+            {grupSiniri && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
+            <Link
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+              {t.href === "/purchasing/teslimat" && gecikmis > 0 && (
+                <span
+                  className="inline-flex min-w-4 items-center justify-center border border-destructive/40 bg-destructive/10 px-1 font-mono text-[11px] leading-4 text-destructive tabular-nums"
+                  title={`${gecikmis} siparişin termini geçti`}
+                >
+                  {gecikmis}
+                </span>
+              )}
+            </Link>
+          </span>
         );
       })}
     </nav>

@@ -36,8 +36,8 @@
 // 4. SÜZGEÇLER ÇOKLU SEÇİMLİDİR ve ÇIKTIYA GEÇER (md. 6-7): ekranda ne
 //    görünüyorsa Excel ve PDF onu indirir; seçim varsa yalnız seçilenleri.
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronDown,
@@ -78,10 +78,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CustomerTag } from "@/components/tags";
+import { cn } from "@/lib/utils";
 import { formatNum } from "@/lib/drawings/labels";
 import { fmtMoney } from "@/lib/currency";
 import type { TalepHavuzu, TalepSatiri } from "@/lib/purchasing/demand";
 import { FilterBar, SearchBox, SortableHead } from "../drawings/sortable-head";
+import { adreseYaz, listeOku } from "./adres-suzgec";
 import { CokluSuzgec } from "./filters";
 import type { TedarikciKaydi, TeklifSatiri } from "./data";
 import type { GunlukKur } from "@/lib/purchasing/kur";
@@ -231,9 +233,48 @@ export function DemandTable({
   canWrite: boolean;
 }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [calisiyor, basla] = useTransition();
 
-  const [f, setF] = useState<Filtreler>(ACILIS);
+  // SÜZGEÇ ADRESTE YAŞAR (kullanıcı kararı, 16.08.2026): bağlantı
+  // paylaşılabilir, yenileme süzgeci kaybetmez. Parametre YOKKEN açılış
+  // süzgeci ACILIS'tır; "Temizle"nin boş kümesi ise `durum=tumu` işaretiyle
+  // ayrışır — işaretsiz boş adres varsayılanı seçemezdi (özet ekranındaki
+  // `yil=tumu` kuralının aynısı).
+  const [f, setF] = useState<Filtreler>(() => {
+    const durumParam = params.get("durum");
+    if (!durumParam && !params.get("q") && !params.get("is") && !params.get("kat")) {
+      return ACILIS;
+    }
+    return {
+      query: params.get("q") ?? "",
+      isler: listeOku(params, "is"),
+      siniflar: listeOku(params, "kat"),
+      durumlar: durumParam === "tumu" ? [] : listeOku(params, "durum"),
+    };
+  });
+
+  // Adres SÜZGECİ AYNALAR, kaynağı değildir: süzme anında (istemcide) olur,
+  // yazım 350 ms geciktirilir — arama kutusunda her tuş bir adres yazımı
+  // olmasın. `useEffect` burada doğru araçtır: geciktirme bir ZAMAN olayıdır
+  // (Fiyat Arşivi'nin arama kuralı).
+  const ilkBoyama = useRef(true);
+  useEffect(() => {
+    if (ilkBoyama.current) {
+      ilkBoyama.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      const acilis = JSON.stringify(f) === JSON.stringify(ACILIS);
+      adreseYaz({
+        q: acilis ? undefined : f.query.trim() || undefined,
+        is: acilis ? undefined : f.isler.join(",") || undefined,
+        kat: acilis ? undefined : f.siniflar.join(",") || undefined,
+        durum: acilis ? undefined : f.durumlar.join(",") || "tumu",
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [f]);
   const [sortKey, setSortKey] = useState<SortKey>("kategori");
   const [desc, setDesc] = useState(false);
   const [secili, setSecili] = useState<Set<string>>(new Set());
@@ -396,7 +437,19 @@ export function DemandTable({
 
   return (
     <div className="grid gap-3">
-      <SummaryStrip havuz={havuz} gorunumler={gorunumler} />
+      <SummaryStrip
+        havuz={havuz}
+        gorunumler={gorunumler}
+        aktifSiniflar={f.siniflar}
+        onSinif={(sinif) =>
+          setF((s) => ({
+            ...s,
+            siniflar: s.siniflar.includes(sinif)
+              ? s.siniflar.filter((x) => x !== sinif)
+              : [...s.siniflar, sinif],
+          }))
+        }
+      />
 
       <FilterBar
         gorunen={gorunen.length}
@@ -464,9 +517,9 @@ export function DemandTable({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx border bg-card [--oc-scroll-bg:var(--card)]">
+        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
           <Table>
-            <TableHeader>
+            <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {canWrite && (
                   <TableHead className="w-10 p-0">
@@ -490,7 +543,19 @@ export function DemandTable({
                 {/* SÜTUN ÖNCELİKLENDİRME: on dört sütun telefona sığmaz.
                     Düşük öncelikliler `hidden …:table-cell` ile çekilir ve
                     kritik olanı birincil hücrenin altına iner (kabuk kuralı 7). */}
-                <SortableHead sortKey="is" current={sortKey} desc={desc} onSort={sirala}>
+                {/* TELEFONDA TABLO LİSTEYE KATLANIR (kullanıcı kararı,
+                    16.08.2026: "mobilde yatayda kaydırma olmasın; uygulama
+                    gibi davransın"). `sm` altında yalnız seçim · aç · Tanımı ·
+                    Durum kalır; İş No, Miktar, Kalan ve Teklif birincil
+                    hücrenin alt satırlarına iner — kart markup'ı ÇOĞALTILMAZ
+                    (kabuk kuralı 7'nin uç hâli). */}
+                <SortableHead
+                  sortKey="is"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className="hidden sm:table-cell"
+                >
                   İş No
                 </SortableHead>
                 <SortableHead
@@ -511,7 +576,13 @@ export function DemandTable({
                 >
                   Kullanıldığı Yer
                 </SortableHead>
-                <SortableHead sortKey="kategori" current={sortKey} desc={desc} onSort={sirala}>
+                <SortableHead
+                  sortKey="kategori"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className="hidden md:table-cell"
+                >
                   Kategori
                 </SortableHead>
                 <SortableHead sortKey="tanim" current={sortKey} desc={desc} onSort={sirala}>
@@ -527,16 +598,18 @@ export function DemandTable({
                   desc={desc}
                   onSort={sirala}
                   align="right"
+                  className="hidden sm:table-cell"
                 >
                   Miktar
                 </SortableHead>
-                <TableHead className="text-right">Sipariş</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Sipariş</TableHead>
                 <SortableHead
                   sortKey="kalan"
                   current={sortKey}
                   desc={desc}
                   onSort={sirala}
                   align="right"
+                  className="hidden sm:table-cell"
                 >
                   Kalan
                 </SortableHead>
@@ -550,7 +623,13 @@ export function DemandTable({
                 >
                   Ağırlık
                 </SortableHead>
-                <SortableHead sortKey="teklif" current={sortKey} desc={desc} onSort={sirala}>
+                <SortableHead
+                  sortKey="teklif"
+                  current={sortKey}
+                  desc={desc}
+                  onSort={sirala}
+                  className="hidden sm:table-cell"
+                >
                   Teklif
                 </SortableHead>
                 <TableHead className="hidden lg:table-cell">Not</TableHead>
@@ -827,8 +906,9 @@ function Satir({
           </button>
         </TableCell>
 
-        {/* İŞ NO — birden çok iş varsa hepsi; müşteri etiketi altta. */}
-        <TableCell className="align-top font-mono text-[12px] whitespace-normal">
+        {/* İŞ NO — birden çok iş varsa hepsi; müşteri etiketi altta.
+            Telefonda sütun gizlidir, bilgi Tanımı hücresine iner. */}
+        <TableCell className="hidden align-top font-mono text-[12px] whitespace-normal sm:table-cell">
           {isler.length > 0 ? isler.join(", ") : <span className="text-muted-foreground">—</span>}
           {musteriler.length > 0 && (
             <span className="mt-0.5 flex flex-wrap gap-1">
@@ -851,7 +931,11 @@ function Satir({
           {s.anaGruplar.join(" · ") || <span className="text-muted-foreground">—</span>}
         </TableCell>
 
-        <TableCell className="align-top text-[12px] whitespace-normal">{s.sinif}</TableCell>
+        {/* KATEGORİ `md` ALTINDA GİZLİDİR (kabuk kuralı 7): telefonda on sütun
+            sığmıyordu ve kategori zaten süzgeç + Tanımı alt satırında da var. */}
+        <TableCell className="hidden align-top text-[12px] whitespace-normal md:table-cell">
+          {s.sinif}
+        </TableCell>
 
         <TableCell className="max-w-[22rem] min-w-0 align-top whitespace-normal">
           <span className="flex items-start gap-1.5">
@@ -878,9 +962,16 @@ function Satir({
               </button>
             )}
           </span>
-          {/* Dar ekranda gizlenen sütunların karşılığı — kritik olanlar. */}
+          {/* Dar ekranda gizlenen sütunların karşılığı — kritik olanlar.
+              Kategori yalnız `md` altında buraya iner (sütunu orada gizli). */}
           <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
-            {[s.malzeme, ...s.anaGruplar].filter(Boolean).join(" · ") || "—"}
+            <span className="md:hidden">
+              {s.sinif}
+              {(s.malzeme || s.anaGruplar.length > 0) && " · "}
+            </span>
+            {[s.malzeme, ...s.anaGruplar].filter(Boolean).join(" · ") || (
+              <span className="hidden md:inline">—</span>
+            )}
           </span>
           {s.hamTanimlar.length > 1 && (
             <span
@@ -890,6 +981,33 @@ function Satir({
               {formatNum(s.hamTanimlar.length)} farklı yazımdan birleşti
             </span>
           )}
+          {/* TELEFON KATMANI (sm altı): gizlenen İş No · Miktar · Kalan ·
+              Teklif buraya iner — tablo listeye katlanır, yatay kaymaz. */}
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {isler.length > 0 ? isler.join(", ") : "—"}
+            </span>
+            {musteriler.slice(0, 2).map((c) => (
+              <CustomerTag key={c} name={c} shortName={c} />
+            ))}
+          </span>
+          <span className="mt-1 block font-mono text-[12px] tabular-nums sm:hidden">
+            {s.adet == null ? "—" : `${formatNum(s.adet)} ${s.birim}`}
+            {s.carpanBelirsiz && (
+              <span className="text-amber-600 dark:text-amber-400" title="Adet belirsiz">
+                {" "}
+                ?
+              </span>
+            )}
+            <span className="text-muted-foreground">
+              {" · "}
+              {formatNum(g.siparisEdilen)} Sipariş ·{" "}
+            </span>
+            <span className="font-medium">{formatNum(g.kalan)} Kalan</span>
+          </span>
+          <span className="mt-1 block sm:hidden">
+            <TeklifDugmesi g={g} onTeklif={onTeklif} />
+          </span>
         </TableCell>
 
         {/* KALİTE — İŞ HAZIRLAMA'daki sütun. Çelişki gizlenmez. */}
@@ -911,7 +1029,7 @@ function Satir({
         <Olcu v={s.olculer.boyMm} />
 
         {/* MİKTAR — çarpılmış toplam; altında ham adet × çarpan. */}
-        <TableCell className="align-top text-right font-mono text-sm tabular-nums">
+        <TableCell className="hidden align-top text-right font-mono text-sm tabular-nums sm:table-cell">
           {s.adet == null ? "—" : formatNum(s.adet)}
           <span className="block text-[11px] font-normal text-muted-foreground">{s.birim}</span>
           {s.carpanBelirsiz && (
@@ -924,11 +1042,11 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className="align-top text-right font-mono text-sm tabular-nums text-muted-foreground">
+        <TableCell className="hidden align-top text-right font-mono text-sm tabular-nums text-muted-foreground sm:table-cell">
           {g.siparisEdilen > 0 ? formatNum(g.siparisEdilen) : "—"}
         </TableCell>
 
-        <TableCell className="align-top text-right font-mono text-sm font-medium tabular-nums">
+        <TableCell className="hidden align-top text-right font-mono text-sm font-medium tabular-nums sm:table-cell">
           {g.kalan > 0 ? formatNum(g.kalan) : <span className="text-muted-foreground">0</span>}
         </TableCell>
 
@@ -940,29 +1058,8 @@ function Satir({
           )}
         </TableCell>
 
-        <TableCell className="align-top">
-          <button
-            type="button"
-            onClick={onTeklif}
-            title={
-              g.teklifler.length === 0
-                ? "Teklif gir — firma ve fiyat"
-                : `${g.teklifler.length} teklif · en iyi ${fmtMoney(g.enIyi?.unitPriceEur, "EUR")}`
-            }
-            className="inline-flex min-h-8 items-center gap-1 border border-dashed px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-10 hover:border-foreground/40 hover:text-foreground"
-          >
-            <Tag className="size-3" />
-            {g.teklifler.length === 0 ? (
-              <span className="text-muted-foreground">Teklif Gir</span>
-            ) : (
-              <>
-                <span className="font-mono">{formatNum(g.teklifler.length)}</span>
-                {g.enIyi?.unitPriceEur != null && (
-                  <span className="font-mono">{fmtMoney(g.enIyi.unitPriceEur, "EUR")}</span>
-                )}
-              </>
-            )}
-          </button>
+        <TableCell className="hidden align-top sm:table-cell">
+          <TeklifDugmesi g={g} onTeklif={onTeklif} />
         </TableCell>
 
         {/* NOT — İŞ HAZIRLAMA'daki sütun; tıklanınca düzenlenir. */}
@@ -995,25 +1092,36 @@ function Satir({
             <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
               <table className="w-full text-[12px]">
                 <thead>
+                  {/* Telefonda ikincil sütunlar gizlenir (yatay kaydırma
+                      yasağı); Paket bilgisi kalem hücresinin altına iner. */}
                   <tr className="text-muted-foreground">
                     <th className="py-1 pr-3 text-left font-normal">İş Kalemi</th>
-                    <th className="py-1 pr-3 text-left font-normal">Paket</th>
-                    <th className="py-1 pr-3 text-left font-normal">Kullanıldığı Yer</th>
-                    <th className="py-1 pr-3 text-right font-normal">Resimde</th>
-                    <th className="py-1 pr-3 text-right font-normal">× Adet</th>
+                    <th className="hidden py-1 pr-3 text-left font-normal sm:table-cell">Paket</th>
+                    <th className="hidden py-1 pr-3 text-left font-normal md:table-cell">
+                      Kullanıldığı Yer
+                    </th>
+                    <th className="hidden py-1 pr-3 text-right font-normal sm:table-cell">Resimde</th>
+                    <th className="hidden py-1 pr-3 text-right font-normal sm:table-cell">× Adet</th>
                     <th className="py-1 text-right font-normal">Gereken</th>
                   </tr>
                 </thead>
                 <tbody>
                   {s.paylar.map((p, i) => (
                     <tr key={`${p.packageId}-${p.partKey}-${i}`} className="border-t border-border/50">
-                      <td className="py-1 pr-3 font-mono">{p.itemNo || "—"}</td>
-                      <td className="py-1 pr-3">{p.packageLabel}</td>
-                      <td className="py-1 pr-3 text-muted-foreground">{p.groupName || "—"}</td>
-                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                      <td className="py-1 pr-3 font-mono">
+                        {p.itemNo || "—"}
+                        <span className="block font-sans text-muted-foreground sm:hidden">
+                          {p.packageLabel}
+                        </span>
+                      </td>
+                      <td className="hidden py-1 pr-3 sm:table-cell">{p.packageLabel}</td>
+                      <td className="hidden py-1 pr-3 text-muted-foreground md:table-cell">
+                        {p.groupName || "—"}
+                      </td>
+                      <td className="hidden py-1 pr-3 text-right font-mono tabular-nums sm:table-cell">
                         {p.birimAdet == null ? "—" : formatNum(p.birimAdet)}
                       </td>
-                      <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                      <td className="hidden py-1 pr-3 text-right font-mono tabular-nums sm:table-cell">
                         {formatNum(p.carpan)}
                         {p.carpanBelirsiz && (
                           <span className="ml-0.5 text-amber-600 dark:text-amber-400" title="Adet belirsiz">
@@ -1046,6 +1154,38 @@ function Olcu({ v }: { v: number | null }) {
 }
 
 // ------------------------------------------------------------------ ufaklar
+
+/**
+ * Teklif düğmesi — masaüstünde kendi sütununda, telefonda Tanımı hücresinin
+ * katmanında AYNI bileşen kullanılır: iki ayrı yazım, birinde düzeltilen bir
+ * etiketin ötekinde kalması demekti.
+ */
+function TeklifDugmesi({ g, onTeklif }: { g: Gorunum; onTeklif: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onTeklif}
+      title={
+        g.teklifler.length === 0
+          ? "Teklif gir — firma ve fiyat"
+          : `${g.teklifler.length} teklif · en iyi ${fmtMoney(g.enIyi?.unitPriceEur, "EUR")}`
+      }
+      className="inline-flex min-h-8 items-center gap-1 border border-dashed px-1.5 text-[11px] whitespace-nowrap transition-colors pointer-coarse:min-h-10 hover:border-foreground/40 hover:text-foreground"
+    >
+      <Tag className="size-3" />
+      {g.teklifler.length === 0 ? (
+        <span className="text-muted-foreground">Teklif Gir</span>
+      ) : (
+        <>
+          <span className="font-mono">{formatNum(g.teklifler.length)}</span>
+          {g.enIyi?.unitPriceEur != null && (
+            <span className="font-mono">{fmtMoney(g.enIyi.unitPriceEur, "EUR")}</span>
+          )}
+        </>
+      )}
+    </button>
+  );
+}
 
 function DurumCipi({ durum, onClick }: { durum: Durum; onClick?: () => void }) {
   const sinif =
@@ -1196,7 +1336,19 @@ function NotDialog({
   );
 }
 
-function SummaryStrip({ havuz, gorunumler }: { havuz: TalepHavuzu; gorunumler: Gorunum[] }) {
+function SummaryStrip({
+  havuz,
+  gorunumler,
+  aktifSiniflar,
+  onSinif,
+}: {
+  havuz: TalepHavuzu;
+  gorunumler: Gorunum[];
+  /** Süzgeçte seçili kategoriler — çip seçili görünür. */
+  aktifSiniflar: readonly string[];
+  /** Çipe basınca kategori süzgeci AÇILIR/KAPANIR — süzgeç kutusuyla aynı küme. */
+  onSinif: (sinif: string) => void;
+}) {
   const toplam = gorunumler.length;
   const tamam = gorunumler.filter((g) => g.durum === "tamam").length;
   const teklifli = gorunumler.filter((g) => g.teklifler.length > 0).length;
@@ -1217,17 +1369,32 @@ function SummaryStrip({ havuz, gorunumler }: { havuz: TalepHavuzu; gorunumler: G
         <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${oran}%` }} />
       </span>
 
+      {/* ÇİP BİR SÜZGEÇTİR (durum çipi kuralının aynısı): satınalmacı dağılıma
+          bakıp "rulmanlara bakayım" diyor ve cevap iki tık uzakta olmamalı.
+          Aynı kümeyi Kategori süzgeci de yazar — iki denetim tek durumu okur. */}
       <ul className="oc-scrollx mt-2 flex flex-wrap items-center gap-1.5 [--oc-scroll-bg:var(--card)]">
-        {havuz.siniflar.map((s) => (
-          <li
-            key={s.sinif}
-            className="inline-flex items-center gap-1 border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
-            title={`${s.sinif}: ${formatNum(s.satirSayisi)} kalem · ${formatNum(s.adet)} adet`}
-          >
-            {s.sinif}
-            <span className="font-semibold text-foreground">{formatNum(s.satirSayisi)}</span>
-          </li>
-        ))}
+        {havuz.siniflar.map((s) => {
+          const secili = aktifSiniflar.includes(s.sinif);
+          return (
+            <li key={s.sinif} className="inline-flex">
+              <button
+                type="button"
+                onClick={() => onSinif(s.sinif)}
+                aria-pressed={secili}
+                className={cn(
+                  "inline-flex min-h-6 items-center gap-1 border px-1.5 py-0.5 font-mono text-[11px] transition-colors pointer-coarse:min-h-8",
+                  secili
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "bg-muted text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                )}
+                title={`${s.sinif}: ${formatNum(s.satirSayisi)} kalem · ${formatNum(s.adet)} adet — süzmek için tıklayın`}
+              >
+                {s.sinif}
+                <span className="font-semibold text-foreground">{formatNum(s.satirSayisi)}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
 
       <p className="mt-2 text-[12px] text-muted-foreground">

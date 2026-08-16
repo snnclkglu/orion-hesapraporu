@@ -15,6 +15,11 @@ import { notFound } from "next/navigation";
 import { OrdersView } from "@/app/(app)/purchasing/siparisler/orders-view";
 import type { Siparis } from "@/app/(app)/purchasing/data";
 
+// `useSearchParams` için Suspense DEĞİL dinamik sayfa: Suspense'e alınan alt
+// ağacın hidrasyonu tembeldir ve gizli Browser pane'de süresiz ertelenir —
+// önizlemede tıklamalar ölüyordu (purchasing-preview'daki notun aynısı).
+export const dynamic = "force-dynamic";
+
 type Satir = Siparis["satirlar"][number];
 
 function satir(

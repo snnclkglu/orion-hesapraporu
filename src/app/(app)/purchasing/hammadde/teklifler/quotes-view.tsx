@@ -190,11 +190,13 @@ export function QuotesView({
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="bg-muted/50 text-left text-muted-foreground">
+                  {/* Telefonda Kalem/Firma sayıları Teklif hücresinin altına
+                      iner (yatay kaydırma yasağı, AGENTS md. 15). */}
                   <th className="w-10 px-2 py-1.5 font-normal" />
                   <th className="px-2 py-1.5 font-normal">Kod</th>
                   <th className="px-2 py-1.5 font-normal">Teklif</th>
-                  <th className="px-2 py-1.5 text-right font-normal">Kalem</th>
-                  <th className="px-2 py-1.5 text-right font-normal">Firma</th>
+                  <th className="hidden px-2 py-1.5 text-right font-normal sm:table-cell">Kalem</th>
+                  <th className="hidden px-2 py-1.5 text-right font-normal sm:table-cell">Firma</th>
                   <th className="hidden px-2 py-1.5 font-normal md:table-cell">Tarih</th>
                   <th className="px-2 py-1.5 text-right font-normal">En Ucuz Dağılım</th>
                   <th className="hidden px-2 py-1.5 font-normal lg:table-cell">
@@ -255,11 +257,14 @@ export function QuotesView({
                             İptal
                           </span>
                         )}
+                        <span className="block font-mono text-[11px] text-muted-foreground sm:hidden">
+                          {formatNum(t.kalemSayisi)} kalem · {formatNum(t.firmaSayisi)} firma
+                        </span>
                       </td>
-                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                      <td className="hidden px-2 py-1.5 text-right font-mono tabular-nums sm:table-cell">
                         {formatNum(t.kalemSayisi)}
                       </td>
-                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                      <td className="hidden px-2 py-1.5 text-right font-mono tabular-nums sm:table-cell">
                         {formatNum(t.firmaSayisi)}
                       </td>
                       <td className="hidden px-2 py-1.5 font-mono whitespace-nowrap md:table-cell">

@@ -182,6 +182,36 @@
   }
 
   /*
+   * YAPIŞKAN TABLO BAŞLIĞI — yalnız `md` üstü ve yalnız `.oc-table-clamp`
+   * kabının içinde (kullanıcı kararı, 16.08.2026: uzun listelerde aşağı
+   * kaydırınca "bu sayı hangi sütundu" sorusu bitmeli).
+   *
+   * `position: sticky` en yakın KAYAN atanın içinde çalışır; tablolar yatay
+   * kaydırma kabında (`.oc-scrollx`) durduğu ve o kap dikey sınır taşımadığı
+   * için başlık sayfaya karşı YAPIŞAMAZ. Bu yüzden ikili bir sözleşmedir:
+   * `.oc-table-clamp` kaba dikey sınır verir (`md` üstü), `.oc-sticky-head`
+   * başlığı o kabın tepesine yapıştırır. Telefonda İKİSİ DE devre dışıdır —
+   * sayfa doğal kayar, iç içe dikey kaydırma açılmaz (md. 15 ile tutarlı).
+   *
+   * Zemin SOLID olmak zorundadır: `bg-muted/50` yarı saydamdır ve altından
+   * satırlar görünürdü; ton `color-mix` ile TEK düz renge indirilir. Alt çizgi
+   * border değil İÇ GÖLGEDİR (md. 14 kuralı — sticky'de border kayar).
+   */
+  @media (min-width: 768px) {
+    .oc-table-clamp {
+      max-height: 70dvh;
+      overflow-y: auto;
+    }
+    .oc-sticky-head th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: color-mix(in oklab, var(--muted) 50%, var(--card));
+      box-shadow: inset 0 -1px 0 var(--border);
+    }
+  }
+
+  /*
    * DOKUNMA HEDEFİ BÜYÜR, KUTU BÜYÜMEZ.
    *
    * Dokunmatik payı bugüne kadar öğenin KENDİSİNİ büyüterek veriliyordu

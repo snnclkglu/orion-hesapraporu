@@ -2946,6 +2946,19 @@ tek tek düzeltme değil, **her yeni ekranda uyulacak kurallardır**.
     taşmayı kırpar, sebebini gidermez ve `.oc-tap` gibi kutu dışına taşan
     dokunma katmanlarını da keser.
 
+15. **Telefonda ANA TABLO yatay kaymaz — listeye katlanır** (kullanıcı kararı,
+    16.08.2026: *"mobilde yatayda kaydırma olmasın; uygulama gibi
+    davranmasını isterim"*; Satın Alma'da uygulandı, yeni ekranlar da uyar).
+    Kural 7'nin uç hâlidir ve kart markup'ı yine ÇOĞALTILMAZ: `sm` altında
+    yalnız birincil sütun + durum/tutar kalır, kritik bilgi birincil hücrede
+    `sm:hidden` alt satırlara iner. İki yerde okunan öğe (teklif düğmesi, iş
+    no özeti) TEK değişkende/bileşende kurulur — iki yazım, birinde düzeltilen
+    etiketin ötekinde kalması demektir. `.oc-scrollx` kabı KALIR (tablet ara
+    genişlikleri hâlâ taşabilir; kural 8 orada geçerlidir). Ölçüt: 375px'te
+    kabın `scrollWidth === clientWidth`. İstisnalar gerekçelidir: diyagramlar
+    (kural 9) ve teklif karşılaştırma matrisi gibi doğası yatay artefaktlar
+    içte kaymaya devam eder.
+
 ## Yeni bir hesap eklerken
 
 1. **Standardın maddesini bul** ve `docs/standards/` altındaki inceleme
