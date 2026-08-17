@@ -8,7 +8,7 @@
 --
 -- Düzeltme ÜÇ YERİ birden kapsar; biri eksik kalırsa katalogdaki ürün ile
 -- revizyondaki seçim `dsKey(kind, brand, model)` üzerinden birbirini bulamaz
--- ve katalog sayfası düğmesi sessizce ölür (AGENTS md. 20'nin uyardığı bağ):
+-- ve katalog sayfası düğmesi sessizce ölür (AGENTS RESIM-20'nin uyardığı bağ):
 --   1. `cat_equipment` — katalogdaki 100 motor satırı
 --   2. `catalog_version` künyesi — kaynak listesindeki marka adı
 --   3. `revisions.inputs` / `selections` — mühendisin YAPMIŞ olduğu seçimler

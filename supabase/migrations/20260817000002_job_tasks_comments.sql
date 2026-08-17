@@ -3,7 +3,7 @@
 -- ÇOCUK KAYITLAR İŞE BAĞLANIR, KALEME DEĞİL: `updateJob` kalemleri silip
 -- yeniden yazar (actions.ts) ve `job_items.id`ye bağlanan her kayıt ilk
 -- düzenlemede yetim kalırdı. Kalem bağlamı `item_no` METNİYLE taşınır
--- (md. 17 "numara METİN, bağlantı TÜREV" kuralının aynısı).
+-- (WORKLOG-17 "numara METİN, bağlantı TÜREV" kuralının aynısı).
 --
 -- GÖREVİN DURUMU BİR ENUM DEĞİL `done_at` DAMGASIDIR: görev bir yapılacaktır
 -- ve iki hâli vardır (açık · kapalı); beş değerli bir akış uydurmak
@@ -25,7 +25,7 @@ create table if not exists public.job_tasks (
   note text not null default '',
 
   -- `drawn_by` kalıbı (20260812150001): kişi silinirse alan BOŞALIR, görev
-  -- silinmez. Rol süzgeci VERİTABANINDA DEĞİL sunumda (md. 20 gerekçesi).
+  -- silinmez. Rol süzgeci VERİTABANINDA DEĞİL sunumda (RESIM-20 gerekçesi).
   assignee uuid references public.profiles (id) on delete set null,
   due_date date,
   sort int not null default 0,
@@ -122,7 +122,7 @@ create policy job_comments_delete on public.job_comments
 
 -- GÖREV ŞABLONU (kullanıcı onayı 16.08.2026): standart iş akışı kontrol
 -- listesi tek tıkla işe eklenir. Defter YÖNETİCİNİNDİR (/admin/task-templates)
--- ve BOŞ BAŞLAR — hazır madde uydurulmaz (md. 21 "uydurma veri girmeyeceğiz");
+-- ve BOŞ BAŞLAR — hazır madde uydurulmaz (SATIN-21 "uydurma veri girmeyeceğiz");
 -- firmanın gerçek kontrol listesi neyse onu yönetici yazar.
 
 create table if not exists public.job_task_templates (

@@ -4,7 +4,7 @@
 // veri taşıyan tek yerdir. Üç ekran aynı iki soruyu soruyor — proje sayfası,
 // ekipman paneli ve ekipman indirme ucu — ve üçü de aynı cevabı almalıdır:
 // ikinci bir kopya yazılsaydı ekrandaki numara ile indirilen Excel'deki numara
-// zamanla ayrışırdı (İş Takibi süzgeçlerinin dersinin aynısı, AGENTS md. 17).
+// zamanla ayrışırdı (İş Takibi süzgeçlerinin dersinin aynısı, AGENTS WORKLOG-17).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -17,7 +17,7 @@ import { DRAWING_AUTHOR_ROLES } from "@/lib/roles";
 /**
  * `project_drawing_plan` satırının okunan sütunları — ZENGİN ve DAR.
  *
- * "Sütun olmayabilir" varsayımı her okumada geçerlidir (AGENTS md. 21):
+ * "Sütun olmayabilir" varsayımı her okumada geçerlidir (AGENTS SATIN-21):
  * `drawn_by` 20260812150001 ile geliyor ve o migration uygulanmadan önce onu
  * isteyen bir `select` BÜTÜN listeyi düşürürdü — proje sayfası, ekipman paneli
  * ve indirilen Excel numaralandırmayı birden kaybederdi. Bir sütunun eksikliği
@@ -107,7 +107,7 @@ export async function loadDrawingAuthors(
  * Projenin İŞ KALEMİ NUMARASI — resim numarasının kökü ve kırıntı yolunun son
  * durağı ("0055-00").
  *
- * SIRA ÖNEMLİDİR ve gerekçesi AGENTS md. 14'tedir:
+ * SIRA ÖNEMLİDİR ve gerekçesi AGENTS IS-14'tedir:
  *   1. `job_items.item_no` — SİSTEMİN kendi numarası. `assignProjectToJob`
  *      yazar, kimse elle düzenlemez.
  *   2. `projects.doc_no` — mühendisin yazdığı belge kodu beyanı. Eski

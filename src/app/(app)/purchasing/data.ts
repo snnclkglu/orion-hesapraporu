@@ -195,7 +195,7 @@ export async function loadHavuz(
   // `purchase_item_meta` anahtarı NORMALLEŞTİRİLMİŞ tanımdır; eski
   // `drawing_purchase_overrides` ham tanımla anahtarlıyordu ve iki şema bir
   // arada yaşayamazdı (bkz. 20260812000003 migration notu).
-  // ZENGİN + DAR (md. 21): label_override / qty_override 20260814000006 ile
+  // ZENGİN + DAR (SATIN-21): label_override / qty_override 20260814000006 ile
   // geliyor; uygulanmamışsa dar sorguya düşülür ve override boş kalır.
   const zenginMeta = await supabase
     .from("purchase_item_meta")
@@ -414,7 +414,7 @@ export async function loadHavuz(
     }
   }
 
-  // ————————————————————————————————— 8. manuel talepler (md. 21)
+  // ————————————————————————————————— 8. manuel talepler (SATIN-21)
   const manuel = await loadManualDemands(supabase);
   if (manuel.length > 0) havuz.satirlar.push(...manuel);
 
@@ -431,7 +431,7 @@ export async function loadHavuz(
   };
 }
 
-/** Manuel talepleri okuyup havuz satırına çevirir (md. 21). */
+/** Manuel talepleri okuyup havuz satırına çevirir (SATIN-21). */
 async function loadManualDemands(supabase: SupabaseClient): Promise<TalepSatiri[]> {
   const { data, error } = await supabase
     .from("purchase_manual_demands")
@@ -595,7 +595,7 @@ const TEKLIF_ALANLARI =
   "qty, unit, quoted_at, valid_until, chosen, note, item_no";
 
 /**
- * ZENGİN SORGU (md. 21'in "sütun olmayabilir" kuralı).
+ * ZENGİN SORGU (SATIN-21'in "sütun olmayabilir" kuralı).
  *
  * `payment_*` ve `lead_time_days` 20260815000003 ile geliyor; migration
  * uygulanmadan önce onları isteyen bir `select` BÜTÜN teklif listesini
@@ -680,7 +680,7 @@ export async function loadTeklifler(
   if (suzgecler.length === 0) suzgecler.push({ tur: "hepsi" });
 
   // ZENGİN + DAR: yeni sütunlar yoksa teklifler yine gelir, vade ve teslim
-  // varsayılana düşer (md. 21). `batch_id` süzgeci DAR sürümde YOKTUR —
+  // varsayılana düşer (SATIN-21). `batch_id` süzgeci DAR sürümde YOKTUR —
   // sütunu olmayan bir şemada parti de yoktur, o sorgu sessizce atlanır.
   const benzersiz = new Map<string, TeklifSatiri>();
   for (const filtre of suzgecler) {
@@ -706,7 +706,7 @@ export async function loadTeklifler(
 const PARTI_ALANLARI =
   "id, code, supplier, quoted_at, scope, note, status, cancelled_at, cancel_reason";
 
-/** `request_id` 20260815000007 ile geliyor — ZENGİN + DAR (md. 21). */
+/** `request_id` 20260815000007 ile geliyor — ZENGİN + DAR (SATIN-21). */
 const PARTI_ALANLARI_ZENGIN = `${PARTI_ALANLARI}, request_id`;
 
 const TALEP_ALANLARI = "id, code, title, scope, status, note";
@@ -730,7 +730,7 @@ const TALEP_ALANLARI = "id, code, title, scope, status, note";
  * ve doğruydu: kayıt yapılıyor, sayfa okumuyordu. Sebebi tek bir süzgeçti —
  * teklifler YALNIZ havuz anahtarlarıyla isteniyordu ve **plaka teklifinin
  * anahtarı havuzda YOKTUR** (`SAC 12 X 1500 X 3000 S235JR` bir ÜRÜN,
- * havuzdaki `SAC 12 MM S235JR` bir İHTİYAÇtır — md. 24 bunu açıkça söylüyor
+ * havuzdaki `SAC 12 MM S235JR` bir İHTİYAÇtır — HAM-24 bunu açıkça söylüyor
  * ve sayfa da bu duruma hazırlıklıydı; eksik olan bir kat aşağıdaydı).
  *
  * Artık iki küme BİRLEŞTİRİLİR: (a) anahtarı havuzda geçen satırlar,
@@ -883,7 +883,7 @@ export interface SiparisSatiri {
   unitPrice: number | null;
   /** Satır KDV oranı (%); yalnız ödenecek tutarı büyütür. */
   vatRate: number;
-  /** Satırın MARKA/KALİTE snapshotu (md. 16). */
+  /** Satırın MARKA/KALİTE snapshotu (SATIS-16). */
   quality: string;
   receivedQty: number;
   note: string;
@@ -919,7 +919,7 @@ const SIPARIS_SATIR_ALANLARI =
   "unit_price, vat_rate, quality, received_qty, note";
 
 /**
- * `vat_rate`/`quality` OLMAYABİLİR (md. 21'in ZENGİN + DAR kalıbı).
+ * `vat_rate`/`quality` OLMAYABİLİR (SATIN-21'in ZENGİN + DAR kalıbı).
  *
  * Sütunlar 20260814000004/000005 ile geliyor; uygulanmamış bir ortamda onları
  * isteyen bir `select` BÜTÜN siparişleri düşürürdü. Eksik oran `vatRateOf` ile
@@ -1049,9 +1049,9 @@ export async function loadTedarikciler(supabase: SupabaseClient): Promise<string
 }
 
 /**
- * MARKA/KALİTE öneri listesi — aktif kayıtların adları (md. 16).
+ * MARKA/KALİTE öneri listesi — aktif kayıtların adları (SATIS-16).
  *
- * SÜTUN/TABLO OLMAYABİLİR (md. 21): 20260814000005 uygulanmamışsa sorgu düşer
+ * SÜTUN/TABLO OLMAYABİLİR (SATIN-21): 20260814000005 uygulanmamışsa sorgu düşer
  * ve boş liste döner — sipariş/sarf ekranı yine açılır, yalnız öneri boş kalır.
  */
 export async function loadQualities(supabase: SupabaseClient): Promise<string[]> {
@@ -1082,7 +1082,7 @@ export interface TedarikciKaydi {
  * PASİF FİRMA DA OKUNUR: öneri listesinden düşmüş bir firmanın kodu, o firmaya
  * daha önce verilmiş siparişin numarasını okumak için hâlâ gerekli.
  *
- * SÜTUN OLMAYABİLİR VARSAYIMI (md. 21): `code` 20260813010004 ile geliyor.
+ * SÜTUN OLMAYABİLİR VARSAYIMI (SATIN-21): `code` 20260813010004 ile geliyor.
  * Uygulanmamış bir ortamda zengin sorgu düşer, dar sorgu adları getirir ve
  * sipariş numarası önerisi sessizce devre dışı kalır — sayfa AÇILIR.
  */
@@ -1421,7 +1421,7 @@ export function anahtarla(tanim: string): { key: string; tanim: string } {
  * HAMMADDEDEN EKİPMANA TAŞINMIŞ PARÇA TANIMLARI.
  *
  * Defter yoksa (migration uygulanmamış) BOŞ küme döner ve ekipman havuzu
- * bugünkü gibi çalışır — "sütun olmayabilir" kuralı (md. 21).
+ * bugünkü gibi çalışır — "sütun olmayabilir" kuralı (SATIN-21).
  */
 export async function loadEquipmentMovedKeys(
   supabase: SupabaseClient

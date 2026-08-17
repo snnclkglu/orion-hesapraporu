@@ -13,7 +13,7 @@
 // ucuzdur ve geciktirmek yazmayı hantal gösterirdi; geciktirilen yalnız
 // adres yazımıdır.
 //
-// TELEFONDA ANA TABLO YATAY KAYMAZ (dokunmatik md. 15): `sm` altında İş No
+// TELEFONDA ANA TABLO YATAY KAYMAZ (dokunmatik MOBIL-15): `sm` altında İş No
 // sütunu birincil hücrenin İLK SATIRINA katlanır, müşteri · tarih · sayaçlar
 // alt satıra iner; kalan üç sütun (birincil + durum + işlem) 375px'e sığar.
 // Kart markup'ı ÇOĞALTILMAZ — aynı hücre, kırılıma göre satır kazanır.
@@ -259,7 +259,7 @@ export function JobsTable({
   const sorted = useMemo(() => sortJobs(rows, state.sirala), [rows, state.sirala]);
 
   // ÇOKLU SEÇİM (kullanıcı onayı, 16.08.2026): kutular `sm` üstünde görünür —
-  // telefonda birincil sütun daralamaz (md. 15) ve toplu işlem masaüstü/tablet
+  // telefonda birincil sütun daralamaz (MOBIL-15) ve toplu işlem masaüstü/tablet
   // işidir. Seçim SÜZGEÇTEN BAĞIMSIZ yaşar ama "tümünü seç" yalnız GÖRÜNEN
   // satırları alır; süzgeç değişince görünmeyen seçimler bar sayacında kalır.
   const [secili, setSecili] = useState<ReadonlySet<string>>(new Set());
@@ -374,7 +374,7 @@ export function JobsTable({
                       katmanı bütün satırı kaplar). `whitespace-normal` nowrap
                       varsayılanını ezer; `max-sm:[overflow-wrap:anywhere]`
                       boşluksuz uzun bir jetonun tabloyu itmesini keser
-                      (md. 15'in ölçülmüş CSS tuzağı). */}
+                      (MOBIL-15'in ölçülmüş CSS tuzağı). */}
                   <TableCell className="font-medium break-words whitespace-normal max-sm:[overflow-wrap:anywhere]">
                     <div className="font-mono text-[13px] font-medium text-primary sm:hidden">
                       {j.job_no}

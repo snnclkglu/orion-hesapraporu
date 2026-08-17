@@ -5,7 +5,7 @@
 // sorgular Management API üzerinden koşturulur ve saf çekirdek (`hammaddeHavuzu`)
 // GERÇEK veriyle beslenir. Amaç ekranı değil ÇEKİRDEĞİN ÇIKTISINI görmektir.
 //
-// Fikstür testi bu modülde YETMEZ (md. 21'in dersi): satın alma havuzunda üç
+// Fikstür testi bu modülde YETMEZ (SATIN-21'in dersi): satın alma havuzunda üç
 // gerçek hata yalnız canlı veriyle görüldü. Burada da bakılacak şeyler:
 // bölünme artıksız mı (ekipman + hammadde = defter), sınıf dağılımı makul mü,
 // DİĞER'e ne düşüyor.

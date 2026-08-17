@@ -12,7 +12,7 @@
 // Bu bölüm ORTALAMA üretir (kullanıcı isteği) ama geçmişi YENİDEN YAZMAZ:
 // ödenmiş bir ayın avro karşılığı `hr_periods.eur_try_rate` ile kendi
 // kaydında donar (Satış Takibi'ndeki "kur satırın kendindedir" kuralının
-// aynısı — AGENTS md. 16). Ortalama yeni aylarda ÖNERİLEN değerdir.
+// aynısı — AGENTS SATIS-16). Ortalama yeni aylarda ÖNERİLEN değerdir.
 // ————————————————————————————————————————————————————————————————————————
 //
 // PARİTE ORTALAMASI, ORTALAMALARIN PARİTESİ DEĞİLDİR.

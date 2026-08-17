@@ -43,7 +43,7 @@ alter table public.purchase_consumable_expenses
 --
 -- Görünüm üç sütun KAZANIR: `total_vat`, `total_gross`, `total_gross_eur`.
 -- Var olan sütunlar aynı sırada ve aynı bağıntıyla kalır — `create or replace`
--- yalnız sona sütun eklemeye izin verir ve ödeme günü kuralı (md. 21) hiç
+-- yalnız sona sütun eklemeye izin verir ve ödeme günü kuralı (SATIN-21) hiç
 -- değişmedi: ödeme TESLİMDEN sayılır, sipariş tarihinden değil.
 create or replace view public.purchase_order_totals
 with (security_invoker = true) as

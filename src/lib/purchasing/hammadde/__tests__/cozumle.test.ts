@@ -2,7 +2,7 @@
 //
 // Örneklerin TAMAMI iki gerçek teslim klasöründen alınmıştır (0043 MTC,
 // 0057 MONORAY, 0053 LITEC). Uydurma tanım yoktur: dilbilgisi ancak ressamın
-// gerçekten yazdığı satırlarla sınanabilir (md. 21'in "fikstür testi yetmiyor"
+// gerçekten yazdığı satırlarla sınanabilir (SATIN-21'in "fikstür testi yetmiyor"
 // dersi). Geniş ölçüm `npx tsx scripts/test-hammadde.ts`tedir; burada KURALLAR
 // dondurulur.
 

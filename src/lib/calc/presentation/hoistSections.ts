@@ -392,7 +392,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
       "Tambur namlusu ile yanak sacı arasındaki çevresel köşe kaynağı: tambur " +
       "torkundan gelen burulma ile mesnet reaksiyonundan gelen kesme birlikte " +
       "etkir; dikişe dik normal gerilme yoktur. Taşıyıcı kesit FEM Ek " +
-      "A-3.2.2.3 md.4 uyarınca BOĞAZ alanıdır (a · L_k) — dikişin izdüşüm " +
+      "A-3.2.2.3 HESAP-4 uyarınca BOĞAZ alanıdır (a · L_k) — dikişin izdüşüm " +
       "halka alanı değil.",
     inputKeys: ["drumWeldThicknessMm", "drumWeldAllowable"],
     selectionKeys: [],

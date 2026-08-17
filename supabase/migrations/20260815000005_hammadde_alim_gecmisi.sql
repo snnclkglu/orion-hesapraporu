@@ -7,7 +7,7 @@
 --
 -- ═══════════════════════════════════ NEDEN `purchase_orders`A YAZILMADI
 --
--- Devralınan fiyat arşivinin (md. 21) birebir aynı gerekçesi: `purchase_orders`
+-- Devralınan fiyat arşivinin (SATIN-21) birebir aynı gerekçesi: `purchase_orders`
 -- CANLI BİR İŞ AKIŞIDIR (Siparişler ekranı, teslim takvimi, gecikme rozetleri).
 -- 447 tarihsel alım oraya konsaydı modül ilk açılışta 447 "bekleyen sipariş"
 -- gösterir ve kullanılamaz olurdu. Bu satırlar bir AKIŞ değil bir ÖLÇÜMdür.
@@ -28,7 +28,7 @@
 -- değerlerle birebir tutması bir tesadüf değil, aynı bölmedir (import betiği
 -- toplamları satır satır doğrular).
 --
--- KUR SATIRIN KENDİNDEDİR (md. 16/21 sözleşmesi): merkezî bir kur tablosundan
+-- KUR SATIRIN KENDİNDEDİR (SATIS-16 / SATIN-21 sözleşmesi): merkezî bir kur tablosundan
 -- okunsaydı bugünkü kur değişince 2024'te ödediğimiz fiyatın avro karşılığı da
 -- değişir ve "gidişat" grafiği kendi kendine yeniden yazılırdı.
 
@@ -37,7 +37,7 @@ create table if not exists public.purchase_raw_purchases (
 
   purchased_at date not null,
 
-  -- TEDARİKÇİ ADI METİNDE DURUR, bağ AYRICA tutulur (md. 21'in fotoğraf
+  -- TEDARİKÇİ ADI METİNDE DURUR, bağ AYRICA tutulur (SATIN-21'in fotoğraf
   -- kuralı): defterdeki bir düzeltme geçmişte ödenmiş bir faturayı
   -- değiştirmemeli. `supplier_id` yalnız süzgeç ve gruplama kolaylığıdır.
   supplier text not null,

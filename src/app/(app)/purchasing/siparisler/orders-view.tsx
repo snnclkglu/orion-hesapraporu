@@ -138,7 +138,7 @@ interface Filtreler {
   tedarikciler: string[];
   durumlar: string[];
   isler: string[];
-  /** Sipariş türü — hammadde · ekipman · karma (md. 21, 15.08.2026). */
+  /** Sipariş türü — hammadde · ekipman · karma (SATIN-21, 15.08.2026). */
   turler: string[];
 }
 
@@ -266,7 +266,7 @@ export function OrdersView({
         .sort((a, b) => a.localeCompare(b, "tr"))
         .map((v) => ({ value: v, label: v, count: is.get(v) })),
       // SAYAÇ ZORUNLUDUR: sayısız bir süzgeçte kullanıcı "hiçbir şey değişmedi"
-      // der ve haklıdır — değişimi ölçeceği bir şey yoktur (md. 24'ün dersi).
+      // der ve haklıdır — değişimi ölçeceği bir şey yoktur (HAM-24'ün dersi).
       turler: (["hammadde", "ekipman", "karma"] as SiparisTuru[])
         .filter((t) => tur.has(t))
         .map((t) => ({ value: t, label: SIPARIS_TURU_ETIKET[t], count: tur.get(t) })),
@@ -1027,8 +1027,8 @@ function TerminAlani({
  *
  * TESLİM VE ÖDEME İŞARETLERİ BURADAN KALDIRILDI (kullanıcı kararı, 14.08.2026):
  *  · "Bakiye ödendi" ve "Teslim" düğmeleri bu sayfada olmasın — teslim zaten
- *    Teslim Takvimi'nde yapılıyor (md. 14).
- *  · Ödeme Takvimi kaldırıldı ve "ödendi bilgisi takip etmeyelim" dendi (md. 15);
+ *    Teslim Takvimi'nde yapılıyor (IS-14).
+ *  · Ödeme Takvimi kaldırıldı ve "ödendi bilgisi takip etmeyelim" dendi (ROL-15);
  *    avans/bakiye ödeme çipleri de gitti.
  *
  * İPTAL EDİLMİŞ SİPARİŞ GERİ AÇILABİLİR (md. 9) ve yönetici onu SİLEBİLİR
@@ -1166,7 +1166,7 @@ function Ozet({ baslik, deger, alt }: { baslik: string; deger: string; alt?: str
  * (firma, tutar, kalem sayısı) göstermek ve ne olacağını yazmak.
  *
  * PENCERE KARARI YAVAŞLATIR ama ZORLAŞTIRMAZ: silme onayındaki gibi bir
- * sözcük yazdırmaz (md. 18) — iptal GERİ ALINABİLİR bir işarettir, kayıt
+ * sözcük yazdırmaz (RESIM-18) — iptal GERİ ALINABİLİR bir işarettir, kayıt
  * silinmez ve yanlışlıkla basılırsa aynı yerden geri alınır.
  */
 function IptalOnayi({ s, onIptal }: { s: Siparis; onIptal: () => void }) {

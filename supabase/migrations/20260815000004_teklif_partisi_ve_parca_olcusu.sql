@@ -18,7 +18,7 @@
 --
 -- PARTİ BİR FİRMANIN BİR TEKLİFİDİR: tedarikçi + tarih + kod, altında kalem
 -- kalem birim fiyatlar. `TK0001` firmaya değil TEKLİFE verilir ve bir daha
--- değişmez; sipariş numarasının tedarikçi kodundan türemesiyle (md. 21) aynı
+-- değişmez; sipariş numarasının tedarikçi kodundan türemesiyle (SATIN-21) aynı
 -- ruhta, ama bu kod bir SAYAÇTAN gelir çünkü tekliflerin sırası firmadan
 -- bağımsızdır.
 --

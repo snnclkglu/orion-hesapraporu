@@ -83,8 +83,8 @@ function DialogContent({
            * kullanır hem eylemleri başparmağın olduğu yere getirir.
            *
            * Burada KIRILIM doğrudur: soru "işaretleme aygıtı kaba mı" değil
-           * "ekran dar mı" — md. 1 yalnız DOKUNMA HEDEFİ içindir. `sm` üstü
-           * hiç değişmez, md. 6'nın tablet kalıbı ve çağrı yerlerinin
+           * "ekran dar mı" — MOBIL-1 yalnız DOKUNMA HEDEFİ içindir. `sm` üstü
+           * hiç değişmez, MOBIL-6'nın tablet kalıbı ve çağrı yerlerinin
            * `sm:max-w-[min(...)]` kelepçeleri yürürlükte kalır.
            */
           "max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[85dvh] max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none",

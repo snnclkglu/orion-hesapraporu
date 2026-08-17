@@ -7,7 +7,7 @@
 // DÜZELTME ANAHTARI DEĞİŞTİRMEZ: yalnız GÖRÜNEN sınıf, ad, stok boyu ve not
 // ezilir. Teklif ve sipariş bağı `match_key` üzerinden kurulu ve o anahtar
 // çözücünün ürettiği hâliyle sabit kalır (`purchase_item_meta` deseninin
-// aynısı — md. 21).
+// aynısı — SATIN-21).
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";

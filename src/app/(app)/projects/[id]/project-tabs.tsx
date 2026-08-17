@@ -66,7 +66,7 @@ export function ProjectTabsNav({
     // RAY KAYMAZ, SARAR (kabuk kuralı 15; purchasing-nav ile aynı karar):
     // `.oc-scrollx` + `overflow-x-auto` kalktı, dar ekranda öğeler ikinci
     // satıra iner — gizli sekme kalmaz. Alt çizgi yine `border-b` DEĞİL iç
-    // gölgedir (bkz. RAIL_BOX başlığı; md. 14 dersinin kaynağı bu raydı):
+    // gölgedir (bkz. RAIL_BOX başlığı; MOBIL-14 dersinin kaynağı bu raydı):
     // aktif sekmenin kırmızı çizgisi negatif kenar boşluğu olmadan onun
     // üstüne oturur. Taşma kabı kalktığı için `overflow-y-hidden` emniyet
     // kemerine de gerek kalmadı — kaydırma çubuğu doğuracak bir kap yok.

@@ -2,7 +2,7 @@
 //
 // Kimlik, durum ve eylemler `(hub)/layout.tsx`tedir; bu sayfa işin GÖVDESİNİ
 // basar: kalemler + resim çarpanı + müşteri/iş bilgileri + notlar + kaleme
-// bağlanmamış raporlar. Hesap raporu İŞE değil İŞ KALEMİNE bağlanır (md. 14).
+// bağlanmamış raporlar. Hesap raporu İŞE değil İŞ KALEMİNE bağlanır (IS-14).
 
 import Link from "next/link";
 import { notFound } from "next/navigation";

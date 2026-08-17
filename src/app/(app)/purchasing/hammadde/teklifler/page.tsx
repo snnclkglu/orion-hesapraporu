@@ -112,7 +112,7 @@ export default async function TekliflerPage({
   /**
    * KALEMİN KÜNYESİ — havuz konuşuyorsa O, susuyorsa TEKLİFİN KENDİSİ.
    *
-   * Havuz eşleşmesi ŞART DEĞİLDİR (md. 24): plaka teklifinin anahtarı havuzda
+   * Havuz eşleşmesi ŞART DEĞİLDİR (HAM-24): plaka teklifinin anahtarı havuzda
    * yoktur ve olmamalıdır. Miktar `teklifMiktari` ile tek yerde çözülür —
    * havuzda karşılığı olan kalemde havuz otoriterdir (parçalar değiştikçe o
    * değişir), plakada ise teklifle birlikte donmuş kilo okunur.

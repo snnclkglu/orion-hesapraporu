@@ -13,7 +13,7 @@ function Table({
    * yüzden `.oc-scrollx` ipucunu isteyen ekranlar tabloyu İKİNCİ bir kaba
    * sarmak zorunda kalıyor, sarmayanlarda (satış ve işler listeleri) tablo
    * telefonda SESSİZCE kayıyordu — mobil tarayıcı kaydırma çubuğu çizmez,
-   * kullanıcı sağda sütun olduğunu bilmiyordu (AGENTS md. 8).
+   * kullanıcı sağda sütun olduğunu bilmiyordu (AGENTS MOBIL-8).
    */
   containerClassName,
   ...props

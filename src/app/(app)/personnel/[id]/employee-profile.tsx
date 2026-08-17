@@ -82,7 +82,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TAM_BOY_PENCERE } from "@/components/pencere";
 
-/** Sütun önceliği (AGENTS md. 7): kart markup'ı ÇOĞALTILMAZ, sütun düşer. */
+/** Sütun önceliği (AGENTS MOBIL-7): kart markup'ı ÇOĞALTILMAZ, sütun düşer. */
 const AT_SM = "hidden sm:table-cell";
 const AT_MD = "hidden md:table-cell";
 const AT_LG = "hidden lg:table-cell";
@@ -765,7 +765,7 @@ function EmployeeDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      {/* Geniş pencere tablette kenar boşluğu bırakır (AGENTS md. 6).
+      {/* Geniş pencere tablette kenar boşluğu bırakır (AGENTS MOBIL-6).
           Yükseklik kelepçesi `DialogContent` tabanındadır, tekrar edilmez. */}
       <DialogContent className={`sm:max-w-[min(48rem,calc(100%-2rem))] ${TAM_BOY_PENCERE}`}>
         <DialogHeader>

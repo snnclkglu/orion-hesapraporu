@@ -14,7 +14,7 @@
 // kullanıcı vadeyi seçtiği anda "ödeme günü şu olur" yazısını görür. Kural bir
 // dipnot değil, pencerenin ürettiği asıl çıktıdır.
 //
-// PENCERE ÇOK KALEMLİDİR (md. 7): havuzdan seçilen bütün kalemler tek siparişe
+// PENCERE ÇOK KALEMLİDİR (HESAP-7): havuzdan seçilen bütün kalemler tek siparişe
 // girer ve her satır kendi işine bağlı kalır. Tek kalemlik bir pencere,
 // satınalmacının gerçekte yaptığı işi modelleyemezdi.
 //
@@ -127,7 +127,7 @@ interface Satir {
   adet: string;
   fiyat: string;
   kdv: VatRate;
-  /** MARKA/KALİTE (md. 16) — snapshot olarak kaydedilir. */
+  /** MARKA/KALİTE (SATIS-16) — snapshot olarak kaydedilir. */
   kalite: string;
   /** Sipariş birimi — sacda "Kg", ekipmanda "Adet". */
   birim: string;

@@ -3,7 +3,7 @@
 --    Eski Veri excelindeki Kalite sütunundakileri sisteme al, dropdown yap.
 --    Kullanıcı yeni kalite/marka girebilsin, girerse sisteme kaydedilsin.
 --    Yönetim paneline bunun için bir sayfa/tablo yap."
---   ve (md. 18) aynı sütun Sarf Gideri Gir'de de olsun.
+--   ve (RESIM-18) aynı sütun Sarf Gideri Gir'de de olsun.
 --
 -- KATALOG + SNAPSHOT (tedarikçi defterinin kuralının aynısı): `purchase_qualities`
 -- ÖNERİ listesidir; sipariş satırı ve sarf gideri seçilen değeri kendi

@@ -51,7 +51,7 @@ create index if not exists profiles_tags_idx on public.profiles using gin (tags)
 -- ------------------------------------------------------------ yetki soruları
 --
 -- `lib/roles.ts`teki `hasTag` / `canSeePurchasing`ın veritabanı karşılığı.
--- Arayüzdeki gizleme tek başına yeterli değildir (md. 15): menüden gizlemek
+-- Arayüzdeki gizleme tek başına yeterli değildir (ROL-15): menüden gizlemek
 -- görgü kuralı, RLS asıl engeldir.
 
 create or replace function public.has_tag(t text)
@@ -114,7 +114,7 @@ $$;
 -- ÇÖZÜM: AYRI BİR SAYISAL SÜTUN, ve NULL YAPILABİLİR.
 --
 -- `not null default 1` seçilmedi ÇÜNKÜ SIFIRLA AYNI TUZAĞA DÜŞERDİ (bkz.
--- AGENTS.md md. 16, "yer tutucu bir değer değildir"): 1 gerçek bir kabul gibi
+-- AGENTS.md SATIS-16, "yer tutucu bir değer değildir"): 1 gerçek bir kabul gibi
 -- görünür ve kullanıcı hiç dokunmadan geçer. `null` "bilinmiyor" demektir;
 -- ekran bunu AÇIKÇA söyler ("adet belirsiz — 1 kabul edildi") ve kullanıcıdan
 -- girmesini ister. Sessiz varsayım ile açık varsayım arasındaki fark budur.

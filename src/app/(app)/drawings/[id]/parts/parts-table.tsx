@@ -275,7 +275,7 @@ export function PartsTable({
                     {/* `overflow-wrap:anywhere` (yalnız telefonda): `break-word`
                         tablo sütununun MIN-CONTENT genişliğini küçültmez —
                         "15x240x285" jetonu sütunu 134px altına inemez kılıyor
-                        ve tablo 375px'te taşıyordu (ölçüldü, md. 15). */}
+                        ve tablo 375px'te taşıyordu (ölçüldü, MOBIL-15). */}
                     <TableCell className="min-w-0 align-top break-words whitespace-normal max-sm:[overflow-wrap:anywhere]">
                       <span className={"block" + (montaj ? " font-medium" : "")}>
                         {p.description || p.name || p.assembly_title || "—"}

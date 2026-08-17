@@ -200,7 +200,7 @@ function pdfEl(el: DiagramEl, i: number) {
           y={el.y}
           style={{
             // DejaVu ZORUNLU: Ø ve Türkçe harfler gömülü WinAnsi fontlarda yok
-            // (md. 19'un dersi).
+            // (KATALOG-19'un dersi).
             fontFamily: "DejaVu",
             fontSize: el.size,
             fill: el.fill ?? "#262626",

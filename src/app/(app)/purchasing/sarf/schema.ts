@@ -32,7 +32,7 @@ export const consumableExpenseLineSchema = z.object({
   unit: z.string().trim().min(1, "Birim gerekli.").max(30),
   unitPrice: z.number().nonnegative("Birim fiyat negatif olamaz."),
   note: z.string().trim().max(500).default(""),
-  /** Satırın MARKA/KALİTE snapshotu (md. 18). */
+  /** Satırın MARKA/KALİTE snapshotu (RESIM-18). */
   quality: z.string().trim().max(120).default(""),
   // Oran listesi SİPARİŞLE ORTAKTIR (`lib/purchasing/vat.ts`); %0 14.08.2026'da
   // eklendi ve iki ekran da aynı listeyi gösterir.

@@ -58,7 +58,7 @@ export interface KarsilastirmaTeklifi {
   /** Birim fiyat, TEKLİFİN KENDİ para biriminde. */
   birimFiyat: number;
   paraBirimi: string;
-  /** Avro karşılığı; kur yoksa `null` ve satır yarışa GİRMEZ (md. 21). */
+  /** Avro karşılığı; kur yoksa `null` ve satır yarışa GİRMEZ (SATIN-21). */
   birimFiyatEur: number | null;
   vadeGun: number;
   /** 0 = Hazır · null = söylenmedi. */

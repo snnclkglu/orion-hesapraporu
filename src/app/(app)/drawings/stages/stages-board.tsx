@@ -518,7 +518,7 @@ export function StagesBoard({
       </div>
 
       {/* Bilgi rozetleri EYLEM DEĞİLDİR, sayfa gövdesine yazılır (AGENTS
-          dokunmatik md. 12: eylem yuvası `empty:hidden` taşır ve gizli bir
+          dokunmatik MOBIL-12: eylem yuvası `empty:hidden` taşır ve gizli bir
           çocuk bile telefonda boş bir bant bırakır). */}
       {!canWrite && (
         <p className="border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -531,7 +531,7 @@ export function StagesBoard({
       <div className="rounded-lg border">
         <Table containerClassName="[--oc-scroll-bg:var(--background)]">
           {/*
-            SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik md. 7). Altı sütunluk satır
+            SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik MOBIL-7). Altı sütunluk satır
             telefonda kabın iki katına çıkar. Anahtar, sıra ve kullanım `md`
             altında gizlenir; üçü de birincil hücrenin içinde ikinci satır
             olarak durur. İkinci bir kart markup'ı YAZILMAZ — sıralama ve

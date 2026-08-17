@@ -4,7 +4,7 @@
 KAYNAK WORKSPACE'TEDİR, DEPODA DEĞİL: `../Profiller.xls` firmanın elindeki
 ArcelorMittal kesit tablosudur (19 sayfa: UPN·IPN·L·IPE·HE·HD·HP·UB·UC·UAP·C…)
 ve her satırda profilin ANMA metre ağırlığını (`G`, kg/m) taşır. Katalog
-sayfalarında olduğu gibi (AGENTS md. 13) veri ÜRETİLİR, elle yazılmaz — kaynak
+sayfalarında olduğu gibi (AGENTS KATALOG-13) veri ÜRETİLİR, elle yazılmaz — kaynak
 tablo yenilenirse betik yeniden koşturulur.
 
 NEDEN TABLO, NEDEN GEOMETRİ DEĞİL: bir profilin kesit alanı köşe yarıçaplarını

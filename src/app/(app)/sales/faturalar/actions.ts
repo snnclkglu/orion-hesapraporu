@@ -117,7 +117,7 @@ export async function deleteSalesInvoice(id: string): Promise<SalesInvoiceAction
 /**
  * Fatura ekranından yeni müşteri açar — YÖNETİM MÜŞTERİLER'e girer (kullanıcı
  * kararı, 14.08.2026). Kısaltma ve renk trigger'la atanır; geri okunup döner ki
- * dropdown anında güncellensin. Ad BÜYÜK HARF (md. 14).
+ * dropdown anında güncellensin. Ad BÜYÜK HARF (IS-14).
  */
 export async function createInvoiceCustomer(
   input: CreateInvoiceCustomerInput

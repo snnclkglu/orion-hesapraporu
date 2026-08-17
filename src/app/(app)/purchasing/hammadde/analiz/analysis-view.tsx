@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════ İKİ GRAFİK, İKİ AYRI KURAL
 //
 // FİYAT EĞRİSİ yalnız ALIM YAPILAN AYLARI çizer: alım olmayan bir ayın ortalama
-// fiyatı YOKTUR ve sıfır yazmak eğriyi tabana çakardı ("null ≠ 0", md. 22'nin
+// fiyatı YOKTUR ve sıfır yazmak eğriyi tabana çakardı ("null ≠ 0", PERSONEL-22'nin
 // kur kuralı). MİKTAR EĞRİSİ ise bütün ayları çizer, çünkü orada sıfır gerçek
 // bir cevaptır: o ay alım yapılmadı.
 //

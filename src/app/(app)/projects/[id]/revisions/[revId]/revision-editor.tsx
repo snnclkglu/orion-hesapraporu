@@ -880,7 +880,7 @@ function SectionTable({
       <h3 className="oc-kicker text-muted-foreground">{table.title}</h3>
       {/* `.oc-scrollx`: hücreler `whitespace-nowrap` olduğu için çok sütunlu
           sonuç tablosu telefonda kabın birkaç katına çıkıyor ve sessizce
-          kırpılıyordu (AGENTS md. 8). Bölümdeki tek ipuçsuz kaydırıcıydı. */}
+          kırpılıyordu (AGENTS HESAP-8). Bölümdeki tek ipuçsuz kaydırıcıydı. */}
       <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-lg border [--oc-scroll-bg:var(--card)]">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -2608,7 +2608,7 @@ export function RevisionEditor({
           adım şeridindeki etikete dokununca alttan yükselir. `translate-y-full`
           ile kapanır — `hidden` yerine dönüşüm, çünkü açılış/kapanış hareketi
           kullanıcıya listenin NEREDEN geldiğini söyler.
-          `dvh` (`vh` DEĞİL, md. 3): adres çubuğu açıkken `vh` tabakayı ekranın
+          `dvh` (`vh` DEĞİL, MOBIL-3): adres çubuğu açıkken `vh` tabakayı ekranın
           altına taşırırdı. */}
       <nav
         ref={navPanelRef}
@@ -2691,7 +2691,7 @@ export function RevisionEditor({
               placeholder="ARA · Bölüm Adı"
               // `text-sm` YAZILMAZ: taban `text-base pointer-fine:text-sm`tir ve
               // elle ezmek iOS Safari'nin odakta OTOMATİK YAKINLAŞTIRMASINI geri
-              // getiriyordu (AGENTS md. 2) — uygulamadaki tek ihlal buydu.
+              // getiriyordu (AGENTS HESAP-2) — uygulamadaki tek ihlal buydu.
               className="h-8 bg-background placeholder:font-mono placeholder:text-xs pointer-coarse:h-10"
               aria-label="Bölüm ara"
             />

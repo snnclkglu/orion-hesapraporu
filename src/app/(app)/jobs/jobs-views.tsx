@@ -205,7 +205,7 @@ export function JobsViews({
         temiz={temiz}
         onTemizle={clearFilters}
       >
-        {/* Şeritteki bütün denetimler AYNI boydan (h-9) okur (md. 14). */}
+        {/* Şeritteki bütün denetimler AYNI boydan (h-9) okur (IS-14). */}
         <Select value={resolvedYil} onValueChange={(v) => adreseYaz({ yil: v })}>
           <SelectTrigger size="sm" className="h-9 w-[7.5rem]">
             <SelectValue placeholder="Yıl" />

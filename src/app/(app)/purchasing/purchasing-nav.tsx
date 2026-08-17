@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 // imalat parçasının kesileceği malzemeyi sorar.
 //
 // `sarf: true` bir GRUP sınırıdır: sarf giderleri herhangi bir işe/pakete
-// bağlanmaz (md. 21) ve raydaki ayraç bu ayrımı gözle de verir — sekiz düz
+// bağlanmaz (SATIN-21) ve raydaki ayraç bu ayrımı gözle de verir — sekiz düz
 // sekme içinde "nerede proje biter, nerede fabrika başlar" okunmuyordu.
 const TABS = [
   { href: "/purchasing", label: "Ekipman", exact: true, sarf: false },

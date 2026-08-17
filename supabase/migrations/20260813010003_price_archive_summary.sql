@@ -18,7 +18,7 @@
 --
 -- `security_invoker = true` — EVİN KURALI. Görünüm çağıranın yetkisiyle
 -- çalışır, yani `purchase_price_history` üzerindeki RLS aynen geçerlidir ve
--- fiyat `can_see_purchasing()` dışına sızmaz (md. 18).
+-- fiyat `can_see_purchasing()` dışına sızmaz (RESIM-18).
 
 create or replace view public.purchase_price_archive
 with (security_invoker = true) as

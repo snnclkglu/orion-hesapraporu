@@ -6,7 +6,7 @@
 // Termin · Sevk (YALNIZ canSeeSales — sunucu göndermediyse hiç yoktur).
 // Süzgeçler takvime de işler: görünmeyen işin tarihi çizilmez.
 //
-// Masaüstünde ay tablosu, telefonda AJANDA (md. 15: ızgara küçültülmez,
+// Masaüstünde ay tablosu, telefonda AJANDA (ROL-15: ızgara küçültülmez,
 // katlanır). Renkte KIRMIZI YOK (tehlikeye ayrılı); tür rengi noktayla ve
 // YAZIYLA birlikte taşınır — renk tek taşıyıcı değildir.
 

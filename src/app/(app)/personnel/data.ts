@@ -240,7 +240,7 @@ paid_on, note, worked_days, cumulative_tax_base, params_valid_from`;
  * DAR YEDEK — `leave_hours`/`report_hours` migration'ı henüz uygulanmamışsa.
  *
  * "Veritabanı sütunu olmayabilir varsayımı her okumada geçerlidir"
- * (AGENTS md. 21): bir sütunun eksikliği yüzünden BÜTÜN maaş ekranını
+ * (AGENTS SATIN-21): bir sütunun eksikliği yüzünden BÜTÜN maaş ekranını
  * kaybetmek, eksikliğin kendisinden çok daha pahalıdır.
  */
 const PAYROLL_SELECT_DAR = PAYROLL_SELECT.replace("leave_hours, report_hours,\n", "");
@@ -317,7 +317,7 @@ export async function loadPayroll(
       error: { message: string } | null;
     }>;
   };
-  // ZENGİN sorgu + DAR yedek (AGENTS md. 21): izin/rapor sütunları henüz
+  // ZENGİN sorgu + DAR yedek (AGENTS SATIN-21): izin/rapor sütunları henüz
   // yoksa satırlar yine gelir, yalnız iki alan sıfır kalır.
   let rows: PayrollDb[];
   try {

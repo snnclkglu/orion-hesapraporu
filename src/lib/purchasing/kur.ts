@@ -9,7 +9,7 @@
 //
 // `fx_rate_daily` kurları TL CİNSİNDEN tutar (1 USD = x TL, 1 EUR = y TL) —
 // TCMB'nin yayımladığı biçim budur. Satın almanın sözleşmesi ise BAŞKADIR
-// (AGENTS md. 21): `fx_rate` = **1 avro kaç BİRİM eder**. İkisi karıştırılırsa
+// (AGENTS SATIN-21): `fx_rate` = **1 avro kaç BİRİM eder**. İkisi karıştırılırsa
 // dolarlık bir teklifin avro karşılığı 1000 kat yanlış çıkar ve en ucuz teklif
 // olarak yarışı kazanır.
 //
@@ -25,7 +25,7 @@
 //
 // KUR BİR ÖNERİDİR, BİR KİLİT DEĞİL. Ekran alanı doldurur ve kaynağını yazar;
 // kullanıcı sözleşmedeki kuru biliyorsa üstüne yazar. Sipariş kuru satırın
-// KENDİNDE saklanır (md. 21) — bu yüzden buradan gelen değer bir varsayılan,
+// KENDİNDE saklanır (SATIN-21) — bu yüzden buradan gelen değer bir varsayılan,
 // bir bağ değildir.
 
 /** `fx_rate_daily`nin bu modüle giren yüzü. */
@@ -49,7 +49,7 @@ export interface KurOnerisi {
  * Para birimi için kur önerisi. Kaynak yoksa ya da sayı bozuksa `null`.
  *
  * `null` DÖNMEK SESSİZ BİR 1'DEN İYİDİR: kuru olmayan fiyat `null` avro üretir
- * ve ekran onu ayrıca sayar (md. 21). Uydurulmuş bir 1, dolarlık bir teklifi
+ * ve ekran onu ayrıca sayar (SATIN-21). Uydurulmuş bir 1, dolarlık bir teklifi
  * avroymuş gibi gösterirdi.
  */
 export function kurOnerisi(

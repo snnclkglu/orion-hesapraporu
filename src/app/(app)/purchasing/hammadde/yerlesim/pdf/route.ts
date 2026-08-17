@@ -5,7 +5,7 @@
 // `POST` olmasının sebebi anahtar listesinin uzunluğuydu (normalleştirilmiş
 // tanımlar); burada anahtar bir stok adıdır ve seçim birkaç kalemdir.
 //
-// PLAN SAKLANMIYOR (md. 24) — belge her istendiğinde yeniden hesaplanır.
+// PLAN SAKLANMIYOR (HAM-24) — belge her istendiğinde yeniden hesaplanır.
 // Deterministik olduğu için aynı adres her zaman aynı kâğıdı verir.
 
 import { NextResponse, type NextRequest } from "next/server";

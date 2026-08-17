@@ -70,7 +70,7 @@ export async function DrawingPackagesCard({
   // İKİ ADAY VAR ve ikisi eşit güvenilir DEĞİL:
   //
   //   A) METİN — `projects.doc_no` ↔ `drawing_packages.item_no`
-  //      `doc_no` serbest metindir ve AGENTS md. 14 üç yazımın birden
+  //      `doc_no` serbest metindir ve AGENTS IS-14 üç yazımın birden
   //      dolaştığını yazar: `0055` (kalemsiz), `0055-01` (doğru olan) ve
   //      `0055-HR-001`. Eski kayıtlar BİLİNÇLİ olarak dönüştürülmedi
   //      (yayınlanmış raporların kodu teslim edilmiş PDF'lerle aynı kalmalı).
@@ -177,7 +177,7 @@ export async function DrawingPackagesCard({
             <li key={p.id}>
               {/* Bağlantı satırın TAMAMIDIR: `px-4 py-3` + iki satır metin
                   dokunma hedefini kendiliğinden 44px'in üstüne çıkarır, ayrıca
-                  `.oc-tap` gerekmez (AGENTS dokunmatik md. 1). */}
+                  `.oc-tap` gerekmez (AGENTS dokunmatik MOBIL-1). */}
               <Link
                 href={`/drawings/${p.id}`}
                 className="block px-4 py-3 hover:bg-muted/40"

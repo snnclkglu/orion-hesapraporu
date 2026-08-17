@@ -3,7 +3,7 @@
 // Paket listesi — arama, süzgeç, sıralama.
 //
 // Süzgeç tanımı `filters.ts`te; bu dosya yalnız durumu tutar ve basar.
-// Sütun önceliklendirme (AGENTS dokunmatik md. 7): düşük öncelikli sütunlar
+// Sütun önceliklendirme (AGENTS dokunmatik MOBIL-7): düşük öncelikli sütunlar
 // HEM `th` HEM `td` üzerinde gizlenir, gizlenenin kritik olanı birincil
 // hücrenin içinde `md:hidden` ikinci satıra iner. İkinci bir kart markup'ı
 // YAZILMAZ — sıralama ve süzme mantığını ikiye böler.

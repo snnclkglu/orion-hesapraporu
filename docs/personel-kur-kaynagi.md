@@ -88,7 +88,7 @@ kurun hiç güncellenmemesi, bu işin en kötü sonucudur.
 `hr_periods.eur_try_rate` bir ayın **ödeme kurudur** ve satırın kendinde
 durur. Merkezî kur tablosundan okunsaydı, tablo tazelendiğinde geçmiş ayların
 avro karşılığı da değişirdi — Satış Takibi'ndeki `job_item_sales.fx_rate` ile
-birebir aynı gerekçe (AGENTS md. 16).
+birebir aynı gerekçe (AGENTS SATIS-16).
 
 Devralınan 27 ay Excel'deki kurla aktarıldı ve **o kurlar aylık ortalama
 değildir**: ay sonu / ödeme günü spot kurudur. 27 ayın tamamı TCMB

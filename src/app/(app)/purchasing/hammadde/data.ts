@@ -122,7 +122,7 @@ export async function loadHammaddeHavuzu(
 
   // ————————————————————————————————— 2. iş kalemi adetleri (çarpan)
   //
-  // ZENGİN + DAR (md. 21): `qty`/`shares_drawings_with` olmayabilir; sütunu
+  // ZENGİN + DAR (SATIN-21): `qty`/`shares_drawings_with` olmayabilir; sütunu
   // isteyen bir `select` bütün sorguyu düşürür ve havuz hiç görünmezdi.
   let kalemVerisi: unknown[] | null = null;
   let carpanSutunlariVar = true;
@@ -160,7 +160,7 @@ export async function loadHammaddeHavuzu(
   const bilinenGruplar = new Set(grupAdlari.keys());
 
   // ————————————————————————————————— 4. düzeltme defteri
-  // ZENGİN + DAR (md. 21): ikinci tur sütunları (`to_equipment`,
+  // ZENGİN + DAR (SATIN-21): ikinci tur sütunları (`to_equipment`,
   // `quality_override`, `qty_override`) 20260815000002 ile geliyor. Onları
   // isteyen bir `select` migration uygulanmadan önce BÜTÜN sorguyu düşürür ve
   // havuz hiç görünmezdi.
@@ -211,7 +211,7 @@ export async function loadHammaddeHavuzu(
   // ham tanım çözücüye girmeden ÖNCE değiştirilir, geri kalan her şey (ad,
   // stok kalemi, ağırlık, yerleşim) kendiliğinden uyar.
   //
-  // TABLO OLMAYABİLİR (md. 21): migration uygulanmadan önce bu sorgu düşer ve
+  // TABLO OLMAYABİLİR (SATIN-21): migration uygulanmadan önce bu sorgu düşer ve
   // havuz yine türetilmelidir.
   const olcuDefteri = await supabase
     .from("purchase_raw_part_dims")

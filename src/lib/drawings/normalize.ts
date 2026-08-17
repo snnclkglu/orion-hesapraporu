@@ -54,7 +54,7 @@
 //
 // Kullanıcı kararı: "Depo excelinde nasıl yazılırsa yazılsın tüm parça
 // tanımları kodları vs bilgileri büyük harfle yazılacak." Uygulamadaki ad
-// alanları zaten böyle saklanıyor (`adBuyuk`, AGENTS.md md. 14) — satın alma
+// alanları zaten böyle saklanıyor (`adBuyuk`, AGENTS.md IS-14) — satın alma
 // kalemleri de aynı kurala girer. Büyütme tr-TR yerelindedir: `toUpperCase()`
 // "i"yi "I" yapar ve "GALVANİZLİ" "GALVANIZLI" olurdu.
 //
@@ -744,7 +744,7 @@ export function anaGrupKodu(partCode: string, bilinen?: ReadonlySet<string>): st
  * 12.08.2026): *"Bu her zaman bizim GENEL KOMPLE dediğimiz bir numara."*
  *
  * Bu bir tahmin değil bir FİRMA KURALIDIR ve tam da bu yüzden yazılabilir:
- * "ad uydurulmaz" ilkesi (md. 21) kaynağı BELİRSİZ adları yasaklar, firmanın
+ * "ad uydurulmaz" ilkesi (SATIN-21) kaynağı BELİRSİZ adları yasaklar, firmanın
  * kendi numaralandırma sözleşmesini değil. Yine de kural EN SONA konur —
  * DEPO Excel'i ya da ürün ağacı o grubu adlandırmışsa o ad kazanır; kural
  * yalnız iki kaynağın da susduğu yeri doldurur.
@@ -761,7 +761,7 @@ export const GENEL_KOMPLE_ADI = "GENEL KOMPLE";
  * adlandırılır."*
  *
  * Sebep listede görünür: bir satınalmacı birden çok projenin kalemini bir
- * arada görüyor (md. 21) ve yan yana duran üç satırın "Kullanıldığı Yer"
+ * arada görüyor (SATIN-21) ve yan yana duran üç satırın "Kullanıldığı Yer"
  * sütununda üç kez "GENEL KOMPLE" yazması hiçbir şey ayırt ettirmez —
  * hangisinin hangi vince ait olduğu okunamaz.
  *

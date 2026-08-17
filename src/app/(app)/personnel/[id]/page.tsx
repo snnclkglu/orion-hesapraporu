@@ -2,7 +2,7 @@
 // özlük dosyaları TEK adreste.
 //
 // SAYFA BAŞLIK BASMAZ: bölüm kabuğu (`finance/layout.tsx`) zaten bir
-// `PageHeader` çiziyor ve bir ekranda YALNIZ BİR tane olur (AGENTS md. 13).
+// `PageHeader` çiziyor ve bir ekranda YALNIZ BİR tane olur (AGENTS MOBIL-13).
 // Kişinin adı gövdedeki `h2`dir. Geri dönüş bağlantısı da gövdededir çünkü
 // kabuğun başlığı `backHref` taşımıyor: 1280px altında kırıntı yolu gizlidir ve
 // kullanıcıda başka hiçbir "yukarı" bağlantısı kalmazdı.

@@ -67,7 +67,7 @@ const YAZIM_SIRASI: Record<HammaddeSinifi, OlcuAlani[]> = {
  *
  * Boş bir ölçü düzenlenemez ve bu bir eksiklik değil bir dürüstlüktür: metinde
  * karşılığı olmayan bir sayıyı "düzeltmek", tanıma yeni bir sayı UYDURMAK
- * olurdu (md. 21'in "uydurma veri girmeyeceğiz" kuralı). Ölçüsü hiç okunamayan
+ * olurdu (SATIN-21'in "uydurma veri girmeyeceğiz" kuralı). Ölçüsü hiç okunamayan
  * satırın yolu Ad alanını elle düzeltmektir.
  *
  * PROFİL VE RAYDA YALNIZ BOY AÇIKTIR: en ve kalınlık KESİT KODUNDAN gelir

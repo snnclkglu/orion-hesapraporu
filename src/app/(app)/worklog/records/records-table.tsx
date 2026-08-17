@@ -203,7 +203,7 @@ export function RecordsTable({
       </div>
 
       {/* İpucundaki "yana kaydırın" ifadesi kalktı: telefonda tablo listeye
-          katlanır ve yatay kaymaz (kabuk md. 15). */}
+          katlanır ve yatay kaymaz (kabuk MOBIL-15). */}
       <p className="text-[11px] text-muted-foreground md:hidden">
         → Ayrıntı için satıra dokunun.
       </p>

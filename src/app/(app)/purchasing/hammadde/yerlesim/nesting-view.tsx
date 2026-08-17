@@ -54,7 +54,7 @@ export interface YerlesimGrubu {
    *
    * Plaka siparişi verilince paket ekranındaki "satın alındı" işareti bu
    * anahtarlara yazılır — sac plakası bir ürün olarak sipariş edilse de
-   * atölye o resimlere bakıyor (md. 21'in kuralı).
+   * atölye o resimlere bakıyor (SATIN-21'in kuralı).
    */
   paylar: { itemNo: string; packageId: string; partKey: string; adet: number }[];
 }
@@ -628,7 +628,7 @@ function PlakaOzeti({
    * Ayrı bir anahtar üretilseydi (ör. havuzdaki `SAC 10 MM S355JR`) alınan
    * teklif, verilen siparişle ve fiyat arşiviyle hiç buluşmazdı — plaka
    * ölçüsü ancak yerleşim yapılınca bilindiği için o iki ad zaten FARKLIDIR
-   * (md. 24).
+   * (HAM-24).
    *
    * ═══════════════════ MİKTAR DA GİDER — VE BU BİR İSTİSNADIR, GEVŞEME DEĞİL
    *
@@ -725,7 +725,7 @@ function PlakaOzeti({
                 kiloyu verir — fire ikisinin farkıdır ve satırın altında
                 yazar. */}
             {/* Telefonda Ölçü + Adet + Sipariş Ağırlığı kalır (yatay kaydırma
-                yasağı, AGENTS md. 15); kalınlık/kalite ölçünün altına iner. */}
+                yasağı, AGENTS MOBIL-15); kalınlık/kalite ölçünün altına iner. */}
             <tr className="border-b text-left text-[11px] text-muted-foreground">
               <th className="py-1 pr-4 font-normal">Plaka Ölçüsü</th>
               <th className="hidden py-1 pr-4 font-normal sm:table-cell">Kalınlık</th>

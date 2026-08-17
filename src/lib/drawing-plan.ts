@@ -12,7 +12,7 @@
 //
 // Kalem numarası buraya KOPYALANMAZ; `job_items.item_no` (yoksa
 // `projects.doc_no`) tek kaynaktır ve `autoItemNos` onu kaydırabilir
-// (AGENTS md. 14).
+// (AGENTS IS-14).
 //
 // BANT KURALI FİRMANINDIR ve tek yerde tanımlıdır. Bant bir sütun DEĞİL koddan
 // türeyen bir sonuçtur — iki yerde tutulsaydı biri güncellenip diğeri
@@ -342,7 +342,7 @@ export interface DrawingPlanRow {
    * SERBEST METİN DEĞİL BİR BAĞ: ad yazılsaydı aynı kişi "Alkım", "Alkım
    * Kelleci" ve "A. Kelleci" olarak üç ayrı kişi gibi görünür ve "bu kişi
    * neler çiziyor" sorusu hiç cevaplanamazdı (İş Takibi'ndeki parça adı
-   * dersinin aynısı, AGENTS md. 17).
+   * dersinin aynısı, AGENTS WORKLOG-17).
    */
   drawnBy: string | null;
   /**

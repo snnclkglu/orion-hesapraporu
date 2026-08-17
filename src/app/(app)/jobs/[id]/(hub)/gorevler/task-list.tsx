@@ -86,7 +86,7 @@ function bugunISO(): string {
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 }
 
-/** Gecikme yalnız AÇIK görevde anlamlıdır (md. 18'in termin kuralı). */
+/** Gecikme yalnız AÇIK görevde anlamlıdır (RESIM-18'in termin kuralı). */
 function gecikti(t: TaskRow): boolean {
   return !t.doneAt && !!t.dueDate && t.dueDate < bugunISO();
 }

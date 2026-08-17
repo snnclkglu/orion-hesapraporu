@@ -42,7 +42,7 @@ interface AppShellProps {
  * MENÜNÜN KAYNAĞI ARTIK BURADA DEĞİL — `lib/roles.ts`teki `WORKSPACE_SECTIONS`.
  *
  * Liste bir süre bu dosyada yaşadı; Yönetim'e "hangi bölüm kime açık" ekranı
- * eklenince (md. 4) İKİNCİ bir liste yazma ihtiyacı doğdu ve iki listenin
+ * eklenince (MOBIL-4) İKİNCİ bir liste yazma ihtiyacı doğdu ve iki listenin
  * ayrışması yetki ekranında olabilecek en kötü hatadır: matris, menünün
  * gerçekte yaptığından başka bir şey anlatırdı. `visible` yine bir ROL LİSTESİ
  * değil bir SORUDUR; menüden gizlemek yalnız görgü kuralıdır, asıl engel RLS.

@@ -177,7 +177,7 @@ export interface TalepSatiri {
   /** Paylardan en az biri belirsiz çarpan taşıyorsa toplam da şüphelidir. */
   carpanBelirsiz: boolean;
   /**
-   * MANUEL TALEP KİMLİĞİ (md. 21) — yalnız elle eklenen satırlarda dolu.
+   * MANUEL TALEP KİMLİĞİ (SATIN-21) — yalnız elle eklenen satırlarda dolu.
    * Türetilmiş satırlarda `undefined`; ekran buna bakarak "Manuel" rozeti ve
    * silme sunar.
    */

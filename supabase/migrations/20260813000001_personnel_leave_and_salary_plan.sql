@@ -11,12 +11,12 @@
 --
 -- ═════════════════════════════════ 1. KİŞİ BAZINDA İZİN VE RAPOR SAATİ
 --
--- AGENTS md. 22 bugüne kadar şunu söylüyordu: "İzin ve rapor saati ay
+-- AGENTS PERSONEL-22 bugüne kadar şunu söylüyordu: "İzin ve rapor saati ay
 -- düzeyindedir (hr_periods), kişi başına değil: firma bugün de öyle tutuyor.
 -- Kişi bazlı izin takibi AYRI BİR FAZDIR." O faz budur.
 --
 -- DÖNEM SÜTUNLARI DÜŞÜRÜLMEZ ve bu bilinçlidir. `drawn` sütununun düşürülme
--- gerekçesi (md. 20 — "iki kaynak bir arada yaşamasın") burada geçerli
+-- gerekçesi (RESIM-20 — "iki kaynak bir arada yaşamasın") burada geçerli
 -- DEĞİLDİR, çünkü bu sütunlarda GERÇEK VERİ var: devralınan 27 ayın izin ve
 -- rapor saatleri Excel'den ay düzeyinde geldi ve kişilere DAĞITILAMAZ —
 -- uydurulmuş bir dağıtım, boş bir hücreden çok daha pahalıdır (md. 21'in

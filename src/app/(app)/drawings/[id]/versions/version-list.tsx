@@ -1,6 +1,6 @@
 // Sürüm zincirinin sunumu — TABLO DEĞİL BLOK LİSTE.
 //
-// AGENTS dokunmatik md. 7 sütun önceliklendirmeyi TABLOLAR için tarif eder:
+// AGENTS dokunmatik MOBIL-7 sütun önceliklendirmeyi TABLOLAR için tarif eder:
 // sabit sütunlu bir listede hangi sütunun telefonda düşeceğine karar verilir.
 // Burada öyle bir sütun yok — "+12 dosya · −3 dosya · 5 parça değişti" değişken
 // uzunlukta bir CÜMLEDİR ve her genişlikte bir bloktur. Tabloya sokulsaydı

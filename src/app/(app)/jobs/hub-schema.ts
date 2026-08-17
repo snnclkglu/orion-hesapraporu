@@ -19,7 +19,7 @@ const uuidOrNull = z
 
 /**
  * Görev başlığı SERBEST METİNDİR, ad alanı değil: "Sözleşme PDF'ini yükle"
- * bir talimattır ve BÜYÜK HARF kuralı (md. 14) ad alanlarını kapsar —
+ * bir talimattır ve BÜYÜK HARF kuralı (IS-14) ad alanlarını kapsar —
  * talimatı bağırtmak okunurluğu düşürürdü.
  */
 export const taskInputSchema = z.object({

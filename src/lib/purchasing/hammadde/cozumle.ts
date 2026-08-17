@@ -9,7 +9,7 @@
 //
 // Hammadde ise tam olarak o okunmayan yeri ister. İki sözleşmeyi tek fonksiyona
 // sığdırmak `tanimOlculeri`nin kapsamını sessizce genişletirdi; `firmaKabulleri`
-// ayrı bir kapı olarak durduğu gerekçenin (md. 21) aynısıyla bu da ayrı bir
+// ayrı bir kapı olarak durduğu gerekçenin (SATIN-21) aynısıyla bu da ayrı bir
 // dosyadır.
 //
 // ═════════════════════════════════════════════════════════ TANIMA SIRASI
@@ -28,7 +28,7 @@
 //
 // ══════════════════════════════════════════════════════════════ İLKELER
 //
-// EMİN OLUNAMAYAN ÖLÇÜ BOŞ KALIR (md. 21). "AVARE KASNAK Ø250"in boyu yoktur;
+// EMİN OLUNAMAYAN ÖLÇÜ BOŞ KALIR (SATIN-21). "AVARE KASNAK Ø250"in boyu yoktur;
 // uydurulmuş bir boy, boş bir boydan çok daha pahalıdır. Satır yine de havuza
 // girer ve `eksikler` alanında neyi okuyamadığını SÖYLER.
 //
@@ -244,7 +244,7 @@ interface KapsamKarari {
 }
 
 function kapsam(t: string, g: HammaddeGirdisi): KapsamKarari {
-  // ARTIKSIZ BÖLME (md. 18): satın alma satırı EKİPMAN havuzundadır ve iki
+  // ARTIKSIZ BÖLME (RESIM-18): satın alma satırı EKİPMAN havuzundadır ve iki
   // ekranda birden görünemez. Kural `isPurchaseRow` ile birebir aynı olmalı;
   // ayrışmayı bir koruma testi engeller.
   if ((g.kind ?? "") === "satinalma") return { disarida: true };

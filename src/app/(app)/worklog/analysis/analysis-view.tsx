@@ -517,7 +517,7 @@ export function AnalysisView({
           }
         />
         {/* `Table` kendi kaydırma kabını kurar; ipucu tablonun ÜSTÜNDE verilir. */}
-        {/* BİLİNÇLİ İSTİSNA (md. 15): çapraz tablo gerçek bir MATRİSTİR —
+        {/* BİLİNÇLİ İSTİSNA (ROL-15): çapraz tablo gerçek bir MATRİSTİR —
             sütun listesi kullanıcının eksen seçiminden doğar, telefonda
             gizlenecek "ikincil" sütunu yoktur. İçte kaymaya devam eder;
             kimlik sütunu sola yapışıktır, ipucu da bu yüzden kalır. */}
@@ -646,7 +646,7 @@ export function AnalysisView({
                 <TableRow key={c.key} className="hover:bg-transparent">
                   {/* Etiket veriden gelir ve hücre varsayılanı nowrap'tır: tek
                       uzun ad tabloyu telefonda ekran dışına itiyordu. Metin
-                      SARAR (md. 7 — kırpacak fare yok), `truncate` kalktı. */}
+                      SARAR (MOBIL-7 — kırpacak fare yok), `truncate` kalktı. */}
                   <TableCell className="break-words whitespace-normal">
                     <span className="flex items-center gap-1.5">
                       <span className="oc-tag-dot shrink-0" style={tagStyle(c.hue)} aria-hidden />

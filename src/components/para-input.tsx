@@ -56,7 +56,7 @@ export function ParaInput({
   /**
    * Ölçek rengi buradan geçer (`--oc-hue`): sınıf `globals.css`te, ton veride.
    * Doğrudan `color` verilmesi için DEĞİLDİR — hex yazmak, aynı rengin açık ve
-   * koyu temada birden okunmaması demektir (AGENTS md. 14).
+   * koyu temada birden okunmaması demektir (AGENTS IS-14).
    */
   style?: React.CSSProperties;
 }) {

@@ -199,7 +199,7 @@ function Header({ project }: { project: { id: string; doc_no: string; name: stri
     <div>
       <div className="text-sm text-muted-foreground">
         {/* `.oc-tap`: kırıntı bağlantısı yazı boyunda kalır, dokunma katmanı
-            44px'e tamamlanır (kutu büyütülmez — md. 1). */}
+            44px'e tamamlanır (kutu büyütülmez — MOBIL-1). */}
         <Link href="/projects" className="oc-tap hover:underline">Mühendislik</Link>
         {" / "}
         <Link href={`/projects/${project.id}`} className="oc-tap hover:underline">

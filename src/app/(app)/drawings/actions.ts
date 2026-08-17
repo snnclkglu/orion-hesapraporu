@@ -92,7 +92,7 @@ const DEPO_SAYFA = 1000;
  *
  * `/purchasing` ayrı bir tablo tutmaz: talep havuzu, teslimat ve ödeme
  * takvimleri `drawing_packages` + `drawing_parts` üzerinden TÜRETİLİR
- * (md. 21). Yani teknik resim tarafındaki her paket/defter değişikliği o beş
+ * (SATIN-21). Yani teknik resim tarafındaki her paket/defter değişikliği o beş
  * ekranı da eskitir; buradan tazelenmediğinde satınalmacı yeni yüklenmiş bir
  * paketi görmek için sayfayı elle yenilemek zorunda kalıyordu ve bunu
  * "proje satın almaya düşmedi" diye yaşıyordu (kullanıcı bildirimi,
@@ -853,7 +853,7 @@ export async function reconcilePackage(input: {
   //
   // ÜRÜN ADI DA BURADAN OKUNUR — `xxxx-xx-0000` grubunun adı onu taşır
   // (`genelKompleAdi`, kullanıcı kararı 13.08.2026). ZENGİN SORGU + DAR YEDEK
-  // kalıbı (md. 21): `product_name` okunamıyorsa kalem numarası yine alınır ve
+  // kalıbı (SATIN-21): `product_name` okunamıyorsa kalem numarası yine alınır ve
   // genel komple sade adıyla yazılır — bir sütun yüzünden eşleştirmenin
   // tamamını kaybetmek, o sütunun eksikliğinden çok daha pahalıdır.
   let systemItemNo = "";

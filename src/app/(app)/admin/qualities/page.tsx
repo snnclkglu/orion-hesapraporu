@@ -1,5 +1,5 @@
 // Marka/Kalite defteri — sipariş satırı ve sarf giderinin ORTAK öneri listesi
-// (md. 16/18). Değer kayıtta metin olarak dondurulur; bu ekran yalnız ÖNERİ
+// (SATIS-16 / RESIM-18). Değer kayıtta metin olarak dondurulur; bu ekran yalnız ÖNERİ
 // listesini yönetir (ad düzeltme, pasife çekme, silme, yeni ekleme).
 
 import { createClient } from "@/lib/supabase/server";

@@ -105,7 +105,7 @@ export default async function RevisionPage({
           <div id={EDITOR_STATUS_SLOT_ID} className="flex shrink-0 items-center gap-2" />
           <ReportMenu projectId={id} revisionId={revision.id} />
           {/* Boy `size="sm"`in kendisinden gelir: elle yazılan `h-8` dokunmatik
-              payını eziyordu (AGENTS md. 1). */}
+              payını eziyordu (AGENTS MOBIL-1). */}
           <Button asChild variant="outline" size="sm">
             <a
               href={`/projects/${id}/revisions/${revision.id}/equipment`}

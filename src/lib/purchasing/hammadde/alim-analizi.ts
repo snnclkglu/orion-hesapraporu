@@ -27,14 +27,14 @@
 //
 // KAYNAK SATIRDA DURUR ve ekran onu söyler: dışarıdan gelen bir çalışma dosyası
 // ile uygulamanın kendi kaydı aynı güvende değildir (fiyat arşivinin kuralı,
-// md. 21).
+// SATIN-21).
 //
 // ═══════════════════════════════════════════ YALNIZ KİLO KONUŞUR
 //
 // Analizin bütün büyüklükleri KİLO BAŞINADIR. Sipariş satırının birimi "Boy"
 // ya da "Adet" ise kilosu BİLİNMEZ ve satır analize GİRMEZ — bir boyun kaç kilo
 // olduğunu varsaymak, ortalama fiyatı sessizce bozardı. Dışarıda kalan satır
-// sayılır ve ekranda yazar (md. 23: "hiçbir sayı uydurulmaz").
+// sayılır ve ekranda yazar (PANEL-23: "hiçbir sayı uydurulmaz").
 //
 // ÇEKİRDEK SAFTIR: DB/HTTP/React importu yok.
 
@@ -80,7 +80,7 @@ export function tutarAl(s: AlimSatiri, birim: AlimBirimi): number | null {
  * Burada okunan şey bir STOK KALEMİDİR (`SAC 10 MM S355JR`, `UPN 100 S235JR`,
  * `SAC 10 X 1500 X 6000 ST37`) — ölçüsü değil AİLESİ sorulur. Aynı fonksiyona
  * iki sözleşme birden yüklemek, `tanimOlculeri`nin kapsamını genişletmek gibi
- * sessiz bir hata olurdu (md. 24).
+ * sessiz bir hata olurdu (HAM-24).
  *
  * Sıra bir ÖNCELİKTİR: `RAY` önce sorulur çünkü "RAY A65" içinde başka hiçbir
  * anahtar geçmez; `SAC` en sonda değil ortada durur çünkü "DELİKLİ SAC" ve

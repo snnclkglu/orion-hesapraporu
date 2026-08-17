@@ -74,7 +74,7 @@ interface FxDailyRow {
 }
 
 /**
- * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik md. 7). Yedi sütun 375px'lik ekranda
+ * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik MOBIL-7). Yedi sütun 375px'lik ekranda
  * tabloyu ikiye katlıyor; telefonda Dönem · EUR/TRY · USD/TRY kalır. Düşen
  * bilgiden KRİTİK olan (ortalamanın kaç günden çıktığı) dönem hücresinin ikinci
  * satırına iner — ikinci bir kart markup'ı yazılmaz.
@@ -406,7 +406,7 @@ export function FxView({
 
   // ————————————————————————————————————————————————————————— dönem kaydı
   //
-  // `hr_periods` maaş dönemine DONMUŞ kuru taşır (AGENTS md. 16: kur satırın
+  // `hr_periods` maaş dönemine DONMUŞ kuru taşır (AGENTS SATIS-16: kur satırın
   // kendindedir). Ortalamadan sapması bir hata değildir — ödenmiş bir ayın avro
   // karşılığı sonradan değişmemelidir — ama sayıyı defteriyle karşılaştıran
   // müdür ikisini yan yana görmelidir.

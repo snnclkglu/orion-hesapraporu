@@ -321,7 +321,7 @@ export function RawTable({
       havuz.satirlar.map((satir) => {
         const siparisEdilen = siparisHaritasi.get(satir.key) ?? 0;
         const kendi = teklifHaritasi.get(satir.key) ?? [];
-        // KURU OLMAYAN TEKLİF YARIŞA GİRMEZ (md. 21): `null` fiyat sıfır değildir.
+        // KURU OLMAYAN TEKLİF YARIŞA GİRMEZ (SATIN-21): `null` fiyat sıfır değildir.
         const enIyi =
           kendi
             .filter((t) => t.unitPriceEur != null)
@@ -1498,7 +1498,7 @@ function sayi(v: number | null | undefined) {
 }
 
 /**
- * Tür çipi — renk HEX DEĞİL OKLCH TON AÇISIDIR (md. 14).
+ * Tür çipi — renk HEX DEĞİL OKLCH TON AÇISIDIR (IS-14).
  *
  * Doygunluk ve parlaklık `globals.css`teki `.oc-tag` kuralında ve TEMA BAŞINA
  * verilir; buradan yalnız `--oc-hue` gelir. Sınıfın kendi tonu
@@ -1529,7 +1529,7 @@ function TurSeridi({
   const toplam = secenekler.reduce((t, s) => t + s.count, 0);
   // `.oc-tap` BU ŞERİTTE KULLANILMAZ: görünmez `::after` katmanı kutunun
   // dışına taşar ve `overflow-x` veren bir kapta dikey taşma bir DİKEY
-  // KAYDIRMA ÇUBUĞU doğurur (dokunmatik md. 14 — 11.08.2026'da proje sekme
+  // KAYDIRMA ÇUBUĞU doğurur (dokunmatik MOBIL-14 — 11.08.2026'da proje sekme
   // rayında yaşandı). Dokunma payı `PurchasingNav`ın yolundan gelir: kutunun
   // KENDİSİ kaba işaretleyicide büyür.
   const cip = (aktif: boolean) =>

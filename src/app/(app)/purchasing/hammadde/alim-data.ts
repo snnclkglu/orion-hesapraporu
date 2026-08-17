@@ -4,7 +4,7 @@
 // (`purchase_raw_purchases`), bugünü ise uygulamanın kendi sipariş
 // satırlarından okur ve ikisini `AlimSatiri` ortak diline çevirir. Kaynak
 // satırda DURUR: dışarıdan gelen bir dosya ile uygulamanın kendi kaydı aynı
-// güvende değildir (fiyat arşivinin üç kaynağı ayrı gösterme kuralı, md. 21).
+// güvende değildir (fiyat arşivinin üç kaynağı ayrı gösterme kuralı, SATIN-21).
 //
 // SİPARİŞLER EKRANI AYNI OKUMAYI PAYLAŞIR: "hangi siparişler hammadde" sorusu
 // iki yerde ayrı cevaplanırsa, analizdeki toplam ile listedeki toplam bir gün
@@ -49,7 +49,7 @@ const ALIM_ALANLARI =
 /**
  * Devralınan alım satırları.
  *
- * TABLO OLMAYABİLİR (md. 21'in "sütun/tablo olmayabilir" kuralı): migration
+ * TABLO OLMAYABİLİR (SATIN-21'in "sütun/tablo olmayabilir" kuralı): migration
  * uygulanmadan önce sorgu düşer ve ekran BOŞ ama ÇALIŞIR hâlde açılmalıdır —
  * canlı siparişler yine görünür.
  */
@@ -128,7 +128,7 @@ export interface HammaddeSiparisi {
  *
  * Havuz anahtarlarıyla eşleştirme YAPILMAZ ve bu bilinçli: plaka siparişinin
  * adı havuzdakinden FARKLIDIR (`SAC 10 X 1500 X 6000 ST37` ↔ `SAC 10 MM
- * S355JR`, md. 24) ve anahtar eşleştirmesi tam da en önemli siparişleri
+ * S355JR`, HAM-24) ve anahtar eşleştirmesi tam da en önemli siparişleri
  * dışarıda bırakırdı.
  */
 export function hammaddeSiparisleriniSuz(siparisler: readonly Siparis[]): HammaddeSiparisi[] {
@@ -149,7 +149,7 @@ export function hammaddeSiparisleriniSuz(siparisler: readonly Siparis[]): Hammad
           birimFiyat: l.unitPrice,
           tutar,
           // AVRO KARŞILIĞI SATIRIN KENDİ KURUNDAN: sipariş başlığındaki
-          // `fx_rate` "1 avro kaç birim eder"dir (md. 21).
+          // `fx_rate` "1 avro kaç birim eder"dir (SATIN-21).
           tutarEur: tutar != null && s.fxRate && s.fxRate > 0 ? tutar / s.fxRate : null,
           teslimAlinan: l.receivedQty,
           kalite: l.quality,

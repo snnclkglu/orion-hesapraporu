@@ -8,9 +8,9 @@
 // sürüklenemez; kartta durum çipi (JobStatusMenu) her boyutta durur.
 //
 // İKİ YERLEŞİM, TEK KART: masaüstünde (`md`+) gerçek sütunlar `.oc-scrollx`
-// kabında yatay dizilir (kap içi kaydırma md. 8 ile meşru; SAYFA kaymaz);
+// kabında yatay dizilir (kap içi kaydırma MOBIL-8 ile meşru; SAYFA kaymaz);
 // telefonda sütunlar DİKEY açılır-kapanır gruplara katlanır (progress-board
-// deseni, md. 15). Kart markup'ı `BoardCard`ta TEKTİR — iki yerleşim aynı
+// deseni, MOBIL-15). Kart markup'ı `BoardCard`ta TEKTİR — iki yerleşim aynı
 // bileşeni basar, ayrışamaz.
 
 import { useMemo, useState, useTransition } from "react";

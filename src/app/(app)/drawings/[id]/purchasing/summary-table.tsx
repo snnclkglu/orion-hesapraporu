@@ -197,7 +197,7 @@ export function PurchaseSummaryTable({
                 <TableHead className="hidden md:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden md:table-cell text-right">Teslim</TableHead>
                 <TableHead>Durum</TableHead>
-                {/* Telefonda termin Durum hücresinin altına iner (md. 15). */}
+                {/* Telefonda termin Durum hücresinin altına iner (MOBIL-15). */}
                 <TableHead className="hidden sm:table-cell">Termin</TableHead>
                 <TableHead className="hidden lg:table-cell">Teslim Tarihi</TableHead>
               </TableRow>
@@ -219,7 +219,7 @@ function Satir({ s }: { s: OzetSatiri }) {
     <TableRow>
       {/* `overflow-wrap:anywhere` (yalnız telefonda): `break-word` tablo
           sütununun min-content'ini küçültmez; uzun ölçü jetonu 375px'te
-          tabloyu taşırıyordu (parts-table ölçümünün aynısı, md. 15). */}
+          tabloyu taşırıyordu (parts-table ölçümünün aynısı, MOBIL-15). */}
       <TableCell className="align-top whitespace-normal max-sm:[overflow-wrap:anywhere]">
         <span className="text-[12px]">{s.tanim}</span>
         {s.parcaKodu && (
@@ -228,14 +228,14 @@ function Satir({ s }: { s: OzetSatiri }) {
           </span>
         )}
         {/* DAR EKRANDA GİZLENEN SÜTUNUN KRİTİK PARÇASI BİRİNCİL HÜCREYE İNER
-            (AGENTS md. 7); ikinci bir kart markup'ı yazılmaz. */}
+            (AGENTS MOBIL-7); ikinci bir kart markup'ı yazılmaz. */}
         <span className="mt-0.5 block text-[11px] text-muted-foreground md:hidden">
           {s.kullanildigiYer ? `${s.kullanildigiYer} · ` : ""}
           {s.siparisAdedi ? `Sipariş ${formatNum(s.siparisAdedi)}` : "Sipariş yok"}
           {s.teslimAdedi ? ` · Teslim ${formatNum(s.teslimAdedi)}` : ""}
         </span>
       </TableCell>
-      {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR (AGENTS md. 7): grup adları
+      {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR (AGENTS MOBIL-7): grup adları
           "15 T X 24 M … GENEL KOMPLE" kadar uzayabilir ve tek satır tabloyu
           ekranın dışına iterdi. Tam metin `title` ile durur. */}
       <TableCell

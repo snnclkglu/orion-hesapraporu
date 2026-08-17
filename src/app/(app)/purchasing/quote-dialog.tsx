@@ -177,7 +177,7 @@ export function QuoteDialog({
         fxRate: kur,
         quotedAt: f.tarih,
         validUntil: "",
-        // ÖDEME BİÇİMİ İLE VADE GÜNÜ AYRI SÜTUNLARDIR (md. 21) ama TEK bir
+        // ÖDEME BİÇİMİ İLE VADE GÜNÜ AYRI SÜTUNLARDIR (SATIN-21) ama TEK bir
         // listeden seçilir: satınalmacının kafasında tek soru var.
         paymentMethod: kosul.method,
         paymentTermDays: kosul.days,

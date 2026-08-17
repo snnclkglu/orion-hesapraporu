@@ -220,7 +220,7 @@ export async function deleteCustomer(id: string): Promise<AdminActionResult> {
  * satınalmacıyı yönetim ekranına göndermek, defterin 12.08.2026'da hiç
  * açılmama gerekçesiydi ve o gerekçe hâlâ geçerli.
  *
- * AD BÜYÜK HARFLE saklanır (`adBuyuk`, md. 14) ve `match_key` KATLANMIŞ addır:
+ * AD BÜYÜK HARFLE saklanır (`adBuyuk`, IS-14) ve `match_key` KATLANMIŞ addır:
  * "ÇELİK RULMAN" ile "CELIK RULMAN" tek firmadır.
  */
 const supplierSchema = z.object({
@@ -314,7 +314,7 @@ export async function updateSupplier(
  * Tedarikçiyi defterden siler.
  *
  * YAYINLANMIŞ SİPARİŞ DEĞİŞMEZ: `purchase_orders.supplier` bir METİNdir, bu
- * kayda bağlı değil (md. 14'ün müşteri fotoğrafı kuralı). Silinen firmanın
+ * kayda bağlı değil (IS-14'ün müşteri fotoğrafı kuralı). Silinen firmanın
  * geçmiş siparişleri ve teklifleri olduğu gibi durur; kaybolan tek şey öneri
  * listesindeki satır ve kodudur — o yüzden ekran "silmek yerine pasife çek"i
  * önerir.

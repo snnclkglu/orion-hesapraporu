@@ -49,7 +49,7 @@ export function ProjectDetailHeader({
    * 0055-00"dır. Alan `doc_no`dan DEĞİL `job_items.item_no`dan gelir
    * (`resolveProjectItemNo`): eski raporların `doc_no`su bilinçli olarak
    * kalemsiz bırakıldı — yayınlanmış PDF'lerin belge kodu değişmemeli
-   * (AGENTS md. 14) — ama ekranda gezinme yolu sistemin kendi numarasını
+   * (AGENTS IS-14) — ama ekranda gezinme yolu sistemin kendi numarasını
    * göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
    */
   itemNo?: string;
@@ -128,7 +128,7 @@ export function ProjectDetailHeader({
 
       {/* İlk iki bağlantı elle yazılmış düğmelerdir; yanlarındaki `size="sm"`
           Button'lar dokunmatik payını tabandan alıyor, bunlar almıyordu.
-          `.oc-tap` hedefi 44px'e tamamlar, kutu 40px'te kalır (md. 1). */}
+          `.oc-tap` hedefi 44px'e tamamlar, kutu 40px'te kalır (MOBIL-1). */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         <Link
           href={`/projects/${project.id}/compare`}

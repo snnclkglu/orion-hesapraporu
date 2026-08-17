@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
  * Ayrı bir bileşen yazmak yerine bir bayrak, çünkü iki kopya zamanla ayrışır —
  * bu dosyanın var oluş gerekçesi tam olarak buydu.
  *
- * İpucu 11px'in altına İNMEZ (dokunmatik md. 11); yoğunluk okunurluğu yemez.
+ * İpucu 11px'in altına İNMEZ (dokunmatik MOBIL-11); yoğunluk okunurluğu yemez.
  */
 export function StatCard({
   label,

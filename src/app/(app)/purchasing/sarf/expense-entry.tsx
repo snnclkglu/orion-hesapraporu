@@ -56,7 +56,7 @@ interface EntryLine {
   unit: string;
   unitPrice: string;
   vatRate: VatRate;
-  /** MARKA/KALİTE (md. 18) — snapshot olarak kaydedilir. */
+  /** MARKA/KALİTE (RESIM-18) — snapshot olarak kaydedilir. */
   quality: string;
   note: string;
 }
@@ -194,7 +194,7 @@ export function ExpenseEntry({
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   }
 
-  /** Yeni marka/kalite deftere yazılır ve satıra uygulanır (md. 18). */
+  /** Yeni marka/kalite deftere yazılır ve satıra uygulanır (RESIM-18). */
   function kaliteEkle(key: number, ad: string) {
     const temiz = ad.trim();
     if (!temiz) return;
@@ -602,7 +602,7 @@ export function ExpenseEntry({
                     searchPlaceholder="Birim ara veya yaz…"
                     className="h-9 text-base pointer-fine:text-sm"
                   />
-                  {/* MARKA/KALİTE (md. 18) — sipariş dialoguyla ORTAK öneri
+                  {/* MARKA/KALİTE (RESIM-18) — sipariş dialoguyla ORTAK öneri
                       defteri (purchase_qualities); yeni değer yazınca kaydedilir. */}
                   <Combobox
                     options={qualityOptions}

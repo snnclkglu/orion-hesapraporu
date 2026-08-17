@@ -4,9 +4,9 @@
 --
 -- Satın alma paket başına DÜŞÜNMEZ. Satınalmacı "0057-00-0500'ün cıvataları"
 -- diye sipariş vermez; elindeki bütün projelerin cıvatalarını biriktirir ve
--- tedarikçiye tek sipariş açar (kullanıcı kararı, md. 7). Aynı sebeple bir
+-- tedarikçiye tek sipariş açar (kullanıcı kararı, HESAP-7). Aynı sebeple bir
 -- fiyat da pakete ait değildir: "RULMAN 6205-Z'yi geçen sene kaça almışız"
--- sorusunun cevabı bütün projelerin ortak hafızasıdır (md. 13).
+-- sorusunun cevabı bütün projelerin ortak hafızasıdır (KATALOG-13).
 --
 -- Bu yüzden ANAHTAR PAKET DEĞİL TANIMDIR:
 --
@@ -20,14 +20,14 @@
 -- `package_id` ve `item_no` SATIRDA DURUR ama BAĞ DEĞİL BAĞLAMdır: hangi iş
 -- için alındığını söyler, kimliği taşımaz (`on delete set null`). Paket
 -- silinse bile "bu rulman şu tarihte şu fiyata alındı" bilgisi yaşamalıdır —
--- `drawing_part_progress`in dersinin (md. 18) birebir aynısı.
+-- `drawing_part_progress`in dersinin (RESIM-18) birebir aynısı.
 --
 -- ══════════════════════════════════════════ PARA: HER ŞEY AVRODA GÖRÜNÜR
 --
 -- Kullanıcı kararı: "Fiyatlar Euro olacak. TL fiyat girilirse kur bilgisi
 -- istenecek ve sistemimizde hep euro görünecek."
 --
--- `job_item_sales` ile AYNI sözleşme (md. 16): `fx_rate` = 1 avro kaç birim
+-- `job_item_sales` ile AYNI sözleşme (SATIS-16): `fx_rate` = 1 avro kaç birim
 -- `currency` eder, avro satırında 1'dir, avro karşılığı TÜRETİLİR. Kur
 -- SATIRIN KENDİNDEDİR: merkezî bir kur tablosundan okunsaydı bugünkü kur
 -- değişince geçmişte ödediğimiz fiyatın avro karşılığı da değişir ve fiyat
@@ -313,7 +313,7 @@ end $$;
 -- olmamalıdır — paketi yeniden eşleştirmek onun işi değil.
 --
 -- Ama "satın alındı" ve "teslim alındı" TAM OLARAK onun işidir; kodun kendisi
--- bunu zaten söylüyor (`PURCHASE_STAGE_SLUGS`, md. 18: "sipariş kararı tezgâhın
+-- bunu zaten söylüyor (`PURCHASE_STAGE_SLUGS`, RESIM-18: "sipariş kararı tezgâhın
 -- değil satınalmanın kaydıdır"). Politika o güne kadar bu ayrımı tanımıyordu
 -- çünkü satınalmacı diye ayrı bir yetki yoktu.
 --

@@ -123,7 +123,7 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
       </p>
 
       {/* ————————————————————————————————————— 1. ROL × BÖLÜM IZGARASI */}
-      {/* BİLİNÇLİ İSTİSNA (md. 15): bu bir rol × bölüm MATRİSİDİR, listeye
+      {/* BİLİNÇLİ İSTİSNA (MOBIL-15): bu bir rol × bölüm MATRİSİDİR, listeye
           katlanmaz — satır ve sütunun kesişimi anlamın kendisidir, sütunları
           alt satıra indirmek "hangi bölüm" bilgisini yok ederdi. Telefonda
           içte kaymaya devam eder; kaydırma ipucunu `Table`ın varsayılan

@@ -17,7 +17,7 @@
 // planı YILDA BİR açılır, Maaş her ay — ve ray, günlük işi en yakın tutmalıdır.
 // Kurlar da aynı sebeple sondadır (o da otomatik doluyor, elle açılmıyor).
 //
-// ALT ÇİZGİ `border-b` DEĞİL İÇ GÖLGEDİR (AGENTS md. 14). `overflow-x` veren
+// ALT ÇİZGİ `border-b` DEĞİL İÇ GÖLGEDİR (AGENTS MOBIL-14). `overflow-x` veren
 // bir kap `overflow-y`yi de kaybeder ve `-mb-px` ile bir piksel taşan sekme
 // gerçek bir dikey kaydırma çubuğu doğurur — proje sekme rayında bir kez
 // yaşandı ve kullanıcı arıza olarak bildirdi. Gölge dolgu kutusunun İÇİNE
@@ -25,7 +25,7 @@
 // üstüne oturur.
 //
 // RAY KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: "mobilde yatayda kaydırma
-// olmasın"; AGENTS md. 15). Altı sekme telefonda iki satıra sarar ve hepsi her
+// olmasın"; AGENTS MOBIL-15). Altı sekme telefonda iki satıra sarar ve hepsi her
 // an görünür kalır; masaüstünde zaten tek satıra sığdığı için sarma orada hiç
 // devreye girmez. İç gölge kuralı yerinde durur — sarınca da her satırın altı
 // tek çizgidir.

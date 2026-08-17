@@ -87,7 +87,7 @@ export default async function PurchasingPage() {
       qualities={qualities}
       kategoriler={satinAlmaKategoriSirasi(HIZMET_TALEP_KATEGORILERI)}
       // İŞ SÜZGECİ KALEM NUMARASIYLA eşleşir, iş kimliğiyle değil: havuz
-      // satırları `item_no` METNİ taşır (md. 17/18'in kuralı — bağ türevdir).
+      // satırları `item_no` METNİ taşır (WORKLOG-17 / RESIM-18'in kuralı — bağ türevdir).
       isler={(
         (isler ?? []) as {
           id: string;

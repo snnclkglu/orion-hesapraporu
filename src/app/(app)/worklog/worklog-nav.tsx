@@ -24,7 +24,7 @@ export function WorkLogNav() {
     //
     // 360px'te üç sekme + rozet 449px istiyordu: etiketler iki satıra kırılıyor
     // ve alt çizgi göstergesi bozuluyordu. Ray bir süre `.oc-scrollx` ile yatay
-    // kaydı; artık KAYMAZ, SARAR (kabuk md. 15, `purchasing-nav` deseni):
+    // kaydı; artık KAYMAZ, SARAR (kabuk ROL-15, `purchasing-nav` deseni):
     // sekmeler dar ekranda ikinci satıra iner ve hepsi her an görünür kalır.
     <nav
       className="flex flex-wrap items-center gap-x-3 border-b"

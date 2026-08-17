@@ -4,7 +4,7 @@
 //
 // `Tabs` KULLANILMAZ: bunlar aynı sayfanın panelleri değil AYRI ADRESLERdir
 // (her biri kendi verisini sunucudan çeker, paylaşılabilir, yenilenebilir).
-// Desen `package-nav.tsx` ile birebir aynı: ray KAYMAZ, SARAR (md. 15) ve
+// Desen `package-nav.tsx` ile birebir aynı: ray KAYMAZ, SARAR (ROL-15) ve
 // aktif çizgi `-mb-px` değil İÇ GÖLGEYLE çizilir (kabuk kuralı 14).
 //
 // SIRA İŞ AKIŞINI İZLER: iş açılır (Genel Bakış), üzerinde ne olduğuna

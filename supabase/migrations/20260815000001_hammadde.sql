@@ -16,7 +16,7 @@
 --   · `purchase_raw_meta`   — türetilmiş bir satırın üstüne yazılan düzeltme
 --   · `purchase_raw_manual` — hiçbir resimden gelmeyen, elle açılan talep
 --
--- ANAHTAR PAKET DEĞİL TANIMDIR (md. 21). Hammaddede tanım STOK KALEMİNİN
+-- ANAHTAR PAKET DEĞİL TANIMDIR (SATIN-21). Hammaddede tanım STOK KALEMİNİN
 -- adıdır ("SAC 15 MM S355JR") ve `purchase_quotes` · `purchase_order_lines` ·
 -- `purchase_price_history` ile AYNI `match_key` uzayındadır. Bu sayede teklif,
 -- sipariş ve fiyat arşivi hammadde satırlarını EK KOD OLMADAN görür.

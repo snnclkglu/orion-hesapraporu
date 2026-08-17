@@ -59,7 +59,7 @@ comment on function public.can_edit_finance() is
 create table if not exists public.fin_employees (
   id uuid primary key default gen_random_uuid(),
 
-  -- AD BÜYÜK HARFLE SAKLANIR (AGENTS md. 14): dönüşüm `adBuyuk` ile hem
+  -- AD BÜYÜK HARFLE SAKLANIR (AGENTS IS-14): dönüşüm `adBuyuk` ile hem
   -- kullanıcı yazarken hem Zod şemasında yapılır.
   full_name text not null,
   -- Sicil no — firma içi numara. Serbest metindir ve BOŞ OLABİLİR: devralınan
@@ -161,7 +161,7 @@ create table if not exists public.fin_employee_documents (
 
   issued_on date,
   -- SÜRELİ BELGELER: İSG eğitimi (6331 md. 17), periyodik sağlık muayenesi
-  -- (md. 15), operatör belgesi, kaynakçı sertifikası. Süresi dolan belge
+  -- (ROL-15), operatör belgesi, kaynakçı sertifikası. Süresi dolan belge
   -- ENGELLEYİCİ DEĞİL bir HATIRLATMAdır.
   expires_on date,
 
@@ -185,7 +185,7 @@ create index if not exists fin_employee_documents_expiry_idx
 -- `eur_try_rate` BU AYIN ÖDEME KURUDUR ve satırın KENDİNDE durur — merkezî kur
 -- tablosundan okunsaydı, kur tablosu her tazelendiğinde GEÇMİŞ ayların avro
 -- karşılığı da değişirdi (Satış Takibi'ndeki `job_item_sales.fx_rate` ile
--- birebir aynı gerekçe, AGENTS md. 16).
+-- birebir aynı gerekçe, AGENTS SATIS-16).
 --
 -- Devralınan 27 ay Excel'deki kurla aktarıldı ve o kurlar AYLIK ORTALAMA
 -- DEĞİLDİR (ay sonu/ödeme günü spot kuru; 2025 Mart'ta fark %7,8). Yeni aylar
@@ -225,7 +225,7 @@ create table if not exists public.fin_payroll (
   overtime_hours_50 numeric(8, 2) not null default 0 check (overtime_hours_50 >= 0),
   overtime_hours_100 numeric(8, 2) not null default 0 check (overtime_hours_100 >= 0),
 
-  -- TUTAR TÜRETİLİR (AGENTS md. 16). Bağıntı 4857 md. 41'dir ve devralınan
+  -- TUTAR TÜRETİLİR (AGENTS SATIS-16). Bağıntı 4857 md. 41'dir ve devralınan
   -- Excel'in 566 satırının TAMAMINDA sıfır sapmayla doğrulandı:
   --     net / 225 × (saat50 × 1,5 + saat100 × 2)
   -- Elle girilen bir tutar saatlerle çelişebilirdi. TS ikizi
@@ -432,7 +432,7 @@ end $$;
 --
 -- İçerik firma sırrı değil KAMUYA AÇIK PİYASA VERİSİdir (TCMB bülteni). Finans
 -- yetkisine kısmak hiçbir şeyi korumaz, buna karşılık bugün Satış Takibi'nde
--- sözleşme kuru ELLE giriliyor (AGENTS md. 16: "kur satırın kendindedir") ve o
+-- sözleşme kuru ELLE giriliyor (AGENTS SATIS-16: "kur satırın kendindedir") ve o
 -- alana "bu ayın ortalaması" önerisi koymak yarın yetki değişikliği
 -- gerektirmemelidir. YAZMA finanstadır: rakamı yalnız tazeleme yolu yazar.
 drop policy if exists fin_fx_daily_select on public.fin_fx_daily;

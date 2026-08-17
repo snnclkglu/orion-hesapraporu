@@ -192,7 +192,7 @@ export function QuotesView({
               <thead>
                 <tr className="bg-muted/50 text-left text-muted-foreground">
                   {/* Telefonda Kalem/Firma sayıları Teklif hücresinin altına
-                      iner (yatay kaydırma yasağı, AGENTS md. 15). */}
+                      iner (yatay kaydırma yasağı, AGENTS MOBIL-15). */}
                   <th className="w-10 px-2 py-1.5 font-normal" />
                   <th className="px-2 py-1.5 font-normal">Kod</th>
                   <th className="px-2 py-1.5 font-normal">Teklif</th>

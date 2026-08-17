@@ -77,7 +77,7 @@ import { TAM_BOY_PENCERE } from "@/components/pencere";
  * USD`) ve miktar ekranda yokken kullanıcı ne kadarlık bir teklif girdiğini
  * göremiyor, verilen fiyatı kendi listesindeki toplamla karşılaştıramıyordu.
  *
- * "Teklifte adet SORULMAZ" kuralı (md. 24) çiğnenmedi: miktar bir GİRDİ ALANI
+ * "Teklifte adet SORULMAZ" kuralı (HAM-24) çiğnenmedi: miktar bir GİRDİ ALANI
  * değil, kalemin geldiği ekrandan (havuz satırı ya da kesim planı) taşınan bir
  * KÜNYEdir. Kullanıcı ona dokunamaz; yalnız neyin fiyatını verdiğini görür.
  */

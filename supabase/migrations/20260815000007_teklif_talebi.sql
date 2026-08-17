@@ -97,7 +97,7 @@ create index if not exists purchase_quote_batches_request_idx
 -- hammadde listesine sokardı.
 --
 -- Doğru değer 'ekipman' DEĞİLDİR — bilinmiyor, ve bu modülde bilinmeyen
--- uydurulmaz (md. 21). Üçüncü bir değer yazılır: kapsamı bilinmeyen parti
+-- uydurulmaz (SATIN-21). Üçüncü bir değer yazılır: kapsamı bilinmeyen parti
 -- yalnız KALEMİ havuzda karşılığı olduğunda görünür; anahtar hangi havuza
 -- düşüyorsa oraya.
 update public.purchase_quote_batches

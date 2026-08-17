@@ -18,7 +18,7 @@
 -- NUMARA = <iş kalemi no>-<grup kodu>, ör. "0055-00-0100". Kalem numarası
 -- BURADA SAKLANMAZ: `job_items.item_no` (yoksa `projects.doc_no`) zaten tek
 -- kaynaktır ve `autoItemNos` ikinci kalem eklendiğinde onu kaydırır
--- (AGENTS md. 14). Kopyalansaydı o gün defterdeki numara sessizce eskirdi.
+-- (AGENTS IS-14). Kopyalansaydı o gün defterdeki numara sessizce eskirdi.
 --
 -- BANT SÜTUNU YOKTUR: kod aralığı bandın kendisidir (köprü 0100–1400, araba
 -- 1500–2900, ekstra 3000+) ve firmanın kuralı budur. İkinci bir sütun aynı

@@ -668,7 +668,7 @@ export function computeHookBlock(
   // Tolerans kullanıldığında SESSİZ KALINMAZ ama bu da ikinci bir KONTROL
   // değildir: kontrol bir kabul/ret sorusudur ve "tolerans kullanıldı" bir
   // olgudur. Rapor bunu `sheave.diaShortfall` satırıyla yazar — satır yalnız
-  // tolerans gerçekten kullanıldığında basılır (md. 18/3: yanlış alarm yok).
+  // tolerans gerçekten kullanıldığında basılır (RESIM-18 / HESAP-3: yanlış alarm yok).
 
   // --- §4.3 Makara rulmanları ----------------------------------------------
   // Radyal yük halat kolundan gelir; eksenel yük halat sapma açısından doğan

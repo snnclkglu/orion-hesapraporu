@@ -281,7 +281,7 @@ describe("§4.2 makara çapı — standart seriye iniş toleransı", () => {
     const r = run(1100);
     expect(r.checks.find((x) => x.id === "hookBlock.sheave.dia")?.pass).toBe(true);
     expect(r.values.sheaveDiaToleranceUsed).toBe(false);
-    // Sapma satırı basılmaz — "eksiklik −%9" bir yanlış alarmdır (md. 18/3).
+    // Sapma satırı basılmaz — "eksiklik −%9" bir yanlış alarmdır (RESIM-18 / HESAP-3).
     const bolum = HOOKBLOCK_SECTIONS.find((s) => s.id === "4.2")!;
     const satir = bolum.rows.find((x) => x.key === "sheave.diaShortfall")!;
     const ctx = (v: typeof r.values) => ({

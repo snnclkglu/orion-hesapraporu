@@ -20,7 +20,7 @@
 //
 // Veritabanında "bu sipariş hammaddedir" diye bir alan YOKTUR ve açılmadı:
 // sipariş satırlarının ne olduğu zaten adlarında yazıyor ve ikinci bir alan,
-// düzeltilmiş bir kalem adından sonra sessizce yalan söylerdi (md. 21'in
+// düzeltilmiş bir kalem adından sonra sessizce yalan söylerdi (SATIN-21'in
 // "iki gerçek" kuralı). Tür her okumada `alimKategorisi` ile TÜRETİLİR — aynı
 // fonksiyon, hammadde alım analizinin kullandığının ta kendisi.
 //
@@ -46,7 +46,7 @@ export const SIPARIS_TURU_ETIKET: Record<SiparisTuru, string> = {
 };
 
 /**
- * Türün TON AÇISI — renk TANIMI `globals.css`tedir (md. 14'ün kuralı).
+ * Türün TON AÇISI — renk TANIMI `globals.css`tedir (IS-14'ün kuralı).
  *
  * Hammadde kehribar-turuncu (ham demir), ekipman mavi (makine), karma mor
  * (ikisinin arası). Doygunluk ve parlaklık tema başına CSS'te verilir; burada
@@ -96,7 +96,7 @@ export function turSuzgeciUyuyor(tur: SiparisTuru, secilenler: readonly string[]
 /**
  * KİLO TOPLAMI — yalnız KİLO BİRİMLİ satırlardan.
  *
- * Sacda ticari miktar kilodur (md. 24) ama profilde BOY, rulmanda ADET olabilir
+ * Sacda ticari miktar kilodur (HAM-24) ama profilde BOY, rulmanda ADET olabilir
  * ve üçünü toplamak tonajı sessizce şişirirdi. Kilo dışı satırlar AYRICA
  * sayılır ve ekranda "+n" olarak görünür — sessizce düşürülmezler.
  */

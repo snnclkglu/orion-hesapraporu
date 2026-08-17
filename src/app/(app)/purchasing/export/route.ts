@@ -1,6 +1,6 @@
 // Talep havuzu indirmesi — EXCEL ya da PDF, EKRANDAKİ SÜZGEÇLE.
 //
-// Kullanıcı kararı (md. 7): "Herhangi bir arama filtreleme yaptığımda o filtreye
+// Kullanıcı kararı (HESAP-7): "Herhangi bir arama filtreleme yaptığımda o filtreye
 // göre excel ve pdf insin. Eğer seçim yaparsam sadece o ürünler excel ve pdf
 // insin."
 //

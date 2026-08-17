@@ -3,7 +3,7 @@
 // Teknik Resim Takibi defterinin yazma katmanı.
 //
 // DEFTER BİR BÜTÜN OLARAK KAYDEDİLİR (`saveWorkDay` ile aynı desen, AGENTS
-// md. 17): gelen satırlar kimlikleriyle eşlenir, kalanlar güncellenir,
+// WORKLOG-17): gelen satırlar kimlikleriyle eşlenir, kalanlar güncellenir,
 // listeden düşenler silinir. Alternatif — her satırı ayrı ayrı yazmak —
 // mühendisin "önce numarayı 0100'den 0200'e al, sonra 0100'ü başka gruba ver"
 // gibi tek bir düzenlemede yaptığı yer değiştirmelerde tekillik kısıtına
@@ -87,7 +87,7 @@ export type DrawingPlanResult = {
  *
  * Yetki RLS'tedir (`can_edit_reports()`); buradaki kontrol yalnız kullanıcıya
  * anlaşılır bir cümle söylemek içindir — menüden gizlemek görgü kuralı, asıl
- * engel politikadır (AGENTS md. 15).
+ * engel politikadır (AGENTS ROL-15).
  */
 export async function saveDrawingPlan(
   projectId: string,

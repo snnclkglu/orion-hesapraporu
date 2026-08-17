@@ -1,6 +1,6 @@
 // Görev Şablonu — İşler'deki "Şablondan Ekle"nin kaynağı.
 //
-// Defter BOŞ BAŞLAR: hazır madde uydurulmaz (md. 21); firmanın gerçek
+// Defter BOŞ BAŞLAR: hazır madde uydurulmaz (SATIN-21); firmanın gerçek
 // kontrol listesi neyse onu yönetici yazar. Boş durum bunu açıkça söyler.
 
 import { createClient } from "@/lib/supabase/server";

@@ -482,7 +482,7 @@ export interface PeriodRateResult {
  *      yoktur; şimdilik yazılan değer birkaç gün sonra yanlış olurdu.
  *
  * YAZILMIŞ KUR EZİLMEZ (`is("eur_try_rate", null)`): ödenmiş bir ayın kuru
- * donar (AGENTS md. 16). Devralınan 27 ayın Excel'den gelen kuru bu yüzden
+ * donar (AGENTS SATIS-16). Devralınan 27 ayın Excel'den gelen kuru bu yüzden
  * yerinde kalır.
  *
  * Ekran açıldığında çağrılır ve İDEMPOTENTtir: yapacak iş yoksa hiçbir şey

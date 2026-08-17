@@ -1,6 +1,6 @@
 // Hammadde eylemlerinin Zod şemaları.
 //
-// KURAL EKRANDA DEĞİL ŞEMADA DURUR (md. 16'nın "kur eksikken kayıt yapılmaz"
+// KURAL EKRANDA DEĞİL ŞEMADA DURUR (SATIS-16'nın "kur eksikken kayıt yapılmaz"
 // dersi): kayıt hangi kapıdan girerse girsin aynı kısıtlardan geçer.
 
 import { z } from "zod";

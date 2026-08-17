@@ -655,7 +655,7 @@ export function SalaryPlanBoard({
               </TableHead>
               <TableHead>Ad Soyad</TableHead>
               <TableHead className={cn("w-[10rem]", AT_LG)}>Görev</TableHead>
-              {/* TELEFONDA LİSTEYE KATLANIR (md. 15): `sm` altında seçim + Ad
+              {/* TELEFONDA LİSTEYE KATLANIR (MOBIL-15): `sm` altında seçim + Ad
                   Soyad + yeni ücret kalır; taban ve oran ad hücresinin alt
                   satırına iner. Ücret kutusu çift yönlüdür, telefonda da
                   ücret yazılabilir — oran `sm`den itibaren döner. */}

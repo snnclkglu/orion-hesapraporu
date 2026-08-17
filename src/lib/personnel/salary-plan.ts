@@ -68,7 +68,7 @@ export const EN_ESKI_PLAN_YILI = 2024;
 /**
  * ÖLÇEĞİN İKİ UCU — kırmızı (az) ve yeşil (çok), OKLCH ton açısı olarak.
  *
- * HEX DEĞİL AÇI (AGENTS md. 14): aynı hex açık ve koyu temada birden okunmaz.
+ * HEX DEĞİL AÇI (AGENTS IS-14): aynı hex açık ve koyu temada birden okunmaz.
  * Doygunluk ve parlaklık `globals.css`teki `.oc-scale` kuralında ve tema
  * başına verilir; veri yalnız TON taşır.
  */

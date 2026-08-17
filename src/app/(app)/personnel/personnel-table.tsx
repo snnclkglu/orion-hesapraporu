@@ -135,10 +135,10 @@ export function PersonnelTable({
         />
       </div>
 
-      {/* SÜZGEÇ ŞERİDİ — kaymaz, sarar (md. 15): telefonda satırlara iner. */}
+      {/* SÜZGEÇ ŞERİDİ — kaymaz, sarar (MOBIL-15): telefonda satırlara iner. */}
       <div className="flex flex-wrap items-center gap-2 border bg-card p-2">
         {/* İç gruplar da SARAR: dış kap flex-wrap iken `shrink-0` tek parça
-            küme sayfayı yine taşırıyordu (375px'te ölçüldü, md. 15). */}
+            küme sayfayı yine taşırıyordu (375px'te ölçüldü, MOBIL-15). */}
         <div className="flex flex-wrap items-center gap-1">
           {(
             [

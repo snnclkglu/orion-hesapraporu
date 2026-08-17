@@ -1,0 +1,290 @@
+[
+  {
+    "id": "HESAP-1",
+    "alan": "hesap",
+    "no": "1",
+    "baslik": "Hesap motoru saftır."
+  },
+  {
+    "id": "HESAP-2",
+    "alan": "hesap",
+    "no": "2",
+    "baslik": "4 değer rolü."
+  },
+  {
+    "id": "HESAP-3",
+    "alan": "hesap",
+    "no": "3",
+    "baslik": "Semantik anahtarlar."
+  },
+  {
+    "id": "HESAP-4",
+    "alan": "hesap",
+    "no": "4",
+    "baslik": "Kontrol tipolojisi."
+  },
+  {
+    "id": "HESAP-5",
+    "alan": "hesap",
+    "no": "5",
+    "baslik": "Ortak hesap kütüphaneleri"
+  },
+  {
+    "id": "HESAP-11",
+    "alan": "hesap",
+    "no": "11",
+    "baslik": "Teker yükleri yol kirişinin girdisidir."
+  },
+  {
+    "id": "HESAP-15",
+    "alan": "hesap",
+    "no": "15",
+    "baslik": "Feston bir katalog ürünüdür, teknik özellik değil."
+  },
+  {
+    "id": "HESAP-16",
+    "alan": "hesap",
+    "no": "16",
+    "baslik": "Kabin ve elektrik odası kendi bölümüdür (11.x)."
+  },
+  {
+    "id": "HESAP-17",
+    "alan": "hesap",
+    "no": "17",
+    "baslik": "Mahal iklimlendirme yükü hesaplanır — `climate-load.ts`."
+  },
+  {
+    "id": "HESAP-5b",
+    "alan": "hesap",
+    "no": "5b",
+    "baslik": "ALAN ÖBEKLERİ — girdi ızgarası kesitin parçalarına göre ayrılır."
+  },
+  {
+    "id": "HESAP-6",
+    "alan": "hesap",
+    "no": "6",
+    "baslik": "Standart referansları tıklanabilir."
+  },
+  {
+    "id": "HESAP-7",
+    "alan": "hesap",
+    "no": "7",
+    "baslik": "Revizyon = snapshot."
+  },
+  {
+    "id": "HESAP-8",
+    "alan": "hesap",
+    "no": "8",
+    "baslik": "Vinç topolojisi."
+  },
+  {
+    "id": "HESAP-12",
+    "alan": "hesap",
+    "no": "12",
+    "baslik": "Buruşma ana kirişin bir kontrolüdür, bağımsız bir modül değil."
+  },
+  {
+    "id": "HESAP-8b",
+    "alan": "hesap",
+    "no": "8b",
+    "baslik": "Köprü İKİ ya da DÖRT kirişli olabilir."
+  },
+  {
+    "id": "HESAP-8c",
+    "alan": "hesap",
+    "no": "8c",
+    "baslik": "Ana kirişte ray altına T PROFİL konur"
+  },
+  {
+    "id": "HESAP-8d",
+    "alan": "hesap",
+    "no": "8d",
+    "baslik": "Kaldırma kirişi x · y · z ölçü zinciriyle tanımlıdır"
+  },
+  {
+    "id": "HESAP-8e",
+    "alan": "hesap",
+    "no": "8e",
+    "baslik": "KANCA TANIMI BİR SEÇİMDİR ve kapasitenin nereden okunacağını O belirler"
+  },
+  {
+    "id": "HESAP-9",
+    "alan": "hesap",
+    "no": "9",
+    "baslik": "Ağırlıklar teknik özelliktir."
+  },
+  {
+    "id": "HESAP-10",
+    "alan": "hesap",
+    "no": "10",
+    "baslik": "Otomatik girdiler."
+  },
+  {
+    "id": "KATALOG-13",
+    "alan": "katalog",
+    "no": "13",
+    "baslik": "Katalog ürünü kullanım grubuna bağlıdır."
+  },
+  {
+    "id": "KATALOG-19",
+    "alan": "katalog",
+    "no": "19",
+    "baslik": "\"Ek Belge\" mühendisin kendi katalog yaprağıdır."
+  },
+  {
+    "id": "SATIN-21",
+    "alan": "satinalma",
+    "no": "21",
+    "baslik": "SATIN ALMA PAKETİN ÜSTÜNDE BİR KATMANDIR"
+  },
+  {
+    "id": "HAM-24",
+    "alan": "hammadde",
+    "no": "24",
+    "baslik": "HAMMADDE HAVUZU EKİPMAN HAVUZUNUN SÜZGECİ DEĞİL, KARDEŞİDİR"
+  },
+  {
+    "id": "PERSONEL-22",
+    "alan": "personel",
+    "no": "22",
+    "baslik": "PERSONEL: KİŞİ BİR SATIR DEĞİL, DÖNEMLERİ OLAN BİR KAYITTIR"
+  },
+  {
+    "id": "RESIM-20",
+    "alan": "resimler",
+    "no": "20",
+    "baslik": "Teknik Resim Takibi PLANDIR, teslim değil."
+  },
+  {
+    "id": "RESIM-18",
+    "alan": "resimler",
+    "no": "18",
+    "baslik": "Teknik Resimler HOŞGÖRÜLÜ ANLAR, biçim DAYATMAZ."
+  },
+  {
+    "id": "IS-25",
+    "alan": "isler",
+    "no": "25",
+    "baslik": "İŞLER BİR HUB'DIR"
+  },
+  {
+    "id": "IS-14",
+    "alan": "isler",
+    "no": "14",
+    "baslik": "Hesap raporu İŞE değil İŞ KALEMİNE bağlanır."
+  },
+  {
+    "id": "SATIS-16",
+    "alan": "satis",
+    "no": "16",
+    "baslik": "Satış Takibi İŞ KALEMİNE bağlanır ve AYRI TABLODADIR."
+  },
+  {
+    "id": "WORKLOG-17",
+    "alan": "worklog",
+    "no": "17",
+    "baslik": "İş Takibi bir GÜN × KALEM × PARÇA × TÜR çizelgesidir."
+  },
+  {
+    "id": "PANEL-23",
+    "alan": "panel",
+    "no": "23",
+    "baslik": "AÇILIŞ PANOSU GİRİŞ SONRASI İLK EKRANDIR"
+  },
+  {
+    "id": "ROL-15",
+    "alan": "roller",
+    "no": "15",
+    "baslik": "Roller yetki SORUSUYLA sorulur, listeyle değil."
+  },
+  {
+    "id": "MOBIL-1",
+    "alan": "arayuz",
+    "no": "1",
+    "baslik": "Dokunma hedefi kırılımla değil `pointer-coarse:` ile büyür — ve KUTUYU"
+  },
+  {
+    "id": "MOBIL-2",
+    "alan": "arayuz",
+    "no": "2",
+    "baslik": "Girdi yazısı dokunmatikte 16px'tir"
+  },
+  {
+    "id": "MOBIL-3",
+    "alan": "arayuz",
+    "no": "3",
+    "baslik": "Yükseklik birimi `dvh`dir, `vh` değil."
+  },
+  {
+    "id": "MOBIL-4",
+    "alan": "arayuz",
+    "no": "4",
+    "baslik": "Pencere yüksekliği görünür alana kelepçelidir."
+  },
+  {
+    "id": "MOBIL-5",
+    "alan": "arayuz",
+    "no": "5",
+    "baslik": "`min-width`, `max-width`i yener."
+  },
+  {
+    "id": "MOBIL-6",
+    "alan": "arayuz",
+    "no": "6",
+    "baslik": "Geniş pencere tablette kenar boşluğu bırakır."
+  },
+  {
+    "id": "MOBIL-7",
+    "alan": "arayuz",
+    "no": "7",
+    "baslik": "Tabloda sütun önceliklendirilir, kart markup'ı ÇOĞALTILMAZ."
+  },
+  {
+    "id": "MOBIL-8",
+    "alan": "arayuz",
+    "no": "8",
+    "baslik": "Yatay kaydırma varsa GÖRÜNMELİDİR."
+  },
+  {
+    "id": "MOBIL-9",
+    "alan": "arayuz",
+    "no": "9",
+    "baslik": "Diyagram küçülmez, kaydırılır."
+  },
+  {
+    "id": "MOBIL-10",
+    "alan": "arayuz",
+    "no": "10",
+    "baslik": "Kart iç boşluğu telefonda bir kademe kısılır"
+  },
+  {
+    "id": "MOBIL-11",
+    "alan": "arayuz",
+    "no": "11",
+    "baslik": "İçerik metninde 11px altına inilmez."
+  },
+  {
+    "id": "MOBIL-12",
+    "alan": "arayuz",
+    "no": "12",
+    "baslik": "Sayfa eylemleri `lg` altında KENDİ SATIRINDADIR."
+  },
+  {
+    "id": "MOBIL-13",
+    "alan": "arayuz",
+    "no": "13",
+    "baslik": "1280px altında her derin sayfa `backHref` verir."
+  },
+  {
+    "id": "MOBIL-14",
+    "alan": "arayuz",
+    "no": "14",
+    "baslik": "`overflow-x` veren kap `overflow-y`yi de kaybeder."
+  },
+  {
+    "id": "MOBIL-15",
+    "alan": "arayuz",
+    "no": "15",
+    "baslik": "Telefonda ANA TABLO yatay kaymaz — listeye katlanır"
+  }
+]

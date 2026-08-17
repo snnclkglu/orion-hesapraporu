@@ -11,7 +11,7 @@
 //
 // AVRO KARŞILIĞI DÖNEMİN KENDİ KURUYLA hesaplanır (`hr_periods.eur_try_rate`),
 // bugünkü kurla değil: ödenmiş bir ayın avro karşılığı sonradan değişmemelidir
-// (AGENTS md. 16). Kuru girilmemiş ay sıfır SAYILMAZ — hücre "—" olur ve satır
+// (AGENTS SATIS-16). Kuru girilmemiş ay sıfır SAYILMAZ — hücre "—" olur ve satır
 // bunu ayrıca söyler.
 //
 // ————————————————————————————————————— 13.08.2026 kullanıcı kararları
@@ -195,7 +195,7 @@ export function SummaryView({
    * Bilerek: buradaki avro karşılığı DÖNEMİN KENDİ kuruyla
    * (`hr_periods.eur_try_rate`) hesaplanır, ortalamayla değil. Ortalamaya
    * düşmek "kuru girilmemiş ay"ı sessizce doldurur ve ödenmiş bir ayın avro
-   * karşılığı kur tablosu her tazelendiğinde değişirdi (AGENTS md. 16).
+   * karşılığı kur tablosu her tazelendiğinde değişirdi (AGENTS SATIS-16).
    * Eksik kur GİZLENMEZ, satırda "kur yok" diye görünür.
    */
   fx?: FxMonthlyRow[];

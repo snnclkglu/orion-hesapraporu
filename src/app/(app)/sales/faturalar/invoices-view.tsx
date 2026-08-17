@@ -6,7 +6,7 @@
 // açılır ve Yönetim → Müşteriler'e girer. İŞ NO da İşler'den dropdown gelir.
 // KUR OTOMATİK ÖNERİLİR (en son TCMB yayını) ama kilit değildir. Fatura
 // YERİNDE DÜZENLENİR (kalem satırındaki kalem düğmesi). Ciro yalnız AVRO
-// karşılığından toplanır; kuru olmayan satır toplama girmez (md. 16).
+// karşılığından toplanır; kuru olmayan satır toplama girmez (SATIS-16).
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";

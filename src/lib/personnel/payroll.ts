@@ -126,7 +126,7 @@ const BOS_OZET: PeriodSummary = {
  *
  * Excel'in "Maaş Özet Tablo" sayfasının birebir karşılığıdır ve HESAPLANIR:
  * o sayfadaki sütunların hepsi maaş satırlarından türetilebilir, yani ikinci
- * bir tabloda saklamak iki kaynak üretirdi (AGENTS md. 16, "toplamlar
+ * bir tabloda saklamak iki kaynak üretirdi (AGENTS SATIS-16, "toplamlar
  * TÜRETİLİR").
  */
 export function donemOzeti(rows: readonly PayrollRowLike[]): PeriodSummary {

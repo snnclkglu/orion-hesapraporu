@@ -11,7 +11,7 @@
 // %95'inde gereksiz bir gürültü olurdu ve asıl gerektiği anda fark edilmezdi.
 //
 // KAYIT TEKLİFİN ŞARTI DEĞİLDİR. Firma deftere yazılmasa da teklif kaydedilir
-// (`supplier` metni satırın kendisinde durur, md. 21) — defter bir ÖNERİ
+// (`supplier` metni satırın kendisinde durur, SATIN-21) — defter bir ÖNERİ
 // kaynağıdır, bir kapı değil. Düğmeye basmamak hiçbir şeyi engellemez;
 // basmak yalnız bir dahaki sefere listede çıkmasını sağlar.
 

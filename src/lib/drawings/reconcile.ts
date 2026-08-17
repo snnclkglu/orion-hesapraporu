@@ -233,7 +233,7 @@ function tamSayi(raw: string): number | null {
  * geçemiyor, yani kalem Satın Alma'da HİÇ görünmeyip Üretim tahtasına
  * çıkıyordu — atölyenin kesmesi beklenen bir rulman.
  *
- * Liste UYDURMA DEĞİL ÇEVİRİDİR (md. 21'in "uydurma veri girme" kuralı):
+ * Liste UYDURMA DEĞİL ÇEVİRİDİR (SATIN-21'in "uydurma veri girme" kuralı):
  * her giriş `Purchased` ile birebir aynı şeyi söyleyen Türkçe yazımdır.
  * Anlamı genişleten bir değer (ör. SolidWorks'ün `Toolbox`u) BURAYA GERÇEK
  * BİR TESLİM KLASÖRÜNDE GÖRÜLMEDEN girmez.
@@ -595,7 +595,7 @@ export function reconcile(snap: PackageSnapshot): ReconcileResult {
     // gösteriyordu. Değer zaten `cutLengthMm`e AYRI yazılıyor; aynı sayıyı bir
     // de adet sanmanın hiçbir kazancı yok.
     //
-    // Adet BULUNAMAZSA `null` KALIR — 1 varsayılmaz (md. 21'in kuralı).
+    // Adet BULUNAMAZSA `null` KALIR — 1 varsayılmaz (SATIN-21'in kuralı).
     // Kesim boyu bilinen profilde gerçek adet ondan türetilir (hammadde
     // çekirdeği, `havuz.ts`).
     const adetler = satirlar

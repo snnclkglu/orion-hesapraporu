@@ -240,7 +240,7 @@ interface RowDraft {
 }
 
 /**
- * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik md. 7). Onbeş sütunun dokuzu giriş
+ * SÜTUN ÖNCELİKLENDİRME (AGENTS dokunmatik MOBIL-7). Onbeş sütunun dokuzu giriş
  * alanıdır ve daraltılamaz; telefonda görev, ek ödemeler ve avro karşılığı
  * düşer, düşen bilginin kritik olanı ad hücresinin ikinci satırına iner.
  * İkinci bir kart markup'ı YAZILMAZ.
@@ -1021,7 +1021,7 @@ export function PayrollBoard({
               <TableHead className={cn("w-[10rem]", AT_2XL)}>Görev</TableHead>
               <TableHead className={cn("w-[4.5rem] text-right", AT_2XL)}>SGK Gün</TableHead>
               {/* TELEFONDA TABLO LİSTEYE KATLANIR (kullanıcı kararı, 16.08.2026;
-                  AGENTS md. 15): `sm` altında yalnız Ad Soyad + Toplam kalır.
+                  AGENTS MOBIL-15): `sm` altında yalnız Ad Soyad + Toplam kalır.
                   Giriş alanları `sm`den itibaren döner — düşen sayıların özeti
                   ad hücresinin alt satırındadır, kart markup'ı ÇOĞALTILMAZ. */}
               <TableHead className={cn("w-[8.5rem] text-right", AT_SM)}>Net Maaş (₺)</TableHead>

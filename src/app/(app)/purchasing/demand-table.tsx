@@ -490,7 +490,7 @@ export function DemandTable({
           suzgecOzeti={suzgecOzeti(f, secenekler)}
         />
 
-        {/* YENİ TALEP (md. 21): PDF'in yanında. KIRMIZI/DOLGU (kullanıcı isteği,
+        {/* YENİ TALEP (SATIN-21): PDF'in yanında. KIRMIZI/DOLGU (kullanıcı isteği,
             14.08.2026: "göze çarpsın") — `default` varyantı marka kırmızısıdır. */}
         {canWrite && (
           <Button type="button" size="xs" onClick={() => setYeniTalep(true)}>

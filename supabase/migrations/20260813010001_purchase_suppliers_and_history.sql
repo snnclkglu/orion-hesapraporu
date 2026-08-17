@@ -22,7 +22,7 @@
 --
 -- AD HÂLÂ `supplier` METNİNDE DURUR. `purchase_quotes.supplier` ve
 -- `purchase_orders.supplier` yabancı anahtara ÇEVRİLMEZ: iş emrindeki müşteri
--- fotoğrafı kuralının (md. 14) aynısı — defter sonradan düzeltilince
+-- fotoğrafı kuralının (IS-14) aynısı — defter sonradan düzeltilince
 -- yayınlanmış bir siparişin firması değişmemelidir. Defter bir ÖNERİ ve
 -- TEKİLLEŞTİRME kaynağıdır, bir bağ değil.
 --
@@ -42,7 +42,7 @@
 create table if not exists public.purchase_suppliers (
   id uuid primary key default gen_random_uuid(),
 
-  -- Görünen ad; BÜYÜK HARFLE saklanır (`adBuyuk`, md. 14).
+  -- Görünen ad; BÜYÜK HARFLE saklanır (`adBuyuk`, IS-14).
   name text not null check (btrim(name) <> ''),
 
   -- TEKİLLİK ANAHTARI — katlanmış ad (`trKatla`). Ham adla tekilleştirmek
@@ -71,7 +71,7 @@ create table if not exists public.purchase_price_history (
   id uuid primary key default gen_random_uuid(),
 
   -- Fiyat arşivinin dilbilgisi: normalleştirilmiş tanımın katlanmış hâli.
-  -- Teklif ve sipariş defterleriyle AYNI anahtar (md. 21) — ayrı bir şema
+  -- Teklif ve sipariş defterleriyle AYNI anahtar (SATIN-21) — ayrı bir şema
   -- kullanılsaydı geçmiş fiyat, bugünkü kalemle hiç buluşamazdı.
   match_key text not null,
   sample text not null default '',
@@ -114,7 +114,7 @@ create index if not exists purchase_price_history_supplier_idx
 -- ————————————————————————————————————————————————————————————— RLS
 --
 -- OKUMA `can_see_purchasing()`E BAĞLI, yazma da. Fiyat mühendise ve ressama
--- kapalıdır (md. 18: "fiyat gizlenmez, HİÇ GETİRİLMEZ") ve bu iki tablo da
+-- kapalıdır (RESIM-18: "fiyat gizlenmez, HİÇ GETİRİLMEZ") ve bu iki tablo da
 -- fiyat taşır; `authenticated` okuması onları paket ekranına sızdırırdı.
 alter table public.purchase_suppliers enable row level security;
 alter table public.purchase_price_history enable row level security;

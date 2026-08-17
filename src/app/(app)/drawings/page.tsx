@@ -1,6 +1,6 @@
 // Paket listesi.
 //
-// Sütun önceliklendirme (AGENTS, dokunmatik md. 7): dokuz sütunluk satır
+// Sütun önceliklendirme (AGENTS, dokunmatik MOBIL-7): dokuz sütunluk satır
 // telefonda kabın birkaç katı olur. Düşük öncelikli sütunlar HEM `th` HEM `td`
 // üzerinde gizlenir; gizlenenin kritik olanı birincil hücrenin içinde
 // `md:hidden` ikinci satıra iner. İkinci bir kart markup'ı YAZILMAZ — sıralama

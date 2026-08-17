@@ -65,7 +65,7 @@ export function talepBasligi(tanimlar: readonly string[]): string {
 /**
  * TEKLİFİN MİKTARI — havuz konuşuyorsa O, susuyorsa teklifin kendi kaydı.
  *
- * ═════════════════════════════ md. 24'ün "TEKLİFTE ADET SORULMAZ" KURALININ
+ * ═════════════════════════════ HAM-24'ün "TEKLİFTE ADET SORULMAZ" KURALININ
  *                               TEK İSTİSNASI VE GEREKÇESİ
  *
  * Kuralın dayanağı şuydu: *"adet zaten havuzda yazar; iki yerde adet tutmak

@@ -75,7 +75,7 @@ export default async function AdminEquipmentPage({
       </div>
 
       {/* "Tabloyu yana kaydırın" ipucu kalktı: telefonda tablo artık listeye
-          katlanıyor, kaydıracak bir şey kalmadı (md. 15). Ara genişliklerde
+          katlanıyor, kaydıracak bir şey kalmadı (ROL-15). Ara genişliklerde
           olası taşmayı `Table`ın kendi `.oc-scrollx` gölgesi gösterir. */}
       <div className="rounded-lg border">
         {/* Yüzlerce satırlık katalog: kap `md` üstünde 70dvh'ye kelepçeli,
@@ -88,7 +88,7 @@ export default async function AdminEquipmentPage({
                   hiç göstermemekten kötüdür (sözleşme §8). */}
               <TableHead className="hidden md:table-cell">Tip</TableHead>
               <TableHead>Marka</TableHead>
-              {/* Telefonda tablo listeye katlanır (md. 15): model kendi sütunu
+              {/* Telefonda tablo listeye katlanır (MOBIL-15): model kendi sütunu
                   yerine markanın altına iner — marka + model + eylemler 375px'i
                   taşırıyordu. */}
               <TableHead className="hidden sm:table-cell">Model</TableHead>

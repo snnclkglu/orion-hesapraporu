@@ -80,7 +80,7 @@ export interface OzetSatiri {
    *
    * Kullanıcı bildirimi (13.08.2026): *"Satın alma bunların hangi grup
    * içerisinde olduğunu görmek istiyor."* Mühendis ve ressam `/purchasing`
-   * bölümünü görmüyor (md. 18) — "bu cıvata neyin cıvatası" sorusunu bu
+   * bölümünü görmüyor (RESIM-18) — "bu cıvata neyin cıvatası" sorusunu bu
    * ekranda soruyorlar. Ad ÜRÜN AĞACININ item yolundan çözülür; ağaç yoksa
    * alan boş kalır ve sütun "—" gösterir, uydurma bir grup adı yazılmaz.
    */

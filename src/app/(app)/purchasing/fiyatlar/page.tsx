@@ -8,7 +8,7 @@
 // ÜÇ KAYNAK, ÜÇÜ DE AYRI SAYILIR:
 //   · TEKLİF   — istenen fiyat; alınmamış olabilir
 //   · SİPARİŞ  — bu uygulamadan verilmiş, gerçekleşmiş alım
-//   · DEVRALINAN — Excel'den gelen geçmiş fatura (4722 satır, md. 21)
+//   · DEVRALINAN — Excel'den gelen geçmiş fatura (4722 satır, SATIN-21)
 // Tek listede karıştırmak, "kaça aldık" sorusuna "kaça teklif geldi" cevabını
 // verirdi; sıralama ve "son alış" teklifleri DIŞARIDA bırakır.
 //

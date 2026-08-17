@@ -44,7 +44,7 @@ export const HAMMADDE_ADLARI: Record<HammaddeSinifi, string> = {
 };
 
 /**
- * Sınıf rengi HEX DEĞİL OKLCH TON AÇISIDIR (md. 14'ün kuralı).
+ * Sınıf rengi HEX DEĞİL OKLCH TON AÇISIDIR (IS-14'ün kuralı).
  *
  * Doygunluk ve parlaklık `globals.css`teki `.oc-tag` kuralında ve TEMA BAŞINA
  * verilir; buradan yalnız açı gelir. Açılar birbirinden en az 40° uzaktır —

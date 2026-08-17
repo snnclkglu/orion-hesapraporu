@@ -794,7 +794,7 @@ async function siparisIsaretle(
 
   let yazilan = 0;
   for (const [packageId, anahtarlar] of pakete) {
-    // Kalem numarası defterin KODLARINDAN türetilir (md. 18): paketin
+    // Kalem numarası defterin KODLARINDAN türetilir (RESIM-18): paketin
     // `item_no` alanı yeniden yazılmış olabilir ve onunla yazmak satın alma
     // kaydını paket ekranında görünmez yapardı.
     const { data: defter } = await supabase
@@ -898,7 +898,7 @@ export async function createOrder(input: CreateOrderInput): Promise<PurchasingAc
       qty: l.qty,
       unit: l.unit,
       // FİYAT KDV HARİÇ YAZILIR; oran ayrı bir sütundur ve ödenecek tutarı
-      // yalnız ödeme takvimi büyütür (md. 21).
+      // yalnız ödeme takvimi büyütür (SATIN-21).
       unit_price: l.unitPrice,
       vat_rate: l.vatRate,
       quality: l.quality ?? "",
@@ -1292,10 +1292,10 @@ export async function receiveOrderLines(input: {
 // ═══════════════════════════════════════════════════════ MARKA/KALİTE
 
 /**
- * MARKA/KALİTE öneri defterine yeni bir değer yazar (md. 16).
+ * MARKA/KALİTE öneri defterine yeni bir değer yazar (SATIS-16).
  *
  * TEDARİKÇİ DEFTERİNİN KURALININ AYNISI: önce katlanmış anahtarla ARANIR
- * (`upsert` değil), yoksa yazılır. Ad BÜYÜK HARFLE saklanır (`adBuyuk`, md. 14)
+ * (`upsert` değil), yoksa yazılır. Ad BÜYÜK HARFLE saklanır (`adBuyuk`, IS-14)
  * — seed değerleri de büyük harftir ve "logitech" ile "LOGITECH" tek kayıt olur.
  * Yetki `can_edit_purchasing` ya da sarf düzenleme; RLS de aynı kapıyı tutar.
  */
@@ -1362,7 +1362,7 @@ export async function saveDemandOverride(
   return { ok: 1 };
 }
 
-/** MANUEL TALEP EKLER (md. 21): havuza teknik resimden gelmeyen bir kalem. */
+/** MANUEL TALEP EKLER (SATIN-21): havuza teknik resimden gelmeyen bir kalem. */
 export async function createManualDemand(
   input: CreateManualDemandInput
 ): Promise<PurchasingActionResult> {
@@ -1392,7 +1392,7 @@ export async function createManualDemand(
   return { ok: 1 };
 }
 
-/** Manuel talebi siler (md. 21). */
+/** Manuel talebi siler (SATIN-21). */
 export async function deleteManualDemand(id: string): Promise<PurchasingActionResult> {
   const ctx = await requireWrite();
   if ("error" in ctx) return { error: ctx.error };
@@ -1514,7 +1514,7 @@ type FirmaKimligi = { id: string; name: string; code: string };
 /**
  * Katlanmış ada göre defter satırını okur.
  *
- * SÜTUN OLMAYABİLİR (md. 21): `code` 20260813010004 ile geliyor ve onu isteyen
+ * SÜTUN OLMAYABİLİR (SATIN-21): `code` 20260813010004 ile geliyor ve onu isteyen
  * bir `select` uygulanmamış ortamda BÜTÜN sorguyu düşürür — firma kaydı da
  * sipariş de o yüzden hiç yazılamazdı.
  */

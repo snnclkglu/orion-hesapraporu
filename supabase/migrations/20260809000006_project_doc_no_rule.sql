@@ -1,6 +1,6 @@
 -- Doküman no kuralı: DOKÜMAN NO = İŞ KALEMİ NUMARASI.
 --
--- Hesap raporu işe değil İŞ KALEMİNE bağlıdır (bkz. AGENTS.md md. 14): bir iş
+-- Hesap raporu işe değil İŞ KALEMİNE bağlıdır (bkz. AGENTS.md IS-14): bir iş
 -- emrindeki `0055-01` ve `0055-02` kalemleri İKİ AYRI rapordur. Doküman no o
 -- kalemin numarasıdır ve belge kodu bundan türer:
 --

@@ -95,7 +95,7 @@ export function FileOpenButton({
       title={title}
       className={cn(
         // Elle yazılmış tıklanabilir öğe: dokunmatik payı `pointer-coarse:`
-        // ile verilir, kırılımla değil (AGENTS, dokunmatik md. 1).
+        // ile verilir, kırılımla değil (AGENTS, dokunmatik MOBIL-1).
         "relative z-10 inline-flex min-h-6 items-center border px-1.5 font-mono text-[11px] transition-colors pointer-coarse:min-h-8 pointer-coarse:px-2",
         storagePath
           ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"

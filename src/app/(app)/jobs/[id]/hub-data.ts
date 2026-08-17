@@ -64,7 +64,7 @@ export async function loadJobBaglari(
       )
     : Promise.resolve(null);
 
-  // Sipariş satırı kalem NUMARASIYLA eşleşir (md. 17/21: numara METİN,
+  // Sipariş satırı kalem NUMARASIYLA eşleşir (WORKLOG-17 / SATIN-21: numara METİN,
   // bağlantı TÜREV). Kalem numarası taşımayan satırlar (ör. plaka siparişi)
   // bu sayıya girmez — sayfa bunu dipnotla SÖYLER, sessiz bırakmaz.
   const purchasingP: Promise<number | null> = canSeePurchasing(opts.role)
@@ -95,7 +95,7 @@ export async function loadJobBaglari(
               ])
             );
             // Kaydı HİÇ OLMAYAN kalem de bir cevaptır (satırlar önceden
-            // üretilmez, md. 16): listede boş tarihlerle görünür.
+            // üretilmez, SATIS-16): listede boş tarihlerle görünür.
             return opts.items.map((it) => {
               const s = byId.get(it.id);
               return {

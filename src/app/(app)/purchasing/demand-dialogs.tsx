@@ -1,6 +1,6 @@
 "use client";
 
-// TALEP HAVUZU — MANUEL EKLEME (md. 21) ve SATIR DÜZELTME (md. 1) pencereleri.
+// TALEP HAVUZU — MANUEL EKLEME (SATIN-21) ve SATIR DÜZELTME (md. 1) pencereleri.
 //
 // İkisi de saf sunum: değeri `actions.ts`e yollar, kapanır. Anahtar (match_key)
 // düzeltmede DEĞİŞMEZ — yalnız görünen tanım/adet override edilir; teklif ve

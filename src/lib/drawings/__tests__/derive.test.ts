@@ -169,7 +169,7 @@ describe("satın alma listesi — MTC", () => {
     // yüzden hiç görünmüyordu (ölçüldü: kazanan sayfada karşılıkları YOKTU).
     //
     // Gelenler galvanizsiz bağlantı elemanlarıdır ve galvanizli eşlerinden
-    // AYRI kalem sayılırlar — md. 21'in kuralı: yazmayana galvaniz eklenmez.
+    // AYRI kalem sayılırlar — SATIN-21'in kuralı: yazmayana galvaniz eklenmez.
     // 78 → 74 (13.08.2026): galvanizli ve galvanizsiz yazılmış AYNI cıvata
     // artık tek kalemdir (`firmaKabulleri` — firma her zaman galvanizli alıyor).
     // Kaynak satır sayısı DEĞİŞMEDİ (96): kaybolan satır yok, BİRLEŞEN var.

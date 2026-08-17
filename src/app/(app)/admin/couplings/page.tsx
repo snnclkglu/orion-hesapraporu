@@ -70,7 +70,7 @@ export default async function AdminCouplingsPage({
       </div>
 
       {/* "Tabloyu yana kaydırın" ipucu kalktı: telefonda tablo artık listeye
-          katlanıyor, kaydıracak bir şey kalmadı (md. 15). Ara genişliklerde
+          katlanıyor, kaydıracak bir şey kalmadı (ROL-15). Ara genişliklerde
           olası taşmayı `Table`ın kendi `.oc-scrollx` gölgesi gösterir. */}
       <div className="rounded-lg border">
         {/* Uzun katalog defteri: kap `md` üstünde 70dvh'ye kelepçeli, başlık
@@ -85,7 +85,7 @@ export default async function AdminCouplingsPage({
               <TableHead className="hidden md:table-cell">Tip</TableHead>
               <TableHead>Marka</TableHead>
               <TableHead className="hidden md:table-cell">Seri</TableHead>
-              {/* Telefonda tablo listeye katlanır (md. 15): model markanın
+              {/* Telefonda tablo listeye katlanır (MOBIL-15): model markanın
                   altına iner — marka + model + tork + eylemler 375px'i
                   taşırıyordu. */}
               <TableHead className="hidden sm:table-cell">Model</TableHead>

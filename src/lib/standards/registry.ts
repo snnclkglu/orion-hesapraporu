@@ -395,13 +395,13 @@ const FEM_REFS: Record<string, StandardRef> = {
       "ve tambur mili kaynaklarında yalnız normal işletmeyi hesapladığından " +
       "en muhafazakâr olan Durum I sütunu kullanılır.",
     formulas: [
-      { label: "Boğaz kesiti alanı (Ek A-3.2.2.3 md.4)", expr: "A_k = a · L_k" },
+      { label: "Boğaz kesiti alanı (Ek A-3.2.2.3 HESAP-4)", expr: "A_k = a · L_k" },
       {
-        label: "Eşdeğer gerilme (Ek A-3.2.2.3 md.3)",
+        label: "Eşdeğer gerilme (Ek A-3.2.2.3 HESAP-3)",
         expr: "σ_cp = (σ² + 2 · τ²)^0,5 ≤ σ_a,k",
       },
       {
-        label: "İki normal gerilmeli hâl (Ek A-3.2.2.3 md.3)",
+        label: "İki normal gerilmeli hâl (Ek A-3.2.2.3 HESAP-3)",
         expr: "σ_cp = (σx² + σy² − σx · σy + 2 · τxy²)^0,5",
       },
     ],
@@ -425,10 +425,10 @@ const FEM_REFS: Record<string, StandardRef> = {
         "en az ana metal kadar iyi olduğunu varsayar. Tambur–göbek ve mil–göbek " +
         "dikişlerinde zayıf taraf her zaman yapı çeliğinden yanak/göbek sacıdır; " +
         "mil malzemesi (C30, 42CrMo4 …) ıslah çeliğidir ve daha dayanıklıdır.",
-      "EŞDEĞER GERİLMEDE KAYMA TERİMİNİN KATSAYISI 2'DİR (Ek A-3.2.2.3 md.3, " +
+      "EŞDEĞER GERİLMEDE KAYMA TERİMİNİN KATSAYISI 2'DİR (Ek A-3.2.2.3 HESAP-3, " +
         "standardın basılı metni: “σcp = ( σ2 + 2 . τ2 )0,5”). " +
         "√(σ² + τ²) yazmak dikişi olduğundan EMNİYETLİ gösterir.",
-      "TAŞIYICI KESİT BOĞAZ KESİTİDİR (Ek A-3.2.2.3 md.4): köşe dikişte hesaba " +
+      "TAŞIYICI KESİT BOĞAZ KESİTİDİR (Ek A-3.2.2.3 HESAP-4): köşe dikişte hesaba " +
         "giren genişlik boğaz derinliği, uzunluk ise dikişin etkin boyudur. " +
         "Dikişin izdüşüm halka alanı taşıyıcı kesit değildir.",
       "Uygulama bu sınırı CMAA 70 md. 3.4.4.2'nin asal gerilme kuralıyla " +

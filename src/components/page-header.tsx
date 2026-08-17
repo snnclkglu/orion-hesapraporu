@@ -190,7 +190,7 @@ export function PageHeaderHost({ className }: { className?: string }) {
  * Eylem yuvası.
  *
  * `lg` ALTINDA kendi satırıdır: yatay kayar (`.oc-scrollx` ile kenar gölgesi —
- * AGENTS dokunmatik md. 8, mobil tarayıcı kaydırma çubuğu çizmez) ve
+ * AGENTS dokunmatik MOBIL-8, mobil tarayıcı kaydırma çubuğu çizmez) ve
  * `empty:hidden` sayesinde eylemi olmayan sayfada HİÇ ÇİZİLMEZ, yani dikey yer
  * yemez. `lg` üstünde şeridin sağ ucuna döner ve görünüm eskisiyle birebir
  * aynıdır.

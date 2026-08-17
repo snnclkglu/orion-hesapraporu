@@ -104,7 +104,7 @@ export default async function PackageLayout({
             devreye girmez — satır kırmak için daralması gerekir, daralamaz.
             Bu faz düğme sayısını ikiden beşe çıkardı; blok ~1150px'e ulaşıp
             375px'lik telefonda bütün sayfayı yana kaydırıyordu (AGENTS
-            dokunmatik md. 8: görünmeyen yatay kaydırma). */}
+            dokunmatik MOBIL-8: görünmeyen yatay kaydırma). */}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-right">
             <span className="oc-kicker block text-muted-foreground">Tanıma</span>

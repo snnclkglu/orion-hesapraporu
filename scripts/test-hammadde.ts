@@ -1,6 +1,6 @@
 // HAMMADDE ÇÖZÜCÜSÜ DUMAN TESTİ — GERÇEK teslim Excel'lerine karşı.
 //
-// Fikstür testi bu modülde YETMEZ (md. 21'in dersi): tanıma dilbilgisi ancak
+// Fikstür testi bu modülde YETMEZ (SATIN-21'in dersi): tanıma dilbilgisi ancak
 // ressamın gerçekten yazdığı 900 tanıma karşı koşturulunca ölçülebilir. Betik
 // üç şeyi basar:
 //

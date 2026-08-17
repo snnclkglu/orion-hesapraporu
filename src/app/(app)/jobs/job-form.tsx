@@ -499,7 +499,7 @@ export function JobForm({
         {/* AÇIKLAMA KALDIRILDI (kullanıcı kararı, 11.08.2026). Kuralın kendisi
             geçerliliğini koruyor — bu alanlar iş emrinin basıldığı andaki
             fotoğrafıdır ve düzenlenmeleri müşteri defterini değiştirmez
-            (AGENTS md. 14) — ama her iş emri açılışında okunan iki satırlık bir
+            (AGENTS IS-14) — ama her iş emri açılışında okunan iki satırlık bir
             hatırlatma olmaktan çıktı; yeri belgenin kendisi değil AGENTS'tir. */}
       </Section>
 

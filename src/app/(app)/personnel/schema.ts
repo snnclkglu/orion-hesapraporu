@@ -53,7 +53,7 @@ const paraOptional = z
 // ——————————————————————————————————————————————————————————————— personel
 
 /**
- * AD BÜYÜK HARFLE SAKLANIR (AGENTS md. 14) ve dönüşüm ŞEMADA da yapılır:
+ * AD BÜYÜK HARFLE SAKLANIR (AGENTS IS-14) ve dönüşüm ŞEMADA da yapılır:
  * kayıt hangi kapıdan girerse girsin öyle olsun. `toUpperCase()` KULLANILMAZ —
  * "i" harfini "I" yapar.
  */
@@ -197,7 +197,7 @@ export type PayrollInput = z.input<typeof payrollSchema>;
  *
  * KUR KULLANICIDAN ALINMIYOR (kullanıcı kararı, 12.08.2026): ayın SON YAYIN
  * GÜNÜNÜN TCMB kuru otomatik yazılır (`ensurePeriodRates`). Alan şemada
- * duruyor çünkü değer hâlâ SATIRIN KENDİNDE donar (AGENTS md. 16) — değişen
+ * duruyor çünkü değer hâlâ SATIRIN KENDİNDE donar (AGENTS SATIS-16) — değişen
  * şey onu kimin yazdığıdır, nerede durduğu değil.
  *
  * İZİN VE RAPOR SAATİ DE ALINMIYOR (kullanıcı kararı, 13.08.2026): ikisi de

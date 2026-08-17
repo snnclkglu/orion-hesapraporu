@@ -6,7 +6,7 @@
 // getirirdi (`hr_per_diem` migration başlığındaki aynı gerekçe).
 //
 // KUR TABLOSU DA OKUNUR: gün ücreti TL'dir ama firma her şeyi avroda
-// karşılaştırır (AGENTS md. 16). Karşılık TÜRETİLİR ve hangi kurla üretildiği
+// karşılaştırır (AGENTS SATIS-16). Karşılık TÜRETİLİR ve hangi kurla üretildiği
 // ekranda YAZILIR — çevrilmiş bir sayının kaynağı görünmüyorsa o sayı bir iddia
 // olur.
 

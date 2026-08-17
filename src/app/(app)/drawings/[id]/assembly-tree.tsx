@@ -2,7 +2,7 @@
 
 // Montaj ağacı — KATLANIR, girintili HTML listesi.
 //
-// `lib/diagrams` ile ÇİZİLMEZ (AGENTS md. 17): o katman `DiagramEl[]` üretir ve
+// `lib/diagrams` ile ÇİZİLMEZ (AGENTS WORKLOG-17): o katman `DiagramEl[]` üretir ve
 // aynı model PDF'e basılır; burada gereken etkileşimli bir liste.
 //
 // AĞAÇ KAPALI AÇILIR. Önceden bütün düğümler açıktı ve 121 parçalık MONORAY'da

@@ -27,13 +27,13 @@ export default async function AdminRailsPage() {
       </div>
 
       {/* "Tabloyu yana kaydırın" ipucu kalktı: telefonda tablo artık listeye
-          katlanıyor, kaydıracak bir şey kalmadı (md. 15). */}
+          katlanıyor, kaydıracak bir şey kalmadı (ROL-15). */}
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Kod</TableHead>
-              {/* Telefonda tablo listeye katlanır (md. 15): iki uzun başlıklı
+              {/* Telefonda tablo listeye katlanır (MOBIL-15): iki uzun başlıklı
                   sayı sütunu + eylemler 375px'i taşırıyordu; opsiyonel olan
                   baş yarıçapı kodun altına iner. */}
               <TableHead className="hidden text-right sm:table-cell">Baş yarıçapı [mm]</TableHead>
@@ -48,7 +48,7 @@ export default async function AdminRailsPage() {
               <TableRow key={rail.code}>
                 <TableCell className="font-mono font-medium">
                   {rail.code}
-                  {/* Telefon katmanı: gizlenen baş yarıçapı buraya iner (md. 15). */}
+                  {/* Telefon katmanı: gizlenen baş yarıçapı buraya iner (ROL-15). */}
                   <div className="mt-0.5 font-sans text-[11px] font-normal text-muted-foreground sm:hidden">
                     baş yarıçapı {rail.radius ?? "—"} mm
                   </div>

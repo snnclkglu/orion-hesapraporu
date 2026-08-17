@@ -50,7 +50,7 @@ export function HammaddeNav() {
             aria-current={active ? "page" : undefined}
             // `.oc-tap` YOK: görünmez dokunma katmanı `overflow-x` veren bu
             // şeritte dikey taşma ve yalancı bir kaydırma çubuğu doğurur
-            // (dokunmatik md. 14). Pay kutunun kendi dolgusundan gelir —
+            // (dokunmatik MOBIL-14). Pay kutunun kendi dolgusundan gelir —
             // `PurchasingNav`ın çözümünün aynısı.
             className={cn(
               "shrink-0 border px-3 py-2 text-[13px] whitespace-nowrap transition-colors pointer-coarse:py-2.5",

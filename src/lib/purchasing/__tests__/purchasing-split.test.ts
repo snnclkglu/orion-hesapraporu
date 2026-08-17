@@ -11,7 +11,7 @@
 // Üçüncüsü diğer ikisinden AYRIDIR: `part_code = '  '` olan bir satır TS'e
 // göre satın almadır, sorguya göre değildir. Böyle bir satır bugün
 // üretilmiyor (aşağıda ölçülüyor) ama üretilse ekranlardan HİÇBİRİNDE
-// görünmezdi — md. 18'in "bir satır ya Satın Alma'da ya Üretim'de olur, ikisinde
+// görünmezdi — RESIM-18'in "bir satır ya Satın Alma'da ya Üretim'de olur, ikisinde
 // birden ya da hiçbirinde olamaz" kuralının sessizce çiğnenmesi.
 //
 // Test üç şeyi birden tutar: sorgu dizgisinin kendisi, iki kuralın GERÇEK

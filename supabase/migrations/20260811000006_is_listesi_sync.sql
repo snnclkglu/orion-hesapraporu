@@ -144,7 +144,7 @@ where j.id = i.job_id and j.job_no = '0034' and i.item_no = '0034-00'
   );
 
 -- Atölye çizelgesindeki METİN de düzeltilir (`work_logs.item_no` asıldır,
--- bağlantı türevdir — İş Takibi md. 17).
+-- bağlantı türevdir — İş Takibi WORKLOG-17).
 update public.work_logs set item_no = '0034-01' where item_no = '0034-00';
 
 -- ------------------------------------------------------------ iş kalemleri

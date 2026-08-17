@@ -507,7 +507,7 @@ birleştirmedi.
       tarih hücreleri + otomatik süzgeç + dondurulmuş başlık. Dosya adı indirme
       TARİHİ VE SAATİNİ taşır: `ORION İş Takibi 09.08.2026 14-32.xlsx`.
 - [x] Pano grafikleri `components/charts.tsx` — `lib/diagrams` KULLANILMADI
-      (gerekçe AGENTS.md md. 17). Seri rengi ton açısıdır, L/C tema başına
+      (gerekçe AGENTS.md WORKLOG-17). Seri rengi ton açısıdır, L/C tema başına
       `globals.css` `.oc-series-*` / `.oc-heat` kurallarında.
 - [x] `src/lib/__tests__/work-log.test.ts` — 28 test: pay toplamı, boş kovanın
       seriye girmesi, haftanın pazartesi başlaması, eşit uzunlukta önceki
@@ -801,7 +801,7 @@ kalın etiket, sayaç rozeti ve bölüm çizgisi. Kendi dosyasında
 - "İşler / 0055 / **0055**" → "İşler / 0055 / **0055-00**". Son durak artık
   `job_items.item_no`dur (`resolveProjectItemNo`), `projects.doc_no` değil:
   eski raporların `doc_no`su bilinçli olarak kalemsiz bırakıldı (yayınlanmış
-  PDF'lerin belge kodu değişmemeli, md. 14) ama ekranda gezinme yolu sistemin
+  PDF'lerin belge kodu değişmemeli, IS-14) ama ekranda gezinme yolu sistemin
   kendi numarasını göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
 - İndirme çubuğunda "Müşteri (yalnız liste)" → **"Müşteri"**.
 

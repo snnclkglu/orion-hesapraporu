@@ -374,7 +374,7 @@ export function TimeLineChart({
               3px büyütüyor, bu da `.oc-scrollx`in kenar gölgesini yakıyor ve
               "kaydırılacak içerik var" diye YALAN söylüyordu — üstelik
               `overflow-x` veren kap `overflow-y`yi de kaybettiği için
-              (AGENTS md. 14) tek piksellik bir taşma gerçek bir kaydırma
+              (AGENTS MOBIL-14) tek piksellik bir taşma gerçek bir kaydırma
               çubuğu doğurabiliyor. Dolgu, noktanın yarıçapı kadardır. */}
           <div className="px-[3px]" style={{ minWidth: plotMinWidth }}>
             <div className="relative" style={{ height }}>
@@ -472,7 +472,7 @@ export function TimeLineChart({
 
               {/* NOKTA DEĞERLERİ — eğrinin üstünde (tepeye yakınsa altında).
                   Etiket [0, height] aralığında kalır: `overflow-x` veren
-                  kaydırma kabı `overflow-y`yi de auto'ya çevirir (AGENTS md. 14)
+                  kaydırma kabı `overflow-y`yi de auto'ya çevirir (AGENTS MOBIL-14)
                   ve tuvalin dışına taşan bir yazı yalancı bir dikey kaydırma
                   doğururdu. Bu yüzden tepedeki nokta (~%18'in üstünde) etiketi
                   ALTINA alır; uçlardaki nokta yatayda hizalanır ki yarısı kabın

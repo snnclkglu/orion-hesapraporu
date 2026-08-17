@@ -4466,7 +4466,11 @@
    "models": [
     "22222 E",
     "22224 E",
-    "22322 E"
+    "22322 E",
+    "23022 CC/W33",
+    "23024 CC/W33",
+    "23022 CCK/W33",
+    "23024 CCK/W33"
    ]
   },
   {
@@ -4483,7 +4487,11 @@
    "models": [
     "22226 E",
     "22228 CC/W33",
-    "22228 CCK/W33"
+    "22228 CCK/W33",
+    "23026 CC/W33",
+    "23028 CC/W33",
+    "23026 CCK/W33",
+    "23028 CCK/W33"
    ]
   },
   {
@@ -4501,7 +4509,11 @@
     "22230 CC/W33",
     "22232 CC/W33",
     "22230 CCK/W33",
-    "22232 CCK/W33"
+    "22232 CCK/W33",
+    "23030 CC/W33",
+    "23032 CC/W33",
+    "23030 CCK/W33",
+    "23032 CCK/W33"
    ]
   },
   {
@@ -4519,7 +4531,29 @@
     "22234 CC/W33",
     "22236 CC/W33",
     "22234 CCK/W33",
-    "22236 CCK/W33"
+    "22236 CCK/W33",
+    "23034 CC/W33",
+    "23036 CC/W33",
+    "23034 CCK/W33",
+    "23036 CCK/W33"
+   ]
+  },
+  {
+   "id": "bearing/skf-skf-p808",
+   "kind": "bearing",
+   "brand": "SKF",
+   "series": "Standart vinç uygulama serileri",
+   "title": "SKF Rulman — katalog s.808",
+   "source": "SKF genel-rulman-katalogu.pdf",
+   "printedPages": "PDF s.808",
+   "images": [
+    "bearing/skf-skf-p808.webp"
+   ],
+   "models": [
+    "23038 CC/W33",
+    "23040 CC/W33",
+    "23038 CCK/W33",
+    "23040 CCK/W33"
    ]
   },
   {

@@ -15,7 +15,7 @@
 -- ÖDEME KOŞULU SİPARİŞTEKİYLE AYNI SÖZLEŞMEDİR (`purchase_orders`): biçim
 -- (`pesin`/`kredi_karti`/`vadeli`) ile GÜN ayrı sütunlardır — "90 gün" bir
 -- vadedir, "peşin" bir biçimdir ve tek alanda tutulsalardı ödeme günü
--- hesaplanamazdı (md. 21).
+-- hesaplanamazdı (SATIN-21).
 
 alter table public.purchase_quotes
   add column if not exists payment_method text not null default 'pesin',

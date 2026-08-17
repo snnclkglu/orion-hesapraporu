@@ -9,7 +9,7 @@
 // için yükseltmek, tek bir ekran uğruna her action'ın yüzeyini genişletirdi.
 //
 // AMA SUNUCU DOSYAYI YİNE DE OKUR. Sayfa adedi bir BEYAN değil ÖLÇÜMdür
-// (Teknik Resimler'in `verifyStorage` dersi, AGENTS md. 18): kayıt yazılmadan
+// (Teknik Resimler'in `verifyStorage` dersi, AGENTS RESIM-18): kayıt yazılmadan
 // önce PDF depodan indirilip pdf-lib ile açılır ve sayfaları sayılır. Bu aynı
 // zamanda dosyanın gerçekten okunabilir bir PDF olduğunun kanıtıdır — detaylı
 // listeyi üreten uç aynı kütüphaneyle birleştirecek. Açılamayan dosya kayda

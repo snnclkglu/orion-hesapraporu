@@ -357,7 +357,7 @@ describe("defter", () => {
     });
 
     const profil = r.parts.find((p) => p.partCode === "0099-00-0100-01")!;
-    // Adet UYDURULMAZ: bilinmiyor demek 1 demek değildir (md. 21).
+    // Adet UYDURULMAZ: bilinmiyor demek 1 demek değildir (SATIN-21).
     expect(profil.qty).toBeNull();
     // Ama sayı KAYBOLMAZ — kesim boyu olarak durur ve gerçek adet ondan türer.
     expect(profil.cutLengthMm).toBeCloseTo(24000, 1);

@@ -6,7 +6,7 @@
 -- kesilen FATURAyı. İkisi farklı olgulardır (bir iş birden çok faturaya
 -- bölünebilir) ve ayrı tabloda durur.
 --
--- PARA SÖZLEŞMESİ md. 16 ile aynı: `fx_rate` = 1 EUR kaç birim `currency` eder;
+-- PARA SÖZLEŞMESİ SATIS-16 ile aynı: `fx_rate` = 1 EUR kaç birim `currency` eder;
 -- EUR satırında 1'dir, EUR karşılığı TÜRETİLİR. Devralınan faturalar TL kesilmiş
 -- ve kuruyla EUR'a çevrilmiştir; import bunu currency='TRY' + fx_rate(kur) olarak
 -- saklar, EUR ciro generated kolondan çıkar.
@@ -17,7 +17,7 @@ create table if not exists public.sales_invoices (
   invoice_year int,
   invoice_date date,
   invoice_no text not null default '',
-  -- MÜŞTERİ ADI SNAPSHOTTIR (md. 14): defter düzeltilse de kesilmiş fatura
+  -- MÜŞTERİ ADI SNAPSHOTTIR (IS-14): defter düzeltilse de kesilmiş fatura
   -- değişmez. `customer_id` yalnız bağlamdır.
   customer text not null default '',
   customer_id uuid references public.customers (id) on delete set null,

@@ -93,7 +93,7 @@ export async function loadInvoiceCustomers(
   }));
 }
 
-/** En son yayımlanmış günlük kur — fatura kur önerisi (md. 16 deseni). */
+/** En son yayımlanmış günlük kur — fatura kur önerisi (SATIS-16 deseni). */
 export async function loadLatestFx(supabase: SupabaseClient): Promise<LatestFx | null> {
   const { data, error } = await supabase
     .from("fx_rate_daily")

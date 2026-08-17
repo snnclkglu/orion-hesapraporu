@@ -32,7 +32,7 @@ const anahtar = z.string().trim().min(1, "Kalem anahtarı boş olamaz.").max(300
 /**
  * Tedarikçi adı.
  *
- * BÜYÜK HARFE ÇEVRİLİR (`adBuyuk` kuralı, AGENTS.md md. 14): aynı firma
+ * BÜYÜK HARFE ÇEVRİLİR (`adBuyuk` kuralı, AGENTS.md IS-14): aynı firma
  * "Yılmaz" ve "YILMAZ" olarak iki kez saklanırsa fiyat karşılaştırması
  * bölünür. Dönüşüm burada, yani hangi kapıdan girerse girsin.
  */
@@ -112,7 +112,7 @@ export const deleteQuoteSchema = z.object({ id: z.uuid() });
 // olsun."*
 
 /**
- * Toplu teklifin TEK bir kalemi — adet SORULMAZ (md. 21).
+ * Toplu teklifin TEK bir kalemi — adet SORULMAZ (SATIN-21).
  *
  * TESLİM SÜRESİ SATIRDA ÇÖZÜLMÜŞ HÂLİYLE GELİR: pencere "toplu seçim" ile
  * "kalem bazında değişiklik"i kendi içinde birleştirir ve sunucuya nihai sayıyı
@@ -130,7 +130,7 @@ export const bulkQuoteLineSchema = z.object({
    * KALEMİN MİKTARI — "adet sorulmaz" kuralının TEK istisnası (15.08.2026).
    *
    * Kural şuna dayanıyordu: *"adet zaten havuzda yazar."* Dayanak PLAKADA
-   * ÇÖKER — plakanın havuzda karşılığı yoktur ve olmamalıdır (md. 24). Miktar
+   * ÇÖKER — plakanın havuzda karşılığı yoktur ve olmamalıdır (HAM-24). Miktar
    * hiçbir yerde durmazsa karşılaştırmanın "Tutar" sütunu plakada kalıcı
    * olarak boş kalır ve karar yalnız birim fiyattan verilir; 3.537 kg'lık bir
    * kalemde kuruşluk fark gerçek paradır.
@@ -244,7 +244,7 @@ export const renameQuoteRequestSchema = z.object({
  * Sipariş SATIRI.
  *
  * `itemNo` ve `packageId` BAĞLAMdır, kimlik değil: çok projeli bir siparişte
- * her satır başka bir işe gider (md. 7) ve bu bilgi başlıkta duramaz.
+ * her satır başka bir işe gider (HESAP-7) ve bu bilgi başlıkta duramaz.
  */
 export const orderLineSchema = z.object({
   matchKey: anahtar,
@@ -259,7 +259,7 @@ export const orderLineSchema = z.object({
   // sayıyı okuyor; KDV yalnız ödenecek tutarı büyütür.
   unitPrice: z.number().nonnegative().nullable(),
   vatRate: kdvOrani,
-  /** Satırın MARKA/KALİTE snapshotu (md. 16). */
+  /** Satırın MARKA/KALİTE snapshotu (SATIS-16). */
   quality: z.string().trim().max(120).default(""),
   note: z.string().trim().max(300).default(""),
 });
@@ -417,7 +417,7 @@ export const saveDemandOverrideSchema = z.object({
 });
 export type SaveDemandOverrideInput = z.input<typeof saveDemandOverrideSchema>;
 
-/** MANUEL TALEP (md. 21) — havuza elle eklenen kalem. */
+/** MANUEL TALEP (SATIN-21) — havuza elle eklenen kalem. */
 export const createManualDemandSchema = z.object({
   sample: z.string().trim().min(1, "Tanım gerekli.").max(300),
   category: z.string().trim().max(60).default("Diğer"),

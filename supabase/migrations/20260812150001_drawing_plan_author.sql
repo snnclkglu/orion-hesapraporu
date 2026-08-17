@@ -10,7 +10,7 @@
 -- NEDEN SERBEST METİN DEĞİL BİR BAĞ: ad metin olarak yazılsaydı aynı kişi
 -- "Alkım", "Alkım Kelleci" ve "A. Kelleci" olarak üç ayrı kişi gibi
 -- görünürdü — İş Takibi'ndeki parça adlarının serbest metin bırakılıp beş
--- yazımla girilme hikâyesinin aynısı (AGENTS md. 17). Bağ `profiles`adır;
+-- yazımla girilme hikâyesinin aynısı (AGENTS WORKLOG-17). Bağ `profiles`adır;
 -- kişi listesi zaten orada ve rol de orada duruyor.
 --
 -- `on delete set null`: işten ayrılan birinin profili silinirse SATIR

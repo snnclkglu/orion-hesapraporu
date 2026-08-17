@@ -16,7 +16,7 @@
 // ve o satır yıllar sonra bir denetimde ortaya çıkardı.
 //
 // SÜRELİ BELGE BİR HATIRLATMADIR, BİR ENGEL DEĞİL. İSG eğitimi (6331 md. 17)
-// ve periyodik muayene (md. 15) süreye bağlıdır; süresi geçmiş bir rapor
+// ve periyodik muayene (ROL-15) süreye bağlıdır; süresi geçmiş bir rapor
 // personeli sistemden düşürmez, insanın bakması gereken bir satır üretir.
 // Dil de bunu yansıtır: "süresi dolmuş" denir, "eksik" ya da "hatalı" denmez.
 
@@ -402,14 +402,14 @@ export function DocumentsPanel({
                     <TableRow key={d.id}>
                       {/* `whitespace-normal` HÜCREDE: TableCell'in varsayılan
                           nowrap'ı çip satırına miras kalıp sütunu tam metne
-                          kilitliyordu (md. 15 ölçümü). */}
+                          kilitliyordu (MOBIL-15 ölçümü). */}
                       <TableCell className="max-w-[18rem] whitespace-normal max-sm:[overflow-wrap:anywhere]">
                         <div className="flex items-start gap-2">
                           <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                           <div className="min-w-0">
                             {/* Telefonda `truncate` yerine SARMA: nowrap metin
                                 tablo sütununun min-content'ini tam metne
-                                kilitleyip 375px'te taşırıyordu (md. 15). */}
+                                kilitleyip 375px'te taşırıyordu (MOBIL-15). */}
                             <div
                               className="truncate font-medium max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]"
                               title={d.title}
