@@ -11,7 +11,7 @@
 // OTURUM YOKSA ZİL YOKTUR: dev önizlemeleri kabuğu auth'suz basar ve
 // oturumsuz bir sorgu döngüsü hem gürültü hem 401 yağmuru olurdu.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
@@ -46,7 +46,9 @@ function zaman(iso: string): string {
 }
 
 export function NotificationBell() {
-  const supabase = useRef(createClient()).current;
+  // İstemci FONKSİYON İÇİNDE alınır: `createBrowserClient` tarayıcıda
+  // TEKİLDİR (singleton), her çağrı aynı örneği döndürür — render sırasında
+  // ref tutmak hem gereksizdi hem react-hooks/refs kuralına takılıyordu.
   const [oturumVar, setOturumVar] = useState(false);
   const [okunmamis, setOkunmamis] = useState(0);
   const [acik, setAcik] = useState(false);
@@ -54,13 +56,13 @@ export function NotificationBell() {
   const router = useRouter();
 
   const say = useCallback(async () => {
-    const { count, error } = await supabase
+    const { count, error } = await createClient()
       .from("notifications")
       .select("*", { count: "exact", head: true })
       .is("read_at", null);
     // Tablo yoksa (migration bekliyor) zil sessizce 0 gösterir.
     setOkunmamis(error ? 0 : (count ?? 0));
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     let iptal = false;
@@ -69,7 +71,7 @@ export function NotificationBell() {
     async function basla() {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await createClient().auth.getUser();
       if (iptal || !user) return;
       setOturumVar(true);
       void say();
@@ -86,10 +88,10 @@ export function NotificationBell() {
       if (zamanlayici) clearInterval(zamanlayici);
       document.removeEventListener("visibilitychange", gorunum);
     };
-  }, [supabase, say]);
+  }, [say]);
 
   async function listeyiYukle() {
-    const { data, error } = await supabase
+    const { data, error } = await createClient()
       .from("notifications")
       .select("id, title, href, created_at, read_at")
       .order("created_at", { ascending: false })
@@ -176,6 +178,13 @@ export function NotificationBell() {
             ))}
           </ul>
         )}
+        <Link
+          href="/notifications"
+          onClick={() => setAcik(false)}
+          className="block border-t px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+        >
+          Tümünü Gör
+        </Link>
       </PopoverContent>
     </Popover>
   );

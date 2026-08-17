@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  AGENDA_KINDS,
   PANEL_KINDS,
   gunAdi,
   gunFarki,
@@ -14,6 +15,7 @@ import {
   panelEslesir,
   panelSinyalleri,
   panelTakvim,
+  takvimTurler,
   type PanelDate,
   type PanelHit,
   type PanelSignal,
@@ -30,7 +32,7 @@ const hit = (over: Partial<PanelHit> = {}): PanelHit => ({
 
 describe("arama eşleşmesi — TÜRKÇE KATLAMA", () => {
   it("küçük harfle yazılan sorgu BÜYÜK saklanan adı bulur", () => {
-    // Adlar büyük harfle saklanıyor (AGENTS md. 14) ve kullanıcı küçük yazar.
+    // Adlar büyük harfle saklanıyor (AGENTS IS-14) ve kullanıcı küçük yazar.
     expect(panelEslesir(hit(), "muhtelif")).toBe(true);
   });
 
@@ -180,5 +182,39 @@ describe("panelSinyalleri", () => {
       s({ key: "uyari-cok", count: 9, tone: "uyari" }),
     ]);
     expect(liste.map((x) => x.key)).toEqual(["uyari-cok", "uyari-az", "bilgi-cok"]);
+  });
+});
+
+describe("takvimTurler — ajanda tür çipleri", () => {
+  const d = (kind: string): PanelDate => ({
+    date: "2026-08-14",
+    kind,
+    label: "X",
+    href: "/",
+  });
+
+  it("kanonik sıra korunur ve ödeme türü listede YOKTUR", () => {
+    // Sıra AGENDA_KINDS'tan gelir; "Ödeme" bilinçli olarak dışarıda
+    // (14.08.2026 kararı — ödendi bilgisi takip edilmiyor).
+    expect(AGENDA_KINDS).not.toContain("Ödeme");
+    const turler = takvimTurler([d("Yapılacak"), d("Termin"), d("Görev")]);
+    expect(turler).toEqual(["Termin", "Görev", "Yapılacak"]);
+  });
+
+  it("kayıtta OLMAYAN türe çip çıkmaz (sıfır kuralı)", () => {
+    expect(takvimTurler([d("Sevk")])).toEqual(["Sevk"]);
+  });
+
+  it("bilinmeyen tür kaybolmaz, sona eklenir", () => {
+    // Yeni bir kaynak türü eklendiğinde çekirdek güncellenmeden de çip
+    // üretilir — sessiz kayıp yerine sondaki görünürlük tercih edildi.
+    expect(takvimTurler([d("Revizyon"), d("Termin")])).toEqual([
+      "Termin",
+      "Revizyon",
+    ]);
+  });
+
+  it("boş listede boş döner", () => {
+    expect(takvimTurler([])).toEqual([]);
   });
 });

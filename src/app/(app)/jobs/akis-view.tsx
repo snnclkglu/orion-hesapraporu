@@ -15,7 +15,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AtSign, History, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { JOB_STATUS_LABELS, jobStatusOf } from "@/lib/job-status";
+import { olayAdi, olayOzeti, olaySinifi } from "@/lib/jobs/event-labels";
 import { splitMentions, type MentionPerson } from "@/lib/jobs/mentions";
 import {
   createComment,
@@ -51,62 +51,9 @@ export interface JobCommentRow {
   edited: boolean;
 }
 
-/** Olay adları Türkçeye burada çevrilir; veritabanı ASCII slug taşır. */
-const OLAY_ADLARI: Record<string, string> = {
-  olusturuldu: "İş açıldı",
-  guncellendi: "İş emri güncellendi",
-  durum: "Durum değişti",
-  durum_oto: "Kendiliğinden tamamlandı",
-  silindi: "Silindi",
-  gorev_acildi: "Görev açıldı",
-  gorev_kapandi: "Görev kapandı",
-  gorev_atandi: "Görev atandı",
-  yorum: "Yorum",
-  carpan: "Resim çarpanı",
-};
-
-/** Olayın rengi — YIKICI olanlar ayrışsın, gerisi sessiz kalsın. */
-function olaySinifi(event: string): string {
-  if (event === "silindi") return "border-destructive/40 bg-destructive/10 text-destructive";
-  if (event === "durum" || event === "durum_oto") {
-    return "border-primary/40 bg-primary/10 text-primary";
-  }
-  return "border-border bg-muted text-muted-foreground";
-}
-
-function durumAdi(v: unknown): string {
-  return typeof v === "string" && v ? JOB_STATUS_LABELS[jobStatusOf(v)] : "—";
-}
-
-/**
- * Olayın tek cümlelik özeti. Ham `jsonb` basılsaydı ekran okunmaz olurdu;
- * her olay türü kendi anlamlı cümlesini söyler, söyleyecek şeyi yoksa SUSAR.
- */
-function ozet(o: JobEventRow): string {
-  const d = o.detail;
-  switch (o.event) {
-    case "olusturuldu": {
-      const kalem = typeof d.kalem === "number" ? d.kalem : null;
-      return kalem == null ? "" : `${kalem} kalemle açıldı`;
-    }
-    case "guncellendi": {
-      const kalem = typeof d.kalem === "number" ? d.kalem : null;
-      return kalem == null ? "" : `${kalem} kalem`;
-    }
-    case "durum":
-      return `${durumAdi(d.from)} → ${durumAdi(d.to)}`;
-    case "durum_oto":
-      return "Bütün kalemlerin sevk tarihi girildi → Tamamlandı";
-    case "gorev_acildi":
-    case "gorev_kapandi":
-    case "gorev_atandi":
-      return typeof d.title === "string" ? d.title : "";
-    case "yorum":
-      return typeof d.ozet === "string" ? d.ozet : "";
-    default:
-      return "";
-  }
-}
+// Olay adı, rengi ve tek cümlelik özeti ORTAK sözlükten gelir
+// (`lib/jobs/event-labels.ts`) — panelin Son Hareketler bölümü aynı defteri
+// basar, iki sözlük zamanla ayrışırdı.
 
 function zaman(iso: string): string {
   const d = new Date(iso);
@@ -398,10 +345,10 @@ export function JobAkisi({
                   <span
                     className={`border px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap ${olaySinifi(g.olay.event)}`}
                   >
-                    {OLAY_ADLARI[g.olay.event] ?? g.olay.event}
+                    {olayAdi(g.olay.event)}
                   </span>
                   <span className="min-w-0 flex-1 text-[12px] text-muted-foreground">
-                    {ozet(g.olay)}
+                    {olayOzeti(g.olay)}
                   </span>
                   {g.olay.actorName && (
                     <span className="text-[11px] text-muted-foreground/80">

@@ -44,7 +44,7 @@ export interface PanelHit {
  * Eşleşme KATLANMIŞ metin üzerindedir (`trKatla`), `toLowerCase` değil.
  *
  * Sebep bu uygulamada defalarca ölçüldü: adlar BÜYÜK HARFLE saklanıyor
- * (md. 14) ve kullanıcı küçük harfle yazıyor. Düz `toLowerCase` Türkçe'nin
+ * (IS-14) ve kullanıcı küçük harfle yazıyor. Düz `toLowerCase` Türkçe'nin
  * noktalı/noktasız i ayrımını çözemez — "isdemir" yazan biri "İSDEMİR"i
  * bulamaz. `trKatla` iki yazımı da tek biçime indirir.
  */
@@ -168,6 +168,39 @@ export function gunAdi(bugun: string, tarih: string): string {
   }
   const [y, a, g] = tarih.split("-");
   return y && a && g ? `${g}.${a}` : tarih;
+}
+
+/**
+ * Ajanda türlerinin KANONİK SIRASI — çip şeridi ve satır içi rozetler bundan
+ * okur; ikinci bir sıra listesi yazılmaz. Sıra "işin ticari zinciri" düzenidir:
+ * satış tarafı → satın alma → kişiye düşenler → işin kendi tarihleri.
+ *
+ * Ödeme günleri BİLEREK YOK: 14.08.2026 kararı ("ödendi bilgisi takip
+ * etmeyelim") Ödeme Takvimi'ni kaldırdı; panele ödeme tarihi koymak o kararı
+ * arkadan dolanmak olurdu.
+ */
+export const AGENDA_KINDS = [
+  "Termin",
+  "Sevk",
+  "Teslim",
+  "Görev",
+  "Yapılacak",
+  "İş Teslimi",
+  "Atölye Çıkışı",
+] as const;
+
+/**
+ * Kayıt listesinde GERÇEKTEN VAR OLAN türleri kanonik sırayla verir — sıfır
+ * kayıtlı türe çip çizilmez (panonun sıfır kuralı). Listede olmayan
+ * (ileride eklenmiş) bir tür kaybolmaz, sona eklenir.
+ */
+export function takvimTurler(kayitlar: readonly PanelDate[]): string[] {
+  const mevcut = new Set(kayitlar.map((k) => k.kind));
+  const sirali: string[] = AGENDA_KINDS.filter((k) => mevcut.has(k));
+  for (const k of mevcut) {
+    if (!(AGENDA_KINDS as readonly string[]).includes(k)) sirali.push(k);
+  }
+  return sirali;
 }
 
 /** Zaman şeridinin bir bandı: aynı güne düşen kayıtlar bir arada. */

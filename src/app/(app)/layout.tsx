@@ -1,24 +1,15 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/profile";
 import { AppShell } from "@/components/app-shell";
 
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  // Menünün tek girdisi ROLdür. Bir süre burada "zengin sorgu + dar yedek"
-  // ikilisi vardı çünkü `tags` sütunu yeni gelmişti; etiketler role dönüşüp
-  // sütun düşürülünce (12.08.2026) yedeğin koruduğu bir şey kalmadı.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Profil `getSessionProfile` üzerinden okunur: açılış sayfası da aynı
+  // fonksiyonu çağırır ve React `cache` sayesinde sorgu istek başına BİR KEZ
+  // koşar (eskiden kabuk + sayfa aynı satırı iki kez okuyordu).
+  const profile = await getSessionProfile();
+  if (!profile) redirect("/login");
 
   return (
     <>
@@ -30,9 +21,9 @@ export default async function AppLayout({
         İçeriğe atla
       </a>
       <AppShell
-        role={profile?.role ?? "engineer"}
-        displayName={profile?.full_name || user.email || "Kullanıcı"}
-        email={user.email ?? ""}
+        role={profile.role}
+        displayName={profile.fullName || profile.email || "Kullanıcı"}
+        email={profile.email}
       >
         {/* main app-shell içinde; atlama hedefi bu sarmalayıcıdır */}
         {/* Yükseklik zinciri: sabit çerçeveli sayfalarda (revizyon editörü)

@@ -4,19 +4,21 @@
 // kısayolun sahibi artık palettir; Panel'in satır içi arama kutusu duruyor,
 // yalnız kısayol rozetini devretti).
 //
-// Defter (`/api/command-index`) palet İLK açıldığında bir kez çekilir; süzme
-// istemcide `panelAra` iledir (trKatla — "isdemir" İSDEMİR'i bulur; panonun
-// arama çekirdeğinin ta kendisi, iki arama ayrışamaz). Sayfa listesi menüyle
-// tek kaynaktan gelir; "Son Bakılanlar" cihazdaki defterden okunur.
+// Defter PAYLAŞILAN DEPODAN gelir (`lib/command-index-store`): pano araması
+// ya da palet — hangisi önce isterse defteri o çeker, ikincisi hazır olanı
+// okur; defter istemciye BİR KEZ iner. Süzme istemcide `panelAra` iledir
+// (trKatla — "isdemir" İSDEMİR'i bulur; panonun arama çekirdeğinin ta
+// kendisi, iki arama ayrışamaz). Sayfa listesi menüyle tek kaynaktan gelir;
+// "Son Bakılanlar" cihazdaki defterden okunur.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { PANEL_KIND_LABELS, panelAra } from "@/lib/panel";
 import {
-  PANEL_KIND_LABELS,
-  panelAra,
-  type PanelHit,
-} from "@/lib/panel";
+  ensureCommandIndex,
+  useCommandIndex,
+} from "@/lib/command-index-store";
 import { useRecentJobs } from "@/lib/jobs/recent";
 import {
   Command,
@@ -29,16 +31,11 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 
-interface IndexData {
-  sections: { href: string; label: string }[];
-  hits: PanelHit[];
-}
-
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [veri, setVeri] = useState<IndexData | null>(null);
-  const yukleniyor = useRef(false);
+  const durum = useCommandIndex();
+  const veri = durum.status === "ready" ? durum.data : null;
   const router = useRouter();
   const recents = useRecentJobs();
 
@@ -52,20 +49,6 @@ export function CommandPalette() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
-
-  async function yukle() {
-    if (veri || yukleniyor.current) return;
-    yukleniyor.current = true;
-    try {
-      const r = await fetch("/api/command-index");
-      if (r.ok) setVeri((await r.json()) as IndexData);
-      else setVeri({ sections: [], hits: [] });
-    } catch {
-      setVeri({ sections: [], hits: [] });
-    } finally {
-      yukleniyor.current = false;
-    }
-  }
 
   function git(href: string) {
     setOpen(false);
@@ -81,7 +64,7 @@ export function CommandPalette() {
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
-        if (o) void yukle();
+        if (o) ensureCommandIndex();
         else setQuery("");
       }}
       title="Komut Paleti"
@@ -97,11 +80,13 @@ export function CommandPalette() {
       />
       <CommandList>
         <CommandEmpty>
-          {veri === null
-            ? "Defter yükleniyor…"
-            : sorguVar
-              ? "Eşleşen kayıt yok."
-              : "En az iki karakter yazın."}
+          {durum.status === "error"
+            ? "Defter yüklenemedi — paleti kapatıp yeniden açın."
+            : veri === null
+              ? "Defter yükleniyor…"
+              : sorguVar
+                ? "Eşleşen kayıt yok."
+                : "En az iki karakter yazın."}
         </CommandEmpty>
 
         {/* Sorgu yokken: hızlı eylem + son bakılanlar + sayfalar. */}
