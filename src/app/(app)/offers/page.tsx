@@ -7,7 +7,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
-import { loadCustomers, loadOfferList, loadOfferTemplates } from "./data";
+import { loadCustomers, loadOfferList } from "./data";
 import { NewOfferButton } from "./new-offer-dialog";
 import { OffersTable } from "./offers-table";
 
@@ -15,10 +15,11 @@ export const dynamic = "force-dynamic";
 
 export default async function OffersPage() {
   const supabase = await createClient();
-  const [offers, customers, templates] = await Promise.all([
+  // ŞABLON DEFTERİ BURADA GEREKMEZ: şablon KALEM eklenirken sorulur (TEKLIF-32)
+  // ve o liste revizyon editörüne yüklenir.
+  const [offers, customers] = await Promise.all([
     loadOfferList(supabase),
     loadCustomers(supabase),
-    loadOfferTemplates(supabase),
   ]);
 
   return (
@@ -28,7 +29,7 @@ export default async function OffersPage() {
         title="Teklifler"
         hint="Müşteriye verilen teknik ve ticari teklifler; her teklif kendi revizyon zincirini taşır."
       >
-        <NewOfferButton customers={customers} templates={templates} />
+        <NewOfferButton customers={customers} />
       </PageHeader>
 
       {/*

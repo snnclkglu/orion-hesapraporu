@@ -16,8 +16,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderOfferPdf, type OfferDocumentProps } from "../src/lib/pdf/offer";
 import { offerFileName } from "../src/lib/pdf/doc-naming";
-import { emptyPayload, groupFromKey, newOfferId } from "../src/lib/offers/payload";
-import { offerTotal } from "../src/lib/offers/pricing";
+import { emptyPayload, freeItem, groupFromKey, newOfferId } from "../src/lib/offers/payload";
+import { applyDiscountToLines, offerTotal } from "../src/lib/offers/pricing";
 import { offerDocLine } from "../src/lib/offers/no";
 import { fmtMoney } from "../src/lib/currency";
 import type { OfferGroup, OfferPayload, OfferPriceLine } from "../src/lib/offers/types";
@@ -262,6 +262,38 @@ function sadeTeklif(): OfferDocumentProps {
   };
 }
 
+// ————————————————————————————————————————————— 1b) İSKONTOLU / SERBEST
+
+/**
+ * İSKONTOLU + SERBEST KALEMLİ teklif.
+ *
+ * İki yeni kural aynı fikstürde sınanır çünkü ikisi de aynı soruyu soruyor:
+ * belgeye BASILAN şey veriyle tutuyor mu?
+ *   · İskonto satırları YALNIZ satır toplamından farklıysa basılır ve
+ *     "İSKONTOLU TOPLAM" ödenecek rakamı gösterir (TEKLIF-35).
+ *   · SERBEST kalemin satır etiketleri defterde yoktur; elle yazılan etiket ve
+ *     değer belgeye aynen girer, boş satır ise HİÇ girmez (TEKLIF-33).
+ */
+function iskontoluTeklif(): OfferDocumentProps {
+  const props = sadeTeklif();
+  const p = props.payload;
+
+  const yedek = freeItem("YEDEK PARÇA GRUBU");
+  const rows = yedek.groups[0].rows;
+  rows[0] = { ...rows[0], label: "Redüktör Gövdesi", value: "YILMAZ R. HT 0823 — Komple" };
+  rows[1] = { ...rows[1], label: "Kaplin Takozu", value: "SIBRE 200 Serisi, 6 Adet" };
+  // Üçüncü satır BOŞ bırakılır: belgede görünmemesi gerekir.
+  p.items = [...p.items, yedek];
+
+  p.pricing.lines = [
+    ...p.pricing.lines,
+    fiyatSatiri({ itemId: yedek.id, description: "Yedek Parça Grubu", qty: 1, unit: "Takım", unitPrice: 8_400 }),
+  ];
+  // Satır toplamı 223.600 + 8.400 = 232.000; iskontolu 215.000 (17.000 iskonto).
+  p.pricing.discountTotal = 215_000;
+  return props;
+}
+
 // ———————————————————————————————————————————————————— 2) GİZLEMELİ
 
 /** Gizlenen her şey bu damgayı taşır; belgede damganın hiç geçmemesi gerekir. */
@@ -474,6 +506,33 @@ async function main() {
   kontrol(
     s.metin.includes("ÖZELLİKLERİ"),
     "kalem başlığı belgede (punto büyüdü, metin aynı kaldı)"
+  );
+
+  const i = await uret("teklif-iskontolu.pdf", iskontoluTeklif());
+  kontrol(duz(i.metin).includes(duz(fmtMoney(232000, "EUR"))), "satır TOPLAMI belgede (232.000 €)");
+  kontrol(i.metin.includes("İSKONTO"), "iskonto satırı basıldı");
+  kontrol(
+    duz(i.metin).includes(duz(fmtMoney(215000, "EUR"))),
+    "İSKONTOLU TOPLAM ödenecek rakamı gösteriyor (215.000 €)"
+  );
+  // SERBEST KALEM: elle yazılan etiket ve değer belgede; boş satır YOK.
+  kontrol(i.metin.includes("TEKNİK ÖZELLİKLER"), "serbest kalemin bölüm başlığı basıldı");
+  kontrol(
+    i.metin.includes("Redüktör Gövdesi") && i.metin.includes("Kaplin Takozu"),
+    "serbest satırların etiketi ve değeri belgede"
+  );
+  // İSKONTO BİRİM FİYATLARA YANSITILDIYSA ayrı satır basılmaz: aynı sayıyı iki
+  // kez yazmak müşteriye ikinci bir indirim vaat etmek gibi okunurdu.
+  const yansitilmis = iskontoluTeklif();
+  yansitilmis.payload.pricing.lines = applyDiscountToLines(
+    yansitilmis.payload.pricing.lines,
+    215_000
+  );
+  const y = await uret("teklif-iskonto-yansitilmis.pdf", yansitilmis);
+  kontrol(!y.metin.includes("İSKONTOLU TOPLAM"), "yansıtılmış iskontoda ayrı satır BASILMADI");
+  kontrol(
+    duz(y.metin).includes(duz(fmtMoney(215000, "EUR"))),
+    "yansıtılmış iskontoda TOPLAM hedefi tuttu (215.000 €)"
   );
 
   const gizlemeli = gizlemeliTeklif();

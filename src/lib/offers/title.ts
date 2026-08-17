@@ -74,6 +74,16 @@ export function defaultItemTitle(sira: number): string {
   return `VİNÇ - ${sira}`;
 }
 
+/**
+ * SERBEST kalemin varsayılan adı — "KALEM - 2".
+ *
+ * "VİNÇ" demezdi: serbest kalem bir yedek parça, bir kabin ya da bir revizyon
+ * işidir (TEKLIF-33) ve ona vinç demek belgede yanlış bir başlık üretirdi.
+ */
+export function defaultFreeItemTitle(sira: number): string {
+  return `KALEM - ${sira}`;
+}
+
 /** Varsayılan adla mı duruyor — otomatik başlık onu ezmekte serbesttir. */
 export function isDefaultItemTitle(title: string): boolean {
   return /^VİNÇ\s*-\s*\d+$/u.test((title ?? "").trim());

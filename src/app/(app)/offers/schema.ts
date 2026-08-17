@@ -24,8 +24,7 @@ export const newOfferSchema = z.object({
   subject: adAlani("Teklif konusu gerekli"),
   lang: z.enum(OFFER_LANGS).default("tr"),
   currency: z.enum(CURRENCIES).default("EUR"),
-  /** Şablon seçimi opsiyoneldir — boş bir teklif de meşrudur. */
-  templateId: z.uuid().nullable().default(null),
+  // ŞABLON ALANI YOKTUR (TEKLIF-32): şablon KALEMİN sorusudur, belgenin değil.
 });
 
 export type NewOfferInput = z.infer<typeof newOfferSchema>;

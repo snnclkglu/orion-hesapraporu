@@ -37,7 +37,7 @@ import {
 } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
 import { printedPayload } from "@/lib/offers/payload";
-import { lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
+import { discountAmount, lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import { offerScopeSuffix } from "@/lib/offers/types";
 import type {
@@ -558,11 +558,50 @@ function adetHucresi(line: OfferPriceLine): string {
   return `${fmtNum(line.qty)} ${line.unit}`.trim();
 }
 
+/** Tablonun altındaki toplam satırları — üçü de aynı ızgarayı paylaşır. */
+function ToplamSatiri({
+  baslik,
+  tutar,
+  currency,
+  vurgu,
+}: {
+  baslik: string;
+  tutar: number | null;
+  currency: string;
+  /** İskontolu toplam biraz daha belirgin basılır — ödenecek rakam odur. */
+  vurgu?: boolean;
+}) {
+  const etiketPay =
+    FIYAT_SUTUNLARI[0].pay + FIYAT_SUTUNLARI[1].pay + FIYAT_SUTUNLARI[2].pay + FIYAT_SUTUNLARI[3].pay;
+  return (
+    <View style={S.toplamSatiri} wrap={false}>
+      <Text style={[S.toplamYazi, { width: `${etiketPay}%`, textAlign: "right" }]}>{baslik}</Text>
+      <Text
+        style={[
+          S.toplamYazi,
+          {
+            fontFamily: FONTS.mono,
+            fontWeight: vurgu ? 700 : 600,
+            width: `${FIYAT_SUTUNLARI[4].pay}%`,
+            textAlign: "right",
+          },
+        ]}
+      >
+        {tutar === null ? "—" : fmtMoney(tutar, currency)}
+      </Text>
+    </View>
+  );
+}
+
 function FiyatTablosu({ payload, currency }: { payload: OfferPayload; currency: string }) {
   const lines = payload.pricing.lines;
   if (lines.length === 0) return null;
   const toplam = offerTotal(lines);
   const toplamDisiVar = lines.some((l) => !l.inTotal);
+  // İSKONTO belgeye ancak satır toplamından FARKLIYSA girer (bkz. aşağıdaki
+  // gerekçe); `discountAmount` bu farkı zaten `null`a çevirir.
+  const iskonto = discountAmount(payload.pricing);
+  const iskontolu = iskonto === null ? null : payload.pricing.discountTotal ?? null;
 
   return (
     <View style={{ marginTop: 14 }}>
@@ -613,27 +652,21 @@ function FiyatTablosu({ payload, currency }: { payload: OfferPayload; currency: 
         );
       })}
 
-      <View style={S.toplamSatiri} wrap={false}>
-        <Text
-          style={[
-            S.toplamYazi,
-            {
-              width: `${FIYAT_SUTUNLARI[0].pay + FIYAT_SUTUNLARI[1].pay + FIYAT_SUTUNLARI[2].pay + FIYAT_SUTUNLARI[3].pay}%`,
-              textAlign: "right",
-            },
-          ]}
-        >
-          TOPLAM
-        </Text>
-        <Text
-          style={[
-            S.toplamYazi,
-            { fontFamily: FONTS.mono, fontWeight: 600, width: `${FIYAT_SUTUNLARI[4].pay}%`, textAlign: "right" },
-          ]}
-        >
-          {toplam === null ? "—" : fmtMoney(toplam, currency)}
-        </Text>
-      </View>
+      <ToplamSatiri baslik="TOPLAM" tutar={toplam} currency={currency} />
+
+      {/*
+        İSKONTO SATIRLARI YALNIZ FARK VARSA BASILIR (kullanıcı isteği,
+        17.08.2026). Kullanıcı iskontoyu birim fiyatlara YANSITTIYSA tablodaki
+        rakamlar zaten iskontoludur ve satır toplamı hedefe eşittir; o durumda
+        ayrıca "İSKONTOLU TOPLAM" yazmak aynı sayıyı iki kez basmak, üstüne de
+        müşteriye ikinci bir indirim vaat etmek gibi okunurdu.
+      */}
+      {iskonto !== null && iskontolu !== null ? (
+        <>
+          <ToplamSatiri baslik="İSKONTO" tutar={-iskonto} currency={currency} />
+          <ToplamSatiri baslik="İSKONTOLU TOPLAM" tutar={iskontolu} currency={currency} vurgu />
+        </>
+      ) : null}
 
       {/* Dipnot YALNIZ böyle bir satır varsa basılır. */}
       {toplamDisiVar ? <Text style={S.dipnot}>* Toplam fiyata dahil değildir.</Text> : null}

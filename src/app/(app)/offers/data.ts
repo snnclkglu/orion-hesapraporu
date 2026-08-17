@@ -335,12 +335,20 @@ export interface OfferAuthor {
   id: string;
   name: string;
   title: string;
+  /**
+   * E-POSTA DA GELİR (kullanıcı bildirimi, 17.08.2026: *"KİMDEN kısmında seçilen
+   * kişinin ismi ve ünvanı geliyor ancak maili gelmiyor"*). Kapaktaki "e-posta"
+   * satırı belgede geçen tek iletişim adresidir; seçimden sonra elle yazmak
+   * zorunda kalmak, o satırın boş gitmesinin en kısa yoluydu.
+   * Kaynak `profiles.email` (auth kaydından türetilir, migration 20260807000007).
+   */
+  email: string;
 }
 
 export async function loadOfferAuthors(supabase: SupabaseClient): Promise<OfferAuthor[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, title, role")
+    .select("id, full_name, title, email, role")
     .in("role", ["admin", "manager"])
     .order("full_name");
   if (error) return [];
@@ -348,6 +356,7 @@ export async function loadOfferAuthors(supabase: SupabaseClient): Promise<OfferA
     id: r.id as string,
     name: (r.full_name as string) ?? "",
     title: (r.title as string) ?? "",
+    email: (r.email as string) ?? "",
   }));
 }
 

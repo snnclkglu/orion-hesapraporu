@@ -169,7 +169,16 @@ export function RowEditor({
           // parçalarla ilişkilendiremiyordu. Kutular bir miktar daralır,
           // karşılığında belgeye ne basılacağı aynı hizada görünür.
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_11rem] lg:items-start">
-            <div className="flex flex-wrap gap-2">
+            {/*
+              PARÇALAR ÜSTTEN HİZALANIR (`items-start`). Varsayılan `stretch`
+              ile bir parça uzadığında (çok markalı alan iki-üç kutu çizer)
+              komşu parçaların ızgarası da o yüksekliğe geriliyor, satır
+              etiketiyle kutusu birbirinden kopuyor ve "Adet" kutusu markanın
+              ikinci kutusunun hizasına kayıyordu (kullanıcı bildirimi,
+              17.08.2026 — ekran görüntüsüyle). Her parça kendi yüksekliğinde
+              kalmalı; hizalama SATIRIN İLK kutularındandır.
+            */}
+            <div className="flex flex-wrap items-start gap-2">
               {parcalar.map((part) => (
                 <PartField
                   key={part.key}
@@ -181,9 +190,17 @@ export function RowEditor({
                 />
               ))}
             </div>
+            {/*
+              DEĞER SARILIR, KESİLMEZ (kullanıcı bildirimi, 17.08.2026: *"yazı
+              yarıda kesiliyor, alt alta 2 3 satır yazabilir"*). Önizlemenin işi
+              belgeye NE BASILACAĞINI göstermektir; "Avans Ödemesi Sonrası 5…"
+              diye kesilen bir metin tam olarak o işi yapmaz. Üç satır sınırı
+              kalır ki uzun bir ek özellik kuyruğu satırı sayfa boyu uzatmasın;
+              tamamı yine `title` ile okunur.
+            */}
             <p
               title={row.value || undefined}
-              className="min-w-0 self-center truncate font-mono text-xs text-muted-foreground lg:pt-5"
+              className="min-w-0 self-center font-mono text-xs break-words text-muted-foreground lg:line-clamp-3 lg:pt-5"
             >
               {row.value || "—"}
             </p>

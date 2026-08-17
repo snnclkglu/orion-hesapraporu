@@ -179,9 +179,26 @@ export interface OfferPricing {
   vatIncluded: boolean;
   lines: OfferPriceLine[];
   /**
-   * Toplam — `offerTotal` ile hesaplanır ve payload'a YAZILIR.
+   * İSKONTOLU TOPLAM — müşterinin gerçekten ödeyeceği tutar.
+   *
+   * Kullanıcı isteği (17.08.2026): *"Fiyat kısmının en sonuna iskontolu toplam
+   * fiyat girebileceğim bir kısım olsun. İstersem birim fiyatları da o oranda
+   * düşürsün, yuvarlama yapsın ama toplam tutsun."*
+   *
+   * ORAN DEĞİL TUTAR saklanır: pazarlık masasında konuşulan şey "şu fiyata
+   * verelim"dir, bir yüzde değil. Yüzde tutardan TÜRETİLİR (`discountPercent`)
+   * ve böylece belgede yazan sayı ile kullanıcının yazdığı sayı ayrışamaz —
+   * `%7,5` saklanıp yuvarlanmış bir tutar basılsaydı ikisi çelişirdi.
+   *
+   * `null` = iskonto YOK (sıfır değil): sıfır bir iskonto kararıdır, boş ise
+   * kararın hiç verilmemiş olmasıdır.
+   */
+  discountTotal?: number | null;
+  /**
+   * Toplam — `effectiveTotal` ile hesaplanır ve payload'a YAZILIR.
    * Veritabanı `total_amount` üretilmiş sütununu buradan okur; liste ekranı
-   * belgeyi açmadan tutarı görebilsin diye.
+   * belgeyi açmadan tutarı görebilsin diye. İSKONTO VARSA ONU taşır: liste
+   * ekranındaki rakam müşterinin ödeyeceği rakamdır.
    */
   total: number | null;
 }
@@ -276,6 +293,17 @@ export interface OfferPartDef {
    * "GAMAK 22 kW 1500 d/dak, Encoderli, F/S3".
    */
   comma?: boolean;
+  /**
+   * DEĞER "1" İSE PARÇA BASILMAZ.
+   *
+   * Adet parçalarında geçerlidir: firmanın on dört teklifinde tek motor
+   * `Motor : GAMAK 22 kW 1500 d/dak` diye yazılıyor, `1 x 22 kW` diye DEĞİL —
+   * "bir adet" bilgi taşımaz, çünkü yazılmadığında da bir adet anlaşılır.
+   * Fren satırı BUNUN İSTİSNASIDIR ve bilerek işaretsizdir: belgelerde
+   * `SIBRE Kasnak Fren x 1 Adet` yazımı geçiyor (İDÇ teklifi) — orada adet,
+   * ikinci bir frenin olmadığını SÖYLEYEN bir bilgidir.
+   */
+  hideWhenOne?: boolean;
   /**
    * DEĞERİ BAŞKA PARÇALARDAN TÜRER (`derivedParts`) — kutusu salt okunurdur.
    *

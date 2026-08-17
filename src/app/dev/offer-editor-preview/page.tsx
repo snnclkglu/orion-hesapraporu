@@ -203,8 +203,8 @@ const KISILER: CustomerContact[] = [
 ];
 
 const YAZARLAR: OfferAuthor[] = [
-  { id: "u1", name: "SİNAN ÇOLAKOĞLU", title: "Proje Müdürü" },
-  { id: "u2", name: "SALİH ERGÜVEN", title: "Genel Müdür" },
+  { id: "u1", name: "SİNAN ÇOLAKOĞLU", title: "Proje Müdürü", email: "scolakoglu@orioncranes.com" },
+  { id: "u2", name: "SALİH ERGÜVEN", title: "Genel Müdür", email: "serguven@orioncranes.com" },
 ];
 
 const SABLONLAR: OfferTemplateRow[] = [

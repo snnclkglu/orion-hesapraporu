@@ -23,13 +23,10 @@ import { copyPayloadForCustomer } from "@/lib/offers/copy";
 import { nextSeq, offerNo } from "@/lib/offers/no";
 import {
   applyDefaults,
-  emptyItem,
   emptyPayload,
   greetingFor,
-  withCraneType,
   withDefaults,
 } from "@/lib/offers/payload";
-import { defaultItemTitle } from "@/lib/offers/title";
 import { coverFieldsFromContact, suggestedContact } from "@/lib/customer-contacts";
 import { itemFactsFromRows } from "@/lib/offers/registry";
 import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
@@ -169,7 +166,8 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   });
   if ("error" in yazildi) return { error: yazildi.error };
 
-  // İlk revizyon (R0) — şablon seçildiyse kalem iskeleti onunla kurulur.
+  // İlk revizyon (R0) — kapak künyesi, defter varsayılanları ve muhatap dolu;
+  // teknik kalemler editörde, kalem kalem eklenir.
   let payload = emptyPayload(parsed.data.currency);
   const kunye = await hazirlayan(supabase, user.id);
   payload.cover = {
@@ -206,22 +204,17 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   // ilk vincine onu takmak, kullanıcının her seferinde sildiği bir başlık
   // üretirdi. Başlık zaten kapasite ve vinç tipi girildiğinde kendiliğinden
   // yazılır (`withAutoTitle`).
-  let groupKeys: string[] = [];
-  let craneType = "";
-  if (parsed.data.templateId) {
-    const { data: sablon } = await supabase
-      .from("offer_templates")
-      .select("name, crane_type, skeleton")
-      .eq("id", parsed.data.templateId)
-      .maybeSingle();
-    groupKeys = (sablon?.skeleton as { groupKeys?: string[] } | null)?.groupKeys ?? [];
-    craneType = (sablon?.crane_type as string) || "";
-  }
-  // VİNÇ TİPİ ŞABLONUN KENDİ BİLGİSİDİR ve GENEL ÖZELLİKLER satırına da yazılır:
-  // "Portal Vinç" şablonu seçen kullanıcıya aynı soruyu bir daha sormak,
-  // uygulamanın bildiği bir şeyi ona yazdırmak olurdu. Uydurma değil — kaynak
-  // defterdeki şablon kaydıdır (`offer_templates.crane_type`).
-  payload.items = [withCraneType(emptyItem(defaultItemTitle(1), groupKeys), craneType)];
+  // TEKLİF KALEMSİZ AÇILIR (kullanıcı isteği, 17.08.2026: *"şablon seçimini
+  // teklifi oluştururken değil de kalem eklerken yapsak daha iyi olur; teklif
+  // ilk boş olarak gelsin, ben kalem eklerken hangi şablona göre geldiğini
+  // orada seçeyim, çünkü bir teklif içerisinde hem tek kirişli hem çift kirişli
+  // hem portal olabilir"*).
+  //
+  // Şablonu teklif düzeyinde sormak, ÇOK ÜRÜNLÜ bir belgeyi tek bir vinç tipine
+  // bağlamak olurdu: ASTOR'un "Yeni Fabrika" teklifinde bir çift kirişli, bir
+  // tek kirişli ve iki monoray var. Şablon artık KALEMİN sorusudur ve her
+  // kalemde yeniden sorulur (`KalemEkleDialog`).
+  payload.items = [];
 
   const { error: revError } = await supabase.from("offer_revisions").insert({
     offer_id: yazildi.id,

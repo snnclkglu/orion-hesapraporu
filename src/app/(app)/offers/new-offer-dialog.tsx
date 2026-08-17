@@ -1,11 +1,12 @@
 "use client";
 
-// YENİ TEKLİF — dört alanda açılır.
+// YENİ TEKLİF — üç alanda açılır.
 //
 // Kullanıcı hedefi: *"Teklif bölümünde hızlı seçimlerle teklifi oluşturma."*
-// Bu pencere teklifin TAMAMINI sormaz, yalnız DEĞİŞTİRİLEMEYECEK olanı sorar:
-// müşteri (numaranın değil ama belgenin sahibi), konu, dil ve para birimi.
-// Teknik içerik editörde kurulur; şablon seçimi orayı hazır getirir.
+// Bu pencere teklifin TAMAMINI sormaz, yalnız BELGEYE ait olanı sorar: müşteri,
+// konu, dil ve para birimi. Teknik içerik editörde kurulur ve ŞABLON ARTIK
+// BURADA SORULMAZ — bir teklifte birden çok vinç tipi olabiliyor, o yüzden
+// şablon KALEMİN sorusudur (TEKLIF-32).
 //
 // MÜŞTERİ SEÇİCİSİ İŞ EMRİNDEN DEVRALINIR (`CustomerPicker`): defterden seçme
 // ve akışı kesmeden yeni müşteri açma zaten orada çözülmüş. İkinci bir seçici
@@ -33,23 +34,12 @@ import { CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS } from "@/lib/currency";
 import { OFFER_LANGS_ACTIVE, OFFER_LANG_LABELS } from "@/lib/offers/lang";
 import { adBuyuk } from "@/lib/tr-text";
 import { createOffer } from "./actions";
-import type { OfferTemplateRow } from "./data";
 
-/** Şablonsuz teklif — Select boş string değere izin vermez. */
-const NO_TEMPLATE = "__none__";
-
-export function NewOfferButton({
-  customers,
-  templates,
-}: {
-  customers: readonly CustomerOption[];
-  templates: readonly OfferTemplateRow[];
-}) {
+export function NewOfferButton({ customers }: { customers: readonly CustomerOption[] }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [subject, setSubject] = useState("");
-  const [templateId, setTemplateId] = useState<string>(NO_TEMPLATE);
   const [currency, setCurrency] = useState<string>("EUR");
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -64,7 +54,6 @@ export function NewOfferButton({
         subject,
         lang: "tr",
         currency: currency as (typeof CURRENCIES)[number],
-        templateId: templateId === NO_TEMPLATE ? null : templateId,
       });
       // Başarıda action `redirect` eder ve buraya hiç dönmez.
       if (res?.error) toast.error(res.error);
@@ -110,34 +99,20 @@ export function NewOfferButton({
           </div>
 
           {/*
-            KALEMİN ADI BURADA SORULMAZ (kullanıcı isteği, 17.08.2026: *"girdiğim
-            teklif konusu ekleyeceğim vinç ile aynı olmayabilir; konu kapak
-            bölümüne gelsin, ilk vinç Vinç - 1 olarak gelsin, ben kalem
-            başlığından zaten düzenlerim"*). İlk kalem "VİNÇ - 1" adıyla açılır
-            ve editörde kapasite ile vinç tipi girildiğinde başlık kendiliğinden
-            "32/5T x 19,5m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ" olur.
+            NE KALEMİN ADI NE ŞABLON BURADA SORULUR.
+            · Ad (17.08.2026): *"girdiğim teklif konusu ekleyeceğim vinç ile aynı
+              olmayabilir; konu kapak bölümüne gelsin"* — konu BELGENİN adıdır.
+            · Şablon (17.08.2026): *"şablon seçimini teklifi oluştururken değil de
+              kalem eklerken yapsak daha iyi olur … çünkü bir teklif içerisinde
+              hem tek kirişli hem çift kirişli hem portal olabilir; 3 4 farklı
+              şablon kullanmak gerekebilir."*
+            Teklif KALEMSİZ açılır; her kalem kendi şablonuyla eklenir.
           */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="offer_template">Şablon</Label>
-            <Select value={templateId} onValueChange={setTemplateId}>
-              <SelectTrigger id="offer_template" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_TEMPLATE}>Şablonsuz (boş teklif)</SelectItem>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Teknik bölümler şablona göre kurulur; ilk kalem{" "}
-              <span className="font-medium">VİNÇ - 1</span> adıyla açılır ve başlığı
-              kapasite ile vinç tipinden otomatik yazılır.
-            </p>
-          </div>
+          <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+            Teklif boş açılır. Teknik kalemleri editördeki{" "}
+            <span className="font-medium">Kalem Ekle</span> ile eklersiniz; şablon (vinç
+            tipi) orada kalem kalem seçilir.
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">

@@ -25,12 +25,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { copySelections, emptyItem } from "@/lib/offers/payload";
+import { copySelections, emptyItem, freeItem } from "@/lib/offers/payload";
 import { OFFER_GROUP_DEF_BY_KEY } from "@/lib/offers/registry";
-import { defaultItemTitle, kalemBasligiBuyuk } from "@/lib/offers/title";
+import { defaultFreeItemTitle, defaultItemTitle, kalemBasligiBuyuk } from "@/lib/offers/title";
 import type { OfferItem } from "@/lib/offers/types";
 import { cn } from "@/lib/utils";
 import type { OfferTemplateRow } from "@/app/(app)/offers/data";
+
+/** Şablon yerine SERBEST kalem — `Select` boş string değere izin vermez. */
+const SERBEST = "__serbest__";
 
 export function KalemEkleDialog({
   templates,
@@ -47,25 +50,31 @@ export function KalemEkleDialog({
   onClose: () => void;
   onEkle: (item: OfferItem) => void;
 }) {
-  const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
+  const [templateId, setTemplateId] = useState(templates[0]?.id ?? SERBEST);
   const [baslik, setBaslik] = useState("");
   const [seciminiKopyala, setSeciminiKopyala] = useState(true);
 
+  const serbest = templateId === SERBEST;
   const sablon = templates.find((t) => t.id === templateId);
   const gruplar = sablon?.skeleton?.groupKeys ?? [];
-  const varsayilanAd = defaultItemTitle(sira);
+  const varsayilanAd = serbest ? defaultFreeItemTitle(sira) : defaultItemTitle(sira);
 
   function ekle() {
     // AD YAZILMAMIŞSA "VİNÇ - n" ve başlık OTOMATİKTİR: kapasite ile vinç tipi
     // girildiğinde kendiliğinden "32/5T x 19,5m …" olur (`withAutoTitle`).
     // Yazılmışsa kullanıcının adı KALICIDIR — türetme onu ezmez.
     const yazilan = baslik.trim();
-    let item = emptyItem(yazilan || varsayilanAd, gruplar.length ? gruplar : ["general"]);
-    item.craneType = sablon?.crane_type ?? "";
-    item.titleManual = yazilan !== "";
+    let item = serbest
+      ? freeItem(yazilan || varsayilanAd)
+      : emptyItem(yazilan || varsayilanAd, gruplar.length ? gruplar : ["general"]);
+    if (!serbest) item.craneType = sablon?.crane_type ?? "";
+    // SERBEST KALEMİN BAŞLIĞI ELLE YAZILMIŞ SAYILIR: defter satırı olmadığı için
+    // türetilecek bir kapasite de yoktur ve türetme onu boşa çıkarırdı.
+    item.titleManual = serbest || yazilan !== "";
     // SEÇİM TAŞINIR, ÖLÇÜ TAŞINMAZ (`copySelections`): marka tercihleri bir
     // teklifin tamamında aynıdır, kapasite ve güçler her vince özeldir.
-    if (kaynak && seciminiKopyala) item = copySelections(kaynak, item);
+    // Serbest kalemde taşınacak bir defter satırı yok.
+    if (!serbest && kaynak && seciminiKopyala) item = copySelections(kaynak, item);
     onEkle(item);
   }
 
@@ -92,9 +101,23 @@ export function KalemEkleDialog({
                     {t.name}
                   </SelectItem>
                 ))}
+                {/*
+                  SERBEST KALEM (kullanıcı isteği, 17.08.2026: *"yedek teklifi
+                  verebilirim; yedek teklifinde teknik özellikleri kendim elle
+                  girebileceğim bir yapı da isterim"*). Yedek parça, kabin
+                  değişimi ya da bir revizyon işi vinç defterine sığmaz: satır
+                  etiketleri de değerleri de o işe özeldir.
+                */}
+                <SelectItem value={SERBEST}>Serbest — teknik özellikleri elle gir</SelectItem>
               </SelectContent>
             </Select>
-            {gruplar.length > 0 ? (
+            {serbest ? (
+              <p className="text-xs text-muted-foreground">
+                Tek bir <span className="font-medium">TEKNİK ÖZELLİKLER</span> bölümü kurulur;
+                satır etiketlerini ve değerlerini kendiniz yazarsınız (yedek parça, kabin
+                değişimi, revizyon işi…).
+              </p>
+            ) : gruplar.length > 0 ? (
               <p className="text-xs text-muted-foreground">
                 Kurulacak bölümler:{" "}
                 {gruplar.map((k) => OFFER_GROUP_DEF_BY_KEY[k]?.title ?? k).join(" · ")}
@@ -111,12 +134,12 @@ export function KalemEkleDialog({
               className="text-base pointer-fine:text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Boş bırakılırsa <span className="font-medium">{varsayilanAd}</span> adıyla açılır;
-              kapasite ve vinç tipi girildiğinde başlık kendiliğinden yazılır.
+              Boş bırakılırsa <span className="font-medium">{varsayilanAd}</span> adıyla açılır
+              {serbest ? "." : "; kapasite ve vinç tipi girildiğinde başlık kendiliğinden yazılır."}
             </p>
           </div>
 
-          {kaynak ? (
+          {kaynak && !serbest ? (
             <button
               type="button"
               role="checkbox"

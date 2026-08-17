@@ -17,7 +17,18 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BookmarkPlus, Check, Download, Eye, EyeOff, Plus, Save, Send, Trash2 } from "lucide-react";
+import {
+  BookmarkPlus,
+  Check,
+  Download,
+  Eye,
+  EyeOff,
+  Percent,
+  Plus,
+  Save,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +52,10 @@ import {
   newTextLine,
 } from "@/lib/offers/payload";
 import {
+  applyDiscountToLines,
+  discountAmount,
+  discountPercent,
+  effectiveTotal,
   lineAmount,
   offerTotal,
   paymentLineText,
@@ -155,7 +170,9 @@ export function OfferEditor({
   );
 
   const gizliSayisi = hiddenCount(payload);
-  const toplam = offerTotal(payload.pricing.lines);
+  // ÜST ŞERİTTEKİ RAKAM MÜŞTERİNİN ÖDEYECEĞİDİR: iskonto girilmişse o görünür,
+  // yoksa satır toplamı (liste ekranı ve `total_amount` da aynı sayıyı okur).
+  const toplam = effectiveTotal(payload.pricing);
 
   function kaydet(sonra?: () => void) {
     startTransition(async () => {
@@ -240,6 +257,24 @@ export function OfferEditor({
           )}
         </div>
       </div>
+
+      {/*
+        KALEMSİZ TEKLİF ARTIK OLAĞANDIR (TEKLIF-32): şablon kalem eklenirken
+        seçildiği için belge boş açılır. Boşluğun kendisi bir şey söylemez, o
+        yüzden bir sonraki adım YAZIYLA söylenir — yoksa kullanıcı teknik
+        bölümlerin nerede olduğunu arar.
+      */}
+      {payload.items.length === 0 && !readOnly ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-md border border-dashed p-3">
+          <p className="text-sm text-muted-foreground">
+            Bu teklifte henüz teknik kalem yok. Vinç tipini (şablonu) seçerek ilk kalemi
+            ekleyin — bir teklifte birden çok tip olabilir.
+          </p>
+          <Button type="button" size="sm" className="oc-tap ml-auto" onClick={() => setKalemEkle(true)}>
+            <Plus className="size-4" /> Kalem Ekle
+          </Button>
+        </div>
+      ) : null}
 
       {readOnly ? (
         <p className="shrink-0 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
@@ -443,7 +478,16 @@ function KapakEditor({
               value={authors.find((a) => a.name === c.fromName)?.id ?? "__none__"}
               onValueChange={(id) => {
                 const kisi = authors.find((a) => a.id === id);
-                if (kisi) set({ fromName: kisi.name, fromTitle: kisi.title });
+                // E-POSTA DA YAZILIR ama VARSA: defterde adresi olmayan bir
+                // kullanıcıda mevcut değeri boşaltmak, kapaktaki tek iletişim
+                // satırını silmek olurdu.
+                if (kisi) {
+                  set({
+                    fromName: kisi.name,
+                    fromTitle: kisi.title,
+                    ...(kisi.email ? { fromEmail: kisi.email } : {}),
+                  });
+                }
               }}
             >
               <SelectTrigger id="kapak_hazirlayan" className="w-full">
@@ -526,8 +570,15 @@ function KapakEditor({
           <Alan etiket="Adı ve Soyadı" value={c.toName} onChange={(v) => set({ toName: v })} />
           <Alan etiket="Bölüm" value={c.toDept} onChange={(v) => set({ toDept: v })} />
           <Alan etiket="Telefon" value={c.toPhone} onChange={(v) => set({ toPhone: v })} />
+          {/*
+            MÜŞTERİNİN KENDİ TEKLİF/TALEP NUMARASI (kullanıcı isteği, 17.08.2026:
+            *"var ise müşteri teklif referans numarasını gireceğim bir kutucuk
+            olsun; varsa girerim yoksa PDF'e yansımasın"*). Boş bırakılan satır
+            kapakta HİÇ basılmaz (`dolu`, pdf/offer.tsx) — bu, kapak künyesinin
+            kuruluş kuralıdır ve ayrıca bir bayrak gerektirmez.
+          */}
           <Alan
-            etiket="Müşteri Referansı"
+            etiket="Müşteri Teklif Referans No"
             value={c.customerRef}
             onChange={(v) => set({ customerRef: v })}
           />
@@ -1093,8 +1144,96 @@ function FiyatEditor({
           Σ işaretli satır toplama girmez ve belgede dipnotla işaretlenir
           (günlük ücretli süpervizörlük gibi kalemler için).
         </p>
+
+        <IskontoAlani payload={payload} onChange={onChange} />
       </div>
     </Bolum>
+  );
+}
+
+/**
+ * İSKONTOLU TOPLAM — pazarlıkta konuşulan tutar.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Fiyat kısmının en sonuna iskontolu toplam
+ * fiyat girebileceğim bir kısım olsun. İstersem İskontolu toplam fiyat
+ * girebileyim. İstersem birim fiyatları da o oranda düşürsün yuvarlama yapsın
+ * ama toplam tutsun."*
+ *
+ * İKİ AYRI EYLEM, ve ayrımı bilinçli:
+ *   · TUTARI YAZMAK belgeye bir "İSKONTOLU TOPLAM" satırı ekler; birim fiyatlar
+ *     olduğu gibi kalır (müşteri iskontoyu görür).
+ *   · "BİRİM FİYATLARA YANSIT" düğmesi satırları ölçekler ve yuvarlar; artık
+ *     en büyük satıra bindirilir, toplam hedefi BİREBİR tutar
+ *     (`applyDiscountToLines`). Bu geri alınamaz bir düzenlemedir — o yüzden
+ *     kendi düğmesindedir, kutuya yazmanın yan etkisi değildir.
+ *
+ * Oran GÖSTERİLİR, saklanmaz: kullanıcının yazdığı tek sayı tutardır ve belgede
+ * onunla çelişebilecek ikinci bir sayı doğmaz.
+ */
+function IskontoAlani({
+  payload,
+  onChange,
+}: {
+  payload: OfferPayload;
+  onChange: (next: OfferPayload) => void;
+}) {
+  const p = payload.pricing;
+  const ham = offerTotal(p.lines);
+  const oran = discountPercent(p);
+  const tutar = discountAmount(p);
+  const hedef = p.discountTotal ?? null;
+
+  return (
+    <div className="grid gap-2 rounded-md border border-dashed p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="iskontolu_toplam">İskontolu Toplam</Label>
+          <Input
+            id="iskontolu_toplam"
+            value={hedef ?? ""}
+            inputMode="decimal"
+            onChange={(e) =>
+              onChange({
+                ...payload,
+                pricing: { ...p, discountTotal: sayiVeyaNull(e.target.value) },
+              })
+            }
+            className="h-9 w-40 text-base pointer-fine:text-sm"
+          />
+        </div>
+        <span className="text-sm text-muted-foreground">
+          Satır toplamı {ham === null ? "—" : fmtMoney(ham, p.currency)}
+        </span>
+        {tutar !== null && oran !== null ? (
+          <span className="text-sm font-medium">
+            İskonto {fmtMoney(tutar, p.currency)} (%{oran.toFixed(1).replace(".", ",")})
+          </span>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="oc-tap"
+          disabled={hedef === null || ham === null || ham <= 0}
+          title="Birim fiyatları aynı oranda düşürür, yuvarlar ve artığı en büyük satıra bindirir — toplam birebir tutar"
+          onClick={() => {
+            if (hedef === null) return;
+            const lines = applyDiscountToLines(p.lines, hedef);
+            onChange({ ...payload, pricing: { ...p, lines } });
+            toast.success("Birim fiyatlar iskontoya göre güncellendi; toplam tuttu.");
+          }}
+        >
+          <Percent className="size-3.5" /> Birim fiyatlara yansıt
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Boş bırakılırsa belgede iskonto satırı görünmez. Tutar yazılırsa müşteriye
+        giden belgede satır toplamının altında{" "}
+        <span className="font-medium">İSKONTOLU TOPLAM</span> basılır; birim fiyatlara
+        yansıtırsanız tabloda zaten iskontolu fiyatlar görünür ve ayrı bir satır
+        basılmaz. Toplama girmeyen (Σ) ve gizli satırlar ölçeklenmez.
+      </p>
+    </div>
   );
 }
 

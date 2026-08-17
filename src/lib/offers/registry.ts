@@ -31,8 +31,9 @@ const SECENEKLER: OfferPartDef = { key: "options", label: "Ek Özellikler", comm
 
 const MOTOR_PARTS: OfferPartDef[] = [
   { key: "brand", label: "Marka", list: "brand.motor" },
-  // "2 x 5.5 kW" — çift motorlu yürütme gruplarında adet ÖNCE yazılır.
-  { key: "count", label: "Adet", numeric: true, suffix: " x" },
+  // "2 x 5.5 kW" — çift motorlu yürütme gruplarında adet ÖNCE yazılır. TEK
+  // motorda hiç yazılmaz (`hideWhenOne`): belgelerin yazımı öyle.
+  { key: "count", label: "Adet", numeric: true, suffix: " x", hideWhenOne: true },
   // GÜÇ VE DEVİR DEFTERDEN SEÇİLİR (kullanıcı isteği, 17.08.2026): standart
   // motor güçleri IEC serisidir ve elle yazılırsa aynı güç iki farklı yazımla
   // ("5,5" / "5.5") belgeye girer. Liste KAPALI DEĞİLDİR — seri dışı bir motor
@@ -71,7 +72,8 @@ const DRIVE_PARTS: OfferPartDef[] = [
   { key: "brand", label: "Marka", list: "brand.drive" },
   { key: "series", label: "Seri", list: "series.drive", childOf: "brand" },
   { key: "power", label: "Güç", list: "val.drivePower", suffix: " kW" },
-  { key: "count", label: "Adet", numeric: true, prefix: "x ", suffix: " Adet" },
+  // Tek sürücüde adet de toplam da yazılmaz: "ATV-340 22 kW - SCHNEIDER".
+  { key: "count", label: "Adet", numeric: true, prefix: "x ", suffix: " Adet", hideWhenOne: true },
   {
     key: "total",
     label: "Toplam Güç",
@@ -359,8 +361,12 @@ export const TERM_ROW_DEFS: OfferRowDef[] = [
     label: "Teslim Süresi",
     parts: [
       { key: "trigger", label: "Başlangıç", list: "term.deliveryTrigger" },
-      { key: "from", label: "En Az (hafta)", list: "val.deliveryWeeks" },
-      { key: "to", label: "En Çok (hafta)", list: "val.deliveryWeeks", prefix: "-" },
+      // BİRİM ETİKETTE YAZMAZ (kullanıcı bildirimi, 17.08.2026: *"parantez
+      // içinde yazmasına gerek yok, zaten altta birimi seçiyoruz"*). "En Az
+      // (hafta)" yazıp altta "Ay" seçtirmek iki ayrı şey söyleyen bir form
+      // demekti; birim TEK yerde sorulur.
+      { key: "from", label: "En Az", list: "val.deliveryWeeks" },
+      { key: "to", label: "En Çok", list: "val.deliveryWeeks", prefix: "-" },
       { key: "unit", label: "Birim", list: "val.deliveryUnit" },
     ],
   },
@@ -469,7 +475,8 @@ export const OFFER_LIST_LABELS: Record<string, string> = {
   "val.drivePower": "Sürücü Güçleri",
   "val.wheelDia": "Tekerlek Çapları",
   "val.ropeDia": "Halat Çapları",
-  "val.deliveryWeeks": "Teslim Süresi (hafta)",
+  // Birim ayrı seçildiği için liste SAYILARI taşır, haftaları değil.
+  "val.deliveryWeeks": "Teslim Süresi Sayıları",
   "val.deliveryUnit": "Teslim Süresi Birimi",
   "term.deliveryTrigger": "Teslim Süresi Başlangıcı",
   "val.girder": "Kiriş Yapısı",

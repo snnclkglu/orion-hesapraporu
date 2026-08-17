@@ -520,6 +520,116 @@ Phoenix`. Yani "iki marka birden" bir istisna değil, teklifin normal yazımıd�
   girmesin diye; bu yüzden "marka ekle" düğmesinin açtığı kutu YEREL bir
   durumdur ve yalnız yazılınca değere katılır.
 
+## TEKLIF-32 — ŞABLON KALEMİN sorusudur, belgenin değil.
+
+Kullanıcı isteği (17.08.2026): *"Şablon seçimini teklifi oluştururken değil de
+kalem eklerken yapsak daha iyi olur. Teklif ilk boş olarak gelsin, ben kalem
+eklerken hangi şablona göre geldiğini orada seçeyim. Çünkü bir teklif
+içerisinde hem tek kirişli hem çift kirişli hem portal olabilir; 3 4 farklı
+şablon kullanmak gerekebilir."*
+
+Yeni Teklif penceresinde ŞABLON ALANI YOKTUR ve `newOfferSchema`da `templateId`
+de yoktur; `createOffer` `payload.items = []` ile açar. Bir teklif düzeyinde
+şablon sormak, çok ürünlü belgeyi tek bir vinç tipine bağlamak olurdu (ASTOR'un
+"Yeni Fabrika" teklifinde bir çift kirişli, bir tek kirişli ve iki monoray var).
+Kalemsiz teklif artık OLAĞANDIR: editör boş belgeyi bir yazıyla karşılar ve
+"Kalem Ekle" düğmesini gösterir — boşluk kendi başına bir şey söylemez.
+TEKLIF-27'deki "ilk kalem VİNÇ - 1" kuralı KALKMADI, yeri değişti: adı artık
+`KalemEkleDialog` verir (`defaultItemTitle(sira)`), vinç tipi ve bölümler orada
+seçilen şablondan gelir.
+
+## TEKLIF-33 — SERBEST KALEM: teknik özellikler elle yazılır.
+
+Kullanıcı isteği (17.08.2026): *"Yedek teklifi verebilirim. Yedek teklifinde
+teknik özellikleri kendim elle girebileceğim bir yapı da isterim."*
+
+Kalem Ekle'deki şablon listesinde **Serbest** seçeneği vardır (`freeItem`): tek
+bir `TEKNİK ÖZELLİKLER` bölümü ve üç BOŞ serbest satır kurulur; etiketi de
+değeri de insan yazar. Yedek parça, kabin değişimi ya da revizyon işi vinç
+defterine SIĞMAZ — orada "Kaldırma Hızı" ve "Halat Donanımı" satırları var,
+burada "Redüktör Gövdesi" gibi o işe özel satırlar olacak.
+
+- **Adı "VİNÇ - n" DEĞİL "KALEM - n"dir** (`defaultFreeItemTitle`): serbest
+  kalem bir vinç olmayabilir ve ona vinç demek belgede yanlış bir başlık üretir.
+- **Başlığı ELLE YAZILMIŞ sayılır** (`titleManual: true`): türetilecek bir
+  kapasite satırı yoktur, türetme onu boşa çıkarırdı.
+- **Boş satır belgeye girmez** (`rowHasValue`), o yüzden üç satırla açmak
+  bedava: kullanıcı önce "Serbest Satır" düğmesini aramak zorunda kalmaz.
+- Tercih kopyalama (`copySelections`) serbest kalemde ÇALIŞMAZ ve kutusu hiç
+  görünmez — taşınacak bir defter satırı yok.
+
+## TEKLIF-34 — ADET BİR İSE YAZILMAZ; fren İSTİSNADIR.
+
+Devralınan on dört teklifte tek motor `Motor : GAMAK 22 kW 1500 d/dak` diye
+yazılıyor, `1 x 22 kW` diye DEĞİL: yazılmayan adet zaten birdir. Çift marka
+eklendiğinde bu kusur göze battı (`GAMAK/ELK/ABB 1 x 30 kW`) ve kullanıcı
+bildirdi. Kip defterde bir bayraktır (`OfferPartDef.hideWhenOne`) ve MOTOR ile
+SÜRÜCÜ adedinde açıktır.
+
+**FREN SATIRI BİLEREK İŞARETSİZDİR**: belgelerde `SIBRE Kasnak Fren x 1 Adet`
+yazımı geçiyor (İDÇ teklifi) — orada adet, İKİNCİ BİR FRENİN OLMADIĞINI söyleyen
+bir bilgidir. Kural genel bir "1'i sil" kuralı değil, alan alan verilmiş bir
+karardır ve kaynağı belgelerin kendi yazımıdır.
+
+## TEKLIF-35 — İSKONTOLU TOPLAM: tutar saklanır, oran türetilir.
+
+Kullanıcı isteği (17.08.2026): *"Fiyat kısmının en sonuna iskontolu toplam fiyat
+girebileceğim bir kısım olsun. İstersem birim fiyatları da o oranda düşürsün,
+yuvarlama yapsın ama toplam tutsun."*
+
+`OfferPricing.discountTotal` MÜŞTERİNİN ÖDEYECEĞİ tutardır. **Oran değil TUTAR
+saklanır**: pazarlıkta konuşulan şey "şu fiyata verelim"dir; yüzde saklanıp
+yuvarlanmış bir tutar basılsaydı belgedeki iki sayı çelişirdi. `null` = iskonto
+kararı hiç verilmedi (sıfır DEĞİL).
+
+- **TAKİP EDİLEN TUTAR İSKONTOLUDUR** (`effectiveTotal` → `withTotal` →
+  `offer_revisions.total_amount`): liste ekranı, analiz ve üst şerit müşterinin
+  ödeyeceği rakamı gösterir.
+- **İKİ AYRI EYLEM**: tutarı yazmak belgeye `İSKONTO` + `İSKONTOLU TOPLAM`
+  satırları ekler (müşteri iskontoyu görür); "Birim fiyatlara yansıt" düğmesi
+  satırları ölçekler. İkincisi geri alınamaz bir düzenlemedir, o yüzden kutuya
+  yazmanın YAN ETKİSİ değil kendi düğmesidir.
+- **YUVARLAMA + BİREBİR TOPLAM** (`applyDiscountToLines`): birim fiyatlar oranla
+  çarpılıp TAM SAYIYA yuvarlanır, yuvarlamadan doğan artık EN BÜYÜK TUTARLI
+  satıra bindirilir. Artığı bütün satırlara dağıtmak hepsini kuruşlu yapardı.
+  Firmanın bütün tekliflerinde birim fiyatlar tam sayıdır (55.900 €).
+- **Σ (toplama girmeyen) ve GİZLİ satır ölçeklenmez**: biri toplamın dışındadır
+  (günlük süpervizörlük ücreti), öteki belgede yoktur.
+- **BELGEDE İSKONTO SATIRI YALNIZ FARK VARSA basılır**: birim fiyatlara
+  yansıtıldıysa tablo zaten iskontoludur ve ayrıca yazmak aynı sayıyı iki kez
+  basmak, üstüne ikinci bir indirim vaat etmek gibi okunurdu.
+
+## TEKLIF-36 — Kapak künyesindeki BOŞ SATIR hiç basılmaz.
+
+Kullanıcı isteği (17.08.2026): *"Kapak kısmında var ise müşteri teklif referans
+numarasını gireceğim bir kutucuk olsun. Varsa girerim yoksa PDF'e yansımasın."*
+Alan `cover.customerRef` olarak zaten vardı; kutunun adı **Müşteri Teklif
+Referans No** yapıldı. Basılmama ayrı bir bayrakla DEĞİL, künyenin kuruluş
+kuralıyla sağlanır (`dolu()`, pdf/offer.tsx): boş değerli satır künyeye hiç
+girmez — aynı kural bölüm, telefon ve unvan için de geçerlidir.
+
+**KİMDEN SEÇİMİ E-POSTAYI DA YAZAR** (kullanıcı bildirimi: *"seçilen kişinin
+ismi ve ünvanı geliyor ancak maili gelmiyor"*): `loadOfferAuthors` artık
+`profiles.email`i okur (`OfferAuthor.email`) ve seçim onu kapağa geçirir — ama
+YALNIZ VARSA; defterde adresi olmayan bir kullanıcıda mevcut değeri boşaltmak,
+kapaktaki tek iletişim satırını silmek olurdu.
+
+## TEKLIF-37 — Garanti: 1–5 yıl, VARSAYILAN 2 YIL.
+
+Kullanıcı kararı (17.08.2026): *"Garanti süresi dropdown 1 2 3 4 5 yıl olsun,
+standart 2 yıl olarak gelsin."* Migration `20260819000010_offer_warranty_options`.
+
+TEKLIF-6'daki "`term.warranty` BOŞTUR" saptaması bir GÖZLEMDİ, bir kural değil:
+devralınan tekliflerde garanti maddesi yoktu ve o yüzden bir süre uydurmak
+yasaktı (değişmez md. 4). Artık uydurma yok — kaynak firmanın kendi beyanıdır.
+Değer koda gömülmez, deftere yazılır; Tanımlar sayfasından değişir ve yeni
+tekliflere `applyDefaults` ile gelir. **Listede varsayılan TEK olmalıdır**, o
+yüzden migration önce bütün işaretleri kaldırıp yalnız "2 Yıl"ı işaretler.
+
+**TESLİM SÜRESİ ETİKETİNDE BİRİM YAZMAZ** (aynı tur): "En Az (hafta)" yazıp
+altta "Ay" seçtirmek, iki ayrı şey söyleyen bir form demekti. Birim TEK yerde
+sorulur; liste adı da `Teslim Süresi Sayıları`dır.
+
 ## TEKLIF-26 — Yarım tarih KAYDEDİLMEZ.
 
 `<input type="date">` her tuş vuruşunda `onChange` yayar; yılın ilk hanesi

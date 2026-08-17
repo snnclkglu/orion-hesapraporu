@@ -8,6 +8,7 @@
 import { rowHasValue, withComposedValue } from "./compose";
 import {
   AUX_TROLLEY_GROUP_KEY,
+  CUSTOM_GROUP_KEY,
   OFFER_GROUP_DEFS,
   OFFER_GROUP_DEF_BY_KEY,
   TROLLEY_1_TITLE,
@@ -71,6 +72,48 @@ export function emptyItem(title = "", groupKeys: readonly string[] = []): OfferI
   return trolleyCount(item) === 2 ? setTrolleyCount(item, 2).item : item;
 }
 
+/** Serbest kalemin tek bölümünün adı — defterde karşılığı olmayan bir öbek. */
+export const FREE_GROUP_TITLE = "TEKNİK ÖZELLİKLER";
+
+/** Serbest satırın anahtarı benzersizdir ki iki satır birbirine karışmasın. */
+export function freeRow(): OfferRow {
+  return { key: `serbest-${newOfferId().slice(0, 8)}`, label: "", value: "" };
+}
+
+/**
+ * SERBEST KALEM — teknik özellikleri elle yazılan bir ürün.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Yedek teklifi verebilirim. Yedek teklifinde
+ * teknik özellikleri kendim elle girebileceğim bir yapı da isterim."*
+ *
+ * Yedek parça, kabin değişimi ya da bir revizyon işi vinç defterine SIĞMAZ:
+ * orada "Kaldırma Hızı" ve "Halat Donanımı" satırları var, burada ise
+ * "Redüktör Gövdesi" ya da "Kabin Camı" gibi o işe özel satırlar olacak. Bu
+ * yüzden şablon bir vinç iskeleti kurmaz, TEK serbest bölüm ve boş satırlar
+ * kurar — etiketi de değeri de insan yazar.
+ *
+ * ÜÇ SATIRLA AÇILIR: sıfır satır kullanıcıyı önce "Serbest Satır" düğmesini
+ * bulmaya zorlar; boş satır belgeye girmediği için (`rowHasValue`) fazlası da
+ * zarar vermez.
+ */
+export function freeItem(title = ""): OfferItem {
+  return {
+    id: newOfferId(),
+    title,
+    capacityT: null,
+    spanM: null,
+    titleManual: true,
+    groups: [
+      {
+        id: newOfferId(),
+        key: CUSTOM_GROUP_KEY,
+        title: FREE_GROUP_TITLE,
+        rows: [freeRow(), freeRow(), freeRow()],
+      },
+    ],
+  };
+}
+
 /**
  * Vinç tipini kaleme VE `GENEL ÖZELLİKLER > Vinç Tipi` satırına yazar.
  *
@@ -128,7 +171,7 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
       rows: TERM_ROW_DEFS.map(rowFromDef),
       paymentLines: [],
     },
-    pricing: { currency, vatIncluded: false, lines: [], total: null },
+    pricing: { currency, vatIncluded: false, lines: [], discountTotal: null, total: null },
     notes: [],
     exclusions: [],
   };
@@ -510,6 +553,9 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         optional: l.optional === true,
         hidden: l.hidden === true,
       })),
+      // İSKONTO ALANI ESKİ KAYITLARDA YOKTUR ve `null` gelir — iskonto
+      // kararının hiç verilmemiş olması demektir (sıfır değil).
+      discountTotal: sayiVeyaNull(pricing.discountTotal),
       total: sayiVeyaNull(pricing.total),
     },
     notes: dizi<Record<string, unknown>>(p.notes).map((n) => ({

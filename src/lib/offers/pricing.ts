@@ -41,9 +41,105 @@ export function offerTotal(lines: readonly OfferPriceLine[]): number | null {
   return varMi ? toplam : null;
 }
 
+// ————————————————————————————————————————————————————————— iskonto
+
+/**
+ * BELGENİN SONUÇ TUTARI — iskonto varsa odur.
+ *
+ * Liste ekranı, analiz ve `offer_revisions.total_amount` bu sayıyı okur:
+ * müşterinin ödeyeceği rakam neyse takip edilen rakam da odur. Satırların ham
+ * toplamı (`offerTotal`) yine görünür kalır — iskontonun ne kadar olduğunu
+ * ancak ikisi birlikte söyler.
+ */
+export function effectiveTotal(pricing: OfferPricing): number | null {
+  const ham = offerTotal(pricing.lines);
+  const iskontolu = pricing.discountTotal;
+  if (iskontolu === null || iskontolu === undefined) return ham;
+  return iskontolu;
+}
+
+/** İskonto tutarı (ham toplam − iskontolu toplam); yoksa `null`. */
+export function discountAmount(pricing: OfferPricing): number | null {
+  const ham = offerTotal(pricing.lines);
+  const iskontolu = pricing.discountTotal;
+  if (ham === null || iskontolu === null || iskontolu === undefined) return null;
+  const fark = ham - iskontolu;
+  return Math.abs(fark) < 0.005 ? null : fark;
+}
+
+/** İskonto oranı — TUTARDAN türetilir, ayrıca saklanmaz. */
+export function discountPercent(pricing: OfferPricing): number | null {
+  const ham = offerTotal(pricing.lines);
+  const tutar = discountAmount(pricing);
+  if (ham === null || ham === 0 || tutar === null) return null;
+  return (tutar / ham) * 100;
+}
+
+function yuvarla(n: number, basamak = 2): number {
+  const c = 10 ** basamak;
+  return Math.round(n * c) / c;
+}
+
+/**
+ * İSKONTOYU BİRİM FİYATLARA YANSITIR — toplam HEDEFİ birebir tutar.
+ *
+ * Kullanıcı isteği (17.08.2026): *"İstersem birim fiyatları da o oranda
+ * düşürsün, yuvarlama yapsın ama toplam tutsun."* İki istek aynı anda
+ * karşılanamaz gibi görünür (yuvarlanan satırların toplamı hedefi tutmaz) ve
+ * çözüm ARTIĞI BİR SATIRA yazmaktır:
+ *
+ *   1. Her satırın birim fiyatı `hedef / ham` oranıyla çarpılır ve TAM SAYIYA
+ *      yuvarlanır — firmanın bütün tekliflerinde birim fiyatlar tam sayıdır
+ *      (55.900 €), kuruşlu bir birim fiyat belgeye yakışmaz.
+ *   2. Yuvarlamadan doğan artık (birkaç avro) EN BÜYÜK TUTARLI satıra bindirilir;
+ *      o satırın birim fiyatı iki hane hassasiyetle düzeltilir. Artığı bütün
+ *      satırlara dağıtmak hepsini kuruşlu yapardı; en büyüğe bindirmek ise
+ *      oransal olarak en az fark eden yerdir.
+ *
+ * YALNIZ TOPLAMA GİREN satırlar ölçeklenir: gizlenmiş satır belgede yoktur,
+ * `inTotal: false` satır (günlük süpervizörlük ücreti) ise zaten toplamın
+ * dışındadır ve bir iskonto pazarlığı onu değiştirmez. Fiyatı ya da miktarı
+ * girilmemiş satıra DOKUNULMAZ (değişmez md. 4).
+ */
+export function applyDiscountToLines(
+  lines: readonly OfferPriceLine[],
+  target: number
+): OfferPriceLine[] {
+  const ham = offerTotal(lines);
+  if (ham === null || ham <= 0 || !Number.isFinite(target) || target <= 0) return [...lines];
+
+  const olcekli = (l: OfferPriceLine) =>
+    !l.hidden && l.inTotal && l.qty !== null && l.qty > 0 && l.unitPrice !== null;
+  const oran = target / ham;
+  const yeni = lines.map((l) =>
+    olcekli(l) ? { ...l, unitPrice: Math.round((l.unitPrice as number) * oran) } : l
+  );
+
+  const artik = target - (offerTotal(yeni) ?? 0);
+  if (Math.abs(artik) >= 0.005) {
+    let enBuyuk = -1;
+    let enBuyukTutar = -Infinity;
+    yeni.forEach((l, i) => {
+      const tutar = olcekli(l) ? (lineAmount(l) ?? 0) : -Infinity;
+      if (tutar > enBuyukTutar) {
+        enBuyukTutar = tutar;
+        enBuyuk = i;
+      }
+    });
+    if (enBuyuk >= 0) {
+      const l = yeni[enBuyuk];
+      yeni[enBuyuk] = {
+        ...l,
+        unitPrice: yuvarla((l.unitPrice as number) + artik / (l.qty as number)),
+      };
+    }
+  }
+  return yeni;
+}
+
 /** Toplamı hesaplanmış hâliyle fiyat bloğu — kaydetme yolu bunu yazar. */
 export function withTotal(pricing: OfferPricing): OfferPricing {
-  const total = offerTotal(pricing.lines);
+  const total = effectiveTotal(pricing);
   return total === pricing.total ? pricing : { ...pricing, total };
 }
 

@@ -12,6 +12,7 @@ import { firstMulti, isMultiValueList, joinMulti, splitMulti } from "../multi";
 import { parentOption } from "../options";
 import {
   composeItemTitle,
+  defaultFreeItemTitle,
   defaultItemTitle,
   isDefaultItemTitle,
   kalemBasligiBuyuk,
@@ -31,6 +32,8 @@ import {
   copySelections,
   emptyItem,
   emptyPayload,
+  FREE_GROUP_TITLE,
+  freeItem,
   greetingFor,
   groupFromKey,
   hiddenCount,
@@ -43,6 +46,10 @@ import {
   withGroup,
 } from "../payload";
 import {
+  applyDiscountToLines,
+  discountAmount,
+  discountPercent,
+  effectiveTotal,
   lineAmount,
   offerTotal,
   paymentLineText,
@@ -64,7 +71,12 @@ import {
   itemFactsFromRows,
   offerRowDef,
 } from "../registry";
-import { offerScopeSuffix, type OfferPartDef } from "../types";
+import {
+  offerScopeSuffix,
+  type OfferPartDef,
+  type OfferPriceLine,
+  type OfferPricing,
+} from "../types";
 
 // ————————————————————————————————————————————————————————— derleme
 
@@ -238,6 +250,70 @@ describe("fiyat toplamı", () => {
   it("KDV cümlesi TEK bayraktan türer — çelişki imkânsızdır", () => {
     expect(vatNote(false)).toBe("Belirtilen fiyatlara KDV dahil değildir.");
     expect(vatNote(true)).toBe("Belirtilen fiyatlara KDV dahildir.");
+  });
+});
+
+// ————————————————————————————————————————————————————————— iskonto
+
+describe("iskontolu toplam", () => {
+  function fiyat(lines: OfferPriceLine[], discountTotal: number | null = null): OfferPricing {
+    return { currency: "EUR", vatIncluded: false, lines, discountTotal, total: null };
+  }
+
+  it("TAKİP EDİLEN TUTAR müşterinin ödeyeceğidir", () => {
+    const p = fiyat([{ ...newPriceLine(), qty: 1, unitPrice: 100_000 }], 92_000);
+    expect(offerTotal(p.lines)).toBe(100_000);
+    expect(effectiveTotal(p)).toBe(92_000);
+    // `total_amount` üretilmiş sütunu bunu okur: liste ekranındaki rakam da
+    // müşterinin ödeyeceği rakam olur.
+    expect(withTotal(p).total).toBe(92_000);
+  });
+
+  it("iskonto YOKSA toplam satırların toplamıdır", () => {
+    const p = fiyat([{ ...newPriceLine(), qty: 2, unitPrice: 1_000 }]);
+    expect(effectiveTotal(p)).toBe(2_000);
+    expect(discountAmount(p)).toBeNull();
+    expect(discountPercent(p)).toBeNull();
+  });
+
+  it("oran TUTARDAN türetilir, ayrıca saklanmaz", () => {
+    const p = fiyat([{ ...newPriceLine(), qty: 1, unitPrice: 200_000 }], 180_000);
+    expect(discountAmount(p)).toBe(20_000);
+    expect(discountPercent(p)).toBeCloseTo(10, 6);
+  });
+
+  it("BİRİM FİYATLARA YANSITMA toplamı BİREBİR tutar ve fiyatları yuvarlar", () => {
+    const lines = [
+      { ...newPriceLine(), qty: 2, unitPrice: 55_900 },
+      { ...newPriceLine(), qty: 1, unitPrice: 12_345 },
+      { ...newPriceLine(), qty: 3, unitPrice: 777 },
+    ];
+    const hedef = 115_000;
+    const yeni = applyDiscountToLines(lines, hedef);
+    expect(offerTotal(yeni)).toBeCloseTo(hedef, 2);
+    // Artık EN BÜYÜK satıra bindirilir; küçük satırlar TAM SAYI kalır.
+    expect(Number.isInteger(yeni[1].unitPrice)).toBe(true);
+    expect(Number.isInteger(yeni[2].unitPrice)).toBe(true);
+  });
+
+  it("TOPLAMA GİRMEYEN ve GİZLİ satır ölçeklenmez", () => {
+    const vinc = { ...newPriceLine(), qty: 1, unitPrice: 100_000 };
+    const supervizor = { ...newPriceLine(), qty: 1, unitPrice: 400, inTotal: false };
+    const gizli = { ...newPriceLine(), qty: 1, unitPrice: 5_000, hidden: true };
+    const yeni = applyDiscountToLines([vinc, supervizor, gizli], 90_000);
+    expect(yeni[0].unitPrice).toBe(90_000);
+    expect(yeni[1].unitPrice).toBe(400);
+    expect(yeni[2].unitPrice).toBe(5_000);
+  });
+
+  it("fiyatı girilmemiş satıra DOKUNULMAZ ve hesap çökmez", () => {
+    const bos = newPriceLine();
+    expect(applyDiscountToLines([bos], 1_000)[0].unitPrice).toBeNull();
+  });
+
+  it("eski kayıtlarda iskonto alanı YOKTUR — null gelir", () => {
+    const p = withDefaults({ pricing: { lines: [], total: null } });
+    expect(p.pricing.discountTotal).toBeNull();
   });
 });
 
@@ -835,6 +911,21 @@ describe("çok markalı değer", () => {
     expect(parentOption(markalar, "BİLİNMEYEN")).toBeUndefined();
   });
 
+  it("TEK MOTORDA adet yazılmaz, çift markada da öyle", () => {
+    const motor = offerRowDef("mainHoist", "motor")!.parts!;
+    expect(composeValue(motor, { brand: "GAMAK/ELK", count: "1", power: "30" })).toBe(
+      "GAMAK/ELK 30 kW"
+    );
+    expect(composeValue(motor, { brand: "GAMAK", count: "2", power: "1,5" })).toBe(
+      "GAMAK 2 x 1,5 kW"
+    );
+    // FREN İSTİSNADIR: belgelerde "SIBRE Kasnak Fren x 1 Adet" yazımı geçiyor.
+    const fren = offerRowDef("mainHoist", "brake")!.parts!;
+    expect(composeValue(fren, { brand: "SIBRE", type: "Kasnak Fren", count: "1" })).toBe(
+      "SIBRE Kasnak Fren x 1 Adet"
+    );
+  });
+
   it("çift marka satırın yazımını bozmaz", () => {
     const motor = offerRowDef("mainHoist", "motor")!.parts!;
     expect(composeValue(motor, { brand: "SIEMENS/ABB", power: "110", rpm: "1500" })).toBe(
@@ -901,6 +992,35 @@ describe("araba sayısı", () => {
     item.groups.find((g) => g.key === "trolley")!.title = "VİNÇ ARABASI (MEVCUT)";
     const { item: cift } = setTrolleyCount(item, 2);
     expect(cift.groups.find((g) => g.key === "trolley")?.title).toBe("VİNÇ ARABASI (MEVCUT)");
+  });
+});
+
+describe("serbest (yedek parça) kalemi", () => {
+  it("TEK serbest bölüm ve boş satırlarla açılır", () => {
+    const item = freeItem("YEDEK PARÇA LİSTESİ");
+    expect(item.groups).toHaveLength(1);
+    expect(item.groups[0].key).toBe("custom");
+    expect(item.groups[0].title).toBe(FREE_GROUP_TITLE);
+    expect(item.groups[0].rows.length).toBeGreaterThan(0);
+    // Satır anahtarları BENZERSİZ: iki serbest satır birbirine karışmaz.
+    const anahtarlar = new Set(item.groups[0].rows.map((r) => r.key));
+    expect(anahtarlar.size).toBe(item.groups[0].rows.length);
+  });
+
+  it("başlığı ELLE yazılmış sayılır — türetme onu ezmez", () => {
+    const item = freeItem("KABİN DEĞİŞİMİ");
+    expect(item.titleManual).toBe(true);
+    expect(withAutoTitle(item).title).toBe("KABİN DEĞİŞİMİ");
+  });
+
+  it("boş satırları belgeye GİRMEZ", () => {
+    const p = emptyPayload();
+    p.items = [freeItem("YEDEK PARÇA")];
+    expect(printedPayload(p).items[0].groups).toHaveLength(0);
+  });
+
+  it("serbest kalemin adı VİNÇ demez", () => {
+    expect(defaultFreeItemTitle(2)).toBe("KALEM - 2");
   });
 });
 

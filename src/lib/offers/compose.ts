@@ -14,6 +14,9 @@ import type { OfferPartDef, OfferRow, OfferRowDef } from "./types";
 function parcaMetni(def: OfferPartDef, ham: string | undefined): string {
   const v = (ham ?? "").trim();
   if (!v) return "";
+  // ADET BİR İSE DÜŞER (`hideWhenOne`): belgelerde tek motor "GAMAK 22 kW" diye
+  // yazılıyor, "1 x 22 kW" diye değil. Yazılmayan adet zaten birdir.
+  if (def.hideWhenOne && (v === "1" || v === "1,0" || v === "1.0")) return "";
   return `${def.prefix ?? ""}${v}${def.suffix ?? ""}`;
 }
 
