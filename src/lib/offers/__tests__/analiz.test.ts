@@ -12,7 +12,11 @@
 //   · aylık seri YOĞUNDUR — atlanan bir ay grafikte duraklamayı gizler;
 //   · teklife dönüşmüş beklenen iş İKİ KEZ SAYILMAZ.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { siraTarihi, siralaAnaliz } from "@/app/(app)/offers/analiz/analiz-view";
+import { tarihKesin, type AnalizSatiriDetay } from "@/app/(app)/offers/analiz/lead-dialog";
 import {
   agirlikliTutar,
   aylikSeri,
@@ -284,5 +288,149 @@ describe("tekilSatirlar", () => {
       satir({ id: "lead", kaynak: "beklenen", offerId: "teklif", amount: 100_000, score: 6 }),
     ];
     expect(projeksiyon(tekilSatirlar(satirlar)).agirlikliToplam).toBe(60_000);
+  });
+});
+
+// ═══════════════════════════════════════════════════ EKRANIN KENDİ KURALLARI
+//
+// Aşağıdakiler çekirdekte DEĞİL sayfada yaşar (`analiz-view.tsx`,
+// `lead-dialog.tsx`) çünkü projeksiyon matematiği ikisini de okumaz: biri
+// çizelgenin DİZİLİŞİ, öteki bir GİRDİNİN ne zaman kaydedileceği. Yine de
+// sessizce bozulabilecek ve ancak yanlış bir kayıt yapıldığında anlaşılabilecek
+// kurallardır — koruma testleri bu yüzden burada durur.
+
+// ——————————————————————————————————————————————————————————— sıralama
+
+/** Çizelge satırı fabrikası — testler yalnız ilgilendikleri alanı yazar. */
+function detay(ozel: Partial<AnalizSatiriDetay> = {}): AnalizSatiriDetay {
+  return {
+    ...satir(),
+    customerId: null,
+    notes: "",
+    verilisTarihi: "2026-08-01",
+    ...ozel,
+  };
+}
+
+describe("siraTarihi", () => {
+  it("TEKLİFTE VERİLME GÜNÜDÜR, beklenen tarih değil", () => {
+    const s = detay({ kaynak: "teklif", verilisTarihi: "2026-08-10", expectedOn: "2026-12-01" });
+    expect(siraTarihi(s)).toBe("2026-08-10");
+  });
+
+  it("beklenen işte beklenen gündür — verilme günü YOKTUR", () => {
+    const s = detay({
+      kaynak: "beklenen",
+      verilisTarihi: null,
+      expectedOn: "2026-10-05",
+      offerNo: null,
+    });
+    expect(siraTarihi(s)).toBe("2026-10-05");
+  });
+
+  it("iki tarihi de olmayan satırda boştur", () => {
+    expect(siraTarihi(detay({ kaynak: "beklenen", verilisTarihi: null, expectedOn: null }))).toBeNull();
+    expect(siraTarihi(detay({ kaynak: "teklif", verilisTarihi: null }))).toBeNull();
+  });
+});
+
+describe("siralaAnaliz", () => {
+  it("YENİDEN ESKİYE dizer ve teklifin BEKLENEN tarihine bakmaz", () => {
+    // "eski" teklifi beklenen tarihiyle sıralasaydık en üste çıkardı.
+    const sirali = siralaAnaliz([
+      detay({ id: "eski", verilisTarihi: "2026-06-01", expectedOn: "2027-12-31" }),
+      detay({ id: "yeni", verilisTarihi: "2026-08-15", expectedOn: "2026-09-01" }),
+      detay({ id: "orta", verilisTarihi: "2026-07-20", expectedOn: "2026-10-01" }),
+    ]);
+    expect(sirali.map((s) => s.id)).toEqual(["yeni", "orta", "eski"]);
+  });
+
+  it("TARİHİ OLMAYAN SATIR SONA DÜŞER — listeden kaybolmaz", () => {
+    const sirali = siralaAnaliz([
+      detay({ id: "tarihsiz", kaynak: "beklenen", verilisTarihi: null, expectedOn: null, offerNo: null }),
+      detay({ id: "tarihli", verilisTarihi: "2026-08-15" }),
+    ]);
+    expect(sirali.map((s) => s.id)).toEqual(["tarihli", "tarihsiz"]);
+    expect(sirali).toHaveLength(2);
+  });
+
+  it("iki kaynağı TEK eksende buluşturur", () => {
+    const sirali = siralaAnaliz([
+      detay({ id: "teklif", verilisTarihi: "2026-08-01" }),
+      detay({
+        id: "beklenen",
+        kaynak: "beklenen",
+        verilisTarihi: null,
+        expectedOn: "2026-09-01",
+        offerNo: null,
+      }),
+    ]);
+    expect(sirali.map((s) => s.id)).toEqual(["beklenen", "teklif"]);
+  });
+
+  it("KARARLIDIR: aynı gün iki satır her çağrıda aynı sırada durur", () => {
+    const girdi = [
+      detay({ id: "b", offerNo: "TKF-2026-0002", verilisTarihi: "2026-08-15" }),
+      detay({ id: "a", offerNo: "TKF-2026-0009", verilisTarihi: "2026-08-15" }),
+    ];
+    const bir = siralaAnaliz(girdi).map((s) => s.id);
+    const iki = siralaAnaliz([...girdi].reverse()).map((s) => s.id);
+    expect(bir).toEqual(iki);
+  });
+
+  it("girdiyi YERİNDE DEĞİŞTİRMEZ", () => {
+    const girdi = [
+      detay({ id: "eski", verilisTarihi: "2026-06-01" }),
+      detay({ id: "yeni", verilisTarihi: "2026-08-15" }),
+    ];
+    siralaAnaliz(girdi);
+    expect(girdi.map((s) => s.id)).toEqual(["eski", "yeni"]);
+  });
+});
+
+// ————————————————————————————————————————————————————— beklenen tarih
+
+describe("tarihKesin", () => {
+  it("YARIM YIL KABUL ETMEZ — kullanıcı hâlâ yazıyor demektir", () => {
+    // `<input type="date">` dolu bir alanda ilk rakamda "0002" üretir; biçim
+    // doğrudur ama karar verilmiş değildir (md. 25).
+    expect(tarihKesin("0002-09-15")).toBe(false);
+    expect(tarihKesin("0020-09-15")).toBe(false);
+    expect(tarihKesin("0202-09-15")).toBe(false);
+    expect(tarihKesin("2026-09-15")).toBe(true);
+  });
+
+  it("tam ve gerçek günü kabul eder", () => {
+    expect(tarihKesin("2026-02-28")).toBe(true);
+    expect(tarihKesin("2028-02-29")).toBe(true);
+  });
+
+  it("takvimde olmayan günü reddeder", () => {
+    expect(tarihKesin("2026-02-31")).toBe(false);
+    expect(tarihKesin("2026-13-01")).toBe(false);
+    expect(tarihKesin("2026-00-10")).toBe(false);
+  });
+
+  it("boş ya da eksik biçimi reddeder — boşluğun karşılığı `null`dır, bu değil", () => {
+    expect(tarihKesin("")).toBe(false);
+    expect(tarihKesin("2026-09")).toBe(false);
+    expect(tarihKesin("15.09.2026")).toBe(false);
+  });
+});
+
+describe("sunucu ucu ayrışmamalı", () => {
+  /**
+   * Yıl alt sınırı hem ekranda (`tarihKesin`) hem sunucuda (`tarihAlani`)
+   * yaşıyor (değişmez md. 8). Sunucudaki kontrol kaldırılırsa ekran hatasız
+   * görünür ama veritabanına `0002` yazılabilir hâle gelir — `terms.test.ts`in
+   * kaynak okuma kalıbı bunu engelliyor.
+   */
+  const actions = readFileSync(
+    join(process.cwd(), "src/app/(app)/offers/analiz/actions.ts"),
+    "utf8"
+  );
+
+  it("tarih şeması yılın alt sınırını da sınıyor", () => {
+    expect(actions).toContain("Number(v.slice(0, 4)) >= 1000");
   });
 });

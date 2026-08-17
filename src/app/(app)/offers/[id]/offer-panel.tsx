@@ -22,7 +22,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, Eye, FilePlus2, Lock, Pencil, Send, Trash2 } from "lucide-react";
+import { Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "lucide-react";
 import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ import {
   deleteOffer,
   deleteOfferRevision,
   issueOfferRevision,
+  unlockOfferRevision,
   updateOfferDetails,
 } from "../actions";
 import { CopyOfferButton } from "../copy-offer-dialog";
@@ -62,11 +63,14 @@ export function OfferPanel({
   revisions,
   customers,
   bugun,
+  yonetici,
 }: {
   offer: OfferRecord;
   revisions: readonly OfferRevisionRecord[];
   customers: readonly CustomerOption[];
   bugun: string;
+  /** Yayımlanmış revizyonu geri çekme yetkisi — YALNIZ Yönetici. */
+  yonetici: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [onizleme, setOnizleme] = useState<{ revisionId: string; baslik: string } | null>(null);
@@ -116,6 +120,20 @@ export function OfferPanel({
       if (res.warning) toast.warning(res.warning);
       else toast.success("Teklif yayımlandı ve arşivlendi.");
       window.location.href = pdfUrl(offer.id, revisionId);
+    });
+  }
+
+  function geriCek(revisionId: string, revNo: number) {
+    if (
+      !confirm(
+        `R${revNo} yayımdan geri çekilip TASLAĞA alınsın mı? Arşivdeki PDF korunur ve işlem denetim defterine yazılır.`
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await unlockOfferRevision(offer.id, revisionId);
+      if (res.error) toast.error(res.error);
+      else toast.success("Revizyon taslağa alındı; düzenleyebilirsiniz.");
     });
   }
 
@@ -297,6 +315,24 @@ export function OfferPanel({
                           title="Revizyonu kilitler, arşive yazar ve gönderim tarihini bugüne çeker"
                         >
                           <Send className="size-3.5" /> PDF İndir ve Yayımla
+                        </Button>
+                      ) : yonetici ? (
+                        // YAYIMLANMIŞI GERİ ÇEKMEK YALNIZ YÖNETİCİDEDİR
+                        // (kullanıcı isteği: *"Yönetici yayınlanan teklifi
+                        // düzenleyebilsin, yanlış yayınlamış olabilir"*).
+                        // Kilit KALKMAZ, bir kapı açılır: revizyon önce taslağa
+                        // çekilir, düzenleme normal yolundan yapılır. Arşivdeki
+                        // PDF silinmez ve işlem denetim defterine yazılır.
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="oc-tap"
+                          disabled={pending}
+                          title="Taslağa geri çek — arşivdeki PDF korunur, işlem denetime yazılır"
+                          onClick={() => geriCek(rev.id, rev.rev_no)}
+                        >
+                          <LockOpen className="size-3.5" /> Geri Çek
                         </Button>
                       ) : (
                         <span

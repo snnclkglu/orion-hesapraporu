@@ -12,6 +12,12 @@
 // yerde süzülseydi ekrandan düşen satır belgeye girmeye devam ederdi ve bu,
 // bu bölümde olabilecek en pahalı hatadır.
 //
+// KAPSAM YALNIZ İSTİSNADA GÖRÜNÜR. `OfferRow.scope` varsayılan olarak
+// `orion`dur ve belgede hiçbir iz bırakmaz; `customer` seçilen satırın değerine
+// ` (Müşteri Kapsamında)` eki basılır (`offerScopeSuffix`). Bir teklifte
+// satırların neredeyse tamamı bizim kapsamımızdadır — her satıra kapsam yazmak
+// belgeyi okunmaz yapar, sapmayı yazmak ise onu görünür kılar.
+//
 // `textTransform` KULLANILMAZ: @react-pdf'in uygulaması locale'siz
 // `toUpperCase()` çağırır ve "i" harfini "I" yapar ("Vinç" → "VINÇ").
 // Büyük harf metnin kendisinde `trUpper()` ile verilir.
@@ -23,7 +29,9 @@ import {
   BrandBand,
   BrandPage,
   FONTS,
+  PAGE,
   T,
+  mm,
   trUpper,
   type CompanyInfo,
 } from "@/lib/pdf/brand";
@@ -31,12 +39,14 @@ import { fmtMoney, fmtNum } from "@/lib/currency";
 import { printedPayload } from "@/lib/offers/payload";
 import { lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
+import { offerScopeSuffix } from "@/lib/offers/types";
 import type {
   OfferGroup,
   OfferItem,
   OfferPayload,
   OfferPriceLine,
   OfferRow,
+  OfferRowScope,
 } from "@/lib/offers/types";
 
 export interface OfferDocumentProps {
@@ -69,6 +79,26 @@ const ETIKET_GENISLIK = 148;
 
 /** Kapak künyesindeki etiketler daha kısadır (`Referansımız`, `Müşteri`). */
 const KUNYE_ETIKET_GENISLIK = 82;
+
+/**
+ * Firma künyesinin sayfa dibinden yüksekliği.
+ *
+ * `BrandPage`in folio satırı (ayırıcı çizgi + doküman satırı + sayfa numarası)
+ * sayfa dibinden 12pt yer kaplar; künye onun ÜSTÜNE oturur ve araya 4pt hava
+ * bırakır. Ölçü basılan belgeden alındı (çizgi 810,25pt'te), tahmin değildir:
+ * pay 12'ye çekilseydi gri iletişim satırı ayırıcı çizgiye YAPIŞIRDI.
+ */
+const FOLIO_YUKSEKLIK = 16;
+
+/**
+ * Kapak sayfasının alt payı: folio satırı + tek satırlık firma künyesi.
+ *
+ * `BrandPage`in kendi künye payı (`company` prop'u) KULLANILMAZ — o prop iki
+ * sütunlu `CompanyBlock`u çizerdi (bkz. `FirmaKunyesi`). Pay burada, teklifin
+ * kendi künyesinin gerçek yüksekliğine göre verilir; eksik verilseydi kapak
+ * metni künyenin üstüne binerdi.
+ */
+const KAPAK_ALT_PAY = PAGE.marginBottom + 14 + 22;
 
 /**
  * FİYAT TABLOSU TEK ŞEMADIR — payların toplamı 100.
@@ -116,8 +146,25 @@ const S = StyleSheet.create({
   imzaAd: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink },
   imzaUnvan: { ...T.caption, fontSize: 7.5, marginTop: 1.5 },
 
+  // ---- kapak altbilgisi (teklife özel tek satırlık künye)
+  kunyeFirma: {
+    fontFamily: FONTS.sans,
+    fontSize: 7.5,
+    fontWeight: 700,
+    letterSpacing: 0.2,
+    color: BRAND.ink,
+  },
+  // Punto adres satırının bugünküsünden (6) bir tık küçük ve harf aralığı
+  // daraltıldı: dört alan TEK satıra iniyor ve A4 içerik genişliğine sığması
+  // ancak böyle garanti oluyor (bkz. `FirmaKunyesi`).
+  kunyeIletisim: { ...T.micro, fontSize: 5.4, letterSpacing: 0.15, color: BRAND.gray600, marginTop: 2 },
+
   // ---- teknik / ticari satır
-  bolumBaslik: { ...T.subhead, fontSize: 11, color: BRAND.ink, marginBottom: 10 },
+  // KALEM BAŞLIĞI SAYFANIN BAŞLIĞIDIR (kullanıcı isteği, 17.08.2026: *"vinç
+  // adının yazdığı başlık biraz daha büyük olsun"*). 11pt'de grup başlığının
+  // (8,8) yalnız bir tık üstündeydi ve sayfada hangisinin kimin başlığı olduğu
+  // seçilmiyordu; 15pt ile hiyerarşi tek bakışta okunur.
+  bolumBaslik: { ...T.heading, marginBottom: 12 },
   grupBaslik: {
     fontFamily: FONTS.sans,
     fontSize: 8.8,
@@ -137,6 +184,11 @@ const S = StyleSheet.create({
   // taşar ve etiket sütununu da yerinden oynatır. Sıfır tabanla değer yalnız
   // ARTAN yeri kaplar, oraya sığmayan sarar.
   deger: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink, flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  // KAPSAM EKİ DEĞERİN PARÇASI DEĞİLDİR: aynı satırda, değerin devamında ama
+  // daha küçük ve daha silik basılır ki müşteri "SIBRE Kasnak Fren" ile
+  // "(Müşteri Kapsamında)" notunu birbirine karıştırmasın. İç içe `Text`
+  // kullanılır — ayrı bir kutu satırı kırar, metin katmanında da bölerdi.
+  kapsamEki: { fontSize: 6.4, color: BRAND.gray600 },
   // Ödeme planı satırları GİRİNTİLİ ve MADDE İŞARETSİZDİR: belgede "Ödeme :"
   // satırının devamıdırlar, ayrı bir liste değil.
   odemeSatiri: {
@@ -211,23 +263,45 @@ function tarih(iso: string): string {
  * `wrap={false}`: iki satırlık bir değer sayfa dibinde ikiye BÖLÜNMEZ, bütün
  * olarak bir sonraki sayfaya geçer. Teknik bir satırın yarısı bir sayfada
  * yarısı ötekinde okunduğunda değer yanlış anlaşılabilir.
+ *
+ * KAPSAM YALNIZ İSTİSNADA BASILIR (`offerScopeSuffix`): satırların neredeyse
+ * tamamı bizim kapsamımızdadır ve her birine "Orion Kapsamında" yazmak belgeyi
+ * okunmaz yapardı — görünür olan, olağandan sapandır. Ek metnin KENDİSİNE
+ * eklenir, ayrı bir sütun açılmaz: teknik sayfa iki sütunlu bir çizelge değil
+ * bir okuma metnidir ve boş kalacak üçüncü bir sütun her satırda göze girerdi.
  */
 function EtiketliSatir({
   label,
   value,
   labelWidth = ETIKET_GENISLIK,
+  scope,
 }: {
   label: string;
   value: string;
   labelWidth?: number;
+  scope?: OfferRowScope;
 }) {
+  const kapsam = offerScopeSuffix(scope);
   return (
     <View style={S.satir} wrap={false}>
       <Text style={[S.etiket, { width: labelWidth }]}>{label}</Text>
       <Text style={S.ikiNokta}>:</Text>
-      <Text style={S.deger}>{value}</Text>
+      <Text style={S.deger}>
+        {value}
+        {kapsam ? <Text style={S.kapsamEki}>{kapsam}</Text> : null}
+      </Text>
     </View>
   );
+}
+
+/**
+ * Bir `OfferRow`un basılmış hâli. TEKNİK, TEST YÜKÜ ve TİCARİ ŞART satırları
+ * aynı tipten olduğu için kapsam eki üçünde de AYNI yoldan geçer — üç ayrı
+ * çağrı yerinde tekrarlansaydı biri unutulduğunda müşteri kapsamındaki bir
+ * kalem belgede sessizce bizim üstümüze kalırdı.
+ */
+function SatirBasimi({ row }: { row: OfferRow }) {
+  return <EtiketliSatir label={row.label} value={row.value} scope={row.scope} />;
 }
 
 /** Blok başlığı: `TEST YÜKÜ (TS 10116) :` — başlık + " :". */
@@ -244,7 +318,7 @@ function GrupBloku({ group }: { group: OfferGroup }) {
         <BlokBaslik text={group.title} />
       </View>
       {group.rows.map((row: OfferRow, i) => (
-        <EtiketliSatir key={row.key || i} label={row.label} value={row.value} />
+        <SatirBasimi key={row.key || i} row={row} />
       ))}
     </View>
   );
@@ -321,6 +395,45 @@ function KapakKunyesi({ sol, sag, tam }: { sol: KunyeSatiri[]; sag: KunyeSatiri[
   );
 }
 
+/**
+ * KAPAK ALTBİLGİSİNİN FİRMA KÜNYESİ — ADRES, TELEFON, E-POSTA, WEB TEK SATIRDA.
+ *
+ * `brand.tsx`in `CompanyBlock`u künyeyi iki sütuna böler ve telefonu adresten
+ * ayırıp sağ üste alır. Teklifin kapağında bu, adres satırının bir ÜSTÜNDE tek
+ * başına duran bir telefon numarası olarak okunuyordu (kullanıcı bildirimi,
+ * 17.08.2026: dengesiz görünüyor). Burada dört alan ` · ` ile birleşip TEK
+ * `Text` olarak basılır. Tek metin olması iki şeyi birden sağlar: göz tek çizgi
+ * görür, ve PDF metin katmanında da tek parça kalır — alanlar ayrı kutulara
+ * bölünseydi çözülen metne aralarına satır sonu girerdi ve künye "aynı satırda"
+ * olduğunu KANITLAYAMAZDI (testin ölçtüğü şey tam olarak budur).
+ *
+ * `CompanyBlock` DEĞİŞTİRİLMEDİ: hesap raporu ve ekipman listesi de onu kullanır
+ * ve orada künye sayfanın tek başlığı değil, iki sütunlu bir imzadır.
+ *
+ * Konum mutlaktır çünkü künye kapak METNİNİN devamı değil SAYFANIN dibidir:
+ * kapak içeriği kısa da olsa uzun da olsa künye folio satırının hemen üstünde
+ * durur.
+ */
+function FirmaKunyesi({ company }: { company: CompanyInfo }) {
+  const iletisim = [company.address, company.phone, company.email, company.web]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: PAGE.contentLeft,
+        right: PAGE.marginOuter,
+        bottom: mm(7) + FOLIO_YUKSEKLIK,
+      }}
+    >
+      <Text style={S.kunyeFirma}>{company.company}</Text>
+      {iletisim ? <Text style={S.kunyeIletisim}>{iletisim}</Text> : null}
+    </View>
+  );
+}
+
 function KapakSayfasi({ offer, payload, company }: OfferDocumentProps & { payload: OfferPayload }) {
   const { cover } = payload;
   const rev = offerRevLabel(offer.revNo);
@@ -342,8 +455,12 @@ function KapakSayfasi({ offer, payload, company }: OfferDocumentProps & { payloa
     { label: "e-posta", value: cover.fromEmail },
   ]);
 
+  // `company` BİLEREK GEÇİLMEZ: prop verilseydi `BrandPage` kendi iki sütunlu
+  // künyesini çizerdi. Künye `FirmaKunyesi` ile tek satır basılır, sayfanın alt
+  // payı da bu yüzden burada elle ayrılır.
   return (
-    <BrandPage docLine={altbilgi(offer)} company={company}>
+    <BrandPage docLine={altbilgi(offer)} style={{ paddingBottom: KAPAK_ALT_PAY }}>
+      <FirmaKunyesi company={company} />
       <BrandBand
         docCode={offer.offerNo}
         lines={[rev ? `${rev} · ${tarih(offer.issueDate)}` : tarih(offer.issueDate)]}
@@ -390,7 +507,7 @@ function TestYuku({ payload, ilk }: { payload: OfferPayload; ilk?: boolean }) {
     <View>
       <BlokBaslik text={testLoad.title} ilk={ilk} />
       {testLoad.rows.map((row, i) => (
-        <EtiketliSatir key={row.key || i} label={row.label} value={row.value} />
+        <SatirBasimi key={row.key || i} row={row} />
       ))}
     </View>
   );
@@ -404,7 +521,7 @@ function TicariBlok({ payload, ilk }: { payload: OfferPayload; ilk?: boolean }) 
       <BlokBaslik text={terms.title} ilk={ilk} />
       {terms.rows.map((row, i) => (
         <React.Fragment key={row.key || i}>
-          <EtiketliSatir label={row.label} value={row.value} />
+          <SatirBasimi row={row} />
           {/* ÖDEME PLANI "Ödeme" SATIRININ HEMEN ALTINDADIR: belgede o satırın
               cümlesi ("…aşağıda belirtilen şekildedir") planı işaret eder,
               araya başka bir şart girerse cümle boşa düşer. */}

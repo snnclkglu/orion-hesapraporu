@@ -25,10 +25,13 @@ import type { OfferGroup, OfferPayload, OfferPriceLine } from "../src/lib/offers
 const outDir = process.argv[2] ?? path.join(process.cwd(), ".test-output");
 fs.mkdirSync(outDir, { recursive: true });
 
+// KÜNYE GERÇEK UZUNLUKTADIR: altbilgi adres · telefon · e-posta · web'i TEK
+// satıra basar ve satırın A4 içerik genişliğine sığdığı ancak firmanın kendi
+// (uzun) adresiyle ölçülebilir. Kısaltılmış bir adresle taşma hiç görülmezdi.
 const COMPANY = {
   company: "ORION CRANES",
-  address: "Başkent OSB 1. Cadde No:20, Malıköy · Sincan / ANKARA",
-  phone: "+90 312 511 48 06",
+  address: "Malıköy, 1. Cd. No:20, 06909 Başkent Organize Sanayi Bölgesi/Sincan/Ankara",
+  phone: "(0312) 511 48 06",
   email: "info@orioncranes.com",
   web: "orioncranes.com",
 };
@@ -43,6 +46,16 @@ function grup(key: string, degerler: Record<string, string>): OfferGroup {
     if (v !== undefined) row.value = v;
   }
   return g;
+}
+
+/**
+ * Satırı MÜŞTERİ KAPSAMINA alır. Kapsam bir DEĞER değil satırın niteliğidir:
+ * eskiden bu bilgi değerin metnine ("Müşteri Kapsamında") yazılıyordu ve
+ * süzülemez, listelenemez, sayılamazdı.
+ */
+function musteriKapsami(g: OfferGroup, key: string) {
+  const row = g.rows.find((r) => r.key === key);
+  if (row) row.scope = "customer";
 }
 
 function satirDegeri(rows: { key: string; value: string }[], key: string, value: string) {
@@ -62,18 +75,62 @@ function fiyatSatiri(p: Partial<OfferPriceLine> & { description: string }): Offe
   };
 }
 
-/** HABAŞ deseninin teknik gövdesi — bir çift kirişli gezer köprülü vinç. */
+/**
+ * HABAŞ deseninin teknik gövdesi — bir çift kirişli gezer köprülü vinç.
+ *
+ * ÜÇ SATIR MÜŞTERİ KAPSAMINDADIR (yürüme yolu, araba freni, hol boyu elektrik)
+ * — kullanıcının anlattığı gerçek durum budur: *"bazen müşteri arabanın frenini
+ * ben vereceğim diyebiliyor."* Kalan onlarca satır Orion kapsamındadır ve
+ * belgede kapsamdan HİÇ söz etmemelidir; fikstür bu oranı bilerek taşır.
+ */
 function vincGruplari(): OfferGroup[] {
+  const genel = grup("general", {
+    capacity: "20.000 kg",
+    environment: "Kapalı Alan, -10 / +40 º C",
+    span: "22,5 m",
+    liftHeight: "8 m",
+    craneClass: "FEM 2m / ISO M5 - ISO/FEM A5 H3/B4",
+    craneType: "Çift Kirişli Gezer Köprülü Vinç",
+    // Kapsam artık DEĞERİN METNİNDE değil satırın kendi alanında durur;
+    // değer yürüme yolunun ne olduğunu söyler, ek kimin verdiğini.
+    runway: "A55 Ray, 96 m",
+  });
+  musteriKapsami(genel, "runway");
+
+  const araba = grup("trolley", {
+    travelSpeed: "2-20 m/dk – Frekans İnvertörlü",
+    motor: "2 x 1,5 kW 1500 d/dak",
+    gearbox: "YILMAZ R. VR Tipi",
+    brake: "Elektromanyetik Motor Freni x 2 Adet",
+    driveSystem: "2 Tekerden Tahrik",
+    wheel: "4 x Ø315 DIN15090 C4140 35-42 HRC",
+    controlType: "İnvertör Kontrollü",
+  });
+  musteriKapsami(araba, "brake");
+
+  const elektrik = grup("electrical", {
+    supplyVoltage: "400 VAC 50 Hz",
+    controlVoltage: "220 – 24 VDC",
+    runwayPower: "Kapalı Kutu Bara Tesisatı",
+    busbar: "Vasel",
+    pendant: "Elfatek EN-MİD Serisi",
+    drives: "SCHNEIDER ATV-320",
+    crossLimit: "Terr",
+    drumLimit: "Stromag",
+    powerSupply: "Omron",
+    terminals: "Phoenix",
+    loadcell: "Esit",
+    signalization: "Mucco",
+    cable: "Üntel",
+    resistors: "Ressa",
+    switchgear: "Schneider",
+    panel: "EAE, Kiriş Üzeri",
+    kst: "Dahil",
+  });
+  musteriKapsami(elektrik, "runwayPower");
+
   return [
-    grup("general", {
-      capacity: "20.000 kg",
-      environment: "Kapalı Alan, -10 / +40 º C",
-      span: "22,5 m",
-      liftHeight: "8 m",
-      craneClass: "FEM 2m / ISO M5 - ISO/FEM A5 H3/B4",
-      craneType: "Çift Kirişli Gezer Köprülü Vinç",
-      runway: "Müşteri Kapsamında",
-    }),
+    genel,
     grup("mainHoist", {
       liftSpeed: "1-6 m/dk – Çift Hız Kontrolü (Frekans İnvertörlü)",
       reeving: "4/1",
@@ -85,15 +142,7 @@ function vincGruplari(): OfferGroup[] {
       rope: "Ø16 6x36 Halat 1960 N/mm2 Çelik Özlü",
       controlType: "İnvertör Kontrollü",
     }),
-    grup("trolley", {
-      travelSpeed: "2-20 m/dk – Frekans İnvertörlü",
-      motor: "2 x 1,5 kW 1500 d/dak",
-      gearbox: "YILMAZ R. VR Tipi",
-      brake: "Elektromanyetik Motor Freni x 2 Adet",
-      driveSystem: "2 Tekerden Tahrik",
-      wheel: "4 x Ø315 DIN15090 C4140 35-42 HRC",
-      controlType: "İnvertör Kontrollü",
-    }),
+    araba,
     grup("bridge", {
       rail: "A45",
       runwayRail: "A55",
@@ -115,25 +164,7 @@ function vincGruplari(): OfferGroup[] {
       platform: "Çift Taraflı Yürüme Platformu",
       paint: "Kumlama + Astar + Son Kat, Renk : RAL1007 Sarı",
     }),
-    grup("electrical", {
-      supplyVoltage: "400 VAC 50 Hz",
-      controlVoltage: "220 – 24 VDC",
-      runwayPower: "Müşteri Kapsamında",
-      busbar: "Vasel",
-      pendant: "Elfatek EN-MİD Serisi",
-      drives: "SCHNEIDER ATV-320",
-      crossLimit: "Terr",
-      drumLimit: "Stromag",
-      powerSupply: "Omron",
-      terminals: "Phoenix",
-      loadcell: "Esit",
-      signalization: "Mucco",
-      cable: "Üntel",
-      resistors: "Ressa",
-      switchgear: "Schneider",
-      panel: "EAE, Kiriş Üzeri",
-      kst: "Orion Kapsamında",
-    }),
+    elektrik,
   ];
 }
 
@@ -396,6 +427,22 @@ async function uret(ad: string, props: OfferDocumentProps) {
   const eksik = sayfalar.findIndex((s) => !duz(s).includes(kimlik));
   kontrol(eksik === -1, `altbilgi künyesi ${sayfalar.length} sayfanın hepsinde (${kimlik})`);
 
+  // ALTBİLGİ KÜNYESİ TEK SATIRDIR: adres · telefon · e-posta · web.
+  //
+  // Ölçü METİN KATMANINDAN alınır: adres ile telefonun ARASINDA satır sonu
+  // bulunmamalıdır. Bu kontrol aynı zamanda TAŞMA BEKÇİSİDİR — satır A4
+  // genişliğine sığmasaydı react-pdf onu sarar ve tam o noktada bir "\n"
+  // belirirdi. Punto değiştiğinde ilk düşecek kontrol budur.
+  if (!props.payload.cover.hidden) {
+    const kapak = sayfalar[0] ?? "";
+    const a = kapak.indexOf("Ankara");
+    const t = kapak.indexOf(COMPANY.phone);
+    kontrol(
+      a >= 0 && t > a && !kapak.slice(a, t).includes("\n"),
+      "künye tek satırda (telefon adresten satır sonuyla ayrılmıyor)"
+    );
+  }
+
   // TOPLAM satırla tutuyor mu.
   const toplam = offerTotal(props.payload.pricing.lines);
   if (toplam !== null) {
@@ -411,7 +458,23 @@ async function uret(ad: string, props: OfferDocumentProps) {
 async function main() {
   console.log(`Çıktı: ${outDir}`);
 
-  await uret("teklif-sade.pdf", sadeTeklif());
+  const s = await uret("teklif-sade.pdf", sadeTeklif());
+  // KAPSAM: istisna görünür, olağan görünmez.
+  kontrol(
+    duz(s.metin).includes(duz("A55 Ray, 96 m (Müşteri Kapsamında)")),
+    "müşteri kapsamındaki satırın eki değerin devamında basıldı"
+  );
+  kontrol(
+    duz(s.metin).includes(duz("Elektromanyetik Motor Freni x 2 Adet (Müşteri Kapsamında)")),
+    "araba freni müşteri kapsamında işaretlendi"
+  );
+  // Orion kapsamı BELGEDE HİÇ GEÇMEZ — onlarca satırın hepsine kapsam yazmak
+  // belgeyi okunmaz yapardı; kural "istisnayı yaz"dır.
+  kontrol(!s.metin.includes("Orion Kapsam"), "Orion kapsamı belgede iz bırakmıyor");
+  kontrol(
+    s.metin.includes("ÖZELLİKLERİ"),
+    "kalem başlığı belgede (punto büyüdü, metin aynı kaldı)"
+  );
 
   const gizlemeli = gizlemeliTeklif();
   const g = await uret("teklif-gizlemeli.pdf", gizlemeli);

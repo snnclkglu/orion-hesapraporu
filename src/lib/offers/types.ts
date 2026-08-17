@@ -33,8 +33,35 @@ export interface OfferRow {
   manual?: boolean;
   /** Satır belgeden DÜŞER (bkz. `printedRows`). */
   hidden?: boolean;
+  /**
+   * KAPSAM — bu kalemi kim tedarik ediyor.
+   *
+   * Kullanıcı isteği (17.08.2026): *"bazen müşteri arabanın frenini ben
+   * vereceğim diyebiliyor … Otomatik olarak Orion Kapsamı gelsin, Orion
+   * Kapsamı ise PDF'te görünmesine gerek yok. Müşteri Kapsamı seçersem
+   * PDF'te görünsün."*
+   *
+   * Varsayılan `orion`dur ve BELGEDE İZ BIRAKMAZ: bir teklifte satırların
+   * neredeyse tamamı zaten bizim kapsamımızdadır, her satıra "Orion Kapsamı"
+   * yazmak belgeyi okunmaz yapardı. İstisna görünür olandır.
+   */
+  scope?: OfferRowScope;
   /** Değerin nereden geldiği; öneri altyapısının kancası (bkz. `suggest.ts`). */
   source?: OfferRowSource;
+}
+
+export const OFFER_ROW_SCOPES = ["orion", "customer"] as const;
+
+export type OfferRowScope = (typeof OFFER_ROW_SCOPES)[number];
+
+export const OFFER_ROW_SCOPE_LABELS: Record<OfferRowScope, string> = {
+  orion: "Orion Kapsamı",
+  customer: "Müşteri Kapsamı",
+};
+
+/** Belgede basılan kapsam eki; `orion` için YOKTUR. */
+export function offerScopeSuffix(scope: OfferRowScope | undefined): string {
+  return scope === "customer" ? " (Müşteri Kapsamında)" : "";
 }
 
 export type OfferRowSource = "manual" | "catalog" | "suggested";
@@ -86,10 +113,25 @@ export interface OfferItem {
 
 // ————————————————————————————————————————————————————————— ticari
 
-/** Ödeme planının bir satırı: "%40 Avans Sipariş ile Nakit". */
+/**
+ * Ödeme planının bir satırı: "%40 Avans Sipariş ile Nakit".
+ *
+ * Kullanıcı isteği (17.08.2026): *"Örneğin 4 kutu yaptıysam %30 %30 %20 %20
+ * seçeyim kutulara, toplamı kesin %100 olsun. Kutuların yanında bir tane daha
+ * kutu olsun, oraya açıklamasını seçeyim."*
+ *
+ * `text` BASILAN metindir ve `percent` + `desc`ten DERLENİR
+ * (`paymentLineText`). Serbest metin olarak da yazılabilir — devralınan
+ * tekliflerde yüzde taşımayan satırlar var ("30.000 Euro Sipariş ile Nakit",
+ * "Montaj Sonrası Kalan Nakit") ve onları bir yüzdeye zorlamak yanlış olurdu.
+ */
 export interface OfferPaymentLine {
   id: string;
   text: string;
+  /** Yüzde payı; serbest yazılmış satırda `null`. */
+  percent?: number | null;
+  /** Yüzdenin açıklaması — defterden seçilir ("Avans Sipariş ile Nakit"). */
+  desc?: string;
   hidden?: boolean;
 }
 

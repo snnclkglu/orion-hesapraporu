@@ -31,6 +31,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TAM_BOY_PENCERE } from "@/components/pencere";
 
 const BOS_FORM: CustomerContactInput = {
@@ -124,64 +125,42 @@ function ContactFields({
     onChange({ ...form, [key]: value });
   }
 
+  const alanlar = [
+    { key: "name" as const, id: "ad", etiket: "Ad Soyad", ipucu: "Teklif kapağındaki KİME satırına yazılır", max: 160, gerekli: true },
+    { key: "title" as const, id: "unvan", etiket: "Unvan", ipucu: "Muhatap listesinde adın yanında görünür", max: 120 },
+    { key: "department" as const, id: "bolum", etiket: "Bölüm", ipucu: "Kapaktaki «Bölüm» satırı", max: 120 },
+    { key: "phone" as const, id: "telefon", etiket: "Telefon", ipucu: "Kapaktaki «Telefon» satırı", max: 60, tip: "tel" },
+    { key: "email" as const, id: "eposta", etiket: "E-posta", ipucu: "Belgeye basılmaz; defterde durur", max: 160, tip: "email" },
+    { key: "note" as const, id: "not", etiket: "Not", ipucu: "Yalnız defterde görünür", max: 500 },
+  ];
+
   return (
-    <div className="grid gap-2">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          id={`${idOneki}-ad`}
-          aria-label="Ad soyad"
-          value={form.name}
-          onChange={(e) => set("name", e.target.value)}
-          required
-          maxLength={160}
-          disabled={disabled}
-        />
-        <Input
-          id={`${idOneki}-unvan`}
-          aria-label="Unvan"
-          value={form.title}
-          onChange={(e) => set("title", e.target.value)}
-          maxLength={120}
-          disabled={disabled}
-        />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          id={`${idOneki}-bolum`}
-          aria-label="Bölüm"
-          value={form.department}
-          onChange={(e) => set("department", e.target.value)}
-          maxLength={120}
-          disabled={disabled}
-        />
-        <Input
-          id={`${idOneki}-telefon`}
-          aria-label="Telefon"
-          type="tel"
-          value={form.phone}
-          onChange={(e) => set("phone", e.target.value)}
-          maxLength={60}
-          disabled={disabled}
-        />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          id={`${idOneki}-eposta`}
-          aria-label="E-posta"
-          type="email"
-          value={form.email}
-          onChange={(e) => set("email", e.target.value)}
-          maxLength={160}
-          disabled={disabled}
-        />
-        <Input
-          id={`${idOneki}-not`}
-          aria-label="Not"
-          value={form.note}
-          onChange={(e) => set("note", e.target.value)}
-          maxLength={500}
-          disabled={disabled}
-        />
+    // ETİKETLER GÖRÜNÜRDÜR, yalnız `aria-label` DEĞİL (kullanıcı bildirimi,
+    // 17.08.2026: *"iletişim kişisi eklerken açılan kutuda hangi kutu ne işe
+    // yarar belli olmuyor"*). Altı kutu yan yana dizilince ekran okuyucuya
+    // anlamlı ama GÖZE anlamsız bir ızgara çıkıyordu; her kutunun üstünde adı,
+    // altında da belgede nereye gittiği yazıyor.
+    <div className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {alanlar.map((a) => (
+          <div key={a.key} className="grid gap-1.5">
+            <Label htmlFor={`${idOneki}-${a.id}`}>
+              {a.etiket}
+              {a.gerekli ? <span className="text-destructive"> *</span> : null}
+            </Label>
+            <Input
+              id={`${idOneki}-${a.id}`}
+              type={a.tip}
+              value={form[a.key]}
+              onChange={(e) => set(a.key, e.target.value)}
+              required={a.gerekli}
+              maxLength={a.max}
+              disabled={disabled}
+              className="text-base pointer-fine:text-sm"
+            />
+            <p className="text-xs text-muted-foreground">{a.ipucu}</p>
+          </div>
+        ))}
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         <label className="flex items-center gap-2 text-sm">

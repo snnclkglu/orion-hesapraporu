@@ -34,14 +34,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtMoney } from "@/lib/currency";
 import {
-  emptyItem,
   greetingFor,
   hiddenCount,
   newOfferId,
   newPriceLine,
   newTextLine,
 } from "@/lib/offers/payload";
-import { lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
+import {
+  lineAmount,
+  offerTotal,
+  paymentLineText,
+  paymentPercentTotal,
+  vatNote,
+} from "@/lib/offers/pricing";
 import {
   PRICE_UNIT_LIST,
   TERMS_GROUP_KEY,
@@ -59,9 +64,16 @@ import type {
 import { activeContacts, coverFieldsFromContact, type CustomerContact } from "@/lib/customer-contacts";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
-import { indexChildren, indexOptions, type OfferOptionRow } from "@/app/(app)/offers/data";
+import {
+  indexChildren,
+  indexOptions,
+  type OfferAuthor,
+  type OfferOptionRow,
+  type OfferTemplateRow,
+} from "@/app/(app)/offers/data";
 import { ensureOfferOption, issueOfferRevision, saveOfferRevision } from "@/app/(app)/offers/actions";
 import { ItemEditor } from "./item-editor";
+import { KalemEkleDialog } from "./kalem-ekle-dialog";
 import { RowEditor, type OptionBook } from "./row-editor";
 
 type BolumKey = string;
@@ -75,6 +87,8 @@ export function OfferEditor({
   initial,
   options,
   contacts,
+  authors,
+  templates,
   currency,
 }: {
   offerId: string;
@@ -86,6 +100,10 @@ export function OfferEditor({
   options: readonly OfferOptionRow[];
   /** Müşterinin iletişim kişileri — kapaktaki muhatap seçicisini besler. */
   contacts: readonly CustomerContact[];
+  /** Teklifi hazırlayabilecek kişiler (Yönetici · Müdür) — "KİMDEN" seçicisi. */
+  authors: readonly OfferAuthor[];
+  /** Vinc sablonlari — yeni kalem eklerken bolumleri onlar kurar. */
+  templates: readonly OfferTemplateRow[];
   currency: string;
 }) {
   const [payload, setPayload] = useState<OfferPayload>(initial);
@@ -93,6 +111,7 @@ export function OfferEditor({
   const [aktif, setAktif] = useState<BolumKey>("kapak");
   const [pending, startTransition] = useTransition();
   const [onizleme, setOnizleme] = useState(false);
+  const [kalemEkle, setKalemEkle] = useState(false);
 
   const book: OptionBook = useMemo(
     () => ({ byList: indexOptions(options), byParent: indexChildren(options) }),
@@ -257,11 +276,7 @@ export function OfferEditor({
               variant="ghost"
               size="sm"
               className="oc-tap shrink-0 justify-start"
-              onClick={() => {
-                const yeni = emptyItem("", ["general"]);
-                guncelle({ ...payload, items: [...payload.items, yeni] });
-                setAktif(`item:${yeni.id}`);
-              }}
+              onClick={() => setKalemEkle(true)}
             >
               <Plus className="size-3.5" /> Kalem Ekle
             </Button>
@@ -280,6 +295,7 @@ export function OfferEditor({
               payload={payload}
               listesi={listesi}
               contacts={contacts}
+              authors={authors}
               onChange={guncelle}
             />
           ) : null}
@@ -350,6 +366,19 @@ export function OfferEditor({
         </div>
       </div>
 
+      {kalemEkle ? (
+        <KalemEkleDialog
+          templates={templates}
+          kaynak={payload.items[0]}
+          onClose={() => setKalemEkle(false)}
+          onEkle={(item) => {
+            guncelleIle((p) => ({ ...p, items: [...p.items, item] }));
+            setAktif(`item:${item.id}`);
+            setKalemEkle(false);
+          }}
+        />
+      ) : null}
+
       {onizleme ? (
         <Dialog open onOpenChange={(o) => !o && setOnizleme(false)}>
           <DialogContent className="max-w-[min(64rem,95vw)] sm:max-w-[min(64rem,95vw)]">
@@ -379,11 +408,13 @@ function KapakEditor({
   payload,
   listesi,
   contacts,
+  authors,
   onChange,
 }: {
   payload: OfferPayload;
   listesi: (key: string) => string[];
   contacts: readonly CustomerContact[];
+  authors: readonly OfferAuthor[];
   onChange: (next: OfferPayload) => void;
 }) {
   const c = payload.cover;
@@ -394,6 +425,41 @@ function KapakEditor({
   return (
     <div className="grid gap-4">
       <Bolum baslik="KİMDEN" aciklama="Teklifi hazırlayan; kapağın sol sütununda basılır.">
+        {/*
+          HAZIRLAYAN DEFTERDEN SEÇİLİR (kullanıcı isteği, 17.08.2026: *"KİMDEN
+          kısmı bizim kullanıcılardan dropdown seçmeli gelsin, yönetici ve
+          müdürler"*). Küme teklif bölümünü GÖREBİLEN rollerdir — ikinci bir
+          rol listesi yazmak yetkiyi iki yerden sordurmak olurdu (ROL-15).
+          Alanlar seçimden SONRA da düzenlenebilir: belge basıldığı andaki
+          bilginin fotoğrafıdır.
+        */}
+        {authors.length > 0 ? (
+          <div className="mb-3 grid max-w-md gap-1.5">
+            <Label htmlFor="kapak_hazirlayan">Defterden hazırlayan seç</Label>
+            <Select
+              value={authors.find((a) => a.name === c.fromName)?.id ?? "__none__"}
+              onValueChange={(id) => {
+                const kisi = authors.find((a) => a.id === id);
+                if (kisi) set({ fromName: kisi.name, fromTitle: kisi.title });
+              }}
+            >
+              <SelectTrigger id="kapak_hazirlayan" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__" disabled>
+                  Kişi seçin
+                </SelectItem>
+                {authors.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                    {a.title ? ` — ${a.title}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-3">
           <Alan etiket="Adı ve Soyadı" value={c.fromName} onChange={(v) => set({ fromName: v })} />
           <Alan etiket="Unvan" value={c.fromTitle} onChange={(v) => set({ fromTitle: v })} />
@@ -681,63 +747,90 @@ function TicariEditor({
         baslik="ÖDEME PLANI"
         aciklama="Ödeme satırının hemen altında, girintili olarak basılır."
       >
+        {/*
+          YÜZDE VE AÇIKLAMA AYRI KUTULAR (kullanıcı isteği, 17.08.2026: *"4 kutu
+          yaptıysam %30 %30 %20 %20 seçeyim, toplamı kesin %100 olsun; kutuların
+          yanında bir tane daha kutu olsun, oraya açıklamasını seçeyim"*).
+          Basılan metin ikisinden DERLENİR (`paymentLineText`).
+
+          TOPLAM ZORLANMAZ, GÖSTERİLİR: kullanıcı planı yazarken ara adımlarda
+          toplam kaçınılmaz olarak 100'den farklıdır ve kaydetmeyi engellemek
+          onu düzenlerken kilitlerdi. Ayrıca yüzdesiz satır MEŞRUDUR —
+          devralınan tekliflerde "Montaj Sonrası Kalan Nakit" gibi satırlar var.
+        */}
         <div className="grid gap-2">
-          {t.paymentLines.map((line, i) => (
-            <div key={line.id} className="flex items-center gap-2">
-              <EditableCombobox
-                options={listesi("term.paymentLine")}
-                value={line.text}
-                onChange={(v) =>
-                  onChange({
-                    ...payload,
-                    terms: {
-                      ...t,
-                      paymentLines: t.paymentLines.map((x, j) => (j === i ? { ...x, text: v } : x)),
-                    },
-                  })
-                }
-                aria-label={`Ödeme satırı ${i + 1}`}
-                className="min-w-0 flex-1"
-                inputClassName="text-base pointer-fine:text-sm"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="oc-tap"
-                aria-label={line.hidden ? "Belgede göster" : "Belgede gizle"}
-                onClick={() =>
-                  onChange({
-                    ...payload,
-                    terms: {
-                      ...t,
-                      paymentLines: t.paymentLines.map((x, j) =>
-                        j === i ? { ...x, hidden: !x.hidden } : x
-                      ),
-                    },
-                  })
-                }
+          {t.paymentLines.map((line, i) => {
+            const guncelleSatir = (patch: Partial<typeof line>) =>
+              onChange({
+                ...payload,
+                terms: {
+                  ...t,
+                  paymentLines: t.paymentLines.map((x, j) => {
+                    if (j !== i) return x;
+                    const next = { ...x, ...patch };
+                    return { ...next, text: paymentLineText(next) };
+                  }),
+                },
+              });
+            return (
+              <div
+                key={line.id}
+                className={cn(
+                  "grid gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] sm:items-center",
+                  line.hidden && "opacity-55"
+                )}
               >
-                {line.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="oc-tap text-destructive hover:text-destructive"
-                aria-label="Ödeme satırını kaldır"
-                onClick={() =>
-                  onChange({
-                    ...payload,
-                    terms: { ...t, paymentLines: t.paymentLines.filter((_, j) => j !== i) },
-                  })
-                }
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
-          <div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">%</span>
+                  <Input
+                    value={line.percent ?? ""}
+                    inputMode="decimal"
+                    onChange={(e) => guncelleSatir({ percent: sayiVeyaNull(e.target.value) })}
+                    aria-label={`Ödeme satırı ${i + 1} yüzdesi`}
+                    className="h-9 text-base pointer-fine:text-sm"
+                  />
+                </div>
+                <EditableCombobox
+                  options={listesi("term.paymentLine")}
+                  value={line.desc ?? ""}
+                  onChange={(v) => guncelleSatir({ desc: v })}
+                  aria-label={`Ödeme satırı ${i + 1} açıklaması`}
+                  className="min-w-0"
+                  inputClassName="text-base pointer-fine:text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="oc-tap"
+                  aria-label={line.hidden ? "Belgede göster" : "Belgede gizle"}
+                  onClick={() => guncelleSatir({ hidden: !line.hidden })}
+                >
+                  {line.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="oc-tap text-destructive hover:text-destructive"
+                  aria-label="Ödeme satırını kaldır"
+                  onClick={() =>
+                    onChange({
+                      ...payload,
+                      terms: { ...t, paymentLines: t.paymentLines.filter((_, j) => j !== i) },
+                    })
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+                <p className="font-mono text-xs text-muted-foreground sm:col-span-4">
+                  {line.text || "—"}
+                </p>
+              </div>
+            );
+          })}
+
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
               variant="ghost"
@@ -746,12 +839,35 @@ function TicariEditor({
               onClick={() =>
                 onChange({
                   ...payload,
-                  terms: { ...t, paymentLines: [...t.paymentLines, { id: newOfferId(), text: "" }] },
+                  terms: {
+                    ...t,
+                    paymentLines: [
+                      ...t.paymentLines,
+                      { id: newOfferId(), text: "", percent: null, desc: "" },
+                    ],
+                  },
                 })
               }
             >
               <Plus className="size-3.5" /> Ödeme Satırı Ekle
             </Button>
+
+            {(() => {
+              const y = paymentPercentTotal(t.paymentLines);
+              if (y.yuzdeli === 0 && y.yuzdesiz === 0) return null;
+              return (
+                <span
+                  className={cn(
+                    "text-sm",
+                    y.tam ? "text-muted-foreground" : "font-medium text-destructive"
+                  )}
+                >
+                  Toplam %{y.toplam}
+                  {y.tam ? " — tamam" : " — %100 olmalı"}
+                  {y.yuzdesiz > 0 ? ` · ${y.yuzdesiz} satır yüzdesiz` : ""}
+                </span>
+              );
+            })()}
           </div>
         </div>
       </Bolum>

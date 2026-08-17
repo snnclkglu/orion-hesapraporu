@@ -81,8 +81,17 @@ export function ItemEditor({
   return (
     <div className={cn("grid gap-4", item.hidden && "opacity-60")}>
       {/* ————————————————————————————————————————————— künye */}
-      <div className="grid gap-3 rounded-lg border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="grid gap-1.5 sm:col-span-2">
+      {/*
+        KÜNYE YALNIZ BAŞLIK VE VİNÇ TİPİDİR.
+        Kapasite ve açıklık BURADAN KALDIRILDI (kullanıcı isteği, 17.08.2026:
+        *"Kapasite ve açıklığı genel özelliklerde sorsun, üstte sormasına gerek
+        yok, aynı bilgiyi iki defa alıyoruz"*). İkisi artık GENEL ÖZELLİKLER'de
+        sorulur ve teklif listesindeki tonaj süzgecini besleyen sayılar
+        kaydetme yolunda O SATIRLARDAN türetilir (`itemFactsFromRows`) — iki
+        yerde yaşayan bir sayının ayrışma ihtimali de böylece kalkar.
+      */}
+      <div className="grid gap-3 rounded-lg border bg-card p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid gap-1.5">
           <Label htmlFor={`item_title_${item.id}`}>Kalem Başlığı</Label>
           <Input
             id={`item_title_${item.id}`}
@@ -101,31 +110,9 @@ export function ItemEditor({
             inputClassName="text-base pointer-fine:text-sm"
           />
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={`item_cap_${item.id}`}>Kapasite (ton)</Label>
-          <Input
-            id={`item_cap_${item.id}`}
-            value={item.capacityT ?? ""}
-            inputMode="decimal"
-            onChange={(e) =>
-              onChange({ ...item, capacityT: sayiVeyaNull(e.target.value) })
-            }
-            className="text-base pointer-fine:text-sm"
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={`item_span_${item.id}`}>Açıklık (m)</Label>
-          <Input
-            id={`item_span_${item.id}`}
-            value={item.spanM ?? ""}
-            inputMode="decimal"
-            onChange={(e) => onChange({ ...item, spanM: sayiVeyaNull(e.target.value) })}
-            className="text-base pointer-fine:text-sm"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
-          Vinç tipi, kapasite ve açıklık teklif listesindeki süzgeçleri besler;
-          belgeye basılan teknik satırlar aşağıdaki bölümlerden gelir.
+        <p className="text-xs text-muted-foreground sm:col-span-2">
+          Kapasite ve açıklık aşağıdaki GENEL ÖZELLİKLER bölümünde sorulur;
+          teklif listesindeki tonaj süzgeci oradan beslenir.
         </p>
       </div>
 
@@ -334,10 +321,3 @@ function IkonDugme({
   );
 }
 
-/** Boş kutu `null` üretir, `0` DEĞİL (SATIS-16: yer tutucu bir değer değildir). */
-function sayiVeyaNull(raw: string): number | null {
-  const s = raw.trim().replace(",", ".");
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}

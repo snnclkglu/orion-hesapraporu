@@ -33,8 +33,12 @@ const MOTOR_PARTS: OfferPartDef[] = [
   { key: "brand", label: "Marka", list: "brand.motor" },
   // "2 x 5.5 kW" — çift motorlu yürütme gruplarında adet ÖNCE yazılır.
   { key: "count", label: "Adet", numeric: true, suffix: " x" },
-  { key: "power", label: "Güç", numeric: true, suffix: " kW" },
-  { key: "rpm", label: "Devir", numeric: true, suffix: " d/dak" },
+  // GÜÇ VE DEVİR DEFTERDEN SEÇİLİR (kullanıcı isteği, 17.08.2026): standart
+  // motor güçleri IEC serisidir ve elle yazılırsa aynı güç iki farklı yazımla
+  // ("5,5" / "5.5") belgeye girer. Liste KAPALI DEĞİLDİR — seri dışı bir motor
+  // yazılabilir ve tek tıkla deftere eklenir.
+  { key: "power", label: "Güç", list: "val.motorPower", suffix: " kW" },
+  { key: "rpm", label: "Devir", list: "val.motorRpm", suffix: " d/dak" },
   SECENEKLER,
 ];
 
@@ -50,21 +54,34 @@ const BRAKE_PARTS: OfferPartDef[] = [
   { key: "count", label: "Adet", numeric: true, prefix: "x ", suffix: " Adet" },
 ];
 
+/**
+ * SÜRÜCÜ — marka, seri, GÜÇ ve ADET (kullanıcı isteği, 17.08.2026).
+ *
+ * Adet BİRDEN BÜYÜKSE toplam güç de basılır (`SCHNEIDER ATV-340 18,5 kW x 2
+ * (37 kW)`); tek adette yazılmaz — "x 1" ve tekrar edilen aynı sayı, belgede
+ * bilgi değil gürültüdür. Toplam `composeValue`da değil `driveTotalPower` ile
+ * hesaplanır ve `total` parçasına yazılır (bkz. `offer-editor`).
+ */
 const DRIVE_PARTS: OfferPartDef[] = [
   { key: "brand", label: "Marka", list: "brand.drive" },
   { key: "series", label: "Seri", list: "series.drive", childOf: "brand" },
+  { key: "power", label: "Güç", list: "val.drivePower", suffix: " kW" },
+  { key: "count", label: "Adet", numeric: true, prefix: "x ", suffix: " Adet" },
+  { key: "total", label: "Toplam Güç", numeric: true, prefix: "(", suffix: " kW)" },
   SECENEKLER,
 ];
 
 const WHEEL_PARTS: OfferPartDef[] = [
   { key: "count", label: "Adet", numeric: true, suffix: " x" },
-  { key: "dia", label: "Çap", numeric: true, prefix: "Ø" },
+  { key: "dia", label: "Çap", list: "val.wheelDia", prefix: "Ø" },
   { key: "standard", label: "Standart", list: "val.wheelStandard" },
   { key: "material", label: "Malzeme / Sertlik", list: "val.wheelMaterial" },
 ];
 
 const ROPE_PARTS: OfferPartDef[] = [
-  { key: "dia", label: "Çap", numeric: true, prefix: "Ø" },
+  // Halat çapı TEKER çapından ayrı bir defterdir (Ø8…Ø36); ikisini tek listeye
+  // bağlamak, halat seçicisine 1250 mm'lik teker çapları düşürürdü.
+  { key: "dia", label: "Çap", list: "val.ropeDia", prefix: "Ø" },
   { key: "construction", label: "Yapı", list: "val.ropeConstruction", suffix: " Halat" },
   { key: "grade", label: "Tel Mukavemeti", list: "val.ropeGrade" },
   { key: "core", label: "Öz Tipi", list: "val.ropeCore" },
@@ -81,13 +98,33 @@ function hizParts(listKey: string): OfferPartDef[] {
 // ——————————————————————————————————————————————————————— grup defterleri
 
 const GENEL: OfferRowDef[] = [
-  { key: "capacity", label: "Kaldırma Kapasiteleri (Q)", hint: "Ana / yardımcı: «30.000 kg / 5.000 kg»" },
   {
+    // KAPASİTE BURADA SORULUR, kalem künyesinde DEĞİL (kullanıcı isteği,
+    // 17.08.2026: *"aynı bilgiyi iki defa alıyoruz"*). Kalem künyesindeki
+    // `capacityT` bu satırdan TÜRETİLİR (`itemFactsFromRows`) ve teklif
+    // listesindeki tonaj süzgecini besler.
+    //
+    // YARDIMCI KALDIRMA AYRI PARÇADIR: "32 ton / 5 ton" biçimi devralınan
+    // tekliflerin kendi yazımıdır ve iki sayı gerçekten iki ayrı vinç
+    // özelliğidir.
+    key: "capacity",
+    label: "Kaldırma Kapasiteleri (Q)",
+    parts: [
+      { key: "main", label: "Ana Kaldırma", numeric: true, suffix: " ton" },
+      { key: "aux", label: "Yardımcı Kaldırma", numeric: true, prefix: "/ ", suffix: " ton" },
+    ],
+  },
+  {
+    // SICAKLIK MİN VE MAKS AYRI SEÇİLİR (kullanıcı isteği, 17.08.2026): tek bir
+    // "aralık" listesi, gerçekte iki bağımsız karar olan şeyi önceden
+    // eşleştirilmiş çiftlere hapsediyordu (-10/+50 varken -5/+50 yoktu).
+    // Basılan metin AYNEN korunur: "Kapalı Alan, -10 / +40 º C".
     key: "environment",
     label: "Çalışma Ortamı / Sıcaklığı",
     parts: [
       { key: "place", label: "Ortam", list: "val.environmentPlace" },
-      { key: "temp", label: "Sıcaklık Aralığı", list: "val.temperatureRange", comma: true },
+      { key: "tempMin", label: "Sıcaklık (Min)", list: "val.tempMin", comma: true },
+      { key: "tempMax", label: "Sıcaklık (Maks)", list: "val.tempMax", prefix: "/ ", suffix: " º C" },
     ],
   },
   { key: "span", label: "Köprü Açıklığı", parts: [{ key: "value", label: "Açıklık", numeric: true, suffix: " m" }] },
@@ -273,8 +310,32 @@ export const TERMS_TITLE = "FİYAT, TESLİM VE ÖDEME ŞEKLİ";
  */
 export const TERM_ROW_DEFS: OfferRowDef[] = [
   { key: "validity", label: "Teklif Geçerlilik Süresi", list: "term.validity" },
-  { key: "deliveryTime", label: "Teslim Süresi", list: "term.deliveryTime" },
-  { key: "freight", label: "Nakliye", list: "term.freight" },
+  {
+    // TESLİM SÜRESİ PARÇALIDIR (kullanıcı isteği, 17.08.2026: *"6 ve 10'u ayrı
+    // ayrı seçebileyim, 4'ten 30'a kadar"*). Hazır cümle listesi her yeni
+    // aralık için deftere bir madde daha yazdırıyordu; iki sayı ve bir başlangıç
+    // olayı seçmek hem daha hızlı hem sınırsızdır.
+    // Basılan metin devralınan tekliflerin yazımını korur:
+    // "Avans Ödemesi Sonrası 6-10 Hafta".
+    key: "deliveryTime",
+    label: "Teslim Süresi",
+    parts: [
+      { key: "trigger", label: "Başlangıç", list: "term.deliveryTrigger" },
+      { key: "from", label: "En Az (hafta)", list: "val.deliveryWeeks" },
+      { key: "to", label: "En Çok (hafta)", list: "val.deliveryWeeks", prefix: "-" },
+      { key: "unit", label: "Birim", list: "val.deliveryUnit" },
+    ],
+  },
+  {
+    // NAKLİYE YANINA YER YAZILABİLİR (kullanıcı isteği): "Dahil" tek başına
+    // nereye dahil olduğunu söylemiyor ve teklifin en sık sorulan sorusu bu.
+    key: "freight",
+    label: "Nakliye",
+    parts: [
+      { key: "scope", label: "Durum", list: "term.freight" },
+      { key: "place", label: "Teslim Yeri", prefix: "— " },
+    ],
+  },
   { key: "erection", label: "Montaj ve Devreye Alma", list: "term.erection" },
   { key: "deliveryPlace", label: "Teslim Yeri ve Şekli", list: "term.deliveryPlace" },
   { key: "warranty", label: "Garanti", list: "term.warranty" },
@@ -363,7 +424,16 @@ export const OFFER_LIST_LABELS: Record<string, string> = {
   "val.craneClass": "Vinç Sınıfı",
   "val.craneType": "Vinç Tipleri",
   "val.environmentPlace": "Çalışma Ortamı",
-  "val.temperatureRange": "Sıcaklık Aralıkları",
+  "val.tempMin": "Sıcaklık — En Düşük",
+  "val.tempMax": "Sıcaklık — En Yüksek",
+  "val.motorPower": "Motor Güçleri",
+  "val.motorRpm": "Motor Devirleri",
+  "val.drivePower": "Sürücü Güçleri",
+  "val.wheelDia": "Tekerlek Çapları",
+  "val.ropeDia": "Halat Çapları",
+  "val.deliveryWeeks": "Teslim Süresi (hafta)",
+  "val.deliveryUnit": "Teslim Süresi Birimi",
+  "term.deliveryTrigger": "Teslim Süresi Başlangıcı",
   "val.girder": "Kiriş Yapısı",
   "val.girderCalc": "Kiriş Hesabı",
   "val.steelGrade": "Çelik Kalitesi",
@@ -403,4 +473,44 @@ export function offerListGroup(key: string): "marka" | "teknik" | "ticari" | "ka
   if (key.startsWith("term.")) return "ticari";
   if (key.startsWith("cover.")) return "kapak";
   return "teknik";
+}
+
+
+// ————————————————————————————————————————————— kalem künyesi türetme
+
+/**
+ * KALEM KÜNYESİ TEKNİK SATIRLARDAN TÜRETİLİR.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Kapasite ve açıklığı genel özelliklerde
+ * sorsun. Üstte sormasına gerek yok. Aynı bilgiyi iki defa alıyoruz."*
+ *
+ * Künyedeki sayılar teklif listesindeki tonaj/vinç tipi süzgeçlerini besler
+ * (`offer_list` görünümü onları payload'dan okur). Artık ayrı sorulmuyorlar;
+ * kaydetme yolunda GENEL ÖZELLİKLER satırlarından çıkarılıyorlar. Böylece iki
+ * yerde yaşayan bir sayının ayrışma ihtimali de ortadan kalkıyor.
+ *
+ * Değer OKUNAMIYORSA `null` döner — süzgeçte görünmez ama uydurma bir sayı da
+ * üretilmez (değişmez md. 4).
+ */
+export function itemFactsFromRows(
+  groups: readonly {
+    key: string;
+    rows: readonly { key: string; value?: string; parts?: Record<string, string> }[];
+  }[]
+): { capacityT: number | null; spanM: number | null; craneType: string } {
+  const genel = groups.find((g) => g.key === "general");
+  const oku = (rowKey: string, partKey: string): string =>
+    genel?.rows.find((r) => r.key === rowKey)?.parts?.[partKey] ?? "";
+  const sayi = (ham: string): number | null => {
+    const t = ham.trim().replace(/\./g, "").replace(",", ".");
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    capacityT: sayi(oku("capacity", "main")),
+    spanM: sayi(oku("span", "value")),
+    // VİNÇ TİPİ LİSTELİ bir satırdır (parçası yok): değeri `value`dadır.
+    craneType: (genel?.rows.find((r) => r.key === "craneType") as { value?: string } | undefined)?.value ?? "",
+  };
 }

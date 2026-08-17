@@ -5,7 +5,7 @@
 // çünkü veritabanındaki `offer_revisions.total_amount` üretilmiş sütunu onu
 // okur ve liste ekranı belgeyi açmadan tutarı gösterebilsin.
 
-import type { OfferPriceLine, OfferPricing } from "./types";
+import type { OfferPaymentLine, OfferPriceLine, OfferPricing } from "./types";
 
 /** Satırın net tutarı; miktar ya da fiyat eksikse `null` (sıfır DEĞİL). */
 export function lineAmount(line: OfferPriceLine): number | null {
@@ -59,4 +59,45 @@ export function vatNote(vatIncluded: boolean): string {
   return vatIncluded
     ? "Belirtilen fiyatlara KDV dahildir."
     : "Belirtilen fiyatlara KDV dahil değildir.";
+}
+
+// ————————————————————————————————————————————————————— ödeme planı
+
+/** Basılan satır metni: `%40 Avans Sipariş ile Nakit`. */
+export function paymentLineText(line: Pick<OfferPaymentLine, "percent" | "desc" | "text">): string {
+  const aciklama = (line.desc ?? "").trim();
+  // YÜZDESİZ SATIR MEŞRUDUR: devralınan tekliflerde sabit tutarlı ve
+  // yüzdesiz satırlar var ("Montaj Sonrası Kalan Nakit"). Serbest metin
+  // yazılmışsa o korunur.
+  if (line.percent === null || line.percent === undefined) return aciklama || line.text || "";
+  return aciklama ? `%${line.percent} ${aciklama}` : `%${line.percent}`;
+}
+
+/**
+ * Ödeme planının yüzde toplamı ve durumu.
+ *
+ * TOPLAM ZORLANMAZ, GÖSTERİLİR: kullanıcı planı yazarken ara adımlarda toplam
+ * kaçınılmaz olarak 100'den farklıdır ve kaydetmeyi engellemek onu düzenlerken
+ * kilitlerdi. Ekran yalnız "100 oldu / olmadı" der; karar insanındır.
+ * Yüzdesiz satırlar toplama GİRMEZ ve ayrıca sayılır.
+ */
+export function paymentPercentTotal(lines: readonly OfferPaymentLine[]): {
+  toplam: number;
+  yuzdeli: number;
+  yuzdesiz: number;
+  tam: boolean;
+} {
+  let toplam = 0;
+  let yuzdeli = 0;
+  let yuzdesiz = 0;
+  for (const l of lines) {
+    if (l.hidden) continue;
+    if (l.percent === null || l.percent === undefined) {
+      yuzdesiz += 1;
+      continue;
+    }
+    toplam += l.percent;
+    yuzdeli += 1;
+  }
+  return { toplam, yuzdeli, yuzdesiz, tam: yuzdeli > 0 && Math.abs(toplam - 100) < 0.001 };
 }

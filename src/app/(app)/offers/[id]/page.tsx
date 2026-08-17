@@ -6,6 +6,8 @@
 
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/profile";
+import { isAdminRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { loadCustomers, loadOffer } from "../data";
 import { OfferPanel } from "./offer-panel";
@@ -19,7 +21,11 @@ export default async function OfferDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const [kayit, customers] = await Promise.all([loadOffer(supabase, id), loadCustomers(supabase)]);
+  const [kayit, customers, profile] = await Promise.all([
+    loadOffer(supabase, id),
+    loadCustomers(supabase),
+    getSessionProfile(),
+  ]);
   if (!kayit) notFound();
 
   return (
@@ -36,6 +42,7 @@ export default async function OfferDetailPage({
         revisions={kayit.revisions}
         customers={customers}
         bugun={new Date().toISOString().slice(0, 10)}
+        yonetici={isAdminRole(profile?.role)}
       />
     </div>
   );

@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/page-header";
 import { APP_ACTIONS_SLOT_ID, APP_HEADER_SLOT_ID } from "@/lib/app";
 import type { OfferOptionRow } from "@/app/(app)/offers/data";
 import type { CustomerContact } from "@/lib/customer-contacts";
+import type { OfferAuthor, OfferTemplateRow } from "@/app/(app)/offers/data";
 import { applyDefaults, emptyItem, emptyPayload } from "@/lib/offers/payload";
 
 let sira = 0;
@@ -64,7 +65,21 @@ const OPTIONS: OfferOptionRow[] = [
   opt("val.reeving", "4/2"),
   opt("val.reeving", "8/2"),
   opt("val.hook", "DIN 15401/P Tek Ağızlı Kanca"),
-  opt("val.craneClass", "FEM 3m / ISO M6 - ISO/FEM A6 H3/B4"),
+  opt("val.craneClass", "FEM 3m / ISO M6"),
+  opt("val.craneClass", "FEM 5m / ISO M8"),
+  opt("val.environmentPlace", "Kapalı Alan"),
+  opt("val.tempMin", "-10"),
+  opt("val.tempMax", "+40"),
+  opt("val.motorPower", "22"),
+  opt("val.motorRpm", "1500"),
+  opt("val.drivePower", "18,5"),
+  opt("val.wheelDia", "400"),
+  opt("val.ropeDia", "20"),
+  opt("term.deliveryTrigger", "Avans Ödemesi Sonrası"),
+  opt("val.deliveryWeeks", "6"),
+  opt("val.deliveryWeeks", "10"),
+  opt("val.deliveryUnit", "Hafta"),
+  opt("term.warranty", "2 Yıl"),
   opt("val.rail", "60x40 Dikdörtgen Ray"),
   opt("brand.motor", "GAMAK"),
   opt("brand.motor", "ABB"),
@@ -159,6 +174,32 @@ const KISILER: CustomerContact[] = [
   },
 ];
 
+const YAZARLAR: OfferAuthor[] = [
+  { id: "u1", name: "SİNAN ÇOLAKOĞLU", title: "Proje Müdürü" },
+  { id: "u2", name: "SALİH ERGÜVEN", title: "Genel Müdür" },
+];
+
+const SABLONLAR: OfferTemplateRow[] = [
+  {
+    id: "t1",
+    name: "Çift Kirişli Gezer Köprülü Vinç",
+    crane_type: "Çift Kirişli Gezer Köprülü Vinç",
+    skeleton: { groupKeys: ["general", "mainHoist", "trolley", "bridge", "steel", "electrical"] },
+    sort: 10,
+    active: true,
+  },
+  {
+    id: "t2",
+    name: "Çift Kirişli Vinç — İki Arabalı",
+    crane_type: "Çift Kirişli Gezer Köprülü Vinç",
+    skeleton: {
+      groupKeys: ["general", "mainHoist", "trolley", "auxHoist", "auxTrolley", "bridge", "steel", "electrical"],
+    },
+    sort: 20,
+    active: true,
+  },
+];
+
 export default function OfferEditorPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
@@ -207,6 +248,8 @@ export default function OfferEditorPreviewPage() {
                     initial={fikstur()}
                     options={OPTIONS}
                     contacts={KISILER}
+            authors={YAZARLAR}
+            templates={SABLONLAR}
                     currency="EUR"
                   />
                   </div>

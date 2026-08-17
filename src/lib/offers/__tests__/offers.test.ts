@@ -19,6 +19,7 @@ import {
 import { nextSeq, offerDocLine, offerNo, offerRevLabel, parseOfferNo } from "../no";
 import {
   applyDefaults,
+  copySelections,
   emptyItem,
   emptyPayload,
   greetingFor,
@@ -28,7 +29,14 @@ import {
   printedPayload,
   withDefaults,
 } from "../payload";
-import { lineAmount, offerTotal, vatNote, withTotal } from "../pricing";
+import {
+  lineAmount,
+  offerTotal,
+  paymentLineText,
+  paymentPercentTotal,
+  vatNote,
+  withTotal,
+} from "../pricing";
 import {
   OFFER_GROUP_DEFS,
   TERMS_GROUP_KEY,
@@ -36,9 +44,10 @@ import {
   TEST_LOAD_GROUP_KEY,
   TEST_LOAD_ROW_DEFS,
   allOfferListKeys,
+  itemFactsFromRows,
   offerRowDef,
 } from "../registry";
-import type { OfferPartDef } from "../types";
+import { offerScopeSuffix, type OfferPartDef } from "../types";
 
 // ————————————————————————————————————————————————————————— derleme
 
@@ -426,7 +435,7 @@ describe("defter", () => {
     const keys = allOfferListKeys();
     expect(keys).toContain("brand.motor");
     expect(keys).toContain("series.gearbox");
-    expect(keys).toContain("term.deliveryTime");
+    expect(keys).toContain("term.deliveryTrigger");
     expect(new Set(keys).size).toBe(keys.length);
   });
 
@@ -530,5 +539,136 @@ describe("greetingFor", () => {
   it("ek yoksa cümle yine kapanır; ad yoksa hitap OLUŞMAZ", () => {
     expect(greetingFor("MEHMET EROL", "")).toBe("Sn. MEHMET EROL,");
     expect(greetingFor("", "Bey,")).toBe("");
+  });
+});
+
+// ————————————————————————————————— 17.08.2026 turu: yeni kurallar
+
+describe("ayıraç parça başına kararlıdır", () => {
+  it("virgülden SONRA gelen işaretsiz parça BOŞLUKLA eklenir", () => {
+    // Çalışma ortamı satırı bu kuralı gerektirdi: "Kapalı Alan, -10 / +40 º C".
+    // Yapışkan virgül kipi burada ", / +40 º C" üretiyordu.
+    const def = offerRowDef("general", "environment")!;
+    expect(
+      composeValue(def.parts!, { place: "Kapalı Alan", tempMin: "-10", tempMax: "+40" })
+    ).toBe("Kapalı Alan, -10 / +40 º C");
+  });
+
+  it("motorun ek özellik kuyruğu AYNEN korunur", () => {
+    const def = offerRowDef("mainHoist", "motor")!;
+    expect(
+      composeValue(def.parts!, {
+        brand: "GAMAK",
+        power: "22",
+        rpm: "1500",
+        options: "Encoderli, IP55",
+      })
+    ).toBe("GAMAK 22 kW 1500 d/dak, Encoderli, IP55");
+  });
+});
+
+describe("kalem künyesi satırlardan türetilir", () => {
+  it("kapasite ve açıklık GENEL ÖZELLİKLER satırlarından okunur", () => {
+    const item = emptyItem("32T VİNÇ", ["general"]);
+    const genel = item.groups[0];
+    genel.rows.find((r) => r.key === "capacity")!.parts = { main: "32", aux: "5" };
+    genel.rows.find((r) => r.key === "span")!.parts = { value: "26" };
+    genel.rows.find((r) => r.key === "craneType")!.value = "Portal Vinç";
+    const kunye = itemFactsFromRows(item.groups);
+    expect(kunye).toEqual({ capacityT: 32, spanM: 26, craneType: "Portal Vinç" });
+  });
+
+  it("okunamayan değer UYDURULMAZ — null döner", () => {
+    const item = emptyItem("X", ["general"]);
+    expect(itemFactsFromRows(item.groups)).toEqual({
+      capacityT: null,
+      spanM: null,
+      craneType: "",
+    });
+  });
+});
+
+describe("copySelections", () => {
+  function kaynakKalem() {
+    const it = emptyItem("1. VİNÇ", ["general", "mainHoist"]);
+    const genel = it.groups[0];
+    genel.rows.find((r) => r.key === "capacity")!.parts = { main: "32" };
+    const kaldirma = it.groups[1];
+    const motor = kaldirma.rows.find((r) => r.key === "motor")!;
+    motor.parts = { brand: "GAMAK", power: "22", rpm: "1500" };
+    motor.scope = "customer";
+    kaldirma.rows.find((r) => r.key === "hook")!.value = "DIN 15401/P Tek Ağızlı Kanca";
+    return it;
+  }
+
+  it("MARKA taşınır, ÖLÇÜ taşınmaz", () => {
+    const yeni = copySelections(kaynakKalem(), emptyItem("2. VİNÇ", ["general", "mainHoist"]));
+    const motor = yeni.groups[1].rows.find((r) => r.key === "motor")!;
+    expect(motor.parts?.brand).toBe("GAMAK");
+    expect(motor.parts?.power).toBeUndefined();
+    expect(motor.parts?.rpm).toBeUndefined();
+  });
+
+  it("listeli satırın değeri ve satırın KAPSAMI taşınır", () => {
+    const yeni = copySelections(kaynakKalem(), emptyItem("2. VİNÇ", ["general", "mainHoist"]));
+    expect(yeni.groups[1].rows.find((r) => r.key === "hook")?.value).toBe(
+      "DIN 15401/P Tek Ağızlı Kanca"
+    );
+    expect(yeni.groups[1].rows.find((r) => r.key === "motor")?.scope).toBe("customer");
+  });
+
+  it("GENEL ÖZELLİKLER hiç taşınmaz — her vincin kendi ölçüsüdür", () => {
+    const yeni = copySelections(kaynakKalem(), emptyItem("2. VİNÇ", ["general", "mainHoist"]));
+    expect(yeni.groups[0].rows.find((r) => r.key === "capacity")?.parts?.main).toBeFalsy();
+  });
+});
+
+describe("ödeme planı", () => {
+  it("satır metni yüzde ve açıklamadan derlenir", () => {
+    expect(paymentLineText({ percent: 40, desc: "Avans Sipariş ile Nakit", text: "" })).toBe(
+      "%40 Avans Sipariş ile Nakit"
+    );
+  });
+
+  it("YÜZDESİZ satır meşrudur — açıklama tek başına basılır", () => {
+    expect(
+      paymentLineText({ percent: null, desc: "Montaj Sonrası Kalan Nakit", text: "" })
+    ).toBe("Montaj Sonrası Kalan Nakit");
+  });
+
+  it("toplam gösterilir, ZORLANMAZ; yüzdesiz satır toplama girmez", () => {
+    const y = paymentPercentTotal([
+      { id: "1", text: "", percent: 30 },
+      { id: "2", text: "", percent: 70 },
+      { id: "3", text: "", percent: null },
+    ]);
+    expect(y).toEqual({ toplam: 100, yuzdeli: 2, yuzdesiz: 1, tam: true });
+    expect(paymentPercentTotal([{ id: "1", text: "", percent: 30 }]).tam).toBe(false);
+  });
+
+  it("gizlenen satır toplama girmez", () => {
+    const y = paymentPercentTotal([
+      { id: "1", text: "", percent: 100 },
+      { id: "2", text: "", percent: 50, hidden: true },
+    ]);
+    expect(y.toplam).toBe(100);
+  });
+});
+
+describe("satır kapsamı", () => {
+  it("varsayılan Orion'dur ve belgede EK BIRAKMAZ", () => {
+    expect(offerScopeSuffix(undefined)).toBe("");
+    expect(offerScopeSuffix("orion")).toBe("");
+  });
+
+  it("müşteri kapsamı belgede görünür", () => {
+    expect(offerScopeSuffix("customer")).toBe(" (Müşteri Kapsamında)");
+  });
+
+  it("eski kayıtlar taşınırken kapsam Orion'a düşer", () => {
+    const p = withDefaults({
+      items: [{ id: "i", title: "X", groups: [{ id: "g", key: "mainHoist", rows: [{ key: "motor" }] }] }],
+    });
+    expect(p.items[0].groups[0].rows[0].scope).toBe("orion");
   });
 });

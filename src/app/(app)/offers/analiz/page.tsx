@@ -16,6 +16,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { effectiveOfferDate } from "@/lib/offers/filter";
 import { loadCustomers, loadOfferList } from "../data";
 import { AnalizView } from "./analiz-view";
 import type { AnalizSatiriDetay } from "./lead-dialog";
@@ -94,6 +95,11 @@ export default async function OfferAnalysisPage() {
       customerHue: o.customerHue,
       subject: o.subject,
       status: o.status,
+      // ÇİZELGENİN SIRA TARİHİ — teklifin VERİLDİĞİ gün. Tanım TEK yerdedir
+      // (`effectiveOfferDate`): teklif listesi de aynı soruyu aynı yerden sorar
+      // ve "yayımlandıysa gönderim günü, yoksa açılış günü" kuralı iki ekranda
+      // ayrışamaz.
+      verilisTarihi: effectiveOfferDate(o),
       expectedOn: puan?.expectedOn ?? null,
       // TUTAR GÜNCEL REVİZYONUN TOPLAMIDIR; fiyatı girilmemiş teklif `null`
       // kalır ve `0 €`lık bir teklif sayılmaz (değişmez md. 4).
@@ -117,6 +123,10 @@ export default async function OfferAnalysisPage() {
       customerHue: musteri?.color_hue ?? null,
       subject: l.subject,
       status: "beklenen",
+      // BEKLENEN İŞİN VERİLME GÜNÜ YOKTUR ve uydurulmaz (değişmez md. 4):
+      // satır henüz bir teklif değildir. Sıralama onu `expected_on` ile dizer,
+      // o da yoksa satır SONA düşer — ama listeden düşmez.
+      verilisTarihi: null,
       expectedOn: l.expected_on,
       amount: l.amount === null ? null : Number(l.amount),
       currency: l.currency,

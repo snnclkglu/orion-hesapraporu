@@ -20,29 +20,27 @@ function parcaMetni(def: OfferPartDef, ham: string | undefined): string {
 /**
  * Parçalardan basılacak metni kurar.
  *
- * `comma` işaretli İLK parçadan itibaren ayıraç virgüle döner ve öyle kalır:
- * belgede ek özellikler her zaman bir kuyruktur, araya karışmaz.
+ * AYIRAÇ PARÇANIN KENDİ KARARIDIR, yapışkan bir kip değil: `comma` işaretli
+ * parça kendinden öncekine VİRGÜLLE, işaretsiz parça BOŞLUKLA eklenir.
+ *
+ * Bir süre kip yapışkandı ("ilk virgülden sonrası hep virgül") ve bu, iki
+ * parçası virgül-boşluk sırasıyla dizilen satırları yazamıyordu: çalışma ortamı
+ * satırı `Kapalı Alan, -10 / +40 º C` olmalıyken `Kapalı Alan, -10, / +40 º C`
+ * çıkıyordu. Parça başına karar hem bunu çözer hem de mevcut bütün satırların
+ * yazımını AYNEN korur (motorun ek özellik kuyruğu, redüktörün emniyet
+ * katsayısı) — çünkü orada zaten kuyruğun tamamı işaretlidir.
  */
 export function composeValue(parts: readonly OfferPartDef[], values: Record<string, string>): string {
-  let govde = "";
-  let kuyruk: string[] = [];
-  let virgulBasladi = false;
-
+  let sonuc = "";
   for (const def of parts) {
-    if (def.comma) virgulBasladi = true;
     const metin = parcaMetni(def, values[def.key]);
     if (!metin) continue;
-    if (virgulBasladi) kuyruk.push(metin);
-    else govde = govde ? `${govde} ${metin}` : metin;
+    // İLK dolu parça ayıraçsız başlar: yalnız "Encoderli" yazılmış bir satır
+    // ", Encoderli" diye başlayamaz.
+    if (!sonuc) sonuc = metin;
+    else sonuc += def.comma ? `, ${metin}` : ` ${metin}`;
   }
-
-  // Gövde boşsa kuyruğun ilki gövde olur: yalnız "Encoderli" yazılmış bir
-  // satır ", Encoderli" diye başlayamaz.
-  if (!govde && kuyruk.length) {
-    govde = kuyruk[0];
-    kuyruk = kuyruk.slice(1);
-  }
-  return kuyruk.length ? `${govde}, ${kuyruk.join(", ")}` : govde;
+  return sonuc;
 }
 
 /**

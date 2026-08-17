@@ -20,9 +20,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { CalendarClock, Trash2 } from "lucide-react";
 import { CustomerPicker } from "@/app/(app)/jobs/customer-picker";
 import type { CustomerOption } from "@/app/(app)/offers/data";
+import { gunEkle } from "@/components/odeme-tarihi";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -68,6 +70,16 @@ import { createLead, deleteLead, updateLead } from "./actions";
 export interface AnalizSatiriDetay extends AnalizSatiri {
   customerId: string | null;
   notes: string;
+  /**
+   * TEKLİFİN VERİLDİĞİ GÜN (`issued_on ?? issue_date`, yani
+   * `effectiveOfferDate`) — çizelgenin sırası bundan okunur (md. 24).
+   *
+   * Beklenen iş satırında karşılığı YOKTUR ve `null`dur: henüz verilmemiş bir
+   * teklifin verilme günü olmaz. Alan çekirdekte (`lib/offers/analiz.ts`)
+   * DEĞİLDİR çünkü projeksiyon matematiği onu hiç okumaz — yalnız ekranın
+   * dizilişi ilgilenir.
+   */
+  verilisTarihi: string | null;
 }
 
 /** `Select` boş dizeyi değer olarak kabul etmez; puansızlık ayrı bir anahtardır. */
@@ -85,6 +97,21 @@ export const PUANLAR = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] as const;
  *
  * Renk TEK TAŞIYICI DEĞİLDİR: rozetin içinde sayı, listede ayrıca sözel
  * karşılığı ("Çok yakın") yazar.
+ *
+ * LİSTE `position="popper"` İLE AÇILIR — ve bu, aşağıdaki `SelectValue`
+ * kararının ZORUNLU ikizidir (md. 23; kullanıcı: *"Puan dropdown'ı sol üstte
+ * açılıyor. Mantıksız."*).
+ *
+ * Kabuğun varsayılanı `item-aligned`dır: Radix seçili öğeyi tetikleyicinin
+ * ÜSTÜNE bindirmeye çalışır ve bunu yaparken konumu `Select.Value` düğümünün
+ * dikdörtgeninden ölçer. Ölçüm `if (trigger && valueNode && …)` koşulunun
+ * içindedir; `SelectValue` basılmadığı için `valueNode` boştur, koşul hiç
+ * girmez ve `position: fixed` olan sarmalayıcıya `left`/`top` HİÇ yazılmaz —
+ * kutu da portalın kökünde, ekranın sol üst köşesinde kalır.
+ *
+ * `popper` konumlandırması çapa olarak TETİKLEYİCİYİ alır, `valueNode`a
+ * bakmaz; kutu her zaman seçicinin altında açılır ve çarpışma payı onu dar
+ * sütunda taşırmaz.
  */
 export function PuanSecici({
   score,
@@ -124,7 +151,7 @@ export function PuanSecici({
           </span>
         )}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" align="start" sideOffset={4} className="min-w-[11rem] p-1">
         <SelectItem value={PUANSIZ}>
           <span className="text-muted-foreground">— Puansız</span>
         </SelectItem>
@@ -143,6 +170,184 @@ export function PuanSecici({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// ————————————————————————————————————————————————————— beklenen tarih
+
+/**
+ * GÜN TAM MI — `YYYY-MM-DD`, yılı 1000–9999 ve takvimde gerçekten var.
+ *
+ * Kullanıcı bildirimi (17.08.2026): *"Beklenen tarih girişinde yıl girişinde
+ * hata var. Düzgün girilmiyor. İlk yıl sayısına bastığımda kaydediyor, 0002
+ * gibi oluyor."*
+ *
+ * SEBEP: dolu bir `<input type="date">`te yıl bölmesine basılan İLK rakam
+ * kutuyu boş bırakmaz, yılı `0002` yapar — yani değer "yarım" değil, TAM ve
+ * biçimsel olarak geçerlidir. `onChange` o anda ateşler ve satır içi yazım
+ * kaydı hemen götürür; kullanıcı "2026" yazmayı bitiremeden gün `0002-…`
+ * olmuş olur.
+ *
+ * YIL ALT SINIRI KURALIN KENDİSİDİR: 1000'in altındaki bir yıl bu uygulamada
+ * hiçbir zaman meşru bir beklenti değildir, ama yazarken MUTLAKA yolun üstünde
+ * durur (2 → 20 → 202 → 2026). Sınır, "kullanıcı hâlâ yazıyor" ile "karar
+ * verdi"yi ayıran tek dürüst işaret.
+ *
+ * TAKVİM KONTROLÜ AYRICA YAPILIR: `2026-02-31` biçime uyar ama gün yoktur;
+ * UTC'ye çevirip geri okumak onu yakalar (`Date` böyle bir tarihi 3 Mart'a
+ * taşır ve dizge artık eşleşmez).
+ */
+export function tarihKesin(deger: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(deger);
+  if (!m) return false;
+  const yil = Number(m[1]);
+  if (yil < 1000 || yil > 9999) return false;
+  const d = new Date(`${deger}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === deger;
+}
+
+/**
+ * HIZLI SEÇİM ARALIĞI — bugünden 1…12 hafta.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Beklenen tarihte hızlı seçimler olsun. 1
+ * haftadan 12 haftaya kadar."* Aralık birebir odur.
+ *
+ * SATIN ALMA'NIN `DELIVERY_WEEKS` LİSTESİ DEVRALINMADI ve bu bilinçlidir:
+ * orada ölçülen şey tedarikçinin TERMİNİdir (1–8, 10, 12, 16, 20 hafta),
+ * burada ölçülen şey müşterinin KARAR VERECEĞİ gündür. `QUOTE_LEAD_WEEKS`in
+ * `DELIVERY_WEEKS`ten ayrı durma gerekçesinin aynısı: aynı diziyi iki anlama
+ * birden koşmak, birinin uçları değiştiğinde ötekini sessizce kaydırır.
+ */
+const HIZLI_HAFTALAR = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+/**
+ * BEKLENEN TARİH KUTUSU — satır içinde de pencerede de aynı bileşen.
+ *
+ * YARIM TARİH YUKARI VERİLMEZ: `onChange` yalnız değer TAM olduğunda (ya da
+ * kutu boşaltıldığında `null` ile) çağrılır; arada kalan her şey kutunun kendi
+ * yerel durumunda bekler. `OdemeTarihi` (`components/odeme-tarihi.tsx`) İKİNCİ
+ * BİR SEÇİCİ OLARAK YAZILMADI, oradaki hızlı seçimler (bugün · dün · önceki iş
+ * günü) GERİYE bakar ve ödeme gününün sorusunu sorar; buradaki soru ileriye
+ * bakar. Ortak olan gün aritmetiği o dosyadan İTHAL EDİLİR (`gunEkle`), yeniden
+ * yazılmaz.
+ */
+export function BeklenenTarih({
+  value,
+  bugun,
+  onChange,
+  disabled,
+  className,
+}: {
+  value: string | null;
+  /** Bugün SUNUCUDAN gelir; istemcide `new Date()` hidrasyon uyuşmazlığı açar. */
+  bugun: string;
+  /** YALNIZ tam ve geçerli bir günle — ya da boşaltmada `null` ile — çağrılır. */
+  onChange: (iso: string | null) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [acik, setAcik] = useState(false);
+  /**
+   * TASLAK kutunun kendi sözüdür; `null` = "yerel düzenleme yok, yukarıdan
+   * geleni göster".
+   *
+   * Denetimli bir kutuda `value` her boyamada DOM'a geri yazılır. Yarım kalan
+   * girişi yukarı vermediğimiz için `value` değişmez ve kullanıcının yazdığı
+   * ara değer bir sonraki boyamada silinirdi — yani "kaydetmiyoruz" kararı,
+   * kutuyu yazılamaz hâle getirirdi. Taslak o boşluğu kapatır ve SENKRONİZE
+   * EDEN BİR EFEKT GEREKTİRMEZ (`odeme-tarihi.tsx`in dersi).
+   */
+  const [taslak, setTaslak] = useState<string | null>(null);
+  const metin = taslak ?? value ?? "";
+
+  function yazildi(ham: string) {
+    setTaslak(ham);
+    // BOŞ KUTU `null` ÜRETİR — `0` ya da yarım bir tarih değil (değişmez md. 4).
+    if (ham === "") {
+      onChange(null);
+      return;
+    }
+    if (tarihKesin(ham)) onChange(ham);
+  }
+
+  /** Alandan çıkışta bir kez daha bakılır: yarım kalan giriş kaydedilmez, kutu son geçerli güne döner. */
+  function ayrildi() {
+    if (taslak !== null && taslak !== "" && !tarihKesin(taslak)) setTaslak(null);
+  }
+
+  function haftaSec(hafta: number) {
+    const gun = gunEkle(bugun, hafta * 7);
+    setTaslak(gun);
+    onChange(gun);
+    setAcik(false);
+  }
+
+  return (
+    <div className={cn("flex items-center gap-1", className)}>
+      {/* YER TUTUCU YOK (değişmez md. 5): boş kutu boş durur. */}
+      <Input
+        type="date"
+        value={metin}
+        disabled={disabled}
+        aria-label="Beklenen tarih"
+        onChange={(e) => yazildi(e.target.value)}
+        onBlur={ayrildi}
+        className="h-9 w-full min-w-0 font-mono"
+      />
+      <Popover open={acik} onOpenChange={setAcik}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={disabled}
+            title="Bugünden itibaren hafta seç"
+            aria-label="Beklenen tarihi hafta olarak seç"
+          >
+            <CalendarClock className="size-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-[min(17rem,calc(100vw-1.5rem))] p-3"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <p className="mb-2 text-[12px] font-medium">Bugünden itibaren kaç hafta?</p>
+          <div className="grid grid-cols-3 gap-2">
+            {HIZLI_HAFTALAR.map((h) => {
+              const gun = gunEkle(bugun, h * 7);
+              return (
+                <Button
+                  key={h}
+                  type="button"
+                  size="sm"
+                  variant={metin === gun ? "default" : "outline"}
+                  onClick={() => haftaSec(h)}
+                  // Hesaplanan gün ipucunda yazar: hızlı seçim bir KISAYOLDUR,
+                  // hangi tarihe bastığını gizlemez.
+                  title={gun}
+                >
+                  {h} hafta
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="mt-2 w-full text-muted-foreground"
+            onClick={() => {
+              setTaslak("");
+              onChange(null);
+              setAcik(false);
+            }}
+          >
+            Tarihi kaldır
+          </Button>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 
@@ -176,12 +381,15 @@ function Alan({
 export function LeadDialog({
   satir,
   customers,
+  bugun,
   open,
   onOpenChange,
 }: {
   /** `null` = yeni kayıt. Düzenleme ve silme aynı penceredendir. */
   satir: AnalizSatiriDetay | null;
   customers: readonly CustomerOption[];
+  /** Hızlı hafta seçiminin saydığı gün — SUNUCUDAN iner (bkz. `BeklenenTarih`). */
+  bugun: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -193,7 +401,7 @@ export function LeadDialog({
   const [customerId, setCustomerId] = useState<string | null>(satir?.customerId ?? null);
   const [customerName, setCustomerName] = useState(satir?.customerName ?? "");
   const [subject, setSubject] = useState(satir?.subject ?? "");
-  const [expectedOn, setExpectedOn] = useState(satir?.expectedOn ?? "");
+  const [expectedOn, setExpectedOn] = useState<string | null>(satir?.expectedOn ?? null);
   const [amount, setAmount] = useState(sayiMetni(satir?.amount ?? null));
   const [currency, setCurrency] = useState<Currency>(currencyOf(satir?.currency));
   const [score, setScore] = useState<number | null>(satir?.score ?? null);
@@ -208,8 +416,9 @@ export function LeadDialog({
       subject: subject.trim(),
       // BOŞ TARİH `null`DIR, bugünün tarihi değil: tarihi bilinmeyen bir işi
       // bir döneme yerleştirmek projeksiyonu uydurulmuş bir varsayımla
-      // şişirirdi (çekirdeğin `pencereyeGirer` kuralı).
-      expectedOn: expectedOn || null,
+      // şişirirdi (çekirdeğin `pencereyeGirer` kuralı). Yarım bir tarih zaten
+      // buraya kadar gelemez — `BeklenenTarih` yalnız tam günü yukarı verir.
+      expectedOn,
       amount: parseNum(amount),
       currency,
       winScore: score,
@@ -295,13 +504,11 @@ export function LeadDialog({
           </Alan>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Alan label="Beklenen Tarih" hint="Kararın beklendiği gün — dönem bundan okunur.">
-              <Input
-                type="date"
-                value={expectedOn}
-                onChange={(e) => setExpectedOn(e.target.value)}
-                className="font-mono"
-              />
+            <Alan
+              label="Beklenen Tarih"
+              hint="Kararın beklendiği gün — dönem bundan okunur. Sağdaki takvimden bugünden itibaren hafta seçebilirsiniz."
+            >
+              <BeklenenTarih value={expectedOn} bugun={bugun} onChange={setExpectedOn} />
             </Alan>
             <Alan label="Kazanma Puanı" hint={`1–10 · ${scoreLabel(score)}`}>
               <PuanSecici score={score} onChange={setScore} className="h-10" />
@@ -326,7 +533,11 @@ export function LeadDialog({
                     {CURRENCY_SYMBOLS[currency]} {CURRENCY_LABELS[currency]}
                   </span>
                 </SelectTrigger>
-                <SelectContent>
+                {/* PUAN SEÇİCİYLE AYNI SEBEP (md. 23): burada da `SelectValue`
+                    yerine denetimli değerin kendisi basılıyor, yani Radix'in
+                    `item-aligned` ölçümü boşa düşer ve kutu ekranın sol üst
+                    köşesinde açılırdı. */}
+                <SelectContent position="popper" align="start" sideOffset={4} className="p-1">
                   {CURRENCIES.map((c) => (
                     <SelectItem key={c} value={c}>
                       {CURRENCY_SYMBOLS[c]} {CURRENCY_LABELS[c]}

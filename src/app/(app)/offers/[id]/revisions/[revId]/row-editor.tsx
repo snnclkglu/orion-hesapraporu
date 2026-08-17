@@ -25,7 +25,13 @@ import { Input } from "@/components/ui/input";
 import { composeValue } from "@/lib/offers/compose";
 import { offerRowDef } from "@/lib/offers/registry";
 import { trKatla } from "@/lib/drawings/tr-text";
-import type { OfferPartDef, OfferRow } from "@/lib/offers/types";
+import {
+  OFFER_ROW_SCOPES,
+  OFFER_ROW_SCOPE_LABELS,
+  type OfferPartDef,
+  type OfferRow,
+  type OfferRowScope,
+} from "@/lib/offers/types";
 import { cn } from "@/lib/utils";
 import { ensureOfferOption } from "@/app/(app)/offers/actions";
 import type { OfferOptionRow } from "@/app/(app)/offers/data";
@@ -95,21 +101,30 @@ export function RowEditor({
   return (
     <div
       className={cn(
-        "grid gap-2 rounded-md border p-2 sm:grid-cols-[minmax(9rem,14rem)_1fr_auto] sm:items-start",
+        // TEK ÇERÇEVE, DÖRT SÜTUN: etiket · değer · kapsam · eylemler.
+        //
+        // Etiket bir süre KENDİ kutusundaydı ve satır yüksekliği parçalı
+        // satırlarda büyüdükçe etiketle değer birbirinden kayıyordu (kullanıcı
+        // bildirimi, 17.08.2026: *"satır başlıklarını kutuların içine
+        // yazabilirsin, kayma olmasın"*). Artık ikisi AYNI çerçevenin içinde ve
+        // `items-start` ile ilk satırlarından hizalı; etiketin kendi kenarlığı
+        // yok, yazının kendisi düzenlenebilir.
+        "grid gap-x-3 gap-y-2 rounded-md border p-2",
+        "sm:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)_auto_auto] sm:items-start",
         gizli && "border-dashed opacity-55"
       )}
     >
       {/* ETİKET DÜZENLENEBİLİRDİR: aynı kavram yıllar içinde iki yazımla
           basılmış ("Köprü ve Araba Limiti" / "Araba Limiti") ve ikisi de
           meşrudur. Kanonik anahtar sabit kalır, etiket belgeye aittir. */}
-      <Input
+      <input
         value={row.label}
         onChange={(e) => onChange({ ...row, label: e.target.value })}
         aria-label="Satır etiketi"
-        className="h-9 text-base font-medium pointer-fine:text-sm"
+        className="h-9 w-full min-w-0 rounded-sm bg-transparent px-1 text-base font-medium outline-none focus:bg-muted pointer-fine:text-sm"
       />
 
-      <div className="grid gap-2">
+      <div className="grid min-w-0 gap-2">
         {elle ? (
           <Input
             value={row.value}
@@ -126,7 +141,11 @@ export function RowEditor({
             onChange={(v) => onChange({ ...row, value: v })}
           />
         ) : (
-          <>
+          // DERLENMİŞ DEĞER SATIRIN YANINDA, ALTINDA DEĞİL (kullanıcı isteği):
+          // altta duran bir önizleme her satırı bir kat uzatıyor ve göz onu
+          // parçalarla ilişkilendiremiyordu. Kutular bir miktar daralır,
+          // karşılığında belgeye ne basılacağı aynı hizada görünür.
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_11rem] lg:items-start">
             <div className="flex flex-wrap gap-2">
               {parcalar.map((part) => (
                 <PartField
@@ -139,12 +158,35 @@ export function RowEditor({
                 />
               ))}
             </div>
-            {/* DERLENMİŞ DEĞER SALT OKUNUR GÖSTERİLİR: kullanıcı belgeye ne
-                basılacağını parçaları girerken görür; sürpriz olmaz. */}
-            <p className="font-mono text-xs text-muted-foreground">{row.value || "—"}</p>
-          </>
+            <p
+              title={row.value || undefined}
+              className="min-w-0 self-center truncate font-mono text-xs text-muted-foreground lg:pt-5"
+            >
+              {row.value || "—"}
+            </p>
+          </div>
         )}
       </div>
+
+      {/* KAPSAM SÜTUNU — kimin tedarik ettiği. Varsayılan Orion'dur ve belgede
+          İZ BIRAKMAZ; yalnız "Müşteri Kapsamı" seçilirse PDF'te görünür
+          (kullanıcı isteği, 17.08.2026). */}
+      <select
+        value={row.scope ?? "orion"}
+        onChange={(e) => onChange({ ...row, scope: e.target.value as OfferRowScope })}
+        aria-label={`${row.label} kapsamı`}
+        title="Bu satırı kim tedarik ediyor — Müşteri Kapsamı seçilirse belgede görünür"
+        className={cn(
+          "oc-tap h-9 rounded-md border bg-background px-2 text-base pointer-fine:text-xs",
+          row.scope === "customer" && "border-primary/50 bg-primary/[0.06] font-medium"
+        )}
+      >
+        {OFFER_ROW_SCOPES.map((k) => (
+          <option key={k} value={k}>
+            {OFFER_ROW_SCOPE_LABELS[k]}
+          </option>
+        ))}
+      </select>
 
       <div className="flex items-center gap-1">
         {parcalar.length > 0 ? (
@@ -181,13 +223,6 @@ export function RowEditor({
   );
 }
 
-/**
- * DEFTERE BAĞLI TEK ALAN — yaz ya da seç, gerekirse deftere ekle.
- *
- * Hem parçalı satırın bir parçası hem de listeli satırın kendisi bunu kullanır;
- * ikisi ayrı yazılsaydı "deftere ekle" kuralı iki yerde yaşar ve biri
- * ötekinden ayrışırdı.
- */
 function ListeAlani({
   listKey,
   secenekler,

@@ -17,6 +17,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getReportSettings } from "@/lib/settings";
+import { isAdminRole } from "@/lib/roles";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { copyPayloadForCustomer } from "@/lib/offers/copy";
 import { nextSeq, offerNo } from "@/lib/offers/no";
@@ -28,6 +29,7 @@ import {
   withDefaults,
 } from "@/lib/offers/payload";
 import { coverFieldsFromContact, suggestedContact } from "@/lib/customer-contacts";
+import { itemFactsFromRows } from "@/lib/offers/registry";
 import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
 import { withTotal } from "@/lib/offers/pricing";
 import { offerFileName } from "@/lib/pdf/doc-naming";
@@ -490,6 +492,21 @@ export async function saveOfferRevision(
 
   const payload = withDefaults(parsed.data.payload);
   payload.pricing = withTotal(payload.pricing);
+  // KALEM KÜNYESİ TEKNİK SATIRLARDAN TÜRETİLİR (kullanıcı isteği: kapasite ve
+  // açıklık artık yalnız GENEL ÖZELLİKLER'de sorulur). Teklif listesindeki
+  // tonaj ve vinç tipi süzgeçleri bu sayıları okur; ayrı bir alanda
+  // saklanmadıkları için belgeden AYRIŞAMAZLAR.
+  payload.items = payload.items.map((item) => {
+    const kunye = itemFactsFromRows(item.groups);
+    return {
+      ...item,
+      capacityT: kunye.capacityT,
+      spanM: kunye.spanM,
+      // Vinç tipi künyede SORULUR; satırda da yazılmışsa satır kazanır
+      // (belgeye basılan odur).
+      craneType: kunye.craneType || item.craneType || "",
+    };
+  });
 
   const { data: yazilan, error } = await supabase
     .from("offer_revisions")
@@ -666,4 +683,61 @@ export async function ensureOfferOption(
 
   revalidatePath("/offers/tanimlar");
   return { value: parsed.data.value };
+}
+
+/**
+ * YAYIMLANMIŞ REVİZYONU TASLAĞA GERİ ÇEKER — yalnız YÖNETİCİ.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Yönetici yayınlanan teklifi düzenleyebilsin.
+ * Yanlış yayınlamış olabilir."*
+ *
+ * KİLİDİN KENDİSİ KALKMIYOR, bir KAPI açılıyor: yayımlanmış revizyon hâlâ
+ * doğrudan güncellenemez (`guard_issued_offer_revision`); burada durum önce
+ * `draft`a çekilir, düzenleme ondan sonra normal yolundan yapılır. Fark önemli:
+ * yanlışlıkla yapılan bir düzenleme değil, BİLİNÇLİ bir geri çekme gerekiyor.
+ *
+ * İZ BIRAKIR ve bu bilinçlidir: teslim edilmiş bir belgenin geri çekilmesi
+ * denetim defterine yazılır (`offer.revision_unlock`) ve arşivdeki PDF
+ * SİLİNMEZ — müşterinin elindeki kâğıdın karşılığı arşivde durmaya devam eder.
+ *
+ * `issued_on` GERİ ALINMAZ: teklif gerçekten gönderildiyse takip sayacı o günü
+ * saymaya devam etmelidir. Yanlış yayımlanmış bir teklifte kullanıcı tarihi
+ * zaten yeni yayımda tazeleyecektir.
+ */
+export async function unlockOfferRevision(
+  offerId: string,
+  revisionId: string
+): Promise<OfferActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!isAdminRole(profile?.role)) {
+    return { error: "Yayımlanmış bir teklifi yalnız Yönetici geri çekebilir." };
+  }
+
+  const { data: geri, error } = await supabase
+    .from("offer_revisions")
+    .update({ status: "draft", issued_at: null, issued_by: null })
+    .eq("id", revisionId)
+    .eq("offer_id", offerId)
+    .eq("status", "issued")
+    .select("id, rev_no");
+  if (error) return { error: error.message };
+  if (!geri?.length) return { error: "Revizyon bulunamadı ya da zaten taslak." };
+
+  await audit(supabase, user.id, "offer.revision_unlock", {
+    offer_id: offerId,
+    rev_no: geri[0].rev_no,
+  });
+  tazele(offerId);
+  revalidatePath(`/offers/${offerId}/revisions/${revisionId}`);
+  return {};
 }

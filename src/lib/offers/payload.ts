@@ -178,6 +178,57 @@ export function greetingFor(name: string, honorific: string): string {
   return `Sn. ${ad}${ek ? ` ${ek}` : ","}`.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * ÖNCEKİ KALEMİN SEÇİMLERİNİ yeni kaleme taşır.
+ *
+ * Kullanıcı isteği (17.08.2026): *"O işte ilk yapılan vincin özellikleri ön
+ * tanımlı seçili olarak gelsin. Oradan değiştireyim. Çünkü aynı teklif içinde
+ * çoğunlukla müşteri marka vb. tercihleri aynı olacaktır."*
+ *
+ * SEÇİM TAŞINIR, ÖLÇÜ TAŞINMAZ. Marka, tip/seri, malzeme, standart ve kontrol
+ * tercihleri bir teklifin tamamında aynıdır; kapasite, açıklık, güç, devir,
+ * çap ve adet ise HER VİNCE ÖZELDİR. İkincisini kopyalamak, ikinci vincin
+ * ölçülerini birincininkiyle doldurup kullanıcıya sessizce yanlış bir belge
+ * hazırlatırdı — düzeltilmesi unutulan bir sayı, uydurma bir sayıdan farksızdır
+ * (değişmez md. 4).
+ *
+ * GENEL ÖZELLİKLER grubu bütünüyle dışarıdadır: içindeki her satır o vince
+ * özgü bir ölçü ya da tanımdır.
+ */
+const OLCU_PARCALARI = new Set([
+  "count", "power", "rpm", "dia", "safety", "range", "total", "main", "aux", "value",
+  "spec", "model", "place",
+]);
+
+export function copySelections(kaynak: OfferItem, hedef: OfferItem): OfferItem {
+  return {
+    ...hedef,
+    groups: hedef.groups.map((grup) => {
+      if (grup.key === "general") return grup;
+      const kaynakGrup = kaynak.groups.find((g) => g.key === grup.key);
+      if (!kaynakGrup) return grup;
+      return {
+        ...grup,
+        rows: grup.rows.map((row) => {
+          const kaynakRow = kaynakGrup.rows.find((r) => r.key === row.key);
+          if (!kaynakRow) return row;
+          const def = offerRowDef(grup.key, row.key);
+          // LİSTELİ satırda değerin tamamı bir seçimdir; parçalıda yalnız
+          // ölçü OLMAYAN parçalar taşınır.
+          if (!def?.parts?.length) {
+            return { ...row, value: kaynakRow.value, scope: kaynakRow.scope };
+          }
+          const parts: Record<string, string> = {};
+          for (const [k, v] of Object.entries(kaynakRow.parts ?? {})) {
+            if (!OLCU_PARCALARI.has(k) && v) parts[k] = v;
+          }
+          return withComposedValue({ ...row, parts, scope: kaynakRow.scope }, def);
+        }),
+      };
+    }),
+  };
+}
+
 // ————————————————————————————————————————————————————————— taşıma
 
 function metin(v: unknown, yedek = ""): string {
@@ -209,6 +260,8 @@ function rowFromRaw(raw: unknown, groupKey: string): OfferRow {
       parts: (r.parts && typeof r.parts === "object" ? r.parts : {}) as Record<string, string>,
       manual: r.manual === true,
       hidden: r.hidden === true,
+      // KAPSAM taşınır: varsayılan `orion`dur ve eski kayıtlarda alan hiç yoktu.
+      scope: r.scope === "customer" ? "customer" : "orion",
       source: r.source,
     },
     def
@@ -281,6 +334,8 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       paymentLines: dizi<Record<string, unknown>>(terms.paymentLines).map((l) => ({
         id: metin(l.id) || newOfferId(),
         text: metin(l.text),
+        percent: sayiVeyaNull(l.percent),
+        desc: metin(l.desc),
         hidden: l.hidden === true,
       })),
     },

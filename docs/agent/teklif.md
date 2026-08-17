@@ -326,3 +326,73 @@ Duman testi `npx tsx scripts/test-offer-pdf.ts`: üç fikstür (sade · gizlemel
 sekiz kalemli) üretilir ve `unpdf` ile METNİ geri okunur — gizlenen satırın
 belgede olmadığı, toplamın satırlarla tuttuğu ve altbilgi künyesinin her sayfada
 bulunduğu orada ölçülür. Bileşen ağacına bakmak bunların hiçbirini göstermez.
+
+## TEKLIF-19 — Ayıraç PARÇANIN kararıdır, yapışkan bir kip değil.
+
+`composeValue` bir süre "ilk virgülden sonrası hep virgül" kipindeydi ve iki
+parçası virgül-boşluk sırasıyla dizilen satırları yazamıyordu: çalışma ortamı
+satırı `Kapalı Alan, -10 / +40 º C` olmalıyken `Kapalı Alan, -10, / +40 º C`
+çıkıyordu. `comma` artık parça başına sorulur; mevcut bütün satırların yazımı
+AYNEN korunur çünkü orada zaten kuyruğun tamamı işaretlidir.
+
+## TEKLIF-20 — Kalem künyesi TEKNİK SATIRLARDAN türetilir.
+
+Kapasite ve açıklık YALNIZ GENEL ÖZELLİKLER'de sorulur (kullanıcı isteği,
+17.08.2026: *"aynı bilgiyi iki defa alıyoruz"*). Teklif listesindeki tonaj ve
+vinç tipi süzgeçlerini besleyen `capacityT` / `spanM` / `craneType` alanları
+kaydetme yolunda `itemFactsFromRows` ile o satırlardan çıkarılır. İki yerde
+yaşayan bir sayının ayrışma ihtimali böylece ortadan kalkar; okunamayan değer
+`null` kalır, UYDURULMAZ.
+
+## TEKLIF-21 — SEÇİM taşınır, ÖLÇÜ taşınmaz.
+
+Yeni kalem eklerken önce vinç tipi sorulur (şablon bölümleri kurar) ve ilk
+kalemin tercihleri ön tanımlı gelir (`copySelections`). Taşınan şey MARKA, TİP,
+MALZEME, STANDART ve KONTROL tercihleridir; kapasite, açıklık, güç, devir, çap
+ve adet TAŞINMAZ — ikincisini kopyalamak, ikinci vincin ölçülerini birincininkiyle
+doldurup kullanıcıya sessizce yanlış bir belge hazırlatırdı. GENEL ÖZELLİKLER
+grubu bütünüyle dışarıdadır.
+
+## TEKLIF-22 — Satır KAPSAMI: varsayılan görünmez, istisna görünür.
+
+`OfferRow.scope` `orion` (varsayılan) ya da `customer`dır. Belgede yalnız
+`customer` iz bırakır (` (Müşteri Kapsamında)`); `orion` HİÇBİR ŞEY yazmaz —
+bir teklifte satırların neredeyse tamamı zaten bizim kapsamımızdadır ve her
+satıra yazmak belgeyi okunmaz yapardı.
+
+## TEKLIF-23 — Ödeme planı YÜZDE + AÇIKLAMA; toplam gösterilir, ZORLANMAZ.
+
+Satır `percent` ve `desc`ten derlenir (`paymentLineText`). Ekran yüzde toplamını
+ve "%100 oldu / olmadı"yı söyler ama kaydetmeyi ENGELLEMEZ: kullanıcı planı
+yazarken ara adımlarda toplam kaçınılmaz olarak 100'den farklıdır ve engel onu
+düzenlerken kilitlerdi. **Yüzdesiz satır meşrudur** — devralınan tekliflerde
+"Montaj Sonrası Kalan Nakit" gibi satırlar var; onlar toplama girmez ve ayrıca
+sayılır.
+
+## TEKLIF-24 — Yayımlanmışı YALNIZ Yönetici geri çeker.
+
+`unlockOfferRevision` durumu `issued`tan `draft`a çeker; kilit KALKMAZ, bir
+KAPI açılır — düzenleme sonrasında normal yolundan yapılır. Fark önemlidir:
+yanlışlıkla bir düzenleme değil, BİLİNÇLİ bir geri çekme gerekir. İşlem denetim
+defterine yazılır (`offer.revision_unlock`) ve **arşivdeki PDF SİLİNMEZ** —
+müşterinin elindeki kâğıdın karşılığı arşivde durmaya devam eder. `issued_on`
+geri alınmaz: teklif gerçekten gönderildiyse takip sayacı o günü saymalıdır.
+
+## TEKLIF-25 — Radix `Select`te `SelectValue` YOKSA `position="popper"` ŞARTTIR.
+
+Puan seçicisi ekranın sol üstünde açılıyordu. Sebep z-index değil: bu depodaki
+`ui/select.tsx` varsayılanı `item-aligned`dır ve Radix o kipte konumu ancak
+`valueNode` varsa hesaplar — `valueNode`u yalnız `<SelectValue>` kurar. Kendi
+rozetini basan seçicilerde (`lead-dialog.tsx`) o düğüm hiç doğmuyor, kap
+`position: fixed` alıyor ama konum özelliklerini hiç almıyor ve viewport'un
+sol üstüne düşüyordu.
+`<SelectValue>` KULLANMAYAN her `SelectContent` `position="popper"` almalıdır.
+
+## TEKLIF-26 — Yarım tarih KAYDEDİLMEZ.
+
+`<input type="date">` her tuş vuruşunda `onChange` yayar; yılın ilk hanesi
+yazılır yazılmaz `0002-…` gibi geçerli BİÇİMLİ ama anlamsız bir tarih
+kaydediliyordu. Kutu yarım değeri KENDİ yerel durumunda tutar ve yukarı yalnız
+tam, gerçek ve yıl ≥ 1000 olan bir tarih verir; boş değer `null` üretir. Aynı
+kelepçe sunucu tarafındaki Zod şemasında da vardır ve iki yerin ayrışmasını bir
+test kaynak dosyayı okuyarak engeller (`terms.test.ts` deseni).

@@ -72,11 +72,25 @@ const puanAlani = z
   .max(10, "Puan 1 ile 10 arasında olmalı.")
   .nullable();
 
-/** Boş tarih `null` gelir — istemci "" yerine `null` yollar (yer tutucu yok). */
+/**
+ * Boş tarih `null` gelir — istemci "" yerine `null` yollar (yer tutucu yok).
+ *
+ * YIL 1000–9999 ARASINDADIR. Sınır bir biçim kaprisi değil, gerçek bir kaydın
+ * önünü kesiyor: `<input type="date">` dolu bir alanda yıl bölmesine basılan
+ * ilk rakamla `0002-09-15` üretir ve bu dizge yukarıdaki desene UYAR —
+ * kullanıcı "2026" yazmayı bitirmeden `0002` kaydedilmişti (md. 25).
+ *
+ * KURAL İKİ YERDE YAŞIYOR (değişmez md. 8): ekranda `tarihKesin`
+ * (`lead-dialog.tsx`), burada bu şema. Sunucu ucu kaldırılamaz — sayfa tek
+ * yazma yolu değildir ve bir istemci hatası veritabanına 2 yılını yazamamalı.
+ * İkisinin ayrışmasını `lib/offers/__tests__/analiz.test.ts` bu dosyayı okuyup
+ * engelliyor.
+ */
 const tarihAlani = z
   .string()
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Beklenen tarih geçersiz.")
+  .refine((v) => Number(v.slice(0, 4)) >= 1000, "Beklenen tarihin yılı eksik.")
   .nullable();
 
 const tutarAlani = z

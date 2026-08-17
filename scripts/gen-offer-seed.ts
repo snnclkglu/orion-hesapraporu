@@ -1,7 +1,7 @@
 // TEKLİF DEFTERİNİN SEED MİGRATION'INI ÜRETİR.
 //
 //     npx tsx scripts/gen-offer-seed.ts
-//     → supabase/migrations/20260819000002_offer_options_seed.sql
+//     → supabase/migrations/20260819000007_offer_options_seed_v2.sql
 //
 // ÜRETİLEN DOSYA ELLE DÜZENLENMEZ; ikinci koşuda bayt bayt aynı çıkar
 // (`generate-raw-purchase-import.mjs` ile aynı kural).
@@ -24,6 +24,40 @@ import { join } from "node:path";
 import { trKatla } from "../src/lib/drawings/tr-text";
 
 type Liste = { key: string; degerler: string[] };
+
+/** `bas`tan `bit`e `adim` aralıklı tam sayı dizisi (iki uç DÂHİL). */
+function seri(bas: number, bit: number, adim: number): number[] {
+  const out: number[] = [];
+  if (adim === 0) return out;
+  for (let v = bas; adim > 0 ? v <= bit : v >= bit; v += adim) out.push(v);
+  return out;
+}
+
+/**
+ * IEC standart motor güçleri (kW) — 0,25'ten 500'e.
+ *
+ * Seri IEC 60072'nin anma güçleridir; ondalık ayıraç TÜRKÇEDİR (virgül) çünkü
+ * değer doğrudan belgeye basılır ve firmanın bütün tekliflerinde öyle yazıyor.
+ */
+const MOTOR_GUCLERI = [
+  "0,25", "0,37", "0,55", "0,75", "1,1", "1,5", "2,2", "3", "4", "5,5", "7,5",
+  "11", "15", "18,5", "22", "30", "37", "45", "55", "75", "90", "110", "132",
+  "160", "200", "250", "315", "355", "400", "450", "500",
+];
+
+/**
+ * Sürücü (frekans invertörü) anma güçleri (kW).
+ *
+ * Kaynak firmanın kullandığı iki seridir: Schneider ATV-320 (0,37–15 kW) ve
+ * ATV-340 (0,75–75 kW), ABB ACS880 üst kademeleriyle birlikte. Motor serisiyle
+ * AYNI DEĞİLDİR — sürücü katalogları 0,25 kW'ı taşımaz ve üst uçta daha seyrek
+ * kademelenir.
+ */
+const SURUCU_GUCLERI = [
+  "0,37", "0,55", "0,75", "1,1", "1,5", "2,2", "3", "4", "5,5", "7,5", "11",
+  "15", "18,5", "22", "30", "37", "45", "55", "75", "90", "110", "132", "160",
+  "200", "250", "315", "355", "400", "500",
+];
 type Kademeli = { key: string; parentKey: string; cocuklar: Record<string, string[]> };
 
 // ————————————————————————————————————————————————————————— MARKALAR
@@ -82,7 +116,10 @@ const KADEMELI: Kademeli[] = [
 // ———————————————————————————————————————————————— TEKNİK DEĞER LİSTELERİ
 
 const TEKNIK: Liste[] = [
-  { key: "val.reeving", degerler: ["2/1", "4/1", "4/2", "8/2", "12/2", "16/4"] },
+  {
+    key: "val.reeving",
+    degerler: ["2/1", "4/1", "4/2", "8/2", "12/2", "16/2", "16/4", "20/2", "20/4", "24/4"],
+  },
   { key: "val.speedControl", degerler: ["Çift Hız Kontrolü (Frekans İnvertörlü)", "Frekans İnvertörlü"] },
   { key: "val.controlType", degerler: ["İnvertör Kontrollü"] },
   {
@@ -100,7 +137,7 @@ const TEKNIK: Liste[] = [
     ],
   },
   { key: "val.ropeConstruction", degerler: ["6x36"] },
-  { key: "val.ropeGrade", degerler: ["1960 N/mm2"] },
+  { key: "val.ropeGrade", degerler: ["1770 N/mm2", "1960 N/mm2"] },
   { key: "val.ropeCore", degerler: ["Kendir Özlü", "Çelik Özlü"] },
   {
     key: "val.brakeType",
@@ -115,8 +152,14 @@ const TEKNIK: Liste[] = [
   { key: "val.gearboxMounting", degerler: ["Paralel Şaft", "Delik Milli", "Helisel Dişli", "Sandık Tipi"] },
   { key: "val.wheelStandard", degerler: ["DIN15090"] },
   { key: "val.wheelMaterial", degerler: ["C4140 35-42 HRC", "CK45"] },
-  { key: "val.driveSystem", degerler: ["2 Tekerden Tahrik", "4 Tekerden Tahrik"] },
-  { key: "val.travelSystem", degerler: ["4 Teker", "8 Teker", "8 Teker, 4 Boji"] },
+  {
+    key: "val.driveSystem",
+    degerler: ["2 Tekerden Tahrik", "4 Tekerden Tahrik", "8 Tekerden Tahrik"],
+  },
+  {
+    key: "val.travelSystem",
+    degerler: ["4 Teker", "8 Teker", "8 Teker, 4 Boji", "16 Teker, 8 Boji, 4 Ekolayzır"],
+  },
   {
     key: "val.rail",
     // Tekliflerde geçen yazımlar + `cat_rails` defterindeki ray kodları.
@@ -136,15 +179,18 @@ const TEKNIK: Liste[] = [
     ],
   },
   {
+    // TEK BİÇİM (kullanıcı isteği, 17.08.2026: *"Vinç sınıfları düzgün değil,
+    // tek tipte olsun. FEM 2m / ISO M5 şeklinde yazsa yeterli. 1Am'den 5m'e
+    // kadar olsun."*). Devralınan tekliflerde aynı sınıf üç ayrı kuyrukla
+    // (`- ISO/FEM A5 H2/B3`, `H3/B4`, kuyruksuz) yazılmıştı; liste bu yüzden
+    // yedi maddeyken gerçekte beş sınıf vardı.
     key: "val.craneClass",
     degerler: [
-      "FEM 1Am / ISO M4 - ISO/FEM A4",
-      "FEM 2m / ISO M5 - ISO/FEM A5 H2/B3",
-      "FEM 2m / ISO M5 - ISO/FEM A5 H3/B4",
-      "FEM 3m / ISO M6 - ISO/FEM A6",
-      "FEM 3m / ISO M6 - ISO/FEM A6 H3/B4",
-      "FEM 4m / ISO M7 - ISO/FEM A7",
-      "FEM 5m / ISO M8 - ISO/FEM A8 H4/B5",
+      "FEM 1Am / ISO M4",
+      "FEM 2m / ISO M5",
+      "FEM 3m / ISO M6",
+      "FEM 4m / ISO M7",
+      "FEM 5m / ISO M8",
     ],
   },
   {
@@ -169,7 +215,31 @@ const TEKNIK: Liste[] = [
     ],
   },
   { key: "val.environmentPlace", degerler: ["Kapalı Alan", "Açık Alan", "Kapalı / Açık Alan"] },
-  { key: "val.temperatureRange", degerler: ["-10 / +40 º C", "-10 / +50 º C", "-5 / +55 º C", "+15 / +80 º C"] },
+  // SICAKLIK MİN VE MAKS AYRI (kullanıcı isteği): min 0'dan -30'a beşer azalır,
+  // maks 40'tan 80'e beşer artar. Önceden eşleştirilmiş aralık listesi, gerçekte
+  // bağımsız olan iki kararı birbirine bağlıyordu (-10/+50 varken -5/+50 yoktu).
+  { key: "val.tempMin", degerler: seri(0, -30, -5).map((n) => (n > 0 ? `+${n}` : `${n}`)) },
+  { key: "val.tempMax", degerler: seri(40, 80, 5).map((n) => `+${n}`) },
+  // MOTOR GÜÇLERİ — IEC standart serisi (0,25 kW'tan 500 kW'a). Liste kapalı
+  // değildir; seri dışı bir motor yazılıp deftere eklenebilir.
+  { key: "val.motorPower", degerler: MOTOR_GUCLERI },
+  { key: "val.motorRpm", degerler: ["750", "1000", "1500", "3000"] },
+  // SÜRÜCÜ GÜÇLERİ motor serisiyle AYNI değildir: sürücü kataloglarının anma
+  // güçleri motorunkinden bir kademe seyrektir ve 0,37 kW'tan başlar.
+  { key: "val.drivePower", degerler: SURUCU_GUCLERI },
+  // TEKER ÇAPLARI — FEM serisi (200…1250) + firmanın küçük vinçlerde kullandığı
+  // dört küçük çap (kullanıcı isteği: *"buna biz çap 80 100 120 ve 150 de
+  // ekleyelim"*).
+  {
+    key: "val.wheelDia",
+    degerler: ["80", "100", "120", "150", "200", "250", "315", "400", "500", "630", "710", "800", "900", "1000", "1120", "1250"],
+  },
+  // HALAT ÇAPLARI — devralınan tekliflerde geçen çaplar ve aradaki standart
+  // kademeler.
+  {
+    key: "val.ropeDia",
+    degerler: ["8", "10", "12", "14", "16", "18", "20", "22", "24", "26", "28", "30", "32", "36"],
+  },
   {
     key: "val.girder",
     degerler: [
@@ -216,23 +286,19 @@ const TICARI: Liste[] = [
   // GEÇERLİLİK: on dört teklifin on dördünde aynı değer. Liste tek maddeliktir
   // ve uydurma bir "30 gün" eklenmemiştir — kullanıcı gerekirse yazıp ekler.
   { key: "term.validity", degerler: ["14 iş günü"] },
+  // TESLİM SÜRESİ ARTIK PARÇALI SEÇİLİR (kullanıcı isteği): hazır cümle listesi
+  // her yeni aralık için deftere bir madde daha yazdırıyordu. Üç küçük liste
+  // aynı cümleyi sınırsız üretir.
   {
-    key: "term.deliveryTime",
+    key: "term.deliveryTrigger",
     degerler: [
-      "Avans Ödemesi Sonrası 4 Hafta",
-      "Avans Ödemesi Sonrası 6-8 Hafta",
-      "Avans Ödemesi Sonrası 6-10 Hafta",
-      "Avans Ödemesi Sonrası 9-10 Hafta",
-      "Avans Ödemesi Sonrası 10-12 Hafta",
-      "Avans Ödemesi Sonrası 12-13 Hafta",
-      "Avans Ödemesi Sonrası 14-16 Hafta",
-      "Avans Ödemesi Sonrası 17-18 Hafta",
-      "Avans Ödemesi Sonrası 18-20 Hafta",
-      "Avans Ödemesi Sonrası 22-24 Hafta",
-      "Avans Ödemesi Sonrası 24-26 Hafta",
-      "Avans Ödemesi Sonrası 6-7 ay",
+      "Avans Ödemesi Sonrası",
+      "Sipariş Onayı Sonrası",
+      "Sözleşme İmzalanması Sonrası",
     ],
   },
+  { key: "val.deliveryWeeks", degerler: seri(4, 30, 1).map(String) },
+  { key: "val.deliveryUnit", degerler: ["Hafta", "Ay"] },
   { key: "term.freight", degerler: ["Dahil", "Hariç"] },
   {
     key: "term.erection",
@@ -248,9 +314,12 @@ const TICARI: Liste[] = [
       "Proje gönderimi",
     ],
   },
-  // GARANTİ BOŞ BAŞLAR ve bu bir bulgudur: devralınan on dört teklifin
-  // HİÇBİRİNDE garanti maddesi yok. Uydurulmaz; firma kendi metnini yazar.
-  { key: "term.warranty", degerler: [] },
+  // GARANTİ ARTIK VARSAYILANLI (kullanıcı kararı, 17.08.2026: *"Garanti
+  // standart 2 yıl olarak gelsin. Elle düzeltirim eğer müşteri uzatma
+  // isterse."*). Devralınan on dört teklifin hiçbirinde garanti maddesi YOKTU
+  // ve liste bu yüzden boş başlamıştı; değer artık bir bulgudan değil bir FİRMA
+  // KARARINDAN geliyor.
+  { key: "term.warranty", degerler: ["2 Yıl", "1 Yıl", "3 Yıl"] },
   {
     key: "term.paymentHeader",
     degerler: [
@@ -324,6 +393,9 @@ const KAPAK: Liste[] = [
 /** Yeni teklifte kendiliğinden seçilen değerler. */
 const VARSAYILANLAR = new Set([
   "term.validity|14 iş günü",
+  "term.warranty|2 Yıl",
+  "term.deliveryTrigger|Avans Ödemesi Sonrası",
+  "val.deliveryUnit|Hafta",
   "val.testDynamic|Q x 1,1",
   "val.testStatic|Q x 1,25",
   "cover.intro|Tarafımızdan talep etmiş olduğunuz konu iş için teknik ve ticari teklifimizi aşağıda dikkatinize sunar, kıymetli siparişleriniz bekleriz.",
@@ -454,7 +526,7 @@ satirlar.push(
 );
 
 const cikti = `${satirlar.join("\n\n")}\n`;
-const hedef = join(process.cwd(), "supabase", "migrations", "20260819000002_offer_options_seed.sql");
+const hedef = join(process.cwd(), "supabase", "migrations", "20260819000007_offer_options_seed_v2.sql");
 writeFileSync(hedef, cikti, "utf8");
 
 const toplam =

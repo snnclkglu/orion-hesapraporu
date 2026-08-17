@@ -9,6 +9,12 @@
 // EN ÖNEMLİ MADDE GİZLEMEDİR: gizlenen satır müşteriye giden belgede boşluk,
 // tire ya da iz BIRAKMAZ. İkinci madde TOPLAMDIR: `inTotal: false` satırın
 // tutarı belgede yazar ama toplama girmez.
+//
+// KAPSAM aynı ilkenin öteki yüzüdür: `orion` de iz bırakmaz (olağan olan
+// yazılmaz), `customer` ise değerin devamında görünür. Künye kontrolü ise
+// YERLEŞİM ölçer: dört iletişim alanının aynı satırda kaldığı, çözülen metinde
+// aralarında satır sonu OLMAMASIYLA kanıtlanır — ve bu, satır A4 genişliğini
+// aştığında da düşer, yani aynı zamanda taşma bekçisidir.
 
 import { describe, expect, it } from "vitest";
 import { OfferDocument, renderOfferPdf, type OfferDocumentProps } from "../offer";
@@ -16,11 +22,16 @@ import { offerFileName } from "../doc-naming";
 import { emptyPayload, groupFromKey, newOfferId } from "@/lib/offers/payload";
 import { offerTotal } from "@/lib/offers/pricing";
 import { fmtMoney } from "@/lib/currency";
-import type { OfferPayload, OfferPriceLine } from "@/lib/offers/types";
+import type { OfferPayload, OfferPriceLine, OfferRowScope } from "@/lib/offers/types";
 
+// KÜNYE GERÇEK UZUNLUKTADIR: altbilgi dört alanı TEK satıra basar ve satırın
+// A4 içerik genişliğine sığdığı ancak firmanın kendi (uzun) adresiyle
+// ölçülebilir — kısaltılmış bir adresle taşma hiç görülmezdi.
 const COMPANY = {
   company: "ORION CRANES",
-  address: "Başkent OSB 1. Cadde No:20, Ankara",
+  address: "Malıköy, 1. Cd. No:20, 06909 Başkent Organize Sanayi Bölgesi/Sincan/Ankara",
+  phone: "(0312) 511 48 06",
+  email: "info@orioncranes.com",
   web: "orioncranes.com",
 };
 
@@ -43,7 +54,7 @@ function fiyat(p: Partial<OfferPriceLine> & { description: string }): OfferPrice
  * Tek vinçli gerçek ölçekli bir teklif: 4 takım × 55.900 € = 223.600 €.
  * Sayılar bilerek büyüktür — küçük tutarlarda sütun taşması hiç görülmez.
  */
-function fikstur(over: { vatIncluded?: boolean } = {}): OfferDocumentProps {
+function fikstur(over: { vatIncluded?: boolean; kapsam?: OfferRowScope } = {}): OfferDocumentProps {
   const p: OfferPayload = emptyPayload("EUR");
   p.cover = {
     fromName: "SİNAN ÇOLAKOĞLU",
@@ -61,7 +72,13 @@ function fikstur(over: { vatIncluded?: boolean } = {}): OfferDocumentProps {
   const kaldirma = groupFromKey("mainHoist");
   for (const row of kaldirma.rows) {
     if (row.key === "motor") row.value = "GAMAK 22 kW 1500 d/dak, Encoderli";
-    if (row.key === "reeving") row.value = "4/1";
+    if (row.key === "reeving") {
+      row.value = "4/1";
+      // KAPSAM: `over.kapsam` verilmezse alan HİÇ yazılmaz — varsayılan yolun
+      // (alan yok) ile açıkça "orion" yazılmış yolun aynı sonucu verdiği
+      // ancak ikisi de sınanınca görülür.
+      row.scope = over.kapsam;
+    }
     // GİZLENEN SATIR: değeri dolu ama `hidden` — belgeye girmemeli.
     if (row.key === "hook") {
       row.value = `${GIZLI} DIN 15401/P Kanca`;
@@ -85,12 +102,18 @@ function fikstur(over: { vatIncluded?: boolean } = {}): OfferDocumentProps {
   ];
 
   for (const row of p.testLoad.rows) {
-    if (row.key === "dynamic") row.value = "Q x 1,1";
+    if (row.key === "dynamic") {
+      row.value = "Q x 1,1";
+      row.scope = over.kapsam;
+    }
     if (row.key === "static") row.value = "Q x 1,25";
   }
   for (const row of p.terms.rows) {
     if (row.key === "validity") row.value = "14 iş günü";
-    if (row.key === "deliveryTime") row.value = "Avans Ödemesi Sonrası 10-12 Hafta";
+    if (row.key === "deliveryTime") {
+      row.value = "Avans Ödemesi Sonrası 10-12 Hafta";
+      row.scope = over.kapsam;
+    }
     if (row.key === "payment") row.value = "Ödeme şekli aşağıda belirtilen şekildedir.";
   }
   p.terms.paymentLines = [
@@ -139,11 +162,22 @@ function fikstur(over: { vatIncluded?: boolean } = {}): OfferDocumentProps {
  * boşluk girebilir — aranan şey rakamın kendisidir, dizgi değil.
  */
 async function pdfMetni(props: OfferDocumentProps): Promise<string> {
+  return (await pdfSayfalari(props)).join(" ");
+}
+
+/**
+ * SAYFA SAYFA metin — satır sonları KORUNARAK.
+ *
+ * Altbilgi künyesinin "tek satır" olduğu ancak burada ölçülebilir: sayfalar
+ * birleştirilirse ve boşluklar silinirse satır sonu bilgisi kaybolur, iki
+ * satıra bölünmüş bir künye de sınavı geçerdi.
+ */
+async function pdfSayfalari(props: OfferDocumentProps): Promise<string[]> {
   const buf = await renderOfferPdf(props);
   const { extractText, getDocumentProxy } = await import("unpdf");
   const doc = await getDocumentProxy(new Uint8Array(buf));
-  const { text } = await extractText(doc, { mergePages: true });
-  return Array.isArray(text) ? text.join(" ") : text;
+  const { text } = await extractText(doc, { mergePages: false });
+  return Array.isArray(text) ? text : [text];
 }
 
 const duz = (s: string) => s.replace(/\s+/g, "");
@@ -198,6 +232,46 @@ describe("belge kimliği", () => {
     );
     expect(offerFileName("Habaş Dörtyol 20t Vinç", "TETR-20260127-1", 0)).toBe(
       "HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1.pdf"
+    );
+  });
+});
+
+describe("satır kapsamı", () => {
+  it("müşteri kapsamı EKİ değerin devamında basılır — teknik, test yükü ve ticari satırda", async () => {
+    const metin = duz(await pdfMetni(fikstur({ kapsam: "customer" })));
+    // Ek DEĞERE BİTİŞİKTİR: ayrı bir sütuna ya da alt satıra düşseydi burada
+    // aradaki metin yüzünden eşleşme kurulamazdı.
+    expect(metin.includes(duz("4/1 (Müşteri Kapsamında)"))).toBe(true);
+    expect(metin.includes(duz("Q x 1,1 (Müşteri Kapsamında)"))).toBe(true);
+    expect(metin.includes(duz("Avans Ödemesi Sonrası 10-12 Hafta (Müşteri Kapsamında)"))).toBe(true);
+  });
+
+  it("Orion kapsamı belgede İZ BIRAKMAZ — alan yazılmasa da 'orion' yazılsa da", async () => {
+    // Bir teklifte satırların neredeyse tamamı bizim kapsamımızdadır; her
+    // satıra kapsam yazmak belgeyi okunmaz yapardı. Görünür olan İSTİSNADIR.
+    const varsayilan = await pdfMetni(fikstur());
+    expect(varsayilan.includes("Kapsam")).toBe(false);
+
+    const acikca = await pdfMetni(fikstur({ kapsam: "orion" }));
+    expect(acikca.includes("Kapsam")).toBe(false);
+  });
+});
+
+describe("altbilgi künyesi", () => {
+  it("adres · telefon · e-posta · web TEK SATIRDA — arada satır sonu yok", async () => {
+    // Telefon eskiden adresten ayrı, bir üst satırda duruyordu (kullanıcı
+    // bildirimi, 17.08.2026: dengesiz görünüyor). Kontrol aynı zamanda TAŞMA
+    // BEKÇİSİDİR: satır A4 genişliğine sığmasaydı sarılır ve tam adresle
+    // telefon arasında bir satır sonu belirirdi.
+    const kapak = (await pdfSayfalari(fikstur()))[0];
+    const adresSonu = kapak.indexOf("Ankara");
+    const telefon = kapak.indexOf(COMPANY.phone);
+    expect(adresSonu).toBeGreaterThanOrEqual(0);
+    expect(telefon).toBeGreaterThan(adresSonu);
+    expect(kapak.slice(adresSonu, telefon).includes("\n")).toBe(false);
+    // E-posta ve web de aynı satırda kalır.
+    expect(kapak.slice(telefon).indexOf("\n")).toBeGreaterThan(
+      kapak.slice(telefon).indexOf(COMPANY.web)
     );
   });
 });

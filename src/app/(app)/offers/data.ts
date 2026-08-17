@@ -323,6 +323,34 @@ export async function loadCustomerContacts(
   }));
 }
 
+/**
+ * TEKLİFİ HAZIRLAYABİLECEK KİŞİLER — kapağın "KİMDEN" seçicisi.
+ *
+ * Kullanıcı isteği (17.08.2026): *"KİMDEN kısmı bizim kullanıcılardan dropdown
+ * seçmeli gelsin. Yönetici ve müdürler."* Küme teklif bölümünü GÖREBİLEN
+ * rollerdir (`canSeeOffers`) — ikinci bir rol listesi yazmak, yetkiyi iki
+ * yerden sordurmak olurdu (ROL-15).
+ */
+export interface OfferAuthor {
+  id: string;
+  name: string;
+  title: string;
+}
+
+export async function loadOfferAuthors(supabase: SupabaseClient): Promise<OfferAuthor[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, title, role")
+    .in("role", ["admin", "manager"])
+    .order("full_name");
+  if (error) return [];
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: (r.full_name as string) ?? "",
+    title: (r.title as string) ?? "",
+  }));
+}
+
 export async function loadCustomers(supabase: SupabaseClient): Promise<CustomerOption[]> {
   const { data } = await supabase
     .from("customers")

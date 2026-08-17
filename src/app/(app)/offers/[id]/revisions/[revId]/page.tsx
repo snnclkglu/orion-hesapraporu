@@ -8,7 +8,13 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
-import { loadCustomerContacts, loadOfferOptions, loadOfferRevision } from "../../../data";
+import {
+  loadCustomerContacts,
+  loadOfferAuthors,
+  loadOfferOptions,
+  loadOfferRevision,
+  loadOfferTemplates,
+} from "../../../data";
 import { OfferEditor } from "./offer-editor";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +26,11 @@ export default async function OfferRevisionPage({
 }) {
   const { id, revId } = await params;
   const supabase = await createClient();
-  const [kayit, options] = await Promise.all([
+  const [kayit, options, authors, templates] = await Promise.all([
     loadOfferRevision(supabase, id, revId),
     loadOfferOptions(supabase),
+    loadOfferAuthors(supabase),
+    loadOfferTemplates(supabase),
   ]);
   if (!kayit) notFound();
 
@@ -63,6 +71,8 @@ export default async function OfferRevisionPage({
         initial={kayit.revision.payload}
         options={options}
         contacts={contacts}
+        authors={authors}
+        templates={templates}
         currency={kayit.offer.currency}
       />
     </div>

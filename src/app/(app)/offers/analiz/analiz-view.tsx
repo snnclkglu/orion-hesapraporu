@@ -90,7 +90,28 @@ import { customerTag, hueFromText, tagStyle } from "@/lib/tags";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { cn } from "@/lib/utils";
 import { setOfferScore, updateLead } from "./actions";
-import { LeadDialog, PuanSecici, type AnalizSatiriDetay } from "./lead-dialog";
+import {
+  BeklenenTarih,
+  LeadDialog,
+  PuanSecici,
+  type AnalizSatiriDetay,
+} from "./lead-dialog";
+
+// ————————————————————————————————————————————————————————— adlandırma
+//
+// Kullanıcı bildirimi (17.08.2026): *"Ham Toplam ve Ağırlıklı kelimelerini daha
+// açıklayıcı yazalım. Anlaşılmıyor."*
+//
+// ALAN ADLARI DEĞİŞMEDİ (`hamToplam` / `agirlikliToplam`, çekirdekte): değişen
+// yalnız EKRANA BASILAN metindir. İki isim tek yerde durur ki kart, grafik
+// efsanesi ve sütun başlığı aynı şeye aynı adı versin — üç yerde ayrı ayrı
+// yazılsaydı biri düzeltilip öbürleri unutulurdu.
+
+const HAM_ETIKET = "Teklif Tutarı (tümü)";
+const HAM_IPUCU = "Puan hesaba katılmadan, bütün satırların toplamı";
+const AGIRLIKLI_ETIKET = "Beklenen Gelir";
+const AGIRLIKLI_IPUCU =
+  "Her satır kendi kazanma puanıyla çarpılıp toplandı (tutar × puan/10)";
 
 // ————————————————————————————————————————————————————————————— süzgeçler
 
@@ -138,6 +159,52 @@ function ayEtiketi(ay: string): string {
   return `${monthLabel(ay).slice(0, 3)} ${ay.slice(2, 4)}`;
 }
 
+// ————————————————————————————————————————————————————————— sıralama
+
+/**
+ * SATIRIN SIRA TARİHİ — teklifte VERİLDİĞİ gün, beklenen işte beklenen gün.
+ *
+ * Kullanıcı kararı (17.08.2026): *"Analizde teklif verilme tarihine göre
+ * listeleme olsun. Beklenen tarihe göre değil."* Çizelge bir TAKİP listesidir:
+ * "en son hangi teklifi verdim" sorusu, "hangi karar en yakın" sorusundan önce
+ * gelir — ikincisinin cevabı zaten pencerede, grafikte ve puan renginde durur.
+ *
+ * BEKLENEN İŞTE VERİLME GÜNÜ YOKTUR ve uydurulmaz (değişmez md. 4): satır
+ * henüz bir teklif değildir. Onun elindeki tek gün `expectedOn`dur ve satır
+ * onunla dizilir; iki kaynağın tarihleri aynı eksende buluşur çünkü ikisi de
+ * "bu satır takvimde nereye düşüyor" sorusunu cevaplar.
+ */
+export function siraTarihi(
+  s: Pick<AnalizSatiriDetay, "kaynak" | "verilisTarihi" | "expectedOn">
+): string | null {
+  return s.kaynak === "teklif" ? s.verilisTarihi : s.expectedOn;
+}
+
+/**
+ * ÇİZELGENİN VARSAYILAN SIRASI — yeniden eskiye.
+ *
+ * TARİHİ OLMAYAN SATIR SONA DÜŞER, SESSİZCE KAYBOLMAZ: yayımlanmamış bir
+ * taslak ya da günü henüz konuşulmamış bir beklenti tam da gözden kaçan
+ * satırdır; listeden atmak onu görünmez yapardı, başa koymak ise kullanıcının
+ * bugün ilgilendiği satırların üstünü örterdi.
+ *
+ * EŞİTLİK TEKLİF NUMARASIYLA, sonra kimlikle çözülür: aynı gün verilmiş iki
+ * teklif her tazelemede yer değiştirmemelidir (`sortOffers`in kuralı —
+ * kararsız sıralama listeyi okuyan gözün en çok yorulduğu şeydir).
+ */
+export function siralaAnaliz(satirlar: readonly AnalizSatiriDetay[]): AnalizSatiriDetay[] {
+  return [...satirlar].sort((a, b) => {
+    const ta = siraTarihi(a);
+    const tb = siraTarihi(b);
+    if (ta === null && tb !== null) return 1;
+    if (tb === null && ta !== null) return -1;
+    const n = ta !== null && tb !== null ? tb.localeCompare(ta) : 0;
+    if (n !== 0) return n;
+    const no = (b.offerNo ?? "").localeCompare(a.offerNo ?? "", "tr");
+    return no !== 0 ? no : a.id.localeCompare(b.id);
+  });
+}
+
 // ————————————————————————————————————————————————————————————— görünüm
 
 export function AnalizView({
@@ -158,7 +225,16 @@ export function AnalizView({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [pencere, setPencere] = useState<ProjeksiyonPencere>("12ay");
+  /**
+   * PENCERE "TÜMÜ" AÇILIR (kullanıcı kararı, 17.08.2026: *"Analiz ekranı ilk
+   * açılışta Tümü olarak açsın."*).
+   *
+   * "12 ay" varsayılanı sayfayı EKSİK açıyordu: beklenen tarihi girilmemiş her
+   * satır (ki puanlanmayı bekleyen satırlar çoğunlukla onlardır) ilk bakışta
+   * yok görünüyor, kullanıcı da orada olmadıklarını sanıyordu. Daraltma bir
+   * KARARdır ve kullanıcının kendi eliyle verilmelidir.
+   */
+  const [pencere, setPencere] = useState<ProjeksiyonPencere>("tumu");
   const [musteri, setMusteri] = useState<string[]>([]);
   const [kaynak, setKaynak] = useState<string[]>([]);
   const [puanBandi, setPuanBandi] = useState<string[]>([]);
@@ -177,7 +253,7 @@ export function AnalizView({
 
   const suzulmus = useMemo(() => {
     const anahtar = trKatla(q).split(/\s+/).filter(Boolean);
-    return tekil.filter((s) => {
+    const gecenler = tekil.filter((s) => {
       if (!kapaliGoster && !acikSatir(s)) return false;
       if (!pencereyeGirer(s, pencere, bugun)) return false;
       if (kaynak.length > 0 && !kaynak.includes(s.kaynak)) return false;
@@ -191,6 +267,10 @@ export function AnalizView({
       }
       return true;
     });
+    // SIRA SÜZGEÇTEN SONRA VERİLİR: sayılar ve grafikler sıradan bağımsızdır,
+    // yalnız çizelge ile telefon listesi bu diziyi okur ve ikisi AYNI diziyi
+    // okur — iki yerde sıralansaydı masaüstü ile telefon ayrışırdı.
+    return siralaAnaliz(gecenler);
   }, [tekil, kapaliGoster, pencere, bugun, kaynak, musteri, puanBandi, q]);
 
   /**
@@ -240,9 +320,13 @@ export function AnalizView({
   // Seri rengi TON AÇISIDIR ve metinden türetilir (`hueFromText`): elle hex
   // yazılmaz, doygunluk/parlaklık `.oc-series-*` kuralında ve tema başına
   // verilir.
+  //
+  // TON TOHUMU ESKİ METİNDE BIRAKILDI: etiket düzeltmesi (md. 27) bir ADLANDIRMA
+  // işidir, serinin KİMLİĞİ değil — tohumu etiketle birlikte değiştirmek
+  // kullanıcının tanıdığı iki eğrinin rengini sebepsiz yere takas ederdi.
   const seriler: ChartSeries[] = [
-    { key: "ham", label: "Ham Toplam", hue: hueFromText("Ham Toplam") },
-    { key: "agirlikli", label: "Ağırlıklı", hue: hueFromText("Ağırlıklı Projeksiyon") },
+    { key: "ham", label: HAM_ETIKET, hue: hueFromText("Ham Toplam") },
+    { key: "agirlikli", label: AGIRLIKLI_ETIKET, hue: hueFromText("Ağırlıklı Projeksiyon") },
   ];
 
   const musteriKalemleri: RankItem[] = useMemo(() => {
@@ -252,7 +336,7 @@ export function AnalizView({
       key: k.musteri,
       label: customerTag({ name: k.musteri, hue: k.hue }).short,
       hue: customerTag({ name: k.musteri, hue: k.hue }).hue,
-      hint: `${k.adet} satır · ham ${fmtCompactEur(k.ham)}`,
+      hint: `${k.adet} satır · teklif tutarı ${fmtCompactEur(k.ham)}`,
       value: k.agirlikli,
       share: toplam === 0 ? 0 : k.agirlikli / toplam,
     }));
@@ -353,16 +437,16 @@ export function AnalizView({
       {/* ————————————————————————————————————————————— özet şeridi */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Ağırlıklı Projeksiyon"
+          label={AGIRLIKLI_ETIKET}
           value={fmtMoney(ozet.agirlikliToplam, "EUR")}
-          hint={`${fmtNum(ozet.adet)} satır · tutar × puan/10`}
+          hint={`${fmtNum(ozet.adet)} satır · ${AGIRLIKLI_IPUCU}`}
           icon={TrendingUp}
           dense
         />
         <StatCard
-          label="Ham Toplam"
+          label={HAM_ETIKET}
           value={fmtMoney(ozet.hamToplam, "EUR")}
-          hint="Puandan bağımsız toplam"
+          hint={HAM_IPUCU}
           icon={Euro}
           dense
         />
@@ -389,7 +473,7 @@ export function AnalizView({
       {/* ————————————————————————————————————————————— grafikler */}
       <PanoKabugu
         baslik="Aylık Projeksiyon"
-        alt={`${fmtCompactEur(ozet.agirlikliToplam)} ağırlıklı`}
+        alt={`${fmtCompactEur(ozet.agirlikliToplam)} beklenen gelir`}
       >
         <TimeLineChart
           columns={kolonlar}
@@ -520,9 +604,16 @@ export function AnalizView({
                   <TableHead>Müşteri</TableHead>
                   <TableHead>Konu</TableHead>
                   <TableHead>Beklenen Tarih</TableHead>
-                  <TableHead className="text-right">Tutar</TableHead>
+                  {/* Sütun başlıkları kartlarla AYNI adlandırmayı kullanır
+                      (md. 27); "(tümü)" yalnız toplamda anlamlıdır, tek satırda
+                      değil. */}
+                  <TableHead className="text-right" title={HAM_IPUCU}>
+                    Teklif Tutarı
+                  </TableHead>
                   <TableHead className="w-24">Puan</TableHead>
-                  <TableHead className="text-right">Ağırlıklı</TableHead>
+                  <TableHead className="text-right" title={AGIRLIKLI_IPUCU}>
+                    {AGIRLIKLI_ETIKET}
+                  </TableHead>
                   <TableHead>Durum</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -563,7 +654,7 @@ export function AnalizView({
                         </span>
                       </TableCell>
                       <TableCell>
-                        <TarihHucresi satir={s} onYaz={yaz} disabled={pending} />
+                        <TarihHucresi satir={s} bugun={bugun} onYaz={yaz} disabled={pending} />
                       </TableCell>
                       <TableCell className="text-right font-mono whitespace-nowrap">
                         {s.amount === null ? "—" : fmtMoney(s.amount, s.currency)}
@@ -638,14 +729,19 @@ export function AnalizView({
                     </span>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-2 items-end gap-2">
+                  {/* DAR EKRANDA ALT ALTA: tarih kutusuna hızlı seçim düğmesi
+                      eklendi ve `<input type="date">`in kendi asgari genişliği
+                      var — yarım sütunda ikisi sıkışıp kartı yatay kaydırırdı
+                      (MOBIL-15: ana tablo yatay KAYMAZ, listeye katlanır). */}
+                  <div className="mt-2 grid grid-cols-1 items-end gap-2 sm:grid-cols-2">
                     <div>
                       <span className="oc-kicker text-muted-foreground">Beklenen</span>
-                      <TarihHucresi satir={s} onYaz={yaz} disabled={pending} />
+                      <TarihHucresi satir={s} bugun={bugun} onYaz={yaz} disabled={pending} />
                     </div>
                     <div>
-                      <span className="oc-kicker text-muted-foreground">
-                        Puan · {agirlikli === null ? "—" : fmtMoney(agirlikli, s.currency)}
+                      <span className="oc-kicker text-muted-foreground" title={AGIRLIKLI_IPUCU}>
+                        Puan · beklenen{" "}
+                        {agirlikli === null ? "—" : fmtMoney(agirlikli, s.currency)}
                       </span>
                       <PuanSecici
                         score={s.score}
@@ -664,12 +760,19 @@ export function AnalizView({
       {/* Pencere yalnız GEREKTİĞİNDE monte edilir: her açılış taze bir bileşen
           demektir ve alanları senkronize eden bir efekte gerek kalmaz. */}
       {yeniAcik && (
-        <LeadDialog satir={null} customers={customers} open onOpenChange={setYeniAcik} />
+        <LeadDialog
+          satir={null}
+          customers={customers}
+          bugun={bugun}
+          open
+          onOpenChange={setYeniAcik}
+        />
       )}
       {duzenlenen && (
         <LeadDialog
           satir={duzenlenen}
           customers={customers}
+          bugun={bugun}
           open
           onOpenChange={(o) => !o && setDuzenlenen(null)}
         />
@@ -731,13 +834,19 @@ function DurumCipi({ satir }: { satir: AnalizSatiriDetay }) {
  * Projeksiyonun dönemi bu tek alandan okunur; onu değiştirmek için pencere
  * açtırmak, sayfanın asıl işini (dönemleri yeniden dizmek) yavaşlatırdı.
  * Boşaltmak meşrudur: tarihi bilinmeyen satır "Tümü" penceresinde durur.
+ *
+ * KUTUNUN KENDİSİ `BeklenenTarih`TİR (md. 25/26) ve yalnız TAM bir günü yukarı
+ * verir: burada her `onChange` doğrudan sunucuya yazar, yani yarım bir tarih
+ * ekranda görünüp geçmez — kaydedilirdi.
  */
 function TarihHucresi({
   satir,
+  bugun,
   onYaz,
   disabled,
 }: {
   satir: AnalizSatiriDetay;
+  bugun: string;
   onYaz: (
     s: AnalizSatiriDetay,
     degisim: { expectedOn?: string | null },
@@ -746,15 +855,12 @@ function TarihHucresi({
   disabled?: boolean;
 }) {
   return (
-    <Input
-      type="date"
-      value={satir.expectedOn ?? ""}
+    <BeklenenTarih
+      value={satir.expectedOn}
+      bugun={bugun}
       disabled={disabled}
-      aria-label="Beklenen tarih"
-      onChange={(e) =>
-        onYaz(satir, { expectedOn: e.target.value || null }, "Beklenen tarih kaydedildi.")
-      }
-      className="h-9 w-full min-w-0 font-mono md:w-[9.5rem]"
+      onChange={(iso) => onYaz(satir, { expectedOn: iso }, "Beklenen tarih kaydedildi.")}
+      className="md:w-[12rem]"
     />
   );
 }
