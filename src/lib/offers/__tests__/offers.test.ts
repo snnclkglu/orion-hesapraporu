@@ -6,8 +6,17 @@
 // ve ancak müşteri fark ettiğinde anlaşılabilecek hatalardır.
 
 import { describe, expect, it } from "vitest";
-import { composeValue, rowValue, withComposedValue } from "../compose";
+import { composeValue, derivedParts, rowValue, withComposedValue } from "../compose";
 import { copyPayloadForCustomer } from "../copy";
+import { firstMulti, isMultiValueList, joinMulti, splitMulti } from "../multi";
+import { parentOption } from "../options";
+import {
+  composeItemTitle,
+  defaultItemTitle,
+  isDefaultItemTitle,
+  kalemBasligiBuyuk,
+  withAutoTitle,
+} from "../title";
 import {
   CAPACITY_BANDS,
   EMPTY_OFFER_FILTER,
@@ -27,7 +36,11 @@ import {
   hiddenCount,
   newPriceLine,
   printedPayload,
+  setTrolleyCount,
+  trolleyCount,
+  withCraneType,
   withDefaults,
+  withGroup,
 } from "../payload";
 import {
   lineAmount,
@@ -38,11 +51,15 @@ import {
   withTotal,
 } from "../pricing";
 import {
+  AUX_HOIST_GROUP_KEY,
   OFFER_GROUP_DEFS,
   TERMS_GROUP_KEY,
   TERM_ROW_DEFS,
   TEST_LOAD_GROUP_KEY,
   TEST_LOAD_ROW_DEFS,
+  TROLLEY_1_TITLE,
+  TROLLEY_2_TITLE,
+  TROLLEY_TITLE,
   allOfferListKeys,
   itemFactsFromRows,
   offerRowDef,
@@ -670,5 +687,235 @@ describe("satır kapsamı", () => {
       items: [{ id: "i", title: "X", groups: [{ id: "g", key: "mainHoist", rows: [{ key: "motor" }] }] }],
     });
     expect(p.items[0].groups[0].rows[0].scope).toBe("orion");
+  });
+});
+
+// ————————————————————————————————————————————————————— kalem başlığı
+
+/** GENEL ÖZELLİKLER'i verilen değerlerle kurulmuş bir kalem. */
+function genelKalem(
+  deger: { ana?: string; yardimci?: string; aks?: string; tip?: string },
+  baslik = "VİNÇ - 1"
+) {
+  const item = emptyItem(baslik, ["general", "mainHoist", "trolley"]);
+  const genel = item.groups[0];
+  genel.rows.find((r) => r.key === "capacity")!.parts = {
+    ...(deger.ana ? { main: deger.ana } : {}),
+    ...(deger.yardimci ? { aux: deger.yardimci } : {}),
+  };
+  if (deger.aks) genel.rows.find((r) => r.key === "span")!.parts = { value: deger.aks };
+  if (deger.tip) genel.rows.find((r) => r.key === "craneType")!.value = deger.tip;
+  return item;
+}
+
+describe("kalem başlığı satırlardan türetilir", () => {
+  it("devralınan tekliflerdeki başlığı birebir üretir", () => {
+    expect(
+      composeItemTitle(
+        genelKalem({ ana: "32", yardimci: "5", aks: "19,5", tip: "Çift Kirişli Gezer Köprülü Vinç" })
+          .groups
+      )
+    ).toBe("32/5T x 19,5m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ");
+  });
+
+  it("YARDIMCI KALDIRMA YOKSA eğik çizgi de yoktur", () => {
+    expect(composeItemTitle(genelKalem({ ana: "32", aks: "30", tip: "Portal Vinç" }).groups)).toBe(
+      "32T x 30m PORTAL VİNÇ"
+    );
+  });
+
+  it("açıklık girilmemişse 'x m' gibi yarım bir ölçü OLUŞMAZ", () => {
+    expect(composeItemTitle(genelKalem({ ana: "20", tip: "Monoray Vinç" }).groups)).toBe(
+      "20T MONORAY VİNÇ"
+    );
+  });
+
+  it("ölçü sözcükleri BÜYÜTÜLMEZ — 'x' ve '19,5m' olduğu gibi kalır", () => {
+    expect(kalemBasligiBuyuk("32/5T x 19,5m çift kirişli vinç")).toBe(
+      "32/5T x 19,5m ÇİFT KİRİŞLİ VİNÇ"
+    );
+  });
+
+  it("okunacak bir şey yoksa BOŞ döner ve mevcut başlığa dokunulmaz", () => {
+    const item = genelKalem({});
+    expect(composeItemTitle(item.groups)).toBe("");
+    expect(withAutoTitle(item).title).toBe("VİNÇ - 1");
+  });
+
+  it("ELLE YAZILMIŞ başlığı türetme EZMEZ", () => {
+    const item = { ...genelKalem({ ana: "32", tip: "Portal Vinç" }), titleManual: true };
+    expect(withAutoTitle(item).title).toBe("VİNÇ - 1");
+    expect(withAutoTitle({ ...item, titleManual: false }).title).toBe("32T PORTAL VİNÇ");
+  });
+
+  it("varsayılan ad sırayı taşır", () => {
+    expect(defaultItemTitle(3)).toBe("VİNÇ - 3");
+    expect(isDefaultItemTitle("VİNÇ - 12")).toBe(true);
+    expect(isDefaultItemTitle("32T PORTAL VİNÇ")).toBe(false);
+  });
+
+  it("başlık kipi eski kayıtlarda TÜRETİLEBİLİR sayılır", () => {
+    const p = withDefaults({ items: [{ id: "i", title: "20T VİNÇ", groups: [] }] });
+    expect(p.items[0].titleManual).toBe(false);
+  });
+});
+
+// ————————————————————————————————————————————— türetilen parça (sürücü)
+
+describe("sürücünün toplam gücü türetilir", () => {
+  const drive = offerRowDef("mainHoist", "drive")!.parts!;
+
+  it("güç × adet olarak yazılır ve değere girer", () => {
+    const parts = derivedParts(drive, { brand: "SCHNEIDER", power: "18,5", count: "2" });
+    expect(parts.total).toBe("37");
+    expect(composeValue(drive, parts)).toBe("SCHNEIDER 18,5 kW x 2 Adet (37 kW)");
+  });
+
+  it("ADET 1 İSE toplam yazılmaz — aynı sayı iki kez geçmez", () => {
+    expect(derivedParts(drive, { power: "18,5", count: "1" }).total ?? "").toBe("");
+  });
+
+  it("güç ya da adet okunamıyorsa toplam BOŞALIR (uydurma sayı yok)", () => {
+    // Girilmiş bir toplam GERÇEKTEN silinir; hiç girilmemişse alan hiç doğmaz.
+    expect(derivedParts(drive, { power: "", count: "4", total: "74" }).total).toBe("");
+    expect(derivedParts(drive, { power: "abc", count: "4" }).total ?? "").toBe("");
+  });
+
+  it("ondalık nokta da virgül de okunur, çıktı VİRGÜLLÜdür", () => {
+    expect(derivedParts(drive, { power: "18.5", count: "3" }).total).toBe("55,5");
+  });
+
+  it("türetilmeyen satırın parçalarına DOKUNULMAZ", () => {
+    const motor = offerRowDef("mainHoist", "motor")!.parts!;
+    const parts = { brand: "GAMAK", power: "22", count: "2" };
+    expect(derivedParts(motor, parts)).toBe(parts);
+  });
+});
+
+// ————————————————————————————————————————————————————— çok markalı alan
+
+describe("çok markalı değer", () => {
+  it("markalar eğik çizgiyle birleşir (belgelerin kendi yazımı)", () => {
+    expect(joinMulti(["SEW", "FLENDER"])).toBe("SEW/FLENDER");
+    expect(splitMulti("SIEMENS/ABB")).toEqual(["SIEMENS", "ABB"]);
+  });
+
+  it("boş kutu değere GİRMEZ ama en az bir kutu her zaman çizilir", () => {
+    expect(joinMulti(["SEW", "", "  "])).toBe("SEW");
+    expect(splitMulti("")).toEqual([""]);
+    expect(splitMulti("SEW//FLENDER")).toEqual(["SEW", "FLENDER"]);
+  });
+
+  it("kademeli listenin ebeveyni İLK markadır", () => {
+    expect(firstMulti("SEW/FLENDER")).toBe("SEW");
+    expect(firstMulti("")).toBe("");
+  });
+
+  it("çokluk YALNIZ marka listelerindedir — ölçü listeleri tektir", () => {
+    expect(isMultiValueList("brand.gearbox")).toBe(true);
+    expect(isMultiValueList("brand.powerSupply")).toBe(true);
+    expect(isMultiValueList("series.gearbox")).toBe(false);
+    expect(isMultiValueList("val.wheelDia")).toBe(false);
+    expect(isMultiValueList("term.validity")).toBe(false);
+    expect(isMultiValueList(undefined)).toBe(false);
+  });
+
+  it("KADEMELİ LİSTE çift markada da ebeveyni bulur", () => {
+    const markalar = [
+      { id: "b1", value: "YILMAZ R." },
+      { id: "b2", value: "SEW" },
+    ];
+    // Seri listesi ebeveynin kimliğiyle çekilir; kimlik bulunamazsa liste BOŞ
+    // kalır ve kullanıcı hiçbir seri göremez — bu, çok markalı alanın en kolay
+    // gözden kaçan yan etkisidir.
+    expect(parentOption(markalar, "SEW/FLENDER")?.id).toBe("b2");
+    expect(parentOption(markalar, "sew ")?.id).toBe("b2");
+    expect(parentOption(markalar, "YILMAZ R./FLENDER")?.id).toBe("b1");
+    expect(parentOption(markalar, "")).toBeUndefined();
+    expect(parentOption(markalar, "BİLİNMEYEN")).toBeUndefined();
+  });
+
+  it("çift marka satırın yazımını bozmaz", () => {
+    const motor = offerRowDef("mainHoist", "motor")!.parts!;
+    expect(composeValue(motor, { brand: "SIEMENS/ABB", power: "110", rpm: "1500" })).toBe(
+      "SIEMENS/ABB 110 kW 1500 d/dak"
+    );
+  });
+});
+
+// ————————————————————————————————————————————— bölüm ekleme / araba sayısı
+
+describe("bölüm ekleme defter sırasına uyar", () => {
+  it("yardımcı kaldırma KALDIRMA GRUBUNUN ardına düşer, sona değil", () => {
+    const item = emptyItem("X", ["general", "mainHoist", "trolley", "electrical"]);
+    const next = withGroup(item, AUX_HOIST_GROUP_KEY);
+    expect(next.groups.map((g) => g.key)).toEqual([
+      "general",
+      "mainHoist",
+      "auxHoist",
+      "trolley",
+      "electrical",
+    ]);
+  });
+
+  it("zaten varsa hiçbir şey yapmaz — satırlar kaybolmaz", () => {
+    const item = emptyItem("X", ["general", "auxHoist"]);
+    expect(withGroup(item, AUX_HOIST_GROUP_KEY)).toBe(item);
+  });
+});
+
+describe("araba sayısı", () => {
+  it("çift arabalıda ikinci bölüm kurulur ve ikisi 1/2 diye adlanır", () => {
+    const { item } = setTrolleyCount(emptyItem("X", ["general", "trolley", "bridge"]), 2);
+    expect(trolleyCount(item)).toBe(2);
+    expect(item.groups.map((g) => g.key)).toEqual(["general", "trolley", "auxTrolley", "bridge"]);
+    expect(item.groups.find((g) => g.key === "trolley")?.title).toBe(TROLLEY_1_TITLE);
+    expect(item.groups.find((g) => g.key === "auxTrolley")?.title).toBe(TROLLEY_2_TITLE);
+  });
+
+  it("arabası hiç olmayan kalemde çift seçilirse İKİ bölüm de kurulur", () => {
+    const { item } = setTrolleyCount(emptyItem("X", ["general", "steel"]), 2);
+    expect(item.groups.map((g) => g.key)).toEqual(["general", "trolley", "auxTrolley", "steel"]);
+    expect(item.groups.find((g) => g.key === "trolley")?.title).toBe(TROLLEY_1_TITLE);
+  });
+
+  it("BOŞ ikinci araba teke dönüşte kaldırılır ve ad numarasız olur", () => {
+    const { item: cift } = setTrolleyCount(emptyItem("X", ["general", "trolley"]), 2);
+    const { item, korunanVeri } = setTrolleyCount(cift, 1);
+    expect(korunanVeri).toBe(false);
+    expect(trolleyCount(item)).toBe(1);
+    expect(item.groups.find((g) => g.key === "trolley")?.title).toBe(TROLLEY_TITLE);
+  });
+
+  it("VERİ GİRİLMİŞ ikinci araba teke dönüşte SİLİNMEZ", () => {
+    const { item: cift } = setTrolleyCount(emptyItem("X", ["general", "trolley"]), 2);
+    const ikinci = cift.groups.find((g) => g.key === "auxTrolley")!;
+    ikinci.rows.find((r) => r.key === "motor")!.value = "GAMAK 2 x 1,5 kW";
+    const { item, korunanVeri } = setTrolleyCount(cift, 1);
+    expect(korunanVeri).toBe(true);
+    expect(item.groups.some((g) => g.key === "auxTrolley")).toBe(true);
+  });
+
+  it("KULLANICININ YAZDIĞI bölüm başlığı ezilmez", () => {
+    const item = emptyItem("X", ["general", "trolley"]);
+    item.groups.find((g) => g.key === "trolley")!.title = "VİNÇ ARABASI (MEVCUT)";
+    const { item: cift } = setTrolleyCount(item, 2);
+    expect(cift.groups.find((g) => g.key === "trolley")?.title).toBe("VİNÇ ARABASI (MEVCUT)");
+  });
+});
+
+describe("vinç tipi şablondan gelir", () => {
+  it("kaleme ve GENEL ÖZELLİKLER satırına birlikte yazılır", () => {
+    const item = withCraneType(emptyItem("VİNÇ - 1", ["general"]), "Portal Vinç");
+    expect(item.craneType).toBe("Portal Vinç");
+    expect(item.groups[0].rows.find((r) => r.key === "craneType")?.value).toBe("Portal Vinç");
+  });
+
+  it("dolu satırın üstüne YAZILMAZ", () => {
+    const item = emptyItem("VİNÇ - 1", ["general"]);
+    item.groups[0].rows.find((r) => r.key === "craneType")!.value = "Monoray Vinç";
+    expect(withCraneType(item, "Portal Vinç").groups[0].rows.find((r) => r.key === "craneType")?.value).toBe(
+      "Monoray Vinç"
+    );
   });
 });

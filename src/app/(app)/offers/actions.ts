@@ -26,8 +26,10 @@ import {
   emptyItem,
   emptyPayload,
   greetingFor,
+  withCraneType,
   withDefaults,
 } from "@/lib/offers/payload";
+import { defaultItemTitle } from "@/lib/offers/title";
 import { coverFieldsFromContact, suggestedContact } from "@/lib/customer-contacts";
 import { itemFactsFromRows } from "@/lib/offers/registry";
 import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
@@ -197,19 +199,29 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
     };
   }
 
+  // İLK KALEM "VİNÇ - 1"DİR, TEKLİF KONUSU DEĞİL (kullanıcı isteği,
+  // 17.08.2026: *"girdiğim teklif konusu ekleyeceğim vinç ile aynı olmayabilir;
+  // konu kapak bölümüne gelsin, ilk vinç Vinç - 1 olarak gelsin"*). Konu
+  // BELGENİN adıdır ("YENİ FABRİKA VİNÇ TEKLİFLERİ") ve üç vinçlik bir teklifin
+  // ilk vincine onu takmak, kullanıcının her seferinde sildiği bir başlık
+  // üretirdi. Başlık zaten kapasite ve vinç tipi girildiğinde kendiliğinden
+  // yazılır (`withAutoTitle`).
+  let groupKeys: string[] = [];
+  let craneType = "";
   if (parsed.data.templateId) {
     const { data: sablon } = await supabase
       .from("offer_templates")
       .select("name, crane_type, skeleton")
       .eq("id", parsed.data.templateId)
       .maybeSingle();
-    const groupKeys = (sablon?.skeleton as { groupKeys?: string[] } | null)?.groupKeys ?? [];
-    const item = emptyItem(parsed.data.itemTitle || parsed.data.subject, groupKeys);
-    item.craneType = (sablon?.crane_type as string) || "";
-    payload.items = [item];
-  } else if (parsed.data.itemTitle) {
-    payload.items = [emptyItem(parsed.data.itemTitle)];
+    groupKeys = (sablon?.skeleton as { groupKeys?: string[] } | null)?.groupKeys ?? [];
+    craneType = (sablon?.crane_type as string) || "";
   }
+  // VİNÇ TİPİ ŞABLONUN KENDİ BİLGİSİDİR ve GENEL ÖZELLİKLER satırına da yazılır:
+  // "Portal Vinç" şablonu seçen kullanıcıya aynı soruyu bir daha sormak,
+  // uygulamanın bildiği bir şeyi ona yazdırmak olurdu. Uydurma değil — kaynak
+  // defterdeki şablon kaydıdır (`offer_templates.crane_type`).
+  payload.items = [withCraneType(emptyItem(defaultItemTitle(1), groupKeys), craneType)];
 
   const { error: revError } = await supabase.from("offer_revisions").insert({
     offer_id: yazildi.id,
@@ -723,6 +735,10 @@ export async function unlockOfferRevision(
     return { error: "Yayımlanmış bir teklifi yalnız Yönetici geri çekebilir." };
   }
 
+  // ALANLAR TAM BU ÜÇÜDÜR ve tetikleyicinin kapısı da onları sorar
+  // (`guard_issued_offer_revision`, migration 20260819000009): durum `draft`,
+  // yayım damgaları boş, geri kalan her şey AYNI. Buraya bir alan daha eklemek
+  // — örneğin `notes` — geri çekmeyi sessizce çalışmaz hâle getirir.
   const { data: geri, error } = await supabase
     .from("offer_revisions")
     .update({ status: "draft", issued_at: null, issued_by: null })
@@ -730,7 +746,13 @@ export async function unlockOfferRevision(
     .eq("offer_id", offerId)
     .eq("status", "issued")
     .select("id, rev_no");
-  if (error) return { error: error.message };
+  if (error) {
+    return {
+      error: error.message.includes("Yayınlanmış")
+        ? "Geri çekme veritabanı tarafından engellendi — `20260819000009_offer_revision_unlock` migration'ı uygulanmamış olabilir."
+        : error.message,
+    };
+  }
   if (!geri?.length) return { error: "Revizyon bulunamadı ya da zaten taslak." };
 
   await audit(supabase, user.id, "offer.revision_unlock", {

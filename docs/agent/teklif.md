@@ -369,7 +369,7 @@ düzenlerken kilitlerdi. **Yüzdesiz satır meşrudur** — devralınan teklifle
 "Montaj Sonrası Kalan Nakit" gibi satırlar var; onlar toplama girmez ve ayrıca
 sayılır.
 
-## TEKLIF-24 — Yayımlanmışı YALNIZ Yönetici geri çeker.
+## TEKLIF-24 — Yayımlanmışı YALNIZ Yönetici geri çeker; KAPI TETİKLEYİCİDEDİR.
 
 `unlockOfferRevision` durumu `issued`tan `draft`a çeker; kilit KALKMAZ, bir
 KAPI açılır — düzenleme sonrasında normal yolundan yapılır. Fark önemlidir:
@@ -377,6 +377,22 @@ yanlışlıkla bir düzenleme değil, BİLİNÇLİ bir geri çekme gerekir. İş
 defterine yazılır (`offer.revision_unlock`) ve **arşivdeki PDF SİLİNMEZ** —
 müşterinin elindeki kâğıdın karşılığı arşivde durmaya devam eder. `issued_on`
 geri alınmaz: teklif gerçekten gönderildiyse takip sayacı o günü saymalıdır.
+
+**ÖZELLİK YAZILMIŞ AMA HİÇ ÇALIŞMAMIŞTI** (kullanıcı bildirimi, 17.08.2026:
+*"yayınlanan bir teklifi geri çekme özelliği olsun … 'Yayınlanmış teklif
+revizyonu değiştirilemez' uyarısı veriyor"*). Düğme, yetki ve action yerinde
+duruyordu; `guard_issued_offer_revision` ise `old.status = 'issued'` gördüğü ANDA
+yeni satıra hiç bakmadan düşürüyordu — geri çekme de bir UPDATE'tir. Belirti
+"yetki yok" gibi okunuyordu, sebep korumanın kendisiydi.
+
+Kapı `20260819000009_offer_revision_unlock` ile DAR açıldı: yayımlanmış satırda
+yalnız `status='draft'` + `issued_at/issued_by = null` geçer ve `offer_id`,
+`rev_no`, `label`, `notes`, `payload`, `created_by` **aynı kalmak zorundadır**.
+Koşul işlemin ADINA değil ALANLARIN AYNILIĞINA bakar — SQL bir niyet okuyamaz.
+"Durum değişiyorsa serbest" demek yetmezdi: aynı UPDATE payload'ı da taşıyabilir
+ve geri çekme, teslim edilmiş bir belgeyi sessizce değiştirmenin yolu olurdu.
+Silme kuralı DEĞİŞMEDİ. `unlockOfferRevision`in yazdığı alan kümesi tetikleyicinin
+sorduğu kümedir; oraya bir alan daha eklemek özelliği sessizce çalışmaz yapar.
 
 ## TEKLIF-25 — Radix `Select`te `SelectValue` YOKSA `position="popper"` ŞARTTIR.
 
@@ -387,6 +403,122 @@ rozetini basan seçicilerde (`lead-dialog.tsx`) o düğüm hiç doğmuyor, kap
 `position: fixed` alıyor ama konum özelliklerini hiç almıyor ve viewport'un
 sol üstüne düşüyordu.
 `<SelectValue>` KULLANMAYAN her `SelectContent` `position="popper"` almalıdır.
+
+## TEKLIF-27 — KONU BELGENİN, BAŞLIK KALEMİN adıdır.
+
+Kullanıcı isteği (17.08.2026): *"Girdiğim teklif konusu ekleyeceğim vinç ile aynı
+olmayabilir. Konu Kapak bölümüne gelsin, ilk vinç Vinç - 1 olarak gelsin; ben
+Kalem Başlığından zaten düzenlerim."*
+
+`createOffer` konuyu kalem adı olarak KULLANMAZ; ilk kalem `defaultItemTitle(1)`
+= **VİNÇ - 1** ile açılır ve "İlk Kalemin Adı" alanı Yeni Teklif penceresinden
+KALDIRILDI. Konu üç vinçlik bir belgenin adıdır ("YENİ FABRİKA VİNÇ
+TEKLİFLERİ"); onu ilk vince takmak, kullanıcının her teklifte sildiği bir başlık
+üretirdi. **Şablon seçildiyse vinç tipi GENEL ÖZELLİKLER satırına da yazılır**
+(`withCraneType`) — kaynak `offer_templates.crane_type`tir, uydurma değildir
+(değişmez md. 4) ve aynı soruyu iki kez sormaz. Şablonsuz teklif de artık TEK
+KALEMLE açılır: kalemsiz bir teklif, bölüm rayında hiçbir şey göstermiyordu.
+
+## TEKLIF-28 — Kalem başlığı TÜRETİLİR: `kapasite × aks + tip`.
+
+Kullanıcı isteği (17.08.2026): *"Kalem başlığını da otomatize edelim hata olmasın.
+Ana Kaldırma / Yardımcı Kaldırma (varsa) x Aks + Vinç Tipi olarak otomatik
+gelsin. İstersem düzenleyebileyim."*
+
+Biçim UYDURULMADI, devralınan on dört teklifin bölüm başlıklarından çıkarıldı ve
+kullanıcının tarifiyle birebir tutuyor: `32/5T x 19.5m ÇİFT KİRİŞ GEZER KÖPRÜLÜ
+VİNÇ` · `32T x 30m ÇİFT KİRİŞ TAM PORTAL VİNÇ` · `20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ
+VİNÇ` (açıklıksız) · `3T MONORAY VİNÇ`. **"AKS" = KÖPRÜ AÇIKLIĞI**; pergelde
+`Bom Açıklığı` okunur, çünkü bir kalemde yalnız biri doludur.
+
+- **Kaynak GENEL ÖZELLİKLER satırlarıdır** (`generalRowPart` / `generalRowValue`,
+  registry) — kalem künyesiyle AYNI okuma noktası (TEKLIF-20).
+- **Sayı yeniden biçimlenmez**: kullanıcı "19,5" yazdıysa başlıkta "19,5" durur.
+  Türetme bir OKUMADIR, bir hesap değil.
+- **Bulunmayan parça sessizce düşer** — "20T x m" gibi yarım bir başlık oluşmaz.
+- **`titleManual` başlığı kilitler** (satırdaki `manual`ın ikizi): elle yazılan
+  ad, sonraki kapasite düzeltmesinde SESSİZCE geri alınmaz; asa düğmesi
+  otomatiğe döndürür.
+- **`adBuyuk` BURADA KULLANILMAZ** — `kalemBasligiBuyuk` rakam içeren sözcüğü
+  ("19,5m", "32/5T") ve çarpım işaretini ("x") olduğu gibi bırakır. Düz büyütme
+  belgelerin yazımını `X 19,5M` yapardı. Değişmez md. 3 AD alanları içindir;
+  kalem başlığı ölçü taşıyan bir BELGE BAŞLIĞIDIR.
+- Türetme YALNIZ editörde çalışır (`withAutoTitle`, `ItemEditor.degistir`);
+  `withDefaults` onu ÇAĞIRMAZ — o yol yayımlanmış revizyonun PDF'ini de üretir ve
+  teslim edilmiş bir belgenin başlığını değiştirmek yasaktır (TEKLIF-2).
+
+## TEKLIF-29 — Türetilen parça: sürücünün TOPLAM GÜCÜ.
+
+Kullanıcı isteği (17.08.2026): *"Sürücü toplam güç, Güç x adet otomatik yazsın."*
+Defter satırı toplamı zaten basıyordu ama sayıyı İNSAN yazıyordu; 18,5 kW'lık
+dört sürücünün toplamını elle çarpmak, belgenin kendi içinde tutarlı GÖRÜNÜP
+yalnız müşteri hesapladığında ortaya çıkan türden bir hatadır.
+
+Kip defterde bir ETİKETTİR (`OfferPartDef.derived: "powerTotal"`), hesap
+`derivedParts` (compose.ts) içindedir ve kutu ekranda SALT OKUNUR çizilir —
+"(otomatik)" etiketiyle, çünkü sebebi görünmeyen kilitli bir alan bozuk gelir.
+**ADET 1 İSE TOPLAM YAZILMAZ** (defterin kendi kuralı: aynı sayı iki kez
+geçmez); güç ya da adet okunamıyorsa toplam BOŞALIR (değişmez md. 4). Hesap
+kaydetme yoluna değil `setParts`e bağlıdır: ekranın belgeden farklı bir şey
+göstermesi bu bölümde kabul edilemez. `withDefaults` yine türetme YAPMAZ — eski
+bir belgenin metnini geri okurken değiştirmek TEKLIF-2'yi çiğnerdi.
+
+## TEKLIF-30 — Kalemin bölümleri KENDİLİĞİNDEN açılır: yardımcı kaldırma ve İKİNCİ ARABA.
+
+Kullanıcı istekleri (17.08.2026): *"Yardımcı Kaldırmaya tonaj girersem altta
+yardımcı kaldırma adında bölüm açılsın"* · *"Tek arabalı veya çift arabalı olarak
+seçenek olsun; çift arabalı işaretlersem Vinç Arabası - 2 olarak yeni bölüm
+açılsın, diğeri de bu durumda Vinç Arabası - 1 olsun."*
+
+- **TETİK BOŞTAN DOLUYA GEÇİŞTİR**, "dolu olması" değil (`ItemEditor.degistir`):
+  sonrası olsaydı kullanıcının bilerek kaldırdığı bölüm her tuş vuruşunda geri
+  gelirdi.
+- **Yerleştirme defter sırasınadır** (`withGroup`): yardımcı kaldırma KALDIRMA
+  GRUBU'nun ardına, ikinci araba arabanın ardına girer. Sona eklenseydi belgede
+  elektrik sisteminden sonra basılırdı. Mevcut grupların sırasına DOKUNULMAZ —
+  kullanıcının elle taşıdığı düzen korunur.
+- **ARABA SAYISI AYRI BİR ALANDA SAKLANMAZ**, `auxTrolley` bölümünün
+  VARLIĞINDAN okunur (`trolleyCount`). Ayrı bir alan iki yazıcı doğururdu ve
+  ekran belgeyle çelişirdi (TEKLIF-20'nin gerekçesi).
+- **TEKE DÖNÜŞ VERİ SİLMEZ** (`setTrolleyCount`): ikinci arabanın satırlarına bir
+  şey girilmişse bölüm KORUNUR ve kullanıcıya söylenir; boşsa kaldırılır (boş
+  başlık belgede bir eksiklik izlenimi bırakır). Yanlış tıklanan bir seçicinin
+  doldurulmuş bir bölümü götürmesi, bu editörde olabilecek en pahalı davranıştır.
+- **Başlık "YARDIMCI" DEĞİL "- 2"DİR**: iki araba çoğunlukla eşittir ve
+  "yardımcı" ikincisini küçük gösterirdi. Yardımcı KALDIRMA gerçekten
+  yardımcıdır, adı öyle kalır. Kullanıcının KENDİ yazdığı bölüm başlığı ezilmez
+  (`ARABA_VARSAYILAN_BASLIKLARI`) — başlık belgeye aittir (`OfferRow.label`
+  kuralı).
+
+## TEKLIF-31 — Bir ekipman İKİ MARKAYLA teklif edilebilir: "SEW/FLENDER".
+
+Kullanıcı isteği (17.08.2026): *"Ekipmanlara ekstra marka ekleme özelliği olsun;
+örneğin redüktör Yılmaz Redüktör ve Flender olarak ikisini belirtebileyim.
+Bunun gibi diğer ekipmanlarda da istersem ekleyebileyim."*
+
+İhtiyaç firmanın belgelerinde ZATEN VARDI: `Motor : SIEMENS/ABB 110 kW` ·
+"Redüktör : SEW/FLENDER" · `Motor : ELK/GAMAK 30 kW` · `Güç Kaynağı : Omron /
+Phoenix`. Yani "iki marka birden" bir istisna değil, teklifin normal yazımıdır.
+
+- **DEĞER YİNE TEK METİNDİR**, dizi değil (`lib/offers/multi.ts`): `composeValue`,
+  PDF, `printedRows` ve karşılaştırma hiç değişmez ve yayımlanmış payload bir
+  ŞEKİL değişikliği yaşamaz — dizi olsaydı `withDefaults` teslim edilmiş
+  belgeleri yeni şekle taşımak zorunda kalırdı (TEKLIF-2). Çokluk yalnız EKRANIN
+  kipidir.
+- **AYIRAÇ BOŞLUKSUZDUR** (`/`). Belgelerde iki yazım var; marka satırın
+  BAŞINDA durup ardından boşlukla bağlanan parçalar geldiği için "SIEMENS / ABB
+  110 kW" okunduğunda ABB ile 110 kW'ın aynı öbeğe ait olup olmadığı belirsizleşir.
+- **ÇOKLUK YALNIZ MARKA LİSTELERİNDEDİR** (`isMultiValueList`: `brand.*`) ve
+  kural anahtarın önekinden çıkar — bugünkü ve yarınki bütün marka alanları
+  kendiliğinden çok markalı olur. Ölçü listeleri TEKTİR: "Ø400 / Ø500" bir
+  tekerlek çapı değil iki farklı tekerlektir.
+- **DEFTERE "SEW/FLENDER" YAZILMAZ**: "deftere ekle" düğmesi MADDE BAŞINA durur,
+  çünkü defterde iki marka vardır, birleşik bir ad yoktur.
+- **KADEMELİ LİSTE İLK MARKAYA BAKAR** (`firstMulti`): marka "SEW/FLENDER"
+  olduğunda defterde o adla madde yoktur ve seri listesi bomboş kalırdı.
+- Boş kutu değere GİRMEZ (`splitMulti` boş dilimi düşürür) — belgeye "SEW/"
+  girmesin diye; bu yüzden "marka ekle" düğmesinin açtığı kutu YEREL bir
+  durumdur ve yalnız yazılınca değere katılır.
 
 ## TEKLIF-26 — Yarım tarih KAYDEDİLMEZ.
 

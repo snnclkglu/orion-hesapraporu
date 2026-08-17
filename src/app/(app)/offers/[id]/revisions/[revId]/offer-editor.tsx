@@ -245,6 +245,8 @@ export function OfferEditor({
         <p className="shrink-0 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
           Bu revizyon yayımlanmıştır ve değiştirilemez. Değişiklik için teklif
           panelinden <span className="font-medium">Yeni Revizyon</span> açın.
+          Yanlışlıkla yayımlandıysa yönetici aynı panelden{" "}
+          <span className="font-medium">Geri Çek</span> ile taslağa alabilir.
         </p>
       ) : null}
 
@@ -370,6 +372,7 @@ export function OfferEditor({
         <KalemEkleDialog
           templates={templates}
           kaynak={payload.items[0]}
+          sira={payload.items.length + 1}
           onClose={() => setKalemEkle(false)}
           onEkle={(item) => {
             guncelleIle((p) => ({ ...p, items: [...p.items, item] }));

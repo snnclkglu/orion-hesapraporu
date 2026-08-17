@@ -24,6 +24,9 @@ import type { OfferOptionRow } from "@/app/(app)/offers/data";
 import type { CustomerContact } from "@/lib/customer-contacts";
 import type { OfferAuthor, OfferTemplateRow } from "@/app/(app)/offers/data";
 import { applyDefaults, emptyItem, emptyPayload } from "@/lib/offers/payload";
+import { composeValue, derivedParts } from "@/lib/offers/compose";
+import { offerRowDef } from "@/lib/offers/registry";
+import { composeItemTitle } from "@/lib/offers/title";
 
 let sira = 0;
 function opt(
@@ -120,7 +123,7 @@ function fikstur() {
     { name: "Salih ERGÜVEN", title: "Genel Müdür" },
     { name: "Sinan ÇOLAKOĞLU", title: "Proje Müdürü" },
   ];
-  const kalem = emptyItem("32T X 26M ÇİFT KİRİŞLİ VİNÇ", [
+  const kalem = emptyItem("", [
     "general",
     "mainHoist",
     "trolley",
@@ -133,6 +136,31 @@ function fikstur() {
   kalem.craneType = "Çift Kirişli Gezer Köprülü Vinç";
   kalem.capacityT = 32;
   kalem.spanM = 26;
+
+  // KÜNYE SATIRLARI DOLU GELİR ki başlık TÜRETMESİ önizlemede görülebilsin
+  // (`32/5T x 26m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ`); boş bir kalemde türetme
+  // hiç çalışmaz ve özelliğin çalıştığı burada anlaşılmazdı.
+  const genel = kalem.groups.find((g) => g.key === "general")!;
+  genel.rows.find((r) => r.key === "capacity")!.parts = { main: "32", aux: "5" };
+  genel.rows.find((r) => r.key === "span")!.parts = { value: "26" };
+  genel.rows.find((r) => r.key === "craneType")!.value = "Çift Kirişli Gezer Köprülü Vinç";
+  kalem.title = composeItemTitle(kalem.groups);
+
+  // ÇİFT MARKA ve TÜRETİLEN TOPLAM GÜÇ: ikisi de gerçek tekliflerden alınmış
+  // değerlerle kurulur — "SEW/FLENDER" iki kutu çizmeli, sürücünün toplamı
+  // (4 × 18,5 = 74 kW) salt okunur kutuda görünmeli.
+  const kaldirma = kalem.groups.find((g) => g.key === "mainHoist")!;
+  const gearbox = kaldirma.rows.find((r) => r.key === "gearbox")!;
+  gearbox.parts = { brand: "SEW/FLENDER" };
+  gearbox.value = composeValue(offerRowDef("mainHoist", "gearbox")!.parts!, gearbox.parts);
+  const surucu = kaldirma.rows.find((r) => r.key === "drive")!;
+  surucu.parts = derivedParts(offerRowDef("mainHoist", "drive")!.parts!, {
+    brand: "SCHNEIDER",
+    power: "18,5",
+    count: "4",
+  });
+  surucu.value = composeValue(offerRowDef("mainHoist", "drive")!.parts!, surucu.parts);
+
   p.items = [kalem, emptyItem("5T YARDIMCI MONORAY", ["general", "mainHoist", "steel"])];
   return applyDefaults(p, {
     "term.validity": "14 iş günü",

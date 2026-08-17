@@ -59,15 +59,27 @@ const BRAKE_PARTS: OfferPartDef[] = [
  *
  * Adet BİRDEN BÜYÜKSE toplam güç de basılır (`SCHNEIDER ATV-340 18,5 kW x 2
  * (37 kW)`); tek adette yazılmaz — "x 1" ve tekrar edilen aynı sayı, belgede
- * bilgi değil gürültüdür. Toplam `composeValue`da değil `driveTotalPower` ile
- * hesaplanır ve `total` parçasına yazılır (bkz. `offer-editor`).
+ * bilgi değil gürültüdür.
+ *
+ * TOPLAM TÜRETİLİR, ELLE YAZILMAZ (kullanıcı isteği, 17.08.2026: *"Sürücü
+ * toplam güç, Güç x adet otomatik yazsın."*): kip `derived: "powerTotal"`dır,
+ * hesap `derivedParts` içindedir ve kutu ekranda salt okunur çizilir. Elle
+ * çarpılan bir toplam, belgenin kendi içinde tutarlı GÖRÜNÜP yalnız müşteri
+ * hesapladığında yanlış çıkan türden bir hatadır.
  */
 const DRIVE_PARTS: OfferPartDef[] = [
   { key: "brand", label: "Marka", list: "brand.drive" },
   { key: "series", label: "Seri", list: "series.drive", childOf: "brand" },
   { key: "power", label: "Güç", list: "val.drivePower", suffix: " kW" },
   { key: "count", label: "Adet", numeric: true, prefix: "x ", suffix: " Adet" },
-  { key: "total", label: "Toplam Güç", numeric: true, prefix: "(", suffix: " kW)" },
+  {
+    key: "total",
+    label: "Toplam Güç",
+    numeric: true,
+    prefix: "(",
+    suffix: " kW)",
+    derived: "powerTotal",
+  },
   SECENEKLER,
 ];
 
@@ -220,6 +232,25 @@ const ELEKTRIK: OfferRowDef[] = [
   { key: "kst", label: "KST" },
 ];
 
+// ————————————————————————————————————————————————————— grup anahtarları
+//
+// Anahtarlar KOD İÇİNDE DE GEÇER (araba sayısı seçicisi, yardımcı kaldırmanın
+// kendiliğinden açılması, künye türetmesi) ve dizgi olarak dağıtılmaları
+// sessiz bir yazım hatasına açık kapı bırakırdı: `"auxTroley"` hiçbir yerde
+// patlamaz, yalnız özellik çalışmaz.
+
+export const GENERAL_GROUP_KEY = "general";
+export const MAIN_HOIST_GROUP_KEY = "mainHoist";
+export const AUX_HOIST_GROUP_KEY = "auxHoist";
+export const TROLLEY_GROUP_KEY = "trolley";
+export const AUX_TROLLEY_GROUP_KEY = "auxTrolley";
+
+/** Tek arabalı vinçte arabanın adı — numara TAKILMAZ. */
+export const TROLLEY_TITLE = "VİNÇ ARABASI";
+/** Çift arabalı vinçte iki bölümün adları. */
+export const TROLLEY_1_TITLE = "VİNÇ ARABASI - 1";
+export const TROLLEY_2_TITLE = "VİNÇ ARABASI - 2";
+
 /**
  * GRUP DEFTERİ. Sıra BELGENİN SIRASIDIR: genel özelliklerden başlanır, tahrik
  * grupları yukarıdan aşağıya izler, çelik yapı ve elektrik sona kalır — on
@@ -229,13 +260,20 @@ export const OFFER_GROUP_DEFS: OfferGroupDef[] = [
   { key: "general", title: "GENEL ÖZELLİKLER", rows: GENEL },
   { key: "mainHoist", title: "KALDIRMA GRUBU", rows: KALDIRMA },
   { key: "auxHoist", title: "YARDIMCI KALDIRMA GRUBU", rows: KALDIRMA },
-  { key: "trolley", title: "VİNÇ ARABASI", rows: YURUTME },
+  { key: "trolley", title: TROLLEY_TITLE, rows: YURUTME },
   // İKİNCİ ARABA AYRI BİR BÖLÜMDÜR (kullanıcı bildirimi, 17.08.2026:
   // *"vinçte bir araba veya 2 araba olabilir"*). Mühendislik motorunda karşılığı
   // `auxTrolley`dir; teklifte de ayrı durur çünkü kendi motoru, redüktörü,
   // tekerleği ve hızı vardır — tek bölüme sıkıştırmak, iki farklı ürünü aynı
   // satırda anlatmak olurdu.
-  { key: "auxTrolley", title: "YARDIMCI VİNÇ ARABASI", rows: YURUTME },
+  //
+  // BAŞLIK "YARDIMCI" DEĞİL "- 2"DİR (kullanıcı isteği, 17.08.2026: *"çift
+  // arabalı olarak işaretlersem Vinç Arabası - 2 olarak yeni bölüm açılsın,
+  // diğeri de bu durumda Vinç Arabası - 1 olsun"*). İki araba EŞİTTİR: çoğu
+  // çift arabalı vinçte ikisi de aynı kapasiteyi taşır ve "yardımcı" demek
+  // ikincisini küçük gösterirdi. Yardımcı KALDIRMA ise gerçekten yardımcıdır ve
+  // adı öyle kalır.
+  { key: "auxTrolley", title: TROLLEY_2_TITLE, rows: YURUTME },
   { key: "bridge", title: "KÖPRÜ GRUBU", rows: KOPRU },
   { key: "gantry", title: "PORTAL YÜRÜTME GRUBU", rows: KOPRU },
   { key: "boom", title: "BOM GRUBU", rows: BOM },
@@ -475,6 +513,40 @@ export function offerListGroup(key: string): "marka" | "teknik" | "ticari" | "ka
   return "teknik";
 }
 
+
+// ————————————————————————————————————————————— genel özellikler okuma
+
+/**
+ * GENEL ÖZELLİKLER grubunun bir satırının/parçasının HAM metni.
+ *
+ * Kalem künyesi, kalem başlığı ve yardımcı kaldırmanın kendiliğinden açılması
+ * üçü de aynı satırları okur. Okumanın tek yerde olması, "kapasite hangi
+ * satırın hangi parçasındadır" sorusunun tek cevabı olması demektir — üç yerde
+ * yazılsaydı defterde bir anahtar değiştiğinde ikisi susardı.
+ */
+interface GenelGruplar {
+  readonly key: string;
+  readonly rows: readonly { key: string; value?: string; parts?: Record<string, string> }[];
+}
+
+export function generalRowPart(
+  groups: readonly GenelGruplar[],
+  rowKey: string,
+  partKey: string
+): string {
+  const genel = groups.find((g) => g.key === GENERAL_GROUP_KEY);
+  return (genel?.rows.find((r) => r.key === rowKey)?.parts?.[partKey] ?? "").trim();
+}
+
+export function generalRowValue(groups: readonly GenelGruplar[], rowKey: string): string {
+  const genel = groups.find((g) => g.key === GENERAL_GROUP_KEY);
+  return (genel?.rows.find((r) => r.key === rowKey)?.value ?? "").trim();
+}
+
+/** Yardımcı kaldırma tonajı — girildiği anda yardımcı kaldırma bölümü açılır. */
+export function auxCapacity(groups: readonly GenelGruplar[]): string {
+  return generalRowPart(groups, "capacity", "aux");
+}
 
 // ————————————————————————————————————————————— kalem künyesi türetme
 

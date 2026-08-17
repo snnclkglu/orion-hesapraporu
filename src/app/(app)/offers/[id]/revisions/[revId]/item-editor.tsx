@@ -14,7 +14,8 @@
 // kirişi de, on dört kalemli bir filo teklifi de var.
 
 import { Fragment } from "react";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +26,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { newOfferId, rowFromDef } from "@/lib/offers/payload";
-import { CUSTOM_GROUP_KEY, OFFER_GROUP_DEFS, OFFER_GROUP_DEF_BY_KEY } from "@/lib/offers/registry";
+import {
+  newOfferId,
+  rowFromDef,
+  setTrolleyCount,
+  trolleyCount,
+  withGroup,
+} from "@/lib/offers/payload";
+import {
+  AUX_HOIST_GROUP_KEY,
+  CUSTOM_GROUP_KEY,
+  OFFER_GROUP_DEFS,
+  OFFER_GROUP_DEF_BY_KEY,
+  auxCapacity,
+} from "@/lib/offers/registry";
+import { composeItemTitle, kalemBasligiBuyuk, withAutoTitle } from "@/lib/offers/title";
 import type { OfferGroup, OfferItem, OfferRow } from "@/lib/offers/types";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
@@ -45,8 +59,31 @@ export function ItemEditor({
   onChange: (next: OfferItem) => void;
   onRemove: () => void;
 }) {
+  /**
+   * KALEMİN HER DEĞİŞİMİ BURADAN GEÇER ve iki şeyi kendiliğinden yapar:
+   *
+   *   1. BAŞLIĞI TAZELER (`withAutoTitle`) — kapasite, açıklık ya da vinç tipi
+   *      değiştiğinde başlık onlarla birlikte değişir. Elle yazılmış başlığa
+   *      dokunulmaz.
+   *   2. YARDIMCI KALDIRMA TONAJI GİRİLDİYSE BÖLÜMÜ AÇAR (kullanıcı isteği,
+   *      17.08.2026: *"Yardımcı Kaldırmaya tonaj girersem altta yardımcı
+   *      kaldırma adında bölüm açılsın."*). Tetik BOŞTAN DOLUYA geçiştir, "dolu
+   *      olması" değil: sonrası olsaydı kullanıcının bilerek kaldırdığı bölüm
+   *      her tuş vuruşunda geri gelirdi.
+   */
+  function degistir(next: OfferItem) {
+    const oncekiAux = auxCapacity(item.groups);
+    const yeniAux = auxCapacity(next.groups);
+    let sonuc = withAutoTitle(next);
+    if (!oncekiAux && yeniAux && !sonuc.groups.some((g) => g.key === AUX_HOIST_GROUP_KEY)) {
+      sonuc = withGroup(sonuc, AUX_HOIST_GROUP_KEY);
+      toast.success("YARDIMCI KALDIRMA GRUBU bölümü eklendi.");
+    }
+    onChange(sonuc);
+  }
+
   function setGroup(id: string, next: OfferGroup | null) {
-    onChange({
+    degistir({
       ...item,
       groups: next
         ? item.groups.map((g) => (g.id === id ? next : g))
@@ -56,7 +93,7 @@ export function ItemEditor({
 
   function grupEkle(key: string) {
     const def = OFFER_GROUP_DEF_BY_KEY[key];
-    onChange({
+    degistir({
       ...item,
       groups: [
         ...item.groups,
@@ -78,6 +115,20 @@ export function ItemEditor({
     onChange({ ...item, groups: yeni });
   }
 
+  /** ARABA SAYISI — bölümün varlığından okunur, ayrı bir alanda saklanmaz. */
+  function arabaSayisiDegistir(adet: 1 | 2) {
+    const { item: next, korunanVeri } = setTrolleyCount(item, adet);
+    onChange(next);
+    if (korunanVeri) {
+      toast.warning(
+        "İkinci araba bölümünde girilmiş veri var; bölüm SİLİNMEDİ. Gerçekten kaldıracaksanız bölüm başlığındaki çöp kutusunu kullanın."
+      );
+    }
+  }
+
+  const arabaAdedi = trolleyCount(item);
+  const otomatikBaslik = composeItemTitle(item.groups);
+
   return (
     <div className={cn("grid gap-4", item.hidden && "opacity-60")}>
       {/* ————————————————————————————————————————————— künye */}
@@ -93,12 +144,36 @@ export function ItemEditor({
       <div className="grid gap-3 rounded-lg border bg-card p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="grid gap-1.5">
           <Label htmlFor={`item_title_${item.id}`}>Kalem Başlığı</Label>
-          <Input
-            id={`item_title_${item.id}`}
-            value={item.title}
-            onChange={(e) => onChange({ ...item, title: adBuyuk(e.target.value) })}
-            className="text-base pointer-fine:text-sm"
-          />
+          {/*
+            BAŞLIK OTOMATİK GELİR, KİLİTLİ DEĞİL (kullanıcı isteği, 17.08.2026:
+            *"Kalem başlığını da otomatize edelim hata olmasın … istersem
+            düzenleyebileyim"*). Kutuya yazmak `titleManual`ı açar ve türetme
+            bir daha ezmez; asa düğmesi otomatiğe geri döndürür. Satır
+            düzenleyicideki elle/parçalı anahtarının aynısı.
+          */}
+          <div className="flex items-center gap-1">
+            <Input
+              id={`item_title_${item.id}`}
+              value={item.title}
+              onChange={(e) =>
+                onChange({ ...item, title: kalemBasligiBuyuk(e.target.value), titleManual: true })
+              }
+              className="min-w-0 flex-1 text-base pointer-fine:text-sm"
+            />
+            {item.titleManual && otomatikBaslik ? (
+              <IkonDugme
+                baslik={`Otomatik başlığa dön — "${otomatikBaslik}"`}
+                onClick={() => onChange({ ...item, title: otomatikBaslik, titleManual: false })}
+              >
+                <Wand2 className="size-4" />
+              </IkonDugme>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {item.titleManual
+              ? "Elle yazıldı — teknik satırlar değişse de korunur."
+              : "Kapasite × açıklık + vinç tipinden otomatik yazılır."}
+          </p>
         </div>
         <div className="grid gap-1.5">
           <Label>Vinç Tipi</Label>
@@ -110,9 +185,30 @@ export function ItemEditor({
             inputClassName="text-base pointer-fine:text-sm"
           />
         </div>
+
+        {/*
+          ARABA SAYISI (kullanıcı isteği, 17.08.2026): çift seçilirse ikinci
+          araba bölümü kurulur ve ikisi "VİNÇ ARABASI - 1 / - 2" olarak
+          adlandırılır. Seçim AYRI BİR ALANDA SAKLANMAZ, bölümün varlığından
+          okunur — iki yazıcısı olan bir sayı er geç ayrışır (TEKLIF-20).
+        */}
+        <div className="grid gap-1.5 sm:col-span-2">
+          <Label htmlFor={`item_trolley_${item.id}`}>Araba Sayısı</Label>
+          <select
+            id={`item_trolley_${item.id}`}
+            value={arabaAdedi}
+            onChange={(e) => arabaSayisiDegistir(Number(e.target.value) === 2 ? 2 : 1)}
+            className="oc-tap h-9 w-full max-w-xs rounded-md border bg-background px-2 text-base pointer-fine:text-sm"
+          >
+            <option value={1}>Tek Arabalı</option>
+            <option value={2}>Çift Arabalı</option>
+          </select>
+        </div>
+
         <p className="text-xs text-muted-foreground sm:col-span-2">
           Kapasite ve açıklık aşağıdaki GENEL ÖZELLİKLER bölümünde sorulur;
-          teklif listesindeki tonaj süzgeci oradan beslenir.
+          teklif listesindeki tonaj süzgeci oradan beslenir. Yardımcı kaldırma
+          tonajı girildiğinde yardımcı kaldırma bölümü kendiliğinden açılır.
         </p>
       </div>
 

@@ -27,20 +27,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { copySelections, emptyItem } from "@/lib/offers/payload";
 import { OFFER_GROUP_DEF_BY_KEY } from "@/lib/offers/registry";
+import { defaultItemTitle, kalemBasligiBuyuk } from "@/lib/offers/title";
 import type { OfferItem } from "@/lib/offers/types";
-import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 import type { OfferTemplateRow } from "@/app/(app)/offers/data";
 
 export function KalemEkleDialog({
   templates,
   kaynak,
+  sira,
   onClose,
   onEkle,
 }: {
   templates: readonly OfferTemplateRow[];
   /** Teklifin İLK kalemi — tercihleri buradan kopyalanır. */
   kaynak: OfferItem | undefined;
+  /** Kaçıncı kalem — varsayılan ad ("VİNÇ - 3") bundan kurulur. */
+  sira: number;
   onClose: () => void;
   onEkle: (item: OfferItem) => void;
 }) {
@@ -50,10 +53,16 @@ export function KalemEkleDialog({
 
   const sablon = templates.find((t) => t.id === templateId);
   const gruplar = sablon?.skeleton?.groupKeys ?? [];
+  const varsayilanAd = defaultItemTitle(sira);
 
   function ekle() {
-    let item = emptyItem(baslik, gruplar.length ? gruplar : ["general"]);
+    // AD YAZILMAMIŞSA "VİNÇ - n" ve başlık OTOMATİKTİR: kapasite ile vinç tipi
+    // girildiğinde kendiliğinden "32/5T x 19,5m …" olur (`withAutoTitle`).
+    // Yazılmışsa kullanıcının adı KALICIDIR — türetme onu ezmez.
+    const yazilan = baslik.trim();
+    let item = emptyItem(yazilan || varsayilanAd, gruplar.length ? gruplar : ["general"]);
     item.craneType = sablon?.crane_type ?? "";
+    item.titleManual = yazilan !== "";
     // SEÇİM TAŞINIR, ÖLÇÜ TAŞINMAZ (`copySelections`): marka tercihleri bir
     // teklifin tamamında aynıdır, kapasite ve güçler her vince özeldir.
     if (kaynak && seciminiKopyala) item = copySelections(kaynak, item);
@@ -98,9 +107,13 @@ export function KalemEkleDialog({
             <Input
               id="yeni_kalem_baslik"
               value={baslik}
-              onChange={(e) => setBaslik(adBuyuk(e.target.value))}
+              onChange={(e) => setBaslik(kalemBasligiBuyuk(e.target.value))}
               className="text-base pointer-fine:text-sm"
             />
+            <p className="text-xs text-muted-foreground">
+              Boş bırakılırsa <span className="font-medium">{varsayilanAd}</span> adıyla açılır;
+              kapasite ve vinç tipi girildiğinde başlık kendiliğinden yazılır.
+            </p>
           </div>
 
           {kaynak ? (

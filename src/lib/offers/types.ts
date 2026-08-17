@@ -108,6 +108,15 @@ export interface OfferItem {
   capacityT?: number | null;
   spanM?: number | null;
   hidden?: boolean;
+  /**
+   * BAŞLIK ELLE YAZILDI — türetme (`withAutoTitle`) onu bir daha EZMEZ.
+   *
+   * Satırdaki `manual` anahtarının kalem düzeyindeki ikizidir ve aynı gerekçeyle
+   * vardır (kullanıcı isteği, 17.08.2026: *"otomatik gelsin, istersem
+   * düzenleyebileyim"*): kapasite düzeltilince başlık kendiliğinden tazelenir,
+   * ama kullanıcı bir kez kendi adını yazdıysa o ad kalır.
+   */
+  titleManual?: boolean;
   groups: OfferGroup[];
 }
 
@@ -267,6 +276,15 @@ export interface OfferPartDef {
    * "GAMAK 22 kW 1500 d/dak, Encoderli, F/S3".
    */
   comma?: boolean;
+  /**
+   * DEĞERİ BAŞKA PARÇALARDAN TÜRER (`derivedParts`) — kutusu salt okunurdur.
+   *
+   * `powerTotal` = güç × adet. Kip bir ETİKETTİR, bir formül değil: hesabın
+   * kendisi `compose.ts`tedir, defter yalnız "bu alan türetilir" der. Böylece
+   * bir alanın elle mi yazıldığı yoksa hesaplandığı mı sorusunun cevabı TEK
+   * yerdedir ve arayüz onu okuyarak kutuyu kilitler.
+   */
+  derived?: "powerTotal";
 }
 
 export interface OfferRowDef {

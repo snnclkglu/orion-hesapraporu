@@ -74,3 +74,57 @@ export function withComposedValue(row: OfferRow, def?: OfferRowDef): OfferRow {
 export function rowHasValue(row: OfferRow): boolean {
   return (row.value ?? "").trim().length > 0;
 }
+
+// ————————————————————————————————————————————————————— türetilen parça
+
+/**
+ * Ondalıklı sayıyı Türkçe yazımdan okur; okunamıyorsa `null`.
+ *
+ * Kutuya "18,5" da "18.5" de yazılabilir — ikisi de aynı sayıdır ve kullanıcıyı
+ * bir ayıraca zorlamak, hesabın sessizce durması demekti.
+ */
+export function partSayi(ham: string | undefined): number | null {
+  const t = (ham ?? "").trim().replace(",", ".");
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Sayıyı belgenin yazımıyla basar: ondalık ayıracı VİRGÜLDÜR ve gereksiz
+ * sıfır kuyruğu yoktur (37 → "37", 55,5 → "55,5").
+ */
+export function partMetin(n: number): string {
+  return String(Math.round(n * 1000) / 1000).replace(".", ",");
+}
+
+/**
+ * TÜRETİLEN PARÇALARI hesaplar — bugün yalnız `powerTotal`.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Sürücü toplam güç, Güç x adet otomatik
+ * yazsın."* Defter satırı bu toplamı zaten basıyordu ama sayıyı İNSAN yazıyordu;
+ * 18,5 kW'lık dört sürücünün toplamını elle çarpmak, teklifte yapılabilecek en
+ * sessiz hatadır — belge kendi içinde tutarlı görünür ve yalnız müşteri
+ * hesaplarsa yanlışlık çıkar. Türetilmiş bir sayının ayrışma ihtimali yoktur
+ * (TEKLIF-20'nin kalem künyesindeki gerekçesiyle aynı).
+ *
+ * ADET 1 İSE TOPLAM YAZILMAZ: "18,5 kW x 1 Adet (18,5 kW)" satırında aynı sayı
+ * iki kez geçer ve bu bilgi değil gürültüdür (defterin kendi kuralı,
+ * `DRIVE_PARTS`). Güç ya da adet okunamıyorsa toplam BOŞALIR — uydurma bir
+ * sayı üretmek yerine alan boş kalır (değişmez md. 4).
+ */
+export function derivedParts(
+  parts: readonly OfferPartDef[],
+  values: Record<string, string>
+): Record<string, string> {
+  let sonuc = values;
+  for (const def of parts) {
+    if (def.derived !== "powerTotal") continue;
+    const guc = partSayi(values.power);
+    const adet = partSayi(values.count);
+    const toplam = guc !== null && adet !== null && adet > 1 ? partMetin(guc * adet) : "";
+    if ((values[def.key] ?? "") === toplam) continue;
+    sonuc = { ...sonuc, [def.key]: toplam };
+  }
+  return sonuc;
+}

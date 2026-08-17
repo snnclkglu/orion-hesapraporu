@@ -49,7 +49,6 @@ export function NewOfferButton({
   const [pending, startTransition] = useTransition();
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [subject, setSubject] = useState("");
-  const [itemTitle, setItemTitle] = useState("");
   const [templateId, setTemplateId] = useState<string>(NO_TEMPLATE);
   const [currency, setCurrency] = useState<string>("EUR");
 
@@ -66,7 +65,6 @@ export function NewOfferButton({
         lang: "tr",
         currency: currency as (typeof CURRENCIES)[number],
         templateId: templateId === NO_TEMPLATE ? null : templateId,
-        itemTitle,
       });
       // Başarıda action `redirect` eder ve buraya hiç dönmez.
       if (res?.error) toast.error(res.error);
@@ -111,36 +109,34 @@ export function NewOfferButton({
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="offer_template">Şablon</Label>
-              <Select value={templateId} onValueChange={setTemplateId}>
-                <SelectTrigger id="offer_template" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_TEMPLATE}>Şablonsuz (boş teklif)</SelectItem>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="offer_item_title">İlk Kalemin Adı</Label>
-              <Input
-                id="offer_item_title"
-                value={itemTitle}
-                onChange={(e) => setItemTitle(adBuyuk(e.target.value))}
-                className="text-base pointer-fine:text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Boş bırakılırsa konu kullanılır.
-              </p>
-            </div>
+          {/*
+            KALEMİN ADI BURADA SORULMAZ (kullanıcı isteği, 17.08.2026: *"girdiğim
+            teklif konusu ekleyeceğim vinç ile aynı olmayabilir; konu kapak
+            bölümüne gelsin, ilk vinç Vinç - 1 olarak gelsin, ben kalem
+            başlığından zaten düzenlerim"*). İlk kalem "VİNÇ - 1" adıyla açılır
+            ve editörde kapasite ile vinç tipi girildiğinde başlık kendiliğinden
+            "32/5T x 19,5m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ" olur.
+          */}
+          <div className="grid gap-1.5">
+            <Label htmlFor="offer_template">Şablon</Label>
+            <Select value={templateId} onValueChange={setTemplateId}>
+              <SelectTrigger id="offer_template" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TEMPLATE}>Şablonsuz (boş teklif)</SelectItem>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Teknik bölümler şablona göre kurulur; ilk kalem{" "}
+              <span className="font-medium">VİNÇ - 1</span> adıyla açılır ve başlığı
+              kapasite ile vinç tipinden otomatik yazılır.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

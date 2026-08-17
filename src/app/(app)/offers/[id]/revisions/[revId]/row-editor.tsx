@@ -19,10 +19,12 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BookmarkPlus, Eye, EyeOff, Pencil, Trash2, Wand2 } from "lucide-react";
+import { BookmarkPlus, Eye, EyeOff, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Input } from "@/components/ui/input";
-import { composeValue } from "@/lib/offers/compose";
+import { composeValue, derivedParts } from "@/lib/offers/compose";
+import { isMultiValueList, joinMulti, splitMulti } from "@/lib/offers/multi";
+import { parentOption } from "@/lib/offers/options";
 import { offerRowDef } from "@/lib/offers/registry";
 import { trKatla } from "@/lib/drawings/tr-text";
 import {
@@ -43,6 +45,24 @@ export interface OptionBook {
   byParent: Record<string, OfferOptionRow[]>;
 }
 
+/**
+ * Kademeli listenin EBEVEYN maddesi.
+ *
+ * Eşleşme kuralı çekirdektedir (`parentOption`): çok markalı değerde İLK marka
+ * okunur — marka "SEW/FLENDER" olduğunda defterde o adla bir madde yoktur ve
+ * seri listesi bomboş kalırdı.
+ */
+function ebeveynMaddesi(
+  part: OfferPartDef,
+  parts: Record<string, string>,
+  parcaTanimlari: readonly OfferPartDef[],
+  book: OptionBook
+): OfferOptionRow | undefined {
+  const ebeveynDef = parcaTanimlari.find((p) => p.key === part.childOf);
+  if (!ebeveynDef?.list) return undefined;
+  return parentOption(book.byList[ebeveynDef.list] ?? [], parts[part.childOf ?? ""] ?? "");
+}
+
 /** Bir parçanın seçeneklerini çözer — kademeli listede ebeveyne bakar. */
 function partOptions(
   part: OfferPartDef,
@@ -52,13 +72,7 @@ function partOptions(
 ): OfferOptionRow[] {
   if (!part.list) return [];
   if (!part.childOf) return book.byList[part.list] ?? [];
-
-  const ebeveynDef = parcaTanimlari.find((p) => p.key === part.childOf);
-  const ebeveynDeger = parts[part.childOf] ?? "";
-  if (!ebeveynDef?.list || !ebeveynDeger) return [];
-  const ebeveyn = (book.byList[ebeveynDef.list] ?? []).find(
-    (o) => trKatla(o.value) === trKatla(ebeveynDeger)
-  );
+  const ebeveyn = ebeveynMaddesi(part, parts, parcaTanimlari, book);
   return ebeveyn ? (book.byParent[ebeveyn.id] ?? []) : [];
 }
 
@@ -95,7 +109,12 @@ export function RowEditor({
   const elle = row.manual === true || (parcalar.length === 0 && !tekListe);
 
   function setParts(next: Record<string, string>) {
-    onChange({ ...row, parts: next, value: composeValue(parcalar, next) });
+    // TÜRETİLEN PARÇALAR BURADA HESAPLANIR (sürücünün toplam gücü): kullanıcı
+    // gücü ya da adedi değiştirdiği ANDA toplam tazelenir ve derlenen değer
+    // onunla birlikte yazılır. Kaydetme yoluna bırakılsaydı ekran belgeden
+    // farklı bir şey gösterirdi.
+    const turetilmis = derivedParts(parcalar, next);
+    onChange({ ...row, parts: turetilmis, value: composeValue(parcalar, turetilmis) });
   }
 
   return (
@@ -138,6 +157,10 @@ export function RowEditor({
             secenekler={book.byList[tekListe] ?? []}
             value={row.value}
             ariaLabel={`${row.label} değeri`}
+            // MARKA SATIRLARI DA ÇOK DEĞERLİDİR: "Güç Kaynağı : Omron /
+            // Phoenix" devralınan bir teklifin kendi satırıdır ve o satır
+            // parçalı değil LİSTELİdir.
+            multi={isMultiValueList(tekListe)}
             onChange={(v) => onChange({ ...row, value: v })}
           />
         ) : (
@@ -223,6 +246,18 @@ export function RowEditor({
   );
 }
 
+/**
+ * DEFTERDEN SEÇİLEN ALAN — tek ya da ÇOK değerli.
+ *
+ * `multi` açıkken alan birden çok madde taşır ve değer `A/B` olarak SAKLANIR
+ * (`lib/offers/multi.ts`): kutular ayrı çizilir, belge tek metin okur. Kullanıcı
+ * isteği (17.08.2026): *"Ekipmanlara ekstra marka ekleme özelliği olsun; örneğin
+ * redüktör Yılmaz Redüktör ve Flender olarak ikisini belirtebileyim."*
+ *
+ * BOŞ KUTU DEĞERDE DURMAZ, o yüzden "marka ekle" düğmesinin açtığı kutu YEREL
+ * bir durumdur: `splitMulti` boş dilimleri düşürür (belgeye "SEW/" girmesin
+ * diye) ve kutu yalnız yazılınca değere katılır.
+ */
 function ListeAlani({
   listKey,
   secenekler,
@@ -230,6 +265,7 @@ function ListeAlani({
   ariaLabel,
   parentId,
   parentEksikMesaji,
+  multi,
   onChange,
 }: {
   listKey: string;
@@ -240,58 +276,129 @@ function ListeAlani({
   parentId?: string | null;
   /** Ebeveyn seçilmeden çocuk eklenmeye kalkılırsa gösterilecek uyarı. */
   parentEksikMesaji?: string;
+  /** Alan birden çok madde taşıyabilir (marka listeleri). */
+  multi?: boolean;
   onChange: (value: string) => void;
+}) {
+  const [bosKutu, setBosKutu] = useState(false);
+
+  const degerler = multi ? splitMulti(value) : [value];
+  const kutular = multi && bosKutu ? [...degerler, ""] : degerler;
+
+  function kutuyuYaz(index: number, yeni: string) {
+    if (!multi) {
+      onChange(yeni);
+      return;
+    }
+    // Son (boş) kutuya yazıldığında kutu artık değerin bir parçasıdır; silinip
+    // boşaltıldığında ise kutu ekranda KALIR, yoksa yazmaya devam edecek
+    // kullanıcının altından çekilirdi.
+    setBosKutu(index === kutular.length - 1 ? yeni.trim() === "" : bosKutu);
+    onChange(joinMulti(kutular.map((k, i) => (i === index ? yeni : k))));
+  }
+
+  return (
+    <div className={cn("grid gap-1", multi && kutular.length > 1 && "sm:min-w-[12rem]")}>
+      {kutular.map((kutu, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <EditableCombobox
+            options={secenekler.map((o) => o.value)}
+            value={kutu}
+            onChange={(v) => kutuyuYaz(i, v)}
+            aria-label={i === 0 ? ariaLabel : `${ariaLabel} — ${i + 1}. madde`}
+            className="min-w-0 flex-1"
+            inputClassName="h-9 text-base pointer-fine:text-sm"
+          />
+          <DeftereEkle
+            listKey={listKey}
+            value={kutu}
+            secenekler={secenekler}
+            parentId={parentId}
+            parentEksikMesaji={parentEksikMesaji}
+          />
+          {multi && kutular.length > 1 ? (
+            <button
+              type="button"
+              title="Bu maddeyi kaldır"
+              aria-label={`${ariaLabel} — ${i + 1}. maddeyi kaldır`}
+              className="oc-tap-square inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => {
+                if (i === kutular.length - 1 && bosKutu) setBosKutu(false);
+                onChange(joinMulti(kutular.filter((_, j) => j !== i)));
+              }}
+            >
+              <X className="size-3.5" />
+            </button>
+          ) : null}
+        </div>
+      ))}
+
+      {multi && !bosKutu && degerler.some((d) => d.trim() !== "") ? (
+        <button
+          type="button"
+          className="oc-tap inline-flex w-fit items-center gap-1 rounded-md px-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setBosKutu(true)}
+          title="İkinci bir marka ekle — belgede eğik çizgiyle yazılır (SEW/FLENDER)"
+        >
+          <Plus className="size-3" /> marka ekle
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "DEFTERE EKLE" YALNIZ GEREKİNCE BELİRİR: yazılan değer listede zaten varsa
+ * hiçbir şey çizilmez. Her kutunun yanında duran bir kaydet düğmesi, vakaların
+ * çoğunda gürültü olurdu ve asıl gerektiği anda fark edilmezdi (`YeniFirma`
+ * bileşeninin kuralı). Çok değerli alanda düğme MADDE BAŞINA durur — deftere
+ * giren şey "SEW/FLENDER" değil, SEW ve FLENDER'dır.
+ */
+function DeftereEkle({
+  listKey,
+  value,
+  secenekler,
+  parentId,
+  parentEksikMesaji,
+}: {
+  listKey: string;
+  value: string;
+  secenekler: readonly OfferOptionRow[];
+  parentId?: string | null;
+  parentEksikMesaji?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [yazildi, setYazildi] = useState(false);
 
-  // "DEFTERE EKLE" YALNIZ GEREKİNCE BELİRİR: yazılan değer listede zaten varsa
-  // hiçbir şey çizilmez. Her kutunun yanında duran bir kaydet düğmesi,
-  // vakaların çoğunda gürültü olurdu ve asıl gerektiği anda fark edilmezdi
-  // (`YeniFirma` bileşeninin kuralı).
-  const deftereEklenebilir =
-    value.trim().length > 1 && !secenekler.some((o) => trKatla(o.value) === trKatla(value));
+  const madde = value.trim();
+  const eklenebilir =
+    madde.length > 1 && !secenekler.some((o) => trKatla(o.value) === trKatla(madde));
+  if (!eklenebilir || yazildi) return null;
 
   return (
-    <div className="flex items-center gap-1">
-      <EditableCombobox
-        options={secenekler.map((o) => o.value)}
-        value={value}
-        onChange={onChange}
-        aria-label={ariaLabel}
-        className="min-w-0 flex-1"
-        inputClassName="h-9 text-base pointer-fine:text-sm"
-      />
-      {deftereEklenebilir && !yazildi ? (
-        <button
-          type="button"
-          disabled={pending}
-          title={`"${value.trim()}" değerini deftere ekle — bir dahaki sefere listede çıkar`}
-          aria-label="Deftere ekle"
-          className="oc-tap-square inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() =>
-            startTransition(async () => {
-              if (parentId === null && parentEksikMesaji) {
-                toast.error(parentEksikMesaji);
-                return;
-              }
-              const res = await ensureOfferOption({
-                listKey,
-                value: value.trim(),
-                parentId: parentId ?? null,
-              });
-              if (res.error) toast.error(res.error);
-              else {
-                setYazildi(true);
-                toast.success(`"${value.trim()}" deftere eklendi.`);
-              }
-            })
+    <button
+      type="button"
+      disabled={pending}
+      title={`"${madde}" değerini deftere ekle — bir dahaki sefere listede çıkar`}
+      aria-label="Deftere ekle"
+      className="oc-tap-square inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+      onClick={() =>
+        startTransition(async () => {
+          if (parentId === null && parentEksikMesaji) {
+            toast.error(parentEksikMesaji);
+            return;
           }
-        >
-          <BookmarkPlus className="size-4" />
-        </button>
-      ) : null}
-    </div>
+          const res = await ensureOfferOption({ listKey, value: madde, parentId: parentId ?? null });
+          if (res.error) toast.error(res.error);
+          else {
+            setYazildi(true);
+            toast.success(`"${madde}" deftere eklendi.`);
+          }
+        })
+      }
+    >
+      <BookmarkPlus className="size-4" />
+    </button>
   );
 }
 
@@ -314,20 +421,28 @@ function PartField({
   // Kademeli parçada ebeveyn kimliği gerekir: seri, markanın ÇOCUĞU olarak
   // yazılır, kök madde olarak değil. Ebeveyn henüz seçilmemişse `null` döner ve
   // "deftere ekle" anlaşılır bir uyarıyla durur.
-  let parentId: string | null | undefined;
-  if (part.childOf) {
-    const ebeveynDef = parcaTanimlari.find((p) => p.key === part.childOf);
-    const ebeveynDeger = parts[part.childOf] ?? "";
-    const ebeveyn = ebeveynDef?.list
-      ? (book.byList[ebeveynDef.list] ?? []).find((o) => trKatla(o.value) === trKatla(ebeveynDeger))
-      : undefined;
-    parentId = ebeveyn?.id ?? null;
-  }
+  const parentId = part.childOf
+    ? (ebeveynMaddesi(part, parts, parcaTanimlari, book)?.id ?? null)
+    : undefined;
 
   return (
     <div className="grid min-w-[8rem] flex-1 gap-1">
-      <label className="text-[11px] text-muted-foreground">{part.label}</label>
-      {part.list ? (
+      <label className="text-[11px] text-muted-foreground">
+        {part.label}
+        {/* TÜRETİLEN KUTU NEDEN YAZILAMADIĞINI SÖYLER: kilitli ama sebebi
+            görünmeyen bir alan, kullanıcıya bozuk gelir. */}
+        {part.derived ? <span className="ml-1 opacity-70">(otomatik)</span> : null}
+      </label>
+      {part.derived ? (
+        <Input
+          value={deger}
+          readOnly
+          tabIndex={-1}
+          aria-label={`${part.label} — otomatik hesaplanır`}
+          title="Güç × Adet ile hesaplanır; adet 1 ise belgeye yazılmaz"
+          className="h-9 min-w-0 flex-1 cursor-default bg-muted/50 text-base text-muted-foreground pointer-fine:text-sm"
+        />
+      ) : part.list ? (
         <ListeAlani
           listKey={part.list}
           secenekler={secenekler}
@@ -335,6 +450,7 @@ function PartField({
           ariaLabel={part.label}
           parentId={parentId}
           parentEksikMesaji="Önce markayı seçin ya da deftere ekleyin."
+          multi={isMultiValueList(part.list)}
           onChange={onChange}
         />
       ) : (

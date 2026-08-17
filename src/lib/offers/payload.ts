@@ -7,7 +7,13 @@
 
 import { rowHasValue, withComposedValue } from "./compose";
 import {
+  AUX_TROLLEY_GROUP_KEY,
+  OFFER_GROUP_DEFS,
   OFFER_GROUP_DEF_BY_KEY,
+  TROLLEY_1_TITLE,
+  TROLLEY_2_TITLE,
+  TROLLEY_GROUP_KEY,
+  TROLLEY_TITLE,
   TERMS_GROUP_KEY,
   TERMS_TITLE,
   TERM_ROW_DEFS,
@@ -51,12 +57,42 @@ export function groupFromKey(key: string, id = newOfferId()): OfferGroup {
 }
 
 export function emptyItem(title = "", groupKeys: readonly string[] = []): OfferItem {
-  return {
+  const item: OfferItem = {
     id: newOfferId(),
     title,
     capacityT: null,
     spanM: null,
     groups: groupKeys.map((k) => groupFromKey(k)),
+  };
+  // ŞABLON İKİ ARABALIYSA ADLAR 1/2 OLUR. "Çift Kirişli Vinç — İki Arabalı"
+  // şablonunu seçen kullanıcı araba seçicisine hiç dokunmaz; adlandırma yine de
+  // tutarlı olmalıdır, yoksa belgede "VİNÇ ARABASI" ile "VİNÇ ARABASI - 2"
+  // yan yana basılır ve birincisi numarasız kalır.
+  return trolleyCount(item) === 2 ? setTrolleyCount(item, 2).item : item;
+}
+
+/**
+ * Vinç tipini kaleme VE `GENEL ÖZELLİKLER > Vinç Tipi` satırına yazar.
+ *
+ * İki yer aynı bilgiyi taşımıyor, ikisi iki ayrı işi yapıyor: satır BELGEYE
+ * basılır, künye teklif listesinde SÜZGEÇ olur (`itemFactsFromRows` künyeyi
+ * zaten satırdan tazeler, yani ayrışamazlar). Şablon seçen kullanıcıya vinç
+ * tipini bir daha sormak, uygulamanın bildiği bir şeyi ona yazdırmak olurdu.
+ */
+export function withCraneType(item: OfferItem, craneType: string): OfferItem {
+  const tip = (craneType ?? "").trim();
+  if (!tip) return item;
+  return {
+    ...item,
+    craneType: tip,
+    groups: item.groups.map((g) =>
+      g.key !== "general"
+        ? g
+        : {
+            ...g,
+            rows: g.rows.map((r) => (r.key === "craneType" && !r.value ? { ...r, value: tip } : r)),
+          }
+    ),
   };
 }
 
@@ -95,6 +131,121 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
     pricing: { currency, vatIncluded: false, lines: [], total: null },
     notes: [],
     exclusions: [],
+  };
+}
+
+// ————————————————————————————————————————————— bölüm ekleme / çıkarma
+
+/**
+ * Defterdeki sırası — bilinmeyen (serbest) grup EN SONA sayılır.
+ *
+ * Yeni bir bölüm listenin sonuna eklenirse belge sırası bozulur: yardımcı
+ * kaldırma, elektrik sisteminin ardında basılırdı. Defterin sırası BELGENİN
+ * sırasıdır (bkz. `OFFER_GROUP_DEFS`), o yüzden ekleme yeri ondan okunur.
+ */
+function grupSirasi(key: string): number {
+  const i = OFFER_GROUP_DEFS.findIndex((g) => g.key === key);
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+}
+
+/**
+ * Bölümü kaleme EKLER — zaten varsa hiçbir şey yapmaz.
+ *
+ * Yerleştirme defter sırasınadır: `auxHoist` kaldırma grubunun ardına,
+ * `auxTrolley` arabanın ardına düşer. Kullanıcının elle taşıdığı bir düzen
+ * BOZULMAZ çünkü mevcut grupların sırasına dokunulmaz — yeni grup yalnız
+ * kendisinden sonra gelmesi gereken ilk grubun ÖNÜNE girer.
+ */
+export function withGroup(item: OfferItem, key: string): OfferItem {
+  if (item.groups.some((g) => g.key === key)) return item;
+  const sira = grupSirasi(key);
+  const konum = item.groups.findIndex((g) => grupSirasi(g.key) > sira);
+  const gruplar = [...item.groups];
+  gruplar.splice(konum === -1 ? gruplar.length : konum, 0, groupFromKey(key));
+  return { ...item, groups: gruplar };
+}
+
+/** Bölümde gerçekten girilmiş bir değer var mı — boş bölüm silinebilir. */
+export function groupHasData(group: OfferGroup | undefined): boolean {
+  return (group?.rows ?? []).some((r) => rowHasValue(r));
+}
+
+/**
+ * Devralınan ve defterden gelen araba başlıkları — üstüne yazılabilir olanlar.
+ *
+ * Kullanıcı bölüm başlığını KENDİ yazdıysa ("VİNÇ ARABASI (MEVCUT)") araba
+ * sayısını değiştirmek onu ezmemelidir: başlık belgeye aittir (`OfferRow.label`
+ * ile aynı kural). "YARDIMCI VİNÇ ARABASI" listede çünkü ikinci arabanın
+ * defterdeki eski adı odur ve o adla açılmış teklifler var.
+ */
+const ARABA_VARSAYILAN_BASLIKLARI = new Set([
+  TROLLEY_TITLE,
+  TROLLEY_1_TITLE,
+  TROLLEY_2_TITLE,
+  "YARDIMCI VİNÇ ARABASI",
+]);
+
+function arabaBasligi(group: OfferGroup, yeni: string): OfferGroup {
+  if (group.title === yeni) return group;
+  return ARABA_VARSAYILAN_BASLIKLARI.has(group.title) ? { ...group, title: yeni } : group;
+}
+
+/**
+ * ARABA SAYISINI KURAR — tek ya da çift.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Tek arabalı veya çift arabalı olarak seçenek
+ * olsun; çift arabalı olarak işaretlersem Vinç Arabası - 2 olarak yeni bölüm
+ * açılsın, diğeri de bu durumda Vinç Arabası - 1 olsun."*
+ *
+ * SAYI AYRI BİR ALANDA SAKLANMAZ, bölümün VARLIĞINDAN okunur (`trolleyCount`).
+ * Ayrı bir alan iki yazıcı doğururdu — biri "çift" derken ötekinde ikinci araba
+ * bölümü olmayabilirdi ve ekran belgeyle çelişirdi (TEKLIF-20'nin kalem
+ * künyesindeki gerekçe).
+ *
+ * TEKE DÖNÜŞ VERİ SİLMEZ: ikinci arabanın satırlarına bir şey girilmişse bölüm
+ * KORUNUR ve çağırana bildirilir. Yanlış tıklanan bir seçicinin doldurulmuş bir
+ * bölümü sessizce götürmesi, bu editörde olabilecek en pahalı davranıştır
+ * (gizlemek silmek değildir kuralının aynı ailesi). Boş bölüm ise kaldırılır —
+ * onu tutmak belgede boş bir başlık bırakmak olurdu.
+ */
+export function trolleyCount(item: OfferItem): 1 | 2 {
+  return item.groups.some((g) => g.key === AUX_TROLLEY_GROUP_KEY) ? 2 : 1;
+}
+
+export function setTrolleyCount(
+  item: OfferItem,
+  adet: 1 | 2
+): { item: OfferItem; korunanVeri: boolean } {
+  if (adet === 2) {
+    // İKİ BÖLÜM DE KURULUR. Kaldırma kirişi gibi arabası hiç olmayan bir kalemde
+    // "çift arabalı" seçilirse yalnız ikincisi açılsaydı belgede tek başına bir
+    // "VİNÇ ARABASI - 2" kalırdı — numarası olan ama birincisi olmayan bir bölüm.
+    const eklenmis = withGroup(withGroup(item, TROLLEY_GROUP_KEY), AUX_TROLLEY_GROUP_KEY);
+    return {
+      item: {
+        ...eklenmis,
+        groups: eklenmis.groups.map((g) =>
+          g.key === TROLLEY_GROUP_KEY
+            ? arabaBasligi(g, TROLLEY_1_TITLE)
+            : g.key === AUX_TROLLEY_GROUP_KEY
+              ? arabaBasligi(g, TROLLEY_2_TITLE)
+              : g
+        ),
+      },
+      korunanVeri: false,
+    };
+  }
+
+  const ikinci = item.groups.find((g) => g.key === AUX_TROLLEY_GROUP_KEY);
+  const korunanVeri = groupHasData(ikinci);
+  return {
+    item: {
+      ...item,
+      groups: item.groups
+        .filter((g) => g.key !== AUX_TROLLEY_GROUP_KEY || korunanVeri)
+        .map((g) => (g.key === TROLLEY_GROUP_KEY ? arabaBasligi(g, TROLLEY_TITLE) : g)),
+    },
+    korunanVeri,
   };
 }
 
@@ -309,6 +460,12 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       capacityT: sayiVeyaNull(it.capacityT),
       spanM: sayiVeyaNull(it.spanM),
       hidden: it.hidden === true,
+      // BAŞLIK KİPİ TAŞINIR. Eski kayıtlarda alan hiç yoktu ve `false` gelir;
+      // yani başlıkları teknik satırlardan TÜRETİLEBİLİR sayılır. Bu doğru
+      // varsayımdır: o başlıklar zaten aynı kuralla (kapasite x açıklık + tip)
+      // elle yazılmıştı ve türetme onları değiştirmez. Değiştirdiği yerde de
+      // düzeltir — kullanıcı yine üstüne yazabilir.
+      titleManual: it.titleManual === true,
       groups: dizi<Record<string, unknown>>(it.groups).map((g) => {
         const key = metin(g.key);
         return {

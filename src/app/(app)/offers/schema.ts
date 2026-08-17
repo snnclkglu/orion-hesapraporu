@@ -26,8 +26,6 @@ export const newOfferSchema = z.object({
   currency: z.enum(CURRENCIES).default("EUR"),
   /** Şablon seçimi opsiyoneldir — boş bir teklif de meşrudur. */
   templateId: z.uuid().nullable().default(null),
-  /** İlk kalemin adı; şablon seçilmişse onunla birlikte kurulur. */
-  itemTitle: z.string().trim().max(200).default(""),
 });
 
 export type NewOfferInput = z.infer<typeof newOfferSchema>;
