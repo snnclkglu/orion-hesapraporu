@@ -94,6 +94,38 @@ export function canSeeSales(value: string | null | undefined): boolean {
 }
 
 /**
+ * TEKLİF bölümü: müşteriye verilen teknik + ticari teklif ve revizyon arşivi.
+ *
+ * Kullanıcı kararı (17.08.2026): Yönetici ve Müdür. Yani `canSeeSales` ile
+ * AYNI rol kümesi ama AYRI bir soru (o üçlünün gerekçesiyle birebir aynı:
+ * ileride ayrışabilirler ve o gün tek satır değişmesi yeter).
+ *
+ * MÜHENDİS BURADA YOKTUR ve bu bir gözden kaçma değildir: teklif MÜŞTERİ
+ * FİYATI taşır ve mühendis bugün satış rakamını da görmüyor. Teklifin teknik
+ * sayfalarını mühendisin doldurması istenirse bu AYRI bir karardır — o gün
+ * `canSeeOffers` genişletilir ve `roles.test.ts`teki donmuş küme onunla
+ * birlikte güncellenir; bölüm sessizce açılmaz.
+ *
+ * Veritabanı karşılığı `can_see_offers()`; menüden gizlemek yalnız görgü
+ * kuralıdır, asıl engel RLS'tir.
+ */
+export function canSeeOffers(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "manager";
+}
+
+/**
+ * Teklif YAZMA yetkisi — teklif açma, revizyon kaydetme, yayımlama, defter
+ * düzenleme.
+ *
+ * Bugün GÖRME ile aynı kümedir ama AYRI bir sorudur (`canEditPurchasing` ile
+ * aynı gerekçe). Veritabanı karşılığı `can_edit_offers()`.
+ */
+export function canEditOffers(value: string | null | undefined): boolean {
+  return canSeeOffers(value);
+}
+
+/**
  * Hesap raporu yazan roller — TASLAK revizyon silme yetkisi buna bağlıdır.
  *
  * `isAdminRole` YETMEZ: revizyonu açan ve düzenleyen mühendistir, yanlış
@@ -356,6 +388,20 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "bolt",
     hint: "İş emirleri, iş kalemleri ve müşteri bilgileri",
     kime: "Herkes",
+  },
+  // TEKLİF İŞLER'İN HEMEN ALTINDADIR (kullanıcı kararı, 17.08.2026:
+  // *"İşler bölümünün hemen altına Teklif adında bir bölüm"*). Sıra bir düzen
+  // tercihi değil bir akıştır: teklif işten ÖNCE gelir, iş emri kazanılmış bir
+  // teklifin devamıdır.
+  {
+    href: "/offers",
+    label: "Teklif",
+    icon: "tag",
+    hint: "Müşteri teklifleri, revizyonlar ve teklif defterleri",
+    visible: canSeeOffers,
+    yazabilir: canEditOffers,
+    kime: "Yönetici · Müdür",
+    yazma: "Görebilenlerin tamamı",
   },
   {
     href: "/projects",

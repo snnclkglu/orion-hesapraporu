@@ -119,6 +119,19 @@ const ICON_PATHS: Record<BrandIconName, React.ReactNode> = {
       <path d="M5 13.8 A7 2.6 0 0 0 19 13.8" />
     </>
   ),
+  // Teklif: fiyat etiketi — 45° dönmüş beşgen gövde + delik.
+  //
+  // Sette EĞİK GÖVDELİ TEK İKON budur ve bu bilinçlidir: altı ikon (cabin ·
+  // panel · blueprint · timesheet · ledger · gauge) dikdörtgenle başlıyor ve
+  // dar rayda (24px, etiketsiz) yedincisi ayırt edilemezdi. Para simgesi
+  // KULLANILMAZ — bölüm üç para birimiyle birden çalışır (ledger ve wallet
+  // ikonlarındaki aynı gerekçe).
+  tag: (
+    <>
+      <path d="M13 3 L21 3 L21 11 L11 21 L3 13 Z" />
+      <circle cx="17.6" cy="6.4" r="1.4" />
+    </>
+  ),
   menu: (
     <>
       <line x1="5" y1="7" x2="19" y2="7" />
@@ -164,6 +177,7 @@ export type BrandIconName =
   | "blueprint"
   | "cart"
   | "wallet"
+  | "tag"
   | "menu"
   | "close"
   | "sidebarCollapse"

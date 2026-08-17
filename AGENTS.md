@@ -123,6 +123,7 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Personel | `docs/agent/personel.md` | Dönemli kayıt, fazla mesai, ücret planı, bordro, özlük dosyası, döviz kuru |
 | Teknik Resimler | `docs/agent/resimler.md` | Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı |
 | İşler ve iş kalemleri | `docs/agent/isler.md` | İş emri → kalem → rapor bağı, doküman no, BÜYÜK HARF kuralı, müşteri defteri, İşler hub'ı |
+| Teklif | `docs/agent/teklif.md` | Teklif numarası, revizyon snapshot'ı, gizleme, defter (offer_options), takip sayacı, analiz |
 | Satış Takibi | `docs/agent/satis.md` | job_item_sales, kur satırda donar, fiyatsız Güncel İş Listesi |
 | İş Takibi | `docs/agent/worklog.md` | GÜN × KALEM × PARÇA × TÜR çizelgesi, parça/tür defteri, ortak süzgeç tanımı |
 | Açılış Panosu | `docs/agent/panel.md` | Kök adres, LANDING_PATH, arama (trKatla), sinyal süzgeci, yaklaşan şeridi |

@@ -77,6 +77,30 @@
 - `src/app/(app)/page.tsx` + `panel/` — giriş sonrası açılış panosu (`/`):
   `data.ts` rol bazlı okuma · `panel-view.tsx` görünüm (önizlemeyle ORTAK) ·
   `panel-search.tsx` istemci araması (Ctrl/⌘ K)
+- `src/lib/offers/` — TEKLİF ÇEKİRDEĞİ, **saf** (DB/HTTP/React yok):
+  `types.ts` (belge modeli: kapak · kalem · grup · satır · fiyat) ·
+  `registry.ts` (grup/satır/parça defteri — firmanın on dört gerçek teklifinden
+  çıkarıldı; liste anahtarları defterin KENDİSİNDEN türetilir) ·
+  `compose.ts` (parçalardan değer derleme; elle yazılan değer EZİLMEZ) ·
+  `payload.ts` (boş belge, `withDefaults` taşıma, **`printedPayload` — gizleme
+  süzgecinin TEK yeri**) · `pricing.ts` (toplam, toplama girmeyen satır, KDV
+  cümlesi) · `no.ts` (`TETR-YYYYMMDD-N`, revizyon etiketi) · `status.ts` ·
+  `lang.ts` · `filter.ts` (liste süzgeci + sıralama, TEK tanım) ·
+  `takip.ts` (gönderimden bu yana geçen süre; 14 güne kadar gün, sonrası hafta;
+  sarı→kırmızı ton) · `analiz.ts` (kazanma puanı, ağırlıklı projeksiyon, aylık
+  yoğun seri) · `copy.ts` (başka müşteriye kopyalama) · `suggest.ts` (öneri
+  altyapısı — bugün BOŞ, yeri hazır)
+- `src/app/(app)/offers/` — Teklif (Yönetici · Müdür): `page.tsx` **teklif
+  takibi listesi** (süzgeçler, müşteri renkli satırlar, takip sayacı) ·
+  `data.ts` ORTAK okuma katmanı · `[id]/` teklif paneli (revizyon zinciri, PDF
+  İndir / PDF İndir ve Yayımla / pop-up önizleme) ·
+  `[id]/revisions/[revId]/` **EDİTÖR** (bölüm rayı, kalem/grup/satır düzenleme,
+  üç düzeyde gizleme) ve `pdf/` belge ucu (`?inline=1` önizleme) ·
+  `analiz/` sıcaklık puanı ve projeksiyon · `tanimlar/` marka ve ticari şart
+  defteri
+- `src/lib/pdf/offer.tsx` — TEKLİF BELGESİ: kapak (KİMDEN/KİME) → kalem başına
+  teknik sayfalar → test yükü → ticari blok → tek şemalı fiyat tablosu →
+  notlar → kapsam dışı; altbilgi künyesi her sayfada
 - `src/lib/currency.ts` — para birimleri, tr-TR sayı okuma/biçimleme
 - `src/lib/tags.ts` + `src/components/tags.tsx` — pastel etiket dili (müşteri
   kısaltması/rengi, satış kapsamı); renk TANIMI `globals.css` `.oc-tag`

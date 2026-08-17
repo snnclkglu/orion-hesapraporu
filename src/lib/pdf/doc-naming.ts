@@ -9,6 +9,8 @@
 // Büyük harf `tr-TR` ile yapılır: `toUpperCase()` "i" harfini "I" yapar ve
 // "İşin adı" → "ISIN ADI" olurdu.
 
+import { offerRevLabel } from "@/lib/offers/no";
+
 /**
  * `ORC-HR-0055-R01` · `ORC-EQ-0055-R01` · `ORC-TR-0057-00-0500-R01` — belge kimliği.
  *
@@ -87,6 +89,23 @@ export function downloadFileName(
     .join(" - ")
     .toLocaleUpperCase("tr-TR");
   return `${name || "ORION"}.${ext}`;
+}
+
+/**
+ * Teklif belgesinin dosya adı:
+ *
+ *     HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf
+ *
+ * Firmanın **İŞ ADI - DOKÜMAN KODU - VERSİYON** düzeninin teklif hâlidir;
+ * "doküman kodu" yerini TEKLİF NUMARASI alır çünkü müşteriyle yazışmada geçen
+ * referans odur (`offers/no.ts`), `ORC-…` iç kodu değil.
+ *
+ * REVİZYON PARÇASI R0'DA DÜŞER (`offerRevLabel`): ilk teklif bir revizyon
+ * değildir ve dosya adında "REV 00" görmek, müşteriye hiç var olmamış bir
+ * düzeltme geçmişi anlatırdı.
+ */
+export function offerFileName(subject: string, offerNo: string, revNo: number): string {
+  return downloadFileName([subject, offerNo, offerRevLabel(revNo)]);
 }
 
 /** Rapor seviyesinin dosya adındaki karşılığı. */

@@ -11,6 +11,18 @@
 - `npm run build` — production build
 - `npx tsx scripts/test-pdf.ts` — PDF raporu üç seviyede üret (duman testi)
 - `npx tsx scripts/test-equipment.ts` — ekipman listesi duman testi
+- `npx tsx scripts/test-offer-pdf.ts` — TEKLİF belgesini ÜÇ fikstürle üret ve
+  `unpdf` ile GERİ OKU: sade (tek kalem) · **gizlemeli** (bir satır, bir grup ve
+  bir fiyat satırı gizli) · sekiz kalemli. Sınanan şey biçim değil KURALDIR —
+  gizlenen satırın metni belgede YOK, toplam satırlarla tutuyor, altbilgi
+  künyesi her sayfada. Bileşen ağacına bakmak bunların hiçbirini göstermez
+- `npx tsx scripts/gen-offer-seed.ts` — teklif defterinin seed migration'ını
+  ÜRET (`20260819000002_offer_options_seed.sql`). Üretilen dosya elle
+  düzenlenmez; `match_key` katlamasını yalnız TypeScript bilir (Postgres'in
+  `upper()`ı Türkçe farkında değildir)
+- `/dev/offers-preview` — teklif listesinin AUTH'SUZ görsel önizlemesi;
+  takip sayacının tam yelpazesi (bugün · 3 gün · 12 gün · 5 hafta · 13 hafta)
+  yan yana basılır, sarı→kırmızı ölçek ancak birlikte denetlenebilir
 - `npx tsx scripts/test-work-order.ts` — iş emri PDF'ini 1…16 kalemle üret
   (sayfa dengesi görsel kontrolü)
 - `npx tsx scripts/test-work-log-excel.ts` — İş Takibi Excel çıktısını üret

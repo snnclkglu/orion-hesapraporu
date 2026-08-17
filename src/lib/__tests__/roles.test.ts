@@ -16,10 +16,12 @@ import {
   canBeDrawingAuthor,
   canEditConsumableExpenses,
   canEditDrawings,
+  canEditOffers,
   canEditPersonnel,
   canEditPurchasing,
   canEditReports,
   canSeeConsumableExpenses,
+  canSeeOffers,
   canSeePersonnel,
   canSeePurchasing,
   canSeeSales,
@@ -63,6 +65,18 @@ describe("yetki soruları", () => {
     expect(canSeePersonnel("engineer")).toBe(false);
     expect(canSeePersonnel("draftsman")).toBe(false);
     expect(canEditPersonnel("engineer")).toBe(false);
+  });
+
+  it("teklif bölümü Yönetici ve Müdürde — MÜHENDİS DEĞİL", () => {
+    // Kullanıcı kararı (17.08.2026). Teklif MÜŞTERİ FİYATI taşır; mühendis
+    // bugün satış rakamını da görmüyor ve aynı sınır burada korunur. Bölümü
+    // mühendise açmak AYRI bir karardır ve bu satırın değişmesiyle olur.
+    expect(evetDiyenler(canSeeOffers)).toEqual(["admin", "manager"]);
+    expect(canSeeOffers("engineer")).toBe(false);
+  });
+
+  it("teklif yazma bugün görmeyle aynı kümededir ama AYRI bir sorudur", () => {
+    expect(evetDiyenler(canEditOffers)).toEqual(evetDiyenler(canSeeOffers));
   });
 
   it("hesap raporu yazma (taslak revizyon silme) Yönetici ve Mühendiste", () => {

@@ -211,6 +211,22 @@ export const ALANLAR: Alan[] = [
     ],
   },
   {
+    dosya: "teklif",
+    onek: "TEKLIF",
+    baslik: "Teklif",
+    ozet: "Teklif numarası, revizyon snapshot'ı, gizleme, defter (offer_options), takip sayacı, analiz",
+    yollar: [
+      "src/lib/offers/**",
+      "src/app/(app)/offers/**",
+      "src/lib/pdf/offer.tsx",
+      "scripts/gen-offer-seed.ts",
+      "scripts/test-offer-pdf.ts",
+    ],
+    // Kök `AGENTS.md`te taşınacak bir bloğu YOK: bölüm alan dosyası düzenine
+    // GEÇTİKTEN SONRA açıldı, yani kuralları hiç kökte yaşamadı.
+    al: [],
+  },
+  {
     dosya: "satis",
     onek: "SATIS",
     baslik: "Satış Takibi",
