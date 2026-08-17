@@ -12,6 +12,7 @@ import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { consumableMatchKey } from "@/lib/purchasing/consumable-key";
+import type { CustomerContact } from "@/lib/customer-contacts";
 import type { ReportSettings } from "@/lib/settings";
 
 export type AdminActionResult = { error?: string; ok?: boolean };
@@ -854,5 +855,271 @@ export async function deleteQuality(id: string): Promise<AdminActionResult> {
   if (error) return { error: error.message };
   await audit(supabase, user.id, "admin.quality_delete", { id, ...(item ?? {}) });
   revalidateQualityViews();
+  return { ok: true };
+}
+
+// ------------------------------------------------- Müşteri iletişim kişileri
+//
+// YETKİ `requireAdmin` DEĞİLDİR ve bu bilinçli bir istisnadır. Kişiyi deftere
+// giren, teklif kapağını dolduran kişidir; yalnız yöneticiye açılsaydı satışçı
+// kapakta yeni bir muhatap yazarken deftere ekleyemez, yöneticiyi beklerdi.
+// Soru RLS'in sorduğunun AYNISIDIR: `is_admin() or can_edit_offers()`.
+//
+// YETKİSİZ YAZIM SESSİZ KALMAZ: RLS reddettiğinde Postgres UPDATE/DELETE'te
+// hata DÖNDÜRMEZ, yalnız sıfır satır etkiler ve ekran "kaydettim" der
+// (offers/tanimlar/actions.ts'in ölçtüğü tuzak). Bu yüzden her yazma
+// `.select("id")` ile satır SAYAR. INSERT ayrıdır: orada red gerçek bir
+// hatadır ve `42501` koduyla gelir.
+
+const KISI_YETKI_YOK = "Müşteri kişilerini düzenleme yetkisi gerekir.";
+
+/** Oturum — rol kontrolü YAPILMAZ, kararı RLS verir ve satır sayısı ölçer. */
+async function kisiOturumu(): Promise<AdminContext | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+  return { supabase, user };
+}
+
+const customerContactSchema = z
+  .object({
+    // AD SOYAD BÜYÜK HARF saklanır (değişmez md. 3). `adBuyuk` YALNIZ ADA
+    // uygulanır: unvan ve bölüm birer cümledir ("Satın Alma Müdürü") ve
+    // büyütülürlerse müşteriye giden kapakta bağırır gibi görünür.
+    name: z.string().trim().min(2, "Ad soyad gerekli.").max(160).transform(adBuyuk),
+    title: z.string().trim().max(120),
+    department: z.string().trim().max(120),
+    phone: z.string().trim().max(60),
+    email: z.string().trim().max(160),
+    note: z.string().trim().max(500),
+    isPrimary: z.boolean(),
+    active: z.boolean(),
+  })
+  .strict();
+
+export type CustomerContactInput = z.input<typeof customerContactSchema>;
+
+/** Kişi defteri teklif kapağını besler — iki ekran birlikte tazelenir. */
+function revalidateContactViews() {
+  revalidatePath("/admin/customers");
+  revalidatePath("/offers");
+}
+
+/** Satırın istemcideki karşılığı; ekleme sonrası liste yeniden çekilmesin. */
+type CustomerContactRow = {
+  id: string;
+  customer_id: string;
+  name: string;
+  title: string;
+  department: string;
+  phone: string;
+  email: string;
+  note: string;
+  is_primary: boolean;
+  active: boolean;
+  sort: number;
+};
+
+function toContact(row: CustomerContactRow): CustomerContact {
+  return {
+    id: row.id,
+    customerId: row.customer_id,
+    name: row.name ?? "",
+    title: row.title ?? "",
+    department: row.department ?? "",
+    phone: row.phone ?? "",
+    email: row.email ?? "",
+    note: row.note ?? "",
+    isPrimary: Boolean(row.is_primary),
+    active: Boolean(row.active),
+    sort: Number(row.sort) || 0,
+  };
+}
+
+const CONTACT_COLUMNS =
+  "id, customer_id, name, title, department, phone, email, note, is_primary, active, sort";
+
+/**
+ * BİRİNCİL KİŞİ TEKTİR ve kural BURADADIR, veritabanında değil.
+ *
+ * Kısmi bir tekillik indeksi (`(customer_id) where is_primary`) yazılabilirdi
+ * ama o zaman "birincili değiştir" iki adımlı olur ve ARADA müşteri
+ * birincilsiz kalırdı (`offer_options.is_default` ile birebir aynı karar).
+ * Yeni birincil işaretlenirken kardeşleri düşürülür.
+ */
+async function birincilKardesleriDusur(
+  supabase: SupabaseClient,
+  customerId: string,
+  haricId: string | null
+) {
+  const temizle = supabase
+    .from("customer_contacts")
+    .update({ is_primary: false })
+    .eq("customer_id", customerId)
+    .eq("is_primary", true);
+  await (haricId ? temizle.neq("id", haricId) : temizle);
+}
+
+export async function createCustomerContact(
+  customerId: string,
+  input: CustomerContactInput
+): Promise<AdminActionResult & { contact?: CustomerContact }> {
+  const ctx = await kisiOturumu();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsedId = z.uuid("Geçersiz müşteri kimliği.").safeParse(customerId);
+  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
+  const parsed = customerContactSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, title, department, phone, email, note, isPrimary, active } = parsed.data;
+
+  // Sıra KARDEŞLER İÇİNDE sorulur ve yeni kişi listenin SONUNA eklenir; eski
+  // muhatapların sırası bir kişi eklendi diye kaymaz.
+  const { data: son } = await supabase
+    .from("customer_contacts")
+    .select("sort")
+    .eq("customer_id", parsedId.data)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sort = ((son as { sort?: number } | null)?.sort ?? 0) + 10;
+
+  // KARDEŞLER İNSERT'TEN SONRA DÜŞÜRÜLÜR. Tersi (önce düşür, sonra ekle) aynı
+  // kişi ikinci kez girilip tekillik kısıtına takıldığında müşteriyi
+  // BİRİNCİLSİZ bırakırdı: kullanıcı bir hata mesajı görür, defter sessizce
+  // yıldızını kaybederdi. İki birincilin bir an birlikte var olması ise
+  // okunabilir bir aradır ve `suggestedContact` orada da bir kişi döndürür.
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .insert({
+      customer_id: parsedId.data,
+      name,
+      match_key: trKatla(name),
+      title,
+      department,
+      phone,
+      email,
+      note,
+      is_primary: isPrimary,
+      active,
+      sort,
+      created_by: user.id,
+    })
+    .select(CONTACT_COLUMNS)
+    .maybeSingle();
+  if (error) {
+    if (error.code === "23505") return { error: "Bu kişi zaten bu müşterinin defterinde." };
+    if (error.code === "42501") return { error: KISI_YETKI_YOK };
+    return { error: error.message };
+  }
+  if (!data) return { error: KISI_YETKI_YOK };
+
+  const eklenen = toContact(data as CustomerContactRow);
+  if (isPrimary) await birincilKardesleriDusur(supabase, parsedId.data, eklenen.id);
+
+  await audit(supabase, user.id, "customer.contact_create", {
+    customer_id: parsedId.data,
+    name,
+  });
+  revalidateContactViews();
+  return { ok: true, contact: eklenen };
+}
+
+export async function updateCustomerContact(
+  id: string,
+  input: CustomerContactInput
+): Promise<AdminActionResult> {
+  const ctx = await kisiOturumu();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsedId = z.uuid("Geçersiz kişi kimliği.").safeParse(id);
+  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
+  const parsed = customerContactSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { name, title, department, phone, email, note, isPrimary, active } = parsed.data;
+
+  const { data: mevcut } = await supabase
+    .from("customer_contacts")
+    .select("customer_id")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!mevcut) return { error: "Kişi defterde bulunamadı." };
+  const customerId = (mevcut as { customer_id: string }).customer_id;
+
+  if (isPrimary) await birincilKardesleriDusur(supabase, customerId, parsedId.data);
+
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .update({
+      name,
+      match_key: trKatla(name),
+      title,
+      department,
+      phone,
+      email,
+      note,
+      is_primary: isPrimary,
+      active,
+    })
+    .eq("id", parsedId.data)
+    .select("id");
+  if (error) {
+    return {
+      error:
+        error.code === "23505" ? "Bu kişi zaten bu müşterinin defterinde." : error.message,
+    };
+  }
+  if (!data || data.length === 0) return { error: KISI_YETKI_YOK };
+
+  await audit(supabase, user.id, "customer.contact_update", {
+    id: parsedId.data,
+    customer_id: customerId,
+    name,
+    is_primary: isPrimary,
+    active,
+  });
+  revalidateContactViews();
+  return { ok: true };
+}
+
+/**
+ * Kişiyi defterden siler.
+ *
+ * TESLİM EDİLMİŞ TEKLİF DEĞİŞMEZ: kapaktaki ad, bölüm ve telefon revizyon
+ * payload'ında METİN olarak donmuştur. Kaybolan tek şey öneri listesindeki
+ * satırdır — bu yüzden ekran, işten ayrılmış bir muhatap için silmek yerine
+ * pasife çekmeyi önerir.
+ */
+export async function deleteCustomerContact(id: string): Promise<AdminActionResult> {
+  const ctx = await kisiOturumu();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const parsedId = z.uuid("Geçersiz kişi kimliği.").safeParse(id);
+  if (!parsedId.success) return { error: parsedId.error.issues[0].message };
+
+  const { data: mevcut } = await supabase
+    .from("customer_contacts")
+    .select("customer_id, name")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .delete()
+    .eq("id", parsedId.data)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: KISI_YETKI_YOK };
+
+  await audit(supabase, user.id, "customer.contact_delete", {
+    id: parsedId.data,
+    ...(mevcut ?? {}),
+  });
+  revalidateContactViews();
   return { ok: true };
 }

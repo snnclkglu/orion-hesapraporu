@@ -20,7 +20,15 @@ import { getReportSettings } from "@/lib/settings";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { copyPayloadForCustomer } from "@/lib/offers/copy";
 import { nextSeq, offerNo } from "@/lib/offers/no";
-import { emptyItem, emptyPayload, withDefaults } from "@/lib/offers/payload";
+import {
+  applyDefaults,
+  emptyItem,
+  emptyPayload,
+  greetingFor,
+  withDefaults,
+} from "@/lib/offers/payload";
+import { coverFieldsFromContact, suggestedContact } from "@/lib/customer-contacts";
+import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
 import { withTotal } from "@/lib/offers/pricing";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { renderOfferPdf } from "@/lib/pdf/offer";
@@ -158,7 +166,7 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
   if ("error" in yazildi) return { error: yazildi.error };
 
   // İlk revizyon (R0) — şablon seçildiyse kalem iskeleti onunla kurulur.
-  const payload = emptyPayload(parsed.data.currency);
+  let payload = emptyPayload(parsed.data.currency);
   const kunye = await hazirlayan(supabase, user.id);
   payload.cover = {
     ...payload.cover,
@@ -166,6 +174,26 @@ export async function createOffer(input: NewOfferInput): Promise<OfferActionResu
     fromTitle: kunye.title,
     fromEmail: kunye.email,
   };
+  // TEST YÜKÜ, GEÇERLİLİK VE GİRİŞ PARAGRAFI DEFTERDEN DOLU GELİR (kullanıcı
+  // isteği). Değerler koda gömülmez; Tanımlar sayfasından değiştirilir.
+  const defter = await loadOfferOptions(supabase);
+  payload = applyDefaults(payload, defaultsOf(defter));
+
+  // MÜŞTERİ SEÇİLDİĞİNDE MUHATAP DA GELİR (kullanıcı isteği: *"Müşteri
+  // seçtiğimde müşteri bilgilerini de getir"*). Defterdeki BİRİNCİL kişi
+  // önerilir; kullanıcı editörde başkasını seçebilir. Kişi yoksa alanlar BOŞ
+  // kalır — uydurma bir muhatap adı, kapağın en görünür satırında yanlış
+  // olurdu (değişmez md. 4).
+  const kisiler = await loadCustomerContacts(supabase, parsed.data.customerId);
+  const muhatap = suggestedContact(kisiler);
+  if (muhatap) {
+    const ek = defter.find((o) => o.list_key === "cover.honorific" && o.is_default)?.value ?? "";
+    payload.cover = {
+      ...payload.cover,
+      ...coverFieldsFromContact(muhatap),
+      greeting: greetingFor(muhatap.name, ek),
+    };
+  }
 
   if (parsed.data.templateId) {
     const { data: sablon } = await supabase

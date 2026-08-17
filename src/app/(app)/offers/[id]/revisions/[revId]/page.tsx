@@ -8,7 +8,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
-import { loadOfferOptions, loadOfferRevision } from "../../../data";
+import { loadCustomerContacts, loadOfferOptions, loadOfferRevision } from "../../../data";
 import { OfferEditor } from "./offer-editor";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,20 @@ export default async function OfferRevisionPage({
   ]);
   if (!kayit) notFound();
 
+  // Muhatap seçicisinin listesi. Teklifin müşterisi belliyken kişiler ONA
+  // bağlıdır; müşteri değişirse kapak elle güncellenir (belge, basıldığı
+  // andaki bilginin fotoğrafıdır).
+  const contacts = await loadCustomerContacts(supabase, kayit.offer.customer_id);
+
   return (
-    <div className="grid gap-4">
+    // SAYFA KENDİ KAYDIRMA KABINI KURAR.
+    //
+    // Kabuk `/…/revisions/…` adreslerini SABİT ÇERÇEVE sayar (`isFrame`,
+    // app-shell.tsx) ve `lg` üstünde gövdeye `h-dvh overflow-hidden` verir;
+    // sayfa kendi kabını kurmazsa taşan içerik KIRPILIR ve kaydırılamaz
+    // (kullanıcı bildirimi, 17.08.2026: *"teklifte scroll down çalışmıyor"*).
+    // Yükseklik zinciri kesintisiz olmalıdır: kabuk → bu kök → editör.
+    <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)]">
       <PageHeader
         kicker="Teklif"
         title={kayit.offer.subject || kayit.offer.offer_no}
@@ -43,6 +55,7 @@ export default async function OfferRevisionPage({
         readOnly={kayit.revision.status !== "draft"}
         initial={kayit.revision.payload}
         options={options}
+        contacts={contacts}
         currency={kayit.offer.currency}
       />
     </div>

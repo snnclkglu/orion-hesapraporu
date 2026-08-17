@@ -193,6 +193,12 @@ export const OFFER_GROUP_DEFS: OfferGroupDef[] = [
   { key: "mainHoist", title: "KALDIRMA GRUBU", rows: KALDIRMA },
   { key: "auxHoist", title: "YARDIMCI KALDIRMA GRUBU", rows: KALDIRMA },
   { key: "trolley", title: "VİNÇ ARABASI", rows: YURUTME },
+  // İKİNCİ ARABA AYRI BİR BÖLÜMDÜR (kullanıcı bildirimi, 17.08.2026:
+  // *"vinçte bir araba veya 2 araba olabilir"*). Mühendislik motorunda karşılığı
+  // `auxTrolley`dir; teklifte de ayrı durur çünkü kendi motoru, redüktörü,
+  // tekerleği ve hızı vardır — tek bölüme sıkıştırmak, iki farklı ürünü aynı
+  // satırda anlatmak olurdu.
+  { key: "auxTrolley", title: "YARDIMCI VİNÇ ARABASI", rows: YURUTME },
   { key: "bridge", title: "KÖPRÜ GRUBU", rows: KOPRU },
   { key: "gantry", title: "PORTAL YÜRÜTME GRUBU", rows: KOPRU },
   { key: "boom", title: "BOM GRUBU", rows: BOM },
@@ -208,11 +214,40 @@ export const OFFER_GROUP_DEF_BY_KEY: Record<string, OfferGroupDef> = Object.from
 export const CUSTOM_GROUP_KEY = "custom";
 
 /**
+ * SAHTE GRUP ANAHTARLARI — kaleme ait OLMAYAN satır kümeleri.
+ *
+ * Test yükü ve ticari şartlar bir vinç kaleminin içinde değil belgenin kendi
+ * gövdesinde durur, yani bir `OfferGroup`ları yoktur; ama satırları yine de
+ * defterden tanınmalıdır. Editör ve varsayılan doldurucu onlara bu anahtarlarla
+ * sorar.
+ *
+ * BU EŞLEME BİR SÜRE YOKTU ve iki hatayı birden doğurdu (kullanıcı bildirimi,
+ * 17.08.2026): `offerRowDef("__terms", …)` `undefined` döndüğü için ticari şart
+ * satırlarının hiçbiri AÇILIR LİSTE çizmiyor, düz metin kutusuna düşüyordu; aynı
+ * sebeple test yükü ve geçerlilik süresi defterdeki VARSAYILANLARLA da
+ * dolmuyordu. İki belirti, tek kök.
+ */
+export const TERMS_GROUP_KEY = "__terms";
+export const TEST_LOAD_GROUP_KEY = "__testLoad";
+
+/**
  * Bir satırın defterdeki tanımı. Grup anahtarı bilinmiyorsa (serbest grup) ya
  * da satır elle eklenmişse `undefined` döner — o satır düz metin kutusu olur.
+ *
+ * Sahte gruplar TEMBEL çözülür (`switch`, modül düzeyinde bir eşleme nesnesi
+ * DEĞİL): `TERM_ROW_DEFS` bu satırların ALTINDA tanımlıdır ve modül düzeyinde
+ * bir sabitten ona bakmak, `const` zaman-ölü-bölgesine düşüp modül yüklenirken
+ * çökerdi.
  */
 export function offerRowDef(groupKey: string, rowKey: string): OfferRowDef | undefined {
-  return OFFER_GROUP_DEF_BY_KEY[groupKey]?.rows.find((r) => r.key === rowKey);
+  switch (groupKey) {
+    case TERMS_GROUP_KEY:
+      return TERM_ROW_DEFS.find((r) => r.key === rowKey);
+    case TEST_LOAD_GROUP_KEY:
+      return TEST_LOAD_ROW_DEFS.find((r) => r.key === rowKey);
+    default:
+      return OFFER_GROUP_DEF_BY_KEY[groupKey]?.rows.find((r) => r.key === rowKey);
+  }
 }
 
 /**

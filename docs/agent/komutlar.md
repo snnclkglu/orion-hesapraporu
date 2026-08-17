@@ -20,6 +20,10 @@
   ÜRET (`20260819000002_offer_options_seed.sql`). Üretilen dosya elle
   düzenlenmez; `match_key` katlamasını yalnız TypeScript bilir (Postgres'in
   `upper()`ı Türkçe farkında değildir)
+- `/dev/offer-editor-preview` — teklif EDİTÖRÜNÜN auth'suz önizlemesi. Editör
+  600px'lik `overflow-hidden` bir kutuya SARILIR: kabuğun sabit çerçeve kabının
+  birebir taklidi. Taklit edilmezse "scroll çalışmıyor" hatası önizlemede HİÇ
+  görünmez — kullanıcı bildirimi (17.08.2026) tam o koşuldan çıkmıştı
 - `/dev/offers-preview` — teklif listesinin AUTH'SUZ görsel önizlemesi;
   takip sayacının tam yelpazesi (bugün · 3 gün · 12 gün · 5 hafta · 13 hafta)
   yan yana basılır, sarı→kırmızı ölçek ancak birlikte denetlenebilir

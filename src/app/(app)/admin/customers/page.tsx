@@ -12,13 +12,29 @@ import {
 import { CustomerRow, type CustomerAdminRow } from "./customer-row";
 import { NewCustomerButton } from "./new-customer-button";
 
+/**
+ * `count` embed'inin iki biçimi vardır ve ikisi de görülür: PostgREST kimi
+ * sürümde `[{ count: 3 }]` dizisi, kimi sürümde tek nesne döndürür. Hiç kayıt
+ * yoksa dizi BOŞ gelir — o hâlde sayı 0'dır, "bilinmiyor" değil.
+ */
+function embedSayisi(value: unknown): number {
+  if (Array.isArray(value)) return Number((value[0] as { count?: number } | undefined)?.count) || 0;
+  return Number((value as { count?: number } | null)?.count) || 0;
+}
+
 export default async function AdminCustomersPage() {
   const supabase = await createClient();
 
   const [{ data: customers }, { data: jobs }] = await Promise.all([
     supabase
       .from("customers")
-      .select("id, name, short_name, color_hue, address, tax_office, tax_no, phone, fax, notes")
+      // İletişim kişileri SAYIYLA gelir, satırlarıyla değil (`count` embed —
+      // fiyat arşivi dersi): defterdeki her müşterinin kişilerini burada
+      // okumak, kullanıcının çoğunu hiç açmayacağı yüzlerce satırı her sayfa
+      // yüklemesinde taşımak olurdu. Ayrıntıyı pencere kendisi çeker.
+      .select(
+        "id, name, short_name, color_hue, address, tax_office, tax_no, phone, fax, notes, customer_contacts(count)"
+      )
       .order("name", { ascending: true }),
     // Bağlı iş sayısı silme uyarısında kullanılır — sayı için ayrı bir sorgu
     // yerine tek seferde okunur (defter onlarca satırdır).
@@ -43,6 +59,7 @@ export default async function AdminCustomersPage() {
     fax: (c.fax as string) ?? "",
     notes: (c.notes as string) ?? "",
     jobCount: jobCounts.get(c.id as string) ?? 0,
+    contactCount: embedSayisi(c.customer_contacts),
   }));
 
   return (

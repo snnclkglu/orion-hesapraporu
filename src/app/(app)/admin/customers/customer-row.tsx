@@ -10,8 +10,9 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Users } from "lucide-react";
 import { deleteCustomer, updateCustomer } from "../actions";
+import { ContactsDialog } from "./contacts-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -36,6 +37,8 @@ export interface CustomerAdminRow {
   fax: string;
   notes: string;
   jobCount: number;
+  /** Defterdeki iletişim kişisi sayısı — ayrıntı yalnız pencere açılınca gelir. */
+  contactCount: number;
 }
 
 /**
@@ -288,6 +291,7 @@ function DeleteDialog({
 export function CustomerRow({ row }: { row: CustomerAdminRow }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [contacts, setContacts] = useState(false);
 
   return (
     <>
@@ -325,6 +329,23 @@ export function CustomerRow({ row }: { row: CustomerAdminRow }) {
               parmakla yanlış düğmeye basmayı kolaylaştırıyordu. Boy ortak
               katmanın `icon-sm` varyantından gelir (dokunmatikte 40px). */}
           <div className="flex justify-end gap-2">
+            {/* KİŞİ SAYISI DÜĞMENİN İÇİNDEDİR, ayrı bir sütun açılmadı: sayı
+                tek başına bir bilgi değil, defteri açma davetidir — ve altı
+                sütunlu tablo telefonda zaten katlanıyor (MOBIL-15). */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setContacts(true)}
+              aria-label={row.name + " iletişim kişileri"}
+              title="İletişim kişileri"
+            >
+              <Users />
+              {/* Etiket `lg` altında düşer, SAYI KALIR: 375px'te üç eylem +
+                  tam etiket satırı taşırıyordu (MOBIL-15 ölçütü). Metnin
+                  kendisi `aria-label` ve `title` ile her boyutta durur. */}
+              <span className="max-lg:hidden">Kişiler</span>
+              <span className="tabular-nums">({row.contactCount})</span>
+            </Button>
             <Button
               size="icon-sm"
               variant="ghost"
@@ -350,6 +371,14 @@ export function CustomerRow({ row }: { row: CustomerAdminRow }) {
       {editing && <EditDialog row={row} open onOpenChange={(o) => !o && setEditing(false)} />}
       {confirming && (
         <DeleteDialog row={row} open onOpenChange={(o) => !o && setConfirming(false)} />
+      )}
+      {contacts && (
+        <ContactsDialog
+          customerId={row.id}
+          customerName={row.name}
+          open
+          onOpenChange={(o) => !o && setContacts(false)}
+        />
       )}
     </>
   );

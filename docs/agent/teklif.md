@@ -195,6 +195,103 @@ Puan rengi soğuk (240°) → sıcak (25°) iner; **puansız satır RENKSİZDİR
 uydurma bir orta değer, kullanıcının vermediği bir kararı vermiş gibi
 gösterirdi.
 
+## TEKLIF-12 — SAHTE GRUP ANAHTARLARI: `__terms` ve `__testLoad`.
+
+Test yükü ve ticari şartlar bir vinç KALEMİNİN içinde değil belgenin kendi
+gövdesinde durur, yani bir `OfferGroup`ları yoktur — ama satırları yine de
+defterden tanınmalıdır. `offerRowDef` bu iki anahtarı ayrıca çözer
+(`TERMS_GROUP_KEY` · `TEST_LOAD_GROUP_KEY`) ve çözüm TEMBELDİR (`switch`):
+`TERM_ROW_DEFS` fonksiyonun ALTINDA tanımlıdır, modül düzeyinde bir eşleme
+nesnesi `const` zaman-ölü-bölgesine düşerdi.
+
+**BAĞ BİR SÜRE YOKTU VE İKİ BELİRTİYİ BİRDEN DOĞURDU** (kullanıcı bildirimi,
+17.08.2026): `offerRowDef("__terms", …)` `undefined` döndüğü için ticari şart
+satırlarının hiçbiri açılır liste çizmiyor, düz metin kutusuna düşüyordu; aynı
+sebeple test yükü ve geçerlilik süresi defterdeki varsayılanlarla da
+dolmuyordu. İki belirti, tek kök. Koruma `offers.test.ts`tedir ve iki yönlüdür:
+her ticari/test satırı defterden ÇÖZÜLMELİ, ve her ticari satır bir listeye ya
+da parçaya bağlı OLMALIDIR (düz kutu kalmaz).
+
+## TEKLIF-13 — Satırın ÜÇ kipi vardır; kip defterdeki tanımdan çıkar.
+
+`def.parts` dolu → **PARÇALI** · `def.list` dolu, parçası yok → **LİSTELİ** ·
+ikisi de yok → **SERBEST**. Defterin büyük çoğunluğu LİSTELİdir (ticari şartlar,
+kanca, ray, boya, vinç sınıfı, halat donanımı…). Kip yalnız parça sayısına
+bakarsa listeli satırlar sessizce düz kutuya düşer — TEKLIF-12'deki hatanın
+görünen yüzü buydu. `manual` her üç kipi de serbest metne çevirir ve derleme
+onu ezmez.
+
+## TEKLIF-14 — Varsayılanlar DEFTERDEN gelir ve yalnız AÇILIŞTA uygulanır.
+
+`applyDefaults` (payload.ts) `offer_options.is_default` işaretli değerleri boş
+alanlara yazar: test yükü (`Q x 1,1` / `Q x 1,25`), teklif geçerlilik süresi ve
+giriş paragrafı. Değerler koda gömülmez; Tanımlar sayfasından değiştirilir.
+
+Doldurma **YALNIZ BOŞ ALANA** ve **YALNIZ `createOffer`da** yapılır: her
+kaydetmede yeniden uygulansaydı kullanıcının bilerek sildiği bir satır geri
+gelirdi. Defterde varsayılanı olmayan alan BOŞ kalır (değişmez md. 4).
+
+**TEST YÜKÜ ORANLARI BELGELERDEN ALINDI**: dinamik `Q x 1,1`, statik
+`Q x 1,25` — on dört teklifin on dördünde böyle ve TS 10116 ile de bu yönde.
+Kullanıcı bir kez tersini söyledi ("statik %110 dinamik %125"); kendi
+belgeleri esas alındı ve durum kendisine bildirildi.
+
+## TEKLIF-15 — Muhatap MÜŞTERİ DEFTERİNDEN gelir (`customer_contacts`).
+
+Bir müşterinin birden çok iletişim kişisi olabilir ve teklifte kişi adı geçer
+(kullanıcı isteği, 17.08.2026). Defter `/admin/customers` ekranındadır; teklif
+onu YALNIZ OKUR. `createOffer` **birincil** kişiyi kapağa yazar
+(`suggestedContact` → `coverFieldsFromContact`) ve hitap cümlesini kurar;
+editördeki seçiciyle değiştirilir.
+
+**HİTAPTA ADDAN CİNSİYET ÇIKARILMAZ** (`greetingFor`): ek defterden seçilir
+(`cover.honorific`). Tahmin etmek, kapağın en görünür satırında yanlış bir
+hitap üretirdi; boş bırakmak ise aynı cümleyi her teklifte yazdırırdı.
+Kapağa yazılan bilgi FOTOĞRAFTIR — defter sonradan düzeltilince teslim edilmiş
+teklif değişmez (müşteri adıyla aynı kural).
+
+## TEKLIF-16 — Notlar ve kapsam dışı TİK ATILARAK seçilir.
+
+Kullanıcı isteği: *"hazır şablonlar yap, ben tik atarak seçebileyim, istersem
+kendim ekleyebileyim, eklediğim de kayıt altına alınsın."* Üç bölge:
+defter (tik kutusu) · belgeye özel maddeler (defterde karşılığı olmayanlar,
+ayrı ve kesik çerçeveli) · ekleme (yazılan madde belgeye girer; "deftere de
+ekle" onu kalıcı yapar — deftere yazmak belgeye eklemenin ŞARTI DEĞİLDİR).
+
+**GÜNCELLEME FONKSİYONELDİR** (`guncelleIle`): iki tik aynı boyama turunda
+gelirse ikincisi birincisini geri almamalıdır. Ölçüldü (17.08.2026): art arda
+iki madde işaretlendiğinde yalnız sonuncusu kalıyordu. Bir belge editöründe bu,
+kullanıcının girdiğini kaybetmesi demektir.
+
+## TEKLIF-17 — Editör KENDİ kaydırma kabını kurar.
+
+Kabuk `/…/revisions/…` adreslerini SABİT ÇERÇEVE sayar (`isFrame`,
+app-shell.tsx) ve `lg` üstünde gövdeye `h-dvh overflow-hidden` verir. Sayfa
+kendi kabını kurmazsa taşan içerik KIRPILIR ve kaydırılamaz (kullanıcı
+bildirimi: *"teklifte scroll down çalışmıyor"*). Yükseklik zinciri KESİNTİSİZ
+olmalıdır: kabuk → sayfa kökü (`lg:h-full lg:grid-rows-[auto_minmax(0,1fr)]`)
+→ editör (`lg:h-full lg:min-h-0`) → bölüm gövdesi (`lg:overflow-y-auto`).
+Üst şerit ve bölüm rayı sabit kalır; yalnız gövde kayar.
+
+Önizleme `/dev/offer-editor-preview` bu kabı BİREBİR taklit eder (600px'lik
+`overflow-hidden` kutu) — etmezse hata önizlemede hiç görünmez.
+
+## TEKLIF-18 — PDF ucu ÇERÇEVEYE AÇIK tek adrestir.
+
+Uygulamanın tabanı `X-Frame-Options: DENY` + `frame-ancestors 'none'`; bu,
+AYNI KÖKENDEN gömmeyi de engeller ve önizleme penceresindeki `<iframe>` boş bir
+"belge açılamadı" ikonu gösteriyordu. Gevşetme YALNIZ
+`/offers/:id/revisions/:revId/pdf` adresindedir ve yalnız `'self'`e kadardır
+(next.config.ts). Genel başlığı `SAMEORIGIN`a çekmek daha kısa olurdu ama
+bütün ekranları gömülebilir yapardı.
+
+**PDF ÜRETEN HER BÖLÜM `outputFileTracingIncludes`E EKLENİR.** `pdf/brand.tsx`
+fontları ve logoyu `path.join(process.cwd(), …)` ile okur; bu yol çalışma
+anında kurulur, Next'in çözümleyicisi göremez ve Vercel paketine dosyaları
+koymaz — belge yerelde üretilir, canlıda ENOENT ile düşer. `/offers/**`
+eklenirken `/purchasing/**`, `/sales/**` ve `/drawings/**` de eksikti; üçü de
+eklendi.
+
 ## TEKLIF-11 — Belgenin yapısı firmanın kendi tekliflerinden çıkarıldı.
 
 Kaynak: 2026'da verilen on dört teklifin tamamı okundu. Sıra sabittir ve

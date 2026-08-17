@@ -17,7 +17,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Download, Eye, EyeOff, Plus, Save, Send, Trash2 } from "lucide-react";
+import { BookmarkPlus, Check, Download, Eye, EyeOff, Plus, Save, Send, Trash2 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,9 +33,22 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtMoney } from "@/lib/currency";
-import { emptyItem, hiddenCount, newOfferId, newPriceLine, newTextLine } from "@/lib/offers/payload";
+import {
+  emptyItem,
+  greetingFor,
+  hiddenCount,
+  newOfferId,
+  newPriceLine,
+  newTextLine,
+} from "@/lib/offers/payload";
 import { lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
-import { PRICE_UNIT_LIST, TERM_ROW_DEFS, TEST_LOAD_ROW_DEFS } from "@/lib/offers/registry";
+import {
+  PRICE_UNIT_LIST,
+  TERMS_GROUP_KEY,
+  TERM_ROW_DEFS,
+  TEST_LOAD_GROUP_KEY,
+  TEST_LOAD_ROW_DEFS,
+} from "@/lib/offers/registry";
 import { offerDocLine } from "@/lib/offers/no";
 import type {
   OfferPayload,
@@ -43,10 +56,11 @@ import type {
   OfferRow,
   OfferTextLine,
 } from "@/lib/offers/types";
+import { activeContacts, coverFieldsFromContact, type CustomerContact } from "@/lib/customer-contacts";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 import { indexChildren, indexOptions, type OfferOptionRow } from "@/app/(app)/offers/data";
-import { issueOfferRevision, saveOfferRevision } from "@/app/(app)/offers/actions";
+import { ensureOfferOption, issueOfferRevision, saveOfferRevision } from "@/app/(app)/offers/actions";
 import { ItemEditor } from "./item-editor";
 import { RowEditor, type OptionBook } from "./row-editor";
 
@@ -60,6 +74,7 @@ export function OfferEditor({
   readOnly,
   initial,
   options,
+  contacts,
   currency,
 }: {
   offerId: string;
@@ -69,6 +84,8 @@ export function OfferEditor({
   readOnly: boolean;
   initial: OfferPayload;
   options: readonly OfferOptionRow[];
+  /** Müşterinin iletişim kişileri — kapaktaki muhatap seçicisini besler. */
+  contacts: readonly CustomerContact[];
   currency: string;
 }) {
   const [payload, setPayload] = useState<OfferPayload>(initial);
@@ -85,6 +102,20 @@ export function OfferEditor({
 
   function guncelle(next: OfferPayload) {
     setPayload(next);
+    setKirli(true);
+  }
+
+  /**
+   * BİR ÖNCEKİ HÂLDEN türeten güncelleme.
+   *
+   * `guncelle` çağıran bileşenin ELİNDEKİ payload'dan yeni bir nesne kurar; iki
+   * değişiklik aynı boyama turunda olursa ikincisi birincisini SESSİZCE geri
+   * alır. Tik listesinde ölçüldü (17.08.2026): arka arkaya iki madde
+   * işaretlendiğinde yalnız sonuncusu kalıyordu. Hızlı tıklayan bir kullanıcı
+   * için bu, girdiğini kaybetmek demektir — belge editöründe kabul edilemez.
+   */
+  function guncelleIle(fn: (onceki: OfferPayload) => OfferPayload) {
+    setPayload(fn);
     setKirli(true);
   }
 
@@ -139,9 +170,13 @@ export function OfferEditor({
   }
 
   return (
-    <div className="grid gap-4">
+    // KAYDIRMA KABI BURADA KURULUR (bkz. page.tsx'teki gerekçe): `lg` üstünde
+    // üst şerit ve bölüm rayı SABİT kalır, yalnız bölüm gövdesi kayar — uzun
+    // bir belgede kaydet düğmesinin ekrandan çıkmaması istenen davranıştır.
+    // `lg` altında kap devreye girmez, sayfa normal biçimde kayar.
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* ————————————————————————————————————————————— üst şerit */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
         <div className="min-w-0">
           <div className="font-mono text-sm">{offerDocLine(offerNo, revNo)}</div>
           <div className="text-xs text-muted-foreground">
@@ -183,15 +218,18 @@ export function OfferEditor({
       </div>
 
       {readOnly ? (
-        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        <p className="shrink-0 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
           Bu revizyon yayımlanmıştır ve değiştirilemez. Değişiklik için teklif
           panelinden <span className="font-medium">Yeni Revizyon</span> açın.
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[13rem_1fr]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
-        <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible" aria-label="Teklif bölümleri">
+        <nav
+          className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
+          aria-label="Teklif bölümleri"
+        >
           {bolumler.map((b) => (
             <button
               key={b.key}
@@ -226,9 +264,19 @@ export function OfferEditor({
         </nav>
 
         {/* ————————————————————————————————————————————— bölüm gövdesi */}
-        <div className={cn("grid gap-4", readOnly && "pointer-events-none opacity-70")}>
+        <div
+          className={cn(
+            "grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
+            readOnly && "pointer-events-none opacity-70"
+          )}
+        >
           {aktif === "kapak" ? (
-            <KapakEditor payload={payload} book={book} listesi={listesi} onChange={guncelle} />
+            <KapakEditor
+              payload={payload}
+              listesi={listesi}
+              contacts={contacts}
+              onChange={guncelle}
+            />
           ) : null}
 
           {payload.items.map((item, i) =>
@@ -276,20 +324,22 @@ export function OfferEditor({
           {aktif === "notlar" ? (
             <MetinListesi
               baslik="NOTLAR"
-              aciklama="Belgenin sonunda, fiyat tablosunun altında basılır."
+              aciklama="Defterden tik atarak seçin; belgenin sonunda, fiyat tablosunun altında basılır."
+              listKey="term.note"
               satirlar={payload.notes}
               oneriler={listesi("term.note")}
-              onChange={(notes) => guncelle({ ...payload, notes })}
+              onChange={(fn) => guncelleIle((p) => ({ ...p, notes: fn(p.notes) }))}
             />
           ) : null}
 
           {aktif === "kapsam" ? (
             <MetinListesi
               baslik="KAPSAM DIŞI İŞLER"
-              aciklama="Madde işaretli liste olarak basılır."
+              aciklama="Defterden tik atarak seçin; belgede madde işaretli liste olarak basılır."
+              listKey="term.exclusion"
               satirlar={payload.exclusions}
               oneriler={listesi("term.exclusion")}
-              onChange={(exclusions) => guncelle({ ...payload, exclusions })}
+              onChange={(fn) => guncelleIle((p) => ({ ...p, exclusions: fn(p.exclusions) }))}
             />
           ) : null}
         </div>
@@ -322,17 +372,19 @@ export function OfferEditor({
 
 function KapakEditor({
   payload,
-  book,
   listesi,
+  contacts,
   onChange,
 }: {
   payload: OfferPayload;
-  book: OptionBook;
   listesi: (key: string) => string[];
+  contacts: readonly CustomerContact[];
   onChange: (next: OfferPayload) => void;
 }) {
   const c = payload.cover;
   const set = (patch: Partial<typeof c>) => onChange({ ...payload, cover: { ...c, ...patch } });
+  const kisiler = activeContacts(contacts);
+  const ekler = listesi("cover.honorific");
 
   return (
     <div className="grid gap-4">
@@ -344,7 +396,58 @@ function KapakEditor({
         </div>
       </Bolum>
 
-      <Bolum baslik="KİME" aciklama="Muhatap; boş bırakılan satır belgeye HİÇ basılmaz.">
+      <Bolum
+        baslik="KİME"
+        aciklama="Muhatap; boş bırakılan satır belgeye HİÇ basılmaz."
+      >
+        {/*
+          MUHATAP DEFTERDEN SEÇİLİR (kullanıcı isteği, 17.08.2026): müşterinin
+          birden çok iletişim kişisi olabilir ve teklifte kişi adı geçer.
+          Seçim ad, bölüm ve telefonu birlikte doldurur; hitap cümlesi de
+          onunla kurulur. Alanlar SONRADAN DÜZENLENEBİLİR kalır — belge,
+          basıldığı andaki bilginin fotoğrafıdır.
+        */}
+        {kisiler.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <div className="grid min-w-[14rem] flex-1 gap-1.5">
+              <Label htmlFor="kapak_muhatap">Defterden muhatap seç</Label>
+              <Select
+                value={kisiler.find((k) => k.name === c.toName)?.id ?? "__none__"}
+                onValueChange={(id) => {
+                  const kisi = kisiler.find((k) => k.id === id);
+                  if (!kisi) return;
+                  set({
+                    ...coverFieldsFromContact(kisi),
+                    greeting: greetingFor(kisi.name, ekler[0] ?? ""),
+                  });
+                }}
+              >
+                <SelectTrigger id="kapak_muhatap" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" disabled>
+                    Kişi seçin
+                  </SelectItem>
+                  {kisiler.map((k) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.name}
+                      {k.title ? ` — ${k.title}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Kişi defteri Yönetim → Müşteriler ekranındadır.
+            </p>
+          </div>
+        ) : (
+          <p className="mb-3 text-xs text-muted-foreground">
+            Bu müşterinin defterinde iletişim kişisi yok. Yönetim → Müşteriler
+            ekranından ekleyebilir, sonraki tekliflerde listeden seçebilirsiniz.
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Alan etiket="Adı ve Soyadı" value={c.toName} onChange={(v) => set({ toName: v })} />
           <Alan etiket="Bölüm" value={c.toDept} onChange={(v) => set({ toDept: v })} />
@@ -373,7 +476,7 @@ function KapakEditor({
                 yazılmış bir hitap üretir ve bu, kapağın en görünür satırıdır.
                 Kullanıcı eki seçer, cümleyi uygulama kurar.
               */}
-              {listesi("cover.honorific").map((ek) => (
+              {ekler.map((ek) => (
                 <Button
                   key={ek}
                   type="button"
@@ -459,10 +562,6 @@ function KapakEditor({
           {c.hidden ? "Kapak gizli — belgeye girmiyor" : "Kapağı gizle"}
         </Button>
       </Bolum>
-
-      {/* `book` kapak alanlarında kullanılmıyor; imza ve hitap listeleri
-          `listesi` ile geliyor. Parametre imzayı sabit tutmak için duruyor. */}
-      <span className="sr-only">{Object.keys(book.byList).length}</span>
     </div>
   );
 }
@@ -515,7 +614,7 @@ function TestYukuEditor({
           {t.rows.map((row, i) => (
             <RowEditor
               key={`${row.key}-${i}`}
-              groupKey="__testLoad"
+              groupKey={TEST_LOAD_GROUP_KEY}
               row={row}
               book={book}
               onChange={(next) =>
@@ -561,7 +660,7 @@ function TicariEditor({
           {t.rows.map((row, i) => (
             <RowEditor
               key={`${row.key}-${i}`}
-              groupKey="__terms"
+              groupKey={TERMS_GROUP_KEY}
               row={row}
               book={book}
               onChange={(next) => setRows(t.rows.map((r, j) => (j === i ? next : r)))}
@@ -877,75 +976,201 @@ function FiyatEditor({
 
 // ————————————————————————————————————————————————————— metin listesi
 
+/**
+ * ŞABLONDAN TİK ATARAK SEÇİLEN METİN LİSTESİ (notlar · kapsam dışı işler).
+ *
+ * Kullanıcı isteği (17.08.2026): *"Kapsam dışı olanlar da seçenekli gelsin ben
+ * istediğimi seçeyim … hazır şablonlar yap. Ben tik atarak seçebileyim.
+ * İstersem kendim ekleyebileyim. Eklediğim de kayıt altına alınsın sonra onu
+ * da seçebileyim."*
+ *
+ * Üç bölgeden oluşur ve üçü de gerçek bir ihtiyaca karşılık gelir:
+ *   1. DEFTER — firmanın on dört teklifinden derlenmiş maddeler; tik kutusu.
+ *   2. BELGEYE ÖZEL — defterde karşılığı olmayan, bu teklife elle yazılmış
+ *      maddeler. Ayrı durur çünkü tik listesinde görünmeleri, defterde varmış
+ *      izlenimi verirdi.
+ *   3. EKLEME — yazılan madde belgeye girer; "deftere de ekle" düğmesi ONU
+ *      kalıcı yapar. Deftere yazmak belgeye eklemenin ŞARTI DEĞİLDİR
+ *      (`YeniFirma` bileşeninin kuralı).
+ *
+ * SIRA TIKLAMA SIRASIDIR, defterin sırası değil: kullanıcı maddeleri önem
+ * sırasına göre seçer ve belgede o sırayla görmek ister.
+ */
 function MetinListesi({
   baslik,
   aciklama,
+  listKey,
   satirlar,
   oneriler,
   onChange,
 }: {
   baslik: string;
   aciklama: string;
+  /** Defter listesi anahtarı — elle eklenen madde buraya yazılır. */
+  listKey: string;
   satirlar: OfferTextLine[];
   oneriler: string[];
-  onChange: (next: OfferTextLine[]) => void;
+  /**
+   * GÜNCELLEME BİR FONKSİYONDUR, hazır bir dizi değil: iki tik aynı boyama
+   * turunda gelirse ikincisi birincisini geri almamalıdır (bkz. `guncelleIle`).
+   */
+  onChange: (fn: (onceki: OfferTextLine[]) => OfferTextLine[]) => void;
 }) {
+  const [yeni, setYeni] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const secili = new Set(satirlar.map((s) => s.text.trim()));
+  const serbest = satirlar.filter((s) => !oneriler.includes(s.text.trim()));
+
+  function degistir(metin: string) {
+    onChange((onceki) =>
+      onceki.some((s) => s.text.trim() === metin)
+        ? onceki.filter((s) => s.text.trim() !== metin)
+        : [...onceki, newTextLine(metin)]
+    );
+  }
+
+  function ekle(deftereDe: boolean) {
+    const metin = yeni.trim();
+    if (!metin) return;
+    onChange((onceki) =>
+      onceki.some((s) => s.text.trim() === metin) ? onceki : [...onceki, newTextLine(metin)]
+    );
+    setYeni("");
+    if (!deftereDe) return;
+    startTransition(async () => {
+      const res = await ensureOfferOption({ listKey, value: metin, parentId: null });
+      if (res.error) toast.error(res.error);
+      else toast.success("Madde deftere eklendi — bundan sonra listede çıkacak.");
+    });
+  }
+
   return (
     <Bolum baslik={baslik} aciklama={aciklama}>
-      <div className="grid gap-2">
-        {satirlar.map((line, i) => (
-          <div key={line.id} className="flex items-start gap-2">
-            <Textarea
-              value={line.text}
-              onChange={(e) =>
-                onChange(satirlar.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
-              }
-              aria-label={`${baslik} maddesi ${i + 1}`}
-              rows={2}
-              className={cn("min-w-0 flex-1 text-base pointer-fine:text-sm", line.hidden && "opacity-55")}
-            />
+      <div className="grid gap-3">
+        {/* ————— 1. DEFTER */}
+        {oneriler.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Defter boş. Aşağıdan madde ekleyip &quot;deftere de ekle&quot; ile kalıcı yapabilirsiniz.
+          </p>
+        ) : (
+          <ul className="grid gap-1">
+            {oneriler.map((metin) => {
+              const isaretli = secili.has(metin);
+              return (
+                <li key={metin}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isaretli}
+                    onClick={() => degistir(metin)}
+                    className={cn(
+                      "oc-tap flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+                      isaretli && "bg-muted/60"
+                    )}
+                  >
+                    {/* Kare onay kutusu — çoklu süzgecin işaret diliyle aynı. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] border",
+                        isaretli ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40"
+                      )}
+                    >
+                      {isaretli ? <Check className="size-3" /> : null}
+                    </span>
+                    <span className={cn(!isaretli && "text-muted-foreground")}>{metin}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* ————— 2. BELGEYE ÖZEL */}
+        {serbest.length > 0 ? (
+          <div className="grid gap-2 rounded-md border border-dashed p-2">
+            <p className="text-xs text-muted-foreground">
+              Bu teklife özel maddeler — defterde karşılıkları yok.
+            </p>
+            {serbest.map((line) => {
+              return (
+                <div key={line.id} className="flex items-start gap-2">
+                  <Textarea
+                    value={line.text}
+                    onChange={(e) =>
+                      onChange((onceki) =>
+                        onceki.map((x) => (x.id === line.id ? { ...x, text: e.target.value } : x))
+                      )
+                    }
+                    aria-label={`${baslik} maddesi`}
+                    rows={2}
+                    className={cn(
+                      "min-w-0 flex-1 text-base pointer-fine:text-sm",
+                      line.hidden && "opacity-55"
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="oc-tap"
+                    aria-label={line.hidden ? "Belgede göster" : "Belgede gizle"}
+                    onClick={() =>
+                      onChange((onceki) =>
+                          onceki.map((x) => (x.id === line.id ? { ...x, hidden: !x.hidden } : x))
+                        )
+                    }
+                  >
+                    {line.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="oc-tap text-destructive hover:text-destructive"
+                    aria-label="Maddeyi kaldır"
+                    onClick={() => onChange((onceki) => onceki.filter((x) => x.id !== line.id))}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* ————— 3. EKLEME */}
+        <div className="grid gap-2">
+          <Label htmlFor={`yeni_${listKey}`}>Yeni madde</Label>
+          <Textarea
+            id={`yeni_${listKey}`}
+            value={yeni}
+            onChange={(e) => setYeni(e.target.value)}
+            rows={2}
+            className="text-base pointer-fine:text-sm"
+          />
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="oc-tap"
-              aria-label={line.hidden ? "Belgede göster" : "Belgede gizle"}
-              onClick={() => onChange(satirlar.map((x, j) => (j === i ? { ...x, hidden: !x.hidden } : x)))}
+              disabled={!yeni.trim()}
+              onClick={() => ekle(false)}
             >
-              {line.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              <Plus className="size-3.5" /> Yalnız bu teklife ekle
             </Button>
             <Button
               type="button"
-              variant="ghost"
               size="sm"
-              className="oc-tap text-destructive hover:text-destructive"
-              aria-label="Maddeyi kaldır"
-              onClick={() => onChange(satirlar.filter((_, j) => j !== i))}
+              className="oc-tap"
+              disabled={!yeni.trim() || pending}
+              onClick={() => ekle(true)}
             >
-              <Trash2 className="size-4" />
+              <BookmarkPlus className="size-3.5" /> Ekle ve deftere kaydet
             </Button>
           </div>
-        ))}
-
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-          <div className="grid gap-1.5">
-            <Label>Defterden ekle</Label>
-            <EditableCombobox
-              options={oneriler.filter((o) => !satirlar.some((s) => s.text === o))}
-              value=""
-              onChange={(v) => v.trim() && onChange([...satirlar, newTextLine(v)])}
-              aria-label={`${baslik} defteri`}
-              inputClassName="text-base pointer-fine:text-sm"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="oc-tap"
-            onClick={() => onChange([...satirlar, newTextLine()])}
-          >
-            <Plus className="size-3.5" /> Boş Madde
-          </Button>
         </div>
       </div>
     </Bolum>

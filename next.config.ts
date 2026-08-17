@@ -41,23 +41,64 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * PDF ÜRETEN HER BÖLÜM font ve logo dosyalarını TRACE'E ELLE EKLENMELİDİR.
+ *
+ * `pdf/brand.tsx` fontları ve logoyu `path.join(process.cwd(), …)` ile okur.
+ * Bu yol ÇALIŞMA ANINDA kurulur, yani Next'in içe aktarma çözümleyicisi onu
+ * göremez ve Vercel paketine dosyaları koymaz — belge yerelde üretilir,
+ * canlıda ENOENT ile düşer. Yeni bir PDF ucu açan HER bölüm buraya bir satır
+ * eklemek zorundadır.
+ */
+const PDF_ASSETS = ["./src/assets/fonts/**/*", "./public/brand/**/*"];
+
 const nextConfig: NextConfig = {
-  // PDF raporu (report route'u + issueRevision server action'ı) DejaVu
-  // fontlarını ve Orion Cranes logosunu (public/brand) dosya sisteminden okur;
-  // Vercel trace'ine dahil edilmeleri gerekir.
   outputFileTracingIncludes: {
     // Hesap raporu + ekipman PDF'i (report / equipment/download route'ları)
-    "/projects/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
-    // İş Emri PDF'i (jobs/[id]/work-order route'u) aynı font+logo dosyalarını okur
-    "/jobs/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
-    // Ücret pusulası (finance/bordro route'u) aynı font+logo dosyalarını okur
-    "/personnel/**": ["./src/assets/fonts/**/*", "./public/brand/**/*"],
+    "/projects/**": PDF_ASSETS,
+    // İş Emri PDF'i (jobs/[id]/work-order route'u)
+    "/jobs/**": PDF_ASSETS,
+    // Ücret pusulası (personnel/bordro route'u)
+    "/personnel/**": PDF_ASSETS,
+    // TEKLİF belgesi (offers/[id]/revisions/[revId]/pdf route'u + yayım
+    // sırasında arşive yazan server action).
+    "/offers/**": PDF_ASSETS,
+    // Sipariş onayı, satın alma talebi ve kesim planı PDF'leri
+    "/purchasing/**": PDF_ASSETS,
+    // Güncel İş Listesi PDF'i (sales/is-listesi)
+    "/sales/**": PDF_ASSETS,
+    // Teknik resim türev çıktıları (üretim listesi PDF'i)
+    "/drawings/**": PDF_ASSETS,
     // Katalog sayfaları: üretici katalog sayfaları `public/` altında DEĞİLDİR
     // (kimlik doğrulamalı uçtan sunulur), bu yüzden trace'e elle eklenir.
     "/api/catalog-sheet/**": ["./catalog-sheets/**/*"],
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // KENDİ BELGEMİZİ KENDİ ÇERÇEVEMİZDE GÖSTEREBİLMEK İÇİN TEK İSTİSNA.
+      //
+      // Üstteki taban `X-Frame-Options: DENY` + `frame-ancestors 'none'`
+      // taşır; bu, uygulamanın başka bir siteye gömülmesini engeller ama
+      // AYNI KÖKENDEN gömülmesini de engeller — teklif önizleme penceresindeki
+      // `<iframe>` bu yüzden boş bir "belge açılamadı" ikonu gösteriyordu
+      // (kullanıcı bildirimi, 17.08.2026).
+      //
+      // Gevşetme YALNIZ PDF UCUNDADIR ve yalnız `'self'`e kadardır: sayfaların
+      // tamamı DENY olarak kalır. Genel başlığı `SAMEORIGIN`a çekmek daha kısa
+      // olurdu ama bütün ekranları gömülebilir yapardı — tıklama hırsızlığına
+      // karşı korumayı bir önizleme kolaylığı için bırakmaya değmez.
+      {
+        source: "/offers/:id/revisions/:revId/pdf",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: ["default-src 'self'", "frame-ancestors 'self'", "base-uri 'self'"].join("; "),
+          },
+        ],
+      },
+    ];
   },
 };
 

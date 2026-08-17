@@ -8,8 +8,10 @@
 import { rowHasValue, withComposedValue } from "./compose";
 import {
   OFFER_GROUP_DEF_BY_KEY,
+  TERMS_GROUP_KEY,
   TERMS_TITLE,
   TERM_ROW_DEFS,
+  TEST_LOAD_GROUP_KEY,
   TEST_LOAD_ROW_DEFS,
   TEST_LOAD_TITLE,
   offerRowDef,
@@ -110,6 +112,72 @@ export function newPriceLine(itemId: string | null = null): OfferPriceLine {
   return { id: newOfferId(), itemId, description: "", qty: 1, unit: "Takım", unitPrice: null, inTotal: true };
 }
 
+// ——————————————————————————————————————————————————————— varsayılanlar
+
+/**
+ * `list_key` → defterde VARSAYILAN işaretli değer.
+ *
+ * Defterden okunur, koda gömülmez: "geçerlilik 14 iş günü" bir firma kararıdır
+ * ve Tanımlar sayfasından değiştirilebilmelidir.
+ */
+export type OfferDefaults = Record<string, string>;
+
+function rowsWithDefaults(rows: OfferRow[], defaults: OfferDefaults, groupKey: string): OfferRow[] {
+  return rows.map((row) => {
+    // ELLE YAZILMIŞ ya da ZATEN DOLU satıra dokunulmaz: varsayılan bir
+    // BAŞLANGIÇ değeridir, sonradan gelen bir düzeltme değil.
+    if (row.value.trim() !== "") return row;
+    const def = offerRowDef(groupKey, row.key);
+    const liste = def?.list;
+    const deger = liste ? defaults[liste] : undefined;
+    return deger ? { ...row, value: deger } : row;
+  });
+}
+
+/**
+ * YENİ TEKLİFİ DEFTERDEKİ VARSAYILANLARLA DOLDURUR.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Test yükleri standart dolu gelsin"*,
+ * *"Hitap ve giriş paragrafı otomatik gelsin. İsterse düzeltebileyim."*
+ *
+ * Doldurma YALNIZ BOŞ ALANA yapılır ve yalnız teklif AÇILIRKEN çalışır: her
+ * kaydetmede yeniden uygulansaydı kullanıcının bilerek sildiği bir satır geri
+ * gelirdi. Uydurma değer yoktur — defterde varsayılanı olmayan alan BOŞ kalır
+ * (değişmez md. 4).
+ */
+export function applyDefaults(payload: OfferPayload, defaults: OfferDefaults): OfferPayload {
+  return {
+    ...payload,
+    cover: {
+      ...payload.cover,
+      intro: payload.cover.intro || defaults["cover.intro"] || "",
+    },
+    testLoad: {
+      ...payload.testLoad,
+      rows: rowsWithDefaults(payload.testLoad.rows, defaults, TEST_LOAD_GROUP_KEY),
+    },
+    terms: {
+      ...payload.terms,
+      rows: rowsWithDefaults(payload.terms.rows, defaults, TERMS_GROUP_KEY),
+    },
+  };
+}
+
+/**
+ * HİTAP CÜMLESİ — "Sn. ALİCAN ERASLAN Bey,".
+ *
+ * ADDAN CİNSİYET ÇIKARILMAZ: hitap eki defterden SEÇİLİR (`cover.honorific`).
+ * Tahmin etmek, kapağın en görünür satırında yanlış bir hitap üretir; boş
+ * bırakmak ise kullanıcıyı her teklifte aynı cümleyi yazmaya zorlardı. Orta
+ * yol: cümleyi uygulama kurar, eki insan seçer.
+ */
+export function greetingFor(name: string, honorific: string): string {
+  const ad = (name ?? "").trim();
+  if (!ad) return "";
+  const ek = (honorific ?? "").trim();
+  return `Sn. ${ad}${ek ? ` ${ek}` : ","}`.replace(/\s+/g, " ").trim();
+}
+
 // ————————————————————————————————————————————————————————— taşıma
 
 function metin(v: unknown, yedek = ""): string {
@@ -204,12 +272,12 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       title: metin(testLoad.title, TEST_LOAD_TITLE),
       position: testLoad.position === "teknik" ? "teknik" : "ticari",
       rows: testLoad.rows
-        ? dizi(testLoad.rows).map((r) => rowFromRaw(r, "__testLoad"))
+        ? dizi(testLoad.rows).map((r) => rowFromRaw(r, TEST_LOAD_GROUP_KEY))
         : bos.testLoad.rows,
     },
     terms: {
       title: metin(terms.title, TERMS_TITLE),
-      rows: terms.rows ? dizi(terms.rows).map((r) => rowFromRaw(r, "__terms")) : bos.terms.rows,
+      rows: terms.rows ? dizi(terms.rows).map((r) => rowFromRaw(r, TERMS_GROUP_KEY)) : bos.terms.rows,
       paymentLines: dizi<Record<string, unknown>>(terms.paymentLines).map((l) => ({
         id: metin(l.id) || newOfferId(),
         text: metin(l.text),

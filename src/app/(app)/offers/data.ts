@@ -5,6 +5,7 @@
 // müşteriye giden belge ile ekrandaki teklif sessizce ayrışırdı.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CustomerContact } from "@/lib/customer-contacts";
 import { withDefaults } from "@/lib/offers/payload";
 import type { OfferListRow } from "@/lib/offers/filter";
 import type { OfferPayload } from "@/lib/offers/types";
@@ -219,6 +220,22 @@ export function indexOptions(rows: readonly OfferOptionRow[]): OfferOptionIndex 
   return out;
 }
 
+/**
+ * Defterde VARSAYILAN işaretli değerler — `list_key` → değer.
+ *
+ * Yeni teklif bunlarla doldurulur (`applyDefaults`). Bir listede birden çok
+ * varsayılan bulunursa İLKİ kazanır: kural yazma yolunda korunuyor
+ * (`updateOfferOption` kardeşleri düşürür), burada yalnız kararlı davranırız.
+ */
+export function defaultsOf(rows: readonly OfferOptionRow[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of rows) {
+    if (!row.active || !row.is_default || row.parent_id) continue;
+    if (out[row.list_key] === undefined) out[row.list_key] = row.value;
+  }
+  return out;
+}
+
 /** Ebeveyn kimliği → çocuk seçenekler (marka → tip/seri). */
 export function indexChildren(rows: readonly OfferOptionRow[]): Record<string, OfferOptionRow[]> {
   const out: Record<string, OfferOptionRow[]> = {};
@@ -268,6 +285,44 @@ import type { CustomerOption } from "@/app/(app)/jobs/schema";
  * deftere yazılır (iş emrinin kuralı, IS-14): serbest metin ikinci bir müşteri
  * listesi büyütür ve kısaltma/renk gibi defter alanları o kayıtlara bağlanamaz.
  */
+/**
+ * MÜŞTERİNİN İLETİŞİM KİŞİLERİ — teklif kapağındaki "KİME" bloğunun kaynağı.
+ *
+ * Kullanıcı isteği (17.08.2026): *"Müşteri seçtiğimde müşteri bilgilerini de
+ * getir … teklifte kişi belirtiliyor. Bir veya birden fazla kişi olabilir."*
+ * Defter `/admin/customers` ekranındadır; teklif onu YALNIZ OKUR ve seçilen
+ * kişinin bilgilerini kapağa FOTOĞRAF olarak yazar — defter sonradan
+ * düzeltilince teslim edilmiş teklif değişmemelidir (müşteri adıyla aynı kural).
+ */
+export async function loadCustomerContacts(
+  supabase: SupabaseClient,
+  customerId: string | null | undefined
+): Promise<CustomerContact[]> {
+  if (!customerId) return [];
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .select("id, customer_id, name, title, department, phone, email, note, is_primary, active, sort")
+    .eq("customer_id", customerId)
+    .order("sort")
+    .order("name");
+  // YUMUŞAK DÜŞER (SATIN-21): göç uygulanmamış bir ortamda teklif yazmak
+  // zorlaşır ama imkânsız olmaz — kapak alanları elle doldurulabilir.
+  if (error) return [];
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    customerId: r.customer_id as string,
+    name: (r.name as string) ?? "",
+    title: (r.title as string) ?? "",
+    department: (r.department as string) ?? "",
+    phone: (r.phone as string) ?? "",
+    email: (r.email as string) ?? "",
+    note: (r.note as string) ?? "",
+    isPrimary: r.is_primary === true,
+    active: r.active !== false,
+    sort: (r.sort as number) ?? 0,
+  }));
+}
+
 export async function loadCustomers(supabase: SupabaseClient): Promise<CustomerOption[]> {
   const { data } = await supabase
     .from("customers")

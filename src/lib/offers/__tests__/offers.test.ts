@@ -18,8 +18,10 @@ import {
 } from "../filter";
 import { nextSeq, offerDocLine, offerNo, offerRevLabel, parseOfferNo } from "../no";
 import {
+  applyDefaults,
   emptyItem,
   emptyPayload,
+  greetingFor,
   groupFromKey,
   hiddenCount,
   newPriceLine,
@@ -27,7 +29,15 @@ import {
   withDefaults,
 } from "../payload";
 import { lineAmount, offerTotal, vatNote, withTotal } from "../pricing";
-import { OFFER_GROUP_DEFS, allOfferListKeys, offerRowDef } from "../registry";
+import {
+  OFFER_GROUP_DEFS,
+  TERMS_GROUP_KEY,
+  TERM_ROW_DEFS,
+  TEST_LOAD_GROUP_KEY,
+  TEST_LOAD_ROW_DEFS,
+  allOfferListKeys,
+  offerRowDef,
+} from "../registry";
 import type { OfferPartDef } from "../types";
 
 // ————————————————————————————————————————————————————————— derleme
@@ -456,5 +466,69 @@ describe("withDefaults", () => {
   it("kalem kimliği yoksa üretilir — fiyat bağı kimliksiz kalmaz", () => {
     const p = withDefaults({ items: [{ title: "X", groups: [] }] });
     expect(p.items[0].id).toBeTruthy();
+  });
+});
+
+// ————————————————————————————————————— sahte gruplar ve varsayılanlar
+
+describe("sahte grup anahtarları", () => {
+  it("ticari şart ve test yükü satırları defterden ÇÖZÜLÜR", () => {
+    // Bu bağ bir süre yoktu ve iki belirtiyi birden doğurdu (17.08.2026):
+    // ticari şartlar açılır liste çizmiyordu ve varsayılanlar dolmuyordu.
+    for (const r of TERM_ROW_DEFS) {
+      expect(offerRowDef(TERMS_GROUP_KEY, r.key), `ticari: ${r.key}`).toBeDefined();
+    }
+    for (const r of TEST_LOAD_ROW_DEFS) {
+      expect(offerRowDef(TEST_LOAD_GROUP_KEY, r.key), `test: ${r.key}`).toBeDefined();
+    }
+  });
+
+  it("ticari şart satırlarının HEPSİ bir listeye bağlıdır — düz kutu kalmaz", () => {
+    for (const r of TERM_ROW_DEFS) {
+      expect(Boolean(r.list || r.parts?.length), `liste yok: ${r.key}`).toBe(true);
+    }
+  });
+});
+
+describe("applyDefaults", () => {
+  const DEFTER = {
+    "term.validity": "14 iş günü",
+    "val.testDynamic": "Q x 1,1",
+    "val.testStatic": "Q x 1,25",
+    "cover.intro": "Giriş cümlesi.",
+  };
+
+  it("test yükü ve geçerlilik defterden DOLU gelir", () => {
+    const p = applyDefaults(emptyPayload(), DEFTER);
+    expect(p.testLoad.rows.find((r) => r.key === "dynamic")?.value).toBe("Q x 1,1");
+    expect(p.testLoad.rows.find((r) => r.key === "static")?.value).toBe("Q x 1,25");
+    expect(p.terms.rows.find((r) => r.key === "validity")?.value).toBe("14 iş günü");
+    expect(p.cover.intro).toBe("Giriş cümlesi.");
+  });
+
+  it("DOLU alan EZİLMEZ — varsayılan bir başlangıçtır, düzeltme değil", () => {
+    const p = emptyPayload();
+    p.terms.rows.find((r) => r.key === "validity")!.value = "30 gün";
+    p.cover.intro = "Kendi cümlem.";
+    const sonra = applyDefaults(p, DEFTER);
+    expect(sonra.terms.rows.find((r) => r.key === "validity")?.value).toBe("30 gün");
+    expect(sonra.cover.intro).toBe("Kendi cümlem.");
+  });
+
+  it("defterde karşılığı olmayan alan BOŞ kalır — uydurma değer yok", () => {
+    const p = applyDefaults(emptyPayload(), DEFTER);
+    expect(p.terms.rows.find((r) => r.key === "warranty")?.value).toBe("");
+  });
+});
+
+describe("greetingFor", () => {
+  it("hitap cümlesini kurar; ek defterden gelir, addan CİNSİYET çıkarılmaz", () => {
+    expect(greetingFor("ALİCAN ERASLAN", "Bey,")).toBe("Sn. ALİCAN ERASLAN Bey,");
+    expect(greetingFor("AYŞE DEMİR", "Hanım,")).toBe("Sn. AYŞE DEMİR Hanım,");
+  });
+
+  it("ek yoksa cümle yine kapanır; ad yoksa hitap OLUŞMAZ", () => {
+    expect(greetingFor("MEHMET EROL", "")).toBe("Sn. MEHMET EROL,");
+    expect(greetingFor("", "Bey,")).toBe("");
   });
 });
