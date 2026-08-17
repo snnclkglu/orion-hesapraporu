@@ -108,6 +108,27 @@ export function offerFileName(subject: string, offerNo: string, revNo: number): 
   return downloadFileName([subject, offerNo, offerRevLabel(revNo)]);
 }
 
+/**
+ * MALİYET ÇALIŞMASININ dosya adı:
+ *
+ *     ASTOR 32T PORTAL VİNÇ - TETR-20260817-1 - MALİYET M1 - İÇ BELGE.pdf
+ *
+ * İKİ İŞARET BİLEREK VAR. "MALİYET" olmadan dosya teklifin kendisiyle
+ * karışırdı — indirilenler klasöründe yan yana duran iki PDF'in hangisinin
+ * müşteriye gideceği ancak açılınca anlaşılırdı. "İÇ BELGE" ise adın SONUNDA
+ * durur, yani dosya adı kısaltılarak gösterilse bile e-posta ekinde ilk
+ * bakılan yerdedir. Bu belgenin müşteriye gitmesi, bu bölümde olabilecek en
+ * pahalı hatadır.
+ *
+ * REVİZYON M0'DA DA YAZILIR (teklifin `offerRevLabel` kuralının TERSİ):
+ * teklifte R0 gizlenir çünkü müşteri "REV 00" görünce var olmamış bir
+ * düzeltme geçmişi okur. Maliyet iç belgedir ve orada asıl soru "bu hangi
+ * maliyet çalışması" olduğu için numara her zaman görünür.
+ */
+export function offerCostFileName(subject: string, offerNo: string, revNo: number): string {
+  return downloadFileName([subject, offerNo, `Maliyet M${revNo}`, "İç Belge"]);
+}
+
 /** Rapor seviyesinin dosya adındaki karşılığı. */
 export const REPORT_LEVEL_LABELS: Record<string, string> = {
   detayli: "Detaylı",

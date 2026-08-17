@@ -16,6 +16,13 @@
   bir fiyat satırı gizli) · sekiz kalemli. Sınanan şey biçim değil KURALDIR —
   gizlenen satırın metni belgede YOK, toplam satırlarla tutuyor, altbilgi
   künyesi her sayfada. Bileşen ağacına bakmak bunların hiçbirini göstermez
+- `npx tsx scripts/test-offer-cost-pdf.ts` — MALİYET ÇALIŞMASI iç belgesini
+  devralınan "ÖRNEK ASTOR 32T × 30 m Portal Vinç" çalışma kitabının girdileri ve
+  birim fiyatlarıyla üret, `unpdf` ile GERİ OKU. Sınanan üç şey: modelin
+  sayıları belgede gerçekten var mı (51.000 kg çelik, 194.257,74 € proje
+  maliyeti, toplam = proje × 1,19), **İÇ BELGE damgası HER SAYFADA mı**
+  (bileşen ağacına bakmak bir sayfada düştüğünü göstermez) ve satırın
+  teklifteki karşılığı basılıyor mu
 - `npx tsx scripts/gen-offer-seed.ts` — teklif defterinin seed migration'ını
   ÜRET (`20260819000002_offer_options_seed.sql`). Üretilen dosya elle
   düzenlenmez; `match_key` katlamasını yalnız TypeScript bilir (Postgres'in
@@ -24,6 +31,12 @@
   600px'lik `overflow-hidden` bir kutuya SARILIR: kabuğun sabit çerçeve kabının
   birebir taklidi. Taklit edilmezse "scroll çalışmıyor" hatası önizlemede HİÇ
   görünmez — kullanıcı bildirimi (17.08.2026) tam o koşuldan çıkmıştı
+- `/dev/offer-cost-preview` — MALİYET EDİTÖRÜNÜN auth'suz önizlemesi. Fikstür
+  GERÇEKTİR: ASTOR 32T × 30 m tam portal, devralınan V3 çalışmasının girdileri
+  ve birim fiyatlarıyla. Ekrandaki ağırlıklar (51.000 / 59.500 kg) ve toplam
+  (231.166,71 €) o çalışmayla birebir tutmalıdır — tutmuyorsa model ya da
+  defter bozulmuştur. Kabuğun ata zinciri birebir kurulur (teklif editörünün
+  önizlemesiyle aynı gerekçe: TEKLIF-17'de kırılan halka önizlemede yoktu)
 - `/dev/offers-preview` — teklif listesinin AUTH'SUZ görsel önizlemesi;
   takip sayacının tam yelpazesi (bugün · 3 gün · 12 gün · 5 hafta · 13 hafta)
   yan yana basılır, sarı→kırmızı ölçek ancak birlikte denetlenebilir

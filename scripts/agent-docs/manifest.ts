@@ -227,6 +227,27 @@ export const ALANLAR: Alan[] = [
     al: [],
   },
   {
+    // MALİYET TEKLİFİN ALTINDA DEĞİL, YANINDA bir alandır. `teklif.md`e
+    // eklenseydi o dosya ikiye katlanır ve her oturumda teklife dokunan
+    // herkes ağırlık modelini de yüklerdi; ayrıca iki alanın en pahalı
+    // hataları BİRBİRİNİN TERSİDİR (teklifte "gizlenen satır belgeye
+    // girmesin", maliyette "maliyet müşteri belgesine hiç girmesin") ve
+    // aynı dosyada yan yana durmaları ikisini de bulanıklaştırırdı.
+    dosya: "maliyet",
+    onek: "MALIYET",
+    baslik: "Maliyet Çalışması",
+    ozet: "Ayrı revizyon zinciri, ağırlık/boyutlandırma modeli, dört ana başlık, oran tabanı, iç belge",
+    yollar: [
+      "src/lib/offers/cost/**",
+      "src/app/(app)/offers/cost-*.ts",
+      "src/app/(app)/offers/[id]/costs/**",
+      "src/app/(app)/offers/[id]/cost-panel.tsx",
+      "src/lib/pdf/offer-cost.tsx",
+      "scripts/test-offer-cost-pdf.ts",
+    ],
+    al: [],
+  },
+  {
     dosya: "satis",
     onek: "SATIS",
     baslik: "Satış Takibi",

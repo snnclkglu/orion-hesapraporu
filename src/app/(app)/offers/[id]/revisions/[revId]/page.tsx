@@ -15,6 +15,7 @@ import {
   loadOfferRevision,
   loadOfferTemplates,
 } from "../../../data";
+import { loadOfferCostForEditor } from "../../../cost-data";
 import { OfferEditor } from "./offer-editor";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,11 @@ export default async function OfferRevisionPage({
     loadOfferTemplates(supabase),
   ]);
   if (!kayit) notFound();
+
+  // MALİYET AYRI BİR TABLODUR ve para birimi teklifin künyesinden okunur;
+  // bu yüzden teklif yüklendikten SONRA istenir. Maliyet çalışması yoksa
+  // `null` döner ve fiyat tablosundaki maliyet sütunu "—" gösterir.
+  const cost = await loadOfferCostForEditor(supabase, id, kayit.offer.currency);
 
   // Muhatap seçicisinin listesi. Teklifin müşterisi belliyken kişiler ONA
   // bağlıdır; müşteri değişirse kapak elle güncellenir (belge, basıldığı
@@ -74,6 +80,7 @@ export default async function OfferRevisionPage({
         authors={authors}
         templates={templates}
         currency={kayit.offer.currency}
+        cost={cost}
       />
     </div>
   );

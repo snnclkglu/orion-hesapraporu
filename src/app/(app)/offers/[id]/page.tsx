@@ -10,7 +10,9 @@ import { getSessionProfile } from "@/lib/profile";
 import { isAdminRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { loadCustomers, loadOffer } from "../data";
+import { loadOfferCosts } from "../cost-data";
 import { OfferPanel } from "./offer-panel";
+import { CostPanel } from "./cost-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +23,11 @@ export default async function OfferDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const [kayit, customers, profile] = await Promise.all([
+  const [kayit, customers, profile, costs] = await Promise.all([
     loadOffer(supabase, id),
     loadCustomers(supabase),
     getSessionProfile(),
+    loadOfferCosts(supabase, id),
   ]);
   if (!kayit) notFound();
 
@@ -42,6 +45,17 @@ export default async function OfferDetailPage({
         revisions={kayit.revisions}
         customers={customers}
         bugun={new Date().toISOString().slice(0, 10)}
+        yonetici={isAdminRole(profile?.role)}
+      />
+      {/* MALİYET AYRI BİR ZİNCİRDİR ve panelde AYRI bir tablo olarak durur.
+          Teklif revizyonlarının tablosuna sütun eklenmedi: iki zincirin
+          numaraları eşleşmez (R1'in maliyeti M1 DEĞİLDİR) ve aynı tabloda
+          göstermek o eşleşmeyi ima ederdi. */}
+      <CostPanel
+        offerId={id}
+        currency={kayit.offer.currency}
+        costs={costs}
+        offerRevNo={kayit.revisions[0]?.rev_no ?? null}
         yonetici={isAdminRole(profile?.role)}
       />
     </div>

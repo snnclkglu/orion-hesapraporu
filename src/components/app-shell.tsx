@@ -255,7 +255,14 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // çerçeve yerleşimini seçer ve alt sayfaları bilinçli olarak dışarıda
   // bırakır (aşağıdaki nota bakın); daralma ise revizyonun tamamı boyunca
   // sürmelidir, yoksa editörden ekipman paneline geçince menü geri açılırdı.
-  const isRevisionScreen = /\/revisions\/[^/]+/.test(pathname ?? "");
+  // MALİYET EDİTÖRÜ DE BİR REVİZYON EKRANIDIR (`/offers/<id>/costs/<id>`).
+  // Adresinde "revisions" geçmez çünkü kendi zinciri vardır (M0/M1) ve teklif
+  // revizyonlarıyla karışmaması için bilerek ayrı adlandırıldı; ama ekran
+  // davranışı birebir aynıdır — bölüm rayı + kendi kaydırma kabı, geniş tablo,
+  // uzun oturum. Kalıba eklenmeseydi menü daralmaz ve sayfa çerçeve kipine
+  // girmezdi: editör 1000 px'e büyür, `main` onu kırpar ve kaydırılamazdı
+  // (TEKLIF-17'de iki kez yaşanan hatanın aynısı).
+  const isRevisionScreen = /\/revisions\/[^/]+|\/costs\/[^/]+/.test(pathname ?? "");
 
   const [open, setOpen] = useState(false);
   /**
@@ -387,7 +394,7 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
   // ekran yüksekliğinden taşan kısım KESİLİYOR ve kaydırılamıyordu
   // (ekipman listesi hatası, madde 35). Çerçeve kipini hak eden sayfa kendi
   // içinde kayan bölgeler kurar; alt sayfalar doğal sayfa kaydırmasını ister.
-  const isFrame = /\/revisions\/[^/]+\/?$/.test(pathname ?? "");
+  const isFrame = /(\/revisions\/[^/]+|\/costs\/[^/]+)\/?$/.test(pathname ?? "");
   // Liste sayfaları ekranın TAMAMINI kullanır. Okuma genişliği kuralı (max-w-6xl)
   // metin için doğrudur ama çok sütunlu tabloda ters teper: sütunlar sıkışır,
   // durum menüsü kırpılır. Form ve rapor sayfaları dar kalmaya devam eder.

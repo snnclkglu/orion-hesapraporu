@@ -279,6 +279,11 @@ export default function OfferEditorPreviewPage() {
             authors={YAZARLAR}
             templates={SABLONLAR}
                     currency="EUR"
+                    // ÖNİZLEMEDE MALİYET YOKTUR ve bu bilinçli: fikstür bir
+                    // veritabanı okuması yapmaz, maliyet ise ayrı bir tabloda
+                    // yaşar. Fiyat tablosu "maliyet çalışması yok" hâlini
+                    // gösterir — o hâl de denetlenmeye değer bir ekrandır.
+                    cost={null}
                   />
                   </div>
                 </div>

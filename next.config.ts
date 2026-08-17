@@ -61,7 +61,11 @@ const nextConfig: NextConfig = {
     // Ücret pusulası (personnel/bordro route'u)
     "/personnel/**": PDF_ASSETS,
     // TEKLİF belgesi (offers/[id]/revisions/[revId]/pdf route'u + yayım
-    // sırasında arşive yazan server action).
+    // sırasında arşive yazan server action) VE MALİYET ÇALIŞMASI iç belgesi
+    // (offers/[id]/costs/[costRevId]/pdf + `issueOfferCostRevision`). Kalıp
+    // ikisini de kapsar; maliyet için ayrı bir satır GEREKMEZ ama bu not
+    // gerekir — yeni ucu ekleyen biri kapsandığını bilmezse aynı satırı
+    // ikinci kez yazmaya kalkar.
     "/offers/**": PDF_ASSETS,
     // Sipariş onayı, satın alma talebi ve kesim planı PDF'leri
     "/purchasing/**": PDF_ASSETS,

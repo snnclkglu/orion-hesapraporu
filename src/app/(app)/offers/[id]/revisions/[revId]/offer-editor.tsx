@@ -16,6 +16,7 @@
 // kurtarır.
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   BookmarkPlus,
@@ -23,11 +24,13 @@ import {
   Download,
   Eye,
   EyeOff,
+  FileText,
   Percent,
   Plus,
   Save,
   Send,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Button } from "@/components/ui/button";
@@ -87,6 +90,9 @@ import {
   type OfferTemplateRow,
 } from "@/app/(app)/offers/data";
 import { ensureOfferOption, issueOfferRevision, saveOfferRevision } from "@/app/(app)/offers/actions";
+import { createOfferCostRevision } from "@/app/(app)/offers/cost-actions";
+import type { OfferCostForEditor } from "@/app/(app)/offers/cost-data";
+import { costMargin } from "@/lib/offers/cost/totals";
 import { ItemEditor } from "./item-editor";
 import { KalemEkleDialog } from "./kalem-ekle-dialog";
 import { RowEditor, type OptionBook } from "./row-editor";
@@ -105,6 +111,7 @@ export function OfferEditor({
   authors,
   templates,
   currency,
+  cost,
 }: {
   offerId: string;
   offerNo: string;
@@ -112,6 +119,13 @@ export function OfferEditor({
   revNo: number;
   readOnly: boolean;
   initial: OfferPayload;
+  /**
+   * Teklifin GÜNCEL maliyet çalışması — fiyat tablosundaki "Maliyet"
+   * sütununun ve kâr satırının kaynağı. Maliyet AYRI bir tabloda ve AYRI bir
+   * revizyon zincirinde yaşar (MALIYET-1): buraya yalnız OKUNARAK gelir,
+   * teklif payload'ına hiç girmez ve müşteriye giden PDF'te var olamaz.
+   */
+  cost: OfferCostForEditor | null;
   options: readonly OfferOptionRow[];
   /** Müşterinin iletişim kişileri — kapaktaki muhatap seçicisini besler. */
   contacts: readonly CustomerContact[];
@@ -224,6 +238,40 @@ export function OfferEditor({
             {payload.items.length} kalem · {payload.pricing.lines.length} fiyat satırı
             {gizliSayisi > 0 ? ` · ${gizliSayisi} gizli satır` : ""}
           </div>
+        </div>
+
+        {/* TEKLİF ↔ MALİYET GEÇİŞİ (kullanıcı isteği, 17.08.2026: *"teklifin
+            içine girildiğinde sayfa ikiye ayrılacak"*). Maliyet çalışması
+            yoksa düğme onu AÇAR — ayrı bir sayfaya gidip aramak gerekmez. */}
+        <div className="flex items-center gap-1 rounded-md border p-0.5">
+          <span className="oc-tap inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-medium">
+            <FileText className="size-3.5" /> Teklif
+          </span>
+          {cost ? (
+            <Button asChild variant="ghost" size="sm" className="oc-tap">
+              <Link href={`/offers/${offerId}/costs/${cost.costRevId}`}>
+                <Wallet className="size-3.5" /> Maliyet
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="oc-tap"
+              disabled={pending}
+              title="Bu teklif için maliyet çalışması açar; kalemler ve ölçüler buradan taşınır"
+              onClick={() =>
+                startTransition(async () => {
+                  const res = await createOfferCostRevision(offerId);
+                  if (res.error) toast.error(res.error);
+                  else if (res.id) window.location.href = `/offers/${offerId}/costs/${res.id}`;
+                })
+              }
+            >
+              <Wallet className="size-3.5" /> Maliyet Aç
+            </Button>
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -376,7 +424,7 @@ export function OfferEditor({
           ) : null}
 
           {aktif === "fiyat" ? (
-            <FiyatEditor payload={payload} listesi={listesi} onChange={guncelle} />
+            <FiyatEditor payload={payload} listesi={listesi} cost={cost} onChange={guncelle} />
           ) : null}
 
           {aktif === "notlar" ? (
@@ -934,14 +982,46 @@ function TicariEditor({
 function FiyatEditor({
   payload,
   listesi,
+  cost,
   onChange,
 }: {
   payload: OfferPayload;
   listesi: (key: string) => string[];
+  cost: OfferCostForEditor | null;
   onChange: (next: OfferPayload) => void;
 }) {
   const p = payload.pricing;
   const toplam = offerTotal(p.lines);
+
+  /**
+   * SATIRIN MALİYETİ — bağlı kalemin YÜKLÜ maliyeti.
+   *
+   * Yüklü = doğrudan maliyet + proje geneli ve oranlı grupların payı. Yalnız
+   * doğrudanı göstermek, sabit giderleri hiç taşımayan sahte bir kâr üretirdi.
+   * Serbest satırda (kalem bağı yok) maliyet YOKTUR ve sıfır da yazılmaz.
+   */
+  const satirMaliyeti = (line: OfferPriceLine): number | null =>
+    line.itemId && cost ? (cost.byItem[line.itemId] ?? null) : null;
+
+  /**
+   * AYNI KALEME BAĞLI BİRDEN ÇOK SATIR uyarılır, sessizce düzeltilmez.
+   *
+   * Sütun satır başına kalemin maliyetini gösterir; iki satır aynı kaleme
+   * bağlıysa aynı maliyet iki kez görünür. Uygulamanın bunu kendiliğinden
+   * bölmesi bir TAHMİN olurdu (hangi satır maliyetin ne kadarını taşıyor?);
+   * uyarmak kullanıcıya kararı bırakır. TOPLAM SATIRI bu sorundan etkilenmez:
+   * o, sütunu toplamaz, maliyet belgesinin kendi toplamını okur.
+   */
+  const cokluBaglar = useMemo(() => {
+    const sayac = new Map<string, number>();
+    for (const l of p.lines) {
+      if (!l.itemId || l.hidden) continue;
+      sayac.set(l.itemId, (sayac.get(l.itemId) ?? 0) + 1);
+    }
+    return new Set([...sayac.entries()].filter(([, n]) => n > 1).map(([id]) => id));
+  }, [p.lines]);
+
+  const kar = costMargin(effectiveTotal(p), cost?.total ?? null);
 
   function setLine(index: number, next: OfferPriceLine | null) {
     onChange({
@@ -994,6 +1074,11 @@ function FiyatEditor({
               <TableHead className="w-20">Adet</TableHead>
               <TableHead className="w-28">Birim</TableHead>
               <TableHead className="w-32">Birim Fiyat</TableHead>
+              {/* MALİYET SÜTUNU TUTARIN SOLUNDADIR (kullanıcı isteği): göz
+                  soldan sağa "neye mal oluyor → ne satıyoruz" okur. Sütun
+                  yalnız EKRANDA vardır; müşteriye giden PDF onu hiç görmez
+                  çünkü maliyet teklif payload'ında YOKTUR (MALIYET-1). */}
+              <TableHead className="w-32 text-right">Maliyet</TableHead>
               <TableHead className="w-32 text-right">Tutar</TableHead>
               <TableHead className="w-28" />
             </TableRow>
@@ -1058,6 +1143,22 @@ function FiyatEditor({
                     className="h-9 text-base pointer-fine:text-sm"
                   />
                 </TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {satirMaliyeti(line) === null ? (
+                    "—"
+                  ) : (
+                    <span
+                      title={
+                        cokluBaglar.has(line.itemId ?? "")
+                          ? "DİKKAT: bu kaleme birden çok fiyat satırı bağlı — maliyet her satırda tam görünür."
+                          : "Yüklü maliyet: doğrudan maliyet + proje geneli ve oranlı grupların payı"
+                      }
+                      className={cn(cokluBaglar.has(line.itemId ?? "") && "text-destructive underline")}
+                    >
+                      {fmtMoney(satirMaliyeti(line), p.currency)}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right font-mono">
                   {lineAmount(line) === null ? "—" : fmtMoney(lineAmount(line), p.currency)}
                 </TableCell>
@@ -1095,6 +1196,13 @@ function FiyatEditor({
               <TableCell colSpan={6} className="text-right font-medium">
                 TOPLAM
               </TableCell>
+              {/* TOPLAM MALİYET SÜTUNU TOPLAMAZ, maliyet belgesinin kendi
+                  toplamını okur: aynı kaleme bağlı iki satır varsa sütunun
+                  toplamı o kalemi iki kez sayardı. Tek doğru toplam belgenin
+                  kendisindedir. */}
+              <TableCell className="text-right font-mono font-semibold text-muted-foreground">
+                {cost?.total === null || cost === null ? "—" : fmtMoney(cost.total, p.currency)}
+              </TableCell>
               <TableCell className="text-right font-mono font-semibold">
                 {toplam === null ? "—" : fmtMoney(toplam, p.currency)}
               </TableCell>
@@ -1102,6 +1210,36 @@ function FiyatEditor({
             </TableRow>
           </TableBody>
         </Table>
+
+        {/* KÂR ŞERİDİ — teklifin en görünür sayısının yanında durur.
+            Rakam İSKONTOLU toplamdan hesaplanır (`effectiveTotal`): pazarlıkta
+            konuşulan tutar oysa, kâr da onun üstünden okunmalıdır. */}
+        {cost ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-dashed p-3 text-sm">
+            <span className="font-medium">Maliyet M{cost.costRevNo}</span>
+            <span className="text-muted-foreground">
+              Proje maliyeti {fmtMoney(cost.direct, p.currency)} · toplam{" "}
+              {fmtMoney(cost.total, p.currency)}
+            </span>
+            <span
+              className={cn(
+                "ml-auto font-mono font-semibold",
+                kar.profit !== null && kar.profit < 0 && "text-destructive"
+              )}
+            >
+              KÂR {kar.profit === null ? "—" : fmtMoney(kar.profit, p.currency)}
+              {kar.marginPercent === null
+                ? ""
+                : ` · %${kar.marginPercent.toFixed(1).replace(".", ",")}`}
+            </span>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+            Bu teklifin maliyet çalışması yok. Üstteki{" "}
+            <span className="font-medium">Maliyet Aç</span> düğmesiyle başlatabilirsiniz;
+            kalemler ve ölçüler buradan taşınır.
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <Button

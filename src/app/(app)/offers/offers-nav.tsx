@@ -5,9 +5,12 @@
 // RAY KAYMAZ, SARAR (MOBIL kuralı; gerekçenin tamamı `purchasing-nav`da):
 // sekmeler telefonda gerekirse ikinci satıra iner, gizli sekme kalmaz.
 //
-// RAY TEKLİFİN İÇİNDE GİZLENİR: editör ekranında (`/offers/…/revisions/…`)
-// çizilmez. Mühendislik editöründeki kuralın aynısı — kullanıcı günün büyük
-// kısmını orada geçirir ve kalıcı kabuk öğeleri o ekranda kısılır.
+// RAY TEKLİFİN İÇİNDE GİZLENİR: editör ekranlarında (`/offers/…/revisions/…`
+// ve `/offers/…/costs/…`) çizilmez. Mühendislik editöründeki kuralın aynısı —
+// kullanıcı günün büyük kısmını orada geçirir ve kalıcı kabuk öğeleri o
+// ekranda kısılır. Maliyet editörü de bir editördür ve aynı yükseklik
+// zincirini ister (TEKLIF-17): ray orada çizilseydi bölüm kabının çocuk
+// sayısı değişir ve zincir yine kopardı.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,7 +24,7 @@ const TABS = [
 
 export function OffersNav() {
   const pathname = usePathname() ?? "";
-  if (pathname.includes("/revisions/")) return null;
+  if (pathname.includes("/revisions/") || pathname.includes("/costs/")) return null;
 
   return (
     <nav className="flex flex-wrap items-center gap-x-3 border-b" aria-label="Teklif bölümleri">
