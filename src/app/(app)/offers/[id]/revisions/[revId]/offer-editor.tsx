@@ -174,7 +174,12 @@ export function OfferEditor({
     // üst şerit ve bölüm rayı SABİT kalır, yalnız bölüm gövdesi kayar — uzun
     // bir belgede kaydet düğmesinin ekrandan çıkmaması istenen davranıştır.
     // `lg` altında kap devreye girmez, sayfa normal biçimde kayar.
-    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+    //
+    // `lg:flex-1`, `lg:h-full` DEĞİL: kardeşi (`PageHeader`) portallandığı için
+    // kimi bağlamda hiç DOM düğümü bırakmaz, kimi bağlamda (dev önizleme)
+    // bırakır. `flex-1` ikisinde de kalan yüksekliği alır; `h-full` ikincisinde
+    // kabı taşırırdı.
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       {/* ————————————————————————————————————————————— üst şerit */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
         <div className="min-w-0">

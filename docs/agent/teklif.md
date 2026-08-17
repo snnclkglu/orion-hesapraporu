@@ -263,18 +263,34 @@ gelirse ikincisi birincisini geri almamalıdır. Ölçüldü (17.08.2026): art a
 iki madde işaretlendiğinde yalnız sonuncusu kalıyordu. Bir belge editöründe bu,
 kullanıcının girdiğini kaybetmesi demektir.
 
-## TEKLIF-17 — Editör KENDİ kaydırma kabını kurar.
+## TEKLIF-17 — Yükseklik zinciri KESİNTİSİZDİR; en zayıf halka BÖLÜM KABIDIR.
 
 Kabuk `/…/revisions/…` adreslerini SABİT ÇERÇEVE sayar (`isFrame`,
-app-shell.tsx) ve `lg` üstünde gövdeye `h-dvh overflow-hidden` verir. Sayfa
-kendi kabını kurmazsa taşan içerik KIRPILIR ve kaydırılamaz (kullanıcı
-bildirimi: *"teklifte scroll down çalışmıyor"*). Yükseklik zinciri KESİNTİSİZ
-olmalıdır: kabuk → sayfa kökü (`lg:h-full lg:grid-rows-[auto_minmax(0,1fr)]`)
-→ editör (`lg:h-full lg:min-h-0`) → bölüm gövdesi (`lg:overflow-y-auto`).
-Üst şerit ve bölüm rayı sabit kalır; yalnız gövde kayar.
+app-shell.tsx) ve `lg` üstünde `main`e `overflow-hidden` verir; editör kendi
+kaydırma kabını kurabilmek için kesintisiz bir yükseklik ister:
 
-Önizleme `/dev/offer-editor-preview` bu kabı BİREBİR taklit eder (600px'lik
-`overflow-hidden` kutu) — etmezse hata önizlemede hiç görünmez.
+    kabuk gövdesi → içerik sütunu → main → iç kap → #icerik
+      → **offers/layout.tsx**  → sayfa kökü → editör → bölüm gövdesi
+
+**HATA İKİ KEZ ARANDI ve ikisinde de zincirin BAŞKA bir halkasında sanıldı.**
+Gerçek kırılma `offers/layout.tsx`teydi: bölüm kabı düz `grid gap-4` idi, yani
+AUTO yükseklikti. Sayfa kökündeki `lg:h-full` yüzde-yüzünü `auto`dan alıp yine
+`auto` oluyor, editör 1044 px'e büyüyor ve 566 px'lik `main` onu KIRPIYORDU —
+kaydırılacak bir kap hiç oluşmuyordu.
+
+`/projects/[id]/revisions/[revId]` bu hatayı hiç yaşamadı çünkü **Mühendislik'in
+bölüm layout'u YOKTUR**; zincirde o halka hiç bulunmuyor.
+
+Kap `flex-col`dur, `grid` değil: `OffersNav` revizyon ekranında `null` döner ve
+`grid-rows` çocuk sayısına bağlıdır. Aynı sebeple sayfa kökü ve editör
+`lg:flex-1` kullanır, `lg:h-full` değil — `PageHeader` kabuğun şeridine
+PORTALLANIR ve sayfada HİÇ DOM düğümü bırakmaz, yani çocuk sayısı bağlama göre
+değişir.
+
+**ÖNİZLEME BENZERİNİ DEĞİL GERÇEĞİ KURAR** (`/dev/offer-editor-preview`):
+kabuğun ata zinciri, başlık portal yuvaları ve bölüm kabı orada birebir
+basılır. İlk iki düzeltme tam da bu yüzden önizlemede "çalıştı" ama gerçek
+sayfada çalışmadı — önizleme kırılan halkayı hiç içermiyordu.
 
 ## TEKLIF-18 — PDF ucu ÇERÇEVEYE AÇIK tek adrestir.
 

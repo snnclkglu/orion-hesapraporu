@@ -39,7 +39,14 @@ export default async function OfferRevisionPage({
     // sayfa kendi kabını kurmazsa taşan içerik KIRPILIR ve kaydırılamaz
     // (kullanıcı bildirimi, 17.08.2026: *"teklifte scroll down çalışmıyor"*).
     // Yükseklik zinciri kesintisiz olmalıdır: kabuk → bu kök → editör.
-    <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)]">
+    //
+    // KAP `flex`TİR, `grid-rows` DEĞİL — ve bu fark bir hataya mal oldu.
+    // `PageHeader` başlığı kabuğun üst şeridine PORTALLAR, yani burada HİÇ DOM
+    // düğümü bırakmaz. `grid-rows-[auto_minmax(0,1fr)]` iki çocuk sayıyordu;
+    // gerçekte tek çocuk vardı ve editör `auto` satıra düşüp yükseklik sınırını
+    // hiç almıyordu (ilk düzeltme bu yüzden yalnız önizlemede çalıştı — orada
+    // `PageHeader` yoktu). `flex-1` çocuk sayısından BAĞIMSIZDIR.
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       <PageHeader
         kicker="Teklif"
         title={kayit.offer.subject || kayit.offer.offer_no}

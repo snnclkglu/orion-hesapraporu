@@ -1,17 +1,25 @@
 // Sadece development: TEKLİF EDİTÖRÜNÜ auth olmadan görsel test etmek için.
 // Production'da 404 döner.
 //
-// EDİTÖR SABİT YÜKSEKLİKLİ BİR KUTUYA SARILIR ve bu bilinçlidir: gerçek
-// uygulamada kabuk `/…/revisions/…` adreslerini SABİT ÇERÇEVE sayar
-// (`isFrame`, app-shell.tsx) ve `lg` üstünde gövdeye `h-dvh overflow-hidden`
-// verir. Önizleme o kabı taklit etmezse "scroll çalışmıyor" hatası burada HİÇ
-// görünmez — kullanıcı bildirimi (17.08.2026) tam olarak o koşuldan çıkmıştı.
+// ÖNİZLEME GERÇEK DOM'U TAKLİT EDER, benzerini değil. İki koşul birlikte
+// kurulmadan kaydırma hatası burada GÖRÜNMEZ:
+//
+//   1. SABİT ÇERÇEVE — kabuk `/…/revisions/…` adreslerinde `lg` üstünde gövdeye
+//      `h-dvh overflow-hidden` verir (`isFrame`, app-shell.tsx). Kutu onu
+//      taklit eder.
+//   2. BAŞLIK YUVASI — `PageHeader` başlığı kabuğun üst şeridine PORTALLAR ve
+//      sayfada HİÇ DOM düğümü bırakmaz. Yuva basılmazsa başlık yerinde çizilir
+//      ve sayfa iki çocuklu olur; ilk kaydırma düzeltmesi tam bu yüzden yalnız
+//      önizlemede çalıştı, gerçek sayfada çalışmadı (kullanıcı bildirimi,
+//      17.08.2026). Yuvalar aşağıda gerçekten basılır.
 //
 // Kaydetme ve yayımlama sunucu eylemleri sahte kimliklerle çağrılır ve hata
 // döner; amaç yalnız YERLEŞİM ve ALAN TİPLERİNİN gözle doğrulanmasıdır.
-
+//
 import { notFound } from "next/navigation";
 import { OfferEditor } from "@/app/(app)/offers/[id]/revisions/[revId]/offer-editor";
+import { PageHeader } from "@/components/page-header";
+import { APP_ACTIONS_SLOT_ID, APP_HEADER_SLOT_ID } from "@/lib/app";
 import type { OfferOptionRow } from "@/app/(app)/offers/data";
 import type { CustomerContact } from "@/lib/customer-contacts";
 import { applyDefaults, emptyItem, emptyPayload } from "@/lib/offers/payload";
@@ -155,26 +163,59 @@ export default function OfferEditorPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
   return (
-    <main className="grid gap-3 p-4">
-      <h1 className="font-mono text-sm text-muted-foreground">
-        Teklif editörü — sabit çerçeve taklidi (600px kutu, taşan içerik KENDİ kabında kaymalı)
-      </h1>
-      {/* Kabuğun `lg:h-dvh lg:overflow-hidden` kabının birebir taklidi. */}
-      <div id="cerceve" className="h-[600px] overflow-hidden rounded-lg border p-3">
-        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)]">
-          <OfferEditor
-            offerId="00000000-0000-0000-0000-000000000000"
-            offerNo="TETR-20260817-1"
-            revisionId="00000000-0000-0000-0000-000000000000"
-            revNo={0}
-            readOnly={false}
-            initial={fikstur()}
-            options={OPTIONS}
-            contacts={KISILER}
-            currency="EUR"
-          />
+    <div className="grid gap-2 p-2">
+      <p className="font-mono text-xs text-muted-foreground">
+        Teklif editörü — KABUĞUN GERÇEK ATA ZİNCİRİ (app-shell.tsx satır 433–617)
+        birebir kurulur; yalnız sol menü çizilmez.
+      </p>
+
+      {/* ——— app-shell: gövde (433) — `isFrame` dalı */}
+      <div id="kabuk-govde" className="flex h-[640px] overflow-hidden rounded-lg border">
+        {/* ——— app-shell: içerik sütunu (507) */}
+        <div id="kabuk-icerik" className="flex min-w-0 flex-1 flex-col lg:min-h-0">
+          {/* ——— app-shell: üst şerit (525) — yuvalar burada */}
+          <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-background lg:h-12 lg:flex-row lg:items-center lg:gap-2 lg:px-6">
+            <div className="flex h-12 shrink-0 items-center gap-1 px-3 sm:gap-2 sm:px-4 lg:h-auto lg:min-w-[10rem] lg:flex-1 lg:px-0">
+              <div id={APP_HEADER_SLOT_ID} className="flex min-w-0 flex-1 items-center gap-x-3" />
+            </div>
+            <div id={APP_ACTIONS_SLOT_ID} className="flex items-center gap-2" />
+          </header>
+
+          {/* ——— app-shell: main (599) — `isFrame` dalı */}
+          <main
+            id="kabuk-main"
+            className="min-w-0 flex-1 px-3 py-3 sm:px-4 lg:min-h-0 lg:overflow-hidden lg:px-6"
+          >
+            {/* ——— app-shell: iç kap (610) */}
+            <div id="kabuk-ickap" className="mx-auto w-full max-w-none lg:h-full">
+              {/* ——— (app)/layout.tsx: #icerik */}
+              <div id="icerik" className="h-full outline-none">
+                {/* ——— offers/layout.tsx — ZİNCİRİN EN KOLAY UNUTULAN HALKASI.
+                       Bir süre düz `grid gap-4` idi ve yüksekliği geçirmiyordu;
+                       hata iki kez tam burada saklandı. */}
+                <div id="bolum-kabi" className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+                  {/* OffersNav revizyon ekranında `null` döner — burada da yok. */}
+                  {/* ——— GERÇEK SAYFA KÖKÜ (page.tsx ile AYNI sınıflar) */}
+                  <div id="sayfa-koku" className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+                  <PageHeader kicker="Teklif" title="32T VİNÇ" hint="ASTOR A.Ş." />
+                  <OfferEditor
+                    offerId="00000000-0000-0000-0000-000000000000"
+                    offerNo="TETR-20260817-1"
+                    revisionId="00000000-0000-0000-0000-000000000000"
+                    revNo={0}
+                    readOnly={false}
+                    initial={fikstur()}
+                    options={OPTIONS}
+                    contacts={KISILER}
+                    currency="EUR"
+                  />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
