@@ -16,10 +16,66 @@
 // sırayı okur, kendi sırasını kurmaz.
 
 import type { OfferPayload } from "../types";
-import type { CostGroupDef, CostLineDef, CostRateGroup } from "./types";
+import type {
+  CostGroupDef,
+  CostLineDef,
+  CostMaterialPriceDef,
+  CostRateGroup,
+} from "./types";
 
-/** Fiyat satırının birimi — yalnız gösterim, hesaba girmez. */
+/**
+ * Fiyat satırının birimi — yalnız gösterim, hesaba girmez.
+ *
+ * LİSTEDİR ÇÜNKÜ EKRANDA BİR SEÇİCİDİR (kullanıcı isteği 18.08.2026, md. 11).
+ * Serbest metin kutusu "adet", "Adet" ve "ad." üretiyordu; üçü de aynı şeydi
+ * ama hiçbiri ötekiyle eşleşmiyordu. LİSTE KAPALI DEĞİLDİR: belgede yazılı
+ * olup listede olmayan bir birim ekranda seçeneklere EKLENİR — eski bir
+ * belgenin birimi, listeyi daralttık diye kaybolmamalıdır.
+ */
 export const COST_UNITS = ["kg", "adet", "takım", "ton", "m", "saat"] as const;
+
+/**
+ * HAMMADDE BİRİM FİYATLARI — Proje Maliyeti'nin en üstündeki şerit.
+ *
+ * Kullanıcı listesi ve sırası (18.08.2026): *"Sac Profil Ray Kesim Boya İş.
+ * Boya Çelik İmalat İşçiliği fiyatlarını en üste yanyana sırala ben buraya
+ * gireyim."* Sıra ekranın sırasıdır.
+ *
+ * SEKİZ FİYATIN DA ÖN TANIMI KULLANICININ KENDİ LİSTESİDİR (18.08.2026):
+ * *"Sac : 0,7 Euro, Profil : 0,65 Euro, Kare Ray : 0,9 Euro, A Tipi Raylar :
+ * 1,2 Euro, Kesim : 0,05 Euro, Çelik İmalat : 0,9 Euro, Boya : 0,08, Boya
+ * İşçiliği 0,07 olarak gelsin."*
+ *
+ * BU BİR "ORTALAMA FİYAT TABLOSU" DEĞİLDİR (MALIYET-4 çiğnenmiyor). O kural
+ * FİYAT ARAMALI TABLOLARA karşıdır: kapasiteye bakıp motorun kaç € olduğunu
+ * söyleyen bir tablo, teklifi verirken doğru görünüp iş alındığında tutmayan
+ * bir sayı üretir. Buradaki sekiz sayı ise aranmaz, GÖRÜNÜR: şeritte, kutunun
+ * içinde, düzeltilmeyi bekleyerek durur. Kullanıcının kendi verdiği açılış
+ * değerleridir ve belgeye kopyalandığı an o belgenin malı olurlar (MALIYET-6).
+ *
+ * RAY İKİYE AYRIDIR çünkü FİYATLARI İKİ KATI KADAR AYRIDIR (0,90 ↔ 1,20).
+ * Tek bir "Ray" satırı, kare ray kullanan bir vinçte %33 fazla, A tipi ray
+ * kullanan bir vinçte %25 eksik maliyet çıkarırdı — ve hangisi olduğu
+ * ekrandan okunamazdı.
+ */
+export const MATERIAL_PRICE_DEFS: readonly CostMaterialPriceDef[] = [
+  { key: "sac", label: "Sac", unit: "kg", value: 0.7, hint: "Hammadde — Sac satırını besler" },
+  { key: "profil", label: "Profil", unit: "kg", value: 0.65 },
+  { key: "rayKare", label: "Kare Ray", unit: "kg", value: 0.9 },
+  { key: "rayA", label: "A Tipi Ray", unit: "kg", value: 1.2 },
+  { key: "kesim", label: "Kesim", unit: "kg", value: 0.05, hint: "Lazer / CNC kesim" },
+  { key: "celikIsciligi", label: "Çelik İmalat İşçiliği", unit: "kg", value: 0.9 },
+  { key: "boya", label: "Boya", unit: "kg", value: 0.08, hint: "Boya malzemesi" },
+  { key: "boyaIsciligi", label: "Boya İşçiliği", unit: "kg", value: 0.07 },
+];
+
+export const MATERIAL_PRICE_DEFAULTS: Readonly<Record<string, number | null>> = Object.freeze(
+  Object.fromEntries(MATERIAL_PRICE_DEFS.map((d) => [d.key, d.value]))
+);
+
+export function materialPriceDef(key: string | undefined): CostMaterialPriceDef | undefined {
+  return key ? MATERIAL_PRICE_DEFS.find((d) => d.key === key) : undefined;
+}
 
 /**
  * Bir maliyet satırının teklifteki KARŞILIĞI.
@@ -41,11 +97,36 @@ interface Satir extends CostLineDef {
 
 // ————————————————————————————————————————————————————— çelik yapı
 
+/**
+ * MODEL ÇELİĞİ TEK KALEMDE TARTAR.
+ *
+ * `w.steel` sacı, profili ve kiriş üstündeki rayı AYIRMAZ — ray ve diyafram
+ * payı kiriş metre ağırlığına `girderExtraRatio` ile girer. Bu yüzden Profil
+ * ve Ray satırlarının miktarı MODELDEN GELMEZ, elle yazılır: bir model
+ * anahtarı uydurup çeliği ikiye bölmek, aynı kiloyu iki satırda birden
+ * fiyatlamanın sessiz yoluydu. Miktar boş kaldığı sürece satır toplama da
+ * girmez (MALIYET-13).
+ */
+const AYRI_TARTILMAZ = "Miktar modelden gelmez — model çeliği tek kalemde tartar; yazarsanız sac satırından düşün";
+
 const CELIK: Satir[] = [
-  { key: "rawMaterial", label: "Hammadde (sac / profil)", unit: "kg", qtySource: "w.steel", hint: "Vinç çelik ağırlığı × €/kg", offerRef: { group: "steel", row: "girderMaterial" } },
-  { key: "fabrication", label: "Çelik İmalat İşçiliği (fire dahil)", unit: "kg", qtySource: "w.steelWithFire", hint: "Fire oranı miktara yansır; katsayı Ağırlıklar sayfasındadır" },
-  { key: "laserCut", label: "Lazer / CNC Kesim", unit: "kg", qtySource: "w.steel" },
-  { key: "paint", label: "Boya (malzeme + işçilik)", unit: "kg", qtySource: "w.total", hint: "TOPLAM vinç ağırlığı — boya mekanizmanın da üstüne atılır", offerRef: { group: "steel", row: "paint" } },
+  { key: "rawMaterial", label: "Hammadde — Sac", unit: "kg", qtySource: "w.steel", priceSource: "sac", hint: "Vinç çelik ağırlığı × sac fiyatı", offerRef: { group: "steel", row: "girderMaterial" } },
+  { key: "profile", label: "Hammadde — Profil", unit: "kg", priceSource: "profil", hint: AYRI_TARTILMAZ },
+  // RAY İKİ SATIRDIR çünkü İKİ FİYATTIR (kullanıcı listesi 18.08.2026: kare
+  // 0,90 · A tipi 1,20 €/kg). Bir vinçte ikisinden yalnız biri kullanılır ve
+  // ötekinin miktarı BOŞ kalır — boş miktarlı satır toplama girmez
+  // (MALIYET-13), o yüzden iki satırın birden durması bir şey bozmaz.
+  // `rail` ANAHTARI KORUNDU: alan yokken kaydedilmiş belgelerdeki ray satırı
+  // yetim kalmamalıdır (boya satırının `paint` anahtarıyla aynı gerekçe).
+  { key: "rail", label: "Ray — Kare", unit: "kg", priceSource: "rayKare", hint: AYRI_TARTILMAZ },
+  { key: "railA", label: "Ray — A Tipi", unit: "kg", priceSource: "rayA", hint: AYRI_TARTILMAZ },
+  { key: "fabrication", label: "Çelik İmalat İşçiliği (fire dahil)", unit: "kg", qtySource: "w.steelWithFire", priceSource: "celikIsciligi", hint: "Fire oranı miktara yansır; katsayı Katsayılar bölümündedir" },
+  { key: "laserCut", label: "Lazer / CNC Kesim", unit: "kg", qtySource: "w.steel", priceSource: "kesim" },
+  // BOYA İKİYE AYRILDI (kullanıcı listesi 18.08.2026: "Boya İş." ve "Boya"
+  // ayrı fiyatlardır). Anahtar `paint` KORUNDU — eski belgelerdeki girilmiş
+  // boya fiyatı bir anahtar değişikliği yüzünden yetim kalmamalıdır.
+  { key: "paint", label: "Boya Malzemesi", unit: "kg", qtySource: "w.total", priceSource: "boya", hint: "TOPLAM vinç ağırlığı — boya mekanizmanın da üstüne atılır", offerRef: { group: "steel", row: "paint" } },
+  { key: "paintLabour", label: "Boya İşçiliği", unit: "kg", qtySource: "w.total", priceSource: "boyaIsciligi" },
 ];
 
 // —————————————————————————————————————————————————— kaldırma grubu

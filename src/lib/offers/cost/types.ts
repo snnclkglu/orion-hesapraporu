@@ -122,8 +122,24 @@ export interface CostLine {
   qtyManual?: boolean;
   /** "kg" · "adet" · "kW" · "takım" · "m" — yalnız gösterim. */
   unit: string;
-  /** Birim fiyat [para birimi / birim] — ELLE. */
+  /** Birim fiyat [para birimi / birim] — şeritten ya da ELLE. */
   unitPrice: number | null;
+  /**
+   * Birim fiyatın HAMMADDE ŞERİDİNDEKİ kaynağı (`sac`, `boya`, `kesim`…).
+   *
+   * MİKTARIN `qtySource`UNUN İKİZİDİR ve aynı kuralı taşır: İKİ KAYNAK ASLA
+   * TOPLANMAZ. Kaynak doluysa fiyat şeritten okunur ve kutu salt okunur
+   * çizilir; `priceManual` açıksa bu satırda insan yazar ve şerit ona
+   * dokunmaz. Kullanıcı isteği (18.08.2026): *"hammadde birim fiyatlarını en
+   * üste sırala, buradan alt bölümler değişsin."*
+   *
+   * ESKİ BELGELERDE BOŞTUR ve bu bilinçlidir: alan yokken kaydedilmiş bir
+   * satırın fiyatı elle girilmiştir, şeridin onu ele geçirmesi girilmiş bir
+   * sayıyı sessizce değiştirmek olurdu.
+   */
+  priceSource?: string;
+  /** Şerit fiyatını bu satırda elle EZ. */
+  priceManual?: boolean;
   /** Serbest not (tedarikçi, marka, gerekçe). */
   note?: string;
   /** Satır toplamdan DÜŞER; verisi korunur (gizlemek silmek değildir). */
@@ -137,6 +153,49 @@ export interface CostGroup {
   key: string;
   title: string;
   lines: CostLine[];
+  /**
+   * GÖTÜRÜ KİP — grup tek bir fiyat satırına iner.
+   *
+   * Kullanıcı isteği (18.08.2026): *"Elektrik Otomasyon fiyatında istersem tek
+   * fiyat girebileyim. Bir tuş olsun."* Tedarikçi kimi zaman panoyu, sürücüyü
+   * ve işçiliği TEK KALEMDE fiyatlar; o teklifi on üç satıra bölmek uydurma
+   * bir dağılım üretirdi (değişmez md. 4).
+   *
+   * KİP SATIRLARI SİLMEZ, GİZLER: götürüye geçen grubun kalem satırları
+   * `hidden` olur ve verisi durur. Geri dönüldüğünde girilmiş bütün fiyatlar
+   * yerindedir — her biri bir tedarikçi görüşmesidir.
+   */
+  lump?: boolean;
+}
+
+/**
+ * GÖTÜRÜ SATIRIN ANAHTAR ÖNEKİ.
+ *
+ * Anahtar grup anahtarından türer (`gotur-electrical`) ve SABİTTİR: götürüye
+ * geçip geri dönen bir grup aynı satırı bulmalıdır, yoksa girilen götürü
+ * fiyat her turda kaybolurdu.
+ */
+export const LUMP_LINE_PREFIX = "gotur-";
+
+export function lumpLineKey(groupKey: string): string {
+  return `${LUMP_LINE_PREFIX}${groupKey}`;
+}
+
+export function isLumpLine(line: CostLine): boolean {
+  return line.key.startsWith(LUMP_LINE_PREFIX);
+}
+
+/**
+ * GRUBUN SAYILAN SATIRLARI — kipe göre.
+ *
+ * Götürü kipte YALNIZ götürü satır, kalem kipinde yalnız kalem satırları
+ * okunur. İKİ KAYNAK ASLA TOPLANMAZ (oranlı grubun kipiyle aynı kural,
+ * MALIYET-5): ikisini birden saymak, elektriği hem kalem kalem hem de götürü
+ * olarak faturalamak demekti. Toplam, ekran ve belge bu tek fonksiyondan
+ * geçer ki üçü aynı satırları görsün.
+ */
+export function costGroupLines(group: CostGroup): CostLine[] {
+  return group.lump ? group.lines.filter(isLumpLine) : group.lines.filter((l) => !isLumpLine(l));
 }
 
 // ————————————————————————————————————————————————————— oranlı grup
@@ -220,6 +279,23 @@ export interface CostPayload {
    * gösterirdi.
    */
   params: Record<string, number>;
+  /**
+   * HAMMADDE BİRİM FİYATLARI — belgeye AİTTİR, koda değil (`params`in kardeşi).
+   *
+   * Kullanıcı isteği (18.08.2026): *"Proje maliyetlerinin en üstünde hammadde
+   * birim fiyatlarını girebileceğim yer olsun … buradan alt bölümler
+   * değişsin."* Sac fiyatı bir maliyet çalışmasında bir kez yazılır ve
+   * hammadde, kesim, boya, imalat işçiliği satırlarının hepsini birden
+   * besler; her satıra ayrı ayrı yazmak aynı sayıyı beş kez girmek olurdu.
+   *
+   * BELGEDE YAŞAR, GLOBAL BİR DEFTERDE DEĞİL — `params`in gerekçesiyle aynı
+   * (MALIYET-6): sac bugün 0,80 €'ya çıktı diye geçen ayın maliyet çalışması
+   * başka bir rakam göstermemelidir.
+   *
+   * GİRİLMEMİŞ FİYAT `null`DIR, sıfır değil: bağlı satır "—" gösterir ve
+   * toplama girmez (değişmez md. 4).
+   */
+  materialPrices: Record<string, number | null>;
   items: CostItem[];
   /**
    * PROJE GENELİ giderler — tek bir vince atfedilemeyen kalemler
@@ -255,7 +331,24 @@ export interface CostLineDef {
   unit: string;
   /** Miktarı besleyen model anahtarı (`w.*` ağırlık, `c.*` hesap). */
   qtySource?: string;
-  /** Alanın altındaki kısa açıklama. */
+  /** Birim fiyatı besleyen hammadde şeridi anahtarı (`sac`, `boya`…). */
+  priceSource?: string;
+  /** Alanın yanındaki kısa açıklama. */
+  hint?: string;
+}
+
+/** Hammadde şeridindeki bir birim fiyatın tanımı. */
+export interface CostMaterialPriceDef {
+  key: string;
+  label: string;
+  /** Birim ("€/kg" değil "kg" — para birimi belgeden gelir). */
+  unit: string;
+  /**
+   * ÖN TANIMLI FİYAT — yalnız gerçekten bilinen bir sayı için doldurulur.
+   * Bilinmeyen fiyat `null` kalır; ortalama ya da temsilî bir sayı yazmak
+   * maliyeti "girildi" göstermenin en kısa yoluydu (değişmez md. 4).
+   */
+  value: number | null;
   hint?: string;
 }
 

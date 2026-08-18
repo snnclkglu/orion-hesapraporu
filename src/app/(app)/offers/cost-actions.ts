@@ -14,8 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getReportSettings } from "@/lib/settings";
 import { isAdminRole } from "@/lib/roles";
 import { withDefaults } from "@/lib/offers/payload";
-import { costModels, costWeights, emptyCostPayload, withCostDefaults, withDefaultRates, withModelQuantities, withOfferSync } from "@/lib/offers/cost/payload";
-import { withCostTotals } from "@/lib/offers/cost/totals";
+import { emptyCostPayload, withCostDefaults, withCostDerived, withDefaultRates, withOfferSync } from "@/lib/offers/cost/payload";
 import { renderOfferCostPdf } from "@/lib/pdf/offer-cost";
 import { offerCostFileName } from "@/lib/pdf/doc-naming";
 import { saveCostSchema, type SaveCostInput } from "./cost-schema";
@@ -96,7 +95,7 @@ export async function createOfferCostRevision(
 
   const teklif = withDefaults(kaynak.revision?.payload, currency);
   const { payload } = withOfferSync(temel, teklif, kaynak.revision?.rev_no ?? null);
-  const hazir = withCostTotals(withModelQuantities(payload), costWeights(costModels(payload)));
+  const hazir = withCostDerived(payload);
 
   const revNo = (son?.rev_no ?? -1) + 1;
   const { data, error } = await supabase
@@ -121,8 +120,9 @@ export async function createOfferCostRevision(
 /**
  * Maliyet revizyonunu kaydeder.
  *
- * MİKTARLAR VE TOPLAMLAR BURADA YAZILIR: model miktarları satırlara işlenir
- * (`withModelQuantities`), sonra toplam türetilir (`withCostTotals`).
+ * MİKTAR, FİYAT VE TOPLAMLAR BURADA YAZILIR (`withCostDerived`): model
+ * miktarları ve hammadde şeridinin fiyatları satırlara işlenir, sonra toplam
+ * türetilir.
  * Veritabanındaki `direct_amount` ve `total_amount` üretilmiş sütunları
  * payload'ı okur; ekranda hesaplanıp yazılmasaydı liste ve panel maliyeti
  * görmek için modeli yeniden koşturmak zorunda kalırdı.
@@ -141,9 +141,7 @@ export async function saveOfferCostRevision(
   const parsed = saveCostSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const temiz = withCostDefaults(parsed.data.payload);
-  const models = costModels(temiz);
-  const payload = withCostTotals(withModelQuantities(temiz), costWeights(models));
+  const payload = withCostDerived(withCostDefaults(parsed.data.payload));
 
   const { data: yazilan, error } = await supabase
     .from("offer_cost_revisions")
@@ -201,10 +199,7 @@ export async function syncOfferCostFromOffer(
   const currency = (kaynak.offer.currency as string) ?? "EUR";
   const teklif = withDefaults(kaynak.revision?.payload, currency);
   const sonuc = withOfferSync(withCostDefaults(mevcut.payload, currency), teklif, kaynak.revision?.rev_no ?? null);
-  const payload = withCostTotals(
-    withModelQuantities(sonuc.payload),
-    costWeights(costModels(sonuc.payload))
-  );
+  const payload = withCostDerived(sonuc.payload);
 
   const { error } = await supabase
     .from("offer_cost_revisions")

@@ -173,6 +173,32 @@ export const DRIVE_KW: readonly number[] = [
 ];
 
 /**
+ * HALAT DONANIMI (reeving) seçenekleri — kullanıcı listesi (18.08.2026).
+ *
+ * Model kapasiteye göre 2 · 4 · 8 önerir; makara sayısını artırarak tamburu
+ * ve motoru küçültmek MÜHENDİSİN KARARIDIR ve teklif aşamasında sıkça
+ * verilir. Bu yüzden alan bir dropdown'dır: öneri otomatik gelir, seçim
+ * insanındır ve seçildiği anda halat yükü, tambur momenti, tahvil oranı ve
+ * motor gücü onunla birlikte değişir (ezilen değer aşağıya akar, MALIYET-7).
+ *
+ * SERBEST SAYI DEĞİL, LİSTEDİR: 3 ya da 5 katlı bir donanım yoktur — halat
+ * çift taraflı sarılır, kat sayısı çifttir.
+ */
+export const ROPE_REEVING_CHOICES: readonly number[] = [2, 4, 8, 12, 16, 20];
+
+/** Katalogdaki tambur çapları — elle seçim listesi (ara boy yoktur). */
+export const DRUM_DIA_CHOICES: readonly number[] = DRUM_TABLE.map((r) => r.diaMm);
+
+/**
+ * Katalogdaki teker çapları.
+ *
+ * LİSTE OLMASI ZORUNLUDUR: teker grubu ağırlığı (`w.*TravelGroup`) çapı
+ * `WHEEL_TABLE`de ARAYARAK bulur; listede olmayan bir çap yazılırsa grup
+ * ağırlığı `null` düşer ve toplam ağırlık sessizce eksilirdi.
+ */
+export const WHEEL_DIA_CHOICES: readonly number[] = WHEEL_TABLE.map((w) => w.diaMm);
+
+/**
  * ANA KİRİŞ KUTU KESİT LİSTESİ — sac ölçüleri; atalet ve birim ağırlık
  * BURADAN HESAPLANIR, tabloya yazılmaz (`sectionProps`). Ölçü değişirse iki
  * sayının elle güncellenmesi gerekmesin diye.

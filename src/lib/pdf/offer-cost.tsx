@@ -20,9 +20,15 @@ import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/ren
 import { BRAND, BrandBand, BrandPage, FONTS, T, mm, trUpper } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
 import { COST_PARAM_DEFS } from "@/lib/offers/cost/params";
-import { CALC_SECTIONS, WEIGHT_SECTIONS, fmtCostField, qtySourceLabel } from "@/lib/offers/cost/labels";
+import {
+  CALC_SECTIONS,
+  WEIGHT_SECTIONS,
+  costFieldText,
+  fmtCostField,
+  qtySourceLabel,
+} from "@/lib/offers/cost/labels";
 import { costModels, costWeights, printedCostPayload } from "@/lib/offers/cost/payload";
-import { offerRefValue } from "@/lib/offers/cost/registry";
+import { MATERIAL_PRICE_DEFS, offerRefValue } from "@/lib/offers/cost/registry";
 import {
   costBreakdown,
   costGroupTotal,
@@ -163,7 +169,14 @@ function MaliyetGrubu({
   const toplam = costGroupTotal(group);
   return (
     <View wrap={false}>
-      <AltBaslik>{trUpper(group.title)}</AltBaslik>
+      {/* GÖTÜRÜ KİP BELGEDE YAZAR (kullanıcı isteği 18.08.2026, md. 10).
+          `printedCostPayload` götürü kipte kalem satırlarını süzer; işaret
+          olmasaydı okuyan on üç satırlık bir grubun neden tek satır bastığını
+          anlayamaz, "eksik basılmış" sanardı. */}
+      <AltBaslik>
+        {trUpper(group.title)}
+        {group.lump ? "  ·  GÖTÜRÜ (TEK FİYAT)" : ""}
+      </AltBaslik>
       <MaliyetBaslik />
       {group.lines.map((l) => {
         const teklifte = refOf(group.key, l.key);
@@ -372,7 +385,7 @@ export function OfferCostDocument({
                       key={f.key}
                       etiket={f.label}
                       kalin={f.sum}
-                      deger={`${fmtCostField(v(f.key), f.decimals)} ${f.unit}`.trim()}
+                      deger={`${costFieldText(f, v(f.key))} ${f.unit}`.trim()}
                       ipucu={item.overrides[f.key] === undefined ? undefined : "elle girildi"}
                     />
                   ))}
@@ -390,19 +403,39 @@ export function OfferCostDocument({
                       key={f.key}
                       etiket={f.label}
                       kalin={f.sum}
-                      deger={`${fmtCostField(v(f.key), f.decimals)} ${f.unit}`.trim()}
+                      // ⌀ ÖNEKİ BELGEDE DE BASILIR (kullanıcı isteği md. 4).
+                      // Ekran `costFieldText`i çağırıyordu, PDF ham
+                      // `fmtCostField`i — aynı sayı iki belgede iki türlü
+                      // görünüyordu.
+                      deger={`${costFieldText(f, v(f.key))} ${f.unit}`.trim()}
                       ipucu={item.overrides[f.key] === undefined ? undefined : "elle girildi"}
                     />
                   ))}
               </View>
             ))}
-            {model?.sectionName ? (
-              <Deger
-                etiket="Seçilen Kiriş Kesiti"
-                deger={model.sectionName}
-                kalin
-                ipucu={model.deflectionOk === false ? "SEHİM ŞARTI SAĞLANMIYOR" : undefined}
-              />
+            {/* KESİT ÖLÇÜLERİ BELGEDE DE DURUR (kullanıcı isteği md. 6).
+                Ekranda pop-up'ta açılan ölçüler burada satır satır basılır:
+                iç belgeyi altı ay sonra açan mühendis "bu 27.850 kg hangi
+                kesitten çıktı" sorusunu ekrana dönmeden cevaplayabilmelidir.
+                Ad tek başına ("750x1900x750 t10") ataleti ve kg/m'yi
+                söylemiyordu. */}
+            {model?.section ? (
+              <>
+                <Deger
+                  etiket="Seçilen Kiriş Kesiti"
+                  deger={model.section.name}
+                  kalin
+                  ipucu={model.deflectionOk === false ? "SEHİM ŞARTI SAĞLANMIYOR" : undefined}
+                />
+                <Deger
+                  etiket="Kesit Ölçüleri (üst × perde × alt, et)"
+                  deger={`${fmtNum(model.section.topMm)} × ${fmtNum(model.section.webMm)} × ${fmtNum(model.section.botMm)} · t ${fmtNum(model.section.tMm)} mm`}
+                />
+                <Deger etiket="Kesit Alanı" deger={`${fmtCostField(model.section.areaCm2, 1)} cm²`} />
+                <Deger etiket="Kesit Ataleti" deger={`${fmtCostField(model.section.inertiaCm4, 0)} cm⁴`} />
+                <Deger etiket="Sac Metre Ağırlığı" deger={`${fmtCostField(model.section.kgPerM, 1)} kg/m`} />
+                {model.camber ? <Deger etiket="Kamber" deger="Verilecek" /> : null}
+              </>
             ) : null}
 
             <Baslik>MALİYET KALEMLERİ</Baslik>
@@ -451,6 +484,24 @@ export function OfferCostDocument({
             </View>
           );
         })}
+
+        {/* HAMMADDE BİRİM FİYATLARI BELGEYE GİRER (kullanıcı isteği md. 12).
+            Sekiz sayı maliyetin TABANIDIR: sac, kesim, boya ve imalat
+            işçiliği satırlarının hepsi buradan besleniyor. Belgede
+            görünmeseler "bu 194.258 € hangi sac fiyatıyla çıktı" sorusu
+            cevapsız kalırdı — ve o soru tam olarak altı ay sonra sorulur. */}
+        <Baslik>HAMMADDE BİRİM FİYATLARI</Baslik>
+        <Text style={S.not}>
+          Bu fiyatlar BU maliyet çalışmasına aittir; sonradan değişen bir tedarikçi
+          fiyatı bu belgeyi etkilemez.
+        </Text>
+        {MATERIAL_PRICE_DEFS.map((d) => (
+          <Deger
+            key={d.key}
+            etiket={`${d.label} [${cur} / ${d.unit}]`}
+            deger={fmtCostField(payload.materialPrices?.[d.key] ?? null, 2)}
+          />
+        ))}
 
         <Baslik>MODEL KATSAYILARI</Baslik>
         <Text style={S.not}>

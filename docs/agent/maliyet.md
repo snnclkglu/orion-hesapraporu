@@ -274,3 +274,218 @@ Eklenmeseydi TEKLIF-17'de İKİ KEZ yaşanan hata birebir tekrarlanırdı: edit�
 1000 px'e büyür, `main` onu kırpar ve kaydırılacak bir kap hiç oluşmazdı.
 Sayfa kökü `lg:flex-1` kullanır, `lg:h-full` DEĞİL — `PageHeader` kabuğun
 şeridine portallanır ve çocuk sayısı bağlama göre değişir.
+
+## MALIYET-16 — Teklifteki HIZ BİR ARALIKTIR; `trSayi` onu okuyamaz.
+
+Teklif defteri hız satırını aralıkla tarif eder ("1-6", "20 - 30") ve
+`lib/drawings`in `trSayi`si bir aralığı `null` sayar. Ölçüldü:
+
+    trSayi("1-6")     → null
+    trSayi("20 - 30") → null
+    trSayi("4/1")     → 41        ← bölü işaretini siler, iki sayıyı birleştirir
+
+Sonuç sessiz ve ağırdı: kaldırma hızı boş kalınca **kaldırma mekanizmasının
+tamamı** hesaplanmıyordu (halat hızı → tahvil → motor momenti → hesap gücü →
+SEÇİLEN MOTOR → sürücü). Ekranda yalnız "—" görünüyordu.
+
+Okuyucu `oku.ts`tedir ve **AYRI BİR DOSYADIR** çünkü iki taraf da kullanır:
+`payload.ts` girdileri doldururken, `compare.ts` şeridi çizerken. `compare.ts`
+zaten `payload.ts`ten `travelGroupKey` alıyor; tersine bir bağ döngü kurardı.
+
+**ARALIĞIN ÜST UCU ALINIR** (`costUpperBound`): "1-6 m/dk" yazan bir teklifte
+vincin karşılaması gereken hız 6'dır. Alt ucu almak, kapasitesi yetmeyen bir
+motoru "uygun" göstermenin en kısa yoluydu.
+
+**HALAT DONANIMI TEKLİFTEN OKUNMAZ** (kullanıcı kararı 18.08.2026): *"Halat
+donanımını otomatik katsayılardan seçilsin ancak müşteri dropdown da
+değiştirebilsin."* Teklifteki "4/1" yazımını girdiye seed etmek, modelin
+kapasite eşiklerinden çıkardığı öneriyi belgedeki bir metinle ezmek olurdu;
+şerit ikisini zaten yan yana gösterir.
+
+## MALIYET-17 — Alan defterinde ANAHTAR TEKİLDİR.
+
+`ALAN_HARITASI` bir `Object.fromEntries`tir: aynı anahtar iki bölümde
+tanımlanırsa **sessizce sonuncusu kazanır** ve satır ekranda da PDF'te de İKİ
+KEZ çizilir. `c.deflectionLimit` bir süre hem KİRİŞ VE SEHİM hem SINIF
+KATSAYILARI bölümündeydi ve iki tanım birbiriyle çelişiyordu (biri
+düzenlenebilir, öteki salt okunur).
+
+Sehim limiti KİRİŞ VE SEHİM bölümünde durur: okuyanın sorusu "kiriş yetiyor
+mu"dur ve cevabı hemen altındaki SEHİM ORANI satırıdır. Duman testi
+(`test-offer-cost-pdf.ts`) belgede **bir kez** geçtiğini sayar.
+
+## MALIYET-18 — Her `qtySource` ve her `deps` anahtarının bir tanımı olmalıdır.
+
+Tanımsız anahtar türetme pop-up'ında **ham hâliyle** basılır: `c.capacityT` on
+ayrı alanın ara değer listesinde geçiyordu ve ekranda "c.capacityT" yazıyordu.
+
+Bir değerin ekranda kendi SATIRI olması gerekmez ama ADI olmak zorundadır:
+`BOLUMSUZ_ALANLAR` çizilmeyen ama defterde yaşayan tanımları taşır
+(`c.capacityT`, `c.deflectionCm`, `c.one`). `costFieldDef` bölümlerin
+BİRLEŞİMİNDEN okur; `COST_FIELD_KEYS` bütünlük testine açıktır.
+
+**ARA DEĞERLER HESABIN BİRİMİNDEDİR.** `c.deflectionRatio`nun `deps`i bir süre
+`c.deflectionMm` diyordu ve pop-up "3.000 cm ÷ 20,5 mm = 1.463" gösteriyordu —
+okuyan tutturamazdı. Oran cm ÷ cm'dir; ekrana basılan milimetre ayrı bir
+anahtardır (`c.deflectionMm = c.deflectionCm × 10`, kullanıcı isteği md. 7).
+
+**`c.one` "modelden gelmiyor" DEĞİLDİR:** model onu sabit 1 üretir ve kutu tam
+bu yüzden salt okunur çizilir. Pop-up metni bir süre tersini söylüyor,
+kullanıcıyı boş yere kutuyu açmaya yönlendiriyordu.
+
+## MALIYET-19 — Katalog boyu alanı HER ZAMAN açık bir seçicidir.
+
+Kullanıcı isteği (18.08.2026, md. 1 ve 5): *"Halat donanımını otomatik
+katsayılardan seçilsin ancak müşteri dropdown da değiştirebilsin … Teker
+çaplarını vb özellikleri de isterse kullanıcı hesaplar kısmında
+değiştirebilsin."* `choices` taşıyan alan (halat donanımı, tambur ⌀, teker ⌀,
+motor kW, sürücü kW) asa düğmesi beklemeden bir `Select` olarak çizilir; seçim
+`overrides`a yazılır ve **aşağıya akar**.
+
+Serbest kutu OLMAMASININ sebebi yalnız görgü değildir: teker grubu ağırlığı
+çapı tabloda ARAYARAK bulur (`WHEEL_TABLE.find`), listede olmayan bir çap
+yazılsaydı ağırlık sessizce `null` düşer ve kilo maliyetten kaybolurdu.
+
+**BELGEDEKİ DEĞER LİSTEDE YOKSA LİSTEYE EKLENİR.** Tambur çapı kapasiteye göre
+ARA DEĞERLİDİR (32 tonda ⌀ 410) ve ham katalog listesi verilseydi hesabı olan
+satır boş görünürdü. Aynı kural birimlerde de geçerlidir (`COST_UNITS`): eski
+bir belgenin birimi, listeyi daralttık diye kaybolmamalıdır.
+
+**SATIRIN İKİ TIKLAMA HEDEFİ AYRI ŞEYLER YAPAR:** ADA tıklamak "bu sayı nereden
+geliyor" der (türetme pop-up'ı), SAYIYA tıklamak onu düzenler. Tek hedef
+olsaydı ikisinden biri bir menünün arkasına düşerdi.
+
+## MALIYET-20 — Ekran sırası MODEL SIRASI DEĞİLDİR.
+
+`WEIGHT_SECTIONS` modelin hesap sırasındadır ve öyle kalır — PDF ve model onu
+olduğu gibi kullanır. Ama okuyanın sorusu ters yöndedir: *"bu vinç kaç kilo"*
+önce sorulur, kırılımı sonra. Kullanıcı isteği (18.08.2026): *"MALİYETE GİREN
+AĞIRLIKLAR bölümünü de en üste alalım. Girdiler bölümünün sağına."*
+
+Ekran bunu `AGIRLIK_OZET_KEY` ile yapar: özet bölümü listeden AYRILIR ve
+girdilerin yanına konur, kalanı iki sütuna akar. Anahtar sabittir, çağrı
+yerinde dize yazılmaz — bölüm anahtarı değişirse özet sessizce İKİ KEZ
+çizilirdi.
+
+**İKİ SÜTUN `columns` AKIŞIDIR, ızgara değil** (Ağırlıklar · Hesaplar ·
+Katsayılar). Bölümlerin alan sayısı 2 ile 13 arasında değişir; iki sütunlu bir
+ızgarada kısa bölümün yanında dev bir boşluk kalırdı. Her bölüm
+`break-inside-avoid` taşır ki ortasından bölünmesin.
+
+**FORMÜL ADIN YANINDADIR, ALTINDA DEĞİL** (kullanıcı isteği md. 1). Altına
+yazmak satır yüksekliğini iki katına çıkarır ve iki sütunun kazandırdığı yeri
+geri alırdı. Ad ÖNCELİKLİDİR (`shrink-0`): dar bir pencerede kırpılacak olan
+formüldür, satırın adı değil — formül zaten `title`da ve pop-up'ta tam durur.
+
+## MALIYET-21 — Sapma eşiği TEK YERDEDİR (`COST_DEVIATION_LIMIT`).
+
+Şeridin başlığındaki "3 değer sapıyor" sayacı bir süre eşiği elle kopyalıyordu
+(`> 0.05`). Eşik değişseydi başlıkla rozetler ayrışır, "3 değer sapıyor" yazan
+bir başlığın altında üç yeşil rozet durabilirdi.
+
+%5 bir katalog boyu farkının altındadır ve bir yuvarlamayı sapma saymaz; bir
+teker boyu (⌀ 400 → 500) ya da bir motor kademesi (30 → 37 kW) eşiğin üstünde
+kalır — sorulan sorunun tamamı budur: teklifte söz verilen ekipman hesaptan
+çıkanla aynı mı.
+
+**İSTENEN DEĞER TEKLİF BELGESİNDEN TAZE OKUNUR**, `item.inputs`tan DEĞİL.
+Girdiler teklifin bir KOPYASIDIR ve elle düzeltilebilir; şerit onları okusaydı
+belgeyi kendisiyle karşılaştırır ve sapmayı her zaman sıfır gösterirdi.
+
+**RENK TEK TAŞIYICI DEĞİLDİR:** rozet yüzdeyi ve işaretini de yazar, yani renk
+körü bir okuyucu ya da gri basılmış bir çıktı aynı bilgiyi okur.
+
+## MALIYET-22 — Hammadde fiyatı satırda değil ŞERİTTE yaşar.
+
+Kullanıcı isteği (18.08.2026, md. 12) ve ön tanımlı sekiz fiyat: sac 0,70 ·
+profil 0,65 · kare ray 0,90 · A tipi ray 1,20 · kesim 0,05 · çelik imalat
+işçiliği 0,90 · boya 0,08 · boya işçiliği 0,07 €/kg.
+
+**RAY İKİYE AYRIDIR çünkü FİYATLARI İKİ KATI KADAR AYRIDIR** (0,90 ↔ 1,20).
+Tek bir "Ray" satırı, kare ray kullanan bir vinçte %33 fazla, A tipi kullanan
+bir vinçte %25 eksik maliyet çıkarırdı — ve hangisi olduğu ekrandan
+okunamazdı. `rail` ANAHTARI KORUNDU (kare), `railA` eklendi: bir alan eklemek
+eski belgedeki satırı yetim bırakmanın gerekçesi olamaz.
+
+**BU BİR FİYAT ARAMALI TABLO DEĞİLDİR** (MALIYET-4 çiğnenmiyor). O kural
+kapasiteye bakıp motorun kaç € olduğunu söyleyen tablolara karşıdır. Buradaki
+sekiz sayı aranmaz, GÖRÜNÜR: şeritte, kutunun içinde, düzeltilmeyi bekleyerek
+durur.
+
+**İKİ KAYNAK ASLA TOPLANMAZ** (`linePrice`, `lineQty`nin ikizi): `priceSource`
+doluysa fiyat şeritten okunur ve kutu salt okunur çizilir; `priceManual` açıksa
+o satırda insan yazar ve şerit ona dokunmaz.
+
+**VARSAYILAN YENİ BELGEYE UYGULANIR, TAŞIMAYA DEĞİL** (`withDefaultRates` ile
+aynı ayrım): `emptyCostPayload` sekizini de kopyalar, `withCostDefaults`
+kopyalamaz — orada bir varsayılan uygulamak kullanıcının bilerek boşalttığı
+fiyatı geri getirmek olurdu.
+
+**ŞERİT BELGEDE DE BASILIR.** Sekiz sayı maliyetin tabanıdır; iç belgede
+görünmeselerdi "bu 194.258 € hangi sac fiyatıyla çıktı" sorusu cevapsız
+kalırdı — ve o soru tam olarak altı ay sonra sorulur.
+
+## MALIYET-23 — GÖTÜRÜ KİP satırları silmez, SAYMAZ.
+
+Kullanıcı isteği (18.08.2026, md. 10): *"Elektrik Otomasyon fiyatında istersem
+tek fiyat girebileyim. Bir tuş olsun."* Tedarikçi kimi zaman panoyu, sürücüyü
+ve işçiliği TEK KALEMDE fiyatlar; o teklifi on üç satıra bölmek uydurma bir
+dağılım üretirdi (değişmez md. 4).
+
+**KİP BİR BAYRAKTIR, BİR TAŞIMA DEĞİL** (`CostGroup.lump`): satırlar ne silinir
+ne `hidden` işaretlenir. Hangi satırların sayılacağını `costGroupLines` kipe
+bakarak söyler ve toplam, ekran, belge üçü de o tek fonksiyondan geçer.
+Gizleyerek geçmek daha kolaydı ve bir şeyi bozardı — kullanıcının KENDİ
+gizlediği satırlar geri dönüşte açılır, yani bir düğmeye basmak başka bir
+kararı sessizce silerdi.
+
+**HER GRUPTA AÇIKTIR**, yalnız elektrikte değil: kullanıcı örneği elektrikti
+ama sebep geneldir, tedarikçi yürütme grubunu da tek kalemde fiyatlayabilir.
+
+**GÖTÜRÜ SATIR SİLİNEMEZ** (kipin taşıyıcısıdır) ve anahtarı grup anahtarından
+türer (`gotur-electrical`), yani götürüye geçip geri dönen bir grup aynı satırı
+bulur — girilen götürü fiyat her turda kaybolmaz.
+
+**BELGEDE KİP YAZAR.** `printedCostPayload` götürü kipte kalem satırlarını
+süzer; işaret olmasaydı okuyan on üç satırlık bir grubun neden tek satır
+bastığını anlayamaz, "eksik basılmış" sanardı.
+
+## MALIYET-24 — Ekran ile belge AYNI TÜRETMEDEN geçer.
+
+Editör durumu her güncellemede `withCostDerived`ten geçer: model miktarları ve
+şerit fiyatları satırlara YAZILI olur, toplamlar da öyle. Sunucudaki kaydetme
+yolu (`saveOfferCostRevision`) aynı fonksiyonu çağırır.
+
+Ekranda çözüp belgeye yazmamak daha az iş olurdu ve bir şeyi bozardı: hammadde
+şeridinden sac fiyatını değiştiren kullanıcı grup toplamının değiştiğini görür
+ama PROJE MALİYETİ satırı eski kalırdı — çünkü toplam (`costTotals`) saf
+aritmetiktir, şeridi okumaz. İki farklı toplamın aynı ekranda dolaşması,
+hangisinin belgeye gideceğini ekrana bakarak anlaşılmaz yapardı.
+
+**EZİLEN DEĞER YARIM AKMAZ.** `c.sectionInertiaCm4` ezilince kesit de yeniden
+seçilir: ataleti elle büyüten mühendisin sehimi düzeliyor ama kesit pop-up'ı ve
+kg/m eski kesitte kalıyordu — ekran aynı anda iki farklı kiriş anlatıyordu.
+
+## MALIYET-25 — Satır altı metin DİKEY BORÇTUR.
+
+Kullanıcı isteği (18.08.2026, md. 8): *"Maliyetler sayfasında satırların
+altında yazan yazıları satırların yanına kutuya yazalım. dikeyde yer
+kaybetmeyelim. Daha çok satırı bir arada görebileyim. Yatayda yerimiz çok
+zaten."* Ölçüldü: satır 84 px → 49 px.
+
+Üç metnin üçü de ayrı bir yere gitti ve hiçbiri KAYBOLMADI:
+
+- **"Teklifte: …"** kendi SÜTUNUNA taşındı (`xl`den itibaren görünür).
+- **"Miktar: …"** türetme pop-up'ına girdi — zaten yalnız alanın ADINI
+  söylüyordu, pop-up formülü ve ara değerleri de veriyor (md. 9).
+- **Defterin `hint`i** satırın adının `title`ına ve pop-up'a bağlandı. Bu üçüncü
+  adım ATLANMIŞTI ve gerçek bir kayıptı: "Profil ve Ray miktarı modelden
+  gelmez" bilgisi ekrandan düşünce boş bir miktar hata gibi okunur.
+
+**KIRILIM AYNI SAYFANIN ALTIDIR** ve üç özet blok YAN YANA durur: birleştirme
+sayfayı üç ekran boyuna uzatsaydı kullanıcı kırılıma inmek için her seferinde
+bütün maliyet tablosunu geçmek zorunda kalırdı.
+
+**TABLO KENDİ KAYDIRMA KABINI SARMAZ.** `Table` zaten `.oc-scrollx
+overflow-x-auto` bir kap çiziyor; ikinci bir sargı iç içe iki yatay kaydırıcı
+ve üst üste iki kenar gölgesi demekti (MOBIL-14).

@@ -14,14 +14,23 @@
 import { trSayi } from "@/lib/drawings/tr-text";
 import type { OfferItem, OfferPayload } from "../types";
 import { hesapla, type CostModelResult } from "./model";
+// HALAT DONANIMI TEKLİFTEN OKUNMAZ, KATSAYIDAN GELİR — kullanıcının kendi
+// cümlesi (18.08.2026, md. 1): *"Halat donanımını otomatik katsayılardan
+// seçilsin ancak müşteri dropdown da değiştirebilsin."* Teklifteki "4/1"
+// yazımını girdiye seed etmek, modelin kapasite eşiklerinden çıkardığı öneriyi
+// belgedeki bir metinle ezmek olurdu; şerit ikisini zaten yan yana gösterir.
+import { costUpperBound } from "./oku";
 import { COST_PARAM_DEFAULTS, DEFAULT_CRANE_CLASS, craneClassFrom, type CraneClass } from "./params";
 import {
   COST_GROUP_DEF_BY_KEY,
   CUSTOM_COST_GROUP_KEY,
   DEFAULT_RATE_GROUPS,
   GENERAL_GROUP_KEY,
+  MATERIAL_PRICE_DEFAULTS,
   costGroupKeysForOfferItem,
 } from "./registry";
+import { withCostTotals } from "./totals";
+import { costGroupLines, isLumpLine, lumpLineKey } from "./types";
 import type {
   CostGroup,
   CostInputs,
@@ -81,9 +90,47 @@ export function costLineFromDef(def: CostLineDef): CostLine {
     key: def.key,
     label: def.label,
     qtySource: def.qtySource,
+    priceSource: def.priceSource,
     qty: null,
     unit: def.unit,
     unitPrice: null,
+  };
+}
+
+/** Bir grubun götürü satırı — anahtarı grup anahtarından türer, sabittir. */
+export function lumpCostLine(groupKey: string, title: string): CostLine {
+  return {
+    id: newCostId(),
+    key: lumpLineKey(groupKey),
+    label: `${title} (götürü)`,
+    // ADET BİRDİR ÇÜNKÜ GÖTÜRÜ SATIRIN MİKTARI YOKTUR: girilen sayı grubun
+    // toplam bedelidir. Miktarı boş bırakmak satırı toplamdan düşürürdü.
+    qty: 1,
+    unit: "takım",
+    unitPrice: null,
+  };
+}
+
+/**
+ * GRUBU GÖTÜRÜ KİPE ALIR ya da kalem kipine döndürür.
+ *
+ * KİP BİR BAYRAKTIR, BİR TAŞIMA DEĞİL: satırlar ne silinir ne de `hidden`
+ * işaretlenir; hangi satırların sayılacağını `costGroupLines` kipe bakarak
+ * söyler. Kalem satırlarını gizleyerek geçmek daha kolaydı ve bir şeyi
+ * bozardı — kullanıcının KENDİ gizlediği satırlar geri dönüşte açılır,
+ * yani bir düğmeye basmak başka bir kararı sessizce silerdi.
+ */
+export function withLumpMode(group: CostGroup, lump: boolean): CostGroup {
+  // SATIR YALNIZ GÖTÜRÜYE GEÇERKEN AÇILIR. Kip argümanına bakmayan bir sürüm,
+  // hiç götürüye geçmemiş bir grupta "Kalem" düğmesine basıldığında belgeye
+  // boş bir `gotur-…` satırı yazıyordu: ekranda görünmüyor (kip süzüyor),
+  // toplama girmiyor, ama kayıtta duruyor ve bir gün "bu satır ne" diye
+  // sorulacak.
+  const varMi = group.lines.some(isLumpLine);
+  return {
+    ...group,
+    lump,
+    lines: lump && !varMi ? [...group.lines, lumpCostLine(group.key, group.title)] : group.lines,
   };
 }
 
@@ -119,6 +166,12 @@ export function emptyCostPayload(currency = "EUR"): CostPayload {
     sourceRevNo: null,
     currency,
     params: { ...COST_PARAM_DEFAULTS },
+    // YENİ BELGE defterin ön tanımlı fiyatlarını taşır (sekizinin de bir
+    // açılış değeri vardır, kullanıcı listesi 18.08.2026); taşıma yolu
+    // (`withCostDefaults`) bunu YAPMAZ — orada bir varsayılan uygulamak,
+    // kullanıcının bilerek boşalttığı bir fiyatı geri getirmek olurdu
+    // (`withDefaultRates` ile aynı ayrım).
+    materialPrices: { ...MATERIAL_PRICE_DEFAULTS },
     items: [],
     general: costGroupFromKey(GENERAL_GROUP_KEY),
     rates: defaultRateGroups(),
@@ -142,7 +195,7 @@ function value(item: OfferItem, groupKey: string, rowKey: string): string {
 }
 
 /** Köprü mü portal mı — kalemde hangisi varsa yürütme okuması ondan yapılır. */
-function travelGroupKey(item: OfferItem): "gantry" | "bridge" {
+export function travelGroupKey(item: OfferItem): "gantry" | "bridge" {
   return item.groups.some((g) => g.key === "gantry") ? "gantry" : "bridge";
 }
 
@@ -157,6 +210,14 @@ function travelGroupKey(item: OfferItem): "gantry" | "bridge" {
  * OKUNAMAYAN DEĞER `null` KALIR. Teklifte "19,5" yazan bir açıklık okunur,
  * "yaklaşık 20 m" yazan okunmaz ve uydurulmaz; ekran hangi girdinin eksik
  * olduğunu söyler ve kullanıcı elle yazar.
+ *
+ * HIZLAR `trSayi` İLE OKUNAMAZ, `costUpperBound` İLE OKUNUR (kullanıcı isteği
+ * 18.08.2026, md. 1: *"teklifte istenen kaldırma hızına göre otomatik hızı
+ * ayarlasın"*). Teklif defteri hız satırını ARALIK olarak tarif eder ("1-6",
+ * "20 - 30") ve `trSayi` bir aralığı `null` sayar. Sonuç sessizdi ve ağırdı:
+ * kaldırma hızı boş kalınca halat hızı, tahvil oranı, motor momenti, hesap
+ * gücü, SEÇİLEN MOTOR ve sürücünün hepsi hiç hesaplanmıyordu. Üst uç alınır —
+ * gerekçesi `oku.ts`te.
  */
 export function inputsFromOfferItem(item: OfferItem, onceki?: CostInputs): CostInputs {
   const tip = `${item.craneType} ${item.title}`.toLocaleUpperCase("tr-TR");
@@ -187,9 +248,9 @@ export function inputsFromOfferItem(item: OfferItem, onceki?: CostInputs): CostI
         trSayi(part(item, "general", "boomSpan", "value"))
     ),
     liftHeightM: doldur(taban.liftHeightM, trSayi(part(item, "general", "liftHeight", "value"))),
-    liftSpeedMpm: doldur(taban.liftSpeedMpm, trSayi(part(item, "mainHoist", "liftSpeed", "range"))),
-    trolleySpeedMpm: doldur(taban.trolleySpeedMpm, trSayi(part(item, "trolley", "travelSpeed", "range"))),
-    bridgeSpeedMpm: doldur(taban.bridgeSpeedMpm, trSayi(part(item, yur, "travelSpeed", "range"))),
+    liftSpeedMpm: doldur(taban.liftSpeedMpm, costUpperBound(part(item, "mainHoist", "liftSpeed", "range"))),
+    trolleySpeedMpm: doldur(taban.trolleySpeedMpm, costUpperBound(part(item, "trolley", "travelSpeed", "range"))),
+    bridgeSpeedMpm: doldur(taban.bridgeSpeedMpm, costUpperBound(part(item, yur, "travelSpeed", "range"))),
     legHeightM: doldur(taban.legHeightM, trSayi(part(item, "general", "gantryLegHeight", "value"))),
     craneClass: (sinif ?? taban.craneClass) as CraneClass,
     gantry: gantry || taban.gantry,
@@ -261,6 +322,53 @@ export interface OfferSyncSonuc {
  * teklif kalemini yanlışlıkla silip geri ekleyen bir kullanıcı maliyeti
  * baştan yazmak zorunda kalırdı. Ekran yetim kalemi işaretler.
  */
+/**
+ * DEFTERDE OLUP BELGEDE OLMAYAN SATIRLARI EKLER — yalnız TAZELEMEDE.
+ *
+ * Deftere yeni bir satır girdiğinde (Profil, Ray, Boya İşçiliği…) o satır
+ * ancak yeni açılan maliyet çalışmalarında görünürdü; süren bir teklifin
+ * maliyeti onu hiç göremezdi. Kalemler için zaten geçerli olan kural
+ * (MALIYET-9: "teklifte olup maliyette olmayan kalem AÇILIR") satırlara da
+ * uygulanır ve aynı iki şartı taşır:
+ *
+ *   · EKLEYİCİDİR — hiçbir satır silinmez, sırası değişmez; yeni satırlar
+ *     grubun SONUNA eklenir.
+ *   · YALNIZ AÇIK BİR EYLEMDE koşar ("Tekliften Tazele"), kaydetmede değil.
+ *     Kaydetmenin yan etkisi olsaydı kullanıcının bilerek sildiği satır her
+ *     kaydetmede geri gelirdi (TEKLIF-14'ün gerekçesi).
+ *
+ * FİYAT BAĞI GEÇMİŞE DÖNÜK KURULUR AMA DEĞER EZİLMEZ: deftere sonradan
+ * eklenen `priceSource`, fiyatı ZATEN GİRİLMİŞ bir satıra `priceManual` ile
+ * bağlanır. Bağ kaydedilir (kullanıcı asa düğmesiyle şeride geçebilir) ama
+ * girilmiş sayı olduğu gibi kalır — bir alan eklemek, tedarikçiyle
+ * konuşulmuş bir fiyatı silmenin gerekçesi olamaz.
+ */
+function withDefterLines(group: CostGroup): CostGroup {
+  const def = COST_GROUP_DEF_BY_KEY[group.key];
+  if (!def) return group;
+
+  const mevcut = group.lines.map((line) => {
+    const d = def.lines.find((x) => x.key === line.key);
+    if (!d) return line;
+    let next = line;
+    // FİYAT BAĞI
+    if (d.priceSource && !line.priceSource) {
+      next = { ...next, priceSource: d.priceSource, priceManual: line.unitPrice !== null };
+    }
+    // MİKTAR BAĞI — fiyatınkiyle SİMETRİK olmak zorundadır. Bir süre yalnız
+    // fiyat tarafı kuruluyordu: deftere sonradan `qtySource` eklenen bir satır
+    // fiyatını şeritten alıyor ama miktarı sonsuza dek elle kalıyordu.
+    if (d.qtySource && !line.qtySource) {
+      next = { ...next, qtySource: d.qtySource, qtyManual: line.qty !== null };
+    }
+    return next;
+  });
+
+  const varOlan = new Set(mevcut.map((l) => l.key));
+  const eksik = def.lines.filter((d) => !varOlan.has(d.key));
+  return eksik.length ? { ...group, lines: [...mevcut, ...eksik.map(costLineFromDef)] } : { ...group, lines: mevcut };
+}
+
 export function withOfferSync(
   payload: CostPayload,
   offer: OfferPayload,
@@ -269,7 +377,8 @@ export function withOfferSync(
   const teklifKalemleri = new Map(offer.items.map((it) => [it.id, it]));
   let yetim = 0;
 
-  const guncel: CostItem[] = payload.items.map((maliyet) => {
+  const guncel: CostItem[] = payload.items.map((ham) => {
+    const maliyet = { ...ham, groups: ham.groups.map(withDefterLines) };
     if (!maliyet.offerItemId) return maliyet;
     const teklif = teklifKalemleri.get(maliyet.offerItemId);
     if (!teklif) {
@@ -294,6 +403,7 @@ export function withOfferSync(
       ...payload,
       sourceRevNo: offerRevNo,
       currency: offer.pricing.currency || payload.currency,
+      general: withDefterLines(payload.general),
       items: [...guncel, ...yeniler],
     },
     eklenen: yeniler.length,
@@ -335,6 +445,23 @@ function sayilar(v: unknown): Record<string, number> {
   return out;
 }
 
+/**
+ * BOŞ DEĞERİ KORUYAN sayı sözlüğü — hammadde fiyatları için.
+ *
+ * `sayilar` boş girdiyi DÜŞÜRÜR ve katsayılar için doğrudur (eksik katsayı
+ * koddaki varsayılana düşer). Fiyatta ise "girilmemiş" bir DURUMDUR ve
+ * saklanması gerekir: sac fiyatını bilerek boşaltan kullanıcı, bir sonraki
+ * açılışta 0,70'i geri bulmamalıdır.
+ */
+function sayilarBoslu(v: unknown): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const k of Object.keys(v as Record<string, unknown>)) {
+    out[k] = sayiVeyaNull((v as Record<string, unknown>)[k]);
+  }
+  return out;
+}
+
 function lineFromRaw(raw: unknown): CostLine {
   const l = (raw ?? {}) as Partial<CostLine>;
   return {
@@ -342,10 +469,12 @@ function lineFromRaw(raw: unknown): CostLine {
     key: metin(l.key),
     label: metin(l.label),
     qtySource: l.qtySource ? metin(l.qtySource) : undefined,
+    priceSource: l.priceSource ? metin(l.priceSource) : undefined,
     qty: sayiVeyaNull(l.qty),
     qtyManual: l.qtyManual === true,
     unit: metin(l.unit, "takım"),
     unitPrice: sayiVeyaNull(l.unitPrice),
+    priceManual: l.priceManual === true,
     note: metin(l.note),
     hidden: l.hidden === true,
   };
@@ -358,6 +487,7 @@ function groupFromRaw(raw: unknown): CostGroup {
     id: metin(g.id) || newCostId(),
     key,
     title: metin(g.title, COST_GROUP_DEF_BY_KEY[key]?.title ?? ""),
+    lump: g.lump === true,
     lines: dizi(g.lines).map(lineFromRaw),
   };
 }
@@ -409,6 +539,10 @@ export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
     sourceRevNo: sayiVeyaNull(p.sourceRevNo),
     currency: metin(p.currency, currency),
     params: { ...COST_PARAM_DEFAULTS, ...sayilar(p.params) },
+    // FİYAT ŞERİDİNDE VARSAYILAN UYGULANMAZ (katsayıların tersi): eksik bir
+    // katsayı koddaki değere düşer çünkü model onsuz çalışamaz; eksik bir
+    // fiyat ise BİLİNMEYEN bir sayıdır ve "—" kalmalıdır.
+    materialPrices: sayilarBoslu(p.materialPrices),
     items: dizi<Record<string, unknown>>(p.items).map((it) => ({
       id: metin(it.id) || newCostId(),
       offerItemId: typeof it.offerItemId === "string" && it.offerItemId ? it.offerItemId : null,
@@ -489,6 +623,59 @@ export function lineQty(line: CostLine, model: CostModelResult | undefined): num
 }
 
 /**
+ * Satırın BİRİM FİYATI — hammadde şeridinden mi elden mi.
+ *
+ * `lineQty`nin ikizidir ve aynı cümleyi kurar: İKİ KAYNAK ASLA TOPLANMAZ.
+ * `priceManual` açıksa insanın yazdığı, değilse şeritteki fiyat geçerlidir;
+ * şeritte fiyat yoksa `null` döner ve satır toplama GİRMEZ (MALIYET-13).
+ * Girilmemiş bir sac fiyatını sıfır saymak, hammaddeyi bedava göstermenin en
+ * kısa yoluydu.
+ */
+export function linePrice(
+  line: CostLine,
+  prices: Record<string, number | null> | undefined
+): number | null {
+  if (line.priceManual || !line.priceSource) return line.unitPrice;
+  return prices?.[line.priceSource] ?? null;
+}
+
+/**
+ * Şerit fiyatlarını satırlara YAZAR — `withModelQuantities`in fiyat tarafı.
+ *
+ * Aynı gerekçe: toplam (`costTotals`) saf aritmetiktir ve şeridi okumaz,
+ * veritabanındaki `total_amount` üretilmiş sütunu payload'ı okur, PDF de
+ * satırın kendi `unitPrice`ını basar. Yazılmasaydı ekran ile belge iki farklı
+ * fiyat gösterirdi.
+ */
+export function withMaterialPrices(payload: CostPayload): CostPayload {
+  const satir = (line: CostLine): CostLine => {
+    if (line.priceManual || !line.priceSource) return line;
+    const f = payload.materialPrices?.[line.priceSource] ?? null;
+    return f === line.unitPrice ? line : { ...line, unitPrice: f };
+  };
+  const grup = (g: CostGroup): CostGroup => ({ ...g, lines: g.lines.map(satir) });
+  return {
+    ...payload,
+    items: payload.items.map((i) => ({ ...i, groups: i.groups.map(grup) })),
+    general: grup(payload.general),
+    rates: payload.rates.map((r) => ({ ...r, lines: r.lines.map(satir) })),
+  };
+}
+
+/**
+ * KAYDETME YOLUNUN SON ADIMI — miktar, fiyat ve toplamlar payload'a yazılır.
+ *
+ * ÜÇÜ TEK ÇAĞRIDA durur çünkü sıraları bağlayıcıdır (miktar ve fiyat önce,
+ * toplam sonra) ve dört ayrı çağrı yerinde (yeni revizyon · kaydet · tazele ·
+ * önizleme fikstürü) birinin unutulması, ekranda doğru görünüp belgede yanlış
+ * çıkan bir toplam demekti.
+ */
+export function withCostDerived(payload: CostPayload): CostPayload {
+  const dolu = withMaterialPrices(withModelQuantities(payload));
+  return withCostTotals(dolu, costWeights(costModels(dolu)));
+}
+
+/**
  * Model miktarlarını satırlara YAZAR — kaydetme yolunun son adımı.
  *
  * Miktar payload'a yazılır çünkü toplam (`costTotals`) saf aritmetiktir ve
@@ -519,9 +706,12 @@ export function withModelQuantities(payload: CostPayload): CostPayload {
 
 /** Belgeye BASILACAK hâl — iç PDF ve özet bunu okur. */
 export function printedCostPayload(payload: CostPayload): CostPayload {
+  // KİP SÜZGECİ ÖNCE KOŞAR (`costGroupLines`): götürü kipteki bir grubun
+  // kalem satırları belgeye BASILMAZ, çünkü toplama da girmezler. Basılsalardı
+  // belgede toplamayan satırlar görünür, okuyan da toplamı elle tutturamazdı.
   const suz = (g: CostGroup): CostGroup => ({
     ...g,
-    lines: g.lines.filter((l) => !l.hidden && (l.qty !== null || l.unitPrice !== null)),
+    lines: costGroupLines(g).filter((l) => !l.hidden && (l.qty !== null || l.unitPrice !== null)),
   });
   return {
     ...payload,

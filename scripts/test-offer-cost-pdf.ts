@@ -26,10 +26,10 @@ import {
   costModels,
   costWeights,
   emptyCostPayload,
+  withCostDerived,
   withDefaultRates,
-  withModelQuantities,
 } from "../src/lib/offers/cost/payload";
-import { costTotals, withCostTotals } from "../src/lib/offers/cost/totals";
+import { costTotals } from "../src/lib/offers/cost/totals";
 import { fmtMoney } from "../src/lib/currency";
 import type { OfferItem, OfferPayload } from "../src/lib/offers/types";
 import type { CostPayload } from "../src/lib/offers/cost/types";
@@ -104,7 +104,6 @@ function astorTeklifi(item: OfferItem): OfferPayload {
 
 /** Devralınan çalışmanın birim fiyatları — ELLE girilir, tablodan aranmaz. */
 const BIRIM_FIYATLAR: Record<string, Record<string, number>> = {
-  steel: { rawMaterial: 0.7, fabrication: 1.25, laserCut: 0.05, paint: 0.15 },
   hoist: {
     motor: 2457, gearbox: 6300, brake: 1256, drum: 2970.24, machining: 3470,
     hookBlock: 2760, bearings: 940, rope: 940, encoder: 337.5, loadpin: 337.5,
@@ -126,10 +125,26 @@ const BIRIM_FIYATLAR: Record<string, Record<string, number>> = {
   },
 };
 
+/**
+ * HAMMADDE ŞERİDİ — çelik satırlarının fiyatı artık BURADAN gelir.
+ *
+ * Devralınan çalışmanın €/kg'leri satır satır değil şeritte durur: satırların
+ * `priceSource`u onları oradan okur (`withMaterialPrices`). Toplam DEĞİŞMEZ —
+ * aynı sayılar, tek bir yerden. Fikstürün bunu böyle kurması bilinçlidir;
+ * satıra elle yazsaydı yeni yol hiç sınanmamış olurdu.
+ */
+const HAMMADDE_FIYATLARI: Record<string, number | null> = {
+  sac: 0.7,
+  celikIsciligi: 1.25,
+  kesim: 0.05,
+  boya: 0.15,
+};
+
 function astorMaliyeti(offer: OfferPayload): CostPayload {
-  let p = withDefaultRates(emptyCostPayload("EUR"));
+  const p = withDefaultRates(emptyCostPayload("EUR"));
   p.items = [costItemFromOfferItem(offer.items[0], 1)];
   p.sourceRevNo = 0;
+  p.materialPrices = { ...HAMMADDE_FIYATLARI };
 
   for (const g of p.items[0].groups) {
     const fiyatlar = BIRIM_FIYATLAR[g.key] ?? {};
@@ -171,8 +186,7 @@ function astorMaliyeti(offer: OfferPayload): CostPayload {
     l.key === "documentation" ? { ...l, unitPrice: 0 } : l
   );
 
-  p = withModelQuantities(p);
-  return withCostTotals(p, costWeights(costModels(p)));
+  return withCostDerived(p);
 }
 
 // ————————————————————————————————————————————————————————— yardımcılar
@@ -237,6 +251,25 @@ async function main() {
   kontrol(duz(metin).includes("27.850"), "ana kiriş 27.850 kg basıldı");
   kontrol(duz(metin).includes("750x1900x750t10"), "seçilen kiriş kesiti basıldı");
   kontrol(metin.includes("KURULU GÜÇ"), "kurulu güç satırı var");
+
+  // 1b — 18.08.2026 TURUNUN BELGEYE YANSIYAN KARARLARI
+  //
+  // Bunlar EKRANDA yapılıp BELGEDE unutulan türden şeylerdir: ekrana bakan
+  // kimse PDF'in ⌀ basmadığını fark etmez, çünkü ikisine aynı anda bakılmaz.
+  console.log("\n  18.08 turu → belge");
+  kontrol(metin.includes("⌀"), "çap öneki ⌀ belgede basılıyor (md. 4)");
+
+  // ALAN DEFTERİNDE ANAHTAR TEKİLDİR: "Sehim Limiti" bir süre hem KİRİŞ VE
+  // SEHİM hem SINIF KATSAYILARI bölümünde tanımlıydı ve belgede İKİ KEZ
+  // çıkıyordu. Sayaç o çift tanımın geri gelmesini yakalar.
+  const sehimLimiti = duz(metin).split(duz("Sehim Limiti")).length - 1;
+  kontrol(sehimLimiti === 1, `"Sehim Limiti" belgede bir kez geçiyor (${sehimLimiti})`);
+  kontrol(duz(metin).includes(duz("Kesit Ölçüleri")), "kesit ölçüleri belgede (md. 6)");
+  kontrol(duz(metin).includes(duz("Kesit Ataleti")), "kesit ataleti belgede (md. 6)");
+  kontrol(duz(metin).includes(duz("HAMMADDE BİRİM FİYATLARI")), "hammadde fiyat şeridi belgede (md. 12)");
+  kontrol(duz(metin).includes(duz("Çelik İmalat İşçiliği [EUR")), "hammadde satırı birimiyle basıldı");
+  // SEHİM MİLİMETREDİR (md. 7): ASTOR kirişinde 20,5 mm.
+  kontrol(duz(metin).includes("20,5"), "sehim milimetre olarak basıldı (md. 7)");
 
   // 2 — DÖRT ANA BAŞLIK VE TOPLAM
   console.log("\n  dört ana başlık");

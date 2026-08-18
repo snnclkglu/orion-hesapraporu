@@ -21,13 +21,10 @@ import { emptyPayload, groupFromKey, newOfferId, withDefaults } from "@/lib/offe
 import { withTotal } from "@/lib/offers/pricing";
 import {
   costItemFromOfferItem,
-  costModels,
-  costWeights,
   emptyCostPayload,
+  withCostDerived,
   withDefaultRates,
-  withModelQuantities,
 } from "@/lib/offers/cost/payload";
-import { withCostTotals } from "@/lib/offers/cost/totals";
 import type { OfferItem, OfferPayload } from "@/lib/offers/types";
 import type { CostPayload } from "@/lib/offers/cost/types";
 
@@ -90,7 +87,6 @@ function teklifFiksturu(): OfferPayload {
 
 /** Devralınan çalışmanın birim fiyatları — ELLE girilir, tablodan aranmaz. */
 const FIYATLAR: Record<string, Record<string, number>> = {
-  steel: { rawMaterial: 0.7, fabrication: 1.25, laserCut: 0.05, paint: 0.15 },
   hoist: {
     motor: 2457, gearbox: 6300, brake: 1256, drum: 2970.24, machining: 3470,
     hookBlock: 2760, bearings: 940, rope: 940, encoder: 337.5, loadpin: 337.5,
@@ -112,10 +108,31 @@ const FIYATLAR: Record<string, Record<string, number>> = {
   },
 };
 
+/**
+ * HAMMADDE ŞERİDİ — çelik satırlarının fiyatı artık BURADAN gelir.
+ *
+ * Devralınan çalışmanın €/kg'leri satır satır değil şeritte durur: satırların
+ * `priceSource`u onları oradan okur (`withMaterialPrices`). Toplam DEĞİŞMEZ —
+ * aynı sayılar, tek bir yerden. Fikstürün bunu böyle kurması bilinçlidir;
+ * satıra elle yazsaydı yeni yol hiç sınanmamış olurdu.
+ */
+// BUNLAR DEFTERİN ÖN TANIMLARI DEĞİLDİR (`MATERIAL_PRICE_DEFS`: çelik imalat
+// 0,90 · boya 0,08). Devralınan ASTOR çalışmasının KENDİ rakamlarıdır ve
+// öyle kalmalıdır: 194.257,74 €'luk proje maliyeti çapası onlara bağlı.
+// `profil`, `rayKare`, `rayA` ve `boyaIsciligi` BOŞ bırakılır — o satırlar
+// devralınan çalışmada yoktur ve varsayılana çekmek toplamı kaydırırdı.
+const HAMMADDE_FIYATLARI: Record<string, number | null> = {
+  sac: 0.7,
+  celikIsciligi: 1.25,
+  kesim: 0.05,
+  boya: 0.15,
+};
+
 function maliyetFiksturu(offer: OfferPayload): CostPayload {
-  let p = withDefaultRates(emptyCostPayload("EUR"));
+  const p = withDefaultRates(emptyCostPayload("EUR"));
   p.items = [costItemFromOfferItem(offer.items[0], 1)];
   p.sourceRevNo = 0;
+  p.materialPrices = { ...HAMMADDE_FIYATLARI };
   for (const g of p.items[0].groups) {
     const fiyatlar = FIYATLAR[g.key] ?? {};
     for (const l of g.lines) {
@@ -148,8 +165,7 @@ function maliyetFiksturu(offer: OfferPayload): CostPayload {
     tampon.qty = 8;
     tampon.qtyManual = true;
   }
-  p = withModelQuantities(p);
-  return withCostTotals(p, costWeights(costModels(p)));
+  return withCostDerived(p);
 }
 
 export default function OfferCostPreviewPage() {

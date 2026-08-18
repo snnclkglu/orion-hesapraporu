@@ -8,6 +8,20 @@
 // eksik kalırdı — ve "ezilen değer aşağıya akar" gibi bir kural yalnız bir
 // sayfada çalışsaydı hata ancak maliyet tutmadığında fark edilirdi.
 //
+// SAYFA İKİ SÜTUNDUR (kullanıcı isteği 18.08.2026, md. 1: *"Hesaplar sayfasını
+// yatayda ikiye böl. Sayfa gereksiz geniş yer kaplıyor."*). Izgara değil
+// SÜTUN akışı (`xl:columns-2`) kullanılır: bölümlerin alan sayısı 2 ile 13
+// arasında değişir ve iki sütunlu bir ızgarada kısa bölümün yanında dev bir
+// boşluk kalırdı. Sütun akışı bölümleri yüksekliğe göre dengeler; her bölüm
+// `break-inside-avoid` taşır ki bir bölüm ortasından ikiye BÖLÜNMESİN.
+//
+// SATIRIN İKİ TIKLAMA HEDEFİ VARDIR VE AYRI ŞEYLER YAPAR:
+//   · ADA tıklamak "bu sayı NEREDEN geliyor" der (formül, ara değerler,
+//     katsayılar — `Turetme`).
+//   · SAYIYA tıklamak onu DÜZENLER (kullanıcı isteği md. 3: *"dinamik bir
+//     şekilde hızlıca düzenlenen bir yapı"*).
+// Tek hedef olsaydı ikisinden biri bir menünün arkasına düşerdi.
+//
 // EZİLEN DEĞER SOLGUN DEĞİL, İŞARETLİDİR: kutu dolu görünür ve yanında asa
 // düğmesi belirir. Solgunlaştırmak "bu değer önemsiz" derdi; oysa elle girilen
 // değer modelin önerdiğinden DAHA güvenilirdir (mühendis biliyordur).
@@ -17,16 +31,32 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  AGIRLIK_OZET_KEY,
   CALC_SECTIONS,
   WEIGHT_SECTIONS,
   costFieldEditable,
+  costFieldText,
   fmtCostField,
+  type CostFieldDef,
   type CostFieldSection,
 } from "@/lib/offers/cost/labels";
+import { costCompareRows, costDeviationLevel, type CostCompareRow } from "@/lib/offers/cost/compare";
 import { CRANE_CLASSES, COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import type { CostModelResult } from "@/lib/offers/cost/model";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
-import { Anahtar, Bolum, MiniDugme, SayiAlani, kutuMetni, sayiVeyaNull } from "./cost-parts";
+import type { OfferPayload } from "@/lib/offers/types";
+import {
+  Anahtar,
+  Bolum,
+  KesitDugmesi,
+  MiniDugme,
+  SapmaRozeti,
+  SayiAlani,
+  SayiSecici,
+  Turetme,
+  kutuMetni,
+  sayiVeyaNull,
+} from "./cost-parts";
 
 // ————————————————————————————————————————————————————————— girdiler
 
@@ -54,22 +84,19 @@ export function GirdiBolumu({
       baslik="GİRDİLER"
       aciklama="Kapasite, açıklık, yükseklik, hız ve sınıf teklifin teknik satırlarından okunur; burada düzeltilebilir."
     >
-      <div className="flex flex-wrap gap-3">
-        <SayiAlani etiket="Ana Kaldırma" birim="ton" value={i.capacityT} onChange={(v) => set({ capacityT: v })} />
-        <SayiAlani etiket="Yardımcı Kaldırma" birim="ton" value={i.auxCapacityT} onChange={(v) => set({ auxCapacityT: v })} />
-        <SayiAlani etiket="Açıklık" birim="m" value={i.spanM} onChange={(v) => set({ spanM: v })} />
-        <SayiAlani etiket="Kaldırma Yüksekliği" birim="m" value={i.liftHeightM} onChange={(v) => set({ liftHeightM: v })} />
-        <SayiAlani etiket="Kaldırma Hızı" birim="m/dk" value={i.liftSpeedMpm} onChange={(v) => set({ liftSpeedMpm: v })} />
-        <SayiAlani etiket="Araba Hızı" birim="m/dk" value={i.trolleySpeedMpm} onChange={(v) => set({ trolleySpeedMpm: v })} />
-        <SayiAlani etiket="Köprü / Portal Hızı" birim="m/dk" value={i.bridgeSpeedMpm} onChange={(v) => set({ bridgeSpeedMpm: v })} />
-        <SayiAlani etiket="Ortam Sıcaklığı" birim="°C" value={i.ambientC} onChange={(v) => set({ ambientC: v ?? 40 })} />
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid w-36 gap-1.5">
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
+        <SayiAlani etiket="Ana Kaldırma" birim="ton" value={i.capacityT} onChange={(v) => set({ capacityT: v })} genislik="6.5rem" />
+        <SayiAlani etiket="Yardımcı Kaldırma" birim="ton" value={i.auxCapacityT} onChange={(v) => set({ auxCapacityT: v })} genislik="8.5rem" />
+        <SayiAlani etiket="Açıklık" birim="m" value={i.spanM} onChange={(v) => set({ spanM: v })} genislik="6rem" />
+        <SayiAlani etiket="Kaldırma Yüksekliği" birim="m" value={i.liftHeightM} onChange={(v) => set({ liftHeightM: v })} genislik="9rem" />
+        <SayiAlani etiket="Kaldırma Hızı" birim="m/dk" value={i.liftSpeedMpm} onChange={(v) => set({ liftSpeedMpm: v })} genislik="7.5rem" />
+        <SayiAlani etiket="Araba Hızı" birim="m/dk" value={i.trolleySpeedMpm} onChange={(v) => set({ trolleySpeedMpm: v })} genislik="8rem" />
+        <SayiAlani etiket="Köprü / Portal Hızı" birim="m/dk" value={i.bridgeSpeedMpm} onChange={(v) => set({ bridgeSpeedMpm: v })} genislik="9rem" />
+        <SayiAlani etiket="Ortam Sıcaklığı" birim="°C" value={i.ambientC} onChange={(v) => set({ ambientC: v ?? 40 })} genislik="8.5rem" />
+        <div className="grid w-24 gap-1.5">
           <span className="text-xs">Vinç Sınıfı</span>
           <Select value={i.craneClass} onValueChange={(v) => set({ craneClass: v as typeof i.craneClass })}>
-            <SelectTrigger className="h-9" aria-label="Vinç sınıfı">
+            <SelectTrigger className="h-9 w-full" aria-label="Vinç sınıfı">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -81,11 +108,11 @@ export function GirdiBolumu({
             </SelectContent>
           </Select>
         </div>
-        <SayiAlani etiket="Kiriş Adedi" value={i.girderCount} onChange={(v) => set({ girderCount: v ?? 2 })} genislik="7rem" />
+        <SayiAlani etiket="Kiriş Adedi" value={i.girderCount} onChange={(v) => set({ girderCount: v ?? 2 })} genislik="6.5rem" />
         <SayiAlani etiket="Köprü Teker Adedi" value={i.bridgeWheelCount} onChange={(v) => set({ bridgeWheelCount: v ?? 4 })} genislik="9rem" />
         <SayiAlani etiket="Köprü Tahrik Adedi" value={i.bridgeDriveCount} onChange={(v) => set({ bridgeDriveCount: v ?? 2 })} genislik="9rem" />
         <SayiAlani etiket="Araba Tahrik Adedi" value={i.trolleyDriveCount} onChange={(v) => set({ trolleyDriveCount: v ?? 2 })} genislik="9rem" />
-        <SayiAlani etiket="Portal Ayak Yüksekliği" birim="m" value={i.legHeightM} onChange={(v) => set({ legHeightM: v })} genislik="11rem" />
+        <SayiAlani etiket="Portal Ayak Yüksekliği" birim="m" value={i.legHeightM} onChange={(v) => set({ legHeightM: v })} genislik="10rem" />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -99,23 +126,234 @@ export function GirdiBolumu({
   );
 }
 
+// —————————————————————————————————————————————————— karşılaştırma
+
+/**
+ * TEKLİFTE İSTENEN ↔ HESAPLANAN ŞERİDİ.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 2): *"Hesaplar sayfasının en üstüne çok
+ * kısa yan yana vinç özellikleri gelsin. Teklifte istenen hızlar, teker
+ * çapları, tonaj, motor güçleri vb. Bunların hemen yanına hesaplananlar ve
+ * sapma kısaca yazsın. Sapma çoksa kırmızı, değer yakınsa yeşil."*
+ *
+ * ÇİP DEĞİL IZGARA: on iki satırın sarmalayan bir çip şeridinde sırası
+ * pencere genişliğine göre değişirdi ve "kaldırma hızı nerede" diye her
+ * seferinde aranırdı. Izgarada sıra sabittir (künye → hızlar → motorlar →
+ * tekerler → donanım) ve göz aynı yerde bulur.
+ *
+ * SAPMASI OLMAYAN SATIR DA GÖSTERİLİR: teklifte yazmayan ama hesaplanan bir
+ * motor gücü, tam da teklife yazılması gereken sayıdır. Rozet orada çıkmaz —
+ * karşılaştıracak bir taraf yoktur — ama değer görünür.
+ */
+function OzellikCipi({ row }: { row: CostCompareRow }) {
+  const hesap = row.calculated === null ? "—" : fmtCostField(row.calculated, row.decimals);
+  return (
+    <div className="flex items-baseline gap-1.5 rounded-md border px-2 py-1">
+      <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={row.label}>
+        {row.label}
+      </span>
+      <span className="shrink-0 font-mono text-[11px] text-muted-foreground" title="Teklifte istenen">
+        {row.requestedText ?? "—"}
+      </span>
+      <span aria-hidden className="shrink-0 text-[11px] text-muted-foreground">
+        →
+      </span>
+      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums" title="Hesaplanan">
+        {row.prefix && hesap !== "—" ? `${row.prefix} ` : ""}
+        {hesap}
+      </span>
+      <span className="shrink-0 text-[11px] text-muted-foreground">{row.unit}</span>
+      <SapmaRozeti deviation={row.deviation} />
+    </div>
+  );
+}
+
+export function OzellikSeridi({
+  offer,
+  item,
+  model,
+}: {
+  offer: OfferPayload;
+  item: CostItem;
+  model: CostModelResult | undefined;
+}) {
+  const rows = costCompareRows(offer, item.offerItemId, item.inputs, model);
+  if (rows.length === 0) return null;
+  // EŞİK TEK YERDEDİR (`COST_DEVIATION_LIMIT`). Başlıktaki sayaç eşiği elle
+  // kopyalasaydı, eşik değiştiğinde "3 değer sapıyor" yazan bir başlığın
+  // altında üç yeşil rozet durabilirdi.
+  const sapan = rows.filter((r) => costDeviationLevel(r.deviation) === "sapma").length;
+
+  return (
+    <Bolum
+      baslik="TEKLİFTE İSTENEN ↔ HESAPLANAN"
+      aciklama="Solda teklif belgesinde yazan, sağda modelin çıkardığı değer. Rozet ikisinin farkıdır."
+      sag={
+        sapan > 0 ? (
+          <span className="rounded-md border border-destructive/50 px-2 py-1 text-xs font-medium text-destructive">
+            {sapan} değer sapıyor
+          </span>
+        ) : (
+          <span className="rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success">
+            Teklifle uyumlu
+          </span>
+        )
+      }
+    >
+      <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {rows.map((r) => (
+          <OzellikCipi key={r.key} row={r} />
+        ))}
+      </div>
+    </Bolum>
+  );
+}
+
 // ————————————————————————————————————————————————— model değerleri
+
+/**
+ * BİR MODEL SATIRI — ad + formül · değer · birim · asa.
+ *
+ * FORMÜL ADIN YANINDADIR, ALTINDA DEĞİL (kullanıcı isteği md. 1: *"her hesabın
+ * satırına formülünü Hesap adının yanına kısaca yaz"*). Altına yazmak satır
+ * yüksekliğini iki katına çıkarır ve iki sütunlu düzenin kazandırdığı yeri
+ * geri alırdı. İkisi de kırpılır (`truncate`); tam metin `title`da ve adın
+ * pop-up'ındadır.
+ */
+function ModelSatiri({
+  f,
+  item,
+  model,
+  params,
+  readOnly,
+  onEz,
+}: {
+  f: CostFieldDef;
+  item: CostItem;
+  model: CostModelResult | undefined;
+  params: Record<string, number>;
+  readOnly: boolean;
+  onEz: (key: string, v: number | null) => void;
+}) {
+  const deger = model?.values[f.key] ?? null;
+  const elle = item.overrides[f.key] !== undefined;
+  const duzenlenebilir = costFieldEditable(f) && !readOnly;
+  // KATALOG BOYU HER ZAMAN AÇIK BİR SEÇİCİDİR (md. 1 ve 5): halat donanımı,
+  // tambur çapı, teker çapı, motor ve sürücü listeden seçilir ve seçim
+  // modelin ÜSTÜNE yazılır. Asa düğmesi burada "elle gir" değil "otomatiğe
+  // dön" demektir — değer zaten görünür ve zaten değiştirilebilirdir.
+  const secici = duzenlenebilir && f.choices !== undefined && f.choices.length > 0;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 border-b px-2 py-1 last:border-b-0",
+        f.sum && "bg-muted/40"
+      )}
+    >
+      <Turetme fieldKey={f.key} model={model} params={params} baslik={f.label} align="start">
+        <button
+          type="button"
+          title={f.formula ? `${f.label} = ${f.formula}` : f.label}
+          className="oc-tap flex min-w-0 flex-1 items-baseline gap-1.5 rounded-sm text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {/* AD ÖNCELİKLİDİR: `shrink-0` ile kendi boyunu korur, formül kalan
+              yere sığar ve gerekirse kırpılır. İkisi de kırpılabilir olsaydı
+              dar bir pencerede satırın ADI da yarım kalırdı — oysa formül
+              zaten `title`da ve pop-up'ta tam hâliyle durur. `max-w-[60%]`
+              tersini engeller: çok uzun bir ad formülü sıfıra indirmesin. */}
+          <span
+            className={cn(
+              "max-w-[60%] shrink-0 truncate text-sm",
+              f.sum && "font-semibold"
+            )}
+          >
+            {f.label}
+          </span>
+          {f.formula ? (
+            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+              = {f.formula}
+            </span>
+          ) : null}
+        </button>
+      </Turetme>
+
+      {secici ? (
+        <SayiSecici
+          value={elle ? item.overrides[f.key] : deger}
+          choices={f.choices ?? []}
+          decimals={f.decimals}
+          prefix={f.prefix}
+          etiket={f.label}
+          onChange={(v) => onEz(f.key, v)}
+          className={cn("w-28", !elle && "border-input font-normal")}
+        />
+      ) : elle && duzenlenebilir ? (
+        <Input
+          value={kutuMetni(item.overrides[f.key])}
+          inputMode="decimal"
+          autoFocus
+          aria-label={`${f.label} — elle değer`}
+          onChange={(e) => onEz(f.key, sayiVeyaNull(e.target.value))}
+          className="h-8 w-28 border-primary text-right font-mono text-base font-semibold pointer-fine:text-sm"
+        />
+      ) : duzenlenebilir ? (
+        // SAYIYA TIKLAMAK ONU DÜZENLER (md. 3: "hızlıca düzenlenen bir yapı").
+        // Asa düğmesi de aynı işi yapar ve KALIR: dokunmatikte 28px'lik bir
+        // sayı hedefi güvenilir değildir, ayrıca düğme "bu alan düzenlenebilir"
+        // bilgisini bakışta verir.
+        <button
+          type="button"
+          title="Elle gir"
+          onClick={() => onEz(f.key, deger ?? 0)}
+          className="oc-tap h-8 w-28 rounded-md border border-transparent px-2 text-right font-mono text-sm tabular-nums transition-colors hover:border-input hover:bg-muted"
+        >
+          {costFieldText(f, deger)}
+        </button>
+      ) : (
+        <span className="w-28 px-2 text-right font-mono text-sm tabular-nums">
+          {costFieldText(f, deger)}
+        </span>
+      )}
+
+      <span className="w-9 shrink-0 truncate text-[11px] text-muted-foreground">{f.unit}</span>
+
+      {duzenlenebilir ? (
+        <MiniDugme
+          baslik={elle ? "Otomatiğe döndür" : "Elle gir"}
+          aktif={elle}
+          disabled={!elle && secici}
+          onClick={() => onEz(f.key, elle ? null : (deger ?? 0))}
+        >
+          <Wand2 className="size-3.5" />
+        </MiniDugme>
+      ) : (
+        <span className="w-8" />
+      )}
+    </div>
+  );
+}
 
 function ModelBolumu({
   section,
   item,
   model,
+  params,
   readOnly,
   onChange,
+  altSatir,
 }: {
   section: CostFieldSection;
   item: CostItem;
   model: CostModelResult | undefined;
+  params: Record<string, number>;
   readOnly: boolean;
   onChange: (next: CostItem) => void;
+  /** Bölümün sonuna eklenen serbest satır — kiriş kesidi gibi sayı OLMAYAN değerler. */
+  altSatir?: React.ReactNode;
 }) {
   const dolu = section.fields.some((f) => (model?.values[f.key] ?? null) !== null);
-  if (!dolu) return null;
+  if (!dolu && !altSatir) return null;
 
   const ez = (key: string, v: number | null) => {
     const next = { ...item.overrides };
@@ -125,62 +363,29 @@ function ModelBolumu({
   };
 
   return (
-    <div className="grid gap-1">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{section.title}</h3>
+    <div className="mb-4 grid break-inside-avoid gap-1 last:mb-0">
+      {/* BAŞLIK BOŞSA ÇİZİLMEZ: özet kartı başlığını sarmalayan `Bolum`dan
+          alır ve aynı metni iki kez basmak kartı iki başlıklı gösterirdi. */}
+      {section.title ? (
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{section.title}</h3>
+      ) : null}
       <div className="rounded-md border">
         {section.fields.map((f) => {
           const deger = model?.values[f.key] ?? null;
           if (deger === null && item.overrides[f.key] === undefined) return null;
-          const elle = item.overrides[f.key] !== undefined;
-          const duzenlenebilir = costFieldEditable(f) && !readOnly;
           return (
-            <div
+            <ModelSatiri
               key={f.key}
-              className={cn(
-                "flex flex-wrap items-center gap-2 border-b px-3 py-1.5 last:border-b-0",
-                f.sum && "bg-muted/40"
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className={cn("text-sm", f.sum && "font-semibold")}>{f.label}</div>
-                {f.hint ? <div className="text-[11px] text-muted-foreground">{f.hint}</div> : null}
-              </div>
-              {/* DEĞER SAYFANIN İÇERİĞİDİR, bir ipucu değil.
-                  Bir süre modelin sayısı kutunun `placeholder`ında duruyordu:
-                  ekranda bütün ağırlıklar SOLUK GRİ görünüyor, sayfa "boş"
-                  okunuyordu. Oysa o sayı tam olarak kullanılacak değerdir.
-                  Şimdi düz metin basılır; asa düğmesi kutuyu AÇAR ve model
-                  değerini içine yazar — maliyet satırındaki miktar kutusuyla
-                  aynı desen. */}
-              {elle && duzenlenebilir ? (
-                <Input
-                  value={kutuMetni(item.overrides[f.key])}
-                  inputMode="decimal"
-                  autoFocus
-                  aria-label={`${f.label} — elle değer`}
-                  onChange={(e) => ez(f.key, sayiVeyaNull(e.target.value))}
-                  className="h-8 w-32 border-primary text-right font-mono text-base font-semibold pointer-fine:text-sm"
-                />
-              ) : (
-                <span className="w-32 text-right font-mono text-sm tabular-nums">
-                  {fmtCostField(deger, f.decimals)}
-                </span>
-              )}
-              <span className="w-12 text-xs text-muted-foreground">{f.unit}</span>
-              {duzenlenebilir ? (
-                <MiniDugme
-                  baslik={elle ? "Otomatiğe döndür" : "Elle gir"}
-                  aktif={elle}
-                  onClick={() => ez(f.key, elle ? null : (deger ?? 0))}
-                >
-                  <Wand2 className="size-3.5" />
-                </MiniDugme>
-              ) : (
-                <span className="w-8" />
-              )}
-            </div>
+              f={f}
+              item={item}
+              model={model}
+              params={params}
+              readOnly={readOnly}
+              onEz={ez}
+            />
           );
         })}
+        {altSatir}
       </div>
     </div>
   );
@@ -192,6 +397,7 @@ export function ModelSayfasi({
   sections,
   item,
   model,
+  params,
   readOnly,
   onChange,
 }: {
@@ -200,6 +406,7 @@ export function ModelSayfasi({
   sections: readonly CostFieldSection[];
   item: CostItem;
   model: CostModelResult | undefined;
+  params: Record<string, number>;
   readOnly: boolean;
   onChange: (next: CostItem) => void;
 }) {
@@ -226,60 +433,137 @@ export function ModelSayfasi({
           ))}
         </div>
       ) : null}
-      <div className="grid gap-4">
+
+      {/* İKİ SÜTUN — dosya başındaki gerekçe. `columns` akışı bölümleri
+          yüksekliğe göre dengeler; `break-inside-avoid` bir bölümü ortasından
+          bölünmekten korur. */}
+      <div className="xl:columns-2 xl:gap-4">
         {sections.map((s) => (
           <ModelBolumu
             key={s.key}
             section={s}
             item={item}
             model={model}
+            params={params}
             readOnly={readOnly}
             onChange={onChange}
+            altSatir={
+              // KESİT SATIRI SAYI DEĞİLDİR ama KİRİŞ VE SEHİM bölümünün
+              // kararıdır: liste gerekli ataleti karşılayan ilk kesitte durur.
+              // Adı bir düğmedir; ölçüler ve özellikler pop-up'ta açılır
+              // (kullanıcı isteği md. 6).
+              s.key === "girder" && model?.section ? (
+                <div className="flex items-center gap-1.5 border-b px-2 py-1 last:border-b-0">
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    Seçilen Kesit
+                  </span>
+                  <KesitDugmesi section={model.section} model={model} />
+                  {model.deflectionOk === false ? (
+                    <span className="shrink-0 text-[11px] font-semibold text-destructive">
+                      SEHİM ×
+                    </span>
+                  ) : null}
+                  <span className="w-8" />
+                </div>
+              ) : undefined
+            }
           />
         ))}
       </div>
-      {model?.sectionName ? (
+
+      {model?.camber ? (
         <p className="text-xs text-muted-foreground">
-          Seçilen kiriş kesiti: <span className="font-mono font-medium">{model.sectionName}</span>
-          {model.deflectionOk === false ? (
-            <span className="ml-2 font-semibold text-destructive">SEHİM ŞARTI SAĞLANMIYOR</span>
-          ) : null}
-          {model.camber ? <span className="ml-2">· Kamber verilecek</span> : null}
+          Açıklık kamber eşiğinin üstünde — <span className="font-medium">kamber verilecek</span>.
         </p>
       ) : null}
     </Bolum>
   );
 }
 
-export function AgirlikSayfasi(props: {
+/**
+ * AĞIRLIKLAR SAYFASI — üstte girdiler ve özet YAN YANA, altında kırılım.
+ *
+ * Kullanıcı isteği (18.08.2026): *"MALİYETE GİREN AĞIRLIKLAR bölümünü de en
+ * üste alalım. Girdiler bölümünün sağına. Girdiler bölümünü de
+ * daraltabiliriz."*
+ *
+ * Sebep okunduğunda açık: sayfanın SORUSU "bu vinç kaç kilo gelir"dir ve
+ * cevabı üç satırdır. O üç satır listenin SONUNDA durduğu sürece, girdiyi
+ * değiştiren kullanıcı etkisini görmek için her seferinde otuz satır aşağı
+ * kaydırmak zorundaydı. Şimdi ikisi aynı ekranda: solda sebep, sağda sonuç.
+ */
+export function AgirlikSayfasi({
+  item,
+  model,
+  params,
+  readOnly,
+  onChange,
+}: {
   item: CostItem;
   model: CostModelResult | undefined;
+  params: Record<string, number>;
   readOnly: boolean;
   onChange: (next: CostItem) => void;
 }) {
+  const ozet = WEIGHT_SECTIONS.find((s) => s.key === AGIRLIK_OZET_KEY);
+  const kirilim = WEIGHT_SECTIONS.filter((s) => s.key !== AGIRLIK_OZET_KEY);
+
   return (
-    <ModelSayfasi
-      baslik="AĞIRLIKLAR"
-      aciklama="Alt montaj ağırlıkları modelden türer. Bildiğiniz bir ağırlığı yazarsanız aşağıdaki bütün değerler ona göre yeniden hesaplanır."
-      sections={WEIGHT_SECTIONS}
-      {...props}
-    />
+    <>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem] xl:items-start">
+        <GirdiBolumu item={item} onChange={onChange} />
+        {ozet ? (
+          <Bolum
+            baslik={ozet.title}
+            aciklama="Hammadde, kesim ve imalat işçiliği çelik ağırlığını; boya TOPLAM vinç ağırlığını okur."
+          >
+            <ModelBolumu
+              section={{ ...ozet, title: "" }}
+              item={item}
+              model={model}
+              params={params}
+              readOnly={readOnly}
+              onChange={onChange}
+            />
+          </Bolum>
+        ) : null}
+      </div>
+
+      <ModelSayfasi
+        baslik="AĞIRLIK KIRILIMI"
+        aciklama="Alt montaj ağırlıkları modelden türer. Bildiğiniz bir ağırlığı yazarsanız yukarıdaki toplamlar ona göre yeniden hesaplanır."
+        sections={kirilim}
+        item={item}
+        model={model}
+        params={params}
+        readOnly={readOnly}
+        onChange={onChange}
+      />
+    </>
   );
 }
 
-export function HesapSayfasi(props: {
+export function HesapSayfasi({
+  offer,
+  ...props
+}: {
+  offer: OfferPayload;
   item: CostItem;
   model: CostModelResult | undefined;
+  params: Record<string, number>;
   readOnly: boolean;
   onChange: (next: CostItem) => void;
 }) {
   return (
-    <ModelSayfasi
-      baslik="HESAPLAR"
-      aciklama="Mekanizma boyutlandırması: halat, tambur, moment, motor, teker ve kiriş kesiti. Bu bir TAHMİNDİR; hesap raporunun yerine geçmez."
-      sections={CALC_SECTIONS}
-      {...props}
-    />
+    <>
+      <OzellikSeridi offer={offer} item={props.item} model={props.model} />
+      <ModelSayfasi
+        baslik="HESAPLAR"
+        aciklama="Mekanizma boyutlandırması: halat, tambur, moment, motor, teker ve kiriş kesiti. Bu bir TAHMİNDİR; hesap raporunun yerine geçmez."
+        sections={CALC_SECTIONS}
+        {...props}
+      />
+    </>
   );
 }
 
@@ -316,9 +600,9 @@ export function KatsayiSayfasi({
       baslik="MODEL KATSAYILARI"
       aciklama="Bu katsayılar yalnız BU maliyet çalışmasını etkiler. Sonradan değiştirilen bir varsayılan yayımlanmış bir maliyeti bozmaz."
     >
-      <div className="grid gap-4">
+      <div className="xl:columns-2 xl:gap-4">
         {gruplar.map((g) => (
-          <div key={g} className="grid gap-1">
+          <div key={g} className="mb-4 grid break-inside-avoid gap-1">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{g}</h3>
             <div className="rounded-md border">
               {COST_PARAM_DEFS.filter((d) => d.group === g).map((d) => {
@@ -327,11 +611,12 @@ export function KatsayiSayfasi({
                 return (
                   <div
                     key={d.key}
-                    className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5 last:border-b-0"
+                    className="flex items-center gap-1.5 border-b px-2 py-1 last:border-b-0"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm">{d.label}</div>
-                      {d.hint ? <div className="text-[11px] text-muted-foreground">{d.hint}</div> : null}
+                      <div className="truncate text-sm" title={d.hint ?? d.label}>
+                        {d.label}
+                      </div>
                     </div>
                     <Input
                       value={kutuMetni(deger)}
@@ -340,11 +625,13 @@ export function KatsayiSayfasi({
                       aria-label={d.label}
                       onChange={(e) => set(d.key, sayiVeyaNull(e.target.value))}
                       className={cn(
-                        "h-8 w-32 text-right font-mono text-base pointer-fine:text-sm",
+                        "h-8 w-28 text-right font-mono text-base pointer-fine:text-sm",
                         degisti && "border-primary font-semibold"
                       )}
                     />
-                    <span className="w-24 text-xs text-muted-foreground">{d.unit}</span>
+                    <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground">
+                      {d.unit}
+                    </span>
                   </div>
                 );
               })}

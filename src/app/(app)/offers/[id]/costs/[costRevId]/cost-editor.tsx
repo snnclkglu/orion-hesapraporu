@@ -15,6 +15,10 @@
 // modelin sayıları oradan geliyor ve nereden geldiği görünmeyen bir model
 // güvenilmez olur.
 //
+// KIRILIM ARTIK AYRI BİR BÖLÜM DEĞİLDİR (kullanıcı isteği 18.08.2026, md. 8:
+// *"Maliyetler ve Kırılım sayfasını birleştirelim"*): maliyetler sayfasının
+// altında, aynı kaydırmada durur. Beş bölüm kaldı.
+//
 // YAYIMLANMIŞ MALİYET SALT OKUNURDUR. Kilit veritabanındaki tetikleyicidedir
 // (`guard_issued_offer_cost`); buradaki `readOnly` yalnız görgü kuralıdır.
 
@@ -26,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { costModels, costWeights } from "@/lib/offers/cost/payload";
+import { costModels, costWeights, withCostDerived } from "@/lib/offers/cost/payload";
 import { costMargin, costTotals } from "@/lib/offers/cost/totals";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
 import { fmtCostField } from "@/lib/offers/cost/labels";
@@ -37,15 +41,13 @@ import {
   syncOfferCostFromOffer,
 } from "@/app/(app)/offers/cost-actions";
 import { Bolum } from "./cost-parts";
-import { AgirlikSayfasi, GirdiBolumu, HesapSayfasi, KatsayiSayfasi } from "./model-view";
+import { AgirlikSayfasi, HesapSayfasi, KatsayiSayfasi } from "./model-view";
 import { MaliyetSayfasi } from "./lines-view";
-import { KirilimSayfasi } from "./breakdown-view";
 
 const BOLUMLER = [
   { key: "agirlik", label: "Ağırlıklar", kalemli: true },
   { key: "hesap", label: "Hesaplar", kalemli: true },
   { key: "maliyet", label: "Maliyetler", kalemli: true },
-  { key: "kirilim", label: "Kırılım", kalemli: false },
   { key: "katsayi", label: "Katsayılar", kalemli: false },
   { key: "not", label: "Notlar", kalemli: false },
 ] as const;
@@ -73,7 +75,17 @@ export function CostEditor({
   initial: CostPayload;
   offer: OfferPayload;
 }) {
-  const [payload, setPayload] = useState<CostPayload>(initial);
+  // BELGE HER ZAMAN TÜRETİLMİŞ DURUR (`withCostDerived`): model miktarları ve
+  // hammadde şeridinin fiyatları satırlara YAZILI olur, toplamlar da öyle.
+  //
+  // Ekranda çözüp belgeye yazmamak daha az iş olurdu ve bir şeyi bozardı:
+  // hammadde şeridinden sac fiyatını değiştiren kullanıcı grup toplamının
+  // değiştiğini görür ama PROJE MALİYETİ satırı eski kalırdı — çünkü toplam
+  // (`costTotals`) saf aritmetiktir, şeridi okumaz. İki farklı toplamın aynı
+  // ekranda dolaşması, hangisinin belgeye gideceğini ekrana bakarak
+  // anlaşılmaz yapardı. Sunucudaki kaydetme yolu da aynı fonksiyonu çağırır
+  // (`saveOfferCostRevision`), yani ekran ile belge tanım gereği aynıdır.
+  const [payload, setPayload] = useState<CostPayload>(() => withCostDerived(initial));
   const [kirli, setKirli] = useState(false);
   const [aktif, setAktif] = useState<string>("agirlik");
   const [kalemId, setKalemId] = useState<string>(initial.items[0]?.id ?? "");
@@ -85,7 +97,7 @@ export function CostEditor({
    * geri almamalıdır — bir belge editöründe bu, girilenin kaybolması demektir.
    */
   function guncelle(fn: (onceki: CostPayload) => CostPayload) {
-    setPayload(fn);
+    setPayload((onceki) => withCostDerived(fn(onceki)));
     setKirli(true);
   }
 
@@ -258,7 +270,7 @@ export function CostEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[13rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[11rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
         <nav
           className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
@@ -320,15 +332,28 @@ export function CostEditor({
             </p>
           ) : null}
 
+          {/* GİRDİLER ARTIK AĞIRLIKLAR SAYFASININ İÇİNDEDİR: özet kartıyla
+              aynı satırı paylaşıyor (kullanıcı isteği 18.08.2026). Burada
+              ayrıca çizilseydi ekranda iki kez görünürdü. */}
           {aktif === "agirlik" && item ? (
-            <>
-              <GirdiBolumu item={item} onChange={setItem} />
-              <AgirlikSayfasi item={item} model={models[item.id]} readOnly={readOnly} onChange={setItem} />
-            </>
+            <AgirlikSayfasi
+              item={item}
+              model={models[item.id]}
+              params={payload.params}
+              readOnly={readOnly}
+              onChange={setItem}
+            />
           ) : null}
 
           {aktif === "hesap" && item ? (
-            <HesapSayfasi item={item} model={models[item.id]} readOnly={readOnly} onChange={setItem} />
+            <HesapSayfasi
+              offer={offer}
+              item={item}
+              model={models[item.id]}
+              params={payload.params}
+              readOnly={readOnly}
+              onChange={setItem}
+            />
           ) : null}
 
           {aktif === "maliyet" ? (
@@ -336,15 +361,12 @@ export function CostEditor({
               payload={payload}
               item={item}
               model={item ? models[item.id] : undefined}
+              models={models}
               offer={offer}
               readOnly={readOnly}
               onItemChange={setItem}
               onChange={(next) => guncelle(() => next)}
             />
-          ) : null}
-
-          {aktif === "kirilim" ? (
-            <KirilimSayfasi payload={payload} models={models} offer={offer} />
           ) : null}
 
           {aktif === "katsayi" ? (

@@ -16,6 +16,7 @@
 // vinci bedava göstermenin en kısa yoluydu.
 
 import { paramOf } from "./params";
+import { costGroupLines } from "./types";
 import type { CostGroup, CostItem, CostLine, CostPayload, CostRateGroup } from "./types";
 
 /** Satırın tutarı; miktar ya da birim fiyat eksikse `null` (sıfır DEĞİL). */
@@ -38,8 +39,16 @@ function topla(lines: readonly CostLine[]): number | null {
   return varMi ? toplam : null;
 }
 
+/**
+ * Grubun toplamı — KİPİNE GÖRE.
+ *
+ * Götürü kipteki grup yalnız götürü satırını sayar, kalem kipindeki yalnız
+ * kalem satırlarını (`costGroupLines`). İkisini toplamak, elektriği hem kalem
+ * kalem hem götürü olarak faturalamak demekti (oranlı grubun kip kuralının
+ * aynısı, MALIYET-5).
+ */
 export function costGroupTotal(group: CostGroup | undefined): number | null {
-  return group ? topla(group.lines) : null;
+  return group ? topla(costGroupLines(group)) : null;
 }
 
 /** Kalemin BİRİM maliyeti — bir adet ürünün doğrudan maliyeti. */

@@ -47,13 +47,30 @@ import {
   sectionProps,
   wheelDiaStep,
 } from "./params";
+import type { SectionProps } from "./params";
 import type { CostInputs } from "./types";
+
+/** Seçilen kesidin HAM ÖLÇÜLERİ ve türetilen özellikleri — kesit pop-up'ı bunu basar. */
+export type CostSection = SectionProps & {
+  topMm: number;
+  webMm: number;
+  botMm: number;
+  tMm: number;
+};
 
 export interface CostModelResult {
   /** `w.*` ağırlık, `c.*` hesap. Üretilemeyen değer `null` — sıfır DEĞİL. */
   values: Record<string, number | null>;
   /** Sehim şartını sağlayan en küçük kesidin adı. */
   sectionName: string | null;
+  /**
+   * Seçilen kesidin KENDİSİ — ölçüler, alan, atalet, kg/m.
+   *
+   * `sectionName` yalnız bir etikettir; kullanıcı kesidin neye göre seçildiğini
+   * sorduğunda ("⌀ ne, et kalınlığı ne") cevabı ekranda görebilmelidir
+   * (kullanıcı isteği 18.08.2026, md. 6). Ekranda pop-up, belgede satır.
+   */
+  section: CostSection | null;
   /** Sehim şartı sağlanıyor mu; `null` = hesaplanamadı. */
   deflectionOk: boolean | null;
   /** Açıklık kamber eşiğini aşıyor mu. */
@@ -65,6 +82,7 @@ export interface CostModelResult {
 const bos = (): CostModelResult => ({
   values: {},
   sectionName: null,
+  section: null,
   deflectionOk: null,
   camber: null,
   eksik: [],
@@ -198,7 +216,14 @@ export function hesapla(
   );
   // HIZ ÇAPI BÜYÜTÜR: 20 m/dk üzeri her kademe için bir boy. Araba yalnız
   // KENDİ hızına bakar; köprü ayrıca aşağıda hesaplanır.
-  const trolleyStep = vTrolley === null ? 0 : Math.max(0, excelRound(vTrolley / 20 - 1));
+  const trolleyStep = yaz(
+    // KADEME BİR MODEL ÇIKTISIDIR, yerel bir değişken değil: köprünün karşılığı
+    // (`c.wheelSpeedStep`) ekranda duruyordu, arabanınki durmuyordu. Sonuç,
+    // "araba hızı kademesi kadar büyütülür" diyen bir formülün andığı ara
+    // değerin hiçbir yerde basılamamasıydı (MALIYET-18).
+    "c.trolleyWheelSpeedStep",
+    vTrolley === null ? 0 : Math.max(0, excelRound(vTrolley / 20 - 1))
+  ) ?? 0;
   const trolleyEffDia = yaz(
     "c.trolleyWheelEffDiaMm",
     trolleyDia === null ? null : wheelDiaStep(trolleyDia, trolleyStep)
@@ -302,10 +327,19 @@ export function hesapla(
   );
 
   const density = p("steelDensityFactor");
-  const kesitler = SECTION_TABLE.map((s) => sectionProps(s, density));
-  const secilen = requiredI === null ? null : firstAtLeast(kesitler, requiredI, (s) => s.inertiaCm4);
+  const kesitler: CostSection[] = SECTION_TABLE.map((s) => ({ ...s, ...sectionProps(s, density) }));
+  const onerilen = requiredI === null ? null : firstAtLeast(kesitler, requiredI, (s) => s.inertiaCm4);
+  const sectionI = yaz("c.sectionInertiaCm4", onerilen?.inertiaCm4 ?? null);
+  // EZİLEN ATALET KESİDİ DE DEĞİŞTİRİR — yarım akış bırakılmaz (MALIYET-7).
+  //
+  // Bu satır bir süre yoktu ve sonuç sinsiydi: ataleti elle büyüten mühendisin
+  // SEHİMİ düzeliyor ama pop-up ile kg/m eski kesitte kalıyordu; yani ekran
+  // aynı anda iki farklı kiriş anlatıyordu. Ezilen değer bir kesit SEÇİMİDİR:
+  // ona en yakın gerçek katalog kesidi bulunur ve ağırlık ondan çıkar.
+  const secilen =
+    sectionI === null ? null : (firstAtLeast(kesitler, sectionI, (s) => s.inertiaCm4) ?? kesitler[kesitler.length - 1]);
   out.sectionName = secilen?.name ?? null;
-  const sectionI = yaz("c.sectionInertiaCm4", secilen?.inertiaCm4 ?? null);
+  out.section = secilen ?? null;
   const girderKgPerM = yaz(
     "c.girderKgPerM",
     secilen === null ? null : secilen.kgPerM * (1 + p("girderExtraRatio")) * kGirder
@@ -321,6 +355,12 @@ export function hesapla(
     "c.deflectionCm",
     sehimPay === null || sectionI === null || sectionI <= 0 ? null : sehimPay / 24 / E / sectionI
   );
+  // SEHİM MİLİMETREDİR (kullanıcı isteği 18.08.2026, md. 7). Hesap cm ile
+  // yürür (E kg/cm², atalet cm⁴, açıklık cm) ve öyle de kalır; ekrana basılan
+  // birim ayrı bir anahtardır. Bir sayının iki birimde iki ayrı DEĞER olarak
+  // saklanması yerine tek bir çevrim yazılır — cm'yi elle ezen kullanıcı
+  // mm'yi de onunla birlikte değişmiş görür.
+  yaz("c.deflectionMm", deflection === null ? null : deflection * 10);
   const deflectionRatio = yaz(
     "c.deflectionRatio",
     deflection === null || deflection <= 0 || spanCm === null ? null : spanCm / deflection
