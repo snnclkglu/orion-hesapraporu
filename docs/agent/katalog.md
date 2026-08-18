@@ -29,6 +29,27 @@ olmayan alanı atlar ve eski değer kalır. Engelleyici bir kontrolü besleyen
 alan (ör. `gearboxAllowedRadialKn`) bu yüzden koruma testine bağlıdır —
 `src/lib/__tests__/catalog-mapping.test.ts`.
 
+**KATALOG DEĞERİ ALANIN TİPİNE ZORLANIR — ham `attrs` değeri yazılmaz.**
+`cat_equipment.attrs` serbest biçimli JSONB'dir; aynı nitelik bir üründe sayı,
+başkasında dize olabilir. `applyCatalogPick` bu yüzden bölümün SEÇİM
+ızgarasının alan tanımlarını da alır (`targetFields` — editör
+`section.selectionDefs`i geçirir) ve değeri alanın beyan ettiği tipe çevirir:
+`type: "number"` ya da `numeric: true` → sayı, aksi hâlde dize. Elle giriş yolu
+bu zorlamayı zaten yapıyordu (`def.numeric ? parseFloat(...) : raw`); katalog
+yolu yapmıyordu ve **iki yol aynı alana farklı tipte yazıyordu**.
+
+Ölçülen sonuç (kullanıcı bildirimi 18.08.2026, 0019-00 V0 / KARÇEL): kanca
+kataloğunda `hook_nr` SAYIdır, `hookNumber` ise dize alanıdır. Ham `250`
+yazıldığında `hookDesignationText` içindeki `sel.hookNumber?.trim()`
+`TypeError` fırlatıyordu — `?.` burada KORUMAZ, değer null değil yanlış
+tipte — ve `runCalc` editörde bir `useMemo` içinde koştuğu için istisna **SSR
+sırasında sunucuda** oluşup revizyon sayfasını 500'e düşürüyordu. İkinci ve
+daha sessiz arıza: seçim listesinin seçenekleri dizedir, sayı hiçbiriyle
+eşleşmez ve kutu "seçilmemiş" görünür. Alan tanımı verilmezse değer
+DOKUNULMADAN geçer: bilinmeyen bir hedefe tip uydurmak ham değeri bırakmaktan
+kötüdür. Önceden kaydedilmiş satırların onarımı
+`supabase/migrations/20260820000002_hook_number_text.sql`tedir.
+
 **Katalog SAYFASI ayrı bir yoldur.** Seçim tablosu ürünün sayılarını verir;
 mühendis çoğu zaman sayfanın kendisini de görmek ister (ölçü resmi, dipnot,
 üretici uyarısı). `scripts/catalog-sheets.py` kaynak PDF'ten sayfayı keser

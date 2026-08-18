@@ -49,6 +49,50 @@ export interface SectionCatalogMapping {
   lockedFacets?: Record<string, string | string[]>;
 }
 
+/**
+ * Katalogdan doldurulacak alanın BEYAN EDİLEN tipi. `AnyFieldDef`
+ * (module-adapters) ile yapısal olarak uyumludur; sunum katmanını `lib/`e
+ * sokmamak için burada dar bir yapı olarak durur.
+ */
+export interface CatalogTargetField {
+  key: string;
+  type: "number" | "text" | "select";
+  /** select değerleri sayısal alana yazılır (ör. tambur çapı serisi) */
+  numeric?: boolean;
+}
+
+/**
+ * KATALOG DEĞERİ ALANIN TİPİNE ZORLANIR (KATALOG-13).
+ *
+ * `cat_equipment.attrs` serbest biçimli JSONB'dir: aynı nitelik bir üründe
+ * sayı, başkasında dize olabilir. Ham değeri olduğu gibi yazmak İKİ ARIZA
+ * üretiyordu ve ikisi de sessizdi:
+ *
+ *   • **Sayfa çöküyordu.** `hook_nr` katalogda SAYIdır (22 satırın hepsinde);
+ *     dize bekleyen `hookNumber` alanına 250 düşünce `hookDesignationText`
+ *     içindeki `sel.hookNumber?.trim()` `TypeError` fırlatıyordu. `?.` burada
+ *     KORUMAZ — değer null değil, yanlış tipte. `runCalc` editörde bir
+ *     `useMemo` içinde koştuğu için istisna SSR sırasında sunucuda oluşuyor ve
+ *     revizyon sayfası 500 döndürüyordu (0019-00 V0, 15.08.2026).
+ *   • **Kutu boş görünüyordu.** Seçim listesinin seçenekleri dizedir; sayı
+ *     hiçbiriyle eşleşmez, yani mühendis kutuyu "seçilmemiş" sanır.
+ *
+ * Alan tanımı verilmemişse (eşlemede olup ızgarada olmayan alan) değer
+ * DOKUNULMADAN geçer: bilinmeyen bir hedefe tip uydurmak, ham değeri
+ * bırakmaktan daha kötüdür.
+ */
+function coerceCatalogValue(def: CatalogTargetField | undefined, v: unknown): unknown {
+  if (!def) return v;
+  if (def.type === "number" || def.numeric === true) {
+    if (typeof v === "number") return v;
+    const n = parseFloat(String(v).replace(",", "."));
+    // Sayıya çevrilemeyen bir katalog değeri ham bırakılır: NaN yazmak alanı
+    // sessizce geçersiz kılardı (md. 4 — uydurma veri girilmez).
+    return Number.isFinite(n) ? n : v;
+  }
+  return typeof v === "string" ? v : String(v);
+}
+
 /** Kilitli filtrenin değerlerini her zaman dizi olarak verir. */
 export function lockedFacetValues(value: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
@@ -1150,11 +1194,20 @@ export function getCatalogMapping(
   return MAP_BY_MODULE[moduleKey]?.[rawSectionId];
 }
 
-/** Seçilen katalog satırını selection alanlarına çevirir (eşlenemeyenler atlanır) */
+/**
+ * Seçilen katalog satırını selection alanlarına çevirir (eşlenemeyenler atlanır).
+ *
+ * `targetFields` bölümün SEÇİM ızgarasının alan tanımlarıdır: değer alanın
+ * beyan ettiği tipe zorlanır (bkz. `coerceCatalogValue`). Elle giriş yolu bu
+ * zorlamayı zaten yapıyordu (`def.numeric ? parseFloat(...) : raw`); katalog
+ * yolu yapmıyordu ve iki yol aynı alana FARKLI TİPTE yazıyordu.
+ */
 export function applyCatalogPick(
   mapping: SectionCatalogMapping,
-  row: CatalogRow
+  row: CatalogRow,
+  targetFields?: readonly CatalogTargetField[]
 ): Record<string, unknown> {
+  const targets = new Map((targetFields ?? []).map((d) => [d.key, d]));
   const out: Record<string, unknown> = {};
   for (const f of mapping.fields) {
     let v: unknown;
@@ -1168,7 +1221,7 @@ export function applyCatalogPick(
       v = attrValueLabel(f.from.attr, v);
     }
     if (f.suffix !== undefined) v = `${numFmt(v)}${f.suffix}`;
-    out[f.sel] = v;
+    out[f.sel] = coerceCatalogValue(targets.get(f.sel), v);
   }
   return out;
 }

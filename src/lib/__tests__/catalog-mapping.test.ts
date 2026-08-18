@@ -19,7 +19,11 @@ import {
   isUnverifiedRow,
   lockedFacetValues,
   type CatalogRow,
+  type CatalogTargetField,
 } from "../catalog-mapping";
+import { HOOKBLOCK_SELECTION_FIELDS } from "../calc/presentation/hookBlockFields";
+import { HOOK_NUMBERS } from "../calc/hook-table";
+import { hookDesignationText } from "../calc/hook-standards";
 
 const SKF_BEARING_HOUSING: CatalogRow = {
   id: "skf-se-212",
@@ -98,6 +102,52 @@ const FLENDER_GEARBOX: CatalogRow = {
     source_page: "3/30; 3/74; 4/16-17; 9/8",
   },
 };
+
+/** Seed'in DIN 15401 Nr 250 kancası için ürettiği satır — `hook_nr` SAYIdır. */
+const HOOK_NR_250: CatalogRow = {
+  id: "din-15401-250",
+  brand: "DIN",
+  model: "DIN 15401 Nr 250",
+  attrs: {
+    hook_nr: 250,
+    thread: "Rd320x36",
+    weight_kg: 6793,
+    d1_shaft_mm: 375,
+    d2_shank_mm: 320,
+    shank_length_mm: 2272,
+  },
+};
+
+describe("katalog değeri alanın tipine zorlanır (4.1 kanca)", () => {
+  const mapping = getCatalogMapping("hookBlock", "4.1")!;
+  const defs = HOOKBLOCK_SELECTION_FIELDS as readonly CatalogTargetField[];
+
+  // 0019-00 V0'ın çöküşü: `hook_nr` katalogda sayı, `hookNumber` dize alanı.
+  // Ham değer yazılınca `hookDesignationText` içindeki `.trim()` TypeError
+  // fırlatıyor ve revizyon sayfası SSR'da 500 dönüyordu.
+  it("sayı olan hook_nr'ı dize alanına DİZE yazar", () => {
+    const sel = applyCatalogPick(mapping, HOOK_NR_250, defs);
+    expect(sel.hookNumber).toBe("250");
+    expect(typeof sel.hookNumber).toBe("string");
+  });
+
+  it("dizeye çevrilen numara seçim listesinde gerçekten vardır", () => {
+    const sel = applyCatalogPick(mapping, HOOK_NR_250, defs);
+    // Eşleşmeseydi kutu boş görünür, mühendis "seçilmemiş" sanardı.
+    expect(HOOK_NUMBERS as readonly string[]).toContain(sel.hookNumber);
+  });
+
+  it("zorlanan değer kanca tanımını çökertmeden üretir", () => {
+    const sel = applyCatalogPick(mapping, HOOK_NR_250, defs);
+    expect(hookDesignationText({ hookStandard: "DIN 15401", ...sel })).toBe(
+      "DIN 15401 Nr 250"
+    );
+  });
+
+  it("alan tanımı verilmezse ham değer korunur (eski çağrı yolu)", () => {
+    expect(applyCatalogPick(mapping, HOOK_NR_250).hookNumber).toBe(250);
+  });
+});
 
 describe("kaldırma redüktörü (2.3)", () => {
   const mapping = getCatalogMapping("main", "2.3")!;

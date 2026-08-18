@@ -161,6 +161,36 @@ describe("kanca tanımı (standart seçimi)", () => {
       hookDesignationText({ hookStandard: "DIN 15407", hookNumber: "10" })
     ).toBe("DIN 15407");
   });
+
+  // JSONB'den SAYI gelen kanca numarası bir kez revizyon sayfasını 500'e
+  // düşürdü (`sel.hookNumber?.trim()` — `?.` yanlış TİPE karşı korumaz).
+  // Yazma yolu kapatıldı, ama motor bir revizyonu AÇAMAZSA yayınlanmış bir
+  // raporun onarımı yoktur; okuma tarafı da kendini savunur.
+  it("sayı olarak kaydedilmiş kanca numarasında ÇÖKMEZ", () => {
+    expect(
+      hookDesignationText({
+        hookStandard: "DIN 15401",
+        hookNumber: 250 as unknown as string,
+        hookStrengthClass: "S",
+      })
+    ).toBe("DIN 15401 Nr 250 S");
+    expect(
+      hookDesignationText({ hookStandard: "DIN 15402", hookNumber: 2.5 as unknown as string })
+    ).toBe("DIN 15402 Nr 2.5");
+    // Mukavemet sınıfı da aynı kaynaktan gelir.
+    expect(
+      hookDesignationText({
+        hookStandard: "DIN 15401",
+        hookNumber: "10",
+        hookStrengthClass: 8 as unknown as string,
+      })
+    ).toBe("DIN 15401 Nr 10");
+    // Lamel anahtarı sayıya çevrilemez; olmayan bir boy UYDURULMAZ.
+    expect(din15407Row(250 as unknown as string)).toBeUndefined();
+    expect(
+      hookDesignationText({ hookStandard: "DIN 15407", hookNumber: 250 as unknown as string })
+    ).toBe("DIN 15407");
+  });
 });
 
 describe("kanca bloğu — kapasitenin kaynağı", () => {

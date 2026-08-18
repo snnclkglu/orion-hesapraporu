@@ -170,10 +170,28 @@ export const DIN15407_LABELS: Record<string, string> = Object.fromEntries(
   ])
 );
 
+/**
+ * KANCA NUMARASI JSONB'DEN GELİR — tipi garanti DEĞİLDİR.
+ *
+ * `revisions.selections` serbest biçimli JSONB'dir ve alanın TS tipi (`string`)
+ * orada bir söz değil bir beklentidir. Katalogdan sayı yazılması sayfayı bir
+ * kez çökertti (bkz. KATALOG-13): `sel.hookNumber?.trim()` — `?.` yanlış TİPE
+ * karşı KORUMAZ, yalnız null/undefined'a karşı korur. Yazma yolu kapatıldı ve
+ * kayıtlı satır onarıldı, ama okuma tarafı da kendini savunur: motor bir
+ * revizyonu açamadığında sayfanın tamamı 500 döner (uygulamada `error.tsx`
+ * yoktur) ve YAYINLANMIŞ bir revizyonda bunun onarımı yoktur.
+ */
+function hookNumberText(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim() || undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
 /** Anahtardan satır; tanınmayan anahtarda `undefined` (uydurma satır dönmez). */
-export function din15407Row(key: string | undefined): Din15407Row | undefined {
-  if (!key) return undefined;
-  return DIN15407_ROWS.find((r) => din15407Key(r) === key);
+export function din15407Row(key: string | number | undefined): Din15407Row | undefined {
+  const k = hookNumberText(key);
+  if (!k) return undefined;
+  return DIN15407_ROWS.find((r) => din15407Key(r) === k);
 }
 
 /**
@@ -224,7 +242,8 @@ export function hookNumberOptions(
  */
 export function hookDesignationText(sel: {
   hookStandard?: string;
-  hookNumber?: string;
+  /** JSONB'den okunur; tipi garanti değildir (bkz. `hookNumberText`). */
+  hookNumber?: string | number;
   hookStrengthClass?: string;
 }): string | undefined {
   const s = hookStandardOf(sel.hookStandard);
@@ -234,8 +253,10 @@ export function hookDesignationText(sel: {
     // tek başına yazılır — olmayan bir boy uydurulmaz.
     return row ? `${s} — ${din15407Label(row)}` : s;
   }
-  const nr = sel.hookNumber?.trim();
+  const nr = hookNumberText(sel.hookNumber);
   if (!nr) return s;
-  const cls = sel.hookStrengthClass?.trim();
+  const cls = typeof sel.hookStrengthClass === "string"
+    ? sel.hookStrengthClass.trim()
+    : undefined;
   return cls ? `${s} Nr ${nr} ${cls}` : `${s} Nr ${nr}`;
 }

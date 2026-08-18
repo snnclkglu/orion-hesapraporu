@@ -2145,7 +2145,15 @@ export function RevisionEditor({
                       <CatalogPicker
                         mapping={catalogMapping}
                         onPick={(row) => {
-                          const picked = applyCatalogPick(catalogMapping, row);
+                          // Alan tanımları BİRLİKTE gider: katalog değeri
+                          // alanın beyan ettiği tipe orada zorlanır. Ham JSONB
+                          // değerini yazmak bir kez sayfayı çökertti (katalogda
+                          // `hook_nr` sayıdır, `hookNumber` dize alanıdır).
+                          const picked = applyCatalogPick(
+                            catalogMapping,
+                            row,
+                            section.selectionDefs
+                          );
                           const priorSelections = mods[key].selections as Record<string, unknown>;
                           const next = {
                             ...priorSelections,
