@@ -17,6 +17,7 @@ import {
   canEditConsumableExpenses,
   canEditDrawings,
   canEditOffers,
+  canEditJobs,
   canEditPersonnel,
   canEditPurchasing,
   canEditReports,
@@ -42,6 +43,15 @@ describe("yetki soruları", () => {
 
   it("satış rakamları Yönetici ve Müdürde", () => {
     expect(evetDiyenler(canSeeSales)).toEqual(["admin", "manager"]);
+  });
+
+  it("İŞ EMRİ YAZMA Yönetici ve Müdürde — MÜHENDİS DEĞİL", () => {
+    // Kullanıcı kararı (18.08.2026): İşler herkese açılırken yazma daraldı.
+    // Mühendisin bu yetkiyi kaybetmesi açık bir karardır; hesap raporu yazma
+    // yetkisi (`canEditReports`) ondan bağımsızdır ve mühendiste kalır.
+    expect(evetDiyenler(canEditJobs)).toEqual(["admin", "manager"]);
+    expect(canEditJobs("engineer")).toBe(false);
+    expect(canEditReports("engineer")).toBe(true);
   });
 
   it("iş takibi Yönetici ve Müdürde", () => {
@@ -263,12 +273,21 @@ describe("sectionAccess — ızgaranın hücresi", () => {
   });
 
   it("yazma sorusu OLMAYAN bölümde gören YAZAR", () => {
-    // `jobs` · `sales` · `worklog` politikaları yazmayı ayrıca sormaz; burada
+    // `sales` · `worklog` politikaları yazmayı ayrıca sormaz; burada
     // "bilinmiyor" diye üçüncü bir hâl uydurmak, ekranın veriden fazlasını
     // iddia etmesi olurdu.
-    expect(bolum("/jobs").yazabilir).toBeUndefined();
-    expect(sectionAccess(bolum("/jobs"), "production")).toBe("yazar");
+    expect(bolum("/sales").yazabilir).toBeUndefined();
     expect(sectionAccess(bolum("/sales"), "manager")).toBe("yazar");
+    expect(sectionAccess(bolum("/worklog"), "manager")).toBe("yazar");
+  });
+
+  it("İŞLER HERKESE GÖRÜNÜR ama yazma Yönetici/Müdürdedir", () => {
+    // Bölüm 18.08.2026'da yazma sorusu KAZANDI: görünürlük genişlerken yazma
+    // daraldı. Izgara bu farkı basmalıdır — tek bir ✓ onu gizlerdi.
+    expect(bolum("/jobs").visible).toBeUndefined();
+    expect(sectionAccess(bolum("/jobs"), "production")).toBe("gorur");
+    expect(sectionAccess(bolum("/jobs"), "engineer")).toBe("gorur");
+    expect(sectionAccess(bolum("/jobs"), "manager")).toBe("yazar");
   });
 
   it("Yönetici HER bölümde yazar", () => {

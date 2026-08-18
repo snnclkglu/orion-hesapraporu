@@ -66,10 +66,13 @@ const GRUP_ETIKETLERI: Record<JobGroup, string> = {
 function BoardCard({
   job,
   extras,
+  canEdit,
   surukleniyor = false,
 }: {
   job: JobRow;
   extras: JobExtras;
+  /** Yazma yetkisi — durum rozeti menü mü, yoksa yalnız etiket mi. */
+  canEdit: boolean;
   surukleniyor?: boolean;
 }) {
   const gorev = extras.tasks[job.id];
@@ -116,7 +119,7 @@ function BoardCard({
         {termin && <span>termin {fmtJobDate(termin)}</span>}
       </p>
       <div className="relative z-10">
-        <JobStatusMenu jobId={job.id} status={job.status} />
+        <JobStatusMenu jobId={job.id} status={job.status} readOnly={!canEdit} />
       </div>
     </div>
   );
@@ -125,9 +128,11 @@ function BoardCard({
 function DraggableCard({
   job,
   extras,
+  canEdit,
 }: {
   job: JobRow;
   extras: JobExtras;
+  canEdit: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
@@ -139,7 +144,7 @@ function DraggableCard({
       {...listeners}
       className="touch-manipulation"
     >
-      <BoardCard job={job} extras={extras} surukleniyor={isDragging} />
+      <BoardCard job={job} extras={extras} canEdit={canEdit} surukleniyor={isDragging} />
     </div>
   );
 }
@@ -179,10 +184,17 @@ export function BoardView({
   rows,
   grup,
   extras,
+  canEdit = true,
 }: {
   rows: JobRow[];
   grup: JobGroup;
   extras: JobExtras;
+  /**
+   * İş emri yazma yetkisi. SÜRÜKLEME YALNIZ DURUMDADIR ve bırakma
+   * `setJobStatus`un kendisidir (IS-25) — yetki yoksa sürükleme de kapanır,
+   * yoksa kart yerinden oynar ve sunucu reddedince geri sıçrardı.
+   */
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -199,7 +211,7 @@ export function BoardView({
     [rows, override]
   );
   const cols = useMemo(() => boardGroups(etkinRows, grup), [etkinRows, grup]);
-  const dragOn = isDragEnabled(grup);
+  const dragOn = isDragEnabled(grup) && canEdit;
 
   // 8px hareket eşiği: kartın içindeki bağlantı ve durum çipi TIKLANABİLİR
   // kalır — sürükleme ancak gerçek bir çekişte başlar.
@@ -269,9 +281,9 @@ export function BoardView({
             ) : (
               c.rows.map((j) =>
                 dragOn ? (
-                  <DraggableCard key={j.id} job={j} extras={extras} />
+                  <DraggableCard key={j.id} job={j} extras={extras} canEdit={canEdit} />
                 ) : (
-                  <BoardCard key={j.id} job={j} extras={extras} />
+                  <BoardCard key={j.id} job={j} extras={extras} canEdit={canEdit} />
                 )
               )
             )}
@@ -301,7 +313,7 @@ export function BoardView({
               {acik && c.rows.length > 0 && (
                 <div className="grid gap-2 border-t p-2">
                   {c.rows.map((j) => (
-                    <BoardCard key={j.id} job={j} extras={extras} />
+                    <BoardCard key={j.id} job={j} extras={extras} canEdit={canEdit} />
                   ))}
                 </div>
               )}

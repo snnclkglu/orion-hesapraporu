@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  revizyonEtiketi,
   revizyonHarfi,
   sonrakiIsNo,
   sonrakiRevizyon,
@@ -56,11 +57,14 @@ describe("tarihEkle", () => {
 });
 
 describe("revizyon harfi", () => {
-  it("boş ve geçersiz değer A'dır", () => {
-    expect(revizyonHarfi("")).toBe("A");
-    expect(revizyonHarfi(null)).toBe("A");
-    expect(revizyonHarfi("12")).toBe("A");
-    expect(revizyonHarfi("Ç")).toBe("A");
+  // İLK YAYIN REVİZYONSUZDUR (kullanıcı kararı, 18.08.2026): boş harf
+  // "bilinmiyor" değil "hiç revize edilmedi" demektir ve uydurulmuş bir `A`
+  // olmamış bir düzeltme geçmişi anlatırdı.
+  it("boş ve geçersiz değer BOŞTUR — A değil", () => {
+    expect(revizyonHarfi("")).toBe("");
+    expect(revizyonHarfi(null)).toBe("");
+    expect(revizyonHarfi("12")).toBe("");
+    expect(revizyonHarfi("Ç")).toBe("");
   });
 
   it("küçük harf büyütülür", () => {
@@ -79,7 +83,13 @@ describe("revizyon harfi", () => {
     expect(sonrakiRevizyon("ZZ")).toBe("AAA");
   });
 
-  it("boş değerin sonrakisi B'dir — yeni kayıt A sayılır", () => {
-    expect(sonrakiRevizyon("")).toBe("B");
+  it("revizyonsuz belgenin İLK revizyonu A'dır", () => {
+    expect(sonrakiRevizyon("")).toBe("A");
+    expect(sonrakiRevizyon(null)).toBe("A");
+  });
+
+  it("ekran adı boş harfi cümleye çevirir", () => {
+    expect(revizyonEtiketi("")).toBe("Revizyonsuz");
+    expect(revizyonEtiketi("B")).toBe("B");
   });
 });

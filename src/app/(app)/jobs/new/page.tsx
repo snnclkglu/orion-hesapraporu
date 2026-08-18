@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sonrakiIsNo } from "@/lib/jobs/is-emri";
+import { canEditJobs } from "@/lib/roles";
 import { JobForm } from "../job-form";
 import { loadJobFormData } from "../form-data";
 // EMPTY_JOB `schema.ts`tendir, job-form'dan DEĞİL: bu bir sunucu bileşenidir ve
@@ -21,6 +22,36 @@ import { EMPTY_JOB, type JobInput } from "../schema";
 //   taşımak yanlış termin yazdırmanın en kısa yoludur.
 // · Sözleşme PDF'i kopyalanmaz — o belge ESKİ işin sözleşmesidir.
 
+
+/**
+ * FORM SAYFASI YAZMA YETKİSİ İSTER (canEditJobs, 18.08.2026).
+ *
+ * Sessizce `/jobs`a yönlendirmek YERİNE sayfa NEDENİ SÖYLER: adres elle
+ * yazılmış ya da eski bir yer iminden gelinmiş olabilir ve boş bir yönlendirme
+ * kullanıcıya "bağlantı bozuk" dedirtirdi. Asıl engel yine RLS'tir; bu ekran
+ * yalnız kapıyı görünür kılar.
+ */
+function YetkiYok({ geriHref, geriEtiket }: { geriHref: string; geriEtiket: string }) {
+  return (
+    <div className="mx-auto w-full max-w-5xl">
+      <Link
+        href={geriHref}
+        className="-ml-1 inline-flex min-h-9 items-center gap-1 px-1 text-sm text-muted-foreground hover:text-foreground pointer-coarse:min-h-10"
+      >
+        <ChevronLeft className="size-4" /> {geriEtiket}
+      </Link>
+      <div className="mt-3 border bg-card p-6">
+        <h1 className="text-lg font-semibold tracking-tight">Yetki yok</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          İş emri açma ve düzenleme yetkisi yalnız Yönetici ve Müdürdedir. İş
+          emrini görüntüleyebilir, PDF olarak indirebilir, görev ve yorum
+          ekleyebilirsiniz.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default async function NewJobPage({
   searchParams,
 }: {
@@ -28,6 +59,15 @@ export default async function NewJobPage({
 }) {
   const { kaynak } = await searchParams;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profil } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  if (!canEditJobs((profil as { role?: string } | null)?.role)) {
+    return <YetkiYok geriHref="/jobs" geriEtiket="İşler" />;
+  }
   const [{ customers, people }, { data: mevcutNolar }] = await Promise.all([
     loadJobFormData(),
     // ÖNERİ SUNUCUDA HESAPLANIR: numara defterin TAMAMINDAN çıkar ve defteri

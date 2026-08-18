@@ -67,6 +67,13 @@ export interface SaleRow {
   jobDeliveryDate: string | null;
   jobWorkshopExitDate: string | null;
   jobShippingAddress: string;
+  /**
+   * İŞ EMRİNİN SÖZLEŞME PDF'İ (`job_contracts`) — kalem başına değil İŞ
+   * BAŞINA (kullanıcı kararı, 18.08.2026). Aynı işin bütün satırları aynı
+   * dosyayı gösterir; yükleme de pencereden İŞE yapılır.
+   */
+  contractPath: string;
+  contractName: string;
   hasSale: boolean;
   sale: SaleInput;
   /** Veritabanında türetilen toplamlar (kayıt yoksa null) */

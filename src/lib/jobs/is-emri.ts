@@ -81,28 +81,42 @@ export function tarihEkle(
 }
 
 /**
- * Revizyon harfi — geçersiz/boş değer `A`ya düşer.
+ * Revizyon harfi — geçersiz değer BOŞA düşer, `A`ya değil.
+ *
+ * İLK YAYIN REVİZYONSUZDUR (kullanıcı kararı, 18.08.2026: *"ilk açılan iş emri
+ * revizyonsuz başlar. Eğer revize edilirse Revizyon A olur."*). Boş bir harf
+ * "bilinmiyor" değil BİR OLGUDUR: bu belge hiç revize edilmedi. Bu yüzden
+ * geçersiz girdi de boşa düşer — uydurulmuş bir `A`, olmamış bir düzeltme
+ * geçmişi anlatırdı (md. 4).
  *
  * Büyütme `toLocaleUpperCase("tr-TR")` DEĞİL düz `toUpperCase()`tur ve bu
  * AGENTS md. 3'ün istisnası değil kapsamı dışıdır: alan bir AD değil ASCII bir
  * sıra işaretidir ve yalnız `A–Z` kabul eder. Türkçe büyütme "i"yi "İ" yapar,
  * "İ" ise harf kümesinde yoktur — kullanıcının küçük harfle yazdığı "i"
- * sessizce `A`ya düşerdi.
+ * sessizce düşerdi.
  */
 export function revizyonHarfi(v: unknown): string {
   const s = String(v ?? "").trim().toUpperCase();
-  return /^[A-Z]{1,3}$/.test(s) ? s : "A";
+  return /^[A-Z]{1,3}$/.test(s) ? s : "";
+}
+
+/** Revizyonun ekrandaki adı — boş harf bir kod değil bir cümledir. */
+export function revizyonEtiketi(v: unknown): string {
+  return revizyonHarfi(v) || "Revizyonsuz";
 }
 
 /**
- * Bir sonraki revizyon harfi: A → B → … → Z → AA → AB.
+ * Bir sonraki revizyon harfi: (boş) → A → B → … → Z → AA → AB.
  *
- * Z'den sonra harf ÜRETİLİR, başa dönülmez: 26. revizyonda numaranın `A`ya
- * dönmesi iki ayrı belgeye aynı kimliği verirdi. Pratikte bir iş emri o kadar
- * revize edilmez ama kural belirsiz kalmamalıdır.
+ * REVİZYONSUZ BİR BELGENİN İLK REVİZYONU `A`DIR. Z'den sonra harf ÜRETİLİR,
+ * başa dönülmez: 26. revizyonda numaranın `A`ya dönmesi iki ayrı belgeye aynı
+ * kimliği verirdi. Pratikte bir iş emri o kadar revize edilmez ama kural
+ * belirsiz kalmamalıdır.
  */
 export function sonrakiRevizyon(v: unknown): string {
-  const harfler = revizyonHarfi(v).split("");
+  const mevcut = revizyonHarfi(v);
+  if (!mevcut) return "A";
+  const harfler = mevcut.split("");
   for (let i = harfler.length - 1; i >= 0; i--) {
     if (harfler[i] !== "Z") {
       harfler[i] = String.fromCharCode(harfler[i].charCodeAt(0) + 1);

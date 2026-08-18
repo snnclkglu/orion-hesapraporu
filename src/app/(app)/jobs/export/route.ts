@@ -17,6 +17,8 @@ import { downloadName } from "@/lib/work-log";
 import { bugunIstanbul } from "@/app/(app)/panel/data";
 import {
   describeJobFilters,
+  jobDate,
+  son12AyBaslangici,
   jobYear,
   matchesJobFilters,
   sortJobs,
@@ -73,13 +75,23 @@ export async function GET(request: NextRequest) {
   const state = readJobsViewState(request.nextUrl.searchParams);
   const years = [...new Set(rows.map(jobYear).filter(Boolean))];
   // "Bugün" İstanbul saatiyledir: Vercel UTC'de koşar ve gece 00:00–03:00
-  // arasında UTC yılbaşı sapması yıl süzgecini bir yıl kaydırırdı.
-  const thisYear = bugunIstanbul().slice(0, 4);
+  // arasında UTC yılbaşı sapması dönem süzgecini bir gün/yıl kaydırırdı.
+  const bugun = bugunIstanbul().slice(0, 10);
+  const thisYear = bugun.slice(0, 4);
+  // Varsayılan dönem SON 12 AYDIR ve ekranla AYNI kuraldan geçer (`resolveYear`
+  // + `son12Dolu`): iki taraf ayrı hesaplasaydı indirilen dosya ile ekrandaki
+  // tablo sessizce ayrışırdı — bu dosyanın başındaki sözleşmenin ta kendisi.
+  const son12Alt = son12AyBaslangici(bugun);
+  const son12Dolu = rows.some((r) => {
+    const t = jobDate(r);
+    return t !== "" && t >= son12Alt;
+  });
   const filterInput = {
-    yil: resolveYear(state.yil, years, thisYear),
+    yil: resolveYear(state.yil, years, thisYear, son12Dolu),
     musteri: state.musteri,
     durum: state.durum,
     q: state.q,
+    bugun,
   };
   const filtered = sortJobs(
     rows.filter((r) => matchesJobFilters(r, filterInput)),

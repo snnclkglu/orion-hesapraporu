@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canEditJobs } from "@/lib/roles";
 import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from "@/lib/job-status";
 import { autoShortName, nextDistinctHue } from "@/lib/tags";
 import { notifyTargets } from "@/lib/jobs/notify";
@@ -25,6 +26,34 @@ export type { JobInput, JobItemInput } from "./schema";
 
 export type ActionResult = { error?: string };
 
+/**
+ * İŞ EMRİ YAZMA KAPISI — oturumu ve rolü birlikte sorar.
+ *
+ * Asıl engel RLS'tir (`can_edit_jobs()`); bu kontrol onun ÖNÜNDE durur ve tek
+ * işi HATAYI TÜRKÇE SÖYLEMEKTİR. Yalnız RLS'e bırakılsaydı yetkisiz kayıt
+ * `new row violates row-level security policy` gibi ham bir metinle dönerdi ve
+ * kullanıcı bunu bir arıza sanardı. Ayrıca `updateJob` iş kalemlerini
+ * SİLİP YENİDEN YAZAR: `jobs` satırı RLS'e takılsa bile kalem silme ayrı bir
+ * politikadan geçer, yani kapı burada da tutulmalıdır.
+ */
+async function yazmaIzni(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<{ user?: { id: string }; error?: string }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+  const { data: profil } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!canEditJobs((profil as { role?: string } | null)?.role)) {
+    return { error: "İş emri yazma yetkisi yalnız Yönetici ve Müdürdedir." };
+  }
+  return { user };
+}
+
 /** jobs tablosu satırı (items hariç header alanları) */
 function jobRowFrom(input: JobInput) {
   const { items: _items, ...rest } = input;
@@ -41,10 +70,9 @@ function cleanItems(items: JobItemInput[]) {
 
 export async function createJob(input: JobInput): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+  const user = izin.user;
 
   const parsed = jobInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -87,10 +115,9 @@ export async function createJob(input: JobInput): Promise<ActionResult> {
 
 export async function updateJob(jobId: string, input: JobInput): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+  const user = izin.user;
 
   const parsed = jobInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -292,10 +319,9 @@ export async function setJobStatus(
   status: JobStatus
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+  const user = izin.user;
   if (!JOB_STATUSES.includes(status)) return { error: "Geçersiz iş durumu" };
 
   const res = await durumYazVeBildir(supabase, user.id, jobId, status);
@@ -317,10 +343,9 @@ export async function bulkSetJobStatus(
   status: JobStatus
 ): Promise<ActionResult & { updated?: number }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
+  const izin = await yazmaIzni(supabase);
+  if (izin.error || !izin.user) return { error: izin.error };
+  const user = izin.user;
   if (!JOB_STATUSES.includes(status)) return { error: "Geçersiz iş durumu" };
   if (jobIds.length === 0) return { error: "Seçili iş yok" };
   if (jobIds.length > 100) return { error: "Tek seferde en çok 100 iş" };

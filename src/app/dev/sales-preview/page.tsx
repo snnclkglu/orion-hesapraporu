@@ -52,6 +52,10 @@ function row(
     jobDeliveryDate: isEmri?.jobDeliveryDate ?? null,
     jobWorkshopExitDate: isEmri?.jobWorkshopExitDate ?? null,
     jobShippingAddress: isEmri?.jobShippingAddress ?? "",
+    // Sözleşme YALNIZ BİR satırda dolu: sütunun hem dolu hem boş hâli aynı
+    // ekranda görünsün (düğme yoksa hücre gerçekten boş kalmalı).
+    contractPath: itemNo.startsWith("0002") ? "onizleme/sozlesme.pdf" : "",
+    contractName: itemNo.startsWith("0002") ? "KARÇEL Sözleşme.pdf" : "",
     hasSale: sale !== null,
     sale: s,
     totalWeightKg: sale ? qty * (s.unit_weight_kg ?? 0) : null,

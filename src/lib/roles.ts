@@ -87,6 +87,32 @@ export function isAdminRole(value: string | null | undefined): boolean {
   return roleOf(value) === "admin";
 }
 
+/**
+ * İŞ EMRİ YAZMA yetkisi — yeni iş açma, düzenleme, durum değiştirme, silme.
+ *
+ * Kullanıcı kararı (18.08.2026): *"işler sayfasını tüm kullanıcılara
+ * açacağım. Yönetici ve Müdür harici düzenleme ve yeni iş açamayacak sadece
+ * görüntüleme yapacak."* İşler bölümünün GÖRÜNÜRLÜĞÜ sorulmaz (herkes görür,
+ * `WORKSPACE_SECTIONS`te `visible` yoktur); ayrışan şey YAZMADIR.
+ *
+ * MÜHENDİS BU YETKİYİ KAYBETTİ ve bu bir gözden kaçma değil kullanıcının açık
+ * kararıdır: iş emri ticari bir belgedir (müşteri künyesi, sözleşme, termin),
+ * hesap raporu ise mühendisin ürünüdür — ikisi `canEditReports` ile ayrılır.
+ *
+ * KAPSAMI İŞ EMRİNİN KENDİSİDİR, hub'ın tamamı değil. Görev, yorum, favori,
+ * bildirim ve RESİM ÇARPANI herkese açık kalır: İşler bir HUB'dır (IS-25) ve
+ * atölyenin ortak tahtasını kilitlemek bölümü herkese açma kararını boşa
+ * çıkarırdı. `job_items` yazma politikası da bu yüzden DOKUNULMADAN kalır —
+ * mühendis raporu kaleme bağlar (`assignProjectToJob`), ressam çarpanı yazar.
+ *
+ * Veritabanı karşılığı `can_edit_jobs()`; menüden gizlemek yalnız görgü
+ * kuralıdır, asıl engel RLS'tir.
+ */
+export function canEditJobs(value: string | null | undefined): boolean {
+  const r = roleOf(value);
+  return r === "admin" || r === "manager";
+}
+
 /** Satış Takibi sayfası: fiyat, ciro ve kâr rakamları. */
 export function canSeeSales(value: string | null | undefined): boolean {
   const r = roleOf(value);
@@ -388,6 +414,8 @@ export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
     icon: "bolt",
     hint: "İş emirleri, iş kalemleri ve müşteri bilgileri",
     kime: "Herkes",
+    yazabilir: canEditJobs,
+    yazma: "Yönetici · Müdür (görev ve yorum herkeste)",
   },
   // TEKLİF İŞLER'İN HEMEN ALTINDADIR (kullanıcı kararı, 17.08.2026:
   // *"İşler bölümünün hemen altına Teklif adında bir bölüm"*). Sıra bir düzen

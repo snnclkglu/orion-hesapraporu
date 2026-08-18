@@ -35,7 +35,7 @@ export async function GET(
     job_no: job.job_no ?? "",
     title: job.title ?? "",
     form_code: job.form_code ?? "FR.11.02",
-    revision: job.revision ?? "A",
+    revision: job.revision ?? "",
     work_order_date: job.work_order_date ?? null,
     customer: job.customer ?? "",
     customer_address: job.customer_address ?? "",
@@ -67,8 +67,11 @@ export async function GET(
   // REVİZYON ADA GİRER: aynı iş emri revize edildiğinde indirilenler klasöründe
   // iki dosya yan yana durur ve hangisinin güncel olduğu ancak açılınca
   // anlaşılırdı (tarayıcı ikincisini "(1)" ile adlandırırdı).
+  // Boş parça DÜŞER (`downloadFileName`): revizyonsuz iş emrinin adında "REV"
+  // hiç geçmez.
   const filename = downloadFileName([
-    job.title, job.job_no, job.form_code, "İş Emri", `Rev ${data.revision}`,
+    job.title, job.job_no, job.form_code, "İş Emri",
+    data.revision ? `Rev ${data.revision}` : "",
   ]);
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);

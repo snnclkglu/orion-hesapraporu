@@ -27,7 +27,7 @@ export interface WorkOrderData {
   job_no: string;
   title: string;
   form_code?: string;
-  /** Revizyon harfi (A · B · C…). Verilmezse `A` sayılır. */
+  /** Revizyon harfi (A · B · C…). BOŞ = hiç revize edilmemiş ilk yayın. */
   revision?: string;
   work_order_date?: string | null;
   customer: string;
@@ -286,26 +286,31 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
   const sc = data.scope ?? {};
   // REVİZYON HARFİ künyeye girer (kullanıcı kararı, 18.08.2026): iş emri
   // yayımlandıktan sonra kalem eklenip çıkarılabildiği için atölyedeki asıl
-  // soru "elimdeki kâğıt hangi revizyon"dur.
+  // soru "elimdeki kâğıt hangi revizyon"dur. İLK YAYINDA HARF YOKTUR ve künye
+  // o zaman revizyondan hiç söz etmez — "REV —" gibi bir yer tutucu, belgenin
+  // bilmediği bir şeyi biliyormuş gibi göstermek olurdu (md. 5).
   const rev = revizyonHarfi(data.revision);
   const adresVar = Boolean(data.shipping_address?.trim() || data.assembly_address?.trim());
   const layout = itemScale(data.items.length, adresVar);
   const year = /^(\d{4})/.exec(data.work_order_date ?? "")?.[1] ?? String(new Date().getFullYear());
   return (
     <Document
-      title={`İş Emri ${data.job_no} Rev ${rev}`}
+      title={rev ? `İş Emri ${data.job_no} Rev ${rev}` : `İş Emri ${data.job_no}`}
       author={st.company}
       subject={data.title}
       language="tr"
     >
       <BrandPage
-        docLine={`ORION CRANES · İŞ EMRİ · REV ${rev} · ${year}`}
+        docLine={`ORION CRANES · İŞ EMRİ${rev ? ` · REV ${rev}` : ""} · ${year}`}
         docCode={workOrderDocCode(data.job_no, rev)}
       >
         <PageHeader
           kicker="ORION CRANES · İş Emri"
           title="İş Emri"
-          meta={`${data.form_code || "FR.11.02"} · ${trUpper("İş No")} ${data.job_no} · ${trUpper("Rev")} ${rev}`}
+          meta={
+            `${data.form_code || "FR.11.02"} · ${trUpper("İş No")} ${data.job_no}` +
+            (rev ? ` · ${trUpper("Rev")} ${rev}` : "")
+          }
         />
 
         {/* İşin adı belgenin üstünde bir kez, tam genişlikte durur: iş emrini

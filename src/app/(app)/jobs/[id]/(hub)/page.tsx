@@ -7,7 +7,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ContractOpenButton } from "../../contract-upload";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { fmtJobDate } from "@/lib/jobs/filter";
 import { Badge } from "@/components/ui/badge";
@@ -262,18 +261,9 @@ export default async function JobPage({
               (bkz. jobs/schema.ts) — bu yüzden "İş Bilgileri" kutusundadır. */}
           <KV label="Sevk Adresi" value={job.shipping_address} />
           <KV label="Montaj Adresi" value={job.assembly_address} />
-          {job.contract_file_path ? (
-            <div className="mt-3">
-              <ContractOpenButton
-                path={job.contract_file_path}
-                fileName={job.contract_file_name}
-              />
-            </div>
-          ) : job.contract_exists ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Sözleşme dosyası yüklenmemiş — &quot;Düzenle&quot; ile PDF ekleyebilirsiniz.
-            </p>
-          ) : null}
+          {/* SÖZLEŞME DOSYASI BURADA GÖSTERİLMEZ (18.08.2026): bu sayfayı
+              herkes görür, sözleşmeyi ise yalnız Yönetici ve Müdür. Belge
+              Satış Takibi'ndeki kalem satırından açılır. */}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {activeScopes.length > 0 ? (
               activeScopes.map((sLabel) => (

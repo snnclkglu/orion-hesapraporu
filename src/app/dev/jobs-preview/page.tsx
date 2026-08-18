@@ -112,9 +112,9 @@ export default function JobsPreviewPage() {
               önizlemede defter yok, bu yüzden kutu boş açılır. */}
           <JobForm mode="create" initial={EMPTY_JOB} customers={CUSTOMERS} people={PEOPLE} />
         </section>
-        {/* DÜZENLEME KİPİ AYRICA BASILIR: revizyon anahtarı ("A → B") ve montaj
-            adresinin "Sevk ile aynı" hâli YALNIZ burada görünür — create kipinde
-            revizyon salt-okunur `A`dır ve anahtar hiç çizilmez. */}
+        {/* DÜZENLEME KİPİ AYRICA BASILIR: revizyon anahtarı ve montaj
+            adresinin "Sevk ile aynı" hâli YALNIZ burada görünür — create
+            kipinde kutu "Revizyonsuz" yazar ve anahtar hiç çizilmez. */}
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">
             İş Emrini Düzenle — revizyon anahtarı + sevk/montaj adresi
@@ -125,7 +125,9 @@ export default function JobsPreviewPage() {
             initial={{
               ...EMPTY_JOB,
               job_no: "0063",
-              revision: "A",
+              // REVİZYONSUZ: yeni iş emrinin normal hâli. Anahtar bu yüzden
+              // "(Revizyonsuz → A)" yazar — kullanıcının ilk göreceği geçiş.
+              revision: "",
               title: "ASTOR MUHTELİF VİNÇLER",
               customer: "ASTOR A.Ş.",
               work_order_date: `${YEAR}-08-18`,

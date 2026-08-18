@@ -1,12 +1,15 @@
 "use client";
 
-// Sözleşme PDF'i — "Sözleşme var" işaretlendiğinde açılan yükleme alanı.
+// Sözleşme PDF'i — SATIŞ BÖLÜMÜNÜN parçası (18.08.2026'da `jobs/`den taşındı).
+//
+// TAŞIMANIN SEBEBİ YETKİDİR: İşler bölümü herkese açıldı ve sözleşme herkese
+// açılmamalıydı (kullanıcı kararı). Dosya artık `job_contracts` tablosunda
+// durur ve hem tablo hem `contracts` bucket'ı `can_see_sales()` ile kesilir —
+// imzalı bağlantı uygulama katmanındaki rolü TAŞIMAZ, o yüzden bucket'ın
+// kendisi de kapatılmalıydı (personel/teknik resim kalıbı).
 //
 // Dosya doğrudan tarayıcıdan `contracts` bucket'ına yüklenir (özel/private);
-// forma yalnız YOL yazılır. Yükleme işin kaydedilmesini BEKLEMEZ: yol istemcide
-// üretilen bir klasör altındadır, böylece yeni iş açarken de dosya seçilebilir.
-// Görüntüleme kısa ömürlü imzalı bağlantı ile yapılır — bucket herkese açık
-// değildir, sözleşme yalnız oturum açmış kullanıcıya gider.
+// kayda yalnız YOL yazılır. Görüntüleme kısa ömürlü imzalı bağlantı iledir.
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -24,9 +27,17 @@ const MAX_MB = 25;
 export function ContractOpenButton({
   path,
   fileName,
+  iconOnly = false,
 }: {
   path: string;
   fileName?: string;
+  /**
+   * Liste satırındaki KÜÇÜK hâli (kullanıcı isteği, 18.08.2026: *"küçük bir
+   * tuş yapalım sözleşmeye oradan ulaşılabilsin"*). Dosya adı yazılmaz —
+   * sütun ürün adının yanındadır ve orada bir isim daha satırı taşırırdı;
+   * ad `title` ile durur ve ekran okuyucuya `sr-only` metinle gider.
+   */
+  iconOnly?: boolean;
 }) {
   const [opening, startOpening] = useTransition();
 
@@ -42,6 +53,29 @@ export function ContractOpenButton({
       }
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     });
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="text-primary"
+        onClick={open}
+        disabled={opening}
+        title={fileName?.trim() || "Sözleşmeyi Aç"}
+      >
+        {opening ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <FileText className="size-4" />
+        )}
+        <span className="sr-only">
+          Sözleşmeyi aç{fileName?.trim() ? `: ${fileName}` : ""}
+        </span>
+      </Button>
+    );
   }
 
   return (
@@ -70,13 +104,22 @@ export function ContractUpload({
   fileName,
   onChange,
   disabled,
+  busy: disKaydediliyor = false,
 }: {
   path: string;
   fileName: string;
   onChange: (next: { path: string; fileName: string }) => void;
   disabled?: boolean;
+  /**
+   * Çağıran kaydediyor. Yükleme İKİ ADIMDIR (depoya dosya, sonra kayda yol);
+   * ikincisi bileşenin dışında olduğu için "yükleniyor" hâli de dışarıdan
+   * beslenebilmelidir — yoksa depo yüklemesi biter bitmez kutu "hazır"
+   * görünür ama kayıt hâlâ yazılıyordur.
+   */
+  busy?: boolean;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [yerelBusy, setBusy] = useState(false);
+  const busy = yerelBusy || disKaydediliyor;
   const [opening, startOpening] = useTransition();
 
   async function upload(file: File) {

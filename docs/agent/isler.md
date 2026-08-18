@@ -133,10 +133,17 @@ veri olurdu (md. 4). İş kopyalamada adres KOPYALANIR (tarihlerin tersine):
 tekrarlayan siparişte değişen şey termin, değişmeyen şey teslim yeridir.
 
 **REVİZYON HARFTİR ve BELGENİN KİMLİĞİNE GİRER** (`jobs.revision`, varsayılan
-`A`; kısıt `jobs_revision_harf`, TS yarısı `revizyonHarfi`). Düzenleme formunda
+BOŞ; kısıt `jobs_revision_harf`, TS yarısı `revizyonHarfi`). **İLK YAYIN
+REVİZYONSUZDUR** (kullanıcı düzeltmesi, 18.08.2026: *"ilk açılan iş emri
+revizyonsuz başlar. Eğer revize edilirse Revizyon A olur."*) — boş harf
+"bilinmiyor" değil BİR OLGUDUR: bu belge hiç revize edilmedi. Bu yüzden
+`revizyonHarfi` geçersiz girdiyi de BOŞA düşürür, `A`ya değil; `ORC-IE-0063`
+son eksiz basılır; künyede, dosya adında ve hub rozetinde "REV" ibaresi hiç
+geçmez. Formda kutu "Revizyonsuz" YAZAR — `placeholder` DEĞİL, `value`nun
+kendisi (md. 5). Düzenleme formunda
 anahtar AÇIK başlar ve harf bir sonrakine ilerler (A → B → C); kapatılınca alan
 KAYITLI harfe döner ve elle yazılır — yazım hatası düzeltmek bir revizyon
-değildir ve `B`yi harcamamalıdır. Hedef harf HER ZAMAN `initial`den türer, form
+değildir ve harf harcamamalıdır. Hedef harf HER ZAMAN `initial`den türer, form
 durumundan değil: aksi hâlde tek düzenleme her turda bir harf daha ilerlerdi.
 Z'den sonra başa DÖNÜLMEZ (`AA`), çünkü aynı kimlik iki belgeye verilemez.
 Belge kodu `workOrderDocCode` iledir (`ORC-IE-0063-RB`) — `docCode` imzası
@@ -160,6 +167,59 @@ dışa aktarımı gerçek değer değil bir REFERANSTIR: bütün olarak prop ge�
 çalışır, yaymak alanların hiçbirini getirmez — form `scope`suz monte oluyor ve
 "Cannot read properties of undefined (reading 'proje')" ile patlıyordu. İş
 KOPYALAMA (`?kaynak=`) bu yüzden zaten kırıktı. Sabit `schema.ts`e taşındı.
+
+## IS-27 — İŞLER HERKESE AÇIK, YAZMA YÖNETİCİ VE MÜDÜRDE
+
+(kullanıcı kararı, 18.08.2026: *"işler sayfasını tüm kullanıcılara açacağım.
+Yönetici ve Müdür harici düzenleme ve yeni iş açamayacak sadece görüntüleme
+yapacak."*) Soru `canEditJobs`tır (`lib/roles.ts`), veritabanı karşılığı
+`can_edit_jobs()` ve RLS `jobs` INSERT/UPDATE'i onunla keser; silme daha dar
+kalır (`is_admin()`). **MÜHENDİS BU YETKİYİ KAYBETTİ** ve bu bir gözden kaçma
+değildir: iş emri ticari bir belgedir (müşteri künyesi, sözleşme, termin),
+hesap raporu ise mühendisin ürünüdür ve `canEditReports` ondan bağımsız durur.
+
+**KAPSAM İŞ EMRİNİN KENDİSİDİR, HUB'IN TAMAMI DEĞİL.** Görev, yorum, favori,
+bildirim ve RESİM ÇARPANI herkese açık kalır; `job_items` yazma politikası da
+DOKUNULMADI — mühendis raporu kaleme bağlar (`assignProjectToJob`), ressam
+çarpanı yazar. Atölyenin ortak tahtasını kilitlemek, bölümü herkese açma
+kararını boşa çıkarırdı (IS-25).
+
+**KAPI ÜÇ YERDE DURUR ve üçü de gerekli:** RLS (asıl engel), server action'ın
+başındaki `yazmaIzni` (hatayı TÜRKÇE söyler — ham `row-level security policy`
+metni kullanıcıya arıza gibi görünür; ayrıca `updateJob` kalemleri silip
+yeniden yazar ve o yol ayrı bir politikadan geçer) ve arayüz (düğmeyi hiç
+çizmemek). Salt-okunur durum rozeti DEVRE DIŞI DÜĞME DEĞİLDİR: soluk bir
+düğme "şu an olmaz" der ve tekrar denetir, rozet ise tıklanacak bir şey vaat
+etmez. Form adresleri (`/jobs/new`, `/jobs/[id]/edit`) sessizce yönlendirmez,
+NEDENİ SÖYLER — adres elle yazılmış olabilir.
+
+**SÖZLEŞME DOSYASI İŞLER'DEN KALKTI** ve Satış Takibi'ne taşındı (aynı karar:
+*"Sözleşmeyi de görmesinler istiyorum"*). `jobs.contract_file_path` /
+`contract_file_name` sütunları DÜŞÜRÜLDÜ, kayıt `job_contracts` tablosuna
+geçti ve hem tablo hem `contracts` bucket'ı `can_see_sales()` ile kesiliyor.
+Yalnız arayüzden gizlemek YETMEZDİ: `jobs` herkese okunur, yani yol da okunur
+ve imzalı bağlantı oradan üretilebilirdi. "Sözleşme var" ile sözleşme TARİHİ
+iş emrinde KALDI — ikisi işin bilgisidir, belgenin kendisi değil. Ayrıntı:
+`docs/agent/satis.md`.
+
+**DÖNEM SÜZGECİNİN VARSAYILANI SON 12 AYDIR** (kullanıcı bildirimi,
+18.08.2026: *"zaman gösteriminden bir şey anlaşılmıyor. Bizim işlerimiz
+genelde aylar sürüyor … İlk açılışta geçmiş 12 ay gelsin. Takvim de aynı
+şekilde."*). Takvim yılı bu iş için doğal bir pencere DEĞİLDİR: 2 Ocak'ta
+açılan sayfa Aralık'ta biten işleri düşürüyordu. `SON_12_AY` bir yıl değil
+KAYAN bir penceredir; alt sınırı `son12AyBaslangici` verir (UTC, ayın sonuna
+kelepçeli) ve ÜST SINIRI YOKTUR — ileri tarihli bir iş emri düşmemelidir.
+Pencere boşsa eski kurala (içinde bulunulan yıl → tümü) düşülür. `bugun`
+süzgece PARAMETRE olarak girer, `new Date()` ile içeriden okunmaz: çekirdek
+saftır ve ekran ile `/jobs/export` aynı günü kullanmak zorundadır.
+
+**ZAMAN GÖRÜNÜMÜ AY EKSENLİDİR.** Eksikti olan ÖLÇEKTİ: çubuklar işaretsiz bir
+çizgide yüzüyordu. `buildGantt` pencereyi AY SINIRINA yuvarlar ve `months` ile
+ay ay böler; görünüm o dilimleri başlık ve ızgara çizgisi olarak basar, her
+satır süresini AY cinsinden yazar (30,44 günlük sabit bölen — okunacak şey
+"yaklaşık kaç ay", ayın kaç gün çektiği değil). Başlıklar dar ekranda SEYRELİR
+(12 aylık pencerede hepsini basmak okunmaz bir şerit yapardı) ama İLK ay her
+zaman basılır. Eksen hâlâ KAYDIRMAZ (md. 15).
 
 ## IS-14 — Hesap raporu İŞE değil İŞ KALEMİNE bağlanır.
 

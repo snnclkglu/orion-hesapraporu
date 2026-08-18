@@ -15,7 +15,6 @@ const BASE: Omit<WorkOrderData, "items"> = {
   job_no: "0055",
   title: "İsdemir Amonyum Sülfat Tesisi 2m³ Kapasiteli Kepçeli Çift Kirişli Tavan Vinci",
   form_code: "FR.11.02",
-  revision: "B",
   work_order_date: "2026-05-11",
   customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.",
   customer_address: "Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1 PK 31900 Payas/Hatay",
@@ -54,6 +53,10 @@ const PRODUCTS = [
   "100 t x 15,50 m Çift Kirişli Köprülü Tavan Vinci",
 ];
 
+// REVİZYON İKİ HÂLDE de basılır: fikstürün kendisi REVİZYONSUZDUR (yeni iş
+// emrinin normal hâli) ve ayrıca bir "Rev B" çıktısı üretilir — künyede "REV"
+// ibaresinin yalnız revize edilmiş belgede çıktığı ancak ikisi yan yana
+// konunca görülür.
 function itemsFor(count: number): WorkOrderData["items"] {
   return Array.from({ length: count }, (_, i) => ({
     // Firma kuralı: tek kalemde -00, çok kalemde -01'den başlar.
@@ -77,6 +80,13 @@ async function main() {
         `${header === "%PDF-" ? "OK" : "BOZUK"}  ${(buffer.length / 1024).toFixed(1)} KB  ${pages} sayfa`
     );
   }
+  // REVİZE EDİLMİŞ hâl — künyede "REV B" ve `ORC-IE-0055-RB` çıkmalıdır.
+  const revize: WorkOrderData = { ...BASE, revision: "B", items: itemsFor(2) };
+  const revBuffer = await renderWorkOrderPdf(revize);
+  const revFile = path.join(OUT_DIR, "is-emri-02-kalem-rev-B.pdf");
+  fs.writeFileSync(revFile, revBuffer);
+  console.log(` 2 kalem → ${path.basename(revFile)}  OK  ${(revBuffer.length / 1024).toFixed(1)} KB  (REV B)`);
+
   console.log("İş Emri PDF duman testi BAŞARILI.");
 }
 

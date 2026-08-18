@@ -68,6 +68,29 @@ korur ve "Diğer" ile serbest metin yazılabilir. Aksi hâlde eski satırlardaki
 ayrıntılı kapsam metinleri ilk kaydetmede sessizce silinirdi. Her kapsam
 kendi pastel tonunu taşır (sık kullanılanlar sabit, diğerleri metinden).
 
+**SÖZLEŞME PDF'İ BURADADIR, İŞLER'DE DEĞİL** (kullanıcı kararı, 18.08.2026).
+İşler bölümü herkese açıldı ve sözleşme herkese açılmamalıydı; yükleme yeri
+Satış Bilgisi penceresi, kayıt `job_contracts` tablosu, düğme ise listede ürün
+adının hemen yanındaki dar sütundur.
+
+**KAYIT İŞ EMRİ BAŞINADIR, kalem başına değil** (kullanıcının seçimi): bir
+sözleşme işin tamamını kapsar ve dokuz kalemli bir işte aynı PDF'i dokuz kez
+yüklemek gerekmez — aynı işin bütün satırları aynı düğmeyi gösterir ve pencere
+bunu "İş emri 0057 için" diye SÖYLER. Anahtar `job_id`dir.
+
+**GİZLİLİK ARAYÜZDE DEĞİL RLS'TEDİR.** Dosya `jobs` üzerinde bırakılıp yalnız
+ekrandan gizlenseydi hiçbir şey gizlenmezdi: `jobs` herkese okunur, yani yol da
+okunur ve imzalı bağlantı oradan üretilebilirdi. `job_contracts` ve `contracts`
+bucket'ı `can_see_sales()` ile kesilir — imzalı bağlantı uygulama katmanındaki
+rolü TAŞIMAZ, bu yüzden bucket'ın kendisi de kapatıldı (personel/teknik resim
+kalıbı).
+
+**SÖZLEŞME "KAYDET"İ BEKLEMEZ.** Yükleme anında yazılır ve pencereyi "Vazgeç"
+ile kapatmak yüklenmiş bir PDF'i geri almaz: dosya iş emrine bağlıdır, o
+satırın ticari kaydına değil. Kayıt tutmazsa ekrandaki iyimser değer GERİ
+ALINIR — kullanıcı yüklenmiş sandığı bir dosyayla kalmamalıdır. Üzerine yazılan
+eski nesne depodan silinir (yola ulaşacak ikinci bir kayıt yoktur).
+
 **GÜNCEL İŞ LİSTESİ aynı satırlardan çıkar ama FİYATSIZDIR** (`sales/
 is-listesi` ucu + `lib/pdf/job-list.tsx`). Teklif isteyen müşteri "başka
 neler yaptınız" diye sorar; belge o sorunun cevabıdır ve teklif ekinde

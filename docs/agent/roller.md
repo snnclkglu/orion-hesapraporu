@@ -48,6 +48,14 @@ herkese açık bölümleri görür (İşler · Mühendislik · Teknik Resimler) 
 Yönetici · Satın Alma · Planlama — müdür orada hâlâ yoktur. Veritabanı
 karşılığı `can_see_purchasing()`.
 
+**İŞLER BÖLÜMÜ GÖRÜNÜRLÜĞÜ GENİŞLERKEN YAZMASI DARALDI** (kullanıcı kararı,
+18.08.2026). `/jobs` bugüne kadar yazma sorusu OLMAYAN bir bölümdü (gören
+yazardı); artık `canEditJobs` taşır: Yönetici · Müdür. Bölüm hâlâ HERKESE
+görünür — ayrışan şey yalnız yazmadır ve ızgara bu farkı basar. Mühendisin iş
+emri açma yetkisini kaybetmesi açık bir karardır (`canEditReports` ondan
+bağımsızdır); kapsam iş emrinin KENDİSİDİR, hub'ın tamamı değil — görev,
+yorum, favori ve resim çarpanı herkeste kalır (`docs/agent/isler.md` IS-27).
+
 **YETKİ EKRANI ÜÇ TABLODAN TEK IZGARAYA İNDİ** (kullanıcı bildirimi,
 13.08.2026: *"üst bölümdeki Roller kısmı ve Bölümler kısmı anlamsız
 geliyor bana."*). Haklıydı: "Roller" ve "Bölümler" AYNI gerçeği iki kez,

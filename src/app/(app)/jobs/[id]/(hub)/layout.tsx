@@ -14,6 +14,7 @@ import { FileDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fmtJobDate } from "@/lib/jobs/filter";
 import { revizyonHarfi } from "@/lib/jobs/is-emri";
+import { canEditJobs } from "@/lib/roles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -31,7 +32,7 @@ export default async function JobHubLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const [{ data: job }, { data: fav }] = await Promise.all([
+  const [{ data: job }, { data: fav }, { data: profil }] = await Promise.all([
     supabase
       .from("jobs")
       .select("id, job_no, title, customer, status, work_order_date, revision")
@@ -46,8 +47,13 @@ export default async function JobHubLayout({
           .eq("user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (!job) notFound();
+  // İş emrini HERKES görür, DÜZENLEMEYİ Yönetici ve Müdür yapar (canEditJobs).
+  const canEdit = canEditJobs((profil as { role?: string } | null)?.role);
 
   return (
     <div className="grid gap-4">
@@ -78,13 +84,17 @@ export default async function JobHubLayout({
             <span className="font-mono tabular-nums">{fmtJobDate(job.work_order_date)}</span>
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <JobStatusMenu jobId={job.id} status={job.status} size="md" />
+            <JobStatusMenu jobId={job.id} status={job.status} size="md" readOnly={!canEdit} />
             {/* REVİZYON ROZETİ durumun yanındadır: ikisi de "bu iş emri şu an
                 hangi hâlde" sorusunun cevabıdır ve PDF künyesinde de yan yana
-                basılırlar. Harf `A`da da görünür — ilk yayının da adı vardır. */}
-            <Badge variant="outline" className="font-mono" title="İş emri revizyonu">
-              REV {revizyonHarfi(job.revision)}
-            </Badge>
+                basılırlar. Rozet YALNIZ REVİZE EDİLMİŞ emirde çıkar — ilk
+                yayın revizyonsuzdur ve "REV —" gibi bir yer tutucu, olmamış
+                bir düzeltme geçmişi anlatırdı (md. 5). */}
+            {revizyonHarfi(job.revision) && (
+              <Badge variant="outline" className="font-mono" title="İş emri revizyonu">
+                REV {revizyonHarfi(job.revision)}
+              </Badge>
+            )}
             <FavoriButton jobId={job.id} favori={Boolean(fav)} />
           </div>
         </div>
@@ -96,11 +106,13 @@ export default async function JobHubLayout({
               <FileDown className="size-3.5" /> İş Emri PDF
             </a>
           </Button>
-          <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none">
-            <Link href={`/jobs/${job.id}/edit`}>
-              <Pencil className="size-3.5" /> Düzenle
-            </Link>
-          </Button>
+          {canEdit && (
+            <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none">
+              <Link href={`/jobs/${job.id}/edit`}>
+                <Pencil className="size-3.5" /> Düzenle
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

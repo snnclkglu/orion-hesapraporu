@@ -172,7 +172,15 @@ function DeleteJobDialog({
   );
 }
 
-function JobRowActions({ job, canDelete }: { job: JobRow; canDelete: boolean }) {
+function JobRowActions({
+  job,
+  canDelete,
+  canEdit,
+}: {
+  job: JobRow;
+  canDelete: boolean;
+  canEdit: boolean;
+}) {
   const [confirming, setConfirming] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -201,23 +209,30 @@ function JobRowActions({ job, canDelete }: { job: JobRow; canDelete: boolean }) 
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-          <DropdownMenuItem asChild>
-            <Link href={`/jobs/${job.id}/edit`}>
-              <Pencil className="size-3.5" /> Düzenle
-            </Link>
-          </DropdownMenuItem>
+          {/* DÜZENLE VE KOPYALA YAZMA YETKİSİ İSTER; PDF ve favori İSTEMEZ —
+              iş emrini okumak ve kendi favorisini işaretlemek herkesindir
+              (İşler bir HUB'dır, IS-25). */}
+          {canEdit && (
+            <DropdownMenuItem asChild>
+              <Link href={`/jobs/${job.id}/edit`}>
+                <Pencil className="size-3.5" /> Düzenle
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <a href={`/jobs/${job.id}/work-order`}>
               <FileDown className="size-3.5" /> İş Emri PDF
             </a>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            {/* Kopya form kalemler + kapsam + müşteriyle dolu açılır; iş no ve
-                tarihler boş kalır (yeni kimliği ve terminleri kullanıcı verir). */}
-            <Link href={`/jobs/new?kaynak=${job.id}`}>
-              <Copy className="size-3.5" /> Kopyala
-            </Link>
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem asChild>
+              {/* Kopya form kalemler + kapsam + müşteriyle dolu açılır; iş no ve
+                  tarihler boş kalır (yeni kimliği ve terminleri kullanıcı verir). */}
+              <Link href={`/jobs/new?kaynak=${job.id}`}>
+                <Copy className="size-3.5" /> Kopyala
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={favoriDegistir}>
             <Star
               className={cn(
@@ -247,10 +262,13 @@ function JobRowActions({ job, canDelete }: { job: JobRow; canDelete: boolean }) 
 export function JobsTable({
   rows,
   canDelete,
+  canEdit = true,
 }: {
   /** SÜZÜLMÜŞ satırlar — süzgeç şeridi görünüm kabuğundadır (jobs-views). */
   rows: JobRow[];
   canDelete: boolean;
+  /** İş emri yazma yetkisi — düzenle/kopyala/durum/toplu durum. */
+  canEdit?: boolean;
 }) {
   const params = useSearchParams();
   const state = useMemo(() => readJobsViewState(params), [params]);
@@ -421,10 +439,10 @@ export function JobsTable({
                     {fmtJobDate(j.work_order_date || j.created_at)}
                   </TableCell>
                   <TableCell>
-                    <JobStatusMenu jobId={j.id} status={j.status} />
+                    <JobStatusMenu jobId={j.id} status={j.status} readOnly={!canEdit} />
                   </TableCell>
                   <TableCell>
-                    <JobRowActions job={j} canDelete={canDelete} />
+                    <JobRowActions job={j} canDelete={canDelete} canEdit={canEdit} />
                   </TableCell>
                 </TableRow>
               ))
@@ -444,35 +462,41 @@ export function JobsTable({
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {secili.size} iş seçili
           </span>
-          <Select
-            value={topluDurum}
-            onValueChange={(v) => setTopluDurum(v as JobStatus)}
-          >
-            <SelectTrigger size="sm" className="h-9 w-[9rem]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {JOB_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {JOB_STATUS_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            size="sm"
-            className="h-9"
-            disabled={topluPending}
-            onClick={() =>
-              topluCalistir(
-                () => bulkSetJobStatus([...secili], topluDurum),
-                "Durumlar güncellendi."
-              )
-            }
-          >
-            Durumu Uygula
-          </Button>
+          {/* TOPLU DURUM yazma yetkisi ister; FAVORİ istemez — favori kişinin
+              kendi defteridir ve herkese açıktır. */}
+          {canEdit && (
+            <>
+              <Select
+                value={topluDurum}
+                onValueChange={(v) => setTopluDurum(v as JobStatus)}
+              >
+                <SelectTrigger size="sm" className="h-9 w-[9rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {JOB_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {JOB_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9"
+                disabled={topluPending}
+                onClick={() =>
+                  topluCalistir(
+                    () => bulkSetJobStatus([...secili], topluDurum),
+                    "Durumlar güncellendi."
+                  )
+                }
+              >
+                Durumu Uygula
+              </Button>
+            </>
+          )}
           <Button
             type="button"
             variant="outline"

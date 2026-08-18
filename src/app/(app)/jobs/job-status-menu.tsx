@@ -20,14 +20,34 @@ export function JobStatusMenu({
   jobId,
   status,
   size = "sm",
+  readOnly = false,
 }: {
   jobId: string;
   status: string;
   /** `sm` liste satırı, `md` detay sayfası başlığı */
   size?: "sm" | "md";
+  /** Yazma yetkisi yoksa rozet ROZET OLARAK kalır — menü hiç açılmaz. */
+  readOnly?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const current = jobStatusOf(status);
+
+  // SALT-OKUNURDA DÜĞME HİÇ ÇİZİLMEZ, "devre dışı" bırakılmaz: soluk bir
+  // düğme "şu an olmaz" der ve kullanıcı tekrar dener; rozetin kendisi ise
+  // durumu söyler ve tıklanacak bir şey vaat etmez (canEditJobs, 18.08.2026).
+  if (readOnly) {
+    return (
+      <span
+        className={cn(
+          "inline-flex min-h-9 items-center gap-1.5 border px-2 py-1 pointer-coarse:min-h-10",
+          size === "md" ? "text-sm" : "text-xs"
+        )}
+      >
+        <span className={cn("size-2 shrink-0", JOB_STATUS_DOT[current])} />
+        {JOB_STATUS_LABELS[current]}
+      </span>
+    );
+  }
 
   function pick(next: JobStatus) {
     if (next === current) return;

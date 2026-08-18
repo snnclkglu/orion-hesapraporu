@@ -21,10 +21,14 @@ import {
   TableProperties,
 } from "lucide-react";
 import {
+  donemAdi,
+  jobDate,
   jobYear,
   matchesJobFilters,
+  son12AyBaslangici,
 } from "@/lib/jobs/filter";
 import {
+  SON_12_AY,
   readJobsViewState,
   resolveYear,
   writeJobsViewState,
@@ -60,11 +64,14 @@ const GORUNUMLER: { key: JobView; label: string; icon: typeof Columns3 }[] = [
 export function JobsViews({
   jobs,
   canDelete,
+  canEdit = true,
   extras,
   savedViews,
 }: {
   jobs: JobRow[];
   canDelete: boolean;
+  /** İş emri yazma yetkisi (`canEditJobs`) — düzenle/kopyala/durum/sürükleme. */
+  canEdit?: boolean;
   extras: JobExtras;
   savedViews: SavedViewRow[];
 }) {
@@ -97,8 +104,26 @@ export function JobsViews({
     return [...set].sort((a, b) => b.localeCompare(a));
   }, [jobs]);
 
-  const thisYear = String(new Date().getFullYear());
-  const resolvedYil = resolveYear(state.yil, years, thisYear);
+  // "Bugün" BİR KEZ hesaplanır ve süzgece parametre olarak verilir: çekirdek
+  // saftır (md. 7) ve `son12` penceresi ekranda, Excel ucunda ve künyede aynı
+  // günden çıkmalıdır.
+  const bugun = useMemo(() => {
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  }, []);
+  const thisYear = bugun.slice(0, 4);
+  // Varsayılan SON 12 AYDIR ama pencere BOŞSA eski kurala düşülür: defterde o
+  // aralıkta hiç iş yoksa liste boş açılır ve süzgecin var olduğu bile
+  // anlaşılmazdı.
+  const son12Dolu = useMemo(() => {
+    const alt = son12AyBaslangici(bugun);
+    return jobs.some((j) => {
+      const t = jobDate(j);
+      return t !== "" && t >= alt;
+    });
+  }, [jobs, bugun]);
+  const resolvedYil = resolveYear(state.yil, years, thisYear, son12Dolu);
 
   const customerOptions = useMemo(() => {
     const byName = new Map<string, { short: string; count: number }>();
@@ -139,9 +164,10 @@ export function JobsViews({
           musteri: state.musteri,
           durum: state.durum,
           q,
+          bugun,
         })
       ),
-    [jobs, resolvedYil, state, q]
+    [jobs, resolvedYil, state, q, bugun]
   );
 
   const temiz =
@@ -207,10 +233,15 @@ export function JobsViews({
       >
         {/* Şeritteki bütün denetimler AYNI boydan (h-9) okur (IS-14). */}
         <Select value={resolvedYil} onValueChange={(v) => adreseYaz({ yil: v })}>
-          <SelectTrigger size="sm" className="h-9 w-[7.5rem]">
-            <SelectValue placeholder="Yıl" />
+          <SelectTrigger size="sm" className="h-9 w-[8.5rem]">
+            <SelectValue placeholder="Dönem" />
           </SelectTrigger>
           <SelectContent>
+            {/* SON 12 AY EN ÜSTTEDİR ve varsayılandır (kullanıcı kararı,
+                18.08.2026): vinç işi aylar sürer, takvim yılı doğal bir
+                pencere değildir — 2 Ocak'ta açılan sayfa Aralık'ta biten
+                işleri düşürüyordu. */}
+            <SelectItem value={SON_12_AY}>{donemAdi(SON_12_AY)}</SelectItem>
             <SelectItem value="tumu">Tüm Yıllar</SelectItem>
             {years.map((y) => (
               <SelectItem key={y} value={y}>
@@ -249,13 +280,13 @@ export function JobsViews({
       </FilterBar>
 
       {view === "pano" ? (
-        <BoardView rows={filtered} grup={state.grup} extras={extras} />
+        <BoardView rows={filtered} grup={state.grup} extras={extras} canEdit={canEdit} />
       ) : view === "takvim" ? (
         <CalendarView rows={filtered} extras={extras} ay={state.ay} />
       ) : view === "zaman" ? (
         <TimelineView rows={filtered} />
       ) : (
-        <JobsTable rows={filtered} canDelete={canDelete} />
+        <JobsTable rows={filtered} canDelete={canDelete} canEdit={canEdit} />
       )}
     </div>
   );

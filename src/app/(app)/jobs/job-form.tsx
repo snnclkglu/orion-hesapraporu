@@ -18,7 +18,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarPlus, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { createJob, updateJob } from "./actions";
-import { ContractUpload } from "./contract-upload";
 import {
   CustomerPicker, NO_CUSTOMER, fieldsFromCustomer,
 } from "./customer-picker";
@@ -38,8 +37,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  TERMIN_ADIMLARI, TERMIN_BIRIM_ADLARI, revizyonHarfi, sonrakiRevizyon, tarihEkle,
-  type TerminBirimi,
+  TERMIN_ADIMLARI, TERMIN_BIRIM_ADLARI, revizyonEtiketi, revizyonHarfi,
+  sonrakiRevizyon, tarihEkle, type TerminBirimi,
 } from "@/lib/jobs/is-emri";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
@@ -457,7 +456,7 @@ export function JobForm({
             <AutoToggle
               checked={autoRev}
               onChange={setRevizyonAuto}
-              label={`Bu kayıt bir revizyondur (${revizyonHarfi(initial.revision)} → ${revSonraki})`}
+              label={`Bu kayıt bir revizyondur (${revizyonEtiketi(initial.revision)} → ${revSonraki})`}
             />
           ) : undefined
         }
@@ -481,9 +480,17 @@ export function JobForm({
             <Label htmlFor="revision">Revizyon</Label>
             {/* Harf salt-okunurdur: yeni kayıtta hep `A`, düzenlemede anahtar
                 açıkken bir sonraki harf. Elle yazmak için anahtar kapatılır. */}
+            {/* YER TUTUCU DEĞİL AÇIKLAMA: kutu boşken "Revizyonsuz" yazar ve
+                bu grileşmiş bir örnek değil bir OLGUDUR (ilk yayın revize
+                edilmemiştir). `placeholder` kullanılsaydı md. 5'i çiğnerdi;
+                metin `value`nun kendisidir ve alan salt-okunurdur. */}
             <Input
               id="revision"
-              value={form.revision}
+              value={
+                mode === "create" || (autoRev && !revizyonHarfi(form.revision))
+                  ? "Revizyonsuz"
+                  : form.revision
+              }
               onChange={(e) => set("revision", e.target.value)}
               readOnly={mode === "create" || autoRev}
               className={cn(
@@ -492,10 +499,10 @@ export function JobForm({
               )}
               title={
                 mode === "create"
-                  ? "Yeni iş emri A revizyonuyla açılır"
+                  ? "Yeni iş emri REVİZYONSUZ açılır; ilk revizyonda A olur"
                   : autoRev
                     ? "Kaydedince bu harfe ilerler — değiştirmek için anahtarı kapatın"
-                    : undefined
+                    : "Boş bırakılırsa iş emri revizyonsuz sayılır"
               }
             />
           </div>
@@ -738,19 +745,12 @@ export function JobForm({
           </div>
         </div>
 
-        {/* Sözleşme dosyası — yalnız "var" işaretliyken görünür */}
-        {form.contract_exists && (
-          <div className="mt-3 grid gap-1.5">
-            <Label>Sözleşme Dosyası (PDF)</Label>
-            <ContractUpload
-              path={form.contract_file_path}
-              fileName={form.contract_file_name}
-              onChange={({ path, fileName }) =>
-                setForm((f) => ({ ...f, contract_file_path: path, contract_file_name: fileName }))
-              }
-            />
-          </div>
-        )}
+        {/* SÖZLEŞME DOSYASI BURADAN KALDIRILDI (kullanıcı kararı, 18.08.2026):
+            İşler bölümü herkese açıldı ve sözleşme herkese açılmamalıydı.
+            Yükleme yeri artık Satış Bilgisi penceresidir (`/sales`), kayıt
+            `job_contracts` tablosundadır ve `can_see_sales()` ile kesilir.
+            "Sözleşme var" ile tarihi KALDI — ikisi iş emrinin bilgisidir,
+            belgenin kendisi değil. */}
 
         <div className="mt-4">
           <Label className="mb-2 block text-xs text-muted-foreground">Kapsam</Label>

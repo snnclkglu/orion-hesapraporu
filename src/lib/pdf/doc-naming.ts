@@ -24,19 +24,20 @@ export function docCode(kind: "HR" | "EQ" | "TR", docNo: string, revNo: number):
 }
 
 /**
- * `ORC-IE-0063-RA` — İŞ EMRİ (IE) belge kimliği.
+ * `ORC-IE-0063` · `ORC-IE-0063-RA` — İŞ EMRİ (IE) belge kimliği.
  *
  * `docCode` İMZASI BOZULMADI: o fonksiyon revizyonu SAYI olarak ister, iş
  * emrinin revizyonu ise HARFTİR (A · B · C — kullanıcı kararı, 18.08.2026).
  * Ortak bir imzaya zorlamak ikisinden birini yalan söyletirdi; iş listesi ve
  * bordronun (dönemli belgeler) ayrı kimlik üreticileri olmasıyla aynı gerekçe.
  *
- * Harf `A`da da BASILIR (teklifin `offerRevLabel` kuralının tersi): iş emri iç
- * bir belgedir ve atölyedeki soru "elimdeki hangi revizyon" olduğu için
- * ilkinin de adı olmalıdır.
+ * REVİZYONSUZ İŞ EMRİNDE SON EK HİÇ BASILMAZ. İlk yayın bir revizyon değildir
+ * (kullanıcı kararı, 18.08.2026) ve `-R` ile biten bir kod ya da uydurulmuş
+ * bir `-RA`, olmamış bir düzeltme geçmişi anlatırdı — teklifin `offerRevLabel`
+ * kuralının aynısı, gerekçesi de aynı.
  */
 export function workOrderDocCode(jobNo: string, revision: string): string {
-  return `ORC-IE-${jobNo}-R${revision}`;
+  return revision ? `ORC-IE-${jobNo}-R${revision}` : `ORC-IE-${jobNo}`;
 }
 
 /** Aylar — belge dönemi ve dosya adı için (tr-TR, büyük harf kullanıma hazır). */

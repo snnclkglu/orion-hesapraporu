@@ -12,11 +12,14 @@
 // yüzden SÜRÜMLÜDÜR ({v:1}) ve bilinmeyen alanı sessizce düşürür — ileride
 // eklenen bir alan eski kaydı bozmaz.
 //
-// YIL AYRIKSI DAVRANIR: parametre yokken varsayılan "içinde bulunulan yıl"dır
-// ama o yıl boşsa liste boş kalmasın diye "tümü"ne düşülür (İşler'in eski
-// kuralı). Bu çözüm VERİYE baktığı için parse'ta değil `resolveYear`dadır;
-// "tumu" ise Personel özetindeki gibi AÇIK bir seçimdir — boş adres
-// varsayılanı seçemezdi.
+// DÖNEM AYRIKSI DAVRANIR: parametre yokken varsayılan SON 12 AYdır (kullanıcı
+// kararı, 18.08.2026: *"İlk açılışta geçmiş 12 ay gelsin. Takvim de aynı
+// şekilde."*). Gerekçe işin kendisindedir: bir vinç işi aylar sürer, yani
+// takvim yılı doğal bir pencere DEĞİLDİR — 2 Ocak'ta açılan sayfa Aralık'ta
+// biten işleri düşürüyordu. Pencere KAYAR, sabit değildir; defterde son 12 ayda
+// hiç iş yoksa "tümü"ne düşülür (liste boş kalmasın). Çözüm VERİYE baktığı için
+// parse'ta değil `resolveYear`dadır; "tumu" ve yıl seçimleri ise Personel
+// özetindeki gibi AÇIK seçimlerdir — boş adres varsayılanı seçemezdi.
 
 import { z } from "zod";
 
@@ -60,6 +63,15 @@ export interface JobsViewState {
   ay: string | undefined;
 }
 
+/**
+ * Dönem süzgecinin varsayılan değeri — KAYAN 12 aylık pencere.
+ *
+ * Bir yıl DEĞİLDİR ve bu yüzden ayrı bir jetondur: "2026" sabit bir aralıktır,
+ * `son12` ise "bugünden geriye 12 ay"dır ve her gün başka bir aralık demektir.
+ * Adrese yazılır (varsayılan olsa bile DEĞİL — bkz. `writeJobsViewState`).
+ */
+export const SON_12_AY = "son12";
+
 const YEAR_RE = /^\d{4}$/;
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -94,7 +106,10 @@ export function readJobsViewState(params: ParamsLike): JobsViewState {
   const ay = params.get("ay");
   return {
     view: JOB_VIEWS.includes(view as JobView) ? (view as JobView) : "tablo",
-    yil: yil === "tumu" || YEAR_RE.test(yil ?? "") ? (yil as string) : undefined,
+    yil:
+      yil === "tumu" || yil === SON_12_AY || YEAR_RE.test(yil ?? "")
+        ? (yil as string)
+        : undefined,
     musteri: parseList(params.get("musteri")),
     durum: parseList(params.get("durum")),
     q: params.get("q") ?? "",
@@ -124,15 +139,23 @@ export function writeJobsViewState(
 }
 
 /**
- * Yıl süzgecinin veriye göre çözülmüş hâli: seçim varsa o; yoksa içinde
- * bulunulan yıl — o yıl defterde hiç yoksa "tumu" (boş liste göstermemek için).
+ * Dönem süzgecinin veriye göre çözülmüş hâli.
+ *
+ * Seçim varsa o. Yoksa SON 12 AY — ama o pencerede hiç iş yoksa "tumu"ya
+ * düşülür: boş bir liste, süzgecin var olduğunu bile anlatmaz. Eski kural
+ * (içinde bulunulan yıl) yerini buna bıraktı; gerekçesi dosyanın başındadır.
+ *
+ * `son12Dolu` VERİDEN gelir ve bu yüzden karar parse'ta değil buradadır —
+ * `readJobsViewState` yalnız adresi okur, defteri görmez.
  */
 export function resolveYear(
   yil: string | undefined,
   years: readonly string[],
-  thisYear: string
+  thisYear: string,
+  son12Dolu = true
 ): string {
   if (yil) return yil;
+  if (son12Dolu) return SON_12_AY;
   return years.includes(thisYear) ? thisYear : "tumu";
 }
 
@@ -148,7 +171,7 @@ export const savedViewConfigSchema = z.object({
   view: z.enum(JOB_VIEWS).default("tablo"),
   yil: z
     .string()
-    .regex(/^(tumu|\d{4})$/)
+    .regex(/^(tumu|son12|\d{4})$/)
     .optional(),
   musteri: z.array(z.string()).default([]),
   durum: z.array(z.string()).default([]),

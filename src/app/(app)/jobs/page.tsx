@@ -8,7 +8,7 @@ import type { JobRow } from "./jobs-table";
 import { JobsViews } from "./jobs-views";
 import type { JobExtras } from "./board-view";
 import { MineStrip, type MyTaskRow } from "./mine-strip";
-import { canSeeSales } from "@/lib/roles";
+import { canEditJobs, canSeeSales } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -223,11 +223,16 @@ export default async function JobsPage({
     ? new Date(list[0].created_at).toLocaleDateString("tr-TR")
     : "—";
   const activeCount = list.filter((j) => jobStatusOf(j.status) === "active").length;
+  // İŞLER HERKESE GÖRÜNÜR, YAZMA YÖNETİCİ VE MÜDÜRDEDİR (ROL-15 / canEditJobs).
+  // Düğmeyi gizlemek yalnız görgü kuralıdır; asıl engel RLS ve server
+  // action'ın kapısıdır (`yazmaIzni`).
+  const rol = (profile as { role?: string } | null)?.role;
+  const canEdit = canEditJobs(rol);
 
   return (
     <div className="grid gap-4">
       <PageHeader title="İşler" hint="İş emirleri ve içerdikleri vinçler">
-        <NewJobButton />
+        {canEdit && <NewJobButton />}
       </PageHeader>
 
       {/* İstatistik kartları */}
@@ -279,14 +284,19 @@ export default async function JobsPage({
       {list.length === 0 ? (
         <EmptyState
           title="HENÜZ İŞ YOK"
-          description="İlk iş emrini oluşturun; her iş birden çok vinç, hesap raporu ve teknik çizim takibi içerir."
+          description={
+            canEdit
+              ? "İlk iş emrini oluşturun; her iş birden çok vinç, hesap raporu ve teknik çizim takibi içerir."
+              : "Henüz iş emri açılmamış. İş emri açma yetkisi Yönetici ve Müdürdedir."
+          }
         >
-          <NewJobButton />
+          {canEdit && <NewJobButton />}
         </EmptyState>
       ) : (
         <JobsViews
           jobs={list}
-          canDelete={profile?.role === "admin"}
+          canDelete={rol === "admin"}
+          canEdit={canEdit}
           extras={extras}
           savedViews={((savedViewRows ?? []) as {
             id: string;

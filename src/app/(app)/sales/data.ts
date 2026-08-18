@@ -48,6 +48,13 @@ interface JobJoin {
   workshop_exit_date: string | null;
   shipping_address: string | null;
   customers: CustomerJoin | CustomerJoin[] | null;
+  /** İş emrinin sözleşme PDF'i — İŞ BAŞINA tek satır (`job_contracts`). */
+  job_contracts: ContractJoin | ContractJoin[] | null;
+}
+
+interface ContractJoin {
+  file_path: string | null;
+  file_name: string | null;
 }
 
 /** numeric sütunlar PostgREST'ten metin gelebilir; sayıya çevir. */
@@ -72,7 +79,8 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
       `id, item_no, product_name, sort,
        jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
                   delivery_date, workshop_exit_date, shipping_address,
-                  customers(short_name, color_hue)),
+                  customers(short_name, color_hue),
+                  job_contracts(file_path, file_name)),
        job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
                       unit_price, currency, fx_rate, shipment_place, notes,
                       total_weight_kg, total_price, eur_amount)`
@@ -83,6 +91,7 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
     const job = one<JobJoin>(it.jobs as unknown as JobJoin | JobJoin[]);
     const s = one<SaleJoin>(it.job_item_sales as unknown as SaleJoin | SaleJoin[]);
     const book = one<CustomerJoin>(job?.customers);
+    const sozlesme = one<ContractJoin>(job?.job_contracts);
     return {
       itemId: it.id as string,
       itemNo: (it.item_no as string) || "",
@@ -100,6 +109,8 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
       jobDeliveryDate: job?.delivery_date ?? null,
       jobWorkshopExitDate: job?.workshop_exit_date ?? null,
       jobShippingAddress: job?.shipping_address ?? "",
+      contractPath: sozlesme?.file_path ?? "",
+      contractName: sozlesme?.file_name ?? "",
       hasSale: Boolean(s),
       sale: s
         ? {

@@ -16,6 +16,7 @@ import {
   ChevronDown, ChevronUp, ChevronsUpDown, Coins, Package, Scale, X,
 } from "lucide-react";
 import { SaleDialog } from "./sale-dialog";
+import { ContractOpenButton } from "./contract-upload";
 import { saleYear, type SaleRow } from "./schema";
 import {
   CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS, fmtCompactEur, fmtNum,
@@ -414,6 +415,12 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                 active={sort.key === "itemNo"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Ürün" sortKey="productName"
                 active={sort.key === "productName"} dir={sort.dir} onSort={toggleSort} />
+              {/* SÖZLEŞME sütunu sıralanabilir DEĞİLDİR: bir tarih ya da tutar
+                  değil, bir belgeye açılan kapıdır. Başlık kısaltılır (ikon
+                  genişliğinde bir sütun), tam adı `title`da durur. */}
+              <TableHead className="w-[3rem]" title="Sözleşme PDF'i">
+                Söz.
+              </TableHead>
               <SortHead label="Müşteri" sortKey="customer" className={cn("w-[10rem]", AT_MD)}
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
               <SortHead label="Kapsam" sortKey="scope" className={cn("w-[9rem]", AT_LG)}
@@ -433,7 +440,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                   Süzgeçlere uyan kalem yok — bir filtreyi temizleyip tekrar deneyin.
                 </TableCell>
               </TableRow>
@@ -467,6 +474,24 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                         </span>
                       )}
                     </span>
+                  </TableCell>
+                  {/* Satırın kendisi pencereyi açar; sözleşme düğmesi AYRI bir
+                      hedeftir ve tıklaması satıra SIZMAMALIDIR (`stopPropagation`)
+                      — yoksa belgeyi açmak isteyen kullanıcı aynı anda düzenleme
+                      penceresini de açardı. */}
+                  <TableCell
+                    className="align-top md:align-middle"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {r.contractPath ? (
+                      <ContractOpenButton
+                        path={r.contractPath}
+                        fileName={r.contractName}
+                        iconOnly
+                      />
+                    ) : (
+                      <span className="sr-only">Sözleşme yüklenmemiş</span>
+                    )}
                   </TableCell>
                   <TableCell className={AT_MD}>
                     <CustomerTag

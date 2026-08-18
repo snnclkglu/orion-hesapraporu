@@ -13,7 +13,7 @@
 import { trKatla } from "@/lib/drawings/tr-text";
 import { JOB_STATUS_LABELS, jobStatusOf } from "@/lib/job-status";
 import { customerTag } from "@/lib/tags";
-import type { JobSort, JobSortKey } from "./view-state";
+import { SON_12_AY, type JobSort, type JobSortKey } from "./view-state";
 
 /** Liste satırının süzgeç/sıralama/çıktı için gereken çekirdeği. */
 export interface JobListRow {
@@ -38,6 +38,35 @@ export function jobYear(
   return /^(\d{4})/.exec(src ?? "")?.[1] ?? "";
 }
 
+/** İşin tarihi (`YYYY-MM-DD`): iş emri tarihi, yoksa kayıt tarihi. */
+export function jobDate(
+  job: Pick<JobListRow, "work_order_date" | "created_at">
+): string {
+  return (job.work_order_date || job.created_at || "").slice(0, 10);
+}
+
+/**
+ * KAYAN 12 AYLIK PENCERENİN alt sınırı: bugünden tam 12 ay öncesi.
+ *
+ * Hesap UTC'dedir ve ayın sonuna kelepçelenir (`tarihEkle` ile aynı gerekçe):
+ * 31 Mart'ta pencere 31 Şubat'tan değil 28/29 Şubat'tan başlar.
+ *
+ * ÜST SINIR YOKTUR ve bu bilinçlidir: iş emri tarihi ileri bir güne yazılmış
+ * bir kayıt (peşin açılan iş) pencereden düşmemelidir — "geçmiş 12 ay" bir
+ * BAŞLANGIÇ noktasıdır, bir hapis değil.
+ */
+export function son12AyBaslangici(bugun: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(bugun ?? "");
+  if (!m) return "";
+  const yil = Number(m[1]) - 1;
+  const ay = Number(m[2]) - 1;
+  const gun = Number(m[3]);
+  const sonGun = new Date(Date.UTC(yil, ay + 1, 0)).getUTCDate();
+  const d = new Date(Date.UTC(yil, ay, Math.min(gun, sonGun)));
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
 /** ISO tarih → "gg.aa.yyyy"; boş değer "—". Tablo ve Excel aynı biçimi basar. */
 export function fmtJobDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -46,15 +75,27 @@ export function fmtJobDate(iso?: string | null): string {
 }
 
 export interface JobFilterInput {
-  /** ÇÖZÜLMÜŞ yıl: "tumu" ya da "2026" (`resolveYear`dan geçmiş hâli). */
+  /** ÇÖZÜLMÜŞ dönem: "tumu" · "son12" · "2026" (`resolveYear`dan geçmiş hâli). */
   yil: string;
   musteri: readonly string[];
   durum: readonly string[];
   q: string;
+  /**
+   * "Bugün" (`YYYY-MM-DD`) — YALNIZ `son12` penceresi için gerekir.
+   *
+   * Parametredir, `new Date()` DEĞİL: çekirdek saftır (md. 7) ve ekran ile
+   * Excel ucu aynı günü kullanmak zorundadır. Verilmezse `son12` süzmez —
+   * sessizce boş liste üretmektense hepsini göstermek doğrudur.
+   */
+  bugun?: string;
 }
 
 export function matchesJobFilters(job: JobListRow, f: JobFilterInput): boolean {
-  if (f.yil !== "tumu" && jobYear(job) !== f.yil) return false;
+  if (f.yil === SON_12_AY) {
+    const alt = f.bugun ? son12AyBaslangici(f.bugun) : "";
+    const t = jobDate(job);
+    if (alt && (!t || t < alt)) return false;
+  } else if (f.yil !== "tumu" && jobYear(job) !== f.yil) return false;
   if (f.musteri.length > 0 && !f.musteri.includes(job.customer.trim()))
     return false;
   if (f.durum.length > 0 && !f.durum.includes(jobStatusOf(job.status)))
@@ -118,9 +159,16 @@ export function naturalDesc(key: JobSortKey): boolean {
   return !(key === "title" || key === "customer" || key === "status");
 }
 
+/** Dönem jetonunun ekran adı — süzgeç, Excel künyesi ve başlık aynı sözü söyler. */
+export function donemAdi(yil: string): string {
+  if (yil === "tumu") return "Tüm Yıllar";
+  if (yil === SON_12_AY) return "Son 12 Ay";
+  return yil;
+}
+
 /** Excel künyesine basılan süzgeç özeti — dosya neyin dökümü, ada bakan bilsin. */
 export function describeJobFilters(f: JobFilterInput): string {
-  const parts: string[] = [f.yil === "tumu" ? "Tüm Yıllar" : f.yil];
+  const parts: string[] = [donemAdi(f.yil)];
   if (f.musteri.length > 0) parts.push(f.musteri.join(", "));
   if (f.durum.length > 0)
     parts.push(f.durum.map((s) => JOB_STATUS_LABELS[jobStatusOf(s)]).join(", "));

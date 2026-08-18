@@ -10,7 +10,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
-import { clearSale, saveSale } from "./actions";
+import { clearJobContract, clearSale, saveJobContract, saveSale } from "./actions";
+import { ContractUpload } from "./contract-upload";
 import type { SaleRow } from "./schema";
 import {
   CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS, fmtNum, parseNum, type Currency,
@@ -112,6 +113,34 @@ export function SaleDialog({
   );
   const shipmentPlaceIsEmrinden = !row.sale.shipment_place && Boolean(row.jobShippingAddress);
   const [notes, setNotes] = useState(row.sale.notes);
+
+  // SÖZLEŞME AYRI KAYDEDİLİR: dosya `job_contracts`ta ve İŞ BAŞINA durur,
+  // ticari satırın alanı değildir. Yükleme anında yazılır, "Kaydet"i beklemez.
+  const [contractPath, setContractPath] = useState(row.contractPath);
+  const [contractName, setContractName] = useState(row.contractName);
+  const [sozlesmePending, startSozlesme] = useTransition();
+
+  function sozlesmeYaz(next: { path: string; fileName: string }) {
+    const oncekiYol = contractPath;
+    const oncekiAd = contractName;
+    setContractPath(next.path);
+    setContractName(next.fileName);
+    startSozlesme(async () => {
+      const res = next.path
+        ? await saveJobContract(row.jobId, next)
+        : await clearJobContract(row.jobId);
+      if (res?.error) {
+        // Kayıt tutmadıysa ekran da tutmamalı: iyimser değer geri alınır,
+        // yoksa kullanıcı yüklenmiş sandığı bir dosyayla kalırdı.
+        setContractPath(oncekiYol);
+        setContractName(oncekiAd);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(next.path ? "Sözleşme kaydedildi." : "Sözleşme kaldırıldı.");
+      router.refresh();
+    });
+  }
 
   // Alanlar yalnız `useState` başlangıç değerinden dolar; senkronize eden bir
   // efekt YOKTUR. Gerek de yoktur: pencere satır seçildiğinde monte edilir
@@ -420,6 +449,25 @@ export function SaleDialog({
 
           <Field label="Açıklama">
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </Field>
+
+          {/* SÖZLEŞME — İŞ EMRİ BAŞINA (kullanıcı kararı, 18.08.2026). Bölüm
+              İşler formundan buraya taşındı: İşler herkese açık, sözleşme
+              değil. Yükleme KENDİ BAŞINA kaydeder ("Kaydet"i beklemez):
+              dosya iş emrine bağlıdır, ticari satıra değil — pencereyi
+              "Vazgeç" ile kapatmak yüklenmiş bir PDF'i geri almamalıdır.
+              Aynı işin öteki kalemleri de bu dosyayı görür ve başlık bunu
+              iş numarasıyla söyler. */}
+          <Field
+            label="Sözleşme (PDF)"
+            hint={`İş emri ${row.jobNo} için — bu işin bütün kalemlerinde görünür`}
+          >
+            <ContractUpload
+              path={contractPath}
+              fileName={contractName}
+              busy={sozlesmePending}
+              onChange={sozlesmeYaz}
+            />
           </Field>
         </div>
 

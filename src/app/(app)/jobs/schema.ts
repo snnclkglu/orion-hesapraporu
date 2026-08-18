@@ -46,12 +46,13 @@ export const jobItemSchema = z.object({
 export const jobInputSchema = z.object({
   job_no: z.string().trim().min(1, "İş no gerekli"),
   /**
-   * REVİZYON HARFİ (A · B · C …) — iş emri yayımlandıktan sonra değiştirilirse
-   * ilerler ve belgenin kimliğine girer (`ORC-IE-0063-RB`). Dönüşüm formda ve
-   * ŞEMADA birden yapılır: kayıt hangi kapıdan girerse girsin harf kümesi
-   * dışına çıkamaz — veritabanındaki `jobs_revision_harf` kısıtının TS yarısı.
+   * REVİZYON HARFİ — İLK YAYIN REVİZYONSUZDUR, yani BOŞTUR (kullanıcı kararı,
+   * 18.08.2026). İş emri revize edildikçe A · B · C diye ilerler ve belgenin
+   * kimliğine girer (`ORC-IE-0063-RA`). Dönüşüm formda ve ŞEMADA birden
+   * yapılır: kayıt hangi kapıdan girerse girsin harf kümesi dışına çıkamaz —
+   * veritabanındaki `jobs_revision_harf` kısıtının TS yarısı.
    */
-  revision: z.string().default("A").transform(revizyonHarfi),
+  revision: z.string().default("").transform(revizyonHarfi),
   title: z.string().trim().min(1, "İş adı gerekli").transform(adBuyuk),
   customer: z.string().trim().min(1, "Müşteri gerekli").transform(adBuyuk),
   /**
@@ -68,9 +69,14 @@ export const jobInputSchema = z.object({
   customer_fax: z.string().trim().max(60).default(""),
   contract_exists: z.boolean().default(false),
   contract_date: dateOrNull,
-  /** Sözleşme PDF'inin `contracts` bucket'ındaki yolu (boşsa dosya yok) */
-  contract_file_path: z.string().trim().max(400).default(""),
-  contract_file_name: z.string().trim().max(260).default(""),
+  /*
+   * SÖZLEŞME DOSYASI BURADA DEĞİLDİR (18.08.2026). `contract_exists` ve
+   * `contract_date` kalır — ikisi iş emrinin bilgisidir ve herkes görebilir;
+   * DOSYANIN KENDİSİ `job_contracts` tablosuna taşındı ve `can_see_sales()`
+   * ile kesiliyor. Yolu burada bırakmak yalnız arayüzden gizlemek olurdu:
+   * `jobs` herkese okunur, yani yol da okunur ve imzalı bağlantı oradan
+   * üretilebilirdi. Yükleme yeri Satış Bilgisi penceresidir.
+   */
   workshop_exit_date: dateOrNull,
   delivery_date: dateOrNull,
   /**
@@ -186,7 +192,7 @@ export function autoQuantityText(items: { quantity: string }[]): string {
  */
 export const EMPTY_JOB: JobInput = {
   job_no: "",
-  revision: "A",
+  revision: "",
   title: "",
   customer: "",
   customer_id: null,
@@ -198,8 +204,6 @@ export const EMPTY_JOB: JobInput = {
   customer_fax: "",
   contract_exists: false,
   contract_date: "",
-  contract_file_path: "",
-  contract_file_name: "",
   workshop_exit_date: "",
   delivery_date: "",
   shipping_address: "",

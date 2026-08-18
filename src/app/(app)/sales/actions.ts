@@ -243,3 +243,79 @@ export async function clearSale(jobItemId: string): Promise<SalesActionResult> {
   revalidatePath("/sales");
   return { ok: true };
 }
+
+// ────────────────────────────────────────────────────────────── sözleşme
+
+/**
+ * SÖZLEŞME PDF'İ İŞ EMRİ BAŞINA saklanır (kullanıcı kararı, 18.08.2026).
+ *
+ * Yükleme yeri Satış Bilgisi penceresidir ama kaydın anahtarı `job_id`dir:
+ * bir sözleşme işin tamamını kapsar ve dokuz kalemli bir işte aynı PDF'i
+ * dokuz kez yüklemek gerekmez. Kayıt `job_contracts` tablosundadır ve tablo
+ * da `contracts` bucket'ı da `can_see_sales()` ile kesilir — dosya İşler
+ * bölümünden hiç görünmez.
+ *
+ * ÖNCEKİ DOSYA DEPODAN SİLİNİR: yol tek bir satırda yaşıyor, üzerine yazılan
+ * eski nesneye ulaşacak ikinci bir kayıt yok — bırakılsaydı depoda erişilemez
+ * bir yığın büyürdü (`ContractUpload`un kendi içindeki kuralın sunucu yarısı).
+ */
+export async function saveJobContract(
+  jobId: string,
+  file: { path: string; fileName: string }
+): Promise<SalesActionResult> {
+  const gate = await requireSalesAccess();
+  if ("error" in gate) return { error: gate.error };
+  const { supabase, user } = gate;
+
+  const path = String(file.path ?? "").trim();
+  const fileName = String(file.fileName ?? "").trim();
+  if (!path) return { error: "Sözleşme dosyası seçilmedi" };
+
+  const { data: onceki } = await supabase
+    .from("job_contracts")
+    .select("file_path")
+    .eq("job_id", jobId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("job_contracts").upsert(
+    {
+      job_id: jobId,
+      file_path: path,
+      file_name: fileName,
+      uploaded_by: user.id,
+      uploaded_at: new Date().toISOString(),
+    },
+    { onConflict: "job_id" }
+  );
+  if (error) return { error: error.message };
+
+  const eski = (onceki as { file_path?: string } | null)?.file_path;
+  if (eski && eski !== path) {
+    await supabase.storage.from("contracts").remove([eski]);
+  }
+
+  revalidatePath("/sales");
+  return { ok: true };
+}
+
+/** Sözleşmeyi kaldırır — kayıt ve depo nesnesi birlikte gider. */
+export async function clearJobContract(jobId: string): Promise<SalesActionResult> {
+  const gate = await requireSalesAccess();
+  if ("error" in gate) return { error: gate.error };
+  const { supabase } = gate;
+
+  const { data: mevcut } = await supabase
+    .from("job_contracts")
+    .select("file_path")
+    .eq("job_id", jobId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("job_contracts").delete().eq("job_id", jobId);
+  if (error) return { error: error.message };
+
+  const yol = (mevcut as { file_path?: string } | null)?.file_path;
+  if (yol) await supabase.storage.from("contracts").remove([yol]);
+
+  revalidatePath("/sales");
+  return { ok: true };
+}

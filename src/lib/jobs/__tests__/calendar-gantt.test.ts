@@ -68,21 +68,42 @@ describe("entriesByDay / agendaDays", () => {
 describe("buildGantt", () => {
   const today = "2026-08-16";
 
-  it("pencere min-maks; oranlar [0..100]", () => {
+  // PENCERE AY SINIRINA YUVARLANIR (18.08.2026): eksenin ilk ve son dilimi
+  // yarım kalmasın diye min ayın 1'ine, maks bir SONRAKİ ayın 1'ine oturur.
+  // Ay başlıkları ancak böyle gerçekten o ayı gösterir.
+  it("pencere AY SINIRINA oturur; oranlar [0..100]", () => {
     const m = buildGantt(
       [
-        { id: "a", start: "2026-01-01", end: "2026-06-30" },
+        { id: "a", start: "2026-01-15", end: "2026-06-30" },
         { id: "b", start: "2026-04-01", end: "2026-12-31" },
       ],
       today
     );
     expect(m).not.toBeNull();
     expect(m!.min).toBe("2026-01-01");
-    expect(m!.max).toBe("2026-12-31");
+    expect(m!.max).toBe("2027-01-01");
     const a = m!.bars.find((b) => b.id === "a")!;
-    expect(a.leftPct).toBe(0);
+    expect(a.leftPct).toBeGreaterThan(0);
+    expect(a.leftPct).toBeLessThan(5);
     expect(a.widthPct).toBeGreaterThan(40);
-    expect(a.widthPct).toBeLessThan(60);
+    expect(a.widthPct).toBeLessThan(50);
+  });
+
+  it("eksen AY AY bölünür — dilimler bitişik ve tam", () => {
+    const m = buildGantt([{ id: "a", start: "2026-01-10", end: "2026-03-20" }], today)!;
+    expect(m.months.map((x) => x.ay)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    // Dilimler birbirini takip eder ve toplamı %100'dür.
+    const toplam = m.months.reduce((t, x) => t + x.widthPct, 0);
+    expect(toplam).toBeCloseTo(100, 6);
+    expect(m.months[0].leftPct).toBe(0);
+    expect(m.months[1].leftPct).toBeCloseTo(m.months[0].widthPct, 6);
+  });
+
+  it("süre AY cinsinden okunur — işler aylar sürer", () => {
+    const m = buildGantt([{ id: "a", start: "2026-01-01", end: "2026-07-01" }], today)!;
+    // 181 gün / 30,44 ≈ 5,9 ay
+    expect(m.bars[0].aySuresi).toBeGreaterThan(5.5);
+    expect(m.bars[0].aySuresi).toBeLessThan(6.5);
   });
 
   it("bitişi olmayan iş BUGÜNE kadar sürer ve açık uçlu işaretlenir", () => {

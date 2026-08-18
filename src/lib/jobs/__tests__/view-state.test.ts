@@ -21,6 +21,7 @@ import {
   describeJobFilters,
   jobYear,
   matchesJobFilters,
+  son12AyBaslangici,
   naturalDesc,
   sortJobs,
   type JobListRow,
@@ -104,9 +105,15 @@ describe("resolveYear", () => {
     expect(resolveYear("2024", ["2026", "2024"], "2026")).toBe("2024");
     expect(resolveYear("tumu", ["2026"], "2026")).toBe("tumu");
   });
-  it("seçim yoksa bu yıl; bu yıl defterde yoksa tümü", () => {
-    expect(resolveYear(undefined, ["2026", "2025"], "2026")).toBe("2026");
-    expect(resolveYear(undefined, ["2024", "2025"], "2026")).toBe("tumu");
+  // VARSAYILAN SON 12 AYDIR (kullanıcı kararı, 18.08.2026): vinç işi aylar
+  // sürer, takvim yılı doğal bir pencere değildir. Pencere boşsa "tumu"ya
+  // düşülür — boş bir liste süzgecin var olduğunu bile anlatmaz.
+  it("seçim yoksa son 12 ay; pencere boşsa eski kurala düşer", () => {
+    expect(resolveYear(undefined, ["2026", "2025"], "2026")).toBe("son12");
+    expect(resolveYear(undefined, ["2026", "2025"], "2026", false)).toBe("2026");
+    expect(resolveYear(undefined, ["2024", "2025"], "2026", false)).toBe("tumu");
+    // Açık seçim her zaman kazanır.
+    expect(resolveYear("2025", ["2026", "2025"], "2026")).toBe("2025");
   });
 });
 
@@ -118,6 +125,30 @@ describe("matchesJobFilters", () => {
     expect(jobYear(row({ work_order_date: null, created_at: "2024-01-05T00:00:00Z" }))).toBe("2024");
     expect(matchesJobFilters(row(), { ...base, yil: "2026" })).toBe(true);
     expect(matchesJobFilters(row(), { ...base, yil: "2025" })).toBe(false);
+  });
+
+  // KAYAN 12 AY (18.08.2026): pencere bugünden geriye 12 aydır ve ÜST SINIRI
+  // YOKTUR — ileri tarihli bir iş emri pencereden düşmemelidir.
+  it("son 12 ay penceresi kayar; üst sınırı yoktur", () => {
+    const bugun = "2026-08-18";
+    const p = { ...base, yil: "son12", bugun };
+    expect(son12AyBaslangici(bugun)).toBe("2025-08-18");
+    expect(matchesJobFilters(row({ work_order_date: "2026-08-01" }), p)).toBe(true);
+    expect(matchesJobFilters(row({ work_order_date: "2025-08-18" }), p)).toBe(true);
+    expect(matchesJobFilters(row({ work_order_date: "2025-08-17" }), p)).toBe(false);
+    // İleri tarihli iş kalır.
+    expect(matchesJobFilters(row({ work_order_date: "2027-03-01" }), p)).toBe(true);
+  });
+
+  it("31 Mart'ta pencere 31 Şubat'tan değil 28 Şubat'tan başlar", () => {
+    expect(son12AyBaslangici("2026-03-31")).toBe("2025-03-31");
+    expect(son12AyBaslangici("2026-05-31")).toBe("2025-05-31");
+    // Artık yıl sınırı: 29 Şubat 2028'in bir yıl öncesi 28 Şubat 2027'dir.
+    expect(son12AyBaslangici("2028-02-29")).toBe("2027-02-28");
+  });
+
+  it("bugün verilmezse son12 SÜZMEZ — sessizce boş liste üretmez", () => {
+    expect(matchesJobFilters(row({ work_order_date: "2001-01-01" }), { ...base, yil: "son12" })).toBe(true);
   });
 
   it("müşteri süzgeci TAM UNVANLA eşleşir", () => {
