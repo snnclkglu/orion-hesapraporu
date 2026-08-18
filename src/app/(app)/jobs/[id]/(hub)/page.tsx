@@ -258,6 +258,10 @@ export default async function JobPage({
           <KV label="Teslim Tarihi" value={fmtJobDate(job.delivery_date)} mono />
           <KV label="Adet" value={job.quantity_text} />
           <KV label="İş Lideri" value={job.job_leader} />
+          {/* Sevk/montaj adresi müşteri künyesindeki fatura adresinden ayrıdır
+              (bkz. jobs/schema.ts) — bu yüzden "İş Bilgileri" kutusundadır. */}
+          <KV label="Sevk Adresi" value={job.shipping_address} />
+          <KV label="Montaj Adresi" value={job.assembly_address} />
           {job.contract_file_path ? (
             <div className="mt-3">
               <ContractOpenButton

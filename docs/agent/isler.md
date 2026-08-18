@@ -97,6 +97,70 @@ embed'iyle alır (fiyat arşivi dersi). Son bakılanlar `localStorage`dadır
 (cihaza özel kolaylık; okuma `useSyncExternalStore`). Excel dökümünde
 kısaltmanın YANINA resmî unvan da basılır — dosya firma dışına gider.
 
+## IS-26 — İŞ EMRİ YAYIMLANDIKTAN SONRA REVİZE EDİLİR
+
+(kullanıcı isteği, 18.08.2026: *"Yeni iş açarken son girilen iş numarasında son
+işten bir büyük sayı … Atölye çıkış tarihi ve teslim tarihine 1 2 3 4 5 6 7 8 ay
+veya hafta olarak hızlı seçebileyim … Sevk Adresi ve Montaj Adresi kutu olsun …
+İş Emri Başlığında Revizyon Numarası olsun. A B C D olarak yapsın."*)
+Dört kuralın SAF çekirdeği tektir: `lib/jobs/is-emri.ts` (testli).
+
+**İŞ NO ÖNERİLİR, DAYATILMAZ** (`sonrakiIsNo`). Defterdeki en büyük numaranın
+bir fazlası yeni iş emri formunda HAZIR gelir ve kullanıcı değiştirebilir.
+Numara serbest metindir ve devralınan kayıtlar son ek taşır (`0043-00-0000`):
+KÖK okunur (ilk tire öncesi, `autoItemNos` ile aynı okuma). DOLGU GENİŞLİĞİ
+VERİDEN çıkar — sabit `4` yazılsaydı beş haneye geçildiği gün öneri geriye
+düşerdi. Hesap SUNUCUDADIR (`jobs/new/page.tsx`); defteri istemciye göndermenin
+anlamı yok. İş KOPYALAMADA da öneri geçerlidir: kaynağın numarası taşınmaz.
+
+**HIZLI TERMİN AYI TAŞIRMAZ** (`tarihEkle`). Atölye çıkış ve teslim tarihi
+"işe başlamadan N hafta/ay sonra" diye konuşulur; iki alanın da yanında 1…8
+adımlı bir menü durur ve menü SEÇENEĞİN SONUCUNU YAZAR ("4 hafta · 15.09.2026")
+— kullanıcı hangi güne düştüğünü görmeden hafta ile ay arasında seçemez. Sayım
+TABANDAN yapılır (iş emri tarihi, o da boşsa bugün) ve menü tabanı başlığında
+söyler. Hesap UTC'DEDİR (yaz saati geçişinde gün kaymasın) ve AY EKLEMESİ AYIN
+SONUNA KELEPÇELENİR: 31.01 + 1 ay = 28.02, 03.03 değil.
+
+**SEVK VE MONTAJ ADRESİ MÜŞTERİ ADRESİNDEN AYRIDIR.** `customer_address` iş
+emrinin basıldığı andaki müşteri künyesidir (fatura adresi); vinç çoğu zaman
+başka bir tesise gider. İki ayrı sütundur çünkü sevk ile montaj da ayrılabilir;
+formda montaj VARSAYILAN OLARAK sevkin aynısıdır (`*Auto` deseni) ve anahtar
+düzenlemede ancak iki adres GERÇEKTEN aynıysa açık başlar — ayrılmış bir montaj
+adresi ilk kaydetmede sevkin üzerine yazılmamalıdır. Adresler BÜYÜK HARFE
+ÇEVRİLMEZ: md. 3 AD alanlarını kapsar, `customer_address` de çevrilmiyor.
+Devralınan 63 satır BOŞ bırakıldı — `customer_address`ten kopyalamak uydurma
+veri olurdu (md. 4). İş kopyalamada adres KOPYALANIR (tarihlerin tersine):
+tekrarlayan siparişte değişen şey termin, değişmeyen şey teslim yeridir.
+
+**REVİZYON HARFTİR ve BELGENİN KİMLİĞİNE GİRER** (`jobs.revision`, varsayılan
+`A`; kısıt `jobs_revision_harf`, TS yarısı `revizyonHarfi`). Düzenleme formunda
+anahtar AÇIK başlar ve harf bir sonrakine ilerler (A → B → C); kapatılınca alan
+KAYITLI harfe döner ve elle yazılır — yazım hatası düzeltmek bir revizyon
+değildir ve `B`yi harcamamalıdır. Hedef harf HER ZAMAN `initial`den türer, form
+durumundan değil: aksi hâlde tek düzenleme her turda bir harf daha ilerlerdi.
+Z'den sonra başa DÖNÜLMEZ (`AA`), çünkü aynı kimlik iki belgeye verilemez.
+Belge kodu `workOrderDocCode` iledir (`ORC-IE-0063-RB`) — `docCode` imzası
+BOZULMADI, o revizyonu SAYI olarak ister. Harf `A`da da basılır (teklifin
+`offerRevLabel` kuralının tersi): iş emri iç bir belgedir ve atölyedeki soru
+"elimdeki kâğıt hangi revizyon"dur; aynı gerekçeyle dosya adına da girer.
+Revizyon AYRI BİR OLAYDIR (`revize`), "güncellendi" değil: harf değiştiyse işin
+biyografisinde ayrı satır olarak durur.
+
+**SAYFA DENGESİ BİR YERDEN ÖDENİR.** Sevk/montaj bloğu PDF'e eklendiğinde
+ölçüldü: 2 · 5 · 10 · 12 kalemli emirler ikinci sayfaya taştı. `itemScale`
+artık adresin varlığını da alır ve payı açıklama kutusundan, bölüm
+aralıklarından ve satır iç boşluğundan kısar — atölyeye giden formun tek yaprak
+kalması, el yazısı için ayrılan boşluktan önemlidir. Ölçüm `npx tsx
+scripts/test-work-order.ts` iledir (1…16 kalem).
+
+**`EMPTY_JOB` BİR İSTEMCİ MODÜLÜNDE DURAMAZ** (18.08.2026, `/dev/jobs-preview`
+yakaladı). Sabit `job-form.tsx`teydi ve iki SUNUCU bileşeni onu oradan içe
+aktarıp YAYIYORDU (`{ ...EMPTY_JOB }`). RSC grafiğinde bir istemci modülünün
+dışa aktarımı gerçek değer değil bir REFERANSTIR: bütün olarak prop geçirmek
+çalışır, yaymak alanların hiçbirini getirmez — form `scope`suz monte oluyor ve
+"Cannot read properties of undefined (reading 'proje')" ile patlıyordu. İş
+KOPYALAMA (`?kaynak=`) bu yüzden zaten kırıktı. Sabit `schema.ts`e taşındı.
+
 ## IS-14 — Hesap raporu İŞE değil İŞ KALEMİNE bağlanır.
 
 Bir iş emri (`jobs`)

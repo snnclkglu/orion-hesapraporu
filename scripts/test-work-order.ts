@@ -15,6 +15,7 @@ const BASE: Omit<WorkOrderData, "items"> = {
   job_no: "0055",
   title: "İsdemir Amonyum Sülfat Tesisi 2m³ Kapasiteli Kepçeli Çift Kirişli Tavan Vinci",
   form_code: "FR.11.02",
+  revision: "B",
   work_order_date: "2026-05-11",
   customer: "İSKENDERUN DEMİR VE ÇELİK A.Ş.",
   customer_address: "Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1 PK 31900 Payas/Hatay",
@@ -26,6 +27,10 @@ const BASE: Omit<WorkOrderData, "items"> = {
   contract_date: "2026-05-11",
   workshop_exit_date: "2027-02-01",
   delivery_date: "2027-03-01",
+  shipping_address:
+    "İskenderun Demir ve Çelik A.Ş. Amonyum Sülfat Tesisi, Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1, 31900 Payas / HATAY",
+  assembly_address:
+    "İskenderun Demir ve Çelik A.Ş. Amonyum Sülfat Tesisi, Karşı Mahalle Şehit Yüzbaşı Ali Oğuz Bulvarı No:1, 31900 Payas / HATAY",
   quantity_text: "1",
   job_leader: "Sinan Çolakoğlu",
   scope: { proje: true, imalat: true, montaj: false, nakliye: true, malzeme: false, devreyeAlma: true },

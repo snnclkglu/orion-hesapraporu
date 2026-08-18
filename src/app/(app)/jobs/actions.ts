@@ -95,6 +95,17 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   const parsed = jobInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  // REVİZYON OLAYI İÇİN ÖNCEKİ HARF YAZMADAN ÖNCE OKUNUR — "neyden neye"
+  // bilgisi olayın kendisidir ve sonradan geri hesaplanamaz (durum yazımıyla
+  // aynı gerekçe). Sütun migration bekliyorsa sorgu hata döner ve harf boş
+  // kalır: olay yazılmaz, iş emri güncellemesi etkilenmez.
+  const { data: onceki } = await supabase
+    .from("jobs")
+    .select("revision")
+    .eq("id", jobId)
+    .maybeSingle();
+  const eskiRev = (onceki as { revision?: string } | null)?.revision ?? "";
+
   const { error } = await supabase
     .from("jobs")
     .update(jobRowFrom(parsed.data))
@@ -181,13 +192,20 @@ export async function updateJob(jobId: string, input: JobInput): Promise<ActionR
   await supabase.from("audit_log").insert({
     actor: user.id,
     action: "job.update",
-    detail: { job_id: jobId, job_no: parsed.data.job_no },
+    detail: { job_id: jobId, job_no: parsed.data.job_no, revision: parsed.data.revision },
   });
+  // REVİZYON AYRI BİR OLAYDIR. "Güncellendi" satırı her kaydetmede yazılır ve
+  // aralarında hangisinin YAYIMLANMIŞ bir revizyon olduğu görünmezdi; belgenin
+  // kimliği (`ORC-IE-0063-RB`) o harften türediği için işin biyografisinde
+  // ayrı durmalıdır.
+  const revizyonDegisti = Boolean(eskiRev) && eskiRev !== parsed.data.revision;
   await isOlayiYaz(supabase, {
     jobId,
     jobNo: parsed.data.job_no,
-    event: "guncellendi",
-    detail: { kalem: items.length },
+    event: revizyonDegisti ? "revize" : "guncellendi",
+    detail: revizyonDegisti
+      ? { kalem: items.length, from: eskiRev, to: parsed.data.revision }
+      : { kalem: items.length },
     actor: user.id,
   });
 

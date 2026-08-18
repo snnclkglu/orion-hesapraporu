@@ -4,17 +4,19 @@
 // bilgileri + iş bilgileri + kapsam + iş kalemleri (ürün/iş no/adet) + hazırlayan.
 // createJob / updateJob action'larını çağırır.
 //
-// ÜÇ ALAN OTOMATİKTİR (uygulamanın genelindeki `*Auto` deseniyle aynı): anahtar
+// BEŞ ALAN OTOMATİKTİR (uygulamanın genelindeki `*Auto` deseniyle aynı): anahtar
 // açıkken alan salt-okunurdur ve türetilen değeri gösterir, kapatılınca elle
 // yazılır.
 //   · İş kalemi numaraları — iş nodan türetilir (tek kalem `-00`, çok kalem `-01`…)
 //   · İş Bilgileri / Adet — kalem adetlerinin toplamı
 //   · Hazırlayan unvanı   — seçilen kullanıcının profilinden
+//   · Montaj adresi       — sevk adresinin aynısı (ikisi genelde aynı yerdir)
+//   · Revizyon harfi      — düzenlemede bir sonrakine ilerler (A → B → C)
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Minus, Plus, Save, Trash2 } from "lucide-react";
+import { CalendarPlus, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { createJob, updateJob } from "./actions";
 import { ContractUpload } from "./contract-upload";
 import {
@@ -25,12 +27,20 @@ import {
   type CustomerOption, type JobInput, type JobItemInput,
 } from "./schema";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  TERMIN_ADIMLARI, TERMIN_BIRIM_ADLARI, revizyonHarfi, sonrakiRevizyon, tarihEkle,
+  type TerminBirimi,
+} from "@/lib/jobs/is-emri";
 import { adBuyuk } from "@/lib/tr-text";
 import { cn } from "@/lib/utils";
 
@@ -40,32 +50,6 @@ export interface PersonOption {
   full_name: string;
   title: string;
 }
-
-export const EMPTY_JOB: JobInput = {
-  job_no: "",
-  title: "",
-  customer: "",
-  customer_id: null,
-  work_order_date: "",
-  customer_address: "",
-  customer_tax_office: "",
-  customer_tax_no: "",
-  customer_phone: "",
-  customer_fax: "",
-  contract_exists: false,
-  contract_date: "",
-  contract_file_path: "",
-  contract_file_name: "",
-  workshop_exit_date: "",
-  delivery_date: "",
-  quantity_text: "",
-  job_leader: "",
-  prepared_by_name: "",
-  prepared_by_title: "",
-  scope: { proje: false, devreyeAlma: false, malzeme: false, nakliye: false, imalat: false, montaj: false },
-  notes: "",
-  items: [],
-};
 
 const SCOPE_LABELS: { key: keyof JobInput["scope"]; label: string }[] = [
   { key: "proje", label: "Proje" },
@@ -130,6 +114,90 @@ function todayISO(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** `2026-09-15` → `15.09.2026` — menüde seçilecek tarihin okunur hâli. */
+function trTarih(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+
+/**
+ * HIZLI TERMİN (kullanıcı isteği, 18.08.2026): atölye çıkış ve teslim tarihi
+ * "işe başlamadan N hafta/ay sonra" diye konuşulur, takvimden gün seçilerek
+ * değil.
+ *
+ * Menü SEÇENEĞİN SONUCUNU YAZAR ("4 hafta · 15.09.2026"): kullanıcı ay ile
+ * hafta arasında karar verirken hangi güne düştüğünü görmeden seçemez, seçtikten
+ * sonra tarih kutusuna bakıp geri almak fazladan bir adımdır. Sayım TABANDAN
+ * yapılır ve taban iş emri tarihidir — o da boşsa bugündür; menü tabanı
+ * başlığında söyler, çünkü aynı "2 ay" iki farklı tabandan iki tarih verir.
+ */
+function HizliTermin({
+  taban,
+  onSec,
+}: {
+  taban: string;
+  onSec: (iso: string) => void;
+}) {
+  const [birim, setBirim] = useState<TerminBirimi>("ay");
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-my-1 h-7 gap-1 px-1.5 text-[11px] text-muted-foreground"
+        >
+          <CalendarPlus className="size-3.5" /> Hızlı
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          Başlangıç: <span className="font-mono">{trTarih(taban)}</span>
+        </DropdownMenuLabel>
+        {/* Birim anahtarı menünün İÇİNDEDİR: dışarıda ayrı bir düğme olsaydı
+            tarih alanının yanında iki kontrol dururdu ve ızgara satırı taşardı. */}
+        <div className="flex gap-1 px-2 pb-1">
+          {(Object.keys(TERMIN_BIRIM_ADLARI) as TerminBirimi[]).map((b) => (
+            <Button
+              key={b}
+              type="button"
+              size="sm"
+              variant={birim === b ? "default" : "outline"}
+              className="h-7 flex-1 text-xs"
+              onClick={(e) => {
+                e.preventDefault();
+                setBirim(b);
+              }}
+            >
+              {TERMIN_BIRIM_ADLARI[b]}
+            </Button>
+          ))}
+        </div>
+        <DropdownMenuSeparator />
+        {TERMIN_ADIMLARI.map((n) => {
+          const iso = tarihEkle(taban, n, birim);
+          return (
+            <DropdownMenuItem
+              key={n}
+              disabled={!iso}
+              onSelect={() => iso && onSec(iso)}
+              className="justify-between gap-3 text-xs"
+            >
+              <span>
+                {n} {TERMIN_BIRIM_ADLARI[birim].toLocaleLowerCase("tr-TR")}
+              </span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {trTarih(iso)}
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 /** Adet +/- artırıcı — baştaki sayıyı adımlar, varsa metin ekini korur (ör. "3 Adet") */
@@ -269,9 +337,38 @@ export function JobForm({
     return initial.quantity_text === autoQuantityText(initial.items);
   });
   const [autoTitle, setAutoTitle] = useState(mode === "create");
+  // MONTAJ ADRESİ SEVKİN AYNISIDIR — kullanıcı kararı, 18.08.2026: *"Sevk ve
+  // Montaj genelde aynı oluyor."* Düzenlemede anahtar ancak iki adres GERÇEKTEN
+  // aynıysa açık başlar; ayrılmış bir montaj adresi ilk kaydetmede sessizce
+  // sevkin üzerine yazılmamalıdır.
+  const [autoMontaj, setAutoMontaj] = useState(
+    () => mode === "create" || initial.assembly_address === initial.shipping_address
+  );
+  /**
+   * REVİZYON ANAHTARI — düzenlemede AÇIK başlar (kullanıcı isteği: harf
+   * kendiliğinden ilerlesin), yeni kayıtta gösterilmez çünkü ilk yayın `A`dır.
+   * Kapatıldığında harf elle yazılır: yazım hatası düzeltmek bir revizyon
+   * değildir ve `B`yi harcamamalıdır.
+   */
+  const [autoRev, setAutoRev] = useState(mode === "edit");
+  // Hedef harf DEĞİŞMEZ bir değerdir: form durumundan hesaplansaydı her
+  // kaydetmede bir tur daha ilerler (B → C → D) ve tek düzenleme üç revizyon
+  // yazardı. Kaynak HER ZAMAN `initial`dir.
+  const revSonraki = useMemo(() => sonrakiRevizyon(initial.revision), [initial.revision]);
+  /** Hızlı termin sayımının başlangıcı: iş emri tarihi, o da boşsa bugün. */
+  const terminTabani = form.work_order_date?.trim() || todayISO();
 
   function set<K extends keyof JobInput>(key: K, value: JobInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+  /**
+   * Revizyon anahtarı kapatılınca alan KAYITLI harfe döner, ilerletilmiş hâle
+   * değil: kullanıcı "bu bir revizyon değil" dediğinde form `B` gösterip `B`
+   * kaydetseydi anahtarın hiçbir etkisi olmazdı.
+   */
+  function setRevizyonAuto(v: boolean) {
+    setAutoRev(v);
+    setForm((f) => ({ ...f, revision: v ? revSonraki : revizyonHarfi(initial.revision) }));
   }
   function setScope(key: keyof JobInput["scope"], value: boolean) {
     setForm((f) => ({ ...f, scope: { ...f.scope, [key]: value } }));
@@ -317,9 +414,18 @@ export function JobForm({
         const want = autoQuantityText(next.items);
         if (next.quantity_text !== want) next = { ...next, quantity_text: want };
       }
+      if (autoMontaj && next.assembly_address !== next.shipping_address) {
+        next = { ...next, assembly_address: next.shipping_address };
+      }
+      // Anahtar KAPALIYKEN dokunulmaz (harf elle yazılıyordur); açıkken hedef
+      // harf `initial`den türer, form durumundan değil.
+      if (autoRev && next.revision !== revSonraki) next = { ...next, revision: revSonraki };
       return next === f ? f : next;
     });
-  }, [autoNos, autoQty, autoTitle, form.job_no, form.items, form.prepared_by_name, people]);
+  }, [
+    autoNos, autoQty, autoTitle, autoMontaj, autoRev, revSonraki,
+    form.job_no, form.items, form.prepared_by_name, form.shipping_address, people,
+  ]);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -344,8 +450,19 @@ export function JobForm({
   return (
     <form onSubmit={submit} className="grid gap-4">
       {/* Başlık */}
-      <Section title="İş Emri Başlığı">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Section
+        title="İş Emri Başlığı"
+        action={
+          mode === "edit" ? (
+            <AutoToggle
+              checked={autoRev}
+              onChange={setRevizyonAuto}
+              label={`Bu kayıt bir revizyondur (${revizyonHarfi(initial.revision)} → ${revSonraki})`}
+            />
+          ) : undefined
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {/* Alan altına açıklama YAZILMAZ: satırdaki tek alanı uzatıp komşu
               alanları yukarı kaydırıyordu. Kalem numarasının iş nodan türediği
               zaten İş Kalemleri bölümünde yazılı. */}
@@ -361,10 +478,32 @@ export function JobForm({
             />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="revision">Revizyon</Label>
+            {/* Harf salt-okunurdur: yeni kayıtta hep `A`, düzenlemede anahtar
+                açıkken bir sonraki harf. Elle yazmak için anahtar kapatılır. */}
+            <Input
+              id="revision"
+              value={form.revision}
+              onChange={(e) => set("revision", e.target.value)}
+              readOnly={mode === "create" || autoRev}
+              className={cn(
+                "font-mono uppercase",
+                (mode === "create" || autoRev) && "bg-muted text-muted-foreground"
+              )}
+              title={
+                mode === "create"
+                  ? "Yeni iş emri A revizyonuyla açılır"
+                  : autoRev
+                    ? "Kaydedince bu harfe ilerler — değiştirmek için anahtarı kapatın"
+                    : undefined
+              }
+            />
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="work_order_date">Tarih</Label>
             <Input id="work_order_date" type="date" value={form.work_order_date ?? ""} onChange={(e) => set("work_order_date", e.target.value)} />
           </div>
-          <div className="grid gap-1.5 sm:col-span-2">
+          <div className="grid gap-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="title">İşin Adı</Label>
             {/* AD ALANLARI BÜYÜK HARFE ÇEVRİLİR (firma kuralı, `adBuyuk`);
                 şema da aynı dönüşümü uygular, yani kayıt her yoldan aynı
@@ -511,11 +650,20 @@ export function JobForm({
             <Input id="contract_date" type="date" value={form.contract_date ?? ""} onChange={(e) => set("contract_date", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="workshop_exit_date">Atölye Çıkış Tarihi</Label>
+            {/* Negatif dikey boşluk "Adet" alanındakiyle aynı gerekçe: hızlı
+                seçim düğmesi etiket satırını büyütüp alanı komşularının
+                altına kaydırıyordu. */}
+            <div className="-my-1 flex items-center justify-between gap-2">
+              <Label htmlFor="workshop_exit_date">Atölye Çıkış Tarihi</Label>
+              <HizliTermin taban={terminTabani} onSec={(v) => set("workshop_exit_date", v)} />
+            </div>
             <Input id="workshop_exit_date" type="date" value={form.workshop_exit_date ?? ""} onChange={(e) => set("workshop_exit_date", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="delivery_date">Teslim Tarihi</Label>
+            <div className="-my-1 flex items-center justify-between gap-2">
+              <Label htmlFor="delivery_date">Teslim Tarihi</Label>
+              <HizliTermin taban={terminTabani} onSec={(v) => set("delivery_date", v)} />
+            </div>
             <Input id="delivery_date" type="date" value={form.delivery_date ?? ""} onChange={(e) => set("delivery_date", e.target.value)} />
           </div>
           <div className="grid gap-1.5">
@@ -556,6 +704,37 @@ export function JobForm({
             <div className="flex h-10 items-center">
               <Check checked={form.contract_exists} onChange={(v) => set("contract_exists", v)} label="Sözleşme var" />
             </div>
+          </div>
+        </div>
+
+        {/* SEVK VE MONTAJ ADRESİ (kullanıcı isteği, 18.08.2026). Müşteri
+            künyesindeki adres FATURA adresidir; vinç çoğu zaman başka bir
+            tesise gider. Montaj varsayılan olarak sevkin aynısıdır — anahtar
+            kapatılınca ayrı yazılır. */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="shipping_address">Sevk Adresi</Label>
+            <Textarea
+              id="shipping_address"
+              value={form.shipping_address}
+              onChange={(e) => set("shipping_address", e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <div className="-my-2 flex items-center justify-between gap-2">
+              <Label htmlFor="assembly_address">Montaj Adresi</Label>
+              <AutoToggle checked={autoMontaj} onChange={setAutoMontaj} label="Sevk ile aynı" />
+            </div>
+            <Textarea
+              id="assembly_address"
+              value={form.assembly_address}
+              onChange={(e) => set("assembly_address", e.target.value)}
+              rows={2}
+              readOnly={autoMontaj}
+              className={cn(autoMontaj && "bg-muted text-muted-foreground")}
+              title={autoMontaj ? "Sevk adresinin aynısı — ayırmak için anahtarı kapatın" : undefined}
+            />
           </div>
         </div>
 

@@ -42,6 +42,25 @@ taşıyan yer tutucular uygulamadan KALDIRILDI, boş miktar artık sıfır deği
 `null` üretiyor (kutu "—" gösterir) ve yeni satırın miktarı GERÇEK bir
 değer olarak 1'dir (`EMPTY_SALE`).
 
+**TERMİN VE SEVK YERİ İŞ EMRİNDEN GELİR, SEVK TARİHİ GELMEZ** (kullanıcı
+isteği, 18.08.2026: *"termin sevk tarihi sevk yeri bilgileri İş emrinden
+gelsin"*). Pencere açılırken BOŞ alanlar iş emrinin `delivery_date` ve
+`shipping_address` değerleriyle dolar (kaydedilmiş bir değer varsa o kazanır)
+ve kutunun altında "İş emrindeki teslim tarihi" yazar — aynı bilgiyi ikinci kez
+yazdırmanın anlamı yok.
+
+**SEVK TARİHİ İSTİSNADIR ve gerekçesi bu sayfanın kendi kuralıdır:** alan "sevk
+edildi" demektir ve girildiği anda işin bütün kalemleri sevk edilmişse iş durumu
+kendiliğinden "Tamamlandı" olur. İş emrindeki ATÖLYE ÇIKIŞ tarihi ise bir
+PLANDIR; kutuya sessizce düşseydi fiyat girmek için açılan bir pencere, henüz
+imalattaki bir işi tamamlanmış gösterirdi. Plan tarihi tek tıkla alınabilen bir
+ÖNERİ olarak durur ("İş emri planı: 20.11.2026 — uygula").
+
+**MİRAS SATIRA YAZILMAZ, PENCEREYE DÜŞER.** Öneriler `SaleRow`da ayrı alanlardır
+(`jobDeliveryDate` · `jobWorkshopExitDate` · `jobShippingAddress`); tablo ve
+müşteriye giden İş Listesi bunları OKUMAZ. Okusaydı belge, kimsenin girmediği
+bir termini teyit edilmiş gibi basardı — fiyatsızlık kuralının aynı mantığı.
+
 **Kapsam açılır listedir ama liste KAPALI DEĞİLDİR** (`SALE_SCOPES`,
 lib/tags.ts). Sabit seçenekler devralınan verideki gerçek kapsamlardan
 çıkarıldı; kayıttaki değer listede yoksa pencere onu KENDİ seçeneği olarak

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerTag, ScopeTag } from "@/components/tags";
+import { fmtJobDate } from "@/lib/jobs/filter";
 import { SALE_SCOPES } from "@/lib/tags";
 
 /** "Diğer" — listede olmayan kapsam serbest metin olarak yazılır. */
@@ -82,7 +83,23 @@ export function SaleDialog({
     const current = row.sale.scope.trim();
     return current && !SALE_SCOPES.includes(current) ? [current, ...SALE_SCOPES] : SALE_SCOPES;
   }, [row.sale.scope]);
-  const [dueDate, setDueDate] = useState(row.sale.due_date ?? "");
+  /**
+   * TERMİN VE SEVK YERİ İŞ EMRİNDEN GELİR (kullanıcı isteği, 18.08.2026).
+   * Kaydedilmiş bir değer varsa o kazanır; yoksa iş emrindeki teslim tarihi ve
+   * sevk adresi kutuya DÜŞER — aynı bilgiyi ikinci kez yazdırmanın anlamı yok.
+   * Değer kaydedilene kadar `job_item_sales`e yazılmaz; listede ve müşteriye
+   * giden İş Listesi'nde yalnız kaydedilmiş satır görünür.
+   */
+  const [dueDate, setDueDate] = useState(row.sale.due_date ?? row.jobDeliveryDate ?? "");
+  const dueDateIsEmrinden = !row.sale.due_date && Boolean(row.jobDeliveryDate);
+  /**
+   * SEVK TARİHİ KENDİLİĞİNDEN DOLMAZ ve bu bilinçlidir. Alan "sevk edildi"
+   * demektir: girildiği anda işin bütün kalemleri sevk edilmişse iş durumu
+   * kendiliğinden "Tamamlandı" olur (SATIS-16 / `lib/job-status.ts`). İş
+   * emrindeki atölye çıkış tarihi ise bir PLANDIR — kutuya sessizce düşseydi
+   * fiyat girmek için açılan bir pencere, henüz imalattaki bir işi tamamlanmış
+   * gösterirdi. Plan tarihi tek tıkla alınabilen bir ÖNERİ olarak durur.
+   */
   const [shipmentDate, setShipmentDate] = useState(row.sale.shipment_date ?? "");
   const [quantity, setQuantity] = useState(numText(row.sale.quantity));
   const [unit, setUnit] = useState(row.sale.unit);
@@ -90,7 +107,10 @@ export function SaleDialog({
   const [unitPrice, setUnitPrice] = useState(numText(row.sale.unit_price));
   const [currency, setCurrency] = useState<Currency>(row.sale.currency);
   const [fxRate, setFxRate] = useState(numText(row.sale.fx_rate));
-  const [shipmentPlace, setShipmentPlace] = useState(row.sale.shipment_place);
+  const [shipmentPlace, setShipmentPlace] = useState(
+    row.sale.shipment_place || row.jobShippingAddress
+  );
+  const shipmentPlaceIsEmrinden = !row.sale.shipment_place && Boolean(row.jobShippingAddress);
   const [notes, setNotes] = useState(row.sale.notes);
 
   // Alanlar yalnız `useState` başlangıç değerinden dolar; senkronize eden bir
@@ -264,13 +284,31 @@ export function SaleDialog({
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Termin Tarihi">
+            <Field
+              label="Termin Tarihi"
+              hint={dueDateIsEmrinden ? "İş emrindeki teslim tarihi" : undefined}
+            >
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </Field>
             <Field label="Sevk Tarihi">
               <Input type="date" value={shipmentDate} onChange={(e) => setShipmentDate(e.target.value)} />
+              {/* Öneri yalnız kutu BOŞKEN ve plan tarihi varken görünür. Tıklama
+                  gerekli: bu alan işi "Tamamlandı" yapan alandır (yukarıdaki
+                  gerekçe), kendiliğinden dolmamalıdır. */}
+              {!shipmentDate && row.jobWorkshopExitDate && (
+                <button
+                  type="button"
+                  onClick={() => setShipmentDate(row.jobWorkshopExitDate!)}
+                  className="mt-1 text-[11px] text-primary underline-offset-2 hover:underline"
+                >
+                  İş emri planı: {fmtJobDate(row.jobWorkshopExitDate)} — uygula
+                </button>
+              )}
             </Field>
-            <Field label="Sevk Yeri">
+            <Field
+              label="Sevk Yeri"
+              hint={shipmentPlaceIsEmrinden ? "İş emrindeki sevk adresi" : undefined}
+            >
               <Input
                 value={shipmentPlace}
                 onChange={(e) => setShipmentPlace(e.target.value)}

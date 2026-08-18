@@ -43,6 +43,10 @@ interface JobJoin {
   status: string;
   contract_date: string | null;
   work_order_date: string | null;
+  /** İş emrindeki PLANLANAN tarihler + sevk adresi — satış penceresinin önerisi. */
+  delivery_date: string | null;
+  workshop_exit_date: string | null;
+  shipping_address: string | null;
   customers: CustomerJoin | CustomerJoin[] | null;
 }
 
@@ -67,6 +71,7 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
     .select(
       `id, item_no, product_name, sort,
        jobs!inner(id, job_no, customer, status, contract_date, work_order_date,
+                  delivery_date, workshop_exit_date, shipping_address,
                   customers(short_name, color_hue)),
        job_item_sales(scope, due_date, shipment_date, quantity, unit, unit_weight_kg,
                       unit_price, currency, fx_rate, shipment_place, notes,
@@ -89,6 +94,12 @@ export async function loadSaleRows(supabase: SupabaseClient): Promise<SaleRow[]>
       customerHue: book?.color_hue ?? null,
       jobStatus: job?.status ?? "active",
       contractDate: job?.contract_date ?? job?.work_order_date ?? null,
+      // İŞ EMRİNİN KENDİ ALANLARI — kopyalanmaz, TAŞINIR. Satış penceresi
+      // boş alanları bunlarla doldurur (bkz. `sale-dialog.tsx`); kaydedilen
+      // değer yine `job_item_sales`in kendi sütunudur.
+      jobDeliveryDate: job?.delivery_date ?? null,
+      jobWorkshopExitDate: job?.workshop_exit_date ?? null,
+      jobShippingAddress: job?.shipping_address ?? "",
       hasSale: Boolean(s),
       sale: s
         ? {

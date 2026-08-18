@@ -13,6 +13,8 @@
 
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import { BRAND, BrandPage, CheckGlyph, FONTS, PageHeader, RuleRed, T, trUpper } from "@/lib/pdf/brand";
+import { workOrderDocCode } from "@/lib/pdf/doc-naming";
+import { revizyonHarfi } from "@/lib/jobs/is-emri";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 
 export interface WorkOrderItem {
@@ -25,6 +27,8 @@ export interface WorkOrderData {
   job_no: string;
   title: string;
   form_code?: string;
+  /** Revizyon harfi (A · B · C…). Verilmezse `A` sayılır. */
+  revision?: string;
   work_order_date?: string | null;
   customer: string;
   customer_address?: string;
@@ -36,6 +40,8 @@ export interface WorkOrderData {
   contract_date?: string | null;
   workshop_exit_date?: string | null;
   delivery_date?: string | null;
+  shipping_address?: string;
+  assembly_address?: string;
   quantity_text?: string;
   job_leader?: string;
   scope?: Record<string, boolean>;
@@ -64,12 +70,30 @@ function fmtDate(iso?: string | null): string {
  *   · Çok kalemde ikisi de kapanır; aksi hâlde imza bloğu tek başına ikinci
  *     sayfaya düşer ve neredeyse boş bir sayfa basılırdı.
  */
-function itemScale(count: number) {
-  if (count <= 2) return { body: 12, sub: 8, pad: 13, head: 8, notesMin: 90, gap: 14, scopePad: 10, pin: true };
-  if (count <= 4) return { body: 11, sub: 7.5, pad: 10, head: 7.5, notesMin: 74, gap: 13, scopePad: 10, pin: true };
-  if (count <= 7) return { body: 10, sub: 7, pad: 7.5, head: 7, notesMin: 58, gap: 12, scopePad: 9, pin: true };
-  if (count <= 10) return { body: 9, sub: 6.5, pad: 4.5, head: 6.5, notesMin: 40, gap: 7, scopePad: 6, pin: false };
-  return { body: 8.5, sub: 6, pad: 3, head: 6.5, notesMin: 30, gap: 6, scopePad: 5, pin: false };
+function itemScale(count: number, adresVar = false) {
+  const olcek = (() => {
+    if (count <= 2) return { body: 12, sub: 8, pad: 13, head: 8, notesMin: 90, gap: 14, scopePad: 10, pin: true };
+    if (count <= 4) return { body: 11, sub: 7.5, pad: 10, head: 7.5, notesMin: 74, gap: 13, scopePad: 10, pin: true };
+    if (count <= 7) return { body: 10, sub: 7, pad: 7.5, head: 7, notesMin: 58, gap: 12, scopePad: 9, pin: true };
+    if (count <= 10) return { body: 9, sub: 6.5, pad: 4.5, head: 6.5, notesMin: 40, gap: 7, scopePad: 6, pin: false };
+    return { body: 8.5, sub: 6, pad: 3, head: 6.5, notesMin: 30, gap: 6, scopePad: 5, pin: false };
+  })();
+  if (!adresVar) return olcek;
+  // SEVK/MONTAJ BLOĞU YER İSTER ve o yer BİR YERDEN ALINIR. Blok eklendiğinde
+  // ölçüldü (18.08.2026): 2 · 5 · 10 · 12 kalemli emirler ikinci sayfaya taştı,
+  // yani "tek sayfa" dengesi kayboldu. Adres bloğunun payı açıklama kutusundan
+  // ve bölüm aralıklarından kısılır — atölyeye giden formun tek yaprak kalması,
+  // el yazısı için ayrılan boşluktan daha önemlidir.
+  return {
+    ...olcek,
+    notesMin: Math.max(26, olcek.notesMin - 52),
+    gap: Math.max(5, olcek.gap - 4),
+    scopePad: Math.max(4, olcek.scopePad - 2),
+    // Kalem satırı iç boşluğu da kısılır ve payı ÇOK KALEMDE büyüktür: 10
+    // kalemde 1,5 punto satır başına 3 punto, tabloda 30 punto eder — açıklama
+    // kutusundan kısılacak yer orada zaten kalmamıştı.
+    pad: Math.max(2, olcek.pad - 1.5),
+  };
 }
 
 const s = StyleSheet.create({
@@ -100,6 +124,10 @@ const s = StyleSheet.create({
   kvLabel: { width: "38%", fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, color: BRAND.gray600 },
   kvVal: { flex: 1, fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink },
   kvMono: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 500, letterSpacing: 0.3 },
+  // Adres kutusu: etiket sütunu YOK (başlık zaten kutunun kendisinde), metin
+  // tam genişlikte sarar.
+  addr: { paddingVertical: 3.5, paddingHorizontal: 6 },
+  addrText: { fontFamily: FONTS.sans, fontSize: 7.5, color: BRAND.ink, lineHeight: 1.3 },
   // --- kapsam
   scopeRow: { flexDirection: "row", flexWrap: "wrap", gap: 14, borderWidth: 0.75, borderColor: BRAND.line300, padding: 10 },
   chk: { flexDirection: "row", alignItems: "center", gap: 5, width: "28%" },
@@ -256,19 +284,28 @@ function Tail({
 export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; settings?: ReportSettings }) {
   const st = { ...DEFAULT_REPORT_SETTINGS, ...settings };
   const sc = data.scope ?? {};
-  const layout = itemScale(data.items.length);
-  // İş emri formunun ayrı revizyon alanı yok — doküman kimliği R00 ile yayınlanır.
+  // REVİZYON HARFİ künyeye girer (kullanıcı kararı, 18.08.2026): iş emri
+  // yayımlandıktan sonra kalem eklenip çıkarılabildiği için atölyedeki asıl
+  // soru "elimdeki kâğıt hangi revizyon"dur.
+  const rev = revizyonHarfi(data.revision);
+  const adresVar = Boolean(data.shipping_address?.trim() || data.assembly_address?.trim());
+  const layout = itemScale(data.items.length, adresVar);
   const year = /^(\d{4})/.exec(data.work_order_date ?? "")?.[1] ?? String(new Date().getFullYear());
   return (
-    <Document title={`İş Emri ${data.job_no}`} author={st.company} subject={data.title} language="tr">
+    <Document
+      title={`İş Emri ${data.job_no} Rev ${rev}`}
+      author={st.company}
+      subject={data.title}
+      language="tr"
+    >
       <BrandPage
-        docLine={`ORION CRANES · İŞ EMRİ · REV 00 · ${year}`}
-        docCode={`ORC-IE-${data.job_no}-R00`}
+        docLine={`ORION CRANES · İŞ EMRİ · REV ${rev} · ${year}`}
+        docCode={workOrderDocCode(data.job_no, rev)}
       >
         <PageHeader
           kicker="ORION CRANES · İş Emri"
           title="İş Emri"
-          meta={`${data.form_code || "FR.11.02"} · ${trUpper("İş No")} ${data.job_no}`}
+          meta={`${data.form_code || "FR.11.02"} · ${trUpper("İş No")} ${data.job_no} · ${trUpper("Rev")} ${rev}`}
         />
 
         {/* İşin adı belgenin üstünde bir kez, tam genişlikte durur: iş emrini
@@ -311,6 +348,28 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
             <KV label="İş Lideri" value={data.job_leader} />
           </View>
         </View>
+
+        {/* SEVK VE MONTAJ ADRESİ. İki kutunun İÇİNE değil ALTINA konur: adres
+            uzun bir metindir ve %38'lik etiket sütununun yanında kalan yere
+            sığmayıp kutuyu komşusundan iki kat uzun yapardı. İkisi de boşsa
+            bölüm hiç basılmaz — boş çerçeve, belgeye doldurulmamış bir alan
+            olduğunu söyler ki burada söylenecek bir şey yok. */}
+        {adresVar && (
+          <View style={[s.twoCol, { marginTop: layout.gap }]}>
+            <View style={s.box}>
+              <Text style={s.boxTitle}>{trUpper("Sevk Adresi")}</Text>
+              <View style={s.addr}>
+                <Text style={s.addrText}>{data.shipping_address?.trim() || "—"}</Text>
+              </View>
+            </View>
+            <View style={s.box}>
+              <Text style={s.boxTitle}>{trUpper("Montaj Adresi")}</Text>
+              <View style={s.addr}>
+                <Text style={s.addrText}>{data.assembly_address?.trim() || "—"}</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <Tail data={data} layout={layout} />
       </BrandPage>

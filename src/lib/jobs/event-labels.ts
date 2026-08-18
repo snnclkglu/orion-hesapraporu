@@ -10,6 +10,7 @@ import { JOB_STATUS_LABELS, jobStatusOf } from "@/lib/job-status";
 export const OLAY_ADLARI: Record<string, string> = {
   olusturuldu: "İş açıldı",
   guncellendi: "İş emri güncellendi",
+  revize: "İş emri revize edildi",
   durum: "Durum değişti",
   durum_oto: "Kendiliğinden tamamlandı",
   silindi: "Silindi",
@@ -34,7 +35,9 @@ export function olaySinifi(event: string): string {
   if (event === "silindi") {
     return "border-destructive/40 bg-destructive/10 text-destructive";
   }
-  if (event === "durum" || event === "durum_oto") {
+  // Revizyon da vurgulanır: belgenin kimliği değişmiştir ve akışta "güncellendi"
+  // satırlarının arasında kaybolmamalıdır.
+  if (event === "durum" || event === "durum_oto" || event === "revize") {
     return "border-primary/40 bg-primary/10 text-primary";
   }
   return "border-border bg-muted text-muted-foreground";
@@ -63,6 +66,11 @@ export function olayOzeti(o: JobEventLike): string {
     case "guncellendi": {
       const kalem = typeof d.kalem === "number" ? d.kalem : null;
       return kalem == null ? "" : `${kalem} kalem`;
+    }
+    case "revize": {
+      const from = typeof d.from === "string" ? d.from : "";
+      const to = typeof d.to === "string" ? d.to : "";
+      return from && to ? `Revizyon ${from} → ${to}` : "";
     }
     case "durum":
       return `${durumAdi(d.from)} → ${durumAdi(d.to)}`;

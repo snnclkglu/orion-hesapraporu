@@ -29,6 +29,8 @@ export default async function EditJobPage({
   const scope = (job.scope ?? {}) as Partial<JobInput["scope"]>;
   const initial: JobInput = {
     job_no: job.job_no ?? "",
+    // Sütun migration bekliyorsa `undefined` gelir; şema onu `A`ya çevirir.
+    revision: job.revision ?? "A",
     title: job.title ?? "",
     customer: job.customer ?? "",
     customer_id: job.customer_id ?? null,
@@ -44,6 +46,8 @@ export default async function EditJobPage({
     contract_file_name: job.contract_file_name ?? "",
     workshop_exit_date: job.workshop_exit_date ?? "",
     delivery_date: job.delivery_date ?? "",
+    shipping_address: job.shipping_address ?? "",
+    assembly_address: job.assembly_address ?? "",
     quantity_text: job.quantity_text ?? "",
     job_leader: job.job_leader ?? "",
     prepared_by_name: job.prepared_by_name ?? "",

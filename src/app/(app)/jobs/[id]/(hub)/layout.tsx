@@ -13,6 +13,8 @@ import { notFound } from "next/navigation";
 import { FileDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fmtJobDate } from "@/lib/jobs/filter";
+import { revizyonHarfi } from "@/lib/jobs/is-emri";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { JobStatusMenu } from "../../job-status-menu";
@@ -32,7 +34,7 @@ export default async function JobHubLayout({
   const [{ data: job }, { data: fav }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, job_no, title, customer, status, work_order_date")
+      .select("id, job_no, title, customer, status, work_order_date, revision")
       .eq("id", id)
       .single(),
     // Favori tablosu migration bekliyorsa hata döner → yıldız boş başlar.
@@ -77,6 +79,12 @@ export default async function JobHubLayout({
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <JobStatusMenu jobId={job.id} status={job.status} size="md" />
+            {/* REVİZYON ROZETİ durumun yanındadır: ikisi de "bu iş emri şu an
+                hangi hâlde" sorusunun cevabıdır ve PDF künyesinde de yan yana
+                basılırlar. Harf `A`da da görünür — ilk yayının da adı vardır. */}
+            <Badge variant="outline" className="font-mono" title="İş emri revizyonu">
+              REV {revizyonHarfi(job.revision)}
+            </Badge>
             <FavoriButton jobId={job.id} favori={Boolean(fav)} />
           </div>
         </div>

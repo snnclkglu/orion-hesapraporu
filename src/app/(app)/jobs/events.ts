@@ -15,6 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type JobEventKind =
   | "olusturuldu"
   | "guncellendi"
+  | "revize"
   | "durum"
   | "durum_oto"
   | "silindi"

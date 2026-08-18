@@ -1,18 +1,21 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { JobForm, EMPTY_JOB } from "../job-form";
+import { sonrakiIsNo } from "@/lib/jobs/is-emri";
+import { JobForm } from "../job-form";
 import { loadJobFormData } from "../form-data";
-import type { JobInput } from "../schema";
+// EMPTY_JOB `schema.ts`tendir, job-form'dan DEĞİL: bu bir sunucu bileşenidir ve
+// bir istemci modülünün dışa aktarımını YAYAMAZ (bkz. schema.ts'teki not).
+import { EMPTY_JOB, type JobInput } from "../schema";
 
 // İŞ KOPYALAMA (kullanıcı onayı, 16.08.2026): `?kaynak=<id>` verilirse form o
 // işin kalemleri, kapsamı ve müşteri bilgileriyle DOLU açılır — tekrarlayan
 // müşteri siparişinde formu sıfırdan doldurmak biter.
 //
 // KOPYALANMAYANLAR bilinçlidir:
-// · İş no BOŞ kalır — yeni kimliği kullanıcı verir; kalem numaraları da ondan
-//   türeyeceği için kalemlerin `item_no`su boş bırakılır (otomatik anahtar
-//   yeni numaradan üretir).
+// · İş no kaynaktan kopyalanmaz — defterdeki son numaranın bir fazlası ÖNERİLİR
+//   (`sonrakiIsNo`, kullanıcı isteği 18.08.2026) ve kullanıcı değiştirebilir;
+//   kalemlerin `item_no`su boş bırakılır (otomatik anahtar yeni numaradan üretir).
 // · Tarihler (iş emri · sözleşme · atölye çıkış · teslim) KOPYALANMAZ:
 //   tekrarlayan siparişte değişen şey tam da onlardır ve eski tarihi sessizce
 //   taşımak yanlış termin yazdırmanın en kısa yoludur.
@@ -24,13 +27,21 @@ export default async function NewJobPage({
   searchParams: Promise<{ kaynak?: string }>;
 }) {
   const { kaynak } = await searchParams;
-  const { customers, people } = await loadJobFormData();
+  const supabase = await createClient();
+  const [{ customers, people }, { data: mevcutNolar }] = await Promise.all([
+    loadJobFormData(),
+    // ÖNERİ SUNUCUDA HESAPLANIR: numara defterin TAMAMINDAN çıkar ve defteri
+    // istemciye göndermenin anlamı yok. Sütun tek, satır 63 — sorgu ucuzdur.
+    supabase.from("jobs").select("job_no"),
+  ]);
+  const oneriIsNo = sonrakiIsNo(
+    ((mevcutNolar ?? []) as { job_no: string | null }[]).map((r) => r.job_no)
+  );
 
-  let initial: JobInput = EMPTY_JOB;
+  let initial: JobInput = { ...EMPTY_JOB, job_no: oneriIsNo };
   let kaynakNo: string | null = null;
 
   if (kaynak) {
-    const supabase = await createClient();
     const [{ data: src }, { data: srcItems }] = await Promise.all([
       supabase.from("jobs").select("*").eq("id", kaynak).maybeSingle(),
       supabase
@@ -42,7 +53,7 @@ export default async function NewJobPage({
     if (src) {
       kaynakNo = String(src.job_no ?? "");
       initial = {
-        ...EMPTY_JOB,
+        ...initial,
         title: src.title ?? "",
         customer: src.customer ?? "",
         customer_id: src.customer_id ?? null,
@@ -52,6 +63,10 @@ export default async function NewJobPage({
         customer_phone: src.customer_phone ?? "",
         customer_fax: src.customer_fax ?? "",
         contract_exists: Boolean(src.contract_exists),
+        // Sevk/montaj adresi KOPYALANIR (tarihlerin tersine): tekrarlayan
+        // siparişte değişen şey termin, değişmeyen şey teslim yeridir.
+        shipping_address: src.shipping_address ?? "",
+        assembly_address: src.assembly_address ?? "",
         quantity_text: src.quantity_text ?? "",
         job_leader: src.job_leader ?? "",
         prepared_by_name: src.prepared_by_name ?? "",
@@ -83,11 +98,17 @@ export default async function NewJobPage({
         <p className="text-sm text-muted-foreground">
           {kaynakNo ? (
             <>
-              <span className="font-mono">{kaynakNo}</span> kopyalandı — iş no ve
-              tarihler boş bırakıldı; kontrol edip yenilerini verin.
+              <span className="font-mono">{kaynakNo}</span> kopyalandı — tarihler
+              boş bırakıldı, iş no <span className="font-mono">{oneriIsNo}</span>{" "}
+              önerildi; kontrol edip yenilerini verin.
             </>
           ) : (
-            "FR.11.02 iş emri formu — müşteri, iş kalemleri, kapsam ve teslim bilgileri."
+            <>
+              FR.11.02 iş emri formu — müşteri, iş kalemleri, kapsam ve teslim
+              bilgileri. İş no{" "}
+              <span className="font-mono">{oneriIsNo}</span> olarak önerildi,
+              değiştirebilirsiniz.
+            </>
           )}
         </p>
       </div>

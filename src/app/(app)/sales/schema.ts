@@ -54,6 +54,19 @@ export interface SaleRow {
   jobStatus: string;
   /** Sözleşme tarihi (yoksa iş emri tarihi) — yıl bu alandan okunur */
   contractDate: string | null;
+  /**
+   * İŞ EMRİNDEN GELENLER (kullanıcı isteği, 18.08.2026: *"termin sevk tarihi
+   * sevk yeri bilgileri İş emrinden gelsin"*). Ticari kaydın KENDİ değerleri
+   * değildir; satış penceresi BOŞ alanları bunlarla doldurur ve kullanıcı
+   * kaydedince değer `job_item_sales`e kendi hakkıyla yazılır.
+   *
+   * Liste ve müşteriye giden İş Listesi PDF'i bunları OKUMAZ — orada yalnız
+   * gerçekten kaydedilmiş satır görünür; aksi hâlde belge, kimsenin girmediği
+   * bir termini teyit edilmiş gibi basardı.
+   */
+  jobDeliveryDate: string | null;
+  jobWorkshopExitDate: string | null;
+  jobShippingAddress: string;
   hasSale: boolean;
   sale: SaleInput;
   /** Veritabanında türetilen toplamlar (kayıt yoksa null) */

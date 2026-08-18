@@ -3,6 +3,7 @@
 // alınır ve hem server action hem client form buradan kullanır.
 
 import { z } from "zod";
+import { revizyonHarfi } from "@/lib/jobs/is-emri";
 import { adBuyuk } from "@/lib/tr-text";
 
 /**
@@ -44,6 +45,13 @@ export const jobItemSchema = z.object({
 
 export const jobInputSchema = z.object({
   job_no: z.string().trim().min(1, "İş no gerekli"),
+  /**
+   * REVİZYON HARFİ (A · B · C …) — iş emri yayımlandıktan sonra değiştirilirse
+   * ilerler ve belgenin kimliğine girer (`ORC-IE-0063-RB`). Dönüşüm formda ve
+   * ŞEMADA birden yapılır: kayıt hangi kapıdan girerse girsin harf kümesi
+   * dışına çıkamaz — veritabanındaki `jobs_revision_harf` kısıtının TS yarısı.
+   */
+  revision: z.string().default("A").transform(revizyonHarfi),
   title: z.string().trim().min(1, "İş adı gerekli").transform(adBuyuk),
   customer: z.string().trim().min(1, "Müşteri gerekli").transform(adBuyuk),
   /**
@@ -65,6 +73,15 @@ export const jobInputSchema = z.object({
   contract_file_name: z.string().trim().max(260).default(""),
   workshop_exit_date: dateOrNull,
   delivery_date: dateOrNull,
+  /**
+   * SEVK ve MONTAJ ADRESİ — müşteri künyesindeki adresten AYRIDIR. Vinç çoğu
+   * zaman fatura adresine değil bir tesise gider; ikisi ayrı sütundur çünkü
+   * sevk ile montaj da ayrılabilir (formda montaj varsayılan olarak sevkin
+   * aynısıdır, kullanıcı isterse ayırır). BÜYÜK HARFE ÇEVRİLMEZ: adres bir AD
+   * değildir (md. 3 kapsamı) ve `customer_address` de çevrilmiyor.
+   */
+  shipping_address: z.string().trim().max(400).default(""),
+  assembly_address: z.string().trim().max(400).default(""),
   quantity_text: z.string().trim().max(60).default(""),
   job_leader: z.string().trim().max(120).default(""),
   prepared_by_name: z.string().trim().max(120).default(""),
@@ -152,3 +169,46 @@ export function autoQuantityText(items: { quantity: string }[]): string {
   if (!sawNumber) return "";
   return String(Number.isInteger(total) ? total : total.toFixed(2).replace(".", ","));
 }
+
+// ---------------------------------------------------------------- boş kayıt
+
+/**
+ * BOŞ İŞ EMRİ — `"use client"` MODÜLÜNDE DEĞİL BURADA durur.
+ *
+ * Sabit bir süre `job-form.tsx`teydi ve iki sunucu bileşeni (`jobs/new`,
+ * `/dev/jobs-preview`) onu oradan içe aktarıp YAYIYORDU (`{ ...EMPTY_JOB }`).
+ * RSC grafiğinde bir istemci modülünün dışa aktarımı GERÇEK DEĞER DEĞİL bir
+ * istemci REFERANSIDIR: bütün olarak prop geçirmek çalışır (istemcide çözülür)
+ * ama yaymak alanların hiçbirini getirmez — form `scope` alanı olmayan bir
+ * nesneyle monte oluyor ve "Cannot read properties of undefined (reading
+ * 'proje')" ile patlıyordu. Sabitin yeri şemanın yanıdır; şema zaten hem
+ * sunucudan hem istemciden okunan tarafsız modüldür.
+ */
+export const EMPTY_JOB: JobInput = {
+  job_no: "",
+  revision: "A",
+  title: "",
+  customer: "",
+  customer_id: null,
+  work_order_date: "",
+  customer_address: "",
+  customer_tax_office: "",
+  customer_tax_no: "",
+  customer_phone: "",
+  customer_fax: "",
+  contract_exists: false,
+  contract_date: "",
+  contract_file_path: "",
+  contract_file_name: "",
+  workshop_exit_date: "",
+  delivery_date: "",
+  shipping_address: "",
+  assembly_address: "",
+  quantity_text: "",
+  job_leader: "",
+  prepared_by_name: "",
+  prepared_by_title: "",
+  scope: { proje: false, devreyeAlma: false, malzeme: false, nakliye: false, imalat: false, montaj: false },
+  notes: "",
+  items: [],
+};

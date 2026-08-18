@@ -6,10 +6,12 @@
 // yerleşim, filtre davranışı ve otomatik alanların gözle doğrulanmasıdır.
 
 import { notFound } from "next/navigation";
-import { JobForm, EMPTY_JOB, type PersonOption } from "@/app/(app)/jobs/job-form";
+import { JobForm, type PersonOption } from "@/app/(app)/jobs/job-form";
 import type { JobRow } from "@/app/(app)/jobs/jobs-table";
 import { JobsViews } from "@/app/(app)/jobs/jobs-views";
-import type { CustomerOption } from "@/app/(app)/jobs/schema";
+// EMPTY_JOB şemadan gelir: sunucu bileşeni bir istemci modülünün dışa
+// aktarımını yayamaz (bkz. jobs/schema.ts'teki not).
+import { EMPTY_JOB, type CustomerOption } from "@/app/(app)/jobs/schema";
 
 // `useSearchParams` kullanan istemci bileşenleri Suspense'e SARILMAZ, sayfa
 // DİNAMİK yapılır (siparisler-preview kalıbı): tablo süzgeç durumunu adreste
@@ -106,7 +108,37 @@ export default function JobsPreviewPage() {
         </section>
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">Yeni İş Emri formu</h2>
+          {/* İş no önerisi SUNUCUDA hesaplanır (`sonrakiIsNo`, jobs/new/page.tsx);
+              önizlemede defter yok, bu yüzden kutu boş açılır. */}
           <JobForm mode="create" initial={EMPTY_JOB} customers={CUSTOMERS} people={PEOPLE} />
+        </section>
+        {/* DÜZENLEME KİPİ AYRICA BASILIR: revizyon anahtarı ("A → B") ve montaj
+            adresinin "Sevk ile aynı" hâli YALNIZ burada görünür — create kipinde
+            revizyon salt-okunur `A`dır ve anahtar hiç çizilmez. */}
+        <section className="grid gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            İş Emrini Düzenle — revizyon anahtarı + sevk/montaj adresi
+          </h2>
+          <JobForm
+            mode="edit"
+            jobId="onizleme"
+            initial={{
+              ...EMPTY_JOB,
+              job_no: "0063",
+              revision: "A",
+              title: "ASTOR MUHTELİF VİNÇLER",
+              customer: "ASTOR A.Ş.",
+              work_order_date: `${YEAR}-08-18`,
+              shipping_address: "Ankara OSB, 1. Cadde No: 12, Sincan / ANKARA",
+              assembly_address: "Ankara OSB, 1. Cadde No: 12, Sincan / ANKARA",
+              items: [
+                { item_no: "0063-01", product_name: "10 T X 21,70 M ÇİFT KİRİŞLİ KÖPRÜLÜ VİNÇ", quantity: "1" },
+                { item_no: "0063-02", product_name: "3 T X 6 M MONORAY VİNÇ", quantity: "2" },
+              ],
+            }}
+            customers={CUSTOMERS}
+            people={PEOPLE}
+          />
         </section>
       </div>
     </div>

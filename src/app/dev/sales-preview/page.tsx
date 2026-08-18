@@ -27,7 +27,9 @@ function row(
   productName: string,
   customer: string,
   contractDate: string,
-  sale: Partial<SaleInput> | null
+  sale: Partial<SaleInput> | null,
+  /** İş emrinden gelen öneriler — pencerenin boş alanları bunlarla dolar. */
+  isEmri?: Partial<Pick<SaleRow, "jobDeliveryDate" | "jobWorkshopExitDate" | "jobShippingAddress">>
 ): SaleRow {
   const s: SaleInput = { ...EMPTY_SALE, ...(sale ?? {}) };
   const qty = s.quantity ?? 0;
@@ -43,6 +45,13 @@ function row(
     customerHue: BOOK[customer]?.hue ?? null,
     jobStatus: "completed",
     contractDate,
+    // İş emrinden gelen öneriler. Fikstürde YALNIZ BİR satır taşır (fiyatı
+    // girilmemiş 0057-06): pencere açıldığında "İş emrindeki teslim tarihi"
+    // ipucu ve sevk tarihinin "uygula" önerisi ancak dolu bir satırda görünür,
+    // öteki satırlar da boş hâli göstersin diye dokunulmadan bırakıldı.
+    jobDeliveryDate: isEmri?.jobDeliveryDate ?? null,
+    jobWorkshopExitDate: isEmri?.jobWorkshopExitDate ?? null,
+    jobShippingAddress: isEmri?.jobShippingAddress ?? "",
     hasSale: sale !== null,
     sale: s,
     totalWeightKg: sale ? qty * (s.unit_weight_kg ?? 0) : null,
@@ -72,7 +81,11 @@ const ROWS: SaleRow[] = [
       currency: "USD", fx_rate: 1.1579, shipment_place: "TÜRKİYE",
     }),
   // Fiyatı girilmemiş kalem — listeden DÜŞMEZ, göze batar
-  row("0057-06", "1,0 t Kapasiteli Pergel Vinç", "ASTOR A.Ş.", "2026-06-17", null),
+  row("0057-06", "1,0 t Kapasiteli Pergel Vinç", "ASTOR A.Ş.", "2026-06-17", null, {
+    jobDeliveryDate: "2026-12-15",
+    jobWorkshopExitDate: "2026-11-20",
+    jobShippingAddress: "ASTOR ENERJİ A.Ş. ANKARA OSB TESİSİ, SİNCAN / ANKARA",
+  }),
   // Fiyatı var ama kuru yok: ciroya giremeyen satır
   row("0054-00", "75 t Kapasiteli Kaldırma Kirişi", "LITEC MAKİNA SAN. VE TİC. A.Ş.",
     "2026-03-16", {

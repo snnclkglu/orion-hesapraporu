@@ -35,6 +35,7 @@ export async function GET(
     job_no: job.job_no ?? "",
     title: job.title ?? "",
     form_code: job.form_code ?? "FR.11.02",
+    revision: job.revision ?? "A",
     work_order_date: job.work_order_date ?? null,
     customer: job.customer ?? "",
     customer_address: job.customer_address ?? "",
@@ -46,6 +47,8 @@ export async function GET(
     contract_date: job.contract_date ?? null,
     workshop_exit_date: job.workshop_exit_date ?? null,
     delivery_date: job.delivery_date ?? null,
+    shipping_address: job.shipping_address ?? "",
+    assembly_address: job.assembly_address ?? "",
     quantity_text: job.quantity_text ?? "",
     job_leader: job.job_leader ?? "",
     scope: (job.scope ?? {}) as Record<string, boolean>,
@@ -60,9 +63,13 @@ export async function GET(
   };
 
   const buffer = await renderWorkOrderPdf(data, settings);
-  // Dosya adı: "İŞ ADI - İŞ NO - İŞ EMRİ" (bkz. pdf/doc-naming). İş emrinin
-  // doküman kodu ve versiyonu yoktur; kimliği iş numarasıdır.
-  const filename = downloadFileName([job.title, job.job_no, job.form_code, "İş Emri"]);
+  // Dosya adı: "İŞ ADI - İŞ NO - İŞ EMRİ - REV A" (bkz. pdf/doc-naming).
+  // REVİZYON ADA GİRER: aynı iş emri revize edildiğinde indirilenler klasöründe
+  // iki dosya yan yana durur ve hangisinin güncel olduğu ancak açılınca
+  // anlaşılırdı (tarayıcı ikincisini "(1)" ile adlandırırdı).
+  const filename = downloadFileName([
+    job.title, job.job_no, job.form_code, "İş Emri", `Rev ${data.revision}`,
+  ]);
   const asciiFilename = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const encodedFilename = encodeURIComponent(filename);
 
