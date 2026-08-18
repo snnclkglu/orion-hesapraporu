@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import { OfferDocument, renderOfferPdf, type OfferDocumentProps } from "../offer";
 import { offerFileName } from "../doc-naming";
 import { emptyPayload, groupFromKey, newOfferId } from "@/lib/offers/payload";
+import { GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { offerTotal } from "@/lib/offers/pricing";
 import { fmtMoney } from "@/lib/currency";
 import type { OfferPayload, OfferPriceLine, OfferRowScope } from "@/lib/offers/types";
@@ -182,6 +183,29 @@ async function pdfSayfalari(props: OfferDocumentProps): Promise<string[]> {
 
 const duz = (s: string) => s.replace(/\s+/g, "");
 
+/**
+ * Belgenin GENEL ŞARTLAR'DAN ÖNCEKİ kısmı — teklifin KENDİ satırları.
+ *
+ * Genel şartlar bölümü (18.08.2026) belgenin sonuna hukukî bir beyan ekledi ve
+ * o metin "Garanti", "Kapsam", "ORION CRANES" gibi sözcükleri KENDİ anlamıyla
+ * taşır: bir madde başlığı "Garanti"dir, bir başkası "Kapsam ve Öncelik".
+ *
+ * Gövdeye dair savları belgenin TAMAMINDA aramak bu yüzden yanlış cevap verir
+ * — ve verdiği yanlış cevap tehlikelidir: "değersiz satır çizilmedi" savı,
+ * sözcük başka bir bölümde geçtiği için düşer; kural bozulmamışken test
+ * kırmızı yanar, sonra da savı gevşetmek cazip hâle gelir. Sorulan şey
+ * TEKLİFİN GÖVDESİNDE ne yazdığıdır, son sayfadaki beyanda değil.
+ *
+ * Başlık `registry.ts`ten okunur: iki yere yazılsaydı bölüm adı değiştiğinde
+ * bu süzgeç sessizce bütün belgeye dönerdi.
+ */
+function govde(metin: string): string {
+  const i = metin.indexOf(GENERAL_TERMS_TITLE);
+  // Bölüm bulunamazsa metin OLDUĞU GİBİ döner: süzgeç kendi kendini kapatıp
+  // savı sessizce zayıflatmaz, kaybolan başlığı testin düşmesiyle bildirir.
+  return i < 0 ? metin : metin.slice(0, i);
+}
+
 describe("gizleme", () => {
   it("gizlenen satır, grup, ödeme kalemi, fiyat satırı ve not belgede HİÇ geçmez", async () => {
     const metin = await pdfMetni(fikstur());
@@ -197,8 +221,11 @@ describe("gizleme", () => {
   });
 
   it("değeri girilmemiş ticari satır (Garanti) çizilmez — yer tutucu bir değer değildir", async () => {
+    // GÖVDEDE aranır: genel şartların "Garanti" başlıklı maddesi ayrı bir
+    // sözdür ve o maddenin belgede DURMASI gerekir.
     const metin = await pdfMetni(fikstur());
-    expect(metin.includes("Garanti")).toBe(false);
+    expect(govde(metin).includes("Garanti")).toBe(false);
+    expect(metin.includes(GENERAL_TERMS_TITLE)).toBe(true);
   });
 });
 
@@ -249,11 +276,14 @@ describe("satır kapsamı", () => {
   it("Orion kapsamı belgede İZ BIRAKMAZ — alan yazılmasa da 'orion' yazılsa da", async () => {
     // Bir teklifte satırların neredeyse tamamı bizim kapsamımızdadır; her
     // satıra kapsam yazmak belgeyi okunmaz yapardı. Görünür olan İSTİSNADIR.
+    // GÖVDEDE aranır: genel şartların ilk maddesi "Kapsam ve Öncelik"tir ve
+    // sözcük orada teklifin satır kapsamını değil, sözleşmenin kapsamını
+    // anlatır — iki ayrı şeydir, aynı süzgeçten geçirilemez.
     const varsayilan = await pdfMetni(fikstur());
-    expect(varsayilan.includes("Kapsam")).toBe(false);
+    expect(govde(varsayilan).includes("Kapsam")).toBe(false);
 
     const acikca = await pdfMetni(fikstur({ kapsam: "orion" }));
-    expect(acikca.includes("Kapsam")).toBe(false);
+    expect(govde(acikca).includes("Kapsam")).toBe(false);
   });
 });
 
