@@ -37,11 +37,12 @@ import type { OfferGroup, OfferRow } from "../types";
 /**
  * Teknik sayfanın SÜTUN BÜTÇESİ.
  *
- * İçerik alanı 745,69pt (`BrandPage`); kalem başlığı bloğu onun üstünden
- * 15pt × 1,15 satır + 12pt alt pay = 29,25 alır. Kalan, iki sütunun her birine
- * verilen ham yüksekliktir; %94 kelepçesini modülün kendisi uygular.
+ * İçerik alanı 745,69pt (`BrandPage`); sayfa başlığı bloğu (kicker + kalem adı
+ * + öbek dizini + alt pay) onun üstünden ~50pt alır ve çizim tarafı 52 ayırır
+ * (`pdf/offer.tsx` `PDF_SUTUN_KAPASITE`). Kalan, iki sütunun her birine verilen
+ * ham yüksekliktir; %94 kelepçesini modülün kendisi uygular.
  */
-const SUTUN_KAPASITE = 745.69 - 29.25;
+const SUTUN_KAPASITE = 745.69 - 52;
 
 /** Modülün gerçekten kullandığı bütçe. */
 const KELEPCELI = SUTUN_KAPASITE * KAPASITE_PAYI;
@@ -212,38 +213,42 @@ describe("ölçülmüş taban", () => {
   });
 
   /**
-   * ÖLÇÜ BİR AKIŞ MODELİDİR ve bu, ÇİZİM TARAFINA VERİLMİŞ BİR SÖZDÜR.
+   * ÖLÇÜ, ÇİZİMİN MODELİDİR — VE BU, ÇİZİM TARAFINA VERİLMİŞ BİR SÖZDÜR.
    *
-   * `satirYuksekligi` etiketi, arayı ve değeri TEK bir akışta ölçer: üçü
-   * birlikte `SUTUN_GENISLIK`e sarar. Çizim tarafı (`pdf/offer.tsx`) iki
-   * sütunlu teknik sayfada etiketi SABİT genişlikte bir sütun olarak çizerse
-   * bu ölçü EKSİK kalır — ve eksik ölçmek modülün adını koyarak reddettiği
-   * yöndür (bkz. `KAPASITE_PAYI`): @react-pdf taşan satırı sessizce KIRPAR.
+   * Satır iki kutudur: etiket solda kendi boyunda, değer sağda ARTAN yerde ve
+   * sağa yaslı (`pdf/offer.tsx` `OzellikSatiri`). Değer sardığında ikinci satır
+   * etiketin altına taşmaz, kendi sütununda kalır — ölçü de bu yüzden değeri
+   * `SUTUN_GENISLIK − etiket − oluk` genişliğine sarar.
    *
-   * Aşağıdaki satır sapmayı somutlaştırır. `SUTUN_GENISLIK` 234,78pt'tir;
-   * 148pt'lik sabit bir etiket sütunu değere 77,78pt bırakır ve aynı satır
-   * akışta BİR, sabit sütunda ÜÇ satır çizer. Test bu yüzden bir güzellik
-   * değil bir SÖZLEŞME dondurur: sayı düşerse model değişmiştir ve çizimle
-   * birlikte gözden geçirilmesi gerekir.
+   * Eskiden ölçü bir AKIŞ modeliydi (etiket ve değer tek akışta, sarma noktası
+   * sütunun tamamına göre) ve çizim de öyleydi. Düzen 18.08.2026'da çizelgeye
+   * dönünce akış modeli EKSİK ölçmeye başladı: aynı satır akışta bir, sütunda
+   * iki satır çiziyordu. Eksik ölçmek modülün adını koyarak reddettiği yöndür
+   * (bkz. `KAPASITE_PAYI`) — @react-pdf taşan satırı SESSİZCE kırpar.
    *
-   * ÖLÇÜLDÜ (18.08.2026, denetim): HABAŞ gövdesinde 57 satırın 24'ü akış
-   * modelinde sabit sütundakinden KISA ölçülüyor; toplam 802,4pt'e karşı
-   * 1092,4pt — %36 eksik. Sözün karşılığı bugün çizimde VERİLMİŞ DEĞİLDİR;
-   * ayrıntı ve düzeltme yeri denetim raporundadır.
+   * Aşağıdaki sayı bir güzellik değil bir SÖZLEŞME dondurur: düşerse model
+   * değişmiştir ve çizimle birlikte gözden geçirilmesi gerekir.
    */
-  it("ÖLÇÜ AKIŞ MODELİDİR: etiket ve değer aynı genişliği paylaşır", () => {
+  it("ÖLÇÜ ÇİZELGE MODELİDİR: değer, etiketten ARTAN genişliğe sarar", () => {
     const kaldirma = vincGruplari().find((g) => g.key === "mainHoist");
     const fren = kaldirma?.rows.find((r) => r.key === "brake");
     if (!fren) throw new Error("fikstürde kaldırma freni satırı yok");
     expect(fren.label).toBe("Fren");
     expect(fren.value).toBe("SIBRE Elektrohidrolik Kasnak Fren x 2 Adet");
 
-    // Akış: 4 harf etiket + 8 ara + 42 harf değer = 209,3pt < 234,78pt → tek satır.
-    expect(satirYuksekligi(fren)).toBeCloseTo(13.2, 6);
+    // Etiket 4 harf → 14,35pt; değere 234,78 − 14,35 − 10 = 210,4pt kalır.
+    // Değer mono 42 karakter × 4,44 = 186,5pt → tek satır: 10 + 5,2 = 15,2.
+    expect(satirYuksekligi(fren)).toBeCloseTo(15.2, 6);
 
-    // Etiket ve değer aynı bütçeden yer yer: etiketi uzatmak satırı sarar.
+    // ETİKET DEĞERİN YERİNİ YER: uzun bir etiket değer sütununu daraltır ve
+    // aynı değer ikinci satıra iner. İki kutu ayrı ölçülseydi bu bağ kopardı.
     const uzunEtiket = { ...fren, label: "Kaldırma Grubu Fren Donanımı Tipi" };
     expect(satirYuksekligi(uzunEtiket)).toBeGreaterThan(satirYuksekligi(fren));
+
+    // ETİKET YARIM SÜTUNDA KELEPÇELİDİR (`ETIKET_ORAN`): kelepçesiz bir
+    // etiket değere hiç yer bırakmaz, değer harf harf sarardı.
+    const devEtiket = { ...fren, label: "Kaldırma".repeat(12) };
+    expect(satirYuksekligi(devEtiket)).toBeLessThan(200);
   });
 
   it("basılmayan grup bütçeden yer yemez", () => {
@@ -377,21 +382,17 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     // Payı geri çarpmak kelepçeyi iptal eder: modül aynı ham bütçeye döner.
     const kelepcesiz = offerPdfSayfalari(gruplar, SUTUN_KAPASITE / KAPASITE_PAYI);
 
-    expect(kelepceli[0].sol.map((b) => b.group.title)).toEqual([
-      "GENEL ÖZELLİKLER",
-      "KALDIRMA GRUBU",
-      "VİNÇ ARABASI",
-      "KÖPRÜ GRUBU",
-    ]);
-    expect(kelepcesiz[0].sol.map((b) => b.group.title)).toEqual([
-      "GENEL ÖZELLİKLER",
-      "KALDIRMA GRUBU",
-      "VİNÇ ARABASI",
-      "KÖPRÜ GRUBU",
-      "ÇELİK KONSTRÜKSİYON",
-    ]);
-    // Kelepçenin bıraktığı dip boşluğu: bir öbeğin sığıp sığmadığını belirler.
-    expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(42.99, 2);
+    // ÖLÇÜLEN: KÖPRÜ GRUBU iki sütuna bölünür ve BÖLÜNME NOKTASI kayar —
+    // kelepçe varken sol sütunda 5 satır kalır, kelepçe kalkarsa 7. Yani
+    // kelepçenin satın aldığı şey sütun dibindeki 43pt'lik boşluktur; ortalama
+    // karakter genişliğiyle ölçülmüş bir yerleşimde sayfa dibi tam da
+    // yanılmanın en pahalı olduğu yerdir.
+    const koprununDilimleri = (s: OfferPdfSayfa[]) =>
+      [...s[0].sol, ...s[0].sag].filter((b) => b.group.key === "bridge").map((b) => b.rows.length);
+    expect(koprununDilimleri(kelepceli)).toEqual([5, 7]);
+    expect(koprununDilimleri(kelepcesiz)).toEqual([7, 5]);
+    // Kelepçenin bıraktığı dip boşluğu: bir satırın sığıp sığmadığını belirler.
+    expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(41.62, 2);
   });
 });
 

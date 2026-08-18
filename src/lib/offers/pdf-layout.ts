@@ -42,38 +42,65 @@ export const SUTUN_BOSLUK = 18;
 
 export const SUTUN_GENISLIK = (ICERIK_GENISLIK - SUTUN_BOSLUK) / 2;
 
-/** Teknik satırın puntosu (`S.satir` ailesiyle aynı). */
-export const SATIR_PUNTO = 8;
+/** Teknik satırın ETİKET puntosu (`S.ozellikEtiket`). */
+export const SATIR_PUNTO = 7.8;
 
-/** Bir metin satırının kapladığı dikey yer. */
+/** DEĞER puntosu — değer mono dizilir (`S.ozellikDeger`). */
+export const DEGER_PUNTO = 7.4;
+
+/** Bir metin satırının kapladığı dikey yer (satır yüksekliği × punto ≈ 10). */
 const SATIR_YUK = 10;
 
-/** `S.satir` paddingVertical 1,6 — üstte ve altta. */
-const SATIR_PAY = 3.2;
+/**
+ * Satırın metin dışı yükü: `S.ozellikSatiri`in 2,4 üst + 2,4 alt payı ve
+ * altındaki 0,4 pt'lik AYIRICI ÇİZGİ. Çizgi satırın parçasıdır; ölçüye
+ * girmeseydi yirmi satırlık bir öbekte 8 pt'lik bir sapma birikirdi.
+ */
+const SATIR_PAY = 5.2;
 
 /**
- * Grup başlığının bloğa getirdiği yük: punto 8,8 + üst 9 + alt 3 pay.
+ * Bloğun satır dışı yükü: ŞERİT + BÖLÜM ADI + bloklar arası boşluk.
+ *
+ * 1,2 (şerit) + 4 (şerit altı pay) + 7,92 (6,6 punto × 1,2 satır) + 4,5
+ * (ad altı pay) + 10 (bir sonraki bloğa boşluk) = 27,6.
+ *
+ * BLOKLAR ARASI BOŞLUK DA BURADADIR. Ayrı tutulsaydı ölçü her blokta 10 pt
+ * eksik kalırdı: sütuna dört blok giren bir sayfada 40 pt'lik bir sapma eder
+ * ve eksik ölçmek modülün adını koyarak reddettiği yöndür (bkz.
+ * `KAPASITE_PAYI`). Son bloğun kuyruğundaki boşluk sütun dibinde durur, kimseyi
+ * incitmez.
  *
  * Bloğun İÇİNDEDİR, sütunun değil: başlık bir bloğun ilk satırıdır ve blok
  * nereye giderse başlık da oraya gider. Ayrı sayılsaydı bölünmüş bir dilimin
  * tekrar basılan başlığı hiçbir bütçeden düşmezdi.
  */
-export const BASLIK_YUK = 21.8;
+export const BASLIK_YUK = 27.6;
 
 /**
- * Archivo'nun ORTALAMA karakter genişliği — punto başına.
+ * KARAKTER GENİŞLİĞİ — punto başına.
  *
- * Etiket ile değer için AYRI katsayı vardır çünkü ikisi aynı metin değildir:
- * etiketler cümle düzeninde ("Kaldırma Kapasiteleri (Q)"), değerler ise büyük
- * harf ve rakam ağırlıklıdır ("SCHNEIDER ATV-340", "Ø16 6x36") ve büyük harf
- * Archivo'da belirgin biçimde geniştir. Tek katsayı kullanılsaydı ya etiket
- * fazla ölçülür ya değer eksik ölçülürdü.
+ * İki katsayı vardır çünkü iki metin iki ayrı ailede dizilir. ETİKET Archivo
+ * iledir ve cümle düzenindedir ("Kaldırma Kapasiteleri (Q)"); 0,46 ölçülmüş
+ * bir ORTALAMADIR, yani yaklaşıktır. DEĞER ise IBM Plex Mono iledir ve mono
+ * SABİT genişliktedir: her karakter tam 0,6 em'dir. Değerin genişliği bu
+ * yüzden tahmin değil HESAPTIR — ve sütunda sarıp sarmayacağına karar veren
+ * de odur.
  */
 const ETIKET_KATSAYI = 0.46;
-const DEGER_KATSAYI = 0.52;
+const DEGER_KATSAYI = 0.6;
 
-/** Etiket ile değer arasındaki boşluk (`S.ikiNokta` sütunu dahil). */
-const ARA = 8;
+/** Etiket ile değer sütunu arasındaki oluk (`S.ozellikDeger` marginLeft). */
+export const ETIKET_ARA = 10;
+
+/**
+ * ETİKET EN ÇOK YARIM SÜTUNDUR.
+ *
+ * Etiket kendi boyunda çizilir, değer ARTAN yeri kaplar ve sağa yaslanır.
+ * Serbest kalemde etiketi kullanıcı yazar; kelepçe olmasaydı uzun bir etiket
+ * değere hiç yer bırakmaz, değer harf harf sararak sütunu taşırırdı. Sayı
+ * çizimde (`maxWidth`) ve ölçüde AYNIDIR — ayrışırsa ölçü ile kâğıt ayrışır.
+ */
+export const ETIKET_ORAN = 0.5;
 
 /**
  * SÜTUN BÜTÇESİ %94'E KELEPÇELENİR ve katsayılar BİLEREK FAZLA ölçer.
@@ -138,20 +165,32 @@ function gorunurSatirlar(group: OfferGroup): OfferRow[] {
 }
 
 /**
- * Satırın kapladığı dikey yer.
+ * Satırın kapladığı dikey yer — İKİ SÜTUNLU model.
+ *
+ * ÖLÇÜ ÇİZİMİN MODELİDİR. Satır iki kutudur: etiket kendi boyunda solda,
+ * değer ARTAN yerde sağa yaslı. Değer sardığında ikinci satır etiketin altına
+ * TAŞMAZ, kendi sütununda kalır — ölçü de bu yüzden değeri sütunun tamamına
+ * değil `SUTUN_GENISLIK − etiket − oluk` genişliğine sarar. Eski akış modeli
+ * (etiket ve değer tek akışta) sarma noktasını olduğundan geç hesaplıyordu ve
+ * eksik ölçmek, @react-pdf'in taşan satırı SESSİZCE kırpması demektir.
  *
  * KAPSAM EKİ DEĞERİN UZUNLUĞUNA GİRER: " (Müşteri Kapsamında)" yirmi bir
- * karakterdir ve tek başına bir satırı sarmaya yeter (`Hol Boyu Elektrik :
- * Kapalı Kutu Bara Tesisatı` eksiz tek satır, ekli iki satırdır). Ek daha
- * küçük punto ile basılır ama ölçüde küçültülmez — fazla ölçmek seçilmiş
- * yöndür (bkz. `KAPASITE_PAYI`).
+ * karakterdir ve tek başına bir satırı sarmaya yeter. Ek daha küçük punto ile
+ * basılır ama ölçüde küçültülmez — fazla ölçmek seçilmiş yöndür (bkz.
+ * `KAPASITE_PAYI`).
  */
 export function satirYuksekligi(row: OfferRow): number {
-  const etiket = (row.label ?? "").length * ETIKET_KATSAYI * SATIR_PUNTO;
-  const deger = ((row.value ?? "") + offerScopeSuffix(row.scope)).length * DEGER_KATSAYI * SATIR_PUNTO;
-  const gereken = etiket + ARA + deger;
-  const satirSayisi = Math.max(1, Math.ceil(gereken / SUTUN_GENISLIK));
-  return satirSayisi * SATIR_YUK + SATIR_PAY;
+  const etiketTam = (row.label ?? "").length * ETIKET_KATSAYI * SATIR_PUNTO;
+  const etiketEn = Math.min(etiketTam, SUTUN_GENISLIK * ETIKET_ORAN);
+  // Kelepçeye çarpan etiket SARAR; satır o zaman etiketin satır sayısı kadar
+  // yer kaplar (değer bir satırlık olsa bile).
+  const etiketSatir = etiketEn > 0 ? Math.max(1, Math.ceil(etiketTam / etiketEn)) : 1;
+
+  const alan = Math.max(1, SUTUN_GENISLIK - etiketEn - ETIKET_ARA);
+  const deger = ((row.value ?? "") + offerScopeSuffix(row.scope)).length * DEGER_KATSAYI * DEGER_PUNTO;
+  const degerSatir = Math.max(1, Math.ceil(deger / alan));
+
+  return Math.max(etiketSatir, degerSatir) * SATIR_YUK + SATIR_PAY;
 }
 
 /**

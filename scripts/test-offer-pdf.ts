@@ -416,6 +416,47 @@ function sayfaAdedi(buf: Buffer): number {
 }
 
 /**
+ * ÜST ÜSTE BİNEN METİN VAR MI — sayfanın çözülmüş metin katmanından.
+ *
+ * Bu, 18.08.2026'da müşteriye giden bir teklifte GERÇEKTEN olan hatadır:
+ * sayfa başlığı sağ üstteki künyenin üzerine biniyor, iki metin birbirini
+ * okunmaz kılıyordu. Sebebi görünmez bir yerleşim tuzağıydı — esnek satırda
+ * yalnız `flexShrink` verilmiş bir kutuda @react-pdf metni daraltılmış
+ * genişliğe göre YENİDEN SARMAZ, ölçtüğü doğal genişlikte çizer ve komşusunun
+ * üstüne taşar. Ne bir uyarı verir ne de metin kaybolur: belge üretilir,
+ * testler geçer, kâğıt bozuktur.
+ *
+ * Ölçü: aynı yatay şeritteki (taban çizgileri punto'nun %70'inden yakın) iki
+ * kutunun x aralıkları kesişiyorsa çakışma vardır. İki sütunlu teknik sayfa
+ * yanlış alarm vermez — sütunlar aynı şeritte ama ayrı x aralıklarındadır.
+ */
+async function cakisanMetinler(buf: Buffer): Promise<string[]> {
+  const { getDocumentProxy } = await import("unpdf");
+  const doc = await getDocumentProxy(new Uint8Array(buf));
+  const bulgular: string[] = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const page = await doc.getPage(n);
+    const kutular = (await page.getTextContent()).items.flatMap((ham) => {
+      // `TextMarkedContent` öğeleri metin taşımaz; yalnız `TextItem`lar ölçülür.
+      const i = ham as Partial<{ str: string; transform: number[]; width: number; height: number }>;
+      if (typeof i.str !== "string" || i.str.trim() === "" || !i.transform) return [];
+      return [{ s: i.str, x: i.transform[4], y: i.transform[5], w: i.width ?? 0, h: i.height ?? 0 }];
+    });
+    for (let a = 0; a < kutular.length; a++) {
+      for (let b = a + 1; b < kutular.length; b++) {
+        const A = kutular[a];
+        const B = kutular[b];
+        if (Math.abs(A.y - B.y) > Math.min(A.h, B.h) * 0.7) continue;
+        // 0,8pt tolerans: harf aralıklı dizgide bitişik kutular teğet geçebilir.
+        const ustuste = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+        if (ustuste > 0.8) bulgular.push(`s.${n} ${ustuste.toFixed(1)}pt: "${A.s}" ↔ "${B.s}"`);
+      }
+    }
+  }
+  return bulgular;
+}
+
+/**
  * Metin karşılaştırması BOŞLUKSUZ yapılır: PDF metin katmanı sözcük araları
  * için ayrı konumlandırma kullanır ve "223.600 €" çözüldüğünde araya fazladan
  * boşluk girebilir. Aranan şey rakamların kendisidir, dizgi değil.
@@ -452,6 +493,9 @@ async function uret(ad: string, props: OfferDocumentProps) {
   );
 
   kontrol(buf.subarray(0, 4).toString() === "%PDF", "geçerli PDF başlığı");
+
+  const cakisan = await cakisanMetinler(buf);
+  kontrol(cakisan.length === 0, `hiçbir metin üst üste binmiyor${cakisan.length ? ` — ${cakisan[0]}` : ""}`);
 
   // ALTBİLGİ KÜNYESİ HER SAYFADA: müşteri belgenin bir yaprağını tek başına
   // fotoğraflasa bile hangi teklifin hangi revizyonu olduğu okunmalıdır.
@@ -503,14 +547,18 @@ async function main() {
   // Orion kapsamı BELGEDE HİÇ GEÇMEZ — onlarca satırın hepsine kapsam yazmak
   // belgeyi okunmaz yapardı; kural "istisnayı yaz"dır.
   kontrol(!s.metin.includes("Orion Kapsam"), "Orion kapsamı belgede iz bırakmıyor");
-  // KALEM ADI ARTIK SAYFANIN BÜYÜK BAŞLIĞI DEĞİL, SAĞ ÜST KÜNYESİDİR
-  // (kullanıcı isteği 18.08.2026, md. 8 — paylaşılan ön çalışmanın düzeni).
-  // Büyük başlık o sayfadaki GRUPLARIN adıdır ("GENEL · KALDIRMA · ARABA"),
-  // yani hangi sayfada ne olduğu başlıktan okunur. Ölçülen şey değişmedi:
-  // kalemin adı belgede DURUYOR MU.
+  // KALEM ADI SAYFANIN BÜYÜK BAŞLIĞIDIR (kullanıcı bildirimi 18.08.2026).
+  // Bir gün öbek adları ("GENEL · KALDIRMA · ARABA") başlığın yerini almış,
+  // kalem adı sağ üstte küçük bir künyeye düşmüştü; ikisi üst üste biniyordu.
+  // Ad başlığa dönünce künye de kalktı, öbek adları başlığın altında sessiz bir
+  // dizin oldu. Ölçülen şey değişmedi: kalemin adı belgede DURUYOR MU.
   kontrol(
-    duz(s.metin).includes(duz("20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ")),
-    "kalem adı teknik sayfanın künyesinde"
+    s.metin.includes("20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ"),
+    "kalem adı teknik sayfanın başlığında"
+  );
+  kontrol(
+    duz(s.metin).includes(duz("GENEL · KALDIRMA · ARABA")),
+    "öbek dizini başlığın altında"
   );
   kontrol(
     duz(s.metin).includes(duz("TEKNİK ÖZELLİKLER")),
@@ -529,7 +577,9 @@ async function main() {
     "İSKONTOLU TOPLAM ödenecek rakamı gösteriyor (215.000 €)"
   );
   // SERBEST KALEM: elle yazılan etiket ve değer belgede; boş satır YOK.
-  kontrol(i.metin.includes("TEKNİK ÖZELLİKLER"), "serbest kalemin bölüm başlığı basıldı");
+  // BOŞLUKSUZ karşılaştırılır: bölüm adları harf aralıklı dizilir ve PDF metin
+  // katmanında harfler arasına konum kaynaklı boşluklar girer.
+  kontrol(duz(i.metin).includes(duz("TEKNİK ÖZELLİKLER")), "serbest kalemin bölüm başlığı basıldı");
   kontrol(
     i.metin.includes("Redüktör Gövdesi") && i.metin.includes("Kaplin Takozu"),
     "serbest satırların etiketi ve değeri belgede"

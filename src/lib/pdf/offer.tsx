@@ -40,6 +40,8 @@ import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
 import { discountAmount, lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import {
+  ETIKET_ARA,
+  ETIKET_ORAN,
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   blokBasligi,
@@ -49,7 +51,6 @@ import {
 import { GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { offerScopeSuffix } from "@/lib/offers/types";
 import type {
-  OfferGroup,
   OfferItem,
   OfferPayload,
   OfferPriceLine,
@@ -87,6 +88,14 @@ const ETIKET_GENISLIK = 148;
 
 /** Kapak künyesindeki etiketler daha kısadır (`Referansımız`, `Müşteri`). */
 const KUNYE_ETIKET_GENISLIK = 82;
+
+/**
+ * İki teknik blok arasındaki boşluk.
+ *
+ * `pdf-layout.ts` bu payı `BASLIK_YUK`ün İÇİNDE sayar (blok başına 10 pt);
+ * buradaki sayı oradan ayrılırsa ölçü ile kâğıt ayrışır ve sütun taşar.
+ */
+const BLOK_ARA = 10;
 
 /**
  * Firma künyesinin sayfa dibinden yüksekliği.
@@ -172,7 +181,27 @@ const S = StyleSheet.create({
   // adının yazdığı başlık biraz daha büyük olsun"*). 11pt'de grup başlığının
   // (8,8) yalnız bir tık üstündeydi ve sayfada hangisinin kimin başlığı olduğu
   // seçilmiyordu; 15pt ile hiyerarşi tek bakışta okunur.
-  bolumBaslik: { ...T.heading, marginBottom: 12 },
+  bolumBaslik: { ...T.heading, marginBottom: 3 },
+  /**
+   * BÖLÜM ŞERİDİ — bölüm adının üstündeki çizgi.
+   *
+   * Kullanıcının paylaştığı düzende (18.08.2026) her öbek bir çizgiyle açılır:
+   * iki sütunda altı öbek alt alta dizildiğinde başlığın nerede başladığını
+   * punto farkı tek başına söylemiyordu, çizgi söylüyor.
+   */
+  bolumSerit: { borderTopWidth: 1.2, borderTopColor: BRAND.ink, paddingTop: 4 },
+  /** Sayfanın İLK öbeği kırmızı açılır — sayfa başına tek vurgu. */
+  bolumSeritVurgu: { borderTopColor: BRAND.red },
+  bolumAdi: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.6,
+    fontWeight: 600,
+    letterSpacing: 1.3,
+    lineHeight: 1.2,
+    color: BRAND.ink,
+    marginBottom: 4.5,
+  },
+  bolumAdiVurgu: { color: BRAND.red },
   grupBaslik: {
     fontFamily: FONTS.sans,
     fontSize: 8.8,
@@ -197,6 +226,52 @@ const S = StyleSheet.create({
   // "(Müşteri Kapsamında)" notunu birbirine karıştırmasın. İç içe `Text`
   // kullanılır — ayrı bir kutu satırı kırar, metin katmanında da bölerdi.
   kapsamEki: { fontSize: 6.4, color: BRAND.gray600 },
+  // ---- TEKNİK ÖZELLİK SATIRI (çizelge düzeni, 18.08.2026)
+  //
+  // Etiket solda, DEĞER SAĞA YASLI ve altında ince bir ayırıcı çizgi. Devralınan
+  // düzende ikisi arasında iki nokta vardı ve değer etiketin bittiği yerden
+  // başlıyordu: sütunun sağ yarısı düzensiz bir kıyı oluşturuyor, göz "Motor"un
+  // karşısındaki değeri ararken satır satır tarıyordu. Sağa yaslı değer sütunu
+  // hem hizalı bir kıyı verir hem de satırı iki uçtan okunur kılar.
+  ozellikSatiri: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingTop: 2.4,
+    paddingBottom: 2.4,
+    borderBottomWidth: 0.4,
+    borderBottomColor: BRAND.hairline,
+  },
+  // `maxWidth` KELEPÇESİ `ETIKET_ORAN`la aynı sayıdır: serbest kalemde etiketi
+  // kullanıcı yazar ve kelepçesiz uzun bir etiket değere yer bırakmazdı.
+  // Ölçüm modülü de aynı kelepçeyle ölçer (`satirYuksekligi`).
+  ozellikEtiket: {
+    fontFamily: FONTS.sans,
+    fontSize: 7.8,
+    lineHeight: 1.28,
+    color: BRAND.gray700,
+    flexGrow: 0,
+    flexShrink: 1,
+    maxWidth: SUTUN_GENISLIK * ETIKET_ORAN,
+  },
+  // DEĞER MONO DİZİLİR: teknik değerlerin çoğu koddur ("SCHNEIDER ATV-340",
+  // "Ø20 6x36", "A65") ve mono onları bir metin parçası değil VERİ gibi
+  // okutur — marka kılavuzunun "her sayı, kod, etiket" kuralı.
+  //
+  // `flexBasis: 0` ŞART: temel genişlik "auto" bırakılırsa yoga değerin
+  // ÖLÇÜLEN uzunluğunu taban alır ve uzun bir değer sarmak yerine sütunun
+  // dışına taşar (aynı tuzak sayfa başlığında da yaşandı, bkz. `sayfaBasi`).
+  ozellikDeger: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.4,
+    lineHeight: 1.35,
+    color: BRAND.ink,
+    textAlign: "right",
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    marginLeft: ETIKET_ARA,
+  },
+
   // Ödeme planı satırları GİRİNTİLİ ve MADDE İŞARETSİZDİR: belgede "Ödeme :"
   // satırının devamıdırlar, ayrı bir liste değil.
   odemeSatiri: {
@@ -215,22 +290,27 @@ const S = StyleSheet.create({
   // taşar, öteki boş kalır.
   sutunlar: { flexDirection: "row", gap: SUTUN_BOSLUK },
   sutun: { width: SUTUN_GENISLIK },
-  // Sayfa başlığı: üstte kırmızı kicker, altında büyük başlık, sağda künye.
-  sayfaBasi: { flexDirection: "row", alignItems: "flex-end", marginBottom: 10 },
+  /**
+   * SAYFA BAŞLIĞI ALT ALTA ÜÇ SATIRDIR, YAN YANA İKİ SÜTUN DEĞİL.
+   *
+   * Önceki düzende büyük başlık solda, kalem adı künyesi sağda duruyordu ve
+   * ikisi ÜST ÜSTE BİNİYORDU (kullanıcı bildirimi, 18.08.2026): esnek satırda
+   * yalnız `flexGrow/flexShrink` verilmiş bir kutuda @react-pdf metni kutunun
+   * DARALTILMIŞ genişliğine göre yeniden sarmıyor, ölçtüğü doğal genişlikte
+   * çiziyor — 429 pt'lik başlık 337 pt'lik kutudan taşıp künyenin üstüne
+   * biniyordu. Yan yana iki kutu kalmayınca çakışma da kalmaz: her satır
+   * içerik genişliğinin TAMAMINI kullanır.
+   */
+  sayfaBasi: { marginBottom: 12 },
   sayfaKicker: { ...T.kicker, color: BRAND.red, marginBottom: 2 },
-  // KÜNYE KELEPÇELİDİR: esnek satırda genişlik verilmezse büyük başlık bütün
-  // yeri alır ve künye ortasından KIRPILIR ("… GEZER KÖPRÜLÜ Vİ"). 150 pt,
-  // 6 pt'de ~28 karakter — kalem adı iki satıra sarar ve tam okunur.
-  sayfaKunye: {
-    ...T.micro,
-    fontSize: 6,
-    lineHeight: 1.35,
-    color: BRAND.gray600,
-    textAlign: "right",
-    width: 150,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
+  /**
+   * Sayfadaki öbeklerin dizini: `GENEL · KALDIRMA · ARABA`.
+   *
+   * Büyük başlığın ALTINDA ve sessizdir. İki sayfaya taşan bir kalemde ikinci
+   * sayfanın dizini kendi öbeklerini sayar, yani hangi sayfada ne olduğu
+   * başlıktan okunur — başlığın kendisi ise kalemin adıdır.
+   */
+  sayfaDizin: { ...T.micro, fontSize: 6.2, letterSpacing: 0.9, color: BRAND.gray500 },
 
   // ---- GENEL ŞARTLAR (md. 9)
   //
@@ -365,17 +445,26 @@ function BlokBaslik({ text, ilk = false }: { text: string; ilk?: boolean }) {
   return <Text style={[S.grupBaslik, { marginTop: ilk ? 0 : 12 }]}>{trUpper(text)} :</Text>;
 }
 
-function GrupBloku({ group }: { group: OfferGroup }) {
+/**
+ * TEKNİK ÖZELLİK SATIRI — etiket solda, değer sağa yaslı, altında ayırıcı.
+ *
+ * Etiket genişliği SABİT DEĞİLDİR: tek sütunda 148 pt'lik bir etiket sütunu
+ * vardı ve 234,78 pt'lik bir sütunda o düzen değerin çoğunu sardırırdı.
+ * Burada etiket kendi boyunu (en çok yarım sütun) alır, değer ARTAN yeri
+ * kaplar. Ölçüm bu düzenle yapıldı (`pdf-layout.ts` `satirYuksekligi`) —
+ * çizimi değiştirmek ölçüyü de geçersiz kılar.
+ *
+ * `wrap={false}`: iki satırlık bir değer sütun dibinde ikiye BÖLÜNMEZ.
+ */
+function OzellikSatiri({ row }: { row: OfferRow }) {
+  const kapsam = offerScopeSuffix(row.scope);
   return (
-    <View>
-      {/* Başlık sayfa dibinde YALNIZ kalmasın: altında en az birkaç satır
-          yer yoksa grup bir sonraki sayfaya taşınır. */}
-      <View minPresenceAhead={46}>
-        <BlokBaslik text={group.title} />
-      </View>
-      {group.rows.map((row: OfferRow, i) => (
-        <SatirBasimi key={row.key || i} row={row} />
-      ))}
+    <View style={S.ozellikSatiri} wrap={false}>
+      <Text style={S.ozellikEtiket}>{row.label}</Text>
+      <Text style={S.ozellikDeger}>
+        {row.value}
+        {kapsam ? <Text style={S.kapsamEki}>{kapsam}</Text> : null}
+      </Text>
     </View>
   );
 }
@@ -383,20 +472,23 @@ function GrupBloku({ group }: { group: OfferGroup }) {
 /**
  * SÜTUNDAKİ BİR BLOK — grup ya da grubun devamı.
  *
- * Etiket genişliği SABİT DEĞİLDİR (`labelWidth` verilmez): tek sütunda 148 pt
- * bir etiket sütunu vardı ve değer ancak kalan yere yazılıyordu. 234,78 pt'lik
- * bir sütunda o düzen değerin çoğunu sardırırdı; burada etiket kendi boyunu
- * alır, değer ARTAN yeri kaplar. Ölçüm bu düzenle yapıldı (`pdf-layout.ts`) —
- * çizimi değiştirmek ölçüyü de geçersiz kılar.
+ * `vurgu` sayfanın İLK öbeğine verilir: şerit ve ad kırmızı basılır. Sayfa
+ * başına tek vurgu — bütün başlıklar kırmızı olsaydı vurgu vurgu olmaktan
+ * çıkar, altı kırmızı satır sayfayı kendi başına bir listeye çevirirdi.
  */
-function SutunBloku({ blok }: { blok: OfferPdfBlok }) {
+function SutunBloku({ blok, vurgu }: { blok: OfferPdfBlok; vurgu?: boolean }) {
   return (
     <View>
-      <Text style={[S.grupBaslik, { marginTop: 0, marginBottom: 3 }]}>
-        {trUpper(blokBasligi(blok))}
-      </Text>
+      {/* Başlık sütun dibinde YALNIZ kalmasın: altında en az iki satır yer
+          yoksa blok bir sonraki sütuna taşınır (dağıtımın `EN_AZ_KUYRUK`
+          kuralının çizim tarafındaki karşılığı). */}
+      <View style={vurgu ? [S.bolumSerit, S.bolumSeritVurgu] : [S.bolumSerit]} minPresenceAhead={40}>
+        <Text style={vurgu ? [S.bolumAdi, S.bolumAdiVurgu] : [S.bolumAdi]}>
+          {trUpper(blokBasligi(blok))}
+        </Text>
+      </View>
       {blok.rows.map((row, i) => (
-        <EtiketliSatir key={row.key || i} label={row.label} value={row.value} scope={row.scope} akis />
+        <OzellikSatiri key={row.key || i} row={row} />
       ))}
     </View>
   );
@@ -411,17 +503,19 @@ function SutunBloku({ blok }: { blok: OfferPdfBlok }) {
  */
 function TeknikSayfa({
   docLine,
-  kalemBasi,
+  baslik,
   kicker,
-  basliklar,
+  dizin,
   sol,
   sag,
   altBilgi,
 }: {
   docLine: string;
-  kalemBasi: string;
+  /** Sayfanın büyük başlığı: KALEMİN ADI. */
+  baslik: string;
   kicker: string;
-  basliklar: string[];
+  /** Sayfadaki öbeklerin kısa adları — başlığın altındaki sessiz dizin. */
+  dizin: string[];
   sol: OfferPdfBlok[];
   sag: OfferPdfBlok[];
   altBilgi?: React.ReactNode;
@@ -429,34 +523,40 @@ function TeknikSayfa({
   return (
     <BrandPage docLine={docLine}>
       <View style={S.sayfaBasi}>
-        <View style={{ flexGrow: 1, flexShrink: 1 }}>
-          <Text style={S.sayfaKicker}>{kicker}</Text>
-          {/* BAŞLIK O SAYFADAKİ GRUPLARIN ADIDIR ("GENEL · KALDIRMA · ARABA"):
-              kullanıcının paylaştığı ön çalışmanın düzeni. İki sayfaya taşan
-              bir kalemde ikinci sayfanın başlığı kendi gruplarını sayar, yani
-              okuyan hangi sayfada ne olduğunu başlıktan bilir. */}
-          <Text style={S.bolumBaslik}>{trUpper(basliklar.join(" · "))}</Text>
-        </View>
-        <Text style={S.sayfaKunye}>{kalemBasi}</Text>
+        <Text style={S.sayfaKicker}>{kicker}</Text>
+        {/* BAŞLIK KALEMİN ADIDIR (kullanıcı bildirimi, 18.08.2026: *"burada
+            başlık olarak 80T x 12.44m PORTAL VİNÇ yazması gerekiyor… yani kalem
+            başlığından çekmesi gerek"*). Öbek adları bir gün başlığın yerini
+            almıştı ve sayfanın hangi ekipmana ait olduğu ancak sağ üstteki
+            küçük künyeden okunuyordu; ad başlığa dönünce o künye de gereksiz
+            kaldı — çakışan iki kutudan biri böylece ortadan kalktı.
+
+            AD OLDUĞU GİBİ BASILIR, büyütülmez: "80T x 12.44m" bir ürün adıdır
+            ve birimleri küçük harfle yazılır — `trUpper` onu "12.44M" yapardı. */}
+        <Text style={S.bolumBaslik}>{baslik}</Text>
+        {/* ÖBEK DİZİNİ başlığın altında, sessiz: iki sayfaya taşan bir kalemde
+            ikinci sayfanın dizini kendi öbeklerini sayar, yani hangi sayfada ne
+            olduğu buradan okunur. */}
+        {dizin.length > 0 ? <Text style={S.sayfaDizin}>{trUpper(dizin.join(" · "))}</Text> : null}
       </View>
 
       <View style={S.sutunlar}>
         <View style={S.sutun}>
           {sol.map((b, i) => (
-            <View key={`${b.group.id}-${i}`} style={{ marginBottom: 9 }}>
-              <SutunBloku blok={b} />
+            <View key={`${b.group.id}-${i}`} style={{ marginBottom: BLOK_ARA }}>
+              {/* Sayfanın ilk öbeği (sol sütunun başı) kırmızı açılır. */}
+              <SutunBloku blok={b} vurgu={i === 0} />
             </View>
           ))}
         </View>
         <View style={S.sutun}>
           {sag.map((b, i) => (
-            <View key={`${b.group.id}-${i}`} style={{ marginBottom: 9 }}>
+            <View key={`${b.group.id}-${i}`} style={{ marginBottom: BLOK_ARA }}>
               <SutunBloku blok={b} />
             </View>
           ))}
         </View>
       </View>
-
       {altBilgi}
     </BrandPage>
   );
@@ -501,18 +601,6 @@ function GenelSartlarSayfasi({
       ))}
     </BrandPage>
   );
-}
-
-/**
- * Kalem başlığı: `20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ ÖZELLİKLERİ`.
- *
- * Ek KODDA yapılır, veride değil: `OfferItem.title` fiyat tablosunda ve
- * listede de kullanılır ve orada "ÖZELLİKLERİ" kuyruğu yanlış olurdu.
- * Kullanıcı kuyruğu başlığa kendi yazdıysa ikilenmez.
- */
-function kalemBasligi(title: string): string {
-  const buyuk = trUpper(title.trim());
-  return buyuk.endsWith("ÖZELLİKLERİ") ? buyuk : `${buyuk} ÖZELLİKLERİ`;
 }
 
 // ————————————————————————————————————————————————————————————— kapak
@@ -893,10 +981,12 @@ function MetinBlogu({
 /**
  * SÜTUN KAPASİTESİ — bir teknik sayfada bir sütuna sığan yükseklik (pt).
  *
- * İçerik alanı 745,69 pt; sayfa başlığı (kicker + büyük başlık + boşluk)
- * ~46 pt harcar. Kalanı `pdf-layout` ayrıca %94 ile kelepçeler.
+ * İçerik alanı 745,69 pt; sayfa başlığı bloğu (kicker 8,4 + 2 pay, kalem adı
+ * 17,25 + 3 pay, öbek dizini 7,4, blok altı 12) 50 pt'ye yakın harcar ve 52
+ * yazılır — fazla ölçmek seçilmiş yöndür. Kalanı `pdf-layout` ayrıca %94 ile
+ * kelepçeler.
  */
-const PDF_SUTUN_KAPASITE = 745.69 - 46;
+const PDF_SUTUN_KAPASITE = 745.69 - 52;
 
 /** Sayfa sırası için romen rakamı — "TEKNİK ÖZELLİKLER · II". */
 function romen(n: number): string {
@@ -950,19 +1040,17 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
         // İLK SAYFANIN KAPASİTESİ AZDIR: sayfa başlığı (kicker + büyük başlık)
         // yaklaşık 46 pt yer kaplar ve o pay yalnız ilk sayfada harcanır.
         const sayfalar = offerPdfSayfalari(item.groups, PDF_SUTUN_KAPASITE);
-        const kalemAdi = kalemBasligi(item.title);
         return sayfalar.map((sayfa, s) => (
           <TeknikSayfa
             key={`${item.id}-${s}`}
             docLine={docLine}
-            kalemBasi={`${trUpper(item.title)}
-${docLine}`}
+            baslik={item.title}
             kicker={
               sayfalar.length > 1
                 ? `TEKNİK ÖZELLİKLER · ${romen(s + 1)}`
                 : "TEKNİK ÖZELLİKLER"
             }
-            basliklar={sayfa.basliklar.length ? sayfa.basliklar : [kalemAdi]}
+            dizin={sayfa.basliklar}
             sol={sayfa.sol}
             sag={sayfa.sag}
             altBilgi={
