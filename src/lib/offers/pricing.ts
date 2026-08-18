@@ -159,9 +159,27 @@ export function vatNote(vatIncluded: boolean): string {
 
 // ————————————————————————————————————————————————————— ödeme planı
 
+/**
+ * AÇIKLAMADAN BAŞTAKİ YÜZDEYİ SÖKER — "%40 Avans Sipariş ile Nakit" → "Avans
+ * Sipariş ile Nakit".
+ *
+ * Kullanıcı bildirimi (18.08.2026): *"iki kere %40 yazıyor … sağdaki kutuda
+ * sadece yazılar olacak."* Yüzde SOLDAKİ kutunun alanıdır (`percent`); metni
+ * `paymentLineText` ondan kurar. Devralınan tekliflerde ve defterden seçilen
+ * kimi satırlarda yüzde AÇIKLAMANIN İÇİNE de yazılmıştı ve belge "%40 %40
+ * Avans …" basıyordu.
+ *
+ * SÖKME İKİ YERDE ÇALIŞIR: burada (belge hemen düzelir) ve taşımada (kayıt
+ * temizlenir). Yalnız taşımada olsaydı açılmamış belgeler bozuk basmaya devam
+ * ederdi; yalnız burada olsaydı kullanıcı kutuda hâlâ "%40 Avans …" görürdü.
+ */
+export function paymentDescText(raw: string | null | undefined): string {
+  return (raw ?? "").replace(/^\s*%\s*\d+(?:[.,]\d+)?\s*/, "").trim();
+}
+
 /** Basılan satır metni: `%40 Avans Sipariş ile Nakit`. */
 export function paymentLineText(line: Pick<OfferPaymentLine, "percent" | "desc" | "text">): string {
-  const aciklama = (line.desc ?? "").trim();
+  const aciklama = paymentDescText(line.desc);
   // YÜZDESİZ SATIR MEŞRUDUR: devralınan tekliflerde sabit tutarlı ve
   // yüzdesiz satırlar var ("Montaj Sonrası Kalan Nakit"). Serbest metin
   // yazılmışsa o korunur.

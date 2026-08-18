@@ -503,9 +503,22 @@ async function main() {
   // Orion kapsamı BELGEDE HİÇ GEÇMEZ — onlarca satırın hepsine kapsam yazmak
   // belgeyi okunmaz yapardı; kural "istisnayı yaz"dır.
   kontrol(!s.metin.includes("Orion Kapsam"), "Orion kapsamı belgede iz bırakmıyor");
+  // KALEM ADI ARTIK SAYFANIN BÜYÜK BAŞLIĞI DEĞİL, SAĞ ÜST KÜNYESİDİR
+  // (kullanıcı isteği 18.08.2026, md. 8 — paylaşılan ön çalışmanın düzeni).
+  // Büyük başlık o sayfadaki GRUPLARIN adıdır ("GENEL · KALDIRMA · ARABA"),
+  // yani hangi sayfada ne olduğu başlıktan okunur. Ölçülen şey değişmedi:
+  // kalemin adı belgede DURUYOR MU.
   kontrol(
-    s.metin.includes("ÖZELLİKLERİ"),
-    "kalem başlığı belgede (punto büyüdü, metin aynı kaldı)"
+    duz(s.metin).includes(duz("20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ")),
+    "kalem adı teknik sayfanın künyesinde"
+  );
+  kontrol(
+    duz(s.metin).includes(duz("TEKNİK ÖZELLİKLER")),
+    "teknik sayfa kicker'ı basıldı"
+  );
+  kontrol(
+    duz(s.metin).includes(duz("GENEL ÖZELLİKLER")),
+    "grup başlıkları sütunlarda basıldı"
   );
 
   const i = await uret("teklif-iskontolu.pdf", iskontoluTeklif());
@@ -547,8 +560,19 @@ async function main() {
     duz(g.metin).includes(duz(fmtMoney(223600, "EUR"))),
     "TOPLAM toplam dışı satırdan etkilenmedi (223.600 €)"
   );
-  // Değeri girilmemiş satır (Garanti) belgede HİÇ çizilmez.
-  kontrol(!g.metin.includes("Garanti"), "değersiz ticari satır (Garanti) çizilmedi");
+  // Değeri girilmemiş satır (Garanti) TİCARİ BLOKTA çizilmez.
+  //
+  // KONTROL SAYFAYA DARALTILDI: "Garanti" kelimesi 18.08.2026'dan beri
+  // belgenin SON sayfasında meşru olarak geçiyor (GENEL ŞARTLAR'ın 6.
+  // maddesinin başlığı, md. 9). Bütün belgede aramak, yeni bir sayfanın
+  // eklenmesiyle düşen ve gerçek bir hatayı göstermeyen bir kontrol olurdu.
+  const ticariSayfa = g.sayfalar.find((t) => t.includes("TOPLAM")) ?? "";
+  kontrol(!ticariSayfa.includes("Garanti"), "değersiz ticari satır (Garanti) çizilmedi");
+  // GENEL ŞARTLAR SON SAYFADADIR ve numaralıdır (md. 9).
+  const sonSayfa = g.sayfalar[g.sayfalar.length - 1] ?? "";
+  kontrol(duz(sonSayfa).includes(duz("GENEL ŞARTLAR")), "genel şartlar son sayfada");
+  kontrol(duz(sonSayfa).includes(duz("1. Kapsam ve Öncelik")), "genel şartlar 1'den numaralı");
+  kontrol(duz(sonSayfa).includes(duz("10. Fikri Haklar")), "on maddenin onu da basıldı");
 
   const c = await uret("teklif-cok-kalemli.pdf", cokKalemliTeklif());
   kontrol(c.sayfalar.length >= 10, `sekiz kalem ayrı sayfalara dağıldı (${c.sayfalar.length} sayfa)`);

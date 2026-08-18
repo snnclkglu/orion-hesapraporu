@@ -71,6 +71,7 @@ export default async function OfferRevisionPage({
       <OfferEditor
         offerId={id}
         offerNo={kayit.offer.offer_no}
+        offerSubject={kayit.offer.subject ?? ""}
         revisionId={revId}
         revNo={kayit.revision.rev_no}
         readOnly={kayit.revision.status !== "draft"}

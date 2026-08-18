@@ -166,6 +166,26 @@ export interface OfferPriceLine {
   /** Belgede "(Opsiyonel)" rozetiyle görünür. */
   optional?: boolean;
   hidden?: boolean;
+  /**
+   * SERBEST SATIRIN ELLE GİRİLEN MALİYETİ — yalnız `itemId === null` iken.
+   *
+   * Kullanıcı isteği (18.08.2026): *"Teklif fiyat kısmında serbest eklediğim
+   * satırların maliyetini tabloda kendim girebileyim."* MALIYET-11 serbest
+   * satırda maliyeti "—" gösteriyordu ve gerekçesi doğruydu: maliyet
+   * belgesinde o satırın karşılığı YOKTUR, uydurma bir sayı yazmak sahte bir
+   * kâr üretirdi (değişmez md. 4). Ama İNSANIN yazdığı sayı uydurma değildir:
+   * nakliye, montaj kirası ya da bir ara ürünün alış fiyatı tam olarak
+   * bilinen şeylerdir.
+   *
+   * MÜŞTERİYE GİTMEZ. Bu alan teklif payload'ında yaşar ama `printedPayload`
+   * onu belgeye BASMAZ — teklif PDF'inde maliyet diye bir sütun yoktur ve
+   * olmamalıdır (MALIYET-1'in yapısal ayrımı).
+   *
+   * KALEME BAĞLI SATIRDA OKUNMAZ: orada maliyet, maliyet belgesinin YÜKLÜ
+   * maliyetidir. İki kaynak asla toplanmaz — kaleme bağlanan bir satırın elle
+   * yazılmış sayısı ekranda görünmez (veri korunur, bağ koparsa geri gelir).
+   */
+  manualCost?: number | null;
 }
 
 export interface OfferPricing {
@@ -257,12 +277,51 @@ export interface OfferPayload {
   notes: OfferTextLine[];
   /** KAPSAM DIŞI İŞLER — madde işaretli liste. */
   exclusions: OfferTextLine[];
+  /** GENEL ŞARTLAR — belgenin son sayfasındaki hukukî beyan. */
+  generalTerms: OfferGeneralTerm[];
 }
 
 /** Serbest metin maddesi (not / kapsam dışı) — gizlenebilir olması için nesne. */
 export interface OfferTextLine {
   id: string;
   text: string;
+  hidden?: boolean;
+}
+
+/**
+ * GENEL ŞART MADDESİ — son sayfada küçük ve silik basılan hukukî metnin bir maddesi.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 9): *"Teklifin son sayfasına daha küçük ve
+ * biraz silik bir yazı ile genel şartlar yazsın. Bu şart maddelerini ben
+ * istersem bazılarını açıp kapatabileyim … yeni madde açabileyim
+ * değiştirebileyim. Madde numaraları da buna göre düzelsin."*
+ *
+ * `OfferTextLine` YETMEZ; üç sebeple ayrı bir tiptir:
+ *
+ * **BAŞLIK VE GÖVDE İKİ ALANDIR** çünkü belgede iki türlü dizilirler: başlık
+ * satır başında ve koyu, paragraf altında ve silik. Tek bir `text` alanında
+ * ikisi ancak bir ayraçla ("ilk satır başlıktır" ya da "**…**") taşınabilirdi
+ * ve o ayracı belgeyi dizen tarafın ÇÖZMESİ gerekirdi — biçim veriye gömülmüş
+ * olurdu.
+ *
+ * **NUMARA VERİ DEĞİLDİR.** Gizlenen madde numarasını da götürür — kullanıcının
+ * isteğinin ta kendisi budur. Numara metne gömülseydi ("3. Fiyat ve Ödeme")
+ * üçüncü madde kapatıldığında belge "1, 2, 4, 5…" diye basar, düzeltmek için de
+ * on maddenin metnini elden geçirmek gerekirdi. Bu yüzden numara hiçbir yerde
+ * SAKLANMAZ; süzgeçten SONRA sıradan türetilir (`printedGeneralTerms`).
+ *
+ * **ANAHTAR MADDEYİ TANITIR** (`OfferRow.key` kuralının aynısı): defterden
+ * gelen madde ile kullanıcının kendi yazdığı madde anahtarla ayrışır, elle
+ * eklenen maddenin anahtarı BOŞTUR. Eşleşme metne bırakılsaydı 500 karakterlik
+ * bir paragrafta tek bir kelime düzeltilince madde defterden kopardı.
+ */
+export interface OfferGeneralTerm {
+  id: string;
+  /** Defterdeki maddenin kimliği (`scope`, `price`…); elle eklenen maddede boş. */
+  key: string;
+  title: string;
+  body: string;
+  /** Madde belgeden DÜŞER — numarasını da beraberinde götürür. */
   hidden?: boolean;
 }
 
@@ -330,4 +389,17 @@ export interface OfferGroupDef {
   title: string;
   /** Şablon bu grubu kurduğunda hangi satırlar gelsin. */
   rows: OfferRowDef[];
+}
+
+/**
+ * Defterdeki GENEL ŞART maddesi (`GENERAL_TERM_DEFS`).
+ *
+ * `OfferRowDef`ten farkı, seçilecek bir LİSTE değil basılacak bir METİN
+ * taşımasıdır: madde bir değer önerisi değil bir hukukî beyandır. Defterdeki
+ * hâli sabittir, belgedeki hâli düzenlenebilir — ikisi `key` ile bağlıdır.
+ */
+export interface OfferGeneralTermDef {
+  key: string;
+  title: string;
+  body: string;
 }

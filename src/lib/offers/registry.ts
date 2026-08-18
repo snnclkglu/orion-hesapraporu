@@ -15,7 +15,12 @@
 // ileride katalogdan gelebilmesi ancak alan olduğunda mümkündür.
 
 import { parseNum } from "@/lib/currency";
-import type { OfferGroupDef, OfferPartDef, OfferRowDef } from "./types";
+import type {
+  OfferGeneralTermDef,
+  OfferGroupDef,
+  OfferPartDef,
+  OfferRowDef,
+} from "./types";
 
 // ——————————————————————————————————————————————— ortak parça kalıpları
 
@@ -259,6 +264,38 @@ export const TROLLEY_2_TITLE = "VİNÇ ARABASI - 2";
  * grupları yukarıdan aşağıya izler, çelik yapı ve elektrik sona kalır — on
  * dört teklifin on dördünde bu düzen var.
  */
+/**
+ * SAYFA BAŞLIĞINDA KULLANILAN KISA AD — "GENEL · KALDIRMA · ARABA".
+ *
+ * Kullanıcının paylaştığı ön çalışmada (18.08.2026, md. 8) teknik sayfanın
+ * büyük başlığı o sayfadaki grupların KISA adlarını yan yana diziyor. Tam
+ * başlıkları dizmek ("GENEL ÖZELLİKLER · KALDIRMA GRUBU · VİNÇ ARABASI ·
+ * KÖPRÜ GRUBU · ÇELİK KONSTRÜKSİYON · ELEKTRİK SİSTEMİ") üç satır sürüyor ve
+ * başlık olmaktan çıkıyordu.
+ *
+ * KISALTMA DEFTERDE YAZILI, KODDA TÜRETİLMEZ. "VİNÇ ARABASI" → "ARABA" bir
+ * ek atma kuralıyla çıkarılamaz (ilk kelime "VİNÇ"tir, son kelimenin eki
+ * atılınca "ARABAS" olur); Türkçe ek çözümlemesi burada kazanılacak bir şey
+ * için fazla kırılgandır. Defter kendi kısa adını bilir.
+ */
+export const OFFER_GROUP_SHORT: Readonly<Record<string, string>> = Object.freeze({
+  general: "GENEL",
+  mainHoist: "KALDIRMA",
+  auxHoist: "YRD. KALDIRMA",
+  trolley: "ARABA",
+  auxTrolley: "2. ARABA",
+  bridge: "KÖPRÜ",
+  gantry: "PORTAL",
+  boom: "BOM",
+  steel: "ÇELİK",
+  electrical: "ELEKTRİK",
+});
+
+/** Grubun sayfa başlığındaki adı; defterde yoksa tam başlık. */
+export function offerGroupShort(key: string, title: string): string {
+  return OFFER_GROUP_SHORT[key] ?? title;
+}
+
 export const OFFER_GROUP_DEFS: OfferGroupDef[] = [
   { key: "general", title: "GENEL ÖZELLİKLER", rows: GENEL },
   { key: "mainHoist", title: "KALDIRMA GRUBU", rows: KALDIRMA },
@@ -385,6 +422,159 @@ export const TERM_ROW_DEFS: OfferRowDef[] = [
   { key: "deliveryPlace", label: "Teslim Yeri ve Şekli", list: "term.deliveryPlace" },
   { key: "warranty", label: "Garanti", list: "term.warranty" },
   { key: "payment", label: "Ödeme", list: "term.paymentHeader" },
+];
+
+// —————————————————————————————————————————————————————— genel şartlar
+
+/** Belgenin son sayfasındaki bölümün başlığı. */
+export const GENERAL_TERMS_TITLE = "GENEL ŞARTLAR";
+
+/**
+ * GENEL ŞARTLAR DEFTERİ — teklifin son sayfasına basılan on madde.
+ *
+ * Metin kullanıcının yazdığı hâliyle, KELİMESİ DEĞİŞTİRİLMEDEN durur: bu bir
+ * HUKUKÎ BEYANdır ve özetlenmesi, kısaltılması ya da "daha akıcı" yazılması
+ * söylediği şeyi değiştirir. Aynı ayrımı hesap raporunun gizlilik metni için
+ * `docs/agent/belge.md` zaten kurmuştu.
+ *
+ * **DEFTER KODDADIR, `offer_options`A GİRMEZ.** Üç sebep:
+ *
+ * 1. `offer_options` satırı TEK bir `value` taşır ve tekillik yalnız onun
+ *    üzerinden kurulur. Madde ise başlık VE gövdedir; gövde, tekillik kuralının
+ *    göremediği bir alan olurdu — aynı başlıkla iki farklı paragraf yan yana
+ *    yaşayabilirdi ve hangisinin belgeye gittiği rastgele kalırdı.
+ * 2. Tanımlar ekranı KISA satırlar basar (marka, güç, teslim cümlesi). 667
+ *    karakterlik bir paragraf o ekranı bozar; tek satırlık bir kutuda
+ *    düzenlenmesi de mümkün değildir.
+ * 3. Defterdeki değerler bir DEĞER ÖNERİSİdir ("hangi markayı yazayım");
+ *    buradaki metin bir BEYANdır. İkisini aynı tabloya koymak, sorumluluk
+ *    sınırını çizen bir cümleyi bir açılır listenin seçeneği yapardı.
+ *
+ * **KAÇIŞ KAPISI:** metnin deploy beklemeden düzeltilmesi gerekirse doğru yer
+ * yine `offer_options` DEĞİL, ayrı bir `offer_general_terms` tablosudur
+ * (anahtar · başlık · gövde · sıra). Sorun tablonun kendisi değil SATIRIN
+ * ŞEKLİDİR; o tablo geldiğinde bu sabit onun seed'i olur ve `key` bağı durduğu
+ * için belgeler taşınmadan çalışmaya devam eder.
+ *
+ * **NUMARA BURADA YOKTUR.** Kaynak metindeki "1." "2." başlıkları bilerek
+ * atıldı: numara gizlemeden SONRA türetilir (`printedGeneralTerms`). Deftere
+ * yazılsaydı üçüncü madde kapatıldığında belge "1, 2, 4, 5…" diye basardı.
+ *
+ * Anahtarlar maddenin KONUSUNDAN türer, sırasından değil: madde sırası
+ * değişirse `order3` gibi bir anahtar yalan söylemeye başlardı.
+ */
+export const GENERAL_TERM_DEFS: readonly OfferGeneralTermDef[] = [
+  {
+    key: "scope",
+    title: "Kapsam ve Öncelik",
+    body:
+      "Teklif, belirtilen teknik özellikler, miktarlar, fiyatlar ve kapsam için " +
+      "geçerlidir. Teklifte veya eklerinde proje özelinde belirtilen hükümler " +
+      "bu Genel Şartlara göre önceliklidir. Teklifte açıkça yer almayan iş, " +
+      "malzeme, hizmet ve dokümanlar kapsam dışıdır.",
+  },
+  {
+    key: "order",
+    title: "Sipariş ve Değişiklikler",
+    body:
+      "Sipariş, ORION CRANES'in yazılı teyidi ile kesinleşir. Sipariş " +
+      "sonrasında talep edilen teknik veya ticari değişikliklerin fiyat ve " +
+      "teslim süresine etkisi tarafların yazılı mutabakatı ile belirlenir. " +
+      "Müşteri sipariş belgelerinde yer alan farklı şartlar, ORION CRANES " +
+      "tarafından yazılı olarak kabul edilmedikçe teklif kapsamını değiştirmez.",
+  },
+  {
+    key: "price",
+    title: "Fiyat ve Ödeme",
+    body:
+      "Fiyat ve ödeme koşulları teklifte belirtildiği şekildedir. Teklifte aksi " +
+      "belirtilmedikçe KDV, vergi, harç, banka ve teminat masrafları fiyatlara " +
+      "dahil değildir. Ödemelerde veya Müşteri kaynaklı süreçlerde oluşabilecek " +
+      "gecikmeler teslim programına yansıtılabilir. Müşteri kaynaklı nedenlerle " +
+      "teslim programının önemli ölçüde ötelenmesi halinde, bu gecikmeden doğan " +
+      "malzeme, işçilik ve diğer maliyet artışları taraflarca ayrıca " +
+      "değerlendirilir.",
+  },
+  {
+    key: "delivery",
+    title: "Teslim Süresi",
+    body:
+      "Teslim süresi; sipariş teyidi, teklifte öngörülen avansın alınması ve " +
+      "imalat için gerekli teknik bilgi ve onayların tamamlanması sonrasında " +
+      "başlar. Müşteri onayları, saha hazırlıkları veya Müşteri kapsamındaki " +
+      "işlerden kaynaklanan gecikmeler teslim süresine ilave edilir.",
+  },
+  {
+    key: "acceptance",
+    title: "Teslim, Risk ve Kabul",
+    body:
+      "Teslim, nakliye, montaj, devreye alma ve test kapsamı teklifte " +
+      "belirtilen şartlara göre yürütülür. Risk, teklifte belirtilen teslim " +
+      "şekline uygun olarak Müşteri'ye geçer. Müşteri kaynaklı nedenlerle hazır " +
+      "ürünün sevk veya teslim edilememesi halinde, teslimata bağlı ödeme " +
+      "vadeleri etkilenmez ve ürün uygun koşullarda Müşteri hesabına " +
+      "depolanabilir. Müşteri kapsamındaki saha, altyapı, enerji ve erişim " +
+      "şartlarının zamanında hazır olması esastır. Vincin kullanılmaya " +
+      "başlanmasından itibaren 1 hafta veya işlerin tamamlandığının " +
+      "bildirilmesinden itibaren 2 hafta içinde yazılı itiraz bulunmaması " +
+      "halinde kabul gerçekleşmiş sayılır; garanti kapsamındaki haklar " +
+      "saklıdır.",
+  },
+  {
+    key: "warranty",
+    title: "Garanti",
+    body:
+      "Teklifte aksi belirtilmedikçe garanti süresi devreye alma tarihinden " +
+      "itibaren 24 ay olup fatura tarihinden itibaren 30 ayı aşmaz. Garanti, " +
+      "ORION CRANES'ten kaynaklanan malzeme ve imalat hatalarını kapsar. " +
+      "Garanti, vincin teklifte belirtilen sınıflandırma, kullanım amacı ve " +
+      "çalışma koşulları içerisinde kullanılması halinde geçerlidir. Normal " +
+      "aşınma, bakım eksikliği, hatalı veya amaç dışı kullanım, yetkisiz " +
+      "müdahale ile belirtilen çalışma koşullarının aşılmasından kaynaklanan " +
+      "arızalar garanti kapsamında değerlendirilmez.",
+  },
+  {
+    key: "compliance",
+    title: "Mevzuat, Standartlar ve Dokümantasyon",
+    body:
+      "Ürün, teklifte belirtilen teknik şartlar ve uygulanması zorunlu mevzuat " +
+      "doğrultusunda tasarlanır ve teslim edilir. Teklif kapsamında bulunmayan " +
+      "ilave standart, üçüncü taraf muayene, sertifikasyon veya dokümantasyon " +
+      "taleplerinin fiyat ve teslim süresine etkisi ayrıca değerlendirilir.",
+  },
+  {
+    key: "liability",
+    title: "Sorumluluk ve Mücbir Sebep",
+    body:
+      "Uygulanabilir hukukun izin verdiği ölçüde ORION CRANES'in sözleşmeden " +
+      "doğan toplam sorumluluğu sözleşme bedeli ile sınırlıdır; emredici " +
+      "mevzuattan doğan sorumluluklar saklıdır. Üretim, kullanım ve kâr kaybı " +
+      "gibi dolaylı zararlar kapsam dışındadır. Gecikme cezasının ayrıca " +
+      "kararlaştırıldığı hallerde toplam gecikme cezası sözleşme bedelinin " +
+      "%5'ini aşamaz. Tarafların kontrolü dışında gelişen ve makul olarak " +
+      "önlenemeyen mücbir sebep hallerinde ilgili yükümlülük ve süreler olayın " +
+      "etkisi ölçüsünde yeniden değerlendirilir.",
+  },
+  {
+    key: "cancellation",
+    title: "Siparişin İptali",
+    body:
+      "Siparişin ORION CRANES'ten kaynaklanmayan bir nedenle Müşteri tarafından " +
+      "iptal edilmesi halinde, iptal tarihine kadar gerçekleştirilen " +
+      "mühendislik, temin edilen malzeme ve alt tedarikçilere verilmiş " +
+      "bağlayıcı siparişlerden doğan maliyetler Müşteri tarafından karşılanır.",
+  },
+  {
+    key: "ip",
+    title: "Fikri Haklar ve Uygulanacak Hukuk",
+    body:
+      "ORION CRANES tarafından hazırlanan tasarım, çizim, hesap ve teknik " +
+      "dokümanlara ilişkin fikri haklar ORION CRANES'e aittir ve yalnızca " +
+      "ilgili proje amacıyla kullanılabilir. Taraflar olası uyuşmazlıkları " +
+      "öncelikle karşılıklı görüşme yoluyla çözmeye çalışır. Aksi yazılı olarak " +
+      "kararlaştırılmadıkça Türk hukuku uygulanır ve Ankara Mahkemeleri ve İcra " +
+      "Daireleri yetkilidir.",
+  },
 ];
 
 /** Fiyat satırının birimi — "1 Takım" en sık, "Kişi" süpervizörlük içindir. */

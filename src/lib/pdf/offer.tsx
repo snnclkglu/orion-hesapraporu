@@ -36,9 +36,17 @@ import {
   type CompanyInfo,
 } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
-import { printedPayload } from "@/lib/offers/payload";
+import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
 import { discountAmount, lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
+import {
+  SUTUN_BOSLUK,
+  SUTUN_GENISLIK,
+  blokBasligi,
+  offerPdfSayfalari,
+  type OfferPdfBlok,
+} from "@/lib/offers/pdf-layout";
+import { GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { offerScopeSuffix } from "@/lib/offers/types";
 import type {
   OfferGroup,
@@ -199,6 +207,40 @@ const S = StyleSheet.create({
     paddingVertical: 1.2,
   },
 
+  // ---- ÇİFT SÜTUN (kullanıcı isteği 18.08.2026, md. 8)
+  //
+  // Sütunlar SABİT GENİŞLİKTİR (`SUTUN_GENISLIK`), esnek değil: sayfalama
+  // modülü yüksekliği o genişliğe göre ÖLÇÜYOR (`pdf-layout.ts`) ve yoga
+  // burada başka bir genişlik hesaplarsa ölçü ile çizim ayrışır — bir sütun
+  // taşar, öteki boş kalır.
+  sutunlar: { flexDirection: "row", gap: SUTUN_BOSLUK },
+  sutun: { width: SUTUN_GENISLIK },
+  // Sayfa başlığı: üstte kırmızı kicker, altında büyük başlık, sağda künye.
+  sayfaBasi: { flexDirection: "row", alignItems: "flex-end", marginBottom: 10 },
+  sayfaKicker: { ...T.kicker, color: BRAND.red, marginBottom: 2 },
+  // KÜNYE KELEPÇELİDİR: esnek satırda genişlik verilmezse büyük başlık bütün
+  // yeri alır ve künye ortasından KIRPILIR ("… GEZER KÖPRÜLÜ Vİ"). 150 pt,
+  // 6 pt'de ~28 karakter — kalem adı iki satıra sarar ve tam okunur.
+  sayfaKunye: {
+    ...T.micro,
+    fontSize: 6,
+    lineHeight: 1.35,
+    color: BRAND.gray600,
+    textAlign: "right",
+    width: 150,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+
+  // ---- GENEL ŞARTLAR (md. 9)
+  //
+  // "Daha küçük ve biraz silik" (kullanıcı cümlesi): 6,6 pt gövde ve
+  // `gray600`. Belgenin geri kalanı 8 pt / `ink`tir; şartlar okunabilir ama
+  // ÖNE ÇIKMAZ — hukukî bir ek olduğu tipografiden anlaşılır.
+  sartMadde: { marginBottom: 6 },
+  sartBaslik: { fontFamily: FONTS.sans, fontSize: 7, fontWeight: 700, color: BRAND.gray700, marginBottom: 1.5 },
+  sartGovde: { fontFamily: FONTS.sans, fontSize: 6.6, lineHeight: 1.45, color: BRAND.gray600, textAlign: "justify" },
+
   // ---- fiyat tablosu
   fiyatBaslikSatiri: { flexDirection: "row", backgroundColor: BRAND.ink, marginTop: 4 },
   fiyatBaslik: {
@@ -274,17 +316,31 @@ function EtiketliSatir({
   label,
   value,
   labelWidth = ETIKET_GENISLIK,
+  akis,
   scope,
 }: {
   label: string;
   value: string;
   labelWidth?: number;
+  /**
+   * AKIŞ KİPİ — etiket SABİT SÜTUN DEĞİL, kendi boyunda.
+   *
+   * Tek sütunlu sayfada etiketler 148 pt'lik bir sütunda hizalıdır ve bu
+   * okumayı kolaylaştırır. 234,78 pt'lik bir SÜTUNDA aynı genişlik değere
+   * yalnız ~78 pt bırakır: "GAMAK 22 kW 1500 d/dak, Encoderli" dört satıra
+   * sarar ve sayfalama modülünün ölçüsü (etiket + değer birlikte akar)
+   * tutmaz — modül 2 satır sayarken çizim 4 satır çizer, sütun taşar.
+   *
+   * Ölçü ile çizim AYNI MODELİ kullanmak zorundadır; `pdf-layout.ts`
+   * akış modelini ölçer, bu bayrak onu çizer.
+   */
+  akis?: boolean;
   scope?: OfferRowScope;
 }) {
   const kapsam = offerScopeSuffix(scope);
   return (
     <View style={S.satir} wrap={false}>
-      <Text style={[S.etiket, { width: labelWidth }]}>{label}</Text>
+      <Text style={[S.etiket, akis ? { flexShrink: 1 } : { width: labelWidth }]}>{label}</Text>
       <Text style={S.ikiNokta}>:</Text>
       <Text style={S.deger}>
         {value}
@@ -321,6 +377,129 @@ function GrupBloku({ group }: { group: OfferGroup }) {
         <SatirBasimi key={row.key || i} row={row} />
       ))}
     </View>
+  );
+}
+
+/**
+ * SÜTUNDAKİ BİR BLOK — grup ya da grubun devamı.
+ *
+ * Etiket genişliği SABİT DEĞİLDİR (`labelWidth` verilmez): tek sütunda 148 pt
+ * bir etiket sütunu vardı ve değer ancak kalan yere yazılıyordu. 234,78 pt'lik
+ * bir sütunda o düzen değerin çoğunu sardırırdı; burada etiket kendi boyunu
+ * alır, değer ARTAN yeri kaplar. Ölçüm bu düzenle yapıldı (`pdf-layout.ts`) —
+ * çizimi değiştirmek ölçüyü de geçersiz kılar.
+ */
+function SutunBloku({ blok }: { blok: OfferPdfBlok }) {
+  return (
+    <View>
+      <Text style={[S.grupBaslik, { marginTop: 0, marginBottom: 3 }]}>
+        {trUpper(blokBasligi(blok))}
+      </Text>
+      {blok.rows.map((row, i) => (
+        <EtiketliSatir key={row.key || i} label={row.label} value={row.value} scope={row.scope} akis />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * TEKNİK SAYFA — iki sütun.
+ *
+ * `wrap` AÇIK BIRAKILIR (varsayılan). `wrap={false}` verilseydi ölçü tahmini
+ * yanıldığında react-pdf içeriği KIRPARDI: müşteriye giden belgede sessiz veri
+ * kaybı. Açıkken taşan blok bir sonraki sayfaya iner — çirkin ama eksiksiz.
+ */
+function TeknikSayfa({
+  docLine,
+  kalemBasi,
+  kicker,
+  basliklar,
+  sol,
+  sag,
+  altBilgi,
+}: {
+  docLine: string;
+  kalemBasi: string;
+  kicker: string;
+  basliklar: string[];
+  sol: OfferPdfBlok[];
+  sag: OfferPdfBlok[];
+  altBilgi?: React.ReactNode;
+}) {
+  return (
+    <BrandPage docLine={docLine}>
+      <View style={S.sayfaBasi}>
+        <View style={{ flexGrow: 1, flexShrink: 1 }}>
+          <Text style={S.sayfaKicker}>{kicker}</Text>
+          {/* BAŞLIK O SAYFADAKİ GRUPLARIN ADIDIR ("GENEL · KALDIRMA · ARABA"):
+              kullanıcının paylaştığı ön çalışmanın düzeni. İki sayfaya taşan
+              bir kalemde ikinci sayfanın başlığı kendi gruplarını sayar, yani
+              okuyan hangi sayfada ne olduğunu başlıktan bilir. */}
+          <Text style={S.bolumBaslik}>{trUpper(basliklar.join(" · "))}</Text>
+        </View>
+        <Text style={S.sayfaKunye}>{kalemBasi}</Text>
+      </View>
+
+      <View style={S.sutunlar}>
+        <View style={S.sutun}>
+          {sol.map((b, i) => (
+            <View key={`${b.group.id}-${i}`} style={{ marginBottom: 9 }}>
+              <SutunBloku blok={b} />
+            </View>
+          ))}
+        </View>
+        <View style={S.sutun}>
+          {sag.map((b, i) => (
+            <View key={`${b.group.id}-${i}`} style={{ marginBottom: 9 }}>
+              <SutunBloku blok={b} />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {altBilgi}
+    </BrandPage>
+  );
+}
+
+/**
+ * GENEL ŞARTLAR SAYFASI — belgenin sonunda, küçük ve silik.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 9). NUMARA VERİDE DEĞİL, burada da
+ * hesaplanmaz: `printedGeneralTerms` gizli maddeleri düşürdükten SONRA
+ * numaralar. Gizlenen bir madde numarayı da götürür, yani belgede 1..N
+ * kesintisizdir — "3. madde yok" diye okunan bir teklif, silinmiş bir şart
+ * arattırırdı.
+ *
+ * İKİ SÜTUN DEĞİL TEK SÜTUN: şartlar bir okuma metnidir ve 6,6 pt'de 235 pt
+ * genişlik satır başına ~38 karakter demektir — hukukî bir paragraf o
+ * genişlikte okunmaz.
+ */
+function GenelSartlarSayfasi({
+  docLine,
+  maddeler,
+}: {
+  docLine: string;
+  maddeler: { no: number; title: string; body: string }[];
+}) {
+  if (maddeler.length === 0) return null;
+  return (
+    <BrandPage docLine={docLine}>
+      <View style={S.sayfaBasi}>
+        <View style={{ flexGrow: 1, flexShrink: 1 }}>
+          <Text style={S.sayfaKicker}>EKLER</Text>
+          <Text style={S.bolumBaslik}>{trUpper(GENERAL_TERMS_TITLE)}</Text>
+        </View>
+      </View>
+      {maddeler.map((m) => (
+        <View key={m.no} style={S.sartMadde} wrap={false}>
+          <Text style={S.sartBaslik}>
+            {m.no}. {m.title}
+          </Text>
+          <Text style={S.sartGovde}>{m.body}</Text>
+        </View>
+      ))}
+    </BrandPage>
   );
 }
 
@@ -711,6 +890,20 @@ function MetinBlogu({
 
 // ————————————————————————————————————————————————————————————— belge
 
+/**
+ * SÜTUN KAPASİTESİ — bir teknik sayfada bir sütuna sığan yükseklik (pt).
+ *
+ * İçerik alanı 745,69 pt; sayfa başlığı (kicker + büyük başlık + boşluk)
+ * ~46 pt harcar. Kalanı `pdf-layout` ayrıca %94 ile kelepçeler.
+ */
+const PDF_SUTUN_KAPASITE = 745.69 - 46;
+
+/** Sayfa sırası için romen rakamı — "TEKNİK ÖZELLİKLER · II". */
+function romen(n: number): string {
+  const t = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+  return t[n] ?? String(n);
+}
+
 /** Altbilgi künyesi: `TETR-20260127-1 · REV 02 · HABAŞ DÖRTYOL 20T VİNÇ`. */
 function altbilgi(offer: OfferDocumentProps["offer"]): string {
   const konu = offer.subject.trim();
@@ -748,18 +941,41 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
       {/* TEKNİK SAYFALAR — HER KALEM YENİ SAYFADA. Bir ekipmanın özellikleri
           bir öncekinin dibinden devam ettiğinde müşteri iki vincin satırlarını
           karıştırıyordu; ayrım sayfa ile yapılır. */}
-      {items.map((item, i) => (
-        <BrandPage key={item.id} docLine={docLine}>
-          <Text style={S.bolumBaslik}>{kalemBasligi(item.title)}</Text>
-          {item.groups.map((group) => (
-            <GrupBloku key={group.id} group={group} />
-          ))}
-          {/* TEST YÜKÜ "teknik" konumunda SON teknik sayfanın ardındadır.
-              Ayrı bir yaprağa alınmadı: iki satırlık bir bloğun tek başına
-              bir A4 tüketmesi belgeyi kalınlaştırır, okunur kılmaz. */}
-          {testYukuTeknikte && i === items.length - 1 ? <TestYuku payload={payload} /> : null}
-        </BrandPage>
-      ))}
+      {items.flatMap((item, i) => {
+        // SAYFALAMA ÇİZİMDEN AYRIDIR (`pdf-layout.ts`): hangi grubun hangi
+        // sütuna ve hangi sayfaya düşeceğini saf bir modül hesaplar ve o modül
+        // vitest ile sınanır. Burada hesaplansaydı sütun düzenini ölçmenin tek
+        // yolu PDF üretip metnini geri okumak olurdu.
+        //
+        // İLK SAYFANIN KAPASİTESİ AZDIR: sayfa başlığı (kicker + büyük başlık)
+        // yaklaşık 46 pt yer kaplar ve o pay yalnız ilk sayfada harcanır.
+        const sayfalar = offerPdfSayfalari(item.groups, PDF_SUTUN_KAPASITE);
+        const kalemAdi = kalemBasligi(item.title);
+        return sayfalar.map((sayfa, s) => (
+          <TeknikSayfa
+            key={`${item.id}-${s}`}
+            docLine={docLine}
+            kalemBasi={`${trUpper(item.title)}
+${docLine}`}
+            kicker={
+              sayfalar.length > 1
+                ? `TEKNİK ÖZELLİKLER · ${romen(s + 1)}`
+                : "TEKNİK ÖZELLİKLER"
+            }
+            basliklar={sayfa.basliklar.length ? sayfa.basliklar : [kalemAdi]}
+            sol={sayfa.sol}
+            sag={sayfa.sag}
+            altBilgi={
+              /* TEST YÜKÜ "teknik" konumunda SON teknik sayfanın ardındadır.
+                 Ayrı bir yaprağa alınmadı: iki satırlık bir bloğun tek başına
+                 bir A4 tüketmesi belgeyi kalınlaştırır, okunur kılmaz. */
+              testYukuTeknikte && i === items.length - 1 && s === sayfalar.length - 1 ? (
+                <TestYuku payload={payload} />
+              ) : null
+            }
+          />
+        ));
+      })}
 
       {/* TİCARİ SAYFA — şartlar, fiyat, notlar, kapsam dışı işler. */}
       <BrandPage docLine={docLine}>
@@ -768,9 +984,21 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
         {testYukuTicaride ? <TestYuku payload={payload} ilk /> : null}
         <TicariBlok payload={payload} ilk={!testYukuTicaride} />
         <FiyatTablosu payload={payload} currency={offer.currency} />
-        <MetinBlogu baslik="Notlar" satirlar={payload.notes} />
-        <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} madde />
+        {/* NOTLAR VE KAPSAM DIŞI İŞLER YAN YANA (kullanıcı isteği md. 8):
+            ikisi de kısa listelerdir ve alt alta durduklarında ticari sayfanın
+            yarısını boş bırakıyorlardı. */}
+        <View style={[S.sutunlar, { marginTop: 4 }]}>
+          <View style={S.sutun}>
+            <MetinBlogu baslik="Notlar" satirlar={payload.notes} />
+          </View>
+          <View style={S.sutun}>
+            <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} madde />
+          </View>
+        </View>
       </BrandPage>
+
+      {/* GENEL ŞARTLAR — belgenin SON sayfası (md. 9). */}
+      <GenelSartlarSayfasi docLine={docLine} maddeler={printedGeneralTerms(payload)} />
     </Document>
   );
 }

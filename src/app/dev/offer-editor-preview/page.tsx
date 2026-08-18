@@ -269,7 +269,8 @@ export default function OfferEditorPreviewPage() {
                   <PageHeader kicker="Teklif" title="32T VİNÇ" hint="ASTOR A.Ş." />
                   <OfferEditor
                     offerId="00000000-0000-0000-0000-000000000000"
-                    offerNo="TETR-20260817-1"
+                    offerSubject="32T x 30M ÇİFT KİRİŞ TAM PORTAL VİNÇ"
+        offerNo="TETR-20260817-1"
                     revisionId="00000000-0000-0000-0000-000000000000"
                     revNo={0}
                     readOnly={false}

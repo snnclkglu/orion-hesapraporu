@@ -29,6 +29,27 @@ export const newOfferSchema = z.object({
 
 export type NewOfferInput = z.infer<typeof newOfferSchema>;
 
+/**
+ * TEKLİF KONUSU — kapaktan düzenlenir.
+ *
+ * Kullanıcı isteği (18.08.2026): *"KAPAK bölümünde teklif Konusunu
+ * düzenleyebilmeliyim. PDF ismi de oradan çeksin."* Konu bugüne kadar yalnız
+ * teklif AÇILIRKEN soruluyordu; oysa kapsam çalışırken netleşir ve dosya adı
+ * ("32T x 30M PORTAL VİNÇ - TETR-… - REV 01.pdf") tam da o metinden kurulur.
+ *
+ * KONU BELGENİN DEĞİL TEKLİFİN ALANIDIR (`offers.subject`), revizyonun
+ * payload'ında durmaz: liste, dosya adı, altbilgi künyesi ve maliyet
+ * belgesinin adı hep onu okur. Payload'a taşınsaydı her revizyon başka bir
+ * konu taşıyabilir ve teklif listesi hangisini göstereceğini bilemezdi.
+ *
+ * BÜYÜK HARF SAKLANIR (`adBuyuk`, değişmez md. 3) — `toUpperCase()` DEĞİL.
+ */
+export const offerSubjectSchema = z.object({
+  subject: adAlani("Teklif konusu gerekli"),
+});
+
+export type OfferSubjectInput = z.infer<typeof offerSubjectSchema>;
+
 export const offerDetailsSchema = z.object({
   subject: adAlani("Teklif konusu gerekli"),
   customerId: z.uuid("Müşteri seçilmeli"),

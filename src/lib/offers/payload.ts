@@ -6,9 +6,11 @@
 // (`printedPayload`).
 
 import { rowHasValue, withComposedValue } from "./compose";
+import { paymentDescText } from "./pricing";
 import {
   AUX_TROLLEY_GROUP_KEY,
   CUSTOM_GROUP_KEY,
+  GENERAL_TERM_DEFS,
   OFFER_GROUP_DEFS,
   OFFER_GROUP_DEF_BY_KEY,
   TROLLEY_1_TITLE,
@@ -24,6 +26,8 @@ import {
   offerRowDef,
 } from "./registry";
 import type {
+  OfferGeneralTerm,
+  OfferGeneralTermDef,
   OfferGroup,
   OfferItem,
   OfferPayload,
@@ -70,6 +74,22 @@ export function emptyItem(title = "", groupKeys: readonly string[] = []): OfferI
   // tutarlı olmalıdır, yoksa belgede "VİNÇ ARABASI" ile "VİNÇ ARABASI - 2"
   // yan yana basılır ve birincisi numarasız kalır.
   return trolleyCount(item) === 2 ? setTrolleyCount(item, 2).item : item;
+}
+
+/** Defterdeki genel şart maddesinin BELGEDEKİ kopyası. */
+export function generalTermFromDef(def: OfferGeneralTermDef): OfferGeneralTerm {
+  return { id: newOfferId(), key: def.key, title: def.title, body: def.body };
+}
+
+/**
+ * Kullanıcının kendi açtığı madde — ANAHTARI BOŞTUR.
+ *
+ * Boş anahtar bir eksiklik değil bir BİLGİDİR: "bu madde defterden gelmedi".
+ * Defter yarın değişirse hangi maddelerin kaynağı olduğu ancak böyle bilinir;
+ * uydurma bir anahtar ("custom-3") maddeyi defterden gelmiş gibi gösterirdi.
+ */
+export function newGeneralTerm(title = "", body = ""): OfferGeneralTerm {
+  return { id: newOfferId(), key: "", title, body };
 }
 
 /** Serbest kalemin tek bölümünün adı — defterde karşılığı olmayan bir öbek. */
@@ -174,6 +194,11 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
     pricing: { currency, vatIncluded: false, lines: [], discountTotal: null, total: null },
     notes: [],
     exclusions: [],
+    // GENEL ŞARTLAR YENİ BELGEDE HEPSİ AÇIK GELİR (kullanıcı isteği,
+    // 18.08.2026, md. 9: *"Oraya hepsi açık gelsin"*). Bu, iskeletin değil
+    // İÇERİĞİN kopyalandığı tek yerdir ve uydurma veri değildir: metin
+    // firmanın kendi hukukî beyanıdır, teklifin varsayılan hâli odur.
+    generalTerms: GENERAL_TERM_DEFS.map(generalTermFromDef),
   };
 }
 
@@ -535,7 +560,11 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         id: metin(l.id) || newOfferId(),
         text: metin(l.text),
         percent: sayiVeyaNull(l.percent),
-        desc: metin(l.desc),
+        // AÇIKLAMA YÜZDE TAŞIMAZ: yüzde `percent` alanının işidir ve basılan
+        // metni `paymentLineText` ondan kurar. Devralınan kayıtlarda ikisi
+        // birden yazılıydı ve belge "%40 %40 Avans …" basıyordu (kullanıcı
+        // bildirimi 18.08.2026).
+        desc: paymentDescText(metin(l.desc)),
         hidden: l.hidden === true,
       })),
     },
@@ -552,6 +581,8 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         inTotal: l.inTotal !== false,
         optional: l.optional === true,
         hidden: l.hidden === true,
+        // ELLE MALİYET eski kayıtlarda yoktur ve `null` gelir.
+        manualCost: sayiVeyaNull(l.manualCost),
       })),
       // İSKONTO ALANI ESKİ KAYITLARDA YOKTUR ve `null` gelir — iskonto
       // kararının hiç verilmemiş olması demektir (sıfır değil).
@@ -568,7 +599,42 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       text: metin(n.text),
       hidden: n.hidden === true,
     })),
+    // GENEL ŞARTLAR TAŞINIR AMA DEFTERDEN TAMAMLANMAZ. Alanı olmayan eski
+    // belgede bu bölüm BOŞ gelir; `emptyPayload`ın on maddesi buraya SIZMAZ.
+    //
+    // Bu bir karardır, bir eksik değil (TEKLIF-14 ve MALIYET-22'nin aynı
+    // ayrımı): taşıma yolu YAYIMLANMIŞ bir belgeyi de okur ve orada varsayılan
+    // uygulamak, müşteriye giden metnin sonradan değişmesi demektir. Genel
+    // şartlar hukukî bir beyandır — teklif verildiğinde belgede olmayan on
+    // madde, altı ay sonra açılan revizyonun son sayfasında kendiliğinden
+    // belirmemelidir. Deftere başvurmak AÇIK bir eylemdir:
+    // `withDefaultGeneralTerms` (editördeki "Defterden Getir").
+    generalTerms: dizi<Record<string, unknown>>(p.generalTerms).map((t) => ({
+      id: metin(t.id) || newOfferId(),
+      key: metin(t.key),
+      title: metin(t.title),
+      body: metin(t.body),
+      hidden: t.hidden === true,
+    })),
   };
+}
+
+/**
+ * DEFTERDEN GETİR — bölümü on maddeyle doldurur.
+ *
+ * `withDefaultRates`in ikizidir ve aynı sebeple taşımadan AYRI durur: orada
+ * varsayılan uygulamak sessizce olurdu, burada eylemi insan başlatır ve
+ * sonucunu ekranda görür.
+ *
+ * DOLU BÖLÜME DOKUNMAZ. Tek bir madde bile duruyorsa kullanıcı orada bir karar
+ * vermiştir (dokuzunu silmiş, birini kendi yazmış olabilir) ve defteri üstüne
+ * boşaltmak o kararı geri alırdı. Eksik maddeyi anahtarına bakıp tamamlamak da
+ * seçilmedi: kullanıcının SİLDİĞİ madde ile HİÇ GÖRMEDİĞİ madde payload'da
+ * aynı görünür ve ikisi birbirinin tersi anlama gelir.
+ */
+export function withDefaultGeneralTerms(payload: OfferPayload): OfferPayload {
+  if (payload.generalTerms.length > 0) return payload;
+  return { ...payload, generalTerms: GENERAL_TERM_DEFS.map(generalTermFromDef) };
 }
 
 // ————————————————————————————————————————————————————————— süzme
@@ -611,6 +677,40 @@ export function printedTextLines(lines: readonly OfferTextLine[]): OfferTextLine
   return lines.filter((l) => !l.hidden && l.text.trim() !== "");
 }
 
+/**
+ * Genel şart maddelerinin TEK süzgeci — `printedPayload` da bunu çağırır.
+ *
+ * SÖZSÜZ MADDE BASILMAZ: başlığı da gövdesi de boş bir madde belgede numara
+ * alır ama bir şey söylemez (`printedTextLines` ile aynı kural). Yalnız
+ * başlığı ya da yalnız gövdesi olan madde BASILIR — kullanıcı bir maddeyi tek
+ * cümleyle, başlıksız yazabilir.
+ */
+function printedTermItems(terms: readonly OfferGeneralTerm[]): OfferGeneralTerm[] {
+  return terms.filter((t) => !t.hidden && (t.title.trim() !== "" || t.body.trim() !== ""));
+}
+
+/**
+ * BASILACAK MADDELER, NUMARALARIYLA — PDF bunu çağırır.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 9): *"Madde numaraları da buna göre
+ * düzelsin."* NUMARA SÜZGEÇTEN SONRA üretilir: üçüncü madde kapatılırsa kalan
+ * dokuz madde 1..9 diye KESİNTİSİZ numaralanır, belgede boşluk kalmaz.
+ *
+ * Numarayı belgeyi dizen tarafa bırakmak (PDF'te `index + 1`) bugün aynı
+ * sonucu verirdi; ama kural iki yere yazılmış olurdu ve ekran önizlemesi ile
+ * PDF ilk ayrıştıklarında hangisinin doğru olduğunu söyleyecek bir yer
+ * kalmazdı — `printedRows`un tek süzgeç olmasının sebebi budur.
+ */
+export function printedGeneralTerms(
+  payload: OfferPayload
+): { no: number; title: string; body: string }[] {
+  return printedTermItems(payload.generalTerms).map((t, i) => ({
+    no: i + 1,
+    title: t.title.trim(),
+    body: t.body.trim(),
+  }));
+}
+
 /** Belgeye BASILACAK hâl — PDF ve ekran özeti bunu okur. */
 export function printedPayload(payload: OfferPayload): OfferPayload {
   return {
@@ -622,9 +722,19 @@ export function printedPayload(payload: OfferPayload): OfferPayload {
       rows: printedRows(payload.terms.rows),
       paymentLines: payload.terms.paymentLines.filter((l) => !l.hidden && l.text.trim() !== ""),
     },
-    pricing: { ...payload.pricing, lines: payload.pricing.lines.filter((l) => !l.hidden) },
+    // ELLE MALİYET BELGEYE GİTMEZ. Teklif PDF'inde maliyet sütunu yoktur ve
+    // olmamalıdır (MALIYET-1); alanın basılan payload'a hiç ulaşmaması, onu
+    // bir gün yanlışlıkla basmanın da önünü keser — koruma tek bir bileşenin
+    // dikkatine bırakılmaz.
+    pricing: {
+      ...payload.pricing,
+      lines: payload.pricing.lines
+        .filter((l) => !l.hidden)
+        .map(({ manualCost: _elleMaliyet, ...l }) => l),
+    },
     notes: printedTextLines(payload.notes),
     exclusions: printedTextLines(payload.exclusions),
+    generalTerms: printedTermItems(payload.generalTerms),
   };
 }
 
@@ -644,5 +754,9 @@ export function hiddenCount(payload: OfferPayload): number {
   n += payload.pricing.lines.filter((l) => l.hidden).length;
   n += payload.notes.filter((l) => l.hidden).length;
   n += payload.exclusions.filter((l) => l.hidden).length;
+  // KAPATILAN ŞART MADDESİ DE SAYILIR: bir şartı kapatmak belgenin hukukî
+  // içeriğini değiştirir ve sayaçtan düşerse gizlemenin en pahalı hâli
+  // sessizce yapılmış olurdu.
+  n += payload.generalTerms.filter((t) => t.hidden).length;
   return n;
 }

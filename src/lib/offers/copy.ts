@@ -80,6 +80,9 @@ export function copyPayloadForCustomer(
     },
     notes: payload.notes.map((n) => ({ ...n, id: newOfferId() })),
     exclusions: payload.exclusions.map((n) => ({ ...n, id: newOfferId() })),
+    // GENEL ŞARTLAR da kimlik yeniler: dosyanın kendi kuralı budur ve bir
+    // bölümün atlanması, iki belgenin aynı madde kimliğini taşıması demekti.
+    generalTerms: payload.generalTerms.map((t) => ({ ...t, id: newOfferId() })),
   };
 }
 

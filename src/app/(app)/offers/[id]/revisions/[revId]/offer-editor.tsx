@@ -46,13 +46,16 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney, parseNum } from "@/lib/currency";
+import { offerFileName } from "@/lib/pdf/doc-naming";
 import {
   greetingFor,
   hiddenCount,
   newOfferId,
+  newGeneralTerm,
   newPriceLine,
   newTextLine,
+  withDefaultGeneralTerms,
 } from "@/lib/offers/payload";
 import {
   applyDiscountToLines,
@@ -74,6 +77,7 @@ import {
 } from "@/lib/offers/registry";
 import { offerDocLine } from "@/lib/offers/no";
 import type {
+  OfferGeneralTerm,
   OfferPayload,
   OfferPriceLine,
   OfferRow,
@@ -89,7 +93,12 @@ import {
   type OfferOptionRow,
   type OfferTemplateRow,
 } from "@/app/(app)/offers/data";
-import { ensureOfferOption, issueOfferRevision, saveOfferRevision } from "@/app/(app)/offers/actions";
+import {
+  ensureOfferOption,
+  issueOfferRevision,
+  saveOfferRevision,
+  updateOfferSubject,
+} from "@/app/(app)/offers/actions";
 import { createOfferCostRevision } from "@/app/(app)/offers/cost-actions";
 import type { OfferCostForEditor } from "@/app/(app)/offers/cost-data";
 import { costMargin } from "@/lib/offers/cost/totals";
@@ -102,6 +111,7 @@ type BolumKey = string;
 export function OfferEditor({
   offerId,
   offerNo,
+  offerSubject,
   revisionId,
   revNo,
   readOnly,
@@ -115,6 +125,8 @@ export function OfferEditor({
 }: {
   offerId: string;
   offerNo: string;
+  /** Teklifin KONUSU — `offers.subject`. Kapaktan düzenlenir, dosya adı bunu okur. */
+  offerSubject: string;
   revisionId: string;
   revNo: number;
   readOnly: boolean;
@@ -179,6 +191,7 @@ export function OfferEditor({
       { key: "fiyat", label: "Fiyat" },
       { key: "notlar", label: "Notlar" },
       { key: "kapsam", label: "Kapsam Dışı" },
+      { key: "sartlar", label: "Genel Şartlar" },
     ],
     [payload.items]
   );
@@ -377,6 +390,10 @@ export function OfferEditor({
         >
           {aktif === "kapak" ? (
             <KapakEditor
+              offerId={offerId}
+              offerNo={offerNo}
+              revNo={revNo}
+              offerSubject={offerSubject}
               payload={payload}
               listesi={listesi}
               contacts={contacts}
@@ -438,6 +455,14 @@ export function OfferEditor({
             />
           ) : null}
 
+          {aktif === "sartlar" ? (
+            <GenelSartlarEditoru
+              maddeler={payload.generalTerms}
+              onChange={(fn) => guncelleIle((p) => ({ ...p, generalTerms: fn(p.generalTerms) }))}
+              onDefterdenGetir={() => guncelleIle(withDefaultGeneralTerms)}
+            />
+          ) : null}
+
           {aktif === "kapsam" ? (
             <MetinListesi
               baslik="KAPSAM DIŞI İŞLER"
@@ -491,12 +516,20 @@ export function OfferEditor({
 // ————————————————————————————————————————————————————————— kapak
 
 function KapakEditor({
+  offerId,
+  offerNo,
+  revNo,
+  offerSubject,
   payload,
   listesi,
   contacts,
   authors,
   onChange,
 }: {
+  offerId: string;
+  offerNo: string;
+  revNo: number;
+  offerSubject: string;
   payload: OfferPayload;
   listesi: (key: string) => string[];
   contacts: readonly CustomerContact[];
@@ -508,8 +541,63 @@ function KapakEditor({
   const kisiler = activeContacts(contacts);
   const ekler = listesi("cover.honorific");
 
+  // KONU BELGENİN DEĞİL TEKLİFİN ALANIDIR (`offers.subject`) ve bu yüzden
+  // payload'la birlikte DEĞİL, kendi eylemiyle kaydedilir. Kaydetme ODAK
+  // ÇIKINCA olur: her tuşta sunucuya gitmek, yazarken on beş istek demekti.
+  const [konu, setKonu] = useState(offerSubject);
+  const [konuPending, konuGecis] = useTransition();
+
+  function konuyuKaydet() {
+    const temiz = konu.trim();
+    if (!temiz || temiz === offerSubject) {
+      setKonu(offerSubject);
+      return;
+    }
+    konuGecis(async () => {
+      const res = await updateOfferSubject(offerId, { subject: temiz });
+      if (res.error) {
+        toast.error(res.error);
+        setKonu(offerSubject);
+        return;
+      }
+      toast.success("Teklif konusu güncellendi.");
+    });
+  }
+
   return (
     <div className="grid gap-4">
+      {/* TEKLİF KONUSU — kullanıcı isteği (18.08.2026): *"KAPAK bölümünde
+          teklif Konusunu düzenleyebilmeliyim. PDF ismi de oradan çeksin."*
+          Dosya adı (`offerFileName`), altbilgi künyesi, teklif listesi ve
+          maliyet belgesinin adı hepsi bu tek metni okur — o yüzden burada
+          değiştirilen konu hepsinde birden değişir. */}
+      <Bolum
+        baslik="TEKLİF KONUSU"
+        aciklama="Teklifin künyesi: dosya adı, altbilgi ve teklif listesi bunu okur. BÜYÜK HARF saklanır."
+      >
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="grid min-w-0 flex-1 gap-1.5">
+            <Label htmlFor="teklif-konusu">Konu</Label>
+            <Input
+              id="teklif-konusu"
+              value={konu}
+              disabled={konuPending}
+              onChange={(e) => setKonu(e.target.value)}
+              onBlur={konuyuKaydet}
+              className="h-9 text-base pointer-fine:text-sm"
+            />
+          </div>
+          {/* DOSYA ADI CANLI GÖRÜNÜR: kullanıcının istediği bağ ("PDF ismi de
+              oradan çeksin") ancak sonucu görülünce doğrulanabilir. */}
+          <p className="min-w-0 text-xs text-muted-foreground">
+            Dosya adı:{" "}
+            <span className="font-mono break-all">
+              {offerFileName(konu.trim() || offerSubject, offerNo, revNo)}
+            </span>
+          </p>
+        </div>
+      </Bolum>
+
       <Bolum baslik="KİMDEN" aciklama="Teklifi hazırlayan; kapağın sol sütununda basılır.">
         {/*
           HAZIRLAYAN DEFTERDEN SEÇİLİR (kullanıcı isteği, 17.08.2026: *"KİMDEN
@@ -1001,7 +1089,7 @@ function FiyatEditor({
    * Serbest satırda (kalem bağı yok) maliyet YOKTUR ve sıfır da yazılmaz.
    */
   const satirMaliyeti = (line: OfferPriceLine): number | null =>
-    line.itemId && cost ? (cost.byItem[line.itemId] ?? null) : null;
+    line.itemId ? (cost ? (cost.byItem[line.itemId] ?? null) : null) : (line.manualCost ?? null);
 
   /**
    * AYNI KALEME BAĞLI BİRDEN ÇOK SATIR uyarılır, sessizce düzeltilmez.
@@ -1021,7 +1109,29 @@ function FiyatEditor({
     return new Set([...sayac.entries()].filter(([, n]) => n > 1).map(([id]) => id));
   }, [p.lines]);
 
-  const kar = costMargin(effectiveTotal(p), cost?.total ?? null);
+  /**
+   * BELGENİN TOPLAM MALİYETİ + SERBEST SATIRLARIN ELLE MALİYETİ.
+   *
+   * Maliyet çalışması yalnız TEKNİK KALEMLERİ tanır; serbest bir fiyat satırı
+   * (nakliye, mobil vinç, ara ürün) orada yoktur. Kullanıcı 18.08.2026'da o
+   * satırların maliyetini elle girebilmeyi istedi — girilen sayı kâr hesabına
+   * da girmelidir, yoksa kâr olduğundan yüksek görünürdü.
+   *
+   * TOPLAMA YALNIZ SERBEST SATIRLAR KATILIR: kaleme bağlı satırın maliyeti
+   * zaten `cost.total` içindedir ve ikinci kez eklemek onu çift sayardı
+   * (MALIYET-11'in "sütun toplanmaz" gerekçesinin aynısı).
+   */
+  const toplamMaliyet = useMemo(() => {
+    const serbest = p.lines
+      .filter((l) => !l.itemId && !l.hidden && l.inTotal)
+      .map((l) => l.manualCost ?? null)
+      .filter((n): n is number => n !== null);
+    const belge = cost?.total ?? null;
+    if (belge === null && serbest.length === 0) return null;
+    return (belge ?? 0) + serbest.reduce((t, n) => t + n, 0);
+  }, [p.lines, cost]);
+
+  const kar = costMargin(effectiveTotal(p), toplamMaliyet);
 
   function setLine(index: number, next: OfferPriceLine | null) {
     onChange({
@@ -1143,20 +1253,35 @@ function FiyatEditor({
                     className="h-9 text-base pointer-fine:text-sm"
                   />
                 </TableCell>
+                {/* SERBEST SATIRIN MALİYETİ ELLE GİRİLİR (kullanıcı isteği
+                    18.08.2026), kaleme bağlı satırınki maliyet belgesinden
+                    OKUNUR. İki kaynak asla toplanmaz: bağ varsa kutu hiç
+                    çizilmez, kutu varsa belge hiç okunmaz. */}
                 <TableCell className="text-right font-mono text-muted-foreground">
-                  {satirMaliyeti(line) === null ? (
-                    "—"
+                  {line.itemId ? (
+                    satirMaliyeti(line) === null ? (
+                      "—"
+                    ) : (
+                      <span
+                        title={
+                          cokluBaglar.has(line.itemId ?? "")
+                            ? "DİKKAT: bu kaleme birden çok fiyat satırı bağlı — maliyet her satırda tam görünür."
+                            : "Yüklü maliyet: doğrudan maliyet + proje geneli ve oranlı grupların payı"
+                        }
+                        className={cn(cokluBaglar.has(line.itemId ?? "") && "text-destructive underline")}
+                      >
+                        {fmtMoney(satirMaliyeti(line), p.currency)}
+                      </span>
+                    )
                   ) : (
-                    <span
-                      title={
-                        cokluBaglar.has(line.itemId ?? "")
-                          ? "DİKKAT: bu kaleme birden çok fiyat satırı bağlı — maliyet her satırda tam görünür."
-                          : "Yüklü maliyet: doğrudan maliyet + proje geneli ve oranlı grupların payı"
-                      }
-                      className={cn(cokluBaglar.has(line.itemId ?? "") && "text-destructive underline")}
-                    >
-                      {fmtMoney(satirMaliyeti(line), p.currency)}
-                    </span>
+                    <Input
+                      value={kutuMetni(line.manualCost ?? null)}
+                      inputMode="decimal"
+                      aria-label="Serbest satır maliyeti"
+                      title="Serbest satırın maliyeti — maliyet çalışmasında karşılığı yoktur, buraya siz yazarsınız. Müşteriye giden belgede GÖRÜNMEZ."
+                      onChange={(e) => setLine(i, { ...line, manualCost: sayiVeyaNull(e.target.value) })}
+                      className="h-9 text-right font-mono text-base pointer-fine:text-sm"
+                    />
                   )}
                 </TableCell>
                 <TableCell className="text-right font-mono">
@@ -1200,8 +1325,13 @@ function FiyatEditor({
                   toplamını okur: aynı kaleme bağlı iki satır varsa sütunun
                   toplamı o kalemi iki kez sayardı. Tek doğru toplam belgenin
                   kendisindedir. */}
+              {/* TOPLAM = maliyet belgesinin kendi toplamı + SERBEST satırlara
+                  elle yazılan maliyetler. Sütun toplanmaz (aynı kaleme bağlı
+                  iki satır o kalemi iki kez sayardı) ama serbest satırların
+                  maliyeti belgede HİÇ YOKTUR — onları eklememek, girilmiş bir
+                  gideri kâr hesabından düşürmek olurdu. */}
               <TableCell className="text-right font-mono font-semibold text-muted-foreground">
-                {cost?.total === null || cost === null ? "—" : fmtMoney(cost.total, p.currency)}
+                {toplamMaliyet === null ? "—" : fmtMoney(toplamMaliyet, p.currency)}
               </TableCell>
               <TableCell className="text-right font-mono font-semibold">
                 {toplam === null ? "—" : fmtMoney(toplam, p.currency)}
@@ -1397,6 +1527,120 @@ function IskontoAlani({
  * SIRA TIKLAMA SIRASIDIR, defterin sırası değil: kullanıcı maddeleri önem
  * sırasına göre seçer ve belgede o sırayla görmek ister.
  */
+/**
+ * GENEL ŞARTLAR EDİTÖRÜ — belgenin son sayfasındaki hukukî maddeler.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 9): *"maddeleri … hepsi açık gelsin. Ama
+ * ben istersem düzenleyebileyim yeni madde açabileyim değiştirebileyim. Madde
+ * numaraları da buna göre düzelsin."*
+ *
+ * NUMARA GÖSTERİLİR AMA SAKLANMAZ: ekrandaki sayı `printedGeneralTerms`in
+ * üreteceğinin AYNISIDIR — gizlenen madde numarayı da götürür ve kalanlar
+ * kesintisiz sayılır. Numara veriye yazılsaydı bir maddeyi gizlemek belgede
+ * "3." diye bir boşluk bırakırdı; müşteri orada silinmiş bir şart arardı.
+ */
+function GenelSartlarEditoru({
+  maddeler,
+  onChange,
+  onDefterdenGetir,
+}: {
+  maddeler: OfferGeneralTerm[];
+  onChange: (fn: (onceki: OfferGeneralTerm[]) => OfferGeneralTerm[]) => void;
+  onDefterdenGetir: () => void;
+}) {
+  const set = (id: string, yama: Partial<OfferGeneralTerm> | null) =>
+    onChange((onceki) =>
+      yama === null
+        ? onceki.filter((m) => m.id !== id)
+        : onceki.map((m) => (m.id === id ? { ...m, ...yama } : m))
+    );
+
+  // GÖRÜNEN NUMARA = BELGEDEKİ NUMARA. Gizli maddeler sayılmaz.
+  let sira = 0;
+  const numaralar = new Map<string, number>();
+  for (const m of maddeler) {
+    if (!m.hidden) numaralar.set(m.id, ++sira);
+  }
+
+  return (
+    <Bolum
+      baslik="GENEL ŞARTLAR"
+      aciklama="Belgenin SON sayfasında, küçük ve silik basılır. Kapatılan madde belgeye hiç girmez ve numarasını da götürür — kalanlar 1'den kesintisiz sayılır."
+    >
+      {maddeler.length === 0 ? (
+        <div className="grid gap-2 rounded-md border border-dashed p-3">
+          <p className="text-sm text-muted-foreground">
+            Bu teklifte genel şartlar yok. Defterdeki maddeler belgeye eklenebilir;
+            sonra istediğinizi kapatabilir ya da düzenleyebilirsiniz.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="oc-tap justify-self-start"
+            onClick={onDefterdenGetir}
+          >
+            <Plus className="size-3.5" /> Defterden Getir
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="grid gap-2">
+        {maddeler.map((m) => {
+          const no = numaralar.get(m.id);
+          return (
+            <div
+              key={m.id}
+              className={cn("grid gap-1.5 rounded-md border p-2.5", m.hidden && "opacity-55")}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-7 shrink-0 text-center font-mono text-sm font-semibold">
+                  {no ?? "—"}
+                </span>
+                <Input
+                  value={m.title}
+                  onChange={(e) => set(m.id, { title: e.target.value })}
+                  aria-label="Madde başlığı"
+                  className="h-9 min-w-0 flex-1 text-base pointer-fine:text-sm"
+                />
+                <MiniDugme
+                  baslik={m.hidden ? "Belgede kapalı" : "Belgeden kaldır"}
+                  aktif={m.hidden === true}
+                  onClick={() => set(m.id, { hidden: !m.hidden })}
+                >
+                  {m.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                </MiniDugme>
+                <MiniDugme baslik="Maddeyi sil" onClick={() => set(m.id, null)}>
+                  <Trash2 className="size-3.5" />
+                </MiniDugme>
+              </div>
+              <Textarea
+                value={m.body}
+                rows={4}
+                onChange={(e) => set(m.id, { body: e.target.value })}
+                aria-label="Madde metni"
+                className="text-base pointer-fine:text-sm"
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {maddeler.length > 0 ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="oc-tap justify-self-start"
+          onClick={() => onChange((onceki) => [...onceki, newGeneralTerm()])}
+        >
+          <Plus className="size-3.5" /> Madde Ekle
+        </Button>
+      ) : null}
+    </Bolum>
+  );
+}
+
 function MetinListesi({
   baslik,
   aciklama,
@@ -1653,9 +1897,20 @@ function MiniDugme({
 }
 
 /** Boş kutu `null` üretir, `0` DEĞİL (SATIS-16). */
+/**
+ * ÇÖZÜMLEYİCİ UYGULAMANIN ORTAK OLANIDIR (`parseNum`).
+ *
+ * Buradaki yerel sürüm bütün noktaları siliyordu: "12.44" → 1244. Maliyet
+ * tarafı 18.08.2026'da düzeltildi; teklif tarafı düzeltilmeseydi aynı sayı
+ * iki ekranda iki türlü okunurdu — `cost-parts.tsx` başındaki "aynı şekil,
+ * ayrı sahip" notunun uyardığı ayrışmanın ta kendisi.
+ */
 function sayiVeyaNull(raw: string): number | null {
-  const s = raw.trim().replace(/\./g, "").replace(",", ".");
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
+  return parseNum(raw);
+}
+
+/** Sayıyı kutuya yazarken tr-TR ondalık ayracı korunur ("19,5"). */
+function kutuMetni(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "";
+  return String(v).replace(".", ",");
 }

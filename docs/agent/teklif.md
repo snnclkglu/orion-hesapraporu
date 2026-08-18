@@ -638,3 +638,141 @@ kaydediliyordu. Kutu yarım değeri KENDİ yerel durumunda tutar ve yukarı yaln
 tam, gerçek ve yıl ≥ 1000 olan bir tarih verir; boş değer `null` üretir. Aynı
 kelepçe sunucu tarafındaki Zod şemasında da vardır ve iki yerin ayrışmasını bir
 test kaynak dosyayı okuyarak engeller (`terms.test.ts` deseni).
+
+## TEKLIF-33 — Teknik sayfa İKİ SÜTUNDUR; sayfalama ÇİZİMDEN AYRIDIR.
+
+Kullanıcı isteği (18.08.2026): *"Teklif pdf inde sayfayı ikiye bölen çiftli bir
+yapıya geçmek istiyorum … Notlar ve kapsam dışı işler de yan yana bölük olursa
+güzel olur."*
+
+Hangi grubun hangi sütuna ve hangi sayfaya düşeceğini **saf bir modül**
+hesaplar (`lib/offers/pdf-layout.ts`); `pdf/offer.tsx` yalnız çizer. Ayrım
+görgü değil ÖLÇÜLEBİLİRLİKTİR: hesap çizimin içinde olsaydı sütun düzenini
+sınamanın tek yolu PDF üretip metnini geri okumak olurdu. Modül React/DB
+görmez ve `pdf-layout.test.ts` ile doğrudan sınanır.
+
+**KAZANÇ PUNTODAN DEĞİL, ETİKET SÜTUNUNUN KALKMASINDAN GELİR.** Tek sütunda
+`ETIKET_GENISLIK = 148 pt` sabit bir etiket alanı vardı. HABAŞ fikstürü
+(6 grup / 57 satır) tek sütunda 908 pt = **2 sayfa**; çift sütunda puntoya hiç
+dokunmadan 893 pt = **1 sayfa**. Uzun değerlerin etiketleri kısadır (`Motor`,
+`Redüktör`, `Fren`), o yüzden 234,78 pt'lik sütuna 57 satırın 56'sı tek satırda
+sığar.
+
+**SIRA KORUNUR; DENGELEME (bin packing) YAPILMAZ.** Bloklar sırayla sol sütunu
+doldurur, dolunca sağa, o da dolunca yeni sayfaya geçer. Serbest dengeleme
+ÇELİK'i KÖPRÜ'nün üstüne atıyordu — sayfa düzgün, belge YANLIŞ olurdu; müşteri
+teknik sayfayı yukarıdan aşağıya, soldan sağa okur (`registry.ts`: "Sıra
+BELGENİN SIRASIDIR").
+
+**TAHMİN BİLEREK FAZLA ÖLÇER** (karakter katsayısı 0,52; gerçek bant
+0,485–0,52) ve kapasite %94 ile kelepçelenir. Hata yönü SEÇİLMİŞTİR: fazla
+ölçmek sütunu erken kapatır (boşluk kalır), az ölçmek satırı sayfa dışına
+taşırır. Aynı sebeple sütun `View`i `wrap={false}` TAŞIMAZ — tahmin yanılırsa
+react-pdf içeriği KIRPAR ve müşteriye giden belgede sessiz veri kaybı olur;
+açık bırakılınca taşan blok bir sonraki sayfaya iner (çirkin ama eksiksiz).
+
+**SIĞMAYAN GRUP BÖLÜNÜR, BAŞLIĞI TEKRAR EDİLİR** (`… (devamı)`) — fiyat
+tablosunun `fixed` başlık satırıyla aynı ilke. `EN_AZ_KUYRUK = 2`: bir blok,
+altında en az iki satır sığmayan konuma yerleştirilmez.
+
+**SAYFA BAŞLIĞI O SAYFADAKİ GRUPLARIN KISA ADIDIR** ("GENEL · KALDIRMA ·
+ARABA"). Kısaltmalar defterde YAZILIDIR (`OFFER_GROUP_SHORT`), ek atarak
+türetilmez: "VİNÇ ARABASI" → "ARABA" bir ek kuralıyla çıkmaz (ilk kelime
+"VİNÇ"tir, son kelimenin eki atılınca "ARABAS" olur). Kalemin adı sayfanın
+sağ üst KÜNYESİNDEDİR ve kutusu kelepçelidir (`width: 150`) — esnek satırda
+genişlik verilmezse büyük başlık bütün yeri alır ve künye ortasından kırpılır.
+
+## TEKLIF-34 — GENEL ŞARTLAR: numara VERİ DEĞİLDİR.
+
+Kullanıcı isteği (18.08.2026): *"Teklifin son sayfasına daha küçük ve biraz
+silik bir yazı ile genel şartlar yazsın … bazılarını açıp kapatabileyim …
+Madde numaraları da buna göre düzelsin."*
+
+**`OfferTextLine` YETMEZ; `OfferGeneralTerm` ayrıdır** (`{id, key, title,
+body, hidden}`): madde HEM BAŞLIK HEM GÖVDE taşır ve belgede farklı dizilir;
+defterden gelen madde ile kullanıcının yazdığı ANAHTARLA ayrışır (500
+karakterlik bir paragrafta metinle eşleşme kırılgandır — notlarda meşrudur,
+çünkü orada madde tek cümledir).
+
+**NUMARA SAKLANMAZ, SÜZGEÇTEN SONRA TÜRETİLİR** (`printedGeneralTerms`).
+Gizlenen madde numarasını da götürür ve kalanlar 1'den kesintisiz sayılır;
+numara veriye yazılsaydı bir maddeyi kapatmak belgede "3." diye bir boşluk
+bırakır, müşteri orada silinmiş bir şart arardı. Editör AYNI numarayı
+gösterir — ekran ile belge tek kaynaktan sayar.
+
+**DEFTER `registry.ts`TE SABİTTİR, `offer_options`A GİRMEZ.** O tablonun
+satırı tek bir `value`dur ve tekillik yalnız onun üstünden kurulur; gövde,
+tekillik kuralının hiç göremediği bir alan olurdu. Ayrıca Tanımlar ekranı kısa
+satırlar basar ve 667 karakterlik bir hukuk paragrafı o ekranı bozar. Dahası
+bu bir DEĞER ÖNERİSİ değil HUKUKÎ BEYANDIR — `docs/agent/belge.md` aynı ayrımı
+hesap raporunun gizlilik metni için zaten kurmuştur. **Kaçış kapısı yazılıdır:**
+deploy'suz düzenleme gerekirse doğru yer `offer_options` değil ayrı bir
+`offer_general_terms` tablosudur; sorun tablo değil satırın ŞEKLİDİR.
+
+**TAŞIMA VARSAYILAN UYGULAMAZ** (TEKLIF-14 / MALIYET-22 ayrımı): eski bir
+teklifte genel şartlar hiç yoktu ve taşıma onları sessizce eklerse yayımlanmış
+bir belgenin metni değişmiş olur. Yeni belge hepsini AÇIK taşır
+(`emptyPayload`); eski belgeye editördeki açık bir eylem getirir
+(`withDefaultGeneralTerms` — "Defterden Getir").
+
+**BELGEDE KÜÇÜK VE SİLİKTİR** (6,6 pt gövde, `gray600`): belgenin geri kalanı
+8 pt / `ink`tir. Şartlar okunabilir ama öne çıkmaz — hukukî bir ek olduğu
+tipografiden anlaşılır. TEK SÜTUNDUR: 6,6 pt'de 235 pt genişlik satır başına
+~38 karakter demektir ve hukukî bir paragraf o genişlikte okunmaz.
+
+## TEKLIF-35 — Teklif KONUSU kapaktan düzenlenir; dosya adı onu okur.
+
+Kullanıcı isteği (18.08.2026): *"KAPAK bölümünde teklif Konusunu
+düzenleyebilmeliyim. PDF ismi de oradan çeksin."* Konu bugüne kadar yalnız
+teklif AÇILIRKEN soruluyordu; oysa kapsam çalışırken netleşir.
+
+**KONU BELGENİN DEĞİL TEKLİFİN ALANIDIR** (`offers.subject`), revizyonun
+payload'ında durmaz: liste, dosya adı, altbilgi künyesi ve maliyet belgesinin
+adı hep onu okur. Payload'a taşınsaydı her revizyon başka bir konu taşıyabilir
+ve teklif listesi hangisini göstereceğini bilemezdi. Bu yüzden payload'la
+birlikte DEĞİL, kendi eylemiyle kaydedilir (`updateOfferSubject`) ve kaydetme
+ODAK ÇIKINCA olur — her tuşta sunucuya gitmek yazarken on beş istek demekti.
+
+**YAYIMLANMIŞ REVİZYON ENGEL DEĞİLDİR:** kilit REVİZYONUN metnine aittir, konu
+ise teklifin künyesidir ve bir yazım hatası düzeltilebilmelidir.
+
+`updateOfferDetails`ten AYRIDIR: o eylem müşteriyi, durumu ve para birimini de
+ister ve hepsini birden yazar; kapaktaki kutu yalnız konuyu değiştirir.
+Ötekileri de göndermek, editörde bulunmayan alanları bir varsayılanla ezmenin
+yolu olurdu.
+
+## TEKLIF-36 — SERBEST fiyat satırının maliyeti ELLE girilir.
+
+Kullanıcı isteği (18.08.2026): *"Teklif fiyat kısmında serbest eklediğim
+satırların maliyetini tabloda kendim girebileyim."*
+
+MALIYET-11 serbest satırda maliyeti "—" gösteriyordu ve gerekçesi doğruydu:
+maliyet belgesinde o satırın karşılığı YOKTUR, uydurma bir sayı sahte bir kâr
+üretirdi. Ama İNSANIN yazdığı sayı uydurma değildir — nakliye, mobil vinç
+kirası ya da bir ara ürünün alış fiyatı tam olarak bilinen şeylerdir.
+
+**İKİ KAYNAK ASLA TOPLANMAZ:** satır bir kaleme bağlıysa maliyet BELGEDEN
+okunur ve kutu hiç çizilmez; bağ yoksa kutu çizilir ve belge hiç okunmaz.
+
+**TOPLAM SATIRI** maliyet belgesinin kendi toplamına YALNIZ serbest satırların
+elle maliyetini ekler. Sütunu toplamak, aynı kaleme bağlı iki satırda o kalemi
+iki kez sayardı (MALIYET-11); serbest satırları hiç eklememek ise girilmiş bir
+gideri kâr hesabından düşürürdü. Kâr şeridi de bu toplamdan hesaplanır.
+
+**MÜŞTERİYE GİTMEZ.** Alan teklif payload'ında yaşar ama `printedPayload` onu
+belgeye basılan hâlden DÜŞÜRÜR — teklif PDF'inde maliyet diye bir sütun yoktur
+ve olmamalıdır (MALIYET-1'in yapısal ayrımı). Koruma tek bir bileşenin
+dikkatine bırakılmaz.
+
+## TEKLIF-37 — Sayı çözümleyicisi TEKTİR (`parseNum`); nokta her zaman binlik değildir.
+
+Kullanıcı bildirimi (18.08.2026): *"Teklif kısmında köprü açıklığında 12.44
+metre girmek istiyorum."* Üç ayrı yerde üç yerel çözümleyici vardı ve üçü de
+bütün noktaları siliyordu: `itemFactsFromRows` künyeye **1244 m** yazıyordu.
+Sessizdi, çünkü belgeye BASILAN metin ("12.44 m") doğru kalıyor; bozulan yalnız
+TÜRETİLEN sayı oluyordu — teklif listesindeki süzgeç ve maliyetin açıklık
+girdisi yüz kat şişiyordu.
+
+`parseNum` ayrımı YAZIMDAN okur: virgül varsa nokta binliktir ("1.500,25"),
+yoksa nokta ancak **ardında tam üç hane** varsa binliktir ("1.500" → 1500).
+"12.44" hiçbir Türkçe yazımda 1244 değildir; 1244 "1.244" diye yazılır.

@@ -43,6 +43,8 @@ import {
   type EnsureOptionInput,
   type NewOfferInput,
   type OfferDetailsInput,
+  offerSubjectSchema,
+  type OfferSubjectInput,
   type SaveRevisionInput,
 } from "./schema";
 
@@ -355,6 +357,59 @@ export async function updateOfferDetails(
   if (!yazilan?.length) return { error: "Teklifi düzenleme yetkisi gerekir." };
 
   await audit(supabase, user.id, "offer.update", { offer_id: id.data, onceki, yeni: parsed.data });
+  tazele(id.data);
+  return {};
+}
+
+/**
+ * TEKLİF KONUSUNU günceller — kapak bölümünden (kullanıcı isteği 18.08.2026).
+ *
+ * `updateOfferDetails`ten AYRIDIR ve bilinçli: o eylem müşteriyi, durumu ve
+ * para birimini de ister ve hepsini birden yazar. Kapaktaki kutu yalnız konuyu
+ * değiştirir; ötekileri de göndermek, editörde bulunmayan alanları bir
+ * varsayılanla ezmenin yolu olurdu.
+ *
+ * YAYIMLANMIŞ REVİZYON ENGEL DEĞİLDİR: kilit REVİZYONUN metnine aittir, konu
+ * ise teklifin künyesidir ve bir yazım hatası düzeltilebilmelidir. Dosya adı
+ * ve altbilgi bir sonraki basımda yeni konuyu taşır.
+ */
+export async function updateOfferSubject(
+  offerId: string,
+  input: OfferSubjectInput
+): Promise<OfferActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const id = z.uuid("Geçersiz teklif").safeParse(offerId);
+  if (!id.success) return { error: id.error.issues[0].message };
+  const parsed = offerSubjectSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { data: onceki } = await supabase
+    .from("offers")
+    .select("subject")
+    .eq("id", id.data)
+    .maybeSingle();
+  if (onceki?.subject === parsed.data.subject) return {};
+
+  const { data: yazilan, error } = await supabase
+    .from("offers")
+    .update({ subject: parsed.data.subject })
+    .eq("id", id.data)
+    .select("id");
+  if (error) return { error: error.message };
+  // Yetkisizlik SESSİZ BAŞARI olmasın: RLS satırı vermezse `update` hata
+  // döndürmez, hiçbir satıra dokunmaz.
+  if (!yazilan?.length) return { error: "Teklifi düzenleme yetkisi gerekir." };
+
+  await audit(supabase, user.id, "offer.subject", {
+    offer_id: id.data,
+    onceki: onceki?.subject ?? null,
+    yeni: parsed.data.subject,
+  });
   tazele(id.data);
   return {};
 }
