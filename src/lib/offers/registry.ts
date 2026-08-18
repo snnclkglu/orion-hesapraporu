@@ -14,6 +14,7 @@
 // DEĞERDİR, bir başlık değil — süzülebilmesi, defterden seçilebilmesi ve
 // ileride katalogdan gelebilmesi ancak alan olduğunda mümkündür.
 
+import { parseNum } from "@/lib/currency";
 import type { OfferGroupDef, OfferPartDef, OfferRowDef } from "./types";
 
 // ——————————————————————————————————————————————— ortak parça kalıpları
@@ -580,12 +581,17 @@ export function itemFactsFromRows(
   const genel = groups.find((g) => g.key === "general");
   const oku = (rowKey: string, partKey: string): string =>
     genel?.rows.find((r) => r.key === rowKey)?.parts?.[partKey] ?? "";
-  const sayi = (ham: string): number | null => {
-    const t = ham.trim().replace(/\./g, "").replace(",", ".");
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  };
+  // NOKTA HER ZAMAN BİNLİK DEĞİLDİR (kullanıcı bildirimi 18.08.2026): köprü
+  // açıklığına "12.44" yazan kullanıcı 12,44 m demek istiyor, bin iki yüz
+  // kırk dört değil. Eski çözümleyici bütün noktaları siliyordu ve künyeye
+  // 1244 m yazıyordu — sessizce, çünkü belgeye BASILAN metin ("12.44 m")
+  // doğru kalıyor, bozulan yalnız türetilen sayı oluyordu. Sonuç: teklif
+  // listesindeki süzgeç ve maliyetin açıklık girdisi yüz kat şişiyordu.
+  //
+  // `parseNum` ayrımı yazımdan okur: virgül varsa nokta BİNLİKTİR
+  // ("1.500,25"), yoksa nokta ancak ARDINDA TAM ÜÇ HANE varsa binliktir
+  // ("1.500" → 1500) — "12.44" ondalık kalır.
+  const sayi = (ham: string): number | null => parseNum(ham);
   return {
     capacityT: sayi(oku("capacity", "main")),
     spanM: sayi(oku("span", "value")),

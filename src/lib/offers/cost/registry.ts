@@ -110,7 +110,17 @@ interface Satir extends CostLineDef {
 const AYRI_TARTILMAZ = "Miktar modelden gelmez — model çeliği tek kalemde tartar; yazarsanız sac satırından düşün";
 
 const CELIK: Satir[] = [
-  { key: "rawMaterial", label: "Hammadde — Sac", unit: "kg", qtySource: "w.steel", priceSource: "sac", hint: "Vinç çelik ağırlığı × sac fiyatı", offerRef: { group: "steel", row: "girderMaterial" } },
+  // SAC MİKTARI FİRE DAHİL AĞIRLIKTIR (kullanıcı kararı 18.08.2026:
+  // *"maliyetlerde Hammadde — Sac'ın ağırlığı Çelik + Fire ağırlığı
+  // getir."*). Bu, MALIYET-14'ün ilk yazımını DÜZELTİR: orada "sac zaten
+  // fireli ölçüde satın alınır ve kesim artığı stoğa döner" deniyordu, yani
+  // fire sac satırına binmiyordu. Satın alan taraf başka türlü ölçüyor —
+  // fatura edilen kilo kesilen kilo değil, GELEN kilodur.
+  //
+  // KESİM `w.steel`DE KALIR: lazer yalnız parçanın konturunu keser, hurdaya
+  // giden alanı değil. İkisini birden fireye bağlamak, aynı payı iki kez
+  // faturalandırmak olurdu.
+  { key: "rawMaterial", label: "Hammadde — Sac", unit: "kg", qtySource: "w.steelWithFire", priceSource: "sac", hint: "Çelik + fire ağırlığı × sac fiyatı", offerRef: { group: "steel", row: "girderMaterial" } },
   { key: "profile", label: "Hammadde — Profil", unit: "kg", priceSource: "profil", hint: AYRI_TARTILMAZ },
   // RAY İKİ SATIRDIR çünkü İKİ FİYATTIR (kullanıcı listesi 18.08.2026: kare
   // 0,90 · A tipi 1,20 €/kg). Bir vinçte ikisinden yalnız biri kullanılır ve
@@ -120,13 +130,44 @@ const CELIK: Satir[] = [
   // yetim kalmamalıdır (boya satırının `paint` anahtarıyla aynı gerekçe).
   { key: "rail", label: "Ray — Kare", unit: "kg", priceSource: "rayKare", hint: AYRI_TARTILMAZ },
   { key: "railA", label: "Ray — A Tipi", unit: "kg", priceSource: "rayA", hint: AYRI_TARTILMAZ },
-  { key: "fabrication", label: "Çelik İmalat İşçiliği (fire dahil)", unit: "kg", qtySource: "w.steelWithFire", priceSource: "celikIsciligi", hint: "Fire oranı miktara yansır; katsayı Katsayılar bölümündedir" },
   { key: "laserCut", label: "Lazer / CNC Kesim", unit: "kg", qtySource: "w.steel", priceSource: "kesim" },
   // BOYA İKİYE AYRILDI (kullanıcı listesi 18.08.2026: "Boya İş." ve "Boya"
   // ayrı fiyatlardır). Anahtar `paint` KORUNDU — eski belgelerdeki girilmiş
   // boya fiyatı bir anahtar değişikliği yüzünden yetim kalmamalıdır.
   { key: "paint", label: "Boya Malzemesi", unit: "kg", qtySource: "w.total", priceSource: "boya", hint: "TOPLAM vinç ağırlığı — boya mekanizmanın da üstüne atılır", offerRef: { group: "steel", row: "paint" } },
   { key: "paintLabour", label: "Boya İşçiliği", unit: "kg", qtySource: "w.total", priceSource: "boyaIsciligi" },
+];
+
+// ————————————————————————————————————————————————— imalat maliyeti
+
+/**
+ * İMALAT MALİYETİ — BEŞİNCİ ANA BAŞLIK, en üstte.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 4): *"Maliyet kısmını 4 ana başlık
+ * demiştik. Bunu 5 Ana Başlığa çevirmek istiyorum. Ekleyeceğimiz madde İmalat
+ * Maliyeti olacak. Çelik İmalat İşçiliği (fire dahil) olan kalemi, İmalat
+ * Maliyet olarak en üste yeni grup aç."*
+ *
+ * SATIR ÇELİK YAPI'DAN TAŞINDI, KOPYALANMADI: aynı işçilik iki başlıkta
+ * birden dursaydı toplam onu iki kez sayardı. Anahtar `fabrication` KORUNDU —
+ * eski belgelerde girilmiş €/kg ve elle düzeltilmiş miktar, taşıma sırasında
+ * satırla birlikte yeni gruba geçer (`withFabricationGroup`).
+ *
+ * MİKTAR VİNCİN ÇELİK AĞIRLIĞIDIR, FİRE DAHİL (`w.steelWithFire`) — kullanıcı
+ * cümlesi *"standart olarak vincin ağırlığı ile çarpılacak"* zaten bugünkü
+ * davranışı tarif ediyor. Fire YALNIZ işçiliğe biner (MALIYET-14): sac fireli
+ * ölçüde satın alınır ve kesim artığı stoğa döner, kaynak/işleme saati ise
+ * yeniden yapılan parça için ikinci kez harcanır.
+ */
+const IMALAT: Satir[] = [
+  {
+    key: "fabrication",
+    label: "Çelik İmalat İşçiliği (fire dahil)",
+    unit: "kg",
+    qtySource: "w.steelWithFire",
+    priceSource: "celikIsciligi",
+    hint: "Fire oranı miktara yansır; katsayı Katsayılar bölümündedir",
+  },
 ];
 
 // —————————————————————————————————————————————————— kaldırma grubu
@@ -146,6 +187,12 @@ function kaldirmaSatirlari(offerGroup: string): Satir[] {
   return [
     { key: "motor", label: "Kaldırma Motoru", unit: "adet", qtySource: "c.one", hint: "Seçilen güç Hesaplar sayfasındadır", offerRef: { group: offerGroup, row: "motor" } },
     { key: "gearbox", label: "Kaldırma Redüktörü", unit: "adet", qtySource: "c.one", offerRef: { group: offerGroup, row: "gearbox" } },
+    // KAPLİN HER İKİ MEKANİZMADA DA VARDIR (kullanıcı isteği 18.08.2026,
+    // md. 5): motor–redüktör ve redüktör–tambur bağlantıları kaldırmada da
+    // kaplinlidir; defterde yalnız yürütme tarafında durması bir eksiklikti.
+    // ADET DEĞİL TAKIM: bir mekanizmada kaç kaplin olduğu tasarıma bağlıdır
+    // ve "çoğunlukla iki" bir sayı değildir (değişmez md. 4).
+    { key: "coupling", label: "Kaplin Setleri", unit: "takım", qtySource: "c.one" },
     { key: "brake", label: "Kaldırma Frenleri", unit: "adet", offerRef: { group: offerGroup, row: "brake" } },
     { key: "drum", label: "Tambur", unit: "adet", qtySource: "c.one", hint: "Çap ve ağırlık Hesaplar/Ağırlıklar sayfasındadır" },
     { key: "machining", label: "Talaşlı İmalat", unit: "takım", qtySource: "c.one", hint: "Mil, makara, burç, teker işleme" },
@@ -165,7 +212,16 @@ const YRD_KALDIRMA = kaldirmaSatirlari("auxHoist");
 // —————————————————————————————————————————————— yürütme ve teker
 
 const YURUTME: Satir[] = [
-  { key: "coupling", label: "Kaplin Setleri", unit: "takım", qtySource: "c.one" },
+  // YÜRÜTME KAPLİNİ İKİYE AYRILDI (kullanıcı isteği 18.08.2026, md. 5:
+  // "yürütme gruplarına" — çoğul). Köprü ve araba yürütmesi zaten ayrı motor,
+  // ayrı redüktör ve ayrı teker satırları taşıyor; kaplinin tek satırda
+  // kalması, iki ayrı tedarik kalemini tek fiyata sıkıştırıyordu.
+  //
+  // `coupling` ANAHTARI KÖPRÜDE KORUNDU: eski belgelerde girilmiş kaplin
+  // fiyatı bir anahtar değişikliği yüzünden yetim kalmamalıdır (ray satırının
+  // aynı gerekçesi).
+  { key: "coupling", label: "Köprü / Portal Kaplin Setleri", unit: "takım", qtySource: "c.one" },
+  { key: "trolleyCoupling", label: "Araba Kaplin Setleri", unit: "takım", qtySource: "c.one" },
   { key: "bridgeMotor", label: "Köprü / Portal Yürütme Motorları", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "motor" } },
   { key: "bridgeGearbox", label: "Köprü / Portal Yürütme Redüktörleri", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "gearbox" } },
   { key: "trolleyMotor", label: "Araba Yürütme Motorları", unit: "adet", qtySource: "c.trolleyDriveCount", offerRef: { group: "trolley", row: "motor" } },
@@ -224,9 +280,17 @@ const PROJE_GENELI: Satir[] = [
 // ————————————————————————————————————————————————————— gruplar
 
 export const GENERAL_GROUP_KEY = "general";
+/**
+ * İMALAT MALİYETİ grubunun anahtarı — ekran onu AYRI BİR ANA BAŞLIK olarak
+ * çizer, toplam da onu proje maliyetinden ayrı gösterir (`costTotals`).
+ * Sabittir ve çağrı yerinde dize yazılmaz.
+ */
+export const FABRICATION_GROUP_KEY = "fabrication";
 export const CUSTOM_COST_GROUP_KEY = "custom";
 
 export const COST_GROUP_DEFS: readonly CostGroupDef[] = [
+  // İMALAT EN ÜSTTEDİR (kullanıcı isteği md. 4) — belgede ve ekranda.
+  { key: FABRICATION_GROUP_KEY, title: "İMALAT MALİYETİ", lines: IMALAT },
   { key: "steel", title: "ÇELİK YAPI", lines: CELIK },
   { key: "hoist", title: "KALDIRMA GRUBU", lines: KALDIRMA },
   { key: "auxHoist", title: "YARDIMCI KALDIRMA GRUBU", lines: YRD_KALDIRMA },
@@ -291,7 +355,14 @@ export function offerRefValue(
 }
 
 /** Kaleme ait varsayılan gruplar — yardımcı kaldırma teklifte varsa eklenir. */
-export const DEFAULT_ITEM_GROUP_KEYS = ["steel", "hoist", "travel", "electrical", "assembly"] as const;
+export const DEFAULT_ITEM_GROUP_KEYS = [
+  FABRICATION_GROUP_KEY,
+  "steel",
+  "hoist",
+  "travel",
+  "electrical",
+  "assembly",
+] as const;
 
 /**
  * TEKLİF GRUBU → MALİYET GRUBU.

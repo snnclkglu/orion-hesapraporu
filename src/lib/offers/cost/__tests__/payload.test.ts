@@ -96,14 +96,17 @@ describe("teklif kaleminden girdi okuma", () => {
 describe("kalem iskeleti teklifin bölümlerinden çıkar", () => {
   it("yardımcı kaldırması olmayan vinçte yardımcı grup açılmaz", () => {
     const k = costItemFromOfferItem(portalKalemi(), 1);
-    expect(k.groups.map((g) => g.key)).toEqual(["steel", "hoist", "travel", "electrical", "assembly"]);
+    // İMALAT MALİYETİ EN ÜSTTEDİR (kullanıcı isteği 18.08.2026, md. 4).
+    expect(k.groups.map((g) => g.key)).toEqual([
+      "fabrication", "steel", "hoist", "travel", "electrical", "assembly",
+    ]);
   });
 
   it("yardımcı kaldırması olan vinçte açılır ve defter sırasında durur", () => {
     const item = emptyItem("ÇİFT KANCA", ["general", "mainHoist", "auxHoist", "trolley", "steel"]);
     const k = costItemFromOfferItem(item, 1);
     expect(k.groups.map((g) => g.key)).toEqual([
-      "steel", "hoist", "auxHoist", "travel", "electrical", "assembly",
+      "fabrication", "steel", "hoist", "auxHoist", "travel", "electrical", "assembly",
     ]);
   });
 
@@ -111,7 +114,10 @@ describe("kalem iskeleti teklifin bölümlerinden çıkar", () => {
     const k = costItemFromOfferItem(portalKalemi(), 1);
     const celik = k.groups.find((g) => g.key === "steel");
     expect(celik?.lines.map((l) => l.key)).toContain("rawMaterial");
-    expect(celik?.lines.find((l) => l.key === "rawMaterial")?.qtySource).toBe("w.steel");
+    // SAC FİRE DAHİL AĞIRLIĞA BAĞLIDIR (kullanıcı kararı 18.08.2026); kesim
+    // ise fireye girmez, konturu keser.
+    expect(celik?.lines.find((l) => l.key === "rawMaterial")?.qtySource).toBe("w.steelWithFire");
+    expect(celik?.lines.find((l) => l.key === "laserCut")?.qtySource).toBe("w.steel");
     expect(celik?.lines.find((l) => l.key === "paint")?.qtySource).toBe("w.total");
   });
 });
@@ -161,12 +167,19 @@ describe("model miktarları satırlara yazılır", () => {
   const p = withModelQuantities(withOfferSync(emptyCostPayload(), t, 0).payload);
   const celik = p.items[0].groups.find((g) => g.key === "steel");
 
-  it("hammadde miktarı çelik ağırlığıdır", () => {
-    expect(celik?.lines.find((l) => l.key === "rawMaterial")?.qty).toBe(51000);
+  it("hammadde miktarı ÇELİK + FİRE ağırlığıdır", () => {
+    // Kullanıcı kararı 18.08.2026: sac fireli kilodan fiyatlanır — faturaya
+    // giren, kesilen kilo değil GELEN kilodur.
+    expect(celik?.lines.find((l) => l.key === "rawMaterial")?.qty).toBeCloseTo(56100, 6);
   });
 
-  it("işçilik miktarı fire dahil ağırlıktır", () => {
-    expect(celik?.lines.find((l) => l.key === "fabrication")?.qty).toBeCloseTo(56100, 6);
+  it("işçilik miktarı fire dahil ağırlıktır — ve KENDİ ANA BAŞLIĞINDADIR", () => {
+    // Satır 18.08.2026'da ÇELİK YAPI'dan alınıp İMALAT MALİYETİ grubuna
+    // taşındı (md. 4); çelikte bir kopyası KALMAZ, yoksa aynı işçilik iki kez
+    // sayılırdı.
+    const imalat = p.items[0].groups.find((g) => g.key === "fabrication");
+    expect(imalat?.lines.find((l) => l.key === "fabrication")?.qty).toBeCloseTo(56100, 6);
+    expect(celik?.lines.some((l) => l.key === "fabrication")).toBe(false);
   });
 
   it("boya miktarı TOPLAM vinç ağırlığıdır", () => {
@@ -210,13 +223,20 @@ describe("ASTOR maliyet iskeleti uçtan uca", () => {
     // Devralınan çalışmanın birim oranları — burada ELLE girilir, hiçbir
     // tablodan aranmaz (kullanıcı kararı).
     fiyat("rawMaterial", 0.7);
-    fiyat("fabrication", 1.25);
     fiyat("laserCut", 0.05);
     fiyat("paint", 0.15);
+    // İŞÇİLİK ARTIK KENDİ GRUBUNDADIR (md. 4).
+    const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
+    const isc = imalat.lines.find((x) => x.key === "fabrication");
+    if (isc) isc.unitPrice = 1.25;
 
     const t2 = costTotals(p);
+    // BAŞLIK DEĞİŞTİ, TOPLAM DEĞİŞMEDİ: doğrudan maliyet imalatı da kapsar.
     // 51.000×0,70 + 56.100×1,25 + 51.000×0,05 + 59.500×0,15
-    expect(t2.direct).toBeCloseTo(35700 + 70125 + 2550 + 8925, 4);
+    // Sac artık 56.100 kg × 0,70 (fire dahil).
+    expect(t2.direct).toBeCloseTo(39270 + 70125 + 2550 + 8925, 4);
+    expect(t2.fabrication).toBeCloseTo(70125, 4);
+    expect(t2.project).toBeCloseTo(39270 + 2550 + 8925, 4);
   });
 });
 

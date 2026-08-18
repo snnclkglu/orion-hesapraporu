@@ -25,7 +25,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, FileText, RefreshCw, Save, Send, Wallet } from "lucide-react";
+import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtMoney } from "@/lib/currency";
@@ -40,7 +40,7 @@ import {
   saveOfferCostRevision,
   syncOfferCostFromOffer,
 } from "@/app/(app)/offers/cost-actions";
-import { Bolum } from "./cost-parts";
+import { Bolum, MiniDugme, type Katlama } from "./cost-parts";
 import { AgirlikSayfasi, HesapSayfasi, KatsayiSayfasi } from "./model-view";
 import { MaliyetSayfasi } from "./lines-view";
 
@@ -92,6 +92,26 @@ export function CostEditor({
   const [pending, startTransition] = useTransition();
 
   /**
+   * KATLANMIŞ BÖLÜMLER (kullanıcı isteği 18.08.2026, md. 6).
+   *
+   * Durum EDİTÖRDE durur, bölüm bileşenlerinde değil: `MaliyetSayfasi` bölüm
+   * değiştirilince sökülür ve katlama her dönüşte sıfırlanırdı. Belgeye de
+   * yazılmaz — bir görünüm tercihi maliyet belgesinin içeriği değildir
+   * (yayımlanmış bir maliyette bölüm katlanamaz hâle gelirdi).
+   */
+  const [katliBolumler, setKatliBolumler] = useState<ReadonlySet<string>>(new Set());
+  const katlama: Katlama = {
+    kapali: (anahtar) => katliBolumler.has(anahtar),
+    degistir: (anahtar) =>
+      setKatliBolumler((onceki) => {
+        const next = new Set(onceki);
+        if (next.has(anahtar)) next.delete(anahtar);
+        else next.add(anahtar);
+        return next;
+      }),
+  };
+
+  /**
    * BİR ÖNCEKİ HÂLDEN türeten güncelleme (TEKLIF-16'nın `guncelleIle`si).
    * İki değişiklik aynı boyama turunda gelirse ikincisi birincisini SESSİZCE
    * geri almamalıdır — bir belge editöründe bu, girilenin kaybolması demektir.
@@ -111,6 +131,34 @@ export function CostEditor({
 
   const setItem = (next: CostItem) =>
     guncelle((p) => ({ ...p, items: p.items.map((x) => (x.id === next.id ? next : x)) }));
+
+  /**
+   * KALEMİ MALİYETTEN ÇIKARIR (kullanıcı isteği 18.08.2026, md. 1).
+   *
+   * Teklif bağı varsa kimliği `removedOfferItemIds`e YAZILIR: tazeleme
+   * ekleyicidir ve yazılmasaydı silinen kalem ilk "Tekliften Tazele"de geri
+   * gelirdi. Karar geri alınabilir kalır — şeridin altındaki satır bunu söyler.
+   */
+  function kalemiCikar(hedef: CostItem) {
+    const ad = hedef.title || "Bu kalem";
+    if (!window.confirm(`${ad} maliyetten çıkarılacak. Girilen bütün birim fiyatları silinir. Devam edilsin mi?`)) return;
+    guncelle((p) => {
+      const kalanlar = p.items.filter((x) => x.id !== hedef.id);
+      return {
+        ...p,
+        items: kalanlar,
+        removedOfferItemIds: hedef.offerItemId
+          ? [...new Set([...p.removedOfferItemIds, hedef.offerItemId])]
+          : p.removedOfferItemIds,
+      };
+    });
+    setKalemId((onceki) => (onceki === hedef.id ? "" : onceki));
+  }
+
+  /** Çıkarma kararını geri alır; kalem bir sonraki tazelemede geri gelir. */
+  function cikarmayiGeriAl() {
+    guncelle((p) => ({ ...p, removedOfferItemIds: [] }));
+  }
 
   function kaydet(sonra?: () => void) {
     startTransition(async () => {
@@ -305,23 +353,48 @@ export function CostEditor({
               (Excel'de) her vinç bir SATIRDIR; burada bir ÇİPTİR — telefonda
               da sığsın diye ray değil, sarmalayan bir şerit. */}
           {bolum.kalemli && payload.items.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {payload.items.map((it, i) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => setKalemId(it.id)}
-                  aria-current={it.id === item?.id ? "true" : undefined}
-                  className={cn(
-                    "oc-tap rounded-md border px-3 py-1.5 text-sm transition-colors",
-                    it.id === item?.id
-                      ? "border-primary bg-muted font-medium"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {it.title || `Kalem ${i + 1}`}
-                </button>
-              ))}
+            <div className="grid gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
+                {payload.items.map((it, i) => (
+                  <div
+                    key={it.id}
+                    className={cn(
+                      "oc-tap flex items-center gap-1 rounded-md border pr-1 pl-3 text-sm transition-colors",
+                      it.id === item?.id
+                        ? "border-primary bg-muted font-medium"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <button type="button" onClick={() => setKalemId(it.id)} className="py-1.5">
+                      {it.title || `Kalem ${i + 1}`}
+                    </button>
+                    {/* SİLME YALNIZ SEÇİLİ ÇİPTE görünür: her çipte bir çöp
+                        kutusu, kalem değiştirmek isteyen parmağın yanlışlıkla
+                        bir maliyeti silmesi demekti. */}
+                    {readOnly || it.id !== item?.id ? null : (
+                      <MiniDugme baslik="Kalemi maliyetten çıkar" onClick={() => kalemiCikar(it)}>
+                        <Trash2 className="size-3.5" />
+                      </MiniDugme>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* ÇIKARILAN KALEM GÖRÜNÜR KALIR. Sessizce eksilen bir kalem,
+                  maliyeti olduğundan ucuz gösterirdi. */}
+              {payload.removedOfferItemIds.length > 0 && !readOnly ? (
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  Teklifteki {payload.removedOfferItemIds.length} kalem maliyet dışında bırakıldı;
+                  tazeleme onları geri getirmez.
+                  <button
+                    type="button"
+                    onClick={cikarmayiGeriAl}
+                    className="oc-tap inline-flex items-center gap-1 rounded-md border px-2 py-1 font-medium text-foreground hover:bg-muted"
+                  >
+                    <RotateCcw className="size-3" /> Geri Al
+                  </button>
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -358,6 +431,7 @@ export function CostEditor({
 
           {aktif === "maliyet" ? (
             <MaliyetSayfasi
+              katlama={katlama}
               payload={payload}
               item={item}
               model={item ? models[item.id] : undefined}

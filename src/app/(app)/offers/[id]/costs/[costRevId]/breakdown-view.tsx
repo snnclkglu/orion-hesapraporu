@@ -34,7 +34,7 @@ import type { CostPayload } from "@/lib/offers/cost/types";
 import { lineAmount } from "@/lib/offers/pricing";
 import type { OfferPayload } from "@/lib/offers/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Bolum } from "./cost-parts";
+import { Bolum, type Katlama } from "./cost-parts";
 
 /** Bir teklif kalemine bağlı fiyat satırlarının toplamı. */
 function teklifTutari(offer: OfferPayload, offerItemId: string | null): number | null {
@@ -88,10 +88,12 @@ export function KirilimSayfasi({
   payload,
   models,
   offer,
+  katlama,
 }: {
   payload: CostPayload;
   models: Record<string, CostModelResult>;
   offer: OfferPayload;
+  katlama: Katlama;
 }) {
   const cur = payload.currency;
   const totals = costTotals(payload, costWeights(models));
@@ -103,12 +105,18 @@ export function KirilimSayfasi({
   return (
     <div className="grid gap-4">
       <div className="grid gap-4 xl:grid-cols-3 xl:items-start">
-        <Bolum baslik="DÖRT ANA BAŞLIK" aciklama="Oranlar proje maliyeti üzerinden hesaplanır.">
+        <Bolum katlama={katlama} katlamaAnahtari="bolum:dortAna" baslik="BEŞ ANA BAŞLIK" aciklama="Oranlar doğrudan maliyet (imalat + proje) üzerinden hesaplanır.">
           <div>
+            {/* İMALAT ÖNCE: kullanıcının sırası (md. 4) — "en üste yeni grup". */}
+            <OzetSatiri
+              etiket="İMALAT MALİYETİ"
+              deger={fmtMoney(totals.fabrication, cur)}
+              aciklama="çelik imalat işçiliği (fire dahil)"
+            />
             <OzetSatiri
               etiket="PROJE MALİYETİ"
-              deger={fmtMoney(totals.direct, cur)}
-              aciklama="doğrudan + proje geneli"
+              deger={fmtMoney(totals.project, cur)}
+              aciklama="kalem kalem + proje geneli"
             />
             {totals.rates.map((r) => (
               <OzetSatiri
@@ -132,6 +140,8 @@ export function KirilimSayfasi({
         </Bolum>
 
         <Bolum
+          katlama={katlama}
+          katlamaAnahtari="bolum:kar"
           baslik="TEKLİF VE KÂR"
           aciklama="Teklif tutarı iskonto uygulanmış hâlidir — müşterinin gerçekten ödeyeceği rakam."
         >
@@ -159,7 +169,7 @@ export function KirilimSayfasi({
           ) : null}
         </Bolum>
 
-        <Bolum baslik="ANA KALEM KIRILIMI" aciklama="Bütün kalemler boyunca toplanır; pay proje maliyetine göredir.">
+        <Bolum katlama={katlama} katlamaAnahtari="bolum:kirilim" baslik="ANA KALEM KIRILIMI" aciklama="Bütün kalemler boyunca toplanır; pay proje maliyetine göredir.">
           <div className="grid gap-1">
             {kirilim.length === 0 ? (
               <p className="text-sm text-muted-foreground">Henüz maliyet girilmemiş.</p>
@@ -194,11 +204,19 @@ export function KirilimSayfasi({
       </div>
 
       <Bolum
+        katlama={katlama}
+        katlamaAnahtari="bolum:kalemBazinda"
         baslik="KALEM BAZINDA"
         aciklama="Yüklü maliyet, proje geneli ve oranlı grupların doğrudan maliyet payına göre dağıtılmış hâlidir."
       >
-        <div className="oc-scrollx overflow-x-auto">
-          <Table>
+        {/* KENDİ KAYDIRMA KABINI SARMA (MOBIL-14): `Table` zaten
+            `oc-scrollx overflow-x-auto` bir kap çiziyor. İkinci sargı iç içe
+            iki kaydırıcı, üst üste iki kenar gölgesi ve — CSS bir ekseni
+            `visible` bırakmadığı için — İKİ KEZ devrede bir `overflow-y: auto`
+            demekti. Kullanıcının "sayfada çift scroll var" bildirimi
+            (18.08.2026, md. 7) tam olarak buydu; yükseklik zinciri
+            (TEKLIF-17 / MALIYET-15) ölçüldü ve SAĞLAMDI. */}
+        <Table containerClassName="[--oc-scroll-bg:var(--background)]">
             <TableHeader>
               <TableRow>
                 <TableHead className="px-1.5">Kalem</TableHead>
@@ -263,8 +281,7 @@ export function KirilimSayfasi({
                 );
               })}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       </Bolum>
     </div>
   );

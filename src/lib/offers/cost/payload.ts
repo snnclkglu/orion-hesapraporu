@@ -25,6 +25,7 @@ import {
   COST_GROUP_DEF_BY_KEY,
   CUSTOM_COST_GROUP_KEY,
   DEFAULT_RATE_GROUPS,
+  FABRICATION_GROUP_KEY,
   GENERAL_GROUP_KEY,
   MATERIAL_PRICE_DEFAULTS,
   costGroupKeysForOfferItem,
@@ -173,6 +174,7 @@ export function emptyCostPayload(currency = "EUR"): CostPayload {
     // (`withDefaultRates` ile aynı ayrım).
     materialPrices: { ...MATERIAL_PRICE_DEFAULTS },
     items: [],
+    removedOfferItemIds: [],
     general: costGroupFromKey(GENERAL_GROUP_KEY),
     rates: defaultRateGroups(),
     notes: "",
@@ -394,8 +396,12 @@ export function withOfferSync(
   });
 
   const bagli = new Set(guncel.map((i) => i.offerItemId).filter(Boolean) as string[]);
+  // ÇIKARILMIŞ KALEM GERİ GELMEZ. Tazeleme ekleyicidir (MALIYET-9) ama bir
+  // EKLEME kararı, daha önce verilmiş bir ÇIKARMA kararını sessizce bozamaz;
+  // kullanıcı sildiğini geri gelmiş görürse silme düğmesine bir daha güvenmez.
+  const cikarilan = new Set(payload.removedOfferItemIds);
   const yeniler = offer.items
-    .filter((it) => !bagli.has(it.id))
+    .filter((it) => !bagli.has(it.id) && !cikarilan.has(it.id))
     .map((it, i) => costItemFromOfferItem(it, guncel.length + i + 1));
 
   return {
@@ -529,6 +535,46 @@ function inputsFromRaw(raw: unknown): CostInputs {
  * DEĞİŞTİREBİLİR ve tam olarak bu yüzden `params` açılışta belgeye kopyalanır
  * — bir katsayı orada yazılıysa varsayılan onu ezmez.
  */
+/**
+ * İMALAT SATIRINI ÇELİK YAPI'DAN KENDİ GRUBUNA TAŞIR — eski belgeler için.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 4) yapıyı değiştirdi: "Çelik İmalat
+ * İşçiliği (fire dahil)" artık kendi ANA BAŞLIĞINDA. Bugüne kadar kaydedilmiş
+ * her maliyet belgesinde o satır `steel` grubunun içinde duruyor.
+ *
+ * SATIR TAŞINIR, YENİDEN KURULMAZ: girilmiş €/kg, elle düzeltilmiş miktar ve
+ * `hidden`/`priceManual` bayrakları satırın KENDİSİNDE yaşıyor. Yeni grupta
+ * boş bir satır açıp eskisini silmek, tedarikçiyle konuşulmuş bir fiyatı
+ * sessizce sıfırlamak olurdu (MALIYET-9'un "dolu olana DOKUNULMAZ" kuralı).
+ *
+ * ÇİFT KOŞMAYA KARŞI BAĞIŞIKTIR: imalat grubu zaten varsa satır oradadır ve
+ * çelikte bir kalıntı kalmışsa yalnız o temizlenir — taşıma yolu her açılışta
+ * koşar (`withCostDefaults`).
+ */
+function withFabricationGroup(item: CostItem): CostItem {
+  const imalatVar = item.groups.some((g) => g.key === FABRICATION_GROUP_KEY);
+  const celik = item.groups.find((g) => g.key === "steel");
+  const tasinan = celik?.lines.find((l) => l.key === "fabrication");
+  if (imalatVar && !tasinan) return item;
+  if (!imalatVar && !tasinan) return item;
+
+  const temizGruplar = item.groups.map((g) =>
+    g.key === "steel" ? { ...g, lines: g.lines.filter((l) => l.key !== "fabrication") } : g
+  );
+
+  if (imalatVar) {
+    // Grup zaten açık: çelikteki kalıntıyı at, oradaki satıra DOKUNMA.
+    return { ...item, groups: temizGruplar };
+  }
+
+  const imalat: CostGroup = {
+    ...costGroupFromKey(FABRICATION_GROUP_KEY),
+    lines: tasinan ? [tasinan] : costGroupFromKey(FABRICATION_GROUP_KEY).lines,
+  };
+  // EN ÜSTE: başlık sırası belgenin sırasıdır (`COST_GROUP_DEFS`).
+  return { ...item, groups: [imalat, ...temizGruplar] };
+}
+
 export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
   const p = (raw ?? {}) as Record<string, unknown>;
   const bos = emptyCostPayload(currency);
@@ -552,7 +598,11 @@ export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
       inputs: inputsFromRaw(it.inputs),
       overrides: sayilar(it.overrides),
       groups: dizi(it.groups).map(groupFromRaw),
-    })),
+    })).map(withFabricationGroup),
+    // ÇIKARILAN KALEM LİSTESİ TAŞINIR: eski belgede yoksa boştur.
+    removedOfferItemIds: dizi<unknown>(p.removedOfferItemIds)
+      .map((x) => metin(x))
+      .filter((x) => x !== ""),
     general: p.general ? groupFromRaw(p.general) : bos.general,
     // ORANLI GRUPLAR DEFTERDEN TAMAMLANIR: yeni bir oran grubu eklenirse
     // (ör. "risk payı") eski belgelerde de görünür ve yüzdesi BOŞ gelir —

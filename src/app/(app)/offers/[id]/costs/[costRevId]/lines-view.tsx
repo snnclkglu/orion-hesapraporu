@@ -36,16 +36,30 @@ import type { CostModelResult } from "@/lib/offers/cost/model";
 import { freeCostLine, lineQty, linePrice, withLumpMode } from "@/lib/offers/cost/payload";
 import {
   COST_UNITS,
+  FABRICATION_GROUP_KEY,
   MATERIAL_PRICE_DEFS,
   costLineDef,
   materialPriceDef,
   offerRefValue,
 } from "@/lib/offers/cost/registry";
 import { COST_RATE_MODES, costGroupLines, isLumpLine } from "@/lib/offers/cost/types";
-import { costGroupTotal, costLineAmount, costRateAmount, costTotals } from "@/lib/offers/cost/totals";
+import {
+  costGroupTotal,
+  costLineAmount,
+  costRateAmount,
+  costTotals,
+} from "@/lib/offers/cost/totals";
 import type { CostGroup, CostItem, CostLine, CostPayload, CostRateGroup } from "@/lib/offers/cost/types";
 import type { OfferPayload } from "@/lib/offers/types";
-import { BirimSecici, Bolum, MiniDugme, Turetme, kutuMetni, sayiVeyaNull } from "./cost-parts";
+import {
+  BirimSecici,
+  Bolum,
+  KatlaDugmesi,
+  MiniDugme,
+  SayiKutusu,
+  Turetme,
+  type Katlama,
+} from "./cost-parts";
 import { KirilimSayfasi } from "./breakdown-view";
 
 // ————————————————————————————————————————————— hammadde şeridi
@@ -92,13 +106,12 @@ function HammaddeSeridi({
                 [{simge}/{d.unit}]
               </span>
             </label>
-            <Input
+            <SayiKutusu
               id={id}
-              inputMode="decimal"
               disabled={readOnly}
-              value={kutuMetni(deger)}
-              onChange={(e) => onChange({ ...prices, [d.key]: sayiVeyaNull(e.target.value) })}
-              className="h-9 text-right font-mono text-base pointer-fine:text-sm"
+              value={deger}
+              onChange={(v) => onChange({ ...prices, [d.key]: v })}
+              className="h-9 text-right font-mono"
             />
           </div>
         );
@@ -232,13 +245,12 @@ function SatirTablosu({
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <Input
-                          value={kutuMetni(line.qty)}
-                          inputMode="decimal"
+                        <SayiKutusu
+                          value={line.qty}
                           disabled={readOnly}
                           aria-label="Miktar"
-                          onChange={(e) => onLine(line.id, { ...line, qty: sayiVeyaNull(e.target.value) })}
-                          className="h-9 text-right font-mono text-base pointer-fine:text-sm"
+                          onChange={(v) => onLine(line.id, { ...line, qty: v })}
+                          className="h-9 text-right font-mono"
                         />
                         {line.qtySource ? (
                           <MiniDugme
@@ -287,13 +299,12 @@ function SatirTablosu({
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <Input
-                          value={kutuMetni(line.unitPrice)}
-                          inputMode="decimal"
+                        <SayiKutusu
+                          value={line.unitPrice}
                           disabled={readOnly}
                           aria-label="Birim fiyat"
-                          onChange={(e) => onLine(line.id, { ...line, unitPrice: sayiVeyaNull(e.target.value) })}
-                          className="h-9 text-right font-mono text-base pointer-fine:text-sm"
+                          onChange={(v) => onLine(line.id, { ...line, unitPrice: v })}
+                          className="h-9 text-right font-mono"
                         />
                         {line.priceSource ? (
                           <MiniDugme
@@ -353,6 +364,69 @@ function SatirTablosu({
   );
 }
 
+/**
+ * KALEM ARA TOPLAMI — "bu vinç bir adet kaç eder".
+ *
+ * Kullanıcı bildirimi (18.08.2026): *"Proje maliyetini hatalı topluyor. Alt
+ * grupların toplamından farklı."* Aritmetik doğruydu, EKRAN yanıltıyordu:
+ * başlıktaki tutar BELGENİN tamamıdır (bütün kalemler × adet + proje geneli),
+ * gövdede ise yalnız SEÇİLİ kalemin grupları ve onlar da BİRİM fiyattır.
+ * İki kalemli, ikincisi 2 adetlik bir belgede ölçüldü:
+ *
+ *     33.135 (kalem 1 × 1) + 23.590 × 2 (kalem 2) = 80.315 = başlıktaki sayı
+ *     ekranda görünen gruplar ise 23.590 — yani "yanlış toplama" gibi okunuyor
+ *
+ * Ara toplam o boşluğu kapatır: kalemin birimi, adedi ve çarpımı yazılı durur,
+ * böylece başlıktaki sayı gövdeden TÜRETİLEBİLİR olur.
+ */
+/** Başlıktaki tutar — BELGENİN tamamı; birden çok kalem varsa öyle yazar. */
+function BelgeToplami({
+  tutar,
+  currency,
+  coklu,
+}: {
+  tutar: number | null;
+  currency: string;
+  coklu: boolean;
+}) {
+  return (
+    <div className="text-right">
+      <div className="font-mono text-sm font-semibold">{fmtMoney(tutar, currency)}</div>
+      {coklu ? (
+        <div className="text-[11px] text-muted-foreground">bütün kalemler · adet dahil</div>
+      ) : null}
+    </div>
+  );
+}
+
+function AraToplam({
+  baslik,
+  birim,
+  adet,
+  currency,
+}: {
+  baslik: string;
+  birim: number | null;
+  adet: number | null;
+  currency: string;
+}) {
+  const katsayi = adet === null || !Number.isFinite(adet) ? 1 : adet;
+  const paket = birim === null ? null : birim * katsayi;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed px-2.5 py-1.5">
+      <span className="min-w-0 flex-1 truncate text-xs font-medium" title={baslik}>
+        {baslik} — ARA TOPLAM
+      </span>
+      {katsayi !== 1 ? (
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {fmtMoney(birim, currency)} × {fmtCostField(katsayi, 0)} adet
+        </span>
+      ) : null}
+      <span className="font-mono text-sm font-semibold">{fmtMoney(paket, currency)}</span>
+    </div>
+  );
+}
+
 // —————————————————————————————————————————————————————— grup
 
 function GrupBlogu({
@@ -364,6 +438,7 @@ function GrupBlogu({
   offer,
   offerItemId,
   readOnly,
+  katlama,
   onChange,
 }: {
   group: CostGroup;
@@ -374,6 +449,7 @@ function GrupBlogu({
   offer: OfferPayload;
   offerItemId: string | null;
   readOnly: boolean;
+  katlama: Katlama;
   onChange: (next: CostGroup) => void;
 }) {
   // Grup toplamı MODEL MİKTARLARI VE ŞERİT FİYATLARIYLA hesaplanır: kaydetmeden
@@ -393,9 +469,19 @@ function GrupBlogu({
       lines: next ? group.lines.map((l) => (l.id === id ? next : l)) : group.lines.filter((l) => l.id !== id),
     });
 
+  // ALT BÖLÜM DE KATLANIR (md. 6). Anahtar grubun KİMLİĞİDİR, başlığı değil:
+  // iki kalemde aynı adlı grup (ÇELİK YAPI) bulunur ve başlıkla anahtarlansaydı
+  // birini katlamak ötekini de katlardı.
+  const kapali = katlama.kapali(group.id);
+
   return (
     <div className="grid gap-2 rounded-md border p-2.5">
       <div className="flex flex-wrap items-center gap-2">
+        <KatlaDugmesi
+          kapali={kapali}
+          baslikMetni={group.title}
+          onClick={() => katlama.degistir(group.id)}
+        />
         <h3 className="flex-1 text-xs font-semibold tracking-wide">{group.title}</h3>
         {/* GÖTÜRÜ KİP HER GRUPTA AÇIKTIR, yalnız elektrikte değil (kullanıcı
             örneği elektrikti ama sebep genel): tedarikçi yürütme grubunu da
@@ -422,6 +508,7 @@ function GrupBlogu({
         )}
         <span className="w-32 text-right font-mono text-sm font-semibold">{fmtMoney(toplam, currency)}</span>
       </div>
+      {kapali ? null : (
       <SatirTablosu
         lines={gorunen}
         groupKey={group.key}
@@ -439,7 +526,8 @@ function GrupBlogu({
             : () => onChange({ ...group, lines: [...group.lines, freeCostLine()] })
         }
       />
-      {group.lump ? (
+      )}
+      {group.lump && !kapali ? (
         <p className="text-[11px] text-muted-foreground">
           Götürü kip: grubun kalem satırları toplama girmez ama SİLİNMEZ — kaleme
           döndüğünüzde girilmiş bütün fiyatlar yerindedir.
@@ -490,13 +578,12 @@ function OranBlogu({
         {rate.mode === "oran" ? (
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">Proje maliyetinin %</span>
-            <Input
-              value={kutuMetni(rate.percent)}
-              inputMode="decimal"
+            <SayiKutusu
+              value={rate.percent}
               disabled={readOnly}
               aria-label={`${rate.title} oranı`}
-              onChange={(e) => onChange({ ...rate, percent: sayiVeyaNull(e.target.value) })}
-              className="h-9 w-20 text-right font-mono text-base pointer-fine:text-sm"
+              onChange={(v) => onChange({ ...rate, percent: v })}
+              className="h-9 w-20 text-right font-mono"
             />
             <span className="text-xs text-muted-foreground">
               kadarı · taban {fmtMoney(base, currency)}
@@ -546,9 +633,11 @@ export function MaliyetSayfasi({
   models,
   offer,
   readOnly,
+  katlama,
   onItemChange,
   onChange,
 }: {
+  katlama: Katlama;
   payload: CostPayload;
   item: CostItem | undefined;
   model: CostModelResult | undefined;
@@ -564,9 +653,27 @@ export function MaliyetSayfasi({
   const params = payload.params;
   const totals = costTotals(payload);
 
+  // ARA TOPLAM YALNIZ GEREKTİĞİNDE ÇİZİLİR: tek kalemli ve tek adetli bir
+  // belgede başlıktaki sayı zaten gövdenin toplamıdır ve ikinci bir satır
+  // gürültü olurdu.
+  const cokluKalem =
+    payload.items.length > 1 ||
+    payload.items.some((i) => (i.qty ?? 1) !== 1) ||
+    (costGroupTotal(payload.general) ?? 0) !== 0;
+
+  const kalemProjeBirimi = item
+    ? item.groups
+        .filter((g) => g.key !== FABRICATION_GROUP_KEY)
+        .map((g) => costGroupTotal(g))
+        .filter((n): n is number => n !== null)
+        .reduce((t, n) => t + n, 0)
+    : null;
+
   return (
     <div className="grid gap-4">
       <Bolum
+        katlama={katlama}
+        katlamaAnahtari="bolum:hammadde"
         baslik="HAMMADDE BİRİM FİYATLARI"
         aciklama="Bu fiyatlar aşağıdaki sac, profil, ray, kesim, boya ve imalat işçiliği satırlarını birden besler. Bir satırda ayrı fiyat gerekiyorsa o satırın asa düğmesiyle şeritten koparın."
       >
@@ -578,29 +685,92 @@ export function MaliyetSayfasi({
         />
       </Bolum>
 
+      {/* İMALAT MALİYETİ — BEŞİNCİ ANA BAŞLIK, proje maliyetinin ÜSTÜNDE
+          (kullanıcı isteği 18.08.2026, md. 4). Miktarı vincin fireli çelik
+          ağırlığından gelir; oranlı grupların tabanına DAHİLDİR (bir satırı
+          başlık değiştirmek toplamı kaydırmamalıdır — `costTotals` gerekçesi). */}
       <Bolum
-        baslik="PROJE MALİYETİ"
-        aciklama="Kalem kalem girilen doğrudan maliyet. Miktarlar ağırlık ve hesap modelinden gelir; miktara tıklayınca nereden geldiği açılır."
-        sag={<span className="font-mono text-sm font-semibold">{fmtMoney(totals.direct, cur)}</span>}
+        katlama={katlama}
+        katlamaAnahtari="bolum:imalat"
+        baslik="İMALAT MALİYETİ"
+        aciklama="Çelik imalat işçiliği — miktarı vincin fireli çelik ağırlığıdır, birim fiyatı hammadde şeridinden gelir."
+        sag={<BelgeToplami tutar={totals.fabrication} currency={cur} coklu={cokluKalem} />}
       >
         {item ? (
           <div className="grid gap-2.5">
-            {item.groups.map((g, gi) => (
-              <GrupBlogu
-                key={g.id}
-                group={g}
+            {item.groups
+              .map((g, gi) => ({ g, gi }))
+              .filter(({ g }) => g.key === FABRICATION_GROUP_KEY)
+              .map(({ g, gi }) => (
+                <GrupBlogu
+                  key={g.id}
+                  group={g}
+                  currency={cur}
+                  prices={prices}
+                  model={model}
+                  params={params}
+                  offer={offer}
+                  offerItemId={item.offerItemId}
+                  readOnly={readOnly}
+                  katlama={katlama}
+                  onChange={(next) =>
+                    onItemChange({ ...item, groups: item.groups.map((x, i) => (i === gi ? next : x)) })
+                  }
+                />
+              ))}
+            {cokluKalem ? (
+              <AraToplam
+                baslik={item.title || "Kalem"}
+                birim={costGroupTotal(item.groups.find((g) => g.key === FABRICATION_GROUP_KEY))}
+                adet={item.qty}
                 currency={cur}
-                prices={prices}
-                model={model}
-                params={params}
-                offer={offer}
-                offerItemId={item.offerItemId}
-                readOnly={readOnly}
-                onChange={(next) =>
-                  onItemChange({ ...item, groups: item.groups.map((x, i) => (i === gi ? next : x)) })
-                }
               />
-            ))}
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+            Kalem açıldığında imalat maliyeti burada görünür.
+          </p>
+        )}
+      </Bolum>
+
+      <Bolum
+        katlama={katlama}
+        katlamaAnahtari="bolum:proje"
+        baslik="PROJE MALİYETİ"
+        aciklama="Kalem kalem girilen doğrudan maliyet. Miktarlar ağırlık ve hesap modelinden gelir; miktara tıklayınca nereden geldiği açılır."
+        sag={<BelgeToplami tutar={totals.project} currency={cur} coklu={cokluKalem} />}
+      >
+        {item ? (
+          <div className="grid gap-2.5">
+            {item.groups
+              .map((g, gi) => ({ g, gi }))
+              .filter(({ g }) => g.key !== FABRICATION_GROUP_KEY)
+              .map(({ g, gi }) => (
+                <GrupBlogu
+                  key={g.id}
+                  group={g}
+                  currency={cur}
+                  prices={prices}
+                  model={model}
+                  params={params}
+                  offer={offer}
+                  offerItemId={item.offerItemId}
+                  readOnly={readOnly}
+                  katlama={katlama}
+                  onChange={(next) =>
+                    onItemChange({ ...item, groups: item.groups.map((x, i) => (i === gi ? next : x)) })
+                  }
+                />
+              ))}
+            {cokluKalem ? (
+              <AraToplam
+                baslik={item.title || "Kalem"}
+                birim={kalemProjeBirimi}
+                adet={item.qty}
+                currency={cur}
+              />
+            ) : null}
           </div>
         ) : (
           <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
@@ -620,13 +790,16 @@ export function MaliyetSayfasi({
           offer={offer}
           offerItemId={null}
           readOnly={readOnly}
+          katlama={katlama}
           onChange={(next) => onChange({ ...payload, general: next })}
         />
       </Bolum>
 
       <Bolum
+        katlama={katlama}
+        katlamaAnahtari="bolum:oran"
         baslik="ORANLI MALİYETLER"
-        aciklama="Sabit, sarf ve finansman giderleri PROJE MALİYETİ üzerinden hesaplanır; toplam = proje × (1 + oranların toplamı)."
+        aciklama="Sabit, sarf ve finansman giderleri DOĞRUDAN MALİYET (imalat + proje) üzerinden hesaplanır."
         sag={<span className="font-mono text-sm font-semibold">{fmtMoney(totals.rateTotal, cur)}</span>}
       >
         <div className="grid gap-2.5">
@@ -654,7 +827,7 @@ export function MaliyetSayfasi({
       </div>
 
       {/* ——— KIRILIM: ayrı sekme değil, aynı sayfanın altı (md. 8) ——— */}
-      <KirilimSayfasi payload={payload} models={models} offer={offer} />
+      <KirilimSayfasi payload={payload} models={models} offer={offer} katlama={katlama} />
     </div>
   );
 }

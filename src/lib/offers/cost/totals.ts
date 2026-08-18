@@ -17,6 +17,7 @@
 
 import { paramOf } from "./params";
 import { costGroupLines } from "./types";
+import { FABRICATION_GROUP_KEY } from "./registry";
 import type { CostGroup, CostItem, CostLine, CostPayload, CostRateGroup } from "./types";
 
 /** Satırın tutarı; miktar ya da birim fiyat eksikse `null` (sıfır DEĞİL). */
@@ -114,8 +115,22 @@ export interface CostTotals {
   items: CostItemTotal[];
   /** Proje geneli grubunun toplamı. */
   general: number | null;
-  /** PROJE MALİYETİ = Σ paket maliyet + proje geneli. Oranların TABANI. */
+  /**
+   * DOĞRUDAN MALİYET = Σ paket maliyet + proje geneli. Oranların TABANI.
+   *
+   * İMALAT DA BUNUN İÇİNDEDİR ve bu bilinçlidir. Kullanıcı isteği (md. 4)
+   * imalatı ayrı bir BAŞLIK yaptı; bir satırı bir başlıktan ötekine taşımak
+   * TOPLAMI DEĞİŞTİRMEMELİDİR. İmalat tabandan çıkarılsaydı ASTOR örneğinde
+   * oranlı grupların tabanı 194.258 → 124.133 €'ya iner, toplam maliyet
+   * 231.167 → 217.876 €'ya düşerdi: yalnız ekran düzenini değiştiren bir
+   * istek, her teklifin kâr marjını 13.291 € kaydırırdı (MALIYET-5'in
+   * "8.658 €'luk fark bir varsayıma bırakılamaz" kararının aynı ailesi).
+   */
   direct: number | null;
+  /** İMALAT MALİYETİ — beşinci ana başlık; `direct`in İÇİNDEDİR. */
+  fabrication: number | null;
+  /** PROJE MALİYETİ — ekranda basılan; `direct` eksi imalat. */
+  project: number | null;
   rates: CostRateTotal[];
   rateTotal: number | null;
   /** TOPLAM MALİYET = proje maliyeti + oranlı gruplar. */
@@ -162,7 +177,24 @@ export function costTotals(
   const rateTotal = oranlar.length ? oranlar.reduce((t, n) => t + n, 0) : null;
 
   const total = direct === null ? null : direct + (rateTotal ?? 0);
-  return { items, general, direct, rates, rateTotal, total };
+
+  // İMALAT ayrı bir başlık olarak GÖSTERİLİR ama tabandan düşülmez (yukarıdaki
+  // gerekçe). Kalem adedi çarpanı burada da geçerlidir: paket maliyet birim ×
+  // adet ise imalat payı da öyledir.
+  const imalatlar = payload.items
+    .map((item) => {
+      const grup = item.groups.find((g) => g.key === FABRICATION_GROUP_KEY);
+      const birim = costGroupTotal(grup);
+      if (birim === null) return null;
+      const adet = item.qty === null || !Number.isFinite(item.qty) ? 1 : item.qty;
+      return birim * adet;
+    })
+    .filter((n): n is number => n !== null);
+  const fabrication = imalatlar.length ? imalatlar.reduce((t, n) => t + n, 0) : null;
+  const project =
+    direct === null ? null : direct - (fabrication ?? 0);
+
+  return { items, general, direct, fabrication, project, rates, rateTotal, total };
 }
 
 /**

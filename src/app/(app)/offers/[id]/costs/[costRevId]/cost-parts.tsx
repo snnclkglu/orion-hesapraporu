@@ -8,7 +8,10 @@
 // bir düzenleme yaparken maliyet ekranını da kırma riski demekti. Aynı şekil,
 // ayrı sahip.
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseNum } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,12 +27,17 @@ import { costFieldDef, costFieldText, fmtCostField } from "@/lib/offers/cost/lab
 import type { CostModelResult, CostSection } from "@/lib/offers/cost/model";
 import { COST_PARAM_DEFS, paramOf } from "@/lib/offers/cost/params";
 
-/** Boş kutu `null` üretir, `0` DEĞİL (SATIS-16). */
+/**
+ * Boş kutu `null` üretir, `0` DEĞİL (SATIS-16).
+ *
+ * ÇÖZÜMLEYİCİ UYGULAMANIN ORTAK OLANIDIR (`parseNum`). Buradaki yerel sürüm
+ * bütün noktaları siliyordu ve "12.44" → 1244 yapıyordu; `parseNum` ayrımı
+ * yazımdan okur (virgül varsa nokta binliktir; yoksa nokta ancak ardında tam
+ * üç hane varsa binliktir). Aynı sayının iki ekranda iki türlü okunması,
+ * ekranlar arası ayrışmanın en sessiz biçimidir.
+ */
 export function sayiVeyaNull(raw: string): number | null {
-  const s = raw.trim().replace(/\./g, "").replace(",", ".");
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
+  return parseNum(raw);
 }
 
 /** Sayıyı kutuya yazarken tr-TR ondalık ayracı korunur ("19,5"). */
@@ -38,28 +46,160 @@ export function kutuMetni(v: number | null | undefined): string {
   return String(v).replace(".", ",");
 }
 
+/**
+ * SAYI KUTUSU — yazarken VİRGÜL HAYATTA KALIR.
+ *
+ * Kullanıcı bildirimi (18.08.2026, md. 2): *"Maliyet kısmında virgüllü sayı
+ * girmek istiyorum, özellikle sac profil ray vb gruplara."* Kutular virgülü
+ * kabul ediyordu ama kullanıcı ONU HİÇ YAZAMIYORDU. Sebep kontrollü kutunun
+ * gidiş-dönüşüydü; "0,7" yazmayı harf harf ölçtük:
+ *
+ *     "0"  → durum 0   → ekranda "0"
+ *     "0," → durum 0   → ekranda "0"     ← virgül burada SİLİNİYOR
+ *     "07" → durum 7   → ekranda "7"
+ *
+ * Yani sac fiyatına 0,7 yazmaya çalışan kullanıcı 7 giriyordu — on kat fazla,
+ * üstelik ekranda öyle yazdığı için fark edilir gibi de değil.
+ *
+ * ÇÖZÜM: kutu YAZILANI gösterir (`taslak`), yukarıya ise ÇÖZÜMLENMİŞ sayıyı
+ * verir. İkisi ayrı şeylerdir: "0," geçerli bir yazım ADIMIDIR ama geçerli bir
+ * sayı değildir. Taslak odak çıkınca düşer ve kutu belgenin kanonik yazımına
+ * döner ("0,7").
+ *
+ * DIŞARIDAN GELEN DEĞER TASLAĞI DÜŞÜRÜR: asa düğmesi ya da "Tekliften Tazele"
+ * kutuyu değiştirdiğinde taslak onu maskelemez (çizim sırasında sınanır —
+ * React'in "türetilmiş durum" kalıbı).
+ */
+export function SayiKutusu({
+  value,
+  onChange,
+  className,
+  ...rest
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange">) {
+  const [taslak, setTaslak] = useState<string | null>(null);
+
+  // BOŞ TASLAK DÜŞÜRÜLMEZ — ve bu kelepçeli alanların tek çaresidir.
+  //
+  // Kimi çağrı yeri boşu bir varsayılana çeker (`ambientC: v ?? 40`,
+  // `girderCount: v ?? 2`): alan gerçekten boş kalamaz. Kapı yalnız
+  // "taslağın sayısı ≠ gelen değer" deseydi, kutuyu silip yeniden yazmak
+  // imkânsızlaşırdı. Ölçüldü — 40'ı silip 25 yazmak:
+  //
+  //     <BS> → "4"  → değer 4   → ekranda "4"
+  //     <BS> → ""   → değer 40  → ekranda "40"   ← kutu kendini geri doldurur
+  //     "2"  → "402"                             ← imleç sonda, yazılan eklenir
+  //     "5"  → "4025"                            ← 25 yerine 4025
+  //
+  // Boş taslak KORUNUR: kutu boş görünür, ebeveyn varsayılanıyla çalışmaya
+  // devam eder ve kullanıcı yeni sayıyı temiz bir kutuya yazar. Odak
+  // çıkınca taslak düşer ve kutu yürürlükteki değeri gösterir.
+  if (taslak !== null && taslak.trim() !== "" && sayiVeyaNull(taslak) !== value) setTaslak(null);
+
+  return (
+    <Input
+      {...rest}
+      inputMode="decimal"
+      value={taslak ?? kutuMetni(value)}
+      onChange={(e) => {
+        setTaslak(e.target.value);
+        onChange(sayiVeyaNull(e.target.value));
+      }}
+      onBlur={(e) => {
+        setTaslak(null);
+        rest.onBlur?.(e);
+      }}
+      className={cn("text-base pointer-fine:text-sm", className)}
+    />
+  );
+}
+
+/**
+ * KATLAMA DENETİMİ — bir bölümün açık/kapalı olması.
+ *
+ * Kullanıcı isteği (18.08.2026, md. 6): *"PROJE MALİYETİ gibi ana bölümler ve
+ * YÜRÜTME VE TEKER gibi alt bölümler bir butonla daraltılabilsin."*
+ *
+ * DURUM BELGEDE DEĞİL EKRANDA YAŞAR. Bir bölümün kapalı olması bir GÖRÜNÜM
+ * tercihidir; maliyet belgesinin içeriği değildir. Belgeye yazılsaydı iki şey
+ * olurdu: yayımlanmış (kilitli) bir maliyette bölüm katlanamazdı, ve bir
+ * kullanıcının katladığı bölüm ötekinin ekranında da kapalı açılırdı.
+ */
+export interface Katlama {
+  kapali: (anahtar: string) => boolean;
+  degistir: (anahtar: string) => void;
+}
+
+/** Katlama okunu çizen düğme — ana bölümde ve alt grupta aynı şekil. */
+export function KatlaDugmesi({
+  kapali,
+  onClick,
+  baslikMetni,
+}: {
+  kapali: boolean;
+  onClick: () => void;
+  baslikMetni: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={!kapali}
+      title={kapali ? `${baslikMetni} — aç` : `${baslikMetni} — daralt`}
+      aria-label={kapali ? `${baslikMetni} — aç` : `${baslikMetni} — daralt`}
+      className="oc-tap-square inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <ChevronDown className={cn("size-4 transition-transform", kapali && "-rotate-90")} />
+    </button>
+  );
+}
+
 export function Bolum({
   baslik,
   aciklama,
   sag,
+  katlama,
+  katlamaAnahtari,
   children,
 }: {
   baslik: string;
   aciklama?: string;
   /** Başlığın sağındaki eylem ya da özet. */
   sag?: React.ReactNode;
+  /** Verilirse başlık katlanabilir olur. */
+  katlama?: Katlama;
+  katlamaAnahtari?: string;
   children: React.ReactNode;
 }) {
+  const anahtar = katlamaAnahtari ?? baslik;
+  const katlanir = katlama !== undefined;
+  const kapali = katlanir && katlama.kapali(anahtar);
+
   return (
     <section className="grid gap-3 rounded-lg border p-3">
       <header className="flex flex-wrap items-start gap-2">
+        {katlanir ? (
+          <KatlaDugmesi
+            kapali={kapali}
+            baslikMetni={baslik}
+            onClick={() => katlama.degistir(anahtar)}
+          />
+        ) : null}
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold tracking-wide">{baslik}</h2>
-          {aciklama ? <p className="text-xs text-muted-foreground">{aciklama}</p> : null}
+          {/* AÇIKLAMA KAPALIYKEN GİZLENİR: katlamanın amacı dikey yer
+              kazanmaktı; iki satırlık bir açıklama kalsaydı kazanç yarıya
+              inerdi. Başlık ve SAĞDAKİ ÖZET (tutar) kalır — kapalı bir
+              bölümün tutarı görünmeseydi katlamak bilgi kaybı olurdu. */}
+          {aciklama && !kapali ? (
+            <p className="text-xs text-muted-foreground">{aciklama}</p>
+          ) : null}
         </div>
         {sag}
       </header>
-      {children}
+      {kapali ? null : children}
     </section>
   );
 }
@@ -118,13 +258,7 @@ export function SayiAlani({
         {etiket}
         {birim ? <span className="ml-1 text-muted-foreground">[{birim}]</span> : null}
       </Label>
-      <Input
-        id={id}
-        inputMode="decimal"
-        value={kutuMetni(value)}
-        onChange={(e) => onChange(sayiVeyaNull(e.target.value))}
-        className="h-9 text-base pointer-fine:text-sm"
-      />
+      <SayiKutusu id={id} value={value} onChange={onChange} className="h-9" />
       {ipucu ? <p className="text-[11px] text-muted-foreground">{ipucu}</p> : null}
     </div>
   );

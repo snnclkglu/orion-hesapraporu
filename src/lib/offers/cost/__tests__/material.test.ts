@@ -232,7 +232,8 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
   const l = (key: string) => celik.lines.find((x) => x.key === key) as CostLine;
 
   it("sac satırı 51.000 kg çeliği 0,70 €/kg ile fiyatlar", () => {
-    expect(l("rawMaterial").qty).toBe(51000);
+    // SAC FİRE DAHİL TARTILIR (kullanıcı kararı 18.08.2026): 56.100 kg.
+    expect(l("rawMaterial").qty).toBeCloseTo(56100, 6);
     expect(l("rawMaterial").unitPrice).toBe(0.7);
   });
 
@@ -244,8 +245,11 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
   });
 
   it("işçilik fire dahil ağırlığı 0,90 €/kg, kesim çelik ağırlığını 0,05 €/kg ile fiyatlar", () => {
-    expect(l("fabrication").qty).toBeCloseTo(56100, 6);
-    expect(l("fabrication").unitPrice).toBe(0.9);
+    // İŞÇİLİK KENDİ ANA BAŞLIĞINDADIR (md. 4) — çelik yapıda değil.
+    const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
+    const isc = imalat.lines.find((x) => x.key === "fabrication")!;
+    expect(isc.qty).toBeCloseTo(56100, 6);
+    expect(isc.unitPrice).toBe(0.9);
     expect(l("laserCut").qty).toBe(51000);
     expect(l("laserCut").unitPrice).toBe(0.05);
   });
@@ -259,12 +263,25 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
     expect(l("profile").qty).toBeNull();
   });
 
-  it("çelik yapı 97.665 € olur ve toplam maliyet 116.221,35 €'ya çıkar", () => {
-    // 51.000×0,70 + 56.100×0,90 + 51.000×0,05 + 59.500×0,08 + 59.500×0,07
-    expect(costGroupTotal(celik)).toBeCloseTo(35700 + 50490 + 2550 + 4760 + 4165, 4);
-    expect(p.direct).toBeCloseTo(97665, 4);
-    // Oran tabanı PROJE MALİYETİDİR: 97.665 × 1,19.
-    expect(p.total).toBeCloseTo(116221.35, 4);
+  it("BAŞLIK DEĞİŞTİ, TOPLAM DEĞİŞMEDİ — imalat ayrıldı, doğrudan maliyet aynı", () => {
+    const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
+    // ÇELİK YAPI artık işçiliği İÇERMEZ; sac ise FİRE DAHİL tartılır:
+    // 56.100×0,70 + 51.000×0,05 + 59.500×0,08 + 59.500×0,07
+    expect(costGroupTotal(celik)).toBeCloseTo(39270 + 2550 + 4760 + 4165, 4);
+    // İMALAT MALİYETİ kendi başlığında: 56.100×0,90
+    expect(costGroupTotal(imalat)).toBeCloseTo(50490, 4);
+
+    const t = costTotals(p);
+    expect(t.fabrication).toBeCloseTo(50490, 4);
+    expect(t.project).toBeCloseTo(50745, 4);
+
+    // BİR SATIRI BİR BAŞLIKTAN ÖTEKİNE TAŞIMAK TOPLAMI DEĞİŞTİRMEZ. Oran
+    // tabanı DOĞRUDAN MALİYETTİR (imalat + proje) ve 97.665 € olarak kalır;
+    // imalat tabandan düşülseydi toplam ciddi biçimde düşerdi,
+    // yani yalnız ekran düzenini değiştiren bir istek her teklifin kâr
+    // marjını kaydırırdı (MALIYET-5'in kardeş kararı).
+    expect(p.direct).toBeCloseTo(101235, 4);
+    expect(p.total).toBeCloseTo(101235 * 1.19, 4);
   });
 
   it("elle girilmiş fiyat tazelemeden SAĞ ÇIKAR", () => {
@@ -279,7 +296,7 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
       (x) => x.key === "rawMaterial"
     ) as CostLine;
     expect(yeni.unitPrice).toBe(0.82);
-    expect(yeni.qty).toBe(51000);
+    expect(yeni.qty).toBeCloseTo(56100, 6);
   });
 });
 
@@ -302,7 +319,10 @@ describe("defterin çelik satırları şeride BAĞLIDIR", () => {
     expect(kaynak("rawMaterial")).toBe("sac");
     expect(kaynak("profile")).toBe("profil");
     expect(kaynak("laserCut")).toBe("kesim");
-    expect(kaynak("fabrication")).toBe("celikIsciligi");
+    // İşçilik KENDİ grubundadır ama şerit bağı aynıdır.
+    expect(
+      COST_GROUP_DEF_BY_KEY.fabrication.lines.find((l) => l.key === "fabrication")?.priceSource
+    ).toBe("celikIsciligi");
     expect(kaynak("paint")).toBe("boya");
     expect(kaynak("paintLabour")).toBe("boyaIsciligi");
   });
@@ -348,7 +368,6 @@ describe("tazeleme defterin YENİ satırlarını ekler, eskisini silmez", () => 
       "paint",
       "profile",
       "railA",
-      "fabrication",
       "laserCut",
       "paintLabour",
     ]);

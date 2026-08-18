@@ -27,7 +27,6 @@
 // değer modelin önerdiğinden DAHA güvenilirdir (mühendis biliyordur).
 
 import { Wand2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
@@ -52,10 +51,9 @@ import {
   MiniDugme,
   SapmaRozeti,
   SayiAlani,
+  SayiKutusu,
   SayiSecici,
   Turetme,
-  kutuMetni,
-  sayiVeyaNull,
 } from "./cost-parts";
 
 // ————————————————————————————————————————————————————————— girdiler
@@ -289,13 +287,12 @@ function ModelSatiri({
           className={cn("w-28", !elle && "border-input font-normal")}
         />
       ) : elle && duzenlenebilir ? (
-        <Input
-          value={kutuMetni(item.overrides[f.key])}
-          inputMode="decimal"
+        <SayiKutusu
+          value={item.overrides[f.key] ?? null}
           autoFocus
           aria-label={`${f.label} — elle değer`}
-          onChange={(e) => onEz(f.key, sayiVeyaNull(e.target.value))}
-          className="h-8 w-28 border-primary text-right font-mono text-base font-semibold pointer-fine:text-sm"
+          onChange={(v) => onEz(f.key, v)}
+          className="h-8 w-28 border-primary text-right font-mono font-semibold"
         />
       ) : duzenlenebilir ? (
         // SAYIYA TIKLAMAK ONU DÜZENLER (md. 3: "hızlıca düzenlenen bir yapı").
@@ -618,14 +615,13 @@ export function KatsayiSayfasi({
                         {d.label}
                       </div>
                     </div>
-                    <Input
-                      value={kutuMetni(deger)}
-                      inputMode="decimal"
+                    <SayiKutusu
+                      value={deger}
                       disabled={readOnly}
                       aria-label={d.label}
-                      onChange={(e) => set(d.key, sayiVeyaNull(e.target.value))}
+                      onChange={(v) => set(d.key, v)}
                       className={cn(
-                        "h-8 w-28 text-right font-mono text-base pointer-fine:text-sm",
+                        "h-8 w-28 text-right font-mono",
                         degisti && "border-primary font-semibold"
                       )}
                     />

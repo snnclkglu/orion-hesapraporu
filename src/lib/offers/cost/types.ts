@@ -298,6 +298,20 @@ export interface CostPayload {
   materialPrices: Record<string, number | null>;
   items: CostItem[];
   /**
+   * MALİYETTEN ÇIKARILMIŞ teklif kalemlerinin kimlikleri.
+   *
+   * Kullanıcı isteği (18.08.2026, md. 1): *"Teklif kısmından bir kalemi
+   * silebiliyorum ama maliyet kısmından silemiyorum."* Silme eklendi ve tek
+   * başına YETMEDİ: `withOfferSync` EKLEYİCİDİR (MALIYET-9) ve teklifte
+   * duran bir kalemi ilk tazelemede geri getirirdi. Kullanıcı sildiğini geri
+   * gelmiş görünce silmenin çalışmadığını düşünürdü.
+   *
+   * KARARIN KENDİSİ SAKLANIR, sonucu değil: liste "bu teklif kalemini
+   * maliyetlemiyoruz" der. Ekran bunu görünür tutar ve geri alma sunar —
+   * sessizce eksilen bir kalem, maliyeti olduğundan ucuz gösterirdi.
+   */
+  removedOfferItemIds: string[];
+  /**
    * PROJE GENELİ giderler — tek bir vince atfedilemeyen kalemler
    * (dokümantasyon, saha genel giderleri, nakliye organizasyonu).
    * Excel'de de ayrı bir öbektir ("PROJE GENELİ KALEMLER (götürü)").

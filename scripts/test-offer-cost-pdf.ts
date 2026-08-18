@@ -274,7 +274,12 @@ async function main() {
   // 2 — DÖRT ANA BAŞLIK VE TOPLAM
   console.log("\n  dört ana başlık");
   const proje = totals.direct ?? 0;
-  kontrol(Math.abs(proje - 194_257.74) < 1, `proje maliyeti devralınan çalışmayla tuttu (${proje.toFixed(2)} €)`);
+  // ÇAPA 194.257,74 → 197.827,74 € (18.08.2026). Fark TAM OLARAK
+  // (56.100 − 51.000) × 0,70 = 3.570 €: kullanıcı kararıyla sac artık FİRE
+  // DAHİL kilodan fiyatlanıyor (*"Hammadde — Sac'ın ağırlığı Çelik + Fire
+  // ağırlığı getir"*). Devralınan çalışma sacı fireSİZ tartıyordu; sapma
+  // bilinçlidir ve tek kalemden gelir.
+  kontrol(Math.abs(proje - 197_827.74) < 1, `doğrudan maliyet beklenen çapada (${proje.toFixed(2)} €)`);
   kontrol(
     Math.abs((totals.total ?? 0) - proje * 1.19) < 0.01,
     "toplam maliyet = proje × 1,19 (oran tabanı PROJE MALİYETİ)"
