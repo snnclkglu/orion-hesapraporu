@@ -24,6 +24,7 @@ import {
   updateOfferOption,
 } from "./actions";
 import type { OfferOptionRow } from "../data";
+import { offerValueUpper } from "@/lib/offers/options";
 import { offerListGroup, offerListLabel } from "@/lib/offers/registry";
 import { Button } from "@/components/ui/button";
 import {
@@ -341,7 +342,12 @@ function MaddeSatiri({
           maxLength={200}
           aria-label="Madde metni"
           onBlur={(e) => {
-            const v = e.target.value.trim();
+            // BÜYÜTME onBlur'DA, onChange'DE DEĞİL. Kutu `defaultValue` + `key`
+            // ile kontrolsüzdür (dosya başındaki karar); her tuşta değeri
+            // yeniden yazmak imleci metnin sonuna atardı. Sunucu dönünce `key`
+            // değişir ve React kutuyu büyük hâliyle kendiliğinden tazeler.
+            // Muaf listelerde `offerValueUpper` metni olduğu gibi döndürür.
+            const v = offerValueUpper(madde.list_key, e.target.value.trim());
             if (v && v !== madde.value) yaz({ value: v });
           }}
           className={cn(
@@ -479,7 +485,11 @@ function MaddeEkle({
     <div className="flex items-center gap-1.5">
       <Input
         value={deger}
-        onChange={(e) => setDeger(e.target.value)}
+        // YAZARKEN BÜYÜR (ad alanlarının kuralı, değişmez md. 3): kutu
+        // kontrollü olduğu için imleç sorunu yoktur ve kullanıcı maddenin
+        // deftere hangi yazımla gireceğini yazarken görür. Kip `listKey`ten
+        // çıkar — muaf bir listede kutu dokunulmadan kalır.
+        onChange={(e) => setDeger(offerValueUpper(listKey, e.target.value))}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();

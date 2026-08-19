@@ -19,6 +19,7 @@ import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { trKatla } from "@/lib/drawings/tr-text";
+import { offerValueUpper } from "@/lib/offers/options";
 import { OFFER_GROUP_DEFS } from "@/lib/offers/registry";
 
 export type OfferDefinitionResult = { error?: string; ok?: boolean };
@@ -80,15 +81,22 @@ function tazele() {
 // ————————————————————————————————————————————————————— defter maddeleri
 
 /**
- * Madde metni OLDUĞU GİBİ saklanır — `adBuyuk` UYGULANMAZ.
+ * Madde metni BÜYÜK HARF saklanır — muaf listeler hariç (kullanıcı kararı,
+ * 19.08.2026; küme ve gerekçeleri `OFFER_LIST_KEEP_CASE`te).
  *
- * Ad alanlarının BÜYÜK HARF kuralı (değişmez md. 3) müşteri/personel adları
- * içindir; teklif defterindeki değerler markadır ve markanın yazımı kendisine
- * aittir: "Conductix-Wampfler", "SEW-EURODRIVE", "Yılmaz R." büyütülünce ya
- * bozulur ya da müşteriye giden belgede firma adını yanlış yazmış oluruz.
- * Tekillik yine de yazım farklarını yutar: karşılaştırma `match_key` üzerinden,
- * `trKatla` ile yapılır (SQL'de `upper()` DEĞİL — Postgres Türkçe farkında
- * değildir ve "İ" ile "I"yı ayıramaz).
+ * Buradaki eski karar ("olduğu gibi sakla, çünkü markanın yazımı kendisine
+ * aittir") geri alınmıştır. Marka kaygısı gerçekti ama çözümü muafiyet değil
+ * DOĞRU BÜYÜTMEDİR: `offerValueUpper` marka listelerinde `kimlikBuyuk`
+ * kullanır, yani "Conductix-Wampfler" → "CONDUCTIX-WAMPFLER" olur,
+ * "CONDUCTİX-WAMPFLER" değil.
+ *
+ * DÖNÜŞÜM ŞEMADA DEĞİL, PARSE SONRASINDA yapılır: kip `listKey`e bağlıdır ve
+ * `z.string()` alan komşusunu göremez. Şema yalnız kırpar ve sınırı ölçer.
+ *
+ * Tekillik bundan ETKİLENMEZ: karşılaştırma `match_key` üzerinden `trKatla` ile
+ * yapılır (SQL'de `upper()` DEĞİL — Postgres Türkçe farkında değildir) ve
+ * `trKatla` büyütme altında değişmezdir, yani kısmi tekillik indeksleri
+ * büyütmeyle tetiklenmez.
  */
 const maddeMetni = z.string().trim().min(1, "Madde boş olamaz.").max(200);
 
@@ -123,7 +131,8 @@ export async function createOfferOption(
 
   const parsed = yeniMaddeSemasi.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { listKey, parentId, value } = parsed.data;
+  const { listKey, parentId } = parsed.data;
+  const value = offerValueUpper(listKey, parsed.data.value);
 
   // Sıra KARDEŞLER İÇİNDE sorulur: bir markanın serileri kendi içinde
   // numaralanır, `list_key` genelinde değil — yoksa iki markanın serileri
@@ -164,7 +173,7 @@ export async function updateOfferOption(
 
   const parsed = maddeSemasi.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { value, active, isDefault, note } = parsed.data;
+  const { active, isDefault, note } = parsed.data;
 
   const { data: mevcut } = await supabase
     .from("offer_options")
@@ -173,6 +182,13 @@ export async function updateOfferOption(
     .maybeSingle();
   if (!mevcut) return { error: "Madde defterde bulunamadı." };
   const satir = mevcut as { list_key: string; parent_id: string | null };
+
+  // Kip ancak `list_key` okunduktan SONRA bilinir; bu yüzden büyütme şemada
+  // değil burada. Ekran satırın TAMAMINI gönderdiği için yıldız/tik düğmeleri
+  // de bu yoldan geçer: küçük harfle devralınmış bir maddeyi pasife almak onu
+  // aynı anda büyütür. Yan etki İSTENENDİR — defterde tek bir yazım kalsın —
+  // ama sessiz olduğu için burada yazılıdır.
+  const value = offerValueUpper(satir.list_key, parsed.data.value);
 
   // VARSAYILAN TEKTİR. Veritabanı bunu kısıtlamaz (kısmi bir tekillik indeksi
   // `is_default` için de yazılabilirdi ama o zaman "varsayılanı değiştir" iki

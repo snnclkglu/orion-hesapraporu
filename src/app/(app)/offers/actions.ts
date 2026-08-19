@@ -20,6 +20,7 @@ import { getReportSettings } from "@/lib/settings";
 import { isAdminRole } from "@/lib/roles";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { copyPayloadForCustomer } from "@/lib/offers/copy";
+import { offerValueUpper } from "@/lib/offers/options";
 import { nextSeq, offerNo } from "@/lib/offers/no";
 import {
   applyDefaults,
@@ -568,9 +569,15 @@ export async function saveOfferRevision(
     };
   });
 
+  // NOT VERİLMEDİYSE SÜTUNA HİÇ DOKUNULMAZ (bkz. `saveRevisionSchema`):
+  // otomatik kayıt saniyede bir yazdığı için, "yazılmayan alan boşaltılır"
+  // varsayımı burada revizyon notunu sessizce silmek olurdu.
+  const guncelleme: Record<string, unknown> = { payload };
+  if (parsed.data.notes !== undefined) guncelleme.notes = parsed.data.notes;
+
   const { data: yazilan, error } = await supabase
     .from("offer_revisions")
-    .update({ payload, notes: parsed.data.notes })
+    .update(guncelleme)
     .eq("id", revisionId)
     .eq("offer_id", offerId)
     .eq("status", "draft")
@@ -586,8 +593,16 @@ export async function saveOfferRevision(
     return { error: "Revizyon bulunamadı ya da yayımlanmış — yeni bir revizyon oluşturun." };
   }
 
-  tazele(offerId);
-  revalidatePath(`/offers/${offerId}/revisions/${revisionId}`);
+  // ARKA PLAN KAYDI YOL TAZELEMEZ: editör kendi durumunu zaten elinde tutar ve
+  // yürürlükteki sayfayı her yazma duraklamasında yeniden çektirmek boş bir ağ
+  // turudur. Liste ve panel `force-dynamic`tir, oraya gidildiğinde taze
+  // üretilir; tazeleme doğruluk için değil hız içindi. Yayım kendi yollarını
+  // yine tam tazeler (`issueOfferRevision`) — kilitlenen belge listede anında
+  // görünmelidir.
+  if (!parsed.data.background) {
+    tazele(offerId);
+    revalidatePath(`/offers/${offerId}/revisions/${revisionId}`);
+  }
   return { ok: true };
 }
 
@@ -711,7 +726,13 @@ export async function ensureOfferOption(
   const parsed = ensureOptionSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const anahtar = trKatla(parsed.data.value);
+  // DEFTERE GİREN METİN BURADA DA BÜYÜR (kullanıcı isteği 19.08.2026, md. 4).
+  // Editörün "deftere ekle" kapısı Tanımlar ekranından AYRI bir yoldur; yalnız
+  // orayı büyütseydik defter iki yazıma bölünürdü — kullanıcının teklif
+  // içinden eklediği madde küçük harfle, Tanımlar'dan eklediği büyük harfle.
+  // Muaf listeler (`OFFER_LIST_KEEP_CASE`) burada da muaftır.
+  const deger = offerValueUpper(parsed.data.listKey, parsed.data.value);
+  const anahtar = trKatla(deger);
   const sorgu = supabase
     .from("offer_options")
     .select("id, value")
@@ -733,7 +754,7 @@ export async function ensureOfferOption(
 
   const { error } = await supabase.from("offer_options").insert({
     list_key: parsed.data.listKey,
-    value: parsed.data.value,
+    value: deger,
     match_key: anahtar,
     parent_id: parsed.data.parentId,
     sort: ((sonSira?.sort as number) ?? 0) + 10,
@@ -742,7 +763,7 @@ export async function ensureOfferOption(
   if (error) return { error: error.message };
 
   revalidatePath("/offers/tanimlar");
-  return { value: parsed.data.value };
+  return { value: deger };
 }
 
 /**
