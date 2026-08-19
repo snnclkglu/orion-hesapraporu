@@ -489,3 +489,120 @@ bütün maliyet tablosunu geçmek zorunda kalırdı.
 **TABLO KENDİ KAYDIRMA KABINI SARMAZ.** `Table` zaten `.oc-scrollx
 overflow-x-auto` bir kap çiziyor; ikinci bir sargı iç içe iki yatay kaydırıcı
 ve üst üste iki kenar gölgesi demekti (MOBIL-14).
+
+## MALIYET-26 — Kalem adları BÜYÜK HARF; ad bir TUTAR değildir.
+
+Kullanıcı isteği (19.08.2026, md. 3). Defterdeki 53 satır adı, 8 grup başlığı ve
+8 hammadde şeridi adı büyük yazıldı; ayrıca `payload.ts`in ad geçidi (`lineFromRaw`,
+`groupFromRaw`, götürü satır) `adBuyuk`tan geçiriliyor, yani kayıtlı belgeler de
+okunurken büyüyor.
+
+**ESKİ ADLAR İÇİN MİGRATION YAZILMADI** ve bu bilinçli: `withCostDefaults` hem
+okuma hem kaydetme yolunda koşar, ad geçitte büyür. Yayımlanmış bir M
+revizyonunun satırı yeniden YAZILMAZ, yalnız görüntüsü büyür — **ad bir TUTAR
+değildir**, MALIYET-2'nin değişmezliği rakamı korur, yazımı değil.
+
+**BÜYÜTÜLMEYENLER:** `labels.ts`teki 81 MODEL alan adı (Ağırlıklar/Hesaplar
+sayfaları) ve `compare.ts`teki sapma şeridi adları. Onlar kalem değil, mühendislik
+değeridir.
+
+## MALIYET-27 — Lazer/CNC kesim FİRELİ kilodan fiyatlanır.
+
+Kullanıcı isteği (19.08.2026, md. 8): *"Maliyetler kısmında Lazer / CNC Kesim
+maliyeti de Çelik + Fire ağırlığı gelmeli."* `laserCut` satırının `qtySource`u
+`w.steel` → `w.steelWithFire`.
+
+Gerekçe fiziktir: kesilen şey satın alınan sacdır, fire dahil. Sac (18.08) ve
+kesim (19.08) artık fireli kiloyu okur; `w.total` yalnız BOYA'nın miktarıdır.
+MALIYET-14'ün "fire yalnız işçiliğe biner" cümlesi bu iki kararla eskidi.
+
+**GERİYE DÖNÜK TAŞIMA OKUMA YOLUNA YAZILMADI**: kaynağı okuma yolunda
+değiştirmek yayımlanmış M revizyonlarının kesim satırını büyütür, `total_amount`
+üretilmiş sütunu ise yalnız kaydetmede tazelendiği için ekran ile veritabanı
+ayrışırdı. Bunun yerine TAZELEME yolu (`withDefterLines`) genişletildi: defterde
+değişen `qtySource`/`priceSource` "Tekliften Tazele" ile gelir — ama yalnız
+`qtyManual`/`priceManual` kapalıysa. Elle devralınmış bir miktar korunur.
+
+## MALIYET-28 — BORVERK İŞLEME: kaldırma ve yürütme gruplarında.
+
+Kullanıcı isteği (19.08.2026, md. 9). Teker göbeği ve kaldırma grubu
+gövdelerinin büyük delik tezgâhında işlenmesi ayrı bir kalemdir ve bugüne kadar
+"TALAŞLI İMALAT"ın içinde görünmez biçimde duruyordu.
+
+Satır ana kaldırma, YARDIMCI kaldırma ve yürütme gruplarında açılır — yardımcıya
+da girer çünkü iki liste tek fonksiyondan üretilir ve orada unutulan satır en geç
+fark edilen eksikliktir. Birim "takım" × 1'dir, "saat" değil: kardeşi TALAŞLI
+İMALAT öyle ve saat cinsinden bir miktarı model üretmiyor — uydurma bir saat
+sayısı yazmak yasaktır (değişmez md. 4). Saatle fiyatlamak isteyen kullanıcı
+miktarı elle devralabiliyor.
+
+## MALIYET-29 — `costOverview`: belgenin TEK genel özeti.
+
+Kullanıcı isteği (19.08.2026, md. 13): maliyet bugün kalem kalem çalışıyor;
+kullanıcı ayrıca **tüm vinçleri + teklifin fiyat satırlarına elle yazdığı
+maliyetleri + çelik ve toplam vinç ağırlıklarını** tek görünümde istiyor.
+
+`costOverview(totals, offer, steelWeights)` (`cost/totals.ts`) saf çekirdektir;
+ekran, PDF ve Excel ONU okur. İki yerde iki toplam dolaşırsa MALIYET-24'ün
+anlattığı ayrışma kaçınılmazdır.
+
+Özet planda olmayan bir alan da taşır: **`uncostedItems`** — maliyeti hiç
+açılmamış bir teklif kalemi fiyat toplamına girip maliyet toplamına girmiyor ve
+kârı olduğundan yüksek gösteriyordu. Özet onu saymaz ama SÖYLER.
+
+## MALIYET-30 — İç belgede sütun yönü: `flex` bir kısayol değil, bir YÖN kararıdır.
+
+Kullanıcı bildirimi (19.08.2026, md. 12): *"PDF indir tuşuna bastığımda inen pdf
+belgede çakışma kaymalar var."* Belgede 36 yerde metin üst üste biniyordu.
+
+Sebep tek satırdı: `S.etiket`teki `flex: 1`. Etiket bir SÜTUN kutusunun içinde
+durur (altında "Teklifte: …", "elle girildi", "Miktar: …" notları) ve sütun
+yönünde `flex: 1` yoga'da `flexBasis: 0` demektir — bu, **yüksekliği** sıfırlar:
+etiket sıfır boyda ölçülür, altındaki not aynı taban çizgisine çizilir. Genişliği
+zaten sarmalayan kutu veriyordu. Satır yönündeki kaplar için ayrı bir
+`S.satirEtiket` stili vardır ve çıplak `flex: 1` dosyadan tamamen kaldırıldı.
+
+Aynı turda: damga içerik ızgarasına hizalandı (kâğıdın 0,85 mm yanında
+duruyordu), maliyet grupları ve oranlı gruplar SAYFA BÖLEBİLİR oldu (kullanıcının
+serbest satırlarıyla sınırsız büyürler), ağırlık/hesap bölümleri ise bilerek
+bölünmez kaldı (alan sayıları KODDA sabit, en kalabalığı ≈240 pt).
+
+**Duman testi artık GEOMETRİ de ölçer** (`scripts/test-offer-cost-pdf.ts`): aynı
+taban çizgisinde yatay örtüşen metin kutusu yok ve her kutu 62,4–549,9 pt içerik
+sütununda. İki sav da bilerek bozularak sınandı.
+
+## MALIYET-31 — Maliyet ekranı: Özet, iki sütun, Excel, girdi eşitlemesi.
+
+Kullanıcının 19.08.2026 turu (md. 2, 6, 7, 11, 13).
+
+**ÖZET İLK BÖLÜMDÜR** ve kalem seçici taşımaz: sorusu "bu vinç ne tutuyor"
+değil, "bu teklif ne tutuyor". Bütün sayıları `costOverview`den okur (MALIYET-29)
+— ekran tek bir toplamı bile kendi hesaplamaz.
+
+**"MALİYETLER" İKİ SÜTUNA AYRILIR, EŞİK ÖLÇÜLMÜŞTÜR.** Satır tablosunun gerçek
+en küçük genişliği tarayıcıda 781 px çıkıyordu; 1600 px'lik pencerede iki sütuna
+bölününce sütuna 615 px kalıyor ve tablo KENDİ İÇİNDE yatay kaydırma açıyordu.
+İki düzeltme birlikte yapıldı: eşik `2xl` (1536) yerine ölçülen `1800 px`, ve
+Kalem sütununun `2xl:min-w-[18rem]` tabanı KALDIRILDI — `min-w` bir taban olduğu
+için artan yeri sütun zaten alıyordu, o kural yalnız en küçük genişliği şişirip
+geniş ekranda okunurluğu bozuyordu.
+
+**GİRDİ EŞİTLEMESİ ÖNCE SÖYLER, SONRA UYGULAR** (`input-sync.ts`). Eksik olan
+"hesap" değildi: ağırlıklar ve hesaplar zaten her tuş vuruşunda yeniden koşuyor.
+Geride kalan GİRDİLERDİ — "Tekliften Tazele" yalnız BOŞ alanı doldurur ve doluyu
+bilerek ezmez (MALIYET-9), o kural teklifteki açıklık gerçekten değiştiğinde ters
+yönde ısırır. "Teklifle Eşitle" düğmesi farkları önce listeler ("Açıklık 30 →
+28"), onaydan sonra uygular ve model ÇIKTISI ezmelerine (ana kiriş ağırlığı,
+seçilen motor) HİÇ dokunmaz — biri belgeyle eşitleme, öteki mühendisin bilgisini
+atma kararıdır.
+
+**EXCEL PDF'İN YANINDADIR** ve aynı veriden üretilir ama başka bir soruya cevap
+verir: PDF okunacak bir BELGEDİR (arşive girer, İÇ BELGE damgası taşır), Excel
+üzerinde ÇALIŞILACAK bir çizelgedir — hücreler metin değil SAYIDIR, para birimi
+hücrenin biçimindedir ve toplanabilir.
+
+**GİRDİ IZGARASI HİZALIDIR** (`ALAN_IZGARASI` + `grid-rows-subgrid`): eskiden her
+kutunun genişliği elle veriliyordu ("6.5rem", "9rem", "10rem") ve satır sonunda
+artan yer son kutuya düşüyordu — ilk satırda sekiz, ikincisinde altı alan vardı
+ve hiçbir sütun alt satırdakiyle hizalanmıyordu. Vinç Sınıfı seçicisi de aynı
+ızgaranın hücresidir; kendi `w-24`ü ile çizilseydi komşularının rayına oturmazdı.

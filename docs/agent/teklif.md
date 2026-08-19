@@ -776,3 +776,145 @@ girdisi yüz kat şişiyordu.
 `parseNum` ayrımı YAZIMDAN okur: virgül varsa nokta binliktir ("1.500,25"),
 yoksa nokta ancak **ardında tam üç hane** varsa binliktir ("1.500" → 1500).
 "12.44" hiçbir Türkçe yazımda 1244 değildir; 1244 "1.244" diye yazılır.
+
+## TEKLIF-38 — Teknik satır BÜYÜK HARF basılır; BİRİM ve ÖLÇÜ korunur.
+
+Kullanıcı isteği (19.08.2026, md. 18): *"Teklifteki Özellikleri yazılarının ve
+detaylarının tamamı büyük harf olsa daha profesyonel durur."*
+
+**DÖNÜŞÜM SUNUM KATMANINDADIR, VERİDE DEĞİL.** `row.value` kullanıcının yazdığı
+metindir ve teklif ekranında, analizde, maliyet eşleşmesinde aynen kullanılır;
+büyütmeyi payload'a yazmak aynı bilgiyi iki yazımla saklamak olurdu.
+
+**DÜZ BİR BÜYÜTME ÜÇ ŞEYİ BOZAR**, üçü de mühendislik belgesinde yazım hatası:
+Türkçe "i" (`toUpperCase` "VINÇ" yapar), SI birimleri (**kW ≠ KW**, "m" metre
+iken "M" mega öneki) ve ölçü/kod yazımı ("Ø20 6x36", "12.44m", "35-42 HRC").
+`offers/buyuk.ts` `teknikDegerBuyuk` bu yüzden SÖZCÜK SÖZCÜK çalışır: rakam
+taşıyan sözcük, eğik çizgili birleşik birim ("d/dak"), çarpım işareti "x",
+tamamı küçük harfli birim ("m", "kg") ve zaten büyük yazılmış sözcük olduğu
+gibi kalır. Kalanlar Türkçe büyür; **Türk alfabesinde q/w/x yoktur** ve
+"ph"/"sch"/"ck" öbekleri geçmez — bu izleri taşıyan sözcük marka sayılıp
+yerelsiz büyür ("Schneider" → SCHNEIDER, "Freni" → FRENİ).
+
+**YALNIZ TEKNİK SATIRLAR BÜYÜR.** Ticari şartlar bir CÜMLEDİR ("Vinçlerin
+yerine montajı ve devreye alınması dahildir.") ve büyük harfle bağırır.
+
+**ÖLÇÜ DE DEĞİŞTİ:** büyük harf Archivo'da belirgin geniştir (fontkit ile on
+gerçek etiket ölçüldü: 0,482 → 0,618). `pdf-layout.ts` `ETIKET_KATSAYI` 0,46'dan
+**0,62**'ye çıkarıldı. Eski katsayı bırakılsaydı modül etiketi %28 dar sanar ve
+iki ayrı yerden EKSİK ölçerdi — eksik ölçmek @react-pdf'in taşan satırı sessizce
+kırpması demektir.
+
+**METİN KATMANI TUZAĞI:** kapsam eki (`(Müşteri Kapsamında)`) mono dizilen
+değerin içinde bir `Text`ti ve aile verilmediği için mono'yu miras alıyordu;
+@react-pdf'in ürettiği alt kümede mono'nun ToUnicode eşlemesi büyük "I"yı "F"ye
+bağladı ve belgeden kopyalanan metin "KAPSAMFNDA" çıktı. **Çizim doğruydu, METİN
+KATMANI yanlıştı** — müşteri belgede arama yapsa bulamazdı. Ek artık sans
+dizilir; duman testinde "KAPALI ALAN" savı bu tuzağın bekçisidir.
+
+## TEKLIF-39 — Kapağın başlığı teklifin KONUSUDUR.
+
+Kullanıcı isteği (19.08.2026, md. 20): *"En üstte büyük sadece TEKLİF yazacağına
+konu en üstte verilebilir. Konu zaten teklifin içeriğini anlatıyor."*
+
+- Büyük başlık `offer.subject`tir; üstünde küçük kırmızı bir "TEKLİF" kicker'ı
+  belgenin ne olduğunu söyler. Konu boşsa başlık "TEKLİF"e düşer — adsız bir
+  kapak, yanlış adlandırılmış bir kapaktan da kötüdür.
+- **PUNTO KADEMELİDİR** (22 / 17 / 14): konu uzunluğu teklifden teklife değişir
+  ve @react-pdf'te `maxLines`/`textOverflow` YOKTUR, yani kırpma seçeneği de yok.
+- **ÜNVAN KENDİ SATIRIDIR**: eskiden adın altında etiketsiz, girintili bir alt
+  satırdı ve künyenin ızgarasına tutunmadığı için havada duruyordu.
+- **LOGOLAR**: KİMDEN'de bizimki (belgeye gömülü buffer), KİME'de müşterininki
+  (Storage'dan indirilip prop olarak gelir). Oranı bilinmeyen bir görsel için
+  `objectFit` YOKTUR; yalnız `height` + `maxWidth` verilir, genişliği motor
+  görselin kendi oranından hesaplar. **Logo yoksa hiçbir şey çizilmez** —
+  sabit yükseklikli boş bir yer tutucu tam da "eksik" izlenimini verirdi.
+- **FİRMA TANITIMI** imzaların altındadır (md. 22). Yeri giriş metninin devamı
+  değildir: giriş mektubun kendisidir ve araya kurumsal bir paragraf girseydi
+  hitap ile imza arasındaki bağ kopardı. Metin `registry.ts` `COMPANY_PROFILE`
+  sabitindedir — defter kullanıcının seçtiği KISA değerleri taşır, bu ise
+  firmanın BEYANIDIR. Duman testi kapağın TEK sayfa kaldığını savlar.
+
+## TEKLIF-40 — Ticari sayfa İKİ SÜTUNDUR; fiyat tablosunun kendi başlığı vardır.
+
+Kullanıcı isteği (19.08.2026, md. 15 ve 16). Sayfanın başlığı `terms.title`dır
+ve metinden "FİYAT" sözcüğü ÇIKTI ("TESLİM VE ÖDEME ŞEKLİ"): fiyat artık
+sayfanın kendi bölümüdür ve "FİYATLAR" başlığını taşır — kullanıcının bildirdiği
+*"tablonun başlığı yok gibi duruyor"* tam olarak buydu.
+
+- Solda TESLİM ŞARTLARI (ve varsa TEST YÜKÜ), sağda ÖDEME. **Sağ sütun boşsa tek
+  sütuna dönülür** — yarısı boş bir sayfa, bölünmüş bir sayfadan kötü okunur.
+- **ÖDEME KALEMİ KUTUDUR**, girintili küçük satır değil: oran solda ve büyük.
+  Devralınan düzende teklifin en çok bakılan iki rakamı (yüzdeler) sayfanın en
+  silik yerindeydi. Oran METİNDEN okunur ("%40 Avans…"), ayrı bir alandan değil
+  — veriye ikinci bir gerçek açmak, kullanıcının yazdığı metinle çelişebilirdi.
+- **NOTLAR da madde işaretli** (md. 17), kapsam dışı işler gibi.
+- Bütün bölüm başlıkları TEK biçimdir (şerit + harf aralıklı ad): teknik öbekler,
+  teslim, ödeme, test yükü, fiyatlar, notlar, kapsam dışı. Devralınan düzende
+  ticari sayfanın başlıkları kalın kırmızı ve iki noktalıydı, teknik sayfanınki
+  şeritliydi; aynı belgenin iki yaprağı iki ayrı belgeden çıkmış gibi duruyordu.
+- **Sayfa başlığının altındaki öbek dizini KALDIRILDI** (md. 19). `OfferPdfSayfa.
+  basliklar` alanı veride DURUR (testler onu sınar) ama artık basılmaz.
+
+## TEKLIF-41 — Defter maddesi BÜYÜK HARF saklanır; beş liste MUAFTIR.
+
+Kullanıcı isteği (19.08.2026, md. 4): *"Tanımlar defterler kısmındaki yazıları
+büyük harfe çevir. Kapsam Dışı işler, Notlar ve Kapak Metinleri, Vinç Sınıfı
+hariç."*
+
+Muaf küme `OFFER_LIST_KEEP_CASE` (`offers/options.ts`) — `term.exclusion`,
+`term.note`, `cover.honorific`, `cover.intro`, `val.craneClass`. Her biri
+büyütmenin metni BOZDUĞU yerdir: ilk ikisi tam cümledir, sonraki ikisi kapak
+metnidir ("Sayın … Bey," → "BEY,"), sonuncusu bir STANDART gösterimidir ("FEM
+1Am" → "FEM 1AM" standarda aykırı).
+
+**Dönüşüm VERİDE yapılır** (`offerValueUpper`): değer teklif payload'ına metin
+olarak girer ve PDF onu basar; ekranı CSS ile büyütmek belgeyi değiştirmez ve
+ekran belgenin yalanını söylerdi. Yazma yolu iki yerdedir ve İKİSİ DE kapatıldı
+— Tanımlar ekranı (`tanimlar/actions.ts`) ve editörün "deftere ekle" kapısı
+(`offers/actions.ts` `ensureOfferOption`); yalnız biri kapatılsaydı defter iki
+yazıma bölünürdü. Devralınan maddeler tek seferlik bir göçle düzeltilir ve göçün
+SQL'i `teknikDegerBuyuk`ün ikizidir (birim ve ölçü orada da korunur; iki taraf
+ayrışırsa göç, uygulamanın yazmayacağı bir yazım üretir).
+
+**MARKA LİSTELERİ AYRI DALDADIR** (`kimlikBuyuk`): "Siemens" → SIEMENS,
+"Üntel" → ÜNTEL. Kabul edilen sınır, ASCII yazılan Türkçe bir markanın noktasız
+büyümesidir ("Dereli" → DERELI); kullanıcı maddeyi noktalı yazdığında kip
+Türkçeye döner ve düzeltme kalıcıdır.
+
+## TEKLIF-42 — Kalem kopyası: kimlikler yenilenir, kopya kaynağın ARDINA girer.
+
+Kullanıcı isteği (19.08.2026, md. 5): *"Buna çok benzer aynı teklif içerisinde
+başka bir vinç var… o vinci tamamen kopyalamak isterim. Hızlıca birkaç
+özelliğini değiştirip düzenlerim."*
+
+`copyItemInPayload(payload, itemId)` (`offers/copy.ts`) — kalem, grupları ve
+satırlarıyla kopyalanır; **her kimlik yenilenir**. Eski `id` kalsaydı fiyat
+satırının `itemId` bağı iki kaleme birden bağlanır ve toplam bozulurdu.
+
+- **AD `defaultItemTitle` İLE ÜRETİLİR** ("VİNÇ - 4"), kaynağın adı TAŞINMAZ:
+  aynı ad belgede iki bölüm başlığı ve fiyat tablosunda iki aynı açıklama
+  üretirdi (TEKLIF-7'nin dersi). " - 2" gibi bir ek ise yer tutucu olurdu —
+  müşteri onu vincin adı sanardı.
+- **FİYAT SATIRLARI DA KOPYALANIR.** Asimetri belirleyicidir: YANLIŞ fiyat
+  görünür ve düzeltilir, EKSİK satır belgede hiç görünmez — teklif olduğundan
+  ucuza gider ve hata ancak sipariş alındıktan sonra anlaşılır. Toplamın anında
+  artması gizlenmez, bildirimde SÖYLENİR.
+- **KOPYA KAYNAĞIN HEMEN ARDINA GİRER**, sona değil: belge kalem sırasıyla
+  basılır ve editörde kalemleri yeniden sıralamanın yolu yoktur; yerleştirme bir
+  kolaylık değil, tek şanstır.
+
+## TEKLIF-43 — Müşteri logosu: canlı okunur, yoksa belge bozulmaz.
+
+Kullanıcı isteği (19.08.2026, md. 21). `customers.logo_path` + Storage;
+teklif PDF ucu dosyayı indirip `customerLogo` **buffer**ı olarak geçirir
+(çekirdek DB/HTTP görmez, değişmez md. 7).
+
+**LOGO CANLI OKUNUR, ADRES/VERGİ BİLGİSİ OKUNMAZ.** TEKLIF-15 kapağa yazılan
+bilginin FOTOĞRAF olduğunu söyler: defter yarın düzeltilince yayımlanmış bir
+teklifin yeniden üretilen PDF'i değişmemelidir. Marka bir OLGU değil KİMLİKTİR —
+firmanın bugünkü logosu, dünkü teklifte de onun logosudur.
+
+**İNDİRME HATASI BELGEYİ DÜŞÜRMEZ:** logo alınamazsa `null` geçilir ve teklif
+logosuz basılır. Bir müşteri logosu yüzünden teklif PDF'inin 500 dönmesi kabul
+edilemez.
