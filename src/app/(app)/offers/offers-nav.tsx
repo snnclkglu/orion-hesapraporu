@@ -19,7 +19,11 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/offers", label: "Teklifler", exact: true },
   { href: "/offers/analiz", label: "Analiz", exact: false },
-  { href: "/offers/tanimlar", label: "Tanımlar", exact: false },
+  // TANIMLAR ARTIK `exact`TİR: altına bir adres eklendi ve önek eşleşmesi iki
+  // sekmeyi birden etkin gösterirdi — "hangi sayfadayım" sorusunun cevabı
+  // rayda İKİ tane olamaz.
+  { href: "/offers/tanimlar", label: "Tanımlar", exact: true },
+  { href: "/offers/tanimlar/maliyet", label: "Maliyet Şablonları", exact: false },
 ];
 
 export function OffersNav() {
