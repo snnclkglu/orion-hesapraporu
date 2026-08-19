@@ -11,7 +11,6 @@ import {
   ICERIK_YUKSEKLIK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
-  TAM_GENISLIK_SUTUN_ESIGI,
   blokOlcusu,
   manualAtomlari,
   manualPdfSayfalari,
@@ -58,18 +57,45 @@ describe("blokOlcusu", () => {
     expect(uc.h).toBeGreaterThan(tek.h * 2);
   });
 
-  it("DÖRT SÜTUNLU TABLO tam genişlik ister, üç sütunlu istemez", () => {
-    const bas = (n: number) => Array.from({ length: n }, (_, i) => `B${i}`);
-    const uc = blokOlcusu(
-      { id: "a", kind: "table", table: { head: bas(3), rows: [["x", "y", "z"]] } },
+  it("TAM GENİŞLİK KARARI SÜTUN SAYARAK DEĞİL ÖLÇEREK verilir", () => {
+    // Hücreleri KISA olan beş sütunlu bir tablo yarım sütunda rahat okunur;
+    // eski "dörtten fazla sütun tam genişliğe düşer" kuralı onu koca bir
+    // yaprağa yayıp başlığından koparıyordu (ölçüldü, s. 16-17).
+    const dar = blokOlcusu(
+      {
+        id: "a",
+        kind: "table",
+        table: {
+          head: ["Ekipman", "Marka", "Model", "Adet", "Grup"],
+          rows: [["Tambur rulmanı", "SKF", "22320", "4", "Ana Kaldırma"]],
+        },
+      },
       BOS_KAYNAK
     );
-    const dort = blokOlcusu(
-      { id: "b", kind: "table", table: { head: bas(TAM_GENISLIK_SUTUN_ESIGI), rows: [["x", "y", "z", "w"]] } },
+    expect(dar.tam).toBe(false);
+
+    // Hücreleri UZUN olan bir tablo dar kapta katlanır — o tam genişlik ister.
+    const genis = blokOlcusu(
+      {
+        id: "b",
+        kind: "table",
+        table: {
+          head: ["Aygıt Etiketi", "Adet", "Tanım", "Tip No", "Tedarikçi", "Malzeme Kodu"],
+          rows: [
+            [
+              "=185T+LVD10-A351",
+              "1",
+              "SIMATIC S7-1500 CPU 1511-1 PN, SENSOR MODULE CABINET ile birlikte",
+              "6ES7511-1AL03-0AB0",
+              "Siemens",
+              "SIE.6ES7511-1AL03-0AB0",
+            ],
+          ],
+        },
+      },
       BOS_KAYNAK
     );
-    expect(uc.tam).toBe(false);
-    expect(dort.tam).toBe(true);
+    expect(genis.tam).toBe(true);
   });
 
   it("aynı tablo dar kapta daha YÜKSEKTİR — hücreler sarar", () => {
@@ -99,6 +125,16 @@ describe("blokOlcusu", () => {
     const genis = blokOlcusu({ id: "h", kind: "image", imageId: "x", widthPct: 90 }, BOS_KAYNAK);
     expect(dar.tam).toBe(false);
     expect(genis.tam).toBe(true);
+  });
+
+  it("ŞABLONUN AÇIK İSTEĞİ yüzdeyi yener", () => {
+    // Halat hasar şekli sütunun TAMAMINI ister ama sayfanın tamamını
+    // istemez: iki kolona yayılınca sayfa yarı yarıya kısalır.
+    const sutunda = blokOlcusu(
+      { id: "g", kind: "image", assetKey: "x", widthPct: 100, fullWidth: false },
+      BOS_KAYNAK
+    );
+    expect(sutunda.tam).toBe(false);
   });
 
   it("kaynağı boş ve açıklaması olmayan otomatik blok SIFIRDIR", () => {
@@ -219,17 +255,91 @@ describe("manualPdfSayfalari", () => {
 });
 
 describe("gerçek şablon", () => {
-  it("şablondan doğan belge sayfalara dağılır ve hiçbir atom kaybolmaz", async () => {
+  it("HİÇBİR İÇERİK KAYBOLMAZ — bölünen atom bile eksiksiz yerleşir", async () => {
+    // SAYIM YETMEZ: bölünen bir atom iki dilime çıkar, yani yerleşen atom
+    // sayısı girdiden FAZLA olur. Sınanacak şey sayı değil İÇERİKTİR —
+    // her bloğun ve her başlığın belgede karşılığı var mı.
     const { manualFromTemplate } = await import("../payload");
     const p = manualFromTemplate({ product: "ŞARJ VİNCİ" });
     const numarali = numberManual(printedManual(p).sections);
     const atomlar = manualAtomlari(numarali, BOS_KAYNAK);
     const sayfalar = manualPdfSayfalari(atomlar);
 
-    const yerlesen = sayfalar
+    const yerlesenler = sayfalar
       .flatMap((s) => s.bantlar)
-      .reduce((n, b) => n + (b.kind === "full" ? b.atoms.length : b.sol.length + b.sag.length), 0);
-    expect(yerlesen).toBe(atomlar.length);
+      .flatMap((b) => (b.kind === "full" ? b.atoms : [...b.sol, ...b.sag]));
+
+    // 1. Her başlık en az bir kez yerleşti.
+    const basliklar = new Set(
+      yerlesenler.filter((a) => a.kind === "heading").map((a) => a.section.id)
+    );
+    for (const a of atomlar) {
+      if (a.kind === "heading") expect(basliklar.has(a.section.id)).toBe(true);
+    }
+
+    // 2. Her blok en az bir kez yerleşti.
+    const bloklar = new Set(
+      yerlesenler.filter((a) => a.kind === "block").map((a) => a.block.id)
+    );
+    for (const a of atomlar) {
+      if (a.kind === "block") expect(bloklar.has(a.block.id)).toBe(true);
+    }
+
+    // 3. BÖLÜNEN LİSTENİN BÜTÜN MADDELERİ basılır — ne eksik ne yinelenmiş.
+    for (const a of atomlar) {
+      if (a.kind !== "block" || a.block.kind !== "list") continue;
+      const basilan = yerlesenler
+        .filter((y) => y.kind === "block" && y.block.id === a.block.id)
+        .flatMap((y) => (y.kind === "block" ? (y.items ?? []) : []));
+      expect(basilan).toEqual(a.block.items.filter((i) => i.trim()));
+    }
+
     expect(sayfalar.length).toBeGreaterThan(1);
+  });
+
+  it("BÖLÜNEN LİSTE numarasını kaldığı yerden sürdürür", () => {
+    // ATOM ÇEKİRDEĞİN KENDİSİNDEN üretilir: elle yazılmış bir `h`, bölmenin
+    // yeniden ölçtüğü yükseklikle tutmaz ve test hiçbir şey sınamamış olur.
+    const madde = (n: number) =>
+      `${n}. adım: bu madde bilerek uzun yazılmıştır ki dar bir sütunda birkaç satır sarsın ve liste tek bir sütuna sığmasın.`;
+    const sections = [
+      bolum({
+        id: "s",
+        title: "Bölüm",
+        blocks: [
+          { id: "d", kind: "text", text: "Dolgu. ".repeat(220) },
+          {
+            id: "l",
+            kind: "list",
+            ordered: true,
+            items: Array.from({ length: 12 }, (_, i) => madde(i + 1)),
+            result: "Beklenen sonuç.",
+          },
+        ],
+      }),
+    ];
+    const atomlar = manualAtomlari(numberManual(sections), BOS_KAYNAK);
+    const sayfalar = manualPdfSayfalari(atomlar);
+    const dilimler = sayfalar
+      .flatMap((s) => s.bantlar)
+      .flatMap((b) => (b.kind === "full" ? b.atoms : [...b.sol, ...b.sag]))
+      .filter((a) => a.kind === "block" && a.block.id === "l");
+
+    expect(dilimler.length).toBeGreaterThan(1);
+
+    const ilk = dilimler[0];
+    const ikinci = dilimler[1];
+    if (ilk.kind === "block" && ikinci.kind === "block") {
+      // İkinci dilim ilkinin BİTTİĞİ yerden başlar — "1." diye yeniden
+      // başlasaydı okuyan iki ayrı liste görürdü.
+      expect(ikinci.itemOffset).toBe(ilk.items?.length);
+      // SONUÇ SATIRI yalnız SON dilimde basılır.
+      expect(ilk.sonuc).toBe(false);
+      expect(ikinci.devam).toBe(true);
+    }
+
+    // Bütün maddeler eksiksiz ve sırayla basılır.
+    const basilan = dilimler.flatMap((a) => (a.kind === "block" ? (a.items ?? []) : []));
+    expect(basilan).toEqual(Array.from({ length: 12 }, (_, i) => madde(i + 1)));
   });
 });

@@ -51,6 +51,18 @@ export const SUTUN_GENISLIK = (ICERIK_GENISLIK - SUTUN_BOSLUK) / 2;
 /** Tam genişlik bandı — geniş tablolar ve büyük görseller buraya düşer. */
 export const TAM_GENISLIK = ICERIK_GENISLIK;
 
+/**
+ * SÜTUN BÜTÇESİ %94'E KELEPÇELENİR ve ölçüler BİLEREK FAZLA ölçer.
+ *
+ * Sayı `offers/pdf-layout.ts` ile aynıdır ve DENENDİ: 0,96 · 0,97'de belge
+ * yine 22 sayfa çıkıyor (hiçbir şey kazanılmıyor), 0,98'de 21'e iniyor ama
+ * geriye ~15 pt emniyet payı kalıyor. Bir güvenlik kılavuzunda tek sayfa
+ * uğruna sessiz kırpılma riskini almak yanlış tarafa yanılmaktır — @react-pdf
+ * taşan içeriği uyarmadan keser ve kaybolan şey bir bakım talimatı olur.
+ *
+ * Dipteki boşluğun asıl sebebi bu pay değil BÖLÜNEMEYEN ATOMlardır (uyarı
+ * kutusu, görsel); liste ve tablo zaten `atomuBol` ile sütunu doldurur.
+ */
 export const KAPASITE_PAYI = 0.94;
 
 // —————————————————————————————————————————————————————————— tipografi
@@ -98,29 +110,66 @@ const ALTYAZI_YUK = 7 * 1.2 + 2;
 const GORSEL_PAY = 12;
 
 /**
- * GENİŞ TABLO TAM GENİŞLİK BANDINA DÜŞER.
+ * TABLO TAM GENİŞLİK İSTER Mİ — SÜTUN SAYARAK DEĞİL, ÖLÇEREK.
  *
- * Altı sütunlu elektrik malzeme listesi 234 pt'lik bir sütuna sığmaz: her
- * hücre 39 pt kalır ve "6ES7511-1AL03-0AB0" harf harf sarar. Eşik DÖRTTÜR —
- * üç sütunlu bir tablo (resim no · ad · durum) yarım sütunda hâlâ okunur,
- * dördüncü sütun onu okunmaz yapar.
+ * İlk kural "dört sütundan geniş tablo tam genişliğe düşer" idi ve yanlış
+ * çıktı (ölçüldü, s. 16-17): beş sütunlu ama hücreleri kısa bir ekipman
+ * listesi (Ekipman · Marka · Model · Adet · Grup) yarım sütunda RAHAT
+ * okunuyor; tam genişliğe düşünce tek satırlık bir tablo koca bir yaprağı
+ * kaplıyor ve başlığından koparak bir önceki sayfada kalıyordu.
+ *
+ * Doğru soru sütun sayısı değil SIKIŞMA'dır: aynı tablo dar kapta ne kadar
+ * uzuyor? Hücreleri kısaysa neredeyse hiç (satırlar sarmaz); uzunsa katlanır.
+ * Eşik 1,6'dır — dar kapta yarıdan fazla uzayan tablo sıkışıyor demektir.
  */
-export const TAM_GENISLIK_SUTUN_ESIGI = 4;
+export const TAM_GENISLIK_SISME_ESIGI = 1.6;
 
 /**
  * Görsel tam genişlik bandına DÜŞER mi?
  *
  * Sayfa genişliğinin yarısından fazlasını isteyen bir görsel yarım sütunda
  * küçültülürse okunmaz olur — bir HMI ekran görüntüsünün yazısı zaten küçük.
+ * ŞABLON AÇIKÇA İSTEYEBİLİR (`fullWidth`): halat hasar şekilleri geniş ve
+ * alçaktır, yarım sütunda da okunur ve orada iki kolona yayılınca sayfa
+ * yarı yarıya kısalır (ölçüldü: s. 12'de bandın %40'ı boştaydı).
  */
 export const TAM_GENISLIK_GORSEL_ESIGI = 55;
 
 // ————————————————————————————————————————————————————————————— tipler
 
-/** Yerleşimin en küçük parçası — bölünemez bir çizim birimi. */
+/**
+ * Yerleşimin en küçük parçası.
+ *
+ * ÇOĞU ATOM BÖLÜNMEZ ama LİSTE VE TABLO BÖLÜNEBİLİR. Bölünmeselerdi dokuz
+ * maddelik bir liste sütunun dibine sığmadığında oraya koca bir boşluk
+ * bırakırdı (ölçüldü: s. 8 ve s. 10'da sütunun dörtte biri boştu). Teklif
+ * PDF'i aynı sorunu `blokBol` ile çözüyor; buradaki onun karşılığıdır.
+ *
+ * DİLİM ASLINI DEĞİŞTİRMEZ: `block` bölünse de aynı nesnedir, dilime ait
+ * olan `items`/`rows`tur. Kopya bir blok üretilseydi iki dilim iki ayrı blok
+ * gibi görünür ve `id` ile kurulan bağ kopardı.
+ */
 export type ManualAtom =
   | { kind: "heading"; section: NumberedSection; h: number; tam: false }
-  | { kind: "block"; block: ManualBlock; table?: ManualTable; h: number; tam: boolean }
+  | {
+      kind: "block";
+      block: ManualBlock;
+      table?: ManualTable;
+      h: number;
+      tam: boolean;
+      /** Bu dilim bir öncekinin DEVAMI — tablo başlığı tekrar basılır. */
+      devam?: boolean;
+      /** Liste dilimi: bu dilimde basılacak maddeler. */
+      items?: string[];
+      /** Liste diliminin ilk maddesinin 0 tabanlı sırası (numaralı listede). */
+      itemOffset?: number;
+      /** Liste diliminde sonuç satırı basılır mı (yalnız SON dilimde). */
+      sonuc?: boolean;
+      /** Tablo dilimi: bu dilimde basılacak satırlar. */
+      rows?: string[][];
+      /** Tablo diliminde altyazı basılır mı (yalnız SON dilimde). */
+      altyazi?: boolean;
+    }
   | { kind: "appendixCover"; section: NumberedSection; h: number; tam: true };
 
 /** Sayfadaki bir bant: ya iki sütun ya tam genişlik. */
@@ -130,6 +179,43 @@ export type ManualBant =
 
 export interface ManualPdfSayfa {
   bantlar: ManualBant[];
+}
+
+/**
+ * BÖLÜM KİMLİĞİ → BELGE SAYFASI (1 tabanlı, gövdenin ilk yaprağı 1).
+ *
+ * İçindekiler bunu okur. Sayfa numarası ÖNCEDEN bilinemez: bir bölümün hangi
+ * yaprağa düştüğü bütün dağıtım bittikten sonra belli olur. Bu yüzden dizin
+ * dağıtımın SONUCUNDAN türetilir — çizerken tahmin edilseydi numara ile
+ * belge ayrışırdı.
+ */
+export type BolumSayfalari = ReadonlyMap<string, number>;
+
+/**
+ * Dağıtılmış sayfalardan bölüm → sayfa haritası çıkarır.
+ *
+ * `ofset` gövdenin belgede kaçıncı yapraktan başladığıdır (kapak +
+ * içindekiler). Çağıran verir; çekirdek kapağın var olup olmadığını bilmez.
+ */
+export function bolumSayfalari(
+  sayfalar: readonly ManualPdfSayfa[],
+  ofset = 0
+): BolumSayfalari {
+  const harita = new Map<string, number>();
+  sayfalar.forEach((sayfa, i) => {
+    const no = i + 1 + ofset;
+    for (const bant of sayfa.bantlar) {
+      const atomlar = bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag];
+      for (const a of atomlar) {
+        // İLK GEÇİŞ KAZANIR: bölünmüş bir bölüm dizinde BAŞLADIĞI sayfayla
+        // anılır, bittiği sayfayla değil.
+        if (a.kind === "heading" && !harita.has(a.section.id)) {
+          harita.set(a.section.id, no);
+        }
+      }
+    }
+  });
+  return harita;
 }
 
 // ————————————————————————————————————————————————————————————— ölçme
@@ -150,8 +236,21 @@ function satirSayisi(metin: string, punto: number, genislik: number, mono = fals
   return toplam;
 }
 
-/** Tablonun yüksekliği — sütun payları `pdf/manual.tsx`teki kuralın aynısı. */
-export function tabloYuksekligi(table: ManualTable, genislik: number): number {
+/**
+ * Tek bir liste maddesinin yüksekliği.
+ *
+ * Madde işareti 12 pt'lik bir kutudur; metne sütunun geri kalanı kalır.
+ * DIŞA AÇIK çünkü liste bölünürken her dilimin yüksekliği madde madde
+ * toplanır — ölçünün iki ayrı yerde yazılması, dilimin bütünden farklı
+ * ölçülmesi demekti.
+ */
+export function maddeYuksekligi(metin: string): number {
+  if (!metin.trim()) return 0;
+  return Math.max(1, satirSayisi(metin, GOVDE_PUNTO, SUTUN_GENISLIK - 12)) * MADDE_YUK;
+}
+
+/** Tablonun sütun payları (pt) — çizimdeki yüzdelerin mutlak karşılığı. */
+export function tabloPaylari(table: ManualTable, genislik: number): number[] {
   const sutun = Math.max(table.head.length, ...table.rows.map((r) => r.length), 1);
   const uzunluk = Array.from({ length: sutun }, (_, j) => {
     let en = (table.head[j] ?? "").length;
@@ -159,18 +258,26 @@ export function tabloYuksekligi(table: ManualTable, genislik: number): number {
     return Math.min(40, Math.max(4, en));
   });
   const toplam = uzunluk.reduce((a, b) => a + b, 0);
-  const paylar = uzunluk.map((u) => (u / toplam) * genislik);
+  return uzunluk.map((u) => (u / toplam) * genislik);
+}
 
-  const satirYuk = (hucreler: readonly string[]): number => {
-    let enCok = 1;
-    for (let j = 0; j < sutun; j++) {
-      enCok = Math.max(enCok, satirSayisi(hucreler[j] ?? "", TABLO_PUNTO, paylar[j] - TABLO_HUCRE_PAY));
-    }
-    return enCok * TABLO_SATIR + TABLO_HUCRE_PAY;
-  };
+/** Tek bir tablo satırının yüksekliği — sütun payları `paylar`dan gelir. */
+export function tabloSatirYuksekligi(
+  hucreler: readonly string[],
+  paylar: readonly number[]
+): number {
+  let enCok = 1;
+  for (let j = 0; j < paylar.length; j++) {
+    enCok = Math.max(enCok, satirSayisi(hucreler[j] ?? "", TABLO_PUNTO, paylar[j] - TABLO_HUCRE_PAY));
+  }
+  return enCok * TABLO_SATIR + TABLO_HUCRE_PAY;
+}
 
-  let h = satirYuk(table.head);
-  for (const r of table.rows) h += satirYuk(r);
+/** Tablonun yüksekliği — sütun payları `pdf/manual.tsx`teki kuralın aynısı. */
+export function tabloYuksekligi(table: ManualTable, genislik: number): number {
+  const paylar = tabloPaylari(table, genislik);
+  let h = tabloSatirYuksekligi(table.head, paylar);
+  for (const r of table.rows) h += tabloSatirYuksekligi(r, paylar);
   if (table.caption?.trim()) h += ALTYAZI_YUK;
   return h + 10; // marginVertical 5 + 5
 }
@@ -184,6 +291,17 @@ export function tabloYuksekligi(table: ManualTable, genislik: number): number {
  * bilinmeyen görsel KARE varsayılır (bkz. `blokOlcusu`).
  */
 export type GorselOranlari = ReadonlyMap<string, number>;
+
+/**
+ * Tablonun ölçüsü ve tam genişlik isteyip istemediği — ikisi birlikte, çünkü
+ * karar ölçümün kendisinden çıkar (bkz. `TAM_GENISLIK_SISME_ESIGI`).
+ */
+function tabloOlcusu(table: ManualTable): { h: number; tam: boolean; table: ManualTable } {
+  const dar = tabloYuksekligi(table, SUTUN_GENISLIK);
+  const genis = tabloYuksekligi(table, TAM_GENISLIK);
+  const tam = genis > 0 && dar / genis > TAM_GENISLIK_SISME_ESIGI;
+  return { h: tam ? genis : dar, tam, table };
+}
 
 /** Bloğun ölçüsü ve tam genişlik isteyip istemediği. */
 export function blokOlcusu(
@@ -200,15 +318,10 @@ export function blokOlcusu(
     }
 
     case "list": {
-      // Madde işareti 12 pt'lik bir kutu; metne kalan sütunun geri kalanıdır.
-      const alan = sutun - 12;
       let h = 0;
-      for (const i of block.items) {
-        if (!i.trim()) continue;
-        h += Math.max(1, satirSayisi(i, GOVDE_PUNTO, alan)) * MADDE_YUK;
-      }
-      // Sonuç satırı (okla basılan) kendi üst/alt payını da taşır.
-      if (block.result?.trim()) h += satirSayisi(block.result, GOVDE_PUNTO, alan) * MADDE_YUK + 4;
+      for (const i of block.items) h += maddeYuksekligi(i);
+      // Sonuç satırı (okla basılan) kendi üst payını da taşır.
+      if (block.result?.trim()) h += maddeYuksekligi(block.result) + 4;
       return { h: h + PARAGRAF_PAY, tam: false };
     }
 
@@ -217,10 +330,8 @@ export function blokOlcusu(
       return { h: KUTU_PAY + satirSayisi(block.text, GOVDE_PUNTO, alan) * GOVDE_SATIR, tam: false };
     }
 
-    case "table": {
-      const tam = block.table.head.length >= TAM_GENISLIK_SUTUN_ESIGI;
-      return { h: tabloYuksekligi(block.table, tam ? TAM_GENISLIK : sutun), tam, table: block.table };
-    }
+    case "table":
+      return tabloOlcusu(block.table);
 
     case "auto": {
       const tablo = autoTableFor(block, sources);
@@ -229,13 +340,13 @@ export function blokOlcusu(
           ? { h: satirSayisi(block.emptyText, GOVDE_PUNTO, sutun) * GOVDE_SATIR + PARAGRAF_PAY, tam: false }
           : { h: 0, tam: false };
       }
-      const tam = tablo.head.length >= TAM_GENISLIK_SUTUN_ESIGI;
-      return { h: tabloYuksekligi(tablo, tam ? TAM_GENISLIK : sutun), tam, table: tablo };
+      return tabloOlcusu(tablo);
     }
 
     case "image": {
       const pct = block.widthPct ?? 100;
-      const tam = pct > TAM_GENISLIK_GORSEL_ESIGI;
+      // ŞABLONUN AÇIK İSTEĞİ ÖNCELİKLİDİR; yoksa genişlik yüzdesine bakılır.
+      const tam = block.fullWidth ?? pct > TAM_GENISLIK_GORSEL_ESIGI;
       const genislik = ((tam ? TAM_GENISLIK : sutun) * pct) / 100;
       // ORAN BİLİNMİYORSA KARE VARSAYILIR ve bu FAZLA ölçmenin yönüdür:
       // gerçek görseller çoğunlukla yatıktır, kare tahmini onlardan yüksek
@@ -283,13 +394,130 @@ export function manualAtomlari(
         if (b.hidden || !blockHasContent(b)) continue;
         const olcu = blokOlcusu(b, sources, oranlar);
         if (olcu.h <= 0) continue;
-        out.push({ kind: "block", block: b, table: olcu.table, h: olcu.h, tam: olcu.tam });
+        out.push({
+          kind: "block",
+          block: b,
+          table: olcu.table,
+          h: olcu.h,
+          tam: olcu.tam,
+          // BÖLÜNEBİLİR İÇERİK ATOMDA TAŞINIR: dağıtıcı bloğun kendisine
+          // değil bu alanlara bakar ve dilimlerken yalnız onları keser.
+          ...(b.kind === "list" ? { items: b.items.filter((i) => i.trim()), sonuc: true } : {}),
+          ...(olcu.table ? { rows: olcu.table.rows, altyazi: true } : {}),
+        });
       }
       gez(s.children);
     }
   };
   gez(sections);
   return out;
+}
+
+
+// ————————————————————————————————————————————————————————————— bölme
+
+/**
+ * BİR DİLİMDE EN AZ İKİ SATIR BULUNUR.
+ *
+ * Sütun dibinde tek bir madde bırakmak, listeyi böldüğünü söylemeden
+ * bölmektir: okuyan bir madde görür ve listenin bittiğini sanır. Teklif
+ * PDF'indeki `EN_AZ_KUYRUK` kuralının aynısı.
+ */
+const EN_AZ_SATIR = 2;
+
+/** Bölünebilir atom mu — yalnız liste ve tablo bölünür. */
+function bolunebilir(atom: ManualAtom): boolean {
+  if (atom.kind !== "block") return false;
+  if (atom.block.kind === "list") return atom.block.items.filter((i) => i.trim()).length > 3;
+  if (atom.table) return atom.table.rows.length > 3;
+  return false;
+}
+
+/**
+ * Atomu `alan` kadarına sığacak bir DİLİME ve KALANA böler.
+ *
+ * `null` = buraya konmaz (çağıran sütunu kapatır). `zorla`, sütun bomboşken
+ * verilir ve İLERLEMEYİ GARANTİ EDER: tek satırı bile boş bir sütuna sığmayan
+ * patolojik bir blok reddedilmeye devam etseydi döngü sonsuza girerdi.
+ */
+function atomuBol(
+  atom: ManualAtom,
+  alan: number,
+  zorla: boolean
+): { dilim: ManualAtom; kalan: ManualAtom | null } | null {
+  if (atom.kind !== "block") return null;
+
+  // ————————————————————————————————————————————————— liste
+  if (atom.block.kind === "list" && atom.items) {
+    const yuk = atom.items.map(maddeYuksekligi);
+    let n = 0;
+    let h = 0;
+    while (n < atom.items.length && h + yuk[n] <= alan) {
+      h += yuk[n];
+      n += 1;
+    }
+    const enAz = Math.min(EN_AZ_SATIR, atom.items.length);
+    if (n < enAz) {
+      if (!zorla) return null;
+      n = Math.max(1, n);
+      h = yuk.slice(0, n).reduce((t, x) => t + x, 0);
+    }
+    if (n >= atom.items.length) return null; // bölmeye gerek yok
+    // ARTAN TEK MADDE BIRAKILMAZ: sonraki dilimde tek başına duran bir madde,
+    // burada kaçındığımız kusurun ötekine düşmüş hâlidir.
+    if (atom.items.length - n === 1 && n - 1 >= enAz) {
+      n -= 1;
+      h -= yuk[n];
+    }
+    return {
+      dilim: { ...atom, items: atom.items.slice(0, n), h, sonuc: false },
+      kalan: {
+        ...atom,
+        items: atom.items.slice(n),
+        itemOffset: (atom.itemOffset ?? 0) + n,
+        h: yuk.slice(n).reduce((t, x) => t + x, 0) + PARAGRAF_PAY,
+        devam: true,
+      },
+    };
+  }
+
+  // ————————————————————————————————————————————————— tablo
+  if (atom.table && atom.rows) {
+    const paylar = tabloPaylari(atom.table, atom.tam ? TAM_GENISLIK : SUTUN_GENISLIK);
+    const basYuk = tabloSatirYuksekligi(atom.table.head, paylar);
+    const yuk = atom.rows.map((r) => tabloSatirYuksekligi(r, paylar));
+    let n = 0;
+    // BAŞLIK SATIRI HER DİLİMDE TEKRAR BASILIR (fiyat tablosunun `fixed`
+    // başlığıyla aynı ilke): ikinci sütunda hangi sütunun ne olduğu
+    // hatırlanmak zorunda değildir.
+    let h = basYuk + 10;
+    while (n < atom.rows.length && h + yuk[n] <= alan) {
+      h += yuk[n];
+      n += 1;
+    }
+    const enAz = Math.min(EN_AZ_SATIR, atom.rows.length);
+    if (n < enAz) {
+      if (!zorla) return null;
+      n = Math.max(1, n);
+      h = basYuk + 10 + yuk.slice(0, n).reduce((t, x) => t + x, 0);
+    }
+    if (n >= atom.rows.length) return null;
+    if (atom.rows.length - n === 1 && n - 1 >= enAz) {
+      n -= 1;
+      h -= yuk[n];
+    }
+    return {
+      dilim: { ...atom, rows: atom.rows.slice(0, n), h, altyazi: false },
+      kalan: {
+        ...atom,
+        rows: atom.rows.slice(n),
+        h: basYuk + 10 + yuk.slice(n).reduce((t, x) => t + x, 0),
+        devam: true,
+      },
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -315,9 +543,12 @@ const BASLIK_KUYRUK = 26;
  * tamamına yaymak, kılavuzun okunur kalmasının bedelidir.
  */
 export function manualPdfSayfalari(
-  atomlar: readonly ManualAtom[],
+  girdiAtomlari: readonly ManualAtom[],
   sutunKapasite: number = ICERIK_YUKSEKLIK
 ): ManualPdfSayfa[] {
+  // Dizi DÖNGÜ İÇİNDE BÜYÜR: bölünen bir atomun kalanı sıradaki eleman
+  // olarak araya sokulur. Girdi değiştirilmez (çağıranın dizisi kutsaldır).
+  let atomlar: ManualAtom[] = [...girdiAtomlari];
   const kapasite = Number.isFinite(sutunKapasite) ? sutunKapasite * KAPASITE_PAYI : 0;
   if (kapasite <= 0 || atomlar.length === 0) return [];
 
@@ -392,17 +623,36 @@ export function manualPdfSayfalari(
     sutunAc();
 
     // BAŞLIK KENDİNDEN SONRAKİNİ DE İSTER: tek başına dipte kalmamalı.
+    // TAM GENİŞLİK ATOMU DA SAYILIR ve bu bir düzeltmedir (ölçüldü, s. 16-17:
+    // "9.1 Rulman Listesi" başlığı bir sayfada, tablosu ötekinde kalıyordu).
+    // Böyle bir başlık kendinden sonrakiyle YAPIŞIKTIR: tablo bu sayfaya
+    // sığmıyorsa başlık da sığmıyor demektir.
     const sonraki = atomlar[i + 1];
-    const gereken =
-      atom.kind === "heading" && sonraki && !sonraki.tam
-        ? atom.h + Math.min(sonraki.h, BASLIK_KUYRUK)
-        : atom.h;
+    let gereken = atom.h;
+    if (atom.kind === "heading" && sonraki) {
+      gereken += sonraki.tam
+        ? Math.min(sonraki.h, kapasite)
+        : Math.min(sonraki.h, BASLIK_KUYRUK);
+    }
+
+    let yerlesen: ManualAtom = atom;
 
     if (gereken > kalan) {
-      // Sütun bomboşken reddetmek anlamsızdır: bir sonraki sütun da aynı
-      // boydadır ve atom sonsuza dek kaçardı (teklifin `zorla` dersi).
       const bosSutun = kalan >= kapasite - sayfaTamYuk - 0.01;
-      if (!bosSutun) {
+      // ÖNCE BÖLMEYİ DENE, sonra sütun değiştir: dokuz maddelik bir liste
+      // sütunun dibine sığmıyorsa bir kısmı buraya, kalanı ötekine gider.
+      // Bölmeden geçilseydi dipte koca bir boşluk kalırdı.
+      const bolunmus = bolunebilir(atom) ? atomuBol(atom, kalan, bosSutun) : null;
+      if (bolunmus) {
+        yerlesen = bolunmus.dilim;
+        // KALAN AYNI DÖNGÜDE İŞLENİR: diziye geri konur ve bir sonraki
+        // turda yeni sütunda yerini alır.
+        if (bolunmus.kalan) {
+          atomlar = [...atomlar.slice(0, i + 1), bolunmus.kalan, ...atomlar.slice(i + 1)];
+        }
+      } else if (!bosSutun) {
+        // Sütun bomboşken reddetmek anlamsızdır: bir sonraki sütun da aynı
+        // boydadır ve atom sonsuza dek kaçardı (teklifin `zorla` dersi).
         if (sagda) {
           sayfayiKapat();
           sutunAc();
@@ -418,8 +668,8 @@ export function manualPdfSayfalari(
     }
 
     const hedef = sagda ? bant!.sag : bant!.sol;
-    hedef.push(atom);
-    kalan -= atom.h;
+    hedef.push(yerlesen);
+    kalan -= yerlesen.h;
   }
 
   if (sayfa.bantlar.length > 0) sayfalar.push(sayfa);

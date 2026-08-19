@@ -180,8 +180,17 @@ export interface ManualImageBlock extends ManualBlockBase {
   /** Şablon varlığının anahtarı (`lib/manual/assets.ts`); yüklemede BOŞTUR. */
   assetKey?: string;
   caption?: string;
-  /** Sayfa genişliğinin yüzdesi (10–100); verilmezse 100. */
+  /** KABIN genişliğinin yüzdesi (10–100); verilmezse 100. */
   widthPct?: number;
+  /**
+   * Görsel SAYFANIN TAMAMINA yayılsın mı.
+   *
+   * Verilmezse `widthPct`ten çıkarılır. AÇIK İSTEK gereklidir çünkü ikisi
+   * ayrı sorudur: halat hasar şekli sütunun TAMAMINI ister (`widthPct` 100)
+   * ama sayfanın tamamını İSTEMEZ — iki kolona yayılınca sayfa yarı yarıya
+   * kısalır. HMI ekran görüntüsü ise tersidir.
+   */
+  fullWidth?: boolean;
 }
 
 /**

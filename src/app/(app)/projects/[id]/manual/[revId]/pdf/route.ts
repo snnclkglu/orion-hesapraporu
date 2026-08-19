@@ -31,6 +31,7 @@ import {
 } from "@/lib/manual/data";
 import { MANUAL_DOC_TITLE, manualDocCode } from "@/lib/manual/naming";
 import { manualAssetsFor } from "@/lib/manual/asset-bytes";
+import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { allBlocks } from "@/lib/manual/payload";
 import { MANUAL_APPENDIX_LABELS, type ManualAppendixKind } from "@/lib/manual/types";
 import { ELECTRICAL_BUCKET, loadCurrentElectricalDoc } from "@/lib/electrical/data";
@@ -91,10 +92,7 @@ export async function GET(
 
   // ŞABLON VARLIKLARI REPODAN, yüklenen görseller DEPODAN; ikisi TEK listede
   // birleşir ve çizim ikisini ayırt etmez (bkz. `pdf/manual.tsx`).
-  const varlikAnahtarlari = allBlocks(revizyon.payload.sections)
-    .filter((b) => b.kind === "image" && b.assetKey)
-    .map((b) => (b as { assetKey: string }).assetKey);
-  gorseller.push(...manualAssetsFor(varlikAnahtarlari));
+  gorseller.push(...manualAssetsFor(manualUsedAssetKeys(allBlocks(revizyon.payload.sections))));
 
   const payload = revizyon.payload;
   const belgeKodu = manualDocCode(itemNo || String(proje.doc_no ?? ""), revizyon.row.revNo);

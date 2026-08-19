@@ -96,6 +96,7 @@ function templateBlockToBlock(t: TemplateBlock, id: string): ManualBlock | null 
         assetKey: t.assetKey,
         ...(t.caption ? { caption: t.caption } : {}),
         ...(t.widthPct ? { widthPct: t.widthPct } : {}),
+        ...(t.fullWidth !== undefined ? { fullWidth: t.fullWidth } : {}),
       };
     default:
       return null;
@@ -216,6 +217,7 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
         ...(assetKey ? { assetKey } : {}),
         ...(metin(o.caption) ? { caption: metin(o.caption) } : {}),
         ...(Number.isFinite(pct) && pct >= 10 && pct <= 100 ? { widthPct: pct } : {}),
+        ...(typeof o.fullWidth === "boolean" ? { fullWidth: o.fullWidth } : {}),
       };
     }
     case "auto": {

@@ -185,6 +185,74 @@ bilinmeyen görsel bu yüzden KARE varsayılır.
 **KÂĞIT GERİ OKUNUR**: `python scripts/check-manual-layout.py <pdf> [başlıklar]`
 taşmayı, kaybı ve doluluğu ölçer. Bileşen ağacına bakmak yerleşimi göstermez.
 
+## KITAP-14 — Sayfalara BAKILARAK düzeltilen kusurlar.
+
+Kullanıcı isteği (19.08.2026): *"çıktıları ve sayfaları kontrol et."* Metin
+ölçmek yetmedi — sayfalar resme çevrilip GÖZLE incelendi ve altı kusur ancak
+öyle görüldü. Hepsi düzeltildi; sayfa 26'dan **22'ye** indi, karakter/sayfa
+ortalaması 1.456'dan **1.759**'a çıktı.
+
+1. **Başlık numarası sarınca son satıra düşüyordu.** `alignItems: "baseline"`
+   iki satırlık bir başlıkta "2"yi ikinci satırın soluna indiriyordu.
+   `flex-start` + başlığa `flex: 1`.
+2. **İçindekilerde SAYFA NUMARASI YOKTU.** Numara dağıtımın SONUCUNDAN
+   türetilir (`bolumSayfalari`) — önceden bilinemez, çünkü bir bölümün hangi
+   yaprağa düştüğü ancak bütün dağıtım bitince belli olur. Ekler gövdeden
+   sonra sırayla numaralanır.
+3. **Derin girdiler (4.8.3.1) numara kutusunu taşırıyordu**; numara ile başlık
+   üst üste biniyordu. Kutu 46 pt'ye çıktı, girinti üçüncü düzeyde durdu.
+4. **Tam genişlik kararı SÜTUN SAYARAK veriliyordu** ("dörtten fazla sütun").
+   Yanlış: hücreleri kısa beş sütunlu bir ekipman listesi yarım sütunda rahat
+   okunuyor, tam genişlikte tek satırlık bir tablo koca bir yaprağı kaplıyor
+   ve BAŞLIĞINDAN KOPUYORDU (s. 16-17). Karar artık ÖLÇÜLÜR: tablo dar kapta
+   %60'tan fazla uzuyorsa sıkışıyordur (`TAM_GENISLIK_SISME_ESIGI`).
+5. **Başlık, kendinden sonraki TAM GENİŞLİK atomuyla yapışık değildi.**
+   Artık öyle: tablo bu sayfaya sığmıyorsa başlığı da sığmıyor demektir.
+6. **Kapaktaki kural çizgisi başlığa yapışıyordu** — `RuleRed`in kendi payı
+   yok, çağıran verir.
+
+## KITAP-15 — LİSTE VE TABLO SÜTUNLAR ARASINDA BÖLÜNÜR.
+
+Bölünmeselerdi dokuz maddelik bir liste sütunun dibine sığmadığında oraya
+koca bir boşluk bırakırdı (ölçüldü: sütunun dörtte biri). Teklif PDF'i aynı
+sorunu `blokBol` ile çözüyor; `atomuBol` onun karşılığıdır.
+
+- **DİLİM ASLINI DEĞİŞTİRMEZ**: `block` aynı nesnedir, dilime ait olan
+  `items`/`rows`tur. Kopya bir blok üretilseydi iki dilim iki ayrı blok gibi
+  görünür ve `id` bağı kopardı.
+- **NUMARA KALDIĞI YERDEN SÜRER** (`itemOffset`): ikinci dilim "1." diye
+  başlasaydı okuyan iki ayrı liste görürdü.
+- **TABLO BAŞLIĞI HER DİLİMDE TEKRAR EDER**, altyazı yalnız SON dilimde —
+  ortada duran bir altyazı tabloyu bitmiş gösterirdi. Sütun payları TAM
+  tablodan hesaplanır, dilimden değil; yoksa iki dilim iki ayrı tablo gibi
+  görünürdü.
+- **BİR DİLİMDE EN AZ İKİ SATIR** bulunur ve **ARTAN TEK SATIR BIRAKILMAZ**
+  (teklifin `EN_AZ_KUYRUK` kuralı).
+- Yalnız üçten uzun liste ve tablolar bölünür; kısa olanı bölmek kazanç
+  getirmez, okumayı bozar.
+
+`KAPASITE_PAYI` 0,94'te KALDI ve bu denenerek karara bağlandı: 0,96 ve 0,97'de
+belge yine 22 sayfa, 0,98'de 21 — ama geriye ~15 pt emniyet payı kalıyor. Bir
+güvenlik kılavuzunda tek sayfa uğruna sessiz kırpılma riski alınmaz. Dipteki
+boşluğun asıl sebebi bu pay değil BÖLÜNEMEYEN atomlardır (uyarı kutusu,
+görsel).
+
+## KITAP-16 — Uyarı kutusu PİKTOGRAM taşır.
+
+Belgenin kendi açıklama çizelgesi (`sinyalKelimeleri`) sarı üçgen, mavi ünlem
+ve mavi "i" gösteriyordu; kutular onları taşımasaydı çizelge belgede hiç
+karşılığı olmayan bir şey vaat etmiş olurdu. Eşleme `MANUAL_NOTE_ASSET`tedir:
+tehlike/uyarı/dikkat aynı üçgeni paylaşır — ISO 3864'te genel tehlike işareti
+tektir, ayrımı SİNYAL KELİMESİ yapar.
+
+Mavi "i" defterde yoktu; çizelge görselinden mavi piksellerin sınır kutusu
+bulunarak kırpıldı (`bilgi-piktogram.png`).
+
+**KULLANILAN VARLIKLARIN LİSTESİ TEK TANIMDIR** (`manualUsedAssetKeys`): görsel
+bloklarının `assetKey`i VE uyarı kutularının piktogramı. İkincisi unutulmuştu
+ve kutular piktogramsız basılıyordu — yükleyici yalnız görsel bloklarına
+bakıyordu. İndirme ucu ve duman testi artık aynı listeyi çağırır.
+
 ## KITAP-12 — İki tür görsel: ŞABLON VARLIĞI ve YÜKLENEN GÖRSEL.
 
 Kullanıcı kararı (19.08.2026): *"hazır gelsin, değiştirmek istersek zaten

@@ -35,15 +35,16 @@ import {
   type NumberedSection,
 } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
-import { manualAssetRatios } from "@/lib/manual/assets";
 import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
+  bolumSayfalari,
   manualAtomlari,
   manualPdfSayfalari,
   type ManualAtom,
 } from "@/lib/manual/pdf-layout";
+import { MANUAL_NOTE_ASSET, manualAssetRatios } from "@/lib/manual/assets";
 import {
   MANUAL_APPENDIX_LABELS,
   MANUAL_NOTE_LABELS,
@@ -133,7 +134,8 @@ const s = StyleSheet.create({
      italic"). Ayrım punto ve renkle kurulur. */
   altyazi: { fontSize: 7, color: BRAND.gray600, marginTop: 2 },
 
-  icindekilerSatir: { flexDirection: "row", marginBottom: 1.5 },
+  icindekilerSatir: { flexDirection: "row", marginBottom: 1.5, alignItems: "flex-start" },
+  dizinSayfa: { width: 16, fontSize: 7.5, textAlign: "right", fontFamily: FONTS.mono },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
 
   /* İKİ SÜTUN — genişlikler yerleşim çekirdeğinin ÖLÇTÜĞÜ sayılardır
@@ -178,6 +180,14 @@ export function ManualPdf({
   const atomlar = manualAtomlari(govdeBolumleri, sources, oranlar);
   const sayfalar = manualPdfSayfalari(atomlar);
 
+  // DİZİN SAYFA NUMARASI DAĞITIMIN SONUCUNDAN gelir. Gövde belgede 3.
+  // yapraktan başlar (kapak + içindekiler), o yüzden ofset 2'dir; dizin
+  // yoksa 1. Ekler gövdeden sonra gelir ve kendi numaralarını alır.
+  const dizinVar = duz.length > 0;
+  const govdeOfset = dizinVar ? 2 : 1;
+  const sayfaNo = bolumSayfalari(sayfalar, govdeOfset);
+  const ekIlkSayfa = govdeOfset + sayfalar.length + (ekKapsayici ? 1 : 0);
+
   const kunye = payload.identity;
   const kunyeSatirlari: [string, string][] = [
     ["Üretici", kunye.manufacturer],
@@ -212,7 +222,11 @@ export function ManualPdf({
         <BrandBand docCode={docCode} lines={bandLines ?? []} />
         <Text style={s.kapakBaslik}>{trUpper(payload.coverTitle || payload.identity.product)}</Text>
         <Text style={s.kapakAlt}>{trUpper(payload.docTitle)}</Text>
-        <RuleRed width={64} />
+        {/* Kural çizgisi başlığa YAPIŞIYORDU (ölçüldü, kapak): `RuleRed`in
+            kendi payı yok, çağıran verir. */}
+        <View style={{ marginTop: 8 }}>
+          <RuleRed width={64} />
+        </View>
         <Text style={s.kapakDoc}>{docCode}</Text>
 
         {kunyeSatirlari.length > 0 && (
@@ -253,14 +267,50 @@ export function ManualPdf({
           <View style={s.ikiSutun}>
             {[duz.slice(0, dizinYarim), duz.slice(dizinYarim)].map((kol, ki) => (
               <View style={s.sutun} key={ki}>
-                {kol.map((b) => (
-                  <View key={b.id} style={[s.icindekilerSatir, { paddingLeft: (b.depth - 1) * 8 }]}>
-                    <Text style={[s.numara, { width: 38, fontSize: 7.5 }]}>{b.number}</Text>
-                    <Text style={{ fontSize: 7.5, fontWeight: b.depth === 1 ? 700 : 400 }}>
-                      {b.title}
-                    </Text>
-                  </View>
-                ))}
+                {kol.map((b) => {
+                  // EK BÖLÜMLERİ GÖVDEDEN SONRA gelir ve sırayla numaralanır;
+                  // her ek kapağı kendi yaprağındadır (KITAP-8 sözleşmesi).
+                  const ekSira = ekKapaklari.findIndex((e) => e.id === b.id);
+                  const no =
+                    ekSira >= 0 ? ekIlkSayfa + ekSira : (sayfaNo.get(b.id) ?? null);
+                  return (
+                    <View key={b.id} style={s.icindekilerSatir}>
+                      {/* NUMARA KUTUSU EN DERİN GİRDİYE GÖRE ölçülür:
+                          "4.8.3.1" 7,5 punto mono ile 31,5 pt tutar ve girinti
+                          onu 36 pt'lik bir kutudan taşırıyordu — numara ile
+                          başlık üst üste biniyordu (ölçüldü, içindekiler).
+                          Girinti de ÜÇÜNCÜ düzeyde durur; daha derinde
+                          numaranın kendisi zaten derinliği söylüyor. */}
+                      <Text
+                        style={[
+                          s.numara,
+                          {
+                            width: 46,
+                            fontSize: 7.5,
+                            paddingLeft: (Math.min(b.depth, 3) - 1) * 5,
+                          },
+                        ]}
+                      >
+                        {b.number}
+                      </Text>
+                      {/* BAŞLIK ESNER, NUMARALAR SABİT: derin bir başlık
+                          (4.8.3.1) uzun adıyla birlikte sütunu taşırıyordu.
+                          `flex: 1` ile sarar, sayfa numarası sağda kalır. */}
+                      <Text
+                        style={{
+                          flex: 1,
+                          fontSize: 7.5,
+                          fontWeight: b.depth === 1 ? 700 : 400,
+                        }}
+                      >
+                        {b.title}
+                      </Text>
+                      <Text style={[s.dizinSayfa, { color: BRAND.gray600 }]}>
+                        {no ?? ""}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             ))}
           </View>
@@ -371,10 +421,15 @@ function Atom({
   if (atom.kind === "heading") {
     const b = atom.section;
     const stil = [s.h1, s.h2, s.h3, s.h4][Math.min(b.depth, 4) - 1];
+    // HİZA `flex-start`TİR, `baseline` DEĞİL (ölçüldü, s. 4): başlık sarınca
+    // `baseline` numarayı SON satıra indiriyor ve "2" ikinci satırın soluna
+    // düşüyordu. Numara ilk satırda kalmalı; sarma yalnız başlığı ilgilendirir.
+    // `flex: 1` de şart: numarasız bir başlık kutusu genişlemezse uzun bir ad
+    // sarmak yerine taşardı.
     return (
-      <View style={{ flexDirection: "row", alignItems: "baseline" }} wrap={false}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }} wrap={false}>
         {b.number ? <Text style={[stil, s.numara, { marginRight: 5 }]}>{b.number}</Text> : null}
-        <Text style={stil}>{b.title}</Text>
+        <Text style={[stil, { flex: 1 }]}>{b.title}</Text>
       </View>
     );
   }
@@ -386,6 +441,7 @@ function Atom({
         sources={sources}
         gorseller={gorseller}
         genislik={tam ? TAM_GENISLIK : SUTUN_GENISLIK}
+        dilim={atom}
       />
     );
   }
@@ -398,12 +454,19 @@ function Blok({
   sources,
   gorseller,
   genislik,
+  dilim,
 }: {
   blok: ManualBlock;
   sources: ManualSourceData;
   gorseller: Map<string, ManualImageAsset>;
   /** Bloğun içine çizileceği genişlik — sütun ya da tam bant. */
   genislik: number;
+  /**
+   * Yerleşimin verdiği DİLİM — liste ve tablo sütunlar arasında bölünebilir
+   * (`manual/pdf-layout.ts`). Verilmezse blok bütün hâlde basılır (ek
+   * kapsayıcısı gibi akış dışı yerler).
+   */
+  dilim?: ManualAtom;
 }) {
   switch (blok.kind) {
     case "text":
@@ -414,18 +477,22 @@ function Blok({
         </View>
       );
 
-    case "list":
+    case "list": {
+      // DİLİM VARSA ONUN MADDELERİ basılır; numaralı listede sıra `itemOffset`
+      // ile devam eder — ikinci dilim "1." diye yeniden başlasaydı okuyan iki
+      // ayrı liste görürdü.
+      const maddeler = dilim?.kind === "block" && dilim.items ? dilim.items : blok.items.filter((i) => i.trim());
+      const ofset = dilim?.kind === "block" ? (dilim.itemOffset ?? 0) : 0;
+      const sonucBas = dilim?.kind === "block" ? dilim.sonuc !== false : true;
       return (
         <View style={{ marginBottom: 4 }}>
-          {blok.items
-            .filter((i) => i.trim())
-            .map((i, k) => (
-              <View key={k} style={s.madde}>
-                <Text style={s.maddeIsaret}>{blok.ordered ? `${k + 1}.` : "•"}</Text>
-                <Text style={s.maddeMetin}>{i}</Text>
-              </View>
-            ))}
-          {blok.result?.trim() ? (
+          {maddeler.map((i, k) => (
+            <View key={k} style={s.madde}>
+              <Text style={s.maddeIsaret}>{blok.ordered ? `${ofset + k + 1}.` : "•"}</Text>
+              <Text style={s.maddeMetin}>{i}</Text>
+            </View>
+          ))}
+          {sonucBas && blok.result?.trim() ? (
             <View style={s.sonuc}>
               <Text style={s.maddeIsaret}>→</Text>
               <Text style={[s.maddeMetin, { color: BRAND.gray700 }]}>{blok.result}</Text>
@@ -433,24 +500,45 @@ function Blok({
           ) : null}
         </View>
       );
+    }
 
     case "note": {
       const renk = NOT_RENGI[blok.level];
+      // PİKTOGRAM KUTUNUN SOLUNDA durur ve belgenin kendi açıklama
+      // çizelgesiyle aynıdır (`MANUAL_NOTE_ASSET`). Varlık yüklenmemişse
+      // kutu piktogramsız basılır — eksik bir simge yüzünden uyarının
+      // kendisini düşürmek en kötü sonuçtur.
+      const pikt = gorseller.get(MANUAL_NOTE_ASSET[blok.level] ?? "");
+      const piktEn = 16;
       return (
         <View
           style={[s.kutu, { borderLeftColor: renk.kenar, backgroundColor: renk.zemin }]}
           wrap={false}
         >
-          <Text style={[s.kutuBaslik, { color: renk.kenar }]}>
-            {blok.title?.trim() || MANUAL_NOTE_LABELS[blok.level]}
-          </Text>
-          <Text style={[s.p, { marginBottom: 0, color: renk.metin }]}>{blok.text}</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            {pikt ? (
+              <Image
+                src={pikt.bytes}
+                style={{
+                  width: piktEn,
+                  height: pikt.width > 0 ? (piktEn * pikt.height) / pikt.width : piktEn,
+                  marginRight: 6,
+                }}
+              />
+            ) : null}
+            <View style={{ flex: 1 }}>
+              <Text style={[s.kutuBaslik, { color: renk.kenar }]}>
+                {blok.title?.trim() || MANUAL_NOTE_LABELS[blok.level]}
+              </Text>
+              <Text style={[s.p, { marginBottom: 0, color: renk.metin }]}>{blok.text}</Text>
+            </View>
+          </View>
         </View>
       );
     }
 
     case "table":
-      return <Tablo table={blok.table} />;
+      return <Tablo table={blok.table} dilim={dilim} />;
 
     case "image": {
       // ŞABLON VARLIĞI DA YÜKLENEN GÖRSEL DE AYNI HARİTADAN çözülür: çağıran
@@ -479,7 +567,7 @@ function Blok({
           <Text style={[s.p, { color: BRAND.gray600 }]}>{blok.emptyText}</Text>
         ) : null;
       }
-      return <Tablo table={tablo} />;
+      return <Tablo table={tablo} dilim={dilim} />;
     }
   }
 }
@@ -497,7 +585,14 @@ function Blok({
  * hücresinin karakter sayısıyla orantılıdır ve toplam 100'e normalize edilir;
  * tek bir çok uzun hücrenin tabloyu ezmemesi için pay KELEPÇELENİR.
  */
-function Tablo({ table }: { table: ManualTable }) {
+function Tablo({ table, dilim }: { table: ManualTable; dilim?: ManualAtom }) {
+  // DİLİM VARSA ONUN SATIRLARI basılır. Başlık satırı HER dilimde tekrar
+  // eder (fiyat tablosunun `fixed` başlığıyla aynı ilke), altyazı ise yalnız
+  // SON dilimde — ortada duran bir altyazı tabloyu bitmiş gösterirdi.
+  const satirlar = dilim?.kind === "block" && dilim.rows ? dilim.rows : table.rows;
+  const altyaziBas = dilim?.kind === "block" ? dilim.altyazi !== false : true;
+  // Sütun payları TAM TABLODAN hesaplanır, dilimden değil: iki dilimin
+  // sütunları farklı genişlikte çıkarsa okuyan iki ayrı tablo görürdü.
   const sutun = Math.max(table.head.length, ...table.rows.map((r) => r.length), 1);
   const uzunluk: number[] = Array.from({ length: sutun }, (_, j) => {
     let en = (table.head[j] ?? "").length;
@@ -517,7 +612,7 @@ function Tablo({ table }: { table: ManualTable }) {
           </Text>
         ))}
       </View>
-      {table.rows.map((r, i) => (
+      {satirlar.map((r, i) => (
         <View key={i} style={s.tabloSatir} wrap={false}>
           {Array.from({ length: sutun }).map((_, j) => (
             <Text key={j} style={[s.hucre, { width: pay[j] }]}>
@@ -526,7 +621,9 @@ function Tablo({ table }: { table: ManualTable }) {
           ))}
         </View>
       ))}
-      {table.caption?.trim() ? <Text style={s.altyazi}>{table.caption}</Text> : null}
+      {altyaziBas && table.caption?.trim() ? (
+        <Text style={s.altyazi}>{table.caption}</Text>
+      ) : null}
     </View>
   );
 }

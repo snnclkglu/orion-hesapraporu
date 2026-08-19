@@ -15,6 +15,7 @@ import { manualFromTemplate, flattenManual, numberManual, printedManual } from "
 import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { MANUAL_APPENDIX_LABELS } from "@/lib/manual/types";
 import { manualAssetsFor } from "@/lib/manual/asset-bytes";
+import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { allBlocks } from "@/lib/manual/payload";
 import type { ManualSourceData } from "@/lib/manual/sources";
 
@@ -68,10 +69,7 @@ async function main() {
   // ŞABLON VARLIKLARI İNDİRME UCUNDAKİ GİBİ YÜKLENİR. Yüklenmezse yerleşim
   // görselleri ÖLÇER ama çizim onları BASMAZ ve ortaya bomboş bir yaprak
   // çıkar — bu betik tam olarak o ayrışmayı yakalamak için var.
-  const varlikAnahtarlari = allBlocks(payload.sections)
-    .filter((b) => b.kind === "image" && b.assetKey)
-    .map((b) => (b as { assetKey: string }).assetKey);
-  const gorseller = manualAssetsFor(varlikAnahtarlari);
+  const gorseller = manualAssetsFor(manualUsedAssetKeys(allBlocks(payload.sections)));
 
   const belgeKodu = manualDocCode("0019-00", 1);
   const buf = await renderToBuffer(

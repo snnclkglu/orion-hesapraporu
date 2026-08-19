@@ -50,6 +50,7 @@ export interface TemplateBlock {
   /** Şablon görselinin anahtarı (`lib/manual/assets.ts`). */
   assetKey?: string;
   widthPct?: number;
+  fullWidth?: boolean;
   head?: string[];
   rows?: string[][];
   caption?: string;
@@ -83,13 +84,19 @@ const oto = (source: ManualAutoSource, emptyText?: string): TemplateBlock => ({
   emptyText,
 });
 
-/** Şablon görseli — baytları repoda (`src/assets/manual/`). */
-const resim = (assetKey: string, caption?: string, widthPct?: number): TemplateBlock => ({
-  kind: "image",
-  assetKey,
-  caption,
-  widthPct,
-});
+/**
+ * Şablon görseli — baytları repoda (`public/manual-assets/`).
+ *
+ * `fullWidth` AÇIK BİR KARARDIR: verilmezse görsel sütun akışında kalır ve
+ * `widthPct` kabın (sütunun) yüzdesidir. Sayfanın tamamına yayılması gereken
+ * görsel bunu ayrıca söyler.
+ */
+const resim = (
+  assetKey: string,
+  caption?: string,
+  widthPct?: number,
+  fullWidth?: boolean
+): TemplateBlock => ({ kind: "image", assetKey, caption, widthPct, fullWidth });
 
 /**
  * DOLDURULACAK BOŞLUK.
@@ -139,7 +146,7 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
           p(
             "Bu kılavuzdaki güvenlik noktaları bir piktogram ve bir uyarı kelimesiyle gösterilir. Uyarı kelimesi riskin BÜYÜKLÜĞÜNÜ, piktogram ise TÜRÜNÜ tanımlar. Basamaklar ISO 3864-2 ve ANSI Z535.4 ile uyumludur."
           ),
-          resim("sinyalKelimeleri", "Uyarı düzeyleri, piktogramları ve anlamları", 90),
+          resim("sinyalKelimeleri", "Uyarı düzeyleri, piktogramları ve anlamları", 78, true),
           not("tehlike", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmayla sonuçlanma ihtimali YÜKSEK olan bir durumu belirtir."),
           not("uyari", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmayla sonuçlanma ihtimali MEVCUT olan bir durumu belirtir."),
           not("dikkat", "Kaçınılmadığı takdirde küçük fiziksel yaralanmayla sonuçlanabilecek bir durumu belirtir."),
@@ -393,7 +400,7 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
           p(
             "Vinç üzerindeki tüm uyarı işaretlerini gözlemleyin ve talimatlara uyun. Ek olarak, vinç üzerinde aşağıdaki işaret bulunur:"
           ),
-          resim("ceIsareti", "CE işareti", 22),
+          resim("ceIsareti", "CE işareti", 26, false),
           not(
             "not",
             "CE işareti, bu ürünün kendisi için geçerli ve CE sembolü gerektiren AB direktifleriyle (2006/42/AT Makine Emniyeti Yönetmeliği dâhil) uyumlu olduğunu gösterir.",
@@ -694,8 +701,8 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
                     "Halat montajından sonra, halat sistemiyle bağlantılı çalışan bütün ekipmanların (denge kolu, limit şalterleri, aşırı yük koruma ekipmanları, güvenlik ekipmanları vb.) kontrolü yapılmalıdır."
                   ),
                   p("Halat soketinin bağlantısı aşağıda verilen şekilde yapılmalıdır:"),
-                  resim("halatSoketi1", "Halat soketi bağlantısı", 55),
-                  resim("halatSoketi2", "Halat soketi montaj adımı", 55),
+                  resim("halatSoketi1", "Halat soketi bağlantısı", 78, false),
+                  resim("halatSoketi2", "Halat soketi montaj adımı", 78, false),
                 ],
               },
               {
@@ -779,15 +786,15 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
                   p(
                     "Aşağıdaki şekiller, muayenede karşılaşılan tipik halat hasarlarını ve her birinde uygulanacak kararı gösterir. Şekiller DIN 15020 muayene kıstaslarına dayanır ve çelik halatlı her vinçte geçerlidir."
                   ),
-                  resim("halatHasar1", "Halatın helis biçimi alması. \u201Cx\u201D biçiminde oluşan hasarın boyutu halat nominal çapının üçte biri kadar olduğunda halat DEĞİŞTİRİLİR.", 60),
-                  resim("halatHasar2", "Dış tellerin iç tellere göre uzaması ya da gevşemesi. Bu hasar görülen halat HEMEN değiştirilir.", 60),
-                  resim("halatHasar3", "Dış tellerin dolanarak düğüm olması. Bu hasar görülen halat değiştirilir.", 60),
-                  resim("halatHasar4", "Dış tellerden birkaçının gevşemesi. Sebep paslanma ya da aşınma ise halat değiştirilir; değilse gevşek tel sayısı belirleyicidir.", 60),
-                  resim("halatHasar5", "Tellerde çok kısa olmayan kalınlaşma bölgeleri. Problemin belirgin olduğu halatlar değiştirilir.", 60),
-                  resim("halatHasar6", "Halat çapında bölgesel incelme. Önemli sayılabilecek incelmede halat değiştirilir.", 60),
-                  resim("halatHasar7", "Halat üzerinden araç geçmesi vb. sonucu ezilme. Bu durumda halat değiştirilir.", 60),
-                  resim("halatHasar8", "Halatta katlanma varken çekilmesi sonucu oluşan hasar. Bu hasarın görülmesi durumunda halat değiştirilir.", 60),
-                  resim("halatHasar9", "Keskin büküm noktaları oluşmuş halat değiştirilir.", 60),
+                  resim("halatHasar1", "Halatın helis biçimi alması. \u201Cx\u201D biçiminde oluşan hasarın boyutu halat nominal çapının üçte biri kadar olduğunda halat DEĞİŞTİRİLİR.", 100, false),
+                  resim("halatHasar2", "Dış tellerin iç tellere göre uzaması ya da gevşemesi. Bu hasar görülen halat HEMEN değiştirilir.", 100, false),
+                  resim("halatHasar3", "Dış tellerin dolanarak düğüm olması. Bu hasar görülen halat değiştirilir.", 100, false),
+                  resim("halatHasar4", "Dış tellerden birkaçının gevşemesi. Sebep paslanma ya da aşınma ise halat değiştirilir; değilse gevşek tel sayısı belirleyicidir.", 100, false),
+                  resim("halatHasar5", "Tellerde çok kısa olmayan kalınlaşma bölgeleri. Problemin belirgin olduğu halatlar değiştirilir.", 100, false),
+                  resim("halatHasar6", "Halat çapında bölgesel incelme. Önemli sayılabilecek incelmede halat değiştirilir.", 100, false),
+                  resim("halatHasar7", "Halat üzerinden araç geçmesi vb. sonucu ezilme. Bu durumda halat değiştirilir.", 100, false),
+                  resim("halatHasar8", "Halatta katlanma varken çekilmesi sonucu oluşan hasar. Bu hasarın görülmesi durumunda halat değiştirilir.", 100, false),
+                  resim("halatHasar9", "Keskin büküm noktaları oluşmuş halat değiştirilir.", 100, false),
                   not(
                     "uyari",
                     "Yukarıdaki hasarlardan herhangi biri görülen halat, kalan tel kopması sayısına bakılmaksızın hizmet dışı bırakılır. Hasarlı bir halatla yapılan tek bir kaldırma, ölümle sonuçlanabilir."

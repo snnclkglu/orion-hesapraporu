@@ -4,7 +4,7 @@
 //
 //   ŞABLON VARLIĞI (`assetKey`) — her vinçte AYNI olan şey: uyarı
 //     piktogramları, sinyal kelimesi çizelgesi, DIN 15020 halat hasar
-//     şekilleri. Baytları REPODADIR (`src/assets/manual/`) ve şablondan doğan
+//     şekilleri. Baytları REPODADIR (`public/manual-assets/`) ve şablondan doğan
 //     her kılavuza HAZIR gelir (kullanıcı kararı, 19.08.2026: *"hazır gelsin,
 //     değiştirmek istersek zaten değiştiririz"*).
 //
@@ -12,7 +12,7 @@
 //     HMI ekranı, saha resmi. Baytları DEPODADIR (`manual-images` kovası) ve
 //     revizyona bağlıdır.
 //
-// NEDEN VARLIK REPODA: on beş görsel her kılavuzda aynıdır. Depoya kopyalamak
+// NEDEN VARLIK REPODA: on altı görsel her kılavuzda aynıdır. Depoya kopyalamak
 // her yeni revizyonda 2 MB çoğaltmak ve şablon bir gün düzeltildiğinde eski
 // kılavuzların eski şekli taşımaya devam etmesi demekti. Varlık koddur, kodla
 // birlikte sürümlenir.
@@ -31,7 +31,7 @@
 export interface ManualAsset {
   /** `payload` içindeki `assetKey` — kararlı kimlik, dosya adı DEĞİL. */
   key: string;
-  /** `src/assets/manual/` altındaki dosya adı. */
+  /** `public/manual-assets/` altındaki dosya adı. */
   file: string;
   /** Ölçülmüş yükseklik/genişlik oranı. */
   ratio: number;
@@ -48,6 +48,7 @@ export const MANUAL_ASSETS: readonly ManualAsset[] = [
   },
   { key: "uyariPiktogram", file: "uyari-piktogram.png", ratio: 0.8512, label: "Uyarı piktogramı" },
   { key: "onemliPiktogram", file: "onemli-piktogram.png", ratio: 1.0, label: "Önemli piktogramı" },
+  { key: "bilgiPiktogram", file: "bilgi-piktogram.png", ratio: 1.5781, label: "Bilgi piktogramı" },
   { key: "ceIsareti", file: "ce-isareti.png", ratio: 0.7203, label: "CE işareti" },
 
   { key: "halatSoketi1", file: "halat-soketi-1.png", ratio: 0.6662, label: "Halat soketi bağlantısı" },
@@ -66,10 +67,46 @@ export const MANUAL_ASSETS: readonly ManualAsset[] = [
   { key: "halatHasar9", file: "halat-hasar-9-keskin-bukum.png", ratio: 0.3553, label: "Keskin büküm" },
 ] as const;
 
+/**
+ * UYARI DÜZEYİ → PİKTOGRAM.
+ *
+ * Belgenin kendi açıklama çizelgesi (`sinyalKelimeleri`) bu üç piktogramı
+ * gösteriyor; kutular onları TAŞIMASAYDI çizelge belgede hiç karşılığı
+ * olmayan bir şey vaat etmiş olurdu. Üç düzey aynı sarı üçgeni paylaşır —
+ * ISO 3864'te genel tehlike işareti tektir, ayrımı SİNYAL KELİMESİ yapar.
+ */
+export const MANUAL_NOTE_ASSET: Record<string, string> = {
+  tehlike: "uyariPiktogram",
+  uyari: "uyariPiktogram",
+  dikkat: "uyariPiktogram",
+  onemli: "onemliPiktogram",
+  not: "bilgiPiktogram",
+};
+
 const HARITA = new Map(MANUAL_ASSETS.map((a) => [a.key, a]));
 
 export function manualAsset(key: string): ManualAsset | null {
   return HARITA.get(key) ?? null;
+}
+
+/**
+ * BELGENİN KULLANDIĞI BÜTÜN VARLIK ANAHTARLARI — TEK TANIM.
+ *
+ * İki kaynaktan gelir ve İKİSİ DE gereklidir: görsel bloklarının `assetKey`i
+ * ve uyarı kutularının düzeyine karşılık gelen PİKTOGRAM. İkincisi unutuldu
+ * ve ölçüldü — kutular piktogramsız basılıyordu çünkü yükleyici yalnız görsel
+ * bloklarına bakıyordu. İndirme ucu ve duman testi artık aynı listeyi çağırır.
+ */
+export function manualUsedAssetKeys(blocks: readonly { kind: string; assetKey?: string; level?: string }[]): string[] {
+  const out = new Set<string>();
+  for (const b of blocks) {
+    if (b.kind === "image" && b.assetKey) out.add(b.assetKey);
+    if (b.kind === "note" && b.level) {
+      const pikt = MANUAL_NOTE_ASSET[b.level];
+      if (pikt) out.add(pikt);
+    }
+  }
+  return [...out];
 }
 
 /** Şablon görsellerinin oran haritası — PDF yerleşimi bunu okur. */
