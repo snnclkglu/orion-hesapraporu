@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { composeValue, derivedParts, rowValue, withComposedValue } from "../compose";
-import { copyPayloadForCustomer } from "../copy";
+import { copyItemInPayload, copyPayloadForCustomer } from "../copy";
 import { firstMulti, isMultiValueList, joinMulti, splitMulti } from "../multi";
 import { parentOption } from "../options";
 import {
@@ -74,6 +74,7 @@ import {
 import {
   offerScopeSuffix,
   type OfferPartDef,
+  type OfferPayload,
   type OfferPriceLine,
   type OfferPricing,
 } from "../types";
@@ -381,6 +382,128 @@ describe("başka müşteriye kopyalama", () => {
     expect(yeni.items[0].id).not.toBe(kaynakP.items[0].id);
     expect(yeni.pricing.lines[0].id).not.toBe(kaynakP.pricing.lines[0].id);
     expect(yeni.pricing.lines[0].itemId).toBe(yeni.items[0].id);
+  });
+});
+
+describe("kalemi aynı teklife kopyalama", () => {
+  function teklif() {
+    const p = emptyPayload();
+    const vinc = emptyItem("32T VİNÇ", ["general", "mainHoist"]);
+    const kaldirma = vinc.groups[1];
+    const motor = kaldirma.rows.find((r) => r.key === "motor")!;
+    motor.parts = { brand: "GAMAK", power: "22" };
+    motor.scope = "customer";
+    kaldirma.rows.find((r) => r.key === "hook")!.hidden = true;
+    p.items = [vinc, emptyItem("VİNÇ - 2", ["general"])];
+    p.pricing.lines = [
+      { ...newPriceLine(vinc.id), unitPrice: 55_900, description: "32T VİNÇ" },
+      { ...newPriceLine(null), unitPrice: 1_500, description: "NAKLİYE" },
+    ];
+    return p;
+  }
+
+  function kopyala(p: OfferPayload) {
+    const sonuc = copyItemInPayload(p, p.items[0].id);
+    expect(sonuc).not.toBeNull();
+    return sonuc!;
+  }
+
+  it("kopya KAYNAĞIN ARDINA girer, sona değil", () => {
+    const p = teklif();
+    const { payload, kopya } = kopyala(p);
+    expect(payload.items.map((x) => x.id)).toEqual([p.items[0].id, kopya.id, p.items[1].id]);
+  });
+
+  it("HİÇBİR KİMLİK paylaşılmaz — kalem de grup da yenilenir", () => {
+    const p = teklif();
+    const { kopya } = kopyala(p);
+    const kaynak = p.items[0];
+    expect(kopya.id).not.toBe(kaynak.id);
+    const kimlikler = [kopya.id, ...kopya.groups.map((g) => g.id)];
+    const kaynakKimlikleri = new Set([kaynak.id, ...kaynak.groups.map((g) => g.id)]);
+    expect(kimlikler.some((id) => kaynakKimlikleri.has(id))).toBe(false);
+    expect(new Set(kimlikler).size).toBe(kimlikler.length);
+  });
+
+  it("satır SAYISI ve SIRASI birebir taşınır", () => {
+    const p = teklif();
+    const { kopya } = kopyala(p);
+    expect(kopya.groups.map((g) => g.key)).toEqual(p.items[0].groups.map((g) => g.key));
+    expect(kopya.groups.map((g) => g.rows.map((r) => r.key))).toEqual(
+      p.items[0].groups.map((g) => g.rows.map((r) => r.key))
+    );
+  });
+
+  it("GİZLİ satır gizli kalır, KAPSAM işareti taşınır", () => {
+    const p = teklif();
+    const { kopya } = kopyala(p);
+    const kaldirma = kopya.groups[1];
+    expect(kaldirma.rows.find((r) => r.key === "hook")?.hidden).toBe(true);
+    expect(kaldirma.rows.find((r) => r.key === "motor")?.scope).toBe("customer");
+    expect(kaldirma.rows.find((r) => r.key === "motor")?.parts?.brand).toBe("GAMAK");
+  });
+
+  it("PARÇA NESNESİ paylaşılmaz — kopyadaki düzeltme kaynağa sızmaz", () => {
+    const p = teklif();
+    const { kopya } = kopyala(p);
+    kopya.groups[1].rows.find((r) => r.key === "motor")!.parts!.power = "30";
+    expect(p.items[0].groups[1].rows.find((r) => r.key === "motor")?.parts?.power).toBe("22");
+  });
+
+  it("FİYAT SATIRI da kopyalanır ve KOPYAYA bağlanır", () => {
+    const p = teklif();
+    const { payload, kopya, priceLineCount } = kopyala(p);
+    expect(priceLineCount).toBe(1);
+    expect(payload.pricing.lines).toHaveLength(3);
+    // Kaynağın satırı kaynakta kalır, kopyanınki ONUN ARDINA girer, serbest
+    // satır ("NAKLİYE") sonda durmaya devam eder.
+    expect(payload.pricing.lines.map((l) => l.itemId)).toEqual([p.items[0].id, kopya.id, null]);
+    expect(payload.pricing.lines[1].unitPrice).toBe(55_900);
+    expect(payload.pricing.lines[1].id).not.toBe(payload.pricing.lines[0].id);
+  });
+
+  it("kalemin fiyat satırı YOKSA fiyat tablosu hiç değişmez", () => {
+    const p = teklif();
+    p.pricing.lines = [];
+    const { payload, priceLineCount } = kopyala(p);
+    expect(priceLineCount).toBe(0);
+    expect(payload.pricing.lines).toHaveLength(0);
+  });
+
+  it("kopyanın ADI kaynağınki DEĞİLDİR; kullanılmayan numarayı alır", () => {
+    const p = teklif();
+    expect(kopyala(p).kopya.title).toBe("VİNÇ - 3");
+    const dolu = teklif();
+    dolu.items.push(emptyItem("VİNÇ - 3", ["general"]));
+    expect(kopyala(dolu).kopya.title).toBe("VİNÇ - 4");
+  });
+
+  it("vinç kopyasının başlığı OTOMATİĞE açıktır — ölçü düzeltilince yazılır", () => {
+    const p = teklif();
+    const { kopya } = kopyala(p);
+    expect(kopya.titleManual).toBe(false);
+    const genel = kopya.groups[0];
+    genel.rows.find((r) => r.key === "capacity")!.parts = { main: "10" };
+    genel.rows.find((r) => r.key === "craneType")!.value = "Monoray Vinç";
+    expect(withAutoTitle(kopya).title).toBe("10T MONORAY VİNÇ");
+  });
+
+  it("SERBEST kalemin kopyası KALEM - n olur ve başlığı ELLE sayılır", () => {
+    const p = emptyPayload();
+    p.items = [freeItem("KABİN DEĞİŞİMİ")];
+    const { kopya } = kopyala(p);
+    expect(kopya.title).toBe("KALEM - 2");
+    expect(kopya.titleManual).toBe(true);
+  });
+
+  it("GİZLİ kalem gizli kopyalanır", () => {
+    const p = teklif();
+    p.items[0].hidden = true;
+    expect(kopyala(p).kopya.hidden).toBe(true);
+  });
+
+  it("bulunmayan kalem için null döner — ekran hiçbir şey değiştirmez", () => {
+    expect(copyItemInPayload(teklif(), "yok")).toBeNull();
   });
 });
 

@@ -15,7 +15,7 @@
 
 import { Fragment } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,12 +51,15 @@ export function ItemEditor({
   book,
   craneTypes,
   onChange,
+  onCopy,
   onRemove,
 }: {
   item: OfferItem;
   book: OptionBook;
   craneTypes: readonly string[];
   onChange: (next: OfferItem) => void;
+  /** Kalemi AYNI TEKLİFE ikinci bir kalem olarak kopyalar (`copyItemInPayload`). */
+  onCopy: () => void;
   onRemove: () => void;
 }) {
   /**
@@ -256,10 +259,23 @@ export function ItemEditor({
           {item.hidden ? "Kalem gizli" : "Kalemi gizle"}
         </Button>
 
+        {/*
+          KALEMİ KOPYALA — kullanıcı isteği (19.08.2026): *"Buna çok benzer aynı
+          teklif içerisinde başka bir vinç var … tamamen kopyalamak isterim.
+          Hızlıca birkaç özelliğini değiştirip düzenlerim."*
+
+          Silmenin YANINDA ama önünde durur ve YIKICI DEĞİL: ikisi de kalemin
+          tamamına dokunan eylemlerdir, bu yüzden aynı öbekte; renk ayrımı
+          hangisinin geri alınamayacağını söyler.
+        */}
+        <Button type="button" variant="ghost" className="oc-tap ml-auto" onClick={onCopy}>
+          <Copy className="size-4" /> Kalemi Kopyala
+        </Button>
+
         <Button
           type="button"
           variant="ghost"
-          className="oc-tap ml-auto text-destructive hover:text-destructive"
+          className="oc-tap text-destructive hover:text-destructive"
           onClick={onRemove}
         >
           <Trash2 className="size-4" /> Kalemi Sil

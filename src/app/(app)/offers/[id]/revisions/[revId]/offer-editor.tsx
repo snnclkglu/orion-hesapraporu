@@ -15,7 +15,7 @@
 // buradaki `readOnly` yalnız görgü kuralıdır ve kullanıcıyı boşuna yazmaktan
 // kurtarır.
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
+import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +47,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtMoney, parseNum } from "@/lib/currency";
+import { fmtMoney } from "@/lib/currency";
+import { copyItemInPayload } from "@/lib/offers/copy";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import {
   greetingFor,
@@ -108,6 +110,26 @@ import { RowEditor, type OptionBook } from "./row-editor";
 
 type BolumKey = string;
 
+/** Kayıt durumu — rozetin okuduğu tek gerçek. */
+type KayitDurumu = "temiz" | "bekliyor" | "kaydediliyor" | "kaydedildi" | "hata";
+
+/**
+ * YAZMA DURAKLAMASI — 1200 ms.
+ *
+ * `equipment-panel.tsx`teki not kutusu 700 ms kullanır ama orada yazılan bir
+ * AÇIKLAMADIR; burada yazılan bir SAYIDIR ve yarım bir sayı ("304.0") tam bir
+ * sayı gibi diske düşebilir. Pencere ne kadar uzunsa ara adımın yakalanma
+ * olasılığı o kadar düşer. Bekleyiş bir gecikme değil: kutudan çıkan her
+ * odak ANINDA kaydeder (aşağıdaki `onBlur`), yani tamamlanmış her düzenleme
+ * zaten beklemeden yazılır — duraklama yalnız KESİNTİSİZ yazmayı toparlar.
+ */
+const OTO_KAYIT_MS = 1200;
+
+/** Rozetteki saat — kullanıcı "ne zaman kaydedildi"yi görmeli. */
+function saatMetni(): string {
+  return new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export function OfferEditor({
   offerId,
   offerNo,
@@ -148,11 +170,27 @@ export function OfferEditor({
   currency: string;
 }) {
   const [payload, setPayload] = useState<OfferPayload>(initial);
-  const [kirli, setKirli] = useState(false);
   const [aktif, setAktif] = useState<BolumKey>("kapak");
   const [pending, startTransition] = useTransition();
   const [onizleme, setOnizleme] = useState(false);
   const [kalemEkle, setKalemEkle] = useState(false);
+
+  // ————————————————————————————————————————————— otomatik kayıt
+  const [durum, setDurum] = useState<KayitDurumu>("temiz");
+  const [sonSaat, setSonSaat] = useState<string | null>(null);
+  const [hataMetni, setHataMetni] = useState<string | null>(null);
+  /** En son BAŞARIYLA yazılan payload — kimlik karşılaştırmasıyla. */
+  const sonKayit = useRef<OfferPayload>(initial);
+  /** Her boyamada tazelenir; zincir EN SON hâli yazar, zamanlayıcının yakaladığını değil. */
+  const guncelPayload = useRef<OfferPayload>(initial);
+  /** Uçuştaki yazma zinciri — ikinci bir istek onu BEKLER, yanına açılmaz. */
+  const zincir = useRef<Promise<boolean> | null>(null);
+  /** Hata bir kez bildirilir; çevrimdışı bir kullanıcıya her tuşta toast atılmaz. */
+  const hataBildirildi = useRef(false);
+
+  useEffect(() => {
+    guncelPayload.current = payload;
+  }, [payload]);
 
   const book: OptionBook = useMemo(
     () => ({ byList: indexOptions(options), byParent: indexChildren(options) }),
@@ -160,9 +198,15 @@ export function OfferEditor({
   );
   const listesi = (key: string) => (book.byList[key] ?? []).map((o) => o.value);
 
+  /**
+   * TEK GİRİŞ NOKTASI. Eskiden burada bir `setKirli(true)` de vardı; artık yok
+   * çünkü "kaydedilmemiş değişiklik var mı" sorusunun tek doğru cevabı
+   * `payload !== sonKayit.current` KARŞILAŞTIRMASIDIR — bir bayrak, kaydın
+   * kendisiyle ayrışabilir (kayıt biterken gelen bir düzenleme bayrağı
+   * temizletirdi). Otomatik kayıt bu karşılaştırmayı izler.
+   */
   function guncelle(next: OfferPayload) {
     setPayload(next);
-    setKirli(true);
   }
 
   /**
@@ -176,7 +220,6 @@ export function OfferEditor({
    */
   function guncelleIle(fn: (onceki: OfferPayload) => OfferPayload) {
     setPayload(fn);
-    setKirli(true);
   }
 
   const bolumler = useMemo(
@@ -201,35 +244,121 @@ export function OfferEditor({
   // yoksa satır toplamı (liste ekranı ve `total_amount` da aynı sayıyı okur).
   const toplam = effectiveTotal(payload.pricing);
 
-  function kaydet(sonra?: () => void) {
+  /**
+   * KAYIT ZİNCİRİ — aynı anda YALNIZ BİR yazma isteği uçar.
+   *
+   * Yarış kapısı bir SIRA SAYACI DEĞİL, tek uçuş kuralıdır ve fark önemlidir:
+   * sayaç istemciye geç dönen yanıtı yok saydırır ama iki `UPDATE`in sunucuya
+   * TERS SIRADA varmasını engellemez — o durumda eski payload kazanır ve kayıp
+   * sessizdir. Zincir iki sorunu birden kapatır: bir istek uçarken gelen
+   * değişiklik beklemeye alınır, istek biter bitmez zincir `guncelPayload`ı
+   * yeniden okur ve EN SON hâli yazar.
+   *
+   * `useTransition` KULLANILMAZ: buradaki tek `pending` yayım, PDF ve "Maliyet
+   * Aç" düğmelerini de kilitliyor; otomatik kayıt her duraklamada o düğmeleri
+   * titretirdi.
+   */
+  const kaydet = useCallback((): Promise<boolean> => {
+    // Uçuştaki zincir yeni hâli de yazacağı için ÇAĞIRAN ONU BEKLER.
+    if (zincir.current) return zincir.current;
+    if (guncelPayload.current === sonKayit.current) return Promise.resolve(true);
+
+    const calisma = (async () => {
+      while (guncelPayload.current !== sonKayit.current) {
+        const gonderilen = guncelPayload.current;
+        setDurum("kaydediliyor");
+        // AĞ HATASI `{error}` DÖNDÜRMEZ, İSTİSNA ATAR: çevrimdışı bir sekmede
+        // server action çağrısının kendisi reddedilir. Yakalanmasaydı zincir
+        // burada kopardı ve rozet sonsuza dek "Kaydediliyor…"da kalırdı —
+        // otomatik kaydın verebileceği en kötü yanıt sessizliktir.
+        const res = await saveOfferRevision(offerId, revisionId, {
+          payload: gonderilen as unknown as Record<string, unknown>,
+          // ARKA PLAN: liste yolları tazelenmez (gerekçesi `actions.ts`te).
+          background: true,
+        }).catch(() => ({ error: "Kayıt isteği tamamlanamadı — bağlantıyı denetleyin." }));
+        if (res.error) {
+          setDurum("hata");
+          setHataMetni(res.error);
+          if (!hataBildirildi.current) {
+            hataBildirildi.current = true;
+            toast.error(res.error);
+          }
+          return false;
+        }
+        sonKayit.current = gonderilen;
+      }
+      hataBildirildi.current = false;
+      setHataMetni(null);
+      setDurum("kaydedildi");
+      setSonSaat(saatMetni());
+      return true;
+      // `finally` DEĞİL `.finally()`: gövde hiç `await`e uğramadan biterse
+      // (bir sonraki turda mümkün) `finally` bloğu SENKRON çalışır ve aşağıdaki
+      // atamadan ÖNCE temizler — ref'te sonsuza dek çözülmüş bir söz kalırdı ve
+      // sonraki hiçbir kayıt çalışmazdı. `.finally()` her hâlükârda bir
+      // mikro-görevde koşar, yani atamadan sonra.
+    })().finally(() => {
+      zincir.current = null;
+    });
+
+    zincir.current = calisma;
+    return calisma;
+  }, [offerId, revisionId]);
+
+  /**
+   * OTOMATİK KAYIT — yazma duraklaması.
+   *
+   * YAYIMLANMIŞ REVİZYONDA HİÇ KURULMAZ. Gövde zaten `pointer-events-none`
+   * olduğu için kullanıcı yazamaz, ama bir kez bile istek atılırsa
+   * `guard_issued_offer_revision` tetikleyicisi hatayla düşer ve ekranda
+   * sebepsiz bir kırmızı rozet yanar (TEKLIF-24 bu hatanın "yetki yok" gibi
+   * okunduğunu bir kez yaşadı). Yönetici "Geri Çek" ile taslağa aldığında
+   * sayfa yeniden yüklenir, `readOnly` false gelir ve efekt kendiliğinden
+   * devreye girer.
+   */
+  useEffect(() => {
+    if (readOnly) return;
+    if (payload === sonKayit.current) return;
+    setDurum((d) => (d === "kaydediliyor" ? d : "bekliyor"));
+    const t = setTimeout(() => void kaydet(), OTO_KAYIT_MS);
+    return () => clearTimeout(t);
+  }, [payload, readOnly, kaydet]);
+
+  /**
+   * SEKME KAPANIRKEN BEKLEYEN DEĞİŞİKLİK VARSA UYARI.
+   *
+   * Duraklama penceresi içinde kapatılan bir sekme gerçek bir veri kaybıdır;
+   * uçuştaki istek de bitmemiş sayılır (`sonKayit` daha güncellenmemiştir).
+   * Metni tarayıcı yazar, sayfa değil — buradaki tek karar UYARMAKTIR.
+   */
+  useEffect(() => {
+    if (readOnly) return;
+    const uyar = (e: BeforeUnloadEvent) => {
+      if (guncelPayload.current === sonKayit.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", uyar);
+    return () => window.removeEventListener("beforeunload", uyar);
+  }, [readOnly]);
+
+  function yayimlaVeIndir() {
     startTransition(async () => {
-      const res = await saveOfferRevision(offerId, revisionId, {
-        payload: payload as unknown as Record<string, unknown>,
-        notes: "",
-      });
+      // Yayım kaydın ÜSTÜNE biner: bekleyen değişiklik varsa önce o yazılır.
+      const yazildi = await kaydet();
+      if (!yazildi) {
+        toast.error("Kaydedilemediği için yayımlanmadı; önce kaydı düzeltin.");
+        return;
+      }
+      const res = await issueOfferRevision(offerId, revisionId);
       if (res.error) {
         toast.error(res.error);
         return;
       }
-      setKirli(false);
-      toast.success("Teklif kaydedildi.");
-      sonra?.();
+      if (res.warning) toast.warning(res.warning);
+      else toast.success("Teklif yayımlandı ve arşivlendi.");
+      window.location.href = `/offers/${offerId}/revisions/${revisionId}/pdf`;
     });
-  }
-
-  function yayimlaVeIndir() {
-    kaydet(() =>
-      startTransition(async () => {
-        const res = await issueOfferRevision(offerId, revisionId);
-        if (res.error) {
-          toast.error(res.error);
-          return;
-        }
-        if (res.warning) toast.warning(res.warning);
-        else toast.success("Teklif yayımlandı ve arşivlendi.");
-        window.location.href = `/offers/${offerId}/revisions/${revisionId}/pdf`;
-      })
-    );
   }
 
   return (
@@ -291,7 +420,16 @@ export function OfferEditor({
           <span className="font-mono text-sm">
             {toplam === null ? "—" : fmtMoney(toplam, payload.pricing.currency || currency)}
           </span>
-          <Button type="button" variant="outline" className="oc-tap" onClick={() => setOnizleme(true)}>
+          {/* ÖNİZLEME SON KAYDEDİLENİ GÖSTERİR (PDF ucu veritabanından okur).
+              Otomatik kayıt geldikten sonra bekleyen bir değişiklikle açmak
+              artık gereksiz: önce yazılır, sonra açılır. Kayıt düşerse pencere
+              yine açılır ve başlıktaki uyarı neyin gösterildiğini söyler. */}
+          <Button
+            type="button"
+            variant="outline"
+            className="oc-tap"
+            onClick={() => void kaydet().then(() => setOnizleme(true))}
+          >
             <Eye className="size-4" /> Önizle
           </Button>
           <Button asChild variant="outline" className="oc-tap">
@@ -301,8 +439,24 @@ export function OfferEditor({
           </Button>
           {readOnly ? null : (
             <>
-              <Button type="button" onClick={() => kaydet()} disabled={pending || !kirli} className="oc-tap">
-                <Save className="size-4" /> {kirli ? "Kaydet" : "Kayıtlı"}
+              <KayitRozeti durum={durum} saat={sonSaat} hata={hataMetni} />
+              {/*
+                "KAYDET" DÜĞMESİ KALDI ve ikincil oldu.
+                Otomatik kaydın kusuru SESSİZLİKTİR: ağ koptuğunda ekranda
+                yalnız kırmızı bir rozet kalır ve kullanıcının elinde tek
+                kurtarma yolu, düzenleme taklidi yapıp yeni bir duraklama
+                tetiklemek olurdu. Düğme tam da o anda görünmeli. Kaydedilecek
+                bir şey yokken kapalıdır — yani olağan akışta göze girmez.
+              */}
+              <Button
+                type="button"
+                variant="outline"
+                className="oc-tap"
+                onClick={() => void kaydet()}
+                disabled={durum === "kaydediliyor" || durum === "temiz" || durum === "kaydedildi"}
+                title="Duraklamayı beklemeden şimdi kaydeder"
+              >
+                <Save className="size-4" /> {durum === "hata" ? "Yeniden Dene" : "Kaydet"}
               </Button>
               <Button
                 type="button"
@@ -383,6 +537,18 @@ export function OfferEditor({
 
         {/* ————————————————————————————————————————————— bölüm gövdesi */}
         <div
+          // OTOMATİK KAYDIN İKİNCİ GÜVENCESİ: ODAK ÇIKIŞI.
+          //
+          // Duraklama zamanlayıcısı KESİNTİSİZ yazmayı toparlar; kutudan çıkan
+          // bir düzenleme ise TAMAMLANMIŞTIR ve beklemesi için sebep yoktur.
+          // Bu, yarım bir sayının ("304.0") diske düşme penceresini de kapatır:
+          // odak değiştiğinde kutuda artık tam sayı vardır.
+          //
+          // Olay burada dinlenir çünkü `focusout` kabarır — her kutuya ayrı
+          // ayrı takmak, yeni eklenen her alanda unutulabilecek bir adım olurdu.
+          // Kaydedilecek bir şey yoksa zincir hiç istek atmadan döner, yani
+          // sekmede gezinmek ağ trafiği üretmez.
+          onBlur={readOnly ? undefined : () => void kaydet()}
           className={cn(
             "grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
             readOnly && "pointer-events-none opacity-70"
@@ -412,6 +578,28 @@ export function OfferEditor({
                 onChange={(next) =>
                   guncelle({ ...payload, items: payload.items.map((x, j) => (j === i ? next : x)) })
                 }
+                /*
+                  KALEMİ KOPYALA — teknik satırların tamamı, gizleme ve kapsam
+                  işaretleri, ve kaleme BAĞLI FİYAT SATIRLARI ile birlikte.
+                  Kimlikler yenilenir (`copyItemInPayload`); kopya kaynağın
+                  hemen ardına girer ve ekran ona geçer, çünkü kullanıcının
+                  kopyalama sebebi zaten "birkaç özelliğini değiştirmek"tir.
+
+                  TOPLAMIN DEĞİŞTİĞİ SÖYLENİR: fiyat satırı da kopyalandığı için
+                  üst şeritteki rakam anında artar; sessiz kalsaydı kullanıcı
+                  bunu ancak belgeyi basınca görürdü.
+                */
+                onCopy={() => {
+                  const sonuc = copyItemInPayload(payload, item.id);
+                  if (!sonuc) return;
+                  guncelle(sonuc.payload);
+                  setAktif(`item:${sonuc.kopya.id}`);
+                  toast.success(
+                    sonuc.priceLineCount > 0
+                      ? `${sonuc.kopya.title} olarak kopyalandı; fiyat satırı da kopyalandı, toplam değişti.`
+                      : `${sonuc.kopya.title} olarak kopyalandı.`
+                  );
+                }}
                 onRemove={() => {
                   guncelle({
                     ...payload,
@@ -496,7 +684,7 @@ export function OfferEditor({
             <DialogHeader>
               <DialogTitle>Teklif Önizleme</DialogTitle>
               <DialogDescription>
-                {kirli
+                {durum === "hata" || durum === "bekliyor" || durum === "kaydediliyor"
                   ? "Kaydedilmemiş değişiklikler var — önizleme SON KAYDEDİLEN hâli gösterir."
                   : offerDocLine(offerNo, revNo)}
               </DialogDescription>
@@ -510,6 +698,65 @@ export function OfferEditor({
         </Dialog>
       ) : null}
     </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————— kayıt rozeti
+
+/**
+ * KAYIT ROZETİ — otomatik kaydın TEK görünür yüzü.
+ *
+ * Otomatik kayıt bir kolaylıktır ama görünmezse bir belirsizliktir: kullanıcı
+ * müşteriye gidecek bir belgeyi düzenlerken "yazıldı mı" sorusunu sormamalı.
+ * Üç şey söylenir ve üçü de ayrı bir eyleme karşılık gelir — bekle, kapatabilirsin,
+ * müdahale et.
+ *
+ * "BEKLİYOR" ile "KAYDEDİLİYOR" AYNI METNİ taşır ("Kaydediliyor…"): ikisinin
+ * farkı istemcinin iç meselesidir, kullanıcı için tek bir şey vardır —
+ * değişiklik henüz yerine oturmadı.
+ */
+function KayitRozeti({
+  durum,
+  saat,
+  hata,
+}: {
+  durum: KayitDurumu;
+  saat: string | null;
+  hata: string | null;
+}) {
+  const yaziliyor = durum === "bekliyor" || durum === "kaydediliyor";
+  const metin =
+    durum === "hata"
+      ? "Kaydedilemedi"
+      : yaziliyor
+        ? "Kaydediliyor…"
+        : saat
+          ? `Kayıtlı · ${saat}`
+          : "Kayıtlı";
+  return (
+    <span
+      // `role="status"`: ekran okuyucu değişikliği kendiliğinden duyurur,
+      // kullanıcı rozete odaklanmak zorunda kalmaz.
+      role="status"
+      title={durum === "hata" ? (hata ?? undefined) : undefined}
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs",
+        durum === "hata" ? "font-medium text-destructive" : "text-muted-foreground"
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 rounded-full",
+          durum === "hata"
+            ? "bg-destructive"
+            : yaziliyor
+              ? "bg-amber-500"
+              : "bg-emerald-500"
+        )}
+      />
+      {metin}
+    </span>
   );
 }
 
@@ -972,12 +1219,14 @@ function TicariEditor({
               >
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">%</span>
-                  <Input
-                    value={line.percent ?? ""}
-                    inputMode="decimal"
-                    onChange={(e) => guncelleSatir({ percent: sayiVeyaNull(e.target.value) })}
+                  {/* YÜZDE KUTUSUNDA BİNLİK AYIRAÇ YOKTUR (yüzde hiçbir zaman
+                      binlik olmaz) ama taslak vardır: "%12,5" yazarken virgül
+                      adımı kontrollü kutunun gidiş-dönüşünde siliniyordu. */}
+                  <SayiKutusu
+                    value={line.percent ?? null}
+                    onChange={(v) => guncelleSatir({ percent: v })}
                     aria-label={`Ödeme satırı ${i + 1} yüzdesi`}
-                    className="h-9 text-base pointer-fine:text-sm"
+                    className="h-9"
                   />
                 </div>
                 <EditableCombobox
@@ -1227,12 +1476,15 @@ function FiyatEditor({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Input
-                    value={line.qty ?? ""}
-                    inputMode="decimal"
-                    onChange={(e) => setLine(i, { ...line, qty: sayiVeyaNull(e.target.value) })}
+                  {/* ADETTE BİNLİK AYIRAÇ AÇILMADI: vinç teklifinde adetler tek
+                      hanelidir ve "1.000" yazımı, ondalık virgülle karışabilen
+                      bir gürültü ekler. Kutunun taslağı yine de gerekli —
+                      "1,5 takım" gibi bir yazımda virgül silinmemeli. */}
+                  <SayiKutusu
+                    value={line.qty ?? null}
+                    onChange={(v) => setLine(i, { ...line, qty: v })}
                     aria-label="Adet"
-                    className="h-9 text-base pointer-fine:text-sm"
+                    className="h-9"
                   />
                 </TableCell>
                 <TableCell>
@@ -1245,12 +1497,16 @@ function FiyatEditor({
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
-                    value={line.unitPrice ?? ""}
-                    inputMode="decimal"
-                    onChange={(e) => setLine(i, { ...line, unitPrice: sayiVeyaNull(e.target.value) })}
+                  {/* BİRİM FİYAT BİNLİK AYIRAÇLIDIR (kullanıcı isteği,
+                      19.08.2026): teklif fiyatları altı hanelidir ve "304000"
+                      ile "3040000" ayırt edilemiyordu. Ayıraç yalnız odak
+                      dışında basılır — gerekçesi `sayi-kutusu.tsx`te. */}
+                  <SayiKutusu
+                    binlik
+                    value={line.unitPrice ?? null}
+                    onChange={(v) => setLine(i, { ...line, unitPrice: v })}
                     aria-label="Birim fiyat"
-                    className="h-9 text-base pointer-fine:text-sm"
+                    className="h-9"
                   />
                 </TableCell>
                 {/* SERBEST SATIRIN MALİYETİ ELLE GİRİLİR (kullanıcı isteği
@@ -1274,13 +1530,13 @@ function FiyatEditor({
                       </span>
                     )
                   ) : (
-                    <Input
-                      value={kutuMetni(line.manualCost ?? null)}
-                      inputMode="decimal"
+                    <SayiKutusu
+                      binlik
+                      value={line.manualCost ?? null}
                       aria-label="Serbest satır maliyeti"
                       title="Serbest satırın maliyeti — maliyet çalışmasında karşılığı yoktur, buraya siz yazarsınız. Müşteriye giden belgede GÖRÜNMEZ."
-                      onChange={(e) => setLine(i, { ...line, manualCost: sayiVeyaNull(e.target.value) })}
-                      className="h-9 text-right font-mono text-base pointer-fine:text-sm"
+                      onChange={(v) => setLine(i, { ...line, manualCost: v })}
+                      className="h-9 text-right font-mono"
                     />
                   )}
                 </TableCell>
@@ -1456,17 +1712,14 @@ function IskontoAlani({
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor="iskontolu_toplam">İskontolu Toplam</Label>
-          <Input
+          <SayiKutusu
+            binlik
             id="iskontolu_toplam"
-            value={hedef ?? ""}
-            inputMode="decimal"
-            onChange={(e) =>
-              onChange({
-                ...payload,
-                pricing: { ...p, discountTotal: sayiVeyaNull(e.target.value) },
-              })
+            value={hedef}
+            onChange={(v) =>
+              onChange({ ...payload, pricing: { ...p, discountTotal: v } })
             }
-            className="h-9 w-40 text-base pointer-fine:text-sm"
+            className="h-9 w-40"
           />
         </div>
         <span className="text-sm text-muted-foreground">
@@ -1896,21 +2149,7 @@ function MiniDugme({
   );
 }
 
-/** Boş kutu `null` üretir, `0` DEĞİL (SATIS-16). */
-/**
- * ÇÖZÜMLEYİCİ UYGULAMANIN ORTAK OLANIDIR (`parseNum`).
- *
- * Buradaki yerel sürüm bütün noktaları siliyordu: "12.44" → 1244. Maliyet
- * tarafı 18.08.2026'da düzeltildi; teklif tarafı düzeltilmeseydi aynı sayı
- * iki ekranda iki türlü okunurdu — `cost-parts.tsx` başındaki "aynı şekil,
- * ayrı sahip" notunun uyardığı ayrışmanın ta kendisi.
- */
-function sayiVeyaNull(raw: string): number | null {
-  return parseNum(raw);
-}
-
-/** Sayıyı kutuya yazarken tr-TR ondalık ayracı korunur ("19,5"). */
-function kutuMetni(v: number | null | undefined): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "";
-  return String(v).replace(".", ",");
-}
+// `sayiVeyaNull` ve `kutuMetni` ARTIK BURADA DEĞİL: ikisi de `SayiKutusu` ile
+// birlikte `@/components/sayi-kutusu`e taşındı. Kutunun görünüşü (binlik
+// ayıraç) ile çözümlemesi aynı yerde yaşamalı — ayıracı basan ile onu okuyan
+// iki ayrı dosyada olsaydı biri değişip öteki kalırdı (TEKLIF-37'nin dersi).

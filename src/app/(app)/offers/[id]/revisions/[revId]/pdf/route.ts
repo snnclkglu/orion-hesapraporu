@@ -17,6 +17,7 @@ import { loadOfferRevision } from "@/app/(app)/offers/data";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
+import { loadCustomerLogo } from "@/lib/customers/logo";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,23 @@ export async function GET(
 
   // Firma künyesi hesap raporuyla AYNI kaynaktan gelir (`app_settings.report`):
   // iki belgenin altbilgisinde farklı adres yazması, ikisini de şüpheli yapardı.
-  const settings = await getReportSettings(supabase);
+  //
+  // MÜŞTERİ LOGOSU DA CANLI OKUNUR ve bu TEKLIF-15'in ("kapak bilgisi bir
+  // FOTOĞRAFTIR") istisnasıdır — gerekçesi şudur: müşterinin ADRESİ ya da
+  // VERGİ NUMARASI teklif anına ait bir OLGUDUR ve snapshot'ta donar; LOGO ise
+  // bir olgu değil KİMLİKtir. Firma markasını yenilediğinde eski teklifin
+  // yeniden indirilen kopyasında bugünkü markanın çıkması doğrudur; müşteriye
+  // GÖNDERİLEN belge zaten `offers` kovasında olduğu gibi arşivlenmiştir.
+  // Kararın maliyeti de sınırlıdır: logo, belgenin hiçbir sayısını değiştirmez.
+  //
+  // İKİ OKUMA PARALEL: ayrı beklenirse teklif indirmesi iki ağ turu boyu
+  // gecikirdi. `loadCustomerLogo` HİÇBİR KOŞULDA FIRLATMAZ — logo inmezse
+  // `null` döner ve belge logosuz basılır (bir logo yüzünden 500 dönmek kabul
+  // edilemez).
+  const [settings, customerLogo] = await Promise.all([
+    getReportSettings(supabase),
+    loadCustomerLogo(supabase, offer.customer_id),
+  ]);
   const buffer = await renderOfferPdf({
     offer: {
       offerNo: offer.offer_no,
@@ -56,6 +73,7 @@ export async function GET(
       email: settings.email,
       web: settings.web,
     },
+    customerLogo,
     meta: { generatedAt: new Date().toLocaleDateString("tr-TR") },
   });
 

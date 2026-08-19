@@ -16,6 +16,13 @@
 // Kaydetme ve yayımlama sunucu eylemleri sahte kimliklerle çağrılır ve hata
 // döner; amaç yalnız YERLEŞİM ve ALAN TİPLERİNİN gözle doğrulanmasıdır.
 //
+// OTOMATİK KAYIT BURADA DA AÇIKTIR ve ilk düzenlemede kırmızı "Kaydedilemedi"
+// rozetiyle biter. Bu bir önizleme kusuru değil, denetlenmeye değer bir hâldir:
+// hata rozetinin, "Yeniden Dene" düğmesinin ve tek seferlik hata toast'ının
+// gerçekten çalıştığı ancak burada gözle görülür. Otomatik kaydı önizlemede
+// kapatan bir bayrak EKLENMEDİ — kapatılabilir bir güvence, denenmemiş bir
+// güvencedir (kural 11: önizleme gerçeği taklit eder, benzerini değil).
+//
 import { notFound } from "next/navigation";
 import { OfferEditor } from "@/app/(app)/offers/[id]/revisions/[revId]/offer-editor";
 import { PageHeader } from "@/components/page-header";

@@ -77,7 +77,26 @@ export type CopyOfferInput = z.infer<typeof copyOfferSchema>;
  */
 export const saveRevisionSchema = z.object({
   payload: z.record(z.string(), z.unknown()),
-  notes: z.string().trim().max(4000).default(""),
+  /**
+   * NOT VERİLMEZSE DOKUNULMAZ — ve bu `.default("")` DEĞİLDİR.
+   *
+   * Editör her kayıtta `notes: ""` gönderiyordu; elle kaydederken zararsızdı
+   * ama otomatik kayıtla birlikte revizyon notunu SANİYEDE BİR boşaltmak
+   * demek oldu. Not editörde düzenlenmiyor: yeni revizyon açılırken bir
+   * öncekinden kopyalanıyor (`newOfferRevision`) ve orası tek yazarı.
+   * `undefined` = "bu alanı ilgilendirmeyen bir kayıt"; boş metin = "notu sil".
+   */
+  notes: z.string().trim().max(4000).optional(),
+  /**
+   * ARKA PLAN KAYDI (otomatik kayıt): liste yolları TAZELENMEZ.
+   *
+   * `revalidatePath` her çağrıda yürürlükteki RSC ağacını da yeniden
+   * çektirir; her yazma duraklamasında bunu yapmak, kullanıcı yazarken sürekli
+   * bir ağ turu ve olası odak/kaydırma sıçraması demekti. Liste ve panel
+   * sayfaları `force-dynamic`tir, yani oraya gidildiğinde zaten taze
+   * üretilirler — tazeleme onların DOĞRULUĞU için değil, hızı için vardı.
+   */
+  background: z.boolean().default(false),
 });
 
 export type SaveRevisionInput = z.infer<typeof saveRevisionSchema>;
