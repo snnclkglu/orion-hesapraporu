@@ -30,20 +30,29 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
+import { trKatla } from "@/lib/drawings/tr-text";
+// Süzgeç şeridi, arama kutusu ve sıralanabilir başlık EVİN ORTAK kabuğudur.
+// `jobs` ve `purchasing` da onları buradan alıyor; ikinci bir kopya yazmak
+// sıralama okunu ve "temizle" düğmesini bölümden bölüme farklı davrandırırdı.
+import { FilterBar, SearchBox } from "@/app/(app)/drawings/sortable-head";
 import { ELECTRICAL_BUCKET, suggestElectricalRevision, type ElectricalDoc } from "@/lib/electrical/data";
 import { materialRows, rollupBy } from "@/lib/electrical/rollup";
 import { groupSheetsByLocation } from "@/lib/electrical/sheet-index";
-import type { ElectricalPart } from "@/lib/electrical/types";
+import {
+  BOS_SUZGEC,
+  filterMaterials,
+  filterParts,
+  filterToQuery,
+  sortMaterials,
+  sortParts,
+  suzgecTemizMi,
+  type ElectricalFilter,
+  type MaterialSortKey,
+  type PartSortKey,
+} from "@/lib/electrical/filter";
+import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
+import { BosSonuc, MaterialTable, PartTable } from "./electrical-table";
 import {
   deleteElectricalDoc,
   registerElectricalDoc,
@@ -54,9 +63,6 @@ import {
 const EN_BUYUK = 157_286_400;
 
 type Gorunum = "malzeme" | "aygit" | "sayfalar";
-
-/** Okunamayan bir sayı EKRANDA "—"DİR; `0` yazmak yalan olurdu (md. 4·5). */
-const say = (n: number | null): string => (n === null ? "—" : String(n));
 
 const boyut = (b: number): string =>
   b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
@@ -78,8 +84,18 @@ export function ElectricalCard({
   const [yukleniyor, setYukleniyor] = useState(false);
   const [okunuyor, setOkunuyor] = useState(false);
   const [gorunum, setGorunum] = useState<Gorunum>("malzeme");
-  const [arama, setArama] = useState("");
-  const [pano, setPano] = useState("");
+  const [suzgec, setSuzgec] = useState<ElectricalFilter>(BOS_SUZGEC);
+  // İKİ AYRI SIRALAMA DURUMU: malzeme ve aygıt listeleri farklı sütunlar
+  // taşıyor ve tek bir durum, görünüm değişince tanınmayan bir anahtara
+  // düşerdi. Öntanım `sort` — BELGEDEKİ sıra (bkz. `filter.ts`).
+  const [malzemeSira, setMalzemeSira] = useState<{ key: MaterialSortKey; desc: boolean }>({
+    key: "sort",
+    desc: false,
+  });
+  const [aygitSira, setAygitSira] = useState<{ key: PartSortKey; desc: boolean }>({
+    key: "sort",
+    desc: false,
+  });
   const [bekle, basla] = useTransition();
 
   const malzeme = useMemo(() => materialRows(parts), [parts]);
@@ -90,29 +106,15 @@ export function ElectricalCard({
     [current]
   );
 
-  const q = arama.trim().toLocaleLowerCase("tr-TR");
-  const uyar = (s: string) => s.toLocaleLowerCase("tr-TR").includes(q);
-
-  const suzulmusAygit = useMemo(
-    () =>
-      parts.filter(
-        (p) =>
-          (!pano || p.location === pano) &&
-          (!q || uyar(p.deviceTag) || uyar(p.designation) || uyar(p.partNo) || uyar(p.typeNo) || uyar(p.supplier))
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parts, pano, q]
+  // SÜZ → SIRALA, bu sırayla ve HER İKİSİ de saf çekirdekten. Excel ucu aynı
+  // iki fonksiyonu çağırır; ekranda görülen ile indirilen ayrışamaz.
+  const gosterilenMalzeme = useMemo(
+    () => sortMaterials(filterMaterials(malzeme, suzgec), malzemeSira.key, malzemeSira.desc),
+    [malzeme, suzgec, malzemeSira]
   );
-
-  const suzulmusMalzeme = useMemo(
-    () =>
-      malzeme.filter(
-        (m) =>
-          (!pano || m.locations.includes(pano)) &&
-          (!q || uyar(m.designation) || uyar(m.partNo) || uyar(m.typeNo) || uyar(m.supplier))
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [malzeme, pano, q]
+  const gosterilenAygit = useMemo(
+    () => sortParts(filterParts(parts, suzgec), aygitSira.key, aygitSira.desc),
+    [parts, suzgec, aygitSira]
   );
 
   async function yukle(file: File) {
@@ -307,9 +309,14 @@ export function ElectricalCard({
               </Button>
             )}
             {parts.length > 0 && (
+              // İNDİRİLEN DOSYA EKRANDAKİ SÜZGECİ TAŞIR: bağlantı süzgeci
+              // sorguya çevirir ve uç aynı saf fonksiyonu çağırır. Etiket de
+              // bunu söyler — süzülmüş bir ekrandan "Excel" yazan bir düğmeye
+              // basan kişi tam listeyi beklerdi.
               <Button size="sm" variant="outline" asChild>
-                <a href={`/projects/${projectId}/electrical/export`}>
-                  <Download className="size-3.5" /> Excel
+                <a href={`/projects/${projectId}/electrical/export${filterToQuery(suzgec)}`}>
+                  <Download className="size-3.5" />
+                  {suzgecTemizMi(suzgec) ? "Excel" : "Excel (süzülmüş)"}
                 </a>
               </Button>
             )}
@@ -391,34 +398,53 @@ export function ElectricalCard({
 
       {/* ————————————————————————————————————————————— liste + süzgeç */}
       {(parts.length > 0 || sayfaObekleri.length > 0) && (
-        <div className="rounded-lg border bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b p-3">
-            <div className="flex flex-wrap gap-1">
-              {(
-                [
-                  ["malzeme", `Malzeme (${malzeme.length})`],
-                  ["aygit", `Aygıt (${parts.length})`],
-                  ["sayfalar", `Sayfalar (${current?.sheets.length ?? 0})`],
-                ] as const
-              ).map(([k, etiket]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setGorunum(k)}
-                  className={`oc-tap rounded-md px-3 py-1.5 text-sm ${
-                    gorunum === k ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {etiket}
-                </button>
-              ))}
-            </div>
-            {gorunum !== "sayfalar" && (
-              <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="overflow-hidden rounded-lg border bg-card">
+          {/* GÖRÜNÜM RAYI — üç ayrı soru, üç ayrı liste. Segment denetimi
+              (düğme kümesi değil): hangisinin etkin olduğu tek bakışta
+              okunmalı ve sayaç SÜZÜLMÜŞ değil TOPLAM adedi göstermeli —
+              süzgeci değiştirmek raydaki sayıyı oynatırsa "kaç malzeme var"
+              sorusu cevapsız kalır. Süzülmüş adet süzgeç şeridindedir. */}
+          <div className="flex flex-wrap items-center gap-1 border-b p-2">
+            {(
+              [
+                ["malzeme", "Malzeme", malzeme.length],
+                ["aygit", "Aygıt", parts.length],
+                ["sayfalar", "Sayfalar", current?.sheets.length ?? 0],
+              ] as const
+            ).map(([k, etiket, adet]) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={gorunum === k}
+                onClick={() => setGorunum(k)}
+                className={`oc-tap inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  gorunum === k
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                }`}
+              >
+                {etiket}
+                <span className="font-mono text-[11px] tabular-nums opacity-70">{adet}</span>
+              </button>
+            ))}
+          </div>
+
+          {gorunum === "sayfalar" ? (
+            <SheetIndex obekler={sayfaObekleri} />
+          ) : (
+            <>
+              {/* SÜZGEÇ ŞERİDİ evin ortak kabuğudur (`FilterBar`): sayaç ve
+                  "temizle" her listede aynı yerde durur. */}
+              <FilterBar
+                gorunen={gorunum === "malzeme" ? gosterilenMalzeme.length : gosterilenAygit.length}
+                toplam={gorunum === "malzeme" ? malzeme.length : parts.length}
+                temiz={suzgecTemizMi(suzgec)}
+                onTemizle={() => setSuzgec(BOS_SUZGEC)}
+              >
                 <select
-                  value={pano}
-                  onChange={(e) => setPano(e.target.value)}
-                  className="oc-tap h-9 rounded-md border bg-background px-2 text-sm"
+                  value={suzgec.location}
+                  onChange={(e) => setSuzgec((f) => ({ ...f, location: e.target.value }))}
+                  className="oc-tap h-9 max-w-44 rounded-md border bg-background px-2 text-sm"
                   aria-label="Pano süzgeci"
                 >
                   <option value="">Bütün panolar</option>
@@ -430,103 +456,140 @@ export function ElectricalCard({
                       </option>
                     ))}
                 </select>
-                <Input
-                  value={arama}
-                  onChange={(e) => setArama(e.target.value)}
-                  placeholder="Ara: kod, tanım, tedarikçi"
-                  className="h-9 w-56"
+                <select
+                  value={suzgec.supplier}
+                  onChange={(e) => setSuzgec((f) => ({ ...f, supplier: e.target.value }))}
+                  className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm"
+                  aria-label="Tedarikçi süzgeci"
+                >
+                  <option value="">Bütün tedarikçiler</option>
+                  {tedarikciler
+                    .filter((t) => t.key)
+                    .map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.label} ({t.lines})
+                      </option>
+                    ))}
+                </select>
+                <SearchBox
+                  value={suzgec.q}
+                  onChange={(v) => setSuzgec((f) => ({ ...f, q: v }))}
+                  placeholder="Kod, tanım, tip, tedarikçi"
+                  className="w-full sm:w-56"
                 />
-              </div>
-            )}
-          </div>
+              </FilterBar>
 
-          <div className="oc-scrollx overflow-x-auto">
-            {gorunum === "malzeme" && (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-16 text-right">Adet</TableHead>
-                    <TableHead>Tanım</TableHead>
-                    <TableHead className="hidden md:table-cell">Tip No</TableHead>
-                    <TableHead className="hidden lg:table-cell">Tedarikçi</TableHead>
-                    <TableHead>Malzeme Kodu</TableHead>
-                    <TableHead className="hidden xl:table-cell">Panolar</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suzulmusMalzeme.map((m) => (
-                    <TableRow key={m.key}>
-                      <TableCell className="text-right font-mono tabular-nums">{say(m.qty)}</TableCell>
-                      <TableCell className="break-words whitespace-normal">{m.designation || "—"}</TableCell>
-                      <TableCell className="hidden font-mono text-xs md:table-cell">{m.typeNo || "—"}</TableCell>
-                      <TableCell className="hidden text-sm lg:table-cell">{m.supplier || "—"}</TableCell>
-                      <TableCell className="font-mono text-xs">{m.partNo || "—"}</TableCell>
-                      <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
-                        {m.locations.map((l) => `+${l}`).join(" ") || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            {gorunum === "aygit" && (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>Aygıt Etiketi</TableHead>
-                    <TableHead className="w-16 text-right">Adet</TableHead>
-                    <TableHead>Tanım</TableHead>
-                    <TableHead className="hidden md:table-cell">Tip No</TableHead>
-                    <TableHead className="hidden lg:table-cell">Tedarikçi</TableHead>
-                    <TableHead className="hidden lg:table-cell w-16 text-right">Sayfa</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suzulmusAygit.map((p, i) => (
-                    <TableRow key={`${p.deviceTag}-${p.partNo}-${i}`}>
-                      <TableCell className="font-mono text-xs whitespace-nowrap">{p.deviceTag}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">{say(p.qty)}</TableCell>
-                      <TableCell className="break-words whitespace-normal">{p.designation || "—"}</TableCell>
-                      <TableCell className="hidden font-mono text-xs md:table-cell">{p.typeNo || "—"}</TableCell>
-                      <TableCell className="hidden text-sm lg:table-cell">{p.supplier || "—"}</TableCell>
-                      <TableCell className="hidden text-right font-mono text-xs tabular-nums lg:table-cell">
-                        {p.page || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            {gorunum === "sayfalar" && (
-              <div className="divide-y">
-                {sayfaObekleri.map((g, i) => (
-                  <div key={`${g.location}-${i}`} className="p-3">
-                    <div className="font-mono text-sm font-medium">
-                      {g.location ? `+${g.location}` : "— (kimliksiz)"}
-                    </div>
-                    <ul className="mt-1 grid gap-0.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                      {g.sheets.map((s) => (
-                        <li key={s.page} className="flex gap-2 text-muted-foreground">
-                          <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums">
-                            s.{s.page}
-                          </span>
-                          <span className="min-w-0 break-words">
-                            {s.sheetNo ? `${s.sheetNo} · ` : ""}
-                            {s.title}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              {gorunum === "malzeme" &&
+                (gosterilenMalzeme.length === 0 ? (
+                  <BosSonuc onTemizle={() => setSuzgec(BOS_SUZGEC)} />
+                ) : (
+                  <MaterialTable
+                    rows={gosterilenMalzeme}
+                    sortKey={malzemeSira.key}
+                    desc={malzemeSira.desc}
+                    onSort={(k) =>
+                      setMalzemeSira((s) => ({ key: k, desc: s.key === k ? !s.desc : false }))
+                    }
+                  />
                 ))}
-              </div>
-            )}
-          </div>
+
+              {gorunum === "aygit" &&
+                (gosterilenAygit.length === 0 ? (
+                  <BosSonuc onTemizle={() => setSuzgec(BOS_SUZGEC)} />
+                ) : (
+                  <PartTable
+                    rows={gosterilenAygit}
+                    sortKey={aygitSira.key}
+                    desc={aygitSira.desc}
+                    onSort={(k) =>
+                      setAygitSira((s) => ({ key: k, desc: s.key === k ? !s.desc : false }))
+                    }
+                  />
+                ))}
+            </>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * SAYFA DİZİNİ — projenin içindekiler tablosu, panoya göre öbeklenmiş.
+ *
+ * TABLO DEĞİL IZGARA: 157 satırlık bir dizinde "pano · pafta · ad" üçlüsü tek
+ * sütunda alt alta 157 satır ederdi ve okuyan aradığı paftayı kaydırarak
+ * arardı. Öbek başlığı panoyu bir kez söyler, altındaki ızgara paftaları geniş
+ * ekranda üç kola yayar — göz bir öbeği tek bakışta tarar.
+ *
+ * ARAMA BURADA KENDİ İÇİNDEDİR: malzeme süzgecinin alanları (tedarikçi,
+ * malzeme kodu) sayfa dizininde YOKTUR ve ortak şeridi paylaşmak, çalışmayan
+ * iki açılır liste göstermek olurdu.
+ */
+function SheetIndex({ obekler }: { obekler: { location: string; sheets: ElectricalSheet[] }[] }) {
+  const [ara, setAra] = useState("");
+  const q = trKatla(ara);
+  const suzulmus = q
+    ? obekler
+        .map((g) => ({
+          ...g,
+          sheets: g.sheets.filter(
+            (sf) =>
+              trKatla(sf.title).includes(q) ||
+              trKatla(g.location).includes(q) ||
+              sf.sheetNo.includes(q) ||
+              String(sf.page) === q
+          ),
+        }))
+        .filter((g) => g.sheets.length > 0)
+    : obekler;
+  const gorunen = suzulmus.reduce((n, g) => n + g.sheets.length, 0);
+  const toplam = obekler.reduce((n, g) => n + g.sheets.length, 0);
+
+  return (
+    <>
+      <FilterBar
+        gorunen={gorunen}
+        toplam={toplam}
+        temiz={!ara.trim()}
+        onTemizle={() => setAra("")}
+      >
+        <SearchBox
+          value={ara}
+          onChange={setAra}
+          placeholder="Pafta adı, pano ya da sayfa no"
+          className="w-full sm:w-72"
+        />
+      </FilterBar>
+      {gorunen === 0 ? (
+        <BosSonuc onTemizle={() => setAra("")} />
+      ) : (
+        <div className="divide-y">
+          {suzulmus.map((g, i) => (
+            <div key={`${g.location}-${i}`} className="p-3">
+              <div className="font-mono text-sm font-medium">
+                {g.location ? `+${g.location}` : "— (kimliksiz)"}
+              </div>
+              <ul className="mt-1 grid gap-x-6 gap-y-0.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                {g.sheets.map((sf) => (
+                  <li key={sf.page} className="flex min-w-0 gap-2 text-muted-foreground">
+                    <span className="w-9 shrink-0 text-right font-mono text-xs tabular-nums">
+                      s.{sf.page}
+                    </span>
+                    {/* Pafta adı da KESİLİR: uzun bir ad ızgaranın kolonunu
+                        şişirip komşu kolonu daraltıyordu. */}
+                    <span className="min-w-0 truncate" title={sf.title}>
+                      {sf.sheetNo ? `${sf.sheetNo} · ` : ""}
+                      {sf.title}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

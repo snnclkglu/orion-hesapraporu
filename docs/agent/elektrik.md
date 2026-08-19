@@ -126,6 +126,58 @@ tarih şekilli bir değer isim olamaz — alan boş kalır, PDF üstverisindeki
 satır döndürür ve gerçek bir projede 726 satır var — bir sonraki proje eşiği
 aşınca liste SESSİZCE kesilir ve el kitabı eksik basardı.
 
+## ELEKTRIK-10 — Tablo YATAYDA KAYMAZ, SIĞAR; uzun hücre KESİLİR.
+
+Kullanıcı bildirimi (19.08.2026): satırlar üç sıraya sarıyor, tablo yatay
+kayıyordu. Üç kural birlikte çalışır ve biri eksikse öteki ikisi işe yaramaz:
+
+1. **`table-fixed` + YÜZDE genişlik.** Otomatik yerleşimde tarayıcı payı
+   İÇERİĞE göre veriyordu: "5SL6210-7" taşıyan Tip No sütunu tablonun yarısını
+   alıyor, 40 karakterlik Tanım üç satıra sarıyordu. Paylar içeriğin GERÇEK
+   ölçüsünden seçildi (187 satır ölçüldü: tanım ~40, malzeme kodu ~22, tip no
+   ~18, tedarikçi ~14 karakter).
+2. **Her hücre `truncate`.** Satır boyu SABİT olur; bu bir estetik tercih
+   değil — 726 satırlık bir listede göz ancak eşit yükseklikteki satırları
+   tarayabilir.
+3. **`title` HER hücrede**, kesilmiş olsun olmasın. Kesilip kesilmediğini
+   ölçmek bir reflow ister ve 726 satırda o ölçüm sayfayı kilitler; kesilmemiş
+   hücrede tooltip zararsızdır.
+
+**TELEFONDA TABLO KATLANIR** (değişmez md. 10): `md` altında satır kart olur.
+Yedi sütunu 375 pikselde göstermenin yolu yok; katlama, yatay kaydırmanın tek
+dürüst alternatifidir. Kartta `truncate` YOKTUR — orada satır boyu eşitliği bir
+değer taşımıyor, göz zaten tek sütunda ilerliyor.
+
+Ölçüldü (`/dev/project-preview`, gerçek fikstürle): sayfa yatay kaymıyor, tablo
+kabıyla aynı genişlikte, bütün satırlar 37 px, kesilen her hücrenin `title`ı
+metnin tamamı.
+
+## ELEKTRIK-11 — Süzgeç ve sıralama TEK TANIMDIR; Excel de onu çağırır.
+
+`lib/electrical/filter.ts` saf çekirdektir ve İKİ yerden çağrılır: ekrandaki
+tablo ve indirme ucu. İki kez yazılsaydı kullanıcı bir panoyu süzüp "Excel"e
+basıyor ve eline BÜTÜN projeyi taşıyan bir dosya geçiyordu — malzeme
+listesinde yapılabilecek en sinsi hata budur. Bağlantı süzgeci sorguya çevirir
+(`filterToQuery`), uç aynı fonksiyonlarla süzer, dosya adı `SÜZÜLMÜŞ` eki
+alır ve düğme de "Excel (süzülmüş)" der.
+
+**MALZEME SATIRI ÖNCE DERLENİR, SONRA SÜZÜLÜR.** Ters sırada bir panoya
+süzüldüğünde "Panolar" sütunu tek panoya inerdi ve o ürünün başka nerede
+geçtiği kaybolurdu. Aynı sebeple çok panolu bir satır pano süzgecinde ELENMEZ.
+
+**OKUNAMAYAN ADET HER İKİ YÖNDE DE SONDA kalır.** `null` ne büyüktür ne küçük;
+bilinmiyordur (değişmez md. 4). Onu `0` sayıp başa almak, listeyi adete göre
+sıralayan kullanıcıya sıfır adetli bir malzeme varmış gibi gösterirdi.
+
+**ÖNTANIM SIRA BELGEDEKİ SIRADIR** (`sort` anahtarı). Elektrikçi listeyi
+projenin kendi düzeninde okur; alfabetik bir öntanım onu belgeden koparırdı.
+Karşılaştırma `localeCompare(…, "tr")` iledir — öntanımlı sıra "İ"yi "Z"den
+sonraya atıyor ve tedarikçi listesi alfabetik görünmüyordu.
+
+**GÖRÜNÜM RAYINDAKİ SAYAÇ TOPLAMDIR, süzülmüş değil**; süzülmüş adet süzgeç
+şeridindedir (`FilterBar`). Süzgeci değiştirmek raydaki sayıyı oynatsaydı "kaç
+malzeme var" sorusu cevapsız kalırdı.
+
 ## ELEKTRIK-9 — Şartname AYRI bir belgedir (`project_specs`).
 
 `job_contracts` İŞ EMRİNE bağlı TİCARİ bir belgedir (bedel, vade, teslim);

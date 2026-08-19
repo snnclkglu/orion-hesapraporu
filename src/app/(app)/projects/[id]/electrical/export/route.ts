@@ -4,6 +4,15 @@
 //   "Malzeme Listesi" — sipariş edilebilir liste (aynı ürün tek satır)
 //   "Aygıt Listesi"   — belgedeki ham satırlar (elektrikçinin okuduğu)
 //
+// EKRANDAKİ SÜZGEÇ DOSYAYA DA UYGULANIR (`?pano=&tedarikci=&ara=`) ve süzgeç
+// EKRANLA AYNI FONKSİYONDAN geçer (`lib/electrical/filter.ts`). Aksi hâlde
+// kullanıcı bir panoyu süzüp "Excel"e basıyor ve eline bütün projeyi taşıyan
+// bir dosya geçiyordu — süzülmüş bir ekrandan indirilen dosyanın süzülmemiş
+// olması, malzeme listesinde yapılabilecek en sinsi hatadır.
+//
+// SÜZGEÇ ÇALIŞMIŞSA DOSYA ADI ONU SÖYLER: aynı klasörde duran iki dosyadan
+// hangisinin tam liste olduğu adından okunmalı.
+//
 // `nodejs` çalışma zamanı: `exceljs` Node Buffer üretir.
 
 import type { NextRequest } from "next/server";
@@ -14,16 +23,23 @@ import {
   loadElectricalParts,
 } from "@/lib/electrical/data";
 import { materialRows } from "@/lib/electrical/rollup";
+import {
+  filterFromParams,
+  filterMaterials,
+  filterParts,
+  suzgecTemizMi,
+} from "@/lib/electrical/filter";
 import { HEADER_FILL, MONO_FONT, autoWidth } from "@/lib/excel/brand";
 import { downloadFileName } from "@/lib/pdf/doc-naming";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const suzgec = filterFromParams(request.nextUrl.searchParams);
   const supabase = await createClient();
 
   const {
@@ -39,7 +55,8 @@ export async function GET(
   const belge = await loadCurrentElectricalDoc(supabase, id);
   if (!belge) return new Response("Elektrik projesi bulunamadı", { status: 404 });
 
-  const parts = await loadElectricalParts(supabase, belge.id);
+  const tumParts = await loadElectricalParts(supabase, belge.id);
+  const parts = filterParts(tumParts, suzgec);
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "ORION Cranes";
@@ -56,7 +73,10 @@ export async function GET(
   // ————————————————————————————————————————————— sayfa 1: malzeme
   const ws1 = wb.addWorksheet("Malzeme Listesi");
   baslikYaz(ws1, ["Adet", "Tanım", "Tip No", "Tedarikçi", "Malzeme Kodu", "Panolar"]);
-  for (const m of materialRows(parts)) {
+  // MALZEME SATIRLARI TÜM LİSTEDEN derlenip SONRA süzülür: önce süzüp sonra
+  // derlemek, bir panoya süzüldüğünde "Panolar" sütununu tek panoya
+  // indirirdi ve o ürünün başka nerede geçtiği kaybolurdu.
+  for (const m of filterMaterials(materialRows(tumParts), suzgec)) {
     // ADET NULL İSE HÜCRE BOŞ KALIR, `0` yazılmaz: sıfır bir ölçüm gibi
     // okunur ve yanlış sipariş ettirir (değişmez md. 4).
     ws1.addRow([
@@ -105,7 +125,13 @@ export async function GET(
   const buf = await wb.xlsx.writeBuffer();
   // Dosya adı firma kuralındadır: İŞ ADI - DOKÜMAN KODU - TÜR (`doc-naming.ts`).
   const ad = downloadFileName(
-    [proje?.name, proje?.doc_no, "ELEKTRİK MALZEME LİSTESİ", belge.revision],
+    [
+      proje?.name,
+      proje?.doc_no,
+      "ELEKTRİK MALZEME LİSTESİ",
+      belge.revision,
+      suzgecTemizMi(suzgec) ? null : "SÜZÜLMÜŞ",
+    ],
     "xlsx"
   );
   return new Response(buf, {
