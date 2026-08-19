@@ -22,7 +22,6 @@ import {
   BrandPage,
   CheckGlyph,
   FONTS,
-  PAGE,
   RuleRed,
   T,
   mm,
@@ -36,6 +35,14 @@ import {
   type NumberedSection,
 } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
+import {
+  SUTUN_BOSLUK,
+  SUTUN_GENISLIK,
+  TAM_GENISLIK,
+  manualAtomlari,
+  manualPdfSayfalari,
+  type ManualAtom,
+} from "@/lib/manual/pdf-layout";
 import {
   MANUAL_APPENDIX_LABELS,
   MANUAL_NOTE_LABELS,
@@ -78,7 +85,7 @@ const NOT_RENGI: Record<ManualNoteLevel, { kenar: string; zemin: string; metin: 
 };
 
 const s = StyleSheet.create({
-  kapakBaslik: { fontSize: 24, fontWeight: 800, letterSpacing: 0.4, marginTop: mm(40) },
+    kapakBaslik: { fontSize: 24, fontWeight: 800, letterSpacing: 0.4, marginTop: mm(40) },
   kapakAlt: { fontSize: 14, fontWeight: 500, color: BRAND.gray700, marginTop: 6 },
   kapakDoc: { fontSize: 11, fontWeight: 700, letterSpacing: 1.2, marginTop: mm(10) },
   kunyeSatir: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline, paddingVertical: 3 },
@@ -116,10 +123,13 @@ const s = StyleSheet.create({
 
   icindekilerSatir: { flexDirection: "row", marginBottom: 1.5 },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
-});
 
-/** Gövde genişliği (pt) — tablo sütun genişlikleri buradan pay alır. */
-const GOVDE_GENISLIK = mm(210) - PAGE.contentLeft - PAGE.marginOuter;
+  /* İKİ SÜTUN — genişlikler yerleşim çekirdeğinin ÖLÇTÜĞÜ sayılardır
+     (`manual/pdf-layout.ts`). Burada yeniden hesaplansaydı ölçü ile çizim
+     ayrışır ve @react-pdf taşan satırı sessizce kırpardı. */
+  ikiSutun: { flexDirection: "row", gap: SUTUN_BOSLUK },
+  sutun: { width: SUTUN_GENISLIK },
+});
 
 export function ManualPdf({
   payload,
@@ -134,11 +144,24 @@ export function ManualPdf({
   const numarali = numberManual(basilan.sections);
   const duz = flattenManual(numarali);
   const gorseller = new Map(images.map((g) => [g.id, g]));
+  // Ölçü için ORAN, çizim için BAYT. İki harita aynı kayıttan doğar ama
+  // yerleşim çekirdeği React'i tanımaz; ona yalnız sayı gider.
+  const oranlar = new Map(
+    images.filter((g) => g.width > 0).map((g) => [g.id, g.height / g.width])
+  );
 
-  // Ek kapsayıcısı gövdeden AYRILIR (bkz. aşağıdaki sözleşme notu).
+  // Ek kapsayıcısı gövdeden AYRILIR: ek kapakları KENDİ YAPRAKLARINDA kalmak
+  // zorundadır (`pdfEkleriYerlestir` sözleşmesi — temel belgenin SON n sayfası
+  // eklerle aynı sıradaki n kapaktır). İki sütunlu akışa girselerdi kapaklar
+  // birbirine karışır ve her ek yanlış kapağın altına düşerdi.
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
   const ekKapaklari = (ekKapsayici?.children ?? []).filter((c) => c.appendix);
+
+  // GÖVDE İKİ SÜTUNDA AKAR (kullanıcı isteği, 19.08.2026). Dağıtım saf
+  // çekirdektedir (`manual/pdf-layout.ts`); burası yalnız çizer.
+  const atomlar = manualAtomlari(govdeBolumleri, sources, oranlar);
+  const sayfalar = manualPdfSayfalari(atomlar);
 
   const kunye = payload.identity;
   const kunyeSatirlari: [string, string][] = [
@@ -157,13 +180,19 @@ export function ManualPdf({
     // (teklifteki "değersiz satır basılmaz" kuralının aynısı).
   ].filter((r): r is [string, string] => Boolean(r[1]?.trim()));
 
+  const yarim = Math.ceil(kunyeSatirlari.length / 2);
+  const dizinYarim = Math.ceil(duz.length / 2);
+
   return (
     <Document
       title={`${payload.docTitle} — ${payload.coverTitle}`}
       author="ORION Cranes"
       subject={payload.coverTitle}
     >
-      {/* ————————————————————————————————————————————————— kapak */}
+      {/* KAPAK TEK SÜTUNDUR ve bu bir istisna değil bir tanımdır: kapak
+          okunacak bir metin değil, belgenin kimliğidir. Künye bloğu ise iki
+          sütuna geçer — on bir kısa satır tek sütunda sayfanın yarısını boş
+          bırakıyordu. */}
       <BrandPage docLine={docLine} docCode={docCode} company={company} hideFooterRule>
         <BrandBand docCode={docCode} lines={bandLines ?? []} />
         <Text style={s.kapakBaslik}>{trUpper(payload.coverTitle || payload.identity.product)}</Text>
@@ -172,13 +201,14 @@ export function ManualPdf({
         <Text style={s.kapakDoc}>{docCode}</Text>
 
         {kunyeSatirlari.length > 0 && (
-          <View style={{ marginTop: mm(18) }} wrap={false}>
+          <View style={{ marginTop: mm(16) }} wrap={false}>
             <Text style={T.kicker}>GENEL BİLGİLER</Text>
-            <View style={{ marginTop: 4 }}>
-              {kunyeSatirlari.map(([etiket, deger]) => (
-                <View key={etiket} style={s.kunyeSatir}>
-                  <Text style={s.kunyeEtiket}>{etiket}</Text>
-                  <Text style={s.kunyeDeger}>{deger}</Text>
+            <View style={s.ikiSutun}>
+              {[kunyeSatirlari.slice(0, yarim), kunyeSatirlari.slice(yarim)].map((kol, ki) => (
+                <View style={s.sutun} key={ki}>
+                  {kol.map(([e, d]) => (
+                    <KunyeSatiri key={e} etiket={e} deger={d} />
+                  ))}
                 </View>
               ))}
             </View>
@@ -199,49 +229,82 @@ export function ManualPdf({
         )}
       </BrandPage>
 
-      {/* ————————————————————————————————————————————— içindekiler */}
+      {/* İÇİNDEKİLER DE İKİ SÜTUNDUR: elli kısa satır tek sütunda iki yaprak
+          ederdi. Dizin ÖNCE SOL sütunu doldurup sonra sağa geçer — okuyan bir
+          dizini yukarıdan aşağıya tarar, satır satır zikzak çizmez. */}
       {duz.length > 0 && (
         <BrandPage docLine={docLine} docCode={docCode}>
           <Text style={s.h1}>İÇİNDEKİLER</Text>
-          {duz.map((b) => (
-            <View key={b.id} style={[s.icindekilerSatir, { paddingLeft: (b.depth - 1) * 10 }]}>
-              <Text style={[s.numara, { width: 46, fontSize: 8 }]}>{b.number}</Text>
-              <Text style={{ fontSize: 8, fontWeight: b.depth === 1 ? 700 : 400 }}>{b.title}</Text>
-            </View>
-          ))}
+          <View style={s.ikiSutun}>
+            {[duz.slice(0, dizinYarim), duz.slice(dizinYarim)].map((kol, ki) => (
+              <View style={s.sutun} key={ki}>
+                {kol.map((b) => (
+                  <View key={b.id} style={[s.icindekilerSatir, { paddingLeft: (b.depth - 1) * 8 }]}>
+                    <Text style={[s.numara, { width: 38, fontSize: 7.5 }]}>{b.number}</Text>
+                    <Text style={{ fontSize: 7.5, fontWeight: b.depth === 1 ? 700 : 400 }}>
+                      {b.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
         </BrandPage>
       )}
 
-      {/* ————————————————————————————————————————————————— gövde */}
-      {/* HER ANA BÖLÜM KENDİ SAYFASINDA BAŞLAR. `break` ile aynı sayfada
-          zincirlemek 14 ana bölümlü bir belgede başlıkların sayfa dibinde
-          asılı kalmasına yol açıyordu; ayrı `BrandPage` her bölümü temiz bir
-          yaprakta açar (ekipman listesindeki üç yaprak grubunun dersi). */}
-      {govdeBolumleri.map((bolum) => (
-        <BrandPage key={bolum.id} docLine={docLine} docCode={docCode}>
-          <Bolum bolum={bolum} sources={sources} gorseller={gorseller} />
+      {/* GÖVDE — her sayfa çekirdeğin verdiği bantlardan çizilir. */}
+      {sayfalar.map((sayfa, si) => (
+        <BrandPage key={si} docLine={docLine} docCode={docCode}>
+          {sayfa.bantlar.map((bant, bi) =>
+            bant.kind === "full" ? (
+              <View key={bi}>
+                {bant.atoms.map((a, ai) => (
+                  <Atom key={ai} atom={a} sources={sources} gorseller={gorseller} tam />
+                ))}
+              </View>
+            ) : (
+              <View key={bi} style={s.ikiSutun}>
+                {[bant.sol, bant.sag].map((kol, ki) => (
+                  <View style={s.sutun} key={ki}>
+                    {kol.map((a, ai) => (
+                      <Atom key={ai} atom={a} sources={sources} gorseller={gorseller} />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            )
+          )}
         </BrandPage>
       ))}
 
-      {/* ————————————————————————————————————————————————— ekler */}
-      {/* EK KAPSAYICISI KENDİ YAPRAĞINDA, HER EK KAPAĞI AYRI YAPRAKTA.
-          Bu bir yerleşim tercihi DEĞİL, `pdfEkleriYerlestir`in SÖZLEŞMESİDİR:
-          temel belgenin SON n sayfası, eklerle AYNI SIRADAKİ n kapak olmalıdır.
-          Kapaklar tek sayfada toplansaydı ekler yanlış yere düşerdi. Sıra
-          `manualAppendixOrder` ile dışa verilir ve indirme ucu onu okur. */}
+      {/* EKLER — kapsayıcı bir yaprak, her ek kapağı KENDİ yaprağında. */}
       {ekKapsayici && (
         <BrandPage docLine={docLine} docCode={docCode}>
-          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-            <Text style={s.h1}>{ekKapsayici.title}</Text>
-          </View>
+          <Text style={s.h1}>{ekKapsayici.title}</Text>
           {ekKapsayici.blocks.map((b) => (
-            <Blok key={b.id} blok={b} sources={sources} gorseller={gorseller} />
+            <Blok
+              key={b.id}
+              blok={b}
+              sources={sources}
+              gorseller={gorseller}
+              genislik={TAM_GENISLIK}
+            />
           ))}
         </BrandPage>
       )}
       {ekKapaklari.map((ek) => (
         <BrandPage key={ek.id} docLine={docLine} docCode={docCode}>
-          <Bolum bolum={ek} sources={sources} gorseller={gorseller} />
+          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <Text style={[s.h1, s.numara, { marginRight: 6 }]}>{ek.number}</Text>
+            <Text style={s.h1}>{ek.title}</Text>
+          </View>
+          <Text style={s.ekKapakBaslik}>
+            {trUpper(MANUAL_APPENDIX_LABELS[ek.appendix as ManualAppendixKind])}
+          </Text>
+          <RuleRed width={48} />
+          <Text style={[s.p, { marginTop: 8, color: BRAND.gray600 }]}>
+            Bu ek, belgenin tam sürümünde bu sayfadan sonra basılır.
+          </Text>
         </BrandPage>
       ))}
     </Document>
@@ -252,8 +315,8 @@ export function ManualPdf({
  * Belgede BASILAN ek kapaklarının sırası.
  *
  * İndirme ucu birleştirmeyi bu sırayla yapar; PDF'in kendisi ile sıra AYNI
- * fonksiyondan gelir, iki yerde yazılsaydı bir ek yanlış kapağın altına
- * düşerdi ve okuyan bunu ancak belgeyi açınca görürdü.
+ * fonksiyondan gelir. İki yerde yazılsaydı bir ek yanlış kapağın altına düşer
+ * ve okuyan bunu ancak belgeyi açınca görürdü.
  */
 export function manualAppendixOrder(payload: ManualPayload): ManualAppendixKind[] {
   const numarali = numberManual(printedManual(payload).sections);
@@ -263,56 +326,69 @@ export function manualAppendixOrder(payload: ManualPayload): ManualAppendixKind[
     .filter((k): k is ManualAppendixKind => Boolean(k));
 }
 
-function Bolum({
-  bolum,
-  sources,
-  gorseller,
-}: {
-  bolum: NumberedSection;
-  sources: ManualSourceData;
-  gorseller: Map<string, ManualImageAsset>;
-}) {
-  const baslikStili = [s.h1, s.h2, s.h3, s.h4][Math.min(bolum.depth, 4) - 1];
+function KunyeSatiri({ etiket, deger }: { etiket: string; deger: string }) {
   return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "baseline" }} wrap={false}>
-        {bolum.number ? (
-          <Text style={[baslikStili, s.numara, { marginRight: 6 }]}>{bolum.number}</Text>
-        ) : null}
-        <Text style={baslikStili}>{bolum.title}</Text>
-      </View>
-
-      {/* EK BÖLÜMÜ BİR AYRAÇ KAPAĞIDIR: gövdesi yoktur, belgenin kendisi
-          indirme ucunda bu kapağın ardına eklenir. */}
-      {bolum.appendix && (
-        <View>
-          <Text style={s.ekKapakBaslik}>{trUpper(MANUAL_APPENDIX_LABELS[bolum.appendix])}</Text>
-          <RuleRed width={48} />
-          <Text style={[s.p, { marginTop: 8, color: BRAND.gray600 }]}>
-            Bu ek, belgenin tam sürümünde bu sayfadan sonra basılır.
-          </Text>
-        </View>
-      )}
-
-      {bolum.blocks.map((b) => (
-        <Blok key={b.id} blok={b} sources={sources} gorseller={gorseller} />
-      ))}
-
-      {bolum.children.map((c) => (
-        <Bolum key={c.id} bolum={c} sources={sources} gorseller={gorseller} />
-      ))}
+    <View style={s.kunyeSatir}>
+      <Text style={s.kunyeEtiket}>{etiket}</Text>
+      <Text style={s.kunyeDeger}>{deger}</Text>
     </View>
   );
+}
+
+/**
+ * Yerleşim atomunun çizimi.
+ *
+ * ATOM BÖLÜNMEZ: yüksekliği çekirdekte ölçüldü ve ona göre bir sütuna
+ * yerleştirildi; @react-pdf'in onu ayrıca kırmaya kalkması ölçü ile çizimi
+ * ayrıştırırdı.
+ */
+function Atom({
+  atom,
+  sources,
+  gorseller,
+  tam,
+}: {
+  atom: ManualAtom;
+  sources: ManualSourceData;
+  gorseller: Map<string, ManualImageAsset>;
+  tam?: boolean;
+}) {
+  if (atom.kind === "heading") {
+    const b = atom.section;
+    const stil = [s.h1, s.h2, s.h3, s.h4][Math.min(b.depth, 4) - 1];
+    return (
+      <View style={{ flexDirection: "row", alignItems: "baseline" }} wrap={false}>
+        {b.number ? <Text style={[stil, s.numara, { marginRight: 5 }]}>{b.number}</Text> : null}
+        <Text style={stil}>{b.title}</Text>
+      </View>
+    );
+  }
+
+  if (atom.kind === "block") {
+    return (
+      <Blok
+        blok={atom.block}
+        sources={sources}
+        gorseller={gorseller}
+        genislik={tam ? TAM_GENISLIK : SUTUN_GENISLIK}
+      />
+    );
+  }
+
+  return null;
 }
 
 function Blok({
   blok,
   sources,
   gorseller,
+  genislik,
 }: {
   blok: ManualBlock;
   sources: ManualSourceData;
   gorseller: Map<string, ManualImageAsset>;
+  /** Bloğun içine çizileceği genişlik — sütun ya da tam bant. */
+  genislik: number;
 }) {
   switch (blok.kind) {
     case "text":
@@ -366,11 +442,11 @@ function Blok({
       // KAYIT YOKSA BLOK HİÇ BASILMAZ. Boş bir çerçeve, okuyana orada bir
       // şeyin eksildiğini söyler ve gizleme kuralının ruhuna aykırıdır.
       if (!g) return null;
-      const genislik = (GOVDE_GENISLIK * (blok.widthPct ?? 100)) / 100;
-      const yukseklik = g.width > 0 ? (genislik * g.height) / g.width : undefined;
+      const en = (genislik * (blok.widthPct ?? 100)) / 100;
+      const yukseklik = g.width > 0 ? (en * g.height) / g.width : undefined;
       return (
         <View style={{ marginVertical: 6 }} wrap={false}>
-          <Image src={g.bytes} style={{ width: genislik, height: yukseklik }} />
+          <Image src={g.bytes} style={{ width: en, height: yukseklik }} />
           {blok.caption?.trim() ? <Text style={s.altyazi}>{blok.caption}</Text> : null}
         </View>
       );
@@ -391,7 +467,12 @@ function Blok({
 }
 
 /**
- * Tablo — SÜTUN GENİŞLİKLERİ İÇERİKTEN ÇIKAR.
+ * Tablo — SÜTUN GENİŞLİKLERİ İÇERİKTEN ÇIKAR ve YÜZDEDİR.
+ *
+ * Yüzde olmaları sayesinde tablo hangi kaba konursa onun genişliğini alır:
+ * yarım sütunda da tam genişlik bandında da aynı bileşen çizer. Ölçü tarafı
+ * (`manual/pdf-layout.ts`) kabın genişliğini AYRICA bilir ve aynı payları
+ * kullanır — iki taraf aynı aritmetiği tekrarlar, sayı kopyalamaz.
  *
  * Eşit paylı sütunlar 6 sütunlu bir malzeme listesinde "Adet" hücresine
  * 28 mm ayırıp "Tanım"ı üç satıra sarıyordu. Genişlik, sütunun EN UZUN

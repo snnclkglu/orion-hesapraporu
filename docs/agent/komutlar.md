@@ -71,6 +71,11 @@
   sırası, ilk on başlık. İkinci argüman verilirse EK YERLEŞTİRME SÖZLEŞMESİ de
   sınanır (temel belgenin son n sayfası = eklerle aynı sıradaki n kapak) ve
   birleşik "tam sürüm" yazılır. Bu modüldeki en kırılgan varsayım odur
+- `python scripts/check-manual-layout.py <pdf> [basliklar.json]` — EL KİTABI
+  PDF'ini GERİ OKUR: taşma (gövde içerik alanının altına inmiş mi), kayıp
+  (beklenen başlıkların hepsi belgede mi) ve doluluk (karakter/sayfa). İki
+  sütunlu yerleşimde eksik ölçmenin bedeli görünmez — @react-pdf taşanı
+  sessizce kırpar; bu betik onu yakalayan tek şeydir
 - `npx tsx scripts/test-drawings.ts` — iki gerçek teslim klasörünün içe
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri

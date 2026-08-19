@@ -136,6 +136,55 @@ yol sözleşmesi `revisions/[revId]/actions.ts` ile aynıdır ve tabloda bir
 hesapları uygulamada henüz tek bir dosya olarak durmuyor; bağlanana kadar
 kapakları da düşer.
 
+## KITAP-11 — Gövde İKİ SÜTUNDA akar; dağıtım VERİDİR, çizim değil.
+
+Kullanıcı isteği (19.08.2026): *"PDF'te sayfayı bölebildiğin her yerde yatayda
+ikiye böl, daha kompakt ve düzgün bir doküman istiyorum"* — örnek olarak
+TEKLİF PDF'i verildi. `lib/manual/pdf-layout.ts`, `offers/pdf-layout.ts`in
+kardeşidir ve ondan öğrendiklerini taşır.
+
+Ölçüldü (kullanıcının indirdiği ORC-BK-0019-00-R01): tek sütunda her ana bölüm
+kendi yaprağında başlıyordu ve sayfalar yarı boş kalıyordu — 6. sayfada 776,
+8. sayfada 604 karakter. Şablon fikstüründe gövde **9 yapraktan 7'ye** indi ve
+sayfa başına karakter 1.500–2.800'den 1.900–4.100'e çıktı.
+
+**@react-pdf SAYFA kırar, SÜTUN kırmaz.** İki `View`in yan yana durması,
+birincisi dolunca içeriğin ikincisine akmasını sağlamaz. Akışın nereye gideceği
+bu yüzden çizimden ÖNCE karara bağlanır ve karar bir VERİDİR (`ManualBant`) —
+çizerken verilen bir karar sınanamazdı.
+
+**ATOM BÖLÜNMEZ.** Yerleşimin birimi başlık, paragraf, liste, kutu, tablo ya da
+görseldir; yüksekliği çekirdekte ölçülür ve bir sütuna öyle yerleşir. Başlık
+bir ATOMDUR, bir kap değil: bir bölümün gövdesi sütun sınırını geçebilir ve
+başlığı kapsayan bir kutu bunu imkânsız kılardı.
+
+**GENİŞ TABLO TAM GENİŞLİK BANDINA DÜŞER** (eşik: DÖRT sütun). Altı sütunlu
+elektrik malzeme listesi 234 pt'lik bir sütuna sığmaz — her hücreye 39 pt kalır
+ve "6ES7511-1AL03-0AB0" harf harf sarar. Tam genişlik atomu açık sütun bandını
+KAPATIR ve kendi bandını açar; sıra korunur. Aynı kural görselde yüzde 55'tir.
+
+**SIRA KORUNUR, DENGE ARANMAZ** (teklifin kuralı): bloklar önce sol sütunu,
+sonra sağı, sonra yeni sayfayı doldurur. Sütunları eşitlemek için bölümleri
+yeniden dizmek sayfayı düzgün ama belgeyi YANLIŞ yapardı.
+
+**BAŞLIK YALNIZ BAŞINA SÜTUN DİBİNDE BIRAKILMAZ**: kendinden sonraki atomdan da
+bir tutam yer ister, yoksa okuyan başlığı bir yerde gövdesini başka yerde
+bulur.
+
+**KAPAK, İÇİNDEKİLER VE EK KAPAKLARI AKIŞA GİRMEZ.** Kapak belgenin kimliğidir
+(künye bloğu yine de iki sütunludur); içindekiler kendi iki sütununu kurar; ek
+kapakları KENDİ YAPRAKLARINDA kalmak zorundadır (`pdfEkleriYerlestir`
+sözleşmesi, KITAP-8).
+
+**ÖLÇÜ YAKLAŞIKTIR VE BİLEREK FAZLA ÖLÇER** (`KAPASITE_PAYI` 0,94; teklifin
+dersi). Fazla ölçmek sütunu erken kapatır, dipte bir parmak boşluk kalır. Eksik
+ölçmek satırı sayfa dışına taşırır ve @react-pdf taşanı SESSİZCE kırpar — bir
+bakım talimatının yarısının kaybolması, boş bir dipten kat kat kötüdür. Oranı
+bilinmeyen görsel bu yüzden KARE varsayılır.
+
+**KÂĞIT GERİ OKUNUR**: `python scripts/check-manual-layout.py <pdf> [başlıklar]`
+taşmayı, kaybı ve doluluğu ölçer. Bileşen ağacına bakmak yerleşimi göstermez.
+
 ## KITAP-9 — Görsel SUNUCUDAN GEÇER ve YENİDEN KODLANIR.
 
 Elektrik projesi ve şartname doğrudan depoya yüklenir; görsel yüklemesi

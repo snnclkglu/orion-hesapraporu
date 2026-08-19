@@ -110,6 +110,14 @@ async function main() {
   console.log(
     `Ek yerleştirme: ${sonuc.eklenen} ek · ${sonuc.eklenenSayfa} sayfa eklendi · atlanan ${sonuc.atlananlar.length} (kapakları da silindi)`
   );
+  // BEKLENEN BAŞLIKLAR yerleşim denetçisine yazılır: iki sütunlu akışta
+  // "kayıp içerik" gözle görülmez, ancak belgeyi geri okuyup aranarak
+  // yakalanır (`scripts/check-manual-layout.py`).
+  writeFileSync(
+    hedef.replace(/\.pdf$/, "-basliklar.json"),
+    JSON.stringify(duz.map((b) => b.title), null, 1)
+  );
+
   if (ekYolu) {
     const tamYol = hedef.replace(/\.pdf$/, "-tam.pdf");
     writeFileSync(tamYol, sonuc.bytes);
