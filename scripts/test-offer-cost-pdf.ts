@@ -3,8 +3,8 @@
 //
 // FİKSTÜR GERÇEKTİR: devralınan "ÖRNEK ASTOR 32T × 30 m Portal Vinç Teklif
 // Maliyet Çalışması V3" çalışma kitabının girdileri ve birim fiyatları. Model
-// o kitabın sayılarını üretmek zorundadır; betik hem PDF'i basar hem METNİ
-// GERİ OKUR ve şu üç şeyi ölçer:
+// o kitabın sayılarını üretmek zorundadır; betik hem PDF'i basar hem METNİ ve
+// METNİN KONUMUNU geri okur, şu dört şeyi ölçer:
 //
 //   1. AĞIRLIK VE MALİYET SAYILARI belgede gerçekten var (51.000 kg çelik,
 //      194.258 € proje maliyeti, 231.167 € toplam).
@@ -12,6 +12,17 @@
 //      bölümde olabilecek en pahalı hatadır; damganın bir sayfada düşmesi
 //      bileşen ağacına bakarak GÖRÜLMEZ.
 //   3. Dosya adı "İÇ BELGE" ile bitiyor — e-posta ekinde ilk okunacak yerde.
+//   4. YERLEŞİM: hiçbir metin kutusu bir başkasının üstüne binmiyor ve hiçbiri
+//      içerik sütununun dışına taşmıyor.
+//
+// DÖRDÜNCÜSÜ SONRADAN EKLENDİ ve sebebi vardır: 19.08.2026'da kullanıcı
+// belgede 36 yerde üst üste binen metin buldu (md. 12), betik ise o bozuk
+// belgede de "TÜM KONTROLLER GEÇTİ" diyordu — çünkü yalnız METNİ okuyordu,
+// metnin NEREDE olduğunu değil. Bir yerleşim iddiası ancak geometriyle
+// korunur. Yerleşim denetçisi (`scripts/check-pdf-layout.py`) bu boşluğu
+// kapatmıyor: çakışma taraması yalnız DejaVu ile dizilen metni karşılaştırır
+// (etiket de not da Archivo'dur) ve maliyet PDF'i `REPORT_SUFFIXES` süzgecine
+// takılıp varsayılan çalıştırmada hiç okunmaz.
 //
 // Teklif PDF'inin duman testiyle aynı düzendedir (`test-offer-pdf.ts`).
 
@@ -30,6 +41,7 @@ import {
   withDefaultRates,
 } from "../src/lib/offers/cost/payload";
 import { costTotals } from "../src/lib/offers/cost/totals";
+import { PAGE, mm } from "../src/lib/pdf/brand";
 import { fmtMoney } from "../src/lib/currency";
 import type { OfferItem, OfferPayload } from "../src/lib/offers/types";
 import type { CostPayload } from "../src/lib/offers/cost/types";
@@ -202,6 +214,73 @@ async function sayfaMetinleri(buf: Buffer): Promise<string[]> {
   return Array.isArray(text) ? text : [text];
 }
 
+/** Belgeye çizilmiş tek bir metin kutusu — sol alt köşesi, genişliği, boyu. */
+interface MetinKutusu {
+  metin: string;
+  sayfa: number;
+  x: number;
+  y: number;
+  genislik: number;
+  yukseklik: number;
+}
+
+/**
+ * SAYFA GEOMETRİSİ BELGENİN KENDİSİNDEN GELİR, elle yazılmaz: `BrandPage`
+ * hangi marjları kullanıyorsa sınır odur. Marj değişirse sınır kendiliğinden
+ * onunla gider; iki yere ayrı yazılsaydı testi "geçirmenin" en kolay yolu
+ * sayıyı büyütmek olurdu.
+ */
+const ICERIK_SOL = PAGE.contentLeft;
+const ICERIK_SAG = mm(210) - PAGE.marginOuter; // A4 genişliği − dış marj
+
+async function metinKutulari(buf: Buffer): Promise<MetinKutusu[]> {
+  const { getDocumentProxy } = await import("unpdf");
+  const doc = await getDocumentProxy(new Uint8Array(buf));
+  const kutular: MetinKutusu[] = [];
+  for (let n = 1; n <= doc.numPages; n += 1) {
+    const page = await doc.getPage(n);
+    const content = await page.getTextContent();
+    for (const item of content.items) {
+      if (!("str" in item) || !item.str.trim()) continue;
+      kutular.push({
+        metin: item.str,
+        sayfa: n,
+        x: item.transform[4],
+        y: item.transform[5],
+        genislik: item.width,
+        yukseklik: item.height,
+      });
+    }
+  }
+  return kutular;
+}
+
+/**
+ * ÇAKIŞMA İMZASI: aynı taban çizgisinde duran iki ayrı metin kutusunun yatay
+ * olarak örtüşmesi. md. 12'nin hatası tam olarak buydu — sütun yönündeki bir
+ * kapta `flex: 1` etiketin yüksekliğini sıfırlıyor, altındaki ipucu aynı taban
+ * çizgisine iniyordu.
+ *
+ * Eşikler dar tutulur, yoksa denetim yalancı alarma boğulur: taban çizgisi
+ * farkı harf yüksekliğinin %70'inden azsa "aynı satır" sayılır (üst/alt simge
+ * ve bitişik satırlar elenir), örtüşme ise 0,8 pt'yi aşmalıdır — pdf.js
+ * ölçülerinde bitişik parçaların sınırları ondalık kadar geçişebilir.
+ */
+function cakisanlar(kutular: MetinKutusu[]): [MetinKutusu, MetinKutusu][] {
+  const sonuc: [MetinKutusu, MetinKutusu][] = [];
+  for (let a = 0; a < kutular.length; a += 1) {
+    for (let b = a + 1; b < kutular.length; b += 1) {
+      const A = kutular[a];
+      const B = kutular[b];
+      if (A.sayfa !== B.sayfa) continue;
+      if (Math.abs(A.y - B.y) > Math.min(A.yukseklik, B.yukseklik) * 0.7) continue;
+      const ortusme = Math.min(A.x + A.genislik, B.x + B.genislik) - Math.max(A.x, B.x);
+      if (ortusme > 0.8) sonuc.push([A, B]);
+    }
+  }
+  return sonuc;
+}
+
 let hata = 0;
 
 function kontrol(kosul: boolean, aciklama: string) {
@@ -267,19 +346,23 @@ async function main() {
   kontrol(duz(metin).includes(duz("Kesit Ölçüleri")), "kesit ölçüleri belgede (md. 6)");
   kontrol(duz(metin).includes(duz("Kesit Ataleti")), "kesit ataleti belgede (md. 6)");
   kontrol(duz(metin).includes(duz("HAMMADDE BİRİM FİYATLARI")), "hammadde fiyat şeridi belgede (md. 12)");
-  kontrol(duz(metin).includes(duz("Çelik İmalat İşçiliği [EUR")), "hammadde satırı birimiyle basıldı");
+  // AD BÜYÜK HARF (kullanıcı isteği 19.08.2026, md. 3): defterdeki maliyet
+  // kalemi adları artık büyük yazılıyor. `duz()` yalnız boşluk siler, yazımı
+  // eşitlemez — çapa da büyük harfe çekildi.
+  kontrol(duz(metin).includes(duz("ÇELİK İMALAT İŞÇİLİĞİ [EUR")), "hammadde satırı birimiyle basıldı");
   // SEHİM MİLİMETREDİR (md. 7): ASTOR kirişinde 20,5 mm.
   kontrol(duz(metin).includes("20,5"), "sehim milimetre olarak basıldı (md. 7)");
 
   // 2 — DÖRT ANA BAŞLIK VE TOPLAM
   console.log("\n  dört ana başlık");
   const proje = totals.direct ?? 0;
-  // ÇAPA 194.257,74 → 197.827,74 € (18.08.2026). Fark TAM OLARAK
-  // (56.100 − 51.000) × 0,70 = 3.570 €: kullanıcı kararıyla sac artık FİRE
-  // DAHİL kilodan fiyatlanıyor (*"Hammadde — Sac'ın ağırlığı Çelik + Fire
-  // ağırlığı getir"*). Devralınan çalışma sacı fireSİZ tartıyordu; sapma
-  // bilinçlidir ve tek kalemden gelir.
-  kontrol(Math.abs(proje - 197_827.74) < 1, `doğrudan maliyet beklenen çapada (${proje.toFixed(2)} €)`);
+  // ÇAPA 194.257,74 → 197.827,74 (18.08.2026) → 198.082,74 € (19.08.2026).
+  // İlk sıçrama sacın FİRE DAHİL kilodan fiyatlanmasıydı: (56.100 − 51.000) ×
+  // 0,70 = 3.570 €. İkincisi LAZER/CNC KESİMİN de fireli kiloyu okuması
+  // (kullanıcı isteği md. 8): (56.100 − 51.000) × 0,05 = 255 €. Devralınan
+  // çalışma ikisini de fireSİZ tartıyordu; sapma bilinçlidir ve iki kalemden
+  // gelir — sayı düşerse önce hangi kalemin kaynağının değiştiğine bakılır.
+  kontrol(Math.abs(proje - 198_082.74) < 1, `doğrudan maliyet beklenen çapada (${proje.toFixed(2)} €)`);
   kontrol(
     Math.abs((totals.total ?? 0) - proje * 1.19) < 0.01,
     "toplam maliyet = proje × 1,19 (oran tabanı PROJE MALİYETİ)"
@@ -307,6 +390,35 @@ async function main() {
   kontrol(metin.includes("GAMAK"), "satırın teklifteki karşılığı (motor markası) basıldı");
   kontrol(metin.includes("ANA KALEM KIRILIMI"), "kırılım tablosu var");
   kontrol(metin.includes("MODEL KATSAYILARI"), "katsayılar belgede kayıtlı");
+
+  // 6 — YERLEŞİM (md. 12)
+  //
+  // Bu blok belgeye BAKMADAN çalışır: kutuların koordinatlarını okur. Bir
+  // önceki hâlde 36 çakışma vardı ve yukarıdaki metin kontrollerinin hepsi
+  // geçiyordu — o yüzden burası ayrı bir savdır, ötekinin süsü değil.
+  console.log("\n  yerleşim");
+  const kutular = await metinKutulari(buf);
+  const cakisma = cakisanlar(kutular);
+  for (const [A, B] of cakisma.slice(0, 5)) {
+    console.log(`      s.${A.sayfa} y=${A.y.toFixed(1)}: "${A.metin}" ↔ "${B.metin}"`);
+  }
+  kontrol(cakisma.length === 0, `üst üste binen metin yok (${cakisma.length})`);
+
+  // TAŞMA: @react-pdf sığmayan bir satırı KIRPMAZ, kutunun sol kenarından
+  // başlatıp sağdan taşırır — `textAlign: "right"` de kurtarmaz. Hoşgörü
+  // 0,5 pt: pdf.js genişliğe son glifin harf aralığını da katar.
+  const tasan = kutular.filter(
+    (k) => k.x + k.genislik > ICERIK_SAG + 0.5 || k.x < ICERIK_SOL - 0.5
+  );
+  for (const k of tasan.slice(0, 5)) {
+    console.log(
+      `      s.${k.sayfa} x=${k.x.toFixed(1)}…${(k.x + k.genislik).toFixed(1)}: "${k.metin}"`
+    );
+  }
+  kontrol(
+    tasan.length === 0,
+    `metin ${ICERIK_SOL.toFixed(1)}–${ICERIK_SAG.toFixed(1)} pt içerik sütununda (${tasan.length} taşma)`
+  );
 
   console.log(hata === 0 ? "\nTÜM KONTROLLER GEÇTİ" : `\n${hata} KONTROL DÜŞTÜ`);
   if (hata > 0) process.exitCode = 1;

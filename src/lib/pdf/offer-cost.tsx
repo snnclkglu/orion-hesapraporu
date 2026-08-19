@@ -17,7 +17,7 @@
 
 import React from "react";
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
-import { BRAND, BrandBand, BrandPage, FONTS, T, mm, trUpper } from "@/lib/pdf/brand";
+import { BRAND, BrandBand, BrandPage, FONTS, PAGE, T, mm, trUpper } from "@/lib/pdf/brand";
 import { fmtMoney, fmtNum } from "@/lib/currency";
 import { COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import {
@@ -59,11 +59,38 @@ export interface OfferCostDocumentProps {
   meta: { generatedAt: string };
 }
 
+/**
+ * ETİKET–DEĞER satırlarının değer sütunu (pt) — TEK SABİT, İKİ ÇAĞRI YERİ.
+ *
+ * 110 pt'ken kesit ölçüsü satırı sığmıyordu: "750 × 1.900 × 750 · t 10 mm"
+ * ölçülen 123 pt yer ister ve @react-pdf satırı kırpmaz, son sözcüğü ("mm")
+ * tek başına alt satıra atar — belgede boşluğa asılı duran bir birim kalırdı.
+ * 150 pt en uzun etikete (115 pt) hâlâ 330 pt bırakır.
+ *
+ * SABİT TEKTİR çünkü `Deger` satırları ile grup toplamı AYNI sütunu paylaşır;
+ * biri büyütülüp öteki unutulursa toplamın sayısı satırların sayılarıyla
+ * hizasını sessizce kaybeder — göz bunu ancak yan yana koyunca görür.
+ */
+const DEGER_SUTUN = 150;
+
 const S = StyleSheet.create({
+  /**
+   * DAMGA KÂĞIDA DEĞİL, İÇERİK IZGARASINA HİZALIDIR.
+   *
+   * @react-pdf'te mutlak konum Page'in KENAR kutusuna göre çözülür, dolgu
+   * kutusuna göre değil: `right: 0` damgayı 16 mm'lik dış marjın DIŞINA
+   * atıyordu (ölçüldü: kutunun sağ kenarı x≈592,9 pt; içerik sınırı 549,9 pt,
+   * kâğıt kenarı 595,3 pt). Yazıcının kırpma bölgesine düşen bir "İÇ BELGE"
+   * damgası hiç basılmayabilir — MALIYET-12'nin ikinci işareti orada ölür.
+   *
+   * `top` marja EŞİTLENMEZ: damga bilerek üst marj şeridinde durur. 16 mm
+   * verilseydi içerik alanının tepesine, yani ilk sayfada marka bandının
+   * üstüne otururdu.
+   */
   damga: {
     position: "absolute",
     top: mm(6),
-    right: 0,
+    right: PAGE.marginOuter,
     fontFamily: FONTS.mono,
     fontSize: 7,
     fontWeight: 600,
@@ -79,7 +106,36 @@ const S = StyleSheet.create({
   satir: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline, paddingVertical: 2.2 },
   basSatir: { flexDirection: "row", borderBottomWidth: 0.8, borderBottomColor: BRAND.line350, paddingBottom: 2.5 },
   bas: { ...T.kickerInk, fontSize: 6.4 },
-  etiket: { ...T.body, fontSize: 7.6, flex: 1, paddingRight: 6 },
+  /**
+   * ETİKETTE `flex` YOKTUR — ve bu, belgeyi bozan hatanın kendisiydi.
+   *
+   * Etiket bir SÜTUN kutusunun içinde durur (`Deger`, `MaliyetGrubu`): altında
+   * ipucu ("Teklifte: …", "elle girildi") ve miktar kaynağı satırları vardır.
+   * Sütun yönünde `flex: 1` yoga'da `flexBasis: 0` demektir ve bu, TEMEL
+   * YÜKSEKLİĞİ sıfırlar: etiket sıfır yükseklikte ölçülür, altındaki ipucu
+   * aynı taban çizgisine çizilir ve iki metin ÜST ÜSTE biner (belgede 36 yerde;
+   * kullanıcı bildirimi 19.08.2026, md. 12). Yatay genişliği veren zaten
+   * sarmalayan kutudur; etiketin kendi payına düşen tek şey yükseklikti.
+   *
+   * Tek satırlık yatay kullanımda (`MaliyetBaslik`, grup toplamı, özet kutusu)
+   * genişlik `satirEtiket` ile verilir — orada kap SATIR yönündedir ve
+   * `flexBasis: 0` genişliği sıfırlar, yüksekliği değil. Çıplak `{ flex: 1 }`
+   * bu dosyada HİÇBİR yerde kullanılmaz: aynı kısayolun iki yönde iki ayrı
+   * anlama gelmesi hatanın kaynağıydı, adlandırılmış stil yönü isimlendirir.
+   */
+  etiket: { ...T.body, fontSize: 7.6, paddingRight: 6 },
+  /**
+   * SATIR YÖNÜNDEKİ kapta etiketin artan yeri kaplaması için — değer sütunu
+   * ancak böyle sağa yaslanır. Sütun yönündeki kaplarda KULLANILMAZ (yukarıdaki
+   * gerekçe): orada `flexBasis: 0` yüksekliği sıfırlar ve satırlar üst üste biner.
+   */
+  satirEtiket: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  /**
+   * DEĞER SÜTUNU. Buraya `flexShrink: 0` YAZILMAZ — @react-pdf'te böyle bir
+   * kilit yoktur: `@react-pdf/layout` `setFlexShrink`i `value || 1` ile geçirir,
+   * yani 0 sessizce 1 olur. Her düğüm daralabilir; sayıyı bir arada tutan şey
+   * sabit genişliktir (`DEGER_SUTUN`, `MALIYET_SUTUN`), esneme kilidi değil.
+   */
   deger: { ...T.data, fontSize: 7.6, textAlign: "right" },
   kalin: { fontWeight: 700, color: BRAND.ink },
   not: { ...T.caption, fontSize: 6.8, color: BRAND.gray500 },
@@ -104,12 +160,48 @@ function Damga() {
   );
 }
 
-function Baslik({ children }: { children: React.ReactNode }) {
-  return <Text style={S.bolumBaslik}>{children}</Text>;
+/**
+ * Bölüm başlığı — SAYFA DİBİNDE YALNIZ KALMAZ.
+ *
+ * `minPresenceAhead` başlıktan sonra en az bu kadar yer kalmasını şart koşar,
+ * yoksa başlık sonraki sayfaya iner (kullanıcı bildirimi 19.08.2026, md. 12:
+ * "kaymalar"). 95 pt, altında AKAN bir liste olan başlıklar içindir: maliyet
+ * grubunun bölünmez başlık kutusu (alt başlık + sütun adları ≈ 32 pt) artı üç
+ * kalem satırı kadar yer. Değer BÜYÜTÜLMEZ: @react-pdf isteneni sonraki
+ * kardeşlerin GERÇEK sonuyla sınırlar, yani liste kısaysa boşuna sayfa
+ * atlatmaz — ama büyük bir sayı, kısa listelerde de sınırın devreye girip
+ * sayfa dibini boş bırakmasına yol açardı.
+ *
+ * Altında BÖLÜNMEZ bir kutu olan başlıklar (AĞIRLIKLAR, HESAPLAR) bu yolla
+ * korunamaz; onlar ilk bölümün kutusuna girer — gerekçesi çağrı yerinde.
+ */
+function Baslik({
+  children,
+  minPresenceAhead = 95,
+}: {
+  children: React.ReactNode;
+  minPresenceAhead?: number;
+}) {
+  return (
+    <Text style={S.bolumBaslik} minPresenceAhead={minPresenceAhead}>
+      {children}
+    </Text>
+  );
 }
 
-function AltBaslik({ children }: { children: React.ReactNode }) {
-  return <Text style={S.altBaslik}>{children}</Text>;
+function AltBaslik({
+  children,
+  minPresenceAhead,
+}: {
+  children: React.ReactNode;
+  /** Yalnız kap `wrap={false}` DEĞİLKEN verilir; bölüm kutusu zaten bölünmez. */
+  minPresenceAhead?: number;
+}) {
+  return (
+    <Text style={S.altBaslik} minPresenceAhead={minPresenceAhead}>
+      {children}
+    </Text>
+  );
 }
 
 /** İki sütunlu `etiket … değer` satırı — ağırlık ve hesap listelerinin şekli. */
@@ -126,21 +218,35 @@ function Deger({
 }) {
   return (
     <View style={S.satir} wrap={false}>
-      <View style={{ flex: 1, paddingRight: 6 }}>
+      {/* Etiket kutusu SATIR yönündeki kabın çocuğudur; genişliği `satirEtiket`
+          verir. Çıplak `{ flex: 1 }` YAZILMAZ — aynı kısayol sütun yönünde
+          yüksekliği sıfırlar ve md. 12'nin üst üste binmesini geri getirir. */}
+      <View style={[S.satirEtiket, { paddingRight: 6 }]}>
         <Text style={[S.etiket, kalin ? S.kalin : {}]}>{etiket}</Text>
         {ipucu ? <Text style={S.not}>{ipucu}</Text> : null}
       </View>
-      <Text style={[S.deger, kalin ? S.kalin : {}, { width: 110 }]}>{deger}</Text>
+      <Text style={[S.deger, kalin ? S.kalin : {}, { width: DEGER_SUTUN }]}>{deger}</Text>
     </View>
   );
 }
 
+/**
+ * TABLO SÜTUNLARI — her tablo için TEK tanım.
+ *
+ * Genişlik başlık satırında ve veri satırında AYRI AYRI yazılırsa ikisi
+ * sessizce ayrışır: başlık bir sütuna, sayılar bir başkasına yaslanır ve kusur
+ * ancak iki satır yan yana konunca görülür. Kalan pay etikete gider
+ * (`satirEtiket`), o yüzden sabitlerin toplamı içerik genişliğinin (487,6 pt)
+ * altında kalmalıdır — maliyet 240, kırılım 140, kalem 302 pt.
+ */
 const MALIYET_SUTUN = { miktar: 62, birim: 34, fiyat: 66, tutar: 78 };
+const KIRILIM_SUTUN = { tutar: 90, pay: 50 };
+const KALEM_SUTUN = { adet: 40, agirlik: 56, kgFiyat: 46, birim: 80, paket: 80 };
 
 function MaliyetBaslik() {
   return (
     <View style={S.basSatir}>
-      <Text style={[S.bas, { flex: 1 }]}>KALEM</Text>
+      <Text style={[S.bas, S.satirEtiket]}>KALEM</Text>
       <Text style={[S.bas, { width: MALIYET_SUTUN.miktar, textAlign: "right" }]}>MİKTAR</Text>
       <Text style={[S.bas, { width: MALIYET_SUTUN.birim, textAlign: "right" }]}>BİRİM</Text>
       <Text style={[S.bas, { width: MALIYET_SUTUN.fiyat, textAlign: "right" }]}>BİRİM FİYAT</Text>
@@ -168,16 +274,32 @@ function MaliyetGrubu({
 }) {
   const toplam = costGroupTotal(group);
   return (
-    <View wrap={false}>
+    // GRUP SAYFA BÖLEBİLİR — dış kaptaki `wrap={false}` KALDIRILDI.
+    //
+    // Bütün grubu bir arada tutmak iki şey yapıyordu: on üç satırlık ELEKTRİK
+    // grubu sığmayınca komple sonraki sayfaya atlıyor ve önceki sayfanın
+    // dibinde ölçülen 163 pt boşluk bırakıyordu (kullanıcı bildirimi
+    // 19.08.2026, md. 12: "kaymalar"); daha kötüsü, bir grup tam sayfa boyunu
+    // (745,7 pt) aşarsa @react-pdf onu bölemez, olduğu yerde bırakır ve
+    // ALTBİLGİNİN ÜSTÜNE taşırır — yalnızca bir konsol uyarısıyla.
+    // Satırın kendisi zaten bölünmez (aşağıdaki satır bazlı `wrap={false}`),
+    // bölünme ancak satır aralarından geçer.
+    <View>
       {/* GÖTÜRÜ KİP BELGEDE YAZAR (kullanıcı isteği 18.08.2026, md. 10).
           `printedCostPayload` götürü kipte kalem satırlarını süzer; işaret
           olmasaydı okuyan on üç satırlık bir grubun neden tek satır bastığını
           anlayamaz, "eksik basılmış" sanardı. */}
-      <AltBaslik>
-        {trUpper(group.title)}
-        {group.lump ? "  ·  GÖTÜRÜ (TEK FİYAT)" : ""}
-      </AltBaslik>
-      <MaliyetBaslik />
+      {/* BAŞLIK + SÜTUN ADLARI TEK PARÇADIR ve sayfa dibinde YALNIZ KALMAZ:
+          `minPresenceAhead` ardından en az üç kalem satırlık yer (≈60 pt)
+          kalmasını şart koşar. Kap, ardından gelen kardeşlerin gerçek sonunu
+          da gözettiği için kısa gruplar boşuna sayfa atlamaz. */}
+      <View wrap={false} minPresenceAhead={60}>
+        <AltBaslik>
+          {trUpper(group.title)}
+          {group.lump ? "  ·  GÖTÜRÜ (TEK FİYAT)" : ""}
+        </AltBaslik>
+        <MaliyetBaslik />
+      </View>
       {group.lines.map((l) => {
         const teklifte = refOf(group.key, l.key);
         const kaynak = qtySourceLabel(l.qtySource);
@@ -186,7 +308,7 @@ function MaliyetGrubu({
           .join(" · ");
         return (
           <View key={l.id} style={S.satir} wrap={false}>
-            <View style={{ flex: 1, paddingRight: 6 }}>
+            <View style={[S.satirEtiket, { paddingRight: 6 }]}>
               <Text style={S.etiket}>{l.label || "—"}</Text>
               {ipucu ? <Text style={S.not}>{ipucu}</Text> : null}
               {!l.qtyManual && kaynak ? <Text style={S.not}>Miktar: {kaynak}</Text> : null}
@@ -200,9 +322,12 @@ function MaliyetGrubu({
           </View>
         );
       })}
-      <View style={[S.satir, { borderBottomWidth: 0.8, borderBottomColor: BRAND.line350 }]}>
-        <Text style={[S.etiket, S.kalin]}>{trUpper(group.title)} TOPLAMI</Text>
-        <Text style={[S.deger, S.kalin, { width: 110 }]}>{fmtMoney(toplam, currency)}</Text>
+      {/* TOPLAM SATIRI DA BÖLÜNMEZ: grup artık sayfa bölebildiği için bu satır
+          bir sayfa sınırına denk gelebilir; kendi içinde ikiye ayrılırsa
+          kalın çizgisi bir sayfada, sayısı ötekinde kalırdı. */}
+      <View style={[S.satir, { borderBottomWidth: 0.8, borderBottomColor: BRAND.line350 }]} wrap={false}>
+        <Text style={[S.etiket, S.satirEtiket, S.kalin]}>{trUpper(group.title)} TOPLAMI</Text>
+        <Text style={[S.deger, S.kalin, { width: DEGER_SUTUN }]}>{fmtMoney(toplam, currency)}</Text>
       </View>
     </View>
   );
@@ -265,12 +390,12 @@ export function OfferCostDocument({
         <View style={S.ozetKutu}>
           <Text style={[T.kicker, { marginBottom: 4 }]}>DÖRT ANA BAŞLIK</Text>
           <View style={S.ozetSatir}>
-            <Text style={S.etiket}>PROJE MALİYETİ</Text>
+            <Text style={[S.etiket, S.satirEtiket]}>PROJE MALİYETİ</Text>
             <Text style={[S.deger, S.kalin]}>{fmtMoney(totals.direct, cur)}</Text>
           </View>
           {totals.rates.map((r) => (
             <View key={r.key} style={S.ozetSatir}>
-              <Text style={S.etiket}>
+              <Text style={[S.etiket, S.satirEtiket]}>
                 {r.title}
                 {r.mode === "oran" && r.percent !== null ? `  (%${fmtNum(r.percent)})` : "  (kalem)"}
               </Text>
@@ -278,7 +403,7 @@ export function OfferCostDocument({
             </View>
           ))}
           <View style={S.ozetToplam}>
-            <Text style={[S.etiket, S.kalin]}>TOPLAM MALİYET</Text>
+            <Text style={[S.etiket, S.satirEtiket, S.kalin]}>TOPLAM MALİYET</Text>
             <Text style={[S.deger, S.kalin]}>{fmtMoney(totals.total, cur)}</Text>
           </View>
           <Text style={[S.not, { marginTop: 4 }]}>
@@ -290,15 +415,15 @@ export function OfferCostDocument({
         <View style={S.ozetKutu}>
           <Text style={[T.kicker, { marginBottom: 4 }]}>TEKLİF VE KÂR</Text>
           <View style={S.ozetSatir}>
-            <Text style={S.etiket}>Teklif Tutarı (müşterinin ödeyeceği)</Text>
+            <Text style={[S.etiket, S.satirEtiket]}>Teklif Tutarı (müşterinin ödeyeceği)</Text>
             <Text style={S.deger}>{fmtMoney(kar.price, cur)}</Text>
           </View>
           <View style={S.ozetSatir}>
-            <Text style={S.etiket}>Toplam Maliyet</Text>
+            <Text style={[S.etiket, S.satirEtiket]}>Toplam Maliyet</Text>
             <Text style={S.deger}>{fmtMoney(kar.cost, cur)}</Text>
           </View>
           <View style={S.ozetToplam}>
-            <Text style={[S.etiket, S.kalin]}>KÂR</Text>
+            <Text style={[S.etiket, S.satirEtiket, S.kalin]}>KÂR</Text>
             <Text style={[S.deger, S.kalin]}>
               {fmtMoney(kar.profit, cur)}
               {kar.marginPercent === null
@@ -310,15 +435,15 @@ export function OfferCostDocument({
 
         <Baslik>ANA KALEM KIRILIMI</Baslik>
         <View style={S.basSatir}>
-          <Text style={[S.bas, { flex: 1 }]}>GRUP</Text>
-          <Text style={[S.bas, { width: 90, textAlign: "right" }]}>TUTAR</Text>
-          <Text style={[S.bas, { width: 50, textAlign: "right" }]}>PAY</Text>
+          <Text style={[S.bas, S.satirEtiket]}>GRUP</Text>
+          <Text style={[S.bas, { width: KIRILIM_SUTUN.tutar, textAlign: "right" }]}>TUTAR</Text>
+          <Text style={[S.bas, { width: KIRILIM_SUTUN.pay, textAlign: "right" }]}>PAY</Text>
         </View>
         {kirilim.map((r) => (
           <View key={r.key} style={S.satir} wrap={false}>
-            <Text style={[S.etiket]}>{trUpper(r.title)}</Text>
-            <Text style={[S.deger, { width: 90 }]}>{fmtMoney(r.amount, cur)}</Text>
-            <Text style={[S.deger, { width: 50 }]}>
+            <Text style={[S.etiket, S.satirEtiket]}>{trUpper(r.title)}</Text>
+            <Text style={[S.deger, { width: KIRILIM_SUTUN.tutar }]}>{fmtMoney(r.amount, cur)}</Text>
+            <Text style={[S.deger, { width: KIRILIM_SUTUN.pay }]}>
               {r.share === null ? "—" : `%${fmtCostField(r.share * 100, 1)}`}
             </Text>
           </View>
@@ -326,23 +451,23 @@ export function OfferCostDocument({
 
         <Baslik>KALEM BAZINDA</Baslik>
         <View style={S.basSatir}>
-          <Text style={[S.bas, { flex: 1 }]}>KALEM</Text>
-          <Text style={[S.bas, { width: 40, textAlign: "right" }]}>ADET</Text>
-          <Text style={[S.bas, { width: 56, textAlign: "right" }]}>AĞIRLIK</Text>
-          <Text style={[S.bas, { width: 46, textAlign: "right" }]}>€/KG</Text>
-          <Text style={[S.bas, { width: 80, textAlign: "right" }]}>BİRİM MALİYET</Text>
-          <Text style={[S.bas, { width: 80, textAlign: "right" }]}>PAKET MALİYET</Text>
+          <Text style={[S.bas, S.satirEtiket]}>KALEM</Text>
+          <Text style={[S.bas, { width: KALEM_SUTUN.adet, textAlign: "right" }]}>ADET</Text>
+          <Text style={[S.bas, { width: KALEM_SUTUN.agirlik, textAlign: "right" }]}>AĞIRLIK</Text>
+          <Text style={[S.bas, { width: KALEM_SUTUN.kgFiyat, textAlign: "right" }]}>€/KG</Text>
+          <Text style={[S.bas, { width: KALEM_SUTUN.birim, textAlign: "right" }]}>BİRİM MALİYET</Text>
+          <Text style={[S.bas, { width: KALEM_SUTUN.paket, textAlign: "right" }]}>PAKET MALİYET</Text>
         </View>
         {totals.items.map((i) => (
           <View key={i.id} style={S.satir} wrap={false}>
-            <Text style={S.etiket}>{trUpper(i.title || "—")}</Text>
-            <Text style={[S.deger, { width: 40 }]}>{fmtNum(i.qty)}</Text>
-            <Text style={[S.deger, { width: 56 }]}>{fmtNum(i.weightKg)}</Text>
-            <Text style={[S.deger, { width: 46 }]}>
+            <Text style={[S.etiket, S.satirEtiket]}>{trUpper(i.title || "—")}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.adet }]}>{fmtNum(i.qty)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.agirlik }]}>{fmtNum(i.weightKg)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.kgFiyat }]}>
               {fmtCostField(costPerKg(i.unit, i.weightKg), 2)}
             </Text>
-            <Text style={[S.deger, { width: 80 }]}>{fmtMoney(i.unit, cur)}</Text>
-            <Text style={[S.deger, { width: 80 }]}>{fmtMoney(i.package, cur)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.birim }]}>{fmtMoney(i.unit, cur)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.paket }]}>{fmtMoney(i.package, cur)}</Text>
           </View>
         ))}
       </BrandPage>
@@ -353,6 +478,11 @@ export function OfferCostDocument({
         const v = (k: string) => model?.values[k] ?? null;
         const doluBolum = (fields: readonly { key: string }[]) =>
           fields.some((f) => v(f.key) !== null);
+        // Basılacak bölümler ÖNCE süzülür: bölüm başlığı ilk bölümün kutusuna
+        // girecek (aşağıdaki gerekçe) ve bunun için "ilk"in kim olduğu render
+        // sırasında bilinmelidir.
+        const agirlikBolumleri = WEIGHT_SECTIONS.filter((s) => doluBolum(s.fields));
+        const hesapBolumleri = CALC_SECTIONS.filter((s) => doluBolum(s.fields));
         return (
           <BrandPage key={item.id} docLine={docLine} docCode={`M${costRevNo}`}>
             <Damga />
@@ -374,9 +504,23 @@ export function OfferCostDocument({
               </Text>
             ) : null}
 
-            <Baslik>AĞIRLIKLAR</Baslik>
-            {WEIGHT_SECTIONS.filter((s) => doluBolum(s.fields)).map((s) => (
+            {/* AĞIRLIK VE HESAP BÖLÜMLERİ BÜTÜN KALIR (`wrap={false}`) — maliyet
+                grubunun tersine, ve bilerek. Bu bölümlerin alan sayısı KODDA
+                sabittir; en kalabalığı 13 satır ≈ 240 pt, yani hiçbiri sayfa
+                boyunu (745,7 pt) aşamaz ve altbilgiye taşma riski yoktur.
+                Maliyet grubunun satırları ise kullanıcının açtığı serbest
+                satırlarla sınırsız büyür — orada bütünlük tehlikeliydi. */}
+            {/* BÖLÜM BAŞLIĞI İLK BÖLÜMÜN KUTUSUNDADIR, kardeşi değil.
+                Ölçülen kusur: "HESAPLAR" 2. sayfanın dibinde tek başına kaldı,
+                altındaki 132 pt boş durdu, ilk hesap bölümü 3. sayfada başladı.
+                `minPresenceAhead` bunu ÇÖZMEZ — başlıktan sonra 124 pt yer
+                vardı, sığmayan şey 13 satırlık (≈240 pt) bölünmez bölümdü.
+                Aynı kutuya girince başlık bölümüyle birlikte taşınır ve boşluk
+                veri bağımlı bir sayıya değil, yapıya bağlanmış olur. */}
+            {agirlikBolumleri.length === 0 ? <Baslik>AĞIRLIKLAR</Baslik> : null}
+            {agirlikBolumleri.map((s, i) => (
               <View key={s.key} wrap={false}>
+                {i === 0 ? <Baslik>AĞIRLIKLAR</Baslik> : null}
                 <AltBaslik>{s.title}</AltBaslik>
                 {s.fields
                   .filter((f) => v(f.key) !== null)
@@ -392,9 +536,10 @@ export function OfferCostDocument({
               </View>
             ))}
 
-            <Baslik>HESAPLAR</Baslik>
-            {CALC_SECTIONS.filter((s) => doluBolum(s.fields)).map((s) => (
+            {hesapBolumleri.length === 0 ? <Baslik>HESAPLAR</Baslik> : null}
+            {hesapBolumleri.map((s, i) => (
               <View key={s.key} wrap={false}>
+                {i === 0 ? <Baslik>HESAPLAR</Baslik> : null}
                 <AltBaslik>{s.title}</AltBaslik>
                 {s.fields
                   .filter((f) => v(f.key) !== null)
@@ -459,8 +604,12 @@ export function OfferCostDocument({
         {basilan.rates.map((r) => {
           const tutar = totals.rates.find((x) => x.key === r.key)?.amount ?? null;
           return (
-            <View key={r.key} wrap={false}>
-              <AltBaslik>{trUpper(r.title)}</AltBaslik>
+            // ORANLI GRUP DA SAYFA BÖLEBİLİR: "kalem" kipindeki satırları
+            // kullanıcı yazar, yani sayısı sınırsızdır — maliyet grubuyla aynı
+            // tehlike. Başlık `minPresenceAhead` ile korunur (≈ iki satır),
+            // satırların kendisi zaten `Deger` içinde bölünmez.
+            <View key={r.key}>
+              <AltBaslik minPresenceAhead={40}>{trUpper(r.title)}</AltBaslik>
               {r.mode === "oran" ? (
                 <Deger
                   // Ek KULLANILMAZ ("%2'i" yanlış, "%2'si" doğru): Türkçe uyum
