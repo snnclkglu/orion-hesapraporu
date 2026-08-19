@@ -268,7 +268,15 @@ describe("satır kapsamı", () => {
     const metin = duz(await pdfMetni(fikstur({ kapsam: "customer" })));
     // Ek DEĞERE BİTİŞİKTİR: ayrı bir sütuna ya da alt satıra düşseydi burada
     // aradaki metin yüzünden eşleşme kurulamazdı.
-    expect(metin.includes(duz("4/1 (Müşteri Kapsamında)"))).toBe(true);
+    // TEKNİK satır BÜYÜK HARF basılır (md. 18); ek de değerin devamındadır.
+    //
+    // BU SAV BİR FONT HATASINI DA YAKALADI: ek, mono dizilen değerin içindeki
+    // bir `Text`ti ve aile verilmediği için mono'yu miras alıyordu; @react-pdf'in
+    // ürettiği alt kümede mono'nun ToUnicode eşlemesi büyük "I"yı "F"ye
+    // bağlıyor ve belgeden kopyalanan metin "KAPSAMFNDA" çıkıyordu. Çizim
+    // doğruydu, METİN KATMANI yanlıştı — yani müşteri belgede arama yapsa
+    // bulamazdı. Ek artık sans dizilir (`S.kapsamEki`).
+    expect(metin.includes(duz("4/1 (MÜŞTERİ KAPSAMINDA)"))).toBe(true);
     expect(metin.includes(duz("Q x 1,1 (Müşteri Kapsamında)"))).toBe(true);
     expect(metin.includes(duz("Avans Ödemesi Sonrası 10-12 Hafta (Müşteri Kapsamında)"))).toBe(true);
   });

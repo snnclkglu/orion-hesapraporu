@@ -266,14 +266,14 @@ export interface OfferPayload {
   cover: OfferCover;
   items: OfferItem[];
   testLoad: OfferTestLoad;
-  /** "FİYAT, TESLİM VE ÖDEME ŞEKLİ" künyesi. */
+  /** Ticari sayfanın başlığı — "TESLİM VE ÖDEME ŞEKLİ" (md. 16). */
   terms: {
     title: string;
     rows: OfferRow[];
     paymentLines: OfferPaymentLine[];
   };
   pricing: OfferPricing;
-  /** NOTLAR — sırası anlamlı, madde işareti yok. */
+  /** NOTLAR — sırası anlamlı; belgede madde işaretiyle basılır (md. 17). */
   notes: OfferTextLine[];
   /** KAPSAM DIŞI İŞLER — madde işaretli liste. */
   exclusions: OfferTextLine[];

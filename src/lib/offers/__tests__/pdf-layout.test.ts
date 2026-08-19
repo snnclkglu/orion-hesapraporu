@@ -38,11 +38,11 @@ import type { OfferGroup, OfferRow } from "../types";
  * Teknik sayfanın SÜTUN BÜTÇESİ.
  *
  * İçerik alanı 745,69pt (`BrandPage`); sayfa başlığı bloğu (kicker + kalem adı
- * + öbek dizini + alt pay) onun üstünden ~50pt alır ve çizim tarafı 52 ayırır
+ * + alt pay) onun üstünden ~43pt alır ve çizim tarafı 45 ayırır
  * (`pdf/offer.tsx` `PDF_SUTUN_KAPASITE`). Kalan, iki sütunun her birine verilen
  * ham yüksekliktir; %94 kelepçesini modülün kendisi uygular.
  */
-const SUTUN_KAPASITE = 745.69 - 52;
+const SUTUN_KAPASITE = 745.69 - 45;
 
 /** Modülün gerçekten kullandığı bütçe. */
 const KELEPCELI = SUTUN_KAPASITE * KAPASITE_PAYI;
@@ -236,8 +236,8 @@ describe("ölçülmüş taban", () => {
     expect(fren.label).toBe("Fren");
     expect(fren.value).toBe("SIBRE Elektrohidrolik Kasnak Fren x 2 Adet");
 
-    // Etiket 4 harf → 14,35pt; değere 234,78 − 14,35 − 10 = 210,4pt kalır.
-    // Değer mono 42 karakter × 4,44 = 186,5pt → tek satır: 10 + 5,2 = 15,2.
+    // Etiket 4 harf × 0,62 × 7,8 = 19,3pt; değere 234,78 − 19,3 − 10 = 205,5pt
+    // kalır. Değer mono 42 karakter × 4,44 = 186,5pt → tek satır: 10 + 5,2.
     expect(satirYuksekligi(fren)).toBeCloseTo(15.2, 6);
 
     // ETİKET DEĞERİN YERİNİ YER: uzun bir etiket değer sütununu daraltır ve
@@ -383,16 +383,16 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     const kelepcesiz = offerPdfSayfalari(gruplar, SUTUN_KAPASITE / KAPASITE_PAYI);
 
     // ÖLÇÜLEN: KÖPRÜ GRUBU iki sütuna bölünür ve BÖLÜNME NOKTASI kayar —
-    // kelepçe varken sol sütunda 5 satır kalır, kelepçe kalkarsa 7. Yani
+    // kelepçe varken sol sütunda 4 satır kalır, kelepçe kalkarsa 6. Yani
     // kelepçenin satın aldığı şey sütun dibindeki 43pt'lik boşluktur; ortalama
     // karakter genişliğiyle ölçülmüş bir yerleşimde sayfa dibi tam da
     // yanılmanın en pahalı olduğu yerdir.
     const koprununDilimleri = (s: OfferPdfSayfa[]) =>
       [...s[0].sol, ...s[0].sag].filter((b) => b.group.key === "bridge").map((b) => b.rows.length);
-    expect(koprununDilimleri(kelepceli)).toEqual([5, 7]);
-    expect(koprununDilimleri(kelepcesiz)).toEqual([7, 5]);
+    expect(koprununDilimleri(kelepceli)).toEqual([4, 8]);
+    expect(koprununDilimleri(kelepcesiz)).toEqual([6, 6]);
     // Kelepçenin bıraktığı dip boşluğu: bir satırın sığıp sığmadığını belirler.
-    expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(41.62, 2);
+    expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(42.04, 2);
   });
 });
 

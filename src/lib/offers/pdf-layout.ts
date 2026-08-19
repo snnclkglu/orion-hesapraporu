@@ -80,13 +80,21 @@ export const BASLIK_YUK = 27.6;
  * KARAKTER GENİŞLİĞİ — punto başına.
  *
  * İki katsayı vardır çünkü iki metin iki ayrı ailede dizilir. ETİKET Archivo
- * iledir ve cümle düzenindedir ("Kaldırma Kapasiteleri (Q)"); 0,46 ölçülmüş
- * bir ORTALAMADIR, yani yaklaşıktır. DEĞER ise IBM Plex Mono iledir ve mono
- * SABİT genişliktedir: her karakter tam 0,6 em'dir. Değerin genişliği bu
- * yüzden tahmin değil HESAPTIR — ve sütunda sarıp sarmayacağına karar veren
+ * iledir ve BÜYÜK HARF dizilir (kullanıcı isteği 19.08.2026, md. 18); 0,62
+ * ölçülmüş bir ORTALAMADIR, yani yaklaşıktır. DEĞER ise IBM Plex Mono iledir
+ * ve mono SABİT genişliktedir: her karakter tam 0,6 em'dir. Değerin genişliği
+ * bu yüzden tahmin değil HESAPTIR — ve sütunda sarıp sarmayacağına karar veren
  * de odur.
+ *
+ * KATSAYI 0,46'DAN 0,62'YE ÇIKTI ÇÜNKÜ ETİKET BÜYÜDÜ. Archivo'da büyük harf
+ * küçüğünden belirgin geniştir (fontkit ile on gerçek etiket ölçüldü: karışık
+ * yazımda 0,482, büyük harfte 0,618; "Motor" +%42, "Redüktör" +%36). Eski
+ * katsayı bırakılsaydı modül etiketi %28 dar sanardı ve iki ayrı yerden EKSİK
+ * ölçerdi: kelepçeye çarpıp SARAN etiket tek satır sayılır, değere kalan alan
+ * olduğundan geniş çıkardı. Eksik ölçmek modülün adını koyarak reddettiği
+ * yöndür (bkz. `KAPASITE_PAYI`) — @react-pdf taşan satırı sessizce kırpar.
  */
-const ETIKET_KATSAYI = 0.46;
+const ETIKET_KATSAYI = 0.62;
 const DEGER_KATSAYI = 0.6;
 
 /** Etiket ile değer sütunu arasındaki oluk (`S.ozellikDeger` marginLeft). */

@@ -379,7 +379,47 @@ export const TEST_LOAD_ROW_DEFS: OfferRowDef[] = [
 
 // —————————————————————————————————————————————————————— ticari şartlar
 
-export const TERMS_TITLE = "FİYAT, TESLİM VE ÖDEME ŞEKLİ";
+/**
+ * TİCARİ SAYFANIN BAŞLIĞI.
+ *
+ * "FİYAT" SÖZCÜĞÜ ÇIKTI (kullanıcı isteği 19.08.2026, md. 16): fiyat artık
+ * sayfanın kendi bölümüdür ve "FİYATLAR" başlığını taşır. Eski metin sayfanın
+ * tepesinde bir blok başlığı olarak duruyor, altındaki fiyat tablosunun ise
+ * adı yoktu — okuyan tabloyu başlıksız görüyordu.
+ *
+ * SABİT YALNIZ YENİ TEKLİFLERE İŞLER: `emptyPayload` bu metni payload'a
+ * KOPYALAR ve `withDefaults` kayıtlı değeri korur (TEKLIF-2: teslim edilmiş
+ * belgenin metni değişmez). Kayıtlı TASLAKLAR migration ile eşitlenir;
+ * yayımlanmış revizyonlara dokunulmaz.
+ */
+export const TERMS_TITLE = "TESLİM VE ÖDEME ŞEKLİ";
+
+/**
+ * KAPAKTAKİ FİRMA TANITIMI (kullanıcı isteği 19.08.2026, md. 22).
+ *
+ * DEFTERE (`offer_options`) GİRMEZ: defter kullanıcının teklif başına seçtiği
+ * KISA değerleri taşır (bir marka, bir süre); bu ise firmanın kurumsal
+ * BEYANIDIR — seçenek değil, sabit. Aynı gerekçe genel şartlar için de
+ * verilmişti (TEKLIF-34).
+ *
+ * METİN KISA TUTULDU: kapakta imzaların altında ~300 pt boşluk var ve 22.
+ * madde ile birlikte gelen ünvan satırı, konu başlığı ve logolar o boşluğu
+ * yiyor. Kaynak metin (kullanıcının verdiği tanıtım) üç paragraftı ve ürün
+ * listesi on bir kalemdi; kapakta bir SAYFA DEĞİL bir PARAGRAF yeri var.
+ */
+export const COMPANY_PROFILE = {
+  title: "ORION VİNÇ MÜHENDİSLİK",
+  body:
+    "Kaldırma ve iletme makineleri alanında 25 yıllık birikimiyle çalışan ORİON VİNÇ, " +
+    "Ankara Başkent Organize Sanayi Bölgesi'ndeki 6.000 m² alanında hizmet vermektedir. " +
+    "Dürüstlük, kalite ve müşteri memnuniyeti vazgeçilmez önceliğimizdir; teknolojik " +
+    "gelişmeleri yakından izleyerek yüksek kaliteli ürünleri ve satış sonrası hizmeti " +
+    "birlikte sunmayı temel amaç sayarız.",
+  products:
+    "Gezer köprülü tavan vinçleri · Monoray vinçler · Portal vinçler · Pergel vinçler · " +
+    "Transfer arabaları · Bobin tongları · Kaldırma kirişleri · Proses vinçler · " +
+    "Vinç komponentleri · Endüstriyel otomasyon · Elektrik pano imalat ve montajı",
+} as const;
 
 /**
  * TİCARİ ŞART SATIRLARI. `Ödeme` satırı ayrıdır ve ALTINDA plan satırları

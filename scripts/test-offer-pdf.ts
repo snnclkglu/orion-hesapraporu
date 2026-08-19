@@ -20,6 +20,7 @@ import { emptyPayload, freeItem, groupFromKey, newOfferId } from "../src/lib/off
 import { applyDiscountToLines, offerTotal } from "../src/lib/offers/pricing";
 import { offerDocLine } from "../src/lib/offers/no";
 import { fmtMoney } from "../src/lib/currency";
+import { mm } from "../src/lib/pdf/brand";
 import type { OfferGroup, OfferPayload, OfferPriceLine } from "../src/lib/offers/types";
 
 const outDir = process.argv[2] ?? path.join(process.cwd(), ".test-output");
@@ -430,6 +431,30 @@ function sayfaAdedi(buf: Buffer): number {
  * kutunun x aralıkları kesişiyorsa çakışma vardır. İki sütunlu teknik sayfa
  * yanlış alarm vermez — sütunlar aynı şeritte ama ayrı x aralıklarındadır.
  */
+async function tasanMetinler(buf: Buffer): Promise<string[]> {
+  const { getDocumentProxy } = await import("unpdf");
+  const doc = await getDocumentProxy(new Uint8Array(buf));
+  // Sınırlar BELGEDEN türetilir, elle yazılmaz: sol kenar omurga + iç marj,
+  // sağ kenar A4 genişliği eksi dış marj.
+  const sol = mm(8) + mm(14);
+  const sag = mm(210) - mm(16);
+  const bulgular: string[] = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const page = await doc.getPage(n);
+    for (const ham of (await page.getTextContent()).items) {
+      const i = ham as Partial<{ str: string; transform: number[]; width: number }>;
+      if (typeof i.str !== "string" || i.str.trim() === "" || !i.transform) continue;
+      const x1 = i.transform[4];
+      const x2 = x1 + (i.width ?? 0);
+      // 0,5 pt tolerans: harf kenarı yuvarlamayla sınırı teğet geçebilir.
+      if (x1 < sol - 0.5 || x2 > sag + 0.5) {
+        bulgular.push(`s.${n} ${x1.toFixed(1)}→${x2.toFixed(1)} (sınır ${sol.toFixed(1)}–${sag.toFixed(1)}): "${i.str}"`);
+      }
+    }
+  }
+  return bulgular;
+}
+
 async function cakisanMetinler(buf: Buffer): Promise<string[]> {
   const { getDocumentProxy } = await import("unpdf");
   const doc = await getDocumentProxy(new Uint8Array(buf));
@@ -497,6 +522,12 @@ async function uret(ad: string, props: OfferDocumentProps) {
   const cakisan = await cakisanMetinler(buf);
   kontrol(cakisan.length === 0, `hiçbir metin üst üste binmiyor${cakisan.length ? ` — ${cakisan[0]}` : ""}`);
 
+  // TAŞMA BEKÇİSİ: çakışma ölçüsü iki metnin BİRBİRİNE binmesini görür, ama
+  // sayfanın DIŞINA taşan tek bir metni görmez — @react-pdf onu kırpmadan
+  // çizer ve kâğıtta yarısı kesik durur.
+  const tasan = await tasanMetinler(buf);
+  kontrol(tasan.length === 0, `hiçbir metin içerik sütunundan taşmıyor${tasan.length ? ` — ${tasan[0]}` : ""}`);
+
   // ALTBİLGİ KÜNYESİ HER SAYFADA: müşteri belgenin bir yaprağını tek başına
   // fotoğraflasa bile hangi teklifin hangi revizyonu olduğu okunmalıdır.
   const kimlik = duz(offerDocLine(props.offer.offerNo, props.offer.revNo));
@@ -536,13 +567,27 @@ async function main() {
 
   const s = await uret("teklif-sade.pdf", sadeTeklif());
   // KAPSAM: istisna görünür, olağan görünmez.
+  // TEKNİK SATIRLAR BÜYÜK HARF (md. 18) ama BİRİM KORUNUR: "96 m" küçük "m"
+  // ile kalır — "96 M" metreyi mega önekine çevirirdi. Kapsam eki de büyür.
   kontrol(
-    duz(s.metin).includes(duz("A55 Ray, 96 m (Müşteri Kapsamında)")),
-    "müşteri kapsamındaki satırın eki değerin devamında basıldı"
+    duz(s.metin).includes(duz("A55 RAY, 96 m (MÜŞTERİ KAPSAMINDA)")),
+    "müşteri kapsamındaki satırın eki değerin devamında basıldı — birim korunarak"
   );
   kontrol(
-    duz(s.metin).includes(duz("Elektromanyetik Motor Freni x 2 Adet (Müşteri Kapsamında)")),
+    duz(s.metin).includes(duz("ELEKTROMANYETİK MOTOR FRENİ x 2 ADET (MÜŞTERİ KAPSAMINDA)")),
     "araba freni müşteri kapsamında işaretlendi"
+  );
+  // BİRİMİN KORUNDUĞU EN ÇARPICI ÖRNEK: "22 kW 1500 d/dak" — düz bir
+  // büyütme bunu "22 KW 1500 D/DAK" yapardı ve belge yanlış birim yazardı.
+  kontrol(duz(s.metin).includes(duz("22 kW 1500 d/dak")), "motor birimleri büyütmede bozulmadı");
+  // BÜYÜK "I" TAŞIYAN MONO DEĞER — metin katmanı bekçisi. @react-pdf'in ürettiği
+  // alt kümede mono'nun ToUnicode eşlemesi bir kez "I"yı "F"ye bağladı; çizim
+  // doğruydu ama belgeden kopyalanan/aranan metin yanlıştı.
+  kontrol(duz(s.metin).includes(duz("KAPALI ALAN")), "büyük I taşıyan mono değer doğru çözülüyor");
+  // TİCARİ ŞARTLAR BÜYÜMEZ: onlar cümledir, özellik değil.
+  kontrol(
+    s.metin.includes("Avans Ödemesi Sonrası 10-12 Hafta"),
+    "ticari şart cümlesi olduğu gibi kaldı (büyütme yalnız teknik satırlarda)"
   );
   // Orion kapsamı BELGEDE HİÇ GEÇMEZ — onlarca satırın hepsine kapsam yazmak
   // belgeyi okunmaz yapardı; kural "istisnayı yaz"dır.
@@ -556,9 +601,36 @@ async function main() {
     s.metin.includes("20T ÇİFT KİRİŞ GEZER KÖPRÜLÜ VİNÇ"),
     "kalem adı teknik sayfanın başlığında"
   );
+  // ÖBEK DİZİNİ KALDIRILDI (md. 19): sayfa başlığının altındaki
+  // "GENEL · KALDIRMA · ARABA" satırı kullanıcı isteğiyle düştü. Öbek adları
+  // zaten sütunlarda kendi şeritli başlıklarıyla duruyor.
   kontrol(
-    duz(s.metin).includes(duz("GENEL · KALDIRMA · ARABA")),
-    "öbek dizini başlığın altında"
+    !duz(s.metin).includes(duz("GENEL · KALDIRMA · ARABA")),
+    "öbek dizini kaldırıldı"
+  );
+  // TİCARİ SAYFA İKİ SÜTUN (md. 15) ve fiyat tablosunun kendi başlığı var (md. 16).
+  kontrol(duz(s.metin).includes(duz("TESLİM ŞARTLARI")), "teslim şartları bölümü basıldı");
+  kontrol(duz(s.metin).includes(duz("ÖDEME")), "ödeme bölümü basıldı");
+  kontrol(duz(s.metin).includes(duz("FİYATLAR")), "fiyat tablosunun başlığı basıldı");
+  kontrol(
+    duz(s.metin).includes(duz("TESLİM VE ÖDEME ŞEKLİ")),
+    "ticari sayfanın başlığı yeni metni taşıyor"
+  );
+  // KAPAK: konu başlıktır, "TEKLİF" onun üstünde küçük kicker'dır (md. 20).
+  kontrol(
+    duz(s.sayfalar[0] ?? "").includes(duz("HABAŞ DÖRTYOL 20T VİNÇ")),
+    "kapak başlığı teklifin konusu"
+  );
+  kontrol(duz(s.sayfalar[0] ?? "").includes(duz("Ünvan")), "künyede ünvan kendi satırında");
+  // FİRMA TANITIMI KAPAKTADIR ve kapak TEK SAYFA kalmalıdır (md. 22).
+  kontrol(
+    duz(s.sayfalar[0] ?? "").includes(duz("ORION VİNÇ MÜHENDİSLİK")),
+    "firma tanıtımı kapakta"
+  );
+  kontrol(
+    (s.sayfalar[0] ?? "").includes("Saygılarımızla") &&
+      duz(s.sayfalar[1] ?? "").includes(duz("TEKNİK ÖZELLİKLER")),
+    "kapak TEK sayfada kaldı (tanıtım taşırmadı)"
   );
   kontrol(
     duz(s.metin).includes(duz("TEKNİK ÖZELLİKLER")),
@@ -581,7 +653,7 @@ async function main() {
   // katmanında harfler arasına konum kaynaklı boşluklar girer.
   kontrol(duz(i.metin).includes(duz("TEKNİK ÖZELLİKLER")), "serbest kalemin bölüm başlığı basıldı");
   kontrol(
-    i.metin.includes("Redüktör Gövdesi") && i.metin.includes("Kaplin Takozu"),
+    duz(i.metin).includes(duz("REDÜKTÖR GÖVDESİ")) && duz(i.metin).includes(duz("KAPLİN TAKOZU")),
     "serbest satırların etiketi ve değeri belgede"
   );
   // İSKONTO BİRİM FİYATLARA YANSITILDIYSA ayrı satır basılmaz: aynı sayıyı iki
