@@ -372,7 +372,40 @@ export interface CostGroupDef {
   lines: CostLineDef[];
 }
 
-/** Vinç tipine göre maliyet iskeleti — `offer_cost_templates.skeleton`. */
+/**
+ * VİNÇ TİPİNE GÖRE MALİYET İSKELETİ — `offer_cost_templates.skeleton`.
+ *
+ * Kullanıcı isteği (19.08.2026, md. 10): *"Maliyet bölümüne hangi grup vinçte
+ * örneğin Tek Kirişli Vinçte, maliyet bölümlerinin ve o bölümlerin içinde
+ * hangi kalemlerin geldiğini gösteren, bunlara ekleme yapabileceğim bir sayfa
+ * yapsak. Kontrolü daha kolay olur."*
+ *
+ * İSKELET ETİKET/BİRİM/MİKTAR KAYNAĞI TAŞIMAZ, yalnız ANAHTAR taşır. Defterin
+ * kendisi (`registry.ts`) tek kaynaktır; kopyalansaydı defter genişlediğinde
+ * şablonlar eskir ve iki yer birbirinden ayrışırdı (`offer_templates`in aynı
+ * gerekçesi).
+ *
+ * SATIR TARAFI BEYAZ LİSTE DEĞİL KARA LİSTEDİR (`closedLines`). Bir vinç
+ * tipinde "hangi satırlar gelsin" diye seçilenleri saklamak, kaydedildiği
+ * ANDAKİ defteri dondururdu: koda sonradan eklenen bir kalem (BORVERK
+ * İŞLEME gibi) o tiplerde hiç açılmaz ve eksikliği ancak aylar sonra fark
+ * edilirdi. Kapatılanı saklamak tersini yapar — defter büyüdükçe yeni satır
+ * her tipte kendiliğinden görünür, kullanıcının verdiği KARAR ise korunur.
+ *
+ * GRUP TARAFI AÇIK LİSTEDİR çünkü kullanıcının kararının kendisi odur:
+ * "Kaldırma Kirişi'nde yürütme grubu hiç açılmasın" bir eksiklik değil bir
+ * tercihtir ve sekiz grubun listesi ekranda bütünüyle görünür.
+ */
 export interface CostTemplateSkeleton {
+  /** Bu tipte açılacak maliyet grupları; verilmezse defterin varsayılan kümesi. */
   groupKeys?: string[];
+  /** Grup başına AÇILMAYACAK defter satırları — kapatma, silme değil. */
+  closedLines?: Record<string, string[]>;
+}
+
+/** Defterdeki bir maliyet şablonu satırı — vinç tipi ↔ iskelet. */
+export interface CostTemplate {
+  /** Teklif kaleminin `craneType` metniyle eşleşir (katlanmış karşılaştırma). */
+  craneType: string;
+  skeleton: CostTemplateSkeleton;
 }

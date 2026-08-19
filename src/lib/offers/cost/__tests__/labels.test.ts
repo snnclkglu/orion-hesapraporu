@@ -27,7 +27,8 @@ import {
   costFieldText,
 } from "../labels";
 import { COST_PARAM_DEFS } from "../params";
-import { COST_GROUP_DEFS } from "../registry";
+import { COST_GROUP_DEFS, MATERIAL_PRICE_DEFS } from "../registry";
+import { adBuyuk } from "@/lib/tr-text";
 import { emptyCostInputs } from "../payload";
 import { hesapla } from "../model";
 import { COST_PARAM_DEFAULTS } from "../params";
@@ -131,6 +132,35 @@ describe("alan defteri — her anahtarın bir tanımı vardır (MALIYET-18)", ()
     );
     const adsiz = Object.keys(r.values).filter((k) => !costFieldDef(k));
     expect(adsiz).toEqual([]);
+  });
+});
+
+describe("MALİYET KALEMİ ADLARI BÜYÜK HARFTİR (kullanıcı isteği 19.08.2026)", () => {
+  // Kural VERİDE yaşar, çizimde değil: ad belgeye kopyalanır (`costLineFromDef`)
+  // ve PDF onu ham basar. Defterde küçük harfle yazılmış bir ad, okuma geçidinde
+  // (`lineFromRaw` → `adBuyuk`) sessizce büyür ve defter ile belge ayrışırdı;
+  // test o ayrışmayı defterin KENDİSİNDE yakalar (değişmez md. 8).
+  it("defterdeki her satır adı ve grup başlığı `adBuyuk` yazımındadır", () => {
+    const kucuk: string[] = [];
+    for (const g of COST_GROUP_DEFS) {
+      if (g.title !== adBuyuk(g.title)) kucuk.push(`${g.key} (başlık): ${g.title}`);
+      for (const l of g.lines) {
+        if (l.label !== adBuyuk(l.label)) kucuk.push(`${g.key}/${l.key}: ${l.label}`);
+      }
+    }
+    expect(kucuk).toEqual([]);
+  });
+
+  it("hammadde şeridinin adları da büyüktür", () => {
+    const kucuk = MATERIAL_PRICE_DEFS.filter((d) => d.label !== adBuyuk(d.label));
+    expect(kucuk.map((d) => d.key)).toEqual([]);
+  });
+
+  it("düz `toUpperCase` KULLANILMAZ — 'İ' ve 'ı' bozulur", () => {
+    // "Çelik İmalat İşçiliği" → toUpperCase ile "CELIK IMALAT ISCILIGI".
+    const imalat = COST_GROUP_DEFS.find((g) => g.key === "fabrication")!.lines[0].label;
+    expect(imalat).toBe("ÇELİK İMALAT İŞÇİLİĞİ (FİRE DAHİL)");
+    expect(imalat).not.toBe("Çelik İmalat İşçiliği (fire dahil)".toUpperCase());
   });
 });
 

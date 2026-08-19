@@ -8,12 +8,15 @@
 // donduruyor: taban sessizce değişirse her teklifin kâr marjı kayar.
 
 import { describe, expect, it } from "vitest";
+import { emptyItem, emptyPayload } from "../../payload";
+import type { OfferPayload } from "../../types";
 import { emptyCostPayload, freeCostItem, newCostId } from "../payload";
 import {
   costBreakdown,
   costItemPackageTotal,
   costLineAmount,
   costMargin,
+  costOverview,
   costPerKg,
   costTotals,
   loadedCostByOfferItem,
@@ -181,6 +184,144 @@ describe("kâr", () => {
     expect(costPerKg(194257.74, 59500)).toBeCloseTo(3.2648, 4);
     expect(costPerKg(194257.74, null)).toBeNull();
     expect(costPerKg(194257.74, 0)).toBeNull();
+  });
+});
+
+// ————————————————————————————————————————————————————————— özet
+
+/**
+ * Üç fiyat satırlı bir teklif: biri KALEME BAĞLI, ikisi serbest.
+ *
+ * Kaleme bağlı satırın `manualCost`u bilerek DOLUDUR — ekran onu okumaz
+ * (MALIYET-11) ve özet de okumamalıdır; bağ koparsa veri geri gelsin diye
+ * belgede durur. Üçüncü satır toplama girmez (`inTotal: false`).
+ */
+function teklifBelgesi(): OfferPayload {
+  const p = emptyPayload("EUR");
+  return {
+    ...p,
+    pricing: {
+      ...p.pricing,
+      lines: [
+        {
+          id: "f1",
+          itemId: "teklif-1",
+          description: "ASTOR 32T PORTAL VİNÇ",
+          qty: 1,
+          unit: "Takım",
+          unitPrice: 259010.32,
+          inTotal: true,
+          manualCost: 99999,
+        },
+        {
+          id: "f2",
+          itemId: null,
+          description: "NAKLİYE",
+          qty: 1,
+          unit: "Takım",
+          unitPrice: 8000,
+          inTotal: true,
+          manualCost: 6200,
+        },
+        {
+          id: "f3",
+          itemId: null,
+          description: "MOBİL VİNÇ — GÜNLÜK",
+          qty: 1,
+          unit: "Gün",
+          unitPrice: 3000,
+          inTotal: false,
+          manualCost: 2500,
+        },
+      ],
+    },
+  };
+}
+
+describe("MALİYET ÖZETİ — teklif ve maliyet TEK yapıda", () => {
+  const p = astorBelgesi();
+  p.items[0].qty = 2;
+  const t = costTotals(p, { [p.items[0].id]: 59500 });
+  const ozet = costOverview(t, teklifBelgesi(), { [p.items[0].id]: 51000 });
+
+  it("ağırlıklar ADETLE ÇARPILIR; birim ağırlık ayrı sütunda kalır", () => {
+    // `CostTotals.items[].weightKg` BİR adedin ağırlığıdır. Çarpmayı unutmak
+    // iki vinçlik bir teklifte toplam ağırlığı yarı gösterirdi.
+    expect(ozet.items[0].steelKg).toBe(51000);
+    expect(ozet.items[0].weightKg).toBe(59500);
+    expect(ozet.items[0].steelPackageKg).toBe(102000);
+    expect(ozet.items[0].weightPackageKg).toBe(119000);
+    expect(ozet.steelKg).toBe(102000);
+    expect(ozet.weightKg).toBe(119000);
+  });
+
+  it("birim ve paket maliyet toplamlardan gelir, yeniden hesaplanmaz", () => {
+    expect(ozet.items[0].unit).toBeCloseTo(194257.74, 2);
+    expect(ozet.items[0].package).toBeCloseTo(194257.74 * 2, 2);
+    expect(ozet.documentTotal).toBeCloseTo(t.total as number, 6);
+  });
+
+  it("YALNIZ SERBEST satırın elle maliyeti eklenir — kaleme bağlı satırınki ZATEN belgededir", () => {
+    // Kaleme bağlı satırın maliyeti maliyet belgesinin içindedir; ikinci kez
+    // eklemek onu ÇİFT SAYARDI (MALIYET-11).
+    expect(ozet.manualLines.map((l) => l.description)).toEqual(["NAKLİYE"]);
+    expect(ozet.manualTotal).toBe(6200);
+    expect(ozet.margin.cost).toBeCloseTo((t.total as number) + 6200, 6);
+  });
+
+  it("toplama girmeyen satır (inTotal: false) maliyete de girmez", () => {
+    // Teklifin toplamına girmeyen bir satırın maliyetini saymak kârı
+    // olduğundan DÜŞÜK gösterirdi; süzgeç teklifin kendi süzgecidir.
+    expect(ozet.manualLines.some((l) => l.description.startsWith("MOBİL"))).toBe(false);
+  });
+
+  it("teklif tutarı ve iki kâr oranı birlikte verilir", () => {
+    expect(ozet.margin.price).toBeCloseTo(259010.32 + 8000, 2);
+    expect(ozet.margin.profit).toBeCloseTo(
+      267010.32 - ((t.total as number) + 6200),
+      6
+    );
+    expect(ozet.margin.marginPercent).not.toBeNull();
+    expect(ozet.margin.markupPercent).not.toBeNull();
+  });
+
+  it("KÂR İSKONTOLU tutardan hesaplanır — pazarlıkta konuşulan odur", () => {
+    const teklif = teklifBelgesi();
+    const iskontolu: OfferPayload = {
+      ...teklif,
+      pricing: { ...teklif.pricing, discountTotal: 250000 },
+    };
+    const o = costOverview(t, iskontolu, {});
+    expect(o.margin.price).toBe(250000);
+    expect(o.margin.profit).toBeCloseTo(250000 - (o.margin.cost as number), 6);
+  });
+
+  it("maliyeti açılmamış teklif kalemi SAYILMAZ ama SÖYLENİR", () => {
+    // Teklifte duran, maliyette karşılığı olmayan bir vinç fiyat toplamına
+    // girer ve maliyet toplamına girmez; sessizce atlamak kârı olduğundan
+    // yüksek gösterirdi.
+    const teklif = teklifBelgesi();
+    const iki: OfferPayload = {
+      ...teklif,
+      items: [
+        { ...emptyItem("ASTOR 32T PORTAL VİNÇ", ["general"]), id: "teklif-1" },
+        { ...emptyItem("İKİNCİ VİNÇ — MALİYETSİZ", ["general"]), id: "teklif-2" },
+      ],
+    };
+    const o = costOverview(t, iki, {});
+    expect(o.items.map((i) => i.offerItemId)).toEqual(["teklif-1"]);
+    expect(o.uncostedItems.map((i) => i.id)).toEqual(["teklif-2"]);
+  });
+
+  it("hiç tutar yoksa null döner — SIFIR DEĞİL", () => {
+    const bos = { ...emptyCostPayload(), items: [freeCostItem("BOŞ")] };
+    const o = costOverview(costTotals(bos), emptyPayload("EUR"));
+    expect(o.documentTotal).toBeNull();
+    expect(o.manualTotal).toBeNull();
+    expect(o.margin.cost).toBeNull();
+    expect(o.margin.price).toBeNull();
+    expect(o.steelKg).toBeNull();
+    expect(o.weightKg).toBeNull();
   });
 });
 

@@ -15,6 +15,8 @@
 // döner ve ekranda "—" görünür. Sıfır yazmak, maliyeti henüz girilmemiş bir
 // vinci bedava göstermenin en kısa yoluydu.
 
+import { effectiveTotal, totalledLines } from "../pricing";
+import type { OfferPayload } from "../types";
 import { paramOf } from "./params";
 import { costGroupLines } from "./types";
 import { FABRICATION_GROUP_KEY } from "./registry";
@@ -65,12 +67,24 @@ export function costItemUnitTotal(item: CostItem): number | null {
   return varMi ? toplam : null;
 }
 
+/**
+ * KALEM ADEDİ — girilmemişse BİR.
+ *
+ * Bir varsayım değil, kaydın kendisidir: teklif kalemi TEK bir ürünü tarif
+ * eder ve adet ancak insan yazarsa birden büyüktür. Kural üç yerde (paket
+ * maliyet · imalat payı · kırılım) elle tekrarlanıyordu; dördüncüsü özet
+ * olacaktı ve bir yerde unutulan çarpan iki vinçlik bir teklifte toplamı
+ * yarı gösterirdi.
+ */
+function kalemAdedi(item: { qty: number | null }): number {
+  return item.qty === null || !Number.isFinite(item.qty) ? 1 : item.qty;
+}
+
 /** Kalemin PAKET maliyeti — birim × adet (adet yoksa birim). */
 export function costItemPackageTotal(item: CostItem): number | null {
   const birim = costItemUnitTotal(item);
   if (birim === null) return null;
-  const adet = item.qty === null || !Number.isFinite(item.qty) ? 1 : item.qty;
-  return birim * adet;
+  return birim * kalemAdedi(item);
 }
 
 // ————————————————————————————————————————————————————— oranlı grup
@@ -186,8 +200,7 @@ export function costTotals(
       const grup = item.groups.find((g) => g.key === FABRICATION_GROUP_KEY);
       const birim = costGroupTotal(grup);
       if (birim === null) return null;
-      const adet = item.qty === null || !Number.isFinite(item.qty) ? 1 : item.qty;
-      return birim * adet;
+      return birim * kalemAdedi(item);
     })
     .filter((n): n is number => n !== null);
   const fabrication = imalatlar.length ? imalatlar.reduce((t, n) => t + n, 0) : null;
@@ -238,7 +251,7 @@ export function costBreakdown(payload: CostPayload, totals: CostTotals): CostBre
   const toplamlar = new Map<string, { title: string; amount: number }>();
 
   for (const item of payload.items) {
-    const adet = item.qty === null || !Number.isFinite(item.qty) ? 1 : item.qty;
+    const adet = kalemAdedi(item);
     for (const group of item.groups) {
       const t = costGroupTotal(group);
       if (t === null) continue;
@@ -332,4 +345,149 @@ export function costPerKg(amount: number | null, weightKg: number | null): numbe
 /** Fire oranı gibi katsayıları ekranda göstermek için — tek okuma noktası. */
 export function costParam(payload: CostPayload, key: string): number {
   return paramOf(payload.params, key);
+}
+
+// ————————————————————————————————————————————————————————— özet
+
+/**
+ * BOŞ DEĞERİ SIFIR SAYMAYAN toplam — hiç sayı yoksa `null` (değişmez md. 4).
+ *
+ * `topla`nın kardeşidir ama satır değil SAYI toplar: ağırlık sütunlarının ve
+ * elle girilmiş maliyetlerin toplamı da "hiç veri yok" ile "sıfır" arasındaki
+ * farkı korumak zorundadır. Ağırlığı hesaplanmamış bir vinç 0 kg değildir.
+ */
+function toplaSayilar(list: readonly (number | null)[]): number | null {
+  const dolu = list.filter((n): n is number => n !== null);
+  return dolu.length ? dolu.reduce((t, n) => t + n, 0) : null;
+}
+
+/** Özetin bir satırı — maliyetin bir kalemi (bir vinç). */
+export interface CostOverviewItem {
+  id: string;
+  offerItemId: string | null;
+  title: string;
+  qty: number | null;
+  /** BİR adedin çelik ağırlığı [kg] — `w.steel`. */
+  steelKg: number | null;
+  /** BİR adedin toplam vinç ağırlığı [kg] — `w.total`. */
+  weightKg: number | null;
+  /** Çelik ağırlığı × adet. */
+  steelPackageKg: number | null;
+  /** Toplam vinç ağırlığı × adet. */
+  weightPackageKg: number | null;
+  /** Bir adedin doğrudan maliyeti. */
+  unit: number | null;
+  /** Birim × adet. */
+  package: number | null;
+}
+
+/** Teklifin SERBEST fiyat satırına elle yazılmış maliyet. */
+export interface CostOverviewManualLine {
+  id: string;
+  description: string;
+  amount: number;
+}
+
+/**
+ * MALİYET ÖZETİ — ekranın ve Excel'in okuduğu TEK yapı.
+ *
+ * `margin` teklif tutarını, maliyeti, kârı ve iki oranı birlikte taşır
+ * (`costMargin`): fiyat ve maliyet ayrıca ROOT'ta tekrarlansaydı aynı sayı iki
+ * yerde yaşar ve biri güncellenmeyi unuturdu.
+ */
+export interface CostOverview {
+  items: CostOverviewItem[];
+  /**
+   * MALİYETİ HİÇ AÇILMAMIŞ teklif kalemleri.
+   *
+   * Teklifte duran ama maliyet çalışmasından çıkarılmış (ya da hiç
+   * eşleşmemiş) bir vinç, fiyat toplamına GİRER ve maliyet toplamına
+   * GİRMEZ — kâr olduğundan yüksek görünür. Özet bunu saymaz ama SÖYLER;
+   * sessizce atlamak, bir vinci bedava üretmiş gibi göstermenin en kısa
+   * yoluydu (değişmez md. 4).
+   */
+  uncostedItems: { id: string; title: string }[];
+  /** Kaleme bağlı OLMAYAN fiyat satırlarının elle maliyetleri. */
+  manualLines: CostOverviewManualLine[];
+  manualTotal: number | null;
+  /** Maliyet belgesinin kendi toplamı (`CostTotals.total`). */
+  documentTotal: number | null;
+  /** Belge toplamı + elle maliyetler, teklif tutarı, kâr ve iki oran. */
+  margin: CostMargin;
+  /** Bütün kalemlerin çelik ağırlığı toplamı (adetle çarpılmış) [kg]. */
+  steelKg: number | null;
+  /** Bütün kalemlerin toplam vinç ağırlığı toplamı (adetle çarpılmış) [kg]. */
+  weightKg: number | null;
+}
+
+/**
+ * TEKLİFİN VE MALİYETİN TEK TABLODA ÖZETİ.
+ *
+ * Kullanıcı isteği (19.08.2026): teklifin bütün kalemleri, fiyat satırlarına
+ * elle yazılan maliyetler, çelik ve toplam ağırlıklar, birim/paket maliyet ve
+ * kâr TEK bir yerde görünsün. Fonksiyon SAFTIR ve iki belgeyi birden okur —
+ * maliyet toplamlarını ve teklif payload'ını; ekran ve Excel yalnız çizer.
+ *
+ * ELLE MALİYET YALNIZ SERBEST SATIRDAN ALINIR (MALIYET-11): kaleme bağlı bir
+ * fiyat satırının maliyeti maliyet belgesinde ZATEN vardır ve ikinci kez
+ * eklemek onu çift sayardı. Süzgeç teklifin kendi toplam süzgecidir
+ * (`totalledLines`) — toplama girmeyen bir satırın maliyeti de girmemelidir,
+ * yoksa kâr olduğundan düşük görünürdü.
+ *
+ * KOPYA TOPLAM YAZILMAZ: bu birleştirme bugüne kadar teklif editörünün içinde
+ * satır arasında yapılıyordu (`toplamMaliyet`). İki yerde iki toplam dolaşırsa
+ * MALIYET-24'ün anlattığı ayrışma birebir tekrarlanır — ekran bir sayı, belge
+ * başka bir sayı gösterir.
+ *
+ * AĞIRLIK ADETLE ÇARPILIR: `CostTotals.items[].weightKg` BİR adedin
+ * ağırlığıdır; çarpmayı unutmak iki vinçlik bir teklifte toplam ağırlığı yarı
+ * gösterirdi (`costItemPackageTotal` ile aynı kural).
+ */
+export function costOverview(
+  totals: CostTotals,
+  offer: OfferPayload,
+  steelWeights: Record<string, number | null> = {}
+): CostOverview {
+  const items: CostOverviewItem[] = totals.items.map((i) => {
+    const adet = kalemAdedi(i);
+    const steelKg = steelWeights[i.id] ?? null;
+    return {
+      id: i.id,
+      offerItemId: i.offerItemId,
+      title: i.title,
+      qty: i.qty,
+      steelKg,
+      weightKg: i.weightKg,
+      steelPackageKg: steelKg === null ? null : steelKg * adet,
+      weightPackageKg: i.weightKg === null ? null : i.weightKg * adet,
+      unit: i.unit,
+      package: i.package,
+    };
+  });
+
+  const manualLines: CostOverviewManualLine[] = totalledLines(offer.pricing.lines).flatMap((l) => {
+    if (l.itemId || l.manualCost === null || l.manualCost === undefined) return [];
+    return [{ id: l.id, description: l.description, amount: l.manualCost }];
+  });
+  const manualTotal = toplaSayilar(manualLines.map((l) => l.amount));
+
+  const documentTotal = totals.total;
+  const cost =
+    documentTotal === null && manualTotal === null ? null : (documentTotal ?? 0) + (manualTotal ?? 0);
+
+  const maliyetlenen = new Set(items.map((i) => i.offerItemId).filter(Boolean));
+  const uncostedItems = offer.items
+    .filter((i) => !maliyetlenen.has(i.id))
+    .map((i) => ({ id: i.id, title: i.title }));
+
+  return {
+    items,
+    uncostedItems,
+    manualLines,
+    manualTotal,
+    documentTotal,
+    margin: costMargin(effectiveTotal(offer.pricing), cost),
+    steelKg: toplaSayilar(items.map((i) => i.steelPackageKg)),
+    weightKg: toplaSayilar(items.map((i) => i.weightPackageKg)),
+  };
 }

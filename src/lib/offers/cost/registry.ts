@@ -15,12 +15,18 @@
 // "MALİYET KIRILIMI" sayfasındaki düzenin aynısı. Kırılım ekranı ve iç PDF bu
 // sırayı okur, kendi sırasını kurmaz.
 
+// ŞABLON EŞLEŞMESİ KATLANMIŞ METİNLEDİR (`trKatla`): defterdeki "PORTAL VİNÇ"
+// ile teklif kalemindeki "Portal Vinç" tek tiptir. Modül SAFTIR (değişmez
+// md. 7) — `trKatla` de saftır, `payload.ts` zaten aynı yerden `trSayi` okur.
+import { trKatla } from "@/lib/drawings/tr-text";
 import type { OfferPayload } from "../types";
 import type {
   CostGroupDef,
   CostLineDef,
   CostMaterialPriceDef,
   CostRateGroup,
+  CostTemplate,
+  CostTemplateSkeleton,
 } from "./types";
 
 /**
@@ -59,14 +65,14 @@ export const COST_UNITS = ["kg", "adet", "takım", "ton", "m", "saat"] as const;
  * ekrandan okunamazdı.
  */
 export const MATERIAL_PRICE_DEFS: readonly CostMaterialPriceDef[] = [
-  { key: "sac", label: "Sac", unit: "kg", value: 0.7, hint: "Hammadde — Sac satırını besler" },
-  { key: "profil", label: "Profil", unit: "kg", value: 0.65 },
-  { key: "rayKare", label: "Kare Ray", unit: "kg", value: 0.9 },
-  { key: "rayA", label: "A Tipi Ray", unit: "kg", value: 1.2 },
-  { key: "kesim", label: "Kesim", unit: "kg", value: 0.05, hint: "Lazer / CNC kesim" },
-  { key: "celikIsciligi", label: "Çelik İmalat İşçiliği", unit: "kg", value: 0.9 },
-  { key: "boya", label: "Boya", unit: "kg", value: 0.08, hint: "Boya malzemesi" },
-  { key: "boyaIsciligi", label: "Boya İşçiliği", unit: "kg", value: 0.07 },
+  { key: "sac", label: "SAC", unit: "kg", value: 0.7, hint: "HAMMADDE — SAC satırını besler" },
+  { key: "profil", label: "PROFİL", unit: "kg", value: 0.65 },
+  { key: "rayKare", label: "KARE RAY", unit: "kg", value: 0.9 },
+  { key: "rayA", label: "A TİPİ RAY", unit: "kg", value: 1.2 },
+  { key: "kesim", label: "KESİM", unit: "kg", value: 0.05, hint: "Lazer / CNC kesim" },
+  { key: "celikIsciligi", label: "ÇELİK İMALAT İŞÇİLİĞİ", unit: "kg", value: 0.9 },
+  { key: "boya", label: "BOYA", unit: "kg", value: 0.08, hint: "Boya malzemesi" },
+  { key: "boyaIsciligi", label: "BOYA İŞÇİLİĞİ", unit: "kg", value: 0.07 },
 ];
 
 export const MATERIAL_PRICE_DEFAULTS: Readonly<Record<string, number | null>> = Object.freeze(
@@ -117,25 +123,34 @@ const CELIK: Satir[] = [
   // fire sac satırına binmiyordu. Satın alan taraf başka türlü ölçüyor —
   // fatura edilen kilo kesilen kilo değil, GELEN kilodur.
   //
-  // KESİM `w.steel`DE KALIR: lazer yalnız parçanın konturunu keser, hurdaya
-  // giden alanı değil. İkisini birden fireye bağlamak, aynı payı iki kez
-  // faturalandırmak olurdu.
-  { key: "rawMaterial", label: "Hammadde — Sac", unit: "kg", qtySource: "w.steelWithFire", priceSource: "sac", hint: "Çelik + fire ağırlığı × sac fiyatı", offerRef: { group: "steel", row: "girderMaterial" } },
-  { key: "profile", label: "Hammadde — Profil", unit: "kg", priceSource: "profil", hint: AYRI_TARTILMAZ },
+  // KESİM DE FİRE DAHİL AĞIRLIĞI OKUR (kullanıcı kararı 19.08.2026): *"Lazer /
+  // CNC Kesim maliyeti çelik + fire ağırlığından beslensin."* Bir önceki yazım
+  // tersini söylüyordu ("lazer yalnız parçanın konturunu keser") ve YANLIŞ ŞEYİ
+  // ÖLÇÜYORDU: tezgâh, kesilen parçanın değil MAKİNEYE GİREN levhanın kilosu
+  // üzerinden fiyatlanır ve fire yüzünden yeniden yapılan parça ikinci kez
+  // kesilir. Aynı payı iki kez faturalandırmak da değildir — sac MALZEMENİN,
+  // kesim TEZGÂHIN bedelidir; ikisi de aynı levha üzerinden ölçülür.
+  //
+  // KAYITLI BELGELER KENDİLİĞİNDEN DEĞİŞMEZ: satır kendi `qtySource`unu taşır
+  // ve okuma yolu (`withCostDefaults`) ona dokunmaz; defterin yeni kaynağı
+  // ancak "Tekliften Tazele" ya da yeni bir M revizyonu ile gelir
+  // (`withDefterLines`). Yayımlanmış bir maliyetin tutarı bu yüzden kaymaz.
+  { key: "rawMaterial", label: "HAMMADDE — SAC", unit: "kg", qtySource: "w.steelWithFire", priceSource: "sac", hint: "Çelik + fire ağırlığı × sac fiyatı", offerRef: { group: "steel", row: "girderMaterial" } },
+  { key: "profile", label: "HAMMADDE — PROFİL", unit: "kg", priceSource: "profil", hint: AYRI_TARTILMAZ },
   // RAY İKİ SATIRDIR çünkü İKİ FİYATTIR (kullanıcı listesi 18.08.2026: kare
   // 0,90 · A tipi 1,20 €/kg). Bir vinçte ikisinden yalnız biri kullanılır ve
   // ötekinin miktarı BOŞ kalır — boş miktarlı satır toplama girmez
   // (MALIYET-13), o yüzden iki satırın birden durması bir şey bozmaz.
   // `rail` ANAHTARI KORUNDU: alan yokken kaydedilmiş belgelerdeki ray satırı
   // yetim kalmamalıdır (boya satırının `paint` anahtarıyla aynı gerekçe).
-  { key: "rail", label: "Ray — Kare", unit: "kg", priceSource: "rayKare", hint: AYRI_TARTILMAZ },
-  { key: "railA", label: "Ray — A Tipi", unit: "kg", priceSource: "rayA", hint: AYRI_TARTILMAZ },
-  { key: "laserCut", label: "Lazer / CNC Kesim", unit: "kg", qtySource: "w.steel", priceSource: "kesim" },
+  { key: "rail", label: "RAY — KARE", unit: "kg", priceSource: "rayKare", hint: AYRI_TARTILMAZ },
+  { key: "railA", label: "RAY — A TİPİ", unit: "kg", priceSource: "rayA", hint: AYRI_TARTILMAZ },
+  { key: "laserCut", label: "LAZER / CNC KESİM", unit: "kg", qtySource: "w.steelWithFire", priceSource: "kesim" },
   // BOYA İKİYE AYRILDI (kullanıcı listesi 18.08.2026: "Boya İş." ve "Boya"
   // ayrı fiyatlardır). Anahtar `paint` KORUNDU — eski belgelerdeki girilmiş
   // boya fiyatı bir anahtar değişikliği yüzünden yetim kalmamalıdır.
-  { key: "paint", label: "Boya Malzemesi", unit: "kg", qtySource: "w.total", priceSource: "boya", hint: "TOPLAM vinç ağırlığı — boya mekanizmanın da üstüne atılır", offerRef: { group: "steel", row: "paint" } },
-  { key: "paintLabour", label: "Boya İşçiliği", unit: "kg", qtySource: "w.total", priceSource: "boyaIsciligi" },
+  { key: "paint", label: "BOYA MALZEMESİ", unit: "kg", qtySource: "w.total", priceSource: "boya", hint: "TOPLAM vinç ağırlığı — boya mekanizmanın da üstüne atılır", offerRef: { group: "steel", row: "paint" } },
+  { key: "paintLabour", label: "BOYA İŞÇİLİĞİ", unit: "kg", qtySource: "w.total", priceSource: "boyaIsciligi" },
 ];
 
 // ————————————————————————————————————————————————— imalat maliyeti
@@ -155,14 +170,20 @@ const CELIK: Satir[] = [
  *
  * MİKTAR VİNCİN ÇELİK AĞIRLIĞIDIR, FİRE DAHİL (`w.steelWithFire`) — kullanıcı
  * cümlesi *"standart olarak vincin ağırlığı ile çarpılacak"* zaten bugünkü
- * davranışı tarif ediyor. Fire YALNIZ işçiliğe biner (MALIYET-14): sac fireli
- * ölçüde satın alınır ve kesim artığı stoğa döner, kaynak/işleme saati ise
- * yeniden yapılan parça için ikinci kez harcanır.
+ * davranışı tarif ediyor.
+ *
+ * FİRE ARTIK YALNIZ İŞÇİLİĞE BİNMİYOR. MALIYET-14 "fire yalnız işçiliğe biner"
+ * diye yazılmıştı (sac fireli ölçüde alınır, kesim artığı stoğa döner);
+ * kullanıcı 18.08.2026'da SACI, 19.08.2026'da KESİMİ de fireli kiloya bağladı
+ * ve gerekçe tek cümledir — üçü de fabrikaya GİREN levhayı ölçer, kesilen
+ * parçayı değil. Anahtarın AYRI durmasının sebebi değişmedi: çarpan satırın
+ * arkasına saklansaydı, işçilik miktarının neden çelik ağırlığından büyük
+ * olduğu ekrandan okunamazdı.
  */
 const IMALAT: Satir[] = [
   {
     key: "fabrication",
-    label: "Çelik İmalat İşçiliği (fire dahil)",
+    label: "ÇELİK İMALAT İŞÇİLİĞİ (FİRE DAHİL)",
     unit: "kg",
     qtySource: "w.steelWithFire",
     priceSource: "celikIsciligi",
@@ -185,24 +206,35 @@ const IMALAT: Satir[] = [
  */
 function kaldirmaSatirlari(offerGroup: string): Satir[] {
   return [
-    { key: "motor", label: "Kaldırma Motoru", unit: "adet", qtySource: "c.one", hint: "Seçilen güç Hesaplar sayfasındadır", offerRef: { group: offerGroup, row: "motor" } },
-    { key: "gearbox", label: "Kaldırma Redüktörü", unit: "adet", qtySource: "c.one", offerRef: { group: offerGroup, row: "gearbox" } },
+    { key: "motor", label: "KALDIRMA MOTORU", unit: "adet", qtySource: "c.one", hint: "Seçilen güç Hesaplar sayfasındadır", offerRef: { group: offerGroup, row: "motor" } },
+    { key: "gearbox", label: "KALDIRMA REDÜKTÖRÜ", unit: "adet", qtySource: "c.one", offerRef: { group: offerGroup, row: "gearbox" } },
     // KAPLİN HER İKİ MEKANİZMADA DA VARDIR (kullanıcı isteği 18.08.2026,
     // md. 5): motor–redüktör ve redüktör–tambur bağlantıları kaldırmada da
     // kaplinlidir; defterde yalnız yürütme tarafında durması bir eksiklikti.
     // ADET DEĞİL TAKIM: bir mekanizmada kaç kaplin olduğu tasarıma bağlıdır
     // ve "çoğunlukla iki" bir sayı değildir (değişmez md. 4).
-    { key: "coupling", label: "Kaplin Setleri", unit: "takım", qtySource: "c.one" },
-    { key: "brake", label: "Kaldırma Frenleri", unit: "adet", offerRef: { group: offerGroup, row: "brake" } },
-    { key: "drum", label: "Tambur", unit: "adet", qtySource: "c.one", hint: "Çap ve ağırlık Hesaplar/Ağırlıklar sayfasındadır" },
-    { key: "machining", label: "Talaşlı İmalat", unit: "takım", qtySource: "c.one", hint: "Mil, makara, burç, teker işleme" },
-    { key: "hookBlock", label: "Kanca Bloğu / Travers", unit: "takım", qtySource: "c.one", offerRef: { group: offerGroup, row: "hook" } },
-    { key: "bearings", label: "Rulmanlar", unit: "takım", qtySource: "c.one" },
-    { key: "rope", label: "Halat ve Soketler", unit: "takım", qtySource: "c.one", offerRef: { group: offerGroup, row: "rope" } },
-    { key: "encoder", label: "Enkoder", unit: "adet", qtySource: "c.one" },
-    { key: "loadpin", label: "Loadpin / Tartım", unit: "adet", qtySource: "c.one" },
-    { key: "drumLimit", label: "Tambur Limiti", unit: "adet", qtySource: "c.one" },
-    { key: "weightLimit", label: "Ağırlık Limit Şalteri", unit: "adet", qtySource: "c.one" },
+    { key: "coupling", label: "KAPLİN SETLERİ", unit: "takım", qtySource: "c.one" },
+    { key: "brake", label: "KALDIRMA FRENLERİ", unit: "adet", offerRef: { group: offerGroup, row: "brake" } },
+    { key: "drum", label: "TAMBUR", unit: "adet", qtySource: "c.one", hint: "Çap ve ağırlık Hesaplar/Ağırlıklar sayfasındadır" },
+    { key: "machining", label: "TALAŞLI İMALAT", unit: "takım", qtySource: "c.one", hint: "Mil, makara, burç, teker işleme" },
+    // BORVERK KENDİ SATIRIDIR (kullanıcı isteği 19.08.2026): tambur ve kanca
+    // bloğu gövdelerinin yatak delikleri büyük delik işleme tezgâhında açılır.
+    // Bugüne kadar "Talaşlı İmalat"ın içinde saklıydı ve tezgâh saati torna
+    // saatiyle tek fiyata sıkışıyordu; hangi işin pahalıya geldiği ekrandan
+    // okunamıyordu — RAY satırının ikiye ayrılmasıyla aynı gerekçe.
+    //
+    // BİRİM TAKIM, MİKTAR BİR: kardeşi "Talaşlı İmalat" da öyledir. Saat
+    // cinsinden bir miktarı model ÜRETMEZ ve "çoğunlukla şu kadar saat" bir
+    // sayı değildir (değişmez md. 4); saatle fiyatlayan kullanıcı miktarı elle
+    // devralır (`qtyManual`).
+    { key: "borverk", label: "BORVERK İŞLEME", unit: "takım", qtySource: "c.one", hint: "Büyük delik işleme tezgâhı — tambur ve yatak gövdesi delikleri" },
+    { key: "hookBlock", label: "KANCA BLOĞU / TRAVERS", unit: "takım", qtySource: "c.one", offerRef: { group: offerGroup, row: "hook" } },
+    { key: "bearings", label: "RULMANLAR", unit: "takım", qtySource: "c.one" },
+    { key: "rope", label: "HALAT VE SOKETLER", unit: "takım", qtySource: "c.one", offerRef: { group: offerGroup, row: "rope" } },
+    { key: "encoder", label: "ENKODER", unit: "adet", qtySource: "c.one" },
+    { key: "loadpin", label: "LOADPİN / TARTIM", unit: "adet", qtySource: "c.one" },
+    { key: "drumLimit", label: "TAMBUR LİMİTİ", unit: "adet", qtySource: "c.one" },
+    { key: "weightLimit", label: "AĞIRLIK LİMİT ŞALTERİ", unit: "adet", qtySource: "c.one" },
   ];
 }
 
@@ -220,43 +252,48 @@ const YURUTME: Satir[] = [
   // `coupling` ANAHTARI KÖPRÜDE KORUNDU: eski belgelerde girilmiş kaplin
   // fiyatı bir anahtar değişikliği yüzünden yetim kalmamalıdır (ray satırının
   // aynı gerekçesi).
-  { key: "coupling", label: "Köprü / Portal Kaplin Setleri", unit: "takım", qtySource: "c.one" },
-  { key: "trolleyCoupling", label: "Araba Kaplin Setleri", unit: "takım", qtySource: "c.one" },
-  { key: "bridgeMotor", label: "Köprü / Portal Yürütme Motorları", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "motor" } },
-  { key: "bridgeGearbox", label: "Köprü / Portal Yürütme Redüktörleri", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "gearbox" } },
-  { key: "trolleyMotor", label: "Araba Yürütme Motorları", unit: "adet", qtySource: "c.trolleyDriveCount", offerRef: { group: "trolley", row: "motor" } },
-  { key: "trolleyGearbox", label: "Araba Yürütme Redüktörleri", unit: "adet", qtySource: "c.trolleyDriveCount", offerRef: { group: "trolley", row: "gearbox" } },
-  { key: "bridgeWheels", label: "Köprü / Portal Tekerlekleri", unit: "adet", qtySource: "c.bridgeWheelCount", hint: "Çap Hesaplar sayfasında", offerRef: { group: "bridge", row: "wheel" } },
-  { key: "trolleyWheels", label: "Araba Tekerlekleri", unit: "adet", qtySource: "c.trolleyWheelCount", offerRef: { group: "trolley", row: "wheel" } },
-  { key: "buffers", label: "Tamponlar", unit: "adet" },
+  { key: "coupling", label: "KÖPRÜ / PORTAL KAPLİN SETLERİ", unit: "takım", qtySource: "c.one" },
+  { key: "trolleyCoupling", label: "ARABA KAPLİN SETLERİ", unit: "takım", qtySource: "c.one" },
+  { key: "bridgeMotor", label: "KÖPRÜ / PORTAL YÜRÜTME MOTORLARI", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "motor" } },
+  { key: "bridgeGearbox", label: "KÖPRÜ / PORTAL YÜRÜTME REDÜKTÖRLERİ", unit: "adet", qtySource: "c.bridgeDriveCount", offerRef: { group: "bridge", row: "gearbox" } },
+  { key: "trolleyMotor", label: "ARABA YÜRÜTME MOTORLARI", unit: "adet", qtySource: "c.trolleyDriveCount", offerRef: { group: "trolley", row: "motor" } },
+  { key: "trolleyGearbox", label: "ARABA YÜRÜTME REDÜKTÖRLERİ", unit: "adet", qtySource: "c.trolleyDriveCount", offerRef: { group: "trolley", row: "gearbox" } },
+  { key: "bridgeWheels", label: "KÖPRÜ / PORTAL TEKERLEKLERİ", unit: "adet", qtySource: "c.bridgeWheelCount", hint: "Çap Hesaplar sayfasında", offerRef: { group: "bridge", row: "wheel" } },
+  { key: "trolleyWheels", label: "ARABA TEKERLEKLERİ", unit: "adet", qtySource: "c.trolleyWheelCount", offerRef: { group: "trolley", row: "wheel" } },
+  // TEKER GÖBEĞİ DE BORVERKTE İŞLENİR (kullanıcı isteği 19.08.2026: "hem
+  // kaldırma hem yürütme teker grubuna"). Anahtar kaldırmadakiyle AYNIDIR ve
+  // bu bir çakışma değildir: satır anahtarı GRUP İÇİNDE tekildir, belge
+  // genelinde değil (`coupling` bugün üç grupta yaşıyor).
+  { key: "borverk", label: "BORVERK İŞLEME", unit: "takım", qtySource: "c.one", hint: "Büyük delik işleme tezgâhı — teker göbeği ve yatak delikleri" },
+  { key: "buffers", label: "TAMPONLAR", unit: "adet" },
 ];
 
 // ——————————————————————————————————————————— elektrik ve otomasyon
 
 const ELEKTRIK: Satir[] = [
-  { key: "hoistDrive", label: "Kaldırma Sürücüsü", unit: "adet", qtySource: "c.one", hint: "Boyu Hesaplar sayfasında (motorun bir üstü)" },
-  { key: "bridgeDrive", label: "Köprü / Portal Sürücüleri", unit: "adet", qtySource: "c.bridgeDriveUnits" },
-  { key: "trolleyDrive", label: "Araba Sürücüsü", unit: "adet", qtySource: "c.trolleyDriveUnits" },
-  { key: "panels", label: "Elektrik Panoları", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "panel" } },
-  { key: "brakeResistors", label: "Frenleme Dirençleri", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "resistors" } },
-  { key: "isolationTrafo", label: "İzolasyon Trafosu", unit: "adet", qtySource: "c.one", offerRef: { group: "electrical", row: "isolationTrafo" } },
-  { key: "powerSupply", label: "Güç Kaynağı ve Klemensler", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "powerSupply" } },
-  { key: "electricalLabour", label: "Elektrik / Otomasyon İşçiliği", unit: "takım", qtySource: "c.one" },
-  { key: "switchgear", label: "Sarf ve Şalt Malzemesi", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "switchgear" } },
-  { key: "cables", label: "Kablolar ve Festoon", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "cable" } },
-  { key: "cableTray", label: "Kablo Tava / Kanal", unit: "takım", qtySource: "c.one" },
-  { key: "travelLimits", label: "Yürütme Limit Seti", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "crossLimit" } },
-  { key: "remote", label: "Uzaktan Kumanda", unit: "adet", qtySource: "c.one", offerRef: { group: "electrical", row: "pendant" } },
+  { key: "hoistDrive", label: "KALDIRMA SÜRÜCÜSÜ", unit: "adet", qtySource: "c.one", hint: "Boyu Hesaplar sayfasında (motorun bir üstü)" },
+  { key: "bridgeDrive", label: "KÖPRÜ / PORTAL SÜRÜCÜLERİ", unit: "adet", qtySource: "c.bridgeDriveUnits" },
+  { key: "trolleyDrive", label: "ARABA SÜRÜCÜSÜ", unit: "adet", qtySource: "c.trolleyDriveUnits" },
+  { key: "panels", label: "ELEKTRİK PANOLARI", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "panel" } },
+  { key: "brakeResistors", label: "FRENLEME DİRENÇLERİ", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "resistors" } },
+  { key: "isolationTrafo", label: "İZOLASYON TRAFOSU", unit: "adet", qtySource: "c.one", offerRef: { group: "electrical", row: "isolationTrafo" } },
+  { key: "powerSupply", label: "GÜÇ KAYNAĞI VE KLEMENSLER", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "powerSupply" } },
+  { key: "electricalLabour", label: "ELEKTRİK / OTOMASYON İŞÇİLİĞİ", unit: "takım", qtySource: "c.one" },
+  { key: "switchgear", label: "SARF VE ŞALT MALZEMESİ", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "switchgear" } },
+  { key: "cables", label: "KABLOLAR VE FESTOON", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "cable" } },
+  { key: "cableTray", label: "KABLO TAVA / KANAL", unit: "takım", qtySource: "c.one" },
+  { key: "travelLimits", label: "YÜRÜTME LİMİT SETİ", unit: "takım", qtySource: "c.one", offerRef: { group: "electrical", row: "crossLimit" } },
+  { key: "remote", label: "UZAKTAN KUMANDA", unit: "adet", qtySource: "c.one", offerRef: { group: "electrical", row: "pendant" } },
 ];
 
 // ————————————————————————————————————————————————— atölye ve saha
 
 const ATOLYE: Satir[] = [
-  { key: "mechanicalAssembly", label: "Mekanik Montaj (atölye)", unit: "takım", qtySource: "c.one" },
-  { key: "siteAssembly", label: "Saha Montajı ve Devreye Alma", unit: "takım", qtySource: "c.one" },
-  { key: "shipping", label: "Sevkiyat", unit: "takım", qtySource: "c.one" },
-  { key: "mobileCrane", label: "Mobil Vinç (saha montajı)", unit: "takım", qtySource: "c.one" },
-  { key: "fasteners", label: "Bağlantı Elemanları", unit: "ton", qtySource: "c.capacityT", hint: "Kapasite × €/ton" },
+  { key: "mechanicalAssembly", label: "MEKANİK MONTAJ (ATÖLYE)", unit: "takım", qtySource: "c.one" },
+  { key: "siteAssembly", label: "SAHA MONTAJI VE DEVREYE ALMA", unit: "takım", qtySource: "c.one" },
+  { key: "shipping", label: "SEVKİYAT", unit: "takım", qtySource: "c.one" },
+  { key: "mobileCrane", label: "MOBİL VİNÇ (SAHA MONTAJI)", unit: "takım", qtySource: "c.one" },
+  { key: "fasteners", label: "BAĞLANTI ELEMANLARI", unit: "ton", qtySource: "c.capacityT", hint: "Kapasite × €/ton" },
 ];
 
 // ————————————————————————————————————————————————— proje geneli
@@ -270,11 +307,11 @@ const ATOLYE: Satir[] = [
  * (yüklü maliyet), ama saklanan yer tektir.
  */
 const PROJE_GENELI: Satir[] = [
-  { key: "documentation", label: "Dokümantasyon ve Onaylar", unit: "takım", qtySource: "c.one" },
-  { key: "commissioning", label: "Devreye Alma ve Eğitim", unit: "takım", qtySource: "c.one" },
-  { key: "factoryTests", label: "Fabrika Testleri ve Muayene", unit: "takım", qtySource: "c.one" },
-  { key: "siteOverhead", label: "İSG ve Şantiye Genel Giderleri", unit: "takım", qtySource: "c.one" },
-  { key: "packaging", label: "Paketleme ve Ambalaj", unit: "takım", qtySource: "c.one" },
+  { key: "documentation", label: "DOKÜMANTASYON VE ONAYLAR", unit: "takım", qtySource: "c.one" },
+  { key: "commissioning", label: "DEVREYE ALMA VE EĞİTİM", unit: "takım", qtySource: "c.one" },
+  { key: "factoryTests", label: "FABRİKA TESTLERİ VE MUAYENE", unit: "takım", qtySource: "c.one" },
+  { key: "siteOverhead", label: "İSG VE ŞANTİYE GENEL GİDERLERİ", unit: "takım", qtySource: "c.one" },
+  { key: "packaging", label: "PAKETLEME VE AMBALAJ", unit: "takım", qtySource: "c.one" },
 ];
 
 // ————————————————————————————————————————————————————— gruplar
@@ -365,15 +402,82 @@ export const DEFAULT_ITEM_GROUP_KEYS = [
 ] as const;
 
 /**
+ * VARSAYILAN İSKELET — vinç tipine şablon yazılmamışsa uygulanan küme.
+ *
+ * ŞABLON DEFTERİNİN TOHUMU DA BUDUR: `offer_cost_templates` seed'i elle
+ * yazılmaz, bu listeden üretilir (migration başlığındaki komut). İki yerde iki
+ * ayrı varsayılan yaşasaydı, defteri tohumlayan göç ile kodun düştüğü küme
+ * sessizce ayrışır ve "şablonsuz tip" ile "şablonu varsayılan olan tip" farklı
+ * maliyet iskeleti üretirdi.
+ */
+export function defaultCostSkeleton(): CostTemplateSkeleton {
+  return { groupKeys: [...DEFAULT_ITEM_GROUP_KEYS] };
+}
+
+/**
+ * VİNÇ TİPİNE KARŞILIK GELEN İSKELET; yoksa `undefined` (varsayılana düşülür).
+ *
+ * ÇEKİRDEK VERİTABANI OKUMAZ (değişmez md. 7): şablonlar dışarıdan, çağrı
+ * yerinde okunup PARAMETRE olarak verilir. Eşleşme METİN BENZERLİĞİYLE değil
+ * KATLANMIŞ EŞİTLİKLE kurulur — "Portal Vinç" ile "PORTAL VİNÇ" tek tiptir ama
+ * "Yarı Portal Vinç" ayrı bir tiptir ve içerme araması onu yanlış şablona
+ * bağlardı.
+ */
+export function costTemplateFor(
+  templates: readonly CostTemplate[] | undefined,
+  craneType: string | null | undefined
+): CostTemplateSkeleton | undefined {
+  if (!templates?.length || !craneType) return undefined;
+  const aranan = trKatla(craneType);
+  if (!aranan) return undefined;
+  return templates.find((t) => trKatla(t.craneType) === aranan)?.skeleton;
+}
+
+/**
+ * BİR GRUPTA AÇILACAK DEFTER SATIRLARI — şablonun kapattıkları düşülür.
+ *
+ * KAPATMA SİLME DEĞİLDİR: burada süzülen şey yalnız YENİ açılan bir belgeye
+ * hangi satırların gireceğidir. Kayıtlı bir maliyet çalışmasındaki satır
+ * (fiyatı girilmiş, tedarikçiyle konuşulmuş) bu listeden çıkarılsa bile
+ * belgesinde kalır — `withDefterLines` hiçbir satırı silmez.
+ */
+export function costGroupLineDefs(
+  groupKey: string,
+  skeleton?: CostTemplateSkeleton
+): readonly CostLineDef[] {
+  const def = COST_GROUP_DEF_BY_KEY[groupKey];
+  if (!def) return [];
+  const kapali = skeleton?.closedLines?.[groupKey];
+  if (!kapali?.length) return def.lines;
+  const kume = new Set(kapali);
+  return def.lines.filter((l) => !kume.has(l.key));
+}
+
+/**
  * TEKLİF GRUBU → MALİYET GRUBU.
  *
  * Teklif kaleminde `auxHoist` bölümü varsa maliyette de yardımcı kaldırma
  * grubu açılır; `gantry` ya da `bridge` bölümü zaten tek bir "YÜRÜTME VE
  * TEKER" grubuna düşer, çünkü ikisi de aynı satırları fiyatlar (motor,
  * redüktör, teker) ve iki ayrı grup ekranı gereksiz yere ikiye bölerdi.
+ *
+ * ŞABLON VERİLİRSE TABAN KÜME ONDAN GELİR (kullanıcı isteği 19.08.2026,
+ * md. 10). Verilmezse — ya da tipin şablonu yoksa — bugünkü varsayılan küme
+ * uygulanır; MALIYET-9'un "iskelet teklif kaleminden türer" kuralı böylece
+ * şablonsuz her tipte birebir korunur.
+ *
+ * YARDIMCI KALDIRMA KURALI ŞABLONUN ÜSTÜNDE KALIR ve bu bilinçlidir: o grup
+ * bir TERCİH değil bir OLGUDUR — teklif kalemi yardımcı kaldırma bölümü
+ * taşıyorsa o vinçte ikinci bir kaldırma mekanizması gerçekten vardır ve
+ * maliyeti bir şablon ayarı yüzünden hiç sorulmadan geçilemez. Tersi de
+ * mümkündür: şablona açıkça eklenirse teklif taşımasa da açılır.
  */
-export function costGroupKeysForOfferItem(offerGroupKeys: readonly string[]): string[] {
-  const set = new Set<string>(DEFAULT_ITEM_GROUP_KEYS);
+export function costGroupKeysForOfferItem(
+  offerGroupKeys: readonly string[],
+  skeleton?: CostTemplateSkeleton
+): string[] {
+  const taban = skeleton?.groupKeys?.length ? skeleton.groupKeys : DEFAULT_ITEM_GROUP_KEYS;
+  const set = new Set<string>(taban);
   if (offerGroupKeys.includes("auxHoist")) set.add("auxHoist");
   // Defter sırası BELGENİN sırasıdır (teklifteki `grupSirasi` ile aynı kural).
   return COST_GROUP_DEFS.filter((g) => g.key !== GENERAL_GROUP_KEY && set.has(g.key)).map((g) => g.key);

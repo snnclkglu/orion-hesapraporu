@@ -114,10 +114,11 @@ describe("kalem iskeleti teklifin bölümlerinden çıkar", () => {
     const k = costItemFromOfferItem(portalKalemi(), 1);
     const celik = k.groups.find((g) => g.key === "steel");
     expect(celik?.lines.map((l) => l.key)).toContain("rawMaterial");
-    // SAC FİRE DAHİL AĞIRLIĞA BAĞLIDIR (kullanıcı kararı 18.08.2026); kesim
-    // ise fireye girmez, konturu keser.
+    // SAC DA KESİM DE FİRE DAHİL AĞIRLIĞA BAĞLIDIR (kullanıcı kararları
+    // 18.08.2026 ve 19.08.2026): ikisi de tezgâha GİREN levhayı ölçer. Boya
+    // ise TOPLAM ağırlığı okur — mekanizmanın üstüne de atılır (MALIYET-14).
     expect(celik?.lines.find((l) => l.key === "rawMaterial")?.qtySource).toBe("w.steelWithFire");
-    expect(celik?.lines.find((l) => l.key === "laserCut")?.qtySource).toBe("w.steel");
+    expect(celik?.lines.find((l) => l.key === "laserCut")?.qtySource).toBe("w.steelWithFire");
     expect(celik?.lines.find((l) => l.key === "paint")?.qtySource).toBe("w.total");
   });
 });
@@ -232,11 +233,12 @@ describe("ASTOR maliyet iskeleti uçtan uca", () => {
 
     const t2 = costTotals(p);
     // BAŞLIK DEĞİŞTİ, TOPLAM DEĞİŞMEDİ: doğrudan maliyet imalatı da kapsar.
-    // 51.000×0,70 + 56.100×1,25 + 51.000×0,05 + 59.500×0,15
-    // Sac artık 56.100 kg × 0,70 (fire dahil).
-    expect(t2.direct).toBeCloseTo(39270 + 70125 + 2550 + 8925, 4);
+    // 56.100×0,70 + 56.100×1,25 + 56.100×0,05 + 59.500×0,15
+    // Sac VE kesim fire dahil kilodan fiyatlanır (19.08.2026); boya toplam
+    // vinç ağırlığından.
+    expect(t2.direct).toBeCloseTo(39270 + 70125 + 2805 + 8925, 4);
     expect(t2.fabrication).toBeCloseTo(70125, 4);
-    expect(t2.project).toBeCloseTo(39270 + 2550 + 8925, 4);
+    expect(t2.project).toBeCloseTo(39270 + 2805 + 8925, 4);
   });
 });
 
@@ -272,6 +274,149 @@ describe("taşıma eski kayıtları bozmaz", () => {
     });
     expect(p.items[0].id).toMatch(/[0-9a-f-]{36}/);
     expect(p.items[0].groups[0].lines[0].unitPrice).toBe(0.7);
+  });
+});
+
+// ——————————————————————————————————————————————— 19.08.2026 turu
+
+describe("BORVERK İŞLEME satırı (kullanıcı isteği 19.08.2026)", () => {
+  const k = costItemFromOfferItem(
+    emptyItem("ÇİFT KANCALI PORTAL", ["general", "mainHoist", "auxHoist", "trolley", "gantry"]),
+    1
+  );
+  const anahtarlar = (groupKey: string) =>
+    k.groups.find((g) => g.key === groupKey)?.lines.map((l) => l.key) ?? [];
+
+  it("kaldırma, YARDIMCI kaldırma ve yürütme gruplarının hepsinde açılır", () => {
+    // Kullanıcı "hem kaldırma hem yürütme teker grubuna" dedi. Yardımcı
+    // kaldırma ana kaldırmanın AYNI listesinden kurulur (`kaldirmaSatirlari`):
+    // iki ayrı liste yazılsaydı orada unutulan satır en geç fark edilen
+    // eksiklik olurdu — yardımcı kaldırma zaten seyrek kullanılır.
+    expect(anahtarlar("hoist")).toContain("borverk");
+    expect(anahtarlar("auxHoist")).toContain("borverk");
+    expect(anahtarlar("travel")).toContain("borverk");
+  });
+
+  it("miktarı modelden gelir ve BİRDİR; birim takım, fiyat ELLE girilir", () => {
+    const l = k.groups.find((g) => g.key === "hoist")!.lines.find((x) => x.key === "borverk")!;
+    expect(l.qtySource).toBe("c.one");
+    expect(l.unit).toBe("takım");
+    // Hammadde şeridine BAĞLI DEĞİLDİR: borverk saati bir €/kg değildir.
+    expect(l.priceSource).toBeUndefined();
+  });
+
+  it("aynı anahtar üç grupta yaşar ama GRUP İÇİNDE tekildir", () => {
+    // `costLineDef` grup + satır anahtarıyla arar; belge genelinde tekillik
+    // aranmaz (`coupling` bugün üç grupta yaşıyor). Grup İÇİNDE bir çift
+    // anahtar ise satırı iki kez çizer ve iki kez toplardı.
+    for (const g of k.groups) {
+      const ks = g.lines.map((l) => l.key);
+      expect(ks.length, g.key).toBe(new Set(ks).size);
+    }
+  });
+});
+
+describe("kalem ADLARI BÜYÜK HARF SAKLANIR (kullanıcı isteği 19.08.2026)", () => {
+  it("kayıtlı belgedeki küçük harfli ad OKUMA GEÇİDİNDE büyür", () => {
+    const p = withCostDefaults({
+      items: [
+        {
+          title: "X",
+          groups: [
+            {
+              key: "steel",
+              title: "Çelik Yapı",
+              lines: [{ key: "rawMaterial", label: "Hammadde — Sac", unit: "kg", unitPrice: 0.7 }],
+            },
+          ],
+        },
+      ],
+    });
+    // DÖNÜŞÜM VERİDEDİR, çizimde değil: ad belgeye kopyalanır ve PDF onu ham
+    // basar; yalnız ekranda büyütmek kayıt ile belgeyi ayrıştırırdı (md. 3).
+    expect(p.items[0].groups[0].lines[0].label).toBe("HAMMADDE — SAC");
+    expect(p.items[0].groups[0].title).toBe("ÇELİK YAPI");
+    // GİRİLMİŞ FİYAT dönüşümden etkilenmez — ad bir tutar değildir.
+    expect(p.items[0].groups[0].lines[0].unitPrice).toBe(0.7);
+  });
+
+  it("düz `toUpperCase` KULLANILMAZ — 'i' harfi bozulmaz", () => {
+    const p = withCostDefaults({
+      items: [
+        {
+          title: "X",
+          groups: [
+            {
+              key: "custom",
+              title: "özel bölüm",
+              lines: [{ key: "serbest-1", label: "Çelik İmalat İşçiliği" }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(p.items[0].groups[0].lines[0].label).toBe("ÇELİK İMALAT İŞÇİLİĞİ");
+    expect(p.items[0].groups[0].lines[0].label).not.toBe("Çelik İmalat İşçiliği".toUpperCase());
+    expect(p.items[0].groups[0].title).toBe("ÖZEL BÖLÜM");
+  });
+});
+
+describe("defterde DEĞİŞEN miktar kaynağı TAZELEMEDE yenilenir", () => {
+  /** Kesim satırı `w.steel` ile kaydedilmiş bir belge — 19.08.2026 öncesi. */
+  function eskiBelge() {
+    return withCostDefaults({
+      items: [
+        {
+          title: "ESKİ BELGE",
+          groups: [
+            {
+              key: "steel",
+              title: "ÇELİK YAPI",
+              lines: [
+                {
+                  key: "laserCut",
+                  label: "LAZER / CNC KESİM",
+                  unit: "kg",
+                  qtySource: "w.steel",
+                  qty: 51000,
+                  unitPrice: 0.05,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  it("OKUMA yolu kaynağa DOKUNMAZ — yayımlanmış belgenin tutarı kaymaz", () => {
+    // `withCostDefaults` her açılışta koşar; burada kaynağı değiştirmek
+    // kilitli bir M revizyonunu ekranda büyütür, veritabanındaki
+    // `total_amount` ise eski kalırdı (MALIYET-2).
+    expect(eskiBelge().items[0].groups[0].lines[0].qtySource).toBe("w.steel");
+  });
+
+  it("TAZELEME defterin yeni kaynağını getirir", () => {
+    const yeni = withOfferSync(eskiBelge(), teklif([]), 1).payload;
+    expect(yeni.items[0].groups[0].lines[0].qtySource).toBe("w.steelWithFire");
+  });
+
+  it("miktarı ELLE DEVRALINMIŞ satır tazelemede de elde kalır", () => {
+    // İnsanın kararı `qtyManual`dır; defter onu ezemez (MALIYET-4).
+    const p = eskiBelge();
+    p.items[0].groups[0].lines[0].qtyManual = true;
+    const l = withOfferSync(p, teklif([]), 1).payload.items[0].groups[0].lines[0];
+    expect(l.qtySource).toBe("w.steel");
+    expect(l.qty).toBe(51000);
+  });
+
+  it("kullanıcının DÜZELTTİĞİ AD tazelemede ezilmez", () => {
+    // Ad ekranda düzenlenebilir bir kutudur; defterden tazelemek "LAZER
+    // KESİM — TEDARİKÇİ B" düzeltmesini sessizce silerdi.
+    const p = eskiBelge();
+    p.items[0].groups[0].lines[0].label = "LAZER KESİM — TEDARİKÇİ B";
+    const l = withOfferSync(p, teklif([]), 1).payload.items[0].groups[0].lines[0];
+    expect(l.label).toBe("LAZER KESİM — TEDARİKÇİ B");
   });
 });
 

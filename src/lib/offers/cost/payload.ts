@@ -12,6 +12,11 @@
 // yalnız "Tekliften Tazele" düğmesinden ve maliyet açılırken çağrılır.
 
 import { trSayi } from "@/lib/drawings/tr-text";
+// AD ALANLARI BÜYÜK HARF SAKLANIR (değişmez md. 3) ve dönüşüm `adBuyuk`la
+// yapılır: düz `toUpperCase()` "Çelik İmalat İşçiliği"ni "CELIK IMALAT
+// ISCILIGI" yapardı. `pdf/brand.tsx`teki `trUpper` aynı işi görür ama
+// buraya ithal EDİLMEZ — @react-pdf'i sürükler ve bu çekirdek saftır.
+import { adBuyuk } from "@/lib/tr-text";
 import type { OfferItem, OfferPayload } from "../types";
 import { hesapla, type CostModelResult } from "./model";
 // HALAT DONANIMI TEKLİFTEN OKUNMAZ, KATSAYIDAN GELİR — kullanıcının kendi
@@ -29,6 +34,8 @@ import {
   GENERAL_GROUP_KEY,
   MATERIAL_PRICE_DEFAULTS,
   costGroupKeysForOfferItem,
+  costGroupLineDefs,
+  costTemplateFor,
 } from "./registry";
 import { withCostTotals } from "./totals";
 import { costGroupLines, isLumpLine, lumpLineKey } from "./types";
@@ -40,6 +47,8 @@ import type {
   CostLineDef,
   CostPayload,
   CostRateGroup,
+  CostTemplate,
+  CostTemplateSkeleton,
 } from "./types";
 
 export const COST_PAYLOAD_VERSION = 1;
@@ -103,7 +112,9 @@ export function lumpCostLine(groupKey: string, title: string): CostLine {
   return {
     id: newCostId(),
     key: lumpLineKey(groupKey),
-    label: `${title} (götürü)`,
+    // AD BÜYÜK HARFTİR (kullanıcı isteği 19.08.2026): götürü satır da bir
+    // maliyet kalemidir ve listede kardeşleriyle aynı yazımda durmalıdır.
+    label: adBuyuk(`${title} (götürü)`),
     // ADET BİRDİR ÇÜNKÜ GÖTÜRÜ SATIRIN MİKTARI YOKTUR: girilen sayı grubun
     // toplam bedelidir. Miktarı boş bırakmak satırı toplamdan düşürürdü.
     qty: 1,
@@ -147,13 +158,24 @@ export function freeCostLine(): CostLine {
   };
 }
 
-export function costGroupFromKey(key: string, id = newCostId()): CostGroup {
+/**
+ * Defterdeki bir grubu belgeye kurar.
+ *
+ * İSKELET SATIRLARI SÜZER, GRUBU DEĞİL: buraya gelen anahtar zaten
+ * `costGroupKeysForOfferItem`ten geçmiştir. Şablonun bu grupta kapattığı
+ * satırlar hiç açılmaz (`costGroupLineDefs`).
+ */
+export function costGroupFromKey(
+  key: string,
+  id = newCostId(),
+  skeleton?: CostTemplateSkeleton
+): CostGroup {
   const def = COST_GROUP_DEF_BY_KEY[key];
   return {
     id,
     key,
     title: def?.title ?? "YENİ BÖLÜM",
-    lines: (def?.lines ?? []).map(costLineFromDef),
+    lines: costGroupLineDefs(key, skeleton).map(costLineFromDef),
   };
 }
 
@@ -267,11 +289,22 @@ export function inputsFromOfferItem(item: OfferItem, onceki?: CostInputs): CostI
  *
  * Gruplar kalemin KENDİ bölümlerinden çıkar (`costGroupKeysForOfferItem`):
  * yardımcı kaldırması olan bir vinçte maliyette de yardımcı kaldırma grubu
- * açılır. Şablonu maliyet tarafında ikinci kez sormak, kullanıcının teklifte
- * verdiği kararı bir daha vermesini istemek olurdu (TEKLIF-32'nin tersi).
+ * açılır. Vinç tipini maliyet tarafında ikinci kez SORMAK yoktur (TEKLIF-32'nin
+ * tersi olurdu) — tip teklif kaleminin kendisinden okunur.
+ *
+ * ŞABLON VERİLİRSE tipin defterdeki iskeleti uygulanır (kullanıcı isteği
+ * 19.08.2026, md. 10); verilmezse bugünkü varsayılan küme kurulur. Şablonlar
+ * PARAMETREDİR, burada okunmaz: bu çekirdek veritabanı görmez (değişmez md. 7)
+ * ve bir maliyet çalışmasının iskeleti kurulurken hangi defterin geçerli
+ * olduğu çağrı yerinin bilgisidir.
  */
-export function costItemFromOfferItem(item: OfferItem, sira: number): CostItem {
+export function costItemFromOfferItem(
+  item: OfferItem,
+  sira: number,
+  templates?: readonly CostTemplate[]
+): CostItem {
   const inputs = inputsFromOfferItem(item);
+  const skeleton = costTemplateFor(templates, item.craneType);
   return {
     id: newCostId(),
     offerItemId: item.id,
@@ -283,7 +316,9 @@ export function costItemFromOfferItem(item: OfferItem, sira: number): CostItem {
     qty: 1,
     inputs,
     overrides: {},
-    groups: costGroupKeysForOfferItem(item.groups.map((g) => g.key)).map((k) => costGroupFromKey(k)),
+    groups: costGroupKeysForOfferItem(item.groups.map((g) => g.key), skeleton).map((k) =>
+      costGroupFromKey(k, undefined, skeleton)
+    ),
   };
 }
 
@@ -344,8 +379,25 @@ export interface OfferSyncSonuc {
  * bağlanır. Bağ kaydedilir (kullanıcı asa düğmesiyle şeride geçebilir) ama
  * girilmiş sayı olduğu gibi kalır — bir alan eklemek, tedarikçiyle
  * konuşulmuş bir fiyatı silmenin gerekçesi olamaz.
+ *
+ * DEFTERDE DEĞİŞEN KAYNAK DA TAZELENİR — ama YALNIZ İNSAN DEVRALMAMIŞSA.
+ * Kesim satırı 19.08.2026'da `w.steel`den `w.steelWithFire`a çevrildi ve
+ * eksik-olanı-doldur kuralı onu belgeye hiç taşımıyordu: defteri değiştirmek
+ * hiçbir çalışmayı etkilemiyor, kullanıcı "değiştirdim ama maliyetim aynı"
+ * diyordu. `qtySource`/`priceSource` BİR İNSAN KARARI DEĞİLDİR (ekranda
+ * düzenlenmez, defterden kopyalanır); insanın kararı `qtyManual`/`priceManual`
+ * bayraklarıdır ve tazeleme onlara DOKUNMAZ.
+ *
+ * AD (`label`) BU KURALIN DIŞINDADIR: satırın adı ekranda düzenlenebilir bir
+ * kutudur (kullanıcı "Kaldırma Motoru"nu "Kaldırma Motoru — GAMAK" yapar) ve
+ * defterden tazelemek o düzeltmeyi sessizce silerdi.
+ *
+ * KİLİTLİ BELGE BU YOLDAN GEÇMEZ: tazeleme AÇIK BİR EYLEMDİR (`withOfferSync`
+ * yalnız "Tekliften Tazele"de ve yeni bir M revizyonu kurulurken koşar), okuma
+ * yolu `withCostDefaults`tır. Yayımlanmış bir maliyetin tutarı bu yüzden
+ * ekranda büyüyüp veritabanında eski kalamaz.
  */
-function withDefterLines(group: CostGroup): CostGroup {
+function withDefterLines(group: CostGroup, skeleton?: CostTemplateSkeleton): CostGroup {
   const def = COST_GROUP_DEF_BY_KEY[group.key];
   if (!def) return group;
 
@@ -356,33 +408,48 @@ function withDefterLines(group: CostGroup): CostGroup {
     // FİYAT BAĞI
     if (d.priceSource && !line.priceSource) {
       next = { ...next, priceSource: d.priceSource, priceManual: line.unitPrice !== null };
+    } else if (d.priceSource && d.priceSource !== line.priceSource && !line.priceManual) {
+      next = { ...next, priceSource: d.priceSource };
     }
     // MİKTAR BAĞI — fiyatınkiyle SİMETRİK olmak zorundadır. Bir süre yalnız
     // fiyat tarafı kuruluyordu: deftere sonradan `qtySource` eklenen bir satır
     // fiyatını şeritten alıyor ama miktarı sonsuza dek elle kalıyordu.
     if (d.qtySource && !line.qtySource) {
       next = { ...next, qtySource: d.qtySource, qtyManual: line.qty !== null };
+    } else if (d.qtySource && d.qtySource !== line.qtySource && !line.qtyManual) {
+      next = { ...next, qtySource: d.qtySource };
     }
     return next;
   });
 
+  // ŞABLONUN KAPATTIĞI SATIR TAZELEMEDE GERİ GELMEZ. Süzgeç yalnız burada,
+  // EKLEME adımındadır: yukarıdaki tazeleme döngüsü defterin TAMAMINI okur,
+  // çünkü belgede zaten duran bir satırın fiyat/miktar bağı, o satır bu tipte
+  // artık açılmıyor diye kopmamalıdır. Kapatma bir SİLME değildir.
+  const acilabilir = costGroupLineDefs(group.key, skeleton);
   const varOlan = new Set(mevcut.map((l) => l.key));
-  const eksik = def.lines.filter((d) => !varOlan.has(d.key));
+  const eksik = acilabilir.filter((d) => !varOlan.has(d.key));
   return eksik.length ? { ...group, lines: [...mevcut, ...eksik.map(costLineFromDef)] } : { ...group, lines: mevcut };
 }
 
 export function withOfferSync(
   payload: CostPayload,
   offer: OfferPayload,
-  offerRevNo: number | null
+  offerRevNo: number | null,
+  templates?: readonly CostTemplate[]
 ): OfferSyncSonuc {
   const teklifKalemleri = new Map(offer.items.map((it) => [it.id, it]));
   let yetim = 0;
 
   const guncel: CostItem[] = payload.items.map((ham) => {
-    const maliyet = { ...ham, groups: ham.groups.map(withDefterLines) };
+    const teklif = ham.offerItemId ? teklifKalemleri.get(ham.offerItemId) : undefined;
+    // ŞABLON TİPİ TEKLİFTEN OKUNUR, BELGEDEN DEĞİL — aynı kural başlık ve
+    // girdilerde de geçerli (aşağıdaki tazeleme). Belgedeki tip teklifin bir
+    // KOPYASIDIR; teklifte düzeltilmiş bir vinç tipi maliyette eski şablonu
+    // uygulamaya devam etseydi iki belge sessizce ayrışırdı.
+    const skeleton = costTemplateFor(templates, teklif?.craneType ?? ham.craneType);
+    const maliyet = { ...ham, groups: ham.groups.map((g) => withDefterLines(g, skeleton)) };
     if (!maliyet.offerItemId) return maliyet;
-    const teklif = teklifKalemleri.get(maliyet.offerItemId);
     if (!teklif) {
       yetim += 1;
       return { ...maliyet, offerItemId: null };
@@ -402,13 +469,16 @@ export function withOfferSync(
   const cikarilan = new Set(payload.removedOfferItemIds);
   const yeniler = offer.items
     .filter((it) => !bagli.has(it.id) && !cikarilan.has(it.id))
-    .map((it, i) => costItemFromOfferItem(it, guncel.length + i + 1));
+    .map((it, i) => costItemFromOfferItem(it, guncel.length + i + 1, templates));
 
   return {
     payload: {
       ...payload,
       sourceRevNo: offerRevNo,
       currency: offer.pricing.currency || payload.currency,
+      // PROJE GENELİ ŞABLONSUZDUR: kaleme değil BELGEYE aittir, yani bir vinç
+      // tipine bağlanamaz — üç vinçlik bir teklifte dokümantasyon bir kez
+      // yapılır ve hangi tipin şablonunun geçerli olacağı sorusunun cevabı yok.
       general: withDefterLines(payload.general),
       items: [...guncel, ...yeniler],
     },
@@ -473,7 +543,13 @@ function lineFromRaw(raw: unknown): CostLine {
   return {
     id: metin(l.id) || newCostId(),
     key: metin(l.key),
-    label: metin(l.label),
+    // KAYITLI BELGEDEKİ KÜÇÜK HARFLİ AD BURADA BÜYÜR (kullanıcı isteği
+    // 19.08.2026: *"maliyet kalemi adlarının tamamı büyük harf olsun"*).
+    // Geçit her okumada VE her kaydetmede koşar, o yüzden ayrı bir SQL
+    // taşımasına gerek yoktur; yayımlanmış bir M revizyonunun satırı
+    // yeniden YAZILMAZ, yalnız görüntüsü büyür — ad bir tutar değildir ve
+    // belgenin değişmezliği (MALIYET-2) tutarlar hakkındadır.
+    label: adBuyuk(metin(l.label)),
     qtySource: l.qtySource ? metin(l.qtySource) : undefined,
     priceSource: l.priceSource ? metin(l.priceSource) : undefined,
     qty: sayiVeyaNull(l.qty),
@@ -492,7 +568,7 @@ function groupFromRaw(raw: unknown): CostGroup {
   return {
     id: metin(g.id) || newCostId(),
     key,
-    title: metin(g.title, COST_GROUP_DEF_BY_KEY[key]?.title ?? ""),
+    title: adBuyuk(metin(g.title, COST_GROUP_DEF_BY_KEY[key]?.title ?? "")),
     lump: g.lump === true,
     lines: dizi(g.lines).map(lineFromRaw),
   };
@@ -653,11 +729,32 @@ export function costModels(payload: CostPayload): Record<string, CostModelResult
   return out;
 }
 
+function agirlikSozlugu(
+  models: Record<string, CostModelResult>,
+  key: string
+): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const [id, model] of Object.entries(models)) out[id] = model.values[key] ?? null;
+  return out;
+}
+
 /** Kalem kimliği → toplam vinç ağırlığı [kg] — €/kg hesabı bunu okur. */
 export function costWeights(models: Record<string, CostModelResult>): Record<string, number | null> {
-  const out: Record<string, number | null> = {};
-  for (const [id, model] of Object.entries(models)) out[id] = model.values["w.total"] ?? null;
-  return out;
+  return agirlikSozlugu(models, "w.total");
+}
+
+/**
+ * Kalem kimliği → VİNÇ ÇELİK AĞIRLIĞI [kg] — özet tablosu bunu okur.
+ *
+ * `costWeights`in ikizidir ve AYRI DURUR çünkü ikisi ayrı sorulardır: boya ve
+ * €/kg TOPLAM ağırlığı okur (`w.total`), kaynaklı yapının kilosu ise ayrı bir
+ * sayıdır (`w.steel`, MALIYET-14). Tek bir sözlükte birleştirilseydi özet
+ * tablosunda hangi kilonun basıldığı çağrı yerine bakmadan anlaşılmazdı.
+ */
+export function costSteelWeights(
+  models: Record<string, CostModelResult>
+): Record<string, number | null> {
+  return agirlikSozlugu(models, "w.steel");
 }
 
 /**

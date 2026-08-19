@@ -129,8 +129,10 @@ describe("hammadde şeridi — kullanıcının kendi sekiz fiyatı (18.08.2026)"
     expect(MATERIAL_PRICE_DEFAULTS.rayA).toBe(1.2);
     expect(MATERIAL_PRICE_DEFAULTS.ray).toBeUndefined();
     expect(materialPriceDef("ray")).toBeUndefined();
-    expect(materialPriceDef("rayKare")?.label).toBe("Kare Ray");
-    expect(materialPriceDef("rayA")?.label).toBe("A Tipi Ray");
+    // ADLAR BÜYÜK HARFTİR (kullanıcı isteği 19.08.2026) — şerit de maliyet
+    // sayfasının bir parçasıdır ve satırlarıyla aynı yazımda durur.
+    expect(materialPriceDef("rayKare")?.label).toBe("KARE RAY");
+    expect(materialPriceDef("rayA")?.label).toBe("A TİPİ RAY");
   });
 
   it("YENİ BELGE sekiz fiyatı kendi içine KOPYALAR", () => {
@@ -244,13 +246,15 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
     expect(l("paintLabour").unitPrice).toBe(0.07);
   });
 
-  it("işçilik fire dahil ağırlığı 0,90 €/kg, kesim çelik ağırlığını 0,05 €/kg ile fiyatlar", () => {
+  it("işçilik ve kesim FİRE DAHİL ağırlığı 0,90 ve 0,05 €/kg ile fiyatlar", () => {
     // İŞÇİLİK KENDİ ANA BAŞLIĞINDADIR (md. 4) — çelik yapıda değil.
     const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
     const isc = imalat.lines.find((x) => x.key === "fabrication")!;
     expect(isc.qty).toBeCloseTo(56100, 6);
     expect(isc.unitPrice).toBe(0.9);
-    expect(l("laserCut").qty).toBe(51000);
+    // KESİM DE FİRELİ KİLODAN FİYATLANIR (kullanıcı kararı 19.08.2026):
+    // tezgâh, kesilen parçayı değil makineye giren levhayı ölçer.
+    expect(l("laserCut").qty).toBeCloseTo(56100, 6);
     expect(l("laserCut").unitPrice).toBe(0.05);
   });
 
@@ -265,23 +269,25 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
 
   it("BAŞLIK DEĞİŞTİ, TOPLAM DEĞİŞMEDİ — imalat ayrıldı, doğrudan maliyet aynı", () => {
     const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
-    // ÇELİK YAPI artık işçiliği İÇERMEZ; sac ise FİRE DAHİL tartılır:
-    // 56.100×0,70 + 51.000×0,05 + 59.500×0,08 + 59.500×0,07
-    expect(costGroupTotal(celik)).toBeCloseTo(39270 + 2550 + 4760 + 4165, 4);
+    // ÇELİK YAPI artık işçiliği İÇERMEZ; sac VE kesim fire dahil tartılır:
+    // 56.100×0,70 + 56.100×0,05 + 59.500×0,08 + 59.500×0,07
+    expect(costGroupTotal(celik)).toBeCloseTo(39270 + 2805 + 4760 + 4165, 4);
     // İMALAT MALİYETİ kendi başlığında: 56.100×0,90
     expect(costGroupTotal(imalat)).toBeCloseTo(50490, 4);
 
     const t = costTotals(p);
     expect(t.fabrication).toBeCloseTo(50490, 4);
-    expect(t.project).toBeCloseTo(50745, 4);
+    expect(t.project).toBeCloseTo(51000, 4);
 
     // BİR SATIRI BİR BAŞLIKTAN ÖTEKİNE TAŞIMAK TOPLAMI DEĞİŞTİRMEZ. Oran
-    // tabanı DOĞRUDAN MALİYETTİR (imalat + proje) ve 97.665 € olarak kalır;
-    // imalat tabandan düşülseydi toplam ciddi biçimde düşerdi,
-    // yani yalnız ekran düzenini değiştiren bir istek her teklifin kâr
-    // marjını kaydırırdı (MALIYET-5'in kardeş kararı).
-    expect(p.direct).toBeCloseTo(101235, 4);
-    expect(p.total).toBeCloseTo(101235 * 1.19, 4);
+    // tabanı DOĞRUDAN MALİYETTİR (imalat + proje); imalat tabandan
+    // düşülseydi toplam ciddi biçimde düşerdi, yani yalnız ekran düzenini
+    // değiştiren bir istek her teklifin kâr marjını kaydırırdı
+    // (MALIYET-5'in kardeş kararı). Taban 19.08.2026'da 101.235 → 101.490 €
+    // oldu ve fark TAM OLARAK (56.100 − 51.000) × 0,05 = 255 €'dur: kesim
+    // artık fireli kilodan fiyatlanıyor.
+    expect(p.direct).toBeCloseTo(101490, 4);
+    expect(p.total).toBeCloseTo(101490 * 1.19, 4);
   });
 
   it("elle girilmiş fiyat tazelemeden SAĞ ÇIKAR", () => {
