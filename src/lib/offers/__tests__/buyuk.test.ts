@@ -30,6 +30,12 @@ describe("teknikDegerBuyuk", () => {
       "ELEKTROMANYETİK MOTOR FRENİ x 2 ADET"
     );
     expect(teknikDegerBuyuk("Kapalı Alan, -10 / +40 º C")).toBe("KAPALI ALAN, -10 / +40 º C");
+    // BAŞ HARFİ BÜYÜK BİRİMLER — defterin göç provasında yakalanan boşluk:
+    // "içeride büyük harf" kuralı bunları kaçırıyor ve hertz "HZ" oluyordu.
+    expect(teknikDegerBuyuk("400 VAC 50 Hz")).toBe("400 VAC 50 Hz");
+    expect(teknikDegerBuyuk("Fren Momenti 250 Nm")).toBe("FREN MOMENTİ 250 Nm");
+    // Kullanıcı büyük yazdıysa öyle kalır — defterin yazımı dayatılmaz.
+    expect(teknikDegerBuyuk("400 VAC 50 HZ")).toBe("400 VAC 50 HZ");
   });
 
   it("RAKAM İÇEREN SÖZCÜK ÖLÇÜDÜR, dokunulmaz", () => {

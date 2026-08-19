@@ -24,17 +24,31 @@
 import { trBuyuk } from "@/lib/tr-text";
 
 /**
- * TAMAMI KÜÇÜK HARFLİ BİRİMLER — `korunurMu` mantığının yakalayamadığı sınıf.
+ * YAZIMI KORUNAN BİRİMLER — kalıp kurallarının yakalayamadığı sınıf.
+ *
+ * İki alt küme var ve ikisi de ayrı bir boşluğu kapatıyor:
+ *   · TAMAMI KÜÇÜK ("m", "kg", "mm") — hiçbir kalıp kuralına takılmaz.
+ *   · BAŞ HARFİ BÜYÜK ("Hz", "Nm", "Pa", "Wh") — "içeride büyük harf" kuralı
+ *     bunları da kaçırır çünkü büyük harf İÇERİDE değil BAŞTADIR. Defterin
+ *     provası bu boşluğu gerçek bir satırda gösterdi: "400 VAC 50 Hz" düz
+ *     kuralla "50 HZ" oluyordu ve hertz büyük yazılmaz.
  *
  * Liste UYDURULMADI: teklif defterindeki (`registry.ts`) ve devralınan on dört
- * teklifin teknik satırlarındaki birimlerden çıkarıldı. "adet", "kat", "hafta"
- * gibi TÜRKÇE SÖZCÜKLER bilerek YOKTUR — onlar birim değil metindir ve
- * belgede büyük harfle durmaları doğrudur ("x 2 ADET").
+ * teklifin teknik satırlarındaki birimlerden çıkarıldı; SI'nın aynı kalıptaki
+ * yakın akrabaları (kHz, kPa, kWh) ileride girecek satırlar için eklendi.
+ * "adet", "kat", "hafta" gibi TÜRKÇE SÖZCÜKLER bilerek YOKTUR — onlar birim
+ * değil metindir ve belgede büyük harfle durmaları doğrudur ("x 2 ADET").
+ *
+ * EŞLEŞME YAZIMA DUYARLIDIR: kullanıcı "HZ" yazdıysa o hâliyle kalır (zaten
+ * büyük kuralı), "Hz" yazdıysa da öyle. Defterin yazımı korunur, dayatılmaz.
  */
-const KUCUK_BIRIMLER: ReadonlySet<string> = new Set([
+const KORUNAN_BIRIMLER: ReadonlySet<string> = new Set([
   "m", "mm", "cm", "km", "m²", "m³",
   "kg", "g", "gr", "t", "ton",
   "bar", "sn",
+  "Hz", "kHz", "MHz",
+  "Nm", "kNm", "Pa", "kPa", "MPa",
+  "VA", "kVA", "Wh", "kWh", "Ah", "mAh", "dB",
 ]);
 
 /** Sözcüğün ucundaki noktalama — sözlük eşleşmesi çekirdeğe bakar. */
@@ -49,7 +63,7 @@ function korunur(kelime: string): boolean {
   if (kelime.includes("/")) return true; // birleşik birim: "d/dak", "N/mm2"
   if (kelime === "x" || kelime === "×") return true; // çarpım işareti
   const c = cekirdek(kelime);
-  if (KUCUK_BIRIMLER.has(c)) return true;
+  if (KORUNAN_BIRIMLER.has(c)) return true;
   const harfler = kelime.replace(/[^\p{L}]/gu, "");
   if (harfler === trBuyuk(harfler)) return true; // zaten büyük: "HRC", "GAMAK"
   // İÇERİDE BÜYÜK HARF — ama YALNIZ KISA sözcükte. Kural birim yazımı içindir

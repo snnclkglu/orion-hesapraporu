@@ -73,7 +73,14 @@ begin
     if parca in ('x', '×') then sonuc := sonuc || parca; continue; end if;
 
     cekirdek := regexp_replace(regexp_replace(parca, '^[^[:alnum:]°º²³/]+', ''), '[^[:alnum:]°º²³/]+$', '');
-    if cekirdek in ('m','mm','cm','km','m²','m³','kg','g','gr','t','ton','bar','sn') then
+    -- YAZIMI KORUNAN BİRİMLER — TS'teki `KORUNAN_BIRIMLER`in ikizi. İkinci öbek
+    -- (Hz, Nm, Pa, Wh…) baş harfi büyük olduğu için "içeride büyük harf"
+    -- kuralına takılmaz; bu göçün provası "400 VAC 50 Hz" satırında tam o
+    -- boşluğu gösterdi ve hertz "HZ" oluyordu.
+    if cekirdek in (
+      'm','mm','cm','km','m²','m³','kg','g','gr','t','ton','bar','sn',
+      'Hz','kHz','MHz','Nm','kNm','Pa','kPa','MPa','VA','kVA','Wh','kWh','Ah','mAh','dB'
+    ) then
       sonuc := sonuc || parca; continue;
     end if;
 

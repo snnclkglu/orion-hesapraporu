@@ -176,7 +176,7 @@ describe("göç, TS'teki muaf kümeyle aynı listeyi yazıyor", () => {
     // İki taraf ayrışırsa göç, uygulamanın yazmayacağı bir yazım üretir.
     expect(migration).toContain("create or replace function public.gecici_teknik_buyuk");
     expect(migration).toContain("set value = public.gecici_teknik_buyuk(o.value)");
-    for (const iz of ["'[0-9]'", "position('/' in parca)", "'x', '×'", "'kg','g','gr'"]) {
+    for (const iz of ["'[0-9]'", "position('/' in parca)", "'x', '×'", "'kg','g','gr'", "'Hz','kHz'"]) {
       expect(migration).toContain(iz);
     }
   });
