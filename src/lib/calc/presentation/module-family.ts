@@ -152,3 +152,84 @@ export const TROLLEY_OF: Partial<Record<HoistKey, TravelKey>> = {
   mono1: "mono1Trolley",
   mono2: "mono2Trolley",
 };
+
+// ------------------------------------------------- Kapatılabilirlik ve bağlılık
+
+/**
+ * KAPATILAMAYAN bölümler — hesabın geri kalanı onların girdilerinden türer.
+ *
+ * Ana kaldırma bütün yük zincirinin başıdır (kanca bloğu, araba, kiriş hep
+ * ondan besleniyor); ana araba ise kaldırmanın taşındığı yerdir ve köprü de
+ * ana kiriş de araba tekerlerinden gelen yükü okur. **Köprü yürütme artık bu
+ * listede DEĞİLDİR** (kullanıcı kararı, 19.08.2026): müşteri bazen yalnız
+ * mevcut vincin arabasını yeniler ve o raporda köprü diye bir hesap yoktur.
+ */
+export const REQUIRED_MODULE_KEYS: readonly ModuleKey[] = ["main", "trolley"];
+
+/**
+ * Kapatılabilen bölümler — `MODULE_ORDER` eksi `REQUIRED_MODULE_KEYS`.
+ *
+ * TEK KAYNAKTIR: editördeki kutucuk ızgarası (`OPTIONAL_MODULE_KEYS`), kayda
+ * giden liste (`DISABLEABLE_MODULES`, revision-load) ve motorun süzgeci
+ * (`activeModules`) hep buradan okur. Üç ayrı elle yazılmış liste, bir bölümün
+ * ekranda kapanıp kayıtta geri açılmasının en kısa yoluydu — teker yükleri,
+ * kabin ve ikinci ana kiriş bölümlerinde tam olarak bu oluyordu.
+ */
+export const DISABLEABLE_MODULE_KEYS: readonly ModuleKey[] = MODULE_ORDER.filter(
+  (k) => !REQUIRED_MODULE_KEYS.includes(k)
+);
+
+export function isRequiredModule(key: ModuleKey): boolean {
+  return REQUIRED_MODULE_KEYS.includes(key);
+}
+
+/**
+ * Bölümün ÜST bölümü — üst kapalıysa alt bölüm de hesaba giremez.
+ *
+ * Ölçüt tek bir sorudur: **bu bölümün hesabı üst bölüm olmadan koşabiliyor
+ * mu?** Koşamıyorsa bağ buraya yazılır, aksi hâlde bölüm bağımsızdır ve
+ * kullanıcı ikisini ayrı ayrı kapatabilir.
+ *
+ * - `hookBlock`/`auxHookBlock`/`mono*HookBlock` → kendi kaldırma grubu
+ * - `auxTrolley`/`mono*Trolley` → taşıdığı kaldırma grubu
+ * - `girder2` → `girder` (ikisi aynı köprünün iki takımıdır)
+ * - `girder` ve `wheelLoads` → `bridge`. İkisi de köprü yürütmenin SONUCUNU
+ *   okur (`girderDepsFor` köprü teker adedi/hızı/ivmelenmesi olmadan
+ *   `undefined` döner, `wheelLoads` köprü sonucu olmadan hiç hesaplanmaz).
+ *   Bağ yazılmasaydı köprüsü kapatılmış bir raporda "Ana Kiriş" bölümü
+ *   numarasını harcayıp BOŞ basılırdı — müşteriye giden belgede eksik sayfa
+ *   izlenimi bırakan tam da budur.
+ *
+ * `endCarriage` ve `buckling` BİLEREK bağsızdır: başkiriş yalnız ana kaldırma
+ * yükünü ve köprü ağırlığını okur, buruşma da ana kiriş kapalıyken elle
+ * girilen panel ölçüleriyle koşar. İkisini köprüye bağlamak, hesabı gerçekte
+ * çalışan bir bölümü kullanıcının elinden alırdı.
+ */
+export const MODULE_PARENT: Partial<Record<ModuleKey, ModuleKey>> = {
+  hookBlock: "main",
+  auxHookBlock: "aux",
+  auxTrolley: "aux",
+  mono1HookBlock: "mono1",
+  mono1Trolley: "mono1",
+  mono2HookBlock: "mono2",
+  mono2Trolley: "mono2",
+  wheelLoads: "bridge",
+  girder: "bridge",
+  girder2: "girder",
+};
+
+/**
+ * KÖPRÜ AĞIRLIĞINI okuyan bölümler — tek küme, iki okuyucu.
+ *
+ * Teknik özellik kutusunun görünürlüğü (`SPEC_FIELDS.bridgeWeightT`
+ * `requiresAnyModule`) ve ekipman listesi özetindeki "Köprü ağırlığı" satırı
+ * AYNI soruyu sorar: bu sayıyı hâlâ okuyan bir hesap var mı? İki yerde iki
+ * liste yazılsaydı, biri kutuyu gizlerken öteki satırı basmaya devam ederdi.
+ */
+export const BRIDGE_WEIGHT_READER_KEYS: readonly ModuleKey[] = [
+  "bridge",
+  "wheelLoads",
+  "girder",
+  "girder2",
+  "endCarriage",
+];

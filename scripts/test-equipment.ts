@@ -17,6 +17,7 @@ import {
 import { orderAttachmentsForAppendix } from "../src/lib/equipment-attachments";
 import { collectCatalogSheetPages } from "../src/lib/pdf/catalog-sheet-images";
 import { renderEquipmentPdf } from "../src/lib/pdf/equipment-report";
+import { summarySpecsForReport } from "../src/lib/pdf/report";
 import { pdfEkleriYerlestir } from "../src/lib/pdf/merge";
 import type { RevisionAlts } from "../src/lib/revision-load";
 import { baslikDuzeni } from "../src/lib/tr-text";
@@ -330,7 +331,18 @@ async function main() {
   }
   // Teknik Ressam Özeti'nin SONUNDA ana grup numaralandırması (11.08.2026):
   // köprü ve araba grupları alt alta, kalem numarası kökü ile birlikte.
-  const summary = buildSummarySections(V5_TEMPLATE, calcResult, DRAWING_PLAN);
+  const summary = buildSummarySections(
+    V5_TEMPLATE,
+    calcResult,
+    DRAWING_PLAN,
+    ["Kabin merdiveni sol tarafta olacak.", "Ray kaynağı montajda yapılacak."].join("\n")
+  );
+  // Teknik özellik yaprağı (ressam paketi) — hesap raporunun özet tablosuyla
+  // AYNI kaynaktan.
+  const SPEC_TABLE = {
+    ...summarySpecsForReport(V5_TEMPLATE),
+    specs: V5_TEMPLATE.specs,
+  };
   const planBolumleri = summary.filter((s) => s.name.startsWith("Teknik Resim No"));
   if (planBolumleri.length !== 4) {
     console.error(
@@ -363,7 +375,7 @@ async function main() {
   }
 
   const pdfCustomer = await renderEquipmentPdf({ meta: META, groups, sheetUrls, settings: SETTINGS });
-  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary, sheetUrls, settings: SETTINGS });
+  const pdfFull = await renderEquipmentPdf({ meta: META, groups, summary, specTable: SPEC_TABLE, sheetUrls, settings: SETTINGS });
   const pCustPath = path.join(outDir, "ekipman-listesi-musteri.pdf");
   const pFullPath = path.join(outDir, "ekipman-listesi-tam.pdf");
   writeFileSync(pCustPath, pdfCustomer);
@@ -411,7 +423,7 @@ async function main() {
   }
 
   const pdfDetailed = await renderEquipmentPdf({
-    meta: META, groups, summary, sheetPages, settings: SETTINGS,
+    meta: META, groups, summary, specTable: SPEC_TABLE, sheetPages, settings: SETTINGS,
     attachmentCovers: ordered.map((a) => ({
       rowKey: a.rowKey,
       component: a.component,

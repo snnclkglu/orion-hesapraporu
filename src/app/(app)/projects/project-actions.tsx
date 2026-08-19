@@ -312,7 +312,12 @@ export function EditProjectDetailsDialog({
             />
           </div>
           {/* Vinç tipi: hesap bölümlerini doğrudan açmaz (topoloji kararı
-              Teknik Özellikler'dedir) ama rapor kapağına ve listeye basılır. */}
+              Teknik Özellikler'dedir) ama rapor kapağına ve listeye basılır.
+              TEK İSTİSNA "Vinç Arabası"dır ve o da GERİYE DÖNÜK DEĞİLDİR: tip
+              yalnız YENİ bir raporun İLK revizyonu doğarken köprü tarafındaki
+              bölümleri kapalı ÖNERİR (`craneTypePresetInputs`). Buradan tipi
+              değiştirmek mevcut revizyonların kapalı bölüm listesine
+              dokunmaz — o karar artık revizyonun kendi verisidir. */}
           <div className="grid gap-2">
             <Label htmlFor="project_crane_type">Vinç Tipi</Label>
             <Select value={craneType} onValueChange={setCraneType}>

@@ -70,8 +70,12 @@ import {
 import { driveGroupLossKw, panelHeatKw } from "./drive-losses";
 import {
   HOIST_OF_HOOKBLOCK,
+  MODULE_ORDER,
+  MODULE_PARENT,
+  isRequiredModule,
   type HoistKey,
   type HookBlockKey,
+  type ModuleKey,
   type TravelKey,
 } from "./presentation/module-family";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "./types";
@@ -316,44 +320,70 @@ function presentSet(input: CalcInput): Set<string> {
 }
 
 /**
- * Vince göre hangi modüllerin hesaplanacağı. Kapalı bölümler `disabled`
- * kümesiyle dışlanır; topolojiye aykırı bölümler (monoray yokken monoray
- * grupları, paylaşımlı yardımcı arabada ayrı araba) hiç açılmaz.
+ * Bölüm, vincin KONFİGÜRASYONUNA göre hiç var olabilir mi?
+ *
+ * Kullanıcının aç/kapa tercihinden bağımsız YAPISAL uygunluk: monoray yokken
+ * monoray grupları, paylaşımlı yardımcı arabada ayrı araba, iki kirişli
+ * köprüde ikinci kiriş takımı hiç açılmaz. Kural burada — saf çekirdekte —
+ * durur; editör onu `module-adapters.ts` üzerinden AYNI yerden okur (iki
+ * kopya, kutucuğun ekranda görünüp hesaba girmemesinin en kısa yoluydu).
+ */
+export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): boolean {
+  const monos = monorailCount(specs);
+  switch (key) {
+    case "auxTrolley":
+      return hasSeparateAuxTrolley(specs);
+    case "mono1":
+    case "mono1HookBlock":
+    case "mono1Trolley":
+      return monos >= 1;
+    case "mono2":
+    case "mono2HookBlock":
+    case "mono2Trolley":
+      return monos >= 2;
+    // İkinci ana kiriş takımı yalnız DÖRT KİRİŞLİ köprüde vardır.
+    case "girder2":
+      return hasSecondGirder(specs);
+    // Kabin ve elektrik odası bölümü ancak vinçte operatör kabini ya da bir
+    // elektrik yerleşimi (oda / pano) varsa vardır — ikisi de yoksa boş bir
+    // bölüm olurdu.
+    case "cabin":
+      return cabinModuleApplies(specs);
+    default:
+      return true;
+  }
+}
+
+/**
+ * Vince göre hangi modüllerin hesaplanacağı.
+ *
+ * Üç kapı sırayla uygulanır ve HEPSİ tek bir döngüdedir:
+ *   1. Kullanıcının kapattıkları (`disabled`) — `REQUIRED_MODULE_KEYS`
+ *      dışındaki her bölüm kapatılabilir.
+ *   2. Vinç konfigürasyonunun izin verdikleri (`moduleAllowedByConfig`).
+ *   3. ÜST bölümü açık olanlar (`MODULE_PARENT`) — üst kapalıysa alt bölümün
+ *      hesabı zaten koşamaz (bkz. `girderDepsFor`, teker yükleri).
+ *
+ * Bağlılık zinciri `MODULE_ORDER` sırasında çözülür: üst bölüm alt bölümden
+ * ÖNCE gelir, o yüzden tek geçiş yeter. Eskiden bu üç kapı elle yazılmış bir
+ * if merdiveniydi ve yeni bir bağ (köprü → ana kiriş) eklemek merdivenin
+ * ortasına dokunmayı gerektiriyordu.
  */
 export function activeModules(
   specs: TechnicalSpecs,
   disabled: readonly string[] = []
 ): Set<string> {
   const off = new Set(disabled);
-  const monos = monorailCount(specs);
-  const on = (k: string) => !off.has(k);
   const out = new Set<string>();
-
-  if (on("main")) out.add("main");
-  if (out.has("main") && on("hookBlock")) out.add("hookBlock");
-  if (on("aux")) out.add("aux");
-  if (out.has("aux") && on("auxHookBlock")) out.add("auxHookBlock");
-  if (on("trolley")) out.add("trolley");
-  if (out.has("aux") && hasSeparateAuxTrolley(specs) && on("auxTrolley")) out.add("auxTrolley");
-  for (let i = 1; i <= monos; i += 1) {
-    const h = `mono${i}`;
-    if (!on(h)) continue;
-    out.add(h);
-    if (on(`${h}HookBlock`)) out.add(`${h}HookBlock`);
-    if (on(`${h}Trolley`)) out.add(`${h}Trolley`);
+  for (const key of MODULE_ORDER) {
+    // Ana kaldırma ve ana araba kapatılamaz: bozuk bir kayıt onları kapalı
+    // gösterse bile hesap onlarsız anlamsızdır (bkz. REQUIRED_MODULE_KEYS).
+    if (off.has(key) && !isRequiredModule(key)) continue;
+    if (!moduleAllowedByConfig(specs, key)) continue;
+    const parent = MODULE_PARENT[key];
+    if (parent && !out.has(parent)) continue;
+    out.add(key);
   }
-  if (on("bridge")) out.add("bridge");
-  // Teker yükleri köprü yürütmeden beslenir; köprü kapatılamadığı için burada
-  // yalnız kullanıcının tercihine bakılır.
-  for (const k of ["wheelLoads", "girder", "buckling", "endCarriage"]) {
-    if (on(k)) out.add(k);
-  }
-  // İkinci ana kiriş takımı yalnız DÖRT KİRİŞLİ köprüde vardır ve birincisi
-  // açıkken anlamlıdır (ikisi aynı köprünün iki takımıdır).
-  if (out.has("girder") && hasSecondGirder(specs) && on("girder2")) out.add("girder2");
-  // Kabin ve elektrik odası bölümü yalnız vinçte operatör kabini ya da bir
-  // elektrik yerleşimi (oda / pano) varsa vardır — teknik özellikten gelir.
-  if (cabinModuleApplies(specs) && on("cabin")) out.add("cabin");
   return out;
 }
 

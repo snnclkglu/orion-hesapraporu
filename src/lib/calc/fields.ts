@@ -11,6 +11,7 @@ import {
 } from "./safety-brake";
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { FieldGroupKey } from "./field-groups";
+import { BRIDGE_WEIGHT_READER_KEYS } from "./presentation/module-family";
 import type { ModuleKey } from "./presentation/module-family";
 import {
   GIRDER_ARRANGEMENT_LABELS,
@@ -68,6 +69,14 @@ export interface FieldDef<T> {
   fieldGroup?: FieldGroupKey;
   /** Alan yalnız bu hesap bölümü açıkken gösterilir (yalnız SPEC_FIELDS) */
   requiresModule?: ModuleKey;
+  /**
+   * Alan, listedeki bölümlerden EN AZ BİRİ açıkken gösterilir (yalnız
+   * SPEC_FIELDS). `requiresModule` tek bir sahip bildirir; bu ise bir girdiyi
+   * PAYLAŞAN bölümler içindir: köprü ağırlığını köprü yürütme, teker yükleri,
+   * ana kiriş ve başkiriş birlikte okur — dördü de kapanmadan kutu
+   * gizlenemez, yoksa hâlâ hesaba giren bir sayı ekrandan kaybolurdu.
+   */
+  requiresAnyModule?: readonly ModuleKey[];
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
   /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
@@ -215,8 +224,13 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
     requiresModule: "mono2Trolley",
   },
   {
+    // KÖPRÜ YÜRÜTME BÖLÜMÜ KAPATILABİLİR (kullanıcı kararı, 19.08.2026 — yalnız
+    // araba yenilenen işler). Kapatıldığında bu grubun bütün alanları hem
+    // editörden hem PDF'in teknik özellik tablosundan düşer: raporda hesabı
+    // olmayan bir köprünün hızını basmak, müşteriye eksik bölüm okutmaktır.
     key: "bridge",
     title: "Köprü Yürütme",
+    requiresModule: "bridge",
   },
   {
     key: "brakes",
@@ -231,6 +245,48 @@ export const SPEC_GROUPS: readonly SpecGroup[] = [
     title: "Ortam Koşulları",
   },
 ] as const;
+
+const SPEC_GROUP_BY_KEY: Record<SpecGroupKey, SpecGroup> = Object.fromEntries(
+  SPEC_GROUPS.map((g) => [g.key, g])
+) as Record<SpecGroupKey, SpecGroup>;
+
+/**
+ * Teknik özellik ALANI, açık hesap bölümlerine göre gösterilir mi?
+ *
+ * TEK YÜKLEMDİR: editörün ızgarası ve PDF'in teknik özellik tablosu aynı
+ * fonksiyondan geçer. Ayrı yazıldıkları sürece bir alan ekranda kaybolup
+ * raporda basılmaya devam ediyordu — köprü yürütmenin altı alanı ve Köprü
+ * Ağırlığı tam olarak bu boşluğa düşüyordu.
+ *
+ * Üç kural birleşir:
+ *   1. Alanın ait olduğu GRUBUN `requiresModule`u (grup kapalıysa alan da yok).
+ *   2. Alanın kendi `requiresModule`u.
+ *   3. Alanın `requiresAnyModule` listesi — biri bile açıksa alan durur.
+ */
+export interface SpecFieldModuleScope {
+  group?: SpecGroupKey;
+  requiresModule?: ModuleKey;
+  requiresAnyModule?: readonly ModuleKey[];
+}
+
+export function specFieldVisibleForModules(
+  field: SpecFieldModuleScope,
+  present: (key: ModuleKey) => boolean
+): boolean {
+  const groupNeeds = field.group ? SPEC_GROUP_BY_KEY[field.group]?.requiresModule : undefined;
+  if (groupNeeds && !present(groupNeeds)) return false;
+  if (field.requiresModule && !present(field.requiresModule)) return false;
+  if (field.requiresAnyModule && !field.requiresAnyModule.some(present)) return false;
+  return true;
+}
+
+/** Teknik özellik GRUBU, açık hesap bölümlerine göre gösterilir mi? */
+export function specGroupVisibleForModules(
+  group: SpecGroup,
+  present: (key: ModuleKey) => boolean
+): boolean {
+  return !group.requiresModule || present(group.requiresModule);
+}
 
 // -------------------------------------------------------------- Seçenek listeleri
 
@@ -484,7 +540,10 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   // --- Vinç tanımı ve sınıflandırma
   { key: "spanM", label: "Açıklık", unit: "m", type: "number", group: "crane" },
   {
+    // Yürüme yolu KÖPRÜNÜN yoludur (arabanınki açıklıktır, bkz. travelGroup
+    // `travelFestoonDistanceM`) — köprü yürütme kapalıyken sorusu kalmaz.
     key: "runwayLengthM", label: "Vinç Yürüme Yolu Uzunluğu", unit: "m", type: "number", group: "crane",
+    requiresModule: "bridge",
     hint: "Köprü festoonu seçildiğinde kablo taşıyıcı sisteminin hareket mesafesi olarak kullanılır.",
   },
   { key: "structureClass", label: "Çelik Konstrüksiyon Sınıfı", type: "select", options: STRUCTURE_CLASSES, group: "crane", standardRef: "FEM 1.001 T.2.3.4" },
@@ -566,7 +625,13 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
     group: "weights", requiresModule: "mono2Trolley",
   },
   {
+    // KÖPRÜ AĞIRLIĞINI DÖRT BÖLÜM OKUR: köprü yürütme (hareket eden kütle),
+    // teker yükleri (düşey yük), ana kiriş (ölü yük payı) ve başkiriş.
+    // Kutu ancak DÖRDÜ DE kapalıyken gizlenir — yalnız köprü yürütmeye
+    // bağlansaydı, köprüsü kapatılıp ana kirişi açık bırakılmış bir raporda
+    // hesaba giren bir sayı ekrandan kaybolurdu.
     key: "bridgeWeightT", label: "Köprü Ağırlığı", unit: "t", type: "number", group: "weights",
+    requiresAnyModule: BRIDGE_WEIGHT_READER_KEYS,
     hint: "Ana kirişler ve başkirişler dâhil köprünün toplam ağırlığı.",
   },
 

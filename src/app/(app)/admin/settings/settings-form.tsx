@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ReportSettings } from "@/lib/settings";
 import { updateReportSettings } from "../actions";
@@ -8,10 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+// Vinç tipi listesi TEK YERDEDİR (`lib/crane-types.ts`).
+import { craneTypeOptions } from "@/lib/crane-types";
 
 export function SettingsForm({ initial }: { initial: ReportSettings }) {
   const [form, setForm] = useState<ReportSettings>(initial);
   const [pending, startTransition] = useTransition();
+  // Kayıtlı değer listede olmasa bile seçenek olarak DURUR (devralınan ya da
+  // elle yazılmış varsayılanlar bu yüzden sessizce değişmez).
+  const craneTypes = useMemo(
+    () => craneTypeOptions(initial.default_crane_type),
+    [initial.default_crane_type]
+  );
 
   function set<K extends keyof ReportSettings>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -74,12 +85,26 @@ export function SettingsForm({ initial }: { initial: ReportSettings }) {
               />
             </div>
           </div>
+          {/* Alan bir süre serbest METİNDİ ve `lib/crane-types.ts` listesine
+              yeni bir tip eklendiğinde yönetim panelinde GÖRÜNMÜYORDU: liste
+              tek kaynaktı ama bu ekran onu okumuyordu. `craneTypeOptions`
+              kayıtlı/devralınan değeri listenin başına ekler, yani elle
+              yazılmış eski bir varsayılan da seçili kalır. */}
           <div className="grid gap-2">
             <Label htmlFor="st-crane">Varsayılan Vinç Tipi</Label>
-            <Input
-              id="st-crane" value={form.default_crane_type}
-              onChange={(e) => set("default_crane_type", e.target.value)} required
-            />
+            <Select
+              value={form.default_crane_type}
+              onValueChange={(v) => set("default_crane_type", v)}
+            >
+              <SelectTrigger id="st-crane" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {craneTypes.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
               Yeni proje dialogunda önerilen vinç tipi.
             </p>

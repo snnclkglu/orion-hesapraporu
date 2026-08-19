@@ -25,6 +25,8 @@ import {
   SPEC_FIELDS,
   SPEC_GROUPS,
   fieldLabel,
+  specFieldVisibleForModules,
+  specGroupVisibleForModules,
 } from "@/lib/calc/fields";
 import { travelApplicationClass } from "@/lib/calc/derive";
 import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
@@ -64,6 +66,8 @@ import {
   adapterTitle,
   moduleLabelFor,
   MODULE_PARENT,
+  MODULE_TOGGLE_GROUPS,
+  BRIDGE_SIDE_MODULE_KEYS,
   OPTIONAL_MODULE_KEYS,
   CONFIG_DRIVEN_MODULE_KEYS,
   altOptionPass,
@@ -1626,6 +1630,18 @@ export function RevisionEditor({
     setEnabled((m) => ({ ...m, [key]: on }));
   }
 
+  /**
+   * Köprü tarafındaki bölümlerin tamamını aç/kapa (yalnız vinç arabası işi).
+   * Kaldırma gruplarına DOKUNMAZ; kapsam `BRIDGE_SIDE_MODULE_KEYS`tedir.
+   */
+  function setBridgeSideModules(on: boolean) {
+    setEnabled((m) => {
+      const next = { ...m };
+      for (const k of BRIDGE_SIDE_MODULE_KEYS) next[k] = on;
+      return next;
+    });
+  }
+
   /** Alt bölümü gizle/göster — başlıktaki kutucuktan çağrılır. */
   function toggleSectionHidden(key: ModuleKey, sectionRawId: string, hide: boolean) {
     const hideKey = sectionHideKeyFor(key, sectionRawId);
@@ -1660,12 +1676,16 @@ export function RevisionEditor({
         </CardHeader>
         <CardContent className="grid gap-6">
           {SPEC_GROUPS.map((group) => {
-            if (group.requiresModule && !present(group.requiresModule)) return null;
+            // Bölüm bağı EDİTÖR VE PDF İÇİN TEK YÜKLEMDEN okunur
+            // (`specFieldVisibleForModules`): ayrı yazıldıklarında kapatılan
+            // köprünün alanları ekrandan düşüp raporda basılmaya devam
+            // ediyordu.
+            if (!specGroupVisibleForModules(group, present)) return null;
             if (group.visible && !group.visible(specs)) return null;
             const fields = SPEC_FIELDS.filter(
               (f) =>
                 f.group === group.key &&
-                (!f.requiresModule || present(f.requiresModule)) &&
+                specFieldVisibleForModules(f, present) &&
                 (!f.visible || f.visible(specs))
             );
             if (fields.length === 0) return null;
@@ -1701,46 +1721,95 @@ export function RevisionEditor({
               yalnız konfigürasyon izin verdiğinde listelenir. */}
           <section className="grid gap-2.5 border-t pt-4">
             <div className="border-b pb-1.5">
-              <h3 className="oc-kicker text-foreground/80">Hesap Bölümleri</h3>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
+                <h3 className="oc-kicker text-foreground/80">Hesap Bölümleri</h3>
+                {/* YALNIZ ARABA KISAYOLU: köprü tarafındaki altı bölüm tek
+                    dokunuşla kapanır/açılır. Kaldırma gruplarına dokunmaz —
+                    onlar ayrı bir karardır (bkz. BRIDGE_SIDE_MODULE_KEYS). */}
+                {!readOnly && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">
+                      Yalnız vinç arabası:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBridgeSideModules(false)}
+                      title="Köprü yürütme, teker yükleri, ana kiriş, buruşma ve başkiriş bölümlerini kapatır"
+                    >
+                      Köprü bölümlerini kapat
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setBridgeSideModules(true)}
+                      title="Aynı bölümleri geri açar"
+                    >
+                      Geri aç
+                    </Button>
+                  </div>
+                )}
+              </div>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Kapatılan bölüm hesaba ve rapora girmez; bölüm numaraları otomatik
-                yeniden dizilir. Aynı anahtarlar kenar çubuğundaki düğmede de var.
+                Kapatılan bölüm hesaba, PDF raporuna ve ekipman listesine GİRMEZ;
+                girdileri korunur ve bölüm numaraları kendiliğinden yeniden
+                dizilir — raporda atlanan numara kalmaz. Aynı anahtarlar kenar
+                çubuğundaki bölüm listesinde de var.
               </p>
             </div>
-            <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {OPTIONAL_MODULE_KEYS.filter((k) => moduleAllowedByConfig(specs, k)).map((k) => {
-                const parent = MODULE_PARENT[k];
-                const parentOff = parent ? !present(parent) : false;
-                const fromConfig = CONFIG_DRIVEN_MODULE_KEYS.includes(k);
-                return (
-                  <label
-                    key={k}
-                    className={cn(
-                      // Satır ~20px'ti; onay kutusu etiketiyle birlikte tek
-                      // dokunma hedefidir, parmakla tutulabilmesi gerekir.
-                      "inline-flex cursor-pointer items-center gap-2 py-1.5 text-sm pointer-coarse:min-h-10",
-                      parentOff && "cursor-not-allowed opacity-45"
-                    )}
-                    title={
-                      parentOff
-                        ? `Önce ${moduleLabelFor(parent!, specs)} bölümünü açın`
-                        : fromConfig
-                          ? "Vinç konfigürasyonundan geldi"
-                          : undefined
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={present(k)}
-                      disabled={readOnly || parentOff}
-                      onChange={(e) => toggleModule(k, e.target.checked)}
-                      className="size-4 accent-primary"
-                    />
-                    {moduleLabelFor(k, specs)}
-                  </label>
-                );
-              })}
-            </div>
+            {MODULE_TOGGLE_GROUPS.map((toggleGroup) => {
+              const keys = toggleGroup.keys.filter((k) => moduleAllowedByConfig(specs, k));
+              if (keys.length === 0) return null;
+              return (
+                <div key={toggleGroup.key} className="grid gap-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {toggleGroup.title}
+                  </span>
+                  <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {keys.map((k) => {
+                      const parent = MODULE_PARENT[k];
+                      const parentOff = parent ? !present(parent) : false;
+                      const fromConfig = CONFIG_DRIVEN_MODULE_KEYS.includes(k);
+                      // Kapatılamayan bölüm de LİSTEDE DURUR (işaretli ve
+                      // kilitli): olmayan bir kutu "bu bölüm nerede" sorusunu
+                      // doğuruyordu, kilitli kutu ise cevabı kendisi veriyor.
+                      const locked = !OPTIONAL_MODULE_KEYS.includes(k);
+                      return (
+                        <label
+                          key={k}
+                          className={cn(
+                            // Satır ~20px'ti; onay kutusu etiketiyle birlikte tek
+                            // dokunma hedefidir, parmakla tutulabilmesi gerekir.
+                            "inline-flex cursor-pointer items-center gap-2 py-1.5 text-sm pointer-coarse:min-h-10",
+                            (parentOff || locked) && "cursor-not-allowed opacity-45"
+                          )}
+                          title={
+                            locked
+                              ? "Bu bölüm kapatılamaz: diğer bölümler girdilerini buradan alır"
+                              : parentOff
+                                ? `Önce ${moduleLabelFor(parent!, specs)} bölümünü açın`
+                                : fromConfig
+                                  ? "Vinç konfigürasyonundan geldi"
+                                  : undefined
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={present(k)}
+                            disabled={readOnly || parentOff || locked}
+                            onChange={(e) => toggleModule(k, e.target.checked)}
+                            className="size-4 accent-primary"
+                          />
+                          {moduleLabelFor(k, specs)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         </CardContent>
       </Card>

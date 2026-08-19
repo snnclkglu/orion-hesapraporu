@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_CRANE_TYPE } from "@/lib/crane-types";
+import {
+  DEFAULT_CRANE_TYPE,
+  TROLLEY_ONLY_DISABLED_MODULES,
+  isTrolleyOnlyCraneType,
+} from "@/lib/crane-types";
 import { adBuyuk } from "@/lib/tr-text";
 import { ENGINE_VERSION } from "@/lib/calc/engine";
 import {
@@ -46,6 +50,39 @@ async function copyEquipmentNotes(
   );
   if (rows.length === 0) return;
   await supabase.from("equipment_notes").insert(rows);
+}
+
+/**
+ * Kaynak revizyonun TEKNİK RESSAM NOTUNU yeni revizyona taşır.
+ *
+ * Satır notlarıyla aynı gerekçe: not revizyon snapshot'ında değil ayrı bir
+ * tablodadır (`equipment_drawing_notes`), yani revizyon kopyalanırken
+ * kendiliğinden gelmez. Kopyalanmasaydı V1'e geçen mühendis ressama yazdığı
+ * uyarıyı yeniden yazmak zorunda kalırdı — ya da yazmayı unuturdu.
+ *
+ * Hata YUTULUR: not taşınması revizyon açmayı bozmamalıdır.
+ */
+async function copyDrawingNotes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fromRevisionId: string | null | undefined,
+  toRevisionId: string,
+  actorId: string
+): Promise<void> {
+  if (!fromRevisionId) return;
+  const { data } = await supabase
+    .from("equipment_drawing_notes")
+    .select("note_key, note")
+    .eq("revision_id", fromRevisionId);
+  const rows = ((data ?? []) as { note_key: string; note: string }[])
+    .filter((r) => (r?.note ?? "").trim() !== "")
+    .map((r) => ({
+      revision_id: toRevisionId,
+      note_key: (r.note_key ?? "genel").trim() || "genel",
+      note: r.note.trim(),
+      updated_by: actorId,
+    }));
+  if (rows.length === 0) return;
+  await supabase.from("equipment_drawing_notes").insert(rows);
 }
 
 /**
@@ -399,6 +436,7 @@ export async function duplicateProject(
     // Ekipman listesine yazılmış "Ek Özellikler" notları ve "Ek Belge"
     // PDF'leri de kopyaya taşınır
     await copyEquipmentNotes(supabase, last.id, revision.id, user.id);
+    await copyDrawingNotes(supabase, last.id, revision.id, user.id);
     await copyEquipmentAttachments(supabase, last.id, revision.id, user.id);
   }
 
@@ -626,12 +664,54 @@ export async function setProjectArchived(
   return {};
 }
 
+/**
+ * Vinç tipinin İLK revizyona yazdığı TOHUM — bir öneri, bir kural değil.
+ *
+ * "Vinç Arabası" tipiyle açılan rapor, mevcut bir vincin yalnız arabasının
+ * yenilendiği iştir: köprü yürütme, teker yükleri, ana kirişler, buruşma ve
+ * başkiriş bölümleri o belgede yoktur. Mühendisi her yeni raporda altı
+ * kutucuğu tek tek kapatmaya bırakmak, unutulduğunda müşteriye olmayan bir
+ * köprünün hesabını göndermek demekti.
+ *
+ * **VİNÇ TİPİ MOTORA GİRMEZ** (HESAP-8b). Kural ihlal edilmiyor çünkü tip
+ * BİR KEZ, V0 doğarken okunur; ürettiği şey revizyonun kendi
+ * `inputs.disabledModules` verisidir ve kararın sahibi o andan sonra
+ * revizyondur. `runCalc`, `activeModules` ve `loadRevision` `crane_type`ı hiç
+ * görmez; mühendis kutucukları ilk ekranda geri açabilir ve tip sonradan
+ * değişse bile mevcut revizyonlar etkilenmez.
+ *
+ * Şablondan kopyalanan snapshot EZİLMEZ, yalnız kapalı bölüm listesi
+ * BİRLEŞTİRİLİR: şablonun kendi kararı (ör. buruşma kapalı) korunur.
+ */
+function craneTypePresetInputs(
+  revNo: number,
+  craneType: string | null | undefined,
+  inherited: Record<string, unknown>
+): Record<string, unknown> {
+  if (revNo !== 0 || !isTrolleyOnlyCraneType(craneType)) return inherited;
+  const previous = Array.isArray(inherited.disabledModules)
+    ? (inherited.disabledModules as unknown[]).filter((k): k is string => typeof k === "string")
+    : [];
+  return {
+    ...inherited,
+    disabledModules: [...new Set([...previous, ...TROLLEY_ONLY_DISABLED_MODULES])],
+  };
+}
+
 export async function createRevision(projectId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
+
+  // Vinç tipi YALNIZ BURADA okunur (bkz. `craneTypePresetInputs`): ilk
+  // revizyonun kapalı bölüm listesine bir ÖNERİ yazmak için.
+  const { data: proje } = await supabase
+    .from("projects")
+    .select("crane_type")
+    .eq("id", projectId)
+    .maybeSingle();
 
   // Son revizyonu bul: yeni rev_no + snapshot kopyası.
   // Projenin ilk revizyonu ise şablon revizyondan (is_template) kopyalanır —
@@ -667,7 +747,11 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
       project_id: projectId,
       rev_no: revNo,
       label: `V${revNo}`,
-      inputs: last?.inputs ?? {},
+      inputs: craneTypePresetInputs(
+        revNo,
+        proje?.crane_type,
+        (last?.inputs ?? {}) as Record<string, unknown>
+      ),
       selections: last?.selections ?? {},
       results: last?.results ?? {},
       engine_version: last?.engine_version || ENGINE_VERSION,
@@ -681,6 +765,7 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
   // Snapshot gibi ekipman notları ve ekleri de devralınır — şablondan gelen
   // ilk revizyonda şablonunkiler, sonrakilerde bir önceki revizyonunkiler.
   await copyEquipmentNotes(supabase, last?.id, revision.id, user.id);
+  await copyDrawingNotes(supabase, last?.id, revision.id, user.id);
   await copyEquipmentAttachments(supabase, last?.id, revision.id, user.id);
 
   await supabase.from("audit_log").insert({

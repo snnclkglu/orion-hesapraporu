@@ -31,7 +31,7 @@ import {
   type ModuleKey,
   type TravelKey,
 } from "@/lib/calc/presentation/module-family";
-import { camberProfile } from "@/lib/calc/camber";
+import { camberProfile, type CamberProfile } from "@/lib/calc/camber";
 import {
   cellularCurvesAtImpactSpeed,
   HYDRAULIC_DAMPING_EFFICIENCY,
@@ -328,27 +328,10 @@ export function diagramForSection(
     // fonksiyondan (camberProfile) üretilir, ikinci bir yöntem yazılmaz.
     if (isGirderKey(moduleKey) && rawSectionId === "7.7") {
       const gk = moduleKey as GirderWhich;
-      const st = input[gk];
-      const c = result[gk]?.cells;
-      const v = result[gk]?.values as GirderValues | undefined;
-      if (!st || !c || !v) return null;
-      const spanCm = numOf(c["deflection.span"]);
-      const inertia = numOf(c["section.inertiaY"]);
-      const wheelLoad = numOf(c["deflection.wheelLoad"]);
-      if (!(spanCm > 0) || !(inertia > 0)) return null;
-      const profile = camberProfile(
-        {
-          spanCm,
-          deadLoadPerCm: v.camberDeadLoadKgPerM / 100,
-          wheelLoadKg: wheelLoad,
-          wheelSpacingCm: st.inputs.trolleyAxleSpacingM * 100,
-          elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
-          inertiaCm4: inertia,
-        },
-        st.inputs.diaphragmSpacingMm
-      );
+      const profile = girderCamberProfile(gk, input, result);
+      if (!profile) return null;
       return camberStripDiagram({
-        spanMm: spanCm * 10,
+        spanMm: profile.spanMm,
         stations: profile.stations,
         spacingMm: profile.spacingUsedMm,
         thinned: profile.thinned,
@@ -728,4 +711,42 @@ export function diagramsForSection(
   }
   const one = diagramForSection(moduleKey, rawSectionId, input, result);
   return one ? [one] : [];
+}
+
+/**
+ * Bir ana kiriş takımının KAMBER PROFİLİ — kotların TEK üretim yeri.
+ *
+ * Hem 7.7 atölye şeridi hem teknik ressam özetindeki kot çizelgesi buradan
+ * okur. İkinci bir yerde `camberProfile` çağırmak, aynı kirişin iki farklı
+ * kot listesiyle çizilmesi demekti; kâğıda giden iki sayıdan hangisinin
+ * doğru olduğu atölyede anlaşılmaz.
+ *
+ * `spanMm` profile eklenir: çağıranın açıklığı ayrıca hesaplaması gerekmesin
+ * (hücre cm taşır, çizim ve çizelge mm ister).
+ */
+export function girderCamberProfile(
+  which: GirderWhich,
+  input: CalcInput,
+  result: CalcResult
+): (CamberProfile & { spanMm: number }) | null {
+  const st = input[which];
+  const c = result[which]?.cells;
+  const v = result[which]?.values as GirderValues | undefined;
+  if (!st || !c || !v) return null;
+  const spanCm = numOf(c["deflection.span"]);
+  const inertia = numOf(c["section.inertiaY"]);
+  const wheelLoad = numOf(c["deflection.wheelLoad"]);
+  if (!(spanCm > 0) || !(inertia > 0)) return null;
+  const profile = camberProfile(
+    {
+      spanCm,
+      deadLoadPerCm: v.camberDeadLoadKgPerM / 100,
+      wheelLoadKg: wheelLoad,
+      wheelSpacingCm: st.inputs.trolleyAxleSpacingM * 100,
+      elasticModulus: GIRDER_ELASTIC_MODULUS_KG_CM2,
+      inertiaCm4: inertia,
+    },
+    st.inputs.diaphragmSpacingMm
+  );
+  return { ...profile, spanMm: spanCm * 10 };
 }

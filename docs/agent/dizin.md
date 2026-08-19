@@ -207,6 +207,12 @@
   sütuna sığıyor mu, uydurma küçük sayılarla bu görülmezdi)
 - `src/lib/diagrams/` — parametrik teknik resimler (saf veri modeli; web + PDF ortak)
 - `src/lib/pdf/`, `src/lib/excel/` — rapor, ekipman listesi ve iş takibi çıktıları
+- `src/lib/pdf/diagram.tsx` — `Diagram` modelinin react-pdf çevirisi ve
+  `PdfDiagram` kabı. TEK ÇEVİRİCİ: hesap raporu, ekipman listesi ve kesim planı
+  aynı dosyayı kullanır (ikinci kopya `circle`/`bold`/çizgi ucunu düşürüyordu)
+- `src/lib/equipment-drawing-note.ts` — teknik ressam özetinin "Notlar"
+  bölümünün okuma katmanı (`equipment_drawing_notes`); panel ve indirme ucu
+  aynı fonksiyondan okur
 - `catalog-sheets/` — üretici katalog sayfalarının kesilmiş görüntüleri
   (üretilir; `public/` altında değildir, `/api/catalog-sheet/` ucundan sunulur)
 - `src/lib/calc/__tests__/` — mühendislik doğrulama + bağlantı koruma testleri

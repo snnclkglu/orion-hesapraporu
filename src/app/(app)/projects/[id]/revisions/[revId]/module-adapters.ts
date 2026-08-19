@@ -10,6 +10,7 @@
 // buruşma, 9.x başkiriş) DEĞİŞMEZ — kontrol bağlantıları ve alternatif
 // anahtarları onlara dayanır.
 
+import type { SpecGroupKey } from "@/lib/calc/fields";
 import {
   CABIN_AUTO_FIELDS,
   GIRDER_AUTO_FIELDS,
@@ -104,7 +105,6 @@ import {
 } from "@/lib/calc/modules/mainGirder";
 import { computeBuckling } from "@/lib/calc/modules/buckling";
 import { computeEndCarriage, type EndCarriageDeps } from "@/lib/calc/modules/endCarriage";
-import { cabinModuleApplies } from "@/lib/calc/modules/cabin";
 import { CABIN_SECTIONS, type CabinCtx } from "@/lib/calc/presentation/cabinSections";
 import {
   CABIN_INPUT_FIELDS,
@@ -117,8 +117,9 @@ import {
 } from "@/lib/calc/modules/wheelLoads";
 import type { FieldGroupKey } from "@/lib/calc/field-groups";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
-import { hasSecondGirder, hasSeparateAuxTrolley, monorailCount } from "@/lib/calc/types";
+import { hasSecondGirder, hasSeparateAuxTrolley } from "@/lib/calc/types";
 import {
+  DISABLEABLE_MODULE_KEYS,
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
   isHoistKey,
@@ -176,6 +177,15 @@ export interface AnyFieldDef {
    * Bayrak yoksa hiçbir şey değişmez.
    */
   diameter?: boolean;
+  // --- Yalnız TEKNİK ÖZELLİK alanlarında dolu olan bağlar (SPEC_FIELDS).
+  // PDF raporu teknik özellik tablosunu bu gevşetilmiş tip üzerinden basar ve
+  // alanın hangi hesap bölümüne ait olduğunu bilmek zorundadır.
+  /** Alanın ait olduğu teknik özellik grubu */
+  group?: SpecGroupKey;
+  /** Alan yalnız bu bölüm açıkken görünür */
+  requiresModule?: ModuleKey;
+  /** Alan, listedeki bölümlerden en az biri açıkken görünür */
+  requiresAnyModule?: readonly ModuleKey[];
 }
 
 export interface AdapterRow {
@@ -867,34 +877,19 @@ export function hiddenSectionCheckIds(
 // dizilir. rawId, checkPrefix ve hücre referansları DEĞİŞMEZ.
 
 /**
- * Vince göre eklenip çıkarılabilen bölümler.
+ * Vince göre eklenip çıkarılabilen bölümler — TANIM ARTIK ÇEKİRDEKTEDİR.
  *
- * Ana kaldırma, ana araba ve köprü yürütme kapatılamaz: diğer bölümler hesap
- * girdilerini bunlardan alır.
+ * Liste `presentation/module-family.ts`te `MODULE_ORDER` eksi
+ * `REQUIRED_MODULE_KEYS` olarak TÜRETİLİR; buradaki ad yalnız eski
+ * çağıranların bağını korur. Elle yazılmış bir kopya, ekranda kapanan bir
+ * bölümün kayıtta geri açılmasına yol açıyordu (teker yükleri, kabin ve
+ * ikinci ana kiriş bölümlerinde tam olarak bu oluyordu).
  */
-export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = [
-  "hookBlock",
-  "aux",
-  "auxHookBlock",
-  "auxTrolley",
-  "mono1",
-  "mono1HookBlock",
-  "mono1Trolley",
-  "mono2",
-  "mono2HookBlock",
-  "mono2Trolley",
-  "wheelLoads",
-  "girder",
-  "girder2",
-  "buckling",
-  "endCarriage",
-  "cabin",
-];
+export const OPTIONAL_MODULE_KEYS: readonly ModuleKey[] = DISABLEABLE_MODULE_KEYS;
 
 /**
  * Vinç konfigürasyonundan (teknik özellikler) türeyen bölümler: kullanıcı
  * bunları tek tek açıp kapatmaz, konfigürasyon alanını değiştirir.
- * Anahtar → o bölümün görünür olması için gereken koşul.
  */
 export const CONFIG_DRIVEN_MODULE_KEYS: readonly ModuleKey[] = [
   "auxTrolley",
@@ -908,51 +903,73 @@ export const CONFIG_DRIVEN_MODULE_KEYS: readonly ModuleKey[] = [
   "mono2Trolley",
 ];
 
-/**
- * Bölüm, vincin konfigürasyonuna göre hiç var olabilir mi?
- * (Kullanıcının aç/kapa tercihinden bağımsız yapısal uygunluk.)
- */
-export function moduleAllowedByConfig(specs: TechnicalSpecs, key: ModuleKey): boolean {
-  const monos = monorailCount(specs);
-  switch (key) {
-    case "auxTrolley":
-      return hasSeparateAuxTrolley(specs);
-    case "mono1":
-    case "mono1HookBlock":
-    case "mono1Trolley":
-      return monos >= 1;
-    case "mono2":
-    case "mono2HookBlock":
-    case "mono2Trolley":
-      return monos >= 2;
-    // İkinci ana kiriş takımı yalnız DÖRT KİRİŞLİ köprüde vardır.
-    case "girder2":
-      return hasSecondGirder(specs);
-    // Kabin bölümü ancak vinçte operatör kabini ya da bir elektrik yerleşimi
-    // (oda / pano) varsa listede görünür — ikisi de yoksa boş bir bölüm olurdu.
-    case "cabin":
-      return cabinModuleApplies(specs);
-    default:
-      return true;
-  }
-}
+// Yapısal uygunluk (`moduleAllowedByConfig`) ve üst bölüm bağı
+// (`MODULE_PARENT`) da çekirdektedir: motorun `activeModules` süzgeci ile
+// editörün çizdiği liste AYNI yüklemden okumalıdır.
+export { moduleAllowedByConfig } from "@/lib/calc/engine";
+export { MODULE_PARENT } from "@/lib/calc/presentation/module-family";
 
 /**
- * Bölüm bir üst bölüme bağlıysa onun anahtarı. Üst bölüm kapalıysa alt bölüm de
- * hesaba girmez (yardımcı kaldırma kapalıyken yardımcı kanca bloğu olamaz).
+ * "Hesap Bölümleri" ızgarasının ÖBEKLERİ.
+ *
+ * Liste on dokuz satıra çıktı ve tek bir sütun yığını olarak okunamıyordu:
+ * mühendis "ana kirişi kapat" derken gözüyle kaldırma gruplarının arasında
+ * arıyordu. Öbekler vincin kendi anatomisidir — kaldırma zinciri, yürüyen
+ * takımlar, taşıyıcı yapı, mahaller — ve sıra `MODULE_ORDER`ın kendisinden
+ * DEĞİL bu anatomiden gelir. Kapsam bir korumaya bağlıdır
+ * (`module-toggle-groups.test.ts`): her bölüm tam bir öbekte geçer.
  */
-export const MODULE_PARENT: Partial<Record<ModuleKey, ModuleKey>> = {
-  // İkinci kiriş takımı birincisiyle birlikte var olur: ikisi aynı köprünün
-  // iki takımıdır, birincisi kapalıyken ikincisi anlamsızdır.
-  girder2: "girder",
-  hookBlock: "main",
-  auxHookBlock: "aux",
-  auxTrolley: "aux",
-  mono1HookBlock: "mono1",
-  mono1Trolley: "mono1",
-  mono2HookBlock: "mono2",
-  mono2Trolley: "mono2",
-};
+export interface ModuleToggleGroup {
+  key: string;
+  title: string;
+  keys: readonly ModuleKey[];
+}
+
+export const MODULE_TOGGLE_GROUPS: readonly ModuleToggleGroup[] = [
+  {
+    key: "hoist",
+    title: "Kaldırma ve Kanca Blokları",
+    keys: [
+      "main", "hookBlock",
+      "aux", "auxHookBlock",
+      "mono1", "mono1HookBlock",
+      "mono2", "mono2HookBlock",
+    ],
+  },
+  {
+    key: "travel",
+    title: "Yürütme",
+    keys: ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"],
+  },
+  {
+    key: "structure",
+    title: "Taşıyıcı Yapı ve Yükler",
+    keys: ["wheelLoads", "girder", "girder2", "buckling", "endCarriage"],
+  },
+  {
+    key: "rooms",
+    title: "Mahaller",
+    keys: ["cabin"],
+  },
+];
+
+/**
+ * KÖPRÜ TARAFI — "yalnız vinç arabası" işinde tek dokunuşla kapanan bölümler.
+ *
+ * Araba yenileme işinde köprü diye bir hesap yoktur: yürütmesi, teker yükleri,
+ * ana kirişleri, buruşması ve başkirişi rapordan düşer. Kısayol bu ALTIYLA
+ * sınırlıdır ve kaldırma gruplarına DOKUNMAZ — arabanın üstünde kaç kaldırma
+ * grubu olduğu ayrı bir karardır ve onu kısayolun ezmesi, mühendisin dakikalar
+ * önce yaptığı seçimi sessizce geri almak olurdu.
+ */
+export const BRIDGE_SIDE_MODULE_KEYS: readonly ModuleKey[] = [
+  "bridge",
+  "wheelLoads",
+  "girder",
+  "girder2",
+  "buckling",
+  "endCarriage",
+];
 
 /** Bölüm aç/kapa kontrollerinde görünen kısa etiketler. */
 export const MODULE_LABELS: Record<ModuleKey, string> = {

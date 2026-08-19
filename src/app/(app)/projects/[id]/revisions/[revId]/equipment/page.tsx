@@ -13,6 +13,7 @@ import {
   type RevisionInputsJson, type RevisionSelectionsJson,
 } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
+import { loadDrawingNote } from "@/lib/equipment-drawing-note";
 import {
   buildCatalogSheetUrls, buildEquipmentGroups, buildSummarySections, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
@@ -87,10 +88,15 @@ export default async function EquipmentPage({
     loadDrawingPlan(supabase, id),
     resolveProjectItemNo(supabase, id, project.doc_no),
   ]);
-  const summary = buildSummarySections(calcInput, calcResult, {
-    itemNo,
-    rows: drawingPlan,
-  });
+  // Ressam notu ekranda da özetin altındadır ve İNDİRİLEN belgeyle AYNI
+  // okuma katmanından gelir (`loadDrawingNote`).
+  const drawingNote = await loadDrawingNote(supabase, revId);
+  const summary = buildSummarySections(
+    calcInput,
+    calcResult,
+    { itemNo, rows: drawingPlan },
+    drawingNote
+  );
 
   let extras: EquipmentExtraRow[] = [];
   const { data: extrasRow } = await supabase
@@ -165,6 +171,7 @@ export default async function EquipmentPage({
           fileName: a.fileName,
           pageCount: a.pageCount,
         }))}
+        initialDrawingNote={drawingNote}
         datasheetUrls={datasheetUrls}
         sheetUrls={sheetUrls}
         locked={revision.status === "issued"}

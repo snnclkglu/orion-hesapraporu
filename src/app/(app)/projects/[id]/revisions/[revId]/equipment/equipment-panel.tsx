@@ -30,7 +30,9 @@ import { dsKey } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { createClient } from "@/lib/supabase/client";
 import { kimlikBuyuk } from "@/lib/tr-text";
-import { saveEquipmentExtras, saveEquipmentNote } from "./actions";
+import { saveDrawingNote, saveEquipmentExtras, saveEquipmentNote } from "./actions";
+import { Textarea } from "@/components/ui/textarea";
+import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import {
   deleteEquipmentAttachment,
   registerEquipmentAttachment,
@@ -160,12 +162,18 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 export function EquipmentPanel({
   projectId, revisionId, autoGroups, summary, initialExtras, initialAttachments,
-  datasheetUrls, sheetUrls, locked,
+  initialDrawingNote, datasheetUrls, sheetUrls, locked,
 }: {
   projectId: string;
   revisionId: string;
   autoGroups: EqGroup[];
   summary: SummarySection[];
+  /**
+   * Ressam notu — özetin en altındaki serbest metin. İSTEĞE BAĞLIDIR: dev
+   * önizleme sayfası bu prop'u vermez ve vermemesi gerekir (orada kayıt yolu
+   * yoktur).
+   */
+  initialDrawingNote?: string;
   initialExtras: EquipmentExtraRow[];
   /** Satırlara yüklenmiş PDF ekleri (equipment_attachments) */
   initialAttachments: PanelAttachment[];
@@ -180,6 +188,13 @@ export function EquipmentPanel({
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [scope, setScope] = useState<Scope>("customer");
   const [pending, startTransition] = useTransition();
+  /**
+   * Ressam notu. Özet listesi SUNUCUDAN gelir ve "Notlar" bölümünü zaten
+   * içerir; buradaki durum yalnız DÜZENLEME kutusunundur. İkisi aynı kaynağı
+   * gösterir, kayıt sonrası sayfa tazelenir (revalidatePath).
+   */
+  const [drawingNote, setDrawingNote] = useState(initialDrawingNote ?? "");
+  const [noteState, setNoteState] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
 
   const dlBase = `/projects/${projectId}/revisions/${revisionId}/equipment/download`;
   const dl = (format: "xlsx" | "pdf", detailed = false) =>
@@ -203,6 +218,35 @@ export function EquipmentPanel({
     },
     [projectId, revisionId]
   );
+
+  /**
+   * Ressam notu kaydı — satır notlarıyla AYNI mekanik: 700 ms gecikmeli
+   * otomatik kayıt + odak kaybında ikinci güvence. Panelde "Kaydet" düğmesi
+   * yalnız ek satırlar içindir; not için ikinci bir düğme, iki farklı kayıt
+   * ritmi demek olurdu.
+   */
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedNote = useRef(initialDrawingNote ?? "");
+  const flushNote = useCallback(
+    async (value: string) => {
+      if (value === savedNote.current) return;
+      savedNote.current = value;
+      const result = await saveDrawingNote(projectId, revisionId, value);
+      if (result?.error) {
+        toast.error(result.error);
+        setNoteState("temiz");
+        return;
+      }
+      setNoteState("kaydedildi");
+    },
+    [projectId, revisionId]
+  );
+  function onNoteChange(value: string) {
+    setDrawingNote(value);
+    setNoteState("bekliyor");
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    noteTimer.current = setTimeout(() => void flushNote(value), 700);
+  }
 
   function save() {
     startTransition(async () => {
@@ -440,7 +484,11 @@ export function EquipmentPanel({
             düğmedir ve hangisinin ne getirdiği yazılıdır. */}
         <a
           href={dl("pdf")}
-          title="Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
+          title={
+            scope === "full"
+              ? "Teknik özellikler yaprağı + ekipman listesi + teknik ressam özeti (şemalar ve notlarla)"
+              : "Ekipman listesi; ekipman adı katalog sayfasına bağlanır"
+          }
           className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
         >
           <FileDown className="size-3.5 text-red-600" />
@@ -448,12 +496,26 @@ export function EquipmentPanel({
         </a>
         <a
           href={dl("pdf", true)}
-          title="Ekipman listesi + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri; ad tıklanınca ilgili sayfaya gider"
+          title={
+            scope === "full"
+              ? "Standart paketin tamamı + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri"
+              : "Ekipman listesi + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri; ad tıklanınca ilgili sayfaya gider"
+          }
           className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-sm shadow-xs hover:bg-muted pointer-coarse:h-10"
         >
           <BookOpen className="size-3.5 text-red-600" />
           Detaylı Ekipman Listesi
         </a>
+        {/* KAPSAM İKİ PDF DÜĞMESİNİN DE ÜSTÜNDEDİR: "+ Teknik Özet" seçiliyken
+            standart ve detaylı listenin ikisi de aynı ressam paketini taşır
+            (teknik özellikler yaprağı + şemalı özet + notlar); `detay`
+            yalnız katalog sayfası eklerini değiştirir. */}
+        {scope === "full" && (
+          <span className="w-full text-[11px] text-muted-foreground">
+            Teknik özet açıkken PDF ressam paketidir: ilk yaprakta teknik
+            özellikler, sonunda şemalı ölçü özeti ve notlar.
+          </span>
+        )}
         {/* `ml-auto` dar ekranda sayaç sardığında tek başına bir satır
             kaplıyordu; sağa itme yalnız sm üstünde. */}
         <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:text-right">
@@ -631,35 +693,88 @@ export function EquipmentPanel({
 
         {/* ---- Teknik Ressam Özeti ---- */}
         <TabsContent value="summary" className="mt-3">
-          <div className="overflow-hidden rounded-lg border">
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Ölçü / Özellik</TableHead>
-                  <TableHead className="w-[20%] text-right">Değer</TableHead>
-                  <TableHead className="w-[14%] text-center">Birim</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summary.map((sec) => (
-                  <Fragment key={`s-${sec.name}`}>
-                    <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableCell colSpan={3} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-                        {sec.name}
-                      </TableCell>
-                    </TableRow>
-                    {sec.rows.map((r, i) => (
-                      <TableRow key={`${sec.name}-${i}`}>
-                        <TableCell className="whitespace-normal">{r.label}</TableCell>
-                        <TableCell className="text-right tabular-nums">{String(r.value)}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{r.unit ?? ""}</TableCell>
-                      </TableRow>
-                    ))}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
+          {/* ŞEMALAR ÇİZELGENİN İÇİNDE, BÖLÜM BAŞLIĞININ ALTINDA durur:
+              ressamın baktığı ilk şey resmin kendisidir, sayılar onu okur.
+              Çizim hesap raporundakiyle AYNI üreticiden gelir (`lib/diagrams`),
+              yani ekrandaki ile kâğıttaki resim ayrışamaz. */}
+          <div className="grid gap-4">
+            {summary.map((sec) => (
+              <div key={`s-${sec.name}`} className="overflow-hidden rounded-lg border">
+                <div className="border-b bg-primary/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                  {sec.name}
+                </div>
+                {sec.kind === "notes" ? (
+                  <p className="border-l-2 border-primary/70 bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap">
+                    {sec.text}
+                  </p>
+                ) : (
+                  <>
+                    {sec.diagram && (
+                      <div className="overflow-x-auto border-b bg-card p-2">
+                        <DiagramSvg diagram={sec.diagram} />
+                      </div>
+                    )}
+                    {sec.rows.length > 0 && (
+                      <Table className="table-fixed">
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Ölçü / Özellik</TableHead>
+                            <TableHead className="w-[20%] text-right">Değer</TableHead>
+                            <TableHead className="w-[14%] text-center">Birim</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sec.rows.map((r, i) => (
+                            <TableRow key={`${sec.name}-${i}`}>
+                              <TableCell className="whitespace-normal">
+                                {r.label}
+                                {r.note && (
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    {r.note}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">{String(r.value)}</TableCell>
+                              <TableCell className="text-center text-muted-foreground">{r.unit ?? ""}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
+
+          {/* NOTLAR — mühendisin ressama yazdığı serbest metin. Kayıt satır
+              notlarıyla aynı ritmi taşır (700 ms + odak kaybı); panelde ayrı
+              bir "Kaydet" düğmesi YOKTUR, o yalnız ek satırlarındır. */}
+          <div className="mt-4 grid gap-1.5 rounded-lg border border-dashed bg-muted/20 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="oc-kicker text-foreground/80">Ressama Notlar</span>
+              <span className="text-[11px] text-muted-foreground">
+                {noteState === "bekliyor"
+                  ? "kaydediliyor…"
+                  : noteState === "kaydedildi"
+                    ? "kaydedildi"
+                    : ""}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Çizim yapılırken bilinmesi gereken, hiçbir ölçünün yanına sığmayan
+              şeyler. Özetin en altına kendi bölümüyle basılır; müşteri
+              listesine girmez.
+            </p>
+            <Textarea
+              rows={4}
+              value={drawingNote}
+              onChange={(e) => onNoteChange(e.target.value)}
+              onBlur={() => void flushNote(drawingNote)}
+              className="text-base pointer-fine:text-sm"
+            />
+          </div>
+
           <p className="mt-2 text-xs text-muted-foreground">
             Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
           </p>

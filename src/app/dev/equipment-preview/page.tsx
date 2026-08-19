@@ -13,6 +13,15 @@ import {
 } from "@/lib/excel/equipment";
 import { EquipmentPanel } from "@/app/(app)/projects/[id]/revisions/[revId]/equipment/equipment-panel";
 
+/**
+ * Ressam notu fikstürü — ÇOK SATIRLI olmalı: tek satırlık bir örnek "Notlar"
+ * bölümünün satır sonlarını koruduğunu göstermez.
+ */
+const DRAWING_NOTE_FIXTURE = [
+  "Kabin merdiveni sol tarafta olacak.",
+  "Ray kaynağı montajda yapılacak.",
+].join("\n");
+
 export default function EquipmentPreviewPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
@@ -40,7 +49,10 @@ export default function EquipmentPreviewPage() {
       { id: "d", code: "2300", name: "YARDIMCI ARABA KOMPLESİ", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
       { id: "e", code: "3000", name: "MEKANİK KEPÇE", status: "bekliyor", drawnBy: null, drawnByName: "", note: "" },
     ],
-  });
+  },
+  // Ressam notu fikstürü: çok satırlı olmalı — tek satırlık bir örnek
+  // "Notlar" bölümünün satır sonlarını koruduğunu göstermez.
+  DRAWING_NOTE_FIXTURE);
   const sheetUrls = Object.fromEntries(buildCatalogSheetUrls(groups));
 
   return (

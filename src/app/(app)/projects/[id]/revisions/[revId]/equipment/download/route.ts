@@ -20,7 +20,7 @@ import {
 import { runCalc } from "@/lib/calc/engine";
 import {
   buildCatalogSheetUrls, buildEquipmentWorkbook, buildEquipmentGroups, buildSummarySections,
-  mergeExtras, dsKey,
+  mergeExtras, absentModuleGroupNames, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
 } from "@/lib/excel/equipment";
 import { loadDrawingPlan, resolveProjectItemNo } from "@/lib/drawing-plan-data";
@@ -33,8 +33,10 @@ import {
 import { collectCatalogSheetPages } from "@/lib/pdf/catalog-sheet-images";
 import { docCode, downloadFileName } from "@/lib/pdf/doc-naming";
 import { renderEquipmentPdf } from "@/lib/pdf/equipment-report";
+import { summarySpecsForReport } from "@/lib/pdf/report";
 import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
+import { loadDrawingNote } from "@/lib/equipment-drawing-note";
 
 export const runtime = "nodejs";
 
@@ -162,16 +164,22 @@ export async function GET(
           itemNo: await resolveProjectItemNo(supabase, id, project.doc_no),
           rows: await loadDrawingPlan(supabase, id),
         };
+  // Ressam notu da yalnız teknik özet istendiğinde okunur (özet basılmıyorsa
+  // notun gideceği bir yer yok).
+  const drawingNote = scope === "customer" ? undefined : await loadDrawingNote(supabase, revId);
 
   if (format === "pdf") {
     const groups = mergeExtras(
       buildEquipmentGroups(calcInput, notes, alts, attachments, hiddenSections),
-      extras
+      extras,
+      // Kapalı bölümün adını taşıyan elle eklenmiş satır o bölümün başlığını
+      // diriltmesin — satır "Ek Ekipman" altında durur.
+      absentModuleGroupNames(calcInput)
     );
     const summary =
       scope === "customer"
         ? undefined
-        : buildSummarySections(calcInput, calcResult, drawingPlan);
+        : buildSummarySections(calcInput, calcResult, drawingPlan, drawingNote);
     // Detaylı listede ekipman adı belge İÇİNDEKİ katalog sayfasına bağlanır,
     // standart listede uygulamadaki görüntüleyiciye — ikisi aynı anda gerekmez.
     const sheetPages = detailed ? await collectCatalogSheetPages(groups) : undefined;
@@ -184,8 +192,16 @@ export async function GET(
     const orderedAttachments = detailed
       ? orderAttachmentsForAppendix(groups, attachmentRows)
       : [];
+    // TEKNİK ÖZELLİKLER YAPRAĞI teknik özetle BİRLİKTE gelir: ikisi de
+    // ressamın/mühendisin belgesine aittir, müşteri listesinde ikisi de yoktur.
+    // `detay` bayrağı bunu ETKİLEMEZ — standart ve detaylı listenin farkı
+    // yalnız katalog sayfası ekleridir (kullanıcı isteği, 19.08.2026).
+    const specTable =
+      scope === "customer"
+        ? undefined
+        : { ...summarySpecsForReport(calcInput), specs: calcInput.specs };
     const basePdf = await renderEquipmentPdf({
-      meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages,
+      meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, sheetPages,
       attachmentCovers: orderedAttachments.map((a) => ({
         rowKey: a.rowKey,
         component: a.component,
@@ -225,8 +241,8 @@ export async function GET(
     ext = "pdf";
   } else {
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
-      datasheetUrls, scope, extras, notes, alts, appOrigin, drawingPlan, attachments,
-      hiddenSections,
+      datasheetUrls, scope, extras, notes, alts, appOrigin, drawingPlan, drawingNote,
+      attachments, hiddenSections,
     });
     body = new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

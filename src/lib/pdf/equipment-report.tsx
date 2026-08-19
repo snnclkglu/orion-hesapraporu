@@ -26,6 +26,12 @@ import {
 import { docCode } from "@/lib/pdf/doc-naming";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
 import { toDisplayUnitLabel } from "@/lib/units";
+import { PdfDiagram } from "@/lib/pdf/diagram";
+// TEKNİK ÖZELLİKLER TABLOSU HESAP RAPORUNUNKİYLE AYNI BİLEŞENDİR: ikinci bir
+// tablo yazmak, iki belgenin bir gün farklı alan basmasıyla biterdi.
+import { FieldTable } from "@/lib/pdf/report";
+import type { AnyFieldDef } from "@/app/(app)/projects/[id]/revisions/[revId]/module-adapters";
+import type { TechnicalSpecs } from "@/lib/calc/types";
 
 const s = StyleSheet.create({
   // meta ızgarası (Proje / Müşteri / Revizyon / Tarih)
@@ -79,9 +85,44 @@ const s = StyleSheet.create({
     backgroundColor: BRAND.paper150, fontFamily: FONTS.sans, fontSize: 8, fontWeight: 700,
     color: BRAND.ink, paddingVertical: 3, paddingHorizontal: 5,
   },
-  sLabel: { width: "62%" },
-  sVal: { width: "24%", textAlign: "right" as const },
-  sUnit: { width: "14%", textAlign: "right" as const, color: BRAND.gray600 },
+  sLabel: { flex: 1 },
+  sVal: {
+    fontFamily: FONTS.mono, fontSize: 7.4, fontWeight: 500, letterSpacing: 0.2,
+    color: BRAND.ink, textAlign: "right" as const, flexShrink: 0,
+  },
+  sUnit: {
+    fontFamily: FONTS.mono, fontSize: 6.6, color: BRAND.gray500,
+    textAlign: "right" as const, width: 40, flexShrink: 0,
+  },
+  // Satırın ALTINA düşen açıklama — ölçü değil, ressamın bilmesi gereken şey.
+  sNote: {
+    fontFamily: FONTS.sans, fontSize: 6.2, color: BRAND.gray600,
+    paddingHorizontal: 5, paddingBottom: 2,
+  },
+  // İki sütunlu özet ızgarası (yatay A4).
+  sumBlock: { marginBottom: 8 },
+  sumGrid: { flexDirection: "row", gap: 14 },
+  sumCol: { flex: 1, flexShrink: 0 },
+  sumRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    borderBottomWidth: 0.5,
+    borderBottomColor: BRAND.hairline,
+    paddingVertical: 2,
+    // Satır ASLA sıkışmaz: yer kalmadığında react-pdf satırları ezip üst üste
+    // bindiriyor. Bölme kararı ızgaranın `wrap={false}`ında verilir.
+    flexShrink: 0,
+    gap: 4,
+  },
+  sLabelText: { fontFamily: FONTS.sans, fontSize: 7.4, color: BRAND.gray700 },
+  sValText: {},
+  // NOTLAR kutusu: kırmızı omurga, kağıt zemin (hesap raporundaki mühendis
+  // notu kutusuyla aynı dil).
+  noteBox: {
+    borderLeftWidth: 2, borderLeftColor: BRAND.red, backgroundColor: BRAND.paper100,
+    paddingVertical: 5, paddingHorizontal: 8, marginTop: 3,
+  },
+  noteLine: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink, lineHeight: 1.4 },
   // ek: katalog sayfaları
   sheetHead: { marginBottom: 6 },
   sheetTitle: { fontFamily: FONTS.sans, fontSize: 11, fontWeight: 700, color: BRAND.ink },
@@ -161,6 +202,20 @@ export interface EquipmentPdfProps {
   meta: EquipmentMetaPdf;
   groups: EqGroup[];
   summary?: SummarySection[];
+  /**
+   * Belgenin İLK yaprağına basılan TEKNİK ÖZELLİKLER tablosu.
+   *
+   * Hazır gelir (`summarySpecsForReport`) — PDF katmanı hesap girdisini
+   * yeniden süzmez; hesap raporunun özet sayfasıyla aynı alan listesini ve
+   * aynı bileşeni (`FieldTable`) kullanır. Verilmezse yaprak hiç basılmaz
+   * (müşteri kapsamındaki liste bugünkü hâlinde kalır).
+   */
+  specTable?: {
+    defs: AnyFieldDef[];
+    source: Record<string, unknown>;
+    /** Teknik özelliklere göre çözülen etiketler için (kanca/tutucu tipi). */
+    specs?: TechnicalSpecs;
+  };
   settings?: ReportSettings;
   datasheetUrls?: Map<string, string>;
   /**
@@ -200,6 +255,36 @@ export interface EquipmentPdfProps {
  *   yatay : 595 − 45 − 37 − 14 − 55 ≈ 444
  */
 const SHEET_MAX_HEIGHT = { portrait: 690, landscape: 444 } as const;
+
+/**
+ * Özet şemalarının ölçü kelepçeleri (yatay A4 içerik kutusu ≈ 734 × 470 pt).
+ *
+ * Şema TAM GENİŞLİK bölümünde durur; yine de yüksekliği kelepçelenir, aksi
+ * hâlde kareye yakın bir çizim (`wrap={false}` kutusuyla birlikte) yaprağı
+ * taşırır ve bir sonrakine atlar.
+ */
+const SUM_DIAGRAM_MAX_W = 660;
+const SUM_DIAGRAM_MAX_H = 250;
+
+/**
+ * Bir bölünemez ızgaraya en çok kaç satır girer (iki sütun × 10).
+ *
+ * Yatay A4'ün iç yüksekliği ≈ 470 pt; 10 satırlık bir sütun ≈ 130 pt. Uzun
+ * çizelgeler (tambur, kamber kotları) bu öbeklerle yaprak sınırından devam
+ * eder — tek parça bir ızgara "sayfaya sığmıyor" uyarısı üretiyor ve ya
+ * taşıyor ya boş yaprak bırakıyordu.
+ */
+const SUM_ROWS_PER_BLOCK = 20;
+
+/** Satır sonu ayracı — CRLF ve LF birlikte. */
+const NOTE_LINE_BREAK = /\r?\n/;
+
+function chunk<T>(list: readonly T[], size: number): T[][] {
+  if (list.length === 0) return [];
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
 
 /** Ek sayfa çapası — `Link src="#…"` ile `View id="…"` bu adı paylaşır. */
 function anchorId(key: string): string {
@@ -307,8 +392,23 @@ function AttachmentCell({
   );
 }
 
+/** Belge künyesi — ilk yaprakta ve teknik özellik yaprağında AYNI ızgara. */
+function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
+  return (
+    <View style={s.metaGrid}>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Doküman</Text><Text style={s.metaMono}>{meta.docNo}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Hazırlayan</Text><Text style={s.metaVal}>{meta.preparedBy || "—"}</Text></View>
+      <View style={s.metaItem}><Text style={s.metaLabel}>Kontrol</Text><Text style={s.metaVal}>{meta.checkedBy || "—"}</Text></View>
+    </View>
+  );
+}
+
 export function EquipmentDocument({
-  meta, groups, summary, settings, datasheetUrls, sheetUrls, sheetPages, attachmentCovers,
+  meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, sheetPages,
+  attachmentCovers,
 }: EquipmentPdfProps) {
   const covers = attachmentCovers ?? [];
   const detailed = (!!sheetPages && sheetPages.length > 0) || covers.length > 0;
@@ -357,6 +457,32 @@ export function EquipmentDocument({
       subject={`${meta.customer} — ${meta.projectName}`}
       language="tr"
     >
+      {/*
+        TEKNİK ÖZELLİKLER İLK YAPRAKTADIR (kullanıcı isteği, 19.08.2026).
+        Ressamın eline giden belge "bu vinç nedir" ile başlar; ekipman dökümü
+        ve ölçü çizelgeleri ondan sonra gelir. Tablo hesap raporunun özet
+        sayfasındakiyle AYNI bileşendir (`FieldTable`) ve aynı süzgeçten
+        geçer — kapatılan bölümlerin alanları burada da basılmaz.
+
+        AYRI BİR `BrandPage`TİR, `break` DEĞİL: ekipman tablosunun başlığı
+        `fixed`tir ve aynı sayfa bileşeninin BÜTÜN yapraklarında tekrar eder;
+        teknik özellik yaprağının üstünde "Ekipman · Marka · Model" şeridi
+        çıkardı.
+      */}
+      {specTable && (
+        <BrandPage
+          docLine={`ORION CRANES · TEKNİK ÖZELLİKLER · REV ${rev} · ${year}`}
+          docCode={code}
+          orientation="landscape"
+          company={companyInfo(settings)}
+        >
+          <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
+          <PageHeader kicker="Teknik Özellikler" title={meta.projectName || "Ekipman Listesi"} />
+          <MetaGrid meta={meta} />
+          <FieldTable defs={specTable.defs} source={specTable.source} specs={specTable.specs} />
+        </BrandPage>
+      )}
+
       <BrandPage
         docLine={`ORION CRANES · EKİPMAN LİSTESİ · REV ${rev} · ${year}`}
         docCode={code}
@@ -364,8 +490,11 @@ export function EquipmentDocument({
         company={companyInfo(settings)}
       >
         {/* Marka bandı: lockup logo + doküman kimliği. Müşteriye teslim edilen
-            belgenin ilk sayfası markayı taşır (hesap raporu kapağıyla aynı). */}
-        <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
+            belgenin ilk sayfası markayı taşır (hesap raporu kapağıyla aynı).
+            Teknik özellik yaprağı varsa bant ORADADIR; iki kez basılmaz. */}
+        {!specTable && (
+          <BrandBand docCode={code} lines={[`REV ${rev} · ${meta.date}`]} logoWidth={150} />
+        )}
 
         {/* Başlık PageHeader içinde tr-TR ile büyütülür; kaynak Title Case yazılır.
             Kicker'da firma adı, sağda doküman kodu TEKRARLANMAZ — ikisi de marka
@@ -377,14 +506,7 @@ export function EquipmentDocument({
 
         {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
             başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
-        <View style={s.metaGrid}>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Müşteri</Text><Text style={s.metaVal}>{meta.customer}</Text></View>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Doküman</Text><Text style={s.metaMono}>{meta.docNo}</Text></View>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Revizyon</Text><Text style={s.metaMono}>V{meta.revNo}{meta.revLabel ? ` — ${meta.revLabel}` : ""}</Text></View>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Tarih</Text><Text style={s.metaMono}>{meta.date}</Text></View>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Hazırlayan</Text><Text style={s.metaVal}>{meta.preparedBy || "—"}</Text></View>
-          <View style={s.metaItem}><Text style={s.metaLabel}>Kontrol</Text><Text style={s.metaVal}>{meta.checkedBy || "—"}</Text></View>
-        </View>
+        <MetaGrid meta={meta} />
 
         {(detailed || (sheetUrls && sheetUrls.size > 0)) && (
           <Text style={s.hint}>
@@ -450,8 +572,22 @@ export function EquipmentDocument({
           );
         })}
 
-        {summary && summary.length > 0 && (
-          <View break>
+      </BrandPage>
+
+      {/*
+        TEKNİK RESSAM ÖZETİ KENDİ YAPRAĞINDADIR.
+        Eskiden ekipman sayfasının içinde `break` ile duruyordu; ekipman
+        tablosunun `fixed` başlığı özet yapraklarının da tepesinde tekrar
+        ediyordu. Ayrı bir sayfa bileşeni başlık kapsamını da ayırır.
+      */}
+      {summary && summary.length > 0 && (
+        <BrandPage
+          docLine={`ORION CRANES · TEKNİK RESSAM ÖZETİ · REV ${rev} · ${year}`}
+          docCode={code}
+          orientation="landscape"
+          company={companyInfo(settings)}
+        >
+          <View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 6 }}>
               <View>
                 <Text style={T.kicker}>TEKNİK RESSAM ÖZETİ</Text>
@@ -459,34 +595,77 @@ export function EquipmentDocument({
               </View>
               <Text style={T.micro}>İMALAT ÖZETİ</Text>
             </View>
-            <View style={s.tHead} fixed>
-              <Text style={[s.th, s.sLabel]}>{trUpper("Ölçü / Özellik")}</Text>
-              <Text style={[s.th, s.sVal]}>{trUpper("Değer")}</Text>
-              <Text style={[s.th, s.sUnit]}>{trUpper("Birim")}</Text>
-            </View>
-            {/* Ekipman tablosuyla aynı yapı, aynı gerekçe: başlık ilk satırıyla
-                birlikte taşınır, bölüm bir kutuya sarılmaz. */}
             {summary.map((sec) => {
-              const rows = sec.rows.map((r, i) => (
-                <View key={i} style={s.tr} wrap={false}>
-                  <Text style={[s.td, s.sLabel]}>{r.label}</Text>
-                  <Text style={[s.td, s.mono, s.sVal]}>{String(r.value)}</Text>
-                  <Text style={[s.td, s.mono, s.sUnit, { color: BRAND.gray600 }]}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
-                </View>
-              ));
+              // NOTLAR bir çizelge değildir: mühendisin cümleleri satır
+              // sonlarıyla korunur ve kırmızı omurgalı bir kutuda durur.
+              if (sec.kind === "notes") {
+                return (
+                  <View key={sec.name} style={s.sumBlock} wrap={false}>
+                    <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
+                    <View style={s.noteBox}>
+                      {(sec.text ?? "").split(NOTE_LINE_BREAK).map((line, i) => (
+                        <Text key={i} style={s.noteLine}>{line || " "}</Text>
+                      ))}
+                    </View>
+                  </View>
+                );
+              }
               return (
-                <React.Fragment key={sec.name}>
+                <View key={sec.name} style={s.sumBlock}>
+                  {/* Başlık ŞEMASIYLA BİRLİKTE taşınır: ikisi ayrı yapraklara
+                      düşerse okuyucu resmin hangi bölüme ait olduğunu
+                      bilemez. */}
                   <View wrap={false}>
                     <Text style={s.sumSection}>{trUpper(sec.name)}</Text>
-                    {rows[0]}
+                    {sec.diagram && (
+                      <PdfDiagram
+                        diagram={sec.diagram}
+                        maxWidth={SUM_DIAGRAM_MAX_W}
+                        maxHeight={SUM_DIAGRAM_MAX_H}
+                      />
+                    )}
                   </View>
-                  {rows.slice(1)}
-                </React.Fragment>
+                  {/*
+                    ÇİZELGE YATAYDA İKİYE BÖLÜNÜR (kullanıcı isteği,
+                    19.08.2026). Sayfa zaten yatay; tek sütunda etiket ile
+                    değer kâğıdın iki ucuna düşüyor ve aradaki boşluk satırı
+                    okunmaz yapıyordu.
+
+                    Izgara `wrap={false}`: satır yönlü bir kap sayfaya
+                    BÖLÜNEMEZ — react-pdf bölünmeye zorlanınca içerideki
+                    satırları ezip üst üste bindirir. Bu yüzden satırlar
+                    ÖNCEDEN öbeklenir (`SUM_ROWS_PER_BLOCK`): her ızgara
+                    yarım yapraktan kısa kalır ve uzun bir çizelge (tambur,
+                    kamber kotları) yaprak sınırında kendi öbeğinden devam
+                    eder.
+                  */}
+                  {chunk(sec.rows, SUM_ROWS_PER_BLOCK).map((part, bi) => {
+                    const mid = Math.ceil(part.length / 2);
+                    return (
+                      <View key={bi} style={s.sumGrid} wrap={false}>
+                        {[part.slice(0, mid), part.slice(mid)].map((col, ci) => (
+                          <View key={ci} style={s.sumCol}>
+                            {col.map((r, i) => (
+                              <View key={i} style={s.sumRow}>
+                                <View style={s.sLabel}>
+                                  <Text style={s.sLabelText}>{r.label}</Text>
+                                  {r.note && <Text style={s.sNote}>{r.note}</Text>}
+                                </View>
+                                <Text style={s.sVal}>{String(r.value)}</Text>
+                                <Text style={s.sUnit}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
               );
             })}
           </View>
-        )}
-      </BrandPage>
+        </BrandPage>
+      )}
 
       {/*
         EK — KATALOG SAYFALARI (yalnız detaylı liste).

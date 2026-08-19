@@ -93,6 +93,11 @@ maddesi bu yüzden kapsamın kendisini de doğrular.
 
 ## HESAP-11 — Teker yükleri yol kirişinin girdisidir.
 
+Bölümün ÜSTÜ köprü yürütmedir (`MODULE_PARENT.wheelLoads = "bridge"`):
+girdilerinin neredeyse tamamı oradan gelir ve köprü kapalıyken hiç
+hesaplanmaz — açık bırakılsaydı rapora sonucu olmayan bir bölüm basılırdı
+(bkz. HESAP-8f).
+
 `wheelLoads.ts` bir mekanizma
 değil TESLİM edilen kuvvet setini üretir: düşey teker yükleri, FEM
 Kitapçık 9 md. 9.3 dinamik katsayısı φ2, md. 9.4.1 savrulma kuvvetleri ve
@@ -372,9 +377,89 @@ alanlardadır. Yeni bir anahtar eklemek için `ModuleKey`, `FAMILY`,
 `ADAPTER_FACTORY` yeterlidir — switch zinciri çoğaltılmaz.
 
 Hangi bölümün hesaba gireceğini `engine.ts`teki `activeModules(specs,
-disabled)` belirler: kullanıcının kapattıkları + vinç konfigürasyonunun izin
-verdikleri + üst bölümü açık olanlar. Ana kaldırma, ana araba ve köprü
-kapatılamaz.
+disabled)` belirler ve ÜÇ KAPIYI TEK DÖNGÜDE uygular: kullanıcının
+kapattıkları + vinç konfigürasyonunun izin verdikleri (`moduleAllowedByConfig`,
+artık o da çekirdektedir) + ÜST bölümü açık olanlar (`MODULE_PARENT`). Zincir
+`MODULE_ORDER` sırasında çözülür — üst bölüm alt bölümden önce gelir, tek geçiş
+yeter. Eskiden elle yazılmış bir if merdiveniydi ve yeni bir bağ eklemek
+merdivenin ortasına dokunmayı gerektiriyordu.
+
+**KAPATILAMAYAN İKİ BÖLÜM VARDIR: ana kaldırma ve ana araba**
+(`REQUIRED_MODULE_KEYS`). Köprü yürütme bir süre üçüncüsüydü; kural
+19.08.2026'da kaldırıldı (bkz. HESAP-8f). Kapatılabilenlerin listesi
+`MODULE_ORDER` eksi bu ikisi olarak TÜRETİLİR (`DISABLEABLE_MODULE_KEYS`) ve
+ÜÇ KAPI DA ONU OKUR: editördeki kutucuk ızgarası (`OPTIONAL_MODULE_KEYS`),
+kayda giden liste ve kayıttan geri okuyan süzgeç (`DISABLEABLE_MODULES`,
+revision-load). Üç ayrı elle yazılmış liste vardı ve AYRIŞMIŞTI — "Teker
+Yükleri" kutucuğu ekranda kapanıyor, kayda yazılıyor, sayfa yenilenince
+tanınmadığı için sessizce geri açılıyordu (aynı boşluk `girder2` ve `cabin`
+için de vardı).
+
+**ÜST BÖLÜM BAĞININ ÖLÇÜTÜ TEKTİR: bu bölümün hesabı üst bölüm olmadan
+koşabiliyor mu?** Koşamıyorsa bağ `MODULE_PARENT`a yazılır, aksi hâlde bölüm
+bağımsızdır. Ana kiriş ve teker yükleri KÖPRÜNÜN SONUCUNU okur
+(`girderDepsFor` köprü teker adedi/hızı/ivmelenmesi olmadan `undefined` döner,
+teker yükleri hiç hesaplanmaz), o yüzden ikisinin de üstü köprüdür. Başkiriş
+ve buruşma BİLEREK bağsızdır: başkiriş yalnız ana kaldırma yükünü ve köprü
+ağırlığını okur, buruşma ana kiriş kapalıyken elle girilen panel ölçüleriyle
+koşar — çalışan bir hesabı kullanıcının elinden almak için sebep yok.
+
+**"GİRDİSİ VAR AMA SONUCU YOK" BİR TUZAKTIR ve testle kapalıdır**
+(`__tests__/trolley-only.test.ts` son maddesi bütün tekil kapatma
+kombinasyonlarını tarar). PDF raporu bölüm numaralarını "bu bölüm basılıyor
+mu" yüklemine göre dizer (`modulePrintedIn`, report.tsx): girdisi olup sonucu
+olmayan bir bölüm numarayı HARCAR, içindekilerde satır açar ama sayfası
+basılmaz — müşteri belgede atlanmış numara ve hiçbir yere gitmeyen bir dizin
+satırı görür. Yüklem ayrıca BASILACAK EN AZ BİR ALT BÖLÜM ister; bütün alt
+bölümleri gizlenmiş bir modül başlığı basılıp altı boş kalan bir sayfa
+üretiyordu.
+
+## HESAP-8f — VİNÇ ARABASI RAPORU: köprüsüz iş.
+
+(Kullanıcı kararı, 19.08.2026: *"Bazen yeni vinç istemiyor müşteri sadece eski
+vincin arabası değişiyor."*) Vinç tipi listesine `"Vinç Arabası"` eklendi
+(`lib/crane-types.ts`). O raporda köprü yürütme, teker yükleri, ana kirişler,
+buruşma ve başkiriş bölümleri YOKTUR; kapatılan bölüm hesaba, PDF raporuna ve
+ekipman listesine girmez, girdileri korunur.
+
+**TİP MOTORA GİRMEZ — TEK İSTİSNA BİR KERELİK TOHUMDUR.** HESAP-8b'nin kuralı
+yerinde: `runCalc`, `activeModules` ve `loadRevision` `crane_type`ı hiç
+görmez. `createRevision` tipi YALNIZ V0 doğarken okur ve `inputs
+.disabledModules` listesine `TROLLEY_ONLY_DISABLED_MODULES`u ÖNERİ olarak
+yazar (`craneTypePresetInputs`); karar o andan sonra revizyonun kendi
+verisidir, mühendis ilk ekranda geri açabilir ve tip sonradan değişse bile
+mevcut revizyonlar etkilenmez. Şablondan kopyalanan snapshot EZİLMEZ, kapalı
+liste BİRLEŞTİRİLİR.
+
+**TOHUMLANMIŞ REVİZYON "BOŞ" DEĞİLDİR.** `disabledSet` bir revizyonun henüz
+kaydedilip kaydedilmediğini artık `Object.keys(inputs).length` ile değil, bir
+MODÜL ALANININ varlığıyla ölçer. Eski ölçütle `{ disabledModules: [...] }`
+taşıyan tohum, "alan yok → bölüm kapalı" eski-kayıt kuralını tetikler ve
+kapatmak istemediği bölümleri de kapatırdı. O eski-kayıt kuralının kapsamı
+(`ABSENCE_MEANS_DISABLED`) ayrıca DONDURULMUŞTUR: yeni kapatılabilir anahtarlar
+oraya EKLENMEZ, yoksa o alanı taşımayan her eski revizyonda bölüm sessizce
+kapanır ve yayınlanmış bir raporun bölüm numaraları kayardı.
+
+**Editördeki "Hesap Bölümleri" ızgarası öbeklidir** (`MODULE_TOGGLE_GROUPS`):
+kaldırma zinciri · yürütme · taşıyıcı yapı · mahaller. Kapatılamayan bölüm de
+listede DURUR (işaretli ve kilitli) — olmayan bir kutu "bu bölüm nerede"
+sorusunu doğuruyordu. Kısayol `BRIDGE_SIDE_MODULE_KEYS` ile köprü tarafının
+altısını birlikte açar/kapatır ve kaldırma gruplarına DOKUNMAZ.
+
+**Teknik özellik alanı da bölüme bağlanabilir ve bağ TEK YÜKLEMDEN okunur**
+(`specFieldVisibleForModules`, fields.ts): alanın kendi `requiresModule`u,
+ait olduğu GRUBUN bağı (Köprü Yürütme grubu → `bridge`) ve bir girdiyi
+PAYLAŞAN bölümler (`requiresAnyModule`). Editör ve PDF ayrı yazıldıkları
+sürece kapatılan köprünün alanları ekrandan düşüyor ama rapora basılmaya
+devam ediyordu.
+
+**Sızıntılar aritmetikten de kapatıldı:** özet sayfasındaki toplam ağırlık
+BASILAN satırlardan türer ve köprü ağırlığı basılmıyorsa satırın adı da
+"Vinç Toplam Ağırlığı" değil "Toplam Ağırlık"tır — aksi hâlde müşteri
+"araba + kanca ≠ toplam" farkından basılmayan bir kalem olduğunu çıkarırdı.
+Ekipman listesinde boş grup bandı hiç basılmaz ve elle eklenmiş bir satır
+kapalı bölümün başlığını DİRİLTMEZ (satır "Ek Ekipman" altında durur;
+`absentModuleGroupNames`).
 
 ## HESAP-12 — Buruşma ana kirişin bir kontrolüdür, bağımsız bir modül değil.
 
@@ -410,7 +495,8 @@ panellerde kontrolü sessizce düşürür.
 kaldırmayı, Ana Kiriş - 2 YARDIMCI kaldırmayı taşır** (kullanıcı kararı,
 15.08.2026 — şarj / döküm vinci). VİNÇ TİPİ (`projects.crane_type`) bu
 kararı VERMEZ: tip bir künye alanıdır ve motora hiç girmez; bütün topoloji
-kararları teknik özelliklerdedir.
+kararları teknik özelliklerdedir. (Tek istisna "Vinç Arabası" tipinin İLK
+revizyona yazdığı bir kerelik tohumdur — kural değil öneri, bkz. HESAP-8f.)
 
 Hangi kirişin neyi taşıdığı MODÜLÜN İÇİNDE DEĞİL bağlayıcıda kurulur
 (`engine.girderDepsFor`): `computeMainGirder` artık `specs.mainCapacityT` /
@@ -550,6 +636,14 @@ emniyet sınırını istenmeden gevşetmek bu dosyanın en pahalı hatası olurd
 Ana araba, yardımcı araba ve köprü
 ağırlıkları `TechnicalSpecs`te tutulur; yürütme, ana kiriş ve başkiriş
 hesapları oradan okur. Modül girdisi olarak ağırlık sorulmaz.
+
+**KÖPRÜ AĞIRLIĞINI BEŞ BÖLÜM OKUR** (`BRIDGE_WEIGHT_READER_KEYS`: köprü
+yürütme · teker yükleri · ana kiriş 1–2 · başkiriş) ve kutu ancak BEŞİ DE
+kapalıyken gizlenir (`requiresAnyModule`). Yalnız köprü yürütmeye
+bağlansaydı, köprüsü kapatılıp başkirişi açık bırakılmış bir raporda hesaba
+GİREN bir sayı ekrandan kaybolurdu. Aynı küme ekipman listesindeki teknik
+ressam özetinin "Köprü ağırlığı" satırına da karar verir — iki yerde iki liste
+yazılsaydı biri kutuyu gizlerken öteki satırı basmaya devam ederdi.
 
 ## HESAP-10 — Otomatik girdiler.
 

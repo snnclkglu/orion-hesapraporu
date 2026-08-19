@@ -13,7 +13,12 @@
 
 import { NEW_WORK_TEMPLATE, NEW_WORK_DISABLED_MODULES } from "@/lib/calc/defaults";
 import { activeModules, type CalcInput } from "@/lib/calc/engine";
-import { MODULE_ORDER, isHoistKey, type ModuleKey } from "@/lib/calc/presentation/module-family";
+import {
+  DISABLEABLE_MODULE_KEYS,
+  MODULE_ORDER,
+  isHoistKey,
+  type ModuleKey,
+} from "@/lib/calc/presentation/module-family";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
@@ -195,8 +200,31 @@ export function splitAltKey(key: string): { moduleKey: string; sectionRawId: str
   return { moduleKey: key.slice(0, dash), sectionRawId: key.slice(dash + 1) };
 }
 
-/** Kapatılabilen bölümler — ana kaldırma/ana araba/köprü diğerlerini besler. */
-export const DISABLEABLE_MODULES = [
+/**
+ * Kapatılabilen bölümler — TANIM ÇEKİRDEKTEDİR (`DISABLEABLE_MODULE_KEYS`).
+ *
+ * Burada elle yazılmış ikinci bir liste vardı ve editörünkiyle (
+ * `OPTIONAL_MODULE_KEYS`) AYRIŞMIŞTI: "Teker Yükleri" kutucuğu ekranda
+ * kapanıyor, `disabledModules` listesine yazılıyor, ama sayfa yenilenince
+ * aşağıdaki süzgeç anahtarı tanımadığı için sessizce düşürüyor ve bölüm
+ * kendiliğinden geri açılıyordu (aynı boşluk `girder2` ve `cabin` için de
+ * vardı). Artık üç kapı da tek listeden okur.
+ */
+export const DISABLEABLE_MODULES: readonly ModuleKey[] = DISABLEABLE_MODULE_KEYS;
+
+/**
+ * "Alanı hiç yok / null → bölüm KAPALI" kuralının geçerli olduğu bölümler.
+ *
+ * Bu liste `DISABLEABLE_MODULES`tan AYRIDIR ve DONDURULMUŞTUR. Kural eski
+ * kayıtlar içindir: yeni bir bölüm eklendiğinde, o bölüm daha yokken
+ * kaydedilmiş revizyonlarda alan hiç bulunmaz ve bölüm şablon değerleriyle
+ * kendiliğinden AÇILIR — teslim edilmiş bir rapora sonradan bölüm eklemek
+ * demektir bu. Listeye YENİ bir anahtar eklemek ise tersini yapar: o bölümü
+ * taşımayan her eski revizyonda bölüm sessizce KAPANIR, yani geçmişteki bir
+ * raporun içeriği değişir. Bugünün kayıtları zaten bütün alanları yazıyor
+ * (`saveRevision`/`moduleJson`), o yüzden listenin büyümesine gerek yok.
+ */
+const ABSENCE_MEANS_DISABLED = [
   "hookBlock",
   "aux",
   "auxHookBlock",
@@ -254,30 +282,38 @@ export interface LoadedRevision {
  *      bölüm daha var olmadan kaydedilmiştir → kapalı sayılır. Bu kural
  *      olmadan eski revizyonlarda yardımcı kanca bloğu, yardımcı araba ve
  *      monoraylar kendiliğinden AÇILIR ve şablon değerleriyle rapora girer.
+ *      Kapsamı `ABSENCE_MEANS_DISABLED`tir ve DONDURULMUŞTUR.
  *   3. Eski kayıt kuralı: alan var ama değeri `null`.
  *
- * Hiç kayıt yoksa (yeni revizyon) yeni iş şablonunun kapalı listesi geçerlidir.
+ * **HENÜZ KAYDEDİLMEMİŞ revizyonda 2. ve 3. kural çalışmaz.** Ölçüt
+ * `disabledModules` anahtarının varlığı DEĞİL, snapshot'ta bir MODÜL ALANININ
+ * bulunup bulunmadığıdır: yeni revizyon `{}` ile de doğabilir, vinç tipinin
+ * tohumladığı `{ disabledModules: [...] }` ile de (`craneTypePresetInputs`).
+ * Ölçüt "nesne boş mu" olsaydı tohumlanmış revizyonda hiçbir modül alanı
+ * bulunamaz ve BÜTÜN bölümler kapalı sayılırdı — tohum, kapatmayı istemediği
+ * bölümleri de kapatırdı.
  */
 function disabledSet(inputs: RevisionInputsJson | null): Set<ModuleKey> {
   const out = new Set<ModuleKey>();
-  const allowed = DISABLEABLE_MODULES as readonly ModuleKey[];
+  const allowed = new Set<string>(DISABLEABLE_MODULES);
+  const stored = (inputs ?? {}) as unknown as Record<string, unknown>;
 
-  if (!inputs || Object.keys(inputs).length === 0) {
+  const list = inputs?.disabledModules;
+  if (Array.isArray(list)) {
+    for (const k of list) {
+      if (allowed.has(k)) out.add(k as ModuleKey);
+    }
+  }
+
+  const kaydedilmis = MODULE_ORDER.some((k) => CALC_FIELD[k] in stored);
+  if (!kaydedilmis) {
     for (const k of NEW_WORK_DISABLED_MODULES) {
-      if ((allowed as readonly string[]).includes(k)) out.add(k as ModuleKey);
+      if (allowed.has(k)) out.add(k as ModuleKey);
     }
     return out;
   }
 
-  const list = inputs.disabledModules;
-  if (Array.isArray(list)) {
-    for (const k of list) {
-      if ((allowed as readonly string[]).includes(k)) out.add(k as ModuleKey);
-    }
-  }
-
-  const stored = inputs as unknown as Record<string, unknown>;
-  for (const k of allowed) {
+  for (const k of ABSENCE_MEANS_DISABLED) {
     const field = CALC_FIELD[k];
     // Alan hiç yok → bölüm o revizyon kaydedilirken mevcut değildi.
     // Alan var ama null → kullanıcı kapatmıştı (eski kayıt kuralı).

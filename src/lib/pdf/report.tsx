@@ -8,21 +8,15 @@
 import path from "node:path";
 import React from "react";
 import {
-  Circle,
   Document,
   Font,
-  Line,
-  Path,
-  Polygon,
-  Rect,
   StyleSheet,
-  Svg,
   Text,
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
 import { diagramsForSection } from "@/lib/diagrams/select";
+import { PdfDiagram } from "@/lib/pdf/diagram";
 import {
   BRAND,
   BrandBand,
@@ -40,7 +34,12 @@ import { PdfMath } from "@/lib/pdf/pdf-math";
 import { toDisplayUnit, toDisplayUnitLabel } from "@/lib/units";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/settings";
-import { SPEC_FIELDS, fieldLabel } from "@/lib/calc/fields";
+import {
+  SPEC_FIELDS,
+  fieldLabel,
+  specFieldVisibleForModules,
+  type SpecFieldModuleScope,
+} from "@/lib/calc/fields";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
 import { MODULE_LABELS } from "@/lib/calc/labels";
 import {
@@ -244,6 +243,53 @@ function isSectionHidden(
 /** Props'tan gizli bölüm kümesi — bütün sayfa üreticileri aynı kümeyi okur. */
 function hiddenSetOf(props: Pick<ReportProps, "hiddenSections">): Set<string> {
   return new Set(props.hiddenSections ?? []);
+}
+
+/**
+ * Bir alt bölüm bu rapora giriyor mu — TEK YÜKLEM.
+ *
+ * Hem modül sayfasının süzgeci hem alt bölüm numaralarının dayanağı hem de
+ * modülün BASILIP BASILMAYACAĞI (`modulePrintedIn`) buradan okur.
+ */
+function sectionPrintedFor(
+  adapter: ModuleAdapter,
+  specs: TechnicalSpecs,
+  hidden: ReadonlySet<string>
+): (section: AdapterSection) => boolean {
+  return (section) =>
+    (!section.visible || section.visible(specs)) &&
+    // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri korunur,
+    // kutucuk geri açılınca bölüm aynen döner.
+    !isSectionHidden(hidden, adapter.key, section.rawId);
+}
+
+/**
+ * Modül bu belgede BASILIYOR mu — numaranın, içindekilerin ve sayfa
+ * üretiminin ORTAK yüklemi.
+ *
+ * Üç koşul da gerçektir ve üçü de tek yerde durmalıdır:
+ *   1. Girdisi var mı (kapatılan bölüm `calcInput`ten silinir).
+ *   2. SONUCU var mı. Girdisi olup sonucu olmayan bölümler gerçektir: köprü
+ *      yürütme kapalıyken ana kirişin bağımlılıkları kurulamaz
+ *      (`girderDepsFor` `undefined` döner) ve teker yükleri hiç hesaplanmaz.
+ *      Yüklem yalnız girdiye baksaydı — eskiden öyleydi — o bölüm NUMARAYI
+ *      HARCAR, içindekilerde bir satır açar, ama sayfası basılmazdı: müşteri
+ *      belgede atlanmış bir numara ve hiçbir yere gitmeyen bir dizin satırı
+ *      görürdü.
+ *   3. Basılacak EN AZ BİR alt bölümü var mı. Bütün alt bölümleri gizlenmiş
+ *      bir modül, başlığı basılıp altı boş kalan bir sayfa üretiyordu.
+ */
+function modulePrintedIn(
+  props: Pick<ReportProps, "input" | "result" | "hiddenSections">
+): (key: ModuleKey) => boolean {
+  const hidden = hiddenSetOf(props);
+  return (key) => {
+    if (moduleState(props.input, key) === undefined) return false;
+    if (moduleResult(props.result, key) === undefined) return false;
+    const adapter = MODULE_ADAPTERS.find((a) => a.key === key);
+    if (!adapter) return false;
+    return adapter.sections.some(sectionPrintedFor(adapter, props.input.specs, hidden));
+  };
 }
 
 /**
@@ -611,9 +657,14 @@ function isAbsentSummarySpec(f: AnyFieldDef, specs: TechnicalSpecs): boolean {
 
 /** Özet PDF'deki teknik özellik alanlarının görünürlük ve sıralama kuralları. */
 export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
+  // Bölüm bağı EDİTÖRLE ORTAK yüklemden okunur (`specFieldVisibleForModules`):
+  // alanın kendi `requiresModule`u, ait olduğu GRUBUN bağı ve bir girdiyi
+  // paylaşan bölümler (`requiresAnyModule`, ör. Köprü Ağırlığı) hep orada
+  // çözülür. Ayrı yazıldıkları sürece kapatılan köprünün alanları ekrandan
+  // düşüyor ama rapora basılmaya devam ediyordu.
+  const present = (k: ModuleKey) => moduleState(input, k) !== undefined;
   const fields = (SPEC_FIELDS as AnyFieldDef[]).filter((f) => {
-    const req = (f as { requiresModule?: ModuleKey }).requiresModule;
-    const visibleForModule = !req || moduleState(input, req) !== undefined;
+    const visibleForModule = specFieldVisibleForModules(f as SpecFieldModuleScope, present);
     const visibleInReport =
       f.key !== "trolleyBufferImpactSpeedPct" &&
       f.key !== "bridgeBufferImpactSpeedPct";
@@ -631,18 +682,30 @@ export function specFieldsFor(input: CalcInput): AnyFieldDef[] {
 
 /**
  * Özet teknik tabloya yalnız raporda görünen toplam ağırlık satırlarını ekler.
- * Vinç toplamı, bu tabloda ayrı ayrı görünen köprü + ana araba + ana
- * kanca/kepçe gövdesinin toplamıdır; kapasite (kaldırılan yük) dahil edilmez.
+ * Toplam, bu tabloda AYRI AYRI GÖRÜNEN ağırlık satırlarının toplamıdır;
+ * kapasite (kaldırılan yük) dahil edilmez.
+ *
+ * TOPLAM BASILAN SATIRLARDAN TÜRETİLİR, teknik özelliklerin tamamından değil
+ * (kullanıcı kararı, 19.08.2026 — yalnız araba raporu). Köprü ağırlığı
+ * tablodan düştüğü hâlde toplama girseydi, müşteri "ana araba + kanca ≠
+ * toplam" farkından basılmayan bir kalem olduğunu çıkarırdı; gizleme,
+ * aritmetikten sızarak kendini ele verirdi. Aynı sebeple satırın ADI da
+ * kapsamla birlikte değişir: köprüsüz bir belgede "Vinç Toplam Ağırlığı"
+ * olmayan bir vinci ölçer.
  */
 export function summarySpecsForReport(input: CalcInput): {
   defs: AnyFieldDef[];
   source: Record<string, unknown>;
 } {
   const source: Record<string, unknown> = { ...input.specs };
+  const defs = specFieldsFor(input);
+  const printed = (key: string) => defs.some((f) => f.key === key);
+
   const attachmentWeightT = Math.max(0, (input.mainHoist?.inputs.hookBlockWeightKg ?? 0) / 1000);
+  const bridgePrinted = printed("bridgeWeightT");
   const craneTotalWeightT =
     Math.max(0, input.specs.mainTrolleyWeightT ?? 0) +
-    Math.max(0, input.specs.bridgeWeightT ?? 0) +
+    (bridgePrinted ? Math.max(0, input.specs.bridgeWeightT ?? 0) : 0) +
     attachmentWeightT;
   source.summaryAttachmentWeightT = attachmentWeightT;
   source.summaryCraneTotalWeightT = craneTotalWeightT;
@@ -657,15 +720,21 @@ export function summarySpecsForReport(input: CalcInput): {
     },
     {
       key: "summaryCraneTotalWeightT",
-      label: "Vinç Toplam Ağırlığı",
+      label: bridgePrinted ? "Vinç Toplam Ağırlığı" : "Toplam Ağırlık",
       unit: "t",
       type: "number",
     },
   ];
 
-  const defs = specFieldsFor(input);
-  const bridgeWeightIndex = defs.findIndex((f) => f.key === "bridgeWeightT");
-  const afterWeights = bridgeWeightIndex >= 0 ? bridgeWeightIndex + 1 : defs.length;
+  // Yerleşim çapası: iki ek satır ağırlık öbeğinin SONUNA girer. Çapa bir tek
+  // alana bağlanamaz — köprü ağırlığı basılmıyorsa öbeğin son satırı ana araba
+  // (ya da monoray arabası) olur; tek çapaya güvenmek satırları tablonun en
+  // dibine, sınıflandırma alanlarının arkasına düşürüyordu.
+  const lastWeightIndex = defs.reduce(
+    (last, f, i) => (f.group === "weights" ? i : last),
+    -1
+  );
+  const afterWeights = lastWeightIndex >= 0 ? lastWeightIndex + 1 : defs.length;
   defs.splice(afterWeights, 0, ...extra);
   return { defs, source };
 }
@@ -683,8 +752,16 @@ function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): string {
   return f.diameter && val !== "—" ? `Ø${val}` : val;
 }
 
-/** Alan listesini iki sütuna bölerek etiket-değer tablosu basar */
-function FieldTable({
+/**
+ * Alan listesini iki sütuna bölerek etiket-değer tablosu basar.
+ *
+ * DIŞA AÇIKTIR çünkü EKİPMAN LİSTESİ PDF'i de ilk yaprağına AYNI teknik
+ * özellik tablosunu basar (kullanıcı isteği, 19.08.2026: ressamın eline giden
+ * belgenin ilk sayfası hesap raporundaki özet tablonun kendisi olsun). Aynı
+ * tabloyu ikinci kez yazmak, iki belgenin bir gün farklı alan basmasıyla
+ * biterdi; ressam hangisinin güncel olduğunu bilemezdi.
+ */
+export function FieldTable({
   defs,
   source,
   labelMono,
@@ -1376,7 +1453,11 @@ function travelSelectionItems(st: { selections: object } | undefined): SummaryGr
       )} Nm`,
     },
     {
+      // 5.7 = Teker – Redüktör Kaplini. Çapa YAZILMASAYDI bölüm gizlenmiş bir
+      // vinçte kaplin "ana seçim" olarak özette durmaya devam ederdi — rapor
+      // hesabı basılmayan bir ekipmanı satın alma satırı gibi gösterirdi.
       label: "Teker kaplini",
+      sectionRawId: "5.7",
       value: `${t("wheelCouplingBrand")} ${t("wheelCouplingModel")} · ${fmt(
         n("wheelCouplingTorqueNm")
       )} Nm`,
@@ -1622,104 +1703,11 @@ function ChecksSummarySection({
 }
 
 // ---------------------------------------------------------------- Diyagramlar
-
-// Saf Diagram modelini react-pdf Svg karşılığına çizer (web ile aynı üreticiler).
-function pdfDiagramEl(el: DiagramEl, i: number) {
-  switch (el.kind) {
-    case "line":
-      return (
-        <Line
-          key={i}
-          x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
-          stroke={el.stroke} strokeWidth={el.strokeWidth}
-          strokeDasharray={el.dash} strokeLinecap={el.cap}
-        />
-      );
-    case "rect":
-      return (
-        <Rect
-          key={i}
-          x={el.x} y={el.y} width={el.w} height={el.h} rx={el.rx}
-          fill={el.fill ?? "none"} stroke={el.stroke} strokeWidth={el.strokeWidth}
-        />
-      );
-    case "circle":
-      return (
-        <Circle
-          key={i}
-          cx={el.cx} cy={el.cy} r={el.r}
-          fill={el.fill ?? "none"} stroke={el.stroke}
-          strokeWidth={el.strokeWidth} strokeDasharray={el.dash}
-        />
-      );
-    case "path":
-      return (
-        <Path
-          key={i}
-          d={el.d}
-          fill={el.fill ?? "none"} stroke={el.stroke}
-          strokeWidth={el.strokeWidth} strokeDasharray={el.dash}
-          strokeLinecap={el.cap}
-        />
-      );
-    case "polygon":
-      return (
-        <Polygon
-          key={i}
-          points={el.points.map(([x, y]) => `${x},${y}`).join(" ")}
-          fill={el.fill ?? "none"} stroke={el.stroke} strokeWidth={el.strokeWidth}
-        />
-      );
-    case "text":
-      return (
-        <Text
-          key={i}
-          x={el.x} y={el.y}
-          fill={el.fill}
-          textAnchor={el.anchor}
-          style={{
-            // Diyagram metinleri DejaVu kalır: teknik semboller (Ø, ölçü okları,
-            // Yunan harfleri) mono/Archivo kapsamı dışında olabilir.
-            fontFamily: "DejaVu",
-            fontSize: el.size,
-            fontWeight: el.bold ? "bold" : undefined,
-          }}
-        >
-          {el.text}
-        </Text>
-      );
-  }
-}
-
-function PdfDiagram({ diagram }: { diagram: Diagram }) {
-  // Sayfa içerik genişliği ~490pt; diyagram 468pt'e ölçeklenir
-  const w = 468;
-  const h = (diagram.height / diagram.width) * w;
-  return (
-    <View
-      wrap={false}
-      style={{
-        marginTop: 5,
-        marginBottom: 5,
-        borderWidth: 0.75,
-        borderColor: BRAND.line300,
-        backgroundColor: BRAND.white,
-        paddingVertical: 5,
-        alignItems: "center",
-      }}
-    >
-      {/* viewBox köşesi diyagramdan gelir: içerik 0'ın soluna taşarsa
-          (uzun sol etiketler) kırpılmasın diye kutu o yöne büyütülmüştür. */}
-      <Svg
-        width={w}
-        height={h}
-        viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
-      >
-        {diagram.els.map(pdfDiagramEl)}
-      </Svg>
-    </View>
-  );
-}
+//
+// Çevirici (`DiagramEl` → react-pdf SVG) ve `PdfDiagram` ORTAK dosyadadır
+// (`pdf/diagram.tsx`): kesim planı belgesi de aynı modeli basar ve iki ayrı
+// çeviri, ikincisinde daire/kalın/uç ayarlarının sessizce kaybolmasıyla
+// sonuçlanmıştı.
 
 // ---------------------------------------------------------------- Modül bölümleri
 
@@ -2113,11 +2101,7 @@ function ModulePage({
    * İkisi tek yüklemden okur: numara basılan bölümlerin sırasıdır, ayrı
    * yazılsalardı gizlenen bölüm süzülür ama numarası harcanmaya devam ederdi.
    */
-  const sectionPrinted = (section: AdapterSection) =>
-    (!section.visible || section.visible(input.specs)) &&
-    // Kullanıcının gizlediği alt bölüm rapora hiç girmez; girdileri korunur,
-    // kutucuk geri açılınca bölüm aynen döner.
-    !isSectionHidden(hidden, adapter.key, section.rawId);
+  const sectionPrinted = sectionPrintedFor(adapter, input.specs, hidden);
   // Numaralar bölümlerden ÖNCE tek seferde çözülür: gizlenen ya da o vinçte
   // olmayan bölüm numarasını da götürür, sonrakiler bir öne kayar.
   const secNos = sectionDisplayNumbers(adapter.sections, moduleNo, sectionPrinted);
@@ -2306,7 +2290,9 @@ export function ReportDocument(
   const deps = buildModuleDeps(input, result);
   // Esnek modüller: revizyonda olmayan modül (yardımcı kaldırma / kanca bloğu
   // kapalı) rapora girmez; numaralar mevcut modüllere göre yeniden dizilir.
-  const present = (k: ModuleKey) => moduleState(input, k) !== undefined;
+  // Yüklem BASILAN bölümü tarif eder (`modulePrintedIn`), yalnız girdisi olanı
+  // değil — numara, içindekiler ve sayfa üretimi üçü birden ondan okur.
+  const present = modulePrintedIn(props);
   const numbers = moduleDisplayNumbers(present);
   return (
     <Document

@@ -78,3 +78,64 @@ türü/seviyesi:
 Büyük harf `tr-TR` ile yapılır (`toUpperCase()` "i"yi "I" yapar). Doküman kodu
 `docCode(kind, docNo, revNo)` ile üretilir ve PDF'in kendi künyesiyle AYNI
 fonksiyondan gelir — dosya adı ile belgenin içi ayrışamaz.
+
+### Teknik Ressam Özeti — ressamın belgesi
+
+Ekipman listesi PDF'i `scope = "full"` iken bir EKİPMAN DÖKÜMÜ değil bir
+ÇİZİM PAKETİdir (kullanıcı isteği, 19.08.2026). Üç yaprak grubu, bu sırayla:
+
+1. **Teknik Özellikler** — hesap raporunun özet sayfasındaki tablonun
+   KENDİSİ. Veri `summarySpecsForReport`, çizen bileşen `FieldTable`; ikisi de
+   `pdf/report.tsx`ten dışa açıktır. İkinci bir tablo yazılsaydı iki belge bir
+   gün farklı alan basardı ve ressam hangisinin güncel olduğunu bilemezdi.
+   Kapatılan bölümlerin alanları burada da düşer (`specFieldVisibleForModules`).
+2. **Ekipman Listesi** — bugünkü tablo, değişmedi.
+3. **Teknik Ressam Özeti** — ölçü çizelgeleri + şemalar + Notlar.
+
+**HER GRUP AYRI BİR `BrandPage`TİR, `break` DEĞİL.** Ekipman tablosunun başlığı
+`fixed`tir ve aynı sayfa bileşeninin BÜTÜN yapraklarında tekrar eder; özet
+`break` ile aynı bileşenin içindeyken "Ekipman · Marka · Model" şeridi ölçü
+çizelgelerinin de tepesinde çıkıyordu. Marka bandı belgede BİR KEZ, ilk
+yaprakta durur — teknik özellik yaprağı varsa bant oradadır.
+
+**ÖZET YATAY VE İKİ SÜTUNLUDUR.** Sayfa zaten yataydı; tek sütunda etiket ile
+değer kâğıdın iki ucuna düşüyor ve aradaki boşluk satırı okunmaz yapıyordu.
+Izgara `wrap={false}`tir (satır yönlü bir kap sayfaya bölünemez; react-pdf
+bölünmeye zorlanınca satırları ezip üst üste bindirir), bu yüzden satırlar
+ÖNCEDEN öbeklenir — `SUM_ROWS_PER_BLOCK` = 20 (iki sütun × 10 satır ≈ 130 pt).
+Uzun bir çizelge (tambur, kamber kotları) yaprak sınırında kendi öbeğinden
+devam eder. Excel'de aynı sayfa artık YATAY basılır; ekipman sayfası zaten
+öyleydi.
+
+**ŞEMA BÖLÜMÜN İÇİNDEDİR.** `SummarySection.diagram` hesap raporundaki AYNI
+üreticiden gelir (`diagramsForSection`) — ekrandaki, hesap raporundaki ve
+ressam özetindeki resim ayrışamaz; o fark yanlış kesilmiş bir sac demektir.
+Başlık şemasıyla birlikte taşınır (`wrap={false}`), yoksa resmin hangi bölüme
+ait olduğu anlaşılmaz. **Excel şema BASMAZ** (ExcelJS yalnız raster alır,
+diyagramlar vektördür ve hücre ızgarasına oturmaz); bölüm atlanmaz, yerine
+"Şema — yalnız PDF ve ekran" satırı basılır — sessiz bir boşluk "unutulmuş"
+okunurdu.
+
+**SATIRIN AÇIKLAMASI ETİKETİN ALTINDADIR** (`SummaryRow.note`), dördüncü bir
+sütun AÇILMAZ: Excel'de sütun sayısı bant genişliği, filtre aralığı, merge ve
+kenarlık döngüsü olmak üzere beş ayrı yere gömülüdür ve biri unutulursa
+sessizce bozulur. Excel'de açıklama etiket hücresine `—` ile eklenir.
+
+**NOTLAR EN SONDADIR** (`kind: "notes"`): mühendisin ressama yazdığı serbest
+metin, satır sonları korunarak. Kaynağı `equipment_drawing_notes` tablosudur —
+revizyon snapshot'ı DEĞİL, çünkü `saveRevision` `inputs`u bütün olarak eziyor
+ve yayınlanmış revizyonda `guard_issued_revision` her yazmayı reddediyor; not
+ise bir hesap değeri değil TESLİM katmanıdır (`equipment_notes` ile aynı
+gerekçe) ve yeni revizyona `copyDrawingNotes` ile taşınır.
+
+**STANDART VE DETAYLI LİSTE AYNI PAKETİ TAŞIR.** `detay=1` yalnız katalog
+sayfası eklerini ve belge içi bağlantı hedefini değiştirir; teknik özellik
+yaprağı, şemalar ve notlar `scope`a bağlıdır. Müşteri kapsamında (`scope
+= "customer"`) üçü de hiç basılmaz.
+
+**ÇEVİRİCİ TEKTİR: `pdf/diagram.tsx`.** `DiagramEl` → react-pdf SVG çevirisi
+bir süre iki yerde yazılıydı ve ikinci kopya sessizce eksikti (`circle` dalı
+yoktu — halat kesiti, makara ve grafik çalışma noktası kayboluyordu; `bold` ve
+çizgi ucu da yok sayılıyordu). `PdfDiagram` İKİ YÖNDEN kelepçelenir
+(`maxWidth` + `maxHeight`): yalnız genişlik verilirse kareye yakın bir çizim
+yaprağı taşırır ve `wrap={false}` kutusu bir sonrakine atlayıp orada da taşar.

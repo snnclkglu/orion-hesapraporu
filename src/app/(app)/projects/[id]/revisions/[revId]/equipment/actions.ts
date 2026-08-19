@@ -105,3 +105,60 @@ export async function saveEquipmentNote(
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
 }
+
+// ------------------------------------------- Teknik Ressam Özeti · Notlar
+
+/** Belge başına tek not; anahtar bugün yalnız "genel"dir (bkz. migration). */
+export const DRAWING_NOTE_KEY = "genel";
+
+const drawingNoteSchema = z.object({
+  // Ek Özellikler notundan (1000) CÖMERTTİR: burası bir hücre değil bir
+  // paragraf alanıdır ve ressama madde madde yazılır.
+  note: z.string().max(4000),
+});
+
+/**
+ * Teknik ressam özetinin "Notlar" bölümünü kaydeder
+ * (`equipment_drawing_notes`). Satır notlarıyla AYNI ilke: not bir hesap
+ * değeri değil teslim katmanıdır, yayınlanmış revizyonda da yazılabilir.
+ * Boş not satırı siler — tablo şişmez.
+ */
+export async function saveDrawingNote(
+  projectId: string,
+  revisionId: string,
+  note: string
+): Promise<SaveNoteResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const parsed = drawingNoteSchema.safeParse({ note });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const temiz = parsed.data.note.trim();
+  if (temiz === "") {
+    const { error } = await supabase
+      .from("equipment_drawing_notes")
+      .delete()
+      .eq("revision_id", revisionId)
+      .eq("note_key", DRAWING_NOTE_KEY);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.from("equipment_drawing_notes").upsert(
+      {
+        revision_id: revisionId,
+        note_key: DRAWING_NOTE_KEY,
+        note: temiz,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      },
+      { onConflict: "revision_id,note_key" }
+    );
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  return { ok: true };
+}

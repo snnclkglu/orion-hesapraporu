@@ -18,16 +18,12 @@ import {
   Document,
   Image,
   Page,
-  Path,
   StyleSheet,
-  Svg,
   Text,
   View,
-  Line as PdfLine,
-  Rect as PdfRect,
   pdf,
 } from "@react-pdf/renderer";
-import type { Diagram, DiagramEl } from "@/lib/diagrams/model";
+import { PdfDiagram } from "./diagram";
 import { parcaNumaralari, yerlesimDiyagrami } from "@/lib/diagrams/nesting";
 import type { DenetimSonucu, YerlesimSonucu } from "@/lib/purchasing/hammadde/nesting";
 import { plakaAgirligiKg } from "@/lib/purchasing/hammadde/siniflar";
@@ -143,113 +139,19 @@ function say(v: number | null | undefined, hane = 0): string {
   return v.toLocaleString("tr-TR", { minimumFractionDigits: hane, maximumFractionDigits: hane });
 }
 
-/** `DiagramEl` → react-pdf SVG. `report.tsx`teki çevirinin aynısı. */
-function pdfEl(el: DiagramEl, i: number) {
-  switch (el.kind) {
-    case "line":
-      return (
-        <PdfLine
-          key={i}
-          x1={el.x1}
-          y1={el.y1}
-          x2={el.x2}
-          y2={el.y2}
-          stroke={el.stroke}
-          strokeWidth={el.strokeWidth}
-          strokeDasharray={el.dash}
-        />
-      );
-    case "rect":
-      return (
-        <PdfRect
-          key={i}
-          x={el.x}
-          y={el.y}
-          width={el.w}
-          height={el.h}
-          fill={el.fill ?? "none"}
-          stroke={el.stroke ?? "none"}
-          strokeWidth={el.strokeWidth ?? 0}
-        />
-      );
-    case "polygon":
-      return (
-        <Path
-          key={i}
-          d={`M ${el.points.map(([x, y]) => `${x} ${y}`).join(" L ")} Z`}
-          fill={el.fill ?? "none"}
-          stroke={el.stroke ?? "none"}
-          strokeWidth={el.strokeWidth ?? 0}
-        />
-      );
-    case "path":
-      return (
-        <Path
-          key={i}
-          d={el.d}
-          fill={el.fill ?? "none"}
-          stroke={el.stroke ?? "none"}
-          strokeWidth={el.strokeWidth ?? 0}
-        />
-      );
-    case "text":
-      return (
-        <Text
-          key={i}
-          x={el.x}
-          y={el.y}
-          style={{
-            // DejaVu ZORUNLU: Ø ve Türkçe harfler gömülü WinAnsi fontlarda yok
-            // (KATALOG-19'un dersi).
-            fontFamily: "DejaVu",
-            fontSize: el.size,
-            fill: el.fill ?? "#262626",
-          }}
-          textAnchor={el.anchor}
-        >
-          {el.text}
-        </Text>
-      );
-    default:
-      return null;
-  }
-}
-
-/**
- * ÇİZİM İKİ YÖNDEN BİRDEN KELEPÇELENİR (kullanıcı bildirimi, 15.08.2026:
- * *"yerleşim ve antet doğru değil"*).
- *
- * Eski sürüm yalnız GENİŞLİĞİ veriyordu (760 pt) ve yüksekliği en/boy oranından
- * çıkarıyordu. 12 m'lik bir plakada bu doğru sonuç verir (oran ~0,21 → 160 pt);
- * ama 2000×3000'lik neredeyse kare bir plakada oran 0,66'ya çıkar ve çizim
- * 500 pt olur — A4 yatayın iç yüksekliği ise 495 pt. Çizim sayfaya sığmıyor,
- * `wrap={false}` kutusu bir sonraki yaprağa atılıyor ve orada da taşıyordu.
- *
- * Artık genişlik `min(en, maksYukseklik ÷ oran)`dır: uzun plakalar sayfa
- * genişliğini kullanır, kare plakalar yüksekliğe göre küçülür. Hiçbir çizim
- * sayfayı taşıramaz ve ölçek her iki hâlde de belirlidir.
- */
-function PdfDiagram({
-  diagram,
-  maxWidth,
-  maxHeight,
-}: {
-  diagram: Diagram;
-  maxWidth: number;
-  maxHeight: number;
-}) {
-  const oran = diagram.height / diagram.width;
-  const width = Math.min(maxWidth, maxHeight / oran);
-  return (
-    <Svg
-      width={width}
-      height={width * oran}
-      viewBox={`${diagram.x0 ?? 0} ${diagram.y0 ?? 0} ${diagram.width} ${diagram.height}`}
-    >
-      {diagram.els.map(pdfEl)}
-    </Svg>
-  );
-}
+// ÇEVİRİCİ VE ÇİZİM KABI ORTAKTIR (`pdf/diagram.tsx`).
+//
+// Burada bir kopyası vardı ve yorumu "report.tsx'teki çevirinin aynısı"
+// diyordu — ama aynı DEĞİLDİ: `circle` dalı hiç yoktu, yani bu belgeye
+// düşecek her daire (grafik çalışma noktası, halat kesiti) sessizce
+// kayboluyordu; `bold` ve çizgi ucu da yok sayılıyordu. Çizim modelinin tek
+// bir çevirisi olur.
+//
+// İKİ YÖNDEN KELEPÇE (kullanıcı bildirimi, 15.08.2026: *"yerleşim ve antet
+// doğru değil"*) ortak bileşene taşındı: yalnız genişlik verilirse kareye
+// yakın bir plaka çizimi A4 yatayın iç yüksekliğini (495 pt) aşıyor,
+// `wrap={false}` kutusu bir sonraki yaprağa atlayıp orada da taşıyordu.
+// `PdfDiagram` artık `maxHeight` de alır ve `min(en, boy ÷ oran)` uygular.
 
 /**
  * ANTET HER SAYFADA TEKRAR EDER (`fixed`).
@@ -509,6 +411,10 @@ export function KesimPlaniDocument({ gruplar, meta, company }: KesimPlaniProps) 
                     })}
                     maxWidth={ICERIK_EN}
                     maxHeight={PLAKA_YUKSEKLIGI}
+                    // Çerçeve YOK: çizimin kendi kabı `S.plakaKutusu`dur;
+                    // ortak bileşenin çerçevesi burada ikinci bir kenarlık
+                    // basardı.
+                    framed={false}
                   />
                 </View>
               ))}

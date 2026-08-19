@@ -24,7 +24,39 @@ export const CRANE_TYPES = [
   "Pergel Vinç",
   "Alttan Askılı Vinç",
   "Konsol Vinç",
+  // VİNÇ ARABASI BİR VİNÇ DEĞİL, BİR PARÇADIR (kullanıcı kararı, 19.08.2026):
+  // müşteri bazen yeni vinç istemez, yalnız mevcut vincin arabasını yeniler.
+  // Rapor o zaman kaldırma + araba yürütme bölümlerinden ibarettir; köprü
+  // yürütme, teker yükleri, ana kiriş ve başkiriş bölümleri kapatılır.
+  // Kapatma kararı YİNE TEKNİK ÖZELLİKLERDEDİR (bkz. `TROLLEY_ONLY_MODULES`);
+  // tip yalnız ilk revizyonun kapalı bölüm listesini ÖNERİR, motora girmez.
+  "Vinç Arabası",
 ] as const;
+
+/**
+ * "Vinç Arabası" tipiyle açılan raporun İLK revizyonunda kapalı gelen hesap
+ * bölümleri — bir ÖNERİdir, kural değil.
+ *
+ * Vinç tipi bir künye alanıdır ve hesap motoru onu HİÇ OKUMAZ (bkz.
+ * `docs/agent/hesap.md` HESAP-8b): bütün topoloji kararları teknik
+ * özelliklerdedir. Bu liste de motorun değil, yalnız `createRevision`ın
+ * gördüğü bir başlangıç değeridir; mühendis ilk ekranda kutucukları geri
+ * açabilir ve kararı revizyonun kendi `inputs.disabledModules` alanında yaşar.
+ * Liste burada durur çünkü tek okuyucusu vinç tipidir.
+ */
+export const TROLLEY_ONLY_DISABLED_MODULES: readonly string[] = [
+  "bridge",
+  "wheelLoads",
+  "girder",
+  "girder2",
+  "buckling",
+  "endCarriage",
+];
+
+/** Yalnız araba raporu mu — vinç tipi künyesine bakar. */
+export function isTrolleyOnlyCraneType(craneType: string | null | undefined): boolean {
+  return (craneType ?? "").trim() === "Vinç Arabası";
+}
 
 export type CraneType = (typeof CRANE_TYPES)[number];
 

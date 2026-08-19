@@ -21,8 +21,10 @@ import {
 } from "@/lib/excel/brand";
 import { baslikDuzeni, kimlikBuyuk } from "@/lib/tr-text";
 import { MODULE_LABELS } from "@/lib/calc/labels";
-import { moduleState } from "@/lib/calc/presentation/module-access";
+import { moduleResult, moduleState } from "@/lib/calc/presentation/module-access";
 import {
+  BRIDGE_WEIGHT_READER_KEYS,
+  HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
   isHoistKey,
   isHookBlockKey,
@@ -56,15 +58,22 @@ import {
   type CabinValues,
 } from "@/lib/calc/modules/cabin";
 import type { ClimateLoadResult } from "@/lib/calc/climate-load";
+import type { Diagram } from "@/lib/diagrams/model";
+import { diagramsForSection, girderCamberProfile } from "@/lib/diagrams/select";
 import { cabinDepsFrom } from "@/lib/calc/engine";
 import { CABIN_CLIMATE_SITES } from "@/lib/calc/presentation/cabinSections";
 import { GLAZING_KIND_LABELS } from "@/lib/calc/presentation/cabinFields";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
-import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
+import { drumShaftGeometry, hoistSpecView } from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
-import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
+import type {
+  HookBlockInputs,
+  HookBlockSelections,
+  HookBlockValues,
+} from "@/lib/calc/modules/hookBlock";
 import { travelHasFestoon, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
+import { railTProfile } from "@/lib/calc/modules/mainGirder";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageInputs } from "@/lib/calc/modules/endCarriage";
 import {
@@ -466,14 +475,42 @@ function travelRows(
   return rows;
 }
 
-/** Ek satırları gruplara katar: eşleşen grup varsa ona ekler, yoksa yeni grup. */
-export function mergeExtras(groups: EqGroup[], extras?: EquipmentExtraRow[]): EqGroup[] {
+/**
+ * Rapora GİRMEYEN bölümlerin grup adları.
+ *
+ * Elle eklenen ekipman satırı grubunu SERBEST METİN olarak taşır; kullanıcı
+ * "Köprü Yürütme" yazıp sonra o bölümü kapattığında satır, kapalı bölümün
+ * başlığını indirilen dosyada diriltiyordu (ekranda ek satırlar ayrı durduğu
+ * için fark edilmiyordu). Bu küme, o adları tanımaya yarar.
+ */
+export function absentModuleGroupNames(input: CalcInput): Set<string> {
+  const out = new Set<string>();
+  for (const key of MODULE_ORDER) {
+    if (moduleState(input, key) === undefined) out.add(groupName(key));
+  }
+  return out;
+}
+
+/**
+ * Ek satırları gruplara katar: eşleşen grup varsa ona ekler, yoksa yeni grup.
+ *
+ * `absentGroups` verilirse, RAPORDA OLMAYAN bir bölümün adıyla yeni grup
+ * AÇILMAZ; satır "Ek Ekipman" altında durur. Satır silinmez — kullanıcının
+ * kendi yazdığı bir kalemdir ve sessizce yok olması, kapalı bir bölümün
+ * başlığını diriltmekten daha kötüdür; yalnız başlığı gitmez.
+ */
+export function mergeExtras(
+  groups: EqGroup[],
+  extras?: EquipmentExtraRow[],
+  absentGroups?: ReadonlySet<string>
+): EqGroup[] {
   if (!extras || extras.length === 0) return groups;
   const merged = groups.map((g) => ({ name: g.name, rows: [...g.rows] }));
   for (const ex of extras) {
     // Grup adı otomatik gruplarla AYNI düzenden geçer; aksi hâlde "ana kaldırma"
     // yazan bir ek satır "Ana Kaldırma" grubuna denk gelmez ve yeni grup açardı.
-    const groupName = baslikDuzeni(ex.group.trim()) || "Ek Ekipman";
+    const wanted = baslikDuzeni(ex.group.trim()) || "Ek Ekipman";
+    const groupName = absentGroups?.has(wanted) ? "Ek Ekipman" : wanted;
     const row: EqRow = {
       component: baslikDuzeni(ex.component),
       // Marka ve model BÜYÜK HARF — otomatik satırlarla aynı kural
@@ -881,9 +918,14 @@ export function buildEquipmentGroups(
           const slug = rowSlug(row.rowKey, key);
           return !slug || !hiddenSlugs.has(slug);
         });
-    // Gizleme bir grubun BÜTÜN satırlarını düşürdüyse grup başlığı da düşer —
-    // boş bir grup bandı "satırları unutulmuş" gibi okunurdu.
-    if (visibleRows.length === 0 && rowsWithAlternatives.length > 0) continue;
+    // BOŞ GRUP BASILMAZ — sebebi ne olursa olsun. İki yol da buraya çıkar:
+    // gizleme bölümün bütün satırlarını düşürmüş olabilir ya da bölüm baştan
+    // hiç satır üretmemiş olabilir (kabin bölümünde mahal seçilmemişse).
+    // Koşul bir süre yalnız BİRİNCİ yolu kapatıyordu (`&& rowsWithAlternatives
+    // .length > 0`); ikinci yol o zaman erişilemezdi, yalnız araba yenilenen
+    // raporlarla erişilebilir oldu ve boş bir grup bandı "satırları
+    // unutulmuş" gibi okunurdu.
+    if (visibleRows.length === 0) continue;
     // İkiz kaldırma, mühendislik hesabını değil satın alma/montaj için hazır
     // ekipman adetlerini iki katına çıkarır. Kanca bloğu ve diğer gruplar tek
     // hesap düzeninde kalır.
@@ -1128,11 +1170,38 @@ export interface SummaryRow {
   label: string;
   value: number | string;
   unit?: string;
+  /**
+   * Satırın ALTINA düşen tek cümlelik açıklama — ressamın çizerken bilmesi
+   * gereken ama bir ölçü olmayan şey ("mesnette 6,3 mm", "yalnız tek helisli
+   * tamburda"). Ölçüyü ikinci bir sütuna taşımak yerine buraya yazılır: özet
+   * üç yüzeyde birden (ekran · Excel · PDF) ÜÇ SÜTUNDUR ve dördüncü bir sütun
+   * üçünü birden yeniden ölçmeyi gerektirirdi.
+   */
+  note?: string;
 }
+
+/**
+ * Özet bölümünün TÜRÜ. Verilmezse `"table"` — yani eski davranış.
+ * `"notes"` mühendisin ressama yazdığı serbest metindir ve satır taşımaz.
+ */
+export type SummarySectionKind = "table" | "notes";
 
 export interface SummarySection {
   name: string;
   rows: SummaryRow[];
+  /** Varsayılan "table"; alan yoksa bugünkü yazıcılar aynen doğrudur. */
+  kind?: SummarySectionKind;
+  /** `kind: "notes"` — satır sonları KORUNAN serbest metin. */
+  text?: string;
+  /**
+   * Bölümün başına basılan ŞEMA (yalnız PDF ve ekran; Excel atlar).
+   *
+   * Ressamın gerçekten baktığı şey sayı tablosu değil resmin kendisidir:
+   * kiriş kesiti, tambur, teker mili. Şema hesap raporundakiyle AYNI
+   * üreticiden gelir (`lib/diagrams`) — ikinci bir çizim yazılmaz, yoksa
+   * kâğıttaki iki resim bir gün ayrışır ve o fark yanlış kesilmiş bir sactır.
+   */
+  diagram?: Diagram;
 }
 
 /** GirderInputs / EndCarriageInputs plaka alanlarını etiketleriyle listeler */
@@ -1156,6 +1225,29 @@ const GIRDER_PLATE_KEYS: (keyof GirderInputs & string)[] = [
   "railHeightMm", "t1Mm", "b1Mm", "t2Mm", "b2Mm", "t3Mm", "h3Mm",
   "t4Mm", "t5Mm", "b5Mm", "t6Mm", "b6Mm", "aMm", "xMm",
 ];
+
+/**
+ * Ray altı T profil ölçüleri — AYRI liste, çünkü yalnız profil VARKEN basılır.
+ * Anahtar kapalıyken değerler korunur ama kesite girmez (HESAP-8c); girmeyen
+ * bir sac ölçüsünü ressama göndermek yanlış kesim demektir.
+ */
+const GIRDER_T_PROFILE_KEYS: (keyof GirderInputs & string)[] = [
+  "railTProfileWebThkMm", "railTProfileWebHeightMm",
+  "railTProfileTopThkMm", "railTProfileTopWidthMm",
+];
+
+/**
+ * `ModuleResult.cells`ten SAYI okur. Hücreler `number | string` taşır; eksik
+ * ya da metin bir hücre `NaN` döner ve `fmt` onu "-" basar (uydurma sıfır
+ * yazılmaz — AGENTS md. 4).
+ */
+function numCell(
+  cells: Record<string, number | string> | undefined,
+  key: string
+): number {
+  const v = cells?.[key];
+  return typeof v === "number" ? v : Number.NaN;
+}
 
 const ENDCARRIAGE_PLATE_KEYS: (keyof EndCarriageInputs & string)[] = [
   "wheelSpanAMm", "loadOffsetBMm",
@@ -1181,7 +1273,12 @@ export interface EquipmentDrawingPlan {
 export function buildSummarySections(
   input: CalcInput,
   result: CalcResult,
-  drawingPlan?: EquipmentDrawingPlan
+  drawingPlan?: EquipmentDrawingPlan,
+  /**
+   * Mühendisin RESSAMA yazdığı serbest not (`equipment_drawing_notes`).
+   * Özetin EN SONUNA kendi bölümüyle iner; boşsa bölüm hiç açılmaz.
+   */
+  drawingNote?: string
 ): SummarySection[] {
   const specs = input.specs;
   const sections: SummarySection[] = [];
@@ -1279,61 +1376,229 @@ export function buildSummarySections(
     });
   }
 
-  const trolleyRows: SummaryRow[] = [];
-  if (input.trolley) {
-    trolleyRows.push(
-      { label: "Araba ray tipi", value: textOr(input.trolley.selections.railCode) },
-      { label: "Araba teker çapı", value: input.trolley.selections.wheelDiaMm, unit: "mm" },
-      { label: "Araba teker adedi", value: input.trolley.inputs.wheelCount, unit: "adet" }
-    );
-  }
-  if (input.bridge) {
-    trolleyRows.push(
-      { label: "Köprü ray tipi", value: textOr(input.bridge.selections.railCode) },
-      { label: "Köprü teker çapı", value: input.bridge.selections.wheelDiaMm, unit: "mm" },
-      { label: "Köprü teker adedi", value: input.bridge.inputs.wheelCount, unit: "adet" }
-    );
-  }
-  if (trolleyRows.length > 0) {
-    sections.push({ name: "Ray ve Tekerlekler", rows: trolleyRows });
-  }
-
-  const drumRows: SummaryRow[] = [];
-  if (input.mainHoist) {
-    drumRows.push(
-      { label: "Ana tambur çapı", value: input.mainHoist.selections.drumDiaMm, unit: "mm" },
-      { label: "Ana tambur yiv boyu (seçilen)", value: textOr(input.mainHoist.selections.drumGrooveLengthText), unit: "mm" },
+  // ---------------------------------------------------------------- Yürütme
+  // BÖLÜM BAŞINA BİR ÇİZELGE. Eskiden tek bir "Ray ve Tekerlekler" bölümü
+  // vardı ve YALNIZ ana araba ile köprüye bakıyordu: yardımcı araba ve
+  // monoray arabaları ressama hiç ulaşmıyordu. Döngü artık `MODULE_ORDER`
+  // üzerindedir — vinçte hangi yürütme grubu varsa çizelgesi de vardır.
+  for (const key of MODULE_ORDER) {
+    if (!isTravelKey(key)) continue;
+    const st = moduleState(input, key);
+    if (!st) continue;
+    const inp = st.inputs as TravelInputs;
+    const sel = st.selections as TravelSelections;
+    const c = moduleResult(result, key)?.cells;
+    const ad = groupName(key);
+    const rows: SummaryRow[] = [
+      { label: "Ray tipi", value: textOr(sel.railCode) },
+      { label: "Ray baş genişliği", value: fmt(numCell(c, "rail.headWidth"), 0), unit: "mm" },
+      { label: "Teker çapı", value: sel.wheelDiaMm, unit: "mm" },
+      { label: "Teker adedi", value: inp.wheelCount, unit: "adet" },
       {
-        label: "Ana tambur gerekli yiv boyu",
-        value: fmt(result.mainHoist?.values.requiredGrooveLengthMm, 0),
-        unit: "mm",
-      }
-    );
-  }
-  if (input.auxHoist) {
-    drumRows.push(
-      { label: "Yrd tambur çapı", value: input.auxHoist.selections.drumDiaMm, unit: "mm" },
-      { label: "Yrd tambur yiv boyu (seçilen)", value: textOr(input.auxHoist.selections.drumGrooveLengthText), unit: "mm" },
+        label: "Tahrikli teker adedi",
+        value: fmt(numCell(c, "drive.drivenWheels"), 0),
+        unit: "adet",
+        note: `motor başına ${fmt(numCell(c, "drive.wheelsPerMotor"), 0)} teker`,
+      },
+      { label: "Teker bandaj genişliği", value: inp.wheelWidthMm ?? "-", unit: "mm" },
+      { label: "Teker malzemesi", value: textOr(sel.wheelMaterial) },
+      // Teker mili ölçüleri doğrudan teknik resme geçer.
+      { label: "Teker mili çapı", value: inp.shaftDiaMm, unit: "mm" },
+      { label: "Teker mili mesnet ölçüsü a", value: inp.shaftSpanAMm, unit: "mm" },
+      { label: "Teker mili ölçüsü b", value: inp.shaftSpanBMm, unit: "mm" },
+      { label: "Kapline bağlanan mil çapı", value: sel.wheelShaftDiaMm, unit: "mm" },
       {
-        label: "Yrd tambur gerekli yiv boyu",
-        value: fmt(result.auxHoist?.values.requiredGrooveLengthMm, 0),
-        unit: "mm",
-      }
-    );
-  }
-  if (drumRows.length > 0) {
-    sections.push({ name: "Tamburlar", rows: drumRows });
-  }
-
-  if (input.girder) {
-    const rows = plateRows(GIRDER_INPUT_FIELDS, GIRDER_PLATE_KEYS, input.girder.inputs);
-    if (result.girder) {
+        label: "Motor",
+        value: `${textOr(sel.motorBrand, "")} ${textOr(sel.motorModel, "")}`.trim() || "-",
+      },
+      { label: "Motor gücü", value: sel.motorPowerKw, unit: "kW", note: `${sel.motorCount} adet` },
+      { label: "Motor mil çapı", value: sel.motorShaftMm, unit: "mm" },
+      { label: "Redüktör", value: textOr(sel.gearboxModel) },
+      { label: "Redüktör oranı", value: sel.gearboxRatio },
+      { label: "Redüktör çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm" },
+      {
+        label: "Fren",
+        value: `${textOr(sel.brakeBrand, "")} ${fmt(sel.brakeTorqueNm, 0)} Nm`.trim(),
+      },
+      { label: "Fren kasnak çapı", value: sel.brakeWheelDiaMm || "-", unit: "mm" },
+      { label: "Gerçekleşen hız", value: fmt(numCell(c, "drive.actualSpeed"), 1), unit: "m/dak" },
+    ];
+    if (key === "bridge") {
+      rows.push({ label: "Minimum araba yanaşması", value: inp.minApproachM, unit: "m" });
+    }
+    // Tampon bir yürütme grubunun ucundadır; ressam montaj yerini ona göre
+    // bırakır (tamponsuz seçimde bölüm zaten hiç yoktur).
+    if (textOr(sel.bufferModel, "") !== "") {
       rows.push(
-        { label: "Kiriş toplam yüksekliği (hesap)", value: Number(result.girder.values.heightMm.toFixed(0)), unit: "mm" },
-        { label: "Kiriş birim ağırlığı (hesap)", value: Number(result.girder.values.weightPerM.toFixed(1)), unit: "kg/m" }
+        { label: "Tampon", value: textOr(sel.bufferModel) },
+        { label: "Tampon strok", value: sel.bufferStrokeMm, unit: "mm" },
+        { label: "Tampon adedi", value: fmt(numCell(c, "buffer.count"), 0), unit: "adet" }
       );
     }
-    sections.push({ name: "Ana Kiriş Plaka Ölçüleri", rows });
+    sections.push({
+      name: `Yürütme · ${ad}`,
+      rows,
+      // Teker mili şeması: hesap raporundaki 5.2 ile AYNI üreticiden.
+      diagram: diagramsForSection(key, "5.2", input, result)[0],
+    });
+  }
+
+  // ---------------------------------------------------------------- Tamburlar
+  // Kaldırma grubu başına AYRI çizelge; her biri kendi tambur şemasıyla.
+  // Ressamın tambur çizmek için ihtiyacı olan ne varsa buradadır — yiv dibi
+  // et kalınlığı, hatve, sarım sayısı, namlu boyu ve A…G mil zinciri dâhil
+  // (kullanıcı isteği, 19.08.2026).
+  for (const key of MODULE_ORDER) {
+    if (!isHoistKey(key)) continue;
+    const st = moduleState(input, key);
+    if (!st) continue;
+    const inp = st.inputs as HoistInputs;
+    const sel = st.selections as HoistSelections;
+    const c = moduleResult(result, key)?.cells;
+    const ad = groupName(key);
+    // Yiv derinliği ve cidar kalınlığı hücrede DEĞİL, türetilir: motor yalnız
+    // yiv dibi etini (s₀) sorar, ressam ikisini birden çizer. Bağıntı
+    // `derive.ts`teki tambur ağırlığı türetmesinin aynısıdır.
+    const grooveDepthMm = sel.ropeDiaMm > 0 ? sel.ropeDiaMm / 2 : 0;
+    const wallMm = inp.drumWallThicknessMm + grooveDepthMm;
+    const barrelMm = drumShaftGeometry(inp).barrelCm * 10;
+    sections.push({
+      name: `Tambur · ${ad}`,
+      rows: [
+        { label: "Tambur çapı D", value: sel.drumDiaMm, unit: "mm" },
+        {
+          label: "Minimum tambur çapı",
+          value: fmt(numCell(c, "drum.minDia"), 0),
+          unit: "mm",
+          note: "FEM 1.001 · D ≥ H · d",
+        },
+        { label: "Halat çapı d", value: sel.ropeDiaMm, unit: "mm" },
+        {
+          label: "Yiv adımı (hatve) p",
+          value: fmt(numCell(c, "drum.groovePitch"), 1),
+          unit: "mm",
+          note: "DIN 15061",
+        },
+        { label: "Yiv derinliği", value: fmt(grooveDepthMm, 1), unit: "mm", note: "≈ d / 2" },
+        { label: "Yiv dibi et kalınlığı s₀", value: inp.drumWallThicknessMm, unit: "mm" },
+        { label: "Cidar kalınlığı s", value: fmt(wallMm, 1), unit: "mm", note: "s = s₀ + d / 2" },
+        { label: "Sarım sayısı z", value: fmt(numCell(c, "drum.requiredGrooves"), 0), unit: "adet" },
+        { label: "Emniyet sarımı", value: inp.safetyGrooveCount, unit: "adet" },
+        { label: "Yiv boyu (seçilen)", value: textOr(sel.drumGrooveLengthText), unit: "mm" },
+        {
+          label: "Gerekli yiv boyu",
+          value: fmt(numCell(c, "drum.requiredGrooveLength"), 0),
+          unit: "mm",
+        },
+        {
+          label: "Namlu boyu (yanaklar arası)",
+          value: fmt(barrelMm, 0),
+          unit: "mm",
+          note: "B + C + D + E + F",
+        },
+        { label: "Mil ölçüsü A (redüktör tarafı)", value: inp.drumSpanAMm, unit: "mm" },
+        { label: "Mil ölçüsü B", value: inp.drumSpanBMm, unit: "mm" },
+        { label: "Mil ölçüsü C (sol yiv)", value: inp.drumSpanCMm, unit: "mm" },
+        { label: "Mil ölçüsü D (yivsiz orta)", value: inp.drumSpanDMm, unit: "mm" },
+        { label: "Mil ölçüsü E (sağ yiv)", value: inp.drumSpanEMm, unit: "mm" },
+        { label: "Mil ölçüsü F", value: inp.drumSpanFMm, unit: "mm" },
+        { label: "Mil ölçüsü G (yatak tarafı)", value: inp.drumSpanGMm, unit: "mm" },
+        {
+          label: "Mesnet açıklığı",
+          value: fmt(numCell(c, "drumShaft.span") * 10, 0),
+          unit: "mm",
+        },
+        { label: "Mil çapı D1 (yanak dibi)", value: inp.shaftD1Mm, unit: "mm" },
+        { label: "Mil çapı D2 (yatak)", value: inp.shaftD2Mm, unit: "mm" },
+        { label: "Tambur kaynağı boğaz a", value: inp.drumWeldThicknessMm, unit: "mm" },
+        { label: "Mil kaynağı boğaz a", value: inp.shaftWeldThicknessMm, unit: "mm" },
+        { label: "Tambur malzemesi", value: textOr(sel.drumMaterial) },
+        { label: "Tambur adedi", value: inp.drumCount, unit: "adet" },
+        { label: "Tambur ağırlığı", value: fmt(inp.drumWeightKg, 0), unit: "kg" },
+        {
+          label: "Tambur yatağı",
+          value:
+            `${textOr(sel.bearingHousingBrand, "")} ${textOr(sel.bearingHousingCode, "")}`.trim() ||
+            "-",
+        },
+      ],
+      diagram: diagramsForSection(key, "2.2.1", input, result)[0],
+    });
+    // Tambur mili yükleme şeması ayrı bir çizimdir (A…G zinciri + tepkiler).
+    const shaftDiagram = diagramsForSection(key, "2.2.3", input, result)[0];
+    if (shaftDiagram) {
+      sections.push({ name: `Tambur Mili · ${ad}`, rows: [], diagram: shaftDiagram });
+    }
+  }
+
+  // ------------------------------------------------------------- Ana kirişler
+  for (const key of ["girder", "girder2"] as const) {
+    const st = input[key];
+    if (!st) continue;
+    const ad = groupName(key);
+    const c = moduleResult(result, key)?.cells;
+    const rows = plateRows(GIRDER_INPUT_FIELDS, GIRDER_PLATE_KEYS, st.inputs);
+    // Ray altı T profil ölçüleri YALNIZ profil varken basılır: kapalı
+    // anahtarda değerler korunur ama kesite girmez (HESAP-8c) — girmeyen bir
+    // sac ölçüsünü ressama göndermek yanlış kesim demektir.
+    if (railTProfile(st.inputs).present) {
+      rows.push(...plateRows(GIRDER_INPUT_FIELDS, GIRDER_T_PROFILE_KEYS, st.inputs));
+    }
+    rows.push(
+      { label: "Perde aralığı l₁", value: st.inputs.diaphragmSpacingMm, unit: "mm" },
+      { label: "Perde adedi", value: fmt(numCell(c, "camber.diaphragmCount"), 0), unit: "adet" },
+      {
+        label: "Perde sacı kalınlığı",
+        value: fmt(numCell(c, "camber.diaphragmThickness"), 1),
+        unit: "mm",
+      },
+      { label: "Boyuna berkitme mesafesi", value: st.inputs.webStiffenerOffsetMm, unit: "mm" },
+      { label: "Araba tekerlek açıklığı", value: st.inputs.trolleyWheelSpacingM, unit: "m" },
+      { label: "Araba dingil açıklığı", value: st.inputs.trolleyAxleSpacingM, unit: "m" }
+    );
+    const gr = result[key];
+    if (gr) {
+      rows.push(
+        {
+          label: "Kiriş toplam yüksekliği (hesap)",
+          value: Number(gr.values.heightMm.toFixed(0)),
+          unit: "mm",
+        },
+        { label: "Kesit alanı (hesap)", value: fmt(numCell(c, "section.area"), 1), unit: "cm²" },
+        {
+          label: "Kiriş birim ağırlığı (hesap)",
+          value: Number(gr.values.weightPerM.toFixed(1)),
+          unit: "kg/m",
+        },
+        {
+          label: "Kiriş toplam ağırlığı (hesap)",
+          value: fmt(numCell(c, "camber.girderTotalWeight"), 0),
+          unit: "kg",
+        }
+      );
+    }
+    sections.push({
+      name: `${ad} Kesiti`,
+      rows,
+      diagram: diagramsForSection(key, "7.1", input, result)[0],
+    });
+
+    // TERS SEHİM (KAMBER) KOTLARI — atölyenin ölçtüğü sayılar.
+    // Kotlar hesap raporundaki 7.7 ile AYNI saf fonksiyondan gelir
+    // (`girderCamberProfile`); ikinci bir yöntem yazılmaz.
+    const camber = girderCamberProfile(key, input, result);
+    if (camber) {
+      sections.push({
+        name: `${ad} Ters Sehim Kotları`,
+        rows: camber.stations.map((station) => ({
+          label: `${station.code} · x = ${fmt(station.xMm, 0)} mm`,
+          value: fmt(station.cuttingMm, 1),
+          unit: "mm",
+          note: `mesnette ${fmt(station.supportedMm, 1)} mm`,
+        })),
+        diagram: diagramsForSection(key, "7.7", input, result)[0],
+      });
+    }
   }
 
   if (input.endCarriage) {
@@ -1342,29 +1607,72 @@ export function buildSummarySections(
       ENDCARRIAGE_PLATE_KEYS,
       input.endCarriage.inputs
     );
+    const c = moduleResult(result, "endCarriage")?.cells;
     if (result.endCarriage) {
-      rows.push({
-        label: "Başkiriş birim ağırlığı (hesap)",
-        value: Number(result.endCarriage.values.weightPerM.toFixed(1)),
-        unit: "kg/m",
-      });
+      rows.push(
+        { label: "Kesit alanı (hesap)", value: fmt(numCell(c, "section.area"), 1), unit: "cm²" },
+        {
+          label: "Başkiriş birim ağırlığı (hesap)",
+          value: Number(result.endCarriage.values.weightPerM.toFixed(1)),
+          unit: "kg/m",
+        },
+        {
+          label: "Maksimum teker yükü (hesap)",
+          value: fmt(numCell(c, "wheel.loadMax"), 0),
+          unit: "kg",
+        },
+        {
+          label: "Minimum teker yükü (hesap)",
+          value: fmt(numCell(c, "wheel.loadMin"), 0),
+          unit: "kg",
+        }
+      );
     }
     sections.push({ name: "Başkiriş Plaka Ölçüleri", rows });
   }
 
-  if (input.hookBlock) {
-    const sel = input.hookBlock.selections;
+  // ------------------------------------------------------------ Kanca blokları
+  for (const key of MODULE_ORDER) {
+    if (!isHookBlockKey(key)) continue;
+    const st = moduleState(input, key);
+    if (!st) continue;
+    const inp = st.inputs as HookBlockInputs;
+    const sel = st.selections as HookBlockSelections;
+    const mr = moduleResult(result, key);
+    const c = mr?.cells;
+    const v = mr?.values as HookBlockValues | undefined;
+    const hoistState = moduleState(input, HOIST_OF_HOOKBLOCK[key]);
     sections.push({
-      name: "Kanca Bloğu",
+      name: groupName(key),
       rows: [
-        { label: "Kanca tanımı", value: textOr(sel.hookDesignation) },
-        { label: "Kanca kapasitesi", value: result.hookBlock?.values.hookCapacityKg ?? sel.hookCapacityKg, unit: "kg" },
+        { label: "Kanca tanımı", value: textOr(v?.hookDesignationText || sel.hookDesignation) },
+        { label: "Kanca numarası", value: textOr(sel.hookNumber) },
+        { label: "Kanca kapasitesi", value: v?.hookCapacityKg ?? sel.hookCapacityKg, unit: "kg" },
         { label: "Makara çapı (halat ekseni)", value: sel.sheaveDiaMm, unit: "mm" },
-        { label: "Mil çapı (D1)", value: input.hookBlock.inputs.shaftD1Mm, unit: "mm" },
-        ...(input.mainHoist
-          ? [{ label: "Kanca bloğu ağırlığı", value: input.mainHoist.inputs.hookBlockWeightKg, unit: "kg" }]
+        {
+          label: "Minimum makara çapı",
+          value: fmt(numCell(c, "sheave.minDia"), 0),
+          unit: "mm",
+          note: "FEM 1.001 · D ≥ H · d",
+        },
+        { label: "Makara adedi", value: v?.sheaveCount ?? "-", unit: "adet" },
+        { label: "Makara rulmanı", value: textOr(sel.sheaveBearingCode) },
+        { label: "Makara rulmanı iç çapı", value: sel.sheaveBearingBoreMm ?? "-", unit: "mm" },
+        { label: "Mil çapı D1", value: inp.shaftD1Mm, unit: "mm" },
+        { label: "Mil ölçüsü A (kenar boşluğu)", value: inp.shaftEdgeGapMm, unit: "mm" },
+        { label: "Mil ölçüsü B (makara adımı)", value: inp.shaftSheavePitchMm, unit: "mm" },
+        { label: "Mil ölçüsü D (orta boşluk)", value: inp.shaftCenterGapMm, unit: "mm" },
+        ...(hoistState
+          ? [
+              {
+                label: "Kanca bloğu ağırlığı",
+                value: (hoistState.inputs as HoistInputs).hookBlockWeightKg,
+                unit: "kg",
+              },
+            ]
           : []),
       ],
+      diagram: diagramsForSection(key, "4.4", input, result)[0],
     });
   }
 
@@ -1379,7 +1687,13 @@ export function buildSummarySections(
       unit: "t",
     });
   }
-  weightRows.push({ label: "Köprü ağırlığı", value: input.specs.bridgeWeightT, unit: "t" });
+  // KÖPRÜ AĞIRLIĞI ancak onu okuyan bir hesap varken basılır — teknik özellik
+  // kutusuyla AYNI kümeden karar verilir (`BRIDGE_WEIGHT_READER_KEYS`).
+  // Yalnız araba yenilenen bir raporda satır koşulsuz basılıyordu ve belge
+  // kendi içinde çelişiyordu: hesabı olmayan bir köprünün ağırlığı.
+  if (BRIDGE_WEIGHT_READER_KEYS.some((k) => moduleState(input, k) !== undefined)) {
+    weightRows.push({ label: "Köprü ağırlığı", value: input.specs.bridgeWeightT, unit: "t" });
+  }
   const craneT = result.bridge?.values.craneWeightT;
   if (craneT !== null && craneT !== undefined) {
     weightRows.push({ label: "Toplam vinç ağırlığı (hesap)", value: Number(craneT.toFixed(2)), unit: "t" });
@@ -1403,15 +1717,40 @@ export function buildSummarySections(
     });
   }
 
+  // NOTLAR EN SONDADIR — teknik resim numarasından da sonra.
+  // Bölüm bir ÇİZELGE DEĞİLDİR (`kind: "notes"`): mühendisin cümleleri satır
+  // sonlarıyla birlikte korunur, üç yazıcı da (ekran · Excel · PDF) onu
+  // ölçü tablosu gibi değil metin gibi basar.
+  const note = (drawingNote ?? "").trim();
+  if (note !== "") {
+    sections.push({ name: "Notlar", kind: "notes", rows: [], text: note });
+  }
+
   return sections;
 }
+
+/**
+ * Notun Excel'de kaç SATIR yer kaplayacağı — hücre yüksekliği bundan türer.
+ *
+ * Hem gerçek satır sonları hem 90 karakterlik sarma sayılır. Yalnız uzunluğa
+ * bakmak, kısa ama madde madde yazılmış bir notu tek satıra sıkıştırıyordu.
+ */
+export function notLineCount(text: string): number {
+  return text
+    .split(NOTE_LINE_BREAK)
+    .reduce((n, line) => n + Math.max(1, Math.ceil(line.length / 90)), 0);
+}
+
+/** Satır sonu ayracı — CRLF ve LF birlikte (Windows'ta yazılan not da doğru sayılsın). */
+const NOTE_LINE_BREAK = /\r?\n/;
 
 function writeSummarySheet(
   ws: ExcelJS.Worksheet,
   input: CalcInput,
   result: CalcResult,
   meta: EquipmentMeta,
-  drawingPlan?: EquipmentDrawingPlan
+  drawingPlan?: EquipmentDrawingPlan,
+  drawingNote?: string
 ): void {
   const headerRowNo = writeBand(ws, "TEKNİK RESSAM ÖZETİ", meta, 3);
 
@@ -1431,20 +1770,58 @@ function writeSummarySheet(
   ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo, column: 3 } };
 
   let rowNo = headerRowNo + 1;
-  const sections = buildSummarySections(input, result, drawingPlan);
-  for (const section of sections) {
-    // Bölüm başlığı (birleşik hücre, dolgu)
+  const sections = buildSummarySections(input, result, drawingPlan, drawingNote);
+  /** Bölüm başlığı bandı — üç hücresi de kenarlıklıdır (merge kenarlığı A'da kalmaz). */
+  const sectionBand = (title: string) => {
     ws.mergeCells(`A${rowNo}:C${rowNo}`);
     const sc = ws.getCell(`A${rowNo}`);
-    sc.value = section.name;
+    sc.value = title;
     sc.font = { bold: true };
     sc.fill = COL_FILL;
-    sc.border = THIN_BORDER;
+    for (let c = 1; c <= 3; c += 1) ws.getRow(rowNo).getCell(c).border = THIN_BORDER;
     rowNo += 1;
+  };
+
+  for (const section of sections) {
+    // ŞEMALAR EXCEL'E GİRMEZ. ExcelJS yalnız raster basar (png/jpeg/gif) ve
+    // diyagramlar vektördür; hücre ızgarasına oturmayan bir görüntü, tablo
+    // filtrelendiğinde yerinde kalır. Şema yalnız PDF ve ekrandadır ve bunu
+    // BÖLÜM ATLANMADAN söyleriz — sessiz bir boşluk "unutulmuş" okunurdu.
+    if (section.kind === "notes") {
+      // NOTLAR filtre bölgesinden bir boş satırla ayrılır: merge'lü çok
+      // satırlı bir hücre otomatik süzgecin içinde kalırsa Excel uyarır.
+      rowNo += 1;
+      sectionBand(section.name);
+      ws.mergeCells(`A${rowNo}:C${rowNo}`);
+      const nc = ws.getCell(`A${rowNo}`);
+      nc.value = section.text ?? "";
+      nc.alignment = { wrapText: true, vertical: "top", horizontal: "left" };
+      nc.border = THIN_BORDER;
+      // Yükseklik hem SATIR SAYISINDAN hem uzunluktan türer: yalnız uzunluğa
+      // bakmak, kısa ama madde madde yazılmış bir notu tek satıra sıkıştırır.
+      const satirSayisi = notLineCount(section.text ?? "");
+      ws.getRow(rowNo).height = Math.max(16, satirSayisi * 14);
+      rowNo += 1;
+      continue;
+    }
+
+    sectionBand(section.name);
+
+    if (section.rows.length === 0 && section.diagram) {
+      const row = ws.getRow(rowNo);
+      row.getCell(1).value = "Şema — yalnız PDF ve ekran";
+      row.getCell(1).font = { italic: true, color: { argb: MUTED_GRAY } };
+      for (let c = 1; c <= 3; c += 1) row.getCell(c).border = THIN_BORDER;
+      rowNo += 1;
+      continue;
+    }
 
     for (const r of section.rows) {
       const row = ws.getRow(rowNo);
-      row.getCell(1).value = r.label;
+      // AÇIKLAMA ETİKETİN İÇİNE GİRER, dördüncü bir sütun AÇILMAZ: bant
+      // genişliği, filtre aralığı, merge ve kenarlık döngüsü sütun sayısına
+      // beş ayrı yerde bağlıdır ve biri unutulursa sessizce bozulur.
+      row.getCell(1).value = r.note ? `${r.label}  —  ${r.note}` : r.label;
       row.getCell(2).value = r.value;
       row.getCell(3).value = r.unit ?? "";
       // Değer kolonu: sayılar TR ayraçlı, sağa dayalı, mono
@@ -1497,6 +1874,8 @@ export interface EquipmentWorkbookOptions {
    * görünür (özet sayfasının kendisi gibi).
    */
   drawingPlan?: EquipmentDrawingPlan;
+  /** Mühendisin ressama yazdığı serbest not — özetin en sonundaki Notlar bölümü. */
+  drawingNote?: string;
   /** Gizlenen alt bölümler — satırları listeye girmez (buildEquipmentGroups). */
   hiddenSections?: readonly string[];
 }
@@ -1515,7 +1894,8 @@ export function buildEquipmentWorkbook(
     buildEquipmentGroups(
       calcInput, options.notes, options.alts, options.attachments, options.hiddenSections
     ),
-    options.extras
+    options.extras,
+    absentModuleGroupNames(calcInput)
   );
 
   const wsEquipment = wb.addWorksheet("Ekipman Listesi", {
@@ -1528,10 +1908,15 @@ export function buildEquipmentWorkbook(
 
   // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
   if (options.scope !== "customer") {
+    // YATAY: özet çizelgesi genişledi (ölçü + değer + birim ve uzun açıklama
+    // satırları) ve dikey A4'te etiket sütunu kırpılıyordu. Ekipman Listesi
+    // sayfası da yataydır; workbook artık kendi içinde tutarlı.
     const wsSummary = wb.addWorksheet("Teknik Ressam Özeti", {
-      pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+      pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
-    writeSummarySheet(wsSummary, calcInput, calcResult, meta, options.drawingPlan);
+    writeSummarySheet(
+      wsSummary, calcInput, calcResult, meta, options.drawingPlan, options.drawingNote
+    );
   }
 
   return wb;
