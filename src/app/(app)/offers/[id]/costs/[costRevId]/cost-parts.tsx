@@ -2,17 +2,15 @@
 
 // MALİYET EDİTÖRÜNÜN ORTAK PARÇALARI.
 //
-// Teklif editöründeki `Bolum`, `MiniDugme` ve `sayiVeyaNull` ile aynı işi
-// yapan kardeşleri burada durur. Ortak bir dosyaya çekilmediler çünkü
+// Teklif editöründeki `Bolum` ve `MiniDugme` ile aynı işi yapan kardeşleri
+// burada durur. Ortak bir dosyaya çekilmediler çünkü
 // teklifinkiler o dosyanın YEREL parçaları; buraya taşımak teklif editöründe
 // bir düzenleme yaparken maliyet ekranını da kırma riski demekti. Aynı şekil,
 // ayrı sahip.
 
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseNum } from "@/lib/currency";
-import { Input } from "@/components/ui/input";
+import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -27,94 +25,13 @@ import { costFieldDef, costFieldText, fmtCostField } from "@/lib/offers/cost/lab
 import type { CostModelResult, CostSection } from "@/lib/offers/cost/model";
 import { COST_PARAM_DEFS, paramOf } from "@/lib/offers/cost/params";
 
-/**
- * Boş kutu `null` üretir, `0` DEĞİL (SATIS-16).
- *
- * ÇÖZÜMLEYİCİ UYGULAMANIN ORTAK OLANIDIR (`parseNum`). Buradaki yerel sürüm
- * bütün noktaları siliyordu ve "12.44" → 1244 yapıyordu; `parseNum` ayrımı
- * yazımdan okur (virgül varsa nokta binliktir; yoksa nokta ancak ardında tam
- * üç hane varsa binliktir). Aynı sayının iki ekranda iki türlü okunması,
- * ekranlar arası ayrışmanın en sessiz biçimidir.
- */
-export function sayiVeyaNull(raw: string): number | null {
-  return parseNum(raw);
-}
-
-/** Sayıyı kutuya yazarken tr-TR ondalık ayracı korunur ("19,5"). */
-export function kutuMetni(v: number | null | undefined): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "";
-  return String(v).replace(".", ",");
-}
-
-/**
- * SAYI KUTUSU — yazarken VİRGÜL HAYATTA KALIR.
- *
- * Kullanıcı bildirimi (18.08.2026, md. 2): *"Maliyet kısmında virgüllü sayı
- * girmek istiyorum, özellikle sac profil ray vb gruplara."* Kutular virgülü
- * kabul ediyordu ama kullanıcı ONU HİÇ YAZAMIYORDU. Sebep kontrollü kutunun
- * gidiş-dönüşüydü; "0,7" yazmayı harf harf ölçtük:
- *
- *     "0"  → durum 0   → ekranda "0"
- *     "0," → durum 0   → ekranda "0"     ← virgül burada SİLİNİYOR
- *     "07" → durum 7   → ekranda "7"
- *
- * Yani sac fiyatına 0,7 yazmaya çalışan kullanıcı 7 giriyordu — on kat fazla,
- * üstelik ekranda öyle yazdığı için fark edilir gibi de değil.
- *
- * ÇÖZÜM: kutu YAZILANI gösterir (`taslak`), yukarıya ise ÇÖZÜMLENMİŞ sayıyı
- * verir. İkisi ayrı şeylerdir: "0," geçerli bir yazım ADIMIDIR ama geçerli bir
- * sayı değildir. Taslak odak çıkınca düşer ve kutu belgenin kanonik yazımına
- * döner ("0,7").
- *
- * DIŞARIDAN GELEN DEĞER TASLAĞI DÜŞÜRÜR: asa düğmesi ya da "Tekliften Tazele"
- * kutuyu değiştirdiğinde taslak onu maskelemez (çizim sırasında sınanır —
- * React'in "türetilmiş durum" kalıbı).
- */
-export function SayiKutusu({
-  value,
-  onChange,
-  className,
-  ...rest
-}: {
-  value: number | null;
-  onChange: (v: number | null) => void;
-} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange">) {
-  const [taslak, setTaslak] = useState<string | null>(null);
-
-  // BOŞ TASLAK DÜŞÜRÜLMEZ — ve bu kelepçeli alanların tek çaresidir.
-  //
-  // Kimi çağrı yeri boşu bir varsayılana çeker (`ambientC: v ?? 40`,
-  // `girderCount: v ?? 2`): alan gerçekten boş kalamaz. Kapı yalnız
-  // "taslağın sayısı ≠ gelen değer" deseydi, kutuyu silip yeniden yazmak
-  // imkânsızlaşırdı. Ölçüldü — 40'ı silip 25 yazmak:
-  //
-  //     <BS> → "4"  → değer 4   → ekranda "4"
-  //     <BS> → ""   → değer 40  → ekranda "40"   ← kutu kendini geri doldurur
-  //     "2"  → "402"                             ← imleç sonda, yazılan eklenir
-  //     "5"  → "4025"                            ← 25 yerine 4025
-  //
-  // Boş taslak KORUNUR: kutu boş görünür, ebeveyn varsayılanıyla çalışmaya
-  // devam eder ve kullanıcı yeni sayıyı temiz bir kutuya yazar. Odak
-  // çıkınca taslak düşer ve kutu yürürlükteki değeri gösterir.
-  if (taslak !== null && taslak.trim() !== "" && sayiVeyaNull(taslak) !== value) setTaslak(null);
-
-  return (
-    <Input
-      {...rest}
-      inputMode="decimal"
-      value={taslak ?? kutuMetni(value)}
-      onChange={(e) => {
-        setTaslak(e.target.value);
-        onChange(sayiVeyaNull(e.target.value));
-      }}
-      onBlur={(e) => {
-        setTaslak(null);
-        rest.onBlur?.(e);
-      }}
-      className={cn("text-base pointer-fine:text-sm", className)}
-    />
-  );
-}
+// `SayiKutusu`, `sayiVeyaNull` ve `kutuMetni` ARTIK BURADA DEĞİL: üçü de
+// `@/components/sayi-kutusu`e taşındı ve buradaki gövdeler onun KOPYASIYDI.
+// Kopya, dosyanın başındaki "aynı şekil, ayrı sahip" notunun uyardığı
+// ayrışmanın ta kendisiydi — virgül taslağı gibi ince bir kural ortak dosyada
+// düzeltildiğinde maliyet ekranı eski davranışta kalırdı. Ortak kutu ayrıca
+// binlik ayıracı da getirir (`binlik`); burada AÇILMAZ, çünkü bu dosyanın
+// kutuları adet, oran ve ölçü taşır — tutar kutuları çağrı yerinde açar.
 
 /**
  * KATLAMA DENETİMİ — bir bölümün açık/kapalı olması.
@@ -235,32 +152,128 @@ export function MiniDugme({
   );
 }
 
+/**
+ * GİRDİ IZGARASI — kutular SABİT SÜTUNLARA oturur, genişlikleri içerikten
+ * gelmez.
+ *
+ * Kullanıcı bildirimi (19.08.2026, md. 7): *"Ağırlıklar > GİRDİLER bölümündeki
+ * kutular hizasız."* Üç ayrı sebebin üçü de burada kapanır ve üçü de ÖLÇÜLDÜ:
+ *
+ *   (a) HER KUTUYA ELLE GENİŞLİK veriliyordu (6…10 rem, `genislik` prop'u).
+ *       İlk satır 8 alanla ~68 rem, ikincisi 6 alanla ~53 rem sürüyordu ve
+ *       aradaki ~240 px'lik boşluk satır sonunu tırtıklı bırakıyordu; "Ana
+ *       Kaldırma [ton]" 6,5 rem ile komşularının %30 altındaydı — kullanıcının
+ *       gördüğü dar kutu tam olarak oydu.
+ *   (b) ETİKET İKİ SATIRA SARINCA kutusunu aşağı itiyordu ("Portal Ayak
+ *       Yüksekliği [m]"), komşusununki yerinde kalıyordu. `subgrid` bunu
+ *       kapatır: etiket rayı ve kutu rayı BÜTÜN SATIR boyunca ortaktır, yani
+ *       bir alanın uzun etiketi bütün satırın etiket rayını büyütür ve kutular
+ *       yine aynı hizada başlar (aynı hata ve aynı çözüm hesap raporu
+ *       editöründe de yaşandı — `revision-editor.tsx`teki subgrid notu).
+ *   (c) "Vinç Sınıfı" ELLE YAZILMIŞ bir kutuydu (`div.grid.w-24` + düz `span`)
+ *       ve `Label`ın `leading-none`unu taşımadığı için komşularından birkaç
+ *       piksel aşağıda oturuyordu. `SecimAlani` onu da bu şekle sokar.
+ *
+ * `auto-fill` + `minmax(9.5rem,1fr)`: sütun sayısı pencereye göre değişir ama
+ * bir satırdaki bütün kutular AYNI genişliktedir. Alt sınır 152 px'dir — 375
+ * px'lik telefonda tek sütuna düşer (MOBIL-15).
+ */
+export const ALAN_IZGARASI =
+  "grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-1.5";
+
+/**
+ * IZGARANIN BİR HÜCRESİ — etiket üstte, denetim altta, TAM İKİ ÇOCUK.
+ *
+ * Üçüncü bir düğüm (ipucu, hata metni) `subgrid`in iki rayına sığmaz ve hizayı
+ * yeni baştan bozar; bu yüzden `SayiAlani`nin hiçbir çağrı yerinin kullanmadığı
+ * `ipucu` prop'u kaldırıldı — açıklama alanın `title`ına ya da bölümün
+ * açıklamasına yazılır. Alt dolgu satırlar arası ayrımı verir: ızgaranın satır
+ * boşluğu artık etiket ile denetim ARASINDAKİ boşluktur.
+ */
+function AlanHucresi({
+  id,
+  etiket,
+  birim,
+  children,
+}: {
+  id: string;
+  etiket: string;
+  birim?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="row-span-2 grid min-w-0 grid-rows-subgrid pb-1.5">
+      {/* BİRİM ETİKETİN İÇİNDE SARAR: shadcn `Label` `flex items-center gap-2
+          leading-none`tır ve `[ton]` orada bir flex ÖĞESİDİR — sarmaz, `ml-1`
+          de gap'in üstüne binerdi. `flex-wrap` + `items-baseline` ile birim dar
+          sütunda alt satıra iner ve etiketle aynı taban çizgisinde durur. */}
+      <Label htmlFor={id} className="flex-wrap items-baseline gap-1 text-xs leading-tight">
+        {etiket}
+        {birim ? <span className="text-muted-foreground">[{birim}]</span> : null}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
 /** Etiketli sayı kutusu — girdi bölümlerinin tek şekli. */
 export function SayiAlani({
   etiket,
   birim,
   value,
   onChange,
-  ipucu,
-  genislik = "9rem",
+  disabled,
 }: {
   etiket: string;
   birim?: string;
   value: number | null;
   onChange: (v: number | null) => void;
-  ipucu?: string;
-  genislik?: string;
+  disabled?: boolean;
 }) {
   const id = `alan-${etiket.replace(/\s+/g, "-")}`;
   return (
-    <div className="grid gap-1.5" style={{ width: genislik }}>
-      <Label htmlFor={id} className="text-xs">
-        {etiket}
-        {birim ? <span className="ml-1 text-muted-foreground">[{birim}]</span> : null}
-      </Label>
-      <SayiKutusu id={id} value={value} onChange={onChange} className="h-9" />
-      {ipucu ? <p className="text-[11px] text-muted-foreground">{ipucu}</p> : null}
-    </div>
+    <AlanHucresi id={id} etiket={etiket} birim={birim}>
+      <SayiKutusu
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
+        className="h-9 self-start"
+      />
+    </AlanHucresi>
+  );
+}
+
+/** Etiketli seçici — girdi ızgarasında sayı OLMAYAN alanların şekli. */
+export function SecimAlani({
+  etiket,
+  value,
+  secenekler,
+  onChange,
+  disabled,
+}: {
+  etiket: string;
+  value: string;
+  secenekler: readonly string[];
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const id = `alan-${etiket.replace(/\s+/g, "-")}`;
+  return (
+    <AlanHucresi id={id} etiket={etiket}>
+      <Select value={value} disabled={disabled} onValueChange={onChange}>
+        <SelectTrigger id={id} className="h-9 w-full self-start" aria-label={etiket}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {secenekler.map((s) => (
+            <SelectItem key={s} value={s}>
+              {s}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </AlanHucresi>
   );
 }
 

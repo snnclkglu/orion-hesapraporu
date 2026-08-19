@@ -26,8 +26,10 @@
 // düğmesi belirir. Solgunlaştırmak "bu değer önemsiz" derdi; oysa elle girilen
 // değer modelin önerdiğinden DAHA güvenilirdir (mühendis biliyordur).
 
-import { Wand2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
+import { toast } from "sonner";
+import { RefreshCw, Wand2 } from "lucide-react";
+import { SayiKutusu } from "@/components/sayi-kutusu";
 import { cn } from "@/lib/utils";
 import {
   AGIRLIK_OZET_KEY,
@@ -43,18 +45,20 @@ import { costCompareRows, costDeviationLevel, type CostCompareRow } from "@/lib/
 import { CRANE_CLASSES, COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import type { CostModelResult } from "@/lib/offers/cost/model";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
-import type { OfferPayload } from "@/lib/offers/types";
+import type { OfferItem, OfferPayload } from "@/lib/offers/types";
 import {
+  ALAN_IZGARASI,
   Anahtar,
   Bolum,
   KesitDugmesi,
   MiniDugme,
   SapmaRozeti,
   SayiAlani,
-  SayiKutusu,
   SayiSecici,
+  SecimAlani,
   Turetme,
 } from "./cost-parts";
+import { teklifleEsitle, type GirdiFarki } from "./input-sync";
 
 // ————————————————————————————————————————————————————————— girdiler
 
@@ -69,48 +73,143 @@ import {
  */
 export function GirdiBolumu({
   item,
+  offerItem,
   onChange,
 }: {
   item: CostItem;
+  /** Bu maliyet kaleminin TEKLİFTEKİ karşılığı — eşitleme onu okur. */
+  offerItem: OfferItem | undefined;
   onChange: (next: CostItem) => void;
 }) {
   const i = item.inputs;
   const set = (yama: Partial<typeof i>) => onChange({ ...item, inputs: { ...i, ...yama } });
 
+  // BEKLEYEN EŞİTLEME — uygulanmadan ÖNCE gösterilir.
+  const [bekleyen, setBekleyen] = useState<GirdiFarki[] | null>(null);
+
+  /**
+   * TEKLİFLE EŞİTLEME İKİ ADIMDIR: önce SÖYLER, sonra uygular.
+   *
+   * Kullanıcı isteği (19.08.2026, md. 6): *"Teklifteki açıklık tonaj vs
+   * değişebilir… Buna göre hem Ağırlıklar hem Hesaplar değişse iyi olur."*
+   *
+   * EKSİK OLAN "HESAP" DEĞİL EŞİTLEMEDİR: ağırlıklar ve hesaplar zaten her tuş
+   * vuruşunda yeniden koşuyor (`cost-editor.tsx`in `costModels` useMemo'su).
+   * Geride kalan tek şey GİRDİLERDİR — "Tekliften Tazele" yalnız BOŞ alanı
+   * doldurur ve dolu olanı bilerek ezmez (MALIYET-9). O kural teklifteki
+   * açıklık gerçekten değiştiğinde ters yönde ısırır; bu düğme onu AÇIK bir
+   * eyleme çevirir.
+   *
+   * ONAY EKRANI SÜS DEĞİL: girdiyi ezmek, mühendisin elle düzelttiği bir
+   * ölçüyü silmektir. Neyin neye döneceği ("Açıklık 30 → 28") önce yazılır;
+   * "elle girilen değerler kaybolmamalı" isteğinin karşılığı budur.
+   */
+  function esitle() {
+    if (!offerItem) return;
+    const sonuc = teklifleEsitle(i, offerItem);
+    if (sonuc.farklar.length === 0) {
+      toast.info("Girdiler teklifle zaten aynı.");
+      return;
+    }
+    setBekleyen(sonuc.farklar);
+  }
+
+  function uygula() {
+    if (!offerItem) return;
+    const sonuc = teklifleEsitle(i, offerItem);
+    onChange({ ...item, inputs: sonuc.inputs });
+    setBekleyen(null);
+    toast.success(`${sonuc.farklar.length} girdi teklifle eşitlendi; ağırlıklar ve hesaplar yenilendi.`);
+  }
+
   return (
     <Bolum
       baslik="GİRDİLER"
       aciklama="Kapasite, açıklık, yükseklik, hız ve sınıf teklifin teknik satırlarından okunur; burada düzeltilebilir."
+      sag={
+        offerItem ? (
+          <button
+            type="button"
+            onClick={esitle}
+            className="oc-tap inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted"
+            title="Girdileri teklif belgesindeki ölçülerle eşitle ve yeniden hesapla"
+          >
+            <RefreshCw className="size-3.5" /> Teklifle Eşitle
+          </button>
+        ) : null
+      }
     >
-      <div className="flex flex-wrap gap-x-3 gap-y-2">
-        <SayiAlani etiket="Ana Kaldırma" birim="ton" value={i.capacityT} onChange={(v) => set({ capacityT: v })} genislik="6.5rem" />
-        <SayiAlani etiket="Yardımcı Kaldırma" birim="ton" value={i.auxCapacityT} onChange={(v) => set({ auxCapacityT: v })} genislik="8.5rem" />
-        <SayiAlani etiket="Açıklık" birim="m" value={i.spanM} onChange={(v) => set({ spanM: v })} genislik="6rem" />
-        <SayiAlani etiket="Kaldırma Yüksekliği" birim="m" value={i.liftHeightM} onChange={(v) => set({ liftHeightM: v })} genislik="9rem" />
-        <SayiAlani etiket="Kaldırma Hızı" birim="m/dk" value={i.liftSpeedMpm} onChange={(v) => set({ liftSpeedMpm: v })} genislik="7.5rem" />
-        <SayiAlani etiket="Araba Hızı" birim="m/dk" value={i.trolleySpeedMpm} onChange={(v) => set({ trolleySpeedMpm: v })} genislik="8rem" />
-        <SayiAlani etiket="Köprü / Portal Hızı" birim="m/dk" value={i.bridgeSpeedMpm} onChange={(v) => set({ bridgeSpeedMpm: v })} genislik="9rem" />
-        <SayiAlani etiket="Ortam Sıcaklığı" birim="°C" value={i.ambientC} onChange={(v) => set({ ambientC: v ?? 40 })} genislik="8.5rem" />
-        <div className="grid w-24 gap-1.5">
-          <span className="text-xs">Vinç Sınıfı</span>
-          <Select value={i.craneClass} onValueChange={(v) => set({ craneClass: v as typeof i.craneClass })}>
-            <SelectTrigger className="h-9 w-full" aria-label="Vinç sınıfı">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CRANE_CLASSES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* FARKLAR ÖNCE OKUNUR: uygulanmış bir ezme geri alınamaz. */}
+      {bekleyen ? (
+        <div className="grid gap-2 rounded-md border border-dashed border-primary p-3 text-sm">
+          <p className="font-medium">Teklife göre {bekleyen.length} girdi değişecek:</p>
+          <ul className="grid gap-0.5 text-xs">
+            {bekleyen.map((f) => (
+              <li key={String(f.key)} className="flex flex-wrap items-baseline gap-1.5">
+                <span className="text-muted-foreground">
+                  {f.etiket}
+                  {f.birim ? ` [${f.birim}]` : ""}
+                </span>
+                <span className="font-mono tabular-nums">{f.eski}</span>
+                <span aria-hidden className="text-muted-foreground">→</span>
+                <span className="font-mono font-semibold tabular-nums">{f.yeni}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Model çıktısında elle ezdiğiniz değerler (ana kiriş ağırlığı, seçilen motor…)
+            korunur; yalnız yukarıdaki girdiler değişir.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={uygula}
+              className="oc-tap rounded-md border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
+            >
+              Uygula ve Hesapla
+            </button>
+            <button
+              type="button"
+              onClick={() => setBekleyen(null)}
+              className="oc-tap rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted"
+            >
+              Vazgeç
+            </button>
+          </div>
         </div>
-        <SayiAlani etiket="Kiriş Adedi" value={i.girderCount} onChange={(v) => set({ girderCount: v ?? 2 })} genislik="6.5rem" />
-        <SayiAlani etiket="Köprü Teker Adedi" value={i.bridgeWheelCount} onChange={(v) => set({ bridgeWheelCount: v ?? 4 })} genislik="9rem" />
-        <SayiAlani etiket="Köprü Tahrik Adedi" value={i.bridgeDriveCount} onChange={(v) => set({ bridgeDriveCount: v ?? 2 })} genislik="9rem" />
-        <SayiAlani etiket="Araba Tahrik Adedi" value={i.trolleyDriveCount} onChange={(v) => set({ trolleyDriveCount: v ?? 2 })} genislik="9rem" />
-        <SayiAlani etiket="Portal Ayak Yüksekliği" birim="m" value={i.legHeightM} onChange={(v) => set({ legHeightM: v })} genislik="10rem" />
+      ) : null}
+
+      {/* IZGARA, ESNEK SARMA DEĞİL (kullanıcı bildirimi 19.08.2026, md. 7:
+          kutular hizasız). `flex-wrap`ta her kutunun genişliği elle veriliyordu
+          ("6.5rem", "9rem", "10rem") ve satır sonunda artan yer son kutuya
+          düşüyordu: ilk satırda sekiz, ikincisinde altı alan vardı ve hiçbir
+          sütun alt satırdakiyle hizalanmıyordu. `ALAN_IZGARASI` sütun sayısını
+          pencereye göre seçer, BİR SATIRDAKİ BÜTÜN KUTULAR AYNI GENİŞLİKTEDİR
+          ve `grid-rows-subgrid` etiket ile kutuyu iki ayrı raya oturtur —
+          etiket iki satıra sarsa bile kutular aynı hizada kalır. */}
+      <div className={ALAN_IZGARASI}>
+        <SayiAlani etiket="Ana Kaldırma" birim="ton" value={i.capacityT} onChange={(v) => set({ capacityT: v })} />
+        <SayiAlani etiket="Yardımcı Kaldırma" birim="ton" value={i.auxCapacityT} onChange={(v) => set({ auxCapacityT: v })} />
+        <SayiAlani etiket="Açıklık" birim="m" value={i.spanM} onChange={(v) => set({ spanM: v })} />
+        <SayiAlani etiket="Kaldırma Yüksekliği" birim="m" value={i.liftHeightM} onChange={(v) => set({ liftHeightM: v })} />
+        <SayiAlani etiket="Kaldırma Hızı" birim="m/dk" value={i.liftSpeedMpm} onChange={(v) => set({ liftSpeedMpm: v })} />
+        <SayiAlani etiket="Araba Hızı" birim="m/dk" value={i.trolleySpeedMpm} onChange={(v) => set({ trolleySpeedMpm: v })} />
+        <SayiAlani etiket="Köprü / Portal Hızı" birim="m/dk" value={i.bridgeSpeedMpm} onChange={(v) => set({ bridgeSpeedMpm: v })} />
+        <SayiAlani etiket="Ortam Sıcaklığı" birim="°C" value={i.ambientC} onChange={(v) => set({ ambientC: v ?? 40 })} />
+        {/* SEÇİCİ DE IZGARANIN HÜCRESİDİR: kendi `grid w-24`i ile çizilseydi
+            24 rem'lik sabit genişliği ızgaranın sütununa uymaz ve etiketi
+            komşularının etiketiyle aynı raya oturmazdı. */}
+        <SecimAlani
+          etiket="Vinç Sınıfı"
+          value={i.craneClass}
+          secenekler={CRANE_CLASSES}
+          onChange={(v) => set({ craneClass: v as typeof i.craneClass })}
+        />
+        <SayiAlani etiket="Kiriş Adedi" value={i.girderCount} onChange={(v) => set({ girderCount: v ?? 2 })} />
+        <SayiAlani etiket="Köprü Teker Adedi" value={i.bridgeWheelCount} onChange={(v) => set({ bridgeWheelCount: v ?? 4 })} />
+        <SayiAlani etiket="Köprü Tahrik Adedi" value={i.bridgeDriveCount} onChange={(v) => set({ bridgeDriveCount: v ?? 2 })} />
+        <SayiAlani etiket="Araba Tahrik Adedi" value={i.trolleyDriveCount} onChange={(v) => set({ trolleyDriveCount: v ?? 2 })} />
+        <SayiAlani etiket="Portal Ayak Yüksekliği" birim="m" value={i.legHeightM} onChange={(v) => set({ legHeightM: v })} />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -490,12 +589,15 @@ export function ModelSayfasi({
  * kaydırmak zorundaydı. Şimdi ikisi aynı ekranda: solda sebep, sağda sonuç.
  */
 export function AgirlikSayfasi({
+  offer,
   item,
   model,
   params,
   readOnly,
   onChange,
 }: {
+  /** Teklif belgesi — girdi eşitlemesi (md. 6) onu okur. */
+  offer: OfferPayload;
   item: CostItem;
   model: CostModelResult | undefined;
   params: Record<string, number>;
@@ -508,7 +610,11 @@ export function AgirlikSayfasi({
   return (
     <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem] xl:items-start">
-        <GirdiBolumu item={item} onChange={onChange} />
+        <GirdiBolumu
+          item={item}
+          offerItem={offer.items.find((o) => o.id === item.offerItemId)}
+          onChange={onChange}
+        />
         {ozet ? (
           <Bolum
             baslik={ozet.title}

@@ -51,12 +51,12 @@ import {
 } from "@/lib/offers/cost/totals";
 import type { CostGroup, CostItem, CostLine, CostPayload, CostRateGroup } from "@/lib/offers/cost/types";
 import type { OfferPayload } from "@/lib/offers/types";
+import { SayiKutusu } from "@/components/sayi-kutusu";
 import {
   BirimSecici,
   Bolum,
   KatlaDugmesi,
   MiniDugme,
-  SayiKutusu,
   Turetme,
   type Katlama,
 } from "./cost-parts";
@@ -166,7 +166,14 @@ function SatirTablosu({
               {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR ve kelepçe `th` ile
                   `td`de AYNIDIR (MOBIL-7): tablo düzeni `auto`dur ve tek bir
                   uzun kalem adı bütün tabloyu ekranın dışına iter. */}
-              <TableHead className="min-w-[12rem] px-1.5 2xl:min-w-[18rem]">Kalem</TableHead>
+              {/* TABAN 12 REM, GENİŞ EKRANDA AYRICA BÜYÜTÜLMEZ. `min-w` bir TABANDIR,
+                  genişlik değil: artan yeri bu sütun zaten kendiliğinden alır.
+                  Eskiden `2xl`de taban 18 rem'e çıkarılıyordu ve bu, sayfa iki
+                  sütuna bölününce (md. 2) tablonun en küçük genişliğini 781 px'e
+                  itip her öbekte yatay kaydırma açıyordu — geniş ekranda daha
+                  ferah dursun diye konan kural, geniş ekranda okunurluğu bozan
+                  kural hâline gelmişti. */}
+              <TableHead className="min-w-[12rem] px-1.5">Kalem</TableHead>
               <TableHead className="hidden w-56 max-w-56 px-1.5 xl:table-cell">Teklifte</TableHead>
               <TableHead className="w-24 px-1.5">Miktar</TableHead>
               <TableHead className="w-24 px-1.5">Birim</TableHead>
@@ -742,7 +749,24 @@ export function MaliyetSayfasi({
         sag={<BelgeToplami tutar={totals.project} currency={cur} coklu={cokluKalem} />}
       >
         {item ? (
-          <div className="grid gap-2.5">
+          /* İKİ SÜTUN — ama YALNIZ 2xl'de (kullanıcı isteği 19.08.2026, md. 2:
+             *"yatayda ikiye bölmek istiyorum… daha kompakt bir yapı işimi
+             kolaylaştırıyor kontrolümü artırıyor"*). Sekiz öbek alt alta
+             dizildiğinde sayfa üç ekran boyu sürüyor ve kullanıcı elektrik
+             satırlarını görmek için çeliği kaydırıp geçiyordu.
+
+             BREAKPOINT ÖLÇÜLDÜ, SEÇİLMEDİ. Satır tablosunun gerçek en küçük
+             genişliği tarayıcıda 781 px çıktı (Kalem sütunu 12 rem + miktar,
+             birim, birim fiyat, tutar ve eylem sütunları). 1600 px'lik bir
+             pencerede iki sütuna bölününce her sütuna 615 px kalıyor ve tablo
+             KENDİ İÇİNDE yatay kaydırma açıyordu — kompaktlık adına okunurluğu
+             bozmak olurdu. Tailwind'in `2xl`i (1536 px) bu yüzden yetmez; eşik
+             iki tablo + oluk + bölüm rayının gerçek toplamına göre 1800 px'e
+             çekildi.
+
+             `items-start`: öbekler farklı boydadır; hizalanmazsa kısa öbek
+             uzun komşusunun boyuna uzar ve arada boş bir şerit kalır. */
+          <div className="grid gap-2.5 min-[1800px]:grid-cols-2 min-[1800px]:items-start">
             {item.groups
               .map((g, gi) => ({ g, gi }))
               .filter(({ g }) => g.key !== FABRICATION_GROUP_KEY)

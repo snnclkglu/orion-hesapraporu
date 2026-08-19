@@ -25,13 +25,13 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Trash2, Wallet } from "lucide-react";
+import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Sheet, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { costModels, costWeights, withCostDerived } from "@/lib/offers/cost/payload";
-import { costMargin, costTotals } from "@/lib/offers/cost/totals";
+import { costModels, costSteelWeights, costWeights, withCostDerived } from "@/lib/offers/cost/payload";
+import { costMargin, costOverview, costTotals } from "@/lib/offers/cost/totals";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { OfferPayload } from "@/lib/offers/types";
@@ -43,8 +43,13 @@ import {
 import { Bolum, MiniDugme, type Katlama } from "./cost-parts";
 import { AgirlikSayfasi, HesapSayfasi, KatsayiSayfasi } from "./model-view";
 import { MaliyetSayfasi } from "./lines-view";
+import { OzetSayfasi } from "./overview-view";
 
 const BOLUMLER = [
+  // ÖZET EN BAŞTA: kullanıcı maliyeti kalem kalem çalışıyor ama karara BÜTÜNE
+  // bakarak varıyor (kullanıcı isteği 19.08.2026, md. 13). Sayfa kalem seçici
+  // taşımaz — sorusu "bu vinç ne tutuyor" değil, "bu teklif ne tutuyor".
+  { key: "ozet", label: "Özet", kalemli: false },
   { key: "agirlik", label: "Ağırlıklar", kalemli: true },
   { key: "hesap", label: "Hesaplar", kalemli: true },
   { key: "maliyet", label: "Maliyetler", kalemli: true },
@@ -124,6 +129,11 @@ export function CostEditor({
   const models = useMemo(() => costModels(payload), [payload]);
   const weights = useMemo(() => costWeights(models), [models]);
   const totals = useMemo(() => costTotals(payload, weights), [payload, weights]);
+  // ÖZET SAF ÇEKİRDEKTEN GELİR: ekran tek bir toplam bile kendi hesaplamaz.
+  const overview = useMemo(
+    () => costOverview(totals, offer, costSteelWeights(models)),
+    [totals, offer, models]
+  );
   const kar = costMargin(offer.pricing.total ?? null, totals.total);
 
   const item = payload.items.find((i) => i.id === kalemId) ?? payload.items[0];
@@ -274,6 +284,17 @@ export function CostEditor({
               <Download className="size-4" /> PDF İndir
             </a>
           </Button>
+          {/* EXCEL, PDF'İN YANINDA (kullanıcı isteği 19.08.2026, md. 11). İkisi
+              aynı veriden üretilir ama iki ayrı soruya cevap verir: PDF
+              okunacak bir BELGEDİR (arşive girer, damgası vardır), Excel ise
+              üzerinde ÇALIŞILACAK bir çizelgedir — hücreler sayıdır, toplanır.
+              `download` niteliği YOK: dosya adını uç `Content-Disposition` ile
+              verir; burada ikinci bir ad yazmak iki adın ayrışması demekti. */}
+          <Button asChild variant="outline" className="oc-tap">
+            <a href={`/offers/${offerId}/costs/${costRevId}/excel`}>
+              <Sheet className="size-4" /> Excel İndir
+            </a>
+          </Button>
           {readOnly ? null : (
             <>
               <Button
@@ -408,8 +429,11 @@ export function CostEditor({
           {/* GİRDİLER ARTIK AĞIRLIKLAR SAYFASININ İÇİNDEDİR: özet kartıyla
               aynı satırı paylaşıyor (kullanıcı isteği 18.08.2026). Burada
               ayrıca çizilseydi ekranda iki kez görünürdü. */}
+          {aktif === "ozet" ? <OzetSayfasi overview={overview} currency={payload.currency} /> : null}
+
           {aktif === "agirlik" && item ? (
             <AgirlikSayfasi
+              offer={offer}
               item={item}
               model={models[item.id]}
               params={payload.params}
