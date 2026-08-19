@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { EquipmentExtraRow } from "@/lib/excel/equipment";
+import { DRAWING_NOTE_KEY } from "@/lib/equipment-drawing-note";
 
 const extraRowSchema = z.object({
   group: z.string().trim().max(80).default(""),
@@ -107,9 +108,13 @@ export async function saveEquipmentNote(
 }
 
 // ------------------------------------------- Teknik Ressam Özeti · Notlar
-
-/** Belge başına tek not; anahtar bugün yalnız "genel"dir (bkz. migration). */
-export const DRAWING_NOTE_KEY = "genel";
+//
+// `DRAWING_NOTE_KEY` BURADA TANIMLANMAZ, `lib/equipment-drawing-note.ts`ten
+// içe aktarılır: `"use server"` dosyasının BÜTÜN dışa aktarımları async
+// fonksiyon olmak zorundadır. Buraya konan bir sabit dosyayı "hiç dışa
+// aktarımı yok" hâline düşürüyor ve derleme, sabiti değil `saveEquipmentNote`i
+// bulamadığını söyleyen bir hatayla kırılıyordu (`tsc --noEmit` bunu görmez —
+// kural Next'in derleyicisindedir).
 
 const drawingNoteSchema = z.object({
   // Ek Özellikler notundan (1000) CÖMERTTİR: burası bir hücre değil bir
