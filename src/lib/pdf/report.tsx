@@ -746,7 +746,15 @@ export function summarySpecsForReport(input: CalcInput): {
  * başına "Ø" konur (madde 30 — boş değere konmaz). Alan tablosu ve alternatif
  * ("SEÇENEKLER") bloğu aynı biçimlemeyi paylaşsın diye ayrı fonksiyondur.
  */
-function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): string {
+/**
+ * Alanın BASILAN değeri.
+ *
+ * DIŞA AÇIKTIR çünkü İşletme ve Bakım El Kitabı'nın otomatik tabloları da
+ * teknik özellikleri BU biçimleyiciyle basar (`manual/sources-data.ts`).
+ * İkinci bir biçimleyici yazılsaydı hesap raporundaki "Ø400 mm" el kitabında
+ * "400" olur ve iki belge aynı vinç için başka şey söylerdi.
+ */
+export function fieldShownValue(f: AnyFieldDef, rec: Record<string, unknown>): string {
   const labels = (f as { optionLabels?: Record<string, string> }).optionLabels;
   const val = labels?.[String(rec[f.key])] ?? fmtField(rec[f.key]);
   return f.diameter && val !== "—" ? `Ø${val}` : val;

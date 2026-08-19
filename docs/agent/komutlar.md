@@ -60,6 +60,17 @@
   SEMBOLÜNDEN üret (`app/icon.svg` · `favicon.ico` · `apple-icon.png` ·
   `public/brand/icon-{192,512,maskable-512}.png`). Üretilen dosyalar elle
   düzenlenmez; sembol değişirse betik yeniden koşturulur
+- `npx tsx scripts/test-electrical-read.ts <pdf>` — ELEKTRİK PROJESİ okuyucusunu
+  GERÇEK bir EPLAN dışa aktarımında koştur: künye, sayfa dizini, malzeme
+  listesi satır sayısı, ADETİ OKUNAMAYAN satır sayısı, panel ve tedarikçi
+  dökümü. Fikstür repoda DEĞİLDİR (12 MB'lık müşteri belgesi); yol argümandan
+  gelir. Sütun kümeleme kuralına dokunmadan önce koştur — birim testleri küçük
+  fikstürlerle koşar, bu betik 157 sayfada ne bulunduğunu GÖSTERİR
+- `npx tsx scripts/test-manual-pdf.ts [cikti.pdf] [ek.pdf]` — İŞLETME VE BAKIM
+  EL KİTABI'nı şablondan bas ve METNİNİ ölç: yazılan/BASILAN bölüm sayısı, ek
+  sırası, ilk on başlık. İkinci argüman verilirse EK YERLEŞTİRME SÖZLEŞMESİ de
+  sınanır (temel belgenin son n sayfası = eklerle aynı sıradaki n kapak) ve
+  birleşik "tam sürüm" yazılır. Bu modüldeki en kırılgan varsayım odur
 - `npx tsx scripts/test-drawings.ts` — iki gerçek teslim klasörünün içe
   aktarım raporunu bas (Teknik Resimler duman testi)
 - `npx tsx scripts/test-drawings-register.ts` / `-outputs.ts` — parça defteri

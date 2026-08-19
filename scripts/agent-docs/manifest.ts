@@ -310,6 +310,31 @@ export const ALANLAR: Alan[] = [
     al: ["Belge kimliği ve dosya adı"],
   },
   {
+    dosya: "elektrik",
+    onek: "ELEKTRIK",
+    baslik: "Elektrik Projesi",
+    ozet: "EPLAN PDF'inin arşivi ve okunması: malzeme listesi, sayfa dizini, künye, panel dökümü",
+    yollar: [
+      "src/lib/electrical/**",
+      "src/app/(app)/projects/[id]/electrical/**",
+      "scripts/test-electrical-read.ts",
+    ],
+    al: ["Elektrik Projesi"],
+  },
+  {
+    dosya: "elkitabi",
+    onek: "KITAP",
+    baslik: "İşletme ve Bakım El Kitabı",
+    ozet: "Bölüm ağacı, standart metin, gizleme, otomatik tablolar, ekler ve iki çıktı",
+    yollar: [
+      "src/lib/manual/**",
+      "src/lib/pdf/manual.tsx",
+      "src/app/(app)/projects/[id]/manual/**",
+      "scripts/test-manual-pdf.ts",
+    ],
+    al: ["İşletme ve Bakım El Kitabı"],
+  },
+  {
     dosya: "komutlar",
     onek: "",
     baslik: "Komutlar ve duman testleri",

@@ -15,7 +15,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DRAWING_STATUS_LABELS, type DrawingStatus } from "@/lib/drawings";
+import {
+  loadCurrentElectricalDoc,
+  loadElectricalDocs,
+  loadElectricalParts,
+} from "@/lib/electrical/data";
+import { loadCurrentSpec } from "@/lib/project-specs";
+import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { DeleteRevisionButton } from "./delete-revision-button";
+import { ElectricalCard } from "./electrical/electrical-card";
+import { ManualCard, type ManualSourceStatus } from "./manual/manual-card";
 import { ProjectDetailHeader } from "./project-header";
 import { DrawingPackagesCard } from "./drawing-packages-card";
 import { DrawingPlanCard } from "./drawing-plan-card";
@@ -112,6 +121,28 @@ export default async function ProjectPage({
       resolveProjectItemNo(supabase, id, project.doc_no),
     ]);
 
+  // ELEKTRİK PROJESİ · ŞARTNAME · EL KİTABI — üç yeni bölümün verisi.
+  //
+  // AYRI BİR `Promise.all`DIR ve bu bilinçlidir: üstteki demet projenin
+  // KİMLİĞİNİ kurar (revizyonlar, iş emri, imzacılar) ve alttaki sorgular
+  // ondan bağımsızdır; tek bir devasa demet, hangi sorgunun hangi sekmeyi
+  // beslediğini okunmaz yapardı.
+  const [elektrikBelgeler, elektrikGuncel, sartname, elKitabi] = await Promise.all([
+    loadElectricalDocs(supabase, id),
+    loadCurrentElectricalDoc(supabase, id),
+    loadCurrentSpec(supabase, id),
+    loadManual(supabase, id),
+  ]);
+  // Malzeme satırları YALNIZ güncel sürüm için çekilir: arşiv sürümlerin
+  // satırları ekranda hiç görünmüyor ve 726 satırlık bir listeyi boşuna
+  // taşımak sayfayı ağırlaştırırdı.
+  const elektrikParcalar = elektrikGuncel
+    ? await loadElectricalParts(supabase, elektrikGuncel.id)
+    : [];
+  const elKitabiRevizyonlari = elKitabi
+    ? await loadManualRevisions(supabase, elKitabi.id)
+    : [];
+
   // İKİ AYRI SORU: PROJEYİ silmek yöneticiye özeldir (projects DELETE
   // politikası `is_admin()` ister), TASLAK REVİZYONU ise raporu yazan da
   // silebilir (`can_edit_reports()`). Tek bir `isAdmin` ile ikisini birden
@@ -155,6 +186,30 @@ export default async function ProjectPage({
     hasIssuedRevision: revisionList.some((r) => r.status === "issued"),
   };
 
+  /** El kitabının beslendiği kaynaklar — eksiklik YAYIMDAN ÖNCE görünmeli. */
+  const elKitabiKaynaklari: ManualSourceStatus[] = [
+    {
+      label: "Hesap Raporu",
+      ready: revisionList.length > 0,
+      hint: "Sınıflandırma, karakteristik özellik, hız ve ekipman tabloları buradan gelir.",
+    },
+    {
+      label: "Elektrik Projesi",
+      ready: Boolean(elektrikGuncel && elektrikParcalar.length > 0),
+      hint: "Elektrik malzeme listesi ve sayfa dizini buradan gelir.",
+    },
+    {
+      label: "Teknik Resim",
+      ready: drawingPlan.length > 0,
+      hint: "Resim listesi Teknik Resim Takibi defterinden gelir.",
+    },
+    {
+      label: "Şartname",
+      ready: Boolean(sartname),
+      hint: "Teknik Şartname eki müşterinin kendi belgesidir.",
+    },
+  ];
+
   return (
     <div className="grid gap-6">
       {/* Sayfanın kimliği kabuğun yapışkan üst şeridine de çıkar; künye bloğu
@@ -184,6 +239,8 @@ export default async function ProjectPage({
         canDelete={isAdmin}
         latestRev={latestRev ?? null}
         isFirstRevision={isFirstRevision}
+        spec={sartname}
+        canEditSpec={canWriteReports}
       />
 
       <ProjectSignatoryCard
@@ -198,7 +255,9 @@ export default async function ProjectPage({
             `/dev/project-preview` GERÇEK rayı bassın; gerekçe orada. */}
         <ProjectTabsNav
           revisionCount={revisionList.length}
+          electricalPartCount={elektrikParcalar.length}
           drawingPlanCount={drawingPlan.length}
+          manualRevisionCount={elKitabiRevizyonlari.length}
           equipmentHref={
             latestRev
               ? `/projects/${project.id}/revisions/${latestRev.id}/equipment`
@@ -311,6 +370,21 @@ export default async function ProjectPage({
           </div>
         </TabsContent>
 
+        {/* -------------------------------------------- Elektrik Projesi */}
+        {/* Çizim bürosundan gelen PDF ARŞİVLENİR ve OKUNUR: malzeme listesi
+            (Parts list), sayfa dizini ve künye ayıklanır. Aynı bilgi yoksa
+            ekipman listesine, satın almaya ve el kitabının elektrik ekine üç
+            kez elle yazılıyordu. */}
+        <TabsContent value="electrical">
+          <ElectricalCard
+            projectId={project.id}
+            docs={elektrikBelgeler}
+            current={elektrikGuncel}
+            parts={elektrikParcalar}
+            canEdit={canWriteReports}
+          />
+        </TabsContent>
+
         {/* ----------------------------------------- Teknik Resim Takibi */}
         {/* SEKME ÜÇ KATMANLIDIR ve sıra ZAMAN SIRASIDIR:
               1. PLAN    — mühendisin proje başında verdiği ana grup numaraları
@@ -421,6 +495,19 @@ export default async function ProjectPage({
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* --------------------------- İşletme ve Bakım El Kitabı */}
+        {/* SEKME EN SONDADIR çünkü ötekilerin hepsinden beslenir; kaynak
+            şeridi hangisinin hazır olduğunu yayımdan ÖNCE söyler. */}
+        <TabsContent value="manual">
+          <ManualCard
+            projectId={project.id}
+            manual={elKitabi}
+            revisions={elKitabiRevizyonlari}
+            sources={elKitabiKaynaklari}
+            canEdit={canWriteReports}
+          />
         </TabsContent>
       </Tabs>
     </div>

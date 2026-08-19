@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { NewRevisionButton } from "./new-revision-button";
 import { ArchiveButton } from "./archive-button";
 import { ProjectDetailActions, type ProjectSummary } from "../project-actions";
+import { SpecButton } from "./spec-button";
+import type { ProjectSpec } from "@/lib/project-specs";
 import type { JobOption } from "../new-project-dialog";
 
 export interface HeaderJob {
@@ -32,6 +34,8 @@ export function ProjectDetailHeader({
   latestRev,
   isFirstRevision,
   itemNo,
+  spec,
+  canEditSpec,
 }: {
   project: { id: string; doc_no: string; name: string; customer: string; crane_type: string; archived: boolean };
   job: HeaderJob | null;
@@ -53,6 +57,9 @@ export function ProjectDetailHeader({
    * göstermelidir. Kaleme bağlanmamış raporda `doc_no`ya düşer.
    */
   itemNo?: string;
+  /** Projenin GÜNCEL şartnamesi; yüklenmemişse null. */
+  spec: ProjectSpec | null;
+  canEditSpec: boolean;
 }) {
   const hasDraft = latestRev?.status === "draft";
 
@@ -144,6 +151,12 @@ export function ProjectDetailHeader({
           <ScrollText className="size-3.5 text-muted-foreground" />
           İşlem Kaydı
         </Link>
+        {/* ŞARTNAME EYLEM ŞERİDİNDEDİR ve YOKSA KIRMIZIDIR (kullanıcı isteği,
+            19.08.2026). Renk bir süs değil: hesap raporu şartnameye cevap
+            verir ve şartnamesiz bir proje EKSİKTİR. Yüklüyse düğme sakinleşir
+            ve belgeyi AÇAR — çözülmüş bir durum kalıcı bir alarm gibi
+            durmamalı. Gerekçenin tamamı `spec-button.tsx` başlığındadır. */}
+        <SpecButton projectId={project.id} spec={spec} canEdit={canEditSpec} />
         <ArchiveButton projectId={project.id} archived={project.archived} />
         <ProjectDetailActions project={summary} jobs={jobs} canDelete={canDelete} />
       </div>

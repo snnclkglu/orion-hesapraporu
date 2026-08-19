@@ -98,6 +98,11 @@ export default function ProjectPreviewPage() {
           canDelete
           latestRev={REVISIONS[0]}
           isFirstRevision={false}
+          // ŞARTNAME YÜKLENMEMİŞ HÂLİ ÖNİZLENİR: eylem şeridinde bakılacak
+          // şey kırmızı düğmenin öteki iki bağlantıyla aynı yükseklikte ve
+          // aynı dokunma payında durup durmadığıdır (MOBIL-1).
+          spec={null}
+          canEditSpec
         />
 
         <ProjectSignatoryCard
@@ -114,7 +119,9 @@ export default function ProjectPreviewPage() {
         <Tabs defaultValue="drawings">
           <ProjectTabsNav
             revisionCount={REVISIONS.length}
+            electricalPartCount={726}
             drawingPlanCount={DRAWING_PLAN.length}
+            manualRevisionCount={2}
             equipmentHref="/projects/dev/revisions/r1/equipment"
             equipmentLabel="Ekipman Listesi (V1)"
           />

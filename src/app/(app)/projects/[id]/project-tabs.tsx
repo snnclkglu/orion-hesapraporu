@@ -1,5 +1,12 @@
-// Proje detayının BÖLÜM RAYI — "Hesap Raporu" · "Teknik Resim Takibi" · ekipman
-// listesi bağlantısı.
+// Proje detayının BÖLÜM RAYI — "Hesap Raporu" · "Elektrik Projesi" ·
+// "Teknik Resim Takibi" · "İşletme ve Bakım El Kitabı" · ekipman listesi
+// bağlantısı.
+//
+// SIRA İŞ AKIŞIDIR, bir düzen tercihi değil (kullanıcı kararı, 19.08.2026:
+// *"Hesap Raporu ile Teknik Resim Takibi sayfasının arasına Elektrik Projesi
+// bölümü"*): mekanik hesap biter → elektrik projesi gelir → resimler çizilir
+// → hepsinden el kitabı derlenir. El kitabı en sondadır çünkü ötekilerin
+// hepsinden beslenir.
 //
 // NEDEN KENDİ DOSYASINDA: eski hâlinde şerit gri bir hap kümesiydi ve
 // "Teknik Çizimler" sekmesi künyenin altında gözden kaçıyordu (kullanıcı
@@ -12,7 +19,7 @@
 // `Tabs` KÖKÜ ÇAĞIRANDADIR: paneller (TabsContent) sayfanın kendisindedir ve
 // ray onlarla aynı kökü paylaşmak zorundadır.
 
-import { FileDown, FileSpreadsheet, Ruler } from "lucide-react";
+import { BookOpen, FileDown, FileSpreadsheet, Ruler, Zap } from "lucide-react";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
@@ -49,12 +56,18 @@ const COUNT =
 
 export function ProjectTabsNav({
   revisionCount,
+  electricalPartCount,
   drawingPlanCount,
+  manualRevisionCount,
   equipmentHref,
   equipmentLabel,
 }: {
   revisionCount: number;
+  /** Okunmuş elektrik malzeme satırı adedi; okunmamışsa 0. */
+  electricalPartCount: number;
   drawingPlanCount: number;
+  /** El kitabı revizyon adedi; kitap açılmamışsa 0. */
+  manualRevisionCount: number;
   /** Son revizyonun ekipman listesi adresi; revizyon yoksa verilmez. */
   equipmentHref?: string;
   equipmentLabel?: string;
@@ -85,10 +98,20 @@ export function ProjectTabsNav({
           Hesap Raporu
           {revisionCount > 0 && <span className={COUNT}>{revisionCount}</span>}
         </TabsTrigger>
+        <TabsTrigger value="electrical" className={TAB}>
+          <Zap className="size-4" />
+          Elektrik Projesi
+          {electricalPartCount > 0 && <span className={COUNT}>{electricalPartCount}</span>}
+        </TabsTrigger>
         <TabsTrigger value="drawings" className={TAB}>
           <Ruler className="size-4" />
           Teknik Resim Takibi
           {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
+        </TabsTrigger>
+        <TabsTrigger value="manual" className={TAB}>
+          <BookOpen className="size-4" />
+          İşletme ve Bakım El Kitabı
+          {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
         </TabsTrigger>
       </TabsList>
 

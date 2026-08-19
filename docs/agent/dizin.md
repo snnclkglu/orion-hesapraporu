@@ -77,6 +77,38 @@
 - `src/app/(app)/page.tsx` + `panel/` — giriş sonrası açılış panosu (`/`):
   `data.ts` rol bazlı okuma · `panel-view.tsx` görünüm (önizlemeyle ORTAK) ·
   `panel-search.tsx` istemci araması (Ctrl/⌘ K)
+- `src/lib/electrical/` — ELEKTRİK PROJESİ ÇEKİRDEĞİ, **saf**:
+  `types.ts` · `parts-list.ts` (malzeme listesi okuyucusu — sütun kenarları
+  VERİDEN kümelenir, başlıklarla MONOTON eşlenir) · `device-tag.ts`
+  (IEC 81346: `=` tesis · `+` konum · `-` aygıt) · `sheet-index.ts` (yer imi
+  ağacındaki "Page list" kökü) · `title-block.ts` (kapak künyesi; şekil
+  denetimi tarih şekilli bir değeri isim saymaz) · `rollup.ts` (panel/tedarikçi
+  dökümü ve `materialRows` — 726 aygıt satırı → 187 malzeme).
+  `read-pdf.ts` çekirdeğin PARÇASI DEĞİLDİR: `unpdf` ile besleyen Node
+  adaptörüdür. `data.ts` Supabase okuma katmanı (sorgu SAYFALANIR)
+- `src/app/(app)/projects/[id]/electrical/` — Elektrik Projesi sekmesi:
+  `electrical-card.tsx` (yükleme · künye · üç görünüm: malzeme/aygıt/sayfalar) ·
+  `actions.ts` (kayıt, güncel sürüm seçimi, silme) · `import/route.ts` (PDF'i
+  OKUYAN uç; satırlar yeniden ÜRETİLİR) · `export/route.ts` (iki sayfalı Excel)
+- `src/lib/project-specs.ts` + `[id]/spec-actions.ts` + `[id]/spec-button.tsx` —
+  ŞARTNAME: eylem şeridinde yoksa KIRMIZI "Şartnameyi Yükle", varsa sakin
+  "Şartname" (basılınca imzalı bağlantıyla açılır)
+- `src/lib/manual/` — İŞLETME VE BAKIM EL KİTABI ÇEKİRDEĞİ, **saf**:
+  `types.ts` (bölüm ağacı · altı blok türü · yedi ek türü · künye) ·
+  `template.ts` (14 ana bölümlük şablon ve STANDART METİNLER — vince özel
+  hiçbir sayı YOK) · `payload.ts` (`withManualDefaults` taşıma,
+  **`printedManual` — gizleme süzgecinin TEK yeri**, `numberManual` 1·1.1 ve
+  EK-A·EK-B zincirleri) · `sources.ts` (otomatik blokların saf çözücüsü) ·
+  `naming.ts` (belge adı ve `ORC-BK-…` kodu) · `data.ts` okuma katmanı
+- `src/app/(app)/projects/[id]/manual/` — El Kitabı sekmesi ve editörü:
+  `manual-card.tsx` (revizyon defteri + KAYNAK ŞERİDİ) · `actions.ts` (aç,
+  kaydet, yayımla — yayımda otomatik tablolar DONAR, yeni revizyon onları
+  ÇÖZER) · `sources-data.ts` (sunucu adaptörü: hesap raporu · elektrik projesi ·
+  resim defteri) · `[revId]/manual-editor.tsx` (bölüm bölüm sihirbaz) ·
+  `[revId]/gorsel/route.ts` (görsel SUNUCUDA yeniden kodlanır) ·
+  `[revId]/pdf/route.ts` (`?ekler=1` → tam sürüm)
+- `src/lib/pdf/manual.tsx` — el kitabı gövdesi; `manualAppendixOrder` ek
+  sırasının TEK kaynağıdır (`pdfEkleriYerlestir` sözleşmesi)
 - `src/lib/offers/` — TEKLİF ÇEKİRDEĞİ, **saf** (DB/HTTP/React yok):
   `types.ts` (belge modeli: kapak · kalem · grup · satır · fiyat) ·
   `registry.ts` (grup/satır/parça defteri — firmanın on dört gerçek teklifinden

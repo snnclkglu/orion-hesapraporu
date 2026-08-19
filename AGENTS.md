@@ -123,6 +123,8 @@ işaretçiler aynı yönlendirmeyi otomatik yapar; harita onların yedeğidir.
 | Personel | `docs/agent/personel.md` | Dönemli kayıt, fazla mesai, ücret planı, bordro, özlük dosyası, döviz kuru |
 | Teknik Resimler | `docs/agent/resimler.md` | Paket yükleme ve tanıma, hoşgörü ilkeleri, defter/ilerleme, Teknik Resim Takibi planı |
 | İşler ve iş kalemleri | `docs/agent/isler.md` | İş emri → kalem → rapor bağı, doküman no, BÜYÜK HARF kuralı, müşteri defteri, İşler hub'ı |
+| Elektrik Projesi | `docs/agent/elektrik.md` | EPLAN PDF'inin arşivi ve okunması: malzeme listesi, sayfa dizini, künye, panel dökümü |
+| İşletme ve Bakım El Kitabı | `docs/agent/elkitabi.md` | Bölüm ağacı, standart metin, gizleme, otomatik tablolar, ekler ve iki çıktı |
 | Teklif | `docs/agent/teklif.md` | Teklif numarası, revizyon snapshot'ı, gizleme, defter (offer_options), takip sayacı, analiz |
 | Maliyet Çalışması | `docs/agent/maliyet.md` | Ayrı revizyon zinciri, ağırlık/boyutlandırma modeli, dört ana başlık, oran tabanı, iç belge |
 | Satış Takibi | `docs/agent/satis.md` | job_item_sales, kur satırda donar, fiyatsız Güncel İş Listesi |
