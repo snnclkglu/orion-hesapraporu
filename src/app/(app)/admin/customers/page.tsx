@@ -33,7 +33,7 @@ export default async function AdminCustomersPage() {
       // okumak, kullanıcının çoğunu hiç açmayacağı yüzlerce satırı her sayfa
       // yüklemesinde taşımak olurdu. Ayrıntıyı pencere kendisi çeker.
       .select(
-        "id, name, short_name, color_hue, address, tax_office, tax_no, phone, fax, notes, customer_contacts(count)"
+        "id, name, short_name, color_hue, address, tax_office, tax_no, phone, fax, notes, logo_path, logo_name, customer_contacts(count)"
       )
       .order("name", { ascending: true }),
     // Bağlı iş sayısı silme uyarısında kullanılır — sayı için ayrı bir sorgu
@@ -58,6 +58,11 @@ export default async function AdminCustomersPage() {
     phone: (c.phone as string) ?? "",
     fax: (c.fax as string) ?? "",
     notes: (c.notes as string) ?? "",
+    // Logo YOLU listeye taşınır ama BAYTLARI değil: satırda logo gösterilmez
+    // (defter onlarca satırdır ve her biri için indirme yapmak sayfayı
+    // yavaşlatırdı), yol yalnız düzenleme penceresine geçer.
+    logo_path: (c.logo_path as string) ?? "",
+    logo_name: (c.logo_name as string) ?? "",
     jobCount: jobCounts.get(c.id as string) ?? 0,
     contactCount: embedSayisi(c.customer_contacts),
   }));

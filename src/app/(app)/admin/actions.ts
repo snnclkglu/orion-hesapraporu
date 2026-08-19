@@ -12,6 +12,13 @@ import { USER_ROLES, type UserRole } from "@/lib/roles";
 import { adBuyuk } from "@/lib/tr-text";
 import { trKatla } from "@/lib/drawings/tr-text";
 import { consumableMatchKey } from "@/lib/purchasing/consumable-key";
+import {
+  CUSTOMER_LOGO_BUCKET,
+  CUSTOMER_LOGO_MIME,
+  MAX_CUSTOMER_LOGO_BYTES,
+  isCustomerLogoPath,
+} from "@/lib/customers/logo";
+import { normalizeCustomerLogo } from "@/lib/customers/logo-image";
 import type { CustomerContact } from "@/lib/customer-contacts";
 import type { ReportSettings } from "@/lib/settings";
 
@@ -179,6 +186,124 @@ export async function updateCustomer(
 }
 
 /**
+ * MÜŞTERİ LOGOSUNU KAYDA BAĞLAR — baytlar buradan GEÇMEZ.
+ *
+ * Tarayıcı dosyayı doğrudan `customer-logos` kovasına yükler, bu eylem yalnız
+ * ölçer ve satırı yazar (özlük dosyası / ekipman eki kalıbı): Next server
+ * action gövdesinin varsayılan sınırı 1 MB'tır.
+ *
+ * DOSYA BEYAN DEĞİL ÖLÇÜMLE KAYDA GİRER. `file.type` istemcinin sözüdür;
+ * sunucu nesneyi GERİ İNDİRİR, sharp ile formatını ölçer ve baytları künyeye
+ * basılabilir bir PNG olarak (8 bit sRGB, interlaced değil, paletsiz) YENİDEN
+ * KODLAYIP aynı yola yazar. Ölçüm düşerse yüklenen nesne depodan silinir ve
+ * kayda hiç girmez — bozuk tek bir logo teklif PDF'ini 500'e çevirirdi.
+ *
+ * "KAYDET"İ BEKLEMEZ (sözleşme PDF'iyle aynı gerekçe): dosya zaten depodadır,
+ * pencereyi "Vazgeç" ile kapatmak onu geri almaz. Logo yolunu form state'ine
+ * koyup Kaydet'e bağlamak, vazgeçen kullanıcının ardında YETİM bir nesne
+ * bırakırdı.
+ */
+export async function setCustomerLogo(
+  customerId: string,
+  input: { path: string; fileName: string }
+): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const path = (input.path ?? "").trim();
+  // Sunucu istemciden gelen yola GÜVENMEZ: kova politikası "admin mi" diye
+  // sorar, "hangi müşteri" diye değil.
+  if (!isCustomerLogoPath(customerId, path)) {
+    return { error: "Logo yolu bu müşteriye ait değil." };
+  }
+
+  const { data: file, error: indirmeHatasi } = await supabase.storage
+    .from(CUSTOMER_LOGO_BUCKET)
+    .download(path);
+  if (indirmeHatasi || !file) {
+    return { error: "Yüklenen dosya depoda bulunamadı; yüklemeyi tekrarlayın." };
+  }
+
+  // Sıra "önce ucuz olanı kaybet": kayıt HENÜZ YOK, o yüzden reddedilen dosya
+  // depodan hemen silinir ve geride hiçbir iz kalmaz.
+  async function reddet(mesaj: string): Promise<AdminActionResult> {
+    await supabase.storage.from(CUSTOMER_LOGO_BUCKET).remove([path]);
+    return { error: mesaj };
+  }
+
+  if (file.size > MAX_CUSTOMER_LOGO_BYTES) {
+    return reddet("Logo 2 MB sınırını aşıyor.");
+  }
+
+  const olcum = await normalizeCustomerLogo(new Uint8Array(await file.arrayBuffer()));
+  if (!olcum.ok) return reddet(olcum.error);
+
+  const { error: yuklemeHatasi } = await supabase.storage
+    .from(CUSTOMER_LOGO_BUCKET)
+    .upload(path, olcum.png, { contentType: CUSTOMER_LOGO_MIME, upsert: true });
+  if (yuklemeHatasi) return reddet(`Logo kaydedilemedi: ${yuklemeHatasi.message}`);
+
+  const { data: onceki } = await supabase
+    .from("customers")
+    .select("logo_path")
+    .eq("id", customerId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("customers")
+    .update({ logo_path: path, logo_name: (input.fileName ?? "").trim() })
+    .eq("id", customerId);
+  if (error) return reddet(error.message);
+
+  // Eski nesne kayıt yazıldıktan SONRA silinir: ters sırada bir hata, defterde
+  // artık var olmayan bir dosyaya işaret eden bir yol bırakırdı.
+  const eski = ((onceki as { logo_path?: string } | null)?.logo_path ?? "").trim();
+  if (eski && eski !== path) {
+    await supabase.storage.from(CUSTOMER_LOGO_BUCKET).remove([eski]);
+  }
+
+  await audit(supabase, user.id, "admin.customer_logo_set", {
+    id: customerId,
+    file: input.fileName,
+    width: olcum.width,
+    height: olcum.height,
+  });
+  revalidateCustomerViews();
+  return { ok: true };
+}
+
+/**
+ * Logoyu kaldırır. ÖNCE KAYIT, SONRA DEPO (ekipman eki kuralı): ters sırada
+ * bir hata, defteri var olmayan bir dosyaya bağlı bırakırdı; bu sırada en kötü
+ * ihtimalle yetim bir nesne kalır ve o geri alınabilir bir hatadır.
+ */
+export async function clearCustomerLogo(customerId: string): Promise<AdminActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return { error: ctx.error };
+  const { supabase, user } = ctx;
+
+  const { data: onceki } = await supabase
+    .from("customers")
+    .select("logo_path")
+    .eq("id", customerId)
+    .maybeSingle();
+  const path = ((onceki as { logo_path?: string } | null)?.logo_path ?? "").trim();
+
+  const { error } = await supabase
+    .from("customers")
+    .update({ logo_path: "", logo_name: "" })
+    .eq("id", customerId);
+  if (error) return { error: error.message };
+
+  if (path) await supabase.storage.from(CUSTOMER_LOGO_BUCKET).remove([path]);
+
+  await audit(supabase, user.id, "admin.customer_logo_clear", { id: customerId });
+  revalidateCustomerViews();
+  return { ok: true };
+}
+
+/**
  * Müşteriyi defterden siler.
  *
  * İŞ EMİRLERİ SİLİNMEZ: `jobs.customer_id` yabancı anahtarı `on delete set null`
@@ -192,14 +317,19 @@ export async function deleteCustomer(id: string): Promise<AdminActionResult> {
   if ("error" in ctx) return { error: ctx.error };
   const { supabase, user } = ctx;
 
+  // Logo yolu SİLMEDEN ÖNCE okunur: satır gidince yol da gider ve depodaki
+  // nesneye ulaşacak ikinci bir kayıt yoktur.
   const { data: item } = await supabase
     .from("customers")
-    .select("name")
+    .select("name, logo_path")
     .eq("id", id)
     .maybeSingle();
 
   const { error } = await supabase.from("customers").delete().eq("id", id);
   if (error) return { error: error.message };
+
+  const logo = ((item as { logo_path?: string } | null)?.logo_path ?? "").trim();
+  if (logo) await supabase.storage.from(CUSTOMER_LOGO_BUCKET).remove([logo]);
 
   await audit(supabase, user.id, "admin.customer_delete", { id, name: item?.name });
   revalidateCustomerViews();

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Users } from "lucide-react";
 import { deleteCustomer, updateCustomer } from "../actions";
 import { ContactsDialog } from "./contacts-dialog";
+import { CustomerLogoUpload } from "./logo-upload";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -36,6 +37,10 @@ export interface CustomerAdminRow {
   phone: string;
   fax: string;
   notes: string;
+  /** `customer-logos` kovasındaki yol — boş ise logo yok (teklif logosuz basılır). */
+  logo_path: string;
+  /** Kullanıcının yüklediği dosyanın adı; yalnız pencerede gösterilir. */
+  logo_name: string;
   jobCount: number;
   /** Defterdeki iletişim kişisi sayısı — ayrıntı yalnız pencere açılınca gelir. */
   contactCount: number;
@@ -87,6 +92,13 @@ function EditDialog({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  /**
+   * LOGO FORMUN DIŞINDADIR ve bu bilinçlidir: dosya yüklendiği ANDA depoya ve
+   * kayda girer (kendi action'ıyla), "Kaydet"i beklemez. Beklemiş olsaydı
+   * "Vazgeç"e basan kullanıcı depoda yetim bir nesne bırakırdı — sözleşme
+   * PDF'inin kuralı (SATIS-16) burada da geçerlidir.
+   */
+  const [logo, setLogo] = useState({ path: row.logo_path, fileName: row.logo_name });
   const [form, setForm] = useState({
     name: row.name,
     short_name: row.short_name,
@@ -165,6 +177,21 @@ function EditDialog({
               />
               <HuePicker value={form.color_hue} onChange={(h) => set("color_hue", h)} />
             </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Logo</Label>
+            <CustomerLogoUpload
+              customerId={row.id}
+              path={logo.path}
+              fileName={logo.fileName}
+              onChange={(next) => {
+                setLogo(next);
+                // Liste sunucudan gelir; logo kayda girdiği anda tazelenmezse
+                // pencere kapanıp yeniden açıldığında eski yol görünürdü.
+                router.refresh();
+              }}
+            />
           </div>
 
           <div className="grid gap-1.5">
