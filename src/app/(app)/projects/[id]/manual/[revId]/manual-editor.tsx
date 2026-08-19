@@ -52,6 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { MANUAL_IMAGE_BUCKET, type ManualImageRow } from "@/lib/manual/data";
+import { manualAsset } from "@/lib/manual/assets";
 import { manualDocCode, MANUAL_DOC_TITLE } from "@/lib/manual/naming";
 import {
   blockHasContent,
@@ -686,7 +687,8 @@ function BlokKarti({
       {blok.kind === "image" && (
         <GorselBloku
           blok={blok}
-          kayit={images.get(blok.imageId) ?? null}
+          kayit={blok.imageId ? (images.get(blok.imageId) ?? null) : null}
+          assetKey={blok.assetKey}
           readOnly={readOnly}
           onDegis={onDegis}
         />
@@ -905,15 +907,21 @@ function TabloDuzenleyici({
 function GorselBloku({
   blok,
   kayit,
+  assetKey,
   readOnly,
   onDegis,
 }: {
   blok: Extract<ManualBlock, { kind: "image" }>;
   kayit: ManualImageRow | null;
+  /** Şablon varlığının anahtarı — yüklenmiş görselde boştur. */
+  assetKey?: string;
   readOnly: boolean;
   onDegis: (f: (b: ManualBlock) => ManualBlock) => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  // ŞABLON GÖRSELİ DEPODAN DEĞİL REPODAN gelir; önizlemesi de statik bir
+  // adrestir (`/manual-assets/…`), imzalı bağlantı gerektirmez.
+  const varlik = assetKey ? manualAsset(assetKey) : null;
 
   useEffect(() => {
     if (!kayit) return;
@@ -930,14 +938,21 @@ function GorselBloku({
     };
   }, [kayit]);
 
+  const gosterilen = varlik ? `/manual-assets/${varlik.file}` : url;
+
   return (
     <div className="grid gap-2">
-      {url ? (
+      {varlik && (
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-[11px] text-muted-foreground">
+          Şablon görseli · {varlik.label}
+        </span>
+      )}
+      {gosterilen ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={url}
-          alt={blok.caption ?? kayit?.fileName ?? "Görsel"}
-          className="max-h-64 rounded-md border object-contain"
+          src={gosterilen}
+          alt={blok.caption ?? varlik?.label ?? kayit?.fileName ?? "Görsel"}
+          className="max-h-64 rounded-md border bg-white object-contain"
         />
       ) : (
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">

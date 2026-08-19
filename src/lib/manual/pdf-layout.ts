@@ -240,7 +240,9 @@ export function blokOlcusu(
       // ORAN BİLİNMİYORSA KARE VARSAYILIR ve bu FAZLA ölçmenin yönüdür:
       // gerçek görseller çoğunlukla yatıktır, kare tahmini onlardan yüksek
       // çıkar ve sütunu erken kapatır.
-      const olculen = oranlar.get(block.imageId);
+      // Şablon varlığının oranı DEFTERDEDİR, yüklenen görselinki ölçüldü;
+            // ikisi de aynı haritadan okunur (çağıran birleştirir).
+      const olculen = oranlar.get(block.assetKey ?? block.imageId ?? "");
       const oran = olculen && olculen > 0 ? olculen : 1;
       const altyazi = block.caption?.trim() ? ALTYAZI_YUK : 0;
       return { h: genislik * oran + altyazi + GORSEL_PAY, tam };
@@ -326,14 +328,26 @@ export function manualPdfSayfalari(
   let kalan = kapasite;
   /** Sayfanın tam genişlik bantlarının yediği dikey yer. */
   let sayfaTamYuk = 0;
+  /** Açık sütun bandında SOL sütunun yediği yer — sağa geçerken donar. */
+  let solKullanilan = 0;
+
+  /** Bandın içinde gerçekten bir şey var mı? */
+  const doluBant = (b: ManualBant): boolean =>
+    b.kind === "full" ? b.atoms.length > 0 : b.sol.length > 0 || b.sag.length > 0;
 
   const sayfayiKapat = () => {
+    // BOŞ BANT SAYFAYA SAYILMAZ. `sutunAc` bandı içine bir şey konmadan ÖNCE
+    // açıyor; ardından gelen tam genişlik atomu sayfayı kapatınca ortada
+    // yalnız boş bir sütun bandı taşıyan bir yaprak kalıyordu (ölçüldü:
+    // genişletilmiş şablonda 12. sayfa 80 karakterle bomboş çıktı).
+    sayfa.bantlar = sayfa.bantlar.filter(doluBant);
     if (sayfa.bantlar.length > 0) sayfalar.push(sayfa);
     sayfa = { bantlar: [] };
     bant = null;
     sagda = false;
     kalan = kapasite;
     sayfaTamYuk = 0;
+    solKullanilan = 0;
   };
 
   const sutunAc = () => {
@@ -342,6 +356,7 @@ export function manualPdfSayfalari(
       sayfa.bantlar.push(bant);
       sagda = false;
       kalan = kapasite - sayfaTamYuk;
+      solKullanilan = 0;
     }
   };
 
@@ -350,19 +365,24 @@ export function manualPdfSayfalari(
 
     // ————————————————————————————————— tam genişlik bandı
     if (atom.tam) {
-      const kullanilan = bant ? kapasite - sayfaTamYuk - kalan : 0;
-      // Bant açıksa iki sütunun DOLU olanı kadar yer yenmiştir; tam genişlik
-      // atomu onun ALTINA gelir ve sayfada kalan yer buna göre ölçülür.
-      const sayfadaKalan = kapasite - sayfaTamYuk - (sagda ? kapasite : kullanilan);
+      // AÇIK BANDIN YEDİĞİ YER, İKİ SÜTUNUN DOLU OLANIDIR. Tam genişlik atomu
+      // bandın ALTINA gelir; altına inebilmesi için sol ve sağ sütunun
+      // UZUNUNUN bitmesi gerekir. Sağ sütundayken "bütün sayfa dolu" saymak
+      // (eski hâl) yarı boş bir sayfayı erken kapatıyordu.
+      const buSutun = bant ? kapasite - sayfaTamYuk - kalan : 0;
+      const bantYuk = bant ? Math.max(solKullanilan, sagda ? buSutun : 0, buSutun) : 0;
+      const sayfadaKalan = kapasite - sayfaTamYuk - bantYuk;
       if (atom.h > sayfadaKalan && sayfa.bantlar.length > 0) sayfayiKapat();
 
       const son = sayfa.bantlar[sayfa.bantlar.length - 1];
       if (son && son.kind === "full") son.atoms.push(atom);
       else sayfa.bantlar.push({ kind: "full", atoms: [atom] });
-      sayfaTamYuk += atom.h;
+      // Bandın altına inen atom, bandın yüksekliğini de yemiş olur.
+      sayfaTamYuk += atom.h + bantYuk;
       // Açık sütun bandı KAPANIR: ondan sonrası yeni bir bantta akar.
       bant = null;
       sagda = false;
+      solKullanilan = 0;
       kalan = Math.max(0, kapasite - sayfaTamYuk);
       if (kalan <= 0) sayfayiKapat();
       continue;
@@ -387,6 +407,10 @@ export function manualPdfSayfalari(
           sayfayiKapat();
           sutunAc();
         } else {
+          // SOLDAN SAĞA GEÇİŞ: solun yediği yer donar, sağ sütun sıfırdan
+          // başlar. Tam genişlik atomu geldiğinde bandın yüksekliği ikisinin
+          // UZUNUDUR (bkz. yukarıdaki `bantYuk`).
+          solKullanilan = kapasite - sayfaTamYuk - kalan;
           sagda = true;
           kalan = kapasite - sayfaTamYuk;
         }

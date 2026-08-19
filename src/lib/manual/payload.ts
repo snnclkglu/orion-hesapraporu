@@ -69,7 +69,7 @@ function templateBlockToBlock(t: TemplateBlock, id: string): ManualBlock | null 
       return {
         ...taban,
         kind: "note",
-        level: t.level ?? "bilgi",
+        level: t.level ?? "not",
         text: t.text ?? "",
         ...(t.title ? { title: t.title } : {}),
       };
@@ -86,7 +86,17 @@ function templateBlockToBlock(t: TemplateBlock, id: string): ManualBlock | null 
     case "auto":
       if (!t.source) return null;
       return { ...taban, kind: "auto", source: t.source, ...(t.emptyText ? { emptyText: t.emptyText } : {}) };
-    // Şablon GÖRSEL taşımaz: bir görsel her zaman o vincin fotoğrafıdır.
+    case "image":
+      // ŞABLON GÖRSELİ VARLIK ANAHTARIYLA gelir, yüklenmiş bir kimlikle
+      // değil: baytları repodadır ve her kılavuza hazır düşer.
+      if (!t.assetKey) return null;
+      return {
+        ...taban,
+        kind: "image",
+        assetKey: t.assetKey,
+        ...(t.caption ? { caption: t.caption } : {}),
+        ...(t.widthPct ? { widthPct: t.widthPct } : {}),
+      };
     default:
       return null;
   }
@@ -142,6 +152,20 @@ export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): Manual
 // ——————————————————————————————————————————————— JSONB'den güvenli okuma
 
 const metin = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/**
+ * Uyarı düzeyini güvenle okur.
+ *
+ * ESKİ AD KORUNUR: dört basamaklı ilk sürümde en alt düzeyin adı "bilgi"ydi;
+ * beşe çıkarken "not" oldu. Eşleme burada durur ki o adla kaydedilmiş bir
+ * kılavuz açıldığında kutusu kaybolmasın (`withManualDefaults`in "bozuk düğüm
+ * düşer, belge düşmez" ilkesi).
+ */
+function notDuzeyi(v: unknown): ManualNoteLevel {
+  const ham = metin(v);
+  if (ham === "bilgi") return "not";
+  return MANUAL_NOTE_LEVELS.includes(ham as ManualNoteLevel) ? (ham as ManualNoteLevel) : "not";
+}
 const bayrak = (v: unknown): boolean => v === true;
 
 function blokOku(v: unknown, id: () => string): ManualBlock | null {
@@ -168,9 +192,11 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
       return {
         ...taban,
         kind: "note",
-        level: MANUAL_NOTE_LEVELS.includes(o.level as ManualNoteLevel)
-          ? (o.level as ManualNoteLevel)
-          : "bilgi",
+        // Tanınmayan düzey EN ZARARSIZINA düşer. Eski kayıtlardaki "bilgi"
+        // de buraya gelir: düzey listesi beşe çıkarken adı "not" oldu
+        // (bkz. `MANUAL_NOTE_LEVELS`) ve bir kılavuzu açılmaz yapmaktansa
+        // kutuyu bir basamak aşağı almak doğrudur.
+        level: notDuzeyi(o.level),
         text: metin(o.text),
         ...(metin(o.title) ? { title: metin(o.title) } : {}),
       };
@@ -178,13 +204,16 @@ function blokOku(v: unknown, id: () => string): ManualBlock | null {
       return { ...taban, kind: "table", table: tabloOku(o.table) };
     case "image": {
       const imageId = metin(o.imageId);
-      // Kimliksiz bir görsel bloğu depoda karşılığı olmayan bir kutudur.
-      if (!imageId) return null;
+      const assetKey = metin(o.assetKey);
+      // KAYNAĞI OLMAYAN GÖRSEL BLOĞU, karşılığı olmayan bir kutudur.
+      // `assetKey` ÖNCELİKLİ DEĞİL, ikisi de kabul edilir ama biri şart.
+      if (!imageId && !assetKey) return null;
       const pct = Number(o.widthPct);
       return {
         ...taban,
         kind: "image",
-        imageId,
+        ...(imageId ? { imageId } : {}),
+        ...(assetKey ? { assetKey } : {}),
         ...(metin(o.caption) ? { caption: metin(o.caption) } : {}),
         ...(Number.isFinite(pct) && pct >= 10 && pct <= 100 ? { widthPct: pct } : {}),
       };
@@ -281,7 +310,9 @@ export function blockHasContent(b: ManualBlock): boolean {
     case "table":
       return b.table.rows.length > 0;
     case "image":
-      return true;
+      // Kaynağı olmayan görsel `withManualDefaults`ta zaten düşer; burada
+      // yalnız süzgecin tam olması için sınanır.
+      return Boolean(b.imageId || b.assetKey);
     case "auto":
       // Otomatik blok içeriğini çözüldüğünde alır; burada kararı `frozen`
       // varsa o verir, yoksa blok AYAKTA kalır ve çözücü boşsa düşürür.

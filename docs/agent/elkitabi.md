@@ -185,6 +185,71 @@ bilinmeyen görsel bu yüzden KARE varsayılır.
 **KÂĞIT GERİ OKUNUR**: `python scripts/check-manual-layout.py <pdf> [başlıklar]`
 taşmayı, kaybı ve doluluğu ölçer. Bileşen ağacına bakmak yerleşimi göstermez.
 
+## KITAP-12 — İki tür görsel: ŞABLON VARLIĞI ve YÜKLENEN GÖRSEL.
+
+Kullanıcı kararı (19.08.2026): *"hazır gelsin, değiştirmek istersek zaten
+değiştiririz."* Her vinçte AYNI olan görseller şablondan HAZIR gelir.
+
+**ŞABLON VARLIĞI (`assetKey`)** — baytları REPODADIR
+(`public/manual-assets/`), defteri `lib/manual/assets.ts`tedir: uyarı
+piktogramları, sinyal kelimesi çizelgesi, CE işareti, halat soketi montajı ve
+DIN 15020'nin dokuz halat hasar şekli. On beş dosya, her kılavuzda aynı.
+Depoya kopyalansaydı her revizyonda 1,3 MB çoğaltılır ve şablon düzeltildiğinde
+eski kılavuzlar eski şekli taşımaya devam ederdi. **Varlık koddur, kodla
+sürümlenir.**
+
+`public/` seçildi çünkü İKİ kullanıcısı var: sunucu PDF'e gömmek için diskten
+okur, editör önizleme için `/manual-assets/…` adresinden çeker. `src/assets/`
+altında ikinci bir kopya, bir dosya değiştiğinde ekranla belgenin ayrışması
+demekti.
+
+**YÜKLENEN GÖRSEL (`imageId`)** — o vincin kendi fotoğrafı: kabin konsolu, HMI
+ekranı, saha resmi. `manual_images` + `manual-images` kovası, revizyona bağlı
+(KITAP-9).
+
+**ORAN DEFTERDEDİR VE TESTLE KİLİTLİDİR.** Yerleşim görselin yüksekliğini
+oranından hesaplar; dosyayı açıp ölçmek saf çekirdeği dosya sistemine
+bağlardı. `assets.test.ts` PNG başlığından gerçek en/boyu okuyup defterle
+karşılaştırır (değişmez md. 8): eksik dosyada görsel hiç basılmaz, yanlış
+oranda ise komşu içerik sayfadan taşar.
+
+**DUMAN TESTİ VARLIKLARI İNDİRME UCU GİBİ YÜKLER.** Yüklemediği sürüm ölçüldü:
+yerleşim dokuz halat şeklini ölçüp bir sayfa ayırıyor, çizim onları bulamayıp
+hiç basmıyor ve ortaya BOMBOŞ bir yaprak çıkıyordu. `asset-bytes.ts` bu yüzden
+`server-only` taşımaz (`pdf/brand.tsx` ile aynı karar).
+
+## KITAP-13 — Uyarı düzeyi BEŞ basamaktır ve genel bölümler standarda dayanır.
+
+Düzeyler `not · onemli · dikkat · uyari · tehlike` — ISO 3864-2 / ANSI Z535.4
+basamakları ve firmanın kendi kılavuzunun çizelgesi. Dört basamakla
+başlamıştık; "DİKKAT" eksikti ve onsuz küçük yaralanma riski ile ölüm riski
+aynı kutuya giriyordu. Eski `bilgi` değeri `withManualDefaults`ta `not`a
+taşınır — bir kılavuzu açılmaz yapmaktansa kutuyu bir basamak aşağı almak
+doğrudur.
+
+Şablon 2026-08-19'da genişletildi (kullanıcı isteği: piyasadaki iki kılavuz
+örnek verildi). **O BELGELERDEN METİN YA DA ŞEKİL ALINMADI** — ikisi de telif
+korumalıdır ve biri her sayfasında çoğaltmayı açıkça yasaklar. Örnekler yalnız
+KAPSAM HARİTASI olarak okundu (bir kılavuzun hangi başlıkları taşıması
+gerektiği); metinler özgün yazıldı ve dayanakları kamuya açık standartlardır:
+
+- ISO 12480-1 — vinçlerin güvenli kullanımı, sorumluluklar, sinyalci
+- ISO 16715 — el işaretleri
+- ISO 9927-1 — muayene türleri ve aralıkları
+- ISO 12482 · FEM 9.755 — kalan servis ömrü (SWP)
+- ISO 3864-2 · ANSI Z535.4 — uyarı düzeyleri
+- DIN 15020 — halat muayenesi ve hurdaya ayırma kıstasları
+
+Eklenen bölümler: Yüksekte Çalışma ve Düşme Koruması · Yangın Güvenliği ·
+Kimlik Plakaları · Kullanım Öncesi Günlük Kontrol · Yük Kaldırma Kuralları ·
+Yük Savrulmasının Önlenmesi · El İşaretleri ve Haberleşme · Kullanım Sonrası
+Güvenli Bırakma · **Periyodik Muayene** (türler, kapsam, kaynaklı yapı, kalan
+ömür, muayene defteri) · **Bakım Güvenliği** (öncesi/sırasında/sonrası,
+değişiklik yasağı). Basılan bölüm sayısı 50'den 70'e çıktı.
+
+KITAP-5 GEÇERLİLİĞİNİ KORUR: eklenen metinlerin hiçbiri vince özel sayı
+taşımaz ve `payload.test.ts`teki koruma bunu sınamaya devam eder.
+
 ## KITAP-9 — Görsel SUNUCUDAN GEÇER ve YENİDEN KODLANIR.
 
 Elektrik projesi ve şartname doğrudan depoya yüklenir; görsel yüklemesi

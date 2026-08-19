@@ -14,6 +14,8 @@ import { MANUAL_DOC_TITLE, manualDocCode } from "@/lib/manual/naming";
 import { manualFromTemplate, flattenManual, numberManual, printedManual } from "@/lib/manual/payload";
 import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { MANUAL_APPENDIX_LABELS } from "@/lib/manual/types";
+import { manualAssetsFor } from "@/lib/manual/asset-bytes";
+import { allBlocks } from "@/lib/manual/payload";
 import type { ManualSourceData } from "@/lib/manual/sources";
 
 async function main() {
@@ -63,12 +65,20 @@ async function main() {
     drawings: [{ no: "0019-00-0100", name: "GENEL MONTAJ", status: "Çizildi" }],
   };
 
+  // ŞABLON VARLIKLARI İNDİRME UCUNDAKİ GİBİ YÜKLENİR. Yüklenmezse yerleşim
+  // görselleri ÖLÇER ama çizim onları BASMAZ ve ortaya bomboş bir yaprak
+  // çıkar — bu betik tam olarak o ayrışmayı yakalamak için var.
+  const varlikAnahtarlari = allBlocks(payload.sections)
+    .filter((b) => b.kind === "image" && b.assetKey)
+    .map((b) => (b as { assetKey: string }).assetKey);
+  const gorseller = manualAssetsFor(varlikAnahtarlari);
+
   const belgeKodu = manualDocCode("0019-00", 1);
   const buf = await renderToBuffer(
     ManualPdf({
       payload,
       sources,
-      images: [],
+      images: gorseller,
       docCode: belgeKodu,
       docLine: `ORION CRANES · ${MANUAL_DOC_TITLE} · V1 · 2026`,
       company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
@@ -80,7 +90,7 @@ async function main() {
 
   const basilan = printedManual(payload);
   const duz = flattenManual(numberManual(basilan.sections));
-  console.log(`PDF: ${hedef} · ${(buf.byteLength / 1024).toFixed(0)} KB`);
+  console.log(`PDF: ${hedef} · ${(buf.byteLength / 1024).toFixed(0)} KB · ${gorseller.length} şablon görseli`);
   console.log(`Yazılan bölüm: ${flattenManual(numberManual(payload.sections)).length}`);
   console.log(`BASILAN bölüm: ${duz.length}`);
   console.log(`Ek sırası: ${manualAppendixOrder(payload).join(" · ")}`);

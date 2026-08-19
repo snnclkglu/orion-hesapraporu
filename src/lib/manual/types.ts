@@ -25,16 +25,37 @@
 
 // ————————————————————————————————————————————————————————————————— blok
 
-/** Uyarı kutusunun düzeyi — kaynak kılavuzdaki dört kutu. */
-export const MANUAL_NOTE_LEVELS = ["bilgi", "onemli", "uyari", "tehlike"] as const;
+/**
+ * UYARI DÜZEYLERİ — BEŞ basamak, kaynak kılavuzun kendi çizelgesinden.
+ *
+ * Sıra ARTAN CİDDİYETTEDİR ve bu bir düzen tercihi değil bir SÖZLEŞMEDİR:
+ * ISO 3864-2 / ANSI Z535.4'ün sinyal kelimesi basamakları budur ve firmanın
+ * kendi teslim ettiği kılavuz da aynı beşliyi kullanıyor (bkz. şablon
+ * varlığı `sinyalKelimeleri`). Dört basamakla başlamıştık; "DİKKAT" eksikti
+ * ve onsuz küçük yaralanma riski ile ölüm riski aynı kutuya giriyordu.
+ *
+ * `not` ile `onemli` ayrımı da oradan gelir: NOT bir kolaylıktır, ÖNEMLİ ise
+ * güvenli kullanımın ZORUNLU adımıdır.
+ */
+export const MANUAL_NOTE_LEVELS = ["not", "onemli", "dikkat", "uyari", "tehlike"] as const;
 
 export type ManualNoteLevel = (typeof MANUAL_NOTE_LEVELS)[number];
 
 export const MANUAL_NOTE_LABELS: Record<ManualNoteLevel, string> = {
-  bilgi: "BİLGİ",
+  not: "NOT",
   onemli: "ÖNEMLİ",
+  dikkat: "DİKKAT",
   uyari: "UYARI",
-  tehlike: "TEHLİKE!",
+  tehlike: "TEHLİKE",
+};
+
+/** Kutunun altına basılan tanım — okuyan düzeyin ne demek olduğunu bilmeli. */
+export const MANUAL_NOTE_MEANING: Record<ManualNoteLevel, string> = {
+  not: "Kullanma ipuçları ve faydalı bilgiler.",
+  onemli: "Özel bir fonksiyonun güvenli kullanımı için zorunlu adımlar.",
+  dikkat: "Küçük fiziksel yaralanmalarla sonuçlanma ihtimali mevcut durum.",
+  uyari: "Ciddi yaralanma ve ölümle sonuçlanma ihtimali mevcut durum.",
+  tehlike: "Ciddi yaralanma ve ölümle sonuçlanma ihtimali yüksek durum.",
 };
 
 /**
@@ -142,10 +163,22 @@ export interface ManualTableBlock extends ManualBlockBase {
   table: ManualTable;
 }
 
-/** Görsel — baytlar `manual_images` kaydındadır, burada yalnız kimliği durur. */
+/**
+ * Görsel — İKİ KAYNAKTAN BİRİ, ikisi birden DEĞİL.
+ *
+ * `imageId` YÜKLENEN görseldir: baytları `manual_images` kaydında ve
+ * `manual-images` kovasındadır, revizyona bağlıdır (o vincin fotoğrafı).
+ * `assetKey` ŞABLON VARLIĞIDIR: baytları repodadır (`lib/manual/assets.ts`)
+ * ve şablondan doğan her kılavuza hazır gelir (uyarı piktogramı, DIN 15020
+ * halat hasar şekli). Şablon görselinin üzerine yükleme yapılırsa `imageId`
+ * yazılır ve `assetKey` düşer — biri ötekini gölgelemez.
+ */
 export interface ManualImageBlock extends ManualBlockBase {
   kind: "image";
-  imageId: string;
+  /** Yüklenen görselin kimliği; şablon varlığında BOŞTUR. */
+  imageId?: string;
+  /** Şablon varlığının anahtarı (`lib/manual/assets.ts`); yüklemede BOŞTUR. */
+  assetKey?: string;
   caption?: string;
   /** Sayfa genişliğinin yüzdesi (10–100); verilmezse 100. */
   widthPct?: number;

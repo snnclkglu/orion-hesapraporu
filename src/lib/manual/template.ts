@@ -47,6 +47,9 @@ export interface TemplateBlock {
   title?: string;
   source?: ManualAutoSource;
   emptyText?: string;
+  /** Şablon görselinin anahtarı (`lib/manual/assets.ts`). */
+  assetKey?: string;
+  widthPct?: number;
   head?: string[];
   rows?: string[][];
   caption?: string;
@@ -78,6 +81,14 @@ const oto = (source: ManualAutoSource, emptyText?: string): TemplateBlock => ({
   kind: "auto",
   source,
   emptyText,
+});
+
+/** Şablon görseli — baytları repoda (`src/assets/manual/`). */
+const resim = (assetKey: string, caption?: string, widthPct?: number): TemplateBlock => ({
+  kind: "image",
+  assetKey,
+  caption,
+  widthPct,
 });
 
 /**
@@ -123,15 +134,17 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
       },
       {
         key: "notlar.gorseller",
-        title: "Bu kılavuzda kullanılan görseller",
+        title: "Bu kılavuzda kullanılan uyarılar",
         blocks: [
           p(
-            "Bu kılavuzda bulunan güvenlik noktaları bir adet piktogram ve uyarı kelimesi ile gösterilir. Uyarı kelimesi güvenlik riskinin boyutunu tanımlar."
+            "Bu kılavuzdaki güvenlik noktaları bir piktogram ve bir uyarı kelimesiyle gösterilir. Uyarı kelimesi riskin BÜYÜKLÜĞÜNÜ, piktogram ise TÜRÜNÜ tanımlar. Basamaklar ISO 3864-2 ve ANSI Z535.4 ile uyumludur."
           ),
-          not("tehlike", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmaya yol açacak bir tehlikeyi belirtir."),
-          not("uyari", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmaya yol açabilecek bir tehlikeyi belirtir."),
-          not("onemli", "Makinede ya da çevresinde hasara yol açabilecek bir durumu belirtir."),
-          not("bilgi", "Kullanımı kolaylaştıran ek bilgiyi belirtir."),
+          resim("sinyalKelimeleri", "Uyarı düzeyleri, piktogramları ve anlamları", 90),
+          not("tehlike", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmayla sonuçlanma ihtimali YÜKSEK olan bir durumu belirtir."),
+          not("uyari", "Kaçınılmadığı takdirde ölüm ya da ağır yaralanmayla sonuçlanma ihtimali MEVCUT olan bir durumu belirtir."),
+          not("dikkat", "Kaçınılmadığı takdirde küçük fiziksel yaralanmayla sonuçlanabilecek bir durumu belirtir."),
+          not("onemli", "Özel bir fonksiyonun güvenli kullanımı için zorunlu adımları belirtir; uyulmaması makinede ya da çevresinde hasara yol açabilir."),
+          not("not", "Kullanımı kolaylaştıran ek bilgiyi belirtir."),
         ],
       },
     ],
@@ -317,16 +330,78 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
         ],
       },
       {
+        key: "guvenlik.dusmeKorumasi",
+        title: "Yüksekte Çalışma ve Düşme Koruması",
+        blocks: [
+          p(
+            "Vinç üzerindeki her çalışma yüksekte çalışmadır. Köprü yürüyüş yolu, araba üstü, kabin çatısı ve elektrik odası çatısı; korkuluk bulunsa dahi düşme riski taşıyan alanlardır."
+          ),
+          ul(
+            "Vince yalnız yetkili ve yüksekte çalışma eğitimi almış personel çıkar.",
+            "Tam vücut emniyet kemeri ve çift kancalı lanyard kullanılır; kanca yalnız bu amaç için tasarlanmış ankraj noktasına takılır.",
+            "Ankraj noktası her kullanımdan önce gözle kontrol edilir; korkuluk, boru ve kablo tavası ankraj noktası DEĞİLDİR.",
+            "Yürüyüş yolları, merdivenler ve platformlar yağ, gres, su ve malzemeden arındırılmış tutulur.",
+            "El aletleri ve parçalar bağlanmadan yukarı çıkarılmaz; düşen bir anahtar aşağıdaki kişi için ölümcüldür.",
+            "Rüzgârlı havada, buzlanmada ve yetersiz aydınlatmada vinç üzerinde çalışılmaz."
+          ),
+          not(
+            "tehlike",
+            "Vince çıkmadan ÖNCE ana şalter kapatılır, kilitlenir ve etiketlenir; komşu vinçler de durdurulur ya da aralarına mekanik durdurucu konur. Çalışan bir komşu vinç, üzerinde bulunduğunuz köprüye çarpabilir."
+          ),
+        ],
+      },
+      {
+        key: "guvenlik.yangin",
+        title: "Yangın Güvenliği",
+        blocks: [
+          p(
+            "Vinç üzerindeki yangın riski üç kaynaktan doğar: elektrik panolarındaki arıza, hidrolik ve yağlama sistemindeki sızıntı ve altında yapılan sıcak işlem (kaynak, kesme, taşlama)."
+          ),
+          ul(
+            "Elektrik odasında ve kabinde kuru kimyevi tozlu ya da CO2'li yangın söndürücü bulundurulur; söndürücülerin periyodik kontrol etiketi geçerli olmalıdır.",
+            "Panolarda yangın hâlinde ana şalter kapatılmadan müdahale edilmez.",
+            "Vinç üzerinde ve altında yapılacak sıcak işlem için yazılı izin alınır; kıvılcım siperi kullanılır ve iş bitiminden sonra alan en az yarım saat gözlenir.",
+            "Yağ, gres ve solvent vinç üzerinde depolanmaz (bkz. Uyarı İşaretleri).",
+            "Kablo kanalları ve pano içleri toz ve yağdan arındırılmış tutulur."
+          ),
+        ],
+      },
+      {
+        key: "guvenlik.kimlikPlakalari",
+        title: "Kimlik Plakaları ve Etiketler",
+        blocks: [
+          p(
+            "Vincin kimliği üzerindeki plakalarda yazılıdır. Bu plakalar SÖKÜLMEZ, boyanmaz ve okunmaz hâle geldiğinde üreticiden yenisi istenir. Yedek parça talebinde ve teknik destek görüşmesinde plakadaki bilgiler esas alınır."
+          ),
+          ul(
+            "Vinç kimlik plakası: üretici, seri numarası, üretim yılı, kaldırma kapasitesi, sınıflandırma ve CE işareti.",
+            "Kanca ve kanca bloğu plakası: taşıma kapasitesi ve kanca numarası.",
+            "Motor etiketleri: güç, devir, gerilim, akım, koruma sınıfı ve çalışma rejimi.",
+            "Redüktör etiketleri: tip, çevrim oranı ve yağ miktarı.",
+            "Kapasite yazısı: köprü kirişinde uzaktan okunabilecek büyüklükte."
+          ),
+          not(
+            "onemli",
+            "Vinç üzerinde okunan kaldırma kapasitesi, o vincin AŞILAMAZ sınırıdır. Kapasitenin bir kısmını kullanan bir kaldırma aracı (traversa, mıknatıs, kepçe) varsa net kaldırılabilir yük o kadar azalır."
+          ),
+        ],
+      },
+      {
         key: "guvenlik.uyariIsaretleri",
         title: "Uyarı İşaretleri",
         blocks: [
           p(
             "Vinç üzerindeki tüm uyarı işaretlerini gözlemleyin ve talimatlara uyun. Ek olarak, vinç üzerinde aşağıdaki işaret bulunur:"
           ),
+          resim("ceIsareti", "CE işareti", 22),
           not(
-            "bilgi",
-            "Bu ürün için geçerli ve CE sembolü gerektiren EU direktifleriyle uyumluluğu gösterir.",
+            "not",
+            "CE işareti, bu ürünün kendisi için geçerli ve CE sembolü gerektiren AB direktifleriyle (2006/42/AT Makine Emniyeti Yönetmeliği dâhil) uyumlu olduğunu gösterir.",
             "CE İşareti"
+          ),
+          p(
+            "Vinç üzerindeki uyarı etiketleri okunmaz hâle geldiğinde ya da kaybolduğunda GECİKMEDEN yenilenir. Silinmiş bir etiket, hiç olmayan bir etiketten daha tehlikelidir: yerinde bir şey olduğunu bilen kimse onu okumaya çalışmaz.",
+            "Etiketlerin bakımı"
           ),
           not("onemli", "Gres, yağ, tiner vb. malzemelerin vinç üzerinde saklanması, depolanması yasaktır."),
         ],
@@ -387,6 +462,132 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
       },
       { key: "kullanim.motorIzleme", title: "Motorların İzlenmesi, Durdurma (Stop) Fonksiyonu", blocks: [bosluk()] },
       { key: "kullanim.arizaIhbar", title: "Arıza İhbar", blocks: [bosluk()] },
+      {
+        key: "kullanim.gunlukKontrol",
+        title: "Kullanım Öncesi Günlük Kontrol",
+        blocks: [
+          p(
+            "Her vardiyanın başında, vinç yüklenmeden önce aşağıdaki kontroller yapılır. Kontrolde bir eksiklik bulunursa vinç ÇALIŞTIRILMAZ ve durum bakım sorumlusuna bildirilir."
+          ),
+          {
+            kind: "table",
+            head: ["Kontrol", "Nasıl", "Ölçüt"],
+            rows: [
+              ["Acil stop", "Butona basılır, vinç devreden çıkar", "Bütün hareketler durmalı"],
+              ["Frenler", "Yüksüz kaldırma ve indirme, kumanda bırakılır", "Yük tutulmalı, kayma olmamalı"],
+              ["Limit siviçleri", "Yavaş hızda üst ve alt limite yaklaşılır", "Hareket limitte durmalı"],
+              ["Korna ve ikaz lambaları", "Pedal ve lamba test butonu", "Sesli ve görsel ikaz çalışmalı"],
+              ["Kanca ve kanca bloğu", "Gözle", "Çatlak, deformasyon, emniyet mandalı"],
+              ["Çelik halat", "Gözle, tambur ve makara çevresinde", "Kopuk tel, ezilme, düğümlenme yok"],
+              ["Kumanda", "Her eksen kısa hareket", "Kumanda yönü hareket yönüyle aynı"],
+              ["Çalışma alanı", "Gözle", "Yol açık, altta personel yok"],
+            ],
+            caption: "Kontrol sonuçları vardiya defterine işlenir.",
+          },
+          not(
+            "uyari",
+            "Fren, limit sivici ya da acil stop arızalı bir vinç kullanılmaz. Bu üç sistemin herhangi biri, tek başına yükün düşmesini önleyen son emniyettir."
+          ),
+        ],
+      },
+      {
+        key: "kullanim.yukKurallari",
+        title: "Yük Kaldırma Kuralları",
+        blocks: [
+          p(
+            "Aşağıdaki kurallar vincin tipinden ve kapasitesinden bağımsız olarak her kaldırmada geçerlidir."
+          ),
+          ul(
+            "Yük kaldırılmadan önce kancanın yükün AĞIRLIK MERKEZİNİN tam üzerinde olması sağlanır.",
+            "Kaldırma başlangıcında yük yerden birkaç santim kaldırılıp beklenir; bağlantı, denge ve fren bu anda kontrol edilir.",
+            "Yük yerden kesildikten sonra yalnız engellerin üzerinden geçecek yüksekliğe çıkarılır; gereksiz yükseklik savrulmayı büyütür.",
+            "Yük insanların üzerinden GEÇİRİLMEZ; geçmesi zorunlu bir güzergâh varsa alan boşaltılır.",
+            "Yük altında ve yük yolunda kimse durmaz; operatör yükü göremiyorsa sinyalci ile çalışılır.",
+            "Yük askıda bırakılıp operatör kumandadan ayrılmaz.",
+            "Kaldırma esnasında ani kalkış ve ani duruş yapılmaz."
+          ),
+          not("tehlike", "Aşağıdaki kullanımlar KESİNLİKLE YASAKTIR ve vincin devrilmesine, halatın kopmasına ya da yapının kalıcı hasarına yol açar:"),
+          ul(
+            "YAN ÇEKME: halat düşey değilken kaldırma. Halat düşey olmadan hiçbir yük kaldırılmaz.",
+            "SÜRÜKLEME: yükü yatay olarak çekmek ya da yerdeki bir yükü vinçle sürüklemek.",
+            "SÖKME ve KURTARMA: sıkışmış, donmuş ya da bağlı bir yükü vinçle koparmaya çalışmak.",
+            "İNSAN TAŞIMA: kancaya, yüke ya da kaldırma aracına binmek.",
+            "KAPASİTE AŞIMI: aşırı yük sistemini devre dışı bırakarak ya da deneyerek kaldırmak.",
+            "ÇARPMA: yükü ya da kanca bloğunu yapıya, tampona veya başka bir vince çarptırmak."
+          ),
+        ],
+      },
+      {
+        key: "kullanim.savrulma",
+        title: "Yük Savrulmasının Önlenmesi",
+        blocks: [
+          p(
+            "Askıdaki yük bir sarkaçtır: yürütme başlarken yük geride kalır, dururken öne savrulur. Savrulan yük hem çevresindekiler için tehlikedir hem de köprüye ve arabaya öngörülmemiş yatay kuvvet bindirir."
+          ),
+          ul(
+            "Hızlanma ve yavaşlama KADEMELİ yapılır; kumanda kolu bir uçtan ötekine ani hareket ettirilmez.",
+            "Yürütme sırasında kaldırma hareketi ile yürütme aynı anda ani biçimde değiştirilmez.",
+            "Savrulma başladıysa kumandayla söndürülür: yük öne savrulurken kısa süre aynı yönde hareket verilir.",
+            "Yük mümkün olan en alçak güvenli yükseklikte taşınır; halat boyu arttıkça sarkaç periyodu uzar ve genlik büyür.",
+            "Yükün elle tutulup yönlendirilmesi gerekiyorsa halat ya da kılavuz ip kullanılır, yüke elle temas edilmez."
+          ),
+          not(
+            "not",
+            "Vinçte savrulma önleme (anti-sway) sistemi varsa devre dışı bırakılmaz. Sistem savrulmayı azaltır, ORTADAN KALDIRMAZ; yukarıdaki kurallar yine de geçerlidir."
+          ),
+        ],
+      },
+      {
+        key: "kullanim.haberlesme",
+        title: "El İşaretleri ve Haberleşme",
+        blocks: [
+          p(
+            "Operatörün yükü ya da hedef noktayı göremediği her durumda bir SİNYALCİ görevlendirilir. Sinyalci bir kişidir ve operatör yalnız onun işaretlerini uygular; işaretin anlaşılmadığı ya da sinyalcinin gözden kaybolduğu anda hareket DURDURULUR."
+          ),
+          ul(
+            "Sinyalci ayırt edici bir yelek giyer ve operatörün onu sürekli görebileceği bir yerde durur.",
+            "Sinyalci yükün altında ve yük yolunda durmaz.",
+            "Telsizle çalışılıyorsa kanal yalnız bu iş için kullanılır; her komut tekrarlanarak teyit edilir.",
+            "\u201CDUR\u201D işaretini KİM VERİRSE VERSİN operatör derhal uygular; bu tek istisnadır."
+          ),
+          {
+            kind: "table",
+            head: ["İşaret", "Anlamı"],
+            rows: [
+              ["Kol yukarı, işaret parmağı yukarı, elle küçük daire", "Kaldır"],
+              ["Kol aşağı, işaret parmağı aşağı, elle küçük daire", "İndir"],
+              ["Kol yatay, avuç aşağı, el sabit", "Dur"],
+              ["İki kol yatay, avuçlar aşağı, iki el sabit", "Acil dur"],
+              ["Kol yatay ileri, avuç ileri, el ileri geri", "Yürüt (gösterilen yöne)"],
+              ["Bir el yukarı, avuç ileri; öteki el yavaş hareket", "Yavaş hareket ettir"],
+              ["İki el karın hizasında birleştirilir", "Operasyon bitti"],
+            ],
+            caption:
+              "İşaretler ISO 16715 esas alınarak verilmiştir. Sahada başka bir işaret kümesi kullanılıyorsa operatör ve sinyalci vardiya öncesi mutabık kalır.",
+          },
+        ],
+      },
+      {
+        key: "kullanim.kullanimSonrasi",
+        title: "Kullanım Sonrası Güvenli Bırakma",
+        blocks: [
+          p("Vardiya sonunda ya da vinç uzun süre kullanılmayacaksa aşağıdaki adımlar uygulanır."),
+          ol(
+            [
+              "Yük indirilir; kancada yük bırakılmaz.",
+              "Kanca bloğu, geçiş yollarını ve altındaki çalışma alanını engellemeyecek bir yüksekliğe kaldırılır.",
+              "Araba ve köprü, üzerinde çalışma yapılmayan park konumuna alınır.",
+              "Kumanda sıfır konumuna getirilir ve vinç devre dışı bırakılır.",
+              "Kabinden çıkılır, kapı kapatılır ve ana şalter kapatılır.",
+            ],
+            "Vinç güvenli park konumundadır ve enerjisiz kalmıştır."
+          ),
+          not(
+            "onemli",
+            "Açık havada çalışan vinçlerde vardiya sonunda RAY KISKACI (fırtına kilidi) devreye alınır. Fırtına kilidi devrede değilken bırakılan bir vinç, rüzgârla yürüyüp yol sonundaki tampona çarpabilir."
+          ),
+        ],
+      },
       {
         key: "kullanim.emniyetTedbirleri",
         title: "Emniyet Tedbirleri",
@@ -492,6 +693,9 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
                   p(
                     "Halat montajından sonra, halat sistemiyle bağlantılı çalışan bütün ekipmanların (denge kolu, limit şalterleri, aşırı yük koruma ekipmanları, güvenlik ekipmanları vb.) kontrolü yapılmalıdır."
                   ),
+                  p("Halat soketinin bağlantısı aşağıda verilen şekilde yapılmalıdır:"),
+                  resim("halatSoketi1", "Halat soketi bağlantısı", 55),
+                  resim("halatSoketi2", "Halat soketi montaj adımı", 55),
                 ],
               },
               {
@@ -568,6 +772,28 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
                   ),
                 ],
               },
+              {
+                key: "kullanim.halatKontrol.telHalat.hasarGorunumleri",
+                title: "Halat Hasar Görünümleri",
+                blocks: [
+                  p(
+                    "Aşağıdaki şekiller, muayenede karşılaşılan tipik halat hasarlarını ve her birinde uygulanacak kararı gösterir. Şekiller DIN 15020 muayene kıstaslarına dayanır ve çelik halatlı her vinçte geçerlidir."
+                  ),
+                  resim("halatHasar1", "Halatın helis biçimi alması. \u201Cx\u201D biçiminde oluşan hasarın boyutu halat nominal çapının üçte biri kadar olduğunda halat DEĞİŞTİRİLİR.", 60),
+                  resim("halatHasar2", "Dış tellerin iç tellere göre uzaması ya da gevşemesi. Bu hasar görülen halat HEMEN değiştirilir.", 60),
+                  resim("halatHasar3", "Dış tellerin dolanarak düğüm olması. Bu hasar görülen halat değiştirilir.", 60),
+                  resim("halatHasar4", "Dış tellerden birkaçının gevşemesi. Sebep paslanma ya da aşınma ise halat değiştirilir; değilse gevşek tel sayısı belirleyicidir.", 60),
+                  resim("halatHasar5", "Tellerde çok kısa olmayan kalınlaşma bölgeleri. Problemin belirgin olduğu halatlar değiştirilir.", 60),
+                  resim("halatHasar6", "Halat çapında bölgesel incelme. Önemli sayılabilecek incelmede halat değiştirilir.", 60),
+                  resim("halatHasar7", "Halat üzerinden araç geçmesi vb. sonucu ezilme. Bu durumda halat değiştirilir.", 60),
+                  resim("halatHasar8", "Halatta katlanma varken çekilmesi sonucu oluşan hasar. Bu hasarın görülmesi durumunda halat değiştirilir.", 60),
+                  resim("halatHasar9", "Keskin büküm noktaları oluşmuş halat değiştirilir.", 60),
+                  not(
+                    "uyari",
+                    "Yukarıdaki hasarlardan herhangi biri görülen halat, kalan tel kopması sayısına bakılmaksızın hizmet dışı bırakılır. Hasarlı bir halatla yapılan tek bir kaldırma, ölümle sonuçlanabilir."
+                  ),
+                ],
+              },
             ],
           },
           {
@@ -588,6 +814,211 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
               ),
             ],
           },
+        ],
+      },
+    ],
+  },
+
+  // ————————————————————————————————————————————— 5 Periyodik Muayene
+  {
+    key: "muayene",
+    title: "Periyodik Muayene",
+    blocks: [
+      p(
+        "Muayene, bakımdan AYRI bir iştir. Bakım vincin çalışır kalmasını sağlar; muayene ise vincin hâlâ GÜVENLİ olduğunu belgeler. İkisi farklı aralıklarla, farklı yetkinlikteki kişilerce yapılır ve muayene her defasında YAZILI olarak kaydedilir."
+      ),
+      not(
+        "onemli",
+        "Periyodik kontrol, ilgili iş ekipmanları mevzuatının ve ISO 9927-1'in gereğidir. Kaydı tutulmayan bir muayene, yapılmamış sayılır."
+      ),
+    ],
+    children: [
+      {
+        key: "muayene.turleri",
+        title: "Muayene Türleri ve Aralıkları",
+        blocks: [
+          {
+            kind: "table",
+            head: ["Muayene", "Ne zaman", "Kim"],
+            rows: [
+              ["Günlük gözle kontrol", "Her vardiya başında", "Operatör"],
+              ["Sık aralıklı muayene", "Aylık", "Bakım teknisyeni"],
+              ["Periyodik muayene", "Yılda en az bir kez", "Yetkili muayene personeli"],
+              ["Özel muayene", "Aşırı yükleme, kaza ya da uzun duruş sonrası", "Yetkili muayene personeli"],
+              ["Kabul muayenesi", "Devreye alma ve esaslı değişiklik sonrası", "Yetkili muayene personeli"],
+            ],
+            caption:
+              "Ağır hizmet koşullarında (yüksek sıcaklık, tozlu ortam, sürekli çalışma) aralıklar KISALTILIR.",
+          },
+          p(
+            "Vincin çalışma sınıfı ne kadar yüksekse muayene aralığı o kadar sık olmalıdır: sınıflandırması M8 olan bir vinç, aynı takvimle M4 bir vinçten çok daha fazla çevrim yapar.",
+            "Sınıfa göre sıklık"
+          ),
+        ],
+      },
+      {
+        key: "muayene.kapsam",
+        title: "Muayene Kapsamı",
+        blocks: [
+          p("Periyodik muayenede en az aşağıdaki başlıklar incelenir ve sonuç kayda geçirilir:"),
+          ul(
+            "Çelik yapı: ana kiriş, başkiriş, araba şasisi ve bağlantıları; çatlak, kalıcı deformasyon, gevşemiş ya da eksik cıvata.",
+            "Kaldırma grubu: tambur, makara, halat, kanca ve kanca bloğu.",
+            "Frenler: balata kalınlığı, ayar, tutma kabiliyeti ve fren testi.",
+            "Yürütme grupları: tekerlek, ray, tampon ve teker flanşı aşınması.",
+            "Elektrik sistemi: koruma cihazları, topraklama, kablo ve akım alma sistemi.",
+            "Emniyet sistemleri: limit siviçleri, aşırı yük sistemi, acil stop ve ikaz elemanları.",
+            "Kaldırma araçları: traversa, sapan, mıknatıs ya da kepçe (varsa)."
+          ),
+        ],
+      },
+      {
+        key: "muayene.kaynakliYapi",
+        title: "Kaynaklı Yapının Muayenesi",
+        blocks: [
+          p(
+            "Çelik yapıdaki hasar önce KAYNAKTA başlar. Gözle muayenede boya çatlağı, pas akıntısı ve boyada kabarma bir kaynak çatlağının ilk işareti olabilir; bu belirtilerin görüldüğü yerde boya sıyrılarak yüzey açılır."
+          ),
+          p(
+            "Şüpheli bölgede penetrant ya da manyetik parçacık muayenesi uygulanır. Çatlak tespit edilirse vinç HİZMET DIŞI bırakılır ve onarım üretici onayıyla yapılır.",
+            "Tahribatsız muayene"
+          ),
+          p("Ana kirişte en çok zorlanan ve öncelikle incelenmesi gereken bölgeler:"),
+          ul(
+            "Ana kiriş ile başkirişin birleşim bölgesi ve bu bölgedeki kaynaklar.",
+            "Ray altı bölgesi ve ray bağlantı elemanları.",
+            "Perde (diyafram) kaynakları, özellikle açıklık ortasına yakın olanlar.",
+            "Üst ve alt başlık saclarının boyuna kaynakları.",
+            "Kabin, platform ve makine sehpası askı bağlantıları.",
+            "Tampon ve durdurucu bağlantı bölgeleri."
+          ),
+          not(
+            "uyari",
+            "Çelik yapıda tespit edilen bir çatlak KAYNAK YAPILARAK kapatılmaz. Çatlağın kökü temizlenmeden yapılan onarım, çatlağı görünmez kılar ama büyümesini durdurmaz."
+          ),
+        ],
+      },
+      {
+        key: "muayene.kalanOmur",
+        title: "Kalan Servis Ömrü",
+        blocks: [
+          p(
+            "Vinç, tasarımında seçilen sınıflandırmaya karşılık gelen bir TEORİK ÇALIŞMA SÜRESİ için boyutlandırılmıştır. Bu süre çalışma saatiyle değil, kaldırılan yüklerin büyüklüğü ve sayısıyla tükenir: aynı saatte tam yükle çalışan bir vinç, yarı yükle çalışandan çok daha hızlı yaşlanır."
+          ),
+          ul(
+            "Kalan ömrün takibi için çalışma saati sayacı ve — varsa — yük çevrim sayacı düzenli olarak okunur ve kaydedilir.",
+            "Kayıt tutulmamışsa kalan ömür, kullanım koşulları üzerinden tahmin edilir; tahmin her zaman GÜVENLİ tarafta yapılır.",
+            "Teorik çalışma süresinin sonuna yaklaşan vinçte genel bir revizyon (GO — genel bakım) gerekir.",
+            "Revizyon yapılmadan çalışmaya devam edilmesi, taşıyıcı yapıda ve kaldırma grubunda yorulma kırığı riskini kabul etmek demektir."
+          ),
+          not(
+            "onemli",
+            "Kalan servis ömrü değerlendirmesi ISO 12482 ve FEM 9.755 esaslarına göre yapılır ve sonucu yazılı olarak kaydedilir. Değerlendirmeyi vincin sınıflandırmasını bilen bir mühendis yapar."
+          ),
+        ],
+      },
+      {
+        key: "muayene.kayit",
+        title: "Muayene Defteri ve Belgeleme",
+        blocks: [
+          p(
+            "Vince ait bir MUAYENE DEFTERİ tutulur ve vincin ömrü boyunca saklanır. Vinç el değiştirirse defter de birlikte devredilir."
+          ),
+          ul(
+            "Her muayenenin tarihi, kapsamı, muayeneyi yapanın adı ve yetkisi.",
+            "Tespit edilen eksiklikler ve bunların giderilme tarihi.",
+            "Değiştirilen ana parçalar (halat, kanca, fren balatası, redüktör) ve değişim tarihi.",
+            "Aşırı yükleme, çarpma ve kaza kayıtları.",
+            "Esaslı değişiklikler ve bunlara ait onaylar.",
+            "Çalışma saati / yük çevrimi okumaları."
+          ),
+          not(
+            "not",
+            "Eksikliği giderilen bir madde defterden SİLİNMEZ, karşısına giderilme tarihi yazılır. Defter vincin geçmişidir; geçmişin silinmesi kalan ömür değerlendirmesini imkânsız kılar."
+          ),
+        ],
+      },
+    ],
+  },
+
+  // —————————————————————————————————————————— 6 Bakım Güvenliği
+  {
+    key: "bakimGuvenlik",
+    title: "Bakım Güvenliği",
+    blocks: [
+      p(
+        "Vinçteki ölümlü kazaların önemli bir kısmı kullanım sırasında değil BAKIM sırasında olur: enerjisi kesilmemiş bir vinç, bakım yapan kişiyi habersiz yakalar."
+      ),
+    ],
+    children: [
+      {
+        key: "bakimGuvenlik.oncesi",
+        title: "Bakım Öncesi",
+        blocks: [
+          ol(
+            [
+              "Bakım yapılacağı, vinci kullanan bütün vardiyalara duyurulur.",
+              "Yük indirilir, kanca bloğu güvenli konuma alınır.",
+              "Vinç bakım konumuna götürülür; mümkünse yol sonundan uzak, altı boş bir bölgeye.",
+              "Ana şalter kapatılır, KİLİTLENİR ve etiketlenir (kilitleme-etiketleme).",
+              "Enerjinin gerçekten kesildiği ölçü aleti ile DOĞRULANIR.",
+              "Sürücülerdeki artık enerjinin boşalması için katalogda verilen süre beklenir.",
+              "Komşu vinçler durdurulur ya da araya mekanik durdurucu konur.",
+              "Altta çalışma alanı varsa kapatılır ve işaretlenir.",
+            ],
+            "Vinç enerjisiz, hareketsiz ve başkasının devreye alamayacağı hâldedir."
+          ),
+          not(
+            "tehlike",
+            "KİLİDİ TAKAN KİŞİ AÇAR. Her bakım personeli kendi kilidini takar ve işi bitince kendi kilidini kaldırır. Başkasının kilidini açmak, o kişinin hâlâ vinç üzerinde olabileceğini yok saymaktır."
+          ),
+        ],
+      },
+      {
+        key: "bakimGuvenlik.sirasinda",
+        title: "Bakım Sırasında",
+        blocks: [
+          ul(
+            "Sökülen parçalar düşmeyecek şekilde desteklenir; askıya alınan parça vinç kancasıyla tutulmaz.",
+            "Yay yüklü elemanlar (fren yayları, tampon) boşaltılmadan sökülmez.",
+            "Hidrolik sistemde basınç boşaltılmadan bağlantı açılmaz.",
+            "Yalnız orijinal ya da üreticinin onayladığı yedek parça kullanılır.",
+            "Sökülen emniyet elemanı (koruma sacı, korkuluk, kapak) iş biter bitmez yerine takılır.",
+            "Ölçüm ya da ayar için enerji verilmesi gerekiyorsa bu bir İSTİSNADIR: alan boşaltılır, tek bir kişi kumandada durur ve iş bitince enerji yeniden kesilir."
+          ),
+        ],
+      },
+      {
+        key: "bakimGuvenlik.sonrasi",
+        title: "Bakım Sonrası",
+        blocks: [
+          ol(
+            [
+              "Alet, parça ve malzeme vinç üzerinden toplanır.",
+              "Sökülen bütün koruyucular ve emniyet elemanları takılmış mı, kontrol edilir.",
+              "Kilitler kaldırılır ve enerji verilir.",
+              "Yüksüz fonksiyon testi yapılır: acil stop, limit siviçleri, frenler, ikaz elemanları.",
+              "Fren ayarı değiştiyse yükle fren testi yapılır.",
+              "Yapılan iş ve değiştirilen parçalar muayene defterine işlenir.",
+            ],
+            "Vinç kullanıma hazırdır ve yapılan iş kayda geçmiştir."
+          ),
+        ],
+      },
+      {
+        key: "bakimGuvenlik.degisiklik",
+        title: "Vinçte Değişiklik Yapılması",
+        blocks: [
+          not(
+            "uyari",
+            "Vincin taşıyıcı yapısında, kaldırma grubunda, emniyet sistemlerinde ya da kumanda yazılımında ÜRETİCİNİN YAZILI ONAYI OLMADAN değişiklik yapılamaz. Onaysız her değişiklik, uygunluk beyanını ve üreticinin sorumluluğunu geçersiz kılar."
+          ),
+          ul(
+            "Kapasite artırımı, açıklık değişimi ve kiriş üzerinde delik açma esaslı değişikliktir.",
+            "Emniyet sisteminin (aşırı yük, limit, acil stop) devre dışı bırakılması ya da köprülenmesi değişikliktir.",
+            "Esaslı değişiklik sonrası KABUL MUAYENESİ yapılır ve belgelenir.",
+            "Değişiklik, kılavuzun ilgili bölümlerine ve muayene defterine işlenir."
+          ),
         ],
       },
     ],

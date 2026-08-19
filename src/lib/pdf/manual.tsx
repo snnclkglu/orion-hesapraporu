@@ -35,6 +35,7 @@ import {
   type NumberedSection,
 } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
+import { manualAssetRatios } from "@/lib/manual/assets";
 import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
@@ -76,10 +77,16 @@ export interface ManualPdfProps {
   bandLines?: string[];
 }
 
-/** Uyarı kutusunun rengi — düzey arttıkça koyulaşır. */
+/**
+ * Uyarı kutusunun rengi — DÜZEY ARTTIKÇA KOYULAŞIR ve bu bir sıralamadır,
+ * bir palet değil: okuyan kutunun rengine bakarak ciddiyeti anlamalı.
+ * NOT gri, ÖNEMLİ ve DİKKAT çelik mavisi (biri açık biri koyu), UYARI marka
+ * kırmızısı, TEHLİKE derin kırmızı + dolu zemin.
+ */
 const NOT_RENGI: Record<ManualNoteLevel, { kenar: string; zemin: string; metin: string }> = {
-  bilgi: { kenar: BRAND.line350, zemin: BRAND.paper100, metin: BRAND.gray700 },
+  not: { kenar: BRAND.line350, zemin: BRAND.paper100, metin: BRAND.gray700 },
   onemli: { kenar: BRAND.steel, zemin: BRAND.paper50, metin: BRAND.slate },
+  dikkat: { kenar: BRAND.steel, zemin: BRAND.paper100, metin: BRAND.inkDeep },
   uyari: { kenar: BRAND.red, zemin: BRAND.paper50, metin: BRAND.inkDeep },
   tehlike: { kenar: BRAND.redDeep, zemin: BRAND.redPale, metin: BRAND.redDeep },
 };
@@ -119,7 +126,12 @@ const s = StyleSheet.create({
   tabloSatir: { flexDirection: "row", borderBottomWidth: 0.4, borderBottomColor: BRAND.hairline },
   hucre: { padding: 3, fontSize: 7.5, lineHeight: 1.35 },
   hucreBaslik: { padding: 3, fontSize: 7.5, fontWeight: 700 },
-  altyazi: { fontSize: 7, color: BRAND.gray600, marginTop: 2, fontStyle: "italic" },
+  /* ALTYAZI İTALİK DEĞİLDİR ve bu bir tercih değil bir ZORUNLULUKTUR:
+     markanın Archivo ailesinde italik kesim YOKTUR (`brand.tsx` yalnız
+     Regular/Medium/Bold/ExtraBold/Black kaydeder) ve @react-pdf eksik kesimi
+     yedeklemez, BELGEYİ DÜŞÜRÜR ("Could not resolve font ... fontStyle
+     italic"). Ayrım punto ve renkle kurulur. */
+  altyazi: { fontSize: 7, color: BRAND.gray600, marginTop: 2 },
 
   icindekilerSatir: { flexDirection: "row", marginBottom: 1.5 },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
@@ -146,9 +158,12 @@ export function ManualPdf({
   const gorseller = new Map(images.map((g) => [g.id, g]));
   // Ölçü için ORAN, çizim için BAYT. İki harita aynı kayıttan doğar ama
   // yerleşim çekirdeği React'i tanımaz; ona yalnız sayı gider.
-  const oranlar = new Map(
-    images.filter((g) => g.width > 0).map((g) => [g.id, g.height / g.width])
-  );
+  // Yüklenen görselin oranı ÖLÇÜLDÜ, şablon varlığınınki DEFTERDE; ikisi tek
+  // haritada buluşur ve yerleşim çekirdeği farkı bilmez.
+  const oranlar = new Map<string, number>([
+    ...manualAssetRatios(),
+    ...images.filter((g) => g.width > 0).map((g) => [g.id, g.height / g.width] as const),
+  ]);
 
   // Ek kapsayıcısı gövdeden AYRILIR: ek kapakları KENDİ YAPRAKLARINDA kalmak
   // zorundadır (`pdfEkleriYerlestir` sözleşmesi — temel belgenin SON n sayfası
@@ -438,7 +453,10 @@ function Blok({
       return <Tablo table={blok.table} />;
 
     case "image": {
-      const g = gorseller.get(blok.imageId);
+      // ŞABLON VARLIĞI DA YÜKLENEN GÖRSEL DE AYNI HARİTADAN çözülür: çağıran
+      // ikisini birleştirir (`manual/[revId]/pdf/route.ts`), çizim ikisini
+      // ayırt etmez — bir görselin nereden geldiği okuyanı ilgilendirmez.
+      const g = gorseller.get(blok.assetKey ?? blok.imageId ?? "");
       // KAYIT YOKSA BLOK HİÇ BASILMAZ. Boş bir çerçeve, okuyana orada bir
       // şeyin eksildiğini söyler ve gizleme kuralının ruhuna aykırıdır.
       if (!g) return null;
