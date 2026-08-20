@@ -20,6 +20,7 @@ import {
   loadElectricalDocs,
   loadElectricalParts,
 } from "@/lib/electrical/data";
+import { loadElectricalCatalogReferencesForParts } from "@/lib/electrical/catalog-data";
 import { loadCurrentSpec } from "@/lib/project-specs";
 import { loadManual, loadManualRevisions } from "@/lib/manual/data";
 import { DeleteRevisionButton } from "./delete-revision-button";
@@ -29,6 +30,7 @@ import { ProjectDetailHeader } from "./project-header";
 import { DrawingPackagesCard } from "./drawing-packages-card";
 import { DrawingPlanCard } from "./drawing-plan-card";
 import { ProjectTabsNav } from "./project-tabs";
+import { EquipmentRevisionsTable } from "./equipment-revisions-table";
 import { ProjectSignatoryCard, type SignatoryOption } from "./signatory-card";
 import type { JobItemOption } from "../new-project-dialog";
 
@@ -139,6 +141,10 @@ export default async function ProjectPage({
   const elektrikParcalar = elektrikGuncel
     ? await loadElectricalParts(supabase, elektrikGuncel.id)
     : [];
+  const elektrikKataloglari = await loadElectricalCatalogReferencesForParts(
+    supabase,
+    elektrikParcalar
+  );
   const elKitabiRevizyonlari = elKitabi
     ? await loadManualRevisions(supabase, elKitabi.id)
     : [];
@@ -199,6 +205,11 @@ export default async function ProjectPage({
       hint: "Elektrik malzeme listesi ve sayfa dizini buradan gelir.",
     },
     {
+      label: "Elektrik Katalogları",
+      ready: elektrikKataloglari.some((r) => r.technicalDocumentId !== null),
+      hint: "EK-F, malzeme listesine bağlı 1-6 sayfalık teknik föylerden otomatik derlenir.",
+    },
+    {
       label: "Teknik Resim",
       ready: drawingPlan.length > 0,
       hint: "Resim listesi Teknik Resim Takibi defterinden gelir.",
@@ -255,15 +266,10 @@ export default async function ProjectPage({
             `/dev/project-preview` GERÇEK rayı bassın; gerekçe orada. */}
         <ProjectTabsNav
           revisionCount={revisionList.length}
+          equipmentCount={revisionList.length}
           electricalPartCount={elektrikParcalar.length}
           drawingPlanCount={drawingPlan.length}
           manualRevisionCount={elKitabiRevizyonlari.length}
-          equipmentHref={
-            latestRev
-              ? `/projects/${project.id}/revisions/${latestRev.id}/equipment`
-              : undefined
-          }
-          equipmentLabel={latestRev ? `Ekipman Listesi (V${latestRev.rev_no})` : undefined}
         />
 
         {/* ------------------------------------------------ Hesap Raporu */}
@@ -370,6 +376,26 @@ export default async function ProjectPage({
           </div>
         </TabsContent>
 
+        {/* ------------------------------------------- Ekipman Listeleri */}
+        {/* Her ekipman listesi bir hesap raporu revizyonundan TÜRETİLİR.
+            Ayrı bir revizyon zinciri uydurulmaz; bu defter Vn ↔ Vn bağını
+            görünür yapar ve her iki belgeye de doğrudan geçiş verir. Hesap
+            raporu editöründeki mevcut Ekipman Listesi bağlantısı korunur. */}
+        <TabsContent value="equipment">
+          <EquipmentRevisionsTable
+            projectId={project.id}
+            revisions={revisionList.map((revision) => ({
+              id: revision.id,
+              revNo: revision.rev_no,
+              label: revision.label,
+              status: revision.status,
+              createdAt: revision.created_at,
+              createdBy:
+                (revision.profiles as unknown as { full_name: string } | null)?.full_name ?? "",
+            }))}
+          />
+        </TabsContent>
+
         {/* -------------------------------------------- Elektrik Projesi */}
         {/* Çizim bürosundan gelen PDF ARŞİVLENİR ve OKUNUR: malzeme listesi
             (Parts list), sayfa dizini ve künye ayıklanır. Aynı bilgi yoksa
@@ -381,6 +407,7 @@ export default async function ProjectPage({
             docs={elektrikBelgeler}
             current={elektrikGuncel}
             parts={elektrikParcalar}
+            catalogReferences={elektrikKataloglari}
             canEdit={canWriteReports}
           />
         </TabsContent>

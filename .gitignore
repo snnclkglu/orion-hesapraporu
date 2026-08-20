@@ -51,6 +51,7 @@ __pycache__/
 
 # gecici cikti ve hata ayiklama dokumleri (depoya girmez)
 tmp/
+output/
 scratch-dump.txt
 
 # ajan dokumanlari bolme provasi

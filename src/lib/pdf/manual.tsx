@@ -26,25 +26,32 @@ import {
   T,
   mm,
   trUpper,
+  type BrandBandLogo,
   type CompanyInfo,
 } from "./brand";
 import {
   flattenManual,
   numberManual,
   printedManual,
-  type NumberedSection,
 } from "@/lib/manual/payload";
 import { autoTableFor, type ManualSourceData } from "@/lib/manual/sources";
 import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
+  MANUAL_UST_BANT_ALT_BOSLUK,
+  MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
   manualAtomlari,
   manualPdfSayfalari,
   type ManualAtom,
 } from "@/lib/manual/pdf-layout";
-import { MANUAL_NOTE_ASSET, manualAssetRatios } from "@/lib/manual/assets";
+import { manualAssetRatios } from "@/lib/manual/assets";
+import {
+  ManualNotIsareti,
+  ManualSinyalCizelgesi,
+  NOT_PIKTOGRAM_OLUK,
+} from "./manual-marks";
 import {
   MANUAL_APPENDIX_LABELS,
   MANUAL_NOTE_LABELS,
@@ -93,7 +100,7 @@ const NOT_RENGI: Record<ManualNoteLevel, { kenar: string; zemin: string; metin: 
 };
 
 const s = StyleSheet.create({
-    kapakBaslik: { fontSize: 24, fontWeight: 800, letterSpacing: 0.4, marginTop: mm(40) },
+  kapakBaslik: { fontSize: 24, fontWeight: 800, letterSpacing: 0.4, marginTop: mm(32) },
   kapakAlt: { fontSize: 14, fontWeight: 500, color: BRAND.gray700, marginTop: 6 },
   kapakDoc: { fontSize: 11, fontWeight: 700, letterSpacing: 1.2, marginTop: mm(10) },
   kunyeSatir: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline, paddingVertical: 3 },
@@ -106,7 +113,15 @@ const s = StyleSheet.create({
   h4: { fontSize: 9, fontWeight: 600, marginTop: 6, marginBottom: 2, color: BRAND.gray700 },
   numara: { fontFamily: FONTS.mono, color: BRAND.red },
 
-  p: { fontSize: 8.5, lineHeight: 1.5, marginBottom: 4, textAlign: "justify" },
+  /* METİN SOLA YASLIDIR, İKİ YANA DEĞİL — ve bu bir zevk değil bir ÖLÇÜMDÜR.
+     Sütun 234 pt geniştir ve `Font.registerHyphenationCallback` heceyi KAPALI
+     tutar (`brand.tsx`); iki yana yaslama tireleme olmadan boşluğu kelimeler
+     arasına dağıtır. Ölçüldü (ORC-BK-0019-00-R01): satırların %5'i karakter
+     başına 7,97 pt yer kaplıyordu, medyan 5,39 — yani en kötü satırlar %48
+     GERİLMİŞTİ ve sütunda gözle görülür "boşluk nehirleri" açılıyordu.
+     Kullanıcının "yüksek kalite" örneği verdiği teklif ve hesap raporu
+     PDF'lerinin hiçbiri iki yana yaslamaz; el kitabı tek istisnaydı. */
+  p: { fontSize: 8.5, lineHeight: 1.5, marginBottom: 4 },
   kenarNot: {
     fontSize: 7.5,
     fontWeight: 700,
@@ -120,7 +135,11 @@ const s = StyleSheet.create({
   maddeMetin: { flex: 1, fontSize: 8.5, lineHeight: 1.45 },
   sonuc: { flexDirection: "row", marginTop: 2, marginBottom: 4 },
 
-  kutu: { borderLeftWidth: 3, borderRadius: 2, padding: 6, marginVertical: 5 },
+  /* KÖŞE YUVARLAMASI YOK — marka kılavuzunun ilk pazarlıksız maddesi
+     ("Zero border radius. Cards, buttons, inputs, badges — all square").
+     2 pt'lik yuvarlama kutuyu ekran arayüzü gibi gösteriyordu; belgenin
+     geri kalanında (tablo, bant, künye) tek bir yuvarlak köşe yok. */
+  kutu: { borderLeftWidth: 3, padding: 6, marginVertical: 5 },
   kutuBaslik: { fontSize: 8, fontWeight: 800, letterSpacing: 0.8, marginBottom: 2 },
 
   tabloBaslik: { flexDirection: "row", backgroundColor: BRAND.paper150, borderBottomWidth: 0.75, borderBottomColor: BRAND.line350 },
@@ -207,6 +226,20 @@ export function ManualPdf({
 
   const yarim = Math.ceil(kunyeSatirlari.length / 2);
   const dizinYarim = Math.ceil(duz.length / 2);
+  const ortaLogo = bandLogo(gorseller.get(payload.partnerLogos.centerImageId ?? ""));
+  const sagLogo = bandLogo(gorseller.get(payload.partnerLogos.rightImageId ?? ""));
+  const kapakGorseli = gorseller.get(payload.coverImageId ?? "") ?? null;
+
+  const ustBant = () => (
+    <BrandBand
+      docCode={docCode}
+      lines={bandLines ?? []}
+      centerLogo={ortaLogo}
+      rightLogo={sagLogo}
+      manualHeight={MANUAL_UST_BANT_YUKSEKLIK}
+      marginBottom={MANUAL_UST_BANT_ALT_BOSLUK}
+    />
+  );
 
   return (
     <Document
@@ -219,8 +252,15 @@ export function ManualPdf({
           sütuna geçer — on bir kısa satır tek sütunda sayfanın yarısını boş
           bırakıyordu. */}
       <BrandPage docLine={docLine} docCode={docCode} company={company} hideFooterRule>
-        <BrandBand docCode={docCode} lines={bandLines ?? []} />
-        <Text style={s.kapakBaslik}>{trUpper(payload.coverTitle || payload.identity.product)}</Text>
+        {ustBant()}
+        <Text
+          style={[
+            s.kapakBaslik,
+            kapakGorseli ? { marginTop: mm(12) } : {},
+          ]}
+        >
+          {trUpper(payload.coverTitle || payload.identity.product)}
+        </Text>
         <Text style={s.kapakAlt}>{trUpper(payload.docTitle)}</Text>
         {/* Kural çizgisi başlığa YAPIŞIYORDU (ölçüldü, kapak): `RuleRed`in
             kendi payı yok, çağıran verir. */}
@@ -229,8 +269,10 @@ export function ManualPdf({
         </View>
         <Text style={s.kapakDoc}>{docCode}</Text>
 
+        {kapakGorseli ? <KapakGorseli image={kapakGorseli} /> : null}
+
         {kunyeSatirlari.length > 0 && (
-          <View style={{ marginTop: mm(16) }} wrap={false}>
+          <View style={{ marginTop: kapakGorseli ? mm(8) : mm(16) }} wrap={false}>
             <Text style={T.kicker}>GENEL BİLGİLER</Text>
             <View style={s.ikiSutun}>
               {[kunyeSatirlari.slice(0, yarim), kunyeSatirlari.slice(yarim)].map((kol, ki) => (
@@ -263,6 +305,7 @@ export function ManualPdf({
           dizini yukarıdan aşağıya tarar, satır satır zikzak çizmez. */}
       {duz.length > 0 && (
         <BrandPage docLine={docLine} docCode={docCode}>
+          {ustBant()}
           <Text style={s.h1}>İÇİNDEKİLER</Text>
           <View style={s.ikiSutun}>
             {[duz.slice(0, dizinYarim), duz.slice(dizinYarim)].map((kol, ki) => (
@@ -320,6 +363,7 @@ export function ManualPdf({
       {/* GÖVDE — her sayfa çekirdeğin verdiği bantlardan çizilir. */}
       {sayfalar.map((sayfa, si) => (
         <BrandPage key={si} docLine={docLine} docCode={docCode}>
+          {ustBant()}
           {sayfa.bantlar.map((bant, bi) =>
             bant.kind === "full" ? (
               <View key={bi}>
@@ -345,6 +389,7 @@ export function ManualPdf({
       {/* EKLER — kapsayıcı bir yaprak, her ek kapağı KENDİ yaprağında. */}
       {ekKapsayici && (
         <BrandPage docLine={docLine} docCode={docCode}>
+          {ustBant()}
           <Text style={s.h1}>{ekKapsayici.title}</Text>
           {ekKapsayici.blocks.map((b) => (
             <Blok
@@ -359,6 +404,7 @@ export function ManualPdf({
       )}
       {ekKapaklari.map((ek) => (
         <BrandPage key={ek.id} docLine={docLine} docCode={docCode}>
+          {ustBant()}
           <View style={{ flexDirection: "row", alignItems: "baseline" }}>
             <Text style={[s.h1, s.numara, { marginRight: 6 }]}>{ek.number}</Text>
             <Text style={s.h1}>{ek.title}</Text>
@@ -373,6 +419,32 @@ export function ManualPdf({
         </BrandPage>
       ))}
     </Document>
+  );
+}
+
+/** Yüklenen görseli üçlü marka bandının ölçülmüş logo kaynağına çevirir. */
+function bandLogo(image?: ManualImageAsset): BrandBandLogo | undefined {
+  if (!image || image.width <= 0 || image.height <= 0) return undefined;
+  return { src: image.bytes, ratio: image.height / image.width };
+}
+
+/**
+ * Kapak görselini oranını bozmadan güvenli bir alana sığdırır.
+ *
+ * Sabit genişlik VE sabit yükseklik birlikte verilmez; önce gerçek oran
+ * ölçülür, sonra 150 mm × 63,5 mm kutusunun içine contain edilir. Böylece
+ * hem yatay genel montaj resmi hem dikey saha fotoğrafı ezilmeden basılır.
+ */
+function KapakGorseli({ image }: { image: ManualImageAsset }) {
+  const maxWidth = mm(150);
+  const maxHeight = mm(63.5);
+  const oran = image.height / image.width;
+  const width = Math.min(maxWidth, maxHeight / Math.max(oran, 0.001));
+  const height = width * oran;
+  return (
+    <View style={{ marginTop: 14, alignItems: "center" }} wrap={false}>
+      <Image src={image.bytes} style={{ width, height, objectFit: "contain" }} />
+    </View>
   );
 }
 
@@ -504,28 +576,21 @@ function Blok({
 
     case "note": {
       const renk = NOT_RENGI[blok.level];
-      // PİKTOGRAM KUTUNUN SOLUNDA durur ve belgenin kendi açıklama
-      // çizelgesiyle aynıdır (`MANUAL_NOTE_ASSET`). Varlık yüklenmemişse
-      // kutu piktogramsız basılır — eksik bir simge yüzünden uyarının
-      // kendisini düşürmek en kötü sonuçtur.
-      const pikt = gorseller.get(MANUAL_NOTE_ASSET[blok.level] ?? "");
-      const piktEn = 16;
+      // PİKTOGRAM VEKTÖRDÜR, raster değil (`pdf/manual-marks.tsx`).
+      // Önceki hâl `public/manual-assets/` altındaki RGB PNG'lerdi ve
+      // ÜÇÜNÜN DE ZEMİNİ OPAKTI: kutunun kâğıt tonlu zemininde her simge
+      // BEYAZ BİR KARE olarak basılıyordu (ölçüldü, s. 4, 430 dpi).
+      // Vektörde zemin yoktur; "NOT" simgesinin bulanıklığı da (64×101 px)
+      // kendiliğinden düşer.
       return (
         <View
           style={[s.kutu, { borderLeftColor: renk.kenar, backgroundColor: renk.zemin }]}
           wrap={false}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-            {pikt ? (
-              <Image
-                src={pikt.bytes}
-                style={{
-                  width: piktEn,
-                  height: pikt.width > 0 ? (piktEn * pikt.height) / pikt.width : piktEn,
-                  marginRight: 6,
-                }}
-              />
-            ) : null}
+            <View style={{ marginRight: NOT_PIKTOGRAM_OLUK, marginTop: 0.5 }}>
+              <ManualNotIsareti level={blok.level} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.kutuBaslik, { color: renk.kenar }]}>
                 {blok.title?.trim() || MANUAL_NOTE_LABELS[blok.level]}
@@ -541,6 +606,19 @@ function Blok({
       return <Tablo table={blok.table} dilim={dilim} />;
 
     case "image": {
+      const en = (genislik * (blok.widthPct ?? 100)) / 100;
+      // Şablondaki eski ekran görüntüsü yalnız veri anahtarı olarak kalır.
+      // Nihai belgede işaretler, sinyal kelimeleri ve anlamlar seçilebilir,
+      // aranabilir VEKTÖR çizelge olarak çizilir; rasterın beyaz zeminli,
+      // bulanık kopyası artık baskıya girmez.
+      if (blok.assetKey === "sinyalKelimeleri") {
+        return (
+          <View wrap={false}>
+            <ManualSinyalCizelgesi genislik={en} />
+            {blok.caption?.trim() ? <Text style={s.altyazi}>{blok.caption}</Text> : null}
+          </View>
+        );
+      }
       // ŞABLON VARLIĞI DA YÜKLENEN GÖRSEL DE AYNI HARİTADAN çözülür: çağıran
       // ikisini birleştirir (`manual/[revId]/pdf/route.ts`), çizim ikisini
       // ayırt etmez — bir görselin nereden geldiği okuyanı ilgilendirmez.
@@ -548,7 +626,6 @@ function Blok({
       // KAYIT YOKSA BLOK HİÇ BASILMAZ. Boş bir çerçeve, okuyana orada bir
       // şeyin eksildiğini söyler ve gizleme kuralının ruhuna aykırıdır.
       if (!g) return null;
-      const en = (genislik * (blok.widthPct ?? 100)) / 100;
       const yukseklik = g.width > 0 ? (en * g.height) / g.width : undefined;
       return (
         <View style={{ marginVertical: 6 }} wrap={false}>

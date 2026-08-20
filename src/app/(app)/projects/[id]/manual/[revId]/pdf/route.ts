@@ -35,6 +35,7 @@ import { manualUsedAssetKeys } from "@/lib/manual/assets";
 import { allBlocks } from "@/lib/manual/payload";
 import { MANUAL_APPENDIX_LABELS, type ManualAppendixKind } from "@/lib/manual/types";
 import { ELECTRICAL_BUCKET, loadCurrentElectricalDoc } from "@/lib/electrical/data";
+import { buildElectricalCatalogAppendix } from "@/lib/electrical/catalog-appendix";
 import { SPEC_BUCKET, loadCurrentSpec } from "@/lib/project-specs";
 import { resolveProjectItemNo } from "@/lib/drawing-plan-data";
 import { buildManualSourceData } from "../../sources-data";
@@ -180,10 +181,8 @@ export async function GET(
  * belgede hiç iz kalmaz. Bir kapak bırakıp arkasını boş geçmek, okuyana
  * olmayan bir eki vaat etmek olurdu.
  *
- * Bugün üç ek gerçekten bağlıdır: elektrik projesi, şartname ve mekanik
- * hesaplar (hesap raporu PDF'i). Ötekiler (mekanik projeler, katalog
- * sayfaları, elektrik hesapları) uygulamada henüz tek bir dosya olarak
- * durmuyor; bağlanana kadar kapakları da düşer.
+ * Elektrik katalog eki güncel malzeme listesinin 1-6 sayfalık teknik
+ * föylerinden derlenir; tam kataloglar yalnız malzeme ekranından açılır.
  */
 async function ekBaytlari(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -199,6 +198,11 @@ async function ekBaytlari(
     if (!belge) return bos;
     const { data } = await supabase.storage.from(ELECTRICAL_BUCKET).download(belge.storagePath);
     return data ? new Uint8Array(await data.arrayBuffer()) : bos;
+  }
+
+  if (tur === "elektrikKatalog") {
+    const appendix = await buildElectricalCatalogAppendix(supabase, projectId);
+    return appendix.bytes;
   }
 
   if (tur === "sartname") {

@@ -344,3 +344,51 @@ Kaydetme AÇIKTIR, otomatik değil: arka planda dolaşan bir kaydedici hangi hâ
 kaydedildiğini belirsizleştirirdi. Kaydedilmemiş değişiklikle sayfadan çıkış
 uyarır — bir kılavuzda yarım saatlik yazının sekme kapanınca kaybolması,
 kullanıcının o ekrana bir daha güvenmemesi demektir.
+
+## KITAP-17 — EK-F'ye TAM KATALOG değil TEKNİK FÖY girer.
+
+Tam sürüm üretilirken `elektrikKatalog` eki güncel elektrik malzeme sırasından
+çözülür. Yalnız 1–6 sayfalık birincil `technical` belgeler alınır; aynı föy
+birden çok üründe kullanılıyorsa belge kimliğiyle bir kez basılır. Tam üretici
+kataloğu malzeme tablosundaki Katalog düğmesinden erişilebilir kalır fakat
+yüzlerce sayfalık kataloğun tamamı EK-F'yi şişirmez.
+
+Eksik veya bozuk tek föy bütün kitabı düşürmez. Geçerli föyler mevcut
+`pdfEkleriYerlestir` hattında EK-F kapağının hemen arkasına birleşir; hiç
+geçerli belge yoksa var olmayan içeriği vaat eden boş kapak korunmaz.
+
+## KITAP-18 — Marka ortaklığı, kapak görseli ve yayım kalite kapısı SNAPSHOT'tır.
+
+Kullanıcı kararı (20.08.2026): ORION logosu kapakta ve belgenin bütün üst
+bantlarında **solda sabittir**; Partner 1 ortada, Partner 2 sağda yer alır.
+Partner logoları ORION kimliğinin yerine geçmez. Bir partner seçilmemişse onun
+yuvası boş kalır ve kalan logolar yer değiştirmez, büyümez ya da bandın
+dengesini bozmaz. Böylece aynı revizyonun kapak ve devam sayfaları tek bir
+ortaklık kimliği taşır.
+
+**LOGO KİMLİĞİ REVİZYON GÖVDESİNDEDİR, BAYTI GÖRSEL DEFTERİNDEDİR.** Partner
+logo kimlikleri `manual_revisions.payload` snapshot'ında saklanır; görsel
+baytları diğer vince özel görseller gibi `manual_images` kaydı ve
+`manual-images` kovasında yaşar. Yeni revizyon açılırken kimlikler ve görsel
+kayıtları birlikte kopyalanır. Yayımlanmış bir revizyonun partneri, daha sonra
+başka bir revizyonda logo değiştirilince sessizce değişemez.
+
+`coverImageId` **kapak fotoğrafıdır**; partner logosu değildir. Kapak fotoğrafı
+belgenin kimlik alanının altında yer alır ve yokluğu kapağı bozmaz. Editör
+görsel yükleme yanıtındaki sunucuda ölçülmüş `id`, genişlik ve yükseklik
+satırını beklemeden yerel görsel listesine ekler; kullanıcı yüklediği fotoğrafı
+veya logoyu aynı oturumda kapakta ve kâğıt önizlemesinde görür. Oran istemcinin
+beyanından değil sunucunun yeniden kodladığı baytlardan gelir (KITAP-9).
+
+**DAR EKRANDA İKİ AYRI ÇALIŞMA YÜZÜ VARDIR:** `Düzenle` ve `Kâğıt`. Telefon ve
+dar tablette ikisi alt alta yığılmaz; kullanıcı açık bir geçişle form ile A4
+önizleme arasında dolaşır. Geniş ekranda düzenleyici ve kâğıt birlikte
+görülebilir. Geçiş görünümü değiştirir, kaydedilmemiş gövdeyi değiştirmez.
+
+**YAYIM BİR KALİTE KAPISINDAN GEÇER.** Taslak; kapak künyesinin zorunlu kimlik
+alanları tamamlanmadan veya şablonun vince özel doldurulması gereken görünür
+boş blokları dururken yayımlanamaz. Gizlenmiş bölüm bilinçli bir kapsam
+kararıdır ve eksik sayılmaz; standart metin ve otomatik tablo da vince özel boş
+blok değildir. Kapı kullanıcıya eksikleri bölüm adıyla gösterir ve editörde o
+bölüme götürür. Sunucu eylemi aynı denetimi yeniden yapar; yalnız istemci
+engelinin aşılması yayıma izin vermez.

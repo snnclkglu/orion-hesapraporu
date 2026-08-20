@@ -54,45 +54,15 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word]);
 
 // ---------------------------------------------------------------- Sabitler
+//
+// PALET VE ÖLÇÜ BURADA DEĞİL `palette.ts`TE yaşar ve buradan YENİDEN DIŞA
+// AKTARILIR: bu dosya `node:fs` taşır, yani istemciye giremez. El kitabı
+// editörünün kâğıt önizlemesi ise bir istemci bileşenidir ve belgeyle AYNI
+// renkleri kullanmak zorundadır. Kopyalanan bir palet bir gün ayrışırdı;
+// tek tanım ikisini birden besler.
 
-/** mm → pt (react-pdf point kullanır) */
-export const mm = (n: number): number => n * 2.834645669;
-
-/** Marka renkleri (tokens/colors.css ile birebir) */
-export const BRAND = {
-  red: "#A41E1E",
-  redDeep: "#7D1717",
-  redPale: "#F1C9C7",
-  ink: "#262626",
-  inkDeep: "#211F1D",
-  steel: "#1F5C7A",
-  slate: "#37474F",
-  paper50: "#FAF8F7",
-  paper100: "#F4F1EF",
-  paper150: "#F1EEEC",
-  paper200: "#E7E4E2",
-  hairline: "#EDEAE8",
-  line300: "#DCD9D7",
-  line350: "#C6C2BF",
-  gray400: "#B8B2AE",
-  gray450: "#9A9591",
-  gray500: "#8A8480",
-  gray600: "#6B6663",
-  gray700: "#48433F",
-  white: "#FFFFFF",
-  success: "#1F8A5B",
-} as const;
-
-/** A4 sayfa anatomisi (kılavuz: 8mm omurga, 16/16/14/11mm marjlar) */
-export const PAGE = {
-  spine: mm(8),
-  marginTop: mm(16),
-  marginOuter: mm(16),
-  marginInner: mm(14),
-  marginBottom: mm(13),
-  /** İçerik alanı sol kenarı = omurga + iç marj */
-  contentLeft: mm(8) + mm(14),
-} as const;
+export { BRAND, PAGE, mm, trUpper } from "./palette";
+import { BRAND, PAGE, mm, trUpper } from "./palette";
 
 /**
  * Font aileleri — HER BİRİ DejaVu ile yedeklenir.
@@ -109,16 +79,6 @@ export const FONTS: { sans: string[]; mono: string[]; glyph: string[] } = {
   mono: ["PlexMono", "DejaVu"],
   glyph: ["DejaVu"],
 };
-
-/**
- * Türkçe büyük harf. @react-pdf'in `textTransform: "uppercase"` uygulaması
- * locale'siz `toUpperCase()` çağırır; bu da "i" harfini "I" yapar
- * ("Müşteri Bilgileri" → "MÜŞTERI BILGILERI"). Bu yüzden PDF şablonlarında
- * `textTransform` KULLANILMAZ, metin çağrı yerinde bu yardımcıyla büyütülür.
- */
-export function trUpper(text: string): string {
-  return text.toLocaleUpperCase("tr-TR");
-}
 
 // ---------------------------------------------------------------- Ortak stiller
 
@@ -319,12 +279,68 @@ export function BrandBand({
   docCode,
   lines = [],
   logoWidth = 150,
+  centerLogo,
+  rightLogo,
+  manualHeight,
+  marginBottom = 10,
 }: {
   docCode?: string;
   /** Sağ sütuna alt alta yazılan mono satırlar (ör. "REV 01 · 09.08.2026") */
   lines?: string[];
   logoWidth?: number;
+  /** El kitabında orta yuvaya yerleşen partner logosu. */
+  centerLogo?: BrandBandLogo;
+  /** El kitabında sağ yuvaya yerleşen partner logosu. */
+  rightLogo?: BrandBandLogo;
+  /** El kitabının her sayfasında kullanılan sabit bant yüksekliği. */
+  manualHeight?: number;
+  /** Bandın ardından bırakılan akış payı. */
+  marginBottom?: number;
 }) {
+  const manual = manualHeight !== undefined;
+  const ortakMarka = Boolean(centerLogo || rightLogo);
+
+  if (manual) {
+    const meta = [docCode, ...lines].filter(Boolean).join("  ·  ");
+    return (
+      <View
+        wrap={false}
+        style={{
+          height: manualHeight,
+          borderBottomWidth: 1.4,
+          borderBottomColor: BRAND.ink,
+          marginBottom,
+          justifyContent: "space-between",
+        }}
+      >
+        {ortakMarka ? (
+          <View style={{ flexDirection: "row", alignItems: "center", height: 23 }}>
+            <LogoSlot align="left" logo={{ src: BRAND_LOGO, ratio: LOGO_RATIO }} maxWidth={132} />
+            <LogoSlot align="center" logo={centerLogo} maxWidth={118} />
+            <LogoSlot align="right" logo={rightLogo} maxWidth={118} />
+          </View>
+        ) : (
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              height: 28,
+            }}
+          >
+            <LogoSlot align="left" logo={{ src: BRAND_LOGO, ratio: LOGO_RATIO }} maxWidth={132} />
+            {meta ? <Text style={{ ...T.data, color: BRAND.gray600 }}>{meta}</Text> : null}
+          </View>
+        )}
+        {ortakMarka && meta ? (
+          <Text style={{ ...T.micro, color: BRAND.gray600, textAlign: "right", marginBottom: 3 }}>
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View
       style={{
@@ -334,7 +350,7 @@ export function BrandBand({
         borderBottomWidth: 1.4,
         borderBottomColor: BRAND.ink,
         paddingBottom: 8,
-        marginBottom: 10,
+        marginBottom,
       }}
     >
       <Image style={{ width: logoWidth, height: logoWidth * LOGO_RATIO }} src={BRAND_LOGO} />
@@ -346,6 +362,37 @@ export function BrandBand({
           </Text>
         ))}
       </View>
+    </View>
+  );
+}
+
+/** React-PDF'e verilecek logo baytları ve ölçülmüş yükseklik/genişlik oranı. */
+export interface BrandBandLogo {
+  src: Buffer;
+  ratio: number;
+}
+
+function LogoSlot({
+  logo,
+  align,
+  maxWidth,
+}: {
+  logo?: BrandBandLogo;
+  align: "left" | "center" | "right";
+  maxWidth: number;
+}) {
+  const maxHeight = 19;
+  const oran = logo && Number.isFinite(logo.ratio) && logo.ratio > 0 ? logo.ratio : 1;
+  const width = Math.min(maxWidth, maxHeight / oran);
+  return (
+    <View
+      style={{
+        width: "33.333%",
+        alignItems: align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center",
+        justifyContent: "center",
+      }}
+    >
+      {logo ? <Image src={logo.src} style={{ width, height: width * oran, objectFit: "contain" }} /> : null}
     </View>
   );
 }

@@ -194,3 +194,14 @@ durmamalı.
 "yalnız PDF" demek onu sistemin dışında bırakırdı. O dosya `page_count = 0` ile
 kaydedilir, saklanır ve açılır — yalnız el kitabının teslim paketine
 birleştirilemez ve bu ölçülmüş bir işarettir, bir beyan değil.
+
+## ELEKTRIK-12 — Katalog bağı PARÇA KAYDINA değil ÜRÜN KİMLİĞİNE bağlanır.
+
+`electrical_parts` yeni EPLAN PDF'i okunduğunda silinip yeniden kurulur; satır
+UUID'sine bağlanan belge ilk yeniden okumada kopardı. Katalog ürünü bu yüzden
+normalize `supplier + typeNo` anahtarıyla kalıcıdır. Malzeme tablosu aynı
+ürünün `technical` ve `catalog` birincil bağlarını ayrı küçük düğmelerle açar.
+
+Belge özel Storage kovasındadır ve tarayıcıya imzalı depo adresi verilmez;
+kimlik doğrulayan `/api/electrical-catalog/[documentId]` ucu PDF'i satır içi
+aktarır. Telefon kartı da masaüstü tablosuyla aynı iki eylemi taşır.

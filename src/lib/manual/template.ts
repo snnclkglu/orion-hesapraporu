@@ -21,92 +21,23 @@
 // bağlanır: hepsi zaten uygulamada duran birer PDF'tir ve gövdeye kopyalanan
 // her sayfa bir gün kaynağıyla ayrışır.
 
-import type {
-  ManualAutoSource,
-  ManualBlock,
-  ManualNoteLevel,
-  ManualSection,
-} from "./types";
+import { bosluk, not, ol, oto, p, resim, ul } from "./template-kit";
+import type { TemplateSection } from "./template-kit";
+
+// Tipler ve kurucular `template-kit.ts`tedir ve BURADAN YENİDEN DIŞA
+// AKTARILIR: `payload.ts` ve editör bugüne kadar onları bu dosyadan alıyordu,
+// yol değiştirmek gereksiz bir kırılma olurdu.
+export type { TemplateBlock, TemplateSection } from "./template-kit";
 
 /**
  * ŞABLON SÜRÜMÜ. Artırıldığında var olan belgeler DEĞİŞMEZ — editör yalnız
  * "şablonda yeni bölümler var" der ve eklemeyi kullanıcı seçer. Belge
  * kullanıcınındır; bir güncelleme onun sildiği bölümü geri getiremez.
  */
+// Kurucu yardımcılarının `template-kit.ts`e taşınması yalnız kod refaktörüdür;
+// bölüm/metin sözleşmesini değiştirmez. Sürümü artırmak mevcut kılavuzlara
+// gerçekte olmayan bir "yeni şablon" uyarısı verirdi.
 export const MANUAL_TEMPLATE_VERSION = 1;
-
-/** Şablon düğümü — `id`ler kopyalama anında üretilir, şablonda yoktur. */
-export interface TemplateBlock {
-  kind: ManualBlock["kind"];
-  text?: string;
-  margin?: string;
-  items?: string[];
-  ordered?: boolean;
-  result?: string;
-  level?: ManualNoteLevel;
-  title?: string;
-  source?: ManualAutoSource;
-  emptyText?: string;
-  /** Şablon görselinin anahtarı (`lib/manual/assets.ts`). */
-  assetKey?: string;
-  widthPct?: number;
-  fullWidth?: boolean;
-  head?: string[];
-  rows?: string[][];
-  caption?: string;
-}
-
-export interface TemplateSection {
-  key: string;
-  title: string;
-  blocks?: TemplateBlock[];
-  children?: TemplateSection[];
-  appendix?: ManualSection["appendix"];
-}
-
-const p = (text: string, margin?: string): TemplateBlock => ({ kind: "text", text, margin });
-const ul = (...items: string[]): TemplateBlock => ({ kind: "list", items });
-const ol = (items: string[], result?: string): TemplateBlock => ({
-  kind: "list",
-  ordered: true,
-  items,
-  result,
-});
-const not = (level: ManualNoteLevel, text: string, title?: string): TemplateBlock => ({
-  kind: "note",
-  level,
-  text,
-  title,
-});
-const oto = (source: ManualAutoSource, emptyText?: string): TemplateBlock => ({
-  kind: "auto",
-  source,
-  emptyText,
-});
-
-/**
- * Şablon görseli — baytları repoda (`public/manual-assets/`).
- *
- * `fullWidth` AÇIK BİR KARARDIR: verilmezse görsel sütun akışında kalır ve
- * `widthPct` kabın (sütunun) yüzdesidir. Sayfanın tamamına yayılması gereken
- * görsel bunu ayrıca söyler.
- */
-const resim = (
-  assetKey: string,
-  caption?: string,
-  widthPct?: number,
-  fullWidth?: boolean
-): TemplateBlock => ({ kind: "image", assetKey, caption, widthPct, fullWidth });
-
-/**
- * DOLDURULACAK BOŞLUK.
- *
- * Vince özel bir metnin yerini tutar ve `text`i BOŞTUR — `placeholder` yasağı
- * (değişmez md. 5) tam olarak budur: örnek bir cümle yazsaydık kopyalanır ve
- * yanlış bir kılavuzla teslim edilirdi. Editörde başlık altında boş bir kutu
- * görünür, belgede hiç görünmez.
- */
-const bosluk = (margin?: string): TemplateBlock => ({ kind: "text", text: "", margin });
 
 export const MANUAL_TEMPLATE: TemplateSection[] = [
   // ————————————————————————————————————————————————— 1 Kullanıcı Notları

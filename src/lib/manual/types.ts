@@ -300,6 +300,19 @@ export interface ManualIdentity {
   copyright: string;
 }
 
+/**
+ * EL KİTABI ORTAK MARKALARI — Orion solda sabittir; iki partner yüklenen
+ * görsellerden seçilir ve üst bantta orta/sağ yuvalara yerleşir.
+ *
+ * Kimlikler `manual_images` kayıtlarına aittir. Alanların opsiyonel olması,
+ * tek partnerli ve partnersiz belgelerin aynı yerleşim sözleşmesini
+ * kullanmasını sağlar; boş bir kimlik logo değildir.
+ */
+export interface ManualPartnerLogos {
+  centerImageId?: string;
+  rightImageId?: string;
+}
+
 export interface ManualPayload {
   /** Sözleşme sürümü — `withManualDefaults` eski kayıtları bugüne taşır. */
   v: 1;
@@ -309,6 +322,8 @@ export interface ManualPayload {
   coverTitle: string;
   /** Kapak görselinin kimliği; yoksa kapak yalın basılır. */
   coverImageId?: string;
+  /** Üst banttaki opsiyonel orta ve sağ partner logoları. */
+  partnerLogos: ManualPartnerLogos;
   identity: ManualIdentity;
   sections: ManualSection[];
   /**

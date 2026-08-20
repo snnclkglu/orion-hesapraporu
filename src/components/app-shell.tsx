@@ -169,9 +169,6 @@ function SidebarContent({
                     // Dokunmatikte satır 36px'ten 40px'e çıkar — mobil çekmece
                     // menünün tek hâli, hedefler orada daralmamalı.
                     "flex items-center gap-2.5 border-l-2 border-l-transparent py-2 text-sm transition-colors pointer-coarse:py-2.5",
-                    // Dar kipte ikon TEK göstergedir: 16px'lik ikon etiketsiz
-                    // kalınca hangi bölüm olduğu okunmuyordu. Ray da bu yüzden
-                    // genişletildi (bkz. `SIDEBAR_W_COLLAPSED`).
                     collapsed ? "justify-center px-0 py-2.5" : "px-2.5",
                     active
                       ? "border-l-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
@@ -180,7 +177,7 @@ function SidebarContent({
                 >
                   <BrandIcon
                     name={item.icon as BrandIconName}
-                    className={cn("shrink-0", collapsed ? "size-6" : "size-4")}
+                    className="size-4 shrink-0"
                   />
                   {!collapsed && item.label}
                 </Link>
@@ -211,7 +208,7 @@ function SidebarContent({
           >
             <BrandIcon
               name={collapsed ? "sidebarExpand" : "sidebarCollapse"}
-              className={cn("shrink-0", collapsed ? "size-5" : "size-4")}
+              className="size-4 shrink-0"
             />
             {!collapsed && "Menüyü daralt"}
           </button>

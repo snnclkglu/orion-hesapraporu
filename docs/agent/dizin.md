@@ -225,6 +225,10 @@
   development; production'da 404): **açılış panosu** (`/dev/panel-preview` —
   yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek
   rolle sınamak, kesilen tarafı hiç görmemektir), kabuk, editör, işler, satış, ekipman listesi,
+  **mühendislik listesi** (`/dev/projects-preview` — kabuğu ÇİZMEZ ama kenar
+  çubuğunun YERİNİ birebir taklit eder: kırılım sınıfları pencereye bakar, sütuna
+  kalan yer ise kaba ve ikisi 1024px'te ayrışır — kabuğu gerçekten çizseydi
+  `isWide` yolu tutmaz ve sayfa `max-w-6xl`e düşerdi, MOBIL-16),
   **iş takibi** (`/dev/worklog-preview` — üç ekranı sahte veriyle üst üste basar),
   **hammadde** (`/dev/hammadde-preview` — havuz + plaka yerleşimi + TEKLİFLER;
   fikstür GERÇEK 0053 LITEC satırlarıdır, uydurma küçük sayılarla 12 m'lik bir

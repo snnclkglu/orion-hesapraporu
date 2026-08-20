@@ -23,6 +23,7 @@
 
 import { blockHasContent } from "./payload";
 import type { NumberedSection } from "./payload";
+import { markSlotWidth } from "./marks";
 import { autoTableFor, type ManualSourceData } from "./sources";
 import type { ManualBlock, ManualTable } from "./types";
 
@@ -42,6 +43,20 @@ const ICERIK_GENISLIK = A4_GENISLIK - mm(8 + 14) - mm(16);
 
 /** İçerik yüksekliği: A4 − üst marj 16 − (alt marj 13 + altbilgi 14). */
 export const ICERIK_YUKSEKLIK = A4_YUKSEKLIK - mm(16) - (mm(13) + 14);
+
+/**
+ * Her gövde yaprağındaki ortak marka bandı.
+ *
+ * PDF ve tarayıcı önizlemesi aynı iki sayıyı okur. Akış yüksekliği sütun
+ * kapasitesinden düşülmezse dağıtıcı kâğıtta var olmayan 48 pt'yi kullanır
+ * ve @react-pdf son satırları sessizce kırpar.
+ */
+export const MANUAL_UST_BANT_YUKSEKLIK = 40;
+export const MANUAL_UST_BANT_ALT_BOSLUK = 8;
+export const MANUAL_UST_BANT_AKIS = MANUAL_UST_BANT_YUKSEKLIK + MANUAL_UST_BANT_ALT_BOSLUK;
+
+/** Marka bandından sonra gövde atomlarına gerçekten kalan yükseklik. */
+export const MANUAL_GOVDE_YUKSEKLIK = ICERIK_YUKSEKLIK - MANUAL_UST_BANT_AKIS;
 
 /** Sütunlar arası oluk — teklifle aynı gerekçe (bkz. `offers/pdf-layout.ts`). */
 export const SUTUN_BOSLUK = 18;
@@ -100,14 +115,32 @@ const KENAR_NOT_YUK = 7.5 * 1.2 + 2;
 /** Madde satırı: 8,5 punto × 1,45 satır yüksekliği + 2 pt alt pay. */
 const MADDE_YUK = GOVDE_PUNTO * 1.45 + 2;
 
-/** Uyarı kutusu kabuğu: 6+6 dolgu + 5+5 dikey pay + başlık satırı. */
-const KUTU_PAY = 6 + 6 + 5 + 5 + (8 * 1.2 + 2);
+/** Uyarı kutusu dış kabuğu: 6+6 dolgu + 5+5 dikey pay. */
+const KUTU_DIS_PAY = 6 + 6 + 5 + 5;
+
+/** Uyarı kutusu başlığı (8 punto × 1,2 + 2 alt pay). */
+const KUTU_BASLIK_YUK = 8 * 1.2 + 2;
+
+/** PDF'deki vektör işaretinin boyu ve metinle arasındaki oluk. */
+const NOT_PIKTOGRAM_BOY = 15;
+const NOT_PIKTOGRAM_OLUK = 6;
+export const NOT_PIKTOGRAM_SLOT_PAYI = markSlotWidth(NOT_PIKTOGRAM_BOY) + NOT_PIKTOGRAM_OLUK;
 
 /** Tablo altyazısı (7 punto + 2 üst pay). */
 const ALTYAZI_YUK = 7 * 1.2 + 2;
 
 /** Görselin dikey payı (`marginVertical: 6` iki yandan). */
 const GORSEL_PAY = 12;
+
+/**
+ * Vektör sinyal çizelgesinin yüksekliği (`pdf/manual-marks.tsx` ile aynı
+ * stil aritmetiği). Saf çekirdek React bileşenini içe aktaramaz; boyutlar
+ * burada çizimdeki sayılardan yeniden türetilir.
+ */
+const SINYAL_PIKT_BOY = 22;
+const SINYAL_SATIR_PAY = 4;
+export const SINYAL_CIZELGE_YUKSEKLIGI =
+  6.5 * 1.2 + 6 + 0.75 + 5 * (SINYAL_PIKT_BOY + 2 * SINYAL_SATIR_PAY + 0.4) + 12;
 
 /**
  * TABLO TAM GENİŞLİK İSTER Mİ — SÜTUN SAYARAK DEĞİL, ÖLÇEREK.
@@ -326,8 +359,16 @@ export function blokOlcusu(
     }
 
     case "note": {
-      const alan = sutun - 12; // 6+6 dolgu
-      return { h: KUTU_PAY + satirSayisi(block.text, GOVDE_PUNTO, alan) * GOVDE_SATIR, tam: false };
+      // Metne yalnız dolgudan arta kalan genişlik değil, VEKTÖR PİKTOGRAMIN
+      // slotu ve oluğu çıktıktan sonra kalan gerçek genişlik verilir. Önceki
+      // ölçü yaklaşık 23 pt fazla alan sayıyor ve uzun uyarıları bir satır
+      // kısa ölçüyordu.
+      const alan = sutun - 12 - NOT_PIKTOGRAM_SLOT_PAYI;
+      const metinYuk = KUTU_BASLIK_YUK + satirSayisi(block.text, GOVDE_PUNTO, alan) * GOVDE_SATIR;
+      return {
+        h: KUTU_DIS_PAY + Math.max(NOT_PIKTOGRAM_BOY, metinYuk),
+        tam: false,
+      };
     }
 
     case "table":
@@ -347,6 +388,10 @@ export function blokOlcusu(
       const pct = block.widthPct ?? 100;
       // ŞABLONUN AÇIK İSTEĞİ ÖNCELİKLİDİR; yoksa genişlik yüzdesine bakılır.
       const tam = block.fullWidth ?? pct > TAM_GENISLIK_GORSEL_ESIGI;
+      if (block.assetKey === "sinyalKelimeleri") {
+        const altyazi = block.caption?.trim() ? ALTYAZI_YUK : 0;
+        return { h: SINYAL_CIZELGE_YUKSEKLIGI + altyazi, tam };
+      }
       const genislik = ((tam ? TAM_GENISLIK : sutun) * pct) / 100;
       // ORAN BİLİNMİYORSA KARE VARSAYILIR ve bu FAZLA ölçmenin yönüdür:
       // gerçek görseller çoğunlukla yatıktır, kare tahmini onlardan yüksek
@@ -544,7 +589,7 @@ const BASLIK_KUYRUK = 26;
  */
 export function manualPdfSayfalari(
   girdiAtomlari: readonly ManualAtom[],
-  sutunKapasite: number = ICERIK_YUKSEKLIK
+  sutunKapasite: number = MANUAL_GOVDE_YUKSEKLIK
 ): ManualPdfSayfa[] {
   // Dizi DÖNGÜ İÇİNDE BÜYÜR: bölünen bir atomun kalanı sıradaki eleman
   // olarak araya sokulur. Girdi değiştirilmez (çağıranın dizisi kutsaldır).

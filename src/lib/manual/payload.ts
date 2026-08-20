@@ -30,6 +30,7 @@ import {
   type ManualBlock,
   type ManualIdentity,
   type ManualNoteLevel,
+  type ManualPartnerLogos,
   type ManualPayload,
   type ManualSection,
   type ManualTable,
@@ -144,6 +145,7 @@ export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): Manual
     v: 1,
     docTitle: "",
     coverTitle: "",
+    partnerLogos: {},
     identity: { ...BOS_KIMLIK, ...kimlik },
     sections: MANUAL_TEMPLATE.map((t) => templateToSection(t, id)),
     templateVersion: MANUAL_TEMPLATE_VERSION,
@@ -153,6 +155,25 @@ export function manualFromTemplate(kimlik: Partial<ManualIdentity> = {}): Manual
 // ——————————————————————————————————————————————— JSONB'den güvenli okuma
 
 const metin = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/**
+ * Partner logo yuvalarını güvenle okur.
+ *
+ * Yalnız sözleşmedeki İKİ konum kabul edilir. Boş/boşluk kimlikleri logo
+ * değildir; sayılar ve bilinmeyen alanlar da taşınmaz. Kimliğin depoda
+ * gerçekten bulunup bulunmadığını bu saf çekirdek değil, görsel yükleyici
+ * çözer.
+ */
+function partnerLogolariOku(v: unknown): ManualPartnerLogos {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const o = v as Record<string, unknown>;
+  const centerImageId = metin(o.centerImageId).trim();
+  const rightImageId = metin(o.rightImageId).trim();
+  return {
+    ...(centerImageId ? { centerImageId } : {}),
+    ...(rightImageId ? { rightImageId } : {}),
+  };
+}
 
 /**
  * Uyarı düzeyini güvenle okur.
@@ -292,6 +313,7 @@ export function withManualDefaults(raw: unknown): ManualPayload {
     docTitle: metin(o.docTitle),
     coverTitle: metin(o.coverTitle),
     ...(metin(o.coverImageId) ? { coverImageId: metin(o.coverImageId) } : {}),
+    partnerLogos: partnerLogolariOku(o.partnerLogos),
     identity: kimlik,
     sections,
     templateVersion: Number.isFinite(surum) ? surum : 0,

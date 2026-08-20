@@ -14,9 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { ProjectSignatoryCard, type SignatoryOption } from "@/app/(app)/projects/[id]/signatory-card";
 import { DeleteRevisionButton } from "@/app/(app)/projects/[id]/delete-revision-button";
-import { Tabs } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ProjectDetailHeader } from "@/app/(app)/projects/[id]/project-header";
 import { ProjectTabsNav } from "@/app/(app)/projects/[id]/project-tabs";
+import { EquipmentRevisionsTable } from "@/app/(app)/projects/[id]/equipment-revisions-table";
 import { DrawingPlanCard } from "@/app/(app)/projects/[id]/drawing-plan-card";
 import type { DrawingAuthor, DrawingPlanRow } from "@/lib/drawing-plan";
 import { ElectricalCard } from "@/app/(app)/projects/[id]/electrical/electrical-card";
@@ -173,19 +174,30 @@ export default function ProjectPreviewPage() {
           checkedBy="p2"
         />
 
-        {/* Bölüm rayı GERÇEK bileşendir (`project-tabs.tsx`); iki paneli de
-            burada basmak sayfanın markup'ını kopyalamak olurdu — ray tek
-            başına sınanır: sekmelerin belirginliği, sayaçlar ve ekipman
-            bağlantısının sağa dayanması. */}
-        <Tabs defaultValue="drawings">
+        {/* Bölüm rayı ve ekipman sürüm defteri GERÇEK bileşenlerdir. Ekipman
+            listeleri hesabın yanında görünmeli ve Vn ↔ Hesap Vn bağı dar
+            ekranda da okunmalıdır. */}
+        <Tabs defaultValue="equipment">
           <ProjectTabsNav
             revisionCount={REVISIONS.length}
+            equipmentCount={REVISIONS.length}
             electricalPartCount={726}
             drawingPlanCount={DRAWING_PLAN.length}
             manualRevisionCount={2}
-            equipmentHref="/projects/dev/revisions/r1/equipment"
-            equipmentLabel="Ekipman Listesi (V1)"
           />
+          <TabsContent value="equipment">
+            <EquipmentRevisionsTable
+              projectId="dev"
+              revisions={REVISIONS.map((revision) => ({
+                id: revision.id,
+                revNo: revision.rev_no,
+                label: revision.label,
+                status: revision.status,
+                createdAt: revision.rev_no === 1 ? "2026-08-08T10:00:00.000Z" : "2026-07-18T10:00:00.000Z",
+                createdBy: revision.who,
+              }))}
+            />
+          </TabsContent>
         </Tabs>
 
         {/* Gerçek sayfada "Elektrik Projesi" sekmesindedir. Burada bakılacak
@@ -196,6 +208,20 @@ export default function ProjectPreviewPage() {
           docs={[EL_BELGE]}
           current={EL_BELGE}
           parts={EL_PARCALAR}
+          catalogReferences={[
+            {
+              materialKey: "SOC.26003121",
+              productId: "catalog-product-1",
+              technicalDocumentId: "technical-document-1",
+              catalogDocumentId: "catalog-document-1",
+            },
+            {
+              materialKey: "SIE.6SL3040-1MA01-0AA0",
+              productId: "catalog-product-2",
+              technicalDocumentId: "technical-document-2",
+              catalogDocumentId: null,
+            },
+          ]}
           canEdit
         />
 

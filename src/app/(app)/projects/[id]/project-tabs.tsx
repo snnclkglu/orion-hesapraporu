@@ -1,6 +1,6 @@
 // Proje detayının BÖLÜM RAYI — "Hesap Raporu" · "Elektrik Projesi" ·
-// "Teknik Resim Takibi" · "İşletme ve Bakım El Kitabı" · ekipman listesi
-// bağlantısı.
+// "Ekipman Listeleri" · "Elektrik Projesi" · "Teknik Resim Takibi" ·
+// "İşletme ve Bakım El Kitabı".
 //
 // SIRA İŞ AKIŞIDIR, bir düzen tercihi değil (kullanıcı kararı, 19.08.2026:
 // *"Hesap Raporu ile Teknik Resim Takibi sayfasının arasına Elektrik Projesi
@@ -56,21 +56,19 @@ const COUNT =
 
 export function ProjectTabsNav({
   revisionCount,
+  equipmentCount,
   electricalPartCount,
   drawingPlanCount,
   manualRevisionCount,
-  equipmentHref,
-  equipmentLabel,
 }: {
   revisionCount: number;
+  /** Hesap raporu revizyonlarından türetilen ekipman listesi sürüm adedi. */
+  equipmentCount: number;
   /** Okunmuş elektrik malzeme satırı adedi; okunmamışsa 0. */
   electricalPartCount: number;
   drawingPlanCount: number;
   /** El kitabı revizyon adedi; kitap açılmamışsa 0. */
   manualRevisionCount: number;
-  /** Son revizyonun ekipman listesi adresi; revizyon yoksa verilmez. */
-  equipmentHref?: string;
-  equipmentLabel?: string;
 }) {
   return (
     // `items-end`: alt çizgili bir rayda hem sekmeler hem yanındaki bağlantı
@@ -98,6 +96,11 @@ export function ProjectTabsNav({
           Hesap Raporu
           {revisionCount > 0 && <span className={COUNT}>{revisionCount}</span>}
         </TabsTrigger>
+        <TabsTrigger value="equipment" className={TAB}>
+          <FileDown className="size-4" />
+          Ekipman Listeleri
+          {equipmentCount > 0 && <span className={COUNT}>{equipmentCount}</span>}
+        </TabsTrigger>
         <TabsTrigger value="electrical" className={TAB}>
           <Zap className="size-4" />
           Elektrik Projesi
@@ -114,19 +117,6 @@ export function ProjectTabsNav({
           {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
         </TabsTrigger>
       </TabsList>
-
-      {/* Ekipman listesi bir PANEL DEĞİL ayrı bir adrestir; bu yüzden bağlantı
-          `role="tablist"` kabının DIŞINDA, TabsList'in kardeşi olarak durur.
-          Sekme gibi görünmesin diye sağa dayanır ve alt çizgi almaz. */}
-      {equipmentHref && (
-        <a
-          href={equipmentHref}
-          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium whitespace-nowrap text-muted-foreground hover:text-foreground`}
-        >
-          <FileDown className="size-4" />
-          {equipmentLabel}
-        </a>
-      )}
     </div>
   );
 }

@@ -59,6 +59,46 @@ export function projectYear(p: Pick<ProjectRow, "created_at">): string {
   return /^(\d{4})/.exec(p.created_at ?? "")?.[1] ?? "";
 }
 
+/*
+ * SÜTUN GENİŞLİKLERİ — kullanıcı bildirimi (20.08.2026): *"listede isimlerin
+ * çok uzun olma problemini çözer misin… tablo her zaman yatayda sayfaya
+ * sığsın, yatay kaydırma olmasın."*
+ *
+ * Tablo düzeni `auto`dur ve bir sütunun EN DAR hâli içeriğinin tamamı kadardır.
+ * Kelepçesiz `whitespace-nowrap` taşıyan Müşteri sütunu tek başına 414px'e
+ * çıkıyor, Proje sütunu ise sarmak zorunda kalıp satırı 177px'e uzatıyordu
+ * (ölçüldü, 1024px: kap 703px, tablo 1208px — sayfa 505px yatay kayıyordu).
+ *
+ * ÜÇ KURAL BİRLİKTE ÇALIŞIR:
+ *
+ * 1. **Esnek sütun HÜCREDE kelepçelenir** (`max-w-*`). `max-width` bir tablo
+ *    hücresinde TAVAN DEĞİL TABANDIR: sütunun içsel en dar hâlini o değere
+ *    indirir ama yer varken sütun yine de büyür (1920px'te Proje 598px'e
+ *    çıkar, metin de o genişliğe kadar okunur). Bu yüzden kelepçe kırılım
+ *    kırılım açılmaz — tek ve DAR bir değer yeter, geniş ekranda kendiliğinden
+ *    genişler. Değerler en dar kaba göre seçilmiştir (aşağıdaki tabloya bak).
+ * 2. **Kırpma `md`den başlar** (`md:truncate` + `title`). Telefonda ad SARAR;
+ *    orada kırpılmış metni okutacak bir fare yoktur (kabuk kuralı 7).
+ * 3. **Sabit sütunlar `w-px` ile ÇİVİLENİR.** Aksi hâlde artan yer bütün
+ *    sütunlara oransal dağılıyor ve "0063" taşıyan İş No sütunu 1920px'te
+ *    114px'e şişip yeri Proje'den çalıyordu. `w-px` içeriğin altına inemez,
+ *    yani sütun en dar hâline oturur ve artan yer esnek sütunlara kalır.
+ *
+ * EN DAR KAP HER KIRILIMDA AYNI DEĞİL — `lg`, `md`den DARDIR. Kenar çubuğu
+ * (15rem + 14px omurga) tam 1024px'te belirir:
+ *     375px  → kap 351px   (4 sütun)
+ *     768px  → kap 736px   (6 sütun — kenar çubuğu YOK)
+ *     1024px → kap 703px   (6 sütun — kenar çubuğu belirdi, kap DARALDI)
+ *     1280px → kap 962px   (8 sütun)
+ * Müşteri ve Vinç Tipi bu yüzden `lg`de değil `xl`de açılır: 1024px'te sekiz
+ * sütunun yalnız başlıkları 674px tutuyor, veriye 29px kalıyordu.
+ */
+const AD_KELEPCE = "max-w-[15rem]";
+const MUSTERI_KELEPCE = "max-w-[10rem]";
+const VINC_KELEPCE = "max-w-[6rem]";
+/** İçeriği sabit boydaki sütun: en dar hâline çivilenir, artan yeri almaz. */
+const CIVI = "w-px";
+
 type SortKey = "job_no" | "doc_no" | "name" | "customer" | "crane_type" | "rev" | "status";
 
 const SORT_VALUE: Record<SortKey, (p: ProjectRow) => string | number> = {
@@ -247,31 +287,44 @@ export function ProjectsTable({
       </div>
 
       {/* Proje listesi yıllarla BÜYÜR: `oc-table-clamp` + `oc-sticky-head`
-          uzun listede başlığı tepede tutar (md üstü). Kap `.oc-scrollx`tır —
-          telefonda katlama sayesinde kaymaz ama tablet ara genişlikleri hâlâ
-          taşabilir (kabuk kuralı 8/15). */}
+          uzun listede başlığı tepede tutar (md üstü). `.oc-scrollx` EMNİYET
+          KEMERİ olarak kalır (kabuk kuralı 8): ölçülen genişliklerin hiçbirinde
+          taşma yok, ama bir gün sütun eklenirse kaymanın GÖRÜNMESİ gerekir. */}
       <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+        {/* HÜCRE DOLGUSU TELEFONDA BİR KADEME KISILIR (8px → 6px), kabuk
+            kuralı 10'un tablodaki karşılığı: dört sütunda 16px eder ve o
+            genişliğin tamamı proje adına gider. ≥640px'te eski değere döner. */}
+        <Table className="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
           <TableHeader className="oc-sticky-head">
             {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
                 (~341px) bir buçuk katıydı ve sağdaki Durum/İşlem hiç
-                görünmüyordu. Mobilde yalnız Doküman No · Proje · Durum ·
-                İşlem kalır; gizlenenlerin kritik olanları proje adının altına
-                iner (aşağıdaki md:hidden satır). */}
+                görünmüyordu; sekizi 1024px'e sığdırmak da mümkün değil (bkz.
+                yukarıdaki kelepçe notu). Sütunlar ekran büyüdükçe açılır:
+                  <md  Doküman No · Proje · Durum · İşlem
+                  md   + İş No · Son Revizyon
+                  xl   + Müşteri · Vinç Tipi
+                Henüz açılmamış olanların kritikleri proje adının ALTINDA
+                durur (aşağıdaki ikinci satır); kart markup'ı çoğaltılmaz. */}
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortHead label="İş No" sortKey="job_no" className="hidden md:table-cell"
+              <SortHead label="İş No" sortKey="job_no" className={cn(CIVI, "hidden md:table-cell")}
                 active={sort.key === "job_no"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Doküman No" sortKey="doc_no"
+              {/* Telefonda İKİ SATIRA SARAR: "Doküman No" tek satırdayken
+                  sütunun tabanını 115px'e çekiyordu ve o 21px doğrudan proje
+                  adından çalınıyordu (veri "0063-00", yani 78px yeterli). */}
+              <SortHead label="Doküman No" sortKey="doc_no" className={cn(CIVI, "max-sm:whitespace-normal")}
                 active={sort.key === "doc_no"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Proje" sortKey="name"
+              {/* Proje ÇİVİLENMEZ: artan yerin çoğunu alması gereken sütun bu. */}
+              <SortHead label="Proje" sortKey="name" className={AD_KELEPCE}
                 active={sort.key === "name"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Müşteri" sortKey="customer" className="hidden md:table-cell"
+              <SortHead label="Müşteri" sortKey="customer"
+                className={cn(MUSTERI_KELEPCE, "hidden xl:table-cell")}
                 active={sort.key === "customer"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Vinç Tipi" sortKey="crane_type" className="hidden lg:table-cell"
+              <SortHead label="Vinç Tipi" sortKey="crane_type"
+                className={cn(VINC_KELEPCE, "hidden xl:table-cell")}
                 active={sort.key === "crane_type"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Son Revizyon" sortKey="rev" className="hidden md:table-cell"
+              <SortHead label="Son Revizyon" sortKey="rev" className={cn(CIVI, "hidden md:table-cell")}
                 active={sort.key === "rev"} dir={sort.dir} onSort={toggleSort} />
-              <SortHead label="Durum" sortKey="status"
+              <SortHead label="Durum" sortKey="status" className={CIVI}
                 active={sort.key === "status"} dir={sort.dir} onSort={toggleSort} />
               <TableHead className="w-12 text-right">İşlem</TableHead>
             </TableRow>
@@ -286,11 +339,16 @@ export function ProjectsTable({
             ) : (
               filtered.map((p) => (
                 <TableRow key={p.id} className="relative cursor-pointer">
-                  <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">
+                  <TableCell className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground md:table-cell")}>
                     {p.job_no && p.job_id ? (
+                      // Dokunma hedefi `.oc-tap` ile 44px'e tamamlanır, KUTU
+                      // büyümez (kabuk kuralı 1). Eskiden `min-h-9` idi ve o
+                      // 36px'i her satıra taşıyıp satır boyunu tek başına
+                      // 53px'te tutuyordu — kullanıcının "satır yüksekliği bu
+                      // kadar büyümesin" dediği yerin bir parçası.
                       <Link
                         href={`/jobs/${p.job_id}`}
-                        className="relative z-10 inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
+                        className="oc-tap relative z-10 text-primary hover:underline"
                       >
                         {p.job_no}
                       </Link>
@@ -298,25 +356,53 @@ export function ProjectsTable({
                       <span className="text-muted-foreground/60">bağımsız</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-sm font-medium text-primary">
+                  <TableCell className={cn(CIVI, "font-mono text-sm font-medium text-primary")}>
                     <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
                       {p.doc_no}
                     </Link>
                   </TableCell>
-                  {/* `break-words`: proje adı veriden gelir; boşluksuz uzun bir
-                      jeton telefonda hücreyi kendi genişliğine çekmesin. */}
-                  <TableCell className="font-medium break-words whitespace-normal">
-                    {p.name}
-                    {/* Mobilde gizlenen sütunların kritik olanları — kart
-                        markup'ı çoğaltmadan, aynı hücrenin ikinci satırı. */}
-                    <div className="mt-0.5 text-[11px] font-normal whitespace-normal text-muted-foreground md:hidden">
+                  {/* Kelepçe HÜCREDEDİR, kırpma İÇTEKİ BLOKTA: hücre yer varken
+                      büyümeye devam eder, blok da o genişliğin tamamını kullanır
+                      (kelepçeyi bloğa yazsaydık geniş ekranda ad boş yerin
+                      ortasında erkenden kesilirdi). `whitespace-normal` hücrede
+                      kalır — `TableCell` varsayılanı `nowrap`tır ve alttaki
+                      bilgi satırı telefonda sarmak zorundadır (kabuk kuralı 15). */}
+                  <TableCell
+                    className={cn(
+                      AD_KELEPCE,
+                      // `max-sm:[overflow-wrap:anywhere]` — kabuk kuralı 15'in
+                      // ölçülmüş tuzağı: `break-words` (`break-word`) bir
+                      // sütunun MIN-CONTENT genişliğini KÜÇÜLTMEZ, yalnız
+                      // `anywhere` küçültür. O olmadan 375px'te tablo en uzun
+                      // KELİME kadar yer istiyor ve kap 46px taşıyordu.
+                      "font-medium whitespace-normal max-sm:[overflow-wrap:anywhere]"
+                    )}
+                  >
+                    {/* `break-words` MİRASI EZER: kelepçe hücrede olsa da bu
+                        span kendi `overflow-wrap: break-word`ünü kurar ve
+                        `anywhere` etkisiz kalır (375px'te 9px taşma olarak
+                        ölçüldü) — kural bu yüzden AYNI öğede tekrarlanır. */}
+                    <span
+                      className="block break-words max-sm:[overflow-wrap:anywhere] md:truncate"
+                      title={p.name}
+                    >
+                      {p.name}
+                    </span>
+                    {/* Henüz açılmamış sütunların kritik olanları — kart
+                        markup'ı çoğaltmadan, aynı hücrenin ikinci satırı.
+                        Müşteri `xl`e kadar BURADADIR, iş no ve revizyon
+                        `md`ye kadar. */}
+                    <div
+                      className="mt-0.5 text-[11px] font-normal text-muted-foreground md:truncate xl:hidden"
+                      title={p.customer}
+                    >
                       {/* İş no BURADA DA BAĞLANTIDIR: sütunu gizlemek bilgiyi
                           korur ama iş emrine geçişi telefonda tümüyle
                           kaybettiriyordu. `relative z-10` satırın tamamını
                           kaplayan proje bağlantısının üstünde kalmasını
                           sağlar (aksi hâlde dokunuş projeye giderdi). */}
                       {p.job_no && p.job_id ? (
-                        <>
+                        <span className="md:hidden">
                           <Link
                             href={`/jobs/${p.job_id}`}
                             className="relative z-10 font-mono text-primary hover:underline"
@@ -324,21 +410,29 @@ export function ProjectsTable({
                             {p.job_no}
                           </Link>
                           {" · "}
-                        </>
+                        </span>
                       ) : null}
                       {p.customer}
-                      {p.lastRevNo !== null
-                        ? ` · V${p.lastRevNo} ${revisionStatusLabel(p.lastRevStatus ?? "")}`
-                        : ""}
+                      {p.lastRevNo !== null ? (
+                        <span className="md:hidden">
+                          {` · V${p.lastRevNo} ${revisionStatusLabel(p.lastRevStatus ?? "")}`}
+                        </span>
+                      ) : null}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">
+                  <TableCell
+                    className={cn(MUSTERI_KELEPCE, "hidden truncate text-muted-foreground xl:table-cell")}
+                    title={p.customer}
+                  >
                     {p.customer}
                   </TableCell>
-                  <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+                  <TableCell
+                    className={cn(VINC_KELEPCE, "hidden truncate text-sm text-muted-foreground xl:table-cell")}
+                    title={p.crane_type}
+                  >
                     {p.crane_type}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">
+                  <TableCell className={cn(CIVI, "hidden md:table-cell")}>
                     {p.lastRevNo !== null ? (
                       <span className="inline-flex items-center gap-1.5 text-sm">
                         <span className="font-mono">V{p.lastRevNo}</span>
@@ -350,11 +444,11 @@ export function ProjectsTable({
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={CIVI}>
                     <span className="inline-flex items-center gap-1.5 text-sm">
                       <span
                         className={cn(
-                          "size-2",
+                          "size-2 shrink-0",
                           p.status === ARCHIVED ? "bg-muted-foreground/40" : "bg-success"
                         )}
                       />

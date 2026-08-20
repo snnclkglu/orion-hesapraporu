@@ -123,5 +123,18 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ imageId, width, height });
+  // İSTEMCİ KAYDI HEMEN ÖNİZLER. Yalnız `imageId` dönersek editörün ilk
+  // açılışta aldığı `images` prop'u değişmez; yeni görsel kaydedilmiş olsa da
+  // kart ve kâğıt önizlemesi sayfa yenilenene kadar onu bulamaz. Satırın
+  // güvenli, sunucuda ölçülmüş hâli cevapta döner ve yerel listeye eklenir.
+  return NextResponse.json({
+    image: {
+      id: imageId,
+      revisionId: revId,
+      fileName: dosya.name,
+      storagePath: yol,
+      width,
+      height,
+    },
+  });
 }

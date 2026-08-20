@@ -679,3 +679,17 @@ Makara verimi artık seçim değil sabit firma kabulüdür
 Motor içi birimler kg, kg/cm², kg·cm, cm, mm, kN, kNm, Nm, kW, m/dak, d/dak.
 **Sunum katmanı gerilmeleri MPa, momentleri Nm olarak gösterir** (`lib/units.ts`,
 etiket bazlı dönüşüm). Rapor ve arayüzde kg/cm² görünmez.
+
+## HESAP-18 — Ekipman listesi sürümü hesap raporu sürümünden türetilir.
+
+Kullanıcı kararı (20.08.2026): proje detayında **Ekipman Listeleri**, Hesap
+Raporu sekmesinin hemen yanında kendi sürüm defterini taşır. Ayrı bir ekipman
+revizyon zinciri kurulmaz; `Ekipman Vn` doğrudan `Hesap Vn` girdileri ve
+seçimlerinden üretilir. Liste her satırda bu bağı görünür yazar ve hem ekipman
+listesine hem bağlı hesap raporuna bağlantı verir.
+
+Hesap raporu editöründeki mevcut Ekipman Listesi bağlantısı KALIR. Proje
+detayındaki defter sürümler arasında gezinme ve ilişkinin denetimi içindir;
+hesap raporu içindeki bağlantı ise çalışılan revizyondan hızlı geçiştir. Bir
+hesap revizyonu silinirse ona ait türetilmiş ekipman satırı da ayrıca kayıt
+silmeden kendiliğinden listeden düşer.

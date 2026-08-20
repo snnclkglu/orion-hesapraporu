@@ -11,6 +11,6 @@ paths:
 # Dokunmatik ve dar ekran — kurallar `docs/agent/arayuz.md` dosyasındadır
 
 Bu alanda **yazmadan önce** `docs/agent/arayuz.md` dosyasını OKU.
-44px hedef, dvh, pencere kelepçesi, sütun önceliklendirme, telefonda tablo katlama.
+44px hedef, dvh, pencere kelepçesi, sütun önceliklendirme, telefonda tablo katlama, tablo yatayda sığar (kelepçe/çivi).
 
 Madde kimlikleri `MOBIL-N` biçimindedir; kod yorumlarındaki atıflar bu deftere gider.

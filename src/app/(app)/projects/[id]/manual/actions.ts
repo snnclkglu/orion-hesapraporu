@@ -20,6 +20,7 @@ import { manualFromTemplate, withManualDefaults } from "@/lib/manual/payload";
 import { MANUAL_DOC_TITLE, suggestCoverTitle } from "@/lib/manual/naming";
 import { resolveAutoTable, type ManualSourceData } from "@/lib/manual/sources";
 import { MANUAL_IMAGE_BUCKET } from "@/lib/manual/data";
+import { manualPublishReadiness } from "@/lib/manual/guide";
 import type { ManualPayload, ManualSection } from "@/lib/manual/types";
 import { buildManualSourceData } from "./sources-data";
 
@@ -179,8 +180,23 @@ export async function issueManualRevision(
   if (!rev) return { error: "Revizyon bulunamadı." };
   if (rev.status === "issued") return { error: "Bu revizyon zaten yayımlanmış." };
 
-  const veri = await buildManualSourceData(supabase, projectId);
   const govde: ManualPayload = withManualDefaults(rev.payload);
+  const hazirlik = manualPublishReadiness(govde);
+  if (hazirlik.missingIdentity.length > 0) {
+    return {
+      error: `Yayım kalite kapısı: eksik künye alanları — ${hazirlik.missingIdentity.join(", ")}.`,
+    };
+  }
+  if (hazirlik.missingSections.length > 0) {
+    const ilk = hazirlik.missingSections.slice(0, 3).map((section) => section.title).join(", ");
+    const devam = hazirlik.missingSections.length > 3 ? "…" : "";
+    return {
+      error:
+        `Yayım kalite kapısı: ${hazirlik.missingSections.length} vince özel bölüm boş — ` +
+        `${ilk}${devam}. Bölümleri doldurun veya bilinçli olarak gizleyin.`,
+    };
+  }
+  const veri = await buildManualSourceData(supabase, projectId);
   govde.sections = dondur(govde.sections, veri);
 
   const { error } = await supabase
@@ -230,7 +246,8 @@ export async function newManualRevision(
       ...s,
       blocks: s.blocks.map((b) => {
         if (b.kind !== "auto") return b;
-        const { frozen: _atilan, ...kalan } = b;
+        const { frozen, ...kalan } = b;
+        void frozen;
         return kalan;
       }),
       children: cozulmus(s.children),
@@ -251,12 +268,20 @@ export async function newManualRevision(
   if (error || !yeni) return { error: error?.message ?? "Revizyon açılamadı." };
 
   // Görselleri taşı: önce depo nesnesi kopyalanır, sonra kayıt yazılır.
-  // Sıra "önce ucuz olanı kaybet"in tersidir çünkü HENÜZ KAYIT YOKTUR —
-  // kopyalanamayan bir nesne yalnız o görseli düşürür, revizyonu değil.
+  // KOPYA YA HEP YA HİÇTİR. Payload eski `imageId`leri aynen taşıdığı için
+  // tek görselin düşmesi bile yeni revizyonu içerik olarak bozar; hata olursa
+  // bu çağrıda açılan taslak ve kopyalanan nesneler geri alınır.
   const { data: gorseller } = await supabase
     .from("manual_images")
     .select("id, file_name, storage_path, width, height, size_bytes")
     .eq("revision_id", son.id);
+  const kopyalananYollar: string[] = [];
+  const geriAl = async () => {
+    if (kopyalananYollar.length > 0) {
+      await supabase.storage.from(MANUAL_IMAGE_BUCKET).remove(kopyalananYollar);
+    }
+    await supabase.from("manual_revisions").delete().eq("id", yeni.id);
+  };
   for (const g of (gorseller ?? []) as Record<string, unknown>[]) {
     const eski = String(g.storage_path);
     const uzanti = eski.slice(eski.lastIndexOf(".") + 1) || "png";
@@ -264,10 +289,21 @@ export async function newManualRevision(
     const { error: kopyaHatasi } = await supabase.storage
       .from(MANUAL_IMAGE_BUCKET)
       .copy(eski, yeniYol);
-    if (kopyaHatasi) continue;
+    if (kopyaHatasi) {
+      await geriAl();
+      return { error: `Görsel dosyası kopyalanamadı (${kopyaHatasi.message}). Revizyon açılmadı.` };
+    }
+    kopyalananYollar.push(yeniYol);
     // KİMLİK KORUNUR: gövdedeki `imageId` atıfları aynı kalmalı, yoksa her
     // resim bloğu boşa düşerdi.
-    await supabase.from("manual_images").insert({
+    //
+    // HATA SESSİZ KALAMAZ (ölçüldü, 20.08.2026): bu insert `manual_images.id`
+    // tek sütunlu birincil anahtar olduğu sürece 23505 ile DÜŞÜYOR ve dönüş
+    // değeri okunmadığı için kimse görmüyordu — R01'de resimli olan kılavuz
+    // R02'de resimsiz çıkıyordu. Anahtar `(revision_id, id)` yapıldı
+    // (20260823000001_manual_images_pk.sql); yine de hata YUTULMAZ, çünkü bu
+    // düzeltmenin uygulanıp uygulanmadığını ancak burası söyler.
+    const { error: kayitHatasi } = await supabase.from("manual_images").insert({
       id: String(g.id),
       revision_id: yeni.id,
       file_name: String(g.file_name ?? ""),
@@ -277,6 +313,12 @@ export async function newManualRevision(
       size_bytes: Number(g.size_bytes ?? 0),
       created_by: izin.userId,
     });
+    if (kayitHatasi) {
+      await geriAl();
+      return {
+        error: `Görsel kaydı kopyalanamadı (${kayitHatasi.message}). Revizyon açılmadı.`,
+      };
+    }
   }
 
   revalidatePath(`/projects/${projectId}`);

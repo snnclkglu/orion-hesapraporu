@@ -18,6 +18,12 @@ paths:
   - "orion-hesapraporu/scripts/catalog-sheets.py"
   - "scripts/seed-catalog.ts"
   - "orion-hesapraporu/scripts/seed-catalog.ts"
+  - "scripts/import-electrical-catalogs.ts"
+  - "orion-hesapraporu/scripts/import-electrical-catalogs.ts"
+  - "src/lib/electrical/catalog*.ts"
+  - "orion-hesapraporu/src/lib/electrical/catalog*.ts"
+  - "src/app/api/electrical-catalog/**"
+  - "orion-hesapraporu/src/app/api/electrical-catalog/**"
 ---
 
 # Üretici katalogları ve katalog sayfaları — kurallar `docs/agent/katalog.md` dosyasındadır

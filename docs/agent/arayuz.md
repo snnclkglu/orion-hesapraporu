@@ -197,3 +197,58 @@ doğası yatay artefaktlar içte kaymaya devam eder.
   ve tablo taşar (ücret planında yaşandı). Sarmalı süzgeç şeritlerinde iç
   gruplar da `flex-wrap` olmalı — dış kap sararken `shrink-0` tek parça
   küme sayfayı yine taşırır.
+
+## MOBIL-16 — Tablo yatayda SIĞAR: esnek sütun kelepçelenir, sabit sütun çivilenir
+
+Kullanıcı bildirimi (20.08.2026, Mühendislik listesi): *"listede isimlerin çok
+uzun olma problemini çözer misin… satır yüksekliği ve sütun genişlikleri bu
+kadar büyümesin… tablo her zaman yatayda sayfaya sığsın, yatay kaydırma
+olmasın."* Kural 7'yi (esnek sütun kelepçelenir) tamamlar; ölçümler
+`/dev/projects-preview` üzerinde gerçek satırlarla alındı.
+
+**`max-width` bir tablo hücresinde TAVAN DEĞİL TABANDIR.** Ölçüldü: `td`ye
+`max-width: 384px` verilen sütun 1920px'lik ekranda 525px'e kadar BÜYÜDÜ, ama
+1024px'lik ekranda 384px'in altına inmedi. Yani değer sütunun içsel EN DAR
+hâlini belirler; geniş ekranda sütun yine artan yeri alır ve metin o genişliğe
+kadar okunur. İki sonucu vardır:
+- Kelepçe **kırılım kırılım açılmak zorunda değildir** — tek ve DAR bir değer
+  yeter (kural 7'deki `md:…2xl:` merdiveni, kelepçe içteki bir `span`a
+  yazıldığında gerekir; orada blok gerçekten tavan olur ve geniş ekranda ad boş
+  yerin ortasında erkenden kesilir).
+- Kelepçe **hücrede**, kırpma **içteki blokta** durur. Blok hücrenin o anki
+  genişliğinin tamamını kullanır, kelepçe ise sütunun tabanını verir.
+
+**SABİT İÇERİKLİ SÜTUN `w-px` İLE ÇİVİLENİR.** Artan yer bütün sütunlara
+oransal dağılır: kelepçeli sütunlar dolduktan sonra "0063" taşıyan İş No sütunu
+1920px'te 83px'ten 114px'e şişiyor ve o yeri proje adından çalıyordu. `w-px`
+içeriğin min-content'inin altına inemez — sütun en dar hâline oturur, artan yer
+esnek sütunlara kalır.
+
+**EN DAR KAP HER KIRILIMDA AYNI DEĞİL — `lg`, `md`den DARDIR.** Kenar çubuğu
+(`hidden lg:flex`, 15rem) tam 1024px'te belirir ve içeriği bir anda daraltır:
+
+| pencere | kap | not |
+|---|---|---|
+| 375px | 351px | kenar çubuğu yok |
+| 768px | 736px | kenar çubuğu yok |
+| **1024px** | **703px** | kenar çubuğu belirdi, kap **daraldı** |
+| 1280px | 962px | |
+| 1920px | 1602px | |
+
+Sütun sayısını `lg`de artırmak bu yüzden TERS TEPER. Mühendislik listesinde
+sekiz sütunun yalnız BAŞLIKLARI 674px tutuyor; 1024px'te veriye 29px kalıyordu.
+Müşteri ve Vinç Tipi bu yüzden `lg`de değil `xl`de açılır. Yeni sütun eklerken
+sınanacak pencere 1024'tür, 1920 değil.
+
+**ÖLÇÜT** (kural 15'in genişletilmişi): kabın `scrollWidth === clientWidth`i
+375 · 320 · 640 · 767 · 1023 · 1279 · 1535 · 1920'de sağlanır ve `md` üstünde
+bütün satırlar AYNI yükseklikte olur (Mühendislik'te 49px). Satır boyunu tek bir
+`min-h-9` bile bozar — dokunma payı kural 1'e göre `.oc-tap` ile verilir.
+
+## MOBIL-17 — Sidebar daralınca bölüm ikonları büyümez.
+
+Kullanıcı kararı (20.08.2026): sol menünün geniş ve dar hâli yalnız yerleşimi
+değiştirir; bölüm ikonlarının ölçüsü iki hâlde de **16 × 16 px** kalır. Etiketin
+gizlenmesi ikonu büyütme gerekçesi değildir; büyüyen ikonlar görsel ritmi bozup
+dar menüyü ayrı bir ikon takımı gibi gösteriyordu. Daralt/genişlet düğmesinin
+ikonu da aynı ölçü sözleşmesine uyar.

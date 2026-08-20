@@ -52,6 +52,7 @@ import {
   type PartSortKey,
 } from "@/lib/electrical/filter";
 import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
+import type { ElectricalCatalogReference } from "@/lib/electrical/catalogs";
 import { BosSonuc, MaterialTable, PartTable } from "./electrical-table";
 import {
   deleteElectricalDoc,
@@ -72,12 +73,14 @@ export function ElectricalCard({
   docs,
   current,
   parts,
+  catalogReferences,
   canEdit,
 }: {
   projectId: string;
   docs: ElectricalDoc[];
   current: ElectricalDoc | null;
   parts: ElectricalPart[];
+  catalogReferences: ElectricalCatalogReference[];
   canEdit: boolean;
 }) {
   const girdi = useRef<HTMLInputElement>(null);
@@ -485,6 +488,7 @@ export function ElectricalCard({
                 ) : (
                   <MaterialTable
                     rows={gosterilenMalzeme}
+                    catalogReferences={catalogReferences}
                     sortKey={malzemeSira.key}
                     desc={malzemeSira.desc}
                     onSort={(k) =>

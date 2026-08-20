@@ -155,3 +155,18 @@ sayfaları o kapağın hemen ardına koyar. **Temel belge YERİNDE açılır, ye
 bir belgeye KOPYALANMAZ** — `pdfBirlestir` gibi kopyalayan bir yol
 `/Root /Names /Dests` ağacını taşımaz ve bütün iç bağlantılar sessizce
 ölür. Okunamayan ekin KAPAĞI DA silinir: belge var olmayan sayfa vaat etmez.
+
+## KATALOG-20 — Elektrik kataloğu ÖZGÜN BELGE + DOĞRULANMIŞ FÖY olarak saklanır.
+
+Tam üretici kataloğu kaybolmaz; `catalog` bağıyla özgün PDF olarak saklanır.
+Müşteriye gösterilen `technical` belge ise ya doğrudan 1–6 sayfalık resmi föy
+ya da uzun katalogdan çıkarılmış en fazla 6 sayfalık `technical_extract`tir.
+Çıkarım kaydı `source_document_id` ile özgün belgeyi ve 1 tabanlı
+`source_pages` ile fiziksel sayfaları taşır; böylece her yaprağın kaynağı
+denetlenebilir.
+
+Uzun katalogda kısa/genel bir metin eşleşmesi yeterli değildir. Tam normalize
+sipariş kodu ve teknik içerik birlikte doğrulanır; indeks sayfası ürün sayfası
+sayılmaz. Tam kod bulunamayan, yalnız aile/muadil belge taşıyan ürün teknik föy
+olarak bağlanmaz. 0019'un denetlenmiş aralıkları içe aktarma betiğinde açıktır;
+yanlış belge göstermek yerine düğmenin boş kalması tercih edilir.

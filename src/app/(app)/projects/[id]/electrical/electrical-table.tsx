@@ -22,11 +22,13 @@
 // çağırır (bkz. o dosyanın başlığı: kullanıcının süzüp indirdiği dosya
 // ekranda gördüğünden başka satır taşıyamaz).
 
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
+import { BookOpen, FileText } from "lucide-react";
 import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -36,6 +38,7 @@ import type {
   PartSortKey,
 } from "@/lib/electrical/filter";
 import type { ElectricalMaterialRow, ElectricalPart } from "@/lib/electrical/types";
+import type { ElectricalCatalogReference } from "@/lib/electrical/catalogs";
 
 /** Okunamayan sayı EKRANDA "—"DİR; `0` yazmak yalan olurdu (md. 4·5). */
 const say = (n: number | null): string => (n === null ? "—" : String(n));
@@ -84,10 +87,12 @@ function Kart({
   baslik,
   adet,
   satirlar,
+  actions,
 }: {
   baslik: string;
   adet: string;
   satirlar: [string, string][];
+  actions?: ReactNode;
 }) {
   return (
     <div className="border-b p-3 last:border-0">
@@ -105,6 +110,39 @@ function Kart({
             </Fragment>
           ))}
       </dl>
+      {actions && <div className="mt-2 flex flex-wrap items-center gap-1.5">{actions}</div>}
+    </div>
+  );
+}
+
+function CatalogButtons({ reference }: { reference?: ElectricalCatalogReference }) {
+  if (!reference?.technicalDocumentId && !reference?.catalogDocumentId) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex items-center justify-end gap-1">
+      {reference.technicalDocumentId && (
+        <a
+          href={`/api/electrical-catalog/${reference.technicalDocumentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Teknik föyü yeni sekmede aç"
+          className="oc-tap inline-flex items-center gap-1 rounded border bg-background px-1.5 py-1 text-[11px] font-medium leading-none text-primary hover:bg-muted"
+        >
+          <FileText className="size-3" /> Föy
+        </a>
+      )}
+      {reference.catalogDocumentId && (
+        <a
+          href={`/api/electrical-catalog/${reference.catalogDocumentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Tam kataloğu yeni sekmede aç"
+          className="oc-tap inline-flex items-center gap-1 rounded border bg-background px-1.5 py-1 text-[11px] font-medium leading-none text-primary hover:bg-muted"
+        >
+          <BookOpen className="size-3" /> Kat.
+        </a>
+      )}
     </div>
   );
 }
@@ -113,28 +151,32 @@ function Kart({
 
 export function MaterialTable({
   rows,
+  catalogReferences,
   sortKey,
   desc,
   onSort,
 }: {
   rows: readonly ElectricalMaterialRow[];
+  catalogReferences: readonly ElectricalCatalogReference[];
   sortKey: MaterialSortKey;
   desc: boolean;
   onSort: (k: MaterialSortKey) => void;
 }) {
+  const documents = new Map(catalogReferences.map((r) => [r.materialKey, r]));
   return (
     <>
       {/* SÜTUN PAYLARI İÇERİĞİN GERÇEK ÖLÇÜSÜNDEN gelir (ölçüldü, 187 satır):
           tanım ~40 karakter, malzeme kodu ~22, tip no ~18, tedarikçi ~14,
-          pano listesi ~10. Adet iki hane. Toplam 100. */}
+          pano listesi ~10. Belge düğmeleri sabit ve küçüktür. Toplam 100. */}
       <Table containerClassName="oc-table-clamp overflow-x-hidden" className="table-fixed">
         <colgroup>
-          <col className="w-[7%]" />
-          <col className="w-[31%]" />
-          <col className="w-[17%]" />
+          <col className="w-[6%]" />
+          <col className="w-[27%]" />
           <col className="w-[15%]" />
-          <col className="w-[18%]" />
-          <col className="w-[12%]" />
+          <col className="w-[13%]" />
+          <col className="w-[16%]" />
+          <col className="w-[10%]" />
+          <col className="w-[13%]" />
         </colgroup>
         <TableHeader className="oc-sticky-head hidden md:table-header-group">
           <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -156,6 +198,7 @@ export function MaterialTable({
             <SortableHead sortKey="locations" current={sortKey} desc={desc} onSort={onSort}>
               Panolar
             </SortableHead>
+            <TableHeaderCell>Doküman</TableHeaderCell>
           </TableRow>
         </TableHeader>
         <TableBody className="hidden md:table-row-group">
@@ -171,6 +214,9 @@ export function MaterialTable({
                 <Hucre mono className="text-muted-foreground">
                   {yaz(panolar)}
                 </Hucre>
+                <TableCell className="text-right">
+                  <CatalogButtons reference={documents.get(m.key)} />
+                </TableCell>
               </TableRow>
             );
           })}
@@ -190,11 +236,17 @@ export function MaterialTable({
               ["Kod", yaz(m.partNo)],
               ["Panolar", yaz(m.locations.map((l) => `+${l}`).join(" "))],
             ]}
+            actions={<CatalogButtons reference={documents.get(m.key)} />}
           />
         ))}
       </div>
     </>
   );
+}
+
+/** Sıralanmayan sabit başlık; `TableHead` varsayılan ritmini korur. */
+function TableHeaderCell({ children }: { children: ReactNode }) {
+  return <TableHead className="text-right">{children}</TableHead>;
 }
 
 // ———————————————————————————————————————————————————————— aygıt tablosu

@@ -50,7 +50,22 @@ const securityHeaders = [
  * canlıda ENOENT ile düşer. Yeni bir PDF ucu açan HER bölüm buraya bir satır
  * eklemek zorundadır.
  */
-const PDF_ASSETS = ["./src/assets/fonts/**/*", "./public/brand/**/*"];
+const PDF_ASSETS = [
+  "./src/assets/fonts/**/*",
+  "./public/brand/**/*",
+  /**
+   * EL KİTABININ ŞABLON GÖRSELLERİ — `lib/manual/asset-bytes.ts` bunları
+   * `process.cwd()` ile diskten okur (KITAP-12: "varlık koddur, kodla
+   * sürümlenir") ve yol çalışma anında kurulduğu için Next onları GÖREMEZ.
+   *
+   * Eksikti ve bedeli SESSİZDİ: canlıda `manualAssetBytes` null döner,
+   * `pdf/manual.tsx` kaydı bulunmayan görsel bloğunu HİÇ BASMAZ (bilerek —
+   * boş çerçeve okuyana olmayan bir şeyi vaat ederdi) ve DIN 15020 halat
+   * hasar şekilleri ile uyarı piktogramları teslim edilen kılavuzdan
+   * düşerdi. Yerelde çalıştığı için de fark edilmezdi.
+   */
+  "./public/manual-assets/**/*",
+];
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {

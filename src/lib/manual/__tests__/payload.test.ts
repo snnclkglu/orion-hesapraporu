@@ -26,6 +26,7 @@ const govde = (sections: ManualSection[]): ManualPayload => ({
   v: 1,
   docTitle: "",
   coverTitle: "",
+  partnerLogos: {},
   identity: withManualDefaults({}).identity,
   sections,
   templateVersion: MANUAL_TEMPLATE_VERSION,
@@ -38,6 +39,7 @@ describe("manualFromTemplate", () => {
     expect(m.identity.customer).toBe("KARDEMİR");
     // Verilmeyen alan BOŞ kalır — uydurulmaz (değişmez md. 4).
     expect(m.identity.serialNo).toBe("");
+    expect(m.partnerLogos).toEqual({});
     expect(m.templateVersion).toBe(MANUAL_TEMPLATE_VERSION);
   });
 
@@ -180,6 +182,41 @@ describe("numberManual", () => {
 });
 
 describe("withManualDefaults", () => {
+  it("eski kaydı boş partner yuvalarıyla bugüne taşır", () => {
+    const p = withManualDefaults({
+      v: 1,
+      docTitle: "ESKİ BELGE",
+      sections: [],
+    });
+    expect(p.docTitle).toBe("ESKİ BELGE");
+    expect(p.partnerLogos).toEqual({});
+  });
+
+  it("iki partner görsel kimliğini konumlarıyla korur", () => {
+    const p = withManualDefaults({
+      partnerLogos: {
+        centerImageId: "  partner-orta  ",
+        rightImageId: "partner-sag",
+      },
+    });
+    expect(p.partnerLogos).toEqual({
+      centerImageId: "partner-orta",
+      rightImageId: "partner-sag",
+    });
+  });
+
+  it("bilinmeyen partner yuvasını ve değersiz kimlikleri düşürür", () => {
+    const p = withManualDefaults({
+      partnerLogos: {
+        centerImageId: "   ",
+        rightImageId: 42,
+        leftImageId: "orion-sabittir",
+        thirdImageId: "tanimsiz-yuva",
+      },
+    });
+    expect(p.partnerLogos).toEqual({});
+  });
+
   it("bozuk JSONB'de belge düşmez, bozuk düğüm düşer", () => {
     const p = withManualDefaults({
       sections: [

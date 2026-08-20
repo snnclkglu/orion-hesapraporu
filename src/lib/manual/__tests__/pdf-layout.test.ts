@@ -9,6 +9,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ICERIK_YUKSEKLIK,
+  MANUAL_GOVDE_YUKSEKLIK,
+  MANUAL_UST_BANT_AKIS,
+  NOT_PIKTOGRAM_SLOT_PAYI,
+  SINYAL_CIZELGE_YUKSEKLIGI,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
   blokOlcusu,
@@ -39,6 +43,11 @@ describe("ölçüler sayfanın gerçeğinden türer", () => {
     // 841,89 − 16mm üst − (13mm alt + 14 altbilgi) ≈ 745,7 — teklif PDF'inin
     // ölçtüğü sayının aynısı (`offers/pdf-layout.ts` PDF_SUTUN_KAPASITE).
     expect(ICERIK_YUKSEKLIK).toBeCloseTo(745.69, 1);
+  });
+
+  it("ortak üst bant gövde kapasitesinden düşülür", () => {
+    expect(MANUAL_UST_BANT_AKIS).toBe(48);
+    expect(MANUAL_GOVDE_YUKSEKLIK).toBeCloseTo(ICERIK_YUKSEKLIK - 48, 6);
   });
 });
 
@@ -137,9 +146,44 @@ describe("blokOlcusu", () => {
     expect(sutunda.tam).toBe(false);
   });
 
+  it("sinyal kelimeleri raster oranıyla değil vektör çizelgeyle ölçülür", () => {
+    const blok: ManualBlock = {
+      id: "sinyal",
+      kind: "image",
+      assetKey: "sinyalKelimeleri",
+      widthPct: 78,
+      fullWidth: true,
+      caption: "Uyarı düzeyleri",
+    };
+    const a = blokOlcusu(blok, BOS_KAYNAK, new Map([["sinyalKelimeleri", 0.1]]));
+    const b = blokOlcusu(blok, BOS_KAYNAK, new Map([["sinyalKelimeleri", 3]]));
+    expect(a.tam).toBe(true);
+    expect(a.h).toBeCloseTo(SINYAL_CIZELGE_YUKSEKLIGI + 10.4, 3);
+    expect(b.h).toBe(a.h);
+  });
+
   it("kaynağı boş ve açıklaması olmayan otomatik blok SIFIRDIR", () => {
     const o = blokOlcusu({ id: "a", kind: "auto", source: "ekipman" }, BOS_KAYNAK);
     expect(o.h).toBe(0);
+  });
+
+  it("uyarı ölçüsü vektör piktogram slotunu metin alanından düşer", () => {
+    expect(NOT_PIKTOGRAM_SLOT_PAYI).toBeGreaterThan(20);
+    const kisa = blokOlcusu(
+      { id: "n1", kind: "note", level: "uyari", text: "Kısa uyarı." },
+      BOS_KAYNAK
+    );
+    const uzun = blokOlcusu(
+      {
+        id: "n2",
+        kind: "note",
+        level: "uyari",
+        text: "Bakım sırasında enerji kaynaklarını kilitleyin ve yeniden devreye alınmasını önleyin. ".repeat(4),
+      },
+      BOS_KAYNAK
+    );
+    expect(kisa.h).toBeGreaterThanOrEqual(37);
+    expect(uzun.h).toBeGreaterThan(kisa.h * 2);
   });
 });
 

@@ -26,15 +26,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   BookOpen,
+  Circle,
+  CircleCheck,
+  Columns2,
   Eye,
   EyeOff,
   FileDown,
+  FileText,
   Image as ImageIcon,
   Layers,
   List,
   Loader2,
+  PanelRightClose,
   Plus,
   RotateCcw,
   Save,
@@ -48,11 +54,26 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createClient } from "@/lib/supabase/client";
-import { MANUAL_IMAGE_BUCKET, type ManualImageRow } from "@/lib/manual/data";
+import type { ManualImageRow } from "@/lib/manual/data";
 import { manualAsset } from "@/lib/manual/assets";
+import { ManualPaper, manualOnizlemeOlcusu } from "@/components/manual/manual-paper";
+import { useManualImages } from "@/components/manual/use-manual-images";
+import {
+  manualFillState,
+  manualPublishReadiness,
+  manualSectionGuide,
+  type ManualFillState,
+} from "@/lib/manual/guide";
 import { manualDocCode, MANUAL_DOC_TITLE } from "@/lib/manual/naming";
 import {
   blockHasContent,
@@ -71,6 +92,7 @@ import {
   type ManualBlock,
   type ManualIdentity,
   type ManualNoteLevel,
+  type ManualPartnerLogos,
   type ManualPayload,
   type ManualSection,
 } from "@/lib/manual/types";
@@ -143,12 +165,24 @@ export function ManualEditor({
   canEdit: boolean;
 }) {
   const [payload, setPayload] = useState<ManualPayload>(initialPayload);
+  const [imageRows, setImageRows] = useState<ManualImageRow[]>(images);
   const [etiket, setEtiket] = useState(label);
   const [seciliId, setSeciliId] = useState<string>(initialPayload.sections[0]?.id ?? "");
   const [kirli, setKirli] = useState(false);
   const [kaydediliyor, kaydetBasla] = useTransition();
   const [yayimlaniyor, yayimlaBasla] = useTransition();
   const [kunyeAcik, setKunyeAcik] = useState(false);
+  const [darGorunum, setDarGorunum] = useState<"duzenle" | "kagit">("duzenle");
+  const [yayimOnayi, setYayimOnayi] = useState(false);
+  /**
+   * KÂĞIT AÇIK MI — kullanıcı kararı, ekran genişliği değil.
+   *
+   * Öntanım AÇIK: kullanıcının şikâyeti tam olarak "ne yaptığını
+   * anlayamıyor"du ve önizlemeyi bulmak için bir düğmeye basmak gerekseydi
+   * çözüm o şikâyetin altında kalırdı. Dar ekranda ikisi yan yana sığmaz;
+   * orada düğme ikisi arasında GEÇİŞ yapar.
+   */
+  const [kagitAcik, setKagitAcik] = useState(true);
 
   // YAYIMLANMIŞ REVİZYON SALT OKUNURDUR — engel DB tetikleyicisindedir
   // (`guard_issued_manual_revision`), buradaki yalnız ekranı dürüst tutar.
@@ -170,9 +204,67 @@ export function ManualEditor({
 
   const gorselHaritasi = useMemo(() => {
     const m = new Map<string, ManualImageRow>();
-    for (const g of images) m.set(g.id, g);
+    for (const g of imageRows) m.set(g.id, g);
     return m;
-  }, [images]);
+  }, [imageRows]);
+
+  // KÂĞIDIN GÖRSELLERİ: şablon varlıkları statik, yüklenenler TEK TURDA
+  // imzalanır (`use-manual-images.ts`).
+  const kagitGorselleri = useManualImages(imageRows);
+  const oranlar = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const [k, g] of kagitGorselleri) m.set(k, g.oran);
+    return m;
+  }, [kagitGorselleri]);
+
+  // YERLEŞİM ÇEKİRDEĞİ BURADA DA ÇALIŞIR: bölümün belgede KAÇINCI YAPRAĞA
+  // düştüğü ancak bütün dağıtım bitince belli olur (KITAP-14 md. 2) ve
+  // editörde bunu göstermenin başka yolu yok.
+  const olcu = useMemo(
+    () => manualOnizlemeOlcusu(payload, sources, oranlar),
+    [payload, sources, oranlar]
+  );
+
+  /**
+   * BELGENİN TOPLAM YAPRAK SAYISI — gövde tek başına değil.
+   *
+   * Aritmetik `pdf/manual.tsx`teki sıranın aynısıdır: kapak + içindekiler
+   * (`govdeOfset`), gövde yaprakları, ek kapsayıcısı bir yaprak ve HER EK
+   * KAPAĞI kendi yaprağında (KITAP-8 sözleşmesi). Yalnız gövdeyi saymak,
+   * yirmi iki yapraklık bir belgeye "13 yaprak" dedirtiyordu.
+   */
+  const yaprakSayisi = useMemo(() => {
+    const ekler = flattenManual(numberManual(basilan.sections)).filter((s) => s.appendix).length;
+    return olcu.govdeOfset + olcu.sayfalar.length + (ekler > 0 ? 1 + ekler : 0);
+  }, [basilan.sections, olcu]);
+
+  /** Kaç bölüm dolu, kaç bölüm bekliyor — ilerleme çubuğunun kaynağı. */
+  const ilerleme = useMemo(() => {
+    let dolu = 0;
+    let bos = 0;
+    let gizli = 0;
+    for (const s of duz) {
+      if (s.appendix) continue;
+      const d = editorBolumDurumu(s);
+      if (d === "gizli") gizli += 1;
+      else if (d === "dolu") dolu += 1;
+      else bos += 1;
+    }
+    return { dolu, bos, gizli, toplam: dolu + bos };
+  }, [duz]);
+
+  /** Sıradaki BOŞ bölüm — "devam et" düğmesi buraya atlar. */
+  const sonrakiBos = useMemo(() => {
+    const sira = duz.filter((s) => !s.appendix && editorBolumDurumu(s) === "bos");
+    if (sira.length === 0) return null;
+    const i = sira.findIndex((s) => s.id === seciliId);
+    return sira[(i + 1) % sira.length] ?? sira[0];
+  }, [duz, seciliId]);
+
+  /** İstemci ve sunucu AYNI saf yayım kalite kapısını kullanır. */
+  const yayimHazirligi = useMemo(() => manualPublishReadiness(payload), [payload]);
+  const eksikBolumler = yayimHazirligi.missingSections;
+  const eksikKunye = yayimHazirligi.missingIdentity;
 
   // KAYDEDİLMEMİŞ DEĞİŞİKLİKLE ÇIKIŞ UYARIR. Bir kılavuzda yarım saatlik
   // yazının sekme kapanınca kaybolması, kullanıcının bir daha o ekrana
@@ -191,6 +283,38 @@ export function ManualEditor({
     setPayload((p) => f(p));
     setKirli(true);
   }, []);
+
+  /**
+   * TEK GÖRSEL YÜKLEME HATTI — içerik resmi, kapak fotoğrafı ve partner
+   * logoları aynı sunucu doğrulamasından geçer. Cevaptaki ölçülmüş kayıt
+   * yerel listeye hemen eklenir; sayfa yenilemeden kartta ve kâğıtta görünür.
+   */
+  const gorselYukle = useCallback(async (file: File): Promise<ManualImageRow | null> => {
+    if (file.size > EN_BUYUK_GORSEL) {
+      toast.error("Görsel 25 MB sınırını aşıyor.");
+      return null;
+    }
+    try {
+      const govde = new FormData();
+      govde.set("dosya", file);
+      const r = await fetch(`/projects/${projectId}/manual/${revisionId}/gorsel`, {
+        method: "POST",
+        body: govde,
+      });
+      const j = (await r.json()) as { image?: ManualImageRow; error?: string };
+      if (!r.ok || j.error || !j.image) {
+        toast.error(j.error ?? "Görsel yüklenemedi.");
+        return null;
+      }
+      setImageRows((onceki) =>
+        onceki.some((g) => g.id === j.image!.id) ? onceki : [...onceki, j.image!]
+      );
+      return j.image;
+    } catch {
+      toast.error("Görsel yüklenemedi. Ağ bağlantısını denetleyin.");
+      return null;
+    }
+  }, [projectId, revisionId]);
 
   const bolumGuncelle = useCallback(
     (id: string, f: (s: ManualSection) => ManualSection) => {
@@ -233,6 +357,23 @@ export function ManualEditor({
       toast.error("Önce kaydedin — yayımlanan belge kaydedilmiş hâldir.");
       return;
     }
+    if (eksikKunye.length > 0) {
+      setKunyeAcik(true);
+      toast.error(`Yayım için eksik künye alanları: ${eksikKunye.join(", ")}.`);
+      return;
+    }
+    if (eksikBolumler.length > 0) {
+      setSeciliId(eksikBolumler[0].id);
+      toast.error(
+        `${eksikBolumler.length} vince özel bölüm bekliyor. Bölümü doldurun veya bilinçli olarak gizleyin.`
+      );
+      return;
+    }
+    setYayimOnayi(true);
+  }
+
+  function yayimlaOnayli() {
+    setYayimOnayi(false);
     yayimlaBasla(async () => {
       const r = await issueManualRevision(projectId, revisionId);
       if (r.error) toast.error(r.error);
@@ -251,7 +392,7 @@ export function ManualEditor({
           {manualDocCode(itemNo, revNo)}
         </span>
         <span className="text-sm text-muted-foreground">
-          · {basilanSayisi} bölüm basılıyor
+          · {basilanSayisi} bölüm · {yaprakSayisi} yaprak
         </span>
         {kirli && (
           <span className="inline-flex items-center gap-1 text-sm text-destructive">
@@ -259,16 +400,57 @@ export function ManualEditor({
           </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
+          <Button
+            className="2xl:hidden"
+            size="sm"
+            variant={darGorunum === "kagit" ? "secondary" : "outline"}
+            onClick={() => {
+              setKagitAcik(true);
+              setDarGorunum((v) => (v === "kagit" ? "duzenle" : "kagit"));
+            }}
+            aria-pressed={darGorunum === "kagit"}
+          >
+            {darGorunum === "kagit" ? (
+              <PanelRightClose className="size-3.5" />
+            ) : (
+              <Columns2 className="size-3.5" />
+            )}
+            {darGorunum === "kagit" ? "Düzenle" : "Kâğıt"}
+          </Button>
+          <Button
+            className="hidden 2xl:inline-flex"
+            size="sm"
+            variant={kagitAcik ? "secondary" : "outline"}
+            onClick={() => setKagitAcik((v) => !v)}
+            aria-pressed={kagitAcik}
+          >
+            {kagitAcik ? (
+              <PanelRightClose className="size-3.5" />
+            ) : (
+              <Columns2 className="size-3.5" />
+            )}
+            Kâğıt
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setKunyeAcik((v) => !v)}>
             <BookOpen className="size-3.5" /> Künye
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a href={`/projects/${projectId}/manual/${revisionId}/pdf`}>
+            <a
+              href={kirli ? undefined : `/projects/${projectId}/manual/${revisionId}/pdf`}
+              aria-disabled={kirli}
+              title={kirli ? "PDF için önce değişiklikleri kaydedin" : "Gövde PDF'i indir"}
+              onClick={(e) => kirli && e.preventDefault()}
+            >
               <FileDown className="size-3.5" /> Gövde PDF
             </a>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a href={`/projects/${projectId}/manual/${revisionId}/pdf?ekler=1`}>
+            <a
+              href={kirli ? undefined : `/projects/${projectId}/manual/${revisionId}/pdf?ekler=1`}
+              aria-disabled={kirli}
+              title={kirli ? "PDF için önce değişiklikleri kaydedin" : "Tam sürümü indir"}
+              onClick={(e) => kirli && e.preventDefault()}
+            >
               <Layers className="size-3.5" /> Tam Sürüm
             </a>
           </Button>
@@ -310,37 +492,115 @@ export function ManualEditor({
             guncelle((p) => ({ ...p, identity: { ...p.identity, [alan]: deger } }))
           }
           onDoc={(alan, deger) => guncelle((p) => ({ ...p, [alan]: deger }))}
+          coverImageId={payload.coverImageId}
+          partnerLogos={payload.partnerLogos}
+          images={gorselHaritasi}
+          gorseller={kagitGorselleri}
+          onGorselYukle={gorselYukle}
+          onCoverImage={(imageId) =>
+            guncelle((p) => ({
+              ...p,
+              ...(imageId ? { coverImageId: imageId } : { coverImageId: undefined }),
+            }))
+          }
+          onPartnerLogo={(slot, imageId) =>
+            guncelle((p) => ({
+              ...p,
+              partnerLogos: { ...p.partnerLogos, [slot]: imageId || undefined },
+            }))
+          }
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]">
+      <div
+        className={
+          kagitAcik
+            ? "grid gap-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(0,1.05fr)]"
+            : "grid gap-4 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]"
+        }
+      >
         {/* ————————————————————————————————————— bölüm ağacı */}
-        <nav className="max-h-[70dvh] overflow-y-auto rounded-lg border bg-card p-2">
+        <nav
+          aria-label="El kitabı bölümleri"
+          className={`grid content-start gap-2 lg:sticky lg:top-2 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto rounded-lg border bg-card p-2 ${darGorunum === "kagit" ? "max-2xl:hidden" : ""}`}
+        >
+          {/* İLERLEME BİR SAYAÇ DEĞİL BİR YÖN GÖSTERGESİDİR: mühendis
+              seksen bölümlü bir belgede nerede kaldığını bilmeli. Sayılan
+              şey BASILAN bölümdür — gizlenen bölüm eksik sayılmaz, çünkü
+              gizlemek bir karardır, bir boşluk değil. */}
+          <div className="grid gap-1.5 px-1 pt-1">
+            <div className="flex items-baseline justify-between text-xs">
+              <span className="text-muted-foreground">Doldurulan bölüm</span>
+              <span className="font-mono">
+                {ilerleme.dolu}/{ilerleme.toplam}
+              </span>
+            </div>
+            <div
+              className="h-1.5 w-full bg-muted"
+              role="progressbar"
+              aria-label="Doldurulan bölüm oranı"
+              aria-valuemin={0}
+              aria-valuemax={ilerleme.toplam}
+              aria-valuenow={ilerleme.dolu}
+            >
+              <div
+                className="h-full bg-primary transition-[width]"
+                style={{
+                  width: `${ilerleme.toplam ? (ilerleme.dolu / ilerleme.toplam) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            {sonrakiBos && (
+              <button
+                type="button"
+                onClick={() => setSeciliId(sonrakiBos.id)}
+                className="oc-tap flex items-center gap-1.5 text-left text-xs text-primary hover:underline"
+              >
+                <ArrowRight className="size-3.5 shrink-0" />
+                Sıradaki boş bölüm: {sonrakiBos.number} {sonrakiBos.title}
+              </button>
+            )}
+          </div>
+
           <ul className="grid gap-0.5">
-            {duz.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => setSeciliId(s.id)}
-                  className={`oc-tap flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-                    s.id === seciliId ? "bg-muted font-medium" : "hover:bg-muted/60"
-                  } ${s.hidden ? "opacity-45" : ""}`}
-                  style={{ paddingLeft: `${0.5 + (s.depth - 1) * 0.85}rem` }}
-                >
-                  <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
-                    {s.number}
-                  </span>
-                  <span className="min-w-0 flex-1 break-words">{s.title}</span>
-                  {s.hidden && <EyeOff className="size-3 shrink-0 text-muted-foreground" />}
-                  {s.appendix && <Layers className="size-3 shrink-0 text-muted-foreground" />}
-                </button>
-              </li>
-            ))}
+            {duz.map((s) => {
+              const durum = editorBolumDurumu(s);
+              const sayfa = olcu.sayfaNo.get(s.id);
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSeciliId(s.id)}
+                    aria-current={s.id === seciliId ? "page" : undefined}
+                    className={`oc-tap flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
+                      s.id === seciliId ? "bg-muted font-medium" : "hover:bg-muted/60"
+                    } ${s.hidden ? "opacity-45" : ""}`}
+                    style={{ paddingLeft: `${0.4 + (s.depth - 1) * 0.75}rem` }}
+                  >
+                    <DurumNoktasi durum={durum} />
+                    <span className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {s.number}
+                    </span>
+                    <span className="min-w-0 flex-1 break-words">{s.title}</span>
+                    {s.hidden && <EyeOff className="size-3 shrink-0 text-muted-foreground" />}
+                    {s.appendix && <Layers className="size-3 shrink-0 text-muted-foreground" />}
+                    {/* SAYFA NUMARASI DAĞITIMIN SONUCUDUR (KITAP-14 md. 2):
+                        bir bölümün hangi yaprağa düştüğü ancak bütün belge
+                        dağıtıldıktan sonra bilinir. */}
+                    {sayfa ? (
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                        s{sayfa}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
         {/* ————————————————————————————————————— bölüm içeriği */}
-        <section className="grid gap-3">
+        <section className={`grid content-start gap-3 ${darGorunum === "kagit" ? "max-2xl:hidden" : ""}`}>
           {!secili && (
             <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
               Soldan bir bölüm seçin.
@@ -354,6 +614,7 @@ export function ManualEditor({
               numarali={seciliNumarali}
               sources={sources}
               images={gorselHaritasi}
+              previewImages={kagitGorselleri}
               revisionId={revisionId}
               readOnly={!yazilabilir}
               onBaslik={(v) =>
@@ -401,11 +662,153 @@ export function ManualEditor({
                   return { ...s, blocks: kopya };
                 })
               }
+              onGorselYukle={gorselYukle}
             />
           )}
         </section>
+
+        {/* ————————————————————————————————————— kâğıt önizlemesi */}
+        {kagitAcik && (
+          <KagitPaneli
+            payload={payload}
+            sources={sources}
+            gorseller={kagitGorselleri}
+            docLine={`ORION CRANES · ${payload.docTitle || MANUAL_DOC_TITLE} · V${revNo} · ${new Date().getFullYear()}`}
+            docCode={manualDocCode(itemNo, revNo)}
+            vurguId={seciliId}
+            sayfa={olcu.sayfaNo.get(seciliId) ?? null}
+            className={darGorunum === "duzenle" ? "max-2xl:hidden" : "max-2xl:col-span-full"}
+          />
+        )}
       </div>
+
+      <Dialog open={yayimOnayi} onOpenChange={setYayimOnayi}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revizyon yayımlansın mı?</DialogTitle>
+            <DialogDescription>
+              Yayımlanan revizyon değiştirilemez. Sonraki düzeltmeler için yeni bir revizyon açılır.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 border-y py-3 text-sm">
+            <p className="flex items-center gap-2"><CircleCheck className="size-4 text-primary" /> Künye alanları tamam</p>
+            <p className="flex items-center gap-2"><CircleCheck className="size-4 text-primary" /> Vince özel boş bölüm yok</p>
+            <p className="flex items-center gap-2"><CircleCheck className="size-4 text-primary" /> Kaydedilmiş PDF yayımlanacak</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setYayimOnayi(false)}>Vazgeç</Button>
+            <Button onClick={yayimlaOnayli} disabled={yayimlaniyor}>
+              {yayimlaniyor ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+              Yayımla ve Dondur
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+/** Ağaçtaki doluluk noktası — belgeye giren bölüm dolu sayılır. */
+function DurumNoktasi({ durum }: { durum: ManualFillState }) {
+  if (durum === "dolu") {
+    return <CircleCheck className="size-3.5 shrink-0 text-primary" aria-label="Dolu" />;
+  }
+  if (durum === "ek") {
+    return <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-label="Ek" />;
+  }
+  if (durum === "gizli") {
+    return <Circle className="size-3.5 shrink-0 text-muted-foreground/40" aria-label="Gizli" />;
+  }
+  return (
+    <Circle className="size-3.5 shrink-0 text-muted-foreground/60" aria-label="Boş" />
+  );
+}
+
+/**
+ * Editörün doluluk kararı, bölümdeki ZORUNLU şablon boşluklarını da görür.
+ * Bir standart paragraf dolu diye aynı bölümdeki vince özel boş blok
+ * tamamlanmış sayılamaz; aksi hâlde ilerleme %100'e erken ulaşır.
+ */
+function editorBolumDurumu(section: ManualSection): ManualFillState {
+  if (section.hidden) return "gizli";
+  if (section.appendix) return "ek";
+  if (section.blocks.some((b) => b.fromTemplate && !b.hidden && !blockHasContent(b))) {
+    return "bos";
+  }
+  return manualFillState(section);
+}
+
+/**
+ * KÂĞIT PANELİ — belgenin kendi yerleşim çekirdeğiyle çizilmiş A4 yaprakları.
+ *
+ * SEÇİLİ BÖLÜMÜN YAPRAĞINA KENDİLİĞİNDEN KAYAR. Bir mühendis solda "4.8.3.5
+ * Muayene Kriterleri"ni açtığında sağda o bölümün bulunduğu yaprağı görmeli;
+ * yirmi yaprağı elle aramak, önizlemeyi hiç açmamakla aynı şeydir.
+ *
+ * Kaydırma YAZI YAZARKEN TEKRARLANMAZ (`sonYaprak`): her tuş vuruşunda
+ * dağıtım yeniden çalışır ve sayfa numarası değişmese bile etki tetiklenirdi;
+ * kâğıt her harfte zıplardı.
+ */
+function KagitPaneli({
+  payload,
+  sources,
+  gorseller,
+  docLine,
+  docCode,
+  vurguId,
+  sayfa,
+  className,
+}: {
+  payload: ManualPayload;
+  sources: ManualSourceData;
+  gorseller: ReadonlyMap<string, { url: string; oran: number }>;
+  docLine: string;
+  docCode: string;
+  vurguId: string;
+  sayfa: number | null;
+  className?: string;
+}) {
+  const kap = useRef<HTMLDivElement>(null);
+  const sonYaprak = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (sayfa == null || sayfa === sonYaprak.current) return;
+    sonYaprak.current = sayfa;
+    const kapsayici = kap.current;
+    const hedef = kapsayici?.querySelector<HTMLElement>(`#oc-yaprak-${sayfa}`);
+    if (kapsayici && hedef) {
+      kapsayici.scrollTo({ top: hedef.offsetTop - kapsayici.offsetTop, behavior: "smooth" });
+    }
+  }, [sayfa]);
+
+  return (
+    <aside className={`grid content-start gap-2 ${className ?? ""}`}>
+      <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+        <span className="oc-kicker">KÂĞIT</span>
+        <span>
+          Gövde yerleşimi — sütun bölünmesi, sayfa kırılması ve numaralar PDF
+          ile aynı çekirdekten gelir.
+        </span>
+      </div>
+      {sayfa == null && (
+        <p className="border border-dashed p-2 text-xs text-muted-foreground">
+          Seçili bölüm şu anda belgeye basılmıyor; boş olabilir ya da gizlenmiş olabilir.
+        </p>
+      )}
+      <div
+        ref={kap}
+        className="max-h-[calc(100dvh-9rem)] overflow-y-auto bg-muted/40 p-3 lg:sticky lg:top-2"
+      >
+        <ManualPaper
+          payload={payload}
+          sources={sources}
+          gorseller={gorseller}
+          docLine={docLine}
+          docCode={docCode}
+          vurguId={vurguId}
+        />
+      </div>
+    </aside>
   );
 }
 
@@ -416,6 +819,7 @@ function BolumPaneli({
   numarali,
   sources,
   images,
+  previewImages,
   revisionId,
   readOnly,
   onBaslik,
@@ -425,11 +829,13 @@ function BolumPaneli({
   onBlokTasi,
   onBlokEkle,
   onStandardaDon,
+  onGorselYukle,
 }: {
   bolum: ManualSection;
   numarali: NumberedSection;
   sources: ManualSourceData;
   images: Map<string, ManualImageRow>;
+  previewImages: ReadonlyMap<string, { url: string; oran: number }>;
   revisionId: string;
   readOnly: boolean;
   onBaslik: (v: string) => void;
@@ -439,6 +845,7 @@ function BolumPaneli({
   onBlokTasi: (blokId: string, yon: "yukari" | "asagi") => void;
   onBlokEkle: (b: ManualBlock) => void;
   onStandardaDon: (blokId: string) => void;
+  onGorselYukle: (file: File) => Promise<ManualImageRow | null>;
 }) {
   return (
     <div className={`grid gap-3 ${bolum.hidden ? "opacity-60" : ""}`}>
@@ -474,6 +881,8 @@ function BolumPaneli({
         )}
       </div>
 
+      <BolumRehberi bolum={bolum} />
+
       {bolum.blocks.map((b, i) => (
         <BlokKarti
           key={b.id}
@@ -482,6 +891,7 @@ function BolumPaneli({
           son={i === bolum.blocks.length - 1}
           sources={sources}
           images={images}
+          previewImages={previewImages}
           revisionId={revisionId}
           readOnly={readOnly}
           onDegis={(f) => onBlok(b.id, f)}
@@ -491,7 +901,31 @@ function BolumPaneli({
         />
       ))}
 
-      {!readOnly && <BlokEkleSeridi onEkle={onBlokEkle} />}
+      {!readOnly && <BlokEkleSeridi onEkle={onBlokEkle} onGorselYukle={onGorselYukle} />}
+    </div>
+  );
+}
+
+/**
+ * BÖLÜM REHBERİ — "burada ne yapmalısın".
+ *
+ * Metin çoğunlukla BLOKLARDAN TÜRETİLİR (`lib/manual/guide.ts`): boş bir
+ * şablon bloğu "sen dolduracaksın", bir `auto` blok "bu tablo kaynağından
+ * gelir" demektir. Seksen beş bölüme elle cümle yazmak, şablon değiştiğinde
+ * sessizce yalan söyleyen seksen beş cümle demekti.
+ */
+function BolumRehberi({ bolum }: { bolum: ManualSection }) {
+  const rehber = manualSectionGuide(bolum);
+  const renk =
+    rehber.tone === "doldur"
+      ? "border-l-primary"
+      : rehber.tone === "otomatik"
+        ? "border-l-[color:var(--oc-steel)]"
+        : "border-l-border";
+  return (
+    <div className={`border border-l-2 bg-card/60 p-3 text-xs leading-relaxed ${renk}`}>
+      <p className="text-muted-foreground">{rehber.text}</p>
+      {rehber.note && <p className="mt-1.5 text-foreground/80">{rehber.note}</p>}
     </div>
   );
 }
@@ -504,6 +938,7 @@ function BlokKarti({
   son,
   sources,
   images,
+  previewImages,
   revisionId,
   readOnly,
   onDegis,
@@ -516,6 +951,7 @@ function BlokKarti({
   son: boolean;
   sources: ManualSourceData;
   images: Map<string, ManualImageRow>;
+  previewImages: ReadonlyMap<string, { url: string; oran: number }>;
   revisionId: string;
   readOnly: boolean;
   onDegis: (f: (b: ManualBlock) => ManualBlock) => void;
@@ -688,6 +1124,7 @@ function BlokKarti({
         <GorselBloku
           blok={blok}
           kayit={blok.imageId ? (images.get(blok.imageId) ?? null) : null}
+          gorsel={previewImages.get(blok.assetKey ?? blok.imageId ?? "") ?? null}
           assetKey={blok.assetKey}
           readOnly={readOnly}
           onDegis={onDegis}
@@ -907,38 +1344,24 @@ function TabloDuzenleyici({
 function GorselBloku({
   blok,
   kayit,
+  gorsel,
   assetKey,
   readOnly,
   onDegis,
 }: {
   blok: Extract<ManualBlock, { kind: "image" }>;
   kayit: ManualImageRow | null;
+  gorsel: { url: string; oran: number } | null;
   /** Şablon varlığının anahtarı — yüklenmiş görselde boştur. */
   assetKey?: string;
   readOnly: boolean;
   onDegis: (f: (b: ManualBlock) => ManualBlock) => void;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
   // ŞABLON GÖRSELİ DEPODAN DEĞİL REPODAN gelir; önizlemesi de statik bir
   // adrestir (`/manual-assets/…`), imzalı bağlantı gerektirmez.
   const varlik = assetKey ? manualAsset(assetKey) : null;
 
-  useEffect(() => {
-    if (!kayit) return;
-    let iptal = false;
-    void (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.storage
-        .from(MANUAL_IMAGE_BUCKET)
-        .createSignedUrl(kayit.storagePath, 600);
-      if (!iptal && data?.signedUrl) setUrl(data.signedUrl);
-    })();
-    return () => {
-      iptal = true;
-    };
-  }, [kayit]);
-
-  const gosterilen = varlik ? `/manual-assets/${varlik.file}` : url;
+  const gosterilen = gorsel?.url ?? (varlik ? `/manual-assets/${varlik.file}` : null);
 
   return (
     <div className="grid gap-2">
@@ -988,7 +1411,13 @@ function GorselBloku({
 
 // ————————————————————————————————————————————————————————— blok ekleme
 
-function BlokEkleSeridi({ onEkle }: { onEkle: (b: ManualBlock) => void }) {
+function BlokEkleSeridi({
+  onEkle,
+  onGorselYukle,
+}: {
+  onEkle: (b: ManualBlock) => void;
+  onGorselYukle: (file: File) => Promise<ManualImageRow | null>;
+}) {
   return (
     <div className="flex flex-wrap gap-2 rounded-lg border border-dashed p-2">
       <Button
@@ -1023,36 +1452,27 @@ function BlokEkleSeridi({ onEkle }: { onEkle: (b: ManualBlock) => void }) {
       >
         <TableIcon className="size-3.5" /> Tablo
       </Button>
-      <GorselEkle onEkle={onEkle} />
+      <GorselEkle onEkle={onEkle} onGorselYukle={onGorselYukle} />
     </div>
   );
 }
 
-function GorselEkle({ onEkle }: { onEkle: (b: ManualBlock) => void }) {
+function GorselEkle({
+  onEkle,
+  onGorselYukle,
+}: {
+  onEkle: (b: ManualBlock) => void;
+  onGorselYukle: (file: File) => Promise<ManualImageRow | null>;
+}) {
   const girdi = useRef<HTMLInputElement>(null);
   const [yukleniyor, setYukleniyor] = useState(false);
 
   async function yukle(file: File) {
-    if (file.size > EN_BUYUK_GORSEL) {
-      toast.error("Görsel 25 MB sınırını aşıyor.");
-      return;
-    }
     setYukleniyor(true);
     try {
-      // Görsel kaydı SUNUCUDA yazılır: boyut ÖLÇÜLÜR (sharp), beyan
-      // edilmez — yanlış bir en-boy oranı PDF'te resmi ezerdi.
-      const gövde = new FormData();
-      gövde.set("dosya", file);
-      const r = await fetch(window.location.pathname + "/gorsel", {
-        method: "POST",
-        body: gövde,
-      });
-      const j = (await r.json()) as { imageId?: string; error?: string };
-      if (!r.ok || j.error || !j.imageId) {
-        toast.error(j.error ?? "Görsel yüklenemedi.");
-        return;
-      }
-      onEkle({ id: yeniId(), kind: "image", imageId: j.imageId });
+      const kayit = await onGorselYukle(file);
+      if (!kayit) return;
+      onEkle({ id: yeniId(), kind: "image", imageId: kayit.id });
       toast.success("Görsel eklendi — kaydetmeyi unutmayın.");
     } finally {
       setYukleniyor(false);
@@ -1109,6 +1529,13 @@ function KunyeFormu({
   onChange,
   onDoc,
   onEtiket,
+  coverImageId,
+  partnerLogos,
+  images,
+  gorseller,
+  onGorselYukle,
+  onCoverImage,
+  onPartnerLogo,
 }: {
   identity: ManualIdentity;
   docTitle: string;
@@ -1118,6 +1545,13 @@ function KunyeFormu({
   onChange: (alan: keyof ManualIdentity, deger: string) => void;
   onDoc: (alan: "docTitle" | "coverTitle", deger: string) => void;
   onEtiket: (v: string) => void;
+  coverImageId?: string;
+  partnerLogos: ManualPartnerLogos;
+  images: ReadonlyMap<string, ManualImageRow>;
+  gorseller: ReadonlyMap<string, { url: string; oran: number }>;
+  onGorselYukle: (file: File) => Promise<ManualImageRow | null>;
+  onCoverImage: (imageId: string | undefined) => void;
+  onPartnerLogo: (slot: keyof ManualPartnerLogos, imageId: string | undefined) => void;
 }) {
   return (
     <div className="grid gap-3 rounded-lg border bg-card p-3">
@@ -1126,6 +1560,52 @@ function KunyeFormu({
         basılmaz; bir örnek değer yazmak, teslim edilen kılavuzda başka bir
         vincin seri numarası olarak kalabilir.
       </p>
+      <div className="grid gap-2 border-y py-3">
+        <div>
+          <p className="text-sm font-medium">Üst logo bandı</p>
+          <p className="text-xs text-muted-foreground">
+            ORION logosu solda sabittir. Partner logoları kapakta ve üst bantta orta ve sağ yuvalara yerleşir; oranları bozulmaz.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid min-h-28 content-between gap-2 border bg-card p-2 text-center">
+            <div className="grid min-h-14 place-items-center bg-white p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/orion-logo.png" alt="ORION Cranes logosu" className="max-h-12 max-w-full object-contain" />
+            </div>
+            <span className="text-[11px] text-muted-foreground">SOL · ORION (sabit)</span>
+          </div>
+          <BelgeGorselYuvasi
+            etiket="ORTA · PARTNER 1"
+            imageId={partnerLogos.centerImageId}
+            readOnly={readOnly}
+            images={images}
+            gorseller={gorseller}
+            onGorselYukle={onGorselYukle}
+            onChange={(id) => onPartnerLogo("centerImageId", id)}
+          />
+          <BelgeGorselYuvasi
+            etiket="SAĞ · PARTNER 2"
+            imageId={partnerLogos.rightImageId}
+            readOnly={readOnly}
+            images={images}
+            gorseller={gorseller}
+            onGorselYukle={onGorselYukle}
+            onChange={(id) => onPartnerLogo("rightImageId", id)}
+          />
+        </div>
+        <div className="max-w-sm">
+          <BelgeGorselYuvasi
+            etiket="KAPAK FOTOĞRAFI"
+            imageId={coverImageId}
+            readOnly={readOnly}
+            images={images}
+            gorseller={gorseller}
+            onGorselYukle={onGorselYukle}
+            onChange={onCoverImage}
+          />
+        </div>
+      </div>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <Alan
           etiket="Belge Adı"
@@ -1162,6 +1642,80 @@ function KunyeFormu({
         deger={identity.copyright}
         readOnly={readOnly}
         onChange={(v) => onChange("copyright", v)}
+      />
+    </div>
+  );
+}
+
+function BelgeGorselYuvasi({
+  etiket,
+  imageId,
+  readOnly,
+  images,
+  gorseller,
+  onGorselYukle,
+  onChange,
+}: {
+  etiket: string;
+  imageId?: string;
+  readOnly: boolean;
+  images: ReadonlyMap<string, ManualImageRow>;
+  gorseller: ReadonlyMap<string, { url: string; oran: number }>;
+  onGorselYukle: (file: File) => Promise<ManualImageRow | null>;
+  onChange: (imageId: string | undefined) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const gorsel = imageId ? gorseller.get(imageId) : null;
+  const kayit = imageId ? images.get(imageId) : null;
+
+  async function yukle(file: File) {
+    setYukleniyor(true);
+    try {
+      const yeni = await onGorselYukle(file);
+      if (yeni) {
+        onChange(yeni.id);
+        toast.success(`${etiket} yerleştirildi — kaydetmeyi unutmayın.`);
+      }
+    } finally {
+      setYukleniyor(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+
+  return (
+    <div className="grid min-h-28 content-between gap-2 border bg-card p-2">
+      <div className="grid min-h-14 place-items-center bg-white p-2">
+        {gorsel ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={gorsel.url} alt={etiket} className="max-h-16 max-w-full object-contain" />
+        ) : (
+          <span className="text-xs text-gray-500">Görsel seçilmedi</span>
+        )}
+      </div>
+      <div className="grid gap-1">
+        <span className="truncate text-[11px] text-muted-foreground" title={kayit?.fileName ?? etiket}>
+          {etiket}{kayit ? ` · ${kayit.fileName}` : ""}
+        </span>
+        {!readOnly && (
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="flex-1" disabled={yukleniyor} onClick={() => input.current?.click()}>
+              {yukleniyor ? <Loader2 className="size-3.5 animate-spin" /> : <ImageIcon className="size-3.5" />}
+              {imageId ? "Değiştir" : "Seç"}
+            </Button>
+            {imageId && <Button size="sm" variant="ghost" onClick={() => onChange(undefined)}>Kaldır</Button>}
+          </div>
+        )}
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void yukle(file);
+        }}
       />
     </div>
   );

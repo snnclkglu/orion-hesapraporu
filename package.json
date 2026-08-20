@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "import:electrical-catalogs": "node scripts/run-electrical-catalog-import.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -44,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }
