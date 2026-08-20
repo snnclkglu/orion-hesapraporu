@@ -2,16 +2,14 @@
  * HABAŞ 50T elektrik malzemeleri için üretici dokümanlarını indirir ve
  * `Elektrik Katalogları/HABAŞ 50T` altında izlenebilir bir eşleme defteri üretir.
  *
- * Ağdan gelen her dosya PDF imzası ile doğrulanır. Üreticinin sipariş koduna
- * özel PDF yayımlamadığı az sayıdaki yapılandırılmış ürün için, üretici katalogu
- * ile proje malzeme satırına dayanan ve açıkça "source summary" diye etiketlenen
- * tek sayfalık yardımcı kartlar oluşturulur.
+ * Ağdan gelen her dosya PDF imzası ile doğrulanır. Bu betik hiçbir zaman
+ * üretici belgesi görünümünde yardımcı/özet PDF üretmez; kısa teknik föyler
+ * yalnız gerçek üretici kataloğunun doğrulanmış sayfalarından çıkarılır.
  */
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const REPO = path.resolve(import.meta.dirname, "..");
 const WORKSPACE = path.resolve(REPO, "..");
@@ -289,14 +287,6 @@ const staticFiles = {
   ),
 };
 
-const supplementalTypes = new Set([
-  "MOTOR PTC", "MATIS 2000", "MATIS 7500", "EPT-M", "FGHJ 2 AK-1024G-90G-NG/16K",
-  "113319", "83KM2400", "VNS044.18EAR 4P0E.4P0E",
-  "IE3-W41R 160 L4 TPM HW", "IE3-W43R 180 L4 TPM HW",
-  "K21R 200 L4 B IGR IL SL SW TPM HW", "K21R 315 MX4 NS LL TPM B IGR IL SL HW",
-  "ACS880-104-0170A-3", "CBH165CH4145R0", "QFF3000", "ED 23/5", "ED 80/6", "51-67-DZC0Z-499P",
-]);
-
 const schneiderMirrorUrls: Record<string, string> = {
   XB5AA21: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AA21_Specification_Sheet.pdf",
   XB5AA42: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AA42_Specification_Sheet.pdf",
@@ -308,34 +298,6 @@ const schneiderMirrorUrls: Record<string, string> = {
   XB5AW34B5: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AW34B5_Specification_Sheet.pdf",
   ZBZ33: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_ZBZ33_Specification_Sheet.pdf"
 };
-
-const supplementalNotes: Record<string, { facts: string[]; sourceUrl: string }> = {
-  "MOTOR PTC": {
-    facts: ["Motor winding temperature protection input", "PTC operating temperature and connection must follow the motor connection diagram"],
-    sourceUrl: "https://library.e.abb.com/public/92c7bc73c5ce4d27882cd418d389bc28/Manual%20for%20Induction%20Motors%20and%20Generators_EN.pdf",
-  },
-  "MATIS 2000": { facts: ["400/230 V transformer", "Rated apparent power: 2000 VA"], sourceUrl: "project material list + ETA MATIS catalogue" },
-  "MATIS 7500": { facts: ["400/230 V transformer", "Rated apparent power: 7500 VA"], sourceUrl: "project material list + ETA MATIS catalogue" },
-  "EPT-M": { facts: ["DIN-rail cooling thermostat", "Fixed switching temperature: 60 C", "Contact: 1 NO"], sourceUrl: "https://www.eurowest.com.tr/%C3%BCr%C3%BCnler/pano-termostatlari-higrostat" },
-  "FGHJ 2 AK-1024G-90G-NG/16K": { facts: ["Incremental hollow-shaft encoder", "Resolution configured in project: 1024 pulses"], sourceUrl: "https://huebner-giessen.com/fileadmin/media/operating-and-assembly-instructions/fghj2-user-manual-en.pdf" },
-  "113319": { facts: ["Inovaled G2 wallwasher LED luminaire", "Rated power in project material list: 28 W"], sourceUrl: "project material list + Pelsan product catalogue" },
-  "83KM2400": { facts: ["Motor-driven marine air horn", "Supply: 24 VDC", "Single 35 cm trumpet with integrated compressor"], sourceUrl: "https://www.edenstore.com.tr/24v-marin-komprosorlu-havali-korna-83km2400" },
-  "VNS044.18EAR 4P0E.4P0E": { facts: ["Four-way master controller / joystick", "Configuration string retained exactly from the project material list"], sourceUrl: "https://www.elmatechnology.com/wp-content/uploads/2017/01/Spobu_product_catalog_Joysticks_English.pdf" },
-  "IE3-W41R 160 L4 TPM HW": { facts: ["Rated power: 15 kW", "Rated speed: 1475 rpm", "Rated current: 30 A"], sourceUrl: "project material list + VEM main catalogue" },
-  "IE3-W43R 180 L4 TPM HW": { facts: ["Rated power: 22 kW", "Rated speed: 1475 rpm", "Rated current: 41 A"], sourceUrl: "project material list + VEM main catalogue" },
-  "K21R 200 L4 B IGR IL SL SW TPM HW": { facts: ["Rated power: 35 kW", "Rated speed: 1470 rpm", "Rated current: 67 A"], sourceUrl: "project material list + VEM main catalogue" },
-  "K21R 315 MX4 NS LL TPM B IGR IL SL HW": { facts: ["Rated power: 160 kW", "Rated speed: 1480 rpm", "Rated current: 300 A"], sourceUrl: "project material list + VEM main catalogue" },
-  "ACS880-104-0170A-3": { facts: ["ABB ACS880-104 inverter module", "Nominal power: 90 kW", "Nominal output current: 169 A"], sourceUrl: "https://www.abb.com/global/en/products/3axd50000554539" },
-  "CBH165CH4145R0": { facts: ["ISU charging resistor", "Resistance in project material list: 5 ohm", "Exact spare-part code retained from the project"], sourceUrl: "project material list + ABB ACS880-204 hardware manual" },
-  "QFF3000": { facts: ["Panel filter fan, 230 VAC 50/60 Hz", "Power: 38/36 W", "Filtered airflow: 261 m3/h", "Dimensions: 250 x 250 x 115 mm"], sourceUrl: "https://www.esen.com.tr/urun/qff-3000/" },
-  "ED 23/5": { facts: ["Electrohydraulic ELDRO thruster", "Lifting force: 220 N", "Stroke: 50 mm", "Power consumption: 165 W", "Current at 400 V/50 Hz: 0.5 A"], sourceUrl: "https://sibre.com.au/wp-content/uploads/ELDRO-Electrohydraulic-Thruster-Technical-Data.pdf" },
-  "ED 80/6": { facts: ["Electrohydraulic ELDRO thruster", "Lifting force: 800 N", "Stroke: 60 mm", "Power consumption: 330 W", "Current at 400 V/50 Hz: 1.2 A"], sourceUrl: "https://sibre.com.au/wp-content/uploads/ELDRO-Electrohydraulic-Thruster-Technical-Data.pdf" },
-  "51-67-DZC0Z-499P": { facts: ["Stromag Series 51 geared cam limit switch", "Exact project configuration code retained", "Series documentation provides geared/lever/counterweight switching construction"], sourceUrl: "project material list + Stromag Series 51 catalogue" },
-};
-
-function supplementalFile(material: Material): string {
-  return relativeOutput(`${safeName(material.supplier)} - ${safeName(material.type_no)} Kaynak Derlemesi Teknik Kartı (EN).pdf`);
-}
 
 function siemensCatalogs(typeNo: string): string[] {
   const key = identity(typeNo);
@@ -424,7 +386,6 @@ function additionalFiles(material: Material): string[] {
   else if (supplier === "TELERADIO") files.push(staticFiles.teleRadio);
   else if (supplier === "VEMMOTORS") files.push(staticFiles.vem);
 
-  if (supplementalTypes.has(type)) files.unshift(supplementalFile(material));
   return [...new Set(files)];
 }
 
@@ -466,65 +427,6 @@ async function downloadPdf(spec: DownloadSpec): Promise<DownloadResult> {
   return { ...spec, bytes: bytes.byteLength, sha256: createHash("sha256").update(bytes).digest("hex"), status: "downloaded" };
 }
 
-function wrap(text: string, max = 84): string[] {
-  const words = text.replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().split(" ");
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    if (!line || `${line} ${word}`.length <= max) line = line ? `${line} ${word}` : word;
-    else {
-      lines.push(line);
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-async function writeSupplementalCard(material: Material): Promise<DownloadResult> {
-  const details = supplementalNotes[material.type_no];
-  if (!details) throw new Error(`${material.type_no} için kaynak kartı bilgisi yok.`);
-  const fileName = path.basename(supplementalFile(material));
-  const target = path.join(OUTPUT_DIR, fileName);
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595.28, 841.89]);
-  const regular = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  page.drawRectangle({ x: 0, y: 755, width: 595.28, height: 86, color: rgb(0.04, 0.18, 0.29) });
-  page.drawText("ORION - VERIFIED SOURCE SUMMARY", { x: 42, y: 800, size: 18, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("Not a manufacturer-issued datasheet", { x: 42, y: 775, size: 10, font: regular, color: rgb(0.78, 0.87, 0.93) });
-  let y = 710;
-  const field = (label: string, value: string) => {
-    page.drawText(label, { x: 42, y, size: 10, font: bold, color: rgb(0.15, 0.24, 0.3) });
-    y -= 18;
-    for (const line of wrap(value)) {
-      page.drawText(line, { x: 42, y, size: 10, font: regular, color: rgb(0.08, 0.1, 0.12) });
-      y -= 15;
-    }
-    y -= 12;
-  };
-  field("MANUFACTURER / SUPPLIER", material.supplier);
-  field("EXACT PROJECT TYPE", material.type_no);
-  field("PROJECT DESIGNATION", material.designation);
-  field("VERIFIED TECHNICAL FACTS", details.facts.map((fact) => `- ${fact}`).join("  "));
-  field("PRIMARY SOURCE", details.sourceUrl);
-  field("TRACEABILITY NOTE", "Prepared for HABAŞ 50T from the exact project material row and the cited manufacturer catalogue/product page. Consult the linked full catalogue/manual for installation, ratings and safety limits.");
-  page.drawLine({ start: { x: 42, y: 78 }, end: { x: 553, y: 78 }, thickness: 0.7, color: rgb(0.6, 0.68, 0.72) });
-  page.drawText("Prepared 2026-08-20 | HABAS 50T electrical document archive", { x: 42, y: 57, size: 8, font: regular, color: rgb(0.35, 0.42, 0.46) });
-  const bytes = await pdf.save({ useObjectStreams: true });
-  await writeFile(target, bytes);
-  return {
-    fileName,
-    url: details.sourceUrl,
-    publisher: "ORION source summary",
-    sourceType: "authorized",
-    note: "Clearly labelled supplemental source summary; not represented as a manufacturer-issued datasheet.",
-    bytes: bytes.byteLength,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    status: "downloaded",
-  };
-}
-
 async function main(): Promise<void> {
   await mkdir(OUTPUT_DIR, { recursive: true });
   const payload = JSON.parse(await readFile(MATERIALS_JSON, "utf8")) as { materials: Material[]; summary: unknown };
@@ -541,10 +443,6 @@ async function main(): Promise<void> {
     results.push(result);
     process.stdout.write(`[${i + 1}/${downloads.length}] ${result.status}: ${result.fileName}\n`);
   }
-  for (const material of materials.filter((item) => supplementalTypes.has(item.type_no))) {
-    results.push(await writeSupplementalCard(material));
-  }
-
   const grouped = new Map<string, typeof mappings>();
   for (const mapping of mappings) {
     const group = grouped.get(mapping.material.supplier) ?? [];
@@ -556,14 +454,13 @@ async function main(): Promise<void> {
     "",
     `**Malzeme kapsamı:** ${materials.length} benzersiz ürün`,
     "",
-    "Belgeler öncelikle üretici/yetkili dokümantasyon merkezlerinden alınmıştır. Üreticinin tam sipariş koduna özel PDF yayımlamadığı yapılandırılmış ürünlerde yardımcı kart açıkça `Kaynak Derlemesi` olarak işaretlenmiştir.",
+    "Belgeler üretici/yetkili dokümantasyon merkezlerinden alınır. ORION tarafından oluşturulan kaynak özeti teknik föy sayılmaz; kısa föy yalnız gerçek üretici kataloğunun doğrulanmış 1–2 sayfasıdır.",
     "",
     "## 1 · KAYNAK ÖZETİ",
     "",
     `- İndirilen/yeniden kullanılan yeni kaynak: ${results.length}`,
     `- Üretici veya üretici dokümantasyon merkezi: ${results.filter((item) => item.sourceType === "manufacturer").length}`,
-    `- Yetkili/dağıtıcı ayna: ${results.filter((item) => item.sourceType !== "manufacturer" && item.publisher !== "ORION source summary").length}`,
-    `- Açık etiketli kaynak derlemesi: ${results.filter((item) => item.publisher === "ORION source summary").length}`,
+    `- Yetkili/dağıtıcı ayna: ${results.filter((item) => item.sourceType !== "manufacturer").length}`,
     "",
     "## 2 · MALZEME LİSTESİ VE DOSYALAR",
     "",
@@ -579,7 +476,7 @@ async function main(): Promise<void> {
   lines.push("## 3 · DOĞRULAMA NOTLARI", "", "SHA-256, PDF sayfa sayısı ve ürün-kod görünürlüğü ayrı doğrulama raporunda tutulur.", "");
   await writeFile(OUTPUT_INDEX, `${lines.join("\n")}\n`, "utf8");
   await writeFile(OUTPUT_SOURCES, `${JSON.stringify({ generated_at: new Date().toISOString(), project: "HABAŞ 50T", materials: materials.length, sources: results }, null, 2)}\n`, "utf8");
-  process.stdout.write(`Tamamlandı: ${materials.length} ürün, ${downloads.length} ağ PDF'i, ${supplementalTypes.size} kaynak kartı.\n`);
+  process.stdout.write(`Tamamlandı: ${materials.length} ürün, ${downloads.length} ağ PDF'i.\n`);
 }
 
 main().catch((error: unknown) => {

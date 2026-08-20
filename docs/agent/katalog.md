@@ -175,3 +175,10 @@ sipariş kodu ve teknik içerik birlikte doğrulanır; indeks sayfası ürün sa
 sayılmaz. Tam kod bulunamayan, yalnız aile/muadil belge taşıyan ürün teknik föy
 olarak bağlanmaz. 0019'un denetlenmiş aralıkları içe aktarma betiğinde açıktır;
 yanlış belge göstermek yerine düğmenin boş kalması tercih edilir.
+
+**Uygulamanın ürettiği özet/kaynak kartı teknik föy DEĞİLDİR ve PDF olarak
+üretilmez, depolanmaz, ürüne bağlanmaz.** Üreticinin doğrudan kısa föyü yoksa
+yalnız resmi katalog/kılavuzdan ilgili fiziksel sayfalar kesilir; kaynak belge ve
+sayfa numaraları kayda yazılır. Resmi PDF bulunamayan istisnada üreticinin kendi
+ürün sayfasının doğrudan arşivi kaynak olabilir. Üretici içeriği de yoksa teknik
+föy düğmesi boş kalır; proje satırından türetilmiş metinle belge uydurulmaz.
