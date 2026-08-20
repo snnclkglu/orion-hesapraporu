@@ -151,3 +151,55 @@ describe("KAPATMA SİLME DEĞİLDİR", () => {
     expect(kapali.length).toBe(acik.length - 1);
   });
 });
+
+describe("ŞABLONA ÖZEL KALEM", () => {
+  const ozelSatir = {
+    key: "sablon-12345678-abcd-4abc-8abc-1234567890ab",
+    label: "GALVANİZ KAPLAMA",
+    unit: "kg" as const,
+  };
+  const sablon: CostTemplate[] = [
+    {
+      craneType: "PORTAL VİNÇ",
+      skeleton: { customLines: { steel: [ozelSatir] } },
+    },
+  ];
+
+  it("yeni maliyette elle miktar ve fiyat girilecek boş satır açar", () => {
+    const k = costItemFromOfferItem(kalem("PORTAL VİNÇ"), 1, sablon);
+    const satir = k.groups.find((g) => g.key === "steel")!.lines.find((l) => l.key === ozelSatir.key);
+    expect(satir).toMatchObject({
+      label: "GALVANİZ KAPLAMA",
+      unit: "kg",
+      qty: null,
+      unitPrice: null,
+    });
+    expect(satir?.qtySource).toBeUndefined();
+    expect(satir?.priceSource).toBeUndefined();
+  });
+
+  it("Tekliften Tazele yeni özel kalemi mevcut gruba ekler", () => {
+    const item = kalem("PORTAL VİNÇ");
+    const p = { ...emptyCostPayload("EUR"), items: [costItemFromOfferItem(item, 1)] };
+    const sonra = withOfferSync(p, teklif([item]), 0, sablon).payload;
+    expect(anahtarlar(sonra.items[0], "steel")).toContain(ozelSatir.key);
+  });
+
+  it("şablondan kaldırmak kayıtlı maliyet satırını silmez", () => {
+    const item = kalem("PORTAL VİNÇ");
+    const p = { ...emptyCostPayload("EUR"), items: [costItemFromOfferItem(item, 1, sablon)] };
+    const satir = p.items[0].groups
+      .find((g) => g.key === "steel")!
+      .lines.find((l) => l.key === ozelSatir.key)!;
+    satir.qty = 25;
+    satir.unitPrice = 3.4;
+
+    const kaldirilmis: CostTemplate[] = [{ craneType: "PORTAL VİNÇ", skeleton: {} }];
+    const sonra = withOfferSync(p, teklif([item]), 0, kaldirilmis).payload;
+    const kalan = sonra.items[0].groups
+      .find((g) => g.key === "steel")!
+      .lines.find((l) => l.key === ozelSatir.key);
+    expect(kalan?.qty).toBe(25);
+    expect(kalan?.unitPrice).toBe(3.4);
+  });
+});

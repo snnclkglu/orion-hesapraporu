@@ -22,8 +22,10 @@
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { APP_ACTIONS_SLOT_ID, APP_HEADER_SLOT_ID } from "@/lib/app";
+import { parentPagePath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 // Abonelik ve anlık görüntü fonksiyonları modül düzeyindedir: her boyamada yeni
@@ -116,10 +118,10 @@ export function PageHeader({
   /**
    * Bir üst seviyeye dönüş adresi.
    *
-   * `kicker` (kırıntı yolu) yalnız `xl` üstünde görünür; 1280 px ALTINDA
-   * kullanıcıda hiçbir "yukarı" bağlantısı kalmıyordu — telefonda derin bir
-   * sayfadan çıkmanın tek yolu tarayıcı geri tuşuydu. Ok da tam o aralıkta
-   * görünür, kırıntı yolu devreye girince kaybolur.
+   * Verilmezse açık URL'nin bir üst yolu kendiliğinden kullanılır. Revizyon →
+   * proje gibi URL ağacından farklı iş hiyerarşileri açıkça `backHref` verir.
+   * Geri oku bütün ekran genişliklerinde görünür; kırıntı yolu bağlamı, ok ise
+   * doğrudan eylemi taşır.
    */
   backHref,
   backLabel,
@@ -132,18 +134,23 @@ export function PageHeader({
   backLabel?: string;
   children?: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const resolvedBackHref = backHref ?? parentPagePath(pathname);
+  const resolvedBackLabel =
+    backLabel ?? (resolvedBackHref === "/" ? "Panele dön" : "Bir üst sayfaya dön");
+
   return (
     <>
       <Slot
         store={headerStore}
         fallbackClassName="flex min-w-0 items-center gap-x-3 border-b pb-2"
       >
-        {backHref && (
+        {resolvedBackHref && (
           <Link
-            href={backHref}
-            aria-label={backLabel ?? "Geri"}
-            title={backLabel ?? "Geri"}
-            className="oc-tap-square -ml-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:hidden"
+            href={resolvedBackHref}
+            aria-label={resolvedBackLabel}
+            title={resolvedBackLabel}
+            className="oc-tap-square -ml-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ChevronLeft className="size-4" />
           </Link>

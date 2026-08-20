@@ -76,6 +76,7 @@ const BASE: Omit<WorkOrderData, "items"> = {
   delivery_date: "2027-03-01",
   quantity_text: "1",
   job_leader: "Sinan Çolakoğlu",
+  project_manager: "Salih Ergüven",
   scope: { proje: true, imalat: true, nakliye: true, devreyeAlma: true },
   prepared_by_name: "Salih Ergüven",
   prepared_by_title: "Genel Müdür",

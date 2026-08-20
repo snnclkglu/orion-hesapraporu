@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { JobForm, type PersonOption } from "@/app/(app)/jobs/job-form";
 import type { JobRow } from "@/app/(app)/jobs/jobs-table";
 import { JobsViews } from "@/app/(app)/jobs/jobs-views";
+import { JobsSummary } from "@/app/(app)/jobs/jobs-summary";
 // EMPTY_JOB şemadan gelir: sunucu bileşeni bir istemci modülünün dışa
 // aktarımını yayamaz (bkz. jobs/schema.ts'teki not).
 import { EMPTY_JOB, type CustomerOption } from "@/app/(app)/jobs/schema";
@@ -89,6 +90,14 @@ export default function JobsPreviewPage() {
       <div className="grid w-full flex-1 gap-8 px-4 py-6 lg:px-8">
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold tracking-tight">İşler — görünümler, filtreler ve satır eylemleri</h2>
+          <JobsSummary
+            total={JOBS.length}
+            active={1}
+            craneCount={5}
+            customerCount={4}
+            lastCreated="11.05.2026"
+            lastJobNo="0055"
+          />
           <JobsViews
             jobs={JOBS}
             canDelete

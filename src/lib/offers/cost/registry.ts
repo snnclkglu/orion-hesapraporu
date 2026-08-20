@@ -448,9 +448,12 @@ export function costGroupLineDefs(
   const def = COST_GROUP_DEF_BY_KEY[groupKey];
   if (!def) return [];
   const kapali = skeleton?.closedLines?.[groupKey];
-  if (!kapali?.length) return def.lines;
-  const kume = new Set(kapali);
-  return def.lines.filter((l) => !kume.has(l.key));
+  const kume = new Set(kapali ?? []);
+  const sabit = kapali?.length ? def.lines.filter((l) => !kume.has(l.key)) : def.lines;
+  // ÖZEL KALEMLERİN miktar ve fiyatı ELLEDİR: iskelette yalnız kimlik, ad ve
+  // birim bulunur; `CostLineDef`in kaynak alanları bilerek boş kalır.
+  const ozel = skeleton?.customLines?.[groupKey] ?? [];
+  return [...sabit, ...ozel.map((l) => ({ key: l.key, label: l.label, unit: l.unit }))];
 }
 
 /**

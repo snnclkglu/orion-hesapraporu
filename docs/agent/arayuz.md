@@ -138,13 +138,14 @@ yazılır.
 `mobileOffset` TEK BAŞINA yetmez — sonner'ın mobil kuralı
 `@media (max-width: 600px)` içindedir, 601–1023px'te `offset` geçerlidir.
 
-## MOBIL-13 — 1280px altında her derin sayfa `backHref` verir.
+## MOBIL-13 — Her sayfanın görünür bir üst sayfa dönüşü vardır.
 
-Kırıntı yolu
-(`PageHeader.kicker`) yalnız `xl:inline`dir; altında geri oku onun yerini
-tutar, yoksa kullanıcıda hiçbir "yukarı" bağlantısı kalmaz. Sayfa kendi
-kırıntı satırını da çiziyorsa o satır `xl` altında gizlenir (ikisi
-yinelenmesin).
+`PageHeader`, açık URL'nin son parçasını çıkararak varsayılan üst adresi üretir;
+`/personnel/…` Personel'e, ana bölüm de Panel'e döner. URL ağacı gerçek iş
+hiyerarşisi değilse (hesap revizyonu → proje gibi) sayfa açıkça `backHref`
+verir. Geri oku bütün ekran genişliklerinde görünür: kırıntı yolu bağlamı,
+ok ise eylemi taşır. Sayfa kendi kırıntı satırını da çiziyorsa o satır `xl`
+altında gizlenir (ikisi yinelenmesin).
 
 **Bir ekranda YALNIZ BİR `PageHeader` olur.** İkisi aynı yuvaya yazar ve
 ikisi birden çizilir — iç içe düzenlerde başlığı yalnız tek bir katman

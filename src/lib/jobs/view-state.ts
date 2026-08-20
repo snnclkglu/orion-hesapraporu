@@ -59,7 +59,7 @@ export interface JobsViewState {
   sirala: JobSort;
   /** Yalnız pano görünümü: gruplama boyutu. */
   grup: JobGroup;
-  /** Yalnız takvim görünümü: "YYYY-MM". undefined = içinde bulunulan ay. */
+  /** Yalnız takvim görünümü: "YYYY-MM". undefined = yıllık özet. */
   ay: string | undefined;
 }
 
@@ -163,8 +163,8 @@ export function resolveYear(
 
 /**
  * Kayıtlı görünümün `config` gövdesi (v1). `ay` bilinçli olarak DIŞARIDADIR:
- * "Ağustos 2026" bir tercih değil bir andır; kayıtlı görünüm hep bugünün
- * ayında açılmalıdır.
+ * "Ağustos 2026" bir tercih değil bir andır; kayıtlı görünüm hep yıllık
+ * özetle açılmalıdır.
  */
 export const savedViewConfigSchema = z.object({
   v: z.literal(1),

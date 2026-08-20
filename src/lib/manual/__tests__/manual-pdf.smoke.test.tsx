@@ -56,12 +56,17 @@ describe("ManualPdf smoke", () => {
         docLine: "ORION CRANES · İŞLETME VE BAKIM EL KİTABI · V1 · 2026",
         company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
         bandLines: ["V1", "20.08.2026"],
+        includedAppendices: [],
       })
     );
 
     expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
     expect(bytes.byteLength).toBeGreaterThan(100_000);
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
+    // Gövde çıktısı boş EK kapsayıcısı ve yedi ayraç kapağı taşımaz. 180
+    // elektrik satırı da pano özetine iner; eski tam döküm 14 yaprak
+    // üretiyordu. Bu üst sınır iki regresyonu birlikte yakalar.
+    expect(pdf.getPageCount()).toBeLessThan(24);
     for (const page of pdf.getPages()) {
       expect(page.getWidth()).toBeCloseTo(595.28, 1);
       expect(page.getHeight()).toBeCloseTo(841.89, 1);

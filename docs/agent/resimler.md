@@ -362,3 +362,28 @@ veritabanı reddetmez, sihirbaz "öncekini süperse edeyim mi?" diye SORAR.
 Soru yalnız `group_code` DOLUYKEN sorulur: adı çözülemeyen iki paket boş
 grupla eşleşir ve grup grup çalışılan bir projede bu en sık karşılaşılacak
 yanlış alarm olurdu.
+
+## RESIM-21 — PDF açılır; asıl dosya bağlantısı paylaşılmaz.
+
+Teknik resim PDF'i Supabase'in imzalı adresine yönlendirilmez. Düğme kararlı
+`/drawing-viewer/<paket>/<dosya>` adresini açar; içerik ucu her istekte oturumu
+ve `drawing_files.package_id` bağını RLS üzerinden yeniden doğrular. Tarayıcıya
+imzalı depo URL'si dönmez; PDF içeriği filigranlandıktan sonra
+`private, no-store` yanıtlanır. Kopyalanan görüntüleyici adresi oturumu olmayan
+kişide çalışmaz.
+
+**GÖRÜNTÜLENEN ASIL DEĞİL KİŞİYE ÖZEL KOPYADIR** (kullanıcı isteği,
+20.08.2026: *"açılsın ama kolayca paylaşılıp herkesin eline geçmesin"*).
+Sunucu depodaki PDF'i değiştirmeden, geçici kopyanın HER sayfasına oturum
+e-postası + UTC zamanı basar. Parolalı/bozuk dosyada filigransız asla geri
+dönülmez; görüntüleme açıkça hata verir. Ekran PDF.js ile tuvale çizilir:
+tarayıcının PDF indirme/yazdırma araç çubuğu yoktur, `Ctrl/Cmd+S`,
+`Ctrl/Cmd+P`, sağ tık ve yazdırma görünümü kapalıdır.
+
+**BU DRM DEĞİLDİR.** Ekranda okunabilen belge ekran görüntüsüyle veya uzman
+bir kullanıcı tarafından ağ yanıtından kaydedilebilir. Kuralın güvenlik değeri
+üçlüdür: asıl depo adresini vermemek, dışarı taşınan uygulama adresini oturuma
+bağlamak ve alınan kopyayı kişiye bağlayan görünür iz bırakmak. İleride müşteri
+paylaşımı açılırsa yalnız URL üretmek YASAKTIR; süreli paylaşım kaydı hangi
+müşterinin hangi PAKETİ görebildiğini veritabanında tutmalı ve içerik ucu aynı
+kapsamı her istekte doğrulamalıdır.

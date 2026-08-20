@@ -1,8 +1,6 @@
 // Paket kabuğu: kırıntı yolu + künye + bölüm rayı.
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { PACKAGE_STATUS_LABELS, formatBytes, formatNum, recognitionClass } from "@/lib/drawings/labels";
@@ -30,23 +28,9 @@ export default async function PackageLayout({
           yapışkandır, yani kullanıcı listeyi aşağı kaydırırken hangi pakette
           olduğunu ve nasıl geri döneceğini kaybetmez. */}
       <PageHeader
-        backHref="/drawings"
-        backLabel="Teknik Resimler"
         title={paket.description || paket.folder_name}
         hint={paket.capacity ?? undefined}
       />
-      {/* Kırıntı yolu YALNIZ `xl` üstünde: altında aynı işi üst şeritteki geri
-          oku görüyor ve iki "yukarı" göstergesi yan yana gürültü oluyordu. */}
-      <nav className="hidden flex-wrap items-center gap-1 text-sm text-muted-foreground xl:flex">
-        <Link href="/drawings" className="inline-flex items-center hover:underline">
-          <ChevronLeft className="size-4" />
-          Teknik Resimler
-        </Link>
-        <span aria-hidden>/</span>
-        <span className="min-w-0 truncate text-foreground" title={paket.folder_name}>
-          {paket.description || paket.folder_name}
-        </span>
-      </nav>
 
       <header className="flex flex-wrap items-start justify-between gap-3 border bg-card p-4">
         <div className="min-w-0">

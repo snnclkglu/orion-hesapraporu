@@ -17,7 +17,12 @@ import { z } from "zod";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { trKatla } from "@/lib/drawings/tr-text";
-import { COST_GROUP_DEFS, GENERAL_GROUP_KEY } from "@/lib/offers/cost/registry";
+import { adBuyuk } from "@/lib/tr-text";
+import {
+  COST_GROUP_DEFS,
+  COST_UNITS,
+  GENERAL_GROUP_KEY,
+} from "@/lib/offers/cost/registry";
 
 export type CostTemplateResult = { error?: string; ok?: boolean };
 
@@ -83,6 +88,18 @@ const iskeletSemasi = z
      * bir satırı hiç açılmadan yutardı.
      */
     closedLines: z.record(z.string(), z.array(z.string())),
+    customLines: z
+      .record(
+        z.string(),
+        z.array(
+          z.object({
+            key: z.string().regex(/^sablon-[a-z0-9-]{8,64}$/, "Geçersiz kalem anahtarı."),
+            label: z.string().trim().min(2, "Kalem adı gerekli.").max(120).transform(adBuyuk),
+            unit: z.enum(COST_UNITS),
+          })
+        )
+      )
+      .default({}),
   })
   .strict();
 
@@ -104,6 +121,30 @@ function temizKapatmalar(
   return out;
 }
 
+/** Özel kalemleri gerçek grup defteriyle sınırlar ve çakışmayı reddeder. */
+function temizOzelKalemler(
+  ham: Record<string, { key: string; label: string; unit: string }[]>
+): { data?: Record<string, { key: string; label: string; unit: string }[]>; error?: string } {
+  const out: Record<string, { key: string; label: string; unit: string }[]> = {};
+  const tumAnahtarlar = new Set<string>();
+  for (const groupKey of SECILEBILIR_GRUPLAR) {
+    const def = COST_GROUP_DEFS.find((g) => g.key === groupKey);
+    if (!def) continue;
+    const adlar = new Set(def.lines.map((l) => trKatla(l.label)));
+    const satirlar: { key: string; label: string; unit: string }[] = [];
+    for (const line of ham[groupKey] ?? []) {
+      const ad = trKatla(line.label);
+      if (adlar.has(ad)) return { error: `“${line.label}” bu bölümde zaten var.` };
+      if (tumAnahtarlar.has(line.key)) return { error: "Aynı özel kalem anahtarı iki kez kullanılamaz." };
+      adlar.add(ad);
+      tumAnahtarlar.add(line.key);
+      satirlar.push(line);
+    }
+    if (satirlar.length) out[groupKey] = satirlar;
+  }
+  return { data: out };
+}
+
 export async function saveOfferCostTemplate(input: CostTemplateInput): Promise<CostTemplateResult> {
   const ctx = await oturum();
   if ("error" in ctx) return { error: ctx.error };
@@ -113,8 +154,15 @@ export async function saveOfferCostTemplate(input: CostTemplateInput): Promise<C
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { craneType, groupKeys } = parsed.data;
   const closedLines = temizKapatmalar(parsed.data.closedLines, groupKeys);
+  const ozelSonuc = temizOzelKalemler(parsed.data.customLines);
+  if (ozelSonuc.error) return { error: ozelSonuc.error };
+  const customLines = ozelSonuc.data ?? {};
   const matchKey = trKatla(craneType);
-  const skeleton = { groupKeys, ...(Object.keys(closedLines).length ? { closedLines } : {}) };
+  const skeleton = {
+    groupKeys,
+    ...(Object.keys(closedLines).length ? { closedLines } : {}),
+    ...(Object.keys(customLines).length ? { customLines } : {}),
+  };
 
   // ÖNCE GÜNCELLE, YOKSA EKLE — `upsert` DEĞİL. Upsert `sort` ve `active`
   // sütunlarını da göndermek zorunda kalırdı; bu ekran ikisini de düzenlemez ve
@@ -141,7 +189,12 @@ export async function saveOfferCostTemplate(input: CostTemplateInput): Promise<C
     }
   }
 
-  await audit(supabase, user.id, "offer.cost_template_save", { craneType, groupKeys, closedLines });
+  await audit(supabase, user.id, "offer.cost_template_save", {
+    craneType,
+    groupKeys,
+    closedLines,
+    customLineCount: Object.values(customLines).reduce((n, lines) => n + lines.length, 0),
+  });
   tazele();
   return { ok: true };
 }

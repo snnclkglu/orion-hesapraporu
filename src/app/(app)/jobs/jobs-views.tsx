@@ -282,7 +282,12 @@ export function JobsViews({
       {view === "pano" ? (
         <BoardView rows={filtered} grup={state.grup} extras={extras} canEdit={canEdit} />
       ) : view === "takvim" ? (
-        <CalendarView rows={filtered} extras={extras} ay={state.ay} />
+        <CalendarView
+          rows={filtered}
+          extras={extras}
+          ay={state.ay}
+          donemYili={resolvedYil}
+        />
       ) : view === "zaman" ? (
         <TimelineView rows={filtered} />
       ) : (

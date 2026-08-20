@@ -44,6 +44,7 @@ export interface WorkOrderData {
   assembly_address?: string;
   quantity_text?: string;
   job_leader?: string;
+  project_manager?: string;
   scope?: Record<string, boolean>;
   prepared_by_name?: string;
   prepared_by_title?: string;
@@ -351,6 +352,7 @@ export function WorkOrderDocument({ data, settings }: { data: WorkOrderData; set
             <KV label="Teslim Tarihi" value={fmtDate(data.delivery_date)} mono />
             <KV label="Adet" value={data.quantity_text} mono />
             <KV label="İş Lideri" value={data.job_leader} />
+            <KV label="Proje Yöneticisi" value={data.project_manager} />
           </View>
         </View>
 

@@ -345,7 +345,7 @@ export function EquipmentPanel({
         toast.error(sonuc.error);
         return;
       }
-      setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+      toast.success("Ek belge silme talebi Yönetici onayına gönderildi.");
     },
     [projectId, revisionId, setRowBusy]
   );

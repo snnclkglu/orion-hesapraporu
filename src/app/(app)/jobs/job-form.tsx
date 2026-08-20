@@ -706,12 +706,31 @@ export function JobForm({
             )}
           </div>
           <div className="grid gap-1.5 lg:col-span-2">
-            <Label>Sözleşme</Label>
-            {/* Kutu 36px iken komşu tarih girişleri 40px'ti ve satır kayıyordu. */}
-            <div className="flex h-10 items-center">
-              <Check checked={form.contract_exists} onChange={(v) => set("contract_exists", v)} label="Sözleşme var" />
-            </div>
+            <Label>Proje Yöneticisi</Label>
+            <PersonSelect
+              people={people}
+              value={form.project_manager}
+              placeholder="Proje Yöneticisi Seçin"
+              onPick={(p) => set("project_manager", p ? p.full_name : "")}
+            />
+            {!people.some((p) => p.full_name === form.project_manager) && (
+              <Input
+                value={form.project_manager}
+                onChange={(e) => set("project_manager", e.target.value)}
+              />
+            )}
           </div>
+          {/* Kullanıcı kararı (20.08.2026): yeni iş açılışında "Sözleşme var"
+              sorulmaz. Mevcut kayıt düzenlenirken bilgi korunur ve gerekirse
+              düzeltilebilir; yeni kayıtta şemanın güvenli varsayılanı false'tur. */}
+          {mode === "edit" && (
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label>Sözleşme</Label>
+              <div className="flex h-10 items-center">
+                <Check checked={form.contract_exists} onChange={(v) => set("contract_exists", v)} label="Sözleşme var" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SEVK VE MONTAJ ADRESİ (kullanıcı isteği, 18.08.2026). Müşteri

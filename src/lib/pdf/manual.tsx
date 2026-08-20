@@ -39,6 +39,7 @@ import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
+  MANUAL_DIZIN_SAYFA_KAPASITESI,
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
@@ -86,7 +87,7 @@ export interface ManualPdfProps {
   bandLines?: string[];
   /** Tam sürümde her ek kapağından sonra eklenecek gerçek yaprak sayısı. */
   appendixPageCounts?: Partial<Record<ManualAppendixKind, number>>;
-  /** Tam sürümde bulunup doğrulanmış ekler; yoksa bütün ek kapakları basılır. */
+  /** Tam sürümde bulunup doğrulanmış ekler; gövde çıktısında boş listedir. */
   includedAppendices?: readonly ManualAppendixKind[];
   /** Nihai folio ekler birleştirildikten sonra pdf-lib tarafından basılacak. */
   deferFolio?: boolean;
@@ -198,15 +199,12 @@ export function ManualPdf({
   company,
   bandLines,
   appendixPageCounts = {},
-  includedAppendices,
+  includedAppendices = [],
   deferFolio = false,
 }: ManualPdfProps) {
   const basilan = printedManual(payload);
   const numarali = numberManual(basilan.sections);
-  const dahilEkler = includedAppendices ? new Set(includedAppendices) : null;
-  const duz = flattenManual(numarali).filter(
-    (bolum) => !bolum.appendix || !dahilEkler || dahilEkler.has(bolum.appendix)
-  );
+  const dahilEkler = new Set(includedAppendices);
   const gorseller = new Map(images.map((g) => [g.id, g]));
   // Ölçü için ORAN, çizim için BAYT. İki harita aynı kayıttan doğar ama
   // yerleşim çekirdeği React'i tanımaz; ona yalnız sayı gider.
@@ -224,34 +222,75 @@ export function ManualPdf({
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
   const ekKapaklari = (ekKapsayici?.children ?? []).filter(
-    (c) => c.appendix && (!dahilEkler || dahilEkler.has(c.appendix))
+    (c) => c.appendix && dahilEkler.has(c.appendix)
   );
+
+  // GÖVDE DİZİNİNDE EK VAADİ YOKTUR. Tam sürümde ise yalnız gerçekten
+  // çözülen ekler ve kapsayıcıları görünür; bulunamayan bir belge için boş
+  // dizin satırı ya da ayraç kapağı üretmek kullanıcıyı yanıltır.
+  const duz = flattenManual(numarali).filter((bolum) => {
+    if (bolum.id === ekKapsayici?.id) return ekKapaklari.length > 0;
+    return !bolum.appendix || dahilEkler.has(bolum.appendix);
+  });
 
   // GÖVDE İKİ SÜTUNDA AKAR (kullanıcı isteği, 19.08.2026). Dağıtım saf
   // çekirdektedir (`manual/pdf-layout.ts`); burası yalnız çizer.
-  const govdeSayfalari = govdeBolumleri.flatMap((bolum) => {
-    // Bakım çizelgesi ve yedek parça listeleri veri yoğun tablolardır; dar
-    // sütunda anlamlarını kaybeder. Ana bölüm ayrı dağıtıldığı için her bölüm
-    // kendiliğinden yeni bir yapraktan başlar.
-    const tamGenislik = bolum.key === "bakim" || bolum.key === "yedek";
-    return manualPdfSayfalari(manualAtomlari([bolum], sources, oranlar, tamGenislik)).map(
-      (sayfa) => ({ sayfa, sectionLabel: bolum.number || "" })
+  // ANA BÖLÜMLER TEK AKIŞTIR: her bölüm için dağıtıcıyı yeniden başlatmak,
+  // önceki bölümün sağ sütununu boş bırakıp gereksiz yaprak üretiyordu.
+  // Tablonun tam genişlik kararı ölçüm çekirdeğindedir; kısa bakım ve yedek
+  // tablolarını bölüm adına bakarak koca bir banda zorlamak boş yaprak
+  // üretiyordu. Yalnız atom akışları birleşir, belge sırası değişmez.
+  const govdeAtomlari = govdeBolumleri.flatMap((bolum) =>
+    manualAtomlari([bolum], sources, oranlar)
+  );
+  const dagitilmisSayfalar = manualPdfSayfalari(govdeAtomlari);
+  const govdeSayfalari = dagitilmisSayfalar.map((sayfa, sayfaIndisi) => {
+    const atomlar = sayfa.bantlar.flatMap((bant) =>
+      bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag]
     );
+    const oncekiBaslik = dagitilmisSayfalar
+      .slice(0, sayfaIndisi)
+      .flatMap((oncekiSayfa) =>
+        oncekiSayfa.bantlar.flatMap((bant) =>
+          bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag]
+        )
+      )
+      .filter(
+        (atom): atom is Extract<ManualAtom, { kind: "heading" }> => atom.kind === "heading"
+      )
+      .at(-1);
+    const ilkBaslik = atomlar.find(
+      (atom): atom is Extract<ManualAtom, { kind: "heading" }> => atom.kind === "heading"
+    );
+    const sayfaBasligi = atomlar[0]?.kind === "heading"
+      ? atomlar[0]
+      : oncekiBaslik ?? ilkBaslik;
+    return {
+      sayfa,
+      sectionLabel: sayfaBasligi ? anaBolumEtiketi(sayfaBasligi.section.number) : "",
+    };
   });
   const sayfalar = govdeSayfalari.map((s) => s.sayfa);
 
   // DİZİN SAYFA NUMARASI DAĞITIMIN SONUCUNDAN gelir. Gövde belgede 3.
   // yapraktan başlar (kapak + içindekiler), o yüzden ofset 2'dir; dizin
   // yoksa 1. Ekler gövdeden sonra gelir ve kendi numaralarını alır.
-  const DIZIN_SAYFA_KAPASITESI = 52;
-  const dizinSayfalari = Array.from(
-    { length: Math.ceil(duz.length / DIZIN_SAYFA_KAPASITESI) },
-    (_, i) => duz.slice(i * DIZIN_SAYFA_KAPASITESI, (i + 1) * DIZIN_SAYFA_KAPASITESI)
+  const dizinSayfaSayisi = Math.ceil(duz.length / MANUAL_DIZIN_SAYFA_KAPASITESI);
+  // Birden çok dizin yaprağı gerekirse son yaprağı sekiz satırla yalnız
+  // bırakma; satırları yapraklara dengeli dağıt. Tek yaprakta gövde dizininin
+  // 70 satırı iki kolona 35+35 iner.
+  const dengeliDizinKapasitesi = dizinSayfaSayisi > 0
+    ? Math.ceil(duz.length / dizinSayfaSayisi)
+    : MANUAL_DIZIN_SAYFA_KAPASITESI;
+  const dizinSayfalari = Array.from({ length: dizinSayfaSayisi }, (_, i) =>
+    duz.slice(i * dengeliDizinKapasitesi, (i + 1) * dengeliDizinKapasitesi)
   );
   const govdeOfset = 1 + dizinSayfalari.length;
   const sayfaNo = bolumSayfalari(sayfalar, govdeOfset);
   const ekKapsayiciSayfa = govdeOfset + sayfalar.length + 1;
-  const ekIlkSayfa = ekKapsayici ? ekKapsayiciSayfa + 1 : ekKapsayiciSayfa;
+  const ekIlkSayfa = ekKapsayici && ekKapaklari.length > 0
+    ? ekKapsayiciSayfa + 1
+    : ekKapsayiciSayfa;
 
   const kunye = payload.identity;
   const kunyeSatirlari: [string, string][] = [
@@ -311,6 +350,17 @@ export function ManualPdf({
         <View style={{ marginTop: 8 }}>
           <RuleRed width={64} />
         </View>
+        <Text
+          style={{
+            marginTop: 7,
+            fontFamily: FONTS.mono,
+            fontSize: 7.5,
+            letterSpacing: 0.8,
+            color: BRAND.gray600,
+          }}
+        >
+          OPERATÖR GÜVENLİĞİ · KULLANIM · BAKIM · MUAYENE
+        </Text>
         <Text style={s.kapakDoc}>{docCode}</Text>
 
         {kapakGorseli ? <KapakGorseli image={kapakGorseli} /> : null}
@@ -440,8 +490,8 @@ export function ManualPdf({
         </BrandPage>
       ))}
 
-      {/* EKLER — kapsayıcı bir yaprak, her ek kapağı KENDİ yaprağında. */}
-      {ekKapsayici && (
+      {/* EKLER — yalnız TAM SÜRÜMDE ve yalnız gerçekten bulunan belgeler. */}
+      {ekKapsayici && ekKapaklari.length > 0 && (
         <BrandPage docLine={docLine} docCode={docCode} sectionLabel="EK" hidePageNumber={deferFolio}>
           {ustBant()}
           <Text id={`manual-${ekKapsayici.id}`} style={s.h1}>{ekKapsayici.title}</Text>
@@ -474,6 +524,11 @@ export function ManualPdf({
       ))}
     </Document>
   );
+}
+
+/** `4.8.3` gibi bir başlıktan üst bantta gösterilecek ana bölüm etiketi. */
+function anaBolumEtiketi(number: string): string {
+  return number.split(".")[0] ?? "";
 }
 
 /** Yüklenen görseli üçlü marka bandının ölçülmüş logo kaynağına çevirir. */

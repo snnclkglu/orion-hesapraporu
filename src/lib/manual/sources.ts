@@ -14,7 +14,7 @@
 // tablo `printedManual` süzgecinde düşer ve bölüm gerekiyorsa `emptyText`
 // ile kendini açıklar.
 
-import { materialRows } from "@/lib/electrical/rollup";
+import { rollupBy } from "@/lib/electrical/rollup";
 import type { ElectricalPart, ElectricalSheet } from "@/lib/electrical/types";
 import type { ManualAutoSource, ManualTable } from "./types";
 
@@ -110,16 +110,15 @@ export function resolveAutoTable(
 
     case "elektrikMalzeme":
       return {
-        head: ["Adet", "Tanım", "Tip No", "Tedarikçi", "Malzeme Kodu", "Panolar"],
-        rows: materialRows(data.electricalParts ?? []).map((m) => [
+        head: ["Pano", "Proje Satırı", "Toplam Adet"],
+        rows: rollupBy(data.electricalParts ?? [], "location").map((m) => [
+          m.label,
+          String(m.lines),
           // NULL SIFIR DEĞİLDİR: okunamayan adet boş basılır.
           m.qty === null ? "" : String(m.qty),
-          m.designation,
-          m.typeNo,
-          m.supplier,
-          m.partNo,
-          m.locations.map((l) => `+${l}`).join(" "),
         ]),
+        caption:
+          "Pano bazında özet. Ürün ve aygıt düzeyindeki tam malzeme dökümü elektrik projesinde; seçilen teknik föyler tam sürümün EK-F bölümündedir.",
       };
 
     case "elektrikSayfa":

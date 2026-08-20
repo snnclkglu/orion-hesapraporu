@@ -14,6 +14,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditReports } from "@/lib/roles";
 import { ELECTRICAL_BUCKET } from "@/lib/electrical/data";
 
@@ -155,42 +156,14 @@ export async function renameElectricalRevision(
   return { ok: true };
 }
 
-/**
- * Yüklemeyi kaldırır.
- *
- * SIRA "ÖNCE UCUZ OLANI KAYBET"TİR (AGENTS, Teknik Resimler): önce TABLO
- * satırı (malzeme satırları cascade ile düşer), sonra depo nesnesi. Ters
- * sırada depo temizlenip satır kalsaydı liste var olmayan bir belgeye
- * bağlanırdı; bu sırada ise en kötü ihtimalle yetim bir nesne kalır.
- */
+/** Elektrik projesinin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteElectricalDoc(
   projectId: string,
   docId: string
 ): Promise<ElectricalResult> {
-  const izin = await yetki();
-  if ("error" in izin) return izin;
-  const supabase = await createClient();
-
-  const { data: satir } = await supabase
-    .from("electrical_projects")
-    .select("storage_path, is_current")
-    .eq("id", docId)
-    .eq("project_id", projectId)
-    .maybeSingle();
-  if (!satir) return { error: "Kayıt bulunamadı." };
-
-  const { error } = await supabase
-    .from("electrical_projects")
-    .delete()
-    .eq("id", docId)
-    .eq("project_id", projectId);
-  if (error) return { error: error.message };
-
-  await supabase.storage.from(ELECTRICAL_BUCKET).remove([String(satir.storage_path)]);
-
-  // Güncel olan silindiyse projede güncel sürüm KALMAZ; en yenisini otomatik
-  // güncel yapmak sessiz bir karar olurdu — hangi sürümün geçerli olduğunu
-  // kullanıcı söyler.
-  revalidatePath(`/projects/${projectId}`);
-  return { ok: true };
+  return requestPermanentDeletion({
+    entityType: "electrical_project",
+    targetId: docId,
+    context: { project_id: projectId },
+  });
 }

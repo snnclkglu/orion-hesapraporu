@@ -328,6 +328,8 @@ export function PartsTable({
                         {resim && (
                           <FileOpenButton
                             storagePath={resim.storage_path}
+                            packageId={packageId}
+                            fileId={resim.id}
                             fileName={resim.file_name}
                             label="PDF"
                             title={resim.file_name}
@@ -336,6 +338,8 @@ export function PartsTable({
                         {kesim && (
                           <FileOpenButton
                             storagePath={kesim.storage_path}
+                            packageId={packageId}
+                            fileId={kesim.id}
                             fileName={kesim.file_name}
                             label="DXF"
                             title={kesim.file_name}

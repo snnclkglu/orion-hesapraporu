@@ -24,7 +24,12 @@ export default async function AdminLayout({
 
   return (
     <div className="grid gap-4">
-      <PageHeader title="Yönetim" hint="Kullanıcılar, kataloglar ve rapor ayarları" />
+      <PageHeader
+        title="Yönetim"
+        hint="Kullanıcılar, kataloglar ve rapor ayarları"
+        backHref="/"
+        backLabel="Panele dön"
+      />
       {/* Yönetim rayı YALNIZ `lg` üstünde sütun olur: 768–1023px'te uygulama
           kabuğunun kendi menüsü zaten gizli, ikinci bir 200px'lik dikey ray
           tabletin içerik alanının üçte birini yiyordu. Altında ray yatay

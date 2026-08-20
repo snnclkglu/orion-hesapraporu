@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { EncryptedPDFError, PDFDocument } from "pdf-lib";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditReports } from "@/lib/roles";
 import { SPEC_BUCKET, specExtension } from "@/lib/project-specs";
 
@@ -131,33 +132,16 @@ export async function registerProjectSpec(
   return { ok: true, pageCount };
 }
 
-/** Şartnameyi kaldırır — önce satır, sonra depo nesnesi. */
+/** Şartnamenin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteProjectSpec(
   projectId: string,
   specId: string
 ): Promise<SpecResult> {
-  const izin = await yetki();
-  if ("error" in izin) return izin;
-  const supabase = await createClient();
-
-  const { data: satir } = await supabase
-    .from("project_specs")
-    .select("storage_path")
-    .eq("id", specId)
-    .eq("project_id", projectId)
-    .maybeSingle();
-  if (!satir) return { error: "Kayıt bulunamadı." };
-
-  const { error } = await supabase
-    .from("project_specs")
-    .delete()
-    .eq("id", specId)
-    .eq("project_id", projectId);
-  if (error) return { error: error.message };
-
-  await supabase.storage.from(SPEC_BUCKET).remove([String(satir.storage_path)]);
-  revalidatePath(`/projects/${projectId}`);
-  return { ok: true };
+  return requestPermanentDeletion({
+    entityType: "project_spec",
+    targetId: specId,
+    context: { project_id: projectId },
+  });
 }
 
 /** Hangi sürümün geçerli olduğunu değiştirir. */

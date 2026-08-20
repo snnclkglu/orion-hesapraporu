@@ -166,8 +166,8 @@ export function PackageActions({
         toast.error(sonuc.error, { duration: Infinity, closeButton: true });
         return;
       }
-      toast.success("Paket ve bütün depo dosyaları silindi.");
-      router.push("/drawings");
+      toast.success("Paket için silme talebi Yönetici onayına gönderildi.");
+      setSilmeAcik(false);
     });
   }
 
@@ -268,13 +268,13 @@ export function PackageActions({
                       <p>
                         <strong>{formatNum(storedCount)} depo dosyası</strong> (
                         {formatBytes(bytes)}), <strong>{formatNum(partCount)} parça defteri
-                        kaydı</strong> ve paketin bütün bulguları kalıcı olarak silinecek.
+                        kaydı</strong> ve paketin bütün bulguları için kalıcı silme talebi oluşturulacak.
                       </p>
                       <p>
                         Yanlış bir klasör yüklediyseniz silmek yerine{" "}
                         <strong>yeni revizyon</strong> yüklemeyi düşünün: geçmişi yok etmez.
                       </p>
-                      <p>Bu işlem geri alınamaz.</p>
+                      <p>Paket, Yönetici onaylayana kadar değişmeden kalır.</p>
                     </>
                   )}
                 </div>
@@ -315,7 +315,7 @@ export function PackageActions({
                 disabled={calisiyor || kilitli || !onayUyuyor}
                 onClick={sil}
               >
-                {calisiyor ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+                {calisiyor ? "Gönderiliyor…" : "Silme Talebi Gönder"}
               </Button>
             </DialogFooter>
           </DialogContent>

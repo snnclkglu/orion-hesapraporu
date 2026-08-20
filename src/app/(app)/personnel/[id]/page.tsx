@@ -3,12 +3,11 @@
 //
 // SAYFA BAŞLIK BASMAZ: bölüm kabuğu (`finance/layout.tsx`) zaten bir
 // `PageHeader` çiziyor ve bir ekranda YALNIZ BİR tane olur (AGENTS MOBIL-13).
-// Kişinin adı gövdedeki `h2`dir. Geri dönüş bağlantısı da gövdededir çünkü
-// kabuğun başlığı `backHref` taşımıyor: 1280px altında kırıntı yolu gizlidir ve
-// kullanıcıda başka hiçbir "yukarı" bağlantısı kalmazdı.
+// Kişinin adı gövdedeki `h2`dir. Kabuğun geri oku açık adresten `/personnel`
+// üst yolunu çözer; gövdede ikinci bir dönüş bağlantısı çizilmez.
 //
 // Sayfa yalnız VERİ ÇEKER ve tek bir istemci bileşenine geçer (worklog/sales
-// kalıbı); markup orada durur — geri bağlantısı ve `h2` dâhil.
+// kalıbı); markup orada durur — `h2` dâhil.
 
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";

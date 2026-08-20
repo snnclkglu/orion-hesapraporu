@@ -1064,8 +1064,8 @@ export const MANUAL_TEMPLATE: TemplateSection[] = [
       },
       {
         key: "yedek.elektrik",
-        title: "Elektrik Malzeme Listesi",
-        blocks: [oto("elektrikMalzeme", "Elektrik projesi yüklenmediği için malzeme listesi boş.")],
+        title: "Elektrik Malzeme Özeti",
+        blocks: [oto("elektrikMalzeme", "Elektrik projesi yüklenmediği için pano özeti boş.")],
       },
     ],
   },

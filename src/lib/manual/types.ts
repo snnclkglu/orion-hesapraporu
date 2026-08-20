@@ -97,7 +97,7 @@ export const MANUAL_AUTO_LABELS: Record<ManualAutoSource, string> = {
   ekipman: "Ekipman listesi (hesap raporundan)",
   rulman: "Rulman listesi (ekipman listesinden)",
   halat: "Halat listesi (ekipman listesinden)",
-  elektrikMalzeme: "Elektrik malzeme listesi (elektrik projesinden)",
+  elektrikMalzeme: "Elektrik malzeme özeti (elektrik projesinden)",
   elektrikSayfa: "Elektrik projesi sayfa dizini",
   teknikResim: "Teknik resim listesi (Teknik Resim Takibi'nden)",
 };

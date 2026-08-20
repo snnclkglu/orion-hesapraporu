@@ -402,3 +402,34 @@ kararıdır ve eksik sayılmaz; standart metin ve otomatik tablo da vince özel 
 blok değildir. Kapı kullanıcıya eksikleri bölüm adıyla gösterir ve editörde o
 bölüme götürür. Sunucu eylemi aynı denetimi yeniden yapar; yalnız istemci
 engelinin aşılması yayıma izin vermez.
+
+## KITAP-19 — Editör GÖREV ODAKLIDIR; gövde eki vaat etmez, bölüm akışı kesilmez.
+
+Kullanıcı kararı (20.08.2026): seksen beş satırlık düz bölüm ağacı bir çalışma
+yüzü değildir. Sol ray yalnız **ana bölümleri** gösterir; seçilen ana bölümün
+gerçek düzenleme yüzleri orta alandaki kısa seçicide açılır. Editör boş bir
+başlık kapsayıcısıyla değil, yayıma engel olan ilk vince özel işle açılır.
+İlerleme yüzdesi standart metinleri tamamlanmış iş gibi saymaz; kalite kartı
+yalnız eksik künye alanlarını ve doldurulması ya da bilinçli gizlenmesi gereken
+vince özel bölümleri sayar. Künye ayrı bir çalışma yüzüdür; içerik formlarıyla
+aynı uzun sayfada karışmaz.
+
+**GÖVDE PDF'İ EK DEĞİLDİR.** Parametresiz çıktı kapak, içindekiler ve işletme
+bölümlerinden oluşur; ek kapsayıcısı ile boş ayraç kapakları gövde dizinine ya
+da sonuna basılmaz. Tam sürüm yalnız gerçekten bulunup doğrulanan ekleri,
+onların kapsayıcısını ve ayraçlarını taşır. Bir ek yoksa belge var olmayan bir
+içeriği vaat etmez. Birleştirme sözleşmesi değişmez: tam sürüm için üretilen
+temel PDF'nin son n yaprağı, eklerle aynı sıradaki n ayraç kapağıdır.
+
+**ANA BÖLÜMLER TEK AKIŞTIR.** Dağıtıcı her ana bölümde yeniden başlatılmaz;
+önceki bölümden kalan sağ sütun bir sonraki bölümle devam eder. Bakım çizelgesi
+ve yedek listeleri bölüm adına bakılarak tam genişliğe zorlanmaz; çekirdek tablo
+hücrelerinin gerçek sarma yüksekliğini ölçer ve yalnız sıkışan tabloyu geniş
+banda alır. Ekran önizlemesi ve PDF aynı birleşik atom akışını ve aynı
+içindekiler kapasitesini okur; sayfa numarası iki yerde ayrı tahmin edilmez.
+
+**ELEKTRİK MALZEMESİ KILAVUZDA KARAR ÖZETİDİR.** Yüzlerce aygıt satırı el
+kitabında ikinci kez basılmaz. Kılavuz pano bazında proje satırı ve okunabilen
+adet toplamını verir; ürün/aygıt düzeyindeki tam döküm elektrik projesindedir,
+seçilen teknik föyler EK-F'dedir. Yayımlanmış revizyonun donmuş eski tablosu
+değiştirilmez; yeni özet yalnız canlı taslak kaynağına uygulanır.

@@ -46,7 +46,15 @@ export interface TreeFile {
   file_name: string;
 }
 
-export function AssemblyTree({ parts, files }: { parts: PartRow[]; files: TreeFile[] }) {
+export function AssemblyTree({
+  parts,
+  files,
+  packageId,
+}: {
+  parts: PartRow[];
+  files: TreeFile[];
+  packageId?: string;
+}) {
   const [arama, setArama] = useState("");
   const [acik, setAcik] = useState<Set<string>>(new Set());
 
@@ -177,6 +185,7 @@ export function AssemblyTree({ parts, files }: { parts: PartRow[]; files: TreeFi
                 altSayisi={altSayisi}
                 seviye={0}
                 dosyaKimlikYol={dosyaKimlik}
+                packageId={packageId}
                 acik={acik}
                 zorlaAcik={zorlaAcik}
                 gorunur={eslesen}
@@ -196,6 +205,7 @@ function Dugum({
   altSayisi,
   seviye,
   dosyaKimlikYol,
+  packageId,
   acik,
   zorlaAcik,
   gorunur,
@@ -206,6 +216,7 @@ function Dugum({
   altSayisi: Map<string, number>;
   seviye: number;
   dosyaKimlikYol: Map<string, TreeFile>;
+  packageId?: string;
   acik: Set<string>;
   /** Aramanın açtığı ata düğümler; kullanıcının tercihini EZMEZ, ekler. */
   zorlaAcik: Set<string> | null;
@@ -293,6 +304,8 @@ function Dugum({
           {resim && (
             <FileOpenButton
               storagePath={resim.storage_path}
+              packageId={packageId}
+              fileId={resim.id}
               fileName={resim.file_name}
               label="PDF"
               title={resim.file_name}
@@ -301,6 +314,8 @@ function Dugum({
           {kesim && (
             <FileOpenButton
               storagePath={kesim.storage_path}
+              packageId={packageId}
+              fileId={kesim.id}
               fileName={kesim.file_name}
               label="DXF"
               title={kesim.file_name}
@@ -325,6 +340,7 @@ function Dugum({
               altSayisi={altSayisi}
               seviye={seviye + 1}
               dosyaKimlikYol={dosyaKimlikYol}
+              packageId={packageId}
               acik={acik}
               zorlaAcik={zorlaAcik}
               gorunur={gorunur}

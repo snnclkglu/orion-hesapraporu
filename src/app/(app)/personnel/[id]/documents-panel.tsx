@@ -230,9 +230,8 @@ export function DocumentsPanel({
         toast.error(sonuc.error);
         return;
       }
-      toast.success("Belge silindi.");
+      toast.success("Belge silme talebi Yönetici onayına gönderildi.");
       setSilinecek(null);
-      router.refresh();
     });
   }
 
@@ -538,8 +537,8 @@ export function DocumentsPanel({
             <DialogHeader>
               <DialogTitle>Belge silinsin mi?</DialogTitle>
               <DialogDescription>
-                <strong>{silinecek.title || silinecek.fileName}</strong> hem kayıttan hem
-                depodan kaldırılacak. Bu işlem geri alınamaz.
+                <strong>{silinecek.title || silinecek.fileName}</strong> için kalıcı silme
+                talebi oluşturulacak. Belge, Yönetici onaylayana kadar kayıtta ve depoda kalır.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -552,7 +551,7 @@ export function DocumentsPanel({
                 disabled={pending}
                 onClick={() => sil(silinecek)}
               >
-                {pending ? "Siliniyor…" : "Sil"}
+                {pending ? "Gönderiliyor…" : "Silme Talebi Gönder"}
               </Button>
             </DialogFooter>
           </DialogContent>

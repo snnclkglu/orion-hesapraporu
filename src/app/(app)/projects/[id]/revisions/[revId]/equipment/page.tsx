@@ -2,9 +2,7 @@
 // (hesap snapshot'ından) satırlar + panelden eklenen ek satırlar birlikte
 // görüntülenir/düzenlenir; buradan Excel veya PDF indirilir.
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -139,16 +137,8 @@ export default async function EquipmentPage({
         hint={`${project.doc_no} · V${revision.rev_no} · ${project.name}`}
       />
       <div className="mb-4">
-        {/* Sayfa içi dönüş bağlantısı `xl` altında geri okuyla yineleniyordu. */}
-        <Link
-          href={`/projects/${id}/revisions/${revId}`}
-          className="hidden min-h-9 items-center gap-1 text-sm text-muted-foreground hover:text-foreground xl:inline-flex"
-        >
-          <ChevronLeft className="size-4" />
-          Revizyona dön
-        </Link>
         {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
-        <h2 className="mt-1 text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-semibold tracking-tight">
           Ekipman Listesi{" "}
           <span className="font-mono text-base text-muted-foreground">
             {project.doc_no} · V{revision.rev_no}

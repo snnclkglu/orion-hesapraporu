@@ -12,6 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditPersonnel, canSeePersonnel } from "@/lib/roles";
 import { tazeleKurlar } from "@/lib/fx/refresh";
 import {
@@ -171,56 +172,9 @@ export async function saveEmployee(
   return { ok: true, id: yeniId };
 }
 
-/**
- * Personeli SİLER.
- *
- * MAAŞ GEÇMİŞİ OLAN KİŞİ SİLİNMEZ. Silme `on delete cascade` ile maaş
- * satırlarını ve özlük belgelerini birlikte götürürdü; ödenmiş bir ayın kaydı
- * bir tuşla yok olmamalıdır. İşten ayrılan kişi SİLİNMEZ, DÖNEMİ KAPANIR —
- * arşivleme bir işarettir, bir silme değil (Mühendislik listesindeki aynı
- * kural).
- */
+/** Personel kaydı ve bağlı belgeleri için Yönetici onayı ister. */
 export async function deleteEmployee(id: string): Promise<PersonnelActionResult> {
-  const ctx = await requirePersonnelWrite();
-  if ("error" in ctx) return ctx;
-  const { supabase, user } = ctx;
-
-  const { count: maasSayisi } = await supabase
-    .from("hr_payroll")
-    .select("id", { count: "exact", head: true })
-    .eq("employee_id", id);
-  if (maasSayisi && maasSayisi > 0) {
-    return {
-      error: `Bu personelin ${maasSayisi} maaş kaydı var; silinemez. İşten ayrıldıysa çalışma dönemini kapatın.`,
-    };
-  }
-
-  // Belgeler: önce TABLO satırı, sonra depo nesnesi ("önce ucuz olanı kaybet").
-  const { data: belgeler } = await supabase
-    .from("hr_employee_documents")
-    .select("storage_path")
-    .eq("employee_id", id);
-
-  const { error, count } = await supabase
-    .from("hr_employees")
-    .delete({ count: "exact" })
-    .eq("id", id);
-  if (error) return { error: temizHata(error.message) };
-  if (!count) return { error: "Kayıt silinemedi; yetkiniz olmayabilir." };
-
-  const yollar = (belgeler ?? []).map((b) => (b as { storage_path: string }).storage_path);
-  if (yollar.length > 0) {
-    // Yetim nesne GERİ ALINABİLİR bir hatadır; hata yutulur.
-    await supabase.storage.from("personnel").remove(yollar);
-  }
-
-  await supabase.from("audit_log").insert({
-    actor: user.id,
-    action: "personnel.employee.delete",
-    detail: { id, documents: yollar.length },
-  });
-  tazele();
-  return { ok: true };
+  return requestPermanentDeletion({ entityType: "employee", targetId: id });
 }
 
 // ————————————————————————————————————————————————————— çalışma dönemleri

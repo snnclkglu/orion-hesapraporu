@@ -90,6 +90,7 @@ export const jobInputSchema = z.object({
   assembly_address: z.string().trim().max(400).default(""),
   quantity_text: z.string().trim().max(60).default(""),
   job_leader: z.string().trim().max(120).default(""),
+  project_manager: z.string().trim().max(120).default(""),
   prepared_by_name: z.string().trim().max(120).default(""),
   prepared_by_title: z.string().trim().max(120).default(""),
   scope: jobScopeSchema.default({
@@ -210,6 +211,7 @@ export const EMPTY_JOB: JobInput = {
   assembly_address: "",
   quantity_text: "",
   job_leader: "",
+  project_manager: "",
   prepared_by_name: "",
   prepared_by_title: "",
   scope: { proje: false, devreyeAlma: false, malzeme: false, nakliye: false, imalat: false, montaj: false },

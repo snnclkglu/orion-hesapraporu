@@ -198,7 +198,7 @@ export function ManualCard({
                         basla(async () => {
                           const s = await deleteManualRevision(projectId, r.id);
                           if (s.error) toast.error(s.error);
-                          else window.location.reload();
+                          else toast.success("El kitabı revizyonu silme talebi Yönetici onayına gönderildi.");
                         })
                       }
                       className="oc-tap text-muted-foreground hover:text-destructive"

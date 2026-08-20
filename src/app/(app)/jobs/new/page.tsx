@@ -109,6 +109,7 @@ export default async function NewJobPage({
         assembly_address: src.assembly_address ?? "",
         quantity_text: src.quantity_text ?? "",
         job_leader: src.job_leader ?? "",
+        project_manager: src.project_manager ?? "",
         prepared_by_name: src.prepared_by_name ?? "",
         prepared_by_title: src.prepared_by_title ?? "",
         scope: {

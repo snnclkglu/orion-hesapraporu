@@ -40,9 +40,11 @@ function depoDurumu(d: FileRow): { eksik: boolean; rozet: string; ipucu: string 
 
 export function FileBrowser({
   dosyalar,
+  packageId,
   ekle,
 }: {
   dosyalar: FileRow[];
+  packageId?: string;
   /** "Dosya Ekle" düğmesi — yetkisi olmayana hiç verilmez (sunucuda karar). */
   ekle?: React.ReactNode;
 }) {
@@ -148,6 +150,8 @@ export function FileBrowser({
                         söylüyordu. */}
                     <FileOpenButton
                       storagePath={d.storage_path}
+                      packageId={packageId}
+                      fileId={d.id}
                       fileName={d.file_name}
                       label={opensInBrowser(d.file_name) ? "Aç" : "İndir"}
                       title={depo.eksik ? depo.ipucu : d.rel_path}
@@ -197,6 +201,8 @@ export function FileBrowser({
                     )}
                     <FileOpenButton
                       storagePath={d.storage_path}
+                      packageId={packageId}
+                      fileId={d.id}
                       fileName={d.file_name}
                       label={opensInBrowser(d.file_name) ? "Aç" : "İndir"}
                       title={depo.eksik ? depo.ipucu : d.rel_path}

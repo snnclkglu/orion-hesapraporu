@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { getReportSettings } from "@/lib/settings";
 import { isAdminRole } from "@/lib/roles";
 import { trKatla } from "@/lib/drawings/tr-text";
@@ -439,13 +440,7 @@ export async function deleteOffer(offerId: string): Promise<OfferActionResult> {
     return { error: "Yayımlanmış revizyonu olan teklif silinemez; İptal durumuna alabilirsiniz." };
   }
 
-  const { data: silinen, error } = await supabase.from("offers").delete().eq("id", id.data).select("id");
-  if (error) return { error: error.message };
-  if (!silinen?.length) return { error: "Teklif silmek yönetici yetkisi ister." };
-
-  await audit(supabase, user.id, "offer.delete", { offer_id: id.data });
-  revalidatePath("/offers");
-  return {};
+  return requestPermanentDeletion({ entityType: "offer", targetId: id.data });
 }
 
 // ————————————————————————————————————————————————————————— revizyon
@@ -505,28 +500,11 @@ export async function deleteOfferRevision(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  const { data: silinen, error } = await supabase
-    .from("offer_revisions")
-    .delete()
-    .eq("id", revisionId)
-    .eq("offer_id", offerId)
-    .select("id, rev_no");
-  // Yayımlanmış revizyonu tetikleyici durdurur; mesajı anlaşılır kılalım.
-  if (error) {
-    return {
-      error: error.message.includes("Yayınlanmış")
-        ? "Yayımlanmış revizyon silinemez; yeni bir revizyon oluşturun."
-        : error.message,
-    };
-  }
-  if (!silinen?.length) return { error: "Revizyon silme yetkisi gerekir." };
-
-  await audit(supabase, user.id, "offer.revision_delete", {
-    offer_id: offerId,
-    rev_no: silinen[0].rev_no,
+  return requestPermanentDeletion({
+    entityType: "offer_revision",
+    targetId: revisionId,
+    context: { offer_id: offerId },
   });
-  tazele(offerId);
-  return {};
 }
 
 /**

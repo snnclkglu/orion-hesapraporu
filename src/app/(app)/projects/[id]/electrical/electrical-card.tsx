@@ -387,7 +387,7 @@ export function ElectricalCard({
                       basla(async () => {
                         const r = await deleteElectricalDoc(projectId, d.id);
                         if (r.error) toast.error(r.error);
-                        else window.location.reload();
+                        else toast.success("Elektrik projesi silme talebi Yönetici onayına gönderildi.");
                       })
                     }
                     className="oc-tap text-muted-foreground hover:text-destructive"

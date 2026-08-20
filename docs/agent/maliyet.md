@@ -606,3 +606,26 @@ kutunun genişliği elle veriliyordu ("6.5rem", "9rem", "10rem") ve satır sonun
 artan yer son kutuya düşüyordu — ilk satırda sekiz, ikincisinde altı alan vardı
 ve hiçbir sütun alt satırdakiyle hizalanmıyordu. Vinç Sınıfı seçicisi de aynı
 ızgaranın hücresidir; kendi `w-24`ü ile çizilseydi komşularının rayına oturmazdı.
+
+## MALIYET-32 — Maliyet şablonu GERÇEK açılış defteridir; özel kalem taşır.
+
+Kullanıcı kararı (20.08.2026) MALIYET-9'daki tarihî “şablon tablosu yoktur”
+kararını değiştirir. Etkin `offer_cost_templates` satırları hem **Yeni Maliyet**
+açılışında hem açık **Tekliften Tazele** eyleminde okunur ve `withOfferSync`e
+parametre verilir. Okuma başarısızsa sessizce varsayılana düşülmez; kullanıcıya
+Türkçe hata döner. Aksi hâlde ekran bir şablon uyguladığını söylerken başka bir
+belge kurardı.
+
+İskelet üç karar taşır: açılacak gruplar (`groupKeys`), açılmayacak kod-defteri
+satırları (`closedLines`) ve tipe özel elle fiyatlanan satırlar (`customLines`).
+Özel satırın kalıcı anahtarı `sablon-<uuid>`, adı BÜYÜK, birimi `COST_UNITS`
+listesindendir; **miktar ve birim fiyat boş açılır**, model/hammadde kaynağı
+uydurulmaz. Aynı bölümde kod defteriyle veya başka bir özel satırla aynı ad
+reddedilir.
+
+Şablon tazelemesi EKLEYİCİDİR: yeni özel kalemi mevcut maliyet grubunun sonuna
+ekler; şablondan kapatılan ya da kaldırılan hiçbir satırı kayıtlı maliyetten
+silmez. Bu yüzden fiyat girilmiş bir satır, defter kararı sonradan değişti diye
+kaybolmaz. Maliyet Şablonları ekranı telefonda vinç tipini tek seçiciden açar,
+masaüstünde sabit sol defteri korur; kalemler kırmızı çip değil sarmalanan okunur
+satırlardır ve 320 px'te yatay sayfa kaydırması üretmez.

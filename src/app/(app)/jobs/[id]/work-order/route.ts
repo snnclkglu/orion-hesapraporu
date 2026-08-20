@@ -51,6 +51,7 @@ export async function GET(
     assembly_address: job.assembly_address ?? "",
     quantity_text: job.quantity_text ?? "",
     job_leader: job.job_leader ?? "",
+    project_manager: job.project_manager ?? "",
     scope: (job.scope ?? {}) as Record<string, boolean>,
     prepared_by_name: job.prepared_by_name ?? "",
     prepared_by_title: job.prepared_by_title ?? "",

@@ -126,7 +126,6 @@ function DeleteJobDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function handleDelete() {
     startTransition(async () => {
@@ -135,9 +134,8 @@ function DeleteJobDialog({
         toast.error(res.error);
         return;
       }
-      toast.success("İş emri silindi.");
+      toast.success("Silme talebi Yönetici onayına gönderildi.");
       onOpenChange(false);
-      router.refresh();
     });
   }
 
@@ -148,7 +146,7 @@ function DeleteJobDialog({
           <DialogTitle>İş Emrini Sil</DialogTitle>
           <DialogDescription>
             <span className="font-mono">{job.job_no}</span> — {job.title} iş emri
-            ve {job.itemCount} iş kalemi kalıcı olarak silinecek.
+            ve {job.itemCount} iş kalemi için kalıcı silme talebi oluşturulacak.
             {job.craneCount > 0 && (
               <>
                 {" "}
@@ -156,7 +154,7 @@ function DeleteJobDialog({
                 rapor olarak kalır.
               </>
             )}{" "}
-            Bu işlem geri alınamaz.
+            Kayıt, Yönetici onaylayana kadar değişmeden kalır.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -164,7 +162,7 @@ function DeleteJobDialog({
             Vazgeç
           </Button>
           <Button type="button" variant="destructive" onClick={handleDelete} disabled={pending}>
-            {pending ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+            {pending ? "Gönderiliyor…" : "Silme Talebi Gönder"}
           </Button>
         </DialogFooter>
       </DialogContent>

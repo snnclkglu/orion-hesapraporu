@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Briefcase, Building2, Construction, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { configToState, writeJobsViewState } from "@/lib/jobs/view-state";
 import { jobStatusOf } from "@/lib/job-status";
@@ -12,7 +11,7 @@ import { canEditJobs, canSeeSales } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/stat-card";
+import { JobsSummary } from "./jobs-summary";
 
 /** Supabase gömülü ilişkiyi tekil ya da dizi olarak dönebilir; ikisini de karşıla. */
 function one<T>(v: unknown): T | null {
@@ -235,33 +234,14 @@ export default async function JobsPage({
         {canEdit && <NewJobButton />}
       </PageHeader>
 
-      {/* İstatistik kartları */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Toplam İş"
-          value={String(list.length)}
-          hint={`${activeCount} Aktif`}
-          icon={Briefcase}
-        />
-        <StatCard
-          label="Bağlı Vinç"
-          value={String(craneCount)}
-          hint="iş emirlerine bağlı"
-          icon={Construction}
-        />
-        <StatCard
-          label="Müşteri"
-          value={String(customers)}
-          hint="farklı müşteri"
-          icon={Building2}
-        />
-        <StatCard
-          label="Son İş"
-          value={lastCreated}
-          hint={list[0]?.job_no ?? "kayıt yok"}
-          icon={History}
-        />
-      </div>
+      <JobsSummary
+        total={list.length}
+        active={activeCount}
+        craneCount={craneCount}
+        customerCount={customers}
+        lastCreated={lastCreated}
+        lastJobNo={list[0]?.job_no ?? "kayıt yok"}
+      />
 
       {/* Kişiye özel şerit: bana atanan görevler + favoriler + son
           bakılanlar. Hepsi boşsa bileşen kendini hiç çizmez. */}

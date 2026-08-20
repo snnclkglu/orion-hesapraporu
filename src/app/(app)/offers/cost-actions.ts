@@ -11,10 +11,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { getReportSettings } from "@/lib/settings";
 import { isAdminRole } from "@/lib/roles";
 import { withDefaults } from "@/lib/offers/payload";
 import { emptyCostPayload, withCostDefaults, withCostDerived, withDefaultRates, withOfferSync } from "@/lib/offers/cost/payload";
+import type { CostTemplate, CostTemplateSkeleton } from "@/lib/offers/cost/types";
 import { renderOfferCostPdf } from "@/lib/pdf/offer-cost";
 import { offerCostFileName } from "@/lib/pdf/doc-naming";
 import { saveCostSchema, type SaveCostInput } from "./cost-schema";
@@ -55,6 +57,26 @@ async function teklifVeRevizyon(supabase: SupabaseClient, offerId: string) {
 }
 
 /**
+ * ETKİN MALİYET ŞABLONLARI — yeni maliyet ve açık "Tekliften Tazele"
+ * eyleminin ortak kaynağı. Okuma hatasında varsayılana sessizce düşülmez;
+ * ekranın "şablon uygulandı" deyip başka bir belge kurması daha tehlikelidir.
+ */
+async function maliyetSablonlari(
+  supabase: SupabaseClient
+): Promise<{ templates?: CostTemplate[]; error?: string }> {
+  const { data, error } = await supabase
+    .from("offer_cost_templates")
+    .select("crane_type, skeleton")
+    .eq("active", true);
+  if (error) return { error: `Maliyet şablonları okunamadı: ${error.message}` };
+  return {
+    templates: ((data ?? []) as { crane_type: string; skeleton: CostTemplateSkeleton | null }[])
+      .filter((row) => row.crane_type && row.skeleton)
+      .map((row) => ({ craneType: row.crane_type, skeleton: row.skeleton! })),
+  };
+}
+
+/**
  * YENİ MALİYET REVİZYONU.
  *
  * İLKİ TEKLİFTEN KURULUR, sonrakiler ÖNCEKİNDEN kopyalanır. İlk maliyet boş
@@ -79,6 +101,8 @@ export async function createOfferCostRevision(
 
   const kaynak = await teklifVeRevizyon(supabase, id.data);
   if (!kaynak) return { error: "Teklif bulunamadı" };
+  const sablonlar = await maliyetSablonlari(supabase);
+  if (sablonlar.error) return { error: sablonlar.error };
 
   const { data: son } = await supabase
     .from("offer_cost_revisions")
@@ -94,7 +118,12 @@ export async function createOfferCostRevision(
     : withDefaultRates(emptyCostPayload(currency));
 
   const teklif = withDefaults(kaynak.revision?.payload, currency);
-  const { payload } = withOfferSync(temel, teklif, kaynak.revision?.rev_no ?? null);
+  const { payload } = withOfferSync(
+    temel,
+    teklif,
+    kaynak.revision?.rev_no ?? null,
+    sablonlar.templates
+  );
   const hazir = withCostDerived(payload);
 
   const revNo = (son?.rev_no ?? -1) + 1;
@@ -186,6 +215,8 @@ export async function syncOfferCostFromOffer(
 
   const kaynak = await teklifVeRevizyon(supabase, offerId);
   if (!kaynak) return { error: "Teklif bulunamadı" };
+  const sablonlar = await maliyetSablonlari(supabase);
+  if (sablonlar.error) return { error: sablonlar.error };
 
   const { data: mevcut } = await supabase
     .from("offer_cost_revisions")
@@ -198,7 +229,12 @@ export async function syncOfferCostFromOffer(
 
   const currency = (kaynak.offer.currency as string) ?? "EUR";
   const teklif = withDefaults(kaynak.revision?.payload, currency);
-  const sonuc = withOfferSync(withCostDefaults(mevcut.payload, currency), teklif, kaynak.revision?.rev_no ?? null);
+  const sonuc = withOfferSync(
+    withCostDefaults(mevcut.payload, currency),
+    teklif,
+    kaynak.revision?.rev_no ?? null,
+    sablonlar.templates
+  );
   const payload = withCostDerived(sonuc.payload);
 
   const { error } = await supabase
@@ -346,22 +382,9 @@ export async function deleteOfferCostRevision(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Oturum bulunamadı" };
 
-  const { data: silinen, error } = await supabase
-    .from("offer_cost_revisions")
-    .delete()
-    .eq("id", costRevId)
-    .eq("offer_id", offerId)
-    .select("id, rev_no");
-  if (error) {
-    return {
-      error: error.message.includes("Yayınlanmış")
-        ? "Yayımlanmış maliyet revizyonu silinemez; yeni bir revizyon oluşturun."
-        : error.message,
-    };
-  }
-  if (!silinen?.length) return { error: "Maliyet revizyonu silme yetkisi gerekir." };
-
-  await audit(supabase, user.id, "offer.cost_delete", { offer_id: offerId, rev_no: silinen[0].rev_no });
-  tazele(offerId);
-  return {};
+  return requestPermanentDeletion({
+    entityType: "offer_cost_revision",
+    targetId: costRevId,
+    context: { offer_id: offerId },
+  });
 }

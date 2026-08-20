@@ -481,7 +481,10 @@ export function DeleteProjectDialog({
     startTransition(async () => {
       const result = await deleteProject(project.id);
       if (result?.error) toast.error(result.error);
-      // Başarıda action Mühendislik listesine yönlendirir.
+      else {
+        toast.success("Silme talebi Yönetici onayına gönderildi.");
+        onOpenChange(false);
+      }
     });
   }
 
@@ -496,8 +499,8 @@ export function DeleteProjectDialog({
             ) : (
               <>
                 <span className="font-mono">{project.doc_no}</span> — {project.name}{" "}
-                raporu ve tüm taslak revizyonları kalıcı olarak silinecek. Bu
-                işlem geri alınamaz.
+                raporu ve tüm taslak revizyonları için kalıcı silme talebi
+                oluşturulacak. Kayıt, Yönetici onaylayana kadar değişmeden kalır.
               </>
             )}
           </DialogDescription>
@@ -512,7 +515,7 @@ export function DeleteProjectDialog({
             onClick={handleDelete}
             disabled={pending || blocked}
           >
-            {pending ? "Siliniyor..." : "Kalıcı Olarak Sil"}
+            {pending ? "Gönderiliyor..." : "Silme Talebi Gönder"}
           </Button>
         </DialogFooter>
       </DialogContent>

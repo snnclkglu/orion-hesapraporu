@@ -11,12 +11,14 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { opensInBrowser } from "@/lib/drawings/mime";
+import { extOf, opensInBrowser } from "@/lib/drawings/mime";
 
 const BUCKET = "drawings";
 
 export function FileOpenButton({
   storagePath,
+  packageId,
+  fileId,
   fileName,
   label,
   title,
@@ -24,6 +26,9 @@ export function FileOpenButton({
   disabled,
 }: {
   storagePath: string;
+  /** PDF'i depo adresi yerine korumalı uygulama görüntüleyicisinde açar. */
+  packageId?: string;
+  fileId?: string;
   /** GERÇEK dosya adı — depo anahtarı opak olduğu için indirmede bu kullanılır. */
   fileName: string;
   label: string;
@@ -38,11 +43,26 @@ export function FileOpenButton({
       toast.error("Bu dosya depoya yüklenmemiş.");
       return;
     }
+    // PDF imzalı depo adresine yönlenmez. Kararlı uygulama adresi oturumu
+    // yeniden doğrular, kişisel filigran ekler ve PDF.js ile indirme düğmesi
+    // olmayan bir yüz çizer. `window.open` tıklamanın KENDİ çağrı zincirinde
+    // kalır; async işe bırakılırsa tarayıcı bunu açılır pencere sayıp kesebilir.
+    if (extOf(fileName) === "pdf" && packageId && fileId) {
+      window.open(
+        `/drawing-viewer/${encodeURIComponent(packageId)}/${encodeURIComponent(fileId)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      return;
+    }
+
     basla(async () => {
+
       const supabase = createClient();
 
-      // PDF YENİ SEKMEDE AÇILIR — üretime inen resim odur, mühendis ona bakmak
-      // ister. İmzalı bağlantı yeter; indirme adı gerekmez.
+      // PNG/JPG yeni sekmede açılır. PDF yalnız auth'suz geliştirme
+      // önizlemesinde kimliksiz kalabilir; o durumda eski kısa ömürlü yol
+      // görsel fikstürün düğmesini kırmamak için yedek olarak korunur.
       if (opensInBrowser(fileName)) {
         const { data, error } = await supabase.storage
           .from(BUCKET)

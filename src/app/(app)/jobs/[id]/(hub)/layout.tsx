@@ -62,8 +62,6 @@ export default async function JobHubLayout({
       {/* Kimlik kabuğun yapışkan üst şeridinde: uzun iş detayında aşağı
           kayarken hangi işte olunduğu ve `/jobs`a dönüş kaybolmaz. */}
       <PageHeader
-        backHref="/jobs"
-        backLabel={job.job_no}
         title={job.title}
         hint={job.customer}
       />
@@ -71,14 +69,8 @@ export default async function JobHubLayout({
       {/* Başlık + eylemler */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          {/* Kırıntı yolu `xl` altında geri okuyla yineleniyordu. */}
-          <div className="hidden text-sm text-muted-foreground xl:block">
-            <Link href="/jobs" className="hover:underline">İşler</Link>
-            {" / "}
-            <span className="font-mono">{job.job_no}</span>
-          </div>
           {/* `h2`: sayfanın `h1`i kabuğun üst şeridindedir (PageHeader). */}
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight">{job.title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{job.title}</h2>
           <p className="text-sm text-muted-foreground">
             {job.customer} · İş Emri Tarihi:{" "}
             <span className="font-mono tabular-nums">{fmtJobDate(job.work_order_date)}</span>

@@ -18,9 +18,14 @@ göstermez, kâğıdın kendisi gösterir.
 """
 
 import json
+import re
 import sys
 
-import fitz
+try:
+    import fitz
+except ImportError:  # Codex'in taşınabilir çalışma zamanı pdfplumber taşır.
+    fitz = None
+    import pdfplumber
 
 MM = 72 / 25.4
 A4_YUKSEKLIK = 841.89
@@ -38,22 +43,49 @@ ICERIK_ALT = A4_YUKSEKLIK - (13 * MM + 14)
 ALTBILGI_UST = A4_YUKSEKLIK - 7 * MM - 42
 
 
+def kelimeler(metin):
+    """PDF okuyucunun sütun arasına soktuğu folio/komşu metni yoksayacak sözler."""
+    return re.findall(r"\w+", metin.casefold(), flags=re.UNICODE)
+
+
+def alt_dizi_mi(aranan, metin):
+    """Aranan sözler aynı sayfada ve sırada mı; araya sütun metni girebilir."""
+    sira = iter(kelimeler(metin))
+    return all(any(aday == soz for aday in sira) for soz in kelimeler(aranan))
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(__doc__)
         return 1
     yol = sys.argv[1]
-    d = fitz.open(yol)
-
     hata = 0
     tasan = []
-    for i in range(d.page_count):
-        for x0, y0, x1, y1, *_ in d[i].get_text("blocks"):
-            if y0 >= ALTBILGI_UST:
-                continue  # altbilgi
-            if y1 > ICERIK_ALT + 2:
-                tasan.append((i + 1, round(y1, 1)))
-                break
+    sayfa_metinleri = []
+    if fitz is not None:
+        d = fitz.open(yol)
+        for i in range(d.page_count):
+            sayfa_metinleri.append(d[i].get_text())
+            for x0, y0, x1, y1, *_ in d[i].get_text("blocks"):
+                if y0 >= ALTBILGI_UST:
+                    continue  # altbilgi
+                if y1 > ICERIK_ALT + 2:
+                    tasan.append((i + 1, round(y1, 1)))
+                    break
+    else:
+        # Aynı üstten-aşağı koordinat sistemiyle sözcük kutularını okur.
+        # Bu yedek yalnız bağımlılık farkını kapatır; eşik ve hata kuralı aynı.
+        with pdfplumber.open(yol) as d:
+            for i, sayfa in enumerate(d.pages):
+                sayfa_metinleri.append(sayfa.extract_text() or "")
+                for kelime in sayfa.extract_words():
+                    y0 = float(kelime["top"])
+                    y1 = float(kelime["bottom"])
+                    if y0 >= ALTBILGI_UST:
+                        continue
+                    if y1 > ICERIK_ALT + 2:
+                        tasan.append((i + 1, round(y1, 1)))
+                        break
 
     if tasan:
         hata = 1
@@ -63,11 +95,20 @@ def main() -> int:
     else:
         print(f"Taşma yok (içerik alanı dibi {ICERIK_ALT:.1f} pt).")
 
-    tam = " ".join("".join(d[i].get_text() for i in range(d.page_count)).split())
+    tam = " ".join("".join(sayfa_metinleri).split())
     if len(sys.argv) > 2:
         with open(sys.argv[2], encoding="utf-8") as f:
             beklenen = json.load(f)
-        eksik = [b for b in beklenen if " ".join(b.split()) not in tam]
+        if fitz is not None:
+            eksik = [b for b in beklenen if " ".join(b.split()) not in tam]
+        else:
+            # pdfplumber iki sütunu satır satır birleştirir; sağ sütundaki
+            # sarılmış bir başlığın arasına sol sütun metni girebilir. Aynı
+            # sayfadaki başlık sözlerinin sırasını sınamak bu farkı kapatır.
+            eksik = [
+                b for b in beklenen
+                if not any(alt_dizi_mi(b, metin) for metin in sayfa_metinleri)
+            ]
         if eksik:
             hata = 1
             print(f"KAYIP: {len(eksik)} başlık belgede yok")
@@ -76,9 +117,9 @@ def main() -> int:
         else:
             print(f"Kayıp yok ({len(beklenen)} başlığın hepsi belgede).")
 
-    doluluk = [len(d[i].get_text().strip()) for i in range(d.page_count)]
+    doluluk = [len(metin.strip()) for metin in sayfa_metinleri]
     print(
-        f"Sayfa: {d.page_count} · karakter/sayfa ortalama {sum(doluluk) // max(1, len(doluluk))}"
+        f"Sayfa: {len(sayfa_metinleri)} · karakter/sayfa ortalama {sum(doluluk) // max(1, len(doluluk))}"
         f" · en az {min(doluluk)} · en çok {max(doluluk)}"
     )
     return hata

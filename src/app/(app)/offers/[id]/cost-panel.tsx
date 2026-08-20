@@ -84,11 +84,11 @@ export function CostPanel({
   }
 
   function sil(costRevId: string, revNo: number) {
-    if (!confirm(`M${revNo} taslak maliyet revizyonu silinsin mi? Bu işlem geri alınamaz.`)) return;
+    if (!confirm(`M${revNo} taslak maliyet revizyonu için Yönetici onayına silme talebi gönderilsin mi?`)) return;
     startTransition(async () => {
       const res = await deleteOfferCostRevision(offerId, costRevId);
       if (res.error) toast.error(res.error);
-      else toast.success("Maliyet revizyonu silindi.");
+      else toast.success("Maliyet revizyonu silme talebi Yönetici onayına gönderildi.");
     });
   }
 

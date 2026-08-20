@@ -41,6 +41,7 @@ export default async function PackageFilesPage({
 
   return (
     <FileBrowser
+      packageId={id}
       dosyalar={dosyalar}
       ekle={
         yazabilir ? (

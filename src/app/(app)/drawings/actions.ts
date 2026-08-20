@@ -30,6 +30,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditDrawings } from "@/lib/roles";
 import { resolveItemNo } from "@/lib/job-items";
 import { parseFile } from "@/lib/drawings/file-name";
@@ -1236,26 +1237,11 @@ export async function bindAlias(input: BindAliasInput): Promise<DrawingActionRes
 
 /* ══════════════════════════════════════════════════════════ silme ═══ */
 
-/**
- * Paketi ve bütün depo nesnelerini siler.
- *
- * ————————————————————————————————————————————— SIRA VERİ KAYBETTİRİR
- *
- * Eski sıra şuydu: önce depo nesneleri silinir, SONRA satır. Depo RLS'i
- * `can_edit_drawings()` olduğu için ressam BAYTLARI SİLİYORDU; tablo RLS'i
- * `is_admin()` olduğu için satır silinmiyordu. Sonuç: baytlar yok, kayıtlar
- * yerinde. Paket ekranda sapasağlam görünüyor (sayaçlar beyan olduğu için),
- * defter ve rapor çalışıyor, ama her dosya boş. Sessiz, geri dönüşsüz kayıp.
- *
- * YENİ SIRA: önce satır (yetkilendirilip BAŞARILI olana kadar depoya
- * dokunulmaz), sonra nesneler. Satır gidip depo temizliği yarıda kalırsa yetim
- * dosya kalır — bu GERİ ALINABİLİR bir hatadır. Tersi değildir. Yıkıcı işlemde
- * sıra her zaman "önce ucuz olanı kaybet" olmalıdır.
- */
+/** Paketin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deletePackage(input: DeletePackageInput): Promise<DrawingActionResult> {
   const ctx = await requireWrite();
   if ("error" in ctx) return { error: ctx.error };
-  const { supabase, userId } = ctx;
+  const { supabase } = ctx;
 
   const parsed = deletePackageSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -1263,7 +1249,7 @@ export async function deletePackage(input: DeletePackageInput): Promise<DrawingA
 
   const { data: paket } = await supabase
     .from("drawing_packages")
-    .select("id, folder_name, item_no, file_count, bytes_total, part_count")
+    .select("id")
     .eq("id", packageId)
     .maybeSingle();
   if (!paket) return { error: "Paket bulunamadı." };
@@ -1276,50 +1262,7 @@ export async function deletePackage(input: DeletePackageInput): Promise<DrawingA
     return { error: `Onaylamak için kutuya "${SILME_ONAY_SOZU}" yazmanız gerekiyor.` };
   }
 
-  const { error, count } = await supabase
-    .from("drawing_packages")
-    .delete({ count: "exact" })
-    .eq("id", packageId);
-
-  if (error) {
-    // Tetikleyicinin Türkçe mesajı olduğu gibi geçirilir: "üretime girmiş paket
-    // silinemez" cümlesini burada ikinci kez yazmak, iki metnin bir gün
-    // ayrışması demekti.
-    return { error: error.message };
-  }
-  // RLS sessiz bir no-op üretebilir; sayıyı okumak onu gerçek hataya çevirir.
-  if (!count) {
-    return { error: "Paketi silme yetkiniz yok (Yönetici · Mühendis · Teknik Ressam)." };
-  }
-
-  // ANCAK ŞİMDİ depo temizlenir. SAYFALANIR: tek sayfalık `list(…, {limit:1000})`
-  // 2000 nesneli bir pakette 1000'ini bucket'ta yetim bırakırdı.
-  let silinenNesne = 0;
-  for (let tur = 0; tur < 50; tur++) {
-    const { data: liste, error: listeHatasi } = await supabase.storage
-      .from(BUCKET)
-      .list(packageId, { limit: DEPO_SAYFA });
-    if (listeHatasi || !liste?.length) break;
-    const { error: silmeHatasi } = await supabase.storage
-      .from(BUCKET)
-      .remove(liste.map((o) => `${packageId}/${o.name}`));
-    if (silmeHatasi) break;
-    silinenNesne += liste.length;
-    if (liste.length < DEPO_SAYFA) break;
-  }
-
-  await olayYaz(supabase, null, (paket.folder_name as string) ?? "", "silindi", userId, {
-    package_id: packageId,
-    item_no: paket.item_no,
-    dosya: paket.file_count,
-    parca: paket.part_count,
-    bayt: paket.bytes_total,
-    silinen_nesne: silinenNesne,
-  });
-
-  revalidatePath("/drawings");
-  satinAlmayiTazele();
-  return {};
+  return requestPermanentDeletion({ entityType: "drawing_package", targetId: packageId });
 }
 
 /* ═════════════════════════════════════════════════════ revizyon ═══ */

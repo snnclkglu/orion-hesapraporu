@@ -20,6 +20,7 @@ import { revalidatePath } from "next/cache";
 import { PDFDocument, EncryptedPDFError } from "pdf-lib";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 
 /** row_key biçimi `equipment_notes` ile AYNIDIR (`<modulKey>:<slug>`). */
@@ -114,50 +115,20 @@ export async function registerEquipmentAttachment(
   return { ok: true, pageCount };
 }
 
-/**
- * Eki kaldırır.
- *
- * SIRA "ÖNCE UCUZ OLANI KAYBET"TİR (AGENTS, Teknik Resimler): önce TABLO
- * satırı silinir, sonra depo nesnesi. Ters sırada baytlar gidip kayıt kalsaydı
- * liste var olmayan bir eke bağlanır ve detaylı PDF her seferinde eksik
- * basılırdı. Bu sırada ise en kötü ihtimalle yetim bir nesne kalır — geri
- * alınabilir bir hata.
- */
+/** Ekipman ekinin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteEquipmentAttachment(
   projectId: string,
   revisionId: string,
   attachmentId: string
 ): Promise<AttachmentResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
-
   const parsed = z
     .object({ revisionId: z.uuid(), attachmentId: z.uuid() })
     .safeParse({ revisionId, attachmentId });
   if (!parsed.success) return { error: "Geçersiz ek kimliği" };
 
-  const { data: row } = await supabase
-    .from("equipment_attachments")
-    .select("storage_path")
-    .eq("id", attachmentId)
-    .eq("revision_id", revisionId)
-    .maybeSingle();
-  if (!row) return { error: "Ek bulunamadı" };
-
-  const { error } = await supabase
-    .from("equipment_attachments")
-    .delete()
-    .eq("id", attachmentId)
-    .eq("revision_id", revisionId);
-  if (error) return { error: error.message };
-
-  await supabase.storage
-    .from(EQUIPMENT_ATTACHMENT_BUCKET)
-    .remove([(row as { storage_path: string }).storage_path]);
-
-  revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
-  return { ok: true };
+  return requestPermanentDeletion({
+    entityType: "equipment_attachment",
+    targetId: attachmentId,
+    context: { revision_id: revisionId, project_id: projectId },
+  });
 }

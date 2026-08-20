@@ -138,20 +138,20 @@ export function OfferPanel({
   }
 
   function revizyonSil(revisionId: string, revNo: number) {
-    if (!confirm(`R${revNo} taslak revizyonu silinsin mi? Bu işlem geri alınamaz.`)) return;
+    if (!confirm(`R${revNo} taslak revizyonu için Yönetici onayına silme talebi gönderilsin mi?`)) return;
     startTransition(async () => {
       const res = await deleteOfferRevision(offer.id, revisionId);
       if (res.error) toast.error(res.error);
-      else toast.success("Revizyon silindi.");
+      else toast.success("Revizyon silme talebi Yönetici onayına gönderildi.");
     });
   }
 
   function teklifSil() {
-    if (!confirm("Teklif ve bütün revizyonları silinsin mi? Bu işlem geri alınamaz.")) return;
+    if (!confirm("Teklif ve bütün revizyonları için Yönetici onayına silme talebi gönderilsin mi?")) return;
     startTransition(async () => {
       const res = await deleteOffer(offer.id);
       if (res.error) toast.error(res.error);
-      else window.location.href = "/offers";
+      else toast.success("Teklif silme talebi Yönetici onayına gönderildi.");
     });
   }
 

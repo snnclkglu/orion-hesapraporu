@@ -15,6 +15,7 @@
 import { revalidatePath } from "next/cache";
 import { EncryptedPDFError, PDFDocument } from "pdf-lib";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditPersonnel, canSeePersonnel } from "@/lib/roles";
 import {
   MAX_DOCUMENT_BYTES,
@@ -133,44 +134,16 @@ export async function registerDocument(input: DocumentInput): Promise<PersonnelA
   return { ok: true, id: d.documentId };
 }
 
-/**
- * Belgeyi siler. SIRA: önce TABLO satırı, sonra depo nesnesi.
- *
- * Ters sırada depo temizlenip satır kalsaydı liste var olmayan bir belgeye
- * bağlanırdı. Bu sırada en kötü ihtimalle yetim bir nesne kalır ve o GERİ
- * ALINABİLİR bir hatadır.
- */
+/** Özlük belgesinin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteDocument(
   id: string,
   employeeId: string
 ): Promise<PersonnelActionResult> {
-  const ctx = await requireWrite();
-  if ("error" in ctx) return ctx;
-  const { supabase, user } = ctx;
-
-  const { data: satir } = await supabase
-    .from("hr_employee_documents")
-    .select("storage_path, file_name")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { error, count } = await supabase
-    .from("hr_employee_documents")
-    .delete({ count: "exact" })
-    .eq("id", id);
-  if (error) return { error: error.message };
-  if (!count) return { error: "Belge silinemedi; yetkiniz olmayabilir." };
-
-  const path = (satir as { storage_path?: string } | null)?.storage_path;
-  if (path) await supabase.storage.from(PERSONNEL_BUCKET).remove([path]);
-
-  await supabase.from("audit_log").insert({
-    actor: user.id,
-    action: "personnel.document.delete",
-    detail: { id, employee_id: employeeId, file: (satir as { file_name?: string } | null)?.file_name },
+  return requestPermanentDeletion({
+    entityType: "employee_document",
+    targetId: id,
+    context: { employee_id: employeeId },
   });
-  revalidatePath(`/personnel/${employeeId}`);
-  return { ok: true };
 }
 
 /** Belgenin künyesini (tür, başlık, tarihler) düzeltir — baytlara dokunmaz. */

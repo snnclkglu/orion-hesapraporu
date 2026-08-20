@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import {
   DEFAULT_CRANE_TYPE,
   TROLLEY_ONLY_DISABLED_MODULES,
@@ -547,13 +548,7 @@ export async function assignProjectToJob(
 
 // ------------------------------------------------------------------- Silme
 
-/**
- * Hesap raporunu (proje + taslak revizyonları) kalıcı olarak siler.
- * DB gerçekleri: `projects` DELETE politikası is_admin() ister — yalnızca
- * yönetici silebilir. `guard_issued_revision` trigger'ı yayınlanmış revizyonun
- * silinmesini engeller; bu yüzden yayınlanmış revizyonu olan rapor silinemez,
- * arşivlenir.
- */
+/** Hesap raporunun kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteProject(projectId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -575,7 +570,7 @@ export async function deleteProject(projectId: string): Promise<ActionResult> {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, doc_no, name, job_id")
+    .select("id")
     .eq("id", parsedId.data)
     .maybeSingle();
   if (!project) return { error: "Hesap raporu bulunamadı" };
@@ -595,45 +590,7 @@ export async function deleteProject(projectId: string): Promise<ActionResult> {
     };
   }
 
-  const { data: deleted, error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("id", parsedId.data)
-    .select("id");
-  if (error) return { error: error.message };
-  if (!deleted || deleted.length === 0) {
-    return { error: "Hesap raporu silinemedi (yönetici yetkisi gerekir)." };
-  }
-
-  // Rapor arşivi yetim kalmasın: reports bucket'ında {project_id}/ altındaki
-  // PDF'ler de temizlenir (admin DELETE politikası migration ile eklendi).
-  // Depolama hatası silmeyi geri almaz; sessizce geçilir.
-  const { data: archived } = await supabase.storage
-    .from("reports")
-    .list(parsedId.data);
-  if (archived && archived.length > 0) {
-    await supabase.storage
-      .from("reports")
-      .remove(archived.map((f) => `${parsedId.data}/${f.name}`));
-  }
-
-  // project_id ON DELETE SET NULL olduğu için kayıt NULL proje ile yazılır;
-  // silinen raporun kimliği detail içinde saklanır.
-  await supabase.from("audit_log").insert({
-    project_id: null,
-    actor: user.id,
-    action: "project.delete",
-    detail: {
-      project_id: project.id,
-      doc_no: project.doc_no,
-      name: project.name,
-      job_id: project.job_id,
-    },
-  });
-
-  revalidatePath("/projects");
-  if (project.job_id) revalidatePath(`/jobs/${project.job_id}`);
-  redirect("/projects");
+  return requestPermanentDeletion({ entityType: "project", targetId: parsedId.data });
 }
 
 export async function setProjectArchived(
@@ -785,7 +742,7 @@ export async function createRevision(projectId: string): Promise<ActionResult> {
 }
 
 /**
- * TASLAK bir revizyonu siler.
+ * TASLAK bir revizyonun kalıcı silinmesini Yönetici onayına yollar.
  *
  * Yayınlanmış revizyon SİLİNEMEZ — teslim edilmiş bir hesabın kaydı geriye
  * dönük yok edilemez. Bu kural veritabanında `guard_issued_revision`
@@ -825,29 +782,11 @@ export async function deleteRevision(
     return { error: "Yayınlanmış revizyon silinemez." };
   }
 
-  const { data: deleted, error } = await supabase
-    .from("revisions")
-    .delete()
-    .eq("id", revisionId)
-    .select("id");
-  if (error) return { error: error.message };
-  if (!deleted || deleted.length === 0) {
-    return {
-      error: "Revizyon silinemedi — silme yetkisi Yönetici ve Mühendis rollerindedir.",
-    };
-  }
-
-  // `audit_log.revision_id` artık var olmayan bir satırı gösteremez (yabancı
-  // anahtar); kimlik detaya yazılır.
-  await supabase.from("audit_log").insert({
-    project_id: projectId,
-    actor: user.id,
-    action: "revision.delete",
-    detail: { revision_id: revisionId, rev_no: revision.rev_no },
+  return requestPermanentDeletion({
+    entityType: "revision",
+    targetId: revisionId,
+    context: { project_id: projectId },
   });
-
-  revalidatePath(`/projects/${projectId}`);
-  return {};
 }
 
 // -------------------------------------------------------- Teknik çizimler

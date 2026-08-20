@@ -1,7 +1,7 @@
 // EL KİTABI İNDİRME UCU.
 //
-//   (parametresiz) → GÖVDE: kapak, künye, içindekiler, bölümler + ek kapakları
-//   ?ekler=1       → TAM SÜRÜM: gövde + eklerin kendisi, kapakların ardında
+//   (parametresiz) → GÖVDE: kapak, künye, içindekiler ve işletme bölümleri
+//   ?ekler=1       → TAM SÜRÜM: gövde + bulunan ek kapakları + eklerin kendisi
 //
 // İKİ ÇIKTI KULLANICI KARARIDIR (19.08.2026). Gövde ekranda okunan, onaya
 // giden ve hızlı üretilen belgedir; tam sürüm teslim paketidir ve 12 MB'lık
@@ -170,7 +170,7 @@ export async function GET(
         new Date(revizyon.row.issuedAt ?? revizyon.row.createdAt).toLocaleDateString("tr-TR"),
       ],
       appendixPageCounts,
-      includedAppendices: eklerIstendi ? cozulmusEkler.map((appendix) => appendix.tur) : undefined,
+      includedAppendices: eklerIstendi ? cozulmusEkler.map((appendix) => appendix.tur) : [],
       deferFolio: eklerIstendi,
     })
   );

@@ -15,6 +15,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditReports } from "@/lib/roles";
 import { manualFromTemplate, withManualDefaults } from "@/lib/manual/payload";
 import { MANUAL_DOC_TITLE, suggestCoverTitle } from "@/lib/manual/naming";
@@ -280,7 +281,7 @@ export async function newManualRevision(
     if (kopyalananYollar.length > 0) {
       await supabase.storage.from(MANUAL_IMAGE_BUCKET).remove(kopyalananYollar);
     }
-    await supabase.from("manual_revisions").delete().eq("id", yeni.id);
+    await supabase.rpc("rollback_manual_revision_copy", { p_revision_id: yeni.id });
   };
   for (const g of (gorseller ?? []) as Record<string, unknown>[]) {
     const eski = String(g.storage_path);
@@ -325,26 +326,14 @@ export async function newManualRevision(
   return { ok: true, revisionId: String(yeni.id) };
 }
 
-/** Taslak revizyonu siler. Yayımlanmışı DB tetikleyicisi reddeder. */
+/** Taslak revizyonun kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteManualRevision(
   projectId: string,
   revisionId: string
 ): Promise<ManualResult> {
-  const izin = await yetki();
-  if ("error" in izin) return izin;
-  const supabase = await createClient();
-
-  const { data: gorseller } = await supabase
-    .from("manual_images")
-    .select("storage_path")
-    .eq("revision_id", revisionId);
-
-  const { error } = await supabase.from("manual_revisions").delete().eq("id", revisionId);
-  if (error) return { error: error.message };
-
-  const yollar = ((gorseller ?? []) as { storage_path: string }[]).map((g) => g.storage_path);
-  if (yollar.length) await supabase.storage.from(MANUAL_IMAGE_BUCKET).remove(yollar);
-
-  revalidatePath(`/projects/${projectId}`);
-  return { ok: true };
+  return requestPermanentDeletion({
+    entityType: "manual_revision",
+    targetId: revisionId,
+    context: { project_id: projectId },
+  });
 }

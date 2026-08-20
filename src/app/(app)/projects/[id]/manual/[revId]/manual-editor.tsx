@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   BookOpen,
@@ -35,7 +36,6 @@ import {
   Eye,
   EyeOff,
   FileDown,
-  FileText,
   Image as ImageIcon,
   Layers,
   List,
@@ -79,7 +79,6 @@ import {
   blockHasContent,
   flattenManual,
   numberManual,
-  printedManual,
   type NumberedSection,
 } from "@/lib/manual/payload";
 import { MANUAL_TEMPLATE } from "@/lib/manual/template";
@@ -136,6 +135,17 @@ function bolumBul(sections: readonly ManualSection[], id: string): ManualSection
   return null;
 }
 
+/** Editör boş bir bölüm kabıyla değil, yapılacak ilk gerçek işle açılır. */
+function ilkCalismaBolumu(sections: readonly ManualSection[]): string {
+  const duz = flattenManual(numberManual(sections));
+  return (
+    duz.find((s) => !s.appendix && editorBolumDurumu(s) === "bos")?.id ??
+    duz.find((s) => s.blocks.length > 0 || s.appendix)?.id ??
+    duz[0]?.id ??
+    ""
+  );
+}
+
 let sayac = 0;
 const yeniId = (): string => `y${Date.now().toString(36)}${(sayac++).toString(36)}`;
 
@@ -167,7 +177,7 @@ export function ManualEditor({
   const [payload, setPayload] = useState<ManualPayload>(initialPayload);
   const [imageRows, setImageRows] = useState<ManualImageRow[]>(images);
   const [etiket, setEtiket] = useState(label);
-  const [seciliId, setSeciliId] = useState<string>(initialPayload.sections[0]?.id ?? "");
+  const [seciliId, setSeciliId] = useState<string>(() => ilkCalismaBolumu(initialPayload.sections));
   const [kirli, setKirli] = useState(false);
   const [kaydediliyor, kaydetBasla] = useTransition();
   const [yayimlaniyor, yayimlaBasla] = useTransition();
@@ -190,11 +200,6 @@ export function ManualEditor({
 
   const numarali = useMemo(() => numberManual(payload.sections), [payload.sections]);
   const duz = useMemo(() => flattenManual(numarali), [numarali]);
-  const basilan = useMemo(() => printedManual(payload), [payload]);
-  const basilanSayisi = useMemo(
-    () => flattenManual(numberManual(basilan.sections)).length,
-    [basilan]
-  );
 
   const secili = useMemo(() => bolumBul(payload.sections, seciliId), [payload.sections, seciliId]);
   const seciliNumarali = useMemo(
@@ -225,46 +230,42 @@ export function ManualEditor({
     [payload, sources, oranlar]
   );
 
-  /**
-   * BELGENİN TOPLAM YAPRAK SAYISI — gövde tek başına değil.
-   *
-   * Aritmetik `pdf/manual.tsx`teki sıranın aynısıdır: kapak + içindekiler
-   * (`govdeOfset`), gövde yaprakları, ek kapsayıcısı bir yaprak ve HER EK
-   * KAPAĞI kendi yaprağında (KITAP-8 sözleşmesi). Yalnız gövdeyi saymak,
-   * yirmi iki yapraklık bir belgeye "13 yaprak" dedirtiyordu.
-   */
-  const yaprakSayisi = useMemo(() => {
-    const ekler = flattenManual(numberManual(basilan.sections)).filter((s) => s.appendix).length;
-    return olcu.govdeOfset + olcu.sayfalar.length + (ekler > 0 ? 1 + ekler : 0);
-  }, [basilan.sections, olcu]);
-
-  /** Kaç bölüm dolu, kaç bölüm bekliyor — ilerleme çubuğunun kaynağı. */
-  const ilerleme = useMemo(() => {
-    let dolu = 0;
-    let bos = 0;
-    let gizli = 0;
-    for (const s of duz) {
-      if (s.appendix) continue;
-      const d = editorBolumDurumu(s);
-      if (d === "gizli") gizli += 1;
-      else if (d === "dolu") dolu += 1;
-      else bos += 1;
-    }
-    return { dolu, bos, gizli, toplam: dolu + bos };
-  }, [duz]);
-
-  /** Sıradaki BOŞ bölüm — "devam et" düğmesi buraya atlar. */
-  const sonrakiBos = useMemo(() => {
-    const sira = duz.filter((s) => !s.appendix && editorBolumDurumu(s) === "bos");
-    if (sira.length === 0) return null;
-    const i = sira.findIndex((s) => s.id === seciliId);
-    return sira[(i + 1) % sira.length] ?? sira[0];
-  }, [duz, seciliId]);
+  /** Gövde indirmesinin toplamı: kapak + dizin + kesintisiz bölüm akışı. */
+  const yaprakSayisi = olcu.govdeOfset + olcu.sayfalar.length;
 
   /** İstemci ve sunucu AYNI saf yayım kalite kapısını kullanır. */
   const yayimHazirligi = useMemo(() => manualPublishReadiness(payload), [payload]);
   const eksikBolumler = yayimHazirligi.missingSections;
   const eksikKunye = yayimHazirligi.missingIdentity;
+  const eksikKimlikleri = useMemo(
+    () => new Set(eksikBolumler.map((s) => s.id)),
+    [eksikBolumler]
+  );
+  const kalanIs = eksikKunye.length + eksikBolumler.length;
+
+  /** Sıradaki gerçek yayım eksiği — standart metinler "iş" gibi sayılmaz. */
+  const sonrakiBos = useMemo(() => {
+    if (eksikBolumler.length === 0) return null;
+    const i = eksikBolumler.findIndex((s) => s.id === seciliId);
+    return eksikBolumler[(i + 1) % eksikBolumler.length] ?? eksikBolumler[0];
+  }, [eksikBolumler, seciliId]);
+
+  /** Sol ray yalnız ana bölümleri, orta seçici o bölümün gerçek çalışma yüzlerini taşır. */
+  const seciliKok = useMemo(
+    () => numarali.find((kok) => flattenManual([kok]).some((s) => s.id === seciliId)) ?? numarali[0] ?? null,
+    [numarali, seciliId]
+  );
+  const kokIciBolumler = useMemo(
+    () => seciliKok
+      ? flattenManual([seciliKok]).filter((s) => s.blocks.length > 0 || Boolean(s.appendix))
+      : [],
+    [seciliKok]
+  );
+  const seciliSira = kokIciBolumler.findIndex((s) => s.id === seciliId);
+  const oncekiBolum = seciliSira > 0 ? kokIciBolumler[seciliSira - 1] : null;
+  const sonrakiBolum = seciliSira >= 0 && seciliSira < kokIciBolumler.length - 1
+    ? kokIciBolumler[seciliSira + 1]
+    : null;
 
   // KAYDEDİLMEMİŞ DEĞİŞİKLİKLE ÇIKIŞ UYARIR. Bir kılavuzda yarım saatlik
   // yazının sekme kapanınca kaybolması, kullanıcının bir daha o ekrana
@@ -392,7 +393,7 @@ export function ManualEditor({
           {manualDocCode(itemNo, revNo)}
         </span>
         <span className="text-sm text-muted-foreground">
-          · {basilanSayisi} bölüm · {yaprakSayisi} yaprak
+          · {numarali.length} ana bölüm · gövde {yaprakSayisi} yaprak
         </span>
         {kirli && (
           <span className="inline-flex items-center gap-1 text-sm text-destructive">
@@ -432,7 +433,7 @@ export function ManualEditor({
             Kâğıt
           </Button>
           <Button size="sm" variant="outline" onClick={() => setKunyeAcik((v) => !v)}>
-            <BookOpen className="size-3.5" /> Künye
+            <BookOpen className="size-3.5" /> {kunyeAcik ? "İçeriğe Dön" : "Künye"}
           </Button>
           <Button size="sm" variant="outline" asChild>
             <a
@@ -477,8 +478,55 @@ export function ManualEditor({
         </div>
       </div>
 
+      {/* KALİTE KAPISI İLERLEME YÜZDESİ DEĞİLDİR: kullanıcıya yayıma engel
+          olan somut işleri söyler; standart metinler sahte ilerleme yaratmaz. */}
+      <div className="grid gap-3 border border-l-2 border-l-primary bg-card p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="grid gap-1">
+          <span className="oc-kicker">YAYIM KONTROLÜ</span>
+          <p className="text-base font-semibold">
+            {kalanIs === 0 ? "Yayıma hazır" : `${kalanIs} iş kaldı`}
+          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {eksikKunye.length > 0
+              ? `${eksikKunye.length} künye alanı ve ${eksikBolumler.length} vince özel bölüm bekliyor.`
+              : eksikBolumler.length > 0
+                ? `${eksikBolumler.length} vince özel bölüm doldurulmalı veya bilinçli olarak gizlenmeli.`
+                : `Künye ve içerik tamam · Gövde ${yaprakSayisi} yaprak.`}
+          </p>
+        </div>
+        {eksikKunye.length > 0 ? (
+          <Button size="sm" variant="outline" onClick={() => setKunyeAcik(true)}>
+            <BookOpen className="size-3.5" /> Künyeyi Tamamla
+          </Button>
+        ) : sonrakiBos ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setKunyeAcik(false);
+              setSeciliId(sonrakiBos.id);
+            }}
+          >
+            <ArrowRight className="size-3.5" /> Sonraki İşi Aç
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <CircleCheck className="size-4" /> Kontroller tamam
+          </div>
+        )}
+      </div>
+
       {kunyeAcik && (
-        <KunyeFormu
+        <div className="grid gap-3">
+          <div className="border bg-card p-3">
+            <span className="oc-kicker">1 · BELGE KİMLİĞİ</span>
+            <h2 className="mt-1 text-lg font-semibold">Kapak, marka ortaklığı ve künye</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bu çalışma yüzü yalnız belgenin kimliğini düzenler. İçeriğe dönmek için üstteki
+              “İçeriğe Dön” düğmesini kullanın.
+            </p>
+          </div>
+          <KunyeFormu
           identity={payload.identity}
           docTitle={payload.docTitle || MANUAL_DOC_TITLE}
           coverTitle={payload.coverTitle}
@@ -509,10 +557,11 @@ export function ManualEditor({
               partnerLogos: { ...p.partnerLogos, [slot]: imageId || undefined },
             }))
           }
-        />
+          />
+        </div>
       )}
 
-      <div
+      {!kunyeAcik && <div
         className={
           kagitAcik
             ? "grid gap-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(0,1.05fr)]"
@@ -522,76 +571,54 @@ export function ManualEditor({
         {/* ————————————————————————————————————— bölüm ağacı */}
         <nav
           aria-label="El kitabı bölümleri"
-          className={`grid content-start gap-2 lg:sticky lg:top-2 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto rounded-lg border bg-card p-2 ${darGorunum === "kagit" ? "max-2xl:hidden" : ""}`}
+          className={`grid content-start gap-2 overflow-y-auto rounded-lg border bg-card p-2 lg:sticky lg:top-2 ${darGorunum === "kagit" ? "max-2xl:hidden" : ""}`}
+          style={{ maxHeight: "clamp(24rem, 50dvh, calc(100dvh - 6rem))" }}
         >
-          {/* İLERLEME BİR SAYAÇ DEĞİL BİR YÖN GÖSTERGESİDİR: mühendis
-              seksen bölümlü bir belgede nerede kaldığını bilmeli. Sayılan
-              şey BASILAN bölümdür — gizlenen bölüm eksik sayılmaz, çünkü
-              gizlemek bir karardır, bir boşluk değil. */}
-          <div className="grid gap-1.5 px-1 pt-1">
-            <div className="flex items-baseline justify-between text-xs">
-              <span className="text-muted-foreground">Doldurulan bölüm</span>
-              <span className="font-mono">
-                {ilerleme.dolu}/{ilerleme.toplam}
-              </span>
-            </div>
-            <div
-              className="h-1.5 w-full bg-muted"
-              role="progressbar"
-              aria-label="Doldurulan bölüm oranı"
-              aria-valuemin={0}
-              aria-valuemax={ilerleme.toplam}
-              aria-valuenow={ilerleme.dolu}
-            >
-              <div
-                className="h-full bg-primary transition-[width]"
-                style={{
-                  width: `${ilerleme.toplam ? (ilerleme.dolu / ilerleme.toplam) * 100 : 0}%`,
-                }}
-              />
-            </div>
-            {sonrakiBos && (
-              <button
-                type="button"
-                onClick={() => setSeciliId(sonrakiBos.id)}
-                className="oc-tap flex items-center gap-1.5 text-left text-xs text-primary hover:underline"
-              >
-                <ArrowRight className="size-3.5 shrink-0" />
-                Sıradaki boş bölüm: {sonrakiBos.number} {sonrakiBos.title}
-              </button>
-            )}
+          <div className="grid gap-1 border-b px-1 pb-2 pt-1">
+            <span className="oc-kicker">2 · İÇERİK</span>
+            <strong className="text-sm">Ana bölümler</strong>
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              Bir ana bölüm seçin; alt başlıkları orta alandaki kısa seçiciden açın.
+            </span>
           </div>
 
-          <ul className="grid gap-0.5">
-            {duz.map((s) => {
-              const durum = editorBolumDurumu(s);
-              const sayfa = olcu.sayfaNo.get(s.id);
+          <ul className="grid gap-1">
+            {numarali.map((kok) => {
+              const kokDali = flattenManual([kok]);
+              const eksik = kokDali.filter((s) => eksikKimlikleri.has(s.id)).length;
+              const etkin = kok.id === seciliKok?.id;
               return (
-                <li key={s.id}>
+                <li key={kok.id}>
                   <button
                     type="button"
-                    onClick={() => setSeciliId(s.id)}
-                    aria-current={s.id === seciliId ? "page" : undefined}
-                    className={`oc-tap flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-                      s.id === seciliId ? "bg-muted font-medium" : "hover:bg-muted/60"
-                    } ${s.hidden ? "opacity-45" : ""}`}
-                    style={{ paddingLeft: `${0.4 + (s.depth - 1) * 0.75}rem` }}
+                    onClick={() => {
+                      const hedef =
+                        kokDali.find((s) => eksikKimlikleri.has(s.id)) ??
+                        kokDali.find((s) => s.blocks.length > 0 || s.appendix) ??
+                        kok;
+                      setSeciliId(hedef.id);
+                    }}
+                    aria-current={etkin ? "page" : undefined}
+                    className={`oc-tap flex w-full items-start gap-2 border-l-2 px-2 py-2 text-left ${
+                      etkin
+                        ? "border-l-primary bg-muted font-medium"
+                        : "border-l-transparent hover:bg-muted/60"
+                    } ${kok.hidden ? "opacity-45" : ""}`}
                   >
-                    <DurumNoktasi durum={durum} />
-                    <span className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">
-                      {s.number}
+                    {eksik > 0 ? (
+                      <Circle className="mt-0.5 size-3.5 shrink-0 text-primary" aria-label="Eksik iş var" />
+                    ) : (
+                      <CircleCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-label="Tamam" />
+                    )}
+                    <span className="w-7 shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {kok.number || "EK"}
                     </span>
-                    <span className="min-w-0 flex-1 break-words">{s.title}</span>
-                    {s.hidden && <EyeOff className="size-3 shrink-0 text-muted-foreground" />}
-                    {s.appendix && <Layers className="size-3 shrink-0 text-muted-foreground" />}
-                    {/* SAYFA NUMARASI DAĞITIMIN SONUCUDUR (KITAP-14 md. 2):
-                        bir bölümün hangi yaprağa düştüğü ancak bütün belge
-                        dağıtıldıktan sonra bilinir. */}
-                    {sayfa ? (
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                        s{sayfa}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm leading-snug">{kok.title}</span>
+                      <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                        {eksik > 0 ? `${eksik} iş bekliyor` : "Tamam"}
                       </span>
-                    ) : null}
+                    </span>
                   </button>
                 </li>
               );
@@ -601,6 +628,59 @@ export function ManualEditor({
 
         {/* ————————————————————————————————————— bölüm içeriği */}
         <section className={`grid content-start gap-3 ${darGorunum === "kagit" ? "max-2xl:hidden" : ""}`}>
+          {seciliKok && kokIciBolumler.length > 0 && (
+            <div className="grid gap-2 border bg-card p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="oc-kicker">{seciliKok.number || "EK"} · {seciliKok.title}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {kokIciBolumler.length} çalışma yüzü · yalnız seçili başlık düzenlenir
+                  </p>
+                </div>
+                {olcu.sayfaNo.get(seciliId) ? (
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                    PDF s{olcu.sayfaNo.get(seciliId)}
+                  </span>
+                ) : null}
+              </div>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Bölüm içi gezinme
+                <select
+                  value={seciliId}
+                  onChange={(e) => setSeciliId(e.target.value)}
+                  className="h-11 w-full border bg-background px-3 text-base text-foreground sm:text-sm"
+                >
+                  {kokIciBolumler.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.number || "EK"} · {s.title}{eksikKimlikleri.has(s.id) ? " — DOLDURULACAK" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!oncekiBolum}
+                  onClick={() => oncekiBolum && setSeciliId(oncekiBolum.id)}
+                >
+                  <ArrowLeft className="size-3.5" /> Önceki
+                </Button>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {seciliSira >= 0 ? seciliSira + 1 : 0}/{kokIciBolumler.length}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!sonrakiBolum}
+                  onClick={() => sonrakiBolum && setSeciliId(sonrakiBolum.id)}
+                >
+                  Sonraki <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {!secili && (
             <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
               Soldan bir bölüm seçin.
@@ -680,7 +760,7 @@ export function ManualEditor({
             className={darGorunum === "duzenle" ? "max-2xl:hidden" : "max-2xl:col-span-full"}
           />
         )}
-      </div>
+      </div>}
 
       <Dialog open={yayimOnayi} onOpenChange={setYayimOnayi}>
         <DialogContent>
@@ -705,22 +785,6 @@ export function ManualEditor({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-/** Ağaçtaki doluluk noktası — belgeye giren bölüm dolu sayılır. */
-function DurumNoktasi({ durum }: { durum: ManualFillState }) {
-  if (durum === "dolu") {
-    return <CircleCheck className="size-3.5 shrink-0 text-primary" aria-label="Dolu" />;
-  }
-  if (durum === "ek") {
-    return <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-label="Ek" />;
-  }
-  if (durum === "gizli") {
-    return <Circle className="size-3.5 shrink-0 text-muted-foreground/40" aria-label="Gizli" />;
-  }
-  return (
-    <Circle className="size-3.5 shrink-0 text-muted-foreground/60" aria-label="Boş" />
   );
 }
 
@@ -873,9 +937,9 @@ function BolumPaneli({
           <p className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
             <Layers className="mt-0.5 size-3.5 shrink-0" />
             <span>
-              <strong>{MANUAL_APPENDIX_LABELS[bolum.appendix]}</strong> eki. Gövdede yalnız bir
-              ayraç kapağı basılır; belgenin kendisi &quot;Tam Sürüm&quot; indirilirken bu
-              kapağın ardına eklenir.
+              <strong>{MANUAL_APPENDIX_LABELS[bolum.appendix]}</strong> eki. Gövde PDF&apos;inde
+              görünmez; belge bulunup doğrulandığında &quot;Tam Sürüm&quot; içinde ayraç
+              kapağının hemen arkasına yerleştirilir.
             </span>
           </p>
         )}

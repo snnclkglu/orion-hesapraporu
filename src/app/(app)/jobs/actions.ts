@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { requestPermanentDeletion } from "@/lib/deletion-request-server";
 import { canEditJobs } from "@/lib/roles";
 import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from "@/lib/job-status";
 import { autoShortName, nextDistinctHue } from "@/lib/tags";
@@ -360,45 +361,9 @@ export async function bulkSetJobStatus(
   return { updated };
 }
 
-/**
- * İşi kalıcı olarak siler. `job_items` cascade ile gider; bağlı hesap raporları
- * SİLİNMEZ — `projects.job_id` null'a düşer (raporun kendi ömrü vardır).
- * RLS silmeyi yalnız yöneticiye açar; yetkisiz çağrı sessizce başarısız
- * olmasın diye satır sayısı kontrol edilir.
- */
+/** İşin kalıcı silinmesini Yönetici onay kuyruğuna yollar. */
 export async function deleteJob(jobId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Oturum bulunamadı" };
-
-  const { data, error } = await supabase
-    .from("jobs")
-    .delete()
-    .eq("id", jobId)
-    .select("id, job_no");
-  if (error) return { error: error.message };
-  if (!data || data.length === 0) {
-    return { error: "İş silinemedi — silme yetkisi yalnız yöneticidedir." };
-  }
-
-  await supabase.from("audit_log").insert({
-    actor: user.id,
-    action: "job.delete",
-    detail: { job_id: jobId },
-  });
-  // job_id FK `set null`a düşer; kimlik kopyalanan job_no ile yaşar.
-  await isOlayiYaz(supabase, {
-    jobId: null,
-    jobNo: (data[0] as { job_no?: string }).job_no ?? "",
-    event: "silindi",
-    detail: { job_id: jobId },
-    actor: user.id,
-  });
-
-  revalidatePath("/jobs");
-  return {};
+  return requestPermanentDeletion({ entityType: "job", targetId: jobId });
 }
 
 // ------------------------------------------------------------------ müşteri

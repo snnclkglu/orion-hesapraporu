@@ -81,6 +81,7 @@ async function main() {
       docLine: `ORION CRANES · ${MANUAL_DOC_TITLE} · V1 · 2026`,
       company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
       bandLines: ["V1", "19.08.2026"],
+      includedAppendices: [],
     })
   );
 
@@ -88,6 +89,8 @@ async function main() {
 
   const basilan = printedManual(payload);
   const duz = flattenManual(numberManual(basilan.sections));
+  const ekKapsayici = duz.find((b) => b.children.some((c) => c.appendix)) ?? null;
+  const govdeBasliklari = duz.filter((b) => !b.appendix && b.id !== ekKapsayici?.id);
   console.log(`PDF: ${hedef} · ${(buf.byteLength / 1024).toFixed(0)} KB · ${gorseller.length} şablon görseli`);
   console.log(`Yazılan bölüm: ${flattenManual(numberManual(payload.sections)).length}`);
   console.log(`BASILAN bölüm: ${duz.length}`);
@@ -106,27 +109,37 @@ async function main() {
   // müşteri görür. İkinci argüman verilirse o PDF "Elektrik Projeleri" eki
   // olarak yerleştirilir ve birleşik belge de yazılır.
   const ekYolu = process.argv[3];
-  const sira = manualAppendixOrder(payload);
-  const ekler = sira.map((tur) => ({
-    ad: MANUAL_APPENDIX_LABELS[tur],
-    bytes:
-      ekYolu && tur === "elektrikProje"
-        ? new Uint8Array(readFileSync(ekYolu))
-        : new Uint8Array(0),
-  }));
-  const sonuc = await pdfEkleriYerlestir(new Uint8Array(buf), ekler);
-  console.log(
-    `Ek yerleştirme: ${sonuc.eklenen} ek · ${sonuc.eklenenSayfa} sayfa eklendi · atlanan ${sonuc.atlananlar.length} (kapakları da silindi)`
-  );
   // BEKLENEN BAŞLIKLAR yerleşim denetçisine yazılır: iki sütunlu akışta
   // "kayıp içerik" gözle görülmez, ancak belgeyi geri okuyup aranarak
   // yakalanır (`scripts/check-manual-layout.py`).
   writeFileSync(
     hedef.replace(/\.pdf$/, "-basliklar.json"),
-    JSON.stringify(duz.map((b) => b.title), null, 1)
+    JSON.stringify(govdeBasliklari.map((b) => b.title), null, 1)
   );
 
   if (ekYolu) {
+    const ekBytes = new Uint8Array(readFileSync(ekYolu));
+    const tamTemel = await renderToBuffer(
+      ManualPdf({
+        payload,
+        sources,
+        images: gorseller,
+        docCode: belgeKodu,
+        docLine: `ORION CRANES · ${MANUAL_DOC_TITLE} · V1 · 2026`,
+        company: { company: "ORION CRANES", address: "ANKARA · TÜRKİYE", web: "orioncranes.com" },
+        bandLines: ["V1", "19.08.2026"],
+        includedAppendices: ["elektrikProje"],
+        deferFolio: true,
+      })
+    );
+    const sonuc = await pdfEkleriYerlestir(
+      new Uint8Array(tamTemel),
+      [{ ad: MANUAL_APPENDIX_LABELS.elektrikProje, bytes: ekBytes }],
+      { finalFolio: true }
+    );
+    console.log(
+      `Ek yerleştirme: ${sonuc.eklenen} ek · ${sonuc.eklenenSayfa} sayfa eklendi · atlanan ${sonuc.atlananlar.length}`
+    );
     const tamYol = hedef.replace(/\.pdf$/, "-tam.pdf");
     writeFileSync(tamYol, sonuc.bytes);
     console.log(`Tam sürüm: ${tamYol}`);

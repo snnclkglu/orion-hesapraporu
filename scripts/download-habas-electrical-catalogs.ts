@@ -242,16 +242,34 @@ const staticFiles = {
     sourceType: "distributor",
     note: "Manufacturer-branded Seger horn catalogue mirrored by an automotive distributor."
   }),
-  socomecManual: manufacturer(
-    "SOCOMEC - ATyS r Transfer Şalteri Kurulum ve İşletme Kılavuzu (EN).pdf",
-    "https://www.socomec.it/sites/default/files/2026-02/ATyS-r---Remote-Transfer-Switching-Equip_INSTALLATION-AND-OPERATING-MANUAL_2026-02-06-11-26-16_541630D_English_PLURI.pdf",
-    "Socomec official ATyS r installation and operating manual."
-  ),
-  socomecTechnical: manufacturer(
-    "SOCOMEC - ATyS Teknik Tasarım Kılavuzu 125-3200A (EN).pdf",
-    "https://www.socomec.it/sites/default/files/2024-07/ATYS---AUTOMATIC-AND-REMOTELY-OPERATED-TRANSFER-SWITCHES-FROM-125-TO-3200-A_TECHNICAL-GUIDE_2016-11_DOC224023_EN.pdf",
-    "Socomec official technical guide; 125 A and 400 A frames are covered."
-  ),
+  sibreEldro: addDownload({
+    fileName: "SIBRE - ELDRO Elektrohidrolik İtici Teknik Verileri (EN).pdf",
+    url: "https://sibre.com.au/wp-content/uploads/ELDRO-Electrohydraulic-Thruster-Technical-Data.pdf",
+    publisher: "SIBRE",
+    sourceType: "manufacturer",
+    note: "SIBRE ELDRO technical data; Ed 23/5 and Ed 80/6 ratings are explicitly listed."
+  }),
+  socomec125: addDownload({
+    fileName: "SOCOMEC - 95233012 ATyS r 3P 125A Teknik Föyü (EN).pdf",
+    url: "https://www.nhp.com.au/public/assets/pim/Original/10031/95233012-AU-ATYS-TRANSFER-SWITCH-NO-LOGIC-3P-Datasheet.pdf",
+    publisher: "Socomec / NHP",
+    sourceType: "authorized",
+    note: "Exact 95233012 manufacturer-branded product datasheet from Socomec distributor NHP."
+  }),
+  socomec400: addDownload({
+    fileName: "SOCOMEC - 95233040 ATyS r 3P 400A Teknik Föyü (EN).pdf",
+    url: "https://prdsccdnstorage.blob.core.windows.net/techdatasheets/95233040-97253-datasheet.pdf?se=2050-02-24T14%3A36%3A22Z&sig=ZYSSzNvPIpdF2duj%2B0Q%2Fxscgj9MvyEATcIdm%2Bn6Urmc%3D&sp=rwdlac&spr=https&srt=sco&ss=b&st=2020-02-24T06%3A36%3A22Z&sv=2019-02-02",
+    publisher: "Socomec / NHP",
+    sourceType: "authorized",
+    note: "Exact 95233040 manufacturer-branded product datasheet from Socomec distributor NHP."
+  }),
+  socomecTechnical: addDownload({
+    fileName: "SOCOMEC - ATyS Serisi Transfer Şalterleri 125-3200A Kataloğu (EN).pdf",
+    url: "https://www.nhp.com.au/public/assets/pim/Original/10027/Socomec-ATyS-Automatic-Transfer-Switch-Equipment-125A-to-3200A-Flyer.pdf",
+    publisher: "Socomec / NHP",
+    sourceType: "authorized",
+    note: "Manufacturer-branded ATyS series catalogue from Socomec distributor NHP; both exact references are listed."
+  }),
   spohn: addDownload({
     fileName: "SPOHN+BURKHARDT - VNS0 Kumanda Kolları Ürün Kataloğu (EN).pdf",
     url: "https://www.elmatechnology.com/wp-content/uploads/2017/01/Spobu_product_catalog_Joysticks_English.pdf",
@@ -276,7 +294,20 @@ const supplementalTypes = new Set([
   "113319", "83KM2400", "VNS044.18EAR 4P0E.4P0E",
   "IE3-W41R 160 L4 TPM HW", "IE3-W43R 180 L4 TPM HW",
   "K21R 200 L4 B IGR IL SL SW TPM HW", "K21R 315 MX4 NS LL TPM B IGR IL SL HW",
+  "ACS880-104-0170A-3", "CBH165CH4145R0", "QFF3000", "ED 23/5", "ED 80/6", "51-67-DZC0Z-499P",
 ]);
+
+const schneiderMirrorUrls: Record<string, string> = {
+  XB5AA21: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AA21_Specification_Sheet.pdf",
+  XB5AA42: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AA42_Specification_Sheet.pdf",
+  XB5AA51: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AA51_Specification_Sheet.pdf",
+  XB5AVB1: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AVB1_Specification_Sheet.pdf",
+  XB5AVB4: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AVB4_Specification_Sheet.pdf",
+  XB5AVB5: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AVB5_Specification_Sheet.pdf",
+  XB5AW33B5: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AW33B5_Specification_Sheet.pdf",
+  XB5AW34B5: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_XB5AW34B5_Specification_Sheet.pdf",
+  ZBZ33: "https://externalassets.unilogcorp.com/ASSETS/DOCUMENTS/ITEMS/EN/Schneider_Electric_ZBZ33_Specification_Sheet.pdf"
+};
 
 const supplementalNotes: Record<string, { facts: string[]; sourceUrl: string }> = {
   "MOTOR PTC": {
@@ -294,6 +325,12 @@ const supplementalNotes: Record<string, { facts: string[]; sourceUrl: string }> 
   "IE3-W43R 180 L4 TPM HW": { facts: ["Rated power: 22 kW", "Rated speed: 1475 rpm", "Rated current: 41 A"], sourceUrl: "project material list + VEM main catalogue" },
   "K21R 200 L4 B IGR IL SL SW TPM HW": { facts: ["Rated power: 35 kW", "Rated speed: 1470 rpm", "Rated current: 67 A"], sourceUrl: "project material list + VEM main catalogue" },
   "K21R 315 MX4 NS LL TPM B IGR IL SL HW": { facts: ["Rated power: 160 kW", "Rated speed: 1480 rpm", "Rated current: 300 A"], sourceUrl: "project material list + VEM main catalogue" },
+  "ACS880-104-0170A-3": { facts: ["ABB ACS880-104 inverter module", "Nominal power: 90 kW", "Nominal output current: 169 A"], sourceUrl: "https://www.abb.com/global/en/products/3axd50000554539" },
+  "CBH165CH4145R0": { facts: ["ISU charging resistor", "Resistance in project material list: 5 ohm", "Exact spare-part code retained from the project"], sourceUrl: "project material list + ABB ACS880-204 hardware manual" },
+  "QFF3000": { facts: ["Panel filter fan, 230 VAC 50/60 Hz", "Power: 38/36 W", "Filtered airflow: 261 m3/h", "Dimensions: 250 x 250 x 115 mm"], sourceUrl: "https://www.esen.com.tr/urun/qff-3000/" },
+  "ED 23/5": { facts: ["Electrohydraulic ELDRO thruster", "Lifting force: 220 N", "Stroke: 50 mm", "Power consumption: 165 W", "Current at 400 V/50 Hz: 0.5 A"], sourceUrl: "https://sibre.com.au/wp-content/uploads/ELDRO-Electrohydraulic-Thruster-Technical-Data.pdf" },
+  "ED 80/6": { facts: ["Electrohydraulic ELDRO thruster", "Lifting force: 800 N", "Stroke: 60 mm", "Power consumption: 330 W", "Current at 400 V/50 Hz: 1.2 A"], sourceUrl: "https://sibre.com.au/wp-content/uploads/ELDRO-Electrohydraulic-Thruster-Technical-Data.pdf" },
+  "51-67-DZC0Z-499P": { facts: ["Stromag Series 51 geared cam limit switch", "Exact project configuration code retained", "Series documentation provides geared/lever/counterweight switching construction"], sourceUrl: "project material list + Stromag Series 51 catalogue" },
 };
 
 function supplementalFile(material: Material): string {
@@ -331,12 +368,21 @@ function additionalFiles(material: Material): string[] {
     ));
     files.push(...siemensCatalogs(type));
   } else if (supplier === "SCHNEIDERELECTRIC") {
-    if (key === "XCKMR54D1H29") files.push(staticFiles.schneiderXck);
+    if (key === "NML0400121") files.push("SCHNEIDER ELECTRIC - NML0400121 Nemliyer Vavien Anahtar Beyaz (TR).pdf");
+    else if (key === "XCKMR54D1H29") files.push(staticFiles.schneiderXck);
     else if (key === "XS612B1MAL2") files.push(staticFiles.schneiderXs);
+    else if (key === "XS618B1MAL2") files.push("TELEMECANIQUE SENSORS - XS618B1MAL2 Endüktif Sensör M18 Sn8mm Veri Sayfası (EN).pdf");
     else {
-      files.push(manufacturer(
+      const mirrorUrl = schneiderMirrorUrls[type];
+      files.push(mirrorUrl ? addDownload({
+        fileName: `SCHNEIDER ELECTRIC - ${safeName(type)} Ürün Teknik Föyü (EN).pdf`,
+        url: mirrorUrl,
+        publisher: "Schneider Electric",
+        sourceType: "distributor",
+        note: `Schneider Electric exact product data sheet for ${type}, mirrored by an industrial distributor.`
+      }) : manufacturer(
         `SCHNEIDER ELECTRIC - ${safeName(type)} Ürün Teknik Föyü (EN).pdf`,
-        `https://iportal.se.com/Contents/docs/SQD-${encodeURIComponent(type)}_DATA%20SHEET.PDF`,
+        `https://iportal.se.com/Contents/docs/SQD-${encodeURIComponent(type)}.PDF`,
         `Schneider Electric exact product data sheet for ${type}.`
       ));
     }
@@ -368,7 +414,12 @@ function additionalFiles(material: Material): string[] {
   else if (supplier === "ETA") files.push("ETA MATIS - Trafo ve Reaktor Urun Katalogu (TR).pdf");
   else if (supplier === "PELSAN") files.push("PELSAN - Aydınlatma Ürün Kataloğu (TR).pdf", "PELSAN - Sıva Üstü Wallwasher Armatür Teknik Föyü (TR).pdf");
   else if (supplier === "SEGER") files.push(staticFiles.segerCatalog);
-  else if (supplier === "SOCOMEC") files.push(staticFiles.socomecTechnical, staticFiles.socomecManual);
+  else if (supplier === "SIBRE") files.push(staticFiles.sibreEldro);
+  else if (supplier === "SOCOMEC") {
+    files.push(staticFiles.socomecTechnical);
+    if (key === "95233012") files.push(staticFiles.socomec125);
+    if (key === "95233040") files.push(staticFiles.socomec400);
+  }
   else if (supplier === "SPOHNBURKHARDT") files.push(staticFiles.spohn);
   else if (supplier === "TELERADIO") files.push(staticFiles.teleRadio);
   else if (supplier === "VEMMOTORS") files.push(staticFiles.vem);
@@ -388,15 +439,23 @@ async function downloadPdf(spec: DownloadSpec): Promise<DownloadResult> {
     // İndirilecek.
   }
 
-  const response = await fetch(spec.url, {
-    redirect: "follow",
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
-      Accept: "application/pdf,*/*",
-      Referer: `${new URL(spec.url).origin}/`,
-      "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-    },
-  });
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    response = await fetch(spec.url, {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+        Accept: "application/pdf,*/*",
+        Referer: `${new URL(spec.url).origin}/`,
+        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+    });
+    if (response.status !== 429 || attempt === 3) break;
+    const waitMs = 15_000 * (attempt + 1);
+    console.log(`${spec.fileName}: Siemens indirme sınırı, ${waitMs / 1000} sn sonra yeniden deneniyor...`);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  if (!response) throw new Error(`${spec.fileName}: indirme yanıtı alınamadı (${spec.url})`);
   if (!response.ok) throw new Error(`${spec.fileName}: HTTP ${response.status} (${spec.url})`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (Buffer.from(bytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
@@ -451,7 +510,7 @@ async function writeSupplementalCard(material: Material): Promise<DownloadResult
   field("PRIMARY SOURCE", details.sourceUrl);
   field("TRACEABILITY NOTE", "Prepared for HABAŞ 50T from the exact project material row and the cited manufacturer catalogue/product page. Consult the linked full catalogue/manual for installation, ratings and safety limits.");
   page.drawLine({ start: { x: 42, y: 78 }, end: { x: 553, y: 78 }, thickness: 0.7, color: rgb(0.6, 0.68, 0.72) });
-  page.drawText("Prepared 2026-08-20 | HABAŞ 50T electrical document archive", { x: 42, y: 57, size: 8, font: regular, color: rgb(0.35, 0.42, 0.46) });
+  page.drawText("Prepared 2026-08-20 | HABAS 50T electrical document archive", { x: 42, y: 57, size: 8, font: regular, color: rgb(0.35, 0.42, 0.46) });
   const bytes = await pdf.save({ useObjectStreams: true });
   await writeFile(target, bytes);
   return {

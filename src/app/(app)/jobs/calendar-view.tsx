@@ -17,10 +17,12 @@ import {
   agendaDays,
   CALENDAR_KIND_LABELS,
   entriesByDay,
+  entriesByMonth,
   monthGrid,
   monthLabel,
   monthOf,
   monthShift,
+  yearMonths,
   type CalendarEntry,
 } from "@/lib/jobs/calendar";
 import { fmtJobDate } from "@/lib/jobs/filter";
@@ -50,14 +52,21 @@ export function CalendarView({
   rows,
   extras,
   ay,
+  donemYili,
 }: {
   rows: JobRow[];
   extras: JobExtras;
-  /** undefined = içinde bulunulan ay. */
+  /** undefined = yıllık özet; "YYYY-MM" = ay ayrıntısı. */
   ay: string | undefined;
+  /** Üstteki dönem süzgecinin çözülmüş değeri (son12 · tümü · YYYY). */
+  donemYili: string;
 }) {
   const bugun = bugunISO();
-  const etkinAy = ay ?? monthOf(bugun);
+  const bugununAyi = monthOf(bugun);
+  const etkinYil = /^\d{4}$/.test(donemYili)
+    ? donemYili
+    : ay?.slice(0, 4) ?? bugun.slice(0, 4);
+  const etkinAy = ay ?? `${etkinYil}-01`;
 
   const entries = useMemo<CalendarEntry[]>(() => {
     const gorunur = new Map(rows.map((r) => [r.id, r]));
@@ -109,155 +118,264 @@ export function CalendarView({
     return out;
   }, [rows, extras]);
 
+  const aylar = yearMonths(etkinYil);
+  const aylikGirdiler = entriesByMonth(entries, etkinYil);
   const haftalar = useMemo(() => monthGrid(etkinAy), [etkinAy]);
   const gunler = useMemo(() => entriesByDay(entries, etkinAy), [entries, etkinAy]);
   const ajanda = useMemo(() => agendaDays(entries, etkinAy), [entries, etkinAy]);
 
   function ayaGit(hedef: string) {
-    adreseYaz({ ay: hedef === monthOf(bugun) ? undefined : hedef });
+    const hedefYil = hedef.slice(0, 4);
+    if (hedefYil !== etkinYil) adreseYaz({ ay: hedef, yil: hedefYil });
+    else adreseYaz({ ay: hedef });
+  }
+
+  function yilaGit(hedef: string) {
+    adreseYaz({ ay: undefined, yil: hedef });
   }
 
   return (
     <div className="grid gap-3">
-      {/* Ay gezintisi */}
+      {/* Yıl/ay gezintisi. Takvim ilk açılışta yılı gösterir; ay kartı aynı
+          adres sözleşmesinde `ay` yazar ve mevcut ayrıntıya iner. */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
-          onClick={() => ayaGit(monthShift(etkinAy, -1))}
-          aria-label="Önceki ay"
+          onClick={() =>
+            ay
+              ? ayaGit(monthShift(etkinAy, -1))
+              : yilaGit(String(Number(etkinYil) - 1))
+          }
+          aria-label={ay ? "Önceki ay" : "Önceki yıl"}
         >
           <ChevronLeft className="size-4" />
         </Button>
         <span className="min-w-[9rem] text-center text-sm font-semibold">
-          {monthLabel(etkinAy)}
+          {ay ? monthLabel(etkinAy) : etkinYil}
         </span>
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
-          onClick={() => ayaGit(monthShift(etkinAy, 1))}
-          aria-label="Sonraki ay"
+          onClick={() =>
+            ay
+              ? ayaGit(monthShift(etkinAy, 1))
+              : yilaGit(String(Number(etkinYil) + 1))
+          }
+          aria-label={ay ? "Sonraki ay" : "Sonraki yıl"}
         >
           <ChevronRight className="size-4" />
         </Button>
-        {etkinAy !== monthOf(bugun) && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => ayaGit(monthOf(bugun))}>
-            Bugün
-          </Button>
+        {ay ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => adreseYaz({ ay: undefined })}
+            >
+              Yıl görünümü
+            </Button>
+            {etkinAy !== bugununAyi && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => ayaGit(bugununAyi)}
+              >
+                Bugün
+              </Button>
+            )}
+          </>
+        ) : (
+          etkinYil !== bugun.slice(0, 4) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => yilaGit(bugun.slice(0, 4))}
+            >
+              Bu yıl
+            </Button>
+          )
         )}
         {/* Tür lejantı — renk tek taşıyıcı olmaz, ad yanında yazar. */}
-        <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
-          {(Object.keys(KIND_DOT) as CalendarEntry["kind"][]).map((k) => (
-            <span
-              key={k}
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
-            >
-              <span className={cn("size-2 shrink-0", KIND_DOT[k])} />
-              {CALENDAR_KIND_LABELS[k]}
-            </span>
-          ))}
+        <span className="w-full min-w-0 sm:ml-auto sm:w-auto">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {(Object.keys(KIND_DOT) as CalendarEntry["kind"][]).map((k) => (
+              <span
+                key={k}
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+              >
+                <span className={cn("size-2 shrink-0", KIND_DOT[k])} />
+                {CALENDAR_KIND_LABELS[k]}
+              </span>
+            ))}
+          </span>
         </span>
       </div>
 
-      {/* MASAÜSTÜ: ay tablosu */}
-      <div className="hidden overflow-hidden rounded-lg border bg-card md:block">
-        <div className="grid grid-cols-7 border-b bg-muted/40">
-          {HAFTA_GUNLERI.map((g) => (
-            <span key={g} className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground">
-              {g}
-            </span>
-          ))}
-        </div>
-        {haftalar.map((hafta, i) => (
-          <div key={i} className="grid grid-cols-7 border-b last:border-b-0">
-            {hafta.map((gun) => {
-              const ayIci = monthOf(gun) === etkinAy;
-              const bugunMu = gun === bugun;
-              const liste = gunler.get(gun) ?? [];
-              return (
-                <div
-                  key={gun}
-                  className={cn(
-                    "min-h-20 border-r p-1 last:border-r-0",
-                    !ayIci && "bg-muted/20"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-grid size-5 place-items-center font-mono text-[11px] tabular-nums",
-                      bugunMu && "bg-primary font-semibold text-primary-foreground",
-                      !ayIci && "text-muted-foreground/50"
-                    )}
-                  >
-                    {Number(gun.slice(8, 10))}
-                  </span>
-                  <div className="mt-0.5 grid gap-0.5">
-                    {liste.slice(0, 3).map((e, j) => (
-                      <Link
-                        key={j}
-                        href={e.href}
-                        title={`${CALENDAR_KIND_LABELS[e.kind]} · ${e.label}`}
-                        className="flex min-w-0 items-center gap-1 px-0.5 text-[11px] hover:bg-muted/60"
-                      >
-                        <span className={cn("size-1.5 shrink-0", KIND_DOT[e.kind])} />
-                        <span className="truncate font-mono">{e.label}</span>
-                      </Link>
-                    ))}
-                    {liste.length > 3 && (
-                      <span className="px-0.5 font-mono text-[10px] text-muted-foreground">
-                        +{liste.length - 3}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* TELEFON: ajanda — yalnız dolu günler */}
-      <div className="grid gap-2 md:hidden">
-        {ajanda.length === 0 ? (
-          <p className="border bg-card px-3 py-6 text-sm text-muted-foreground">
-            {monthLabel(etkinAy)} için kayıtlı tarih yok.
-          </p>
-        ) : (
-          ajanda.map((g) => (
-            <div key={g.date} className="border bg-card">
-              <p
+      {/* İLK GÖRÜNÜM: uzun işlere uygun on iki aylık yük özeti. Ay düğmesi
+          hem toplamı hem tür kırılımını taşır; telefon iki sütunda kalır. */}
+      {!ay && (
+        <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+          {aylar.map((ayAnahtari) => {
+            const liste = aylikGirdiler.get(ayAnahtari) ?? [];
+            const sayilar = liste.reduce<Partial<Record<CalendarEntry["kind"], number>>>(
+              (out, e) => {
+                out[e.kind] = (out[e.kind] ?? 0) + 1;
+                return out;
+              },
+              {}
+            );
+            const buAy = ayAnahtari === bugununAyi;
+            return (
+              <button
+                key={ayAnahtari}
+                type="button"
+                onClick={() => ayaGit(ayAnahtari)}
                 className={cn(
-                  "border-b bg-muted/40 px-3 py-1.5 font-mono text-xs font-medium tabular-nums",
-                  g.date === bugun && "text-primary"
+                  "oc-tap min-w-0 border bg-card p-2.5 text-left transition-colors hover:border-primary/60 hover:bg-muted/30 sm:p-3",
+                  buAy && "border-primary/60 ring-1 ring-primary/20"
                 )}
               >
-                {fmtJobDate(g.date)}
-                {g.date === bugun && " · Bugün"}
-              </p>
-              <ul className="divide-y">
-                {g.entries.map((e, j) => (
-                  <li key={j}>
-                    <Link
-                      href={e.href}
-                      className="flex items-center gap-2 px-3 py-2 text-sm"
-                    >
-                      <span className={cn("size-2 shrink-0", KIND_DOT[e.kind])} />
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {CALENDAR_KIND_LABELS[e.kind]}
+                <span className="flex min-w-0 items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-semibold">
+                    {monthLabel(ayAnahtari).replace(` ${etkinYil}`, "")}
+                  </span>
+                  <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+                    {liste.length}
+                  </span>
+                </span>
+                <span className="mt-2 flex min-h-8 flex-wrap content-start gap-x-2 gap-y-1">
+                  {(Object.keys(KIND_DOT) as CalendarEntry["kind"][])
+                    .filter((k) => (sayilar[k] ?? 0) > 0)
+                    .map((k) => (
+                      <span
+                        key={k}
+                        title={CALENDAR_KIND_LABELS[k]}
+                        className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"
+                      >
+                        <span className={cn("size-1.5 shrink-0", KIND_DOT[k])} />
+                        <span className="font-mono tabular-nums">{sayilar[k]}</span>
                       </span>
-                      <span className="min-w-0 flex-1 truncate font-mono text-xs">
-                        {e.label}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                    ))}
+                  {liste.length === 0 && (
+                    <span className="text-[11px] text-muted-foreground">Kayıt yok</span>
+                  )}
+                </span>
+                {buAy && (
+                  <span className="mt-1 block text-[10px] font-medium text-primary">Bu ay</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {ay && (
+        <>
+          {/* MASAÜSTÜ: ay tablosu */}
+          <div className="hidden overflow-hidden rounded-lg border bg-card md:block">
+            <div className="grid grid-cols-7 border-b bg-muted/40">
+              {HAFTA_GUNLERI.map((g) => (
+                <span key={g} className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground">
+                  {g}
+                </span>
+              ))}
             </div>
-          ))
-        )}
-      </div>
+            {haftalar.map((hafta, i) => (
+              <div key={i} className="grid grid-cols-7 border-b last:border-b-0">
+                {hafta.map((gun) => {
+                  const ayIci = monthOf(gun) === etkinAy;
+                  const bugunMu = gun === bugun;
+                  const liste = gunler.get(gun) ?? [];
+                  return (
+                    <div
+                      key={gun}
+                      className={cn(
+                        "min-h-20 min-w-0 border-r p-1 last:border-r-0",
+                        !ayIci && "bg-muted/20"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-grid size-5 place-items-center font-mono text-[11px] tabular-nums",
+                          bugunMu && "bg-primary font-semibold text-primary-foreground",
+                          !ayIci && "text-muted-foreground/50"
+                        )}
+                      >
+                        {Number(gun.slice(8, 10))}
+                      </span>
+                      <div className="mt-0.5 grid min-w-0 gap-0.5">
+                        {liste.slice(0, 3).map((e, j) => (
+                          <Link
+                            key={j}
+                            href={e.href}
+                            title={`${CALENDAR_KIND_LABELS[e.kind]} · ${e.label}`}
+                            className="flex min-w-0 items-center gap-1 px-0.5 text-[11px] hover:bg-muted/60"
+                          >
+                            <span className={cn("size-1.5 shrink-0", KIND_DOT[e.kind])} />
+                            <span className="truncate font-mono">{e.label}</span>
+                          </Link>
+                        ))}
+                        {liste.length > 3 && (
+                          <span className="px-0.5 font-mono text-[10px] text-muted-foreground">
+                            +{liste.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* TELEFON: ajanda — yalnız dolu günler */}
+          <div className="grid min-w-0 gap-2 md:hidden">
+            {ajanda.length === 0 ? (
+              <p className="border bg-card px-3 py-6 text-sm text-muted-foreground">
+                {monthLabel(etkinAy)} için kayıtlı tarih yok.
+              </p>
+            ) : (
+              ajanda.map((g) => (
+                <div key={g.date} className="min-w-0 border bg-card">
+                  <p
+                    className={cn(
+                      "border-b bg-muted/40 px-3 py-1.5 font-mono text-xs font-medium tabular-nums",
+                      g.date === bugun && "text-primary"
+                    )}
+                  >
+                    {fmtJobDate(g.date)}
+                    {g.date === bugun && " · Bugün"}
+                  </p>
+                  <ul className="min-w-0 divide-y">
+                    {g.entries.map((e, j) => (
+                      <li key={j} className="min-w-0">
+                        <Link
+                          href={e.href}
+                          className="flex min-w-0 items-center gap-2 px-3 py-2 text-sm"
+                        >
+                          <span className={cn("size-2 shrink-0", KIND_DOT[e.kind])} />
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {CALENDAR_KIND_LABELS[e.kind]}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                            {e.label}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
 
       {entries.length === 0 && (
         <p className="hidden text-xs text-muted-foreground md:block">

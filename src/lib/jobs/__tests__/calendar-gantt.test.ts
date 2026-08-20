@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import {
   agendaDays,
   entriesByDay,
+  entriesByMonth,
   monthGrid,
   monthLabel,
   monthOf,
   monthShift,
+  yearMonths,
   type CalendarEntry,
 } from "../calendar";
 import { buildGantt, todayMarker } from "../gantt";
@@ -62,6 +64,30 @@ describe("entriesByDay / agendaDays", () => {
 
   it("monthOf ayı kırpar", () => {
     expect(monthOf("2026-08-05")).toBe("2026-08");
+  });
+});
+
+describe("yearMonths / entriesByMonth", () => {
+  const entries: CalendarEntry[] = [
+    { date: "2026-01-05", kind: "atolye", label: "0055", href: "/jobs/a" },
+    { date: "2026-01-20", kind: "teslim", label: "0055", href: "/jobs/a" },
+    { date: "2026-12-01", kind: "termin", label: "0057", href: "/jobs/b" },
+    { date: "2027-01-01", kind: "gorev", label: "görev", href: "/jobs/b/gorevler" },
+  ];
+
+  it("yılı Ocak'tan Aralık'a on iki aya açar", () => {
+    const aylar = yearMonths("2026");
+    expect(aylar).toHaveLength(12);
+    expect(aylar[0]).toBe("2026-01");
+    expect(aylar[11]).toBe("2026-12");
+    expect(yearMonths("tümü")).toEqual([]);
+  });
+
+  it("yalnız seçilen yılın kayıtlarını aya dağıtır", () => {
+    const aylik = entriesByMonth(entries, "2026");
+    expect(aylik.get("2026-01")).toHaveLength(2);
+    expect(aylik.get("2026-12")).toHaveLength(1);
+    expect(aylik.has("2027-01")).toBe(false);
   });
 });
 

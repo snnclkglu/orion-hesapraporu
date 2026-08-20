@@ -26,6 +26,7 @@ export function StatCard({
   hint,
   icon: Icon,
   dense,
+  responsiveCompact,
   className,
 }: {
   label: string;
@@ -33,39 +34,74 @@ export function StatCard({
   hint?: string;
   icon: React.ComponentType<{ className?: string }>;
   dense?: boolean;
+  /** Telefonda tek satırlık mikro özet, geniş ekranda normal kart. */
+  responsiveCompact?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex items-start rounded-lg border bg-card",
-        dense ? "gap-2 p-2.5" : "gap-3 p-4",
+        "flex min-w-0 items-start rounded-lg border bg-card",
+        responsiveCompact
+          ? "gap-1 p-1.5 sm:gap-2 sm:p-2.5 lg:gap-3 lg:p-4"
+          : dense
+            ? "gap-2 p-2.5"
+            : "gap-3 p-4",
         className
       )}
     >
       <span
         className={cn(
           "flex shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
-          dense ? "size-7" : "size-9"
+          responsiveCompact
+            ? "hidden size-7 sm:flex lg:size-9"
+            : dense
+              ? "size-7"
+              : "size-9"
         )}
       >
-        <Icon className={dense ? "size-3.5" : "size-4"} />
+        <Icon
+          className={
+            responsiveCompact
+              ? "size-3.5 lg:size-4"
+              : dense
+                ? "size-3.5"
+                : "size-4"
+          }
+        />
       </span>
       <div className="min-w-0 leading-tight">
-        <div className="oc-kicker truncate text-muted-foreground" title={label}>
+        <div
+          className={cn(
+            "oc-kicker truncate text-muted-foreground",
+            responsiveCompact && "text-[9px] sm:text-[10px] lg:text-[11px]"
+          )}
+          title={label}
+        >
           {label}
         </div>
         <div
           className={cn(
-            "mt-0.5 font-mono font-semibold tabular-nums tracking-tight",
-            dense ? "text-base" : "text-xl"
+            "mt-0.5 max-w-full truncate font-mono font-semibold tabular-nums tracking-tight",
+            responsiveCompact
+              ? "text-[11px] sm:text-base lg:text-xl"
+              : dense
+                ? "text-base"
+                : "text-xl"
           )}
+          title={value}
         >
           {value}
         </div>
         {/* `truncate` kırptığında tam metnin görünebileceği tek yer ipucudur. */}
         {hint && (
-          <div className="mt-0.5 truncate text-[11px] text-foreground/70" title={hint}>
+          <div
+            className={cn(
+              "mt-0.5 truncate text-[11px] text-foreground/70",
+              responsiveCompact && "hidden lg:block"
+            )}
+            title={hint}
+          >
             {hint}
           </div>
         )}

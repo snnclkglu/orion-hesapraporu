@@ -110,3 +110,19 @@ olabilecek EN KÖTÜ hatadır: matris, menünün gerçekte yaptığından başka
 şey anlatırdı. Matriste elle yazılmış tek bir yetki bilgisi yoktur —
 her hücre `visible()` sorusunun cevabıdır, menünün çağırdığı fonksiyonun
 aynısı. `kime` alanı yalnız o sorunun İNSAN OKUNUR özetidir.
+
+## ROL-16 — Kalıcı silme iki aşamalıdır ve karar izi silinmez.
+
+İş, hesap raporu/revizyonu, teknik resim paketi, teklif/maliyet revizyonu,
+personel kaydı ve uygulamadaki dosya belgeleri doğrudan `DELETE` edilmez.
+Yetkili kullanıcı yalnız `request_deletion()` ile niyet kaydı açar; hedef adı
+ve silme öncesi fotoğraf istemciden alınmaz, veritabanından yeniden okunur. Yönetici
+`/admin/deletion-requests` ekranında onaylar veya gerekçeyle reddeder.
+
+Bu kural yalnız arayüz değildir: korunan tablolardaki
+`guard_approved_deletion` tetikleyicisi, silmeyi ancak
+`approve_deletion_request()` aynı transaction içinde talebi kilitlediyse
+geçirir. Talep satırı güncellenemez/silinemez; karar veren, zaman, not ve hedef
+fotoğrafı kalır. Dosya baytları veritabanı satırından SONRA temizlenir; temizlik
+başarısızsa ana karar geri alınmış gibi gösterilmez, `cleanup_status=failed`
+ile görünür kalır ve Yönetici yeniden dener.

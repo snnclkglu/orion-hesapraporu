@@ -333,3 +333,26 @@ edilir; kullanıcı tonu seçer, pastelliği bozamaz. Yeni müşteri var olan
 tonlardan EN UZAK boşluğu alır (`nextDistinctHue`); defterde karşılığı
 olmayan ad ise metinden türetilir (`hueFromText`), yani ekran hiçbir zaman
 renksiz kalmaz. Aynı mekanizma satış kapsamı etiketlerini de renklendirir.
+
+## IS-28 — İş takvimi YIL ile açılır; ay ayrıntısına İNİLİR.
+
+Kullanıcı kararı (20.08.2026): vinç işleri çoğu zaman uzun bir yıla yayılıyor.
+Takvim görünümünün ilk yüzü bu yüzden içinde bulunulan yılın on iki ayıdır; her
+ay toplam tarih sayısını ve Atölye Çıkış · Teslim · Görev · Termin · Sevk
+kırılımını gösterir. Ay kartına basılınca masaüstünde ay ızgarası, telefonda
+ajanda açılır; **Yıl görünümü** düğmesi geri döner. Dönem süzgecinin varsayılanı
+olan kayan Son 12 Ay DEĞİŞMEDİ — liste/zaman penceresi ile takvimin GÖRSEL
+ÖLÇEĞİ iki ayrı karardır.
+
+Yeni iş emrinde **“Sözleşme var” sorulmaz**; güvenli varsayılan `false`tur.
+Mevcut kaydı düzenleme ekranında bilgi korunur. İş Lideri'nin yanında aynı kişi
+defterini kullanan **Proje Yöneticisi** seçicisi vardır ve belge fotoğrafı
+mantığıyla `jobs.project_manager` alanına METİN yazılır: profil adı sonradan
+değişse de basılmış iş emrinin künyesi değişmez. İş detayı ve İş Emri PDF'i bu
+alanı gösterir. Bu karar IS-27'deki eski “Sözleşme var iş emrinde kaldı”
+cümlesinin YENİ İŞ formu kısmını değiştirir; sözleşme tarihi korunur.
+
+İşler üstündeki dört özet telefonda **tek satırlık mikro karttır**: ikon ve
+ipucu gizlenir, dört sayı 320 px'te de aynı satırda kalır; tablet/masaüstünde
+bilgi kademeli geri açılır. Takvim yıllık kartları telefonda iki sütundur ve
+sayfa `documentElement.scrollWidth > clientWidth` üretmemelidir.

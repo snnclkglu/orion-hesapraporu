@@ -401,6 +401,20 @@ export interface CostTemplateSkeleton {
   groupKeys?: string[];
   /** Grup başına AÇILMAYACAK defter satırları — kapatma, silme değil. */
   closedLines?: Record<string, string[]>;
+  /**
+   * Şablondan eklenen ELLE fiyatlanan satırlar. Kod defterine ait değildir:
+   * adı ve birimi kullanıcı kararının kendisidir, bu yüzden iskelette yaşar.
+   * Miktar/fiyat kaynağı taşımaz; yeni maliyet çalışmasında boş açılır.
+   */
+  customLines?: Record<string, CostTemplateLine[]>;
+}
+
+/** Bir vinç tipine özel, şablon ekranından açılan maliyet satırı. */
+export interface CostTemplateLine {
+  /** `sablon-<uuid>`; tazelemede aynı satırı bulmak için kalıcı kimlik. */
+  key: string;
+  label: string;
+  unit: "kg" | "adet" | "takım" | "ton" | "m" | "saat";
 }
 
 /** Defterdeki bir maliyet şablonu satırı — vinç tipi ↔ iskelet. */

@@ -27,6 +27,7 @@ export const CALENDAR_KIND_LABELS: Record<CalendarEntry["kind"], string> = {
 };
 
 const AY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+const YIL_RE = /^\d{4}$/;
 
 export function monthOf(iso: string): string {
   return iso.slice(0, 7);
@@ -50,6 +51,32 @@ export function monthLabel(ay: string): string {
     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
   ];
   return `${AYLAR[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+/** Bir yılı Ocak→Aralık sırasıyla ay anahtarlarına açar. */
+export function yearMonths(yil: string): string[] {
+  if (!YIL_RE.test(yil)) return [];
+  return Array.from(
+    { length: 12 },
+    (_, i) => `${yil}-${String(i + 1).padStart(2, "0")}`
+  );
+}
+
+/** Yıllık özet için girdileri aya dağıtır; yalnız verilen yıl döner. */
+export function entriesByMonth(
+  entries: readonly CalendarEntry[],
+  yil: string
+): Map<string, CalendarEntry[]> {
+  const out = new Map<string, CalendarEntry[]>();
+  if (!YIL_RE.test(yil)) return out;
+  for (const e of entries) {
+    const ay = monthOf(e.date);
+    if (!ay.startsWith(`${yil}-`)) continue;
+    const liste = out.get(ay);
+    if (liste) liste.push(e);
+    else out.set(ay, [e]);
+  }
+  return out;
 }
 
 function isoGun(y: number, m: number, d: number): string {

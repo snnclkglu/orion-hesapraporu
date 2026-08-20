@@ -9,7 +9,6 @@
 // geri gelmez.
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { deleteRevision } from "../actions";
@@ -30,7 +29,6 @@ export function DeleteRevisionButton({
   revNo: number;
   fallbackRevNo: number | null;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -41,9 +39,8 @@ export function DeleteRevisionButton({
         toast.error(result.error);
         return;
       }
-      toast.success(`V${revNo} silindi.`);
+      toast.success(`V${revNo} için silme talebi Yönetici onayına gönderildi.`);
       setOpen(false);
-      router.refresh();
     });
   }
 
@@ -68,8 +65,8 @@ export function DeleteRevisionButton({
               <DialogTitle>Revizyonu Sil</DialogTitle>
               <DialogDescription>
                 <span className="font-mono">V{revNo}</span> taslağı — girdileri,
-                katalog seçimleri ve ekipman notlarıyla birlikte — kalıcı olarak
-                silinecek.{" "}
+                katalog seçimleri ve ekipman notlarıyla birlikte — kalıcı silme
+                onayına gönderilecek.{" "}
                 {fallbackRevNo === null ? (
                   <>
                     Bu projenin başka revizyonu yok; silindikten sonra hesap
@@ -82,7 +79,7 @@ export function DeleteRevisionButton({
                     kopyasıyla başlar.
                   </>
                 )}{" "}
-                Bu işlem geri alınamaz.
+                Revizyon, Yönetici onaylayana kadar değişmeden kalır.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -95,7 +92,7 @@ export function DeleteRevisionButton({
                 disabled={pending}
                 onClick={handleDelete}
               >
-                {pending ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+                {pending ? "Gönderiliyor…" : "Silme Talebi Gönder"}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -14,7 +14,6 @@
 // der — sıfır bir cevaptır, burada cevap yoktur.
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ExternalLink, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
@@ -202,7 +201,7 @@ export function EmployeeProfile({
   function sil() {
     if (
       !window.confirm(
-        `${employee.fullName} kaydı silinecek. İşten ayrıldıysa silmek yerine çalışma dönemini kapatın. Devam edilsin mi?`
+        `${employee.fullName} için kalıcı silme talebi Yönetici onayına gönderilecek. İşten ayrıldıysa silmek yerine çalışma dönemini kapatın. Devam edilsin mi?`
       )
     ) {
       return;
@@ -213,8 +212,7 @@ export function EmployeeProfile({
         toast.error(res.error);
         return;
       }
-      toast.success("Personel silindi.");
-      router.push("/personnel");
+      toast.success("Silme talebi Yönetici onayına gönderildi.");
     });
   }
 
@@ -233,16 +231,6 @@ export function EmployeeProfile({
 
   return (
     <div className="grid gap-4">
-      {/* GERİ BAĞLANTISI GÖVDEDEDİR: kabuğun başlığında geri oku yok ve
-          kırıntı yolu yalnız `xl` üstünde görünür (AGENTS md. 13). */}
-      <Link
-        href="/personnel"
-        className="oc-tap inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <span aria-hidden="true" className="font-mono">←</span>
-        Personel Listesi
-      </Link>
-
       {/* ══════════════════════════════════════════════════ 1) kimlik kartı */}
       <section className="border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b px-4 py-3">

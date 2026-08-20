@@ -35,6 +35,7 @@ export default async function PackageOverviewPage({
   // 454 dosyalı bir pakette yüzlerce KB olurdu.
   return (
     <AssemblyTree
+      packageId={id}
       parts={parcalar}
       files={dosyalar.map((d) => ({
         id: d.id,

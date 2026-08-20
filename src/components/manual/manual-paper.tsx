@@ -37,6 +37,7 @@ import {
   SUTUN_BOSLUK,
   SUTUN_GENISLIK,
   TAM_GENISLIK,
+  MANUAL_DIZIN_SAYFA_KAPASITESI,
   MANUAL_UST_BANT_ALT_BOSLUK,
   MANUAL_UST_BANT_YUKSEKLIK,
   bolumSayfalari,
@@ -109,7 +110,7 @@ export interface ManualPaperOlcu {
  * Gövdenin yerleşimi — editör bunu sayfa numarası göstermek için de çağırır.
  *
  * `pdf/manual.tsx`teki aritmetiğin AYNISI: ek kapsayıcısı gövdeden ayrılır,
- * gövde iki sütunda akar, ofset kapak + içindekiler kadardır.
+ * ana bölümler kesintisiz akar, ofset kapak + içindekiler kadardır.
  */
 export function manualOnizlemeOlcusu(
   payload: ManualPayload,
@@ -119,8 +120,13 @@ export function manualOnizlemeOlcusu(
   const numarali = numberManual(printedManual(payload).sections);
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
-  const sayfalar = manualPdfSayfalari(manualAtomlari(govdeBolumleri, sources, oranlar));
-  const govdeOfset = flattenManual(numarali).length > 0 ? 2 : 1;
+  const atomlar = govdeBolumleri.flatMap((bolum) =>
+    manualAtomlari([bolum], sources, oranlar)
+  );
+  const sayfalar = manualPdfSayfalari(atomlar);
+  const govdeBolumSayisi = flattenManual(govdeBolumleri).length;
+  const dizinSayfasi = Math.ceil(govdeBolumSayisi / MANUAL_DIZIN_SAYFA_KAPASITESI);
+  const govdeOfset = 1 + dizinSayfasi;
   return { sayfalar, sayfaNo: bolumSayfalari(sayfalar, govdeOfset), govdeOfset };
 }
 
@@ -347,6 +353,17 @@ function KapakIcerigi({
         {trUpper(payload.docTitle)}
       </div>
       <div style={{ marginTop: pt(8), width: pt(64), height: pt(2), background: BRAND.red }} />
+      <div
+        style={{
+          marginTop: pt(7),
+          fontFamily: "var(--font-mono)",
+          fontSize: pt(7.5),
+          letterSpacing: pt(0.8),
+          color: BRAND.gray600,
+        }}
+      >
+        OPERATÖR GÜVENLİĞİ · KULLANIM · BAKIM · MUAYENE
+      </div>
       <div
         style={{
           marginTop: pt(mm(10)),
