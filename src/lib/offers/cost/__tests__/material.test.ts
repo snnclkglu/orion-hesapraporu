@@ -118,15 +118,15 @@ describe("hammadde şeridi — kullanıcının kendi sekiz fiyatı (18.08.2026)"
     ]);
   });
 
-  it("varsayılanlar 0,70 · 0,65 · 0,90 · 1,20 · 0,05 · 0,90 · 0,08 · 0,07 €/kg", () => {
+  it("global defter tohumu 0,70 · 0,70 · 0,90 · 1,10 · 0,10 · 0,74 · 0,08 · 0,07 €/kg", () => {
     expect(MATERIAL_PRICE_DEFS.map((d) => d.value)).toEqual([
-      0.7, 0.65, 0.9, 1.2, 0.05, 0.9, 0.08, 0.07,
+      0.7, 0.7, 0.9, 1.1, 0.1, 0.74, 0.08, 0.07,
     ]);
   });
 
   it("RAY İKİ AYRI FİYATTIR — tek bir 'ray' anahtarı YOKTUR", () => {
     expect(MATERIAL_PRICE_DEFAULTS.rayKare).toBe(0.9);
-    expect(MATERIAL_PRICE_DEFAULTS.rayA).toBe(1.2);
+    expect(MATERIAL_PRICE_DEFAULTS.rayA).toBe(1.1);
     expect(MATERIAL_PRICE_DEFAULTS.ray).toBeUndefined();
     expect(materialPriceDef("ray")).toBeUndefined();
     // ADLAR BÜYÜK HARFTİR (kullanıcı isteği 19.08.2026) — şerit de maliyet
@@ -138,14 +138,22 @@ describe("hammadde şeridi — kullanıcının kendi sekiz fiyatı (18.08.2026)"
   it("YENİ BELGE sekiz fiyatı kendi içine KOPYALAR", () => {
     expect(emptyCostPayload().materialPrices).toEqual({
       sac: 0.7,
-      profil: 0.65,
+      profil: 0.7,
       rayKare: 0.9,
-      rayA: 1.2,
-      kesim: 0.05,
-      celikIsciligi: 0.9,
+      rayA: 1.1,
+      kesim: 0.1,
+      celikIsciligi: 0.74,
       boya: 0.08,
       boyaIsciligi: 0.07,
     });
+  });
+
+  it("yeni belge global defterden verilen anlık fiyat kopyasını kullanır", () => {
+    const global = { sac: 0.83, profil: 0.76, rayKare: null };
+    const belge = emptyCostPayload("EUR", global);
+    expect(belge.materialPrices).toEqual(global);
+    belge.materialPrices.sac = 0.91;
+    expect(global.sac).toBe(0.83);
   });
 
   it("kopyadır: belgede yükseltilen sac fiyatı defteri ve sonraki belgeyi ETKİLEMEZ", () => {
@@ -187,7 +195,7 @@ describe("FİYATIN İKİ KAYNAĞI ASLA TOPLANMAZ", () => {
   it("şerit bağı varsa fiyat ŞERİTTEN okunur — satırın kendi sayısı değil", () => {
     expect(linePrice(satir({ priceSource: "sac", unitPrice: 9.99 }), serit())).toBe(0.7);
     expect(linePrice(satir({ priceSource: "rayKare" }), serit())).toBe(0.9);
-    expect(linePrice(satir({ priceSource: "rayA" }), serit())).toBe(1.2);
+    expect(linePrice(satir({ priceSource: "rayA" }), serit())).toBe(1.1);
   });
 
   it("priceManual açıksa SATIRIN KENDİ fiyatı geçerlidir, şerit ona dokunmaz", () => {
@@ -246,48 +254,46 @@ describe("withCostDerived — miktar, fiyat ve toplam BİRLİKTE tazelenir", () 
     expect(l("paintLabour").unitPrice).toBe(0.07);
   });
 
-  it("işçilik ve kesim FİRE DAHİL ağırlığı 0,90 ve 0,05 €/kg ile fiyatlar", () => {
+  it("işçilik ve kesim FİRE DAHİL ağırlığı 0,74 ve 0,10 €/kg ile fiyatlar", () => {
     // İŞÇİLİK KENDİ ANA BAŞLIĞINDADIR (md. 4) — çelik yapıda değil.
     const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
     const isc = imalat.lines.find((x) => x.key === "fabrication")!;
     expect(isc.qty).toBeCloseTo(56100, 6);
-    expect(isc.unitPrice).toBe(0.9);
+    expect(isc.unitPrice).toBe(0.74);
     // KESİM DE FİRELİ KİLODAN FİYATLANIR (kullanıcı kararı 19.08.2026):
     // tezgâh, kesilen parçayı değil makineye giren levhayı ölçer.
     expect(l("laserCut").qty).toBeCloseTo(56100, 6);
-    expect(l("laserCut").unitPrice).toBe(0.05);
+    expect(l("laserCut").unitPrice).toBe(0.1);
   });
 
   it("iki ray satırının FİYATI yazılır ama MİKTARI boştur — ikisi de toplama girmez", () => {
     expect(l("rail").unitPrice).toBe(0.9);
-    expect(l("railA").unitPrice).toBe(1.2);
+    expect(l("railA").unitPrice).toBe(1.1);
     expect(l("rail").qty).toBeNull();
     expect(l("railA").qty).toBeNull();
-    expect(l("profile").unitPrice).toBe(0.65);
+    expect(l("profile").unitPrice).toBe(0.7);
     expect(l("profile").qty).toBeNull();
   });
 
-  it("BAŞLIK DEĞİŞTİ, TOPLAM DEĞİŞMEDİ — imalat ayrıldı, doğrudan maliyet aynı", () => {
+  it("güncel global fiyat kopyası bütün bağlı satırlara tutarlı yansır", () => {
     const imalat = p.items[0].groups.find((g) => g.key === "fabrication")!;
     // ÇELİK YAPI artık işçiliği İÇERMEZ; sac VE kesim fire dahil tartılır:
-    // 56.100×0,70 + 56.100×0,05 + 59.500×0,08 + 59.500×0,07
-    expect(costGroupTotal(celik)).toBeCloseTo(39270 + 2805 + 4760 + 4165, 4);
-    // İMALAT MALİYETİ kendi başlığında: 56.100×0,90
-    expect(costGroupTotal(imalat)).toBeCloseTo(50490, 4);
+    // 56.100×0,70 + 56.100×0,10 + 59.500×0,08 + 59.500×0,07
+    expect(costGroupTotal(celik)).toBeCloseTo(39270 + 5610 + 4760 + 4165, 4);
+    // İMALAT MALİYETİ kendi başlığında: 56.100×0,74
+    expect(costGroupTotal(imalat)).toBeCloseTo(41514, 4);
 
     const t = costTotals(p);
-    expect(t.fabrication).toBeCloseTo(50490, 4);
-    expect(t.project).toBeCloseTo(51000, 4);
+    expect(t.fabrication).toBeCloseTo(41514, 4);
+    expect(t.project).toBeCloseTo(53805, 4);
 
     // BİR SATIRI BİR BAŞLIKTAN ÖTEKİNE TAŞIMAK TOPLAMI DEĞİŞTİRMEZ. Oran
     // tabanı DOĞRUDAN MALİYETTİR (imalat + proje); imalat tabandan
     // düşülseydi toplam ciddi biçimde düşerdi, yani yalnız ekran düzenini
     // değiştiren bir istek her teklifin kâr marjını kaydırırdı
-    // (MALIYET-5'in kardeş kararı). Taban 19.08.2026'da 101.235 → 101.490 €
-    // oldu ve fark TAM OLARAK (56.100 − 51.000) × 0,05 = 255 €'dur: kesim
-    // artık fireli kilodan fiyatlanıyor.
-    expect(p.direct).toBeCloseTo(101490, 4);
-    expect(p.total).toBeCloseTo(101490 * 1.19, 4);
+    // (MALIYET-5'in kardeş kararı). Güncel fiyatlarla taban 95.319 €'dur.
+    expect(p.direct).toBeCloseTo(95319, 4);
+    expect(p.total).toBeCloseTo(95319 * 1.19, 4);
   });
 
   it("elle girilmiş fiyat tazelemeden SAĞ ÇIKAR", () => {
@@ -392,11 +398,11 @@ describe("tazeleme defterin YENİ satırlarını ekler, eskisini silmez", () => 
     expect(l("paint").priceManual).toBe(false);
   });
 
-  it("bir sonraki fiyat yazımında 0,95 kalır, yeni ray satırı şeritten 1,20 alır", () => {
+  it("bir sonraki fiyat yazımında 0,95 kalır, yeni ray satırı şeritten 1,10 alır", () => {
     const dolu = withMaterialPrices({ ...yeni, materialPrices: serit() });
     const g = dolu.items[0].groups[0];
     expect(g.lines.find((x) => x.key === "rail")?.unitPrice).toBe(0.95);
-    expect(g.lines.find((x) => x.key === "railA")?.unitPrice).toBe(1.2);
+    expect(g.lines.find((x) => x.key === "railA")?.unitPrice).toBe(1.1);
     expect(g.lines.find((x) => x.key === "paint")?.unitPrice).toBe(0.08);
   });
 });

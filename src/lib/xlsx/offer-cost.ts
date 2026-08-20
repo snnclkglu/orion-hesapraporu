@@ -43,6 +43,7 @@ import {
   writeTitleBlock,
 } from "@/lib/excel/brand";
 import { teknikDegerBuyuk } from "@/lib/offers/buyuk";
+import { baslikDuzeni } from "@/lib/tr-text";
 import { qtySourceLabel } from "@/lib/offers/cost/labels";
 import {
   costModels,
@@ -77,8 +78,8 @@ const IC_BELGE = "İÇ BELGE — MÜŞTERİYE VERİLMEZ";
 const SUTUN = 9;
 
 // Biçimler: PARA ve ORAN dışındaki her sayı (kg, adet, miktar) tek biçimdedir.
-const SAYI = "#,##0.##";
-const ORAN = "0.0%";
+const SAYI = "#,##0";
+const ORAN = "0%";
 
 /**
  * PARA BİRİMİ BİÇİMİN İÇİNE YAZILIR, hücreye metin olarak DEĞİL.
@@ -89,7 +90,7 @@ const ORAN = "0.0%";
  */
 function paraBicimi(currency: string): string {
   const kod = (currency || "EUR").replace(/[^\p{L}\p{N}]/gu, "");
-  return `#,##0.00" ${kod}"`;
+  return `#,##0" ${kod}"`;
 }
 
 /**
@@ -321,7 +322,7 @@ function ozetSayfasi(
   const anaSatir = (etiket: string, tutar: number | null, kip = "", yuzde: number | null = null) => {
     const row = ws.getRow(r++);
     row.getCell(1).value = etiket;
-    row.getCell(2).value = kip;
+    row.getCell(2).value = kip || null;
     yuzdeHucresi(row, 3, yuzde);
     sayiHucresi(row, 4, tutar, para);
     cizgi(row, 4);
@@ -366,8 +367,8 @@ function ozetSayfasi(
   // girdiğini ancak toplayarak anlardı.
   karSatiri("MALİYET BELGESİNİN TOPLAMI", ozet.documentTotal);
   karSatiri("FİYAT SATIRLARININ ELLE MALİYETİ", ozet.manualTotal);
-  karSatiri("TOPLAM MALİYET (BELGE + ELLE)", ozet.margin.cost, true);
-  karSatiri("TEKLİF TUTARI (İSKONTOLU)", ozet.margin.price, true);
+  karSatiri("TOPLAM MALİYET", ozet.margin.cost, true);
+  karSatiri("TEKLİF TUTARI", ozet.margin.price, true);
   karSatiri("KÂR", ozet.margin.profit, true);
   // İKİ ORAN BİRDEN (MALIYET-11): "%25 kâr" cümlesi satışın %25'ini de
   // maliyetin %25'ini de anlatabilir ve ikisi aynı belgede farklı sayılardır.
@@ -410,7 +411,10 @@ function ozetSayfasi(
     sayiHucresi(row, 6, i.weightPackageKg, SAYI);
     sayiHucresi(row, 7, i.unit, para);
     sayiHucresi(row, 8, i.package, para);
-    sayiHucresi(row, 9, costPerKg(i.unit, i.weightKg), birimFiyatBicimi(cur));
+    // Özet sayfasındaki hesaplanan EUR/kg metriği de diğer özet rakamları
+    // gibi ondalıksız görünür; hammadde defterindeki gerçek giriş fiyatları
+    // aşağıdaki ayrı tabloda hassasiyetini korur.
+    sayiHucresi(row, 9, costPerKg(i.unit, i.weightKg), SAYI);
     cizgi(row, SUTUN);
   }
   const kalemToplam = ws.getRow(r++);
@@ -421,14 +425,7 @@ function ozetSayfasi(
   // (`totals.direct`) bunun üstüne bir de PROJE GENELİ grubunu ekler. İkisini
   // aynı hücrede göstermek, okuyanın sütunu toplayıp tutturamamasına yol
   // açardı — proje geneli kendi sayfasında ayrı durur.
-  sayiHucresi(
-    kalemToplam,
-    8,
-    ozet.items.some((i) => i.package !== null)
-      ? ozet.items.reduce((t, i) => t + (i.package ?? 0), 0)
-      : null,
-    para
-  );
+  sayiHucresi(kalemToplam, 8, ozet.packageTotal, para);
   toplamBicimi(kalemToplam, SUTUN);
   r += 1;
 
@@ -549,7 +546,7 @@ function grupSatirlari(
   refOf: (groupKey: string, lineKey: string) => string | null
 ): number {
   const para = paraBicimi(cur);
-  const birimFiyat = birimFiyatBicimi(cur);
+  const hassasBirimFiyat = birimFiyatBicimi(cur);
   let r = baslangic;
   const grupAdi = teknikDegerBuyuk(group.title);
   for (const l of group.lines) {
@@ -557,8 +554,11 @@ function grupSatirlari(
     row.getCell(1).value = grupAdi;
     row.getCell(2).value = teknikDegerBuyuk(l.label) || "—";
     sayiHucresi(row, 3, l.qty, SAYI);
-    row.getCell(4).value = l.unit || "";
-    sayiHucresi(row, 5, l.unitPrice, birimFiyat);
+    row.getCell(4).value = baslikDuzeni(l.unit) || "";
+    // Malzeme şeridinden gelen €/kg fiyatlarında 0,70 gibi hassasiyet
+    // zorunludur; diğer satın alma fiyatları kullanıcının istediği biçimde
+    // ondalıksız ve binlik ayraçlı görünür.
+    sayiHucresi(row, 5, l.unitPrice, l.priceSource ? hassasBirimFiyat : para);
     sayiHucresi(row, 6, costLineAmount(l), para);
     // MİKTARIN KAYNAĞI YAZILIR (MALIYET-4): iki kaynak asla toplanmaz ve
     // hangisinin geçerli olduğu belgeye bakarak anlaşılmalıdır.
@@ -704,7 +704,7 @@ function projeGeneliSayfasi(
       const row = ws.getRow(r++);
       row.getCell(1).value = teknikDegerBuyuk(l.label) || "—";
       sayiHucresi(row, 2, l.qty, SAYI);
-      row.getCell(3).value = l.unit || "";
+      row.getCell(3).value = baslikDuzeni(l.unit) || "";
       sayiHucresi(row, 4, l.unitPrice, birimFiyatBicimi(cur));
       sayiHucresi(row, 5, costLineAmount(l), para);
       row.getCell(6).value = l.note ?? "";

@@ -93,6 +93,22 @@ export function fmtMoney(
 }
 
 /**
+ * Ondalıksız tutar + para birimi simgesi ("236.927 €").
+ *
+ * Maliyet ekranı ve iç maliyet belgeleri kuruş göstermediği için ayrı bir
+ * yardımcıdır. Genel `fmtMoney` değiştirilmez: satış, bordro ve başka belge
+ * türlerinin hassasiyet kararı maliyet ekranındaki bir tercihle değişmemelidir.
+ */
+export function fmtMoney0(
+  v: number | string | null | undefined,
+  currency: Currency | string | null | undefined
+): string {
+  const s = fmtTutar(v);
+  if (s === "—") return s;
+  return `${s} ${CURRENCY_SYMBOLS[currencyOf(currency)]}`;
+}
+
+/**
  * Büyük tutarları kısaltır (kart başlıkları için): 5.752.874 → "5,75 M€".
  * Tabloda KULLANILMAZ — orada tam sayı görünmelidir.
  */

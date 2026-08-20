@@ -268,6 +268,8 @@ export async function setCustomerLogo(
     file: input.fileName,
     width: olcum.width,
     height: olcum.height,
+    content_width: olcum.contentWidth,
+    content_height: olcum.contentHeight,
   });
   revalidateCustomerViews();
   return { ok: true };

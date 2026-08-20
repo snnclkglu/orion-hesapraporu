@@ -54,7 +54,9 @@ import {
   offerTotal,
   paymentLineText,
   paymentPercentTotal,
+  priceLineNumbers,
   vatNote,
+  withValidPriceLineParents,
   withTotal,
 } from "../pricing";
 import {
@@ -254,6 +256,30 @@ describe("fiyat toplamı", () => {
   });
 });
 
+describe("fiyat satırı hiyerarşisi", () => {
+  it("ana satırları ve seçilmiş alt satırları 1 / 1.1 / 1.2 / 2 numaralar", () => {
+    const vinc = { ...newPriceLine(), description: "VİNÇ" };
+    const yol = { ...newPriceLine(), description: "YÜRÜME YOLU", parentLineId: vinc.id };
+    const bara = { ...newPriceLine(), description: "BARA", parentLineId: vinc.id };
+    const ikinci = { ...newPriceLine(), description: "İKİNCİ VİNÇ" };
+    expect(priceLineNumbers([vinc, yol, bara, ikinci]).map((n) => n.label)).toEqual([
+      "1",
+      "1.1",
+      "1.2",
+      "2",
+    ]);
+  });
+
+  it("alt satır olan ebeveyne bağı ana satıra yükseltir", () => {
+    const a = newPriceLine();
+    const alt = { ...newPriceLine(), parentLineId: a.id };
+    const bozuk = { ...newPriceLine(), parentLineId: alt.id };
+    const normalize = withValidPriceLineParents([a, alt, bozuk]);
+    expect(priceLineNumbers(normalize).map((n) => n.label)).toEqual(["1", "1.1", "2"]);
+    expect(normalize[2].parentLineId).toBeNull();
+  });
+});
+
 // ————————————————————————————————————————————————————————— iskonto
 
 describe("iskontolu toplam", () => {
@@ -383,6 +409,18 @@ describe("başka müşteriye kopyalama", () => {
     expect(yeni.pricing.lines[0].id).not.toBe(kaynakP.pricing.lines[0].id);
     expect(yeni.pricing.lines[0].itemId).toBe(yeni.items[0].id);
   });
+
+  it("fiyat alt satır bağı yeni fiyat kimliğine taşınır", () => {
+    const p = kaynak();
+    p.pricing.lines.push({
+      ...newPriceLine(p.items[0].id),
+      description: "BARA",
+      parentLineId: p.pricing.lines[0].id,
+    });
+    const yeni = copyPayloadForCustomer(p, { customerName: "X" });
+    expect(yeni.pricing.lines[1].parentLineId).toBe(yeni.pricing.lines[0].id);
+    expect(yeni.pricing.lines[1].parentLineId).not.toBe(p.pricing.lines[0].id);
+  });
 });
 
 describe("kalemi aynı teklife kopyalama", () => {
@@ -460,6 +498,19 @@ describe("kalemi aynı teklife kopyalama", () => {
     expect(payload.pricing.lines.map((l) => l.itemId)).toEqual([p.items[0].id, kopya.id, null]);
     expect(payload.pricing.lines[1].unitPrice).toBe(55_900);
     expect(payload.pricing.lines[1].id).not.toBe(payload.pricing.lines[0].id);
+  });
+
+  it("kopyalanan fiyat satırlarının ana/alt bağı kendi kopya kimliklerine döner", () => {
+    const p = teklif();
+    p.pricing.lines.splice(1, 0, {
+      ...newPriceLine(p.items[0].id),
+      description: "BARA",
+      parentLineId: p.pricing.lines[0].id,
+    });
+    const { payload, kopya } = kopyala(p);
+    const kopyaSatirlari = payload.pricing.lines.filter((line) => line.itemId === kopya.id);
+    expect(kopyaSatirlari).toHaveLength(2);
+    expect(kopyaSatirlari[1].parentLineId).toBe(kopyaSatirlari[0].id);
   });
 
   it("kalemin fiyat satırı YOKSA fiyat tablosu hiç değişmez", () => {

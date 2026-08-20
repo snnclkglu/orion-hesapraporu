@@ -18,7 +18,8 @@
 import React from "react";
 import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import { BRAND, BrandBand, BrandPage, FONTS, PAGE, T, mm, trUpper } from "@/lib/pdf/brand";
-import { fmtMoney, fmtNum } from "@/lib/currency";
+import { fmtMoney0, fmtNum, fmtTutar } from "@/lib/currency";
+import { baslikDuzeni } from "@/lib/tr-text";
 import { COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import {
   CALC_SECTIONS,
@@ -314,10 +315,12 @@ function MaliyetGrubu({
               {!l.qtyManual && kaynak ? <Text style={S.not}>Miktar: {kaynak}</Text> : null}
             </View>
             <Text style={[S.deger, { width: MALIYET_SUTUN.miktar }]}>{fmtNum(l.qty)}</Text>
-            <Text style={[S.deger, { width: MALIYET_SUTUN.birim }]}>{l.unit || "—"}</Text>
-            <Text style={[S.deger, { width: MALIYET_SUTUN.fiyat }]}>{fmtNum(l.unitPrice)}</Text>
+            <Text style={[S.deger, { width: MALIYET_SUTUN.birim }]}>{baslikDuzeni(l.unit) || "—"}</Text>
+            <Text style={[S.deger, { width: MALIYET_SUTUN.fiyat }]}>
+              {l.priceSource ? fmtNum(l.unitPrice) : fmtTutar(l.unitPrice)}
+            </Text>
             <Text style={[S.deger, { width: MALIYET_SUTUN.tutar }]}>
-              {fmtMoney(costLineAmount(l), currency)}
+              {fmtMoney0(costLineAmount(l), currency)}
             </Text>
           </View>
         );
@@ -327,7 +330,7 @@ function MaliyetGrubu({
           kalın çizgisi bir sayfada, sayısı ötekinde kalırdı. */}
       <View style={[S.satir, { borderBottomWidth: 0.8, borderBottomColor: BRAND.line350 }]} wrap={false}>
         <Text style={[S.etiket, S.satirEtiket, S.kalin]}>{trUpper(group.title)} TOPLAMI</Text>
-        <Text style={[S.deger, S.kalin, { width: DEGER_SUTUN }]}>{fmtMoney(toplam, currency)}</Text>
+        <Text style={[S.deger, S.kalin, { width: DEGER_SUTUN }]}>{fmtMoney0(toplam, currency)}</Text>
       </View>
     </View>
   );
@@ -391,7 +394,7 @@ export function OfferCostDocument({
           <Text style={[T.kicker, { marginBottom: 4 }]}>DÖRT ANA BAŞLIK</Text>
           <View style={S.ozetSatir}>
             <Text style={[S.etiket, S.satirEtiket]}>PROJE MALİYETİ</Text>
-            <Text style={[S.deger, S.kalin]}>{fmtMoney(totals.direct, cur)}</Text>
+            <Text style={[S.deger, S.kalin]}>{fmtMoney0(totals.direct, cur)}</Text>
           </View>
           {totals.rates.map((r) => (
             <View key={r.key} style={S.ozetSatir}>
@@ -399,12 +402,12 @@ export function OfferCostDocument({
                 {r.title}
                 {r.mode === "oran" && r.percent !== null ? `  (%${fmtNum(r.percent)})` : "  (kalem)"}
               </Text>
-              <Text style={S.deger}>{fmtMoney(r.amount, cur)}</Text>
+              <Text style={S.deger}>{fmtMoney0(r.amount, cur)}</Text>
             </View>
           ))}
           <View style={S.ozetToplam}>
             <Text style={[S.etiket, S.satirEtiket, S.kalin]}>TOPLAM MALİYET</Text>
-            <Text style={[S.deger, S.kalin]}>{fmtMoney(totals.total, cur)}</Text>
+            <Text style={[S.deger, S.kalin]}>{fmtMoney0(totals.total, cur)}</Text>
           </View>
           <Text style={[S.not, { marginTop: 4 }]}>
             Oranlar PROJE MALİYETİ üzerinden hesaplanır (kullanıcı kararı,
@@ -415,20 +418,20 @@ export function OfferCostDocument({
         <View style={S.ozetKutu}>
           <Text style={[T.kicker, { marginBottom: 4 }]}>TEKLİF VE KÂR</Text>
           <View style={S.ozetSatir}>
-            <Text style={[S.etiket, S.satirEtiket]}>Teklif Tutarı (müşterinin ödeyeceği)</Text>
-            <Text style={S.deger}>{fmtMoney(kar.price, cur)}</Text>
+            <Text style={[S.etiket, S.satirEtiket]}>Teklif Tutarı</Text>
+            <Text style={S.deger}>{fmtMoney0(kar.price, cur)}</Text>
           </View>
           <View style={S.ozetSatir}>
             <Text style={[S.etiket, S.satirEtiket]}>Toplam Maliyet</Text>
-            <Text style={S.deger}>{fmtMoney(kar.cost, cur)}</Text>
+            <Text style={S.deger}>{fmtMoney0(kar.cost, cur)}</Text>
           </View>
           <View style={S.ozetToplam}>
             <Text style={[S.etiket, S.satirEtiket, S.kalin]}>KÂR</Text>
             <Text style={[S.deger, S.kalin]}>
-              {fmtMoney(kar.profit, cur)}
+              {fmtMoney0(kar.profit, cur)}
               {kar.marginPercent === null
                 ? ""
-                : `   (satış üzerinden %${fmtCostField(kar.marginPercent, 1)} · maliyet üzerinden %${fmtCostField(kar.markupPercent, 1)})`}
+                : `   (satış üzerinden %${fmtCostField(kar.marginPercent, 0)} · maliyet üzerinden %${fmtCostField(kar.markupPercent, 0)})`}
             </Text>
           </View>
         </View>
@@ -442,9 +445,9 @@ export function OfferCostDocument({
         {kirilim.map((r) => (
           <View key={r.key} style={S.satir} wrap={false}>
             <Text style={[S.etiket, S.satirEtiket]}>{trUpper(r.title)}</Text>
-            <Text style={[S.deger, { width: KIRILIM_SUTUN.tutar }]}>{fmtMoney(r.amount, cur)}</Text>
+            <Text style={[S.deger, { width: KIRILIM_SUTUN.tutar }]}>{fmtMoney0(r.amount, cur)}</Text>
             <Text style={[S.deger, { width: KIRILIM_SUTUN.pay }]}>
-              {r.share === null ? "—" : `%${fmtCostField(r.share * 100, 1)}`}
+              {r.share === null ? "—" : `%${fmtCostField(r.share * 100, 0)}`}
             </Text>
           </View>
         ))}
@@ -464,10 +467,10 @@ export function OfferCostDocument({
             <Text style={[S.deger, { width: KALEM_SUTUN.adet }]}>{fmtNum(i.qty)}</Text>
             <Text style={[S.deger, { width: KALEM_SUTUN.agirlik }]}>{fmtNum(i.weightKg)}</Text>
             <Text style={[S.deger, { width: KALEM_SUTUN.kgFiyat }]}>
-              {fmtCostField(costPerKg(i.unit, i.weightKg), 2)}
+              {fmtCostField(costPerKg(i.unit, i.weightKg), 0)}
             </Text>
-            <Text style={[S.deger, { width: KALEM_SUTUN.birim }]}>{fmtMoney(i.unit, cur)}</Text>
-            <Text style={[S.deger, { width: KALEM_SUTUN.paket }]}>{fmtMoney(i.package, cur)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.birim }]}>{fmtMoney0(i.unit, cur)}</Text>
+            <Text style={[S.deger, { width: KALEM_SUTUN.paket }]}>{fmtMoney0(i.package, cur)}</Text>
           </View>
         ))}
       </BrandPage>
@@ -615,7 +618,7 @@ export function OfferCostDocument({
                   // Ek KULLANILMAZ ("%2'i" yanlış, "%2'si" doğru): Türkçe uyum
                   // sayının OKUNUŞUNA bağlıdır. Çarpım biçimi hepsinde doğru.
                   etiket={`Proje maliyeti × %${fmtNum(r.percent)}`}
-                  deger={fmtMoney(tutar, cur)}
+                  deger={fmtMoney0(tutar, cur)}
                   kalin
                 />
               ) : (
@@ -624,10 +627,10 @@ export function OfferCostDocument({
                     <Deger
                       key={l.id}
                       etiket={l.label || "—"}
-                      deger={fmtMoney(costLineAmount(l), cur)}
+                      deger={fmtMoney0(costLineAmount(l), cur)}
                     />
                   ))}
-                  <Deger etiket="TOPLAM" deger={fmtMoney(tutar, cur)} kalin />
+                  <Deger etiket="TOPLAM" deger={fmtMoney0(tutar, cur)} kalin />
                 </>
               )}
             </View>

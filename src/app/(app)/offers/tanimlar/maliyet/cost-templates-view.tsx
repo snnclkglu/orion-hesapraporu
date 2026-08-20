@@ -16,7 +16,7 @@ import {
   type CostTemplateResult,
 } from "./actions";
 import { trKatla } from "@/lib/drawings/tr-text";
-import { adBuyuk } from "@/lib/tr-text";
+import { adBuyuk, baslikDuzeni } from "@/lib/tr-text";
 import {
   COST_GROUP_DEFS,
   COST_UNITS,
@@ -51,6 +51,11 @@ export interface CostTemplateRow {
   skeleton: CostTemplateSkeleton | null;
   sort: number;
   active: boolean;
+}
+
+export interface CostCatalogLine {
+  label: string;
+  unit: string;
 }
 
 /** PROJE GENELİ vinç tipine değil bütün maliyet belgesine aittir. */
@@ -89,10 +94,12 @@ function kalemSayisi(s: CostTemplateSkeleton): number {
 export function CostTemplatesView({
   craneTypes,
   templates,
+  catalog = [],
   preview = false,
 }: {
   craneTypes: string[];
   templates: CostTemplateRow[];
+  catalog?: CostCatalogLine[];
   /** Yalnız `/dev` görsel önizlemesinde veritabanına yazmayı kapatır. */
   preview?: boolean;
 }) {
@@ -101,6 +108,7 @@ export function CostTemplatesView({
   const [secili, setSecili] = useState<string | null>(craneTypes[0] ?? templates[0]?.crane_type ?? null);
   const [yerel, setYerel] = useState<Record<string, CostTemplateSkeleton>>({});
   const [eklemeGrubu, setEklemeGrubu] = useState<string | null>(null);
+  const [eklenecek, setEklenecek] = useState("__new__");
   const [yeniAd, setYeniAd] = useState("");
   const [yeniBirim, setYeniBirim] = useState<(typeof COST_UNITS)[number]>("adet");
 
@@ -117,6 +125,19 @@ export function CostTemplatesView({
     for (const t of templates) if (!katlanmis.has(trKatla(t.crane_type))) liste.push(t.crane_type);
     return liste;
   }, [craneTypes, templates]);
+
+  // VERİTABANI KATALOĞU + eski şablonlarda zaten bulunan özel kalemler.
+  // Göçten önce yazılmış bir kalem de yeniden seçim listesinde kaybolmaz.
+  const katalog = useMemo(() => {
+    const map = new Map<string, CostCatalogLine>();
+    for (const line of catalog) map.set(trKatla(line.label), line);
+    for (const template of templates) {
+      for (const lines of Object.values(template.skeleton?.customLines ?? {})) {
+        for (const line of lines) map.set(trKatla(line.label), { label: line.label, unit: line.unit });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "tr-TR"));
+  }, [catalog, templates]);
 
   function durum(craneType: string): TipDurumu {
     const anahtar = trKatla(craneType);
@@ -157,16 +178,60 @@ export function CostTemplatesView({
     setYerel((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== anahtar)));
   }
 
+  const acik = secili ? durum(secili) : null;
+  const eklemeGrupDef = SECILEBILIR.find((g) => g.key === eklemeGrubu);
+
+  const eklemeSecenekleri = useMemo(() => {
+    if (!acik || !eklemeGrupDef) return [];
+    const mevcut = new Set([
+      ...eklemeGrupDef.lines
+        .filter((line) => !kapali(acik.skeleton, eklemeGrupDef.key).has(line.key))
+        .map((line) => trKatla(line.label)),
+      ...ozelKalemler(acik.skeleton, eklemeGrupDef.key).map((line) => trKatla(line.label)),
+    ]);
+    return [
+      ...eklemeGrupDef.lines
+        .filter((line) => kapali(acik.skeleton, eklemeGrupDef.key).has(line.key))
+        .map((line) => ({ id: `def:${line.key}`, label: line.label, unit: line.unit, fixed: true })),
+      ...katalog
+        .filter((line) => !mevcut.has(trKatla(line.label)))
+        .map((line, index) => ({
+          id: `catalog:${index}`,
+          label: line.label,
+          unit: line.unit,
+          fixed: false,
+        })),
+    ];
+  }, [acik, eklemeGrupDef, katalog]);
+
   if (tipler.length === 0) {
     return <EmptyState title="VİNÇ TİPİ YOK" description="Teklif defterinde etkin bir vinç tipi bulunamadı. Önce Tanımlar → Defterler ekranından val.craneType listesini doldurun." />;
   }
 
-  const acik = secili ? durum(secili) : null;
-  const eklemeGrupDef = SECILEBILIR.find((g) => g.key === eklemeGrubu);
+  function eklemePenceresiniKapat() {
+    setEklemeGrubu(null);
+    setEklenecek("__new__");
+    setYeniAd("");
+    setYeniBirim("adet");
+  }
 
   function ozelKalemEkle() {
     if (!acik || !eklemeGrubu) return;
-    const ad = adBuyuk(yeniAd.trim());
+    if (eklenecek.startsWith("def:")) {
+      const lineKey = eklenecek.slice(4);
+      const closedLines = { ...(acik.skeleton.closedLines ?? {}) };
+      closedLines[eklemeGrubu] = (closedLines[eklemeGrubu] ?? []).filter(
+        (key) => key !== lineKey
+      );
+      if (closedLines[eklemeGrubu].length === 0) delete closedLines[eklemeGrubu];
+      yaz(acik.craneType, { ...acik.skeleton, closedLines });
+      eklemePenceresiniKapat();
+      return void toast.success("Mevcut kalem şablonda yeniden açıldı.");
+    }
+
+    const katalogSatiri = eklemeSecenekleri.find((line) => line.id === eklenecek);
+    const ad = adBuyuk((katalogSatiri?.label ?? yeniAd).trim());
+    const birim = (katalogSatiri?.unit ?? yeniBirim) as (typeof COST_UNITS)[number];
     if (ad.length < 2) return void toast.error("Kalem adı gerekli.");
     const grup = SECILEBILIR.find((g) => g.key === eklemeGrubu);
     const mevcutAdlar = [
@@ -177,7 +242,7 @@ export function CostTemplatesView({
     const satir: CostTemplateLine = {
       key: `sablon-${crypto.randomUUID()}`,
       label: ad,
-      unit: yeniBirim,
+      unit: birim,
     };
     yaz(acik.craneType, {
       ...acik.skeleton,
@@ -186,9 +251,7 @@ export function CostTemplatesView({
         [eklemeGrubu]: [...ozelKalemler(acik.skeleton, eklemeGrubu), satir],
       },
     });
-    setEklemeGrubu(null);
-    setYeniAd("");
-    setYeniBirim("adet");
+    eklemePenceresiniKapat();
     toast.success("Kalem şablona eklendi.");
   }
 
@@ -282,14 +345,14 @@ export function CostTemplatesView({
                               yaz(acik.craneType, { ...acik.skeleton, groupKeys: secililer, closedLines: { ...(acik.skeleton.closedLines ?? {}), [grup.key]: [...sonraki] } });
                             }} className="size-3.5 shrink-0" />
                             <span className="min-w-0 flex-1 break-words">{satir.label}</span>
-                            <span className="shrink-0 text-[11px] text-muted-foreground">{satir.unit}</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground">{baslikDuzeni(satir.unit)}</span>
                           </label>
                         );
                       })}
                       {ozeller.map((satir) => (
                         <div key={satir.key} className="flex min-w-0 items-center gap-2 border border-primary/35 bg-primary/[0.05] px-2.5 py-1.5 text-[12px]">
                           <span className="min-w-0 flex-1 break-words">{satir.label}<span className="ml-1.5 text-[10px] font-medium text-primary">ÖZEL</span></span>
-                          <span className="shrink-0 text-[11px] text-muted-foreground">{satir.unit}</span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">{baslikDuzeni(satir.unit)}</span>
                           <Button type="button" variant="ghost" size="icon-sm" disabled={pending} onClick={() => ozelKalemSil(grup.key, satir.key)} aria-label={`${satir.label} kalemini şablondan kaldır`} title="Şablondan kaldır — kayıtlı maliyet belgeleri değişmez"><Trash2 className="size-3.5" /></Button>
                         </div>
                       ))}
@@ -304,25 +367,43 @@ export function CostTemplatesView({
         )}
       </div>
 
-      <Dialog open={Boolean(eklemeGrubu)} onOpenChange={(open) => { if (!open) { setEklemeGrubu(null); setYeniAd(""); setYeniBirim("adet"); } }}>
+      <Dialog open={Boolean(eklemeGrubu)} onOpenChange={(open) => { if (!open) eklemePenceresiniKapat(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Şablona Kalem Ekle</DialogTitle>
             <DialogDescription>{eklemeGrupDef?.title} bölümünde yeni maliyet açılırken miktarı ve birim fiyatı elle girilecek bir satır oluşturur.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5"><Label htmlFor="template-line-name">Kalem Adı</Label><Input id="template-line-name" value={yeniAd} onChange={(e) => setYeniAd(e.target.value)} placeholder="Kalem adı" autoFocus /></div>
             <div className="grid gap-1.5">
-              <Label htmlFor="template-line-unit">Birim</Label>
-              <Select value={yeniBirim} onValueChange={(v) => setYeniBirim(v as typeof yeniBirim)}>
-                <SelectTrigger id="template-line-unit" className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>{COST_UNITS.map((unit) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
+              <Label htmlFor="template-line-choice">Kalem</Label>
+              <Select value={eklenecek} onValueChange={setEklenecek}>
+                <SelectTrigger id="template-line-choice" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__new__">Yeni Kalem Oluştur</SelectItem>
+                  {eklemeSecenekleri.map((line) => (
+                    <SelectItem key={line.id} value={line.id}>
+                      {line.label} · {baslikDuzeni(line.unit)}{line.fixed ? " · Kapalı" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
+            {eklenecek === "__new__" ? (
+              <>
+                <div className="grid gap-1.5"><Label htmlFor="template-line-name">Yeni Kalem Adı</Label><Input id="template-line-name" value={yeniAd} onChange={(e) => setYeniAd(e.target.value)} placeholder="Kalem adı" autoFocus /></div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="template-line-unit">Birim</Label>
+                  <Select value={yeniBirim} onValueChange={(v) => setYeniBirim(v as typeof yeniBirim)}>
+                    <SelectTrigger id="template-line-unit" className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>{COST_UNITS.map((unit) => <SelectItem key={unit} value={unit}>{baslikDuzeni(unit)}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEklemeGrubu(null)}>Vazgeç</Button>
-            <Button type="button" onClick={ozelKalemEkle} disabled={pending || yeniAd.trim().length < 2}><Plus className="size-4" /> Kalem Ekle</Button>
+            <Button type="button" variant="outline" onClick={eklemePenceresiniKapat}>Vazgeç</Button>
+            <Button type="button" onClick={ozelKalemEkle} disabled={pending || (eklenecek === "__new__" && yeniAd.trim().length < 2)}><Plus className="size-4" /> Kalem Ekle</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

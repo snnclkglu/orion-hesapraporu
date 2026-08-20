@@ -24,6 +24,7 @@ const TABS = [
   // rayda İKİ tane olamaz.
   { href: "/offers/tanimlar", label: "Tanımlar", exact: true },
   { href: "/offers/tanimlar/maliyet", label: "Maliyet Şablonları", exact: false },
+  { href: "/offers/tanimlar/hammadde", label: "Hammadde Fiyatları", exact: false },
 ];
 
 export function OffersNav() {

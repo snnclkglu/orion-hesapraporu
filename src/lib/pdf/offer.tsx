@@ -30,6 +30,7 @@ import {
   BrandBand,
   BrandPage,
   FONTS,
+  LOGO_RATIO,
   PAGE,
   T,
   mm,
@@ -39,7 +40,13 @@ import {
 import { fmtMoney, fmtNum } from "@/lib/currency";
 import { teknikDegerBuyuk, teknikEtiketBuyuk } from "@/lib/offers/buyuk";
 import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
-import { discountAmount, lineAmount, offerTotal, vatNote } from "@/lib/offers/pricing";
+import {
+  discountAmount,
+  lineAmount,
+  offerTotal,
+  priceLineNumbers,
+  vatNote,
+} from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
 import {
   ETIKET_ARA,
@@ -98,6 +105,9 @@ const ETIKET_GENISLIK = 148;
 
 /** Kapak künyesindeki etiketler daha kısadır (`Referansımız`, `Müşteri`). */
 const KUNYE_ETIKET_GENISLIK = 82;
+
+/** KİMDEN ve KİME kartları birbirinden gerçek bir olukla ayrılır. */
+const KUNYE_KART_ARALIK = 12;
 
 /**
  * İki teknik blok arasındaki boşluk.
@@ -159,9 +169,22 @@ const FIYAT_SUTUNLARI: { baslik: string; pay: number; sag?: boolean }[] = [
 const S = StyleSheet.create({
   // ---- kapak
   // Punto çağrı yerinde konunun uzunluğuna göre verilir (`kapakBaslikPunto`).
-  kapakBaslik: { ...T.display, fontSize: 22, textAlign: "center", marginTop: 4, marginBottom: 30 },
-  kunyeCerceve: { borderWidth: 0.8, borderColor: BRAND.line350 },
-  kunyeBaslikSatiri: { flexDirection: "row", backgroundColor: BRAND.ink },
+  kapakBaslik: {
+    ...T.display,
+    fontSize: 22,
+    textAlign: "center",
+    marginTop: 38,
+    marginBottom: 28,
+  },
+  kunyeKartlar: { flexDirection: "row", gap: KUNYE_KART_ARALIK, alignItems: "stretch" },
+  kunyeKart: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    borderWidth: 0.8,
+    borderColor: BRAND.line350,
+  },
+  kunyeBaslikSatiri: { backgroundColor: BRAND.ink },
   kunyeBaslik: {
     fontFamily: FONTS.mono,
     fontSize: 6.6,
@@ -171,24 +194,29 @@ const S = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
-  kunyeSutun: { width: "50%", paddingHorizontal: 6, paddingVertical: 2 },
-  kunyeTamSatir: {
-    borderTopWidth: 0.6,
-    borderTopColor: BRAND.line300,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  kunyeSutun: { paddingHorizontal: 7, paddingTop: 6, paddingBottom: 7 },
+  /**
+   * LOGO YUVASI SABİTTİR. Görsel olsa da olmasa da iki kartın metni aynı
+   * taban çizgisinden başlar; rastlantısal logo oranı künyeyi aşağı itemez.
+   */
+  kunyeLogoAlani: {
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
-  kunyeAyirac: { borderLeftWidth: 0.6, borderLeftColor: BRAND.line300 },
+  kunyeLogoStandart: { width: 120, height: 32 },
   // Unvan, adın tam ALTINA hizalanır: etiket genişliği + iki nokta sütunu.
   unvan: { ...T.caption, fontSize: 7, color: BRAND.gray600, marginLeft: KUNYE_ETIKET_GENISLIK + 9 },
   hitap: { ...T.body, fontSize: 9.5, color: BRAND.ink, marginTop: 26 },
   // ---- kapak başlığı ve firma tanıtımı (md. 20, md. 22)
-  kapakKicker: { ...T.kicker, color: BRAND.red, textAlign: "center", marginTop: 34 },
+  kapakEsnekBosluk: { flexGrow: 1, minHeight: 18 },
   tanitim: {
-    marginTop: 26,
+    marginTop: 14,
     borderTopWidth: 0.6,
     borderTopColor: BRAND.line300,
     paddingTop: 8,
+    flexShrink: 0,
   },
   tanitimBaslik: {
     fontFamily: FONTS.mono,
@@ -275,22 +303,24 @@ const S = StyleSheet.create({
   ozellikSatiri: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingTop: 2.4,
-    paddingBottom: 2.4,
+    paddingTop: 1.4,
+    paddingBottom: 1.4,
     borderBottomWidth: 0.4,
     borderBottomColor: BRAND.hairline,
   },
-  // `maxWidth` KELEPÇESİ `ETIKET_ORAN`la aynı sayıdır: serbest kalemde etiketi
-  // kullanıcı yazar ve kelepçesiz uzun bir etiket değere yer bırakmazdı.
-  // Ölçüm modülü de aynı kelepçeyle ölçer (`satirYuksekligi`).
+  // ETİKET SÜTUNU SABİTTİR: her satırın değeri aynı x noktasından
+  // başlar. Değer için kalan genişlik satırdan satıra değişmediği için uzun
+  // metin öngörülebilir biçimde ikinci satıra iner; kısa bir "FREN" etiketi
+  // değeri sağa, uzun bir etiket sola itmez.
   ozellikEtiket: {
     fontFamily: FONTS.sans,
     fontSize: 7.8,
+    fontWeight: 500,
     lineHeight: 1.28,
-    color: BRAND.gray700,
+    color: BRAND.gray600,
     flexGrow: 0,
-    flexShrink: 1,
-    maxWidth: SUTUN_GENISLIK * ETIKET_ORAN,
+    flexShrink: 0,
+    width: SUTUN_GENISLIK * ETIKET_ORAN,
   },
   // DEĞER MONO DİZİLİR: teknik değerlerin çoğu koddur ("SCHNEIDER ATV-340",
   // "Ø20 6x36", "A65") ve mono onları bir metin parçası değil VERİ gibi
@@ -302,6 +332,7 @@ const S = StyleSheet.create({
   ozellikDeger: {
     fontFamily: FONTS.mono,
     fontSize: 7.4,
+    fontWeight: 500,
     lineHeight: 1.35,
     color: BRAND.ink,
     textAlign: "right",
@@ -370,6 +401,8 @@ const S = StyleSheet.create({
    */
   sayfaBasi: { marginBottom: 12 },
   sayfaKicker: { ...T.kicker, color: BRAND.red, marginBottom: 2 },
+  ticariBaslik: { ...T.heading, fontSize: 18, lineHeight: 1.08, marginBottom: 3 },
+  ticariBolumAdi: { fontSize: 7.8, letterSpacing: 1.45, marginBottom: 6 },
 
 
   // ---- GENEL ŞARTLAR (md. 9)
@@ -401,6 +434,7 @@ const S = StyleSheet.create({
   fiyatHucre: {
     fontFamily: FONTS.sans,
     fontSize: 7.8,
+    fontWeight: 500,
     lineHeight: 1.35,
     color: BRAND.ink,
     paddingVertical: 3.5,
@@ -503,12 +537,29 @@ function EtiketliSatir({
  * başına tek vurgu — bütün başlıklar kırmızı olsaydı vurgu vurgu olmaktan
  * çıkar, altı kırmızı satır sayfayı kendi başına bir listeye çevirirdi.
  */
-function BolumBasligi({ text, vurgu }: { text: string; vurgu?: boolean }) {
+function BolumBasligi({
+  text,
+  vurgu,
+  buyuk,
+}: {
+  text: string;
+  vurgu?: boolean;
+  /** Ticari sayfanın iki ana sütunu daha güçlü bir başlık taşır. */
+  buyuk?: boolean;
+}) {
   return (
     // Başlık sütun/sayfa dibinde YALNIZ kalmasın: altında en az iki satır yer
     // yoksa blok bir sonrakine taşınır (dağıtımın `EN_AZ_KUYRUK` karşılığı).
     <View style={vurgu ? [S.bolumSerit, S.bolumSeritVurgu] : [S.bolumSerit]} minPresenceAhead={40}>
-      <Text style={vurgu ? [S.bolumAdi, S.bolumAdiVurgu] : [S.bolumAdi]}>{trUpper(text)}</Text>
+      <Text
+        style={[
+          S.bolumAdi,
+          ...(vurgu ? [S.bolumAdiVurgu] : []),
+          ...(buyuk ? [S.ticariBolumAdi] : []),
+        ]}
+      >
+        {trUpper(text)}
+      </Text>
     </View>
   );
 }
@@ -532,9 +583,9 @@ function OzellikSatiri({ row, buyuk }: { row: OfferRow; buyuk?: boolean }) {
      yazmak aynı bilgiyi iki yazımla saklamak olurdu. Birimler ve ölçüler
      korunur, gerekçesi `offers/buyuk.ts`te.
 
-     YALNIZ TEKNİK SATIRLAR BÜYÜR. Kullanıcının isteği "teklifteki ÖZELLİKLER"
-     içindi; ticari şartlar bir cümledir ("Vinçlerin yerine montajı ve devreye
-     alınması dahildir.") ve büyük harfle bağırır. */
+     TEKNİK SATIRLAR ile teslim/test satırları büyür. Ticari kullanım çağrı
+     yerinde açıkça `buyuk` verir (TEKLIF-45); genel şart maddeleri ve serbest
+     notlar bu yoldan geçmez. */
   const etiket = buyuk ? teknikEtiketBuyuk(row.label) : row.label;
   const deger = buyuk ? teknikDegerBuyuk(row.value) : row.value;
   return (
@@ -698,9 +749,57 @@ function KunyeHucre({ satir }: { satir: KunyeSatiri }) {
  * boş bir kutu, kullanıcının istemediği "eksik" izlenimini verirdi — `dolu()`
  * ile aynı ilke.
  */
-function KunyeLogosu({ logo }: { logo?: Buffer | null }) {
-  if (!logo) return null;
-  return <Image src={logo} style={{ height: 20, maxWidth: 120, marginBottom: 5 }} />;
+function KunyeLogosu({
+  logo,
+  orion,
+}: {
+  logo?: Buffer | null;
+  /** Orion lockup'ı zaten ölçülüdür; standart müşteri tuvaline gerek duymaz. */
+  orion?: boolean;
+}) {
+  return (
+    <View style={S.kunyeLogoAlani}>
+      {logo ? (
+        // React PDF'nin Image bileşeni HTML `img` değildir ve `alt` özelliği
+        // desteklemez; bu logo metinsel PDF içeriğinin yerine geçmez.
+        // eslint-disable-next-line jsx-a11y/alt-text
+        <Image
+          src={logo}
+          style={
+            orion
+              ? { width: 120, height: 120 * LOGO_RATIO }
+              : S.kunyeLogoStandart
+          }
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function KunyeKarti({
+  baslik,
+  satirlar,
+  logo,
+  orion,
+}: {
+  baslik: string;
+  satirlar: KunyeSatiri[];
+  logo?: Buffer | null;
+  orion?: boolean;
+}) {
+  return (
+    <View style={S.kunyeKart}>
+      <View style={S.kunyeBaslikSatiri}>
+        <Text style={S.kunyeBaslik}>{baslik}</Text>
+      </View>
+      <View style={S.kunyeSutun}>
+        <KunyeLogosu logo={logo} orion={orion} />
+        {satirlar.map((s) => (
+          <KunyeHucre key={s.label} satir={s} />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function KapakKunyesi({
@@ -715,25 +814,9 @@ function KapakKunyesi({
   sagLogo?: Buffer | null;
 }) {
   return (
-    <View style={S.kunyeCerceve}>
-      <View style={S.kunyeBaslikSatiri}>
-        <Text style={[S.kunyeBaslik, { width: "50%" }]}>KİMDEN</Text>
-        <Text style={[S.kunyeBaslik, { width: "50%" }]}>KİME</Text>
-      </View>
-      <View style={{ flexDirection: "row", paddingVertical: 6 }}>
-        <View style={S.kunyeSutun}>
-          <KunyeLogosu logo={solLogo} />
-          {sol.map((s) => (
-            <KunyeHucre key={s.label} satir={s} />
-          ))}
-        </View>
-        <View style={[S.kunyeSutun, S.kunyeAyirac]}>
-          <KunyeLogosu logo={sagLogo} />
-          {sag.map((s) => (
-            <KunyeHucre key={s.label} satir={s} />
-          ))}
-        </View>
-      </View>
+    <View style={S.kunyeKartlar}>
+      <KunyeKarti baslik="KİMDEN" satirlar={sol} logo={solLogo} orion />
+      <KunyeKarti baslik="KİME" satirlar={sag} logo={sagLogo} />
     </View>
   );
 }
@@ -796,11 +879,13 @@ function kapakBaslikPunto(konu: string): number {
 }
 
 /**
- * FİRMA TANITIMI — kapağın altında, imzaların ardında (md. 22).
+ * FİRMA TANITIMI — kapağın alt bölgesinde, imzaların ardında (md. 22).
  *
  * YERİ İMZA ALTIDIR, giriş metninin devamı DEĞİL: giriş mektubun kendisidir ve
  * araya kurumsal bir paragraf girseydi hitap ile imza arasındaki bağ kopardı.
- * İmzaların altında ölçülen ~300 pt boşluk zaten belgenin en boş yeriydi.
+ * `kapakEsnekBosluk` kalan alanı alır ve bu bloğu alt künyenin hemen üstüne
+ * iter. Mutlak konum kullanılmaz: uzun bir hitap/giriş gelirse esnek boşluk
+ * daralır, metin tanıtımın üstüne binmez.
  *
  * Küçük ve silik basılır (7 pt / `gray600`, genel şartların tonu): burada
  * anlatılan şey teklifin kendisi değil, teklifi verendir.
@@ -830,9 +915,7 @@ function KapakSayfasi({
   const sol = dolu([
     { label: "Adı ve Soyadı", value: cover.fromName },
     { label: "Ünvan", value: cover.fromTitle },
-    { label: "e-posta", value: cover.fromEmail },
-    { label: "Tarih", value: tarih(offer.issueDate) },
-    { label: "Referansımız", value: offer.offerNo },
+    { label: "E-posta", value: cover.fromEmail },
   ]);
   const sag = dolu([
     { label: "Müşteri", value: offer.customerName },
@@ -857,12 +940,12 @@ function KapakSayfasi({
     <BrandPage docLine={altbilgi(offer)} style={{ paddingBottom: KAPAK_ALT_PAY }}>
       <FirmaKunyesi company={company} />
       <BrandBand
-        docCode={offer.offerNo}
-        lines={[rev ? `${rev} · ${tarih(offer.issueDate)}` : tarih(offer.issueDate)]}
-        logoWidth={150}
+        docCode={`REFERANS NO · ${offer.offerNo}`}
+        lines={[rev ? `${rev} · TARİH · ${tarih(offer.issueDate)}` : `TARİH · ${tarih(offer.issueDate)}`]}
+        logoWidth={142}
+        marginBottom={0}
       />
 
-      <Text style={S.kapakKicker}>TEKLİF</Text>
       <Text style={[S.kapakBaslik, { fontSize: kapakBaslikPunto(kapakBaslik) }]}>
         {kapakBaslik}
       </Text>
@@ -889,6 +972,7 @@ function KapakSayfasi({
         </View>
       ) : null}
 
+      <View style={S.kapakEsnekBosluk} />
       <FirmaTanitimi />
     </BrandPage>
   );
@@ -908,7 +992,7 @@ function TestYuku({ payload }: { payload: OfferPayload }) {
     <View>
       <BolumBasligi text={testLoad.title} />
       {testLoad.rows.map((row, i) => (
-        <OzellikSatiri key={row.key || i} row={row} />
+        <OzellikSatiri key={row.key || i} row={row} buyuk />
       ))}
     </View>
   );
@@ -927,9 +1011,9 @@ function TeslimSartlari({ payload }: { payload: OfferPayload }) {
   if (rows.length === 0) return null;
   return (
     <View>
-      <BolumBasligi text={TESLIM_BASLIK} vurgu />
+      <BolumBasligi text={TESLIM_BASLIK} vurgu buyuk />
       {rows.map((row, i) => (
-        <OzellikSatiri key={row.key || i} row={row} />
+        <OzellikSatiri key={row.key || i} row={row} buyuk />
       ))}
     </View>
   );
@@ -948,7 +1032,8 @@ const ODEME_ORANI = /^\s*(%\s*\d+(?:[.,]\d+)?)\s*(.*)$/;
  * Yazım tutmazsa (oran yoksa) satır olduğu gibi basılır — bilgi kaybolmaz.
  */
 function OdemeKalemi({ text }: { text: string }) {
-  const m = ODEME_ORANI.exec(text);
+  const buyuk = trUpper(text);
+  const m = ODEME_ORANI.exec(buyuk);
   return (
     <View style={S.odemeKutu} wrap={false}>
       {m ? (
@@ -957,7 +1042,7 @@ function OdemeKalemi({ text }: { text: string }) {
           <Text style={S.odemeAciklama}>{m[2]}</Text>
         </>
       ) : (
-        <Text style={S.odemeAciklama}>{text}</Text>
+        <Text style={S.odemeAciklama}>{buyuk}</Text>
       )}
     </View>
   );
@@ -978,7 +1063,7 @@ function Odeme({ payload }: { payload: OfferPayload }) {
   const giris = terms.rows.find((r) => r.key === "payment");
   return (
     <View>
-      <BolumBasligi text={ODEME_BASLIK} />
+      <BolumBasligi text={ODEME_BASLIK} buyuk />
       {/* "Ödeme" satırının cümlesi ("…aşağıda belirtilen şekildedir") planın
           GİRİŞİDİR; kalemlerin üstünde durur, yoksa cümle boşa düşerdi. */}
       {giris && giris.value.trim() ? <Text style={S.odemeGiris}>{giris.value}</Text> : null}
@@ -1038,6 +1123,7 @@ function ToplamSatiri({
 function FiyatTablosu({ payload, currency }: { payload: OfferPayload; currency: string }) {
   const lines = payload.pricing.lines;
   if (lines.length === 0) return null;
+  const siralar = priceLineNumbers(lines);
   const toplam = offerTotal(lines);
   const toplamDisiVar = lines.some((l) => !l.inTotal);
   // İSKONTO belgeye ancak satır toplamından FARKLIYSA girer (bkz. aşağıdaki
@@ -1071,15 +1157,15 @@ function FiyatTablosu({ payload, currency }: { payload: OfferPayload; currency: 
             <Text
               style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[0].pay}%`, textAlign: "right" }]}
             >
-              {i + 1}
+              {siralar[i].label}
             </Text>
             <Text style={[S.fiyatHucre, { width: `${FIYAT_SUTUNLARI[1].pay}%` }]}>
-              {fiyatTanimi(line)}
+              {trUpper(fiyatTanimi(line))}
             </Text>
             <Text
               style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[2].pay}%`, textAlign: "right" }]}
             >
-              {adetHucresi(line)}
+              {trUpper(adetHucresi(line))}
             </Text>
             <Text
               style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[3].pay}%`, textAlign: "right" }]}
@@ -1141,7 +1227,16 @@ function MetinBlogu({
         madde ? (
           <View key={l.id} style={S.maddeSatiri} wrap={false}>
             <Text style={S.maddeIsareti}>–</Text>
-            <Text style={[S.metinSatiri, { flexGrow: 1, flexShrink: 1, paddingVertical: 0 }]}>
+            {/* `flexBasis: 0` uzun maddeyi doğal genişliğinde çizmek yerine
+                sütunun KALAN genişliğinde yeniden ölçtürür. Yoksa 20.08.2026
+                ASTOR teklifindeki "Vinç üzeri enerji…" satırı sağ kenardan
+                10 pt taşıyordu. */}
+            <Text
+              style={[
+                S.metinSatiri,
+                { flexGrow: 1, flexShrink: 1, flexBasis: 0, paddingVertical: 0 },
+              ]}
+            >
               {l.text}
             </Text>
           </View>
@@ -1203,7 +1298,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
 
   return (
     <Document
-      title={`Teklif — ${offer.offerNo}`}
+      title={`Teklif - ${offer.offerNo}`}
       author="Orion Cranes"
       subject={offer.subject}
       keywords={meta.generatedAt}
@@ -1258,7 +1353,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
               altındaki fiyat tablosunun kendi adı yoktu — tablo başlıksız
               duruyordu. Artık metin sayfayı adlandırır, tablo da kendi
               "FİYATLAR" başlığını taşır. */}
-          <Text style={S.bolumBaslik}>{trUpper(payload.terms.title)}</Text>
+          <Text style={S.ticariBaslik}>{trUpper(payload.terms.title)}</Text>
         </View>
 
         {/* İKİ SÜTUN (md. 15): solda teslim şartları (ve varsa test yükü),

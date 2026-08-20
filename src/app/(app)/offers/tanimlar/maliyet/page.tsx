@@ -22,7 +22,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadOfferOptions } from "../../data";
 import { PageHeader } from "@/components/page-header";
-import { CostTemplatesView, type CostTemplateRow } from "./cost-templates-view";
+import {
+  CostTemplatesView,
+  type CostCatalogLine,
+  type CostTemplateRow,
+} from "./cost-templates-view";
 
 export default async function OfferCostTemplatesPage() {
   const supabase = await createClient();
@@ -30,13 +34,22 @@ export default async function OfferCostTemplatesPage() {
   // ŞABLONLAR PASİFİYLE BİRLİKTE OKUNUR: defter, uygulanmayanı da göstermek
   // zorundadır — göstermeseydi pasife alınan bir şablon ekrandan tamamen
   // kaybolur ve geri açılamazdı (`tanimlar/page.tsx`teki aynı gerekçe).
-  const [rows, { data: sablonlar, error: sablonHatasi }] = await Promise.all([
+  const [
+    rows,
+    { data: sablonlar, error: sablonHatasi },
+    { data: katalog, error: katalogHatasi },
+  ] = await Promise.all([
     loadOfferOptions(supabase),
     supabase
       .from("offer_cost_templates")
       .select("id, crane_type, skeleton, sort, active")
       .order("sort", { ascending: true })
       .order("crane_type", { ascending: true }),
+    supabase
+      .from("offer_cost_line_catalog")
+      .select("label, unit")
+      .eq("active", true)
+      .order("label", { ascending: true }),
   ]);
 
   const templates = (sablonlar ?? []) as CostTemplateRow[];
@@ -62,7 +75,19 @@ export default async function OfferCostTemplatesPage() {
         </p>
       )}
 
-      <CostTemplatesView craneTypes={craneTypes} templates={templates} />
+      {katalogHatasi && (
+        <p className="border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2 text-sm">
+          Kalem kataloğu okunamadı. Yeni kalem eklenebilir ancak yeniden seçim listesi göç
+          uygulanana kadar kullanılamaz (
+          <span className="font-mono">offer_cost_line_catalog</span>).
+        </p>
+      )}
+
+      <CostTemplatesView
+        craneTypes={craneTypes}
+        templates={templates}
+        catalog={(katalog ?? []) as CostCatalogLine[]}
+      />
     </div>
   );
 }

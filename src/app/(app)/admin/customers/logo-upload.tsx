@@ -150,7 +150,8 @@ export function CustomerLogoUpload({
               yerinde boşluk ya da tire bırakmaz (SATIS-16). Kullanıcı bunu
               denemeden bilmeli. */}
           Teklif kapağındaki künyede müşteri firmanın logosu olarak basılır.
-          Logo yüklenmezse teklif logosuz basılır, belgede boşluk kalmaz.
+          Yatay, kare ve dikey logolar otomatik olarak kırpılıp ortalanır.
+          Logo yüklenmezse logo alanı boş kalır, künye düzeni değişmez.
         </p>
       </div>
     );

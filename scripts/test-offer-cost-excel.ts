@@ -236,6 +236,15 @@ function satirBul(ws: ExcelJS.Worksheet, metin: string, sutun = 1): number {
   return bulunan;
 }
 
+/** Aynı başlık birden fazla blokta kullanılıyorsa son eşleşmeyi döndürür. */
+function satirBulSon(ws: ExcelJS.Worksheet, metin: string, sutun = 1): number {
+  let bulunan = 0;
+  ws.eachRow((row, no) => {
+    if (String(row.getCell(sutun).value ?? "") === metin) bulunan = no;
+  });
+  return bulunan;
+}
+
 /** Etiketi verilen satırın SAYI hücresi — sayı değilse `null`. */
 function sayi(ws: ExcelJS.Worksheet, etiket: string, sutun: number): number | null {
   const r = satirBul(ws, etiket);
@@ -350,7 +359,7 @@ async function main() {
   const sabit = satirBul(oz, "SABİT MALİYETLER");
   const oranHucre = oz.getRow(sabit).getCell(3);
   kontrol(oranHucre.value === 0.15, `sabit maliyetler oranı 0,15 olarak yazıldı (${oranHucre.value})`);
-  kontrol(oranHucre.numFmt === "0.0%", "oran hücresi yüzde biçimli");
+  kontrol(oranHucre.numFmt === "0%", "oran hücresi ondalıksız yüzde biçimli");
   kontrol(
     yakin(sayi(oz, "SABİT MALİYETLER", 4), (totals.direct ?? 0) * 0.15, 0.01),
     "sabit maliyetler tutarı = doğrudan maliyet × %15"
@@ -360,8 +369,9 @@ async function main() {
   console.log("\n  teklif ve kâr");
   const belgeToplami = sayi(oz, "MALİYET BELGESİNİN TOPLAMI", 2);
   const elle = sayi(oz, "FİYAT SATIRLARININ ELLE MALİYETİ", 2);
-  const maliyetToplam = sayi(oz, "TOPLAM MALİYET (BELGE + ELLE)", 2);
-  const fiyat = sayi(oz, "TEKLİF TUTARI (İSKONTOLU)", 2);
+  const maliyetToplamHucre = hucre(oz, satirBulSon(oz, "TOPLAM MALİYET"), 2);
+  const maliyetToplam = typeof maliyetToplamHucre === "number" ? maliyetToplamHucre : null;
+  const fiyat = sayi(oz, "TEKLİF TUTARI", 2);
   const kar = sayi(oz, "KÂR", 2);
   kontrol(yakin(belgeToplami, ozet.documentTotal), "belge toplamı = costOverview.documentTotal");
   kontrol(yakin(elle, ELLE_MALIYET), `serbest satırın elle maliyeti taşındı (${elle} €)`);
@@ -429,6 +439,10 @@ async function main() {
   kontrol(
     typeof toplamHucre.numFmt === "string" && toplamHucre.numFmt.includes("EUR"),
     `para birimi hücrenin BİÇİMİNDE (${toplamHucre.numFmt})`
+  );
+  kontrol(
+    toplamHucre.numFmt === '#,##0" EUR"',
+    "toplam hücresinin görünümü ondalıksız ve binlik ayraçlı"
   );
 
   // 7 — ANA KALEM KIRILIMI

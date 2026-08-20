@@ -408,17 +408,16 @@ export const TERMS_TITLE = "TESLİM VE ÖDEME ŞEKLİ";
  * listesi on bir kalemdi; kapakta bir SAYFA DEĞİL bir PARAGRAF yeri var.
  */
 export const COMPANY_PROFILE = {
-  title: "ORION VİNÇ MÜHENDİSLİK",
+  title: "ORION CRANES",
   body:
-    "Kaldırma ve iletme makineleri alanında 25 yıllık birikimiyle çalışan ORİON VİNÇ, " +
-    "Ankara Başkent Organize Sanayi Bölgesi'ndeki 6.000 m² alanında hizmet vermektedir. " +
-    "Dürüstlük, kalite ve müşteri memnuniyeti vazgeçilmez önceliğimizdir; teknolojik " +
-    "gelişmeleri yakından izleyerek yüksek kaliteli ürünleri ve satış sonrası hizmeti " +
-    "birlikte sunmayı temel amaç sayarız.",
+    "ORION CRANES, kaldırma ve iletme sistemleri alanındaki 25 yıllık mühendislik " +
+    "birikimiyle Ankara Başkent Organize Sanayi Bölgesi'ndeki 6.000 m² tesisinde faaliyet " +
+    "göstermektedir. Projelendirmeden imalata, devreye almadan satış sonrası hizmetlere " +
+    "kadar tüm süreçlerde güvenilir, yüksek kaliteli ve ihtiyaca özel çözümler sunar.",
   products:
-    "Gezer köprülü tavan vinçleri · Monoray vinçler · Portal vinçler · Pergel vinçler · " +
-    "Transfer arabaları · Bobin tongları · Kaldırma kirişleri · Proses vinçler · " +
-    "Vinç komponentleri · Endüstriyel otomasyon · Elektrik pano imalat ve montajı",
+    "Gezer köprülü tavan, monoray, portal ve pergel vinçler · Transfer arabaları ve " +
+    "bobin tongları · Kaldırma kirişleri ve proses vinçler · Vinç komponentleri · " +
+    "Endüstriyel otomasyon ve elektrik panoları",
 } as const;
 
 /**

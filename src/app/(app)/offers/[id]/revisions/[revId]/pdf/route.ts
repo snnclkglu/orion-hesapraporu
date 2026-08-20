@@ -17,7 +17,7 @@ import { loadOfferRevision } from "@/app/(app)/offers/data";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import { getReportSettings } from "@/lib/settings";
-import { loadCustomerLogo } from "@/lib/customers/logo";
+import { loadCustomerLogo } from "@/lib/customers/logo-server";
 
 export const runtime = "nodejs";
 

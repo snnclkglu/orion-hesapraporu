@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney, fmtMoney0 } from "@/lib/currency";
 import { copyItemInPayload } from "@/lib/offers/copy";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import {
@@ -68,7 +68,9 @@ import {
   offerTotal,
   paymentLineText,
   paymentPercentTotal,
+  priceLineNumbers,
   vatNote,
+  withValidPriceLineParents,
 } from "@/lib/offers/pricing";
 import {
   PRICE_UNIT_LIST,
@@ -1382,12 +1384,23 @@ function FiyatEditor({
 
   const kar = costMargin(effectiveTotal(p), toplamMaliyet);
 
+  // EKRANDAKİ SIRA PDF'İN SIRASIDIR: gizli satırlar basılmadığı için numara
+  // hesabına da girmez. Kimlik haritası kullanılır; dizin, gizli satırlardan
+  // sonra kayar ve yanlış numarayı gösterirdi.
+  const fiyatSiralari = useMemo(() => {
+    const gorunen = p.lines.filter((line) => !line.hidden);
+    return new Map(priceLineNumbers(gorunen).map((n) => [n.lineId, n]));
+  }, [p.lines]);
+
   function setLine(index: number, next: OfferPriceLine | null) {
+    const lines = next
+      ? p.lines.map((l, i) => (i === index ? next : l))
+      : p.lines.filter((_, i) => i !== index);
     onChange({
       ...payload,
       pricing: {
         ...p,
-        lines: next ? p.lines.map((l, i) => (i === index ? next : l)) : p.lines.filter((_, i) => i !== index),
+        lines: withValidPriceLineParents(lines),
       },
     });
   }
@@ -1427,7 +1440,7 @@ function FiyatEditor({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8">#</TableHead>
+              <TableHead className="w-24">Sıra</TableHead>
               <TableHead>Tanımı</TableHead>
               <TableHead className="w-24">Kalem</TableHead>
               <TableHead className="w-20">Adet</TableHead>
@@ -1443,9 +1456,42 @@ function FiyatEditor({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {p.lines.map((line, i) => (
+            {p.lines.map((line, i) => {
+              const sira = fiyatSiralari.get(line.id);
+              const anaSatirlar = p.lines
+                .slice(0, i)
+                .filter((aday) => !aday.hidden && fiyatSiralari.get(aday.id)?.level === 0);
+              return (
               <TableRow key={line.id} className={cn(line.hidden && "opacity-55")}>
-                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                <TableCell>
+                  <div className="grid min-w-[4.5rem] gap-1">
+                    <span className="font-mono text-xs font-semibold text-muted-foreground">
+                      {sira?.label ?? "—"}
+                    </span>
+                    <Select
+                      value={line.parentLineId ?? "__root__"}
+                      onValueChange={(v) =>
+                        setLine(i, { ...line, parentLineId: v === "__root__" ? null : v })
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-7 w-full px-2 text-[10px]"
+                        aria-label={`${sira?.label ?? i + 1}. satır numaralama biçimi`}
+                        title="Ana satır veya önceki bir satırın alt kalemi"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__root__">Ana</SelectItem>
+                        {anaSatirlar.map((aday) => (
+                          <SelectItem key={aday.id} value={aday.id}>
+                            {fiyatSiralari.get(aday.id)?.label} altı
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Input
                     value={line.description}
@@ -1526,7 +1572,7 @@ function FiyatEditor({
                         }
                         className={cn(cokluBaglar.has(line.itemId ?? "") && "text-destructive underline")}
                       >
-                        {fmtMoney(satirMaliyeti(line), p.currency)}
+                        {fmtMoney0(satirMaliyeti(line), p.currency)}
                       </span>
                     )
                   ) : (
@@ -1572,7 +1618,8 @@ function FiyatEditor({
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             <TableRow>
               <TableCell colSpan={6} className="text-right font-medium">
                 TOPLAM
@@ -1587,7 +1634,7 @@ function FiyatEditor({
                   maliyeti belgede HİÇ YOKTUR — onları eklememek, girilmiş bir
                   gideri kâr hesabından düşürmek olurdu. */}
               <TableCell className="text-right font-mono font-semibold text-muted-foreground">
-                {toplamMaliyet === null ? "—" : fmtMoney(toplamMaliyet, p.currency)}
+                {toplamMaliyet === null ? "—" : fmtMoney0(toplamMaliyet, p.currency)}
               </TableCell>
               <TableCell className="text-right font-mono font-semibold">
                 {toplam === null ? "—" : fmtMoney(toplam, p.currency)}
@@ -1604,8 +1651,8 @@ function FiyatEditor({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-dashed p-3 text-sm">
             <span className="font-medium">Maliyet M{cost.costRevNo}</span>
             <span className="text-muted-foreground">
-              Proje maliyeti {fmtMoney(cost.direct, p.currency)} · toplam{" "}
-              {fmtMoney(cost.total, p.currency)}
+              Proje maliyeti {fmtMoney0(cost.direct, p.currency)} · toplam{" "}
+              {fmtMoney0(cost.total, p.currency)}
             </span>
             <span
               className={cn(

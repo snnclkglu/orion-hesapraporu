@@ -10,6 +10,40 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { costModels, costWeights, withCostDefaults } from "@/lib/offers/cost/payload";
 import { costTotals, loadedCostByOfferItem } from "@/lib/offers/cost/totals";
 import type { CostPayload } from "@/lib/offers/cost/types";
+import { MATERIAL_PRICE_DEFS } from "@/lib/offers/cost/registry";
+
+export interface CostMaterialPriceBook {
+  prices: Record<string, number | null>;
+  error?: string;
+}
+
+/**
+ * Global hammadde fiyat defteri — yalnız YENİ maliyetin açılış kopyasıdır.
+ *
+ * Eksik satır `null` kalır; kod varsayılanına sessiz düşmez. Defterde bir
+ * fiyat silindiyse yeni belgenin eski bir sayıyla hesaplanması, boş görünmesi
+ * ve insanın karar vermesinden daha tehlikelidir.
+ */
+export async function loadCostMaterialPriceBook(
+  supabase: SupabaseClient
+): Promise<CostMaterialPriceBook> {
+  const prices: Record<string, number | null> = Object.fromEntries(
+    MATERIAL_PRICE_DEFS.map((d) => [d.key, null])
+  );
+  const { data, error } = await supabase
+    .from("offer_cost_material_prices")
+    .select("key, unit_price")
+    .eq("active", true)
+    .order("sort", { ascending: true });
+  if (error) return { prices, error: error.message };
+
+  for (const row of (data ?? []) as { key: string; unit_price: number | string | null }[]) {
+    if (!(row.key in prices)) continue;
+    const n = row.unit_price === null ? null : Number(row.unit_price);
+    prices[row.key] = n !== null && Number.isFinite(n) ? n : null;
+  }
+  return { prices };
+}
 
 export interface OfferCostRecord {
   id: string;

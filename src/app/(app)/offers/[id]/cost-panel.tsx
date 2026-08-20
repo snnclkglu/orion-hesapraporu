@@ -17,7 +17,7 @@ import { Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney0 } from "@/lib/currency";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
 import { fmtOfferDate } from "@/lib/offers/filter";
 import type { OfferCostRecord } from "../cost-data";
@@ -135,10 +135,10 @@ export function CostPanel({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono whitespace-nowrap">
-                      {c.direct_amount == null ? "—" : fmtMoney(Number(c.direct_amount), currency)}
+                      {c.direct_amount == null ? "—" : fmtMoney0(Number(c.direct_amount), currency)}
                     </TableCell>
                     <TableCell className="text-right font-mono whitespace-nowrap">
-                      {c.total_amount == null ? "—" : fmtMoney(Number(c.total_amount), currency)}
+                      {c.total_amount == null ? "—" : fmtMoney0(Number(c.total_amount), currency)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {fmtOfferDate(c.updated_at)}

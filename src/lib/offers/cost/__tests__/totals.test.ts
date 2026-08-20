@@ -258,7 +258,9 @@ describe("MALİYET ÖZETİ — teklif ve maliyet TEK yapıda", () => {
   it("birim ve paket maliyet toplamlardan gelir, yeniden hesaplanmaz", () => {
     expect(ozet.items[0].unit).toBeCloseTo(194257.74, 2);
     expect(ozet.items[0].package).toBeCloseTo(194257.74 * 2, 2);
+    expect(ozet.packageTotal).toBeCloseTo(194257.74 * 2, 2);
     expect(ozet.documentTotal).toBeCloseTo(t.total as number, 6);
+    expect(ozet.packageTotal).not.toBeCloseTo(ozet.documentTotal as number, 2);
   });
 
   it("YALNIZ SERBEST satırın elle maliyeti eklenir — kaleme bağlı satırınki ZATEN belgededir", () => {

@@ -29,7 +29,7 @@ import { Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CURRENCY_SYMBOLS, currencyOf, fmtMoney } from "@/lib/currency";
+import { CURRENCY_SYMBOLS, currencyOf, fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { CostModelResult } from "@/lib/offers/cost/model";
@@ -77,9 +77,10 @@ import { KirilimSayfasi } from "./breakdown-view";
  * yapılsaydı sayfanın ilk ekranı yalnız fiyatlarla dolardı; oysa bunlar bir
  * kez yazılıp bir daha bakılmayan sayılardır.
  *
- * FİYAT BELGEDE YAŞAR (`payload.materialPrices`), global bir defterde değil:
- * sac bugün 0,80 €'ya çıktı diye geçen ayın maliyet çalışması başka bir rakam
- * göstermemelidir (MALIYET-6'nın gerekçesi).
+ * GÖRÜNEN VE HESAPLANAN FİYAT BELGEDE YAŞAR (`payload.materialPrices`). Yeni
+ * çalışma global defterin anlık kopyasını alır; bu şerit o kopyayı değiştirir,
+ * global defteri değil. Böylece sac bugün yükseldi diye geçen ayın belgesi
+ * değişmez (MALIYET-33).
  */
 function HammaddeSeridi({
   prices,
@@ -160,7 +161,10 @@ function SatirTablosu({
           iki yatay kaydırıcı ve üst üste iki kenar gölgesi demekti; ayrıca
           `overflow-x` veren kap `overflow-y`yi de kaybeder ve tek piksellik
           bir taşmada gerçek bir dikey çubuk doğar (MOBIL-14). */}
-      <Table containerClassName="[--oc-scroll-bg:var(--background)]">
+      <Table
+        className="w-full table-fixed"
+        containerClassName="!overflow-x-hidden [--oc-scroll-bg:var(--background)]"
+      >
           <TableHeader>
             <TableRow>
               {/* UZUNLUĞU VERİDEN GELEN SÜTUN KELEPÇELENİR ve kelepçe `th` ile
@@ -173,13 +177,13 @@ function SatirTablosu({
                   itip her öbekte yatay kaydırma açıyordu — geniş ekranda daha
                   ferah dursun diye konan kural, geniş ekranda okunurluğu bozan
                   kural hâline gelmişti. */}
-              <TableHead className="min-w-[12rem] px-1.5">Kalem</TableHead>
-              <TableHead className="hidden w-56 max-w-56 px-1.5 xl:table-cell">Teklifte</TableHead>
-              <TableHead className="w-24 px-1.5">Miktar</TableHead>
-              <TableHead className="w-24 px-1.5">Birim</TableHead>
-              <TableHead className="w-28 px-1.5">Birim Fiyat</TableHead>
-              <TableHead className="w-28 px-1.5 text-right">Tutar</TableHead>
-              <TableHead className="w-[4.5rem] px-1.5" />
+              <TableHead className="w-[26%] px-1.5">Kalem</TableHead>
+              <TableHead className="hidden w-[18%] px-1.5 text-[10px] xl:table-cell">Teklifte</TableHead>
+              <TableHead className="w-[13%] px-1.5">Miktar</TableHead>
+              <TableHead className="w-[10%] px-1.5">Birim</TableHead>
+              <TableHead className="w-[14%] px-1.5">Birim Fiyat</TableHead>
+              <TableHead className="w-[12%] px-1.5 text-right">Tutar</TableHead>
+              <TableHead className="w-[7%] px-1" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -205,7 +209,7 @@ function SatirTablosu({
                       title={ipucu}
                       onChange={(e) => onLine(line.id, { ...line, label: e.target.value })}
                       aria-label="Kalem adı"
-                      className="h-9 text-base pointer-fine:text-sm"
+                      className="h-9 min-w-0 text-base pointer-fine:text-sm"
                     />
                   </TableCell>
 
@@ -214,7 +218,7 @@ function SatirTablosu({
                       (TEKLIF-20'nin tek okuma noktası). */}
                   <TableCell className="hidden max-w-56 p-1.5 xl:table-cell">
                     <span
-                      className="block truncate text-xs text-muted-foreground"
+                      className="line-clamp-2 block whitespace-normal break-words text-[10px] leading-tight text-muted-foreground"
                       title={teklifte ?? undefined}
                     >
                       {teklifte ?? "—"}
@@ -223,7 +227,7 @@ function SatirTablosu({
 
                   <TableCell className="p-1.5">
                     {modelden ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1">
                         {/* MİKTARIN KAYNAĞI POP-UP'TADIR (md. 9): formül, ara
                             değerler ve katsayılar. Kutunun kendisi tetikleyicidir
                             — satırın altında duran "Miktar: …" metni bir sıra yer
@@ -251,13 +255,13 @@ function SatirTablosu({
                         </MiniDugme>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1">
                         <SayiKutusu
                           value={line.qty}
                           disabled={readOnly}
                           aria-label="Miktar"
                           onChange={(v) => onLine(line.id, { ...line, qty: v })}
-                          className="h-9 text-right font-mono"
+                          className="h-9 min-w-0 text-right font-mono"
                         />
                         {line.qtySource ? (
                           <MiniDugme
@@ -289,7 +293,7 @@ function SatirTablosu({
                       // kutusuyla aynı desen. İKİ KAYNAK ASLA TOPLANMAZ: asa
                       // düğmesi bu satırı şeritten KOPARIR ve fiyatı insana
                       // bırakır (`linePrice`).
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1">
                         <span
                           title={`${hammadde?.label ?? "Hammadde"} şeridinden — üstteki kutudan değişir`}
                           className="flex h-9 min-w-0 flex-1 items-center justify-end rounded-md border bg-muted/40 px-2 font-mono text-sm"
@@ -305,13 +309,14 @@ function SatirTablosu({
                         </MiniDugme>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1">
                         <SayiKutusu
+                          binlik
                           value={line.unitPrice}
                           disabled={readOnly}
                           aria-label="Birim fiyat"
                           onChange={(v) => onLine(line.id, { ...line, unitPrice: v })}
-                          className="h-9 text-right font-mono"
+                          className="h-9 min-w-0 text-right font-mono"
                         />
                         {line.priceSource ? (
                           <MiniDugme
@@ -327,12 +332,12 @@ function SatirTablosu({
                     )}
                   </TableCell>
 
-                  <TableCell className="p-1.5 text-right font-mono text-sm">
-                    {fmtMoney(costLineAmount({ ...line, qty: miktar, unitPrice: fiyat }), currency)}
+                  <TableCell className="p-1 text-right font-mono text-xs leading-tight">
+                    {fmtMoney0(costLineAmount({ ...line, qty: miktar, unitPrice: fiyat }), currency)}
                   </TableCell>
 
                   <TableCell className="p-1.5">
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex flex-wrap items-center justify-end gap-0.5">
                       <MiniDugme
                         baslik={line.hidden ? "Toplama katılmıyor" : "Toplamdan çıkar"}
                         aktif={line.hidden === true}
@@ -398,7 +403,7 @@ function BelgeToplami({
 }) {
   return (
     <div className="text-right">
-      <div className="font-mono text-sm font-semibold">{fmtMoney(tutar, currency)}</div>
+      <div className="font-mono text-sm font-semibold">{fmtMoney0(tutar, currency)}</div>
       {coklu ? (
         <div className="text-[11px] text-muted-foreground">bütün kalemler · adet dahil</div>
       ) : null}
@@ -426,10 +431,10 @@ function AraToplam({
       </span>
       {katsayi !== 1 ? (
         <span className="font-mono text-[11px] text-muted-foreground">
-          {fmtMoney(birim, currency)} × {fmtCostField(katsayi, 0)} adet
+          {fmtMoney0(birim, currency)} × {fmtCostField(katsayi, 0)} Adet
         </span>
       ) : null}
-      <span className="font-mono text-sm font-semibold">{fmtMoney(paket, currency)}</span>
+      <span className="font-mono text-sm font-semibold">{fmtMoney0(paket, currency)}</span>
     </div>
   );
 }
@@ -513,7 +518,7 @@ function GrupBlogu({
             </MiniDugme>
           </div>
         )}
-        <span className="w-32 text-right font-mono text-sm font-semibold">{fmtMoney(toplam, currency)}</span>
+        <span className="w-32 text-right font-mono text-sm font-semibold">{fmtMoney0(toplam, currency)}</span>
       </div>
       {kapali ? null : (
       <SatirTablosu
@@ -593,7 +598,7 @@ function OranBlogu({
               className="h-9 w-20 text-right font-mono"
             />
             <span className="text-xs text-muted-foreground">
-              kadarı · taban {fmtMoney(base, currency)}
+              kadarı · taban {fmtMoney0(base, currency)}
             </span>
           </div>
         ) : null}
@@ -609,7 +614,7 @@ function OranBlogu({
               {m === "oran" ? "Oran" : "Kalem"}
             </MiniDugme>
           ))}
-          <span className="w-32 text-right font-mono text-sm font-semibold">{fmtMoney(tutar, currency)}</span>
+          <span className="w-32 text-right font-mono text-sm font-semibold">{fmtMoney0(tutar, currency)}</span>
         </div>
       </div>
 
@@ -748,25 +753,13 @@ export function MaliyetSayfasi({
         aciklama="Kalem kalem girilen doğrudan maliyet. Miktarlar ağırlık ve hesap modelinden gelir; miktara tıklayınca nereden geldiği açılır."
         sag={<BelgeToplami tutar={totals.project} currency={cur} coklu={cokluKalem} />}
       >
-        {item ? (
-          /* İKİ SÜTUN — ama YALNIZ 2xl'de (kullanıcı isteği 19.08.2026, md. 2:
-             *"yatayda ikiye bölmek istiyorum… daha kompakt bir yapı işimi
-             kolaylaştırıyor kontrolümü artırıyor"*). Sekiz öbek alt alta
-             dizildiğinde sayfa üç ekran boyu sürüyor ve kullanıcı elektrik
-             satırlarını görmek için çeliği kaydırıp geçiyordu.
-
-             BREAKPOINT ÖLÇÜLDÜ, SEÇİLMEDİ. Satır tablosunun gerçek en küçük
-             genişliği tarayıcıda 781 px çıktı (Kalem sütunu 12 rem + miktar,
-             birim, birim fiyat, tutar ve eylem sütunları). 1600 px'lik bir
-             pencerede iki sütuna bölününce her sütuna 615 px kalıyor ve tablo
-             KENDİ İÇİNDE yatay kaydırma açıyordu — kompaktlık adına okunurluğu
-             bozmak olurdu. Tailwind'in `2xl`i (1536 px) bu yüzden yetmez; eşik
-             iki tablo + oluk + bölüm rayının gerçek toplamına göre 1800 px'e
-             çekildi.
-
-             `items-start`: öbekler farklı boydadır; hizalanmazsa kısa öbek
-             uzun komşusunun boyuna uzar ve arada boş bir şerit kalır. */
-          <div className="grid gap-2.5 min-[1800px]:grid-cols-2 min-[1800px]:items-start">
+        {/* TABLOLAR SABİT IZGARADIR ve kendi içinde yatay kaymaz; bu yüzden iki
+            sütun eşiği artık gerçek içerik genişliğine göre 1500 px'tir.
+            PROJE GENELİ de aynı ızgaradadır: belgeye ait olsa da tam genişlikte
+            tek başına uzayıp sayfanın kompakt düzenini bozmamalıdır. */}
+        <div className="grid gap-2.5 min-[1500px]:grid-cols-2 min-[1500px]:items-start">
+          {item ? (
+            <>
             {item.groups
               .map((g, gi) => ({ g, gi }))
               .filter(({ g }) => g.key !== FABRICATION_GROUP_KEY)
@@ -787,36 +780,39 @@ export function MaliyetSayfasi({
                   }
                 />
               ))}
-            {cokluKalem ? (
+            </>
+          ) : (
+            <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+              Bu maliyet çalışmasında henüz kalem yok. Teklifte kalem açıp
+              <span className="font-medium"> Tekliften Tazele</span> düğmesine basın.
+            </p>
+          )}
+
+          {/* PROJE GENELİ kaleme değil BELGEYE aittir; aynı iki sütunlu görsel
+              düzende durur ama hâlâ payload'ın belge düzeyindeki grubudur. */}
+          <GrupBlogu
+            group={payload.general}
+            currency={cur}
+            prices={prices}
+            params={params}
+            offer={offer}
+            offerItemId={null}
+            readOnly={readOnly}
+            katlama={katlama}
+            onChange={(next) => onChange({ ...payload, general: next })}
+          />
+
+          {item && cokluKalem ? (
+            <div className="min-[1500px]:col-span-2">
               <AraToplam
                 baslik={item.title || "Kalem"}
                 birim={kalemProjeBirimi}
                 adet={item.qty}
                 currency={cur}
               />
-            ) : null}
-          </div>
-        ) : (
-          <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-            Bu maliyet çalışmasında henüz kalem yok. Teklifte kalem açıp
-            <span className="font-medium"> Tekliften Tazele</span> düğmesine basın.
-          </p>
-        )}
-
-        {/* PROJE GENELİ kaleme değil BELGEYE aittir: üç vinçlik bir teklifte
-            dokümantasyon bir kez yapılır. Kalem seçicisinin dışında durması
-            bunun görünür hâlidir. */}
-        <GrupBlogu
-          group={payload.general}
-          currency={cur}
-          prices={prices}
-          params={params}
-          offer={offer}
-          offerItemId={null}
-          readOnly={readOnly}
-          katlama={katlama}
-          onChange={(next) => onChange({ ...payload, general: next })}
-        />
+            </div>
+          ) : null}
+        </div>
       </Bolum>
 
       <Bolum
@@ -824,7 +820,7 @@ export function MaliyetSayfasi({
         katlamaAnahtari="bolum:oran"
         baslik="ORANLI MALİYETLER"
         aciklama="Sabit, sarf ve finansman giderleri DOĞRUDAN MALİYET (imalat + proje) üzerinden hesaplanır."
-        sag={<span className="font-mono text-sm font-semibold">{fmtMoney(totals.rateTotal, cur)}</span>}
+        sag={<span className="font-mono text-sm font-semibold">{fmtMoney0(totals.rateTotal, cur)}</span>}
       >
         <div className="grid gap-2.5">
           {payload.rates.map((r, i) => (
@@ -847,7 +843,7 @@ export function MaliyetSayfasi({
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
         <span className="text-sm font-semibold tracking-wide">TOPLAM MALİYET</span>
-        <span className="ml-auto font-mono text-lg font-semibold">{fmtMoney(totals.total, cur)}</span>
+        <span className="ml-auto font-mono text-lg font-semibold">{fmtMoney0(totals.total, cur)}</span>
       </div>
 
       {/* ——— KIRILIM: ayrı sekme değil, aynı sayfanın altı (md. 8) ——— */}

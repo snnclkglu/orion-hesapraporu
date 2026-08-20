@@ -7,6 +7,57 @@
 
 import type { OfferPaymentLine, OfferPriceLine, OfferPricing } from "./types";
 
+export interface PriceLineNumber {
+  lineId: string;
+  label: string;
+  parentLineId: string | null;
+  level: 0 | 1;
+}
+
+/**
+ * FİYAT SATIRI NUMARALARI — ana satırlar 1, 2…; alt satırlar 1.1, 1.2…
+ *
+ * Yalnız DAHA ÖNCE GELEN bir ANA satır ebeveyn olabilir. Silinmiş, sonradan
+ * gelen ya da kendisi alt satır olan bir kimliğe bağlanan kayıt ana satıra
+ * yükselir. Böylece bozuk/eskimiş bir payload PDF'de "?.1" ya da üç katmanlı
+ * bir sıra üretmez; iki seviyeli sözleşme her okumada yeniden doğrulanır.
+ */
+export function priceLineNumbers(lines: readonly OfferPriceLine[]): PriceLineNumber[] {
+  const roots = new Map<string, { number: number; childCount: number }>();
+  let rootCount = 0;
+
+  return lines.map((line) => {
+    const requestedParent = line.parentLineId ?? null;
+    const parent = requestedParent ? roots.get(requestedParent) : undefined;
+    if (parent) {
+      parent.childCount += 1;
+      return {
+        lineId: line.id,
+        label: `${parent.number}.${parent.childCount}`,
+        parentLineId: requestedParent,
+        level: 1,
+      };
+    }
+
+    rootCount += 1;
+    roots.set(line.id, { number: rootCount, childCount: 0 });
+    return { lineId: line.id, label: String(rootCount), parentLineId: null, level: 0 };
+  });
+}
+
+/** Geçersiz ebeveyn bağlarını temizler; sıra ve PDF aynı sözleşmeyi okur. */
+export function withValidPriceLineParents(
+  lines: readonly OfferPriceLine[]
+): OfferPriceLine[] {
+  const numbers = priceLineNumbers(lines);
+  return lines.map((line, index) => {
+    const parentLineId = numbers[index].parentLineId;
+    return (line.parentLineId ?? null) === parentLineId
+      ? line
+      : { ...line, parentLineId };
+  });
+}
+
 /** Satırın net tutarı; miktar ya da fiyat eksikse `null` (sıfır DEĞİL). */
 export function lineAmount(line: OfferPriceLine): number | null {
   if (line.qty === null || line.unitPrice === null) return null;

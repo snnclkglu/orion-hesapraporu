@@ -1,12 +1,15 @@
 // TEKLİF PDF DUMAN TESTİ.
 // Çalıştırma: npx tsx scripts/test-offer-pdf.ts [çıktı-dizini]
 //
-// ÜÇ BELGE üretir ve ÜÇÜNÜ DE GERİ OKUR (`unpdf` ile metin katmanından):
+// ALTI BELGE üretir ve HEPSİNİ GERİ OKUR (`unpdf` ile metin katmanından):
 //   1) SADE — HABAŞ deseni: tek vinç, 4 takım, 223.600 EUR.
-//   2) GİZLEMELİ — bir satır, bir grup ve bir fiyat satırı gizli. Belgede
+//   2) PORTAL — kullanıcının 18.08.2026 tarihli ASTOR teklifi. İstenirse
+//      `OFFER_TEST_CUSTOMER_LOGO` ile gerçek müşteri logosu normalleştirilir.
+//   3) GİZLEMELİ — bir satır, bir grup ve bir fiyat satırı gizli. Belgede
 //      hiçbirinin İZİ olmamalıdır (ne metin, ne boş başlık, ne tire).
-//   3) ÇOK KALEMLİ — 8 ekipman, 19 fiyat satırı. Amaç sayfa dengesini ve
+//   4) ÇOK KALEMLİ — 8 ekipman, 19 fiyat satırı. Amaç sayfa dengesini ve
 //      fiyat tablosu başlığının her sayfada tekrar ettiğini görmek.
+//   Diğer ikisi iskonto akışının iki ayrı yazımını doğrular.
 //
 // FİKSTÜRLER GERÇEK BÜYÜKLÜKTEDİR. Uydurma küçük sayılarla ("100 €") sütun
 // taşması hiç görülmez; teklifler yedi haneli tutarlar taşır ve tablo asıl
@@ -21,6 +24,7 @@ import { applyDiscountToLines, offerTotal } from "../src/lib/offers/pricing";
 import { offerDocLine } from "../src/lib/offers/no";
 import { fmtMoney } from "../src/lib/currency";
 import { mm } from "../src/lib/pdf/brand";
+import { normalizeCustomerLogo } from "../src/lib/customers/logo-image";
 import type { OfferGroup, OfferPayload, OfferPriceLine } from "../src/lib/offers/types";
 
 const outDir = process.argv[2] ?? path.join(process.cwd(), ".test-output");
@@ -261,6 +265,168 @@ function sadeTeklif(): OfferDocumentProps {
     company: COMPANY,
     meta: { generatedAt: "17.08.2026" },
   };
+}
+
+// ——————————————————————————————————————————— 1a) ASTOR 80T PORTAL
+
+/**
+ * Kullanıcının paylaştığı TETR-20260818-1 teklifinin veri fikstürü.
+ *
+ * Logo yolu yalnız görsel QA içindir; uygulamada logo Storage'dan gelir ve
+ * `logo-server.ts` aynı normalleştiriciyi çağırır. Fikstürde de ham ASTOR
+ * görselini geçirerek eski, geniş boşluklu yüklemelerin yeniden yüklenmeden
+ * düzeldiğini sınarız.
+ */
+async function portalTeklif(): Promise<OfferDocumentProps> {
+  const p = emptyPayload("EUR");
+  p.cover = {
+    fromName: "SALİH ERGÜVEN",
+    fromTitle: "Genel Müdür",
+    fromEmail: "serguven@orioncranes.com",
+    toName: "ENVER GEÇGEL",
+    toDept: "",
+    toPhone: "",
+    customerRef: "",
+    greeting: "Sn. ENVER GEÇGEL,",
+    intro:
+      "Tarafımızdan talep etmiş olduğunuz konu iş için teknik ve ticari teklifimizi aşağıda dikkatinize sunar, kıymetli siparişlerinizi bekleriz.",
+    signatories: [],
+  };
+
+  satirDegeri(p.testLoad.rows, "dynamic", "Q x 1,1");
+  satirDegeri(p.testLoad.rows, "static", "Q x 1,25");
+  satirDegeri(p.terms.rows, "validity", "14 iş günü");
+  satirDegeri(p.terms.rows, "deliveryTime", "Avans Ödemesi Sonrası 12-14 Hafta");
+  satirDegeri(p.terms.rows, "freight", "Dahil");
+  satirDegeri(p.terms.rows, "erection", "Vinçlerin yerine montajı ve devreye alınması dahildir.");
+  satirDegeri(p.terms.rows, "deliveryPlace", "Yerinde çalışır halde teslim");
+  satirDegeri(p.terms.rows, "warranty", "2 Yıl");
+  satirDegeri(p.terms.rows, "payment", "Ödeme şekli aşağıda belirtilen şekildedir.");
+  p.terms.paymentLines = [
+    { id: newOfferId(), text: "%50 Avans Sipariş ile Nakit" },
+    { id: newOfferId(), text: "%50 Teslimat Sonrası Nakit" },
+  ];
+
+  const item = {
+    id: newOfferId(),
+    title: "80T x 12.44m PORTAL VİNÇ",
+    craneType: "PORTAL VİNÇ",
+    capacityT: 80,
+    spanM: 12.44,
+    groups: [
+      grup("general", {
+        capacity: "80 ton",
+        environment: "Kapalı Alan, -10 / +40 º C",
+        span: "12.44 m",
+        liftHeight: "20 m",
+        craneClass: "FEM 2m / ISO M5",
+        craneType: "Portal Vinç",
+        runway: "40",
+        gantryLegHeight: "12 m",
+      }),
+      grup("mainHoist", {
+        liftSpeed: "3 m/dk – Çift Hız Kontrolü (Frekans İnvertörlü)",
+        reeving: "16/4",
+        motor: "GAMAK 45 kW 1500 d/dak",
+        gearbox: "YILMAZ R. HT Tipi, Sandık Tipi, Emniyet: 1.1",
+        brake: "SIBRE Elektrohidrolik Kasnak Fren x 2 Adet",
+        drive: "SCHNEIDER ATV-340 55 kW",
+        hook: "DIN 15401/P Tek Ağızlı Kanca",
+        rope: "Ø20 6x36 Halat 1960 N/mm2 Çelik Özlü",
+        controlType: "İnvertör Kontrollü",
+      }),
+      grup("trolley", {
+        travelSpeed: "5-30 m/dk – Çift Hız Kontrolü (Frekans İnvertörlü)",
+        motor: "ELK 2 x 4 kW 1500 d/dak",
+        gearbox: "YILMAZ R. DR Tipi, Paralel Şaft, Emniyet: 1.6",
+        brake: "DERELİ Elektromanyetik Motor Freni x 1 Adet",
+        drive: "SCHNEIDER ATV-320 11 kW",
+        driveSystem: "4 Tekerden Tahrik",
+        wheel: "4 x Ø400 DIN15090 C4140 35-42 HRC",
+        controlType: "İnvertör Kontrollü",
+      }),
+      grup("gantry", {
+        rail: "A65",
+        runwayRail: "A65",
+        travelSpeed: "4-20 m/dk – Çift Hız Kontrolü (Frekans İnvertörlü)",
+        travelSystem: "8 Teker, 4 Boji",
+        driveSystem: "4 Tekerden Tahrik",
+        motor: "GAMAK 4 x 4 kW 1500 d/dak",
+        gearbox: "YILMAZ R. KR Tipi, Delik Milli, Emniyet: 1.6",
+        brake: "DERELİ Elektromanyetik Motor Freni x 1 Adet",
+        drive: "SCHNEIDER ATV-320 18,5 kW",
+        wheel: "8 x Ø400 DIN15090 C4140 35-42 HRC",
+        controlType: "İnvertör Kontrollü",
+      }),
+      grup("steel", {
+        girder: "Kutu Çelik Konstrüksiyon, St52",
+        girderCalc: "FEM / DIN15018 - 1/1000 Maksimum Sehim",
+        girderMaterial: "S355JR",
+        platform: "Tek Taraflı Yürüme Platformu",
+        paint: "RAL 1007",
+      }),
+      grup("electrical", {
+        supplyVoltage: "400 VAC 50 Hz",
+        controlVoltage: "24 VDC",
+        runwayPower: "Kapalı Bara",
+        busbar: "CONDUCTIX-WAMPFLER",
+        busbarBrush: "Dahil",
+        pendant: "ELFATEK EN-MİD Serisi",
+        drives: "SCHNEIDER ATV-340",
+        crossLimit: "CROSSLİMİT",
+        drumLimit: "STROMAG",
+        isolationTrafo: "EKA",
+        powerSupply: "OMRON",
+        terminals: "PHOENIX",
+        loadcell: "ESİT",
+        signalization: "MUCCO",
+        cable: "Üntel/Helukabel",
+        resistors: "RESSA",
+        switchgear: "SCHNEIDER",
+        panel: "EAE/TEMPA",
+        emBrakes: "220 VAC",
+      }),
+    ],
+  };
+  p.items = [item];
+  p.pricing.lines = [
+    fiyatSatiri({ itemId: item.id, description: "80T x 12.44m Portal Vinç", qty: 1, unit: "Takım", unitPrice: 304_000 }),
+    fiyatSatiri({ description: "Yürüme Yolu A65", qty: 80, unit: "Metre", unitPrice: 225 }),
+    fiyatSatiri({ description: "Kapalı Bara 40 Metre", qty: 1, unit: "Takım", unitPrice: 3_000 }),
+    fiyatSatiri({ description: "Kaldırma Traversi", qty: 1, unit: "Takım", unitPrice: 24_000 }),
+  ];
+  p.notes = [
+    { id: newOfferId(), text: "Belirtilen fiyatlara KDV dahil değildir." },
+    { id: newOfferId(), text: "Teklif fiyatına hiçbir yurtiçi vergi, harç, pul avans damga vergisi, banka komisyonu ve masrafları v.b. dahil değildir." },
+  ];
+  p.exclusions = [
+    { id: newOfferId(), text: "Vincin montaj sahasında gerekli olan tüm inşaat işleri" },
+    { id: newOfferId(), text: "Vinç üzeri enerji besleme noktasına kadar gerekli kesit ve miktarda kablo bağlantısı sağlanması" },
+    { id: newOfferId(), text: "Sahada ihtiyaç duyulacak her türlü enerji temini" },
+    { id: newOfferId(), text: "Test için gerekli uygun yük temini ve bu yükün bağlanması için gereken ekipmanlar" },
+  ];
+
+  const props: OfferDocumentProps = {
+    offer: {
+      offerNo: "TETR-20260818-1",
+      revNo: 0,
+      issueDate: "2026-08-18",
+      subject: "80T X 12.44M PORTAL VİNÇ TEKLİFİ",
+      customerName: "ASTOR A.Ş.",
+      currency: "EUR",
+    },
+    payload: p,
+    company: COMPANY,
+    meta: { generatedAt: "20.08.2026" },
+  };
+
+  const logoYolu = process.env.OFFER_TEST_CUSTOMER_LOGO?.trim();
+  if (logoYolu) {
+    const sonuc = await normalizeCustomerLogo(fs.readFileSync(logoYolu));
+    if (!sonuc.ok) throw new Error(`Müşteri logosu normalleştirilemedi: ${sonuc.error}`);
+    props.customerLogo = sonuc.png;
+  }
+  return props;
 }
 
 // ————————————————————————————————————————————— 1b) İSKONTOLU / SERBEST
@@ -584,10 +750,10 @@ async function main() {
   // alt kümede mono'nun ToUnicode eşlemesi bir kez "I"yı "F"ye bağladı; çizim
   // doğruydu ama belgeden kopyalanan/aranan metin yanlıştı.
   kontrol(duz(s.metin).includes(duz("KAPALI ALAN")), "büyük I taşıyan mono değer doğru çözülüyor");
-  // TİCARİ ŞARTLAR BÜYÜMEZ: onlar cümledir, özellik değil.
+  // TESLİM / ÖDEME SATIRLARI kullanıcı kararıyla büyük harf basılır.
   kontrol(
-    s.metin.includes("Avans Ödemesi Sonrası 10-12 Hafta"),
-    "ticari şart cümlesi olduğu gibi kaldı (büyütme yalnız teknik satırlarda)"
+    s.metin.includes("AVANS ÖDEMESİ SONRASI 10-12 HAFTA"),
+    "teslim şartı büyük harf basıldı"
   );
   // Orion kapsamı BELGEDE HİÇ GEÇMEZ — onlarca satırın hepsine kapsam yazmak
   // belgeyi okunmaz yapardı; kural "istisnayı yaz"dır.
@@ -616,7 +782,7 @@ async function main() {
     duz(s.metin).includes(duz("TESLİM VE ÖDEME ŞEKLİ")),
     "ticari sayfanın başlığı yeni metni taşıyor"
   );
-  // KAPAK: konu başlıktır, "TEKLİF" onun üstünde küçük kicker'dır (md. 20).
+  // KAPAK: konu başlıktır; aynı kelimeyi yineleyen "TEKLİF" kicker'ı yoktur.
   kontrol(
     duz(s.sayfalar[0] ?? "").includes(duz("HABAŞ DÖRTYOL 20T VİNÇ")),
     "kapak başlığı teklifin konusu"
@@ -624,7 +790,7 @@ async function main() {
   kontrol(duz(s.sayfalar[0] ?? "").includes(duz("Ünvan")), "künyede ünvan kendi satırında");
   // FİRMA TANITIMI KAPAKTADIR ve kapak TEK SAYFA kalmalıdır (md. 22).
   kontrol(
-    duz(s.sayfalar[0] ?? "").includes(duz("ORION VİNÇ MÜHENDİSLİK")),
+    duz(s.sayfalar[0] ?? "").includes(duz("ORION CRANES")),
     "firma tanıtımı kapakta"
   );
   kontrol(
@@ -640,6 +806,15 @@ async function main() {
     duz(s.metin).includes(duz("GENEL ÖZELLİKLER")),
     "grup başlıkları sütunlarda basıldı"
   );
+
+  const portal = await uret("teklif-portal-astor.pdf", await portalTeklif());
+  const portalKapak = portal.sayfalar[0] ?? "";
+  kontrol(duz(portalKapak).includes(duz("REFERANS NO · TETR-20260818-1")), "referans üst bilgide etiketli");
+  kontrol(duz(portalKapak).includes(duz("TARİH · 18.08.2026")), "tarih üst bilgide etiketli");
+  kontrol(!portalKapak.includes("Referansımız"), "referans KİMDEN kartında tekrarlanmıyor");
+  kontrol(portalKapak.includes("E-posta"), "e-posta etiketi kurumsal yazımda");
+  kontrol(portal.metin.includes("KALDIRMA TRAVERSİ"), "fiyat tanımları büyük harf");
+  kontrol(portal.metin.includes("1 TAKIM"), "fiyat adet/birim hücresi büyük harf");
 
   const i = await uret("teklif-iskontolu.pdf", iskontoluTeklif());
   kontrol(duz(i.metin).includes(duz(fmtMoney(232000, "EUR"))), "satır TOPLAMI belgede (232.000 €)");
@@ -676,7 +851,7 @@ async function main() {
   kontrol(!g.metin.includes("VİNÇ ARABASI"), "gizlenen grubun BAŞLIĞI da düştü");
   kontrol(!duz(g.metin).includes(duz("999.999")), "gizlenen fiyat satırının tutarı yok");
   // Toplama girmeyen satır GÖRÜNÜR ama toplamı 223.600 € olarak bırakır.
-  kontrol(g.metin.includes("Montaj Süpervizör Hizmeti"), "toplam dışı satır belgede duruyor");
+  kontrol(g.metin.includes("MONTAJ SÜPERVİZÖR HİZMETİ"), "toplam dışı satır belgede duruyor");
   kontrol(g.metin.includes("Toplam fiyata dahil değildir"), "toplam dışı satırın dipnotu var");
   kontrol(
     duz(g.metin).includes(duz(fmtMoney(223600, "EUR"))),
@@ -698,7 +873,7 @@ async function main() {
 
   const c = await uret("teklif-cok-kalemli.pdf", cokKalemliTeklif());
   kontrol(c.sayfalar.length >= 10, `sekiz kalem ayrı sayfalara dağıldı (${c.sayfalar.length} sayfa)`);
-  kontrol(c.metin.includes("(Opsiyonel)"), "opsiyonel satırlar rozetli");
+  kontrol(c.metin.includes("(OPSİYONEL)"), "opsiyonel satırlar rozetli");
   kontrol(
     KALEM_ADLARI.every((ad) => c.metin.includes(ad)),
     "sekiz kalemin sekizi de belgede"

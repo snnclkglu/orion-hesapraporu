@@ -208,14 +208,18 @@ describe("ölçülmüş taban", () => {
     const row = elektrikGrubu().rows.find((r) => r.key === "runwayPower");
     if (!row) throw new Error("fikstürde runwayPower satırı yok");
     expect(row.scope).toBe("customer");
-    const eksiz: OfferRow = { ...row, scope: undefined };
-    expect(satirYuksekligi(row)).toBeGreaterThan(satirYuksekligi(eksiz));
+    // Gerçek etiket iki satır olduğu için ekin getirdiği ikinci değer satırı
+    // toplam yüksekliği değiştirmeyebilir. Etiketi kısaltarak burada yalnız
+    // DEĞER sarmasını ölçeriz.
+    const kapsamli: OfferRow = { ...row, label: "BARA" };
+    const eksiz: OfferRow = { ...kapsamli, scope: undefined };
+    expect(satirYuksekligi(kapsamli)).toBeGreaterThan(satirYuksekligi(eksiz));
   });
 
   /**
    * ÖLÇÜ, ÇİZİMİN MODELİDİR — VE BU, ÇİZİM TARAFINA VERİLMİŞ BİR SÖZDÜR.
    *
-   * Satır iki kutudur: etiket solda kendi boyunda, değer sağda ARTAN yerde ve
+   * Satır iki SABİT kutudur: etiket solda %34, değer sağda kalan yerde ve
    * sağa yaslı (`pdf/offer.tsx` `OzellikSatiri`). Değer sardığında ikinci satır
    * etiketin altına taşmaz, kendi sütununda kalır — ölçü de bu yüzden değeri
    * `SUTUN_GENISLIK − etiket − oluk` genişliğine sarar.
@@ -229,24 +233,31 @@ describe("ölçülmüş taban", () => {
    * Aşağıdaki sayı bir güzellik değil bir SÖZLEŞME dondurur: düşerse model
    * değişmiştir ve çizimle birlikte gözden geçirilmesi gerekir.
    */
-  it("ÖLÇÜ ÇİZELGE MODELİDİR: değer, etiketten ARTAN genişliğe sarar", () => {
+  it("ÖLÇÜ SABİT İKİ SÜTUNDUR: uzun değer ikinci satıra kendi alanında iner", () => {
     const kaldirma = vincGruplari().find((g) => g.key === "mainHoist");
     const fren = kaldirma?.rows.find((r) => r.key === "brake");
     if (!fren) throw new Error("fikstürde kaldırma freni satırı yok");
     expect(fren.label).toBe("Fren");
     expect(fren.value).toBe("SIBRE Elektrohidrolik Kasnak Fren x 2 Adet");
 
-    // Etiket 4 harf × 0,62 × 7,8 = 19,3pt; değere 234,78 − 19,3 − 10 = 205,5pt
-    // kalır. Değer mono 42 karakter × 4,44 = 186,5pt → tek satır: 10 + 5,2.
-    expect(satirYuksekligi(fren)).toBeCloseTo(15.2, 6);
+    // Etiket sabit 234,78 × %34 = 79,8pt; değere 145pt kalır. Değer mono
+    // 42 karakter × 4,44 = 186,5pt'tir ve iki satıra iner: 2 × 10 + 3,2.
+    expect(satirYuksekligi(fren)).toBeCloseTo(23.2, 6);
 
-    // ETİKET DEĞERİN YERİNİ YER: uzun bir etiket değer sütununu daraltır ve
-    // aynı değer ikinci satıra iner. İki kutu ayrı ölçülseydi bu bağ kopardı.
-    const uzunEtiket = { ...fren, label: "Kaldırma Grubu Fren Donanımı Tipi" };
+    // Kısa etiket değere daha fazla yer AÇMAZ; bütün değerler aynı x
+    // noktasından başlar. Kullanıcının bildirdiği iç içe görünümü bu
+    // sabitlik kapatır.
+    expect(satirYuksekligi({ ...fren, label: "X" })).toBe(satirYuksekligi(fren));
+
+    // Etiket kendi sabit alanında üç satıra çıkarsa satır elbette büyür;
+    // fakat DEĞER alanı daralmaz.
+    const uzunEtiket = {
+      ...fren,
+      label: "Kaldırma Grubu Fren Donanımı Tipi ve Emniyet Sisteminin Teknik Tanımı",
+    };
     expect(satirYuksekligi(uzunEtiket)).toBeGreaterThan(satirYuksekligi(fren));
 
-    // ETİKET YARIM SÜTUNDA KELEPÇELİDİR (`ETIKET_ORAN`): kelepçesiz bir
-    // etiket değere hiç yer bırakmaz, değer harf harf sarardı.
+    // Patolojik serbest etiket de sonlu kalır; değer alanını yiyemez.
     const devEtiket = { ...fren, label: "Kaldırma".repeat(12) };
     expect(satirYuksekligi(devEtiket)).toBeLessThan(200);
   });
@@ -293,11 +304,14 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     }
   });
 
-  it("iki sütuna geçen gövde TEK YAPRAĞA iner ve sağ sütun kullanılır", () => {
-    // Değişikliğin sebebi buydu: aynı vinç tek sütunda iki yaprak ediyordu.
-    expect(sayfalar).toHaveLength(1);
+  it("okunur sabit sütunlarda yoğun gövde iki yaprağa kontrollü dağılır", () => {
+    // Sabit etiket/değer genişliği uzun satırları bilinçli olarak ikinci
+    // satıra indirir. En kötü hâldeki 68 dolu satır iki yapraktır; okunurluk
+    // için satırları sıkıştırıp tek yaprağa zorlamayız.
+    expect(sayfalar).toHaveLength(2);
     expect(sayfalar[0].sol.length).toBeGreaterThan(0);
     expect(sayfalar[0].sag.length).toBeGreaterThan(0);
+    expect(sayfalar[1].sol.length).toBeGreaterThan(0);
   });
 
   it("başlıklar sayfadaki öbekleri SIRAYLA, YİNELENMEDEN ve KISA ADIYLA listeler", () => {
@@ -322,18 +336,20 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     ]);
   });
 
-  it("21 SATIRLIK ELEKTRİK GRUBU tek sütuna sığar — bölünmez", () => {
+  it("21 SATIRLIK ELEKTRİK GRUBU bölünse de tek satır kaybetmez", () => {
     const elektrik = elektrikGrubu(gruplar);
-    // Defterdeki öbek 21 satırdır; fikstürde dördünün değeri boştur ve
-    // `printedPayload` onları belgeden zaten düşürür. Ölçü bu yüzden EN KÖTÜ
-    // hâldir: 21 satır sığıyorsa basılan 17 zaten sığar.
+    // Defterdeki öbek 21 satırdır; kendi başına bir sütuna sığar. Ancak
+    // belge sırasını koruduğumuz için önceki öbekten kalan alana girer ve devam
+    // dilimi ikinci yaprağa taşınır. Sığıyor diye sırayı bozup yeni sütunun
+    // başına atmak daha dengeli ama yanlış bir belge üretirdi.
     expect(elektrik.rows).toHaveLength(21);
     expect(grupYuksekligi(elektrik)).toBeLessThanOrEqual(KELEPCELI);
 
     const dilimler = duzBloklar(sayfalar).filter((b) => b.group.id === elektrik.id);
-    expect(dilimler).toHaveLength(1);
+    expect(dilimler).toHaveLength(2);
     expect(dilimler[0].devam).toBe(false);
-    expect(dilimler[0].rows).toHaveLength(21);
+    expect(dilimler[1].devam).toBe(true);
+    expect(dilimler.reduce((t, b) => t + b.rows.length, 0)).toBe(21);
   });
 
   it("EN AZ İKİ SATIR: hiçbir blok yalnız başlıkla ya da tek satırla yerleşmez", () => {
@@ -389,7 +405,7 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     // yanılmanın en pahalı olduğu yerdir.
     const koprununDilimleri = (s: OfferPdfSayfa[]) =>
       [...s[0].sol, ...s[0].sag].filter((b) => b.group.key === "bridge").map((b) => b.rows.length);
-    expect(koprununDilimleri(kelepceli)).toEqual([4, 8]);
+    expect(koprununDilimleri(kelepceli)).toEqual([3, 9]);
     expect(koprununDilimleri(kelepcesiz)).toEqual([6, 6]);
     // Kelepçenin bıraktığı dip boşluğu: bir satırın sığıp sığmadığını belirler.
     expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(42.04, 2);

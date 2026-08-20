@@ -629,3 +629,55 @@ silmez. Bu yüzden fiyat girilmiş bir satır, defter kararı sonradan değişti
 kaybolmaz. Maliyet Şablonları ekranı telefonda vinç tipini tek seçiciden açar,
 masaüstünde sabit sol defteri korur; kalemler kırmızı çip değil sarmalanan okunur
 satırlardır ve 320 px'te yatay sayfa kaydırması üretmez.
+
+## MALIYET-33 — Hammadde fiyatı global defterden SNAPSHOT alınır, canlı bağlanmaz.
+
+Kullanıcı kararı (20.08.2026) MALIYET-22'nin “fiyat yalnız payload'da yaşar”
+kararını genişletir: güncel açılış değeri artık `offer_cost_material_prices`
+defterindedir; **yeni maliyet çalışması açılırken** sekiz fiyat payload'a
+kopyalanır. Sonraki bütün hesaplar yine payload kopyasını okur ve kullanıcı o
+teklif içinde fiyatı ayrıca değiştirebilir. Global defter değişince geçmiş
+belge değişmez; sonraki maliyet revizyonu da önceki revizyonun snapshot'ını
+taşır. Defter okunamazsa sessizce kod sabitine düşülmez, yeni maliyet açılmaz.
+
+Tohum sırası ve değerleri: SAC 0,70; PROFİL 0,70; KARE RAY 0,90; A TİPİ RAY
+1,10; KESİM 0,10; ÇELİK İMALAT İŞÇİLİĞİ 0,74; BOYA 0,08; BOYA İŞÇİLİĞİ
+0,07 €/kg. Kod listesindeki değerler göç tohumu ile test/önizleme yedeğidir,
+canlı teklifin gizli ikinci fiyat kaynağı değildir.
+
+## MALIYET-34 — Paket toplamı yalnız paket sütununu toplar; sonuçlar tam sayıdır.
+
+`CostOverview.packageTotal = Σ items.package`. Proje geneli ve oranlı giderler
+bu hücreye GİRMEZ; onlar `documentTotal`ın parçasıdır. Özet tablosunun paket
+toplamına belge toplamını yazmak, görünen satırların toplamını tutturulamayan
+bir sütun üretmişti.
+
+Maliyet ekranı, özeti, iç PDF ve Excel'in sonuç/tutar/ağırlık/yüzde hücreleri
+ondalıksız görünür. Excel hücresi yine SAYIDIR (`#,##0`), metne çevrilmez.
+Hammadde ve ona bağlı €/kg birim fiyatları bu kuralın bilinçli istisnasıdır:
+0,74'ü tam sayıya biçimlemek 1 €, 0,08'i 0 € gösterir ve maliyeti anlaşılmaz
+kılar. Manuel tutar kutuları odak dışındayken binlik ayırır (`10000` →
+`10.000`).
+
+## MALIYET-35 — Maliyet grubu yatay kaymaz; PROJE GENELİ de iki sütun ızgarasındadır.
+
+Satır tablosu `table-fixed` ve yüzde sütunludur. “Teklifte” metni küçük iki
+satıra sarar; miktar sütunu %13'tür ve model düğmesiyle birlikte daralmaz.
+Tablo kabı yatay kaydırma açmaz. Bu, MALIYET-31'deki 781 px taban/1800 px eşik
+kararını **değiştirir**: sabit ızgara gerçek tabanı kaldırdığı için iki sütun
+1500 px'te güvenle açılır. PROJE GENELİ belge düzeyindeki veri olmaya devam
+eder ama görsel olarak aynı iki sütun ızgarasına girer; tam genişlikte tek
+başına uzamaz.
+
+Birim DEĞERİ kanonik küçük yazımla saklanır (`adet`, `takım`, `kg`); sunumda
+Türkçe başlık düzeni kullanılır (`Adet`, `Takım`, `Saat`, ama SI birimi `kg`
+korunur). Böylece filtre/eşleşme tek değerde kalırken arayüz profesyonel yazılır.
+
+## MALIYET-36 — Şablonun “Kalem Ekle” kapısı katalog + yeni kalemdir.
+
+Dialog önce mevcut seçenekleri verir: o bölümde kapatılmış kod-defteri satırı
+seçilirse yeniden açılır; kullanıcı kataloğundaki satır seçilirse özel satır
+olarak eklenir; “Yeni Kalem Oluştur” ad + birim ister. Yeni özel kalem şablonla
+birlikte `offer_cost_line_catalog`a yazılır ve sonradan şablondan kaldırılsa da
+dropdown'da kalır. Göç öncesi şablon JSON'larında bulunan özel kalemler de
+okuma sırasında kataloğa katılır; eski veri yeni listeye geçişte kaybolmaz.

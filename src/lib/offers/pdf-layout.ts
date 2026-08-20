@@ -52,11 +52,11 @@ export const DEGER_PUNTO = 7.4;
 const SATIR_YUK = 10;
 
 /**
- * Satırın metin dışı yükü: `S.ozellikSatiri`in 2,4 üst + 2,4 alt payı ve
+ * Satırın metin dışı yükü: `S.ozellikSatiri`in 1,4 üst + 1,4 alt payı ve
  * altındaki 0,4 pt'lik AYIRICI ÇİZGİ. Çizgi satırın parçasıdır; ölçüye
  * girmeseydi yirmi satırlık bir öbekte 8 pt'lik bir sapma birikirdi.
  */
-const SATIR_PAY = 5.2;
+const SATIR_PAY = 3.2;
 
 /**
  * Bloğun satır dışı yükü: ŞERİT + BÖLÜM ADI + bloklar arası boşluk.
@@ -101,14 +101,15 @@ const DEGER_KATSAYI = 0.6;
 export const ETIKET_ARA = 10;
 
 /**
- * ETİKET EN ÇOK YARIM SÜTUNDUR.
+ * ETİKET SABİT OLARAK SÜTUNUN %34'ÜDÜR.
  *
- * Etiket kendi boyunda çizilir, değer ARTAN yeri kaplar ve sağa yaslanır.
- * Serbest kalemde etiketi kullanıcı yazar; kelepçe olmasaydı uzun bir etiket
- * değere hiç yer bırakmaz, değer harf harf sararak sütunu taşırırdı. Sayı
- * çizimde (`maxWidth`) ve ölçüde AYNIDIR — ayrışırsa ölçü ile kâğıt ayrışır.
+ * Kullanıcı bildirimi (20.08.2026): değerin başlangıcı etiketin boyuna göre
+ * değişince satırlar iç içe okunuyor ve uzun metin öngörülemez yerde sarıyordu.
+ * Sabit etiket sütunu değere her satırda aynı genişliği verir; uzun değer
+ * ikinci satıra kendi sütununda iner. Sayı çizimde (`width`) ve ölçüde
+ * AYNIDIR — ayrışırsa ölçü ile kâğıt ayrışır.
  */
-export const ETIKET_ORAN = 0.5;
+export const ETIKET_ORAN = 0.34;
 
 /**
  * SÜTUN BÜTÇESİ %94'E KELEPÇELENİR ve katsayılar BİLEREK FAZLA ölçer.
@@ -175,10 +176,10 @@ function gorunurSatirlar(group: OfferGroup): OfferRow[] {
 /**
  * Satırın kapladığı dikey yer — İKİ SÜTUNLU model.
  *
- * ÖLÇÜ ÇİZİMİN MODELİDİR. Satır iki kutudur: etiket kendi boyunda solda,
- * değer ARTAN yerde sağa yaslı. Değer sardığında ikinci satır etiketin altına
- * TAŞMAZ, kendi sütununda kalır — ölçü de bu yüzden değeri sütunun tamamına
- * değil `SUTUN_GENISLIK − etiket − oluk` genişliğine sarar. Eski akış modeli
+ * ÖLÇÜ ÇİZİMİN MODELİDİR. Satır iki sabit kutudur: etiket solda,
+ * değer sağda. Değer sardığında ikinci satır etiketin altına TAŞMAZ, kendi
+ * sütununda kalır — ölçü de bu yüzden değeri sütunun tamamına değil
+ * `SUTUN_GENISLIK − sabit etiket − oluk` genişliğine sarar. Eski akış modeli
  * (etiket ve değer tek akışta) sarma noktasını olduğundan geç hesaplıyordu ve
  * eksik ölçmek, @react-pdf'in taşan satırı SESSİZCE kırpması demektir.
  *
@@ -189,9 +190,7 @@ function gorunurSatirlar(group: OfferGroup): OfferRow[] {
  */
 export function satirYuksekligi(row: OfferRow): number {
   const etiketTam = (row.label ?? "").length * ETIKET_KATSAYI * SATIR_PUNTO;
-  const etiketEn = Math.min(etiketTam, SUTUN_GENISLIK * ETIKET_ORAN);
-  // Kelepçeye çarpan etiket SARAR; satır o zaman etiketin satır sayısı kadar
-  // yer kaplar (değer bir satırlık olsa bile).
+  const etiketEn = SUTUN_GENISLIK * ETIKET_ORAN;
   const etiketSatir = etiketEn > 0 ? Math.max(1, Math.ceil(etiketTam / etiketEn)) : 1;
 
   const alan = Math.max(1, SUTUN_GENISLIK - etiketEn - ETIKET_ARA);

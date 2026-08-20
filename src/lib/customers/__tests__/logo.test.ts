@@ -5,7 +5,9 @@
 
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { customerLogoPath, isCustomerLogoPath, loadCustomerLogo } from "../logo";
+import sharp from "sharp";
+import { customerLogoPath, isCustomerLogoPath } from "../logo";
+import { loadCustomerLogo } from "../logo-server";
 
 const MUSTERI = "3f2b1a90-1111-4c22-9a3d-0d5b7e6f0011";
 const YUKLEME = "8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f";
@@ -119,16 +121,46 @@ describe("loadCustomerLogo", () => {
     ).resolves.toBeNull();
   });
 
-  it("dosya inerse BUFFER döner (imzalı adres değil)", async () => {
-    const baytlar = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  it("dosya inerse STANDART TUVALE ALINMIŞ BUFFER döner", async () => {
+    const baytlar = await sharp({
+      create: {
+        width: 600,
+        height: 200,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .composite([
+        {
+          input: { create: { width: 300, height: 70, channels: 4, background: "#b01f24" } },
+          left: 150,
+          top: 65,
+        },
+      ])
+      .png()
+      .toBuffer();
     const logo = await loadCustomerLogo(
       sahteIstemci({
         logoPath: customerLogoPath(MUSTERI, YUKLEME),
-        indirilen: new Blob([baytlar], { type: "image/png" }),
+        indirilen: new Blob([new Uint8Array(baytlar)], { type: "image/png" }),
       }),
       MUSTERI
     );
     expect(Buffer.isBuffer(logo)).toBe(true);
-    expect(Array.from(logo!)).toEqual(Array.from(baytlar));
+    const meta = await sharp(logo!).metadata();
+    expect([meta.width, meta.height]).toEqual([900, 240]);
+  });
+
+  it("bozuk PNG baytı null olur; PDF yine üretilir", async () => {
+    const bozuk = Uint8Array.from([0x89, 0x50, 0x4e, 0x47]);
+    await expect(
+      loadCustomerLogo(
+        sahteIstemci({
+          logoPath: customerLogoPath(MUSTERI, YUKLEME),
+          indirilen: new Blob([bozuk], { type: "image/png" }),
+        }),
+        MUSTERI
+      )
+    ).resolves.toBeNull();
   });
 });

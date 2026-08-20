@@ -20,6 +20,7 @@ import type { CostTemplate, CostTemplateSkeleton } from "@/lib/offers/cost/types
 import { renderOfferCostPdf } from "@/lib/pdf/offer-cost";
 import { offerCostFileName } from "@/lib/pdf/doc-naming";
 import { saveCostSchema, type SaveCostInput } from "./cost-schema";
+import { loadCostMaterialPriceBook } from "./cost-data";
 
 export type CostActionResult = { error?: string; ok?: boolean; warning?: string };
 
@@ -113,9 +114,13 @@ export async function createOfferCostRevision(
     .maybeSingle();
 
   const currency = (kaynak.offer.currency as string) ?? "EUR";
+  const fiyatDefteri = son ? null : await loadCostMaterialPriceBook(supabase);
+  if (fiyatDefteri?.error) {
+    return { error: `Hammadde fiyatları okunamadı: ${fiyatDefteri.error}` };
+  }
   const temel = son
     ? withCostDefaults(son.payload, currency)
-    : withDefaultRates(emptyCostPayload(currency));
+    : withDefaultRates(emptyCostPayload(currency, fiyatDefteri!.prices));
 
   const teklif = withDefaults(kaynak.revision?.payload, currency);
   const { payload } = withOfferSync(

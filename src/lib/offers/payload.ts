@@ -6,7 +6,7 @@
 // (`printedPayload`).
 
 import { rowHasValue, withComposedValue } from "./compose";
-import { paymentDescText } from "./pricing";
+import { paymentDescText, withValidPriceLineParents } from "./pricing";
 import {
   AUX_TROLLEY_GROUP_KEY,
   CUSTOM_GROUP_KEY,
@@ -328,7 +328,16 @@ export function newTextLine(text = ""): OfferTextLine {
 export function newPriceLine(itemId: string | null = null): OfferPriceLine {
   // MİKTAR GERÇEK BİR DEĞERDİR, yer tutucu değil (SATIS-16): vinç kalemlerinin
   // ezici çoğunluğu tek takımdır ve boş miktar toplamı sessizce sıfırlardı.
-  return { id: newOfferId(), itemId, description: "", qty: 1, unit: "Takım", unitPrice: null, inTotal: true };
+  return {
+    id: newOfferId(),
+    itemId,
+    parentLineId: null,
+    description: "",
+    qty: 1,
+    unit: "Takım",
+    unitPrice: null,
+    inTotal: true,
+  };
 }
 
 // ——————————————————————————————————————————————————————— varsayılanlar
@@ -571,9 +580,11 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
     pricing: {
       currency: metin(pricing.currency, currency),
       vatIncluded: pricing.vatIncluded === true,
-      lines: dizi<Record<string, unknown>>(pricing.lines).map((l) => ({
+      lines: withValidPriceLineParents(dizi<Record<string, unknown>>(pricing.lines).map((l) => ({
         id: metin(l.id) || newOfferId(),
         itemId: typeof l.itemId === "string" && l.itemId ? l.itemId : null,
+        parentLineId:
+          typeof l.parentLineId === "string" && l.parentLineId ? l.parentLineId : null,
         description: metin(l.description),
         qty: sayiVeyaNull(l.qty),
         unit: metin(l.unit, "Takım"),
@@ -583,7 +594,7 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         hidden: l.hidden === true,
         // ELLE MALİYET eski kayıtlarda yoktur ve `null` gelir.
         manualCost: sayiVeyaNull(l.manualCost),
-      })),
+      }))),
       // İSKONTO ALANI ESKİ KAYITLARDA YOKTUR ve `null` gelir — iskonto
       // kararının hiç verilmemiş olması demektir (sıfır değil).
       discountTotal: sayiVeyaNull(pricing.discountTotal),
@@ -728,9 +739,13 @@ export function printedPayload(payload: OfferPayload): OfferPayload {
     // dikkatine bırakılmaz.
     pricing: {
       ...payload.pricing,
-      lines: payload.pricing.lines
+      lines: withValidPriceLineParents(payload.pricing.lines
         .filter((l) => !l.hidden)
-        .map(({ manualCost: _elleMaliyet, ...l }) => l),
+        .map((line) => {
+          const printedLine = { ...line };
+          delete printedLine.manualCost;
+          return printedLine;
+        })),
     },
     notes: printedTextLines(payload.notes),
     exclusions: printedTextLines(payload.exclusions),

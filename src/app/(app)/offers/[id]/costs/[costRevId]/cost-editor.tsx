@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Sheet, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { costModels, costSteelWeights, costWeights, withCostDerived } from "@/lib/offers/cost/payload";
 import { costMargin, costOverview, costTotals } from "@/lib/offers/cost/totals";
@@ -272,11 +272,11 @@ export function CostEditor({
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="text-right">
-            <div className="font-mono text-sm">{fmtMoney(totals.total, payload.currency)}</div>
+            <div className="font-mono text-sm">{fmtMoney0(totals.total, payload.currency)}</div>
             <div className="text-xs text-muted-foreground">
               {kar.profit === null
                 ? "kâr —"
-                : `kâr ${fmtMoney(kar.profit, payload.currency)} · %${fmtCostField(kar.marginPercent, 1)}`}
+                : `kâr ${fmtMoney0(kar.profit, payload.currency)} · %${fmtCostField(kar.marginPercent, 0)}`}
             </div>
           </div>
           <Button asChild variant="outline" className="oc-tap">

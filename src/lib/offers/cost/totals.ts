@@ -410,6 +410,8 @@ export interface CostOverview {
   /** Kaleme bağlı OLMAYAN fiyat satırlarının elle maliyetleri. */
   manualLines: CostOverviewManualLine[];
   manualTotal: number | null;
+  /** Yalnız kalem paketlerinin toplamı — proje geneli ve oranlar HARİÇ. */
+  packageTotal: number | null;
   /** Maliyet belgesinin kendi toplamı (`CostTotals.total`). */
   documentTotal: number | null;
   /** Belge toplamı + elle maliyetler, teklif tutarı, kâr ve iki oran. */
@@ -485,6 +487,7 @@ export function costOverview(
     uncostedItems,
     manualLines,
     manualTotal,
+    packageTotal: toplaSayilar(items.map((i) => i.package)),
     documentTotal,
     margin: costMargin(effectiveTotal(offer.pricing), cost),
     steelKg: toplaSayilar(items.map((i) => i.steelPackageKg)),

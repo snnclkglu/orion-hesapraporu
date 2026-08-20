@@ -42,7 +42,7 @@ import {
 } from "../src/lib/offers/cost/payload";
 import { costTotals } from "../src/lib/offers/cost/totals";
 import { PAGE, mm } from "../src/lib/pdf/brand";
-import { fmtMoney } from "../src/lib/currency";
+import { fmtMoney0 } from "../src/lib/currency";
 import type { OfferItem, OfferPayload } from "../src/lib/offers/types";
 import type { CostPayload } from "../src/lib/offers/cost/types";
 
@@ -370,7 +370,7 @@ async function main() {
   for (const baslik of ["PROJE MALİYETİ", "SABİT MALİYETLER", "SARF MALİYETLER", "FİNANSMAN MALİYETLERİ", "TOPLAM MALİYET"]) {
     kontrol(metin.includes(baslik), `"${baslik}" başlığı belgede`);
   }
-  kontrol(duz(metin).includes(duz(fmtMoney(totals.total, "EUR"))), "toplam maliyet tutarı basıldı");
+  kontrol(duz(metin).includes(duz(fmtMoney0(totals.total, "EUR"))), "toplam maliyet tutarı ondalıksız basıldı");
 
   // 3 — KÂR
   console.log("\n  kâr");

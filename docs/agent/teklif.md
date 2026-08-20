@@ -817,23 +817,26 @@ dizilir; duman testinde "KAPALI ALAN" savı bu tuzağın bekçisidir.
 Kullanıcı isteği (19.08.2026, md. 20): *"En üstte büyük sadece TEKLİF yazacağına
 konu en üstte verilebilir. Konu zaten teklifin içeriğini anlatıyor."*
 
-- Büyük başlık `offer.subject`tir; üstünde küçük kırmızı bir "TEKLİF" kicker'ı
-  belgenin ne olduğunu söyler. Konu boşsa başlık "TEKLİF"e düşer — adsız bir
-  kapak, yanlış adlandırılmış bir kapaktan da kötüdür.
+- Büyük başlık `offer.subject`tir; konu zaten "… TEKLİFİ" diyebildiği için
+  üstünde ikinci bir "TEKLİF" kicker'ı YOKTUR. Konu boşsa başlık "TEKLİF"e
+  düşer — adsız bir kapak, yanlış adlandırılmış bir kapaktan da kötüdür.
 - **PUNTO KADEMELİDİR** (22 / 17 / 14): konu uzunluğu teklifden teklife değişir
   ve @react-pdf'te `maxLines`/`textOverflow` YOKTUR, yani kırpma seçeneği de yok.
 - **ÜNVAN KENDİ SATIRIDIR**: eskiden adın altında etiketsiz, girintili bir alt
   satırdı ve künyenin ızgarasına tutunmadığı için havada duruyordu.
-- **LOGOLAR**: KİMDEN'de bizimki (belgeye gömülü buffer), KİME'de müşterininki
-  (Storage'dan indirilip prop olarak gelir). Oranı bilinmeyen bir görsel için
-  `objectFit` YOKTUR; yalnız `height` + `maxWidth` verilir, genişliği motor
-  görselin kendi oranından hesaplar. **Logo yoksa hiçbir şey çizilmez** —
-  sabit yükseklikli boş bir yer tutucu tam da "eksik" izlenimini verirdi.
-- **FİRMA TANITIMI** imzaların altındadır (md. 22). Yeri giriş metninin devamı
-  değildir: giriş mektubun kendisidir ve araya kurumsal bir paragraf girseydi
-  hitap ile imza arasındaki bağ kopardı. Metin `registry.ts` `COMPANY_PROFILE`
-  sabitindedir — defter kullanıcının seçtiği KISA değerleri taşır, bu ise
-  firmanın BEYANIDIR. Duman testi kapağın TEK sayfa kaldığını savlar.
+- **LOGOLAR**: KİMDEN ve KİME artık iki ayrı karttır. İki kartta da 34 pt'lik
+  sabit logo yuvası bulunur; müşteri logosu yoksa yuvanın zemini boş kalır ama
+  metinlerin başlangıcı ve kart yüksekliği DEĞİŞMEZ. Değişken oranlı müşteri
+  logolarının normalleştirilmesi TEKLIF-43'tedir.
+- **ÜST BİLGİ** `REFERANS NO · …` ve `TARİH · …` etiketlerini açıkça taşır;
+  tarih ve referans KİMDEN kartında tekrar edilmez. E-posta etiketi kurumsal
+  yazımla `E-posta`dır.
+- **FİRMA TANITIMI** imzaların altında ve sayfanın alt bölgesindedir (md. 22).
+  Mutlak koordinatla sabitlenmez; kalan alanı alan esnek boşluk bloğu tanıtımı
+  aşağı iter, uzun bir giriş geldiğinde daralır ve iki metnin üst üste binmesini
+  engeller. Metin `registry.ts` `COMPANY_PROFILE` sabitindedir — defter
+  kullanıcının seçtiği KISA değerleri taşır, bu ise firmanın BEYANIDIR. Duman
+  testi kapağın TEK sayfa kaldığını savlar.
 
 ## TEKLIF-40 — Ticari sayfa İKİ SÜTUNDUR; fiyat tablosunun kendi başlığı vardır.
 
@@ -918,3 +921,53 @@ firmanın bugünkü logosu, dünkü teklifte de onun logosudur.
 **İNDİRME HATASI BELGEYİ DÜŞÜRMEZ:** logo alınamazsa `null` geçilir ve teklif
 logosuz basılır. Bir müşteri logosu yüzünden teklif PDF'inin 500 dönmesi kabul
 edilemez.
+
+**ORAN VE TUVAL NORMALLEŞİR (20.08.2026):** yatay, kare ve dikey logo aynı
+fiziksel yuvaya ham tuvaliyle verilemez. Dosyanın kenarındaki saydam veya
+beyaz dış boşluk görünür sınıra kadar kırpılır; renkli kurumsal zemin ise
+korunur. Görünür içerik oranı bozulmadan 840 × 180 px iç alana sığdırılır ve
+30 px güvenli payla 900 × 240 px saydam standart tuvalin ortasına alınır.
+PDF'de bu tuval 120 × 32 pt çizilir. Böylece kaynak dosyanın rastlantısal
+boşluğu, çözünürlüğü veya en-boy oranı logonun konumunu değiştiremez.
+
+Normalleştirme hem yükleme anında hem PDF için canlı indirme sonrasında
+yapılır. İkinci geçiş BİLEREKTİR: bu kuraldan önce yüklenen ASTOR gibi geniş
+boşluklu eski logolar da yeniden yükleme istemeden düzelir. Kaynak en büyük
+kenarda 6000 px ile sınırlıdır; 16 bit, paletli ve interlaced PNG'ler sRGB 8 bit,
+paletsiz ve progressive olmayan PNG'ye çevrilir. Boş/bozuk dosya yine `null`
+olur; logo yuvası boş kalırken künye düzeni korunur.
+
+## TEKLIF-44 — Teklif sayfalarının görsel hiyerarşisi sabittir.
+
+Kullanıcı isteği (20.08.2026): teknik değerlerin iç içe girmemesi, özellik adı
+ile değerinin ayırt edilmesi, ticari ana başlıkların ve fiyat tablosunun daha
+güçlü görünmesi.
+
+- Teknik satır iki SABİT sütundur: etiket %34, aralık 10 pt, değer kalan alan.
+  Değer ikinci satıra geçtiğinde etiketin altına değil kendi sütununa sarılır;
+  çizim ve `pdf-layout.ts` ölçümü aynı genişliği kullanır.
+- Etiket Archivo Medium ve gri, değer IBM Plex Mono Medium ve koyu renktir.
+  Renk farkı yalnız dekor değil, tanım/veri ayrımıdır.
+- `TESLİM VE ÖDEME ŞEKLİ` 18 pt; `TESLİM ŞARTLARI` ile `ÖDEME` diğer küçük
+  şerit başlıklarından daha büyüktür.
+- Fiyat satırlarının tanımı, opsiyon eki ve adet/birim hücresi Türkçe büyük
+  harfle basılır; sayı ve para gösterimi değişmez.
+
+## TEKLIF-45 — Fiyat sırası iki seviyelidir ve seçimlidir.
+
+Kullanıcı kararı (20.08.2026): bir vinç ana satırı `1`, ona bağlı yürüme yolu,
+bara ve benzeri satırlar isteğe bağlı `1.1`, `1.2` olabilir; bağ seçilmezse
+satır normal ana sıra olur ve sonraki vinç `2` diye devam eder.
+
+Bağ `OfferPriceLine.parentLineId` ile satır KİMLİĞİNE kurulur, basılmış sıra
+metni saklanmaz. Yalnız daha önce gelen bir ANA satır ebeveyn olabilir ve
+katman sayısı ikidir. Silinmiş, daha sonra gelen veya kendisi alt satır olan
+bir ebeveyn bağı ana satıra yükseltilir. Editör ve PDF aynı
+`priceLineNumbers` çekirdeğini okur; teklif başka müşteriye veya kalem aynı
+teklif içinde kopyalanırken fiyat satırı kimlikleriyle ebeveyn bağı da yeniden
+eşlenir.
+
+Teslim şartları ve test yükü satırları da teknik büyük-harf sunumundan geçer;
+ölçü/SI birimleri korunur. Ödeme kutularının açıklaması Türkçe büyük harftir
+(`%50 AVANS SİPARİŞ İLE NAKİT`). Bu bir sunum kararıdır, kullanıcının payload
+metni değiştirilmez.

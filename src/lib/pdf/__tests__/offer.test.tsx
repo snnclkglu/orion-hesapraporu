@@ -123,15 +123,23 @@ function fikstur(over: { vatIncluded?: boolean; kapsam?: OfferRowScope } = {}): 
   ];
 
   p.pricing.vatIncluded = over.vatIncluded ?? false;
+  const anaFiyat = fiyat({
+    description: "20 Ton x 22,5 m Çift Kirişli Gezer Köprülü Vinç",
+    qty: 4,
+    unit: "Takım",
+    unitPrice: 55900,
+  });
   p.pricing.lines = [
-    fiyat({
-      description: "20 Ton x 22,5 m Çift Kirişli Gezer Köprülü Vinç",
-      qty: 4,
-      unit: "Takım",
-      unitPrice: 55900,
-    }),
+    anaFiyat,
     // TOPLAMA GİRMEYEN satır: tutarı belgede yazar, TOPLAM'a eklenmez.
-    fiyat({ description: "Montaj Süpervizör Hizmeti", qty: 1, unit: "Kişi", unitPrice: 400, inTotal: false }),
+    fiyat({
+      description: "Montaj Süpervizör Hizmeti",
+      qty: 1,
+      unit: "Kişi",
+      unitPrice: 400,
+      inTotal: false,
+      parentLineId: anaFiyat.id,
+    }),
     // GİZLENEN fiyat satırı.
     fiyat({ description: `${GIZLI} Yedek Parça`, qty: 1, unit: "Takım", unitPrice: 999999, hidden: true }),
   ];
@@ -239,10 +247,29 @@ describe("toplam", () => {
     const metin = duz(await pdfMetni(props));
     expect(metin.includes(duz(fmtMoney(223600, "EUR")))).toBe(true);
     // Satırın kendisi belgede DURUR (bilgi silinmez), yalnız toplama girmez.
-    expect(metin.includes(duz("Montaj Süpervizör Hizmeti"))).toBe(true);
+    expect(metin.includes(duz("MONTAJ SÜPERVİZÖR HİZMETİ"))).toBe(true);
     expect(metin.includes(duz("* Toplam fiyata dahil değildir."))).toBe(true);
     // Toplam, süpervizörlük eklenmiş hâli (224.000) OLAMAZ.
     expect(metin.includes(duz(fmtMoney(224000, "EUR")))).toBe(false);
+  });
+
+  it("seçilen aksesuar satırını ana vincin altında 1.1 numaralar", async () => {
+    const sayfalar = await pdfSayfalari(fikstur());
+    const fiyatSayfasi = sayfalar.find((page) => page.includes("MONTAJ SÜPERVİZÖR HİZMETİ")) ?? "";
+    const satir = fiyatSayfasi
+      .split("\n")
+      .find((line) => line.includes("MONTAJ SÜPERVİZÖR HİZMETİ")) ?? "";
+    expect(satir).toContain("1.1");
+  });
+});
+
+describe("ticari şart yazımı", () => {
+  it("teslim, test yükü ve ödeme kalemlerini büyük harfle basar", async () => {
+    const metin = await pdfMetni(fikstur());
+    expect(metin).toContain("14 İŞ GÜNÜ");
+    expect(metin).toContain("AVANS ÖDEMESİ SONRASI 10-12 HAFTA");
+    expect(metin).toContain("%40 AVANS SİPARİŞ İLE NAKİT");
+    expect(metin).toContain("Q x 1,25");
   });
 });
 
@@ -277,8 +304,8 @@ describe("satır kapsamı", () => {
     // doğruydu, METİN KATMANI yanlıştı — yani müşteri belgede arama yapsa
     // bulamazdı. Ek artık sans dizilir (`S.kapsamEki`).
     expect(metin.includes(duz("4/1 (MÜŞTERİ KAPSAMINDA)"))).toBe(true);
-    expect(metin.includes(duz("Q x 1,1 (Müşteri Kapsamında)"))).toBe(true);
-    expect(metin.includes(duz("Avans Ödemesi Sonrası 10-12 Hafta (Müşteri Kapsamında)"))).toBe(true);
+    expect(metin.includes(duz("Q x 1,1 (MÜŞTERİ KAPSAMINDA)"))).toBe(true);
+    expect(metin.includes(duz("AVANS ÖDEMESİ SONRASI 10-12 HAFTA (MÜŞTERİ KAPSAMINDA)"))).toBe(true);
   });
 
   it("Orion kapsamı belgede İZ BIRAKMAZ — alan yazılmasa da 'orion' yazılsa da", async () => {

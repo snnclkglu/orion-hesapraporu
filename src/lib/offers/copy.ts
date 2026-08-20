@@ -44,6 +44,7 @@ export function copyPayloadForCustomer(
   // Eski kalem kimliği → yeni kimlik. Fiyat satırının `itemId` bağı bu haritayla
   // taşınır; taşınmasaydı kopyada bütün fiyatlar "serbest satır"a düşerdi.
   const itemIdMap = new Map<string, string>();
+  const priceLineIdMap = new Map<string, string>();
 
   const items = payload.items.map((item) => {
     const id = newOfferId();
@@ -54,6 +55,7 @@ export function copyPayloadForCustomer(
       groups: item.groups.map((g) => ({ ...g, id: newOfferId(), rows: g.rows.map((r) => ({ ...r })) })),
     };
   });
+  for (const line of payload.pricing.lines) priceLineIdMap.set(line.id, newOfferId());
 
   return {
     ...payload,
@@ -79,8 +81,9 @@ export function copyPayloadForCustomer(
       ...payload.pricing,
       lines: payload.pricing.lines.map((l) => ({
         ...l,
-        id: newOfferId(),
+        id: priceLineIdMap.get(l.id)!,
         itemId: l.itemId ? itemIdMap.get(l.itemId) ?? null : null,
+        parentLineId: l.parentLineId ? priceLineIdMap.get(l.parentLineId) ?? null : null,
       })),
     },
     notes: payload.notes.map((n) => ({ ...n, id: newOfferId() })),
@@ -221,11 +224,22 @@ export function copyItemInPayload(
   // Kopyalanan satırlar kaynağın SON fiyat satırının ardına girer: iki vincin
   // satırları belgede yan yana okunur, araya başka bir kalemin fiyatı girmez.
   const kopyaLines: OfferPriceLine[] = [];
+  const priceLineIdMap = new Map<string, string>();
   let sonIndex = -1;
   payload.pricing.lines.forEach((line, i) => {
     if (line.itemId !== kaynak.id) return;
     sonIndex = i;
-    kopyaLines.push({ ...line, id: newOfferId(), itemId: kopya.id });
+    priceLineIdMap.set(line.id, newOfferId());
+  });
+  payload.pricing.lines.forEach((line) => {
+    const id = priceLineIdMap.get(line.id);
+    if (!id) return;
+    kopyaLines.push({
+      ...line,
+      id,
+      itemId: kopya.id,
+      parentLineId: line.parentLineId ? priceLineIdMap.get(line.parentLineId) ?? null : null,
+    });
   });
 
   const lines =

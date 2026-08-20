@@ -183,18 +183,20 @@ function defaultRateGroups(): CostRateGroup[] {
   return DEFAULT_RATE_GROUPS.map((r) => ({ ...r, lines: [] }));
 }
 
-export function emptyCostPayload(currency = "EUR"): CostPayload {
+export function emptyCostPayload(
+  currency = "EUR",
+  materialPrices: Record<string, number | null> = { ...MATERIAL_PRICE_DEFAULTS }
+): CostPayload {
   return {
     version: COST_PAYLOAD_VERSION,
     sourceRevNo: null,
     currency,
     params: { ...COST_PARAM_DEFAULTS },
-    // YENİ BELGE defterin ön tanımlı fiyatlarını taşır (sekizinin de bir
-    // açılış değeri vardır, kullanıcı listesi 18.08.2026); taşıma yolu
-    // (`withCostDefaults`) bunu YAPMAZ — orada bir varsayılan uygulamak,
-    // kullanıcının bilerek boşalttığı bir fiyatı geri getirmek olurdu
-    // (`withDefaultRates` ile aynı ayrım).
-    materialPrices: { ...MATERIAL_PRICE_DEFAULTS },
+    // YENİ BELGE global Hammadde Fiyatları defterinin ANLIK KOPYASINI taşır.
+    // Çağrı parametresi verilmezse yalnız test/önizleme için kod tohumu
+    // kullanılır. Taşıma yolu (`withCostDefaults`) bunu YAPMAZ: kullanıcının
+    // belge içinde bilerek boşalttığı ya da değiştirdiği fiyat geri gelmez.
+    materialPrices: { ...materialPrices },
     items: [],
     removedOfferItemIds: [],
     general: costGroupFromKey(GENERAL_GROUP_KEY),

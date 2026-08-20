@@ -164,6 +164,30 @@ export async function saveOfferCostTemplate(input: CostTemplateInput): Promise<C
     ...(Object.keys(customLines).length ? { customLines } : {}),
   };
 
+  // ÖZEL KALEM ŞABLONA EKLENİRKEN KATALOĞA DA GİRER. Şablondan sonra değil
+  // önce yazılır: katalog yazımı yetkisizse ekran "eklendi" deyip gelecekteki
+  // dropdown'dan kalemi kaybetmemelidir. Katalogdaki aynı adın birimi son
+  // açık seçimdir; şablon payload'larındaki eski birimler değişmez.
+  const katalogSatirlari = [
+    ...new Map(
+      Object.values(customLines)
+        .flat()
+        .map((line) => [trKatla(line.label), line] as const)
+    ).values(),
+  ].map((line) => ({
+    label: line.label,
+    match_key: trKatla(line.label),
+    unit: line.unit,
+    active: true,
+    created_by: user.id,
+  }));
+  if (katalogSatirlari.length > 0) {
+    const { error: katalogHatasi } = await supabase
+      .from("offer_cost_line_catalog")
+      .upsert(katalogSatirlari, { onConflict: "match_key" });
+    if (katalogHatasi) return { error: `Kalem kataloğu kaydedilemedi: ${katalogHatasi.message}` };
+  }
+
   // ÖNCE GÜNCELLE, YOKSA EKLE — `upsert` DEĞİL. Upsert `sort` ve `active`
   // sütunlarını da göndermek zorunda kalırdı; bu ekran ikisini de düzenlemez ve
   // pasife alınmış bir şablonu bir kutucuk değişikliğiyle sessizce yeniden

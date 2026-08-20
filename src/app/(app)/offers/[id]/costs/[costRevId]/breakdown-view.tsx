@@ -18,7 +18,7 @@
 // zaten proje maliyetinin bir katıdır ve onları paydaya katmak her grubun
 // payını aynı oranda küçültüp hiçbir şey anlatmazdı.
 
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { CostModelResult } from "@/lib/offers/cost/model";
@@ -110,19 +110,19 @@ export function KirilimSayfasi({
             {/* İMALAT ÖNCE: kullanıcının sırası (md. 4) — "en üste yeni grup". */}
             <OzetSatiri
               etiket="İMALAT MALİYETİ"
-              deger={fmtMoney(totals.fabrication, cur)}
+              deger={fmtMoney0(totals.fabrication, cur)}
               aciklama="çelik imalat işçiliği (fire dahil)"
             />
             <OzetSatiri
               etiket="PROJE MALİYETİ"
-              deger={fmtMoney(totals.project, cur)}
+              deger={fmtMoney0(totals.project, cur)}
               aciklama="kalem kalem + proje geneli"
             />
             {totals.rates.map((r) => (
               <OzetSatiri
                 key={r.key}
                 etiket={r.title}
-                deger={fmtMoney(r.amount, cur)}
+                deger={fmtMoney0(r.amount, cur)}
                 // EK KULLANILMAZ ("%2'i" yanlış, "%2'si" doğru): Türkçe ünlü ve
                 // ünsüz uyumu SAYININ OKUNUŞUNA bağlıdır ve virgüllü bir oranda
                 // ("%25,0") okunuş da değişir. Çarpım biçimi hepsinde doğrudur.
@@ -130,12 +130,12 @@ export function KirilimSayfasi({
                   r.mode === "oran"
                     ? r.percent === null
                       ? "Oran girilmedi"
-                      : `proje × %${fmtCostField(r.percent, 2).replace(",00", "")}`
+                      : `proje × %${fmtCostField(r.percent, 0)}`
                     : `${payload.rates.find((x) => x.key === r.key)?.lines.length ?? 0} kalem`
                 }
               />
             ))}
-            <OzetSatiri etiket="TOPLAM MALİYET" deger={fmtMoney(totals.total, cur)} kalin />
+            <OzetSatiri etiket="TOPLAM MALİYET" deger={fmtMoney0(totals.total, cur)} kalin />
           </div>
         </Bolum>
 
@@ -146,11 +146,11 @@ export function KirilimSayfasi({
           aciklama="Teklif tutarı iskonto uygulanmış hâlidir — müşterinin gerçekten ödeyeceği rakam."
         >
           <div>
-            <OzetSatiri etiket="Teklif Tutarı" deger={fmtMoney(kar.price, cur)} />
-            <OzetSatiri etiket="Toplam Maliyet" deger={fmtMoney(kar.cost, cur)} />
+            <OzetSatiri etiket="Teklif Tutarı" deger={fmtMoney0(kar.price, cur)} />
+            <OzetSatiri etiket="Toplam Maliyet" deger={fmtMoney0(kar.cost, cur)} />
             <OzetSatiri
               etiket="KÂR"
-              deger={fmtMoney(kar.profit, cur)}
+              deger={fmtMoney0(kar.profit, cur)}
               kalin
               // EK KULLANILMAZ ("%2'i" yanlış, "%2'si" doğru): Türkçe uyum
               // sayının OKUNUŞUNA bağlıdır ve virgüllü bir oranda değişir.
@@ -158,7 +158,7 @@ export function KirilimSayfasi({
               aciklama={
                 kar.marginPercent === null
                   ? "Teklif fiyatı ya da maliyet girilmemiş"
-                  : `satış üzerinden %${fmtCostField(kar.marginPercent, 1)} · maliyet üzerinden %${fmtCostField(kar.markupPercent, 1)}`
+                  : `satış üzerinden %${fmtCostField(kar.marginPercent, 0)} · maliyet üzerinden %${fmtCostField(kar.markupPercent, 0)}`
               }
             />
           </div>
@@ -180,9 +180,9 @@ export function KirilimSayfasi({
                     <span className="min-w-0 flex-1 truncate text-sm" title={r.title}>
                       {r.title}
                     </span>
-                    <span className="shrink-0 font-mono text-sm">{fmtMoney(r.amount, cur)}</span>
+                    <span className="shrink-0 font-mono text-sm">{fmtMoney0(r.amount, cur)}</span>
                     <span className="w-14 shrink-0 text-right font-mono text-xs text-muted-foreground">
-                      {r.share === null ? "—" : `%${fmtCostField(r.share * 100, 1)}`}
+                      {r.share === null ? "—" : `%${fmtCostField(r.share * 100, 0)}`}
                     </span>
                   </div>
                   {/* Çubuk EN BÜYÜK KALEME göre ölçeklenir, toplama göre değil:
@@ -253,16 +253,16 @@ export function KirilimSayfasi({
                       {fmtCostField(i.weightKg, 0)}
                     </TableCell>
                     <TableCell className="hidden p-1.5 text-right font-mono text-sm md:table-cell">
-                      {fmtCostField(costPerKg(i.unit, i.weightKg), 2)}
+                      {fmtCostField(costPerKg(i.unit, i.weightKg), 0)}
                     </TableCell>
                     <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney(i.unit, cur)}
+                      {fmtMoney0(i.unit, cur)}
                     </TableCell>
                     <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney(yukluTutar, cur)}
+                      {fmtMoney0(yukluTutar, cur)}
                     </TableCell>
                     <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney(fiyat, cur)}
+                      {fmtMoney0(fiyat, cur)}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -270,7 +270,7 @@ export function KirilimSayfasi({
                         m.profit !== null && m.profit < 0 && "font-semibold text-destructive"
                       )}
                     >
-                      {m.profit === null ? "—" : fmtMoney(m.profit, cur)}
+                      {m.profit === null ? "—" : fmtMoney0(m.profit, cur)}
                       {m.marginPercent === null ? null : (
                         <span className="ml-1 text-xs text-muted-foreground">
                           %{fmtCostField(m.marginPercent, 0)}

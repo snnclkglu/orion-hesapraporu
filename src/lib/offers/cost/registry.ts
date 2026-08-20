@@ -47,10 +47,10 @@ export const COST_UNITS = ["kg", "adet", "takım", "ton", "m", "saat"] as const;
  * Boya Çelik İmalat İşçiliği fiyatlarını en üste yanyana sırala ben buraya
  * gireyim."* Sıra ekranın sırasıdır.
  *
- * SEKİZ FİYATIN DA ÖN TANIMI KULLANICININ KENDİ LİSTESİDİR (18.08.2026):
- * *"Sac : 0,7 Euro, Profil : 0,65 Euro, Kare Ray : 0,9 Euro, A Tipi Raylar :
- * 1,2 Euro, Kesim : 0,05 Euro, Çelik İmalat : 0,9 Euro, Boya : 0,08, Boya
- * İşçiliği 0,07 olarak gelsin."*
+ * KOD DEĞERLERİ VERİTABANI DEFTERİNİN TOHUMU ve göç uygulanmamış görsel
+ * önizlemelerin yedeğidir. Canlı yeni maliyet çalışması bu listeyi doğrudan
+ * kullanmaz; Hammadde Fiyatları defterindeki güncel değerlerin ANLIK KOPYASINI
+ * alır. Belge içindeki kopya daha sonra bağımsız değiştirilebilir.
  *
  * BU BİR "ORTALAMA FİYAT TABLOSU" DEĞİLDİR (MALIYET-4 çiğnenmiyor). O kural
  * FİYAT ARAMALI TABLOLARA karşıdır: kapasiteye bakıp motorun kaç € olduğunu
@@ -59,18 +59,17 @@ export const COST_UNITS = ["kg", "adet", "takım", "ton", "m", "saat"] as const;
  * içinde, düzeltilmeyi bekleyerek durur. Kullanıcının kendi verdiği açılış
  * değerleridir ve belgeye kopyalandığı an o belgenin malı olurlar (MALIYET-6).
  *
- * RAY İKİYE AYRIDIR çünkü FİYATLARI İKİ KATI KADAR AYRIDIR (0,90 ↔ 1,20).
- * Tek bir "Ray" satırı, kare ray kullanan bir vinçte %33 fazla, A tipi ray
- * kullanan bir vinçte %25 eksik maliyet çıkarırdı — ve hangisi olduğu
- * ekrandan okunamazdı.
+ * RAY İKİYE AYRIDIR: kare ray ile A tipi ray aynı satın alma kalemi değildir.
+ * Tek bir "Ray" fiyatı, kullanılan ray tipini görünmez kılar ve maliyetin
+ * hangi güncel değerden oluştuğunu doğrulamayı engeller.
  */
 export const MATERIAL_PRICE_DEFS: readonly CostMaterialPriceDef[] = [
   { key: "sac", label: "SAC", unit: "kg", value: 0.7, hint: "HAMMADDE — SAC satırını besler" },
-  { key: "profil", label: "PROFİL", unit: "kg", value: 0.65 },
+  { key: "profil", label: "PROFİL", unit: "kg", value: 0.7 },
   { key: "rayKare", label: "KARE RAY", unit: "kg", value: 0.9 },
-  { key: "rayA", label: "A TİPİ RAY", unit: "kg", value: 1.2 },
-  { key: "kesim", label: "KESİM", unit: "kg", value: 0.05, hint: "Lazer / CNC kesim" },
-  { key: "celikIsciligi", label: "ÇELİK İMALAT İŞÇİLİĞİ", unit: "kg", value: 0.9 },
+  { key: "rayA", label: "A TİPİ RAY", unit: "kg", value: 1.1 },
+  { key: "kesim", label: "KESİM", unit: "kg", value: 0.1, hint: "Lazer / CNC kesim" },
+  { key: "celikIsciligi", label: "ÇELİK İMALAT İŞÇİLİĞİ", unit: "kg", value: 0.74 },
   { key: "boya", label: "BOYA", unit: "kg", value: 0.08, hint: "Boya malzemesi" },
   { key: "boyaIsciligi", label: "BOYA İŞÇİLİĞİ", unit: "kg", value: 0.07 },
 ];

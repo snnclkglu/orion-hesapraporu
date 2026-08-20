@@ -10,6 +10,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { baslikDuzeni } from "@/lib/tr-text";
 import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -585,7 +586,7 @@ export function BirimSecici({
       <SelectContent>
         {liste.map((u) => (
           <SelectItem key={u} value={u}>
-            {u}
+            {baslikDuzeni(u)}
           </SelectItem>
         ))}
       </SelectContent>

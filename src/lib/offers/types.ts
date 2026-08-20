@@ -156,6 +156,14 @@ export interface OfferPriceLine {
   id: string;
   /** Hangi teknik kalemi fiyatlandırıyor — serbest satırda `null`. */
   itemId: string | null;
+  /**
+   * Bu satır hangi ANA fiyat satırının alt kalemidir.
+   *
+   * `null` ise ana satırdır ve 1, 2, 3… diye numaralanır. Önceki bir ana
+   * satırın kimliği verilirse PDF'de 1.1, 1.2… görünür. Bağ sıra metniyle
+   * değil kimlikle kurulur; üst satırın açıklaması değişince ilişki kopmaz.
+   */
+  parentLineId?: string | null;
   description: string;
   qty: number | null;
   /** "Takım" · "Adet" · "Kişi" · "Metre" — defterden seçilir. */

@@ -17,7 +17,7 @@
 // tutuyor, (2) vinç olmayan kalemlere ne yazdım, (3) sonuçta kâr ne. Kâr en
 // sonda durur çünkü ötekiler onun gerekçesidir.
 
-import { fmtMoney } from "@/lib/currency";
+import { fmtMoney0 } from "@/lib/currency";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { CostOverview } from "@/lib/offers/cost/totals";
 import { Bolum } from "./cost-parts";
@@ -43,7 +43,7 @@ export function OzetSayfasi({
   currency: string;
 }) {
   const { items, manualLines, margin, uncostedItems } = overview;
-  const para = (v: number | null) => (v === null ? "—" : fmtMoney(v, currency));
+  const para = (v: number | null) => (v === null ? "—" : fmtMoney0(v, currency));
 
   return (
     <div className="grid gap-4">
@@ -56,16 +56,16 @@ export function OzetSayfasi({
             Bu maliyet çalışmasında henüz kalem yok.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem] border-collapse text-sm">
+          <div className="min-w-0 overflow-x-hidden">
+            <table className="w-full table-fixed border-collapse text-sm">
               <thead>
                 <tr className="border-b text-[11px] tracking-wide text-muted-foreground uppercase">
                   <th className="px-2 py-1.5 text-left font-medium">Kalem</th>
                   <th className="px-2 py-1.5 text-right font-medium">Adet</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Çelik</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Toplam Ağırlık</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Birim Maliyet</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Paket Maliyet</th>
+                  <th className="hidden px-2 py-1.5 text-right font-medium md:table-cell">Çelik</th>
+                  <th className="hidden px-2 py-1.5 text-right font-medium md:table-cell">Toplam Ağırlık</th>
+                  <th className="hidden px-2 py-1.5 text-right font-medium xl:table-cell">Birim Maliyet</th>
+                  <th className="px-1 py-1.5 text-right font-medium sm:px-2">Paket Maliyet</th>
                 </tr>
               </thead>
               <tbody>
@@ -76,9 +76,9 @@ export function OzetSayfasi({
                     {/* AĞIRLIK PAKET HÂLİYLE YAZILIR: iki adet vinçte tek
                         adedin kilosu yanıltır — nakliye ve sac alımı paketin
                         kilosuyla planlanır. */}
-                    <Sayi>{kg(i.steelPackageKg)}</Sayi>
-                    <Sayi>{kg(i.weightPackageKg)}</Sayi>
-                    <Sayi>{para(i.unit)}</Sayi>
+                    <td className="hidden px-2 py-1.5 text-right font-mono text-xs tabular-nums md:table-cell">{kg(i.steelPackageKg)}</td>
+                    <td className="hidden px-2 py-1.5 text-right font-mono text-xs tabular-nums md:table-cell">{kg(i.weightPackageKg)}</td>
+                    <td className="hidden px-2 py-1.5 text-right font-mono text-xs tabular-nums xl:table-cell">{para(i.unit)}</td>
                     <Sayi kalin>{para(i.package)}</Sayi>
                   </tr>
                 ))}
@@ -87,10 +87,10 @@ export function OzetSayfasi({
                 <tr className="border-t-2">
                   <td className="px-2 py-2 font-semibold">TOPLAM</td>
                   <Sayi />
-                  <Sayi kalin>{kg(overview.steelKg)}</Sayi>
-                  <Sayi kalin>{kg(overview.weightKg)}</Sayi>
-                  <Sayi />
-                  <Sayi kalin>{para(overview.documentTotal)}</Sayi>
+                  <td className="hidden px-2 py-2 text-right font-mono text-xs font-semibold tabular-nums md:table-cell">{kg(overview.steelKg)}</td>
+                  <td className="hidden px-2 py-2 text-right font-mono text-xs font-semibold tabular-nums md:table-cell">{kg(overview.weightKg)}</td>
+                  <td className="hidden xl:table-cell" />
+                  <Sayi kalin>{para(overview.packageTotal)}</Sayi>
                 </tr>
               </tfoot>
             </table>
@@ -142,11 +142,11 @@ export function OzetSayfasi({
       >
         <dl className="grid gap-1.5 text-sm">
           <div className="flex items-baseline justify-between gap-4 border-b pb-1.5">
-            <dt className="text-muted-foreground">Teklif Tutarı (müşterinin ödeyeceği)</dt>
+            <dt className="text-muted-foreground">Teklif Tutarı</dt>
             <dd className="font-mono tabular-nums">{para(margin.price)}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 border-b pb-1.5">
-            <dt className="text-muted-foreground">Toplam Maliyet (belge + elle yazılanlar)</dt>
+            <dt className="text-muted-foreground">Toplam Maliyet</dt>
             <dd className="font-mono tabular-nums">{para(margin.cost)}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 pt-1">
@@ -155,8 +155,8 @@ export function OzetSayfasi({
               {para(margin.profit)}
               {margin.marginPercent === null ? null : (
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  satış üzerinden %{fmtCostField(margin.marginPercent, 1)} · maliyet üzerinden %
-                  {fmtCostField(margin.markupPercent, 1)}
+                  satış üzerinden %{fmtCostField(margin.marginPercent, 0)} · maliyet üzerinden %
+                  {fmtCostField(margin.markupPercent, 0)}
                 </span>
               )}
             </dd>

@@ -10,20 +10,30 @@
 //
 // ÖLÇMEK YETMEZ, NORMALLEŞTİRMEK DE GEREKİR: 16 bitlik, interlaced ya da
 // paletli PNG varyantları react-pdf'in çözücüsünü düşürür ve tek bozuk logo
-// BÜTÜN teklif PDF'ini 500'e çevirirdi. Baytlar bu yüzden 8 bit sRGB,
-// interlaced olmayan, paletsiz bir PNG olarak YENİDEN KODLANIR.
+// BÜTÜN teklif PDF'ini 500'e çevirirdi. Ayrıca her logo başka bir tuval ve
+// en-boy oranıyla gelir; ham görseli yalnız "20 pt yüksek" basmak geniş logoyu
+// küçültür, kare logoyu büyütür ve ikisini farklı eksenlere kaydırır.
+// Baytlar bu yüzden 8 bit sRGB, interlaced olmayan, paletsiz ve STANDART
+// TUVALE ortalanmış bir PNG olarak YENİDEN KODLANIR.
 
 import sharp from "sharp";
 
 /**
- * Yeniden kodlanan logonun en fazla genişliği.
+ * PDF'deki logo yuvasının raster karşılığı: 120 x 32 pt, oran 3,75:1.
  *
- * Künyedeki kutu 120 pt genişlik / 20 pt yüksekliktir (`pdf/offer.tsx`); 300
- * dpi'da bu ~500 pikselin karşılığıdır. 900 piksel iki katına yakın bir paydır
- * ve dosyayı küçük tutar — 4000 piksellik bir logo künyede aynı görünür, yalnız
- * PDF'i şişirirdi.
+ * Her kaynak önce görünür sınırına kırpılır, sonra 840 x 180 piksellik
+ * iç alana SIĞDIRILIR ve 30 piksellik güvenli alanla bu tuvalin ortasına
+ * konur. Böylece yatay, kare ve dikey logolar aynı fiziksel yuvayı paylaşır;
+ * oran bozulmaz, konum logo dosyasının rastlantısal beyaz boşluğuna kalmaz.
  */
-const HEDEF_GENISLIK = 900;
+export const CUSTOMER_LOGO_CANVAS = {
+  width: 900,
+  height: 240,
+  contentWidth: 840,
+  contentHeight: 180,
+  paddingX: 30,
+  paddingY: 30,
+} as const;
 
 /**
  * Kabul edilen en büyük kenar — SIKIŞTIRMA BOMBASINA karşı.
@@ -35,8 +45,52 @@ const HEDEF_GENISLIK = 900;
 const MAX_KENAR = 6000;
 
 export type CustomerLogoOlcumu =
-  | { ok: true; png: Buffer; width: number; height: number }
+  | {
+      ok: true;
+      png: Buffer;
+      /** PDF'e verilen standart tuval. */
+      width: number;
+      height: number;
+      /** Kırpılmış logonun kaynak ölçüsü; denetim izi için. */
+      contentWidth: number;
+      contentHeight: number;
+    }
   | { ok: false; error: string };
+
+/**
+ * Yalnız gerçek DIŞ BOŞLUĞU kırpar.
+ *
+ * `sharp.trim()` varsayılan olarak sol üst pikseli zemin sayar. Bu, renkli
+ * zeminli bir amblemin kurumsal dikdörtgenini de kesebilirdi. Sol üst piksel
+ * saydamsa saydamı, beyaza yakınsa beyazı kırparız; başka bir renkse kaynak
+ * olduğu gibi kalır. Logo içindeki beyaz alanlar değil, yalnız kenardan
+ * devam eden benzer pikseller gider.
+ */
+async function gorunurSiniraKirp(bytes: Uint8Array): Promise<sharp.Sharp> {
+  const piksel = await sharp(bytes)
+    .extract({ left: 0, top: 0, width: 1, height: 1 })
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+  const [r = 0, g = 0, b = 0, a = 255] = piksel;
+  const kaynak = sharp(bytes);
+
+  if (a <= 16) {
+    return kaynak.trim({
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      threshold: 12,
+      lineArt: true,
+    });
+  }
+  if (r >= 245 && g >= 245 && b >= 245) {
+    return kaynak.trim({
+      background: { r, g, b, alpha: a / 255 },
+      threshold: 12,
+      lineArt: true,
+    });
+  }
+  return kaynak;
+}
 
 /**
  * Yüklenen baytları ölçer ve künyeye basılabilir bir PNG'ye çevirir.
@@ -71,15 +125,43 @@ export async function normalizeCustomerLogo(
       };
     }
 
-    const { data, info } = await sharp(bytes)
-      .resize({ width: HEDEF_GENISLIK, withoutEnlargement: true })
+    const kirpilmis = await gorunurSiniraKirp(bytes);
+    const { data: govde, info: govdeInfo } = await kirpilmis
       // sRGB 8 BİTTİR: 16 bitlik bir kaynak burada tek bayta iner. Dönüşüm
       // yazılmazsa sharp derinliği olduğu gibi korur ve PNG 16 bit çıkardı.
       .toColourspace("srgb")
       .png({ palette: false, progressive: false, compressionLevel: 9 })
       .toBuffer({ resolveWithObject: true });
 
-    return { ok: true, png: data, width: info.width, height: info.height };
+    if (govdeInfo.width <= 1 || govdeInfo.height <= 1) {
+      return { ok: false, error: "Logo alanı boş görünüyor; içeriği olan bir PNG deneyin." };
+    }
+
+    const { data, info } = await sharp(govde)
+      .resize({
+        width: CUSTOMER_LOGO_CANVAS.contentWidth,
+        height: CUSTOMER_LOGO_CANVAS.contentHeight,
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        left: CUSTOMER_LOGO_CANVAS.paddingX,
+        right: CUSTOMER_LOGO_CANVAS.paddingX,
+        top: CUSTOMER_LOGO_CANVAS.paddingY,
+        bottom: CUSTOMER_LOGO_CANVAS.paddingY,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png({ palette: false, progressive: false, compressionLevel: 9 })
+      .toBuffer({ resolveWithObject: true });
+
+    return {
+      ok: true,
+      png: data,
+      width: info.width,
+      height: info.height,
+      contentWidth: govdeInfo.width,
+      contentHeight: govdeInfo.height,
+    };
   } catch {
     // sharp açamadı: uzantısı .png olan başka bir dosya ya da bozuk bayt dizisi.
     return { ok: false, error: "Görüntü açılamadı. Başka bir PNG kopyası deneyin." };

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { normalizeCustomerLogo } from "../logo-image";
+import { CUSTOMER_LOGO_CANVAS, normalizeCustomerLogo } from "../logo-image";
 
 /** Saydam zeminli, iki renkli küçük bir logo taslağı. */
 function tuval(width: number, height: number) {
@@ -27,22 +27,72 @@ function tuval(width: number, height: number) {
           background: { r: 12, g: 74, b: 140, alpha: 1 },
         },
       },
-      top: 0,
-      left: 0,
+      top: Math.round(height / 4),
+      left: Math.round(width / 4),
     },
   ]);
 }
 
 describe("normalizeCustomerLogo", () => {
-  it("PNG'yi kabul eder ve ölçüsünü korur", async () => {
+  it("PNG'yi kabul eder ve standart PDF tuvaline ortalar", async () => {
     const png = await tuval(400, 160).png().toBuffer();
     const sonuc = await normalizeCustomerLogo(png);
     expect(sonuc.ok).toBe(true);
     if (!sonuc.ok) return;
-    expect(sonuc.width).toBe(400);
-    expect(sonuc.height).toBe(160);
+    expect(sonuc.width).toBe(CUSTOMER_LOGO_CANVAS.width);
+    expect(sonuc.height).toBe(CUSTOMER_LOGO_CANVAS.height);
+    // Fikstürün görünür dikdörtgeni tuvalin yarısıdır; saydam dış
+    // boşluk PDF'deki fiziksel boyutu artık etkileyemez.
+    expect(sonuc.contentWidth).toBe(200);
+    expect(sonuc.contentHeight).toBe(80);
     const meta = await sharp(sonuc.png).metadata();
     expect(meta.format).toBe("png");
+  });
+
+  it("BEYAZ dış boşluğu kırpar; görünür amblemi ölçer", async () => {
+    const png = await sharp({
+      create: { width: 500, height: 240, channels: 4, background: "#ffffff" },
+    })
+      .composite([
+        {
+          input: {
+            create: { width: 240, height: 80, channels: 4, background: "#b01f24" },
+          },
+          left: 130,
+          top: 80,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const sonuc = await normalizeCustomerLogo(png);
+    expect(sonuc.ok).toBe(true);
+    if (!sonuc.ok) return;
+    expect(sonuc.contentWidth).toBe(240);
+    expect(sonuc.contentHeight).toBe(80);
+    expect([sonuc.width, sonuc.height]).toEqual([
+      CUSTOMER_LOGO_CANVAS.width,
+      CUSTOMER_LOGO_CANVAS.height,
+    ]);
+  });
+
+  it("RENKLİ kurumsal zemin kırpılmaz", async () => {
+    const png = await sharp({
+      create: { width: 420, height: 180, channels: 4, background: "#153b6f" },
+    })
+      .composite([
+        {
+          input: { create: { width: 120, height: 50, channels: 4, background: "#ffffff" } },
+          left: 150,
+          top: 65,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const sonuc = await normalizeCustomerLogo(png);
+    expect(sonuc.ok).toBe(true);
+    if (!sonuc.ok) return;
+    expect(sonuc.contentWidth).toBe(420);
+    expect(sonuc.contentHeight).toBe(180);
   });
 
   it("SAYDAMLIK KORUNUR — beyaza düzleştirilmez", async () => {
@@ -84,21 +134,23 @@ describe("normalizeCustomerLogo", () => {
     expect((await sharp(sonuc.png).metadata()).isPalette).toBe(false);
   });
 
-  it("çok geniş logo 900 piksele iner, oranı bozulmaz", async () => {
+  it("çok geniş logo standart tuvale sığar, oranı bozulmaz", async () => {
     const buyuk = await tuval(1800, 600).png().toBuffer();
     const sonuc = await normalizeCustomerLogo(buyuk);
     expect(sonuc.ok).toBe(true);
     if (!sonuc.ok) return;
     expect(sonuc.width).toBe(900);
-    expect(sonuc.height).toBe(300);
+    expect(sonuc.height).toBe(240);
+    expect(sonuc.contentWidth / sonuc.contentHeight).toBe(3);
   });
 
-  it("küçük logo BÜYÜTÜLMEZ", async () => {
+  it("küçük logo da aynı fiziksel yuvaya hazırlanır", async () => {
     const kucuk = await tuval(180, 60).png().toBuffer();
     const sonuc = await normalizeCustomerLogo(kucuk);
     expect(sonuc.ok).toBe(true);
     if (!sonuc.ok) return;
-    expect(sonuc.width).toBe(180);
+    expect([sonuc.width, sonuc.height]).toEqual([900, 240]);
+    expect([sonuc.contentWidth, sonuc.contentHeight]).toEqual([90, 30]);
   });
 
   it("PNG olmayan dosya REDDEDİLİR (uzantı değil biçim ölçülür)", async () => {
