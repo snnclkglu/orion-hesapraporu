@@ -75,7 +75,9 @@ import type { AnyCheck } from "../types";
 //        Bölüm YENİ BİR HESAP DEĞİL, aynı hesabın ikinci takım için koşan
 //        örneğidir; bu yüzden bağlantı haritası da aynıdır (`girder` ailesi)
 //        ve yedisi de bağlıdır.
-const EXPECTED_CHECK_COUNT = 270;
+// 275 = 270 + 5: beş yürütme ekseninde rulman iç çapı = teker mili çapı
+// engelleyici kontrolü; tamamı 5.3'teki `bearing.bore` satırına bağlıdır.
+const EXPECTED_CHECK_COUNT = 275;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

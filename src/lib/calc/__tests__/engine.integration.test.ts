@@ -78,6 +78,8 @@ describe("engine entegrasyonu — V5 şablonu", () => {
       [
         // 22212 rulman Ø60, referans mil D2 oturması Ø50: birebir eşleşmiyor.
         "aux.bearing.bore",
+        // 22216 rulman Ø80, referans köprü teker mili Ø140: birebir eşleşmiyor.
+        "bridge.bearing.bore",
         "bridge.brake.torque",          // köprü freni referans işte seçilmemiş
         // Hareket eden toplam W artık köprü + araba kapasitesi/kanca/halat
         // donanımıyla hesaplandığı için referans redüktör emniyeti yetersizdir.
@@ -89,6 +91,8 @@ describe("engine entegrasyonu — V5 şablonu", () => {
         // Kesme kontrolü sağlanıyor, eğilme ve bileşik sağlanmıyor.
         "main.shaft.bending",
         "main.shaft.stress",
+        // 22210 rulman Ø50, referans araba teker mili Ø110: birebir eşleşmiyor.
+        "trolley.bearing.bore",
       ].sort()
     );
   });

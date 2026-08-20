@@ -58,7 +58,7 @@ import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import type { TravelInputs, TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
-import type { HookBlockValues } from "@/lib/calc/modules/hookBlock";
+import type { HookBlockInputs, HookBlockValues } from "@/lib/calc/modules/hookBlock";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import {
@@ -118,6 +118,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -297,6 +298,28 @@ function Field({
         </span>
         {def.standardRef && (
           <StandardRefBadge code={def.standardRef} context={context} />
+        )}
+        {def.info && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={`${fieldLabel(def, specs)} bilgi notu`}
+                title="Bilgi notunu aç"
+                className="inline-flex size-5 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+              >
+                i
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="max-h-[min(70dvh,34rem)] w-[min(34rem,calc(100vw-2rem))] overflow-y-auto">
+              <div className="mb-2 text-xs font-semibold text-foreground">
+                {fieldLabel(def, specs)} · Bilgi Notu
+              </div>
+              <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                {def.info}
+              </p>
+            </PopoverContent>
+          </Popover>
         )}
         {auto && (
           <button
@@ -2194,6 +2217,22 @@ export function RevisionEditor({
                     type: travelBufferCatalogTypes(specs, key),
                   },
                 }
+              : baseCatalogMapping && section.rawId === "5.3" && isTravelKey(key)
+                ? {
+                    ...baseCatalogMapping,
+                    lockedFacets: {
+                      ...baseCatalogMapping.lockedFacets,
+                      bore_mm: String((mods[key].inputs as TravelInputs).shaftDiaMm),
+                    },
+                  }
+              : baseCatalogMapping && section.rawId === "4.3" && isHookBlockKey(key)
+                ? {
+                    ...baseCatalogMapping,
+                    lockedFacets: {
+                      ...baseCatalogMapping.lockedFacets,
+                      bore_mm: String((mods[key].inputs as HookBlockInputs).shaftD1Mm),
+                    },
+                  }
               : baseCatalogMapping && section.rawId === "2.2.7" && isHoistKey(key)
                 ? (() => {
                     const bearingCode = bearingHousingCompatibilityKey(

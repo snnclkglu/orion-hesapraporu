@@ -284,6 +284,12 @@ export interface HookBlockSelections {
   hookCapacityKg: number;
   /** Halat ekseninde makara çapı [mm] */
   sheaveDiaMm: number;
+  /** Makara göbeği kapak düzeni. */
+  sheaveEnclosure: "Kapaklı ve Keçeli" | "Kapaksız";
+  /** Kapaklı makarada DIN 3760 / ISO 6194 uyumlu mil keçesi tasarım kodu. */
+  sheaveSealCode?: string;
+  /** Kapaksız makarada rulmanın kendi kapak/sızdırmazlık soneki. */
+  sheaveBearingClosure?: "Z" | "ZZ" | "RS" | "2RS";
   sheaveBearingType: string;
   sheaveBearingCode: string;
   /** Makara rulmanı dinamik yük katsayısı C [kN] */
@@ -348,6 +354,10 @@ export interface HookBlockValues {
   sheavePositionsCm: number[];
   /** Yan saclar (mesnetler) arası açıklık [cm] */
   shaftSpanCm: number;
+  /** Milin dıştaki son makara/askı eksenleri arasındaki toplam yükleme boyu [cm]. */
+  shaftLengthCm: number;
+  /** Askı sacı mesnetlerinin milin sol ucundan konumları [cm]. */
+  shaftSupportPositionsCm: [number, number];
   reactionAKg: number;
   reactionBKg: number;
   shaftMomentKgCm: number;
@@ -448,6 +458,11 @@ export interface HookShaftGeometry {
   positionsCm: number[];
   /** Yan saclar (mesnetler) arası açıklık [cm] */
   spanCm: number;
+  /** Dıştaki son makara/askı eksenleri arasındaki toplam model boyu [cm]. */
+  shaftLengthCm: number;
+  /** Askı sacı mesnetlerinin modelin sol ucundan konumları [cm]. */
+  supportACm: number;
+  supportBCm: number;
 }
 
 /**
@@ -478,13 +493,27 @@ export function hookShaftGeometry(
 
   const sideCount = Math.floor(count / 2);
   const offsetsCm = Array.from({ length: sideCount }, (_, i) => allOffsetsCm[i] ?? 0);
-  const positionsCm = [
-    ...[...offsetsCm].reverse().map((offset) => supportOffsetCm - offset),
-    ...(count % 2 === 1 ? [supportOffsetCm] : []),
-    ...offsetsCm.map((offset) => supportOffsetCm + offset),
+  // Koordinat önce merkez etrafında kurulur. Askı sacı makaraların DIŞINDA,
+  // İÇİNDE veya iki makara ARASINDA olabilir; modelin ucu dıştaki son askı/
+  // makara eksenidir. Böylece konsol yükleri `solveBeam`e gerçek mesnet
+  // konumlarıyla girer ve negatif/taşan yük konumu oluşmaz.
+  const centeredSheavesCm = [
+    ...[...offsetsCm].reverse().map((offset) => -offset),
+    ...(count % 2 === 1 ? [0] : []),
+    ...offsetsCm,
   ];
+  const halfLengthCm = Math.max(supportOffsetCm, ...offsetsCm, 0.1);
+  const positionsCm = centeredSheavesCm.map((offset) => halfLengthCm + offset);
   const spanCm = 2 * supportOffsetCm;
-  return { supportOffsetCm, sheaveOffsetsCm: offsetsCm, positionsCm, spanCm };
+  return {
+    supportOffsetCm,
+    sheaveOffsetsCm: offsetsCm,
+    positionsCm,
+    spanCm,
+    shaftLengthCm: 2 * halfLengthCm,
+    supportACm: halfLengthCm - supportOffsetCm,
+    supportBCm: halfLengthCm + supportOffsetCm,
+  };
 }
 
 /** Kaldırma kirişinin ölçü zincirinden çözülmüş geometrisi [cm]. */
@@ -720,19 +749,18 @@ export function computeHookBlock(
   });
 
   // --- §4.4 Kanca bloğu mili -----------------------------------------------
-  // Mil, iki yan sac (mesnet) arasında basit kiriştir. Makara adedi donanımdan
-  // gelir ve HER MAKARA 2T (iki halat kolu) yükü taşır. Makaralar iki kümeye
-  // ayrılır; kümeler arasında kanca sapının geçtiği orta boşluk (D) vardır.
+  // Mil, iki askı sacından mesnetlenir; makaralar mesnetlerin içinde, dışında
+  // ya da iki tarafta birden olabilir. Her makara 2T (iki halat kolu) taşır.
   const ropeLoadKg = deps.ropeLoadKg;
   const doubleRopeLoadKg = ropeLoadKg * 2;
   const geo = hookShaftGeometry(inp, deps.blockSheaveCount);
   const sheaveCount = geo.positionsCm.length;
 
-  // Statik: ortak kiriş çözücüsü. Mesnetler mil uçlarındadır (0 ve L).
+  // Statik: ortak kiriş çözücüsü; iç mesnetler ve konsol yükleri korunur.
   const beam = solveBeam({
-    lengthCm: geo.spanCm,
-    supportACm: 0,
-    supportBCm: geo.spanCm,
+    lengthCm: geo.shaftLengthCm,
+    supportACm: geo.supportACm,
+    supportBCm: geo.supportBCm,
     pointLoads: geo.positionsCm.map((xCm, i) => ({
       xCm,
       loadKg: doubleRopeLoadKg,
@@ -763,6 +791,7 @@ export function computeHookBlock(
     "shaft.sheaveLoad": doubleRopeLoadKg,
     "shaft.sheaveCount": sheaveCount,
     "shaft.span": geo.spanCm * 10,
+    "shaft.length": geo.shaftLengthCm * 10,
     "shaft.reactionA": beam.reactionAKg,
     "shaft.reactionB": beam.reactionBKg,
     "shaft.moment": shaftMomentKgCm,
@@ -1099,6 +1128,8 @@ export function computeHookBlock(
     sheaveCount,
     sheavePositionsCm: geo.positionsCm,
     shaftSpanCm: geo.spanCm,
+    shaftLengthCm: geo.shaftLengthCm,
+    shaftSupportPositionsCm: [geo.supportACm, geo.supportBCm],
     reactionAKg: beam.reactionAKg,
     reactionBKg: beam.reactionBKg,
     shaftMomentKgCm,

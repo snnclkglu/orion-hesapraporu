@@ -171,6 +171,8 @@ export interface AnyFieldDef {
   standardRef?: string;
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
+  /** Etiket yanındaki bilgi düğmesinde açılan ayrıntılı tasarım notu. */
+  info?: string;
   /**
    * Alan bir ÇAP büyüklüğüdür: değer "Ø" işaretiyle gösterilir (arayüz + PDF).
    * Bayrağı sunum katmanı (fields.ts / *Fields.ts) koyar; burada yalnız okunur.
@@ -1398,6 +1400,7 @@ export function withDerivedTravel(
   put("applicationClass", d.applicationClass);
   put("serviceFactorKs", d.serviceFactorKs);
   put("accelTorqueFactorKt", d.accelTorqueFactorKt);
+  put("gearboxServiceFactor", d.gearboxServiceFactor);
 
   if (Object.keys(patch).length === 0) return state;
   return { ...state, inputs: { ...inputs, ...patch } };

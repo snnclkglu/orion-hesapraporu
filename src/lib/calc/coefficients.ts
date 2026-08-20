@@ -2,7 +2,7 @@
 // Motor saf kalsın diye tablolar gömülüdür; Supabase cat_* tabloları aynı
 // verinin yönetim panelindeki kopyasıdır.
 
-import type { MechanismClass, ShaftMaterial, UsageClass } from "./types";
+import type { DrumMaterial, MechanismClass, ShaftMaterial, UsageClass } from "./types";
 
 /** Gerekli halat emniyet katsayıları Zp (KATSAYILAR A19:F30, FEM) */
 const ROPE_SAFETY: Record<MechanismClass, { moving: number; fixed: number }> = {
@@ -68,8 +68,12 @@ const SHAFT_MATERIALS: Record<ShaftMaterial, { bending: number; shear: number; c
   C25: { bending: 850, shear: 490, combined: 850 },
   C30: { bending: 920, shear: 530, combined: 920 },
   C35: { bending: 980, shear: 565, combined: 980 },
+  C45: { bending: 1180, shear: 680, combined: 1180 },
   "4140+QT": { bending: 1570, shear: 900, combined: 1570 },
   "4140": { bending: 1300, shear: 1300 / Math.sqrt(3), combined: 1300 },
+  "42CrMo4+QT": { bending: 1570, shear: 900, combined: 1570 },
+  "42CrMo4": { bending: 1300, shear: 1300 / Math.sqrt(3), combined: 1300 },
+  CK45: { bending: 1180, shear: 680, combined: 1180 },
 };
 
 export function shaftMaterialAllowables(material: ShaftMaterial) {
@@ -92,6 +96,8 @@ export function groovePitch(ropeDiaMm: number): number {
 }
 
 /** Tambur sacı izin verilen gerilme [kg/cm²] — firma tasarım kabulü. */
-export function drumAllowableStress(material: "S235" | "S355"): number {
-  return material === "S235" ? 500 : 700;
+export function drumAllowableStress(material: DrumMaterial): number {
+  if (material === "St52" || material === "S355") return 700;
+  if (material === "St44" || material === "St44/St52") return 600;
+  return 500;
 }

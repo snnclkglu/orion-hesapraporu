@@ -9,8 +9,14 @@ export type UsageClass = "T0" | "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7" |
 export type StructureClass = "A1" | "A2" | "A3" | "A4" | "A5" | "A6" | "A7" | "A8";
 export type LoadGroup = "B1" | "B2" | "B3" | "B4" | "B5" | "B6";
 export type HoistClass = "H1" | "H2" | "H3" | "H4";
-export type DrumMaterial = "S235" | "S355";
-export type ShaftMaterial = "S355JR" | "C25" | "C30" | "C35" | "4140+QT" | "4140";
+/**
+ * Tambur sacı malzemesi. S235/S355 yalnız eski revizyon snapshot'larını
+ * yeniden hesaplayabilmek için korunur; yeni arayüz St44/St52 adlarını sunar.
+ */
+export type DrumMaterial = "St44" | "St52" | "St44/St52" | "S235" | "S355";
+export type ShaftMaterial =
+  | "S355JR" | "C25" | "C30" | "C35" | "C45"
+  | "4140+QT" | "4140" | "42CrMo4+QT" | "42CrMo4" | "CK45";
 
 /** Kaldırma grubunun hazır ekipman düzeni. Hesap her zaman tek grup üzerinden yürür. */
 export type HoistEquipmentArrangement = "standard" | "twin";

@@ -15,10 +15,12 @@ import {
 import { KGF_TO_MPA } from "@/lib/units";
 
 export interface HookBlockShaftParams {
-  /** Makara eksenlerinin sol mesnete uzaklıkları [mm] */
+  /** Makara eksenlerinin mil modelinin sol ucuna uzaklıkları [mm] */
   positionsMm: number[];
-  /** Yan saclar arası açıklık [mm] */
-  spanMm: number;
+  /** Mil modelinin toplam yükleme boyu [mm] */
+  shaftLengthMm: number;
+  /** Askı sacı mesnetlerinin sol uçtan konumları [mm] */
+  supportPositionsMm: [number, number];
   /** Merkezden askı sacına ve tek taraftaki makaralara uzaklıklar [mm]. */
   supportOffsetMm: number;
   sheaveOffsetsMm: number[];
@@ -47,7 +49,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     `${n} makara · her makarada 2T · mil Ø${fmtN(p.d1Mm)} mm`
   );
 
-  if (!(p.spanMm > 0) || n === 0) {
+  if (!(p.shaftLengthMm > 0) || n === 0) {
     els.push(txt(W / 2, H / 2, "Merkezden askı sacı / makara ölçüleri eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
@@ -57,7 +59,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   // --- ölçek
   const xLeft = 96;
   const xRight = 604;
-  const sx = (mm: number) => xLeft + (mm / p.spanMm) * (xRight - xLeft);
+  const sx = (mm: number) => xLeft + (mm / p.shaftLengthMm) * (xRight - xLeft);
   const yAxis = 196;                      // mil ekseni
 
   // makara yarıçapı: hem çapa hem komşu makara aralığına göre sınırlanır
@@ -73,15 +75,15 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   // --- mil gövdesi
   els.push({
     kind: "rect", x: sx(0) - 18, y: yAxis - shaftH / 2,
-    w: sx(p.spanMm) - sx(0) + 36, h: shaftH,
+    w: sx(p.shaftLengthMm) - sx(0) + 36, h: shaftH,
     fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.3,
   });
-  els.push(ln(sx(0) - 30, yAxis, sx(p.spanMm) + 30, yAxis, DCOL.faint, 0.7, "12,3,2,3"));
+  els.push(ln(sx(0) - 30, yAxis, sx(p.shaftLengthMm) + 30, yAxis, DCOL.faint, 0.7, "12,3,2,3"));
 
   // --- askı sacları (mesnetler)
   for (const [x, label, value] of [
-    [sx(0), "Ra", p.reactionAKg],
-    [sx(p.spanMm), "Rb", p.reactionBKg],
+    [sx(p.supportPositionsMm[0]), "Ra", p.reactionAKg],
+    [sx(p.supportPositionsMm[1]), "Rb", p.reactionBKg],
   ] as const) {
     els.push({
       kind: "rect", x: x - 7, y: yAxis - rSheave - 26, w: 14, h: (rSheave + 26) * 2,
@@ -94,10 +96,10 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
       anchor: "middle", fill: DCOL.accent, bold: true,
     }));
   }
-  els.push(txt(sx(0), yAxis - rSheave - 34, "askı sacı", 8, {
+  els.push(txt(sx(p.supportPositionsMm[0]), yAxis - rSheave - 34, "askı sacı", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
-  els.push(txt(sx(p.spanMm), yAxis - rSheave - 34, "askı sacı", 8, {
+  els.push(txt(sx(p.supportPositionsMm[1]), yAxis - rSheave - 34, "askı sacı", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
 
@@ -144,7 +146,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   }
 
   // --- D1 etiketi
-  const xMid = n > 1 ? (sx(p.positionsMm[0]) + sx(p.positionsMm[n - 1])) / 2 : sx(p.spanMm / 2);
+  const xMid = n > 1 ? (sx(p.positionsMm[0]) + sx(p.positionsMm[n - 1])) / 2 : sx(p.shaftLengthMm / 2);
   els.push(ln(xMid, yAxis + shaftH / 2, xMid, yAxis + rSheave + 14, DCOL.faint, 0.6));
   els.push(txt(xMid + 5, yAxis + rSheave + 16, `D1 = ${fmtN(p.d1Mm)} mm`, 8.5, {
     fill: DCOL.ink,
@@ -152,36 +154,47 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
 
   // --- merkezden TEK TARAF ölçüleri (karşı taraf simetrik)
   const yDim = yAxis + rSheave + 108;
-  const centerX = sx(p.spanMm / 2);
-  const rightSupportX = sx(p.spanMm);
+  const centerX = sx(p.shaftLengthMm / 2);
+  const rightSupportX = sx(p.supportPositionsMm[1]);
   els.push(ln(centerX, yAxis + rSheave + 28, centerX, yDim + 22, DCOL.faint, 0.5));
   p.sheaveOffsetsMm.forEach((offset, i) => {
     const yy = yDim + i * 18;
-    const toX = sx(p.spanMm / 2 + offset);
+    const toX = sx(p.shaftLengthMm / 2 + offset);
     els.push(ln(toX, yAxis + rSheave + 28, toX, yy - 4, DCOL.faint, 0.5));
     dimH(els, centerX, toX, yy, `m${i + 1} = ${fmtN(offset)} mm`, { size: 8.2 });
   });
   const supportY = yDim + p.sheaveOffsetsMm.length * 18;
   els.push(ln(rightSupportX, yAxis + rSheave + 28, rightSupportX, supportY - 4, DCOL.faint, 0.5));
   dimH(els, centerX, rightSupportX, supportY, `askı = ${fmtN(p.supportOffsetMm)} mm`, { size: 8.5 });
-  dimH(els, sx(0), sx(p.spanMm), supportY + 24, `L = ${fmtN(p.spanMm)} mm`, { size: 9.5 });
+  dimH(
+    els,
+    sx(p.supportPositionsMm[0]),
+    sx(p.supportPositionsMm[1]),
+    supportY + 24,
+    `L askı = ${fmtN(2 * p.supportOffsetMm)} mm`,
+    { size: 9.2 }
+  );
 
   // --- moment diyagramı (yük noktalarında kırılan çokgen)
   const yM0 = supportY + 50;
   const hM = 40;
   const P = 2 * (p.ropeLoadKg ?? 0);
   const Ra = p.reactionAKg ?? 0;
+  const Rb = p.reactionBKg ?? 0;
+  const supportA = p.supportPositionsMm[0];
+  const supportB = p.supportPositionsMm[1];
   const momentAt = (x: number) =>
-    Ra * (x / 10) - p.positionsMm.reduce((s, xi) => s + (xi <= x ? P * ((x - xi) / 10) : 0), 0);
-  const mMax = Math.max(1e-9, ...p.positionsMm.map(momentAt));
-  const pts: [number, number][] = [
-    [sx(0), yM0],
-    ...p.positionsMm.map(
-      (x) => [sx(x), yM0 + (momentAt(x) / mMax) * hM] as [number, number]
-    ),
-    [sx(p.spanMm), yM0],
-  ];
-  els.push(ln(sx(0) - 10, yM0, sx(p.spanMm) + 10, yM0, DCOL.muted, 0.9));
+    Ra * (Math.max(0, x - supportA) / 10) +
+    Rb * (Math.max(0, x - supportB) / 10) -
+    p.positionsMm.reduce((s, xi) => s + (xi <= x ? P * ((x - xi) / 10) : 0), 0);
+  const stations = [...new Set([0, p.shaftLengthMm, ...p.supportPositionsMm, ...p.positionsMm])]
+    .sort((a, b) => a - b);
+  const moments = stations.map(momentAt);
+  const mMax = Math.max(1e-9, ...moments.map(Math.abs));
+  const pts: [number, number][] = stations.map(
+    (x) => [sx(x), yM0 + (momentAt(x) / mMax) * hM] as [number, number]
+  );
+  els.push(ln(sx(0) - 10, yM0, sx(p.shaftLengthMm) + 10, yM0, DCOL.muted, 0.9));
   els.push({
     kind: "polygon", points: pts,
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,
@@ -197,7 +210,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     )
   );
   // moment tepesine ince gösterge
-  const peak = pts.reduce((a, b) => (b[1] > a[1] ? b : a));
+  const peak = pts.reduce((a, b) => (Math.abs(b[1] - yM0) > Math.abs(a[1] - yM0) ? b : a));
   els.push(ln(peak[0], yM0, peak[0], peak[1], DCOL.accent, 0.7, "4,3"));
   els.push(arrowHead(peak[0], peak[1], "down", DCOL.accent, 6, 2.4));
 

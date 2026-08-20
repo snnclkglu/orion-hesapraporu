@@ -441,12 +441,13 @@ export function diagramForSection(
       const i = st.inputs;
       return hookBlockShaftDiagram({
         positionsMm: v.sheavePositionsCm.map(cmToMm),
-        spanMm: cmToMm(v.shaftSpanCm),
+        shaftLengthMm: cmToMm(v.shaftLengthCm),
+        supportPositionsMm: v.shaftSupportPositionsCm.map(cmToMm) as [number, number],
         supportOffsetMm: i.shaftSupportOffsetMm,
         sheaveOffsetsMm: v.sheavePositionsCm
           .map(cmToMm)
-          .filter((positionMm) => positionMm > cmToMm(v.shaftSpanCm) / 2)
-          .map((positionMm) => positionMm - cmToMm(v.shaftSpanCm) / 2),
+          .filter((positionMm) => positionMm > cmToMm(v.shaftLengthCm) / 2)
+          .map((positionMm) => positionMm - cmToMm(v.shaftLengthCm) / 2),
         d1Mm: i.shaftD1Mm,
         sheaveDiaMm: st.selections.sheaveDiaMm,
         ropeLoadKg: v.ropeLoadKg,

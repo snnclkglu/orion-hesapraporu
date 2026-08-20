@@ -71,12 +71,18 @@ export type HoistWhich = "main" | "aux" | "mono1" | "mono2";
  * (Durum I) hesapladığından en muhafazakâr olan alınır.
  */
 const FEM_FILLET_WELD_CASE_I_MPA: Record<DrumMaterial, number> = {
+  St44: 124, // A.42
+  St52: 170, // A.52
+  "St44/St52": 124, // karışık imalatta zayıf malzeme belirleyicidir
   S235: 113, // A.37 (Fe 360)
   S355: 170, // A.52 (Fe 510)
 };
 
 /** Yapı çeliğinin akma gerilmesi σ_akma [N/mm²] — EN 10025-2 */
 const STRUCTURAL_YIELD_MPA: Record<DrumMaterial, number> = {
+  St44: 275,
+  St52: 355,
+  "St44/St52": 275,
   S235: 235,
   S355: 355,
 };

@@ -38,6 +38,7 @@ import type {
   AnyCheck,
   MechanismClass,
   ModuleResult,
+  ShaftMaterial,
   TechnicalSpecs,
   UsageClass,
 } from "../types";
@@ -53,6 +54,17 @@ import type {
  */
 export const TRAVEL_YES = "Evet";
 export const TRAVEL_NO = "Hayır";
+
+/** Bozuk/çok eski metinlerde hesabı düşürmeyen güvenli malzeme çözümleyicisi. */
+function travelShaftMaterial(material: string): ShaftMaterial {
+  const supported: ShaftMaterial[] = [
+    "S355JR", "C25", "C30", "C35", "C45", "4140+QT", "4140",
+    "42CrMo4+QT", "42CrMo4", "CK45",
+  ];
+  return supported.includes(material as ShaftMaterial)
+    ? material as ShaftMaterial
+    : "42CrMo4";
+}
 
 /**
  * Metrik ton → ABD KISA TONU (short ton) çevrim katsayısı.
@@ -151,6 +163,8 @@ export interface TravelInputs {
   tempFactorAuto?: boolean;
   motorCalcCount: number;       // gücün bölüşüldüğü motor adedi
   gearboxServiceFactor: number; // redüktör emniyet (servis) katsayısı
+  /** Redüktör servis katsayısı FEM mekanizma sınıfından türetilsin mi? */
+  gearboxServiceFactorAuto?: boolean;
   brakeServiceFactor: number;   // fren emniyet katsayısı (sadece köprü)
   motorCouplingServiceFactor: number; // motor kaplini emniyet katsayısı
   wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
@@ -198,6 +212,12 @@ export interface TravelSelections {
   bearingCode: string;
   bearingDynCKn: number;        // dinamik yük sayısı C [kN]
   bearingStatC0Kn: number;      // statik yük sayısı C0 [kN]
+  /** Rulman iç çapı d [mm] — teker mili çapıyla birebir eşleşir. */
+  bearingBoreMm?: number;
+  /** Rulman dış çapı D [mm]. */
+  bearingOuterDiaMm?: number;
+  /** Rulman genişliği B [mm]. */
+  bearingWidthMm?: number;
   motorBrand: string;
   /** Katalogun kendi tip kodu; katalog sayfası bu kodla bulunur. */
   motorModel: string;
@@ -209,6 +229,8 @@ export interface TravelSelections {
   gearboxRatio: number;
   gearboxOutputTorqueKnm: number;
   gearboxInputShaftText: string;
+  /** Redüktör giriş mili çapı [mm]; yeni katalog seçimlerinde doğrudan dolar. */
+  gearboxInputShaftMm?: number;
   gearboxOutputShaftMm: number;
   brakeBrand: string;           // yürütme freni (sadece köprü)
   brakeTorqueNm: number;
@@ -342,6 +364,8 @@ export interface TravelValues {
   motorCouplingSafety: number;
   requiredWheelCouplingTorqueNm: number;
   wheelCouplingSafety: number;
+  /** Teker–redüktör kaplininin geçirmek zorunda olduğu en büyük mil çapı. */
+  wheelCouplingShaftMm: number;
   // Tampon
   bufferType: BufferType;
   /** Kurulu toplam tampon adedi (1 / 2 / 4). */
@@ -786,7 +810,7 @@ export function computeTravelGroup(
   set("shaft.combinedStress", combinedStress);
   // Teker mili malzemesi 42CrMo4 / AISI 4140 ıslah çeliğidir; izin verilen
   // gerilmeler bu malzemenin CMAA 70 4.11.4.1 karşılıklarından alınır.
-  const shaftAllow = shaftMaterialAllowables("4140");
+  const shaftAllow = shaftMaterialAllowables(travelShaftMaterial(sel.shaftMaterial));
   set("shaft.allowableBending", shaftAllow.bending);
   set("shaft.allowableShear", shaftAllow.shear);
   set("shaft.allowableCombined", shaftAllow.combined);
@@ -820,6 +844,10 @@ export function computeTravelGroup(
   const requiredLifeMin = life.min ?? 0;
   set("bearing.requiredLifeMin", requiredLifeMin);
   if (life.max !== null) set("bearing.requiredLifeMax", life.max);
+  const bearingBoreMm = sel.bearingBoreMm ?? 0;
+  set("bearing.bore", bearingBoreMm);
+  set("bearing.outerDia", sel.bearingOuterDiaMm ?? 0);
+  set("bearing.width", sel.bearingWidthMm ?? 0);
   checks.push({
     id: `${which}.bearing.life`,
     label: "Tekerlek Rulmanı Ömrü",
@@ -835,6 +863,14 @@ export function computeTravelGroup(
     required: 1, provided: staticSafety, unit: "-", op: ">=",
     computedSide: "provided",
     pass: staticSafety >= 1,
+    kind: "uretici", severity: "engelleyici",
+  });
+  checks.push({
+    id: `${which}.bearing.bore`,
+    label: "Tekerlek Rulmanı İç Çapı = Teker Mili Çapı",
+    min: inp.shaftDiaMm, max: inp.shaftDiaMm,
+    provided: bearingBoreMm, unit: "mm", op: "range",
+    pass: Number.isFinite(bearingBoreMm) && bearingBoreMm === inp.shaftDiaMm,
     kind: "uretici", severity: "engelleyici",
   });
 
@@ -876,7 +912,7 @@ export function computeTravelGroup(
   set("motor.requiredPower", requiredPower);
   const requiredMaxPower = inp.tempFactor * requiredPower;
   set("motor.requiredMaxPower", requiredMaxPower);
-  set("motor.maxPowerPerMotor", requiredMaxPower / inp.motorCalcCount);
+  set("motor.maxPowerPerMotor", requiredMaxPower / Math.max(1, sel.motorCount));
   const installedPower = sel.motorPowerKw * sel.motorCount;
   set("motor.installedPower", installedPower);
   checks.push({
@@ -943,8 +979,17 @@ export function computeTravelGroup(
   // --- Motor — Dişli Kutusu Kaplini ----------------------------------------
   const requiredMotorCouplingTorque = requiredInputTorque * inp.motorCouplingServiceFactor;
   set("motorCoupling.requiredTorque", requiredMotorCouplingTorque);
-  // Arabada kapline bağlanan mil ayrı girilir; köprüde motorun mil çapıdır.
-  const motorCouplingShaft = isTrolley ? sel.couplingMotorShaftMm : sel.motorShaftMm;
+  const gearboxInputShaftMm = (sel.gearboxInputShaftMm ?? 0) > 0
+    ? sel.gearboxInputShaftMm!
+    : (() => {
+    const parsed = Number.parseFloat(String(sel.gearboxInputShaftText ?? "").replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : 0;
+  })();
+  // Kaplin iki tarafı da geçirmek zorundadır: motor mili ile redüktör giriş
+  // milinden büyük olanı katalog Dmax sınırını belirler.
+  const motorCouplingShaft = Math.max(sel.motorShaftMm, gearboxInputShaftMm);
+  set("motorCoupling.motorShaftDia", sel.motorShaftMm);
+  set("motorCoupling.gearboxInputShaftDia", gearboxInputShaftMm);
   set("motorCoupling.shaftDia", motorCouplingShaft);
   const motorCouplingSafety = sel.motorCouplingTorqueNm / requiredMotorCouplingTorque;
   set("motorCoupling.actualSafety", motorCouplingSafety);
@@ -972,6 +1017,11 @@ export function computeTravelGroup(
   set("wheelCoupling.requiredTorque", requiredWheelCouplingTorque);
   // Emniyet oranı servis faktörsüz nominal çıkış momentine göre raporlanır.
   const wheelCouplingSafety = sel.wheelCouplingTorqueNm / nominalOutputTorque;
+  // Çıkış tarafında redüktör mili ile teker mili birlikte sınırlandırıcıdır.
+  const wheelCouplingShaft = Math.max(sel.wheelShaftDiaMm, sel.gearboxOutputShaftMm);
+  set("wheelCoupling.shaftDia", wheelCouplingShaft);
+  set("wheelCoupling.wheelShaftDia", sel.wheelShaftDiaMm);
+  set("wheelCoupling.gearboxOutputShaftDia", sel.gearboxOutputShaftMm);
   set("wheelCoupling.actualSafety", wheelCouplingSafety);
   checks.push({
     id: `${which}.wheelCoupling.torque`,
@@ -984,11 +1034,11 @@ export function computeTravelGroup(
   checks.push({
     id: `${which}.wheelCoupling.bore`,
     label: "Teker Kaplini Delik Çapı",
-    required: sel.wheelShaftDiaMm, provided: sel.wheelCouplingDmaxMm, unit: "mm", op: ">=",
+    required: wheelCouplingShaft, provided: sel.wheelCouplingDmaxMm, unit: "mm", op: ">=",
     // İki taraf da katalogdan gelir; TALEP kaplinin geçirmesi gereken teker mili
     // çapıdır, sınır ise kaplinin en büyük delik çapıdır.
     computedSide: "required",
-    pass: sel.wheelCouplingDmaxMm >= sel.wheelShaftDiaMm,
+    pass: sel.wheelCouplingDmaxMm >= wheelCouplingShaft,
     kind: "uretici", severity: "engelleyici",
   });
 
@@ -1061,7 +1111,12 @@ export function computeTravelGroup(
       : undefined,
     maxCompressionPct: sel.bufferMaxCompressionPct ?? 0,
     frequentEndApproach: inp.bufferFrequentEndApproach === TRAVEL_YES,
-    decelerationLimitApplies: which === "bridge" && specs.hasOperatorCabin === "yes",
+    // Elastomerik tamponlarda katalog son kuvvetinden çıkan tepe yavaşlaması
+    // her eksende sınanır. Eski kural bunu yalnız kabinli köprüde uyguluyor ve
+    // hücresel tamponda 5,39 > 5 iken kontrolü bilgi olarak UYGUN gösteriyordu.
+    decelerationLimitApplies:
+      bufferType === "kaucuk" || bufferType === "hucresel" ||
+      (which === "bridge" && specs.hasOperatorCabin === "yes"),
   });
   for (const [key, value] of Object.entries(bufferResult.cells)) set(key, value);
   checks.push(...bufferResult.checks);
@@ -1179,6 +1234,7 @@ export function computeTravelGroup(
     motorCouplingSafety,
     requiredWheelCouplingTorqueNm: requiredWheelCouplingTorque,
     wheelCouplingSafety,
+    wheelCouplingShaftMm: wheelCouplingShaft,
     bufferType: bv.type,
     bufferInstalledCount: installedBufferCount,
     bufferActiveCount: activeBufferCount,

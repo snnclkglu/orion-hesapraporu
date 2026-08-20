@@ -26,6 +26,7 @@ import {
   deriveHoistInputs,
   deriveTravelInputs,
   travelApplicationClass,
+  travelGearboxServiceFactor,
 } from "../derive";
 import {
   GIRDER_AUTO_FIELDS,
@@ -310,6 +311,25 @@ describe("yürütme uygulama sınıfı otomatiği", () => {
       const cls = (NEW_WORK_TEMPLATE[key]!.inputs as TravelInputs).applicationClass;
       expect(CMAA_APPLICATION_CLASSES as readonly string[]).toContain(cls);
     }
+  });
+});
+
+describe("yürütme redüktörü katsayısı otomatiği", () => {
+  it("M1–M8 kullanıcı tablosunu eksiksiz uygular", () => {
+    expect(MECHANISM_CLASSES.map((m) => travelGearboxServiceFactor(m)))
+      .toEqual([1.4, 1.4, 1.4, 1.4, 1.5, 1.6, 1.9, 2.1]);
+  });
+
+  it("otomatik açıkken değeri yazar, kapalıyken elle girileni ezmez", () => {
+    const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+    expect(deriveTravelInputs(
+      { ...inp, gearboxServiceFactorAuto: true },
+      { ambientTempMaxC: 40, mechanismClass: "M7" }
+    ).gearboxServiceFactor).toBe(1.9);
+    expect(deriveTravelInputs(
+      { ...inp, gearboxServiceFactorAuto: false, gearboxServiceFactor: 7.7 },
+      { ambientTempMaxC: 40, mechanismClass: "M7" }
+    ).gearboxServiceFactor).toBeUndefined();
   });
 });
 

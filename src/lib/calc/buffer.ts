@@ -723,7 +723,7 @@ export function computeBuffer(inp: BufferInput): BufferResult {
       inp.decelerationLimitApplies === true
         ? {
             id: id("buffer.deceleration"),
-            label: "Tampon Tepe Yavaşlaması a_maks (Operatör Kabini)",
+            label: "Tampon Tepe Yavaşlaması a_maks",
             required: maxDecel,
             provided: decelLimit,
             unit: "m/s²",

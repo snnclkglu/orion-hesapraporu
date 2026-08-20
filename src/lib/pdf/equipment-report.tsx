@@ -17,7 +17,7 @@ import type {
   EqGroup, SummarySection,
 } from "@/lib/excel/equipment";
 import {
-  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowSheetUrl,
+  attachmentSummaryText, canLinkEquipmentModel, dsKey, rowSheetUrl, summaryRowValue,
 } from "@/lib/excel/equipment";
 import {
   BRAND, BrandBand, BrandPage, FONTS, PageHeader, RuleRed, T, trUpper,
@@ -651,7 +651,7 @@ export function EquipmentDocument({
                                   <Text style={s.sLabelText}>{r.label}</Text>
                                   {r.note && <Text style={s.sNote}>{r.note}</Text>}
                                 </View>
-                                <Text style={s.sVal}>{String(r.value)}</Text>
+                                <Text style={s.sVal}>{summaryRowValue(r)}</Text>
                                 <Text style={s.sUnit}>{toDisplayUnitLabel(r.unit) ?? ""}</Text>
                               </View>
                             ))}

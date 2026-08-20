@@ -44,6 +44,7 @@ import { CABIN_SECTIONS } from "@/lib/calc/presentation/cabinSections";
 import {
   AIR_CONDITIONING_REDUNDANCY_LABELS,
   ROOM_INSULATION_LABELS,
+  withDiameterSign,
 } from "@/lib/calc/fields";
 import { attrValueLabel } from "@/lib/catalog-mapping";
 import { catalogSheetPageUrl, findCatalogSheet } from "@/lib/catalog-sheets";
@@ -1170,6 +1171,8 @@ export interface SummaryRow {
   label: string;
   value: number | string;
   unit?: string;
+  /** Değer teknik resimde bir çap ölçüsüdür; ekran/Excel/PDF başına Ø koyar. */
+  diameter?: true;
   /**
    * Satırın ALTINA düşen tek cümlelik açıklama — ressamın çizerken bilmesi
    * gereken ama bir ölçü olmayan şey ("mesnette 6,3 mm", "yalnız tek helisli
@@ -1178,6 +1181,11 @@ export interface SummaryRow {
    * üçünü birden yeniden ölçmeyi gerektirirdi.
    */
   note?: string;
+}
+
+/** Teknik ressam özetinin üç çıktısında kullanılan tek değer biçimleyicisi. */
+export function summaryRowValue(row: SummaryRow): string {
+  return withDiameterSign(String(row.value), row);
 }
 
 /**
@@ -1392,7 +1400,7 @@ export function buildSummarySections(
     const rows: SummaryRow[] = [
       { label: "Ray tipi", value: textOr(sel.railCode) },
       { label: "Ray baş genişliği", value: fmt(numCell(c, "rail.headWidth"), 0), unit: "mm" },
-      { label: "Teker çapı", value: sel.wheelDiaMm, unit: "mm" },
+      { label: "Teker çapı", value: sel.wheelDiaMm, unit: "mm", diameter: true },
       { label: "Teker adedi", value: inp.wheelCount, unit: "adet" },
       {
         label: "Tahrikli teker adedi",
@@ -1403,24 +1411,28 @@ export function buildSummarySections(
       { label: "Teker bandaj genişliği", value: inp.wheelWidthMm ?? "-", unit: "mm" },
       { label: "Teker malzemesi", value: textOr(sel.wheelMaterial) },
       // Teker mili ölçüleri doğrudan teknik resme geçer.
-      { label: "Teker mili çapı", value: inp.shaftDiaMm, unit: "mm" },
+      { label: "Teker mili çapı", value: inp.shaftDiaMm, unit: "mm", diameter: true },
       { label: "Teker mili mesnet ölçüsü a", value: inp.shaftSpanAMm, unit: "mm" },
       { label: "Teker mili ölçüsü b", value: inp.shaftSpanBMm, unit: "mm" },
-      { label: "Kapline bağlanan mil çapı", value: sel.wheelShaftDiaMm, unit: "mm" },
+      { label: "Kapline bağlanan mil çapı", value: sel.wheelShaftDiaMm, unit: "mm", diameter: true },
+      { label: "Teker rulmanı iç çapı", value: sel.bearingBoreMm ?? "-", unit: "mm", diameter: true },
+      { label: "Teker rulmanı dış çapı", value: sel.bearingOuterDiaMm ?? "-", unit: "mm", diameter: true },
+      { label: "Teker rulmanı genişliği", value: sel.bearingWidthMm ?? "-", unit: "mm" },
       {
         label: "Motor",
         value: `${textOr(sel.motorBrand, "")} ${textOr(sel.motorModel, "")}`.trim() || "-",
       },
       { label: "Motor gücü", value: sel.motorPowerKw, unit: "kW", note: `${sel.motorCount} adet` },
-      { label: "Motor mil çapı", value: sel.motorShaftMm, unit: "mm" },
+      { label: "Motor mil çapı", value: sel.motorShaftMm, unit: "mm", diameter: true },
       { label: "Redüktör", value: textOr(sel.gearboxModel) },
       { label: "Redüktör oranı", value: sel.gearboxRatio },
-      { label: "Redüktör çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm" },
+      { label: "Redüktör giriş mili", value: sel.gearboxInputShaftMm ?? "-", unit: "mm", diameter: true },
+      { label: "Redüktör çıkış mili", value: sel.gearboxOutputShaftMm, unit: "mm", diameter: true },
       {
         label: "Fren",
         value: `${textOr(sel.brakeBrand, "")} ${fmt(sel.brakeTorqueNm, 0)} Nm`.trim(),
       },
-      { label: "Fren kasnak çapı", value: sel.brakeWheelDiaMm || "-", unit: "mm" },
+      { label: "Fren kasnak çapı", value: sel.brakeWheelDiaMm || "-", unit: "mm", diameter: true },
       { label: "Gerçekleşen hız", value: fmt(numCell(c, "drive.actualSpeed"), 1), unit: "m/dak" },
     ];
     if (key === "bridge") {
@@ -1465,14 +1477,15 @@ export function buildSummarySections(
     sections.push({
       name: `Tambur · ${ad}`,
       rows: [
-        { label: "Tambur çapı D", value: sel.drumDiaMm, unit: "mm" },
+        { label: "Tambur çapı D", value: sel.drumDiaMm, unit: "mm", diameter: true },
         {
           label: "Minimum tambur çapı",
           value: fmt(numCell(c, "drum.minDia"), 0),
           unit: "mm",
+          diameter: true,
           note: "FEM 1.001 · D ≥ H · d",
         },
-        { label: "Halat çapı d", value: sel.ropeDiaMm, unit: "mm" },
+        { label: "Halat çapı d", value: sel.ropeDiaMm, unit: "mm", diameter: true },
         {
           label: "Yiv adımı (hatve) p",
           value: fmt(numCell(c, "drum.groovePitch"), 1),
@@ -1508,8 +1521,8 @@ export function buildSummarySections(
           value: fmt(numCell(c, "drumShaft.span") * 10, 0),
           unit: "mm",
         },
-        { label: "Mil çapı D1 (yanak dibi)", value: inp.shaftD1Mm, unit: "mm" },
-        { label: "Mil çapı D2 (yatak)", value: inp.shaftD2Mm, unit: "mm" },
+        { label: "Mil çapı D1 (yanak dibi)", value: inp.shaftD1Mm, unit: "mm", diameter: true },
+        { label: "Mil çapı D2 (yatak)", value: inp.shaftD2Mm, unit: "mm", diameter: true },
         { label: "Tambur kaynağı boğaz a", value: inp.drumWeldThicknessMm, unit: "mm" },
         { label: "Mil kaynağı boğaz a", value: inp.shaftWeldThicknessMm, unit: "mm" },
         { label: "Tambur malzemesi", value: textOr(sel.drumMaterial) },
@@ -1648,17 +1661,22 @@ export function buildSummarySections(
         { label: "Kanca tanımı", value: textOr(v?.hookDesignationText || sel.hookDesignation) },
         { label: "Kanca numarası", value: textOr(sel.hookNumber) },
         { label: "Kanca kapasitesi", value: v?.hookCapacityKg ?? sel.hookCapacityKg, unit: "kg" },
-        { label: "Makara çapı (halat ekseni)", value: sel.sheaveDiaMm, unit: "mm" },
+        { label: "Makara çapı (halat ekseni)", value: sel.sheaveDiaMm, unit: "mm", diameter: true },
         {
           label: "Minimum makara çapı",
           value: fmt(numCell(c, "sheave.minDia"), 0),
           unit: "mm",
+          diameter: true,
           note: "FEM 1.001 · D ≥ H · d",
         },
         { label: "Makara adedi", value: v?.sheaveCount ?? "-", unit: "adet" },
+        { label: "Makara kapak düzeni", value: sel.sheaveEnclosure },
+        ...(sel.sheaveEnclosure === "Kapaksız"
+          ? [{ label: "Rulman kapak tipi", value: textOr(sel.sheaveBearingClosure) }]
+          : [{ label: "Keçe tipi", value: textOr(sel.sheaveSealCode) }]),
         { label: "Makara rulmanı", value: textOr(sel.sheaveBearingCode) },
-        { label: "Makara rulmanı iç çapı", value: sel.sheaveBearingBoreMm ?? "-", unit: "mm" },
-        { label: "Mil çapı D1", value: inp.shaftD1Mm, unit: "mm" },
+        { label: "Makara rulmanı iç çapı", value: sel.sheaveBearingBoreMm ?? "-", unit: "mm", diameter: true },
+        { label: "Mil çapı D1", value: inp.shaftD1Mm, unit: "mm", diameter: true },
         { label: "Merkez → askı sacı ekseni", value: inp.shaftSupportOffsetMm, unit: "mm" },
         { label: "Merkez → makara eksenleri (tek taraf)", value: inp.shaftSheaveOffsetsText, unit: "mm" },
         ...(hoistState
@@ -1821,10 +1839,10 @@ function writeSummarySheet(
       // genişliği, filtre aralığı, merge ve kenarlık döngüsü sütun sayısına
       // beş ayrı yerde bağlıdır ve biri unutulursa sessizce bozulur.
       row.getCell(1).value = r.note ? `${r.label}  —  ${r.note}` : r.label;
-      row.getCell(2).value = r.value;
+      row.getCell(2).value = r.diameter ? summaryRowValue(r) : r.value;
       row.getCell(3).value = r.unit ?? "";
       // Değer kolonu: sayılar TR ayraçlı, sağa dayalı, mono
-      if (typeof r.value === "number") {
+      if (typeof r.value === "number" && !r.diameter) {
         row.getCell(2).numFmt = Number.isInteger(r.value) ? "#,##0" : "#,##0.00";
         row.getCell(2).font = { name: MONO_FONT };
       }

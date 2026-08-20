@@ -26,7 +26,7 @@ import {
   BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Loader2, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
-import { dsKey } from "@/lib/excel/equipment";
+import { dsKey, summaryRowValue } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
 import { createClient } from "@/lib/supabase/client";
 import { kimlikBuyuk } from "@/lib/tr-text";
@@ -734,7 +734,7 @@ export function EquipmentPanel({
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">{String(r.value)}</TableCell>
+                              <TableCell className="text-right tabular-nums">{summaryRowValue(r)}</TableCell>
                               <TableCell className="text-center text-muted-foreground">{r.unit ?? ""}</TableCell>
                             </TableRow>
                           ))}

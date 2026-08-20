@@ -29,6 +29,8 @@ export const RAIL_TYPES = [
   "30x30", "40x40", "50x50", "60x60", "70x40", "80x80",
 ] as const;
 export const WHEEL_MATERIALS = ["AISI 4140+QT", "42CrMo4", "C60", "GS-70"] as const;
+export const WHEEL_TENSILE_OPTIONS = Array.from({ length: 11 }, (_, i) => String(500 + i * 50));
+export const WHEEL_SHAFT_MATERIALS = ["42CrMo4", "42CrMo4+QT", "S355JR", "CK45"] as const;
 
 /** İki durumlu tampon girdilerinin seçenekleri (kayıtta metin olarak durur). */
 export const YES_NO = [TRAVEL_NO, TRAVEL_YES] as const;
@@ -105,8 +107,10 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
   { key: "reducerStages", label: "Redüktör Kademe Sayısı", type: "number" },
   { key: "accelerationMs2", label: "İvme a", unit: "m/s²", type: "number" },
   { key: "tempFactor", label: "Sıcaklık Faktörü", type: "number" },
-  { key: "motorCalcCount", label: "Motor Adedi (Güç Bölüşümü)", type: "number" },
-  { key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number" },
+  {
+    key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number",
+    hint: "Otomatik: M1–M4 1,4 · M5 1,5 · M6 1,6 · M7 1,9 · M8 2,1.",
+  },
   { key: "brakeServiceFactor", label: "Fren Emniyet Katsayısı", type: "number" },        // sadece köprü
   { key: "motorCouplingServiceFactor", label: "Motor Kaplini Emniyet Katsayısı", type: "number" },
   { key: "wheelCouplingServiceFactor", label: "Teker Kaplini Emniyet Katsayısı", type: "number" },
@@ -153,13 +157,21 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
 export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "railCode", label: "Ray", type: "select", options: RAIL_TYPES },
   { key: "wheelMaterial", label: "Tekerlek Malzemesi", type: "select", options: WHEEL_MATERIALS },
-  { key: "wheelTensileNmm2", label: "Tekerlek Malzemesi Çekme Dayanımı", unit: "N/mm²", type: "number" },
+  {
+    key: "wheelTensileNmm2", label: "Tekerlek Malzemesi Çekme Dayanımı",
+    unit: "N/mm²", type: "select", options: WHEEL_TENSILE_OPTIONS,
+    numeric: true, allowCustom: true,
+    hint: "500–1000 N/mm² arası 50'şer basamakla önerilir; malzeme sertifikasındaki değer listede yoksa Elle Gir ile yazılabilir.",
+  },
   { key: "wheelDiaMm", label: "Tekerlek Çapı", unit: "mm", type: "select", options: WHEEL_DIA_SERIES_MM, numeric: true, diameter: true },
-  { key: "shaftMaterial", label: "Mil Malzemesi", type: "text" },
+  { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: WHEEL_SHAFT_MATERIALS },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
   { key: "bearingDynCKn", label: "Dinamik Yük Katsayısı C", unit: "kN", type: "number" },
   { key: "bearingStatC0Kn", label: "Statik Yük Katsayısı C0", unit: "kN", type: "number" },
+  { key: "bearingBoreMm", label: "Rulman İç Çapı", unit: "mm", type: "number", diameter: true, hint: "Teker mili çapıyla birebir eşleşmelidir." },
+  { key: "bearingOuterDiaMm", label: "Rulman Dış Çapı", unit: "mm", type: "number", diameter: true },
+  { key: "bearingWidthMm", label: "Rulman Genişliği", unit: "mm", type: "number" },
   { key: "motorBrand", label: "Motor Markası", type: "text" },
   {
     key: "motorPowerKw", label: "Seçilen Motor Gücü", unit: "kW", type: "select",
@@ -178,12 +190,12 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
   { key: "gearboxRatio", label: "Tahvil Oranı", type: "number" },
   { key: "gearboxOutputTorqueKnm", label: "Redüktör Çıkış Torku", unit: "kNm", type: "number" },
-  { key: "gearboxInputShaftText", label: "Giriş Mil Çapı", unit: "mm", type: "text", diameter: true },
+  { key: "gearboxInputShaftText", label: "Giriş Mil Çapı (Eski Kayıt)", unit: "mm", type: "text", diameter: true },
+  { key: "gearboxInputShaftMm", label: "Giriş Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "gearboxOutputShaftMm", label: "Çıkış Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "brakeBrand", label: "Seçilen Fren", type: "text" },                            // sadece köprü
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },              // sadece köprü
   { key: "brakeWheelDiaMm", label: "Fren Kasnak / Disk Çapı", unit: "mm", type: "number", diameter: true }, // sadece köprü
-  { key: "couplingMotorShaftMm", label: "Kapline Bağlanan Motor Mili", unit: "mm", type: "number", diameter: true, hint: "Köprüde motorun kendi mil çapı kullanılır." },
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Seçilen Motor Kaplini", type: "text" },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Tork Kapasitesi", unit: "Nm", type: "number" },

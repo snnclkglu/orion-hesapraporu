@@ -96,6 +96,7 @@ const TRAVEL_ANCHORS: AnchorMap = {
   "5.3": {
     "bearing.static": "bearing.staticSafety",
     "bearing.life": "bearing.requiredLifeMin",
+    "bearing.bore": "bearing.bore",
   },
   "5.4": { "motor.power": "motor.installedPower" },
   "5.5": {
@@ -109,9 +110,7 @@ const TRAVEL_ANCHORS: AnchorMap = {
   },
   "5.7": {
     "wheelCoupling.torque": "wheelCoupling.requiredTorque",
-    // Teker mili çapı ayrı bir hesap satırı değil (seçimin yankısıydı);
-    // delik çapı kontrolü aynı bölümün gerekli tork satırına bağlanır.
-    "wheelCoupling.bore": "wheelCoupling.requiredTorque",
+    "wheelCoupling.bore": "wheelCoupling.shaftDia",
   },
   "5.8": {
     "buffer.energy": "buffer.totalEnergy",

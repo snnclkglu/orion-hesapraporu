@@ -140,7 +140,7 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   ropeWireStrength: 200,
   ropeBreakingLoadKn: 226,
   drumDiaMm: 400,
-  drumMaterial: "S355",
+  drumMaterial: "St52",
   drumGrooveLengthText: "2 x 220",
   shaftMaterial: "C30",
   bearingType: "Çift Sıra Makaralı Rulman",
@@ -491,6 +491,8 @@ const NEW_WORK_TROLLEY_INPUTS = {
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
   accelTorqueFactorKtAuto: true,
+  gearboxServiceFactor: 1.6,
+  gearboxServiceFactorAuto: true,
 };
 
 const NEW_WORK_BRIDGE_INPUTS = {
@@ -499,6 +501,8 @@ const NEW_WORK_BRIDGE_INPUTS = {
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
   accelTorqueFactorKtAuto: true,
+  gearboxServiceFactor: 1.6,
+  gearboxServiceFactorAuto: true,
 };
 
 /**

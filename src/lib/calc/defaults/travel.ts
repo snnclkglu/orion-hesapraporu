@@ -54,6 +54,7 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   tempFactorAuto: true,
   motorCalcCount: 1,            // gücün bölüşüldüğü motor adedi
   gearboxServiceFactor: 2.1,    // redüktör emniyet katsayısı
+  gearboxServiceFactorAuto: false,
   brakeServiceFactor: 0,        // arabada yürütme freni hesaplanmaz
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 2,
@@ -78,6 +79,9 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   shaftMaterial: "42CrMo4",
   bearingType: "Çift Sıra Makaralı Rulman",
   bearingCode: "22210",
+  bearingBoreMm: 50,
+  bearingOuterDiaMm: 90,
+  bearingWidthMm: 23,
   bearingDynCKn: 159,
   bearingStatC0Kn: 166,
   motorBrand: "INNOMOTICS/SEW/ABB",
@@ -91,6 +95,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
   gearboxRatio: 29,
   gearboxOutputTorqueKnm: 0.59,
   gearboxInputShaftText: "-",
+  gearboxInputShaftMm: 0,
   gearboxOutputShaftMm: 60,
   brakeBrand: "",               // arabada yürütme freni hesaplanmaz
   brakeTorqueNm: 0,
@@ -145,6 +150,7 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   tempFactorAuto: true,
   motorCalcCount: 2,
   gearboxServiceFactor: 2.1,
+  gearboxServiceFactorAuto: false,
   brakeServiceFactor: 1.6,      // yürütme freni emniyet katsayısı
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 1.8,
@@ -168,6 +174,9 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   shaftMaterial: "42CrMo4",
   bearingType: "Çift Sıra Makaralı Rulman",
   bearingCode: "22216",
+  bearingBoreMm: 80,
+  bearingOuterDiaMm: 140,
+  bearingWidthMm: 33,
   bearingDynCKn: 243,
   bearingStatC0Kn: 270,
   motorBrand: "INNOMOTICS/SEW/ABB",
@@ -181,6 +190,7 @@ export const V5_BRIDGE_SELECTIONS: TravelSelections = {
   gearboxRatio: 24,
   gearboxOutputTorqueKnm: 0.82,
   gearboxInputShaftText: "-",
+  gearboxInputShaftMm: 0,
   gearboxOutputShaftMm: 60,
   // Referans iş emrinde köprü yürütme freni SEÇİLMEMİŞTİR; fren kontrolü bu
   // yüzden uygun çıkmaz ve seçim yapılana kadar öyle kalır.

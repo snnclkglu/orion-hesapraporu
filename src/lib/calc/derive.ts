@@ -626,8 +626,19 @@ export interface TravelDerivation {
   serviceFactorKs?: number;
   /** Otomatik seçilen CMAA ivmelenme tork faktörü Kt (T.5.2.9.1.2.1-C) */
   accelTorqueFactorKt?: number;
+  /** FEM mekanizma sınıfından otomatik yürütme redüktörü servis katsayısı. */
+  gearboxServiceFactor?: number;
   /** Otomatik açık ama tablodan değer okunamadıysa gösterilecek uyarılar */
   warnings: { field: "serviceFactorKs" | "accelTorqueFactorKt"; message: string }[];
+}
+
+/** ORION yürütme redüktörü servis katsayısı — FEM mekanizma sınıfı eşlemesi. */
+export function travelGearboxServiceFactor(mech: MechanismClass): number {
+  if (mech === "M1" || mech === "M2" || mech === "M3" || mech === "M4") return 1.4;
+  if (mech === "M5") return 1.5;
+  if (mech === "M6") return 1.6;
+  if (mech === "M7") return 1.9;
+  return 2.1;
 }
 
 /**
@@ -644,6 +655,9 @@ export function deriveTravelInputs(
 ): TravelDerivation {
   const out: TravelDerivation = { warnings: [] };
   if (inputs.tempFactorAuto) out.tempFactor = motorTempFactor(ctx.ambientTempMaxC);
+  if (inputs.gearboxServiceFactorAuto) {
+    out.gearboxServiceFactor = travelGearboxServiceFactor(ctx.mechanismClass);
+  }
 
   const applicationClass = inputs.travelApplicationClassAuto
     ? travelApplicationClass(ctx.mechanismClass)

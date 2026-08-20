@@ -120,6 +120,29 @@ describe("kanca bloğu — tarihsel doğrulama", () => {
     expect(geometry.spanCm).toBe(65);
     expect(geometry.positionsCm).toEqual([5, 15, 25, 40, 50, 60]);
   });
+  it("askı sacı makara dizisinin içinde kaldığında konsollu yükleme geometrisini kurar", () => {
+    const geometry = hookShaftGeometry(
+      { shaftSupportOffsetMm: 125, shaftSheaveOffsetsText: "75; 175; 275" },
+      6
+    );
+    expect(geometry.shaftLengthCm).toBe(55);
+    expect([geometry.supportACm, geometry.supportBCm]).toEqual([15, 40]);
+    expect(geometry.positionsCm).toEqual([0, 10, 20, 35, 45, 55]);
+    const inside = computeHookBlock(
+      V5_SPECS,
+      "hookBlock",
+      {
+        ...V5_HOOKBLOCK_INPUTS,
+        shaftSupportOffsetMm: 125,
+        shaftSheaveOffsetsText: "75; 175; 275",
+      },
+      V5_HOOKBLOCK_SELECTIONS,
+      { ...V5_HOOKBLOCK_DEPS, blockSheaveCount: 6 }
+    );
+    expect(inside.values.shaftSupportPositionsCm).toEqual([15, 40]);
+    expect(inside.values.shaftLengthCm).toBe(55);
+    expect(inside.cells["shaft.moment"]).toBeGreaterThan(0);
+  });
   it("her döküm hücresi ya eşlemede ya da gerekçeli kapsam dışıdır", () => {
     const eksik = dumpCells
       .map((c) => c.cell)

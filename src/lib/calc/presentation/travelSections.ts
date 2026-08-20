@@ -283,7 +283,10 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["wheelBearing"],
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM 1.001 T.2.1.3.2).",
     inputKeys: ["bearingCount", "bearingFactorY0", "bearingFactorY1"],
-    selectionKeys: ["bearingType", "bearingCode", "bearingDynCKn", "bearingStatC0Kn"],
+    selectionKeys: [
+      "bearingType", "bearingCode", "bearingBoreMm", "bearingOuterDiaMm",
+      "bearingWidthMm", "bearingDynCKn", "bearingStatC0Kn",
+    ],
     rows: [
       {
         key: "bearing.radialLoad", label: "Rulman Radyal Yükü Fr",
@@ -325,8 +328,26 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         subst: (x) => `${usageOf(x)} → ${n(x.v.requiredLifeMin, 0)}`,
         unit: "saat", digits: 0, standard: "FEM 1.001 T.2.1.3.2",
       },
+      {
+        key: "bearing.bore", label: "Rulman İç Çapı", diameter: true,
+        formula: "d_rulman = d_mil",
+        subst: (x) => `${n(x.sel.bearingBoreMm ?? 0)} = ${n(x.inp.shaftDiaMm)}`,
+        unit: "mm",
+      },
+      {
+        key: "bearing.outerDia", label: "Rulman Dış Çapı", diameter: true,
+        formula: "D = katalog",
+        subst: (x) => `${n(x.sel.bearingOuterDiaMm ?? 0)}`,
+        unit: "mm",
+      },
+      {
+        key: "bearing.width", label: "Rulman Genişliği",
+        formula: "B = katalog",
+        subst: (x) => `${n(x.sel.bearingWidthMm ?? 0)}`,
+        unit: "mm",
+      },
     ],
-    checkSuffixes: ["bearing.static", "bearing.life"],
+    checkSuffixes: ["bearing.static", "bearing.life", "bearing.bore"],
   },
   {
     id: "5.4",
@@ -335,7 +356,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     description: "CMAA 70 ivmelenme faktörü yöntemiyle gerekli güç ve motor seçimi.",
     inputKeys: [
       "applicationClass", "serviceFactorKs", "accelTorqueFactorKt",
-      "accelerationMs2", "tempFactor", "motorCalcCount",
+      "accelerationMs2", "tempFactor",
     ],
     selectionKeys: ["motorBrand", "motorModel", "motorPowerKw", "motorRpm", "motorCount", "motorShaftMm"],
     rows: [
@@ -415,7 +436,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
       "gearboxModel", "gearboxRatio", "gearboxOutputTorqueKnm",
-      "gearboxInputShaftText", "gearboxOutputShaftMm",
+      "gearboxInputShaftMm", "gearboxOutputShaftMm",
     ],
     rows: [
       {
@@ -482,7 +503,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
     selectionKeys: [
-      "couplingMotorShaftMm", "motorCouplingBrand", "motorCouplingModel",
+      "motorCouplingBrand", "motorCouplingModel",
       "motorCouplingTorqueNm", "motorCouplingDmaxMm",
     ],
     rows: [
@@ -494,7 +515,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       },
       {
         key: "motorCoupling.shaftDia", label: "Bağlanacak Mil Çapı", diameter: true,
-        formula: "d = d_motor mili",
+        formula: "d = maks(d_motor, d_redüktör giriş)",
         subst: (x) => `${n(x.v.motorCouplingShaftMm)}`,
         unit: "mm",
       },
@@ -521,6 +542,12 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         formula: "T_k = T_nom · k",
         subst: (x) => `${n(x.v.nominalOutputTorqueNm)} · ${n(x.inp.wheelCouplingServiceFactor)}`,
         unit: "Nm",
+      },
+      {
+        key: "wheelCoupling.shaftDia", label: "Bağlanacak En Büyük Mil Çapı", diameter: true,
+        formula: "d = maks(d_teker, d_redüktör çıkış)",
+        subst: (x) => `maks(${n(x.sel.wheelShaftDiaMm)}; ${n(x.sel.gearboxOutputShaftMm)})`,
+        unit: "mm",
       },
       {
         key: "wheelCoupling.actualSafety", label: "Gerçekleşen Emniyet",

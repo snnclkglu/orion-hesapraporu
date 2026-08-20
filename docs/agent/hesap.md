@@ -722,3 +722,29 @@ snapshotları `migrateHookShaftCenter` ile aynı açıklık ve yük konumlarına
 Redüktör kataloğunda hedef tahvil oranı, tork/facet filtrelerinden sonra
 uygulanır; katalogda birebir hedef yoksa en yakın bir alt ve bir üst oran aynı
 anda bırakılır. Aynı oranı taşıyan farklı modeller saklanır.
+
+## HESAP-20 — Kanca bloğu ve yürütme seçimleri gerçek mil geometrisine bağlıdır.
+
+Kullanıcı kararı (20.08.2026): kanca bloğu askı sacları makara dizisinin
+dışında olmak zorunda değildir. Merkezden verilen askı sacı ve makara eksenleri
+aynalanır; ortak kiriş çözücüsüne askı sacları gerçek iç mesnet, dıştaki
+makaralar da konsol yükü olarak verilir. Askı sacı ilk makaradan önce, sonra
+veya iki makara arasında olabilir. Mil şeması aynı çözülmüş geometriyi kullanır.
+
+Makara düzeni `Kapaklı ve Keçeli` / `Kapaksız` seçimidir. İlkinde DIN 3760
+karşılığı keçe kodu, ikincisinde Z/ZZ/RS/2RS rulman kapak tipi tutulur; koşullu
+değer Teknik Ressam Özeti'ne iner. Özette çap olan değerler `diameter` bayrağı
+taşır ve ekran, Excel, PDF aynı `summaryRowValue` biçimleyicisiyle Ø basar.
+
+Yürütme rulmanının katalog iç çapı teker mili çapıyla birebir eşleşir ve katalog
+seçimi `bore_mm` facet'ine kilitlenir. Motor—redüktör kaplinini motor mili ile
+redüktör giriş milinin büyüğü; teker—redüktör kaplinini teker mili ile redüktör
+çıkış milinin büyüğü sınırlar. Yürütme redüktörü servis katsayısı M1–M4: 1,4;
+M5: 1,5; M6: 1,6; M7: 1,9; M8: 2,1 olarak otomatik gelir ve anahtar kapatılırsa
+elle girilen değer korunur.
+
+Kauçuk ve hücresel tamponlarda tepe yavaşlama kontrolü eksenden bağımsız
+engelleyicidir: hesaplanan `a_maks`, FEM sınırı 5 m/s²'yi aşarsa sonuç uygun
+olamaz. Yeni tambur seçimleri St44, St52 ve St44/St52'dir; karışık imalatta
+kaynak ve akma kontrollerinde zayıf malzeme belirleyicidir. S235/S355 yalnız
+eski revizyon snapshot'larının yeniden hesaplanabilmesi için tipte korunur.

@@ -29,16 +29,28 @@ import { pdfBirlestir } from "@/lib/pdf/merge";
 
 const REPO = path.resolve(import.meta.dirname, "..");
 const WORKSPACE = path.resolve(REPO, "..");
+function argumentValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+const PROJECT_DOC_NO = argumentValue("--project-doc-no") ?? "0019-00";
 const CATALOG_DIR = path.join(WORKSPACE, "Elektrik Katalogları");
-const INDEX_MD = path.join(CATALOG_DIR, "00 - İÇİNDEKİLER ve MALZEME EŞLEŞMESİ.md");
+const INDEX_MD = path.resolve(
+  CATALOG_DIR,
+  argumentValue("--index") ?? "00 - İÇİNDEKİLER ve MALZEME EŞLEŞMESİ.md"
+);
 const MIGRATION = path.join(REPO, "supabase", "migrations", "20260823000002_electrical_catalogs.sql");
-const OUTPUT = path.join(REPO, "output", "pdf", "0019-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.pdf");
-const OUTPUT_MANIFEST = path.join(REPO, "output", "pdf", "0019-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.json");
+const OUTPUT_PREFIX = argumentValue("--output-prefix") ?? "0019";
+const OUTPUT = path.join(REPO, "output", "pdf", `${OUTPUT_PREFIX}-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.pdf`);
+const OUTPUT_MANIFEST = path.join(REPO, "output", "pdf", `${OUTPUT_PREFIX}-EK-F-ELEKTRIK-EKIPMAN-KATALOG-SAYFALARI.json`);
 const BUCKET = "electrical-catalogs";
 const MAX_STORAGE_OBJECT_BYTES = 45 * 1024 * 1024;
 const APPLY_MIGRATION = process.argv.includes("--apply-migration");
 const DRY_RUN = process.argv.includes("--dry-run");
 const LOCAL_ONLY = process.argv.includes("--local-only");
+const MAPPED_ONLY = process.argv.includes("--mapped-only");
+const IS_DEFAULT_0019 = PROJECT_DOC_NO === "0019-00";
 
 // Node 24'e kadar bulunmayan bu yerleşik, PDF.js'in yeni sürümünde kullanılıyor.
 // Polyfill dinamik unpdf importundan önce kurulmalı.
@@ -109,6 +121,7 @@ const CURATED_RANGES = new Map<string, CuratedRange>(
 );
 
 function technicalDenied(typeNo: string): boolean {
+  if (!IS_DEFAULT_0019) return false;
   const key = catalogIdentityPart(typeNo);
   return TECHNICAL_DENY.has(key) || /^1LE5504/.test(key);
 }
@@ -323,6 +336,7 @@ async function inspectDocument(fileName: string): Promise<LocalDocument> {
   }
   const digest = sha256(bytes);
   const pageCount = pdf.getPageCount();
+  const baseName = path.basename(fileName);
   return {
     fileName,
     fullPath,
@@ -330,10 +344,10 @@ async function inspectDocument(fileName: string): Promise<LocalDocument> {
     sizeBytes: bytes.byteLength,
     sha256: digest,
     pageCount,
-    title: fileName.replace(/\.pdf$/i, ""),
-    manufacturer: fileName.split(" - ")[0]?.trim() ?? "",
-    language: /\((TR|EN)\)\.pdf$/i.exec(fileName)?.[1]?.toUpperCase() ?? "",
-    kind: documentKind(fileName, pageCount),
+    title: baseName.replace(/\.pdf$/i, ""),
+    manufacturer: baseName.split(" - ")[0]?.trim() ?? "",
+    language: /\((TR|EN)\)\.pdf$/i.exec(baseName)?.[1]?.toUpperCase() ?? "",
+    kind: documentKind(baseName, pageCount),
     encrypted,
     storagePath: `original/${digest}.pdf`,
     storageParts: [],
@@ -449,16 +463,16 @@ async function loadProjectMaterials(supabase: SupabaseClient): Promise<Electrica
   const { data: project } = await supabase
     .from("projects")
     .select("id")
-    .eq("doc_no", "0019-00")
+    .eq("doc_no", PROJECT_DOC_NO)
     .maybeSingle();
-  if (!project) throw new Error("0019-00 projesi bulunamadı.");
+  if (!project) throw new Error(`${PROJECT_DOC_NO} projesi bulunamadı.`);
   const { data: current } = await supabase
     .from("electrical_projects")
     .select("id")
     .eq("project_id", project.id)
     .eq("is_current", true)
     .maybeSingle();
-  if (!current) throw new Error("0019-00 güncel elektrik projesi bulunamadı.");
+  if (!current) throw new Error(`${PROJECT_DOC_NO} güncel elektrik projesi bulunamadı.`);
 
   const rows: ElectricalPart[] = [];
   const STEP = 1000;
@@ -487,7 +501,16 @@ async function loadProjectMaterials(supabase: SupabaseClient): Promise<Electrica
     }
     if (page.length < STEP) break;
   }
-  return materialRows(rows).filter((m) => m.typeNo.trim());
+  return materialRows(
+    rows.filter((row) => {
+      const joined = `${row.deviceTag} ${row.designation} ${row.typeNo} ${row.partNo}`.toUpperCase();
+      return row.deviceTag.trim().toUpperCase() !== "REVISION" &&
+        !joined.includes(" DATE NAME ") &&
+        !joined.includes(" SHEET FORM ") &&
+        !joined.includes(" DRAWING NO ") &&
+        !joined.includes(" APPROVAL ");
+    })
+  ).filter((m) => m.typeNo.trim());
 }
 
 function mappingForMaterial(
@@ -755,8 +778,10 @@ async function main(): Promise<void> {
   const mappings = parseMapping(await readFile(INDEX_MD, "utf8"));
   // Ürün tablosunda doğrudan anılmayan iki genel belge de arşivin parçasıdır;
   // klasördeki içerik PDF'i hariç bütün kaynak PDF'ler veritabanına girer.
-  const allFileNames = (await readdir(CATALOG_DIR))
-    .filter((name) => /\.pdf$/i.test(name) && !/^00\s*-\s*/.test(name))
+  const mappedFileNames = [...new Set(mappings.flatMap((mapping) => mapping.files))];
+  const allFileNames = (MAPPED_ONLY
+    ? mappedFileNames
+    : (await readdir(CATALOG_DIR)).filter((name) => /\.pdf$/i.test(name) && !/^00\s*-\s*/.test(name)))
     .sort((a, b) => a.localeCompare(b, "tr"));
   const existing = new Set(allFileNames);
   const missing = [...new Set(mappings.flatMap((m) => m.files))].filter((name) => !existing.has(name));
@@ -838,8 +863,11 @@ async function main(): Promise<void> {
     const fullCatalog = sources
       .filter((d) => d.kind === "catalog" && d.pageCount > 6 && d.id)
       .sort((a, b) => fullCatalogScore(b) - fullCatalogScore(a))[0];
-    if (fullCatalog?.id) {
-      if (supabase) await linkDocument(supabase, productId, fullCatalog.id, "catalog", true);
+    const catalogDocument = fullCatalog ?? sources
+      .filter((d) => d.id)
+      .sort((a, b) => fullCatalogScore(b) - fullCatalogScore(a))[0];
+    if (catalogDocument?.id) {
+      if (supabase) await linkDocument(supabase, productId, catalogDocument.id, "catalog", true);
       catalogCount += 1;
     }
 
@@ -867,8 +895,8 @@ async function main(): Promise<void> {
   }
 
   const appendix = await pdfBirlestir(appendixInputs, {
-    baslik: "EK-F Elektrik Ekipman Katalog Sayfaları - 0019-00",
-    konu: "0019-00 elektrik malzeme listesine bağlı teknik föyler",
+    baslik: `EK-F Elektrik Ekipman Katalog Sayfaları - ${PROJECT_DOC_NO}`,
+    konu: `${PROJECT_DOC_NO} elektrik malzeme listesine bağlı teknik föyler`,
     uretici: "ORION CRANES",
     olusturan: "ORION İş Yönetim Sistemi",
   });

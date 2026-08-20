@@ -26,6 +26,30 @@ export const HOOK_SHAFT_MATERIALS = ["S355JR", "C25", "C30", "C35", "C45", "4140
 export const FATIGUE_MATERIALS = ["S235JR", "S355JR"] as const;
 export const NOTCH_CLASSES = ["W0", "W1", "W2", "K0", "K1", "K2", "K3", "K4"] as const;
 export const LOAD_GROUPS = ["B1", "B2", "B3", "B4", "B5", "B6"] as const;
+export const SHEAVE_ENCLOSURES = ["Kapaklı ve Keçeli", "Kapaksız"] as const;
+export const SHEAVE_BEARING_CLOSURES = ["Z", "ZZ", "RS", "2RS"] as const;
+export const SHEAVE_SEAL_CODES = [
+  "KK-T", "KK", "KM-T", "KM", "MM-T", "MM",
+  "KK-TP", "KM-TP", "KK-TY", "KM-TY", "KKS", "KMS",
+] as const;
+
+const BEARING_CLOSURE_INFO =
+  "Z / ZZ — Sac/metal kapak; temassızdır, sürtünmesi düşüktür ve yüksek devre uygundur. " +
+  "Kaba toz ve talaşa karşı korur, sıvı sızdırmazlığı sağlamaz. Z tek, ZZ iki taraf kapaklıdır.\n\n" +
+  "RS / 2RS — Çelik takviyeli kauçuk temas contasıdır; su, nem, çamur ve ince toza " +
+  "karşı tam koruma sağlar. Sürtünmesi daha yüksek, uygun devri daha düşüktür. RS tek, " +
+  "2RS iki taraf contalıdır; aşırı sıcaklıkta kauçuk conta deforme olabilir.";
+
+const SHAFT_SEAL_INFO =
+  "KK-T — Dışı kauçuk kaplı, içi çelik sac takviyeli, yaylı ve toz dudaklı.\n" +
+  "KK — Dışı kauçuk kaplı, içi çelik sac takviyeli, yaylı ve toz dudaksız.\n" +
+  "KM-T — Dışı işlenmiş açık metal gövdeli, yaylı ve toz dudaklı.\n" +
+  "KM — Dışı açık metal gövdeli, yaylı ve toz dudaksız.\n" +
+  "MM-T — Çift metal kılıflı, yaylı ve toz dudaklı.\n" +
+  "MM — Çift metal kılıflı, yaylı ve toz dudaksız.\n" +
+  "KK-TP / KM-TP — Basınç tipi; kısa dudaklı, 5–10 bar arası uygulamalar.\n" +
+  "KK-TY / KM-TY — Yönlü/hidrodinamik; sağ veya sol yönlü yağ geri pompalama kanallı.\n" +
+  "KKS / KMS — Yaysız tasarım; gres sızdırmazlığı veya çok düşük sürtünme uygulamaları.";
 
 export const HOOKBLOCK_INPUT_FIELDS: FieldDef<HookBlockInputs>[] = [
   { key: "shaftSupportOffsetMm", label: "Merkez → Askı Sacı Ekseni", unit: "mm", type: "number", hint: "Simetrik tasarımda yalnız bir taraf girilir; toplam açıklık bu ölçünün iki katıdır." },
@@ -126,6 +150,25 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
       "Seri, tambur çapıyla aynıdır. FEM'in istediği D_min = H·d yuvarlak " +
       "çıkmaz; serinin bir alt basamağı D_min'in %2'sinden az aşağıdaysa kabul " +
       "edilir (ör. D_min 1008 mm → 1000 mm uygundur) ve rapor bunu yazar.",
+  },
+  {
+    key: "sheaveEnclosure", label: "Makara Kapak Düzeni", type: "select",
+    options: SHEAVE_ENCLOSURES,
+    info:
+      "Kapaklı ve Keçeli: makara göbeği ayrı kapaklarla kapanır; mil keçesi tipi seçilir.\n\n" +
+      "Kapaksız: ayrı makara kapağı/keçe kullanılmaz; sızdırmazlığı rulmanın Z, ZZ, RS veya 2RS kapağı sağlar.",
+  },
+  {
+    key: "sheaveSealCode", label: "Keçe Tipi", type: "select",
+    options: SHEAVE_SEAL_CODES,
+    visibleWhen: (sel) => sel.sheaveEnclosure !== "Kapaksız",
+    info: SHAFT_SEAL_INFO,
+  },
+  {
+    key: "sheaveBearingClosure", label: "Rulman Kapak Tipi", type: "select",
+    options: SHEAVE_BEARING_CLOSURES,
+    visibleWhen: (sel) => sel.sheaveEnclosure === "Kapaksız",
+    info: BEARING_CLOSURE_INFO,
   },
   { key: "sheaveBearingType", label: "Makara Rulmanı Tipi", type: "text" },
   { key: "sheaveBearingCode", label: "Makara Rulmanı Kodu", type: "text" },

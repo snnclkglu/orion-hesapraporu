@@ -311,6 +311,10 @@ const BRIDGE_MOVING_W_SAPMA =
   "eski tabloyla AYNIDIR — ×1,1 çarpanı geri alınmış bir sapma değildir.)";
 
 export const TROLLEY_SAPMA: Record<string, string> = {
+  O170:
+    "Motor—redüktör kaplini artık eski ayrı 'kaplin mili' girdisini değil, " +
+    "gerçekte bağlanan motor mili ile redüktör giriş milinin büyük olanını " +
+    "sınırlandırıcı çap olarak kullanır.",
   L189:
     "Tampon başına çarpışan kütle. Araba iki kirişin ucundaki İKİ durdurucuya " +
     "aynı anda çarpar; kütle iki tampona paylaşılır (FEM 1.001 md. 2.2.3.4.1, " +

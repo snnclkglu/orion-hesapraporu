@@ -79,6 +79,8 @@ export interface FieldDef<T> {
   requiresAnyModule?: readonly ModuleKey[];
   /** Alanın altında gösterilecek kısa açıklama */
   hint?: string;
+  /** Etiket yanındaki bilgi düğmesinde açılan ayrıntılı tasarım notu. */
+  info?: string;
   /** Teknik özellikteki seçimlere bağlı olarak alanı göster/gizle. */
   visible?: (specs: TechnicalSpecs) => boolean;
   /**
@@ -293,7 +295,7 @@ export function specGroupVisibleForModules(
 export const MECHANISM_CLASSES = ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"] as const;
 export const USAGE_CLASSES = ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"] as const;
 export const STRUCTURE_CLASSES = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"] as const;
-export const DRUM_MATERIALS = ["S235", "S355"] as const;
+export const DRUM_MATERIALS = ["St44", "St52", "St44/St52"] as const;
 export const SHAFT_MATERIALS = ["S355JR", "C25", "C30", "C35", "4140+QT", "4140"] as const;
 export const HOOK_TYPES = [
   "DIN 15401 Tekli Kanca",
@@ -1021,6 +1023,7 @@ export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
   applicationClass: "travelApplicationClassAuto",
   serviceFactorKs: "serviceFactorKsAuto",
   accelTorqueFactorKt: "accelTorqueFactorKtAuto",
+  gearboxServiceFactor: "gearboxServiceFactorAuto",
 };
 
 /**

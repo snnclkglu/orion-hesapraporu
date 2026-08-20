@@ -163,6 +163,77 @@ describe.each(FIXTURES)("yürütme grubu tarihsel doğrulama — $which", (fx) =
 });
 
 describe("yürütme grubu — varyant davranışı", () => {
+  it("rulman iç çapını teker miliyle birebir karşılaştırır", () => {
+    const mismatch = computeTravelGroup(
+      V5_SPECS, "trolley", V5_TROLLEY_INPUTS,
+      { ...V5_TROLLEY_SELECTIONS, bearingBoreMm: V5_TROLLEY_INPUTS.shaftDiaMm + 5 },
+      V5_TRAVEL_DEPS
+    );
+    expect(mismatch.checks.find((c) => c.id === "trolley.bearing.bore")?.pass).toBe(false);
+    const exact = computeTravelGroup(
+      V5_SPECS, "trolley", V5_TROLLEY_INPUTS,
+      { ...V5_TROLLEY_SELECTIONS, bearingBoreMm: V5_TROLLEY_INPUTS.shaftDiaMm },
+      V5_TRAVEL_DEPS
+    );
+    expect(exact.checks.find((c) => c.id === "trolley.bearing.bore")?.pass).toBe(true);
+  });
+
+  it("kaplinleri bağlandıkları iki milin büyük çapıyla sınırlar", () => {
+    const r = computeTravelGroup(
+      V5_SPECS, "trolley", V5_TROLLEY_INPUTS,
+      {
+        ...V5_TROLLEY_SELECTIONS,
+        motorShaftMm: 42,
+        gearboxInputShaftMm: 55,
+        wheelShaftDiaMm: 65,
+        gearboxOutputShaftMm: 90,
+      },
+      V5_TRAVEL_DEPS
+    );
+    expect(r.cells["motorCoupling.shaftDia"]).toBe(55);
+    expect(r.cells["wheelCoupling.shaftDia"]).toBe(90);
+    expect(r.values.wheelCouplingShaftMm).toBe(90);
+  });
+
+  it("eski revizyondaki metin redüktör giriş çapını sayısal alan boşken korur", () => {
+    const r = computeTravelGroup(
+      V5_SPECS, "trolley", V5_TROLLEY_INPUTS,
+      {
+        ...V5_TROLLEY_SELECTIONS,
+        motorShaftMm: 42,
+        gearboxInputShaftMm: 0,
+        gearboxInputShaftText: "55 mm",
+      },
+      V5_TRAVEL_DEPS
+    );
+    expect(r.cells["motorCoupling.gearboxInputShaftDia"]).toBe(55);
+    expect(r.cells["motorCoupling.shaftDia"]).toBe(55);
+  });
+
+  it("hücresel tamponda 5 m/s² üzerindeki tepe yavaşlamayı reddeder", () => {
+    const r = computeTravelGroup(
+      { ...V5_SPECS, trolleyBufferType: "kaucuk" },
+      "trolley",
+      V5_TROLLEY_INPUTS,
+      {
+        ...V5_TROLLEY_SELECTIONS,
+        bufferCatalogType: "hücresel",
+        bufferModel: "TEST-HÜCRESEL",
+        bufferStrokeMm: 80,
+        bufferEnergyKj: 100,
+        bufferLoadKn: 1000,
+        bufferEnergyCurve: [[0, 0], [80, 100]],
+        bufferForceCurve: [[0, 0], [80, 1000]],
+        bufferMaxCompressionPct: 80,
+      },
+      V5_TRAVEL_DEPS
+    );
+    expect(r.values.bufferMaxDecelerationMps2).toBeGreaterThan(5);
+    const check = r.checks.find((c) => c.id === "trolley.buffer.deceleration");
+    expect(check?.kind).toBe("standart");
+    expect(check?.pass).toBe(false);
+  });
+
   it("araba varyantında yürütme freni hesaplanmaz", () => {
     const trolley = runModule("trolley");
     expect(trolley.checks.find((c) => c.id === "trolley.brake.torque")).toBeUndefined();

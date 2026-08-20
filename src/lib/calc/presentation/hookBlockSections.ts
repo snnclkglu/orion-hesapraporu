@@ -246,7 +246,9 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
       "kullanıldığında rapor bunu ayrıca yazar.",
     equipmentSlugs: ["sheave"],
     inputKeys: [],
-    selectionKeys: ["sheaveDiaMm"],
+    selectionKeys: [
+      "sheaveDiaMm", "sheaveEnclosure", "sheaveSealCode", "sheaveBearingClosure",
+    ],
     rows: [
       {
         key: "sheave.coefficient", label: "Makaralar İçin Mekanizma Katsayısı",
@@ -362,8 +364,10 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
     description:
       "Mil, iki askı sacı (mesnet) arasında basit kiriştir. Kanca bloğundaki " +
       "makara adedi halat donanımından gelir (n = n_toplam / 2) ve HER MAKARA " +
-      "2T yükü taşır. Askı sacı ve makara eksenleri merkezden, yalnız bir taraf " +
-      "için girilir; karşı taraf simetrik aynalanır. Eğilme ve kesme gerilmeleri D1 " +
+      "2T yükü taşır. Askı sacı makaraların dışında, içinde veya iki makara arasında " +
+      "olabilir. Askı sacı ve makara eksenleri merkezden, yalnız bir taraf için " +
+      "girilir; karşı taraf simetrik aynalanır. Konsol kalan makaralar gerçek mesnet " +
+      "konumlarıyla çözülür. Eğilme ve kesme gerilmeleri D1 " +
       "mil çapında hesaplanır; makara rulmanı da bu çapa oturur. Bileşik gerilme " +
       "CMAA 70 4.11.4.1'e göre √(σ² + 3τ²), kesme gerilmesi ortalama (τ = V/A) " +
       "kabulüyle alınır.",
@@ -392,6 +396,12 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
         formula: "L = 2 · e_askı",
         subst: (x) =>
           `2 · ${n(x.inp.shaftSupportOffsetMm)} → ${n(num(x.c["shaft.span"]))}`,
+        unit: "mm",
+      },
+      {
+        key: "shaft.length", label: "Toplam Mil Yükleme Boyu",
+        formula: "L_mil = 2 · maks(e_askı, e_makara,maks)",
+        subst: (x) => `${n(x.v.shaftLengthCm * 10)}`,
         unit: "mm",
       },
       {

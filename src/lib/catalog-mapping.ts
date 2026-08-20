@@ -1049,6 +1049,9 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
     fields: [
       { sel: "bearingType", from: { attr: "type" } },
       { sel: "bearingCode", from: "model" },
+      { sel: "bearingBoreMm", from: { attr: "bore_mm" } },
+      { sel: "bearingOuterDiaMm", from: { attr: "outer_dia_mm" } },
+      { sel: "bearingWidthMm", from: { attr: "width_mm" } },
       { sel: "bearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "bearingStatC0Kn", from: { attr: "static_load_kn" } },
     ],
@@ -1079,6 +1082,7 @@ const TRAVEL_MAP: Record<string, SectionCatalogMapping> = {
       { sel: "gearboxOutputTorqueKnm", from: { attr: "output_torque_nm" }, scale: 0.001 },
       { sel: "gearboxOutputShaftMm", from: { attr: "output_shaft_mm" } },
       { sel: "gearboxInputShaftText", from: { attr: "input_shaft_mm" }, suffix: " mm" },
+      { sel: "gearboxInputShaftMm", from: { attr: "input_shaft_mm" } },
     ],
   },
   // 5.5b Yürütme freni (köprü)

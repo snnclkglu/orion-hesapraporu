@@ -48,6 +48,9 @@ export const V5_HOOKBLOCK_SELECTIONS: HookBlockSelections = {
   hookStrengthClass: "S",         // DIN 15400 mukavemet sınıfı
   hookCapacityKg: 16000,          // tablo dışı kanca için yedek değer
   sheaveDiaMm: 450,               // halat ekseninde makara çapı
+  sheaveEnclosure: "Kapaklı ve Keçeli",
+  sheaveSealCode: "KK-T",
+  sheaveBearingClosure: "2RS",
   sheaveBearingType: "Bilyalı Rulman",
   sheaveBearingCode: "6213",
   sheaveBearingDynCKn: 58.5,
