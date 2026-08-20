@@ -244,12 +244,12 @@ const staticFiles = {
   }),
   socomecManual: manufacturer(
     "SOCOMEC - ATyS r Transfer Şalteri Kurulum ve İşletme Kılavuzu (EN).pdf",
-    "https://www.socomec.com.tr/sites/default/files/2024-09/ATYS-R---REMOTE-TRANSFER-SWITCHING-EQUIPMENT_INSTALLATION-AND-OPERATING-MANUAL_2021-08_541630_EN_0.pdf",
+    "https://www.socomec.it/sites/default/files/2026-02/ATyS-r---Remote-Transfer-Switching-Equip_INSTALLATION-AND-OPERATING-MANUAL_2026-02-06-11-26-16_541630D_English_PLURI.pdf",
     "Socomec official ATyS r installation and operating manual."
   ),
   socomecTechnical: manufacturer(
     "SOCOMEC - ATyS Teknik Tasarım Kılavuzu 125-3200A (EN).pdf",
-    "https://www.socomec.com.tr/sites/default/files/2024-07/ATYS---AUTOMATIC-AND-REMOTELY-OPERATED-TRANSFER-SWITCHES-FROM-125-TO-3200-A_TECHNICAL-GUIDE_2016-11_DOC224023_EN.pdf",
+    "https://www.socomec.it/sites/default/files/2024-07/ATYS---AUTOMATIC-AND-REMOTELY-OPERATED-TRANSFER-SWITCHES-FROM-125-TO-3200-A_TECHNICAL-GUIDE_2016-11_DOC224023_EN.pdf",
     "Socomec official technical guide; 125 A and 400 A frames are covered."
   ),
   spohn: addDownload({
