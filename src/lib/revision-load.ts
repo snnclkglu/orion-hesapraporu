@@ -15,12 +15,14 @@ import { NEW_WORK_TEMPLATE, NEW_WORK_DISABLED_MODULES } from "@/lib/calc/default
 import { activeModules, type CalcInput } from "@/lib/calc/engine";
 import {
   DISABLEABLE_MODULE_KEYS,
+  HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
-  isHoistKey,
+  isHookBlockKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
-import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
+import { hoistReeving, type HoistInputs, type HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
+import { deriveReeving } from "@/lib/calc/reeving";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { BucklingInputs } from "@/lib/calc/modules/buckling";
@@ -341,6 +343,9 @@ const AUTO_FLAGS = [
   "tempFactorAuto",
   "drumGrooveLengthAuto",
   "drumWeightAuto",
+  "drumGrooveSpanAuto",
+  "gearboxServiceFactorAuto",
+  "drumCouplingServiceFactorAuto",
   // Kanca bloğu
   "hookDesignationAuto",
   // Yürütme grubu
@@ -518,6 +523,52 @@ export function migrateLiftingBeam<T extends object>(
   } as T;
 }
 
+/**
+ * Eski A/B/D kanca mili ölçü zincirini yeni simetrik merkez modeline taşır.
+ * Makara adedi bağlı kaldırma grubunun donanımından gelir; böylece eski hesabın
+ * açıklığı ve yük konumları birebir korunur.
+ */
+export function migrateHookShaftCenter<T extends object>(
+  stored: object | null | undefined,
+  merged: T,
+  sheaveCount: number
+): T {
+  if (!stored || typeof stored !== "object") return merged;
+  const rec = stored as Record<string, unknown>;
+  const current = merged as Record<string, unknown>;
+  if ("shaftSupportOffsetMm" in rec || "shaftSheaveOffsetsText" in rec) return merged;
+  const number = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  const edge = number(rec.shaftEdgeGapMm) ?? number(current.shaftEdgeGapMm);
+  const pitch = number(rec.shaftSheavePitchMm) ?? number(current.shaftSheavePitchMm);
+  const gap = number(rec.shaftCenterGapMm) ?? number(current.shaftCenterGapMm);
+  if (edge === undefined && pitch === undefined && gap === undefined) return merged;
+  const a = edge ?? 0;
+  const b = pitch ?? 0;
+  const d = gap ?? 0;
+  const count = Math.max(1, Math.round(Number.isFinite(sheaveCount) ? sheaveCount : 1));
+  const positions: number[] = [];
+  if (count === 1) {
+    positions.push(a);
+  } else {
+    const left = Math.ceil(count / 2);
+    const right = count - left;
+    for (let i = 0; i < left; i++) positions.push(a + i * b);
+    const start = a + (left - 1) * b + d;
+    for (let i = 0; i < right; i++) positions.push(start + i * b);
+  }
+  const span = positions[positions.length - 1] + a;
+  const center = span / 2;
+  const offsets = [...new Set(
+    positions.map((position) => Math.abs(position - center)).filter((offset) => offset > 1e-9)
+  )].sort((x, y) => x - y);
+  return {
+    ...merged,
+    shaftSupportOffsetMm: center,
+    shaftSheaveOffsetsText: offsets.map((offset) => Number(offset.toFixed(3))).join("; "),
+  } as T;
+}
+
 /** Tüm bölümleri (kapalılar dâhil) şablonla tamamlanmış olarak kurar. */
 /**
  * Feston, teknik özellikte tutulan bir "ön seçim kartı" iken yürütme grubunun
@@ -681,6 +732,14 @@ function fullInput(
         )
       ),
     };
+    if (isHookBlockKey(key)) {
+      const hoistState = target[CALC_FIELD[HOIST_OF_HOOKBLOCK[key]]];
+      const hoistInputs = hoistState?.inputs as HoistInputs | undefined;
+      const sheaveCount = hoistInputs
+        ? deriveReeving(hoistReeving(hoistInputs)).blockSheaveCount
+        : 1;
+      merged.inputs = migrateHookShaftCenter(storedModuleInputs, merged.inputs, sheaveCount);
+    }
     if (tpl.selections) {
       merged.selections = withDefaults(
         storedSelections[field] as object | null | undefined,

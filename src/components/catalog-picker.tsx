@@ -21,6 +21,7 @@ import {
   catalogKindLabel,
   isUnverifiedRow,
   lockedFacetValues,
+  nearestCatalogRows,
   type CatalogRow,
   type SectionCatalogMapping,
 } from "@/lib/catalog-mapping";
@@ -131,6 +132,7 @@ export function CatalogPicker({
   /** Seçilen facet değerleri: attr → değer (string'e çevrilmiş) */
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [minValue, setMinValue] = useState("");
+  const [nearestValue, setNearestValue] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -142,6 +144,7 @@ export function CatalogPicker({
       setTruncated(false);
       setPicks({});
       setMinValue("");
+      setNearestValue("");
       setQuery("");
     }
   }, [open]);
@@ -236,6 +239,12 @@ export function CatalogPicker({
         });
       }
     }
+    if (config.nearestFilter && nearestValue.trim() !== "") {
+      const target = parseFloat(nearestValue.replace(",", "."));
+      if (Number.isFinite(target)) {
+        out = nearestCatalogRows(out, config.nearestFilter.attr, target);
+      }
+    }
     const s = query.trim().toLocaleLowerCase("tr");
     if (s) {
       out = out.filter((r) => {
@@ -260,7 +269,7 @@ export function CatalogPicker({
       });
     }
     return out;
-  }, [rows, picks, minValue, query, config]);
+  }, [rows, picks, minValue, nearestValue, query, config]);
 
   /** Adım adım facet seçenekleri (her adım kendinden öncekilerle süzülür). */
   const facetSteps = useMemo(() => {
@@ -291,7 +300,9 @@ export function CatalogPicker({
   }, [rows, picks, config]);
 
   const activeFilterCount =
-    Object.keys(picks).length + (minValue.trim() !== "" ? 1 : 0);
+    Object.keys(picks).length +
+    (minValue.trim() !== "" ? 1 : 0) +
+    (nearestValue.trim() !== "" ? 1 : 0);
 
   /**
    * Listede üretici teyidi olmayan satır var mı? Bu satırlar (firma Excel'inden
@@ -358,6 +369,7 @@ export function CatalogPicker({
                   setRows(null);
                   setPicks({});
                   setMinValue("");
+                  setNearestValue("");
                   setQuery("");
                 }}
                 // Pencerenin tek geri yolu — 28px'lik hedef parmakla ıskalanıyordu.
@@ -430,7 +442,7 @@ export function CatalogPicker({
                 çip bulutu 600px'i aştığında ürün tablosu pencerenin dışında
                 kalıyor ve ÜRÜN HİÇ SEÇİLEMİYORDU. Artık süzgeç kendi içinde
                 kayar, tablo her zaman görünür pay alır. */}
-            {(config.facets.length > 0 || config.minFilter) && (
+            {(config.facets.length > 0 || config.minFilter || config.nearestFilter) && (
               <div className="grid max-h-[34dvh] shrink-0 gap-2.5 overflow-y-auto overscroll-contain border-b bg-muted/30 px-4 py-3 sm:max-h-[45dvh]">
                 {facetSteps.map((step, i) => (
                   <div
@@ -513,6 +525,29 @@ export function CatalogPicker({
                       className="h-9 w-28 bg-background font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
                       aria-label={config.minFilter.label}
                     />
+                  </div>
+                )}
+
+                {config.nearestFilter && (
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <span className="inline-flex size-5 shrink-0 items-center justify-center bg-primary/10 font-mono text-[11px] font-semibold text-primary">
+                      {config.facets.length + (config.minFilter ? 2 : 1)}
+                    </span>
+                    <span className="oc-kicker text-muted-foreground">
+                      {config.nearestFilter.label}
+                      {config.nearestFilter.unit ? ` [${config.nearestFilter.unit}]` : ""}
+                    </span>
+                    <Input
+                      value={nearestValue}
+                      onChange={(e) => setNearestValue(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="—"
+                      className="h-9 w-28 bg-background font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
+                      aria-label={config.nearestFilter.label}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      En yakın alt ve üst oran birlikte gösterilir.
+                    </span>
                   </div>
                 )}
               </div>

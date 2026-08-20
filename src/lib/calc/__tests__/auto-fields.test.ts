@@ -17,14 +17,14 @@ import {
   DRUM_STEEL_DENSITY_G_CM3,
   DRUM_WEIGHT_EXTRA_FACTOR,
   FEM_TO_CMAA_APPLICATION_CLASS,
-  GROOVE_LENGTH_LARGE_THRESHOLD_MM,
+  HOIST_DRUM_COUPLING_SERVICE_FACTOR,
+  HOIST_GEARBOX_SERVICE_FACTOR,
   STANDARD_SHEAVE_EFFICIENCY,
   deriveDrumGrooveLengthText,
   deriveDrumWeightKg,
   deriveGirderInputs,
   deriveHoistInputs,
   deriveTravelInputs,
-  roundGrooveLengthMm,
   travelApplicationClass,
 } from "../derive";
 import {
@@ -51,7 +51,7 @@ import type { GirderInputs } from "../modules/mainGirder";
 import type { TravelInputs } from "../modules/travelGroup";
 
 const MAIN = NEW_WORK_TEMPLATE.mainHoist!;
-const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40 };
+const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40, mechanismClass: "M6" as const };
 const withInputs = (patch: Partial<HoistInputs>): HoistInputs => ({ ...MAIN.inputs, ...patch });
 const withSel = (patch: Partial<HoistSelections>): HoistSelections => ({
   ...MAIN.selections,
@@ -79,26 +79,14 @@ describe("makara verimi otomatiği", () => {
 // -------------------------------------------------------------- 2. Yiv boyu
 
 describe("yiv boyu otomatiği", () => {
-  it("düzgün ölçüye YUKARI yuvarlar (1 m altı 10 mm, üstü 50 mm adım)", () => {
-    expect(roundGrooveLengthMm(219.15)).toBe(220);
-    expect(roundGrooveLengthMm(220)).toBe(220);
-    expect(roundGrooveLengthMm(220.1)).toBe(230);
-    // Eşik ve üstünde 50 mm adım
-    expect(roundGrooveLengthMm(GROOVE_LENGTH_LARGE_THRESHOLD_MM)).toBe(1000);
-    expect(roundGrooveLengthMm(1284)).toBe(1300);
-    expect(roundGrooveLengthMm(1301)).toBe(1350);
-  });
-
-  it("asla AŞAĞI yuvarlamaz — yiv boyu yetmezse halat tambura sığmaz", () => {
-    for (const raw of [1, 55.4, 219.15, 999.9, 1000.1, 4321]) {
-      expect(roundGrooveLengthMm(raw)!).toBeGreaterThanOrEqual(raw);
-    }
-  });
-
-  it("geçersiz boyda değer üretmez", () => {
-    expect(roundGrooveLengthMm(0)).toBeUndefined();
-    expect(roundGrooveLengthMm(-10)).toBeUndefined();
-    expect(roundGrooveLengthMm(Number.NaN)).toBeUndefined();
+  it("yiv SAYISINI yukarı yuvarlar ve boyu tam yiv sayısı × hatve yapar", () => {
+    const base = drumGrooveRequirement(
+      { ...V5_MAIN_HOIST_INPUTS, safetyGrooveCount: 0 },
+      V5_MAIN_HOIST_SELECTIONS,
+      32.7 * Math.PI * (V5_MAIN_HOIST_SELECTIONS.drumDiaMm / 1000)
+    );
+    expect(base.grooves).toBe(33);
+    expect(base.lengthMm).toBe(base.grooves * base.pitchMm);
   });
 
   it("metni '<tahrikli halat sayısı> x <yiv boyu>' biçiminde kurar", () => {
@@ -139,6 +127,21 @@ describe("yiv boyu otomatiği", () => {
     ).toBe("2 x 380");
   });
 
+  it("yiv boyunu C/E ölçülerine otomatik taşır; anahtar kapalıysa elle değeri korur", () => {
+    const automatic = deriveHoistInputs(
+      withInputs({ drumGrooveSpanAuto: true }), MAIN.selections, CTX
+    );
+    expect(automatic.drumSpanCMm).toBe(380);
+    expect(automatic.drumSpanEMm).toBe(380);
+    const manual = deriveHoistInputs(
+      withInputs({ drumGrooveSpanAuto: false, drumSpanCMm: 123, drumSpanEMm: 456 }),
+      MAIN.selections,
+      CTX
+    );
+    expect(manual.drumSpanCMm).toBeUndefined();
+    expect(manual.drumSpanEMm).toBeUndefined();
+  });
+
   it("kaynak veri eksikse değer değil UYARI üretir", () => {
     const d = deriveHoistInputs(
       withInputs({ drumGrooveLengthAuto: true }),
@@ -147,6 +150,37 @@ describe("yiv boyu otomatiği", () => {
     );
     expect(d.drumGrooveLengthText).toBeUndefined();
     expect(d.warnings.map((w) => w.field)).toContain("drumGrooveLengthText");
+  });
+});
+
+describe("kaldırma katsayıları otomatiği", () => {
+  it("redüktör katsayılarını FEM mekanizma sınıfından getirir", () => {
+    expect(HOIST_GEARBOX_SERVICE_FACTOR).toEqual({
+      M1: 1, M2: 1, M3: 1, M4: 1, M5: 1.1, M6: 1.3, M7: 1.5, M8: 1.7,
+    });
+  });
+
+  it("tambur kaplini katsayılarını FEM mekanizma sınıfından getirir", () => {
+    expect(HOIST_DRUM_COUPLING_SERVICE_FACTOR).toEqual({
+      M1: 1.1, M2: 1.1, M3: 1.1, M4: 1.1, M5: 1.3, M6: 1.5, M7: 1.6, M8: 1.7,
+    });
+  });
+
+  it("otomatik açıkken M7 değerlerini yazar, kapalıyken elle girileni korur", () => {
+    const automatic = deriveHoistInputs(
+      withInputs({ gearboxServiceFactorAuto: true, drumCouplingServiceFactorAuto: true }),
+      MAIN.selections,
+      { ...CTX, mechanismClass: "M7" }
+    );
+    expect(automatic.gearboxServiceFactor).toBe(1.5);
+    expect(automatic.drumCouplingServiceFactor).toBe(1.6);
+    const manual = deriveHoistInputs(
+      withInputs({ gearboxServiceFactorAuto: false, drumCouplingServiceFactorAuto: false }),
+      MAIN.selections,
+      { ...CTX, mechanismClass: "M7" }
+    );
+    expect(manual.gearboxServiceFactor).toBeUndefined();
+    expect(manual.drumCouplingServiceFactor).toBeUndefined();
   });
 });
 

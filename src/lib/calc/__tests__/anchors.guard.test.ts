@@ -75,7 +75,7 @@ import type { AnyCheck } from "../types";
 //        Bölüm YENİ BİR HESAP DEĞİL, aynı hesabın ikinci takım için koşan
 //        örneğidir; bu yüzden bağlantı haritası da aynıdır (`girder` ailesi)
 //        ve yedisi de bağlıdır.
-const EXPECTED_CHECK_COUNT = 266;
+const EXPECTED_CHECK_COUNT = 270;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

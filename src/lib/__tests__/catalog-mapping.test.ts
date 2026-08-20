@@ -18,6 +18,7 @@ import {
   getCatalogMapping,
   isUnverifiedRow,
   lockedFacetValues,
+  nearestCatalogRows,
   type CatalogRow,
   type CatalogTargetField,
 } from "../catalog-mapping";
@@ -78,6 +79,25 @@ const TRAVEL_GEARBOX: CatalogRow = {
     input_shaft_mm: 24,
   },
 };
+
+describe("hedef tahvil oranı süzgeci", () => {
+  const rows = [40, 50, 50, 63, 80].map((ratio, index): CatalogRow => ({
+    id: `ratio-${index}`,
+    brand: "Test",
+    model: `R${index}`,
+    attrs: { ratio },
+  }));
+
+  it("hedefin en yakın alt ve üst oranlarını, aynı oranlı tüm modellerle getirir", () => {
+    expect(nearestCatalogRows(rows, "ratio", 55).map((r) => r.attrs.ratio))
+      .toEqual([50, 50, 63]);
+  });
+
+  it("birebir oran varsa yalnız o oranı getirir", () => {
+    expect(nearestCatalogRows(rows, "ratio", 50).map((r) => r.attrs.ratio))
+      .toEqual([50, 50]);
+  });
+});
 
 /** FLENDER MD 20.1 H3-05; yatay H3SH referans konfigürasyonu (PDF s. 3/30, 3/74, 4/16-17, 9/8). */
 const FLENDER_GEARBOX: CatalogRow = {

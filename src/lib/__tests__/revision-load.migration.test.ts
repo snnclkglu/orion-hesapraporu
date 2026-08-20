@@ -23,6 +23,7 @@ import {
   CALC_FIELD,
   loadRevision,
   migrateDrumShaftUnits,
+  migrateHookShaftCenter,
   type RevisionInputsJson,
   type RevisionSelectionsJson,
 } from "@/lib/revision-load";
@@ -127,6 +128,18 @@ describe("revizyon göçü — tambur mili ölçüleri cm → mm", () => {
       { ...V5_TEMPLATE.trolley!.inputs }
     );
     expect(travel).toMatchObject({ shaftSpanAMm: 72.5, shaftSpanBMm: 90, shaftDiaMm: 110 });
+  });
+
+  it("eski A/B/D kanca mili zincirini sonuç değiştirmeden merkez ölçülerine taşır", () => {
+    const migrated = migrateHookShaftCenter(
+      { shaftEdgeGapMm: 50, shaftSheavePitchMm: 100, shaftCenterGapMm: 150 },
+      { ...V5_TEMPLATE.hookBlock!.inputs },
+      4
+    );
+    expect(migrated).toMatchObject({
+      shaftSupportOffsetMm: 225,
+      shaftSheaveOffsetsText: "75; 175",
+    });
   });
 
   it("eski biçimli revizyonun hesabı mm biçimiyle BİREBİR aynıdır", () => {

@@ -833,9 +833,9 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
   // Tambur mili ölçü zinciri: teknik resimden okunduğu gibi mm sorulur.
   { key: "drumSpanAMm", label: "A · Redüktör Mesnedi → Sol Yanak", unit: "mm", type: "number", hint: "Redüktör tarafı moment kolu." },
   { key: "drumSpanBMm", label: "B · Sol Yanak → Yiv Başlangıcı", unit: "mm", type: "number" },
-  { key: "drumSpanCMm", label: "C · Sol Yiv Bölgesi", unit: "mm", type: "number" },
+  { key: "drumSpanCMm", label: "C · Sol Yiv Bölgesi", unit: "mm", type: "number", hint: "Otomatik: yukarı yuvarlanan tam yiv adedi × hatve." },
   { key: "drumSpanDMm", label: "D · Ortadaki Yivsiz Bölge", unit: "mm", type: "number" },
-  { key: "drumSpanEMm", label: "E · Sağ Yiv Bölgesi", unit: "mm", type: "number", hint: "Tek helisli tamburda 0 girin." },
+  { key: "drumSpanEMm", label: "E · Sağ Yiv Bölgesi", unit: "mm", type: "number", hint: "Otomatik: ikinci helis varsa C ile aynı; tek heliste 0." },
   { key: "drumSpanFMm", label: "F · Yiv Sonu → Sağ Yanak", unit: "mm", type: "number" },
   { key: "drumSpanGMm", label: "G · Sağ Yanak → Tambur Yatağı", unit: "mm", type: "number", hint: "Tambur yatağı tarafı moment kolu." },
   {
@@ -854,14 +854,14 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
   { key: "bearingFactorY1", label: "Rulman Eşdeğer Yük Katsayısı (statik)", type: "number" },
   { key: "bearingFactorY2", label: "Rulman Eşdeğer Yük Katsayısı (dinamik)", type: "number" },
   { key: "drumCount", label: "Tambur Adedi", type: "number" },
-  { key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number" },
+  { key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number", hint: "Otomatik: M1–M4 1,0 · M5 1,1 · M6 1,3 · M7 1,5 · M8 1,7." },
   { key: "reducerStages", label: "Redüktör Kademe Sayısı", type: "number" },
   { key: "stageEfficiency", label: "Kademe Verimi", type: "number" },
   { key: "tempFactor", label: "Sıcaklık Faktörü", type: "number" },
   { key: "motorDivisor", label: "Motor Güç Bölücü", type: "number" },
   { key: "brakeServiceFactor", label: "Fren Emniyet Katsayısı", type: "number" },
   { key: "motorCouplingServiceFactor", label: "Motor Kaplini Emniyet Katsayısı", type: "number" },
-  { key: "drumCouplingServiceFactor", label: "Tambur Kaplini Emniyet Katsayısı", type: "number" },
+  { key: "drumCouplingServiceFactor", label: "Tambur Kaplini Emniyet Katsayısı", type: "number", hint: "Otomatik: M1–M4 1,1 · M5 1,3 · M6 1,5 · M7 1,6 · M8 1,7." },
   {
     key: "safetyBrakeServiceFactor", label: "Emniyet Freni Emniyet Katsayısı", type: "number",
     hint: "Emniyet freninin sağlaması istenen, tamburdaki statik yük momentine göre kat sayısı.",
@@ -889,13 +889,13 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   {
     key: "drumGrooveLengthText", label: "Yiv Boyu", unit: "mm", type: "text",
     hint:
-      "Otomatik: <tahrikli halat sayısı> x <gerekli yiv boyu>. Boy yukarı " +
-      "yuvarlanır (1 m altında 10 mm, üstünde 50 mm adımla) — yiv boyu " +
-      "yetmezse halat tambura sığmaz.",
+      "Otomatik: <tahrikli halat sayısı> x <gerekli yiv boyu>. Kesirli yiv " +
+      "adedi yukarı tam sayıya çıkarılır; boy = tam yiv adedi × hatve.",
   },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
   { key: "bearingCode", label: "Rulman Kodu", type: "text" },
+  { key: "bearingBoreMm", label: "Rulman İç Çapı", unit: "mm", type: "number", hint: "Tambur mili D2 yatak/rulman oturma çapıyla birebir aynı olmalıdır." },
   { key: "bearingDynCKn", label: "Rulman Dinamik Yük C", unit: "kN", type: "number" },
   { key: "bearingStatC0Kn", label: "Rulman Statik Yük C0", unit: "kN", type: "number" },
   { key: "bearingHousingBrand", label: "Tambur Yatağı Markası", type: "text" },
@@ -985,6 +985,10 @@ export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
   tempFactor: "tempFactorAuto",
   sheaveEfficiency: "sheaveEfficiencyAuto",
   drumWeightKg: "drumWeightAuto",
+  drumSpanCMm: "drumGrooveSpanAuto",
+  drumSpanEMm: "drumGrooveSpanAuto",
+  gearboxServiceFactor: "gearboxServiceFactorAuto",
+  drumCouplingServiceFactor: "drumCouplingServiceFactorAuto",
 };
 
 /**

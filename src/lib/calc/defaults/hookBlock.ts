@@ -8,11 +8,9 @@ import type {
 } from "../modules/hookBlock";
 
 export const V5_HOOKBLOCK_INPUTS: HookBlockInputs = {
-  // Mil ölçü zinciri: A yan sac → ilk makara, B küme içi makara adımı,
-  // D iki makara kümesi arası (kanca sapı geçişi)
-  shaftEdgeGapMm: 50,             // A
-  shaftSheavePitchMm: 100,        // B
-  shaftCenterGapMm: 150,          // D
+  // Simetrik merkez ölçüleri; V5 2/2 donanımında tek makara merkezde.
+  shaftSupportOffsetMm: 50,
+  shaftSheaveOffsetsText: "",
   shaftD1Mm: 65,                  // D1 — mil gerilme kesiti çapı
   // Kaldırma kirişi ölçü zinciri x · y · z. Referans işin eski girdisi
   // simetrikti (a = 4800, b = 550) ve zincirin karşılığı birebir budur:

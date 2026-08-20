@@ -229,13 +229,13 @@ describe("kanca bloğu — kapasitenin kaynağı", () => {
     expect(r.cells["hook.d1"]).toBeUndefined();
   });
 
-  it("DIN 15408 kapasiteyi ELLE alır — kapasite kontrolü yine koşar", () => {
+  it("DIN 15408 için tablo yoksa elle yazılan eski değeri kullanmaz ve uygunluk vermez", () => {
     const r = run({ hookStandard: "DIN 15408", hookNumber: undefined, hookCapacityKg: 50_000 });
     expect(r.values.hookCapacityFromTable).toBe(false);
-    expect(r.values.hookCapacityKg).toBe(50_000);
+    expect(r.values.hookCapacityKg).toBe(0);
     expect(r.values.hookDesignationText).toBe("DIN 15408");
     const kapasite = r.checks.find((c) => c.id === "hookBlock.hook.capacity");
-    expect(kapasite?.pass).toBe(true);
+    expect(kapasite?.pass).toBe(false);
   });
 
   it("kapasitenin KAYNAĞI raporda yazar (kontrol değil, künye satırı)", () => {
@@ -253,7 +253,7 @@ describe("kanca bloğu — kapasitenin kaynağı", () => {
     expect(satir.valueFrom!(ctx({ hookStandard: "DIN 15407", hookNumber: "63x150" })))
       .toBe("DIN 15407 Tablo 1");
     expect(satir.valueFrom!(ctx({ hookStandard: "DIN 15408", hookNumber: undefined })))
-      .toBe("Elle girildi — DIN 15408 tablosu uygulamada yok");
+      .toBe("Standart kapasite satırı bulunamadı — seçim uygun değil");
   });
 
   it("kapasite yükü karşılamıyorsa kontrol DÜŞER", () => {

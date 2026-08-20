@@ -454,6 +454,8 @@ export interface CatalogKindConfig {
   facets: CatalogFacet[];
   /** "En az" sayısal filtre — genellikle bileşenin kapasite değeri */
   minFilter?: { attr: string; label: string; unit?: string };
+  /** Hedefe en yakın bir alt ve bir üst katalog değerini bırakır. */
+  nearestFilter?: { attr: string; label: string; unit?: string };
   /** Sonuç tablosu sütunları */
   columns: CatalogColumn[];
   /** Tabloyu bu attrs anahtarına göre artan sırala */
@@ -513,6 +515,7 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       { attr: "input_speed_rpm", label: "Giriş Devri", unit: "d/dak" },
     ],
     minFilter: { attr: "output_torque_nm", label: "En Az Çıkış Torku", unit: "Nm" },
+    nearestFilter: { attr: "ratio", label: "Hedef Tahvil Oranı" },
     columns: [
       { attr: "model", label: "Model" },
       { attr: "ratio", label: "Çevrim Oranı" },
@@ -730,6 +733,33 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
   },
 };
 
+/**
+ * Bir hedef sayının katalogdaki en yakın alt ve üst komşularını döndürür.
+ * Aynı oranı taşıyan farklı model/seri satırları birlikte korunur; hedef
+ * katalogda birebir varsa yalnız o orandaki satırlar gösterilir.
+ */
+export function nearestCatalogRows(
+  rows: readonly CatalogRow[],
+  attr: string,
+  target: number
+): CatalogRow[] {
+  if (!Number.isFinite(target)) return [...rows];
+  const valued = rows
+    .map((row) => ({ row, value: Number(catalogCellValue(row, attr)) }))
+    .filter((x) => Number.isFinite(x.value));
+  const exact = valued.filter((x) => x.value === target);
+  if (exact.length > 0) return exact.map((x) => x.row);
+  let lower = Number.NEGATIVE_INFINITY;
+  let upper = Number.POSITIVE_INFINITY;
+  for (const { value } of valued) {
+    if (value < target && value > lower) lower = value;
+    if (value > target && value < upper) upper = value;
+  }
+  return valued
+    .filter(({ value }) => value === lower || value === upper)
+    .map(({ row }) => row);
+}
+
 /** Türe ait yapılandırma; tanımsızsa yalnız marka + model listesi gösterilir. */
 export function catalogKindConfig(kind: string): CatalogKindConfig {
   return (
@@ -849,6 +879,7 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
     fields: [
       { sel: "bearingType", from: { attr: "type" } },
       { sel: "bearingCode", from: "model" },
+      { sel: "bearingBoreMm", from: { attr: "bore_mm" } },
       { sel: "bearingDynCKn", from: { attr: "dynamic_load_kn" } },
       { sel: "bearingStatC0Kn", from: { attr: "static_load_kn" } },
     ],

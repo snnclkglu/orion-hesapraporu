@@ -145,6 +145,7 @@ export const V5_MAIN_HOIST_SELECTIONS: HoistSelections = {
   shaftMaterial: "C30",
   bearingType: "Çift Sıra Makaralı Rulman",
   bearingCode: "22212",
+  bearingBoreMm: 60,
   bearingDynCKn: 159,
   bearingStatC0Kn: 166,
   bearingHousingBrand: "SKF",
@@ -405,6 +406,8 @@ export const NEW_WORK_DISABLED_MODULES: readonly string[] = [
  */
 const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   ...V5_MAIN_HOIST_INPUTS,
+  // Başlangıç rulmanı 22212'nin iç çapı Ø60 ile birebir eşleşir.
+  shaftD2Mm: 60,
   reevingLabel: "2/4",
   drivenFalls: 2,
   totalFalls: 4,
@@ -414,10 +417,17 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   tempFactorAuto: true,
   sheaveEfficiencyAuto: true,
   drumGrooveLengthAuto: true,
+  drumGrooveSpanAuto: true,
+  drumSpanCMm: 380,
+  drumSpanEMm: 380,
   drumWeightAuto: true,
+  gearboxServiceFactor: 1.3,
+  gearboxServiceFactorAuto: true,
+  drumCouplingServiceFactor: 1.5,
+  drumCouplingServiceFactorAuto: true,
   // Otomatik türetmenin bu şablon için verdiği değer — şablon kendi içinde
   // tutarlı olsun (editör açılmadan üretilen PDF/Excel de aynı sayıyı görsün).
-  drumWeightKg: 360,
+  drumWeightKg: 460,
 };
 
 const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
@@ -428,20 +438,35 @@ const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
 
 const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   ...V5_AUX_HOIST_INPUTS,
+  shaftD2Mm: 60,
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   ropeWeightAuto: true,
   hookBlockWeightAuto: true,
   tempFactorAuto: true,
   sheaveEfficiencyAuto: true,
   drumGrooveLengthAuto: true,
+  drumGrooveSpanAuto: true,
+  drumSpanCMm: 336,
+  drumSpanEMm: 336,
   drumWeightAuto: true,
-  drumWeightKg: 230,
+  gearboxServiceFactor: 1.3,
+  gearboxServiceFactorAuto: true,
+  drumCouplingServiceFactor: 1.5,
+  drumCouplingServiceFactorAuto: true,
+  drumWeightKg: 270,
 };
 
 const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_AUX_HOIST_SELECTIONS,
   ropeWeightKgPerM: 0.59,
-  drumGrooveLengthText: "2 x 340",   // 2/4 donanım, 10 m, Ø290 → otomatik
+  drumGrooveLengthText: "2 x 336",   // 24 tam yiv × 14 mm hatve
+};
+
+/** 2/4 donanımın iki makarası: merkezden ±75 mm, askı sacları ±125 mm. */
+const NEW_WORK_HOOKBLOCK_INPUTS = {
+  ...V5_HOOKBLOCK_INPUTS,
+  shaftSupportOffsetMm: 125,
+  shaftSheaveOffsetsText: "75",
 };
 
 /**
@@ -498,10 +523,10 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   auxHoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
   mono1Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
   mono2Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
-  hookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  auxHookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  mono1HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  mono2HookBlock: { inputs: V5_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  hookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  auxHookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  mono1HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  mono2HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
   trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   auxTrolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },

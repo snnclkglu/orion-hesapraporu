@@ -20,7 +20,8 @@ import {
   V5_HOOKBLOCK_INPUTS,
   V5_HOOKBLOCK_SELECTIONS,
 } from "../defaults/hookBlock";
-import { computeHookBlock } from "../modules/hookBlock";
+import { computeHookBlock, hookShaftGeometry } from "../modules/hookBlock";
+import { HOOKBLOCK_SECTIONS } from "../presentation/hookBlockSections";
 import { compareCell, isDecorative, loadFormulaCells } from "./golden";
 import { HOOKBLOCK_ALIASES } from "./legacy/alias-hookblock";
 import { tickFromCheck } from "./legacy/excel-alias";
@@ -109,6 +110,16 @@ const dumpCells = loadFormulaCells("05_04_KANCA_BLOĞU.txt").filter(
 );
 
 describe("kanca bloğu — tarihsel doğrulama", () => {
+  it("mil bölümü makara rulmanından önce gelir ve merkez ölçüleri simetrik açılır", () => {
+    expect(HOOKBLOCK_SECTIONS.map((section) => section.id).slice(0, 4))
+      .toEqual(["4.1", "4.2", "4.4", "4.3"]);
+    const geometry = hookShaftGeometry(
+      { shaftSupportOffsetMm: 325, shaftSheaveOffsetsText: "75; 175; 275" },
+      6
+    );
+    expect(geometry.spanCm).toBe(65);
+    expect(geometry.positionsCm).toEqual([5, 15, 25, 40, 50, 60]);
+  });
   it("her döküm hücresi ya eşlemede ya da gerekçeli kapsam dışıdır", () => {
     const eksik = dumpCells
       .map((c) => c.cell)
@@ -275,9 +286,9 @@ describe("kanca bloğu — mühendislik sonuçları", () => {
       eksik.map((c) => c.id),
       "kind/severity alanı eksik kontroller"
     ).toEqual([]);
-    // Montaj uyumu bilgilendirmedir, tasarımı reddetmez
+    // Mil/rulman montaj uyumu üretici katalog verisidir; eşleşmezse uyarır.
     const bore = byId("hookBlock.sheaveBearing.bore");
-    expect(bore?.kind).toBe("bilgi");
+    expect(bore?.kind).toBe("uretici");
     expect(bore?.severity).toBe("uyari");
   });
 });

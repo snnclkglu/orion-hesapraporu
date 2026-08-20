@@ -76,11 +76,14 @@ describe("engine entegrasyonu — V5 şablonu", () => {
     const blocking = blockingFailures(result.allChecks).map((c) => c.id).sort();
     expect(blocking, `engelleyici kırılmalar: ${blocking.join(", ")}`).toEqual(
       [
+        // 22212 rulman Ø60, referans mil D2 oturması Ø50: birebir eşleşmiyor.
+        "aux.bearing.bore",
         "bridge.brake.torque",          // köprü freni referans işte seçilmemiş
         // Hareket eden toplam W artık köprü + araba kapasitesi/kanca/halat
         // donanımıyla hesaplandığı için referans redüktör emniyeti yetersizdir.
         "bridge.gearbox.safety",
         "hookBlock.sheaveBearing.life", // makara rulmanı ömrü yetersiz (2707 < 6300 saat)
+        "main.bearing.bore",
         "main.gearbox.torque",          // redüktör torku sınırın hemen altında (22 < 22,07 kNm)
         // Tambur mili D1 = 6 cm referans yükte yetersiz: 115 MPa > 90 MPa (C30).
         // Kesme kontrolü sağlanıyor, eğilme ve bileşik sağlanmıyor.

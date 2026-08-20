@@ -58,6 +58,7 @@ import { checkDisplay, checkKind, checkSeverity } from "@/lib/calc/types";
 import type { AnyCheck, ModuleResult, TechnicalSpecs } from "@/lib/calc/types";
 import type { TravelInputs, TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
+import type { HookBlockValues } from "@/lib/calc/modules/hookBlock";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
 import {
@@ -1842,6 +1843,19 @@ export function RevisionEditor({
         }
       : undefined;
     const checks = sectionChecks(key, section);
+    const hookCapacityComparison = isHookBlockKey(key) && section.rawId === "4.1"
+      ? (() => {
+          const values = moduleResult(key)?.values as HookBlockValues | undefined;
+          const capacityCheck = checks.find((c) => c.id.endsWith(".hook.capacity"));
+          return values && capacityCheck
+            ? {
+                selectedKg: values.hookCapacityKg,
+                requiredKg: "required" in capacityCheck ? (capacityCheck.required ?? 0) : 0,
+                pass: capacityCheck.pass,
+              }
+            : undefined;
+        })()
+      : undefined;
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
     // `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır (ör. ray altı T
@@ -2381,6 +2395,39 @@ export function RevisionEditor({
                     )
                   )}
                 </div>
+                {hookCapacityComparison && (
+                  <div className="mt-3 grid gap-2 border bg-muted/20 p-3 sm:grid-cols-2">
+                    <div className="border bg-background px-3 py-2">
+                      <span className="oc-kicker block text-muted-foreground">
+                        Standart Kanca Kapasitesi · Otomatik
+                      </span>
+                      <span className="mt-1 block font-mono text-lg font-semibold tabular-nums">
+                        {hookCapacityComparison.selectedKg.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} kg
+                      </span>
+                    </div>
+                    <div className={cn(
+                      "border px-3 py-2",
+                      hookCapacityComparison.pass
+                        ? "border-success/40 bg-success/5"
+                        : "border-destructive/50 bg-destructive/5"
+                    )}>
+                      <span className="oc-kicker block text-muted-foreground">
+                        Teknik Özellik · Kaldırma Kapasitesi
+                      </span>
+                      <span className="mt-1 block font-mono text-lg font-semibold tabular-nums">
+                        {hookCapacityComparison.requiredKg.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} kg
+                      </span>
+                      <span className={cn(
+                        "mt-1 block text-xs font-medium",
+                        hookCapacityComparison.pass ? "text-success" : "text-destructive"
+                      )}>
+                        {hookCapacityComparison.pass
+                          ? "✓ Kanca kapasitesi kaldırma kapasitesini karşılıyor."
+                          : "✕ Seçilen kanca kaldırma kapasitesinden küçük veya standart tabloda yok."}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -442,9 +442,11 @@ export function diagramForSection(
       return hookBlockShaftDiagram({
         positionsMm: v.sheavePositionsCm.map(cmToMm),
         spanMm: cmToMm(v.shaftSpanCm),
-        edgeGapMm: i.shaftEdgeGapMm,
-        pitchMm: i.shaftSheavePitchMm,
-        centerGapMm: i.shaftCenterGapMm,
+        supportOffsetMm: i.shaftSupportOffsetMm,
+        sheaveOffsetsMm: v.sheavePositionsCm
+          .map(cmToMm)
+          .filter((positionMm) => positionMm > cmToMm(v.shaftSpanCm) / 2)
+          .map((positionMm) => positionMm - cmToMm(v.shaftSpanCm) / 2),
         d1Mm: i.shaftD1Mm,
         sheaveDiaMm: st.selections.sheaveDiaMm,
         ropeLoadKg: v.ropeLoadKg,

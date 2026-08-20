@@ -43,8 +43,7 @@ export const HOIST_ALIASES: AliasMap = {
   L50: "drum.allowableStress",
 
   // --- 2.2.2 Oluk boyu
-  L60: "drum.requiredGrooves",
-  L62: "drum.requiredGrooveLength",
+  // L60/L62 tam yiv adedine yuvarlama kararı nedeniyle HOIST_SAPMA'dadır.
 
   // --- 2.2.3 Tambur mili
   L80: "drumShaft.reactionGearbox",
@@ -177,6 +176,12 @@ export const HOIST_KAPSAM_DISI: Record<string, string> = {
  * belgelenmiştir. Değer farkı bir hata değil, yöntem iyileştirmesidir.
  */
 export const HOIST_SAPMA: Record<string, string> = {
+  L60:
+    "Gerekli yiv sayısı artık imal edilebilir tam yiv adedine YUKARI yuvarlanır " +
+    "(kullanıcı kararı, 20.08.2026): ör. 32,7 → 33 yiv.",
+  L62:
+    "Yiv boyu, yukarı yuvarlanmış tam yiv adedi × hatvedir. Eski tablo kesirli " +
+    "yiv adedini boyla çarptığı için tamamlanmamış bir son yiv üretiyordu.",
   L103:
     "Tambur kaynağı dış çapı. Motor, kaynak kesitini doğrudan boğaz alanı " +
     "üzerinden hesapladığı için bu eski ara geometrik büyüklüğü üretmez.",

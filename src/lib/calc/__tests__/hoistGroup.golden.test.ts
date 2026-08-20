@@ -112,6 +112,17 @@ describe("kaldırma grubu — tarihsel doğrulama (şartname değil)", () => {
     expect(check?.pass).toBe(false);
   });
 
+  it("tambur rulmanı iç çapı milin D2 oturma çapıyla birebir eşleşir", () => {
+    const calculate = (bearingBoreMm: number) => computeHoistGroup(
+      V5_SPECS,
+      "main",
+      V5_MAIN_HOIST_INPUTS,
+      { ...V5_MAIN_HOIST_SELECTIONS, bearingBoreMm }
+    ).checks.find((check) => check.id === "main.bearing.bore");
+    expect(calculate(V5_MAIN_HOIST_INPUTS.shaftD2Mm)?.pass).toBe(true);
+    expect(calculate(V5_MAIN_HOIST_INPUTS.shaftD2Mm + 0.1)?.pass).toBe(false);
+  });
+
   it("eşleme ve gerekçe sözlükleri bayatlamamıştır", () => {
     const stale: string[] = [];
     const check = (sozluk: string, keys: string[]) => {

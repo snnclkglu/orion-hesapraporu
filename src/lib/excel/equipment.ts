@@ -1659,9 +1659,8 @@ export function buildSummarySections(
         { label: "Makara rulmanı", value: textOr(sel.sheaveBearingCode) },
         { label: "Makara rulmanı iç çapı", value: sel.sheaveBearingBoreMm ?? "-", unit: "mm" },
         { label: "Mil çapı D1", value: inp.shaftD1Mm, unit: "mm" },
-        { label: "Mil ölçüsü A (kenar boşluğu)", value: inp.shaftEdgeGapMm, unit: "mm" },
-        { label: "Mil ölçüsü B (makara adımı)", value: inp.shaftSheavePitchMm, unit: "mm" },
-        { label: "Mil ölçüsü D (orta boşluk)", value: inp.shaftCenterGapMm, unit: "mm" },
+        { label: "Merkez → askı sacı ekseni", value: inp.shaftSupportOffsetMm, unit: "mm" },
+        { label: "Merkez → makara eksenleri (tek taraf)", value: inp.shaftSheaveOffsetsText, unit: "mm" },
         ...(hoistState
           ? [
               {

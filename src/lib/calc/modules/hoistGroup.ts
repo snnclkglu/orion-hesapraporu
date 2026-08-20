@@ -406,9 +406,12 @@ export function drumGrooveRequirement(
 ): { grooves: number; lengthMm: number; pitchMm: number } {
   const rig = deriveReeving(hoistReeving(inp as HoistInputs));
   const pitchMm = groovePitch(sel.ropeDiaMm);
-  const grooves =
+  const rawGrooves =
     (rig.mechanicalAdvantage * liftHeightM) / Math.PI / (sel.drumDiaMm / 1000) +
     inp.safetyGrooveCount;
+  // İmalat boyunu keyfî 10/50 mm adımına büyütmek yerine tamamlanmamış son
+  // yivi TAM yive çıkarırız. 32,7 yiv gerekiyorsa 33 yiv açılır ve boy 33·p'dir.
+  const grooves = Math.ceil(rawGrooves);
   return { grooves, lengthMm: grooves * pitchMm, pitchMm };
 }
 
@@ -522,6 +525,12 @@ export interface HoistInputs {
    * ("2 x 220" gibi), yukarı yuvarlanmış (bkz. `derive.ts`).
    */
   drumGrooveLengthAuto?: boolean;
+  /** C/E yiv bölgeleri gerekli yiv boyundan otomatik doldurulsun mu? */
+  drumGrooveSpanAuto?: boolean;
+  /** Redüktör servis katsayısı FEM mekanizma sınıfından türetilsin mi? */
+  gearboxServiceFactorAuto?: boolean;
+  /** Tambur kaplini servis katsayısı FEM mekanizma sınıfından türetilsin mi? */
+  drumCouplingServiceFactorAuto?: boolean;
   /**
    * Tambur ağırlığı otomatik: yiv dibi et kalınlığına halat çapının yarısı
    * eklenerek bulunan et kalınlığında, tambur çapında ve NAMLU boyunda çelik
@@ -548,6 +557,8 @@ export interface HoistSelections {
   shaftMaterial: ShaftMaterial;
   bearingType: string;
   bearingCode: string;          // ör. 22212
+  /** Rulman iç çapı [mm] — tambur milinin D2 oturma çapıyla birebir eşleşir. */
+  bearingBoreMm: number;
   bearingDynCKn: number;
   bearingStatC0Kn: number;
   /** SKF SNL/SE tambur rulman yatağı — rulman koduna göre katalogdan seçilir. */
@@ -1196,6 +1207,8 @@ export function computeHoistGroup(
   const requiredLifeMin = life.min ?? 0;
   const requiredLifeMax = life.max;
   Object.assign(cells, {
+    "drumBearing.bore": sel.bearingBoreMm,
+    "drumBearing.shaftSeat": inp.shaftD2Mm,
     "drumBearing.radialLoad": bearingRadialKn,
     "drumBearing.axialLoad": bearingAxialKn,
     "drumBearing.equivalentStatic": bearingEqStaticKn,
@@ -1205,6 +1218,14 @@ export function computeHoistGroup(
     "drumBearing.lifeHours": bearingLifeHours,
     "drumBearing.requiredLifeMin": requiredLifeMin,
     ...(requiredLifeMax !== null ? { "drumBearing.requiredLifeMax": requiredLifeMax } : {}),
+  });
+  checks.push({
+    id: `${which}.bearing.bore`,
+    label: "Tambur Rulmanı İç Çapı = Mil Yatak Oturma Çapı (D2)",
+    min: inp.shaftD2Mm, max: inp.shaftD2Mm,
+    provided: sel.bearingBoreMm, unit: "mm", op: "range",
+    pass: Number.isFinite(sel.bearingBoreMm) && sel.bearingBoreMm === inp.shaftD2Mm,
+    kind: "uretici", severity: "engelleyici",
   });
   checks.push({
     id: `${which}.bearing.life`,

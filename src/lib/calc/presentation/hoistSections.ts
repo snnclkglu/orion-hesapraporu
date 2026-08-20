@@ -610,8 +610,14 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     equipmentSlugs: ["drumBearing"],
     description: "Eşdeğer yükler, statik emniyet ve L10 yorulma ömrü (FEM T.2.1.3.2).",
     inputKeys: ["bearingFactorY1", "bearingFactorY2"],
-    selectionKeys: ["bearingType", "bearingCode", "bearingDynCKn", "bearingStatC0Kn"],
+    selectionKeys: ["bearingType", "bearingCode", "bearingBoreMm", "bearingDynCKn", "bearingStatC0Kn"],
     rows: [
+      {
+        key: "drumBearing.bore", label: "Rulman İç Çapı / Mil Oturma Çapı",
+        formula: "d_rulman = D2",
+        subst: (x) => `${n(x.sel.bearingBoreMm)} = ${n(x.inp.shaftD2Mm)}`,
+        unit: "mm",
+      },
       {
         key: "drumBearing.radialLoad", label: "Radyal Yük (Tambur Yatağı Reaksiyonundan)",
         formula: "F_r = R_g · 0,00981",
@@ -650,7 +656,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         unit: "saat", digits: 0,
       },
     ],
-    checkSuffixes: ["bearing.life", "bearing.static"],
+    checkSuffixes: ["bearing.bore", "bearing.life", "bearing.static"],
   },
   {
     id: "2.2.7",

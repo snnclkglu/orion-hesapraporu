@@ -37,34 +37,16 @@ export const STANDARD_SHEAVE_BEARING_TEXT = "Rulmanlı yataklı makara (yüksek 
 
 // ------------------------------------------------------------------ Yiv boyu
 
-/**
- * Yiv boyu yuvarlama adımı [mm].
- *
- * İmalat resmine "219,15 mm" yazılmaz; tambur namlusu düzgün bir ölçüye
- * çekilir. 1 metrenin altındaki boylarda 10 mm'lik adım hem yeterince ince hem
- * de okunaklıdır (219,15 → 220); metrenin üstünde 10 mm'lik basamak anlamsız
- * bir hassasiyet iddiasıdır, 50 mm daha düzgün durur (1.284 → 1.300).
- * Yuvarlama HER ZAMAN YUKARIDIR: yiv boyu yetmezse halat tambura sığmaz.
- */
-export const GROOVE_LENGTH_ROUND_MM = 10;
-export const GROOVE_LENGTH_ROUND_LARGE_MM = 50;
-/** Bu boyun üstünde büyük adım kullanılır [mm]. */
-export const GROOVE_LENGTH_LARGE_THRESHOLD_MM = 1000;
-
-/** Gerekli yiv boyunu düzgün bir imalat ölçüsüne YUKARI yuvarlar [mm]. */
-export function roundGrooveLengthMm(rawMm: number): number | undefined {
-  if (!Number.isFinite(rawMm) || rawMm <= 0) return undefined;
-  const step =
-    rawMm >= GROOVE_LENGTH_LARGE_THRESHOLD_MM
-      ? GROOVE_LENGTH_ROUND_LARGE_MM
-      : GROOVE_LENGTH_ROUND_MM;
-  return Math.ceil(rawMm / step) * step;
+/** Ondalık ölçüyü snapshot metnine kayıpsız ama gereksiz sıfırsız yazar. */
+function plainMeasure(value: number): string {
+  return Number(value.toFixed(3)).toString();
 }
 
 /**
  * "Yiv Boyu" kutusunun metni: `<tahrikli halat sayısı> x <yiv boyu>`
  * (ör. "2 x 220"). Baştaki sayı tambura sarılan halat kolu adedidir — o kadar
- * ayrı yiv helisi açılır; sondaki sayı BİR helisin yukarı yuvarlanmış boyudur.
+ * ayrı yiv helisi açılır; sondaki sayı BİR helisin boyudur. Yukarı yuvarlama
+ * boyda değil YİV ADEDİNDE yapılır: ör. 32,7 yiv → 33 · hatve.
  */
 export function deriveDrumGrooveLengthText(
   inputs: HoistInputs,
@@ -73,11 +55,29 @@ export function deriveDrumGrooveLengthText(
 ): string | undefined {
   if (!Number.isFinite(liftHeightM) || liftHeightM <= 0) return undefined;
   if (!(selections.drumDiaMm > 0) || !(selections.ropeDiaMm > 0)) return undefined;
-  const rounded = roundGrooveLengthMm(drumGrooveRequirement(inputs, selections, liftHeightM).lengthMm);
-  if (rounded === undefined) return undefined;
+  const required = drumGrooveRequirement(inputs, selections, liftHeightM);
+  if (!Number.isFinite(required.lengthMm) || required.lengthMm <= 0) return undefined;
   const driven = hoistReeving(inputs).drivenFalls;
   if (!Number.isFinite(driven) || driven <= 0) return undefined;
-  return `${driven} x ${rounded}`;
+  return `${driven} x ${plainMeasure(required.lengthMm)}`;
+}
+
+/** FEM mekanizma sınıfına göre ana kaldırma redüktörü servis katsayısı. */
+export const HOIST_GEARBOX_SERVICE_FACTOR: Record<MechanismClass, number> = {
+  M1: 1, M2: 1, M3: 1, M4: 1, M5: 1.1, M6: 1.3, M7: 1.5, M8: 1.7,
+};
+
+/** FEM mekanizma sınıfına göre ana kaldırma tambur kaplini servis katsayısı. */
+export const HOIST_DRUM_COUPLING_SERVICE_FACTOR: Record<MechanismClass, number> = {
+  M1: 1.1, M2: 1.1, M3: 1.1, M4: 1.1, M5: 1.3, M6: 1.5, M7: 1.6, M8: 1.7,
+};
+
+export function hoistGearboxServiceFactor(mechanismClass: MechanismClass): number {
+  return HOIST_GEARBOX_SERVICE_FACTOR[mechanismClass];
+}
+
+export function hoistDrumCouplingServiceFactor(mechanismClass: MechanismClass): number {
+  return HOIST_DRUM_COUPLING_SERVICE_FACTOR[mechanismClass];
 }
 
 // ----------------------------------------------------------- Tambur ağırlığı
@@ -267,7 +267,11 @@ export type DerivedHoistField =
   | "tempFactor"
   | "sheaveEfficiency"
   | "drumWeightKg"
-  | "drumGrooveLengthText";
+  | "drumGrooveLengthText"
+  | "drumSpanCMm"
+  | "drumSpanEMm"
+  | "gearboxServiceFactor"
+  | "drumCouplingServiceFactor";
 
 export interface HoistDerivation {
   /** Hazır donanım seçiliyse tahrikli halat kolu sayısı */
@@ -290,6 +294,13 @@ export interface HoistDerivation {
    * seçime yazar.
    */
   drumGrooveLengthText?: string;
+  /** Bir helisin yiv boyu; C ve varsa E ölçüsüne yazılır [mm]. */
+  drumSpanCMm?: number;
+  drumSpanEMm?: number;
+  /** Mekanizma sınıfından türetilen redüktör servis katsayısı. */
+  gearboxServiceFactor?: number;
+  /** Mekanizma sınıfından türetilen tambur kaplini servis katsayısı. */
+  drumCouplingServiceFactor?: number;
   /** Otomatik açık ama kaynak veri eksikse gösterilecek uyarılar */
   warnings: { field: DerivedHoistField; message: string }[];
 }
@@ -302,6 +313,8 @@ export interface HoistDeriveContext {
   capacityT: number;
   /** Ortam sıcaklığı üst sınırı [°C] */
   ambientTempMaxC: number;
+  /** Bu kaldırma grubunun FEM mekanizma sınıfı (eski çağrılarda M6 kabul edilir). */
+  mechanismClass?: MechanismClass;
 }
 
 /**
@@ -369,8 +382,40 @@ export function deriveHoistInputs(
     out.sheaveEfficiency = STANDARD_SHEAVE_EFFICIENCY;
   }
 
+  const groove = drumGrooveRequirement(inputs, selections, ctx.liftHeightM);
+  const grooveReady = Number.isFinite(groove.lengthMm) && groove.lengthMm > 0;
+  if (inputs.drumGrooveSpanAuto) {
+    if (!grooveReady) {
+      for (const field of ["drumSpanCMm", "drumSpanEMm"] as const) {
+        out.warnings.push({
+          field,
+          message:
+            "Yiv bölgesi ölçüsü türetilemedi — kaldırma yüksekliği, tambur çapı " +
+            "ve halat çapı pozitif olmalı.",
+        });
+      }
+    } else {
+      out.drumSpanCMm = groove.lengthMm;
+      out.drumSpanEMm = hoistReeving(inputs).drivenFalls > 1 ? groove.lengthMm : 0;
+    }
+  }
+
+  if (inputs.gearboxServiceFactorAuto) {
+    out.gearboxServiceFactor = hoistGearboxServiceFactor(ctx.mechanismClass ?? "M6");
+  }
+  if (inputs.drumCouplingServiceFactorAuto) {
+    out.drumCouplingServiceFactor = hoistDrumCouplingServiceFactor(ctx.mechanismClass ?? "M6");
+  }
+
   if (inputs.drumWeightAuto) {
-    const barrelCm = drumShaftGeometry(inputs).barrelCm;
+    // C/E aynı turda otomatik değiştiyse tambur ağırlığı ESKİ namlu boyunu
+    // görmemeli; etkin geometri türetilen ölçülerle kurulur.
+    const effectiveInputs = {
+      ...inputs,
+      drumSpanCMm: out.drumSpanCMm ?? inputs.drumSpanCMm,
+      drumSpanEMm: out.drumSpanEMm ?? inputs.drumSpanEMm,
+    };
+    const barrelCm = drumShaftGeometry(effectiveInputs).barrelCm;
     const v = deriveDrumWeightKg({
       drumDiaMm: selections.drumDiaMm,
       grooveWallThicknessMm: inputs.drumWallThicknessMm,

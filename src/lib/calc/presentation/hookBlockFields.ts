@@ -28,9 +28,8 @@ export const NOTCH_CLASSES = ["W0", "W1", "W2", "K0", "K1", "K2", "K3", "K4"] as
 export const LOAD_GROUPS = ["B1", "B2", "B3", "B4", "B5", "B6"] as const;
 
 export const HOOKBLOCK_INPUT_FIELDS: FieldDef<HookBlockInputs>[] = [
-  { key: "shaftEdgeGapMm", label: "A · Yan Sac → İlk Makara", unit: "mm", type: "number", hint: "Mesnet ekseninden ilk makara eksenine." },
-  { key: "shaftSheavePitchMm", label: "B · Makara Adımı (Küme İçi)", unit: "mm", type: "number" },
-  { key: "shaftCenterGapMm", label: "D · Kümeler Arası Orta Boşluk", unit: "mm", type: "number", hint: "Kanca sapının geçtiği boşluk; 2 makarada iki makara arası." },
+  { key: "shaftSupportOffsetMm", label: "Merkez → Askı Sacı Ekseni", unit: "mm", type: "number", hint: "Simetrik tasarımda yalnız bir taraf girilir; toplam açıklık bu ölçünün iki katıdır." },
+  { key: "shaftSheaveOffsetsText", label: "Merkez → Makara Eksenleri (Tek Taraf)", unit: "mm", type: "text", hint: "Merkezden bir taraftaki ölçüleri küçükten büyüğe noktalı virgülle ayırın: 75; 175; 275. Karşı taraf otomatik aynalanır." },
   { key: "shaftD1Mm", label: "D1 · Mil Çapı", unit: "mm", type: "number", diameter: true },
   // Kaldırma kirişi ölçü zinciri — teknik resimdeki x · y · z
   {
@@ -113,12 +112,6 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
     // Lamel kancanın kapasitesi tablonun kendi satırındadır; mukavemet sınıfı
     // orada bir şey belirlemez ve kutunun ekranda yeri yoktur.
     visibleWhen: (sel) => !isLamellaHook(sel.hookStandard as string | undefined),
-  },
-  {
-    key: "hookCapacityKg", label: "Kanca Kapasitesi (Tablo Dışıysa)", unit: "kg", type: "number",
-    hint:
-      "Kanca numarası tabloda bulunursa kapasite oradan okunur; bu kutu yalnız " +
-      "tablo dışı kancalarda (ve DIN 15408'de) kullanılır.",
   },
   {
     // Makara çapı da TAMBURLA AYNI standart seriden seçilir (kullanıcı kararı,

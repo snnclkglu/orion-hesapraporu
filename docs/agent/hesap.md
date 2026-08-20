@@ -599,10 +599,9 @@ standardın kendi baskısı esas alındı ("hesap yöntemi standartlara dayanır
 bir tabloya değil"); diğer 219 hücre iki kaynakta da aynıdır.
 
 **DIN 15408 TABLOSU YOKTUR ve UYDURULMAZ.** Standart seçilebilir (mühendis
-kancanın çift ağızlı olduğunu rapora yazabilir), kapasite ELLE girilir ve
-`hook.capacitySource` satırı bunu açıkça yazar. Bu bir KONTROL değil bir
-KÜNYEdir: kontrol her koşulda üretilmelidir (`anchors.guard`), "kaynak" ise
-bir kabul/ret değil bir olgudur ve her zaman basılır.
+kancanın çift ağızlı olduğunu rapora yazabilir), fakat kapasite elle girilemez.
+Tabloda satır bulunmadığında otomatik kapasite 0 kalır, seçim uygunluk vermez ve
+`hook.capacitySource` satırı bunu açıkça yazar.
 
 **KANCA TAM TANIMI TÜRETİLİR** (`hookDesignationText` + `hookDesignationAuto`,
 yiv boyunun `drumGrooveLengthAuto` düzeninin aynısı: anahtar GİRDİLERDE,
@@ -657,6 +656,12 @@ seçildiğinde tahrikli/toplam kol sayıları da aynı mekanizmayla dolar.
 Makara verimi artık seçim değil sabit firma kabulüdür
 (`STANDARD_SHEAVE_EFFICIENCY`).
 
+Yiv boyu imal edilebilir tam yiv adediyle üretilir: kesirli gerekli yiv sayısı
+yukarı yuvarlanır, sonra `L = ceil(z) · hatve` uygulanır. `drumGrooveSpanAuto`
+açıkken bir helisin boyu C'ye ve çift heliste E'ye yazılır. Redüktör ve tambur
+kaplini servis katsayıları da FEM mekanizma sınıfından sırasıyla
+`gearboxServiceFactorAuto` ve `drumCouplingServiceFactorAuto` ile türetilir.
+
 1. **Standardın maddesini bul** ve `docs/standards/` altındaki inceleme
    notlarına bak. Excel dökümüne bakma.
 
@@ -693,3 +698,27 @@ detayındaki defter sürümler arasında gezinme ve ilişkinin denetimi içindir
 hesap raporu içindeki bağlantı ise çalışılan revizyondan hızlı geçiştir. Bir
 hesap revizyonu silinirse ona ait türetilmiş ekipman satırı da ayrıca kayıt
 silmeden kendiliğinden listeden düşer.
+
+## HESAP-19 — Kaldırma seçimlerinde geometrik ve katalog uyumu birebirdir.
+
+Kullanıcı kararı (20.08.2026): tambur rulmanı katalog iç çapı, tambur milinin
+D2 yatak/rulman oturma çapıyla **birebir** eşleşir. Eksik veya farklı çap
+`bearing.bore` engelleyici kontrolünü düşürür. Makara rulmanı iç çapı da kanca
+bloğu milinin D1 çapıyla birebir eşleşir; fark `sheaveBearing.bore` uyarısıdır
+ve katalog seçim yerinde görünür.
+
+Kanca kapasitesi seçim alanı değildir. Kanca standardı + numarası + malzeme
+sınıfı + mekanizma sınıfından her değişimde yeniden hesaplanır; teknik
+özellikteki kaldırma kapasitesiyle yan yana karşılaştırılır. Standart tablosunda
+satır yoksa kullanıcı kapasite uyduramaz ve seçim uygun sayılmaz.
+
+Kanca bloğu sunum sırası **Makaralar → Kanca Bloğu Mili → Makara Rulmanları**dır.
+Ham bölüm kimlikleri 4.4/4.3 olarak korunur; yalnız gösterim sırası değişir ki
+kayıtlı alternatifler ve katalog eşlemeleri bozulmasın. Mil geometrisi
+simetriktir: `shaftSupportOffsetMm` ve `shaftSheaveOffsetsText` merkezden yalnız
+bir tarafı tarif eder, karşı taraf motor tarafından aynalanır. Eski A/B/D
+snapshotları `migrateHookShaftCenter` ile aynı açıklık ve yük konumlarına göçer.
+
+Redüktör kataloğunda hedef tahvil oranı, tork/facet filtrelerinden sonra
+uygulanır; katalogda birebir hedef yoksa en yakın bir alt ve bir üst oran aynı
+anda bırakılır. Aynı oranı taşıyan farklı modeller saklanır.

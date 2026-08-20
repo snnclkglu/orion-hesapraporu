@@ -142,7 +142,9 @@ function din15407Rows(): HookBlockRowDef[] {
   return rows;
 }
 
-export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
+const HOOKBLOCK_SECTION_ORDER = ["4.1", "4.2", "4.4", "4.3", "4.5", "4.6", "4.7"];
+
+const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
   {
     id: "4.1",
     title: "Kanca",
@@ -157,7 +159,6 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     inputKeys: [],
     selectionKeys: [
       "hookStandard", "hookDesignation", "hookNumber", "hookStrengthClass",
-      "hookCapacityKg",
     ],
     rows: [
       {
@@ -190,7 +191,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         formula: "Q_kanca = f(kanca tanımı, kanca no)",
         subst: (x) =>
           !x.v.hookCapacityFromTable
-            ? `${x.v.hookDesignationText} → ${n(x.v.hookCapacityKg)} (elle)`
+            ? `${x.v.hookDesignationText} → standart kapasite bulunamadı`
             : x.v.lamellaRow
               ? `${x.v.hookDesignationText} → ${n(x.v.lamellaRow.capacityT)} t`
               : `Nr ${x.sel.hookNumber} / ${x.sel.hookStrengthClass} / ${x.v.hookDinGroup} → ${n(x.v.hookCapacityKg)}`,
@@ -201,18 +202,13 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         unit: "kg",
       },
       {
-        // Kapasite hangi defterden okundu — bir kontrol değil bir KÜNYE, o
-        // yüzden her koşulda basılır. DIN 15408'de (tablosu uygulamada yok)
-        // "elle girildi" der; sessizlik, kapasitenin bir standarttan okunduğu
-        // izlenimini verirdi.
+        // Kapasite hangi defterden okundu — bir kontrol değil bir KÜNYE.
         key: "hook.capacitySource",
         label: "Kapasitenin Kaynağı",
-        formula: "standardın tablosu ya da elle giriş",
+        formula: "seçilen standardın kapasite tablosu",
         valueFrom: (x) =>
           !x.v.hookCapacityFromTable
-            ? x.v.hookStandard === "DIN 15408"
-              ? "Elle girildi — DIN 15408 tablosu uygulamada yok"
-              : "Elle girildi (tablo dışı kanca)"
+            ? "Standart kapasite satırı bulunamadı — seçim uygun değil"
             : x.v.hookIsLamella
               ? "DIN 15407 Tablo 1"
               : "DIN 15400 Tablo 3",
@@ -350,7 +346,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
       {
         key: "sheaveBearing.bore",
         label: "Rulman İç Çapı (Mil Çapı D1'e Oturur)",
-        formula: "d_rulman = D1 · 10",
+        formula: "d_rulman = D1",
         valueFrom: (x) => x.sel.sheaveBearingBoreMm ?? 0,
         subst: (x) =>
           `mil D1 = ${n(x.inp.shaftD1Mm)} mm`,
@@ -364,15 +360,15 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     title: "Kanca Bloğu Mili",
     equipmentSlugs: ["shaft"],
     description:
-      "Mil, iki yan sac (mesnet) arasında basit kiriştir. Kanca bloğundaki " +
+      "Mil, iki askı sacı (mesnet) arasında basit kiriştir. Kanca bloğundaki " +
       "makara adedi halat donanımından gelir (n = n_toplam / 2) ve HER MAKARA " +
-      "2T yükü taşır. Ölçü zinciri: A yan sac → ilk makara, B küme içi makara " +
-      "adımı, D iki küme arasındaki orta boşluk. Eğilme ve kesme gerilmeleri D1 " +
+      "2T yükü taşır. Askı sacı ve makara eksenleri merkezden, yalnız bir taraf " +
+      "için girilir; karşı taraf simetrik aynalanır. Eğilme ve kesme gerilmeleri D1 " +
       "mil çapında hesaplanır; makara rulmanı da bu çapa oturur. Bileşik gerilme " +
       "CMAA 70 4.11.4.1'e göre √(σ² + 3τ²), kesme gerilmesi ortalama (τ = V/A) " +
       "kabulüyle alınır.",
     inputKeys: [
-      "shaftEdgeGapMm", "shaftSheavePitchMm", "shaftCenterGapMm", "shaftD1Mm",
+      "shaftSupportOffsetMm", "shaftSheaveOffsetsText", "shaftD1Mm",
     ],
     selectionKeys: ["shaftMaterial"],
     rows: [
@@ -392,21 +388,21 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
         subst: (x) => `2 · ${n(x.deps.ropeLoadKg)}`, unit: "kg",
       },
       {
-        key: "shaft.span", label: "Yan Saclar Arası Açıklık (L)",
-        formula: "L = 2A + (n_küme − 1)·B + D",
+        key: "shaft.span", label: "Askı Sacları Arası Açıklık (L)",
+        formula: "L = 2 · e_askı",
         subst: (x) =>
-          `A=${n(x.inp.shaftEdgeGapMm)} · B=${n(x.inp.shaftSheavePitchMm)} · D=${n(x.inp.shaftCenterGapMm)} → ${n(num(x.c["shaft.span"]))}`,
+          `2 · ${n(x.inp.shaftSupportOffsetMm)} → ${n(num(x.c["shaft.span"]))}`,
         unit: "mm",
       },
       {
-        key: "shaft.reactionA", label: "Mesnet Reaksiyonu Ra (Sol Yan Sac)",
+        key: "shaft.reactionA", label: "Mesnet Reaksiyonu Ra (Sol Askı Sacı)",
         formula: "R_a = Σ P·(L − x_i) / L",
         subst: (x) =>
           `${n(x.v.sheaveCount)} × ${n(num(x.c["shaft.sheaveLoad"]))} yük · konumlar [${x.v.sheavePositionsCm.map((p) => n(p * 10)).join("; ")}] mm`,
         unit: "kg",
       },
       {
-        key: "shaft.reactionB", label: "Mesnet Reaksiyonu Rb (Sağ Yan Sac)",
+        key: "shaft.reactionB", label: "Mesnet Reaksiyonu Rb (Sağ Askı Sacı)",
         formula: "R_b = n · P − R_a",
         subst: (x) =>
           `${n(x.v.sheaveCount)} · ${n(num(x.c["shaft.sheaveLoad"]))} − ${n(num(x.c["shaft.reactionA"]))}`,
@@ -775,3 +771,7 @@ export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = [
     checkSuffixes: ["fatigue.sigma", "fatigue.tau", "fatigue.combined"],
   },
 ];
+
+export const HOOKBLOCK_SECTIONS: HookBlockSectionDef[] = HOOKBLOCK_SECTIONS_RAW.sort(
+  (a, b) => HOOKBLOCK_SECTION_ORDER.indexOf(a.id) - HOOKBLOCK_SECTION_ORDER.indexOf(b.id)
+);

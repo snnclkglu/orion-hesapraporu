@@ -30,6 +30,7 @@ const HOIST_ANCHORS: AnchorMap = {
   "2.2.4": { "drumWeld.stress": "drumWeld.combinedStress" },
   "2.2.5": { "shaftWeld.stress": "shaftWeld.combinedStress" },
   "2.2.6": {
+    "bearing.bore": "drumBearing.bore",
     "bearing.static": "drumBearing.staticSafety",
     "bearing.life": "drumBearing.requiredLifeMin",
   },

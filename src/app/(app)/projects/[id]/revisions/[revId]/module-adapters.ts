@@ -468,6 +468,15 @@ const HOOKBLOCK_TITLES: Record<HookBlockKey, string> = {
   mono2HookBlock: "Monoray 2 Kanca Bloğu",
 };
 
+const HOOKBLOCK_HEADLINES: Record<string, AdapterHeadline> = {
+  "4.3": {
+    placement: "catalog",
+    computedLabel: "Seçilen iç çap",
+    limitLabel: "Mil D1",
+    checks: [{ suffix: "sheaveBearing.bore", label: "İç çap uyumu" }],
+  },
+};
+
 function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
   return {
     key: which,
@@ -481,6 +490,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
       inputDefs: defs(s.inputKeys, HOOKBLOCK_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, HOOKBLOCK_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
+      headline: HOOKBLOCK_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
@@ -1326,6 +1336,7 @@ export function withDerivedHoist(
     liftHeightM: view.liftHeightM,
     capacityT: view.capacityT,
     ambientTempMaxC: specs.ambientTempMaxC,
+    mechanismClass: view.mechanismClass,
   });
 
   const patch: Partial<HoistInputs> = {};
@@ -1340,6 +1351,10 @@ export function withDerivedHoist(
   put("tempFactor", d.tempFactor);
   put("sheaveEfficiency", d.sheaveEfficiency);
   put("drumWeightKg", d.drumWeightKg);
+  put("drumSpanCMm", d.drumSpanCMm);
+  put("drumSpanEMm", d.drumSpanEMm);
+  put("gearboxServiceFactor", d.gearboxServiceFactor);
+  put("drumCouplingServiceFactor", d.drumCouplingServiceFactor);
 
   const selPatch: Partial<HoistSelections> = {};
   if (
@@ -1491,6 +1506,7 @@ export function derivationWarnings(
           liftHeightM: view.liftHeightM,
           capacityT: view.capacityT,
           ambientTempMaxC: specs.ambientTempMaxC,
+          mechanismClass: view.mechanismClass,
         }
       ).warnings;
     } else if (isTravelKey(key)) {

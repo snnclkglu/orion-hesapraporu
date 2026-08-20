@@ -182,16 +182,17 @@ export interface HookBlockDeps {
 /** Kullanıcı girdileri (tasarım kabulleri) */
 export interface HookBlockInputs {
   /**
-   * §4.4 Kanca bloğu mili — ölçü zinciri (teknik resim):
-   *   A: yan sac (mesnet) ekseni → ilk makara ekseni
-   *   B: komşu makara eksenleri arası (küme içi adım)
-   *   D: iki makara kümesi arasındaki orta boşluk (kanca sapı geçişi)
-   * Makara adedi donanımdan gelir ve makaralar iki kümeye ayrılır:
-   * 2 makara → A|D|A, 4 makara → A|B|D|B|A, 6 makara → A|B|B|D|B|B|A.
+   * §4.4 Kanca bloğu mili — simetrik merkez geometrisi. Yalnız bir tarafın
+   * ölçüleri girilir; karşı taraf otomatik aynalanır.
    */
-  shaftEdgeGapMm: number;        // A [mm]
-  shaftSheavePitchMm: number;    // B [mm]
-  shaftCenterGapMm: number;      // D [mm]
+  shaftSupportOffsetMm: number;      // merkez → askı sacı ekseni [mm]
+  shaftSheaveOffsetsText: string;    // merkez → makara eksenleri, ";" ayrımlı [mm]
+  /** @deprecated Eski snapshot göçü için korunur. */
+  shaftEdgeGapMm?: number;
+  /** @deprecated Eski snapshot göçü için korunur. */
+  shaftSheavePitchMm?: number;
+  /** @deprecated Eski snapshot göçü için korunur. */
+  shaftCenterGapMm?: number;
   /** D1 — mil gerilme kesiti çapı [mm] */
   shaftD1Mm: number;
 
@@ -279,7 +280,7 @@ export interface HookBlockSelections {
    * anlamlıdır — lamel kancanın kapasitesi tablonun kendi satırındadır.
    */
   hookStrengthClass?: HookStrengthClass;
-  /** Tablo dışı kanca için elle girilen kapasite [kg] (yedek) */
+  /** Eski snapshot uyumluluğu; kapasite artık yalnız standart tablodan türetilir. */
   hookCapacityKg: number;
   /** Halat ekseninde makara çapı [mm] */
   sheaveDiaMm: number;
@@ -309,7 +310,7 @@ export interface HookBlockValues {
   lamellaRow?: Din15407Row;
   /** Standart + numaradan türetilen tam tanım metni */
   hookDesignationText: string;
-  /** Tablodan okunan taşıma kapasitesi [kg] (yoksa elle girilen) */
+  /** Standart tablodan otomatik okunan taşıma kapasitesi [kg] */
   hookCapacityKg: number;
   /** Kapasite tablodan mı geldi */
   hookCapacityFromTable: boolean;
@@ -439,9 +440,10 @@ export interface HookBlockValues {
 
 /** Kanca bloğu mili geometrisi — makara konumları ve mesnet açıklığı. */
 export interface HookShaftGeometry {
-  edgeGapCm: number;
-  pitchCm: number;
-  centerGapCm: number;
+  /** Merkezden bir askı sacı eksenine uzaklık [cm]. */
+  supportOffsetCm: number;
+  /** Merkezden bir taraftaki makara eksenlerine uzaklıklar [cm]. */
+  sheaveOffsetsCm: number[];
   /** Makara eksenlerinin sol mesnete uzaklığı [cm] */
   positionsCm: number[];
   /** Yan saclar (mesnetler) arası açıklık [cm] */
@@ -449,37 +451,40 @@ export interface HookShaftGeometry {
 }
 
 /**
- * Ölçü zincirinden (A, B, D) makara eksen konumlarını üretir. Makara adedi
- * DIŞARIDAN gelir: donanımın tek gerçek kaynağı `reeving.ts`tir ve adet
- * `deriveReeving().blockSheaveCount` ile hesaplanır. Makaralar iki kümeye
- * bölünür; tek makarada orta boşluk kullanılmaz.
+ * Merkezden verilen TEK TARAF ölçülerini simetrik makara konumlarına açar.
+ * Makara adedi donanımdan gelir; tek sayıda merkezde bir makara bulunur.
  */
+export function parseCenterOffsetsMm(text: string): number[] {
+  return [...new Set(
+    String(text ?? "")
+      .split(/[;|\s]+/)
+      .map((part) => Number(part.replace(",", ".")))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  )].sort((a, b) => a - b);
+}
+
 export function hookShaftGeometry(
-  inp: Pick<HookBlockInputs, "shaftEdgeGapMm" | "shaftSheavePitchMm" | "shaftCenterGapMm">,
+  inp: Pick<HookBlockInputs, "shaftSupportOffsetMm" | "shaftSheaveOffsetsText">,
   sheaveCount: number
 ): HookShaftGeometry {
-  const num = (v: number | undefined) =>
-    typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
-  const edgeGapCm = num(inp.shaftEdgeGapMm) / 10;
-  const pitchCm = num(inp.shaftSheavePitchMm) / 10;
-  const centerGapCm = num(inp.shaftCenterGapMm) / 10;
+  const supportOffsetCm = Number.isFinite(inp.shaftSupportOffsetMm) && inp.shaftSupportOffsetMm > 0
+    ? inp.shaftSupportOffsetMm / 10
+    : 0;
+  const allOffsetsCm = parseCenterOffsetsMm(inp.shaftSheaveOffsetsText).map((v) => v / 10);
   const count = Math.max(
     1,
     Math.round(Number.isFinite(sheaveCount) ? sheaveCount : 1)
   );
 
-  const positionsCm: number[] = [];
-  if (count === 1) {
-    positionsCm.push(edgeGapCm);
-  } else {
-    const left = Math.ceil(count / 2);
-    const right = count - left;
-    for (let i = 0; i < left; i++) positionsCm.push(edgeGapCm + i * pitchCm);
-    const start = edgeGapCm + (left - 1) * pitchCm + centerGapCm;
-    for (let j = 0; j < right; j++) positionsCm.push(start + j * pitchCm);
-  }
-  const spanCm = positionsCm[positionsCm.length - 1] + edgeGapCm;
-  return { edgeGapCm, pitchCm, centerGapCm, positionsCm, spanCm };
+  const sideCount = Math.floor(count / 2);
+  const offsetsCm = Array.from({ length: sideCount }, (_, i) => allOffsetsCm[i] ?? 0);
+  const positionsCm = [
+    ...[...offsetsCm].reverse().map((offset) => supportOffsetCm - offset),
+    ...(count % 2 === 1 ? [supportOffsetCm] : []),
+    ...offsetsCm.map((offset) => supportOffsetCm + offset),
+  ];
+  const spanCm = 2 * supportOffsetCm;
+  return { supportOffsetCm, sheaveOffsetsCm: offsetsCm, positionsCm, spanCm };
 }
 
 /** Kaldırma kirişinin ölçü zincirinden çözülmüş geometrisi [cm]. */
@@ -591,8 +596,8 @@ export function computeHookBlock(
   //   · DIN 15407 (lamel)         → tablonun KENDİ satırı ("Tragfähigkeit t").
   //     Lamel kancada mukavemet sınıfı ve mekanizma grubu kapasiteyi
   //     DEĞİŞTİRMEZ; standart doğrudan "bu boy şu tonu kaldırır" der.
-  //   · DIN 15408 (çift ağızlı lamel) → tablo uygulamada YOK; kapasite elle
-  //     girilir ve rapor bunu açıkça söyler (aşağıdaki `bilgi` kontrolü).
+  //   · DIN 15408 (çift ağızlı lamel) → tablo uygulamada YOK; seçim kapasitesi
+  //     sıfır kalır ve uygunluk vermez. Kullanıcı kapasiteyi elle yazamaz.
   const hookStandard = hookStandardOf(sel.hookStandard);
   const hookIsLamella = isLamellaHook(hookStandard);
   const lamellaRow = hookIsLamella ? din15407Row(sel.hookNumber) : undefined;
@@ -602,7 +607,7 @@ export function computeHookBlock(
     : sel.hookNumber && sel.hookStrengthClass
       ? hookCapacityKg(sel.hookNumber, sel.hookStrengthClass, mech)
       : undefined;
-  const hookCapacity = tableCapacityKg ?? sel.hookCapacityKg;
+  const hookCapacity = tableCapacityKg ?? 0;
   const suggestedHookNumber = hookIsLamella
     ? smallestDin15407Key(deps.loadKg)
     : sel.hookStrengthClass
@@ -638,7 +643,7 @@ export function computeHookBlock(
   // Kapasitenin NEREDEN geldiği ayrı bir KONTROL değil bir HESAP SATIRIDIR
   // (`hook.capacitySource`, hookBlockSections). Bir kontrol her koşulda
   // üretilmelidir (anchors.guard); "kaynak" ise bir kabul/ret değil bir
-  // künyedir ve her zaman basılır — DIN 15408'de "elle girildi" der.
+  // künyedir ve her zaman basılır.
 
   // --- §4.2 Makaralar -------------------------------------------------------
   // FEM'in istediği çap D_min = H · d'dir ve yuvarlak çıkmaz; makara ise
@@ -795,19 +800,20 @@ export function computeHookBlock(
     pass: shaftAllow.combined >= stress.combinedStress,
     standard: "CMAA 70 4.11.4.1", kind: "standart", severity: "engelleyici",
   });
-  // Makara rulmanı milin üzerine oturur → iç çapı mil çapına eşit olmalı.
-  // Montaj uyumu bilgisidir; tasarımı reddetmez.
-  if (sel.sheaveBearingBoreMm !== undefined && sel.sheaveBearingBoreMm > 0) {
-    const boreMm = sel.sheaveBearingBoreMm;
-    const shaftMm = inp.shaftD1Mm;
-    checks.push({
-      id: `${which}.sheaveBearing.bore`,
-      label: "Makara Rulmanı İç Çapı = Mil Çapı (D1)",
-      min: shaftMm, max: shaftMm, provided: boreMm, unit: "mm", op: "range",
-      pass: Math.abs(boreMm - shaftMm) < 0.5,
-      kind: "bilgi", severity: "uyari",
-    });
-  }
+  // Makara rulmanı milin üzerine oturur: katalog iç çapı D1 ile BİREBİR
+  // eşleşir. Eksik çap da sessizce uygun sayılmaz.
+  const sheaveBearingBoreMm = sel.sheaveBearingBoreMm ?? 0;
+  const shaftSeatMm = inp.shaftD1Mm;
+  cells["sheaveBearing.bore"] = sheaveBearingBoreMm;
+  cells["sheaveBearing.shaftSeat"] = shaftSeatMm;
+  checks.push({
+    id: `${which}.sheaveBearing.bore`,
+    label: "Makara Rulmanı İç Çapı = Mil Çapı (D1)",
+    min: shaftSeatMm, max: shaftSeatMm,
+    provided: sheaveBearingBoreMm, unit: "mm", op: "range",
+    pass: Number.isFinite(sheaveBearingBoreMm) && sheaveBearingBoreMm === shaftSeatMm,
+    kind: "uretici", severity: "uyari",
+  });
 
   // --- §4.5 Kanca rulmanı ---------------------------------------------------
   const hookBearingAxialKn = (deps.loadKg * 9.81) / 1000;
