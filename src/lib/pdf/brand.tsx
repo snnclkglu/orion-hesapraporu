@@ -186,6 +186,10 @@ export interface PageFrameProps {
   company?: CompanyInfo;
   /** Kapak sayfasında altbilgi çizgisi istenmezse */
   hideFooterRule?: boolean;
+  /** El kitabında dış kenarda sürekli görünen bölüm sekmesi (ör. `4`, `EK-F`). */
+  sectionLabel?: string;
+  /** Sonradan birleştirilen eklerde folio, nihai belge numarasıyla damgalanır. */
+  hidePageNumber?: boolean;
   /** Yalnız geniş tablo ve çizelgelerde A4 yatay kullanılır. */
   orientation?: "portrait" | "landscape";
   style?: object;
@@ -205,6 +209,8 @@ export function BrandPage({
   children,
   company,
   hideFooterRule,
+  sectionLabel,
+  hidePageNumber,
   orientation = "portrait",
   style,
 }: PageFrameProps) {
@@ -231,6 +237,37 @@ export function BrandPage({
         fixed
         style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: PAGE.spine, backgroundColor: BRAND.red }}
       />
+      {sectionLabel ? (
+        <View
+          fixed
+          style={{
+            position: "absolute",
+            top: mm(47),
+            right: 0,
+            width: mm(10),
+            minHeight: mm(12),
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderLeftWidth: 1,
+            borderColor: BRAND.red,
+            backgroundColor: BRAND.white,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 4,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: FONTS.mono,
+              fontSize: sectionLabel.length > 3 ? 6.5 : 9,
+              fontWeight: 600,
+              color: BRAND.red,
+            }}
+          >
+            {sectionLabel}
+          </Text>
+        </View>
+      ) : null}
       {children}
       {/* Altbilgi: (varsa) firma künyesi + doküman kimliği + folio.
           Ayırıcı çizgi TEK: künye varsa çizgi künyenin üstündedir ve doküman
@@ -257,10 +294,12 @@ export function BrandPage({
         >
           <Text style={T.micro}>{docLine}</Text>
           {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
-          <Text
-            style={T.micro}
-            render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
-          />
+          {hidePageNumber ? null : (
+            <Text
+              style={T.micro}
+              render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
+            />
+          )}
         </View>
       </View>
     </Page>

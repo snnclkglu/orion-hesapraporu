@@ -68,6 +68,11 @@ const PDF_ASSETS = [
 ];
 
 const nextConfig: NextConfig = {
+  // EK-F katalog sayfalarını küçülten canvas yerel (native) ikili taşır.
+  // Turbopack bunu ESM chunk'ına gömmeye kalkarsa "non-ecmascript
+  // placeable asset" ile derleme düşer; Node çalışma zamanında paket olarak
+  // yüklenmesi gerekir. Vercel kurulum sırasında Linux ikilisini seçer.
+  serverExternalPackages: ["@napi-rs/canvas"],
   outputFileTracingIncludes: {
     // Hesap raporu + ekipman PDF'i (report / equipment/download route'ları)
     "/projects/**": PDF_ASSETS,

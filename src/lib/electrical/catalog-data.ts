@@ -23,6 +23,8 @@ export interface ElectricalCatalogDocument {
   storagePath: string;
   storageParts: string[];
   pageCount: number;
+  sourceDocumentId: string | null;
+  sourcePages: number[];
 }
 
 interface ProductRow {
@@ -121,7 +123,7 @@ export async function loadElectricalCatalogDocuments(
   if (unique.length === 0) return [];
   const { data } = await supabase
     .from("electrical_catalog_documents")
-    .select("id, title, file_name, storage_path, storage_parts, page_count")
+    .select("id, title, file_name, storage_path, storage_parts, page_count, source_document_id, source_pages")
     .in("id", unique);
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
@@ -133,6 +135,8 @@ export async function loadElectricalCatalogDocuments(
         ? r.storage_parts.map(String)
         : [String(r.storage_path ?? "")],
     pageCount: Number(r.page_count ?? 0),
+    sourceDocumentId: r.source_document_id ? String(r.source_document_id) : null,
+    sourcePages: Array.isArray(r.source_pages) ? r.source_pages.map(Number) : [],
   }));
 }
 

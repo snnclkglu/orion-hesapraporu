@@ -348,14 +348,24 @@ kullanıcının o ekrana bir daha güvenmemesi demektir.
 ## KITAP-17 — EK-F'ye TAM KATALOG değil TEKNİK FÖY girer.
 
 Tam sürüm üretilirken `elektrikKatalog` eki güncel elektrik malzeme sırasından
-çözülür. Yalnız 1–6 sayfalık birincil `technical` belgeler alınır; aynı föy
-birden çok üründe kullanılıyorsa belge kimliğiyle bir kez basılır. Tam üretici
-kataloğu malzeme tablosundaki Katalog düğmesinden erişilebilir kalır fakat
-yüzlerce sayfalık kataloğun tamamı EK-F'yi şişirmez.
+çözülür. Her eşsiz kaynak/aralık için en çok ilk **iki** teknik sayfa alınır;
+aynı föy birden çok üründe kullanılıyorsa `source_document_id + source_pages`
+anahtarıyla bir kez basılır. Tam üretici kataloğu malzeme tablosundaki Katalog
+düğmesinden erişilebilir kalır fakat yüzlerce sayfalık kataloğun tamamı EK-F'yi
+şişirmez.
+
+EK-F'nin başında iki sütunlu ve tıklanabilir bir dizin bulunur. Dizindeki
+`F-nnn` numaraları EK-F içindeki yerel yaprağı, kitabın altbilgisindeki folio
+ise birleşmiş belgenin gerçek `NN / TOPLAM` numarasını gösterir. Ek sayfaları
+1600 px genişlikte, JPEG kalite 80 ile yeniden örneklenir; böylece teknik yazı
+okunur kalırken taranmış/vektör katalogların teslim dosyasını yüzlerce MB'a
+çıkarması önlenir.
 
 Eksik veya bozuk tek föy bütün kitabı düşürmez. Geçerli föyler mevcut
 `pdfEkleriYerlestir` hattında EK-F kapağının hemen arkasına birleşir; hiç
-geçerli belge yoksa var olmayan içeriği vaat eden boş kapak korunmaz.
+geçerli belge yoksa var olmayan içeriği vaat eden boş kapak korunmaz. Ek
+yerleştirildikten sonra dizindeki adlandırılmış hedefler nihai sayfa
+referanslarına çevrilir; kopyalama işlemi bağlantıları sessizce öldüremez.
 
 ## KITAP-18 — Marka ortaklığı, kapak görseli ve yayım kalite kapısı SNAPSHOT'tır.
 

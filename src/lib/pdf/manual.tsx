@@ -15,7 +15,7 @@
 // hesap motorunu ya da Supabase'i tanımaz.
 
 import React from "react";
-import { Document, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Link, StyleSheet, Text, View } from "@react-pdf/renderer";
 import {
   BRAND,
   BrandBand,
@@ -44,6 +44,7 @@ import {
   bolumSayfalari,
   manualAtomlari,
   manualPdfSayfalari,
+  tabloPaylari,
   type ManualAtom,
 } from "@/lib/manual/pdf-layout";
 import { manualAssetRatios } from "@/lib/manual/assets";
@@ -83,6 +84,12 @@ export interface ManualPdfProps {
   company?: CompanyInfo;
   /** Kapak künyesindeki sağ sütun satırları (revizyon · tarih). */
   bandLines?: string[];
+  /** Tam sürümde her ek kapağından sonra eklenecek gerçek yaprak sayısı. */
+  appendixPageCounts?: Partial<Record<ManualAppendixKind, number>>;
+  /** Tam sürümde bulunup doğrulanmış ekler; yoksa bütün ek kapakları basılır. */
+  includedAppendices?: readonly ManualAppendixKind[];
+  /** Nihai folio ekler birleştirildikten sonra pdf-lib tarafından basılacak. */
+  deferFolio?: boolean;
 }
 
 /**
@@ -104,7 +111,7 @@ const s = StyleSheet.create({
   kapakAlt: { fontSize: 14, fontWeight: 500, color: BRAND.gray700, marginTop: 6 },
   kapakDoc: { fontSize: 11, fontWeight: 700, letterSpacing: 1.2, marginTop: mm(10) },
   kunyeSatir: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: BRAND.hairline, paddingVertical: 3 },
-  kunyeEtiket: { width: "35%", fontSize: 8, color: BRAND.gray600 },
+  kunyeEtiket: { width: "27%", fontSize: 8, color: BRAND.gray600 },
   kunyeDeger: { flex: 1, fontSize: 9 },
 
   h1: { fontSize: 14, fontWeight: 800, marginTop: 14, marginBottom: 5 },
@@ -153,8 +160,17 @@ const s = StyleSheet.create({
      italic"). Ayrım punto ve renkle kurulur. */
   altyazi: { fontSize: 7, color: BRAND.gray600, marginTop: 2 },
 
-  icindekilerSatir: { flexDirection: "row", marginBottom: 1.5, alignItems: "flex-start" },
-  dizinSayfa: { width: 16, fontSize: 7.5, textAlign: "right", fontFamily: FONTS.mono },
+  icindekilerSatir: {
+    flexDirection: "row",
+    minHeight: 15,
+    paddingVertical: 2.5,
+    borderBottomWidth: 0.35,
+    borderBottomColor: BRAND.hairline,
+    alignItems: "flex-start",
+    textDecoration: "none",
+    color: BRAND.ink,
+  },
+  dizinSayfa: { width: 24, fontSize: 7.5, textAlign: "right", fontFamily: FONTS.mono },
   ekKapakBaslik: { fontSize: 18, fontWeight: 800, marginTop: mm(30) },
 
   /* İKİ SÜTUN — genişlikler yerleşim çekirdeğinin ÖLÇTÜĞÜ sayılardır
@@ -162,6 +178,15 @@ const s = StyleSheet.create({
      ayrışır ve @react-pdf taşan satırı sessizce kırpardı. */
   ikiSutun: { flexDirection: "row", gap: SUTUN_BOSLUK },
   sutun: { width: SUTUN_GENISLIK },
+  ortaCizgi: {
+    position: "absolute",
+    left: SUTUN_GENISLIK + SUTUN_BOSLUK / 2,
+    top: 0,
+    bottom: 0,
+    width: 0.45,
+    backgroundColor: BRAND.line300,
+    opacity: 0.7,
+  },
 });
 
 export function ManualPdf({
@@ -172,10 +197,16 @@ export function ManualPdf({
   docLine,
   company,
   bandLines,
+  appendixPageCounts = {},
+  includedAppendices,
+  deferFolio = false,
 }: ManualPdfProps) {
   const basilan = printedManual(payload);
   const numarali = numberManual(basilan.sections);
-  const duz = flattenManual(numarali);
+  const dahilEkler = includedAppendices ? new Set(includedAppendices) : null;
+  const duz = flattenManual(numarali).filter(
+    (bolum) => !bolum.appendix || !dahilEkler || dahilEkler.has(bolum.appendix)
+  );
   const gorseller = new Map(images.map((g) => [g.id, g]));
   // Ölçü için ORAN, çizim için BAYT. İki harita aynı kayıttan doğar ama
   // yerleşim çekirdeği React'i tanımaz; ona yalnız sayı gider.
@@ -192,20 +223,35 @@ export function ManualPdf({
   // birbirine karışır ve her ek yanlış kapağın altına düşerdi.
   const ekKapsayici = numarali.find((b) => b.children.some((c) => c.appendix)) ?? null;
   const govdeBolumleri = numarali.filter((b) => b !== ekKapsayici);
-  const ekKapaklari = (ekKapsayici?.children ?? []).filter((c) => c.appendix);
+  const ekKapaklari = (ekKapsayici?.children ?? []).filter(
+    (c) => c.appendix && (!dahilEkler || dahilEkler.has(c.appendix))
+  );
 
   // GÖVDE İKİ SÜTUNDA AKAR (kullanıcı isteği, 19.08.2026). Dağıtım saf
   // çekirdektedir (`manual/pdf-layout.ts`); burası yalnız çizer.
-  const atomlar = manualAtomlari(govdeBolumleri, sources, oranlar);
-  const sayfalar = manualPdfSayfalari(atomlar);
+  const govdeSayfalari = govdeBolumleri.flatMap((bolum) => {
+    // Bakım çizelgesi ve yedek parça listeleri veri yoğun tablolardır; dar
+    // sütunda anlamlarını kaybeder. Ana bölüm ayrı dağıtıldığı için her bölüm
+    // kendiliğinden yeni bir yapraktan başlar.
+    const tamGenislik = bolum.key === "bakim" || bolum.key === "yedek";
+    return manualPdfSayfalari(manualAtomlari([bolum], sources, oranlar, tamGenislik)).map(
+      (sayfa) => ({ sayfa, sectionLabel: bolum.number || "" })
+    );
+  });
+  const sayfalar = govdeSayfalari.map((s) => s.sayfa);
 
   // DİZİN SAYFA NUMARASI DAĞITIMIN SONUCUNDAN gelir. Gövde belgede 3.
   // yapraktan başlar (kapak + içindekiler), o yüzden ofset 2'dir; dizin
   // yoksa 1. Ekler gövdeden sonra gelir ve kendi numaralarını alır.
-  const dizinVar = duz.length > 0;
-  const govdeOfset = dizinVar ? 2 : 1;
+  const DIZIN_SAYFA_KAPASITESI = 52;
+  const dizinSayfalari = Array.from(
+    { length: Math.ceil(duz.length / DIZIN_SAYFA_KAPASITESI) },
+    (_, i) => duz.slice(i * DIZIN_SAYFA_KAPASITESI, (i + 1) * DIZIN_SAYFA_KAPASITESI)
+  );
+  const govdeOfset = 1 + dizinSayfalari.length;
   const sayfaNo = bolumSayfalari(sayfalar, govdeOfset);
-  const ekIlkSayfa = govdeOfset + sayfalar.length + (ekKapsayici ? 1 : 0);
+  const ekKapsayiciSayfa = govdeOfset + sayfalar.length + 1;
+  const ekIlkSayfa = ekKapsayici ? ekKapsayiciSayfa + 1 : ekKapsayiciSayfa;
 
   const kunye = payload.identity;
   const kunyeSatirlari: [string, string][] = [
@@ -224,8 +270,6 @@ export function ManualPdf({
     // (teklifteki "değersiz satır basılmaz" kuralının aynısı).
   ].filter((r): r is [string, string] => Boolean(r[1]?.trim()));
 
-  const yarim = Math.ceil(kunyeSatirlari.length / 2);
-  const dizinYarim = Math.ceil(duz.length / 2);
   const ortaLogo = bandLogo(gorseller.get(payload.partnerLogos.centerImageId ?? ""));
   const sagLogo = bandLogo(gorseller.get(payload.partnerLogos.rightImageId ?? ""));
   const kapakGorseli = gorseller.get(payload.coverImageId ?? "") ?? null;
@@ -251,7 +295,7 @@ export function ManualPdf({
           okunacak bir metin değil, belgenin kimliğidir. Künye bloğu ise iki
           sütuna geçer — on bir kısa satır tek sütunda sayfanın yarısını boş
           bırakıyordu. */}
-      <BrandPage docLine={docLine} docCode={docCode} company={company} hideFooterRule>
+      <BrandPage docLine={docLine} docCode={docCode} company={company} sectionLabel="K" hidePageNumber={deferFolio}>
         {ustBant()}
         <Text
           style={[
@@ -274,13 +318,9 @@ export function ManualPdf({
         {kunyeSatirlari.length > 0 && (
           <View style={{ marginTop: kapakGorseli ? mm(8) : mm(16) }} wrap={false}>
             <Text style={T.kicker}>GENEL BİLGİLER</Text>
-            <View style={s.ikiSutun}>
-              {[kunyeSatirlari.slice(0, yarim), kunyeSatirlari.slice(yarim)].map((kol, ki) => (
-                <View style={s.sutun} key={ki}>
-                  {kol.map(([e, d]) => (
-                    <KunyeSatiri key={e} etiket={e} deger={d} />
-                  ))}
-                </View>
+            <View>
+              {kunyeSatirlari.map(([e, d]) => (
+                <KunyeSatiri key={e} etiket={e} deger={d} />
               ))}
             </View>
           </View>
@@ -303,21 +343,35 @@ export function ManualPdf({
       {/* İÇİNDEKİLER DE İKİ SÜTUNDUR: elli kısa satır tek sütunda iki yaprak
           ederdi. Dizin ÖNCE SOL sütunu doldurup sonra sağa geçer — okuyan bir
           dizini yukarıdan aşağıya tarar, satır satır zikzak çizmez. */}
-      {duz.length > 0 && (
-        <BrandPage docLine={docLine} docCode={docCode}>
+      {dizinSayfalari.map((dizinBolumu, dizinSayfaIndisi) => {
+        const dizinYarim = Math.ceil(dizinBolumu.length / 2);
+        return (
+        <BrandPage key={dizinSayfaIndisi} docLine={docLine} docCode={docCode} sectionLabel="İÇ" hidePageNumber={deferFolio}>
           {ustBant()}
-          <Text style={s.h1}>İÇİNDEKİLER</Text>
-          <View style={s.ikiSutun}>
-            {[duz.slice(0, dizinYarim), duz.slice(dizinYarim)].map((kol, ki) => (
+          <Text style={s.h1}>
+            İÇİNDEKİLER{dizinSayfalari.length > 1 ? ` · ${dizinSayfaIndisi + 1}` : ""}
+          </Text>
+          <IkiSutun>
+            {[dizinBolumu.slice(0, dizinYarim), dizinBolumu.slice(dizinYarim)].map((kol, ki) => (
               <View style={s.sutun} key={ki}>
                 {kol.map((b) => {
                   // EK BÖLÜMLERİ GÖVDEDEN SONRA gelir ve sırayla numaralanır;
                   // her ek kapağı kendi yaprağındadır (KITAP-8 sözleşmesi).
                   const ekSira = ekKapaklari.findIndex((e) => e.id === b.id);
-                  const no =
-                    ekSira >= 0 ? ekIlkSayfa + ekSira : (sayfaNo.get(b.id) ?? null);
+                  const oncekiEkSayfalari = ekKapaklari
+                    .slice(0, Math.max(0, ekSira))
+                    .reduce(
+                      (toplam, ek) =>
+                        toplam + (appendixPageCounts[ek.appendix as ManualAppendixKind] ?? 0),
+                      0
+                    );
+                  const no = ekSira >= 0
+                    ? ekIlkSayfa + ekSira + oncekiEkSayfalari
+                    : b.id === ekKapsayici?.id
+                      ? ekIlkSayfa - 1
+                      : (sayfaNo.get(b.id) ?? null);
                   return (
-                    <View key={b.id} style={s.icindekilerSatir}>
+                    <Link key={b.id} src={`#manual-${b.id}`} style={s.icindekilerSatir}>
                       {/* NUMARA KUTUSU EN DERİN GİRDİYE GÖRE ölçülür:
                           "4.8.3.1" 7,5 punto mono ile 31,5 pt tutar ve girinti
                           onu 36 pt'lik bir kutudan taşırıyordu — numara ile
@@ -328,7 +382,7 @@ export function ManualPdf({
                         style={[
                           s.numara,
                           {
-                            width: 46,
+                            width: 42,
                             fontSize: 7.5,
                             paddingLeft: (Math.min(b.depth, 3) - 1) * 5,
                           },
@@ -348,31 +402,31 @@ export function ManualPdf({
                       >
                         {b.title}
                       </Text>
-                      <Text style={[s.dizinSayfa, { color: BRAND.gray600 }]}>
-                        {no ?? ""}
-                      </Text>
-                    </View>
+                      <View style={{ flex: 1, borderBottomWidth: 0.35, borderBottomColor: BRAND.line300, marginHorizontal: 4, marginTop: 7 }} />
+                      <Text style={[s.dizinSayfa, { color: BRAND.gray600 }]}>{no ?? ""}</Text>
+                    </Link>
                   );
                 })}
               </View>
             ))}
-          </View>
+          </IkiSutun>
         </BrandPage>
-      )}
+        );
+      })}
 
       {/* GÖVDE — her sayfa çekirdeğin verdiği bantlardan çizilir. */}
-      {sayfalar.map((sayfa, si) => (
-        <BrandPage key={si} docLine={docLine} docCode={docCode}>
+      {govdeSayfalari.map(({ sayfa, sectionLabel }, si) => (
+        <BrandPage key={si} docLine={docLine} docCode={docCode} sectionLabel={sectionLabel} hidePageNumber={deferFolio}>
           {ustBant()}
           {sayfa.bantlar.map((bant, bi) =>
             bant.kind === "full" ? (
-              <View key={bi}>
+              <View key={bi} wrap={false}>
                 {bant.atoms.map((a, ai) => (
                   <Atom key={ai} atom={a} sources={sources} gorseller={gorseller} tam />
                 ))}
               </View>
             ) : (
-              <View key={bi} style={s.ikiSutun}>
+              <IkiSutun key={bi}>
                 {[bant.sol, bant.sag].map((kol, ki) => (
                   <View style={s.sutun} key={ki}>
                     {kol.map((a, ai) => (
@@ -380,7 +434,7 @@ export function ManualPdf({
                     ))}
                   </View>
                 ))}
-              </View>
+              </IkiSutun>
             )
           )}
         </BrandPage>
@@ -388,9 +442,9 @@ export function ManualPdf({
 
       {/* EKLER — kapsayıcı bir yaprak, her ek kapağı KENDİ yaprağında. */}
       {ekKapsayici && (
-        <BrandPage docLine={docLine} docCode={docCode}>
+        <BrandPage docLine={docLine} docCode={docCode} sectionLabel="EK" hidePageNumber={deferFolio}>
           {ustBant()}
-          <Text style={s.h1}>{ekKapsayici.title}</Text>
+          <Text id={`manual-${ekKapsayici.id}`} style={s.h1}>{ekKapsayici.title}</Text>
           {ekKapsayici.blocks.map((b) => (
             <Blok
               key={b.id}
@@ -403,9 +457,9 @@ export function ManualPdf({
         </BrandPage>
       )}
       {ekKapaklari.map((ek) => (
-        <BrandPage key={ek.id} docLine={docLine} docCode={docCode}>
+        <BrandPage key={ek.id} docLine={docLine} docCode={docCode} sectionLabel={ek.number} hidePageNumber={deferFolio}>
           {ustBant()}
-          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+          <View id={`manual-${ek.id}`} style={{ flexDirection: "row", alignItems: "baseline" }}>
             <Text style={[s.h1, s.numara, { marginRight: 6 }]}>{ek.number}</Text>
             <Text style={s.h1}>{ek.title}</Text>
           </View>
@@ -472,6 +526,16 @@ function KunyeSatiri({ etiket, deger }: { etiket: string; deger: string }) {
   );
 }
 
+/** İki sütunlu her bölgede okuma yönünü belirginleştiren soluk orta kural. */
+function IkiSutun({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={s.ikiSutun}>
+      <View style={s.ortaCizgi} />
+      {children}
+    </View>
+  );
+}
+
 /**
  * Yerleşim atomunun çizimi.
  *
@@ -499,7 +563,11 @@ function Atom({
     // `flex: 1` de şart: numarasız bir başlık kutusu genişlemezse uzun bir ad
     // sarmak yerine taşardı.
     return (
-      <View style={{ flexDirection: "row", alignItems: "flex-start" }} wrap={false}>
+      <View
+        id={`manual-${b.id}`}
+        style={{ flexDirection: "row", alignItems: "flex-start" }}
+        wrap={false}
+      >
         {b.number ? <Text style={[stil, s.numara, { marginRight: 5 }]}>{b.number}</Text> : null}
         <Text style={[stil, { flex: 1 }]}>{b.title}</Text>
       </View>
@@ -671,18 +739,14 @@ function Tablo({ table, dilim }: { table: ManualTable; dilim?: ManualAtom }) {
   // Sütun payları TAM TABLODAN hesaplanır, dilimden değil: iki dilimin
   // sütunları farklı genişlikte çıkarsa okuyan iki ayrı tablo görürdü.
   const sutun = Math.max(table.head.length, ...table.rows.map((r) => r.length), 1);
-  const uzunluk: number[] = Array.from({ length: sutun }, (_, j) => {
-    let en = (table.head[j] ?? "").length;
-    for (const r of table.rows) en = Math.max(en, (r[j] ?? "").length);
-    // Kelepçe: 4 karakterden dar bir sütun okunmaz, 40'tan geniş olan komşusunu ezer.
-    return Math.min(40, Math.max(4, en));
-  });
-  const toplam = uzunluk.reduce((a, b) => a + b, 0);
-  const pay = uzunluk.map((u) => `${((u / toplam) * 100).toFixed(2)}%`);
+  const genislik = dilim?.tam ? TAM_GENISLIK : SUTUN_GENISLIK;
+  const mutlakPaylar = tabloPaylari(table, genislik);
+  const toplam = mutlakPaylar.reduce((a, b) => a + b, 0);
+  const pay = mutlakPaylar.map((u) => `${((u / toplam) * 100).toFixed(2)}%`);
 
   return (
-    <View style={{ marginVertical: 5 }}>
-      <View style={s.tabloBaslik} fixed>
+    <View style={{ marginVertical: 5 }} wrap={false}>
+      <View style={s.tabloBaslik} wrap={false}>
         {Array.from({ length: sutun }).map((_, j) => (
           <Text key={j} style={[s.hucreBaslik, { width: pay[j] }]}>
             {table.head[j] ?? ""}

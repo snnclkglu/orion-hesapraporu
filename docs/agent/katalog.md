@@ -159,11 +159,16 @@ bir belgeye KOPYALANMAZ** — `pdfBirlestir` gibi kopyalayan bir yol
 ## KATALOG-20 — Elektrik kataloğu ÖZGÜN BELGE + DOĞRULANMIŞ FÖY olarak saklanır.
 
 Tam üretici kataloğu kaybolmaz; `catalog` bağıyla özgün PDF olarak saklanır.
-Müşteriye gösterilen `technical` belge ise ya doğrudan 1–6 sayfalık resmi föy
-ya da uzun katalogdan çıkarılmış en fazla 6 sayfalık `technical_extract`tir.
+Müşteriye gösterilen `technical` belge ise ya doğrudan kısa resmi föy ya da
+uzun katalogdan çıkarılmış doğrulanmış `technical_extract`tir.
 Çıkarım kaydı `source_document_id` ile özgün belgeyi ve 1 tabanlı
 `source_pages` ile fiziksel sayfaları taşır; böylece her yaprağın kaynağı
 denetlenebilir.
+
+İşletme ve bakım kitabının EK-F üretiminde her eşsiz kaynak/aralığın en çok ilk
+iki sayfası kullanılır ve aynı kaynak/aralık tekrar basılmaz. Bu teslim sınırı
+veritabanındaki özgün föyü ya da tam kataloğu kırpmaz; Malzeme Listesi'ndeki
+Teknik Föy ve Katalog düğmeleri özgün belgeleri açmayı sürdürür.
 
 Uzun katalogda kısa/genel bir metin eşleşmesi yeterli değildir. Tam normalize
 sipariş kodu ve teknik içerik birlikte doğrulanır; indeks sayfası ürün sayfası

@@ -20,7 +20,18 @@
 // Çağıranın bu raporu kullanıcıya taşıması ZORUNLUDUR; taşımazsa deste eksik
 // basılır ve kimse fark etmez.
 
-import { EncryptedPDFError, PDFDocument } from "pdf-lib";
+import {
+  EncryptedPDFError,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFHexString,
+  PDFName,
+  PDFPage,
+  PDFString,
+  StandardFonts,
+  rgb,
+} from "pdf-lib";
 
 /** Birleştirilecek tek bir kaynak. `ad` yalnız rapor içindir, dosya adı değil. */
 export interface BirlesecekPdf {
@@ -217,6 +228,15 @@ export interface YerlestirilecekEk {
   /** Yalnız rapor için — dosya adı değil. */
   ad: string;
   bytes: Uint8Array;
+  /** Ek içindeki adlandırılmış hedef → 0 tabanlı yerel sayfa. */
+  destinations?: Readonly<Record<string, number>>;
+  /** Eklenen bütün yaprakların dış kenarında gösterilecek bölüm etiketi. */
+  sectionLabel?: string;
+}
+
+export interface EkYerlestirmeSecenekleri {
+  /** Birleştirme bittikten sonra bütün yapraklara nihai `NN / TOPLAM` foliosu bas. */
+  finalFolio?: boolean;
 }
 
 export interface EkYerlestirmeSonucu {
@@ -253,12 +273,14 @@ export interface EkYerlestirmeSonucu {
  */
 export async function pdfEkleriYerlestir(
   temelPdf: Uint8Array,
-  ekler: readonly YerlestirilecekEk[]
+  ekler: readonly YerlestirilecekEk[],
+  secenekler: EkYerlestirmeSecenekleri = {}
 ): Promise<EkYerlestirmeSonucu> {
   const hedef = await PDFDocument.load(temelPdf, { updateMetadata: false });
   const atlananlar: AtlananPdf[] = [];
   let eklenen = 0;
   let eklenenSayfa = 0;
+  const eklenenGruplar: { pages: PDFPage[]; sectionLabel?: string }[] = [];
 
   // Kapak indisleri BAŞTAN hesaplanır ve SONDAN BAŞA işlenir: her yerleştirme
   // yalnız kendisinden SONRAKİ indisleri kaydırır, öndekiler geçerli kalır.
@@ -292,13 +314,21 @@ export async function pdfEkleriYerlestir(
       // ÖNCE hepsi kopyalanır, SONRA eklenir: kopyalama ortasında hata çıkarsa
       // belgeye yarım bir ek girmiş olmaz.
       const sayfalar = await hedef.copyPages(kaynak, indisler);
+      if (ek.destinations) {
+        ekBaglantilariniYenidenKur(hedef, sayfalar, ek.destinations);
+      }
       sayfalar.forEach((sayfa, k) => hedef.insertPage(kapakIndisi + 1 + k, sayfa));
+      eklenenGruplar.push({ pages: sayfalar, sectionLabel: ek.sectionLabel });
       eklenen += 1;
       eklenenSayfa += sayfalar.length;
     } catch (e) {
       atlananlar.push({ ad, sebep: sebepMetni(e) });
       hedef.removePage(kapakIndisi);
     }
+  }
+
+  if (secenekler.finalFolio) {
+    await nihaiFolioyuBas(hedef, eklenenGruplar);
   }
 
   const ham = await hedef.save({
@@ -312,4 +342,94 @@ export async function pdfEkleriYerlestir(
   // isterdi.
   atlananlar.reverse();
   return { bytes, eklenen, eklenenSayfa, atlananlar };
+}
+
+function hedefAdi(value: unknown): string | null {
+  if (value instanceof PDFString || value instanceof PDFHexString) return value.decodeText();
+  if (value instanceof PDFName) return value.asString().replace(/^\//, "");
+  return null;
+}
+
+/** Kopyalanan ekin named-destination bağlantılarını nihai sayfa referansına çevirir. */
+function ekBaglantilariniYenidenKur(
+  document: PDFDocument,
+  pages: readonly PDFPage[],
+  destinations: Readonly<Record<string, number>>
+): void {
+  for (const page of pages) {
+    const annots = page.node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+    if (!annots) continue;
+    for (const ref of annots.asArray()) {
+      const annot = document.context.lookupMaybe(ref, PDFDict);
+      if (!annot) continue;
+      let holder = annot;
+      let key = PDFName.of("Dest");
+      let value = annot.get(key);
+      if (!value) {
+        const action = annot.lookupMaybe(PDFName.of("A"), PDFDict);
+        if (!action) continue;
+        holder = action;
+        key = PDFName.of("D");
+        value = action.get(key);
+      }
+      const name = hedefAdi(value);
+      const localPage = name === null ? undefined : destinations[name];
+      if (localPage === undefined || localPage < 0 || localPage >= pages.length) continue;
+      holder.set(
+        key,
+        document.context.obj([pages[localPage].ref, PDFName.of("XYZ"), null, null, null])
+      );
+    }
+  }
+}
+
+/** Nihai toplam bilindikten sonra gövde ve eklerin tamamına tek folio basar. */
+async function nihaiFolioyuBas(
+  document: PDFDocument,
+  inserted: readonly { pages: readonly PDFPage[]; sectionLabel?: string }[]
+): Promise<void> {
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const allPages = document.getPages();
+  const total = allPages.length;
+  const red = rgb(164 / 255, 30 / 255, 30 / 255);
+  const gray = rgb(107 / 255, 102 / 255, 99 / 255);
+  const white = rgb(1, 1, 1);
+  const sectionByPage = new Map<PDFPage, string>();
+  for (const group of inserted) {
+    if (!group.sectionLabel) continue;
+    for (const page of group.pages) sectionByPage.set(page, group.sectionLabel);
+  }
+
+  allPages.forEach((page, index) => {
+    const { width, height } = page.getSize();
+    const label = `${String(index + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+    const size = 6;
+    const textWidth = font.widthOfTextAtSize(label, size);
+    page.drawRectangle({ x: width - 46 - textWidth, y: 16, width: textWidth + 8, height: 11, color: white });
+    page.drawText(label, { x: width - 42 - textWidth, y: 19, size, font, color: gray });
+
+    const sectionLabel = sectionByPage.get(page);
+    if (!sectionLabel) return;
+    const tabWidth = 28;
+    const tabHeight = 34;
+    const tabY = height - 168;
+    page.drawRectangle({
+      x: width - tabWidth,
+      y: tabY,
+      width: tabWidth,
+      height: tabHeight,
+      color: white,
+      borderColor: red,
+      borderWidth: 1,
+    });
+    const tabSize = sectionLabel.length > 4 ? 5.5 : 7;
+    const tabTextWidth = font.widthOfTextAtSize(sectionLabel, tabSize);
+    page.drawText(sectionLabel, {
+      x: width - tabWidth + (tabWidth - tabTextWidth) / 2,
+      y: tabY + (tabHeight - tabSize) / 2,
+      size: tabSize,
+      font,
+      color: red,
+    });
+  });
 }

@@ -12,8 +12,8 @@
 // değil.
 
 import { describe, expect, it } from "vitest";
-import { PDFDocument } from "pdf-lib";
-import { pdfBirlestir } from "../merge";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from "pdf-lib";
+import { pdfBirlestir, pdfEkleriYerlestir } from "../merge";
 
 /** `sayfa` adet boş A4 taşıyan geçerli bir PDF. */
 async function sahtePdf(sayfa: number): Promise<Uint8Array> {
@@ -110,5 +110,42 @@ describe("pdfBirlestir", () => {
     const okunan = await PDFDocument.load(sonuc.bytes, { updateMetadata: false });
     expect(okunan.getTitle()).toBe("İmalat Resimleri — ŞŞ ĞĞ ıI");
     expect(okunan.getSubject()).toBe("1 resim birleştirildi; 1 açılamadı.");
+  });
+});
+
+describe("pdfEkleriYerlestir", () => {
+  it("kopyalanan EK-F dizin bağlantısını nihai sayfa referansına çevirir", async () => {
+    const temel = await PDFDocument.create();
+    temel.addPage([595, 842]); // EK-F kapağı
+
+    const ek = await PDFDocument.create();
+    const dizin = ek.addPage([595, 842]);
+    ek.addPage([595, 842]);
+    const annot = ek.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [20, 20, 140, 40],
+      Border: [0, 0, 0],
+      Dest: PDFString.of("ekf-entry-1"),
+    });
+    dizin.node.set(PDFName.of("Annots"), ek.context.obj([ek.context.register(annot)]));
+
+    const sonuc = await pdfEkleriYerlestir(
+      await temel.save(),
+      [{
+        ad: "EK-F",
+        bytes: await ek.save(),
+        destinations: { "ekf-entry-1": 1 },
+        sectionLabel: "EK-F",
+      }],
+      { finalFolio: true }
+    );
+
+    const final = await PDFDocument.load(sonuc.bytes, { updateMetadata: false });
+    expect(final.getPageCount()).toBe(3);
+    const annots = final.getPage(1).node.lookup(PDFName.of("Annots"), PDFArray);
+    const link = final.context.lookup(annots.get(0), PDFDict);
+    const dest = link.lookup(PDFName.of("Dest"), PDFArray);
+    expect(dest.get(0).toString()).toBe(final.getPage(2).ref.toString());
   });
 });

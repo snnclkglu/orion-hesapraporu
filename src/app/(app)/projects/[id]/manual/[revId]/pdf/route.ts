@@ -18,6 +18,7 @@
 
 import type { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
+import { PDFDocument } from "pdf-lib";
 import { createClient } from "@/lib/supabase/server";
 import { ManualPdf, manualAppendixOrder, type ManualImageAsset } from "@/lib/pdf/manual";
 import { downloadFileName } from "@/lib/pdf/doc-naming";
@@ -42,7 +43,7 @@ import { buildManualSourceData } from "../../sources-data";
 
 export const runtime = "nodejs";
 /** Tam sürüm yüzlerce sayfa birleştirebilir; gövde saniyeler içinde biter. */
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function GET(
   request: NextRequest,
@@ -104,6 +105,50 @@ export async function GET(
     String(new Date().getFullYear()),
   ].join(" · ");
 
+  // Tam sürümde eklerin GERÇEK boyu gövde çizilmeden önce bilinir. İçindekiler
+  // ancak bu sayılarla sonraki ek kapaklarının nihai sayfasını doğru yazabilir.
+  const cozulmusEkler: {
+    tur: ManualAppendixKind;
+    ad: string;
+    bytes: Uint8Array;
+    pageCount: number;
+    destinations?: Record<string, number>;
+    sectionLabel: string;
+  }[] = [];
+  const oncedenAtlanan: string[] = [];
+  if (eklerIstendi) {
+    const sira = manualAppendixOrder(payload);
+    for (let i = 0; i < sira.length; i++) {
+      const tur = sira[i];
+      const ad = MANUAL_APPENDIX_LABELS[tur];
+      const appendix = await ekBaytlari(supabase, id, revId, tur);
+      if (appendix.bytes.byteLength === 0) {
+        oncedenAtlanan.push(`${ad} (belge bulunamadı)`);
+        continue;
+      }
+      try {
+        const pdf = await PDFDocument.load(appendix.bytes, { updateMetadata: false });
+        if (pdf.getPageCount() < 1) throw new Error("belgede sayfa yok");
+        cozulmusEkler.push({
+          tur,
+          ad,
+          bytes: appendix.bytes,
+          pageCount: pdf.getPageCount(),
+          destinations: appendix.destinations,
+          sectionLabel: `EK-${String.fromCharCode(65 + i)}`,
+        });
+      } catch (error) {
+        oncedenAtlanan.push(
+          `${ad} (${error instanceof Error ? error.message.slice(0, 160) : "okunamadı"})`
+        );
+      }
+    }
+  }
+
+  const appendixPageCounts = Object.fromEntries(
+    cozulmusEkler.map((appendix) => [appendix.tur, appendix.pageCount])
+  ) as Partial<Record<ManualAppendixKind, number>>;
+
   const govde = await renderToBuffer(
     ManualPdf({
       payload,
@@ -124,28 +169,30 @@ export async function GET(
         `V${revizyon.row.revNo}`,
         new Date(revizyon.row.issuedAt ?? revizyon.row.createdAt).toLocaleDateString("tr-TR"),
       ],
+      appendixPageCounts,
+      includedAppendices: eklerIstendi ? cozulmusEkler.map((appendix) => appendix.tur) : undefined,
+      deferFolio: eklerIstendi,
     })
   );
 
   let bytes: Uint8Array<ArrayBuffer> = new Uint8Array(govde);
-  let atlanan = 0;
-  let atlananAd = "";
+  let atlanan = oncedenAtlanan.length;
+  let atlananAd = oncedenAtlanan.join("; ");
 
   if (eklerIstendi) {
-    const sira = manualAppendixOrder(payload);
-    const ekler: { ad: string; bytes: Uint8Array }[] = [];
-    for (const tur of sira) {
-      ekler.push({
-        ad: MANUAL_APPENDIX_LABELS[tur],
-        bytes: await ekBaytlari(supabase, id, revId, tur),
-      });
-    }
-    if (ekler.length > 0) {
-      const sonuc = await pdfEkleriYerlestir(bytes, ekler);
-      bytes = sonuc.bytes;
-      atlanan = sonuc.atlananlar.length;
-      atlananAd = sonuc.atlananlar.map((a) => `${a.ad} (${a.sebep})`).join("; ");
-    }
+    const ekler = cozulmusEkler.map((appendix) => ({
+      ad: appendix.ad,
+      bytes: appendix.bytes,
+      destinations: appendix.destinations,
+      sectionLabel: appendix.sectionLabel,
+    }));
+    const sonuc = await pdfEkleriYerlestir(bytes, ekler, { finalFolio: true });
+    bytes = sonuc.bytes;
+    atlanan += sonuc.atlananlar.length;
+    atlananAd = [
+      atlananAd,
+      sonuc.atlananlar.map((a) => `${a.ad} (${a.sebep})`).join("; "),
+    ].filter(Boolean).join("; ");
   }
 
   const ad = downloadFileName(
@@ -181,28 +228,28 @@ export async function GET(
  * belgede hiç iz kalmaz. Bir kapak bırakıp arkasını boş geçmek, okuyana
  * olmayan bir eki vaat etmek olurdu.
  *
- * Elektrik katalog eki güncel malzeme listesinin 1-6 sayfalık teknik
- * föylerinden derlenir; tam kataloglar yalnız malzeme ekranından açılır.
+ * Elektrik katalog eki güncel malzeme listesinin ürün başına en çok 1-2
+ * teknik sayfasından derlenir; tam kataloglar yalnız malzeme ekranından açılır.
  */
 async function ekBaytlari(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
   revisionId: string,
   tur: ManualAppendixKind
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; destinations?: Record<string, number> }> {
   void revisionId;
-  const bos = new Uint8Array(0);
+  const bos = { bytes: new Uint8Array(0) };
 
   if (tur === "elektrikProje") {
     const belge = await loadCurrentElectricalDoc(supabase, projectId);
     if (!belge) return bos;
     const { data } = await supabase.storage.from(ELECTRICAL_BUCKET).download(belge.storagePath);
-    return data ? new Uint8Array(await data.arrayBuffer()) : bos;
+    return data ? { bytes: new Uint8Array(await data.arrayBuffer()) } : bos;
   }
 
   if (tur === "elektrikKatalog") {
     const appendix = await buildElectricalCatalogAppendix(supabase, projectId);
-    return appendix.bytes;
+    return { bytes: appendix.bytes, destinations: appendix.destinations };
   }
 
   if (tur === "sartname") {
@@ -212,7 +259,7 @@ async function ekBaytlari(
     // ölçülmüş işaretidir (bkz. `spec-actions.ts`).
     if (!spec || spec.pageCount === 0) return bos;
     const { data } = await supabase.storage.from(SPEC_BUCKET).download(spec.storagePath);
-    return data ? new Uint8Array(await data.arrayBuffer()) : bos;
+    return data ? { bytes: new Uint8Array(await data.arrayBuffer()) } : bos;
   }
 
   if (tur === "mekanikHesap") {
@@ -242,7 +289,7 @@ async function ekBaytlari(
     if (!proje?.doc_no || !rev) return bos;
     const yol = `${projectId}/${String(proje.doc_no)}-V${Number(rev.rev_no)}.pdf`;
     const { data } = await supabase.storage.from("reports").download(yol);
-    return data ? new Uint8Array(await data.arrayBuffer()) : bos;
+    return data ? { bytes: new Uint8Array(await data.arrayBuffer()) } : bos;
   }
 
   return bos;

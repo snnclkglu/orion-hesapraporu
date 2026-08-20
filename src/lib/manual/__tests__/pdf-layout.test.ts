@@ -386,4 +386,59 @@ describe("gerçek şablon", () => {
     const basilan = dilimler.flatMap((a) => (a.kind === "block" ? (a.items ?? []) : []));
     expect(basilan).toEqual(Array.from({ length: 12 }, (_, i) => madde(i + 1)));
   });
+
+  it("tam genişlik uzun tabloyu sayfalara dilimler ve bütün satırları korur", () => {
+    const rows = Array.from({ length: 120 }, (_, i) => [
+      String(i + 1),
+      `Elektrik malzemesi ${i + 1}`,
+      `6SL-${String(i + 1).padStart(4, "0")}`,
+      "Siemens",
+      `SIE.${i + 1}`,
+      "+LVD01 +LVD03",
+    ]);
+    const sections = numberManual([
+      bolum({
+        id: "yedek",
+        key: "yedek",
+        title: "Yedek Parça Listeleri",
+        blocks: [
+          {
+            id: "elektrik",
+            kind: "table",
+            table: {
+              head: ["Adet", "Tanım", "Tip No", "Tedarikçi", "Malzeme Kodu", "Panolar"],
+              rows,
+            },
+          },
+        ],
+      }),
+    ]);
+    const atomlar = manualAtomlari(sections, BOS_KAYNAK, new Map(), true);
+    const sayfalar = manualPdfSayfalari(atomlar);
+    const dilimler = sayfalar
+      .flatMap((sayfa) => sayfa.bantlar)
+      .flatMap((bant) => (bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag]))
+      .filter((atom) => atom.kind === "block" && atom.block.id === "elektrik");
+
+    expect(sayfalar.length).toBeGreaterThan(1);
+    expect(dilimler.length).toBeGreaterThan(1);
+    expect(dilimler.every((atom) => atom.tam)).toBe(true);
+    expect(
+      Math.max(
+        ...dilimler.map((atom) => atom.kind === "block" ? (atom.rows?.length ?? 0) : 0)
+      )
+    ).toBeLessThanOrEqual(14);
+    expect(
+      Math.max(
+        ...sayfalar.map((sayfa) =>
+          sayfa.bantlar
+            .flatMap((bant) => (bant.kind === "full" ? bant.atoms : [...bant.sol, ...bant.sag]))
+            .filter((atom) => atom.kind === "block" && atom.block.id === "elektrik").length
+        )
+      )
+    ).toBe(1);
+    expect(
+      dilimler.flatMap((atom) => (atom.kind === "block" ? (atom.rows ?? []) : []))
+    ).toEqual(rows);
+  });
 });
