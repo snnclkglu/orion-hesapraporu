@@ -50,6 +50,15 @@ async function main() {
       .map((r) => `${r.label}=${r.qty ?? "?"}`)
       .join("  ")
   );
+  const kategoriAdetleri = new Map<string, number>();
+  for (const satir of malzeme) {
+    kategoriAdetleri.set(satir.category, (kategoriAdetleri.get(satir.category) ?? 0) + 1);
+  }
+  console.log(
+    "Kategori dökümü:",
+    [...kategoriAdetleri].map(([kategori, n]) => `${kategori}=${n}`).join("  ")
+  );
+  console.log(`Diğer kategorisindeki malzeme: ${kategoriAdetleri.get("Diğer") ?? 0}`);
 }
 
 main().catch((e) => {

@@ -22,6 +22,7 @@ import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
+import { electricalCategory } from "@/lib/electrical/category";
 import { materialRows } from "@/lib/electrical/rollup";
 import { catalogIdentityPart, electricalCatalogLookupKey } from "@/lib/electrical/catalogs";
 import type { ElectricalPart, ElectricalMaterialRow } from "@/lib/electrical/types";
@@ -51,6 +52,12 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const LOCAL_ONLY = process.argv.includes("--local-only");
 const MAPPED_ONLY = process.argv.includes("--mapped-only");
 const IS_DEFAULT_0019 = PROJECT_DOC_NO === "0019-00";
+const ONLY_TYPES = new Set(
+  (argumentValue("--only-types") ?? "")
+    .split(",")
+    .map((value) => catalogIdentityPart(value))
+    .filter(Boolean)
+);
 
 // Node 24'e kadar bulunmayan bu yerleşik, PDF.js'in yeni sürümünde kullanılıyor.
 // Polyfill dinamik unpdf importundan önce kurulmalı.
@@ -71,7 +78,7 @@ mathWithPreciseSum.sumPrecise ??= (values) => {
 const TECHNICAL_DENY = new Set(
   [
     "BST01", "AC-1", "HKA-A-180/11W", "43867", "113319",
-    "6SL3054-0FC31-1BA0", "3SK1121-1CB41", "3RN2010-1CW30", "51-67-DZC0Z-499P",
+    "6SL3054-0FC31-1BA0", "3SK1121-1CB41", "51-67-DZC0Z-499P",
   ].map(catalogIdentityPart)
 );
 
@@ -776,17 +783,31 @@ async function main(): Promise<void> {
   await loadEnvFiles();
   await access(INDEX_MD);
   const mappings = parseMapping(await readFile(INDEX_MD, "utf8"));
+  const activeMappings = ONLY_TYPES.size
+    ? mappings.filter((mapping) => ONLY_TYPES.has(catalogIdentityPart(mapping.typeNo)))
+    : mappings;
   // Ürün tablosunda doğrudan anılmayan iki genel belge de arşivin parçasıdır;
   // klasördeki içerik PDF'i hariç bütün kaynak PDF'ler veritabanına girer.
-  const mappedFileNames = [...new Set(mappings.flatMap((mapping) => mapping.files))];
+  const mappedFileNames = [...new Set(activeMappings.flatMap((mapping) => mapping.files))];
   const allFileNames = (MAPPED_ONLY
     ? mappedFileNames
-    : (await readdir(CATALOG_DIR)).filter((name) => /\.pdf$/i.test(name) && !/^00\s*-\s*/.test(name)))
+    : [
+        ...(await readdir(CATALOG_DIR)).filter(
+          (name) => /\.pdf$/i.test(name) && !/^00\s*-\s*/.test(name)
+        ),
+        // Eşleme defteri proje alt klasöründeki doğrulanmış bir teknik föyü
+        // gösterebilir. Restore sırasında yalnız kök klasörü saymak bu bağı
+        // sessizce düşürürdü.
+        ...mappedFileNames,
+      ])
+    .filter((name, index, all) => all.indexOf(name) === index)
     .sort((a, b) => a.localeCompare(b, "tr"));
   const existing = new Set(allFileNames);
-  const missing = [...new Set(mappings.flatMap((m) => m.files))].filter((name) => !existing.has(name));
+  const missing = [...new Set(activeMappings.flatMap((m) => m.files))].filter(
+    (name) => !existing.has(name)
+  );
   if (missing.length > 0) throw new Error(`Eşleme defterindeki PDF bulunamadı: ${missing.join(", ")}`);
-  log(`${mappings.length} ürün eşlemesi, ${allFileNames.length} kaynak PDF bulundu.`);
+  log(`${activeMappings.length} ürün eşlemesi, ${allFileNames.length} kaynak PDF bulundu.`);
   if (DRY_RUN) return;
 
   if (!LOCAL_ONLY && APPLY_MIGRATION) await applyMigration();
@@ -815,17 +836,21 @@ async function main(): Promise<void> {
     log(`[${i + 1}/${allFileNames.length}] ${fileName} · ${document.pageCount} s.`);
   }
 
-  const materials = supabase
+  const allMaterials = supabase
     ? await loadProjectMaterials(supabase)
-    : mappings.map<ElectricalMaterialRow>((m, index) => ({
+    : activeMappings.map<ElectricalMaterialRow>((m, index) => ({
         key: `local:${index}`,
         partNo: "",
         typeNo: m.typeNo,
         supplier: m.supplier,
         designation: m.designation,
+        category: electricalCategory({ ...m, partNo: "" }),
         qty: null,
         locations: [],
       }));
+  const materials = ONLY_TYPES.size
+    ? allMaterials.filter((material) => ONLY_TYPES.has(catalogIdentityPart(material.typeNo)))
+    : allMaterials;
   const unmatched: string[] = [];
   const withoutTechnical: string[] = [];
   const appendixInputs: { ad: string; bytes: Uint8Array }[] = [];

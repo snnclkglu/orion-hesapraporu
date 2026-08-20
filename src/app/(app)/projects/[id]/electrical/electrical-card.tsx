@@ -37,6 +37,7 @@ import { trKatla } from "@/lib/drawings/tr-text";
 // sıralama okunu ve "temizle" düğmesini bölümden bölüme farklı davrandırırdı.
 import { FilterBar, SearchBox } from "@/app/(app)/drawings/sortable-head";
 import { ELECTRICAL_BUCKET, suggestElectricalRevision, type ElectricalDoc } from "@/lib/electrical/data";
+import { ELECTRICAL_CATEGORIES } from "@/lib/electrical/category";
 import { materialRows, rollupBy } from "@/lib/electrical/rollup";
 import { groupSheetsByLocation } from "@/lib/electrical/sheet-index";
 import {
@@ -104,6 +105,16 @@ export function ElectricalCard({
   const malzeme = useMemo(() => materialRows(parts), [parts]);
   const panolar = useMemo(() => rollupBy(parts, "location"), [parts]);
   const tedarikciler = useMemo(() => rollupBy(parts, "supplier"), [parts]);
+  const kategoriler = useMemo(() => {
+    const adetler = new Map<string, number>();
+    for (const satir of malzeme) {
+      adetler.set(satir.category, (adetler.get(satir.category) ?? 0) + 1);
+    }
+    return ELECTRICAL_CATEGORIES.flatMap((category) => {
+      const adet = adetler.get(category) ?? 0;
+      return adet ? [{ category, adet }] : [];
+    });
+  }, [malzeme]);
   const sayfaObekleri = useMemo(
     () => groupSheetsByLocation(current?.sheets ?? []),
     [current]
@@ -460,6 +471,19 @@ export function ElectricalCard({
                     ))}
                 </select>
                 <select
+                  value={suzgec.category}
+                  onChange={(e) => setSuzgec((f) => ({ ...f, category: e.target.value }))}
+                  className="oc-tap h-9 max-w-64 rounded-md border bg-background px-2 text-sm"
+                  aria-label="Kategori süzgeci"
+                >
+                  <option value="">Bütün kategoriler</option>
+                  {kategoriler.map((k) => (
+                    <option key={k.category} value={k.category}>
+                      {k.category} ({k.adet})
+                    </option>
+                  ))}
+                </select>
+                <select
                   value={suzgec.supplier}
                   onChange={(e) => setSuzgec((f) => ({ ...f, supplier: e.target.value }))}
                   className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm"
@@ -477,7 +501,7 @@ export function ElectricalCard({
                 <SearchBox
                   value={suzgec.q}
                   onChange={(v) => setSuzgec((f) => ({ ...f, q: v }))}
-                  placeholder="Kod, tanım, tip, tedarikçi"
+                  placeholder="Kod, tanım, kategori, tip"
                   className="w-full sm:w-56"
                 />
               </FilterBar>

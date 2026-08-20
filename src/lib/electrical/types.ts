@@ -115,6 +115,8 @@ export interface ElectricalMaterialRow {
   typeNo: string;
   supplier: string;
   designation: string;
+  /** Ürün bilgilerinden saf sınıflandırıcıyla türetilen işlev ailesi. */
+  category: import("./category").ElectricalCategory;
   qty: number | null;
   /** Bu ürünün geçtiği konumlar (pano kodları), belgedeki sırayla. */
   locations: string[];

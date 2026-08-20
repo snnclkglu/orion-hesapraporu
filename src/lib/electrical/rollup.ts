@@ -10,13 +10,17 @@
 // okunanların toplamı verilir — eksik bir toplam, hiç toplam olmamasından
 // iyidir ve satır sayısı (`lines`) yanında durduğu için eksiklik görünür.
 
+import { electricalCategory } from "./category";
+import { cleanElectricalPart } from "./parts-list";
 import type { ElectricalMaterialRow, ElectricalPart, ElectricalRollupRow } from "./types";
 
 /** Adetleri toplar; hiçbiri okunamadıysa `null`. */
 function topla(parts: readonly ElectricalPart[]): number | null {
   let toplam = 0;
   let okundu = false;
-  for (const p of parts) {
+  for (const ham of parts) {
+    const p = cleanElectricalPart(ham);
+    if (!p) continue;
     if (p.qty === null) continue;
     toplam += p.qty;
     okundu = true;
@@ -30,7 +34,9 @@ export function rollupBy(
   alan: "location" | "supplier" | "installation"
 ): ElectricalRollupRow[] {
   const gruplar = new Map<string, ElectricalPart[]>();
-  for (const p of parts) {
+  for (const ham of parts) {
+    const p = cleanElectricalPart(ham);
+    if (!p) continue;
     const k = (p[alan] ?? "").trim();
     const liste = gruplar.get(k);
     if (liste) liste.push(p);
@@ -55,18 +61,23 @@ export function rollupBy(
  * Aynı ürünün bütün satırlarını tek satıra indirir — sipariş edilebilir liste.
  *
  * Anahtar `partNo`dur (projenin kendi malzeme kodu); yoksa `supplier|typeNo`ya
- * düşer. İkisi de yoksa TANIM anahtar olur — tanımı da olmayan satır kendi
- * başına kalır, çünkü onu bir başkasıyla birleştirmek uydurma olurdu.
+ * düşer. İkisi de yoksa TANIM anahtar olur. Dört ürün alanı da boşsa kayıt
+ * aygıt görünümünde kalır ama sipariş edilebilir bir malzeme sayılmaz.
  */
 export function materialRows(parts: readonly ElectricalPart[]): ElectricalMaterialRow[] {
   const gruplar = new Map<string, ElectricalPart[]>();
   const sira: string[] = [];
-  for (const p of parts) {
+  for (const ham of parts) {
+    const p = cleanElectricalPart(ham);
+    if (!p) continue;
+    // Aygıt listesinde ürün atanmamış bir fonksiyon bulunabilir (EPLAN'da
+    // qty=0 ve dört ürün alanı boş). Aygıt görünümünde kalır; sipariş
+    // edilebilir MALZEME listesinde boş bir satır değildir.
+    if (![p.designation, p.typeNo, p.supplier, p.partNo].some((v) => v.trim())) continue;
     const k =
       p.partNo.trim() ||
       (p.typeNo.trim() ? `${p.supplier.trim()}|${p.typeNo.trim()}` : "") ||
-      p.designation.trim() ||
-      `#${sira.length}`;
+      p.designation.trim();
     if (!gruplar.has(k)) {
       gruplar.set(k, []);
       sira.push(k);
@@ -89,6 +100,7 @@ export function materialRows(parts: readonly ElectricalPart[]): ElectricalMateri
       typeNo: ilk.typeNo,
       supplier: ilk.supplier,
       designation: ilk.designation,
+      category: electricalCategory(ilk),
       qty: topla(liste),
       locations: konumlar,
     };

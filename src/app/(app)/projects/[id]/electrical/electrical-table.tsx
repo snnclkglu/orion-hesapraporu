@@ -15,7 +15,7 @@
 //   3. Kesilen metin `title` ile tam hâlini verir — bilgi kaybolmaz, gizlenir.
 //
 // TELEFONDA TABLO KATLANIR (değişmez md. 10): `md` altında satırlar kart
-// listesine döner. Yedi sütunu 375 pikselde göstermenin yolu yok; katlama,
+// listesine döner. Sekiz sütunu 375 pikselde göstermenin yolu yok; katlama,
 // yatay kaydırmanın tek dürüst alternatifidir.
 //
 // SÜZGEÇ VE SIRALAMA `lib/electrical/filter.ts`TEDİR — Excel çıktısı da onu
@@ -166,17 +166,19 @@ export function MaterialTable({
   return (
     <>
       {/* SÜTUN PAYLARI İÇERİĞİN GERÇEK ÖLÇÜSÜNDEN gelir (ölçüldü, 187 satır):
-          tanım ~40 karakter, malzeme kodu ~22, tip no ~18, tedarikçi ~14,
-          pano listesi ~10. Belge düğmeleri sabit ve küçüktür. Toplam 100. */}
+          tanım ~40 karakter, kategori ~30, malzeme kodu ~22, tip no ~18,
+          tedarikçi ~14, pano listesi ~10. Belge düğmeleri sabit ve küçüktür.
+          Toplam 100. */}
       <Table containerClassName="oc-table-clamp overflow-x-hidden" className="table-fixed">
         <colgroup>
-          <col className="w-[6%]" />
-          <col className="w-[27%]" />
-          <col className="w-[15%]" />
+          <col className="w-[5%]" />
+          <col className="w-[22%]" />
+          <col className="w-[17%]" />
           <col className="w-[13%]" />
-          <col className="w-[16%]" />
+          <col className="w-[11%]" />
+          <col className="w-[14%]" />
+          <col className="w-[8%]" />
           <col className="w-[10%]" />
-          <col className="w-[13%]" />
         </colgroup>
         <TableHeader className="oc-sticky-head hidden md:table-header-group">
           <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -185,6 +187,9 @@ export function MaterialTable({
             </SortableHead>
             <SortableHead sortKey="designation" current={sortKey} desc={desc} onSort={onSort}>
               Tanım
+            </SortableHead>
+            <SortableHead sortKey="category" current={sortKey} desc={desc} onSort={onSort}>
+              Kategori
             </SortableHead>
             <SortableHead sortKey="typeNo" current={sortKey} desc={desc} onSort={onSort}>
               Tip No
@@ -208,6 +213,7 @@ export function MaterialTable({
               <TableRow key={m.key}>
                 <Hucre sag>{say(m.qty)}</Hucre>
                 <Hucre>{yaz(m.designation)}</Hucre>
+                <Hucre>{m.category}</Hucre>
                 <Hucre mono>{yaz(m.typeNo)}</Hucre>
                 <Hucre>{yaz(m.supplier)}</Hucre>
                 <Hucre mono>{yaz(m.partNo)}</Hucre>
@@ -231,6 +237,7 @@ export function MaterialTable({
             baslik={yaz(m.designation)}
             adet={say(m.qty)}
             satirlar={[
+              ["Kategori", m.category],
               ["Tip No", yaz(m.typeNo)],
               ["Tedarikçi", yaz(m.supplier)],
               ["Kod", yaz(m.partNo)],

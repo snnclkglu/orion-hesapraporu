@@ -11,6 +11,7 @@
 // ekrandakiyle aynı olmalıdır.
 
 import { trKatla } from "@/lib/drawings/tr-text";
+import { electricalCategory } from "./category";
 import type { ElectricalMaterialRow, ElectricalPart } from "./types";
 
 /** Ekranda ve indirmede aynı olan süzgeç durumu. */
@@ -19,14 +20,16 @@ export interface ElectricalFilter {
   location: string;
   /** Tedarikçi adı, tam eşleşme; boş = bütün tedarikçiler. */
   supplier: string;
-  /** Serbest arama — kod, tanım, tip, tedarikçi ve aygıt etiketinde. */
+  /** Türetilmiş işlev ailesi, tam eşleşme; boş = bütün kategoriler. */
+  category: string;
+  /** Serbest arama — kategori dâhil ekranda görülen metin alanlarında. */
   q: string;
 }
 
-export const BOS_SUZGEC: ElectricalFilter = { location: "", supplier: "", q: "" };
+export const BOS_SUZGEC: ElectricalFilter = { location: "", supplier: "", category: "", q: "" };
 
 export function suzgecTemizMi(f: ElectricalFilter): boolean {
-  return !f.location && !f.supplier && !f.q.trim();
+  return !f.location && !f.supplier && !f.category && !f.q.trim();
 }
 
 /**
@@ -85,15 +88,18 @@ export function filterParts(
 ): ElectricalPart[] {
   const q = trKatla(f.q.trim());
   return parts.filter((p) => {
+    const category = electricalCategory(p);
     if (f.location && p.location !== f.location) return false;
     if (f.supplier && p.supplier !== f.supplier) return false;
+    if (f.category && category !== f.category) return false;
     if (!q) return true;
     return (
       icerir(p.deviceTag, q) ||
       icerir(p.designation, q) ||
       icerir(p.typeNo, q) ||
       icerir(p.supplier, q) ||
-      icerir(p.partNo, q)
+      icerir(p.partNo, q) ||
+      icerir(category, q)
     );
   });
 }
@@ -127,6 +133,7 @@ export const MATERIAL_SORT_KEYS = [
   "sort",
   "qty",
   "designation",
+  "category",
   "typeNo",
   "supplier",
   "partNo",
@@ -146,12 +153,14 @@ export function filterMaterials(
     // o satırı içerir.
     if (f.location && !m.locations.includes(f.location)) return false;
     if (f.supplier && m.supplier !== f.supplier) return false;
+    if (f.category && m.category !== f.category) return false;
     if (!q) return true;
     return (
       icerir(m.designation, q) ||
       icerir(m.typeNo, q) ||
       icerir(m.supplier, q) ||
-      icerir(m.partNo, q)
+      icerir(m.partNo, q) ||
+      icerir(m.category, q)
     );
   });
 }
@@ -181,6 +190,7 @@ export function filterFromParams(sp: URLSearchParams): ElectricalFilter {
   return {
     location: (sp.get("pano") ?? "").trim(),
     supplier: (sp.get("tedarikci") ?? "").trim(),
+    category: (sp.get("kategori") ?? "").trim(),
     q: (sp.get("ara") ?? "").trim(),
   };
 }
@@ -190,6 +200,7 @@ export function filterToQuery(f: ElectricalFilter): string {
   const sp = new URLSearchParams();
   if (f.location) sp.set("pano", f.location);
   if (f.supplier) sp.set("tedarikci", f.supplier);
+  if (f.category) sp.set("kategori", f.category);
   if (f.q.trim()) sp.set("ara", f.q.trim());
   const s = sp.toString();
   return s ? `?${s}` : "";

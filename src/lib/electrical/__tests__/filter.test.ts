@@ -64,6 +64,11 @@ describe("filterParts", () => {
     expect(filterParts(PARTS, { ...BOS_SUZGEC, supplier: "Electric" })).toHaveLength(0);
   });
 
+  it("türetilmiş kategoriye göre aygıtları süzer", () => {
+    const r = filterParts(PARTS, { ...BOS_SUZGEC, category: "Kontaktörler" });
+    expect(r.map((p) => p.deviceTag)).toEqual(["=1T+B-K1"]);
+  });
+
   it("arama TÜRKÇE katlanır: büyük harfle yazılan küçük harfli satırı bulur", () => {
     expect(filterParts(PARTS, { ...BOS_SUZGEC, q: "sigorta" })).toHaveLength(2);
     expect(filterParts(PARTS, { ...BOS_SUZGEC, q: "SİGORTA" })).toHaveLength(2);
@@ -77,7 +82,7 @@ describe("filterParts", () => {
 
   it("süzgeçler VE ile birleşir", () => {
     expect(
-      filterParts(PARTS, { location: "B", supplier: "Siemens", q: "16A" })
+      filterParts(PARTS, { location: "B", supplier: "Siemens", category: "", q: "16A" })
     ).toHaveLength(1);
   });
 });
@@ -139,6 +144,14 @@ describe("filterMaterials", () => {
     expect(r[0].locations).toEqual(["A", "B"]);
   });
 
+  it("kategori malzeme süzgecinde ve serbest aramada çalışır", () => {
+    expect(
+      filterMaterials(ROWS, { ...BOS_SUZGEC, category: "Sigortalar ve Sigorta Yuvaları" })
+        .map((m) => m.partNo)
+    ).toEqual(["SIE.T1"]);
+    expect(filterMaterials(ROWS, { ...BOS_SUZGEC, q: "sigorta yuvaları" })).toHaveLength(1);
+  });
+
   it("adet toplamı korunur ve sıralanabilir", () => {
     expect(sortMaterials(ROWS, "qty", true)[0].qty).toBe(24);
     expect(sortMaterials(ROWS, "qty", false).at(-1)?.qty).toBeNull();
@@ -152,7 +165,12 @@ describe("sorgu dönüşümü", () => {
   });
 
   it("gidiş-dönüş aynı süzgeci verir", () => {
-    const f = { location: "LVD10", supplier: "Siemens", q: "sigorta" };
+    const f = {
+      location: "LVD10",
+      supplier: "Siemens",
+      category: "Sigortalar ve Sigorta Yuvaları",
+      q: "sigorta",
+    };
     const geri = filterFromParams(new URLSearchParams(filterToQuery(f).slice(1)));
     expect(geri).toEqual(f);
     expect(suzgecTemizMi(f)).toBe(false);

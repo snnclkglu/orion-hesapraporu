@@ -205,3 +205,59 @@ normalize `supplier + typeNo` anahtarıyla kalıcıdır. Malzeme tablosu aynı
 Belge özel Storage kovasındadır ve tarayıcıya imzalı depo adresi verilmez;
 kimlik doğrulayan `/api/electrical-catalog/[documentId]` ucu PDF'i satır içi
 aktarır. Telefon kartı da masaüstü tablosuyla aynı iki eylemi taşır.
+
+## ELEKTRIK-13 — Malzeme kategorisi TÜRETİLİR; süzgeç ve Excel aynı sınıfı kullanır.
+
+EPLAN malzeme listesinde güvenilir bir kategori sütunu yoktur. Kategori bu
+yüzden veritabanında elle yazılan serbest bir metin değildir; tanım, tip no,
+tedarikçi ve malzeme kodundan `lib/electrical/category.ts` içindeki SAF ve
+sıralı kuralla türetilir. Veritabanı restore edilse veya PDF yeniden okunsa da
+aynı ürün aynı sınıfa döner.
+
+**TAKSONOMİ İŞE ÖZEL DEĞİLDİR.** Kuralda iş numarası, proje adı ya da tek bir
+malzeme listesinin sıra numarası bulunmaz. Sınıflar satın alma ve bakımda
+birlikte ele alınan işlevsel ailelerdir; ürünün kolu, kapağı veya yardımcı
+kontağı mümkünse ana ekipmanıyla aynı aileye girer. Yeni projede tanınmayan bir
+ürün çıktığında mevcut işlev ailesine açık ürün işareti eklenir; gerçekten yeni
+bir işlev doğmuşsa üst taksonomi genişletilir. “Ölçüm ve Enstrümantasyon” ile
+“Kamera ve Görüntüleme” bu nedenle ayrı üst ailelerdir; sensör ve endüstriyel
+haberleşme sınıflarına zorla sıkıştırılmaz.
+
+**ÖZGÜL KURAL GENELDEN ÖNCE GELİR.** Sensörlü pano lambası Aydınlatma,
+motor PTC'si Motorlar, 3RV ise genel devre kesiciden önce Motor Koruma olarak
+tanınır. Açık işaret taşımayan ürün “Diğer” kalır; bilinmeyeni tahmin edilen
+bir doğrulukla başka sınıfa gizlemek yasaktır. Kategori seçenekleri tek
+`ELECTRICAL_CATEGORIES` sözlüğünden, mevcut projede gerçekten geçen sınıflarla
+kurulur.
+
+Kategori süzgeci aygıt ve toplanmış malzeme görünümünde aynı saf fonksiyondan
+geçer; `kategori` sorgu parametresiyle Excel'e taşınır. Malzeme ve aygıt Excel
+sayfalarının ikisi de Kategori sütununu içerir.
+
+Kapsam denetimi gerçek iki farklı proje ailesiyle yapılır: 0019-00'da 726 aygıt
+satırından türeyen 165 benzersiz malzeme ve HABAŞ 50T'de 447 kayıt içinden
+türetilen 122 benzersiz malzeme “Diğer” bırakmadan sınıflanır. Bu sıfır sayısı
+gelecek belgelerde tahmin yetkisi vermez; “Diğer” her zaman yeni aile/kural için
+görünür kalite kontrol kuyruğudur.
+
+## ELEKTRIK-14 — EPLAN antedi MALZEME DEĞİLDİR; ürünsüz aygıt sipariş satırı olmaz.
+
+Parts list sayfasının son ürün satırı EPLAN antedine 1–2 satır kadar yakındır.
+Yalnız mesafeye bakılırsa `DATE NAME DRAW`, `SIGN`, `SHEET FORM` metinleri son
+ürünün tanım/tip/kod alanına eklenir; `REVISION` da cihaz etiketi sanılır.
+Okuyucu bu belirgin antet dizilerini satır devamı olmadan önce eler ve
+`REVISION` etiketini ürün saymaz. Restore edilmiş eski kayıtlardaki antet
+ekleri de okuma sınırında temizlenir; kullanıcının projeyi yeniden okutması
+gerekmez.
+
+Temizleme yalnız İngilizce antedi varsaymaz: Türkçe EPLAN çıktısındaki `TARİH
+İSİM ÇİZEN`, `İMZA` ve `KAĞIT FORMU` dizileri de aynı sınırda temizlenir.
+0019-00 restore verisinde bu işlem, antet bulaşmış satırların ayrı ürün anahtarı
+oluşturmasını engelleyerek görünen benzersiz malzeme sayısını 175'ten gerçek
+165'e indirmiştir.
+
+EPLAN'da işlevi çizilmiş fakat ürün atanmamış aygıt olabilir: adet 0, tanım,
+tip, tedarikçi ve malzeme kodu boştur. Bu kayıt Aygıt görünümünde korunur ama
+“sipariş edilebilir” Malzeme görünümüne boş satır olarak girmez. HABAŞ 50T
+fikstüründe bu iki kural 140 görünen kaydı 122 gerçek benzersiz malzemeye
+indirmiştir; sayı kaynak PDF üzerinde ölçülmüştür.

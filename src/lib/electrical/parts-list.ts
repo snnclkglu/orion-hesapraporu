@@ -283,7 +283,28 @@ function esle(kenarlar: readonly number[], basliklar: readonly BaslikSutunu[]): 
 function etiketMi(s: string): boolean {
   const t = s.trim();
   if (!t || /\s/.test(t)) return false;
+  // EPLAN antetindeki REVISION hücresi cihaz etiketi sütununun altında kalır;
+  // biçimsel olarak etikete benzese de malzeme değildir.
+  if (t.toUpperCase() === "REVISION") return false;
   return /^[=+\-A-Za-z0-9][A-Za-z0-9=+._/-]*$/.test(t);
+}
+
+/** EPLAN sayfa antedinin tablo altına taşan satırı mı? */
+function cerceveSatiriMi(hucre: Partial<Record<Alan, string>>): boolean {
+  const metin = katla(Object.values(hucre).join(" "));
+  return [
+    "date name draw",
+    "sheet form date name",
+    "date approval",
+    "job no approval",
+    "drawing no sheet",
+  ].some((isaret) => metin.includes(isaret));
+}
+
+/** Antetteki tek başına sayfa numarası, son ürünün malzeme kodu devamı değildir. */
+function cerceveSayfaNumarasiMi(hucre: Partial<Record<Alan, string>>): boolean {
+  const dolu = Object.entries(hucre).filter(([, value]) => value?.trim());
+  return dolu.length === 1 && dolu[0][0] === "partNo" && /^\d{1,3}$/.test(dolu[0][1]!.trim());
 }
 
 /** `1`, `1,5`, `24` → sayı; okunamayan `null` (değişmez md. 4). */
@@ -298,6 +319,33 @@ export interface PartsListRead {
   parts: ElectricalPart[];
   /** Sayfada malzeme listesi başlığı bulundu mu — çağıran sayfayı işaretler. */
   found: boolean;
+}
+
+/**
+ * Eski okumada veritabanına girmiş EPLAN antet eklerini temizler.
+ *
+ * Yeni okuyucu antedi hücreye eklemeden eler; bu işlev ise restore edilmiş
+ * eski satırları yeniden okuma zorunluluğu olmadan aynı biçime getirir.
+ */
+export function cleanElectricalPart(part: ElectricalPart): ElectricalPart | null {
+  if (part.deviceTag.trim().toUpperCase() === "REVISION") return null;
+  const typeNo = part.typeNo.replace(/\s+(?:SIGN|İMZA)\s+.*$/i, "").trim();
+  let partNo = part.partNo
+    .replace(/\s+\d+\s+(?:SHEET\s+FORM|KAĞIT\s+FORMU)\b.*$/iu, "")
+    .trim();
+  const sayfali = /^(.*?)\s+\d{1,3}$/.exec(partNo);
+  if (sayfali && typeNo) {
+    const katlaKod = (value: string): string => value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (katlaKod(sayfali[1]).endsWith(katlaKod(typeNo))) partNo = sayfali[1].trim();
+  }
+  return {
+    ...part,
+    designation: part.designation
+      .replace(/\s+(?:DATE\s+NAME\s+DRAW|TARİH\s+İSİM\s+ÇİZEN)\b.*$/iu, "")
+      .trim(),
+    typeNo,
+    partNo,
+  };
 }
 
 /**
@@ -368,6 +416,14 @@ export function readPartsList(spans: readonly PdfSpan[], page: number): PartsLis
       hucre[alan] = hucre[alan] ? `${hucre[alan]} ${metin}` : metin;
     }
     const etiket = (hucre.deviceTag ?? "").trim();
+
+    // Antet, son ürün satırına 1-2 satır adımı kadar yakındır. Yalnız mesafe
+    // ile karar verilirse DATE/SIGN/SHEET FORM metinleri ürünün tanım, tip ve
+    // malzeme koduna eklenir; aynı ürün ikinci ve sahte bir malzeme olur.
+    if (cerceveSatiriMi(hucre) || cerceveSayfaNumarasiMi(hucre)) {
+      acik = null;
+      continue;
+    }
 
     if (etiket && etiketMi(etiket)) {
       const tag = parseDeviceTag(etiket);

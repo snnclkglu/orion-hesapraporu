@@ -7,7 +7,7 @@
 // `scripts/test-electrical-read.ts`tir.
 
 import { describe, expect, it } from "vitest";
-import { readPartsList, type PdfSpan } from "../parts-list";
+import { cleanElectricalPart, readPartsList, type PdfSpan } from "../parts-list";
 import { parseDeviceTag } from "../device-tag";
 import { materialRows, rollupBy } from "../rollup";
 import { groupSheetsByLocation, isPageListRoot, parseSheetTitle } from "../sheet-index";
@@ -105,6 +105,72 @@ describe("readPartsList", () => {
     expect(parts).toHaveLength(1);
     expect(parts[0].designation).toBe("SINAMICS S120 CONTROL UNIT CU320-2 PN");
     expect(parts[0].partNo).toBe("SIE.6SL3040");
+  });
+
+  it("tabloya yakın EPLAN antedini son ürüne eklemez ve REVISION'ı ürün saymaz", () => {
+    const spans = [
+      ...CERCEVE,
+      ...BASLIK,
+      ...satir(717.5, "=A3+LVD0-F25", "1", "Auxiliary switch", "5ST3010", "Siemens", "SIE.5ST3010"),
+      span("DATE NAME DRAW 8.08.2026", 280.6, 711.2),
+      span("SIGN ALİAĞA / İZMİR", 575.4, 711.2),
+      span("2 SHEET FORM DATE NAME", 926.9, 711.2),
+      ...satir(700, "REVISION", "", "DATE APPROVAL", "Parts list", "HABAŞ", "DRAWING NO = Sheet 1"),
+    ];
+    const { parts } = readPartsList(spans, 109);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      designation: "Auxiliary switch",
+      typeNo: "5ST3010",
+      partNo: "SIE.5ST3010",
+    });
+  });
+
+  it("antette tek başına kalan sayfa numarasını malzeme koduna eklemez", () => {
+    const spans = [
+      ...CERCEVE,
+      ...BASLIK,
+      ...satir(717.5, "=A3+LVD0-F25", "1", "Auxiliary switch", "5ST3010", "Siemens", "SIE.5ST3010"),
+      span("2", 926.9, 711.2),
+    ];
+    expect(readPartsList(spans, 109).parts[0].partNo).toBe("SIE.5ST3010");
+  });
+
+  it("restore edilmiş eski satırdaki antet eklerini temizler", () => {
+    const eski = {
+      deviceTag: "=A3+LVD0-F25",
+      installation: "A3",
+      location: "LVD0",
+      device: "F25",
+      qty: 1,
+      designation: "Auxiliary switch DATE NAME DRAW 8.08.2026 H.ORAN",
+      typeNo: "5ST3010 SIGN ALİAĞA / İZMİR",
+      supplier: "Siemens",
+      partNo: "SIE.5ST3010 2 SHEET FORM DATE NAME SIGN A3",
+      page: 109,
+    };
+    expect(cleanElectricalPart(eski)).toMatchObject({
+      designation: "Auxiliary switch",
+      typeNo: "5ST3010",
+      partNo: "SIE.5ST3010",
+    });
+    expect(cleanElectricalPart({ ...eski, partNo: "SIE.5ST3010 2" })?.partNo).toBe(
+      "SIE.5ST3010"
+    );
+    expect(cleanElectricalPart({ ...eski, typeNo: "5ST3010 İMZA KARDEMİR" })?.typeNo).toBe(
+      "5ST3010"
+    );
+    expect(
+      cleanElectricalPart({
+        ...eski,
+        designation: "Auxiliary switch TARİH İSİM ÇİZEN 27.06.2026 H.ORAN",
+        partNo: "SIE.5ST3010 2 KAĞIT FORMU TARİH İSİM İMZA A3",
+      })
+    ).toMatchObject({
+      designation: "Auxiliary switch",
+      partNo: "SIE.5ST3010",
+    });
+    expect(cleanElectricalPart({ ...eski, deviceTag: "REVISION" })).toBeNull();
   });
 
   it("başlık yoksa BOŞ döner — uydurma satır üretmez", () => {
@@ -210,6 +276,22 @@ describe("rollup", () => {
     const rows = materialRows(parts);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ partNo: "SIE.T1", qty: 5, locations: ["A", "B"] });
+  });
+
+  it("ürün atanmamış aygıtı sipariş edilebilir malzemeye çevirmez", () => {
+    const urunsuz = {
+      deviceTag: "=1T+B-U64",
+      installation: "1T",
+      location: "B",
+      device: "U64",
+      qty: 0,
+      designation: "",
+      typeNo: "",
+      supplier: "",
+      partNo: "",
+      page: 2,
+    };
+    expect(materialRows([...parts, urunsuz])).toHaveLength(2);
   });
 
   it("hiç adet okunamadıysa toplam null kalır — sıfır DEĞİL", () => {

@@ -6,6 +6,7 @@
 // unutur ve el kitabı eski sürümü basardı.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cleanElectricalPart } from "./parts-list";
 import type { ElectricalPart, ElectricalSheet, ElectricalTitleBlock } from "./types";
 import { BOS_KUNYE } from "./title-block";
 
@@ -110,7 +111,7 @@ export async function loadElectricalParts(
       .range(ofset, ofset + ADIM - 1);
     const satirlar = (data ?? []) as Record<string, unknown>[];
     for (const r of satirlar) {
-      out.push({
+      const row = cleanElectricalPart({
         deviceTag: String(r.device_tag ?? ""),
         installation: String(r.installation ?? ""),
         location: String(r.location ?? ""),
@@ -123,6 +124,7 @@ export async function loadElectricalParts(
         partNo: String(r.part_no ?? ""),
         page: Number(r.page ?? 0),
       });
+      if (row) out.push(row);
     }
     if (satirlar.length < ADIM) break;
   }

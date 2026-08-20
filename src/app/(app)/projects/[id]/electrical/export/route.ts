@@ -4,7 +4,7 @@
 //   "Malzeme Listesi" — sipariş edilebilir liste (aynı ürün tek satır)
 //   "Aygıt Listesi"   — belgedeki ham satırlar (elektrikçinin okuduğu)
 //
-// EKRANDAKİ SÜZGEÇ DOSYAYA DA UYGULANIR (`?pano=&tedarikci=&ara=`) ve süzgeç
+// EKRANDAKİ SÜZGEÇ DOSYAYA DA UYGULANIR (`?pano=&kategori=&tedarikci=&ara=`) ve süzgeç
 // EKRANLA AYNI FONKSİYONDAN geçer (`lib/electrical/filter.ts`). Aksi hâlde
 // kullanıcı bir panoyu süzüp "Excel"e basıyor ve eline bütün projeyi taşıyan
 // bir dosya geçiyordu — süzülmüş bir ekrandan indirilen dosyanın süzülmemiş
@@ -22,6 +22,7 @@ import {
   loadCurrentElectricalDoc,
   loadElectricalParts,
 } from "@/lib/electrical/data";
+import { electricalCategory } from "@/lib/electrical/category";
 import { materialRows } from "@/lib/electrical/rollup";
 import {
   filterFromParams,
@@ -72,7 +73,15 @@ export async function GET(
 
   // ————————————————————————————————————————————— sayfa 1: malzeme
   const ws1 = wb.addWorksheet("Malzeme Listesi");
-  baslikYaz(ws1, ["Adet", "Tanım", "Tip No", "Tedarikçi", "Malzeme Kodu", "Panolar"]);
+  baslikYaz(ws1, [
+    "Adet",
+    "Tanım",
+    "Kategori",
+    "Tip No",
+    "Tedarikçi",
+    "Malzeme Kodu",
+    "Panolar",
+  ]);
   // MALZEME SATIRLARI TÜM LİSTEDEN derlenip SONRA süzülür: önce süzüp sonra
   // derlemek, bir panoya süzüldüğünde "Panolar" sütununu tek panoya
   // indirirdi ve o ürünün başka nerede geçtiği kaybolurdu.
@@ -82,6 +91,7 @@ export async function GET(
     ws1.addRow([
       m.qty ?? null,
       m.designation,
+      m.category,
       m.typeNo,
       m.supplier,
       m.partNo,
@@ -89,7 +99,7 @@ export async function GET(
     ]);
   }
   autoWidth(ws1);
-  ws1.getColumn(5).font = { name: MONO_FONT };
+  ws1.getColumn(6).font = { name: MONO_FONT };
 
   // ————————————————————————————————————————————— sayfa 2: aygıtlar
   const ws2 = wb.addWorksheet("Aygıt Listesi");
@@ -100,6 +110,7 @@ export async function GET(
     "Aygıt",
     "Adet",
     "Tanım",
+    "Kategori",
     "Tip No",
     "Tedarikçi",
     "Malzeme Kodu",
@@ -113,6 +124,7 @@ export async function GET(
       p.device,
       p.qty ?? null,
       p.designation,
+      electricalCategory(p),
       p.typeNo,
       p.supplier,
       p.partNo,
@@ -121,6 +133,7 @@ export async function GET(
   }
   autoWidth(ws2);
   ws2.getColumn(1).font = { name: MONO_FONT };
+  ws2.getColumn(10).font = { name: MONO_FONT };
 
   const buf = await wb.xlsx.writeBuffer();
   // Dosya adı firma kuralındadır: İŞ ADI - DOKÜMAN KODU - TÜR (`doc-naming.ts`).
