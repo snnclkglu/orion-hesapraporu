@@ -51,6 +51,7 @@ __pycache__/
 
 # gecici cikti ve hata ayiklama dokumleri (depoya girmez)
 tmp/
+.tmp/
 output/
 scratch-dump.txt
 
