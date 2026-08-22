@@ -1157,6 +1157,8 @@ neresinin nerede bittiği ancak punto farkından okunuyordu.
 ödeme planı ile test yükü kömür. Hepsi kırmızı olsaydı vurgu vurgu olmaktan
 çıkardı.
 
+**ÖDEME PLANININ GİRİŞ CÜMLESİ BASILMAZ** (TEKLIF-56).
+
 **NOTLAR VE KAPSAM DIŞI İŞLER SAYFANIN DİBİNDEDİR**, yan yana ve kare madde
 işaretli: notlarda KIRMIZI, kapsam dışında GRİ. Biri teklifin kendi sözü, öteki
 teklifin DIŞINDA kalanların listesidir ve okurun ikisini karıştırmaması gerekir.
@@ -1233,3 +1235,40 @@ satırı sığar; daha uzun bir tablo yine bölünür ve bunun alternatifi YOKTU
 `wrap={false}` verilseydi @react-pdf tabloyu kırpardı, yani müşteriye giden
 belgede sessiz veri kaybı olurdu. Bölünen tabloda sütun başlığı `fixed` olduğu
 için her yaprakta tekrar eder.
+## TEKLIF-55 — Fiyat satırının boyu SATIR SAYISINA göre açılır.
+
+Kullanıcı isteği (22.08.2026): *"Fiyatlar tablosu satır genişliklerini dinamik
+yapabilir miyiz. 12 satır varsa 20 yükseklik, 4 satır varsa 30 yükseklik olsun…
+az satır varken satırların sıkışık görünmesi mantıklı değil."*
+
+Dört satırlık bir tablo, on iki satırlık bir tablonun sıkılığıyla dizildiğinde
+sayfanın ortasında küçük ve ezik duruyordu. `FIYAT_SATIR_BOYU`: **4 satır →
+30 pt, 12 satır → 20 pt**, arası DOĞRUSAL, iki uçta kelepçeli (üç satırlık bir
+tablo dörtlükten daha havalı olmaz, on beşlik on ikiden daha sıkı olmaz).
+
+**ÖLÇEKLENEN ŞEY PAYDIR, PUNTO DEĞİL**: metni büyütmek tabloyu bir başlığa
+çevirirdi; payı açmak yalnız nefes verir. Üst sınır TEKLIF-54'ün eşiğiyle aynı
+yerdedir (12) — o sayıdan sonra tablo zaten kendi yaprağına geçer ve orada sıkı
+satır DAHA ÇOK satır, yani tablonun ikiye bölünme ihtimalinin azalması demektir.
+
+**YER YOKSA SIKIŞIR VE BU DA ÖLÇÜLÜR.** Uzun ticari şartlar + dört taksitlik
+plan + uzun not/kapsam listeleri üst üste geldiğinde açılan pay ticari sayfayı
+taşırıyordu. `renderOfferPdf` bölümün açıldığı ve kapandığı yaprağı
+karşılaştırır (`bas:ticari` / `son:ticari`); taşma varsa satırlar en sıkı
+boylarına iner ve yerleşim yeniden koşar (`compactPrices`). Kapağın sıkışma
+kademesiyle aynı döngüdedir; kural tek cümleyle şudur: **yer varken geniş, yer
+yokken sıkı.**
+
+Kendi yaprağındaki tablo hiç sıkışmaz — orada yer sorunu yoktur.
+
+## TEKLIF-56 — Ödeme planının GİRİŞ CÜMLESİ belgeye basılmaz.
+
+Kullanıcı isteği (22.08.2026). Defterden gelen `payment` satırı ("Ödeme şekli
+aşağıda belirtilen şekildedir.") kutunun altında gri bir cümle olarak
+duruyordu ve hemen üstündeki **ÖDEME PLANI** başlığının söylediğini ikinci kez
+söylüyordu.
+
+Satır **payload'da durmaya devam eder** (defterin alanıdır ve kullanıcı onu
+düzenleyebilir); yalnız belgede yeri yoktur. Bunun ardından `odemeVar` da
+değişti: blok artık YALNIZ PLANIN KENDİSİNE bakar (`terms.paymentLines`), yoksa
+planı olmayan bir teklifte boş bir kutu açılırdı.

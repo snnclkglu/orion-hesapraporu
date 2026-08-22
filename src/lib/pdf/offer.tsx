@@ -104,6 +104,15 @@ export interface OfferDocumentProps {
   pageOf?: Record<string, number>;
   /** Kapağın sıkışma kademesi — `renderOfferPdf` ÖLÇEREK seçer (bkz. `KapakYogunlugu`). */
   coverDensity?: KapakYogunlugu;
+  /**
+   * Fiyat satırları SIKI dizilsin mi — `renderOfferPdf` ÖLÇEREK seçer.
+   *
+   * Satır payı normalde satır sayısına göre açılır (`fiyatSatirPayi`); ama uzun
+   * ticari şartlar, dört taksitlik bir plan ve uzun not/kapsam listeleri üst
+   * üste geldiğinde o pay ticari sayfayı taşırıyordu. Taşma ölçüldüğünde
+   * satırlar en sıkı hâllerine iner: **yer varken geniş, yer yokken sıkı.**
+   */
+  compactPrices?: boolean;
 }
 
 /**
@@ -654,7 +663,6 @@ const S = StyleSheet.create({
     flexShrink: 1,
     flexBasis: 0,
   },
-  odemeGiris: { ...T.body, fontSize: 6.6, color: BRAND.gray600, marginTop: 4 },
   // ---- test yükü
   testDeger: { fontFamily: FONTS.mono, fontSize: 8.25, fontWeight: 600, lineHeight: 1.35, color: BRAND.ink, flexShrink: 0 },
 
@@ -1167,6 +1175,46 @@ export const OFFER_SECTIONS = {
  */
 export const FIYAT_SATIR_ESIGI = 12;
 
+/**
+ * FİYAT SATIRININ YÜKSEKLİĞİ SATIR SAYISINA GÖRE DEĞİŞİR.
+ *
+ * Kullanıcı isteği (22.08.2026): *"12 satır varsa 20 yükseklik, 4 satır varsa
+ * 30 yükseklik olsun… az satır varken satırların sıkışık görünmesi mantıklı
+ * değil."* Dört satırlık bir tablo, on iki satırlık bir tablonun sıkılığıyla
+ * dizildiğinde sayfanın ortasında küçük ve ezik duruyordu.
+ *
+ * ÖLÇEKLENEN ŞEY PAYDIR, PUNTO DEĞİL: metni büyütmek tabloyu bir başlığa
+ * çevirirdi; payı açmak yalnız nefes verir. Ara değerler DOĞRUSALDIR ve iki
+ * uçta kelepçelenir — üç satırlık bir tablo dört satırlıktan daha havalı
+ * olmaz, on beş satırlık on ikiden daha sıkı olmaz.
+ *
+ * ÜST SINIR EŞİKLE AYNI YERDE (12): o sayıdan sonra tablo zaten kendi
+ * yaprağına geçer ve orada sıkı satır DAHA ÇOK satır demektir — yani tablonun
+ * ikiye bölünme ihtimalinin azalması demektir (TEKLIF-54).
+ */
+const FIYAT_SATIR_BOYU = { azSatir: 4, azBoy: 30, cokSatir: FIYAT_SATIR_ESIGI, cokBoy: 20 } as const;
+
+/** Bir satırlık tanım metninin yüksekliği (7,5 pt × 1,4 satır aralığı). */
+const FIYAT_METIN_BOYU = 10.5;
+
+/**
+ * Satır sayısına düşen dikey pay — hedef boydan metin yüksekliği düşülür.
+ *
+ * `sik` verildiğinde satır sayısına bakılmaz ve en sıkı boy kullanılır: ticari
+ * sayfa taştığında geniş satır bir lüks değil, ikinci bir yaprak demektir
+ * (bkz. `OfferDocumentProps.compactPrices`).
+ */
+function fiyatSatirPayi(adet: number, sik?: boolean): number {
+  const { azSatir, azBoy, cokSatir, cokBoy } = FIYAT_SATIR_BOYU;
+  const boy =
+    sik || adet >= cokSatir
+      ? cokBoy
+      : adet <= azSatir
+        ? azBoy
+        : azBoy - ((adet - azSatir) * (azBoy - cokBoy)) / (cokSatir - azSatir);
+  return (boy - FIYAT_METIN_BOYU) / 2;
+}
+
 interface OfferTocEntry {
   key: string;
   label: string;
@@ -1561,13 +1609,16 @@ function TeslimSartlari({ payload }: { payload: OfferPayload }) {
 /** "%40 Avans Sipariş ile Nakit" → oran ve açıklama; oran yoksa `null`. */
 const ODEME_ORANI = /^\s*(%\s*\d+(?:[.,]\d+)?)\s*(.*)$/;
 
-/** Ödeme bloğu basılacak mı — sayfa düzeni de buna bakar. */
+/**
+ * Ödeme bloğu basılacak mı — sayfa düzeni de buna bakar.
+ *
+ * YALNIZ PLANIN KENDİSİNE bakar. Ticari şart satırlarındaki `payment` alanı
+ * defterden gelen bir GİRİŞ CÜMLESİdir ("Ödeme şekli aşağıda belirtilen
+ * şekildedir") ve artık basılmıyor (bkz. `Odeme`); ona bakmak, planı olmayan
+ * bir teklifte boş bir kutu açtırırdı.
+ */
 function odemeVar(payload: OfferPayload): boolean {
-  const { terms } = payload;
-  return (
-    terms.paymentLines.length > 0 ||
-    terms.rows.some((r) => r.key === "payment" && r.value.trim() !== "")
-  );
+  return payload.terms.paymentLines.length > 0;
 }
 
 /**
@@ -1578,17 +1629,20 @@ function odemeVar(payload: OfferPayload): boolean {
  * hepsinde bu yazımdadır. Veriye ayrı bir "yüzde" alanı açmak, kullanıcının
  * yazdığı metinle çelişebilecek ikinci bir gerçek üretirdi; okumak çelişemez.
  * Yazım tutmazsa satır olduğu gibi basılır — bilgi kaybolmaz.
+ *
+ * GİRİŞ CÜMLESİ BASILMAZ (kullanıcı isteği, 22.08.2026). Defterden gelen
+ * "Ödeme şekli aşağıda belirtilen şekildedir." satırı, hemen üstündeki
+ * ÖDEME PLANI başlığının söylediğini ikinci kez söylüyordu; kutunun altında
+ * asılı kalan gri bir cümleydi. Satır payload'da durmaya devam eder (defterin
+ * alanıdır), belgede yeri yoktur.
  */
 function Odeme({ payload }: { payload: OfferPayload }) {
-  const { terms } = payload;
   if (!odemeVar(payload)) return null;
-  const giris = terms.rows.find((r) => r.key === "payment");
-  const lines = terms.paymentLines;
+  const lines = payload.terms.paymentLines;
   return (
     <View>
       <TicariBlokBasligi text={ODEME_BASLIK} />
-      {lines.length > 0 ? (
-        <View style={S.kutu}>
+      <View style={S.kutu}>
           {lines.map((l, i) => {
             const buyuk = trUpper(l.text);
             const m = ODEME_ORANI.exec(buyuk);
@@ -1617,12 +1671,7 @@ function Odeme({ payload }: { payload: OfferPayload }) {
               </View>
             );
           })}
-        </View>
-      ) : null}
-      {/* "Ödeme" satırının cümlesi ("…aşağıda belirtilen şekildedir") planın
-          AÇIKLAMASIDIR; kutunun altında durur. Plan hiç yoksa cümle tek başına
-          kalır ve yine basılır — kullanıcının yazdığı bir şey düşmez. */}
-      {giris && giris.value.trim() ? <Text style={S.odemeGiris}>{giris.value}</Text> : null}
+      </View>
     </View>
   );
 }
@@ -1756,9 +1805,12 @@ function FiyatTablosu({
   payload,
   currency,
   kendiYapraginda,
+  sik,
 }: {
   payload: OfferPayload;
   currency: string;
+  /** Ticari sayfa taştığında satırlar en sıkı boya iner (ölçülür, seçilmez). */
+  sik?: boolean;
   /**
    * Tablo KENDİ yaprağındaysa "FİYATLAR" zaten sayfanın büyük başlığıdır;
    * şeritte ikinci kez yazılmaz, yalnız para birimi kalır.
@@ -1777,6 +1829,9 @@ function FiyatTablosu({
   const birim = payload.pricing.leadTimeUnit ?? null;
   const sutunlar = fiyatSutunlari(birim);
   const vatIncluded = payload.pricing.vatIncluded;
+  // SATIR PAYI TABLONUN KENDİ BOYUNDAN ÇIKAR (bkz. `FIYAT_SATIR_BOYU`).
+  // Kendi yaprağındaki tablo hiç sıkışmaz: orada yer sorunu yoktur.
+  const satirPayi = fiyatSatirPayi(lines.length, sik && !kendiYapraginda);
 
   return (
     <View style={{ marginTop: kendiYapraginda ? 0 : mm(6) }}>
@@ -1814,6 +1869,7 @@ function FiyatTablosu({
               key={line.id}
               style={[
                 S.fiyatSatiri,
+                { paddingVertical: satirPayi },
                 ...(ana ? [S.fiyatSatiriAna] : []),
                 ...(son ? [S.kutuSonSatir] : []),
               ]}
@@ -2129,7 +2185,7 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
 
         {/* FİYAT TABLOSU KENDİ YAPRAĞINA GEÇTİYSE burada basılmaz. */}
         {fiyatAyriYaprakta ? null : (
-          <FiyatTablosu payload={payload} currency={offer.currency} />
+          <FiyatTablosu payload={payload} currency={offer.currency} sik={props.compactPrices} />
         )}
 
         {/* NOTLAR VE KAPSAM DIŞI İŞLER SAYFANIN DİBİNDE, yan yana: ikisi de
@@ -2202,7 +2258,12 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
 export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer> {
   const EN_SIK: KapakYogunlugu = 2;
   let coverDensity: KapakYogunlugu = 0;
+  let compactPrices = false;
   let pageOf: Record<string, number> = {};
+  // Fiyat tablosu kendi yaprağındaysa ticari sayfada tablo YOKTUR; orada bir
+  // taşma satır payından gelmez ve sıkıştırmak hiçbir şeyi kurtarmaz.
+  const fiyatTicaride =
+    printedPayload(props.payload).pricing.lines.length <= FIYAT_SATIR_ESIGI;
 
   for (;;) {
     const toplanan: Record<string, number> = {};
@@ -2213,23 +2274,42 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
       <OfferDocument
         {...props}
         coverDensity={coverDensity}
+        compactPrices={compactPrices}
         collect={(anchor, page) => {
           toplanan[anchor] = page;
         }}
       />
     );
     pageOf = toplanan;
-    if (props.payload.cover.hidden || coverDensity >= EN_SIK) break;
+
     // KAPAK KAÇ YAPRAK TUTTU? İlk bölümün başladığı sayfadan okunur. Kapağın
     // SONUNA konan bir sonda bu soruyu cevaplamıyordu: taşan blok kağıdın
     // dışına çizilir ama sıfır yükseklikli düğüm hâlâ birinci yaprakta
     // yerleşmiş sayılır ve sonda "1" bildirir. Bir sonraki bölümün nerede
     // AÇILDIĞI ise ölçülen bir olgudur.
-    if (ilkBolumSayfasi(toplanan) <= 2) break;
-    coverDensity = (coverDensity + 1) as KapakYogunlugu;
+    const kapakTasti =
+      !props.payload.cover.hidden && coverDensity < EN_SIK && ilkBolumSayfasi(toplanan) > 2;
+    if (kapakTasti) {
+      coverDensity = (coverDensity + 1) as KapakYogunlugu;
+      continue;
+    }
+
+    // TİCARİ SAYFA KAÇ YAPRAK TUTTU? Bölümün açıldığı ve kapandığı yaprak
+    // farklıysa taşmıştır; fiyat satırlarının payı ilk kısılacak yerdir.
+    const ticariTasti = (pageOf["son:ticari"] ?? 0) > (pageOf["bas:ticari"] ?? 0);
+    if (ticariTasti && fiyatTicaride && !compactPrices) {
+      compactPrices = true;
+      continue;
+    }
+    break;
   }
 
   return renderToBuffer(
-    <OfferDocument {...props} coverDensity={coverDensity} pageOf={pageOf} />
+    <OfferDocument
+      {...props}
+      coverDensity={coverDensity}
+      compactPrices={compactPrices}
+      pageOf={pageOf}
+    />
   );
 }

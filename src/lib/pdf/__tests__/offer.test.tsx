@@ -508,6 +508,76 @@ describe("kalem bazında teslim süresi", () => {
   });
 });
 
+describe("ödeme planı", () => {
+  it("defterden gelen GİRİŞ CÜMLESİ belgeye basılmaz", async () => {
+    // Kullanıcı isteği (22.08.2026): cümle, hemen üstündeki ÖDEME PLANI
+    // başlığının söylediğini ikinci kez söylüyordu. Satır payload'da durur.
+    const props = fikstur();
+    const giris = props.payload.terms.rows.find((r) => r.key === "payment");
+    expect(giris?.value).toContain("aşağıda belirtilen");
+    const metin = await pdfMetni(props);
+    expect(metin).not.toContain("aşağıda belirtilen şekildedir");
+    // Planın KENDİSİ yerinde.
+    expect(duz(metin)).toContain(duz("%40 AVANS SİPARİŞ İLE NAKİT"));
+  });
+
+  it("plan yoksa blok hiç açılmaz — yalnız giriş cümlesi kutu açtırmaz", async () => {
+    const props = fikstur();
+    props.payload.terms.paymentLines = [];
+    const metin = duz(await pdfMetni(props));
+    expect(metin).not.toContain(duz("ÖDEME PLANI"));
+  });
+});
+
+describe("fiyat satırının boyu", () => {
+  it("az satırda GENİŞ, çok satırda SIKI dizilir", async () => {
+    // Kullanıcı isteği (22.08.2026): *"4 satır varsa 30, 12 satır varsa 20
+    // yükseklik."* Ölçü belgeden alınır: aynı tablonun ilk ve son satırının
+    // taban çizgileri arasındaki uzaklık, satır boyunun kendisidir.
+    const boy = async (adet: number) => {
+      const props = fikstur();
+      const ilk = props.payload.pricing.lines[0];
+      props.payload.pricing.lines = Array.from({ length: adet }, (_, i) => ({
+        ...ilk,
+        id: `s${i}`,
+        parentLineId: null,
+        description: `KALEM ${i + 1}`,
+        qty: 1,
+        unitPrice: 1000,
+        inTotal: true,
+        hidden: false,
+      }));
+      const buf = await renderOfferPdf(props);
+      const { getDocumentProxy } = await import("unpdf");
+      const doc = await getDocumentProxy(new Uint8Array(buf));
+      for (let n = 1; n <= doc.numPages; n++) {
+        const items = (await (await doc.getPage(n)).getTextContent()).items as {
+          str?: string;
+          transform?: number[];
+        }[];
+        const y = (etiket: string) =>
+          items.find((i) => (i.str ?? "").replace(/\s+/g, "") === etiket)?.transform?.[5];
+        const bir = y("KALEM1");
+        const iki = y("KALEM2");
+        if (bir !== undefined && iki !== undefined) return bir - iki;
+      }
+      throw new Error("fiyat satırları bulunamadı");
+    };
+
+    // Dört satır: hedef 30 pt. Bir pt tolerans — kenarlık yuvarlaması.
+    expect(await boy(4)).toBeGreaterThan(29);
+    expect(await boy(4)).toBeLessThan(32);
+    // Eşikteki tablo: hedef 20 pt.
+    const cok = await boy(FIYAT_SATIR_ESIGI);
+    expect(cok).toBeGreaterThan(19);
+    expect(cok).toBeLessThan(22);
+    // Aradaki değer ikisinin ARASINDA kalır (doğrusal ölçek).
+    const orta = await boy(8);
+    expect(orta).toBeGreaterThan(cok);
+    expect(orta).toBeLessThan(await boy(4));
+  });
+});
+
 describe("fiyat tablosu yaprağı", () => {
   it("eşiğin altında ticari sayfada durur", async () => {
     const sayfalar = await pdfSayfalari(fikstur());
