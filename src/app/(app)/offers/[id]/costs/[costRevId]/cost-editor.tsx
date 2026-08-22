@@ -282,7 +282,7 @@ export function CostEditor({
           </div>
           <Button asChild variant="outline" className="oc-tap">
             <a href={`/offers/${offerId}/costs/${costRevId}/pdf`}>
-              <Download className="size-4" /> PDF İndir
+              <Download className="size-4" /> Maliyet İndir
             </a>
           </Button>
           {/* EXCEL, PDF'İN YANINDA (kullanıcı isteği 19.08.2026, md. 11). İkisi

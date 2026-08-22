@@ -37,6 +37,7 @@ import {
   withDefaultRates,
 } from "../src/lib/offers/cost/payload";
 import { costBreakdown, costOverview, costTotals } from "../src/lib/offers/cost/totals";
+import { teknikDegerBuyuk } from "../src/lib/offers/buyuk";
 import type { OfferItem, OfferPayload } from "../src/lib/offers/types";
 import type { CostPayload } from "../src/lib/offers/cost/types";
 
@@ -245,6 +246,16 @@ function satirBulSon(ws: ExcelJS.Worksheet, metin: string, sutun = 1): number {
   return bulunan;
 }
 
+/** `bastan`dan itibaren ilk sütunu dolu olan satır numaraları. */
+function okunanSatirlar(ws: ExcelJS.Worksheet, bastan: number): number[] {
+  const out: number[] = [];
+  ws.eachRow((row, no) => {
+    if (no < bastan) return;
+    if (String(row.getCell(1).value ?? "").trim() !== "") out.push(no);
+  });
+  return out;
+}
+
 /** Etiketi verilen satırın SAYI hücresi — sayı değilse `null`. */
 function sayi(ws: ExcelJS.Worksheet, etiket: string, sutun: number): number | null {
   const r = satirBul(ws, etiket);
@@ -311,12 +322,12 @@ async function main() {
   const adlar = okunan.worksheets.map((w) => w.name);
   console.log(`      ${adlar.join(" | ")}`);
   kontrol(adlar[0] === "Özet", "ilk sayfa Özet");
-  kontrol(adlar.includes("Ana Kalem Kırılımı"), "Ana Kalem Kırılımı sayfası var");
-  kontrol(adlar.includes("Proje Geneli ve Oranlar"), "Proje Geneli ve Oranlar sayfası var");
-  kontrol(
-    adlar.filter((a) => /^\d+\. /.test(a)).length === basilan.items.length,
-    `her maliyet kalemi için bir sayfa (${basilan.items.length})`
-  );
+  kontrol(adlar[1] === "Maliyet Kalemleri", "ikinci sayfa Maliyet Kalemleri");
+  // SEKME SAYISI KALEM SAYISINDAN BAĞIMSIZDIR — kompaktlığın sınanabilir hâli
+  // budur (kullanıcı isteği, 22.08.2026). Eskiden vinç başına bir sekme açılıyor
+  // ve iki vinçli bir teklif beş sekme ediyordu; bugün kaç vinç olursa olsun
+  // iki sekmedir ve vinç ayrımını KAYNAK sütunu taşır.
+  kontrol(adlar.length === 2, `kitap İKİ sekme (${adlar.length}) — kalem sayısından bağımsız`);
   kontrol(
     adlar.every((a) => a.length <= 31 && !/[[\]:*?/\\]/.test(a)),
     "sekme adları Excel sınırlarında (≤31 karakter, yasak karakter yok)"
@@ -399,9 +410,14 @@ async function main() {
   console.log("\n  kalem bazında");
   const kalemBaslik = satirBul(oz, "KALEM");
   kontrol(kalemBaslik > 0, "kalem tablosunun başlık satırı var");
+  // TABLO TEK LİSTEDİR (MALIYET-38): vinçler ve teklifin serbest fiyat
+  // satırları aynı tablodadır; ayrımı TÜR sütunu söyler. Excel bu ayrımı ayrı
+  // bir blokla yapmaya devam ediyordu — ekranla belge iki farklı yapı
+  // anlatıyordu.
   const beklenenBasliklar = [
-    "KALEM", "ADET", "ÇELİK [KG]", "TOPLAM AĞIRLIK [KG]",
-    "ÇELİK × ADET [KG]", "TOPLAM × ADET [KG]", "BİRİM MALİYET", "PAKET MALİYET", "EUR/KG",
+    "KALEM", "TÜR", "ADET", "ÇELİK [KG]", "TOPLAM AĞIRLIK [KG]",
+    "ÇELİK × ADET [KG]", "TOPLAM × ADET [KG]", "BİRİM MALİYET", "PAKET MALİYET",
+    "İMALAT", "PROJE",
   ];
   const okunanBasliklar = beklenenBasliklar.map((_, i) =>
     String(hucre(oz, kalemBaslik, i + 1) ?? "")
@@ -410,18 +426,44 @@ async function main() {
     okunanBasliklar.join("|") === beklenenBasliklar.join("|"),
     `kalem tablosunun başlıkları yerinde (${okunanBasliklar.join(" · ")})`
   );
-  const ilkKalem = kalemBaslik + 1;
-  kontrol(hucre(oz, ilkKalem, 3) === 51_000, "çelik ağırlığı 51.000 kg SAYI olarak yazıldı");
-  kontrol(hucre(oz, ilkKalem, 4) === 59_500, "toplam vinç ağırlığı 59.500 kg yazıldı");
+  // ORAN SÜTUNLARI DEFTERDEN GELİR: sayıları sabit yazılmaz, `totals.rates`
+  // kadardır ve hemen ardından maliyet ile EUR/KG sütunları durur.
+  const maliyetSutunu = 12 + totals.rates.length;
   kontrol(
-    yakin(typeof hucre(oz, ilkKalem, 7) === "number" ? (hucre(oz, ilkKalem, 7) as number) : null,
+    String(hucre(oz, kalemBaslik, maliyetSutunu) ?? "") === "GENEL GİDER DAHİL MALİYET" &&
+      String(hucre(oz, kalemBaslik, maliyetSutunu + 1) ?? "") === "EUR/KG",
+    `oran sütunlarından sonra maliyet ve EUR/KG geliyor (${totals.rates.length} oran)`
+  );
+  const ilkKalem = kalemBaslik + 1;
+  kontrol(String(hucre(oz, ilkKalem, 2) ?? "") === "vinç", "vinç satırının TÜRÜ yazılı");
+  kontrol(hucre(oz, ilkKalem, 4) === 51_000, "çelik ağırlığı 51.000 kg SAYI olarak yazıldı");
+  kontrol(hucre(oz, ilkKalem, 5) === 59_500, "toplam vinç ağırlığı 59.500 kg yazıldı");
+  kontrol(
+    yakin(typeof hucre(oz, ilkKalem, 8) === "number" ? (hucre(oz, ilkKalem, 8) as number) : null,
       totals.items[0].unit),
     "kalemin birim maliyeti = costTotals.items[0].unit"
   );
+  // SERBEST FİYAT SATIRI AYNI TABLODADIR ve beş başlığı BOŞTUR — bir
+  // nakliyenin "imalat payı" diye bir şey yoktur (değişmez md. 4).
+  const serbest = okunanSatirlar(oz, kalemBaslik + 1).find(
+    (no) => String(hucre(oz, no, 2) ?? "") === "fiyat satırı"
+  );
+  kontrol(serbest !== undefined, "serbest fiyat satırı aynı listede");
+  if (serbest !== undefined) {
+    kontrol(
+      hucre(oz, serbest, 10) === null || hucre(oz, serbest, 10) === undefined,
+      "serbest satırın İMALAT payı BOŞ (uydurulmuyor)"
+    );
+    kontrol(hucre(oz, serbest, maliyetSutunu) === 2_500, "serbest satırın maliyeti listede (2.500 €)");
+  }
   kontrol(
-    yakin(sayi(oz, "KALEM TOPLAMI", 5), ozet.steelKg) &&
-      yakin(sayi(oz, "KALEM TOPLAMI", 6), ozet.weightKg),
-    "ağırlık toplamları = costOverview.steelKg / weightKg"
+    yakin(sayi(oz, "TOPLAM", 6), ozet.steelKgAll) &&
+      yakin(sayi(oz, "TOPLAM", 7), ozet.weightKgAll),
+    "ağırlık dip toplamları = costOverview.steelKgAll / weightKgAll"
+  );
+  kontrol(
+    yakin(sayi(oz, "TOPLAM", maliyetSutunu), ozet.margin.cost),
+    "maliyet sütununun dip toplamı = kâr satırındaki TOPLAM MALİYET"
   );
 
   // 6 — SAYI MI METİN Mİ (Excel istemenin tek sebebi)
@@ -429,7 +471,7 @@ async function main() {
   const paraHucreleri = [
     hucre(oz, satirBul(oz, "TOPLAM MALİYET"), 4),
     hucre(oz, satirBul(oz, "KÂR"), 2),
-    hucre(oz, ilkKalem, 8),
+    hucre(oz, ilkKalem, 9),
   ];
   kontrol(
     paraHucreleri.every((v) => typeof v === "number"),
@@ -445,13 +487,12 @@ async function main() {
     "toplam hücresinin görünümü ondalıksız ve binlik ayraçlı"
   );
 
-  // 7 — ANA KALEM KIRILIMI
+  // 7 — ANA KALEM KIRILIMI (artık ÖZETİN bir bloğu)
   console.log("\n  ana kalem kırılımı");
-  const kr = okunan.getWorksheet("Ana Kalem Kırılımı")!;
-  const krBaslik = satirBul(kr, "GRUP");
+  const krBaslik = satirBulSon(oz, "GRUP");
   let krToplam = 0;
   let krSatir = 0;
-  kr.eachRow((row, no) => {
+  oz.eachRow((row, no) => {
     if (no <= krBaslik) return;
     const ad = String(row.getCell(1).value ?? "");
     if (!ad || ad === "DOĞRUDAN MALİYET") return;
@@ -464,51 +505,69 @@ async function main() {
   kontrol(krSatir === kirilim.length, `kırılım satır sayısı çekirdekle aynı (${krSatir})`);
   kontrol(yakin(krToplam, totals.direct, 0.01), "kırılım tutarlarının toplamı = doğrudan maliyet");
   kontrol(
-    yakin(sayi(kr, "DOĞRUDAN MALİYET", 2), totals.direct),
+    yakin(sayi(oz, "DOĞRUDAN MALİYET", 2), totals.direct),
     "kırılımın toplam satırı doğrudan maliyeti veriyor"
   );
 
-  // 8 — KALEM SAYFASI VE "BOŞ ≠ SIFIR"
-  console.log("\n  kalem sayfası");
-  const ks = okunan.worksheets.find((w) => /^1\. /.test(w.name))!;
-  const ksBaslik = satirBul(ks, "GRUP");
+  // 8 — MALİYET KALEMLERİ ÇİZELGESİ VE "BOŞ ≠ SIFIR"
+  console.log("\n  maliyet kalemleri çizelgesi");
+  const ks = okunan.getWorksheet("Maliyet Kalemleri")!;
+  const ksBaslik = satirBul(ks, "KAYNAK");
+  const ksBeklenen = [
+    "KAYNAK", "ADET", "GRUP", "KALEM", "MİKTAR", "BİRİM",
+    "BİRİM FİYAT", "TUTAR", "PAKET TUTAR", "MİKTAR KAYNAĞI", "TEKLİFTE", "NOT",
+  ];
   kontrol(
-    ["GRUP", "KALEM", "MİKTAR", "BİRİM", "BİRİM FİYAT", "TUTAR"].every(
-      (h, i) => String(hucre(ks, ksBaslik, i + 1) ?? "") === h
-    ),
-    "kalem sayfasının başlıkları: GRUP · KALEM · MİKTAR · BİRİM · BİRİM FİYAT · TUTAR"
+    ksBeklenen.every((h, i) => String(hucre(ks, ksBaslik, i + 1) ?? "") === h),
+    `çizelgenin başlıkları yerinde (${ksBeklenen.length} sütun)`
   );
+  // KAYNAK SÜTUNU VİNCİ TAŞIR: sekmeler kalktığı için satırın hangi vince ait
+  // olduğu ancak bu sütundan okunur. Süzgeç de onun üstüne kurulur.
   kontrol(
-    yakin(sayi(ks, "KALEM BİRİM MALİYETİ", 6), totals.items[0].unit),
-    "kalem birim maliyeti = costTotals.items[0].unit"
+    String(hucre(ks, ksBaslik + 1, 1) ?? "") === teknikDegerBuyuk(basilan.items[0].title),
+    "ilk satır KAYNAK sütununda vincin adını taşıyor"
   );
-  kontrol(
-    yakin(sayi(ks, "PAKET MALİYET (BİRİM × ADET)", 6), totals.items[0].package),
-    "paket maliyet = costTotals.items[0].package"
-  );
-  // GRUP TOPLAMLARININ TOPLAMI KALEMİN BİRİM MALİYETİDİR: sayfayı elle
-  // toplayan kullanıcı aynı sayıya varmalıdır, yoksa belge kendi kendini
-  // yalanlar.
-  let grupToplami = 0;
-  ks.eachRow((row) => {
-    if (String(row.getCell(2).value ?? "") !== "GRUP TOPLAMI") return;
-    const v = row.getCell(6).value;
-    if (typeof v === "number") grupToplami += v;
+  kontrol(ks.autoFilter !== undefined && ks.autoFilter !== null, "çizelge SÜZGEÇLİ açılıyor");
+
+  // PAKET TUTAR TOPLANABİLİR OLANIDIR: TUTAR bir adedin maliyetidir. İki
+  // vinçli bir teklifte TUTAR sütununu toplayan okuyucu doğrudan maliyeti yarı
+  // bulurdu — sav bu yüzden PAKET sütununu toplar.
+  let paketToplam = 0;
+  ks.eachRow((row, no) => {
+    if (no <= ksBaslik) return;
+    if (String(row.getCell(1).value ?? "").startsWith("DOĞRUDAN MALİYET")) return;
+    // Kalem kipindeki oranlı grupların satırları doğrudan maliyetin İÇİNDE
+    // DEĞİLDİR; onlar orandan sonra gelir ve bu toplama girmez.
+    const kaynak = String(row.getCell(1).value ?? "");
+    const oranAdlari = totals.rates.map((x) => teknikDegerBuyuk(x.title));
+    if (oranAdlari.includes(kaynak)) return;
+    const v = row.getCell(9).value;
+    if (typeof v === "number") paketToplam += v;
   });
   kontrol(
-    yakin(grupToplami, totals.items[0].unit, 0.01),
-    "grup toplamlarının toplamı = kalemin birim maliyeti"
+    yakin(paketToplam, totals.direct, 0.01),
+    `PAKET TUTAR sütunu doğrudan maliyeti tutuyor (${paketToplam.toFixed(2)})`
   );
+  kontrol(
+    yakin(sayi(ks, "DOĞRUDAN MALİYET (KALEM PAKETLERİ + PROJE GENELİ)", 9), totals.direct),
+    "çizelgenin dip toplamı = costTotals.direct"
+  );
+  // ARA TOPLAM SATIRI YOK: süzülebilir bir tabloda grup toplamı satırı,
+  // pivotta ve SUM'da İKİNCİ KEZ sayılırdı.
+  let araToplamSatiri = 0;
+  ks.eachRow((row) => {
+    if (String(row.getCell(4).value ?? "") === "GRUP TOPLAMI") araToplamSatiri += 1;
+  });
+  kontrol(araToplamSatiri === 0, "çizelgede ARA TOPLAM satırı yok (pivot çift saymaz)");
 
-  const pg = okunan.getWorksheet("Proje Geneli ve Oranlar")!;
-  const bekleyen = satirBul(pg, BEKLEYEN_SATIR, 2);
+  const bekleyen = satirBul(ks, BEKLEYEN_SATIR, 4);
   kontrol(bekleyen > 0, "fiyatı beklenen satır belgede duruyor");
-  const bekleyenTutar = hucre(pg, bekleyen, 6);
+  const bekleyenTutar = hucre(ks, bekleyen, 8);
   kontrol(
     bekleyenTutar === null || bekleyenTutar === undefined || bekleyenTutar === "",
     `fiyatı girilmemiş satırın tutarı BOŞ, sıfır değil (${JSON.stringify(bekleyenTutar)})`
   );
-  kontrol(hucre(pg, bekleyen, 3) === 1, "aynı satırın miktarı yazılı — satır kaybolmuyor");
+  kontrol(hucre(ks, bekleyen, 5) === 1, "aynı satırın miktarı yazılı — satır kaybolmuyor");
 
   console.log(hata === 0 ? "\nTÜM KONTROLLER GEÇTİ" : `\n${hata} KONTROL DÜŞTÜ`);
   if (hata > 0) process.exitCode = 1;

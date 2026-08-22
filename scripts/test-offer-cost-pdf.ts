@@ -35,12 +35,13 @@ import { withTotal } from "../src/lib/offers/pricing";
 import {
   costItemFromOfferItem,
   costModels,
+  costSteelWeights,
   costWeights,
   emptyCostPayload,
   withCostDerived,
   withDefaultRates,
 } from "../src/lib/offers/cost/payload";
-import { costTotals } from "../src/lib/offers/cost/totals";
+import { costOverview, costTotals } from "../src/lib/offers/cost/totals";
 import { PAGE, mm } from "../src/lib/pdf/brand";
 import { fmtMoney0 } from "../src/lib/currency";
 import type { OfferItem, OfferPayload } from "../src/lib/offers/types";
@@ -292,7 +293,11 @@ async function main() {
   const kalem = astorKalemi();
   const teklif = astorTeklifi(kalem);
   const maliyet = astorMaliyeti(teklif);
-  const totals = costTotals(maliyet, costWeights(costModels(maliyet)));
+  const modeller = costModels(maliyet);
+  const totals = costTotals(maliyet, costWeights(modeller));
+  // BELGENİN OKUDUĞU ÖZETİN TA KENDİSİ (MALIYET-29): sav belgeyi çekirdekle
+  // karşılaştırabilsin diye burada da aynı çağrı yapılır.
+  const ozet = costOverview(totals, teklif, costSteelWeights(modeller), maliyet);
 
   const props: OfferCostDocumentProps = {
     offer: {
@@ -353,8 +358,8 @@ async function main() {
   // SEHİM MİLİMETREDİR (md. 7): ASTOR kirişinde 20,5 mm.
   kontrol(duz(metin).includes("20,5"), "sehim milimetre olarak basıldı (md. 7)");
 
-  // 2 — DÖRT ANA BAŞLIK VE TOPLAM
-  console.log("\n  dört ana başlık");
+  // 2 — ANA BAŞLIKLAR VE TOPLAM
+  console.log("\n  ana başlıklar");
   const proje = totals.direct ?? 0;
   // ÇAPA 194.257,74 → 197.827,74 (18.08.2026) → 198.082,74 € (19.08.2026).
   // İlk sıçrama sacın FİRE DAHİL kilodan fiyatlanmasıydı: (56.100 − 51.000) ×
@@ -365,18 +370,76 @@ async function main() {
   kontrol(Math.abs(proje - 198_082.74) < 1, `doğrudan maliyet beklenen çapada (${proje.toFixed(2)} €)`);
   kontrol(
     Math.abs((totals.total ?? 0) - proje * 1.19) < 0.01,
-    "toplam maliyet = proje × 1,19 (oran tabanı PROJE MALİYETİ)"
+    "toplam maliyet = doğrudan maliyet × 1,19 (oran tabanı DOĞRUDAN MALİYET)"
   );
-  for (const baslik of ["PROJE MALİYETİ", "SABİT MALİYETLER", "SARF MALİYETLER", "FİNANSMAN MALİYETLERİ", "TOPLAM MALİYET"]) {
+  // BAŞLIKLARIN ÜÇÜ DE AYRI SATIRDIR ve ayrı olmak ZORUNDADIR: belge bir
+  // zamanlar `totals.direct`i "PROJE MALİYETİ" diye basıyordu, yani ekranın ve
+  // Excel'in aynı adlı satırından BAŞKA bir sayı gösteriyordu.
+  for (const baslik of [
+    "İMALAT MALİYETİ",
+    "PROJE MALİYETİ",
+    "DOĞRUDAN MALİYET",
+    "SABİT MALİYETLER",
+    "SARF MALİYETLER",
+    "FİNANSMAN MALİYETLERİ",
+    "TOPLAM MALİYET",
+  ]) {
     kontrol(metin.includes(baslik), `"${baslik}" başlığı belgede`);
   }
+  kontrol(
+    duz(metin).includes(duz(fmtMoney0(totals.fabrication, "EUR"))),
+    "imalat maliyeti belgede yazıyor"
+  );
+  kontrol(
+    duz(metin).includes(duz(fmtMoney0(totals.project, "EUR"))),
+    "proje maliyeti (doğrudan eksi imalat) belgede yazıyor"
+  );
   kontrol(duz(metin).includes(duz(fmtMoney0(totals.total, "EUR"))), "toplam maliyet tutarı ondalıksız basıldı");
 
-  // 3 — KÂR
+  // 3 — KÂR: ÇEKİRDEĞİN ÖZETİNDEN (MALIYET-29)
   console.log("\n  kâr");
   kontrol(metin.includes("KÂR"), "kâr satırı var");
   kontrol(duz(metin).includes(duz("TEKLİF VE KÂR")), "teklif–maliyet karşılaştırma kutusu var");
-  kontrol(duz(metin).includes(duz("Teklif Tutarı")), "teklif tutarı satırı var");
+  kontrol(duz(metin).includes(duz("TEKLİF TUTARI")), "teklif tutarı satırı var");
+  // BELGE KENDİ KÂRINI HESAPLAMAZ. Bugüne kadar `costMargin(pricing.total,
+  // totals.total)` çağırıyordu ve fiyat satırlarına elle yazılan maliyetleri
+  // hiç görmüyordu: ekran bir kâr, Excel başka bir kâr, PDF üçüncü bir kâr
+  // gösteriyordu. Sav artık ÇEKİRDEĞİN sayısıyla karşılaştırır.
+  kontrol(
+    ozet.margin.profit !== null && duz(metin).includes(duz(fmtMoney0(ozet.margin.profit, "EUR"))),
+    `kâr çekirdeğin özetiyle aynı (${fmtMoney0(ozet.margin.profit, "EUR")})`
+  );
+  kontrol(
+    duz(metin).includes(duz(fmtMoney0(ozet.margin.price, "EUR"))),
+    "teklif tutarı İSKONTOLU toplamdır (costOverview → effectiveTotal)"
+  );
+  kontrol(
+    duz(metin).includes(duz("MALİYET ÖZETİ")),
+    "tek listeli maliyet özeti belgede (MALIYET-38)"
+  );
+
+  // 3b — KOMPAKTLIK BİR SAV'DIR, bir izlenim değil.
+  //
+  // Kullanıcı isteği (22.08.2026): *"Sayfalarca doküman olmasın, kompakt
+  // olsun."* Tek kalemli ASTOR çalışması sekiz yaprak tutuyordu. Bütçe ÖLÇÜLÜR
+  // çünkü sıkıştırma sessizce geri alınabilir: iki sütunlu bir listeyi tek
+  // sütuna çeviren tek satırlık bir düzenleme, hiçbir testi kırmadan belgeyi
+  // eski boyuna döndürürdü.
+  console.log("\n  kompaktlık");
+  // BÜTÇE ÖLÇÜLDÜ, SEÇİLMEDİ: özet yaprağının ardındaki dört yaprağın dördü de
+  // %91'in üstünde doludur (ölçülen dip: 729 · 780 · 780 · 740 / 795 pt), yani
+  // beş taban, bir hedef değil. Sayı DÜŞERSE sav da düşürülür — büyürse bir
+  // sıkıştırma sessizce geri alınmış demektir.
+  kontrol(
+    sayfalar.length <= 5,
+    `tek kalemli çalışma ${sayfalar.length} yaprak (bütçe: 5, eski hâli: 8)`
+  );
+  kontrol(
+    duz(sayfalar[0]).includes(duz("TOPLAM MALİYET")) &&
+      duz(sayfalar[0]).includes(duz("KÂR")) &&
+      duz(sayfalar[0]).includes(duz("ANA KALEM KIRILIMI")),
+    "karar İLK YAPRAKTA verilebiliyor: başlıklar, kâr ve kırılım birlikte"
+  );
 
   // 4 — İÇ BELGE DAMGASI HER SAYFADA
   console.log("\n  iç belge koruması");

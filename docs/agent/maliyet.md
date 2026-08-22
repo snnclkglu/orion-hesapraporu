@@ -105,6 +105,14 @@ kayar.
 kipinde yüzde hiç okunmaz. İkisini toplamak aynı gideri iki kez saymanın en
 kısa yoluydu.
 
+**TABANIN ADI BUGÜN "DOĞRUDAN MALİYET"TİR.** Karar (çarpma / bölme) değişmedi,
+ad değişti: 19.08.2026'da İMALAT ayrı bir ana başlık oldu ve `project` alanı
+`direct` EKSİ imalat anlamına geldi (`totals.ts`). Oranların tabanı yine aynı
+sayıdır — imalat DAHİL toplam — ama artık `direct` adını taşır ve belgelerde
+"DOĞRUDAN MALİYET (ORAN TABANI)" diye basılır. Yukarıdaki 194.258 → 231.167 €
+çapası kararın alındığı günün fikstürüdür; bugünkü ASTOR çapası 198.083 →
+235.718 €'dur (fire dahil sac ve kesim, MALIYET-27).
+
 ## MALIYET-6 — Model katsayıları BELGEYE aittir, koda değil.
 
 `payload.params` açılışta `COST_PARAM_DEFS`ten kopyalanır ve o andan sonra BU
@@ -910,3 +918,87 @@ Sarıdan kırmızıya renk skalası gibi yaparsın."*
   görünür satırında t ≥ 0,45 → 6 satır, t ≥ 0,75 → 2 satır) ve hücrenin
   `title`ı oranı yazıyla söyler. Parlaklık bandı açık temada 0,58'i geçmez:
   ölçüldü, 0,62'de sarı uç ~3,5:1 veriyordu ve WCAG AA 4,5:1 ister.
+
+## MALIYET-45 — İç belgeler KOMPAKTTIR; özet ilk yaprakta, sekmeler ikiye indi.
+
+Kullanıcı isteği (22.08.2026): *"Maliyet PDF ve excellerini mevcut maliyet
+yapısına göre yeniden dizayn etmek, kompakt hale getirmek istiyorum. En başta
+özet olsun. Sayfalarca doküman olmasın, kompakt olsun."*
+
+Tek kalemli ASTOR çalışması **PDF'te sekiz yaprak, Excel'de dört sekme**
+tutuyordu. İkisinin de büyük kısmı BOŞLUKTU: PDF'te yüzden fazla etiket–değer
+satırı 487 pt'lik içerik genişliğinin tamamını kaplayarak alt alta diziliyordu;
+Excel'de vinç başına açılan sekmeler AYNI sütunları taşıyordu, yani ayrım bir
+YAPI değil bir BÖLMEYDİ.
+
+**PDF: 8 → 5 YAPRAK.** Üç kaldıraç, üçü de içerik değil yerleşim:
+
+- **İKİ SÜTUNLU LİSTE** (`IkiSutunlu`). Ağırlık, hesap, hammadde fiyatı ve model
+  katsayısı listeleri bölüm bölüm ikiye katlanır. Bölünme BÖLÜM İÇİNDE olur,
+  sayfa boyunca değil: iki bağımsız sütun sayfa sınırında ayrı yerlerde kırılır
+  ve sol sütunun devamı sağ sütunun ortasından çıkardı. Punto KISILMADI (7,6 →
+  7,2 pt); mono rakamlar 7 pt'nin altında binlik ayraçlarını kaybediyor.
+- **AYRINTI TEK AKIŞTIR.** Kalem başına bir `<Page>` yerine tek sayfa ve kalem
+  başına `break`. Son kalemin listesi yaprağın sekizinci satırında bitiyor ve
+  671 pt boş kalıyordu; ardından gelen arşiv bloğu (proje geneli, oranlar,
+  hammadde, katsayılar) o boşluğu kullanamıyordu çünkü ayrı bir `<Page>`di.
+- **SATIR ALTI METİN TEK SATIRDA** birleşir ("Teklifte: … · Miktar: … · not"),
+  MALIYET-25'in dikey borcu üçe bölünmez.
+
+Kalan dört yaprağın dördü de **%91'in üstünde doludur** (ölçülen dip: 729 · 780 ·
+780 · 740 / 795 pt). Beş bir HEDEF değil, ölçülen TABANDIR ve duman testi onu
+sav olarak tutar (`test-offer-cost-pdf.ts`) — sıkıştırma sessizce geri alınabilir
+bir şeydir, iki sütunlu bir listeyi tek sütuna çeviren tek satır yeter.
+
+**ÖZET KENDİ YAPRAĞINDA KALIR** ve bu bilinçlidir: ilk yaprak yalnız %57
+doludur ama forwardlanacak/ekrana alınacak olan odur. Birleştirmek de yaprak
+kazandırmıyordu — ayrıntı 3.029 pt tutuyor, özetin boşluğu 344 pt; dördüncü
+yaprak yine dolardı.
+
+**EXCEL: 4 → 2 SEKME.**
+
+- **Özet** kendi başına yeter: künye, ana başlıklar, kâr, TEK listeli kalem
+  özeti (MALIYET-38 — vinçler ve serbest fiyat satırları aynı tabloda, ayrımı
+  TÜR sütunu söyler), ana kalem kırılımı, kalem künyeleri ve modelin eksik
+  gerekçeleri (MALIYET-13), hammadde fiyatları, **model katsayıları**
+  (MALIYET-6; bugüne kadar yalnız PDF'teydi).
+- **Maliyet Kalemleri** düz ve SÜZGEÇLİ tek çizelgedir: bütün vinçler, proje
+  geneli ve kalem kipindeki oranlı gruplar, `KAYNAK` sütunuyla. Sekme sayısı
+  artık kalem sayısından BAĞIMSIZDIR.
+- **ARA TOPLAM SATIRI YAZILMAZ**: süzülebilir bir tabloda grup toplamı satırı
+  pivotta ve `SUM`da İKİNCİ KEZ sayılır. Grup toplamları özetteki kırılımdadır.
+- **TOPLANACAK SÜTUN `PAKET TUTAR`DIR**: satırın `TUTAR`ı BİR adedin
+  maliyetidir; iki vinçli bir teklifte `TUTAR` sütununu toplayan okuyucu
+  doğrudan maliyeti yarı bulurdu.
+
+## MALIYET-46 — PDF kendi kârını HESAPLAMAZ; `costOverview`i okur.
+
+MALIYET-29 "ekran, PDF ve Excel ONU okur" diyordu ama PDF okumuyordu: kendi
+`costMargin(pricing.total, totals.total)` çağrısını yapıyor ve **teklifin serbest
+fiyat satırlarına elle yazılan maliyetleri hiç görmüyordu** (MALIYET-11). Üç İÇ
+BELGE üç ayrı kâr gösterebiliyordu — MALIYET-24'ün yasakladığı ayrışmanın ta
+kendisi. Kural artık kodda da geçerlidir.
+
+Aynı turda düzeltilen iki ETİKET hatası, ikisi de sayının kendisini değil ADINI
+yanlış söylüyordu ve bu daha sinsidir:
+
+- Belge `totals.direct`i **"PROJE MALİYETİ"** diye basıyordu. Modelde `project`,
+  `direct` EKSİ imalattır (`totals.ts`); yani belgedeki satır, ekranın ve
+  Excel'in aynı adlı satırından BAŞKA bir sayı gösteriyordu. Artık üçü de ayrı
+  satırdır: İMALAT · PROJE · DOĞRUDAN MALİYET (ORAN TABANI).
+- Oranlı grubun satırı **"Proje maliyeti × %15"** yazıyordu ama çarpan
+  `direct`ti. Çarpımı proje maliyetiyle tutturmaya çalışan okuyucu ASTOR
+  ölçeğinde 10.519 € sapardı.
+
+## MALIYET-47 — İndirme düğmesi BELGENİN ADINI söyler, biçimini değil.
+
+Kullanıcı isteği (22.08.2026): *"Teklif PDF indir kısmında buton üzerine
+Teklifi İndir yazalım. Maliyet PDF indir kısmına Maliyet İndir yazalım."*
+
+Üç ekranda dört düğme "PDF İndir" diyordu (teklif editörü, teklif paneli iki
+kez, maliyet editörü) ve hangisinin hangi belgeyi indirdiğini yalnız bulunduğu
+ekran söylüyordu. Artık **Teklifi İndir** / **Teklifi İndir ve Yayımla** /
+**Maliyet İndir**. Yayımla düğmesi de birlikte değişti: yan yana duran iki
+düğmenin aynı belgeye iki ayrı adla ("Teklifi İndir" ve "PDF İndir ve Yayımla")
+işaret etmesi, ayrımı biçimden sanmaya davet ederdi. Excel düğmesi **Excel
+İndir** kalır — orada ayırt edici olan biçimin kendisidir.

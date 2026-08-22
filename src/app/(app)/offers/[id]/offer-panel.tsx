@@ -6,10 +6,15 @@
 // ve teklifi yayınla tuşu olsun ikisi ayrı ayrı"*) ve ayrım gerçek bir işe
 // karşılık gelir:
 //
-//   · **PDF İndir** — belgeyi ÜRETİR, hiçbir şeyi değiştirmez. Taslağı
+//   · **Teklifi İndir** — belgeyi ÜRETİR, hiçbir şeyi değiştirmez. Taslağı
 //     kontrol etmek, iç görüş almak, müşteriye "ön bilgi" göndermek için.
-//   · **PDF İndir ve Yayımla** — revizyonu KİLİTLER, arşive yazar ve teklifin
-//     GÖNDERİM TARİHİNİ bugüne çeker. Takip sayacı o andan itibaren işler.
+//   · **Teklifi İndir ve Yayımla** — revizyonu KİLİTLER, arşive yazar ve
+//     teklifin GÖNDERİM TARİHİNİ bugüne çeker. Takip sayacı o andan işler.
+//
+// DÜĞME BELGENİN ADINI SÖYLER, BİÇİMİNİ DEĞİL (kullanıcı isteği, 22.08.2026):
+// eskiden ikisi de "PDF İndir"di ve maliyet ekranındaki düğme de öyleydi —
+// aynı ada sahip üç düğme, hangisinin hangi belgeyi indirdiğini ancak
+// bulunduğu ekrandan söylüyordu. Ad artık soruyu düğmenin kendisi cevaplar.
 //
 // İkisini tek düğmede birleştirmek, her önizleme denemesini bir yayıma
 // çevirirdi; ayırmanın bedeli ise kullanıcının hangi düğmeye bastığını bilmesi
@@ -301,7 +306,7 @@ export function OfferPanel({
 
                       <Button asChild variant="outline" size="sm" className="oc-tap">
                         <a href={pdfUrl(offer.id, rev.id)}>
-                          <Download className="size-3.5" /> PDF İndir
+                          <Download className="size-3.5" /> Teklifi İndir
                         </a>
                       </Button>
 
@@ -314,7 +319,7 @@ export function OfferPanel({
                           onClick={() => yayimlaVeIndir(rev.id)}
                           title="Revizyonu kilitler, arşive yazar ve gönderim tarihini bugüne çeker"
                         >
-                          <Send className="size-3.5" /> PDF İndir ve Yayımla
+                          <Send className="size-3.5" /> Teklifi İndir ve Yayımla
                         </Button>
                       ) : yonetici ? (
                         // YAYIMLANMIŞI GERİ ÇEKMEK YALNIZ YÖNETİCİDEDİR
@@ -386,7 +391,7 @@ export function OfferPanel({
             <div className="flex justify-end">
               <Button asChild variant="outline" className="oc-tap">
                 <a href={pdfUrl(offer.id, onizleme.revisionId)}>
-                  <Download className="size-4" /> PDF İndir
+                  <Download className="size-4" /> Teklifi İndir
                 </a>
               </Button>
             </div>

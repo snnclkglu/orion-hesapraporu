@@ -471,7 +471,7 @@ export function OfferEditor({
           </Button>
           <Button asChild variant="outline" className="oc-tap">
             <a href={`/offers/${offerId}/revisions/${revisionId}/pdf`}>
-              <Download className="size-4" /> PDF İndir
+              <Download className="size-4" /> Teklifi İndir
             </a>
           </Button>
           {readOnly ? null : (
@@ -503,7 +503,7 @@ export function OfferEditor({
                 onClick={yayimlaVeIndir}
                 title="Kaydeder, revizyonu kilitler ve gönderim tarihini bugüne çeker"
               >
-                <Send className="size-4" /> PDF İndir ve Yayımla
+                <Send className="size-4" /> Teklifi İndir ve Yayımla
               </Button>
             </>
           )}
