@@ -23,10 +23,15 @@ describe("ekipman listesi PDF düzeni", () => {
           qty: 4,
         }],
       }],
+      mainDrawingUrl: `https://orion.example/paylas/resim/${"A".repeat(43)}`,
     });
 
     expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
     expect(pdf.length).toBeGreaterThan(10 * 1024);
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const doc = await getDocumentProxy(new Uint8Array(pdf));
+    const { text } = await extractText(doc, { mergePages: true });
+    expect(String(text)).toContain("Proje Ana Paftasını Aç");
   }, 120_000);
 });
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { EquipmentExtraRow } from "@/lib/excel/equipment";
 import { DRAWING_NOTE_KEY } from "@/lib/equipment-drawing-note";
+import { customerDrawingPathOf } from "@/lib/equipment-customer-link";
 
 const extraRowSchema = z.object({
   group: z.string().trim().max(80).default(""),
@@ -166,4 +167,46 @@ export async function saveDrawingNote(
 
   revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
   return { ok: true };
+}
+
+// ------------------------------------------------------ Müşteri ana paftası
+
+/**
+ * Teknik Resimler'de üretilen tek-PDF müşteri linkini ekipman listesine bağlar.
+ * Mutlak alan adı saklanmaz; çıktı alınırken isteğin canlı origin'i eklenir.
+ */
+export async function saveCustomerDrawingLink(
+  projectId: string,
+  revisionId: string,
+  value: string
+): Promise<SaveExtrasResult & { path?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const path = customerDrawingPathOf(value);
+  if (path === null) {
+    return { error: "Yalnız Teknik Resimler bölümünde üretilen müşteri linki kullanılabilir." };
+  }
+
+  if (path === "") {
+    const { error } = await supabase
+      .from("equipment_customer_drawing_links")
+      .delete()
+      .eq("revision_id", revisionId);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.from("equipment_customer_drawing_links").upsert({
+      revision_id: revisionId,
+      share_path: path,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    });
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/projects/${projectId}/revisions/${revisionId}/equipment`);
+  return { ok: true, path };
 }

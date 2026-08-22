@@ -7,8 +7,16 @@ import type {
   PDFPageProxy,
   RenderTask,
 } from "unpdf/pdfjs";
-import { LoaderCircle, LockKeyhole, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  LoaderCircle,
+  LockKeyhole,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2.5;
@@ -17,15 +25,24 @@ const ZOOM_STEP = 0.25;
 export function ProtectedPdfViewer({
   contentUrl,
   fileName,
+  notice = "İndirme ve yazdırma kapalı · görüntü kişisel filigran taşır",
+  fillHeight = false,
 }: {
   contentUrl: string;
   fileName: string;
+  notice?: string;
+  /** Dış paylaşım kabuğunda görüntüleyiciyi kalan ekran yüksekliğine yayar. */
+  fillHeight?: boolean;
 }) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(0);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+  const viewerRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fullscreen = nativeFullscreen || fallbackFullscreen;
 
   useEffect(() => {
     const node = containerRef.current;
@@ -90,6 +107,51 @@ export function ProtectedPdfViewer({
     return () => window.removeEventListener("keydown", preventSaveAndPrint);
   }, []);
 
+  useEffect(() => {
+    const syncFullscreen = () => {
+      setNativeFullscreen(globalThis.document.fullscreenElement === viewerRef.current);
+    };
+    globalThis.document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => globalThis.document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = globalThis.document.body.style.overflow;
+    globalThis.document.body.style.overflow = "hidden";
+    const closeFallback = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFallbackFullscreen(false);
+    };
+    globalThis.window.addEventListener("keydown", closeFallback);
+    return () => {
+      globalThis.document.body.style.overflow = previousOverflow;
+      globalThis.window.removeEventListener("keydown", closeFallback);
+    };
+  }, [fullscreen]);
+
+  async function toggleFullscreen() {
+    const node = viewerRef.current;
+    if (!node) return;
+
+    if (fallbackFullscreen) {
+      setFallbackFullscreen(false);
+      return;
+    }
+
+    if (globalThis.document.fullscreenElement) {
+      await globalThis.document.exitFullscreen();
+      return;
+    }
+
+    try {
+      await node.requestFullscreen();
+    } catch {
+      // Bazı tablet tarayıcıları belge dışındaki öğeler için Fullscreen API'yi
+      // kapatır. Bu durumda görünür alanı kaplayan uygulama içi kip kullanılır.
+      setFallbackFullscreen(true);
+    }
+  }
+
   const pages = document
     ? Array.from({ length: document.numPages }, (_, index) => index + 1)
     : [];
@@ -99,12 +161,19 @@ export function ProtectedPdfViewer({
       <p className="hidden border p-4 text-sm print:block">
         Bu teknik resim yalnız korumalı uygulama görüntüleyicisinde gösterilir.
       </p>
-      <section className="min-w-0 border bg-card print:hidden">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+      <section
+        ref={viewerRef}
+        className={cn(
+          "min-w-0 border bg-card print:hidden",
+          fillHeight && "flex min-h-0 flex-col",
+          fullscreen && "fixed inset-0 z-[100] flex h-dvh w-screen flex-col border-0"
+        )}
+      >
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
           <span className="inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <LockKeyhole className="size-4 shrink-0" />
             <span className="truncate" title={fileName}>
-              İndirme ve yazdırma kapalı · görüntü kişisel filigran taşır
+              {notice}
             </span>
           </span>
           <span className="flex items-center gap-1">
@@ -133,13 +202,33 @@ export function ProtectedPdfViewer({
             >
               <ZoomIn className="size-4" />
             </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              onClick={() => void toggleFullscreen()}
+              title={fullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+              aria-label={fullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+              aria-pressed={fullscreen}
+            >
+              {fullscreen ? (
+                <Minimize2 className="size-4" />
+              ) : (
+                <Maximize2 className="size-4" />
+              )}
+            </Button>
           </span>
         </header>
 
         <div
           ref={containerRef}
           onContextMenu={(event) => event.preventDefault()}
-          className="oc-scrollx h-[calc(100dvh-13rem)] min-h-80 overflow-auto bg-muted/60 p-3 [--oc-scroll-bg:var(--muted)] sm:p-4"
+          className={cn(
+            "oc-scrollx overflow-auto bg-muted/60 p-3 [--oc-scroll-bg:var(--muted)] sm:p-4",
+            fillHeight || fullscreen
+              ? "h-auto min-h-0 flex-1"
+              : "h-[calc(100dvh-13rem)] min-h-80"
+          )}
         >
           {!document && !error && (
             <p className="flex min-h-56 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -158,7 +247,10 @@ export function ProtectedPdfViewer({
                   key={pageNumber}
                   document={document}
                   pageNumber={pageNumber}
-                  availableWidth={Math.max(280, width - 32)}
+                  // 32px gövde dolgusu + 2px figure kenarlığı. Kenarlığı
+                  // düşmemek tablette anlamsız, iki piksellik yatay kayma
+                  // üretiyordu.
+                  availableWidth={Math.max(280, width - 34)}
                   zoom={zoom}
                 />
               ))}

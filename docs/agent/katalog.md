@@ -74,13 +74,17 @@ değişirse betikteki `db_model` de değişmelidir.
 **Yalnız görüntü saklanır, PDF dilimi değil:** sayfa dilimi PDF'i kaynağın
 taranmış görüntüsünü olduğu gibi taşıdığı için dosya başına 200–800 KB
 tutuyordu; 260'ı aşkın sayfada depoyu şişirirdi. Dosyalar `public/` altında
-DEĞİLDİR: üretici kataloğu kimlik doğrulamalı `/api/catalog-sheet/...`
-ucundan sunulur.
+DEĞİLDİR: `/api/catalog-sheet/...` ucu yolu manifest izin listesinde birebir
+doğrular. Uç müşteri bağlantısı için oturum istemez ama manifest dışındaki bir
+dosyayı ya da dizini hiçbir zaman sunmaz.
 
-**Katalog sayfasının kendi adresi vardır: `/katalog?tur=…&marka=…&model=…`.**
+**Katalog sayfasının müşteriye açık adresi vardır:
+`/paylas/katalog?tur=…&marka=…&model=…`.**
 Ekipman listesinde EKİPMAN ADI bu adrese bağlanır — uygulamada yeni sekmede,
-Excel'de köprü olarak, standart PDF'te dış bağlantı olarak. Adres ÜRÜN
-KİMLİĞİNİ taşır, defterin iç kimliğini değil: `manifest.json` yeniden
+Excel'de köprü olarak, standart PDF'te dış bağlantı olarak. Müşteri üyeliği
+gerekmez; açık sayfa yalnız seçilen üretici yaprağını gösterir, uygulama
+menülerini ya da başka kataloglarda gezinme yolu vermez. Adres ÜRÜN KİMLİĞİNİ
+taşır, defterin iç kimliğini değil: `manifest.json` yeniden
 üretildiğinde sayfa kimlikleri değişebilir ama ürün kimliği değişmez, yani
 daha önce indirilmiş bir Excel'in bağlantısı ölü kalmaz. Adresi
 `catalogSheetPageUrl` üretir, listedeki eşlemeyi `buildCatalogSheetUrls`

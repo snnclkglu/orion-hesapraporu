@@ -6,8 +6,9 @@
 // kimlikleri değişebilir ama ürün kimliği değişmez — daha önce indirilmiş bir
 // Excel'in bağlantısı ölü kalmaz.
 //
-// Sayfa görüntüleri `/api/catalog-sheet/...` ucundan gelir ve oturum ister;
-// bu sayfa da (app) grubunda olduğu için oturumsuz erişimde girişe yönlenir.
+// Bu iç sayfa (app) grubunda olduğu için oturum ister. Müşteri ekipman
+// listesindeki bağlantı ise sade `/paylas/katalog?...` sayfasına gider ve
+// üyelik istemez; her ikisi de manifest izin listeli görüntü ucunu kullanır.
 
 import Link from "next/link";
 import { BookOpen, Download, ExternalLink } from "lucide-react";
@@ -96,8 +97,8 @@ export default async function CatalogSheetPage({
                 Sayfa {i + 1} / {sheet.images.length}
               </figcaption>
             )}
-            {/* next/image KULLANILMAZ — kaynak kimlik doğrulamalı bir uçtur ve
-                görüntü iyileştiricisinden geçirmenin faydası yoktur. */}
+            {/* next/image KULLANILMAZ — kaynak manifest izin listeli bir uçtur;
+                taranmış teknik sayfayı yeniden iyileştirmenin faydası yoktur. */}
             {/*
               TARAMA KÜÇÜLTÜLMEZ, KAYDIRILIR. `w-full` bir A4 taramasını 328px'e
               sıkıştırıyordu: ölçü tabloları ve dipnotlar tamamen okunmaz

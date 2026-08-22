@@ -37,6 +37,7 @@ import { summarySpecsForReport } from "@/lib/pdf/report";
 import { pdfEkleriYerlestir } from "@/lib/pdf/merge";
 import { getReportSettings } from "@/lib/settings";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
+import { loadCustomerDrawingPath } from "@/lib/equipment-customer-link";
 
 export const runtime = "nodejs";
 
@@ -167,6 +168,10 @@ export async function GET(
   // Ressam notu da yalnız teknik özet istendiğinde okunur (özet basılmıyorsa
   // notun gideceği bir yer yok).
   const drawingNote = scope === "customer" ? undefined : await loadDrawingNote(supabase, revId);
+  const customerDrawingPath = await loadCustomerDrawingPath(supabase, revId);
+  const mainDrawingUrl = customerDrawingPath
+    ? `${appOrigin}${customerDrawingPath}`
+    : undefined;
 
   if (format === "pdf") {
     const groups = mergeExtras(
@@ -201,7 +206,7 @@ export async function GET(
         ? undefined
         : { ...summarySpecsForReport(calcInput), specs: calcInput.specs };
     const basePdf = await renderEquipmentPdf({
-      meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, sheetPages,
+      meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
       attachmentCovers: orderedAttachments.map((a) => ({
         rowKey: a.rowKey,
         component: a.component,
@@ -241,7 +246,7 @@ export async function GET(
     ext = "pdf";
   } else {
     const workbook = buildEquipmentWorkbook(calcInput, calcResult, meta, {
-      datasheetUrls, scope, extras, notes, alts, appOrigin, drawingPlan, drawingNote,
+      datasheetUrls, scope, extras, notes, alts, appOrigin, mainDrawingUrl, drawingPlan, drawingNote,
       attachments, hiddenSections,
     });
     body = new Uint8Array((await workbook.xlsx.writeBuffer()) as ArrayBuffer);

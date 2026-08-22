@@ -39,10 +39,23 @@ export default async function PackageFilesPage({
     : { data: null };
   const yazabilir = canEditDrawings(profile?.role);
 
+  // Yalnız aktif bağlantıların VARLIĞI istemciye gider; ham müşteri anahtarı
+  // veritabanında zaten yoktur. Paylaşma yetkisi olmayana sorgu da düğme de
+  // gösterilmez.
+  const { data: shareRows } =
+    yazabilir && dosyalar.length > 0
+      ? await supabase
+          .from("drawing_public_shares")
+          .select("file_id")
+          .in("file_id", dosyalar.map((d) => d.id))
+          .is("revoked_at", null)
+      : { data: null };
+
   return (
     <FileBrowser
       packageId={id}
       dosyalar={dosyalar}
+      sharedFileIds={yazabilir ? (shareRows ?? []).map((row) => row.file_id as string) : undefined}
       ekle={
         yazabilir ? (
           <AddFilesButton

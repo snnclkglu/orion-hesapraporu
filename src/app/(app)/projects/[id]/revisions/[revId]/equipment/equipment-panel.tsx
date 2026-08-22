@@ -23,14 +23,17 @@
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Loader2, Plus, Save, Trash2,
+  BookOpen, ExternalLink, FileDown, FilePlus2, FileSpreadsheet, Link2, Loader2, Plus, Save, Trash2,
 } from "lucide-react";
 import type { EqGroup, EquipmentExtraRow, SummarySection } from "@/lib/excel/equipment";
 import { dsKey, summaryRowValue } from "@/lib/excel/equipment";
 import { EQUIPMENT_ATTACHMENT_BUCKET } from "@/lib/equipment-attachments";
+import { customerDrawingPathOf } from "@/lib/equipment-customer-link";
 import { createClient } from "@/lib/supabase/client";
 import { kimlikBuyuk } from "@/lib/tr-text";
-import { saveDrawingNote, saveEquipmentExtras, saveEquipmentNote } from "./actions";
+import {
+  saveCustomerDrawingLink, saveDrawingNote, saveEquipmentExtras, saveEquipmentNote,
+} from "./actions";
 import { Textarea } from "@/components/ui/textarea";
 import { DiagramSvg } from "@/components/diagrams/diagram-svg";
 import {
@@ -162,7 +165,7 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 export function EquipmentPanel({
   projectId, revisionId, autoGroups, summary, initialExtras, initialAttachments,
-  initialDrawingNote, datasheetUrls, sheetUrls, locked,
+  initialDrawingNote, initialCustomerDrawingPath, datasheetUrls, sheetUrls, locked,
 }: {
   projectId: string;
   revisionId: string;
@@ -174,6 +177,8 @@ export function EquipmentPanel({
    * yoktur).
    */
   initialDrawingNote?: string;
+  /** Ekipman PDF/Excel'inde "Proje Ana Paftası" olarak açılan müşteri yolu. */
+  initialCustomerDrawingPath?: string;
   initialExtras: EquipmentExtraRow[];
   /** Satırlara yüklenmiş PDF ekleri (equipment_attachments) */
   initialAttachments: PanelAttachment[];
@@ -194,6 +199,11 @@ export function EquipmentPanel({
    * gösterir, kayıt sonrası sayfa tazelenir (revalidatePath).
    */
   const [drawingNote, setDrawingNote] = useState(initialDrawingNote ?? "");
+  const [customerDrawingPath, setCustomerDrawingPath] = useState(
+    initialCustomerDrawingPath ?? ""
+  );
+  const [customerLinkPending, startCustomerLinkTransition] = useTransition();
+  const customerDrawingPreviewPath = customerDrawingPathOf(customerDrawingPath);
   const [noteState, setNoteState] = useState<"temiz" | "bekliyor" | "kaydedildi">("temiz");
 
   const dlBase = `/projects/${projectId}/revisions/${revisionId}/equipment/download`;
@@ -253,6 +263,22 @@ export function EquipmentPanel({
       const result = await saveEquipmentExtras(projectId, revisionId, extras);
       if (result?.error) toast.error(result.error);
       else toast.success("Ek satırlar kaydedildi");
+    });
+  }
+
+  function saveMainDrawingLink() {
+    startCustomerLinkTransition(async () => {
+      const result = await saveCustomerDrawingLink(
+        projectId,
+        revisionId,
+        customerDrawingPath
+      );
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setCustomerDrawingPath(result.path ?? "");
+      toast.success(result.path ? "Ana pafta ekipman listesine bağlandı." : "Ana pafta bağlantısı kaldırıldı.");
     });
   }
 
@@ -524,6 +550,41 @@ export function EquipmentPanel({
           {attachments.length > 0 &&
             ` · ${attachments.length} ek belge (${attachments.reduce((n, a) => n + a.pageCount, 0)} sayfa)`}
         </span>
+        <div className="grid w-full gap-1.5 border-t pt-3 sm:grid-cols-[auto_minmax(16rem,1fr)_auto_auto] sm:items-center">
+          <label htmlFor="customer-main-drawing" className="inline-flex items-center gap-1.5 text-xs font-medium">
+            <Link2 className="size-3.5 text-primary" /> Proje Ana Paftası
+          </label>
+          <Input
+            id="customer-main-drawing"
+            value={customerDrawingPath}
+            onChange={(event) => setCustomerDrawingPath(event.target.value)}
+            aria-label="Proje ana paftası müşteri bağlantısı"
+            className="h-8 font-mono text-xs pointer-coarse:h-10"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={customerLinkPending}
+            onClick={saveMainDrawingLink}
+          >
+            {customerLinkPending && <Loader2 className="size-3.5 animate-spin" />}
+            Bağlantıyı kaydet
+          </Button>
+          {customerDrawingPreviewPath && (
+            <a
+              href={customerDrawingPreviewPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-8 items-center gap-1 text-xs text-primary hover:underline pointer-coarse:min-h-10"
+            >
+              Kontrol et <ExternalLink className="size-3" />
+            </a>
+          )}
+          <p className="text-[11px] text-muted-foreground sm:col-span-4">
+            Teknik Resimler → Dosyalar bölümündeki “Müşteri linki”ni buraya yapıştırın. Standart PDF ve Excel bu tek paftayı müşteriye açar.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="equipment">

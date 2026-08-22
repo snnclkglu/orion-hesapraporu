@@ -380,10 +380,33 @@ dönülmez; görüntüleme açıkça hata verir. Ekran PDF.js ile tuvale çizili
 tarayıcının PDF indirme/yazdırma araç çubuğu yoktur, `Ctrl/Cmd+S`,
 `Ctrl/Cmd+P`, sağ tık ve yazdırma görünümü kapalıdır.
 
+**MÜŞTERİ PAYLAŞIMI AYRI BİR KAPIDIR** (kullanıcı açıklaması, 20.08.2026:
+*"müşterinin üyeliği olmayacak; katalog ya da proje ana paftasını açtırmak
+isterim"*). Teknik Resimler → Dosyalar ekranındaki `Müşteri linki` yalnız
+seçilen PDF için 256 bitlik opak anahtar üretir. `drawing_public_shares` ham
+anahtar yerine SHA-256 özetini, dosya kapsamını, oluşturanı ve iptal durumunu
+tutar. Ekipman listesine bağlanması seçilirse bearer yol ayrıca revizyon RLS'i
+altındaki `equipment_customer_drawing_links`te saklanır; anon bu tabloyu
+doğrudan okuyamaz. Bucket private kalır. `/paylas/resim/<token>` üyelik
+istemez ama başka pakete/dosyaya geçiş vermez; içerik her istekte aktif kaydı
+yeniden doğrular, filigranlı kopya üretir ve `no-store` döner. `Linki yenile`
+eskisini kapatır; kapatma düğmesi dolaşımdaki linki anında 404'e çevirir.
+
+**MÜŞTERİ GÖRÜNTÜLEYİCİSİ TABLETTE EKRANI KULLANIR.** Paylaşım kabuğu sabit
+bir `vh` tahminiyle PDF alanını kısaltmaz; başlıkların ardından kalan `dvh`
+yüksekliği belgeye verilir. Araç çubuğundaki Tam Ekran düğmesi kullanıcı
+dokunuşuyla tarayıcının Fullscreen API'sini açar. Bunu belge dışı öğeler için
+desteklemeyen tabletlerde aynı düğme görünür alanı kaplayan uygulama içi kipe
+düşer; çıkış düğmesi ve Escape iki kipte de belgeyi normal yerine döndürür.
+
+Ekipman listesi revizyonunda seçilen yol
+`equipment_customer_drawing_links`te saklanır. Standart PDF ve Excel başlığı
+`Proje Ana Paftasını Aç` bağlantısını taşır. Katalog sayfaları ise üretici
+belgesi olduğu için token üretmez; `/paylas/katalog?...` yalnız seçilen
+manifest yaprağını üyelik olmadan gösterir.
+
 **BU DRM DEĞİLDİR.** Ekranda okunabilen belge ekran görüntüsüyle veya uzman
 bir kullanıcı tarafından ağ yanıtından kaydedilebilir. Kuralın güvenlik değeri
-üçlüdür: asıl depo adresini vermemek, dışarı taşınan uygulama adresini oturuma
-bağlamak ve alınan kopyayı kişiye bağlayan görünür iz bırakmak. İleride müşteri
-paylaşımı açılırsa yalnız URL üretmek YASAKTIR; süreli paylaşım kaydı hangi
-müşterinin hangi PAKETİ görebildiğini veritabanında tutmalı ve içerik ucu aynı
-kapsamı her istekte doğrulamalıdır.
+asıl depo adresini vermemek, müşteri linkini tek dosyayla sınırlamak, istenince
+iptal etmek ve alınan kopyaya görünür iz bırakmaktır. Arayüzde indirme/yazdırma
+düğmesi olmaması kolay paylaşımı azaltır; mutlak kopya engeli vaat edilmez.

@@ -129,6 +129,10 @@ const s = StyleSheet.create({
   sheetMeta: { fontFamily: FONTS.mono, fontSize: 7, color: BRAND.gray600, marginTop: 2 },
   sheetImage: { width: "100%", objectFit: "contain" as const },
   hint: { fontFamily: FONTS.sans, fontSize: 7, color: BRAND.gray600, marginBottom: 6 },
+  mainDrawingLink: {
+    fontFamily: FONTS.sans, fontSize: 8, fontWeight: 500, color: BRAND.steel,
+    textDecoration: "underline", marginBottom: 6,
+  },
 });
 
 export interface EquipmentMetaPdf {
@@ -224,6 +228,8 @@ export interface EquipmentPdfProps {
    * katalog görüntüleyicisini yeni sekmede açar.
    */
   sheetUrls?: Map<string, string>;
+  /** Müşterinin üyelik olmadan açacağı seçilmiş proje ana paftası. */
+  mainDrawingUrl?: string;
   /**
    * Detaylı liste: katalog sayfaları belgenin SONUNA eklenir ve ekipman adı
    * DIŞ adrese değil, belge içindeki o sayfaya bağlanır. Boşsa belge standart
@@ -407,7 +413,7 @@ function MetaGrid({ meta }: { meta: EquipmentMetaPdf }) {
 }
 
 export function EquipmentDocument({
-  meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, sheetPages,
+  meta, groups, summary, specTable, settings, datasheetUrls, sheetUrls, mainDrawingUrl, sheetPages,
   attachmentCovers,
 }: EquipmentPdfProps) {
   const covers = attachmentCovers ?? [];
@@ -507,6 +513,12 @@ export function EquipmentDocument({
         {/* PROJE künyeden çıktı: artık sayfa BAŞLIĞI o. Aynı bilgiyi hem
             başlıkta hem künyede tekrarlamak künyeyi gereksiz uzatıyordu. */}
         <MetaGrid meta={meta} />
+
+        {mainDrawingUrl && (
+          <Link src={mainDrawingUrl} style={s.mainDrawingLink}>
+            Proje Ana Paftasını Aç ↗
+          </Link>
+        )}
 
         {(detailed || (sheetUrls && sheetUrls.size > 0)) && (
           <Text style={s.hint}>

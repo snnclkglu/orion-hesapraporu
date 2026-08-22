@@ -12,6 +12,7 @@ import {
 } from "@/lib/revision-load";
 import { runCalc } from "@/lib/calc/engine";
 import { loadDrawingNote } from "@/lib/equipment-drawing-note";
+import { loadCustomerDrawingPath } from "@/lib/equipment-customer-link";
 import {
   buildCatalogSheetUrls, buildEquipmentGroups, buildSummarySections, dsKey,
   type EquipmentExtraRow, type EquipmentNotes,
@@ -88,7 +89,10 @@ export default async function EquipmentPage({
   ]);
   // Ressam notu ekranda da özetin altındadır ve İNDİRİLEN belgeyle AYNI
   // okuma katmanından gelir (`loadDrawingNote`).
-  const drawingNote = await loadDrawingNote(supabase, revId);
+  const [drawingNote, customerDrawingPath] = await Promise.all([
+    loadDrawingNote(supabase, revId),
+    loadCustomerDrawingPath(supabase, revId),
+  ]);
   const summary = buildSummarySections(
     calcInput,
     calcResult,
@@ -162,6 +166,7 @@ export default async function EquipmentPage({
           pageCount: a.pageCount,
         }))}
         initialDrawingNote={drawingNote}
+        initialCustomerDrawingPath={customerDrawingPath}
         datasheetUrls={datasheetUrls}
         sheetUrls={sheetUrls}
         locked={revision.status === "issued"}

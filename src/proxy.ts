@@ -4,6 +4,13 @@ import { LANDING_PATH } from "@/lib/roles";
 
 // Oturum tazeleme + korumalı rotalar (Next 16: middleware yerine proxy)
 export async function proxy(request: NextRequest) {
+  // MÜŞTERİ PAYLAŞIMLARI OTURUM İSTEMEZ. Yetki, `/paylas/resim/...` altında
+  // tahmin edilemeyen ve iptal edilebilir tek-dosya anahtarıyla; katalogda ise
+  // yalnız manifest izin listesindeki üretici sayfasıyla sınırlandırılır.
+  if (request.nextUrl.pathname === "/paylas" || request.nextUrl.pathname.startsWith("/paylas/")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -8,9 +8,9 @@
 //
 // Sayfalar `scripts/catalog-sheets.py` ile üretilir: kaynak PDF'ten hem birebir
 // sayfa dilimi (.pdf) hem ekranda gösterilecek görüntü (.webp) kesilir ve
-// `manifest.json` yazılır. Dosyalar `catalog-sheets/` altındadır ve YALNIZ
-// oturum açmış kullanıcıya `/api/catalog-sheet/...` ucundan sunulur — üretici
-// kataloğu herkese açık bir adreste durmaz.
+// `manifest.json` yazılır. Müşteri ekipman listesindeki bağlantıyı üyelik
+// olmadan açabilsin diye yalnız manifest izin listesindeki sayfalar
+// `/api/catalog-sheet/...` ucundan sunulur; dizin gezme yolu açılmaz.
 //
 // ŞİMDİLİK YALNIZ KAPLİNLER (ÖZGÜN · SIBRE · JAURE). Yeni bir tür eklemek
 // betikteki SHEETS listesine satır yazmakla olur; buradaki kod türden bağımsızdır.
@@ -212,8 +212,8 @@ export function catalogSheetUrl(relativePath: string): string {
 }
 
 /**
- * Katalog sayfasının UYGULAMA İÇİ adresi — ekipman listesinden, Excel'den ve
- * PDF'ten aynı sayfaya gidilir.
+ * Katalog sayfasının MÜŞTERİYE AÇIK adresi — ekipman listesinden, Excel'den ve
+ * PDF'ten aynı sade sayfaya gidilir; müşteri üyeliği gerekmez.
  *
  * Adres ürünün KİMLİĞİNİ taşır (tür + marka + model), defterin iç kimliğini
  * değil: `manifest.json` yeniden üretildiğinde sayfa kimlikleri değişebilir ama
@@ -232,7 +232,7 @@ export function catalogSheetPageUrl(
   const q = new URLSearchParams({ tur: kind, model });
   const real = realBrand(brand);
   if (real) q.set("marka", real);
-  return `${origin}/katalog?${q.toString()}`;
+  return `${origin}/paylas/katalog?${q.toString()}`;
 }
 
 /**

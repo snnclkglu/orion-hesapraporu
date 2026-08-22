@@ -1,9 +1,9 @@
 // Katalog sayfası sunucusu — `catalog-sheets/` altındaki üretici katalog
-// sayfalarını YALNIZ oturum açmış kullanıcıya verir.
+// sayfalarını müşteri bağlantısına verir.
 //
-// Neden `public/` değil: bu dosyalar üretici kataloglarının sayfalarıdır.
-// `public/` altına konsaydı kimlik doğrulamasız, tahmin edilebilir bir adreste
-// yayında olurlardı. Buradan geçtiklerinde oturum şartı işler.
+// Neden `public/` değil: istenen yol manifestten üretilen izin listesinde
+// birebir doğrulanır. Böylece müşteri üyelik olmadan belirli katalog yaprağını
+// açar ama sunucu dizini genel bir statik dosya alanına dönüşmez.
 //
 // Dizin gezme (path traversal) yüzeyi yoktur: istenen yol, manifestten üretilen
 // İZİN LİSTESİNDE birebir yoksa dosya hiç okunmaz.
@@ -11,7 +11,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { catalogSheetFiles } from "@/lib/catalog-sheets";
-import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -23,12 +22,6 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return new Response("Oturum gerekli", { status: 401 });
-
   const { path: segments } = await params;
   const relative = (segments ?? []).join("/");
   if (!catalogSheetFiles().has(relative)) {
@@ -53,11 +46,12 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": contentType,
-      // Sayfalar sürüm sürüm değişmez; tarayıcı önbelleği ÖZELdir (oturumlu).
-      "Cache-Control": "private, max-age=86400",
+      // Üretici sayfası sürüm sürüm değişmez; müşteri tarayıcısı önbellekler.
+      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
       "Content-Disposition": `inline; filename="${path.basename(relative)}"`,
-      // Kimlik doğrulamalı içerik: aynı köken dışına gömülmesine izin verilmez.
       "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "Cross-Origin-Resource-Policy": "same-origin",
     },
   });
 }

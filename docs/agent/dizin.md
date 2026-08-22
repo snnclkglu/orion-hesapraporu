@@ -219,8 +219,10 @@
 - `src/app/(app)/admin/consumables/` — SARF MALZEME DEFTERİ yönetimi (SM kodu,
   grup, varsayılan birim, kullanım izi, pasif); yeni tanım hızlı sarf girişinden
   de açılır
-- `src/app/(app)/katalog/` — katalog sayfası görüntüleyici; ekipman listesi,
-  Excel ve PDF ekipman ADINDAN buraya bağlanır
+- `src/app/(app)/katalog/` — oturumlu iç katalog görüntüleyici
+- `src/app/(public)/paylas/` — üyelik istemeyen müşteri kapısı: katalog
+  yaprağı ve iptal edilebilir tek-PDF teknik resim bağlantıları; ekipman
+  listesi, Excel ve PDF ekipman ADINDAN açık katalog sayfasına bağlanır
 - `src/app/dev/*-preview/` — auth'suz görsel önizleme sayfaları (yalnız
   development; production'da 404): **açılış panosu** (`/dev/panel-preview` —
   yönetici ve teknik ressam rollerini ÜST ÜSTE basar; rol bazlı bir ekranı tek

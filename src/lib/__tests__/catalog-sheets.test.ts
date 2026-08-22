@@ -224,7 +224,7 @@ describe("model → sayfa eşlemesi", () => {
 
 describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
   it("adres ürün kimliğini taşır ve aynı sayfaya geri çözülür", () => {
-    // Uygulama, Excel ve PDF aynı adresi üretir; `/katalog` sayfası onu
+    // Uygulama, Excel ve PDF aynı adresi üretir; açık müşteri sayfası onu
     // `findCatalogSheet` ile geri çözer. Bu tur kapanmazsa bağlantı sessizce
     // "sayfa bulunamadı"ya düşer.
     const kimlikler: [string, string | null, string][] = [
@@ -237,16 +237,16 @@ describe("katalog sayfası adresi (ekipman listesi bağlantıları)", () => {
       if (!beklenen) continue; // katalog verisi değişmiş olabilir; ayrı test kapsar
       const url = new URL(catalogSheetPageUrl(kind, brand, model, "https://ornek"));
       const sp = url.searchParams;
-      expect(url.pathname).toBe("/katalog");
+      expect(url.pathname).toBe("/paylas/katalog");
       const cozulen = findCatalogSheet(sp.get("tur")!, sp.get("marka"), sp.get("model")!);
       expect(cozulen?.id, `${kind} ${model} adresten geri çözülemedi`).toBe(beklenen.id);
     }
   });
 
   it("kök verilmezse göreli, verilirse mutlak adres üretir", () => {
-    expect(catalogSheetPageUrl("coupling", "OZGUN", "B3-3")).toMatch(/^\/katalog\?/);
+    expect(catalogSheetPageUrl("coupling", "OZGUN", "B3-3")).toMatch(/^\/paylas\/katalog\?/);
     expect(catalogSheetPageUrl("coupling", "OZGUN", "B3-3", "https://a.b")).toMatch(
-      /^https:\/\/a\.b\/katalog\?/
+      /^https:\/\/a\.b\/paylas\/katalog\?/
     );
   });
 

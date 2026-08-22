@@ -9,11 +9,12 @@
 import { useMemo, useState } from "react";
 import { FILE_LIFECYCLE_LABELS } from "@/lib/drawings/types";
 import { formatBytes, formatNum } from "@/lib/drawings/labels";
-import { opensInBrowser } from "@/lib/drawings/mime";
+import { extOf, opensInBrowser } from "@/lib/drawings/mime";
 import type { FileRow } from "../data";
 import { matchesFile } from "../filters";
 import { SearchBox } from "../sortable-head";
 import { FileOpenButton } from "./file-open-button";
+import { DrawingShareButton } from "./drawing-share-button";
 
 /**
  * Dosyanın DEPO durumu — üç hâl, üçü ayrı cümle.
@@ -41,14 +42,18 @@ function depoDurumu(d: FileRow): { eksik: boolean; rozet: string; ipucu: string 
 export function FileBrowser({
   dosyalar,
   packageId,
+  sharedFileIds,
   ekle,
 }: {
   dosyalar: FileRow[];
   packageId?: string;
+  /** `undefined`: paylaşma yetkisi yok; dizi: aktif müşteri linkli PDF'ler. */
+  sharedFileIds?: string[];
   /** "Dosya Ekle" düğmesi — yetkisi olmayana hiç verilmez (sunucuda karar). */
   ekle?: React.ReactNode;
 }) {
   const [arama, setArama] = useState("");
+  const aktifPaylasimlar = useMemo(() => new Set(sharedFileIds ?? []), [sharedFileIds]);
 
   const eksikSayisi = useMemo(
     () => dosyalar.filter((d) => depoDurumu(d).eksik).length,
@@ -157,6 +162,13 @@ export function FileBrowser({
                       title={depo.eksik ? depo.ipucu : d.rel_path}
                       disabled={depo.eksik}
                     />
+                    {packageId && sharedFileIds && extOf(d.file_name) === "pdf" && !depo.eksik && (
+                      <DrawingShareButton
+                        packageId={packageId}
+                        fileId={d.id}
+                        initiallyActive={aktifPaylasimlar.has(d.id)}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -208,6 +220,13 @@ export function FileBrowser({
                       title={depo.eksik ? depo.ipucu : d.rel_path}
                       disabled={depo.eksik}
                     />
+                    {packageId && sharedFileIds && extOf(d.file_name) === "pdf" && !depo.eksik && (
+                      <DrawingShareButton
+                        packageId={packageId}
+                        fileId={d.id}
+                        initiallyActive={aktifPaylasimlar.has(d.id)}
+                      />
+                    )}
                   </li>
                 );
               })}
