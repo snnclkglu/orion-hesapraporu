@@ -20,6 +20,7 @@ import {
   smallestDin15407Key,
 } from "../hook-standards";
 import { HOOK_NUMBERS } from "../hook-table";
+import { hookCapacityKg } from "../hook-table";
 import { DRUM_DIA_SERIES_MM } from "../fields";
 import { HOOKBLOCK_SECTIONS } from "../presentation/hookBlockSections";
 import { HOOKBLOCK_SELECTION_FIELDS } from "../presentation/hookBlockFields";
@@ -202,6 +203,13 @@ describe("kanca bloğu — kapasitenin kaynağı", () => {
       { ...V5_HOOKBLOCK_SELECTIONS, ...sel },
       { ...V5_HOOKBLOCK_DEPS, loadKg: 40_000 }
     );
+
+  it("kullanıcının DIN 15400 örneğini doğru hücreden okur: Nr 16 · P · 3m/M7 = 20 t", () => {
+    expect(hookCapacityKg("16", "P", "M7")).toBe(20_000);
+    // Yan sütunun (2m/M6) 25 t olması, iki mekanizma grubunun birbirine
+    // kaydırılmadığını da korur.
+    expect(hookCapacityKg("16", "P", "M6")).toBe(25_000);
+  });
 
   it("lamel kancada kapasite TABLONUN KENDİ satırından gelir", () => {
     const r = run({ hookStandard: "DIN 15407", hookNumber: "63x150" });

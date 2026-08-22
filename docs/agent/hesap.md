@@ -748,3 +748,30 @@ engelleyicidir: hesaplanan `a_maks`, FEM sınırı 5 m/s²'yi aşarsa sonuç uyg
 olamaz. Yeni tambur seçimleri St44, St52 ve St44/St52'dir; karışık imalatta
 kaynak ve akma kontrollerinde zayıf malzeme belirleyicidir. S235/S355 yalnız
 eski revizyon snapshot'larının yeniden hesaplanabilmesi için tipte korunur.
+
+## HESAP-21 — Halat, kanca ve döner eleman adetleri tek mühendislik kaynağından gelir.
+
+Kullanıcı kararı (22.08.2026): yeni kaldırma grupları standart olarak **Denge
+Traversli** açılır; eski revizyonlarda alan yoksa tarihsel **Denge Makaralı**
+düzen korunur. Tahrikli/toplam halat sayıları hazır donanımın tanımıdır ve
+kutularında otomatik rozeti taşır. Kanca bloğu makara adedi `toplam halat / 2`,
+makara rulmanı adedi `makara × 2`, yürütme rulmanı adedi `teker × teker başına
+rulman` olarak türetilir. Makara adedi otomatiği kapatılarak elle değiştirilebilir.
+
+Tek yiv halat boyu `z × π × D + 0,10 × h × (n_toplam / n_tahrik)`tir; toplam
+boy bunun tahrikli halat sayısıyla çarpımıdır. Traversli düzende her yiv ayrı
+halattır ve sağ/sol helis sipariş satırlarına bölünür. Denge makaralı düzende
+iki yiv tek sürekli sağ helis halatta birleşir. Ekrandaki şema, yiv boyunun
+yanındaki canlı boy özeti, hesap raporu ve ekipman listesi aynı saf halat planını
+okur; metre veya helis yönü çıktılarda yeniden hesaplanmaz.
+
+DIN 15401/15402 kanca kapasitesi raporda ve ekipman listesinde aynı DIN 15400
+Tablo 3 hücresinden okunur; snapshot'taki eski `hookCapacityKg` değeri satın alma
+satırına kaynak olamaz. Katalogda SIBRE TE frenin model kodundaki Eldro tipi ile
+APC-AT kaplinin D1 fren kasnağı çapı ayrı ürün nitelikleridir; görünen modelden
+çap tahmin edilmez, katalog alanı seçime doğrudan eşlenir.
+
+Uygulama içindeki hesap şemaları tema duyarlıdır: açık/koyu palet dönüşümü ortak
+`DiagramSvg` web katmanında yapılır. Saf diyagram modeli ve PDF çizicisi baskı
+hex'lerini korur; ekran teması için modeldeki renkleri değiştirmek veya PDF'yi
+koyu palete geçirmek yasaktır.

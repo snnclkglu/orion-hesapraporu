@@ -17,6 +17,7 @@ import {
   DISABLEABLE_MODULE_KEYS,
   HOIST_OF_HOOKBLOCK,
   MODULE_ORDER,
+  isHoistKey,
   isHookBlockKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
@@ -348,6 +349,7 @@ const AUTO_FLAGS = [
   "drumCouplingServiceFactorAuto",
   // Kanca bloğu
   "hookDesignationAuto",
+  "sheaveCountAuto",
   // Yürütme grubu
   "travelApplicationClassAuto",
   "serviceFactorKsAuto",
@@ -370,6 +372,20 @@ function keepManualValues<T extends object>(stored: T | null | undefined, merged
     }
   }
   return changed ? (out as T) : merged;
+}
+
+/**
+ * Denge düzeni alanı eklenmeden önce bütün şemalar denge makaralıydı. Yeni iş
+ * şablonu denge traversli gelir; fakat eski bir revizyona şablon değeri
+ * miras bırakmak, teslim edilmiş halat adedi ve şemasını değiştirirdi.
+ */
+export function migrateRopeBalancingType<T extends object>(
+  stored: object | null | undefined,
+  merged: T
+): T {
+  if (!stored || typeof stored !== "object") return merged;
+  if ("ropeBalancingType" in (stored as Record<string, unknown>)) return merged;
+  return { ...merged, ropeBalancingType: "equalizerSheave" } as T;
 }
 
 /**
@@ -727,24 +743,46 @@ function fullInput(
           storedModuleInputs,
           migrateDrumShaftUnits(
             storedModuleInputs,
-            withDefaults(storedModuleInputs, tpl.inputs)
+            isHoistKey(key)
+              ? migrateRopeBalancingType(
+                  storedModuleInputs,
+                  withDefaults(storedModuleInputs, tpl.inputs)
+                )
+              : withDefaults(storedModuleInputs, tpl.inputs)
           )
         )
       ),
     };
+    let derivedBlockSheaveCount: number | undefined;
     if (isHookBlockKey(key)) {
       const hoistState = target[CALC_FIELD[HOIST_OF_HOOKBLOCK[key]]];
       const hoistInputs = hoistState?.inputs as HoistInputs | undefined;
       const sheaveCount = hoistInputs
         ? deriveReeving(hoistReeving(hoistInputs)).blockSheaveCount
         : 1;
+      derivedBlockSheaveCount = sheaveCount;
       merged.inputs = migrateHookShaftCenter(storedModuleInputs, merged.inputs, sheaveCount);
     }
     if (tpl.selections) {
+      const storedModuleSelections = storedSelections[field] as object | null | undefined;
       merged.selections = withDefaults(
-        storedSelections[field] as object | null | undefined,
+        storedModuleSelections,
         tpl.selections
       );
+      // Makara adedi yeni bir kullanıcı alanıdır; fakat eski hesapta zaten
+      // donanımdan otomatik geliyordu. Eski seçim nesnesinde alan yoksa o
+      // davranış korunur ve doğru donanım değeri doğrudan snapshot'a taşınır.
+      if (
+        isHookBlockKey(key) &&
+        derivedBlockSheaveCount !== undefined &&
+        (!storedModuleSelections || !("sheaveCount" in storedModuleSelections))
+      ) {
+        merged.selections = {
+          ...merged.selections,
+          sheaveCount: derivedBlockSheaveCount,
+        };
+        merged.inputs = { ...merged.inputs, sheaveCountAuto: true };
+      }
     }
     target[field] = key === "cabin"
       ? migrateCabin(out.specs, merged)

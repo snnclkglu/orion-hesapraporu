@@ -101,13 +101,13 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
   {
     id: "2.1",
     title: "Halat",
-    equipmentSlugs: ["rope"],
+    equipmentSlugs: ["rope", "ropeLeft"],
     description:
       "Donanım, halat verimi, halat yükü ve halat seçimi (FEM 1.001). Tek makara " +
       "verimi, rulmanlı yataklı makara (yüksek verim) standart kabulüdür.",
     inputKeys: [
       "reevingLabel", "drivenFalls", "totalFalls", "sheaveEfficiency",
-      "fixedSheaveCount", "hookBlockWeightKg", "ropeWeightKg",
+      "fixedSheaveCount", "hookBlockWeightKg", "ropeWeightKg", "ropeBalancingType",
     ],
     selectionKeys: [
       "ropeBrand", "ropeDiaMm", "ropeConstruction", "ropeCore",
@@ -239,6 +239,24 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         key: "drum.requiredGrooveLength", label: "Gerekli Yiv Boyu", formula: "L = z · p",
         subst: (x) => `${n(num(x.c["drum.requiredGrooves"]))} · ${n(num(x.c["drum.groovePitch"]))}`,
         unit: "mm", digits: 1,
+      },
+      {
+        key: "rope.lengthPerGroove", label: "Tek Yiv İçin Halat Boyu",
+        formula: "L_h = z · π · D + 0,10 · h · (n_toplam / n_tahrik)",
+        subst: (x) =>
+          `${n(num(x.c["drum.requiredGrooves"]))} · π · ${n(x.sel.drumDiaMm / 1000, 3)} + ` +
+          `0,10 · ${n(viewOf(x).liftHeightM)} · (${n(x.inp.totalFalls)} / ${n(x.inp.drivenFalls)})`,
+        unit: "m", digits: 2,
+      },
+      {
+        key: "rope.totalLength", label: "Toplam Çelik Halat Boyu",
+        formula: "L_top = L_h · n_tahrik",
+        subst: (x) => `${n(num(x.c["rope.lengthPerGroove"]))} · ${n(x.inp.drivenFalls)}`,
+        unit: "m", digits: 2,
+      },
+      {
+        key: "rope.arrangement", label: "Halat Sipariş Bölünümü",
+        formula: "denge düzenine göre parça adedi, helis yönü ve parça boyu",
       },
     ],
     checkSuffixes: [],
@@ -792,7 +810,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     title: "Motor — Redüktör Kaplini",
     equipmentSlugs: ["motorCoupling"],
     inputKeys: ["motorCouplingServiceFactor"],
-    selectionKeys: ["motorCouplingBrand", "motorCouplingModel", "motorCouplingTorqueNm", "motorCouplingDmaxMm"],
+    selectionKeys: ["motorCouplingBrand", "motorCouplingModel", "motorCouplingWheelDiaMm", "motorCouplingTorqueNm", "motorCouplingDmaxMm"],
     rows: [
       {
         key: "motorCoupling.requiredTorque", label: "Gerekli Kaplin Kapasitesi",

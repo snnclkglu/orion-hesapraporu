@@ -20,6 +20,7 @@ ORTAK ALANLAR
   weight_min_kg /
   weight_max_kg        ağırlık bir aralıksa (fren kasnağı/diski çapına bağlı)
   outer_diameter_mm    dış çap (katalogda ØD / Ød6 / ØDH)
+  brake_drum_diameter_mm  fren kasnağı çapı (katalogda ØD1; kasnaklı seri)
   max_speed_rpm        izin verilen en yüksek devir
 
 Bir büyüklük basılı sayfada YOKSA alan hiç yazılmaz — TAHMİN EDİLMEZ.
@@ -53,6 +54,7 @@ FIELD_ORDER = [
     "weight_min_kg",
     "weight_max_kg",
     "outer_diameter_mm",
+    "brake_drum_diameter_mm",
     "max_speed_rpm",
 ]
 

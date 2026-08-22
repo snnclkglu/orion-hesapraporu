@@ -421,6 +421,115 @@ export function drumGrooveRequirement(
   return { grooves, lengthMm: grooves * pitchMm, pitchMm };
 }
 
+/** Halatın üstte nasıl dengelendiği; yeni işlerde denge traversi esastır. */
+export const ROPE_BALANCING_TYPES = ["equalizerBeam", "equalizerSheave"] as const;
+export type RopeBalancingType = (typeof ROPE_BALANCING_TYPES)[number];
+
+export const ROPE_BALANCING_TYPE_LABELS: Record<RopeBalancingType, string> = {
+  equalizerBeam: "Denge Traversli",
+  equalizerSheave: "Denge Makaralı",
+};
+
+export type RopeLay = "right" | "left";
+
+export interface RopeOrderLine {
+  lay: RopeLay;
+  quantity: number;
+  /** Satın alınacak tek halat parçasının boyu [m]. */
+  lengthPerPieceM: number;
+  /** Bu satırdaki bütün halat parçalarının toplam boyu [m]. */
+  totalLengthM: number;
+}
+
+export interface RopeLengthPlan {
+  /** Tek yiv/helis için gereken halat boyu [m]. */
+  lengthPerGrooveM: number;
+  /** Bütün tahrikli halat uçları için toplam boy [m]. */
+  totalLengthM: number;
+  pieceCount: number;
+  rightLayCount: number;
+  leftLayCount: number;
+  lines: RopeOrderLine[];
+  arrangementText: string;
+}
+
+/**
+ * Tambur yiv hesabından satın alınacak halat parçalarını üretir.
+ *
+ * Tek yiv boyu:
+ *   L = z · π · D + %10 h · (n_toplam / n_tahrik)
+ *
+ * Denge traversinde her tahrikli uç ayrı halattır ve helis yönleri sağ/sol
+ * sırayla bölünür. Denge makarasındaysa iki yiv tek sürekli sağ helis halatta
+ * birleşir; dolayısıyla parça adedi tahrikli uç sayısının yarısıdır.
+ */
+export function ropeLengthPlan(
+  inp: Pick<HoistInputs, "drivenFalls" | "totalFalls" | "fixedSheaveCount" | "sheaveEfficiency" | "reevingLabel" | "safetyGrooveCount" | "ropeBalancingType">,
+  sel: Pick<HoistSelections, "drumDiaMm" | "ropeDiaMm">,
+  liftHeightM: number
+): RopeLengthPlan {
+  const reeving = hoistReeving(inp as HoistInputs);
+  const rig = deriveReeving(reeving);
+  const groove = drumGrooveRequirement(inp as HoistInputs, sel, liftHeightM);
+  const drumCircumferenceM = Math.PI * (sel.drumDiaMm / 1000);
+  const allowanceM = 0.1 * liftHeightM * rig.mechanicalAdvantage;
+  const lengthPerGrooveM = groove.grooves * drumCircumferenceM + allowanceM;
+  const driven = Math.max(1, Math.round(reeving.drivenFalls));
+  const totalLengthM = lengthPerGrooveM * driven;
+
+  if (inp.ropeBalancingType === "equalizerSheave") {
+    const pieceCount = Math.max(1, Math.ceil(driven / 2));
+    const lengthPerPieceM = totalLengthM / pieceCount;
+    const lines: RopeOrderLine[] = [{
+      lay: "right",
+      quantity: pieceCount,
+      lengthPerPieceM,
+      totalLengthM,
+    }];
+    return {
+      lengthPerGrooveM,
+      totalLengthM,
+      pieceCount,
+      rightLayCount: pieceCount,
+      leftLayCount: 0,
+      lines,
+      arrangementText:
+        `Sağ helis ${pieceCount} × ${lengthPerPieceM.toFixed(2)} m ` +
+        "(denge makarası: iki yiv tek halat)",
+    };
+  }
+
+  const rightLayCount = Math.ceil(driven / 2);
+  const leftLayCount = Math.floor(driven / 2);
+  const lines: RopeOrderLine[] = [
+    {
+      lay: "right",
+      quantity: rightLayCount,
+      lengthPerPieceM: lengthPerGrooveM,
+      totalLengthM: lengthPerGrooveM * rightLayCount,
+    },
+    ...(leftLayCount > 0
+      ? [{
+          lay: "left" as const,
+          quantity: leftLayCount,
+          lengthPerPieceM: lengthPerGrooveM,
+          totalLengthM: lengthPerGrooveM * leftLayCount,
+        }]
+      : []),
+  ];
+  return {
+    lengthPerGrooveM,
+    totalLengthM,
+    pieceCount: driven,
+    rightLayCount,
+    leftLayCount,
+    lines,
+    arrangementText:
+      `Sağ helis ${rightLayCount} × ${lengthPerGrooveM.toFixed(2)} m` +
+      (leftLayCount > 0 ? ` · Sol helis ${leftLayCount} × ${lengthPerGrooveM.toFixed(2)} m` : ""),
+  };
+}
+
 
 /** Kullanıcı girdileri (tasarım kabulleri) */
 export interface HoistInputs {
@@ -438,6 +547,8 @@ export interface HoistInputs {
    * veya tanınmayan bir değerde yukarıdaki iki alan geçerlidir.
    */
   reevingLabel?: string;
+  /** Denge traversi (ayrı sağ/sol halatlar) veya denge makarası (tek sürekli halat). */
+  ropeBalancingType: RopeBalancingType;
   hookBlockWeightKg: number;    // kanca bloğu / kepçe ağırlığı
   ropeWeightKg: number;         // askıdaki halatların ağırlığı
   drumWallThicknessMm: number;  // tambur et kalınlığı
@@ -633,6 +744,12 @@ export interface HoistValues {
   requiredBreakingKg: number;
   actualBreakingKg: number;
   actualRopeSafety: number;
+  ropeLengthPerGrooveM: number;
+  ropeTotalLengthM: number;
+  ropePieceCount: number;
+  ropeRightLayCount: number;
+  ropeLeftLayCount: number;
+  ropeArrangementText: string;
   // 2.2 Tambur
   drumCoefficientH: number;
   minDrumDiaMm: number;
@@ -896,9 +1013,16 @@ export function computeHoistGroup(
   const grooveReq = drumGrooveRequirement(inp, sel, liftHeightM);
   const requiredGrooves = grooveReq.grooves;
   const requiredGrooveLengthMm = grooveReq.lengthMm;
+  const ropePlan = ropeLengthPlan(inp, sel, liftHeightM);
   Object.assign(cells, {
     "drum.requiredGrooves": requiredGrooves,
     "drum.requiredGrooveLength": requiredGrooveLengthMm,
+    "rope.lengthPerGroove": ropePlan.lengthPerGrooveM,
+    "rope.totalLength": ropePlan.totalLengthM,
+    "rope.pieceCount": ropePlan.pieceCount,
+    "rope.rightLayCount": ropePlan.rightLayCount,
+    "rope.leftLayCount": ropePlan.leftLayCount,
+    "rope.arrangement": ropePlan.arrangementText,
   });
 
   // --- 2.2.3 Tambur mili ---------------------------------------------------
@@ -1542,6 +1666,12 @@ export function computeHoistGroup(
     requiredBreakingKg,
     actualBreakingKg,
     actualRopeSafety,
+    ropeLengthPerGrooveM: ropePlan.lengthPerGrooveM,
+    ropeTotalLengthM: ropePlan.totalLengthM,
+    ropePieceCount: ropePlan.pieceCount,
+    ropeRightLayCount: ropePlan.rightLayCount,
+    ropeLeftLayCount: ropePlan.leftLayCount,
+    ropeArrangementText: ropePlan.arrangementText,
     drumCoefficientH,
     minDrumDiaMm,
     groovePitchMm,

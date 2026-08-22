@@ -523,6 +523,7 @@ export function diagramForSection(
         drumDiaMm: st.selections.drumDiaMm,
         loadKg: v?.totalLoadKg,
         capacityT: v?.capacityT,
+        ropeBalancingType: st.inputs.ropeBalancingType,
       });
     }
   } catch {

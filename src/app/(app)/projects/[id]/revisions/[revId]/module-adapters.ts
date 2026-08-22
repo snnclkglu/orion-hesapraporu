@@ -80,10 +80,12 @@ import { bridgeMovingTrolleyWeightT, bridgeTrolleyWeightT, girderDepsFor } from 
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
 import {
   computeHoistGroup,
+  hoistReeving,
   hoistSpecView,
   type HoistInputs,
   type HoistSelections,
 } from "@/lib/calc/modules/hoistGroup";
+import { deriveReeving } from "@/lib/calc/reeving";
 import {
   computeHookBlock,
   hookBlockDepsFromHoist,
@@ -1411,16 +1413,29 @@ export function withDerivedTravel(
  * (`hookDesignationAuto`), türetilen değer SEÇİMLERDE durur — yiv boyunun
  * (`drumGrooveLengthText`) birebir aynı düzeni.
  */
-export function withDerivedHookBlock(state: ModuleState): ModuleState {
+export function withDerivedHookBlock(
+  state: ModuleState,
+  which: HookBlockKey,
+  all: ModulesState
+): ModuleState {
   const inputs = state.inputs as HookBlockInputs;
   const selections = state.selections as HookBlockSelections;
-  const d = deriveHookBlockSelections(inputs, selections);
-  if (d.hookDesignation === undefined || d.hookDesignation === selections.hookDesignation) {
-    return state;
+  const hoist = all[HOIST_OF_HOOKBLOCK[which]];
+  const derivedSheaveCount = hoist
+    ? deriveReeving(hoistReeving(hoist.inputs as HoistInputs)).blockSheaveCount
+    : undefined;
+  const d = deriveHookBlockSelections(inputs, selections, derivedSheaveCount);
+  const patch: Partial<HookBlockSelections> = {};
+  if (d.hookDesignation !== undefined && d.hookDesignation !== selections.hookDesignation) {
+    patch.hookDesignation = d.hookDesignation;
   }
+  if (d.sheaveCount !== undefined && d.sheaveCount !== selections.sheaveCount) {
+    patch.sheaveCount = d.sheaveCount;
+  }
+  if (Object.keys(patch).length === 0) return state;
   return {
     ...state,
-    selections: { ...selections, hookDesignation: d.hookDesignation },
+    selections: { ...selections, ...patch },
   };
 }
 
@@ -1454,7 +1469,7 @@ export function withDerivedModule(
 ): ModuleState {
   if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
   if (isTravelKey(key)) return withDerivedTravel(state, specs, key);
-  if (isHookBlockKey(key)) return withDerivedHookBlock(state);
+  if (isHookBlockKey(key)) return withDerivedHookBlock(state, key, all);
   if (key === "girder" || key === "girder2") {
     return withDerivedGirder(state, specs, girderDeriveContext(all, specs, key));
   }

@@ -97,7 +97,7 @@ describe("diyagram etiketleri", () => {
     const labels = reevingDiagram({ drivenFalls: 2, totalFalls: 2 }).els
       .filter((element): element is TextEl => element.kind === "text")
       .map((element) => element.text);
-    expect(labels).toContain("Tambur · Makara · Kanca Bloğu");
+    expect(labels).toContain("Tambur · Denge Makarası · Kanca Bloğu");
   });
 
   it("kaçan etiket için bağlantı çizgisi çizilir (leaderTo verilmişse)", () => {

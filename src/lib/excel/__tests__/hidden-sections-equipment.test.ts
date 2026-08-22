@@ -122,8 +122,15 @@ describe("alt bölüm gizleme — ekipman listesi", () => {
 
   it("bildirilen her equipmentSlugs değeri gerçekten üretilen bir satırdır", () => {
     const travelKeys = rowKeysOf(fullTravelInput());
+    const newWorkKeys = rowKeysOf(NEW_WORK_TEMPLATE);
     const produced: Record<string, Set<string>> = {
-      hoist: slugsOf(travelKeys, "main"),
+      // Tarihsel V5 denge makaralıdır ve yalnız `rope` üretir; yeni iş
+      // traversli olduğundan `ropeLeft` de üretir. Aile iki geçerli düzenin
+      // birleşimiyle ölçülür.
+      hoist: new Set([
+        ...slugsOf(travelKeys, "main"),
+        ...slugsOf(newWorkKeys, "main"),
+      ]),
       hookBlock: slugsOf(travelKeys, "hookBlock"),
       // Fren satırı yalnız köprüde üretilir; yürütme ailesi iki varyantın
       // BİRLEŞİMİYLE ölçülür.

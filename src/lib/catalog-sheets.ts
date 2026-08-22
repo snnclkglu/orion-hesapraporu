@@ -64,7 +64,11 @@ function norm(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // birleşen aksan işaretleri
     .replace(/[\s._-]+/g, "")
-    .toUpperCase();
+    .toUpperCase()
+    // SIBRE TE freninin eski kayıtları "TE 315 Ed 50/6" / "TE 315 50/6",
+    // düzeltilmiş katalog ise üreticinin sipariş düzeniyle "TE315/50/6"
+    // taşır. Üç yazım aynı üründür; eski revizyonun katalog sayfası kopmaz.
+    .replace(/TE(\d{3})(?:ED)?(\d+\/\d+)/g, "TE$1/$2");
 }
 
 /**

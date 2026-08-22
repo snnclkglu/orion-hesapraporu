@@ -183,15 +183,29 @@ export function deriveHookBlockWeightKg(capacityT: number): number | undefined {
 export interface HookBlockDerivation {
   /** Otomatik üretilen tam tanım metni (anahtar kapalıysa undefined) */
   hookDesignation?: string;
+  /** Donanımdan türetilen hareketli makara adedi. */
+  sheaveCount?: number;
 }
 
 export function deriveHookBlockSelections(
-  inputs: Pick<HookBlockInputs, "hookDesignationAuto">,
-  selections: HookBlockSelections
+  inputs: Pick<HookBlockInputs, "hookDesignationAuto" | "sheaveCountAuto">,
+  selections: HookBlockSelections,
+  derivedSheaveCount?: number
 ): HookBlockDerivation {
-  if (!inputs.hookDesignationAuto) return {};
-  const text = hookDesignationText(selections);
-  return text === undefined ? {} : { hookDesignation: text };
+  const out: HookBlockDerivation = {};
+  if (inputs.hookDesignationAuto) {
+    const text = hookDesignationText(selections);
+    if (text !== undefined) out.hookDesignation = text;
+  }
+  if (
+    inputs.sheaveCountAuto &&
+    typeof derivedSheaveCount === "number" &&
+    Number.isFinite(derivedSheaveCount) &&
+    derivedSheaveCount > 0
+  ) {
+    out.sheaveCount = Math.round(derivedSheaveCount);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------- Sıcaklık faktörü

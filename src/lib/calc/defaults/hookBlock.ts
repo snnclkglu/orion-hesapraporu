@@ -39,6 +39,7 @@ export const V5_HOOKBLOCK_INPUTS: HookBlockInputs = {
   // kapatıp elle yazabilir. Eski revizyonlarda anahtar hiç yoktur ve
   // `revision-load` onları kapalı sayar (teslim edilmiş tanım değişmesin).
   hookDesignationAuto: true,
+  sheaveCountAuto: true,
 };
 
 export const V5_HOOKBLOCK_SELECTIONS: HookBlockSelections = {
@@ -48,6 +49,7 @@ export const V5_HOOKBLOCK_SELECTIONS: HookBlockSelections = {
   hookStrengthClass: "S",         // DIN 15400 mukavemet sınıfı
   hookCapacityKg: 16000,          // tablo dışı kanca için yedek değer
   sheaveDiaMm: 450,               // halat ekseninde makara çapı
+  sheaveCount: 1,                 // 2/2 donanım → toplam halat / 2
   sheaveEnclosure: "Kapaklı ve Keçeli",
   sheaveSealCode: "KK-T",
   sheaveBearingClosure: "2RS",

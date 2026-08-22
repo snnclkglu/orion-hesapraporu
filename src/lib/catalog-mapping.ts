@@ -565,6 +565,7 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       { attr: "max_torque_nm", label: "Maks. Tork", unit: "Nm" },
       { attr: "min_shaft_dia_mm", label: "Min. Mil Ø", unit: "mm" },
       { attr: "max_shaft_dia_mm", label: "Maks. Mil Ø", unit: "mm" },
+      { attr: "brake_drum_diameter_mm", label: "Fren Kasnağı Ø", unit: "mm" },
       { attr: "max_radial_load_n", label: "Radyal Yük", unit: "N" },
       { attr: "weight_kg", label: "Ağırlık", unit: "kg" },
     ],
@@ -801,7 +802,9 @@ export function catalogRowSummary(kind: string, row: CatalogRow): string {
     case "sheave":
       return `Ø${numFmt(a.dia_mm)} mm · halat ≤ ${numFmt(a.max_rope_mm)} mm`;
     case "coupling":
-      return `${numFmt(a.nominal_torque_nm)} Nm${a.max_shaft_dia_mm !== undefined ? ` · d ≤ ${numFmt(a.max_shaft_dia_mm)} mm` : ""}`;
+      return `${numFmt(a.nominal_torque_nm)} Nm` +
+        `${a.brake_drum_diameter_mm !== undefined ? ` · kasnak Ø${numFmt(a.brake_drum_diameter_mm)} mm` : ""}` +
+        `${a.max_shaft_dia_mm !== undefined ? ` · d ≤ ${numFmt(a.max_shaft_dia_mm)} mm` : ""}`;
     case "buffer":
       return `${attrValueLabel("type", a.type)} · ${numFmt(a.stroke_mm)} mm · ${numFmt(a.energy_kj)} kJ · ${numFmt(a.max_force_kn)} kN`;
     case "bearing_housing":
@@ -953,6 +956,7 @@ const HOIST_MAP: Record<string, SectionCatalogMapping> = {
     fields: [
       { sel: "motorCouplingBrand", from: "brand" },
       { sel: "motorCouplingModel", from: "model" },
+      { sel: "motorCouplingWheelDiaMm", from: { attr: "brake_drum_diameter_mm" } },
       { sel: "motorCouplingTorqueNm", from: { attr: "nominal_torque_nm" } },
       { sel: "motorCouplingDmaxMm", from: { attr: "max_shaft_dia_mm" } },
     ],

@@ -165,6 +165,13 @@ export const HOOKBLOCK_SELECTION_FIELDS: FieldDef<HookBlockSelections>[] = [
     info: SHAFT_SEAL_INFO,
   },
   {
+    key: "sheaveCount", label: "Makara Adedi", type: "number",
+    hint: "Otomatik: toplam halat sayısı / 2. Anahtarı kapatarak değiştirilebilir.",
+    info:
+      "Kanca bloğundaki hareketli makara adedi halat donanımından n_toplam / 2 olarak gelir. " +
+      "Ekipman listesindeki makara adedi bu değerdir; makara rulmanı adedi bunun iki katıdır.",
+  },
+  {
     key: "sheaveBearingClosure", label: "Rulman Kapak Tipi", type: "select",
     options: SHEAVE_BEARING_CLOSURES,
     visibleWhen: (sel) => sel.sheaveEnclosure === "Kapaksız",

@@ -182,6 +182,53 @@
   }
 
   /*
+   * HESAP ŞEMASI PALETİ — model/PDF renklerinden bağımsız web görünümü.
+   *
+   * Diyagram veri modeli gerçek baskı hex'lerini taşır; `DiagramSvg` uygulama
+   * içinde bunları aşağıdaki semantik boyalara yönlendirir. Böylece PDF beyaz
+   * kâğıt olarak kalırken koyu temada tuval, yazı, ölçü çizgileri ve açık renk
+   * dolgular birlikte döner. Renkli mühendislik katmanları (mavi/yeşil) kendi
+   * anlamını kaybetmez, yalnız koyu zeminde okunacak açıklığa çıkar.
+   */
+  .oc-diagram-theme {
+    --oc-diagram-canvas: #ffffff;
+    --oc-diagram-canvas-soft: #faf8f7;
+    --oc-diagram-ink: #262626;
+    --oc-diagram-muted: #8a8480;
+    --oc-diagram-faint: #c9c5c2;
+    --oc-diagram-line: #dcd9d7;
+    --oc-diagram-paper: #f1eeec;
+    --oc-diagram-paper-deep: #e7e4e2;
+    --oc-diagram-accent: #a41e1e;
+    --oc-diagram-accent-soft: #f5e6e6;
+    --oc-diagram-blue: #1d63b8;
+    --oc-diagram-blue-muted: #3a6ea5;
+    --oc-diagram-blue-soft: #dceaf2;
+    --oc-diagram-green: #1f8a5b;
+    --oc-diagram-green-muted: #5b8c7b;
+    --oc-diagram-green-soft: #e7f3ec;
+  }
+
+  .dark .oc-diagram-theme {
+    --oc-diagram-canvas: var(--card);
+    --oc-diagram-canvas-soft: color-mix(in oklab, var(--muted) 48%, var(--card));
+    --oc-diagram-ink: var(--foreground);
+    --oc-diagram-muted: var(--muted-foreground);
+    --oc-diagram-faint: color-mix(in oklab, var(--foreground) 34%, transparent);
+    --oc-diagram-line: color-mix(in oklab, var(--foreground) 18%, transparent);
+    --oc-diagram-paper: color-mix(in oklab, var(--muted) 82%, var(--card));
+    --oc-diagram-paper-deep: color-mix(in oklab, var(--muted) 100%, var(--card));
+    --oc-diagram-accent: var(--primary);
+    --oc-diagram-accent-soft: color-mix(in oklab, var(--primary) 18%, var(--card));
+    --oc-diagram-blue: var(--chart-2);
+    --oc-diagram-blue-muted: color-mix(in oklab, var(--chart-2) 72%, var(--foreground));
+    --oc-diagram-blue-soft: color-mix(in oklab, var(--chart-2) 18%, var(--card));
+    --oc-diagram-green: var(--success);
+    --oc-diagram-green-muted: color-mix(in oklab, var(--success) 70%, var(--foreground));
+    --oc-diagram-green-soft: color-mix(in oklab, var(--success) 16%, var(--card));
+  }
+
+  /*
    * YAPIŞKAN TABLO BAŞLIĞI — yalnız `md` üstü ve yalnız `.oc-table-clamp`
    * kabının içinde (kullanıcı kararı, 16.08.2026: uzun listelerde aşağı
    * kaydırınca "bu sayı hangi sütundu" sorusu bitmeli).

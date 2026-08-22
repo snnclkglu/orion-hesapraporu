@@ -277,6 +277,7 @@ def build_apc(doc):
         nmax = value_row(rows, ("nmax", "min-1"), anchors)
         d4 = value_row(rows, ("Max", "Ø", "D4", "mm"), anchors)
         d5 = value_row(rows, ("Max", "Ø", "D5", "mm"), anchors)
+        d1 = opt_row(rows, [("Ø", "D1", "mm")], anchors)
         d6 = value_row(rows, ("Ø", "D6", "mm"), anchors)
         weight = opt_row(rows, [("Gges*", "kg"), ("Gges", "kg")], anchors)
         items = []
@@ -291,6 +292,7 @@ def build_apc(doc):
                 max_bore_mm=max(bores) if bores else None,
                 weight_kg=weight[i],
                 outer_diameter_mm=d6[i],
+                brake_drum_diameter_mm=d1[i] if series in ("APC-AT", "APC-BT") else None,
                 max_speed_rpm=nmax[i],
             ))
         write_catalog("sibre_%s.json" % series.lower().replace("-", "_"),

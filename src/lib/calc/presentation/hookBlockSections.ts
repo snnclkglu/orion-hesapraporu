@@ -247,7 +247,7 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
     equipmentSlugs: ["sheave"],
     inputKeys: [],
     selectionKeys: [
-      "sheaveDiaMm", "sheaveEnclosure", "sheaveSealCode", "sheaveBearingClosure",
+      "sheaveDiaMm", "sheaveEnclosure", "sheaveSealCode", "sheaveCount", "sheaveBearingClosure",
     ],
     rows: [
       {
@@ -266,6 +266,12 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
         key: "sheave.minDia", label: "Minimum Makara Çapı", formula: "D_min = H · d",
         subst: (x) => `${n(num(x.c["sheave.coefficient"]))} · ${n(x.deps.ropeDiaMm)}`,
         unit: "mm", diameter: true, standard: "FEM 1.001 T.4.2.3.1.1",
+      },
+      {
+        key: "sheave.count", label: "Kanca Bloğu Makara Adedi",
+        formula: "n_makara = n_toplam / 2  (otomatik; kullanıcı düzeltilebilir)",
+        valueFrom: (x) => x.v.sheaveCount,
+        subst: (x) => `${n(x.v.sheaveCount)}`,
       },
       {
         // Standart çap serisine oturmayı mümkün kılan alt sınır. Satır HER
@@ -384,8 +390,8 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
       },
       {
         key: "shaft.sheaveCount", label: "Kanca Bloğu Makara Adedi",
-        formula: "n = n_toplam / 2  (halat donanımından)",
-        subst: (x) => `donanım → ${n(x.deps.blockSheaveCount)}`,
+        formula: "n = seçilen makara adedi  (otomatikte n_toplam / 2)",
+        subst: (x) => `${n(x.v.sheaveCount)}`,
       },
       {
         key: "shaft.sheaveLoad", label: "Makara Başına Yük", formula: "P = 2T",

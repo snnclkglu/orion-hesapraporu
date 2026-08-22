@@ -29,6 +29,8 @@ import {
   isHoistKey,
   isHookBlockKey,
   isTravelKey,
+  type HoistKey,
+  type HookBlockKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
 import { splitAltKey, type RevisionAlts } from "@/lib/revision-load";
@@ -39,6 +41,7 @@ import {
   hookStandardOf,
   isLamellaHook,
 } from "@/lib/calc/hook-standards";
+import { hookCapacityKg } from "@/lib/calc/hook-table";
 import { TRAVEL_SECTIONS } from "@/lib/calc/presentation/travelSections";
 import { CABIN_SECTIONS } from "@/lib/calc/presentation/cabinSections";
 import {
@@ -65,7 +68,11 @@ import { cabinDepsFrom } from "@/lib/calc/engine";
 import { CABIN_CLIMATE_SITES } from "@/lib/calc/presentation/cabinSections";
 import { GLAZING_KIND_LABELS } from "@/lib/calc/presentation/cabinFields";
 import type { CalcInput, CalcResult } from "@/lib/calc/engine";
-import { drumShaftGeometry, hoistSpecView } from "@/lib/calc/modules/hoistGroup";
+import {
+  drumShaftGeometry,
+  hoistSpecView,
+  ropeLengthPlan,
+} from "@/lib/calc/modules/hoistGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
 import type {
   HookBlockInputs,
@@ -258,18 +265,32 @@ export interface EquipmentExtraRow {
 }
 
 /** Ana / yardımcı kaldırma grubu bileşen satırları (aynı set) */
-function hoistRows(moduleKey: string, inp: HoistInputs, sel: HoistSelections): EqRow[] {
+function hoistRows(
+  moduleKey: HoistKey,
+  inp: HoistInputs,
+  sel: HoistSelections,
+  specs: TechnicalSpecs
+): EqRow[] {
   const rk = (slug: string) => `${moduleKey}:${slug}`;
-  return [
-    {
-      rowKey: rk("rope"),
+  const ropePlan = ropeLengthPlan(inp, sel, hoistSpecView(specs, moduleKey).liftHeightM);
+  const ropeRows: EqRow[] = ropePlan.lines.map((line) => {
+    const layLabel = line.lay === "right" ? "Sağ Helis" : "Sol Helis";
+    return {
+      rowKey: rk(line.lay === "right" ? "rope" : "ropeLeft"),
       kind: "rope",
       component: "Çelik halat",
       brand: textOr(sel.ropeBrand),
-      model: textOr(sel.ropeConstruction),
-      spec: `Ø${fmt(sel.ropeDiaMm)} mm, öz: ${textOr(sel.ropeCore)}, tel ${fmt(sel.ropeWireStrength)} kg/mm², kopma yükü ${fmt(sel.ropeBreakingLoadKn, 1)} kN`,
-      qty: 1,
-    },
+      model: `${textOr(sel.ropeConstruction)} ${layLabel}`,
+      spec:
+        `Ø${fmt(sel.ropeDiaMm)} mm, öz: ${textOr(sel.ropeCore)}, ` +
+        `tel ${fmt(sel.ropeWireStrength)} kg/mm², ` +
+        `kopma yükü ${fmt(sel.ropeBreakingLoadKn, 1)} kN, ` +
+        `boy ${fmt(line.lengthPerPieceM, 2)} m/adet`,
+      qty: line.quantity,
+    };
+  });
+  return [
+    ...ropeRows,
     {
       rowKey: rk("drum"),
       component: "Tambur",
@@ -371,7 +392,10 @@ function travelRows(
       brand: textOr(sel.bearingType),
       model: textOr(sel.bearingCode),
       spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
-      qty: inp.bearingCount > 0 ? inp.bearingCount : 2,
+      qty:
+        inp.wheelCount > 0 && inp.bearingCount > 0
+          ? inp.wheelCount * inp.bearingCount
+          : "-",
     },
     {
       rowKey: rk("motor"),
@@ -532,19 +556,30 @@ export function mergeExtras(
 
 /** Kanca bloğu bölümünün ekipman satırları. */
 function hookBlockRows(
-  moduleKey: string,
-  m: { inputs: HookBlockInputs; selections: HookBlockSelections }
+  moduleKey: HookBlockKey,
+  m: { inputs: HookBlockInputs; selections: HookBlockSelections },
+  specs: TechnicalSpecs
 ): EqRow[] {
   const sel = m.selections;
   const rk = (slug: string) => `${moduleKey}:${slug}`;
+  const sheaveCount = Number.isFinite(sel.sheaveCount) && sel.sheaveCount > 0
+    ? Math.round(sel.sheaveCount)
+    : 1;
   // Kancanın kapasitesi hangi standarttan okunuyorsa özellik satırı ONU yazar.
   // Lamel kancada ölçüler de sipariş bilgisidir: ağız yarıçapı ve lamel adedi
   // olmadan satır hangi kancanın ısmarlanacağını söylemez.
   const lamella = din15407Row(sel.hookNumber);
+  const forgedCapacityKg = sel.hookNumber && sel.hookStrengthClass
+    ? hookCapacityKg(
+        sel.hookNumber,
+        sel.hookStrengthClass,
+        hoistSpecView(specs, HOIST_OF_HOOKBLOCK[moduleKey]).mechanismClass
+      )
+    : undefined;
   const hookSpec = lamella
     ? `kapasite ${fmt(lamella.capacityT * 1000)} kg · a₁ ${fmt(lamella.a1)} mm · ` +
       `${fmt(lamella.plateCount)} lamel × ${fmt(lamella.s1)} mm (DIN 15407)`
-    : `kapasite ${fmt(sel.hookCapacityKg)} kg (${
+    : `kapasite ${fmt(forgedCapacityKg ?? sel.hookCapacityKg)} kg (${
         isLamellaHook(sel.hookStandard) ? hookStandardOf(sel.hookStandard) : "DIN 15400"
       })`;
   return [
@@ -564,7 +599,7 @@ function hookBlockRows(
       brand: "-",
       model: "-",
       spec: `halat ekseninde Ø${fmt(sel.sheaveDiaMm)} mm`,
-      qty: "-",
+      qty: sheaveCount,
     },
     {
       rowKey: rk("sheaveBearing"),
@@ -573,7 +608,7 @@ function hookBlockRows(
       brand: textOr(sel.sheaveBearingType),
       model: textOr(sel.sheaveBearingCode),
       spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
-      qty: 2,
+      qty: sheaveCount * 2,
     },
     {
       rowKey: rk("hookBearing"),
@@ -659,13 +694,13 @@ function moduleEquipmentRows(
   cabinValues?: CabinValues
 ): EqRow[] | null {
   if (isHoistKey(key)) {
-    return hoistRows(key, inputs as HoistInputs, selections as HoistSelections);
+    return hoistRows(key, inputs as HoistInputs, selections as HoistSelections, specs);
   }
   if (isHookBlockKey(key)) {
     return hookBlockRows(key, {
       inputs: inputs as HookBlockInputs,
       selections: selections as HookBlockSelections,
-    });
+    }, specs);
   }
   if (key === "cabin") {
     return cabinRows(specs, inputs as CabinInputs, selections as CabinSelections, cabinValues);
@@ -972,13 +1007,25 @@ function writeEquipmentSheet(
   meta: EquipmentMeta,
   datasheetUrls?: Map<string, string>,
   /** Ekipman ADINA bağlanan katalog sayfası adresleri (mutlak) */
-  sheetUrls?: Map<string, string>
+  sheetUrls?: Map<string, string>,
+  /** Ekipman listesinin üstünde açılan müşteri ana pafta bağlantısı. */
+  mainDrawingUrl?: string
 ): number {
   // Sütunlar: Ekipman · Marka · Model · Özellikler · Ek Özellikler · Ek Belge · Adet
   const COL_COUNT = 7;
   const QTY_COL = 7;
   const ATTACH_COL = 6;
-  const headerRowNo = writeBand(ws, "EKİPMAN LİSTESİ", meta, COL_COUNT);
+  let headerRowNo = writeBand(ws, "EKİPMAN LİSTESİ", meta, COL_COUNT);
+
+  if (mainDrawingUrl) {
+    ws.mergeCells(`A${headerRowNo}:${colLetter(COL_COUNT)}${headerRowNo}`);
+    const link = ws.getCell(`A${headerRowNo}`);
+    link.value = { text: "Proje Ana Paftasını Aç ↗", hyperlink: mainDrawingUrl };
+    link.font = { ...HYPERLINK_FONT, name: TITLE_FONT, size: 10 };
+    link.alignment = { vertical: "middle" };
+    ws.getRow(headerRowNo).height = 19;
+    headerRowNo += 1;
+  }
 
   // Tablo başlığı — müşteriye teslim edilebilir profesyonel sütunlar.
   // Ortak `styleHeaderRow` KULLANILMAZ: o, açık (Kağıt 200) zeminli iç
@@ -1025,7 +1072,7 @@ function writeEquipmentSheet(
 
     group.rows.forEach((r) => {
       const row = ws.getRow(rowNo);
-      // Ekipman adı: katalog sayfası varsa uygulamadaki görüntüleyiciye köprü.
+      // Ekipman adı: katalog sayfası varsa müşteriye açık görüntüleyiciye köprü.
       // Excel dosyası uygulamanın dışında açıldığı için adres MUTLAKTIR.
       const sheetUrl = rowSheetUrl(r, sheetUrls);
       if (sheetUrl) {
@@ -1116,7 +1163,7 @@ export function dsKey(kind: string, brand: string, model: string): string {
  *
  * `datasheetUrls` ile karıştırılmaz: o, yönetim panelinden elle girilen ÜRETİCİ
  * WEB SAYFASIDIR ve model hücresine bağlanır. Buradaki adres ise uygulamanın
- * kendi katalog sayfası görüntüleyicisidir (`/katalog`) ve EKİPMAN ADINA
+ * kendi müşteri katalog sayfası görüntüleyicisidir (`/paylas/katalog`) ve EKİPMAN ADINA
  * bağlanır — mühendisin aradığı şey çoğu zaman ölçü resmidir, üretici sitesi
  * değil.
  *
@@ -1885,6 +1932,8 @@ export interface EquipmentWorkbookOptions {
    * (ör. birim testi) bağlantı hiç kurulmaz.
    */
   appOrigin?: string;
+  /** Müşterinin üyelik olmadan açacağı seçilmiş proje ana paftası (mutlak). */
+  mainDrawingUrl?: string;
   /**
    * Teknik Resim Takibi defteri — Teknik Ressam Özeti sayfasının sonuna ana
    * grup numaralandırması olarak basılır. Yalnız `scope: "full"` çıktısında
@@ -1921,7 +1970,14 @@ export function buildEquipmentWorkbook(
   const sheetUrls = options.appOrigin
     ? buildCatalogSheetUrls(groups, options.appOrigin)
     : undefined;
-  writeEquipmentSheet(wsEquipment, groups, meta, options.datasheetUrls, sheetUrls);
+  writeEquipmentSheet(
+    wsEquipment,
+    groups,
+    meta,
+    options.datasheetUrls,
+    sheetUrls,
+    options.mainDrawingUrl
+  );
 
   // Teknik ressam özeti dahili bir çıktıdır; müşteri dosyasına dahil edilmez.
   if (options.scope !== "customer") {

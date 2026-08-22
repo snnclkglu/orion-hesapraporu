@@ -2,7 +2,12 @@
 // key'ler motor tiplerinin (TechnicalSpecs, HoistInputs, HoistSelections)
 // alan adlarıyla birebir aynıdır.
 
-import { ROPE_POSITION_AUTO, ROPE_POSITIONS } from "./modules/hoistGroup";
+import {
+  ROPE_BALANCING_TYPE_LABELS,
+  ROPE_BALANCING_TYPES,
+  ROPE_POSITION_AUTO,
+  ROPE_POSITIONS,
+} from "./modules/hoistGroup";
 import { BUFFER_TECHNICAL_TYPES, BUFFER_TYPE_LABELS } from "./buffer";
 import { DRUM_WEIGHT_FORMULA_HINT } from "./derive";
 import { COMMON_REEVINGS } from "./reeving";
@@ -806,8 +811,14 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
     options: REEVING_OPTIONS,
     hint: "İlk sayı tahrikli, ikinci sayı toplam halat adedidir; seçim iki alanı da doldurur.",
   },
-  { key: "drivenFalls", label: "Tahrikli Halat Sayısı", type: "number" },
-  { key: "totalFalls", label: "Toplam Halat Sayısı", type: "number" },
+  {
+    key: "drivenFalls", label: "Tahrikli Halat Sayısı", type: "number",
+    hint: "Hazır halat donanımından otomatik doldurulur; Elle giriş seçilirse düzenlenebilir.",
+  },
+  {
+    key: "totalFalls", label: "Toplam Halat Sayısı", type: "number",
+    hint: "Hazır halat donanımından otomatik doldurulur; Elle giriş seçilirse düzenlenebilir.",
+  },
   {
     key: "sheaveEfficiency", label: "Makara Verimi", type: "number",
     hint:
@@ -822,6 +833,15 @@ export const HOIST_INPUT_FIELDS: FieldDef<HoistInputs>[] = [
     hint: "Kaldırma kapasitesinin %10'u olarak türetilir.",
   },
   { key: "ropeWeightKg", label: "Halat Ağırlığı", unit: "kg", type: "number", hint: "Toplam halat sayısı × metre ağırlığı × kaldırma yüksekliği (50 kg'a yuvarlanır)." },
+  {
+    key: "ropeBalancingType", label: "Halat Dengeleme Düzeni", type: "select",
+    options: ROPE_BALANCING_TYPES,
+    optionLabels: ROPE_BALANCING_TYPE_LABELS,
+    hint: "Yeni işlerde standart seçim Denge Traversli'dir.",
+    info:
+      "Denge Traversli: her tambur yivi için ayrı halat kullanılır; sağ ve sol helis halatlar ayrı sipariş satırlarıdır.\n\n" +
+      "Denge Makaralı: iki yivin halatı üst denge makarasından sürekli geçer; iki yiv tek sağ helis halat parçası olur.",
+  },
   { key: "drumWallThicknessMm", label: "Tambur Yiv Dibi Et Kalınlığı", unit: "mm", type: "number" },
   {
     key: "safetyGrooveCount", label: "Emniyet Sarımı", type: "select",
@@ -893,6 +913,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
     hint:
       "Otomatik: <tahrikli halat sayısı> x <gerekli yiv boyu>. Kesirli yiv " +
       "adedi yukarı tam sayıya çıkarılır; boy = tam yiv adedi × hatve.",
+    info:
+      "Tek yiv için halat boyu:\n" +
+      "L = z × π × D + (%10 × h × (n_toplam / n_tahrik))\n\n" +
+      "z: gerekli tam sarım sayısı, D: tambur çapı, h: kaldırma yüksekliği.\n\n" +
+      "Denge traversinde her yiv ayrı halattır. Denge makarasındaysa iki yivin boyu tek sürekli halatta birleşir.",
   },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
@@ -942,6 +967,7 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "brakeQty", label: "Fren Adedi", type: "number" },
   { key: "motorCouplingBrand", label: "Motor Kaplini Markası", type: "text" },
   { key: "motorCouplingModel", label: "Motor Kaplini Modeli", type: "text" },
+  { key: "motorCouplingWheelDiaMm", label: "Motor Kaplini Kasnak Çapı", unit: "mm", type: "number", diameter: true },
   { key: "motorCouplingTorqueNm", label: "Motor Kaplini Torku", unit: "Nm", type: "number" },
   { key: "motorCouplingDmaxMm", label: "Motor Kaplini Dmax", unit: "mm", type: "number", diameter: true },
   { key: "drumCouplingBrand", label: "Tambur Kaplini Markası", type: "text" },
@@ -1011,6 +1037,7 @@ export const HOIST_AUTO_SELECTION_FIELDS: Record<string, keyof HoistInputs & str
  */
 export const HOOKBLOCK_AUTO_SELECTION_FIELDS: Record<string, string> = {
   hookDesignation: "hookDesignationAuto",
+  sheaveCount: "sheaveCountAuto",
 };
 
 /**

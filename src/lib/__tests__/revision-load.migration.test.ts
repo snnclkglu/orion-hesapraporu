@@ -174,3 +174,40 @@ describe("revizyon göçü — tambur mili ölçüleri cm → mm", () => {
     expect(out).toEqual(merged);
   });
 });
+
+describe("revizyon göçü — denge düzeni ve makara adedi", () => {
+  it("yeni iş varsayılanını denge traversli açar", () => {
+    expect(loadRevision(null, null).full.mainHoist!.inputs.ropeBalancingType)
+      .toBe("equalizerBeam");
+  });
+
+  it("alan eklenmeden kaydedilmiş eski işi denge makaralı olarak korur", () => {
+    const old = snapshotOf(V5_TEMPLATE, (inputs) => {
+      const out = { ...(inputs as Record<string, unknown>) };
+      delete out.ropeBalancingType;
+      return out;
+    });
+
+    expect(loadRevision(old.inputs, old.selections).full.mainHoist!.inputs.ropeBalancingType)
+      .toBe("equalizerSheave");
+  });
+
+  it("eski 2/8 donanımda eksik makara seçimini 8/2 = 4 ve otomatik olarak tamamlar", () => {
+    const old = snapshotOf(V5_TEMPLATE, (inputs) => ({ ...inputs }));
+    old.inputs.mainHoist = {
+      ...old.inputs.mainHoist!,
+      reevingLabel: "2/8",
+      drivenFalls: 2,
+      totalFalls: 8,
+    };
+    const hookSelections = {
+      ...(old.selections.hookBlock as unknown as Record<string, unknown>),
+    };
+    delete hookSelections.sheaveCount;
+    old.selections.hookBlock = hookSelections as unknown as RevisionSelectionsJson["hookBlock"];
+
+    const loaded = loadRevision(old.inputs, old.selections).full.hookBlock!;
+    expect(loaded.selections.sheaveCount).toBe(4);
+    expect(loaded.inputs.sheaveCountAuto).toBe(true);
+  });
+});

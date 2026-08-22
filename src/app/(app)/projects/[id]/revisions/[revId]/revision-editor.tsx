@@ -21,6 +21,7 @@ import { activeModules, runCalc, type CalcInput } from "@/lib/calc/engine";
 // Alternatiflerin uygunluğu artık burada hesaplanmaz; module-adapters.ts'teki
 // saf `altOptionPass` çağrılır (PDF raporu da aynı kaynağı okur).
 import { hoistSpecView } from "@/lib/calc/modules/hoistGroup";
+import { commonReevingByLabel } from "@/lib/calc/reeving";
 import {
   SPEC_FIELDS,
   SPEC_GROUPS,
@@ -210,6 +211,8 @@ interface AutoFieldState {
   on: boolean;
   onToggle: (next: boolean) => void;
   warning?: string;
+  /** Kaynak seçimden türeyen, ayrı aç/kapa anahtarı olmayan otomatik alan. */
+  fixed?: boolean;
 }
 
 /**
@@ -324,10 +327,14 @@ function Field({
         {auto && (
           <button
             type="button"
-            disabled={disabled}
-            onClick={() => auto.onToggle(!auto.on)}
+            disabled={disabled || auto.fixed}
+            onClick={() => {
+              if (!auto.fixed) auto.onToggle(!auto.on);
+            }}
             title={
-              auto.on
+              auto.fixed
+                ? "Halat donanımı seçiminden otomatik doldurulur"
+                : auto.on
                 ? "Otomatik hesap açık — elle girmek için kapatın"
                 : "Otomatik hesapla"
             }
@@ -339,7 +346,7 @@ function Field({
               auto.on
                 ? "border-primary/40 bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted",
-              disabled && "pointer-events-none opacity-50"
+              (disabled || auto.fixed) && "pointer-events-none opacity-70"
             )}
           >
             <span aria-hidden>{auto.on ? "●" : "○"}</span>
@@ -1879,6 +1886,9 @@ export function RevisionEditor({
             : undefined;
         })()
       : undefined;
+    const ropeOrderSummary = isHoistKey(key) && section.rawId === "2.2.2"
+      ? moduleResult(key)?.cells["rope.arrangement"]
+      : undefined;
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
     // `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır (ör. ray altı T
@@ -1956,7 +1966,19 @@ export function RevisionEditor({
 
     /** Girdi ızgarasındaki alanın otomatik anahtarı (kaldırma/yürütme/ana kiriş). */
     function autoStateFor(fieldKey: string): AutoFieldState | undefined {
-      return autoStateFrom(autoInputFlag(key, fieldKey), fieldKey);
+      const normal = autoStateFrom(autoInputFlag(key, fieldKey), fieldKey);
+      if (normal) return normal;
+      // Tahrikli/toplam halat sayıları ayrı bir *Auto alanı taşımaz: hazır
+      // donanım seçiliyken o seçimin tanımıdır, "Elle giriş"te ise serbesttir.
+      // Yine de kullanıcı sayının kaynağını kutunun üstünde açıkça görmelidir.
+      if (
+        isHoistKey(key) &&
+        (fieldKey === "drivenFalls" || fieldKey === "totalFalls") &&
+        commonReevingByLabel(String((inputs as Record<string, unknown>).reevingLabel ?? ""))
+      ) {
+        return { on: true, onToggle: () => undefined, fixed: true };
+      }
+      return undefined;
     }
 
     /** Katalog seçimi ızgarasındaki alanın otomatik anahtarı (yiv boyu). */
@@ -2432,6 +2454,28 @@ export function RevisionEditor({
                       specs={specs}
                     />
                     )
+                  )}
+                  {/* Yiv Boyu'nun hemen ardından hesaplanan satın alma boyu
+                      gelir. Değer snapshot'a kopyalanmaz; canlı hesap hücresi
+                      gösterilir ki donanım, tambur veya yükseklik değişince
+                      ikinci bir kayıt alanı bayat kalmasın. */}
+                  {ropeOrderSummary !== undefined && (
+                    <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
+                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        Halat Boyu / Sipariş Bölünümü
+                      </span>
+                      <div className="grid min-w-0 content-start gap-1">
+                        <div
+                          className="flex min-h-9 items-center border bg-muted/30 px-3 py-2 font-mono text-sm tabular-nums text-foreground"
+                          aria-label="Hesaplanan halat boyu ve helis dağılımı"
+                        >
+                          {String(ropeOrderSummary)}
+                        </div>
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Donanım ve denge düzeninden otomatik hesaplanır.
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </div>
                 {hookCapacityComparison && (

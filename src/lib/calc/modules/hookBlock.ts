@@ -257,6 +257,8 @@ export interface HookBlockInputs {
    * (`drumGrooveLengthAuto`) birebir aynı düzeni.
    */
   hookDesignationAuto?: boolean;
+  /** Makara adedi donanımdan (toplam halat sayısı / 2) otomatik türetilsin mi? */
+  sheaveCountAuto?: boolean;
 }
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
@@ -284,6 +286,8 @@ export interface HookBlockSelections {
   hookCapacityKg: number;
   /** Halat ekseninde makara çapı [mm] */
   sheaveDiaMm: number;
+  /** Kanca bloğundaki hareketli halat makarası adedi. */
+  sheaveCount: number;
   /** Makara göbeği kapak düzeni. */
   sheaveEnclosure: "Kapaklı ve Keçeli" | "Kapaksız";
   /** Kapaklı makarada DIN 3760 / ISO 6194 uyumlu mil keçesi tasarım kodu. */
@@ -348,7 +352,7 @@ export interface HookBlockValues {
   ropeLoadKg: number;
   /** Makara başına yük 2T [kg] */
   doubleRopeLoadKg: number;
-  /** Kanca bloğundaki makara adedi (donanımdan) */
+  /** Kanca bloğundaki etkin makara adedi (otomatik veya kullanıcı düzeltmesi) */
   sheaveCount: number;
   /** Makara eksenlerinin sol mesnete uzaklıkları [cm] */
   sheavePositionsCm: number[];
@@ -675,6 +679,19 @@ export function computeHookBlock(
   // künyedir ve her zaman basılır.
 
   // --- §4.2 Makaralar -------------------------------------------------------
+  const selectedSheaveCount = Number.isFinite(sel.sheaveCount) && sel.sheaveCount > 0
+    ? Math.round(sel.sheaveCount)
+    : undefined;
+  const derivedSheaveCount = Number.isFinite(deps.blockSheaveCount) && deps.blockSheaveCount > 0
+    ? Math.round(deps.blockSheaveCount)
+    : 1;
+  // Otomatik açıkken donanım tek kaynaktır (toplam halat / 2). Kullanıcı
+  // otomatiği kapatırsa katalog/elle seçim üstün gelir. Bu ayrım saf motor
+  // çağrılarında da korunur; yalnız editörün seçimi önceden yamamasına
+  // güvenilmez.
+  const effectiveSheaveCount = inp.sheaveCountAuto !== false
+    ? derivedSheaveCount
+    : (selectedSheaveCount ?? derivedSheaveCount);
   // FEM'in istediği çap D_min = H · d'dir ve yuvarlak çıkmaz; makara ise
   // standart bir çap serisinden imal edilir. Serinin bir alt basamağı D_min'in
   // %2'sinden az aşağıdaysa o basamak kabul edilir (bkz. SHEAVE_DIA_TOLERANCE_PCT).
@@ -687,6 +704,7 @@ export function computeHookBlock(
   const sheaveDiaShortfallPct =
     minSheaveDiaMm > 0 ? ((minSheaveDiaMm - sel.sheaveDiaMm) / minSheaveDiaMm) * 100 : 0;
   Object.assign(cells, {
+    "sheave.count": effectiveSheaveCount,
     "sheave.coefficient": sheaveCoefficientH,
     "sheave.minDia": minSheaveDiaMm,
     "sheave.minDiaAccepted": acceptedMinSheaveDiaMm,
@@ -753,7 +771,7 @@ export function computeHookBlock(
   // ya da iki tarafta birden olabilir. Her makara 2T (iki halat kolu) taşır.
   const ropeLoadKg = deps.ropeLoadKg;
   const doubleRopeLoadKg = ropeLoadKg * 2;
-  const geo = hookShaftGeometry(inp, deps.blockSheaveCount);
+  const geo = hookShaftGeometry(inp, effectiveSheaveCount);
   const sheaveCount = geo.positionsCm.length;
 
   // Statik: ortak kiriş çözücüsü; iç mesnetler ve konsol yükleri korunur.

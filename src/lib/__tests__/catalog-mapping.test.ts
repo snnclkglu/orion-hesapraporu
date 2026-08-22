@@ -80,6 +80,19 @@ const TRAVEL_GEARBOX: CatalogRow = {
   },
 };
 
+/** SIBRE APC-AT 315: katalogdaki D1 fren kasnağı çapıdır. */
+const APC_AT_315: CatalogRow = {
+  id: "sibre-apc-at-315",
+  brand: "SIBRE",
+  model: "APC-AT 315",
+  attrs: {
+    coupling_type: "Fren Kasnaklı Elastik Kaplin (APC-AT)",
+    brake_drum_diameter_mm: 315,
+    nominal_torque_nm: 7900,
+    max_shaft_dia_mm: 90,
+  },
+};
+
 describe("hedef tahvil oranı süzgeci", () => {
   const rows = [40, 50, 50, 63, 80].map((ratio, index): CatalogRow => ({
     id: `ratio-${index}`,
@@ -226,6 +239,17 @@ describe("yürütme redüktörü (5.5)", () => {
 
   it("araba ve köprü aynı eşlemeyi paylaşır", () => {
     expect(getCatalogMapping("trolley", "5.5")).toBe(mapping);
+  });
+});
+
+describe("motor-redüktör kaplini (2.6)", () => {
+  it("APC-AT modelinin D1 fren kasnağı çapını kaplin kasnağına yazar", () => {
+    const mapping = getCatalogMapping("main", "2.6")!;
+    const sel = applyCatalogPick(mapping, APC_AT_315);
+    expect(sel.motorCouplingModel).toBe("APC-AT 315");
+    expect(sel.motorCouplingWheelDiaMm).toBe(315);
+    expect(sel.motorCouplingTorqueNm).toBe(7900);
+    expect(sel.motorCouplingDmaxMm).toBe(90);
   });
 });
 

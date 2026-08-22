@@ -91,6 +91,9 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   reevingLabel: "2/2",          // tahrikli/toplam halat kolu — hazır donanım
   drivenFalls: 2,
   totalFalls: 2,
+  // Tarihsel V5 düzeni denge makaralıdır. Yeni iş şablonu aşağıda traversli
+  // düzene geçer; eski referansın ekipman bölünümü değişmesin.
+  ropeBalancingType: "equalizerSheave",
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   fixedSheaveCount: 0,
   hookBlockWeightKg: 3250,      // kepçe
@@ -406,6 +409,7 @@ export const NEW_WORK_DISABLED_MODULES: readonly string[] = [
  */
 const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   ...V5_MAIN_HOIST_INPUTS,
+  ropeBalancingType: "equalizerBeam",
   // Başlangıç rulmanı 22212'nin iç çapı Ø60 ile birebir eşleşir.
   shaftD2Mm: 60,
   reevingLabel: "2/4",
@@ -438,6 +442,7 @@ const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
 
 const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   ...V5_AUX_HOIST_INPUTS,
+  ropeBalancingType: "equalizerBeam",
   shaftD2Mm: 60,
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   ropeWeightAuto: true,
@@ -467,6 +472,12 @@ const NEW_WORK_HOOKBLOCK_INPUTS = {
   ...V5_HOOKBLOCK_INPUTS,
   shaftSupportOffsetMm: 125,
   shaftSheaveOffsetsText: "75",
+};
+
+const NEW_WORK_HOOKBLOCK_SELECTIONS = {
+  ...V5_HOOKBLOCK_SELECTIONS,
+  // Yeni iş donanımı 2/4'tür: toplam dört halat kolu / 2 = iki makara.
+  sheaveCount: 2,
 };
 
 /**
@@ -527,10 +538,10 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   auxHoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
   mono1Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
   mono2Hoist: { inputs: NEW_WORK_AUX_HOIST_INPUTS, selections: NEW_WORK_AUX_HOIST_SELECTIONS },
-  hookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  auxHookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  mono1HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
-  mono2HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: V5_HOOKBLOCK_SELECTIONS },
+  hookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
+  auxHookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
+  mono1HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
+  mono2HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
   trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   auxTrolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
   mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },

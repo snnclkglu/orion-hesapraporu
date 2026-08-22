@@ -8,6 +8,7 @@ import {
   DCOL, type Diagram, type DiagramEl,
   caption, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
+import type { RopeBalancingType } from "@/lib/calc/modules/hoistGroup";
 
 export interface ReevingParams {
   drivenFalls: number;    // tahrikli halat sayısı (tambura sarılan uçlar)
@@ -15,6 +16,7 @@ export interface ReevingParams {
   drumDiaMm?: number;     // tambur çapı (etiket)
   loadKg?: number;        // toplam yük Gt (kanca yükü oku etiketi)
   capacityT?: number;     // kaldırılan yükün tonajı Q [t]
+  ropeBalancingType?: RopeBalancingType;
 }
 
 const W = 660;
@@ -24,7 +26,14 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   const els: DiagramEl[] = [];
   const nf = Math.min(12, Math.max(1, Math.round(p.totalFalls || 0)));
   const nd = Math.min(nf, Math.max(1, Math.round(p.drivenFalls || 0)));
-  caption(els, `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`, "Tambur · Makara · Kanca Bloğu");
+  const balancingType = p.ropeBalancingType ?? "equalizerSheave";
+  caption(
+    els,
+    `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`,
+    balancingType === "equalizerBeam"
+      ? "Tambur · Denge Traversi · Kanca Bloğu"
+      : "Tambur · Denge Makarası · Kanca Bloğu"
+  );
 
   if (!(p.totalFalls > 0)) {
     els.push(txt(W / 2, H / 2, "Donanım girdileri eksik", 11, { anchor: "middle", fill: DCOL.muted }));
@@ -42,9 +51,14 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   // --- Halat sistemleri: nd/2 sistem (tek sayıda tahrikli uç → 1 sistem, uç ankrajlı)
   const systems = Math.max(1, Math.floor(nd / 2));
   const fps = Math.ceil(nf / systems);   // sistem başına halat sayısı
-  type FallTop = { x: number; kind: "drum" | "sheave" | "anchor"; y: number };
+  type FallTop = {
+    x: number;
+    kind: "drum" | "sheave" | "anchor" | "beamAnchor";
+    y: number;
+  };
   const tops: FallTop[] = [];
-  const topSheaves: number[] = [];       // üst makara merkezleri (x)
+  const topSheaves: { cx: number; leftX: number; rightX: number }[] = [];
+  const beamAnchors: [number, number][] = [];
   const blockArcs: [number, number][] = []; // blok makarası yay çiftleri
 
   for (let g = 0; g < systems; g++) {
@@ -60,8 +74,35 @@ export function reevingDiagram(p: ReevingParams): Diagram {
       // blok yayları: sistem içinde (i0,i0+1), (i0+2,i0+3), ...
       if (i < i1 && (i - i0) % 2 === 0) blockArcs.push([xs[i], xs[i + 1]]);
     }
-    // üst makaralar: sistem içinde (i0+1,i0+2), (i0+3,i0+4), ...
-    for (let i = i0 + 1; i < i1; i += 2) topSheaves.push((xs[i] + xs[i + 1]) / 2);
+    // Üst makaralar: sistem içinde (i0+1,i0+2), (i0+3,i0+4), ...
+    const groupTopPairs: [number, number][] = [];
+    for (let i = i0 + 1; i < i1; i += 2) groupTopPairs.push([i, i + 1]);
+    // Denge traversinde her halatın üst ucu sabittir. Mevcut denge makaralı
+    // şemanın sistem ortasındaki denge makarası bu nedenle iki sabit uçla
+    // değiştirilir; diğer yönlendirme makaraları yerinde kalır.
+    const equalizerPair = balancingType === "equalizerBeam" && groupTopPairs.length > 0
+      ? groupTopPairs.reduce((best, pair) => {
+          const mid = (xs[pair[0]] + xs[pair[1]]) / 2;
+          const bestMid = (xs[best[0]] + xs[best[1]]) / 2;
+          const groupMid = (xs[i0] + xs[i1]) / 2;
+          return Math.abs(mid - groupMid) < Math.abs(bestMid - groupMid) ? pair : best;
+        })
+      : undefined;
+    for (const pair of groupTopPairs) {
+      if (equalizerPair && pair[0] === equalizerPair[0]) {
+        tops[pair[0]].kind = "beamAnchor";
+        tops[pair[1]].kind = "beamAnchor";
+        tops[pair[0]].y = ySheave;
+        tops[pair[1]].y = ySheave;
+        beamAnchors.push([xs[pair[0]], xs[pair[1]]]);
+      } else {
+        topSheaves.push({
+          cx: (xs[pair[0]] + xs[pair[1]]) / 2,
+          leftX: xs[pair[0]],
+          rightX: xs[pair[1]],
+        });
+      }
+    }
   }
 
   // --- Tambur: tambura giden halatların üzerini kapsayan silindir
@@ -83,7 +124,8 @@ export function reevingDiagram(p: ReevingParams): Diagram {
 
   // --- Üst makaralar (halatlar teğet — yarıçap dx/2)
   const rS = dx / 2;
-  for (const sx of topSheaves) {
+  for (const sheave of topSheaves) {
+    const sx = sheave.cx;
     els.push({ kind: "circle", cx: sx, cy: ySheave, r: rS, fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.2 });
     els.push({ kind: "circle", cx: sx, cy: ySheave, r: 2.2, fill: DCOL.ink });
     // halat üst yarım yayı
@@ -94,8 +136,28 @@ export function reevingDiagram(p: ReevingParams): Diagram {
     });
   }
   if (topSheaves.length > 0) {
-    const sx = topSheaves[topSheaves.length - 1];
+    const sx = topSheaves[topSheaves.length - 1].cx;
     els.push(txt(sx + rS + 8, ySheave + 3, "Makara", 8.5, { fill: DCOL.muted }));
+  }
+
+  // --- Denge traversi: iki halat ucu üst taşıyıcıya ayrı ayrı sabitlenir.
+  for (const [leftX, rightX] of beamAnchors) {
+    els.push(ln(leftX - 11, ySheave - 11, rightX + 11, ySheave - 11, DCOL.ink, 1.4));
+    for (const x of [leftX, rightX]) {
+      els.push({
+        kind: "polygon",
+        points: [[x, ySheave], [x - 7, ySheave - 10], [x + 7, ySheave - 10]],
+        fill: DCOL.paper,
+        stroke: DCOL.ink,
+        strokeWidth: 1,
+      });
+    }
+  }
+  if (beamAnchors.length > 0) {
+    const right = beamAnchors[beamAnchors.length - 1][1];
+    els.push(txt(right + 15, ySheave - 8, "Denge traversi · sabit uçlar", 8.5, {
+      fill: DCOL.muted,
+    }));
   }
 
   // --- Ankraj (tek tahrikli uç)
@@ -111,7 +173,11 @@ export function reevingDiagram(p: ReevingParams): Diagram {
 
   // --- Halat düşey çizgileri
   for (const t of tops) {
-    const yTop = t.kind === "sheave" ? t.y : t.kind === "anchor" ? yDrumBottom + 10 : t.y;
+    const yTop = t.kind === "sheave" || t.kind === "beamAnchor"
+      ? t.y
+      : t.kind === "anchor"
+        ? yDrumBottom + 10
+        : t.y;
     els.push(ln(t.x, yTop, t.x, yBlock, DCOL.ink, 1.4));
   }
 
