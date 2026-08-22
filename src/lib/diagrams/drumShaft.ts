@@ -33,6 +33,8 @@ export interface DrumShaftParams {
   momentGearboxKgCm?: number;
   momentBearingKgCm?: number;
   positionLabel?: string;
+  /** Çift tamburda sağ/sol simetrik millerden yalnız biri incelenir. */
+  doubleDrum?: boolean;
 }
 
 const W = 700;
@@ -42,10 +44,9 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
   const els: DiagramEl[] = [];
   caption(
     els,
-    "TAMBUR MİLİ — YÜKLEME ŞEMASI",
-    p.positionLabel
-      ? `iki mesnetli kiriş · halat konumu: ${p.positionLabel.toLocaleLowerCase("tr-TR")}`
-      : "iki mesnetli kiriş · halat yükleri ve tambur ağırlığı"
+    p.doubleDrum
+      ? "TAMBUR MİLİ — TEK TAMBUR (SAĞ / SOL SİMETRİK)"
+      : "TAMBUR MİLİ — YÜKLEME ŞEMASI"
   );
 
   // Bütün ölçüler mm; şema da mm ölçeğinde çizilir ve mm etiketlenir.
@@ -135,7 +136,10 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
     kind: "rect", x: xA - 74, y: yAxis - 32, w: 48, h: 64,
     fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.2, rx: 2,
   });
-  els.push(txt(xA - 50, yAxis + 3, "REDÜKTÖR", 7.5, { anchor: "middle", fill: DCOL.muted }));
+  els.push(txt(xA - 50, yAxis - (p.doubleDrum ? 3 : -3), p.doubleDrum ? "ORTAK" : "REDÜKTÖR", 7.5, { anchor: "middle", fill: DCOL.muted }));
+  if (p.doubleDrum) {
+    els.push(txt(xA - 50, yAxis + 9, "REDÜKTÖR", 7.5, { anchor: "middle", fill: DCOL.muted }));
+  }
   els.push({
     kind: "rect", x: xG + 26, y: yAxis - 30, w: 44, h: 60,
     fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.2, rx: 2,

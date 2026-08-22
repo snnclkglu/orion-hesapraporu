@@ -719,9 +719,11 @@ simetriktir: `shaftSupportOffsetMm` ve `shaftSheaveOffsetsText` merkezden yalnı
 bir tarafı tarif eder, karşı taraf motor tarafından aynalanır. Eski A/B/D
 snapshotları `migrateHookShaftCenter` ile aynı açıklık ve yük konumlarına göçer.
 
-Redüktör kataloğunda hedef tahvil oranı, tork/facet filtrelerinden sonra
-uygulanır; katalogda birebir hedef yoksa en yakın bir alt ve bir üst oran aynı
-anda bırakılır. Aynı oranı taşıyan farklı modeller saklanır.
+Redüktör kataloğunda hedef tahvil oranı, **hesaplanan gerekli tork alt sınırı**
+uygulandıktan sonra değerlendirilir. Seçim penceresi gerekli torku ve gerekli
+çevrim oranını açıkça gösterir; torku sağlayan ürünler içinden hedef orana en
+yakın **10 ürün** karşılaştırmaya bırakılır. Tablo aynı anda en çok 50 satır
+çizer ve daha uzun sonuçları sayfalara böler.
 
 ## HESAP-20 — Kanca bloğu ve yürütme seçimleri gerçek mil geometrisine bağlıdır.
 
@@ -779,3 +781,21 @@ Uygulama içindeki hesap şemaları tema duyarlıdır: açık/koyu palet dönü�
 `DiagramSvg` web katmanında yapılır. Saf diyagram modeli ve PDF çizicisi baskı
 hex'lerini korur; ekran teması için modeldeki renkleri değiştirmek veya PDF'yi
 koyu palete geçirmek yasaktır.
+
+## HESAP-22 — Çift tambur tek tahrik, iki simetrik halat grubu olarak çözülür.
+
+Kullanıcı kararı (22.08.2026): `Çift Tambur`, ikiz donanımdan ayrı bir mekanik
+düzendir. Ortadaki **tek redüktör** sağ ve sol iki simetrik tamburu sürer;
+motor, redüktör ve fren tam mekanizma yüküyle hesaplanmaya devam eder. Halat
+donanımı ikiye bölünür: 4/8 düzeni sağ ve solda 2/4, 4/16 düzeni sağ ve solda
+2/8 olur. Tambur mili hesabında simetri nedeniyle yalnız bir tambur incelenir
+ve o tambura gelen halat uçlarının yarısı kullanılır. Yeni işlerde tambur mili
+malzemesi S355JR gelir; eski snapshot seçimi değiştirilmez.
+
+Çift tamburun alt taşıyıcısı `Çift Kanca Bloğu` veya `Kaldırma Kirişi`dir. Çift
+kanca bloğunda kapasite, blok ağırlığı, halat ağırlığı ve hareketli makara adedi
+iki eşit bloğa bölünür; hesap bir bloğu yarım yükle boyutlandırır ve ekipman
+listesi iki adet verir. Kaldırma kirişi seçiminde tek kiriş toplam yükle
+hesaplanır. Kaldırma kirişi ve yorulma alt bölümleri çift kanca bloğu seçiminde;
+kanca ve kanca rulmanı alt bölümleri kaldırma kirişi seçiminde uygulama, kontrol
+özeti ve PDF raporundan birlikte düşer.

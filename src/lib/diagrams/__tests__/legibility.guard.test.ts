@@ -95,6 +95,17 @@ function textCollisions(d: Diagram): string[] {
 const FIXTURES: { name: string; input: typeof V5_TEMPLATE }[] = [
   { name: "V5", input: V5_TEMPLATE },
   {
+    name: "çift tambur",
+    input: {
+      ...V5_TEMPLATE,
+      specs: {
+        ...V5_TEMPLATE.specs,
+        mainHoistEquipmentArrangement: "doubleDrum",
+        mainDoubleDrumHookSystem: "doubleHookBlock",
+      },
+    },
+  },
+  {
     name: "kabin+pano",
     input: {
       ...V5_TEMPLATE,

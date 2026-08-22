@@ -1657,7 +1657,7 @@ function ChecksSummarySection({
   const hidden = hiddenSetOf({ hiddenSections });
   // Gizlenen alt bölümün kontrolleri dizine GİRMEZ: bölümün kendisi
   // basılmıyor, dizin basılmayan bir hesaba sayfa numarası veremezdi.
-  const hiddenIds = hiddenSectionCheckIds(hidden);
+  const hiddenIds = hiddenSectionCheckIds(hidden, input.specs);
   const checksOf = (a: ModuleAdapter): AnyCheck[] =>
     (moduleResult(result, a.key)?.checks ?? []).filter((c) => !hiddenIds.has(c.id));
   const total = MODULE_ADAPTERS.reduce((n, a) => n + checksOf(a).length, 0);

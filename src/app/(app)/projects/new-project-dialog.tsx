@@ -128,7 +128,7 @@ export function NewProjectDialog({
       <DialogTrigger asChild>
         <Button>Yeni Hesap Raporu</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="overflow-x-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Yeni Hesap Raporu</DialogTitle>
           <DialogDescription>
@@ -140,17 +140,19 @@ export function NewProjectDialog({
           {/* İş bağlantısı */}
           <input type="hidden" name="job_id" value={effectiveJobId} />
           {showJobSelect && (
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label>İş Emri</Label>
               <Select value={selectedJobId} onValueChange={onPickJob}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:min-w-0 [&>span]:truncate">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_JOB}>Bağımsız (İşe Atanmamış)</SelectItem>
                   {jobs!.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.job_no} · {j.title}
+                    <SelectItem key={j.id} value={j.id} className="max-w-[calc(100vw-3rem)]">
+                      <span className="block truncate" title={`${j.job_no} · ${j.title}`}>
+                        {j.job_no} · {j.title}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

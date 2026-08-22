@@ -61,7 +61,7 @@ export default async function RevisionPage({
   // "uygun değil" sayacı da gizli bölümlerin kontrollerini SAYMAZ — raporda
   // basılmayan bir hesabın kontrolü yayın uyarısı üretmemeli.
   const hiddenSections = hiddenSectionsFromRevision(inputs);
-  const hiddenCheckIds = hiddenSectionCheckIds(hiddenSections);
+  const hiddenCheckIds = hiddenSectionCheckIds(hiddenSections, loaded.full.specs);
 
   return (
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve

@@ -8,8 +8,24 @@ import {
 import { ReportMenu } from "@/app/(app)/projects/[id]/revisions/[revId]/report-menu";
 import { NEW_WORK_DISABLED_MODULES, NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 
-export default function EditorPreviewPage() {
+export default async function EditorPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ doubleDrum?: string }>;
+}) {
   if (process.env.NODE_ENV !== "development") notFound();
+  const { doubleDrum } = await searchParams;
+  const initial = doubleDrum === "1"
+    ? {
+        ...NEW_WORK_TEMPLATE,
+        specs: {
+          ...NEW_WORK_TEMPLATE.specs,
+          mainCapacityT: 64,
+          mainHoistEquipmentArrangement: "doubleDrum" as const,
+          mainDoubleDrumHookSystem: "doubleHookBlock" as const,
+        },
+      }
+    : NEW_WORK_TEMPLATE;
   return (
     <div className="flex min-h-screen flex-col">
       {/* Uygulama kabuğundaki ince üst şeridin karşılığı (sticky hizalama için) */}
@@ -29,7 +45,7 @@ export default function EditorPreviewPage() {
           projectId="dev"
           revisionId="dev"
           readOnly={false}
-          initial={NEW_WORK_TEMPLATE}
+          initial={initial}
           initialDisabled={[...NEW_WORK_DISABLED_MODULES]}
         />
       </div>

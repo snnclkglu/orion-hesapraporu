@@ -168,6 +168,10 @@ export interface HookBlockDeps {
   ropeWeightKg: number;
   /** Toplam yük [kg] */
   totalLoadKg: number;
+  /** Tek kaldırma kirişi hesabında iki simetrik grubun taşıdığı tam değerler. */
+  beamHookBlockWeightKg?: number;
+  beamRopeWeightKg?: number;
+  beamTotalLoadKg?: number;
   /** Tambur devri [d/dak] */
   drumRpm: number;
   /** Tambur çapı [mm] */
@@ -889,8 +893,13 @@ export function computeHookBlock(
   //   Kesit 2 : mesnet ile yük noktası arası — KESME kuvveti burada en büyüktür
   //
   // Yük başına kuvvet: toplam yükün yarısı (iki askı noktası).
-  const forceMaxKg = deps.totalLoadKg / 2;
-  const forceMinKg = (deps.hookBlockWeightKg + deps.ropeWeightKg) / 2;
+  // Çift tamburda makara/mil grubu yarım yükle çözülür; tek kaldırma kirişi ise
+  // iki grubu birlikte bağladığı için TAM mekanizma yükünü görür.
+  const forceMaxKg = (deps.beamTotalLoadKg ?? deps.totalLoadKg) / 2;
+  const forceMinKg = (
+    (deps.beamHookBlockWeightKg ?? deps.hookBlockWeightKg) +
+    (deps.beamRopeWeightKg ?? deps.ropeWeightKg)
+  ) / 2;
   const liftBeam = liftingBeamGeometry(inp);
   const solveLift = (loadKg: number) =>
     solveBeam({
@@ -1229,19 +1238,23 @@ export function hookBlockDepsFromHoist(hoist: {
   };
   inputs: HoistInputs;
   selections: { ropeDiaMm: number; drumDiaMm: number };
-}): HookBlockDeps {
+}, loadShare = 1): HookBlockDeps {
   // Donanım tek kaynaktan okunur: hazır bir donanım etiketi seçilmişse kol
   // sayıları o seçimden gelir (hoistReeving), serbest girdiden değil.
   const reeving = deriveReeving(hoistReeving(hoist.inputs));
+  const share = Number.isFinite(loadShare) && loadShare > 0 ? loadShare : 1;
   return {
     ropeDiaMm: hoist.selections.ropeDiaMm,
     ropeLoadKg: hoist.values.ropeLoadKg,
-    loadKg: hoist.values.loadKg,
-    hookBlockWeightKg: hoist.inputs.hookBlockWeightKg,
-    ropeWeightKg: hoist.inputs.ropeWeightKg,
-    totalLoadKg: hoist.values.totalLoadKg,
+    loadKg: hoist.values.loadKg * share,
+    hookBlockWeightKg: hoist.inputs.hookBlockWeightKg * share,
+    ropeWeightKg: hoist.inputs.ropeWeightKg * share,
+    totalLoadKg: hoist.values.totalLoadKg * share,
+    beamHookBlockWeightKg: hoist.inputs.hookBlockWeightKg,
+    beamRopeWeightKg: hoist.inputs.ropeWeightKg,
+    beamTotalLoadKg: hoist.values.totalLoadKg,
     drumRpm: hoist.values.drumRpm,
     drumDiaMm: hoist.selections.drumDiaMm,
-    blockSheaveCount: reeving.blockSheaveCount,
+    blockSheaveCount: Math.max(1, Math.round(reeving.blockSheaveCount * share)),
   };
 }

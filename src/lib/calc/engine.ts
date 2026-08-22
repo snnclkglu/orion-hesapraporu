@@ -83,6 +83,7 @@ import {
   girdersInBridge,
   hasSecondGirder,
   hasSeparateAuxTrolley,
+  hookBlockLoadShare,
   monorailCount,
 } from "./types";
 
@@ -455,7 +456,7 @@ export function runCalc(input: CalcInput): CalcResult {
           values: hoistResult.values,
           inputs: hoistInput.inputs,
           selections: hoistInput.selections,
-        })
+        }, hookBlockLoadShare(specs, hoistKey))
       )
     );
   }

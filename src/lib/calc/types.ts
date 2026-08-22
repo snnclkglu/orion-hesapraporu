@@ -18,14 +18,21 @@ export type ShaftMaterial =
   | "S355JR" | "C25" | "C30" | "C35" | "C45"
   | "4140+QT" | "4140" | "42CrMo4+QT" | "42CrMo4" | "CK45";
 
-/** Kaldırma grubunun hazır ekipman düzeni. Hesap her zaman tek grup üzerinden yürür. */
-export type HoistEquipmentArrangement = "standard" | "twin";
+/** Kaldırma grubunun mekanik/ekipman düzeni. */
+export type HoistEquipmentArrangement = "standard" | "twin" | "doubleDrum";
 export type HoistEquipmentGroup = "main" | "aux" | "mono1" | "mono2";
+export type DoubleDrumHookSystem = "doubleHookBlock" | "liftingBeam";
 
-export const HOIST_EQUIPMENT_ARRANGEMENTS = ["standard", "twin"] as const;
+export const HOIST_EQUIPMENT_ARRANGEMENTS = ["standard", "twin", "doubleDrum"] as const;
 export const HOIST_EQUIPMENT_ARRANGEMENT_LABELS: Record<HoistEquipmentArrangement, string> = {
   standard: "Standart Donanım",
   twin: "İkiz Donanım",
+  doubleDrum: "Çift Tambur",
+};
+export const DOUBLE_DRUM_HOOK_SYSTEMS = ["doubleHookBlock", "liftingBeam"] as const;
+export const DOUBLE_DRUM_HOOK_SYSTEM_LABELS: Record<DoubleDrumHookSystem, string> = {
+  doubleHookBlock: "Çift Kanca Bloğu",
+  liftingBeam: "Kaldırma Kirişi",
 };
 
 /**
@@ -315,8 +322,8 @@ export type GirderArrangement = "iki" | "dort";
 export const GIRDER_ARRANGEMENTS = ["iki", "dort"] as const;
 
 export const GIRDER_ARRANGEMENT_LABELS: Record<GirderArrangement, string> = {
-  iki: "Çift Kirişli (Tek Ana Kiriş Takımı)",
-  dort: "Dört Kirişli (İki Ana Kiriş Takımı)",
+  iki: "Çift Kirişli",
+  dort: "Dört Kirişli",
 };
 
 /** 01-TEKNİK ÖZELLİKLER girdileri */
@@ -324,13 +331,16 @@ export interface TechnicalSpecs {
   mainCapacityT: number;        // ana kaldırma kapasitesi [ton]
   mainLiftHeightM: number;      // ana kaldırma yüksekliği [m]
   mainLiftSpeedMpm: number;     // ana kaldırma hızı [m/dak]
-  /** Ana kaldırma hazır ekipman adedi; ikiz seçim yalnız ekipman listesini etkiler. */
+  /** Ana kaldırma mekanik/ekipman düzeni. */
   mainHoistEquipmentArrangement?: HoistEquipmentArrangement;
+  /** Çift tambur düzeninde yükün alt taşıyıcı sistemi. */
+  mainDoubleDrumHookSystem?: DoubleDrumHookSystem;
   auxCapacityT: number;         // yardımcı kaldırma kapasitesi [ton]
   auxLiftHeightM: number;       // yardımcı kaldırma yüksekliği [m]
   auxLiftSpeedMpm: number;      // yardımcı kaldırma hızı [m/dak]
-  /** Yardımcı kaldırma hazır ekipman adedi; ikiz seçim yalnız ekipman listesini etkiler. */
+  /** Yardımcı kaldırma mekanik/ekipman düzeni. */
   auxHoistEquipmentArrangement?: HoistEquipmentArrangement;
+  auxDoubleDrumHookSystem?: DoubleDrumHookSystem;
   structureClass: StructureClass;      // çelik yapı sınıfı (A1–A8)
   hoistLoadClass: string;              // kaldırma/yük grubu (ör. "H3/B4")
   hoistMechanismClass: MechanismClass; // ana kaldırma mekanizma sınıfı
@@ -497,6 +507,7 @@ export interface TechnicalSpecs {
   mono1LiftHeightM?: number;
   mono1LiftSpeedMpm?: number;
   mono1HoistEquipmentArrangement?: HoistEquipmentArrangement;
+  mono1DoubleDrumHookSystem?: DoubleDrumHookSystem;
   mono1MechanismClass?: MechanismClass;
   mono1UsageClass?: UsageClass;
   mono1TrolleySpeedMpm?: number;
@@ -509,6 +520,7 @@ export interface TechnicalSpecs {
   mono2LiftHeightM?: number;
   mono2LiftSpeedMpm?: number;
   mono2HoistEquipmentArrangement?: HoistEquipmentArrangement;
+  mono2DoubleDrumHookSystem?: DoubleDrumHookSystem;
   mono2MechanismClass?: MechanismClass;
   mono2UsageClass?: UsageClass;
   mono2TrolleySpeedMpm?: number;
@@ -535,7 +547,29 @@ export function hoistEquipmentArrangement(
     mono1: specs.mono1HoistEquipmentArrangement,
     mono2: specs.mono2HoistEquipmentArrangement,
   }[which];
-  return value === "twin" ? "twin" : "standard";
+  return value === "twin" || value === "doubleDrum" ? value : "standard";
+}
+
+/** Eski revizyonlarda alan yoktur; çift tambur varsayılanı iki kanca bloğudur. */
+export function doubleDrumHookSystem(
+  specs: TechnicalSpecs,
+  which: HoistEquipmentGroup
+): DoubleDrumHookSystem {
+  const value = {
+    main: specs.mainDoubleDrumHookSystem,
+    aux: specs.auxDoubleDrumHookSystem,
+    mono1: specs.mono1DoubleDrumHookSystem,
+    mono2: specs.mono2DoubleDrumHookSystem,
+  }[which];
+  return value === "liftingBeam" ? "liftingBeam" : "doubleHookBlock";
+}
+
+/** Çift tamburda her simetrik alt makara/mil grubu toplam yükün yarısını taşır. */
+export function hookBlockLoadShare(
+  specs: TechnicalSpecs,
+  which: HoistEquipmentGroup
+): 0.5 | 1 {
+  return hoistEquipmentArrangement(specs, which) === "doubleDrum" ? 0.5 : 1;
 }
 
 /** İkiz donanımda yalnız satın alma/montaj listesi iki set hazır ekipman ister. */

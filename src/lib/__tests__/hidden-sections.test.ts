@@ -16,6 +16,7 @@ import {
 } from "@/lib/revision-load";
 import { diffRevisions } from "@/lib/revision-diff";
 import { fieldLabel } from "@/lib/calc/labels";
+import { NEW_WORK_TEMPLATE } from "@/lib/calc/defaults";
 import {
   MODULE_ADAPTERS,
   hiddenSectionCheckIds,
@@ -76,6 +77,25 @@ describe("hiddenSectionCheckIds", () => {
 
   it("boş listede boş küme döner", () => {
     expect(hiddenSectionCheckIds([]).size).toBe(0);
+  });
+
+  it("çift tamburda seçilmeyen kanca sistemi bölümlerinin kontrollerini gizler", () => {
+    const doubleHookSpecs = {
+      ...NEW_WORK_TEMPLATE.specs,
+      mainHoistEquipmentArrangement: "doubleDrum" as const,
+      mainDoubleDrumHookSystem: "doubleHookBlock" as const,
+    };
+    const doubleHookIds = hiddenSectionCheckIds([], doubleHookSpecs);
+    expect(doubleHookIds.has("hookBlock.girder.static")).toBe(true);
+    expect(doubleHookIds.has("hookBlock.hook.capacity")).toBe(false);
+
+    const liftingBeamIds = hiddenSectionCheckIds([], {
+      ...doubleHookSpecs,
+      mainDoubleDrumHookSystem: "liftingBeam" as const,
+    });
+    expect(liftingBeamIds.has("hookBlock.hook.capacity")).toBe(true);
+    expect(liftingBeamIds.has("hookBlock.hookBearing.static")).toBe(true);
+    expect(liftingBeamIds.has("hookBlock.girder.static")).toBe(false);
   });
 });
 

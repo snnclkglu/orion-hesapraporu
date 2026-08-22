@@ -60,6 +60,18 @@ function cabinPanelInput(): CalcInput {
   };
 }
 
+/** Çift tambur + kaldırma kirişi: koşullu kiriş ekipman satırı üretilsin. */
+function doubleDrumLiftingBeamInput(): CalcInput {
+  return {
+    ...NEW_WORK_TEMPLATE,
+    specs: {
+      ...NEW_WORK_TEMPLATE.specs,
+      mainHoistEquipmentArrangement: "doubleDrum",
+      mainDoubleDrumHookSystem: "liftingBeam",
+    },
+  };
+}
+
 const rowKeysOf = (input: CalcInput, hidden?: string[]): string[] =>
   buildEquipmentGroups(input, undefined, undefined, undefined, hidden)
     .flatMap((g) => g.rows)
@@ -131,7 +143,10 @@ describe("alt bölüm gizleme — ekipman listesi", () => {
         ...slugsOf(travelKeys, "main"),
         ...slugsOf(newWorkKeys, "main"),
       ]),
-      hookBlock: slugsOf(travelKeys, "hookBlock"),
+      hookBlock: new Set([
+        ...slugsOf(travelKeys, "hookBlock"),
+        ...slugsOf(rowKeysOf(doubleDrumLiftingBeamInput()), "hookBlock"),
+      ]),
       // Fren satırı yalnız köprüde üretilir; yürütme ailesi iki varyantın
       // BİRLEŞİMİYLE ölçülür.
       travel: new Set([
@@ -176,6 +191,7 @@ describe("alt bölüm gizleme — ekipman listesi", () => {
       ...rowKeysOf(fullTravelInput()),
       ...rowKeysOf(cabinRoomInput()),
       ...rowKeysOf(cabinPanelInput()),
+      ...rowKeysOf(doubleDrumLiftingBeamInput()),
     ];
     for (const [moduleKey, claimedSlugs] of claims) {
       for (const slug of slugsOf(allKeys, moduleKey)) {

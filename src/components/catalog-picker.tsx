@@ -52,6 +52,18 @@ const PAGE_SIZE = 1000;
 
 /** Sayfalamanın üst sınırı — kaçak bir döngüye karşı emniyet. */
 const ROW_LIMIT = 20000;
+const RESULT_PAGE_SIZE = 50;
+
+export interface CatalogRequirement {
+  label: string;
+  value: number;
+  unit?: string;
+  digits?: number;
+}
+
+function inputNumber(value: number | undefined): string {
+  return value !== undefined && Number.isFinite(value) ? String(Number(value.toFixed(3))) : "";
+}
 
 /** Ardışık sayfaları, kısa bir sayfa gelene kadar toplar. */
 async function fetchAllPages<T>(
@@ -98,9 +110,17 @@ function sortValues(values: unknown[]): unknown[] {
 export function CatalogPicker({
   mapping,
   onPick,
+  requirements = [],
+  initialMinValue,
+  initialNearestValue,
 }: {
   mapping: SectionCatalogMapping;
   onPick: (row: CatalogRow) => void;
+  /** Hesaptan gelen katalog seçimi talepleri; pencerenin üstünde görünür. */
+  requirements?: readonly CatalogRequirement[];
+  /** Kapasite ve oran süzgeçlerinin hesap sonucu başlangıç değerleri. */
+  initialMinValue?: number;
+  initialNearestValue?: number;
 }) {
   const locked = useMemo(
     () => Object.entries(mapping.lockedFacets ?? {}),
@@ -134,6 +154,7 @@ export function CatalogPicker({
   const [minValue, setMinValue] = useState("");
   const [nearestValue, setNearestValue] = useState("");
   const [query, setQuery] = useState("");
+  const [resultPage, setResultPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
   // Pencere açıldığında sıfırla
@@ -143,11 +164,12 @@ export function CatalogPicker({
       setRows(null);
       setTruncated(false);
       setPicks({});
-      setMinValue("");
-      setNearestValue("");
+      setMinValue(inputNumber(initialMinValue));
+      setNearestValue(inputNumber(initialNearestValue));
       setQuery("");
+      setResultPage(1);
     }
-  }, [open]);
+  }, [open, initialMinValue, initialNearestValue]);
 
   // Marka listesi
   useEffect(() => {
@@ -271,6 +293,17 @@ export function CatalogPicker({
     return out;
   }, [rows, picks, minValue, nearestValue, query, config]);
 
+  // Tablo hiçbir koşulda 50 satırdan fazlasını aynı anda çizmez.
+  const resultPageCount = Math.max(1, Math.ceil(results.length / RESULT_PAGE_SIZE));
+  const currentResultPage = Math.min(resultPage, resultPageCount);
+  const pagedResults = useMemo(
+    () => results.slice(
+      (currentResultPage - 1) * RESULT_PAGE_SIZE,
+      currentResultPage * RESULT_PAGE_SIZE
+    ),
+    [results, currentResultPage]
+  );
+
   /** Adım adım facet seçenekleri (her adım kendinden öncekilerle süzülür). */
   const facetSteps = useMemo(() => {
     if (!rows) return [];
@@ -309,7 +342,7 @@ export function CatalogPicker({
    * gelen tamponlar) katalogda dururlar ama hiçbir üretici belgesiyle
    * karşılaştırılamamıştır; seçilmeden önce mühendisin bunu görmesi gerekir.
    */
-  const hasUnverified = results.some(isUnverifiedRow);
+  const hasUnverified = pagedResults.some(isUnverifiedRow);
 
   /**
    * Satır tıklamasının başladığı nokta. Ürün tablosu yatay kaydırılabilir bir
@@ -325,6 +358,7 @@ export function CatalogPicker({
   }
 
   function setPick(attr: string, key: string | null) {
+    setResultPage(1);
     setPicks((prev) => {
       const next = { ...prev };
       if (key === null) delete next[attr];
@@ -368,9 +402,10 @@ export function CatalogPicker({
                   setBrand(null);
                   setRows(null);
                   setPicks({});
-                  setMinValue("");
-                  setNearestValue("");
+                  setMinValue(inputNumber(initialMinValue));
+                  setNearestValue(inputNumber(initialNearestValue));
                   setQuery("");
+                  setResultPage(1);
                 }}
                 // Pencerenin tek geri yolu — 28px'lik hedef parmakla ıskalanıyordu.
                 className="grid size-9 shrink-0 place-items-center border hover:bg-muted pointer-coarse:size-10"
@@ -393,6 +428,20 @@ export function CatalogPicker({
               : "Önce üretici markayı seçin, ardından özellik süzgeçleri açılır."}
             {lockedLabel && ` Yalnız ${lockedLabel.toLocaleLowerCase("tr")} grubuna uygun ürünler listelenir.`}
           </DialogDescription>
+          {requirements.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1.5" aria-label="Hesaplanan katalog gereksinimleri">
+              {requirements.map((requirement) => (
+                <span
+                  key={requirement.label}
+                  className="border border-primary/30 bg-primary/10 px-2 py-1 font-mono text-[11px] text-primary"
+                >
+                  {requirement.label}: {requirement.value.toLocaleString("tr-TR", {
+                    maximumFractionDigits: requirement.digits ?? 2,
+                  })}{requirement.unit ? ` ${requirement.unit}` : ""}
+                </span>
+              ))}
+            </div>
+          )}
           {truncated && (
             <p className="text-xs text-destructive">
               Katalog {ROW_LIMIT.toLocaleString("tr-TR")} satır sınırına ulaştı; liste
@@ -419,7 +468,10 @@ export function CatalogPicker({
                 <button
                   key={b.brand}
                   type="button"
-                  onClick={() => setBrand(b.brand)}
+                  onClick={() => {
+                    setResultPage(1);
+                    setBrand(b.brand);
+                  }}
                   className="flex min-h-11 items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
                 >
                   <span className="min-w-0">
@@ -517,7 +569,10 @@ export function CatalogPicker({
                     </span>
                     <Input
                       value={minValue}
-                      onChange={(e) => setMinValue(e.target.value)}
+                      onChange={(e) => {
+                        setResultPage(1);
+                        setMinValue(e.target.value);
+                      }}
                       inputMode="decimal"
                       placeholder="—"
                       // 28px yükseklik + 12px yazı iOS'ta odaklanma zumunu
@@ -539,14 +594,17 @@ export function CatalogPicker({
                     </span>
                     <Input
                       value={nearestValue}
-                      onChange={(e) => setNearestValue(e.target.value)}
+                      onChange={(e) => {
+                        setResultPage(1);
+                        setNearestValue(e.target.value);
+                      }}
                       inputMode="decimal"
                       placeholder="—"
                       className="h-9 w-28 bg-background font-mono text-base tabular-nums pointer-coarse:h-10 pointer-fine:text-xs"
                       aria-label={config.nearestFilter.label}
                     />
                     <span className="text-[11px] text-muted-foreground">
-                      En yakın alt ve üst oran birlikte gösterilir.
+                      Gerekli tork süzgecinden sonra hedefe en yakın 10 ürün gösterilir.
                     </span>
                   </div>
                 )}
@@ -558,11 +616,14 @@ export function CatalogPicker({
               <Input
                 placeholder="Tabloda Ara…"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setResultPage(1);
+                  setQuery(e.target.value);
+                }}
                 className="h-9 min-w-40 flex-1 pointer-coarse:h-10"
               />
               <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-                {results.length} ürün
+                {results.length} ürün · Sayfa {currentResultPage}/{resultPageCount}
                 {activeFilterCount > 0 ? ` · ${activeFilterCount} süzgeç` : ""}
               </span>
             </div>
@@ -605,7 +666,7 @@ export function CatalogPicker({
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((row) => (
+                    {pagedResults.map((row) => (
                       <tr
                         key={row.id}
                         onPointerDown={(e) => {
@@ -674,6 +735,51 @@ export function CatalogPicker({
                 </table>
               )}
             </div>
+            {!loading && results.length > 0 && resultPageCount > 1 && (
+              <nav className="flex shrink-0 items-center justify-center gap-2 border-t px-4 py-2" aria-label="Katalog sayfaları">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentResultPage === 1}
+                  onClick={() => setResultPage(1)}
+                  aria-label="İlk sayfa"
+                >
+                  «
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentResultPage === 1}
+                  onClick={() => setResultPage((page) => Math.max(1, page - 1))}
+                >
+                  Önceki
+                </Button>
+                <span className="min-w-24 text-center font-mono text-xs tabular-nums text-muted-foreground">
+                  {currentResultPage} / {resultPageCount}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentResultPage === resultPageCount}
+                  onClick={() => setResultPage((page) => Math.min(resultPageCount, page + 1))}
+                >
+                  Sonraki
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentResultPage === resultPageCount}
+                  onClick={() => setResultPage(resultPageCount)}
+                  aria-label="Son sayfa"
+                >
+                  »
+                </Button>
+              </nav>
+            )}
           </div>
         )}
       </DialogContent>

@@ -35,12 +35,16 @@ export const V5_SPECS: TechnicalSpecs = {
   mainLiftHeightM: 10,
   mainLiftSpeedMpm: 35,
   mainHoistEquipmentArrangement: "standard",
+  mainDoubleDrumHookSystem: "doubleHookBlock",
   auxCapacityT: 5,
   auxLiftHeightM: 22,
   auxLiftSpeedMpm: 8,
   auxHoistEquipmentArrangement: "standard",
+  auxDoubleDrumHookSystem: "doubleHookBlock",
   mono1HoistEquipmentArrangement: "standard",
+  mono1DoubleDrumHookSystem: "doubleHookBlock",
   mono2HoistEquipmentArrangement: "standard",
+  mono2DoubleDrumHookSystem: "doubleHookBlock",
   structureClass: "A6",
   hoistLoadClass: "H3/B4",
   hoistMechanismClass: "M6",
@@ -341,6 +345,7 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   mainLiftHeightM: 10,
   mainLiftSpeedMpm: 4,
   mainHoistEquipmentArrangement: "standard",
+  mainDoubleDrumHookSystem: "doubleHookBlock",
   hoistMechanismClass: "M6",
   hoistUsageClass: "T6",
 
@@ -350,8 +355,11 @@ export const NEW_WORK_SPECS: TechnicalSpecs = {
   auxLiftHeightM: 10,
   auxLiftSpeedMpm: 8,
   auxHoistEquipmentArrangement: "standard",
+  auxDoubleDrumHookSystem: "doubleHookBlock",
   mono1HoistEquipmentArrangement: "standard",
+  mono1DoubleDrumHookSystem: "doubleHookBlock",
   mono2HoistEquipmentArrangement: "standard",
+  mono2DoubleDrumHookSystem: "doubleHookBlock",
   auxMechanismClass: "M6",
   auxUsageClass: "T6",
 
@@ -440,6 +448,7 @@ const NEW_WORK_HOIST_SELECTIONS: HoistSelections = {
   ...V5_MAIN_HOIST_SELECTIONS,
   ropeWeightKgPerM: 1.33,
   drumGrooveLengthText: "2 x 380",   // 2/4 donanım, 10 m, Ø400 → otomatik
+  shaftMaterial: "S355JR",
 };
 
 const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
@@ -468,6 +477,7 @@ const NEW_WORK_AUX_HOIST_SELECTIONS: HoistSelections = {
   ...V5_AUX_HOIST_SELECTIONS,
   ropeWeightKgPerM: 0.59,
   drumGrooveLengthText: "2 x 336",   // 24 tam yiv × 14 mm hatve
+  shaftMaterial: "S355JR",
 };
 
 /** 2/4 donanımın iki makarası: merkezden ±75 mm, askı sacları ±125 mm. */

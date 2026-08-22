@@ -86,8 +86,10 @@ import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { EndCarriageInputs } from "@/lib/calc/modules/endCarriage";
 import {
   HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
+  doubleDrumHookSystem,
   hoistEquipmentArrangement,
   hoistEquipmentQuantityFactor,
+  hookBlockLoadShare,
   type TechnicalSpecs,
 } from "@/lib/calc/types";
 import {
@@ -273,6 +275,7 @@ function hoistRows(
 ): EqRow[] {
   const rk = (slug: string) => `${moduleKey}:${slug}`;
   const ropePlan = ropeLengthPlan(inp, sel, hoistSpecView(specs, moduleKey).liftHeightM);
+  const doubleDrum = hoistEquipmentArrangement(specs, moduleKey) === "doubleDrum";
   const ropeRows: EqRow[] = ropePlan.lines.map((line) => {
     const layLabel = line.lay === "right" ? "Sağ Helis" : "Sol Helis";
     return {
@@ -297,7 +300,7 @@ function hoistRows(
       brand: "-",
       model: "-",
       spec: `Ø${fmt(sel.drumDiaMm)} mm, malzeme ${textOr(sel.drumMaterial)}, yiv boyu ${textOr(sel.drumGrooveLengthText)} mm`,
-      qty: inp.drumCount,
+      qty: doubleDrum ? 2 : inp.drumCount,
     },
     {
       rowKey: rk("drumBearing"),
@@ -306,7 +309,7 @@ function hoistRows(
       brand: textOr(sel.bearingType),
       model: textOr(sel.bearingCode),
       spec: `C = ${fmt(sel.bearingDynCKn, 1)} kN, C0 = ${fmt(sel.bearingStatC0Kn, 1)} kN`,
-      qty: 2,
+      qty: doubleDrum ? 4 : 2,
     },
     {
       rowKey: rk("drumBearingHousing"),
@@ -315,7 +318,7 @@ function hoistRows(
       brand: textOr(sel.bearingHousingBrand),
       model: textOr(sel.bearingHousingCode),
       spec: `${textOr(sel.bearingHousingSeries)} · ${textOr(sel.bearingHousingCompatibleBearing)} rulmanı ile uyumlu · Ø${fmt(sel.bearingHousingBoreMm)} mm · A₂ ${fmt(sel.bearingHousingWidthMm)} mm · ${textOr(sel.bearingHousingSeatType)}`,
-      qty: 2,
+      qty: doubleDrum ? 4 : 2,
     },
     {
       rowKey: rk("gearbox"),
@@ -324,6 +327,7 @@ function hoistRows(
       brand: "-",
       model: textOr(sel.gearboxModel),
       spec: `i = ${fmt(sel.gearboxRatio, 2)}, nominal tork ${fmt(sel.gearboxNominalTorqueKnm, 1)} kNm, giriş mili Ø${fmt(sel.gearboxInputShaftMm)} / çıkış mili Ø${fmt(sel.gearboxOutputShaftMm)} mm`,
+      // Çift tamburun ikisini de ortadaki TEK redüktör taşır.
       qty: 1,
     },
     {
@@ -360,7 +364,7 @@ function hoistRows(
       brand: textOr(sel.drumCouplingBrand),
       model: textOr(sel.drumCouplingModel),
       spec: `tork ${fmt(sel.drumCouplingTorqueNm)} Nm, radyal yük ${fmt(sel.drumCouplingRadialN)} N, Dmaks Ø${fmt(sel.drumCouplingDmaxMm)} mm`,
-      qty: 1,
+      qty: doubleDrum ? 2 : 1,
     },
   ];
 }
@@ -562,6 +566,11 @@ function hookBlockRows(
 ): EqRow[] {
   const sel = m.selections;
   const rk = (slug: string) => `${moduleKey}:${slug}`;
+  const hoistKey = HOIST_OF_HOOKBLOCK[moduleKey];
+  const blockQuantity = hookBlockLoadShare(specs, hoistKey) === 0.5 ? 2 : 1;
+  const hasSingleLiftingBeam =
+    hoistEquipmentArrangement(specs, hoistKey) === "doubleDrum" &&
+    doubleDrumHookSystem(specs, hoistKey) === "liftingBeam";
   const sheaveCount = Number.isFinite(sel.sheaveCount) && sel.sheaveCount > 0
     ? Math.round(sel.sheaveCount)
     : 1;
@@ -583,15 +592,17 @@ function hookBlockRows(
         isLamellaHook(sel.hookStandard) ? hookStandardOf(sel.hookStandard) : "DIN 15400"
       })`;
   return [
-    {
-      rowKey: rk("hook"),
-      kind: "hook",
-      component: "Kanca",
-      brand: "-",
-      model: textOr(sel.hookDesignation),
-      spec: hookSpec,
-      qty: 1,
-    },
+    ...(hasSingleLiftingBeam
+      ? []
+      : [{
+          rowKey: rk("hook"),
+          kind: "hook",
+          component: "Kanca",
+          brand: "-",
+          model: textOr(sel.hookDesignation),
+          spec: hookSpec,
+          qty: blockQuantity,
+        }]),
     {
       rowKey: rk("sheave"),
       kind: "sheave",
@@ -599,7 +610,7 @@ function hookBlockRows(
       brand: "-",
       model: "-",
       spec: `halat ekseninde Ø${fmt(sel.sheaveDiaMm)} mm`,
-      qty: sheaveCount,
+      qty: sheaveCount * blockQuantity,
     },
     {
       rowKey: rk("sheaveBearing"),
@@ -608,25 +619,37 @@ function hookBlockRows(
       brand: textOr(sel.sheaveBearingType),
       model: textOr(sel.sheaveBearingCode),
       spec: `C = ${fmt(sel.sheaveBearingDynCKn, 1)} kN, C0 = ${fmt(sel.sheaveBearingStatC0Kn, 1)} kN`,
-      qty: sheaveCount * 2,
+      qty: sheaveCount * 2 * blockQuantity,
     },
-    {
-      rowKey: rk("hookBearing"),
-      kind: "bearing",
-      component: "Kanca (eksenel) rulmanı",
-      brand: textOr(sel.hookBearingType),
-      model: textOr(sel.hookBearingCode),
-      spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
-      qty: 1,
-    },
+    ...(hasSingleLiftingBeam
+      ? []
+      : [{
+          rowKey: rk("hookBearing"),
+          kind: "bearing",
+          component: "Kanca (eksenel) rulmanı",
+          brand: textOr(sel.hookBearingType),
+          model: textOr(sel.hookBearingCode),
+          spec: `C0 = ${fmt(sel.hookBearingStatC0Kn, 1)} kN`,
+          qty: blockQuantity,
+        }]),
     {
       rowKey: rk("shaft"),
       component: "Kanca bloğu mili",
       brand: "-",
       model: "-",
       spec: `malzeme ${textOr(sel.shaftMaterial)}, Ø${fmt(m.inputs.shaftD1Mm ?? 0)} mm`,
-      qty: 1,
+      qty: blockQuantity,
     },
+    ...(hasSingleLiftingBeam
+      ? [{
+          rowKey: rk("liftingBeam"),
+          component: "Kaldırma kirişi",
+          brand: "-",
+          model: "-",
+          spec: `malzeme ${textOr(m.inputs.fatigueMaterial)}, açıklık ${fmt(m.inputs.beamXMm + m.inputs.beamYMm + m.inputs.beamZMm)} mm`,
+          qty: 1,
+        }]
+      : []),
   ];
 }
 

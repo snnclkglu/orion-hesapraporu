@@ -119,7 +119,13 @@ import {
 } from "@/lib/calc/modules/wheelLoads";
 import type { FieldGroupKey } from "@/lib/calc/field-groups";
 import type { AnyCheck, TechnicalSpecs } from "@/lib/calc/types";
-import { hasSecondGirder, hasSeparateAuxTrolley } from "@/lib/calc/types";
+import {
+  doubleDrumHookSystem,
+  hasSecondGirder,
+  hasSeparateAuxTrolley,
+  hoistEquipmentArrangement,
+  hookBlockLoadShare,
+} from "@/lib/calc/types";
 import {
   DISABLEABLE_MODULE_KEYS,
   HOIST_OF_HOOKBLOCK,
@@ -482,9 +488,18 @@ const HOOKBLOCK_HEADLINES: Record<string, AdapterHeadline> = {
 };
 
 function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
+  const hoistKey = HOIST_OF_HOOKBLOCK[which];
   return {
     key: which,
     title: `04 · ${HOOKBLOCK_TITLES[which]}`,
+    titleFor: (specs) =>
+      hoistEquipmentArrangement(specs, hoistKey) === "doubleDrum" &&
+      doubleDrumHookSystem(specs, hoistKey) === "doubleHookBlock"
+        ? `04 · ${HOOKBLOCK_TITLES[which]} (2 Adet)`
+        : hoistEquipmentArrangement(specs, hoistKey) === "doubleDrum" &&
+            doubleDrumHookSystem(specs, hoistKey) === "liftingBeam"
+          ? `04 · ${HOOKBLOCK_TITLES[which].replace("Kanca Bloğu", "Kaldırma Kirişi")}`
+          : `04 · ${HOOKBLOCK_TITLES[which]}`,
     checkPrefix: `${which}.`,
     sections: HOOKBLOCK_SECTIONS.map((s) => ({
       id: s.id,
@@ -496,6 +511,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
       selectionKeys: s.selectionKeys,
       headline: HOOKBLOCK_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
+      visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,
       rows: s.rows.map((r) => {
         const sub = r.subst;
         const valueFrom = r.valueFrom;
@@ -868,14 +884,16 @@ export const ADAPTER_BY_KEY: Record<ModuleKey, ModuleAdapter> = Object.fromEntri
  * Anahtar biçimi `sectionHideKeyFor` iledir (`"trolley-5.7"`).
  */
 export function hiddenSectionCheckIds(
-  hidden: ReadonlySet<string> | readonly string[]
+  hidden: ReadonlySet<string> | readonly string[],
+  specs?: TechnicalSpecs
 ): Set<string> {
   const set = hidden instanceof Set ? hidden : new Set(hidden);
   const out = new Set<string>();
-  if (set.size === 0) return out;
   for (const adapter of MODULE_ADAPTERS) {
     for (const section of adapter.sections) {
-      if (!set.has(`${adapter.key}-${section.rawId}`)) continue;
+      const hiddenByUser = set.has(`${adapter.key}-${section.rawId}`);
+      const hiddenBySpecs = Boolean(specs && section.visible && !section.visible(specs));
+      if (!hiddenByUser && !hiddenBySpecs) continue;
       for (const suffix of section.checkSuffixes) {
         out.add(`${adapter.checkPrefix}${suffix}`);
       }
@@ -1214,7 +1232,7 @@ export function buildModuleDeps(input: CalcInput, result: CalcResult): ModuleDep
             values: res.values,
             inputs: st.inputs,
             selections: st.selections,
-          })
+          }, hookBlockLoadShare(specs, hk))
         : EMPTY_HOOKBLOCK_DEPS;
   }
 
@@ -1422,13 +1440,20 @@ export function withDerivedTravel(
 export function withDerivedHookBlock(
   state: ModuleState,
   which: HookBlockKey,
-  all: ModulesState
+  all: ModulesState,
+  specs?: TechnicalSpecs
 ): ModuleState {
   const inputs = state.inputs as HookBlockInputs;
   const selections = state.selections as HookBlockSelections;
   const hoist = all[HOIST_OF_HOOKBLOCK[which]];
   const derivedSheaveCount = hoist
-    ? deriveReeving(hoistReeving(hoist.inputs as HoistInputs)).blockSheaveCount
+    ? Math.max(
+        1,
+        Math.round(
+          deriveReeving(hoistReeving(hoist.inputs as HoistInputs)).blockSheaveCount *
+            (specs ? hookBlockLoadShare(specs, HOIST_OF_HOOKBLOCK[which]) : 1)
+        )
+      )
     : undefined;
   const d = deriveHookBlockSelections(inputs, selections, derivedSheaveCount);
   const patch: Partial<HookBlockSelections> = {};
@@ -1475,7 +1500,7 @@ export function withDerivedModule(
 ): ModuleState {
   if (isHoistKey(key)) return withDerivedHoist(state, specs, key);
   if (isTravelKey(key)) return withDerivedTravel(state, specs, key);
-  if (isHookBlockKey(key)) return withDerivedHookBlock(state, key, all);
+  if (isHookBlockKey(key)) return withDerivedHookBlock(state, key, all, specs);
   if (key === "girder" || key === "girder2") {
     return withDerivedGirder(state, specs, girderDeriveContext(all, specs, key));
   }

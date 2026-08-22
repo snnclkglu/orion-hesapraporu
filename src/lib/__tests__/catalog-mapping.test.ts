@@ -94,21 +94,21 @@ const APC_AT_315: CatalogRow = {
 };
 
 describe("hedef tahvil oranı süzgeci", () => {
-  const rows = [40, 50, 50, 63, 80].map((ratio, index): CatalogRow => ({
+  const rows = [20, 25, 31.5, 40, 45, 50, 50, 56, 63, 71, 80, 90, 100].map((ratio, index): CatalogRow => ({
     id: `ratio-${index}`,
     brand: "Test",
     model: `R${index}`,
     attrs: { ratio },
   }));
 
-  it("hedefin en yakın alt ve üst oranlarını, aynı oranlı tüm modellerle getirir", () => {
+  it("hedefe en yakın 10 ürün seçeneğini yakınlık sırasıyla getirir", () => {
     expect(nearestCatalogRows(rows, "ratio", 55).map((r) => r.attrs.ratio))
-      .toEqual([50, 50, 63]);
+      .toEqual([56, 50, 50, 63, 45, 40, 71, 31.5, 80, 25]);
   });
 
-  it("birebir oran varsa yalnız o oranı getirir", () => {
+  it("birebir oranları önce getirir ama güvenli karşılaştırma için yakın ürünleri de korur", () => {
     expect(nearestCatalogRows(rows, "ratio", 50).map((r) => r.attrs.ratio))
-      .toEqual([50, 50]);
+      .toEqual([50, 50, 45, 56, 40, 63, 31.5, 71, 25, 20]);
   });
 });
 

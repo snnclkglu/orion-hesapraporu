@@ -9,6 +9,10 @@ import {
   caption, fitDiagram, fmtN, ln, loadArrow, txt,
 } from "./model";
 import type { RopeBalancingType } from "@/lib/calc/modules/hoistGroup";
+import type {
+  DoubleDrumHookSystem,
+  HoistEquipmentArrangement,
+} from "@/lib/calc/types";
 
 export interface ReevingParams {
   drivenFalls: number;    // tahrikli halat sayısı (tambura sarılan uçlar)
@@ -17,16 +21,149 @@ export interface ReevingParams {
   loadKg?: number;        // toplam yük Gt (kanca yükü oku etiketi)
   capacityT?: number;     // kaldırılan yükün tonajı Q [t]
   ropeBalancingType?: RopeBalancingType;
+  equipmentArrangement?: HoistEquipmentArrangement;
+  doubleDrumHookSystem?: DoubleDrumHookSystem;
 }
 
 const W = 660;
 const H = 372;
 
+/**
+ * Çift tamburun mekanik yerleşimi: ortada tek redüktör, iki yanda simetrik
+ * tamburlar ve her yanda seçilen donanımın yarısı. Bu şema fizik hesabı yapmaz;
+ * çağıranın verdiği tam donanımı 4/8 → 2/4 + 2/4 biçiminde görünür kılar.
+ */
+function doubleDrumReevingDiagram(p: ReevingParams, nd: number, nf: number): Diagram {
+  const els: DiagramEl[] = [];
+  const sideDriven = Math.max(1, Math.round(nd / 2));
+  const sideFalls = Math.max(1, Math.round(nf / 2));
+  const sideLabel = `${fmtN(sideDriven, 0)}/${fmtN(sideFalls, 0)}`;
+  const hookSystem = p.doubleDrumHookSystem ?? "doubleHookBlock";
+  caption(
+    els,
+    `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)} → SOL ${sideLabel} + SAĞ ${sideLabel}`,
+    `Ortak redüktör · iki simetrik tambur · ${
+      hookSystem === "liftingBeam" ? "tek kaldırma kirişi" : "iki eşit kanca bloğu"
+    }`
+  );
+
+  const yDrum = 57;
+  const drumH = 34;
+  const drumRanges: [number, number][] = [[45, 275], [385, 615]];
+  const gearbox = { x: 292, y: 49, w: 76, h: 51 };
+
+  for (const [index, [left, right]] of drumRanges.entries()) {
+    els.push({
+      kind: "rect", x: left, y: yDrum, w: right - left, h: drumH,
+      fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.3, rx: 6,
+    });
+    for (let x = left + 8; x < right - 5; x += 10) {
+      els.push(ln(x, yDrum + 3, x + 4, yDrum + drumH - 3, DCOL.muted, 0.6));
+    }
+    els.push(txt((left + right) / 2, yDrum - 7,
+      `${index === 0 ? "SOL" : "SAĞ"} TAMBUR · ${sideLabel}`, 8.5,
+      { anchor: "middle", fill: DCOL.muted, bold: true }));
+  }
+
+  // Ortak redüktör ve iki tambur kaplini.
+  els.push({
+    kind: "rect", ...gearbox, fill: "#FFFFFF", stroke: DCOL.accent,
+    strokeWidth: 1.5, rx: 3,
+  });
+  els.push(txt(gearbox.x + gearbox.w / 2, gearbox.y + 20, "ORTAK", 8.5, {
+    anchor: "middle", fill: DCOL.accent, bold: true,
+  }));
+  els.push(txt(gearbox.x + gearbox.w / 2, gearbox.y + 34, "REDÜKTÖR", 8.5, {
+    anchor: "middle", fill: DCOL.accent, bold: true,
+  }));
+  els.push(ln(275, yDrum + drumH / 2, gearbox.x, yDrum + drumH / 2, DCOL.ink, 1.8));
+  els.push(ln(gearbox.x + gearbox.w, yDrum + drumH / 2, 385, yDrum + drumH / 2, DCOL.ink, 1.8));
+
+  const blocks: { cx: number; left: number; right: number; bottom: number }[] = [];
+  for (const [left, right] of drumRanges) {
+    const margin = 30;
+    const usableLeft = left + margin;
+    const usableRight = right - margin;
+    const spacing = sideFalls > 1 ? (usableRight - usableLeft) / (sideFalls - 1) : 0;
+    const xs = Array.from({ length: sideFalls }, (_, i) => usableLeft + i * spacing);
+    const yTop = yDrum + drumH;
+    const yBlock = 220;
+    const r = Math.min(18, Math.max(10, spacing / 2 || 13));
+
+    for (const x of xs) els.push(ln(x, yTop, x, yBlock, DCOL.ink, 1.35));
+    // Hareketli makaralar, her iki halat kolunun ortasında gösterilir.
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      const cx = (xs[i] + xs[i + 1]) / 2;
+      els.push({ kind: "circle", cx, cy: yBlock, r, fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.2 });
+      els.push({ kind: "circle", cx, cy: yBlock, r: 2.1, fill: DCOL.ink });
+      els.push({
+        kind: "path", d: `M ${xs[i]} ${yBlock} A ${r} ${r} 0 0 0 ${xs[i + 1]} ${yBlock}`,
+        fill: "none", stroke: DCOL.ink, strokeWidth: 1.35,
+      });
+    }
+    // Denge traversi / yönlendirme noktaları üst sabit düzlemde görünür.
+    if (sideFalls >= 4) {
+      const mid = (xs[Math.floor(sideFalls / 2) - 1] + xs[Math.floor(sideFalls / 2)]) / 2;
+      els.push({ kind: "circle", cx: mid, cy: 125, r: 13, fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.1 });
+      els.push({ kind: "circle", cx: mid, cy: 125, r: 2, fill: DCOL.ink });
+    }
+    const blockLeft = xs[0] - r - 8;
+    const blockRight = xs[xs.length - 1] + r + 8;
+    const blockTop = yBlock - r - 7;
+    const blockBottom = yBlock + r + 7;
+    els.push({
+      kind: "rect", x: blockLeft, y: blockTop, w: blockRight - blockLeft,
+      h: blockBottom - blockTop, fill: "none", stroke: DCOL.ink, strokeWidth: 1.25, rx: 4,
+    });
+    blocks.push({ cx: (left + right) / 2, left: blockLeft, right: blockRight, bottom: blockBottom });
+  }
+
+  if (hookSystem === "liftingBeam") {
+    const beamY = 300;
+    for (const block of blocks) {
+      els.push(ln(block.cx, block.bottom, block.cx, beamY, DCOL.ink, 2));
+    }
+    els.push({
+      kind: "rect", x: 105, y: beamY, w: 450, h: 24,
+      fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.5, rx: 3,
+    });
+    els.push(txt(W / 2, beamY + 16, "TEK KALDIRMA KİRİŞİ", 9, {
+      anchor: "middle", fill: DCOL.muted, bold: true,
+    }));
+    loadArrow(els, W / 2, beamY + 32, beamY + 70);
+    els.push(txt(W / 2 + 12, beamY + 53, `YÜK Q = ${fmtN(p.capacityT, 2)} t`, 10, {
+      fill: DCOL.accent, bold: true,
+    }));
+  } else {
+    for (const block of blocks) {
+      const yHook = block.bottom + 9;
+      els.push(ln(block.cx, block.bottom, block.cx, yHook + 9, DCOL.ink, 2.2));
+      els.push({
+        kind: "path", d: `M ${block.cx} ${yHook} v 11 a 13 13 0 1 1 -21 -9`,
+        fill: "none", stroke: DCOL.ink, strokeWidth: 2.4, cap: "round",
+      });
+      loadArrow(els, block.cx, yHook + 30, yHook + 62);
+      const halfCapacity = p.capacityT === undefined ? undefined : p.capacityT / 2;
+      els.push(txt(block.cx + 10, yHook + 48, `Q/2 = ${fmtN(halfCapacity, 2)} t`, 9.5, {
+        fill: DCOL.accent, bold: true,
+      }));
+      els.push(txt(block.cx, yHook + 76, `Kanca bloğu · ${sideLabel}`, 8.5, {
+        anchor: "middle", fill: DCOL.muted,
+      }));
+    }
+  }
+
+  return fitDiagram(els, W, 405);
+}
+
 export function reevingDiagram(p: ReevingParams): Diagram {
   const els: DiagramEl[] = [];
-  const nf = Math.min(12, Math.max(1, Math.round(p.totalFalls || 0)));
+  const nf = Math.min(20, Math.max(1, Math.round(p.totalFalls || 0)));
   const nd = Math.min(nf, Math.max(1, Math.round(p.drivenFalls || 0)));
   const balancingType = p.ropeBalancingType ?? "equalizerSheave";
+  if (p.equipmentArrangement === "doubleDrum" && p.totalFalls > 0) {
+    return doubleDrumReevingDiagram(p, nd, nf);
+  }
   caption(
     els,
     `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)}`,

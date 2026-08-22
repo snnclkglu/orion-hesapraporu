@@ -45,8 +45,9 @@ import {
 } from "@/lib/calc/modules/mainGirder";
 import type { BucklingValues } from "@/lib/calc/modules/buckling";
 import { BUCKLING_CASE_LABEL, LOAD_CASE_LABEL } from "@/lib/calc/plate-buckling";
-import { cmToMm, mmToCm } from "@/lib/calc/modules/hoistGroup";
+import { cmToMm, hoistReeving, mmToCm } from "@/lib/calc/modules/hoistGroup";
 import type { HoistValues } from "@/lib/calc/modules/hoistGroup";
+import { doubleDrumHookSystem, hoistEquipmentArrangement } from "@/lib/calc/types";
 import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { CabinValues } from "@/lib/calc/modules/cabin";
 import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-load";
@@ -465,6 +466,7 @@ export function diagramForSection(
         | HoistValues
         | undefined;
       const i = st.inputs;
+      const arrangement = hoistEquipmentArrangement(input.specs, moduleKey as HoistKey);
       // Ölçüler girdide mm; motorun cm çıktıları (halat konumları, ağırlık
       // merkezi) tek yardımcıyla (`cmToMm`) mm'ye çevrilir — şema mm çizer.
       return drumShaftDiagram({
@@ -481,6 +483,7 @@ export function diagramForSection(
         momentGearboxKgCm: v?.momentGearboxKgCm,
         momentBearingKgCm: v?.momentBearingKgCm,
         positionLabel: i.ropeLoadPosition,
+        doubleDrum: arrangement === "doubleDrum",
       });
     }
 
@@ -517,13 +520,18 @@ export function diagramForSection(
       const v = result[HOIST_FIELD[moduleKey as HoistKey]]?.values as
         | HoistValues
         | undefined;
+      const hoistKey = moduleKey as HoistKey;
+      const effectiveReeving = hoistReeving(st.inputs);
+      const arrangement = hoistEquipmentArrangement(input.specs, hoistKey);
       return reevingDiagram({
-        drivenFalls: st.inputs.drivenFalls,
-        totalFalls: st.inputs.totalFalls,
+        drivenFalls: effectiveReeving.drivenFalls,
+        totalFalls: effectiveReeving.totalFalls,
         drumDiaMm: st.selections.drumDiaMm,
         loadKg: v?.totalLoadKg,
         capacityT: v?.capacityT,
         ropeBalancingType: st.inputs.ropeBalancingType,
+        equipmentArrangement: arrangement,
+        doubleDrumHookSystem: doubleDrumHookSystem(input.specs, hoistKey),
       });
     }
   } catch {

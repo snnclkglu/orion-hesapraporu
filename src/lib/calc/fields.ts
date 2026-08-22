@@ -21,8 +21,11 @@ import type { ModuleKey } from "./presentation/module-family";
 import {
   GIRDER_ARRANGEMENT_LABELS,
   GIRDER_ARRANGEMENTS,
+  DOUBLE_DRUM_HOOK_SYSTEM_LABELS,
+  DOUBLE_DRUM_HOOK_SYSTEMS,
   HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
   HOIST_EQUIPMENT_ARRANGEMENTS,
+  hoistEquipmentArrangement,
   type TechnicalSpecs,
 } from "./types";
 
@@ -647,7 +650,13 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   {
     key: "mainHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
-    group: "mainHoist", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+    group: "mainHoist", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
+  },
+  {
+    key: "mainDoubleDrumHookSystem", label: "Kanca Sistemi", type: "select",
+    options: DOUBLE_DRUM_HOOK_SYSTEMS, optionLabels: DOUBLE_DRUM_HOOK_SYSTEM_LABELS,
+    group: "mainHoist", visible: (s) => hoistEquipmentArrangement(s, "main") === "doubleDrum",
+    hint: "Çift kanca bloğunda yük iki eşit bloğa bölünür; kaldırma kirişinde tek kiriş toplam yükü taşır.",
   },
   { key: "mainLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mainHoist" },
   { key: "mainLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mainHoist" },
@@ -659,7 +668,12 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   {
     key: "auxHoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
-    group: "auxHoist", requiresModule: "aux", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+    group: "auxHoist", requiresModule: "aux", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
+  },
+  {
+    key: "auxDoubleDrumHookSystem", label: "Kanca Sistemi", type: "select",
+    options: DOUBLE_DRUM_HOOK_SYSTEMS, optionLabels: DOUBLE_DRUM_HOOK_SYSTEM_LABELS,
+    group: "auxHoist", requiresModule: "aux", visible: (s) => hoistEquipmentArrangement(s, "aux") === "doubleDrum",
   },
   { key: "auxLiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "auxHoist", requiresModule: "aux" },
   { key: "auxLiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "auxHoist", requiresModule: "aux" },
@@ -681,7 +695,12 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   {
     key: "mono1HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
-    group: "mono1Hoist", requiresModule: "mono1", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+    group: "mono1Hoist", requiresModule: "mono1", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
+  },
+  {
+    key: "mono1DoubleDrumHookSystem", label: "Kanca Sistemi", type: "select",
+    options: DOUBLE_DRUM_HOOK_SYSTEMS, optionLabels: DOUBLE_DRUM_HOOK_SYSTEM_LABELS,
+    group: "mono1Hoist", requiresModule: "mono1", visible: (s) => hoistEquipmentArrangement(s, "mono1") === "doubleDrum",
   },
   { key: "mono1LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
   { key: "mono1LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono1Hoist", requiresModule: "mono1" },
@@ -693,7 +712,12 @@ export const SPEC_FIELDS: FieldDef<TechnicalSpecs>[] = [
   {
     key: "mono2HoistEquipmentArrangement", label: "Kaldırma Donanımı", type: "select",
     options: HOIST_EQUIPMENT_ARRANGEMENTS, optionLabels: HOIST_EQUIPMENT_ARRANGEMENT_LABELS,
-    group: "mono2Hoist", requiresModule: "mono2", hint: "İkiz donanım, hesapları değiştirmez; ekipman listesinde hazır ekipman adetlerini iki katına çıkarır.",
+    group: "mono2Hoist", requiresModule: "mono2", hint: "İkiz donanım ekipman adetlerini iki katına çıkarır. Çift tamburda ortak redüktör iki simetrik tamburu tahrik eder.",
+  },
+  {
+    key: "mono2DoubleDrumHookSystem", label: "Kanca Sistemi", type: "select",
+    options: DOUBLE_DRUM_HOOK_SYSTEMS, optionLabels: DOUBLE_DRUM_HOOK_SYSTEM_LABELS,
+    group: "mono2Hoist", requiresModule: "mono2", visible: (s) => hoistEquipmentArrangement(s, "mono2") === "doubleDrum",
   },
   { key: "mono2LiftHeightM", label: "Kaldırma Yüksekliği", unit: "m", type: "number", group: "mono2Hoist", requiresModule: "mono2" },
   { key: "mono2LiftSpeedMpm", label: "Kaldırma Hızı", unit: "m/dak", type: "number", group: "mono2Hoist", requiresModule: "mono2" },

@@ -1485,8 +1485,8 @@ export function RevisionEditor({
    * ekipmanın kırmızı kontrolü raporu "uygun değil" gösteremez.
    */
   const hiddenCheckIdSet = useMemo(
-    () => hiddenSectionCheckIds(hiddenSections),
-    [hiddenSections]
+    () => hiddenSectionCheckIds(hiddenSections, specs),
+    [hiddenSections, specs]
   );
   const visibleChecks = useMemo(
     () => result.allChecks.filter((c) => !hiddenCheckIdSet.has(c.id)),
@@ -2325,6 +2325,31 @@ export function RevisionEditor({
                     };
                   })()
               : baseCatalogMapping;
+            const moduleCells = moduleResult(key)?.cells;
+            const requiredGearboxTorqueKnm = section.rawId === "2.3" && isHoistKey(key)
+              ? moduleCells?.["gearbox.requiredTorque"]
+              : undefined;
+            const requiredGearboxRatio = section.rawId === "2.3" && isHoistKey(key)
+              ? moduleCells?.["gearbox.requiredRatio"]
+              : undefined;
+            const gearboxCatalogRequirements =
+              catalogMapping?.kind === "gearbox" &&
+              typeof requiredGearboxTorqueKnm === "number" &&
+              typeof requiredGearboxRatio === "number"
+                ? [
+                    {
+                      label: "Gerekli Redüktör Torku",
+                      value: requiredGearboxTorqueKnm,
+                      unit: "kNm",
+                      digits: 3,
+                    },
+                    {
+                      label: "Gerekli Çevrim Oranı",
+                      value: requiredGearboxRatio,
+                      digits: 3,
+                    },
+                  ]
+                : undefined;
             return (
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -2340,6 +2365,17 @@ export function RevisionEditor({
                     {!readOnly && catalogMapping && (
                       <CatalogPicker
                         mapping={catalogMapping}
+                        requirements={gearboxCatalogRequirements}
+                        initialMinValue={
+                          typeof requiredGearboxTorqueKnm === "number"
+                            ? requiredGearboxTorqueKnm * 1000
+                            : undefined
+                        }
+                        initialNearestValue={
+                          typeof requiredGearboxRatio === "number"
+                            ? requiredGearboxRatio
+                            : undefined
+                        }
                         onPick={(row) => {
                           // Alan tanımları BİRLİKTE gider: katalog değeri
                           // alanın beyan ettiği tipe orada zorlanır. Ham JSONB

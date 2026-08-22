@@ -41,7 +41,7 @@ import {
 import { commonReevingByLabel, deriveReeving, type Reeving } from "../reeving";
 import { shaftStress } from "../shaftStress";
 import { KGF_TO_MPA } from "@/lib/units";
-import { hasSafetyBrake } from "../types";
+import { hasSafetyBrake, hoistEquipmentArrangement } from "../types";
 import type {
   AnyCheck,
   DrumMaterial,
@@ -1076,7 +1076,12 @@ export function computeHoistGroup(
   const geo = drumShaftGeometry(inp);
   // Ölçüler girdide mm; motorun cm karşılıkları TEK noktadan alınır.
   const dims = drumShaftDimsCm(inp);
-  const ropeLoadCount = rig.drumRopeEnds;
+  // Çift tamburda sağ ve sol namlu simetriktir; bu bölüm yalnız BİR tamburun
+  // milini inceler. Halat uçlarının yarısı incelenen tambura gelir. Ortak
+  // redüktör/motor/fren hesabı aşağıda yine tüm mekanizma yüküyle yürür.
+  const ropeLoadCount = hoistEquipmentArrangement(specs, which) === "doubleDrum"
+    ? rig.drumRopeEnds / 2
+    : rig.drumRopeEnds;
   const ropePerPoint = (ropeLoadKg * ropeLoadCount) / (geo.sections.length || 1);
 
   /**

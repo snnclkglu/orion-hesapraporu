@@ -734,30 +734,24 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
   },
 };
 
-/**
- * Bir hedef sayının katalogdaki en yakın alt ve üst komşularını döndürür.
- * Aynı oranı taşıyan farklı model/seri satırları birlikte korunur; hedef
- * katalogda birebir varsa yalnız o orandaki satırlar gösterilir.
- */
+/** Hedef sayıya en yakın ürünleri, yakınlık sırasıyla ve sınırlı sayıda döndürür. */
 export function nearestCatalogRows(
   rows: readonly CatalogRow[],
   attr: string,
-  target: number
+  target: number,
+  limit = 10
 ): CatalogRow[] {
   if (!Number.isFinite(target)) return [...rows];
-  const valued = rows
-    .map((row) => ({ row, value: Number(catalogCellValue(row, attr)) }))
-    .filter((x) => Number.isFinite(x.value));
-  const exact = valued.filter((x) => x.value === target);
-  if (exact.length > 0) return exact.map((x) => x.row);
-  let lower = Number.NEGATIVE_INFINITY;
-  let upper = Number.POSITIVE_INFINITY;
-  for (const { value } of valued) {
-    if (value < target && value > lower) lower = value;
-    if (value > target && value < upper) upper = value;
-  }
-  return valued
-    .filter(({ value }) => value === lower || value === upper)
+  if (!(limit > 0)) return [];
+  return rows
+    .map((row, index) => ({ row, index, value: Number(catalogCellValue(row, attr)) }))
+    .filter((x) => Number.isFinite(x.value))
+    .sort((a, b) =>
+      Math.abs(a.value - target) - Math.abs(b.value - target) ||
+      a.value - b.value ||
+      a.index - b.index
+    )
+    .slice(0, Math.floor(limit))
     .map(({ row }) => row);
 }
 

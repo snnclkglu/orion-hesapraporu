@@ -17,7 +17,12 @@ import {
   type HookBlockSelections,
   type HookBlockValues,
 } from "../modules/hookBlock";
-import type { TechnicalSpecs } from "../types";
+import {
+  doubleDrumHookSystem,
+  hoistEquipmentArrangement,
+  type TechnicalSpecs,
+} from "../types";
+import { HOIST_OF_HOOKBLOCK, type HookBlockKey } from "./module-family";
 
 export interface HookBlockCtx {
   c: Record<string, number | string>; // semantik anahtar → değer (motor çıktısı)
@@ -69,6 +74,22 @@ export interface HookBlockSectionDef {
    * (`hidden-sections-equipment.test.ts`).
    */
   equipmentSlugs?: readonly string[];
+  /** Kanca sistemine göre bu hesap alt bölümünün uygulama ve rapor görünürlüğü. */
+  visible?: (specs: TechnicalSpecs, which: HookBlockKey) => boolean;
+}
+
+/** Standart/ikiz düzende tarihsel davranış korunur; çift tamburda kullanıcı seçer. */
+function liftingBeamSectionVisible(specs: TechnicalSpecs, which: HookBlockKey): boolean {
+  const hoist = HOIST_OF_HOOKBLOCK[which];
+  return hoistEquipmentArrangement(specs, hoist) !== "doubleDrum" ||
+    doubleDrumHookSystem(specs, hoist) === "liftingBeam";
+}
+
+/** Kaldırma kirişi seçiminde kanca ve kanca rulmanı fiziksel olarak yoktur. */
+function hookSectionVisible(specs: TechnicalSpecs, which: HookBlockKey): boolean {
+  const hoist = HOIST_OF_HOOKBLOCK[which];
+  return hoistEquipmentArrangement(specs, hoist) !== "doubleDrum" ||
+    doubleDrumHookSystem(specs, hoist) !== "liftingBeam";
 }
 
 // Sayı biçimleyici (formül substitüsyonu için, TR yerel)
@@ -148,6 +169,7 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
   {
     id: "4.1",
     title: "Kanca",
+    visible: hookSectionVisible,
     description:
       "Kanca tanımı ve seçimi. Dövme kancada (DIN 15401 tek ağızlı, DIN 15402 " +
       "çift ağızlı) taşıma kapasitesi DIN 15400 Tablo 3'ten kanca numarası + " +
@@ -477,6 +499,7 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
   {
     id: "4.5",
     title: "Kanca Rulmanı",
+    visible: hookSectionVisible,
     description: "Eksenel rulman statik kontrolü.",
     equipmentSlugs: ["hookBearing"],
     inputKeys: [],
@@ -498,6 +521,8 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
   {
     id: "4.6",
     title: "Kaldırma Kirişi",
+    visible: liftingBeamSectionVisible,
+    equipmentSlugs: ["liftingBeam"],
     description:
       "Kanca bloğunun kaldırma kirişi. Kiriş İKİ UÇTAN askıdadır ve İKİ " +
       "NOKTADAN yüklüdür; geometri teknik resimdeki x · y · z ölçü zinciriyle " +
@@ -525,12 +550,12 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
       },
       {
         key: "girder.forceMax", label: "Askı Başına Maksimum Kuvvet", formula: "F_max = G_toplam / 2",
-        subst: (x) => `${n(x.deps.totalLoadKg)} / 2`, unit: "kg",
+        subst: (x) => `${n(x.deps.beamTotalLoadKg ?? x.deps.totalLoadKg)} / 2`, unit: "kg",
       },
       {
         key: "girder.forceMin", label: "Askı Başına Minimum Kuvvet",
         formula: "F_min = (G_blok + G_halat) / 2",
-        subst: (x) => `(${n(x.deps.hookBlockWeightKg)} + ${n(x.deps.ropeWeightKg)}) / 2`,
+        subst: (x) => `(${n(x.deps.beamHookBlockWeightKg ?? x.deps.hookBlockWeightKg)} + ${n(x.deps.beamRopeWeightKg ?? x.deps.ropeWeightKg)}) / 2`,
         unit: "kg",
       },
       {
@@ -685,6 +710,7 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
   {
     id: "4.7",
     title: "Kaldırma Kirişi Yorulma",
+    visible: liftingBeamSectionVisible,
     description:
       "Kaldırma kirişinin DIN 15018 yorulma kontrolü — Kesit 1 (açıklık ortası) " +
       "üzerinden. Gerilme genliği tam yüklü (maks) ve boş (min) hâllerin " +
