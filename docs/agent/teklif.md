@@ -1261,6 +1261,10 @@ yokken sıkı.**
 
 Kendi yaprağındaki tablo hiç sıkışmaz — orada yer sorunu yoktur.
 
+**SIKIŞTIRMA DA YETMEZSE TABLO KENDİ YAPRAĞINA SÜRÜLÜR** (`priceOwnPage`,
+TEKLIF-65): kalem bazında iskonto basıldığında hücreler iki katmanlıdır ve satır
+payı en aza indiğinde bile tablo eski boyuna dönmez.
+
 ## TEKLIF-56 — Ödeme planının GİRİŞ CÜMLESİ belgeye basılmaz.
 
 Kullanıcı isteği (22.08.2026). Defterden gelen `payment` satırı ("Ödeme şekli
@@ -1446,3 +1450,48 @@ yerine yazabilir."*
   yaparak cevaplar, satır doğrudan söyler.
 - Oran **0 ile 100 arasında** olmalıdır; dışında hesap yapılmaz ve uydurma bir
   tutar yazılmaz (değişmez md. 4).
+
+## TEKLIF-65 — İskonto KALEM BAZINDA da görünür; sütunun toplamı belgeyi TUTAR.
+
+Kullanıcı isteği (22.08.2026): *"%15 iskonto uyguladığımda en altta yazıyor iyi.
+Ama kalem bazında da üstünü çizip yazmalı. Çünkü kalem bazı en son
+faturalandırılacak, kalem fiyatları da önemli. Normal fiyatın üstünü çizsin,
+biraz fontu küçültsün, altına iskontolu fiyat yazsın."*
+
+TEKLIF-64 iskontoyu yalnız TOPLAM şeridinde gösteriyordu. Fatura ise satır satır
+kesilir: müşterinin ödeyeceği kalem fiyatı belgede yazmıyorsa, iskonto
+uygulanmış bir teklifte hiçbir satırın gerçek fiyatı belli değildir.
+
+- **HÜCRE İKİ KATMANLIDIR**: üstte ham fiyat (üstü çizili, bir kademe küçük ve
+  silik), ALTINDA ödenecek olan. BİRİM FİYAT ve TOPLAM FİYAT sütunlarının
+  ikisinde de. Sıra kullanıcının kendi tarifidir ve okuma yönüyle uyumludur —
+  göz son gördüğü rakamı geçerli sayar.
+- **RAKAMLAR UYDURULMAZ**: `discountedLines` onları `applyDiscountToLines` ile,
+  yani "birim fiyatlara yansıt" düğmesinin YAZDIĞI sayılarla üretir. Birim
+  fiyatlar tam sayıya yuvarlanır, yuvarlamadan doğan artık en büyük satıra biner
+  ve **basılan kalem tutarlarının toplamı İSKONTOLU TOPLAM'ı birebir tutar.**
+  İki yol ayrışsaydı düğmeye basmak belgedeki rakamları değiştirirdi.
+- **SATIRLAR DEĞİŞMEZ, YALNIZ GÖSTERİLİR.** Kayıtta duran birim fiyat hamdır ve
+  iskonto tek bir yerde (`discountTotal`) yaşamaya devam eder — TEKLIF-35'in
+  "tutar saklanır, oran türetilir" gerekçesi burada da geçerlidir.
+- **ÜSTÜ ÇİZİLEN SATIR KÜMESİ, TOPLAMI TUTAN KÜMEDİR**: gizli satır belgede
+  yoktur, `inTotal: false` satır (süpervizörlük) zaten toplamın dışındadır,
+  fiyatsız satıra dokunulmaz. Süzgeç TEK tanımdır (`iskontoluSatirMi`) ve hem
+  ölçekleme hem gösterim onu okur.
+- **BİRİM FİYATLARA YANSITILMIŞ teklifte hiçbir üstü çizili rakam basılmaz**:
+  tablodaki fiyatlar zaten iskontoludur ve üstlerini çizmek aynı indirimi ikinci
+  kez vaat etmek olurdu (TEKLIF-35'in ayrı satır basmama gerekçesiyle aynı).
+- **EKRAN BELGEYLE AYNI SAYIYI GÖSTERİR**: editörün TUTAR hücresi de iki
+  katmanlıdır ve birim fiyat kutusunun ALTINDA "belgede 223.145 €" yazar. Kutuda
+  ham fiyat durur — düzenlenen değerin yeri orasıdır ve iskontoyu oraya yazmak
+  kullanıcının kendi girdisini bozardı.
+
+**SATIR BOYU HESABA KATILIR, ÖLÇÜM SON SÖZÜ SÖYLER.** İki katmanlı hücre satırı
+~7 pt uzatır; `fiyatSatirPayi` iskontolu tabloda metin yüksekliğini o kadar
+büyük sayar ve payı `FIYAT_PAY_EN_AZ`ta kelepçeler (TEKLIF-55). Bu bile
+yetmediğinde — uzun ticari şartlar + dolu not/kapsam listeleri — `renderOfferPdf`
+ticari sayfanın taştığını ÖLÇER ve sırayla iki şey dener: önce satırları
+sıkıştırır (`compactPrices`), sonra tabloyu bütün hâlde KENDİ YAPRAĞINA sürer
+(`priceOwnPage`). Satır sayısı eşiğin (12) altında olsa bile: eşik satır
+SAYISINI ölçer, taşmayı ise sayfanın kendisi bilir. Tabloyu taşımak,
+@react-pdf'in onu notların üstünde ikiye bölmesinden iyidir (TEKLIF-54).

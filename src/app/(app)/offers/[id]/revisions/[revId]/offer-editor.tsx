@@ -66,6 +66,7 @@ import {
   discountAmount,
   discountPercent,
   discountTotalFromPercent,
+  discountedLines,
   effectiveTotal,
   lineAmount,
   offerTotal,
@@ -1376,6 +1377,10 @@ function FiyatEditor({
   // PDF'in toplam bloğu da böyle basar.
   const iskontolu = p.discountTotal ?? null;
   const iskontoVar = iskontolu !== null && toplam !== null && Math.abs(toplam - iskontolu) >= 0.005;
+  // KALEM BAZINDA İSKONTO — belgede basılan sayıların TA KENDİSİ okunur
+  // (`discountedLines`). Ekranda başka, PDF'te başka bir kalem fiyatı
+  // görünseydi kullanıcı hangisini fatura edeceğini bilemezdi.
+  const satirIskontosu = useMemo(() => discountedLines(p), [p]);
 
   /**
    * SATIRIN MALİYETİ — bağlı kalemin GENEL GİDER DAHİL maliyeti.
@@ -1661,6 +1666,15 @@ function FiyatEditor({
                     aria-label="Birim fiyat"
                     className="h-9"
                   />
+                  {/* KUTUDA HAM FİYAT DURUR, ALTINDA BASILAN: kutu düzenlenen
+                      değerin yeridir ve iskontoyu oraya yazmak kullanıcının
+                      kendi girdisini bozardı. Basılan rakam yine de görünmeli —
+                      fatura o rakamdan kesilecek. */}
+                  {satirIskontosu.has(line.id) ? (
+                    <p className="mt-1 text-right font-mono text-[10px] text-muted-foreground">
+                      belgede {fmtMoney(satirIskontosu.get(line.id)!.unitPrice, p.currency)}
+                    </p>
+                  ) : null}
                 </TableCell>
                 {/* SERBEST SATIRIN MALİYETİ ELLE GİRİLİR (kullanıcı isteği
                     18.08.2026), kaleme bağlı satırınki maliyet belgesinden
@@ -1693,8 +1707,21 @@ function FiyatEditor({
                     />
                   )}
                 </TableCell>
+                {/* SATIR TUTARI BELGEYLE AYNI DİLİ KONUŞUR: iskonto varsa ham
+                    tutar üstü çizili ve küçük, ödenecek olan onun altında. */}
                 <TableCell className="text-right font-mono">
-                  {lineAmount(line) === null ? "—" : fmtMoney(lineAmount(line), p.currency)}
+                  {satirIskontosu.has(line.id) ? (
+                    <span className="grid justify-items-end gap-0.5">
+                      <span className="text-[10px] font-normal text-muted-foreground line-through">
+                        {fmtMoney(lineAmount(line), p.currency)}
+                      </span>
+                      <span>{fmtMoney(satirIskontosu.get(line.id)!.amount, p.currency)}</span>
+                    </span>
+                  ) : lineAmount(line) === null ? (
+                    "—"
+                  ) : (
+                    fmtMoney(lineAmount(line), p.currency)
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">

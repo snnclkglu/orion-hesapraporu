@@ -48,6 +48,7 @@ import {
 import {
   applyDiscountToLines,
   discountAmount,
+  discountedLines,
   discountPercent,
   discountTotalFromPercent,
   effectiveTotal,
@@ -342,6 +343,60 @@ describe("iskontolu toplam", () => {
   it("eski kayıtlarda iskonto alanı YOKTUR — null gelir", () => {
     const p = withDefaults({ pricing: { lines: [], total: null } });
     expect(p.pricing.discountTotal).toBeNull();
+  });
+
+  // ————————————————————————————— kalem bazında iskonto (TEKLIF-65)
+
+  it("KALEM FİYATLARININ TOPLAMI belgenin iskontolu toplamını TUTAR", () => {
+    // Kullanıcının ekran görüntüsündeki teklif: 306.000 € → %15 → 260.100 €.
+    // Fatura satır satır kesileceği için sütunun toplamı hedefi TUTMALIDIR;
+    // tutmazsa müşteri belgedeki iki sayıdan hangisinin geçerli olduğunu
+    // sormak zorunda kalır.
+    const lines = [
+      { ...newPriceLine(), id: "a", qty: 1, unitPrice: 262_500 },
+      { ...newPriceLine(), id: "b", qty: 80, unitPrice: 225 },
+      { ...newPriceLine(), id: "c", qty: 1, unitPrice: 3_000 },
+      { ...newPriceLine(), id: "d", qty: 1, unitPrice: 22_500 },
+    ];
+    const p = fiyat(lines, 260_100);
+    const harita = discountedLines(p);
+    expect(harita.size).toBe(4);
+    const toplam = [...harita.values()].reduce((n, v) => n + v.amount, 0);
+    expect(toplam).toBeCloseTo(260_100, 2);
+    // Küçük satırlar TAM SAYI birim fiyat taşır; artık en büyüğe biner.
+    expect(harita.get("b")!.unitPrice).toBe(191);
+    expect(harita.get("b")!.amount).toBe(15_280);
+  });
+
+  it("gösterilen kalem fiyatları BİRİM FİYATLARA YANSIT'ın yazdığı sayılardır", () => {
+    // İki yol ayrışsaydı, düğmeye basmak belgedeki rakamları değiştirirdi.
+    const lines = [
+      { ...newPriceLine(), id: "a", qty: 2, unitPrice: 55_900 },
+      { ...newPriceLine(), id: "b", qty: 1, unitPrice: 12_345 },
+      { ...newPriceLine(), id: "c", qty: 3, unitPrice: 777 },
+    ];
+    const harita = discountedLines(fiyat(lines, 115_000));
+    const yansitilan = applyDiscountToLines(lines, 115_000);
+    for (const [i, l] of lines.entries()) {
+      expect(harita.get(l.id)!.unitPrice).toBe(yansitilan[i].unitPrice);
+    }
+  });
+
+  it("TOPLAMA GİRMEYEN, GİZLİ ve FİYATSIZ satırda üstü çizili rakam YOKTUR", () => {
+    const vinc = { ...newPriceLine(), id: "a", qty: 1, unitPrice: 100_000 };
+    const supervizor = { ...newPriceLine(), id: "b", qty: 1, unitPrice: 400, inTotal: false };
+    const gizli = { ...newPriceLine(), id: "c", qty: 1, unitPrice: 5_000, hidden: true };
+    const bos = { ...newPriceLine(), id: "d" };
+    const harita = discountedLines(fiyat([vinc, supervizor, gizli, bos], 90_000));
+    expect([...harita.keys()]).toEqual(["a"]);
+  });
+
+  it("İSKONTO YOKSA harita BOŞTUR — üstü çizilecek bir rakam da yoktur", () => {
+    const lines = [{ ...newPriceLine(), id: "a", qty: 1, unitPrice: 100_000 }];
+    expect(discountedLines(fiyat(lines)).size).toBe(0);
+    // Birim fiyatlara YANSITILMIŞ teklif: satırlar zaten iskontolu, ikinci kez
+    // üstlerini çizmek aynı indirimi bir daha vaat etmek olurdu.
+    expect(discountedLines(fiyat(lines, 100_000)).size).toBe(0);
   });
 });
 

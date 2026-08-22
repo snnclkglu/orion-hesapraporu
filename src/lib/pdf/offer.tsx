@@ -45,6 +45,7 @@ import { teknikDegerBuyuk, teknikEtiketBuyuk } from "@/lib/offers/buyuk";
 import { printedGeneralTerms, printedPayload } from "@/lib/offers/payload";
 import {
   discountAmount,
+  discountedLines,
   lineAmount,
   offerTotal,
   priceLineNumbers,
@@ -113,6 +114,16 @@ export interface OfferDocumentProps {
    * satırlar en sıkı hâllerine iner: **yer varken geniş, yer yokken sıkı.**
    */
   compactPrices?: boolean;
+  /**
+   * Fiyat tablosu KENDİ yaprağına geçsin mi — `renderOfferPdf` ÖLÇEREK seçer.
+   *
+   * Tablo normalde satır SAYISIYLA kendi yaprağına geçer (`FIYAT_SATIR_ESIGI`),
+   * ama satır sayısı tek başına yeterli bir ölçü değildir: kalem bazında
+   * iskonto basıldığında hücreler iki katmanlıdır, tablo aynı satır sayısıyla
+   * daha uzundur. Sıkıştırma da yetmediğinde tabloyu kendi yaprağına almak
+   * kalan tek çıkıştır — alternatifi tablonun ortadan ikiye bölünmesidir.
+   */
+  priceOwnPage?: boolean;
 }
 
 /**
@@ -711,6 +722,25 @@ const S = StyleSheet.create({
   fiyatTanimAlt: { paddingLeft: 10.5 },
   fiyatVeri: { fontFamily: FONTS.mono, fontSize: 6.75, lineHeight: 1.4, color: BRAND.gray700, textAlign: "right" },
   fiyatTutar: { fontFamily: FONTS.mono, fontSize: 7.125, fontWeight: 600, lineHeight: 1.4, color: BRAND.ink, textAlign: "right" },
+  /**
+   * KALEM BAZINDA ÜSTÜ ÇİZİLİ ESKİ FİYAT — geçerli rakamın ÜSTÜNDE durur.
+   *
+   * Toplam şeridindekinin (`toplamAraUstuCizili`) küçük kardeşi: aynı dil, tablo
+   * ölçüsünde. BİR KADEME KÜÇÜK VE SİLİKTİR — artık ödenmeyecek bir rakamdır ve
+   * geçerli fiyatla aynı ağırlıkta dururken sütunda hangisinin fatura edileceği
+   * okunamıyordu. Sıkı satır aralığı (1,2) iki katmanlı hücreyi tablo satırının
+   * boyuna sığdırır (bkz. `FIYAT_ESKI_BOYU`).
+   */
+  fiyatEski: {
+    fontFamily: FONTS.mono,
+    fontSize: 6,
+    lineHeight: 1.2,
+    color: BRAND.gray500,
+    textAlign: "right",
+    textDecoration: "line-through",
+  },
+  /** İki katmanlı fiyat hücresi: eski rakam üstte, geçerli rakam altında. */
+  fiyatYigin: { alignItems: "flex-end" },
   // ---- toplam şeritleri
   //
   // ÖDENECEK RAKAM KÖMÜR ŞERİTTEDİR ve tablonun en büyük yazısıdır; ara
@@ -1210,14 +1240,32 @@ const FIYAT_SATIR_BOYU = { azSatir: 4, azBoy: 30, cokSatir: FIYAT_SATIR_ESIGI, c
 /** Bir satırlık tanım metninin yüksekliği (7,5 pt × 1,4 satır aralığı). */
 const FIYAT_METIN_BOYU = 10.5;
 
+/** Üstü çizili eski fiyatın yüksekliği (6 pt × 1,2 satır aralığı). */
+const FIYAT_ESKI_BOYU = 7.2;
+
+/**
+ * SATIR PAYININ EN AZI — iki katmanlı hücrede bile satırlar birbirine yapışmaz.
+ *
+ * Kalem bazında iskonto basıldığında hücre yaklaşık yedi punto uzar ve hedef
+ * boydan (20 pt) çıkan pay eksiye düşerdi. Kelepçe satırı hedefin birkaç punto
+ * üstüne taşırır; taşma ölçülür ve tablo gerekirse kendi yaprağına geçer
+ * (bkz. `renderOfferPdf`), yani pay uğruna okunmaz bir tablo basılmaz.
+ */
+const FIYAT_PAY_EN_AZ = 2.25;
+
 /**
  * Satır sayısına düşen dikey pay — hedef boydan metin yüksekliği düşülür.
  *
  * `sik` verildiğinde satır sayısına bakılmaz ve en sıkı boy kullanılır: ticari
  * sayfa taştığında geniş satır bir lüks değil, ikinci bir yaprak demektir
  * (bkz. `OfferDocumentProps.compactPrices`).
+ *
+ * `iskontolu` ise fiyat hücreleri İKİ KATMANLIDIR (üstü çizili eski rakam +
+ * geçerli rakam) ve hesaba giren metin yüksekliği o kadar büyür: pay aynı
+ * kalsaydı satır boyu kendiliğinden yedi punto uzar, on iki satırlık bir tablo
+ * ticari sayfayı taşırırdı.
  */
-function fiyatSatirPayi(adet: number, sik?: boolean): number {
+function fiyatSatirPayi(adet: number, sik?: boolean, iskontolu?: boolean): number {
   const { azSatir, azBoy, cokSatir, cokBoy } = FIYAT_SATIR_BOYU;
   const boy =
     sik || adet >= cokSatir
@@ -1225,7 +1273,8 @@ function fiyatSatirPayi(adet: number, sik?: boolean): number {
       : adet <= azSatir
         ? azBoy
         : azBoy - ((adet - azSatir) * (azBoy - cokBoy)) / (cokSatir - azSatir);
-  return (boy - FIYAT_METIN_BOYU) / 2;
+  const metin = FIYAT_METIN_BOYU + (iskontolu ? FIYAT_ESKI_BOYU : 0);
+  return Math.max(FIYAT_PAY_EN_AZ, (boy - metin) / 2);
 }
 
 interface OfferTocEntry {
@@ -1859,12 +1908,16 @@ function FiyatTablosu({
   // bu farkı zaten `null`a çevirir.
   const iskonto = discountAmount(payload.pricing);
   const iskontolu = iskonto === null ? null : payload.pricing.discountTotal ?? null;
+  // KALEM BAZINDA İSKONTO (kullanıcı isteği, 22.08.2026): fatura satır satır
+  // kesileceği için kalem fiyatları da iskontolu hâlleriyle görünür. Rakamlar
+  // burada üretilmez; `discountedLines` toplamı birebir tutan sayıları verir.
+  const satirIskontosu = discountedLines(payload.pricing);
   const birim = payload.pricing.leadTimeUnit ?? null;
   const sutunlar = fiyatSutunlari(birim);
   const vatIncluded = payload.pricing.vatIncluded;
   // SATIR PAYI TABLONUN KENDİ BOYUNDAN ÇIKAR (bkz. `FIYAT_SATIR_BOYU`).
   // Kendi yaprağındaki tablo hiç sıkışmaz: orada yer sorunu yoktur.
-  const satirPayi = fiyatSatirPayi(lines.length, sik && !kendiYapraginda);
+  const satirPayi = fiyatSatirPayi(lines.length, sik && !kendiYapraginda, satirIskontosu.size > 0);
 
   return (
     <View style={{ marginTop: kendiYapraginda ? 0 : mm(6) }}>
@@ -1895,6 +1948,7 @@ function FiyatTablosu({
 
         {lines.map((line, i) => {
           const tutar = lineAmount(line);
+          const indirimli = satirIskontosu.get(line.id) ?? null;
           const ana = siralar[i].level === 0;
           const son = i === lines.length - 1;
           return (
@@ -1941,11 +1995,28 @@ function FiyatTablosu({
                       {trUpper(adetHucresi(line))}
                     </Text>
                   );
+                // İSKONTOLU SATIRDA HÜCRE İKİ KATMANLIDIR: üstte üstü çizili
+                // eski rakam, ALTINDA ödenecek olan. Sıra kullanıcının kendi
+                // tarifidir ("normal fiyatın üstünü çizsin, altına iskontolu
+                // fiyat yazsın") ve okuma yönüyle de uyumludur — göz son
+                // gördüğü rakamı geçerli sayar.
                 if (s.key === "birim")
-                  return (
+                  return indirimli ? (
+                    <View key={s.key} style={[S.fiyatYigin, yerlesim]}>
+                      <Text style={S.fiyatEski}>{fmtMoney(line.unitPrice, currency)}</Text>
+                      <Text style={S.fiyatVeri}>{fmtMoney(indirimli.unitPrice, currency)}</Text>
+                    </View>
+                  ) : (
                     <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>
                       {line.unitPrice === null ? "—" : fmtMoney(line.unitPrice, currency)}
                     </Text>
+                  );
+                if (indirimli)
+                  return (
+                    <View key={s.key} style={[S.fiyatYigin, yerlesim]}>
+                      <Text style={S.fiyatEski}>{fmtMoney(tutar, currency)}</Text>
+                      <Text style={S.fiyatTutar}>{fmtMoney(indirimli.amount, currency)}</Text>
+                    </View>
                   );
                 // TOPLAM HÜCRESİ BOŞ KALIR (tire bile değil): satır toplama
                 // girmiyorsa orada gösterilecek bir sayı YOKTUR ve bir tire
@@ -2118,8 +2189,10 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
   // aşağıdaki JSX'le aynı koşullar söyler (kalem var mı, şart maddesi kaldı
   // mı). Ayrı bir liste tutulsaydı gizlenen bir bölüm kapakta durmaya devam
   // ederdi.
-  // FİYAT TABLOSU KENDİ YAPRAĞINA GEÇER Mİ (bkz. `FIYAT_SATIR_ESIGI`).
-  const fiyatAyriYaprakta = payload.pricing.lines.length > FIYAT_SATIR_ESIGI;
+  // FİYAT TABLOSU KENDİ YAPRAĞINA GEÇER Mİ (bkz. `FIYAT_SATIR_ESIGI`) — ya da
+  // ticari sayfa ölçülüp taştığı için oraya SÜRÜLDÜ MÜ (`priceOwnPage`).
+  const fiyatAyriYaprakta =
+    props.priceOwnPage === true || payload.pricing.lines.length > FIYAT_SATIR_ESIGI;
   const bolumler = tocBolumleri(payload, sartlar.length > 0, fiyatAyriYaprakta);
   // `pageOf` bileşene `props` yayılımıyla gider (`KapakSayfasi`).
   const { collect } = props;
@@ -2298,6 +2371,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
   const EN_SIK: KapakYogunlugu = 2;
   let coverDensity: KapakYogunlugu = 0;
   let compactPrices = false;
+  let priceOwnPage = false;
   let pageOf: Record<string, number> = {};
   // Fiyat tablosu kendi yaprağındaysa ticari sayfada tablo YOKTUR; orada bir
   // taşma satır payından gelmez ve sıkıştırmak hiçbir şeyi kurtarmaz.
@@ -2314,6 +2388,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
         {...props}
         coverDensity={coverDensity}
         compactPrices={compactPrices}
+        priceOwnPage={priceOwnPage}
         collect={(anchor, page) => {
           toplanan[anchor] = page;
         }}
@@ -2335,9 +2410,19 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
 
     // TİCARİ SAYFA KAÇ YAPRAK TUTTU? Bölümün açıldığı ve kapandığı yaprak
     // farklıysa taşmıştır; fiyat satırlarının payı ilk kısılacak yerdir.
+    //
+    // SIKIŞTIRMA YETMEZSE TABLO KENDİ YAPRAĞINA SÜRÜLÜR. Kalem bazında iskonto
+    // basıldığında hücreler iki katmanlıdır ve satır payı en aza indiğinde bile
+    // tablo eski boyuna dönmez; satır sayısı eşiğin altında olsa da ticari
+    // sayfa taşabilir. Tabloyu bütün hâlde taşımak, @react-pdf'in onu notların
+    // üstünde ikiye bölmesinden iyidir (TEKLIF-54'ün kendi gerekçesi).
     const ticariTasti = (pageOf["son:ticari"] ?? 0) > (pageOf["bas:ticari"] ?? 0);
     if (ticariTasti && fiyatTicaride && !compactPrices) {
       compactPrices = true;
+      continue;
+    }
+    if (ticariTasti && fiyatTicaride && !priceOwnPage) {
+      priceOwnPage = true;
       continue;
     }
     break;
@@ -2348,6 +2433,7 @@ export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer>
       {...props}
       coverDensity={coverDensity}
       compactPrices={compactPrices}
+      priceOwnPage={priceOwnPage}
       pageOf={pageOf}
     />
   );

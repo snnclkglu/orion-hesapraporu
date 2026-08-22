@@ -164,6 +164,21 @@ function yuvarla(n: number, basamak = 2): number {
 }
 
 /**
+ * İSKONTONUN DOKUNDUĞU SATIR — tek tanım.
+ *
+ * Gizlenmiş satır belgede yoktur; `inTotal: false` satır (günlük süpervizörlük
+ * ücreti) zaten toplamın dışındadır ve bir iskonto pazarlığı onu değiştirmez;
+ * fiyatı ya da miktarı girilmemiş satıra DOKUNULMAZ (değişmez md. 4).
+ *
+ * Ölçekleme (`applyDiscountToLines`) ile gösterim (`discountedLines`) AYNI
+ * süzgeci okur: ayrışsalardı belgede üstü çizilen satır kümesiyle toplamı
+ * tutan satır kümesi farklı olurdu.
+ */
+function iskontoluSatirMi(l: OfferPriceLine): boolean {
+  return !l.hidden && l.inTotal && l.qty !== null && l.qty > 0 && l.unitPrice !== null;
+}
+
+/**
  * İSKONTOYU BİRİM FİYATLARA YANSITIR — toplam HEDEFİ birebir tutar.
  *
  * Kullanıcı isteği (17.08.2026): *"İstersem birim fiyatları da o oranda
@@ -191,11 +206,9 @@ export function applyDiscountToLines(
   const ham = offerTotal(lines);
   if (ham === null || ham <= 0 || !Number.isFinite(target) || target <= 0) return [...lines];
 
-  const olcekli = (l: OfferPriceLine) =>
-    !l.hidden && l.inTotal && l.qty !== null && l.qty > 0 && l.unitPrice !== null;
   const oran = target / ham;
   const yeni = lines.map((l) =>
-    olcekli(l) ? { ...l, unitPrice: Math.round((l.unitPrice as number) * oran) } : l
+    iskontoluSatirMi(l) ? { ...l, unitPrice: Math.round((l.unitPrice as number) * oran) } : l
   );
 
   const artik = target - (offerTotal(yeni) ?? 0);
@@ -203,7 +216,7 @@ export function applyDiscountToLines(
     let enBuyuk = -1;
     let enBuyukTutar = -Infinity;
     yeni.forEach((l, i) => {
-      const tutar = olcekli(l) ? (lineAmount(l) ?? 0) : -Infinity;
+      const tutar = iskontoluSatirMi(l) ? (lineAmount(l) ?? 0) : -Infinity;
       if (tutar > enBuyukTutar) {
         enBuyukTutar = tutar;
         enBuyuk = i;
@@ -218,6 +231,51 @@ export function applyDiscountToLines(
     }
   }
   return yeni;
+}
+
+/** İskontolu satırın basılan iki rakamı — ikisi de YUVARLANMIŞ hâlleriyle. */
+export interface DiscountedLine {
+  unitPrice: number;
+  amount: number;
+}
+
+/**
+ * KALEM BAZINDA İSKONTOLU FİYATLAR — sütunun toplamı belgenin toplamını TUTAR.
+ *
+ * Kullanıcı isteği (22.08.2026): *"%15 iskonto uyguladığımda en altta yazıyor
+ * iyi. Ama kalem bazında da üstünü çizip yazmalı. Çünkü kalem bazı en son
+ * faturalandırılacak, kalem fiyatları da önemli."*
+ *
+ * FATURA SATIR SATIR KESİLİR: müşteri belgedeki kalem fiyatlarını toplayıp
+ * iskontolu toplamı bulamıyorsa belge kendi kendini yalanlar. O yüzden satır
+ * rakamları BURADA UYDURULMAZ; `applyDiscountToLines` ile — yani "birim
+ * fiyatlara yansıt" düğmesinin YAZDIĞI sayılarla — hesaplanır: birim fiyatlar
+ * tam sayıya yuvarlanır, yuvarlamadan doğan artık en büyük satıra biner ve
+ * toplam hedefi birebir tutar.
+ *
+ * SATIRLAR DEĞİŞMEZ, yalnız GÖSTERİLİR: kayıtta duran birim fiyat ham fiyattır
+ * ve iskonto tek bir yerde (`discountTotal`) yaşamaya devam eder. İkisini de
+ * saklamak, satır fiyatı elle değiştirildiğinde hangisinin geçerli olduğunu
+ * belirsizleştirirdi (TEKLIF-35'in "tutar saklanır, oran türetilir" gerekçesi).
+ *
+ * İSKONTO YOKSA ya da kullanıcı zaten birim fiyatlara YANSITTIYSA boş döner:
+ * tablodaki rakamlar o durumda zaten iskontoludur ve üstlerini çizmek aynı
+ * indirimi ikinci kez vaat etmek olurdu.
+ */
+export function discountedLines(pricing: OfferPricing): Map<string, DiscountedLine> {
+  const out = new Map<string, DiscountedLine>();
+  const hedef = pricing.discountTotal;
+  if (hedef === null || hedef === undefined) return out;
+  if (discountAmount(pricing) === null) return out;
+
+  const yeni = applyDiscountToLines(pricing.lines, hedef);
+  pricing.lines.forEach((line, i) => {
+    if (!iskontoluSatirMi(line)) return;
+    const tutar = lineAmount(yeni[i]);
+    if (yeni[i].unitPrice === null || tutar === null) return;
+    out.set(line.id, { unitPrice: yeni[i].unitPrice as number, amount: tutar });
+  });
+  return out;
 }
 
 /** Toplamı hesaplanmış hâliyle fiyat bloğu — kaydetme yolu bunu yazar. */

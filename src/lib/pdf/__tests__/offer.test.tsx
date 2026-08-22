@@ -28,7 +28,7 @@ import { offerFileName } from "../doc-naming";
 import { trUpper } from "../palette";
 import { emptyPayload, groupFromKey, newOfferId } from "@/lib/offers/payload";
 import { COMPANY_PROFILE, GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
-import { offerTotal, vatBadge, vatNote } from "@/lib/offers/pricing";
+import { discountedLines, offerTotal, vatBadge, vatNote } from "@/lib/offers/pricing";
 import { fmtMoney } from "@/lib/currency";
 import type { OfferPayload, OfferPriceLine, OfferRowScope } from "@/lib/offers/types";
 
@@ -268,6 +268,76 @@ describe("toplam", () => {
       .split("\n")
       .find((line) => line.includes("MONTAJ SÜPERVİZÖR HİZMETİ")) ?? "";
     expect(satir).toContain("1.1");
+  });
+});
+
+describe("kalem bazında iskonto", () => {
+  /** Ekran görüntüsündeki teklif: dört kalem, 306.000 € → %15 → 260.100 €. */
+  function iskontoluFikstur(adet = 4): OfferDocumentProps {
+    const props = fikstur();
+    const ilk = props.payload.pricing.lines[0];
+    props.payload.pricing.lines = Array.from({ length: adet }, (_, i) => ({
+      ...ilk,
+      id: `s${i}`,
+      parentLineId: null,
+      description: `KALEM ${i + 1}`,
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 12_345 * (i + 1),
+      inTotal: true,
+      hidden: false,
+    }));
+    const ham = offerTotal(props.payload.pricing.lines)!;
+    props.payload.pricing.discountTotal = Math.ceil(ham * 0.85);
+    return props;
+  }
+
+  it("KALEM FİYATININ ÜSTÜ ÇİZİLİR, iskontolusu ALTINA basılır ve TOPLAMI TUTAR", async () => {
+    // Kullanıcı isteği (22.08.2026): *"kalem bazında da üstünü çizip yazmalı…
+    // normal fiyatın üstünü çizsin, altına iskontolu fiyat yazsın."* Çizginin
+    // KENDİSİ metinden okunamaz (PDF'te bir çizgi, harf değildir); okunabilen
+    // şey İKİ RAKAMIN DA sayfada durmasıdır — ham fiyat silinmiş olsaydı
+    // müşteri ne kadar indirim aldığını göremezdi.
+    //
+    // TEK BELGEDE İKİ SAV ölçülür: rakamların basıldığı ve toplamlarının
+    // belgenin en altındaki hedefi tuttuğu. Ayrı testler aynı belgeyi ikinci
+    // kez bastırırdı ve bu dosyanın en pahalı işi belge basmaktır.
+    const props = iskontoluFikstur();
+    const harita = discountedLines(props.payload.pricing);
+    const metin = duz(await pdfMetni(props));
+    for (const line of props.payload.pricing.lines) {
+      expect(metin).toContain(duz(fmtMoney(line.unitPrice, "EUR")));
+      expect(metin).toContain(duz(fmtMoney(harita.get(line.id)!.unitPrice, "EUR")));
+      expect(metin).toContain(duz(fmtMoney(harita.get(line.id)!.amount, "EUR")));
+    }
+    // Fatura satır satır kesilecek: sütunun toplamı belgenin en altındaki
+    // rakamı tutmuyorsa belge kendi kendini yalanlar.
+    const hedef = props.payload.pricing.discountTotal!;
+    expect([...harita.values()].reduce((n, v) => n + v.amount, 0)).toBeCloseTo(hedef, 2);
+    expect(metin).toContain(duz(fmtMoney(hedef, "EUR")));
+  });
+
+  it("İSKONTO YOKKEN kalem fiyatı TEK katmandır", () => {
+    // Fikstürün ham hâlinde iskonto yoktur; 55.900 € tek başına durur ve
+    // yanında ikinci bir rakam belirmez.
+    expect(discountedLines(fikstur().payload.pricing).size).toBe(0);
+  });
+
+  it("İKİ KATMANLI SATIRLARLA da tablo İKİYE BÖLÜNMEZ", async () => {
+    // İki katmanlı hücre satırı yaklaşık yedi punto uzatır; eşiğin ALTINDAKİ
+    // (12) bir tablo bile ticari sayfayı taşırabilir. Ölçüm bunu görmeli ve
+    // tabloyu bütün hâlde kendi yaprağına sürmeli — yarısı bir sayfada yarısı
+    // ötekinde duran bir fiyat listesi yanlış toplanır.
+    const props = iskontoluFikstur(FIYAT_SATIR_ESIGI);
+    const sayfalar = await pdfSayfalari(props);
+    const fiyatSayfalari = sayfalar.filter((s) => duz(s).includes(duz("BİRİM FİYAT")));
+    expect(fiyatSayfalari.length).toBe(1);
+    for (let i = 1; i <= FIYAT_SATIR_ESIGI; i++) {
+      expect(duz(fiyatSayfalari[0])).toContain(duz(`KALEM ${i}`));
+    }
+    // Ve İSKONTOLU TOPLAM da o yaprakta durur: satırlarla toplamı ayırmak,
+    // müşteriyi iki yaprak arasında toplama yapmaya bırakırdı.
+    expect(duz(fiyatSayfalari[0])).toContain(duz("İSKONTOLU TOPLAM"));
   });
 });
 
@@ -588,7 +658,10 @@ describe("fiyat satırının boyu", () => {
     const orta = await boy(8);
     expect(orta).toBeGreaterThan(cok);
     expect(orta).toBeLessThan(await boy(4));
-  });
+    // BEŞ BELGE BASAR: varsayılan 5 sn'lik bütçe tek başına koşarken yetiyor,
+    // bütün paketle birlikte yüklenmiş bir makinede yetmiyor. Süre bir sav
+    // DEĞİLDİR — ölçülen şey satır boyudur; bütçe onu ölçmeye yetmeli.
+  }, 30_000);
 });
 
 describe("fiyat tablosu yaprağı", () => {

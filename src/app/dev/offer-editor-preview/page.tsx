@@ -30,7 +30,7 @@ import { APP_ACTIONS_SLOT_ID, APP_HEADER_SLOT_ID } from "@/lib/app";
 import type { OfferOptionRow } from "@/app/(app)/offers/data";
 import type { CustomerContact } from "@/lib/customer-contacts";
 import type { OfferAuthor, OfferTemplateRow } from "@/app/(app)/offers/data";
-import { applyDefaults, emptyItem, emptyPayload } from "@/lib/offers/payload";
+import { applyDefaults, emptyItem, emptyPayload, newPriceLine } from "@/lib/offers/payload";
 import { composeValue, derivedParts } from "@/lib/offers/compose";
 import { offerRowDef } from "@/lib/offers/registry";
 import { composeItemTitle } from "@/lib/offers/title";
@@ -169,6 +169,38 @@ function fikstur() {
   surucu.value = composeValue(offerRowDef("mainHoist", "drive")!.parts!, surucu.parts);
 
   p.items = [kalem, emptyItem("5T YARDIMCI MONORAY", ["general", "mainHoist", "steel"])];
+
+  // FİYAT SATIRLARI VE İSKONTO ÖNİZLEMEDE DE KURULUR: kalem bazında iskonto
+  // (üstü çizili ham fiyat + altında ödenecek olan) ancak `discountTotal`
+  // yazılıyken çizilir. Fiyatsız bir fikstürde o hücrelerin nasıl göründüğü —
+  // ve satırın iki katmanla ne kadar uzadığı — burada hiç görülmezdi.
+  const anaFiyat = newPriceLine();
+  Object.assign(anaFiyat, {
+    description: kalem.title,
+    itemId: kalem.id,
+    qty: 1,
+    unit: "Takım",
+    unitPrice: 262_500,
+  });
+  const yuruyusYolu = newPriceLine();
+  Object.assign(yuruyusYolu, {
+    description: "Yürüme Yolu A65",
+    parentLineId: anaFiyat.id,
+    qty: 80,
+    unit: "Metre",
+    unitPrice: 225,
+  });
+  const travers = newPriceLine();
+  Object.assign(travers, {
+    description: "Kaldırma Traversi",
+    parentLineId: anaFiyat.id,
+    qty: 1,
+    unit: "Takım",
+    unitPrice: 22_500,
+  });
+  p.pricing.lines = [anaFiyat, yuruyusYolu, travers];
+  // 303.000 € → %15 iskonto → 257.550 €.
+  p.pricing.discountTotal = 257_550;
   return applyDefaults(p, {
     "term.validity": "14 iş günü",
     "val.testDynamic": "Q x 1,1",

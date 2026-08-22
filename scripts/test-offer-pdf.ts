@@ -20,7 +20,7 @@ import path from "node:path";
 import { renderOfferPdf, type OfferDocumentProps } from "../src/lib/pdf/offer";
 import { offerFileName } from "../src/lib/pdf/doc-naming";
 import { emptyPayload, freeItem, groupFromKey, newOfferId } from "../src/lib/offers/payload";
-import { applyDiscountToLines, offerTotal } from "../src/lib/offers/pricing";
+import { applyDiscountToLines, discountedLines, offerTotal } from "../src/lib/offers/pricing";
 import { offerDocLine } from "../src/lib/offers/no";
 import { fmtMoney } from "../src/lib/currency";
 import { mm } from "../src/lib/pdf/brand";
@@ -879,6 +879,22 @@ async function main() {
     duz(i.metin).includes(duz(fmtMoney(215000, "EUR"))),
     "İSKONTOLU TOPLAM ödenecek rakamı gösteriyor (215.000 €)"
   );
+  // KALEM BAZINDA İSKONTO: her satırda HAM fiyat da İSKONTOLU fiyat da durur
+  // (biri üstü çizili) ve basılan kalem tutarlarının toplamı belgenin en
+  // altındaki rakamı TUTAR — fatura satır satır kesilecek.
+  const iskontoluSatirlar = discountedLines(iskontoluTeklif().payload.pricing);
+  kontrol(
+    [...iskontoluSatirlar.values()].every(
+      (v) =>
+        duz(i.metin).includes(duz(fmtMoney(v.unitPrice, "EUR"))) &&
+        duz(i.metin).includes(duz(fmtMoney(v.amount, "EUR")))
+    ),
+    "kalem bazında iskontolu birim fiyat ve tutar belgede"
+  );
+  kontrol(
+    Math.abs([...iskontoluSatirlar.values()].reduce((n, v) => n + v.amount, 0) - 215_000) < 0.01,
+    "basılan kalem tutarlarının toplamı İSKONTOLU TOPLAM'ı tuttu"
+  );
   // SERBEST KALEM: elle yazılan etiket ve değer belgede; boş satır YOK.
   // BOŞLUKSUZ karşılaştırılır: bölüm adları harf aralıklı dizilir ve PDF metin
   // katmanında harfler arasına konum kaynaklı boşluklar girer.
@@ -896,6 +912,10 @@ async function main() {
   );
   const y = await uret("teklif-iskonto-yansitilmis.pdf", yansitilmis);
   kontrol(!y.metin.includes("İSKONTOLU TOPLAM"), "yansıtılmış iskontoda ayrı satır BASILMADI");
+  kontrol(
+    discountedLines(yansitilmis.payload.pricing).size === 0,
+    "yansıtılmış iskontoda kalem fiyatının üstü ÇİZİLMEDİ"
+  );
   kontrol(
     duz(y.metin).includes(duz(fmtMoney(215000, "EUR"))),
     "yansıtılmış iskontoda TOPLAM hedefi tuttu (215.000 €)"
