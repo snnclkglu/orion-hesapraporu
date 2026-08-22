@@ -30,6 +30,7 @@ import type {
   OfferGeneralTermDef,
   OfferGroup,
   OfferItem,
+  OfferLeadTimeUnit,
   OfferPayload,
   OfferPaymentLine,
   OfferPriceLine,
@@ -39,6 +40,16 @@ import type {
 } from "./types";
 
 export const OFFER_PAYLOAD_VERSION = 1;
+
+/**
+ * Kalem bazında teslim süresinin seçilebilir birimleri.
+ *
+ * LİSTE BURADA KAPALIDIR (defterde değil): "hafta" ve "ay" bir kullanıcı
+ * tercihi değil, sütun başlığının iki olası yazımıdır ve üçüncüsü yoktur.
+ * Defterdeki `val.deliveryUnit` listesi ticari şartların teslim süresi
+ * cümlesini kurar; o listeye yeni bir madde eklemek bu sütunu bozmamalıdır.
+ */
+export const LEAD_TIME_UNITS: readonly OfferLeadTimeUnit[] = ["hafta", "ay"];
 
 /** Yeni satır/kalem/grup kimliği. */
 export function newOfferId(): string {
@@ -191,7 +202,16 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
       rows: TERM_ROW_DEFS.map(rowFromDef),
       paymentLines: [],
     },
-    pricing: { currency, vatIncluded: false, lines: [], discountTotal: null, total: null },
+    pricing: {
+      currency,
+      vatIncluded: false,
+      // TESLİM SÜRESİ SÜTUNU KAPALI AÇILIR: teklifin olağan hâli tek bir teslim
+      // süresidir (ticari şartlarda) ve boş bir sütun eksik bilgi gibi okunur.
+      leadTimeUnit: null,
+      lines: [],
+      discountTotal: null,
+      total: null,
+    },
     notes: [],
     exclusions: [],
     // GENEL ŞARTLAR YENİ BELGEDE HEPSİ AÇIK GELİR (kullanıcı isteği,
@@ -594,7 +614,15 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
         hidden: l.hidden === true,
         // ELLE MALİYET eski kayıtlarda yoktur ve `null` gelir.
         manualCost: sayiVeyaNull(l.manualCost),
+        // TESLİM SÜRESİ METİNDİR (aralık yazılabilsin diye) ve eski kayıtlarda yoktur.
+        leadTime: metin(l.leadTime),
       }))),
+      // TESLİM SÜRESİ SÜTUNU eski kayıtlarda yoktur ve `null` gelir: sütun
+      // KAPALIDIR. Tanınmayan bir birim de `null` olur — uydurma bir birim
+      // varsaymak müşteriye yanlış bir süre vaat ederdi (değişmez md. 4).
+      leadTimeUnit: LEAD_TIME_UNITS.includes(pricing.leadTimeUnit as OfferLeadTimeUnit)
+        ? (pricing.leadTimeUnit as OfferLeadTimeUnit)
+        : null,
       // İSKONTO ALANI ESKİ KAYITLARDA YOKTUR ve `null` gelir — iskonto
       // kararının hiç verilmemiş olması demektir (sıfır değil).
       discountTotal: sayiVeyaNull(pricing.discountTotal),

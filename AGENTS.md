@@ -30,10 +30,13 @@ kullanılır, `toUpperCase()` DEĞİL (IS-14 kuralı: "İş" → "IS" olurdu).
 `APP_SHORT_NAME` ayrıdır çünkü ana ekran ikonunun altında ~12 karakter
 görünür — orada kimlik markanın kendisidir ("ORION").
 
-**İKONLAR ÜRETİLİR, ELLE ÇİZİLMEZ** (`scripts/make-icons.ts`). Tek kaynak
-`public/brand/orion-symbol.svg`; betik ondan sekme ikonunu (`app/icon.svg`,
-`favicon.ico` — 16·32·48 PNG'li gerçek bir ICO kabı), iOS ana ekran ikonunu
-(`app/apple-icon.png`) ve PWA ikonlarını üretir. **MASKELENEBİLİR SÜRÜM
+**İKONLAR VE BELGE GÖRSELLERİ ÜRETİLİR, ELLE ÇİZİLMEZ**
+(`scripts/make-icons.ts`). Kaynak marka VEKTÖRLERİDİR
+(`public/brand/orion-symbol.svg`, `orion-logo-white.svg`); betik onlardan sekme
+ikonunu (`app/icon.svg`, `favicon.ico` — 16·32·48 PNG'li gerçek bir ICO kabı),
+iOS ana ekran ikonunu (`app/apple-icon.png`), PWA ikonlarını ve PDF'lerin
+raster marka görsellerini (`orion-logo-paper.png`, `orion-symbol-ink.png` —
+@react-pdf `Image` yalnız raster okur) üretir. **MASKELENEBİLİR SÜRÜM
 AYRIDIR**: Android launcher ikonu daireye/squircle'a kırpar ve yalnız ortadaki
 %80'i garanti eder, o yüzden orada sembol küçülür ve köşe yuvarlaması olmaz.
 Tek dosyayı ikisine birden vermek sembolü kenarlarından kestirirdi.

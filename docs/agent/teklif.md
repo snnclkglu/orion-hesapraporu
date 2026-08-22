@@ -971,3 +971,265 @@ Teslim şartları ve test yükü satırları da teknik büyük-harf sunumundan g
 ölçü/SI birimleri korunur. Ödeme kutularının açıklaması Türkçe büyük harftir
 (`%50 AVANS SİPARİŞ İLE NAKİT`). Bu bir sunum kararıdır, kullanıcının payload
 metni değiştirilmez.
+## TEKLIF-46 — Kapak İKİ BÖLGEDİR: kömür bant + kağıt bölge.
+
+Kullanıcı tasarımı (Claude Design, 22.08.2026 — `Teklif Kapak.dc.html`). Kapak
+artık marjlı bir metin sayfası değil, kenardan kenara boyanan bir YAPRAKTIR
+(`BrandPage bleed`): üstte kömür bir bant, altında kağıt bir bölge, ikisinin de
+üzerinden geçen kırmızı omurga.
+
+**Kömür bant** — 135° çapraz şerit dokusu, kağıt renkli lockup, sağda
+`REFERANS NO · … / REV nn · TARİH · …`, altında kırmızı kural; sonra kırmızı
+çubuk + MERCAN kicker, teklifin KONUSU 33 pt'ye kadar, müşterinin adı ve
+İÇİNDEKİLER. **Kağıt bölge** — KİMDEN/KİME künyesi, hitap ve giriş, (varsa)
+imzalar, firmanın beyanı ve İŞ KOLLARIMIZ ızgarası.
+
+Ölçüler tasarımdan ÇEVRİLDİ, yeniden uydurulmadı: tasarım CSS px'te
+çalışıyordu ve 210 mm'lik bir sayfada 1 px = 0,75 pt'tir. mm cinsinden verilen
+paylar (16 üst / 16 dış / 13 alt / 22 iç) sayfanın kendi marjlarıyla zaten
+aynıydı — bant ile kağıt bölge tek bir ızgarayı paylaşır.
+
+**TAM KANAMADA OMURGA EN SONDA ÇİZİLİR** (`brand.tsx`): boyama sırası akış
+sırasıdır ve kenardan kenara bir bant, önce çizilmiş omurganın üstünü örterdi.
+Aynı sebeple kapakta ÇAPRAZ FİLİGRAN BASILMAZ: kömür bant, lockup ve omurga
+markayı zaten taşır, %6 opaklıklı ikinci bir işaret orada gürültü olurdu.
+
+**ŞERİT DOKUSU SVG'DİR VE KUTU ONU KIRPAR.** @react-pdf
+`repeating-linear-gradient` bilmez; döndürülmüş kutulardan şerit kurmak her
+şeridi ayrı bir yerleşim düğümü yapardı. Doku mutlak konumludur, bandın
+kesebileceğinden büyük verilir ve kap `overflow: "hidden"` ile fazlasını atar —
+bant içeriğiyle büyüdüğü için sabit ölçülü bir doku başka türlü yetişemezdi.
+Ölçü kılavuzun kendi CSS'idir: dik yönde 12 px şerit / 24 px periyot (9 pt /
+18 pt); 45°'lik bir çizgide aynı periyodun x karşılığı √2 katıdır.
+
+**KAĞIT LOCKUP VE KÖMÜR MONOGRAM ÜRETİLİR** (`scripts/make-icons.ts`):
+`orion-logo-paper.png` ve `orion-symbol-ink.png`. Tam renkli lockup kömür
+zeminde okunmaz (kırmızı kilit gömülür, "CRANES" grisi kaybolur); beyaz kartın
+köşesi ise kelime markasını değil YALNIZ monogramı ister — firma adı zaten
+kartın içinde yazılıdır. Oran dosyanın PNG başlığından OKUNUR (`pngOrani`),
+elle yazılmaz: sabit bir oran, görsel yeniden üretildiğinde sessizce logoyu
+esnetirdi.
+
+## TEKLIF-47 — Kapak künyesi ETİKETSİZDİR; iki taraf TEK kutunun içindedir.
+
+TEKLIF-39'un "Adı ve Soyadı : … / Ünvan : …" etiketli satırları KALKTI
+(kullanıcı tasarımı, 22.08.2026). Kart artık bir iletişim bloğudur: mono
+etiket (`KİMDEN` / `KİME`) ve marka aynı satırda, altında kurumun adı, sonra
+`Ad Soyad · Ünvan`, ince bir çizgiden sonra telefon ve e-posta. Etiket, bir
+iletişim satırını ikinci kez adlandırmaktı.
+
+**İKİ TARAF TEK KUTUDADIR**, aralarındaki oluk kaldırıldı: kutu tek olunca iki
+taraf aynı yüksekliğe kendiliğinden oturur ve künye bir "kart çifti" değil bir
+MUHATAP ÇİZELGESİ gibi okunur.
+
+**BOŞ ALAN HİÇ ÇİZİLMEZ** (TEKLIF-36 devam ediyor): ünvanı olmayan kişide
+ayıraç da düşer, telefonu olmayan muhatapta iletişim bloğu hiç açılmaz.
+**MÜŞTERİ REFERANSI KİME TARAFINDADIR** (`MÜŞTERİ REF · 6000294866`):
+müşterinin kendi talep/sipariş numarasıdır, bizim künyemizin değil.
+
+**LOGO YUVASI SABİT YÜKSEKLİKTEDİR (32 pt)** — müşteri logosunun
+normalleştirilmiş tuvali (120 × 32 pt, TEKLIF-43) oraya oturur; logo olsa da
+olmasa da iki hücrenin metni aynı taban çizgisinden başlar.
+
+## TEKLIF-48 — İÇİNDEKİLER belgeden çıkar; sayfa numarası ÖLÇÜLÜR.
+
+Kapak üç kutuluk bir dizin taşır: bölümün sayfa aralığı (mono, ilki mercan) ve
+adı. **Liste belgenin KENDİSİNDEN türer** — basılmayan bölüm listelenmez
+(kalemsiz teklifte "Teknik Özellikler" yoktur, şart maddesi kalmamışsa "Genel
+Şartlar" yoktur). Ayrı bir liste tutulsaydı gizlenen bir bölüm kapakta durmaya
+devam ederdi.
+
+**SAYFA NUMARASI İKİ GEÇİŞLE ÖĞRENİLİR** (`renderOfferPdf`): bir bölümün kaç
+yaprak tuttuğu önceden bilinemez — teknik sayfa sayısını `pdf-layout` hesaplar
+ama ticari sayfa da genel şartlar da içeriğine göre taşabilir. Birinci geçişte
+her bölümün açıldığı ve kapandığı yaprak `Sonda` ile toplanır (hesap raporunun
+`SectionProbe` reçetesi), ikincisi numaralarla basar. Numara bilinmiyorsa
+`S. —` yazılır; UYDURULMAZ — tahmin edilen bir sayfa numarası müşteriyi olmayan
+bir yaprağa gönderirdi.
+
+**BÖLÜM ADI TEK KAYNAKTIR** (`OFFER_SECTIONS`): aynı metin hem içindekiler
+kartına hem sayfanın kicker'ına gider (kicker `trUpper` ile büyür). Genel
+şartların kendi başlığı defterdedir (`GENERAL_TERMS_TITLE`, BÜYÜK HARF); kartta
+başlık yazımı durur ve ikisinin ayrışmasını bir test engeller (değişmez md. 8).
+
+**KAPAK KİCKER'I DA BELGEDEN ÇIKAR**: teknik yaprağı olan teklif "TEKNİK VE
+TİCARİ TEKLİF"tir, yalnız fiyat ve şart taşıyan teklif "TİCARİ TEKLİF".
+Kapakta belgede olmayan bir bölüm vaat edilmez.
+
+## TEKLIF-49 — Kapak TEK SAYFADIR; sıkışması ÖLÇÜLEREK seçilir.
+
+Tasarımın nefes payları, uzun içerik yığıldığında taşıyordu: dört satırlık bir
+konu + künyede saran bir müşteri unvanı ("… İSTİHSAL ENDÜSTRİSİ A.Ş.") + uzun
+ünvan/bölüm satırları + iki imzacı. @react-pdf taşan bloğu sessizce ikinci bir
+yaprağa atıyor ve müşteriye ALTBİLGİDEN İBARET boş bir sayfa gidiyordu.
+
+Payları içeriğin uzunluğuna bakarak tahmin etmek yerine **belge ölçülür**:
+`renderOfferPdf` zaten iki geçiş yapıyor ve ilk bölümün açıldığı yaprak
+kapağın kaç sayfa tuttuğunu söylüyor. İki değilse kademe artar ve yerleşim
+yeniden koşar (`KapakYogunlugu`):
+
+- `0` — tasarımın kendi payları.
+- `1` — bölge araları kısalır (bant içi, içindekiler, hitap, iş kolu satırı).
+- `2` — İŞ KOLLARI ızgarası düşer; tasarımın kendi anahtarıdır
+  (`showBusinessLines`) ve kapağın en uzun, en az kritik bloğudur — firmanın
+  BEYANI kalır, listesi düşer.
+
+**KISALAN ŞEY BOŞLUKTUR, PUNTO DEĞİL**: metni küçültmek belgeyi okunmaz yapar,
+aralığı kısmak yalnız daha yoğun gösterir.
+
+**KAPAĞIN SONUNA KONAN BİR SONDA BU SORUYU CEVAPLAMIYORDU** ve bu, bir kez
+denenip düşen yoldur: taşan blok kağıdın dışına çizilir ama sıfır yükseklikli
+düğüm hâlâ birinci yaprakta yerleşmiş sayılır, sonda "1" bildirir. Bir sonraki
+bölümün nerede AÇILDIĞI ise ölçülen bir olgudur.
+
+Olağan teklif yine İKİ GEÇİŞTİR — kapak taşmazsa döngü ilk turda biter.
+
+## TEKLIF-50 — İç sayfaların başlığı ve altbilgisi kapakla AYNI DİLİ konuşur.
+
+Kullanıcı isteği (22.08.2026): *"teklifin sadece kapağını değil, alt
+sayfalarındaki header ve footer'ı da ayarla, genel yapı tutarlı olsun."*
+
+**SAYFA BAŞLIĞI** (`SayfaBasi`, belgenin bütün iç yaprakları): kırmızı çubuk +
+mono kicker solda, doküman künyesi (`TETR-… · REV nn`) sağda, altında sayfanın
+büyük başlığı ve bölgeyi kapatan KÖMÜR kural. Kapaktaki aynı anatominin kağıt
+ölçeğidir; kılavuz kuralı kömür zeminde kırmızıya çevirir, kağıtta kömür
+bırakır.
+
+Büyük başlık kendi satırını bütünüyle kullanır (18.08.2026 çakışma tuzağı hâlâ
+geçerlidir); künye KİCKER satırındadır ve ikisi de kısa mono metinlerdir.
+
+**YÜKSEKLİK BÜTÇESİ KORUNDU.** Blok ~43 pt'tir ve `PDF_SUTUN_KAPASITE` o payı
+düşer. Kural eklenirken kicker–ad arası ve blok altı kısaldı; kural bedavaya
+gelmedi ama sütun kapasitesinden de bir pt almadı. Buraya dokunan herkes aynı
+hesabı yeniden yapmak zorundadır — bir teknik sayfa 1 pt yüzünden ikiye
+bölünür.
+
+**ALTBİLGİ** (`BrandPage brandFooter`, opt-in): doküman satırı KÖMÜR ve yarı
+kalın, folionun önünde 5 pt'lik kırmızı kare. Satır markayla açılır —
+`ORION CRANES · TETR-20260127-1 · REV 02 · 27.01.2026 · KONU` — çünkü müşteri
+belgenin bir yaprağını tek başına fotoğraflasa bile kimin, hangi teklifinin,
+hangi revizyonunun, hangi işi olduğu okunabilmelidir. **KAPAKTA KONU DÜŞER**:
+konu zaten sayfanın 33 pt'lik başlığıdır (hesap raporunun `coverDocLineFor`
+kuralıyla aynı gerekçe).
+
+**FİRMA KÜNYESİ DOKÜMAN SATIRININ ÜSTÜNDEDİR**, altında değil — tasarımda sıra
+terstir ve bu bilinçli bir sapmadır: oradaki adres kısaltılmıştı, firmanın
+TESCİLLİ adresi telefon, e-posta ve web ile birlikte içerik genişliğinin
+TAMAMINI ister ve künye TEK SATIR kalmak zorundadır. Yanına folio konulunca ya
+künye sarıyor ya folio kağıdın dışına taşıyordu; ikisi de ölçüldü. Sıra tersine
+dönünce folio doküman satırıyla kalır ve **sayfa numarasının kağıt dibine
+uzaklığı künyeli kapakta da künyesiz iç sayfada da AYNIDIR.**
+
+Altbilgi kipi OPT-IN'dir: hesap raporu, iş emri, bordro ve ekipman listesi
+bugünkü altbilgisiyle kalır. Teklifin dilini bütün belgelere yaymak AYRI bir
+karardır ve yerleşim denetçilerini birlikte götürür.
+
+## TEKLIF-51 — İŞ KOLLARIMIZ bir CÜMLE değil, madde madde listedir.
+
+`COMPANY_PROFILE.products` (` · ` ile bağlanmış üç satırlık gri bir dizi)
+kaldırıldı; yerine `lines` dizisi geldi ve kapakta iki sütunlu, 7 px kırmızı
+kare madde işaretli bir ızgara olarak basılır. Eski yazımda okur hiçbir iş
+kolunu seçemiyordu.
+
+**SIRA SATIR YÖNÜNDEDİR** (1|2 / 3|4 …), sütun yönünde değil: `flexWrap` ile
+kurulan ızgara tasarımdaki okuma sırasını korur. Liste sabittir ve teklife göre
+değişmez — defter kullanıcının seçtiği KISA değerleri taşır, bu ise firmanın
+BEYANIDIR.
+## TEKLIF-52 — Ticari sayfa: BAŞLIK + BEYAZ KUTU çiftleri.
+
+Kullanıcı tasarımı (Claude Design, 22.08.2026 — `Teklif Ticari Sartlar.dc.html`).
+Sayfanın dört bölgesi vardır ve her biri bir **3 pt şerit + mono etiket + beyaz
+kutu** üçlüsüdür:
+
+1. **TESLİM ŞARTLARI** (sol, geniş sütun; şerit KIRMIZI) — etiket/değer
+   çizelgesi. Etiket mono ve gri, değer sans ve koyu: renk farkı dekor değil,
+   TANIM/VERİ ayrımıdır (TEKLIF-44'ün teknik satırdaki kuralı).
+2. **ÖDEME PLANI** (sağ sütun; şerit kömür) — her taksitin sol kenarında 3 pt
+   omuz, İLK taksitinki KIRMIZI: plan bir SIRADIR ve gözün nereden başlayacağı
+   belli olmalıdır. Oran satır metninden okunur (TEKLIF-40'ın kuralı sürüyor).
+3. **TEST YÜKÜ** (ödeme planının altında) — etiket solda, değer mono ve sağda.
+4. **FİYATLAR** (tam genişlik; şerit KIRMIZI) — sağında `PARA BİRİMİ · EUR`.
+
+Devralınan düzende bunlar çıplak `Etiket : Değer` satırlarıydı ve sayfanın
+neresinin nerede bittiği ancak punto farkından okunuyordu.
+
+**SAYFA BAŞINA TEK VURGU** korunur: teslim şartları ve fiyatlar kırmızı açılır,
+ödeme planı ile test yükü kömür. Hepsi kırmızı olsaydı vurgu vurgu olmaktan
+çıkardı.
+
+**NOTLAR VE KAPSAM DIŞI İŞLER SAYFANIN DİBİNDEDİR**, yan yana ve kare madde
+işaretli: notlarda KIRMIZI, kapsam dışında GRİ. Biri teklifin kendi sözü, öteki
+teklifin DIŞINDA kalanların listesidir ve okurun ikisini karıştırmaması gerekir.
+Yerini esnek boşluk verir; mutlak konum kullanılmaz — uzun bir liste geldiğinde
+boşluk kendiliğinden kapanır.
+
+**ÖDENECEK RAKAM KÖMÜR ŞERİTTEDİR** ve tablonun en büyük yazısıdır (14,25 pt
+mono); ara toplamlar (TOPLAM, İSKONTO) onun üstünde açık zeminde durur. Şeritte
+KDV rozeti (`vatBadge`) vardır ve tablonun altındaki cümleyle (`vatNote`) AYNI
+BAYRAKTAN türer — ikisi çelişemez.
+
+**MARKA SATIRI** (`SayfaBasi marka`): solda KÖMÜR lockup, sağda iki satırlık
+doküman künyesi, altında KIRMIZI kural. Ticari şartlar ve genel şartlar
+sayfaları bunu taşır. **TEKNİK SAYFALAR TAŞIMAZ ve bu bir tutarsızlık değil bir
+ÖLÇÜDÜR:** lockup satırı ~40 pt yer yer ve o pay `PDF_SUTUN_KAPASITE`den gider;
+ölçüldüğünde ASTOR portal vincinin gövdesi tek yaprakta durmuyor, ikiye
+bölünüyordu. Teknik sayfada kimlik satırı KİCKER'IN İÇİNE iner (çubuk + kicker
+solda, künye tek satır sağda) ve aynı kırmızı kural onu kapatır — anatomi aynı,
+yoğunluk farklı. Marka kapakta, ticari sayfada ve altbilginin her satırında
+zaten vardır.
+
+**KÖMÜR LOCKUP DA ÜRETİLİR** (`orion-logo-ink.png`, `scripts/make-icons.ts`):
+tam renkli sürüm bu yaprakta ikinci bir kırmızı lekesi olurdu — kırmızı burada
+kicker ve kurala ayrılmıştır.
+
+## TEKLIF-53 — Kalem bazında TESLİM SÜRESİ sütunu (opsiyonel).
+
+Kullanıcı isteği (22.08.2026): *"Fiyat tablosunda Adet'in soluna Teslim Süresi
+sütunu açılsın. Sütun başlığında hafta ya da ay belirtilsin. Sütunda 6-7 gibi
+yazacak, dar bir sütun olsun. Bu opsiyonel olacak; bazen kalem bazında teslim
+süresi vermem gerekiyor."*
+
+- **AÇMA KARARI TEKLİFİNDİR**, satırın değil: `pricing.leadTimeUnit`
+  (`"hafta" | "ay" | null`). `null` sütunun KAPALI olduğunu söyler — sıfır ya
+  da boş bir birim değil. Kapalıyken ticari şartlardaki TEK teslim süresi
+  geçerlidir ve boş bir sütun müşteriye "burada bir şey eksik" diye okunurdu.
+- **BİRİM SÜTUN BAŞLIĞINDADIR** (`TESLİM (HAFTA)`), satırda değil: her satıra
+  "hafta" yazmak dar bir sütunu okunmaz yapardı ve zaten tek birim geçerlidir.
+- **DEĞER SAYI DEĞİL METİNDİR** (`OfferPriceLine.leadTime`): yazılan şey çoğu
+  zaman bir ARALIKTIR ("6-7") ve tek bir sayı alanı onu taşıyamaz; iki alan
+  (en az / en çok) açmak da dar sütunu iki kutuya bölerdi.
+- **SÜTUN KAPALIYKEN DEĞER KORUNUR AMA BASILMAZ**: kullanıcı sütunu kapatıp
+  yeniden açtığında yazdıkları yerinde durur. Değeri girilmemiş satırın hücresi
+  BOŞ kalır — `0` ya da `—` yazılmaz (değişmezler md. 4 ve 5).
+- **BİRİM LİSTESİ DEFTERDE DEĞİL KODDA KAPALIDIR** (`LEAD_TIME_UNITS`): bunlar
+  bir kullanıcı tercihi değil, sütun başlığının iki olası yazımıdır. Defterdeki
+  `val.deliveryUnit` ticari şartların teslim süresi CÜMLESİNİ kurar; o listeye
+  yeni bir madde eklemek bu sütunu bozmamalıdır.
+
+Editörde tuş sütunu AÇAR ve birimi o anda seçtirir; birimi sonradan soran ikinci
+bir kutu, sütunu birimsiz açık bırakabilirdi. Sütun ekranda da ADET'İN SOLUNDA
+durur — ekranla kâğıt ayrışsaydı kullanıcı hangi kutuya ne yazdığını belgeden
+doğrulayamazdı.
+
+## TEKLIF-54 — Fiyat tablosu ON İKİ SATIRDAN sonra KENDİ yaprağına geçer.
+
+Kullanıcı kararı (22.08.2026): *"Fiyatlar tablosunda 12 satıra kadar bu dizayn
+uygulanabiliyor. Eğer 12 satırın üstünde bir fiyat kalemi varsa fiyat tablosu
+ayrı sayfaya geçsin. Tablo ikiye bölünmesin."*
+
+Eşik (`FIYAT_SATIR_ESIGI = 12`) SAYFANIN KENDİ ÖLÇÜSÜNDEN gelir: ticari sayfada
+başlık (~95 pt), teslim/ödeme bloğu (~135 pt), notlar ve kapsam dışı işler
+(~90 pt) ve altbilgi payı düşüldüğünde tabloya ~300 pt kalır; bir satır ~22
+pt'dir. On üçüncü satır tabloyu notların üstüne bindirir ya da @react-pdf
+tabloyu ikiye böler.
+
+Tablo kendi yaprağına geçtiğinde **içindekilerde de kendi satırını açar**
+(`OFFER_SECTIONS.fiyat`): müşteri kapakta "Fiyatlar"ı arar ve o yaprak artık
+ticari sayfa değildir. Yaprakta "FİYATLAR" sayfanın büyük başlığıdır; şeritte
+ikinci kez yazılmaz, orada yalnız para birimi kalır.
+
+**KENDİ YAPRAĞI DA SONSUZ DEĞİLDİR.** Marka satırlı bir sayfaya ~19 fiyat
+satırı sığar; daha uzun bir tablo yine bölünür ve bunun alternatifi YOKTUR —
+`wrap={false}` verilseydi @react-pdf tabloyu kırpardı, yani müşteriye giden
+belgede sessiz veri kaybı olurdu. Bölünen tabloda sütun başlığı `fixed` olduğu
+için her yaprakta tekrar eder.

@@ -407,17 +407,37 @@ export const TERMS_TITLE = "TESLİM VE ÖDEME ŞEKLİ";
  * yiyor. Kaynak metin (kullanıcının verdiği tanıtım) üç paragraftı ve ürün
  * listesi on bir kalemdi; kapakta bir SAYFA DEĞİL bir PARAGRAF yeri var.
  */
+/**
+ * FİRMANIN KENDİ BEYANI — teklif kapağının alt bölgesi (TEKLIF-46).
+ *
+ * Defter kullanıcının seçtiği KISA değerleri taşır; bu ise firmanın kendini
+ * anlattığı metindir ve teklife göre değişmez, o yüzden sabittir.
+ *
+ * ÜRÜNLER TEK BİR CÜMLE DEĞİL, MADDE MADDE LİSTEDİR (kullanıcı tasarımı,
+ * 22.08.2026): ` · ` ile bağlanmış üç satırlık gri bir dizide okur hiçbir iş
+ * kolunu seçemiyordu. Kapakta iki sütunlu kare madde işaretli bir ızgara
+ * olarak basılır — sıra SATIR YÖNÜNDEDİR (1|2 / 3|4 …), tasarımdaki ızgaranın
+ * kendisi gibi.
+ */
 export const COMPANY_PROFILE = {
-  title: "ORION CRANES",
   body:
     "ORION CRANES, kaldırma ve iletme sistemleri alanındaki 25 yıllık mühendislik " +
     "birikimiyle Ankara Başkent Organize Sanayi Bölgesi'ndeki 6.000 m² tesisinde faaliyet " +
     "göstermektedir. Projelendirmeden imalata, devreye almadan satış sonrası hizmetlere " +
     "kadar tüm süreçlerde güvenilir, yüksek kaliteli ve ihtiyaca özel çözümler sunar.",
-  products:
-    "Gezer köprülü tavan, monoray, portal ve pergel vinçler · Transfer arabaları ve " +
-    "bobin tongları · Kaldırma kirişleri ve proses vinçler · Vinç komponentleri · " +
-    "Endüstriyel otomasyon ve elektrik panoları",
+  linesTitle: "İŞ KOLLARIMIZ",
+  lines: [
+    "Gezer Köprülü Tavan Vinçleri",
+    "Portal Ve Pergel Vinçler",
+    "Monoray Sistemleri",
+    "Proses Vinçler",
+    "Şarj / Döküm Vinçleri",
+    "Transfer Arabaları Ve Bobin Tongları",
+    "Kaldırma Kirişleri",
+    "Vinç Komponentleri",
+    "Elektrik Panoları Ve Otomasyon",
+    "Montaj, Periyodik Bakım Ve Yedek Parça",
+  ],
 } as const;
 
 /**

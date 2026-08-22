@@ -17,11 +17,18 @@
 // aştığında da düşer, yani aynı zamanda taşma bekçisidir.
 
 import { describe, expect, it } from "vitest";
-import { OfferDocument, renderOfferPdf, type OfferDocumentProps } from "../offer";
+import {
+  FIYAT_SATIR_ESIGI,
+  OFFER_SECTIONS,
+  OfferDocument,
+  renderOfferPdf,
+  type OfferDocumentProps,
+} from "../offer";
 import { offerFileName } from "../doc-naming";
+import { trUpper } from "../palette";
 import { emptyPayload, groupFromKey, newOfferId } from "@/lib/offers/payload";
-import { GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
-import { offerTotal } from "@/lib/offers/pricing";
+import { COMPANY_PROFILE, GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
+import { offerTotal, vatBadge, vatNote } from "@/lib/offers/pricing";
 import { fmtMoney } from "@/lib/currency";
 import type { OfferPayload, OfferPriceLine, OfferRowScope } from "@/lib/offers/types";
 
@@ -326,18 +333,117 @@ describe("altbilgi künyesi", () => {
   it("adres · telefon · e-posta · web TEK SATIRDA — arada satır sonu yok", async () => {
     // Telefon eskiden adresten ayrı, bir üst satırda duruyordu (kullanıcı
     // bildirimi, 17.08.2026: dengesiz görünüyor). Kontrol aynı zamanda TAŞMA
-    // BEKÇİSİDİR: satır A4 genişliğine sığmasaydı sarılır ve tam adresle
-    // telefon arasında bir satır sonu belirirdi.
+    // BEKÇİSİDİR: satır A4 genişliğine sığmasaydı sarılır ve dört alan iki
+    // satıra bölünürdü.
+    //
+    // ÖLÇÜM SATIRIN KENDİSİNDEN alınır, sayfanın tamamından değil: firmanın
+    // telefonu 22.08.2026 tasarımıyla KİMDEN kartında da geçiyor ve sayfa
+    // metninde aranan ilk telefon artık künyenin değil kartın telefonudur.
     const kapak = (await pdfSayfalari(fikstur()))[0];
-    const adresSonu = kapak.indexOf("Ankara");
-    const telefon = kapak.indexOf(COMPANY.phone);
-    expect(adresSonu).toBeGreaterThanOrEqual(0);
-    expect(telefon).toBeGreaterThan(adresSonu);
-    expect(kapak.slice(adresSonu, telefon).includes("\n")).toBe(false);
-    // E-posta ve web de aynı satırda kalır.
-    expect(kapak.slice(telefon).indexOf("\n")).toBeGreaterThan(
-      kapak.slice(telefon).indexOf(COMPANY.web)
-    );
+    const kunye = kapak.split(/\r?\n/).find((satir) => satir.includes(COMPANY.address)) ?? "";
+    expect(kunye).toContain(COMPANY.phone);
+    expect(kunye).toContain(COMPANY.email);
+    expect(kunye).toContain(COMPANY.web);
+  });
+
+  it("doküman satırı MARKAYLA açılır ve her yaprakta durur", async () => {
+    // Müşteri belgenin bir yaprağını tek başına fotoğraflasa bile kimin, hangi
+    // teklifinin, hangi revizyonunun olduğu okunabilmelidir.
+    const sayfalar = await pdfSayfalari(fikstur());
+    for (const sayfa of sayfalar) {
+      expect(duz(sayfa)).toContain(duz("ORION CRANES · TETR-20260127-1 · REV 02"));
+    }
+    // KAPAKTA KONU DÜŞER (o zaten sayfanın 33 pt'lik başlığıdır); iç
+    // sayfalarda satırın kuyruğunda durur.
+    expect(duz(sayfalar[0])).not.toContain(duz("27.01.2026 · HABAŞ DÖRTYOL"));
+    expect(duz(sayfalar[1])).toContain(duz("27.01.2026 · HABAŞ DÖRTYOL 20T VİNÇ"));
+  });
+});
+
+describe("kapak", () => {
+  it("içindekiler bölümleri GERÇEK sayfa numaralarıyla listeler", async () => {
+    // Numara İKİ GEÇİŞLE öğrenilir: bir bölümün kaç yaprak tuttuğu ancak
+    // yerleştirildikten sonra bilinir. Tek geçişte "S. —" basılırdı.
+    const sayfalar = await pdfSayfalari(fikstur());
+    const kapak = duz(sayfalar[0]);
+    expect(kapak).toContain(duz("İÇİNDEKİLER"));
+    expect(kapak).toContain(duz("S. 02"));
+    expect(kapak).toContain(duz("Teknik Özellikler"));
+    // Fikstür dört sayfadır: kapak · teknik · ticari · genel şartlar.
+    expect(sayfalar.length).toBe(4);
+    expect(kapak).toContain(duz("S. 04"));
+    expect(kapak).toContain(duz("Genel Şartlar"));
+    expect(duz(sayfalar[3])).toContain(duz(GENERAL_TERMS_TITLE));
+  });
+
+  it("içindekiler adı ile bölümün kendi başlığı AYRIŞAMAZ", () => {
+    // Aynı bölüm iki metinle adlandırılıyor: kartta başlık yazımı, sayfada
+    // defterin BÜYÜK HARF başlığı. Biri değişip öteki kalırsa içindekiler var
+    // olmayan bir bölümü işaret eder (değişmez md. 8).
+    expect(trUpper(OFFER_SECTIONS.sartlar)).toBe(GENERAL_TERMS_TITLE);
+  });
+
+  it("kicker belgenin KAPSAMINI söyler — teknik yaprak yoksa 'TİCARİ TEKLİF'", async () => {
+    const varsayilan = duz((await pdfSayfalari(fikstur()))[0]);
+    expect(varsayilan).toContain(duz("TEKNİK VE TİCARİ TEKLİF"));
+
+    // Kalemsiz bir teklifte teknik yaprak hiç basılmaz; kapakta vaat edilmez.
+    const props = fikstur();
+    props.payload.items = [];
+    const kalemsiz = duz((await pdfSayfalari(props))[0]);
+    expect(kalemsiz).toContain(duz("TİCARİ TEKLİF"));
+    expect(kalemsiz).not.toContain(duz("TEKNİK VE TİCARİ TEKLİF"));
+    // Basılmayan bölüm içindekilerde de listelenmez.
+    expect(kalemsiz).not.toContain(duz("Teknik Özellikler"));
+  });
+
+  it("künye kartı muhatabı, ünvanını ve müşteri referansını taşır", async () => {
+    const kapak = duz((await pdfSayfalari(fikstur()))[0]);
+    expect(kapak).toContain(duz("SİNAN ÇOLAKOĞLU · Satış Müdürü"));
+    expect(kapak).toContain(duz("ALİCAN ERASLAN"));
+    // TEKLIF-36: varsa basılır. Numara MUHATABIN kartındadır, bizimkinde değil.
+    expect(kapak).toContain(duz("MÜŞTERİ REF · 6000294866"));
+  });
+
+  it("boş alan künyeye HİÇ girmez — yer tutucu bir değer değildir", async () => {
+    const props = fikstur();
+    props.payload.cover.customerRef = "";
+    props.payload.cover.toPhone = "";
+    const kapak = duz((await pdfSayfalari(props))[0]);
+    expect(kapak).not.toContain(duz("MÜŞTERİ REF"));
+  });
+
+  it("iş kolları listesi kapakta, onuncu maddesine kadar", async () => {
+    const kapak = duz((await pdfSayfalari(fikstur()))[0]);
+    expect(kapak).toContain(duz(COMPANY_PROFILE.linesTitle));
+    for (const satir of COMPANY_PROFILE.lines) expect(kapak).toContain(duz(satir));
+  });
+
+  it("EN UZUN içerikte bile TEK SAYFADA kalır — kapak sıkışır, taşmaz", async () => {
+    // Aynı anda: dört satırlık konu, künyede saran müşteri unvanı, uzun
+    // ünvan/bölüm satırları ve iki imzacı. Tasarımın nefes payları bu yığında
+    // taşıyordu ve @react-pdf taşan bloğu SESSİZCE ikinci bir yaprağa
+    // atıyordu — müşteriye altbilgiden ibaret boş bir sayfa gidiyordu.
+    // `renderOfferPdf` yerleşimi ÖLÇER ve kapağın payını kısar.
+    const props = fikstur();
+    props.offer.subject =
+      "İSDEMİR AMONYUM SÜLFAT TESİSİ VİNÇLERİ VE TRANSFER ARABALARI İÇİN TEKNİK VE TİCARİ TEKLİF ÇALIŞMASI";
+    props.offer.customerName = "HABAŞ SINAİ VE TIBBİ GAZLAR İSTİHSAL ENDÜSTRİSİ A.Ş.";
+    props.payload.cover.fromTitle = "Satış ve Pazarlama Müdür Yardımcısı";
+    props.payload.cover.toDept = "Satın Alma ve Tedarik Zinciri Müdürlüğü";
+    props.payload.cover.signatories = [
+      { name: "SİNAN ÇOLAKOĞLU", title: "Satış Müdürü" },
+      { name: "SALİH ERGÜVEN", title: "Genel Müdür" },
+    ];
+
+    const sayfalar = await pdfSayfalari(props);
+    // İkinci yaprak TEKNİK sayfadır — kapağın devamı değil.
+    expect(duz(sayfalar[1])).toContain(duz("TEKNİK ÖZELLİKLER"));
+    // Sıkışan şey BOŞLUKTUR, içerik değil: konu, künye ve firma beyanı yerinde.
+    const kapak = duz(sayfalar[0]);
+    expect(kapak).toContain(duz("İSDEMİR AMONYUM SÜLFAT TESİSİ"));
+    expect(kapak).toContain(duz("MÜŞTERİ REF · 6000294866"));
+    expect(kapak).toContain(duz("ORION CRANES, kaldırma ve iletme"));
   });
 });
 
@@ -350,6 +456,95 @@ describe("KDV cümlesi", () => {
     const dahil = await pdfMetni(fikstur({ vatIncluded: true }));
     expect(dahil.includes("KDV dahildir")).toBe(true);
     expect(dahil.includes("KDV dahil değildir")).toBe(false);
+  });
+
+  it("toplam şeridindeki rozet cümleyle AYNI bayraktan türer", () => {
+    // Rozet ile cümlenin ayrışması, aynı sayfada birbirini yalanlayan iki
+    // KDV ifadesi demekti — devralınan tekliflerin gerçek hatası buydu.
+    expect(vatBadge(false)).toBe("KDV HARİÇ");
+    expect(vatBadge(true)).toBe("KDV DAHİL");
+    expect(vatNote(false).includes("dahil değildir")).toBe(true);
+    expect(vatNote(true).includes("dahildir")).toBe(true);
+  });
+});
+
+describe("kalem bazında teslim süresi", () => {
+  it("sütun KAPALIYKEN belgede iz bırakmaz — değerler korunsa bile", async () => {
+    // Kullanıcı sütunu kapatıp yeniden açtığında yazdıkları yerinde durmalıdır;
+    // ama kapalıyken müşteriye giden belgede ne başlık ne hücre görünür.
+    const props = fikstur();
+    props.payload.pricing.leadTimeUnit = null;
+    props.payload.pricing.lines[0].leadTime = "12-14";
+    const metin = duz(await pdfMetni(props));
+    expect(metin).not.toContain(duz("12-14"));
+    expect(metin).not.toContain(duz("(HAFTA)"));
+  });
+
+  it("açıkken başlık BİRİMİ taşır ve hücre aralık yazabilir", async () => {
+    const props = fikstur();
+    props.payload.pricing.leadTimeUnit = "hafta";
+    props.payload.pricing.lines[0].leadTime = "12-14";
+    const metin = duz(await pdfMetni(props));
+    expect(metin).toContain(duz("TESLİM"));
+    expect(metin).toContain(duz("(HAFTA)"));
+    expect(metin).toContain(duz("12-14"));
+
+    // BİRİM SÜTUN BAŞLIĞINDADIR, satırda değil: "ay" seçilince başlık değişir.
+    props.payload.pricing.leadTimeUnit = "ay";
+    const ay = duz(await pdfMetni(props));
+    expect(ay).toContain(duz("(AY)"));
+    expect(ay).not.toContain(duz("(HAFTA)"));
+  });
+
+  it("değeri girilmemiş satırın hücresi BOŞ kalır — sıfır ya da tire değil", async () => {
+    const props = fikstur();
+    props.payload.pricing.leadTimeUnit = "hafta";
+    // Hiçbir satıra süre yazılmadı; sütun açık ama hücreler boş.
+    const sayfalar = await pdfSayfalari(props);
+    const ticari = sayfalar.find((s) => duz(s).includes(duz("(HAFTA)"))) ?? "";
+    const satir = ticari.split(/\r?\n/).find((l) => l.includes("GEZER KÖPRÜLÜ VİNÇ")) ?? "";
+    expect(satir).not.toContain("0");
+    expect(satir).not.toContain("—");
+  });
+});
+
+describe("fiyat tablosu yaprağı", () => {
+  it("eşiğin altında ticari sayfada durur", async () => {
+    const sayfalar = await pdfSayfalari(fikstur());
+    // Fikstürde üç fiyat satırı var (biri gizli): eşiğin çok altında.
+    const ticari = sayfalar.find((s) => duz(s).includes(duz("TESLİM ŞARTLARI"))) ?? "";
+    expect(duz(ticari)).toContain(duz("TOPLAM"));
+    expect(duz(ticari)).toContain(duz("Notlar".toLocaleUpperCase("tr-TR")));
+  });
+
+  it("eşiğin üstünde KENDİ yaprağına geçer ve İKİYE BÖLÜNMEZ", async () => {
+    // Kullanıcı kararı (22.08.2026): 12 satırın üstünde tablo ayrı sayfaya
+    // geçer. Ölçülen şey satırların TEK yaprakta olmasıdır — bir tablonun
+    // yarısı bir sayfada yarısı ötekinde okunduğunda toplam yanlış anlaşılır.
+    const props = fikstur();
+    const ilk = props.payload.pricing.lines[0];
+    props.payload.pricing.lines = Array.from({ length: FIYAT_SATIR_ESIGI + 3 }, (_, i) => ({
+      ...ilk,
+      id: `satir-${i}`,
+      parentLineId: null,
+      description: `KALEM ${i + 1}`,
+      qty: 1,
+      unitPrice: 1000 * (i + 1),
+      hidden: false,
+    }));
+
+    const sayfalar = await pdfSayfalari(props);
+    const fiyatSayfalari = sayfalar.filter((s) => duz(s).includes(duz("KALEM 1 ")));
+    expect(fiyatSayfalari.length).toBeGreaterThan(0);
+    const fiyat = sayfalar.find((s) => duz(s).includes(duz("BİRİM FİYAT"))) ?? "";
+    // Bütün satırlar AYNI yaprakta.
+    for (let i = 1; i <= FIYAT_SATIR_ESIGI + 3; i++) {
+      expect(duz(fiyat)).toContain(duz(`KALEM ${i}`));
+    }
+    // Ve o yaprak TİCARİ ŞARTLAR yaprağı DEĞİLDİR.
+    expect(duz(fiyat)).not.toContain(duz("TESLİM ŞARTLARI"));
+    // İçindekiler de yeni yaprağı listeler.
+    expect(duz(sayfalar[0])).toContain(duz(OFFER_SECTIONS.fiyat));
   });
 });
 

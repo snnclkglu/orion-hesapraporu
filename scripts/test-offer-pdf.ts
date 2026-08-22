@@ -389,10 +389,15 @@ async function portalTeklif(): Promise<OfferDocumentProps> {
     ],
   };
   p.items = [item];
+  // KALEM BAZINDA TESLİM SÜRESİ SÜTUNU AÇIK (TEKLIF-52): tasarımın dar
+  // sütununu ancak gerçek bir aralıkla ("12-14") ölçebiliriz.
+  p.pricing.leadTimeUnit = "hafta";
   p.pricing.lines = [
-    fiyatSatiri({ itemId: item.id, description: "80T x 12.44m Portal Vinç", qty: 1, unit: "Takım", unitPrice: 304_000 }),
-    fiyatSatiri({ description: "Yürüme Yolu A65", qty: 80, unit: "Metre", unitPrice: 225 }),
-    fiyatSatiri({ description: "Kapalı Bara 40 Metre", qty: 1, unit: "Takım", unitPrice: 3_000 }),
+    fiyatSatiri({ itemId: item.id, description: "80T x 12.44m Portal Vinç", qty: 1, unit: "Takım", unitPrice: 304_000, leadTime: "12-14" }),
+    fiyatSatiri({ description: "Yürüme Yolu A65", qty: 80, unit: "Metre", unitPrice: 225, leadTime: "8" }),
+    fiyatSatiri({ description: "Kapalı Bara 40 Metre", qty: 1, unit: "Takım", unitPrice: 3_000, leadTime: "8" }),
+    // BOŞ BIRAKILAN SATIR: sütun açıkken bile her satırın süresi olmayabilir
+    // ve boş hücre "—" ya da "0" ile doldurulmaz (değişmez md. 4/5).
     fiyatSatiri({ description: "Kaldırma Traversi", qty: 1, unit: "Takım", unitPrice: 24_000 }),
   ];
   p.notes = [
@@ -702,17 +707,20 @@ async function uret(ad: string, props: OfferDocumentProps) {
 
   // ALTBİLGİ KÜNYESİ TEK SATIRDIR: adres · telefon · e-posta · web.
   //
-  // Ölçü METİN KATMANINDAN alınır: adres ile telefonun ARASINDA satır sonu
-  // bulunmamalıdır. Bu kontrol aynı zamanda TAŞMA BEKÇİSİDİR — satır A4
-  // genişliğine sığmasaydı react-pdf onu sarar ve tam o noktada bir "\n"
-  // belirirdi. Punto değiştiğinde ilk düşecek kontrol budur.
+  // Ölçü METİN KATMANINDAN alınır: dört alan AYNI satırda mı. Bu kontrol aynı
+  // zamanda TAŞMA BEKÇİSİDİR — satır A4 genişliğine sığmasaydı react-pdf onu
+  // sarar ve alanlar iki satıra bölünürdü. Punto değiştiğinde ilk düşecek
+  // kontrol budur.
+  //
+  // ÖLÇÜM ALTBİLGİ SATIRININ KENDİSİNDEN alınır, sayfanın tamamından değil:
+  // firmanın telefonu 22.08.2026 tasarımıyla KİMDEN kartında da geçiyor ve
+  // sayfa metninde aranan ilk telefon artık künyenin değil kartın telefonudur.
   if (!props.payload.cover.hidden) {
     const kapak = sayfalar[0] ?? "";
-    const a = kapak.indexOf("Ankara");
-    const t = kapak.indexOf(COMPANY.phone);
+    const kunye = kapak.split(/\r?\n/).find((satir) => satir.includes(COMPANY.address)) ?? "";
     kontrol(
-      a >= 0 && t > a && !kapak.slice(a, t).includes("\n"),
-      "künye tek satırda (telefon adresten satır sonuyla ayrılmıyor)"
+      kunye.includes(COMPANY.phone) && kunye.includes(COMPANY.email) && kunye.includes(COMPANY.web),
+      "künye tek satırda (adres · telefon · e-posta · web sarmıyor)"
     );
   }
 
@@ -787,7 +795,36 @@ async function main() {
     duz(s.sayfalar[0] ?? "").includes(duz("HABAŞ DÖRTYOL 20T VİNÇ")),
     "kapak başlığı teklifin konusu"
   );
-  kontrol(duz(s.sayfalar[0] ?? "").includes(duz("Ünvan")), "künyede ünvan kendi satırında");
+  // KÜNYE KARTI: kurum adı, muhatap ve ünvanı TEK satırda (22.08.2026
+  // tasarımı; eskiden "Adı ve Soyadı : … / Ünvan : …" etiketli satırlardı).
+  kontrol(
+    duz(s.sayfalar[0] ?? "").includes(duz("SİNAN ÇOLAKOĞLU · Satış Müdürü")),
+    "künyede muhatap ve ünvanı aynı satırda"
+  );
+  // MÜŞTERİ REFERANSI MUHATABIN KARTINDA (TEKLIF-36: varsa basılır, yoksa iz yok).
+  kontrol(
+    duz(s.sayfalar[0] ?? "").includes(duz("MÜŞTERİ REF · 6000294866")),
+    "müşteri referansı KİME kartında"
+  );
+  // İÇİNDEKİLER BELGENİN KENDİSİNDEN ÇIKAR ve GERÇEK sayfa numarası taşır:
+  // dört sayfalık bu belgede teknik s.02, ticari s.03, genel şartlar s.04.
+  // Numara İKİ GEÇİŞLE öğrenilir; tek geçişte "S. —" basılırdı.
+  const icindekiler = duz(s.sayfalar[0] ?? "");
+  kontrol(icindekiler.includes(duz("İÇİNDEKİLER")), "kapakta içindekiler var");
+  kontrol(
+    icindekiler.includes(duz("S. 02")) && icindekiler.includes(duz("Teknik Özellikler")),
+    "içindekiler teknik bölümü gerçek sayfasıyla gösteriyor"
+  );
+  kontrol(
+    icindekiler.includes(duz("S. 04")) && icindekiler.includes(duz("Genel Şartlar")),
+    "içindekiler genel şartları gerçek sayfasıyla gösteriyor"
+  );
+  // İŞ KOLLARI LİSTESİ KAPAKTADIR (TEKLIF-46): iki sütunlu kare madde ızgarası.
+  kontrol(
+    icindekiler.includes(duz("İŞ KOLLARIMIZ")) &&
+      icindekiler.includes(duz("Montaj, Periyodik Bakım Ve Yedek Parça")),
+    "iş kolları listesi kapakta (onuncu madde dahil)"
+  );
   // FİRMA TANITIMI KAPAKTADIR ve kapak TEK SAYFA kalmalıdır (md. 22).
   kontrol(
     duz(s.sayfalar[0] ?? "").includes(duz("ORION CRANES")),
@@ -812,13 +849,30 @@ async function main() {
   kontrol(duz(portalKapak).includes(duz("REFERANS NO · TETR-20260818-1")), "referans üst bilgide etiketli");
   kontrol(duz(portalKapak).includes(duz("TARİH · 18.08.2026")), "tarih üst bilgide etiketli");
   kontrol(!portalKapak.includes("Referansımız"), "referans KİMDEN kartında tekrarlanmıyor");
-  kontrol(portalKapak.includes("E-posta"), "e-posta etiketi kurumsal yazımda");
+  // E-POSTA ETİKETSİZ BASILIR (22.08.2026 tasarımı): kart zaten bir iletişim
+  // bloğudur ve "E-posta :" etiketi aynı satırı iki kez adlandırmak olurdu.
+  kontrol(portalKapak.includes("serguven@orioncranes.com"), "kimden kartı e-postayı taşıyor");
+  // KAPAK KİCKER'I BELGEDEN ÇIKAR: teknik yaprağı olan teklif "TEKNİK VE
+  // TİCARİ TEKLİF"tir; yalnız fiyat taşıyan bir teklif "TİCARİ TEKLİF".
+  kontrol(
+    duz(portalKapak).includes(duz("TEKNİK VE TİCARİ TEKLİF")),
+    "kapak kicker'ı belgenin kapsamını söylüyor"
+  );
   kontrol(portal.metin.includes("KALDIRMA TRAVERSİ"), "fiyat tanımları büyük harf");
   kontrol(portal.metin.includes("1 TAKIM"), "fiyat adet/birim hücresi büyük harf");
+  // TESLİM SÜRESİ SÜTUNU: başlık birimi taşır, hücreler aralık yazabilir.
+  const portalTicari = portal.sayfalar.find((t) => t.includes("12-14")) ?? "";
+  kontrol(duz(portalTicari).includes(duz("TESLİM")), "teslim süresi sütun başlığı basıldı");
+  kontrol(duz(portalTicari).includes(duz("(HAFTA)")), "sütun başlığı birimi taşıyor");
+  kontrol(portalTicari.includes("12-14"), "teslim süresi aralığı hücrede");
+  // TOPLAM ŞERİDİ: KDV rozeti cümleyle aynı bayraktan türer.
+  kontrol(duz(portalTicari).includes(duz("KDV HARİÇ")), "toplam şeridinde KDV rozeti");
 
   const i = await uret("teklif-iskontolu.pdf", iskontoluTeklif());
   kontrol(duz(i.metin).includes(duz(fmtMoney(232000, "EUR"))), "satır TOPLAMI belgede (232.000 €)");
-  kontrol(i.metin.includes("İSKONTO"), "iskonto satırı basıldı");
+  // BOŞLUKSUZ karşılaştırılır: toplam şeritlerinin etiketleri harf aralıklı
+  // mono dizilir ve PDF metin katmanında harflerin arasına boşluk girer.
+  kontrol(duz(i.metin).includes(duz("İSKONTO")), "iskonto satırı basıldı");
   kontrol(
     duz(i.metin).includes(duz(fmtMoney(215000, "EUR"))),
     "İSKONTOLU TOPLAM ödenecek rakamı gösteriyor (215.000 €)"

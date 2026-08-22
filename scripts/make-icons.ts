@@ -1,4 +1,4 @@
-// Tarayıcı ve uygulama ikonlarını MARKA SEMBOLÜNDEN üretir.
+// Tarayıcı/uygulama ikonlarını ve BELGELERİN RASTER MARKA GÖRSELLERİNİ üretir.
 //
 //     npx tsx scripts/make-icons.ts
 //
@@ -29,6 +29,15 @@
 //    YOKTUR: kırpmayı işletim sistemi yapar, biz zemini kenara kadar
 //    taşırırız. Aynı dosyayı ikisi için birden kullanmak, Android'de sembolün
 //    kenarlarından kesilmesi demekti.
+//
+// ————————————————————————————————— BELGELERİN MARKA GÖRSELLERİ DE BURADADIR
+//
+// @react-pdf `Image` YALNIZ RASTER okur (PNG/JPEG); SVG veremeyiz. Teklif
+// kapağının kömür bandı KAĞIT renkli bir lockup, KİMDEN kartı ise KÖMÜR bir
+// monogram ister — ikisi de mevcut PNG'nin (tam renkli `orion-logo.png`)
+// rengini taşımaz. Bu iki dosya elle çizilseydi marka bir gün rötuşlandığında
+// vektörle ayrışırdı; burada da tek kaynak SVG'dir, renk yalnız `fill` ile
+// değiştirilir.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -98,6 +107,41 @@ async function png(svg: string, boy: number): Promise<Buffer> {
   return sharp(Buffer.from(svg), { density }).resize(boy, boy).png({ compressionLevel: 9 }).toBuffer();
 }
 
+// ————————————————————————————————— BELGE GÖRSELLERİ (kağıt lockup, kömür monogram)
+
+/**
+ * Marka SVG'sini TEK renge boyar.
+ *
+ * Dolgu kök `<svg>` etiketindedir ve yollar onu miras alır (`fill="#A41E1E"`);
+ * tek bir öznitelik değişince bütün şekil renk değiştirir. Path'lerin içine
+ * renk yazılsaydı burada dosya başına ayrı bir kural gerekirdi.
+ */
+function boya(svg: string, renk: string): string {
+  const boyali = svg.replace(/(<svg\b[^>]*\bfill=")[^"]*(")/, `$1${renk}$2`);
+  if (boyali === svg) throw new Error("SVG kökünde fill özniteliği bulunamadı");
+  return boyali;
+}
+
+/** SVG'nin viewBox genişliği — raster çözünürlüğü buna göre seçilir. */
+function viewBoxEni(svg: string): number {
+  const kutu = svg.match(/viewBox="([\d.\s-]+)"/)?.[1]?.trim().split(/\s+/).map(Number);
+  if (!kutu || kutu.length !== 4) throw new Error("viewBox okunamadı");
+  return kutu[2];
+}
+
+/**
+ * SVG'yi HEDEF GENİŞLİKTE rasterler, saydam zeminle.
+ *
+ * `density` librsvg'ye hangi çözünürlükte çizeceğini söyler: viewBox birimi
+ * 72 dpi'de bir nokta sayılır, yani hedef genişliği doğrudan oradan isteriz.
+ * Büyük bir rasterı sonradan küçültmek marka harflerinin kenarını
+ * bulanıklaştırıyordu (ikon üretiminde de aynı gerekçe).
+ */
+async function markaPng(svg: string, en: number): Promise<Buffer> {
+  const density = Math.ceil((72 * en) / viewBoxEni(svg));
+  return sharp(Buffer.from(svg), { density }).resize({ width: en }).png({ compressionLevel: 9 }).toBuffer();
+}
+
 /**
  * ICO kabı — içine PNG konur (Vista+ ve bütün modern tarayıcılar okur).
  *
@@ -151,9 +195,25 @@ async function main() {
   writeFileSync(join(MARKA, "icon-512.png"), uretilen.get(512)!);
   writeFileSync(join(MARKA, "icon-maskable-512.png"), await png(KARO_MASKE, 512));
 
+  // BELGE GÖRSELLERİ. Genişlikler PDF'te çizildikleri boyun ~7 katıdır
+  // (lockup ≈ 160 pt, monogram ≈ 20 pt): 300 dpi baskıda bile piksel görünmez,
+  // dosya ise birkaç on KB'de kalır.
+  const lockup = readFileSync(join(MARKA, "orion-logo.svg"), "utf8");
+  writeFileSync(
+    join(MARKA, "orion-logo-paper.png"),
+    await markaPng(readFileSync(join(MARKA, "orion-logo-white.svg"), "utf8"), 1200)
+  );
+  writeFileSync(join(MARKA, "orion-logo-ink.png"), await markaPng(boya(lockup, ZEMIN), 1200));
+  writeFileSync(
+    join(MARKA, "orion-symbol-ink.png"),
+    await markaPng(boya(readFileSync(join(MARKA, "orion-symbol.svg"), "utf8"), ZEMIN), 400)
+  );
+
   console.log("İkonlar üretildi:");
   console.log("  src/app/icon.svg · favicon.ico (16·32·48) · apple-icon.png (180)");
   console.log("  public/brand/icon-192.png · icon-512.png · icon-maskable-512.png");
+  console.log("Belge görselleri üretildi:");
+  console.log("  public/brand/orion-logo-paper.png · orion-logo-ink.png (1200) · orion-symbol-ink.png (400)");
 }
 
 void main();

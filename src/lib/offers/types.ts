@@ -194,7 +194,23 @@ export interface OfferPriceLine {
    * yazılmış sayısı ekranda görünmez (veri korunur, bağ koparsa geri gelir).
    */
   manualCost?: number | null;
+  /**
+   * SATIRIN KENDİ TESLİM SÜRESİ — `"6-7"`, `"10"`, `"12-14"`.
+   *
+   * SAYI DEĞİL METİNDİR: kullanıcının yazdığı şey çoğu zaman bir ARALIKTIR
+   * ("6-7") ve tek bir sayı alanı onu taşıyamaz; iki alan (en az / en çok)
+   * açmak da sütunu iki kutuya bölerdi. Birim satırda DEĞİL sütun başlığında
+   * durur (`OfferPricing.leadTimeUnit`) — her satıra "hafta" yazmak dar bir
+   * sütunu okunmaz yapardı.
+   *
+   * Sütun kapalıyken değer KORUNUR ama basılmaz: kullanıcı sütunu kapatıp
+   * yeniden açtığında yazdıkları yerinde durur.
+   */
+  leadTime?: string;
 }
+
+/** Kalem bazında teslim süresinin birimi — sütun BAŞLIĞINDA görünür. */
+export type OfferLeadTimeUnit = "hafta" | "ay";
 
 export interface OfferPricing {
   /** Teklifin TEK para birimi — satır bazında karışık kur teklifte görülmedi. */
@@ -205,6 +221,19 @@ export interface OfferPricing {
    * iki cümle de bu TEK bayraktan türetilir ve çelişemez.
    */
   vatIncluded: boolean;
+  /**
+   * KALEM BAZINDA TESLİM SÜRESİ SÜTUNU — kapalıysa `null`.
+   *
+   * Kullanıcı isteği (22.08.2026): *"bazen kalem bazında teslim süresi vermem
+   * gerekiyor… ay mı hafta mı olduğunu seçip sütunlara sayı yazayım."*
+   * Açıldığında fiyat tablosuna ADET'in SOLUNDA dar bir sütun eklenir ve
+   * başlığı birimi taşır ("TESLİM SÜRESİ (HAFTA)").
+   *
+   * `null` = sütun KAPALI, sıfır ya da boş bir birim DEĞİL: teslim süresi
+   * verilmemiş bir teklifte ticari şartlardaki TEK teslim süresi geçerlidir
+   * ve boş bir sütun müşteriye "burada bir şey eksik" diye okunurdu.
+   */
+  leadTimeUnit?: OfferLeadTimeUnit | null;
   lines: OfferPriceLine[];
   /**
    * İSKONTOLU TOPLAM — müşterinin gerçekten ödeyeceği tutar.

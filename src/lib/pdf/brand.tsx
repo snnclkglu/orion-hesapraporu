@@ -6,9 +6,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import React from "react";
-import { Document, Font, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Image, Line, Link, Page, Rect, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 
 const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
+
+const MARKA_DIR = path.join(process.cwd(), "public", "brand");
 
 /**
  * Orion Cranes lockup logosu (kırmızı kilit + kelime markası, şeffaf zemin).
@@ -17,12 +19,35 @@ const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
  * Dosya BUFFER olarak okunur: react-pdf string `src`yi URL sayıp fetch etmeye
  * çalışır ve Windows dosya yolunda başarısız olur.
  */
-export const BRAND_LOGO: Buffer = fs.readFileSync(
-  path.join(process.cwd(), "public", "brand", "orion-logo.png")
-);
+export const BRAND_LOGO: Buffer = fs.readFileSync(path.join(MARKA_DIR, "orion-logo.png"));
 
 /** Logonun gerçek oranı (596×67 px) — genişlik verilip yükseklik buradan çıkar. */
 export const LOGO_RATIO = 67 / 596;
+
+/**
+ * KAĞIT RENKLİ lockup ve KÖMÜR monogram — `scripts/make-icons.ts` ÜRETİR.
+ *
+ * Kömür bant üzerinde tam renkli lockup okunmaz (kırmızı kilit koyu zemine
+ * gömülür, "CRANES" grisi kaybolur); beyaz kartın köşesindeki küçük işaret ise
+ * kelime markasını değil YALNIZ monogramı ister — firma adı zaten kartın
+ * içinde yazılıdır. İkisi de vektörden türetilir, elle çizilmez.
+ *
+ * ORAN DOSYANIN KENDİSİNDEN OKUNUR (`pngOrani`): elle yazılmış bir sabit,
+ * görsel yeniden üretildiğinde sessizce yanlışa dönerdi — logo esner ya da
+ * ezilir, kimse fark etmez.
+ */
+export const BRAND_LOGO_PAPER: Buffer = fs.readFileSync(path.join(MARKA_DIR, "orion-logo-paper.png"));
+export const BRAND_LOGO_INK: Buffer = fs.readFileSync(path.join(MARKA_DIR, "orion-logo-ink.png"));
+export const BRAND_SYMBOL_INK: Buffer = fs.readFileSync(path.join(MARKA_DIR, "orion-symbol-ink.png"));
+
+/** PNG başlığından (IHDR) yükseklik/genişlik oranı — 8 imza + 8 öbek başı = 16. bayt. */
+function pngOrani(buf: Buffer): number {
+  return buf.readUInt32BE(20) / buf.readUInt32BE(16);
+}
+
+/** Kağıt ve kömür lockup AYNI VEKTÖRDEN üretilir; oranları da aynıdır. */
+export const LOGO_MONO_RATIO = pngOrani(BRAND_LOGO_PAPER);
+export const SYMBOL_INK_RATIO = pngOrani(BRAND_SYMBOL_INK);
 
 // Archivo — görünen her metin; IBM Plex Mono — her sayı, kod, etiket, kicker.
 // DejaVu yalnız ✓/✗ glifleri için kalır (Archivo/Plex Mono bu glifleri içermez).
@@ -102,6 +127,36 @@ export const T = StyleSheet.create({
 /** Kicker altındaki 44×5 kırmızı çizginin PDF karşılığı (ölçek: 16×2pt) */
 export function RuleRed({ width = 16 }: { width?: number }) {
   return <View style={{ width, height: 2, backgroundColor: BRAND.red, marginTop: 2 }} />;
+}
+
+/**
+ * 135° ÇAPRAZ ŞERİT ALANI — kılavuzun altı grafik aygıtından biri.
+ *
+ * Kömür bir zemini düz bırakmak yerine dokulandırır: marka kitabı bu alanı hem
+ * fotoğrafı olmayan görsel yuvalarında hem de kapak yönlerinde kullanır.
+ * Kontrast BİLEREK ÇOK DÜŞÜKTÜR (#2F2E2C ⟷ #262626 ≈ 1,05:1) — doku ancak
+ * ışık düştüğünde okunur, üzerindeki metni hiç etkilemez.
+ *
+ * NEDEN SVG: @react-pdf `repeating-linear-gradient` bilmez ve döndürülmüş
+ * kutulardan şerit kurmak her kutuyu ayrı bir yerleşim düğümü yapardı. SVG
+ * kendi görüntü alanına KIRPAR, yani çizgiler kutunun dışına taşmaz.
+ *
+ * Ölçü kaynağı kılavuzun CSS'idir: dik yönde 12 px şerit / 24 px periyot
+ * (= 9 pt / 18 pt). 45°'lik bir çizgide aynı periyodun x ekseni karşılığı
+ * √2 katıdır — çarpan düşerse şeritler sıkışır.
+ */
+export function StripeField({ width, height }: { width: number; height: number }) {
+  const adim = 18 * Math.SQRT2;
+  const cizgiler: number[] = [];
+  for (let x = -height; x < width + adim; x += adim) cizgiler.push(x);
+  return (
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Rect x={0} y={0} width={width} height={height} fill={BRAND.ink} />
+      {cizgiler.map((x, i) => (
+        <Line key={i} x1={x} y1={0} x2={x + height} y2={height} stroke={BRAND.inkGhost} strokeWidth={9} />
+      ))}
+    </Svg>
+  );
 }
 
 /** ✓ / ✗ glifi — yalnız DejaVu'da mevcut; ✗ kırmızı, ✓ yeşil */
@@ -192,11 +247,59 @@ export interface PageFrameProps {
   hidePageNumber?: boolean;
   /** Yalnız geniş tablo ve çizelgelerde A4 yatay kullanılır. */
   orientation?: "portrait" | "landscape";
+  /**
+   * TAM KANAMA SAYFA — kapak gibi kenardan kenara boyanan yapraklar için.
+   *
+   * Üç şeyi birden değiştirir ve üçü de aynı sebebe bağlıdır (içerik artık
+   * sayfanın KENDİSİDİR, marj içindeki bir metin değil):
+   *  - içerik payı sıfırlanır; payı bölgeler kendi içinde verir,
+   *  - kırmızı omurga içerikten SONRA çizilir — akış sırası boyama sırasıdır
+   *    ve tam kanamalı bir bant omurganın üstünü örterdi,
+   *  - filigran basılmaz: kömür bant, lockup ve omurga markayı zaten
+   *    taşır; %6 opaklıklı ikinci bir işaret orada gürültü olurdu.
+   */
+  bleed?: boolean;
+  /**
+   * MARKALI ALTBİLGİ — kapak tasarımının altbilgi dili (kullanıcı tasarımı,
+   * 22.08.2026), belgenin BÜTÜN yapraklarında aynı.
+   *
+   * Varsayılan altbilgi tek satır gri mono'dur ve teslim edilen bir teklifte
+   * belge kimliği o kadar silik kalamaz. Bu kipte doküman satırı kömür ve yarı
+   * kalın basılır, folionun önünde 5 pt'lik kırmızı kare durur ve (verilirse)
+   * doküman satırının ALTINA gri künye satırı eklenir.
+   *
+   * OPT-IN'DİR: hesap raporu, iş emri, bordro ve ekipman listesi bugünkü
+   * altbilgisiyle kalır — teklifin kapak dilini bütün belgelere yaymak ayrı
+   * bir karardır ve yerleşim denetçilerini birlikte götürür.
+   */
+  brandFooter?: { note?: string };
   style?: object;
 }
 
 /** Künyenin altbilgide kapladığı yükseklik (çizgi + iki satır + aralık). */
 const COMPANY_FOOTER_HEIGHT = 28;
+
+/** Kırmızı omurga — her sayfada, tam boy, solda; hiçbir şey içine taşmaz. */
+function Spine() {
+  return (
+    <View
+      fixed
+      style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: PAGE.spine, backgroundColor: BRAND.red }}
+    />
+  );
+}
+
+/** Markalı altbilginin tipografisi (bkz. `PageFrameProps.brandFooter`). */
+const F = StyleSheet.create({
+  docLine: { fontFamily: FONTS.mono, fontSize: 6.4, fontWeight: 600, letterSpacing: 0.9, color: BRAND.ink },
+  note: { fontFamily: FONTS.mono, fontSize: 5.6, letterSpacing: 0.4, color: BRAND.gray500, marginBottom: 3 },
+  folio: { fontFamily: FONTS.mono, fontSize: 7.5, fontWeight: 600, letterSpacing: 0.8, color: BRAND.ink },
+  square: { width: 3.75, height: 3.75, backgroundColor: BRAND.red, marginRight: 7.5 },
+});
+
+/** `07 / 25` — folio her zaman iki hanelidir (kılavuz yazımı). */
+const folioYazisi = ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
+  `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
 
 /**
  * Markalı A4 sayfa: solda tam boy 8mm kırmızı omurga (hiçbir şey üzerine taşmaz),
@@ -212,6 +315,8 @@ export function BrandPage({
   sectionLabel,
   hidePageNumber,
   orientation = "portrait",
+  bleed,
+  brandFooter,
   style,
 }: PageFrameProps) {
   return (
@@ -223,20 +328,16 @@ export function BrandPage({
         fontSize: 8.5,
         color: BRAND.ink,
         backgroundColor: BRAND.white,
-        paddingTop: PAGE.marginTop,
-        paddingBottom: PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0),
-        paddingLeft: PAGE.contentLeft,
-        paddingRight: PAGE.marginOuter,
+        paddingTop: bleed ? 0 : PAGE.marginTop,
+        paddingBottom: bleed ? 0 : PAGE.marginBottom + 14 + (company ? COMPANY_FOOTER_HEIGHT : 0),
+        paddingLeft: bleed ? 0 : PAGE.contentLeft,
+        paddingRight: bleed ? 0 : PAGE.marginOuter,
         ...style,
       }}
     >
       {/* Çapraz filigran — İÇERİKTEN ÖNCE çizilir ki altında kalsın */}
-      <Watermark />
-      {/* Kırmızı omurga — her sayfada, tam boy, solda */}
-      <View
-        fixed
-        style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: PAGE.spine, backgroundColor: BRAND.red }}
-      />
+      {bleed ? null : <Watermark />}
+      {bleed ? null : <Spine />}
       {sectionLabel ? (
         <View
           fixed
@@ -269,9 +370,15 @@ export function BrandPage({
         </View>
       ) : null}
       {children}
+      {/* TAM KANAMADA OMURGA EN SONDA: boyama sırası akış sırasıdır ve
+          kenardan kenara bir bant, önce çizilmiş omurganın üstünü örterdi. */}
+      {bleed ? <Spine /> : null}
       {/* Altbilgi: (varsa) firma künyesi + doküman kimliği + folio.
           Ayırıcı çizgi TEK: künye varsa çizgi künyenin üstündedir ve doküman
-          satırı kendi çizgisini çizmez. */}
+          satırı kendi çizgisini çizmez.
+
+          ALTBİLGİ TAM KANAMADA DA MARJDADIR: sayfanın payı sıfırlansa bile
+          folio yerini değiştirmez — okur onu her yaprakta aynı noktada arar. */}
       <View
         fixed
         style={{
@@ -282,25 +389,64 @@ export function BrandPage({
         }}
       >
         {company ? <CompanyBlock {...company} /> : null}
-        <View
-          style={{
-            borderTopWidth: hideFooterRule ? 0 : 0.75,
-            borderTopColor: BRAND.line300,
-            paddingTop: 4,
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Text style={T.micro}>{docLine}</Text>
-          {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
-          {hidePageNumber ? null : (
-            <Text
-              style={T.micro}
-              render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
-            />
-          )}
-        </View>
+        {brandFooter ? (
+          <View
+            style={{
+              borderTopWidth: hideFooterRule ? 0 : 0.75,
+              borderTopColor: BRAND.line300,
+              paddingTop: 6.75,
+            }}
+          >
+            {/* KÜNYE SATIRI DOKÜMAN SATIRININ ÜSTÜNDEDİR, altında değil.
+                Tasarımda sıra terstir ama oradaki adres kısaltılmıştı; firmanın
+                TESCİLLİ adresi telefon, e-posta ve web ile birlikte içerik
+                genişliğinin TAMAMINI ister ve künye TEK SATIR kalmak zorundadır
+                (satır sonu, dört alanın aynı satırda olduğunu kanıtlayan testin
+                de ölçtüğü şeydir). Yanına folio konulsaydı ya künye sarardı ya
+                da folio kağıdın dışına taşardı — ikisi de oldu, ölçüldü.
+
+                Sıra tersine dönünce folio DOKÜMAN SATIRIYLA kalır ve sayfa
+                numarasının kağıt dibine uzaklığı künyeli kapakta da künyesiz iç
+                sayfada da AYNIDIR. */}
+            {brandFooter.note ? <Text style={F.note}>{brandFooter.note}</Text> : null}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              {/* `flexBasis: 0` ŞART: temel genişlik "auto" bırakılırsa yoga
+                  metnin ÖLÇÜLEN uzunluğunu taban alır, esnek satırda daralan
+                  kutuda metni YENİDEN SARMAZ ve uzun bir konu folionun üstüne
+                  biner. Sıfır tabanla satır yalnız ARTAN yeri kaplar. */}
+              <Text style={[F.docLine, { flexGrow: 1, flexShrink: 1, flexBasis: 0 }]}>{docLine}</Text>
+              {docCode ? <Text style={[F.docLine, { flexShrink: 0 }]}>{docCode}</Text> : null}
+              {hidePageNumber ? null : (
+                <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 0 }}>
+                  <View style={F.square} />
+                  <Text style={F.folio} render={folioYazisi} />
+                </View>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View
+            style={{
+              borderTopWidth: hideFooterRule ? 0 : 0.75,
+              borderTopColor: BRAND.line300,
+              paddingTop: 4,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={T.micro}>{docLine}</Text>
+            {docCode ? <Text style={T.micro}>{docCode}</Text> : null}
+            {hidePageNumber ? null : <Text style={T.micro} render={folioYazisi} />}
+          </View>
+        )}
       </View>
     </Page>
   );

@@ -208,6 +208,17 @@ export function vatNote(vatIncluded: boolean): string {
     : "Belirtilen fiyatlara KDV dahil değildir.";
 }
 
+/**
+ * Toplam şeridindeki KDV rozeti — cümlenin iki sözcüklük hâli.
+ *
+ * AYNI BAYRAKTAN türer (`vatNote` ile birlikte): rozet ile cümle çelişemez.
+ * Şeritte cümlenin kendisi basılsaydı ödenecek rakamın yanında bir paragraf
+ * dururdu; cümle tablonun altında, küçük ve gri kalır.
+ */
+export function vatBadge(vatIncluded: boolean): string {
+  return vatIncluded ? "KDV DAHİL" : "KDV HARİÇ";
+}
+
 // ————————————————————————————————————————————————————— ödeme planı
 
 /**

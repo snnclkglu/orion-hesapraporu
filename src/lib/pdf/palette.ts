@@ -22,6 +22,12 @@ export const BRAND = {
   redPale: "#F1C9C7",
   ink: "#262626",
   inkDeep: "#211F1D",
+  /** Kömür zemin üzerindeki HAYALET işaret — çapraz şerit dokusunun çizgisi. */
+  inkGhost: "#2F2E2C",
+  /** Kömür zemin üzerindeki kıl çizgi — vurgusuz bölüm ayracı. */
+  inkLine: "#3A3633",
+  /** Mercan — YALNIZ kömür zemin üzerinde kicker rengi (kılavuz: dijital vurgu). */
+  coral: "#E8736F",
   steel: "#1F5C7A",
   slate: "#37474F",
   paper50: "#FAF8F7",

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import {
   BookmarkPlus,
   Check,
+  Clock,
   Download,
   Eye,
   EyeOff,
@@ -51,6 +52,7 @@ import { fmtMoney, fmtMoney0 } from "@/lib/currency";
 import { copyItemInPayload } from "@/lib/offers/copy";
 import { offerFileName } from "@/lib/pdf/doc-naming";
 import {
+  LEAD_TIME_UNITS,
   greetingFor,
   hiddenCount,
   newOfferId,
@@ -82,6 +84,7 @@ import {
 import { offerDocLine } from "@/lib/offers/no";
 import type {
   OfferGeneralTerm,
+  OfferLeadTimeUnit,
   OfferPayload,
   OfferPriceLine,
   OfferRow,
@@ -1435,6 +1438,48 @@ function FiyatEditor({
           >
             {vatNote(p.vatIncluded)}
           </Button>
+          {/* KALEM BAZINDA TESLİM SÜRESİ SÜTUNU (TEKLIF-52) — kapalı gelir.
+              Tuş SÜTUNU AÇAR, birimi de o anda seçtirir: birimi sonradan
+              soran ikinci bir kutu, sütunu birimsiz açık bırakabilirdi. */}
+          <Button
+            type="button"
+            variant={p.leadTimeUnit ? "default" : "outline"}
+            className="oc-tap self-end"
+            onClick={() =>
+              onChange({
+                ...payload,
+                pricing: { ...p, leadTimeUnit: p.leadTimeUnit ? null : "hafta" },
+              })
+            }
+          >
+            <Clock className="size-4" />
+            {p.leadTimeUnit ? "Teslim süresi sütunu açık" : "Kalem bazında teslim süresi"}
+          </Button>
+          {p.leadTimeUnit ? (
+            <div className="grid gap-1.5">
+              <Label>Teslim Süresi Birimi</Label>
+              <Select
+                value={p.leadTimeUnit}
+                onValueChange={(v) =>
+                  onChange({
+                    ...payload,
+                    pricing: { ...p, leadTimeUnit: v as OfferLeadTimeUnit },
+                  })
+                }
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_TIME_UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u === "hafta" ? "Hafta" : "Ay"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
         </div>
 
         <Table>
@@ -1443,6 +1488,14 @@ function FiyatEditor({
               <TableHead className="w-24">Sıra</TableHead>
               <TableHead>Tanımı</TableHead>
               <TableHead className="w-24">Kalem</TableHead>
+              {/* SÜTUN ADET'İN SOLUNDADIR — belgedeki sırayla aynı; ekranla kâğıt
+                  ayrışsaydı kullanıcı hangi kutuya ne yazdığını belgeden
+                  doğrulayamazdı. */}
+              {p.leadTimeUnit ? (
+                <TableHead className="w-24">
+                  Teslim ({p.leadTimeUnit === "hafta" ? "hafta" : "ay"})
+                </TableHead>
+              ) : null}
               <TableHead className="w-20">Adet</TableHead>
               <TableHead className="w-28">Birim</TableHead>
               <TableHead className="w-32">Birim Fiyat</TableHead>
@@ -1521,6 +1574,18 @@ function FiyatEditor({
                     </SelectContent>
                   </Select>
                 </TableCell>
+                {p.leadTimeUnit ? (
+                  <TableCell>
+                    {/* SAYI KUTUSU DEĞİL METİN KUTUSU: yazılan şey çoğu zaman bir
+                        ARALIKTIR ("6-7") ve sayı kutusu onu tek sayıya indirirdi. */}
+                    <Input
+                      value={line.leadTime ?? ""}
+                      onChange={(e) => setLine(i, { ...line, leadTime: e.target.value })}
+                      aria-label="Teslim süresi"
+                      className="h-9 text-base pointer-fine:text-sm"
+                    />
+                  </TableCell>
+                ) : null}
                 <TableCell>
                   {/* ADETTE BİNLİK AYIRAÇ AÇILMADI: vinç teklifinde adetler tek
                       hanelidir ve "1.000" yazımı, ondalık virgülle karışabilen
@@ -1621,7 +1686,9 @@ function FiyatEditor({
               );
             })}
             <TableRow>
-              <TableCell colSpan={6} className="text-right font-medium">
+              {/* TESLİM SÜRESİ SÜTUNU AÇIKKEN BİR SÜTUN DAHA VARDIR: sayı elle
+                  yazılsaydı sütun açıldığında TOPLAM satırı kayardı. */}
+              <TableCell colSpan={p.leadTimeUnit ? 7 : 6} className="text-right font-medium">
                 TOPLAM
               </TableCell>
               {/* TOPLAM MALİYET SÜTUNU TOPLAMAZ, maliyet belgesinin kendi

@@ -26,12 +26,15 @@ import React from "react";
 import { Document, Image, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import {
   BRAND,
-  BRAND_LOGO,
-  BrandBand,
+  BRAND_LOGO_INK,
+  BRAND_LOGO_PAPER,
+  BRAND_SYMBOL_INK,
   BrandPage,
   FONTS,
-  LOGO_RATIO,
+  LOGO_MONO_RATIO,
   PAGE,
+  SYMBOL_INK_RATIO,
+  StripeField,
   T,
   mm,
   trUpper,
@@ -45,6 +48,7 @@ import {
   lineAmount,
   offerTotal,
   priceLineNumbers,
+  vatBadge,
   vatNote,
 } from "@/lib/offers/pricing";
 import { offerDocLine, offerRevLabel } from "@/lib/offers/no";
@@ -61,10 +65,10 @@ import { COMPANY_PROFILE, GENERAL_TERMS_TITLE } from "@/lib/offers/registry";
 import { offerScopeSuffix } from "@/lib/offers/types";
 import type {
   OfferItem,
+  OfferLeadTimeUnit,
   OfferPayload,
   OfferPriceLine,
   OfferRow,
-  OfferRowScope,
 } from "@/lib/offers/types";
 
 export interface OfferDocumentProps {
@@ -89,25 +93,43 @@ export interface OfferDocumentProps {
    */
   customerLogo?: Buffer | null;
   meta: { generatedAt: string };
+  /**
+   * İKİ GEÇİŞİN İÇ ALANLARI — çağıran DOLDURMAZ (`renderOfferPdf` yönetir).
+   *
+   * Kapaktaki içindekiler bölümlerin GERÇEK sayfa numaralarını yazar; bir
+   * bölümün kaç yaprak tuttuğu ancak yerleştirildikten sonra bilinir. Birinci
+   * geçiş `collect` ile numaraları toplar, ikincisi `pageOf` ile basar.
+   */
+  collect?: (anchor: string, page: number) => void;
+  pageOf?: Record<string, number>;
+  /** Kapağın sıkışma kademesi — `renderOfferPdf` ÖLÇEREK seçer (bkz. `KapakYogunlugu`). */
+  coverDensity?: KapakYogunlugu;
 }
 
-// ————————————————————————————————————————————————————————————— ölçüler
-
 /**
- * ETİKET SÜTUNU SABİT GENİŞLİKTEDİR — iki noktalar alt alta hizalansın diye.
+ * KAPAĞIN SIKIŞMA KADEMESİ — tahmin edilmez, ÖLÇÜLÜR.
  *
- * Devralınan belgelerde etiket ile değer arasındaki boşluk elle verilmişti ve
- * her sayfada başka bir yerde duruyordu; göz `Motor :` ile `Fren :` arasında
- * bir sütun aramak zorunda kalıyordu. Genişlik en uzun etikete (`Çalışma
- * Ortamı / Sıcaklığı`) göre seçildi; taşan etiket sarar, hizayı bozmaz.
+ * Kapak TEK SAYFADIR ama üzerindeki metnin uzunluğu teklife göre değişir: konu
+ * üç satıra çıkabilir, müşteri unvanı ("… İSTİHSAL ENDÜSTRİSİ A.Ş.") künye
+ * kartında sarabilir, muhatabın bölümü uzun olabilir, iki imzacı girilebilir.
+ * Tasarımın nefes payları bunların hepsi birden geldiğinde taşıyordu ve
+ * @react-pdf taşan bloğu SESSİZCE ikinci bir yaprağa atıyordu — müşteriye
+ * altbilgiden ibaret boş bir sayfa gidiyordu.
+ *
+ * Payları içeriğin uzunluğuna bakarak tahmin etmek yerine belge ÖLÇÜLÜR:
+ * `renderOfferPdf` zaten iki geçiş yapıyor ve kapağın sonuna konan sonda
+ * ("son:kapak") hangi yaprakta bittiğini söylüyor. Taşarsa kademe artar ve
+ * yerleşim yeniden koşar.
+ *
+ *  - `0` — tasarımın kendi payları.
+ *  - `1` — bölge araları kısalır (bant içi, içindekiler, hitap, iş kolu satırı).
+ *  - `2` — İŞ KOLLARI ızgarası düşer. Tasarımın kendi anahtarıdır
+ *    (`showBusinessLines`); kapağın en uzun ve en az kritik bloğudur —
+ *    firmanın beyanı kalır, listesi düşer.
  */
-const ETIKET_GENISLIK = 148;
+export type KapakYogunlugu = 0 | 1 | 2;
 
-/** Kapak künyesindeki etiketler daha kısadır (`Referansımız`, `Müşteri`). */
-const KUNYE_ETIKET_GENISLIK = 82;
-
-/** KİMDEN ve KİME kartları birbirinden gerçek bir olukla ayrılır. */
-const KUNYE_KART_ARALIK = 12;
+// ————————————————————————————————————————————————————————————— ölçüler
 
 /**
  * İki teknik blok arasındaki boşluk.
@@ -117,142 +139,265 @@ const KUNYE_KART_ARALIK = 12;
  */
 const BLOK_ARA = 10;
 
-/**
- * Firma künyesinin sayfa dibinden yüksekliği.
- *
- * `BrandPage`in folio satırı (ayırıcı çizgi + doküman satırı + sayfa numarası)
- * sayfa dibinden 12pt yer kaplar; künye onun ÜSTÜNE oturur ve araya 4pt hava
- * bırakır. Ölçü basılan belgeden alındı (çizgi 810,25pt'te), tahmin değildir:
- * pay 12'ye çekilseydi gri iletişim satırı ayırıcı çizgiye YAPIŞIRDI.
- */
-const FOLIO_YUKSEKLIK = 16;
+/** A4 genişliği — kömür bandın şerit dokusu kağıdın iki kenarına da değer. */
+const SAYFA_EN = mm(210);
 
 /**
- * Kapak sayfasının alt payı: folio satırı + tek satırlık firma künyesi.
+ * KÖMÜR BANDIN ŞERİT DOKUSUNUN BOYU — bandın kendi yüksekliği DEĞİL.
  *
- * `BrandPage`in kendi künye payı (`company` prop'u) KULLANILMAZ — o prop iki
- * sütunlu `CompanyBlock`u çizerdi (bkz. `FirmaKunyesi`). Pay burada, teklifin
- * kendi künyesinin gerçek yüksekliğine göre verilir; eksik verilseydi kapak
- * metni künyenin üstüne binerdi.
+ * Bant içeriğiyle büyür (başlık iki satır da olabilir üç de); doku ise sabit
+ * ölçülü bir SVG'dir ve bandın kesebileceğinden BÜYÜK verilir — kutu
+ * `overflow: "hidden"` ile fazlasını kırpar. Küçük verilseydi uzun bir konuda
+ * bandın dibinde dokusuz bir şerit kalırdı.
  */
-const KAPAK_ALT_PAY = PAGE.marginBottom + 14 + 22;
+const BANT_DOKU_BOY = mm(200);
 
 /**
- * FİYAT TABLOSU TEK ŞEMADIR — payların toplamı 100.
+ * Kapağın kağıt bölgesinin alt payı — markalı altbilgi (iki satır) buraya sığar.
  *
- * Tutar sütunları GERÇEK BÜYÜKLÜKLERE göre ayrıldı ("1.575.000 €" gibi yedi
- * haneli değerler olağandır); dar bir sütunda bu tutar ikinci satıra iner ve
- * tablo okunmaz olurdu.
+ * Altbilgi bloğu kağıt dibinden ~45 pt yükselir (kural + doküman satırı + künye
+ * satırı); pay ondan 3 pt fazladır. Daha büyük vermek kapağın en kıt kaynağını
+ * boşa harcamak, daha küçük vermek iş kolları listesini künyenin üstüne
+ * bindirmek olurdu.
  */
+const KAPAK_ALT_PAY = mm(17);
+
 /**
- * TİCARİ SAYFANIN İKİ SÜTUN BAŞLIĞI.
+ * KAPAĞIN NEFES PAYLARI — sıkışma kademesine göre (bkz. `KapakYogunlugu`).
+ *
+ * Kısalan şeyler BOŞLUKLARDIR, puntolar değil: metni küçültmek belgeyi okunmaz
+ * yapar, aralığı kısmak yalnız daha yoğun gösterir. Kademe 2'de tek bir BLOK
+ * düşer ve o blok tasarımın kendi anahtarını taşıyandır.
+ */
+function kapakPaylari(yogunluk: KapakYogunlugu) {
+  const sik = yogunluk >= 1;
+  return {
+    bantKickerUst: sik ? mm(8) : mm(13),
+    bantAlt: sik ? mm(9) : mm(13),
+    icindekilerUst: sik ? mm(7) : mm(11),
+    kagitUst: sik ? mm(6) : mm(8),
+    hitapUst: sik ? mm(4) : mm(6),
+    boslukEnAz: sik ? 0 : 12,
+    tanitimGovdeAlt: sik ? 6 : 9,
+    isKoluAlt: sik ? 3.5 : 5.25,
+    isKollariVar: yogunluk < 2,
+  };
+}
+
+/**
+ * TİCARİ SAYFANIN BLOK BAŞLIKLARI.
  *
  * Defterde DEĞİLDİR ve olmamalıdır: bunlar kullanıcının düzenlediği bir metin
  * değil, sayfanın yerleşim etiketleridir. `terms.title` ("TESLİM VE ÖDEME
- * ŞEKLİ") sayfanın BAŞLIĞIDIR ve payload'da durur; bu ikisi onun altındaki iki
- * sütunun adıdır.
+ * ŞEKLİ") sayfanın KICKER'IDIR ve payload'da durur; bunlar onun altındaki
+ * blokların adıdır.
  */
 const TESLIM_BASLIK = "TESLİM ŞARTLARI";
-const ODEME_BASLIK = "ÖDEME";
+const ODEME_BASLIK = "ÖDEME PLANI";
 
 /** Fiyat tablosunun bölüm başlığı (kullanıcı isteği 19.08.2026, md. 16). */
 const FIYAT_BASLIK = "FİYATLAR";
 
-const FIYAT_SUTUNLARI: { baslik: string; pay: number; sag?: boolean }[] = [
-  { baslik: "No", pay: 5, sag: true },
-  { baslik: "Tanımı", pay: 45 },
-  { baslik: "Adet", pay: 13, sag: true },
-  { baslik: "Birim Fiyat", pay: 18, sag: true },
-  { baslik: "Toplam Fiyat", pay: 19, sag: true },
-];
-
 const S = StyleSheet.create({
-  // ---- kapak
-  // Punto çağrı yerinde konunun uzunluğuna göre verilir (`kapakBaslikPunto`).
-  kapakBaslik: {
-    ...T.display,
-    fontSize: 22,
-    textAlign: "center",
-    marginTop: 38,
-    marginBottom: 28,
+  // ————————————————————————————————————— KAPAK · KÖMÜR BANT
+  //
+  // Kapak TAM KANAMADIR (`bleed`): kömür bant kağıdın iki kenarına da değer,
+  // kırmızı omurga onun ÜZERİNDEN geçer. Bandın kendi payları sayfanın
+  // marjlarıyla AYNIDIR (16 üst / 16 dış / 22 iç) — alttaki kağıt bölgesi de
+  // aynı sütuna oturur ve iki bölge tek bir ızgarayı paylaşır.
+  bant: { position: "relative", overflow: "hidden", backgroundColor: BRAND.ink, flexGrow: 0, flexShrink: 0 },
+  bantDoku: { position: "absolute", top: 0, left: 0 },
+  bantIc: {
+    position: "relative",
+    paddingTop: PAGE.marginTop,
+    paddingRight: PAGE.marginOuter,
+    paddingBottom: mm(13),
+    paddingLeft: PAGE.contentLeft,
   },
-  kunyeKartlar: { flexDirection: "row", gap: KUNYE_KART_ARALIK, alignItems: "stretch" },
-  kunyeKart: {
+  // Üst satır KIRMIZI kuralla kapanır: kılavuz kömür zeminde sayfa kuralını
+  // kırmızıya çevirir (kağıtta aynı kural kömürdür — bkz. `S.sayfaKurali`).
+  bantUst: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    borderBottomWidth: 1.5,
+    borderBottomColor: BRAND.red,
+    paddingBottom: 6.75,
+  },
+  bantMeta: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.75,
+    letterSpacing: 0.95,
+    lineHeight: 1.8,
+    color: BRAND.gray500,
+    textAlign: "right",
+  },
+  /** Referans numarasının KENDİSİ kağıt rengi ve yarı kalın — etiketi değil. */
+  bantMetaGuclu: { color: BRAND.paper100, fontWeight: 600 },
+  bantKicker: { flexDirection: "row", alignItems: "center", marginTop: mm(13) },
+  /** Kılavuzun 44×5 px kırmızı çizgisi, kapak ölçeğinde (33×3,75 pt). */
+  bantKickerCubugu: { width: 33, height: 3.75, backgroundColor: BRAND.red, marginRight: 8.25 },
+  // KİCKER MERCANDIR — kılavuz mercanı YALNIZ kömür zeminde kicker rengi
+  // olarak tanımlar; kağıt üzerinde aynı rol kırmızıya döner.
+  bantKickerYazi: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.5,
+    fontWeight: 600,
+    letterSpacing: 1.65,
+    color: BRAND.coral,
+  },
+  // Punto çağrı yerinde konunun uzunluğuna göre verilir (`kapakBaslikPunto`).
+  bantBaslik: {
+    fontFamily: FONTS.sans,
+    fontWeight: 900,
+    lineHeight: 1,
+    letterSpacing: -0.8,
+    color: BRAND.paper50,
+    maxWidth: mm(150),
+    marginTop: 10.5,
+  },
+  bantMusteri: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.5,
+    letterSpacing: 1.05,
+    color: BRAND.gray500,
+    marginTop: 9,
+  },
+
+  // ---- kapaktaki içindekiler
+  icindekiler: { marginTop: mm(11) },
+  icindekilerBaslik: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.75,
+    fontWeight: 600,
+    letterSpacing: 1.5,
+    color: BRAND.gray500,
+    marginBottom: 7.5,
+  },
+  icindekilerIzgara: { flexDirection: "row", gap: 9, alignItems: "stretch" },
+  // Kutular EŞİT genişliktedir (`flexBasis: 0`): bölüm adlarının uzunluğu
+  // sütunları yerinden oynatmaz, üstteki çizgiler aynı boyda kalır.
+  icindekilerKutu: {
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: 0,
-    borderWidth: 0.8,
-    borderColor: BRAND.line350,
+    borderTopWidth: 2.25,
+    borderTopColor: BRAND.inkLine,
+    paddingTop: 6.75,
   },
-  kunyeBaslikSatiri: { backgroundColor: BRAND.ink },
-  kunyeBaslik: {
+  /** SAYFA BAŞINA TEK VURGU: yalnız ilk bölüm kırmızı açılır. */
+  icindekilerKutuVurgu: { borderTopColor: BRAND.red },
+  icindekilerSayfa: {
     fontFamily: FONTS.mono,
-    fontSize: 6.6,
+    fontSize: 6,
     fontWeight: 600,
     letterSpacing: 1.2,
-    color: BRAND.paper100,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    color: BRAND.gray500,
   },
-  kunyeSutun: { paddingHorizontal: 7, paddingTop: 6, paddingBottom: 7 },
+  icindekilerSayfaVurgu: { color: BRAND.coral },
+  icindekilerAd: {
+    fontFamily: FONTS.sans,
+    fontSize: 9.75,
+    fontWeight: 700,
+    lineHeight: 1.25,
+    color: BRAND.paper50,
+    marginTop: 5.25,
+  },
+
+  // ————————————————————————————————————— KAPAK · KAĞIT BÖLGE
+  kagit: {
+    flexGrow: 1,
+    flexShrink: 1,
+    backgroundColor: BRAND.paper50,
+    paddingTop: mm(8),
+    paddingRight: PAGE.marginOuter,
+    paddingBottom: KAPAK_ALT_PAY,
+    paddingLeft: PAGE.contentLeft,
+  },
+
+  // ---- KİMDEN / KİME künyesi: TEK kutu, ortada bir ayraç
+  //
+  // İki ayrı kart arasındaki oluk kaldırıldı (kullanıcı tasarımı, 22.08.2026):
+  // kutu tek olunca iki taraf aynı yüksekliğe kendiliğinden oturur ve künye
+  // bir "kart çifti" değil bir MUHATAP ÇİZELGESİ gibi okunur.
+  kunyeKutu: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderWidth: 0.75,
+    borderColor: BRAND.line300,
+    backgroundColor: BRAND.white,
+  },
+  kunyeHucre: { flexGrow: 1, flexShrink: 1, flexBasis: 0, paddingVertical: 10.5, paddingHorizontal: 12 },
+  kunyeHucreAyrac: { borderRightWidth: 0.75, borderRightColor: BRAND.line300 },
   /**
-   * LOGO YUVASI SABİTTİR. Görsel olsa da olmasa da iki kartın metni aynı
-   * taban çizgisinden başlar; rastlantısal logo oranı künyeyi aşağı itemez.
+   * ETİKET VE MARKA AYNI SATIRDA, SABİT YÜKSEKLİKTE.
+   *
+   * Yükseklik logonun standart tuvalinden gelir (120 × 32 pt, TEKLIF-43):
+   * müşteri logosu olsa da olmasa da iki hücrenin metni aynı taban çizgisinden
+   * başlar — rastlantısal bir logo oranı künyeyi aşağı itemez.
    */
-  kunyeLogoAlani: {
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  kunyeLogoStandart: { width: 120, height: 32 },
-  // Unvan, adın tam ALTINA hizalanır: etiket genişliği + iki nokta sütunu.
-  unvan: { ...T.caption, fontSize: 7, color: BRAND.gray600, marginLeft: KUNYE_ETIKET_GENISLIK + 9 },
-  hitap: { ...T.body, fontSize: 9.5, color: BRAND.ink, marginTop: 26 },
-  // ---- kapak başlığı ve firma tanıtımı (md. 20, md. 22)
-  kapakEsnekBosluk: { flexGrow: 1, minHeight: 18 },
-  tanitim: {
-    marginTop: 14,
-    borderTopWidth: 0.6,
-    borderTopColor: BRAND.line300,
-    paddingTop: 8,
+  kunyeUst: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", height: 32 },
+  kunyeEtiket: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.75,
+    fontWeight: 600,
+    letterSpacing: 1.5,
+    color: BRAND.red,
     flexShrink: 0,
+  },
+  kunyeAd: { fontFamily: FONTS.sans, fontSize: 11.25, fontWeight: 800, lineHeight: 1.2, color: BRAND.ink, marginTop: 8.25 },
+  kunyeKisi: { fontFamily: FONTS.sans, fontSize: 8.25, lineHeight: 1.4, color: BRAND.gray600, marginTop: 3 },
+  kunyeIletisim: { marginTop: 6.75, paddingTop: 6, borderTopWidth: 0.75, borderTopColor: BRAND.hairline },
+  kunyeIletisimSatiri: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.1,
+    letterSpacing: 0.3,
+    lineHeight: 1.7,
+    color: BRAND.gray700,
+  },
+
+  // ---- hitap ve giriş
+  hitapBlogu: { marginTop: mm(6), maxWidth: mm(150) },
+  hitap: { fontFamily: FONTS.sans, fontSize: 9, lineHeight: 1.65, color: BRAND.gray700 },
+  giris: { fontFamily: FONTS.sans, fontSize: 9, lineHeight: 1.65, color: BRAND.gray700 },
+  saygi: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink, marginTop: 5.25 },
+  imzalar: { flexDirection: "row", gap: 40, marginTop: 12 },
+  imzaAd: { fontFamily: FONTS.sans, fontSize: 8.5, fontWeight: 700, color: BRAND.ink },
+  imzaUnvan: { ...T.caption, fontSize: 7, marginTop: 1 },
+
+  // ---- firma tanıtımı ve iş kolları (kapağın alt bölgesi)
+  kapakEsnekBosluk: { flexGrow: 1, minHeight: 12 },
+  tanitim: { borderTopWidth: 2.25, borderTopColor: BRAND.red, paddingTop: 8.25, flexShrink: 0 },
+  tanitimGovde: {
+    fontFamily: FONTS.sans,
+    fontSize: 7.9,
+    lineHeight: 1.6,
+    color: BRAND.gray600,
+    maxWidth: mm(155),
+    marginBottom: 9,
   },
   tanitimBaslik: {
     fontFamily: FONTS.mono,
-    fontSize: 6.6,
+    fontSize: 6.75,
     fontWeight: 600,
-    letterSpacing: 1.3,
-    color: BRAND.ink,
-    marginBottom: 4,
+    letterSpacing: 1.5,
+    color: BRAND.red,
+    marginBottom: 8.25,
   },
-  tanitimGovde: { ...T.body, fontSize: 7, lineHeight: 1.5, color: BRAND.gray600, textAlign: "justify" },
-  tanitimUrun: { ...T.micro, fontSize: 6, lineHeight: 1.5, color: BRAND.gray500, marginTop: 5 },
-  giris: { ...T.body, fontSize: 9.5, marginTop: 10, textAlign: "justify" },
-  saygi: { ...T.body, fontSize: 9.5, color: BRAND.ink, marginTop: 16 },
-  imzalar: { flexDirection: "row", gap: 40, marginTop: 26 },
-  imzaAd: { fontFamily: FONTS.sans, fontSize: 9, fontWeight: 700, color: BRAND.ink },
-  imzaUnvan: { ...T.caption, fontSize: 7.5, marginTop: 1.5 },
-
-  // ---- kapak altbilgisi (teklife özel tek satırlık künye)
-  kunyeFirma: {
-    fontFamily: FONTS.sans,
-    fontSize: 7.5,
-    fontWeight: 700,
-    letterSpacing: 0.2,
-    color: BRAND.ink,
-  },
-  // Punto adres satırının bugünküsünden (6) bir tık küçük ve harf aralığı
-  // daraltıldı: dört alan TEK satıra iniyor ve A4 içerik genişliğine sığması
-  // ancak böyle garanti oluyor (bkz. `FirmaKunyesi`).
-  kunyeIletisim: { ...T.micro, fontSize: 5.4, letterSpacing: 0.15, color: BRAND.gray600, marginTop: 2 },
+  // SIRA SATIR YÖNÜNDEDİR: `flexWrap` iki sütunlu bir ızgarayı soldan sağa
+  // doldurur ve tasarımdaki okuma sırası ancak böyle korunur.
+  isKollari: { flexDirection: "row", flexWrap: "wrap" },
+  isKolu: { width: "50%", flexDirection: "row", alignItems: "flex-start", paddingRight: 16.5, paddingBottom: 5.25 },
+  /** Kılavuzun 7 px kırmızı kare madde işareti. */
+  isKoluIsareti: { width: 5.25, height: 5.25, backgroundColor: BRAND.red, marginTop: 3, marginRight: 6.75, flexShrink: 0 },
+  isKoluYazi: { fontFamily: FONTS.sans, fontSize: 8.25, lineHeight: 1.45, color: BRAND.gray700, flexGrow: 1, flexShrink: 1, flexBasis: 0 },
 
   // ---- teknik / ticari satır
   // KALEM BAŞLIĞI SAYFANIN BAŞLIĞIDIR (kullanıcı isteği, 17.08.2026: *"vinç
   // adının yazdığı başlık biraz daha büyük olsun"*). 11pt'de grup başlığının
   // (8,8) yalnız bir tık üstündeydi ve sayfada hangisinin kimin başlığı olduğu
   // seçilmiyordu; 15pt ile hiyerarşi tek bakışta okunur.
-  bolumBaslik: { ...T.heading, marginBottom: 3 },
+  bolumBaslik: { ...T.heading },
   /**
    * BÖLÜM ŞERİDİ — bölüm adının üstündeki çizgi.
    *
@@ -273,17 +418,6 @@ const S = StyleSheet.create({
     marginBottom: 4.5,
   },
   bolumAdiVurgu: { color: BRAND.red },
-  // `flex-start`: uzun değer sarınca etiket YUKARIDA kalır, satırlar iç içe
-  // geçmez (sipariş onayının md. 12 kuralıyla aynı).
-  satir: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 1.6 },
-  etiket: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.gray700, flexGrow: 0, flexShrink: 0 },
-  ikiNokta: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.gray450, width: 9, flexGrow: 0, flexShrink: 0 },
-  // `flexBasis: 0` ŞART: temel genişlik "auto" bırakılırsa yoga değerin
-  // ÖLÇÜLEN uzunluğunu taban alır ve uzun bir müşteri unvanı ("… İSTİHSAL
-  // ENDÜSTRİSİ A.Ş.") satırı kutunun dışına taşırır — sarmak yerine kenardan
-  // taşar ve etiket sütununu da yerinden oynatır. Sıfır tabanla değer yalnız
-  // ARTAN yeri kaplar, oraya sığmayan sarar.
-  deger: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.ink, flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   // KAPSAM EKİ DEĞERİN PARÇASI DEĞİLDİR: aynı satırda, değerin devamında ama
   // daha küçük ve daha silik basılır ki müşteri "SIBRE Kasnak Fren" ile
   // "(Müşteri Kapsamında)" notunu birbirine karıştırmasın. İç içe `Text`
@@ -342,44 +476,6 @@ const S = StyleSheet.create({
     marginLeft: ETIKET_ARA,
   },
 
-  // ---- ÖDEME KALEMLERİ (kullanıcı isteği 19.08.2026, md. 15)
-  //
-  // Devralınan düzende ödeme planı "Ödeme :" satırının altında 157 pt
-  // girintili küçük satırlardı: teklifin en çok bakılan iki rakamı (yüzdeler)
-  // sayfanın en silik yerinde duruyordu. Artık kendi kutusunda, oran solda ve
-  // büyük — göz sayfaya baktığında ödemeyi ilk okur.
-  odemeGiris: { ...T.body, fontSize: 7.6, color: BRAND.gray700, marginBottom: 5 },
-  odemeKutu: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 0.6,
-    borderColor: BRAND.line300,
-    backgroundColor: BRAND.paper50,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    marginBottom: 5,
-  },
-  odemeOran: {
-    fontFamily: FONTS.sans,
-    fontSize: 13,
-    fontWeight: 900,
-    color: BRAND.red,
-    width: 44,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  // `flexBasis: 0` ŞART (bkz. `deger`): esnek satırda taban genişlik "auto"
-  // bırakılırsa uzun bir açıklama sarmak yerine kutudan taşar.
-  odemeAciklama: {
-    fontFamily: FONTS.sans,
-    fontSize: 7.8,
-    lineHeight: 1.3,
-    color: BRAND.ink,
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-  },
-
   // ---- ÇİFT SÜTUN (kullanıcı isteği 18.08.2026, md. 8)
   //
   // Sütunlar SABİT GENİŞLİKTİR (`SUTUN_GENISLIK`), esnek değil: sayfalama
@@ -389,21 +485,73 @@ const S = StyleSheet.create({
   sutunlar: { flexDirection: "row", gap: SUTUN_BOSLUK },
   sutun: { width: SUTUN_GENISLIK },
   /**
-   * SAYFA BAŞLIĞI ALT ALTA ÜÇ SATIRDIR, YAN YANA İKİ SÜTUN DEĞİL.
+   * SAYFA BAŞLIĞI KAPAK BANDININ KAĞIT ÜZERİNDEKİ KARŞILIĞIDIR.
    *
-   * Önceki düzende büyük başlık solda, kalem adı künyesi sağda duruyordu ve
-   * ikisi ÜST ÜSTE BİNİYORDU (kullanıcı bildirimi, 18.08.2026): esnek satırda
-   * yalnız `flexGrow/flexShrink` verilmiş bir kutuda @react-pdf metni kutunun
-   * DARALTILMIŞ genişliğine göre yeniden sarmıyor, ölçtüğü doğal genişlikte
-   * çiziyor — 429 pt'lik başlık 337 pt'lik kutudan taşıp künyenin üstüne
-   * biniyordu. Yan yana iki kutu kalmayınca çakışma da kalmaz: her satır
-   * içerik genişliğinin TAMAMINI kullanır.
+   * Kapakta: kırmızı çubuk + mono kicker, sağda mono künye, altında büyük
+   * başlık ve bölgeyi kapatan kural. İç sayfalarda aynı anatomi, kağıt
+   * ölçeğinde — çubuk 18×2,4, kural KÖMÜR (kılavuz kuralı kömür zeminde
+   * kırmızıya çevirir, kağıtta kömür bırakır).
+   *
+   * BÜYÜK BAŞLIK KENDİ SATIRINDA KALIR, künyeyle YAN YANA GELMEZ (kullanıcı
+   * bildirimi, 18.08.2026): esnek satırda yalnız `flexGrow/flexShrink`
+   * verilmiş bir kutuda @react-pdf metni DARALTILMIŞ genişliğe göre yeniden
+   * sarmaz, ölçtüğü doğal genişlikte çizer — 429 pt'lik başlık 337 pt'lik
+   * kutudan taşıp künyenin üstüne biniyordu. Kicker ile künye yan yanadır ama
+   * ikisi de kısa mono metinlerdir ve toplamları içerik genişliğinin yarısını
+   * bulmaz; aynı tuzağa düşmezler.
+   *
+   * YÜKSEKLİK BÜTÇESİ KORUNUR: blok ~43 pt'tir ve `PDF_SUTUN_KAPASITE` o payı
+   * düşer. Buradaki her pt sütun kapasitesinden gider — bir teknik sayfa
+   * yüzünden ikinci bir yaprak açılabilir.
    */
-  sayfaBasi: { marginBottom: 12 },
-  sayfaKicker: { ...T.kicker, color: BRAND.red, marginBottom: 2 },
-  ticariBaslik: { ...T.heading, fontSize: 18, lineHeight: 1.08, marginBottom: 3 },
-  ticariBolumAdi: { fontSize: 7.8, letterSpacing: 1.45, marginBottom: 6 },
-
+  sayfaBasi: { marginBottom: 9 },
+  // ---- MARKA SATIRI (ticari ve genel şartlar sayfaları)
+  //
+  // Kömür kapak bandının kağıt üzerindeki karşılığı: solda KÖMÜR lockup, sağda
+  // doküman künyesi, altında KIRMIZI kural. Teknik sayfalar aynı dili konuşur
+  // ama lockup'ı taşımaz — gerekçesi `SayfaBasi`da.
+  sayfaMarkaSatiri: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    borderBottomWidth: 1.5,
+    borderBottomColor: BRAND.red,
+    paddingBottom: 6.75,
+  },
+  sayfaMarkaMeta: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.75,
+    letterSpacing: 0.95,
+    lineHeight: 1.8,
+    color: BRAND.gray500,
+    textAlign: "right",
+  },
+  sayfaMarkaMetaGuclu: { color: BRAND.ink, fontWeight: 600 },
+  // Kapaktaki 33×3,75 çubuğun aynısı; teknik sayfada 18×2,4'e iner.
+  sayfaKickerSatiri: { flexDirection: "row", alignItems: "center" },
+  sayfaKickerCubugu: { width: 33, height: 3.75, backgroundColor: BRAND.red, marginRight: 8.25, flexShrink: 0 },
+  sayfaKicker: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.5,
+    fontWeight: 600,
+    letterSpacing: 1.65,
+    color: BRAND.red,
+    flexShrink: 1,
+  },
+  sayfaKickerCubuguKucuk: { width: 18, height: 2.4, backgroundColor: BRAND.red, marginRight: 6, flexShrink: 0 },
+  sayfaKickerKucuk: { ...T.kicker, color: BRAND.red, flexShrink: 1 },
+  sayfaMeta: {
+    ...T.micro,
+    color: BRAND.gray500,
+    marginLeft: "auto",
+    paddingLeft: 12,
+    flexShrink: 0,
+    textAlign: "right",
+  },
+  /** Lockup'sız sayfalarda kimlik satırını kapatan KIRMIZI kural. */
+  sayfaKurali: { height: 1.5, backgroundColor: BRAND.red, marginTop: 6 },
+  sayfaBaslik: { ...T.heading, marginTop: 6 },
+  ticariBaslik: { ...T.heading, fontSize: 19.5, lineHeight: 1, marginTop: 7.5 },
 
   // ---- GENEL ŞARTLAR (md. 9)
   //
@@ -414,55 +562,211 @@ const S = StyleSheet.create({
   sartBaslik: { fontFamily: FONTS.sans, fontSize: 7, fontWeight: 700, color: BRAND.gray700, marginBottom: 1.5 },
   sartGovde: { fontFamily: FONTS.sans, fontSize: 6.6, lineHeight: 1.45, color: BRAND.gray600, textAlign: "justify" },
 
-  // ---- fiyat tablosu
-  fiyatBaslikSatiri: { flexDirection: "row", backgroundColor: BRAND.ink, marginTop: 4 },
+  // ————————————————————————————————— TİCARİ SAYFA (kullanıcı tasarımı, 22.08.2026)
+  //
+  // Üstte iki sütun: solda TESLİM ŞARTLARI çizelgesi (kırmızı açılır), sağda
+  // ÖDEME PLANI ve TEST YÜKÜ. Her blok bir BAŞLIK + BEYAZ KUTU çiftidir; kutu
+  // 1 px kıl çizgiyle çerçevelenir ve satırlar arasında aynı kıl çizgi durur.
+  // Devralınan düzende bunlar çıplak `Etiket : Değer` satırlarıydı ve sayfanın
+  // neresinin nerede bittiği ancak punto farkından okunuyordu.
+  ticariUst: { flexDirection: "row", gap: 9, alignItems: "stretch" },
+  /** Teslim şartları sütunu daha geniştir (tasarımda 1,55 / 1 oranı). */
+  ticariSol: { flexGrow: 1.55, flexShrink: 1, flexBasis: 0 },
+  ticariSag: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  /** Blok başlığı: 3 px şerit + mono etiket. Şerit KIRMIZIYSA blok vurguludur. */
+  blokSerit: { borderTopWidth: 2.25, borderTopColor: BRAND.ink, paddingTop: 6.75 },
+  blokSeritVurgu: { borderTopColor: BRAND.red },
+  blokEtiket: { fontFamily: FONTS.mono, fontSize: 6.75, fontWeight: 600, letterSpacing: 1.5, color: BRAND.ink },
+  blokEtiketVurgu: { color: BRAND.red },
+  kutu: {
+    marginTop: 6,
+    borderWidth: 0.75,
+    borderColor: BRAND.line300,
+    backgroundColor: BRAND.white,
+  },
+  /** Kutunun SON satırı alt çizgisini taşımaz — çerçeve zaten oradadır. */
+  kutuSatiri: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7.5,
+    paddingVertical: 3,
+    paddingHorizontal: 8.25,
+    borderBottomWidth: 0.75,
+    borderBottomColor: BRAND.hairline,
+  },
+  kutuSonSatir: { borderBottomWidth: 0 },
+  // ETİKET MONO VE GRİ, DEĞER SANS VE KOYU: renk farkı dekor değil,
+  // tanım/veri ayrımıdır (TEKLIF-44'ün teknik satırdaki kuralı).
+  sartEtiket: {
+    fontFamily: FONTS.mono,
+    fontSize: 6,
+    fontWeight: 600,
+    letterSpacing: 0.72,
+    lineHeight: 1.35,
+    color: BRAND.gray600,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+  },
+  sartDeger: {
+    fontFamily: FONTS.sans,
+    fontSize: 7.2,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    color: BRAND.ink,
+    flexGrow: 1.3,
+    flexShrink: 1,
+    flexBasis: 0,
+  },
+  // ---- ödeme planı
+  //
+  // ORAN SOLDA VE BÜYÜK; satırın sol kenarında 3 pt'lik bir omuz durur ve
+  // İLK taksitinki kırmızıdır — plan bir sıradır ve gözün nereden başlayacağı
+  // belli olmalıdır.
+  odemeSatiri: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6.75,
+    paddingVertical: 2.25,
+    paddingHorizontal: 8.25,
+    borderBottomWidth: 0.75,
+    borderBottomColor: BRAND.hairline,
+    borderLeftWidth: 2.25,
+    borderLeftColor: BRAND.line300,
+  },
+  odemeSatiriIlk: { borderLeftColor: BRAND.red },
+  odemeOran: {
+    fontFamily: FONTS.mono,
+    fontSize: 8.25,
+    fontWeight: 600,
+    lineHeight: 1.35,
+    color: BRAND.ink,
+    flexShrink: 0,
+  },
+  odemeOranIlk: { color: BRAND.red },
+  odemeAciklama: {
+    fontFamily: FONTS.sans,
+    fontSize: 6.75,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    color: BRAND.ink,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+  },
+  odemeGiris: { ...T.body, fontSize: 6.6, color: BRAND.gray600, marginTop: 4 },
+  // ---- test yükü
+  testDeger: { fontFamily: FONTS.mono, fontSize: 8.25, fontWeight: 600, lineHeight: 1.35, color: BRAND.ink, flexShrink: 0 },
+
+  // ————————————————————————————————— FİYAT TABLOSU
+  fiyatUst: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    borderTopWidth: 2.25,
+    borderTopColor: BRAND.red,
+    paddingTop: 6.75,
+  },
+  fiyatParaBirimi: { fontFamily: FONTS.mono, fontSize: 6, letterSpacing: 0.84, color: BRAND.gray500 },
+  fiyatKutu: { marginTop: 6, borderWidth: 0.75, borderColor: BRAND.line300, backgroundColor: BRAND.white },
+  fiyatBaslikSatiri: {
+    flexDirection: "row",
+    gap: 7.5,
+    paddingVertical: 4.5,
+    paddingHorizontal: 9,
+    backgroundColor: BRAND.ink,
+  },
   fiyatBaslik: {
     fontFamily: FONTS.mono,
-    fontSize: 6.6,
+    fontSize: 6,
     fontWeight: 600,
-    letterSpacing: 0.7,
+    letterSpacing: 0.96,
+    lineHeight: 1.35,
     color: BRAND.paper100,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
   },
   fiyatSatiri: {
     flexDirection: "row",
+    gap: 7.5,
     alignItems: "flex-start",
-    borderBottomWidth: 0.4,
+    paddingVertical: 4.5,
+    paddingHorizontal: 9,
+    borderBottomWidth: 0.75,
     borderBottomColor: BRAND.hairline,
   },
-  fiyatHucre: {
-    fontFamily: FONTS.sans,
-    fontSize: 7.8,
-    fontWeight: 500,
-    lineHeight: 1.35,
-    color: BRAND.ink,
-    paddingVertical: 3.5,
-    paddingHorizontal: 4,
-  },
-  fiyatMono: { fontFamily: FONTS.mono, fontSize: 7.6 },
-  toplamSatiri: {
+  /** ANA SATIR ZEMİNLİDİR: iki seviyeli sırada (1 / 1.1) hiyerarşi zeminle okunur. */
+  fiyatSatiriAna: { backgroundColor: BRAND.paper100 },
+  fiyatNo: { fontFamily: FONTS.mono, fontSize: 6.75, fontWeight: 600, lineHeight: 1.4, color: BRAND.gray500 },
+  fiyatNoAna: { color: BRAND.red },
+  fiyatTanim: { fontFamily: FONTS.sans, fontSize: 7.5, fontWeight: 500, lineHeight: 1.4, color: BRAND.ink },
+  fiyatTanimAna: { fontWeight: 800 },
+  /** Alt satırın adı bir tık içeridedir — sıra numarası tek başına yetmiyordu. */
+  fiyatTanimAlt: { paddingLeft: 10.5 },
+  fiyatVeri: { fontFamily: FONTS.mono, fontSize: 6.75, lineHeight: 1.4, color: BRAND.gray700, textAlign: "right" },
+  fiyatTutar: { fontFamily: FONTS.mono, fontSize: 7.125, fontWeight: 600, lineHeight: 1.4, color: BRAND.ink, textAlign: "right" },
+  // ---- toplam şeritleri
+  //
+  // ÖDENECEK RAKAM KÖMÜR ŞERİTTEDİR ve tablonun en büyük yazısıdır; ara
+  // toplamlar (TOPLAM, İSKONTO) onun üstünde açık zeminde durur.
+  toplamAra: {
     flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "baseline",
+    gap: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderBottomWidth: 0.75,
+    borderBottomColor: BRAND.hairline,
+    backgroundColor: BRAND.paper50,
+  },
+  toplamAraEtiket: { fontFamily: FONTS.mono, fontSize: 6.75, fontWeight: 600, letterSpacing: 1.2, color: BRAND.gray600 },
+  toplamAraTutar: { fontFamily: FONTS.mono, fontSize: 8.25, fontWeight: 600, color: BRAND.ink },
+  toplamSerit: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    borderTopWidth: 1.2,
-    borderTopColor: BRAND.ink,
-    backgroundColor: BRAND.paper100,
+    gap: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+    backgroundColor: BRAND.ink,
   },
-  toplamYazi: {
-    fontFamily: FONTS.sans,
-    fontSize: 9,
-    fontWeight: 800,
-    color: BRAND.ink,
-    paddingVertical: 5,
-    paddingHorizontal: 4,
+  toplamEtiket: { fontFamily: FONTS.mono, fontSize: 6.75, fontWeight: 600, letterSpacing: 1.5, color: BRAND.coral },
+  toplamKdv: { fontFamily: FONTS.mono, fontSize: 6, letterSpacing: 0.84, color: BRAND.gray500 },
+  toplamTutar: {
+    fontFamily: FONTS.mono,
+    fontSize: 14.25,
+    fontWeight: 600,
+    lineHeight: 1.25,
+    letterSpacing: -0.14,
+    color: BRAND.paper100,
   },
-  dipnot: { ...T.caption, fontSize: 7, color: BRAND.gray600, marginTop: 5 },
-  kdvNotu: { ...T.body, fontSize: 8, color: BRAND.ink, marginTop: 9 },
+  dipnot: { ...T.caption, fontSize: 6.4, color: BRAND.gray600, marginTop: 5 },
+  kdvNotu: { ...T.caption, fontSize: 6.4, color: BRAND.gray600, marginTop: 2 },
 
-  // ---- notlar / kapsam dışı
-  metinSatiri: { ...T.body, fontSize: 8, color: BRAND.ink, paddingVertical: 1.6, textAlign: "justify" },
-  maddeSatiri: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 1.6 },
-  maddeIsareti: { fontFamily: FONTS.sans, fontSize: 8, color: BRAND.red, width: 10, flexShrink: 0 },
+  // ————————————————————————————————— NOTLAR / KAPSAM DIŞI İŞLER
+  altSutunlar: { flexDirection: "row", gap: 15, alignItems: "flex-start" },
+  altSutun: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  altBaslik: {
+    fontFamily: FONTS.mono,
+    fontSize: 6.375,
+    fontWeight: 600,
+    letterSpacing: 1.28,
+    color: BRAND.ink,
+    marginBottom: 4.5,
+  },
+  altSerit: { borderTopWidth: 1.125, borderTopColor: BRAND.ink, paddingTop: 6 },
+  maddeSatiri: { flexDirection: "row", alignItems: "flex-start", paddingBottom: 2.25 },
+  /** Kılavuzun kare madde işareti: notlarda kırmızı, kapsam dışında gri. */
+  maddeIsareti: { width: 3.75, height: 3.75, marginTop: 3.75, marginRight: 5.25, flexShrink: 0, backgroundColor: BRAND.red },
+  maddeIsaretiSilik: { backgroundColor: BRAND.gray400 },
+  maddeYazi: {
+    fontFamily: FONTS.sans,
+    fontSize: 6.375,
+    lineHeight: 1.53,
+    color: BRAND.gray700,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+  },
 });
 
 // ————————————————————————————————————————————————————————————— yardımcı
@@ -474,53 +778,128 @@ function tarih(iso: string): string {
 }
 
 /**
- * `Etiket : Değer` satırı — belgenin en çok tekrar eden birimi.
+ * SAYFA KÜNYESİ — sayfa başlığının sağ üstündeki kimlik.
  *
- * `wrap={false}`: iki satırlık bir değer sayfa dibinde ikiye BÖLÜNMEZ, bütün
- * olarak bir sonraki sayfaya geçer. Teknik bir satırın yarısı bir sayfada
- * yarısı ötekinde okunduğunda değer yanlış anlaşılabilir.
- *
- * KAPSAM YALNIZ İSTİSNADA BASILIR (`offerScopeSuffix`): satırların neredeyse
- * tamamı bizim kapsamımızdadır ve her birine "Orion Kapsamında" yazmak belgeyi
- * okunmaz yapardı — görünür olan, olağandan sapandır. Ek metnin KENDİSİNE
- * eklenir, ayrı bir sütun açılmaz: teknik sayfa iki sütunlu bir çizelge değil
- * bir okuma metnidir ve boş kalacak üçüncü bir sütun her satırda göze girerdi.
+ * `no` ve `alt` markalı başlıkta iki satır olarak (kapaktaki gibi), `tek`
+ * lockup'sız teknik sayfada tek satır olarak basılır.
  */
-function EtiketliSatir({
-  label,
-  value,
-  labelWidth = ETIKET_GENISLIK,
-  akis,
-  scope,
+interface SayfaKunyesi {
+  no: string;
+  alt: string;
+  tek: string;
+}
+
+function sayfaKunyesi(offer: OfferDocumentProps["offer"]): SayfaKunyesi {
+  const rev = offerRevLabel(offer.revNo);
+  const gun = tarih(offer.issueDate);
+  return {
+    no: offer.offerNo,
+    alt: rev ? `${rev} · TARİH · ${gun}` : `TARİH · ${gun}`,
+    tek: offerDocLine(offer.offerNo, offer.revNo),
+  };
+}
+
+/** Sayfa başlığındaki kömür lockup'ın genişliği — yüksekliği ~19,5 pt yapar. */
+const SAYFA_LOGO_EN = 160;
+
+/**
+ * SAYFA BAŞLIĞI — kapak bandının kağıt üzerindeki karşılığı.
+ *
+ * İki yoğunlukta aynı anatomi:
+ *
+ *  - **`marka`** (ticari şartlar, genel şartlar): solda KÖMÜR lockup, sağda
+ *    iki satırlık doküman künyesi, altında KIRMIZI kural; sonra kırmızı çubuk
+ *    + mono kicker ve sayfanın büyük başlığı. Kullanıcı tasarımının kendisi.
+ *  - **lockup'sız** (teknik sayfalar): kimlik satırı KİCKER'IN İÇİNE iner —
+ *    çubuk + kicker solda, künye tek satır sağda — ve aynı kırmızı kural onu
+ *    kapatır. Lockup burada da güzel dururdu ama ~40 pt yer yer; ölçüldü:
+ *    o pay sütun kapasitesinden gidiyor ve ASTOR portal vincinin gövdesi tek
+ *    yaprakta durmuyor, ikiye bölünüyordu (`PDF_SUTUN_KAPASITE`). Marka
+ *    kapakta, ticari sayfada ve altbilginin her satırında zaten vardır.
+ *
+ * BÜYÜK BAŞLIK KENDİ SATIRINDA KALIR, künyeyle YAN YANA GELMEZ (kullanıcı
+ * bildirimi, 18.08.2026): esnek satırda yalnız `flexGrow/flexShrink` verilmiş
+ * bir kutuda @react-pdf metni DARALTILMIŞ genişliğe göre yeniden sarmaz,
+ * ölçtüğü doğal genişlikte çizer ve komşusunun üstüne biner.
+ */
+function SayfaBasi({
+  kicker,
+  baslik,
+  kunye,
+  marka,
+  buyuk,
 }: {
-  label: string;
-  value: string;
-  labelWidth?: number;
-  /**
-   * AKIŞ KİPİ — etiket SABİT SÜTUN DEĞİL, kendi boyunda.
-   *
-   * Tek sütunlu sayfada etiketler 148 pt'lik bir sütunda hizalıdır ve bu
-   * okumayı kolaylaştırır. 234,78 pt'lik bir SÜTUNDA aynı genişlik değere
-   * yalnız ~78 pt bırakır: "GAMAK 22 kW 1500 d/dak, Encoderli" dört satıra
-   * sarar ve sayfalama modülünün ölçüsü (etiket + değer birlikte akar)
-   * tutmaz — modül 2 satır sayarken çizim 4 satır çizer, sütun taşar.
-   *
-   * Ölçü ile çizim AYNI MODELİ kullanmak zorundadır; `pdf-layout.ts`
-   * akış modelini ölçer, bu bayrak onu çizer.
-   */
-  akis?: boolean;
-  scope?: OfferRowScope;
+  kicker: string;
+  baslik: string;
+  kunye: SayfaKunyesi;
+  /** Lockup taşıyan başlık — ticari ve genel şartlar sayfaları. */
+  marka?: boolean;
+  /** Ticari sayfanın başlığı bir tık büyüktür (TEKLIF-44). */
+  buyuk?: boolean;
 }) {
-  const kapsam = offerScopeSuffix(scope);
   return (
-    <View style={S.satir} wrap={false}>
-      <Text style={[S.etiket, akis ? { flexShrink: 1 } : { width: labelWidth }]}>{label}</Text>
-      <Text style={S.ikiNokta}>:</Text>
-      <Text style={S.deger}>
-        {value}
-        {kapsam ? <Text style={S.kapsamEki}>{kapsam}</Text> : null}
-      </Text>
+    <View style={S.sayfaBasi}>
+      {marka ? (
+        <>
+          <View style={S.sayfaMarkaSatiri}>
+            {/* KÖMÜR LOCKUP: kapakta kağıt renkliydi, kağıt üzerinde kömür.
+                Tam renkli sürüm belgenin bu yaprağında ikinci bir kırmızı
+                lekesi olurdu — kırmızı bu sayfada kicker ve kurala ayrılmıştır. */}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image
+              src={BRAND_LOGO_INK}
+              style={{ width: SAYFA_LOGO_EN, height: SAYFA_LOGO_EN * LOGO_MONO_RATIO }}
+            />
+            <View>
+              <Text style={S.sayfaMarkaMeta}>
+                REFERANS NO · <Text style={S.sayfaMarkaMetaGuclu}>{kunye.no}</Text>
+              </Text>
+              <Text style={S.sayfaMarkaMeta}>{kunye.alt}</Text>
+            </View>
+          </View>
+          <View style={[S.sayfaKickerSatiri, { marginTop: mm(6) }]}>
+            <View style={S.sayfaKickerCubugu} />
+            <Text style={S.sayfaKicker}>{kicker}</Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={S.sayfaKickerSatiri}>
+            <View style={S.sayfaKickerCubuguKucuk} />
+            <Text style={S.sayfaKickerKucuk}>{kicker}</Text>
+            <Text style={S.sayfaMeta}>{kunye.tek}</Text>
+          </View>
+          <View style={S.sayfaKurali} />
+        </>
+      )}
+      <Text style={buyuk ? S.ticariBaslik : S.sayfaBaslik}>{baslik}</Text>
     </View>
+  );
+}
+
+/**
+ * BÖLÜM SONDASI — bir bölümün hangi sayfaya düştüğünü BİRİNCİ GEÇİŞTE bildirir.
+ *
+ * Kapaktaki içindekiler gerçek sayfa numaraları yazar; bir bölümün kaç yaprak
+ * tuttuğu ancak yerleştirildikten sonra bilinir (`report.tsx` `SectionProbe`
+ * ile aynı reçete). Sonda AKIŞ İÇİNDE, sıfır yükseklikli ve görünmezdir:
+ * mutlak konumlu bir düğüm sayfa bölmede yerinde kalır ve hangi yaprağa
+ * düştüğü sorulamazdı.
+ *
+ * SON YAZAN KAZANIR: @react-pdf sayfa bölerken dinamik düğümleri her aday
+ * sayfa için yeniden çalıştırır; kesin numara yerleşim bittikten sonraki son
+ * geçişten gelir.
+ */
+function Sonda({ anchor, collect }: { anchor: string; collect?: (a: string, p: number) => void }) {
+  if (!collect) return null;
+  return (
+    <Text
+      style={{ height: 0, fontSize: 1, lineHeight: 0, color: BRAND.white }}
+      render={({ pageNumber }) => {
+        collect(anchor, pageNumber);
+        return "";
+      }}
+    />
   );
 }
 
@@ -537,27 +916,12 @@ function EtiketliSatir({
  * başına tek vurgu — bütün başlıklar kırmızı olsaydı vurgu vurgu olmaktan
  * çıkar, altı kırmızı satır sayfayı kendi başına bir listeye çevirirdi.
  */
-function BolumBasligi({
-  text,
-  vurgu,
-  buyuk,
-}: {
-  text: string;
-  vurgu?: boolean;
-  /** Ticari sayfanın iki ana sütunu daha güçlü bir başlık taşır. */
-  buyuk?: boolean;
-}) {
+function BolumBasligi({ text, vurgu }: { text: string; vurgu?: boolean }) {
   return (
     // Başlık sütun/sayfa dibinde YALNIZ kalmasın: altında en az iki satır yer
     // yoksa blok bir sonrakine taşınır (dağıtımın `EN_AZ_KUYRUK` karşılığı).
     <View style={vurgu ? [S.bolumSerit, S.bolumSeritVurgu] : [S.bolumSerit]} minPresenceAhead={40}>
-      <Text
-        style={[
-          S.bolumAdi,
-          ...(vurgu ? [S.bolumAdiVurgu] : []),
-          ...(buyuk ? [S.ticariBolumAdi] : []),
-        ]}
-      >
+      <Text style={[S.bolumAdi, ...(vurgu ? [S.bolumAdiVurgu] : [])]}>
         {trUpper(text)}
       </Text>
     </View>
@@ -628,33 +992,37 @@ function TeknikSayfa({
   docLine,
   baslik,
   kicker,
+  kunye,
   sol,
   sag,
   altBilgi,
+  ustSonda,
+  altSonda,
 }: {
   docLine: string;
   /** Sayfanın büyük başlığı: KALEMİN ADI. */
   baslik: string;
   kicker: string;
+  kunye: SayfaKunyesi;
   sol: OfferPdfBlok[];
   sag: OfferPdfBlok[];
   altBilgi?: React.ReactNode;
+  /** İçindekiler sondaları — yalnız bölümün İLK ve SON yaprağında verilir. */
+  ustSonda?: React.ReactNode;
+  altSonda?: React.ReactNode;
 }) {
   return (
-    <BrandPage docLine={docLine}>
-      <View style={S.sayfaBasi}>
-        <Text style={S.sayfaKicker}>{kicker}</Text>
-        {/* BAŞLIK KALEMİN ADIDIR (kullanıcı bildirimi, 18.08.2026: *"burada
-            başlık olarak 80T x 12.44m PORTAL VİNÇ yazması gerekiyor… yani kalem
-            başlığından çekmesi gerek"*). Öbek adları bir gün başlığın yerini
-            almıştı ve sayfanın hangi ekipmana ait olduğu ancak sağ üstteki
-            küçük künyeden okunuyordu; ad başlığa dönünce o künye de gereksiz
-            kaldı — çakışan iki kutudan biri böylece ortadan kalktı.
+    <BrandPage docLine={docLine} brandFooter={{}}>
+      {ustSonda}
+      {/* BAŞLIK KALEMİN ADIDIR (kullanıcı bildirimi, 18.08.2026: *"burada
+          başlık olarak 80T x 12.44m PORTAL VİNÇ yazması gerekiyor… yani kalem
+          başlığından çekmesi gerek"*). Öbek adları bir gün başlığın yerini
+          almıştı ve sayfanın hangi ekipmana ait olduğu ancak sağ üstteki
+          küçük künyeden okunuyordu.
 
-            AD OLDUĞU GİBİ BASILIR, büyütülmez: "80T x 12.44m" bir ürün adıdır
-            ve birimleri küçük harfle yazılır — `trUpper` onu "12.44M" yapardı. */}
-        <Text style={S.bolumBaslik}>{baslik}</Text>
-      </View>
+          AD OLDUĞU GİBİ BASILIR, büyütülmez: "80T x 12.44m" bir ürün adıdır
+          ve birimleri küçük harfle yazılır — `trUpper` onu "12.44M" yapardı. */}
+      <SayfaBasi kicker={kicker} baslik={baslik} kunye={kunye} />
 
       <View style={S.sutunlar}>
         <View style={S.sutun}>
@@ -674,6 +1042,7 @@ function TeknikSayfa({
         </View>
       </View>
       {altBilgi}
+      {altSonda}
     </BrandPage>
   );
 }
@@ -693,20 +1062,22 @@ function TeknikSayfa({
  */
 function GenelSartlarSayfasi({
   docLine,
+  kunye,
   maddeler,
+  ustSonda,
+  altSonda,
 }: {
   docLine: string;
+  kunye: SayfaKunyesi;
   maddeler: { no: number; title: string; body: string }[];
+  ustSonda?: React.ReactNode;
+  altSonda?: React.ReactNode;
 }) {
   if (maddeler.length === 0) return null;
   return (
-    <BrandPage docLine={docLine}>
-      <View style={S.sayfaBasi}>
-        <View style={{ flexGrow: 1, flexShrink: 1 }}>
-          <Text style={S.sayfaKicker}>EKLER</Text>
-          <Text style={S.bolumBaslik}>{trUpper(GENERAL_TERMS_TITLE)}</Text>
-        </View>
-      </View>
+    <BrandPage docLine={docLine} brandFooter={{}}>
+      {ustSonda}
+      <SayfaBasi kicker="EKLER" baslik={trUpper(GENERAL_TERMS_TITLE)} kunye={kunye} marka buyuk />
       {maddeler.map((m) => (
         <View key={m.no} style={S.sartMadde} wrap={false}>
           <Text style={S.sartBaslik}>
@@ -715,89 +1086,292 @@ function GenelSartlarSayfasi({
           <Text style={S.sartGovde}>{m.body}</Text>
         </View>
       ))}
+      {altSonda}
     </BrandPage>
   );
 }
 
 // ————————————————————————————————————————————————————————————— kapak
+//
+// KAPAK TASARIMI KULLANICININ KENDİ ÇALIŞMASIDIR (Claude Design, 22.08.2026)
+// ve iki bölgeden oluşur: üstte kenardan kenara KÖMÜR BİR BANT (çapraz şerit
+// dokusu + lockup + künye + konu + içindekiler), altta KAĞIT BİR BÖLGE
+// (KİMDEN/KİME künyesi + hitap + firma beyanı + iş kolları). Kırmızı omurga
+// ikisinin de üzerinden geçer.
+//
+// ÖLÇÜLER TASARIMDAN ÇEVRİLDİ, YENİDEN UYDURULMADI: tasarım CSS px'te
+// çalışıyordu ve 210 mm'lik bir sayfada 1 px = 0,75 pt'tir. mm cinsinden
+// verilen paylar (16/16/13/22) sayfanın kendi marjlarıyla zaten aynıydı.
 
-interface KunyeSatiri {
-  label: string;
-  value: string;
-}
-
-/** BOŞ ALAN SATIRI HİÇ ÇİZİLMEZ — yer tutucu bir değer değildir (SATIS-16). */
-function dolu(satirlar: KunyeSatiri[]): KunyeSatiri[] {
-  return satirlar.filter((s) => s.value.trim() !== "");
-}
-
-function KunyeHucre({ satir }: { satir: KunyeSatiri }) {
-  return (
-    <EtiketliSatir label={satir.label} value={satir.value} labelWidth={KUNYE_ETIKET_GENISLIK} />
-  );
+/**
+ * KAPAK BAŞLIĞININ PUNTOSU — konunun uzunluğuna göre kademeli.
+ *
+ * Başlık teklifin KONUSUDUR (TEKLIF-39) ve uzunluğu bir teklife göre değişir:
+ * "80T x 12.44m PORTAL VİNÇ TEKLİFİ" 32 karakter, "MUHTELİF VİNÇLER — SEKİZ
+ * KALEM İÇİN TEKNİK VE TİCARİ TEKLİF" 58. @react-pdf'te `maxLines` YOKTUR,
+ * yani kırpma seçeneği de yok — punto kademelenir.
+ *
+ * Eşikler ÖLÇÜLDÜ: Archivo Black'te karakter ~0,62 em ve başlık kutusu 150 mm
+ * (425 pt); 33 pt'de satıra ~21, 26 pt'de ~26, 21 pt'de ~33 karakter sığar.
+ * Hedef EN ÇOK ÜÇ SATIRDIR — dördüncü satır kömür bandı kağıt bölgesinin
+ * üstüne taşırırdı.
+ */
+function kapakBaslikPunto(konu: string): number {
+  if (konu.length <= 42) return 33;
+  if (konu.length <= 72) return 26;
+  return 21;
 }
 
 /**
- * KÜNYE LOGOSU — oranı BİLİNMEYEN bir görsel kutuya nasıl sığdırılır.
+ * KAPAK KİCKER'I BELGENİN NE OLDUĞUNU SÖYLER — ve sabit değildir.
  *
- * `objectFit` @react-pdf 4.5'in stil tiplerinde YOKTUR. Doğru reçete yalnız
- * YÜKSEKLİK vermektir: motor yükseklik kesin, genişlik "en çok" verildiğinde
- * genişliği görselin KENDİ oranından hesaplar. Böylece hem oran korunur hem de
- * kutu taşmaz — her müşteri logosu için, ölçüsünü bilmeden çalışır.
- *
- * LOGO YOKSA HİÇBİR ŞEY ÇİZİLMEZ (sabit yükseklikli boş bir yer tutucu bile):
- * boş bir kutu, kullanıcının istemediği "eksik" izlenimini verirdi — `dolu()`
- * ile aynı ilke.
+ * Teknik yaprağı olmayan bir teklif (yalnız fiyat ve şartlar) "TEKNİK VE
+ * TİCARİ TEKLİF" diye adlandırılamaz: kapakta vaat edilen bölüm belgede
+ * yoktur. Ad, belgenin kendi içeriğinden çıkar.
  */
-function KunyeLogosu({
-  logo,
-  orion,
+function kapakKickeri(payload: OfferPayload): string {
+  return payload.items.length > 0 ? "TEKNİK VE TİCARİ TEKLİF" : "TİCARİ TEKLİF";
+}
+
+// ---- içindekiler
+//
+// BÖLÜM ADLARI TEK KAYNAKTIR: aynı metin hem içindekiler kartına hem sayfanın
+// kicker'ına gider (kicker `trUpper` ile büyür). İki yere ayrı yazılsaydı biri
+// değiştiğinde içindekiler var olmayan bir bölümü işaret ederdi.
+
+export const OFFER_SECTIONS = {
+  teknik: "Teknik Özellikler",
+  ticari: "Ticari Şartlar ve Fiyatlar",
+  /**
+   * Bölümün KENDİ başlığı `GENERAL_TERMS_TITLE`dır (defterde, BÜYÜK HARF);
+   * burada onun başlık yazımı durur. İki metin ayrışırsa içindekiler var
+   * olmayan bir bölümü işaret eder — `offer.test.tsx` ayrışmayı engeller
+   * (değişmez md. 8).
+   */
+  sartlar: "Genel Şartlar",
+  /** Fiyat tablosu KENDİ yaprağına geçtiğinde açılan satır. */
+  fiyat: "Fiyatlar",
+} as const;
+
+/**
+ * FİYAT TABLOSUNUN TİCARİ SAYFADA DURABİLECEĞİ EN ÇOK SATIR SAYISI.
+ *
+ * Kullanıcı isteği (22.08.2026): *"Fiyatlar tablosunda 12 satıra kadar bu
+ * dizayn uygulanabiliyor. Eğer 12 satırın üstünde bir fiyat kalemi varsa fiyat
+ * tablosu ayrı sayfaya geçsin. Tablo ikiye bölünmesin."*
+ *
+ * EŞİK SAYFANIN KENDİ ÖLÇÜSÜNDEN GELİR: ticari sayfada başlık (~95 pt), teslim/
+ * ödeme bloğu (~135 pt), notlar ve kapsam dışı işler (~90 pt) ve altbilgi
+ * payı düşüldüğünde tabloya ~300 pt kalır; bir satır ~22 pt'dir. On üçüncü
+ * satır tabloyu notların üstüne bindirir ya da @react-pdf tabloyu ikiye böler.
+ */
+export const FIYAT_SATIR_ESIGI = 12;
+
+interface OfferTocEntry {
+  key: string;
+  label: string;
+}
+
+/** Belgede GERÇEKTEN basılan bölümler — basılmayan bölüm listelenmez. */
+function tocBolumleri(
+  payload: OfferPayload,
+  sartVar: boolean,
+  fiyatAyriYaprakta: boolean
+): OfferTocEntry[] {
+  const out: OfferTocEntry[] = [];
+  if (payload.items.length > 0) out.push({ key: "teknik", label: OFFER_SECTIONS.teknik });
+  out.push({ key: "ticari", label: OFFER_SECTIONS.ticari });
+  // Fiyat tablosu kendi yaprağına geçtiyse KENDİ SATIRINI da açar: müşteri
+  // içindekilerde "Fiyatlar"ı arar ve o yaprak artık ticari sayfa değildir.
+  if (fiyatAyriYaprakta) out.push({ key: "fiyat", label: OFFER_SECTIONS.fiyat });
+  if (sartVar) out.push({ key: "sartlar", label: OFFER_SECTIONS.sartlar });
+  return out;
+}
+
+const iki = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * `S. 02–03` · `S. 04` — bölümün kapladığı yaprak aralığı.
+ *
+ * Numara İKİ GEÇİŞLE öğrenilir (`Sonda`); birinci geçişte henüz yoktur ve
+ * aralık `S. —` basılır. UYDURULMAZ: bilinmeyen bir sayfa numarası yerine
+ * tahmin yazmak, müşteriyi olmayan bir yaprağa göndermek olurdu.
+ */
+function sayfaAraligi(bas?: number, son?: number): string {
+  if (!bas) return "S. —";
+  return son && son > bas ? `S. ${iki(bas)}–${iki(son)}` : `S. ${iki(bas)}`;
+}
+
+function Icindekiler({
+  bolumler,
+  pageOf,
+  ustPay,
 }: {
-  logo?: Buffer | null;
-  /** Orion lockup'ı zaten ölçülüdür; standart müşteri tuvaline gerek duymaz. */
-  orion?: boolean;
+  bolumler: OfferTocEntry[];
+  pageOf?: Record<string, number>;
+  ustPay: number;
 }) {
+  if (bolumler.length === 0) return null;
   return (
-    <View style={S.kunyeLogoAlani}>
-      {logo ? (
-        // React PDF'nin Image bileşeni HTML `img` değildir ve `alt` özelliği
-        // desteklemez; bu logo metinsel PDF içeriğinin yerine geçmez.
-        // eslint-disable-next-line jsx-a11y/alt-text
-        <Image
-          src={logo}
-          style={
-            orion
-              ? { width: 120, height: 120 * LOGO_RATIO }
-              : S.kunyeLogoStandart
-          }
-        />
-      ) : null}
+    <View style={[S.icindekiler, { marginTop: ustPay }]}>
+      <Text style={S.icindekilerBaslik}>İÇİNDEKİLER</Text>
+      <View style={S.icindekilerIzgara}>
+        {bolumler.map((b, i) => (
+          <View
+            key={b.key}
+            style={i === 0 ? [S.icindekilerKutu, S.icindekilerKutuVurgu] : [S.icindekilerKutu]}
+          >
+            <Text style={i === 0 ? [S.icindekilerSayfa, S.icindekilerSayfaVurgu] : [S.icindekilerSayfa]}>
+              {sayfaAraligi(pageOf?.[`bas:${b.key}`], pageOf?.[`son:${b.key}`])}
+            </Text>
+            <Text style={S.icindekilerAd}>{b.label}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
-function KunyeKarti({
-  baslik,
-  satirlar,
-  logo,
-  orion,
+/**
+ * KÖMÜR BANT — kapağın üst bölgesi.
+ *
+ * ŞERİT DOKUSU MUTLAK KONUMLUDUR VE KUTU ONU KIRPAR (`overflow: "hidden"`):
+ * bandın yüksekliği içerikle belirlenir (başlık iki satır da olabilir üç de),
+ * SVG ise sabit ölçülüdür. Doku bandın kesebileceğinden büyük verilir; eksik
+ * verilseydi uzun bir konuda bandın dibinde dokusuz bir şerit kalırdı.
+ *
+ * Dokuyu taşıyan kutunun KENDİ PAYI YOKTUR; paylar iç kutudadır. Mutlak
+ * konumlu bir çocuğun sıfır noktası kabın pay kenarına göre çözülür ve
+ * dış kutuya pay verilseydi doku sağa/aşağı kayardı.
+ */
+function KapakBandi({
+  offer,
+  kicker,
+  bolumler,
+  pageOf,
+  paylar,
 }: {
-  baslik: string;
-  satirlar: KunyeSatiri[];
-  logo?: Buffer | null;
-  orion?: boolean;
+  offer: OfferDocumentProps["offer"];
+  kicker: string;
+  bolumler: OfferTocEntry[];
+  pageOf?: Record<string, number>;
+  paylar: ReturnType<typeof kapakPaylari>;
+}) {
+  const rev = offerRevLabel(offer.revNo);
+  const gun = tarih(offer.issueDate);
+  const konu = trUpper(offer.subject.trim()) || "TEKLİF";
+  return (
+    <View style={S.bant}>
+      <View style={S.bantDoku}>
+        <StripeField width={SAYFA_EN} height={BANT_DOKU_BOY} />
+      </View>
+      <View style={[S.bantIc, { paddingBottom: paylar.bantAlt }]}>
+        <View style={S.bantUst}>
+          {/* KAĞIT RENKLİ LOCKUP: tam renkli logonun kırmızı kilidi kömür
+              zeminde gömülür, "CRANES" grisi de kaybolurdu. */}
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image
+            src={BRAND_LOGO_PAPER}
+            style={{ width: KAPAK_LOGO_EN, height: KAPAK_LOGO_EN * LOGO_MONO_RATIO }}
+          />
+          <View>
+            <Text style={S.bantMeta}>
+              REFERANS NO · <Text style={S.bantMetaGuclu}>{offer.offerNo}</Text>
+            </Text>
+            <Text style={S.bantMeta}>{rev ? `${rev} · TARİH · ${gun}` : `TARİH · ${gun}`}</Text>
+          </View>
+        </View>
+
+        <View style={[S.bantKicker, { marginTop: paylar.bantKickerUst }]}>
+          <View style={S.bantKickerCubugu} />
+          <Text style={S.bantKickerYazi}>{kicker}</Text>
+        </View>
+        <Text style={[S.bantBaslik, { fontSize: kapakBaslikPunto(konu) }]}>{konu}</Text>
+        {/* MÜŞTERİ ADI YALNIZ ADDIR: tasarımın şehir/ülke kuyruğu için canlı bir
+            kaynak yok ve uydurma veri girilmez (değişmez md. 4). */}
+        {offer.customerName.trim() ? (
+          <Text style={S.bantMusteri}>{offer.customerName}</Text>
+        ) : null}
+
+        <Icindekiler bolumler={bolumler} pageOf={pageOf} ustPay={paylar.icindekilerUst} />
+      </View>
+    </View>
+  );
+}
+
+/** Kömür banttaki lockup'ın genişliği — yüksekliği ~19,5 pt yapar. */
+const KAPAK_LOGO_EN = 160;
+
+// ---- KİMDEN / KİME künyesi
+
+interface KunyeTarafi {
+  etiket: string;
+  /** Kurumun adı — kartın büyük satırı. */
+  ad: string;
+  /** `Ad Soyad · Ünvan` — muhatap satırı; boşsa çizilmez. */
+  kisi: string;
+  /** Telefon, e-posta, müşteri referansı … — boş olanlar hiç girmez. */
+  iletisim: string[];
+}
+
+/** BOŞ ALAN HİÇ ÇİZİLMEZ — yer tutucu bir değer değildir (SATIS-16). */
+function birlestir(parcalar: (string | undefined)[], ayrac: string): string {
+  return parcalar.map((p) => (p ?? "").trim()).filter(Boolean).join(ayrac);
+}
+
+/**
+ * KÜNYE MARKASI — oranı BİLİNMEYEN bir görsel kutuya nasıl sığdırılır.
+ *
+ * Müşteri logosu yükleme sırasında 900 × 240 px'lik standart tuvale
+ * normalleştirilir (TEKLIF-43) ve burada o tuval 120 × 32 pt çizilir; kartın
+ * üst satırı da bu yüzden 32 pt yüksekliktedir. Bizim tarafımızda kelime
+ * markası değil YALNIZ MONOGRAM durur — firma adı zaten kartın içinde yazılı.
+ *
+ * LOGO YOKSA HİÇBİR ŞEY ÇİZİLMEZ (boş bir yer tutucu bile): boş bir kutu,
+ * kullanıcının istemediği "eksik" izlenimini verirdi.
+ */
+function KunyeMarkasi({ logo, monogram }: { logo?: Buffer | null; monogram?: boolean }) {
+  if (monogram) {
+    const boy = 19;
+    return (
+      // eslint-disable-next-line jsx-a11y/alt-text
+      <Image src={BRAND_SYMBOL_INK} style={{ width: boy / SYMBOL_INK_RATIO, height: boy }} />
+    );
+  }
+  if (!logo) return null;
+  // React PDF'nin Image bileşeni HTML `img` değildir ve `alt` özelliği
+  // desteklemez; bu logo metinsel PDF içeriğinin yerine geçmez.
+  // eslint-disable-next-line jsx-a11y/alt-text
+  return <Image src={logo} style={{ width: 120, height: 32 }} />;
+}
+
+function KunyeHucresi({
+  taraf,
+  marka,
+  ayrac,
+}: {
+  taraf: KunyeTarafi;
+  marka: React.ReactNode;
+  /** Sol hücre sağ kenarına ayırıcı çizer; iki hücre TEK kutunun içindedir. */
+  ayrac?: boolean;
 }) {
   return (
-    <View style={S.kunyeKart}>
-      <View style={S.kunyeBaslikSatiri}>
-        <Text style={S.kunyeBaslik}>{baslik}</Text>
+    <View style={ayrac ? [S.kunyeHucre, S.kunyeHucreAyrac] : [S.kunyeHucre]}>
+      <View style={S.kunyeUst}>
+        <Text style={S.kunyeEtiket}>{taraf.etiket}</Text>
+        {marka}
       </View>
-      <View style={S.kunyeSutun}>
-        <KunyeLogosu logo={logo} orion={orion} />
-        {satirlar.map((s) => (
-          <KunyeHucre key={s.label} satir={s} />
-        ))}
-      </View>
+      <Text style={S.kunyeAd}>{taraf.ad}</Text>
+      {taraf.kisi ? <Text style={S.kunyeKisi}>{taraf.kisi}</Text> : null}
+      {taraf.iletisim.length > 0 ? (
+        <View style={S.kunyeIletisim}>
+          {taraf.iletisim.map((satir) => (
+            <Text key={satir} style={S.kunyeIletisimSatiri}>
+              {satir}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -805,97 +1379,52 @@ function KunyeKarti({
 function KapakKunyesi({
   sol,
   sag,
-  solLogo,
-  sagLogo,
+  musteriLogosu,
 }: {
-  sol: KunyeSatiri[];
-  sag: KunyeSatiri[];
-  solLogo?: Buffer | null;
-  sagLogo?: Buffer | null;
+  sol: KunyeTarafi;
+  sag: KunyeTarafi;
+  musteriLogosu?: Buffer | null;
 }) {
   return (
-    <View style={S.kunyeKartlar}>
-      <KunyeKarti baslik="KİMDEN" satirlar={sol} logo={solLogo} orion />
-      <KunyeKarti baslik="KİME" satirlar={sag} logo={sagLogo} />
+    <View style={S.kunyeKutu}>
+      <KunyeHucresi taraf={sol} marka={<KunyeMarkasi monogram />} ayrac />
+      <KunyeHucresi taraf={sag} marka={<KunyeMarkasi logo={musteriLogosu} />} />
     </View>
   );
 }
 
 /**
- * KAPAK ALTBİLGİSİNİN FİRMA KÜNYESİ — ADRES, TELEFON, E-POSTA, WEB TEK SATIRDA.
+ * FİRMA BEYANI VE İŞ KOLLARI — kapağın alt bölgesi (TEKLIF-46).
  *
- * `brand.tsx`in `CompanyBlock`u künyeyi iki sütuna böler ve telefonu adresten
- * ayırıp sağ üste alır. Teklifin kapağında bu, adres satırının bir ÜSTÜNDE tek
- * başına duran bir telefon numarası olarak okunuyordu (kullanıcı bildirimi,
- * 17.08.2026: dengesiz görünüyor). Burada dört alan ` · ` ile birleşip TEK
- * `Text` olarak basılır. Tek metin olması iki şeyi birden sağlar: göz tek çizgi
- * görür, ve PDF metin katmanında da tek parça kalır — alanlar ayrı kutulara
- * bölünseydi çözülen metne aralarına satır sonu girerdi ve künye "aynı satırda"
- * olduğunu KANITLAYAMAZDI (testin ölçtüğü şey tam olarak budur).
+ * Kırmızı 3 px kuralla açılır ve sayfanın dibine, altbilginin hemen üstüne
+ * oturur; yerini `kapakEsnekBosluk` verir. Mutlak konum KULLANILMAZ: uzun bir
+ * giriş geldiğinde esnek boşluk daralır ve iki metin üst üste binmez.
  *
- * `CompanyBlock` DEĞİŞTİRİLMEDİ: hesap raporu ve ekipman listesi de onu kullanır
- * ve orada künye sayfanın tek başlığı değil, iki sütunlu bir imzadır.
- *
- * Konum mutlaktır çünkü künye kapak METNİNİN devamı değil SAYFANIN dibidir:
- * kapak içeriği kısa da olsa uzun da olsa künye folio satırının hemen üstünde
- * durur.
+ * `wrap={false}`: blok ikiye bölünüp yarısı ikinci bir yaprağa düşemez —
+ * kapak TEK SAYFADIR.
  */
-function FirmaKunyesi({ company }: { company: CompanyInfo }) {
-  const iletisim = [company.address, company.phone, company.email, company.web]
-    .map((v) => (v ?? "").trim())
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <View
-      style={{
-        position: "absolute",
-        left: PAGE.contentLeft,
-        right: PAGE.marginOuter,
-        bottom: mm(7) + FOLIO_YUKSEKLIK,
-      }}
-    >
-      <Text style={S.kunyeFirma}>{company.company}</Text>
-      {iletisim ? <Text style={S.kunyeIletisim}>{iletisim}</Text> : null}
-    </View>
-  );
-}
-
-/**
- * KAPAK BAŞLIĞININ PUNTOSU — konunun uzunluğuna göre.
- *
- * Başlık artık teklifin KONUSUDUR (md. 20) ve konu uzunluğu bir teklife göre
- * değişir: "80T X 12.44M PORTAL VİNÇ TEKLİFİ" 32 karakter, "MUHTELİF VİNÇLER
- * — SEKİZ KALEM İÇİN TEKNİK VE TİCARİ TEKLİF" 58. Tek puntoda ikincisi üç
- * satıra iner ve kapağın yarısını yer. @react-pdf'te `maxLines`/`textOverflow`
- * YOKTUR, yani kırpma seçeneği de yok — punto kademelenir.
- *
- * Eşikler ÖLÇÜLDÜ: Archivo Black'te karakter ~0,62 em ve içerik genişliği
- * 487,56 pt; 22 pt'de bir satıra ~35, 17 pt'de ~46 karakter sığar.
- */
-function kapakBaslikPunto(konu: string): number {
-  if (konu.length <= 32) return 22;
-  if (konu.length <= 48) return 17;
-  return 14;
-}
-
-/**
- * FİRMA TANITIMI — kapağın alt bölgesinde, imzaların ardında (md. 22).
- *
- * YERİ İMZA ALTIDIR, giriş metninin devamı DEĞİL: giriş mektubun kendisidir ve
- * araya kurumsal bir paragraf girseydi hitap ile imza arasındaki bağ kopardı.
- * `kapakEsnekBosluk` kalan alanı alır ve bu bloğu alt künyenin hemen üstüne
- * iter. Mutlak konum kullanılmaz: uzun bir hitap/giriş gelirse esnek boşluk
- * daralır, metin tanıtımın üstüne binmez.
- *
- * Küçük ve silik basılır (7 pt / `gray600`, genel şartların tonu): burada
- * anlatılan şey teklifin kendisi değil, teklifi verendir.
- */
-function FirmaTanitimi() {
+function FirmaTanitimi({ paylar }: { paylar: ReturnType<typeof kapakPaylari> }) {
   return (
     <View style={S.tanitim} wrap={false}>
-      <Text style={S.tanitimBaslik}>{COMPANY_PROFILE.title}</Text>
-      <Text style={S.tanitimGovde}>{COMPANY_PROFILE.body}</Text>
-      <Text style={S.tanitimUrun}>{COMPANY_PROFILE.products}</Text>
+      <Text style={[S.tanitimGovde, { marginBottom: paylar.tanitimGovdeAlt }]}>
+        {COMPANY_PROFILE.body}
+      </Text>
+      {/* İŞ KOLLARI EN SIKIŞIK KADEMEDE DÜŞER (tasarımın kendi anahtarı):
+          kapağın en uzun ve en az kritik bloğudur — firmanın BEYANI kalır,
+          listesi düşer. Alternatif, ikinci bir yaprağa taşan bir kapaktı. */}
+      {paylar.isKollariVar ? (
+        <>
+          <Text style={S.tanitimBaslik}>{COMPANY_PROFILE.linesTitle}</Text>
+          <View style={S.isKollari}>
+            {COMPANY_PROFILE.lines.map((satir) => (
+              <View key={satir} style={[S.isKolu, { paddingBottom: paylar.isKoluAlt }]}>
+                <View style={S.isKoluIsareti} />
+                <Text style={S.isKoluYazi}>{satir}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -905,148 +1434,132 @@ function KapakSayfasi({
   payload,
   company,
   customerLogo,
-}: OfferDocumentProps & { payload: OfferPayload }) {
+  bolumler,
+  pageOf,
+  coverDensity = 0,
+}: OfferDocumentProps & {
+  payload: OfferPayload;
+  bolumler: OfferTocEntry[];
+}) {
   const { cover } = payload;
-  const rev = offerRevLabel(offer.revNo);
+  const paylar = kapakPaylari(coverDensity);
 
-  // KİMDEN: bizim kişi ve künyemiz. ÜNVAN KENDİ SATIRIDIR (md. 20) — eskiden
-  // adın altında etiketsiz, girintili bir alt satırdı ve künyenin ızgarasına
-  // tutunmadığı için havada duruyordu (kullanıcı bildirimi 19.08.2026).
-  const sol = dolu([
-    { label: "Adı ve Soyadı", value: cover.fromName },
-    { label: "Ünvan", value: cover.fromTitle },
-    { label: "E-posta", value: cover.fromEmail },
-  ]);
-  const sag = dolu([
-    { label: "Müşteri", value: offer.customerName },
-    { label: "Adı ve Soyadı", value: cover.toName },
-    { label: "Bölüm", value: cover.toDept },
-    { label: "Telefon", value: cover.toPhone },
-    { label: "Müşteri Referansı", value: cover.customerRef },
-  ]);
+  // KİMDEN: bizim kurumumuz, kişimiz ve iletişimimiz. KİME: müşteri, muhatap
+  // ve onun numaraları. Boş kalan her alan künyeye hiç girmez (TEKLIF-36).
+  const sol: KunyeTarafi = {
+    etiket: "KİMDEN",
+    ad: company.company,
+    kisi: birlestir([cover.fromName, cover.fromTitle], " · "),
+    iletisim: [company.phone, cover.fromEmail].map((v) => (v ?? "").trim()).filter(Boolean),
+  };
+  const sag: KunyeTarafi = {
+    etiket: "KİME",
+    ad: offer.customerName,
+    kisi: birlestir([cover.toName, cover.toDept], " · "),
+    iletisim: [
+      cover.toPhone.trim(),
+      // MÜŞTERİ REFERANSI MUHATABIN NUMARASIDIR, bizim künyemizin değil:
+      // müşterinin kendi talep/sipariş numarası KİME tarafında durur.
+      cover.customerRef.trim() ? `MÜŞTERİ REF · ${cover.customerRef.trim()}` : "",
+    ].filter(Boolean),
+  };
 
-  // KONU KÜNYEDEN ÇIKTI, SAYFANIN BAŞLIĞI OLDU (md. 20): kapakta "TEKLİF"
-  // yazan 26 pt'lik başlık belgenin ne olduğunu söylüyordu, konu ise künyenin
-  // içinde bir satırdı — oysa belgenin ne olduğu zaten dosya adında, altbilgide
-  // ve künyedeki referans numarasında yazıyor. Konu boşsa geri düşüş "TEKLİF"
-  // olur; adsız bir kapak, yanlış adlandırılmış bir kapaktan da kötüdür.
-  const konu = trUpper(offer.subject.trim());
-  const kapakBaslik = konu || "TEKLİF";
-
-  // `company` BİLEREK GEÇİLMEZ: prop verilseydi `BrandPage` kendi iki sütunlu
-  // künyesini çizerdi. Künye `FirmaKunyesi` ile tek satır basılır, sayfanın alt
-  // payı da bu yüzden burada elle ayrılır.
   return (
-    <BrandPage docLine={altbilgi(offer)} style={{ paddingBottom: KAPAK_ALT_PAY }}>
-      <FirmaKunyesi company={company} />
-      <BrandBand
-        docCode={`REFERANS NO · ${offer.offerNo}`}
-        lines={[rev ? `${rev} · TARİH · ${tarih(offer.issueDate)}` : `TARİH · ${tarih(offer.issueDate)}`]}
-        logoWidth={142}
-        marginBottom={0}
+    <BrandPage
+      bleed
+      docLine={altbilgi(offer, false)}
+      brandFooter={{ note: birlestir([company.address, company.phone, company.email, company.web], " · ") }}
+    >
+      <KapakBandi
+        offer={offer}
+        kicker={kapakKickeri(payload)}
+        bolumler={bolumler}
+        pageOf={pageOf}
+        paylar={paylar}
       />
 
-      <Text style={[S.kapakBaslik, { fontSize: kapakBaslikPunto(kapakBaslik) }]}>
-        {kapakBaslik}
-      </Text>
+      <View style={[S.kagit, { paddingTop: paylar.kagitUst }]}>
+        <KapakKunyesi sol={sol} sag={sag} musteriLogosu={customerLogo} />
 
-      {/* LOGOLAR: solda bizimki (belgeye gömülü buffer), sağda müşterininki
-          (Storage'dan indirilip prop olarak gelir). Müşteri logosu yoksa o
-          hücre logosuz çizilir — yapı bozulmaz (md. 21). */}
-      <KapakKunyesi sol={sol} sag={sag} solLogo={BRAND_LOGO} sagLogo={customerLogo} />
-
-      {cover.greeting.trim() ? <Text style={S.hitap}>{cover.greeting}</Text> : null}
-      {cover.intro.trim() ? <Text style={S.giris}>{cover.intro}</Text> : null}
-      <Text style={S.saygi}>Saygılarımızla,</Text>
-
-      {/* İMZA BLOĞU BOŞSA ÇİZİLMEZ: imzasız bir imza yeri, belgenin
-          eksik kaldığını söyler. */}
-      {cover.signatories.length > 0 ? (
-        <View style={S.imzalar}>
-          {cover.signatories.map((s, i) => (
-            <View key={`${s.name}-${i}`}>
-              <Text style={S.imzaAd}>{s.name}</Text>
-              {s.title.trim() ? <Text style={S.imzaUnvan}>{s.title}</Text> : null}
+        <View style={[S.hitapBlogu, { marginTop: paylar.hitapUst }]}>
+          {cover.greeting.trim() ? <Text style={S.hitap}>{cover.greeting}</Text> : null}
+          {cover.intro.trim() ? <Text style={S.giris}>{cover.intro}</Text> : null}
+          <Text style={S.saygi}>Saygılarımızla,</Text>
+          {/* İMZA BLOĞU BOŞSA ÇİZİLMEZ: imzasız bir imza yeri, belgenin eksik
+              kaldığını söyler. Muhatap zaten KİMDEN kartında yazılıdır; blok
+              yalnız kullanıcı ayrıca imzacı girdiyse basılır. */}
+          {cover.signatories.length > 0 ? (
+            <View style={S.imzalar}>
+              {cover.signatories.map((s, i) => (
+                <View key={`${s.name}-${i}`}>
+                  <Text style={S.imzaAd}>{s.name}</Text>
+                  {s.title.trim() ? <Text style={S.imzaUnvan}>{s.title}</Text> : null}
+                </View>
+              ))}
             </View>
-          ))}
+          ) : null}
         </View>
-      ) : null}
 
-      <View style={S.kapakEsnekBosluk} />
-      <FirmaTanitimi />
+        <View style={[S.kapakEsnekBosluk, { minHeight: paylar.boslukEnAz }]} />
+        <FirmaTanitimi paylar={paylar} />
+      </View>
     </BrandPage>
   );
 }
 
 // ————————————————————————————————————————————————————————————— bloklar
 
-/** Test yükü bloğu basılacak mı — sayfa düzeni de buna bakar. */
-function testYukuVar(payload: OfferPayload): boolean {
-  return payload.testLoad.enabled && payload.testLoad.rows.length > 0;
-}
-
-function TestYuku({ payload }: { payload: OfferPayload }) {
-  const { testLoad } = payload;
-  if (!testYukuVar(payload)) return null;
+/**
+ * TİCARİ BLOK BAŞLIĞI — 3 pt şerit + mono etiket, altında beyaz kutu.
+ *
+ * `vurgu` bloğu kırmızı açar. SAYFA BAŞINA TEK VURGU: teslim şartları ve
+ * fiyatlar kırmızı, ödeme planı ile test yükü kömürdür — hepsi kırmızı olsaydı
+ * vurgu vurgu olmaktan çıkardı.
+ */
+function TicariBlokBasligi({ text, vurgu }: { text: string; vurgu?: boolean }) {
   return (
-    <View>
-      <BolumBasligi text={testLoad.title} />
-      {testLoad.rows.map((row, i) => (
-        <OzellikSatiri key={row.key || i} row={row} buyuk />
-      ))}
+    <View style={vurgu ? [S.blokSerit, S.blokSeritVurgu] : [S.blokSerit]}>
+      <Text style={vurgu ? [S.blokEtiket, S.blokEtiketVurgu] : [S.blokEtiket]}>{trUpper(text)}</Text>
     </View>
   );
 }
 
 /**
- * TESLİM ŞARTLARI — ticari sayfanın SOL sütunu.
+ * TESLİM ŞARTLARI — etiket/değer çizelgesi, beyaz kutunun içinde.
  *
- * Ödeme satırı burada YOKTUR: o, kendi bloğuyla sağ sütuna geçti (kullanıcı
- * isteği 19.08.2026, md. 15). Devralınan düzende ödeme planı "Ödeme :"
- * satırının altında 157 pt girintili küçük satırlar olarak duruyordu ve
- * teklifin en çok bakılan iki rakamı (yüzdeler) sayfanın en silik yerindeydi.
+ * Ödeme satırı burada YOKTUR: o, kendi bloğuyla sağ sütuna geçti (TEKLIF-40).
+ * Devralınan düzende ödeme planı "Ödeme :" satırının altında girintili küçük
+ * satırlardı ve teklifin en çok bakılan iki rakamı sayfanın en silik yerindeydi.
  */
 function TeslimSartlari({ payload }: { payload: OfferPayload }) {
   const rows = payload.terms.rows.filter((r) => r.key !== "payment");
   if (rows.length === 0) return null;
   return (
     <View>
-      <BolumBasligi text={TESLIM_BASLIK} vurgu buyuk />
-      {rows.map((row, i) => (
-        <OzellikSatiri key={row.key || i} row={row} buyuk />
-      ))}
+      <TicariBlokBasligi text={TESLIM_BASLIK} vurgu />
+      <View style={S.kutu}>
+        {rows.map((row, i) => (
+          <View
+            key={row.key || i}
+            style={i === rows.length - 1 ? [S.kutuSatiri, S.kutuSonSatir] : [S.kutuSatiri]}
+            wrap={false}
+          >
+            <Text style={S.sartEtiket}>{teknikEtiketBuyuk(row.label)}</Text>
+            <Text style={S.sartDeger}>
+              {teknikDegerBuyuk(row.value)}
+              {offerScopeSuffix(row.scope) ? (
+                <Text style={S.kapsamEki}>{trUpper(offerScopeSuffix(row.scope))}</Text>
+              ) : null}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
 /** "%40 Avans Sipariş ile Nakit" → oran ve açıklama; oran yoksa `null`. */
 const ODEME_ORANI = /^\s*(%\s*\d+(?:[.,]\d+)?)\s*(.*)$/;
-
-/**
- * ÖDEME KALEMİ — oranı büyük, açıklaması yanında.
- *
- * Oran METİNDEN OKUNUR, ayrı bir alandan değil: ödeme satırları serbest
- * metindir ("%40 Avans Sipariş ile Nakit") ve on dört devralınan teklifin
- * hepsinde bu yazımdadır. Veriye ayrı bir "yüzde" alanı açmak, kullanıcının
- * yazdığı metinle çelişebilecek ikinci bir gerçek üretirdi; okumak çelişemez.
- * Yazım tutmazsa (oran yoksa) satır olduğu gibi basılır — bilgi kaybolmaz.
- */
-function OdemeKalemi({ text }: { text: string }) {
-  const buyuk = trUpper(text);
-  const m = ODEME_ORANI.exec(buyuk);
-  return (
-    <View style={S.odemeKutu} wrap={false}>
-      {m ? (
-        <>
-          <Text style={S.odemeOran}>{m[1].replace(/\s+/g, "")}</Text>
-          <Text style={S.odemeAciklama}>{m[2]}</Text>
-        </>
-      ) : (
-        <Text style={S.odemeAciklama}>{buyuk}</Text>
-      )}
-    </View>
-  );
-}
 
 /** Ödeme bloğu basılacak mı — sayfa düzeni de buna bakar. */
 function odemeVar(payload: OfferPayload): boolean {
@@ -1057,21 +1570,136 @@ function odemeVar(payload: OfferPayload): boolean {
   );
 }
 
+/**
+ * ÖDEME PLANI — oran solda ve büyük, satırın sol kenarında bir omuz.
+ *
+ * Oran METİNDEN OKUNUR, ayrı bir alandan değil: ödeme satırları serbest
+ * metindir ("%40 Avans Sipariş ile Nakit") ve on dört devralınan teklifin
+ * hepsinde bu yazımdadır. Veriye ayrı bir "yüzde" alanı açmak, kullanıcının
+ * yazdığı metinle çelişebilecek ikinci bir gerçek üretirdi; okumak çelişemez.
+ * Yazım tutmazsa satır olduğu gibi basılır — bilgi kaybolmaz.
+ */
 function Odeme({ payload }: { payload: OfferPayload }) {
   const { terms } = payload;
   if (!odemeVar(payload)) return null;
   const giris = terms.rows.find((r) => r.key === "payment");
+  const lines = terms.paymentLines;
   return (
     <View>
-      <BolumBasligi text={ODEME_BASLIK} buyuk />
+      <TicariBlokBasligi text={ODEME_BASLIK} />
+      {lines.length > 0 ? (
+        <View style={S.kutu}>
+          {lines.map((l, i) => {
+            const buyuk = trUpper(l.text);
+            const m = ODEME_ORANI.exec(buyuk);
+            // İLK TAKSİTİN OMZU KIRMIZI: plan bir SIRADIR ve gözün nereden
+            // başlayacağı belli olmalıdır.
+            return (
+              <View
+                key={l.id}
+                style={[
+                  S.odemeSatiri,
+                  ...(i === 0 ? [S.odemeSatiriIlk] : []),
+                  ...(i === lines.length - 1 ? [S.kutuSonSatir] : []),
+                ]}
+                wrap={false}
+              >
+                {m ? (
+                  <>
+                    <Text style={i === 0 ? [S.odemeOran, S.odemeOranIlk] : [S.odemeOran]}>
+                      {m[1].replace(/\s+/g, "")}
+                    </Text>
+                    <Text style={S.odemeAciklama}>{m[2]}</Text>
+                  </>
+                ) : (
+                  <Text style={S.odemeAciklama}>{buyuk}</Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
       {/* "Ödeme" satırının cümlesi ("…aşağıda belirtilen şekildedir") planın
-          GİRİŞİDİR; kalemlerin üstünde durur, yoksa cümle boşa düşerdi. */}
+          AÇIKLAMASIDIR; kutunun altında durur. Plan hiç yoksa cümle tek başına
+          kalır ve yine basılır — kullanıcının yazdığı bir şey düşmez. */}
       {giris && giris.value.trim() ? <Text style={S.odemeGiris}>{giris.value}</Text> : null}
-      {terms.paymentLines.map((l) => (
-        <OdemeKalemi key={l.id} text={l.text} />
-      ))}
     </View>
   );
+}
+
+/** Test yükü bloğu basılacak mı — sayfa düzeni de buna bakar. */
+function testYukuVar(payload: OfferPayload): boolean {
+  return payload.testLoad.enabled && payload.testLoad.rows.length > 0;
+}
+
+function TestYuku({ payload }: { payload: OfferPayload }) {
+  const { testLoad } = payload;
+  if (!testYukuVar(payload)) return null;
+  const rows = testLoad.rows;
+  return (
+    <View>
+      <TicariBlokBasligi text={testLoad.title} />
+      <View style={S.kutu}>
+        {rows.map((row, i) => (
+          <View
+            key={row.key || i}
+            style={i === rows.length - 1 ? [S.kutuSatiri, S.kutuSonSatir] : [S.kutuSatiri]}
+            wrap={false}
+          >
+            <Text style={S.sartEtiket}>{teknikEtiketBuyuk(row.label)}</Text>
+            <Text style={S.testDeger}>
+              {teknikDegerBuyuk(row.value)}
+              {offerScopeSuffix(row.scope) ? (
+                <Text style={S.kapsamEki}>{trUpper(offerScopeSuffix(row.scope))}</Text>
+              ) : null}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ————————————————————————————————————————————————————————————— fiyat tablosu
+
+/**
+ * FİYAT TABLOSUNUN SÜTUNLARI — TEK ŞEMA, tek yerde.
+ *
+ * Genişlikler SABİT PT'DİR (tanım sütunu hariç): tutarlar yedi haneli olabilir
+ * ("1.575.000 €") ve yüzdeyle bölünen bir ızgarada o değer ikinci satıra iner.
+ * Tanım kalan yeri kaplar ve yalnız o sarar.
+ */
+interface FiyatSutunu {
+  key: "no" | "tanim" | "teslim" | "adet" | "birim" | "toplam";
+  baslik: string;
+  /** Sabit genişlik (pt); `null` = kalan alanı kaplayan sütun. */
+  en: number | null;
+}
+
+/**
+ * TESLİM SÜRESİ SÜTUNU OPSİYONELDİR ve ADET'İN SOLUNDA durur.
+ *
+ * Kullanıcı isteği (22.08.2026): *"Fiyat tablosunda Adet'in soluna Teslim
+ * Süresi sütunu açılsın… dar bir sütun olsun. Bu opsiyonel olacak."* Birim
+ * SÜTUN BAŞLIĞINDADIR ("TESLİM (HAFTA)"): her satıra "hafta" yazmak dar bir
+ * sütunu okunmaz yapardı ve zaten tek bir birim geçerlidir.
+ */
+function fiyatSutunlari(birim: OfferLeadTimeUnit | null | undefined): FiyatSutunu[] {
+  return [
+    { key: "no", baslik: "NO", en: 24 },
+    { key: "tanim", baslik: "TANIMI", en: null },
+    ...(birim ? [{ key: "teslim" as const, baslik: `TESLİM\n(${trUpper(birim)})`, en: 52 }] : []),
+    { key: "adet", baslik: "ADET", en: 62 },
+    { key: "birim", baslik: "BİRİM FİYAT", en: 63 },
+    { key: "toplam", baslik: "TOPLAM FİYAT", en: 69 },
+  ];
+}
+
+/** Sütunun yerleşim stili — sabit genişlik ya da kalan alan. */
+function sutunStili(s: FiyatSutunu) {
+  return s.en === null
+    ? { flexGrow: 1, flexShrink: 1, flexBasis: 0 }
+    : { width: s.en, flexGrow: 0, flexShrink: 0 };
 }
 
 /** Fiyat satırının tanımı: `*` (toplam dışı) ve `(Opsiyonel)` kuyruğu ile. */
@@ -1085,167 +1713,223 @@ function adetHucresi(line: OfferPriceLine): string {
   return `${fmtNum(line.qty)} ${line.unit}`.trim();
 }
 
-/** Tablonun altındaki toplam satırları — üçü de aynı ızgarayı paylaşır. */
-function ToplamSatiri({
-  baslik,
-  tutar,
-  currency,
-  vurgu,
-}: {
-  baslik: string;
-  tutar: number | null;
-  currency: string;
-  /** İskontolu toplam biraz daha belirgin basılır — ödenecek rakam odur. */
-  vurgu?: boolean;
-}) {
-  const etiketPay =
-    FIYAT_SUTUNLARI[0].pay + FIYAT_SUTUNLARI[1].pay + FIYAT_SUTUNLARI[2].pay + FIYAT_SUTUNLARI[3].pay;
+/** Ara toplam şeridi — TOPLAM ve İSKONTO, açık zeminde, sağa yaslı. */
+function AraToplam({ baslik, tutar, currency }: { baslik: string; tutar: number | null; currency: string }) {
   return (
-    <View style={S.toplamSatiri} wrap={false}>
-      <Text style={[S.toplamYazi, { width: `${etiketPay}%`, textAlign: "right" }]}>{baslik}</Text>
-      <Text
-        style={[
-          S.toplamYazi,
-          {
-            fontFamily: FONTS.mono,
-            fontWeight: vurgu ? 700 : 600,
-            width: `${FIYAT_SUTUNLARI[4].pay}%`,
-            textAlign: "right",
-          },
-        ]}
-      >
-        {tutar === null ? "—" : fmtMoney(tutar, currency)}
-      </Text>
+    <View style={S.toplamAra} wrap={false}>
+      <Text style={S.toplamAraEtiket}>{baslik}</Text>
+      <Text style={S.toplamAraTutar}>{tutar === null ? "—" : fmtMoney(tutar, currency)}</Text>
     </View>
   );
 }
 
-function FiyatTablosu({ payload, currency }: { payload: OfferPayload; currency: string }) {
+/**
+ * ÖDENECEK RAKAMIN ŞERİDİ — kömür zemin, mercan etiket, tablonun en büyük yazısı.
+ *
+ * KDV rozeti ve altındaki cümle AYNI BAYRAKTAN türer (`vatIncluded`): belgede
+ * iki çelişen KDV cümlesinin yan yana durması devralınan tekliflerin gerçek
+ * hatasıydı.
+ */
+function ToplamSeridi({
+  baslik,
+  tutar,
+  currency,
+  vatIncluded,
+}: {
+  baslik: string;
+  tutar: number | null;
+  currency: string;
+  vatIncluded: boolean;
+}) {
+  return (
+    <View style={S.toplamSerit} wrap={false}>
+      <Text style={S.toplamEtiket}>{baslik}</Text>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 9 }}>
+        <Text style={S.toplamKdv}>{vatBadge(vatIncluded)}</Text>
+        <Text style={S.toplamTutar}>{tutar === null ? "—" : fmtMoney(tutar, currency)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function FiyatTablosu({
+  payload,
+  currency,
+  kendiYapraginda,
+}: {
+  payload: OfferPayload;
+  currency: string;
+  /**
+   * Tablo KENDİ yaprağındaysa "FİYATLAR" zaten sayfanın büyük başlığıdır;
+   * şeritte ikinci kez yazılmaz, yalnız para birimi kalır.
+   */
+  kendiYapraginda?: boolean;
+}) {
   const lines = payload.pricing.lines;
   if (lines.length === 0) return null;
   const siralar = priceLineNumbers(lines);
   const toplam = offerTotal(lines);
   const toplamDisiVar = lines.some((l) => !l.inTotal);
-  // İSKONTO belgeye ancak satır toplamından FARKLIYSA girer (bkz. aşağıdaki
-  // gerekçe); `discountAmount` bu farkı zaten `null`a çevirir.
+  // İSKONTO belgeye ancak satır toplamından FARKLIYSA girer; `discountAmount`
+  // bu farkı zaten `null`a çevirir.
   const iskonto = discountAmount(payload.pricing);
   const iskontolu = iskonto === null ? null : payload.pricing.discountTotal ?? null;
+  const birim = payload.pricing.leadTimeUnit ?? null;
+  const sutunlar = fiyatSutunlari(birim);
+  const vatIncluded = payload.pricing.vatIncluded;
 
   return (
-    <View style={{ marginTop: BLOK_ARA }}>
-      {/* BÖLÜM BAŞLIĞI `fixed` DEĞİLDİR (tablo başlık satırının aksine):
-          `fixed` belgenin BÜTÜN sayfalarında tekrar eder ve "FİYATLAR" teknik
-          sayfaların da tepesinde belirirdi. */}
-      <BolumBasligi text={FIYAT_BASLIK} />
-      {/* Başlık satırı HER SAYFADA tekrar eder: on dokuz satırlık bir tabloda
-          ikinci sayfada hangi sütunun ne olduğu hatırlanmak zorunda değildir. */}
-      <View style={S.fiyatBaslikSatiri} fixed>
-        {FIYAT_SUTUNLARI.map((s) => (
-          <Text
-            key={s.baslik}
-            style={[S.fiyatBaslik, { width: `${s.pay}%`, textAlign: s.sag ? "right" : "left" }]}
-          >
-            {trUpper(s.baslik)}
+    <View style={{ marginTop: kendiYapraginda ? 0 : mm(6) }}>
+      <View style={S.fiyatUst}>
+        {kendiYapraginda ? null : (
+          <Text style={[S.blokEtiket, S.blokEtiketVurgu, { marginRight: "auto" }]}>
+            {FIYAT_BASLIK}
           </Text>
-        ))}
+        )}
+        {/* PARA BİRİMİ BİR KEZ, BAŞLIKTA: her tutara sembol basmak tabloyu
+            gürültüye çeviriyordu ve teklifin TEK para birimi vardır. */}
+        <Text style={S.fiyatParaBirimi}>PARA BİRİMİ · {trUpper(currency)}</Text>
       </View>
 
-      {lines.map((line, i) => {
-        const tutar = lineAmount(line);
-        return (
-          <View key={line.id} style={S.fiyatSatiri} wrap={false}>
+      <View style={S.fiyatKutu}>
+        {/* Başlık satırı HER SAYFADA tekrar eder: on dokuz satırlık bir tabloda
+            ikinci sayfada hangi sütunun ne olduğu hatırlanmak zorunda değildir. */}
+        <View style={S.fiyatBaslikSatiri} fixed>
+          {sutunlar.map((s) => (
             <Text
-              style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[0].pay}%`, textAlign: "right" }]}
+              key={s.key}
+              style={[S.fiyatBaslik, sutunStili(s), s.key === "no" || s.key === "tanim" ? {} : { textAlign: "right" }]}
             >
-              {siralar[i].label}
+              {s.baslik}
             </Text>
-            <Text style={[S.fiyatHucre, { width: `${FIYAT_SUTUNLARI[1].pay}%` }]}>
-              {trUpper(fiyatTanimi(line))}
-            </Text>
-            <Text
-              style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[2].pay}%`, textAlign: "right" }]}
-            >
-              {trUpper(adetHucresi(line))}
-            </Text>
-            <Text
-              style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[3].pay}%`, textAlign: "right" }]}
-            >
-              {line.unitPrice === null ? "—" : fmtMoney(line.unitPrice, currency)}
-            </Text>
-            {/* TOPLAM HÜCRESİ BOŞ KALIR (tire bile değil): satır toplama
-                girmiyorsa orada gösterilecek bir sayı YOKTUR ve bir tire,
-                "hesaplanamadı" diye okunurdu. */}
-            <Text
-              style={[S.fiyatHucre, S.fiyatMono, { width: `${FIYAT_SUTUNLARI[4].pay}%`, textAlign: "right" }]}
-            >
-              {!line.inTotal ? "" : tutar === null ? "—" : fmtMoney(tutar, currency)}
-            </Text>
-          </View>
-        );
-      })}
+          ))}
+        </View>
 
-      <ToplamSatiri baslik="TOPLAM" tutar={toplam} currency={currency} />
+        {lines.map((line, i) => {
+          const tutar = lineAmount(line);
+          const ana = siralar[i].level === 0;
+          const son = i === lines.length - 1;
+          return (
+            <View
+              key={line.id}
+              style={[
+                S.fiyatSatiri,
+                ...(ana ? [S.fiyatSatiriAna] : []),
+                ...(son ? [S.kutuSonSatir] : []),
+              ]}
+              wrap={false}
+            >
+              {sutunlar.map((s) => {
+                const yerlesim = sutunStili(s);
+                if (s.key === "no")
+                  return (
+                    <Text key={s.key} style={[S.fiyatNo, yerlesim, ...(ana ? [S.fiyatNoAna] : [])]}>
+                      {siralar[i].label}
+                    </Text>
+                  );
+                if (s.key === "tanim")
+                  return (
+                    <Text
+                      key={s.key}
+                      style={[
+                        S.fiyatTanim,
+                        yerlesim,
+                        ...(ana ? [S.fiyatTanimAna] : [S.fiyatTanimAlt]),
+                      ]}
+                    >
+                      {trUpper(fiyatTanimi(line))}
+                    </Text>
+                  );
+                if (s.key === "teslim")
+                  return (
+                    <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>
+                      {(line.leadTime ?? "").trim()}
+                    </Text>
+                  );
+                if (s.key === "adet")
+                  return (
+                    <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>
+                      {trUpper(adetHucresi(line))}
+                    </Text>
+                  );
+                if (s.key === "birim")
+                  return (
+                    <Text key={s.key} style={[S.fiyatVeri, yerlesim]}>
+                      {line.unitPrice === null ? "—" : fmtMoney(line.unitPrice, currency)}
+                    </Text>
+                  );
+                // TOPLAM HÜCRESİ BOŞ KALIR (tire bile değil): satır toplama
+                // girmiyorsa orada gösterilecek bir sayı YOKTUR ve bir tire
+                // "hesaplanamadı" diye okunurdu.
+                return (
+                  <Text key={s.key} style={[S.fiyatTutar, yerlesim]}>
+                    {!line.inTotal ? "" : tutar === null ? "—" : fmtMoney(tutar, currency)}
+                  </Text>
+                );
+              })}
+            </View>
+          );
+        })}
 
-      {/*
-        İSKONTO SATIRLARI YALNIZ FARK VARSA BASILIR (kullanıcı isteği,
-        17.08.2026). Kullanıcı iskontoyu birim fiyatlara YANSITTIYSA tablodaki
-        rakamlar zaten iskontoludur ve satır toplamı hedefe eşittir; o durumda
-        ayrıca "İSKONTOLU TOPLAM" yazmak aynı sayıyı iki kez basmak, üstüne de
-        müşteriye ikinci bir indirim vaat etmek gibi okunurdu.
-      */}
-      {iskonto !== null && iskontolu !== null ? (
-        <>
-          <ToplamSatiri baslik="İSKONTO" tutar={-iskonto} currency={currency} />
-          <ToplamSatiri baslik="İSKONTOLU TOPLAM" tutar={iskontolu} currency={currency} vurgu />
-        </>
-      ) : null}
+        {/*
+          İSKONTO SATIRLARI YALNIZ FARK VARSA BASILIR (kullanıcı isteği,
+          17.08.2026). Kullanıcı iskontoyu birim fiyatlara YANSITTIYSA tablodaki
+          rakamlar zaten iskontoludur ve satır toplamı hedefe eşittir; o durumda
+          ayrıca "İSKONTOLU TOPLAM" yazmak aynı sayıyı iki kez basmak, üstüne de
+          müşteriye ikinci bir indirim vaat etmek gibi okunurdu.
+
+          ÖDENECEK RAKAM KÖMÜR ŞERİTTEDİR: iskonto varsa o İSKONTOLU TOPLAM'dır.
+        */}
+        {iskonto !== null && iskontolu !== null ? (
+          <>
+            <AraToplam baslik="TOPLAM" tutar={toplam} currency={currency} />
+            <AraToplam baslik="İSKONTO" tutar={-iskonto} currency={currency} />
+            <ToplamSeridi
+              baslik="İSKONTOLU TOPLAM"
+              tutar={iskontolu}
+              currency={currency}
+              vatIncluded={vatIncluded}
+            />
+          </>
+        ) : (
+          <ToplamSeridi baslik="TOPLAM" tutar={toplam} currency={currency} vatIncluded={vatIncluded} />
+        )}
+      </View>
 
       {/* Dipnot YALNIZ böyle bir satır varsa basılır. */}
       {toplamDisiVar ? <Text style={S.dipnot}>* Toplam fiyata dahil değildir.</Text> : null}
-
-      {/* KDV cümlesi TEK bayraktan türer (`vatNote`): belgede iki çelişen
-          cümlenin yan yana durması devralınan tekliflerin gerçek hatasıydı. */}
-      <Text style={S.kdvNotu}>{vatNote(payload.pricing.vatIncluded)}</Text>
+      {/* KDV cümlesi rozetle AYNI bayraktan türer; ikisi çelişemez. */}
+      <Text style={S.kdvNotu}>{vatNote(vatIncluded)}</Text>
     </View>
   );
 }
 
+/**
+ * NOTLAR / KAPSAM DIŞI İŞLER — kare madde işaretli iki sütun.
+ *
+ * Notlar KIRMIZI, kapsam dışı işler GRİ madde işareti taşır: biri teklifin
+ * kendi sözü, öteki teklifin DIŞINDA kalanların listesidir ve okurun ikisini
+ * karıştırmaması gerekir.
+ */
 function MetinBlogu({
   baslik,
   satirlar,
-  madde,
+  silik,
 }: {
   baslik: string;
   satirlar: readonly { id: string; text: string }[];
-  madde?: boolean;
+  silik?: boolean;
 }) {
   if (satirlar.length === 0) return null;
   return (
-    <View>
-      <BolumBasligi text={baslik} />
-      {satirlar.map((l) =>
-        madde ? (
-          <View key={l.id} style={S.maddeSatiri} wrap={false}>
-            <Text style={S.maddeIsareti}>–</Text>
-            {/* `flexBasis: 0` uzun maddeyi doğal genişliğinde çizmek yerine
-                sütunun KALAN genişliğinde yeniden ölçtürür. Yoksa 20.08.2026
-                ASTOR teklifindeki "Vinç üzeri enerji…" satırı sağ kenardan
-                10 pt taşıyordu. */}
-            <Text
-              style={[
-                S.metinSatiri,
-                { flexGrow: 1, flexShrink: 1, flexBasis: 0, paddingVertical: 0 },
-              ]}
-            >
-              {l.text}
-            </Text>
-          </View>
-        ) : (
-          <Text key={l.id} style={S.metinSatiri}>
-            {l.text}
-          </Text>
-        )
-      )}
+    <View style={S.altSerit}>
+      <Text style={S.altBaslik}>{trUpper(baslik)}</Text>
+      {satirlar.map((l) => (
+        <View key={l.id} style={S.maddeSatiri} wrap={false}>
+          <View style={silik ? [S.maddeIsareti, S.maddeIsaretiSilik] : [S.maddeIsareti]} />
+          <Text style={S.maddeYazi}>{l.text}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -1255,16 +1939,23 @@ function MetinBlogu({
 /**
  * SÜTUN KAPASİTESİ — bir teknik sayfada bir sütuna sığan yükseklik (pt).
  *
- * İçerik alanı 745,69 pt; sayfa başlığı bloğu (kicker 8,4 + 2 pay, kalem adı
- * 17,25 + 3 pay, blok altı 12) ~43 pt harcar ve 45 yazılır — fazla ölçmek
- * seçilmiş yöndür. Kalanı `pdf-layout` ayrıca %94 ile kelepçeler.
+ * İçerik alanı 745,69 pt; sayfa başlığı bloğu (kicker satırı 8,4 + 2 pay,
+ * kalem adı 17,25, kural 5 pay + 1,4, blok altı 9) ~43 pt harcar ve 45
+ * yazılır — fazla ölçmek seçilmiş yöndür. Kalanı `pdf-layout` ayrıca %94 ile
+ * kelepçeler.
+ *
+ * BAŞLIĞA KURAL EKLENDİĞİNDE (22.08.2026) BÜTÇE KORUNDU: kicker ile ad
+ * arasındaki paylar kısaldı ve blok altı 12'den 9'a indi; kural bedavaya
+ * gelmedi ama kapasiteden de bir pt almadı. Buraya dokunan herkes aynı
+ * hesabı yeniden yapmak zorundadır — bir teknik sayfa 1 pt yüzünden ikiye
+ * bölünür.
  *
  * ÖBEK DİZİNİ KALKINCA 7 PT GERİ GELDİ (md. 19) ve o yedi puan boşa gitmedi:
  * etiketler büyük harfe döndüğü için (md. 18) `ETIKET_KATSAYI` 0,46'dan
  * 0,62'ye çıktı ve satırlar genişledi. Aynı vinç gövdesi tek yaprakta ancak bu
  * iki değişiklik BİRLİKTE kalıyor.
  */
-const PDF_SUTUN_KAPASITE = 745.69 - 45;
+const PDF_SUTUN_KAPASITE = 745.69 - 53;
 
 /** Sayfa sırası için romen rakamı — "TEKNİK ÖZELLİKLER · II". */
 function romen(n: number): string {
@@ -1272,11 +1963,42 @@ function romen(n: number): string {
   return t[n] ?? String(n);
 }
 
-/** Altbilgi künyesi: `TETR-20260127-1 · REV 02 · HABAŞ DÖRTYOL 20T VİNÇ`. */
-function altbilgi(offer: OfferDocumentProps["offer"]): string {
+/** Belgenin markası — altbilgi satırının ilk parçası. */
+const MARKA_ADI = "ORION CRANES";
+
+/**
+ * ALTBİLGİ DOKÜMAN SATIRI — her yaprakta, markayla açılır.
+ *
+ * `ORION CRANES · TETR-20260127-1 · REV 02 · 27.01.2026 · HABAŞ DÖRTYOL 20T VİNÇ`
+ *
+ * Müşteri belgenin BİR YAPRAĞINI tek başına fotoğraflasa bile kimin, hangi
+ * teklifinin, hangi revizyonunun, hangi işi olduğu okunabilmelidir; devralınan
+ * belgelerde iç sayfalar bağlamsızdı.
+ *
+ * KAPAKTA KONU DÜŞER (`konuVar = false`): konu zaten kapağın 33 pt'lik
+ * başlığıdır ve altbilgide tekrarı, aynı sözü aynı yaprakta iki kez söylemek
+ * olurdu (hesap raporunun `coverDocLineFor` kuralıyla aynı gerekçe).
+ */
+function altbilgi(offer: OfferDocumentProps["offer"], konuVar: boolean): string {
   const konu = offer.subject.trim();
-  const kimlik = offerDocLine(offer.offerNo, offer.revNo);
-  return konu ? `${kimlik} · ${trUpper(konu)}` : kimlik;
+  const parcalar = [MARKA_ADI, offerDocLine(offer.offerNo, offer.revNo), tarih(offer.issueDate)];
+  if (konuVar && konu) parcalar.push(trUpper(konu));
+  return parcalar.join(" · ");
+}
+
+/**
+ * KAPAKTAN SONRAKİ İLK BÖLÜMÜN AÇILDIĞI YAPRAK — kapağın kaç sayfa tuttuğunun
+ * ÖLÇÜSÜ. Kapak tek yapraksa 2'dir; 3 ise kapak taşmış demektir.
+ *
+ * Bölüm listesi burada yeniden kurulmaz: toplanan bütün `bas:` çapalarının en
+ * küçüğü, hangi bölümlerin basıldığından bağımsız olarak belgenin kapaktan
+ * sonraki ilk yaprağıdır.
+ */
+function ilkBolumSayfasi(pageOf: Record<string, number>): number {
+  const baslar = Object.entries(pageOf)
+    .filter(([anchor]) => anchor.startsWith("bas:"))
+    .map(([, page]) => page);
+  return baslar.length > 0 ? Math.min(...baslar) : 2;
 }
 
 export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
@@ -1294,7 +2016,18 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
   const testYukuTicaride = testYukuVar(payload) && !testYukuTeknikte;
   // Sağ sütun ÖDEME bloğudur; o yoksa ticari sayfa tek sütuna döner.
   const sagSutunVar = odemeVar(payload);
-  const docLine = altbilgi(offer);
+  const docLine = altbilgi(offer, true);
+  const kunye = sayfaKunyesi(offer);
+  const sartlar = printedGeneralTerms(payload);
+  // İÇİNDEKİLER BELGENİN KENDİSİNDEN ÇIKAR: hangi bölümlerin BASILDIĞINI
+  // aşağıdaki JSX'le aynı koşullar söyler (kalem var mı, şart maddesi kaldı
+  // mı). Ayrı bir liste tutulsaydı gizlenen bir bölüm kapakta durmaya devam
+  // ederdi.
+  // FİYAT TABLOSU KENDİ YAPRAĞINA GEÇER Mİ (bkz. `FIYAT_SATIR_ESIGI`).
+  const fiyatAyriYaprakta = payload.pricing.lines.length > FIYAT_SATIR_ESIGI;
+  const bolumler = tocBolumleri(payload, sartlar.length > 0, fiyatAyriYaprakta);
+  // `pageOf` bileşene `props` yayılımıyla gider (`KapakSayfasi`).
+  const { collect } = props;
 
   return (
     <Document
@@ -1306,7 +2039,9 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
       {/* KAPAK — `cover.hidden` yalnız kapağı kaldırır; belge (teknik sayfalar,
           fiyat, şartlar) yerinde kalır. Bayrak payload'ın kendi alanıdır,
           burada tanımlanan ikinci bir süzgeç değildir. */}
-      {payload.cover.hidden ? null : <KapakSayfasi {...props} payload={payload} />}
+      {payload.cover.hidden ? null : (
+        <KapakSayfasi {...props} payload={payload} bolumler={bolumler} />
+      )}
 
       {/* TEKNİK SAYFALAR — HER KALEM YENİ SAYFADA. Bir ekipmanın özellikleri
           bir öncekinin dibinden devam ettiğinde müşteri iki vincin satırlarını
@@ -1324,14 +2059,23 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
           <TeknikSayfa
             key={`${item.id}-${s}`}
             docLine={docLine}
+            kunye={kunye}
             baslik={item.title}
             kicker={
               sayfalar.length > 1
-                ? `TEKNİK ÖZELLİKLER · ${romen(s + 1)}`
-                : "TEKNİK ÖZELLİKLER"
+                ? `${trUpper(OFFER_SECTIONS.teknik)} · ${romen(s + 1)}`
+                : trUpper(OFFER_SECTIONS.teknik)
             }
             sol={sayfa.sol}
             sag={sayfa.sag}
+            ustSonda={
+              i === 0 && s === 0 ? <Sonda anchor="bas:teknik" collect={collect} /> : null
+            }
+            altSonda={
+              i === items.length - 1 && s === sayfalar.length - 1 ? (
+                <Sonda anchor="son:teknik" collect={collect} />
+              ) : null
+            }
             altBilgi={
               /* TEST YÜKÜ "teknik" konumunda SON teknik sayfanın ardındadır.
                  Ayrı bir yaprağa alınmadı: iki satırlık bir bloğun tek başına
@@ -1344,68 +2088,148 @@ export function OfferDocument(props: OfferDocumentProps): React.ReactElement {
         ));
       })}
 
-      {/* TİCARİ SAYFA — şartlar, fiyat, notlar, kapsam dışı işler. */}
-      <BrandPage docLine={docLine}>
-        <View style={S.sayfaBasi}>
-          <Text style={S.sayfaKicker}>TİCARİ ŞARTLAR</Text>
-          {/* SAYFANIN BAŞLIĞI `terms.title`DIR (md. 16). Devralınan düzende bu
-              metin bir blok başlığıydı ("FİYAT, TESLİM VE ÖDEME ŞEKLİ :") ve
-              altındaki fiyat tablosunun kendi adı yoktu — tablo başlıksız
-              duruyordu. Artık metin sayfayı adlandırır, tablo da kendi
-              "FİYATLAR" başlığını taşır. */}
-          <Text style={S.ticariBaslik}>{trUpper(payload.terms.title)}</Text>
-        </View>
+      {/* TİCARİ SAYFA — şartlar, (sığıyorsa) fiyat, notlar, kapsam dışı işler. */}
+      <BrandPage docLine={docLine} brandFooter={{}}>
+        <Sonda anchor="bas:ticari" collect={collect} />
+        {/* SAYFANIN BAŞLIĞI `terms.title`DIR (md. 16). Devralınan düzende bu
+            metin bir blok başlığıydı ("FİYAT, TESLİM VE ÖDEME ŞEKLİ :") ve
+            altındaki fiyat tablosunun kendi adı yoktu — tablo başlıksız
+            duruyordu. Artık metin sayfayı adlandırır, tablo da kendi
+            "FİYATLAR" başlığını taşır. */}
+        <SayfaBasi
+          kicker={trUpper(payload.terms.title)}
+          baslik={trUpper(OFFER_SECTIONS.ticari)}
+          kunye={kunye}
+          marka
+          buyuk
+        />
 
-        {/* İKİ SÜTUN (md. 15): solda teslim şartları (ve varsa test yükü),
-            sağda ödeme. Sağ sütun boşsa TEK SÜTUNA dönülür — yarısı boş bir
-            sayfa, bölünmüş bir sayfadan daha kötü okunur. */}
-        {sagSutunVar ? (
-          <View style={S.sutunlar}>
-            <View style={S.sutun}>
+        {/* İKİ SÜTUN: solda teslim şartları, sağda ödeme planı ve test yükü.
+            Sağ sütun boşsa TEK SÜTUNA dönülür — yarısı boş bir sayfa,
+            bölünmüş bir sayfadan daha kötü okunur. */}
+        {sagSutunVar || testYukuTicaride ? (
+          <View style={[S.ticariUst, { marginTop: mm(6) }]}>
+            <View style={S.ticariSol}>
               <TeslimSartlari payload={payload} />
+            </View>
+            <View style={S.ticariSag}>
+              <Odeme payload={payload} />
               {testYukuTicaride ? (
-                <View style={{ marginTop: BLOK_ARA }}>
+                <View style={{ marginTop: odemeVar(payload) ? mm(3) : 0 }}>
                   <TestYuku payload={payload} />
                 </View>
               ) : null}
             </View>
-            <View style={S.sutun}>
-              <Odeme payload={payload} />
-            </View>
           </View>
         ) : (
-          <View>
+          <View style={{ marginTop: mm(6) }}>
             <TeslimSartlari payload={payload} />
-            {testYukuTicaride ? (
-              <View style={{ marginTop: BLOK_ARA }}>
-                <TestYuku payload={payload} />
-              </View>
-            ) : null}
           </View>
         )}
 
-        <FiyatTablosu payload={payload} currency={offer.currency} />
-        {/* NOTLAR VE KAPSAM DIŞI İŞLER YAN YANA (kullanıcı isteği md. 8):
-            ikisi de kısa listelerdir ve alt alta durduklarında ticari sayfanın
-            yarısını boş bırakıyorlardı. */}
-        <View style={[S.sutunlar, { marginTop: BLOK_ARA }]}>
-          <View style={S.sutun}>
-            <MetinBlogu baslik="Notlar" satirlar={payload.notes} madde />
+        {/* FİYAT TABLOSU KENDİ YAPRAĞINA GEÇTİYSE burada basılmaz. */}
+        {fiyatAyriYaprakta ? null : (
+          <FiyatTablosu payload={payload} currency={offer.currency} />
+        )}
+
+        {/* NOTLAR VE KAPSAM DIŞI İŞLER SAYFANIN DİBİNDE, yan yana: ikisi de
+            kısa listelerdir ve alt alta durduklarında ticari sayfanın yarısını
+            boş bırakıyorlardı. Esnek boşluk onları aşağı iter; mutlak konum
+            KULLANILMAZ, uzun bir liste geldiğinde boşluk kendiliğinden kapanır. */}
+        <View style={S.kapakEsnekBosluk} />
+        <View style={S.altSutunlar}>
+          <View style={S.altSutun}>
+            <MetinBlogu baslik="Notlar" satirlar={payload.notes} />
           </View>
-          <View style={S.sutun}>
-            <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} madde />
+          <View style={S.altSutun}>
+            <MetinBlogu baslik="Kapsam Dışı İşler" satirlar={payload.exclusions} silik />
           </View>
         </View>
+        <Sonda anchor="son:ticari" collect={collect} />
       </BrandPage>
 
+      {/* FİYAT TABLOSU KENDİ YAPRAĞINDA (kullanıcı isteği, 22.08.2026:
+          *"eğer 12 satırın üstünde bir fiyat kalemi varsa fiyat tablosu ayrı
+          sayfaya geçsin, tablo ikiye bölünmesin"*). */}
+      {fiyatAyriYaprakta ? (
+        <BrandPage docLine={docLine} brandFooter={{}}>
+          <Sonda anchor="bas:fiyat" collect={collect} />
+          <SayfaBasi
+            kicker={trUpper(payload.terms.title)}
+            baslik={FIYAT_BASLIK}
+            kunye={kunye}
+            marka
+            buyuk
+          />
+          <FiyatTablosu payload={payload} currency={offer.currency} kendiYapraginda />
+          <Sonda anchor="son:fiyat" collect={collect} />
+        </BrandPage>
+      ) : null}
+
       {/* GENEL ŞARTLAR — belgenin SON sayfası (md. 9). */}
-      <GenelSartlarSayfasi docLine={docLine} maddeler={printedGeneralTerms(payload)} />
+      <GenelSartlarSayfasi
+        docLine={docLine}
+        kunye={kunye}
+        maddeler={sartlar}
+        ustSonda={<Sonda anchor="bas:sartlar" collect={collect} />}
+        altSonda={<Sonda anchor="son:sartlar" collect={collect} />}
+      />
     </Document>
   );
 }
 
+/**
+ * YERLEŞİM ÖNCE ÖLÇÜLÜR, SONRA BASILIR — en az iki geçiş.
+ *
+ * İki ayrı soruyu aynı ölçüm cevaplar:
+ *
+ *  1. **İçindekiler.** Bir bölümün kaç yaprak tuttuğu önceden bilinemez:
+ *     teknik sayfa sayısını `pdf-layout` hesaplar ama ticari sayfa da genel
+ *     şartlar da içeriğine göre taşabilir. Bölümlerin açıldığı ve kapandığı
+ *     yapraklar birinci geçişte toplanır.
+ *  2. **Kapağın sıkışması.** Kapak TEK SAYFADIR; konu üç satıra çıkıp müşteri
+ *     unvanı künyede sarınca tasarımın nefes payları taşıyordu ve @react-pdf
+ *     taşan bloğu sessizce ikinci bir yaprağa atıyordu. `son:kapak` sondası
+ *     kapağın hangi yaprakta bittiğini söyler; taşmışsa kademe artar ve
+ *     yerleşim yeniden koşar (bkz. `KapakYogunlugu`).
+ *
+ * OLAĞAN TEKLİF İKİ GEÇİŞTİR: kapak taşmazsa döngü ilk turda biter. Taşan
+ * kapak en çok iki ölçüm daha ister ve o bedel yılda birkaç teklifte ödenir.
+ *
+ * KAPAK GİZLİYSE de ölçülür: numara toplamak ucuzdur, "hangi durumda tek geçiş
+ * yeter" sorusunu her değişiklikte yeniden cevaplamak değildir.
+ */
 export async function renderOfferPdf(props: OfferDocumentProps): Promise<Buffer> {
-  // TEK GEÇİŞ yeter: belgede içindekiler yoktur, sayfa numarası toplanacak
-  // bir hedef listesi de. (Hesap raporu iki geçiş yapar; teklif yapmaz.)
-  return renderToBuffer(<OfferDocument {...props} />);
+  const EN_SIK: KapakYogunlugu = 2;
+  let coverDensity: KapakYogunlugu = 0;
+  let pageOf: Record<string, number> = {};
+
+  for (;;) {
+    const toplanan: Record<string, number> = {};
+    // SON YAZAN KAZANIR: @react-pdf sayfa bölerken dinamik düğümleri her aday
+    // sayfa için yeniden çalıştırır ve ara değerler bölümün gerçek yerini
+    // göstermez (hesap raporunun `renderReportPdf` kuralıyla aynı).
+    await renderToBuffer(
+      <OfferDocument
+        {...props}
+        coverDensity={coverDensity}
+        collect={(anchor, page) => {
+          toplanan[anchor] = page;
+        }}
+      />
+    );
+    pageOf = toplanan;
+    if (props.payload.cover.hidden || coverDensity >= EN_SIK) break;
+    // KAPAK KAÇ YAPRAK TUTTU? İlk bölümün başladığı sayfadan okunur. Kapağın
+    // SONUNA konan bir sonda bu soruyu cevaplamıyordu: taşan blok kağıdın
+    // dışına çizilir ama sıfır yükseklikli düğüm hâlâ birinci yaprakta
+    // yerleşmiş sayılır ve sonda "1" bildirir. Bir sonraki bölümün nerede
+    // AÇILDIĞI ise ölçülen bir olgudur.
+    if (ilkBolumSayfasi(toplanan) <= 2) break;
+    coverDensity = (coverDensity + 1) as KapakYogunlugu;
+  }
+
+  return renderToBuffer(
+    <OfferDocument {...props} coverDensity={coverDensity} pageOf={pageOf} />
+  );
 }

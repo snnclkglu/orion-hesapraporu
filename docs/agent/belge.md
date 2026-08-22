@@ -31,6 +31,35 @@ Marka altyapısı `pdf/brand.tsx`tedir ve TÜM belgeler onu paylaşır:
   `ORION CRANES · HESAP RAPORU · REV 05 · 2026`tır ve diğer sayfalarda markayı
   taşıyan tek satır odur. Kapakta ise künye hemen üstündedir; önek orada
   düşürülür (`coverDocLineFor`), yoksa aynı ad altbilgide iki kez yazılırdı.
+- **`StripeField`** — kılavuzun 135° ÇAPRAZ ŞERİT ALANI, altı grafik aygıtından
+  biri. Kömür bir zemini düz bırakmak yerine dokulandırır; kontrast bilerek çok
+  düşüktür (`#2F2E2C` ⟷ `#262626` ≈ 1,05:1) ve üzerindeki metni etkilemez.
+  **SVG'DİR:** @react-pdf `repeating-linear-gradient` bilmez, döndürülmüş
+  kutulardan şerit kurmak her şeridi ayrı bir yerleşim düğümü yapardı ve SVG
+  kendi görüntü alanına kırpar. Ölçü kılavuzun CSS'idir: dik yönde 9 pt şerit /
+  18 pt periyot; 45°'lik çizgide x karşılığı √2 katıdır.
+- **`BRAND_LOGO_PAPER` / `BRAND_LOGO_INK` / `BRAND_SYMBOL_INK`** — kağıt renkli
+  lockup, kömür lockup ve kömür monogram; `scripts/make-icons.ts` ÜRETİR
+  (@react-pdf `Image` yalnız raster okur, SVG veremeyiz). Tam renkli lockup
+  kömür zeminde okunmaz, kağıt üzerinde ise ikinci bir kırmızı lekesidir —
+  teklifin iç sayfalarında kırmızı kicker ve kurala ayrılmıştır. **Oran PNG
+  başlığından okunur** (`pngOrani`), elle yazılmaz: sabit bir oran, görsel
+  yeniden üretildiğinde sessizce logoyu esnetirdi.
+
+### `BrandPage`in iki opt-in kipi
+
+- **`bleed`** — kapak gibi TAM KANAMA yapraklar. İçerik payı sıfırlanır (payı
+  bölgeler kendi içinde verir), **kırmızı omurga içerikten SONRA çizilir**
+  (boyama sırası akış sırasıdır; kenardan kenara bir bant, önce çizilmiş
+  omurganın üstünü örterdi) ve **filigran basılmaz** (kömür bant + lockup +
+  omurga markayı zaten taşır). Altbilgi tam kanamada da marjdadır: sayfanın
+  payı sıfırlansa bile folio yerini değiştirmez.
+- **`brandFooter`** — doküman satırı kömür ve yarı kalın, folionun önünde 5 pt
+  kırmızı kare, (verilirse) doküman satırının ÜSTÜNE gri künye satırı.
+  Bugün YALNIZ TEKLİF kullanır (TEKLIF-50); hesap raporu, iş emri, bordro ve
+  ekipman listesi bugünkü altbilgisiyle kalır. Teklifin kapak dilini bütün
+  belgelere yaymak AYRI bir karardır ve yerleşim denetçilerini birlikte
+  götürür.
 
 ### Hesap raporunun üç seviyesi
 
