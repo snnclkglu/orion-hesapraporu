@@ -1367,6 +1367,12 @@ export function withDerivedHoist(
   ) {
     selPatch.drumGrooveLengthText = d.drumGrooveLengthText;
   }
+  if (
+    d.ropeOrderLengthM !== undefined &&
+    d.ropeOrderLengthM !== selections.ropeOrderLengthM
+  ) {
+    selPatch.ropeOrderLengthM = d.ropeOrderLengthM;
+  }
 
   const inputsChanged = Object.keys(patch).length > 0;
   const selChanged = Object.keys(selPatch).length > 0;

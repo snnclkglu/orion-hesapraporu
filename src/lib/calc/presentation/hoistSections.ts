@@ -228,7 +228,7 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
     id: "2.2.2",
     title: "Yiv Boyu",
     inputKeys: ["safetyGrooveCount"],
-    selectionKeys: ["drumGrooveLengthText"],
+    selectionKeys: ["drumGrooveLengthText", "ropeOrderLengthM"],
     rows: [
       {
         key: "drum.requiredGrooves", label: "Gerekli Sarım Sayısı",
@@ -249,14 +249,33 @@ export const HOIST_SECTIONS: HoistSectionDef[] = [
         unit: "m", digits: 2,
       },
       {
-        key: "rope.totalLength", label: "Toplam Çelik Halat Boyu",
-        formula: "L_top = L_h · n_tahrik",
+        key: "rope.rawTotalLength", label: "Ham Toplam Halat Boyu",
+        formula: "L_ham = L_h · n_tahrik",
         subst: (x) => `${n(num(x.c["rope.lengthPerGroove"]))} · ${n(x.inp.drivenFalls)}`,
         unit: "m", digits: 2,
       },
       {
-        key: "rope.arrangement", label: "Halat Sipariş Bölünümü",
-        formula: "denge düzenine göre parça adedi, helis yönü ve parça boyu",
+        key: "rope.automaticTotalLength", label: "Otomatik Sipariş Boyu",
+        formula: "L_oto = n_parça · ⌈L_ham / n_parça⌉",
+        subst: (x) =>
+          `${n(num(x.c["rope.pieceCount"]))} · yukarı_tam(` +
+          `${n(num(x.c["rope.rawTotalLength"]))} / ${n(num(x.c["rope.pieceCount"]))})`,
+        unit: "m", digits: 2,
+      },
+      {
+        key: "rope.totalLength", label: "Kullanılan Toplam Halat Boyu",
+        formula: "L_sipariş = L_oto (otomatik) veya L_elle",
+        subst: (x) => x.inp.ropeOrderLengthAuto === false
+          ? `elle seçilen ${n(num(x.c["rope.totalLength"]))}`
+          : `otomatik ${n(num(x.c["rope.automaticTotalLength"]))}`,
+        unit: "m", digits: 2,
+      },
+      {
+        key: "rope.lengthPerPiece", label: "Tek Halat Boyu",
+        formula: "L_parça = L_sipariş / n_parça",
+        subst: (x) =>
+          `${n(num(x.c["rope.totalLength"]))} / ${n(num(x.c["rope.pieceCount"]))}`,
+        unit: "m", digits: 2,
       },
     ],
     checkSuffixes: [],

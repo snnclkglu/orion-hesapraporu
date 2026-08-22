@@ -758,12 +758,16 @@ kutularında otomatik rozeti taşır. Kanca bloğu makara adedi `toplam halat / 
 makara rulmanı adedi `makara × 2`, yürütme rulmanı adedi `teker × teker başına
 rulman` olarak türetilir. Makara adedi otomatiği kapatılarak elle değiştirilebilir.
 
-Tek yiv halat boyu `z × π × D + 0,10 × h × (n_toplam / n_tahrik)`tir; toplam
+Tek yiv halat boyu `z × π × D + 0,10 × h × (n_toplam / n_tahrik)`tir; ham toplam
 boy bunun tahrikli halat sayısıyla çarpımıdır. Traversli düzende her yiv ayrı
 halattır ve sağ/sol helis sipariş satırlarına bölünür. Denge makaralı düzende
-iki yiv tek sürekli sağ helis halatta birleşir. Ekrandaki şema, yiv boyunun
-yanındaki canlı boy özeti, hesap raporu ve ekipman listesi aynı saf halat planını
-okur; metre veya helis yönü çıktılarda yeniden hesaplanmaz.
+iki yiv tek sürekli sağ helis halatta birleşir. Siparişte her ayrı halat parçası
+yukarı tam metreye çıkarılır; otomatik toplam `parça adedi × ⌈ham toplam / parça
+adedi⌉` olur. Kullanıcı otomatiği kapatıp toplam metreye elle müdahale edebilir.
+Yiv Boyu ekranında helis, halat adedi ve toplam halat boyu üç ayrı kutudur;
+açıklamalar kutu altında değil başlıktaki bilgi açılırında gösterilir. Ekran,
+hesap raporu ve ekipman listesi aynı saf halat planını okur; metre veya helis
+yönü çıktılarda yeniden hesaplanmaz.
 
 DIN 15401/15402 kanca kapasitesi raporda ve ekipman listesinde aynı DIN 15400
 Tablo 3 hücresinden okunur; snapshot'taki eski `hookCapacityKg` değeri satın alma

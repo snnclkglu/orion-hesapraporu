@@ -406,7 +406,10 @@ describe("AUTO_FLAGS koruması", () => {
         const inputs = (loaded.full as unknown as Record<string, { inputs: Record<string, unknown> }>)[
           field
         ].inputs;
-        expect(inputs[flag]).toBe(false);
+        // Halat sipariş boyu eski revizyonlarda hiç bulunamaz; yükleyici bu
+        // yeni alanı hesaplayıp otomatiği özellikle açar. Diğer eski otomatik
+        // alanlarda elle girilmiş değeri koruyan genel kural devam eder.
+        expect(inputs[flag]).toBe(flag === "ropeOrderLengthAuto");
       });
 
       it(`${field}.${flag}: kayıtta anahtar açıksa açık kalır`, () => {

@@ -89,8 +89,33 @@ describe("mühendislik ekipman adetleri", () => {
     expect(left.model).toContain("SOL HELIS");
     expect(right.spec).toMatch(/boy .* m\/adet/i);
     expect(left.spec).toMatch(/boy .* m\/adet/i);
+    expect(right.spec).toMatch(/boy \d+ m\/adet/i);
+    expect(left.spec).toMatch(/boy \d+ m\/adet/i);
     expect(right.qty).toBe(1);
     expect(left.qty).toBe(1);
+  });
+
+  it("elle girilen toplam halat boyunu parça adedine bölerek ekipmana taşır", () => {
+    const input: CalcInput = {
+      ...NEW_WORK_TEMPLATE,
+      mainHoist: {
+        inputs: {
+          ...NEW_WORK_TEMPLATE.mainHoist!.inputs,
+          reevingLabel: "2/4",
+          drivenFalls: 2,
+          totalFalls: 4,
+          ropeBalancingType: "equalizerBeam",
+          ropeOrderLengthAuto: false,
+        },
+        selections: {
+          ...NEW_WORK_TEMPLATE.mainHoist!.selections,
+          ropeOrderLengthM: 105,
+        },
+      },
+    };
+
+    expect(row(input, "main:rope").spec).toMatch(/boy 52\.5 m\/adet/i);
+    expect(row(input, "main:ropeLeft").spec).toMatch(/boy 52\.5 m\/adet/i);
   });
 
   it("denge makaralı düzende tek sağ helis halat satırı üretir", () => {

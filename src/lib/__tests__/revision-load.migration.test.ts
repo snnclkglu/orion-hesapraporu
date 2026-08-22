@@ -192,6 +192,24 @@ describe("revizyon göçü — denge düzeni ve makara adedi", () => {
       .toBe("equalizerSheave");
   });
 
+  it("eski işte eksik halat sipariş boyunu yukarı tam metreyle otomatik tamamlar", () => {
+    const old = snapshotOf(V5_TEMPLATE, (inputs) => {
+      const out = { ...(inputs as Record<string, unknown>) };
+      delete out.ropeOrderLengthAuto;
+      return out;
+    });
+    const selections = {
+      ...(old.selections.mainHoist as unknown as Record<string, unknown>),
+    };
+    delete selections.ropeOrderLengthM;
+    old.selections.mainHoist = selections as unknown as RevisionSelectionsJson["mainHoist"];
+
+    const loaded = loadRevision(old.inputs, old.selections).full.mainHoist!;
+    expect(loaded.inputs.ropeOrderLengthAuto).toBe(true);
+    expect(loaded.selections.ropeOrderLengthM).toBeGreaterThan(0);
+    expect(Number.isInteger(loaded.selections.ropeOrderLengthM)).toBe(true);
+  });
+
   it("eski 2/8 donanımda eksik makara seçimini 8/2 = 4 ve otomatik olarak tamamlar", () => {
     const old = snapshotOf(V5_TEMPLATE, (inputs) => ({ ...inputs }));
     old.inputs.mainHoist = {

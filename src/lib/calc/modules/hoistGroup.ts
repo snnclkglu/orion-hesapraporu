@@ -444,11 +444,20 @@ export interface RopeOrderLine {
 export interface RopeLengthPlan {
   /** Tek yiv/helis için gereken halat boyu [m]. */
   lengthPerGrooveM: number;
-  /** Bütün tahrikli halat uçları için toplam boy [m]. */
+  /** Yuvarlama öncesi teorik toplam halat boyu [m]. */
+  rawTotalLengthM: number;
+  /** Her parça yukarı tam metreye çıkarıldığında tek parça sipariş boyu [m]. */
+  automaticLengthPerPieceM: number;
+  /** Her parça yukarı tam metreye çıkarıldığında otomatik toplam sipariş boyu [m]. */
+  automaticTotalLengthM: number;
+  /** Otomatik ya da kullanıcı tarafından seçilmiş etkin tek parça boyu [m]. */
+  lengthPerPieceM: number;
+  /** Otomatik ya da kullanıcı tarafından seçilmiş etkin toplam sipariş boyu [m]. */
   totalLengthM: number;
   pieceCount: number;
   rightLayCount: number;
   leftLayCount: number;
+  layLabel: "Sağ Helis" | "Sağ ve Sol Helis";
   lines: RopeOrderLine[];
   arrangementText: string;
 }
@@ -464,8 +473,8 @@ export interface RopeLengthPlan {
  * birleşir; dolayısıyla parça adedi tahrikli uç sayısının yarısıdır.
  */
 export function ropeLengthPlan(
-  inp: Pick<HoistInputs, "drivenFalls" | "totalFalls" | "fixedSheaveCount" | "sheaveEfficiency" | "reevingLabel" | "safetyGrooveCount" | "ropeBalancingType">,
-  sel: Pick<HoistSelections, "drumDiaMm" | "ropeDiaMm">,
+  inp: Pick<HoistInputs, "drivenFalls" | "totalFalls" | "fixedSheaveCount" | "sheaveEfficiency" | "reevingLabel" | "safetyGrooveCount" | "ropeBalancingType" | "ropeOrderLengthAuto">,
+  sel: Pick<HoistSelections, "drumDiaMm" | "ropeDiaMm" | "ropeOrderLengthM">,
   liftHeightM: number
 ): RopeLengthPlan {
   const reeving = hoistReeving(inp as HoistInputs);
@@ -475,11 +484,23 @@ export function ropeLengthPlan(
   const allowanceM = 0.1 * liftHeightM * rig.mechanicalAdvantage;
   const lengthPerGrooveM = groove.grooves * drumCircumferenceM + allowanceM;
   const driven = Math.max(1, Math.round(reeving.drivenFalls));
-  const totalLengthM = lengthPerGrooveM * driven;
+  const rawTotalLengthM = lengthPerGrooveM * driven;
+  const equalizerSheave = inp.ropeBalancingType === "equalizerSheave";
+  const pieceCount = equalizerSheave ? Math.max(1, Math.ceil(driven / 2)) : driven;
+  const rightLayCount = equalizerSheave ? pieceCount : Math.ceil(driven / 2);
+  const leftLayCount = equalizerSheave ? 0 : Math.floor(driven / 2);
+  const automaticLengthPerPieceM = Math.ceil(rawTotalLengthM / pieceCount);
+  const automaticTotalLengthM = automaticLengthPerPieceM * pieceCount;
+  const manualTotalLengthM = Number(sel.ropeOrderLengthM);
+  const totalLengthM =
+    inp.ropeOrderLengthAuto === false &&
+    Number.isFinite(manualTotalLengthM) &&
+    manualTotalLengthM > 0
+      ? manualTotalLengthM
+      : automaticTotalLengthM;
+  const lengthPerPieceM = totalLengthM / pieceCount;
 
-  if (inp.ropeBalancingType === "equalizerSheave") {
-    const pieceCount = Math.max(1, Math.ceil(driven / 2));
-    const lengthPerPieceM = totalLengthM / pieceCount;
+  if (equalizerSheave) {
     const lines: RopeOrderLine[] = [{
       lay: "right",
       quantity: pieceCount,
@@ -488,10 +509,15 @@ export function ropeLengthPlan(
     }];
     return {
       lengthPerGrooveM,
+      rawTotalLengthM,
+      automaticLengthPerPieceM,
+      automaticTotalLengthM,
+      lengthPerPieceM,
       totalLengthM,
       pieceCount,
       rightLayCount: pieceCount,
       leftLayCount: 0,
+      layLabel: "Sağ Helis",
       lines,
       arrangementText:
         `Sağ helis ${pieceCount} × ${lengthPerPieceM.toFixed(2)} m ` +
@@ -499,34 +525,37 @@ export function ropeLengthPlan(
     };
   }
 
-  const rightLayCount = Math.ceil(driven / 2);
-  const leftLayCount = Math.floor(driven / 2);
   const lines: RopeOrderLine[] = [
     {
       lay: "right",
       quantity: rightLayCount,
-      lengthPerPieceM: lengthPerGrooveM,
-      totalLengthM: lengthPerGrooveM * rightLayCount,
+      lengthPerPieceM,
+      totalLengthM: lengthPerPieceM * rightLayCount,
     },
     ...(leftLayCount > 0
       ? [{
           lay: "left" as const,
           quantity: leftLayCount,
-          lengthPerPieceM: lengthPerGrooveM,
-          totalLengthM: lengthPerGrooveM * leftLayCount,
+          lengthPerPieceM,
+          totalLengthM: lengthPerPieceM * leftLayCount,
         }]
       : []),
   ];
   return {
     lengthPerGrooveM,
+    rawTotalLengthM,
+    automaticLengthPerPieceM,
+    automaticTotalLengthM,
+    lengthPerPieceM,
     totalLengthM,
     pieceCount: driven,
     rightLayCount,
     leftLayCount,
+    layLabel: leftLayCount > 0 ? "Sağ ve Sol Helis" : "Sağ Helis",
     lines,
     arrangementText:
-      `Sağ helis ${rightLayCount} × ${lengthPerGrooveM.toFixed(2)} m` +
-      (leftLayCount > 0 ? ` · Sol helis ${leftLayCount} × ${lengthPerGrooveM.toFixed(2)} m` : ""),
+      `Sağ helis ${rightLayCount} × ${lengthPerPieceM.toFixed(2)} m` +
+      (leftLayCount > 0 ? ` · Sol helis ${leftLayCount} × ${lengthPerPieceM.toFixed(2)} m` : ""),
   };
 }
 
@@ -642,6 +671,8 @@ export interface HoistInputs {
    * ("2 x 220" gibi), yukarı yuvarlanmış (bkz. `derive.ts`).
    */
   drumGrooveLengthAuto?: boolean;
+  /** Halat sipariş boyu her parçayı yukarı tam metreye çıkararak hesaplansın mı? */
+  ropeOrderLengthAuto?: boolean;
   /** C/E yiv bölgeleri gerekli yiv boyundan otomatik doldurulsun mu? */
   drumGrooveSpanAuto?: boolean;
   /** Redüktör servis katsayısı FEM mekanizma sınıfından türetilsin mi? */
@@ -671,6 +702,8 @@ export interface HoistSelections {
   drumDiaMm: number;
   drumMaterial: DrumMaterial;
   drumGrooveLengthText: string; // ör. "2 x 220"
+  /** Satın alınacak bütün halat parçalarının etkin toplam boyu [m]. */
+  ropeOrderLengthM?: number;
   shaftMaterial: ShaftMaterial;
   bearingType: string;
   bearingCode: string;          // ör. 22212
@@ -745,10 +778,14 @@ export interface HoistValues {
   actualBreakingKg: number;
   actualRopeSafety: number;
   ropeLengthPerGrooveM: number;
+  ropeRawTotalLengthM: number;
+  ropeAutomaticTotalLengthM: number;
+  ropeLengthPerPieceM: number;
   ropeTotalLengthM: number;
   ropePieceCount: number;
   ropeRightLayCount: number;
   ropeLeftLayCount: number;
+  ropeLayText: string;
   ropeArrangementText: string;
   // 2.2 Tambur
   drumCoefficientH: number;
@@ -1018,10 +1055,14 @@ export function computeHoistGroup(
     "drum.requiredGrooves": requiredGrooves,
     "drum.requiredGrooveLength": requiredGrooveLengthMm,
     "rope.lengthPerGroove": ropePlan.lengthPerGrooveM,
+    "rope.rawTotalLength": ropePlan.rawTotalLengthM,
+    "rope.automaticTotalLength": ropePlan.automaticTotalLengthM,
+    "rope.lengthPerPiece": ropePlan.lengthPerPieceM,
     "rope.totalLength": ropePlan.totalLengthM,
     "rope.pieceCount": ropePlan.pieceCount,
     "rope.rightLayCount": ropePlan.rightLayCount,
     "rope.leftLayCount": ropePlan.leftLayCount,
+    "rope.lay": ropePlan.layLabel,
     "rope.arrangement": ropePlan.arrangementText,
   });
 
@@ -1667,10 +1708,14 @@ export function computeHoistGroup(
     actualBreakingKg,
     actualRopeSafety,
     ropeLengthPerGrooveM: ropePlan.lengthPerGrooveM,
+    ropeRawTotalLengthM: ropePlan.rawTotalLengthM,
+    ropeAutomaticTotalLengthM: ropePlan.automaticTotalLengthM,
+    ropeLengthPerPieceM: ropePlan.lengthPerPieceM,
     ropeTotalLengthM: ropePlan.totalLengthM,
     ropePieceCount: ropePlan.pieceCount,
     ropeRightLayCount: ropePlan.rightLayCount,
     ropeLeftLayCount: ropePlan.leftLayCount,
+    ropeLayText: ropePlan.layLabel,
     ropeArrangementText: ropePlan.arrangementText,
     drumCoefficientH,
     minDrumDiaMm,

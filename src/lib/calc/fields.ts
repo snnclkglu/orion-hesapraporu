@@ -910,14 +910,22 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   { key: "drumMaterial", label: "Tambur Malzemesi", type: "select", options: DRUM_MATERIALS },
   {
     key: "drumGrooveLengthText", label: "Yiv Boyu", unit: "mm", type: "text",
-    hint:
-      "Otomatik: <tahrikli halat sayısı> x <gerekli yiv boyu>. Kesirli yiv " +
-      "adedi yukarı tam sayıya çıkarılır; boy = tam yiv adedi × hatve.",
     info:
+      "Otomatik değer: <tahrikli halat sayısı> × <gerekli yiv boyu>. " +
+      "Kesirli yiv adedi yukarı tam sayıya çıkarılır; boy = tam yiv adedi × hatve.\n\n" +
       "Tek yiv için halat boyu:\n" +
       "L = z × π × D + (%10 × h × (n_toplam / n_tahrik))\n\n" +
       "z: gerekli tam sarım sayısı, D: tambur çapı, h: kaldırma yüksekliği.\n\n" +
       "Denge traversinde her yiv ayrı halattır. Denge makarasındaysa iki yivin boyu tek sürekli halatta birleşir.",
+  },
+  {
+    key: "ropeOrderLengthM", label: "Halat Boyu", unit: "m", type: "number",
+    info:
+      "Ham toplam boy: L_ham = L_yiv × n_tahrik.\n\n" +
+      "Parça boyu = L_ham / n_parça. Her halat parçası eksik siparişe yol " +
+      "açmaması için yukarı tam metreye yuvarlanır; otomatik toplam sipariş " +
+      "boyu = n_parça × ⌈parça boyu⌉.\n\n" +
+      "Otomatik anahtarı kapatıldığında toplam halat boyu elle değiştirilebilir.",
   },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
   { key: "bearingType", label: "Rulman Tipi", type: "text" },
@@ -1028,6 +1036,7 @@ export const HOIST_AUTO_FIELDS: Record<string, keyof HoistInputs & string> = {
  */
 export const HOIST_AUTO_SELECTION_FIELDS: Record<string, keyof HoistInputs & string> = {
   drumGrooveLengthText: "drumGrooveLengthAuto",
+  ropeOrderLengthM: "ropeOrderLengthAuto",
 };
 
 /**

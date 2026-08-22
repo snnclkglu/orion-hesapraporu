@@ -170,6 +170,22 @@ describe("yiv boyu SEÇİM alanı (madde 5)", () => {
     expect(autoInputFlag("main", "drumGrooveLengthText")).toBeUndefined();
   });
 
+  it("halat boyunu otomatik tam metre olarak seçimlere yazar ve elle değeri korur", () => {
+    const otomatik = withDerivedModules(baseModules(), SPECS);
+    expect(autoSelectionFlag("main", "ropeOrderLengthM")).toBe("ropeOrderLengthAuto");
+    expect(Number.isInteger(hoistSel(otomatik).ropeOrderLengthM)).toBe(true);
+
+    const elle = withDerivedModules(
+      patchSelections(
+        patchInputs(baseModules(), "main", { ropeOrderLengthAuto: false }),
+        "main",
+        { ropeOrderLengthM: 105 }
+      ),
+      SPECS
+    );
+    expect(hoistSel(elle).ropeOrderLengthM).toBe(105);
+  });
+
   it("türetilen metin SEÇİMLERE yazılır (girdilere değil)", () => {
     const m = withDerivedModules(
       patchSelections(baseModules(), "main", { drumGrooveLengthText: "elle yazılmış" }),

@@ -40,7 +40,10 @@ describe("halat boyu ve denge düzeni", () => {
       0.1 * LIFT_HEIGHT_M * (inp.totalFalls / inp.drivenFalls);
 
     expect(plan.lengthPerGrooveM).toBeCloseTo(expected, 10);
-    expect(plan.totalLengthM).toBeCloseTo(expected * inp.drivenFalls, 10);
+    expect(plan.rawTotalLengthM).toBeCloseTo(expected * inp.drivenFalls, 10);
+    expect(plan.automaticLengthPerPieceM).toBe(Math.ceil(expected));
+    expect(plan.automaticTotalLengthM).toBe(Math.ceil(expected) * inp.drivenFalls);
+    expect(plan.totalLengthM).toBe(plan.automaticTotalLengthM);
   });
 
   it("2/4 denge traversini bir sağ ve bir sol helis halata böler", () => {
@@ -57,8 +60,9 @@ describe("halat boyu ve denge düzeni", () => {
       ["right", 1],
       ["left", 1],
     ]);
-    expect(plan.lines[0].lengthPerPieceM).toBeCloseTo(plan.lengthPerGrooveM, 10);
-    expect(plan.lines[1].lengthPerPieceM).toBeCloseTo(plan.lengthPerGrooveM, 10);
+    expect(plan.layLabel).toBe("Sağ ve Sol Helis");
+    expect(plan.lines[0].lengthPerPieceM).toBe(Math.ceil(plan.lengthPerGrooveM));
+    expect(plan.lines[1].lengthPerPieceM).toBe(Math.ceil(plan.lengthPerGrooveM));
   });
 
   it("2/4 denge makarasını iki yivi birleştiren tek sağ helis halat yapar", () => {
@@ -71,9 +75,10 @@ describe("halat boyu ve denge düzeni", () => {
     expect(plan.pieceCount).toBe(1);
     expect(plan.rightLayCount).toBe(1);
     expect(plan.leftLayCount).toBe(0);
+    expect(plan.layLabel).toBe("Sağ Helis");
     expect(plan.lines).toHaveLength(1);
     expect(plan.lines[0].lay).toBe("right");
-    expect(plan.lines[0].lengthPerPieceM).toBeCloseTo(plan.lengthPerGrooveM * 2, 10);
+    expect(plan.lines[0].lengthPerPieceM).toBe(Math.ceil(plan.lengthPerGrooveM * 2));
   });
 
   it("4/8 travers düzeninde dört halatı sağ/sol olarak dengeli dağıtır", () => {
@@ -87,5 +92,22 @@ describe("halat boyu ve denge düzeni", () => {
     expect(plan.rightLayCount).toBe(2);
     expect(plan.leftLayCount).toBe(2);
     expect(plan.lines.map((line) => line.quantity)).toEqual([2, 2]);
+  });
+
+  it("otomatik kapatıldığında kullanıcının toplam halat boyunu korur", () => {
+    const inp = {
+      ...input("2/4", "equalizerBeam"),
+      ropeOrderLengthAuto: false,
+    };
+    const plan = ropeLengthPlan(
+      inp,
+      { ...V5_MAIN_HOIST_SELECTIONS, ropeOrderLengthM: 105 },
+      LIFT_HEIGHT_M
+    );
+
+    expect(plan.totalLengthM).toBe(105);
+    expect(plan.lengthPerPieceM).toBe(52.5);
+    expect(plan.automaticTotalLengthM).not.toBe(105);
+    expect(plan.lines.map((line) => line.lengthPerPieceM)).toEqual([52.5, 52.5]);
   });
 });

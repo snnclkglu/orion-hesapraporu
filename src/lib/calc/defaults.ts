@@ -94,6 +94,7 @@ export const V5_MAIN_HOIST_INPUTS: HoistInputs = {
   // Tarihsel V5 düzeni denge makaralıdır. Yeni iş şablonu aşağıda traversli
   // düzene geçer; eski referansın ekipman bölünümü değişmesin.
   ropeBalancingType: "equalizerSheave",
+  ropeOrderLengthAuto: true,
   sheaveEfficiency: STANDARD_SHEAVE_EFFICIENCY,
   fixedSheaveCount: 0,
   hookBlockWeightKg: 3250,      // kepçe
@@ -421,6 +422,7 @@ const NEW_WORK_HOIST_INPUTS: HoistInputs = {
   tempFactorAuto: true,
   sheaveEfficiencyAuto: true,
   drumGrooveLengthAuto: true,
+  ropeOrderLengthAuto: true,
   drumGrooveSpanAuto: true,
   drumSpanCMm: 380,
   drumSpanEMm: 380,
@@ -450,6 +452,7 @@ const NEW_WORK_AUX_HOIST_INPUTS: HoistInputs = {
   tempFactorAuto: true,
   sheaveEfficiencyAuto: true,
   drumGrooveLengthAuto: true,
+  ropeOrderLengthAuto: true,
   drumGrooveSpanAuto: true,
   drumSpanCMm: 336,
   drumSpanEMm: 336,

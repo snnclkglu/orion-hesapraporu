@@ -547,6 +547,58 @@ function Field({
   );
 }
 
+/** Hesaplanan fakat kullanıcıya ayrı kutu olarak gösterilen kısa sipariş değeri. */
+function ReadonlyInfoField({
+  label,
+  value,
+  unit,
+  info,
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+  info: string;
+}) {
+  return (
+    <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
+      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <span>
+          {label}
+          {unit ? <> <span className="font-mono">[{unit}]</span></> : null}
+        </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${label} bilgi notu`}
+              title="Bilgi notunu aç"
+              className="inline-flex size-5 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+            >
+              i
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-[min(28rem,calc(100vw-2rem))]"
+          >
+            <div className="mb-2 text-xs font-semibold text-foreground">
+              {label} · Bilgi Notu
+            </div>
+            <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+              {info}
+            </p>
+          </PopoverContent>
+        </Popover>
+      </span>
+      <div className="grid min-w-0 content-start gap-1">
+        <div className="flex h-8 items-center border bg-muted/30 px-3 font-mono text-sm tabular-nums text-foreground pointer-coarse:h-10">
+          {typeof value === "number" ? fmt(value) : value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Checks
 
 /**
@@ -1886,8 +1938,8 @@ export function RevisionEditor({
             : undefined;
         })()
       : undefined;
-    const ropeOrderSummary = isHoistKey(key) && section.rawId === "2.2.2"
-      ? moduleResult(key)?.cells["rope.arrangement"]
+    const ropeOrderCells = isHoistKey(key) && section.rawId === "2.2.2"
+      ? moduleResult(key)?.cells
       : undefined;
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
@@ -2440,43 +2492,57 @@ export function RevisionEditor({
                     kutusunun sorusu yoktur — değeri yine korunur. */}
                 <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {section.selectionDefs.map((f) =>
-                    f.visibleWhen && !f.visibleWhen(sel as Record<string, unknown>) ? null : (
+                    ropeOrderCells && f.key !== "drumGrooveLengthText"
+                      ? null
+                      : f.visibleWhen && !f.visibleWhen(sel as Record<string, unknown>) ? null : (
                     <Field
                       key={f.key}
                       def={f}
                       value={sel}
+                      auto={autoSelectionStateFor(f.key)}
                       onChange={(next) => setModuleSelections(key, next)}
                       disabled={readOnly}
                       // Seçim alanı da otomatik olabilir (yiv boyu, kanca tam
                       // tanımı): anahtar girdilerde, türetilen değer seçimlerde.
-                      auto={autoSelectionStateFor(f.key)}
                       context={stdContext}
                       specs={specs}
                     />
                     )
                   )}
-                  {/* Yiv Boyu'nun hemen ardından hesaplanan satın alma boyu
-                      gelir. Değer snapshot'a kopyalanmaz; canlı hesap hücresi
-                      gösterilir ki donanım, tambur veya yükseklik değişince
-                      ikinci bir kayıt alanı bayat kalmasın. */}
-                  {ropeOrderSummary !== undefined && (
-                    <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
-                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                        Halat Boyu / Sipariş Bölünümü
-                      </span>
-                      <div className="grid min-w-0 content-start gap-1">
-                        <div
-                          className="flex min-h-9 items-center border bg-muted/30 px-3 py-2 font-mono text-sm tabular-nums text-foreground"
-                          aria-label="Hesaplanan halat boyu ve helis dağılımı"
-                        >
-                          {String(ropeOrderSummary)}
-                        </div>
-                        <p className="text-[11px] leading-snug text-muted-foreground">
-                          Donanım ve denge düzeninden otomatik hesaplanır.
-                        </p>
-                      </div>
-                    </div>
+                  {ropeOrderCells && (
+                    <ReadonlyInfoField
+                      label="Helis"
+                      value={String(ropeOrderCells["rope.lay"] ?? "—")}
+                      info={
+                        "Denge traversinde ayrı halatlar tamburun sağ ve sol yivlerine göre sağ/sol helis seçilir. " +
+                        "Denge makarasındaki sürekli halat sağ helis seçilir."
+                      }
+                    />
                   )}
+                  {ropeOrderCells && (
+                    <ReadonlyInfoField
+                      label="Halat Adedi"
+                      value={Number(ropeOrderCells["rope.pieceCount"] ?? 0)}
+                      info={
+                        "Denge traversinde halat adedi tahrikli halat sayısına eşittir. " +
+                        "Denge makarasındaysa iki yiv tek sürekli halatta birleştiği için parça adedi tahrikli halat sayısının yarısıdır."
+                      }
+                    />
+                  )}
+                  {ropeOrderCells && section.selectionDefs
+                    .filter((f) => f.key === "ropeOrderLengthM")
+                    .map((f) => (
+                      <Field
+                        key={f.key}
+                        def={f}
+                        value={sel}
+                        onChange={(next) => setModuleSelections(key, next)}
+                        disabled={readOnly}
+                        auto={autoSelectionStateFor(f.key)}
+                        context={stdContext}
+                        specs={specs}
+                      />
+                    ))}
                 </div>
                 {hookCapacityComparison && (
                   <div className="mt-3 grid gap-2 border bg-muted/20 p-3 sm:grid-cols-2">

@@ -21,7 +21,13 @@ import {
   isHookBlockKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
-import { hoistReeving, type HoistInputs, type HoistSelections } from "@/lib/calc/modules/hoistGroup";
+import {
+  hoistReeving,
+  hoistSpecView,
+  ropeLengthPlan,
+  type HoistInputs,
+  type HoistSelections,
+} from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import { deriveReeving } from "@/lib/calc/reeving";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
@@ -343,6 +349,7 @@ const AUTO_FLAGS = [
   "sheaveEfficiencyAuto",
   "tempFactorAuto",
   "drumGrooveLengthAuto",
+  "ropeOrderLengthAuto",
   "drumWeightAuto",
   "drumGrooveSpanAuto",
   "gearboxServiceFactorAuto",
@@ -782,6 +789,29 @@ function fullInput(
           sheaveCount: derivedBlockSheaveCount,
         };
         merged.inputs = { ...merged.inputs, sheaveCountAuto: true };
+      }
+      // Halat sipariş boyu ilk kez ayrı ve düzenlenebilir bir seçim alanına
+      // taşındı. Eski revizyonda alan yoksa mevcut denge/donanım düzeninden
+      // otomatik tam metre değeri üretilir; bundan sonraki elle seçim korunur.
+      if (
+        isHoistKey(key) &&
+        (!storedModuleSelections || !("ropeOrderLengthM" in storedModuleSelections))
+      ) {
+        const hoistInputs = {
+          ...(merged.inputs as HoistInputs),
+          ropeOrderLengthAuto: true,
+        };
+        const hoistSelections = merged.selections as HoistSelections;
+        const plan = ropeLengthPlan(
+          hoistInputs,
+          hoistSelections,
+          hoistSpecView(out.specs, key).liftHeightM
+        );
+        merged.inputs = hoistInputs;
+        merged.selections = {
+          ...hoistSelections,
+          ropeOrderLengthM: plan.automaticTotalLengthM,
+        };
       }
     }
     target[field] = key === "cabin"

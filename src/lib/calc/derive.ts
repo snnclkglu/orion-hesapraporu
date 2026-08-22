@@ -7,7 +7,12 @@
 // motoru, PDF rapor ve ekipman listesi hep aynı değeri görür ve alan elle
 // düzenlenmek istenirse anahtar kapatılıp serbest bırakılabilir.
 
-import { drumGrooveRequirement, drumShaftGeometry, hoistReeving } from "./modules/hoistGroup";
+import {
+  drumGrooveRequirement,
+  drumShaftGeometry,
+  hoistReeving,
+  ropeLengthPlan,
+} from "./modules/hoistGroup";
 import { hookDesignationText } from "./hook-standards";
 import { commonReevingByLabel } from "./reeving";
 import {
@@ -282,6 +287,7 @@ export type DerivedHoistField =
   | "sheaveEfficiency"
   | "drumWeightKg"
   | "drumGrooveLengthText"
+  | "ropeOrderLengthM"
   | "drumSpanCMm"
   | "drumSpanEMm"
   | "gearboxServiceFactor"
@@ -308,6 +314,8 @@ export interface HoistDerivation {
    * seçime yazar.
    */
   drumGrooveLengthText?: string;
+  /** Her halat parçası yukarı tam metreye çıkarılmış toplam sipariş boyu [m]. */
+  ropeOrderLengthM?: number;
   /** Bir helisin yiv boyu; C ve varsa E ölçüsüne yazılır [mm]. */
   drumSpanCMm?: number;
   drumSpanEMm?: number;
@@ -460,6 +468,23 @@ export function deriveHoistInputs(
       });
     } else {
       out.drumGrooveLengthText = text;
+    }
+  }
+
+  if (inputs.ropeOrderLengthAuto) {
+    const plan = ropeLengthPlan(inputs, selections, ctx.liftHeightM);
+    if (
+      !Number.isFinite(plan.automaticTotalLengthM) ||
+      plan.automaticTotalLengthM <= 0
+    ) {
+      out.warnings.push({
+        field: "ropeOrderLengthM",
+        message:
+          "Halat boyu türetilemedi — kaldırma yüksekliği, tambur çapı ve " +
+          "halat çapı pozitif olmalı.",
+      });
+    } else {
+      out.ropeOrderLengthM = plan.automaticTotalLengthM;
     }
   }
 
