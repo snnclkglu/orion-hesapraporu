@@ -681,3 +681,232 @@ olarak eklenir; “Yeni Kalem Oluştur” ad + birim ister. Yeni özel kalem şa
 birlikte `offer_cost_line_catalog`a yazılır ve sonradan şablondan kaldırılsa da
 dropdown'da kalır. Göç öncesi şablon JSON'larında bulunan özel kalemler de
 okuma sırasında kataloğa katılır; eski veri yeni listeye geçişte kaybolmaz.
+
+## MALIYET-37 — Maliyetler sayfası BİR VİNCİN sayfasıdır.
+
+Kullanıcı isteği (22.08.2026): *"Bir vinci maliyetlendirirken ana başlıkta
+örneğin İmalat Maliyeti kısmında diğer kalemin de maliyetini toplamasın
+karışıyor. Her vinci tek tek o sayfada inceleyeceğiz. En son Özet kısmında
+genel göreceğiz."* (md. 10) ve *"Maliyetler sayfasında da altta toplam maliyet
+olmasın vinç vinç bakabileyim. Genele Özet sayfasından bakacağım."* (md. 8)
+
+Bölüm başlıklarındaki tutar BELGENİN tamamıydı ve ekran bunu kendisi itiraf
+ediyordu ("bütün kalemler · adet dahil"). İki vinçli bir teklifte birinci
+vincin çipi seçiliyken başlıkta ikincinin imalatı da toplanıyor, gövdede ise
+yalnız seçilinin grupları duruyordu.
+
+- **Başlık `costItemSplit`ten gelir** — SAF ÇEKİRDEK. Bölme, ekranda elle
+  kurulmuştu (`kalemProjeBirimi`) ve o kopya yalnız ikinci bir tanım değildi,
+  YANLIŞTI da: `null`ları atlayıp sıfır tabanlı bir `reduce`a giriyor, yani hiç
+  maliyeti girilmemiş bir vinci `null` yerine **0 €** gösteriyordu.
+  `costTotals` da imalat toplamını artık aynı fonksiyondan üretir.
+- **BAŞLIKTA BİRİM DURUR, PAKET İKİNCİ SATIRDA** ve yalnız adet ≠ 1 iken.
+  Gövdedeki grup başlıkları BİRİM basar; başlık paket olsaydı kullanıcı
+  grupları toplayıp başlığı tutturamazdı — 18.08.2026'da bildirilen hatanın
+  birebir tekrarı. Firma dili de böyle ayırıyor (Excel: "KALEM BİRİM MALİYETİ"
+  ve "PAKET MALİYET (BİRİM × ADET)").
+- **`AraToplam` ÖLDÜ.** O kesikli satır, başlıktaki sayının gövdeden
+  türetilememesini yazıyla anlatan bir YAMAYDI; başlık kalem düzeyine inince
+  şart kendiliğinden sağlanır ve ayrı bir satır dikey borç olurdu (MALIYET-25).
+- **TOPLAM MALİYET ŞERİDİ KALKTI.** Genel bakış Özet bölümündedir.
+- **PROJE GENELİ ve ORANLI MALİYETLER "BELGE GENELİ" ÇERÇEVESİNE alındı**,
+  ayrı bir sekmeye TAŞINMADI (kullanıcı kararı, 22.08.2026): düzenleme yeri
+  aynı sayfada kalsın, yalnız hangi sayının vince hangisinin belgeye ait olduğu
+  GÖZLE ayrılsın. Sekmeye taşımak, bir birim fiyatı düzeltip oranın etkisini
+  görmek için her seferinde iki tık demekti. **Bu, MALIYET-35'in "PROJE GENELİ
+  aynı iki sütun ızgarasına girer" cümlesini değiştirir.**
+- **KIRILIM ÖZET'İN ALTINA taşındı** — bu da MALIYET-25'in "kırılım aynı
+  sayfanın altıdır" cümlesini değiştirir. Gerekçesi ("kullanıcı kırılıma inmek
+  için bütün maliyet tablosunu geçmek zorunda kalırdı") yeni yerde DAHA İYİ
+  karşılanır: Özet zaten ilk bölümdür.
+
+## MALIYET-38 — Özet TEK LİSTEDİR; beş başlık kalem bazında dağıtılır.
+
+Kullanıcı isteği (22.08.2026, md. 7): *"Özet kısmında tek bir liste istiyorum.
+FİYAT SATIRLARINA YAZILAN MALİYETLER şeklinde ayırma … VİNÇLER için de özet
+bilgileri eksik her vincin. BEŞ ANA BAŞLIK bilgisini bir satırda görmek
+istiyorum."*
+
+Vinçler ile serbest fiyat satırları **aynı tablonun satırlarıdır**; ayrımı bir
+işaret ve bir etiket söyler, ayrı bir bölüm değil. Karar bütüne bakarak
+veriliyor ve bütün, iki tabloya bölünmüş hâlde toplanamıyordu.
+
+- **BEŞ BAŞLIK** = İMALAT · PROJE · SABİT · SARF · FİNANSMAN. İlk ikisi kalemin
+  KENDİ verisi, oranlı üçü ve proje geneli DAĞITILIR (`costHeadingsByItem`).
+- **DAĞITIM TABANI `loadedCostByOfferItem` İLE AYNIDIR** ve olmak zorundadır:
+  teklifin fiyat tablosundaki "Maliyet" sütunu onu, özetin TOPLAM sütunu bunu
+  okur. İki taban ayrışsaydı aynı vinç iki ekranda iki farklı maliyetle
+  görünürdü. Bir test ikisini karşılaştırarak kilitler.
+- **DAĞITILAMAYAN YÜK SÖYLENİR** (`CostOverview.unallocated`): fiyatı hiç
+  girilmemiş bir kalemin payı sıfırdır ve proje geneli ile oranların bir kısmı
+  hiçbir satıra düşemez. Sıfır yazmak ya da sessizce yutmak değişmez md. 4'ün
+  ihlali olurdu.
+- **SERBEST SATIRIN BEŞ BAŞLIĞI YOKTUR** ve uydurulmaz: bir nakliyenin "imalat
+  payı" diye bir şey yoktur; hücreler "—" kalır.
+- **AĞIRLIK İKİ TOPLAMDIR.** `steelKg`/`weightKg` VİNÇLERİN ağırlığıdır ve
+  `€/kg` ile Excel'in "KALEM TOPLAMI" satırı onları okur; `steelKgAll`/
+  `weightKgAll` listenin dip toplamıdır ve serbest satırların ELLE girilen
+  kilolarını da içerir. Nakliyenin kilosunu €/kg'ye katmak o metriği anlamsız
+  yapardı; fark ekranda bir cümleyle söylenir.
+
+## MALIYET-39 — Kâr yüzdesi SATIŞ üzerindendir ve teklife YAZILMAZ.
+
+Kullanıcı isteği (22.08.2026, md. 7): *"burda kar sütunu olsun %25 olarak ön
+tanımlı gelsin ama elle değiştirebileyim. Tahmini satış fiyatımı bu özet
+sayfadan çıkarabileyim. Buradaki satış fiyatını diğer tarafa alma sadece
+referans olarak ben ön çalışma yapacağım."*
+
+**TABAN SATIŞTIR** (kullanıcı kararı, aynı gün): tahmini satış
+`maliyet ÷ (1 − %/100)`. Alternatifi — maliyetin üstüne yüzde eklemek — açıkça
+soruldu ve reddedildi. Firmanın kendi ASTOR çalışmasında 194.258 € maliyete
+259.010 € fiyat vardı ve o oran tam olarak satışın %25'idir; maliyetin %25'i
+aynı belgede 242.823 € ederdi. Aradaki **16.188 €** bir varsayıma bırakılamazdı
+(MALIYET-5'in "8.658 €'luk fark sorulur" kararının aynı ailesi).
+
+- **VARSAYILAN BELGEYE YAZILMAZ**; yalnız dokunulmuş satırlar `overviewMargins`e
+  girer. Böylece varsayılan yarın değişirse dokunulmamış satırlar onunla
+  birlikte değişir.
+- **TAHMİNİ SATIŞ TEKLİFE GİTMEZ.** `payload.total`/`direct`e yazılmaz (o iki
+  alan veritabanındaki üretilmiş sütunlara düşer ve teklif paneli onları
+  MALİYET diye gösterir); teklifin fiyatı Fiyat sayfasında yaşar. Ekran bunu
+  yazıyla söyler.
+- **ELLE GİRİLEN AĞIRLIK MALİYET PAYLOAD'INDA yaşar** (`manualLineWeights`),
+  teklifinkinde değil (MALIYET-1). Yetim anahtar SİLİNMEZ: taşıma yolu teklifi
+  görmez ve süzmeye kalkmak, teklif bir an okunamadığında girilmiş ağırlıkları
+  silmek olurdu.
+- Yeni alanlar **`withCostDefaults`e eklenmek ZORUNDADIR**: o fonksiyon yalnız
+  TANIDIĞI alanları yeniden kurar ve kaydetme yolu her seferinde ondan geçer —
+  eklenmeseydi kullanıcının girdiği ağırlık ve yüzde ekranda görünür, Kaydet'e
+  basınca sessizce yok olurdu.
+
+## MALIYET-40 — "YÜKLÜ MALİYET" adı bırakıldı: GENEL GİDER DAHİL MALİYET.
+
+Kullanıcı bildirimi (22.08.2026, md. 9): *"Yüklü Maliyet terimi
+anlaşılmıyor."* Haklı: "yüklü" bir mecazdır (İng. *loaded/burdened cost*) ve
+Türkçede "ağır" ya da "dolu" diye de okunur — sütun başlığında neyin eklendiğini
+hiç söylemez.
+
+**KAVRAM DEĞİŞMEDİ, ADI DEĞİŞTİ**: MALIYET-11 aynen geçerlidir. Ad tek bir
+sabitten okunur (`LOADED_COST_LABEL`, `cost/registry.ts`) çünkü üç ayrı ekranda
+elle yazılıydı; biri değişip ötekiler kalsaydı aynı sayı iki adla dolaşırdı —
+md. 9'un şikâyetinin büyütülmüş hâli. Tanımlayıcı (`loadedCostByOfferItem`)
+İNGİLİZCE ve DEĞİŞMEZ. PDF ve Excel'de terim hiç geçmez.
+
+Aynı turda **Kırılım'daki "TEKLİF VE KÂR" bloğu SİLİNDİ**: kârı
+`offer.pricing.total` (İSKONTOSUZ) üzerinden hesaplıyor ve serbest satırlara
+elle yazılmış maliyetleri saymıyordu. Özet'teki doğrudur — MALIYET-11 kârın
+İSKONTOLU toplamdan hesaplandığını söyler. Kırılım Özet'in altına taşınınca iki
+blok yan yana düşecekti ve fark ekranda görünür hâle gelecekti.
+
+## MALIYET-41 — Halat çapı ÖNERİLİR: Zp × pay → kN → katalog.
+
+Kullanıcı isteği (22.08.2026, md. 6): *"Mekanizmaya göre emniyet katsayısıyla
+çarpıp, halat çapı önerisi vermiyor. Örneğin m6 için katsayı 5,6 … halat yükünü
+bununla çarpacak * 1,02 artıracak kN cinsine çevirecek. Sonra 6x36 hasçelik
+halattan olanı seçecek."*
+
+Zincir: halat yükü [kg] × **Zp** × **pay** × 9,81 ÷ 1000 = gerekli kopma yükü
+[kN] → katalogda karşılayan İLK çap.
+
+- **Zp MOTORUN TABLOSUNDAN GELİR**, kopyalanmaz: `lib/calc` FEM 1.001
+  T.4.2.2.1.2'yi zaten taşır (`ropeSafetyFactor`). İki çekirdek de SAFTIR, yani
+  bağ meşrudur; aynı standart sayısının iki yerde yaşaması birinin sessizce
+  eskimesi demekti (değişmez md. 8). **Hareketli halat** okunur.
+- **Pay (1,02) BİR KATSAYIDIR**, koda gömülü değil (`ropeExtraFactor`) ve
+  kullanıcının kendi tarifidir.
+- **Katalog `params.ts`e GÖMÜLÜDÜR** (Hasçelik 6x36 WS · IWRC · 1960 N/mm²):
+  maliyet çalışması bir SNAPSHOT'tır ve kapanmış bir revizyonun önerdiği çap,
+  katalog satırı yarın düzeltildi diye değişmemelidir; ayrıca çekirdek DB
+  okuyamaz. Ayrışmayı `__tests__/rope-table.test.ts` **tohum SQL'ini okuyarak**
+  engeller.
+- **ÖZ SEÇİMİ FİRMANIN KENDİ VARSAYILANIDIR**, uydurma değil: mühendislik
+  motorunun V5 fikstürü de çelik özlü (IWRC) ve Ø18 → 226 kN kullanır — bu
+  tablonun Ø18 satırının aynısı.
+- **Ø58 SATIRI BİLEREK DIŞARIDA**: kaynak katalog kaydında kN ve kg/m sütunları
+  takas olmuş (kopma yükü 13,21 kN, metre ağırlığı 2120 kg/m). Bozuk bir
+  satırdan çap önerilemez ve düzeltilmiş bir sayı UYDURULAMAZ; tablo Ø56'da
+  biter ve daha büyüğü gereken hesapta öneri BOŞ döner + `eksik`e not düşülür.
+- **BU BİR ÖNERİDİR, BİR ONAY DEĞİL** (MALIYET-3): hesap raporu halatı kendi
+  modülünde yeniden seçer ve kontrol eder.
+
+## MALIYET-42 — HIZLI TEKER SEÇİMİ: tek bağıntı, tek yeni girdi.
+
+Kullanıcı isteği (22.08.2026, md. 12): *"Maliyet hesaplar kısmına hızlı teker
+seçimi yapabilmem lazım. Mühendislik kısmına bak, o kadar detaylı olmayan bir
+teker seçimi yapmamız gerek … Birkaç ekleme ile hızlıca tekeri otomatik
+hesaplayan ve öneren iyi bir sistem geliştirilebilir."*
+
+Sorulan tek soru "hangi çap yeter"dir ve cevabı FEM'in tek bağıntısıdır:
+
+    p = P_ort · 9,81 ÷ (b_ray · D)  ≤  PL · c1 · c2      (FEM 1.001 4.2.4.1)
+
+Mühendislikte ayrıca teker mili, rulman, kaplin, fren kasnağı, savrulma
+kuvvetleri ve yorulma hesaplanır ve yirmiye yakın girdi istenir; burada
+girdilerin üçü modelde ZATEN VARDIR (teker yükü, hız, vinç sınıfı).
+
+- **TEK YENİ GİRDİ RAY KODUDUR** ve teklifin kendi `Köprü Rayı` satırından
+  okunur (`railCodeFrom`, serbest yazımı ayıklar ve `RAILS` defterinde
+  DOĞRULAR). Tanınmayan yazımda BOŞ kalır ve kullanıcı listeden seçer — uydurma
+  bir genişlik varsayılmaz. Araba rayı açılışta köprününkiyle aynıdır.
+- **ORTALAMA YÜK BİR KABULDÜR**: FEM eşdeğer ortalamayı ister
+  (`(2·Pmaks + Pmin) ÷ 3`); model Pmin üretmez, `Pmin ≈ Pmaks/2` kabulüyle 5/6
+  alınır ve oran bir KATSAYIDIR (`wheelMeanLoadRatio`), koda gömülü değil.
+- **DEVİR, m/dk DEĞİL**: c1 tablosu tekerin DÖNME hızını (d/dk) ister.
+- **GEREKEN ÇAP FORMÜLLE ÇÖZÜLMEZ, KATALOG TARANIR**: basınç çapla ters
+  orantılıdır ama c1 de çapa bağlıdır.
+- **ÖNERİ TABLODAN GELEN ÇAPI EZMEZ.** `c.*WheelEffDiaMm` teker grubu
+  ağırlığını besler ve o da toplam ağırlığa, oradan kâr marjına gider; bir
+  öneriyi oraya sessizce yazmak, yayımlanmış maliyetlerin rakamını
+  değiştirirdi. İki sayı YAN YANA durur.
+- c2 ve PL tabloları motorda dışa aktarılmamış yerel yardımcılardır; maliyet
+  tarafındaki kopyalarını `__tests__/wheel-c2.test.ts` **motorun kaynak
+  dosyasını okuyarak** kilitler (değişmez md. 8).
+
+## MALIYET-43 — Bölüm rengi DEFTERDEN gelir, BELGEYE yazılmaz.
+
+Kullanıcı isteği (22.08.2026, md. 13): *"Maliyet sayfasında başlıklarda
+bölümlerde az da olsa renklendirme yapıp gözle anlaşılabilirliği artırmak
+istiyorum. Soft renkler olsun."*
+
+`CostGroupDef.hue` — YALNIZ AÇIDIR (değişmez md. 6); doygunluk ve parlaklık
+`globals.css`te ve TEMA BAŞINA verilir (`.oc-fieldgroup`). Mühendislik alan
+öbeklerinin ve kapsam etiketlerinin kullandığı sözleşmenin aynısı.
+
+- **"AZ DA OLSA" BİR ÖLÇÜDÜR**: renk YALNIZ BAŞLIK ŞERİDİNE verilir, bölümün
+  gövdesine değil. PROJE MALİYETİ açıkken üç bin piksel uzayabiliyor; zemini
+  boyamak sayfayı renkli bir duvara çevirir ve ayırt edicilik tam orada
+  kaybolurdu.
+- **TON ANLAMLIDIR**: imalat kiremit (ateş ve kaynak), çelik hardal (kesit
+  defterinin gövde sacı tonu), kaldırma mavi ve yardımcı kaldırma mor (aynı
+  işin iki ölçeği, 30° uzak), yürütme yeşil, elektrik camgöbeği, atölye amber,
+  proje geneli eflatun. Komşu açı farkı **en az 30°**dir ve bunu bir test
+  korur; 15°'lik iki grup ekranda aynı renk okunur.
+- **BELGEDE DEĞİL DEFTERDE**: `CostGroup` yalnız `key` ve `title` taşır; renk
+  her boyamada anahtardan çözülür. Payload'a yazılsaydı yayımlanmış bir
+  revizyonun rengi donar ve defter değiştiğinde ayrışırdı. Defterde karşılığı
+  olmayan grup `hueFromText`e düşer ve `NaN` üretmez — CSS'te `--oc-hue: NaN`
+  sessizce siyah verir.
+- **İÇ PDF'E TAŞINMAZ**: `@react-pdf` CSS değişkeni okumaz ve belge kararları
+  MALIYET-30'da sabittir.
+
+## MALIYET-44 — Tutar ISISI: küçük sarı, büyük kırmızı; renk TEK TAŞIYICI DEĞİL.
+
+Kullanıcı isteği (22.08.2026, md. 14): *"Maliyet kalemlerinde Tutar kısmı
+büyükse kırmızı küçükse sarı olsun. Gözle yüksek değerli kalemi anlayabileyim.
+Sarıdan kırmızıya renk skalası gibi yaparsın."*
+
+- **TABAN BELGENİN EN BÜYÜK SATIRIDIR** ve bir kez hesaplanıp aşağı geçirilir.
+  Grup içi bir ölçek, 500 €'luk bir grubun en büyük satırına 70.000 €'luk
+  grubunkiyle AYNI kırmızıyı verirdi; mutlak bir eşik ise uydurma bir sayı
+  olurdu. Alt uç SIFIRDIR, en küçük satır değil.
+- **KAREKÖK RAMPASI** bir hesap değil bir SUNUMDUR: dağılım ağır kuyrukludur
+  (ASTOR'da en büyük 70.125 €, ortanca 716 €) ve doğrusal ölçekte satırların
+  ellisi birbirinden ayırt edilemiyordu.
+- **VERİ YALNIZ SEVİYE TAŞIR** (`--oc-level`, 0–1); ton/doygunluk/parlaklık
+  `.oc-amount`ta ve tema başına. `.oc-scale` kullanılamadı: o ölçek AZ =
+  KIRMIZI yönündedir ve sabit L 0,5'te 95° ton sarı değil HARDAL görünür.
+- **RENK TEK TAŞIYICI OLAMAZ** (WCAG 1.4.1): aynı büyüklük yazının
+  KALINLIĞIYLA da verilir (`costAmountWeight`; eşikler ölçüldü — ASTOR'un 56
+  görünür satırında t ≥ 0,45 → 6 satır, t ≥ 0,75 → 2 satır) ve hücrenin
+  `title`ı oranı yazıyla söyler. Parlaklık bandı açık temada 0,58'i geçmez:
+  ölçüldü, 0,62'de sarı uç ~3,5:1 veriyordu ve WCAG AA 4,5:1 ister.

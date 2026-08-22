@@ -183,6 +183,7 @@ function temelPayload(): OfferPayload {
     toName: "ALİCAN ERASLAN",
     toDept: "Satın Alma Departmanı",
     toPhone: "+90 216 453 67 51",
+    toEmail: "mehmet.yilmaz@habas.com.tr",
     customerRef: "6000294866",
     greeting: "Sn. Alican ERASLAN Bey,",
     intro:
@@ -286,6 +287,7 @@ async function portalTeklif(): Promise<OfferDocumentProps> {
     toName: "ENVER GEÇGEL",
     toDept: "",
     toPhone: "",
+    toEmail: "",
     customerRef: "",
     greeting: "Sn. ENVER GEÇGEL,",
     intro:

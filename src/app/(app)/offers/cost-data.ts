@@ -164,7 +164,8 @@ export function costRevLabel(revNo: number): string {
  * TEKLİF EDİTÖRÜNÜN "MALİYET" SÜTUNUNUN kaynağı.
  *
  * Kullanıcı isteği (17.08.2026): *"Teklif satırında tutarın soluna maliyet
- * sütünü eklemek istiyorum."* Sütun kalemin YÜKLÜ maliyetini gösterir:
+ * sütünü eklemek istiyorum."* Sütun kalemin GENEL GİDER DAHİL maliyetini
+ * gösterir (`LOADED_COST_LABEL`, md. 9):
  * doğrudan maliyet + proje geneli ve oranlı grupların payı. Yalnız doğrudan
  * maliyeti göstermek, sabit giderleri hiç taşımayan sahte bir kâr üretirdi.
  *
@@ -178,7 +179,7 @@ export interface OfferCostForEditor {
   costRevNo: number;
   status: string;
   sourceRevNo: number | null;
-  /** Teklif kalemi kimliği → yüklü maliyet. */
+  /** Teklif kalemi kimliği → genel gider dahil maliyet. */
   byItem: Record<string, number>;
   direct: number | null;
   total: number | null;

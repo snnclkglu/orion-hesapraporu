@@ -71,8 +71,10 @@ function vincGruplari(): OfferGroup[] {
     span: "22,5 m",
     liftHeight: "8 m",
     craneClass: "FEM 2m / ISO M5 - ISO/FEM A5 H3/B4",
-    craneType: "Çift Kirişli Gezer Köprülü Vinç",
-    runway: "A55 Ray, 96 m",
+    // VİNÇ TİPİ SATIRI YOK (md. 3, emekliye ayrıldı) — tip kalem künyesindedir.
+    // YÜRÜME YOLU ARTIK BİR ÖLÇÜDÜR (md. 4): defterdeki `runway` satırı sayı +
+    // " m" parçası taşır, serbest cümle değil.
+    runway: "96 m",
   });
   kapsamiMusteri(genel, "runway");
 
@@ -123,8 +125,8 @@ function vincGruplari(): OfferGroup[] {
     }),
     araba,
     grup("bridge", {
+      // YÜRÜME YOLU RAYI SATIRI YOK (md. 5) — köprü rayı yeter.
       rail: "A45",
-      runwayRail: "A55",
       travelSpeed: "3-30 m/dk – Frekans İnvertörlü",
       travelSystem: "4 Teker",
       driveSystem: "2 Tekerden Tahrik",
@@ -278,6 +280,7 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
   const gruplar = vincGruplari();
   const sayfalar = offerPdfSayfalari(gruplar, SUTUN_KAPASITE);
 
+
   it("SIRA KORUNUR: blokların düz sırası girdi sırasıdır", () => {
     const bloklar = duzBloklar(sayfalar);
     // Devam dilimleri aynı grubu tekrar eder; sıra sorusu grupların sırasıdır.
@@ -293,8 +296,11 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     );
     const beklenen = gruplar.flatMap((g) => g.rows.map((r) => satirKimligi(g, r)));
     expect(basilan).toEqual(beklenen);
-    // Altı öbek, 68 satır — defterin bir vinç için getirdiği tam gövde.
-    expect(basilan.length).toBe(68);
+    // Altı öbek, 66 satır — defterin bir vinç için getirdiği tam gövde.
+    // 68 İDİ: `GENEL ÖZELLİKLER > Vinç Tipi` (md. 3) ve `KÖPRÜ > Yürüme Yolu
+    // Rayı` (md. 5) emekliye ayrıldı. Sayı burada DONDURULUR ki defterden
+    // sessizce bir satır düşmesi bu testte görünsün.
+    expect(basilan.length).toBe(66);
   });
 
   it("HİÇBİR SÜTUN kelepçelenmiş bütçeyi aşmaz", () => {
@@ -304,14 +310,17 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     }
   });
 
-  it("okunur sabit sütunlarda yoğun gövde iki yaprağa kontrollü dağılır", () => {
-    // Sabit etiket/değer genişliği uzun satırları bilinçli olarak ikinci
-    // satıra indirir. En kötü hâldeki 68 dolu satır iki yapraktır; okunurluk
-    // için satırları sıkıştırıp tek yaprağa zorlamayız.
-    expect(sayfalar).toHaveLength(2);
+  it("tam gövde TEK YAPRAĞIN İKİ SÜTUNUNA sığar", () => {
+    // 68 satırlık gövde İKİ yapraktı ve sınıra çok yakındı; iki satırın
+    // emekliye ayrılması (md. 3 ve md. 5) onu tek yaprağa indirdi. Sayı
+    // dondurulur: müşteriye giden belgenin kaç yaprak olduğu bir yan etki
+    // değil, defterde satır açıp kapatırken bilinmesi gereken bir sonuçtur.
+    expect(sayfalar).toHaveLength(1);
     expect(sayfalar[0].sol.length).toBeGreaterThan(0);
     expect(sayfalar[0].sag.length).toBeGreaterThan(0);
-    expect(sayfalar[1].sol.length).toBeGreaterThan(0);
+    // İki sütun da dolu: sıkıştırma değil, sıranın doğal akışı.
+    expect(sutunYuku(sayfalar[0].sol)).toBeGreaterThan(KELEPCELI * 0.9);
+    expect(sutunYuku(sayfalar[0].sag)).toBeGreaterThan(KELEPCELI * 0.9);
   });
 
   it("başlıklar sayfadaki öbekleri SIRAYLA, YİNELENMEDEN ve KISA ADIYLA listeler", () => {
@@ -336,20 +345,33 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     ]);
   });
 
-  it("21 SATIRLIK ELEKTRİK GRUBU bölünse de tek satır kaybetmez", () => {
+  it("21 SATIRLIK ELEKTRİK GRUBU bütün hâlinde yerleşir", () => {
     const elektrik = elektrikGrubu(gruplar);
-    // Defterdeki öbek 21 satırdır; kendi başına bir sütuna sığar. Ancak
-    // belge sırasını koruduğumuz için önceki öbekten kalan alana girer ve devam
-    // dilimi ikinci yaprağa taşınır. Sığıyor diye sırayı bozup yeni sütunun
-    // başına atmak daha dengeli ama yanlış bir belge üretirdi.
+    // Defterdeki öbek 21 satırdır ve kendi başına bir sütuna sığar. Gövde
+    // kısalınca (md. 3 ve md. 5) sağ sütunun başına denk geldi ve artık
+    // BÖLÜNMÜYOR. Bölünme kuralının kendisi hâlâ sınanır — bir alttaki köprü
+    // testinde ve "bölünme" öbeğindeki uzun grup testlerinde.
     expect(elektrik.rows).toHaveLength(21);
     expect(grupYuksekligi(elektrik)).toBeLessThanOrEqual(KELEPCELI);
 
     const dilimler = duzBloklar(sayfalar).filter((b) => b.group.id === elektrik.id);
+    expect(dilimler).toHaveLength(1);
+    expect(dilimler[0].devam).toBe(false);
+    expect(dilimler[0].rows).toHaveLength(21);
+  });
+
+  it("BÖLÜNEN KÖPRÜ GRUBU tek satır kaybetmez", () => {
+    // Sütun dibine denk gelen öbek bölünür; belge sırası korunduğu için
+    // devam dilimi bir SONRAKİ SÜTUNUN başına girer. Sığıyor diye sırayı bozup
+    // bloğu bütün hâlinde sağa atmak daha dengeli ama yanlış bir belge
+    // üretirdi.
+    const kopru = gruplar.find((g) => g.key === "bridge");
+    if (!kopru) throw new Error("fikstürde köprü grubu yok");
+    const dilimler = duzBloklar(sayfalar).filter((b) => b.group.id === kopru.id);
     expect(dilimler).toHaveLength(2);
     expect(dilimler[0].devam).toBe(false);
     expect(dilimler[1].devam).toBe(true);
-    expect(dilimler.reduce((t, b) => t + b.rows.length, 0)).toBe(21);
+    expect(dilimler.reduce((t, b) => t + b.rows.length, 0)).toBe(kopru.rows.length);
   });
 
   it("EN AZ İKİ SATIR: hiçbir blok yalnız başlıkla ya da tek satırla yerleşmez", () => {
@@ -399,14 +421,14 @@ describe("offerPdfSayfalari — gerçek teklif gövdesi", () => {
     const kelepcesiz = offerPdfSayfalari(gruplar, SUTUN_KAPASITE / KAPASITE_PAYI);
 
     // ÖLÇÜLEN: KÖPRÜ GRUBU iki sütuna bölünür ve BÖLÜNME NOKTASI kayar —
-    // kelepçe varken sol sütunda 4 satır kalır, kelepçe kalkarsa 6. Yani
-    // kelepçenin satın aldığı şey sütun dibindeki 43pt'lik boşluktur; ortalama
+    // kelepçe varken sol sütunda 4 satır kalır, kelepçe kalkarsa 7. Yani
+    // kelepçenin satın aldığı şey sütun dibindeki 42pt'lik boşluktur; ortalama
     // karakter genişliğiyle ölçülmüş bir yerleşimde sayfa dibi tam da
     // yanılmanın en pahalı olduğu yerdir.
     const koprununDilimleri = (s: OfferPdfSayfa[]) =>
       [...s[0].sol, ...s[0].sag].filter((b) => b.group.key === "bridge").map((b) => b.rows.length);
-    expect(koprununDilimleri(kelepceli)).toEqual([3, 9]);
-    expect(koprununDilimleri(kelepcesiz)).toEqual([6, 6]);
+    expect(koprununDilimleri(kelepceli)).toEqual([4, 7]);
+    expect(koprununDilimleri(kelepcesiz)).toEqual([7, 4]);
     // Kelepçenin bıraktığı dip boşluğu: bir satırın sığıp sığmadığını belirler.
     expect(SUTUN_KAPASITE - KELEPCELI).toBeCloseTo(42.04, 2);
   });

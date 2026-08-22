@@ -56,15 +56,7 @@ export function costGroupTotal(group: CostGroup | undefined): number | null {
 
 /** Kalemin BİRİM maliyeti — bir adet ürünün doğrudan maliyeti. */
 export function costItemUnitTotal(item: CostItem): number | null {
-  let toplam = 0;
-  let varMi = false;
-  for (const group of item.groups) {
-    const t = costGroupTotal(group);
-    if (t === null) continue;
-    toplam += t;
-    varMi = true;
-  }
-  return varMi ? toplam : null;
+  return toplaGruplar(item.groups);
 }
 
 /**
@@ -85,6 +77,75 @@ export function costItemPackageTotal(item: CostItem): number | null {
   const birim = costItemUnitTotal(item);
   if (birim === null) return null;
   return birim * kalemAdedi(item);
+}
+
+/**
+ * KALEMİN İKİ YARISI — imalat ve imalat dışı, birim ve paket.
+ *
+ * Kullanıcı isteği (22.08.2026, md. 10): *"Bir vinci maliyetlendirirken ana
+ * başlıkta örneğin İmalat Maliyeti kısmında diğer kalemin de maliyetini
+ * toplamasın karışıyor. Her vinci tek tek o sayfada inceleyeceğiz."*
+ *
+ * ÇEKİRDEKTE DURUR, EKRANDA DEĞİL. Bölme `costTotals`taki `direct − fabrication`
+ * tanımının kalem düzeyindeki ikizidir ve ekranda elle kurulmuştu
+ * (`lines-view`in `kalemProjeBirimi`si). O kopya yalnız ikinci bir tanım
+ * değildi, YANLIŞTI da: `null`ları atlayıp sıfır tabanlı bir `reduce`a giriyor,
+ * yani hiç maliyeti girilmemiş bir vinci `null` yerine **0 €** gösteriyordu —
+ * `costItemUnitTotal`ın "hiç yoksa null" kuralının tam tersi (değişmez md. 4).
+ *
+ * `costTotals` da imalat toplamını BUNDAN üretir: iki yerde iki toplama, iki
+ * vinçli bir teklifte sessizce ayrışmanın en kısa yoluydu (değişmez md. 8).
+ */
+export interface CostItemSplit {
+  /** BİR ADET: İMALAT MALİYETİ grubu. */
+  fabricationUnit: number | null;
+  /** BİR ADET: imalat DIŞI bütün gruplar. Proje geneli BURADA DEĞİLDİR. */
+  projectUnit: number | null;
+  /** BİR ADET: hepsi — `costItemUnitTotal` ile aynı sayı. */
+  unit: number | null;
+  /** Adet — girilmemişse BİR (`kalemAdedi`). */
+  qty: number;
+  fabricationPackage: number | null;
+  projectPackage: number | null;
+  package: number | null;
+}
+
+export function costItemSplit(item: CostItem): CostItemSplit {
+  const adet = kalemAdedi(item);
+  const imalat = costGroupTotal(item.groups.find((g) => g.key === FABRICATION_GROUP_KEY));
+  const proje = toplaGruplar(item.groups.filter((g) => g.key !== FABRICATION_GROUP_KEY));
+  const birim =
+    imalat === null && proje === null ? null : (imalat ?? 0) + (proje ?? 0);
+  const paket = (n: number | null) => (n === null ? null : n * adet);
+  return {
+    fabricationUnit: imalat,
+    projectUnit: proje,
+    unit: birim,
+    qty: adet,
+    fabricationPackage: paket(imalat),
+    projectPackage: paket(proje),
+    package: paket(birim),
+  };
+}
+
+/**
+ * Grup toplamlarının toplamı — HİÇ TUTARI YOKSA `null`.
+ *
+ * `costItemUnitTotal`ın gövdesinin ta kendisidir ve ayrı bir fonksiyon olması
+ * bilinçlidir: aynı `null` anlamı hem kalemin tamamında hem yarılarında
+ * geçerli olmalıdır. `(a ?? 0) + (b ?? 0)` yazımı hiç maliyeti girilmemiş bir
+ * vinci bedava gösterirdi.
+ */
+function toplaGruplar(groups: readonly CostGroup[]): number | null {
+  let toplam = 0;
+  let varMi = false;
+  for (const group of groups) {
+    const t = costGroupTotal(group);
+    if (t === null) continue;
+    toplam += t;
+    varMi = true;
+  }
+  return varMi ? toplam : null;
 }
 
 // ————————————————————————————————————————————————————— oranlı grup
@@ -193,15 +254,11 @@ export function costTotals(
   const total = direct === null ? null : direct + (rateTotal ?? 0);
 
   // İMALAT ayrı bir başlık olarak GÖSTERİLİR ama tabandan düşülmez (yukarıdaki
-  // gerekçe). Kalem adedi çarpanı burada da geçerlidir: paket maliyet birim ×
-  // adet ise imalat payı da öyledir.
+  // gerekçe). Kalem adedi çarpanı `costItemSplit`in içindedir; buradaki toplam
+  // ekrandaki bölüm başlıklarıyla AYNI fonksiyondan geçer, yoksa iki vinçli bir
+  // teklifte belge ile ekran sessizce ayrışırdı.
   const imalatlar = payload.items
-    .map((item) => {
-      const grup = item.groups.find((g) => g.key === FABRICATION_GROUP_KEY);
-      const birim = costGroupTotal(grup);
-      if (birim === null) return null;
-      return birim * kalemAdedi(item);
-    })
+    .map((item) => costItemSplit(item).fabricationPackage)
     .filter((n): n is number => n !== null);
   const fabrication = imalatlar.length ? imalatlar.reduce((t, n) => t + n, 0) : null;
   const project =
@@ -278,7 +335,7 @@ export function costBreakdown(payload: CostPayload, totals: CostTotals): CostBre
 // ————————————————————————————————————————————————————— dağıtım
 
 /**
- * TEKLİF KALEMİNE DÜŞEN YÜKLÜ MALİYET.
+ * TEKLİF KALEMİNE DÜŞEN GENEL GİDER DAHİL MALİYET (`LOADED_COST_LABEL`).
  *
  * Teklifin fiyat tablosundaki "Maliyet" sütunu bunu gösterir. Doğrudan
  * maliyet o kalemin kendisidir; proje geneli ve oranlı gruplar ise DOĞRUDAN
@@ -299,6 +356,98 @@ export function loadedCostByOfferItem(totals: CostTotals): Record<string, number
     out[item.offerItemId] = item.package + yuk * pay;
   }
   return out;
+}
+
+/**
+ * BEŞ ANA BAŞLIĞIN KALEM BAZINDA DAĞILIMI.
+ *
+ * Kullanıcı isteği (22.08.2026, md. 7): *"VİNÇLER için de özet bilgileri
+ * eksik her vincin. BEŞ ANA BAŞLIK bilgisini bir satırda görmek istiyorum."*
+ *
+ * Beş başlık: **İMALAT** · **PROJE** · **SABİT** · **SARF** · **FİNANSMAN**.
+ * İlk ikisi kalemin KENDİ verisidir; oranlı üçü ve proje geneli ise belgeye
+ * aittir ve kaleme DAĞITILIR.
+ *
+ * DAĞITIM TABANI `loadedCostByOfferItem` İLE AYNIDIR ve olmak zorundadır:
+ * teklifin fiyat tablosundaki "Maliyet" sütunu (MALIYET-11) onu okur, özetin
+ * TOPLAM sütunu bunu okur. İki taban ayrışsaydı aynı vinç iki ekranda iki
+ * farklı maliyetle görünürdü — MALIYET-24'ün anlattığı ayrışmanın birebir
+ * tekrarı. Bir test ikisini karşılaştırarak kilitler.
+ *
+ * `loadedCostByOfferItem` OLDUĞU GİBİ KULLANILAMADI, üç sebeple:
+ *
+ * 1. O fonksiyon `offerItemId` olmayan SERBEST maliyet kalemini atlar
+ *    (teklifin fiyat tablosunda karşılığı yoktur). Özette o kalem de bir
+ *    satırdır ve payını taşımalıdır, yoksa sütun toplamı belge toplamını
+ *    tutturamaz.
+ * 2. Yükü tek sayıya indirir (`general + rateTotal`); beş sütun için proje
+ *    geneli ile üç oranın AYRI AYRI dağıtılması gerekir.
+ * 3. Anahtarı teklif kalemidir; özet satırının kimliği maliyet kalemidir.
+ *
+ * DAĞITILAMAYAN YÜK SESSİZ KALMAZ. Fiyatı hiç girilmemiş bir kalemin payı
+ * sıfırdır; bütün kalemler boşsa taban da sıfırdır ve proje geneli ile
+ * oranların TAMAMI hiçbir satıra düşmez. Sıfır yazmak ya da sessizce yutmak
+ * yerine `CostOverview.unallocated` onu adıyla söyler (değişmez md. 4).
+ */
+export interface CostItemHeadings {
+  /** Kalemin KENDİ imalat grubu × adet — dağıtım değil, kesin sayı. */
+  fabrication: number | null;
+  /** Kalemin imalat dışı grupları × adet + proje genelinden düşen pay. */
+  project: number | null;
+  /** Oranlı grupların kaleme düşen payları — defterdeki sırayla. */
+  rates: { key: string; title: string; amount: number | null }[];
+  /** Beşinin toplamı — `LOADED_COST_LABEL`in kalem bazındaki karşılığı. */
+  loaded: number | null;
+}
+
+export interface CostHeadingsResult {
+  /** Maliyet kalemi kimliği → beş başlık. */
+  byItem: Record<string, CostItemHeadings>;
+  /**
+   * HİÇBİR KALEME DÜŞEMEYEN yük — proje geneli + oranlardan artan.
+   *
+   * `null` değil `0` olması normaldir (her şey dağıtıldı); sıfırdan büyük
+   * olması bir UYARIDIR ve ekran onu satır olarak yazar.
+   */
+  unallocated: number;
+}
+
+export function costHeadingsByItem(
+  payload: CostPayload,
+  totals: CostTotals
+): CostHeadingsResult {
+  const paketToplam = totals.items.reduce((t, i) => t + (i.package ?? 0), 0);
+  const general = totals.general ?? 0;
+  const byItem: Record<string, CostItemHeadings> = {};
+  let dagitilan = 0;
+
+  for (const item of payload.items) {
+    const bolme = costItemSplit(item);
+    const pay = paketToplam > 0 && bolme.package !== null ? bolme.package / paketToplam : 0;
+    const genelPay = general * pay;
+    const rates = totals.rates.map((r) => ({
+      key: r.key,
+      title: r.title,
+      amount: r.amount === null ? null : r.amount * pay,
+    }));
+    // PROJE GENELİ PAYI PROJE BAŞLIĞINA GİRER: kullanıcının beş başlığı
+    // "Proje Maliyeti"ni tek bir sütun sayar ve proje geneli de bir proje
+    // maliyetidir — altıncı bir sütun açmak, kullanıcının saydığı beşi bozardı.
+    const project =
+      bolme.projectPackage === null && genelPay === 0 ? null : (bolme.projectPackage ?? 0) + genelPay;
+    const oranToplam = rates.reduce((t, r) => t + (r.amount ?? 0), 0);
+    const loaded =
+      bolme.package === null && project === null && oranToplam === 0
+        ? null
+        : (bolme.fabricationPackage ?? 0) + (project ?? 0) + oranToplam;
+    byItem[item.id] = { fabrication: bolme.fabricationPackage, project, rates, loaded };
+    dagitilan += genelPay + oranToplam;
+  }
+
+  const yuk = general + (totals.rateTotal ?? 0);
+  // Kayan noktalı artıkları uyarıya çevirmemek için bir kuruşun altı sıfır sayılır.
+  const artan = yuk - dagitilan;
+  return { byItem, unallocated: Math.abs(artan) < 0.005 ? 0 : artan };
 }
 
 // —————————————————————————————————————————————————————————— kâr
@@ -367,6 +516,8 @@ export interface CostOverviewItem {
   offerItemId: string | null;
   title: string;
   qty: number | null;
+  /** BEŞ ANA BAŞLIK — kalem bazında (md. 7). */
+  headings: CostItemHeadings;
   /** BİR adedin çelik ağırlığı [kg] — `w.steel`. */
   steelKg: number | null;
   /** BİR adedin toplam vinç ağırlığı [kg] — `w.total`. */
@@ -386,6 +537,14 @@ export interface CostOverviewManualLine {
   id: string;
   description: string;
   amount: number;
+  /**
+   * ELLE GİRİLEN AĞIRLIKLAR (md. 7) — maliyet payload'ında yaşar.
+   *
+   * BEŞ BAŞLIK YOKTUR ve uydurulmaz: bir nakliye satırının "imalat payı" diye
+   * bir şey yoktur (değişmez md. 4). Ekranda o hücreler "—" görünür.
+   */
+  steelKg: number | null;
+  totalKg: number | null;
 }
 
 /**
@@ -420,6 +579,19 @@ export interface CostOverview {
   steelKg: number | null;
   /** Bütün kalemlerin toplam vinç ağırlığı toplamı (adetle çarpılmış) [kg]. */
   weightKg: number | null;
+  /**
+   * VİNÇLER + SERBEST SATIRLAR — tek listenin dip toplamı.
+   *
+   * `steelKg`/`weightKg`TEN AYRI DURUR ve bu bilinçlidir: o ikisi VİNÇLERİN
+   * ağırlığıdır ve `€/kg` metriği ile Excel'in "KALEM TOPLAMI" satırı onları
+   * okur. Nakliyenin ya da bir traversin kilosunu oraya katmak, €/kg'yi
+   * anlamsız bir sayıya çevirirdi (bir vincin kilo maliyeti, nakliyenin
+   * kilosuyla bölünmüş olurdu).
+   */
+  steelKgAll: number | null;
+  weightKgAll: number | null;
+  /** Kaleme düşemeyen proje geneli + oran yükü (`costHeadingsByItem`). */
+  unallocated: number;
 }
 
 /**
@@ -448,8 +620,27 @@ export interface CostOverview {
 export function costOverview(
   totals: CostTotals,
   offer: OfferPayload,
-  steelWeights: Record<string, number | null> = {}
+  steelWeights: Record<string, number | null> = {},
+  /**
+   * MALİYET BELGESİ — beş başlık dağıtımı ve elle girilen ağırlıklar ondan
+   * okunur (md. 7).
+   *
+   * İSTEĞE BAĞLIDIR ve bu bilinçlidir: `totals` zaten payload'dan türemiştir,
+   * yani belgeyi ikinci kez vermek bir ÇİFT KAYNAK riskidir. Verilmediğinde
+   * özet eskisi gibi çalışır — yalnız beş başlık ve elle ağırlıklar boş kalır.
+   * Böylece bu imzayı okuyan üç çağrı yeri (ekran, Excel, testler) tek tek
+   * geçirilebildi ve hiçbiri sessizce yarım kalmadı.
+   */
+  payload?: CostPayload
 ): CostOverview {
+  const headings = payload ? costHeadingsByItem(payload, totals) : null;
+  const bosBaslik: CostItemHeadings = {
+    fabrication: null,
+    project: null,
+    rates: totals.rates.map((r) => ({ key: r.key, title: r.title, amount: null })),
+    loaded: null,
+  };
+
   const items: CostOverviewItem[] = totals.items.map((i) => {
     const adet = kalemAdedi(i);
     const steelKg = steelWeights[i.id] ?? null;
@@ -458,6 +649,7 @@ export function costOverview(
       offerItemId: i.offerItemId,
       title: i.title,
       qty: i.qty,
+      headings: headings?.byItem[i.id] ?? bosBaslik,
       steelKg,
       weightKg: i.weightKg,
       steelPackageKg: steelKg === null ? null : steelKg * adet,
@@ -467,9 +659,19 @@ export function costOverview(
     };
   });
 
+  const agirliklar = payload?.manualLineWeights ?? {};
   const manualLines: CostOverviewManualLine[] = totalledLines(offer.pricing.lines).flatMap((l) => {
     if (l.itemId || l.manualCost === null || l.manualCost === undefined) return [];
-    return [{ id: l.id, description: l.description, amount: l.manualCost }];
+    const a = agirliklar[l.id];
+    return [
+      {
+        id: l.id,
+        description: l.description,
+        amount: l.manualCost,
+        steelKg: a?.steelKg ?? null,
+        totalKg: a?.totalKg ?? null,
+      },
+    ];
   });
   const manualTotal = toplaSayilar(manualLines.map((l) => l.amount));
 
@@ -482,6 +684,9 @@ export function costOverview(
     .filter((i) => !maliyetlenen.has(i.id))
     .map((i) => ({ id: i.id, title: i.title }));
 
+  const steelKg = toplaSayilar(items.map((i) => i.steelPackageKg));
+  const weightKg = toplaSayilar(items.map((i) => i.weightPackageKg));
+
   return {
     items,
     uncostedItems,
@@ -490,7 +695,10 @@ export function costOverview(
     packageTotal: toplaSayilar(items.map((i) => i.package)),
     documentTotal,
     margin: costMargin(effectiveTotal(offer.pricing), cost),
-    steelKg: toplaSayilar(items.map((i) => i.steelPackageKg)),
-    weightKg: toplaSayilar(items.map((i) => i.weightPackageKg)),
+    steelKg,
+    weightKg,
+    steelKgAll: toplaSayilar([steelKg, ...manualLines.map((l) => l.steelKg)]),
+    weightKgAll: toplaSayilar([weightKg, ...manualLines.map((l) => l.totalKg)]),
+    unallocated: headings?.unallocated ?? 0,
   };
 }

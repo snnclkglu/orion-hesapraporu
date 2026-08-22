@@ -41,6 +41,7 @@ import {
   type CostFieldDef,
   type CostFieldSection,
 } from "@/lib/offers/cost/labels";
+import { RAILS } from "@/lib/calc/tables";
 import { costCompareRows, costDeviationLevel, type CostCompareRow } from "@/lib/offers/cost/compare";
 import { CRANE_CLASSES, COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import type { CostModelResult } from "@/lib/offers/cost/model";
@@ -210,6 +211,22 @@ export function GirdiBolumu({
         <SayiAlani etiket="Köprü Tahrik Adedi" value={i.bridgeDriveCount} onChange={(v) => set({ bridgeDriveCount: v ?? 2 })} />
         <SayiAlani etiket="Araba Tahrik Adedi" value={i.trolleyDriveCount} onChange={(v) => set({ trolleyDriveCount: v ?? 2 })} />
         <SayiAlani etiket="Portal Ayak Yüksekliği" birim="m" value={i.legHeightM} onChange={(v) => set({ legHeightM: v })} />
+        {/* RAY KODU HIZLI TEKER SEÇİMİNİN TEK YENİ GİRDİSİDİR (md. 12).
+            Teklifin köprü rayı satırından okunur ve boş kalabilir — teklifteki
+            yazım tanınmazsa uydurulmaz, listeden seçilir. Araba rayı açılışta
+            aynısıdır ve farklıysa burada değiştirilir. */}
+        <SecimAlani
+          etiket="Köprü / Portal Rayı"
+          value={i.bridgeRailCode || RAY_YOK}
+          secenekler={RAY_SECENEKLERI}
+          onChange={(v) => set({ bridgeRailCode: v === RAY_YOK ? "" : v })}
+        />
+        <SecimAlani
+          etiket="Araba Rayı"
+          value={i.trolleyRailCode || RAY_YOK}
+          secenekler={RAY_SECENEKLERI}
+          onChange={(v) => set({ trolleyRailCode: v === RAY_YOK ? "" : v })}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -588,6 +605,17 @@ export function ModelSayfasi({
  * değiştiren kullanıcı etkisini görmek için her seferinde otuz satır aşağı
  * kaydırmak zorundaydı. Şimdi ikisi aynı ekranda: solda sebep, sağda sonuç.
  */
+/**
+ * RAY SEÇENEKLERİ — defterden, "seçilmedi" başta.
+ *
+ * BOŞ DEĞER BİR SEÇENEK OLMAK ZORUNDA: ray kodu bilinmeyebilir (teklifteki
+ * yazım tanınmamış olabilir) ve Radix `Select` boş dizeye izin vermez —
+ * `value=""` seçiciyi "denetimsiz" kipe düşürür. Bilinmeyen bir ray uydurma
+ * bir genişlikle doldurulamaz (değişmez md. 4), o yüzden listede ADIYLA durur.
+ */
+const RAY_YOK = "— seçilmedi —";
+const RAY_SECENEKLERI: readonly string[] = [RAY_YOK, ...Object.keys(RAILS)];
+
 export function AgirlikSayfasi({
   offer,
   item,

@@ -80,7 +80,7 @@ export function CopyOfferButton({
   );
 }
 
-function CopyOfferDialog({
+export function CopyOfferDialog({
   offer,
   customers,
   onClose,

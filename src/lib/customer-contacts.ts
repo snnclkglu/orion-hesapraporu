@@ -37,6 +37,7 @@ export interface ContactCoverFields {
   toName: string;
   toDept: string;
   toPhone: string;
+  toEmail: string;
 }
 
 /**
@@ -50,8 +51,8 @@ export interface ContactCoverFields {
 export function coverFieldsFromContact(
   c: CustomerContact | null | undefined
 ): ContactCoverFields {
-  if (!c) return { toName: "", toDept: "", toPhone: "" };
-  return { toName: c.name, toDept: c.department, toPhone: c.phone };
+  if (!c) return { toName: "", toDept: "", toPhone: "", toEmail: "" };
+  return { toName: c.name, toDept: c.department, toPhone: c.phone, toEmail: c.email };
 }
 
 /**

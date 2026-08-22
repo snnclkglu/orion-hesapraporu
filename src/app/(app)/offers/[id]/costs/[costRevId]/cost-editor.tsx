@@ -43,6 +43,7 @@ import {
 import { Bolum, MiniDugme, type Katlama } from "./cost-parts";
 import { AgirlikSayfasi, HesapSayfasi, KatsayiSayfasi } from "./model-view";
 import { MaliyetSayfasi } from "./lines-view";
+import { KirilimSayfasi } from "./breakdown-view";
 import { OzetSayfasi } from "./overview-view";
 
 const BOLUMLER = [
@@ -131,7 +132,7 @@ export function CostEditor({
   const totals = useMemo(() => costTotals(payload, weights), [payload, weights]);
   // ÖZET SAF ÇEKİRDEKTEN GELİR: ekran tek bir toplam bile kendi hesaplamaz.
   const overview = useMemo(
-    () => costOverview(totals, offer, costSteelWeights(models)),
+    () => costOverview(totals, offer, costSteelWeights(models), payload),
     [totals, offer, models]
   );
   const kar = costMargin(offer.pricing.total ?? null, totals.total);
@@ -363,10 +364,13 @@ export function CostEditor({
           ))}
         </nav>
 
-        {/* ————————————————————————————————————————————— bölüm gövdesi */}
+        {/* ————————————————————————————————————————————— bölüm gövdesi
+            KAYAN KAP AYNI ZAMANDA BİR KAPSAYICI BLOKTUR (`relative`, MOBIL-18).
+            Yoksa içindeki `sr-only` gibi konumlanmış öğeler kaydırma kabından
+            KAÇAR ve sayfaya ikinci bir kaydırma açar. */}
         <div
           className={cn(
-            "grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
+            "relative grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
             readOnly && "pointer-events-none opacity-70"
           )}
         >
@@ -429,7 +433,24 @@ export function CostEditor({
           {/* GİRDİLER ARTIK AĞIRLIKLAR SAYFASININ İÇİNDEDİR: özet kartıyla
               aynı satırı paylaşıyor (kullanıcı isteği 18.08.2026). Burada
               ayrıca çizilseydi ekranda iki kez görünürdü. */}
-          {aktif === "ozet" ? <OzetSayfasi overview={overview} currency={payload.currency} /> : null}
+          {/* ÖZET ARTIK KIRILIMI DA TAŞIR (kullanıcı isteği 22.08.2026, md. 8:
+              *"Genele Özet sayfasından bakacağım"*). Kırılım bir süre
+              Maliyetler sayfasının altındaydı; o sayfa artık BİR VİNCİN
+              sayfası olduğu için belgeye ait bir blok orada duramazdı.
+              18.08.2026'daki "kırılıma inmek için bütün maliyet tablosunu
+              geçmek zorunda kalıyorum" gerekçesi yeni yerde DAHA İYİ
+              karşılanıyor: Özet zaten ilk bölümdür. */}
+          {aktif === "ozet" ? (
+            <>
+              <OzetSayfasi
+                overview={overview}
+                payload={payload}
+                readOnly={readOnly}
+                onChange={(next) => guncelle(() => next)}
+              />
+              <KirilimSayfasi payload={payload} models={models} offer={offer} katlama={katlama} />
+            </>
+          ) : null}
 
           {aktif === "agirlik" && item ? (
             <AgirlikSayfasi
@@ -459,7 +480,6 @@ export function CostEditor({
               payload={payload}
               item={item}
               model={item ? models[item.id] : undefined}
-              models={models}
               offer={offer}
               readOnly={readOnly}
               onItemChange={setItem}

@@ -118,6 +118,38 @@ export function discountAmount(pricing: OfferPricing): number | null {
   return Math.abs(fark) < 0.005 ? null : fark;
 }
 
+/**
+ * ORANDAN İSKONTOLU TOPLAM — küsurat YUKARI yuvarlanır.
+ *
+ * Kullanıcı isteği (22.08.2026): *"teklif fiyat bölümünde iskonto girdiğim yer
+ * vardı. buraya oranlı olarak da iskonto yapabilme seçeneğini getirelim. Ama
+ * küsüratlı olduğunda yukarı yuvarlama yapsın."*
+ *
+ * SAKLANAN ŞEY YİNE TUTARDIR, oran değil. Oran bir HESAP GİRDİSİDİR: kullanıcı
+ * "%5 iskonto" der, uygulama tutarı yazar ve belgede o tutar yaşar. Oranı da
+ * ayrıca saklamak, satır fiyatları değiştiğinde ikisinin çelişmesi demekti —
+ * hangisinin geçerli olduğu ekrana bakarak anlaşılamazdı (`discountPercent`
+ * bugüne kadar bilerek TÜRETİLMİŞTİ, aynı gerekçe).
+ *
+ * YUKARI YUVARLANIR ÇÜNKÜ YÖN BİR KARARDIR. %5 iskonto 675.800 €'da tam bir
+ * sayı verir ama 642.010,37 € gibi bir küsurat çıktığında aşağı yuvarlamak
+ * müşteriye söylenenden 63 kuruş fazla indirim yapmak olurdu. Yukarı
+ * yuvarlamak firmanın lehinedir ve kullanıcının kendi tarifidir; ayrıca
+ * müşteriye giden belgede küsuratsız bir rakam durur.
+ *
+ * TAM SAYIYA yuvarlanır (kuruşa değil): teklif tutarları altı haneli avrodur
+ * ve kuruş, pazarlıkta konuşulmayan bir hassasiyettir.
+ */
+export function discountTotalFromPercent(
+  lines: readonly OfferPriceLine[],
+  percent: number | null
+): number | null {
+  const ham = offerTotal(lines);
+  if (ham === null || percent === null || !Number.isFinite(percent)) return null;
+  if (percent <= 0 || percent >= 100) return null;
+  return Math.ceil(ham * (1 - percent / 100));
+}
+
 /** İskonto oranı — TUTARDAN türetilir, ayrıca saklanmaz. */
 export function discountPercent(pricing: OfferPricing): number | null {
   const ham = offerTotal(pricing.lines);

@@ -189,7 +189,7 @@ export interface OfferPriceLine {
    * onu belgeye BASMAZ — teklif PDF'inde maliyet diye bir sütun yoktur ve
    * olmamalıdır (MALIYET-1'in yapısal ayrımı).
    *
-   * KALEME BAĞLI SATIRDA OKUNMAZ: orada maliyet, maliyet belgesinin YÜKLÜ
+   * KALEME BAĞLI SATIRDA OKUNMAZ: orada maliyet, maliyet belgesinin GENEL GİDER DAHİL
    * maliyetidir. İki kaynak asla toplanmaz — kaleme bağlanan bir satırın elle
    * yazılmış sayısı ekranda görünmez (veri korunur, bağ koparsa geri gelir).
    */
@@ -276,6 +276,16 @@ export interface OfferCover {
   toName: string;
   toDept: string;
   toPhone: string;
+  /**
+   * MUHATABIN E-POSTASI (kullanıcı isteği, 22.08.2026, md. 1: *"Müşteriler
+   * sayfasında kişi e-postası alıyoruz. Ancak teklifte Kime kısmında e-posta
+   * yeri yok. otomatik gelsin. Teklif pdf'e de ekleyelim."*).
+   *
+   * `fromEmail`in KARŞILIĞIDIR ve ayrı bir alandır: telefonla e-posta aynı
+   * satırda taşınsaydı ("0532… · ali@…") kapak künyesi ikisini ayıramaz,
+   * yalnız biri bilinen bir muhatapta da ayıraç boşta kalırdı (TEKLIF-36).
+   */
+  toEmail: string;
   /** Müşterinin kendi talep/sipariş numarası (varsa). */
   customerRef: string;
   /** "Sn. … Bey," — hitap satırı. */

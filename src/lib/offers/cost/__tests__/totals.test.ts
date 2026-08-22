@@ -14,6 +14,8 @@ import { emptyCostPayload, freeCostItem, newCostId } from "../payload";
 import {
   costBreakdown,
   costItemPackageTotal,
+  costItemSplit,
+  costItemUnitTotal,
   costLineAmount,
   costMargin,
   costOverview,
@@ -123,7 +125,85 @@ describe("paket maliyet ve proje geneli", () => {
   });
 });
 
-describe("yüklü maliyetin teklif kalemine dağıtımı", () => {
+describe("KALEM BAZINDA imalat / proje bölmesi", () => {
+  const FAB = "fabrication";
+
+  /** İmalat grubu dolu, iki imalat dışı grup dolu bir vinç. */
+  function vinc(adet: number | null = 1): CostItem {
+    return {
+      ...freeCostItem("VİNÇ"),
+      qty: adet,
+      groups: [
+        { id: newCostId(), key: FAB, title: "İMALAT MALİYETİ", lines: [satir(1, 41440)] },
+        { id: newCostId(), key: "steel", title: "ÇELİK YAPI", lines: [satir(1, 44350)] },
+        { id: newCostId(), key: "hoist", title: "KALDIRMA GRUBU", lines: [satir(1, 48150)] },
+      ],
+    };
+  }
+
+  it("imalat YALNIZ imalat grubunu toplar; ikinci kalem onu DEĞİŞTİRMEZ", () => {
+    const bir = costItemSplit(vinc());
+    expect(bir.fabricationUnit).toBe(41440);
+    // md. 10'un çapası: bölme kalemin KENDİSİNDEN çıkar, belgeden değil —
+    // belgeye ikinci bir vinç eklemek bu sayıyı oynatamaz.
+    const p = { ...emptyCostPayload(), items: [vinc(), vinc()] };
+    expect(costItemSplit(p.items[0]).fabricationUnit).toBe(41440);
+  });
+
+  it("proje tarafı imalat DIŞI bütün grupları toplar", () => {
+    expect(costItemSplit(vinc()).projectUnit).toBe(44350 + 48150);
+  });
+
+  it("imalat + proje = birim = costItemUnitTotal", () => {
+    const b = costItemSplit(vinc());
+    expect((b.fabricationUnit ?? 0) + (b.projectUnit ?? 0)).toBe(b.unit);
+    expect(b.unit).toBe(costItemUnitTotal(vinc()));
+  });
+
+  it("HİÇ TUTARI OLMAYAN kalemde üçü de null — sıfır DEĞİL", () => {
+    const b = costItemSplit(freeCostItem("BOŞ"));
+    expect(b.fabricationUnit).toBeNull();
+    expect(b.projectUnit).toBeNull();
+    expect(b.unit).toBeNull();
+    expect(b.package).toBeNull();
+  });
+
+  it("yalnız imalatı dolu kalemde proje null, birim imalata eşit", () => {
+    const kalem: CostItem = {
+      ...freeCostItem("YALNIZ İMALAT"),
+      groups: [
+        { id: newCostId(), key: FAB, title: "İMALAT MALİYETİ", lines: [satir(1, 1000)] },
+        { id: newCostId(), key: "steel", title: "ÇELİK YAPI", lines: [satir(null, null)] },
+      ],
+    };
+    const b = costItemSplit(kalem);
+    expect(b.projectUnit).toBeNull();
+    expect(b.unit).toBe(1000);
+  });
+
+  it("PAKET adetle çarpılır; adet girilmemişse BİR sayılır", () => {
+    const uc = costItemSplit(vinc(3));
+    expect(uc.qty).toBe(3);
+    expect(uc.fabricationPackage).toBe(41440 * 3);
+    expect(uc.package).toBe((41440 + 44350 + 48150) * 3);
+    expect(costItemSplit(vinc(null)).qty).toBe(1);
+  });
+
+  it("BÖLME BELGEYLE TUTAR: Σ paket = costTotals'ın imalat ve proje toplamı", () => {
+    const p: CostPayload = { ...emptyCostPayload(), items: [vinc(1), vinc(3)] };
+    p.general.lines = [satir(1, 10000)];
+    const t = costTotals(p);
+    const bolmeler = p.items.map(costItemSplit);
+    const imalat = bolmeler.reduce((x, b) => x + (b.fabricationPackage ?? 0), 0);
+    const proje = bolmeler.reduce((x, b) => x + (b.projectPackage ?? 0), 0);
+    expect(t.fabrication).toBe(imalat);
+    // Belge düzeyindeki PROJE GENELİ kalemlerin bölmesinde YOKTUR; belgenin
+    // proje maliyeti onu ayrıca taşır.
+    expect(t.project).toBe(proje + (t.general ?? 0));
+  });
+});
+
+describe("genel gider dahil maliyetin teklif kalemine dağıtımı", () => {
   it("proje geneli ve oranlar doğrudan maliyet payına göre dağılır", () => {
     const p = astorBelgesi();
     p.general.lines = [satir(1, 10000)];

@@ -5,11 +5,12 @@
 // getirilir (`withDefaults`), ve müşteriye giden belgede ne BASILIR
 // (`printedPayload`).
 
-import { rowHasValue, withComposedValue } from "./compose";
+import { composeValue, rowHasValue, withComposedValue } from "./compose";
 import { paymentDescText, withValidPriceLineParents } from "./pricing";
 import {
   AUX_TROLLEY_GROUP_KEY,
   CUSTOM_GROUP_KEY,
+  GENERAL_GROUP_KEY,
   GENERAL_TERM_DEFS,
   OFFER_GROUP_DEFS,
   OFFER_GROUP_DEF_BY_KEY,
@@ -23,6 +24,7 @@ import {
   TEST_LOAD_GROUP_KEY,
   TEST_LOAD_ROW_DEFS,
   TEST_LOAD_TITLE,
+  isRetiredOfferRow,
   offerRowDef,
 } from "./registry";
 import type {
@@ -146,28 +148,22 @@ export function freeItem(title = ""): OfferItem {
 }
 
 /**
- * Vinç tipini kaleme VE `GENEL ÖZELLİKLER > Vinç Tipi` satırına yazar.
+ * Vinç tipini kalem künyesine yazar — TEK YER.
  *
- * İki yer aynı bilgiyi taşımıyor, ikisi iki ayrı işi yapıyor: satır BELGEYE
- * basılır, künye teklif listesinde SÜZGEÇ olur (`itemFactsFromRows` künyeyi
- * zaten satırdan tazeler, yani ayrışamazlar). Şablon seçen kullanıcıya vinç
- * tipini bir daha sormak, uygulamanın bildiği bir şeyi ona yazdırmak olurdu.
+ * Bir süre İKİ yere yazıyordu: künyeye ve `GENEL ÖZELLİKLER > Vinç Tipi`
+ * satırına. Gerekçesi "satır belgeye basılır, künye süzgeç olur" idi ve
+ * kullanıcı sonucu ekranda gördü (22.08.2026, md. 3): *"kalem içerisinde vinç
+ * tipini iki kere alıyoruz."* İki kutu aynı soruyu soruyor, biri
+ * ötekini besliyordu; belgeye basılacak metin künyeden de basılabilir.
+ *
+ * Satır artık defterde YOK (emekliye ayrıldı, `RETIRED_ROW_KEYS`) ve bu
+ * fonksiyon yalnız künyeyi yazar. BOŞ TİP KÜNYEYİ SİLMEZ: şablonu olmayan bir
+ * kalem için `""` gelir ve elle yazılmış tipi ezmek veri kaybı olurdu.
  */
 export function withCraneType(item: OfferItem, craneType: string): OfferItem {
   const tip = (craneType ?? "").trim();
   if (!tip) return item;
-  return {
-    ...item,
-    craneType: tip,
-    groups: item.groups.map((g) =>
-      g.key !== "general"
-        ? g
-        : {
-            ...g,
-            rows: g.rows.map((r) => (r.key === "craneType" && !r.value ? { ...r, value: tip } : r)),
-          }
-    ),
-  };
+  return { ...item, craneType: tip };
 }
 
 /**
@@ -185,6 +181,7 @@ export function emptyPayload(currency = "EUR"): OfferPayload {
       toName: "",
       toDept: "",
       toPhone: "",
+      toEmail: "",
       customerRef: "",
       greeting: "",
       intro: "",
@@ -443,7 +440,18 @@ export function greetingFor(name: string, honorific: string): string {
  * GENEL ÖZELLİKLER grubu bütünüyle dışarıdadır: içindeki her satır o vince
  * özgü bir ölçü ya da tanımdır.
  */
-const OLCU_PARCALARI = new Set([
+/**
+ * ÖLÇÜ SAYILAN PARÇA ANAHTARLARI — defterden TÜRETİLMEZ, elle yazılır.
+ *
+ * Türetilemez de: `power`, `rpm` ve `dia` LİSTELİDİR (`val.motorPower`,
+ * `val.motorRpm`, `val.wheelDia`) ama gerçekte birer ÖLÇÜDÜR. `list` alanına
+ * bakarak sınıflandıran bir kural onları "marka tercihi" sayar ve ikinci
+ * vincin motor gücünü birincininkiyle doldururdu.
+ *
+ * Bedeli kuralın iki yerde yaşamasıdır; `__tests__/olcu-parcalari.test.ts`
+ * ikisini birden okuyarak ayrışmayı engeller (değişmez md. 8).
+ */
+export const OLCU_PARCALARI = new Set([
   "count", "power", "rpm", "dia", "safety", "range", "total", "main", "aux", "value",
   "spec", "model", "place",
 ]);
@@ -496,17 +504,50 @@ function dizi<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
+/**
+ * EMEKLİ `craneType` SATIRININ değeri — yalnız künye boşken okunur.
+ *
+ * Süzgeç satırı ekrandan kaldırır; bu okuma onun TAŞIDIĞI BİLGİYİ kurtarır.
+ * İkisi aynı adımda olmak zorundadır: önce süzüp sonra okumaya kalkmak,
+ * okunacak satırı çoktan atmış olurdu.
+ */
+function emekliVincTipi(ham: unknown): string {
+  for (const g of dizi<Record<string, unknown>>(ham)) {
+    if (metin(g.key) !== GENERAL_GROUP_KEY) continue;
+    for (const r of dizi<Record<string, unknown>>(g.rows)) {
+      if (metin(r.key) === "craneType") return metin(r.value).trim();
+    }
+  }
+  return "";
+}
+
 function rowFromRaw(raw: unknown, groupKey: string): OfferRow {
   const r = (raw ?? {}) as Partial<OfferRow>;
   const key = metin(r.key);
   const def = offerRowDef(groupKey, key);
+  const parts = (r.parts && typeof r.parts === "object" ? r.parts : {}) as Record<string, string>;
+  const value = metin(r.value);
   return withComposedValue(
     {
       key,
       label: metin(r.label, def?.label ?? key),
-      value: metin(r.value),
-      parts: (r.parts && typeof r.parts === "object" ? r.parts : {}) as Record<string, string>,
-      manual: r.manual === true,
+      value,
+      parts,
+      // DERLENEMEYEN DEĞER ELLE YAZILMIŞ SAYILIR.
+      //
+      // Bir satır defterde SERBEST METİNKEN PARÇALIYA dönebilir: "Yürüme Yolu"
+      // bugün "Yürüme Yolu Uzunluğu" oldu ve bir sayı + " m" parçası aldı
+      // (22.08.2026, md. 4). Kayıtlarda ise o satırın değeri hâlâ serbest bir
+      // cümledir ("A55 Ray, 96 m") ve parçası YOKTUR — `withComposedValue`
+      // parçalardan derleyip boş yazardı, yani taşıma kullanıcının yazdığını
+      // SİLERDİ. `manual` bayrağı satırın kendi kaçış yoludur ("elle yazılmış
+      // değer kutsaldır", `compose.ts`) ve tam olarak bu duruma yarar:
+      // kullanıcı metnini görmeye devam eder, asa düğmesiyle parçalı yazıma
+      // geçmek İSTERSE geçer.
+      //
+      // Değeri parçalardan aynen çıkan satır etkilenmez; kural yalnız
+      // derlemenin kaybettiği değeri kurtarır.
+      manual: r.manual === true || parcalarDegeriKaybediyor(def, parts, value),
       hidden: r.hidden === true,
       // KAPSAM taşınır: varsayılan `orion`dur ve eski kayıtlarda alan hiç yoktu.
       scope: r.scope === "customer" ? "customer" : "orion",
@@ -514,6 +555,16 @@ function rowFromRaw(raw: unknown, groupKey: string): OfferRow {
     },
     def
   );
+}
+
+/** Defterdeki parçalar satırın KAYITLI değerini üretemiyor mu. */
+function parcalarDegeriKaybediyor(
+  def: OfferRowDef | undefined,
+  parts: Record<string, string>,
+  value: string
+): boolean {
+  if (!def?.parts?.length || !value.trim()) return false;
+  return composeValue(def.parts, parts).trim() !== value.trim();
 }
 
 /**
@@ -541,6 +592,9 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
       toName: metin(cover.toName),
       toDept: metin(cover.toDept),
       toPhone: metin(cover.toPhone),
+      // E-POSTA eski kayıtlarda YOKTUR ve boş gelir; muhatap yeniden
+      // seçildiğinde defterden dolar (`coverFieldsFromContact`).
+      toEmail: metin(cover.toEmail),
       customerRef: metin(cover.customerRef),
       greeting: metin(cover.greeting),
       intro: metin(cover.intro),
@@ -553,7 +607,12 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
     items: dizi<Record<string, unknown>>(p.items).map((it) => ({
       id: metin(it.id) || newOfferId(),
       title: metin(it.title),
-      craneType: metin(it.craneType),
+      // EMEKLİ SATIRIN DEĞERİ KÜNYEYE TAŞINIR: eski kayıtlarda vinç tipi
+      // `GENEL ÖZELLİKLER > Vinç Tipi` satırında da yazılıydı ve künye alanı
+      // ancak kaydetme yolundan geçmiş tekliflerde doluydu. Satır süzülürken
+      // değeri okunmasaydı, hiç kaydedilmemiş bir taslakta vinç tipi sessizce
+      // kaybolur ve kalem başlığı da onunla birlikte eksilirdi.
+      craneType: metin(it.craneType) || emekliVincTipi(it.groups),
       capacityT: sayiVeyaNull(it.capacityT),
       spanM: sayiVeyaNull(it.spanM),
       hidden: it.hidden === true,
@@ -570,7 +629,12 @@ export function withDefaults(raw: unknown, currency = "EUR"): OfferPayload {
           key,
           title: metin(g.title, OFFER_GROUP_DEF_BY_KEY[key]?.title ?? ""),
           hidden: g.hidden === true,
-          rows: dizi(g.rows).map((r) => rowFromRaw(r, key)),
+          // EMEKLİ SATIR OKUMA YOLUNDA SÜZÜLÜR (`RETIRED_ROW_KEYS`): defterden
+          // çıkan satır eski kayıtlarda duruyor ve süzülmeseydi kullanıcı
+          // kaldırılmasını istediği satırı her eski teklifte yeniden görürdü.
+          rows: dizi<Record<string, unknown>>(g.rows)
+            .filter((r) => !isRetiredOfferRow(key, metin(r.key)))
+            .map((r) => rowFromRaw(r, key)),
         };
       }),
     })),

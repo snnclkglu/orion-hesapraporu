@@ -40,6 +40,9 @@ const ASTOR: CostInputs = {
   movingCabin: false,
   electricRoom: false,
   heatShield: false,
+  // ASTOR çalışmasının rayı A65'tir (teklif belgesindeki köprü rayı satırı).
+  bridgeRailCode: "A65",
+  trolleyRailCode: "A65",
 };
 
 const model = () => hesapla(ASTOR, { ...COST_PARAM_DEFAULTS });

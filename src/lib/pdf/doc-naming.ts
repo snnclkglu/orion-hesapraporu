@@ -9,6 +9,7 @@
 // Büyük harf `tr-TR` ile yapılır: `toUpperCase()` "i" harfini "I" yapar ve
 // "İşin adı" → "ISIN ADI" olurdu.
 
+import { trKatla } from "@/lib/drawings/tr-text";
 import { offerRevLabel } from "@/lib/offers/no";
 
 /**
@@ -111,18 +112,51 @@ export function downloadFileName(
 /**
  * Teklif belgesinin dosya adı:
  *
- *     HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf
+ *     ORİON VİNÇ - HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf
  *
- * Firmanın **İŞ ADI - DOKÜMAN KODU - VERSİYON** düzeninin teklif hâlidir;
+ * **ÖNEK HER ZAMAN "ORİON VİNÇ"TİR** (kullanıcı isteği, 22.08.2026: *"Konu ne
+ * olursa olsun inen teklif pdf isimlendirmesi ORİON VİNÇ - KONU şeklinde
+ * olsun."*). Kullanıcı bunu bugüne kadar KONUNUN İÇİNE elle yazıyordu ve
+ * yazmayı unuttuğu teklifte müşterinin indirdiği dosya kimden geldiğini
+ * söylemiyordu; müşterinin indirilenler klasöründe on tedarikçinin teklifi
+ * yan yana durur.
+ *
+ * Geri kalanı firmanın **İŞ ADI - DOKÜMAN KODU - VERSİYON** düzenidir;
  * "doküman kodu" yerini TEKLİF NUMARASI alır çünkü müşteriyle yazışmada geçen
  * referans odur (`offers/no.ts`), `ORC-…` iç kodu değil.
+ *
+ * NUMARA VE REVİZYON DÜŞMEDİ ve bu bir gereklilik: yayımlanan teklif PDF'i
+ * `offer-pdf` kovasına `${offerId}/${dosyaAdı}` yoluyla arşivlenir
+ * (`issueOfferRevision`). Ad yalnız önek ve konudan kursaydı, aynı teklifin
+ * R1 ve R2 revizyonları AYNI dosya adını taşır ve ikincisi birincinin üstüne
+ * yazardı — müşteriye giden ilk kâğıdın karşılığı arşivden silinirdi.
  *
  * REVİZYON PARÇASI R0'DA DÜŞER (`offerRevLabel`): ilk teklif bir revizyon
  * değildir ve dosya adında "REV 00" görmek, müşteriye hiç var olmamış bir
  * düzeltme geçmişi anlatırdı.
  */
+export const OFFER_FILE_PREFIX = "ORİON VİNÇ";
+
 export function offerFileName(subject: string, offerNo: string, revNo: number): string {
-  return downloadFileName([subject, offerNo, offerRevLabel(revNo)]);
+  return downloadFileName([OFFER_FILE_PREFIX, konuAdi(subject), offerNo, offerRevLabel(revNo)]);
+}
+
+/**
+ * Konuyu dosya adına hazırlar — ÖNEK İKİ KEZ YAZILMAZ.
+ *
+ * Kullanıcı öneki bugüne kadar KONUNUN İÇİNE yazıyordu ("ORİON VİNÇ - 80T VE
+ * 32T PORTAL VİNÇ TEKLİFLER"); artık uygulama ekliyor. Eski tekliflerde ikisi
+ * üst üste binerdi ve dosya adı "ORİON VİNÇ - ORİON VİNÇ - …" olurdu.
+ * Karşılaştırma `trKatla` iledir: "ORİON", "Orion" ve "ORION" aynı öneki
+ * anlatır.
+ */
+function konuAdi(subject: string): string {
+  const temiz = (subject ?? "").trim();
+  const katlanmis = trKatla(temiz);
+  const onek = trKatla(OFFER_FILE_PREFIX);
+  if (!katlanmis.startsWith(onek)) return temiz;
+  // Öneki ve ardındaki ayracı ("-", "–", ":") düşür.
+  return temiz.slice(OFFER_FILE_PREFIX.length).replace(/^[\s\-–—:·]+/, "").trim();
 }
 
 /**

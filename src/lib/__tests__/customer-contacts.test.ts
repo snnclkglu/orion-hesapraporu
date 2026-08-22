@@ -71,15 +71,19 @@ describe("coverFieldsFromContact", () => {
       name: "ALİCAN ERASLAN",
       department: "Satın Alma Departmanı",
       phone: "+90 216 453 67 51",
+      email: "alican.eraslan@astor.com.tr",
     });
+    // E-POSTA DA TAŞINIR (md. 1): kapağın KİME künyesi telefonun altına onu da
+    // basar ve boş kalırsa hiç basılmaz (TEKLIF-36).
     expect(coverFieldsFromContact(k)).toEqual({
       toName: "ALİCAN ERASLAN",
       toDept: "Satın Alma Departmanı",
       toPhone: "+90 216 453 67 51",
+      toEmail: "alican.eraslan@astor.com.tr",
     });
   });
 
   it("kişi yoksa alanlar BOŞ döner — yer tutucu bir değer değildir", () => {
-    expect(coverFieldsFromContact(null)).toEqual({ toName: "", toDept: "", toPhone: "" });
+    expect(coverFieldsFromContact(null)).toEqual({ toName: "", toDept: "", toPhone: "", toEmail: "" });
   });
 });

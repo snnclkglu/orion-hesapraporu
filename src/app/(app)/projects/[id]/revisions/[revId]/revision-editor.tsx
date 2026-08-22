@@ -3115,7 +3115,7 @@ export function RevisionEditor({
           bilgisi zaten adım bilgisi olan alt şeride indi. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         {/* Kayan gövde — bölüm değişince başa sarılır (bkz. scrollRef) */}
-        <div ref={bodyRef} className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+        <div ref={bodyRef} className="relative min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
           {step.kind === "specs" && renderSpecs()}
           {step.kind === "module" && renderModuleSection(step.moduleKey, step.section)}
           {step.kind === "summary" && renderSummary()}

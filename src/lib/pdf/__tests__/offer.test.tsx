@@ -71,6 +71,7 @@ function fikstur(over: { vatIncluded?: boolean; kapsam?: OfferRowScope } = {}): 
     toName: "ALİCAN ERASLAN",
     toDept: "",
     toPhone: "+90 216 453 67 51",
+    toEmail: "mehmet.yilmaz@habas.com.tr",
     customerRef: "6000294866",
     greeting: "Sn. Alican ERASLAN Bey,",
     intro: "Talep etmiş olduğunuz iş için teknik ve ticari teklifimizi dikkatinize sunarız.",
@@ -287,12 +288,24 @@ describe("belge kimliği", () => {
     expect(metin.includes("REV 02")).toBe(true);
   });
 
-  it("dosya adı: İŞ ADI - TEKLİF NO - REV; R0'da revizyon parçası düşer", () => {
+  it("dosya adı: ORİON VİNÇ - KONU - TEKLİF NO - REV; R0'da revizyon parçası düşer", () => {
     expect(offerFileName("Habaş Dörtyol 20t Vinç", "TETR-20260127-1", 2)).toBe(
-      "HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf"
+      "ORİON VİNÇ - HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1 - REV 02.pdf"
     );
     expect(offerFileName("Habaş Dörtyol 20t Vinç", "TETR-20260127-1", 0)).toBe(
-      "HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1.pdf"
+      "ORİON VİNÇ - HABAŞ DÖRTYOL 20T VİNÇ - TETR-20260127-1.pdf"
+    );
+  });
+
+  it("KONU ZATEN ÖNEKLE BAŞLIYORSA önek iki kez yazılmaz", () => {
+    // Kullanıcı öneki bugüne kadar konunun içine elle yazıyordu; eski
+    // tekliflerde ikisi üst üste binmemeli.
+    expect(offerFileName("ORİON VİNÇ - 80T VE 32T PORTAL VİNÇ", "TETR-20260818-1", 1)).toBe(
+      "ORİON VİNÇ - 80T VE 32T PORTAL VİNÇ - TETR-20260818-1 - REV 01.pdf"
+    );
+    // Ayraçsız ve küçük harfli yazım da aynı öneki anlatır.
+    expect(offerFileName("Orion Vinç 20t Monoray", "TETR-20260127-1", 0)).toBe(
+      "ORİON VİNÇ - 20T MONORAY - TETR-20260127-1.pdf"
     );
   });
 });

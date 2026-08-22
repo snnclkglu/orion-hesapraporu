@@ -23,6 +23,8 @@
 // model sessizce sıfırla çalışır — yanlış bir maliyet, eksik bir maliyetten
 // daha tehlikelidir çünkü kendini belli etmez.
 
+import { ropeSafetyFactor } from "@/lib/calc/coefficients";
+import { RAILS, c1Factor } from "@/lib/calc/tables";
 import {
   CLASS_DEFLECTION,
   CLASS_GIRDER_KGM,
@@ -35,6 +37,7 @@ import {
   GEARBOX_TABLE,
   HOOK_BLOCK_TABLE,
   MOTOR_KW,
+  ROPE_TABLE,
   SECTION_TABLE,
   TEMP_FACTORS,
   WHEEL_TABLE,
@@ -46,6 +49,8 @@ import {
   paramOf,
   sectionProps,
   wheelDiaStep,
+  wheelLimitPressureOf,
+  wheelMechanismFactor,
 } from "./params";
 import type { SectionProps } from "./params";
 import type { CostInputs } from "./types";
@@ -149,7 +154,8 @@ export function hesapla(
   /** Bir kaldırma grubunu baştan sona boyutlandırır (ana ve yardımcı aynı yol). */
   const kaldirma = (onek: string, kap: number | null) => {
     if (kap === null || kap <= 0) {
-      for (const k of ["RopeCount", "RopeLoadKg", "DrumDiaMm", "DrumMomentNm", "FinalMomentNm",
+      for (const k of ["RopeCount", "RopeLoadKg", "RopeSafetyZp", "RopeRequiredKn", "RopeDiaMm",
+        "RopeBreakingKn", "DrumDiaMm", "DrumMomentNm", "FinalMomentNm",
         "RopeSpeedMpm", "GearRatio", "MotorMomentNm", "CalcPowerKw", "ReqPowerKw", "MotorKw", "DriveKw"]) {
         yaz(`${onek}${k}`, null);
       }
@@ -158,6 +164,48 @@ export function hesapla(
     const halat = kap <= p("rope2ThresholdT") ? 2 : kap <= p("rope8ThresholdT") ? 4 : 8;
     const ropeCount = yaz(`${onek}RopeCount`, halat) ?? halat;
     const ropeLoad = yaz(`${onek}RopeLoadKg`, (kap * 1000 * (1 + p("hookBlockLoadAdd"))) / ropeCount);
+
+    // ————————————————————————————————————— halat çapı önerisi
+    //
+    // Kullanıcı isteği (22.08.2026, md. 6): *"Mekanizmaya göre emniyet
+    // katsayısıyla çarpıp, halat çapı önerisi vermiyor. Örneğin m6 için katsayı
+    // 5,6 … halat yükünü bununla çarpacak * 1,02 artıracak kN cinsine
+    // çevirecek. Sonra 6x36 hasçelik halattan olanı seçecek."*
+    //
+    // Zp MOTORUN KENDİ TABLOSUNDAN GELİR, buraya kopyalanmaz: `lib/calc` FEM
+    // 1.001 T.4.2.2.1.2'yi zaten taşıyor (`ropeSafetyFactor`) ve aynı standart
+    // sayısının iki yerde yaşaması, birinin sessizce eskimesi demekti
+    // (değişmez md. 8). İki çekirdek de SAFTIR, yani bağ meşrudur.
+    //
+    // BU BİR HESAP DEĞİL BİR ÖNERİDİR (MALIYET-3): teklif aşamasında vincin
+    // tasarımı yoktur ve seçilen çap bir FEM doğrulamasının yerine geçmez —
+    // hesap raporu halatı kendi modülünde yeniden seçer ve kontrol eder.
+    //
+    // HAREKETLİ HALAT ("moving") okunur: kaldırma halatı tambura sarılır,
+    // sabit (bağlama) halatın daha düşük katsayısı burada geçerli değildir.
+    const zp = yaz(`${onek}RopeSafetyZp`, ropeSafetyFactor(inputs.craneClass, "moving"));
+    // kg → kN: yük × 9,81 ÷ 1000. Pay (varsayılan 1,02) kullanıcının kendi
+    // tarifidir ve katsayı olarak durur, koda gömülmez.
+    const gerekliKn =
+      ropeLoad === null || zp === null
+        ? yaz(`${onek}RopeRequiredKn`, null)
+        : yaz(`${onek}RopeRequiredKn`, (ropeLoad * zp * p("ropeExtraFactor") * 9.81) / 1000);
+    // KATALOGTAN İLK KARŞILAYAN BOY: ara çap diye bir halat yoktur. Tablo
+    // yetmezse `firstAtLeast` son satırı verir ve bu YANILTICI olurdu —
+    // karşılamayan bir çapı "önerilen" diye basmak, uydurma bir sayı yazmakla
+    // aynı şeydir (değişmez md. 4). O yüzden sonuç ayrıca sınanır.
+    const secilen =
+      gerekliKn === null ? null : (firstAtLeast(ROPE_TABLE, gerekliKn, (r) => r.breakingKn) ?? null);
+    const yeterli = secilen !== null && gerekliKn !== null && secilen.breakingKn >= gerekliKn;
+    if (!yeterli && gerekliKn !== null) {
+      out.eksik.push(
+        `${onek === "c.hoist" ? "Ana" : "Yardımcı"} kaldırma için gereken kopma yükü ` +
+          `katalogdaki en büyük halatı (Ø${ROPE_TABLE[ROPE_TABLE.length - 1].diaMm}) aşıyor — ` +
+          "donanımı (kat sayısını) artırın."
+      );
+    }
+    yaz(`${onek}RopeDiaMm`, yeterli ? secilen.diaMm : null);
+    yaz(`${onek}RopeBreakingKn`, yeterli ? secilen.breakingKn : null);
 
     // Tambur çapı KAPASİTEYE göre ara değerlidir: 32 tonluk bir vinç 40 tonluk
     // satıra atlarsa tambur momenti ve tahvil birlikte kayar.
@@ -492,6 +540,87 @@ export function hesapla(
     "c.bridgeWheelEffDiaMm",
     bridgeDia === null ? null : wheelDiaStep(bridgeDia, bridgeStep)
   );
+
+  // ————————————————————— 9b. HIZLI TEKER SEÇİMİ (yüzey basıncı)
+  //
+  // Kullanıcı isteği (22.08.2026, md. 12): *"Maliyet hesaplar kısmına hızlı
+  // teker seçimi yapabilmem lazım. Mühendislik kısmına bak, o kadar detaylı
+  // olmayan bir teker seçimi yapmamız gerek … Birkaç ekleme ile hızlıca tekeri
+  // otomatik hesaplayan ve öneren iyi bir sistem geliştirilebilir."*
+  //
+  // MÜHENDİSLİKTEKİNDEN NE EKSİK: orada teker mili, rulman, kaplin, fren
+  // kasnağı, savrulma kuvvetleri ve yorulma da hesaplanır ve yirmiye yakın
+  // girdi ister (`lib/calc/modules/travelGroup.ts`). Burada SORULAN TEK SORU
+  // "hangi çap yeter"dir ve cevabı FEM'in TEK bağıntısıdır:
+  //
+  //     p = P_ort · 9,81 ÷ (b_ray · D)  ≤  PL · c1 · c2      (FEM 1.001 4.2.4.1)
+  //
+  // Girdilerin üçü modelde ZATEN VAR (teker yükü, hız, vinç sınıfı); dışarıdan
+  // eklenen tek şey RAY KODUDUR ve o da teklifin kendi satırından okunur.
+  //
+  // BU BİR ÖNERİDİR, BİR ONAY DEĞİL (MALIYET-3): teklif aşamasında vincin
+  // tasarımı yoktur ve hesap raporu tekeri kendi modülünde yeniden seçip
+  // yorulmasıyla birlikte kontrol eder.
+  //
+  // ÖNERİ TABLODAN GELEN ÇAPI EZMEZ. `c.*WheelEffDiaMm` teker grubu ağırlığını
+  // (`w.*TravelGroup`) besler ve o da toplam ağırlığa, oradan kâr marjına
+  // gider; bir öneriyi oraya sessizce yazmak, yayımlanmış maliyetlerin
+  // rakamını değiştirirdi. İki sayı YAN YANA durur ve fark ekranda görünür.
+  const tekerSecimi = (
+    onek: string,
+    yukT: number | null,
+    effDia: number | null,
+    hizMpm: number | null,
+    rayKodu: string
+  ) => {
+    // ORTALAMA TEKER YÜKÜ: FEM basınç kontrolü tepe yükü değil eşdeğer
+    // ortalamayı ister (P_ort = (2·Pmaks + Pmin) ÷ 3). Maliyet modeli Pmin'i
+    // ayrıca üretmez; yükün yarısı alt sınır kabul edilir, yani
+    // P_ort = (2·P + P/2) ÷ 3 = 5P/6. Kaba ama YÖNÜ DOĞRU bir kabuldür ve
+    // katsayı olarak durur, koda gömülmez.
+    const ort = yukT === null ? null : yukT * 1000 * p("wheelMeanLoadRatio");
+    yaz(`${onek}WheelMeanLoadKg`, ort);
+    const bRay = RAILS[rayKodu]?.headWidth ?? null;
+    yaz(`${onek}RailHeadMm`, bRay);
+    // DEVİR, m/dk DEĞİL: FEM'in c1 tablosu tekerin DÖNME hızını (d/dk) ister.
+    const devir =
+      hizMpm === null || effDia === null || effDia <= 0
+        ? null
+        : hizMpm / ((effDia / 1000) * Math.PI);
+    yaz(`${onek}WheelRpm`, devir);
+    const c1 = devir === null || effDia === null ? null : (c1Factor(effDia, devir) ?? null);
+    yaz(`${onek}WheelC1`, c1);
+    const c2 = wheelMechanismFactor(inputs.craneClass);
+    yaz(`${onek}WheelC2`, c2);
+    const pl = wheelLimitPressureOf(p("wheelTensileNmm2"));
+    yaz(`${onek}WheelLimitPressure`, pl);
+    const izin = pl === null || c1 === null ? null : pl * c1 * c2;
+    yaz(`${onek}WheelAllowedPressure`, izin);
+    const basinc =
+      ort === null || bRay === null || effDia === null || effDia <= 0
+        ? null
+        : (ort * 9.81) / bRay / effDia;
+    yaz(`${onek}WheelPressure`, basinc);
+    // GEREKEN EN KÜÇÜK ÇAP: basınç çapla ters orantılıdır, ama c1 de çapa
+    // bağlıdır — bu yüzden formülle çözülmez, KATALOG SIRASI TARANIR.
+    let gereken: number | null = null;
+    if (ort !== null && bRay !== null && pl !== null) {
+      for (const w of WHEEL_TABLE) {
+        const d = w.diaMm;
+        const n = hizMpm === null ? null : hizMpm / ((d / 1000) * Math.PI);
+        const k1 = n === null ? null : (c1Factor(d, n) ?? null);
+        if (k1 === null) continue;
+        if ((ort * 9.81) / bRay / d <= pl * k1 * c2) {
+          gereken = d;
+          break;
+        }
+      }
+    }
+    yaz(`${onek}WheelMinDiaMm`, gereken);
+  };
+
+  tekerSecimi("c.bridge", bridgeWheelLoad, bridgeEffDia, vBridge, inputs.bridgeRailCode);
+  tekerSecimi("c.trolley", trolleyWheelLoad, trolleyEffDia, vTrolley, inputs.trolleyRailCode);
 
   // ————————————————————— 10. köprü yürütme grubu ve köprü toplamı
   const bridgeGroupKg = WHEEL_TABLE.find((w) => w.diaMm === bridgeEffDia)?.groupKg ?? null;

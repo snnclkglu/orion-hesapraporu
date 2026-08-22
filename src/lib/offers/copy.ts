@@ -69,6 +69,7 @@ export function copyPayloadForCustomer(
       toName: "",
       toDept: "",
       toPhone: "",
+      toEmail: "",
       customerRef: "",
       greeting: "",
     },

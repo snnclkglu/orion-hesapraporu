@@ -1272,3 +1272,177 @@ Satır **payload'da durmaya devam eder** (defterin alanıdır ve kullanıcı onu
 düzenleyebilir); yalnız belgede yeri yoktur. Bunun ardından `odemeVar` da
 değişti: blok artık YALNIZ PLANIN KENDİSİNE bakar (`terms.paymentLines`), yoksa
 planı olmayan bir teklifte boş bir kutu açılırdı.
+
+## TEKLIF-57 — Muhatabın E-POSTASI kapağa girer; seçim KİMLİK DEĞİŞTİRMEDİR.
+
+Kullanıcı isteği (22.08.2026, md. 1): *"Müşteriler sayfasında kişi e-postası
+alıyoruz. Ancak teklifte Kime kısmında e-posta yeri yok. otomatik gelsin.
+Teklif pdf'e de ekleyelim."*
+
+`OfferCover.toEmail` — `fromEmail`in ikizidir ve **ayrı bir alandır**: telefonla
+e-posta tek satırda taşınsaydı kapak künyesi ikisini ayıramaz, yalnız biri
+bilinen bir muhatapta ayıraç boşta kalırdı (TEKLIF-36).
+
+- **Defterden seçim KOŞULSUZ yazar** (`coverFieldsFromContact`). KİMDEN
+  tarafındaki *"varsa yaz"* kalıbı burada geçerli DEĞİLDİR: KİME'de kişi
+  seçmek bir kimlik değiştirmedir ve A kişisinden B'ye geçerken B'nin e-postası
+  boşsa A'nınki kalmamalıdır.
+- **Kopyalamada BOŞALIR** (`copyPayloadForCustomer`). Bu bir gizlilik
+  kuralıdır: `toName` ve `toPhone` boşalırken e-posta kalsaydı, önceki firmanın
+  satın alma müdürünün adresi yeni müşteriye giden belgede dururdu.
+- Kapakta **telefonun altında, MÜŞTERİ REF'in üstünde** basılır; boşsa hiç
+  basılmaz (TEKLIF-36 kuruluş kuralı, ayrı bir bayrak gerekmez).
+- Biçim doğrulaması **yapılmaz**: defterde duran mevcut adresleri geriye dönük
+  reddetmek, kaydı düzeltilene kadar teklif açılamaz hâle getirirdi.
+
+## TEKLIF-58 — Kalem ekleme ÜÇ KİPLİDİR; KAYNAK SEÇİLİR.
+
+Kullanıcı isteği (22.08.2026, md. 2): *"Teklife kalem ekle derken ilk kalemin
+marka tercihini kopyala tuşu var. Bunu geliştirmek istiyorum. Hem her istediğim
+kalemi seçip kopyalayabileyim. hem ister marka ve tercihleri, ister tüm kalemin
+aynısını direk kopyalayabileyim. Kalemler arasında dropdown seçebileyim."*
+
+YENİ BİR KOPYALAMA ALGORİTMASI YAZILMADI. İki kip zaten vardı ve ikisi de
+KİPSİZDİ: "marka ve tercihler" `copySelections`tı ve yalnız `items[0]`dan
+çalışıyordu; "tamamı" ise kalem düzenleyicideki **Kalemi Kopyala** düğmesinin
+çağırdığı `copyItemInPayload`tı ve yalnız AÇIK OLAN kalemden. Pencere ikisini
+tek soruya indirir: hangi kalemden, ne kadarı.
+
+- **Kip bir RADYO GRUBUDUR** (yok · seçim · tam): seçenekler birbirini dışlar.
+- **"Tam" kipinde şablon ve başlık kutuları DEVRE DIŞIDIR, gizlenmez**:
+  kullanıcı neyin niçin sorulmadığını görmelidir. Bölümler, ölçüler ve ad
+  kaynaktan gelir.
+- **"Tam" kipi kaleme bağlı FİYAT SATIRLARINI da getirir** ve kopya kaynağın
+  ARDINA girer (TEKLIF-42). İkisi de seçeneğin alt açıklamasında YAZILIDIR,
+  yalnız bildirimde değil — toplam anında artar.
+- **KAYNAĞI SERBEST OLAN "seçim" kipi KAPALIDIR.** `copySelections` defter
+  satırlarını `key` ile eşler; serbest kalemin defterde karşılığı yoktur ve
+  fonksiyon sessizce hiçbir şey taşımaz. TEKLIF-33'ün HEDEF tarafındaki
+  kuralının KAYNAK tarafındaki aynası.
+- **Sınıflandırma DEFTERDEN DEĞİL `OLCU_PARCALARI` kümesinden çıkar** ve bu
+  bilinçlidir: `power`, `rpm` ve `dia` LİSTELİDİR ama birer ÖLÇÜDÜR; `list`
+  alanına bakan bir kural ikinci vincin motor gücünü birincininkiyle
+  doldururdu. Kural iki yerde yaşadığı için `__tests__/olcu-parcalari.test.ts`
+  ikisini birden okur (değişmez md. 8).
+
+## TEKLIF-59 — Defterden ÇIKAN satır EMEKLİYE AYRILIR, silinmez.
+
+Kullanıcı isteği (22.08.2026): *"kalem içerisinde vinç tipini iki kere
+alıyoruz. Genel özelliklerdeki vinç tipini iptal edelim"* (md. 3) ve *"Köprü
+grubunda Yürüme Yolu Rayı'nı iptal edelim. Köprü rayı zaten yeterli."* (md. 5)
+
+Bir satırı defterden silmek YENİ kalemleri temizler, ESKİLERİ temizlemez:
+`withDefaults` tanınmayan satırı KORUR (kendi gerekçesi orada yazılı — bir
+taşıma fonksiyonu veri silmez) ve kullanıcı kaldırılmasını istediği satırı
+açtığı her eski teklifte yeniden görürdü.
+
+**ÇÖZÜM SİLMEK DEĞİL EMEKLİYE AYIRMAK** (`RETIRED_ROW_KEYS`): satır kayıtta
+olduğu gibi kalır, OKUMA yolunda süzülür. Fark önemlidir çünkü yayımlanmış bir
+teklif KİLİTLİDİR ve müşteriye giden kâğıdın karşılığı `offer-pdf` kovasında
+ARŞİVLİDİR — belgenin gerçeği dosyadadır, payload onun yeniden üretilebilir
+kopyasıdır.
+
+- **DEĞERİ OLAN SATIR SESSİZCE KAYBOLMAZ**: `craneType` satırının değeri, kalem
+  künyesindeki alan boşsa oraya TAŞINIR (`emekliVincTipi`).
+- **KÖPRÜ SATIRLARI İKİ GRUPTA yaşar** (`bridge` ve `gantry` aynı satır
+  kümesini paylaşır); ikisi de yazılır, yoksa portalde satır durmaya devam
+  ederdi. Kullanıcı kararı (22.08.2026): ikisinden de kalkar.
+- **VİNÇ TİPİ ARTIK TEK YERDE SORULUR** — kalem künyesi. `composeItemTitle`
+  onu satırdan değil künyeden alır (`withAutoTitle`), `itemFactsFromRows` da
+  yalnız ölçü türetir.
+- **`val.craneType` `STANDALONE_LIST_KEYS`e YAZILIR.** Liste anahtarları satır
+  tanımlarından TÜRETİLİR; satır emekliye ayrılınca anahtar türetmeden düştü ve
+  sonuç sessizdi: dropdown'lar veritabanından `list_key` ile süzdüğü için
+  çalışmaya devam etti, kaybolan yalnız **Tanımlar → Defterler**deki "Vinç
+  Tipleri" kartıydı — yani listeyi düzenlemenin tek yolu. Bir test bunu
+  çivileyerek tutar.
+
+## TEKLIF-60 — Defterde ŞEKİL değişirse eski değer ELLE YAZILMIŞ sayılır.
+
+Kullanıcı isteği (22.08.2026, md. 4): *"genel özelliklerde yürüme yolu diye
+aldığımız bilgi Yürüme Yolu Uzunluğu ve metre cinsinden olacak."*
+
+`runway` satırı SERBEST METİNKEN PARÇALIYA döndü (sayı + `" m"`). Kayıtlarda o
+satırın değeri hâlâ serbest bir cümledir ("A55 Ray, 96 m") ve parçası YOKTUR;
+`withComposedValue` parçalardan derleyip BOŞ yazardı — taşıma, kullanıcının
+yazdığını silerdi.
+
+Kural genel yazıldı (`parcalarDegeriKaybediyor`): defterdeki parçalar satırın
+KAYITLI değerini üretemiyorsa satır `manual` sayılır. `manual` satırın kendi
+kaçış yoludur ("elle yazılmış değer kutsaldır") ve tam olarak bu duruma yarar:
+kullanıcı metnini görmeye devam eder, asa düğmesiyle parçalı yazıma geçmek
+İSTERSE geçer. Değeri parçalardan aynen çıkan satır etkilenmez.
+
+## TEKLIF-61 — Teklif PDF'inin adı HER ZAMAN "ORİON VİNÇ" ile başlar.
+
+Kullanıcı isteği (22.08.2026): *"Konu ne olursa olsun inen teklif pdf
+isimlendirmesi ORİON VİNÇ - KONU şeklinde olsun."*
+
+Kullanıcı bunu bugüne kadar KONUNUN İÇİNE elle yazıyordu; yazmayı unuttuğu
+teklifte müşterinin indirdiği dosya kimden geldiğini söylemiyordu — müşterinin
+indirilenler klasöründe on tedarikçinin teklifi yan yana durur.
+
+- **ÖNEK İKİ KEZ YAZILMAZ**: konu zaten önekle başlıyorsa (`trKatla` ile
+  karşılaştırılır) önek ve ardındaki ayraç düşürülür.
+- **NUMARA VE REVİZYON DÜŞMEDİ** ve bu bir gerekliliktir: yayımlanan PDF
+  `offer-pdf` kovasına `${offerId}/${dosyaAdı}` yoluyla arşivlenir. Ad yalnız
+  önek ve konudan kursaydı aynı teklifin R1 ve R2 revizyonları AYNI dosya adını
+  taşır ve ikincisi birincinin üstüne yazardı.
+
+## TEKLIF-62 — Liste ve analiz çizelgesi YATAY KAYMAZ; KONU üç noktayla kesilir.
+
+Kullanıcı bildirimi (22.08.2026): *"teklifler sayfasında yatayda kaydırma
+olmasın. geniş olduğunda Konu ve Kapsam yazılar uzunsa belli bir uzunluktan
+sonra ... üç nokta olarak görünsün."* ve aynı gün analiz sayfası için aynısı.
+
+Tablo `auto` düzendeyken uzun bir KONU metni bütün çizelgeyi ekranın dışına
+itiyordu: `max-w-[22rem]` yalnız o hücreye TAVAN koyuyor, geri kalan yedi
+sütunun `whitespace-nowrap`ı tabanı yukarı çekiyordu. Çözüm MOBIL-16'nın
+kendisidir — `table-fixed` + yüzde genişlikler + `!overflow-x-hidden` — ve
+esnek sütunlar `truncate` olur.
+
+`line-clamp-2` YERİNE `truncate`: iki satıra sarma, satır yüksekliğini içeriğe
+göre değiştiriyordu. Tam metin `title`da durur, satır hep aynı boydadır.
+Yüzdelerin toplamı 100'dür ve değiştiren kişi toplamı korumalıdır.
+
+## TEKLIF-63 — Teklif satırında İPTAL ve SİLME; ikisi AYRI şeydir.
+
+Kullanıcı isteği (22.08.2026): *"teklif bazen iptal edilebiliyor. satırda silme
+ve iptal özelliği olsun."*
+
+- **İPTAL bir DURUMDUR** (`cancelled`). Kayıt yerinde kalır; gelecek yıl "geçen
+  sene bu müşteriye ne vermiştik" sorusunun cevabı odur. Tek tıkla geri alınır.
+  Eylem `updateOfferStatus`tur ve `updateOfferDetails`ten AYRIDIR: o eylem
+  müşteriyi, konuyu ve para birimini de yazar; liste satırında bunların hiçbiri
+  yoktur ve hepsini göndermek, ekranda bulunmayan alanları bir varsayılanla
+  ezmek olurdu (`updateOfferSubject`in aynı gerekçesi).
+- **SİLME kalıcıdır ve DOĞRUDAN YAPILMAZ**: uygulamanın kendi onay
+  mekanizmasından geçer (`request_deletion` → Yönetim → Silme Talepleri). Kayıt,
+  Yönetici onaylayana kadar değişmeden kalır. Yayımlanmış revizyonu olan teklifi
+  sunucu zaten reddeder — müşterinin elindeki bir belgenin izi silinemez.
+
+Üç eylem (kopyala · iptal · sil) TEK MENÜDEDİR: üç küçük ikonu yan yana dizmek
+`w-[4%]`lik hücreye sığmaz ve çöp kutusu ikonunun "sil" mi "iptal" mi olduğu
+ancak tıklandığında anlaşılırdı.
+
+## TEKLIF-64 — İskonto ORANLA da girilir; küsurat YUKARI yuvarlanır ve GÖRÜNÜR.
+
+Kullanıcı isteği (22.08.2026): *"teklif fiyat bölümünde iskonto girdiğim yer
+vardı. buraya oranlı olarak da iskonto yapabilme seçeneğini getirelim. Ama
+küsüratlı olduğunda yukarı yuvarlama yapsın."* ve *"yapılan iskonto görünsün
+istiyorum. Mevcut fiyat üstü çizili küçük yazabilir. Yeni iskontolu fiyat
+yerine yazabilir."*
+
+- **SAKLANAN ŞEY YİNE TUTARDIR, oran değil.** Oran bir HESAP GİRDİSİDİR:
+  kullanıcı "%5" der, uygulama tutarı yazar. Oranı da saklamak, satır fiyatları
+  değiştiğinde ikisinin çelişmesi demekti — hangisinin geçerli olduğu ekrana
+  bakarak anlaşılamazdı (`discountPercent` bugüne kadar bilerek TÜRETİLMİŞTİ).
+- **YUKARI YUVARLANIR ÇÜNKÜ YÖN BİR KARARDIR.** 642.016,65 €'yu aşağı
+  yuvarlamak, müşteriye söylenenden fazla indirim yapmak olurdu. TAM SAYIYA
+  yuvarlanır, kuruşa değil: kuruş pazarlıkta konuşulmayan bir hassasiyettir.
+- **İSKONTO GÖRÜNÜR**: eski toplam ÜSTÜ ÇİZİLİ ve bir kademe küçük, ödenecek
+  rakam onun yerinde. Ekran ve PDF aynı dili konuşur. İskonto satırı YİNE
+  KALIR — üstü çizili rakam "ne kadar indirim yapıldı" sorusunu ancak çıkarma
+  yaparak cevaplar, satır doğrudan söyler.
+- Oran **0 ile 100 arasında** olmalıdır; dışında hesap yapılmaz ve uydurma bir
+  tutar yazılmaz (değişmez md. 4).

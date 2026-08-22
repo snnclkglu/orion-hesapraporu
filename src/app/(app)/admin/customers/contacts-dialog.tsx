@@ -130,7 +130,7 @@ function ContactFields({
     { key: "title" as const, id: "unvan", etiket: "Unvan", ipucu: "Muhatap listesinde adın yanında görünür", max: 120 },
     { key: "department" as const, id: "bolum", etiket: "Bölüm", ipucu: "Kapaktaki «Bölüm» satırı", max: 120 },
     { key: "phone" as const, id: "telefon", etiket: "Telefon", ipucu: "Kapaktaki «Telefon» satırı", max: 60, tip: "tel" },
-    { key: "email" as const, id: "eposta", etiket: "E-posta", ipucu: "Belgeye basılmaz; defterde durur", max: 160, tip: "email" },
+    { key: "email" as const, id: "eposta", etiket: "E-posta", ipucu: "Teklif kapağındaki «E-posta» satırı", max: 160, tip: "email" },
     { key: "note" as const, id: "not", etiket: "Not", ipucu: "Yalnız defterde görünür", max: 500 },
   ];
 

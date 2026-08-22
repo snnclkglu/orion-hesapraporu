@@ -253,3 +253,30 @@ değiştirir; bölüm ikonlarının ölçüsü iki hâlde de **16 × 16 px** kal
 gizlenmesi ikonu büyütme gerekçesi değildir; büyüyen ikonlar görsel ritmi bozup
 dar menüyü ayrı bir ikon takımı gibi gösteriyordu. Daralt/genişlet düğmesinin
 ikonu da aynı ölçü sözleşmesine uyar.
+
+## MOBIL-18 — KIRPAN KAP AYNI ZAMANDA KAPSAYICI BLOK OLMALIDIR (`relative`).
+
+Kullanıcı bildirimi (22.08.2026, md. 11): *"Maliyetler sayfasında kayma var.
+Hem çift scrol var hâlâ. Hem de ana scrol aşağı çektiğinde sayfa bozuluyor."*
+
+Kök neden ÖLÇÜLDÜ ve şaşırtıcıdır: `overflow: hidden` (ya da `auto`) KONUMLANMIŞ
+bir çocuğu ancak o çocuğun KAPSAYICI BLOĞU ise kırpar. Maliyet sayfasındaki
+satır tablosu her grupta bir `sr-only` metin taşıyordu ("Birim fiyatlar €
+cinsindendir") ve Tailwind'in `sr-only`si `position: absolute`tur. Kaydırma
+kabı da, `main` de KONUMSUZ olduğu için o `span`ların kapsayıcı bloğu
+BAŞLANGIÇ KAPSAYICI BLOĞUYDU: kırpmadan kaçıyor, sayfayı kendi statik
+konumlarına kadar uzatıyorlardı.
+
+Ölçüm (1920 × 960, çerçeve kipi, Maliyetler bölümü):
+
+    düzeltmeden önce : html.scrollHeight 3246 · belge 2286 px kayıyor · 2 kaydırıcı
+    düzeltmeden sonra: html.scrollHeight  960 · belge  0 px kayıyor · 1 kaydırıcı
+
+Boşlukta hiçbir şey ÇİZİLMİYORDU — "aşağı çekince sayfa bozuluyor" tam olarak
+budur. Düzeltme iki katmanlıdır: kaydırma kaplarına (`cost-editor`,
+`offer-editor`, `revision-editor`) ve kabuğun `main`ine `relative`. İkincisi
+yapısal bir güvencedir: yarın eklenecek başka bir konumlanmış çocuk da orada
+kırpılır.
+
+**Kural:** `overflow-hidden`/`overflow-y-auto` veren her kap `relative` de
+almalıdır. Aksi hâlde kırpma bir DİLEKTİR, garanti değil.

@@ -78,6 +78,7 @@ export function Bolum({
   baslik,
   aciklama,
   sag,
+  ton,
   katlama,
   katlamaAnahtari,
   children,
@@ -86,6 +87,18 @@ export function Bolum({
   aciklama?: string;
   /** Başlığın sağındaki eylem ya da özet. */
   sag?: React.ReactNode;
+  /**
+   * BÖLÜM RENGİNİN TON AÇISI — verilmezse bölüm renksizdir.
+   *
+   * Kullanıcı isteği (22.08.2026, md. 13): *"başlıklarda bölümlerde AZ DA
+   * OLSA renklendirme"*. "Az da olsa" ölçüdür: renk YALNIZ BAŞLIK ŞERİDİNE
+   * verilir, bölümün gövdesine değil. PROJE MALİYETİ bölümü açıkken üç bin
+   * piksel uzayabiliyor; zemini boyamak sayfayı renkli bir duvara çevirirdi
+   * ve ayırt edicilik de tam orada kaybolurdu.
+   *
+   * Renk TEK TAŞIYICI DEĞİLDİR: başlık zaten YAZIYLA duruyor.
+   */
+  ton?: number;
   /** Verilirse başlık katlanabilir olur. */
   katlama?: Katlama;
   katlamaAnahtari?: string;
@@ -94,10 +107,18 @@ export function Bolum({
   const anahtar = katlamaAnahtari ?? baslik;
   const katlanir = katlama !== undefined;
   const kapali = katlanir && katlama.kapali(anahtar);
+  const tonlu = ton !== undefined;
+  const tonStili = tonlu ? ({ "--oc-hue": `${ton}` } as React.CSSProperties) : undefined;
 
   return (
     <section className="grid gap-3 rounded-lg border p-3">
-      <header className="flex flex-wrap items-start gap-2">
+      <header
+        className={cn(
+          "flex flex-wrap items-start gap-2",
+          tonlu && "oc-fieldgroup -mx-1 rounded-sm py-1.5 pr-2 pl-2"
+        )}
+        style={tonStili}
+      >
         {katlanir ? (
           <KatlaDugmesi
             kapali={kapali}
@@ -106,7 +127,12 @@ export function Bolum({
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold tracking-wide">{baslik}</h2>
+          <h2
+            className={cn("text-sm font-semibold tracking-wide", tonlu && "oc-fieldgroup-title")}
+            style={tonStili}
+          >
+            {baslik}
+          </h2>
           {/* AÇIKLAMA KAPALIYKEN GİZLENİR: katlamanın amacı dikey yer
               kazanmaktı; iki satırlık bir açıklama kalsaydı kazanç yarıya
               inerdi. Başlık ve SAĞDAKİ ÖZET (tutar) kalır — kapalı bir

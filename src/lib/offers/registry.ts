@@ -150,8 +150,20 @@ const GENEL: OfferRowDef[] = [
   { key: "span", label: "Köprü Açıklığı", parts: [{ key: "value", label: "Açıklık", numeric: true, suffix: " m" }] },
   { key: "liftHeight", label: "Kaldırma Yüksekliği", parts: [{ key: "value", label: "Yükseklik", numeric: true, suffix: " m" }] },
   { key: "craneClass", label: "Vinç Sınıfı / Çelik Yapı", list: "val.craneClass" },
-  { key: "craneType", label: "Vinç Tipi", list: "val.craneType" },
-  { key: "runway", label: "Yürüme Yolu" },
+  // VİNÇ TİPİ BURADA SORULMAZ (kullanıcı isteği, 22.08.2026, md. 3: *"kalem
+  // içerisinde vinç tipini iki kere alıyoruz. Genel özelliklerdeki vinç tipini
+  // iptal edelim"*). Tek soru kalem künyesindeki `item.craneType` alanıdır;
+  // kalem başlığı, maliyet şablonu ve teklif listesi süzgeci onu okur. Satır
+  // EMEKLİYE AYRILDI, silinmedi — `RETIRED_ROW_KEYS`e bakın.
+  {
+    // ÖLÇÜ SORULUR, SERBEST METİN DEĞİL (kullanıcı isteği, 22.08.2026, md. 4:
+    // *"genel özelliklerde yürüme yolu diye aldığımız bilgi Yürüme Yolu
+    // Uzunluğu ve metre cinsinden olacak"*). Kardeşleriyle (açıklık, kaldırma
+    // yüksekliği, ayak yüksekliği) aynı desendedir: sayı + " m".
+    key: "runway",
+    label: "Yürüme Yolu Uzunluğu",
+    parts: [{ key: "value", label: "Uzunluk", numeric: true, suffix: " m" }],
+  },
   { key: "gantryLegHeight", label: "Portal Ayak Yüksekliği", parts: [{ key: "value", label: "Yükseklik", numeric: true, suffix: " m" }] },
   { key: "boomSpan", label: "Bom Açıklığı", parts: [{ key: "value", label: "Açıklık", numeric: true, suffix: " m" }] },
   { key: "dimensions", label: "Ölçüleri" },
@@ -183,8 +195,10 @@ const YURUTME: OfferRowDef[] = [
 ];
 
 const KOPRU: OfferRowDef[] = [
+  // YÜRÜME YOLU RAYI SORULMAZ (kullanıcı isteği, 22.08.2026, md. 5: *"Köprü
+  // grubunda Yürüme Yolu Rayı'nı iptal edelim. Köprü rayı zaten yeterli."*)
+  // Satır EMEKLİYE AYRILDI — `RETIRED_ROW_KEYS`.
   { key: "rail", label: "Köprü Rayı", list: "val.rail" },
-  { key: "runwayRail", label: "Yürüme Yolu Rayı", list: "val.rail" },
   { key: "travelSpeed", label: "Yürüme Hızı", parts: hizParts("val.speedControl") },
   { key: "travelSystem", label: "Yürütme Sistemi", list: "val.travelSystem" },
   { key: "driveSystem", label: "Tahrik Sistemi", list: "val.driveSystem" },
@@ -344,6 +358,40 @@ export const CUSTOM_GROUP_KEY = "custom";
  */
 export const TERMS_GROUP_KEY = "__terms";
 export const TEST_LOAD_GROUP_KEY = "__testLoad";
+
+/**
+ * EMEKLİYE AYRILAN SATIRLAR — defterden çıktı ama KAYITLARDA duruyor.
+ *
+ * Bir satırı defterden silmek YENİ kalemleri temizler, ESKİLERİ temizlemez:
+ * `withDefaults` tanınmayan satırı KORUR (kendi gerekçesi orada yazılı — bir
+ * taşıma fonksiyonu veri silmez) ve kullanıcı kaldırılmasını istediği satırı
+ * açtığı her eski teklifte yeniden görür. Kullanıcının istediği ise ekranda
+ * BİR DAHA GÖRMEMEK'ti (22.08.2026, md. 3 ve md. 5).
+ *
+ * ÇÖZÜM SİLMEK DEĞİL EMEKLİYE AYIRMAK: satır kayıtta olduğu gibi kalır,
+ * OKUMA yolunda (`withDefaults`) süzülür. Fark önemlidir çünkü yayımlanmış bir
+ * teklif KİLİTLİDİR ve müşteriye giden kâğıdın karşılığı `offer-pdf` kovasında
+ * ARŞİVLİDİR (`issueOfferRevision`) — yani belgenin gerçeği zaten dosyadadır,
+ * buradaki payload onun yeniden üretilebilir kopyasıdır. Süzgeç veriyi
+ * bozmadan ekranı temizler; yarın satır geri gelirse eski değerler yerindedir.
+ *
+ * DEĞERİ OLAN SATIR SESSİZCE KAYBOLMAZ: `craneType` satırının değeri, kalem
+ * künyesindeki alan boşsa oraya TAŞINIR (`withDefaults`).
+ *
+ * KÖPRÜ SATIRLARI İKİ GRUPTA YAŞAR (`bridge` ve `gantry` aynı `KOPRU`
+ * kümesini paylaşır); ikisi de yazılır, yoksa portalde satır durmaya devam
+ * ederdi.
+ */
+export const RETIRED_ROW_KEYS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  general: ["craneType"],
+  bridge: ["runwayRail"],
+  gantry: ["runwayRail"],
+});
+
+/** Satır defterden emekliye mi ayrıldı — okuma yolundaki süzgecin sorusu. */
+export function isRetiredOfferRow(groupKey: string, rowKey: string): boolean {
+  return (RETIRED_ROW_KEYS[groupKey] ?? []).includes(rowKey);
+}
 
 /**
  * Bir satırın defterdeki tanımı. Grup anahtarı bilinmiyorsa (serbest grup) ya
@@ -672,6 +720,17 @@ export const STANDALONE_LIST_KEYS = [
   "term.exclusion",
   "cover.honorific",
   "cover.intro",
+  // VİNÇ TİPİ ARTIK BİR SATIRA BAĞLI DEĞİLDİR ve bu yüzden BURADA durur.
+  //
+  // Liste anahtarları defterin satır tanımlarından TÜRETİLİR; `val.craneType`ı
+  // kullanan tek satır (`GENEL > Vinç Tipi`) emekliye ayrılınca (md. 3) anahtar
+  // türetmeden düştü ve sonuç sessizdi: dropdown'lar veritabanından
+  // `list_key` ile süzdüğü için çalışmaya devam ediyor, kaybolan yalnız
+  // TANIMLAR → DEFTERLER ekranındaki "Vinç Tipleri" KARTIYDI — yani listeyi
+  // düzenlemenin tek yolu. Liste hâlâ gerçektir (kalem künyesindeki seçici ve
+  // maliyet şablonu onu okur), yalnız artık bir `OfferRow`a değil kalemin
+  // kendi alanına bağlıdır.
+  "val.craneType",
 ] as const;
 
 /**
@@ -795,11 +854,6 @@ export function generalRowPart(
   return (genel?.rows.find((r) => r.key === rowKey)?.parts?.[partKey] ?? "").trim();
 }
 
-export function generalRowValue(groups: readonly GenelGruplar[], rowKey: string): string {
-  const genel = groups.find((g) => g.key === GENERAL_GROUP_KEY);
-  return (genel?.rows.find((r) => r.key === rowKey)?.value ?? "").trim();
-}
-
 /** Yardımcı kaldırma tonajı — girildiği anda yardımcı kaldırma bölümü açılır. */
 export function auxCapacity(groups: readonly GenelGruplar[]): string {
   return generalRowPart(groups, "capacity", "aux");
@@ -826,7 +880,7 @@ export function itemFactsFromRows(
     key: string;
     rows: readonly { key: string; value?: string; parts?: Record<string, string> }[];
   }[]
-): { capacityT: number | null; spanM: number | null; craneType: string } {
+): { capacityT: number | null; spanM: number | null } {
   const genel = groups.find((g) => g.key === "general");
   const oku = (rowKey: string, partKey: string): string =>
     genel?.rows.find((r) => r.key === rowKey)?.parts?.[partKey] ?? "";
@@ -841,10 +895,10 @@ export function itemFactsFromRows(
   // ("1.500,25"), yoksa nokta ancak ARDINDA TAM ÜÇ HANE varsa binliktir
   // ("1.500" → 1500) — "12.44" ondalık kalır.
   const sayi = (ham: string): number | null => parseNum(ham);
+  // VİNÇ TİPİ ARTIK BURADAN TÜRETİLMEZ (md. 3): tek soruluşu kalem
+  // künyesindeki `item.craneType` alanıdır ve türetilecek bir satır yoktur.
   return {
     capacityT: sayi(oku("capacity", "main")),
     spanM: sayi(oku("span", "value")),
-    // VİNÇ TİPİ LİSTELİ bir satırdır (parçası yok): değeri `value`dadır.
-    craneType: (genel?.rows.find((r) => r.key === "craneType") as { value?: string } | undefined)?.value ?? "",
   };
 }

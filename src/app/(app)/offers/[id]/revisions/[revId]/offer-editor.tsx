@@ -65,6 +65,7 @@ import {
   applyDiscountToLines,
   discountAmount,
   discountPercent,
+  discountTotalFromPercent,
   effectiveTotal,
   lineAmount,
   offerTotal,
@@ -108,6 +109,7 @@ import {
 } from "@/app/(app)/offers/actions";
 import { createOfferCostRevision } from "@/app/(app)/offers/cost-actions";
 import type { OfferCostForEditor } from "@/app/(app)/offers/cost-data";
+import { LOADED_COST_HINT } from "@/lib/offers/cost/registry";
 import { costMargin } from "@/lib/offers/cost/totals";
 import { ItemEditor } from "./item-editor";
 import { KalemEkleDialog } from "./kalem-ekle-dialog";
@@ -225,6 +227,35 @@ export function OfferEditor({
    */
   function guncelleIle(fn: (onceki: OfferPayload) => OfferPayload) {
     setPayload(fn);
+  }
+
+  /**
+   * KALEMİ AYNI TEKLİFE KOPYALAR — teknik satırların tamamı, gizleme ve kapsam
+   * işaretleri, ve kaleme BAĞLI FİYAT SATIRLARI ile birlikte.
+   *
+   * Kimlikler yenilenir (`copyItemInPayload`); kopya kaynağın hemen ardına
+   * girer ve ekran ona geçer, çünkü kullanıcının kopyalama sebebi zaten
+   * "birkaç özelliğini değiştirmek"tir (TEKLIF-42).
+   *
+   * TOPLAMIN DEĞİŞTİĞİ SÖYLENİR: fiyat satırı da kopyalandığı için üst
+   * şeritteki rakam anında artar; sessiz kalsaydı kullanıcı bunu ancak belgeyi
+   * basınca görürdü.
+   *
+   * BİLEŞENİN GÖVDESİNDE, ÇAĞRI YERİNDE DEĞİL: iki çağıranı vardır — kalem
+   * düzenleyicideki "Kalemi Kopyala" düğmesi ve Kalem Ekle penceresinin "tam"
+   * kipi (md. 2). Gövde iki yerde yaşasaydı bildirim metni ile `setAktif`
+   * davranışı er geç ayrışırdı.
+   */
+  function kalemiKopyala(itemId: string) {
+    const sonuc = copyItemInPayload(payload, itemId);
+    if (!sonuc) return;
+    guncelle(sonuc.payload);
+    setAktif(`item:${sonuc.kopya.id}`);
+    toast.success(
+      sonuc.priceLineCount > 0
+        ? `${sonuc.kopya.title} olarak kopyalandı; fiyat satırı da kopyalandı, toplam değişti.`
+        : `${sonuc.kopya.title} olarak kopyalandı.`
+    );
   }
 
   const bolumler = useMemo(
@@ -554,8 +585,10 @@ export function OfferEditor({
           // Kaydedilecek bir şey yoksa zincir hiç istek atmadan döner, yani
           // sekmede gezinmek ağ trafiği üretmez.
           onBlur={readOnly ? undefined : () => void kaydet()}
+          // KAYAN KAP AYNI ZAMANDA BİR KAPSAYICI BLOKTUR (`relative`,
+          // MOBIL-18): konumlanmış çocuk (ör. `sr-only`) kaptan kaçmasın.
           className={cn(
-            "grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
+            "relative grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-4",
             readOnly && "pointer-events-none opacity-70"
           )}
         >
@@ -594,17 +627,7 @@ export function OfferEditor({
                   üst şeritteki rakam anında artar; sessiz kalsaydı kullanıcı
                   bunu ancak belgeyi basınca görürdü.
                 */
-                onCopy={() => {
-                  const sonuc = copyItemInPayload(payload, item.id);
-                  if (!sonuc) return;
-                  guncelle(sonuc.payload);
-                  setAktif(`item:${sonuc.kopya.id}`);
-                  toast.success(
-                    sonuc.priceLineCount > 0
-                      ? `${sonuc.kopya.title} olarak kopyalandı; fiyat satırı da kopyalandı, toplam değişti.`
-                      : `${sonuc.kopya.title} olarak kopyalandı.`
-                  );
-                }}
+                onCopy={() => kalemiKopyala(item.id)}
                 onRemove={() => {
                   guncelle({
                     ...payload,
@@ -672,12 +695,19 @@ export function OfferEditor({
       {kalemEkle ? (
         <KalemEkleDialog
           templates={templates}
-          kaynak={payload.items[0]}
+          items={payload.items}
           sira={payload.items.length + 1}
           onClose={() => setKalemEkle(false)}
           onEkle={(item) => {
             guncelleIle((p) => ({ ...p, items: [...p.items, item] }));
             setAktif(`item:${item.id}`);
+            setKalemEkle(false);
+          }}
+          // TAM KOPYA ŞABLON YOLUNDAN GEÇMEZ: kalem düzenleyicideki "Kalemi
+          // Kopyala" ile AYNI gövdeyi çağırır, yani kopya sona değil kaynağın
+          // ardına girer ve fiyat satırlarını da getirir (TEKLIF-42).
+          onKalemiKopyala={(id) => {
+            kalemiKopyala(id);
             setKalemEkle(false);
           }}
         />
@@ -954,10 +984,17 @@ function KapakEditor({
             ekranından ekleyebilir, sonraki tekliflerde listeden seçebilirsiniz.
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Alan etiket="Adı ve Soyadı" value={c.toName} onChange={(v) => set({ toName: v })} />
           <Alan etiket="Bölüm" value={c.toDept} onChange={(v) => set({ toDept: v })} />
           <Alan etiket="Telefon" value={c.toPhone} onChange={(v) => set({ toPhone: v })} />
+          {/*
+            E-POSTA DEFTERDEN GELİR (kullanıcı isteği, 22.08.2026, md. 1) ve
+            KİMDEN tarafındaki e-postanın simetriğidir. Kutu düzenlenebilir
+            kalır — belge, basıldığı andaki bilginin fotoğrafıdır — ve boş
+            bırakılırsa kapağa HİÇ basılmaz (TEKLIF-36).
+          */}
+          <Alan etiket="E-posta" value={c.toEmail} onChange={(v) => set({ toEmail: v })} />
           {/*
             MÜŞTERİNİN KENDİ TEKLİF/TALEP NUMARASI (kullanıcı isteği, 17.08.2026:
             *"var ise müşteri teklif referans numarasını gireceğim bir kutucuk
@@ -1334,11 +1371,16 @@ function FiyatEditor({
 }) {
   const p = payload.pricing;
   const toplam = offerTotal(p.lines);
+  // İSKONTO GÖRÜNÜR (kullanıcı isteği, 22.08.2026): eski fiyat üstü çizili ve
+  // küçük, ödenecek rakam onun yerinde. Ekran belgeyle AYNI dili konuşur —
+  // PDF'in toplam bloğu da böyle basar.
+  const iskontolu = p.discountTotal ?? null;
+  const iskontoVar = iskontolu !== null && toplam !== null && Math.abs(toplam - iskontolu) >= 0.005;
 
   /**
-   * SATIRIN MALİYETİ — bağlı kalemin YÜKLÜ maliyeti.
+   * SATIRIN MALİYETİ — bağlı kalemin GENEL GİDER DAHİL maliyeti.
    *
-   * Yüklü = doğrudan maliyet + proje geneli ve oranlı grupların payı. Yalnız
+   * Yani doğrudan maliyet + proje geneli ve oranlı grupların payı. Yalnız
    * doğrudanı göstermek, sabit giderleri hiç taşımayan sahte bir kâr üretirdi.
    * Serbest satırda (kalem bağı yok) maliyet YOKTUR ve sıfır da yazılmaz.
    */
@@ -1633,7 +1675,7 @@ function FiyatEditor({
                         title={
                           cokluBaglar.has(line.itemId ?? "")
                             ? "DİKKAT: bu kaleme birden çok fiyat satırı bağlı — maliyet her satırda tam görünür."
-                            : "Yüklü maliyet: doğrudan maliyet + proje geneli ve oranlı grupların payı"
+                            : LOADED_COST_HINT
                         }
                         className={cn(cokluBaglar.has(line.itemId ?? "") && "text-destructive underline")}
                       >
@@ -1704,7 +1746,18 @@ function FiyatEditor({
                 {toplamMaliyet === null ? "—" : fmtMoney0(toplamMaliyet, p.currency)}
               </TableCell>
               <TableCell className="text-right font-mono font-semibold">
-                {toplam === null ? "—" : fmtMoney(toplam, p.currency)}
+                {iskontoVar ? (
+                  <span className="inline-flex flex-wrap items-baseline justify-end gap-1.5">
+                    <span className="text-xs font-normal text-muted-foreground line-through">
+                      {fmtMoney(toplam, p.currency)}
+                    </span>
+                    <span>{fmtMoney(iskontolu, p.currency)}</span>
+                  </span>
+                ) : toplam === null ? (
+                  "—"
+                ) : (
+                  fmtMoney(toplam, p.currency)
+                )}
               </TableCell>
               <TableCell />
             </TableRow>
@@ -1820,10 +1873,51 @@ function IskontoAlani({
   const oran = discountPercent(p);
   const tutar = discountAmount(p);
   const hedef = p.discountTotal ?? null;
+  // ORAN KUTUSU EKRANDA YAŞAR, BELGEDE DEĞİL: yazılan yüzde anında tutara
+  // çevrilir ve belgeye o tutar yazılır (`discountTotalFromPercent`). İkisini
+  // birden saklamak, satır fiyatı değiştiğinde hangisinin geçerli olduğunu
+  // ekrana bakarak anlaşılmaz yapardı.
+  const [yuzde, setYuzde] = useState<number | null>(null);
 
   return (
     <div className="grid gap-2 rounded-md border border-dashed p-3">
       <div className="flex flex-wrap items-end gap-3">
+        {/* İKİ YOL, TEK SONUÇ (kullanıcı isteği, 22.08.2026): tutar doğrudan
+            yazılır ya da ORAN yazılıp tutara çevrilir. Oran yolunda küsurat
+            YUKARI yuvarlanır — aşağı yuvarlamak, söylenenden fazla indirim
+            yapmak olurdu. */}
+        <div className="grid gap-1.5">
+          <Label htmlFor="iskonto_orani">İskonto Oranı</Label>
+          <div className="flex items-center gap-1.5">
+            <SayiKutusu
+              id="iskonto_orani"
+              value={yuzde}
+              aria-label="İskonto oranı yüzde"
+              onChange={setYuzde}
+              className="h-9 w-20 text-right font-mono"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="oc-tap"
+              disabled={yuzde === null || ham === null || ham <= 0}
+              title="Oranı iskontolu toplama çevirir; küsurat yukarı yuvarlanır"
+              onClick={() => {
+                const yeniHedef = discountTotalFromPercent(p.lines, yuzde);
+                if (yeniHedef === null) {
+                  toast.error("Oran 0 ile 100 arasında olmalı ve satır toplamı bulunmalı.");
+                  return;
+                }
+                onChange({ ...payload, pricing: { ...p, discountTotal: yeniHedef } });
+                toast.success(`İskontolu toplam ${fmtMoney(yeniHedef, p.currency)} olarak yazıldı.`);
+              }}
+            >
+              Uygula
+            </Button>
+          </div>
+        </div>
         <div className="grid gap-1.5">
           <Label htmlFor="iskontolu_toplam">İskontolu Toplam</Label>
           <SayiKutusu
@@ -1862,7 +1956,10 @@ function IskontoAlani({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Boş bırakılırsa belgede iskonto satırı görünmez. Tutar yazılırsa müşteriye
+        Oranı yazıp <span className="font-medium">Uygula</span> derseniz iskontolu toplam
+        hesaplanır ve küsurat <span className="font-medium">yukarı</span> yuvarlanır; tutarı
+        doğrudan da yazabilirsiniz. Boş bırakılırsa belgede iskonto satırı görünmez. Tutar
+        yazılırsa müşteriye
         giden belgede satır toplamının altında{" "}
         <span className="font-medium">İSKONTOLU TOPLAM</span> basılır; birim fiyatlara
         yansıtırsanız tabloda zaten iskontolu fiyatlar görünür ve ayrı bir satır

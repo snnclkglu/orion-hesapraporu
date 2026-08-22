@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { CostModelResult } from "@/lib/offers/cost/model";
 import { costWeights } from "@/lib/offers/cost/payload";
+import { LOADED_COST_HINT, LOADED_COST_LABEL } from "@/lib/offers/cost/registry";
 import {
   costBreakdown,
   costMargin,
@@ -139,35 +140,22 @@ export function KirilimSayfasi({
           </div>
         </Bolum>
 
-        <Bolum
-          katlama={katlama}
-          katlamaAnahtari="bolum:kar"
-          baslik="TEKLİF VE KÂR"
-          aciklama="Teklif tutarı iskonto uygulanmış hâlidir — müşterinin gerçekten ödeyeceği rakam."
-        >
-          <div>
-            <OzetSatiri etiket="Teklif Tutarı" deger={fmtMoney0(kar.price, cur)} />
-            <OzetSatiri etiket="Toplam Maliyet" deger={fmtMoney0(kar.cost, cur)} />
-            <OzetSatiri
-              etiket="KÂR"
-              deger={fmtMoney0(kar.profit, cur)}
-              kalin
-              // EK KULLANILMAZ ("%2'i" yanlış, "%2'si" doğru): Türkçe uyum
-              // sayının OKUNUŞUNA bağlıdır ve virgüllü bir oranda değişir.
-              // "üzerinden" hepsinde doğrudur.
-              aciklama={
-                kar.marginPercent === null
-                  ? "Teklif fiyatı ya da maliyet girilmemiş"
-                  : `satış üzerinden %${fmtCostField(kar.marginPercent, 0)} · maliyet üzerinden %${fmtCostField(kar.markupPercent, 0)}`
-              }
-            />
-          </div>
-          {kar.profit !== null && kar.profit < 0 ? (
-            <p className="rounded-md border border-destructive/60 p-2 text-xs font-medium text-destructive">
-              Bu teklif maliyetin ALTINDA. Fiyatı ya da maliyet kalemlerini gözden geçirin.
-            </p>
-          ) : null}
-        </Bolum>
+        {/*
+          "TEKLİF VE KÂR" BLOĞU BURADAN KALDIRILDI ve bu bir DÜZELTMEDİR.
+
+          Kırılım artık Özet bölümünün altında duruyor (kullanıcı isteği,
+          22.08.2026, md. 8) ve orada zaten bir "TEKLİF VE KÂR" bloğu var. İki
+          blok yan yana düşünce fark görünür hâle geldi: buradaki kâr
+          `offer.pricing.total` (İSKONTOSUZ) üzerinden hesaplanıyor ve serbest
+          fiyat satırlarına elle yazılmış maliyetleri hiç saymıyordu; Özet'teki
+          ise `effectiveTotal` (iskontolu) ile ve elle maliyetleri de ekleyerek
+          hesaplıyor. Doğrusu Özet'inkidir — MALIYET-11 kârın İSKONTOLU
+          toplamdan hesaplandığını söyler, çünkü pazarlıkta konuşulan tutar
+          odur.
+
+          İkisini bırakmak, aynı belgede iki farklı kâr rakamı dolaştırmak
+          olurdu (MALIYET-29'un kaçındığı ayrışma).
+        */}
 
         <Bolum katlama={katlama} katlamaAnahtari="bolum:kirilim" baslik="ANA KALEM KIRILIMI" aciklama="Bütün kalemler boyunca toplanır; pay proje maliyetine göredir.">
           <div className="grid gap-1">
@@ -203,86 +191,13 @@ export function KirilimSayfasi({
         </Bolum>
       </div>
 
-      <Bolum
-        katlama={katlama}
-        katlamaAnahtari="bolum:kalemBazinda"
-        baslik="KALEM BAZINDA"
-        aciklama="Yüklü maliyet, proje geneli ve oranlı grupların doğrudan maliyet payına göre dağıtılmış hâlidir."
-      >
-        {/* KENDİ KAYDIRMA KABINI SARMA (MOBIL-14): `Table` zaten
-            `oc-scrollx overflow-x-auto` bir kap çiziyor. İkinci sargı iç içe
-            iki kaydırıcı, üst üste iki kenar gölgesi ve — CSS bir ekseni
-            `visible` bırakmadığı için — İKİ KEZ devrede bir `overflow-y: auto`
-            demekti. Kullanıcının "sayfada çift scroll var" bildirimi
-            (18.08.2026, md. 7) tam olarak buydu; yükseklik zinciri
-            (TEKLIF-17 / MALIYET-15) ölçüldü ve SAĞLAMDI. */}
-        <Table containerClassName="[--oc-scroll-bg:var(--background)]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="px-1.5">Kalem</TableHead>
-                <TableHead className="w-14 px-1.5 text-right">Adet</TableHead>
-                <TableHead className="hidden w-24 px-1.5 text-right md:table-cell">Ağırlık</TableHead>
-                <TableHead className="hidden w-20 px-1.5 text-right md:table-cell">Birim/kg</TableHead>
-                <TableHead className="w-28 px-1.5 text-right">Birim Maliyet</TableHead>
-                <TableHead className="w-28 px-1.5 text-right">Yüklü Maliyet</TableHead>
-                <TableHead className="w-28 px-1.5 text-right">Teklif Fiyatı</TableHead>
-                <TableHead className="w-28 px-1.5 text-right">Kâr</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {totals.items.map((i) => {
-                const yukluTutar = i.offerItemId ? (yuklu[i.offerItemId] ?? null) : null;
-                const fiyat = teklifTutari(offer, i.offerItemId);
-                const m = costMargin(fiyat, yukluTutar);
-                return (
-                  <TableRow key={i.id}>
-                    <TableCell className="max-w-[22rem] p-1.5">
-                      <div className="truncate text-sm" title={i.title || undefined}>
-                        {i.title || "—"}
-                        {i.offerItemId ? null : (
-                          <span className="ml-2 text-[11px] text-muted-foreground">
-                            teklif kalemine bağlı değil
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtCostField(i.qty, 0)}
-                    </TableCell>
-                    <TableCell className="hidden p-1.5 text-right font-mono text-sm md:table-cell">
-                      {fmtCostField(i.weightKg, 0)}
-                    </TableCell>
-                    <TableCell className="hidden p-1.5 text-right font-mono text-sm md:table-cell">
-                      {fmtCostField(costPerKg(i.unit, i.weightKg), 0)}
-                    </TableCell>
-                    <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney0(i.unit, cur)}
-                    </TableCell>
-                    <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney0(yukluTutar, cur)}
-                    </TableCell>
-                    <TableCell className="p-1.5 text-right font-mono text-sm">
-                      {fmtMoney0(fiyat, cur)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "p-1.5 text-right font-mono text-sm",
-                        m.profit !== null && m.profit < 0 && "font-semibold text-destructive"
-                      )}
-                    >
-                      {m.profit === null ? "—" : fmtMoney0(m.profit, cur)}
-                      {m.marginPercent === null ? null : (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          %{fmtCostField(m.marginPercent, 0)}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-        </Table>
-      </Bolum>
+      {/*
+        "KALEM BAZINDA" TABLOSU BURADAN KALKTI: Özet sayfasının TEK LİSTESİ
+        (md. 7) aynı soruya daha fazlasıyla cevap veriyor — orada beş ana
+        başlık kalem bazında dağıtılmış, ağırlıklar ve tahmini satış da aynı
+        satırda. İki tabloyu yan yana bırakmak, kullanıcının "tek bir liste
+        istiyorum" cümlesinin tam tersi olurdu.
+      */}
     </div>
   );
 }

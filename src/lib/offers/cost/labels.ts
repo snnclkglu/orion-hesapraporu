@@ -20,7 +20,14 @@
 // yazılır, pop-up onları modelin o anki sayılarıyla basar. Yani metin yanlış
 // kalsa bile ekrandaki SAYILAR modelin kendisinden gelir.
 
-import { DRIVE_KW, DRUM_DIA_CHOICES, MOTOR_KW, ROPE_REEVING_CHOICES, WHEEL_DIA_CHOICES } from "./params";
+import {
+  DRIVE_KW,
+  DRUM_DIA_CHOICES,
+  MOTOR_KW,
+  ROPE_DIA_CHOICES,
+  ROPE_REEVING_CHOICES,
+  WHEEL_DIA_CHOICES,
+} from "./params";
 
 export interface CostFieldDef {
   key: string;
@@ -444,6 +451,47 @@ function kaldirmaAlanlari(onek: string, ad: string): CostFieldDef[] {
       deps: [`${onek}RopeCount`],
       paramKeys: ["hookBlockLoadAdd"],
     },
+    // ————————————————————————————————— halat çapı önerisi (md. 6)
+    {
+      key: `${onek}RopeSafetyZp`,
+      label: `${ad} — Halat Emniyet Katsayısı (Zp)`,
+      unit: "",
+      decimals: 2,
+      readOnly: true,
+      hint: "Vinç sınıfından gelir — FEM 1.001 T.4.2.2.1.2, hareketli halat",
+      formula: "mekanizma sınıfı tablosundan",
+    },
+    {
+      key: `${onek}RopeRequiredKn`,
+      label: `${ad} — Gerekli Kopma Yükü`,
+      unit: "kN",
+      decimals: 1,
+      formula: "halat yükü × Zp × pay × 9,81 ÷ 1000",
+      deps: [`${onek}RopeLoadKg`, `${onek}RopeSafetyZp`],
+      paramKeys: ["ropeExtraFactor"],
+    },
+    {
+      key: `${onek}RopeDiaMm`,
+      label: `${ad} — ÖNERİLEN HALAT ÇAPI`,
+      unit: "mm",
+      decimals: 0,
+      sum: true,
+      prefix: "⌀",
+      choices: ROPE_DIA_CHOICES,
+      hint: "Hasçelik 6x36 WS · çelik özlü (IWRC) · 1960 N/mm²",
+      formula: "gerekli kopma yükünü karşılayan ilk katalog çapı",
+      deps: [`${onek}RopeRequiredKn`],
+    },
+    {
+      key: `${onek}RopeBreakingKn`,
+      label: `${ad} — Seçilen Halatın Kopma Yükü`,
+      unit: "kN",
+      decimals: 0,
+      readOnly: true,
+      hint: "Katalog değeri — gerekliden büyük olmalıdır",
+      formula: "katalogdan (seçilen çap)",
+      deps: [`${onek}RopeDiaMm`],
+    },
     {
       key: `${onek}DrumDiaMm`,
       label: `${ad} — Tambur Çapı`,
@@ -606,6 +654,116 @@ function yurutmeAlanlari(onek: string, ad: string): CostFieldDef[] {
   ];
 }
 
+/**
+ * HIZLI TEKER SEÇİMİ — FEM yüzey basıncı kontrolü (md. 12).
+ *
+ * Satırlar bilinçli olarak ZİNCİR sırasındadır: ortalama yük → ray genişliği
+ * → devir → c1 → c2 → PL → izin verilen basınç → gerçekleşen basınç →
+ * gereken en küçük çap. Okuyan kişi bir sayının nereden geldiğini yukarı
+ * bakarak bulur (`labels.ts`in kendi sıra kuralı).
+ *
+ * HEPSİ SALT OKUNURDUR (`readOnly`): bunlar bir GİRDİ değil bir KONTROLDÜR.
+ * Ezilecek şey ray kodu ve teker malzemesidir; biri Girdiler bölümünde,
+ * öteki Katsayılar bölümündedir.
+ */
+function hizliTekerAlanlari(onek: string, ad: string): CostFieldDef[] {
+  return [
+    {
+      key: `${onek}WheelMeanLoadKg`,
+      label: `${ad} — Ortalama Teker Yükü`,
+      unit: "kg",
+      decimals: 0,
+      readOnly: true,
+      hint: "FEM basınç kontrolü tepe yükü değil eşdeğer ortalamayı ister",
+      formula: "teker yükü × ortalama oranı",
+      deps: [`${onek}WheelLoadT`],
+      paramKeys: ["wheelMeanLoadRatio"],
+    },
+    {
+      key: `${onek}RailHeadMm`,
+      label: `${ad} — Ray Başı Genişliği`,
+      unit: "mm",
+      decimals: 1,
+      readOnly: true,
+      hint: "Ray kodundan (DIN 536 / kare çubuk); kod tanınmazsa boş kalır",
+      formula: "ray defterinden (etkin genişlik)",
+    },
+    {
+      key: `${onek}WheelRpm`,
+      label: `${ad} — Teker Devri`,
+      unit: "d/dk",
+      decimals: 1,
+      readOnly: true,
+      formula: "hız ÷ (π × etkin çap)",
+      deps: [`${onek}WheelEffDiaMm`],
+    },
+    {
+      key: `${onek}WheelC1`,
+      label: `${ad} — Hız Katsayısı (c1)`,
+      unit: "",
+      decimals: 2,
+      readOnly: true,
+      hint: "FEM 1.001 T.4.2.4.1.4 — çap ve DEVİR tablosundan",
+      formula: "tablodan (çap × devir)",
+      deps: [`${onek}WheelEffDiaMm`, `${onek}WheelRpm`],
+    },
+    {
+      key: `${onek}WheelC2`,
+      label: `${ad} — Mekanizma Katsayısı (c2)`,
+      unit: "",
+      decimals: 2,
+      readOnly: true,
+      hint: "Vinç sınıfından — FEM 1.001 T.4.2.4.1.3",
+      formula: "sınıf tablosundan",
+    },
+    {
+      key: `${onek}WheelLimitPressure`,
+      label: `${ad} — Limit Yüzey Basıncı (PL)`,
+      unit: "N/mm²",
+      decimals: 2,
+      readOnly: true,
+      hint: "Teker malzemesinin çekme dayanımından — Katsayılar bölümünde",
+      formula: "FEM tablosundan (çekme dayanımı)",
+      paramKeys: ["wheelTensileNmm2"],
+    },
+    {
+      key: `${onek}WheelAllowedPressure`,
+      label: `${ad} — İzin Verilen Basınç`,
+      unit: "N/mm²",
+      decimals: 2,
+      readOnly: true,
+      formula: "PL × c1 × c2",
+      deps: [`${onek}WheelLimitPressure`, `${onek}WheelC1`, `${onek}WheelC2`],
+    },
+    {
+      key: `${onek}WheelPressure`,
+      label: `${ad} — Gerçekleşen Basınç`,
+      unit: "N/mm²",
+      decimals: 2,
+      readOnly: true,
+      hint: "İzin verilenin ALTINDA olmalıdır",
+      formula: "ortalama yük × 9,81 ÷ ray genişliği ÷ çap",
+      deps: [`${onek}WheelMeanLoadKg`, `${onek}RailHeadMm`, `${onek}WheelEffDiaMm`],
+    },
+    {
+      key: `${onek}WheelMinDiaMm`,
+      label: `${ad} — BASINCA GÖRE EN KÜÇÜK ÇAP`,
+      unit: "mm",
+      decimals: 0,
+      sum: true,
+      readOnly: true,
+      prefix: "⌀",
+      // KATALOG BOYUDUR: öneri de seriden çıkar, ara çap yoktur. Alan salt
+      // okunur olduğu için liste bir SEÇİCİ değil, "bu sayı hangi seriden
+      // geliyor" sorusunun cevabıdır.
+      choices: WHEEL_DIA_CHOICES,
+      hint: "Bir ÖNERİDİR: tablodan gelen etkin çapı ezmez, yanında durur",
+      formula: "basınç şartını sağlayan ilk katalog çapı",
+      deps: [`${onek}WheelMeanLoadKg`, `${onek}RailHeadMm`, `${onek}WheelAllowedPressure`],
+    },
+  ];
+}
+
 export const CALC_SECTIONS: readonly CostFieldSection[] = [
   { key: "hoist", title: "ANA KALDIRMA MEKANİZMASI", fields: kaldirmaAlanlari("c.hoist", "K1") },
   { key: "auxHoist", title: "YARDIMCI KALDIRMA MEKANİZMASI", fields: kaldirmaAlanlari("c.auxHoist", "K2") },
@@ -705,6 +863,8 @@ export const CALC_SECTIONS: readonly CostFieldSection[] = [
         decimals: 0,
         readOnly: true,
       },
+      ...hizliTekerAlanlari("c.bridge", "Köprü / Portal"),
+      ...hizliTekerAlanlari("c.trolley", "Araba"),
     ],
   },
   { key: "bridgeTravel", title: "KÖPRÜ / PORTAL YÜRÜTME", fields: yurutmeAlanlari("c.bridge", "Köprü") },

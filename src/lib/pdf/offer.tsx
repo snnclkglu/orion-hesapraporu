@@ -728,6 +728,19 @@ const S = StyleSheet.create({
   },
   toplamAraEtiket: { fontFamily: FONTS.mono, fontSize: 6.75, fontWeight: 600, letterSpacing: 1.2, color: BRAND.gray600 },
   toplamAraTutar: { fontFamily: FONTS.mono, fontSize: 8.25, fontWeight: 600, color: BRAND.ink },
+  /**
+   * ÜSTÜ ÇİZİLİ ESKİ FİYAT — iskontonun GÖRÜNMESİ (kullanıcı isteği, 22.08.2026).
+   *
+   * Bir kademe KÜÇÜK ve SİLİK: artık geçerli olmayan bir rakamdır ve ödenecek
+   * tutarla aynı ağırlıkta durursa müşteri hangisini ödeyeceğini iki kez okur.
+   */
+  toplamAraUstuCizili: {
+    fontFamily: FONTS.mono,
+    fontSize: 7.5,
+    fontWeight: 400,
+    color: BRAND.gray600,
+    textDecoration: "line-through",
+  },
   toplamSerit: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1413,8 +1426,11 @@ function KunyeHucresi({
       {taraf.kisi ? <Text style={S.kunyeKisi}>{taraf.kisi}</Text> : null}
       {taraf.iletisim.length > 0 ? (
         <View style={S.kunyeIletisim}>
-          {taraf.iletisim.map((satir) => (
-            <Text key={satir} style={S.kunyeIletisimSatiri}>
+          {/* ANAHTAR SIRAYI DA TAŞIR: künyede artık telefon VE e-posta yan
+              yana durur (md. 1) ve iki satırın metni birbirine eşit olabilir
+              — yalnız metni anahtar yapmak yinelenen anahtar demekti. */}
+          {taraf.iletisim.map((satir, i) => (
+            <Text key={`${i}-${satir}`} style={S.kunyeIletisimSatiri}>
               {satir}
             </Text>
           ))}
@@ -1506,6 +1522,10 @@ function KapakSayfasi({
     kisi: birlestir([cover.toName, cover.toDept], " · "),
     iletisim: [
       cover.toPhone.trim(),
+      // E-POSTA TELEFONLA AYNI SÜTUNDA, KENDİ SATIRINDA (md. 1). KİMDEN
+      // tarafında da telefon ve e-posta iki ayrı satırdır; muhatabınkini tek
+      // satıra sıkıştırmak iki tarafı ayrıştırırdı.
+      cover.toEmail.trim(),
       // MÜŞTERİ REFERANSI MUHATABIN NUMARASIDIR, bizim künyemizin değil:
       // müşterinin kendi talep/sipariş numarası KİME tarafında durur.
       cover.customerRef.trim() ? `MÜŞTERİ REF · ${cover.customerRef.trim()}` : "",
@@ -1763,11 +1783,24 @@ function adetHucresi(line: OfferPriceLine): string {
 }
 
 /** Ara toplam şeridi — TOPLAM ve İSKONTO, açık zeminde, sağa yaslı. */
-function AraToplam({ baslik, tutar, currency }: { baslik: string; tutar: number | null; currency: string }) {
+function AraToplam({
+  baslik,
+  tutar,
+  currency,
+  ustuCizili,
+}: {
+  baslik: string;
+  tutar: number | null;
+  currency: string;
+  /** ARTIK GEÇERLİ OLMAYAN rakam — üstü çizili ve bir kademe küçük basılır. */
+  ustuCizili?: boolean;
+}) {
   return (
     <View style={S.toplamAra} wrap={false}>
       <Text style={S.toplamAraEtiket}>{baslik}</Text>
-      <Text style={S.toplamAraTutar}>{tutar === null ? "—" : fmtMoney(tutar, currency)}</Text>
+      <Text style={ustuCizili ? S.toplamAraUstuCizili : S.toplamAraTutar}>
+        {tutar === null ? "—" : fmtMoney(tutar, currency)}
+      </Text>
     </View>
   );
 }
@@ -1938,7 +1971,13 @@ function FiyatTablosu({
         */}
         {iskonto !== null && iskontolu !== null ? (
           <>
-            <AraToplam baslik="TOPLAM" tutar={toplam} currency={currency} />
+            {/* ESKİ FİYAT ÜSTÜ ÇİZİLİ, YENİSİ YERİNE (kullanıcı isteği,
+                22.08.2026: *"yapılan iskonto görünsün istiyorum. Mevcut fiyat
+                üstü çizili küçük yazabilir. Yeni iskontolu fiyat yerine
+                yazabilir."*). İskontonun kendisi ayrı bir satır olarak KALIR:
+                üstü çizili rakam "ne kadar indirim yapıldı" sorusunu ancak
+                çıkarma yaparak cevaplar, satır ise doğrudan söyler. */}
+            <AraToplam baslik="TOPLAM" tutar={toplam} currency={currency} ustuCizili />
             <AraToplam baslik="İSKONTO" tutar={-iskonto} currency={currency} />
             <ToplamSeridi
               baslik="İSKONTOLU TOPLAM"

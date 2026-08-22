@@ -604,8 +604,14 @@ export function AppShell({ role, displayName, email, children }: AppShellProps) 
           // Telefonda kenar boşluğu bir kademe kısılır: 375px ekranda
           // `px-4` içeriğin %8,5'ini yiyordu ve asıl darlığı çeken şey tablo
           // sütunlarıydı. ≥640px'te eski değerlere döner.
+          // `relative` BİR SÜSLEME DEĞİL, KIRPMANIN ŞARTI (MOBIL-18):
+          // `overflow-hidden` KONUMLANMIŞ bir çocuğu ancak o çocuğun
+          // KAPSAYICI BLOĞU ise kırpar. `main` konumsuz kaldığı sürece
+          // içerideki her `position: absolute` öğe (Tailwind'in `sr-only`si
+          // dahil) kırpmadan kaçar ve sayfayı kendi statik konumuna kadar
+          // uzatır — çerçeve kipinde olmaması gereken ikinci bir kaydırma.
           className={cn(
-            "min-w-0 flex-1",
+            "relative min-w-0 flex-1",
             isFrame
               ? "px-3 py-3 sm:px-4 lg:min-h-0 lg:overflow-hidden lg:px-6"
               : "px-3 py-4 sm:px-4 sm:py-6 lg:px-8"

@@ -186,6 +186,83 @@ export const DRIVE_KW: readonly number[] = [
  */
 export const ROPE_REEVING_CHOICES: readonly number[] = [2, 4, 8, 12, 16, 20];
 
+/**
+ * ÇELİK HALAT KATALOĞU — HASÇELİK 6x36 WS · IWRC (ÇELİK ÖZLÜ) · 1960 N/mm².
+ *
+ * Kullanıcı isteği (22.08.2026, md. 6): *"Standart halatımızı hasçelik 6x36 WS
+ * 1960 kullanabiliriz. Mühendislik bölümünde bunları kataloglamıştık sistemde
+ * var. Böylece örneğin halat 100 kN ihtiyaç çıktı, bir üst en yakın halatı
+ * seçip çapını önerecek."*
+ *
+ * VERİ KATALOGDAN GELDİ AMA BURAYA GÖMÜLDÜ, canlı okunmadı. Sebebi MALIYET-2'nin
+ * kendi gerekçesidir: maliyet çalışması bir SNAPSHOT'tır ve kapanmış bir
+ * revizyonun önerdiği çap, katalog satırı yarın düzeltildi diye
+ * değişmemelidir. Ayrıca bu çekirdek SAFTIR (değişmez md. 7) — veritabanına
+ * bakamaz.
+ *
+ * İKİSİNİN AYRIŞMASINI BİR TEST ENGELLER (`__tests__/rope-table.test.ts`,
+ * değişmez md. 8): test seed dosyasını OKUR ve buradaki her satırı orada
+ * arar. Kopyalanmış bir tablo tek başına eskir; okunan bir tablo eskiyemez.
+ *
+ * ÖZ SEÇİMİ FİRMANIN KENDİ VARSAYILANIDIR, uydurma değil: mühendislik
+ * motorunun V5 fikstürü de `ropeCore: "Çelik Öz"` ve Ø18 → 226 kN kullanıyor
+ * (`lib/calc/defaults.ts`) — bu tablonun Ø18 satırının aynısı. Kendir özlü
+ * (FC) aynı çapta daha düşük kopma yükü verir ve bir boy büyük halat çıkarırdı.
+ *
+ * Ø58 SATIRI BİLEREK DIŞARIDA: kaynak katalog kaydında kN ve kg/m sütunları
+ * takas olmuş (kopma yükü 13,21 kN, metre ağırlığı 2120 kg/m yazıyor). Bozuk
+ * bir satırdan çap önerilemez ve düzeltilmiş bir sayı UYDURULAMAZ (değişmez
+ * md. 4); tablo Ø56'da biter ve daha büyüğü gereken hesapta öneri BOŞ döner.
+ */
+export const ROPE_TABLE: readonly { diaMm: number; breakingKn: number; kgPerM: number }[] = [
+  { diaMm: 8, breakingKn: 44.7, kgPerM: 0.26 },
+  { diaMm: 9, breakingKn: 56.5, kgPerM: 0.33 },
+  { diaMm: 10, breakingKn: 69.8, kgPerM: 0.41 },
+  { diaMm: 11, breakingKn: 84.4, kgPerM: 0.5 },
+  { diaMm: 12, breakingKn: 100.5, kgPerM: 0.59 },
+  { diaMm: 13, breakingKn: 117.9, kgPerM: 0.69 },
+  { diaMm: 14, breakingKn: 137, kgPerM: 0.8 },
+  { diaMm: 15, breakingKn: 157, kgPerM: 0.92 },
+  { diaMm: 16, breakingKn: 179, kgPerM: 1.05 },
+  { diaMm: 17, breakingKn: 202, kgPerM: 1.18 },
+  { diaMm: 18, breakingKn: 226, kgPerM: 1.33 },
+  { diaMm: 19, breakingKn: 252, kgPerM: 1.48 },
+  { diaMm: 20, breakingKn: 279, kgPerM: 1.64 },
+  { diaMm: 21, breakingKn: 308, kgPerM: 1.8 },
+  { diaMm: 22, breakingKn: 338, kgPerM: 1.98 },
+  { diaMm: 23, breakingKn: 369, kgPerM: 2.16 },
+  { diaMm: 24, breakingKn: 402, kgPerM: 2.36 },
+  { diaMm: 25, breakingKn: 436, kgPerM: 2.56 },
+  { diaMm: 26, breakingKn: 472, kgPerM: 2.77 },
+  { diaMm: 27, breakingKn: 509, kgPerM: 2.98 },
+  { diaMm: 28, breakingKn: 547, kgPerM: 3.21 },
+  { diaMm: 29, breakingKn: 587, kgPerM: 3.44 },
+  { diaMm: 30, breakingKn: 628, kgPerM: 3.68 },
+  { diaMm: 31, breakingKn: 671, kgPerM: 3.93 },
+  { diaMm: 32, breakingKn: 715, kgPerM: 4.19 },
+  { diaMm: 33, breakingKn: 760, kgPerM: 4.45 },
+  { diaMm: 34, breakingKn: 807, kgPerM: 4.73 },
+  { diaMm: 35, breakingKn: 855, kgPerM: 5.01 },
+  { diaMm: 36, breakingKn: 904, kgPerM: 5.3 },
+  { diaMm: 37, breakingKn: 955, kgPerM: 5.6 },
+  { diaMm: 38, breakingKn: 1008, kgPerM: 5.91 },
+  { diaMm: 39, breakingKn: 1061, kgPerM: 6.22 },
+  { diaMm: 40, breakingKn: 1116, kgPerM: 6.54 },
+  { diaMm: 41, breakingKn: 1173, kgPerM: 6.88 },
+  { diaMm: 42, breakingKn: 1231, kgPerM: 7.22 },
+  { diaMm: 43, breakingKn: 1290, kgPerM: 7.56 },
+  { diaMm: 44, breakingKn: 1351, kgPerM: 7.92 },
+  { diaMm: 46, breakingKn: 1476, kgPerM: 8.65 },
+  { diaMm: 48, breakingKn: 1608, kgPerM: 9.42 },
+  { diaMm: 50, breakingKn: 1744, kgPerM: 10.23 },
+  { diaMm: 52, breakingKn: 1887, kgPerM: 11.06 },
+  { diaMm: 54, breakingKn: 2035, kgPerM: 11.93 },
+  { diaMm: 56, breakingKn: 2188, kgPerM: 12.83 },
+];
+
+/** Katalogdaki halat çapları — elle seçim listesi. */
+export const ROPE_DIA_CHOICES: readonly number[] = ROPE_TABLE.map((r) => r.diaMm);
+
 /** Katalogdaki tambur çapları — elle seçim listesi (ara boy yoktur). */
 export const DRUM_DIA_CHOICES: readonly number[] = DRUM_TABLE.map((r) => r.diaMm);
 
@@ -304,6 +381,7 @@ export const COST_PARAM_DEFS: readonly CostParamDef[] = [
   { key: "rope2ThresholdT", label: "2 Halat Eşiği", unit: "ton", group: "Kaldırma", value: 2, hint: "Bu kapasiteye kadar 2 halat" },
   { key: "rope8ThresholdT", label: "8 Halat Eşiği", unit: "ton", group: "Kaldırma", value: 40, hint: "Bu kapasiteye kadar 4 halat, üstü 8" },
   { key: "hookBlockLoadAdd", label: "Kanca Bloğu Yük Eki", unit: "×", group: "Kaldırma", value: 0.05 },
+  { key: "ropeExtraFactor", label: "Halat Kopma Yükü Payı", unit: "×", group: "Kaldırma", value: 1.02, hint: "Gerekli kopma yüküne eklenen pay — kullanıcının kendi tarifi (22.08.2026): halat yükü Zp ile çarpılır, sonra 1,02 ile artırılır" },
   { key: "hoistMotorRpm", label: "Kaldırma Motor Devri", unit: "d/dk", group: "Kaldırma", value: 1500 },
   { key: "motorEfficiencyLoss", label: "Motor Verim Kaybı", unit: "×", group: "Kaldırma", value: 0.03 },
   { key: "hoistDriveSizeFactor", label: "Kaldırma Sürücü Boyut Katsayısı", unit: "×", group: "Kaldırma", value: 1.35, hint: "%180 akım 1dk/5dk → bir üst boy sürücü" },
@@ -320,6 +398,8 @@ export const COST_PARAM_DEFS: readonly CostParamDef[] = [
   { key: "trolleyWheelLoadFactor", label: "Araba Teker Yükü Katsayısı", unit: "×", group: "Yürütme", value: 1.3, hint: "Kapasite × katsayı / 4 = teker yükü" },
   { key: "trolleyDynamicFactor", label: "Portal Teker Yükü Araba Katsayısı", unit: "×", group: "Yürütme", value: 1.8, hint: "Araba + yük köşeye bindiğinde uygulanan çarpan" },
   { key: "endCarriageKgPerT", label: "Alt Yürüme Başlığı / Boji", unit: "kg/ton", group: "Yürütme", value: 212.5, hint: "Köşe teker yükü [T] × katsayı" },
+  { key: "wheelTensileNmm2", label: "Teker Malzemesi Çekme Dayanımı", unit: "N/mm²", group: "Yürütme", value: 800, hint: "4140 ıslah, 40-45 HRC — FEM limit yüzey basıncı PL bundan okunur" },
+  { key: "wheelMeanLoadRatio", label: "Ortalama Teker Yükü Oranı", unit: "×", group: "Yürütme", value: 0.833, hint: "FEM basınç kontrolü eşdeğer ortalama yükü ister: (2·Pmaks + Pmin) ÷ 3; Pmin ≈ Pmaks/2 kabulüyle 5/6" },
 
   // —— kiriş ve sehim
   { key: "elasticModulus", label: "Elastisite Modülü", unit: "kg/cm²", group: "Kiriş ve Sehim", value: 2100000 },
@@ -430,6 +510,41 @@ export function firstAtLeast<T>(
   if (!Number.isFinite(need)) return null;
   for (const row of table) if (keyOf(row) >= need) return row;
   return table.length ? table[table.length - 1] : null;
+}
+
+/**
+ * TEKER MEKANİZMA KATSAYISI c2 — FEM 1.001 T.4.2.4.1.3.
+ *
+ * Mühendislik motorundaki `mechanismFactorC2`nin aynısıdır ama oradan
+ * IMPORT EDİLEMEZ: o fonksiyon `travelGroup.ts` modülünün İÇİNDE, dışa
+ * aktarılmamış bir yardımcıdır ve dışa açmak, bir hesap modülünün iç
+ * ayrıntısını iki modülün sözleşmesi hâline getirirdi. Değerler standardın
+ * kendi tablosudur; ayrışma riskini `__tests__/wheel-c2.test.ts` KAYNAK
+ * DOSYAYI OKUYARAK kapatır (değişmez md. 8).
+ */
+export function wheelMechanismFactor(mech: CraneClass): number {
+  if (mech === "M3" || mech === "M4") return 1.12;
+  if (mech === "M5") return 1;
+  if (mech === "M6") return 0.9;
+  return 0.8; // M7 / M8
+}
+
+/**
+ * LİMİT YÜZEY BASINCI PL [N/mm²] — FEM 1.001 T.4.2.4.1.3.
+ *
+ * Tablo 500 N/mm² altını KAPSAMAZ: o dayanımdaki bir teker malzemesi ray
+ * temas basıncı için uygun değildir ve fonksiyon `null` döner — uydurma bir
+ * sınır üretmek yerine öneri boş kalır (değişmez md. 4).
+ */
+export function wheelLimitPressureOf(tensileNmm2: number): number | null {
+  if (!Number.isFinite(tensileNmm2)) return null;
+  if (tensileNmm2 >= 1000) return 8.5;
+  if (tensileNmm2 >= 900) return 7.8;
+  if (tensileNmm2 >= 800) return 7.2;
+  if (tensileNmm2 >= 700) return 6.5;
+  if (tensileNmm2 >= 600) return 5.6;
+  if (tensileNmm2 >= 500) return 5;
+  return null;
 }
 
 /** Teker çapını seride `steps` kadar büyütür (hız kaynaklı boy artışı). */

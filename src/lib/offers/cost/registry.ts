@@ -19,6 +19,7 @@
 // ile teklif kalemindeki "Portal Vinç" tek tiptir. Modül SAFTIR (değişmez
 // md. 7) — `trKatla` de saftır, `payload.ts` zaten aynı yerden `trSayi` okur.
 import { trKatla } from "@/lib/drawings/tr-text";
+import { hueFromText, normalizeHue } from "@/lib/tags";
 import type { OfferPayload } from "../types";
 import type {
   CostGroupDef,
@@ -298,12 +299,56 @@ const ATOLYE: Satir[] = [
 // ————————————————————————————————————————————————— proje geneli
 
 /**
+ * KALEME DÜŞEN TOPLAM MALİYETİN ADI — tek yerde.
+ *
+ * Kullanıcı bildirimi (22.08.2026, md. 9): *"Yüklü Maliyet terimi
+ * anlaşılmıyor."* Haklı: "yüklü" bir mecazdır (İng. *loaded/burdened cost*)
+ * ve Türkçede "ağır" ya da "dolu" diye de okunur — sütun başlığında neyin
+ * eklendiğini hiç söylemez.
+ *
+ * KAVRAM DEĞİŞMEDİ, ADI DEĞİŞTİ (MALIYET-11 aynen geçerlidir): sayı, kalemin
+ * kendi doğrudan maliyeti + proje geneli ve oranlı gruplardan ona düşen
+ * paydır ve dağıtım bir TAHMİNDİR.
+ *
+ * SABİT OLMASI ŞART: ad üç ayrı ekranda elle yazılıydı (kırılım sütunu,
+ * kırılım açıklaması, teklif fiyat tablosunun ipucu). Biri değişip ötekiler
+ * kalsaydı aynı sayı iki adla dolaşırdı — md. 9'un şikâyetinin büyütülmüş
+ * hâli (değişmez md. 8).
+ *
+ * Tanımlayıcı (`loadedCostByOfferItem`) İNGİLİZCE ve DEĞİŞMEZ: *loaded cost*
+ * bu kavramın doğru İngilizcesidir ve ad kuralı tanımlayıcıları İngilizce
+ * tutar.
+ */
+/**
+ * ÖZET SAYFASINDAKİ KÂR YÜZDESİNİN VARSAYILANI — SATIŞ ÜZERİNDEN.
+ *
+ * Kullanıcı isteği (22.08.2026, md. 7): *"burda kar sütunu olsun %25 olarak
+ * ön tanımlı gelsin ama elle değiştirebileyim."*
+ *
+ * TABAN SATIŞTIR (kullanıcı kararı, aynı gün): tahmini satış
+ * `maliyet ÷ (1 − %/100)`. Firmanın kendi ASTOR çalışmasında 194.258 €
+ * maliyete 259.010 € fiyat vardı ve o oran tam olarak satışın %25'idir;
+ * maliyetin %25'i aynı belgede 242.823 € ederdi. Aradaki 16.188 € bir
+ * varsayıma bırakılmadı, soruldu.
+ *
+ * SAYI BELGEYE YAZILMAZ, yalnız dokunulmuş satırlar `overviewMargins`e girer
+ * — böylece varsayılan yarın değişirse dokunulmamış satırlar onunla birlikte
+ * değişir (TEKLIF-14'ün "varsayılan yalnız açılışta uygulanır" kuralının
+ * tersi yönde ama aynı gerekçesi: değer bir KARAR değil, bir öneridir).
+ */
+export const DEFAULT_OVERVIEW_MARGIN_PERCENT = 25;
+
+export const LOADED_COST_LABEL = "Genel Gider Dahil Maliyet";
+export const LOADED_COST_HINT =
+  "Vincin kendi doğrudan maliyeti + proje geneli ve oranlı giderlerden ona düşen pay. Dağıtım bir TAHMİNDİR.";
+
+/**
  * PROJE GENELİ — tek bir vince atfedilemeyen götürü giderler.
  *
  * Kaleme değil BELGEYE aittir: üç vinçlik bir teklifte dokümantasyon bir kez
  * yapılır. Kalem kalem dağıtılsaydı iki vinçli bir teklifte aynı iş iki kez
  * fiyatlanırdı; kırılım ekranı payını yine de kalemlere DAĞITARAK gösterir
- * (yüklü maliyet), ama saklanan yer tektir.
+ * (`LOADED_COST_LABEL`), ama saklanan yer tektir.
  */
 const PROJE_GENELI: Satir[] = [
   { key: "documentation", label: "DOKÜMANTASYON VE ONAYLAR", unit: "takım", qtySource: "c.one" },
@@ -324,17 +369,52 @@ export const GENERAL_GROUP_KEY = "general";
 export const FABRICATION_GROUP_KEY = "fabrication";
 export const CUSTOM_COST_GROUP_KEY = "custom";
 
+/**
+ * BÖLÜM TONLARI — açı, keyfi değil ANLAMLIDIR.
+ *
+ * Kullanıcı isteği (22.08.2026, md. 13). Ton seçimi iki var olan deftere
+ * yaslanır (`lib/tags.ts` `SCOPE_HUES` ve `lib/calc/field-groups.ts`) ve her
+ * grubun rengi işinin kendisini anlatır:
+ *
+ * - **İmalat 25° (kiremit)** — ateş ve kaynak; belgenin en sıcak kalemi.
+ * - **Çelik 65° (hardal)** — mühendislikteki kesit defterinin gövde sacı tonu;
+ *   iki modülde aynı şey aynı renkte görünsün.
+ * - **Kaldırma 255° (mavi)** ve **yardımcı kaldırma 285° (mor)** — aynı işin
+ *   iki ölçeği, komşu ama karışmayacak kadar uzak (30°).
+ * - **Yürütme 150° (yeşil)** — `SCOPE_HUES`ta "komple imalat"ın tonu; hareket.
+ * - **Elektrik 200° (camgöbeği)** — `SCOPE_HUES`ta "malzeme satışı" ile aynı
+ *   aile; pano ve kablo bir malzeme kalemidir.
+ * - **Atölye ve saha 40° (amber)** — `SCOPE_HUES`ta "işçilik"in tonu.
+ * - **Proje geneli 310° (eflatun)** — "nakliye"nin (320°) komşusu; ikisi de
+ *   vince değil işe ait götürü giderlerdir.
+ *
+ * KOMŞU AÇI FARKI EN AZ 30°'dir ve bunu bir test korur (`labels.test.ts`):
+ * 15°'lik iki grup ekranda aynı renk okunur ve renklendirme ayırt ediciliğini
+ * kaybeder.
+ */
 export const COST_GROUP_DEFS: readonly CostGroupDef[] = [
   // İMALAT EN ÜSTTEDİR (kullanıcı isteği md. 4) — belgede ve ekranda.
-  { key: FABRICATION_GROUP_KEY, title: "İMALAT MALİYETİ", lines: IMALAT },
-  { key: "steel", title: "ÇELİK YAPI", lines: CELIK },
-  { key: "hoist", title: "KALDIRMA GRUBU", lines: KALDIRMA },
-  { key: "auxHoist", title: "YARDIMCI KALDIRMA GRUBU", lines: YRD_KALDIRMA },
-  { key: "travel", title: "YÜRÜTME VE TEKER", lines: YURUTME },
-  { key: "electrical", title: "ELEKTRİK VE OTOMASYON", lines: ELEKTRIK },
-  { key: "assembly", title: "ATÖLYE VE SAHA", lines: ATOLYE },
-  { key: GENERAL_GROUP_KEY, title: "PROJE GENELİ", lines: PROJE_GENELI },
+  { key: FABRICATION_GROUP_KEY, title: "İMALAT MALİYETİ", lines: IMALAT, hue: 25 },
+  { key: "steel", title: "ÇELİK YAPI", lines: CELIK, hue: 65 },
+  { key: "hoist", title: "KALDIRMA GRUBU", lines: KALDIRMA, hue: 255 },
+  { key: "auxHoist", title: "YARDIMCI KALDIRMA GRUBU", lines: YRD_KALDIRMA, hue: 285 },
+  { key: "travel", title: "YÜRÜTME VE TEKER", lines: YURUTME, hue: 150 },
+  { key: "electrical", title: "ELEKTRİK VE OTOMASYON", lines: ELEKTRIK, hue: 200 },
+  { key: "assembly", title: "ATÖLYE VE SAHA", lines: ATOLYE, hue: 40 },
+  { key: GENERAL_GROUP_KEY, title: "PROJE GENELİ", lines: PROJE_GENELI, hue: 310 },
 ];
+
+/**
+ * Bir maliyet grubunun ton açısı — defterde yoksa ADINDAN türetilir.
+ *
+ * Şablonla açılmış özel gruplar (`custom`, kullanıcının kendi kalemleri)
+ * defterde yoktur; `hueFromText` onlara da KARARLI bir renk verir (aynı ad
+ * her ekranda aynı renk). `NaN` asla dönmez — CSS'te `--oc-hue: NaN` sessizce
+ * siyah verir ve hata hiç görünmez.
+ */
+export function costGroupHue(key: string, title: string): number {
+  return normalizeHue(COST_GROUP_DEF_BY_KEY[key]?.hue ?? hueFromText(title || key));
+}
 
 export const COST_GROUP_DEF_BY_KEY: Record<string, CostGroupDef> = Object.fromEntries(
   COST_GROUP_DEFS.map((g) => [g.key, g])
@@ -498,3 +578,20 @@ export const DEFAULT_RATE_GROUPS: readonly Omit<CostRateGroup, "lines">[] = [
   { key: "consumable", title: "SARF MALİYETLER", mode: "oran", percent: 2 },
   { key: "finance", title: "FİNANSMAN MALİYETLERİ", mode: "oran", percent: 2 },
 ];
+
+/**
+ * ORANLI GRUPLARIN TONLARI — vinç gruplarının tonlarından UZAK.
+ *
+ * Bunlar bir vincin parçası değil, belgenin giderleridir; renkleri de vinç
+ * bölümlerinin arasına karışmamalıdır. `costGroupHue` ile aynı sözleşme:
+ * defterde yoksa addan türetilir, `NaN` dönmez.
+ */
+const RATE_GROUP_HUES: Readonly<Record<string, number>> = Object.freeze({
+  fixed: 350, // gül — sabit gider, kaçınılmaz
+  consumable: 100, // fıstık
+  finance: 220, // gece mavisi — paranın kendisi
+});
+
+export function costRateHue(key: string, title: string): number {
+  return normalizeHue(RATE_GROUP_HUES[key] ?? hueFromText(title || key));
+}

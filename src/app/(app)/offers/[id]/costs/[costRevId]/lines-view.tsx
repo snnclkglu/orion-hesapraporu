@@ -25,26 +25,32 @@
 // karşılık kendi SÜTUNUNA taşındı; miktarın kaynağı pop-up'a girdi. İkisi
 // satırın altındayken bir satır üç sıra yer kaplıyordu.
 
+import { useMemo } from "react";
 import { Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CURRENCY_SYMBOLS, currencyOf, fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { costAmountLevel, costAmountWeight, costLargestAmount } from "@/lib/offers/cost/heat";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { CostModelResult } from "@/lib/offers/cost/model";
 import { freeCostLine, lineQty, linePrice, withLumpMode } from "@/lib/offers/cost/payload";
 import {
   COST_UNITS,
   FABRICATION_GROUP_KEY,
+  GENERAL_GROUP_KEY,
   MATERIAL_PRICE_DEFS,
+  costGroupHue,
   costLineDef,
+  costRateHue,
   materialPriceDef,
   offerRefValue,
 } from "@/lib/offers/cost/registry";
 import { COST_RATE_MODES, costGroupLines, isLumpLine } from "@/lib/offers/cost/types";
 import {
   costGroupTotal,
+  costItemSplit,
   costLineAmount,
   costRateAmount,
   costTotals,
@@ -60,7 +66,6 @@ import {
   Turetme,
   type Katlama,
 } from "./cost-parts";
-import { KirilimSayfasi } from "./breakdown-view";
 
 // ————————————————————————————————————————————— hammadde şeridi
 
@@ -133,6 +138,7 @@ function SatirTablosu({
   offer,
   offerItemId,
   readOnly,
+  enBuyukTutar,
   onLine,
   onEkle,
 }: {
@@ -147,6 +153,14 @@ function SatirTablosu({
   offer: OfferPayload;
   offerItemId: string | null;
   readOnly: boolean;
+  /**
+   * ISI ÖLÇEĞİNİN TABANI — belgenin EN BÜYÜK satır tutarı (md. 14).
+   *
+   * DIŞARIDAN GELİR ve bu zorunludur: her tablo kendi tabanını bulsaydı
+   * ölçek grup içi olurdu ve 500 €'luk bir grubun en büyük satırı, 70.000
+   * €'luk grubunkiyle aynı kırmızıyı alırdı (`cost/heat.ts`in gerekçesi).
+   */
+  enBuyukTutar: number;
   /** Satırı KİMLİĞİYLE değiştirir; `null` siler. Dizin KULLANILMAZ — görünen
       liste süzülmüştür ve dizinler tam listeninkiyle örtüşmez. */
   onLine: (id: string, next: CostLine | null) => void;
@@ -200,6 +214,8 @@ function SatirTablosu({
               // okunur. Yeni dikey sıra AÇMADAN adın `title`ında durur;
               // modelden gelen satırlarda zaten pop-up da anlatır.
               const ipucu = costLineDef(groupKey, line.key)?.hint;
+              const tutar = costLineAmount({ ...line, qty: miktar, unitPrice: fiyat });
+              const isi = costAmountLevel(tutar, enBuyukTutar);
               return (
                 <TableRow key={line.id} className={cn(line.hidden && "opacity-55")}>
                   <TableCell className="p-1.5">
@@ -332,8 +348,26 @@ function SatirTablosu({
                     )}
                   </TableCell>
 
-                  <TableCell className="p-1 text-right font-mono text-xs leading-tight">
-                    {fmtMoney0(costLineAmount({ ...line, qty: miktar, unitPrice: fiyat }), currency)}
+                  {/* TUTAR BÜYÜKLÜĞÜNE GÖRE RENKLİDİR (md. 14): küçük sarı,
+                      büyük kırmızı. Seviyeyi saf çekirdek üretir
+                      (`costAmountLevel`), rengi `globals.css` verir. Renk TEK
+                      TAŞIYICI DEĞİLDİR: aynı büyüklük yazının KALINLIĞIYLA da
+                      söylenir ve `title` oranı yazıyla verir — renk körlüğünde
+                      ve siyah beyaz çıktıda da okunur (WCAG 1.4.1). */}
+                  <TableCell
+                    className={cn(
+                      "p-1 text-right font-mono text-xs leading-tight",
+                      isi !== null && "oc-amount",
+                      costAmountWeight(isi)
+                    )}
+                    style={isi === null ? undefined : ({ "--oc-level": `${isi}` } as React.CSSProperties)}
+                    title={
+                      isi === null
+                        ? undefined
+                        : `Belgenin en büyük kaleminin %${fmtCostField((tutar ?? 0) / enBuyukTutar * 100, 0)}'i`
+                    }
+                  >
+                    {fmtMoney0(tutar, currency)}
                   </TableCell>
 
                   <TableCell className="p-1.5">
@@ -377,64 +411,52 @@ function SatirTablosu({
 }
 
 /**
- * KALEM ARA TOPLAMI — "bu vinç bir adet kaç eder".
+ * BÖLÜM BAŞLIĞINDAKİ TUTAR — SEÇİLİ KALEMİN, belgenin değil.
  *
- * Kullanıcı bildirimi (18.08.2026): *"Proje maliyetini hatalı topluyor. Alt
- * grupların toplamından farklı."* Aritmetik doğruydu, EKRAN yanıltıyordu:
- * başlıktaki tutar BELGENİN tamamıdır (bütün kalemler × adet + proje geneli),
- * gövdede ise yalnız SEÇİLİ kalemin grupları ve onlar da BİRİM fiyattır.
- * İki kalemli, ikincisi 2 adetlik bir belgede ölçüldü:
+ * Kullanıcı isteği (22.08.2026, md. 10): *"Bir vinci maliyetlendirirken ana
+ * başlıkta örneğin İmalat Maliyeti kısmında diğer kalemin de maliyetini
+ * toplamasın karışıyor. Her vinci tek tek o sayfada inceleyeceğiz. En son
+ * Özet kısmında genel göreceğiz."*
  *
- *     33.135 (kalem 1 × 1) + 23.590 × 2 (kalem 2) = 80.315 = başlıktaki sayı
- *     ekranda görünen gruplar ise 23.590 — yani "yanlış toplama" gibi okunuyor
+ * ESKİDEN BELGE TOPLAMIYDI (`BelgeToplami`) ve altına "bütün kalemler · adet
+ * dahil" yazıyordu — yani ekran yanılttığını kendisi itiraf ediyordu. İki
+ * vinçli bir teklifte birinci vincin çipi seçiliyken başlıkta ikincinin
+ * imalatı da toplanıyor, gövdede ise yalnız seçilinin grupları duruyordu.
  *
- * Ara toplam o boşluğu kapatır: kalemin birimi, adedi ve çarpımı yazılı durur,
- * böylece başlıktaki sayı gövdeden TÜRETİLEBİLİR olur.
+ * ARA TOPLAM DA BUNUNLA BİRLİKTE ÖLDÜ. O satır (kesikli çerçeveli "… — ARA
+ * TOPLAM") 18.08.2026'da bu boşluğu kapatmak için eklenmiş bir YAMAYDI:
+ * başlıktaki sayı gövdeden türetilemiyordu, ara toplam aradaki farkı yazıyla
+ * anlatıyordu. Başlık kalem düzeyine indiğinde şart kendiliğinden sağlanır ve
+ * ayrı bir satır yalnız dikey borç olurdu (MALIYET-25).
+ *
+ * BAŞLIKTA BİRİM DURUR, PAKET İKİNCİ SATIRDA. Üç gerekçe:
+ *
+ * 1. Gövdedeki grup başlıkları BİRİM basar (`costGroupTotal`); bölüm başlığı
+ *    paket olsaydı kullanıcı grupları toplayıp başlığı yine tutturamazdı —
+ *    18.08.2026'da bildirilen hatanın birebir tekrarı.
+ * 2. Firmanın kendi dili böyle ayırıyor: Excel kalem sayfası "KALEM BİRİM
+ *    MALİYETİ" ve "PAKET MALİYET (BİRİM × ADET)" satırlarını alt alta basar.
+ * 3. Adet birse ikinci satır hiç çizilmez — aynı sayıyı iki kez yazmak bilgi
+ *    değil gürültüdür.
  */
-/** Başlıktaki tutar — BELGENİN tamamı; birden çok kalem varsa öyle yazar. */
-function BelgeToplami({
-  tutar,
-  currency,
-  coklu,
-}: {
-  tutar: number | null;
-  currency: string;
-  coklu: boolean;
-}) {
-  return (
-    <div className="text-right">
-      <div className="font-mono text-sm font-semibold">{fmtMoney0(tutar, currency)}</div>
-      {coklu ? (
-        <div className="text-[11px] text-muted-foreground">bütün kalemler · adet dahil</div>
-      ) : null}
-    </div>
-  );
-}
-
-function AraToplam({
-  baslik,
+function KalemToplami({
   birim,
   adet,
   currency,
 }: {
-  baslik: string;
   birim: number | null;
-  adet: number | null;
+  adet: number;
   currency: string;
 }) {
-  const katsayi = adet === null || !Number.isFinite(adet) ? 1 : adet;
-  const paket = birim === null ? null : birim * katsayi;
+  const paket = birim === null ? null : birim * adet;
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed px-2.5 py-1.5">
-      <span className="min-w-0 flex-1 truncate text-xs font-medium" title={baslik}>
-        {baslik} — ARA TOPLAM
-      </span>
-      {katsayi !== 1 ? (
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {fmtMoney0(birim, currency)} × {fmtCostField(katsayi, 0)} Adet
-        </span>
+    <div className="text-right">
+      <div className="font-mono text-sm font-semibold">{fmtMoney0(birim, currency)}</div>
+      {adet !== 1 ? (
+        <div className="font-mono text-[11px] text-muted-foreground">
+          × {fmtCostField(adet, 0)} Adet = {fmtMoney0(paket, currency)}
+        </div>
       ) : null}
-      <span className="font-mono text-sm font-semibold">{fmtMoney0(paket, currency)}</span>
     </div>
   );
 }
@@ -451,6 +473,7 @@ function GrupBlogu({
   offerItemId,
   readOnly,
   katlama,
+  enBuyukTutar,
   onChange,
 }: {
   group: CostGroup;
@@ -462,6 +485,8 @@ function GrupBlogu({
   offerItemId: string | null;
   readOnly: boolean;
   katlama: Katlama;
+  /** Isı ölçeğinin tabanı — belgenin en büyük satır tutarı (md. 14). */
+  enBuyukTutar: number;
   onChange: (next: CostGroup) => void;
 }) {
   // Grup toplamı MODEL MİKTARLARI VE ŞERİT FİYATLARIYLA hesaplanır: kaydetmeden
@@ -486,15 +511,24 @@ function GrupBlogu({
   // birini katlamak ötekini de katlardı.
   const kapali = katlama.kapali(group.id);
 
+  // ALT GRUBUN RENGİ DEFTERDEN GELİR (md. 13) ve `key`den çözülür — belgeye
+  // yazılmaz, yani yayımlanmış bir maliyet revizyonu da bugünkü renkte açılır.
+  const ton = costGroupHue(group.key, group.title);
+  const tonStili = { "--oc-hue": `${ton}` } as React.CSSProperties;
+
   return (
     <div className="grid gap-2 rounded-md border p-2.5">
-      <div className="flex flex-wrap items-center gap-2">
+      {/* RENK YALNIZ BAŞLIK ŞERİDİNDE: grubun gövdesi bir tablodur ve zeminini
+          boyamak satır zeminleriyle çakışırdı ("az da olsa", md. 13). */}
+      <div className="oc-fieldgroup -mx-1 flex flex-wrap items-center gap-2 rounded-sm py-1 pr-1 pl-2" style={tonStili}>
         <KatlaDugmesi
           kapali={kapali}
           baslikMetni={group.title}
           onClick={() => katlama.degistir(group.id)}
         />
-        <h3 className="flex-1 text-xs font-semibold tracking-wide">{group.title}</h3>
+        <h3 className="oc-fieldgroup-title flex-1 text-xs font-semibold tracking-wide" style={tonStili}>
+          {group.title}
+        </h3>
         {/* GÖTÜRÜ KİP HER GRUPTA AÇIKTIR, yalnız elektrikte değil (kullanıcı
             örneği elektrikti ama sebep genel): tedarikçi yürütme grubunu da
             tek kalemde fiyatlayabilir. Kipi bir gruba kapatmak, aynı soruyu
@@ -531,6 +565,7 @@ function GrupBlogu({
         offer={offer}
         offerItemId={offerItemId}
         readOnly={readOnly}
+        enBuyukTutar={enBuyukTutar}
         onLine={setLine}
         onEkle={
           readOnly || group.lump
@@ -565,6 +600,7 @@ function OranBlogu({
   params,
   offer,
   readOnly,
+  enBuyukTutar,
   onChange,
 }: {
   rate: CostRateGroup;
@@ -574,9 +610,15 @@ function OranBlogu({
   params: Record<string, number>;
   offer: OfferPayload;
   readOnly: boolean;
+  /** Isı ölçeğinin tabanı — belgenin en büyük satır tutarı (md. 14). */
+  enBuyukTutar: number;
   onChange: (next: CostRateGroup) => void;
 }) {
   const tutar = costRateAmount(rate, base);
+  // ORANLI GRUBUN TONU AYRI BİR DEFTERDEDİR: bunlar bir vincin parçası değil,
+  // belgenin giderleridir ve renkleri vinç bölümlerinin arasına karışmamalıdır.
+  const ton = costRateHue(rate.key, rate.title);
+  const tonStili = { "--oc-hue": `${ton}` } as React.CSSProperties;
   const setLine = (id: string, next: CostLine | null) =>
     onChange({
       ...rate,
@@ -585,8 +627,10 @@ function OranBlogu({
 
   return (
     <div className="grid gap-2 rounded-md border p-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-xs font-semibold tracking-wide">{rate.title}</h3>
+      <div className="oc-fieldgroup -mx-1 flex flex-wrap items-center gap-2 rounded-sm py-1 pr-1 pl-2" style={tonStili}>
+        <h3 className="oc-fieldgroup-title text-xs font-semibold tracking-wide" style={tonStili}>
+          {rate.title}
+        </h3>
         {rate.mode === "oran" ? (
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">Proje maliyetinin %</span>
@@ -628,6 +672,7 @@ function OranBlogu({
           offer={offer}
           offerItemId={null}
           readOnly={readOnly}
+          enBuyukTutar={enBuyukTutar}
           onLine={setLine}
           onEkle={readOnly ? null : () => onChange({ ...rate, lines: [...rate.lines, freeCostLine()] })}
         />
@@ -642,7 +687,6 @@ export function MaliyetSayfasi({
   payload,
   item,
   model,
-  models,
   offer,
   readOnly,
   katlama,
@@ -653,8 +697,6 @@ export function MaliyetSayfasi({
   payload: CostPayload;
   item: CostItem | undefined;
   model: CostModelResult | undefined;
-  /** Kırılım BÜTÜN kalemleri toplar — seçili kalemin modeli yetmez. */
-  models: Record<string, CostModelResult>;
   offer: OfferPayload;
   readOnly: boolean;
   onItemChange: (next: CostItem) => void;
@@ -665,21 +707,47 @@ export function MaliyetSayfasi({
   const params = payload.params;
   const totals = costTotals(payload);
 
-  // ARA TOPLAM YALNIZ GEREKTİĞİNDE ÇİZİLİR: tek kalemli ve tek adetli bir
-  // belgede başlıktaki sayı zaten gövdenin toplamıdır ve ikinci bir satır
-  // gürültü olurdu.
-  const cokluKalem =
-    payload.items.length > 1 ||
-    payload.items.some((i) => (i.qty ?? 1) !== 1) ||
-    (costGroupTotal(payload.general) ?? 0) !== 0;
+  /**
+   * SEÇİLİ KALEMİN BÖLMESİ — bölüm başlıklarındaki tutarların kaynağı (md. 10).
+   *
+   * SAF ÇEKİRDEKTEN GELİR (`costItemSplit`), ekranda hesaplanmaz. Bir süre
+   * proje tarafı burada elle toplanıyordu (`kalemProjeBirimi`) ve o kopya
+   * yalnız ikinci bir tanım değildi, YANLIŞTI da: `null`ları atlayıp sıfır
+   * tabanlı bir `reduce`a giriyor, yani hiç maliyeti girilmemiş bir vinci
+   * `null` yerine 0 € gösteriyordu.
+   */
+  const bolme = item ? costItemSplit(item) : null;
 
-  const kalemProjeBirimi = item
-    ? item.groups
-        .filter((g) => g.key !== FABRICATION_GROUP_KEY)
-        .map((g) => costGroupTotal(g))
-        .filter((n): n is number => n !== null)
-        .reduce((t, n) => t + n, 0)
-    : null;
+  /**
+   * ISI ÖLÇEĞİNİN TABANI — belgenin EN BÜYÜK satır tutarı (md. 14).
+   *
+   * BİR KEZ, BURADA hesaplanır ve aşağı geçirilir. Her tablonun kendi tabanını
+   * bulması "grup içi ölçek" demekti ve aynı sayı belgenin iki yerinde iki
+   * farklı renk alırdı (`cost/heat.ts`in gerekçesi).
+   *
+   * TABAN BÜTÜN BELGEYİ TARAR, yalnız seçili kalemi değil: sayfa vinç vinç
+   * çalışsa da ölçek belgenin tamamına aittir; yoksa aynı 5.000 €'luk satır,
+   * yandaki kalem seçildiğinde renk değiştirirdi.
+   *
+   * MİKTAR MODELDEN OKUNMAZ (`lineQty(l, undefined)`): model kalem başınadır
+   * ve burada bütün kalemler taranır. Türetilmiş miktarlar zaten satıra
+   * YAZILIDIR (`withCostDerived`, MALIYET-24) — okunan sayı belgedeki sayıdır.
+   */
+  const enBuyukTutar = useMemo(() => {
+    const tutarlar: (number | null)[] = [];
+    const grubuTara = (g: CostGroup) => {
+      for (const l of costGroupLines(g)) {
+        tutarlar.push(costLineAmount({ ...l, unitPrice: linePrice(l, prices) }));
+      }
+    };
+    for (const it of payload.items) for (const g of it.groups) grubuTara(g);
+    grubuTara(payload.general);
+    for (const r of payload.rates) {
+      if (r.mode !== "kalem") continue;
+      for (const l of r.lines) tutarlar.push(costLineAmount(l));
+    }
+    return costLargestAmount(tutarlar);
+  }, [payload, prices]);
 
   return (
     <div className="grid gap-4">
@@ -705,8 +773,13 @@ export function MaliyetSayfasi({
         katlama={katlama}
         katlamaAnahtari="bolum:imalat"
         baslik="İMALAT MALİYETİ"
-        aciklama="Çelik imalat işçiliği — miktarı vincin fireli çelik ağırlığıdır, birim fiyatı hammadde şeridinden gelir."
-        sag={<BelgeToplami tutar={totals.fabrication} currency={cur} coklu={cokluKalem} />}
+        ton={costGroupHue(FABRICATION_GROUP_KEY, "İMALAT MALİYETİ")}
+        aciklama="Bu VİNCİN çelik imalat işçiliği — miktarı fireli çelik ağırlığıdır, birim fiyatı hammadde şeridinden gelir."
+        sag={
+          bolme ? (
+            <KalemToplami birim={bolme.fabricationUnit} adet={bolme.qty} currency={cur} />
+          ) : undefined
+        }
       >
         {item ? (
           <div className="grid gap-2.5">
@@ -725,19 +798,12 @@ export function MaliyetSayfasi({
                   offerItemId={item.offerItemId}
                   readOnly={readOnly}
                   katlama={katlama}
+                  enBuyukTutar={enBuyukTutar}
                   onChange={(next) =>
                     onItemChange({ ...item, groups: item.groups.map((x, i) => (i === gi ? next : x)) })
                   }
                 />
               ))}
-            {cokluKalem ? (
-              <AraToplam
-                baslik={item.title || "Kalem"}
-                birim={costGroupTotal(item.groups.find((g) => g.key === FABRICATION_GROUP_KEY))}
-                adet={item.qty}
-                currency={cur}
-              />
-            ) : null}
           </div>
         ) : (
           <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
@@ -750,17 +816,17 @@ export function MaliyetSayfasi({
         katlama={katlama}
         katlamaAnahtari="bolum:proje"
         baslik="PROJE MALİYETİ"
-        aciklama="Kalem kalem girilen doğrudan maliyet. Miktarlar ağırlık ve hesap modelinden gelir; miktara tıklayınca nereden geldiği açılır."
-        sag={<BelgeToplami tutar={totals.project} currency={cur} coklu={cokluKalem} />}
+        ton={costGroupHue("steel", "PROJE MALİYETİ")}
+        aciklama="Bu VİNCİN kalem kalem girilen doğrudan maliyeti. Miktarlar ağırlık ve hesap modelinden gelir; miktara tıklayınca nereden geldiği açılır."
+        sag={
+          bolme ? <KalemToplami birim={bolme.projectUnit} adet={bolme.qty} currency={cur} /> : undefined
+        }
       >
         {/* TABLOLAR SABİT IZGARADIR ve kendi içinde yatay kaymaz; bu yüzden iki
-            sütun eşiği artık gerçek içerik genişliğine göre 1500 px'tir.
-            PROJE GENELİ de aynı ızgaradadır: belgeye ait olsa da tam genişlikte
-            tek başına uzayıp sayfanın kompakt düzenini bozmamalıdır. */}
+            sütun eşiği gerçek içerik genişliğine göre 1500 px'tir. */}
         <div className="grid gap-2.5 min-[1500px]:grid-cols-2 min-[1500px]:items-start">
           {item ? (
-            <>
-            {item.groups
+            item.groups
               .map((g, gi) => ({ g, gi }))
               .filter(({ g }) => g.key !== FABRICATION_GROUP_KEY)
               .map(({ g, gi }) => (
@@ -775,21 +841,60 @@ export function MaliyetSayfasi({
                   offerItemId={item.offerItemId}
                   readOnly={readOnly}
                   katlama={katlama}
+                  enBuyukTutar={enBuyukTutar}
                   onChange={(next) =>
                     onItemChange({ ...item, groups: item.groups.map((x, i) => (i === gi ? next : x)) })
                   }
                 />
-              ))}
-            </>
+              ))
           ) : (
             <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
               Bu maliyet çalışmasında henüz kalem yok. Teklifte kalem açıp
               <span className="font-medium"> Tekliften Tazele</span> düğmesine basın.
             </p>
           )}
+        </div>
+      </Bolum>
 
-          {/* PROJE GENELİ kaleme değil BELGEYE aittir; aynı iki sütunlu görsel
-              düzende durur ama hâlâ payload'ın belge düzeyindeki grubudur. */}
+      {/*
+        ——————————————————————————————————————————————— BELGE GENELİ
+
+        BU İKİ BLOK BİR VİNCE AİT DEĞİLDİR ve artık öyle görünüyor.
+
+        Kullanıcı isteği (22.08.2026, md. 10): *"Her vinci tek tek o sayfada
+        inceleyeceğiz."* Yukarıdaki iki bölüm artık SEÇİLİ kalemin sayfasıdır;
+        PROJE GENELİ (üç vinçlik bir teklifte dokümantasyon bir kez yapılır) ve
+        ORANLI MALİYETLER (tabanı belgenin doğrudan maliyetidir) ise kalem
+        çipiyle hiç değişmez.
+
+        AYRI BİR SEKMEYE TAŞINMADI, AYRI BİR ÇERÇEVEYE ALINDI (kullanıcı
+        kararı, 22.08.2026): düzenleme yeri aynı sayfada kalsın, yalnız hangi
+        sayının vince hangisinin belgeye ait olduğu GÖZLE ayrılsın. Sekmeye
+        taşımak, bir birim fiyatı düzeltip oranın etkisini görmek için her
+        seferinde iki tık demekti — kırılımı ayrı sayfadan alan kararın (md. 8,
+        18.08.2026) kendi gerekçesi.
+      */}
+      <section className="grid gap-3 rounded-lg border border-dashed p-3">
+        <header className="flex flex-wrap items-baseline gap-2">
+          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground">BELGE GENELİ</h2>
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+            Vince değil <span className="font-medium">bütün teklife</span> ait giderler; kalem
+            değiştirdiğinizde bu iki blok değişmez.
+          </p>
+        </header>
+
+        <Bolum
+          katlama={katlama}
+          katlamaAnahtari="bolum:genel"
+          baslik="PROJE GENELİ"
+          ton={costGroupHue(GENERAL_GROUP_KEY, "PROJE GENELİ")}
+          aciklama="Tek bir vince atfedilemeyen götürü giderler: dokümantasyon, devreye alma, fabrika testleri, paketleme."
+          sag={
+            <span className="font-mono text-sm font-semibold">
+              {fmtMoney0(costGroupTotal(payload.general), cur)}
+            </span>
+          }
+        >
           <GrupBlogu
             group={payload.general}
             currency={cur}
@@ -799,55 +904,49 @@ export function MaliyetSayfasi({
             offerItemId={null}
             readOnly={readOnly}
             katlama={katlama}
+            enBuyukTutar={enBuyukTutar}
             onChange={(next) => onChange({ ...payload, general: next })}
           />
+        </Bolum>
 
-          {item && cokluKalem ? (
-            <div className="min-[1500px]:col-span-2">
-              <AraToplam
-                baslik={item.title || "Kalem"}
-                birim={kalemProjeBirimi}
-                adet={item.qty}
+        <Bolum
+          katlama={katlama}
+          katlamaAnahtari="bolum:oran"
+          baslik="ORANLI MALİYETLER"
+          ton={costRateHue("fixed", "ORANLI MALİYETLER")}
+          aciklama="Sabit, sarf ve finansman giderleri DOĞRUDAN MALİYET (imalat + proje, bütün kalemler) üzerinden hesaplanır."
+          sag={<span className="font-mono text-sm font-semibold">{fmtMoney0(totals.rateTotal, cur)}</span>}
+        >
+          <div className="grid gap-2.5">
+            {payload.rates.map((r, i) => (
+              <OranBlogu
+                key={r.key}
+                rate={r}
+                base={totals.direct}
                 currency={cur}
+                prices={prices}
+                params={params}
+                offer={offer}
+                readOnly={readOnly}
+                enBuyukTutar={enBuyukTutar}
+                onChange={(next) =>
+                  onChange({ ...payload, rates: payload.rates.map((x, j) => (j === i ? next : x)) })
+                }
               />
-            </div>
-          ) : null}
-        </div>
-      </Bolum>
+            ))}
+          </div>
+        </Bolum>
+      </section>
 
-      <Bolum
-        katlama={katlama}
-        katlamaAnahtari="bolum:oran"
-        baslik="ORANLI MALİYETLER"
-        aciklama="Sabit, sarf ve finansman giderleri DOĞRUDAN MALİYET (imalat + proje) üzerinden hesaplanır."
-        sag={<span className="font-mono text-sm font-semibold">{fmtMoney0(totals.rateTotal, cur)}</span>}
-      >
-        <div className="grid gap-2.5">
-          {payload.rates.map((r, i) => (
-            <OranBlogu
-              key={r.key}
-              rate={r}
-              base={totals.direct}
-              currency={cur}
-              prices={prices}
-              params={params}
-              offer={offer}
-              readOnly={readOnly}
-              onChange={(next) =>
-                onChange({ ...payload, rates: payload.rates.map((x, j) => (j === i ? next : x)) })
-              }
-            />
-          ))}
-        </div>
-      </Bolum>
+      {/*
+        TOPLAM MALİYET ŞERİDİ VE KIRILIM BURADAN KALKTI (kullanıcı isteği,
+        22.08.2026, md. 8: *"Maliyetler sayfasında da altta toplam maliyet
+        olmasın vinç vinç bakabileyim. Genele Özet sayfasından bakacağım."*).
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
-        <span className="text-sm font-semibold tracking-wide">TOPLAM MALİYET</span>
-        <span className="ml-auto font-mono text-lg font-semibold">{fmtMoney0(totals.total, cur)}</span>
-      </div>
-
-      {/* ——— KIRILIM: ayrı sekme değil, aynı sayfanın altı (md. 8) ——— */}
-      <KirilimSayfasi payload={payload} models={models} offer={offer} katlama={katlama} />
+        İkisi de BELGE düzeyindeydi ve bu sayfanın sorusu artık "bu vinç ne
+        tutuyor". Genel bakış ÖZET bölümündedir; kırılım da oraya taşındı, yani
+        kaybolmadı — yalnız ait olduğu sayfaya gitti.
+      */}
     </div>
   );
 }

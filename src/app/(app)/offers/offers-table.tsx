@@ -26,6 +26,7 @@ import { CustomerTag } from "@/components/tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
 import { fmtMoney, fmtNum } from "@/lib/currency";
 import { customerTag, tagStyle } from "@/lib/tags";
@@ -47,14 +48,29 @@ import { OFFER_STATUSES, offerStatusHue, offerStatusLabel, offerStatusOf } from 
 import { takipGorunur, takipYasi } from "@/lib/offers/takip";
 import { offerRevLabel } from "@/lib/offers/no";
 import type { CustomerOption, OfferListEntry } from "./data";
-import { CopyOfferButton } from "./copy-offer-dialog";
+import { OfferRowActions } from "./offer-row-actions";
 
-const SIRA_BASLIKLARI: { key: OfferSortKey; label: string; sag?: boolean }[] = [
-  { key: "no", label: "Teklif No" },
-  { key: "musteri", label: "Müşteri" },
-  { key: "tarih", label: "Tarih" },
-  { key: "durum", label: "Durum" },
-  { key: "tutar", label: "Tutar", sag: true },
+/**
+ * SÜTUN GENİŞLİKLERİ YÜZDEDİR ÇÜNKÜ TABLO `table-fixed` (MOBIL-16).
+ *
+ * Kullanıcı bildirimi (22.08.2026): *"teklifler sayfasında yatayda kaydırma
+ * olmasın. geniş olduğunda Konu ve Kapsam yazılar uzunsa belli bir uzunluktan
+ * sonra ... üç nokta olarak görünsün."*
+ *
+ * Tablo `auto` düzendeyken uzun bir KONU metni bütün çizelgeyi ekranın dışına
+ * itiyordu: `max-w-[22rem]` yalnız o hücreye TAVAN koyuyor, geri kalan yedi
+ * sütunun `whitespace-nowrap`ı ise taban genişliği yukarı çekiyordu. Sabit
+ * ızgara tabanı bütünüyle kaldırır — esnek iki sütun (Konu, Kapsam) artan
+ * yeri paylaşır ve sığmayan metin ÜÇ NOKTAYLA kesilir.
+ *
+ * Yüzdeler toplamı 100'dür; değiştiren kişi toplamı da korumalıdır.
+ */
+const SIRA_BASLIKLARI: { key: OfferSortKey; label: string; sag?: boolean; en: string }[] = [
+  { key: "no", label: "Teklif No", en: "w-[15%]" },
+  { key: "musteri", label: "Müşteri", en: "w-[7%]" },
+  { key: "tarih", label: "Tarih", en: "w-[12%]" },
+  { key: "durum", label: "Durum", en: "w-[10%]" },
+  { key: "tutar", label: "Tutar", sag: true, en: "w-[9%]" },
 ];
 
 export function OffersTable({
@@ -223,11 +239,13 @@ export function OffersTable({
         <>
           {/* Masaüstü: çizelge. Telefonda gizlenir — ana tablo yatay KAYMAZ. */}
           <div className="hidden md:block">
-            <Table>
+            {/* YATAY KAYDIRMA KAPALI: sabit ızgara zaten sığdırır ve kap bir
+                kaydırıcı açarsa metin kesilmek yerine ekran dışına giderdi. */}
+            <Table className="table-fixed" containerClassName="!overflow-x-hidden">
               <TableHeader>
                 <TableRow>
                   {SIRA_BASLIKLARI.map((s) => (
-                    <TableHead key={s.key} className={s.sag ? "text-right" : undefined}>
+                    <TableHead key={s.key} className={cn(s.en, s.sag && "text-right")}>
                       <button
                         type="button"
                         onClick={() => siralaIle(s.key)}
@@ -238,9 +256,9 @@ export function OffersTable({
                       </button>
                     </TableHead>
                   ))}
-                  <TableHead>Konu</TableHead>
-                  <TableHead>Kapsam</TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="w-[23%]">Konu</TableHead>
+                  <TableHead className="w-[20%]">Kapsam</TableHead>
+                  <TableHead className="w-[4%]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -281,16 +299,24 @@ export function OffersTable({
                       <TableCell className="text-right font-mono whitespace-nowrap">
                         {row.latestTotal === null ? "—" : fmtMoney(row.latestTotal, row.currency)}
                       </TableCell>
-                      <TableCell className="max-w-[22rem]">
-                        <Link href={`/offers/${row.id}`} className="line-clamp-2 hover:underline">
+                      {/* TEK SATIR + ÜÇ NOKTA: `line-clamp-2` metni iki satıra
+                          sarıyordu ve satır yüksekliği içeriğe göre değişiyordu.
+                          Kullanıcı sığmayanın KESİLMESİNİ istedi; tam metin
+                          `title`da durur, satır da hep aynı boyda kalır. */}
+                      <TableCell>
+                        <Link
+                          href={`/offers/${row.id}`}
+                          title={row.subject || undefined}
+                          className="block truncate hover:underline"
+                        >
                           {row.subject || "—"}
                         </Link>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         <Kapsam row={row} />
                       </TableCell>
-                      <TableCell>
-                        <CopyOfferButton offer={row} customers={customers} />
+                      <TableCell className="px-1">
+                        <OfferRowActions offer={row} customers={customers} />
                       </TableCell>
                     </TableRow>
                   );
@@ -321,7 +347,7 @@ export function OffersTable({
                       </span>
                       <span className="font-medium">{row.subject || "—"}</span>
                     </Link>
-                    <CopyOfferButton offer={row} customers={customers} />
+                    <OfferRowActions offer={row} customers={customers} />
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <CustomerTag
@@ -401,11 +427,14 @@ function Kapsam({ row }: { row: OfferListEntry }) {
   if (tipler.length === 0 && tonaj.length === 0) {
     return <span>{row.itemCount > 0 ? `${row.itemCount} kalem` : "—"}</span>;
   }
+  // METİN BİR KEZ KURULUR: hem basılan hem `title`a giren aynı dizedir —
+  // ikisini ayrı kurmak, birinin kısaltılıp ötekinin unutulması demekti.
+  const metin = `${tonaj.length ? `${tonaj.map((t) => `${fmtNum(t)} t`).join(" · ")} — ` : ""}${tipler.join(" · ")}${
+    row.itemCount > 1 ? ` (${row.itemCount} kalem)` : ""
+  }`;
   return (
-    <span className="line-clamp-2">
-      {tonaj.length ? `${tonaj.map((t) => `${fmtNum(t)} t`).join(" · ")} — ` : ""}
-      {tipler.join(" · ")}
-      {row.itemCount > 1 ? ` (${row.itemCount} kalem)` : ""}
+    <span className="block truncate" title={metin}>
+      {metin}
     </span>
   );
 }

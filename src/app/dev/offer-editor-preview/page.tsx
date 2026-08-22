@@ -150,8 +150,8 @@ function fikstur() {
   const genel = kalem.groups.find((g) => g.key === "general")!;
   genel.rows.find((r) => r.key === "capacity")!.parts = { main: "32", aux: "5" };
   genel.rows.find((r) => r.key === "span")!.parts = { value: "26" };
-  genel.rows.find((r) => r.key === "craneType")!.value = "Çift Kirişli Gezer Köprülü Vinç";
-  kalem.title = composeItemTitle(kalem.groups);
+  kalem.craneType = "Çift Kirişli Gezer Köprülü Vinç";
+  kalem.title = composeItemTitle(kalem.groups, kalem.craneType);
 
   // ÇİFT MARKA ve TÜRETİLEN TOPLAM GÜÇ: ikisi de gerçek tekliflerden alınmış
   // değerlerle kurulur — "SEW/FLENDER" iki kutu çizmeli, sürücünün toplamı

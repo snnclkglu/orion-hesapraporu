@@ -49,6 +49,7 @@ import {
   applyDiscountToLines,
   discountAmount,
   discountPercent,
+  discountTotalFromPercent,
   effectiveTotal,
   lineAmount,
   offerTotal,
@@ -535,8 +536,8 @@ describe("kalemi aynı teklife kopyalama", () => {
     expect(kopya.titleManual).toBe(false);
     const genel = kopya.groups[0];
     genel.rows.find((r) => r.key === "capacity")!.parts = { main: "10" };
-    genel.rows.find((r) => r.key === "craneType")!.value = "Monoray Vinç";
-    expect(withAutoTitle(kopya).title).toBe("10T MONORAY VİNÇ");
+    // VİNÇ TİPİ KÜNYEDEDİR, satırda değil (md. 3) — kopya onu da taşır.
+    expect(withAutoTitle({ ...kopya, craneType: "Monoray Vinç" }).title).toBe("10T MONORAY VİNÇ");
   });
 
   it("SERBEST kalemin kopyası KALEM - n olur ve başlığı ELLE sayılır", () => {
@@ -703,6 +704,12 @@ describe("defter", () => {
     expect(keys).toContain("brand.motor");
     expect(keys).toContain("series.gearbox");
     expect(keys).toContain("term.deliveryTrigger");
+    // SATIRA BAĞLI OLMAYAN LİSTE DE DEFTERDE GÖRÜNMEK ZORUNDADIR. `val.craneType`
+    // bir satırdan değil kalem künyesinden okunur (md. 3); türetme onu bulamaz
+    // ve `STANDALONE_LIST_KEYS`e yazılmasaydı Tanımlar → Defterler ekranındaki
+    // "Vinç Tipleri" kartı SESSİZCE kaybolurdu (dropdown'lar çalışmaya devam
+    // ettiği için hata ancak liste düzenlenmek istendiğinde fark edilirdi).
+    expect(keys).toContain("val.craneType");
     expect(new Set(keys).size).toBe(keys.length);
   });
 
@@ -840,9 +847,10 @@ describe("kalem künyesi satırlardan türetilir", () => {
     const genel = item.groups[0];
     genel.rows.find((r) => r.key === "capacity")!.parts = { main: "32", aux: "5" };
     genel.rows.find((r) => r.key === "span")!.parts = { value: "26" };
-    genel.rows.find((r) => r.key === "craneType")!.value = "Portal Vinç";
+    // KÜNYE YALNIZ ÖLÇÜ TÜRETİR: vinç tipi bir satır değil, kalemin kendi
+    // alanıdır (md. 3) ve türetilecek bir yerden okunmaz.
     const kunye = itemFactsFromRows(item.groups);
-    expect(kunye).toEqual({ capacityT: 32, spanM: 26, craneType: "Portal Vinç" });
+    expect(kunye).toEqual({ capacityT: 32, spanM: 26 });
   });
 
   it("okunamayan değer UYDURULMAZ — null döner", () => {
@@ -850,7 +858,6 @@ describe("kalem künyesi satırlardan türetilir", () => {
     expect(itemFactsFromRows(item.groups)).toEqual({
       capacityT: null,
       spanM: null,
-      craneType: "",
     });
   });
 });
@@ -887,6 +894,83 @@ describe("copySelections", () => {
   it("GENEL ÖZELLİKLER hiç taşınmaz — her vincin kendi ölçüsüdür", () => {
     const yeni = copySelections(kaynakKalem(), emptyItem("2. VİNÇ", ["general", "mainHoist"]));
     expect(yeni.groups[0].rows.find((r) => r.key === "capacity")?.parts?.main).toBeFalsy();
+  });
+
+  // KAYNAK ARTIK "İLK KALEM" DEĞİL, SEÇİLEN KALEMDİR (md. 2). Fonksiyonun
+  // imzası zaten kaynağı parametre alıyordu; çivilenmesi gereken şey, ekranın
+  // artık BAŞKA bir kalemi verebildiğinde doğru kalemin taşınmasıdır.
+  it("KAYNAK SEÇİLİR: ikinci kalemden kopyalanınca birincininki gelmez", () => {
+    const ikinci = emptyItem("2. VİNÇ", ["general", "mainHoist"]);
+    ikinci.groups[1].rows.find((r) => r.key === "motor")!.parts = { brand: "SIEMENS" };
+    const yeni = copySelections(ikinci, emptyItem("3. VİNÇ", ["general", "mainHoist"]));
+    expect(yeni.groups[1].rows.find((r) => r.key === "motor")?.parts?.brand).toBe("SIEMENS");
+  });
+
+  // KAYNAĞI SERBEST OLAN KİP SESSİZDİR ve ekran bu yüzden onu KAPATIR: serbest
+  // kalemin defterde karşılığı olan satırı yoktur, eşleşme hiç kurulmaz.
+  it("KAYNAK SERBEST KALEMSE hiçbir şey taşınmaz", () => {
+    const yeni = copySelections(freeItem("KABİN DEĞİŞİMİ"), emptyItem("2. VİNÇ", ["general", "mainHoist"]));
+    const motor = yeni.groups[1].rows.find((r) => r.key === "motor")!;
+    expect(motor.parts?.brand).toBeUndefined();
+    expect(motor.value).toBe("");
+  });
+
+  // İKİ KİP KARIŞMAZ: aynı kaynaktan "seçim" ÖLÇÜ getirmez, "tam" getirir.
+  // Bu, md. 2'nin üç kipli penceresinin tek kaynaklı kanıtıdır — ekran hangi
+  // fonksiyonu çağırdığını karıştırırsa burada görünür.
+  it("SEÇİM ölçüyü getirmez, TAM getirir", () => {
+    const kaynak = kaynakKalem();
+    const secim = copySelections(kaynak, emptyItem("2. VİNÇ", ["general", "mainHoist"]));
+    expect(secim.groups[1].rows.find((r) => r.key === "motor")?.parts?.power).toBeUndefined();
+
+    const p = emptyPayload();
+    p.items = [kaynak];
+    const sonuc = copyItemInPayload(p, kaynak.id);
+    const tam = sonuc!.kopya;
+    expect(tam.groups[1].rows.find((r) => r.key === "motor")?.parts?.power).toBe("22");
+    expect(tam.groups[0].rows.find((r) => r.key === "capacity")?.parts?.main).toBe("32");
+  });
+});
+
+describe("ORANLI İSKONTO — küsurat yukarı yuvarlanır", () => {
+  function fiyatli(...tutarlar: number[]) {
+    const p = emptyPayload();
+    p.pricing.lines = tutarlar.map((t) => ({
+      id: `satir-${t}`,
+      itemId: null,
+      parentLineId: null,
+      description: "X",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: t,
+      inTotal: true,
+    }));
+    return p.pricing.lines;
+  }
+
+  it("tam bölünen oranda küsurat doğmaz", () => {
+    expect(discountTotalFromPercent(fiyatli(100_000), 5)).toBe(95_000);
+  });
+
+  it("KÜSURAT YUKARI yuvarlanır — aşağı yuvarlamak fazla indirim olurdu", () => {
+    // 675.807 × 0,95 = 642.016,65 → 642.017
+    expect(discountTotalFromPercent(fiyatli(675_807), 5)).toBe(642_017);
+    // 1.000 × 0,933 = 933,0 (tam) ama 1.001 × 0,933 = 933,933 → 934
+    expect(discountTotalFromPercent(fiyatli(1_001), 6.7)).toBe(934);
+  });
+
+  it("ORAN ARALIK DIŞINDAYSA hesap YAPILMAZ — sıfır ya da tam indirim uydurulmaz", () => {
+    expect(discountTotalFromPercent(fiyatli(100_000), 0)).toBeNull();
+    expect(discountTotalFromPercent(fiyatli(100_000), 100)).toBeNull();
+    expect(discountTotalFromPercent(fiyatli(100_000), null)).toBeNull();
+    expect(discountTotalFromPercent([], 5)).toBeNull();
+  });
+
+  it("türetilen ORAN, uygulanan oranla aynı büyüklüktedir", () => {
+    const lines = fiyatli(675_807);
+    const hedef = discountTotalFromPercent(lines, 5)!;
+    const oran = discountPercent({ ...emptyPayload().pricing, lines, discountTotal: hedef });
+    expect(oran).toBeCloseTo(5, 3);
   });
 });
 
@@ -954,28 +1038,31 @@ function genelKalem(
     ...(deger.yardimci ? { aux: deger.yardimci } : {}),
   };
   if (deger.aks) genel.rows.find((r) => r.key === "span")!.parts = { value: deger.aks };
-  if (deger.tip) genel.rows.find((r) => r.key === "craneType")!.value = deger.tip;
+  // VİNÇ TİPİ KÜNYE ALANIDIR (md. 3); `composeItemTitle` onu ayrıca alır.
+  if (deger.tip) item.craneType = deger.tip;
   return item;
 }
 
 describe("kalem başlığı satırlardan türetilir", () => {
   it("devralınan tekliflerdeki başlığı birebir üretir", () => {
     expect(
-      composeItemTitle(
-        genelKalem({ ana: "32", yardimci: "5", aks: "19,5", tip: "Çift Kirişli Gezer Köprülü Vinç" })
-          .groups
-      )
+      (() => {
+        const k = genelKalem({ ana: "32", yardimci: "5", aks: "19,5", tip: "Çift Kirişli Gezer Köprülü Vinç" });
+        return composeItemTitle(k.groups, k.craneType);
+      })()
     ).toBe("32/5T x 19,5m ÇİFT KİRİŞLİ GEZER KÖPRÜLÜ VİNÇ");
   });
 
   it("YARDIMCI KALDIRMA YOKSA eğik çizgi de yoktur", () => {
-    expect(composeItemTitle(genelKalem({ ana: "32", aks: "30", tip: "Portal Vinç" }).groups)).toBe(
+    const k = genelKalem({ ana: "32", aks: "30", tip: "Portal Vinç" });
+    expect(composeItemTitle(k.groups, k.craneType)).toBe(
       "32T x 30m PORTAL VİNÇ"
     );
   });
 
   it("açıklık girilmemişse 'x m' gibi yarım bir ölçü OLUŞMAZ", () => {
-    expect(composeItemTitle(genelKalem({ ana: "20", tip: "Monoray Vinç" }).groups)).toBe(
+    const k = genelKalem({ ana: "20", tip: "Monoray Vinç" });
+    expect(composeItemTitle(k.groups, k.craneType)).toBe(
       "20T MONORAY VİNÇ"
     );
   });
@@ -988,7 +1075,7 @@ describe("kalem başlığı satırlardan türetilir", () => {
 
   it("okunacak bir şey yoksa BOŞ döner ve mevcut başlığa dokunulmaz", () => {
     const item = genelKalem({});
-    expect(composeItemTitle(item.groups)).toBe("");
+    expect(composeItemTitle(item.groups, item.craneType)).toBe("");
     expect(withAutoTitle(item).title).toBe("VİNÇ - 1");
   });
 
@@ -1199,17 +1286,14 @@ describe("serbest (yedek parça) kalemi", () => {
 });
 
 describe("vinç tipi şablondan gelir", () => {
-  it("kaleme ve GENEL ÖZELLİKLER satırına birlikte yazılır", () => {
+  it("YALNIZ kalem künyesine yazılır — GENEL ÖZELLİKLER'de satırı yoktur (md. 3)", () => {
     const item = withCraneType(emptyItem("VİNÇ - 1", ["general"]), "Portal Vinç");
     expect(item.craneType).toBe("Portal Vinç");
-    expect(item.groups[0].rows.find((r) => r.key === "craneType")?.value).toBe("Portal Vinç");
+    expect(item.groups[0].rows.some((r) => r.key === "craneType")).toBe(false);
   });
 
-  it("dolu satırın üstüne YAZILMAZ", () => {
-    const item = emptyItem("VİNÇ - 1", ["general"]);
-    item.groups[0].rows.find((r) => r.key === "craneType")!.value = "Monoray Vinç";
-    expect(withCraneType(item, "Portal Vinç").groups[0].rows.find((r) => r.key === "craneType")?.value).toBe(
-      "Monoray Vinç"
-    );
+  it("BOŞ TİP künyeyi silmez", () => {
+    const item = { ...emptyItem("VİNÇ - 1", ["general"]), craneType: "Monoray Vinç" };
+    expect(withCraneType(item, "  ").craneType).toBe("Monoray Vinç");
   });
 });

@@ -596,26 +596,32 @@ export function AnalizView({
         <>
           {/* Masaüstü: çizelge. Telefonda gizlenir — ana tablo yatay KAYMAZ. */}
           <div className="hidden md:block">
-            <Table>
+            {/* SABİT IZGARA, YATAY KAYDIRMA YOK (MOBIL-16; kullanıcı
+                bildirimi 22.08.2026: *"analiz sayfasında da yatayda kaydırma
+                olmasın. Konu kısmı çok uzunsa ... üç nokta yapalım."*).
+                Yüzdeler toplamı 100'dür — değiştiren kişi toplamı korumalıdır.
+                Beklenen Tarih sütunu bir TARİH KUTUSU taşır ve kutu küçülemez;
+                payı bu yüzden en büyük olanlardandır. */}
+            <Table className="table-fixed" containerClassName="!overflow-x-hidden">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Kaynak</TableHead>
-                  <TableHead>Teklif No</TableHead>
-                  <TableHead>Müşteri</TableHead>
-                  <TableHead>Konu</TableHead>
-                  <TableHead>Beklenen Tarih</TableHead>
+                  <TableHead className="w-[6%]">Kaynak</TableHead>
+                  <TableHead className="w-[12%]">Teklif No</TableHead>
+                  <TableHead className="w-[7%]">Müşteri</TableHead>
+                  <TableHead className="w-[19%]">Konu</TableHead>
+                  <TableHead className="w-[16%]">Beklenen Tarih</TableHead>
                   {/* Sütun başlıkları kartlarla AYNI adlandırmayı kullanır
                       (md. 27); "(tümü)" yalnız toplamda anlamlıdır, tek satırda
                       değil. */}
-                  <TableHead className="text-right" title={HAM_IPUCU}>
+                  <TableHead className="w-[11%] text-right" title={HAM_IPUCU}>
                     Teklif Tutarı
                   </TableHead>
-                  <TableHead className="w-24">Puan</TableHead>
-                  <TableHead className="text-right" title={AGIRLIKLI_IPUCU}>
+                  <TableHead className="w-[8%]">Puan</TableHead>
+                  <TableHead className="w-[11%] text-right" title={AGIRLIKLI_IPUCU}>
                     {AGIRLIKLI_ETIKET}
                   </TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="w-[6%]">Durum</TableHead>
+                  <TableHead className="w-[4%]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -648,8 +654,10 @@ export function AnalizView({
                           hue={s.customerHue}
                         />
                       </TableCell>
-                      <TableCell className="max-w-[20rem]">
-                        <span className="line-clamp-2" title={s.subject}>
+                      {/* TEK SATIR + ÜÇ NOKTA: `line-clamp-2` satır boyunu
+                          içeriğe göre değiştiriyordu; tam metin `title`da durur. */}
+                      <TableCell>
+                        <span className="block truncate" title={s.subject}>
                           {s.subject || "—"}
                         </span>
                       </TableCell>

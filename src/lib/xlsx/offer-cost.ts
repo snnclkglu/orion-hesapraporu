@@ -280,7 +280,10 @@ function ozetSayfasi(
 ): void {
   const cur = p.payload.currency || p.offer.currency;
   const para = paraBicimi(cur);
-  const ozet = costOverview(totals, p.offerPayload, steelWeights);
+  // BELGE DE VERİLİR: beş başlık dağıtımı ve serbest satırların elle girilen
+  // ağırlıkları oradan okunur (md. 7). Verilmezse Excel özeti ekrandakinden
+  // eksik çıkardı — MALIYET-24'ün yasakladığı ayrışma.
+  const ozet = costOverview(totals, p.offerPayload, steelWeights, p.payload);
 
   const ws = wb.addWorksheet(sekmeAdi(wb, "Özet"), {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },

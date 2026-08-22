@@ -72,6 +72,31 @@ export interface CostInputs {
   electricRoom: boolean;
   /** Isı kalkanı var mı (sıcak ortam vinçleri). */
   heatShield: boolean;
+  /**
+   * KÖPRÜ / PORTAL RAYININ KODU — hızlı teker seçiminin girdisi (md. 12).
+   *
+   * Kullanıcı isteği (22.08.2026): *"Ray bilgisini zaten teklifte giriyorum.
+   * Değerler teklifte var çoğu."* Teklifin KÖPRÜ (ya da PORTAL YÜRÜTME)
+   * grubundaki `Köprü Rayı` satırından okunur ve ELLE EZİLEBİLİR.
+   *
+   * MALİYET GİRDİSİ OLARAK SAKLANIR, tekliften canlı okunmaz: teker basıncı
+   * rayın BAŞ GENİŞLİĞİNE bağlıdır ve teklif satırı serbest metindir
+   * ("A55", "40x30 Ray", "A65 DIN 536"). Tanınmayan bir yazımda öneri BOŞ
+   * kalır ve kullanıcı listeden seçer — uydurma bir genişlik varsayılmaz
+   * (değişmez md. 4).
+   *
+   * BOŞ METİN "bilinmiyor" demektir, sıfır değil.
+   */
+  bridgeRailCode: string;
+  /**
+   * ARABA RAYININ KODU — kirişin üstündeki ray.
+   *
+   * AYRI BİR ALANDIR ve teklifte AYRI SORULMAZ: defterde araba grubunun ray
+   * satırı yoktur (yürütme satırları ray taşımaz). Açılışta köprü rayıyla
+   * AYNI değerle doldurulur ve mühendis farklıysa değiştirir — iki tekerin
+   * aynı rayda koştuğunu varsaymak, çoğu vinçte doğru olan hâldir.
+   */
+  trolleyRailCode: string;
 }
 
 // ——————————————————————————————————————————————————— türetilen değer
@@ -312,6 +337,51 @@ export interface CostPayload {
    */
   removedOfferItemIds: string[];
   /**
+   * SERBEST FİYAT SATIRLARININ ELLE GİRİLEN AĞIRLIKLARI — anahtar TEKLİF fiyat
+   * satırının kimliğidir (`OfferPriceLine.id`).
+   *
+   * Kullanıcı isteği (22.08.2026, md. 7): *"ben burada FİYAT SATIRLARINA
+   * YAZILAN MALİYETLER kalemlerinin Çelik / Toplam Ağırlık değerlerini elle
+   * girebileyim."*
+   *
+   * MALİYET PAYLOAD'INDA YAŞAR, TEKLİFİNKİNDE DEĞİL (MALIYET-1). Teklif
+   * belgesine bir ağırlık alanı eklemek, müşteriye giden nesnenin içine iç
+   * veri koymak demekti ve korunması `printedPayload`ın dikkatine kalırdı;
+   * ayrı tablo bunu yapısal olarak imkânsız kılar.
+   *
+   * GİRİLMEMİŞ AĞIRLIK `null`DIR, sıfır DEĞİL (değişmez md. 4): nakliyesi
+   * hesaplanmamış bir travers 0 kg değildir, "—"dir.
+   *
+   * YETİM ANAHTAR SİLİNMEZ: taşıma yolu teklifi görmez ve süzmeye kalkmak,
+   * teklif bir an okunamadığında girilmiş ağırlıkları silmek olurdu
+   * (`removedOfferItemIds`in kararlı davranışının aynısı).
+   */
+  manualLineWeights: Record<string, { steelKg: number | null; totalKg: number | null }>;
+  /**
+   * ÖZET SAYFASINDAKİ KÂR YÜZDELERİ — satır kimliği → yüzde.
+   *
+   * Kullanıcı isteği (22.08.2026, md. 7): *"burda kar sütunu olsun %25 olarak
+   * ön tanımlı gelsin ama elle değiştirebileyim. Tahmini satış fiyatımı bu
+   * özet sayfadan çıkarabileyim. Buradaki satış fiyatını diğer tarafa alma
+   * sadece referans olarak ben ön çalışma yapacağım."*
+   *
+   * SATIŞ ÜZERİNDEN yüzdedir (kullanıcı kararı, 22.08.2026): tahmini satış
+   * `maliyet ÷ (1 − yüzde/100)`. Alternatifi — maliyetin üstüne yüzde eklemek
+   * — açıkça soruldu ve reddedildi; ASTOR ölçeğinde iki yöntem arasında
+   * 16.188 €'luk fark var ve bu bir varsayıma bırakılamazdı (MALIYET-5'in
+   * "8.658 €'luk fark sorulur" kararının aynı ailesi).
+   *
+   * BU SAYI TEKLİFE YAZILMAZ. `direct`/`total` alanlarına dokunmaz, teklif
+   * payload'ına hiç gitmez: bir ÖN ÇALIŞMA aracıdır ve teklifin fiyatı Fiyat
+   * sayfasında yaşamaya devam eder.
+   *
+   * ANAHTAR SATIRIN KİMLİĞİDİR (maliyet kalemi ya da serbest fiyat satırı);
+   * girilmemiş satır defterdeki varsayılanı (`DEFAULT_OVERVIEW_MARGIN_PERCENT`)
+   * kullanır ve o değer BELGEYE YAZILMAZ — böylece varsayılan yarın
+   * değişirse dokunulmamış satırlar onunla birlikte değişir.
+   */
+  overviewMargins: Record<string, number | null>;
+  /**
    * PROJE GENELİ giderler — tek bir vince atfedilemeyen kalemler
    * (dokümantasyon, saha genel giderleri, nakliye organizasyonu).
    * Excel'de de ayrı bir öbektir ("PROJE GENELİ KALEMLER (götürü)").
@@ -370,6 +440,23 @@ export interface CostGroupDef {
   key: string;
   title: string;
   lines: CostLineDef[];
+  /**
+   * BÖLÜM RENGİNİN TON AÇISI (OKLCH hue, 0–359).
+   *
+   * Kullanıcı isteği (22.08.2026, md. 13): *"Maliyet sayfasında başlıklarda
+   * bölümlerde az da olsa renklendirme yapıp gözle anlaşılabilirliği
+   * artırmak istiyorum. Soft renkler olsun."*
+   *
+   * YALNIZ AÇIDIR (değişmez md. 6): doygunluk ve parlaklık `globals.css`te ve
+   * TEMA BAŞINA verilir (`.oc-fieldgroup`). Mühendislik alan öbeklerinin
+   * (`lib/calc/field-groups.ts`) ve kapsam etiketlerinin (`lib/tags.ts`)
+   * kullandığı sözleşmenin aynısı.
+   *
+   * DEFTERDE DURUR, BELGEDE DEĞİL: `CostGroup` yalnız `key` ve `title` taşır;
+   * renk her boyamada anahtardan çözülür. Payload'a yazılsaydı yayımlanmış bir
+   * maliyet revizyonunun rengi donar ve defter değiştiğinde ayrışırdı.
+   */
+  hue: number;
 }
 
 /**

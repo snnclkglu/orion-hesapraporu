@@ -11,6 +11,7 @@
 // "yalnız açılışta" kuralının aynı gerekçesi). Bu yüzden `withOfferSync`
 // yalnız "Tekliften Tazele" düğmesinden ve maliyet açılırken çağrılır.
 
+import { RAILS } from "@/lib/calc/tables";
 import { trSayi } from "@/lib/drawings/tr-text";
 // AD ALANLARI BÜYÜK HARF SAKLANIR (değişmez md. 3) ve dönüşüm `adBuyuk`la
 // yapılır: düz `toUpperCase()` "Çelik İmalat İşçiliği"ni "CELIK IMALAT
@@ -91,6 +92,8 @@ export function emptyCostInputs(gantry = false): CostInputs {
     movingCabin: false,
     electricRoom: false,
     heatShield: false,
+    bridgeRailCode: "",
+    trolleyRailCode: "",
   };
 }
 
@@ -199,6 +202,8 @@ export function emptyCostPayload(
     materialPrices: { ...materialPrices },
     items: [],
     removedOfferItemIds: [],
+    manualLineWeights: {},
+    overviewMargins: {},
     general: costGroupFromKey(GENERAL_GROUP_KEY),
     rates: defaultRateGroups(),
     notes: "",
@@ -283,7 +288,32 @@ export function inputsFromOfferItem(item: OfferItem, onceki?: CostInputs): CostI
     bridgeWheelCount: adet(yur, "wheel", "count", taban.bridgeWheelCount),
     bridgeDriveCount: adet(yur, "motor", "count", taban.bridgeDriveCount),
     trolleyDriveCount: adet("trolley", "motor", "count", taban.trolleyDriveCount),
+    // RAY KODU TEKLİFTEN OKUNUR ama ELLE EZİLEBİLİR (md. 12): satır serbest
+    // metindir ve tanınmayan bir yazımda okuma boş döner — kullanıcının
+    // seçtiği kod o zaman yerinde kalır.
+    bridgeRailCode: taban.bridgeRailCode || railCodeFrom(value(item, yur, "rail")),
+    // ARABA RAYI AÇILIŞTA KÖPRÜNÜNKİYLE AYNIDIR: teklifte araba rayı diye bir
+    // satır yoktur ve çoğu vinçte iki teker aynı profilde koşar.
+    trolleyRailCode: taban.trolleyRailCode || railCodeFrom(value(item, yur, "rail")),
   };
+}
+
+/**
+ * SERBEST RAY METNİNDEN KATALOG KODU — tanınmazsa BOŞ.
+ *
+ * Teklif satırı defterden seçilir ama yazımı serbesttir: "A55", "A 55",
+ * "A55 DIN 536", "40x30 Ray". Ayıklama iki biçimi tanır — A serisi (A65) ve
+ * kare/dikdörtgen çubuk (50x50, 70x40) — ve sonucu `RAILS` defterinde
+ * DOĞRULAR. Doğrulamak şarttır: tanınmayan bir kod ray başı genişliğini `NaN`
+ * yapar ve basınç hesabı sessizce çalışmaz hâle gelirdi.
+ */
+export function railCodeFrom(text: string | null | undefined): string {
+  const t = (text ?? "").toLocaleUpperCase("tr-TR");
+  const a = t.match(/\bA\s*(\d{2,3})\b/);
+  if (a && RAILS[`A${a[1]}`]) return `A${a[1]}`;
+  const kare = t.match(/\b(\d{2,3})\s*[X*]\s*(\d{2,3})\b/);
+  if (kare && RAILS[`${kare[1]}x${kare[2]}`]) return `${kare[1]}x${kare[2]}`;
+  return "";
 }
 
 /**
@@ -601,6 +631,10 @@ function inputsFromRaw(raw: unknown): CostInputs {
     movingCabin: i.movingCabin === true,
     electricRoom: i.electricRoom === true,
     heatShield: i.heatShield === true,
+    // RAY KODU eski belgelerde YOKTUR ve boş gelir; teklif eşitlemesi ya da
+    // kullanıcı doldurur.
+    bridgeRailCode: metin(i.bridgeRailCode),
+    trolleyRailCode: metin(i.trolleyRailCode),
   };
 }
 
@@ -653,6 +687,24 @@ function withFabricationGroup(item: CostItem): CostItem {
   return { ...item, groups: [imalat, ...temizGruplar] };
 }
 
+/**
+ * `{ steelKg, totalKg }` sözlüğünü ham veriden okur.
+ *
+ * `sayilarBoslu`nun kardeşidir ve aynı kuralı taşır: okunamayan sayı `null`
+ * olur, sıfır DEĞİL. Anahtarlar SÜZÜLMEZ — yetim kalan bir kayıt silinmez.
+ */
+function agirliklarBoslu(
+  raw: unknown
+): Record<string, { steelKg: number | null; totalKg: number | null }> {
+  const out: Record<string, { steelKg: number | null; totalKg: number | null }> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const o = (v ?? {}) as Record<string, unknown>;
+    out[k] = { steelKg: sayiVeyaNull(o.steelKg), totalKg: sayiVeyaNull(o.totalKg) };
+  }
+  return out;
+}
+
 export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
   const p = (raw ?? {}) as Record<string, unknown>;
   const bos = emptyCostPayload(currency);
@@ -681,6 +733,13 @@ export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
     removedOfferItemIds: dizi<unknown>(p.removedOfferItemIds)
       .map((x) => metin(x))
       .filter((x) => x !== ""),
+    // ÖZET SAYFASININ ELLE GİRİLEN VERİSİ (md. 7). BURAYA EKLENMESİ ŞARTTIR:
+    // `withCostDefaults` yalnız TANIDIĞI alanları yeniden kurar ve kaydetme
+    // yolu her seferinde ondan geçer (`saveOfferCostRevision`) — alan burada
+    // olmasaydı kullanıcının girdiği ağırlık ve kâr yüzdesi ekranda görünür,
+    // Kaydet'e basınca sessizce yok olurdu.
+    manualLineWeights: agirliklarBoslu(p.manualLineWeights),
+    overviewMargins: sayilarBoslu(p.overviewMargins),
     general: p.general ? groupFromRaw(p.general) : bos.general,
     // ORANLI GRUPLAR DEFTERDEN TAMAMLANIR: yeni bir oran grubu eklenirse
     // (ör. "risk payı") eski belgelerde de görünür ve yüzdesi BOŞ gelir —

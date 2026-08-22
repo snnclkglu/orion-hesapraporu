@@ -26,7 +26,7 @@
 // hesap değil.
 
 import { adBuyuk } from "@/lib/tr-text";
-import { generalRowPart, generalRowValue } from "./registry";
+import { generalRowPart } from "./registry";
 import type { OfferItem } from "./types";
 
 /**
@@ -96,7 +96,16 @@ export function isDefaultItemTitle(title: string): boolean {
  * bir kalemde henüz kapasite de tip de yoktur ve başlığı silmek, bölüm rayında
  * adsız bir sekme bırakırdı.
  */
-export function composeItemTitle(groups: readonly BasliktakiGruplar[]): string {
+export function composeItemTitle(
+  groups: readonly BasliktakiGruplar[],
+  /**
+   * VİNÇ TİPİ AYRI GELİR — çünkü artık bir SATIR değil, kalem künyesinin
+   * alanıdır (`item.craneType`, md. 3). Bu fonksiyon satırları okur ve tipi
+   * de satırdan okusaydı, kaldırılan satırla birlikte başlıktaki tip de
+   * sessizce düşerdi.
+   */
+  craneType = ""
+): string {
   const ana = generalRowPart(groups, "capacity", "main");
   const yardimci = generalRowPart(groups, "capacity", "aux");
   // AÇIKLIK İKİ SATIRDAN GELEBİLİR: gezer köprülü vinçte `Köprü Açıklığı`,
@@ -104,7 +113,7 @@ export function composeItemTitle(groups: readonly BasliktakiGruplar[]): string {
   // yalnız biri doludur.
   const aks =
     generalRowPart(groups, "span", "value") || generalRowPart(groups, "boomSpan", "value");
-  const tip = generalRowValue(groups, "craneType");
+  const tip = (craneType ?? "").trim();
 
   const kapasite = ana ? `${ana}${yardimci ? `/${yardimci}` : ""}T` : "";
   const olcu = [kapasite, aks ? `x ${aks}m` : ""].filter(Boolean).join(" ");
@@ -122,7 +131,7 @@ export function composeItemTitle(groups: readonly BasliktakiGruplar[]): string {
  */
 export function withAutoTitle(item: OfferItem): OfferItem {
   if (item.titleManual) return item;
-  const baslik = composeItemTitle(item.groups);
+  const baslik = composeItemTitle(item.groups, item.craneType);
   if (!baslik || baslik === item.title) return item;
   return { ...item, title: baslik };
 }

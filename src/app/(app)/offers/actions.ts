@@ -34,6 +34,7 @@ import { itemFactsFromRows } from "@/lib/offers/registry";
 import { defaultsOf, loadCustomerContacts, loadOfferOptions } from "./data";
 import { withTotal } from "@/lib/offers/pricing";
 import { offerFileName } from "@/lib/pdf/doc-naming";
+import { OFFER_STATUSES, type OfferStatus } from "@/lib/offers/status";
 import { renderOfferPdf } from "@/lib/pdf/offer";
 import {
   copyOfferSchema,
@@ -416,6 +417,62 @@ export async function updateOfferSubject(
   return {};
 }
 
+/**
+ * TEKLİFİN DURUMUNU DEĞİŞTİRİR — liste satırından, tek tıkla.
+ *
+ * Kullanıcı isteği (22.08.2026): *"teklif bazen iptal edilebiliyor. satırda
+ * silme ve iptal özelliği olsun."*
+ *
+ * `updateOfferDetails`TEN AYRIDIR ve gerekçesi `updateOfferSubject`inkiyle
+ * aynıdır: o eylem müşteriyi, konuyu, durumu ve para birimini birlikte ister
+ * ve hepsini birden YAZAR. Liste satırında bunların hiçbiri yoktur; hepsini
+ * göndermek, ekranda bulunmayan alanları bir varsayılanla ezmenin yolu olurdu.
+ *
+ * SİLME DEĞİL, DURUM: iptal edilen teklif kaydında KALIR. Bir teklifin iptal
+ * edilmiş olması bir olgudur ve gelecek yıl "geçen sene bu müşteriye ne
+ * vermiştik" sorusunun cevabı odur; kaydı silmek o cevabı da siler. Silme
+ * ayrı bir eylemdir ve yayımlanmış revizyonu olan teklifte reddedilir.
+ */
+export async function updateOfferStatus(
+  offerId: string,
+  status: OfferStatus
+): Promise<OfferActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Oturum bulunamadı" };
+
+  const id = z.uuid("Geçersiz teklif").safeParse(offerId);
+  if (!id.success) return { error: id.error.issues[0].message };
+  const durum = z.enum(OFFER_STATUSES).safeParse(status);
+  if (!durum.success) return { error: "Geçersiz teklif durumu" };
+
+  const { data: onceki } = await supabase
+    .from("offers")
+    .select("status")
+    .eq("id", id.data)
+    .maybeSingle();
+
+  const { data: yazilan, error } = await supabase
+    .from("offers")
+    .update({ status: durum.data })
+    .eq("id", id.data)
+    .select("id");
+  if (error) return { error: error.message };
+  // Yetkisizlik SESSİZ BAŞARI olmasın: RLS satırı vermezse `update` hata
+  // döndürmez, hiçbir satıra dokunmaz.
+  if (!yazilan?.length) return { error: "Teklifi düzenleme yetkisi gerekir." };
+
+  await audit(supabase, user.id, "offer.status", {
+    offer_id: id.data,
+    onceki: onceki?.status ?? null,
+    yeni: durum.data,
+  });
+  tazele(id.data);
+  return {};
+}
+
 export async function deleteOffer(offerId: string): Promise<OfferActionResult> {
   const supabase = await createClient();
   const {
@@ -541,9 +598,9 @@ export async function saveOfferRevision(
       ...item,
       capacityT: kunye.capacityT,
       spanM: kunye.spanM,
-      // Vinç tipi künyede SORULUR; satırda da yazılmışsa satır kazanır
-      // (belgeye basılan odur).
-      craneType: kunye.craneType || item.craneType || "",
+      // VİNÇ TİPİ TÜRETİLMEZ, SORULUR (md. 3): `GENEL ÖZELLİKLER > Vinç Tipi`
+      // satırı emekliye ayrıldı ve tek soruluşu kalem künyesindeki kutudur.
+      craneType: item.craneType || "",
     };
   });
 

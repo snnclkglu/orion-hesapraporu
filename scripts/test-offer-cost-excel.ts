@@ -269,7 +269,7 @@ async function main() {
   const basilan = printedCostPayload(maliyet);
   const models = costModels(maliyet);
   const totals = costTotals(basilan, costWeights(models));
-  const ozet = costOverview(totals, teklif, costSteelWeights(models));
+  const ozet = costOverview(totals, teklif, costSteelWeights(models), basilan);
   const kirilim = costBreakdown(basilan, totals);
 
   const t0 = Date.now();

@@ -64,6 +64,16 @@ const OLCU_ALANLARI = [
 const ADET_ALANLARI = ["bridgeWheelCount", "bridgeDriveCount", "trolleyDriveCount"] as const;
 
 /**
+ * BELGEDEN OKUNAN METİNLER — ray kodları (md. 12).
+ *
+ * `OLCU_ALANLARI` gibi boşaltılmazlar ve `ADET_ALANLARI` gibi de değildirler:
+ * `inputsFromOfferItem` ray kodunu ancak MEVCUT BOŞSA yazar (`taban.x || …`).
+ * Yani kullanıcının listeden seçtiği ray "eşitleme" adı altında sessizce
+ * değişmez; boşsa teklifin satırı doldurur.
+ */
+const METIN_ALANLARI = ["bridgeRailCode", "trolleyRailCode"] as const;
+
+/**
  * GİRDİLERİN AD DEFTERİ — kutu da fark listesi de BURADAN okur.
  *
  * `Record<keyof CostInputs, …>`tır ve tip bunu bir SÖZ hâline getirir: modele
@@ -92,6 +102,8 @@ const ETIKETLER: Record<keyof CostInputs, { etiket: string; birim?: string }> = 
   movingCabin: { etiket: "Hareketli Kabin" },
   electricRoom: { etiket: "Elektrik Odası" },
   heatShield: { etiket: "Isı Kalkanı" },
+  bridgeRailCode: { etiket: "Köprü / Portal Rayı" },
+  trolleyRailCode: { etiket: "Araba Rayı" },
 };
 
 /** Alanın ekrandaki adı — girdi kutusu ve fark listesi AYNI metni okur. */
@@ -158,6 +170,15 @@ export function teklifleEsitle(mevcut: CostInputs, teklifKalemi: OfferItem): Gir
     if (yeni === mevcut[k]) continue;
     inputs[k] = yeni;
     ekle(k, sayiMetni(mevcut[k]), sayiMetni(yeni));
+  }
+
+  // RAY KODU YALNIZ BOŞKEN DOLAR (`inputsFromOfferItem`in `taban.x || …`
+  // kelepçesi): kullanıcının seçtiği ray eşitlemeyle geri alınmaz.
+  for (const k of METIN_ALANLARI) {
+    const yeni = taze[k];
+    if (!yeni || yeni === mevcut[k]) continue;
+    inputs[k] = yeni;
+    ekle(k, mevcut[k] || "—", yeni);
   }
 
   if (taze.craneClass !== mevcut.craneClass) {

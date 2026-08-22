@@ -130,7 +130,7 @@ export function ItemEditor({
   }
 
   const arabaAdedi = trolleyCount(item);
-  const otomatikBaslik = composeItemTitle(item.groups);
+  const otomatikBaslik = composeItemTitle(item.groups, item.craneType);
 
   return (
     <div className={cn("grid gap-4", item.hidden && "opacity-60")}>
