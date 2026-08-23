@@ -52,6 +52,23 @@ fs.mkdirSync(outDir, { recursive: true });
 
 // ————————————————————————————————————————————————————————— fikstür
 
+/**
+ * SERBEST FİYAT SATIRI — kimliği SABİTTİR çünkü iki belge onu bu anahtarla
+ * eşleştirir: teklifin `pricing.lines[].id` ile maliyetin `manualLineCosts`
+ * anahtarı. Rastgele bir kimlik üretilseydi eşleşme kurulamaz ve fikstür
+ * "girilmemiş" bir satır anlatırdı.
+ */
+const SERBEST_SATIR_ID = "serbest-kaldirma-traversi";
+
+/** Özet sayfasından ELLE girilen beş başlık — toplamı 20.000 €. */
+const SERBEST_BASLIKLAR = {
+  fabrication: 6_000,
+  project: 8_500,
+  fixed: 5_000,
+  consumable: 500,
+  finance: null as number | null,
+};
+
 /** ASTOR 32T × 30 m tam portal — teklif kalemi (girdilerin kaynağı). */
 function astorKalemi(): OfferItem {
   const item: OfferItem = {
@@ -104,6 +121,20 @@ function astorTeklifi(item: OfferItem): OfferPayload {
       // konarak yazıldı (231.167 / 0,75). Amaç KÂR SATIRININ basıldığını
       // ölçmek, bir fiyat önermek değil.
       unitPrice: 308_222,
+      inTotal: true,
+    },
+    // SERBEST FİYAT SATIRI — kaleme bağlı DEĞİL. Maliyeti maliyet belgesinde
+    // yoktur; kullanıcı beş başlığını Özet sayfasından ELLE girer (23.08.2026,
+    // md. 1) ve o sayılar BELGEDE görünmek zorundadır. Fikstürde durmasaydı
+    // PDF'in serbest satır sütunlarını hiçbir sav ölçmezdi — nitekim ilk turda
+    // üç sütun sabit "—" basılıyordu ve testler geçiyordu.
+    {
+      id: SERBEST_SATIR_ID,
+      itemId: null,
+      description: "KALDIRMA TRAVERSİ",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 26_500,
       inTotal: true,
     },
   ];
@@ -198,6 +229,25 @@ function astorMaliyeti(offer: OfferPayload): CostPayload {
   p.general.lines = p.general.lines.map((l) =>
     l.key === "documentation" ? { ...l, unitPrice: 0 } : l
   );
+
+  // ÖZET SAYFASINDAN ELLE GİRİLEN VERİ (23.08.2026, md. 1 · 22.08.2026, md. 7).
+  // Maliyet payload'ında yaşar, teklifinkinde değil (MALIYET-1).
+  p.manualLineWeights = { [SERBEST_SATIR_ID]: { steelKg: 7_000, totalKg: 7_000 } };
+  p.manualLineCosts = {
+    [SERBEST_SATIR_ID]: {
+      // TOPLAM KUTUSU BİLEREK DOLU: kırılım girilmişse okunmaz (`manualLineCost`)
+      // ve savın ölçtüğü şey tam olarak budur — belgede 20.000 € görünmelidir,
+      // 99.999 € değil.
+      total: 99_999,
+      fabrication: SERBEST_BASLIKLAR.fabrication,
+      project: SERBEST_BASLIKLAR.project,
+      rates: {
+        fixed: SERBEST_BASLIKLAR.fixed,
+        consumable: SERBEST_BASLIKLAR.consumable,
+        finance: SERBEST_BASLIKLAR.finance,
+      },
+    },
+  };
 
   return withCostDerived(p);
 }
@@ -478,6 +528,42 @@ async function main() {
   kontrol(
     projePayi !== null && duz(metin).includes(`%${projePayi}`),
     `projenin SATIR MALİYETİNE oranı basıldı (%${projePayi})`
+  );
+
+  // 5c — SERBEST SATIRIN ELLE GİRİLEN BEŞ BAŞLIĞI (md. 1)
+  //
+  // BU SAV BİR HATADAN DOĞDU (kullanıcı bildirimi 23.08.2026): özet
+  // tablosunda girilen imalat/proje/genel gider tutarları PDF'te "—" olarak
+  // basılıyordu — üç sütun bileşende sabit `null` yazılıydı ve hiçbir test
+  // buraya bakmıyordu, çünkü fikstürde hiç serbest satır yoktu.
+  console.log("\n  serbest satırın elle girdiği başlıklar");
+  const serbest = ozet.manualLines.find((l) => l.description === "KALDIRMA TRAVERSİ");
+  kontrol(serbest !== undefined, "serbest fiyat satırı özette var");
+  const genelPayi =
+    (SERBEST_BASLIKLAR.fixed ?? 0) +
+    (SERBEST_BASLIKLAR.consumable ?? 0) +
+    (SERBEST_BASLIKLAR.finance ?? 0);
+  for (const [ad, tutar] of [
+    ["imalat", SERBEST_BASLIKLAR.fabrication],
+    ["proje", SERBEST_BASLIKLAR.project],
+    ["genel gider", genelPayi],
+  ] as const) {
+    kontrol(
+      duz(metin).includes(duz(fmtMoney0(tutar, "EUR"))),
+      `serbest satırın ${ad} tutarı belgede (${fmtMoney0(tutar, "EUR")})`
+    );
+  }
+  // KIRILIM GİRİLMİŞSE TEK MALİYET KUTUSU OKUNMAZ (`manualLineCost`): belgede
+  // beş başlığın toplamı görünmeli, gölgede kalan 99.999 € değil.
+  kontrol(serbest?.amount === 20_000, `serbest satırın maliyeti kırılımın toplamı (${serbest?.amount})`);
+  kontrol(!duz(metin).includes("99.999"), "okunmayan tek maliyet kutusu BASILMIYOR");
+  // DİP TOPLAM KENDİ SÜTUNUNU TOPLAR: vinç + serbest satır. `totals.fabrication`
+  // yalnız vinçleri sayar ve sütunu gözle toplayan okuyucu tutturamazdı.
+  kontrol(
+    duz(metin).includes(
+      duz(fmtMoney0((totals.fabrication ?? 0) + (SERBEST_BASLIKLAR.fabrication ?? 0), "EUR"))
+    ),
+    "İMALAT dip toplamı serbest satırı da sayıyor"
   );
 
   // 6 — YERLEŞİM (md. 12)

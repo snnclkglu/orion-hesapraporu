@@ -1037,6 +1037,16 @@ oradan gelsin."*
   ayrı tonda (`.oc-series-bg`, ton bir AÇIDIR — değişmez md. 6). Yalnız renk
   olsaydı ayrım renk körlüğünde düşerdi (WCAG 1.4.1); yazılı "fiyat satırı"
   etiketi de bu yüzden yerinde durur.
+- **BEŞ BAŞLIK BELGELERE DE YAZILIR** ve bu bir düzeltmenin kaydıdır (kullanıcı
+  bildirimi, aynı gün): PDF'in özet tablosu serbest satırın imalat/proje/genel
+  gider hücrelerini SABİT `null` basıyordu, yani ekranda girilen sayılar belgede
+  "—" görünüyor ve TOPLAM satırı yalnız vinçleri sayıyordu. **Hata testlerden
+  kaçtı çünkü iki duman fikstüründe de kırılımı girilmiş bir serbest satır
+  YOKTU** — sütun boş bir listeyle sınanıyordu. Fikstürlere böyle bir satır
+  eklendi (`SERBEST_SATIR_ID` / `KIRILIMLI_SATIR_ID`) ve savlar tutarları
+  belgede ARAR; kaldırıldığında dört kontrol düşer, ölçüldü. Aynı satır iki
+  hâli birden taşır: girilmemiş `finance` hücresi BOŞ kalır (değişmez md. 4) ve
+  gölgede kalan `total: 99.999 €` HİÇ basılmaz (`manualLineCost`).
 
 ## MALIYET-49 — Yüzdenin İKİ tabanı vardır ve fark söylenir.
 

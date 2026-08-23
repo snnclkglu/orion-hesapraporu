@@ -87,6 +87,27 @@ function astorKalemi(): OfferItem {
 /** Teklifin ELLE MALİYETİ — özetin `manualLines` bloğunu sınayan tek satır. */
 const ELLE_MALIYET = 2500;
 
+/**
+ * BEŞ BAŞLIĞI ÖZETTEN GİRİLMİŞ ikinci bir serbest satır (23.08.2026, md. 1).
+ *
+ * Kimliği SABİTTİR çünkü iki belge onu bu anahtarla eşleştirir: teklifin
+ * `pricing.lines[].id` ile maliyetin `manualLineCosts` anahtarı.
+ *
+ * BİRİNCİ SERBEST SATIR DOKUNULMAMIŞ KALIR ve bu bilinçlidir: çizelgenin iki
+ * hâli birden sınanmalıdır — girilmiş hücre YAZILIR, girilmemiş hücre BOŞ
+ * kalır (değişmez md. 4).
+ */
+const KIRILIMLI_SATIR_ID = "serbest-kaldirma-traversi";
+const KIRILIMLI_BASLIKLAR = {
+  fabrication: 6_000,
+  project: 8_500,
+  fixed: 5_000,
+  consumable: 500,
+  finance: null as number | null,
+};
+/** Beş kutunun toplamı — satırın geçerli maliyeti (tek maliyet kutusu OKUNMAZ). */
+const KIRILIM_TOPLAMI = 20_000;
+
 function astorTeklifi(item: OfferItem): OfferPayload {
   const p = emptyPayload("EUR");
   p.items = [item];
@@ -114,6 +135,19 @@ function astorTeklifi(item: OfferItem): OfferPayload {
       unitPrice: 4_000,
       inTotal: true,
       manualCost: ELLE_MALIYET,
+    },
+    // BEŞ BAŞLIĞI ÖZETTEN GİRİLMİŞ İKİNCİ SERBEST SATIR (23.08.2026, md. 1).
+    // Fikstürde yoktu ve o yüzden hiçbir sav özetin ELLE girilen sütunlarına
+    // bakmıyordu — kardeş belgede (PDF) üç sütun sabit "—" basıyordu ve
+    // testler yine geçiyordu.
+    {
+      id: KIRILIMLI_SATIR_ID,
+      itemId: null,
+      description: "KALDIRMA TRAVERSİ",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 26_500,
+      inTotal: true,
     },
   ];
   p.pricing = withTotal(p.pricing);
@@ -209,6 +243,24 @@ function astorMaliyeti(offer: OfferPayload): CostPayload {
     unit: "takım",
     unitPrice: null,
   });
+
+  // ÖZET SAYFASINDAN ELLE GİRİLEN VERİ (23.08.2026, md. 1 · 22.08.2026, md. 7).
+  // Maliyet payload'ında yaşar, teklifinkinde değil (MALIYET-1).
+  p.manualLineWeights = { [KIRILIMLI_SATIR_ID]: { steelKg: 7_000, totalKg: 7_000 } };
+  p.manualLineCosts = {
+    [KIRILIMLI_SATIR_ID]: {
+      // TOPLAM KUTUSU BİLEREK DOLU: kırılım girilmişse OKUNMAZ ve savın
+      // ölçtüğü şey tam olarak budur — hücrede 20.000 € durmalı, 99.999 € değil.
+      total: 99_999,
+      fabrication: KIRILIMLI_BASLIKLAR.fabrication,
+      project: KIRILIMLI_BASLIKLAR.project,
+      rates: {
+        fixed: KIRILIMLI_BASLIKLAR.fixed,
+        consumable: KIRILIMLI_BASLIKLAR.consumable,
+        finance: KIRILIMLI_BASLIKLAR.finance,
+      },
+    },
+  };
 
   return withCostDerived(p);
 }
@@ -385,7 +437,13 @@ async function main() {
   const fiyat = sayi(oz, "TEKLİF TUTARI", 2);
   const kar = sayi(oz, "KÂR", 2);
   kontrol(yakin(belgeToplami, ozet.documentTotal), "belge toplamı = costOverview.documentTotal");
-  kontrol(yakin(elle, ELLE_MALIYET), `serbest satırın elle maliyeti taşındı (${elle} €)`);
+  // İKİ SERBEST SATIRIN TOPLAMI: biri fiyat sayfasından (2.500 €), öteki
+  // özetten kırılım olarak (20.000 €). İkisi de aynı satıra girer — kaynak
+  // farkı toplamda değil, satırın kendisinde yaşar (`manualLineCost`).
+  kontrol(
+    yakin(elle, ELLE_MALIYET + KIRILIM_TOPLAMI),
+    `serbest satırların elle maliyeti taşındı (${elle} €)`
+  );
   kontrol(yakin(maliyetToplam, ozet.margin.cost), "toplam maliyet = belge toplamı + elle maliyet");
   kontrol(yakin(fiyat, ozet.margin.price), "teklif tutarı = iskontolu teklif toplamı");
   kontrol(yakin(kar, ozet.margin.profit), `kâr = teklif − maliyet (${kar})`);
@@ -435,6 +493,7 @@ async function main() {
   const AGIRLIK = 8;
   const IMALAT = 12;
   const IMALAT_YUZDE = 13;
+  const PROJE = 14;
   const maliyetSutunu = 16 + totals.rates.length * 2;
   kontrol(
     String(hucre(oz, kalemBaslik, maliyetSutunu) ?? "") === "GENEL GİDER DAHİL MALİYET" &&
@@ -509,6 +568,49 @@ async function main() {
     );
     kontrol(hucre(oz, serbest, maliyetSutunu) === 2_500, "serbest satırın maliyeti listede (2.500 €)");
   }
+
+  // ÖZETTEN ELLE GİRİLEN BEŞ BAŞLIK ÇİZELGEYE DE YAZILIR (md. 1).
+  //
+  // BU SAV BİR HATADAN DOĞDU (kullanıcı bildirimi 23.08.2026): özet
+  // tablosunda girilen imalat/proje/genel gider tutarları kardeş belgede
+  // (PDF) hiç basılmıyordu ve fikstürde böyle bir satır olmadığı için testler
+  // geçiyordu. İki çıktı aynı veriyi okur; ikisi de sınanır.
+  const kirilimli = okunanSatirlar(oz, kalemBaslik + 1).find(
+    (no) => String(hucre(oz, no, 1) ?? "") === "KALDIRMA TRAVERSİ"
+  );
+  kontrol(kirilimli !== undefined, "kırılımı girilmiş serbest satır listede");
+  if (kirilimli !== undefined) {
+    kontrol(
+      hucre(oz, kirilimli, IMALAT) === KIRILIMLI_BASLIKLAR.fabrication,
+      `özetten girilen İMALAT çizelgede (${hucre(oz, kirilimli, IMALAT)})`
+    );
+    kontrol(
+      hucre(oz, kirilimli, PROJE) === KIRILIMLI_BASLIKLAR.project,
+      `özetten girilen PROJE çizelgede (${hucre(oz, kirilimli, PROJE)})`
+    );
+    kontrol(
+      hucre(oz, kirilimli, 16) === KIRILIMLI_BASLIKLAR.fixed,
+      `özetten girilen SABİT çizelgede (${hucre(oz, kirilimli, 16)})`
+    );
+    // GİRİLMEMİŞ ORAN UYDURULMAZ: `finance` fikstürde `null`dır ve hücre BOŞ
+    // kalmalıdır — sıfır yazmak "düşünüldü ve yok" demenin sessiz yoluydu.
+    const finansman = hucre(oz, kirilimli, 20);
+    kontrol(
+      finansman === null || finansman === undefined,
+      `girilmemiş FİNANSMAN hücresi BOŞ (${JSON.stringify(finansman)})`
+    );
+    // KIRILIM GİRİLMİŞSE TEK MALİYET KUTUSU OKUNMAZ (`manualLineCost`).
+    kontrol(
+      hucre(oz, kirilimli, maliyetSutunu) === KIRILIM_TOPLAMI,
+      `satırın maliyeti kırılımın TOPLAMI (${hucre(oz, kirilimli, maliyetSutunu)}), gölgedeki 99.999 € değil`
+    );
+  }
+  // DİP TOPLAM KENDİ SÜTUNUNU TOPLAR: `totals.fabrication` yalnız vinçleri
+  // sayar ve sütunu gözle toplayan okuyucu tutturamazdı.
+  kontrol(
+    yakin(sayi(oz, "TOPLAM", IMALAT), (totals.fabrication ?? 0) + KIRILIMLI_BASLIKLAR.fabrication),
+    "İMALAT dip toplamı serbest satırı da sayıyor"
+  );
   kontrol(
     yakin(sayi(oz, "TOPLAM", CELIK), ozet.steelKgAll) &&
       yakin(sayi(oz, "TOPLAM", AGIRLIK), ozet.weightKgAll),

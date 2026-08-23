@@ -531,6 +531,13 @@ function OzetListesi({
       genel: topla(i.headings.rates.map((r) => r.amount)),
       maliyet: i.headings.loaded,
     })),
+    // SERBEST SATIRIN BEŞ BAŞLIĞI DA BASILIR (23.08.2026, md. 1): kullanıcı
+    // onları Özet sayfasından ELLE giriyor ve girdiği sayı belgede görünmek
+    // zorundadır. Bu üç alan bir süre sabit `null` yazılıydı — o hâl, özetten
+    // girilen imalat/proje/genel gider tutarlarının PDF'te sessizce "—"
+    // görünmesi ve TOPLAM satırının yalnız vinçleri sayması demekti.
+    // UYDURULMAZ AMA YOK SAYILMAZ DA: dokunulmamış hücre yine `null` gelir
+    // (`costOverview`), yani "—" ancak GERÇEKTEN girilmemişse basılır.
     ...ozet.manualLines.map((l) => ({
       id: l.id,
       baslik: l.description || "—",
@@ -538,9 +545,9 @@ function OzetListesi({
       qty: null,
       celik: l.steelKg,
       agirlik: l.totalKg,
-      imalat: null,
-      proje: null,
-      genel: null,
+      imalat: l.headings.fabrication,
+      proje: l.headings.project,
+      genel: topla(l.headings.rates.map((r) => r.amount)),
       maliyet: l.amount,
     })),
   ];
