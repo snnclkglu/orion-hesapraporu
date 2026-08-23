@@ -412,7 +412,7 @@ export function ElectricalCard({
 
       {/* ————————————————————————————————————————————— liste + süzgeç */}
       {(parts.length > 0 || sayfaObekleri.length > 0) && (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="relative overflow-hidden rounded-lg border bg-card">
           {/* GÖRÜNÜM RAYI — üç ayrı soru, üç ayrı liste. Segment denetimi
               (düğme kümesi değil): hangisinin etkin olduğu tek bakışta
               okunmalı ve sayaç SÜZÜLMÜŞ değil TOPLAM adedi göstermeli —
@@ -504,6 +504,70 @@ export function ElectricalCard({
                   placeholder="Kod, tanım, kategori, tip"
                   className="w-full sm:w-56"
                 />
+                {/* Masaüstünde sütun başlıkları sıralama düğmesidir; kart
+                    görünümünde başlıklar gizlendiği için aynı işlem telefonda
+                    burada açıkça kalır. */}
+                {gorunum === "malzeme" ? (
+                  <>
+                    <select
+                      value={malzemeSira.key}
+                      onChange={(e) =>
+                        setMalzemeSira({ key: e.target.value as MaterialSortKey, desc: false })
+                      }
+                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm md:hidden"
+                      aria-label="Malzemeleri sırala"
+                    >
+                      <option value="sort">Belgedeki sıra</option>
+                      <option value="qty">Adet</option>
+                      <option value="designation">Tanım</option>
+                      <option value="category">Kategori</option>
+                      <option value="typeNo">Tip No</option>
+                      <option value="supplier">Tedarikçi</option>
+                      <option value="partNo">Malzeme Kodu</option>
+                      <option value="locations">Panolar</option>
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="md:hidden"
+                      aria-label="Malzeme sıralama yönünü değiştir"
+                      onClick={() => setMalzemeSira((s) => ({ ...s, desc: !s.desc }))}
+                    >
+                      {malzemeSira.desc ? "Azalan" : "Artan"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      value={aygitSira.key}
+                      onChange={(e) =>
+                        setAygitSira({ key: e.target.value as PartSortKey, desc: false })
+                      }
+                      className="oc-tap h-9 max-w-52 rounded-md border bg-background px-2 text-sm md:hidden"
+                      aria-label="Aygıtları sırala"
+                    >
+                      <option value="sort">Belgedeki sıra</option>
+                      <option value="deviceTag">Aygıt Etiketi</option>
+                      <option value="qty">Adet</option>
+                      <option value="designation">Tanım</option>
+                      <option value="typeNo">Tip No</option>
+                      <option value="supplier">Tedarikçi</option>
+                      <option value="partNo">Malzeme Kodu</option>
+                      <option value="page">Sayfa</option>
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="md:hidden"
+                      aria-label="Aygıt sıralama yönünü değiştir"
+                      onClick={() => setAygitSira((s) => ({ ...s, desc: !s.desc }))}
+                    >
+                      {aygitSira.desc ? "Azalan" : "Artan"}
+                    </Button>
+                  </>
+                )}
               </FilterBar>
 
               {gorunum === "malzeme" &&

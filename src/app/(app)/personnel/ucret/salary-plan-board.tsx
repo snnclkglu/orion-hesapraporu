@@ -639,8 +639,8 @@ export function SalaryPlanBoard({
           olursa görünür kayar (md. 8), kırpılıp kaybolmaz. Telefonda tablo
           zaten listeye katlanır (md. 15), kap orada hiç kaymaz. */}
       <Table
-        className="oc-mobile-table"
-        containerClassName="oc-mobile-table-wrap rounded-lg border bg-card"
+        className="oc-mobile-table oc-tablet-table"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap rounded-lg border bg-card"
       >
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -722,7 +722,7 @@ export function SalaryPlanBoard({
                       <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground lg:hidden">
                         {r.emp.title || categoryLabel(r.emp.category)}
                         {r.fark !== null && r.fark !== 0 && (
-                          <span className="font-mono tabular-nums md:hidden">
+                          <span className="font-mono tabular-nums lg:hidden">
                             {" · "}
                             {r.fark >= 0 ? "+" : "−"}
                             {fmtTutar(Math.abs(r.fark))} ₺
@@ -730,7 +730,7 @@ export function SalaryPlanBoard({
                         )}
                         {/* TELEFON KATMANI (md. 15): gizlenen taban ve oran. */}
                         {r.taban !== null && (
-                          <span className="font-mono tabular-nums sm:hidden">
+                          <span className="font-mono tabular-nums lg:hidden">
                             {" · "}taban {fmtTutar(r.taban)} ₺
                             {r.oran !== null && ` · %${fmtNum(r.oran, true)}`}
                           </span>

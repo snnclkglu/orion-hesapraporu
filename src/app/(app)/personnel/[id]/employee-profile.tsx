@@ -66,6 +66,7 @@ import { adBuyuk } from "@/lib/tr-text";
 import { tagStyle } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -625,14 +626,13 @@ export function EmployeeProfile({
                     <TableCell data-label="Bordro" data-mobile-span="full" className="text-right">
                       {/* Bordro AYRI BİR BELGEDİR ve yeni sekmede açılır:
                           kullanıcı listedeki yerini kaybetmesin. */}
-                      <a
+                      <PdfDownloadLink
                         href={`/personnel/bordro?kisi=${employee.id}&donem=${r.period}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        shareTitle={`${employee.fullName} ${r.period} Bordrosu`}
                         className="oc-tap inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
                       >
                         <ExternalLink className="size-3" /> Bordro
-                      </a>
+                      </PdfDownloadLink>
                     </TableCell>
                   </TableRow>
                 );

@@ -43,6 +43,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
@@ -508,8 +509,9 @@ export function EquipmentPanel({
             Detaylı dosya onlarca taranmış sayfa taşıdığı için MB'larca tutar;
             müşteriye gidecek olan çoğu zaman standarttır, bu yüzden ikisi ayrı
             düğmedir ve hangisinin ne getirdiği yazılıdır. */}
-        <a
+        <PdfDownloadLink
           href={dl("pdf")}
+          shareTitle="Standart Ekipman Listesi"
           title={
             scope === "full"
               ? "Teknik özellikler yaprağı + ekipman listesi + teknik ressam özeti (şemalar ve notlarla)"
@@ -519,9 +521,10 @@ export function EquipmentPanel({
         >
           <FileDown className="size-3.5 text-red-600" />
           Standart Ekipman Listesi
-        </a>
-        <a
+        </PdfDownloadLink>
+        <PdfDownloadLink
           href={dl("pdf", true)}
+          shareTitle="Detaylı Ekipman Listesi"
           title={
             scope === "full"
               ? "Standart paketin tamamı + ürünlerin katalog sayfaları + satırlara yüklenen PDF ekleri"
@@ -531,7 +534,7 @@ export function EquipmentPanel({
         >
           <BookOpen className="size-3.5 text-red-600" />
           Detaylı Ekipman Listesi
-        </a>
+        </PdfDownloadLink>
         {/* KAPSAM İKİ PDF DÜĞMESİNİN DE ÜSTÜNDEDİR: "+ Teknik Özet" seçiliyken
             standart ve detaylı listenin ikisi de aynı ressam paketini taşır
             (teknik özellikler yaprağı + şemalı özet + notlar); `detay`
@@ -602,11 +605,14 @@ export function EquipmentPanel({
 
               SÜTUN ÖNCELİKLENDİRME (sözleşme §6): 375px'te altı sütun 22–46px'e
               sıkışıyor, hücrelerin içeriği okunmuyor ve not alanına yazılamıyordu.
-              md ALTINDA marka/model/özellik sütunları gizlenir; bilgileri ekipman
-              adının altına ikinci satır olarak iner (tek kaynak, ayrı kart
-              markup'ı yok). Mobilde kalan üç sütunun yüzdeleri ayrıdır. */}
-          <div className="overflow-hidden rounded-lg border">
-            <Table className="table-fixed">
+              md ALTINDA aynı satır kart olur; marka/model/özellik bilgileri
+              ekipman adının altına iner, not alanı tam genişliği kullanır
+              (tek kaynak, ayrı kart markup'ı yok). */}
+          <div className="relative overflow-hidden rounded-lg border">
+            <Table
+              containerClassName="oc-mobile-table-wrap"
+              className="oc-mobile-table table-fixed"
+            >
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[46%] md:w-[17%]">Ekipman</TableHead>
@@ -625,14 +631,26 @@ export function EquipmentPanel({
               <TableBody>
                 {autoGroups.map((g) => (
                   <Fragment key={`g-${g.name}`}>
-                    <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableCell colSpan={7} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                    <TableRow
+                      data-mobile-summary
+                      className="bg-primary/5 hover:bg-primary/5"
+                    >
+                      <TableCell
+                        colSpan={7}
+                        data-mobile-span="full"
+                        data-mobile-hide-label
+                        className="py-1.5 text-xs font-semibold uppercase tracking-wide text-primary"
+                      >
                         {g.name}
                       </TableCell>
                     </TableRow>
                     {g.rows.map((r, i) => (
                       <TableRow key={`${g.name}-${i}`} className="align-top">
-                        <TableCell className="font-medium break-words whitespace-normal">
+                        <TableCell
+                          data-label="Ekipman"
+                          data-mobile-span="full"
+                          className="font-medium break-words whitespace-normal"
+                        >
                           <ComponentCell row={r} />
                           {/* Mobilde gizlenen sütunların kritik bilgisi burada;
                               model bağlantısı da korunur. */}
@@ -653,12 +671,16 @@ export function EquipmentPanel({
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="hidden whitespace-normal md:table-cell">{r.brand}</TableCell>
-                        <TableCell className="hidden break-words whitespace-normal md:table-cell"><ModelCell row={r} /></TableCell>
-                        <TableCell className="hidden text-xs whitespace-normal text-muted-foreground md:table-cell">{r.spec}</TableCell>
+                        <TableCell data-label="Marka" className="hidden whitespace-normal md:table-cell">{r.brand}</TableCell>
+                        <TableCell data-label="Model" className="hidden break-words whitespace-normal md:table-cell"><ModelCell row={r} /></TableCell>
+                        <TableCell data-label="Özellikler" className="hidden text-xs whitespace-normal text-muted-foreground md:table-cell">{r.spec}</TableCell>
                         {/* Ek Özellikler: satırın tek düzenlenebilir hücresi (madde 34).
                             Satırın kararlı anahtarı yoksa (kuramsal) not tutulamaz. */}
-                        <TableCell className="p-1 align-middle">
+                        <TableCell
+                          data-label="Ek Özellikler"
+                          data-mobile-span="full"
+                          className="p-1 align-middle"
+                        >
                           {r.rowKey ? (
                             <NoteCell
                               rowKey={r.rowKey}
@@ -669,14 +691,16 @@ export function EquipmentPanel({
                             <span className="px-2 text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden align-top lg:table-cell">
+                        <TableCell data-label="Ek Belge" className="hidden align-top lg:table-cell">
                           {r.rowKey ? (
                             <AttachmentCell rowKey={r.rowKey} />
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center tabular-nums">{String(r.qty)}</TableCell>
+                        <TableCell data-label="Adet" className="text-center tabular-nums">
+                          {String(r.qty)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </Fragment>
@@ -760,7 +784,7 @@ export function EquipmentPanel({
               yani ekrandaki ile kâğıttaki resim ayrışamaz. */}
           <div className="grid gap-4">
             {summary.map((sec) => (
-              <div key={`s-${sec.name}`} className="overflow-hidden rounded-lg border">
+              <div key={`s-${sec.name}`} className="relative overflow-hidden rounded-lg border">
                 <div className="border-b bg-primary/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
                   {sec.name}
                 </div>
@@ -771,12 +795,15 @@ export function EquipmentPanel({
                 ) : (
                   <>
                     {sec.diagram && (
-                      <div className="overflow-x-auto border-b bg-card p-2">
+                      <div className="oc-scrollx relative overflow-x-auto border-b bg-card p-2">
                         <DiagramSvg diagram={sec.diagram} />
                       </div>
                     )}
                     {sec.rows.length > 0 && (
-                      <Table className="table-fixed">
+                      <Table
+                        containerClassName="oc-mobile-table-wrap"
+                        className="oc-mobile-table table-fixed"
+                      >
                         <TableHeader>
                           <TableRow className="bg-muted/50">
                             <TableHead>Ölçü / Özellik</TableHead>
@@ -787,7 +814,11 @@ export function EquipmentPanel({
                         <TableBody>
                           {sec.rows.map((r, i) => (
                             <TableRow key={`${sec.name}-${i}`}>
-                              <TableCell className="whitespace-normal">
+                              <TableCell
+                                data-label="Ölçü / Özellik"
+                                data-mobile-span="full"
+                                className="whitespace-normal"
+                              >
                                 {r.label}
                                 {r.note && (
                                   <span className="block text-[11px] text-muted-foreground">
@@ -795,8 +826,12 @@ export function EquipmentPanel({
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">{summaryRowValue(r)}</TableCell>
-                              <TableCell className="text-center text-muted-foreground">{r.unit ?? ""}</TableCell>
+                              <TableCell data-label="Değer" className="text-right tabular-nums">
+                                {summaryRowValue(r)}
+                              </TableCell>
+                              <TableCell data-label="Birim" className="text-center text-muted-foreground">
+                                {r.unit ?? ""}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

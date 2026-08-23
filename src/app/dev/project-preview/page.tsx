@@ -235,8 +235,8 @@ export default function ProjectPreviewPage() {
           canEdit
         />
 
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
+        <div className="relative overflow-hidden rounded-lg border bg-card">
+          <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
             <TableHeader>
               {/* Sütun önceliklendirmesi gerçek sayfadakiyle AYNI olmalı
                   (projects/[id]/page.tsx): önizleme dar ekran davranışını
@@ -254,26 +254,46 @@ export default function ProjectPreviewPage() {
             <TableBody>
               {REVISIONS.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-mono text-primary">V{r.rev_no}</TableCell>
-                  <TableCell className="whitespace-normal">
+                  <TableCell data-label="Revizyon" className="font-mono text-primary">
+                    V{r.rev_no}
+                  </TableCell>
+                  <TableCell
+                    data-label="Etiket"
+                    data-mobile-span="full"
+                    className="whitespace-normal"
+                  >
                     {r.label}
                     <div className="mt-0.5 text-[11px] whitespace-normal text-muted-foreground md:hidden">
                       {r.date} · {r.who}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Durum">
                     <Badge variant={revisionStatusVariant(r.status)}>
                       {revisionStatusLabel(r.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="hidden text-sm md:table-cell">{r.who}</TableCell>
-                  <TableCell className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
+                  <TableCell data-label="Oluşturan" className="hidden text-sm md:table-cell">
+                    {r.who}
+                  </TableCell>
+                  <TableCell
+                    data-label="Tarih"
+                    className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell"
+                  >
                     {r.date}
                   </TableCell>
-                  <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
+                  <TableCell
+                    data-label="Motor"
+                    className="hidden font-mono text-xs text-muted-foreground lg:table-cell"
+                  >
                     0.4.0
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell
+                    data-label="İşlem"
+                    data-mobile-span="full"
+                    data-mobile-hidden={r.status !== "draft" || undefined}
+                    data-mobile-actions
+                    className="text-right"
+                  >
                     {/* Yayınlanmış satırda düğme HİÇ görünmez. */}
                     {r.status === "draft" && (
                       <DeleteRevisionButton

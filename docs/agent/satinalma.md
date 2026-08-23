@@ -538,3 +538,13 @@ satın alma tedarikçi defteri); ikisi ayrı oturumlarda yazıldığı için
 `import_price_history` kendinden önceki tablolara yazıyor). Kural: yeni
 migration eklerken `ls supabase/migrations` ile aynı gün başka bir dosyanın
 aynı damgayı taşımadığı DOĞRULANIR.
+
+**SATIN ALMA SATIRI TELEFON VE TABLETTE BÜTÜN BİR İŞLEM KARTIDIR** (kullanıcı
+kararı, 23.08.2026). Ekipman Talep Havuzu ile ortak Siparişler tablosu 1024 px
+altında yatay kaymaz; seçim/genişletme, kalem veya tedarikçi künyesi, miktar,
+termin, fiyat ve Durum/Düzenle işlemleri aynı kartta görünür. Masaüstü tablo
+işaretlemesi korunur (`oc-tablet-table`); ikinci bir mobil veri ağacı yoktur.
+Teklif karşılaştırma matrisi ve zaman grafikleri bu kuralın istisnasıdır ve
+kendi görünür kaydırma kabında kalır. Talep, sipariş onayı, hammadde ve kesim
+planı PDF'leri gerçek dosya olarak indirilir ve destekleyen telefonda yerel
+paylaşım menüsüne verilir.

@@ -209,8 +209,8 @@ export function PersonnelTable({
       {/* TABLO — kadro büyüdükçe uzayan defterdir: `md` üstünde başlık yapışır
           (`oc-table-clamp` + `oc-sticky-head` ikilisi, globals.css'teki sözleşme). */}
       <Table
-        className="oc-mobile-table"
-        containerClassName="oc-mobile-table-wrap oc-table-clamp border bg-card"
+        className="oc-mobile-table oc-tablet-table"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp border bg-card"
       >
           <TableHeader className="oc-sticky-head">
             <TableRow>
@@ -258,8 +258,8 @@ export function PersonnelTable({
                     </div>
                     {/* Dar ekranda gizlenen kritik bilgi burada ikinci satır olur —
                         ikinci bir KART markup'ı yazılmaz. */}
-                    <div className="truncate text-xs text-muted-foreground md:hidden">
-                      {e.title || categoryLabel(e.category)}
+                    <div className="truncate text-xs text-muted-foreground lg:hidden">
+                      {e.title || categoryLabel(e.category)} · işe giriş {fmtDate(e.currentStart)}
                     </div>
                   </Link>
                 </TableCell>

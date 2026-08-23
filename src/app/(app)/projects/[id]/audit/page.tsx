@@ -62,7 +62,7 @@ export default async function AuditPage({
     .limit(200);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       <div>
         <div className="text-sm text-muted-foreground">
           {/* `.oc-tap`: kırıntı bağlantısı yazı boyunda kalır, dokunma katmanı
@@ -87,8 +87,11 @@ export default async function AuditPage({
           kullanıcı rozetin alt satırına iner. Defter BÜYÜR (son 200 kayıt);
           `oc-table-clamp` + `oc-sticky-head` uzun listede başlığı tepede
           tutar. `.oc-scrollx` tablet ara genişlikleri için kalır (kural 8). */}
-      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+      <div className="relative overflow-hidden rounded-lg border bg-card">
+        <Table
+          containerClassName="oc-mobile-table-wrap oc-table-clamp [--oc-scroll-bg:var(--card)]"
+          className="oc-mobile-table"
+        >
           <TableHeader className="oc-sticky-head">
             {/* "Kullanıcı" mobilde işlem rozetinin altına iner; dört sütun
                 + serbest metin detay telefonda tabloyu ~900px yapıyordu. */}
@@ -110,13 +113,16 @@ export default async function AuditPage({
                 <TableRow key={e.id}>
                   {/* Tarih + saat tablette sarsın: nowrap hâlinde tek başına
                       ~150px yiyordu. */}
-                  <TableCell className="hidden text-sm whitespace-normal text-muted-foreground sm:table-cell md:whitespace-nowrap">
+                  <TableCell
+                    data-label="Tarih"
+                    className="hidden text-sm whitespace-normal text-muted-foreground sm:table-cell md:whitespace-nowrap"
+                  >
                     {tarih}
                   </TableCell>
-                  <TableCell className="hidden text-sm md:table-cell">
+                  <TableCell data-label="Kullanıcı" className="hidden text-sm md:table-cell">
                     {kullanici}
                   </TableCell>
-                  <TableCell className="whitespace-normal">
+                  <TableCell data-label="İşlem" className="whitespace-normal">
                     <Badge variant={e.action === "revision.issue" ? "default" : "outline"}>
                       {ACTION_LABELS[e.action] ?? e.action}
                     </Badge>
@@ -128,7 +134,11 @@ export default async function AuditPage({
                   {/* Serbest metin: taban `whitespace-nowrap`u devralınca uzun
                       detay tabloyu tek başına ~900px'e çıkarıyordu;
                       `break-words` boşluksuz jetonu da sardırır. */}
-                  <TableCell className="text-sm break-words whitespace-normal text-muted-foreground md:min-w-[16rem]">
+                  <TableCell
+                    data-label="Detay"
+                    data-mobile-span="full"
+                    className="text-sm break-words whitespace-normal text-muted-foreground md:min-w-[16rem]"
+                  >
                     {detailSummary(e.action, (e.detail ?? {}) as Record<string, unknown>)}
                   </TableCell>
                 </TableRow>
@@ -136,7 +146,12 @@ export default async function AuditPage({
             })}
             {(entries ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={4}
+                  data-mobile-span="full"
+                  data-mobile-hide-label
+                  className="h-24 text-center text-muted-foreground"
+                >
                   Henüz kayıt yok.
                 </TableCell>
               </TableRow>

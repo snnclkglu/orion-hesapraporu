@@ -182,8 +182,10 @@ export function PurchaseSummaryTable({
           </p>
         </div>
       ) : (
-        <div className="border bg-card">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>Tanım</TableHead>
@@ -207,8 +209,7 @@ export function PurchaseSummaryTable({
                 <Satir key={s.key} s={s} />
               ))}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
     </div>
   );
@@ -220,7 +221,11 @@ function Satir({ s }: { s: OzetSatiri }) {
       {/* `overflow-wrap:anywhere` (yalnız telefonda): `break-word` tablo
           sütununun min-content'ini küçültmez; uzun ölçü jetonu 375px'te
           tabloyu taşırıyordu (parts-table ölçümünün aynısı, MOBIL-15). */}
-      <TableCell className="align-top whitespace-normal max-sm:[overflow-wrap:anywhere]">
+      <TableCell
+        data-label="Talep"
+        data-mobile-span="full"
+        className="align-top whitespace-normal max-lg:[overflow-wrap:anywhere]"
+      >
         <span className="text-[12px]">{s.tanim}</span>
         {s.parcaKodu && (
           <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
@@ -229,7 +234,7 @@ function Satir({ s }: { s: OzetSatiri }) {
         )}
         {/* DAR EKRANDA GİZLENEN SÜTUNUN KRİTİK PARÇASI BİRİNCİL HÜCREYE İNER
             (AGENTS MOBIL-7); ikinci bir kart markup'ı yazılmaz. */}
-        <span className="mt-0.5 block text-[11px] text-muted-foreground md:hidden">
+        <span className="mt-0.5 block text-[11px] text-muted-foreground lg:hidden">
           {s.kullanildigiYer ? `${s.kullanildigiYer} · ` : ""}
           {s.siparisAdedi ? `Sipariş ${formatNum(s.siparisAdedi)}` : "Sipariş yok"}
           {s.teslimAdedi ? ` · Teslim ${formatNum(s.teslimAdedi)}` : ""}
@@ -250,7 +255,7 @@ function Satir({ s }: { s: OzetSatiri }) {
       <TableCell className="hidden align-top font-mono text-[11px] whitespace-normal xl:table-cell">
         {s.malzeme || "—"}
       </TableCell>
-      <TableCell className="align-top text-right font-mono text-[12px] tabular-nums">
+      <TableCell data-label="Gereken" className="align-top text-right font-mono text-[12px] tabular-nums">
         {s.gereken == null ? "—" : formatNum(s.gereken)}
       </TableCell>
       <TableCell className="hidden align-top text-right font-mono text-[12px] tabular-nums md:table-cell">
@@ -259,7 +264,7 @@ function Satir({ s }: { s: OzetSatiri }) {
       <TableCell className="hidden align-top text-right font-mono text-[12px] tabular-nums md:table-cell">
         {s.teslimAdedi ? formatNum(s.teslimAdedi) : "—"}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell data-label="Durum" data-mobile-span="full" className="align-top">
         <span
           className={`inline-block w-fit border px-1.5 py-0.5 text-[11px] whitespace-nowrap ${DURUM_SINIFI[s.durum]}`}
         >
@@ -280,7 +285,7 @@ function Satir({ s }: { s: OzetSatiri }) {
           </span>
         )}
         {/* Telefonda termin buraya iner — sütunu orada gizli. */}
-        <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground sm:hidden">
+        <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
           {tarihGoster(s.termin)}
           {s.gecikmeGun > 0 && (
             <span className="ml-1 font-sans text-destructive">

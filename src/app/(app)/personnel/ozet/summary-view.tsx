@@ -691,8 +691,8 @@ export function SummaryView({
 
       {/* AY AY TABLO — başlık, hücre ve toplam AYNI `SUTUNLAR` tanımından. */}
       <Table
-        className="oc-mobile-table text-xs"
-        containerClassName="oc-mobile-table-wrap border bg-card [--oc-scroll-bg:var(--card)]"
+        className="oc-mobile-table oc-tablet-table text-xs"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap border bg-card [--oc-scroll-bg:var(--card)]"
       >
           <TableHeader>
             <TableRow>

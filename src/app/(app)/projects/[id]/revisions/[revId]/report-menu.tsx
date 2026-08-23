@@ -4,6 +4,7 @@
 // Seçilen seviye report route'una ?level= query paramıyla iletilir.
 
 import { ChevronDown, FileText } from "lucide-react";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,10 +56,14 @@ export function ReportMenu({ projectId, revisionId }: { projectId: string; revis
       <DropdownMenuContent align="end" className="w-72">
         {LEVELS.map((l) => (
           <DropdownMenuItem key={l.level} asChild>
-            <a href={`${base}?level=${l.level}`} className="flex flex-col items-start gap-0.5">
+            <PdfDownloadLink
+              href={`${base}?level=${l.level}`}
+              shareTitle={`Hesap Raporu · ${l.label}`}
+              className="flex flex-col items-start gap-0.5"
+            >
               <span className="font-medium">{l.label}</span>
               <span className="text-xs text-muted-foreground">{l.hint}</span>
-            </a>
+            </PdfDownloadLink>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

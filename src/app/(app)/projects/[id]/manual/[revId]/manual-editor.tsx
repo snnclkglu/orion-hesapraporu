@@ -51,6 +51,7 @@ import {
   TriangleAlert,
   Type,
 } from "lucide-react";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -436,24 +437,24 @@ export function ManualEditor({
             <BookOpen className="size-3.5" /> {kunyeAcik ? "İçeriğe Dön" : "Künye"}
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a
-              href={kirli ? undefined : `/projects/${projectId}/manual/${revisionId}/pdf`}
-              aria-disabled={kirli}
+            <PdfDownloadLink
+              href={`/projects/${projectId}/manual/${revisionId}/pdf`}
+              disabled={kirli}
+              shareTitle="İşletme ve Bakım El Kitabı"
               title={kirli ? "PDF için önce değişiklikleri kaydedin" : "Gövde PDF'i indir"}
-              onClick={(e) => kirli && e.preventDefault()}
             >
               <FileDown className="size-3.5" /> Gövde PDF
-            </a>
+            </PdfDownloadLink>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a
-              href={kirli ? undefined : `/projects/${projectId}/manual/${revisionId}/pdf?ekler=1`}
-              aria-disabled={kirli}
+            <PdfDownloadLink
+              href={`/projects/${projectId}/manual/${revisionId}/pdf?ekler=1`}
+              disabled={kirli}
+              shareTitle="İşletme ve Bakım El Kitabı · Tam Sürüm"
               title={kirli ? "PDF için önce değişiklikleri kaydedin" : "Tam sürümü indir"}
-              onClick={(e) => kirli && e.preventDefault()}
             >
               <Layers className="size-3.5" /> Tam Sürüm
-            </a>
+            </PdfDownloadLink>
           </Button>
           {yazilabilir && (
             <>
@@ -1274,8 +1275,8 @@ function OtomatikBlok({
 function TabloOnizleme({ table }: { table: { head: string[]; rows: string[][] } }) {
   const ilk = table.rows.slice(0, 6);
   return (
-    <div className="oc-scrollx overflow-x-auto rounded-md border">
-      <table className="w-full text-xs">
+    <div className="oc-mobile-table-wrap rounded-md border">
+      <table className="oc-mobile-table w-full text-xs">
         <thead className="bg-muted/50">
           <tr>
             {table.head.map((h, i) => (
@@ -1289,7 +1290,12 @@ function TabloOnizleme({ table }: { table: { head: string[]; rows: string[][] } 
           {ilk.map((r, i) => (
             <tr key={i} className="border-t">
               {r.map((c, j) => (
-                <td key={j} className="px-2 py-1">
+                <td
+                  key={j}
+                  data-label={table.head[j] || `Sütun ${j + 1}`}
+                  data-mobile-span={j === 0 ? "full" : undefined}
+                  className="px-2 py-1"
+                >
                   {c}
                 </td>
               ))}
@@ -1320,7 +1326,7 @@ function TabloDuzenleyici({
   const sutun = Math.max(1, table.head.length);
   return (
     <div className="grid gap-2">
-      <div className="oc-scrollx overflow-x-auto">
+      <div className="oc-scrollx relative overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr>

@@ -256,13 +256,35 @@ export function ProjectsTable({
           </Select>
 
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger size="sm" className="col-span-2 w-full sm:w-[150px]">
+            <SelectTrigger size="sm" className="w-full sm:w-[150px]">
               <SelectValue placeholder="Durum" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Tüm Durumlar</SelectItem>
               <SelectItem value={ACTIVE}>Aktif</SelectItem>
               <SelectItem value={ARCHIVED}>Arşiv</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Kart görünümünde tablo başlığı gizlenir; sıralama işlevi de
+              kaybolmasın diye telefon için doğrudan erişilen bir seçim. */}
+          <Select
+            value={`${sort.key}:${sort.dir}`}
+            onValueChange={(value) => {
+              const [key, dir] = value.split(":") as [SortKey, "asc" | "desc"];
+              setSort({ key, dir });
+            }}
+          >
+            <SelectTrigger size="sm" className="w-full md:hidden" aria-label="Projeleri sırala">
+              <SelectValue placeholder="Sırala" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="doc_no:desc">Doküman No · Yeni</SelectItem>
+              <SelectItem value="doc_no:asc">Doküman No · Eski</SelectItem>
+              <SelectItem value="name:asc">Proje Adı · A-Z</SelectItem>
+              <SelectItem value="customer:asc">Müşteri · A-Z</SelectItem>
+              <SelectItem value="rev:desc">Son Revizyon</SelectItem>
+              <SelectItem value="status:asc">Durum</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -286,15 +308,13 @@ export function ProjectsTable({
         </div>
       </div>
 
-      {/* Proje listesi yıllarla BÜYÜR: `oc-table-clamp` + `oc-sticky-head`
-          uzun listede başlığı tepede tutar (md üstü). `.oc-scrollx` EMNİYET
-          KEMERİ olarak kalır (kabuk kuralı 8): ölçülen genişliklerin hiçbirinde
-          taşma yok, ama bir gün sütun eklenirse kaymanın GÖRÜNMESİ gerekir. */}
-      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        {/* HÜCRE DOLGUSU TELEFONDA BİR KADEME KISILIR (8px → 6px), kabuk
-            kuralı 10'un tablodaki karşılığı: dört sütunda 16px eder ve o
-            genişliğin tamamı proje adına gider. ≥640px'te eski değere döner. */}
-        <Table className="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
+      {/* Telefonda her proje kendi kartına katlanır; proje adı artık dört dar
+          sütun arasına sıkışmaz. Masaüstünde aynı işaretleme tablo ve yapışkan
+          başlık olarak çalışmayı sürdürür. */}
+      <Table
+        containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+        className="oc-mobile-table"
+      >
           <TableHeader className="oc-sticky-head">
             {/* SÜTUN ÖNCELİKLENDİRME — sekiz sütunluk satır telefonda kabın
                 (~341px) bir buçuk katıydı ve sağdaki Durum/İşlem hiç
@@ -332,14 +352,22 @@ export function ProjectsTable({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={8}
+                  data-mobile-span="full"
+                  data-mobile-hide-label
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
                   Süzgeçlere uyan proje yok — bir filtreyi temizleyip tekrar deneyin.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((p) => (
                 <TableRow key={p.id} className="relative cursor-pointer">
-                  <TableCell className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground md:table-cell")}>
+                  <TableCell
+                    data-label="İş No"
+                    className={cn(CIVI, "hidden font-mono text-sm text-muted-foreground md:table-cell")}
+                  >
                     {p.job_no && p.job_id ? (
                       // Dokunma hedefi `.oc-tap` ile 44px'e tamamlanır, KUTU
                       // büyümez (kabuk kuralı 1). Eskiden `min-h-9` idi ve o
@@ -356,7 +384,10 @@ export function ProjectsTable({
                       <span className="text-muted-foreground/60">bağımsız</span>
                     )}
                   </TableCell>
-                  <TableCell className={cn(CIVI, "font-mono text-sm font-medium text-primary")}>
+                  <TableCell
+                    data-label="Doküman No"
+                    className={cn(CIVI, "font-mono text-sm font-medium text-primary")}
+                  >
                     <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
                       {p.doc_no}
                     </Link>
@@ -368,6 +399,8 @@ export function ProjectsTable({
                       kalır — `TableCell` varsayılanı `nowrap`tır ve alttaki
                       bilgi satırı telefonda sarmak zorundadır (kabuk kuralı 15). */}
                   <TableCell
+                    data-label="Proje"
+                    data-mobile-span="full"
                     className={cn(
                       AD_KELEPCE,
                       // `max-sm:[overflow-wrap:anywhere]` — kabuk kuralı 15'in
@@ -421,18 +454,20 @@ export function ProjectsTable({
                     </div>
                   </TableCell>
                   <TableCell
+                    data-label="Müşteri"
                     className={cn(MUSTERI_KELEPCE, "hidden truncate text-muted-foreground xl:table-cell")}
                     title={p.customer}
                   >
                     {p.customer}
                   </TableCell>
                   <TableCell
+                    data-label="Vinç Tipi"
                     className={cn(VINC_KELEPCE, "hidden truncate text-sm text-muted-foreground xl:table-cell")}
                     title={p.crane_type}
                   >
                     {p.crane_type}
                   </TableCell>
-                  <TableCell className={cn(CIVI, "hidden md:table-cell")}>
+                  <TableCell data-label="Son Revizyon" className={cn(CIVI, "hidden md:table-cell")}>
                     {p.lastRevNo !== null ? (
                       <span className="inline-flex items-center gap-1.5 text-sm">
                         <span className="font-mono">V{p.lastRevNo}</span>
@@ -444,7 +479,7 @@ export function ProjectsTable({
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className={CIVI}>
+                  <TableCell data-label="Durum" className={CIVI}>
                     <span className="inline-flex items-center gap-1.5 text-sm">
                       <span
                         className={cn(
@@ -455,7 +490,7 @@ export function ProjectsTable({
                       {p.status === ARCHIVED ? "Arşiv" : "Aktif"}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell data-label="İşlem" data-mobile-actions className="text-right">
                     <ProjectRowActions
                       project={{
                         id: p.id,
@@ -475,8 +510,7 @@ export function ProjectsTable({
               ))
             )}
           </TableBody>
-        </Table>
-      </div>
+      </Table>
     </div>
   );
 }

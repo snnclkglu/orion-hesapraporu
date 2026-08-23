@@ -381,7 +381,10 @@ export function DocumentsPanel({
             Bu personelin henüz yüklenmiş bir belgesi yok.
           </p>
         ) : (
-          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
+          <Table
+            className="oc-mobile-table oc-tablet-table"
+            containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap"
+          >
               <TableHeader>
                 <TableRow>
                   <TableHead>Belge</TableHead>
@@ -422,7 +425,7 @@ export function DocumentsPanel({
                               {d.pageCount > 0 && ` · ${d.pageCount} sayfa`}
                             </div>
                             {/* Dar ekranda gizlenen tür + geçerlilik burada. */}
-                            <div className="mt-1 flex flex-wrap items-center gap-1 md:hidden">
+                            <div className="mt-1 flex flex-wrap items-center gap-1 lg:hidden">
                               <span
                                 className="oc-tag px-1.5 py-0.5 text-[11px]"
                                 style={tagStyle(documentKindHue(d.kind))}
@@ -432,7 +435,7 @@ export function DocumentsPanel({
                               {durum !== "yok" && (
                                 <Badge
                                   variant="outline"
-                                  className={cn("font-normal sm:hidden", DURUM_SINIF[durum])}
+                                  className={cn("font-normal lg:hidden", DURUM_SINIF[durum])}
                                   title={`Geçerlilik: ${fmtDate(d.expiresOn)}`}
                                 >
                                   {EXPIRY_LABELS[durum]}

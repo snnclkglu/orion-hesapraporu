@@ -33,11 +33,11 @@ export function EquipmentRevisionsTable({
   revisions: EquipmentRevisionRow[];
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="relative overflow-hidden rounded-lg border bg-card">
       <div className="border-b bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:px-4">
         Her ekipman listesi, aynı sürüm numarasındaki hesap raporundan otomatik oluşur.
       </div>
-      <Table className="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
+      <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="max-sm:whitespace-normal">Ekipman Listesi</TableHead>
@@ -51,7 +51,12 @@ export function EquipmentRevisionsTable({
         <TableBody>
           {revisions.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={6} className="h-32 text-center">
+              <TableCell
+                colSpan={6}
+                data-mobile-span="full"
+                data-mobile-hide-label
+                className="h-32 text-center"
+              >
                 <div className="flex flex-col items-center gap-2">
                   <span className="border bg-background px-3 py-1.5 font-mono text-xs font-medium tracking-[0.15em] text-foreground">
                     [ HENÜZ EKİPMAN LİSTESİ YOK ]
@@ -65,7 +70,11 @@ export function EquipmentRevisionsTable({
           ) : (
             revisions.map((revision) => (
               <TableRow key={revision.id}>
-                <TableCell className="font-medium whitespace-normal">
+                <TableCell
+                  data-label="Ekipman Listesi"
+                  data-mobile-span="full"
+                  className="font-medium whitespace-normal"
+                >
                   <Link
                     href={`/projects/${projectId}/revisions/${revision.id}/equipment`}
                     className="oc-tap inline-flex items-center text-primary hover:underline"
@@ -76,7 +85,7 @@ export function EquipmentRevisionsTable({
                     {revision.label || "Etiketsiz"} · {revision.createdBy || "—"}
                   </div>
                 </TableCell>
-                <TableCell className="font-mono whitespace-normal">
+                <TableCell data-label="Bağlı Hesap" className="font-mono whitespace-normal">
                   <Link
                     href={`/projects/${projectId}/revisions/${revision.id}`}
                     className="oc-tap inline-flex items-center text-primary hover:underline"
@@ -84,18 +93,24 @@ export function EquipmentRevisionsTable({
                     Hesap V{revision.revNo}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden break-words whitespace-normal md:table-cell">
+                <TableCell
+                  data-label="Etiket"
+                  className="hidden break-words whitespace-normal md:table-cell"
+                >
                   {revision.label || "—"}
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Rapor Durumu">
                   <Badge variant={revisionStatusVariant(revision.status)}>
                     {revisionStatusLabel(revision.status)}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden text-sm lg:table-cell">
+                <TableCell data-label="Oluşturan" className="hidden text-sm lg:table-cell">
                   {revision.createdBy || "—"}
                 </TableCell>
-                <TableCell className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
+                <TableCell
+                  data-label="Tarih"
+                  className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell"
+                >
                   {new Date(revision.createdAt).toLocaleDateString("tr-TR")}
                 </TableCell>
               </TableRow>

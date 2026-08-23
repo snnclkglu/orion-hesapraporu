@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   Table,
   TableBody,
@@ -130,8 +131,8 @@ export function ManualCard({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <Table>
+      <div className="relative overflow-hidden rounded-lg border bg-card">
+        <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Revizyon</TableHead>
@@ -146,15 +147,19 @@ export function ManualCard({
           <TableBody>
             {revisions.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono">
+                <TableCell data-label="Revizyon" className="font-mono">
                   <Link
                     href={`/projects/${projectId}/manual/${r.id}`}
-                    className="inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
+                    className="oc-tap inline-flex items-center text-primary hover:underline"
                   >
                     V{r.revNo}
                   </Link>
                 </TableCell>
-                <TableCell className="break-words whitespace-normal">
+                <TableCell
+                  data-label="Etiket"
+                  data-mobile-span="full"
+                  className="break-words whitespace-normal"
+                >
                   {r.label || "—"}
                   <div className="mt-0.5 text-[11px] whitespace-normal text-muted-foreground md:hidden">
                     {new Date(r.createdAt).toLocaleDateString("tr-TR")}
@@ -162,32 +167,51 @@ export function ManualCard({
                     {r.createdByName || "—"}
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Durum">
                   <Badge variant={revisionStatusVariant(r.status)}>
                     {revisionStatusLabel(r.status)}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden text-sm md:table-cell">
+                <TableCell data-label="Oluşturan" className="hidden text-sm md:table-cell">
                   {r.createdByName || "—"}
                 </TableCell>
-                <TableCell className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
+                <TableCell
+                  data-label="Tarih"
+                  className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell"
+                >
                   {new Date(r.createdAt).toLocaleDateString("tr-TR")}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="inline-flex flex-wrap justify-end gap-1">
+                <TableCell
+                  data-label="Belge"
+                  data-mobile-span="full"
+                  data-mobile-actions
+                  className="text-right"
+                >
+                  <div className="inline-flex flex-wrap justify-end gap-1 max-md:justify-start">
                     <Button asChild size="sm" variant="outline">
-                      <a href={`/projects/${projectId}/manual/${r.id}/pdf`}>
+                      <PdfDownloadLink
+                        href={`/projects/${projectId}/manual/${r.id}/pdf`}
+                        shareTitle={`İşletme ve Bakım El Kitabı V${r.revNo}`}
+                      >
                         <FileDown className="size-3.5" /> Gövde
-                      </a>
+                      </PdfDownloadLink>
                     </Button>
                     <Button asChild size="sm" variant="outline">
-                      <a href={`/projects/${projectId}/manual/${r.id}/pdf?ekler=1`}>
+                      <PdfDownloadLink
+                        href={`/projects/${projectId}/manual/${r.id}/pdf?ekler=1`}
+                        shareTitle={`İşletme ve Bakım El Kitabı V${r.revNo} · Tam Sürüm`}
+                      >
                         <Layers className="size-3.5" /> Tam Sürüm
-                      </a>
+                      </PdfDownloadLink>
                     </Button>
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell
+                  data-label="İşlem"
+                  data-mobile-hidden={!(canEdit && r.status === "draft") || undefined}
+                  data-mobile-actions
+                  className="text-right"
+                >
                   {/* Silme YALNIZ taslakta: yayımlanmış kılavuz teslim
                       edilmiştir (DB tetikleyicisi de engeller). */}
                   {canEdit && r.status === "draft" && (

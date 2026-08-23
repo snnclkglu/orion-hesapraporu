@@ -164,8 +164,10 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
         // `oc-table-clamp` + `oc-sticky-head`: paket listesi teslimlerle
         // BÜYÜYEN bir defterdir; uzun kaydırmada başlık kayıpsa "bu sayı
         // hangi sütundu" sorusu geri gelir (demand-table deseni).
-        <div className="oc-scrollx oc-table-clamp overflow-x-auto border bg-card [--oc-scroll-bg:var(--card)]">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <SortableHead sortKey="kalem" current={sortKey} desc={desc} onSort={sirala}>
@@ -224,7 +226,12 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                           listeyi iki katına çıkarırdı. */}
                       {g.rows.length >= GRUP_BASLIK_ESIGI && (
                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableCell colSpan={SUTUN} className="py-1.5">
+                          <TableCell
+                            colSpan={SUTUN}
+                            data-mobile-span="full"
+                            data-mobile-hide-label
+                            className="py-1.5"
+                          >
                             <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                               <span className="font-mono text-sm font-semibold">
                                 {g.itemNo || "Kalem Eşleşmemiş"}
@@ -252,8 +259,7 @@ export function PackagesTable({ packages }: { packages: PackageRow[] }) {
                   ))
                 : gorunen.map((p) => <PaketSatiri key={p.id} p={p} />)}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
     </div>
   );
@@ -264,12 +270,12 @@ function PaketSatiri({ p }: { p: PackageRow }) {
   const depo = storageState(p);
   return (
     <TableRow className="relative">
-      <TableCell className="font-mono text-sm">
+      <TableCell data-label="Kalem No" className="font-mono text-sm">
         <Link href={`/drawings/${p.id}`} className="absolute inset-0" aria-label={p.folder_name} />
         {p.item_no || <span className="text-muted-foreground">—</span>}
       </TableCell>
 
-      <TableCell className="min-w-0">
+      <TableCell data-label="Paket" data-mobile-span="full" className="min-w-0">
         {/* Telefonda ad SARAR (kırpma `sm`den başlar, kabuk kuralı 7):
             kırpılmış adı okutacak bir fare orada yok. `break-words` gerçek
             veri içindir — boşluksuz uzun klasör adı tabloyu itmesin. */}
@@ -280,7 +286,7 @@ function PaketSatiri({ p }: { p: PackageRow }) {
           {p.description || p.folder_name}
           {p.capacity && <span className="ml-1 text-muted-foreground">({p.capacity})</span>}
         </span>
-        <span className="mt-0.5 block break-words font-mono text-[11px] whitespace-normal text-muted-foreground sm:truncate md:hidden">
+        <span className="mt-0.5 block break-words font-mono text-[11px] whitespace-normal text-muted-foreground sm:truncate lg:hidden">
           {[
             p.group_code && `Grup ${p.group_code}`,
             `${formatNum(depo.stored)}/${formatNum(depo.expected)} Dosya`,
@@ -291,7 +297,7 @@ function PaketSatiri({ p }: { p: PackageRow }) {
         </span>
         {/* TELEFON KATMANI (sm altı): gizlenen Tanıma ve Bulgu buraya iner —
             tablo listeye katlanır, yatay kaymaz (kabuk kuralı 15). */}
-        <span className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden">
+        <span className="mt-1 flex flex-wrap items-center gap-1.5 lg:hidden">
           <Tanima p={p} />
           <BulguRozetleri p={p} bosIsaret={false} />
         </span>
@@ -322,7 +328,7 @@ function PaketSatiri({ p }: { p: PackageRow }) {
         <BulguRozetleri p={p} />
       </TableCell>
 
-      <TableCell>
+      <TableCell data-label="Durum" data-mobile-span="full">
         <span className="flex flex-wrap items-center gap-1">
           <span className="border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
             {PACKAGE_STATUS_LABELS[p.status]}

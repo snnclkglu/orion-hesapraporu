@@ -53,6 +53,7 @@ import {
   Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadForm } from "@/components/pdf-download-link";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -517,8 +518,10 @@ export function DemandTable({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {canWrite && (
@@ -667,8 +670,7 @@ export function DemandTable({
                 />
               ))}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
 
       <p className="flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-muted-foreground">
@@ -890,11 +892,11 @@ function Satir({
         }
       >
         {canWrite && (
-          <TableCell className="p-0 align-top">
+          <TableCell data-mobile-hide-label className="p-0 align-top">
             <SecimKutusu checked={secili} onChange={onSec} label={`${s.tanim} kalemini seç`} />
           </TableCell>
         )}
-        <TableCell className="p-0 align-top">
+        <TableCell data-mobile-hide-label className="p-0 align-top">
           <button
             type="button"
             onClick={onGenislet}
@@ -940,7 +942,11 @@ function Satir({
         {/* `break-words` GERÇEK VERİ İÇİNDİR: "Ø405(Ø415)/Ø358X1870(1900)" gibi
             boşluksuz bir ölçü jetonu telefonda hücrenin en dar hâlini kendi
             genişliğine çeker ve tabloyu ekran dışına iterdi. */}
-        <TableCell className="max-w-[22rem] min-w-0 align-top break-words whitespace-normal">
+        <TableCell
+          data-label="Talep"
+          data-mobile-span="full"
+          className="max-w-[22rem] min-w-0 align-top break-words whitespace-normal"
+        >
           <span className="flex items-start gap-1.5">
             <span className="block flex-1 text-[13px] leading-snug">{s.tanim || "—"}</span>
             {s.manualId && (
@@ -968,7 +974,7 @@ function Satir({
           {/* Dar ekranda gizlenen sütunların karşılığı — kritik olanlar.
               Kategori yalnız `md` altında buraya iner (sütunu orada gizli). */}
           <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
-            <span className="md:hidden">
+            <span className="lg:hidden">
               {s.sinif}
               {(s.malzeme || s.anaGruplar.length > 0) && " · "}
             </span>
@@ -986,7 +992,7 @@ function Satir({
           )}
           {/* TELEFON KATMANI (sm altı): gizlenen İş No · Miktar · Kalan ·
               Teklif buraya iner — tablo listeye katlanır, yatay kaymaz. */}
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 lg:hidden">
             <span className="font-mono text-[11px] text-muted-foreground">
               {isler.length > 0 ? isler.join(", ") : "—"}
             </span>
@@ -994,7 +1000,7 @@ function Satir({
               <CustomerTag key={c} name={c} shortName={c} />
             ))}
           </span>
-          <span className="mt-1 block font-mono text-[12px] tabular-nums sm:hidden">
+          <span className="mt-1 block font-mono text-[12px] tabular-nums lg:hidden">
             {s.adet == null ? "—" : `${formatNum(s.adet)} ${s.birim}`}
             {s.carpanBelirsiz && (
               <span className="text-amber-600 dark:text-amber-400" title="Adet belirsiz">
@@ -1008,7 +1014,7 @@ function Satir({
             </span>
             <span className="font-medium">{formatNum(g.kalan)} Kalan</span>
           </span>
-          <span className="mt-1 block sm:hidden">
+          <span className="mt-1 block lg:hidden">
             <TeklifDugmesi g={g} onTeklif={onTeklif} />
           </span>
         </TableCell>
@@ -1081,7 +1087,7 @@ function Satir({
 
         {/* DURUM BİR DÜĞMEDİR (md. 4): bekliyor/teklifli iken basınca sipariş
             penceresi açılır — satınalmacının en sık yaptığı hareket budur. */}
-        <TableCell className="align-top">
+        <TableCell data-label="Durum ve İşlem" data-mobile-span="full" className="align-top">
           <DurumCipi
             durum={g.durum}
             onClick={canWrite && (g.durum === "bekliyor" || g.durum === "teklifli") ? onSiparis : undefined}
@@ -1091,7 +1097,12 @@ function Satir({
 
       {genis && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={sutunSayisi} className="whitespace-normal p-0">
+          <TableCell
+            colSpan={sutunSayisi}
+            data-mobile-span="full"
+            data-mobile-hide-label
+            className="whitespace-normal p-0"
+          >
             <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
               <table className="w-full text-[12px]">
                 <thead>
@@ -1266,13 +1277,17 @@ function CiktiFormu({
           Excel
         </Button>
       </form>
-      <form method="POST" action="/purchasing/export?bicim=pdf">
+      <PdfDownloadForm
+        method="POST"
+        action="/purchasing/export?bicim=pdf"
+        shareTitle="Satın Alma Talebi"
+      >
         {alanlar}
         <Button type="submit" variant="outline" size="xs" title={`${ipucu} — satın alma talebi`}>
           <FileText className="size-3" />
           PDF
         </Button>
-      </form>
+      </PdfDownloadForm>
     </span>
   );
 }

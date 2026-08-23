@@ -58,6 +58,7 @@ import {
   updateOfferDetails,
 } from "../actions";
 import { CopyOfferButton } from "../copy-offer-dialog";
+import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 
 function pdfUrl(offerId: string, revisionId: string, inline = false): string {
   return `/offers/${offerId}/revisions/${revisionId}/pdf${inline ? "?inline=1" : ""}`;
@@ -124,7 +125,9 @@ export function OfferPanel({
       }
       if (res.warning) toast.warning(res.warning);
       else toast.success("Teklif yayımlandı ve arşivlendi.");
-      window.location.href = pdfUrl(offer.id, revisionId);
+      await downloadPdfFromApp(pdfUrl(offer.id, revisionId), {
+        shareTitle: "Teklif",
+      });
     });
   }
 
@@ -305,9 +308,9 @@ export function OfferPanel({
                       </Button>
 
                       <Button asChild variant="outline" size="sm" className="oc-tap">
-                        <a href={pdfUrl(offer.id, rev.id)}>
+                        <PdfDownloadLink href={pdfUrl(offer.id, rev.id)} shareTitle="Teklif">
                           <Download className="size-3.5" /> Teklifi İndir
-                        </a>
+                        </PdfDownloadLink>
                       </Button>
 
                       {taslak ? (
@@ -390,9 +393,12 @@ export function OfferPanel({
             />
             <div className="flex justify-end">
               <Button asChild variant="outline" className="oc-tap">
-                <a href={pdfUrl(offer.id, onizleme.revisionId)}>
+                <PdfDownloadLink
+                  href={pdfUrl(offer.id, onizleme.revisionId)}
+                  shareTitle="Teklif"
+                >
                   <Download className="size-4" /> Teklifi İndir
-                </a>
+                </PdfDownloadLink>
               </Button>
             </div>
           </DialogContent>

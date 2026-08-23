@@ -578,3 +578,11 @@ Filtre olsun."*). `/purchasing/hammadde/siparisler` KALDIRILDI.
 
 Yazma yolu yine TEKTİR: düzenleme, iptal ve teslim alma `/purchasing/
 siparisler`tedir (md. 18'in paket Satın Alma sekmesi dersi).
+
+**HAMMADDE HAVUZU 1024 PX ALTINDA KARTTIR.** Tür kipinin sütun dizisi ve tek
+tablo kaynağı değişmez; seçim/genişletme, stok kalemi, iş/tür, ağırlık,
+teklif ve durum aynı `oc-tablet-table` kartına katlanır. Toplam satırı ayrı
+bir özet kartıdır ve boş sütun üretmez. Parça ayrıntısı açıldığında kendi dar
+sütun önceliğini kullanır. Nesting çizimi uzamsal bir istisnadır: sayfayı
+değil yalnız çizim kabını kaydırır. Hammadde talebi ve kesim planı PDF'leri
+mobil dosya indirme/paylaşma akışını kullanır.

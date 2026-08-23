@@ -10,6 +10,7 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, FileText, Loader2, Plus, Tag, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadForm } from "@/components/pdf-download-link";
 import { CokluSuzgec } from "../../filters";
 import { Label } from "@/components/ui/label";
 import {
@@ -328,7 +329,12 @@ export function NestingView({
           />
           {/* PDF EKRANDAKİ PLANIN AYNISIDIR: parametreler adreste taşındığı
               için uç aynı hesabı yeniden koşturur ve iki çıktı ayrışamaz. */}
-          <form method="GET" action="/purchasing/hammadde/yerlesim/pdf" className="self-center">
+          <PdfDownloadForm
+            method="GET"
+            action="/purchasing/hammadde/yerlesim/pdf"
+            shareTitle="Sac Kesim Planı"
+            className="self-center"
+          >
             {secili.map((k) => (
               <input key={k} type="hidden" name="k" value={k} />
             ))}
@@ -340,7 +346,7 @@ export function NestingView({
               <FileText className="size-3" />
               Kesim Planı PDF
             </Button>
-          </form>
+          </PdfDownloadForm>
         </section>
       )}
 

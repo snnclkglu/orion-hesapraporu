@@ -15,6 +15,7 @@
 
 import { ChevronDown, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,12 +40,16 @@ export function JobListButton({ years = [] }: { years?: string[] }) {
           Müşteriye Verilecek Referans Listesi
         </DropdownMenuLabel>
         <DropdownMenuItem asChild>
-          <a href="/sales/is-listesi" className="flex flex-col items-start gap-0.5">
+          <PdfDownloadLink
+            href="/sales/is-listesi"
+            shareTitle="Güncel İş Listesi"
+            className="flex flex-col items-start gap-0.5"
+          >
             <span className="text-sm">Tüm İşler</span>
             <span className="text-[11px] text-muted-foreground">
               Yıllara ayrılmış çizelge + müşteri referansları · fiyat yok
             </span>
-          </a>
+          </PdfDownloadLink>
         </DropdownMenuItem>
         {years.length > 0 && (
           <>
@@ -54,9 +59,12 @@ export function JobListButton({ years = [] }: { years?: string[] }) {
             </DropdownMenuLabel>
             {years.map((y) => (
               <DropdownMenuItem key={y} asChild>
-                <a href={`/sales/is-listesi?yil=${y}`}>
+                <PdfDownloadLink
+                  href={`/sales/is-listesi?yil=${y}`}
+                  shareTitle={`${y} İş Listesi`}
+                >
                   <span className="text-sm">{y} yılı işleri</span>
-                </a>
+                </PdfDownloadLink>
               </DropdownMenuItem>
             ))}
           </>

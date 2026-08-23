@@ -15,6 +15,7 @@
 
 import { ChevronDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,10 +89,21 @@ export function PackageOutputs({ packageId }: { packageId: string }) {
             </DropdownMenuLabel>
             {g.ogeler.map((o) => (
               <DropdownMenuItem key={o.href} asChild>
-                <a href={o.href} className="flex flex-col items-start gap-0.5">
-                  <span className="text-sm">{o.ad}</span>
-                  <span className="text-[11px] text-muted-foreground">{o.ipucu}</span>
-                </a>
+                {o.href.endsWith("production-pdf") ? (
+                  <PdfDownloadLink
+                    href={o.href}
+                    shareTitle="İmalat Resimleri"
+                    className="flex flex-col items-start gap-0.5"
+                  >
+                    <span className="text-sm">{o.ad}</span>
+                    <span className="text-[11px] text-muted-foreground">{o.ipucu}</span>
+                  </PdfDownloadLink>
+                ) : (
+                  <a href={o.href} className="flex flex-col items-start gap-0.5">
+                    <span className="text-sm">{o.ad}</span>
+                    <span className="text-[11px] text-muted-foreground">{o.ipucu}</span>
+                  </a>
+                )}
               </DropdownMenuItem>
             ))}
           </div>

@@ -168,3 +168,14 @@ yoktu — halat kesiti, makara ve grafik çalışma noktası kayboluyordu; `bold
 çizgi ucu da yok sayılıyordu). `PdfDiagram` İKİ YÖNDEN kelepçelenir
 (`maxWidth` + `maxHeight`): yalnız genişlik verilirse kareye yakın bir çizim
 yaprağı taşırır ve `wrap={false}` kutusu bir sonrakine atlayıp orada da taşar.
+
+**MOBİLDE “PDF İNDİR” GÖRÜNTÜLEYİCİYE YÖNLENDİRMEZ.** Üretilen uygulama
+belgeleri `PdfDownloadLink` / `PdfDownloadForm` üzerinden aynı kaynaklı blob
+olarak alınır ve gerçek dosya adıyla İndirilenler/Dosyalar'a bırakılır.
+Telefon dosya paylaşımını destekliyorsa indirme bildirimi `Paylaş` eylemini
+açar. Bağlantının gerçek `href`/form `action` değeri korunur; JavaScript
+yoksa sunucunun `Content-Disposition: attachment` davranışı yedektir. Bu
+sözleşme teklif, maliyet, hesap raporu, ekipman listesi, kılavuz, iş emri,
+bordro, satın alma talebi/siparişi, hammadde/kesim planı ve üretilen teknik
+resim paketleri için ortaktır. Korumalı ASIL teknik resim görüntüleyicisi bu
+kurala girmez; RESIM-21'in indirme/yazdırma kısıtı değişmez.

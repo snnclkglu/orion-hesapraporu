@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileDown, Pencil } from "lucide-react";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { createClient } from "@/lib/supabase/server";
 import { fmtJobDate } from "@/lib/jobs/filter";
 import { revizyonHarfi } from "@/lib/jobs/is-emri";
@@ -94,9 +95,9 @@ export default async function JobHubLayout({
             olarak sıkışıyordu; mobilde satırı ikiye bölüp yayılırlar. */}
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none">
-            <a href={`/jobs/${job.id}/work-order`}>
+            <PdfDownloadLink href={`/jobs/${job.id}/work-order`} shareTitle="İş Emri">
               <FileDown className="size-3.5" /> İş Emri PDF
-            </a>
+            </PdfDownloadLink>
           </Button>
           {canEdit && (
             <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none">

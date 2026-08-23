@@ -34,6 +34,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { EditableCombobox } from "@/components/editable-combobox";
+import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 import { SayiKutusu } from "@/components/sayi-kutusu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -394,7 +395,9 @@ export function OfferEditor({
       }
       if (res.warning) toast.warning(res.warning);
       else toast.success("Teklif yayımlandı ve arşivlendi.");
-      window.location.href = `/offers/${offerId}/revisions/${revisionId}/pdf`;
+      await downloadPdfFromApp(`/offers/${offerId}/revisions/${revisionId}/pdf`, {
+        shareTitle: "Teklif",
+      });
     });
   }
 
@@ -470,9 +473,12 @@ export function OfferEditor({
             <Eye className="size-4" /> Önizle
           </Button>
           <Button asChild variant="outline" className="oc-tap">
-            <a href={`/offers/${offerId}/revisions/${revisionId}/pdf`}>
+            <PdfDownloadLink
+              href={`/offers/${offerId}/revisions/${revisionId}/pdf`}
+              shareTitle="Teklif"
+            >
               <Download className="size-4" /> Teklifi İndir
-            </a>
+            </PdfDownloadLink>
           </Button>
           {readOnly ? null : (
             <>

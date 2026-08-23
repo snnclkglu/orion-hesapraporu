@@ -280,3 +280,17 @@ kırpılır.
 
 **Kural:** `overflow-hidden`/`overflow-y-auto` veren her kap `relative` de
 almalıdır. Aksi hâlde kırpma bir DİLEKTİR, garanti değil.
+
+## MOBIL-19 — TABLET OPERASYON TABLOSU DA KARTTIR; MATRİS DEĞİLDİR.
+
+Kullanıcı kararı (23.08.2026): mobilde uygulanan düzenli işlem yüzeyi tablet
+görünümüne ve bütün ana bölümlere de taşınır. 768–1023 px aralığında seçme,
+genişletme, düzenleme veya durum değiştirme taşıyan satırlar
+`oc-tablet-table` ile karta katlanır; satırın adı ile eylemi aynı görünümde
+kalır ve iç yatay kaydırma kullanılmaz. `data-label`, `data-mobile-span` ve
+tek tablo işaretlemesi korunur; ayrı bir tablet bileşeni yazılmaz.
+
+Bu kural gerçek matrisleri, dönem eksenli karşılaştırmaları, grafikleri ve
+teknik çizimleri kapsamaz. Bunlar genişlik bilgisini kaybedemez; kendi
+`oc-scrollx` kabında ve görünür kenar ipucuyla kayar. Sayfanın kendisi hiçbir
+koşulda yatay kaymaz.

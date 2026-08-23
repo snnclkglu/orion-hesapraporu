@@ -58,6 +58,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -849,9 +850,12 @@ export function PayrollBoard({
           >
             {/* BORDROLARI İNDİR — dönemin bütün pusulaları TEK PDF, kişi başına
                 bir sayfa (kullanıcı kararı, 12.08.2026). */}
-            <a href={`/personnel/bordro?donem=${ay}&hepsi=1`}>
+            <PdfDownloadLink
+              href={`/personnel/bordro?donem=${ay}&hepsi=1`}
+              shareTitle={`${periodLabel(ay)} Bordroları`}
+            >
               <FileText className="size-3.5" /> Bordrolar
-            </a>
+            </PdfDownloadLink>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
             <a href={`/personnel/export?ay=${ay}`}>
@@ -1014,8 +1018,8 @@ export function PayrollBoard({
 
       {/* ——————————————————————————————————————————————————————— tablo */}
       <Table
-        className="oc-mobile-table"
-        containerClassName="oc-mobile-table-wrap rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+        className="oc-mobile-table oc-tablet-table"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
       >
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">

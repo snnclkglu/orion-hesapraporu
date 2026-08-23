@@ -278,6 +278,114 @@
   }
 
   /*
+   * OPERASYON LİSTELERİ TABLETTE DE KARTA KATLANIR.
+   *
+   * Satın alma ve teknik resim ekranlarındaki satırlar yalnız okunmaz;
+   * genişletilir, seçilir ve satır üzerinden işlem yapılır. 768–1023 px
+   * aralığında masaüstü tablosunu içten kaydırmak, satırın adı soldayken
+   * Durum / Düzenle eylemini sağda görünmez bırakıyordu. Bu sınıf bilerek
+   * opt-in'dir: gerçek matris, grafik ve teknik çizimler tablet üzerinde
+   * kendi iç kaydırma davranışını korur.
+   */
+  @media (max-width: 1023px) {
+    .oc-tablet-table-wrap {
+      overflow-x: hidden !important;
+      background-image: none;
+    }
+
+    .oc-tablet-table,
+    .oc-tablet-table tbody,
+    .oc-tablet-table tfoot {
+      display: block;
+      width: 100%;
+    }
+
+    .oc-tablet-table thead {
+      display: none;
+    }
+
+    .oc-tablet-table tbody {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .oc-tablet-table tfoot {
+      margin-top: 0.75rem;
+    }
+
+    .oc-tablet-table tr {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--card);
+    }
+
+    .oc-tablet-table td {
+      display: grid;
+      min-width: 0;
+      gap: 0.25rem;
+      padding: 0;
+      white-space: normal;
+      text-align: left;
+    }
+
+    .oc-tablet-table td::before {
+      content: attr(data-label);
+      min-height: 0.875rem;
+      color: var(--muted-foreground);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      text-align: left;
+    }
+
+    .oc-tablet-table td[data-mobile-span="full"] {
+      grid-column: 1 / -1;
+    }
+
+    .oc-tablet-table td[data-mobile-hide-label]::before {
+      display: none;
+    }
+
+    .oc-tablet-table td[data-mobile-disclosure] {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      z-index: 1;
+      display: block;
+      width: 2.75rem;
+      padding: 0;
+    }
+
+    .oc-tablet-table td[data-mobile-disclosure]::before {
+      display: none;
+    }
+
+    .oc-tablet-table tr[data-mobile-summary] {
+      background: color-mix(in oklab, var(--muted) 45%, var(--card));
+    }
+
+    .oc-tablet-table .hidden,
+    .oc-tablet-table [data-mobile-hidden] {
+      display: none !important;
+    }
+
+    .oc-tablet-table [data-mobile-show] {
+      display: grid !important;
+    }
+
+    .oc-tablet-table [data-mobile-actions] {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  /*
    * HESAP ŞEMASI PALETİ — model/PDF renklerinden bağımsız web görünümü.
    *
    * Diyagram veri modeli gerçek baskı hex'lerini taşır; `DiagramSvg` uygulama

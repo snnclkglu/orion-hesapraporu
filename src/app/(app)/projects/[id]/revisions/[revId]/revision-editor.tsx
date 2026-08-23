@@ -890,7 +890,7 @@ function CheckRow({ check, context }: { check: AnyCheck; context?: StandardConte
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-md border px-3 py-2 text-sm",
+        "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 rounded-md border px-3 py-2 text-sm sm:flex sm:items-center",
         check.pass
           ? "border-success/25 bg-success/5"
           : "border-destructive/40 bg-destructive/5"
@@ -908,7 +908,7 @@ function CheckRow({ check, context }: { check: AnyCheck; context?: StandardConte
       <div className="min-w-0 flex-1">
         {/* Dar ekranda tek satıra kırpılan kontrol adı okunmuyordu; özet
             panosunda kırmızı kontrolü bulmanın tek yolu bu metindir. */}
-        <div className="line-clamp-2 font-medium sm:line-clamp-1" title={check.label}>
+        <div className="font-medium sm:line-clamp-1" title={check.label}>
           {check.label}
           <CheckOriginBadge check={check} className="ml-1 align-middle" />
         </div>
@@ -921,7 +921,10 @@ function CheckRow({ check, context }: { check: AnyCheck; context?: StandardConte
       </div>
       <Badge
         variant={check.pass ? "secondary" : "destructive"}
-        className={cn("shrink-0", check.pass && "border-transparent bg-success/15 text-success")}
+        className={cn(
+          "col-start-2 w-fit shrink-0 justify-self-start sm:col-auto",
+          check.pass && "border-transparent bg-success/15 text-success"
+        )}
       >
         {check.pass ? "UYGUN" : "UYGUN DEĞİL"}
       </Badge>
@@ -973,7 +976,7 @@ function CalcRow({
         // `oc-scrollx`: mobil tarayıcı kaydırma çubuğu çizmez; uzun formülün
         // sağa devam ettiğini gösteren tek ipucu kenar gölgesidir (sözleşme §6).
         <div
-          className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90 [--oc-scroll-bg:var(--muted)]"
+          className="oc-scrollx relative overflow-x-auto overscroll-x-contain rounded-md bg-muted/50 px-3 py-2 text-[15px] leading-relaxed text-foreground/90 [--oc-scroll-bg:var(--muted)]"
           title={row.formulaHint}
           aria-label={row.formulaHint ? `Formül açıklaması: ${row.formulaHint}` : undefined}
         >
@@ -996,7 +999,8 @@ function CalcRow({
 
 /**
  * Bölüm sonundaki özet tablosu — satır satır okunması zor bileşen dökümlerini
- * (ör. ana kiriş gerilme tablosu) tek bakışta verir. Dar ekranda yatay kayar.
+ * (ör. ana kiriş gerilme tablosu) tek bakışta verir. Dar ekranda her satır
+ * başlıklı bir karta katlanır; masaüstünde klasik tablo kalır.
  */
 function SectionTable({
   table, ctx,
@@ -1014,11 +1018,8 @@ function SectionTable({
   return (
     <div className="grid gap-2">
       <h3 className="oc-kicker text-muted-foreground">{table.title}</h3>
-      {/* `.oc-scrollx`: hücreler `whitespace-nowrap` olduğu için çok sütunlu
-          sonuç tablosu telefonda kabın birkaç katına çıkıyor ve sessizce
-          kırpılıyordu (AGENTS HESAP-8). Bölümdeki tek ipuçsuz kaydırıcıydı. */}
-      <div className="oc-scrollx overflow-x-auto overscroll-x-contain rounded-lg border [--oc-scroll-bg:var(--card)]">
-        <table className="w-full border-collapse text-sm">
+      <div className="oc-mobile-table-wrap rounded-lg border [--oc-scroll-bg:var(--card)]">
+        <table className="oc-mobile-table w-full border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/60">
               {table.headers.map((h) => (
@@ -1037,6 +1038,8 @@ function SectionTable({
                 {r.map((cell, j) => (
                   <td
                     key={j}
+                    data-label={table.headers[j]}
+                    data-mobile-span={j === 0 ? "full" : undefined}
                     className={cn(
                       "px-3 py-1.5 align-top",
                       typeof cell === "number" && "text-right font-mono tabular-nums"
@@ -1053,28 +1056,6 @@ function SectionTable({
       {table.note && (
         <p className="text-[11px] leading-snug text-muted-foreground">{table.note}</p>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- RoleLegend
-/** 4 değer rolünün tek satırlık lejantı: girdi / hesap / katalog / kontrol. */
-function RoleLegend() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[11px] tracking-wide text-muted-foreground">
-      <span aria-hidden="true" className="inline-block size-2.5 shrink-0 border border-input bg-background" />
-      <span>GİRDİ</span>
-      <span aria-hidden="true">·</span>
-      <span aria-hidden="true" className="inline-block size-2.5 shrink-0 bg-muted" />
-      <span>HESAP</span>
-      <span aria-hidden="true">·</span>
-      <span aria-hidden="true">▾</span>
-      <span>KATALOG</span>
-      <span aria-hidden="true">·</span>
-      <span aria-hidden="true">
-        <span className="text-success">✓</span>/<span className="text-destructive">✗</span>
-      </span>
-      <span>KONTROL</span>
     </div>
   );
 }
@@ -1459,6 +1440,10 @@ export function RevisionEditor({
     () => buildSteps(present, numbers, specs, hiddenSections),
     [present, numbers, specs, hiddenSections]
   );
+  // Bölüm sayısı azalınca state'i bir effect içinde yeniden yazmak yerine
+  // görünür indeksi türetiriz. Böylece render zinciri oluşmaz; kullanıcı bir
+  // sonraki gezinme hareketinde yine geçerli bir state değerine iner.
+  const activeStepIndex = Math.min(stepIndex, Math.max(0, STEPS.length - 1));
   // Bölüm değişince gövde başa sarılır — kayma hissinin ana kaynağı buydu.
   // `bodyRef` kabı YALNIZ lg üstünde kayar (`lg:overflow-y-auto`); lg altında
   // kaydırma sayfanındır ve çağrı sessizce ölüyordu: yeni bölüme geçen kullanıcı
@@ -1466,7 +1451,7 @@ export function RevisionEditor({
   useEffect(() => {
     if (window.matchMedia(DESKTOP_MQ).matches) bodyRef.current?.scrollTo({ top: 0 });
     else window.scrollTo({ top: 0 });
-  }, [stepIndex]);
+  }, [activeStepIndex]);
   /**
    * Bölüm kenar çubuğunda listelenir mi: vinç konfigürasyonu buna izin
    * veriyorsa ve bağlı olduğu üst bölüm açıksa. (Kapalı ama listelenen bölüm
@@ -1484,11 +1469,6 @@ export function RevisionEditor({
     () => buildNavGroups(STEPS, numbers, present, allowedByConfig, specs),
     [STEPS, numbers, present, allowedByConfig, specs]
   );
-  // Modül kapatılınca adım sayısı azalabilir → aktif adımı sınırla
-  useEffect(() => {
-    setStepIndex((i) => Math.min(i, STEPS.length - 1));
-  }, [STEPS.length]);
-
   // ------------------------------------------------- otomatik girdi türetmesi
   // "Otomatik" anahtarı açık alanlar (halat ağırlığı, makara verimi, yiv boyu,
   // tambur ağırlığı, yürütmenin uygulama sınıfı / Ks / Kt, ana kirişin ψh ve γc)
@@ -1542,7 +1522,7 @@ export function RevisionEditor({
     [result, hiddenCheckIdSet]
   );
   const failCount = visibleChecks.filter((c) => !c.pass).length;
-  const step = STEPS[Math.min(stepIndex, STEPS.length - 1)] ?? STEPS[0];
+  const step = STEPS[activeStepIndex] ?? STEPS[0];
 
   // Bağlam aktif bölüme göre kurulur: pop-up'ta vurgulanan satır, o bölümün
   // hesabında gerçekten kullanılan sınıftır.
@@ -2213,7 +2193,7 @@ export function RevisionEditor({
                 Not düğmesi eskiden içeriğin ilk satırındaydı ve HER bölümde bir
                 satır boyu yer yiyordu — üstelik çoğu bölümde hiç kullanılmıyor.
                 Başlık satırında zaten boş duran sağ kenara alındı. */}
-            <span className="ml-auto flex items-center gap-2">
+            <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
               {confirmation && (
                 <Button
                   type="button"
@@ -2227,7 +2207,7 @@ export function RevisionEditor({
                     })
                   }
                   className={cn(
-                    "h-7 px-2 text-xs",
+                    "px-2 text-xs",
                     confirmationIsOn && "border-success/40 bg-success/10 text-success"
                   )}
                 >
@@ -2243,7 +2223,7 @@ export function RevisionEditor({
                   size="sm"
                   onClick={enableSectionNote}
                   title="Bu alt bölüme rapora girecek bir not ekle"
-                  className="h-6 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+                  className="px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
                 >
                   + Bölüm Notu
                 </Button>
@@ -2964,7 +2944,7 @@ export function RevisionEditor({
 
   // ------------------------------------------------------------ layout
   const passCount = visibleChecks.length - failCount;
-  const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
+  const progressPct = ((activeStepIndex + 1) / STEPS.length) * 100;
   // Gizli bölümün adım şeridi sayacı da susar — bölüm rapora girmiyor.
   const stepChecks =
     step.kind === "module" &&
@@ -3017,10 +2997,10 @@ export function RevisionEditor({
           type="button"
           onClick={() => goToStep(i)}
           title={`${stepChip(s)} · ${stepLabel(s)}${hidden ? " (gizli)" : ""}`}
-          aria-current={i === stepIndex ? "step" : undefined}
+          aria-current={i === activeStepIndex ? "step" : undefined}
           className={cn(
             "relative flex w-full items-center justify-center rounded-md py-1.5 font-mono text-[11px] tabular-nums transition-colors pointer-coarse:min-h-10",
-            i === stepIndex
+            i === activeStepIndex
               ? "bg-primary/15 font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
             hidden && "opacity-45"
@@ -3051,11 +3031,11 @@ export function RevisionEditor({
         <button
           type="button"
           onClick={() => goToStep(i)}
-          aria-current={i === stepIndex ? "step" : undefined}
+          aria-current={i === activeStepIndex ? "step" : undefined}
           className={cn(
             // Telefonda bölüm listesi ana dokunma hedefidir (~29px'ti)
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors pointer-coarse:min-h-10",
-            i === stepIndex
+            i === activeStepIndex
               ? "bg-primary/10 font-medium text-primary"
               : "text-foreground/80 hover:bg-muted hover:text-foreground"
           )}
@@ -3063,7 +3043,7 @@ export function RevisionEditor({
           <span
             className={cn(
               "inline-flex h-5 min-w-8 shrink-0 items-center justify-center px-1 font-mono text-xs tabular-nums sm:text-[11px]",
-              i === stepIndex ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              i === activeStepIndex ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
             )}
           >
             {chip}
@@ -3296,7 +3276,7 @@ export function RevisionEditor({
             const withChecks = statuses.filter((st) => st !== "none").length;
             const passed = statuses.filter((st) => st === "pass").length;
             const anyFail = statuses.some((st) => st === "fail");
-            const containsCurrent = group.items.some(({ index: i }) => i === stepIndex);
+            const containsCurrent = group.items.some(({ index: i }) => i === activeStepIndex);
             const isOpen =
               !isDisabled && (navQ !== "" || containsCurrent || !!openGroups[group.key]);
             return (
@@ -3416,8 +3396,8 @@ export function RevisionEditor({
             <Button
               variant="outline"
               size="sm"
-              disabled={stepIndex === 0}
-              onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+              disabled={activeStepIndex === 0}
+              onClick={() => setStepIndex(Math.max(0, activeStepIndex - 1))}
             >
               <span aria-hidden="true" className="font-mono">←</span>
               Geri
@@ -3446,14 +3426,14 @@ export function RevisionEditor({
                 onClick={() => setNavOpenMobile((v) => !v)}
                 aria-expanded={navOpenMobile}
                 aria-controls={NAV_PANEL_ID}
-                title={`${stepIndex + 1}/${STEPS.length} · ${step.title}`}
+                title={`${activeStepIndex + 1}/${STEPS.length} · ${step.title}`}
                 className="oc-tap flex max-w-[60%] min-w-0 shrink items-center gap-1.5 rounded-md text-left font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:pointer-events-none lg:hover:bg-transparent"
               >
                 <span aria-hidden className="shrink-0 leading-none lg:hidden">
                   ☰
                 </span>
                 <span className="min-w-0 truncate">
-                  {stepIndex + 1}/{STEPS.length} · {step.title}
+                  {activeStepIndex + 1}/{STEPS.length} · {step.title}
                 </span>
               </button>
               {step.kind === "module" && stepChecks.length > 0 && (
@@ -3489,8 +3469,8 @@ export function RevisionEditor({
 
             <Button
               size="sm"
-              disabled={stepIndex === STEPS.length - 1}
-              onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
+              disabled={activeStepIndex === STEPS.length - 1}
+              onClick={() => setStepIndex(Math.min(STEPS.length - 1, activeStepIndex + 1))}
             >
               İleri
               <span aria-hidden="true" className="font-mono">→</span>

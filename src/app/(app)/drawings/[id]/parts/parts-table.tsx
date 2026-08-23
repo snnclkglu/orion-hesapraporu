@@ -27,6 +27,7 @@
 import { useMemo, useState } from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import {
   Select,
   SelectContent,
@@ -157,10 +158,13 @@ export function PartsTable({
           </a>
         </Button>
         <Button asChild variant="outline" size="xs">
-          <a href={`/drawings/${packageId}/parts/download?bicim=pdf&${indirmeEki}`}>
+          <PdfDownloadLink
+            href={`/drawings/${packageId}/parts/download?bicim=pdf&${indirmeEki}`}
+            shareTitle="Teknik Resim Parça Defteri"
+          >
             <FileText className="size-3" />
             PDF
-          </a>
+          </PdfDownloadLink>
         </Button>
       </FilterBar>
 
@@ -182,8 +186,10 @@ export function PartsTable({
         // zaten kuruyor; dıştan bir `overflow-x-auto` daha sarmak iç içe iki
         // kaydırma alanı yapardı ve telefonda parmak hangisini süreceğini
         // şaşırırdı. Bu kutu yalnız çerçeve ve zemin verir.
-        <div className="border bg-card">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <SortableHead sortKey="kod" current={sortKey} desc={desc} onSort={sirala}>
@@ -246,6 +252,7 @@ export function PartsTable({
                 return (
                   <TableRow key={p.register_key} className={montaj ? "bg-muted/30" : undefined}>
                     <TableCell
+                      data-label="Kod"
                       className={
                         "align-top whitespace-normal " +
                         (montaj
@@ -276,12 +283,16 @@ export function PartsTable({
                         tablo sütununun MIN-CONTENT genişliğini küçültmez —
                         "15x240x285" jetonu sütunu 134px altına inemez kılıyor
                         ve tablo 375px'te taşıyordu (ölçüldü, MOBIL-15). */}
-                    <TableCell className="min-w-0 align-top break-words whitespace-normal max-sm:[overflow-wrap:anywhere]">
+                    <TableCell
+                      data-label="Tanım"
+                      data-mobile-span="full"
+                      className="min-w-0 align-top break-words whitespace-normal max-lg:[overflow-wrap:anywhere]"
+                    >
                       <span className={"block" + (montaj ? " font-medium" : "")}>
                         {p.description || p.name || p.assembly_title || "—"}
                       </span>
                       {/* Dar ekranda gizlenen sütunların kritik olanı buraya iner */}
-                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground md:hidden">
+                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground lg:hidden">
                         {[
                           p.material,
                           p.thickness_mm != null && `${formatNum(p.thickness_mm, 1)}mm`,
@@ -292,7 +303,7 @@ export function PartsTable({
                       </span>
                     </TableCell>
 
-                    <TableCell className="align-top text-right font-mono text-sm">
+                    <TableCell data-label="Adet" className="align-top text-right font-mono text-sm">
                       {p.qty ?? "—"}
                       {p.cut_length_mm != null && (
                         // Telefonda ALT SATIRA iner: "24.000 6.000,0mm" tek
@@ -323,7 +334,7 @@ export function PartsTable({
                       {PART_KIND_LABELS[p.kind]}
                     </TableCell>
 
-                    <TableCell className="align-top">
+                    <TableCell data-label="Dosyalar" data-mobile-span="full" className="align-top">
                       <span className="flex flex-wrap items-center gap-1">
                         {resim && (
                           <FileOpenButton
@@ -359,8 +370,7 @@ export function PartsTable({
                 );
               })}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
     </div>
   );

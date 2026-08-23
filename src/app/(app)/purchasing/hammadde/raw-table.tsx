@@ -42,6 +42,7 @@ import {
   Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadForm } from "@/components/pdf-download-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -592,8 +593,10 @@ export function RawTable({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {sutunlar.map((s) => {
@@ -686,8 +689,7 @@ export function RawTable({
                 />
               ))}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
@@ -939,28 +941,49 @@ function Satir({
       sutun?.sag && "text-right font-mono tabular-nums",
       sutun?.gizle
     );
+    const mobilGenislik = (anahtar: string) => (anahtar === "durum" ? "full" : undefined);
     switch (k) {
       case "kalinlik":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {sayi(s.parcalar[0]?.kalinlikMm)}
           </TableCell>
         );
       case "alan":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.toplamAlanMm2 == null ? bos() : formatNum(s.toplamAlanMm2 / 1e6, 2)}
           </TableCell>
         );
       case "kesit":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.kesitKodu || bos()}
           </TableCell>
         );
       case "kgm":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.kgPerM == null ? (
               bos()
             ) : (
@@ -975,7 +998,12 @@ function Satir({
         );
       case "metre":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {metre == null ? bos() : formatNum(metre, 1)}
           </TableCell>
         );
@@ -984,7 +1012,12 @@ function Satir({
         // parça standart boya sığmıyor) ama okuyan onu "ihtiyaç yok" sanar.
         // Uzunluk bir eksiklik değil bir KARARdır — ekleme yapılacaktır.
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.boyAdedi == null ? (
               bos()
             ) : s.boyAdedi === 0 && s.boyuAsanParca > 0 ? (
@@ -1011,43 +1044,79 @@ function Satir({
         );
       case "dis":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {sayi(s.parcalar[0]?.disCapMm)}
           </TableCell>
         );
       case "ic":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {sayi(s.parcalar[0]?.icCapMm)}
           </TableCell>
         );
       case "olcu":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.kesitKodu || bos()}
           </TableCell>
         );
       case "parca":
         return (
-          <TableCell key={k} className={cls} title={`${s.parcaSayisi} farklı parça`}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+            title={`${s.parcaSayisi} farklı parça`}
+          >
             {formatNum(s.parcaAdedi)}
           </TableCell>
         );
       case "agirlik":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {s.toplamAgirlikKg == null ? bos() : formatNum(Math.round(s.toplamAgirlikKg))}
           </TableCell>
         );
       case "siparis":
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cls}
+          >
             {g.siparisEdilen > 0 ? `${formatNum(g.siparisEdilen)} ${sip.birim}` : bos()}
           </TableCell>
         );
       case "teklif":
         return (
-          <TableCell key={k} className={cn(cls, "font-mono")}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span={mobilGenislik(k)}
+            className={cn(cls, "font-mono")}
+          >
             {teklifDugmesi}
           </TableCell>
         );
@@ -1058,7 +1127,12 @@ function Satir({
         // Plaka ölçüsü ancak YERLEŞİM yapılınca bilinir, o yüzden çip sipariş
         // penceresi yerine yerleşim ekranını açar.
         return (
-          <TableCell key={k} className={cls}>
+          <TableCell
+            key={k}
+            data-label={sutun?.baslik}
+            data-mobile-span="full"
+            className={cls}
+          >
             <DurumCipi
               durum={g.durum}
               onClick={canWrite ? onSiparis : undefined}
@@ -1067,7 +1141,7 @@ function Satir({
           </TableCell>
         );
       default:
-        return <TableCell key={k} className={cls} />;
+        return <TableCell key={k} data-label={sutun?.baslik} className={cls} />;
     }
   };
 
@@ -1075,11 +1149,11 @@ function Satir({
     <>
       <TableRow className={cn(DURUM_SATIRI[g.durum], secili && "bg-primary/[0.07]")}>
         {canWrite && (
-          <TableCell className="align-top">
+          <TableCell data-mobile-hide-label className="align-top">
             <SecimKutusu isaretli={secili} onChange={onSec} etiket={s.tanim} />
           </TableCell>
         )}
-        <TableCell className="align-top">
+        <TableCell data-mobile-hide-label className="align-top">
           <button
             type="button"
             onClick={onAc}
@@ -1099,7 +1173,11 @@ function Satir({
             <TurCipi sinif={s.sinif} elle={s.sinifElle} />
           </TableCell>
         )}
-        <TableCell className="max-w-[12rem] align-top md:max-w-[20rem] xl:max-w-[28rem]">
+        <TableCell
+          data-label="Stok Kalemi"
+          data-mobile-span="full"
+          className="max-w-[12rem] align-top md:max-w-[20rem] xl:max-w-[28rem]"
+        >
           <div className="flex items-start gap-1.5">
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={s.tanim}>
               {s.tanim}
@@ -1148,7 +1226,7 @@ function Satir({
           {s.not && <p className="mt-0.5 text-[11px] text-muted-foreground">{s.not}</p>}
           {/* TELEFON KATMANI (sm altı): gizlenen İş No · Tür · Ağırlık ·
               Sipariş · Teklif buraya iner — tablo listeye katlanır. */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 lg:hidden">
             {isOzeti != null && (
               <span className="font-mono text-[11px] text-muted-foreground" title={isIpucu}>
                 {isOzeti}
@@ -1156,7 +1234,7 @@ function Satir({
             )}
             {tur === "" && <TurCipi sinif={s.sinif} elle={s.sinifElle} />}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[12px] tabular-nums sm:hidden">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[12px] tabular-nums lg:hidden">
             {s.toplamAgirlikKg != null && (
               <span>{formatNum(Math.round(s.toplamAgirlikKg))} kg</span>
             )}
@@ -1181,7 +1259,12 @@ function Satir({
 
       {acik && (
         <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={sutunlar.length} className="bg-muted/30 p-0">
+          <TableCell
+            colSpan={sutunlar.length}
+            data-mobile-span="full"
+            data-mobile-hide-label
+            className="bg-muted/30 p-0"
+          >
             <div className="oc-scrollx overflow-x-auto p-3 [--oc-scroll-bg:var(--muted)]">
               <table className="w-full text-[12px]">
                 <thead>
@@ -1433,12 +1516,19 @@ function ToplamSatiri({ gorunen, sutunlar }: { gorunen: Gorunum[]; sutunlar: Sut
   };
 
   return (
-    <TableRow className="border-b-2 border-foreground/20 bg-muted/60 hover:bg-muted/60">
+    <TableRow
+      data-mobile-summary
+      className="border-b-2 border-foreground/20 bg-muted/60 hover:bg-muted/60"
+    >
       {sutunlar.map((c, i) => {
         const v = deger(c.key);
         return (
           <TableCell
             key={c.key}
+            data-label={c.baslik || undefined}
+            data-mobile-span={c.key === "tanim" ? "full" : undefined}
+            data-mobile-hide-label={c.key === "sec" || c.key === "ac" ? true : undefined}
+            data-mobile-hidden={!v && i > 0 ? true : undefined}
             className={cn(
               "align-middle py-1.5 text-[12px] font-semibold",
               c.sag && "text-right font-mono tabular-nums",
@@ -1714,13 +1804,17 @@ function CiktiFormu({
           Excel
         </Button>
       </form>
-      <form method="POST" action="/purchasing/hammadde/export?bicim=pdf">
+      <PdfDownloadForm
+        method="POST"
+        action="/purchasing/hammadde/export?bicim=pdf"
+        shareTitle="Hammadde Talebi"
+      >
         {alanlar}
         <Button type="submit" variant="outline" size="xs" title={`${ipucu} — hammadde talebi`}>
           <FileText className="size-3" />
           PDF
         </Button>
-      </form>
+      </PdfDownloadForm>
     </span>
   );
 }

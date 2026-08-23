@@ -1032,3 +1032,37 @@ her satırı karşılaştırır (değişmez md. 8). Şemanın etiket çakışmas
 ÖLÇÜLÜR — `legibility.guard.test.ts` yazı-yazı çakışmasını, `npx tsx
 scripts/check-drum-brake-labels.ts` ise yazının ÇİZGİ üstüne binmesini (z-sırası
 duyarlı) 23 fren boyunda sınar.
+
+## HESAP-28 — Mühendislik mobilde kartlara katlanır; sayfa yatay kaymaz.
+
+Kullanıcı kararı (23.08.2026): proje listesi, proje revizyonları, ekipman
+sürümleri, elektrik listeleri, teknik resim arşivi, el kitabı revizyonları,
+karşılaştırma ve işlem kaydı telefonda yatay tablo olarak bırakılmaz. Aynı
+tablo işaretlemesi `oc-mobile-table` ile 768px altında başlıklı kartlara
+katlanır; serbest metin ve birincil kimlik tam genişliktedir, durum/değer
+alanları iki sütunda okunur, eylemler görünür kalır. Proje listesinde başlık
+gizlendiği için sıralama filtre şeridindeki mobil seçimden; elektrik
+kartlarında ise mobil sıralama seçimi ve yön düğmesinden yapılır.
+
+Proje bölüm rayı telefonda iki sütun ve üç satırdır: kısa etiketler kullanılır,
+El Kitabı son satırı kaplar. Bu, beş uzun sekmenin beş ayrı satır oluşturup
+asıl içeriği ekranın altına itmesini engeller; sekme değerleri ve panelleri
+değişmez.
+
+Hesap editöründeki `SectionTable` sonuçları da karttır. Bölüm başlığının onay,
+not, gizleme ve durum eylemleri telefonda kendi tam genişlik satırına sarılır;
+kontrol sonucundaki UYGUN/UYGUN DEĞİL rozeti açıklamanın altına iner. Ekipman
+satırında düzenlenen Ek Özellikler alanı tam genişliktedir; teknik ressam
+özetleri aynı kart düzenini kullanır.
+
+**İSTİSNALAR YALNIZ İÇERİK GEREKTİRİYORSA KAYAR:** ölçü şemaları, uzun
+matematik formülleri ve el kitabının doğrudan düzenlenen değişken sütunlu
+matrisi kendi `oc-scrollx` kabında yatay kayabilir. Bu iç kaplar `relative`dir
+ve kaydırma ipucu taşır; belge/sayfa gövdesi hiçbir genişlikte kaymaz.
+
+Koruma ölçümü `/dev/projects-preview`, `/dev/project-preview`,
+`/dev/editor-preview`, `/dev/equipment-preview`, `/dev/manual-preview` ve
+`/dev/double-drum-preview` rotalarında 320, 375, 768 ve 1280px genişliklerde
+yapılır. Editör için yalnız ilk ekran yeterli değildir: 52 adımın tamamında
+`document.scrollWidth === document.clientWidth` ve kart kabında iç taşma
+olmadığı doğrulanır.

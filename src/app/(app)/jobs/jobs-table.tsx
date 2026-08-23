@@ -22,6 +22,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { Copy, FileDown, MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
 import { bulkSetJobStatus, deleteJob } from "./actions";
 import { bulkSetFavorite, toggleJobFavorite } from "./favorite-actions";
@@ -218,9 +219,9 @@ function JobRowActions({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem asChild>
-            <a href={`/jobs/${job.id}/work-order`}>
+            <PdfDownloadLink href={`/jobs/${job.id}/work-order`} shareTitle="İş Emri">
               <FileDown className="size-3.5" /> İş Emri PDF
-            </a>
+            </PdfDownloadLink>
           </DropdownMenuItem>
           {canEdit && (
             <DropdownMenuItem asChild>

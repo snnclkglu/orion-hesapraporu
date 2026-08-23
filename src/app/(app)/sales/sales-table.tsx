@@ -400,7 +400,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
 
       {/* "Yana kaydırın" ipucu KALKTI: tablo telefonda listeye katlanıyor
           (kabuk kuralı 15), kaydırılacak bir yan kalmadı. */}
-      <p className="text-[11px] text-muted-foreground md:hidden">
+      <p className="text-[11px] text-muted-foreground lg:hidden">
         → Ayrıntı için satıra dokunun.
       </p>
 
@@ -408,8 +408,8 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           70dvh'ye kelepçelenir ve başlık yapışır — overflow-hidden kalsaydı
           kelepçenin dikey kaydırmasını da kırpardı. */}
       <Table
-        className="oc-mobile-table"
-        containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+        className="oc-mobile-table oc-tablet-table"
+        containerClassName="oc-mobile-table-wrap oc-tablet-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
       >
           <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -461,7 +461,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       {r.productName}
                     </span>
                     {/* Telefonda düşen sütunların kritik olanları burada durur. */}
-                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground md:hidden">
+                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground lg:hidden">
                       {[
                         customerTag({ name: r.customer, shortName: r.customerShort }).short,
                         r.sale.scope.trim() ? scopeLabel(r.sale.scope) : "",
@@ -470,7 +470,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                         .filter(Boolean)
                         .join(" · ")}
                       {r.eurAmount !== null && (
-                        <span className="sm:hidden">
+                        <span className="lg:hidden">
                           {" · "}
                           <span className="font-mono tabular-nums">{fmtNum(r.eurAmount)} €</span>
                         </span>

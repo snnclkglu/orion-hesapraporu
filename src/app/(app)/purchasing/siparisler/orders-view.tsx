@@ -27,9 +27,9 @@
 import { forwardRef, Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import Link from "next/link";
 import { BarChart3, ChevronDown, ChevronRight, FileText, Loader2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -592,8 +592,10 @@ export function OrdersView({
           </p>
         </div>
       ) : (
-        <div className="oc-scrollx oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]">
-          <Table>
+        <Table
+          className="oc-tablet-table"
+          containerClassName="oc-tablet-table-wrap oc-table-clamp border bg-card [--oc-scroll-bg:var(--card)]"
+        >
             <TableHeader className="oc-sticky-head">
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className="w-8 p-0" />
@@ -639,7 +641,11 @@ export function OrdersView({
                       className={cn("oc-row-hue", s.cancelledAt && "opacity-50")}
                       style={{ "--oc-hue": SIPARIS_TURU_TONU[tur] } as React.CSSProperties}
                     >
-                      <TableCell className="p-0 align-top">
+                      <TableCell
+                        data-mobile-hide-label
+                        data-mobile-disclosure
+                        className="p-0 align-top"
+                      >
                         <button
                           type="button"
                           onClick={() =>
@@ -661,7 +667,11 @@ export function OrdersView({
                           )}
                         </button>
                       </TableCell>
-                      <TableCell className="align-top whitespace-normal">
+                      <TableCell
+                        data-label="Sipariş"
+                        data-mobile-span="full"
+                        className="align-top pr-10 whitespace-normal"
+                      >
                         <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                           <span className="text-[13px] font-medium">{s.supplier}</span>
                           <span
@@ -678,26 +688,25 @@ export function OrdersView({
                         {/* `md` ALTINDA SİPARİŞ NO SÜTUNU GİZLİ — numara ve PDF
                             bağlantısı telefonda erişilmez kalıyordu; buraya iner
                             (kabuk kuralı 7: kritik bilgi birincil hücreye). */}
-                        <span className="mt-0.5 flex items-center gap-2 md:hidden">
+                        <span className="mt-0.5 flex items-center gap-2 lg:hidden">
                           {s.orderNo && (
                             <span className="font-mono text-[11px] text-muted-foreground">
                               {s.orderNo}
                             </span>
                           )}
-                          <Link
+                          <PdfDownloadLink
                             href={`/purchasing/siparisler/${s.id}/pdf`}
-                            target="_blank"
-                            rel="noopener"
+                            shareTitle={`Sipariş Onayı ${s.orderNo || ""}`.trim()}
                             title="Sipariş onayı PDF"
                             className="oc-tap inline-flex min-h-6 items-center gap-1 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                           >
                             <FileText className="size-3" />
                             PDF
-                          </Link>
+                          </PdfDownloadLink>
                         </span>
                         {/* TELEFON KATMANI (sm altı): tarih · termin · tutar ·
                             kilo buraya iner — sütunları orada gizli. */}
-                        <span className="mt-1 grid gap-1 sm:hidden">
+                        <span className="mt-1 grid gap-1 lg:hidden">
                           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px]">
                             <span className="text-muted-foreground">{tarihGoster(s.orderedAt)}</span>
                             {s.receivedAt ? (
@@ -733,16 +742,15 @@ export function OrdersView({
                         {s.orderNo || "—"}
                         {/* SİPARİŞ ONAYI PDF (md. 6): sipariş no altında indirme
                             bağlantısı — müşteriye/tedarikçiye gönderilir. */}
-                        <Link
+                        <PdfDownloadLink
                           href={`/purchasing/siparisler/${s.id}/pdf`}
-                          target="_blank"
-                          rel="noopener"
+                          shareTitle={`Sipariş Onayı ${s.orderNo || ""}`.trim()}
                           title="Sipariş onayı PDF"
                           className="oc-tap mt-0.5 inline-flex min-h-6 items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                         >
                           <FileText className="size-3" />
                           PDF
-                        </Link>
+                        </PdfDownloadLink>
                       </TableCell>
                       <TableCell className="hidden align-top font-mono text-[12px] whitespace-nowrap sm:table-cell">
                         {tarihGoster(s.orderedAt)}
@@ -821,7 +829,11 @@ export function OrdersView({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="align-top">
+                      <TableCell
+                        data-label="Durum ve İşlemler"
+                        data-mobile-span="full"
+                        className="align-top"
+                      >
                         <HalCipleri
                           s={s}
                           canWrite={canWrite}
@@ -842,7 +854,12 @@ export function OrdersView({
 
                     {genis && (
                       <TableRow key={`${s.id}-detay`} className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={9} className="whitespace-normal p-0">
+                        <TableCell
+                          colSpan={9}
+                          data-mobile-span="full"
+                          data-mobile-hide-label
+                          className="whitespace-normal p-0"
+                        >
                           <div className="oc-scrollx px-3 py-2 [--oc-scroll-bg:var(--muted)]">
                             {/* KALEM DETAYI İKİ EKRANIN BİRLEŞİMİDİR: ticari
                                 sütunlar (KDV, KDV dahil) ekipmandan, TÜR ·
@@ -936,8 +953,7 @@ export function OrdersView({
                 );
               })}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
     </div>
   );

@@ -92,7 +92,7 @@ export default async function ComparePage({
   );
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 max-w-full gap-5 overflow-x-hidden">
       <Header project={project} />
       <RevisionPicker projectId={id} revisions={revList} selectedA={selA} selectedB={selB} />
 
@@ -138,8 +138,8 @@ export default async function ComparePage({
         sortedModules.map((mk) => (
           <section key={mk} className="grid gap-2">
             <h2 className="oc-kicker text-foreground/80">{MODULE_LABELS[mk] ?? mk}</h2>
-            <div className="rounded-lg border">
-              <Table>
+            <div className="relative overflow-hidden rounded-lg border">
+              <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
                 <TableHeader>
                   {/* TELEFONDA TABLO KATLANIR (kabuk kuralı 15): "Tür" sütunu
                       `sm` altında gizlenir ve etiket alan adının altına iner —
@@ -161,24 +161,34 @@ export default async function ComparePage({
                       <TableRow key={`${f.kind}-${f.key}`}>
                         {/* Alan adı serbest metindir; taban `whitespace-nowrap`
                             uzun etiketlerde tabloyu telefonda taşırıyordu. */}
-                        <TableCell className="whitespace-normal">
+                        <TableCell
+                          data-label="Alan"
+                          data-mobile-span="full"
+                          className="whitespace-normal"
+                        >
                           {fl.label}
                           {fl.unit ? ` [${fl.unit}]` : ""}
                           <span className="mt-0.5 block text-[11px] text-muted-foreground sm:hidden">
                             {turEtiketi}
                           </span>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
+                        <TableCell data-label="Tür" className="hidden sm:table-cell">
                           <Badge variant="outline">{turEtiketi}</Badge>
                         </TableCell>
                         {/* Eski değer gri, yeni değer koyu — üstü çizili kullanılmaz
                             (mühendislik dokümanında çizili değer karışıklık yaratır).
                             Değerler veriden gelir (seçim adları metin olabilir);
                             `break-words` boşluksuz jetonu da sardırır. */}
-                        <TableCell className="text-right font-mono text-sm break-words whitespace-normal text-muted-foreground">
+                        <TableCell
+                          data-label={`V${revA.rev_no}`}
+                          className="text-right font-mono text-sm break-words whitespace-normal text-muted-foreground"
+                        >
                           {fmtVal(f.a)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold break-words whitespace-normal text-foreground">
+                        <TableCell
+                          data-label={`V${revB.rev_no}`}
+                          className="text-right font-mono text-sm font-semibold break-words whitespace-normal text-foreground"
+                        >
                           {fmtVal(f.b)}
                         </TableCell>
                       </TableRow>

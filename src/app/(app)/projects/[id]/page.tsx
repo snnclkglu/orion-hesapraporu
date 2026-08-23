@@ -222,7 +222,7 @@ export default async function ProjectPage({
   ];
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 max-w-full gap-6 overflow-x-hidden">
       {/* Sayfanın kimliği kabuğun yapışkan üst şeridine de çıkar; künye bloğu
           (aşağıda) ayrıntıyı taşımaya devam eder. `xl` altında geri oku
           kırıntı yolunun yerini tutar — telefonda projeden çıkmanın tek yolu
@@ -274,8 +274,8 @@ export default async function ProjectPage({
 
         {/* ------------------------------------------------ Hesap Raporu */}
         <TabsContent value="report">
-          <div className="overflow-hidden rounded-lg border bg-card">
-            <Table>
+          <div className="relative overflow-hidden rounded-lg border bg-card">
+            <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
               <TableHeader>
                 {/* SÜTUN ÖNCELİKLENDİRME — yedi sütunda en sağdaki "İşlem"
                     (taslak silme) telefonda ekranın dışında kalıyordu.
@@ -294,17 +294,21 @@ export default async function ProjectPage({
               <TableBody>
                 {revisionList.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-mono">
+                    <TableCell data-label="Revizyon" className="font-mono">
                       <Link
                         href={`/projects/${project.id}/revisions/${r.id}`}
-                        className="inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
+                        className="oc-tap inline-flex items-center text-primary hover:underline"
                       >
                         V{r.rev_no}
                       </Link>
                     </TableCell>
                     {/* `break-words`: etiket serbest metindir, boşluksuz uzun
                         bir jeton telefonda tabloyu taşırmasın (kural 15). */}
-                    <TableCell className="break-words whitespace-normal">
+                    <TableCell
+                      data-label="Etiket"
+                      data-mobile-span="full"
+                      className="break-words whitespace-normal"
+                    >
                       {r.label}
                       {/* Mobilde gizlenen tarih + oluşturan bilgisi */}
                       <div className="mt-0.5 text-[11px] whitespace-normal text-muted-foreground md:hidden">
@@ -313,21 +317,33 @@ export default async function ProjectPage({
                         {(r.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell data-label="Durum">
                       <Badge variant={revisionStatusVariant(r.status)}>
                         {revisionStatusLabel(r.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden text-sm md:table-cell">
+                    <TableCell data-label="Oluşturan" className="hidden text-sm md:table-cell">
                       {(r.profiles as unknown as { full_name: string } | null)?.full_name ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
+                    <TableCell
+                      data-label="Tarih"
+                      className="hidden font-mono text-sm tabular-nums text-muted-foreground md:table-cell"
+                    >
                       {new Date(r.created_at).toLocaleDateString("tr-TR")}
                     </TableCell>
-                    <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
+                    <TableCell
+                      data-label="Motor"
+                      className="hidden font-mono text-xs text-muted-foreground lg:table-cell"
+                    >
                       {r.engine_version || "—"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      data-label="İşlem"
+                      data-mobile-span="full"
+                      data-mobile-hidden={!(canDeleteRevision && r.status === "draft") || undefined}
+                      data-mobile-actions
+                      className="text-right"
+                    >
                       {/* Silme YALNIZ taslakta: yayınlanmış revizyon teslim
                           edilmiş bir hesabın kaydıdır (DB tetikleyicisi de
                           engeller). Yetki raporu yazan rollerdedir. */}
@@ -354,6 +370,8 @@ export default async function ProjectPage({
                   <TableRow className="hover:bg-transparent">
                     <TableCell
                       colSpan={7}
+                      data-mobile-span="full"
+                      data-mobile-hide-label
                       className="h-32 text-center"
                       style={{
                         backgroundImage:
@@ -446,13 +464,13 @@ export default async function ProjectPage({
                 başlayın" diyordu — artık var olmayan bir düğmeyi tarif eden bir
                 yönerge, boşluktan daha kötüdür. */}
             {drawingList.length > 0 && (
-              <div className="overflow-hidden rounded-lg border bg-card">
+              <div className="relative overflow-hidden rounded-lg border bg-card">
                 <div className="border-b bg-muted/40 px-4 py-2.5">
                   <span className="oc-kicker text-muted-foreground">
                     Eski Çizim Defteri · Arşiv
                   </span>
                 </div>
-                <Table>
+                <Table containerClassName="oc-mobile-table-wrap" className="oc-mobile-table">
                   <TableHeader>
                     {/* SÜTUN ÖNCELİKLENDİRME — "İşlem" sütunu defterle birlikte
                         kalktı. Mobilde Çizim No · Ad kalır; kategori, revizyon,
@@ -469,9 +487,15 @@ export default async function ProjectPage({
                   <TableBody>
                     {drawingList.map((d) => (
                       <TableRow key={d.id}>
-                        <TableCell className="font-mono text-sm">{d.drawing_no}</TableCell>
+                        <TableCell data-label="Çizim No" className="font-mono text-sm">
+                          {d.drawing_no}
+                        </TableCell>
                         {/* `break-words`: çizim adı veriden gelir (kural 15). */}
-                        <TableCell className="font-medium break-words whitespace-normal">
+                        <TableCell
+                          data-label="Ad"
+                          data-mobile-span="full"
+                          className="font-medium break-words whitespace-normal"
+                        >
                           {d.title}
                           {/* Mobilde gizlenen sütunlar — kategori · rev · durum ·
                               dosya bağlantısı burada toplanır. */}
@@ -485,29 +509,29 @@ export default async function ProjectPage({
                                 href={d.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex min-h-9 items-center text-primary hover:underline pointer-coarse:min-h-10"
+                                className="oc-tap inline-flex items-center text-primary hover:underline"
                               >
                                 Drive
                               </a>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                        <TableCell data-label="Kategori" className="hidden text-xs text-muted-foreground lg:table-cell">
                           {d.category}
                         </TableCell>
-                        <TableCell className="hidden font-mono text-sm lg:table-cell">
+                        <TableCell data-label="Revizyon" className="hidden font-mono text-sm lg:table-cell">
                           {d.revision}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell data-label="Durum" className="hidden md:table-cell">
                           {drawingStatusBadge(d.status)}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell data-label="Dosya" className="hidden md:table-cell">
                           {d.file_url ? (
                             <a
                               href={d.file_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex min-h-9 items-center text-sm text-primary hover:underline pointer-coarse:min-h-10"
+                              className="oc-tap inline-flex items-center text-sm text-primary hover:underline"
                             >
                               Drive
                             </a>

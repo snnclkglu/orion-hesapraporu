@@ -74,7 +74,7 @@ export default async function ProjectsPage() {
   });
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       <PageHeader title="Mühendislik" hint="Hesap raporu projeleri ve revizyon arşivi">
         <NewProjectDialog defaultCraneType={settings.default_crane_type} jobs={jobs} />
       </PageHeader>

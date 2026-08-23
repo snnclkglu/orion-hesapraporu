@@ -100,18 +100,18 @@ const PAGE_STEP = 200;
  * tekrarlanır, yoksa yapışkan hücreler vurguda ayrık görünürdü.
  */
 const STICKY_DATE =
-  "md:sticky md:left-0 md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+  "lg:sticky lg:left-0 lg:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 const STICKY_ITEM =
-  "md:sticky md:left-[6.5rem] md:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+  "lg:sticky lg:left-[6.5rem] lg:z-10 bg-card group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 /** Başlık şeridinin yapışkan hücreleri — satır zemini yarı saydam olduğu için opak eş değeri.
  *  `z-20!` önemlidir: `.oc-sticky-head th` seçicisi (0-1-1) düz `md:z-20`yi (0-1-0)
  *  ezip köşe hücresini öteki başlıklarla aynı kata indiriyordu — yatayda kaydırınca
  *  komşu başlıklar köşenin üstüne biniyordu. */
-const STICKY_HEAD_DATE = "md:sticky md:left-0 md:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+const STICKY_HEAD_DATE = "lg:sticky lg:left-0 lg:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 const STICKY_HEAD_ITEM =
-  "md:sticky md:left-[6.5rem] md:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
+  "lg:sticky lg:left-[6.5rem] lg:z-20! bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]";
 /** Telefonda düşen sütunlar — kritik olanları birincil hücrenin ikinci satırı taşır. */
-const SECONDARY = "hidden md:table-cell";
+const SECONDARY = "hidden lg:table-cell";
 
 export function RecordsTable({
   rows,
@@ -204,7 +204,7 @@ export function RecordsTable({
 
       {/* İpucundaki "yana kaydırın" ifadesi kalktı: telefonda tablo listeye
           katlanır ve yatay kaymaz (kabuk MOBIL-15). */}
-      <p className="text-[11px] text-muted-foreground md:hidden">
+      <p className="text-[11px] text-muted-foreground lg:hidden">
         → Ayrıntı için satıra dokunun.
       </p>
 
@@ -212,8 +212,10 @@ export function RecordsTable({
           görünür alana kelepçeler, `.oc-sticky-head` başlığı tepesine yapıştırır —
           aşağıda "bu sayı hangi sütundu" sorusu kalmasın. `overflow-hidden`
           kalktı: kırpan kap dikey kaydırmayı, dolayısıyla yapışmayı öldürüyordu. */}
-      <div className="oc-table-clamp rounded-lg border bg-card">
-        <Table>
+      <Table
+        className="oc-tablet-table"
+        containerClassName="oc-tablet-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+      >
           <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortHead
@@ -290,7 +292,12 @@ export function RecordsTable({
           <TableBody>
             {visible.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={10}
+                  data-mobile-span="full"
+                  data-mobile-hide-label
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
                   Süzgeçlere uyan kayıt yok — bir filtreyi temizleyip tekrar deneyin.
                 </TableCell>
               </TableRow>
@@ -302,6 +309,7 @@ export function RecordsTable({
                   onClick={() => setEditing(r)}
                 >
                   <TableCell
+                    data-label="Tarih"
                     className={cn(
                       "align-top font-mono text-xs tabular-nums text-muted-foreground md:align-middle",
                       STICKY_DATE
@@ -310,6 +318,8 @@ export function RecordsTable({
                     {fmtDate(r.date)}
                   </TableCell>
                   <TableCell
+                    data-label="Kayıt"
+                    data-mobile-span="full"
                     className={cn(
                       "font-mono text-sm font-medium",
                       r.jobItemId ? "text-primary" : "text-destructive",
@@ -320,7 +330,7 @@ export function RecordsTable({
                     {r.itemNo || "—"}
                     {/* Telefonda düşen sütunların kritik olanları burada ikinci
                         satır olur — kart markup'ı çoğaltılmaz. */}
-                    <span className="mt-0.5 block font-sans text-[11px] font-normal break-words whitespace-normal text-muted-foreground md:hidden">
+                    <span className="mt-0.5 block font-sans text-[11px] font-normal break-words whitespace-normal text-muted-foreground lg:hidden">
                       {[
                         r.customerShort || r.customer,
                         r.partName,
@@ -369,15 +379,14 @@ export function RecordsTable({
                   >
                     {fmtManHours(r.hours)}
                   </TableCell>
-                  <TableCell className="text-right align-top font-mono text-sm font-medium tabular-nums md:align-middle">
+                  <TableCell data-label="Adam·Saat" className="text-right align-top font-mono text-sm font-medium tabular-nums lg:align-middle">
                     {fmtManHours(r.manHours)}
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
-        </Table>
-      </div>
+      </Table>
 
       {filtered.length > visible.length && (
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">

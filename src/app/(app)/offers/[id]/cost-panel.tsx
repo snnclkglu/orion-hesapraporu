@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Download, Eye, FilePlus2, Lock, LockOpen, Pencil, Send, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink } from "@/components/pdf-download-link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtMoney0 } from "@/lib/currency";
 import { revisionStatusLabel, revisionStatusVariant } from "@/lib/revision-status";
@@ -161,9 +162,9 @@ export function CostPanel({
                           </a>
                         </Button>
                         <Button asChild variant="outline" size="sm" className="oc-tap">
-                          <a href={pdfUrl(offerId, c.id)}>
+                          <PdfDownloadLink href={pdfUrl(offerId, c.id)} shareTitle="Maliyet Raporu">
                             <Download className="size-3.5" /> PDF
-                          </a>
+                          </PdfDownloadLink>
                         </Button>
 
                         {taslak ? (

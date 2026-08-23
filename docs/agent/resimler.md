@@ -410,3 +410,12 @@ bir kullanıcı tarafından ağ yanıtından kaydedilebilir. Kuralın güvenlik 
 asıl depo adresini vermemek, müşteri linkini tek dosyayla sınırlamak, istenince
 iptal etmek ve alınan kopyaya görünür iz bırakmaktır. Arayüzde indirme/yazdırma
 düğmesi olmaması kolay paylaşımı azaltır; mutlak kopya engeli vaat edilmez.
+
+**TEKNİK RESİM DEFTERLERİ TELEFON VE TABLETTE İŞLEM KARTIDIR.** Paket listesi,
+parça defteri ve paket satın alma özeti 1024 px altında `oc-tablet-table` ile
+katlanır. Paket/talep adı tam genişlikte; dosya, durum ve işlem hedefleri aynı
+kartta kalır. Ürün ağacı ile üretim panosu zaten doğal dikey listedir.
+Yerleşim çizimi, montaj ağacı ve karşılaştırma gibi uzamsal içerikler kart
+değildir; yalnız kendi kontrollü alanlarında kayar. Paket çıktısı olarak
+üretilen birleşik PDF ve parça defteri PDF'i mobil indirme/paylaşma akışını
+kullanır; korumalı asıl resimler indirilmez.

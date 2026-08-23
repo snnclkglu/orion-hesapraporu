@@ -27,6 +27,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Sheet, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadLink, downloadPdfFromApp } from "@/components/pdf-download-link";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -270,7 +271,9 @@ export function CostEditor({
         }
         if (res.warning) toast.warning(res.warning);
         else toast.success("Maliyet yayımlandı ve arşivlendi.");
-        window.location.href = `/offers/${offerId}/costs/${costRevId}/pdf`;
+        await downloadPdfFromApp(`/offers/${offerId}/costs/${costRevId}/pdf`, {
+          shareTitle: "Maliyet Raporu",
+        });
       })
     );
   }
@@ -360,9 +363,12 @@ export function CostEditor({
             />
           </div>
           <Button asChild variant="outline" className="oc-tap">
-            <a href={`/offers/${offerId}/costs/${costRevId}/pdf`}>
+            <PdfDownloadLink
+              href={`/offers/${offerId}/costs/${costRevId}/pdf`}
+              shareTitle="Maliyet Raporu"
+            >
               <Download className="size-4" /> Maliyet İndir
-            </a>
+            </PdfDownloadLink>
           </Button>
           {/* EXCEL, PDF'İN YANINDA (kullanıcı isteği 19.08.2026, md. 11). İkisi
               aynı veriden üretilir ama iki ayrı soruya cevap verir: PDF

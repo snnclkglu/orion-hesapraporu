@@ -48,7 +48,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
  */
 const RAIL_BOX = "px-1 pt-1 pb-2.5 pointer-coarse:pt-2.5 pointer-coarse:pb-4";
 
-const TAB = `h-auto flex-none rounded-none border-0 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium text-muted-foreground after:hidden hover:text-foreground data-active:border-primary data-active:text-foreground`;
+const TAB = `h-auto min-w-0 flex-none justify-start rounded-none border-0 border-b-2 border-transparent ${RAIL_BOX} text-[15px] font-medium text-muted-foreground after:hidden hover:text-foreground data-active:border-primary data-active:text-foreground max-md:w-full`;
 
 /** Sekmedeki sayaç rozeti — etiketin ağırlığını bozmayan ince bir sayı. */
 const COUNT =
@@ -74,46 +74,51 @@ export function ProjectTabsNav({
     // `items-end`: alt çizgili bir rayda hem sekmeler hem yanındaki bağlantı
     // şeridin ALT kenarına oturmalıdır; ortalanınca aktif sekmenin kırmızı
     // çizgisi bölüm çizgisinden kopardı.
-    // RAY KAYMAZ, SARAR (kabuk kuralı 15; purchasing-nav ile aynı karar):
-    // `.oc-scrollx` + `overflow-x-auto` kalktı, dar ekranda öğeler ikinci
-    // satıra iner — gizli sekme kalmaz. Alt çizgi yine `border-b` DEĞİL iç
+    // RAY KAYMAZ (kabuk kuralı 15): `.oc-scrollx` + `overflow-x-auto`
+    // kalktı; dar ekranda iki sütunlu ızgaraya, masaüstünde saran raya döner —
+    // gizli sekme kalmaz. Alt çizgi yine `border-b` DEĞİL iç
     // gölgedir (bkz. RAIL_BOX başlığı; MOBIL-14 dersinin kaynağı bu raydı):
     // aktif sekmenin kırmızı çizgisi negatif kenar boşluğu olmadan onun
     // üstüne oturur. Taşma kabı kalktığı için `overflow-y-hidden` emniyet
     // kemerine de gerek kalmadı — kaydırma çubuğu doğuracak bir kap yok.
-    <div className="flex flex-wrap items-end gap-x-5 shadow-[inset_0_-1px_0_var(--border)]">
+    <div className="w-full shadow-[inset_0_-1px_0_var(--border)]">
       <TabsList
         variant="line"
         // Taban şerit yüksekliğini `group-data-horizontal/tabs:h-9` ile
         // veriyor; düz bir `h-auto` onu YENMEZ (aynı özgüllük, sıraya kalır).
         // Ezme AYNI belirteçle yazılır ki tailwind-merge çakışmayı görsün.
-        // `flex-wrap`: iki sekme çok dar ekranda tek satıra sığmazsa alt
-        // satıra sarar, raya kaydırma çubuğu sokmaz.
-        className="h-auto flex-wrap gap-x-5 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto"
+        // Telefon iki sütun + tam genişlikte El Kitabı kullanır; `md` üstünde
+        // iş akışı rayı yeniden yatay ve saran düzene döner.
+        className="grid h-auto w-full grid-cols-2 gap-x-2 rounded-none p-0 group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pointer-coarse:h-auto md:flex md:flex-wrap md:gap-x-5"
       >
         <TabsTrigger value="report" className={TAB}>
           <FileSpreadsheet className="size-4" />
-          Hesap Raporu
+          <span className="md:hidden">Hesap</span>
+          <span className="hidden md:inline">Hesap Raporu</span>
           {revisionCount > 0 && <span className={COUNT}>{revisionCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="equipment" className={TAB}>
           <FileDown className="size-4" />
-          Ekipman Listeleri
+          <span className="md:hidden">Ekipman</span>
+          <span className="hidden md:inline">Ekipman Listeleri</span>
           {equipmentCount > 0 && <span className={COUNT}>{equipmentCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="electrical" className={TAB}>
           <Zap className="size-4" />
-          Elektrik Projesi
+          <span className="md:hidden">Elektrik</span>
+          <span className="hidden md:inline">Elektrik Projesi</span>
           {electricalPartCount > 0 && <span className={COUNT}>{electricalPartCount}</span>}
         </TabsTrigger>
         <TabsTrigger value="drawings" className={TAB}>
           <Ruler className="size-4" />
-          Teknik Resim Takibi
+          <span className="md:hidden">Resimler</span>
+          <span className="hidden md:inline">Teknik Resim Takibi</span>
           {drawingPlanCount > 0 && <span className={COUNT}>{drawingPlanCount}</span>}
         </TabsTrigger>
-        <TabsTrigger value="manual" className={TAB}>
+        <TabsTrigger value="manual" className={`${TAB} max-md:col-span-2`}>
           <BookOpen className="size-4" />
-          İşletme ve Bakım El Kitabı
+          <span className="md:hidden">El Kitabı</span>
+          <span className="hidden md:inline">İşletme ve Bakım El Kitabı</span>
           {manualRevisionCount > 0 && <span className={COUNT}>{manualRevisionCount}</span>}
         </TabsTrigger>
       </TabsList>
