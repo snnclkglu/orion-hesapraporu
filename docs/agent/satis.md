@@ -118,3 +118,10 @@ ayki fotoğrafıdır.
 başına adet ve tonaj) ikisi de KALDIRILDI. Çizelgenin kendisi aynı bilgiyi
 kanıtla verir; özetlemesi gerekmez. Koruma testi kapanış sayfasının geri
 gelmediğini de doğrular.
+
+## Mobil düzen — 23.08.2026
+
+Satış Takibi · Müşteri Bazında Ciro · Satış Faturaları rayı telefonda tek
+bölüm seçicisidir. Satış, ciro ve fatura çizelgeleri mobil kartlara katlanır;
+kalem/müşteri kimliği, tutar ve satır işlemleri aynı kartta kalır. Düzenleme
+pencereleri ve satır tıklama davranışı değişmemiştir; yatay kaydırma yoktur.

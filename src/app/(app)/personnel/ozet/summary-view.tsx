@@ -604,7 +604,7 @@ export function SummaryView({
       </div>
 
       {/* SÜZGEÇLER */}
-      <div className="oc-scrollx flex flex-wrap items-center gap-2 overflow-x-auto border bg-card p-2 [--oc-scroll-bg:var(--card)]">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 border bg-card p-2">
         <span className="oc-kicker shrink-0 text-muted-foreground">Yıl</span>
         {/* "TÜMÜ" ARTIK AÇIK BİR SEÇİMDİR, VARSAYILAN DEĞİL (13.08.2026):
             varsayılan içinde bulunulan yıldır ve adreste `yil=tumu` yazmak
@@ -690,8 +690,10 @@ export function SummaryView({
       </div>
 
       {/* AY AY TABLO — başlık, hücre ve toplam AYNI `SUTUNLAR` tanımından. */}
-      <div className="oc-scrollx overflow-x-auto border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table className="text-xs">
+      <Table
+        className="oc-mobile-table text-xs"
+        containerClassName="oc-mobile-table-wrap border bg-card [--oc-scroll-bg:var(--card)]"
+      >
           <TableHeader>
             <TableRow>
               {SUTUNLAR.map((s) => (
@@ -718,6 +720,9 @@ export function SummaryView({
                   {SUTUNLAR.map((s) => (
                     <TableCell
                       key={s.key}
+                      data-label={s.label}
+                      data-mobile-span={s.sol ? "full" : undefined}
+                      data-mobile-show
                       className={cn(
                         s.cls,
                         s.sol
@@ -743,6 +748,9 @@ export function SummaryView({
                 {SUTUNLAR.map((s) => (
                   <TableCell
                     key={s.key}
+                    data-label={s.sol ? "Toplam" : s.label}
+                    data-mobile-span={s.sol ? "full" : undefined}
+                    data-mobile-show
                     className={cn(
                       s.cls,
                       s.sol ? "font-medium" : "text-right font-mono tabular-nums"
@@ -754,8 +762,7 @@ export function SummaryView({
               </TableRow>
             </TableFooter>
           )}
-        </Table>
-      </div>
+      </Table>
 
       {/* KAPSAM NOTU — eksikliği gizlemek yerine söylemek. */}
       <div className="grid gap-1 text-xs text-muted-foreground">

@@ -229,7 +229,7 @@ export default async function JobsPage({
   const canEdit = canEditJobs(rol);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       <PageHeader title="İşler" hint="İş emirleri ve içerdikleri vinçler">
         {canEdit && <NewJobButton />}
       </PageHeader>

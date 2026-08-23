@@ -92,7 +92,7 @@ export function DrawingQtyCard({
         </p>
       )}
 
-      <Table>
+      <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
         <TableHeader>
           {/* TELEFONDA TABLO LİSTEYE KATLANIR (kabuk kuralı 15): sabit genişlikli
               kalem no + Resimleri sütunları `sm` altında Ürün Adı hücresinin alt
@@ -227,10 +227,10 @@ function Satir({
 
   return (
     <TableRow>
-      <TableCell className="hidden font-mono text-sm text-primary sm:table-cell">
+      <TableCell data-label="İş Kalemi No" className="hidden font-mono text-sm text-primary sm:table-cell">
         {k.itemNo || "—"}
       </TableCell>
-      <TableCell className="font-medium break-words whitespace-normal">
+      <TableCell data-label="Ürün Adı" data-mobile-span="full" className="font-medium break-words whitespace-normal">
         {k.productName}
         {/* Telefonda gizlenen sütunların karşılığı: kalem no (`sm` altı) ve
             iş emrindeki serbest metin adet (`md` altı) alt satıra iner. */}
@@ -244,11 +244,11 @@ function Satir({
         )}
         <span className="mt-1 block sm:hidden">{resimleri}</span>
       </TableCell>
-      <TableCell className="hidden font-mono text-[12px] text-muted-foreground md:table-cell">
+      <TableCell data-label="İş Emrinde" className="hidden font-mono text-[12px] text-muted-foreground md:table-cell">
         {k.quantityText || "—"}
       </TableCell>
 
-      <TableCell>
+      <TableCell data-label="Adet">
         <span className="flex items-center gap-1">
           <Input
             value={adet}
@@ -290,7 +290,7 @@ function Satir({
         )}
       </TableCell>
 
-      <TableCell className="hidden sm:table-cell">{resimleri}</TableCell>
+      <TableCell data-label="Resimleri" className="hidden sm:table-cell">{resimleri}</TableCell>
     </TableRow>
   );
 }

@@ -420,7 +420,7 @@ export function EmployeeProfile({
           dönem açılır ve kıdem ikisinin toplamıdır.
         </p>
 
-        <Table>
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-[7.5rem]">Giriş</TableHead>
@@ -434,7 +434,7 @@ export function EmployeeProfile({
           <TableBody>
             {employee.employment.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} data-mobile-span="full" data-mobile-hide-label className="py-8 text-center text-sm text-muted-foreground">
                   Çalışma dönemi girilmemiş — işe giriş tarihini eklemek için
                   &quot;Dönem Ekle&quot;yi kullanın.
                 </TableCell>
@@ -442,7 +442,7 @@ export function EmployeeProfile({
             ) : (
               employee.employment.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="align-top font-mono text-sm tabular-nums md:align-middle">
+                  <TableCell data-label="Giriş" className="align-top font-mono text-sm tabular-nums md:align-middle">
                     {fmtDate(d.startDate)}
                     {/* `md` altında düşen ayrılma nedeni birincil hücreye iner. */}
                     {d.exitReason && (
@@ -452,30 +452,31 @@ export function EmployeeProfile({
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="align-top font-mono text-sm tabular-nums md:align-middle">
+                  <TableCell data-label="Çıkış" className="align-top font-mono text-sm tabular-nums md:align-middle">
                     {d.endDate ? (
                       fmtDate(d.endDate)
                     ) : (
                       <span className="font-sans text-primary">Açık</span>
                     )}
                   </TableCell>
-                  <TableCell className={cn("text-sm text-muted-foreground", AT_MD)}>
+                  <TableCell data-label="Ayrılma Nedeni" className={cn("text-sm text-muted-foreground", AT_MD)}>
                     {d.exitReason
                       ? EXIT_REASON_LABELS[d.exitReason as keyof typeof EXIT_REASON_LABELS] ??
                         d.exitReason
                       : "—"}
                   </TableCell>
-                  <TableCell className="text-right align-top text-sm md:align-middle">
+                  <TableCell data-label="Süre" className="text-right align-top text-sm md:align-middle">
                     {hizmetSuresiMetni(hizmetGunu(d.startDate, d.endDate, bugun))}
                   </TableCell>
                   <TableCell
+                    data-label="Not"
                     className={cn("text-sm whitespace-normal text-muted-foreground", AT_LG)}
                   >
                     {d.note || "—"}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell data-label="İşlemler" data-mobile-span="full">
                     {canWrite && (
-                      <div className="flex justify-end gap-1">
+                      <div data-mobile-actions className="flex justify-end gap-1">
                         <Button
                           type="button"
                           variant="ghost"
@@ -515,7 +516,7 @@ export function EmployeeProfile({
           </span>
         </header>
 
-        <Table>
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-[9rem]">Dönem</TableHead>
@@ -539,7 +540,7 @@ export function EmployeeProfile({
           <TableBody>
             {payroll.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} data-mobile-span="full" data-mobile-hide-label className="py-8 text-center text-sm text-muted-foreground">
                   Bu personelin maaş kaydı yok. Aylık girişler Maaş ekranından yapılır.
                 </TableCell>
               </TableRow>
@@ -551,7 +552,7 @@ export function EmployeeProfile({
                 const avro = kur && kur > 0 ? toplam / kur : null;
                 return (
                   <TableRow key={r.id}>
-                    <TableCell className="align-top font-medium whitespace-normal md:align-middle md:whitespace-nowrap">
+                    <TableCell data-label="Dönem" data-mobile-span="full" className="align-top font-medium whitespace-normal md:align-middle md:whitespace-nowrap">
                       {periodLabel(r.period)}
                       {/* `md`/`sm` altında düşen sütunların kritik olanları */}
                       <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground md:hidden">
@@ -576,10 +577,11 @@ export function EmployeeProfile({
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
+                    <TableCell data-label="Net Maaş" className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
                       {fmtNum(r.netSalary, true)}
                     </TableCell>
                     <TableCell
+                      data-label="%50 Saat"
                       className={cn(
                         "text-right font-mono text-sm tabular-nums text-muted-foreground",
                         AT_MD
@@ -588,6 +590,7 @@ export function EmployeeProfile({
                       {r.overtimeHours50 > 0 ? fmtNum(r.overtimeHours50) : "—"}
                     </TableCell>
                     <TableCell
+                      data-label="%100 Saat"
                       className={cn(
                         "text-right font-mono text-sm tabular-nums text-muted-foreground",
                         AT_MD
@@ -596,6 +599,7 @@ export function EmployeeProfile({
                       {r.overtimeHours100 > 0 ? fmtNum(r.overtimeHours100) : "—"}
                     </TableCell>
                     <TableCell
+                      data-label="Mesai"
                       className={cn(
                         "text-right font-mono text-sm tabular-nums text-muted-foreground",
                         AT_LG
@@ -603,10 +607,11 @@ export function EmployeeProfile({
                     >
                       {r.overtimeAmount > 0 ? fmtNum(r.overtimeAmount, true) : "—"}
                     </TableCell>
-                    <TableCell className="text-right align-top font-mono text-sm font-medium tabular-nums md:align-middle">
+                    <TableCell data-label="Toplam" className="text-right align-top font-mono text-sm font-medium tabular-nums md:align-middle">
                       {fmtNum(toplam, true)}
                     </TableCell>
                     <TableCell
+                      data-label="Avro Karşılığı"
                       className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}
                     >
                       {avro === null ? (
@@ -617,7 +622,7 @@ export function EmployeeProfile({
                         `${fmtNum(avro, true)} ${CURRENCY_SYMBOLS.EUR}`
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell data-label="Bordro" data-mobile-span="full" className="text-right">
                       {/* Bordro AYRI BİR BELGEDİR ve yeni sekmede açılır:
                           kullanıcı listedeki yerini kaybetmesin. */}
                       <a

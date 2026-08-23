@@ -270,3 +270,13 @@ da tekrarlanır çünkü sessizce yanlış yazılabilirler:
 `avg(EUR/USD) ≠ avg(EUR/TRY)/avg(USD/TRY)` (parite gün gün ortalanır) ·
 yayın yapılmayan günün kuru YOKTUR, sıfır değildir · ortalamanın kaç
 günden çıktığı (`day_count`) bir künyedir, gizlenmez.
+
+## Mobil düzen — 23.08.2026
+
+Altı personel ekranı telefonda tek bölüm seçicisinden açılır. Personel listesi,
+çalışma dönemleri, maaş geçmişi, belgeler, harcırah, kur ve özet çizelgeleri
+mobil kartlara katlanır. Ücret Planı ile Aylık Maaş'ta masaüstünde kırılıma
+göre gizlenen bütün doğrudan giriş alanları telefonda `data-mobile-show` ile
+geri açılır: SGK günü, net ücret, iki mesai saati, izin, rapor, prim, harcırah,
+avans ve kesinti aynı kişi kartından düzenlenir. Yatay tablo kaydırması yoktur;
+yalnız gerçek zaman serisi grafikleri kendi veri yoğunluğu sınırını korur.

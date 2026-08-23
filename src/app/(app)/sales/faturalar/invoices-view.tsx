@@ -324,8 +324,10 @@ export function InvoicesView({
           tutar Müşteri hücresinin alt satırına iner — kart markup'ı ÇOĞALTILMAZ.
           Fatura defteri BÜYÜR: kap `md` üstünde 70dvh'ye kelepçelenir, başlık
           yapışır (`oc-table-clamp` + `oc-sticky-head`). */}
-      <div className="oc-scrollx oc-table-clamp overflow-x-auto rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+      <Table
+        className="oc-mobile-table"
+        containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+      >
           <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="hidden w-[6.5rem] sm:table-cell">Tarih</TableHead>
@@ -341,23 +343,23 @@ export function InvoicesView({
           <TableBody>
             {invoices.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} data-mobile-span="full" data-mobile-hide-label className="py-10 text-center text-sm text-muted-foreground">
                   Henüz fatura yok. Yukarıdan girin.
                 </TableCell>
               </TableRow>
             ) : (
               invoices.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="hidden font-mono text-xs tabular-nums whitespace-nowrap sm:table-cell">
+                  <TableCell data-label="Tarih" className="hidden font-mono text-xs tabular-nums whitespace-nowrap sm:table-cell">
                     {fmtDate(r.invoiceDate)}
                   </TableCell>
                   {/* `break-words`: fatura no serbest metindir ("GIB…" uzun tek
                       jeton olabilir) ve dar sütunu taşırmamalı. */}
-                  <TableCell className="hidden max-w-[9rem] font-mono text-xs break-words whitespace-normal md:table-cell">
+                  <TableCell data-label="Fatura No" className="hidden max-w-[9rem] font-mono text-xs break-words whitespace-normal md:table-cell">
                     {r.invoiceNo || "—"}
                   </TableCell>
-                  <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">{r.itemNo || "—"}</TableCell>
-                  <TableCell className="break-words whitespace-normal">
+                  <TableCell data-label="İş No" className="hidden font-mono text-xs text-muted-foreground md:table-cell">{r.itemNo || "—"}</TableCell>
+                  <TableCell data-label="Müşteri" data-mobile-span="full" className="break-words whitespace-normal">
                     <CustomerTag name={r.customer || "—"} shortName={null} />
                     {/* Telefon katmanı: gizlenen sütunların kritik olanları.
                         Orijinal tutar yalnız avro dışıysa yazılır — avro
@@ -374,19 +376,19 @@ export function InvoicesView({
                       )}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground lg:table-cell">
+                  <TableCell data-label="Adet" className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground lg:table-cell">
                     {r.qty == null ? "—" : fmtNum(r.qty)}
                   </TableCell>
-                  <TableCell className="hidden text-right font-mono text-sm tabular-nums sm:table-cell">
+                  <TableCell data-label="Tutar" className="hidden text-right font-mono text-sm tabular-nums sm:table-cell">
                     {r.amount == null ? "—" : (
                       <>{fmtNum(r.amount)}{" "}<span className="text-muted-foreground">{CURRENCY_SYMBOLS[r.currency]}</span></>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-medium tabular-nums">
+                  <TableCell data-label="Avro" className="text-right font-mono text-sm font-medium tabular-nums">
                     {r.amountEur == null ? <span className="text-destructive">Kur Yok</span> : `${fmtNum(r.amountEur)} €`}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
+                  <TableCell data-label="İşlemler" data-mobile-span="full">
+                    <div data-mobile-actions className="flex justify-end gap-1">
                       <Button type="button" size="icon-sm" variant="ghost" onClick={() => setDuzenlenen(r)}
                         aria-label="Faturayı düzenle" title="Düzenle" disabled={pending}>
                         <Pencil />
@@ -402,8 +404,7 @@ export function InvoicesView({
               ))
             )}
           </TableBody>
-        </Table>
-      </div>
+      </Table>
 
       {duzenlenen && (
         <InvoiceEditDialog

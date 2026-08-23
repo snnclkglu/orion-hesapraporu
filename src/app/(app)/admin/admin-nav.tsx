@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileRouteSelect } from "@/components/mobile-route-select";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -29,38 +30,37 @@ const ITEMS = [
 ];
 
 export function AdminNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const activeHref = ITEMS.find((item) => pathname.startsWith(item.href))?.href ?? ITEMS[0].href;
+
   return (
-    // RAY KAYMAZ, SARAR (kullanıcı kararı, 16.08.2026: "mobilde yatayda
-    // kaydırma olmasın" — purchasing-nav ile aynı desen, kabuk kuralı 15).
-    // Bir süre `.oc-scrollx` ile tek satırda yatay kayıyordu; gerekçesi
-    // 11 maddenin telefonda ~3 satır (~110px) kalıcı blok bırakmasıydı.
-    // Karar görünürlüğü yer tasarrufuna yeğledi: bütün maddeler her an
-    // görünür, kesilip gizlenen madde kalmaz. `lg` üstünde ray zaten dikey
-    // sütundur, sarma orada hiç devreye girmez.
-    <nav className="flex flex-wrap gap-1 lg:flex-col lg:self-start">
-      {ITEMS.map((item) => {
-        const active = pathname?.startsWith(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              // Aktiflik dili app-shell ile aynı: kırmızı çentik + zemin.
-              // Pasifte şeffaf çentik, aktifleşince metin kaymasın diye.
-              // Çentik yönü yerleşimi izler: yatay şeritte SOL çentik hangi
-              // maddeye ait olduğunu göstermez, altta durması gerekir.
-              "shrink-0 border-b-2 px-3 py-2 text-sm transition-colors pointer-coarse:py-2.5 lg:border-b-0 lg:border-l-2",
-              active
-                ? "border-b-primary bg-muted font-medium text-foreground lg:border-l-primary"
-                : "border-b-transparent text-muted-foreground hover:bg-muted hover:text-foreground lg:border-l-transparent"
-            )}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <MobileRouteSelect
+        className="lg:hidden"
+        value={activeHref}
+        options={ITEMS}
+        label="Yönetim bölümü"
+      />
+      <nav className="hidden gap-1 lg:flex lg:flex-col lg:self-start" aria-label="Yönetim bölümleri">
+        {ITEMS.map((item) => {
+          const active = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "border-l-2 px-3 py-2 text-sm transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "border-l-primary bg-muted font-medium text-foreground"
+                  : "border-l-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

@@ -128,7 +128,7 @@ export default async function JobBaglantilarPage({
               Bu işte kalem yok — termin ve sevk kalem başına izlenir.
             </p>
           ) : (
-            <Table>
+            <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
                   <TableHead className="w-[8.5rem]">İş Kalemi No</TableHead>
@@ -140,16 +140,16 @@ export default async function JobBaglantilarPage({
               <TableBody>
                 {baglar.sales.map((s) => (
                   <TableRow key={s.itemNo + s.productName}>
-                    <TableCell className="font-mono text-sm text-primary">
+                    <TableCell data-label="İş Kalemi No" className="font-mono text-sm text-primary">
                       {s.itemNo || "—"}
                     </TableCell>
-                    <TableCell className="font-medium break-words whitespace-normal">
+                    <TableCell data-label="Ürün Adı" data-mobile-span="full" className="font-medium break-words whitespace-normal">
                       {s.productName}
                     </TableCell>
-                    <TableCell className="font-mono text-sm tabular-nums">
+                    <TableCell data-label="Termin" className="font-mono text-sm tabular-nums">
                       {fmtJobDate(s.dueDate)}
                     </TableCell>
-                    <TableCell className="font-mono text-sm tabular-nums">
+                    <TableCell data-label="Sevk" className="font-mono text-sm tabular-nums">
                       {fmtJobDate(s.shipmentDate)}
                     </TableCell>
                   </TableRow>

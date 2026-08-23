@@ -138,8 +138,8 @@ yerinde; üstüne gelenler:
   kırpma sessiz değil. ÖDEME GÜNLERİ BİLEREK DIŞARIDA (14.08 "ödendi takip
   etmeyelim" kararı arkadan dolanılmaz); `hr` belge vadesi zaten sinyal.
 - **HIZLI EYLEMLER** (`lib/panel-actions.ts`): rol süzgeçli SALT BAĞLANTI
-  çipleri; rol→küme `panel-actions.test.ts`te DONUK. Şerit `.oc-scrollx` ile
-  kayar — panonun tek meşru yatay kaydırması.
+  çipleri; rol→küme `panel-actions.test.ts`te DONUK. Telefonda iki sütunlu
+  ızgaradır, genişte sarar; hiçbir eylem yatay kaydırmanın arkasında kalmaz.
 - **SON HAREKETLER:** kaynak yalnız `job_events` son 15; olay dili ORTAK
   sözlükte `lib/jobs/event-labels.ts` (akış sekmesiyle tek kaynak; bilinmeyen
   slug ekrana ham düşmez, "Değişiklik" der). Silinmiş işin satırı okunur ama
@@ -159,3 +159,9 @@ yerinde; üstüne gelenler:
 - Ölçüldü (dev önizleme, 375/768/1280 + koyu tema): `scrollWidth ===
   clientWidth` üç genişlikte de; 11px altı içerik metni yok; satır hedefleri
   telefonda ≥36px.
+
+## Mobil düzen — 23.08.2026
+
+Panel kabuğu `min-width: 0` ve gövde taşma koruması taşır. Hızlı eylemler ile
+Yaklaşan tür süzgeçleri telefonda sarar; sayfa ve bölüm içinde yatay kaydırma
+üretmez. Hızlı eylemlerin sırası ve rol süzgeci değişmemiştir.

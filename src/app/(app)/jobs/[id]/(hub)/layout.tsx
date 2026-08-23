@@ -56,7 +56,7 @@ export default async function JobHubLayout({
   const canEdit = canEditJobs((profil as { role?: string } | null)?.role);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       {/* Ziyareti "son bakılanlar" defterine işler (cihaza özel, çizim yok). */}
       <RecentMarker id={job.id} jobNo={job.job_no} title={job.title} />
       {/* Kimlik kabuğun yapışkan üst şeridinde: uzun iş detayında aşağı

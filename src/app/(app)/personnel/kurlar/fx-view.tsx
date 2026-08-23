@@ -652,7 +652,7 @@ export function FxView({
           hint={`${monthly.length} dönem · en yeni üstte`}
           icon={Coins}
         />
-        <Table>
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Dönem</TableHead>
@@ -682,7 +682,7 @@ export function FxView({
                   key={m.period}
                   data-state={m.period === secili.period ? "selected" : undefined}
                 >
-                  <TableCell>
+                  <TableCell data-label="Dönem" data-mobile-span="full">
                     <button
                       type="button"
                       onClick={() => secDonem(m.period)}
@@ -708,25 +708,26 @@ export function FxView({
                       </span>
                     </button>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                  <TableCell data-label="EUR/TRY" className="text-right font-mono text-xs tabular-nums">
                     {fmtKur(m.eurTry)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                  <TableCell data-label="USD/TRY" className="text-right font-mono text-xs tabular-nums">
                     {fmtKur(m.usdTry)}
                   </TableCell>
-                  <TableCell className={cn("text-right font-mono text-xs tabular-nums", AT_MD)}>
+                  <TableCell data-label="EUR/USD" className={cn("text-right font-mono text-xs tabular-nums", AT_MD)}>
                     {fmtKur(m.eurUsd)}
                   </TableCell>
-                  <TableCell className={cn("text-right font-mono text-xs tabular-nums", AT_LG)}>
+                  <TableCell data-label="USD/EUR" className={cn("text-right font-mono text-xs tabular-nums", AT_LG)}>
                     {fmtKur(m.usdEur)}
                   </TableCell>
                   <TableCell
+                    data-label="Gün"
                     className={cn("text-right font-mono text-xs tabular-nums", AT_MD)}
                     title={`${fmtGun(m.firstDay)} – ${fmtGun(m.lastDay)} arasındaki yayın günleri`}
                   >
                     {m.dayCount}
                   </TableCell>
-                  <TableCell className={AT_LG}>
+                  <TableCell data-label="Kaynak" className={AT_LG}>
                     <span className="flex items-center gap-1">
                       {ks.map((s) => (
                         <span
@@ -741,6 +742,7 @@ export function FxView({
                     </span>
                   </TableCell>
                   <TableCell
+                    data-label="Dönem Kaydı"
                     className={cn("text-right font-mono text-xs tabular-nums", AT_LG)}
                     title={
                       kayit?.eurTryRate

@@ -61,7 +61,7 @@ export function AgendaSection({
 
       {turler.length > 1 && (
         <div
-          className="oc-scrollx mb-3 flex items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-1"
+          className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5"
           role="group"
           aria-label="Tür süzgeci"
         >
@@ -70,7 +70,7 @@ export function AgendaSection({
             onClick={() => setSecili(new Set())}
             aria-pressed={secili.size === 0}
             className={cn(
-              "oc-tap shrink-0 border px-2 py-0.5 font-mono text-[11px] transition-colors",
+              "oc-tap border px-2 py-0.5 font-mono text-[11px] transition-colors",
               secili.size === 0
                 ? "border-primary bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:border-primary hover:text-foreground"
@@ -85,7 +85,7 @@ export function AgendaSection({
               onClick={() => cevir(t)}
               aria-pressed={secili.has(t)}
               className={cn(
-                "oc-tap shrink-0 border px-2 py-0.5 font-mono text-[11px] whitespace-nowrap transition-colors",
+                "oc-tap border px-2 py-0.5 font-mono text-[11px] whitespace-nowrap transition-colors",
                 secili.has(t)
                   ? "border-primary bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:border-primary hover:text-foreground"

@@ -126,3 +126,11 @@ geçirir. Talep satırı güncellenemez/silinemez; karar veren, zaman, not ve he
 fotoğrafı kalır. Dosya baytları veritabanı satırından SONRA temizlenir; temizlik
 başarısızsa ana karar geri alınmış gibi gösterilmez, `cleanup_status=failed`
 ile görünür kalır ve Yönetici yeniden dener.
+
+## ROL-17 — Yönetim mobilde seçici ve erişim kartları kullanır.
+
+Yönetimin bölüm listesi `lg` altında tek seçicidir; masaüstünde soldaki dikey
+ray korunur. Rol × bölüm ve kişi × bölüm erişim tabloları telefonda bölüm adı
+`data-label` olan kartlara katlanır. Hücreler hâlâ `sectionAccess()` ile aynı
+kaynaktan hesaplanır; yalnız sunum değişir. Böylece yetki anlamı korunurken
+matris için yatay kaydırma gerekmez.

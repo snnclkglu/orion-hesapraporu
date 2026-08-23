@@ -23,7 +23,7 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/projects");
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       <PageHeader
         title="Yönetim"
         hint="Kullanıcılar, kataloglar ve rapor ayarları"
@@ -34,7 +34,7 @@ export default async function AdminLayout({
           kabuğunun kendi menüsü zaten gizli, ikinci bir 200px'lik dikey ray
           tabletin içerik alanının üçte birini yiyordu. Altında ray yatay
           şerittir (bkz. admin-nav.tsx). */}
-      <div className="grid gap-4 lg:grid-cols-[200px_1fr] lg:gap-6">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[200px_1fr] lg:gap-6">
         <AdminNav />
         <div className="min-w-0">{children}</div>
       </div>

@@ -32,6 +32,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileRouteSelect } from "@/components/mobile-route-select";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -45,39 +46,45 @@ const TABS = [
 
 export function PersonnelNav() {
   const pathname = usePathname() ?? "";
+  const isActive = (t: (typeof TABS)[number]) =>
+    t.exact
+      ? pathname === t.href ||
+        (pathname.startsWith("/personnel/") &&
+          !TABS.some((o) => !o.exact && pathname.startsWith(o.href)))
+      : pathname.startsWith(t.href);
+  const activeHref = TABS.find(isActive)?.href ?? TABS[0].href;
+
   return (
-    <nav
-      className="flex flex-wrap items-center gap-x-3 shadow-[inset_0_-1px_0_var(--border)]"
-      aria-label="Personel bölümleri"
-    >
-      {TABS.map((t) => {
-        // KÖK SEKME "exact" DEĞİL "alt sayfa hariç"tir: `/personnel/<uuid>`
-        // (personel profili) Personel sekmesinin altındadır ama `/personnel/maas`
-        // değildir. Diğer sekmelerin adresi kökün öneki olduğu için düz bir
-        // `startsWith` kökü her sayfada aktif gösterirdi.
-        const active = t.exact
-          ? pathname === t.href ||
-            (pathname.startsWith("/personnel/") &&
-              !TABS.some((o) => !o.exact && pathname.startsWith(o.href)))
-          : pathname.startsWith(t.href);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              // Marka dili: alt çizgi kırmızı, köşe yuvarlaklığı yok, geçiş
-              // yalnız RENK adımı (no scale, no shadow lift).
-              "shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-              active
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <MobileRouteSelect
+        className="md:hidden"
+        value={activeHref}
+        options={TABS}
+        label="Personel bölümü"
+      />
+      <nav
+        className="hidden items-center gap-x-3 shadow-[inset_0_-1px_0_var(--border)] md:flex"
+        aria-label="Personel bölümleri"
+      >
+        {TABS.map((t) => {
+          const active = isActive(t);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "border-primary font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

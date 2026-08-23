@@ -184,10 +184,11 @@
   /*
    * DÜZENLENEBİLİR TABLO TELEFONDA KARTA KATLANIR.
    *
-   * Teklif ve maliyet editörlerindeki çizelgeler sütun gizleyemez: kullanıcı
-   * fiyatı, adedi, birimi ve satır eylemlerini telefondan da değiştirebilmek
-   * zorundadır. Yatay kaydırmak ise bir alanı düzenlerken satırın hangi kaleme
-   * ait olduğunu görünümden çıkarır. Aynı tablo işaretlemesi korunur; yalnız
+   * Teklif, satış ve personel editörlerindeki çizelgeler sütun gizleyemez:
+   * kullanıcı fiyatı, adedi, ücreti ve satır eylemlerini telefondan da
+   * değiştirebilmek zorundadır. Yatay kaydırmak ise bir alanı düzenlerken
+   * satırın hangi kaleme ait olduğunu görünümden çıkarır. Aynı tablo
+   * işaretlemesi korunur; yalnız
    * `md` altında hücreler `data-label` başlıklarıyla iki sütunlu karta dönüşür.
    * Böylece düzenleme mantığı iki ayrı mobil/masaüstü bileşene bölünmez.
    */
@@ -262,6 +263,12 @@
     .oc-mobile-table .hidden,
     .oc-mobile-table [data-mobile-hidden] {
       display: none !important;
+    }
+
+    /* Masaüstü sütun gizleme sınıfını doğrudan düzenlenen kritik bir alan için
+       telefonda geri açar. Bu kural gizleme kuralından sonra gelmelidir. */
+    .oc-mobile-table [data-mobile-show] {
+      display: grid !important;
     }
 
     .oc-mobile-table [data-mobile-actions] {

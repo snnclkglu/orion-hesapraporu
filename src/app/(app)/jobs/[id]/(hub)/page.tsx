@@ -190,7 +190,7 @@ export default async function JobPage({
              mobilde İş Kalemi No · Ürün Adı · Hesap Raporu kalır.
              Yüzde genişlikler `table-layout: auto` altında nowrap içerik
              karşısında etkisizdi; mutlak değere çevrildi. */
-          <Table>
+          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="hidden w-10 sm:table-cell">#</TableHead>
@@ -203,11 +203,11 @@ export default async function JobPage({
             <TableBody>
               {itemList.map((it, i) => (
                 <TableRow key={i}>
-                  <TableCell className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{i + 1}</TableCell>
-                  <TableCell className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
+                  <TableCell data-label="Sıra" className="hidden font-mono tabular-nums text-muted-foreground sm:table-cell">{i + 1}</TableCell>
+                  <TableCell data-label="İş Kalemi No" className="font-mono text-sm text-primary">{it.item_no || "—"}</TableCell>
                   {/* `break-words`: ürün adı veriden gelir; boşluksuz uzun bir
                       jeton telefonda hücreyi kendi genişliğine çekmesin. */}
-                  <TableCell className="font-medium break-words whitespace-normal">
+                  <TableCell data-label="Ürün Adı" data-mobile-span="full" className="font-medium break-words whitespace-normal">
                     {it.product_name}
                     {/* Gizlenen adet sütununun mobil karşılığı. Alan serbest
                         metindir ("3", "3 Adet", "Muhtelif"); değerin sonuna
@@ -216,8 +216,8 @@ export default async function JobPage({
                       Adet: <span className="font-mono tabular-nums">{it.quantity || "—"}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden font-mono tabular-nums md:table-cell">{it.quantity || "—"}</TableCell>
-                  <TableCell>
+                  <TableCell data-label="Adet" className="hidden font-mono tabular-nums md:table-cell">{it.quantity || "—"}</TableCell>
+                  <TableCell data-label="Hesap Raporu" data-mobile-span="full">
                     <ReportCell
                       report={(it.projects as unknown as LinkedReport | null) ?? null}
                     />
@@ -304,7 +304,7 @@ export default async function JobPage({
               gizlenir, ikisi de "Vinç" hücresinin altına ikinci satır olarak
               iner; mobilde Doküman No · Vinç · Durum kalır. */}
           <div className="overflow-hidden rounded-lg border bg-card">
-            <Table>
+            <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Doküman No</TableHead>
@@ -319,20 +319,20 @@ export default async function JobPage({
                   const lastRev = [...(p.revisions ?? [])].sort((a, b) => b.rev_no - a.rev_no)[0];
                   return (
                     <TableRow key={p.id} className="relative cursor-pointer">
-                      <TableCell className="font-mono text-sm font-medium text-primary">
+                      <TableCell data-label="Doküman No" className="font-mono text-sm font-medium text-primary">
                         <Link href={`/projects/${p.id}`} className="after:absolute after:inset-0">
                           {p.doc_no}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-medium break-words whitespace-normal">
+                      <TableCell data-label="Vinç" data-mobile-span="full" className="font-medium break-words whitespace-normal">
                         {p.name}
                         <div className="mt-0.5 text-[11px] font-normal text-muted-foreground md:hidden">
                           {p.crane_type}
                           {lastRev ? ` · V${lastRev.rev_no} ${revisionStatusLabel(lastRev.status)}` : ""}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.crane_type}</TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell data-label="Vinç Tipi" className="hidden text-sm text-muted-foreground md:table-cell">{p.crane_type}</TableCell>
+                      <TableCell data-label="Son Revizyon" className="hidden md:table-cell">
                         {lastRev ? (
                           <span className="inline-flex items-center gap-1.5 text-sm">
                             <span className="font-mono">V{lastRev.rev_no}</span>
@@ -344,7 +344,7 @@ export default async function JobPage({
                           <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell data-label="Durum">
                         {/* Marka kuralı: köşe yuvarlaklığı sıfır — aynı işlevi
                             gören durum noktaları uygulamanın her yerinde kare. */}
                         <span className="inline-flex items-center gap-1.5 text-sm">

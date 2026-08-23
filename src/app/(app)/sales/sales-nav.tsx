@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MobileRouteSelect } from "@/components/mobile-route-select";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -19,29 +20,41 @@ const TABS = [
 
 export function SalesNav() {
   const pathname = usePathname() ?? "";
+  const activeHref =
+    TABS.find((t) => (t.exact ? pathname === t.href : pathname.startsWith(t.href)))
+      ?.href ?? TABS[0].href;
+
   return (
-    <nav
-      className="flex flex-wrap items-center gap-x-3 border-b"
-      aria-label="Satış bölümleri"
-    >
-      {TABS.map((t) => {
-        const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-              active
-                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <MobileRouteSelect
+        className="md:hidden"
+        value={activeHref}
+        options={TABS}
+        label="Satış bölümü"
+      />
+      <nav
+        className="hidden items-center gap-x-3 border-b md:flex"
+        aria-label="Satış bölümleri"
+      >
+        {TABS.map((t) => {
+          const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

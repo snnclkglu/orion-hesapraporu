@@ -525,7 +525,7 @@ export function AnalysisView({
           → Tabloyu yana kaydırın
         </p>
         <div>
-          <Table>
+          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className={cn("min-w-[9rem] md:min-w-[11rem]", PIVOT_STICKY_HEAD)}>
@@ -647,19 +647,20 @@ export function AnalysisView({
                   {/* Etiket veriden gelir ve hücre varsayılanı nowrap'tır: tek
                       uzun ad tabloyu telefonda ekran dışına itiyordu. Metin
                       SARAR (MOBIL-7 — kırpacak fare yok), `truncate` kalktı. */}
-                  <TableCell className="break-words whitespace-normal">
+                  <TableCell data-label={WORK_DIMENSION_LABELS[rankDim]} data-mobile-span="full" className="break-words whitespace-normal">
                     <span className="flex items-center gap-1.5">
                       <span className="oc-tag-dot shrink-0" style={tagStyle(c.hue)} aria-hidden />
                       <span className="min-w-0 font-medium">{c.label}</span>
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                  <TableCell data-label="Bu dönem" className="text-right font-mono text-xs tabular-nums">
                     {fmtManHours(c.now)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <TableCell data-label="Önceki dönem" className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                     {fmtManHours(c.before)}
                   </TableCell>
                   <TableCell
+                    data-label="Fark"
                     className={cn(
                       "hidden text-right font-mono text-xs tabular-nums md:table-cell",
                       c.diff > 0 ? "text-success" : c.diff < 0 ? "text-destructive" : ""
@@ -668,7 +669,7 @@ export function AnalysisView({
                     {c.diff > 0 ? "+" : ""}
                     {fmtManHours(c.diff)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                  <TableCell data-label="Değişim" className="text-right font-mono text-xs tabular-nums">
                     {c.ratio === null ? (
                       <span className="text-muted-foreground">yeni</span>
                     ) : (
@@ -681,18 +682,18 @@ export function AnalysisView({
                 </TableRow>
               ))}
               <TableRow className="border-t-2 bg-muted/40 hover:bg-muted/40">
-                <TableCell className="font-semibold">Toplam</TableCell>
-                <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                <TableCell data-label="Toplam" data-mobile-span="full" className="font-semibold">Toplam</TableCell>
+                <TableCell data-label="Bu dönem" className="text-right font-mono text-xs font-semibold tabular-nums">
                   {fmtManHours(summary.manHours)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                <TableCell data-label="Önceki dönem" className="text-right font-mono text-xs font-semibold tabular-nums">
                   {fmtManHours(previous.summary.manHours)}
                 </TableCell>
-                <TableCell className="hidden text-right font-mono text-xs font-semibold tabular-nums md:table-cell">
+                <TableCell data-label="Fark" className="hidden text-right font-mono text-xs font-semibold tabular-nums md:table-cell">
                   {summary.manHours - previous.summary.manHours > 0 ? "+" : ""}
                   {fmtManHours(summary.manHours - previous.summary.manHours)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                <TableCell data-label="Değişim" className="text-right font-mono text-xs font-semibold tabular-nums">
                   {delta === null ? "—" : `%${fmtManHours(delta * 100)}`}
                 </TableCell>
               </TableRow>

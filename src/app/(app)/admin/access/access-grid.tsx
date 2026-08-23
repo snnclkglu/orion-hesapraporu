@@ -61,17 +61,17 @@ import {
 /** Hücre işareti — ÜÇ durum, üç ayrı ikon. */
 function Hucre({ access }: { access: SectionAccess }) {
   if (access === "kapali") {
-    return <Minus className="mx-auto size-4 text-muted-foreground/40" aria-label="Kapalı" />;
+    return <Minus className="mx-0 size-4 text-muted-foreground/40 md:mx-auto" aria-label="Kapalı" />;
   }
   if (access === "yazar") {
     return (
       <PencilLine
-        className="mx-auto size-4 text-emerald-600 dark:text-emerald-400"
+        className="mx-0 size-4 text-emerald-600 md:mx-auto dark:text-emerald-400"
         aria-label="Görür ve değiştirir"
       />
     );
   }
-  return <Eye className="mx-auto size-4 text-foreground/60" aria-label="Yalnız görür" />;
+  return <Eye className="mx-0 size-4 text-foreground/60 md:mx-auto" aria-label="Yalnız görür" />;
 }
 
 /** Sütun başlığı — bölüm adı, ipucunda kuralın insan okunur özeti. */
@@ -123,11 +123,8 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
       </p>
 
       {/* ————————————————————————————————————— 1. ROL × BÖLÜM IZGARASI */}
-      {/* BİLİNÇLİ İSTİSNA (MOBIL-15): bu bir rol × bölüm MATRİSİDİR, listeye
-          katlanmaz — satır ve sütunun kesişimi anlamın kendisidir, sütunları
-          alt satıra indirmek "hangi bölüm" bilgisini yok ederdi. Telefonda
-          içte kaymaya devam eder; kaydırma ipucunu `Table`ın varsayılan
-          `.oc-scrollx` kabı verir, ilk sütun yapışkan kalır. */}
+      {/* Telefonda her rol, bölüm adları `data-label` olarak korunan bir karta
+          katlanır. Böylece matrisin anlamı kaybolmadan yatay kaydırma kalkar. */}
       <section className="grid gap-2">
         <h3 className="text-sm font-medium">Rol Bazında Erişim</h3>
         {/* KAP `Table`in KENDİSİNİNKİDİR, ikinci bir sarmalayıcı DEĞİL.
@@ -135,12 +132,12 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
             tane daha koymak kaydırmayan bir kabuk üretir ve kenar gölgesi
             yanlış katmana çizilirdi. Çerçeve ve zemin `containerClassName`
             ile o tek kaba verilir. */}
-        <Table containerClassName="rounded-lg border [--oc-scroll-bg:var(--card)]">
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap rounded-lg border [--oc-scroll-bg:var(--card)]">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 {/* Rol sütunu YAPIŞKAN: dokuz bölümlü ızgara telefonda yana
                     kayar ve satırın hangi role ait olduğu kaybolurdu. */}
-                <TableHead className="sticky left-0 z-10 bg-muted/50">Rol</TableHead>
+                <TableHead className="bg-muted/50 md:sticky md:left-0 md:z-10">Rol</TableHead>
                 {WORKSPACE_SECTIONS.map((s) => (
                   <BolumBasligi key={s.href} s={s} />
                 ))}
@@ -149,14 +146,14 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
             <TableBody>
               {USER_ROLES.map((r) => (
                 <TableRow key={r}>
-                  <TableCell className="sticky left-0 z-10 bg-card align-top whitespace-nowrap">
+                  <TableCell data-label="Rol" data-mobile-span="full" className="bg-card align-top whitespace-nowrap md:sticky md:left-0 md:z-10">
                     <span className="block text-[13px] font-medium">{USER_ROLE_LABELS[r]}</span>
                     <span className="block max-w-[15rem] text-[11px] whitespace-normal text-muted-foreground">
                       {USER_ROLE_HINTS[r]}
                     </span>
                   </TableCell>
                   {WORKSPACE_SECTIONS.map((s) => (
-                    <TableCell key={s.href} className="text-center align-middle">
+                    <TableCell key={s.href} data-label={s.label} className="text-center align-middle">
                       <Hucre access={sectionAccess(s, r)} />
                     </TableCell>
                   ))}
@@ -177,10 +174,10 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
             tane daha koymak kaydırmayan bir kabuk üretir ve kenar gölgesi
             yanlış katmana çizilirdi. Çerçeve ve zemin `containerClassName`
             ile o tek kaba verilir. */}
-        <Table containerClassName="rounded-lg border [--oc-scroll-bg:var(--card)]">
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap rounded-lg border [--oc-scroll-bg:var(--card)]">
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="sticky left-0 z-10 bg-muted/50">Kullanıcı</TableHead>
+                <TableHead className="bg-muted/50 md:sticky md:left-0 md:z-10">Kullanıcı</TableHead>
                 {WORKSPACE_SECTIONS.map((s) => (
                   <BolumBasligi key={s.href} s={s} />
                 ))}
@@ -189,14 +186,14 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
             <TableBody>
               {kisiler.map((k) => (
                 <TableRow key={k.id}>
-                  <TableCell className="sticky left-0 z-10 bg-card align-top whitespace-nowrap">
+                  <TableCell data-label="Kullanıcı" data-mobile-span="full" className="bg-card align-top whitespace-nowrap md:sticky md:left-0 md:z-10">
                     <span className="block text-[13px] font-medium">{k.ad}</span>
                     <span className="block text-[11px] text-muted-foreground">
                       {roleLabel(k.rol)}
                     </span>
                   </TableCell>
                   {WORKSPACE_SECTIONS.map((s) => (
-                    <TableCell key={s.href} className="text-center align-middle">
+                    <TableCell key={s.href} data-label={s.label} className="text-center align-middle">
                       {/* Rol METNİ değil ÇÖZÜLMÜŞ rol geçilir: bozuk bir değer
                           `roleOf` ile güvenli role düşer ve satır ızgarayla
                           aynı cevabı verir. */}
@@ -209,6 +206,8 @@ export function AccessGrid({ kisiler }: { kisiler: AccessPerson[] }) {
                 <TableRow>
                   <TableCell
                     colSpan={WORKSPACE_SECTIONS.length + 1}
+                    data-mobile-span="full"
+                    data-mobile-hide-label
                     className="h-24 text-center text-muted-foreground"
                   >
                     Kayıtlı kullanıcı yok.

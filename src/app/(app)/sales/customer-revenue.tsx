@@ -78,8 +78,10 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
           Bu yılda avro karşılığı olan satış kalemi yok.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
+        <Table
+          className="oc-mobile-table"
+          containerClassName="oc-mobile-table-wrap overflow-hidden rounded-lg border bg-card"
+        >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className={cn("w-10 text-right", AT_SM)}>#</TableHead>
@@ -95,11 +97,12 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                 return (
                   <TableRow key={name} className="hover:bg-transparent">
                     <TableCell
+                      data-label="Sıra"
                       className={cn("text-right font-mono text-xs tabular-nums text-muted-foreground", AT_SM)}
                     >
                       {i + 1}
                     </TableCell>
-                    <TableCell>
+                    <TableCell data-label="Müşteri" data-mobile-span="full">
                       <CustomerTag name={name} shortName={v.short} hue={v.hue} />
                       {/* Alt satır gizlenen sütunun kırılımını izler: kalem
                           sayısı `sm`de sütuna döner, pay yüzdesi ancak `md`de
@@ -109,14 +112,15 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                       </span>
                     </TableCell>
                     <TableCell
+                      data-label="Kalem"
                       className={cn("text-right font-mono text-sm tabular-nums text-muted-foreground", AT_SM)}
                     >
                       {v.count}
                     </TableCell>
-                    <TableCell className="text-right align-top font-mono text-sm tabular-nums sm:align-middle">
+                    <TableCell data-label="Ciro (Avro)" className="text-right align-top font-mono text-sm tabular-nums sm:align-middle">
                       {fmtNum(v.eur)} €
                     </TableCell>
-                    <TableCell className={AT_MD}>
+                    <TableCell data-label="Pay" className={AT_MD}>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                           <div
@@ -133,8 +137,7 @@ export function CustomerRevenue({ rows }: { rows: SaleRow[] }) {
                 );
               })}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       )}
     </div>
   );

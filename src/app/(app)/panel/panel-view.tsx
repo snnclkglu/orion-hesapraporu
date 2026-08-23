@@ -76,7 +76,7 @@ export function PanelView({
   const ilkAd = displayName.trim().split(/\s+/)[0] ?? "";
 
   return (
-    <div className="grid gap-8 pb-4">
+    <div className="grid min-w-0 max-w-full gap-8 overflow-x-hidden pb-4">
       {/* Üst şeridin kimlik alanı — PageHeader veri almaz, çerçeve veri-siz
           kalır (dev önizlemede yerinde çizilir). Araçlar (Bölümler menüsü)
           sayfadan yuvaya gelir; eylem satırı dar ekranda kendi satırındadır. */}

@@ -407,8 +407,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
       {/* `overflow-hidden` yerine `oc-table-clamp`: uzun defter `md` üstünde
           70dvh'ye kelepçelenir ve başlık yapışır — overflow-hidden kalsaydı
           kelepçenin dikey kaydırmasını da kırpardı. */}
-      <div className="oc-scrollx oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+      <Table
+        className="oc-mobile-table"
+        containerClassName="oc-mobile-table-wrap oc-table-clamp rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+      >
           <TableHeader className="oc-sticky-head">
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortHead label="Kalem No" sortKey="itemNo" className="w-[6rem] md:w-[7rem]"
@@ -440,7 +442,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={10} data-mobile-span="full" data-mobile-hide-label className="py-10 text-center text-sm text-muted-foreground">
                   Süzgeçlere uyan kalem yok — bir filtreyi temizleyip tekrar deneyin.
                 </TableCell>
               </TableRow>
@@ -451,10 +453,10 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   className="cursor-pointer"
                   onClick={() => setEditing(r)}
                 >
-                  <TableCell className="align-top font-mono text-sm font-medium text-primary md:align-middle">
+                  <TableCell data-label="Kalem No" className="align-top font-mono text-sm font-medium text-primary md:align-middle">
                     {r.itemNo || "—"}
                   </TableCell>
-                  <TableCell className="font-medium break-words whitespace-normal md:whitespace-nowrap">
+                  <TableCell data-label="Ürün" data-mobile-span="full" className="font-medium break-words whitespace-normal md:whitespace-nowrap">
                     <span className={cn("block", URUN_GENISLIK)} title={r.productName}>
                       {r.productName}
                     </span>
@@ -480,6 +482,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       — yoksa belgeyi açmak isteyen kullanıcı aynı anda düzenleme
                       penceresini de açardı. */}
                   <TableCell
+                    data-label="Sözleşme"
                     className="align-top md:align-middle"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -493,14 +496,14 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                       <span className="sr-only">Sözleşme yüklenmemiş</span>
                     )}
                   </TableCell>
-                  <TableCell className={AT_MD}>
+                  <TableCell data-label="Müşteri" className={AT_MD}>
                     <CustomerTag
                       name={r.customer}
                       shortName={r.customerShort}
                       hue={r.customerHue}
                     />
                   </TableCell>
-                  <TableCell className={AT_LG}>
+                  <TableCell data-label="Kapsam" className={AT_LG}>
                     {/* Kapsam da başlıktaki 15rem'e kelepçelenir: `scopeLabel`
                         metni 46 karakterde kesiyor ama 46 karakter de ~18rem
                         eder ve sütun sessizce başlığından geniş çıkardı.
@@ -509,16 +512,19 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     <ScopeTag scope={r.sale.scope} className="max-w-[9rem]" />
                   </TableCell>
                   <TableCell
+                    data-label="Termin"
                     className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_MD)}
                   >
                     {fmtDate(r.sale.due_date)}
                   </TableCell>
                   <TableCell
+                    data-label="Sevk"
                     className={cn("font-mono text-sm tabular-nums text-muted-foreground", AT_LG)}
                   >
                     {fmtDate(r.sale.shipment_date)}
                   </TableCell>
                   <TableCell
+                    data-label="Ağırlık"
                     className={cn(
                       "text-right font-mono text-sm tabular-nums text-muted-foreground",
                       AT_LG
@@ -526,7 +532,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                   >
                     {r.totalWeightKg ? fmtNum(r.totalWeightKg) : "—"}
                   </TableCell>
-                  <TableCell className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
+                  <TableCell data-label="Tutar" className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
                     {r.sale.unit_price === null ? (
                       <span className="text-muted-foreground/60">Fiyat Yok</span>
                     ) : (
@@ -539,6 +545,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
                     )}
                   </TableCell>
                   <TableCell
+                    data-label="Avro Karşılığı"
                     className={cn("text-right font-mono text-sm font-medium tabular-nums", AT_SM)}
                   >
                     {r.eurAmount === null ? (
@@ -555,8 +562,7 @@ export function SalesTable({ rows }: { rows: SaleRow[] }) {
               ))
             )}
           </TableBody>
-        </Table>
-      </div>
+      </Table>
 
       {/* MÜŞTERİ BAZINDA CİRO AYRI SAYFAYA TAŞINDI (kullanıcı kararı,
           14.08.2026): /sales/ciro. Bu sayfa yalnız kalem listesidir. */}

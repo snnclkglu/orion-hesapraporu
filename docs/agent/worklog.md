@@ -51,3 +51,11 @@ ekranı ve Excel indirme ucu aynı `matchesFilters`'ı çağırır. Üçünde ay
 yazılsaydı indirilen dosya ile ekrandaki tablo sessizce ayrışırdı. İndirilen
 dosyanın adı tarih ve saat taşır (`downloadName`): aynı süzgeçle alınan iki
 dosya klasörde birbirini ezmez.
+
+## Mobil düzen — 23.08.2026
+
+Günlük Giriş · Analiz · Kayıtlar rayı telefonda tek bölüm seçicisidir. Son 14
+Gün şeridi yatay kaymaz; yedi sütunlu iki satıra katlanır ve bütün günler aynı
+anda görünür. Dönem Karşılaştırması listesi mobil karttır. Sayfa gövdesi yatay
+taşmaz; yalnız ay eksenli gerçek grafikler ve çapraz ısı matrisi karşılaştırma
+anlamını korumak için kendi sınırları içinde gezilebilir.

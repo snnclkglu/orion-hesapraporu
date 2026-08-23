@@ -638,8 +638,10 @@ export function SalaryPlanBoard({
           Kap `overflow-hidden` DEĞİL `.oc-scrollx`: ara genişlikte taşma
           olursa görünür kayar (md. 8), kırpılıp kaybolmaz. Telefonda tablo
           zaten listeye katlanır (md. 15), kap orada hiç kaymaz. */}
-      <div className="oc-scrollx overflow-x-auto rounded-lg border bg-card">
-        <Table>
+      <Table
+        className="oc-mobile-table"
+        containerClassName="oc-mobile-table-wrap rounded-lg border bg-card"
+      >
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-9">
@@ -672,7 +674,7 @@ export function SalaryPlanBoard({
           <TableBody>
             {satirlar.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} data-mobile-span="full" data-mobile-hide-label className="py-10 text-center text-sm text-muted-foreground">
                   Gösterilecek kişi yok. Ayrılmış personeli görmek için üstteki kutuyu işaretleyin.
                 </TableCell>
               </TableRow>
@@ -681,7 +683,7 @@ export function SalaryPlanBoard({
                 const id = r.emp.id;
                 return (
                   <TableRow key={id} className={cn(r.degisti && "bg-primary/[0.05]")}>
-                    <TableCell>
+                    <TableCell data-label="Seç">
                       <input
                         type="checkbox"
                         aria-label={`${r.emp.fullName} seç`}
@@ -700,7 +702,7 @@ export function SalaryPlanBoard({
 
                     {/* `break-words whitespace-normal`: alt satır ve ayarlama
                         çipleri uzayabilir, `nowrap` telefonda tabloyu iterdi. */}
-                    <TableCell className="max-w-[22rem] font-medium break-words whitespace-normal">
+                    <TableCell data-label="Ad Soyad" data-mobile-span="full" className="max-w-[22rem] font-medium break-words whitespace-normal">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="oc-tag-dot"
@@ -767,7 +769,7 @@ export function SalaryPlanBoard({
                       ))}
                     </TableCell>
 
-                    <TableCell className={cn("text-muted-foreground", AT_LG)}>
+                    <TableCell data-label="Görev" className={cn("text-muted-foreground", AT_LG)}>
                       <span className="block max-w-[10rem] truncate" title={r.emp.title}>
                         {r.emp.title || "—"}
                       </span>
@@ -779,7 +781,7 @@ export function SalaryPlanBoard({
                     {/* Hücre sınıfı BAŞLIKLA AYNI kırılımı taşımak zorunda:
                         başlık AT_SM iken hücrenin görünür kalması telefonda
                         hem sütunları kaydırıyor hem tabloyu taşırıyordu. */}
-                    <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
+                    <TableCell data-label={`${yil - 1} Sonu Ücret`} data-mobile-show className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                       {r.taban === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
@@ -803,7 +805,7 @@ export function SalaryPlanBoard({
                         olsaydı herkese %15 verilen bir yılda en düşük satır
                         kırmızı görünür ve "buna az verdim" diye yanlış bir şey
                         söylerdi. */}
-                    <TableCell className={AT_SM}>
+                    <TableCell data-label="Zam %" data-mobile-show className={AT_SM}>
                       <Input
                         value={r.taslak.oran}
                         onChange={(e) => oranYaz(r, e.target.value)}
@@ -821,7 +823,7 @@ export function SalaryPlanBoard({
 
                     {/* ÜCRET BÜYÜKLÜĞÜNE GÖRE RENKLİDİR: ölçek listedeki en
                         düşük ve en yüksek ücret arasında gerilir. */}
-                    <TableCell>
+                    <TableCell data-label={`${yil} Net Ücret`}>
                       <ParaInput
                         value={r.taslak.net}
                         onChange={(v) => netYaz(r, v)}
@@ -841,7 +843,7 @@ export function SalaryPlanBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
+                    <TableCell data-label="Fark" className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
                       {r.fark === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : r.fark === 0 ? (
@@ -854,7 +856,7 @@ export function SalaryPlanBoard({
                       )}
                     </TableCell>
 
-                    <TableCell className={cn("text-xs", AT_MD)}>
+                    <TableCell data-label="Durum" className={cn("text-xs", AT_MD)}>
                       {r.degisti ? (
                         <span className="text-primary">kaydedilmedi</span>
                       ) : r.mevcut ? (
@@ -876,8 +878,8 @@ export function SalaryPlanBoard({
           {satirlar.length > 0 && (
             <TableFooter>
               <TableRow className="hover:bg-transparent">
-                <TableCell />
-                <TableCell className="font-medium">{toplamlar.kisi} kişi</TableCell>
+                <TableCell data-mobile-hidden />
+                <TableCell data-label="Toplam" data-mobile-span="full" className="font-medium">{toplamlar.kisi} kişi</TableCell>
                 <TableCell className={AT_LG} />
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}>
                   {fmtTutar(toplamlar.tabanToplam)}
@@ -887,7 +889,7 @@ export function SalaryPlanBoard({
                     ? "—"
                     : `%${fmtNum(toplamlar.ortalamaOran, true)}`}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
+                <TableCell data-label={`${yil} Net Ücret`} className="text-right font-mono text-sm font-semibold tabular-nums">
                   {fmtTutar(toplamlar.yeniToplam)}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_MD)}>
@@ -904,8 +906,7 @@ export function SalaryPlanBoard({
               </TableRow>
             </TableFooter>
           )}
-        </Table>
-      </div>
+      </Table>
 
       <p className="text-[11px] text-muted-foreground">
         Bu ekran <span className="font-medium">kararı</span> yazar, ödemeyi değil: kaydedilen ücret

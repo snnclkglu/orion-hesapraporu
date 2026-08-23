@@ -1013,8 +1013,10 @@ export function PayrollBoard({
       )}
 
       {/* ——————————————————————————————————————————————————————— tablo */}
-      <div className="oc-scrollx overflow-x-auto rounded-lg border bg-card [--oc-scroll-bg:var(--card)]">
-        <Table>
+      <Table
+        className="oc-mobile-table"
+        containerClassName="oc-mobile-table-wrap rounded-lg border bg-card [--oc-scroll-bg:var(--card)]"
+      >
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Ad Soyad</TableHead>
@@ -1049,7 +1051,7 @@ export function PayrollBoard({
           <TableBody>
             {satirlar.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={15} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={15} data-mobile-span="full" data-mobile-hide-label className="py-10 text-center text-sm text-muted-foreground">
                   {periodLabel(ay)} için henüz maaş satırı yok. Yukarıdaki listeden bir kişiye
                   dokunun, ücret planından doldurun ya da geçen ayı kopyalayın.
                 </TableCell>
@@ -1074,7 +1076,7 @@ export function PayrollBoard({
                   >
                     {/* `break-words whitespace-normal`: alt satır özetleri uzun
                         olabilir ve `nowrap` telefonda tabloyu dışarı iterdi. */}
-                    <TableCell className="max-w-[22rem] font-medium break-words whitespace-normal">
+                    <TableCell data-label="Ad Soyad" data-mobile-span="full" className="max-w-[22rem] font-medium break-words whitespace-normal">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="oc-tag-dot"
@@ -1150,13 +1152,13 @@ export function PayrollBoard({
                       )}
                     </TableCell>
 
-                    <TableCell className={cn("text-muted-foreground", AT_2XL)}>
+                    <TableCell data-label="Görev" className={cn("text-muted-foreground", AT_2XL)}>
                       <span className="block max-w-[10rem] truncate" title={r.emp.title}>
                         {r.emp.title || "—"}
                       </span>
                     </TableCell>
 
-                    <TableCell className={AT_2XL}>
+                    <TableCell data-label="SGK Gün" data-mobile-show className={AT_2XL}>
                       <Input
                         value={r.taslak.gun}
                         onChange={(e) => setSatir(id, { gun: e.target.value }, r.taslak)}
@@ -1168,7 +1170,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_SM}>
+                    <TableCell data-label="Net Maaş" data-mobile-show className={AT_SM}>
                       <ParaInput
                         value={r.taslak.net}
                         onChange={(v) => setSatir(id, { net: v }, r.taslak)}
@@ -1179,7 +1181,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_SM}>
+                    <TableCell data-label="%50 Saat" data-mobile-show className={AT_SM}>
                       <Input
                         value={r.taslak.ot50}
                         onChange={(e) => setSatir(id, { ot50: e.target.value }, r.taslak)}
@@ -1191,7 +1193,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_SM}>
+                    <TableCell data-label="%100 Saat" data-mobile-show className={AT_SM}>
                       <Input
                         value={r.taslak.ot100}
                         onChange={(e) => setSatir(id, { ot100: e.target.value }, r.taslak)}
@@ -1206,6 +1208,8 @@ export function PayrollBoard({
                     {/* Türetilmiş sütun: net / 225 × (saat₅₀ × 1,5 + saat₁₀₀ × 2).
                         Elle girilseydi saatlerle çelişebilirdi. */}
                     <TableCell
+                      data-label="Mesai Tutarı"
+                      data-mobile-show
                       className={cn("text-right font-mono text-sm tabular-nums", AT_SM)}
                       title="Net maaş ÷ 225 saat × (%50 saat × 1,5 + %100 saat × 2)"
                     >
@@ -1216,7 +1220,7 @@ export function PayrollBoard({
                       )}
                     </TableCell>
 
-                    <TableCell className={AT_MD}>
+                    <TableCell data-label="İzin (saat)" data-mobile-show className={AT_MD}>
                       <Input
                         value={r.taslak.izin}
                         onChange={(e) => setSatir(id, { izin: e.target.value }, r.taslak)}
@@ -1229,7 +1233,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_MD}>
+                    <TableCell data-label="Rapor (saat)" data-mobile-show className={AT_MD}>
                       <Input
                         value={r.taslak.rapor}
                         onChange={(e) => setSatir(id, { rapor: e.target.value }, r.taslak)}
@@ -1242,7 +1246,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_LG}>
+                    <TableCell data-label="Prim" data-mobile-show className={AT_LG}>
                       <ParaInput
                         value={r.taslak.prim}
                         onChange={(v) => setSatir(id, { prim: v }, r.taslak)}
@@ -1252,7 +1256,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_LG}>
+                    <TableCell data-label="Harcirah" data-mobile-show className={AT_LG}>
                       <ParaInput
                         value={r.taslak.harcirah}
                         onChange={(v) => setSatir(id, { harcirah: v }, r.taslak)}
@@ -1262,7 +1266,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_XL}>
+                    <TableCell data-label="Avans" data-mobile-show className={AT_XL}>
                       <ParaInput
                         value={r.taslak.avans}
                         onChange={(v) => setSatir(id, { avans: v }, r.taslak)}
@@ -1272,7 +1276,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className={AT_XL}>
+                    <TableCell data-label="Kesinti" data-mobile-show className={AT_XL}>
                       <ParaInput
                         value={r.taslak.kesinti}
                         onChange={(v) => setSatir(id, { kesinti: v }, r.taslak)}
@@ -1282,7 +1286,7 @@ export function PayrollBoard({
                       />
                     </TableCell>
 
-                    <TableCell className="text-right font-mono text-sm font-medium tabular-nums">
+                    <TableCell data-label="Toplam" className="text-right font-mono text-sm font-medium tabular-nums">
                       {r.net === null ? (
                         <span className="text-muted-foreground/60">—</span>
                       ) : (
@@ -1291,6 +1295,8 @@ export function PayrollBoard({
                     </TableCell>
 
                     <TableCell
+                      data-label="Avro Karşılığı"
+                      data-mobile-show
                       className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)}
                     >
                       {r.avro === null ? (
@@ -1308,7 +1314,7 @@ export function PayrollBoard({
           {satirlar.length > 0 && (
             <TableFooter>
               <TableRow className="hover:bg-transparent">
-                <TableCell className="font-medium break-words whitespace-normal">
+                <TableCell data-label="Toplam" data-mobile-span="full" className="font-medium break-words whitespace-normal">
                   {toplamlar.ozet.count} kişi
                   <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground 2xl:hidden">
                     normal {fmtNum(toplamlar.ozet.normalHours)} saat
@@ -1359,7 +1365,7 @@ export function PayrollBoard({
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_XL)}>
                   {toplamlar.kesinti > 0 ? `−${fmtTutar(toplamlar.kesinti)}` : "—"}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
+                <TableCell data-label="Genel Toplam" className="text-right font-mono text-sm font-semibold tabular-nums">
                   {fmtTutar(toplamlar.genelToplam)}
                 </TableCell>
                 <TableCell className={cn("text-right font-mono text-sm tabular-nums", AT_2XL)}>
@@ -1368,8 +1374,7 @@ export function PayrollBoard({
               </TableRow>
             </TableFooter>
           )}
-        </Table>
-      </div>
+      </Table>
 
       <div className="grid gap-1 text-[11px] text-muted-foreground">
         <p>

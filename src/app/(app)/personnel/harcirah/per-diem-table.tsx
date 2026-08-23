@@ -312,7 +312,7 @@ export function PerDiemTable({
             </div>
 
             {open && (
-              <Table>
+              <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Personel Sınıfı</TableHead>
@@ -329,7 +329,7 @@ export function PerDiemTable({
                     const avro = g.kur ? r.dailyTry / g.kur.eurTry : null;
                     return (
                       <TableRow key={r.id} className="hover:bg-transparent">
-                        <TableCell className="font-medium whitespace-normal">
+                        <TableCell data-label="Personel Sınıfı" data-mobile-span="full" className="font-medium whitespace-normal">
                           {r.roleLabel}
                           {/* Gizlenen sütunların mobil karşılığı — ikinci bir
                               kart markup'ı yazılmaz. */}
@@ -338,10 +338,11 @@ export function PerDiemTable({
                             {r.note ? ` · ${r.note}` : ""}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
+                        <TableCell data-label="Günlük" className="text-right align-top font-mono text-sm tabular-nums md:align-middle">
                           {fmtNum(r.dailyTry, true)} <span className="text-muted-foreground">₺</span>
                         </TableCell>
                         <TableCell
+                          data-label="Avro Karşılığı"
                           className={cn(
                             "text-right font-mono text-sm tabular-nums text-muted-foreground",
                             AT_MD
@@ -349,11 +350,11 @@ export function PerDiemTable({
                         >
                           {avro === null ? "—" : `${fmtNum(avro, true)} €`}
                         </TableCell>
-                        <TableCell className={cn("whitespace-normal text-muted-foreground", AT_LG)}>
+                        <TableCell data-label="Not" className={cn("whitespace-normal text-muted-foreground", AT_LG)}>
                           {r.note || "—"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell data-label="İşlem">
+                          <div data-mobile-actions className="flex items-center justify-end gap-1">
                             <Button
                               size="icon-sm"
                               variant="ghost"

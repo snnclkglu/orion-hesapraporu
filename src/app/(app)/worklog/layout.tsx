@@ -29,7 +29,7 @@ export default async function WorkLogLayout({
   // rozeti kabuğun üst şeridine taşındı. Bu bölümde asıl iş ekranın ALTINDA
   // (grafikler, çapraz tablolar) — üst bant ne kadar incelirse o kadar iyi.
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
       {/* Yetki rozeti şeridin EYLEM yuvasında DEĞİL sayfanın içindedir.
           Eylem yuvası dar ekranda kendi satırını açar; sayfanın tek "eylemi"
           bir bilgi rozeti olduğunda o satır sırf rozet için ~40px yiyordu.

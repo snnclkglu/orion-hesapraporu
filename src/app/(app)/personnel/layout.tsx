@@ -27,7 +27,7 @@ export default async function PersonnelLayout({
   if (!canSeePersonnel((profile as { role?: string } | null)?.role)) redirect("/jobs");
 
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
       {/* Yetki rozeti PageHeader'ın children'ına (EYLEM yuvasına) KONMAZ;
           sayfa gövdesindedir. Eylem yuvası dar ekranda kendi satırını açar ve
           tek "eylem" bir bilgi rozetiyken o satır sırf rozet için ~40px yer

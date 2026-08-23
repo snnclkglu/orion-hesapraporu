@@ -208,8 +208,10 @@ export function PersonnelTable({
 
       {/* TABLO — kadro büyüdükçe uzayan defterdir: `md` üstünde başlık yapışır
           (`oc-table-clamp` + `oc-sticky-head` ikilisi, globals.css'teki sözleşme). */}
-      <div className="oc-scrollx oc-table-clamp overflow-x-auto border bg-card">
-        <Table>
+      <Table
+        className="oc-mobile-table"
+        containerClassName="oc-mobile-table-wrap oc-table-clamp border bg-card"
+      >
           <TableHeader className="oc-sticky-head">
             <TableRow>
               <TableHead>Ad Soyad</TableHead>
@@ -224,14 +226,14 @@ export function PersonnelTable({
           <TableBody>
             {gorunen.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} data-mobile-span="full" data-mobile-hide-label className="py-10 text-center text-sm text-muted-foreground">
                   Süzgece uyan personel yok.
                 </TableCell>
               </TableRow>
             )}
             {gorunen.map((e) => (
               <TableRow key={e.id} className="hover:bg-muted/40">
-                <TableCell className="max-w-[16rem]">
+                <TableCell data-label="Ad Soyad" data-mobile-span="full" className="max-w-[16rem]">
                   <Link href={`/personnel/${e.id}`} className="block">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium" title={e.fullName}>
@@ -261,7 +263,7 @@ export function PersonnelTable({
                     </div>
                   </Link>
                 </TableCell>
-                <TableCell className={AT_MD}>
+                <TableCell data-label="Kategori" className={AT_MD}>
                   <span
                     className="oc-tag px-1.5 py-0.5 text-[11px]"
                     style={tagStyle(categoryHue(e.category))}
@@ -270,10 +272,10 @@ export function PersonnelTable({
                     {categoryLabel(e.category)}
                   </span>
                 </TableCell>
-                <TableCell className={cn(AT_MD, "max-w-[14rem] truncate")} title={e.title}>
+                <TableCell data-label="Görev" className={cn(AT_MD, "max-w-[14rem] truncate")} title={e.title}>
                   {e.title || "—"}
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Durum">
                   {e.active ? (
                     <Badge variant="outline" className="border-emerald-600/40 bg-emerald-600/10 font-normal text-emerald-700 dark:text-emerald-400">
                       Aktif
@@ -284,13 +286,13 @@ export function PersonnelTable({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className={cn(AT_LG, "text-muted-foreground")}>
+                <TableCell data-label="İşe Giriş" className={cn(AT_LG, "text-muted-foreground")}>
                   {fmtDate(e.currentStart)}
                   {!e.active && e.lastEnd && (
                     <span className="ml-1 text-xs">→ {fmtDate(e.lastEnd)}</span>
                   )}
                 </TableCell>
-                <TableCell className={cn(AT_LG, "text-muted-foreground")}>
+                <TableCell data-label="Kıdem" className={cn(AT_LG, "text-muted-foreground")}>
                   {/* Kıdem BÜTÜN dönemlerin toplamıdır: aynı kişi iki kez
                       çalıştıysa yalnız son dönemi saymak onu olduğundan yeni
                       gösterirdi. */}
@@ -301,14 +303,13 @@ export function PersonnelTable({
                     </span>
                   )}
                 </TableCell>
-                <TableCell className={cn(AT_XL, "font-mono text-xs text-muted-foreground")}>
+                <TableCell data-label="Telefon" className={cn(AT_XL, "font-mono text-xs text-muted-foreground")}>
                   {e.phone || "—"}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
-        </Table>
-      </div>
+      </Table>
 
       <p className="text-xs text-muted-foreground">
         {gorunen.length} / {employees.length} kişi görünüyor. Ayrılan personel silinmez —

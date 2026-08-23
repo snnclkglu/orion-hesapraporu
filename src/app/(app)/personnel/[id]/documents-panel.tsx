@@ -381,8 +381,7 @@ export function DocumentsPanel({
             Bu personelin henüz yüklenmiş bir belgesi yok.
           </p>
         ) : (
-          <div className="oc-scrollx overflow-x-auto">
-            <Table>
+          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
               <TableHeader>
                 <TableRow>
                   <TableHead>Belge</TableHead>
@@ -402,7 +401,7 @@ export function DocumentsPanel({
                       {/* `whitespace-normal` HÜCREDE: TableCell'in varsayılan
                           nowrap'ı çip satırına miras kalıp sütunu tam metne
                           kilitliyordu (MOBIL-15 ölçümü). */}
-                      <TableCell className="max-w-[18rem] whitespace-normal max-sm:[overflow-wrap:anywhere]">
+                      <TableCell data-label="Belge" data-mobile-span="full" className="max-w-[18rem] whitespace-normal max-sm:[overflow-wrap:anywhere]">
                         <div className="flex items-start gap-2">
                           <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                           <div className="min-w-0">
@@ -443,7 +442,7 @@ export function DocumentsPanel({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className={AT_MD}>
+                      <TableCell data-label="Tür" className={AT_MD}>
                         <span
                           className="oc-tag px-1.5 py-0.5 text-[11px]"
                           style={tagStyle(documentKindHue(d.kind))}
@@ -451,10 +450,10 @@ export function DocumentsPanel({
                           {documentKindLabel(d.kind)}
                         </span>
                       </TableCell>
-                      <TableCell className={cn(AT_LG, "text-muted-foreground")}>
+                      <TableCell data-label="Tarih" className={cn(AT_LG, "text-muted-foreground")}>
                         {fmtDate(d.issuedOn)}
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell data-label="Geçerlilik" className="hidden sm:table-cell">
                         {durum === "yok" ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
@@ -467,11 +466,11 @@ export function DocumentsPanel({
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className={cn(AT_LG, "text-right text-muted-foreground")}>
+                      <TableCell data-label="Boyut" className={cn(AT_LG, "text-right text-muted-foreground")}>
                         {fmtBytes(d.sizeBytes)}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                      <TableCell data-label="İşlem" data-mobile-span="full" className="text-right">
+                        <div data-mobile-actions className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -517,8 +516,7 @@ export function DocumentsPanel({
                   );
                 })}
               </TableBody>
-            </Table>
-          </div>
+          </Table>
         )}
       </CardContent>
 

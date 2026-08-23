@@ -356,3 +356,11 @@ cümlesinin YENİ İŞ formu kısmını değiştirir; sözleşme tarihi korunur.
 ipucu gizlenir, dört sayı 320 px'te de aynı satırda kalır; tablet/masaüstünde
 bilgi kademeli geri açılır. Takvim yıllık kartları telefonda iki sütundur ve
 sayfa `documentElement.scrollWidth > clientWidth` üretmemelidir.
+
+## İş detayı mobil düzeni — 23.08.2026
+
+İş hub'ındaki Genel Bakış · Görevler · Akış · Bağlantılar rayı telefonda tek
+bir bölüm seçicisidir; masaüstündeki adresler ve aktiflik kuralı aynıdır. İş
+kalemleri, bağlı raporlar, bağlanan satışlar ve resim adet çizelgeleri `md`
+altında `data-label` başlıklı kartlara katlanır. Düzenleme ve belge eylemleri
+kartın içinde kalır; iş listesi ve hub gövdesi yatay sayfa taşması üretmez.

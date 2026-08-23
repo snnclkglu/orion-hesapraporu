@@ -426,42 +426,40 @@ export function DayEntry({
 
       {/* Son 14 gün — kayıt sürekliliği tek bakışta görünür, atlanan gün
           göze batar. Tıklanınca o güne gidilir. */}
-      {/* BİLİNÇLİ İSTİSNA (md. 15): bu şerit bir mini GRAFİKTİR — çubuklar tek
-          bir zaman ekseni üzerinde durur ve boyları birbiriyle karşılaştırılır;
-          satıra sarmak ekseni ikiye böler, kıyası bozardı. Telefonda içte
-          kaymaya devam eder (md. 9 diyagram kuralı). */}
-      <div className="oc-scrollx flex items-end gap-1 overflow-x-auto overscroll-x-contain rounded-lg border bg-card px-3 py-2">
-        <span className="oc-kicker mr-2 shrink-0 self-center text-muted-foreground">Son 14 Gün</span>
-        {recentDays.map((d) => (
-          <button
-            key={d.iso}
-            type="button"
-            onClick={() => goto(d.iso)}
-            title={`${d.iso.slice(8)}.${d.iso.slice(5, 7)} · ${fmtManHours(d.total)} adam·saat`}
-            className={cn(
-              "group flex w-8 shrink-0 flex-col items-center gap-1",
-              d.iso === date && "font-semibold"
-            )}
-          >
-            <span className="flex h-8 w-full items-end justify-center bg-muted/60">
-              <span
-                className={cn(
-                  "w-full transition-colors",
-                  d.iso === date ? "bg-primary" : "bg-primary/35 group-hover:bg-primary/60"
-                )}
-                style={{ height: `${Math.max((d.total / recentPeak) * 100, d.total > 0 ? 8 : 0)}%` }}
-              />
-            </span>
-            <span
+      <div className="min-w-0 rounded-lg border bg-card px-3 py-2">
+        <span className="oc-kicker mb-2 block text-muted-foreground">Son 14 Gün</span>
+        <div className="grid grid-cols-7 gap-1 sm:[grid-template-columns:repeat(14,minmax(0,1fr))]">
+          {recentDays.map((d) => (
+            <button
+              key={d.iso}
+              type="button"
+              onClick={() => goto(d.iso)}
+              title={`${d.iso.slice(8)}.${d.iso.slice(5, 7)} · ${fmtManHours(d.total)} adam·saat`}
               className={cn(
-                "font-mono text-[11px] tabular-nums",
-                d.iso === date ? "text-foreground" : "text-muted-foreground"
+                "group flex min-w-0 flex-col items-center gap-1",
+                d.iso === date && "font-semibold"
               )}
             >
-              {d.iso.slice(8)}
-            </span>
-          </button>
-        ))}
+              <span className="flex h-8 w-full items-end justify-center bg-muted/60">
+                <span
+                  className={cn(
+                    "w-full transition-colors",
+                    d.iso === date ? "bg-primary" : "bg-primary/35 group-hover:bg-primary/60"
+                  )}
+                  style={{ height: `${Math.max((d.total / recentPeak) * 100, d.total > 0 ? 8 : 0)}%` }}
+                />
+              </span>
+              <span
+                className={cn(
+                  "font-mono text-[11px] tabular-nums",
+                  d.iso === date ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {d.iso.slice(8)}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Önceki günü kopyala — gün boşken en büyük kaldıraç */}
