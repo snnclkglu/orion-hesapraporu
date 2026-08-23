@@ -17,23 +17,78 @@ import {
   type FieldDef,
 } from "../fields";
 import { TRAVEL_NO, TRAVEL_YES } from "../modules/travelGroup";
-import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
+import type { TravelInputs, TravelSelections, TravelWhich } from "../modules/travelGroup";
 import { WHEEL_COUNT_OPTIONS } from "../modules/wheelLoads";
+import {
+  RAILS,
+  RAIL_FAMILIES,
+  RAIL_FAMILY_LABELS,
+  railCodesOfFamily,
+  railFamilyOf,
+  railNominalHeadWidthMm,
+} from "../tables";
 
 /** Teker çapı FEM standart serisi [mm] */
 export const WHEEL_DIA_SERIES_MM = [
   "200", "250", "315", "400", "500", "630", "710", "800", "900", "1000", "1120", "1250",
 ] as const;
-export const RAIL_TYPES = [
-  "A150", "A120", "A100", "A75", "A65", "A55", "A45",
-  "30x30", "40x40", "50x50", "60x60", "70x40", "80x80",
-] as const;
+/**
+ * Ray kodlarının TAM listesi — ailelere göre süzülmeden. İkinci kutunun
+ * tabanıdır: aile tanınmazsa (çok eski bir kayıt) hiçbir seçenek kaybolmaz.
+ */
+export const RAIL_TYPES: readonly string[] = Object.keys(RAILS);
+/**
+ * Ray kodunun okunur etiketi: kod + anma baş genişliği (+ metre ağırlığı).
+ *
+ * Kod tek başına ("S24", "A75") ölçü söylemez; mühendis listeden seçerken
+ * rayın başını ve ağırlığını görmelidir. Çubuk raylarda metre ağırlığı
+ * kesitten hesaplandığı için (bkz. `railMassKgPerM`) etikete yazılmaz —
+ * çelik yoğunluğu hesabın girdisidir, listenin değil.
+ */
+export const RAIL_CODE_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(RAILS).map(([code, row]) => {
+    if (row.family === "bar") {
+      const [a, b] = code.split(/[xX]/);
+      return [code, `${a} × ${b} mm`];
+    }
+    const head = railNominalHeadWidthMm(code);
+    const parts = [`baş ${head.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} mm`];
+    if (row.massKgPerM !== undefined) {
+      parts.push(`${row.massKgPerM.toLocaleString("tr-TR")} kg/m`);
+    }
+    return [code, `${code} — ${parts.join(" · ")}`];
+  })
+);
+
 export const WHEEL_MATERIALS = ["AISI 4140+QT", "42CrMo4", "C60", "GS-70"] as const;
 export const WHEEL_TENSILE_OPTIONS = Array.from({ length: 11 }, (_, i) => String(500 + i * 50));
 export const WHEEL_SHAFT_MATERIALS = ["42CrMo4", "42CrMo4+QT", "S355JR", "CK45"] as const;
 
 /** İki durumlu tampon girdilerinin seçenekleri (kayıtta metin olarak durur). */
 export const YES_NO = [TRAVEL_NO, TRAVEL_YES] as const;
+
+/**
+ * YALNIZ TEK VARYANTTA SORULAN GİRDİLER: alan → o alanın sahibi varyant.
+ *
+ * Araba ve köprü aynı alan listesini paylaşır; bazı büyüklükler ise yalnız
+ * KÖPRÜ hesabına girer. Bunlar arabada da kutu olarak açılıyordu ve mühendis
+ * hesaba hiç girmeyen bir sayı doldurmuş oluyordu (kullanıcı bildirimi,
+ * 23.08.2026: *"minimum araba yanaşması değerini alıyoruz ama kullanmıyoruz"*).
+ * Sunum adaptörü (`travelAdapter`) bu haritayı okuyup kutuyu ilgisiz
+ * varyanttan düşürür — DEĞER KORUNUR, yalnız sorulmaz.
+ *
+ * Fren emniyet katsayısı (`brakeServiceFactor`) burada YOKTUR: onun bölümü
+ * (5.5b) zaten `bridgeOnly` olduğu için arabada hiç açılmaz.
+ */
+export const TRAVEL_INPUT_VARIANT: Record<string, TravelWhich> = {
+  // Araba açıklık üzerinde konumlanır → köprü teker yükü eksantrikliği.
+  // Arabanın kendi teker yükü dört tekere eşit paylaştırılır; yanaşmayla
+  // ilgisi yoktur.
+  minApproachM: "bridge",
+  // NOT: `bufferApproachM` (5.8) de yalnız köprü dalında kullanılır ama
+  // kullanıcı kararı henüz o kutuyu kapsamıyor; kaldırılacaksa buraya bir
+  // satır eklemek yeter.
+};
 
 export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
   // Ağırlıklar teknik özelliklerdeki "Ağırlıklar" grubundan gelir; burada sorulmaz.
@@ -105,7 +160,19 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
       "alt uç aynı zamanda gerekli gücü artıran muhafazakâr taraftır.",
   },
   { key: "reducerStages", label: "Redüktör Kademe Sayısı", type: "number" },
-  { key: "accelerationMs2", label: "İvme a", unit: "m/s²", type: "number" },
+  {
+    key: "accelerationMs2", label: "İvme a", unit: "m/s²", type: "number",
+    hint: "Otomatik: M1–M4 0,12 · M5 0,13 · M6 0,15 · M7 0,2 · M8 0,25.",
+    info:
+      "Yürütme ivmesi mekanizma sınıfına göre öntanımlı gelir: ağır hizmet " +
+      "sınıfı daha sık ve daha sert kalkış demektir, ivme sınıfla birlikte " +
+      "büyür.\n\n" +
+      "Eşleme hiçbir standartta normatif DEĞİLDİR — FEM 1.001 ve CMAA 70 " +
+      "ivmeyi işletme koşullarına bırakır. Bu bir ORION tasarım kabulüdür; " +
+      "anahtarı kapatıp işin kendi koşuluna göre elle girebilirsiniz.\n\n" +
+      "İvme iki yere birden girer: kalkış süresi t = V / 60 / a ve CMAA 70 " +
+      "ivmelenme faktörü Ka. Büyütmek gerekli motor gücünü artırır.",
+  },
   { key: "tempFactor", label: "Sıcaklık Faktörü", type: "number" },
   {
     key: "gearboxServiceFactor", label: "Redüktör Emniyet Katsayısı", type: "number",
@@ -155,7 +222,27 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
 ];
 
 export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
-  { key: "railCode", label: "Ray", type: "select", options: RAIL_TYPES },
+  // RAY SEÇİMİ İKİ KUTULUDUR (kullanıcı kararı, 23.08.2026): önce aile, sonra
+  // o ailenin ölçüleri. Tek kutuda A serisi, S serisi ve çubuk raylar alt
+  // alta akıyordu ve liste büyüdükçe okunmaz hâle geliyordu. Araba ve köprü
+  // AYNI iki kutuyu kullanır.
+  {
+    key: "railFamily", label: "Ray Tipi", type: "select",
+    options: RAIL_FAMILIES, optionLabels: RAIL_FAMILY_LABELS,
+    hint: "Aile değişince alttaki ölçü listesi de o ailenin raylarına döner.",
+  },
+  {
+    key: "railCode", label: "Ray Ölçüsü", type: "select", options: RAIL_TYPES,
+    // Liste SEÇİLEN AİLEDEN gelir. Kayıtlı kod ailesiz bir eski revizyondan
+    // geliyorsa kendi ailesi çözülür — kutu boş açılmaz.
+    optionsFrom: (sel) => {
+      const family = String(sel.railFamily ?? "").trim() ||
+        railFamilyOf(sel.railCode as string | undefined);
+      const codes = railCodesOfFamily(family);
+      return codes.length > 0 ? codes : RAIL_TYPES;
+    },
+    optionLabels: RAIL_CODE_LABELS,
+  },
   { key: "wheelMaterial", label: "Tekerlek Malzemesi", type: "select", options: WHEEL_MATERIALS },
   {
     key: "wheelTensileNmm2", label: "Tekerlek Malzemesi Çekme Dayanımı",
@@ -188,7 +275,23 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
   { key: "motorCount", label: "Motor Sayısı", type: "number" },
   { key: "motorShaftMm", label: "Motor Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
-  { key: "gearboxRatio", label: "Tahvil Oranı", type: "number" },
+  {
+    key: "gearboxRatio", label: "Tahvil Oranı", type: "number",
+    hint:
+      "Kutu KIRMIZI: oran gereken orana eşitlenmiş, redüktör henüz seçilmedi. " +
+      "Bölüm bu hâlde uygun değildir. Motoru seçtikten sonra katalogdan " +
+      "redüktörü seçin ya da anahtarı kapatıp gerçek oranı elle girin.",
+    info:
+      "Tahvil oranı kutusu ilk açılışta ve her teker çapı değişiminde GEREKEN " +
+      "ORANA (i = n_motor / n_teker) eşitlenir.\n\n" +
+      "Gerekçe: gerçekleşen hız V = (n_motor / i) · π · D bağıntısıyla " +
+      "orandan çıkar ve gerekli güç doğrudan V ile büyür. Oran gereken " +
+      "orandan uzaksa hız da anma hızından uzaklaşır ve güç hesabı YANLIŞ " +
+      "MOTOR seçtirir. Eşitleme, motor seçilirken hızın anma hızına " +
+      "oturmasını garanti eder.\n\n" +
+      "Katalogdan bir redüktör seçilince anahtar kendiliğinden kapanır ve " +
+      "sapma bir alt satırda ölçülür.",
+  },
   { key: "gearboxOutputTorqueKnm", label: "Redüktör Çıkış Torku", unit: "kNm", type: "number" },
   { key: "gearboxInputShaftText", label: "Giriş Mil Çapı (Eski Kayıt)", unit: "mm", type: "text", diameter: true },
   { key: "gearboxInputShaftMm", label: "Giriş Mil Çapı", unit: "mm", type: "number", diameter: true },

@@ -18,9 +18,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  MODULE_ADAPTERS,
   autoInputFlag,
   autoSelectionFlag,
   derivationWarnings,
+  reArmGearboxRatioAuto,
+  syncRailCodeToFamily,
   withDerivedModules,
   type ModuleState,
   type ModulesState,
@@ -40,11 +43,13 @@ import {
   HOIST_AUTO_FIELDS,
   HOIST_AUTO_SELECTION_FIELDS,
   TRAVEL_AUTO_FIELDS,
+  TRAVEL_AUTO_SELECTION_FIELDS,
 } from "@/lib/calc/fields";
 import { STRUCTURE_AMPLIFY_FACTOR, horizontalDynamicFactor } from "@/lib/calc/modules/mainGirder";
 import { drumShaftGeometry } from "@/lib/calc/modules/hoistGroup";
+import { computeTravelGroup } from "@/lib/calc/modules/travelGroup";
 import type { HoistInputs, HoistSelections } from "@/lib/calc/modules/hoistGroup";
-import type { TravelInputs } from "@/lib/calc/modules/travelGroup";
+import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs } from "@/lib/calc/modules/mainGirder";
 import type { ModuleKey } from "../module-adapters";
 import type { TechnicalSpecs } from "@/lib/calc/types";
@@ -83,6 +88,7 @@ function patchSelections(mods: ModulesState, key: ModuleKey, patch: object): Mod
 const hoistIn = (m: ModulesState, k: ModuleKey = "main") => m[k].inputs as HoistInputs;
 const hoistSel = (m: ModulesState, k: ModuleKey = "main") => m[k].selections as HoistSelections;
 const travelIn = (m: ModulesState, k: ModuleKey) => m[k].inputs as TravelInputs;
+const travelSel = (m: ModulesState, k: ModuleKey) => m[k].selections as TravelSelections;
 const girderIn = (m: ModulesState) => m.girder.inputs as GirderInputs;
 
 const SPECS: TechnicalSpecs = NEW_WORK_SPECS;
@@ -395,6 +401,166 @@ describe("otomatik anahtar haritaları editöre bağlı", () => {
 // çağırmazsa hata geri gelir. Aşağıdaki kilitler tam olarak KOPAN bağlantıları
 // hedefler — hepsi denetimin bulduğu gerçek kusurlardır.
 
+// ------------------------- Yürütme: ivme, tahvil oranı ve varyanta özel kutu
+
+describe("yürütme ivmesi kutusu", () => {
+  it("OTOMATİK açıkken mekanizma sınıfının ivmesini GİRDİYE yazar", () => {
+    const m = withDerivedModules(baseModules(), SPECS);
+    // Şablonun köprü mekanizma sınıfı M6 → 0,15 m/s².
+    expect(travelIn(m, "bridge").accelerationMs2).toBe(0.15);
+    expect(travelIn(m, "trolley").accelerationMs2).toBe(0.15);
+  });
+
+  it("mekanizma sınıfı değişince ivme YENİDEN türetilir", () => {
+    const m = withDerivedModules(baseModules(), { ...SPECS, bridgeMechanismClass: "M8" });
+    expect(travelIn(m, "bridge").accelerationMs2).toBe(0.25);
+    // Arabanın kendi sınıfı değişmedi — ivmesi de değişmez.
+    expect(travelIn(m, "trolley").accelerationMs2).toBe(0.15);
+  });
+
+  it("OTOMATİK kapalıyken elle girilen ivme KORUNUR", () => {
+    const m = withDerivedModules(
+      patchInputs(baseModules(), "bridge", { accelerationAuto: false, accelerationMs2: 0.44 }),
+      SPECS
+    );
+    expect(travelIn(m, "bridge").accelerationMs2).toBe(0.44);
+  });
+});
+
+describe("yürütme tahvil oranı kutusu", () => {
+  it("anahtarı GİRDİLERDE, değeri SEÇİMLERDE durur", () => {
+    expect(TRAVEL_AUTO_SELECTION_FIELDS.gearboxRatio).toBe("gearboxRatioAuto");
+    expect(autoSelectionFlag("bridge", "gearboxRatio")).toBe("gearboxRatioAuto");
+    expect(autoSelectionFlag("trolley", "gearboxRatio")).toBe("gearboxRatioAuto");
+  });
+
+  it("OTOMATİK açıkken oranı gereken orana eşitler → gerçek hız = anma hızı", () => {
+    const m = withDerivedModules(baseModules(), SPECS);
+    const sel = travelSel(m, "bridge");
+    const v = (sel.motorRpm / sel.gearboxRatio) * Math.PI * (sel.wheelDiaMm / 1000);
+    expect(v).toBeCloseTo(SPECS.bridgeSpeedMpm, 3);
+  });
+
+  it("TEKER ÇAPI DEĞİŞİNCE oran yeniden eşitlenir", () => {
+    const m = withDerivedModules(
+      patchSelections(baseModules(), "bridge", { wheelDiaMm: 500 }),
+      SPECS
+    );
+    const sel = travelSel(m, "bridge");
+    const v = (sel.motorRpm / sel.gearboxRatio) * Math.PI * 0.5;
+    expect(v).toBeCloseTo(SPECS.bridgeSpeedMpm, 3);
+  });
+
+  it("OTOMATİK kapalıyken katalogdan seçilen oran KORUNUR", () => {
+    const m = withDerivedModules(
+      patchSelections(
+        patchInputs(baseModules(), "bridge", { gearboxRatioAuto: false }),
+        "bridge",
+        { gearboxRatio: 24 }
+      ),
+      SPECS
+    );
+    expect(travelSel(m, "bridge").gearboxRatio).toBe(24);
+  });
+
+  it("oran otomatikken 5.5 bölümü UYGUN DEĞİLDİR, kapanınca kontrol geçer", () => {
+    const kontrol = (auto: boolean) => {
+      const st = NEW_WORK_TEMPLATE.bridge!;
+      const res = computeTravelGroup(
+        SPECS,
+        "bridge",
+        { ...(st.inputs as TravelInputs), gearboxRatioAuto: auto },
+        st.selections as TravelSelections,
+        { hookEquipmentT: 1, trolleyWeightT: 2.5 }
+      );
+      return res.checks.find((c) => c.id === "bridge.gearbox.selected")!;
+    };
+    expect(kontrol(true).pass).toBe(false);
+    expect(kontrol(false).pass).toBe(true);
+  });
+});
+
+describe("teker çapı değişince oran otomatiği yeniden kurulur", () => {
+  const sel = { wheelDiaMm: 315 } as object;
+
+  it("çap değişti + anahtar kapalıysa anahtar AÇILIR", () => {
+    const out = reArmGearboxRatioAuto(
+      "bridge", sel, { wheelDiaMm: 400 }, { gearboxRatioAuto: false }
+    );
+    expect((out as { gearboxRatioAuto?: boolean } | null)?.gearboxRatioAuto).toBe(true);
+  });
+
+  it("çap aynıysa dokunmaz", () => {
+    expect(reArmGearboxRatioAuto("bridge", sel, { wheelDiaMm: 315 }, {})).toBeNull();
+  });
+
+  it("anahtar zaten açıksa gereksiz yazma yapmaz", () => {
+    expect(
+      reArmGearboxRatioAuto("bridge", sel, { wheelDiaMm: 400 }, { gearboxRatioAuto: true })
+    ).toBeNull();
+  });
+
+  it("yürütme dışındaki bölümlerde kural işlemez", () => {
+    expect(
+      reArmGearboxRatioAuto("main", sel, { wheelDiaMm: 400 }, { gearboxRatioAuto: false })
+    ).toBeNull();
+  });
+});
+
+describe("ray ailesi değişince ölçü de aileye geçer", () => {
+  const sync = (prior: object, next: object) =>
+    syncRailCodeToFamily("trolley", prior, next) as { railCode?: string } | null;
+
+  it("çubuk raydan A tipine geçişte EN YAKIN baş genişliğine düşer", () => {
+    const out = sync(
+      { railFamily: "bar", railCode: "50x50" },
+      { railFamily: "a", railCode: "50x50" }
+    );
+    // 50 mm başa en yakın A serisi rayı: A55 (anma başı 55 mm).
+    expect(out?.railCode).toBe("A55");
+  });
+
+  it("A tipinden S tipine geçişte de aileye uyar", () => {
+    const out = sync(
+      { railFamily: "a", railCode: "A65" },
+      { railFamily: "s", railCode: "A65" }
+    );
+    expect(out?.railCode).toBe("S39"); // A65'in anma başı 65 mm → S39 (66 mm)
+  });
+
+  it("aile değişmediyse ölçüye dokunmaz", () => {
+    expect(sync({ railFamily: "a", railCode: "A65" }, { railFamily: "a", railCode: "A45" }))
+      .toBeNull();
+  });
+
+  it("kod zaten yeni ailedeyse dokunmaz", () => {
+    expect(sync({ railFamily: "bar", railCode: "50x50" }, { railFamily: "a", railCode: "A75" }))
+      .toBeNull();
+  });
+
+  it("yürütme dışındaki bölümlerde kural işlemez", () => {
+    expect(syncRailCodeToFamily("main", { railFamily: "bar" }, { railFamily: "a" })).toBeNull();
+  });
+});
+
+describe("yalnız köprüde sorulan girdiler", () => {
+  const kutular = (key: ModuleKey, sectionRawId: string) =>
+    MODULE_ADAPTERS.find((a) => a.key === key)!
+      .sections.find((s) => s.rawId === sectionRawId)!
+      .inputDefs.map((d) => d.key);
+
+  it("minimum araba yanaşması KÖPRÜDE sorulur, arabalarda sorulmaz", () => {
+    expect(kutular("bridge", "5.1")).toContain("minApproachM");
+    for (const key of ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley"] as const) {
+      expect(kutular(key, "5.1"), key).not.toContain("minApproachM");
+    }
+  });
+
+  it("arabada kutu düşse de diğer girdiler yerinde kalır", () => {
+    expect(kutular("trolley", "5.1")).toEqual(["wheelCount", "wheelsPerMotor"]);
+  });
+});
+
 const EDITOR_SRC = readFileSync(
   fileURLToPath(new URL("../revision-editor.tsx", import.meta.url)),
   "utf8"
@@ -407,6 +573,10 @@ describe("revision-editor.tsx bağlantı kilidi", () => {
       "autoInputFlag",
       "autoSelectionFlag",
       "derivationWarnings",
+      // Teker çapı değişince tahvil oranı yeniden otomatiğe döner.
+      "reArmGearboxRatioAuto",
+      // Ray ailesi değişince ölçü kutusu da o aileye geçer.
+      "syncRailCodeToFamily",
     ]) {
       expect(EDITOR_SRC).toContain(name);
     }

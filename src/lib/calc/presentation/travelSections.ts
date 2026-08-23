@@ -116,7 +116,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     description:
       "Tekerlek yükleri ve ray temas basıncı kontrolü (FEM 1.001 4.2.4.1). Köprüde maksimum/minimum yükler araba yanaşma eksantrikliğiyle hesaplanır.",
     inputKeys: ["minApproachM", "wheelCount", "wheelsPerMotor"],
-    selectionKeys: ["railCode", "wheelMaterial", "wheelTensileNmm2", "wheelDiaMm"],
+    selectionKeys: ["railFamily", "railCode", "wheelMaterial", "wheelTensileNmm2", "wheelDiaMm"],
     rows: [
       {
         key: "drive.drivenWheels", label: "Tahrikli Teker Sayısı",
@@ -431,7 +431,12 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
   {
     id: "5.5",
     title: "Yürütme Redüktörü",
-    description: "Gerekli çevrim oranı, tork zinciri ve redüktör seçimi.",
+    description:
+      "Gerekli çevrim oranı, tork zinciri ve redüktör seçimi. Tahvil oranı " +
+      "kutusu OTOMATİK açılır ve gereken orana eşitlenir; böylece gerçekleşen " +
+      "hız anma hızına oturur ve motor doğru güçten seçilir. Redüktör " +
+      "katalogdan seçilene (ya da oran elle girilene) kadar bölüm UYGUN " +
+      "DEĞİLDİR.",
     equipmentSlugs: ["gearbox"],
     inputKeys: ["gearboxServiceFactor", "reducerStages"],
     selectionKeys: [
@@ -442,6 +447,10 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
       {
         key: "gearbox.requiredRatio", label: "Gereken Tahvil Oranı",
         formula: "i_g = n_motor / n_teker",
+        formulaHint:
+          "Anma hızını tam tutturan orandır. Tahvil oranı kutusu otomatikken " +
+          "bu sayıya eşitlenir; motor seçildikten sonra kataloğun gerçek oranı " +
+          "girilir ve sapma bir alt satırda ölçülür.",
         subst: (x) => `${n(x.sel.motorRpm)} / ${n(x.v.wheelRpm)}`,
       },
       {
@@ -477,7 +486,7 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
         subst: (x) => `${n(x.sel.gearboxOutputTorqueKnm)} / (${n(x.v.nominalOutputTorqueNm)} / 1000)`,
       },
     ],
-    checkSuffixes: ["gearbox.ratio", "gearbox.safety"],
+    checkSuffixes: ["gearbox.selected", "gearbox.ratio", "gearbox.safety"],
   },
   {
     id: "5.5b",

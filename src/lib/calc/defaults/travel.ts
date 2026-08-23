@@ -49,12 +49,19 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   accelTorqueFactorKt: 1.5,     // CMAA 70 ivmelenme tork faktörü
   accelTorqueFactorKtAuto: true,
   reducerStages: 3,             // redüktör kademe sayısı
+  // Referans işte ivme ELLE 0,2 girilmişti; mekanizma sınıfından türetme
+  // (M6 → 0,15) tarihsel sayıları değiştirirdi, o yüzden otomatik KAPALIDIR.
+  // Yeni iş şablonunda anahtar AÇIKTIR (bkz. defaults.ts).
   accelerationMs2: 0.2,         // ivme [m/s²]
+  accelerationAuto: false,
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
   tempFactorAuto: true,
   motorCalcCount: 1,            // gücün bölüşüldüğü motor adedi
   gearboxServiceFactor: 2.1,    // redüktör emniyet katsayısı
   gearboxServiceFactorAuto: false,
+  // Referans işte redüktör KATALOGDAN seçilmiştir (YILMAZ R DT283, i = 29);
+  // oran bir seçimdir, gereken orana eşitlenmiş bir bekleme değeri değil.
+  gearboxRatioAuto: false,
   brakeServiceFactor: 0,        // arabada yürütme freni hesaplanmaz
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 2,
@@ -72,6 +79,7 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
 };
 
 export const V5_TROLLEY_SELECTIONS: TravelSelections = {
+  railFamily: "bar",            // kare/dikdörtgen dolu çubuk ray
   railCode: "50x50",
   wheelMaterial: "AISI 4140+QT",
   wheelTensileNmm2: 800,        // teker malzemesi çekme dayanımı [N/mm²]
@@ -145,12 +153,14 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   accelTorqueFactorKt: 1.5,
   accelTorqueFactorKtAuto: true,
   reducerStages: 3,
-  accelerationMs2: 0.2,
+  accelerationMs2: 0.2,         // elle girilmiş — bkz. V5_TROLLEY_INPUTS notu
+  accelerationAuto: false,
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
   tempFactorAuto: true,
   motorCalcCount: 2,
   gearboxServiceFactor: 2.1,
   gearboxServiceFactorAuto: false,
+  gearboxRatioAuto: false,      // katalogdan seçilmiş (YILMAZ R. MT373, i = 24)
   brakeServiceFactor: 1.6,      // yürütme freni emniyet katsayısı
   motorCouplingServiceFactor: 1.8,
   wheelCouplingServiceFactor: 1.8,
@@ -167,6 +177,7 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
 };
 
 export const V5_BRIDGE_SELECTIONS: TravelSelections = {
+  railFamily: "bar",
   railCode: "50x50",
   wheelMaterial: "AISI 4140+QT",
   wheelTensileNmm2: 800,

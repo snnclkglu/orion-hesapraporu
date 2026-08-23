@@ -168,6 +168,9 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   if (typeof v === "string") return v;
   if (!Number.isFinite(v)) return "—";
   if (Number.isInteger(v)) return v.toLocaleString("tr-TR");
+  // Gösterilen basamakta sıfıra düşen sayı EKSİ işaretli basılmaz: "-0 %"
+  // olmayan bir sapmayı varmış gibi okutur (editördeki `fmt` ile aynı kural).
+  if (Math.abs(v) < 0.5 / 10 ** digits) return (0).toLocaleString("tr-TR");
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
 }
 

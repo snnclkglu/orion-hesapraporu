@@ -1084,6 +1084,19 @@ export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
   serviceFactorKs: "serviceFactorKsAuto",
   accelTorqueFactorKt: "accelTorqueFactorKtAuto",
   gearboxServiceFactor: "gearboxServiceFactorAuto",
+  accelerationMs2: "accelerationAuto",
+};
+
+/**
+ * Otomatik doldurulabilen YÜRÜTME KATALOG SEÇİMİ alanı: redüktör tahvil oranı.
+ *
+ * Anahtar yine GİRDİLERDE durur (`TravelInputs.gearboxRatioAuto`) — kaldırma
+ * tarafındaki yiv boyunun (`drumGrooveLengthAuto`) birebir aynı düzeni:
+ * `revision-load.ts`teki AUTO_FLAGS koruması yalnız girdi nesnesine bakar,
+ * türetilen değer ise seçimlere yazılır.
+ */
+export const TRAVEL_AUTO_SELECTION_FIELDS: Record<string, string> = {
+  gearboxRatio: "gearboxRatioAuto",
 };
 
 /**

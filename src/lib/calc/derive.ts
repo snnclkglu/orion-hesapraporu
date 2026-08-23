@@ -22,7 +22,11 @@ import {
 import type { HoistInputs, HoistSelections } from "./modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "./modules/hookBlock";
 import type { GirderInputs } from "./modules/mainGirder";
-import type { TravelInputs } from "./modules/travelGroup";
+import {
+  TRAVEL_RATIO_AUTO_DIGITS,
+  travelRequiredRatio,
+} from "./modules/travelGroup";
+import type { TravelInputs, TravelSelections } from "./modules/travelGroup";
 import type { MechanismClass, TechnicalSpecs } from "./types";
 
 // ------------------------------------------------------------- Makara verimi
@@ -654,6 +658,11 @@ export interface TravelDeriveContext {
   ambientTempMaxC: number;
   /** Bu yürütme grubunun FEM mekanizma sınıfı (bkz. `travelSpecView`) */
   mechanismClass: MechanismClass;
+  /**
+   * Bu yürütme grubunun ANMA yürüyüş hızı [m/dak] (teknik özelliklerden).
+   * Gereken tahvil oranı buradan çıkar: i = n_motor / n_teker.
+   */
+  travelSpeedMpm: number;
 }
 
 export interface TravelDerivation {
@@ -667,6 +676,14 @@ export interface TravelDerivation {
   accelTorqueFactorKt?: number;
   /** FEM mekanizma sınıfından otomatik yürütme redüktörü servis katsayısı. */
   gearboxServiceFactor?: number;
+  /** FEM mekanizma sınıfından otomatik yürütme ivmesi a [m/s²]. */
+  accelerationMs2?: number;
+  /**
+   * GEREKEN ORANA EŞİTLENMİŞ redüktör tahvil oranı — GİRDİYE DEĞİL,
+   * SEÇİMLERE yazılır (`TravelSelections.gearboxRatio`); anahtarı yine
+   * girdilerdedir (`gearboxRatioAuto`), yiv boyunun düzeniyle aynı.
+   */
+  gearboxRatio?: number;
   /** Otomatik açık ama tablodan değer okunamadıysa gösterilecek uyarılar */
   warnings: { field: "serviceFactorKs" | "accelTorqueFactorKt"; message: string }[];
 }
@@ -681,6 +698,23 @@ export function travelGearboxServiceFactor(mech: MechanismClass): number {
 }
 
 /**
+ * ORION yürütme İVMESİ a [m/s²] — FEM mekanizma sınıfı eşlemesi (kullanıcı
+ * kararı, 23.08.2026).
+ *
+ * Ağır hizmet sınıfı, daha sık ve daha sert kalkış demektir; ivme sınıfla
+ * birlikte büyür. Eşleme hiçbir standartta normatif DEĞİLDİR — FEM 1.001 ve
+ * CMAA 70 ivmeyi kullanıcının işletme koşullarına bırakır; bu, ORION'un
+ * tasarım kabulüdür ve anahtar kapatılıp elle düzeltilebilir.
+ */
+export function travelAcceleration(mech: MechanismClass): number {
+  if (mech === "M1" || mech === "M2" || mech === "M3" || mech === "M4") return 0.12;
+  if (mech === "M5") return 0.13;
+  if (mech === "M6") return 0.15;
+  if (mech === "M7") return 0.2;
+  return 0.25;
+}
+
+/**
  * Bir yürütme grubunun otomatik alanları — kaldırma tarafıyla aynı mekanizma:
  * yalnız ilgili anahtar açıkken değer döner, editör değeri girdiye yazar.
  *
@@ -690,12 +724,31 @@ export function travelGearboxServiceFactor(mech: MechanismClass): number {
  */
 export function deriveTravelInputs(
   inputs: TravelInputs,
+  selections: TravelSelections,
   ctx: TravelDeriveContext
 ): TravelDerivation {
   const out: TravelDerivation = { warnings: [] };
   if (inputs.tempFactorAuto) out.tempFactor = motorTempFactor(ctx.ambientTempMaxC);
   if (inputs.gearboxServiceFactorAuto) {
     out.gearboxServiceFactor = travelGearboxServiceFactor(ctx.mechanismClass);
+  }
+  if (inputs.accelerationAuto) {
+    out.accelerationMs2 = travelAcceleration(ctx.mechanismClass);
+  }
+  // TAHVİL ORANI GEREKEN ORANA EŞİTLENİR: gerçekleşen hız anma hızına oturur
+  // ve güç hesabı doğru motoru seçtirir (bkz. `gearboxRatioAuto`). Sonlu
+  // olmayan bir oran (hız ya da çap girilmemiş) YAZILMAZ — kutuyu NaN'a
+  // düşürmek hesabı sessizce çökertirdi.
+  if (inputs.gearboxRatioAuto) {
+    const ratio = travelRequiredRatio(
+      ctx.travelSpeedMpm,
+      selections.wheelDiaMm,
+      selections.motorRpm
+    );
+    if (Number.isFinite(ratio) && ratio > 0) {
+      const p = 10 ** TRAVEL_RATIO_AUTO_DIGITS;
+      out.gearboxRatio = Math.round(ratio * p) / p;
+    }
   }
 
   const applicationClass = inputs.travelApplicationClassAuto

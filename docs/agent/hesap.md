@@ -799,3 +799,71 @@ listesi iki adet verir. Kaldırma kirişi seçiminde tek kiriş toplam yükle
 hesaplanır. Kaldırma kirişi ve yorulma alt bölümleri çift kanca bloğu seçiminde;
 kanca ve kanca rulmanı alt bölümleri kaldırma kirişi seçiminde uygulama, kontrol
 özeti ve PDF raporundan birlikte düşer.
+
+## HESAP-23 — Yürütme bölümü: yalnız köprüde sorulan girdi, iki kutulu ray, eşitlenen tahvil oranı, sınıftan gelen ivme.
+
+Kullanıcı turu (23.08.2026), dört karar. Hepsi araba ve köprü yürütmesinde
+ORTAKTIR; ayrı bir "köprü ekranı" yoktur.
+
+**1 · YALNIZ TEK VARYANTTA SORULAN GİRDİ EKRANDAN DÜŞER.** Araba ve köprü aynı
+alan listesini paylaşır, ama bazı büyüklükler yalnız köprü dalında hesaba
+girer. *"Minimum araba yanaşması değerini alıyoruz ama kullanmıyoruz gibi
+geldi bana … araba tekerlerinden çıkaralım."* Doğrudur: yanaşma, arabanın
+köprü AÇIKLIĞI üzerindeki konumundan doğan bir eksantrikliktir; arabanın kendi
+teker yükü dört tekere eşit paylaştırılır. Sahiplik `TRAVEL_INPUT_VARIANT`
+haritasındadır (`presentation/travelFields.ts`) ve süzgeç sunum adaptöründeki
+`inputDefs` üzerindedir — ekran ile PDF aynı listeyi okur, ayrışamazlar.
+DEĞER SİLİNMEZ, yalnız sorulmaz: alan `TravelInputs`ta kalır, köprü hesabı ve
+teker yükleri modülü onu okumaya devam eder. Aynı sınıftan olan
+`bufferApproachM` (5.8) HENÜZ kapsam dışıdır; kaldırılacaksa haritaya bir
+satır eklemek yeter.
+
+**2 · RAY SEÇİMİ İKİ KUTULUDUR: önce AİLE, sonra ÖLÇÜ.** Defter
+`calc/tables.ts`tedir ve her satır ailesini taşır (`RAIL_FAMILIES`:
+`a` DIN 536 vinç rayı · `s` hafif/Vignole ray · `bar` kare-dikdörtgen dolu
+çubuk). İkinci kutunun listesi `optionsFrom` ile birinciden türer; aile
+değişince ölçü EN YAKIN BAŞ GENİŞLİĞİNE kayar (`syncRailCodeToFamily`) —
+"S Tipi" yazıp "50x50" gösteren iki kutu, birbirini yalanlayan bir ekrandır.
+Eski revizyonlarda aile alanı YOKTUR ve şablonunki miras bırakılmaz: kaydın
+kendi kodundan çözülür (`migrateRailFamily` · `railFamilyOf`).
+· S serisinde KÖŞE YARIÇAPI yayımlanmamıştır; elimizdeki çizelge yalnız baş
+  genişliği C, taban B, yükseklik H ve gövde E verir. Uydurulmuş bir yarıçap
+  yerine `radius: null` yazılır ve baş genişliği ETKİN genişlik sayılır
+  (değişmez md. 4). Yarıçap belgelenirse tabloya yazmak yeter, etkin genişlik
+  kendiliğinden daralır.
+· S serisi TEK NORM DEĞİLDİR (DIN 5901 · DIN 17100 · NF A 45-310 · E1); bu
+  yüzden baş genişliği metre ağırlığıyla birlikte sıralanmaz (S31, S30'dan
+  ağır ama daha dar başlıdır). Ailenin ortak dilbilgisi tip numarasıdır:
+  "S24" ≈ 24 kg/m. A serisinde tek standart olduğu için sıralama tutar.
+· Metre ağırlığı A ve S'de tablodan, çubukta kesitten gelir (`railMassKgPerM`).
+  Ana kirişin ölü yükü bunu okur; tanınmayan kod sessizce SIFIR ray payı
+  demektir, bu yüzden kütlesiz ray satırı yazılmaz.
+
+**3 · TAHVİL ORANI ÖNCE GEREKEN ORANA EŞİTLENİR, KUTU KIRMIZI DURUR.**
+*"Eşitleme başta olmazsa yanlış tahvile göre yanlış motor seçiliyor."*
+Gerçekleşen hız `V = (n_motor / i) · π · D` bağıntısıyla ORANDAN çıkar ve
+gerekli güç doğrudan V ile büyür; oran gereken orandan uzaksa güç hesabı
+baştan yanlış motoru seçtirir. `gearboxRatioAuto` açıkken türetme
+(`deriveTravelInputs`) `i = n_motor / n_teker` değerini SEÇİMLERE yazar
+(anahtar girdilerde durur — yiv boyunun düzeni) ve gerçekleşen hız anma
+hızına oturur. Anahtar TEKER ÇAPI HER DEĞİŞTİĞİNDE yeniden kurulur
+(`reArmGearboxRatioAuto`); katalogdan redüktör seçilince kendiliğinden kapanır
+(`clearAutoFlagsForPickedSelections` — genel kural, alan adı sabitlenmez).
+Anahtar açık kaldığı sürece 5.5 bölümü UYGUN DEĞİLDİR
+(`${which}.gearbox.selected`, firma kabulü · engelleyici): sapma o hâlde
+sıfırdır ve eski "Çevrim Oranı Sapması" uyarısı sessiz kalıyordu. Kutu
+`AutoFieldState.tone: "danger"` ile KIRMIZI basar — mavi bir otomatik kutu
+"tamam" derdi, oysa bu BEKLEYEN BİR KARARDIR.
+Yeni iş şablonu bu yüzden 5.5'te "UYGUN DEĞİL" ile açılır; bedel bilinçlidir.
+
+**4 · YÜRÜTME İVMESİ MEKANİZMA SINIFINDAN GELİR** (`travelAcceleration`,
+`accelerationAuto`): M1–M4 0,12 · M5 0,13 · M6 0,15 · M7 0,2 · M8 0,25 m/s².
+Eşleme hiçbir standartta normatif DEĞİLDİR — FEM 1.001 ve CMAA 70 ivmeyi
+işletme koşullarına bırakır; bu bir firma kabulüdür ve anahtar kapatılıp elle
+girilebilir. İvme iki yere birden girer: kalkış süresi `t = V / 60 / a` ve
+CMAA 70 ivmelenme faktörü Ka.
+
+**GÖSTERİLEN BASAMAKTA SIFIRA DÜŞEN SAYI EKSİ İŞARETLİ BASILMAZ.** Oran
+eşitlendiğinde sapma −6·10⁻⁶ % çıkar ve `toLocaleString` bunu "-0 %" yazıyordu;
+okuyucu olmayan bir sapmayı varmış gibi okur. Kural editördeki ve PDF'teki
+`fmt` yardımcılarında AYNI biçimde durur.

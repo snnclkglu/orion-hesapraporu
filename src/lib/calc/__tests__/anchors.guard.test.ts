@@ -77,7 +77,12 @@ import type { AnyCheck } from "../types";
 //        ve yedisi de bağlıdır.
 // 275 = 270 + 5: beş yürütme ekseninde rulman iç çapı = teker mili çapı
 // engelleyici kontrolü; tamamı 5.3'teki `bearing.bore` satırına bağlıdır.
-const EXPECTED_CHECK_COUNT = 275;
+// 280 = 275 + 5: beş yürütme ekseninde "Redüktör Tahvil Oranı Seçilmiş"
+//   (`gearbox.selected`). Oran otomatiği açıkken kutudaki sayı bir seçim
+//   değil, gereken oranın kendisidir; sapma sıfır çıktığı için eski uyarı
+//   sessiz kalıyordu. Yeni kontrol o boşluğu kapatır ve 5.5'teki
+//   `gearbox.requiredRatio` satırına bağlanır.
+const EXPECTED_CHECK_COUNT = 280;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

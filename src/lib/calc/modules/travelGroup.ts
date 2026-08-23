@@ -81,6 +81,36 @@ function travelShaftMaterial(material: string): ShaftMaterial {
  */
 export const SHORT_TON_PER_TONNE = 1.1;
 
+/** Tekerlek devri [d/dak] — anma yürüyüş hızı ve teker çapından. */
+export function travelWheelRpm(speedMpm: number, wheelDiaMm: number): number {
+  return speedMpm / (wheelDiaMm / 1000) / Math.PI;
+}
+
+/**
+ * GEREKEN TAHVİL ORANI i = n_motor / n_teker.
+ *
+ * Motor ve sunum katmanı bu bağıntıyı zaten kullanıyordu; ayrıca `derive.ts`
+ * de kullanır (redüktör oranı otomatiği). Tek yerde durur ki üç yüzey
+ * ayrışmasın. Teker devri sıfırsa (hız ya da çap girilmemiş) `NaN` döner —
+ * çağıran taraf sayıyı yazmadan önce sonluluğunu sınamalıdır.
+ */
+export function travelRequiredRatio(
+  speedMpm: number,
+  wheelDiaMm: number,
+  motorRpm: number
+): number {
+  return motorRpm / travelWheelRpm(speedMpm, wheelDiaMm);
+}
+
+/**
+ * Otomatik eşitlenen tahvil oranının BASAMAK SAYISI.
+ *
+ * Kutuya `58,11946409141117` gibi ham bir kayan sayı yazmak alanı okunmaz
+ * yapardı; dört basamakta sapma 1e-6 %'nin altındadır — sapma bandı (±%5…10)
+ * yanında sıfır sayılır ve gerçekleşen hız anma hızına eşit kalır.
+ */
+export const TRAVEL_RATIO_AUTO_DIGITS = 4;
+
 export type TravelWhich =
   | "trolley"
   | "auxTrolley"
@@ -158,6 +188,11 @@ export interface TravelInputs {
   accelTorqueFactorKtAuto?: boolean;
   reducerStages: number;        // redüktör kademe sayısı
   accelerationMs2: number;      // ivme a [m/s²]
+  /**
+   * İvme otomatik: FEM mekanizma sınıfından türetilsin mi
+   * (`travelAcceleration`, firma tasarım kabulü)?
+   */
+  accelerationAuto?: boolean;
   tempFactor: number;           // ortam sıcaklığı düzeltme faktörü
   /** Sıcaklık faktörü otomatik: ortam sıcaklığı üst sınırından türetilir. */
   tempFactorAuto?: boolean;
@@ -165,6 +200,17 @@ export interface TravelInputs {
   gearboxServiceFactor: number; // redüktör emniyet (servis) katsayısı
   /** Redüktör servis katsayısı FEM mekanizma sınıfından türetilsin mi? */
   gearboxServiceFactorAuto?: boolean;
+  /**
+   * TAHVİL ORANI HENÜZ SEÇİLMEDİ — kutu gereken orana EŞİTLENMİŞ durumda.
+   *
+   * Anahtar açıkken `gearboxRatio` seçimi mühendisin kararı değil, motorun
+   * `gearbox.requiredRatio` değerinin kendisidir (bkz. `derive.ts`). Amaç,
+   * motor seçilmeden önce gerçekleşen hızın anma hızına oturmasıdır: yanlış
+   * bir tahvil oranıyla koşan güç hesabı yanlış motor seçtirir. Anahtar
+   * AÇIK kaldığı sürece 5.5 bölümü UYGUN DEĞİLDİR (`gearbox.selected`) —
+   * redüktör katalogdan seçilince anahtar kendiliğinden kapanır.
+   */
+  gearboxRatioAuto?: boolean;
   brakeServiceFactor: number;   // fren emniyet katsayısı (sadece köprü)
   motorCouplingServiceFactor: number; // motor kaplini emniyet katsayısı
   wheelCouplingServiceFactor: number; // teker kaplini emniyet katsayısı
@@ -203,6 +249,12 @@ export interface TravelInputs {
 
 /** Katalog seçimleri — mühendisin seçtiği bileşenler */
 export interface TravelSelections {
+  /**
+   * Ray AİLESİ (`RAIL_FAMILIES`: "a" | "s" | "bar") — ray seçimi İKİ kutuludur:
+   * önce aile, sonra o ailenin ölçü listesi. Eski revizyonlarda alan yoktur;
+   * yükleyici onu koddan çıkarır (`railFamilyOf`).
+   */
+  railFamily?: string;
   railCode: string;             // ray tipi (ray tablosu anahtarı)
   wheelMaterial: string;
   wheelTensileNmm2: number;     // teker malzemesi çekme dayanımı [N/mm²]
@@ -715,7 +767,7 @@ export function computeTravelGroup(
 
   const railHeadWidth = RAILS[sel.railCode]?.headWidth ?? Number.NaN;
   set("rail.headWidth", railHeadWidth);
-  const wheelRpm = speedMpm / (sel.wheelDiaMm / 1000) / Math.PI;
+  const wheelRpm = travelWheelRpm(speedMpm, sel.wheelDiaMm);
   set("wheel.rpm", wheelRpm);
   const c1 = c1Factor(sel.wheelDiaMm, speedMpm) ?? Number.NaN;
   set("wheel.speedFactor", c1);
@@ -941,6 +993,20 @@ export function computeTravelGroup(
     min: devMin, max: devMax, provided: ratioDeviation, unit: "%", op: "range",
     pass: devOk,
     kind: "firma", severity: "uyari",
+  });
+  // TAHVİL ORANI SEÇİLDİ Mİ? Oran otomatiği açıkken kutudaki sayı bir SEÇİM
+  // değil, gereken oranın kendisidir (bkz. `TravelInputs.gearboxRatioAuto`).
+  // Sapma o hâlde sıfırdır ve yukarıdaki uyarı sessiz kalır — oysa redüktör
+  // henüz seçilmemiştir. Bu kontrol o boşluğu kapatır: mühendis motoru seçip
+  // gerçek oranı girene kadar bölüm UYGUN DEĞİLDİR.
+  const ratioProvisional = inp.gearboxRatioAuto === true;
+  checks.push({
+    id: `${which}.gearbox.selected`,
+    label: "Redüktör Tahvil Oranı Seçilmiş",
+    required: 1, provided: ratioProvisional ? 0 : 1, unit: "-", op: ">=",
+    computedSide: "provided",
+    pass: !ratioProvisional,
+    kind: "firma", severity: "engelleyici",
   });
   const powerPerMotor = requiredPower / sel.motorCount;
   set("motor.powerPerMotor", powerPerMotor);

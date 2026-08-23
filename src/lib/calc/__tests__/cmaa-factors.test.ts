@@ -105,7 +105,8 @@ describe("CMAA 70 Tablo 5.2.9.1.2.1-C — ivmelenme tork faktörü Kt", () => {
 // ----------------------------------------------------- otomatik seçim + etki
 
 describe("otomatik seçim ve motor gücüne etkisi", () => {
-  const CTX = { ambientTempMaxC: 40, mechanismClass: "M6" as const };
+  const CTX = { ambientTempMaxC: 40, mechanismClass: "M6" as const, travelSpeedMpm: 30 };
+  const SEL = V5_BRIDGE_SELECTIONS;
 
   it("Ks otomatiği mekanizma sınıfından türeyen uygulama sınıfını kullanır", () => {
     const d = deriveTravelInputs(
@@ -115,6 +116,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
         serviceFactorKsAuto: true,
         driveControl: "acManyetik",
       },
+      SEL,
       CTX
     );
     expect(d.applicationClass).toBe("D");
@@ -131,6 +133,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
         serviceFactorKsAuto: true,
         driveControl: "acStatik",
       },
+      SEL,
       CTX
     );
     expect(d.applicationClass).toBeUndefined(); // otomatik kapalı → yazılmaz
@@ -145,6 +148,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
         serviceFactorKsAuto: true,
         driveControl: "dcSabit30",
       },
+      SEL,
       { ...CTX, mechanismClass: "M7" }
     );
     expect(d.serviceFactorKs).toBeUndefined();
@@ -154,6 +158,7 @@ describe("otomatik seçim ve motor gücüne etkisi", () => {
   it("anahtarlar kapalıyken hiçbir katsayı türetilmez", () => {
     const d = deriveTravelInputs(
       { ...V5_BRIDGE_INPUTS, serviceFactorKsAuto: false, accelTorqueFactorKtAuto: false },
+      SEL,
       CTX
     );
     expect(d.serviceFactorKs).toBeUndefined();

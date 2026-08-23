@@ -517,6 +517,13 @@ const NEW_WORK_TROLLEY_INPUTS = {
   accelTorqueFactorKtAuto: true,
   gearboxServiceFactor: 1.6,
   gearboxServiceFactorAuto: true,
+  // İvme mekanizma sınıfından gelir (M6 → 0,15); anahtar kapatılıp elle
+  // düzeltilebilir (bkz. `travelAcceleration`).
+  accelerationMs2: 0.15,
+  accelerationAuto: true,
+  // TAHVİL ORANI SEÇİM BEKLİYOR: kutu gereken orana eşitlenir, kırmızı basar
+  // ve 5.5 bölümü redüktör seçilene kadar UYGUN DEĞİLDİR (`gearboxRatioAuto`).
+  gearboxRatioAuto: true,
 };
 
 const NEW_WORK_BRIDGE_INPUTS = {
@@ -527,6 +534,27 @@ const NEW_WORK_BRIDGE_INPUTS = {
   accelTorqueFactorKtAuto: true,
   gearboxServiceFactor: 1.6,
   gearboxServiceFactorAuto: true,
+  accelerationMs2: 0.15,
+  accelerationAuto: true,
+  gearboxRatioAuto: true,
+};
+
+/**
+ * Yeni iş şablonunun tahvil oranları GEREKEN ORANA EŞİTLENMİŞTİR — türetmenin
+ * (`deriveTravelInputs`) editör açılır açılmaz yazacağı sayının aynısı, dört
+ * basamağa yuvarlanmış hâli:
+ *   · araba : 1480 d/dak ÷ (20 m/dak ÷ (Ø250 mm ÷ 1000) ÷ π) = 58,1195
+ *   · köprü : 1480 d/dak ÷ (30 m/dak ÷ (Ø315 mm ÷ 1000) ÷ π) = 48,8203
+ * Şablon kendi içinde tutarlı kalsın diye burada da yazılıdır: editör hiç
+ * açılmadan üretilen PDF/Excel aynı sayıyı görür.
+ *
+ * BEDELİ BİLİNÇLİDİR: şablonun katalog redüktörü (i = 29 / 24) bu oranı
+ * karşılamaz, dolayısıyla yeni bir rapor 5.5'te "UYGUN DEĞİL" ile açılır.
+ * İstenen budur — mühendis önce motoru seçer, sonra gerçek redüktörü.
+ */
+const NEW_WORK_TROLLEY_SELECTIONS = {
+  ...V5_TROLLEY_SELECTIONS,
+  gearboxRatio: 58.1195,
 };
 
 /**
@@ -538,6 +566,7 @@ const NEW_WORK_BRIDGE_INPUTS = {
 const NEW_WORK_BRIDGE_SELECTIONS = {
   ...V5_BRIDGE_SELECTIONS,
   motorPowerKw: 4,
+  gearboxRatio: 48.8203,
 };
 
 /**
@@ -555,10 +584,10 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   auxHookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
   mono1HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
   mono2HookBlock: { inputs: NEW_WORK_HOOKBLOCK_INPUTS, selections: NEW_WORK_HOOKBLOCK_SELECTIONS },
-  trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  auxTrolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
-  mono2Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: V5_TROLLEY_SELECTIONS },
+  trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
+  auxTrolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
+  mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
+  mono2Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
   bridge: { inputs: NEW_WORK_BRIDGE_INPUTS, selections: NEW_WORK_BRIDGE_SELECTIONS },
   wheelLoads: { inputs: V5_WHEELLOAD_INPUTS, selections: V5_WHEELLOAD_SELECTIONS },
   girder: {

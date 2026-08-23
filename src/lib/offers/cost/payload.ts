@@ -304,15 +304,18 @@ export function inputsFromOfferItem(item: OfferItem, onceki?: CostInputs): CostI
  * SERBEST RAY METNİNDEN KATALOG KODU — tanınmazsa BOŞ.
  *
  * Teklif satırı defterden seçilir ama yazımı serbesttir: "A55", "A 55",
- * "A55 DIN 536", "40x30 Ray". Ayıklama iki biçimi tanır — A serisi (A65) ve
- * kare/dikdörtgen çubuk (50x50, 70x40) — ve sonucu `RAILS` defterinde
- * DOĞRULAR. Doğrulamak şarttır: tanınmayan bir kod ray başı genişliğini `NaN`
- * yapar ve basınç hesabı sessizce çalışmaz hâle gelirdi.
+ * "A55 DIN 536", "S 24", "40x30 Ray". Ayıklama üç biçimi tanır — A serisi
+ * (A65), S serisi hafif ray (S24) ve kare/dikdörtgen çubuk (50x50, 70x40) —
+ * ve sonucu `RAILS` defterinde DOĞRULAR. Doğrulamak şarttır: tanınmayan bir
+ * kod ray başı genişliğini `NaN` yapar ve basınç hesabı sessizce çalışmaz
+ * hâle gelirdi.
  */
 export function railCodeFrom(text: string | null | undefined): string {
   const t = (text ?? "").toLocaleUpperCase("tr-TR");
   const a = t.match(/\bA\s*(\d{2,3})\b/);
   if (a && RAILS[`A${a[1]}`]) return `A${a[1]}`;
+  const s = t.match(/\bS\s*(\d{1,3})\b/);
+  if (s && RAILS[`S${s[1]}`]) return `S${s[1]}`;
   const kare = t.match(/\b(\d{2,3})\s*[X*]\s*(\d{2,3})\b/);
   if (kare && RAILS[`${kare[1]}x${kare[2]}`]) return `${kare[1]}x${kare[2]}`;
   return "";

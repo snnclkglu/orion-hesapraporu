@@ -100,6 +100,9 @@ const TRAVEL_ANCHORS: AnchorMap = {
   },
   "5.4": { "motor.power": "motor.installedPower" },
   "5.5": {
+    // Oran otomatiği açıkken kutudaki sayı GEREKEN ORANIN kendisidir; kontrol
+    // de o satıra bağlanır — okuyucu neyin beklendiğini orada görür.
+    "gearbox.selected": "gearbox.requiredRatio",
     "gearbox.ratio": "gearbox.ratioDeviation",
     "gearbox.safety": "gearbox.actualSafety",
   },

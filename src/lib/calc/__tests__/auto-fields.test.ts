@@ -25,6 +25,7 @@ import {
   deriveGirderInputs,
   deriveHoistInputs,
   deriveTravelInputs,
+  travelAcceleration,
   travelApplicationClass,
   travelGearboxServiceFactor,
 } from "../derive";
@@ -33,6 +34,7 @@ import {
   HOIST_AUTO_FIELDS,
   HOIST_AUTO_SELECTION_FIELDS,
   TRAVEL_AUTO_FIELDS,
+  TRAVEL_AUTO_SELECTION_FIELDS,
   withDiameterSign,
 } from "../fields";
 import {
@@ -49,7 +51,7 @@ import { drumGrooveRequirement, drumShaftGeometry } from "../modules/hoistGroup"
 import { MECHANISM_CLASSES } from "../fields";
 import type { HoistInputs, HoistSelections } from "../modules/hoistGroup";
 import type { GirderInputs } from "../modules/mainGirder";
-import type { TravelInputs } from "../modules/travelGroup";
+import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
 
 const MAIN = NEW_WORK_TEMPLATE.mainHoist!;
 const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40, mechanismClass: "M6" as const };
@@ -294,14 +296,15 @@ describe("yürütme uygulama sınıfı otomatiği", () => {
 
   it("anahtar açıkken sınıfı girdiye yazar, kapalıyken elle seçime dokunmaz", () => {
     const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+    const sel = NEW_WORK_TEMPLATE.bridge!.selections as TravelSelections;
     expect(
-      deriveTravelInputs({ ...inp, travelApplicationClassAuto: true }, {
-        ambientTempMaxC: 40, mechanismClass: "M3",
+      deriveTravelInputs({ ...inp, travelApplicationClassAuto: true }, sel, {
+        ambientTempMaxC: 40, mechanismClass: "M3", travelSpeedMpm: 30,
       }).applicationClass
     ).toBe("A");
     expect(
-      deriveTravelInputs({ ...inp, travelApplicationClassAuto: false, applicationClass: "B" }, {
-        ambientTempMaxC: 40, mechanismClass: "M3",
+      deriveTravelInputs({ ...inp, travelApplicationClassAuto: false, applicationClass: "B" }, sel, {
+        ambientTempMaxC: 40, mechanismClass: "M3", travelSpeedMpm: 30,
       }).applicationClass
     ).toBeUndefined();
   });
@@ -322,18 +325,134 @@ describe("yürütme redüktörü katsayısı otomatiği", () => {
 
   it("otomatik açıkken değeri yazar, kapalıyken elle girileni ezmez", () => {
     const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+    const sel = NEW_WORK_TEMPLATE.bridge!.selections as TravelSelections;
     expect(deriveTravelInputs(
       { ...inp, gearboxServiceFactorAuto: true },
-      { ambientTempMaxC: 40, mechanismClass: "M7" }
+      sel,
+      { ambientTempMaxC: 40, mechanismClass: "M7", travelSpeedMpm: 30 }
     ).gearboxServiceFactor).toBe(1.9);
     expect(deriveTravelInputs(
       { ...inp, gearboxServiceFactorAuto: false, gearboxServiceFactor: 7.7 },
-      { ambientTempMaxC: 40, mechanismClass: "M7" }
+      sel,
+      { ambientTempMaxC: 40, mechanismClass: "M7", travelSpeedMpm: 30 }
     ).gearboxServiceFactor).toBeUndefined();
   });
 });
 
 // ------------------------------- 5. Ana kiriş: yükler ve yükleme durumları
+
+describe("yürütme ivmesi otomatiği", () => {
+  const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+  const sel = NEW_WORK_TEMPLATE.bridge!.selections as TravelSelections;
+  const ctx = (mechanismClass: (typeof MECHANISM_CLASSES)[number]) => ({
+    ambientTempMaxC: 40,
+    mechanismClass,
+    travelSpeedMpm: 30,
+  });
+
+  it("M1–M8 kullanıcı tablosunu eksiksiz uygular", () => {
+    expect(MECHANISM_CLASSES.map((m) => travelAcceleration(m)))
+      .toEqual([0.12, 0.12, 0.12, 0.12, 0.13, 0.15, 0.2, 0.25]);
+  });
+
+  it("ağırlaşan mekanizma sınıfında ivme AZALMAZ", () => {
+    let prev = 0;
+    for (const m of MECHANISM_CLASSES) {
+      const a = travelAcceleration(m);
+      expect(a, m).toBeGreaterThanOrEqual(prev);
+      prev = a;
+    }
+  });
+
+  it("otomatik açıkken değeri yazar, kapalıyken elle girileni ezmez", () => {
+    expect(
+      deriveTravelInputs({ ...inp, accelerationAuto: true }, sel, ctx("M8")).accelerationMs2
+    ).toBe(0.25);
+    expect(
+      deriveTravelInputs(
+        { ...inp, accelerationAuto: false, accelerationMs2: 0.44 },
+        sel,
+        ctx("M8")
+      ).accelerationMs2
+    ).toBeUndefined();
+  });
+
+  it("şablon değeri kendi mekanizma sınıfının türetmesiyle birebir aynıdır", () => {
+    for (const key of ["trolley", "bridge"] as const) {
+      const t = NEW_WORK_TEMPLATE[key]!.inputs as TravelInputs;
+      const mech = key === "bridge"
+        ? NEW_WORK_SPECS.bridgeMechanismClass
+        : NEW_WORK_SPECS.trolleyMechanismClass;
+      expect(t.accelerationAuto, key).toBe(true);
+      expect(t.accelerationMs2, key).toBe(travelAcceleration(mech));
+    }
+  });
+});
+
+describe("yürütme redüktörü tahvil oranı otomatiği", () => {
+  const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+  const sel = NEW_WORK_TEMPLATE.bridge!.selections as TravelSelections;
+  const CTX30 = { ambientTempMaxC: 40, mechanismClass: "M6" as const, travelSpeedMpm: 30 };
+
+  it("oranı GEREKEN ORANA eşitler: gerçekleşen hız anma hızına oturur", () => {
+    const d = deriveTravelInputs({ ...inp, gearboxRatioAuto: true }, sel, CTX30);
+    expect(d.gearboxRatio).toBeDefined();
+    // V = (n_motor / i) · π · D  →  anma hızının kendisi
+    const actual = (sel.motorRpm / d.gearboxRatio!) * Math.PI * (sel.wheelDiaMm / 1000);
+    expect(actual).toBeCloseTo(CTX30.travelSpeedMpm, 3);
+  });
+
+  it("teker çapı büyürse gereken oran BÜYÜR (büyük teker daha yavaş döner)", () => {
+    // Aynı yürüyüş hızını daha büyük tekerle tutturmak için teker devri
+    // düşer, dolayısıyla motor ile teker arasındaki küçültme oranı artar.
+    const kucuk = deriveTravelInputs(
+      { ...inp, gearboxRatioAuto: true }, { ...sel, wheelDiaMm: 250 }, CTX30
+    ).gearboxRatio!;
+    const buyuk = deriveTravelInputs(
+      { ...inp, gearboxRatioAuto: true }, { ...sel, wheelDiaMm: 500 }, CTX30
+    ).gearboxRatio!;
+    expect(buyuk).toBeGreaterThan(kucuk);
+    expect(buyuk).toBeCloseTo(kucuk * 2, 3); // oran çapla DOĞRU orantılıdır
+  });
+
+  it("anahtar kapalıyken katalogdan seçilen oran türetilmez", () => {
+    expect(
+      deriveTravelInputs({ ...inp, gearboxRatioAuto: false }, sel, CTX30).gearboxRatio
+    ).toBeUndefined();
+  });
+
+  it("hız ya da çap girilmemişse SAYI YAZILMAZ (kutu NaN'a düşmez)", () => {
+    expect(
+      deriveTravelInputs({ ...inp, gearboxRatioAuto: true }, sel, {
+        ...CTX30, travelSpeedMpm: 0,
+      }).gearboxRatio
+    ).toBeUndefined();
+    expect(
+      deriveTravelInputs(
+        { ...inp, gearboxRatioAuto: true }, { ...sel, wheelDiaMm: 0 }, CTX30
+      ).gearboxRatio
+    ).toBeUndefined();
+  });
+
+  it("şablondaki oran türetmenin yazacağı sayının BİREBİR aynısıdır", () => {
+    for (const key of ["trolley", "bridge"] as const) {
+      const t = NEW_WORK_TEMPLATE[key]!.inputs as TravelInputs;
+      const s2 = NEW_WORK_TEMPLATE[key]!.selections as TravelSelections;
+      const speed = key === "bridge"
+        ? NEW_WORK_SPECS.bridgeSpeedMpm
+        : NEW_WORK_SPECS.trolleySpeedMpm;
+      expect(t.gearboxRatioAuto, key).toBe(true);
+      const d = deriveTravelInputs(t, s2, {
+        ambientTempMaxC: NEW_WORK_SPECS.ambientTempMaxC,
+        mechanismClass: key === "bridge"
+          ? NEW_WORK_SPECS.bridgeMechanismClass
+          : NEW_WORK_SPECS.trolleyMechanismClass,
+        travelSpeedMpm: speed,
+      });
+      expect(s2.gearboxRatio, key).toBe(d.gearboxRatio);
+    }
+  });
+});
 
 describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
   const GIRDER = NEW_WORK_TEMPLATE.girder!.inputs as GirderInputs;
@@ -395,6 +514,7 @@ describe("AUTO_FLAGS koruması", () => {
     ["mainHoist", HOIST_AUTO_FIELDS],
     ["mainHoist", HOIST_AUTO_SELECTION_FIELDS],
     ["bridge", TRAVEL_AUTO_FIELDS],
+    ["bridge", TRAVEL_AUTO_SELECTION_FIELDS],
     ["girder", GIRDER_AUTO_FIELDS],
   ];
 

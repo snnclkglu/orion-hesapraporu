@@ -19,6 +19,7 @@ import {
   MODULE_ORDER,
   isHoistKey,
   isHookBlockKey,
+  isTravelKey,
   type ModuleKey,
 } from "@/lib/calc/presentation/module-family";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/lib/calc/modules/hoistGroup";
 import type { HookBlockInputs, HookBlockSelections } from "@/lib/calc/modules/hookBlock";
 import { deriveReeving } from "@/lib/calc/reeving";
+import { railFamilyOf } from "@/lib/calc/tables";
 import type { TravelInputs, TravelSelections } from "@/lib/calc/modules/travelGroup";
 import type { GirderInputs, GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { BucklingInputs } from "@/lib/calc/modules/buckling";
@@ -361,6 +363,12 @@ const AUTO_FLAGS = [
   "travelApplicationClassAuto",
   "serviceFactorKsAuto",
   "accelTorqueFactorKtAuto",
+  // İvme ve tahvil oranı otomatikleri YENİDİR: eski revizyonlarda anahtar
+  // yoktur, o kayıtlarda değer ELLE girilmiştir ve türetme onu ezmemelidir.
+  // (Tahvil oranında bu ayrıca yayınlanmış bir raporu "uygun değil"e
+  // düşürmemeyi de sağlar.)
+  "accelerationAuto",
+  "gearboxRatioAuto",
   // Ana kiriş (7.2 yükler / 7.3 yükleme durumları)
   "psiHAAuto",
   "psiHKAuto",
@@ -379,6 +387,24 @@ function keepManualValues<T extends object>(stored: T | null | undefined, merged
     }
   }
   return changed ? (out as T) : merged;
+}
+
+/**
+ * RAY AİLESİ ESKİ KAYITTA YOKTUR — koddan çıkarılır.
+ *
+ * Ray seçimi iki kutuya ayrıldığında (23.08.2026) aile ayrı bir alan oldu.
+ * Eski revizyonlarda yalnız kod saklıdır; şablonun ailesi ("bar") miras
+ * bırakılırsa A ya da S serisi bir rayda ikinci kutu boş bir listeyle açılırdı.
+ * Aile, kaydın KENDİ kodundan çözülür (`railFamilyOf`).
+ */
+export function migrateRailFamily<T extends object>(
+  stored: object | null | undefined,
+  merged: T
+): T {
+  if (!stored || typeof stored !== "object") return merged;
+  const rec = stored as Record<string, unknown>;
+  if (typeof rec.railFamily === "string" && rec.railFamily.trim() !== "") return merged;
+  return { ...merged, railFamily: railFamilyOf(rec.railCode as string | undefined) } as T;
 }
 
 /**
@@ -776,6 +802,9 @@ function fullInput(
         storedModuleSelections,
         tpl.selections
       );
+      if (isTravelKey(key)) {
+        merged.selections = migrateRailFamily(storedModuleSelections, merged.selections);
+      }
       // Makara adedi yeni bir kullanıcı alanıdır; fakat eski hesapta zaten
       // donanımdan otomatik geliyordu. Eski seçim nesnesinde alan yoksa o
       // davranış korunur ve doğru donanım değeri doğrudan snapshot'a taşınır.

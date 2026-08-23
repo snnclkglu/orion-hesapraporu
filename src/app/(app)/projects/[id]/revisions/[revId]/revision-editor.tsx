@@ -81,7 +81,9 @@ import {
   hiddenSectionCheckIds,
   moduleAllowedByConfig,
   moduleDisplayNumbers,
+  reArmGearboxRatioAuto,
   renumberTitle,
+  syncRailCodeToFamily,
   sectionDisplayNumbers,
   withDerivedModules,
   type AdapterHeadline,
@@ -159,6 +161,11 @@ function fmt(v: number | string | null | undefined, digits = 2): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "string") return v;
   if (Number.isInteger(v)) return v.toLocaleString("tr-TR");
+  // GÖSTERİLEN BASAMAKTA SIFIRA DÜŞEN SAYI EKSİ İŞARETLİ BASILMAZ.
+  // `toLocaleString` −6·10⁻⁶'yı "-0" yazar; okuyucu bunu "eksi yönde bir
+  // sapma var ama küçük" diye okur, oysa sapma YOKTUR. Tahvil oranı gereken
+  // orana eşitlendiğinde sapma satırı tam olarak buraya düşer.
+  if (Math.abs(v) < 0.5 / 10 ** digits) return (0).toLocaleString("tr-TR");
   return v.toLocaleString("tr-TR", { maximumFractionDigits: digits });
 }
 
@@ -213,6 +220,16 @@ interface AutoFieldState {
   warning?: string;
   /** Kaynak seçimden türeyen, ayrı aç/kapa anahtarı olmayan otomatik alan. */
   fixed?: boolean;
+  /**
+   * OTOMATİK DEĞER BİR SEÇİM DEĞİL, BEKLEYEN BİR KARARDIR.
+   *
+   * Çoğu otomatik alan (sıcaklık faktörü, Ks, ivme) açık kaldığında DOĞRU
+   * cevabı verir; kutu mavidir, iş bitmiştir. Redüktör tahvil oranı öyle
+   * değildir: otomatikken kutudaki sayı yalnız gereken oranın kendisidir ve
+   * mühendis kataloğun gerçek oranını girene kadar bölüm UYGUN DEĞİLDİR.
+   * `danger` kutuyu KIRMIZI basar — mavi bir kutu "tamam" derdi.
+   */
+  tone?: "danger";
 }
 
 /**
@@ -334,6 +351,8 @@ function Field({
             title={
               auto.fixed
                 ? "Halat donanımı seçiminden otomatik doldurulur"
+                : auto.on && auto.tone === "danger"
+                ? "Değer gereken orana EŞİTLENMİŞ durumda — seçim bekliyor. Katalogdan seçin ya da anahtarı kapatıp elle girin."
                 : auto.on
                 ? "Otomatik hesap açık — elle girmek için kapatın"
                 : "Otomatik hesapla"
@@ -344,7 +363,9 @@ function Field({
               // işaretleme aygıtında büyür (sözleşme §2).
               "ml-auto inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[11px] transition-colors pointer-coarse:min-h-10 pointer-coarse:px-2.5",
               auto.on
-                ? "border-primary/40 bg-primary/10 text-primary"
+                ? auto.tone === "danger"
+                  ? "border-destructive/50 bg-destructive/10 text-destructive"
+                  : "border-primary/40 bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted",
               (disabled || auto.fixed) && "pointer-events-none opacity-70"
             )}
@@ -497,7 +518,19 @@ function Field({
               "h-8 bg-background pointer-coarse:h-10",
               def.type === "number" && "font-mono tabular-nums",
               def.diameter && "pl-6",
-              auto?.on && "border-primary/30 bg-primary/5"
+              // Bekleyen karar KIRMIZI durur (bkz. `AutoFieldState.tone`);
+              // olağan otomatik alan mavi kalır.
+              //
+              // `dark:` EŞİ ZORUNLUDUR: `Input` tabanı koyu temada
+              // `dark:bg-input/30` taşır ve varyantlı seçici düz sınıftan daha
+              // özgüldür — eşi yazılmazsa vurgu koyu temada HİÇ görünmez.
+              auto?.on &&
+                (auto.tone === "danger"
+                  // `disabled:opacity-100`: kutu salt-okunurdur ama SOLMAZ —
+                  // yarı saydam bir uyarı, uyarı olmaktan çıkar. Salt-okunur
+                  // olduğu imleçten ve OTOMATİK rozetinden zaten bellidir.
+                  ? "border-destructive bg-destructive/10 text-destructive dark:bg-destructive/20 disabled:opacity-100"
+                  : "border-primary/30 bg-primary/5 dark:bg-primary/10")
             )}
             inputMode={def.type === "number" ? "decimal" : undefined}
             value={
@@ -540,7 +573,14 @@ function Field({
         <p className="text-[11px] leading-snug text-destructive">{auto.warning}</p>
       )}
       {auto?.on && !auto.warning && def.hint && (
-        <p className="text-[11px] leading-snug text-muted-foreground">{def.hint}</p>
+        <p
+          className={cn(
+            "text-[11px] leading-snug",
+            auto.tone === "danger" ? "text-destructive" : "text-muted-foreground"
+          )}
+        >
+          {def.hint}
+        </p>
       )}
       </div>
     </div>
@@ -1534,7 +1574,46 @@ export function RevisionEditor({
   }
 
   function setModuleSelections(key: ModuleKey, next: object) {
-    setMods((m) => writeModule(m, key, { selections: next }));
+    setMods((m) => {
+      const prior = m[key].selections;
+      // Ray ailesi değiştiyse ölçü de o aileye geçer — iki kutu birbirini
+      // yalanlamaz (bkz. `syncRailCodeToFamily`).
+      const selections = syncRailCodeToFamily(key, prior, next) ?? next;
+      // Teker çapı değişince yürütme tahvil oranı yeniden otomatiğe döner —
+      // eski oran artık geçersiz bir hız üretir ve yanlış motor seçtirir
+      // (bkz. `reArmGearboxRatioAuto`). Kural kararı SAF tarafta durur;
+      // burası yalnız uygular.
+      const inputs = reArmGearboxRatioAuto(key, prior, selections, m[key].inputs);
+      return writeModule(
+        m,
+        key,
+        inputs ? { selections, inputs } : { selections }
+      );
+    });
+  }
+
+  /**
+   * KATALOGDAN GELEN DEĞER OTOMATİĞİ KAPATIR.
+   *
+   * Otomatik bir seçim alanına (bugün: yürütme tahvil oranı) katalogdan değer
+   * yazıldığında anahtar açık kalırsa türetme aynı turda değeri geri ezer ve
+   * seçim hiç yapılmamış gibi görünürdü. Kapatma GENELDİR: hangi alanın
+   * anahtarı olduğunu `autoSelectionFlag` söyler, burada alan adı sabitlenmez.
+   */
+  function clearAutoFlagsForPickedSelections(
+    key: ModuleKey,
+    picked: Record<string, unknown>,
+    inputs: object
+  ): object | null {
+    let out: Record<string, unknown> | null = null;
+    for (const field of Object.keys(picked)) {
+      const flag = autoSelectionFlag(key, field);
+      if (!flag) continue;
+      const rec = (out ?? inputs) as Record<string, unknown>;
+      if (rec[flag] !== true) continue;
+      out = { ...rec, [flag]: false };
+    }
+    return out;
   }
 
   /**
@@ -2035,7 +2114,14 @@ export function RevisionEditor({
 
     /** Katalog seçimi ızgarasındaki alanın otomatik anahtarı (yiv boyu). */
     function autoSelectionStateFor(fieldKey: string): AutoFieldState | undefined {
-      return autoStateFrom(autoSelectionFlag(key, fieldKey), fieldKey);
+      const state = autoStateFrom(autoSelectionFlag(key, fieldKey), fieldKey);
+      if (!state) return undefined;
+      // Redüktör tahvil oranı açıkken BEKLEYEN BİR KARARDIR, tamamlanmış bir
+      // otomatik değer değil: kutu kırmızı basar (bkz. `AutoFieldState.tone`).
+      if (isTravelKey(key) && fieldKey === "gearboxRatio") {
+        return { ...state, tone: "danger" };
+      }
+      return state;
     }
 
     return (
@@ -2426,6 +2512,14 @@ export function RevisionEditor({
                               }
                             }
                           }
+                          // Katalogdan gelen değer, o alanın otomatiğini
+                          // kapatır — yoksa türetme aynı turda geri ezerdi.
+                          const autoOff = clearAutoFlagsForPickedSelections(
+                            key,
+                            picked,
+                            mods[key].inputs
+                          );
+                          if (autoOff) setModuleInputs(key, autoOff);
                           setModuleSelections(key, next);
                         }}
                       />

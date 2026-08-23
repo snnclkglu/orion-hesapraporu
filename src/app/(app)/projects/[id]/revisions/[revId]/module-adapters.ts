@@ -20,6 +20,7 @@ import {
   HOIST_SELECTION_FIELDS,
   HOOKBLOCK_AUTO_SELECTION_FIELDS,
   TRAVEL_AUTO_FIELDS,
+  TRAVEL_AUTO_SELECTION_FIELDS,
 } from "@/lib/calc/fields";
 import {
   deriveGirderInputs,
@@ -46,8 +47,15 @@ import {
 } from "@/lib/calc/presentation/travelSections";
 import {
   TRAVEL_INPUT_FIELDS,
+  TRAVEL_INPUT_VARIANT,
   TRAVEL_SELECTION_FIELDS,
 } from "@/lib/calc/presentation/travelFields";
+import {
+  RAILS,
+  railCodesOfFamily,
+  railFamilyOf,
+  railNominalHeadWidthMm,
+} from "@/lib/calc/tables";
 import {
   GIRDER_SECTIONS,
   type GirderCtx,
@@ -98,6 +106,7 @@ import {
   travelSpecView,
   type TravelDeps,
   type TravelInputs,
+  type TravelSelections,
 } from "@/lib/calc/modules/travelGroup";
 import {
   computeMainGirder,
@@ -581,7 +590,18 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
       rawId: s.id,
       title: s.editor === "festoon" ? `${FESTOON_TITLES[which]} Feston` : s.title,
       description: s.description,
-      inputDefs: defs(s.inputKeys, TRAVEL_INPUT_MAP),
+      // YALNIZ TEK VARYANTTA SORULAN GİRDİLER burada elenir: köprünün araba
+      // yanaşması arabada hesaba GİRMEZ, bu yüzden arabada kutusu da yoktur
+      // (`TRAVEL_INPUT_VARIANT`). Süzgeç `inputDefs` üzerindedir; ekran ve
+      // PDF aynı listeyi okur, ikisi ayrışamaz.
+      inputDefs: defs(
+        s.inputKeys.filter((k) => {
+          const owner = TRAVEL_INPUT_VARIANT[k];
+          if (!owner) return true;
+          return owner === "bridge" ? isBridge : !isBridge;
+        }),
+        TRAVEL_INPUT_MAP
+      ),
       selectionDefs: defs(s.selectionKeys, TRAVEL_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
       editor: s.editor,
@@ -1403,8 +1423,12 @@ export function withDerivedHoist(
 
 /**
  * Yürütme grubunun otomatik alanları: sıcaklık faktörü, CMAA uygulama sınıfı
- * ve ona bağlı Ks / Kt katsayıları. Teknik Özellikler'de mekanizma sınıfı
- * değiştiğinde uygulama sınıfı ve Ks BURADAN güncellenir.
+ * ve ona bağlı Ks / Kt katsayıları, mekanizma sınıfından gelen ivme ve
+ * REDÜKTÖR TAHVİL ORANI. Teknik Özellikler'de mekanizma sınıfı değiştiğinde
+ * uygulama sınıfı, Ks ve ivme BURADAN güncellenir.
+ *
+ * Tahvil oranı bir SEÇİM alanıdır (kaldırma tarafındaki yiv boyu gibi):
+ * anahtarı girdilerde durur, türetilen değer seçimlere yazılır.
  */
 export function withDerivedTravel(
   state: ModuleState,
@@ -1412,10 +1436,12 @@ export function withDerivedTravel(
   which: TravelKey
 ): ModuleState {
   const inputs = state.inputs as TravelInputs;
+  const selections = state.selections as TravelSelections;
   const view = travelSpecView(specs, which, TRAVEL_VIEW_DEPS);
-  const d = deriveTravelInputs(inputs, {
+  const d = deriveTravelInputs(inputs, selections, {
     ambientTempMaxC: specs.ambientTempMaxC,
     mechanismClass: view.mechanismClass,
+    travelSpeedMpm: view.speedMpm,
   });
 
   const patch: Partial<TravelInputs> = {};
@@ -1427,9 +1453,78 @@ export function withDerivedTravel(
   put("serviceFactorKs", d.serviceFactorKs);
   put("accelTorqueFactorKt", d.accelTorqueFactorKt);
   put("gearboxServiceFactor", d.gearboxServiceFactor);
+  put("accelerationMs2", d.accelerationMs2);
 
-  if (Object.keys(patch).length === 0) return state;
-  return { ...state, inputs: { ...inputs, ...patch } };
+  const selPatch: Partial<TravelSelections> = {};
+  if (d.gearboxRatio !== undefined && d.gearboxRatio !== selections.gearboxRatio) {
+    selPatch.gearboxRatio = d.gearboxRatio;
+  }
+
+  const inputsChanged = Object.keys(patch).length > 0;
+  const selChanged = Object.keys(selPatch).length > 0;
+  if (!inputsChanged && !selChanged) return state;
+  return {
+    inputs: inputsChanged ? { ...inputs, ...patch } : state.inputs,
+    selections: selChanged ? { ...selections, ...selPatch } : state.selections,
+  };
+}
+
+/**
+ * TEKER SEÇİMİ DEĞİŞTİYSE TAHVİL ORANI YENİDEN OTOMATİĞE DÖNER.
+ *
+ * Teker çapı değişince gereken oran da değişir; elde kalan eski oran, artık
+ * geçerli olmayan bir hızla güç hesabı yaptırır ve YANLIŞ MOTOR seçtirir
+ * (kullanıcı bildirimi, 23.08.2026). Bu yüzden çap her değiştiğinde kutu
+ * yeniden gereken orana eşitlenir ve kırmızıya döner — mühendis motoru
+ * seçtikten sonra kataloğun gerçek oranını girer.
+ *
+ * Yalnız GEREKEN ORANI DEĞİŞTİREN seçime bakar (teker çapı); rulman ya da
+ * kaplin değişimi oranı geri almaz. Değişiklik yoksa `null` döner.
+ */
+/**
+ * RAY AİLESİ DEĞİŞİNCE ÖLÇÜ DE O AİLEYE GEÇER.
+ *
+ * Ray seçimi iki kutuludur: aile + ölçü. Aile değiştiğinde eski kod olduğu
+ * gibi kalsaydı kutular birbirini yalanlardı ("S Tipi" ama "50x50") ve hesap
+ * hâlâ eski rayla koşardı. Yeni ailede EN YAKIN BAŞ GENİŞLİĞİNE düşülür —
+ * teker bandajı ve temas basıncı baş genişliğine bağlıdır, dolayısıyla en az
+ * şaşırtan komşu odur. Kod zaten yeni ailedeyse dokunulmaz.
+ */
+export function syncRailCodeToFamily(
+  key: ModuleKey,
+  prior: object,
+  next: object
+): object | null {
+  if (!isTravelKey(key)) return null;
+  const family = String((next as TravelSelections).railFamily ?? "");
+  if (!family || family === String((prior as TravelSelections).railFamily ?? "")) return null;
+  const code = String((next as TravelSelections).railCode ?? "");
+  if (railFamilyOf(code) === family && RAILS[code]) return null;
+  const codes = railCodesOfFamily(family);
+  if (codes.length === 0) return null;
+  const cur = railNominalHeadWidthMm(code);
+  const nearest = Number.isFinite(cur)
+    ? codes.reduce((best, c) =>
+        Math.abs(railNominalHeadWidthMm(c) - cur) < Math.abs(railNominalHeadWidthMm(best) - cur)
+          ? c
+          : best
+      )
+    : codes[0];
+  return { ...next, railCode: nearest };
+}
+
+export function reArmGearboxRatioAuto(
+  key: ModuleKey,
+  prior: object,
+  next: object,
+  inputs: object
+): object | null {
+  if (!isTravelKey(key)) return null;
+  const before = (prior as TravelSelections).wheelDiaMm;
+  const after = (next as TravelSelections).wheelDiaMm;
+  if (before === after) return null;
+  if ((inputs as TravelInputs).gearboxRatioAuto === true) return null;
+  return { ...inputs, gearboxRatioAuto: true };
 }
 
 /**
@@ -1559,10 +1654,16 @@ export function derivationWarnings(
         }
       ).warnings;
     } else if (isTravelKey(key)) {
-      out[key] = deriveTravelInputs(st.inputs as TravelInputs, {
-        ambientTempMaxC: specs.ambientTempMaxC,
-        mechanismClass: travelSpecView(specs, key, TRAVEL_VIEW_DEPS).mechanismClass,
-      }).warnings;
+      const view = travelSpecView(specs, key, TRAVEL_VIEW_DEPS);
+      out[key] = deriveTravelInputs(
+        st.inputs as TravelInputs,
+        st.selections as TravelSelections,
+        {
+          ambientTempMaxC: specs.ambientTempMaxC,
+          mechanismClass: view.mechanismClass,
+          travelSpeedMpm: view.speedMpm,
+        }
+      ).warnings;
     } else {
       out[key] = [];
     }
@@ -1589,6 +1690,7 @@ export function autoInputFlag(key: ModuleKey, fieldKey: string): string | undefi
  */
 export function autoSelectionFlag(key: ModuleKey, fieldKey: string): string | undefined {
   if (isHoistKey(key)) return HOIST_AUTO_SELECTION_FIELDS[fieldKey];
+  if (isTravelKey(key)) return TRAVEL_AUTO_SELECTION_FIELDS[fieldKey];
   if (isHookBlockKey(key)) return HOOKBLOCK_AUTO_SELECTION_FIELDS[fieldKey];
   return undefined;
 }
