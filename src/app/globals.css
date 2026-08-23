@@ -182,6 +182,95 @@
   }
 
   /*
+   * DÜZENLENEBİLİR TABLO TELEFONDA KARTA KATLANIR.
+   *
+   * Teklif ve maliyet editörlerindeki çizelgeler sütun gizleyemez: kullanıcı
+   * fiyatı, adedi, birimi ve satır eylemlerini telefondan da değiştirebilmek
+   * zorundadır. Yatay kaydırmak ise bir alanı düzenlerken satırın hangi kaleme
+   * ait olduğunu görünümden çıkarır. Aynı tablo işaretlemesi korunur; yalnız
+   * `md` altında hücreler `data-label` başlıklarıyla iki sütunlu karta dönüşür.
+   * Böylece düzenleme mantığı iki ayrı mobil/masaüstü bileşene bölünmez.
+   */
+  @media (max-width: 767px) {
+    .oc-mobile-table-wrap {
+      overflow-x: hidden !important;
+      background-image: none;
+    }
+
+    .oc-mobile-table,
+    .oc-mobile-table tbody,
+    .oc-mobile-table tfoot {
+      display: block;
+      width: 100%;
+    }
+
+    .oc-mobile-table thead {
+      display: none;
+    }
+
+    .oc-mobile-table tbody {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .oc-mobile-table tfoot {
+      margin-top: 0.75rem;
+    }
+
+    .oc-mobile-table tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--card);
+    }
+
+    .oc-mobile-table td {
+      display: grid;
+      min-width: 0;
+      gap: 0.25rem;
+      padding: 0;
+      white-space: normal;
+      text-align: left;
+    }
+
+    .oc-mobile-table td::before {
+      content: attr(data-label);
+      min-height: 0.875rem;
+      color: var(--muted-foreground);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      text-align: left;
+    }
+
+    .oc-mobile-table td[data-mobile-span="full"] {
+      grid-column: 1 / -1;
+    }
+
+    .oc-mobile-table td[data-mobile-hide-label]::before {
+      display: none;
+    }
+
+    .oc-mobile-table tr[data-mobile-summary] {
+      background: color-mix(in oklab, var(--muted) 45%, var(--card));
+    }
+
+    .oc-mobile-table .hidden,
+    .oc-mobile-table [data-mobile-hidden] {
+      display: none !important;
+    }
+
+    .oc-mobile-table [data-mobile-actions] {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  /*
    * HESAP ŞEMASI PALETİ — model/PDF renklerinden bağımsız web görünümü.
    *
    * Diyagram veri modeli gerçek baskı hex'lerini taşır; `DiagramSvg` uygulama

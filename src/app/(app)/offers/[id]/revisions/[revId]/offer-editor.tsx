@@ -539,8 +539,34 @@ export function OfferEditor({
 
       <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
+        <div className="grid min-w-0 gap-2 lg:hidden">
+          <Label htmlFor="mobil-teklif-bolumu">Teklif Bölümü</Label>
+          <Select value={aktif} onValueChange={setAktif}>
+            <SelectTrigger id="mobil-teklif-bolumu" className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {bolumler.map((b) => (
+                <SelectItem key={b.key} value={b.key}>
+                  {b.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {readOnly ? null : (
+            <Button
+              type="button"
+              variant="outline"
+              className="oc-tap w-full"
+              onClick={() => setKalemEkle(true)}
+            >
+              <Plus className="size-4" /> Kalem Ekle
+            </Button>
+          )}
+        </div>
+
         <nav
-          className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
+          className="hidden gap-1 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto"
           aria-label="Teklif bölümleri"
         >
           {bolumler.map((b) => (
@@ -1541,7 +1567,7 @@ function FiyatEditor({
           ) : null}
         </div>
 
-        <Table>
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow>
               <TableHead className="w-24">Sıra</TableHead>
@@ -1575,8 +1601,8 @@ function FiyatEditor({
                 .filter((aday) => !aday.hidden && fiyatSiralari.get(aday.id)?.level === 0);
               return (
               <TableRow key={line.id} className={cn(line.hidden && "opacity-55")}>
-                <TableCell>
-                  <div className="grid min-w-[4.5rem] gap-1">
+                <TableCell data-label="Sıra">
+                  <div className="grid min-w-0 gap-1 md:min-w-[4.5rem]">
                     <span className="font-mono text-xs font-semibold text-muted-foreground">
                       {sira?.label ?? "—"}
                     </span>
@@ -1604,7 +1630,7 @@ function FiyatEditor({
                     </Select>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Tanımı" data-mobile-span="full">
                   <Input
                     value={line.description}
                     onChange={(e) => setLine(i, { ...line, description: e.target.value })}
@@ -1612,7 +1638,7 @@ function FiyatEditor({
                     className="h-9 text-base pointer-fine:text-sm"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Bağlı Kalem" data-mobile-span="full">
                   {/* FİYAT SATIRI KALEME KİMLİKLE BAĞLANIR: devralınan
                       tekliflerde bağ yalnız başlık metniyle kuruluyordu ve bir
                       belgede tonaj sütunu yanlış satıra düşmüştü. */}
@@ -1620,7 +1646,7 @@ function FiyatEditor({
                     value={line.itemId ?? "__none__"}
                     onValueChange={(v) => setLine(i, { ...line, itemId: v === "__none__" ? null : v })}
                   >
-                    <SelectTrigger className="h-9 w-full" aria-label="Bağlı kalem">
+                    <SelectTrigger className="h-9 w-full min-w-0" aria-label="Bağlı kalem">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1634,7 +1660,7 @@ function FiyatEditor({
                   </Select>
                 </TableCell>
                 {p.leadTimeUnit ? (
-                  <TableCell>
+                  <TableCell data-label={`Teslim (${p.leadTimeUnit === "hafta" ? "hafta" : "ay"})`}>
                     {/* SAYI KUTUSU DEĞİL METİN KUTUSU: yazılan şey çoğu zaman bir
                         ARALIKTIR ("6-7") ve sayı kutusu onu tek sayıya indirirdi. */}
                     <Input
@@ -1645,7 +1671,7 @@ function FiyatEditor({
                     />
                   </TableCell>
                 ) : null}
-                <TableCell>
+                <TableCell data-label="Adet">
                   {/* ADETTE BİNLİK AYIRAÇ AÇILMADI: vinç teklifinde adetler tek
                       hanelidir ve "1.000" yazımı, ondalık virgülle karışabilen
                       bir gürültü ekler. Kutunun taslağı yine de gerekli —
@@ -1657,7 +1683,7 @@ function FiyatEditor({
                     className="h-9"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Birim">
                   <EditableCombobox
                     options={listesi(PRICE_UNIT_LIST)}
                     value={line.unit}
@@ -1666,7 +1692,7 @@ function FiyatEditor({
                     inputClassName="h-9 text-base pointer-fine:text-sm"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Birim Fiyat">
                   {/* BİRİM FİYAT BİNLİK AYIRAÇLIDIR (kullanıcı isteği,
                       19.08.2026): teklif fiyatları altı hanelidir ve "304000"
                       ile "3040000" ayırt edilemiyordu. Ayıraç yalnız odak
@@ -1692,7 +1718,7 @@ function FiyatEditor({
                     18.08.2026), kaleme bağlı satırınki maliyet belgesinden
                     OKUNUR. İki kaynak asla toplanmaz: bağ varsa kutu hiç
                     çizilmez, kutu varsa belge hiç okunmaz. */}
-                <TableCell className="text-right font-mono text-muted-foreground">
+                <TableCell data-label="Maliyet" className="text-right font-mono text-muted-foreground">
                   {line.itemId ? (
                     satirMaliyeti(line) === null ? (
                       "—"
@@ -1735,7 +1761,7 @@ function FiyatEditor({
                 </TableCell>
                 {/* SATIR TUTARI BELGEYLE AYNI DİLİ KONUŞUR: iskonto varsa ham
                     tutar üstü çizili ve küçük, ödenecek olan onun altında. */}
-                <TableCell className="text-right font-mono">
+                <TableCell data-label="Tutar" className="text-right font-mono">
                   {satirIskontosu.has(line.id) ? (
                     <span className="grid justify-items-end gap-0.5">
                       <span className="text-[10px] font-normal text-muted-foreground line-through">
@@ -1749,8 +1775,8 @@ function FiyatEditor({
                     fmtMoney(lineAmount(line), p.currency)
                   )}
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+                <TableCell data-label="İşlemler" data-mobile-span="full">
+                  <div className="flex items-center gap-1" data-mobile-actions>
                     <MiniDugme
                       baslik={line.inTotal ? "Toplama giriyor" : "Toplama GİRMİYOR"}
                       aktif={!line.inTotal}
@@ -1780,10 +1806,15 @@ function FiyatEditor({
               </TableRow>
               );
             })}
-            <TableRow>
+            <TableRow data-mobile-summary>
               {/* TESLİM SÜRESİ SÜTUNU AÇIKKEN BİR SÜTUN DAHA VARDIR: sayı elle
                   yazılsaydı sütun açıldığında TOPLAM satırı kayardı. */}
-              <TableCell colSpan={p.leadTimeUnit ? 7 : 6} className="text-right font-medium">
+              <TableCell
+                colSpan={p.leadTimeUnit ? 7 : 6}
+                className="text-right font-medium"
+                data-label="Fiyat Özeti"
+                data-mobile-span="full"
+              >
                 TOPLAM
               </TableCell>
               {/* TOPLAM MALİYET SÜTUNU TOPLAMAZ, maliyet belgesinin kendi
@@ -1795,10 +1826,10 @@ function FiyatEditor({
                   iki satır o kalemi iki kez sayardı) ama serbest satırların
                   maliyeti belgede HİÇ YOKTUR — onları eklememek, girilmiş bir
                   gideri kâr hesabından düşürmek olurdu. */}
-              <TableCell className="text-right font-mono font-semibold text-muted-foreground">
+              <TableCell data-label="Toplam Maliyet" className="text-right font-mono font-semibold text-muted-foreground">
                 {toplamMaliyet === null ? "—" : fmtMoney0(toplamMaliyet, p.currency)}
               </TableCell>
-              <TableCell className="text-right font-mono font-semibold">
+              <TableCell data-label="Toplam Tutar" className="text-right font-mono font-semibold">
                 {iskontoVar ? (
                   <span className="inline-flex flex-wrap items-baseline justify-end gap-1.5">
                     <span className="text-xs font-normal text-muted-foreground line-through">
@@ -1812,7 +1843,7 @@ function FiyatEditor({
                   fmtMoney(toplam, p.currency)
                 )}
               </TableCell>
-              <TableCell />
+              <TableCell data-mobile-hidden />
             </TableRow>
           </TableBody>
         </Table>

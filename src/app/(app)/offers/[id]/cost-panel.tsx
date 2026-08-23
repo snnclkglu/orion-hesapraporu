@@ -112,7 +112,7 @@ export function CostPanel({
         </p>
       ) : (
         <div className="rounded-lg border">
-          <Table>
+          <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Revizyon</TableHead>
@@ -128,23 +128,23 @@ export function CostPanel({
                 const taslak = c.status === "draft";
                 return (
                   <TableRow key={c.id}>
-                    <TableCell className="font-mono whitespace-nowrap">M{c.rev_no}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Revizyon" className="font-mono whitespace-nowrap">M{c.rev_no}</TableCell>
+                    <TableCell data-label="Durum">
                       <Badge variant={revisionStatusVariant(c.status)}>
                         {revisionStatusLabel(c.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono whitespace-nowrap">
+                    <TableCell data-label="Proje Maliyeti" className="text-right font-mono whitespace-nowrap">
                       {c.direct_amount == null ? "—" : fmtMoney0(Number(c.direct_amount), currency)}
                     </TableCell>
-                    <TableCell className="text-right font-mono whitespace-nowrap">
+                    <TableCell data-label="Toplam Maliyet" className="text-right font-mono whitespace-nowrap">
                       {c.total_amount == null ? "—" : fmtMoney0(Number(c.total_amount), currency)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                    <TableCell data-label="Güncellendi" className="whitespace-nowrap text-muted-foreground">
                       {fmtOfferDate(c.updated_at)}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <TableCell data-label="Belge ve İşlemler" data-mobile-span="full">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
                         <Button asChild variant="outline" size="sm" className="oc-tap">
                           <Link href={`/offers/${offerId}/costs/${c.id}`}>
                             {taslak ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}

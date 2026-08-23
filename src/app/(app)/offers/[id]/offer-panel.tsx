@@ -250,7 +250,7 @@ export function OfferPanel({
 
       {/* ————————————————————————————————————————————— revizyonlar */}
       <div className="rounded-lg border">
-        <Table>
+        <Table className="oc-mobile-table" containerClassName="oc-mobile-table-wrap">
           <TableHeader>
             <TableRow>
               <TableHead className="w-24">Revizyon</TableHead>
@@ -265,23 +265,23 @@ export function OfferPanel({
               const taslak = rev.status === "draft";
               return (
                 <TableRow key={rev.id}>
-                  <TableCell className="font-mono whitespace-nowrap">
+                  <TableCell data-label="Revizyon" className="font-mono whitespace-nowrap">
                     {offerRevLabel(rev.rev_no) ?? "İlk"}
                     {rev.rev_no === 0 ? <span className="ml-1 text-muted-foreground">(R0)</span> : null}
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Durum">
                     <Badge variant={revisionStatusVariant(rev.status)}>
                       {revisionStatusLabel(rev.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono whitespace-nowrap">
+                  <TableCell data-label="Tutar" className="text-right font-mono whitespace-nowrap">
                     {rev.total_amount == null ? "—" : fmtMoney(Number(rev.total_amount), offer.currency)}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                  <TableCell data-label="Güncellendi" className="whitespace-nowrap text-muted-foreground">
                     {fmtOfferDate(rev.updated_at)}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <TableCell data-label="Belge ve İşlemler" data-mobile-span="full">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5" data-mobile-actions>
                       <Button asChild variant="outline" size="sm" className="oc-tap">
                         <Link href={`/offers/${offer.id}/revisions/${rev.id}`}>
                           {taslak ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}

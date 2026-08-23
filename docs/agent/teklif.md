@@ -1495,3 +1495,28 @@ sıkıştırır (`compactPrices`), sonra tabloyu bütün hâlde KENDİ YAPRAĞIN
 (`priceOwnPage`). Satır sayısı eşiğin (12) altında olsa bile: eşik satır
 SAYISINI ölçer, taşmayı ise sayfanın kendisi bilir. Tabloyu taşımak,
 @react-pdf'in onu notların üstünde ikiye bölmesinden iyidir (TEKLIF-54).
+
+## TEKLIF-66 — Mobil teklif akışında YATAY KAYDIRMA YOKTUR; çizelge KARTA dönüşür.
+
+Kullanıcı kararı (23.08.2026): teklif bölümündeki bütün işlemler telefondan
+kolayca yapılabilmeli ve bölümün hiçbir ekranında yatay kaydırma olmamalıdır.
+
+- Teklif ve maliyet editörünün bölüm rayı telefonda **tek seçicidir**. Uzun
+  kalem başlıklarını yatay bir şeritte aratmaz; masaüstü sol rayı korunur.
+- Düzenlenebilir fiyat ve maliyet çizelgeleri sütun GİZLEMEZ. Aynı `table`
+  işaretlemesi `md` altında `data-label` başlıklı, iki sütunlu kartlara katlanır;
+  tanım/kalem ve eylem hücreleri tam genişliktir. Ayrı mobil bileşen yazılmaz,
+  dolayısıyla kaydetme ve toplam mantığı iki işaretlemeye bölünmez.
+- Teklif/maliyet revizyon zincirleri de kartlara katlanır; belge eylemleri tam
+  genişlikli son bölgededir. Maliyet özetinde karar için gerekli beş alan
+  (kalem, adet, maliyet, kâr, tahmini satış) kartta kalır; ayrıntı sütunları
+  masaüstünde görünür.
+- Bölüm layout'u `min-w-0 max-w-full overflow-x-hidden` ile son emniyet
+  kemerini taşır. Bu kelepçe, erişilemeyen içeriği kırpmak için değil; yukarıdaki
+  katlama kurallarından sonra üçüncü taraf/açılır içerik yüzünden belgenin
+  genişlemesini engellemek içindir.
+
+Ölçüt: `/dev/offers-preview`, `/dev/offer-editor-preview`,
+`/dev/offer-cost-preview/costs/demo` ve `/dev/cost-templates-preview` 320 ve
+375 px'te `documentElement.scrollWidth === clientWidth` verir; teklif/maliyet
+bölümünde `overflow-x: auto|scroll` taşıyan görünür kap bulunmaz.

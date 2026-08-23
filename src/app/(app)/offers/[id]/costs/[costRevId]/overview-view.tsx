@@ -50,13 +50,16 @@ function Sayi({
   children,
   kalin,
   className,
+  dataLabel,
 }: {
   children?: React.ReactNode;
   kalin?: boolean;
   className?: string;
+  dataLabel?: string;
 }) {
   return (
     <td
+      data-label={dataLabel}
       className={cn(
         "px-1.5 py-1.5 text-right font-mono text-xs tabular-nums",
         kalin && "font-semibold",
@@ -290,8 +293,8 @@ export function OzetSayfasi({
         baslik="MALİYET ÖZETİ"
         aciklama="Vinçler ve fiyat satırlarına yazılan maliyetler TEK LİSTEDE. Vinçlerin beş başlığı HESAPLANIR; fiyat satırlarınınki bu tabloda ELLE girilir ve teklifin Fiyat sayfasındaki kutuya göre önceliklidir. Yüzdeler para sütunlarında satırın kendi maliyetine, ağırlık sütunlarında belgenin dip toplamına orandır. Kâr yüzdesi SATIŞ üzerindendir ve tahmini satış fiyatı yalnız bu sayfadaki ön çalışma içindir — teklife yazılmaz."
       >
-        <div className="min-w-0 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="oc-mobile-table-wrap min-w-0 overflow-x-hidden">
+          <table className="oc-mobile-table w-full border-collapse text-sm">
             <thead>
               <tr className="border-b text-[10px] leading-tight tracking-wide text-muted-foreground uppercase">
                 <th className="px-1.5 py-1.5 text-left font-medium">Kalem</th>
@@ -335,7 +338,7 @@ export function OzetSayfasi({
                 const kayit = r.vinc ? null : maliyetKaydi(r.id);
                 return (
                   <tr key={r.id} className="border-b last:border-b-0">
-                    <td className="px-1.5 py-1.5">
+                    <td data-label="Kalem" data-mobile-span="full" className="px-1.5 py-1.5">
                       <div className="flex min-w-0 items-center gap-1.5">
                         {/* KAYNAK BİR SÜTUN DEĞİL, BİR İŞARET: tek listenin
                             amacı ayrımı kaldırmaktı, ama "bu satır nereden
@@ -367,7 +370,7 @@ export function OzetSayfasi({
                         )}
                       </div>
                     </td>
-                    <Sayi>{r.qty === null ? "—" : fmtCostField(r.qty, 0)}</Sayi>
+                    <Sayi dataLabel="Adet">{r.qty === null ? "—" : fmtCostField(r.qty, 0)}</Sayi>
 
                     {/* AĞIRLIK: vinçte MODELDEN gelir ve salt okunurdur;
                         serbest satırda ELLE girilir (md. 7). İki kaynak asla
@@ -478,6 +481,7 @@ export function OzetSayfasi({
                         sayfasındaki satır ölçeğinin kalem düzeyindeki ikizi. */}
                     {r.vinc || r.kaynak === "breakdown" ? (
                       <td
+                        data-label="Maliyet"
                         className={cn(
                           "px-1.5 py-1.5 text-right font-mono text-xs tabular-nums",
                           isi !== null && "oc-amount",
@@ -493,7 +497,7 @@ export function OzetSayfasi({
                         {para(r.maliyet)}
                       </td>
                     ) : (
-                      <td className="px-1.5 py-1.5 text-right">
+                      <td data-label="Maliyet" className="px-1.5 py-1.5 text-right">
                         <div className="grid justify-items-end gap-0.5">
                           <SayiKutusu
                             binlik
@@ -519,7 +523,7 @@ export function OzetSayfasi({
                       </td>
                     )}
 
-                    <td className="px-1.5 py-1.5 text-right">
+                    <td data-label="Kâr %" className="px-1.5 py-1.5 text-right">
                       <SayiKutusu
                         value={payload.overviewMargins[r.id] ?? DEFAULT_OVERVIEW_MARGIN_PERCENT}
                         disabled={readOnly}
@@ -528,16 +532,16 @@ export function OzetSayfasi({
                         className="h-8 w-16 text-right font-mono"
                       />
                     </td>
-                    <Sayi kalin>{para(satis)}</Sayi>
+                    <Sayi dataLabel="Tahmini Satış" kalin>{para(satis)}</Sayi>
                   </tr>
                 );
               })}
             </tbody>
             {satirlar.length > 0 ? (
               <tfoot>
-                <tr className="border-t-2">
-                  <td className="px-1.5 py-2 font-semibold">TOPLAM</td>
-                  <Sayi />
+                <tr className="border-t-2" data-mobile-summary>
+                  <td data-label="Özet" data-mobile-span="full" className="px-1.5 py-2 font-semibold">TOPLAM</td>
+                  <Sayi dataLabel="Adet" />
                   {/* AĞIRLIK DİP TOPLAMINDA YÜZDE YOKTUR: o hücre zaten satır
                       yüzdelerinin TABANIDIR ve %100 yazmak hiçbir şey söylemez. */}
                   <td className="hidden px-1.5 py-2 text-right font-mono text-xs font-semibold tabular-nums lg:table-cell">
@@ -569,9 +573,9 @@ export function OzetSayfasi({
                       />
                     </Sayi>
                   ))}
-                  <Sayi kalin>{para(margin.cost)}</Sayi>
-                  <Sayi />
-                  <Sayi kalin>{satisToplami === 0 ? "—" : fmtMoney0(satisToplami, currency)}</Sayi>
+                  <Sayi dataLabel="Toplam Maliyet" kalin>{para(margin.cost)}</Sayi>
+                  <Sayi dataLabel="Kâr %" />
+                  <Sayi dataLabel="Tahmini Satış" kalin>{satisToplami === 0 ? "—" : fmtMoney0(satisToplami, currency)}</Sayi>
                 </tr>
               </tfoot>
             ) : null}

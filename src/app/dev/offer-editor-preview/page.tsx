@@ -301,7 +301,10 @@ export default function OfferEditorPreviewPage() {
                 {/* ——— offers/layout.tsx — ZİNCİRİN EN KOLAY UNUTULAN HALKASI.
                        Bir süre düz `grid gap-4` idi ve yüksekliği geçirmiyordu;
                        hata iki kez tam burada saklandı. */}
-                <div id="bolum-kabi" className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+                <div
+                  id="bolum-kabi"
+                  className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden lg:h-full lg:min-h-0"
+                >
                   {/* OffersNav revizyon ekranında `null` döner — burada da yok. */}
                   {/* ——— GERÇEK SAYFA KÖKÜ (page.tsx ile AYNI sınıflar) */}
                   <div id="sayfa-koku" className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">

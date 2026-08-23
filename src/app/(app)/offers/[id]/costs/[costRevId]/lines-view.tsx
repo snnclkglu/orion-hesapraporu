@@ -170,14 +170,13 @@ function SatirTablosu({
 
   return (
     <div className="grid gap-2">
-      {/* KENDİ KAYDIRMA KABINI SARMA: `Table` zaten `.oc-scrollx overflow-x-auto`
-          bir kap çiziyor (`components/ui/table.tsx`). İkinci bir sargı iç içe
-          iki yatay kaydırıcı ve üst üste iki kenar gölgesi demekti; ayrıca
-          `overflow-x` veren kap `overflow-y`yi de kaybeder ve tek piksellik
-          bir taşmada gerçek bir dikey çubuk doğar (MOBIL-14). */}
+      {/* MASAÜSTÜNDE ÇİZELGE, TELEFONDA DÜZENLENEBİLİR KART: aynı hücreler
+          `data-label` başlıklarıyla katlanır. Ayrı mobil işaretleme yoktur;
+          miktar/fiyat değişikliği iki görünümde ayrışamaz ve yatay kaydırma
+          açılmaz. */}
       <Table
-        className="w-full table-fixed"
-        containerClassName="!overflow-x-hidden [--oc-scroll-bg:var(--background)]"
+        className="oc-mobile-table w-full table-fixed"
+        containerClassName="oc-mobile-table-wrap !overflow-x-hidden [--oc-scroll-bg:var(--background)]"
       >
           <TableHeader>
             <TableRow>
@@ -218,7 +217,7 @@ function SatirTablosu({
               const isi = costAmountLevel(tutar, enBuyukTutar);
               return (
                 <TableRow key={line.id} className={cn(line.hidden && "opacity-55")}>
-                  <TableCell className="p-1.5">
+                  <TableCell data-label="Kalem" data-mobile-span="full" className="p-1.5">
                     <Input
                       value={line.label}
                       disabled={readOnly}
@@ -232,7 +231,7 @@ function SatirTablosu({
                   {/* TEKLİFTEKİ KARŞILIK KENDİ SÜTUNUNDADIR (md. 8). Depolanmaz —
                       teklif değişirse bu sütun da değişir ve iki belge ayrışamaz
                       (TEKLIF-20'nin tek okuma noktası). */}
-                  <TableCell className="hidden max-w-56 p-1.5 xl:table-cell">
+                  <TableCell data-mobile-hidden className="hidden max-w-56 p-1.5 xl:table-cell">
                     <span
                       className="line-clamp-2 block whitespace-normal break-words text-[10px] leading-tight text-muted-foreground"
                       title={teklifte ?? undefined}
@@ -241,7 +240,7 @@ function SatirTablosu({
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-1.5">
+                  <TableCell data-label="Miktar" className="p-1.5">
                     {modelden ? (
                       <div className="flex min-w-0 items-center gap-1">
                         {/* MİKTARIN KAYNAĞI POP-UP'TADIR (md. 9): formül, ara
@@ -293,7 +292,7 @@ function SatirTablosu({
                     )}
                   </TableCell>
 
-                  <TableCell className="p-1.5">
+                  <TableCell data-label="Birim" className="p-1.5">
                     <BirimSecici
                       value={line.unit}
                       units={COST_UNITS}
@@ -303,7 +302,7 @@ function SatirTablosu({
                     />
                   </TableCell>
 
-                  <TableCell className="p-1.5">
+                  <TableCell data-label="Birim Fiyat" className="p-1.5">
                     {seritten ? (
                       // ŞERİTTEN GELEN FİYAT SALT OKUNURDUR — miktarın model
                       // kutusuyla aynı desen. İKİ KAYNAK ASLA TOPLANMAZ: asa
@@ -355,6 +354,7 @@ function SatirTablosu({
                       söylenir ve `title` oranı yazıyla verir — renk körlüğünde
                       ve siyah beyaz çıktıda da okunur (WCAG 1.4.1). */}
                   <TableCell
+                    data-label="Tutar"
                     className={cn(
                       "p-1 text-right font-mono text-xs leading-tight",
                       isi !== null && "oc-amount",
@@ -370,8 +370,8 @@ function SatirTablosu({
                     {fmtMoney0(tutar, currency)}
                   </TableCell>
 
-                  <TableCell className="p-1.5">
-                    <div className="flex flex-wrap items-center justify-end gap-0.5">
+                  <TableCell data-label="İşlemler" data-mobile-span="full" className="p-1.5">
+                    <div className="flex flex-wrap items-center justify-end gap-0.5" data-mobile-actions>
                       <MiniDugme
                         baslik={line.hidden ? "Toplama katılmıyor" : "Toplamdan çıkar"}
                         aktif={line.hidden === true}

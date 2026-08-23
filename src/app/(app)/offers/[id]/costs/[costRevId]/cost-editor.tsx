@@ -27,6 +27,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Download, FileText, RefreshCw, RotateCcw, Save, Send, Sheet, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
@@ -419,8 +421,24 @@ export function CostEditor({
 
       <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[11rem_minmax(0,1fr)]">
         {/* ————————————————————————————————————————————— bölüm rayı */}
+        <div className="grid min-w-0 gap-1.5 lg:hidden">
+          <Label htmlFor="mobil-maliyet-bolumu">Maliyet Bölümü</Label>
+          <Select value={aktif} onValueChange={(v) => setAktif(v as (typeof BOLUMLER)[number]["key"])}>
+            <SelectTrigger id="mobil-maliyet-bolumu" className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BOLUMLER.map((b) => (
+                <SelectItem key={b.key} value={b.key}>
+                  {b.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <nav
-          className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
+          className="hidden gap-1 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto"
           aria-label="Maliyet bölümleri"
         >
           {BOLUMLER.map((b) => (

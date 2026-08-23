@@ -35,7 +35,7 @@ export default function OfferCostShellPreviewPage() {
     <AppShell role="admin" displayName="Sinan Çolakoğlu" email="sinan@vigowood.com">
       {/* offers/layout.tsx — ZİNCİRİN EN KOLAY UNUTULAN HALKASI; burada da
           birebir kurulur, yoksa önizleme gerçeği değil kendini sınar. */}
-      <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+      <div className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden lg:h-full lg:min-h-0">
         <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
           <PageHeader
             kicker="Maliyet Çalışması"

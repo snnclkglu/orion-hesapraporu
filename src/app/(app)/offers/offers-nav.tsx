@@ -2,8 +2,9 @@
 
 // Teklif bölümü rayı — Teklifler · Tanımlar.
 //
-// RAY KAYMAZ, SARAR (MOBIL kuralı; gerekçenin tamamı `purchasing-nav`da):
-// sekmeler telefonda gerekirse ikinci satıra iner, gizli sekme kalmaz.
+// TELEFONDA RAY YOKTUR: beş bölüm tek, tam genişlikli seçicide açılır. Böylece
+// sekmeler ikinci satıra dağılmaz ve yatay kaydırma/gizli sekme oluşmaz.
+// Masaüstünde bölüm rayı görünmeye devam eder.
 //
 // RAY TEKLİFİN İÇİNDE GİZLENİR: editör ekranlarında (`/offers/…/revisions/…`
 // ve `/offers/…/costs/…`) çizilmez. Mühendislik editöründeki kuralın aynısı —
@@ -13,7 +14,8 @@
 // sayısı değişir ve zincir yine kopardı.
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -29,28 +31,52 @@ const TABS = [
 
 export function OffersNav() {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   if (pathname.includes("/revisions/") || pathname.includes("/costs/")) return null;
 
+  const aktifSekme = TABS.find((t) =>
+    t.exact ? pathname === t.href : pathname.startsWith(t.href)
+  )?.href ?? "/offers";
+
   return (
-    <nav className="flex flex-wrap items-center gap-x-3 border-b" aria-label="Teklif bölümleri">
-      {TABS.map((t) => {
-        const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "oc-tap shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
-              active
-                ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      {/* Telefonda beş sekmeyi dar bir rayda sıkıştırmak ya da ikinci satıra
+          taşımak yerine bölüm adı tek, tam genişlikli seçicide görünür. */}
+      <div className="md:hidden">
+        <Select value={aktifSekme} onValueChange={(href) => router.push(href)}>
+          <SelectTrigger className="w-full min-w-0" aria-label="Teklif bölümü">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TABS.map((t) => (
+              <SelectItem key={t.href} value={t.href}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <nav className="hidden flex-wrap items-center gap-x-3 border-b md:flex" aria-label="Teklif bölümleri">
+        {TABS.map((t) => {
+          const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "oc-tap shrink-0 px-3 py-2 text-sm whitespace-nowrap transition-colors pointer-coarse:py-2.5",
+                active
+                  ? "font-medium text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }
