@@ -228,6 +228,36 @@ export const ATTR_LABELS: Record<string, string> = {
   thruster_type: "İtici Tipi",
   power_w: "Güç [W]",
   hub_standard: "Göbek Standardı",
+  // Kasnak freninde AĞIRLIK İKİ PARÇADIR: katalogun kg* sütunu İTİCİ HARİÇTİR
+  // ("kg without thruster"), itici ağırlığı üreticinin Eldro tablosundan gelir.
+  // Etiketler bunu açıkça söyler ki iki sayı yanlışlıkla toplanmasın ya da
+  // biri diğerinin yerine kullanılmasın.
+  thruster_weight_kg: "İtici (Eldro) Ağırlığı [kg]",
+  thruster_weight_max_kg: "İtici Ağırlığı — Üst Sınır [kg]",
+  total_weight_kg: "Toplam Ağırlık — Fren + İtici [kg]",
+  total_weight_max_kg: "Toplam Ağırlık — Üst Sınır [kg]",
+  thruster_force_n: "İtici Kaldırma Kuvveti [N]",
+  thruster_stroke_mm: "İtici Stroku [mm]",
+  thruster_power_w: "İtici Gücü [W]",
+  thruster_current_a: "İtici Akımı — 400 V / 50 Hz [A]",
+  // DIN 15435 ölçü resminin harfleri. A/B/H itici boyuna, kalanları fren
+  // boyuna bağlıdır; D ayrıca saklanmaz — tip numarası kasnak çapıdır.
+  dim_a_mm: "A — Toplam Boy [mm]",
+  dim_b_mm: "B — Toplam Genişlik [mm]",
+  dim_c_mm: "C — Taban Plakası Boyu [mm]",
+  dim_e_mm: "E — Sol Uçtan Kasnak Eksenine [mm]",
+  dim_f_mm: "F — Pabuç Takımı Genişliği [mm]",
+  dim_g_mm: "G — Plaka Kenarından Kasnak Eksenine [mm]",
+  dim_h_mm: "H — Toplam Yükseklik [mm]",
+  dim_j_mm: "J — Bağlantı Deliği Aralığı [mm]",
+  dim_k_mm: "K — Kasnak Ekseninden Pabuç Mafsalına [mm]",
+  dim_l_mm: "L — Plaka Üstünden Kasnak Eksenine [mm]",
+  dim_m_mm: "M — Orta Düzlemden Mil Ucuna [mm]",
+  dim_n_mm: "N — Taban Plakası Kalınlığı [mm]",
+  dim_p_mm: "P — Pabuç Dış Genişliği [mm]",
+  dim_q_mm: "Q — Pabuç Astar Genişliği [mm]",
+  dim_r_mm: "R — Taban Plakası Genişliği [mm]",
+  mount_bore_mm: "Ø d — Bağlantı Deliği Çapı [mm]",
   // kaplin
   coupling_type: "Kaplin Tipi",
   sub_type: "Alt Tip",
@@ -543,7 +573,10 @@ export const CATALOG_KINDS: Record<string, CatalogKindConfig> = {
       { attr: "max_torque_nm", label: "Maks. Tork", unit: "Nm" },
       { attr: "wheel_dia_mm", label: "Kasnak Ø", unit: "mm" },
       { attr: "thruster_type", label: "İtici" },
-      { attr: "weight_kg", label: "Ağırlık", unit: "kg" },
+      // İKİ AĞIRLIK SÜTUNU BİLEREK YAN YANADIR: katalogun kendi değeri itici
+      // HARİÇTİR ve tek başına gösterilirse eksik sipariş ağırlığı üretir.
+      { attr: "weight_kg", label: "Ağırlık — İtici Hariç", unit: "kg" },
+      { attr: "total_weight_kg", label: "Toplam — İtici Dahil", unit: "kg" },
     ],
     sortBy: "brake_torque_nm",
   },

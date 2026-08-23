@@ -959,3 +959,76 @@ taşır. Sonuncusu önemlidir — eksik bir şerit, hepsi ✓ görünürken dı�
 kalan bir kontrolü gizler ve özet YANILTIR. Yeni bir kontrol eklendiğinde test
 kırılır ve mühendis onu şeride eklemeye (ya da gerekçesiyle muaf listesine
 yazmaya) zorlanır.
+
+## HESAP-26 — Ana kiriş ve teker yüklerinde her kutu kendi tasarım notunu taşır.
+
+Kullanıcı kararı (23.08.2026): ana kiriş ve teker yükleri bölümlerindeki her
+düzenlenebilir girdi/seçim kutusunun etiketinde `i` bilgi notu vardır. Not iki
+kaynağı BİLEREK ayırır:
+
+- **Standart dayanağı** yalnız FEM/DIN/CMAA maddesinin gerçekten söylediği
+  tanımı, bağıntıyı veya sınırı açıklar.
+- **Kod kullanımı** ORION modelinin değeri nereden otomatik getirdiğini, hangi
+  bağıntıda kullandığını ve hangi durumda kullanıcının otomatiği kapatması
+  gerektiğini açıklar.
+
+Bir kesit yerleşimi veya firma kabulü standart hükmü gibi yazılmaz; kaynakta
+olmayan bilgi uydurulmaz. Kapsam
+`presentation/structuralFields.ts`teki `GIRDER_*_FIELDS` ile
+`presentation/wheelLoadFields.ts`teki `WHEELLOAD_*_FIELDS` dizileridir ve
+`field-info.guard.test.ts` bütün tanımların dolu not taşımasını korur.
+
+Etiket metni ile `i` düğmesi TEK satır içi öbektir; simge etiketten kopup tek
+başına alt satıra düşmez. Standart rozeti bu öbeğin dışındadır ve gerekirse bir
+sonraki satıra geçebilir. Girdi üstleri `subgrid` ile aynı satır rayına oturur;
+uzun etiket veya rozet komşu kutuyu aşağı kaydırmaz.
+
+## HESAP-27 — Kasnak freni DIN ölçü resmiyle çizilir; ağırlık FREN + İTİCİDİR.
+
+Kullanıcı kararı (23.08.2026): fren bölümünün (2.5 · 5.5b) başında katalogdan
+seçilen kasnak freninin **DIN 15435 ölçü resmi** çizilir ve ölçüler seçime göre
+CANLI değişir; fren adedinin yanında **toplam ağırlık** görünür.
+
+Kasnak frenleri DIN tasarımıdır, bu yüzden ölçüler **markadan bağımsızdır**:
+aynı kasnak çapı ve itici boyunda hangi üretici seçilirse seçilsin resim
+aynıdır. Ölçü defteri `lib/calc/drum-brake.ts`tedir (SIBRE TE tablosu,
+TE 2021_EN.pdf · 01_SIBRE_Brake-catalogue.pdf s.76-77) ve şemayı
+`lib/diagrams/drumBrake.ts` çizer.
+
+**ÖLÇÜLERİN İKİ SINIFI VARDIR.** A · B · H İTİCİ boyuna göre değişir; C · E ·
+F · G · J · K · L · M · N · P · Q · R · d fren BOYUNUN ortak ölçüsüdür. D
+ayrıca saklanmaz — DIN 15435'te tip numarası kasnak çapıdır (TE 315 → Ø315).
+Ölçüler birbirine bağlıdır ve resim onlardan türetilir: E takımın sol ucundan,
+G taban plakasının sol kenarından KASNAK EKSENİNE kadardır; plaka (E − G)
+noktasında başlar, boyu C, kalınlığı N; eksen plaka üstünden L kadar
+yukarıdadır; pabuç mafsalları eksenin iki yanında K uzaklıktadır. Planda
+genişlikler iç içedir: F > P ≥ Q > J. Bu bağıntılar koruma testindedir —
+şemanın bütün yerleşimi onlara dayanır.
+
+**AĞIRLIK İKİ PARÇADIR VE TOPLANIR.** Üretici kataloğunun kg* sütunu İTİCİ
+HARİÇTİR (tablonun kendi dipnotu: "kg without thruster"); itici ağırlığı Eldro
+teknik değerler tablosundan gelir. Mühendisin istediği sayı ikisinin
+TOPLAMIDIR — TE 315/50/6 → 50 + 23 = 73 kg. Katalog Ed 50 / Ed 80 / Ed 301
+için ağırlığı ARALIK verir; TE frenlerinde kullanılan tipler 60 mm stroklu
+olduğu için alt sınır esas alınır ama **üst sınır atılmaz**, ekranda aralık
+olarak yazılır (uydurma tek sayı üretilmez — değişmez md. 4). EB (hidrolik)
+itici kullanılmaz, seed'e girmez.
+
+**ÖLÇÜSÜ BİLİNMEYEN FRENDE ŞEMA DA AĞIRLIK KUTUSU DA ÇIKMAZ.** TE 160 AYRI bir
+ölçü resmidir (M1501 293 E-EN-2020-01, kompakt konsol): harfleri aynı anlamı
+taşımaz ve katalogda ağırlık sütunu yoktur. Kaliperli/elektromanyetik fren,
+elle yazılmış kod ve katalogda olmayan boy/itici birleşimi de `null` döner.
+Yanlış ölçü resmi, hiç resim olmamasından kötüdür.
+
+Model kodu ÜÇ yazımla gelir ve üçü de tanınır: **TE315/50/6** (üreticinin
+sipariş düzeni), **TE 315 Ed 50/6** ve **TE 315 50/6** (eski revizyonlar),
+marka önekli **SIBRE TE250 Ed 50/6**. Kimlik alanı bölüme göre değişir: kaldırmada ayrı
+`brakeModel`, köprü yürütmede birleşik `brakeBrand` ("MARKA MODEL" —
+`catalog-mapping` 5.5b).
+
+**AYNI SAYILAR İKİ YERDE YAŞAR** (defter + `cat_equipment`) ve bedeli
+`calc/__tests__/drum-brake.test.ts` ile ödenir: test seed migration'ını OKUR ve
+her satırı karşılaştırır (değişmez md. 8). Şemanın etiket çakışması ayrıca
+ÖLÇÜLÜR — `legibility.guard.test.ts` yazı-yazı çakışmasını, `npx tsx
+scripts/check-drum-brake-labels.ts` ise yazının ÇİZGİ üstüne binmesini (z-sırası
+duyarlı) 23 fren boyunda sınar.

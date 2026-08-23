@@ -37,7 +37,7 @@ export function girderDynamicsDiagram(p: GirderDynamicsParams): Diagram {
   caption(
     els,
     "ANA KİRİŞ — ORANLAR VE DİNAMİK ÖN TARAMA",
-    "CMAA 70 §3.5.1 · FEM 1.001 A-2.2.3 model yaklaşımı"
+    "CMAA 70 §3.5.1 · FEM 1.001 A-2.2.3 Model Yaklaşımı"
   );
 
   // Kiriş görünüşü — yalnız oranların tanımını anlatan ölçek dışı şema.
@@ -63,7 +63,7 @@ export function girderDynamicsDiagram(p: GirderDynamicsParams): Diagram {
   // Trolley/hoist possible excitation and first vertical mode shape.
   els.push(ln(x1, beamY - 8, (x1 + x2) / 2, beamY - 30, DCOL.accent, 1.2));
   els.push(ln((x1 + x2) / 2, beamY - 30, x2, beamY - 8, DCOL.accent, 1.2));
-  els.push(txt((x1 + x2) / 2, beamY - 38, "1. düşey mod — şematik", 8.5, {
+  els.push(txt((x1 + x2) / 2, beamY - 38, "1. Düşey Mod — Şematik", 8.5, {
     anchor: "middle", fill: DCOL.accent,
   }));
   const beamCx = (x1 + x2) / 2;
@@ -82,7 +82,7 @@ export function girderDynamicsDiagram(p: GirderDynamicsParams): Diagram {
   dimH(els, sx + 26, sx + sw - 26, sy + 23, `b = ${fmtN(p.webGapMm, 0)} mm`, {
     size: 8, labelDy: -5,
   });
-  els.push(txt(sx + sw + 12, sy + 16, "b = gövde sacları arası net mesafe", 8.5, { fill: DCOL.muted }));
+  els.push(txt(sx + sw + 12, sy + 16, "b = Gövde Sacları Arası Net Mesafe", 8.5, { fill: DCOL.muted }));
 
   // Sağ özet paneli.
   const px = 560;
@@ -92,8 +92,8 @@ export function girderDynamicsDiagram(p: GirderDynamicsParams): Diagram {
     ["L / h", `${fmtN(p.spanToDepthRatio, 1)}  ≤ 25`, "CMAA"],
     ["L / b", `${fmtN(p.spanToWidthRatio, 1)}  ≤ 65`, "CMAA"],
     ["f1", `${fmtN(p.naturalFrequencyHz, 3)} Hz`, "SDOF"],
-    ["fd", `${fmtN(p.excitationFrequencyHz, 3)} Hz`, "tambur"],
-    ["frekans ayrımı", `%${fmtN(p.separationPct, 1)}  ≥ %20`, "ORION"],
+    ["fd", `${fmtN(p.excitationFrequencyHz, 3)} Hz`, "Tambur"],
+    ["Frekans Ayrımı", `%${fmtN(p.separationPct, 1)}  ≥ %20`, "ORION"],
   ];
   rows.forEach(([label, value, source], index) => {
     const y = 112 + index * 37;
@@ -104,7 +104,7 @@ export function girderDynamicsDiagram(p: GirderDynamicsParams): Diagram {
     if (source) els.push(txt(px + 178, y, source, 7.5, { fill: DCOL.muted }));
     els.push(ln(px, y + 10, 804, y + 10, DCOL.line, 0.7));
   });
-  els.push(txt(px, 304, "±20 bandı normatif FEM sınırı değildir.", 8, { fill: DCOL.accent }));
+  els.push(txt(px, 304, "±20 Bandı Normatif FEM Sınırı Değildir.", 8, { fill: DCOL.accent }));
 
   return fitDiagram(els, W, H);
 }

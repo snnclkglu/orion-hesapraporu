@@ -411,7 +411,14 @@ export function arrowHead(
 /** Yatay ölçü oku: uç tikleri + içe bakan ok başları + üstte etiket */
 export function dimH(
   els: DiagramEl[], x1: number, x2: number, y: number, label: string,
-  opts?: { size?: number; color?: string; labelDy?: number; labelColor?: string }
+  opts?: {
+    size?: number;
+    color?: string;
+    labelDy?: number;
+    labelColor?: string;
+    /** Arkadaki eksen/ölçü çizgisini metnin içinden göstermemek için kâğıt şerit. */
+    clearLabel?: boolean;
+  }
 ) {
   const c = opts?.color ?? DCOL.muted;
   els.push(ln(x1, y, x2, y, c, 0.8));
@@ -421,19 +428,56 @@ export function dimH(
     els.push(arrowHead(x1, y, "left", c));
     els.push(arrowHead(x2, y, "right", c));
   }
-  els.push(
-    txt((x1 + x2) / 2, y + (opts?.labelDy ?? -4), label, opts?.size ?? 9.5, {
+  const labelEl = txt(
+    (x1 + x2) / 2,
+    y + (opts?.labelDy ?? -4),
+    label,
+    opts?.size ?? 9.5,
+    {
       // Ölçü ÇİZGİSİ hep gri kalır; yalnız ETİKET öbek rengini alabilir
       // (ana kiriş kesitinde form ile resmi eşleyen renk — field-groups.ts).
       anchor: "middle", fill: opts?.labelColor ?? DCOL.ink,
-    })
+    }
   );
+  if (opts?.clearLabel) {
+    const padX = 3;
+    const padY = 1.5;
+    const w = textWidth(labelEl) + 2 * padX;
+    els.push({
+      kind: "rect",
+      x: labelEl.x - w / 2,
+      y: labelEl.y - labelEl.size + padY,
+      w,
+      h: labelEl.size + 2 * padY,
+      fill: DCOL.paper,
+    });
+  }
+  els.push(labelEl);
+}
+
+/**
+ * Katalogdan veya hesap modelinden gelen serbest açıklamaları şema yazım
+ * kuralına uyarlar. Büyük harfli kodları korur; yalnız tamamen küçük yazılmış
+ * sözcüklerin ilk harfini Türkçe kurallarıyla büyütür.
+ */
+export function diagramTitleCase(value: string): string {
+  return value.replace(/\p{L}+/gu, (word) => {
+    if (word !== word.toLocaleLowerCase("tr-TR")) return word;
+    return word.charAt(0).toLocaleUpperCase("tr-TR") + word.slice(1);
+  });
 }
 
 /** Dikey ölçü oku: etiket çizginin sağında (yatay metin) */
 export function dimV(
   els: DiagramEl[], x: number, y1: number, y2: number, label: string,
-  opts?: { size?: number; color?: string; labelSide?: "left" | "right"; labelColor?: string }
+  opts?: {
+    size?: number;
+    color?: string;
+    labelSide?: "left" | "right";
+    labelColor?: string;
+    /** Arkadaki eksen/ölçü çizgisini metnin içinden göstermemek için kâğıt şerit. */
+    clearLabel?: boolean;
+  }
 ) {
   const c = opts?.color ?? DCOL.muted;
   els.push(ln(x, y1, x, y2, c, 0.8));
@@ -444,11 +488,30 @@ export function dimV(
     els.push(arrowHead(x, Math.max(y1, y2), "down", c));
   }
   const side = opts?.labelSide ?? "right";
-  els.push(
-    txt(x + (side === "right" ? 6 : -6), (y1 + y2) / 2 + 3, label, opts?.size ?? 9.5, {
-      anchor: side === "right" ? "start" : "end", fill: opts?.labelColor ?? DCOL.ink,
-    })
+  const labelEl = txt(
+    x + (side === "right" ? 6 : -6),
+    (y1 + y2) / 2 + 3,
+    label,
+    opts?.size ?? 9.5,
+    {
+      anchor: side === "right" ? "start" : "end",
+      fill: opts?.labelColor ?? DCOL.ink,
+    }
   );
+  if (opts?.clearLabel) {
+    const padX = 3;
+    const padY = 1.5;
+    const w = textWidth(labelEl) + 2 * padX;
+    els.push({
+      kind: "rect",
+      x: side === "right" ? labelEl.x - padX : labelEl.x - w + padX,
+      y: labelEl.y - labelEl.size + padY,
+      w,
+      h: labelEl.size + 2 * padY,
+      fill: DCOL.paper,
+    });
+  }
+  els.push(labelEl);
 }
 
 /** Kırmızı yük oku (dikey) — tip `yTip` ucunda */

@@ -33,12 +33,12 @@ const H = 356;
 
 export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "TEKER MİLİ", "mesnetler · yük · moment diyagramı");
+  caption(els, "TEKER MİLİ", "Mesnetler · Yük · Moment Diyagramı");
 
   const a = p.spanAMm / 10;
   const b = p.spanBMm / 10;
   if (!(a > 0) || !(b > 0)) {
-    els.push(txt(W / 2, H / 2, "Mil mesnet ölçüleri (a, b) eksik", 11, {
+    els.push(txt(W / 2, H / 2, "Mil Mesnet Ölçüleri (a, b) Eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -117,7 +117,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
     dimH(els, x0, x1, yTail + 16, `b_teker = ${fmtN(bandCm * 10)} mm`, { size: 9 });
     els.push(txt(x1 + 12, yTail - 4,
       `q = ${fmtN((p.loadIntensityKgPerCm ?? 0) / 10)} kg/mm`, 9.5, { fill: DCOL.accent }));
-    els.push(txt(xW, yTail + 34, `Pmaks = ${fmtN(p.wheelLoadKg)} kg  (yayılı)`, 10, {
+    els.push(txt(xW, yTail + 34, `Pmaks = ${fmtN(p.wheelLoadKg)} kg  (Yayılı)`, 10, {
       anchor: "middle", fill: DCOL.accent, bold: true,
     }));
   } else {
@@ -148,7 +148,7 @@ export function wheelShaftDiagram(p: WheelShaftParams): Diagram {
   // --- Moment diyagramı (üçgen, tepe teker altında)
   const yM0 = 252;
   const hM = 56;
-  els.push(txt(xA - 34, yM0 - 8, "Moment diyagramı", 8.5, { fill: DCOL.muted }));
+  els.push(txt(xA - 34, yM0 - 8, "Moment Diyagramı", 8.5, { fill: DCOL.muted }));
   els.push(ln(xA - 10, yM0, xB + 10, yM0, DCOL.muted, 0.9));
   // Tekil yükte diyagram ÜÇGENDİR; yayılı yükte bant boyunca PARABOLİKTİR ve
   // tepesi düzleşir — bandın uçlarında moment M_kenar = Mmaks − q·b_t²/8'dir.

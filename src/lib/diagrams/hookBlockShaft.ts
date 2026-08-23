@@ -46,11 +46,11 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   caption(
     els,
     "KANCA BLOĞU MİLİ — YÜKLEME ŞEMASI",
-    `${n} makara · her makarada 2T · mil Ø${fmtN(p.d1Mm)} mm`
+    `${n} Makara · Her Makarada 2T · Mil Ø${fmtN(p.d1Mm)} mm`
   );
 
   if (!(p.shaftLengthMm > 0) || n === 0) {
-    els.push(txt(W / 2, H / 2, "Merkezden askı sacı / makara ölçüleri eksik", 11, {
+    els.push(txt(W / 2, H / 2, "Merkezden Askı Sacı / Makara Ölçüleri Eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -96,10 +96,10 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
       anchor: "middle", fill: DCOL.accent, bold: true,
     }));
   }
-  els.push(txt(sx(p.supportPositionsMm[0]), yAxis - rSheave - 34, "askı sacı", 8, {
+  els.push(txt(sx(p.supportPositionsMm[0]), yAxis - rSheave - 34, "Askı Sacı", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
-  els.push(txt(sx(p.supportPositionsMm[1]), yAxis - rSheave - 34, "askı sacı", 8, {
+  els.push(txt(sx(p.supportPositionsMm[1]), yAxis - rSheave - 34, "Askı Sacı", 8, {
     anchor: "middle", fill: DCOL.muted,
   }));
 
@@ -134,12 +134,12 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     }));
   });
 
-  els.push(txt(xLeft, 62, `T = ${fmtN(p.ropeLoadKg)} kg · makara başına 2T`, 9, {
+  els.push(txt(xLeft, 62, `T = ${fmtN(p.ropeLoadKg)} kg · Makara Başına 2T`, 9, {
     fill: DCOL.accent,
   }));
   if (p.bearingCode) {
     els.push(
-      txt(xRight, 62, `makara başına 2 adet ${p.bearingCode} rulman`, 8, {
+      txt(xRight, 62, `Makara Başına 2 Adet ${p.bearingCode} Rulman`, 8, {
         anchor: "end", fill: DCOL.muted,
       })
     );
@@ -165,13 +165,13 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
   });
   const supportY = yDim + p.sheaveOffsetsMm.length * 18;
   els.push(ln(rightSupportX, yAxis + rSheave + 28, rightSupportX, supportY - 4, DCOL.faint, 0.5));
-  dimH(els, centerX, rightSupportX, supportY, `askı = ${fmtN(p.supportOffsetMm)} mm`, { size: 8.5 });
+  dimH(els, centerX, rightSupportX, supportY, `Askı = ${fmtN(p.supportOffsetMm)} mm`, { size: 8.5 });
   dimH(
     els,
     sx(p.supportPositionsMm[0]),
     sx(p.supportPositionsMm[1]),
     supportY + 24,
-    `L askı = ${fmtN(2 * p.supportOffsetMm)} mm`,
+    `L Askı = ${fmtN(2 * p.supportOffsetMm)} mm`,
     { size: 9.2 }
   );
 
@@ -199,7 +199,7 @@ export function hookBlockShaftDiagram(p: HookBlockShaftParams): Diagram {
     kind: "polygon", points: pts,
     fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 1.2,
   });
-  els.push(txt(sx(0) - 12, yM0 - 6, "Moment diyagramı", 8, { fill: DCOL.muted }));
+  els.push(txt(sx(0) - 12, yM0 - 6, "Moment Diyagramı", 8, { fill: DCOL.muted }));
   els.push(
     txt(
       W / 2,

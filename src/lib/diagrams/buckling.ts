@@ -15,7 +15,7 @@
 // bir şematik kutu çizilmez.
 
 import {
-  DCOL, type Diagram, type DiagramEl,
+  DCOL, type Diagram, type DiagramEl, diagramTitleCase,
   arrowHead, caption, dimH, dimV, fitDiagram, fmtN, ln, txt,
 } from "./model";
 import {
@@ -77,11 +77,11 @@ const LAY_H = 430;
  */
 export function bucklingPanelLayoutDiagram(p: BucklingPanelLayoutParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "BURUŞMA — KONTROL EDİLEN PANELLER", "FEM 1.001 A-3.4 · ölçüler mm");
+  caption(els, "BURUŞMA — KONTROL EDİLEN PANELLER", "FEM 1.001 A-3.4 · Ölçüler mm");
 
   const g = layoutBoxSection(p, { cx: 205, drawW: 210, drawH: 250, areaTop: 78, areaH: 262 });
   if (!g) {
-    els.push(txt(LAY_W / 2, LAY_H / 2, "Kesit girdileri eksik veya geçersiz", 11, {
+    els.push(txt(LAY_W / 2, LAY_H / 2, "Kesit Girdileri Eksik Veya Geçersiz", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, LAY_W, LAY_H);
@@ -129,7 +129,7 @@ export function bucklingPanelLayoutDiagram(p: BucklingPanelLayoutParams): Diagra
   const evTop = 130;
   const evH = Math.min(150, Math.max(60, p.h3Mm * s));
   els.push(txt(evX, evTop - 26, "YANDAN GÖRÜNÜŞ", 9, { fill: DCOL.ink, bold: true }));
-  els.push(txt(evX, evTop - 14, "panel uzunluğu = iki perde arası", 8, { fill: DCOL.muted }));
+  els.push(txt(evX, evTop - 14, "Panel Uzunluğu = İki Perde Arası", 8, { fill: DCOL.muted }));
   // Üst ve alt başlık çizgileri
   els.push({ kind: "rect", x: evX, y: evTop, w: evW, h: evH, fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1.2 });
   // Perdeler — üç adet, ortadaki iki panel görünür
@@ -137,7 +137,7 @@ export function bucklingPanelLayoutDiagram(p: BucklingPanelLayoutParams): Diagra
   for (let i = 0; i <= bays; i++) {
     const x = evX + (evW * i) / bays;
     els.push(ln(x, evTop, x, evTop + evH, DCOL.ink, 1.6));
-    els.push(txt(x, evTop + evH + 26, "perde", 7.5, { anchor: "middle", fill: DCOL.muted }));
+    els.push(txt(x, evTop + evH + 26, "Perde", 7.5, { anchor: "middle", fill: DCOL.muted }));
   }
   // Panel taraması (ilk göz)
   hatch(els, evX + 1.5, evTop + 1.5, evW / bays - 3, evH - 3, { step: 8, color: DCOL.accent, width: 0.5 });
@@ -149,11 +149,11 @@ export function bucklingPanelLayoutDiagram(p: BucklingPanelLayoutParams): Diagra
     els.push(ln(x, evTop - 16, x, evTop - 5, DCOL.accent, 1.1));
     els.push(arrowHead(x, evTop - 3, "down", DCOL.accent, 6, 2.4));
   }
-  els.push(txt(evX + evW / bays / 2, evTop - 20, "basınç", 8, { anchor: "middle", fill: DCOL.accent }));
+  els.push(txt(evX + evW / bays / 2, evTop - 20, "Basınç", 8, { anchor: "middle", fill: DCOL.accent }));
 
   els.push(
     txt(14, LAY_H - 10,
-      "b = basınç kuvvetlerine DİK ölçü · a = basınç yönündeki ölçü (perde aralığı) · α = a / b",
+      "b = Basınç Kuvvetlerine DİK Ölçü · a = Basınç Yönündeki Ölçü (Perde Aralığı) · α = a / b",
       8.5, { fill: DCOL.muted })
   );
 
@@ -187,7 +187,7 @@ const PS_H = 300;
  */
 export function panelStressDiagram(p: PanelStressParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, p.title, "kenar gerilmeleri · basınç POZİTİF · FEM 1.001 T.A.3.4.1");
+  caption(els, p.title, "Kenar Gerilmeleri · Basınç POZİTİF · FEM 1.001 T.A.3.4.1");
 
   const x0 = 70, y0 = 70, w = 150, h = 160;
   // Panel gövdesi
@@ -243,14 +243,14 @@ export function panelStressDiagram(p: PanelStressParams): Diagram {
     anchor: p.sigma2 >= 0 ? "start" : "end",
     fill: p.sigma2 >= 0 ? DCOL.accent : "#7A7470", bold: true,
   }));
-  els.push(txt(dx + 96, y0 + h / 2, "basınç →", 8, { fill: DCOL.muted }));
-  if (p.sigma2 < 0) els.push(txt(dx - 96, y0 + h / 2, "← çekme", 8, { fill: DCOL.muted }));
+  els.push(txt(dx + 96, y0 + h / 2, "Basınç →", 8, { fill: DCOL.muted }));
+  if (p.sigma2 < 0) els.push(txt(dx - 96, y0 + h / 2, "← Çekme", 8, { fill: DCOL.muted }));
 
   // --- Alt satır: ψ ve durum
   const caseNo = p.caseNo;
   els.push(ln(14, PS_H - 44, PS_W - 14, PS_H - 44, DCOL.line, 0.8));
   els.push(txt(16, PS_H - 28, `ψ = σ2 / σ1 = ${fmtN(p.psi, 3)}`, 10, { fill: DCOL.ink, bold: true }));
-  els.push(txt(16, PS_H - 13, BUCKLING_CASE_LABEL[caseNo], 8.5, { fill: DCOL.muted }));
+  els.push(txt(16, PS_H - 13, diagramTitleCase(BUCKLING_CASE_LABEL[caseNo]), 8.5, { fill: DCOL.muted }));
 
   return fitDiagram(els, PS_W, PS_H);
 }
@@ -285,7 +285,7 @@ export function bucklingFactorChart(p: BucklingFactorChartParams): Diagram {
     { x: 68, y: 62, w: 470, h: 200 },
     { min: 0, max: alphaMax, label: "α = a / b", format: (v) => fmtN(v, 1) },
     { min: 0, max: Math.min(kMax, 40), label: "Kσ , Kτ", format: (v) => fmtN(v, 0) },
-    { title: "BURKULMA KATSAYILARI", note: `FEM 1.001 T.A.3.4.1 · ψ = ${fmtN(p.psi, 3)} için` }
+    { title: "BURKULMA KATSAYILARI", note: `FEM 1.001 T.A.3.4.1 · ψ = ${fmtN(p.psi, 3)} İçin` }
   );
 
   // Dal sınırları
@@ -306,10 +306,10 @@ export function bucklingFactorChart(p: BucklingFactorChartParams): Diagram {
   });
 
   pushLegend(els, 68, 296, [
-    { color: DCOL.accent, label: `Kσ (ψ = ${fmtN(p.psi, 2)}) — basınç` },
-    { color: "#3A6EA5", label: "Kτ — saf kayma", dash: "6,3" },
+    { color: DCOL.accent, label: `Kσ (ψ = ${fmtN(p.psi, 2)}) — Basınç` },
+    { color: "#3A6EA5", label: "Kτ — Saf Kayma", dash: "6,3" },
   ]);
-  els.push(txt(300, 296, `çalışma noktası: α = ${fmtN(p.alpha, 3)}`, 8.5, { fill: DCOL.muted }));
+  els.push(txt(300, 296, `Çalışma Noktası: α = ${fmtN(p.alpha, 3)}`, 8.5, { fill: DCOL.muted }));
 
   return fitDiagram(els, FC_W, FC_H);
 }
@@ -384,7 +384,7 @@ export function bucklingInteractionChart(p: BucklingInteractionParams): Diagram 
     { min: 0, max: ayMax, label: "τ / τvcr", format: (v) => fmtN(v, 2) },
     {
       title: "ETKİLEŞİM DİYAGRAMI — BASINÇ + KAYMA",
-      note: `FEM 1.001 A-3.4 · ${p.caseLabel} · ψ = ${fmtN(p.psi, 3)}`,
+      note: `FEM 1.001 A-3.4 · ${diagramTitleCase(p.caseLabel)} · ψ = ${fmtN(p.psi, 3)}`,
     }
   );
 
@@ -393,22 +393,22 @@ export function bucklingInteractionChart(p: BucklingInteractionParams): Diagram 
   pushCurve(els, f, sample(1), { color: DCOL.accent, width: 1.6, dash: "6,3" });
 
   pushPoint(els, f, p.sigmaRatio, p.tauRatio,
-    `çalışma noktası (${fmtN(p.sigmaRatio, 3)} ; ${fmtN(p.tauRatio, 3)})`,
+    `Çalışma Noktası (${fmtN(p.sigmaRatio, 3)} ; ${fmtN(p.tauRatio, 3)})`,
     { color: pass ? OK : BAD, anchor: p.sigmaRatio > axMax * 0.6 ? "end" : "start" }
   );
 
   pushLegend(els, 74, 310, [
-    { color: DCOL.accent, label: "kritik sınır  D = 1  (σvcr.c = σbil)", dash: "6,3" },
+    { color: DCOL.accent, label: "Kritik Sınır  D = 1  (σvcr.c = σbil)", dash: "6,3" },
     {
       color: OK,
       label:
-        `izin verilen sınır  D = ρ/νv = ${fmtN(cAllow, 3)}` +
+        `İzin Verilen Sınır  D = ρ/νv = ${fmtN(cAllow, 3)}` +
         (p.rho < 1 ? `   (ρ = ${fmtN(p.rho, 3)} · νv = ${fmtN(p.safety, 3)})` : `   (νv = ${fmtN(p.safety, 3)})`),
     },
   ]);
 
   pushUtilizationBar(els, 330, 300, 140, 12, p.utilization, {
-    label: "kullanım oranı",
+    label: "Kullanım Oranı",
     valueText: `%${fmtN(p.utilization * 100, 1)}  ${pass ? "UYGUN" : "UYGUN DEĞİL"}`,
   });
 
@@ -443,8 +443,8 @@ export function rhoReductionChart(p: RhoChartParams): Diagram {
   const f = pushChartFrame(
     els,
     { x: 74, y: 66, w: 440, h: 190 },
-    { min: 0, max: axMax, label: "hesaplanan σvcr [N/mm²]", format: (v) => fmtN(v, 0) },
-    { min: 0, max: ayMax, label: "kullanılan σvcr [N/mm²]", format: (v) => fmtN(v, 0) },
+    { min: 0, max: axMax, label: "Hesaplanan σvcr [N/mm²]", format: (v) => fmtN(v, 0) },
+    { min: 0, max: ayMax, label: "Kullanılan σvcr [N/mm²]", format: (v) => fmtN(v, 0) },
     {
       title: "ORANTI SINIRI İNDİRGEMESİ",
       note: `FEM 1.001 T.A.3.4.2 · ${p.steel === "St52" ? "St 52 (Fe 510)" : "St 37 (Fe 360)"}`,
@@ -465,8 +465,8 @@ export function rhoReductionChart(p: RhoChartParams): Diagram {
     els.push({ kind: "circle", cx: f.px(r.calculated), cy: f.py(r.reduced), r: 2, fill: DCOL.accent });
   }
 
-  pushVGuide(els, f, limit, `orantı sınırı ${fmtN(limit, 0)}`);
-  pushHGuide(els, f, rows[rows.length - 1].reduced, `tablo sonu ${fmtN(rows[rows.length - 1].reduced, 0)}`, {
+  pushVGuide(els, f, limit, `Orantı Sınırı ${fmtN(limit, 0)}`);
+  pushHGuide(els, f, rows[rows.length - 1].reduced, `Tablo Sonu ${fmtN(rows[rows.length - 1].reduced, 0)}`, {
     anchor: "end",
   });
 
@@ -478,12 +478,12 @@ export function rhoReductionChart(p: RhoChartParams): Diagram {
 
   els.push(
     txt(74, 300,
-      "Elastik formüller yalnız orantı sınırının altında geçerlidir; üzerinde kritik gerilme ρ ile indirgenir.",
+      "Elastik Formüller Yalnız Orantı Sınırının Altında Geçerlidir; Üzerinde Kritik Gerilme ρ İle İndirgenir.",
       8.5, { fill: DCOL.muted })
   );
   els.push(
     txt(74, 313,
-      "Tablonun son satırından sonra indirgenmiş değer sabit tutulur (emniyetli kabul).",
+      "Tablonun Son Satırından Sonra İndirgenmiş Değer Sabit Tutulur (Emniyetli Kabul).",
       8.5, { fill: DCOL.muted })
   );
 

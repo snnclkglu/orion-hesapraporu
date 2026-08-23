@@ -52,6 +52,7 @@ import type { TravelValues } from "@/lib/calc/modules/travelGroup";
 import type { CabinValues } from "@/lib/calc/modules/cabin";
 import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-load";
 import type { Diagram } from "./model";
+import { drumBrakeSpec } from "@/lib/calc/drum-brake";
 import { climateRoomDiagram } from "./climateRoom";
 import { girderSectionDiagram } from "./girderSection";
 import { girderDynamicsDiagram } from "./girderDynamics";
@@ -77,6 +78,7 @@ import {
   liftingBeamSectionsDiagram,
 } from "./liftingBeam";
 import { safetyBrakeDiagram } from "./safetyBrake";
+import { drumBrakeDiagram } from "./drumBrake";
 import { deflectionDiagram } from "./deflection";
 import { camberStripDiagram } from "./camberStrip";
 import { girderLoadDiagram } from "./girderLoad";
@@ -383,6 +385,42 @@ export function diagramForSection(
         hydraulicUnit: typeof c["safety.unitCode"] === "string" ? c["safety.unitCode"] : undefined,
         hydraulicPressureBar: numOf(c["safety.unitPressure"]),
       });
+    }
+
+    // 2.5 · 5.5b — kasnak freninin DIN 15435 ölçü resmi.
+    //
+    // Ölçüler KATALOG SATIRINDAN değil ölçü defterinden okunur: çekirdek
+    // SAFTIR, veritabanına bakamaz (değişmez md. 7). Defterde karşılığı
+    // olmayan bir fren (elle girilmiş kod, TE 160 gibi ayrı ölçü resmi,
+    // kaliperli/elektromanyetik fren) şema ÜRETMEZ.
+    //
+    // İki bölümde frenin kimliği FARKLI alanlarda durur: kaldırmada ayrı bir
+    // `brakeModel`, köprü yürütmede ise katalog eşlemesi gereği "MARKA MODEL"
+    // olarak birleşik `brakeBrand` alanında (bkz. catalog-mapping 5.5b). İkisi
+    // de denenir; ayrıştırıcı marka önekini zaten yok sayar.
+    if (isHoistKey(moduleKey as ModuleKey) && rawSectionId === "2.5") {
+      const st = input[HOIST_FIELD[moduleKey as HoistKey]];
+      if (!st) return null;
+      const sel = st.selections;
+      const spec = drumBrakeSpec(sel.brakeModel) ?? drumBrakeSpec(sel.brakeBrand);
+      if (!spec) return null;
+      return drumBrakeDiagram({
+        spec,
+        qty: sel.brakeQty,
+        brand: sel.brakeBrand?.trim() || undefined,
+        selectedWheelDiaMm: sel.brakeWheelDiaMm,
+      });
+    }
+
+    if (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.5b") {
+      const st = input[moduleKey as TravelKey];
+      if (!st) return null;
+      const sel = st.selections;
+      const spec = drumBrakeSpec(sel.brakeBrand);
+      if (!spec) return null;
+      // Köprü yürütmesinde fren ADEDİ ayrı bir alan değildir; toplam ağırlık
+      // satırı bu yüzden yazılmaz (uydurma adet girilmez — değişmez md. 4).
+      return drumBrakeDiagram({ spec, selectedWheelDiaMm: sel.brakeWheelDiaMm });
     }
 
     if (isTravelKey(moduleKey as ModuleKey) && rawSectionId === "5.8") {

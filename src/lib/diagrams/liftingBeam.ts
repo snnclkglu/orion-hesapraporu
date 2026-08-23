@@ -41,14 +41,14 @@ const H = 330;
 
 export function liftingBeamDiagram(p: LiftingBeamParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "KALDIRMA KİRİŞİ — YÜKLEME ŞEMASI", "parametrik çizim · ölçüler mm");
+  caption(els, "KALDIRMA KİRİŞİ — YÜKLEME ŞEMASI", "Parametrik Çizim · Ölçüler mm");
 
   const x = Math.max(0, p.xMm);
   const y = Math.max(0, p.yMm);
   const z = Math.max(0, p.zMm);
   const spanMm = x + y + z;
   if (!(spanMm > 0)) {
-    els.push(txt(W / 2, H / 2, "Kiriş ölçüleri (x · y · z) eksik", 11, {
+    els.push(txt(W / 2, H / 2, "Kiriş Ölçüleri (x · y · z) Eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -160,7 +160,7 @@ const MH = 250;
 
 export function liftingBeamMomentDiagram(p: LiftingBeamMomentParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "KALDIRMA KİRİŞİ — MOMENT DİYAGRAMI", "M(x) [kg·cm] · pozitif moment sarkma");
+  caption(els, "KALDIRMA KİRİŞİ — MOMENT DİYAGRAMI", "M(x) [kg·cm] · Pozitif Moment Sarkma");
 
   const pts = (p.stations ?? []).filter(
     (s) => Number.isFinite(s.xCm) && Number.isFinite(s.momentKgCm)
@@ -168,7 +168,7 @@ export function liftingBeamMomentDiagram(p: LiftingBeamMomentParams): Diagram {
   const spanMm = Math.max(0, p.spanMm);
   const peak = Math.max(...pts.map((s) => Math.abs(s.momentKgCm)), 0);
   if (pts.length < 2 || !(spanMm > 0) || !(peak > 0)) {
-    els.push(txt(MW / 2, MH / 2, "Moment diyagramı için kiriş ölçüleri gerekli", 11, {
+    els.push(txt(MW / 2, MH / 2, "Moment Diyagramı İçin Kiriş Ölçüleri Gerekli", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, MW, MH);
@@ -256,13 +256,13 @@ const SH = 340;
  */
 export function liftingBeamSectionsDiagram(sections: LiftingBeamSection[]): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "KALDIRMA KİRİŞİ — KESİTLER", "parametrik çizim · ölçüler mm · iki kesit AYNI ölçekte");
+  caption(els, "KALDIRMA KİRİŞİ — KESİTLER", "Parametrik Çizim · Ölçüler mm · İki Kesit AYNI Ölçekte");
 
   const valid = sections.filter(
     (s) => s.topThkMm + s.webHeightMm + s.botThkMm > 0 && Math.max(s.topWidthMm, s.botWidthMm) > 0
   );
   if (valid.length === 0) {
-    els.push(txt(SW / 2, SH / 2, "Kesit girdileri eksik veya geçersiz", 11, {
+    els.push(txt(SW / 2, SH / 2, "Kesit Girdileri Eksik Veya Geçersiz", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, SW, SH);

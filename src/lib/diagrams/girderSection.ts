@@ -247,7 +247,7 @@ export function pushRail(els: DiagramEl[], g: BoxLayout, opts?: { label?: boolea
   // Ray merkez ekseni (kesikli) — b1 ve gövde sacıyla hizası görünsün
   els.push(ln(railCx, yR4 - 4, railCx, g.yWebBottom, DCOL.accent, 0.6, "3,3"));
   if (opts?.label !== false) {
-    els.push(txt(railCx, yR4 - 7, "ray", 8, { anchor: "middle", fill: DCOL.accent }));
+    els.push(txt(railCx, yR4 - 7, "Ray", 8, { anchor: "middle", fill: DCOL.accent }));
   }
 }
 
@@ -256,11 +256,11 @@ const H = 470;
 
 export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "ANA KİRİŞ — KUTU KESİT", "parametrik çizim · ölçüler mm");
+  caption(els, "ANA KİRİŞ — KUTU KESİT", "Parametrik Çizim · Ölçüler mm");
 
   const g = layoutBoxSection(p, { cx: 275, drawW: 235, drawH: 340, areaTop: 72, areaH: 356 });
   if (!g) {
-    els.push(txt(W / 2, H / 2, "Kesit girdileri eksik veya geçersiz", 11, {
+    els.push(txt(W / 2, H / 2, "Kesit Girdileri Eksik Veya Geçersiz", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -272,6 +272,24 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
 
   pushBoxPlates(els, p, g);
   pushRail(els, g);
+
+  // Tarafsız eksen çizgileri ölçü ve açıklama metinlerinden ÖNCE boyanır.
+  // SVG'de belge sırası boyama sırasıdır; eksenleri en sonda çizmek h3 ve
+  // gövde aralığı kotlarının harflerinin üstüne kırmızı çizgi basıyordu.
+  const neutralY =
+    p.czMm !== undefined && Number.isFinite(p.czMm) && p.czMm > 0 && p.czMm < totalH
+      ? yB - p.czMm * s
+      : undefined;
+  const neutralX =
+    p.cyMm !== undefined && Number.isFinite(p.cyMm) && p.cyMm > 0 && p.cyMm < p.b2Mm
+      ? b2Left + p.cyMm * s
+      : undefined;
+  if (neutralY !== undefined) {
+    els.push(ln(cx - (maxB * s) / 2 - 22, neutralY, cx + (maxB * s) / 2 + 22, neutralY, DCOL.accent, 1, "6,3"));
+  }
+  if (neutralX !== undefined) {
+    els.push(ln(neutralX, y1 - 12, neutralX, yB + 16, DCOL.accent, 1, "6,3"));
+  }
 
   // --- Plaka etiketleri (sol: t1/t3/t5, sağ: t2/t4/t6 — çakışma önleme aralıklı)
   // Web kapsayıcısının 8 px iç dolgusu dâhil 840 px'lik çalışma alanına
@@ -310,24 +328,24 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
           {
             y: g.yTop + (tp.topThk * s) / 2,
             edgeX: g.railCx - (tp.topW * s) / 2,
-            text: `T profil üst sacı  tT = ${fmtN(tp.topThk)}`,
+            text: `T Profil Üst Sacı  tT = ${fmtN(tp.topThk)}`,
             ink: INK.tp,
           },
           {
             y: g.yTWebTop + (tp.webH * s) / 2,
             edgeX: g.railCx - (tp.webThk * s) / 2,
-            text: `T profil yan sacı  tTy = ${fmtN(tp.webThk)}`,
+            text: `T Profil Yan Sacı  tTy = ${fmtN(tp.webThk)}`,
             ink: INK.tp,
           },
         ]
       : [{
           y: y1 + (g.t1Mm * s) / 2,
           edgeX: g.railCx - (g.b1Mm * s) / 2,
-          text: `ray altı sacı  t1 = ${fmtN(g.t1Mm)}`,
+          text: `Ray Altı Sacı  t1 = ${fmtN(g.t1Mm)}`,
           ink: INK.top,
         }]),
-    { y: yWebTop + mainWebH * 0.42, edgeX: web1X, text: `gövde sacı  t3 = ${fmtN(p.t3Mm)}`, ink: INK.web },
-    { y: y5 + (p.t5Mm * s) / 2, edgeX: plateCx - (p.b5Mm * s) / 2, text: `alt başlık  t5 = ${fmtN(p.t5Mm)}`, ink: INK.bottom },
+    { y: yWebTop + mainWebH * 0.42, edgeX: web1X, text: `Gövde Sacı  t3 = ${fmtN(p.t3Mm)}`, ink: INK.web },
+    { y: y5 + (p.t5Mm * s) / 2, edgeX: plateCx - (p.b5Mm * s) / 2, text: `Alt Başlık  t5 = ${fmtN(p.t5Mm)}`, ink: INK.bottom },
   ];
   const leftYs = spread(leftItems.map((i) => i.y));
   leftItems.forEach((it, i) => {
@@ -337,9 +355,9 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
 
   // Sağ etiketler (açıklayıcı ad + sembol)
   const rightItems = [
-    { y: y2 + (p.t2Mm * s) / 2, edgeX: plateCx + (p.b2Mm * s) / 2, text: `t2 = ${fmtN(p.t2Mm)}  iç başlık`, ink: INK.top },
-    { y: g.yWebZoneTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}  gövde sacı`, ink: INK.web },
-    { y: y6 + (p.t6Mm * s) / 2, edgeX: plateCx + (p.b6Mm * s) / 2, text: `t6 = ${fmtN(p.t6Mm)}  ek flanş`, ink: INK.bottom },
+    { y: y2 + (p.t2Mm * s) / 2, edgeX: plateCx + (p.b2Mm * s) / 2, text: `t2 = ${fmtN(p.t2Mm)}  İç Başlık`, ink: INK.top },
+    { y: g.yWebZoneTop + (p.h3Mm * s) * 0.32, edgeX: web2X + p.t4Mm * s, text: `t4 = ${fmtN(p.t4Mm)}  Gövde Sacı`, ink: INK.web },
+    { y: y6 + (p.t6Mm * s) / 2, edgeX: plateCx + (p.b6Mm * s) / 2, text: `t6 = ${fmtN(p.t6Mm)}  Ek Flanş`, ink: INK.bottom },
   ];
   const rightYs = spread(rightItems.map((i) => i.y));
   rightItems.forEach((it, i) => {
@@ -375,13 +393,36 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   dimV(els, hX, g.yTop, yB, `h = ${fmtN(totalH)}`);
   // a — gövde sacları arası (net açıklık, geometriden)
   if (p.aMm > 0 && p.h3Mm > 0) {
-    dimH(els, web1X + p.t3Mm * s, web2X, yWebTop + (p.h3Mm * s) * 0.62, `gövde arası a = ${fmtN(p.aMm)}`, { size: 8.5, labelColor: INK.geo });
+    dimH(
+      els,
+      web1X + p.t3Mm * s,
+      web2X,
+      yWebTop + (p.h3Mm * s) * 0.62,
+      `Gövde Arası a = ${fmtN(p.aMm)}`,
+      {
+        size: 8.5,
+        labelColor: INK.geo,
+        // Ray ekseni/Cy ekseni kutunun içinden geçebilir; yazı için ayrı,
+        // opak bir kâğıt şerit bırakılır.
+        clearLabel: true,
+      }
+    );
   }
   // h3 — gövde (web) yüksekliği — sağ iç. T profil varsa ANA gövde kısaldığı
   // için ölçü DIŞ gövde sacında (tam boy) gösterilir, yanına da kısalmış ana
   // gövdenin boyu yazılır; ikisini tek okla göstermek yanlış olurdu.
   if (p.h3Mm > 0) {
-    dimV(els, web2X - 12, g.yWebZoneTop, yWebBottom, `h3 = ${fmtN(p.h3Mm)}`, { labelSide: "left", size: 8.5, labelColor: INK.web });
+    // Ölçü, ana gövdenin hemen sağındaki boş şeritte durur. Eski konum sağ
+    // gövdeye yakındı; h3 yazısı Cy ekseniyle, ölçü çizgisi de t4 etiketiyle
+    // kesişiyordu.
+    dimV(
+      els,
+      web1X + p.t3Mm * s + 12,
+      g.yWebZoneTop,
+      yWebBottom,
+      `h3 = ${fmtN(p.h3Mm)}`,
+      { labelSide: "right", size: 8.5, labelColor: INK.web, clearLabel: true }
+    );
     if (tp.present) {
       const h3MainMm = Math.round(((yWebBottom - yWebTop) / s) * 10) / 10;
       dimV(els, web1X - 12, yWebTop, yWebBottom, `h3' = ${fmtN(h3MainMm)}`, {
@@ -408,19 +449,16 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     }
   }
 
-  // --- Tarafsız eksen (kırmızı kesikli)
-  if (p.czMm !== undefined && Number.isFinite(p.czMm) && p.czMm > 0 && p.czMm < totalH) {
-    const yNA = yB - p.czMm * s;
-    els.push(ln(cx - (maxB * s) / 2 - 22, yNA, cx + (maxB * s) / 2 + 22, yNA, DCOL.accent, 1, "6,3"));
-    els.push(txt(cx - (maxB * s) / 2 - 26, yNA + 3, `T.E. — Cz = ${fmtN(p.czMm)} mm`, 9, {
+  // Tarafsız eksen ETİKETLERİ en sonda kalır; çizgiler yukarıda, metinlerin
+  // arkasında boyandı.
+  if (neutralY !== undefined) {
+    els.push(txt(cx - (maxB * s) / 2 - 26, neutralY + 3, `T.E. — Cz = ${fmtN(p.czMm)} mm`, 9, {
       anchor: "end", fill: DCOL.accent,
     }));
   }
-  if (p.cyMm !== undefined && Number.isFinite(p.cyMm) && p.cyMm > 0 && p.cyMm < p.b2Mm) {
-    const xNA = b2Left + p.cyMm * s;
-    els.push(ln(xNA, y1 - 12, xNA, yB + 16, DCOL.accent, 1, "6,3"));
+  if (neutralX !== undefined) {
     // Etiket alt başlık plakasının altına iner (üstünde plakayla çakışıyordu)
-    els.push(txt(xNA + 4, yB + 14, `Cy = ${fmtN(p.cyMm)} mm`, 9, { fill: DCOL.accent }));
+    els.push(txt(neutralX + 4, yB + 14, `Cy = ${fmtN(p.cyMm)} mm`, 9, { fill: DCOL.accent }));
   }
 
   // --- Temel kesit özeti (kullanıcı kararı: şemanın sağında, kısa liste)
@@ -430,18 +468,21 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     bold: true, fill: DCOL.accent,
   }));
   const propertyRows: [string, string][] = [
-    ["Kesit alanı A", `${fmtN(p.areaCm2, 2)} cm²`],
-    ["Birim ağırlık G", `${fmtN(p.weightPerM, 2)} kg/m`],
-    ["Kuvvetli eksen ataleti Iyy", `${fmtN(p.iyyCm4, 0)} cm⁴`],
-    ["Ağırlık merkezi Cz", `${fmtN(p.czMm, 1)} mm`],
-    ["Ağırlık merkezi Cy", `${fmtN(p.cyMm, 1)} mm`],
-    ["Vinç açıklığı L", `${fmtN(p.spanM, 2)} m`],
+    ["Kesit Alanı A", `${fmtN(p.areaCm2, 2)} cm²`],
+    ["Birim Ağırlık G", `${fmtN(p.weightPerM, 2)} kg/m`],
+    ["Kuvvetli Eksen Ataleti Iyy", `${fmtN(p.iyyCm4, 0)} cm⁴`],
+    ["Ağırlık Merkezi Cz", `${fmtN(p.czMm, 1)} mm`],
+    ["Ağırlık Merkezi Cy", `${fmtN(p.cyMm, 1)} mm`],
+    ["Vinç Açıklığı L", `${fmtN(p.spanM, 2)} m`],
   ];
   propertyRows.forEach(([label, value], index) => {
-    const y = 116 + index * 39;
-    els.push(txt(panelX, y, label, 8.5, { fill: DCOL.muted }));
-    els.push(txt(780, y, value, 9.5, { anchor: "end", bold: true }));
-    els.push(ln(panelX, y + 11, 780, y + 11, DCOL.line, 0.7));
+    // Başlık ve değer ayrı satırlardadır. Özellikle uzun "Kuvvetli eksen
+    // ataleti Iyy" etiketi aynı satırdaki büyük sayı ile üst üste geliyordu.
+    const labelY = 108 + index * 39;
+    const valueY = labelY + 15;
+    els.push(txt(panelX, labelY, label, 8.5, { fill: DCOL.muted }));
+    els.push(txt(780, valueY, value, 9.5, { anchor: "end", bold: true }));
+    els.push(ln(panelX, valueY + 7, 780, valueY + 7, DCOL.line, 0.7));
   });
   els.push({
     kind: "rect", x: panelX, y: 357, w: 190, h: 65,
@@ -450,7 +491,7 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   els.push(txt(panelX + 12, 377, "YAKLAŞIK ANA KİRİŞ AĞIRLIĞI", 8.5, {
     fill: DCOL.accent, bold: true,
   }));
-  els.push(txt(panelX + 12, 395, "G · L · 1,15 (yaklaşık perde payı)", 8, {
+  els.push(txt(panelX + 12, 395, "G · L · 1,15 (Yaklaşık Perde Payı)", 8, {
     fill: DCOL.muted,
   }));
   els.push(txt(770, 411, `${fmtN(p.approxGirderWeightKg, 0)} kg`, 11, {

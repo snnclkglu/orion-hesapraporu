@@ -19,7 +19,7 @@
 
 import { brakeArrangementOf } from "../calc/safety-brake";
 import {
-  DCOL, type Diagram, type DiagramEl,
+  DCOL, type Diagram, type DiagramEl, diagramTitleCase,
   arrowHead, caption, fitDiagram, fmtN, ln, txt,
 } from "./model";
 
@@ -130,12 +130,12 @@ export function safetyBrakeDiagram(p: SafetyBrakeParams): Diagram {
   caption(
     els,
     "EMNİYET FRENİ — TAMBUR MONTAJI VE ÖLÇÜLER",
-    [p.model, arr.label].filter(Boolean).join(" · ") || "ölçüler mm",
+    diagramTitleCase([p.model, arr.label].filter(Boolean).join(" · ")) || "Ölçüler mm",
   );
 
   const { flangeDiaMm: dF, minFlangeDiaMm: dMin, drumDiaMm: dD } = p;
   if (!(dF > 0) || !(dD > 0) || !Number.isFinite(dMin)) {
-    els.push(txt(W / 2, H / 2, "Flanş / tambur ölçüleri hesaplanamadı", 11, {
+    els.push(txt(W / 2, H / 2, "Flanş / Tambur Ölçüleri Hesaplanamadı", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -183,7 +183,7 @@ export function safetyBrakeDiagram(p: SafetyBrakeParams): Diagram {
     );
   };
   radial(rD, aD, `Ø${fmtN(dD)}`, DCOL.muted);
-  radial(rMinReq, aMin, `Ø${fmtN(dMin)} min.`, ok ? DCOL.muted : DCOL.accent);
+  radial(rMinReq, aMin, `Ø${fmtN(dMin)} Min.`, ok ? DCOL.muted : DCOL.accent);
   radial(rF, aF, `Ø${fmtN(dF)}`, DCOL.ink);
 
   // --- Sağ sütun: sayısal özet -------------------------------------------
@@ -206,26 +206,26 @@ export function safetyBrakeDiagram(p: SafetyBrakeParams): Diagram {
     ly += 13;
   };
 
-  if (p.model) row("Fren modeli", p.model, DCOL.ink, true);
+  if (p.model) row("Fren Modeli", p.model, DCOL.ink, true);
   row("Yerleşim", arr.code);
-  row("Kaliper adedi", `${arr.angles.length}`);
+  row("Kaliper Adedi", `${arr.angles.length}`);
   rule();
-  row("Tambur çapı", `Ø${fmtN(dD)} mm`);
-  row("Minimum flanş çapı", `Ø${fmtN(dMin)} mm`);
-  row("Seçilen flanş çapı", `Ø${fmtN(dF)} mm`, ok ? DCOL.ink : DCOL.accent, true);
-  if (p.minThicknessMm) row("Minimum flanş kalınlığı", `${fmtN(p.minThicknessMm)} mm`);
+  row("Tambur Çapı", `Ø${fmtN(dD)} mm`);
+  row("Minimum Flanş Çapı", `Ø${fmtN(dMin)} mm`);
+  row("Seçilen Flanş Çapı", `Ø${fmtN(dF)} mm`, ok ? DCOL.ink : DCOL.accent, true);
+  if (p.minThicknessMm) row("Minimum Flanş Kalınlığı", `${fmtN(p.minThicknessMm)} mm`);
   if (p.thicknessMm) {
     const tOk = !p.minThicknessMm || p.thicknessMm >= p.minThicknessMm;
-    row("Seçilen flanş kalınlığı", `${fmtN(p.thicknessMm)} mm`, tOk ? DCOL.ink : DCOL.accent, true);
+    row("Seçilen Flanş Kalınlığı", `${fmtN(p.thicknessMm)} mm`, tOk ? DCOL.ink : DCOL.accent, true);
   }
   rule();
-  if (p.torqueEachNm) row("Bir kaliperin momenti", `${fmtN(p.torqueEachNm)} Nm`);
-  if (p.totalTorqueNm) row("Toplam frenleme momenti", `${fmtN(p.totalTorqueNm)} Nm`, DCOL.ink, true);
-  if (p.demandTorqueNm) row("İstenen moment", `${fmtN(p.demandTorqueNm)} Nm`);
+  if (p.torqueEachNm) row("Bir Kaliperin Momenti", `${fmtN(p.torqueEachNm)} Nm`);
+  if (p.totalTorqueNm) row("Toplam Frenleme Momenti", `${fmtN(p.totalTorqueNm)} Nm`, DCOL.ink, true);
+  if (p.demandTorqueNm) row("İstenen Moment", `${fmtN(p.demandTorqueNm)} Nm`);
   if (p.hydraulicUnit && p.hydraulicUnit !== "—") {
     rule();
-    row("Hidrolik ünite", p.hydraulicUnit, DCOL.ink, true);
-    if (p.hydraulicPressureBar) row("Açma basıncı", `${fmtN(p.hydraulicPressureBar)} bar`);
+    row("Hidrolik Ünite", p.hydraulicUnit, DCOL.ink, true);
+    if (p.hydraulicPressureBar) row("Açma Basıncı", `${fmtN(p.hydraulicPressureBar)} bar`);
   }
 
   // --- Sonuç satırları ----------------------------------------------------
@@ -238,14 +238,14 @@ export function safetyBrakeDiagram(p: SafetyBrakeParams): Diagram {
     els.push(txt(lx, ly, label, 8.5, { fill: good ? GREEN : DCOL.accent, bold: true }));
     ly += 14;
   };
-  verdict(ok ? "Flanş çapı yeterli ✓" : "Flanş çapı YETERSİZ ✗", ok);
+  verdict(ok ? "Flanş Çapı Yeterli ✓" : "Flanş Çapı YETERSİZ ✗", ok);
   if (torqueOk !== undefined) {
     verdict(
-      torqueOk ? "Frenleme momenti yeterli ✓" : "Frenleme momenti YETERSİZ ✗",
+      torqueOk ? "Frenleme Momenti Yeterli ✓" : "Frenleme Momenti YETERSİZ ✗",
       torqueOk
     );
   }
-  els.push(txt(lx, ly + 2, "min. flanş = maks(katalog ; tambur + Δ) + pay", 7, {
+  els.push(txt(lx, ly + 2, "Min. Flanş = Maks(Katalog ; Tambur + Δ) + Pay", 7, {
     fill: DCOL.muted,
   }));
 

@@ -943,8 +943,11 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
       "Denge traversinde her yiv ayrı halattır. Denge makarasındaysa iki yivin boyu tek sürekli halatta birleşir.",
   },
   {
-    key: "ropeOrderLengthM", label: "Halat Boyu", unit: "m", type: "number",
+    key: "ropeOrderLengthM", label: "Toplam Halat Boyu", unit: "m", type: "number",
+    hint: "Halat adedi × halat boyu = toplam halat boyu.",
     info:
+      "Halat adedi × tek halat boyu = toplam halat boyu. Bu kutu tek bir " +
+      "halatın boyunu değil, bütün halat parçalarının toplam sipariş boyunu gösterir.\n\n" +
       "Ham toplam boy: L_ham = L_yiv × n_tahrik.\n\n" +
       "Parça boyu = L_ham / n_parça. Her halat parçası eksik siparişe yol " +
       "açmaması için yukarı tam metreye yuvarlanır; otomatik toplam sipariş " +

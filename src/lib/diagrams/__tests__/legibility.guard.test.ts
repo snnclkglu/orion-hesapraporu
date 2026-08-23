@@ -86,6 +86,25 @@ function textCollisions(d: Diagram): string[] {
 }
 
 /**
+ * Şemadaki açıklama/nesne adlarında tamamen küçük yazılmış kelimeler okunmaz.
+ * Formül indisleri (σx,alt gibi) ile iki harfli birimler (mm, kg, cm) bu yazım
+ * kuralının konusu değildir; kullanıcıya dönük doğal dil etiketleri konudur.
+ */
+function lowercaseProseWords(text: string): string[] {
+  if (/[στψδλφπ]/u.test(text) && text.includes("=")) return [];
+  const unitWords = new Set(["mm", "cm", "kg", "bar", "rpm", "mrad", "fd"]);
+  return [...text.matchAll(/\p{L}+/gu)]
+    .map((match) => ({ word: match[0], index: match.index ?? 0 }))
+    .filter(({ word, index }) => {
+      if (word.length <= 1 || unitWords.has(word)) return false;
+      if (/[στψδλφπηµνρ]/u.test(word)) return false;
+      if (text[index - 1] === "_") return false;
+      return word === word.toLocaleLowerCase("tr-TR");
+    })
+    .map(({ word }) => word);
+}
+
+/**
  * İKİ FİKSTÜR gerekir. V5 şablonunda kabin de elektrik mahali de KAPALIDIR
  * (`electricalAccommodationType: "none"`), dolayısıyla 11.x mahal şemaları hiç
  * üretilmez — kapsam sessizce o üç diyagramı atlıyordu. İkinci fikstür kabini
@@ -213,5 +232,20 @@ describe("şema okunurluğu", () => {
       }
     }
     expect(tasan, tasan.join("\n")).toEqual([]);
+  });
+
+  it("açıklama ve nesne adlarında tamamen küçük yazılmış kelime bırakmaz", () => {
+    const firstByText = new Map<string, string>();
+    for (const { where, diagram } of ALL) {
+      for (const el of diagram.els) {
+        if (el.kind !== "text") continue;
+        const words = lowercaseProseWords(el.text);
+        if (words.length > 0 && !firstByText.has(el.text)) {
+          firstByText.set(el.text, `${where}: "${el.text}" → ${words.join(", ")}`);
+        }
+      }
+    }
+    const sorunlu = [...firstByText.values()];
+    expect(sorunlu, sorunlu.join("\n")).toEqual([]);
   });
 });

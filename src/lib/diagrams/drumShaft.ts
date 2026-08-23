@@ -57,7 +57,7 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
   };
   const span = seg.A + seg.B + seg.C + seg.D + seg.E + seg.F + seg.G;
   if (!(span > 0)) {
-    els.push(txt(W / 2, H / 2, "Tambur mili ölçü zinciri (A…G) eksik", 11, {
+    els.push(txt(W / 2, H / 2, "Tambur Mili Ölçü Zinciri (A…G) Eksik", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -194,7 +194,7 @@ export function drumShaftDiagram(p: DrumShaftParams): Diagram {
       txt(
         W / 2,
         H + 8,
-        `T = ${fmtN(p.ropeLoadKg)} kg (her yiv bölgesinde)   ·   gri bant: halatın yiv boyunca gezinme aralığı`,
+        `T = ${fmtN(p.ropeLoadKg)} kg (Her Yiv Bölgesinde)   ·   Gri Bant: Halatın Yiv Boyunca Gezinme Aralığı`,
         8,
         { anchor: "middle", fill: DCOL.muted }
       )

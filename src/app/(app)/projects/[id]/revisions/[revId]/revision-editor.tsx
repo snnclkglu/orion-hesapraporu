@@ -30,6 +30,7 @@ import {
   specGroupVisibleForModules,
 } from "@/lib/calc/fields";
 import { travelApplicationClass } from "@/lib/calc/derive";
+import { drumBrakeSpec, drumBrakeWeightText } from "@/lib/calc/drum-brake";
 import { travelBufferCatalogTypes, travelSpecView } from "@/lib/calc/modules/travelGroup";
 import { parseHoistLoadClass } from "@/lib/calc/types";
 import { checkAnchor } from "@/lib/calc/presentation/check-anchors";
@@ -307,39 +308,45 @@ function Field({
     // taşıyordu. Sıfırlanınca sütun küçülebiliyor, metin de kırpılıyor.
     <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
       <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span>
-          {fieldLabel(def, specs)}
-          {def.unit ? (
-            <>
-              {" "}
-              <span className="font-mono">[{toDisplayUnitLabel(def.unit)}]</span>
-            </>
-          ) : null}
+        {/* Etiket ile bilgi düğmesi tek bir satır içi öbektir. Düğme ayrı flex
+            öğesiyken sütunun sonuna sığmayıp tek başına alt satıra düşüyordu;
+            metin gerekirse kendi içinde sarar, bilgi simgesi ise etiketten
+            kopmaz. `shrink-0` simgenin daire biçimini de korur. */}
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0">
+            {fieldLabel(def, specs)}
+            {def.unit ? (
+              <>
+                {" "}
+                <span className="font-mono">[{toDisplayUnitLabel(def.unit)}]</span>
+              </>
+            ) : null}
+          </span>
+          {def.info && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`${fieldLabel(def, specs)} bilgi notu`}
+                  title="Bilgi notunu aç"
+                  className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+                >
+                  i
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="max-h-[min(70dvh,34rem)] w-[min(34rem,calc(100vw-2rem))] overflow-y-auto">
+                <div className="mb-2 text-xs font-semibold text-foreground">
+                  {fieldLabel(def, specs)} · Bilgi Notu
+                </div>
+                <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                  {def.info}
+                </p>
+              </PopoverContent>
+            </Popover>
+          )}
         </span>
         {def.standardRef && (
           <StandardRefBadge code={def.standardRef} context={context} />
-        )}
-        {def.info && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${fieldLabel(def, specs)} bilgi notu`}
-                title="Bilgi notunu aç"
-                className="inline-flex size-5 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
-              >
-                i
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-[min(70dvh,34rem)] w-[min(34rem,calc(100vw-2rem))] overflow-y-auto">
-              <div className="mb-2 text-xs font-semibold text-foreground">
-                {fieldLabel(def, specs)} · Bilgi Notu
-              </div>
-              <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                {def.info}
-              </p>
-            </PopoverContent>
-          </Popover>
         )}
         {auto && (
           <button
@@ -602,33 +609,35 @@ function ReadonlyInfoField({
   return (
     <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
       <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span>
-          {label}
-          {unit ? <> <span className="font-mono">[{unit}]</span></> : null}
-        </span>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={`${label} bilgi notu`}
-              title="Bilgi notunu aç"
-              className="inline-flex size-5 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0">
+            {label}
+            {unit ? <> <span className="font-mono">[{unit}]</span></> : null}
+          </span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={`${label} bilgi notu`}
+                title="Bilgi notunu aç"
+                className="oc-tap-square inline-flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+              >
+                i
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-[min(28rem,calc(100vw-2rem))]"
             >
-              i
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-[min(28rem,calc(100vw-2rem))]"
-          >
-            <div className="mb-2 text-xs font-semibold text-foreground">
-              {label} · Bilgi Notu
-            </div>
-            <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-              {info}
-            </p>
-          </PopoverContent>
-        </Popover>
+              <div className="mb-2 text-xs font-semibold text-foreground">
+                {label} · Bilgi Notu
+              </div>
+              <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                {info}
+              </p>
+            </PopoverContent>
+          </Popover>
+        </span>
       </span>
       <div className="grid min-w-0 content-start gap-1">
         <div className="flex h-8 items-center border bg-muted/30 px-3 font-mono text-sm tabular-nums text-foreground pointer-coarse:h-10">
@@ -2037,6 +2046,30 @@ export function RevisionEditor({
     const ropeOrderCells = isHoistKey(key) && section.rawId === "2.2.2"
       ? moduleResult(key)?.cells
       : undefined;
+    // FREN AĞIRLIĞI — Fren Adedi kutusunun yanında, katalogdan otomatik.
+    //
+    // Katalogun kg* sütunu İTİCİ HARİÇTİR; mühendisin istediği sayı fren +
+    // itici toplamıdır. Kutu bu yüzden bir SEÇİM ALANI değil türetilmiş bir
+    // gösterimdir: elle girilecek bir şey yok, ölçü defteri seçilen model
+    // kodundan okur (`lib/calc/drum-brake.ts`). Defterde karşılığı olmayan
+    // frende (kaliperli/elektromanyetik, TE 160 gibi ayrı ölçü resmi, elle
+    // yazılmış kod) kutu HİÇ GÖRÜNMEZ — uydurma ağırlık yazılmaz (md. 4).
+    //
+    // Kimlik alanı iki bölümde farklıdır: kaldırmada ayrı `brakeModel`,
+    // köprü yürütmede birleşik `brakeBrand` ("MARKA MODEL").
+    const brakeWeight = (() => {
+      const isBrakeSection =
+        (isHoistKey(key) && section.rawId === "2.5") ||
+        (isTravelKey(key) && section.rawId === "5.5b");
+      if (!isBrakeSection) return undefined;
+      const s = mods[key].selections as Record<string, unknown>;
+      const spec =
+        drumBrakeSpec(typeof s.brakeModel === "string" ? s.brakeModel : undefined) ??
+        drumBrakeSpec(typeof s.brakeBrand === "string" ? s.brakeBrand : undefined);
+      if (!spec) return undefined;
+      const qty = typeof s.brakeQty === "number" && s.brakeQty > 0 ? Math.round(s.brakeQty) : 0;
+      return { spec, qty };
+    })();
     const { byRow, rest } = distributeChecks(key, section);
     const scopedInputs = section.inputScope ? section.inputScope.get(inputs) : inputs;
     // `visibleWhen`: alan MODÜLÜN KENDİ girdilerine bağlıdır (ör. ray altı T
@@ -2702,6 +2735,53 @@ export function RevisionEditor({
                     />
                     )
                   )}
+                  {brakeWeight && (
+                    <ReadonlyInfoField
+                      label={brakeWeight.qty > 0 ? "Fren Ağırlığı — Toplam" : "Fren Ağırlığı"}
+                      unit="kg"
+                      value={
+                        brakeWeight.qty > 0
+                          ? drumBrakeWeightText(
+                              brakeWeight.spec.totalWeightKg,
+                              brakeWeight.spec.totalWeightMaxKg,
+                              brakeWeight.qty
+                            )
+                          : drumBrakeWeightText(
+                              brakeWeight.spec.totalWeightKg,
+                              brakeWeight.spec.totalWeightMaxKg
+                            )
+                      }
+                      info={
+                        `${brakeWeight.spec.model} · ${brakeWeight.spec.thruster}\n\n` +
+                        `Fren (itici hariç): ${brakeWeight.spec.brakeWeightKg} kg\n` +
+                        `İtici (Eldro): ${drumBrakeWeightText(
+                          brakeWeight.spec.thrusterWeightKg,
+                          brakeWeight.spec.thrusterWeightMaxKg
+                        )} kg\n` +
+                        `Bir fren toplam: ${drumBrakeWeightText(
+                          brakeWeight.spec.totalWeightKg,
+                          brakeWeight.spec.totalWeightMaxKg
+                        )} kg` +
+                        (brakeWeight.qty > 0
+                          ? `\n${brakeWeight.qty} adet: ${drumBrakeWeightText(
+                              brakeWeight.spec.totalWeightKg,
+                              brakeWeight.spec.totalWeightMaxKg,
+                              brakeWeight.qty
+                            )} kg`
+                          : "") +
+                        "\n\nÜretici kataloğu frenin ağırlığını İTİCİ HARİÇ verir " +
+                        "(tablo dipnotu: kg without thruster); itici ağırlığı Eldro " +
+                        "teknik değerler tablosundan gelir ve buradaki sayı ikisinin " +
+                        "toplamıdır." +
+                        (brakeWeight.spec.thrusterWeightMaxKg !== undefined
+                          ? " Bu itici boyunda katalog ağırlığı ARALIK verir (strok " +
+                            "aralığı boyunca değişir); TE frenlerinde kullanılan tip 60 mm " +
+                            "stroklu olduğu için aralığın tamamı gösterilir, tek bir sayıya " +
+                            "indirilmez."
+                          : "")
+                      }
+                    />
+                  )}
                   {ropeOrderCells && (
                     <ReadonlyInfoField
                       label="Helis"
@@ -2727,7 +2807,18 @@ export function RevisionEditor({
                     .map((f) => (
                       <Field
                         key={f.key}
-                        def={f}
+                        def={{
+                          ...f,
+                          // Bu alan TEK halat boyu değil TOPLAM sipariş boyudur.
+                          // Sayısal bağıntıyı kutunun altında canlı göstererek
+                          // ekipman listesindeki "m/adet" değeriyle karışmasını
+                          // önleriz: 4 adet × 58 m/adet = 232 m gibi.
+                          hint:
+                            "Halat adedi × halat boyu = toplam halat boyu: " +
+                            `${fmt(Number(ropeOrderCells["rope.pieceCount"] ?? 0), 0)} adet × ` +
+                            `${fmt(Number(ropeOrderCells["rope.lengthPerPiece"] ?? 0))} m/adet = ` +
+                            `${fmt(Number(ropeOrderCells["rope.totalLength"] ?? 0))} m.`,
+                        }}
                         value={sel}
                         onChange={(next) => setModuleSelections(key, next)}
                         disabled={readOnly}

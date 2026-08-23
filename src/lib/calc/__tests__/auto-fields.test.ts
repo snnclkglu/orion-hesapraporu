@@ -81,6 +81,17 @@ describe("motor ve tahrik adet alanları", () => {
   });
 });
 
+describe("halat sipariş boyu alanı", () => {
+  it("tek halat boyu sanılmaması için toplamı açıkça adlandırır", () => {
+    const field = HOIST_SELECTION_FIELDS.find((item) => item.key === "ropeOrderLengthM");
+    expect(field).toMatchObject({
+      label: "Toplam Halat Boyu",
+      hint: "Halat adedi × halat boyu = toplam halat boyu.",
+    });
+    expect(field?.info).toContain("tek bir halatın boyunu değil");
+  });
+});
+
 // --------------------------------------------------------- 1. Makara verimi
 
 describe("makara verimi otomatiği", () => {

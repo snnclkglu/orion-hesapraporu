@@ -23,10 +23,10 @@ const H = 260;
 
 export function drumDiagram(p: DrumParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "TAMBUR", "çap · et · yiv · mil");
+  caption(els, "TAMBUR", "Çap · Et · Yiv · Mil");
 
   if (!(p.drumDiaMm > 0)) {
-    els.push(txt(W / 2, H / 2, "Tambur çapı seçilmedi", 11, { anchor: "middle", fill: DCOL.muted }));
+    els.push(txt(W / 2, H / 2, "Tambur Çapı Seçilmedi", 11, { anchor: "middle", fill: DCOL.muted }));
     return fitDiagram(els, W, H);
   }
 
@@ -79,7 +79,7 @@ export function drumDiagram(p: DrumParams): Diagram {
   // Halat (kırmızı) tamburun üstünde bir yive oturur
   const rx = (gx0 + gx1) / 2;
   els.push({ kind: "circle", cx: rx, cy: top - 4, r: 4, fill: "#FBEDEC", stroke: DCOL.accent, strokeWidth: 1.2 });
-  els.push(txt(rx + 8, top - 4, `halat Ø${fmtN(p.ropeDiaMm, 1)} mm`, 8, { fill: DCOL.accent }));
+  els.push(txt(rx + 8, top - 4, `Halat Ø${fmtN(p.ropeDiaMm, 1)} mm`, 8, { fill: DCOL.accent }));
 
   // Çap ölçüsü (dikey, sağ yanak dışında)
   dimV(els, bx2 + flangeW + 34, top, bot, `D_d = ${fmtN(p.drumDiaMm)} mm`, { labelSide: "right" });
@@ -87,8 +87,8 @@ export function drumDiagram(p: DrumParams): Diagram {
   // Bilgi kutusu
   const infoY = 224;
   const parts: string[] = [];
-  if (p.minDiaMm) parts.push(`Min. çap  D_min = H·d = ${fmtN(p.minDiaMm)} mm`);
-  if (p.wallThicknessMm) parts.push(`Yiv dibi et  s = ${fmtN(p.wallThicknessMm, 1)} mm`);
+  if (p.minDiaMm) parts.push(`Min. Çap  D_min = H·d = ${fmtN(p.minDiaMm)} mm`);
+  if (p.wallThicknessMm) parts.push(`Yiv Dibi Et  s = ${fmtN(p.wallThicknessMm, 1)} mm`);
   if (p.material) parts.push(`Malzeme  ${p.material}`);
   els.push(txt(bx1 - flangeW, infoY, parts.join("      "), 8.5, { fill: DCOL.ink }));
   if (p.minDiaMm && p.drumDiaMm >= p.minDiaMm) {

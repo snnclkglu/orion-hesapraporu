@@ -47,15 +47,15 @@ export function camberStripDiagram(p: CamberStripParams): Diagram {
   els.push(
     txt(
       16, 34,
-      `ters sehim kotları [mm] · perde aralığı ${fmtN(p.spacingMm)} mm` +
-        (p.thinned ? " (şeride sığması için seyreltildi)" : ""),
+      `Ters Sehim Kotları [mm] · Perde Aralığı ${fmtN(p.spacingMm)} mm` +
+        (p.thinned ? " (Şeride Sığması İçin Seyreltildi)" : ""),
       8, { fill: DCOL.muted }
     )
   );
   els.push(ln(16, 40, W - 16, 40, DCOL.line, 0.8));
 
   if (stations.length < 3 || !(p.spanMm > 0)) {
-    els.push(txt(W / 2, 120, "Kamber kotları hesaplanamadı", 11, {
+    els.push(txt(W / 2, 120, "Kamber Kotları Hesaplanamadı", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -76,9 +76,9 @@ export function camberStripDiagram(p: CamberStripParams): Diagram {
   pushGirderOutline(els, xL, xR, yTop, yBot);
 
   els.push(txt(16, yCut, "KESİMDE", 8.5, { fill: DCOL.accent, bold: true }));
-  els.push(txt(16, yCut + 11, "kesim kotu", 6.5, { fill: DCOL.muted }));
+  els.push(txt(16, yCut + 11, "Kesim Kotu", 6.5, { fill: DCOL.muted }));
   els.push(txt(16, ySup, "MESNETTE", 8.5, { fill: DCOL.accent, bold: true }));
-  els.push(txt(16, ySup + 11, "ölçüm kotu", 6.5, { fill: DCOL.muted }));
+  els.push(txt(16, ySup + 11, "Ölçüm Kotu", 6.5, { fill: DCOL.muted }));
 
   // Kot yazıları birbirine girmesin: yazı boyu istasyon sayısına göre küçülür.
   const size = stations.length <= 15 ? 8.5 : stations.length <= 25 ? 7 : 5.8;
@@ -118,7 +118,7 @@ export function camberStripDiagram(p: CamberStripParams): Diagram {
 
   // Açıklık bilgisi
   els.push(
-    txt(W / 2, 266, `L = ${fmtN(p.spanMm / 1000, 2)} m · ${stations.length} perde ekseni · kotlar mm`, 8, {
+    txt(W / 2, 266, `L = ${fmtN(p.spanMm / 1000, 2)} m · ${stations.length} Perde Ekseni · Kotlar mm`, 8, {
       anchor: "middle", fill: DCOL.muted,
     })
   );

@@ -42,8 +42,8 @@ function doubleDrumReevingDiagram(p: ReevingParams, nd: number, nf: number): Dia
   caption(
     els,
     `HALAT DONANIMI · ${fmtN(nd, 0)}/${fmtN(nf, 0)} → SOL ${sideLabel} + SAĞ ${sideLabel}`,
-    `Ortak redüktör · iki simetrik tambur · ${
-      hookSystem === "liftingBeam" ? "tek kaldırma kirişi" : "iki eşit kanca bloğu"
+    `Ortak Redüktör · İki Simetrik Tambur · ${
+      hookSystem === "liftingBeam" ? "Tek Kaldırma Kirişi" : "İki Eşit Kanca Bloğu"
     }`
   );
 
@@ -147,7 +147,7 @@ function doubleDrumReevingDiagram(p: ReevingParams, nd: number, nf: number): Dia
       els.push(txt(block.cx + 10, yHook + 48, `Q/2 = ${fmtN(halfCapacity, 2)} t`, 9.5, {
         fill: DCOL.accent, bold: true,
       }));
-      els.push(txt(block.cx, yHook + 76, `Kanca bloğu · ${sideLabel}`, 8.5, {
+      els.push(txt(block.cx, yHook + 76, `Kanca Bloğu · ${sideLabel}`, 8.5, {
         anchor: "middle", fill: DCOL.muted,
       }));
     }
@@ -173,7 +173,7 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   );
 
   if (!(p.totalFalls > 0)) {
-    els.push(txt(W / 2, H / 2, "Donanım girdileri eksik", 11, { anchor: "middle", fill: DCOL.muted }));
+    els.push(txt(W / 2, H / 2, "Donanım Girdileri Eksik", 11, { anchor: "middle", fill: DCOL.muted }));
     return fitDiagram(els, W, H);
   }
 
@@ -292,7 +292,7 @@ export function reevingDiagram(p: ReevingParams): Diagram {
   }
   if (beamAnchors.length > 0) {
     const right = beamAnchors[beamAnchors.length - 1][1];
-    els.push(txt(right + 15, ySheave - 8, "Denge traversi · sabit uçlar", 8.5, {
+    els.push(txt(right + 15, ySheave - 8, "Denge Traversi · Sabit Uçlar", 8.5, {
       fill: DCOL.muted,
     }));
   }
@@ -341,7 +341,7 @@ export function reevingDiagram(p: ReevingParams): Diagram {
     // tek halat: blok içinde bağlantı noktası
     els.push({ kind: "circle", cx: xs[0], cy: yBlock, r: 3, fill: DCOL.ink });
   }
-  els.push(txt(bR + 10, yBlock + 3, "Kanca bloğu", 8.5, { fill: DCOL.muted }));
+  els.push(txt(bR + 10, yBlock + 3, "Kanca Bloğu", 8.5, { fill: DCOL.muted }));
 
   // --- Kanca + yük oku
   const yHook = blockBottom + 10;

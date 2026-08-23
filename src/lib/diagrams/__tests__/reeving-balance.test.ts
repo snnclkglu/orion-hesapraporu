@@ -25,7 +25,7 @@ describe("halat donanımı denge şeması", () => {
 
     expect(anchors).toHaveLength(2);
     expect(upperSheaves).toHaveLength(2);
-    expect(textValues("equalizerBeam")).toContain("Denge traversi · sabit uçlar");
+    expect(textValues("equalizerBeam")).toContain("Denge Traversi · Sabit Uçlar");
   });
 
   it("denge makaralı eski şemada sabit uç göstermez ve orta makarayı korur", () => {

@@ -9,12 +9,13 @@
 //            flanşa uzaklığını gösteren G ölçü zinciri
 //
 // Diyagram HİÇBİR fizik hesaplamaz: bütün sayılar kaldırma modülünün kendi
-// hücrelerinden gelir. Ölçekleme şematiktir (ölçüler etiketle verilir);
-// yalnız G kolu ile göbek/mil çapları görsel olarak orantılanır.
+// hücrelerinden gelir. Mil/göbek çapları ile G/A kolu AYNI piksel/mm ölçeğinde
+// çizilir; böylece 100 mm milin yanındaki 60 mm kol görsel olarak da 0,60 oranında
+// kalır. Namlu çapı yalnız çizimin çerçevesine sığması için sınırlandırılır.
 
 import {
   DCOL, type Diagram, type DiagramEl,
-  caption, dimH, fitDiagram, fmtN, ln, txt, arrowHead,
+  caption, dimH, dimV, fitDiagram, fmtN, ln, txt, arrowHead,
 } from "./model";
 import { KGF_TO_MPA } from "@/lib/units";
 
@@ -45,8 +46,8 @@ export interface ShaftWeldParams {
   allowableMPa?: number;
 }
 
-const W = 660;
-const H = 396;
+const W = 540;
+const H = 450;
 
 /** Sac kesitini gösteren 45° tarama çizgileri (dikdörtgenin içine kırpılmış) */
 function hatch(
@@ -66,26 +67,35 @@ function hatch(
 
 export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
   const els: DiagramEl[] = [];
-  caption(els, "TAMBUR MİLİ KAYNAĞI", "namlu · yanak sacı · göbek · köşe dikiş · G kolu");
+  caption(els, "TAMBUR MİLİ KAYNAĞI");
 
-  const yAxis = 186;
+  const yAxis = 180;
 
-  // --- Görsel ölçüler (şematik; gerçek oranlar etiketlerde verilir)
-  const xBarrel0 = 44;          // namlu sol ucu
-  const xFlange = 286;          // yanak sacının sol yüzü
+  // --- Görsel ölçüler
+  const xBarrel0 = 36;          // namlu sol ucu
+  const xFlange = 280;          // yanak sacının sol yüzü
   const tFlange = 16;           // yanak sacı kalınlığı [px]
   const xFlangeR = xFlange + tFlange;
-  const rBarrel = 116;          // namlu yarıçapı [px]
+  const shaftDiaMm = p.shaftDiaMm && p.shaftDiaMm > 0
+    ? p.shaftDiaMm
+    : Math.max(1, p.hubDiaMm * 0.7);
+  // Mil çapı çizimde 42…76 px bandında okunur; bütün diğer eksenel/radyal
+  // ölçüler aynı ölçeği kullanır. D1 ile D2 ters büyüklükte girilmiş olsa bile
+  // eski çizimdeki gibi D2'yi zorla D1'den küçük göstermeyiz.
+  const shaftDiaPx = Math.min(76, Math.max(42, shaftDiaMm * 0.64));
+  const pxPerMm = shaftDiaPx / shaftDiaMm;
+  const shaftHalf = shaftDiaPx / 2;
+  const hubHalf = Math.min(48, Math.max(22, (p.hubDiaMm * pxPerMm) / 2));
+  const rBarrel = Math.min(
+    122,
+    Math.max(90, ((p.drumDiaMm ?? 400) * pxPerMm) / 2)
+  );
   const tBarrel = 13;           // namlu sacı kalınlığı [px]
-
-  // Göbek ve mil yarı yükseklikleri, gerçek çap oranını korur.
-  const hubHalf = 36;
-  const shaftHalf =
-    p.shaftDiaMm && p.hubDiaMm > 0
-      ? Math.min(hubHalf - 6, Math.max(10, (p.shaftDiaMm / p.hubDiaMm) * hubHalf))
-      : 18;
-  const xHubR = xFlangeR + 74;  // göbeğin sağ ucu
-  const xLoad = 574;            // yükün etkidiği nokta
+  const armPx = Math.min(150, Math.max(18, (p.armMm ?? 0) * pxPerMm));
+  const xLoad = xFlangeR + armPx; // yükün etkidiği eksen — G/A ölçüsünün sonu
+  const hubLengthPx = Math.min(42, Math.max(10, armPx * 0.52));
+  const xHubR = xFlangeR + hubLengthPx;
+  const xShaftEnd = xLoad + Math.max(46, shaftDiaPx * 0.82);
 
   // --- Tambur namlusu: üst ve alt sac (taralı)
   for (const sign of [-1, 1] as const) {
@@ -100,10 +110,10 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
     fill: DCOL.muted,
   }));
   if (p.drumDiaMm) {
-    els.push(txt(xBarrel0 + 6, yAxis - 6, `Ø tambur = ${fmtN(p.drumDiaMm, 0)} mm`, 9));
+    els.push(txt(xBarrel0 + 6, yAxis - 6, `Ø Tambur = ${fmtN(p.drumDiaMm, 0)} mm`, 9));
   }
   // Namlu eksen çizgisi
-  els.push(ln(xBarrel0 - 8, yAxis, xLoad + 40, yAxis, DCOL.faint, 0.7, "14,3,2,3"));
+  els.push(ln(xBarrel0 - 8, yAxis, xShaftEnd + 30, yAxis, DCOL.faint, 0.7, "14,3,2,3"));
 
   // --- Yanak / flanş sacı (düşey, taralı)
   els.push({
@@ -125,12 +135,19 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
     anchor: "middle", fill: DCOL.muted,
   }));
   els.push({
-    kind: "rect", x: xHubR, y: yAxis - shaftHalf, w: xLoad + 34 - xHubR, h: 2 * shaftHalf,
+    kind: "rect", x: xHubR, y: yAxis - shaftHalf, w: xShaftEnd - xHubR, h: 2 * shaftHalf,
     fill: "#FFFFFF", stroke: DCOL.ink, strokeWidth: 1.2,
   });
-  els.push(txt(xLoad + 40, yAxis + 3, "MİL", 9, { fill: DCOL.muted }));
-  els.push(
-    txt(xHubR + 8, yAxis - shaftHalf - 7, `ØD1 = ${fmtN(p.hubDiaMm)} mm`, 9)
+  els.push(txt((xHubR + xShaftEnd) / 2, yAxis + 3, "MİL", 9, {
+    anchor: "middle", fill: DCOL.muted,
+  }));
+  dimV(
+    els,
+    xShaftEnd + 18,
+    yAxis - shaftHalf,
+    yAxis + shaftHalf,
+    `ØD2 = ${fmtN(shaftDiaMm)} mm`,
+    { size: 8.5, labelSide: "right", clearLabel: true }
   );
 
   // --- Köşe kaynak dikişleri (göbek ↔ flanş, üstte ve altta)
@@ -156,9 +173,9 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
     fill: DCOL.accent, bold: true,
   }));
 
-  // --- Konik destek gussetleri (flanşa dik, göbeğe oturan üçgen sacalar)
-  const gussetH = 62;
-  const gussetL = 66;
+  // --- Konik destek sacları (flanşa dik, göbeğe oturan üçgenler)
+  const gussetH = Math.min(58, Math.max(38, rBarrel - hubHalf - 10));
+  const gussetL = Math.min(58, Math.max(30, hubLengthPx + 18));
   for (const sign of [-1, 1] as const) {
     const yHub = yAxis + sign * hubHalf;
     els.push({
@@ -171,9 +188,14 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
       fill: DCOL.paper, stroke: DCOL.ink, strokeWidth: 1,
     });
   }
-  els.push(txt(xFlangeR + 6, yAxis - hubHalf - gussetH - 8, "DESTEK GUSSETİ", 8.5, {
-    fill: DCOL.muted,
-  }));
+  // D1 etiketi destek saclarından SONRA boyanır; üçgen sac etiketin üstünü
+  // kapatmaz. Konumu göbeğin sağ ucuna bağlıdır.
+  // D1 metni yük okunun ekseninden sağa alınır. 60 mm kol gibi kısa kollarda
+  // yük oku göbeğin hemen üstüne geldiği için eski konum etiketi kesiyordu.
+  els.push(
+    txt(xLoad + 12, yAxis - Math.max(hubHalf, shaftHalf) - 9,
+      `ØD1 = ${fmtN(p.hubDiaMm)} mm`, 9, { anchor: "start" })
+  );
 
   // --- YÜK oku (sağdan, milin üzerine) + G ölçü zinciri
   // Yük mile DÜŞEY etkir; kaynak düzlemine olan uzaklığı G kadardır ve dikişte
@@ -193,7 +215,8 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
   els.push(ln(xFlangeR, yAxis + hubHalf + 6, xFlangeR, yDim - 5, DCOL.faint, 0.6));
   els.push(ln(xLoad, yAxis + shaftHalf + 6, xLoad, yDim - 5, DCOL.faint, 0.6));
   dimH(els, xFlangeR, xLoad, yDim,
-    `${p.armLabel ?? "G"} = ${fmtN(p.armMm)} mm  (yükün flanşa uzaklığı)`);
+    `${p.armLabel ?? "G"} = ${fmtN(p.armMm)} mm`,
+    { size: 8.5, clearLabel: true });
 
   // --- Sonuç kutusu: momentten bileşik gerilmeye
   const bx = 26;

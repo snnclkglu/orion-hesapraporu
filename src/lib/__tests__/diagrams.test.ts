@@ -90,7 +90,7 @@ describe("girderSectionDiagram", () => {
 
   it("geçersiz kesitte uyarı döner, istisna atmaz", () => {
     const t = texts(girderSectionDiagram({ ...GIRDER, t1Mm: 0, t2Mm: 0, h3Mm: 0, t5Mm: 0, t6Mm: 0 }));
-    expect(t).toContain("eksik");
+    expect(t).toContain("Eksik");
   });
 });
 
@@ -118,14 +118,14 @@ describe("drumDiagram", () => {
       })
     );
     expect(t).toMatch(/D_d = 900 mm/);
-    expect(t).toContain("halat Ø22 mm");
+    expect(t).toContain("Halat Ø22 mm");
     expect(t).toMatch(/D_min/);
     expect(t).toContain("D_d ≥ D_min ✓");
   });
 
   it("çap seçilmediğinde uyarı basar", () => {
     const t = texts(drumDiagram({ drumDiaMm: 0, ropeDiaMm: 20 }));
-    expect(t).toContain("Tambur çapı seçilmedi");
+    expect(t).toContain("Tambur Çapı Seçilmedi");
   });
 });
 
@@ -175,7 +175,7 @@ describe("girderStressDiagram", () => {
     for (const no of ["σ1", "σ5", "σ10", "τ1", "τ5"]) expect(t).toContain(no);
     expect(t).toContain("ALT LİF");
     expect(t).toContain("ÜST LİF");
-    expect(t).toContain("ray ekseni");
+    expect(t).toContain("Ray Ekseni");
     expect(t).toMatch(/MPa/);
     // Toplama giren bileşenler görünür
     expect(t).toContain("σz = σ9 + ψσ10");
@@ -185,7 +185,7 @@ describe("girderStressDiagram", () => {
     const t = texts(
       girderStressDiagram({ ...GIRDER, t1Mm: 0, t2Mm: 0, h3Mm: 0, t5Mm: 0, t6Mm: 0 })
     );
-    expect(t).toContain("eksik");
+    expect(t).toContain("Eksik");
   });
 });
 
@@ -243,7 +243,7 @@ describe("diagramForSection", () => {
     const d = diagramForSection("girder", "7.2", input, result)!;
     const t = texts(d);
     expect(t).toMatch(/Mmaks = [\d.,]+ (kNm|Nm)/);
-    expect(t).toMatch(/P ≈ [\d.,]+ kg \/ teker/);
+    expect(t).toMatch(/P ≈ [\d.,]+ kg \/ Teker/);
     expect(t).toMatch(/W1 = [\d.,]+ kg/);
   });
 

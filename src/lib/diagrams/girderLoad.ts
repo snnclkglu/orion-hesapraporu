@@ -23,7 +23,7 @@ const H = 300;
 
 export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   const els: DiagramEl[] = [];
-  els.push(txt(16, 22, "ANA KİRİŞ — YÜKLER ve EĞİLME MOMENTİ", 11, { bold: true }));
+  els.push(txt(16, 22, "ANA KİRİŞ — YÜKLER VE EĞİLME MOMENTİ", 11, { bold: true }));
   els.push(txt(16, 34, "Araba Ortada · FEM 1.001 §2.2 · Şematik", 8, { fill: DCOL.muted }));
   els.push(ln(16, 40, W - 16, 40, DCOL.line, 0.8));
 
@@ -87,7 +87,7 @@ export function girderLoadDiagram(p: GirderLoadParams): Diagram {
   if (p.liveLoadKg)
     els.push(txt(xC, yBeam - 86, `W1 = ${fmtN(p.liveLoadKg)} kg`, 8, { anchor: "middle", fill: DCOL.accent }));
   if (p.wheelLoadKg)
-    els.push(txt(xC, yBeam - 74, `P ≈ ${fmtN(p.wheelLoadKg)} kg / teker`, 8, { anchor: "middle", fill: DCOL.accent }));
+    els.push(txt(xC, yBeam - 74, `P ≈ ${fmtN(p.wheelLoadKg)} kg / Teker`, 8, { anchor: "middle", fill: DCOL.accent }));
   // araba tekerlek açıklığı a
   dimH(els, w1, w2, yBeam + 22, `a = ${fmtN(p.wheelSpacingMm / 1000, 2)} m`, { size: 7.5, labelDy: 11, color: DCOL.muted });
 

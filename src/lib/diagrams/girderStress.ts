@@ -66,12 +66,12 @@ function mpa(v: number | undefined): string {
 export function girderStressDiagram(p: GirderStressParams): Diagram {
   const els: DiagramEl[] = [];
   els.push(txt(16, 22, "ANA KİRİŞ — GERİLME ŞEMASI", 11, { fill: RED, bold: true }));
-  els.push(txt(16, 34, "parametrik kutu kesit · numaralı bileşen gerilmeler · Yükleme Durumu I", 8, { fill: DCOL.muted }));
+  els.push(txt(16, 34, "Parametrik Kutu Kesit · Numaralı Bileşen Gerilmeler · Yükleme Durumu I", 8, { fill: DCOL.muted }));
   els.push(ln(16, 40, W - 16, 40, DCOL.line, 0.8));
 
   const g = layoutBoxSection(p, { cx: 232, drawW: 176, drawH: 244, areaTop: 58, areaH: 268 });
   if (!g) {
-    els.push(txt(W / 2, 180, "Kesit girdileri eksik veya geçersiz", 11, {
+    els.push(txt(W / 2, 180, "Kesit Girdileri Eksik Veya Geçersiz", 11, {
       anchor: "middle", fill: DCOL.muted,
     }));
     return fitDiagram(els, W, H);
@@ -97,7 +97,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
     anchor: "end", fill: RED,
   }));
   // Ray ekseni etiketi (b1 merkezi de bu eksende)
-  els.push(txt(g.railCx, g.railTop - 6, `ray ekseni · b1 merkezi (${fmtN(g.railCenterYMm, 0)} mm)`, 7.5, {
+  els.push(txt(g.railCx, g.railTop - 6, `Ray Ekseni · b1 Merkezi (${fmtN(g.railCenterYMm, 0)} mm)`, 7.5, {
     anchor: "middle", fill: RED,
   }));
 
@@ -110,7 +110,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   // Sol açıklamalar da kısa satırlara bölünür: tek uzun satır "end" hizasıyla
   // çizim kutusunun soluna taşıyor ve baştaki σ numaraları kırpılıyordu.
   els.push(ln(cx, yTopFib, 128, 78, BLUE, 0.7));
-  els.push(txt(126, 70, "ÜST LİF — basınç", 8, { anchor: "end", fill: BLUE, bold: true }));
+  els.push(txt(126, 70, "ÜST LİF — Basınç", 8, { anchor: "end", fill: BLUE, bold: true }));
   els.push(txt(126, 80, "σ1 σ2 σ3 σ7 σ8", 7, { anchor: "end", fill: BLUE }));
   els.push(txt(126, 91, `σx,üst = ${mpa(p.sigmaXTop)}`, 8.5, { anchor: "end", fill: BLUE }));
 
@@ -121,7 +121,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(ln(cx + 8, yBotFib, boxRight - 16, yBotFib, RED, 1.6));
   els.push(arrowHead(boxRight - 16, yBotFib, "right", RED, 6, 2.6));
   els.push(ln(cx, yBotFib, 128, yB + 20, RED, 0.7));
-  els.push(txt(126, yB + 16, "ALT LİF — çekme", 8, { anchor: "end", fill: RED, bold: true }));
+  els.push(txt(126, yB + 16, "ALT LİF — Çekme", 8, { anchor: "end", fill: RED, bold: true }));
   els.push(txt(126, yB + 26, "σ1 σ2 σ3 σ7 σ8", 7, { anchor: "end", fill: RED }));
   els.push(txt(126, yB + 37, `σx,alt = ${mpa(p.sigmaXBottom)}`, 8.5, { anchor: "end", fill: RED }));
 
@@ -130,7 +130,6 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   // (eski sürümde tam olarak bu oluyordu). Bu yüzden açıklamalar KISA tutulur,
   // sayısal değerler tekrarlanmaz — hepsi zaten lejantta listelidir.
   const calloutX = 336;
-  const drawRight = 452;
 
   // --- σ4 σ5 σ6 — yatay eğilme (düşey eksen etrafında): kesit üstünde yatay ok ---
   const yLat = g.railTop - 26;
@@ -139,7 +138,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(arrowHead(boxRight, yLat, "right", DCOL.muted, 7, 3));
   els.push(ln(boxRight, yLat, calloutX - 4, yLat - 6, DCOL.muted, 0.7));
   els.push(txt(calloutX, yLat - 8, "σ4 σ5 σ6", 8, { fill: DCOL.ink, bold: true }));
-  els.push(txt(calloutX, yLat + 2, "yatay eğilme (Mz)", 7, { fill: DCOL.muted }));
+  els.push(txt(calloutX, yLat + 2, "Yatay Eğilme (Mz)", 7, { fill: DCOL.muted }));
 
   // --- σ9 σ10 — teker basıncı: ray ekseninden ana gövde sacına inen ok ---
   const zx = web1X + (p.t3Mm * s) / 2;
@@ -147,7 +146,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(arrowHead(zx, yWebTop + 36, "down", ORANGE, 7, 3));
   els.push(ln(zx, yWebTop + 20, calloutX - 4, yWebTop + 6, ORANGE, 0.7));
   els.push(txt(calloutX, yWebTop + 4, "σ9 σ10", 8, { fill: ORANGE, bold: true }));
-  els.push(txt(calloutX, yWebTop + 14, "teker basıncı (σz)", 7, { fill: ORANGE }));
+  els.push(txt(calloutX, yWebTop + 14, "Teker Basıncı (σz)", 7, { fill: ORANGE }));
 
   // --- τ — her iki gövde sacında kayma (burulma + kesme) ---
   const tauMark = (x: number, y: number, label: string) => {
@@ -157,11 +156,11 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   };
   const tau1X = web1X + (p.t3Mm * s) / 2;
   const tau2X = web2X + (p.t4Mm * s) / 2;
-  tauMark(tau1X, naY + 34, "ana");
-  tauMark(tau2X, naY + 34, "ikincil");
+  tauMark(tau1X, naY + 34, "Ana");
+  tauMark(tau2X, naY + 34, "İkincil");
   els.push(ln(tau2X, naY + 34, calloutX - 4, naY + 26, PURPLE, 0.7));
   els.push(txt(calloutX, naY + 24, "τ1 … τ5", 8, { fill: PURPLE, bold: true }));
-  els.push(txt(calloutX, naY + 34, "burulma + kesme", 7, { fill: PURPLE }));
+  els.push(txt(calloutX, naY + 34, "Burulma + Kesme", 7, { fill: PURPLE }));
 
   // --- Lejant: hangi numara hangi toplama giriyor ---
   const lx = 470;
@@ -181,24 +180,24 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
 
   els.push(ln(lx - 14, 50, lx - 14, 336, DCOL.line, 0.8));
   els.push(txt(lx, 50, "BİLEŞEN GERİLMELER", 9, { fill: RED, bold: true }));
-  head("σx — eksenel/eğilme (alt lif değerleri)");
-  row("σ1", "Düşey eğilme — kiriş öz ağırlığı", p.sigma1SelfWeight, BLUE);
-  row("σ2", "Düşey eğilme — araba ağırlığı", p.sigma2Trolley, BLUE);
-  row("σ3", "Düşey eğilme — kaldırma yükü (×ψ)", p.sigma3Hoist, BLUE);
-  row("σ4", "Yatay eğilme — köprü yatay yükü", p.sigma4BridgeLateral, BLUE);
-  row("σ5", "Yatay eğilme — araba yanal yükü", p.sigma5TrolleyLateral, BLUE);
-  row("σ6", "Ray kolu / kaçıklık", p.sigma6RailLever, BLUE);
-  row("σ7", "İkincil moment — araba", p.sigma7SecondaryTrolley, BLUE);
-  row("σ8", "İkincil moment — yük (×ψ)", p.sigma8SecondaryHoist, BLUE);
-  head("σz — teker basıncı (gövde üstü)");
-  row("σ9", "Teker basıncı — araba", p.sigma9WheelTrolley, ORANGE);
-  row("σ10", "Teker basıncı — yük (×ψ)", p.sigma10WheelHoist, ORANGE);
-  head("τ — kayma (ana gövde değerleri)");
-  row("τ1", "Burulma — araba", p.tau1TorsionTrolley, PURPLE);
-  row("τ2", "Burulma — yük (×ψ)", p.tau2TorsionHoist, PURPLE);
-  row("τ3", "Kesme — öz ağırlık", p.tau3ShearSelfWeight, PURPLE);
-  row("τ4", "Kesme — araba", p.tau4ShearTrolley, PURPLE);
-  row("τ5", "Kesme — yük (×ψ)", p.tau5ShearHoist, PURPLE);
+  head("σx — Eksenel/Eğilme (Alt Lif Değerleri)");
+  row("σ1", "Düşey Eğilme — Kiriş Öz Ağırlığı", p.sigma1SelfWeight, BLUE);
+  row("σ2", "Düşey Eğilme — Araba Ağırlığı", p.sigma2Trolley, BLUE);
+  row("σ3", "Düşey Eğilme — Kaldırma Yükü (×ψ)", p.sigma3Hoist, BLUE);
+  row("σ4", "Yatay Eğilme — Köprü Yatay Yükü", p.sigma4BridgeLateral, BLUE);
+  row("σ5", "Yatay Eğilme — Araba Yanal Yükü", p.sigma5TrolleyLateral, BLUE);
+  row("σ6", "Ray Kolu / Kaçıklık", p.sigma6RailLever, BLUE);
+  row("σ7", "İkincil Moment — Araba", p.sigma7SecondaryTrolley, BLUE);
+  row("σ8", "İkincil Moment — Yük (×ψ)", p.sigma8SecondaryHoist, BLUE);
+  head("σz — Teker Basıncı (Gövde Üstü)");
+  row("σ9", "Teker Basıncı — Araba", p.sigma9WheelTrolley, ORANGE);
+  row("σ10", "Teker Basıncı — Yük (×ψ)", p.sigma10WheelHoist, ORANGE);
+  head("τ — Kayma (Ana Gövde Değerleri)");
+  row("τ1", "Burulma — Araba", p.tau1TorsionTrolley, PURPLE);
+  row("τ2", "Burulma — Yük (×ψ)", p.tau2TorsionHoist, PURPLE);
+  row("τ3", "Kesme — Öz Ağırlık", p.tau3ShearSelfWeight, PURPLE);
+  row("τ4", "Kesme — Araba", p.tau4ShearTrolley, PURPLE);
+  row("τ5", "Kesme — Yük (×ψ)", p.tau5ShearHoist, PURPLE);
 
   ly += 6;
   els.push(ln(lx, ly, lvx, ly, DCOL.line, 0.8));
@@ -225,7 +224,7 @@ export function girderStressDiagram(p: GirderStressParams): Diagram {
   els.push(
     txt(
       lx, ly,
-      `σcomb = ${mpa(p.sigmaComb)}   ·   izin: ${mpa(p.allowable)}${pass === undefined ? "" : pass ? "  ✓" : "  ✗"}`,
+      `σcomb = ${mpa(p.sigmaComb)}   ·   İzin: ${mpa(p.allowable)}${pass === undefined ? "" : pass ? "  ✓" : "  ✗"}`,
       8.5,
       { fill: pass === undefined ? DCOL.ink : pass ? okColor : ORANGE, bold: true }
     )

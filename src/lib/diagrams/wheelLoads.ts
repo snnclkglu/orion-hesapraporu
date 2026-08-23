@@ -73,7 +73,7 @@ function drawCrane(
   xR: number,
   yTop: number,
   wheelsPerSide: number,
-  railNotes: [string, string] = ["RAY 1 — araba bu raya yanaşır", "RAY 2"]
+  railNotes: [string, string] = ["RAY 1 — Araba Bu Raya Yanaşır", "RAY 2"]
 ): CraneSilhouette {
   const girderH = 30;
   const endH = 13; // kiriş uçlarındaki daralmış gövde yüksekliği
@@ -235,7 +235,7 @@ function drawCrane(
     }
     // Ray adı ve teker adedi — taramanın ALTINDA, tek satırda
     els.push(
-      txt(xc, yRunwayBot + 22, `${railNotes[side]} · ${nWheels} teker`, 7.5, {
+      txt(xc, yRunwayBot + 22, `${railNotes[side]} · ${nWheels} Teker`, 7.5, {
         anchor: "middle",
         fill: DCOL.muted,
       })
@@ -283,7 +283,7 @@ export function wheelLoadElevationDiagram(p: WheelLoadElevationParams): Diagram 
   const els: DiagramEl[] = [];
   els.push(txt(16, 22, "DÜŞEY TEKER YÜKLERİ — RAYLARA DİK GÖRÜNÜŞ", 11, { bold: true }));
   els.push(
-    txt(16, 34, "araba en yakın konumda · FEM 1.001 §2.2 · şematik", 8, {
+    txt(16, 34, "Araba En Yakın Konumda · FEM 1.001 §2.2 · Şematik", 8, {
       fill: DCOL.muted,
     })
   );
@@ -355,9 +355,9 @@ export function wheelLoadElevationDiagram(p: WheelLoadElevationParams): Diagram 
     xL,
     p.maxWheelLoadKg !== undefined ? `Pmaks = ${kNofKg(p.maxWheelLoadKg)}` : "Pmaks",
     [
-      p.maxWheelLoadKg !== undefined ? `(${kgOf(p.maxWheelLoadKg)}) teker başına` : "",
+      p.maxWheelLoadKg !== undefined ? `(${kgOf(p.maxWheelLoadKg)}) Teker Başına` : "",
       p.designWheelLoadKg !== undefined
-        ? `tasarım (φ2 dahil) ${kNofKg(p.designWheelLoadKg)}`
+        ? `Tasarım (φ2 Dahil) ${kNofKg(p.designWheelLoadKg)}`
         : "",
     ].filter(Boolean),
     DCOL.accent
@@ -366,8 +366,8 @@ export function wheelLoadElevationDiagram(p: WheelLoadElevationParams): Diagram 
     xR,
     p.minWheelLoadKg !== undefined ? `Pmin = ${kNofKg(p.minWheelLoadKg)}` : "Pmin",
     [
-      p.minWheelLoadKg !== undefined ? `(${kgOf(p.minWheelLoadKg)}) teker başına` : "",
-      "araba karşı uçtayken",
+      p.minWheelLoadKg !== undefined ? `(${kgOf(p.minWheelLoadKg)}) Teker Başına` : "",
+      "Araba Karşı Uçtayken",
     ].filter(Boolean),
     DCOL.muted
   );
@@ -452,7 +452,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   const els: DiagramEl[] = [];
   els.push(txt(16, 22, "SAVRULMA (SKEWING) — ÜSTTEN GÖRÜNÜŞ", 11, { bold: true }));
   els.push(
-    txt(16, 34, "FEM 1.001 Kitapçık 9, md. 9.4.1 · savrulma açısı abartılmıştır", 8, {
+    txt(16, 34, "FEM 1.001 Kitapçık 9, Md. 9.4.1 · Savrulma Açısı Abartılmıştır", 8, {
       fill: DCOL.muted,
     })
   );
@@ -538,7 +538,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   // Yalnız SOLDAKİ kiriş etiketlenir: sağdakinin etiketi anlık kayma kutbu
   // etiketiyle aynı banda düşüyordu, iki kiriş de aynı elemandır.
   els.push(
-    txt(xG1 - girderW / 2 - 8, gyTop + 26, "ANA KİRİŞLER (2 adet)", 7.5, {
+    txt(xG1 - girderW / 2 - 8, gyTop + 26, "ANA KİRİŞLER (2 Adet)", 7.5, {
       anchor: "end",
       fill: DCOL.muted,
     })
@@ -551,13 +551,13 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   els.push(arrowHead(xSpanDim, gyTop, "up", DCOL.muted));
   els.push(arrowHead(xSpanDim, gyBot, "down", DCOL.muted));
   els.push(
-    txt(xSpanDim - 7, gyMid - 4, `açıklık l = ${mOf(p.spanM)}`, 7.5, {
+    txt(xSpanDim - 7, gyMid - 4, `Açıklık l = ${mOf(p.spanM)}`, 7.5, {
       anchor: "end",
       fill: DCOL.muted,
     })
   );
   els.push(
-    txt(xSpanDim - 7, gyMid + 7, "(ölçekli değil — kısaltılmıştır)", 6.8, {
+    txt(xSpanDim - 7, gyMid + 7, "(Ölçekli Değil — Kısaltılmıştır)", 6.8, {
       anchor: "end",
       fill: DCOL.muted,
     })
@@ -566,12 +566,12 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   // teker kodlarıyla aynı bantta çakışıyordu.
   const xNote = xLast + carriagePad + 14;
   els.push(
-    txt(xNote, yRail1 - 7, "RAY 1 — araba bu raya yanaşır (yakın ray)", 7.5, {
+    txt(xNote, yRail1 - 7, "RAY 1 — Araba Bu Raya Yanaşır (Yakın Ray)", 7.5, {
       fill: DCOL.muted,
     })
   );
   els.push(
-    txt(xNote, yRail2 + 14, "RAY 2 (uzak ray) — aynı teker düzeni", 7.5, {
+    txt(xNote, yRail2 + 14, "RAY 2 (Uzak Ray) — Aynı Teker Düzeni", 7.5, {
       fill: DCOL.muted,
     })
   );
@@ -582,7 +582,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   const yAng = 62;
   const angLen = 78;
   const angDrop = 20;
-  els.push(txt(16, yAng - 14, "yürüme yönü", 8, { fill: DCOL.muted }));
+  els.push(txt(16, yAng - 14, "Yürüme Yönü", 8, { fill: DCOL.muted }));
   els.push(ln(16, yAng, 16 + angLen, yAng, DCOL.faint, 1.2, "6,3"));
   els.push(ln(16, yAng, 16 + angLen, yAng + angDrop, DCOL.accent, 1.8));
   els.push(arrowHead(16 + angLen + 3, yAng + angDrop + 0.5, "right", DCOL.accent, 8, 3));
@@ -593,10 +593,10 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
     })
   );
   els.push(
-    txt(16, yAng + angDrop + 27, "kesikli: ray doğrultusu", 6.8, { fill: DCOL.muted })
+    txt(16, yAng + angDrop + 27, "Kesikli: Ray Doğrultusu", 6.8, { fill: DCOL.muted })
   );
   els.push(
-    txt(16, yAng + angDrop + 36, "kırmızı: hareket doğrultusu", 6.8, {
+    txt(16, yAng + angDrop + 36, "Kırmızı: Hareket Doğrultusu", 6.8, {
       fill: DCOL.accent,
     })
   );
@@ -680,7 +680,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
       txt(
         xLast + carriagePad + 14,
         yRail2 + 26,
-        `raya paralel teğetsel Fx = ${kNof(wheels[0].longitudinalN, 2)} / teker`,
+        `Raya Paralel Teğetsel Fx = ${kNof(wheels[0].longitudinalN, 2)} / Teker`,
         7.5,
         { fill: DCOL.muted }
       )
@@ -698,7 +698,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
     })
   );
   els.push(
-    txt(xFirst - 34, yRail1 - 13, "kılavuz kuvveti (vinç toplamı)", 7, {
+    txt(xFirst - 34, yRail1 - 13, "Kılavuz Kuvveti (Vinç Toplamı)", 7, {
       anchor: "end",
       fill: DCOL.muted,
     })
@@ -729,7 +729,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
     els.push(ln(xPole - 8, yPole, xPole + 8, yPole, DCOL.accent, 0.9));
     els.push(ln(xPole, yPole - 8, xPole, yPole + 8, DCOL.accent, 0.9));
     els.push(
-      txt(xPole + 11, yPole - 5, "anlık kayma kutbu", 7.5, { fill: DCOL.accent })
+      txt(xPole + 11, yPole - 5, "Anlık Kayma Kutbu", 7.5, { fill: DCOL.accent })
     );
     els.push(
       txt(xPole + 11, yPole + 8, `h = ${mOf(p.poleDistanceM)}`, 8.5, {
@@ -760,7 +760,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
   // zincirin başında bir kez yazılır (dar aralıklarda "1.100 mm" sığmıyor).
   // KUVVET değerleri bu kuralın DIŞINDADIR — hepsi kN ile yazılır.
   const yDim = yRail2 + 100;
-  els.push(txt(16, yDim + 3, "ölçüler mm", 7.5, { fill: DCOL.muted }));
+  els.push(txt(16, yDim + 3, "Ölçüler mm", 7.5, { fill: DCOL.muted }));
   let lastDimX = -Infinity;
   for (let i = 1; i < wheels.length; i += 1) {
     const x1 = xOf(wheels[i - 1].distanceM);
@@ -770,7 +770,7 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
     dimH(els, x1, x2, yDim, fmtN(gapMm, 0), { size: 7, labelDy: -3 });
     lastDimX = x2;
   }
-  dimH(els, xFirst, xLast, yDim + 34, `dingil mesafesi = ${mmOf(maxD * 1000)}`, {
+  dimH(els, xFirst, xLast, yDim + 34, `Dingil Mesafesi = ${mmOf(maxD * 1000)}`, {
     size: 8,
     labelDy: 13,
   });
@@ -778,9 +778,9 @@ export function skewPlanDiagram(p: SkewPlanParams): Diagram {
     txt(
       16,
       PH - 12,
-      `${nWheels} teker / ray · köşe başına ${perCorner} · ` +
-        `kılavuz: ${p.guideMeans === "flange" ? "teker flanşı" : "kılavuz makarası"} · ` +
-        "enine ok uzunlukları kuvvetle orantılıdır",
+      `${nWheels} Teker / Ray · Köşe Başına ${perCorner} · ` +
+        `Kılavuz: ${p.guideMeans === "flange" ? "Teker Flanşı" : "Kılavuz Makarası"} · ` +
+        "Enine Ok Uzunlukları Kuvvetle Orantılıdır",
       8,
       { fill: DCOL.muted }
     )
@@ -841,8 +841,8 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     txt(
       16,
       34,
-      `${p.totalWheels} teker · her köşede ${p.wheelsPerCorner} · rayda ${p.wheelsPerSide} · ` +
-        "düşey ve enine değerler TEKER BAŞINA · FEM 1.001",
+      `${p.totalWheels} Teker · Her Köşede ${p.wheelsPerCorner} · Rayda ${p.wheelsPerSide} · ` +
+        "Düşey Ve Enine Değerler TEKER BAŞINA · FEM 1.001",
       8,
       { fill: DCOL.muted }
     )
@@ -852,7 +852,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   // ======================================================== ÜST PANEL
   els.push(txt(16, 58, "1 · RAYLARA DİK GÖRÜNÜŞ", 9, { bold: true }));
   els.push(
-    txt(SW - 16, 58, "düşey · enine · kılavuz kuvvetleri", 8, {
+    txt(SW - 16, 58, "Düşey · Enine · Kılavuz Kuvvetleri", 8, {
       anchor: "end",
       fill: DCOL.muted,
     })
@@ -861,7 +861,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   const xL = 196;
   const xR = SW - 196;
   const c = drawCrane(els, xL, xR, 104, p.wheelsPerSide, [
-    "RAY 1 — araba bu raya yanaşır",
+    "RAY 1 — Araba Bu Raya Yanaşır",
     "RAY 2",
   ]);
 
@@ -911,8 +911,8 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     xL,
     [
       `Pmaks,d = ${kNofKg(p.designWheelLoadKg)}`,
-      `φ2 = ${fmtN(p.phi2, 3)} dahil · ${kgOf(p.designWheelLoadKg)}`,
-      `karakteristik Pmaks = ${kNofKg(p.maxWheelLoadKg)}`,
+      `φ2 = ${fmtN(p.phi2, 3)} Dahil · ${kgOf(p.designWheelLoadKg)}`,
+      `Karakteristik Pmaks = ${kNofKg(p.maxWheelLoadKg)}`,
     ],
     DCOL.accent
   );
@@ -920,7 +920,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     xR,
     [
       `Pmin = ${kNofKg(p.minWheelLoadKg)}`,
-      `(${kgOf(p.minWheelLoadKg)}) araba karşı uçta`,
+      `(${kgOf(p.minWheelLoadKg)}) Araba Karşı Uçta`,
     ],
     DCOL.muted
   );
@@ -961,7 +961,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   els.push(ln(16, yPanel2, SW - 16, yPanel2, DCOL.line, 0.8));
   els.push(txt(16, yPanel2 + 20, "2 · RAY EKSENİ BOYUNCA", 9, { bold: true }));
   els.push(
-    txt(SW - 16, yPanel2 + 20, "boyuna kuvvetler · aynı vinç, yandan", 8, {
+    txt(SW - 16, yPanel2 + 20, "Boyuna Kuvvetler · Aynı Vinç, Yandan", 8, {
       anchor: "end",
       fill: DCOL.muted,
     })
@@ -1046,14 +1046,14 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
   els.push(ln(xB2 + 34, yH, xB2 + 100, yH, DCOL.accent, 2.2));
   els.push(arrowHead(xB2 + 104, yH, "right", DCOL.accent, 9, 3.4));
   els.push(
-    txt((xB1 + xB2) / 2, yH + 3, `H = ${kNof(p.driveLongitudinalN)} / tahrikli teker`, 9, {
+    txt((xB1 + xB2) / 2, yH + 3, `H = ${kNof(p.driveLongitudinalN)} / Tahrikli Teker`, 9, {
       anchor: "middle",
       fill: DCOL.accent,
       bold: true,
     })
   );
   els.push(
-    txt((xB1 + xB2) / 2, yH - 10, "tahrik ve frenleme", 7.5, {
+    txt((xB1 + xB2) / 2, yH - 10, "Tahrik Ve Frenleme", 7.5, {
       anchor: "middle",
       fill: DCOL.muted,
     })
@@ -1078,7 +1078,7 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
       );
     }
     els.push(
-      txt(xBuf - 8, yRailB - 2 * wheelRB - 12, "tampon", 7, {
+      txt(xBuf - 8, yRailB - 2 * wheelRB - 12, "Tampon", 7, {
         anchor: "middle",
         fill: DCOL.muted,
       })
@@ -1101,13 +1101,13 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
       txt(
         (xB1 + xB2) / 2 - 86,
         yFx + 3,
-        `savrulma Fx = ${kNof(p.skewLongitudinalN, 2)} / teker (her tekerde, raya paralel)`,
+        `Savrulma Fx = ${kNof(p.skewLongitudinalN, 2)} / Teker (Her Tekerde, Raya Paralel)`,
         8,
         { fill: DCOL.muted }
       )
     );
   }
-  els.push(txt(16, yRailB + 62, "yürüme yönü", 7.5, { fill: DCOL.muted }));
+  els.push(txt(16, yRailB + 62, "Yürüme Yönü", 7.5, { fill: DCOL.muted }));
   els.push(ln(80, yRailB + 59, 116, yRailB + 59, DCOL.muted, 1));
   els.push(arrowHead(119, yRailB + 59, "right", DCOL.muted, 8, 3));
 
@@ -1117,8 +1117,8 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     txt(
       16,
       SH - 26,
-      "S: kılavuz kuvveti (VİNÇ TOPLAMI, flanş temasında)   ·   Fy1 · Fy2: enine teker kuvveti   ·   " +
-        "H: tahrik/fren boyuna kuvveti   ·   Fx: savrulma teğetsel kuvveti",
+      "S: Kılavuz Kuvveti (VİNÇ TOPLAMI, Flanş Temasında)   ·   Fy1 · Fy2: Enine Teker Kuvveti   ·   " +
+        "H: Tahrik/Fren Boyuna Kuvveti   ·   Fx: Savrulma Teğetsel Kuvveti",
       7.5,
       { fill: DCOL.muted }
     )
@@ -1127,8 +1127,8 @@ export function loadSummaryDiagram(p: LoadSummaryParams): Diagram {
     txt(
       16,
       SH - 14,
-      "Kuvvetler karakteristiktir; kısmi güvenlik katsayıları yol kirişi tasarımında uygulanır. " +
-        "Araba karşı uca gittiğinde raylar yer değiştirir — her iki ray da Fy1 ile boyutlandırılır.",
+      "Kuvvetler Karakteristiktir; Kısmi Güvenlik Katsayıları Yol Kirişi Tasarımında Uygulanır. " +
+        "Araba Karşı Uca Gittiğinde Raylar Yer Değiştirir — Her İki Ray Da Fy1 İle Boyutlandırılır.",
       7.5,
       { fill: DCOL.muted }
     )

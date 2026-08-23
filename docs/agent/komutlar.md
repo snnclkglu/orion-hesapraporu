@@ -50,6 +50,13 @@
   kalıyor mu, satır ikiye bölünüyor mu
 - `npx tsx scripts/test-safety-brake-diagram.tsx` — emniyet freni şemasını altı
   yerleşim düzeninde SVG olarak üret (kaliper konumları + yazı çakışması)
+- `npx tsx scripts/test-drum-brake-diagram.tsx` — kasnak freninin DIN 15435
+  ölçü resmini her fren boyu için SVG olarak üret; ayrıca model kodunun üç
+  yazımının aynı ürüne düştüğünü ve ölçüsü olmayan frenin şema ÜRETMEDİĞİNİ
+  sınar
+- `npx tsx scripts/check-drum-brake-labels.ts` — aynı şemanın ETİKET
+  ÇAKIŞMASINI ölç: yazı-yazı ve yazı-çizgi, 23 fren boyu × iki durum. Z-SIRASI
+  duyarlıdır — kâğıt şeridin ARKASINDA kalan çizgi çakışma sayılmaz
 - `npx tsx scripts/test-lifting-beam-diagram.tsx` — kaldırma kirişinin üç
   şemasını (görünüş · moment · kesitler) SİMETRİK ve ASİMETRİK askıyla üret
   (SVG + PNG). İkinci fikstür olmadan "Kesit 1'in kesmesi sıfır değildir" hâli

@@ -62,10 +62,12 @@ export const WHEELLOAD_INPUT_FIELDS: FieldDef<WheelLoadInputs>[] = [
       "merkezleri arası ölçülür. Otomatikte teker düzeninin ilk–son eksen " +
       "mesafesi kullanılır.",
     info:
-      "Bu ölçü raylar arası açıklık değildir. Vinç yürüyüş yönünde ölçülen " +
-      "kılavuzlama tabanıdır ve savrulma açısındaki boşluk/aşınma paylarının " +
-      "paydasına girer. Değer büyüdükçe aynı kılavuz boşluğunun oluşturduğu " +
-      "savrulma açısı küçülür.",
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 md. 9.4.1.5: wb, kılavuz " +
+      "elemanları arasındaki yürüyüş yönü mesafesidir; raylar arası açıklık " +
+      "değildir. αg = sg/wb ve αw = 0,1·b/wb bağıntılarının paydasına girer.\n\n" +
+      "Kod kullanımı — Otomatik açıkken bir raydaki ilk ve son teker ekseni " +
+      "arasındaki toplam ölçü alınır. Ayrı kılavuz makaraları bu eksenlerle " +
+      "çakışmıyorsa otomatik kapatılıp makara merkezleri arası gerçek wb girilir.",
     standardRef: "FEM 1.001 9.4.1.5",
   },
   {
@@ -74,12 +76,25 @@ export const WHEELLOAD_INPUT_FIELDS: FieldDef<WheelLoadInputs>[] = [
     unit: "mm",
     type: "number",
     hint: "Flanş ile ray başı arasındaki tek taraf boşluk. FEM'in sg değeri bunun iki katıdır.",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 md. 9.4.1.5 toplam kılavuz " +
+      "boşluğunu sg ile tanımlar ve αg = sg/wb kullanır.\n\n" +
+      "Kod kullanımı — Bu kutu ölçüm kolaylığı için TEK TARAF boşluğunu ister; " +
+      "hesap sg = 2 × kutu değeri yapar. Bu nedenle teknik resimdeki toplam " +
+      "flanş–ray boşluğu doğrudan bu kutuya yazılmaz.",
   },
   {
     key: "coupledPairCount",
     label: "Bağlı Teker Çifti Adedi p",
     type: "number",
     hint: "İki rayın tekerlerini birbirine bağlayan (mil ya da elektriksel senkron) çift adedi. Otomatikte tahrikli teker çiftlerinden okunur.",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 md. 9.4.1.3'te p, iki ray " +
+      "tarafı mekanik mil veya elektriksel senkronizasyonla bağlı teker " +
+      "çiftlerinin adedidir ve kayma kutbu hesabına girer.\n\n" +
+      "Kod kullanımı — Otomatikte p = tahrikli teker adedi / 2 alınır ve ray " +
+      "başına teker sayısıyla sınırlandırılır. IFF/IFM bağımsız düzende p tanım " +
+      "gereği sıfıra zorlanır; elle yazılmış değer düzenle çelişemez.",
     standardRef: "FEM 1.001 9.4.1.3",
   },
   {
@@ -88,6 +103,13 @@ export const WHEELLOAD_INPUT_FIELDS: FieldDef<WheelLoadInputs>[] = [
     unit: "m/dak",
     type: "number",
     hint: "HD2 ve HD3 tahrik sınıflarında φ2 bu hızla hesaplanır.",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 Tablo T.9.3.b, Yükleme " +
+      "Durumu I/II için HD2 ve HD3 sınıflarında kaldırma dinamik katsayısına " +
+      "girecek hızın sürünme hızı olduğunu belirtir.\n\n" +
+      "Kod kullanımı — Değer m/dak girilir, m/s'ye çevrilir ve " +
+      "φ2 = φ2,min + β2·vh bağıntısında kullanılır. HD1 azami hızı, HD4 azami " +
+      "hızın yarısını, HD5 sıfırı kullandığı için bu kutu o sınıflarda sonucu değiştirmez.",
     standardRef: "FEM 1.001 T.9.3.b",
   },
 ];
@@ -101,6 +123,13 @@ export const WHEELLOAD_SELECTION_FIELDS: FieldDef<WheelLoadSelections>[] = [
     optionLabels: HOISTING_CLASS_LABELS,
     standardRef: "FEM 1.001 T.9.3.a",
     hint: "HC1 hassas · HC2 genel amaçlı kancalı vinç · HC3 kepçe/mıknatıs · HC4 ağır hizmet. Sınıf sertleştikçe φ2 büyür.",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 Tablo T.9.3.a, HC1…HC4 " +
+      "için β2 ve φ2,min çiftlerini verir. Sınıf, yükün yerden alınışındaki " +
+      "dinamik davranışı temsil eder.\n\n" +
+      "Kod kullanımı — Seçilen tablodan β2 ve φ2,min okunur; tasarım teker " +
+      "yükünde yalnız kaldırılan yük φ2 ile büyütülür, araba ve köprü öz " +
+      "ağırlıkları büyütülmez.",
   },
   {
     key: "hoistDriveClass",
@@ -110,6 +139,13 @@ export const WHEELLOAD_SELECTION_FIELDS: FieldDef<WheelLoadSelections>[] = [
     optionLabels: HOIST_DRIVE_CLASS_LABELS,
     standardRef: "FEM 1.001 T.9.3.b",
     hint: "HD1 sürünme hızı yok · HD2 operatör seçer · HD3 yük yerden kalkana kadar sürünme zorunlu · HD4 kademesiz, operatör kumandalı · HD5 ön germeli otomatik.",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 Tablo T.9.3.b, φ2 hesabında " +
+      "hangi kaldırma hızının kullanılacağını tahrik/kumanda biçimine göre " +
+      "HD1…HD5 olarak sınıflandırır.\n\n" +
+      "Kod kullanımı — HD1: azami hız; HD2/HD3: bu bölümdeki sürünme hızı; " +
+      "HD4: azami hızın yarısı; HD5: sıfır hız alınır. Bu seçim motor sınıfı " +
+      "değil, dinamik katsayı için işletme davranışıdır.",
   },
   {
     key: "guideMeans",
@@ -118,6 +154,13 @@ export const WHEELLOAD_SELECTION_FIELDS: FieldDef<WheelLoadSelections>[] = [
     options: GUIDE_MEANS_OPTIONS,
     optionLabels: GUIDE_MEANS_LABELS,
     hint: "Teker flanşıyla kılavuzlamada kılavuz elemanlar arası mesafe dingil mesafesine eşittir.",
+    info:
+      "Standart/kod ayrımı — FEM 1.001 md. 9.4.1.5, teker flanşıyla " +
+      "kılavuzlamada wb'nin kılavuz tekerlerin dingil mesafesine eşit olduğunu " +
+      "belirtir. Ayrı kılavuz makarası seçimi fiziksel düzeni rapora taşır.\n\n" +
+      "Kod kullanımı — Bu seçim tek başına sayısal wb'yi değiştirmez. Makara " +
+      "merkezleri ilk/son teker ekseninden farklıysa wb otomatiği kapatılıp " +
+      "gerçek makara merkezleri arası mesafe girilmelidir.",
   },
   {
     key: "wheelPairMode",
@@ -127,5 +170,12 @@ export const WHEELLOAD_SELECTION_FIELDS: FieldDef<WheelLoadSelections>[] = [
     optionLabels: WHEEL_PAIR_MODE_LABELS,
     standardRef: "FEM 1.001 T.9.4",
     hint: "C: iki rayın tekerleri bağlı (mil ya da elektriksel senkron) · I: bağımsız. F/F iki taraf yanal sabit · F/M bir taraf yanal hareketli (mafsallı ayak).",
+    info:
+      "Standart dayanağı — FEM 1.001 Kitapçık 9 Tablo T.9.4: C bağlı, I " +
+      "bağımsız teker çiftini; F yanal sabit, M yanal hareketli ray tarafını " +
+      "gösterir. Tablo ξ ve ν teker kuvveti katsayılarını bu dört düzene göre verir.\n\n" +
+      "Kod kullanımı — I düzeninde raya paralel ξ kuvveti ve bağlı çift adedi " +
+      "sıfırdır. F/M düzende hareketli tarafta enine teker kuvveti ν2i = 0 " +
+      "alınır; seçim savrulma kuvvetlerinin dağılımını doğrudan değiştirir.",
   },
 ];

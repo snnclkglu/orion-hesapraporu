@@ -98,9 +98,9 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       16, 34,
       curveDriven
         ? cellular
-          ? `${p.model ?? "—"} · KAT0180: ${fmtN(finite(p.catalogLowerCurveSpeedMps), 3)}–${fmtN(finite(p.catalogUpperCurveSpeedMps), 3)} m/s eğrilerinden vç=${fmtN(finite(p.catalogCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
-          : `${p.model ?? "—"} · katalog yük diyagramından enterpolasyon · s = ${fmtN(height)} mm`
-        : `${p.model ?? "—"} · sabit kuvvetli sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
+          ? `${p.model ?? "—"} · KAT0180: ${fmtN(finite(p.catalogLowerCurveSpeedMps), 3)}–${fmtN(finite(p.catalogUpperCurveSpeedMps), 3)} m/s Eğrilerinden vç=${fmtN(finite(p.catalogCurveSpeedMps), 3)} m/s · s = ${fmtN(height)} mm`
+          : `${p.model ?? "—"} · Katalog Yük Diyagramından Enterpolasyon · s = ${fmtN(height)} mm`
+        : `${p.model ?? "—"} · Sabit Kuvvetli Sönümleme · s = ${fmtN(height)} mm · η = ${fmtN(eta, 2)}`,
       8, { fill: DCOL.muted }
     )
   );
@@ -108,7 +108,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
 
   if (p.type === "yok" || !(height > 0)) {
     els.push(
-      txt(W / 2, 120, "Bu grupta tampon seçilmemiştir — hesap yapılmadı.", 10, {
+      txt(W / 2, 120, "Bu Grupta Tampon Seçilmemiştir — Hesap Yapılmadı.", 10, {
         anchor: "middle", fill: DCOL.muted,
       })
     );
@@ -120,8 +120,8 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
       txt(
         W / 2, 120,
         cellular
-          ? "Hücresel tampon için çarpma hızında KAT0180 enerji/kuvvet eğrisi bulunamadı."
-          : "Seçilen kauçuk tampon için doğrulanmış yük eğrisi yoktur.",
+          ? "Hücresel Tampon İçin Çarpma Hızında KAT0180 Enerji/Kuvvet Eğrisi Bulunamadı."
+          : "Seçilen Kauçuk Tampon İçin Doğrulanmış Yük Eğrisi Yoktur.",
         10,
         { anchor: "middle", fill: DCOL.muted }
       )
@@ -129,7 +129,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
     els.push(
       txt(
         W / 2, 138,
-        "0–4 m/s dışındaki hızlar veya katalogda olmayan modeller üretici teyidi gerektirir.",
+        "0–4 m/s Dışındaki Hızlar Veya Katalogda Olmayan Modeller Üretici Teyidi Gerektirir.",
         8.5,
         { anchor: "middle", fill: DCOL.muted }
       )
@@ -178,8 +178,8 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   const fe = pushChartFrame(
     els,
     { x: 62, y: topY, w: chartW, h: chartH },
-    { min: 0, max: height, label: "sıkışma yolu [mm]" },
-    { min: 0, max: maxE * 1.12, label: "yutulan enerji [kJ]" },
+    { min: 0, max: height, label: "Sıkışma Yolu [mm]" },
+    { min: 0, max: maxE * 1.12, label: "Yutulan Enerji [kJ]" },
     { grid: true, title: "ENERJİ – STROK" }
   );
   if (energyPts.length > 1) {
@@ -198,15 +198,15 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   const ff = pushChartFrame(
     els,
     { x: 62 + chartW + 62, y: topY, w: chartW, h: chartH },
-    { min: 0, max: height, label: "sıkışma yolu [mm]" },
-    { min: 0, max: maxF * 1.15, label: "kuvvet [kN]" },
+    { min: 0, max: height, label: "Sıkışma Yolu [mm]" },
+    { min: 0, max: maxF * 1.15, label: "Kuvvet [kN]" },
     { grid: true, title: "KUVVET – STROK" }
   );
   if (forcePts.length > 1) {
     pushCurve(els, ff, forcePts, { color: DCOL.accent, width: 1.8 });
   }
   if (finite(p.catalogMaxForceKn) > 0) {
-    pushHGuide(els, ff, p.catalogMaxForceKn, `sınır = ${fmtN(p.catalogMaxForceKn, 1)} kN`, {
+    pushHGuide(els, ff, p.catalogMaxForceKn, `Sınır = ${fmtN(p.catalogMaxForceKn, 1)} kN`, {
       color: CHART_COLORS.ok,
     });
   }
@@ -219,11 +219,11 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   pushLegend(els, 62, legendY, [
     {
       color: DCOL.ink,
-      label: cellular ? "KAT0180 düşük hız katalog enerji eğrisi" : curveDriven ? "katalog enerji eğrisi" : "yutulan enerji (doğrusal)",
+      label: cellular ? "KAT0180 Düşük Hız Katalog Enerji Eğrisi" : curveDriven ? "Katalog Enerji Eğrisi" : "Yutulan Enerji (Doğrusal)",
     },
     {
       color: DCOL.accent,
-      label: cellular ? "KAT0180 yüksek hız katalog kuvvet eğrisi" : curveDriven ? "katalog kuvvet eğrisi" : "tepe kuvveti (sabit)",
+      label: cellular ? "KAT0180 Yüksek Hız Katalog Kuvvet Eğrisi" : curveDriven ? "Katalog Kuvvet Eğrisi" : "Tepe Kuvveti (Sabit)",
     },
   ]);
 
@@ -231,14 +231,14 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
   const catE = finite(p.catalogEnergyKj);
   if (catE > 0) {
     pushUtilizationBar(els, 300, barY, 190, 12, Ea / catE, {
-      label: "enerji kullanımı",
+      label: "Enerji Kullanımı",
       valueText: `%${fmtN((Ea / catE) * 100, 1)}`,
     });
   }
   const catF = finite(p.catalogMaxForceKn);
   if (catF > 0) {
     pushUtilizationBar(els, 300, barY + 34, 190, 12, Ft / catF, {
-      label: "kuvvet kullanımı",
+      label: "Kuvvet Kullanımı",
       valueText: `%${fmtN((Ft / catF) * 100, 1)}`,
     });
   }
@@ -249,7 +249,7 @@ export function bufferDiagram(p: BufferDiagramParams): Diagram {
     els.push(
       txt(
         62, legendY + 44,
-        `sıkışma: %${fmtN(pct, 1)} / izin %${fmtN(p.maxCompressionPct!, 0)}  ${ok ? "✓" : "✗"}`,
+        `Sıkışma: %${fmtN(pct, 1)} / İzin %${fmtN(p.maxCompressionPct!, 0)}  ${ok ? "✓" : "✗"}`,
         9.5,
         { fill: ok ? CHART_COLORS.ok : CHART_COLORS.bad, bold: true }
       )

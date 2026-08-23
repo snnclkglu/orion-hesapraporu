@@ -29,7 +29,7 @@ export function deflectionDiagram(p: DeflectionParams): Diagram {
 
   // caption benzeri başlık
   els.push(txt(16, 22, "ANA KİRİŞ — SEHİM", 11, { bold: true }));
-  els.push(txt(16, 34, "araba ortada · basit kiriş · şematik", 8, { fill: DCOL.muted }));
+  els.push(txt(16, 34, "Araba Ortada · Basit Kiriş · Şematik", 8, { fill: DCOL.muted }));
   els.push(ln(16, 40, W - 16, 40, DCOL.line, 0.8));
 
   const xL = 70;
