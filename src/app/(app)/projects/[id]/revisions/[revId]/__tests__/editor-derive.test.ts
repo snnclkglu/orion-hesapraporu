@@ -557,7 +557,7 @@ describe("yalnız köprüde sorulan girdiler", () => {
   });
 
   it("arabada kutu düşse de diğer girdiler yerinde kalır", () => {
-    expect(kutular("trolley", "5.1")).toEqual(["wheelCount", "wheelsPerMotor"]);
+    expect(kutular("trolley", "5.1")).toEqual(["wheelCount", "driveCount", "wheelsPerMotor"]);
   });
 });
 

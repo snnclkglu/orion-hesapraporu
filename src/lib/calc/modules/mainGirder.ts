@@ -150,6 +150,8 @@ export interface GirderDeps {
   hoistLoadKg: number;
   /** Bu kirişin taşıdığı kaldırma grubunun kaldırma hızı [m/dak] */
   liftSpeedMpm: number;
+  /** Taşınan kaldırma grubunun tambur devri [d/dak] — basit dinamik tarama. */
+  hoistDrumRpm: number;
   /**
    * Köprünün öz ağırlığını paylaşan ana kiriş adedi (çift kirişli 2, dört
    * kirişli 4). Bir kirişe düşen ölü yük `bridgeWeightT / bu sayı`dır.
@@ -178,6 +180,8 @@ export interface GirderDeps {
 
 /** Kullanıcı girdileri */
 export interface GirderInputs {
+  /** 7.2 Yükler bölümündeki yerleşim ölçülerinin kullanıcı onayı. */
+  loadMeasurementsConfirmed?: boolean;
   railHeightMm: number;        // hr — ray yüksekliği (raporda gösterilir)
   t1Mm: number;                // ray altı sacı kalınlığı t1
   b1Mm: number;                // ray altı sacı genişliği b1 (merkezi RAY EKSENİNDE)
@@ -229,7 +233,11 @@ export interface GirderInputs {
   railTProfileTopThkMm?: number;    // T üst sacı kalınlığı
   railTProfileTopWidthMm?: number;  // T üst sacı genişliği
   hookTopPositionM: number;    // kancanın en üst konumu l [m]
+  /** Kancanın en üst konumu teknik özelliklerdeki kaldırma yüksekliğinden gelsin. */
+  hookTopPositionAuto?: boolean;
   bridgeAxleSpacingM: number;  // köprü dingil açıklığı [m]
+  /** Köprü dingil açıklığı teker düzeninin ilk/son eksen mesafesinden gelsin. */
+  bridgeAxleSpacingAuto?: boolean;
   trolleyWheelSpacingM: number; // araba tekerlek açıklığı [m]
   trolleyAxleSpacingM: number; // araba dingil açıklığı [m]
   /**
@@ -271,6 +279,8 @@ export interface GirderInputs {
   webStiffenerOffsetMm: number;
   wheelContactHMm: number;     // tekerlek basıncı yayılım yüksekliği h [mm]
   wheelContactTMm: number;     // tekerlek basıncı taşıyan sac kalınlığı t [mm]
+  /** Teker basıncını taşıyan sac kalınlığı ana gövde sacı t3'e eşitlensin. */
+  wheelContactTAuto?: boolean;
   /**
    * σy,maks elle ezme [N/mm²]. Verilmezse gerilme analizindeki teker basıncı
    * σz(I)'den türetilir — normalde boş bırakılır.
@@ -328,6 +338,9 @@ export interface GirderValues {
   wzzBottomCm3: number;
   wzzTopCm3: number;
   torsionIxxCm4: number;
+  approxGirderWeightKg: number; // G_kesit · L · 1,15 ön ağırlık tahmini
+  spanToDepthRatio: number;
+  spanToWidthRatio: number;
   // Yükler
   bridgeWeightKg: number;
   trolleyWeightKg: number;
@@ -380,6 +393,10 @@ export interface GirderValues {
   // Sehim ve ters sehim (kamber)
   deflectionMm: number;        // canlı yük sehimi δ (açıklık ortası)
   deflectionRatio: number;     // L / sehim
+  naturalPeriodS: number;      // statik sehimden SDOF ön tahmini
+  naturalFrequencyHz: number;
+  hoistExcitationFrequencyHz: number;
+  frequencySeparationPct: number;
   deadDeflectionMm: number;    // ölü yük sehimi (açıklık ortası)
   camberCuttingMm: number;     // KESİMDE verilecek ters sehim (açıklık ortası)
   camberSupportedMm: number;   // MESNETTE ölçülecek ters sehim (açıklık ortası)
@@ -687,6 +704,7 @@ export function computeMainGirder(
   const spanMm = specs.spanM * 1000;                     // L — açıklık
   const spanToDepthRatio = spanMm / heightMm;            // L/h ≤ 25
   const spanToWidthRatio = spanMm / webGapMm;            // L/b ≤ 65
+  const approxGirderWeightKg = weightPerM * specs.spanM * 1.15;
 
   Object.assign(cells, {
     "section.areaTProfileWeb": areaTWeb,
@@ -717,6 +735,33 @@ export function computeMainGirder(
     "section.torsionBoxHeight": torsionBoxHeightCm,
     "section.spanToDepthRatio": spanToDepthRatio,
     "section.spanToWidthRatio": spanToWidthRatio,
+    "section.approxGirderWeight": approxGirderWeightKg,
+  });
+  checks.push({
+    id: `${which}.section.spanToDepthRatio`,
+    label: "Kutu Kiriş Açıklık / Yükseklik Oranı L/h",
+    required: 25,
+    provided: spanToDepthRatio,
+    unit: "-",
+    op: "<=",
+    computedSide: "provided",
+    pass: spanToDepthRatio <= 25,
+    standard: "CMAA 70 3.5.1",
+    kind: "standart",
+    severity: "uyari",
+  });
+  checks.push({
+    id: `${which}.section.spanToWidthRatio`,
+    label: "Kutu Kiriş Açıklık / Gövdeler Arası Oranı L/b",
+    required: 65,
+    provided: spanToWidthRatio,
+    unit: "-",
+    op: "<=",
+    computedSide: "provided",
+    pass: spanToWidthRatio <= 65,
+    standard: "CMAA 70 3.5.1",
+    kind: "standart",
+    severity: "uyari",
   });
 
   // --- 7.2 Yükler -----------------------------------------------------------
@@ -728,6 +773,22 @@ export function computeMainGirder(
   const trolleyWeightKg = deps.trolleyWeightT * 1000;
   const hoistLoadKg = deps.hoistLoadKg;
   const belowHookWeightKg = deps.mainHookBlockWeightKg + deps.mainRopeWeightKg;
+  cells["loads.measurementsConfirmed"] = inp.loadMeasurementsConfirmed === true
+    ? "Onaylandı"
+    : "Onay Bekliyor";
+  checks.push({
+    id: `${which}.loads.measurements.confirmed`,
+    label: "Yükler Bölümü Ölçü Onayı",
+    required: 1,
+    provided: inp.loadMeasurementsConfirmed === true ? 1 : 0,
+    unit: "-",
+    op: ">=",
+    computedSide: "provided",
+    pass: inp.loadMeasurementsConfirmed === true,
+    standard: "ORION tasarım veri onayı",
+    kind: "firma",
+    severity: "engelleyici",
+  });
   const totalLiveLoadKg = hoistLoadKg + belowHookWeightKg;
 
   const liftSpeedMs = deps.liftSpeedMpm / 60;
@@ -1197,6 +1258,18 @@ export function computeMainGirder(
   const deflectionMm = deflectionCm * 10;
   // Oran birimsizdir: açıklık da mm'ye çevrilir (spanMm / δ[mm])
   const deflectionRatio = spanMm / deflectionMm;
+  // FEM 1.001 A-2.2.3, taşıyıcı yapının çoğu durumda basit bir salınım
+  // sistemi olarak ön modellenebileceğini belirtir; sayısal rezonans bandı
+  // vermez. Buradaki f1 = (1/2π)√(g/δ) Rayleigh/SDOF ÖN TAHMİNİDİR.
+  const naturalPeriodS = 2 * Math.PI * Math.sqrt(
+    Math.max(deflectionMm, 1e-9) / 1000 / GRAVITY
+  );
+  const naturalFrequencyHz = 1 / naturalPeriodS;
+  const hoistExcitationFrequencyHz = Math.max(0, deps.hoistDrumRpm) / 60;
+  const frequencySeparationPct = hoistExcitationFrequencyHz > 0
+    ? Math.abs(naturalFrequencyHz - hoistExcitationFrequencyHz) /
+      Math.max(naturalFrequencyHz, hoistExcitationFrequencyHz) * 100
+    : 100;
 
   // --- Ters sehim (kamber) — CMAA 70 md. 3.5.5.2 --------------------------
   //
@@ -1245,6 +1318,10 @@ export function computeMainGirder(
     "deflection.loadOffset": deflectionLoadOffsetCm,
     "deflection.value": deflectionMm,
     "deflection.ratio": deflectionRatio,
+    "dynamics.naturalPeriod": naturalPeriodS,
+    "dynamics.naturalFrequency": naturalFrequencyHz,
+    "dynamics.hoistExcitationFrequency": hoistExcitationFrequencyHz,
+    "dynamics.frequencySeparation": frequencySeparationPct,
     "camber.deadLoadPerM": camberDeadLoadKgPerM,
     "camber.deadValue": deadDeflectionMm,
     "camber.cutting": camberCuttingMm,
@@ -1269,6 +1346,19 @@ export function computeMainGirder(
     // taşıma güvenliğini değil kullanım konforunu/kepçe konumlamasını etkiler.
     kind: "firma", severity: "uyari",
   });
+  checks.push({
+    id: `${which}.dynamics.frequencySeparation`,
+    label: "Basit Rezonans Ön Taraması (Frekans Ayrımı)",
+    required: 20,
+    provided: frequencySeparationPct,
+    unit: "%",
+    op: ">=",
+    computedSide: "provided",
+    pass: frequencySeparationPct >= 20,
+    standard: "FEM 1.001 A-2.2.3 model yaklaşımı · ORION ±20% ön tarama",
+    kind: "firma",
+    severity: "uyari",
+  });
   // 7.7 Ters sehim bölümüne KONTROL EKLENMEZ: kamber bir uygunluk ölçütü değil
   // imalat ölçüsüdür. "Kamber > 0" gibi bir kontrol aşağı yönlü yükler altında
   // matematiksel olarak asla başarısız olamaz; rapora yalnız gürültü katardı.
@@ -1288,6 +1378,9 @@ export function computeMainGirder(
     wzzBottomCm3: modulusZBottomCm3,
     wzzTopCm3: modulusZTopCm3,
     torsionIxxCm4: inertiaTorsionCm4,
+    approxGirderWeightKg,
+    spanToDepthRatio,
+    spanToWidthRatio,
     bridgeWeightKg: bridgeDeadWeightKg,
     trolleyWeightKg,
     liveLoadKg: hoistLoadKg,
@@ -1335,6 +1428,10 @@ export function computeMainGirder(
     fatigueCombined,
     deflectionMm,
     deflectionRatio,
+    naturalPeriodS,
+    naturalFrequencyHz,
+    hoistExcitationFrequencyHz,
+    frequencySeparationPct,
     deadDeflectionMm,
     camberCuttingMm,
     camberSupportedMm,

@@ -68,6 +68,7 @@ const TUR_ETIKET: Record<ArsivOlayi["tur"], string> = {
 
 export interface ArsivFiltresi {
   q: string;
+  isNumaralari: string[];
   kategoriler: string[];
   tedarikciler: string[];
   kaynaklar: string[];
@@ -80,7 +81,12 @@ export function PriceArchive({
   isAdmin = false,
 }: {
   sonuc: ArsivSonucu;
-  secenekler: { kategoriler: string[]; tedarikciler: string[]; toplam: number };
+  secenekler: {
+    isNumaralari: string[];
+    kategoriler: string[];
+    tedarikciler: string[];
+    toplam: number;
+  };
   filtre: ArsivFiltresi;
   /** Devralınan satırı YALNIZ yönetici silebilir (kullanıcı kararı 13.08.2026). */
   isAdmin?: boolean;
@@ -131,6 +137,7 @@ export function PriceArchive({
   const sayfaSayisi = Math.max(1, Math.ceil(sonuc.toplam / sonuc.sayfaBoyu));
   const temiz =
     !filtre.q &&
+    filtre.isNumaralari.length === 0 &&
     filtre.kategoriler.length === 0 &&
     filtre.tedarikciler.length === 0 &&
     filtre.kaynaklar.length === 0;
@@ -204,8 +211,14 @@ export function PriceArchive({
         <SearchBox
           value={q}
           onChange={setQ}
-          placeholder="Ürün, Tedarikçi Ara… (ör. rulman 6205)"
+          placeholder="Ürün, Tedarikçi veya İş No Ara… (ör. 0057-00)"
           className="w-[min(24rem,calc(100vw-4rem))]"
+        />
+        <CokluSuzgec
+          baslik="İş Numarası"
+          secenekler={secenekler.isNumaralari.map((v) => ({ value: v, label: v }))}
+          secili={filtre.isNumaralari}
+          onChange={(v) => adresYaz({ is: v.join(",") || undefined })}
         />
         <CokluSuzgec
           baslik="Kategori"

@@ -137,9 +137,14 @@ export interface TravelInputs {
   minApproachM: number;         // minimum araba yanaşması [m] (sadece köprü)
   wheelCount: number;           // tekerlek adedi
   /**
+   * Bağımsız yürütme tahriki adedi. Motor adedi otomatikken bu değer doğrudan
+   * `TravelSelections.motorCount` alanına yazılır.
+   */
+  driveCount: number;
+  /**
    * Bir motorun tahrik ettiği teker sayısı. Yürütmede genellikle her motor tek
    * tekeri döndürür; arabalarda tek motor bir mil üzerinden İKİ tekeri birden
-   * tahrik edebilir. Tahrikli teker sayısı = motor adedi × bu değerdir ve ana
+   * tahrik edebilir. Tahrikli teker sayısı = tahrik adedi × bu değerdir ve ana
    * kiriş yatay yük hesabına (sürtünmeyle aktarılabilen çekme kuvveti) girer.
    */
   wheelsPerMotor: number;
@@ -193,6 +198,8 @@ export interface TravelInputs {
    * (`travelAcceleration`, firma tasarım kabulü)?
    */
   accelerationAuto?: boolean;
+  /** Motor adedi `driveCount` değerinden otomatik alınsın mı? */
+  motorCountAuto?: boolean;
   tempFactor: number;           // ortam sıcaklığı düzeltme faktörü
   /** Sıcaklık faktörü otomatik: ortam sıcaklığı üst sınırından türetilir. */
   tempFactorAuto?: boolean;
@@ -348,7 +355,7 @@ export interface TravelSelections {
 
 export interface TravelValues {
   // Tahrik
-  /** Motor adedi × motor başına teker; ana kiriş yatay yük hesabına girer */
+  /** Tahrik adedi × motor başına teker; ana kiriş yatay yük hesabına girer */
   drivenWheels: number;
   // Ağırlıklar / tekerlekler
   craneWeightT: number | null;  // toplam vinç ağırlığı (sadece köprü)
@@ -723,12 +730,14 @@ export function computeTravelGroup(
   const bridgeWeightT = specs.bridgeWeightT;
 
   // --- Tahrik ---------------------------------------------------------------
-  // Tahrikli teker sayısı = motor adedi × motor başına tahrik edilen teker.
-  // Tekerlek adedini aşamaz. Ana kirişin yatay yük hesabı bu sayıyı kullanır.
+  // Tahrikli teker sayısı = bağımsız tahrik adedi × motor başına tahrik edilen
+  // teker. Motor adedi elle değişse de fiziksel teker düzeninin kaynağı 5.1'de
+  // girilen tahrik adedidir.
   const drivenWheels = Math.min(
     inp.wheelCount,
-    Math.max(1, Math.round(sel.motorCount * Math.max(1, inp.wheelsPerMotor)))
+    Math.max(1, Math.round(inp.driveCount * Math.max(1, inp.wheelsPerMotor)))
   );
+  set("drive.count", Math.max(1, Math.round(inp.driveCount)));
   set("drive.wheelsPerMotor", Math.max(1, inp.wheelsPerMotor));
   set("drive.drivenWheels", drivenWheels);
 

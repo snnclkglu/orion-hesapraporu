@@ -68,6 +68,12 @@ export interface GirderSectionParams extends BoxPlateDims {
   czMm?: number;
   /** Tarafsız eksen — b2 sol kenarından Cy [mm] (hesaplanmışsa) */
   cyMm?: number;
+  /** Kesit şemasının sağındaki temel mühendislik özeti. */
+  spanM?: number;
+  areaCm2?: number;
+  weightPerM?: number;
+  iyyCm4?: number;
+  approxGirderWeightKg?: number;
 }
 
 /** Piksel cinsinden çözülmüş kesit yerleşimi. */
@@ -245,14 +251,14 @@ export function pushRail(els: DiagramEl[], g: BoxLayout, opts?: { label?: boolea
   }
 }
 
-const W = 660;
+const W = 800;
 const H = 470;
 
 export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   const els: DiagramEl[] = [];
   caption(els, "ANA KİRİŞ — KUTU KESİT", "parametrik çizim · ölçüler mm");
 
-  const g = layoutBoxSection(p, { cx: 330, drawW: 280, drawH: 340, areaTop: 72, areaH: 356 });
+  const g = layoutBoxSection(p, { cx: 275, drawW: 235, drawH: 340, areaTop: 72, areaH: 356 });
   if (!g) {
     els.push(txt(W / 2, H / 2, "Kesit girdileri eksik veya geçersiz", 11, {
       anchor: "middle", fill: DCOL.muted,
@@ -268,8 +274,11 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   pushRail(els, g);
 
   // --- Plaka etiketleri (sol: t1/t3/t5, sağ: t2/t4/t6 — çakışma önleme aralıklı)
-  const leftX = 148;
-  const rightX = 512;
+  // Web kapsayıcısının 8 px iç dolgusu dâhil 840 px'lik çalışma alanına
+  // sığması için sol açıklama sütununu biraz içeri al. Metinler viewBox'ı
+  // sola doğru büyütürse masaüstünde gereksiz yatay kaydırma oluşuyordu.
+  const leftX = 108;
+  const rightX = 420;
   const leader = (fromX: number, fromY: number, toX: number, toY: number) =>
     els.push(ln(fromX, fromY, toX, toY, DCOL.faint, 0.8));
 
@@ -360,7 +369,7 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
   // h — toplam kesit yüksekliği (sağ dış). Sağ etiket sütunundan (rightX)
   // en uzun etiket kadar UZAKTA durmalı; yakın olursa ölçü çizgisi
   // "t4 = 8  gövde sacı" yazısının içine giriyor.
-  const hX = Math.max(cx + (maxB * s) / 2 + 30, rightX + 128);
+  const hX = Math.max(cx + (maxB * s) / 2 + 30, rightX + 102);
   els.push(ln(cx + (maxB * s) / 2 + 4, g.yTop, hX + 4, g.yTop, DCOL.faint, 0.6));
   els.push(ln(cx + (maxB * s) / 2 + 4, yB, hX + 4, yB, DCOL.faint, 0.6));
   dimV(els, hX, g.yTop, yB, `h = ${fmtN(totalH)}`);
@@ -391,8 +400,10 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
       ? Math.min(b2Right, Math.max(b2Left, g.railCx + (tp.topW * s) / 2))
       : b2Left;
     if (b2Right > b2Start) {
-      dimH(els, b2Start, b2Right, y2 - 8, `b2 = ${fmtN((b2Right - b2Start) / s)}`, {
-        size: 8.5, labelDy: -7, labelColor: INK.top,
+      // Ölçü çizgisi üst başlık etiketinin bağlantı çizgisinden ayrılır;
+      // yazı çizginin hemen üstünde ayrı bir kotta kalır.
+      dimH(els, b2Start, b2Right, y2 - 16, `b2 = ${fmtN((b2Right - b2Start) / s)}`, {
+        size: 8.5, labelDy: -8, labelColor: INK.top,
       });
     }
   }
@@ -411,6 +422,40 @@ export function girderSectionDiagram(p: GirderSectionParams): Diagram {
     // Etiket alt başlık plakasının altına iner (üstünde plakayla çakışıyordu)
     els.push(txt(xNA + 4, yB + 14, `Cy = ${fmtN(p.cyMm)} mm`, 9, { fill: DCOL.accent }));
   }
+
+  // --- Temel kesit özeti (kullanıcı kararı: şemanın sağında, kısa liste)
+  const panelX = 590;
+  els.push(ln(560, 58, 560, 432, DCOL.line, 1));
+  els.push(txt(panelX, 78, "ANAKİRİŞİN TEMEL ÖZELLİKLERİ", 10.5, {
+    bold: true, fill: DCOL.accent,
+  }));
+  const propertyRows: [string, string][] = [
+    ["Kesit alanı A", `${fmtN(p.areaCm2, 2)} cm²`],
+    ["Birim ağırlık G", `${fmtN(p.weightPerM, 2)} kg/m`],
+    ["Kuvvetli eksen ataleti Iyy", `${fmtN(p.iyyCm4, 0)} cm⁴`],
+    ["Ağırlık merkezi Cz", `${fmtN(p.czMm, 1)} mm`],
+    ["Ağırlık merkezi Cy", `${fmtN(p.cyMm, 1)} mm`],
+    ["Vinç açıklığı L", `${fmtN(p.spanM, 2)} m`],
+  ];
+  propertyRows.forEach(([label, value], index) => {
+    const y = 116 + index * 39;
+    els.push(txt(panelX, y, label, 8.5, { fill: DCOL.muted }));
+    els.push(txt(780, y, value, 9.5, { anchor: "end", bold: true }));
+    els.push(ln(panelX, y + 11, 780, y + 11, DCOL.line, 0.7));
+  });
+  els.push({
+    kind: "rect", x: panelX, y: 357, w: 190, h: 65,
+    fill: DCOL.accentSoft, stroke: DCOL.accent, strokeWidth: 0.8,
+  });
+  els.push(txt(panelX + 12, 377, "YAKLAŞIK ANA KİRİŞ AĞIRLIĞI", 8.5, {
+    fill: DCOL.accent, bold: true,
+  }));
+  els.push(txt(panelX + 12, 395, "G · L · 1,15 (yaklaşık perde payı)", 8, {
+    fill: DCOL.muted,
+  }));
+  els.push(txt(770, 411, `${fmtN(p.approxGirderWeightKg, 0)} kg`, 11, {
+    anchor: "end", bold: true, fill: DCOL.accent,
+  }));
 
   return fitDiagram(els, W, H);
 }

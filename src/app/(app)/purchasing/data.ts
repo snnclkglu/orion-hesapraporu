@@ -1141,6 +1141,7 @@ export interface ArsivSatiri {
 
 export interface ArsivSorgusu {
   q?: string;
+  isNumaralari?: readonly string[];
   kategoriler?: readonly string[];
   tedarikciler?: readonly string[];
   kaynaklar?: readonly string[];
@@ -1198,6 +1199,9 @@ export async function loadFiyatDizini(
     const ara = aramaKatla(sorgu.q ?? "");
     // `%` ve `_` KAÇIRILIR: kullanıcının yazdığı bir alt çizgi joker olmamalı.
     if (ara) q = q.like("ara", `%${ara.replace(/[%_]/g, "\$&")}%`);
+    if (sorgu.isNumaralari?.length) {
+      q = q.overlaps("isler", sorgu.isNumaralari as string[]);
+    }
     if (sorgu.kategoriler?.length) q = q.overlaps("kategoriler", sorgu.kategoriler as string[]);
     if (sorgu.tedarikciler?.length) q = q.overlaps("firmalar", sorgu.tedarikciler as string[]);
     if (sorgu.kaynaklar?.length) q = q.overlaps("turler", sorgu.kaynaklar as string[]);
@@ -1239,17 +1243,26 @@ export async function loadFiyatDizini(
 }
 
 /**
- * Süzgeç seçenekleri — kategori ve tedarikçi listesi.
+ * Süzgeç seçenekleri — iş numarası, kategori ve tedarikçi listesi.
  *
- * Dizinden değil KAYNAK TABLODAN okunur: dizin kalem başına tekilleştirilmiş
- * diziler taşıyor ve onları açmak (unnest) her sayfa isteğinde bütün görünümü
- * yeniden hesaplatırdı. Buradaki iki sorgu küçüktür ve süzgeç açılmadan da
- * gerekir.
+ * Kategori ve tedarikçi KAYNAK TABLODAN, iş numarası ise yalnız arşivde
+ * karşılığı bulunan bağlamları tekilleştiren dar görünümden okunur. Ana dizinin
+ * kalem başına dizilerini açmak (unnest) her sayfa isteğinde bütün görünümü
+ * yeniden hesaplatırdı; ayrı seçenek görünümü bu işi veritabanında tutar.
  */
 export async function loadArsivSecenekleri(
   supabase: SupabaseClient
-): Promise<{ kategoriler: string[]; tedarikciler: string[]; toplam: number }> {
-  const [kat, ted, sayim] = await Promise.all([
+): Promise<{
+  isNumaralari: string[];
+  kategoriler: string[];
+  tedarikciler: string[];
+  toplam: number;
+}> {
+  const [isler, kat, ted, sayim] = await Promise.all([
+    // Ayrı seçenek görünümü yalnız arşivde gerçekten karşılığı olan iş
+    // numaralarını döndürür. `jobs` defterinin tamamını göstermek, hiç fiyatı
+    // olmayan işleri seçilebilir kılıp boş sonuç üretirdi.
+    supabase.from("purchase_price_job_options").select("is_no"),
     supabase.from("purchase_price_history").select("category").neq("category", ""),
     supabase.from("purchase_suppliers").select("name").eq("active", true),
     // SÜZGEÇSİZ TOPLAM — şeritteki "şu kadar / bu kadar" sayacı için. Sunucu
@@ -1263,7 +1276,10 @@ export async function loadArsivSecenekleri(
   const tedarikciler = [
     ...new Set(((ted.data ?? []) as { name: string }[]).map((r) => r.name)),
   ].sort((a, b) => a.localeCompare(b, "tr"));
-  return { kategoriler, tedarikciler, toplam: sayim.count ?? 0 };
+  const isNumaralari = [
+    ...new Set(((isler.data ?? []) as { is_no: string }[]).map((r) => r.is_no).filter(Boolean)),
+  ].sort((a, b) => b.localeCompare(a, "tr", { numeric: true }));
+  return { isNumaralari, kategoriler, tedarikciler, toplam: sayim.count ?? 0 };
 }
 
 /**

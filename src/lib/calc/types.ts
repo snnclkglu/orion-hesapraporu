@@ -173,14 +173,24 @@ export interface CheckDisplay {
   /** Aralık kontrolünde alt/üst sınır */
   min?: number;
   max?: number;
-  /** "hesaplanan ⟨işaret⟩ sınır" biçiminde okunur */
-  operator: "≤" | "≥" | "…";
+  /**
+   * "hesaplanan ⟨işaret⟩ sınır" biçiminde okunur.
+   *
+   * `"…"` bir ARALIK kontrolüdür (alt/üst sınır). `"="` aralığın iki ucu AYNI
+   * olduğunda kullanılır — "60 … 60" diye basmak okuyucuyu iki farklı sınır
+   * arıyormuş gibi bırakırdı (rulman iç çapı = mil çapı).
+   */
+  operator: "≤" | "≥" | "…" | "=";
   unit: string;
 }
 
 export function checkDisplay(c: AnyCheck): CheckDisplay {
   if (c.op === "range") {
     const r = c as RangeCheck;
+    // Aralığın iki ucu aynıysa bu bir aralık DEĞİLDİR: tek sınıra indirilir.
+    if (r.min === r.max) {
+      return { computed: r.provided, limit: r.min, operator: "=", unit: c.unit };
+    }
     return { computed: r.provided, min: r.min, max: r.max, operator: "…", unit: c.unit };
   }
   const chk = c as Check;

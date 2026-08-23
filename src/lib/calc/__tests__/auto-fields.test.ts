@@ -33,6 +33,7 @@ import {
   GIRDER_AUTO_FIELDS,
   HOIST_AUTO_FIELDS,
   HOIST_AUTO_SELECTION_FIELDS,
+  HOIST_SELECTION_FIELDS,
   TRAVEL_AUTO_FIELDS,
   TRAVEL_AUTO_SELECTION_FIELDS,
   withDiameterSign,
@@ -52,6 +53,7 @@ import { MECHANISM_CLASSES } from "../fields";
 import type { HoistInputs, HoistSelections } from "../modules/hoistGroup";
 import type { GirderInputs } from "../modules/mainGirder";
 import type { TravelInputs, TravelSelections } from "../modules/travelGroup";
+import { TRAVEL_INPUT_FIELDS, TRAVEL_SELECTION_FIELDS } from "../presentation/travelFields";
 
 const MAIN = NEW_WORK_TEMPLATE.mainHoist!;
 const CTX = { liftHeightM: 10, capacityT: 10, ambientTempMaxC: 40, mechanismClass: "M6" as const };
@@ -59,6 +61,24 @@ const withInputs = (patch: Partial<HoistInputs>): HoistInputs => ({ ...MAIN.inpu
 const withSel = (patch: Partial<HoistSelections>): HoistSelections => ({
   ...MAIN.selections,
   ...patch,
+});
+
+describe("motor ve tahrik adet alanları", () => {
+  it("kaldırma motor adedini yalnız 1, 2 veya 4 seçenekli kutu olarak sunar", () => {
+    const field = HOIST_SELECTION_FIELDS.find((item) => item.key === "motorCount");
+    expect(field).toMatchObject({ type: "select", options: ["1", "2", "4"], numeric: true });
+  });
+
+  it("yürütme tahrik ve motor adetlerini belirlenmiş seçenekli kutular olarak sunar", () => {
+    const drive = TRAVEL_INPUT_FIELDS.find((item) => item.key === "driveCount");
+    const motor = TRAVEL_SELECTION_FIELDS.find((item) => item.key === "motorCount");
+    expect(drive).toMatchObject({
+      type: "select", options: ["1", "2", "4", "8", "16"], numeric: true,
+    });
+    expect(motor).toMatchObject({
+      type: "select", options: ["1", "2", "4", "8", "16"], numeric: true,
+    });
+  });
 });
 
 // --------------------------------------------------------- 1. Makara verimi
@@ -378,13 +398,37 @@ describe("yürütme ivmesi otomatiği", () => {
   });
 
   it("şablon değeri kendi mekanizma sınıfının türetmesiyle birebir aynıdır", () => {
-    for (const key of ["trolley", "bridge"] as const) {
+    for (const key of ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"] as const) {
       const t = NEW_WORK_TEMPLATE[key]!.inputs as TravelInputs;
-      const mech = key === "bridge"
-        ? NEW_WORK_SPECS.bridgeMechanismClass
-        : NEW_WORK_SPECS.trolleyMechanismClass;
       expect(t.accelerationAuto, key).toBe(true);
-      expect(t.accelerationMs2, key).toBe(travelAcceleration(mech));
+      if (key === "trolley" || key === "bridge") {
+        const mech = key === "bridge"
+          ? NEW_WORK_SPECS.bridgeMechanismClass
+          : NEW_WORK_SPECS.trolleyMechanismClass;
+        expect(t.accelerationMs2, key).toBe(travelAcceleration(mech));
+      }
+    }
+  });
+});
+
+describe("yürütme tahrik ve motor adedi otomatiği", () => {
+  const inp = NEW_WORK_TEMPLATE.bridge!.inputs as TravelInputs;
+  const sel = NEW_WORK_TEMPLATE.bridge!.selections as TravelSelections;
+  const ctx = { ambientTempMaxC: 40, mechanismClass: "M6" as const, travelSpeedMpm: 30 };
+
+  it("motor adedini tahrik adedine eşitler, anahtar kapalıyken dokunmaz", () => {
+    expect(deriveTravelInputs({ ...inp, driveCount: 8, motorCountAuto: true }, sel, ctx).motorCount)
+      .toBe(8);
+    expect(deriveTravelInputs({ ...inp, driveCount: 8, motorCountAuto: false }, sel, ctx).motorCount)
+      .toBeUndefined();
+  });
+
+  it("yeni raporun tüm yürütmelerinde tahrik 2 ve motor otomatiği açıktır", () => {
+    for (const key of ["trolley", "auxTrolley", "mono1Trolley", "mono2Trolley", "bridge"] as const) {
+      const state = NEW_WORK_TEMPLATE[key]!;
+      expect(state.inputs.driveCount, key).toBe(2);
+      expect(state.inputs.motorCountAuto, key).toBe(true);
+      expect(state.selections.motorCount, key).toBe(2);
     }
   });
 });
@@ -481,7 +525,15 @@ describe("ana kiriş ψhA / ψhK / γc otomatiği", () => {
 
   it("anahtarlar kapalıyken elle girilen katsayılara dokunmaz", () => {
     const d = deriveGirderInputs(
-      { ...GIRDER, psiHAAuto: false, psiHKAuto: false, amplifyYcAuto: false },
+      {
+        ...GIRDER,
+        psiHAAuto: false,
+        psiHKAuto: false,
+        amplifyYcAuto: false,
+        hookTopPositionAuto: false,
+        bridgeAxleSpacingAuto: false,
+        wheelContactTAuto: false,
+      },
       NEW_WORK_SPECS,
       DEP
     );

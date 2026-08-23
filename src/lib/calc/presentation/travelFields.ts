@@ -99,9 +99,16 @@ export const TRAVEL_INPUT_FIELDS: FieldDef<TravelInputs>[] = [
     hint: "Vinç dört köşesinde eşit tekerle yürür; adet dördün katıdır. 16 teker = köşe başına 4, ray başına 8.",
   },
   {
+    key: "driveCount", label: "Tahrik Sayısı", type: "select",
+    options: ["1", "2", "4", "8", "16"], numeric: true,
+    hint:
+      "Bağımsız yürütme tahriki adedidir. Motor adedi otomatikken bu sayıya " +
+      "eşitlenir; tahrikli teker sayısı = tahrik sayısı × motor başına teker.",
+  },
+  {
     key: "wheelsPerMotor", label: "Motor Başına Tahrikli Teker", type: "select",
     options: ["1", "2"], numeric: true,
-    hint: "Tek motor bir mil üzerinden iki tekeri birden tahrik edebilir. Tahrikli teker sayısı = motor adedi × bu değer.",
+    hint: "Tek tahrik bir mil üzerinden iki tekeri birden döndürebilir. Tahrikli teker sayısı = tahrik sayısı × bu değer.",
   },
   { key: "shaftSpanAMm", label: "Mil Mesnet Ölçüsü A", unit: "mm", type: "number", hint: "Mesnet ile tekerlek yükü arasındaki mesafe; mesnet aralığı 2·a alınır." },
   { key: "shaftSpanBMm", label: "Mil Mesnet Ölçüsü B", unit: "mm", type: "number" },
@@ -272,7 +279,13 @@ export const TRAVEL_SELECTION_FIELDS: FieldDef<TravelSelections>[] = [
     key: "motorRpm", label: "Seçilen Motor Devri", unit: "d/dak", type: "number",
     hint: "Katalogdan gelen gerçek yüklü devir (anma devri değil).",
   },
-  { key: "motorCount", label: "Motor Sayısı", type: "number" },
+  {
+    key: "motorCount", label: "Motor Sayısı", type: "select",
+    options: ["1", "2", "4", "8", "16"], numeric: true,
+    hint:
+      "Otomatikken Tahrik Sayısına eşittir. Anahtar kapatılırsa katalogdaki " +
+      "gerçek motor adedi elle seçilebilir.",
+  },
   { key: "motorShaftMm", label: "Motor Mil Çapı", unit: "mm", type: "number", diameter: true },
   { key: "gearboxModel", label: "Seçilen Dişli Kutusu", type: "text" },
   {

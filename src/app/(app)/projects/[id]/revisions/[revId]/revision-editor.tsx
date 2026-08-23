@@ -735,18 +735,12 @@ function headlineTexts(check: AnyCheck): { computed: string; limit: string } {
  * kararını bu iki sayıya bakarak verir; renk kontrolün KENDİ `pass` değerinden
  * gelir, burada eşik karşılaştırması yapılmaz.
  */
-function HeadlineBadge({
-  item,
-  headline,
-}: {
-  item: HeadlineItem;
-  headline: AdapterHeadline;
-}) {
-  const { check, label } = item;
+function HeadlineBadge({ item }: { item: HeadlineItem }) {
+  const { check, label, computedLabel, limitLabel } = item;
   const t = headlineTexts(check);
   return (
     <span
-      title={`${check.label} — ${headline.limitLabel} ${t.limit} / ${headline.computedLabel} ${t.computed}`}
+      title={`${check.label} — ${limitLabel} ${t.limit} / ${computedLabel} ${t.computed}`}
       className={cn(
         // Sayısal rozet mobilde bir kademe büyür (sözleşme §3)
         "inline-flex flex-wrap items-baseline gap-x-1.5 border px-2 py-0.5 font-mono text-xs tabular-nums sm:text-[11px]",
@@ -758,10 +752,10 @@ function HeadlineBadge({
       <span aria-hidden="true" className="font-semibold">
         {check.pass ? "✓" : "✗"}
       </span>
-      <span className="tracking-wide uppercase opacity-70">{headline.limitLabel}</span>
+      <span className="tracking-wide uppercase opacity-70">{limitLabel}</span>
       <span className="font-semibold">{t.limit}</span>
       <span aria-hidden="true" className="opacity-40">·</span>
-      <span className="tracking-wide uppercase opacity-70">{headline.computedLabel}</span>
+      <span className="tracking-wide uppercase opacity-70">{computedLabel}</span>
       <span className="font-semibold">{t.computed}</span>
       <span className="sr-only">{label}</span>
     </span>
@@ -787,7 +781,7 @@ function HeadlineBand({
         <h3 className="oc-kicker mb-2 text-muted-foreground">{headline.title}</h3>
       )}
       <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map(({ label, check }) => {
+        {items.map(({ label, check, computedLabel, limitLabel }) => {
           const t = headlineTexts(check);
           return (
             <div
@@ -811,7 +805,7 @@ function HeadlineBand({
               <span className="font-medium">{label}</span>
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5 font-mono text-[11px] tabular-nums">
                 <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
-                  {headline.computedLabel}
+                  {computedLabel}
                 </span>
                 <span
                   className={cn(
@@ -821,11 +815,17 @@ function HeadlineBand({
                 >
                   {t.computed}
                 </span>
-                <span className="text-muted-foreground">
-                  {checkDisplay(check).operator}
-                </span>
+                {/* Aralık kontrolünde bağıntı işareti BASILMAZ: "Sapma
+                    -77 % … Bant -10 … 5 %" iki ayrı aralık okutur. Sınır
+                    metni zaten "alt … üst" biçiminde geliyor (PDF'teki
+                    `HeadlineLine` ile aynı kural). */}
+                {checkDisplay(check).operator !== "…" && (
+                  <span className="text-muted-foreground">
+                    {checkDisplay(check).operator}
+                  </span>
+                )}
                 <span className="text-[11px] tracking-wide text-muted-foreground uppercase">
-                  {headline.limitLabel}
+                  {limitLabel}
                 </span>
                 <span className="text-foreground/80">{t.limit}</span>
               </span>
@@ -1566,7 +1566,24 @@ export function RevisionEditor({
     nextSpecs = specs
   ): ModulesState {
     const merged: ModuleState = { ...m[key], ...patch };
-    return withDerivedModules({ ...m, [key]: merged }, nextSpecs);
+    let nextModules: ModulesState = { ...m, [key]: merged };
+    if (key === "bridge" && patch.inputs && m.wheelLoads) {
+      const before = m.bridge.inputs as TravelInputs;
+      const after = patch.inputs as TravelInputs;
+      if (before.wheelCount !== after.wheelCount) {
+        nextModules = {
+          ...nextModules,
+          wheelLoads: {
+            ...m.wheelLoads,
+            inputs: {
+              ...(m.wheelLoads.inputs as object),
+              measurementsConfirmed: false,
+            },
+          },
+        };
+      }
+    }
+    return withDerivedModules(nextModules, nextSpecs);
   }
 
   function setModuleInputs(key: ModuleKey, next: object) {
@@ -2050,6 +2067,10 @@ export function RevisionEditor({
     // Alt bölüm gizleme: kutucuk başlıktadır, içerik soluk ama düzenlenebilir
     // kalır (girdiler korunur — bölüm aç/kapa mantığının aynısı).
     const isHidden = hiddenSections.has(sectionHideKeyFor(key, section.rawId));
+    const confirmation = section.confirmation;
+    const confirmationIsOn = confirmation
+      ? (inputs as Record<string, unknown>)[confirmation.inputKey] === true
+      : false;
 
     function enableSectionNote() {
       setSectionNotes((current) => ({ ...current, [noteKey]: "" }));
@@ -2068,9 +2089,14 @@ export function RevisionEditor({
     }
 
     const onInputsChange = (next: object) => {
+      const nextWithConfirmation = confirmation
+        ? { ...next, [confirmation.inputKey]: false }
+        : next;
       setModuleInputs(
         key,
-        section.inputScope ? section.inputScope.set(inputs, next) : next
+        section.inputScope
+          ? section.inputScope.set(inputs, nextWithConfirmation)
+          : nextWithConfirmation
       );
     };
 
@@ -2155,6 +2181,28 @@ export function RevisionEditor({
                 satır boyu yer yiyordu — üstelik çoğu bölümde hiç kullanılmıyor.
                 Başlık satırında zaten boş duran sağ kenara alındı. */}
             <span className="ml-auto flex items-center gap-2">
+              {confirmation && (
+                <Button
+                  type="button"
+                  variant={confirmationIsOn ? "outline" : "destructive"}
+                  size="sm"
+                  disabled={readOnly}
+                  onClick={() =>
+                    setModuleInputs(key, {
+                      ...(inputs as object),
+                      [confirmation.inputKey]: !confirmationIsOn,
+                    })
+                  }
+                  className={cn(
+                    "h-7 px-2 text-xs",
+                    confirmationIsOn && "border-success/40 bg-success/10 text-success"
+                  )}
+                >
+                  {confirmationIsOn
+                    ? `✓ ${confirmation.confirmedLabel}`
+                    : confirmation.actionLabel}
+                </Button>
+              )}
               {!noteIsEnabled && !readOnly && (
                 <Button
                   type="button"
@@ -2206,6 +2254,11 @@ export function RevisionEditor({
           </CardTitle>
           {section.description && (
             <p className="text-sm text-muted-foreground">{section.description}</p>
+          )}
+          {confirmation && !confirmationIsOn && (
+            <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+              {confirmation.warning}
+            </p>
           )}
         </CardHeader>
         {/* Gizli bölümün içeriği SOLUK ama düzenlenebilir kalır: mühendis
@@ -2275,7 +2328,11 @@ export function RevisionEditor({
               totalWheels={(mods.bridge.inputs as TravelInputs).wheelCount}
               value={(inputs as WheelLoadInputs).wheelSpacingsText}
               onChange={(next) =>
-                setModuleInputs(key, { ...(inputs as object), wheelSpacingsText: next })
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  wheelSpacingsText: next,
+                  ...(confirmation ? { [confirmation.inputKey]: false } : {}),
+                })
               }
               disabled={readOnly}
             />
@@ -2412,25 +2469,33 @@ export function RevisionEditor({
                   })()
               : baseCatalogMapping;
             const moduleCells = moduleResult(key)?.cells;
-            const requiredGearboxTorqueKnm = section.rawId === "2.3" && isHoistKey(key)
+            const requiredGearboxTorque = section.rawId === "2.3" && isHoistKey(key)
               ? moduleCells?.["gearbox.requiredTorque"]
+              : section.rawId === "5.5" && isTravelKey(key)
+                ? moduleCells?.["gearbox.requiredOutputTorque"]
+                : undefined;
+            const requiredGearboxTorqueUnit = section.rawId === "2.3" && isHoistKey(key)
+              ? "kNm"
+              : "Nm";
+            const requiredGearboxTorqueNm = typeof requiredGearboxTorque === "number"
+              ? requiredGearboxTorque * (requiredGearboxTorqueUnit === "kNm" ? 1000 : 1)
               : undefined;
-            const requiredGearboxRatio = section.rawId === "2.3" && isHoistKey(key)
+            const requiredGearboxRatio = catalogMapping?.kind === "gearbox"
               ? moduleCells?.["gearbox.requiredRatio"]
               : undefined;
             const gearboxCatalogRequirements =
               catalogMapping?.kind === "gearbox" &&
-              typeof requiredGearboxTorqueKnm === "number" &&
+              typeof requiredGearboxTorque === "number" &&
               typeof requiredGearboxRatio === "number"
                 ? [
                     {
-                      label: "Gerekli Redüktör Torku",
-                      value: requiredGearboxTorqueKnm,
-                      unit: "kNm",
+                      label: "Gereken Minimum Çıkış Torku",
+                      value: requiredGearboxTorque,
+                      unit: requiredGearboxTorqueUnit,
                       digits: 3,
                     },
                     {
-                      label: "Gerekli Çevrim Oranı",
+                      label: "Gereken Tahvil Oranı",
                       value: requiredGearboxRatio,
                       digits: 3,
                     },
@@ -2453,9 +2518,7 @@ export function RevisionEditor({
                         mapping={catalogMapping}
                         requirements={gearboxCatalogRequirements}
                         initialMinValue={
-                          typeof requiredGearboxTorqueKnm === "number"
-                            ? requiredGearboxTorqueKnm * 1000
-                            : undefined
+                          requiredGearboxTorqueNm
                         }
                         initialNearestValue={
                           typeof requiredGearboxRatio === "number"
@@ -2557,7 +2620,7 @@ export function RevisionEditor({
                         gerçekleşen değer — uygunsa yeşil, değilse kırmızı. */}
                     {headline?.placement === "catalog" &&
                       headlines.map((it) => (
-                        <HeadlineBadge key={it.check.id} item={it} headline={headline} />
+                        <HeadlineBadge key={it.check.id} item={it} />
                       ))}
                   </div>
                   {/* Alternatif çipleri SARMALIDIR: kap `Card` `overflow-hidden`

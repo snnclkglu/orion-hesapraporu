@@ -87,7 +87,7 @@ const G = 9.81;
 export interface WheelLoadDeps {
   /** Köprünün toplam teker adedi */
   wheelCount: number;
-  /** Tahrikli teker adedi (motor adedi × motor başına teker) */
+  /** Tahrikli teker adedi (tahrik adedi × motor başına teker) */
   drivenWheels: number;
   /** Gerçekleşen köprü yürütme hızı [m/dak] */
   travelSpeedMpm: number;
@@ -141,6 +141,8 @@ export function wheelLoadDepsFrom(src: {
 
 /** Kullanıcı girdileri (geometri ve tasarım kabulleri) */
 export interface WheelLoadInputs {
+  /** Vinç verileri ve teker düzeni ölçülerinin kullanıcı tarafından onayı. */
+  measurementsConfirmed?: boolean;
   /**
    * BİR RAY üzerindeki ardışık teker eksenleri arası yatay mesafeler [mm],
    * virgülle ayrılmış. Teker adedi ray başına n ise n−1 değer beklenir
@@ -415,6 +417,23 @@ export function computeWheelLoads(
   set("wheelSet.sumDistanceSq", sumD2);
   set("wheelSet.coupledPairs", coupledPairs);
   set("wheelSet.railHeadWidth", railHeadWidth);
+  set(
+    "wheelSet.measurementsConfirmed",
+    inp.measurementsConfirmed === true ? "Onaylandı" : "Onay Bekliyor"
+  );
+  checks.push({
+    id: "wheelLoads.measurements.confirmed",
+    label: "Vinç Verileri ve Teker Düzeni Ölçü Onayı",
+    required: 1,
+    provided: inp.measurementsConfirmed === true ? 1 : 0,
+    unit: "-",
+    op: ">=",
+    computedSide: "provided",
+    pass: inp.measurementsConfirmed === true,
+    standard: "ORION tasarım veri onayı",
+    kind: "firma",
+    severity: "engelleyici",
+  });
 
   // --- 2) Ağırlıklar ve düşey teker yükleri --------------------------------
   // FEM 9.3'e göre kaldırma yükü SL, kaldırılan yükü + kaldırma aparatını +

@@ -867,3 +867,95 @@ CMAA 70 ivmelenme faktörü Ka.
 eşitlendiğinde sapma −6·10⁻⁶ % çıkar ve `toLocaleString` bunu "-0 %" yazıyordu;
 okuyucu olmayan bir sapmayı varmış gibi okur. Kural editördeki ve PDF'teki
 `fmt` yardımcılarında AYNI biçimde durur.
+
+## HESAP-24 — Tahrik adedi, ölçü onayı ve ana kiriş ön kontrolleri ortak hesap verisidir.
+
+Kullanıcı kararı (23.08.2026): yeni hesap raporlarında araba ve köprü ivmeleri
+otomatik açılır. Yürütmenin `Tahrik Sayısı` teker düzeninde sorulur; yeni işte
+2 gelir ve 1/2/4/8/16 seçeneklidir. Otomatik yürütme motor sayısı bu değere
+eşittir, fakat anahtar kapatılıp elle değiştirilebilir. Kaldırma motor sayısı
+serbest sayı değildir; 1/2/4 seçenekli kutudur. Tahrik sayısı, motor başına
+tahrikli teker adediyle çarpılarak toplam tahrikli tekeri verir; kullanıcı
+motor sayısını elle değiştirdiğinde teker düzeni sessizce değişmez.
+
+Teker yükleri 6.1 ve ana kiriş yükleri 7.2 bölümleri kullanıcı **Ölçü Onayı**
+ister. Onay yoksa bölüm firma kabulü bakımından engelleyici biçimde uygun
+değildir. Teker sayısı veya kılavuz geometrisi değiştiğinde 6.1; kaldırma
+yüksekliği, teker aralıkları ya da 7.2 girdileri değiştiğinde 7.2 onayı yeniden
+açılır. Kancanın en üst konumu kaldırma yüksekliğinden, köprü dingil açıklığı
+6.1 teker aralıkları toplamından, teker basıncını taşıyan sac ise ana kiriş t3
+gövde sacından otomatik türetilir; üçü de anahtarı kapatılarak elle değişebilir.
+
+Ana kiriş 7.8'de CMAA 70 §3.5.1 oranları normatif kontrol edilir: `L/h ≤ 25`
+ve web plakaları arası net genişlik için `L/b ≤ 65`. Ekran açıklaması bu
+tanımları, sınırları ve aşımın hangi kesit boyutuyla giderileceğini söyler.
+FEM 1.001 A-2.2.3 elastik yapı titreşimlerinin ayrıntılı hesabının çoğu durumda
+zor olduğunu belirtir; sayısal bir rezonans uzaklığı vermez. Bu nedenle
+`T₁ = 2π√(δ/g)` ile bulunan doğal frekansın tambur frekansına uzaklığı için
+%20 sınırı yalnız **ORION ön taraması / firma kabulü** olarak raporlanır,
+FEM şartı diye etiketlenmez. 7.1 kesit şeması Iyy, alan, metre ağırlığı,
+ağırlık merkezi ve `1,15 × açıklık × kg/m` yaklaşık ana kiriş ağırlığını;
+7.8 şeması oranlarla iki frekansın ilişkisini uygulama ve PDF'de aynı veriyle
+gösterir.
+
+## HESAP-25 — Uygunluk Özeti şeridi: bölümün yargısı bölümün BAŞINDADIR.
+
+Kullanıcı kararı (23.08.2026): tambur milinde denenen "İzin Verilen / Oluşan
+Gerilmeler" şeridi *"kontrolü çok kolaylaştırıyor"* — bu yüzden SAYISAL YARGI
+ÜRETEN HER bölüme konur. Kolaylığın kaynağı ayrıntı değil **tekdüze yerdir**:
+mühendis "bu bölüm uygun mu?" sorusunun cevabını her bölümde AYNI noktada
+bulur, satırların dibinde aramaz. Ayrıntılı hesap satırları ve onlara bağlı
+kontroller (`check-anchors.ts`) aşağıda AYNEN kalır; şerit yalnız kararı
+hızlandıran tekrardır ve hiçbir eşiği kendisi hesaplamaz — sayılar da
+uygunluk da kontrolün kendi `pass` değerinden gelir.
+
+Tanım TEK YERDEDİR: `module-adapters.ts` içindeki `*_HEADLINES` haritaları
+(`AdapterHeadline`). Ekran (`HeadlineBand`/`HeadlineBadge`) ve PDF
+(`HeadlineLine`) aynı haritayı okur — iki yüzey ayrışamaz.
+
+**İKİ YERLEŞİM.** `band` girdilerle katalog seçimi ARASINA girer ve
+bölümlerin geneli için budur. `catalog` ise rozetleri "Katalogdan Seç"
+düğmesinin YANINA koyar; kararın kataloğa bakarken verildiği iki bölümde
+kullanılır (2.1 halat emniyet katsayısı, 4.3 makara rulmanı).
+
+**ŞERİDE GİRMEYENLER.** Şerit "hesaplanan ⟨işaret⟩ sınır" diye okunur; iki
+sayısı olmayan kontrol orada bilgi vermez:
+· ONAY / VARLIK kontrolleri — ölçü onayı (7.2 · 10.1), "tahvil oranı
+  seçilmiş" (5.5), "fren boşluğu bandda" (2.8). Bunlar "0 ≥ 1" diye görünür;
+  kararın kendisi zaten kutunun yanındadır.
+· KAPSAM bilgilendirmeleri — "rüzgâr modellenmiyor" (8.2), "tepki yapıya
+  aktarılmaz" (5.8), kılavuz kuvveti denge artığı (10.3).
+· KABİN / ELEKTRİK ODASI (11.x) BÜTÜNÜYLE dışarıdadır: oradaki kontroller bir
+  mühendislik yargısı değil KATALOG DURUMUDUR ("ürün seçilmiş mi", "katalogda
+  sınır yayımlanmış mı"). Ürün seçilmemişken sınır 0'dır ve şerit
+  "1,39 ≤ 0,00 kW" diye bağırırdı — olmayan bir hesap hatasını varmış gibi
+  gösterirdi.
+
+**ETİKETLER CİNSE GÖREDİR ve gerektiğinde SATIR BAŞINA ezilir**
+(`AdapterHeadlineCheck.computedLabel` / `limitLabel`). Bir bölümün
+kontrolleri her zaman aynı cinsten değildir — tamburda gövde gerilmesi
+"Oluşan ≤ İzin verilen" iken çap kontrolü "Gereken ≤ Seçilen"dir; tek bir
+etiket çifti dayatmak sayılardan birine YANLIŞ ad takmak olurdu. Üç aile:
+· gerilme       → **Oluşan ≤ İzin verilen** · başlık "İzin Verilen / Oluşan Gerilmeler"
+· kapasite/ölçü → **Gereken ≤ Seçilen** (hesaplanan taraf `required`)
+· emniyet/ömür  → **Gerçekleşen ≥ Gereken** (hesaplanan taraf `provided`)
+
+**BAŞLIK "KONTROL ÖZETİ" OLAMAZ** — o ad raporun sonundaki KONTROL DİZİNİNE
+aittir ve yalnız detaylı raporda basılır (bkz. `belge.md`, rapor seviyeleri).
+Aynı adı bölüm içinde de kullanmak iki ayrı şeyi tek adla anmak olurdu; şerit
+"Uygunluk Özeti" adını taşır. Çakışmayı `report.smoke.test.tsx` belgenin
+METNİNDEN ölçerek yakalar.
+
+**ARALIĞIN İKİ UCU AYNIYSA ARALIK DEĞİLDİR** (`checkDisplay`): rulman iç çapı
+kontrolü "60 … 60 mm" diye basılıyordu ve okuyucuyu iki farklı sınır arıyormuş
+gibi bırakıyordu. Tek sınıra indirilir, bağıntı `=` olur. Gerçek aralıklarda
+(çevrim oranı sapması) bağıntı işareti HİÇ basılmaz — "Sapma −77 % … Bant
+−10 … 5 %" iki ayrı aralık okutur; sınır metni zaten "alt … üst" biçimindedir.
+
+**KAPSAM KORUMASI** `__tests__/headlines.guard.test.ts`tedir ve üç şeyi birden
+tutar: şerideki her sonek bölümün `checkSuffixes` bildiriminde vardır; sayısal
+yargı üreten her bölümün şeridi vardır; şerit o bölümün BÜTÜN yargılarını
+taşır. Sonuncusu önemlidir — eksik bir şerit, hepsi ✓ görünürken dışarıda
+kalan bir kontrolü gizler ve özet YANILTIR. Yeni bir kontrol eklendiğinde test
+kırılır ve mühendis onu şeride eklemeye (ya da gerekçesiyle muaf listesine
+yazmaya) zorlanır.

@@ -267,6 +267,11 @@ değil **"kaç bayt taşınıyor"**dur.
 ARAMA GECİKTİRİLİR (350 ms), SÜZGEÇ GECİKMEZ: açılır süzgeçte tıklama
 zaten nihai bir karardır. Sıralama SQL'dedir (`son_hareket desc`) ve
 beraberliği anahtar bozar — sayfalar arasında satır atlanmaz/yinelenmez.
+Serbest arama ürün ve tedarikçinin yanında **iş numarasını** da kapsar;
+`is` adres parametresi aynı bağlamı çoklu **İş Numarası** süzgeci olarak
+uygular. Seçenekler bütün İşler defterinden değil, yalnız fiyat arşivinde
+gerçekten karşılığı olan numaralardan gelir; fiyatı olmayan bir iş seçilip
+yanıltıcı bir boş liste üretilmez.
 Sıralamanın istemcide kalması bir kez gerçek bir hata üretti: geçmiş
 kalemlerinin olay dizisi boşalınca hepsi `gun=""` ile eşitlenip alfabetik
 sıralandı ve listenin başına devralınan satırı OLMAYAN kalemler düştü —

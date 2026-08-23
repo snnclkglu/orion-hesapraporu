@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { girderSectionDiagram } from "@/lib/diagrams/girderSection";
+import { girderDynamicsDiagram } from "@/lib/diagrams/girderDynamics";
 import { wheelShaftDiagram } from "@/lib/diagrams/wheelShaft";
 import { reevingDiagram } from "@/lib/diagrams/reeving";
 import { drumDiagram } from "@/lib/diagrams/drum";
@@ -209,7 +210,7 @@ describe("diagramForSection", () => {
 
   /** Şablonun ürettiği tüm diyagramlar (bölüm eşlemesiyle). */
   const pairs: [string, string][] = [
-    ["girder", "7.1"], ["girder", "7.2"], ["girder", "7.4"], ["girder", "7.6"],
+    ["girder", "7.1"], ["girder", "7.2"], ["girder", "7.4"], ["girder", "7.6"], ["girder", "7.8"],
     ["trolley", "5.2"], ["bridge", "5.2"],
     ["main", "2.1"], ["aux", "2.1"],
     ["main", "2.2.1"], ["main", "2.2.3"],
@@ -221,6 +222,7 @@ describe("diagramForSection", () => {
     expect(diagramForSection("girder", "7.2", input, result)).not.toBeNull(); // yükler
     expect(diagramForSection("girder", "7.4", input, result)).not.toBeNull(); // gerilme şeması
     expect(diagramForSection("girder", "7.6", input, result)).not.toBeNull(); // sehim
+    expect(diagramForSection("girder", "7.8", input, result)).not.toBeNull(); // oran + dinamik tarama
     expect(diagramForSection("trolley", "5.2", input, result)).not.toBeNull();
     expect(diagramForSection("bridge", "5.2", input, result)).not.toBeNull();
     expect(diagramForSection("main", "2.1", input, result)).not.toBeNull();
@@ -259,6 +261,12 @@ describe("diagramForSection", () => {
     assertFits("girderLoad", girderLoadDiagram({
       spanM: 17.5, wheelSpacingMm: 3000, wheelLoadKg: 4200,
       selfWeightKg: 8000, liveLoadKg: 10000, momentKgCm: 500000,
+    }));
+    assertFits("girderDynamics", girderDynamicsDiagram({
+      spanM: 20, heightMm: 1014, webGapMm: 320,
+      spanToDepthRatio: 19.72, spanToWidthRatio: 62.5,
+      naturalFrequencyHz: 4.34, excitationFrequencyHz: 0.106,
+      separationPct: 97.55,
     }));
     assertFits("deflection", deflectionDiagram({
       spanM: 17.5, deflectionMm: 4.55, deflectionRatio: 3844, limitRatio: 750,

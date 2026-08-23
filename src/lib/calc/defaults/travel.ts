@@ -20,6 +20,7 @@ export const V5_TRAVEL_DEPS: TravelDeps = {
 export const V5_TROLLEY_INPUTS: TravelInputs = {
   minApproachM: 0,              // yalnız köprü varyantında kullanılır
   wheelCount: 4,                // tekerlek adedi
+  driveCount: 1,                // referans arabada tek bağımsız tahrik
   wheelsPerMotor: 2,            // arabada tek motor iki tekeri tahrik eder
   shaftSpanAMm: 72.5,           // teker mili mesnet ölçüsü a [mm]
   shaftSpanBMm: 90,             // teker mili ölçüsü b [mm] (gösterim)
@@ -54,6 +55,7 @@ export const V5_TROLLEY_INPUTS: TravelInputs = {
   // Yeni iş şablonunda anahtar AÇIKTIR (bkz. defaults.ts).
   accelerationMs2: 0.2,         // ivme [m/s²]
   accelerationAuto: false,
+  motorCountAuto: false,        // tarihsel katalog seçimini korur
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
   tempFactorAuto: true,
   motorCalcCount: 1,            // gücün bölüşüldüğü motor adedi
@@ -133,6 +135,7 @@ export const V5_TROLLEY_SELECTIONS: TravelSelections = {
 export const V5_BRIDGE_INPUTS: TravelInputs = {
   minApproachM: 1,              // minimum araba yanaşması [m]
   wheelCount: 4,
+  driveCount: 2,                // referans köprüde iki bağımsız tahrik
   wheelsPerMotor: 1,            // köprüde her motor tek tekeri tahrik eder
   shaftSpanAMm: 75,
   shaftSpanBMm: 140,
@@ -155,6 +158,7 @@ export const V5_BRIDGE_INPUTS: TravelInputs = {
   reducerStages: 3,
   accelerationMs2: 0.2,         // elle girilmiş — bkz. V5_TROLLEY_INPUTS notu
   accelerationAuto: false,
+  motorCountAuto: false,        // tarihsel katalog seçimini korur
   tempFactor: 1,                // ortam sıcaklığından türetilir (bkz. tempFactorAuto)
   tempFactorAuto: true,
   motorCalcCount: 2,

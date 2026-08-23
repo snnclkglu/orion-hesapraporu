@@ -46,13 +46,21 @@ export default async function PricesPage({
   const supabase = await createClient();
 
   const q = typeof sp.q === "string" ? sp.q : "";
+  const isNumaralari = liste(sp.is);
   const kategoriler = liste(sp.kat);
   const tedarikciler = liste(sp.ted);
   const kaynaklar = liste(sp.kaynak);
   const sayfa = Math.max(1, Number(sp.sayfa) || 1);
 
   const [sonuc, secenekler, { data: kullanici }] = await Promise.all([
-    loadFiyatDizini(supabase, { q, kategoriler, tedarikciler, kaynaklar, sayfa }),
+    loadFiyatDizini(supabase, {
+      q,
+      isNumaralari,
+      kategoriler,
+      tedarikciler,
+      kaynaklar,
+      sayfa,
+    }),
     loadArsivSecenekleri(supabase),
     supabase.auth.getUser(),
   ]);
@@ -65,7 +73,7 @@ export default async function PricesPage({
     <PriceArchive
       sonuc={sonuc}
       secenekler={secenekler}
-      filtre={{ q, kategoriler, tedarikciler, kaynaklar }}
+      filtre={{ q, isNumaralari, kategoriler, tedarikciler, kaynaklar }}
       isAdmin={isAdminRole(profil?.role)}
     />
   );

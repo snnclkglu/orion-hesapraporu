@@ -142,8 +142,18 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
     fieldGroup: "geometry",
     hint: "b2'nin sol kenarından ana gövde sacına; ray ekseni = x + t3/2.",
   },
-  { key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number" },
-  { key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number" },
+  {
+    key: "hookTopPositionM", label: "Kancanın En Üst Konumu l", unit: "m", type: "number",
+    hint:
+      "Otomatikken Teknik Özellikler bölümündeki ilgili kaldırma yüksekliğini alır. " +
+      "Özel yerleşimlerde anahtar kapatılarak elle değiştirilebilir.",
+  },
+  {
+    key: "bridgeAxleSpacingM", label: "Köprü Dingil Açıklığı", unit: "m", type: "number",
+    hint:
+      "Otomatikken Vinç Verileri ve Teker Düzenindeki bir ray üzerinde ilk ve " +
+      "son teker ekseni arasındaki toplam mesafeyi alır.",
+  },
   { key: "trolleyWheelSpacingM", label: "Araba Tekerlek Açıklığı", unit: "m", type: "number" },
   { key: "trolleyAxleSpacingM", label: "Araba Dingil Açıklığı", unit: "m", type: "number" },
   // 7.2 / 7.3'ün üç katsayısı ARTIK ELLE SORULMAZ: otomatik türetilip kutuya
@@ -198,6 +208,9 @@ export const GIRDER_INPUT_FIELDS: FieldDef<GirderInputs>[] = [
   {
     key: "wheelContactTMm", label: "Teker Basıncı Taşıyan Sac (Ray T-Profil) Kalınlığı t",
     unit: "mm", type: "number", standardRef: "DIN 15018 Şekil 9",
+    hint:
+      "Otomatikken Kesit Özelliklerindeki ana gövde sacı t3 kalınlığına eşittir. " +
+      "Yükü ayrı bir takviye sacı taşıyorsa anahtar kapatılıp gerçek kalınlık girilebilir.",
   },
   {
     key: "sigmaYMaxOverrideNmm2", label: "σy,maks (Elle)", unit: "N/mm²", type: "number",

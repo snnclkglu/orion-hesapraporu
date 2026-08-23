@@ -511,6 +511,8 @@ const NEW_WORK_HOOKBLOCK_SELECTIONS = {
  */
 const NEW_WORK_TROLLEY_INPUTS = {
   ...V5_TROLLEY_INPUTS,
+  driveCount: 2,
+  motorCountAuto: true,
   serviceFactorKs: 1.1,
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
@@ -528,6 +530,8 @@ const NEW_WORK_TROLLEY_INPUTS = {
 
 const NEW_WORK_BRIDGE_INPUTS = {
   ...V5_BRIDGE_INPUTS,
+  driveCount: 2,
+  motorCountAuto: true,
   serviceFactorKs: 1.1,
   serviceFactorKsAuto: true,
   accelTorqueFactorKt: 1.5,
@@ -554,6 +558,7 @@ const NEW_WORK_BRIDGE_INPUTS = {
  */
 const NEW_WORK_TROLLEY_SELECTIONS = {
   ...V5_TROLLEY_SELECTIONS,
+  motorCount: 2,
   gearboxRatio: 58.1195,
 };
 
@@ -589,17 +594,27 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   mono1Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
   mono2Trolley: { inputs: NEW_WORK_TROLLEY_INPUTS, selections: NEW_WORK_TROLLEY_SELECTIONS },
   bridge: { inputs: NEW_WORK_BRIDGE_INPUTS, selections: NEW_WORK_BRIDGE_SELECTIONS },
-  wheelLoads: { inputs: V5_WHEELLOAD_INPUTS, selections: V5_WHEELLOAD_SELECTIONS },
+  wheelLoads: {
+    inputs: { ...V5_WHEELLOAD_INPUTS, measurementsConfirmed: false },
+    selections: V5_WHEELLOAD_SELECTIONS,
+  },
   girder: {
     // 7.2 / 7.3'ün üç katsayısı (ψhA, ψhK, γc) yeni işte OTOMATİKtir: kütle
     // oranından ve çelik yapı sınıfından türetilip kutulara yazılır.
     inputs: {
       ...V5_GIRDER_INPUTS,
+      loadMeasurementsConfirmed: false,
       diaphragmSpacingMm: 1500,
       deflectionLimitRatio: 1000,
       psiHAAuto: true,
       psiHKAuto: true,
       amplifyYcAuto: true,
+      hookTopPositionM: NEW_WORK_SPECS.mainLiftHeightM,
+      hookTopPositionAuto: true,
+      bridgeAxleSpacingM: 3,
+      bridgeAxleSpacingAuto: true,
+      wheelContactTMm: V5_GIRDER_INPUTS.t3Mm,
+      wheelContactTAuto: true,
     },
     selections: V5_GIRDER_SELECTIONS,
   },
@@ -611,11 +626,18 @@ export const NEW_WORK_TEMPLATE: CalcInput = {
   girder2: {
     inputs: {
       ...V5_GIRDER_INPUTS,
+      loadMeasurementsConfirmed: false,
       diaphragmSpacingMm: 1500,
       deflectionLimitRatio: 1000,
       psiHAAuto: true,
       psiHKAuto: true,
       amplifyYcAuto: true,
+      hookTopPositionM: NEW_WORK_SPECS.auxLiftHeightM,
+      hookTopPositionAuto: true,
+      bridgeAxleSpacingM: 3,
+      bridgeAxleSpacingAuto: true,
+      wheelContactTMm: V5_GIRDER_INPUTS.t3Mm,
+      wheelContactTAuto: true,
     },
     selections: V5_GIRDER_SELECTIONS,
   },

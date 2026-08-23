@@ -19,6 +19,7 @@ export const V5_GIRDER_DEPS: GirderDeps = {
   // kaldırmanın değerleriyle beslenir (bkz. engine.ts `girderDepsFor`).
   hoistLoadKg: 4000,
   liftSpeedMpm: 35,
+  hoistDrumRpm: 14.554,
   girdersInBridge: 2,
   mainHookBlockWeightKg: 3250,
   mainRopeWeightKg: 250,
@@ -36,6 +37,7 @@ export const V5_GIRDER_DEPS: GirderDeps = {
 };
 
 export const V5_GIRDER_INPUTS: GirderInputs = {
+  loadMeasurementsConfirmed: true,
   railHeightMm: 40,           // hr
   t1Mm: 8,
   b1Mm: 300,
@@ -58,7 +60,9 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   railTProfileTopThkMm: 0,
   railTProfileTopWidthMm: 0,
   hookTopPositionM: 12,
+  hookTopPositionAuto: false,
   bridgeAxleSpacingM: 3.75,
+  bridgeAxleSpacingAuto: false,
   trolleyWheelSpacingM: 3,
   trolleyAxleSpacingM: 3,
   // ψhA / ψhK elle girilmez: kütle oranından türetilir (FEM 1.001 Şekil A.2.2.1)
@@ -75,6 +79,7 @@ export const V5_GIRDER_INPUTS: GirderInputs = {
   webStiffenerOffsetMm: 300,
   wheelContactHMm: 75,
   wheelContactTMm: 12,
+  wheelContactTAuto: false,
   // σy,maks / σy,min elle girilmez: teker basıncı σz'den gelir
   // σB elle girilmez: S235JR → 360 N/mm²
   deflectionLimitRatio: 750,  // yaygın imalat hedefi L/750

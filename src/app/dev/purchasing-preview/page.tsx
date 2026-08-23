@@ -424,11 +424,18 @@ export default function PurchasingPreviewPage() {
         <PriceArchive
             sonuc={ARSIV}
             secenekler={{
+              isNumaralari: ["0057-00", "0053-01", "0043-00"],
               kategoriler: ["Rulman", "Sac", "Bağlantı Elemanı"],
               tedarikciler: ["DKS RULMAN", "ARCELORMİTTAL RZK ÇELİK", "BİRLİK BAĞLANTI"],
               toplam: 3,
             }}
-            filtre={{ q: "", kategoriler: [], tedarikciler: [], kaynaklar: [] }}
+            filtre={{
+              q: "",
+              isNumaralari: [],
+              kategoriler: [],
+              tedarikciler: [],
+              kaynaklar: [],
+            }}
             isAdmin
           />
       </section>

@@ -991,7 +991,10 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
   // Tip kodu katalogtan gelir ve iki yeri besler: ekipman listesindeki model
   // sütunu ve "Katalog Sayfası" düğmesi (sayfa MARKA + MODEL ile bulunur).
   { key: "motorModel", label: "Motor Tip Kodu", type: "text" },
-  { key: "motorCount", label: "Motor Adedi", type: "number" },
+  {
+    key: "motorCount", label: "Motor Adedi", type: "select",
+    options: ["1", "2", "4"], numeric: true,
+  },
   { key: "brakeBrand", label: "Fren Markası", type: "text" },
   { key: "brakeModel", label: "Fren Modeli", type: "text" },
   { key: "brakeTorqueNm", label: "Fren Torku", unit: "Nm", type: "number" },
@@ -1096,6 +1099,7 @@ export const TRAVEL_AUTO_FIELDS: Record<string, string> = {
  * türetilen değer ise seçimlere yazılır.
  */
 export const TRAVEL_AUTO_SELECTION_FIELDS: Record<string, string> = {
+  motorCount: "motorCountAuto",
   gearboxRatio: "gearboxRatioAuto",
 };
 
@@ -1115,6 +1119,9 @@ export const CABIN_AUTO_FIELDS: Record<string, string> = {
 };
 
 export const GIRDER_AUTO_FIELDS: Record<string, string> = {
+  hookTopPositionM: "hookTopPositionAuto",
+  bridgeAxleSpacingM: "bridgeAxleSpacingAuto",
+  wheelContactTMm: "wheelContactTAuto",
   psiHAOverride: "psiHAAuto",
   psiHKOverride: "psiHKAuto",
   amplifyYcOverride: "amplifyYcAuto",

@@ -368,11 +368,15 @@ const AUTO_FLAGS = [
   // (Tahvil oranında bu ayrıca yayınlanmış bir raporu "uygun değil"e
   // düşürmemeyi de sağlar.)
   "accelerationAuto",
+  "motorCountAuto",
   "gearboxRatioAuto",
   // Ana kiriş (7.2 yükler / 7.3 yükleme durumları)
   "psiHAAuto",
   "psiHKAuto",
   "amplifyYcAuto",
+  "hookTopPositionAuto",
+  "bridgeAxleSpacingAuto",
+  "wheelContactTAuto",
 ] as const;
 
 function keepManualValues<T extends object>(stored: T | null | undefined, merged: T): T {

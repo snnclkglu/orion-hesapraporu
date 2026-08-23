@@ -678,6 +678,8 @@ export interface TravelDerivation {
   gearboxServiceFactor?: number;
   /** FEM mekanizma sınıfından otomatik yürütme ivmesi a [m/s²]. */
   accelerationMs2?: number;
+  /** Tahrik adedinden otomatik alınan motor adedi (katalog seçimine yazılır). */
+  motorCount?: number;
   /**
    * GEREKEN ORANA EŞİTLENMİŞ redüktör tahvil oranı — GİRDİYE DEĞİL,
    * SEÇİMLERE yazılır (`TravelSelections.gearboxRatio`); anahtarı yine
@@ -734,6 +736,9 @@ export function deriveTravelInputs(
   }
   if (inputs.accelerationAuto) {
     out.accelerationMs2 = travelAcceleration(ctx.mechanismClass);
+  }
+  if (inputs.motorCountAuto) {
+    out.motorCount = Math.max(1, Math.round(inputs.driveCount));
   }
   // TAHVİL ORANI GEREKEN ORANA EŞİTLENİR: gerçekleşen hız anma hızına oturur
   // ve güç hesabı doğru motoru seçtirir (bkz. `gearboxRatioAuto`). Sonlu
@@ -807,9 +812,16 @@ export interface GirderDeriveContext {
    * kaldırmanın kendi arabası varsa ikinci takımda o kullanılır.
    */
   trolleyWeightT?: number;
+  /** Taşınan kaldırma grubunun kaldırma yüksekliği [m]. */
+  liftHeightM?: number;
+  /** Teker düzenindeki ilk ve son köprü teker ekseni arası [m]. */
+  bridgeAxleSpacingM?: number;
 }
 
 export interface GirderDerivation {
+  hookTopPositionM?: number;
+  bridgeAxleSpacingM?: number;
+  wheelContactTMm?: number;
   /** Otomatik yatay dinamik katsayı ψhA (araba) */
   psiHAOverride?: number;
   /** Otomatik yatay dinamik katsayı ψhK (köprü) */
@@ -842,6 +854,16 @@ export function deriveGirderInputs(
   const totalLiveLoadKg = hoistLoadKg + ctx.mainHookBlockWeightKg + ctx.mainRopeWeightKg;
   const trolleyWeightKg = (ctx.trolleyWeightT ?? specs.mainTrolleyWeightT) * 1000;
   const bridgeMovingMassKg = specs.bridgeWeightT * 1000 + trolleyWeightKg;
+
+  if (inputs.hookTopPositionAuto && ctx.liftHeightM !== undefined) {
+    out.hookTopPositionM = ctx.liftHeightM;
+  }
+  if (inputs.bridgeAxleSpacingAuto && ctx.bridgeAxleSpacingM !== undefined) {
+    out.bridgeAxleSpacingM = ctx.bridgeAxleSpacingM;
+  }
+  if (inputs.wheelContactTAuto) {
+    out.wheelContactTMm = inputs.t3Mm;
+  }
 
   if (inputs.psiHAAuto) {
     out.psiHAOverride = horizontalDynamicFactor(totalLiveLoadKg / trolleyWeightKg);

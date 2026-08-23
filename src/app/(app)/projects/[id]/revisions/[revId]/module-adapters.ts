@@ -123,6 +123,8 @@ import {
 } from "@/lib/calc/presentation/cabinFields";
 import {
   computeWheelLoads,
+  normalizeWheelCount,
+  resolveWheelSpacings,
   wheelLoadDepsFrom,
   type WheelLoadDeps,
 } from "@/lib/calc/modules/wheelLoads";
@@ -245,6 +247,17 @@ export interface AdapterHeadlineCheck {
   suffix: string;
   /** Başlıkta görünen kısa ad (kontrolün tam etiketi şerit için uzun kalır) */
   label?: string;
+  /**
+   * BU SATIRA ÖZEL etiketler — şeridin kendi `computedLabel`/`limitLabel`
+   * değerlerini ezer.
+   *
+   * Bir bölümün kontrolleri her zaman aynı cinsten değildir: tamburda gövde
+   * gerilmesi "Oluşan ≤ İzin verilen" diye okunurken çap kontrolü "Gereken ≤
+   * Seçilen"dir. Tek bir etiket çifti dayatmak, sayılardan birine YANLIŞ ad
+   * takmak demekti.
+   */
+  computedLabel?: string;
+  limitLabel?: string;
 }
 
 export interface AdapterHeadline {
@@ -299,6 +312,13 @@ export interface AdapterSection {
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
   editor?: "wheelSpacing" | "festoon";
+  /** Bölüm başlığında gösterilen ve uygunluk kontrolünü besleyen ölçü onayı. */
+  confirmation?: {
+    inputKey: string;
+    actionLabel: string;
+    confirmedLabel: string;
+    warning: string;
+  };
   /**
    * Bölümün başlık kontrolü — girdiler ile katalog seçimi arasında (ya da
    * katalog başlığının yanında) gösterilen "gereken ↔ gerçekleşen" özeti.
@@ -376,6 +396,9 @@ function diameterFlag(def: object): true | undefined {
 export interface HeadlineItem {
   label: string;
   check: AnyCheck;
+  /** Bu satırın etiketleri — şerit tanımının değerleri burada çözülmüştür. */
+  computedLabel: string;
+  limitLabel: string;
 }
 
 /**
@@ -393,7 +416,13 @@ export function headlineItems(
   const out: HeadlineItem[] = [];
   for (const h of headline.checks) {
     const c = checks.find((x) => x.id === `${checkPrefix}${h.suffix}`);
-    if (c) out.push({ label: h.label ?? c.label, check: c });
+    if (!c) continue;
+    out.push({
+      label: h.label ?? c.label,
+      check: c,
+      computedLabel: h.computedLabel ?? headline.computedLabel,
+      limitLabel: h.limitLabel ?? headline.limitLabel,
+    });
   }
   return out;
 }
@@ -409,34 +438,160 @@ const HOIST_TITLES: Record<HoistKey, string> = {
 };
 
 /**
- * Kaldırma bölümlerinin başlık kontrolleri (bkz. AdapterHeadline).
+ * KONTROL ÖZETİ ŞERİDİ — ortak sözlük (bkz. `AdapterHeadline`).
  *
- * - 2.1 Halat: mühendis halatı katalogdan seçerken kararını GEREKEN ve
- *   GERÇEKLEŞEN emniyet katsayısına bakarak verir; ikisi seçim düğmesinin
- *   yanında durur (madde 3).
- * - 2.2.3 Tambur Mili: izin verilen ve oluşan gerilmeler girdilerin hemen
- *   altında özetlenir; ayrıntılı hesap satırları alt bölümde AYNEN kalır
- *   (madde 7).
+ * Kullanıcı kararı (23.08.2026): tambur milinde denenen "İzin Verilen /
+ * Oluşan Gerilmeler" şeridi *"kontrolü çok kolaylaştırıyor"* — bu yüzden
+ * SAYISAL YARGI ÜRETEN HER BÖLÜME konur. Kural, kolaylığın kaynağının
+ * TEKDÜZE YER olmasıdır: mühendis "bu bölüm uygun mu?" sorusunun cevabını
+ * her zaman bölümün BAŞINDA bulur, satırların dibinde aramaz. Ayrıntılı
+ * hesap satırları ve onlara bağlı kontroller aşağıda AYNEN kalır; şerit
+ * yalnız kararı hızlandıran tekrardır.
+ *
+ * ŞERİDE GİRMEYENLER: (a) iki sayısı olmayan ONAY/VARLIK kontrolleri
+ * (ölçü onayı, "tahvil oranı seçilmiş", "fren boşluğu bandda") — "0 ≥ 1"
+ * diye okunan bir satır bilgi vermez, kutunun kendisi zaten kırmızıdır;
+ * (b) kapsam BİLGİLENDİRMELERİ ("rüzgâr modellenmiyor", "tepki aktarılmaz").
+ *
+ * ETİKETLER cinse göre seçilir ve gerektiğinde SATIR BAŞINA ezilir:
+ *   · gerilme        → "Oluşan" ≤ "İzin verilen"
+ *   · kapasite/ölçü  → "Gereken" ≤ "Seçilen" (hesaplanan taraf `required`)
+ *   · emniyet/ömür   → "Gerçekleşen" ≥ "Gereken" (hesaplanan taraf `provided`)
  *
  * Sonekler bölümün `checkSuffixes` listesinden gelir — kontrolün kendisi ve
- * `pass` değeri motordan okunur, burada eşik tanımlanmaz.
+ * `pass` değeri motordan okunur, burada eşik tanımlanmaz. Kapsam koruması
+ * `__tests__/headlines.guard.test.ts`tedir.
  */
+
+/** Gerilme bölümleri: oluşan ≤ izin verilen. */
+const STRESS_BAND = {
+  placement: "band",
+  title: "İzin Verilen / Oluşan Gerilmeler",
+  computedLabel: "Oluşan",
+  limitLabel: "İzin verilen",
+} as const;
+
+/**
+ * Katalog/ölçü bölümleri: gereken ≤ seçilen.
+ *
+ * BAŞLIK "KONTROL ÖZETİ" DEĞİLDİR: o ad raporun sonundaki KONTROL DİZİNİNE
+ * aittir (yalnız detaylı raporda basılır, bkz. `belge.md` rapor seviyeleri).
+ * Aynı adı bölüm içinde de kullanmak, iki ayrı şeyi tek adla anmak olurdu —
+ * `report.smoke.test.tsx` bunu belgenin METNİNDEN ölçüp yakalar.
+ */
+const CAPACITY_BAND = {
+  placement: "band",
+  title: "Uygunluk Özeti",
+  computedLabel: "Gereken",
+  limitLabel: "Seçilen",
+} as const;
+
+/** Emniyet katsayısı / ömür bölümleri: gerçekleşen ≥ gereken. */
+const SAFETY_BAND = {
+  placement: "band",
+  title: "Uygunluk Özeti",
+  computedLabel: "Gerçekleşen",
+  limitLabel: "Gereken",
+} as const;
+
+/** Kaplin bölümlerinin ortak iki satırı (tork + delik çapı). */
+const COUPLING_CHECKS = (prefix: string): AdapterHeadlineCheck[] => [
+  { suffix: `${prefix}.torque`, label: "Tork kapasitesi" },
+  {
+    suffix: `${prefix}.bore`, label: "Delik çapı",
+    computedLabel: "Mil çapı", limitLabel: "Katalog Dmaks",
+  },
+];
+
+/** Rulman bölümlerinin ortak üç satırı (iç çap + ömür + statik emniyet). */
+const BEARING_CHECKS = (millabel: string): AdapterHeadlineCheck[] => [
+  {
+    suffix: "bearing.bore", label: "İç çap uyumu",
+    computedLabel: "Seçilen", limitLabel: millabel,
+  },
+  { suffix: "bearing.life", label: "Ömür" },
+  { suffix: "bearing.static", label: "Statik emniyet" },
+];
+
 const HOIST_HEADLINES: Record<string, AdapterHeadline> = {
+  // 2.1 Halat: karar KATALOG DÜĞMESİNİN yanında verilir — mühendis halatı
+  // seçerken gereken ve gerçekleşen emniyet katsayısına bakar (madde 3).
   "2.1": {
     placement: "catalog",
     computedLabel: "Gerçekleşen",
     limitLabel: "Gereken",
     checks: [{ suffix: "rope.safety", label: "Emniyet katsayısı" }],
   },
-  "2.2.3": {
-    placement: "band",
-    title: "İzin Verilen / Oluşan Gerilmeler",
+  "2.2.1": {
+    ...CAPACITY_BAND,
     computedLabel: "Oluşan",
     limitLabel: "İzin verilen",
+    checks: [
+      { suffix: "drum.stress", label: "Gövde bileşik gerilmesi" },
+      {
+        suffix: "drum.dia", label: "Tambur çapı",
+        computedLabel: "Gereken", limitLabel: "Seçilen",
+      },
+    ],
+  },
+  "2.2.3": {
+    ...STRESS_BAND,
     checks: [
       { suffix: "shaft.bending", label: "Eğilme" },
       { suffix: "shaft.shear", label: "Kesme" },
       { suffix: "shaft.stress", label: "Bileşik" },
+    ],
+  },
+  "2.2.4": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "drumWeld.stress", label: "Kaynak eşdeğer gerilmesi" }],
+  },
+  "2.2.5": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "shaftWeld.stress", label: "Kaynak eşdeğer gerilmesi" }],
+  },
+  "2.2.6": { ...SAFETY_BAND, checks: BEARING_CHECKS("Mil D2") },
+  "2.3": {
+    ...CAPACITY_BAND,
+    checks: [
+      { suffix: "gearbox.torque", label: "Tork kapasitesi" },
+      { suffix: "gearbox.radial", label: "Radyal yük" },
+      {
+        suffix: "gearbox.ratio", label: "Çevrim oranı",
+        computedLabel: "Sapma", limitLabel: "Bant",
+      },
+    ],
+  },
+  "2.4": {
+    ...CAPACITY_BAND,
+    checks: [{ suffix: "motor.power", label: "Güç", limitLabel: "Kurulu" }],
+  },
+  "2.5": {
+    ...CAPACITY_BAND,
+    checks: [{ suffix: "brake.torque", label: "Fren torku" }],
+  },
+  "2.6": { ...CAPACITY_BAND, checks: COUPLING_CHECKS("motorCoupling") },
+  "2.7": {
+    ...CAPACITY_BAND,
+    checks: [
+      { suffix: "drumCoupling.torque", label: "Tork kapasitesi" },
+      { suffix: "drumCoupling.radial", label: "Radyal yük" },
+      {
+        suffix: "drumCoupling.bore", label: "Delik çapı",
+        computedLabel: "Mil çapı", limitLabel: "Katalog Dmaks",
+      },
+    ],
+  },
+  "2.8": {
+    ...CAPACITY_BAND,
+    checks: [
+      {
+        suffix: "safety.torque", label: "Frenleme momenti",
+        computedLabel: "Gerçekleşen", limitLabel: "Gereken",
+      },
+      { suffix: "safety.flange", label: "Flanş dış çapı" },
+      { suffix: "safety.flangeThickness", label: "Flanş kalınlığı", computedLabel: "Katalog en az" },
+      { suffix: "safety.hydraulic", label: "Ünite basıncı", limitLabel: "Fren bandı" },
     ],
   },
 };
@@ -488,11 +643,55 @@ const HOOKBLOCK_TITLES: Record<HookBlockKey, string> = {
 };
 
 const HOOKBLOCK_HEADLINES: Record<string, AdapterHeadline> = {
+  "4.1": {
+    ...CAPACITY_BAND,
+    checks: [
+      { suffix: "hook.capacity", label: "Taşıma kapasitesi", limitLabel: "Kanca" },
+    ],
+  },
+  "4.2": {
+    ...CAPACITY_BAND,
+    checks: [{ suffix: "sheave.dia", label: "Makara çapı" }],
+  },
+  // 4.3 rozetleri KATALOG DÜĞMESİNİN yanındadır (madde 3): rulman katalogdan
+  // seçilirken üç sayı da orada okunur. Ömür ve statik emniyet sonradan
+  // eklendi — iç çap tek başına "bu rulman uyar mı" sorusunu cevaplamıyordu.
   "4.3": {
     placement: "catalog",
-    computedLabel: "Seçilen iç çap",
-    limitLabel: "Mil D1",
-    checks: [{ suffix: "sheaveBearing.bore", label: "İç çap uyumu" }],
+    computedLabel: "Gerçekleşen",
+    limitLabel: "Gereken",
+    checks: [
+      {
+        suffix: "sheaveBearing.bore", label: "İç çap uyumu",
+        computedLabel: "Seçilen iç çap", limitLabel: "Mil D1",
+      },
+      { suffix: "sheaveBearing.life", label: "Ömür" },
+      { suffix: "sheaveBearing.static", label: "Statik emniyet" },
+    ],
+  },
+  "4.4": {
+    ...STRESS_BAND,
+    checks: [
+      { suffix: "shaft.bending", label: "Eğilme" },
+      { suffix: "shaft.shear", label: "Kesme" },
+      { suffix: "shaft.stress", label: "Bileşik" },
+    ],
+  },
+  "4.5": {
+    ...SAFETY_BAND,
+    checks: [{ suffix: "hookBearing.static", label: "Statik emniyet" }],
+  },
+  "4.6": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "girder.static", label: "Statik bileşik gerilme" }],
+  },
+  "4.7": {
+    ...STRESS_BAND,
+    checks: [
+      { suffix: "fatigue.sigma", label: "Normal gerilme σ" },
+      { suffix: "fatigue.tau", label: "Kesme gerilmesi τ" },
+      { suffix: "fatigue.combined", label: "Bileşik oran" },
+    ],
   },
 };
 
@@ -579,6 +778,68 @@ const FESTOON_TITLES: Record<TravelKey, string> = {
   bridge: "Köprü",
 };
 
+/**
+ * Yürütme bölümlerinin kontrol özeti şeritleri. Anahtar HAM bölüm id'sidir
+ * (5.x); köprüde görünen numara 6.x'e çevrilse de şerit aynı tanımdan gelir.
+ *
+ * 5.5'te "tahvil oranı seçilmiş" kontrolü ŞERİDE GİRMEZ: iki sayısı yoktur
+ * ("0 ≥ 1") ve zaten kutunun kendisi kırmızı durur (HESAP-23).
+ */
+const TRAVEL_HEADLINES: Record<string, AdapterHeadline> = {
+  "5.1": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "wheel.pressure", label: "Tekerlek yüzey basıncı" }],
+  },
+  "5.2": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "shaft.stress", label: "Bileşik gerilme" }],
+  },
+  "5.3": { ...SAFETY_BAND, checks: BEARING_CHECKS("Teker mili") },
+  "5.4": {
+    ...CAPACITY_BAND,
+    checks: [{ suffix: "motor.power", label: "Güç", limitLabel: "Kurulu" }],
+  },
+  "5.5": {
+    ...SAFETY_BAND,
+    checks: [
+      { suffix: "gearbox.safety", label: "Emniyet katsayısı" },
+      {
+        suffix: "gearbox.ratio", label: "Çevrim oranı",
+        computedLabel: "Sapma", limitLabel: "Bant",
+      },
+    ],
+  },
+  "5.5b": {
+    ...CAPACITY_BAND,
+    checks: [{ suffix: "brake.torque", label: "Fren torku" }],
+  },
+  "5.6": { ...CAPACITY_BAND, checks: COUPLING_CHECKS("motorCoupling") },
+  "5.7": { ...CAPACITY_BAND, checks: COUPLING_CHECKS("wheelCoupling") },
+  "5.8": {
+    ...CAPACITY_BAND,
+    limitLabel: "Katalog",
+    checks: [
+      { suffix: "buffer.energy", label: "Yutulan enerji" },
+      { suffix: "buffer.load", label: "Tepki kuvveti" },
+      // Katalog verisi olmayan işte üretilmez; `headlineItems` satırı düşürür.
+      { suffix: "buffer.compression", label: "Sıkışma oranı", limitLabel: "İzin verilen" },
+      {
+        suffix: "buffer.deceleration", label: "Tepe yavaşlaması",
+        computedLabel: "Oluşan", limitLabel: "İzin verilen",
+      },
+      { suffix: "buffer.designMass", label: "Tasarım kütlesi" },
+    ],
+  },
+  "5.9": {
+    ...CAPACITY_BAND,
+    limitLabel: "Katalog",
+    checks: [
+      { suffix: "festoon.capacity", label: "Taşıyıcı yükü" },
+      { suffix: "festoon.speed", label: "Hız" },
+    ],
+  },
+};
+
 function travelAdapter(which: TravelKey): ModuleAdapter {
   const isBridge = which === "bridge";
   return {
@@ -590,6 +851,7 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
       rawId: s.id,
       title: s.editor === "festoon" ? `${FESTOON_TITLES[which]} Feston` : s.title,
       description: s.description,
+      headline: TRAVEL_HEADLINES[s.id],
       // YALNIZ TEK VARYANTTA SORULAN GİRDİLER burada elenir: köprünün araba
       // yanaşması arabada hesaba GİRMEZ, bu yüzden arabada kutusu da yoktur
       // (`TRAVEL_INPUT_VARIANT`). Süzgeç `inputDefs` üzerindedir; ekran ve
@@ -642,6 +904,24 @@ function travelAdapter(which: TravelKey): ModuleAdapter {
 
 // ------------------------------------------------------------- Teker yükleri
 
+/**
+ * Teker yükleri şeritleri. 10.1'in ÖLÇÜ ONAYI şeride girmez: onun yeri bölüm
+ * başlığındaki onay düğmesidir, iki sayısı yoktur.
+ */
+const WHEELLOAD_HEADLINES: Record<string, AdapterHeadline> = {
+  "10.3": {
+    ...STRESS_BAND,
+    title: "Uygunluk Özeti",
+    checks: [{ suffix: "skew.angle", label: "Savrulma açısı α" }],
+  },
+  "10.4": {
+    ...STRESS_BAND,
+    title: "Uygunluk Özeti",
+    limitLabel: "Aktarılabilen",
+    checks: [{ suffix: "longitudinal.transferable", label: "Boyuna kuvvet" }],
+  },
+};
+
 function wheelLoadAdapter(): ModuleAdapter {
   return {
     key: "wheelLoads",
@@ -658,6 +938,8 @@ function wheelLoadAdapter(): ModuleAdapter {
         selectionDefs: defs(s.selectionKeys, WHEELLOAD_SELECTION_MAP),
         selectionKeys: s.selectionKeys,
         editor: s.editor,
+        confirmation: s.confirmation,
+        headline: WHEELLOAD_HEADLINES[s.id],
         checkSuffixes: s.checkSuffixes,
         table: t
           ? {
@@ -689,6 +971,41 @@ function wheelLoadAdapter(): ModuleAdapter {
 
 // ---------------------------------------------------------------- Ana kiriş
 
+/**
+ * Ana kiriş şeritleri. 7.2'nin ÖLÇÜ ONAYI şeride girmez (bkz. 10.1).
+ */
+const GIRDER_HEADLINES: Record<string, AdapterHeadline> = {
+  "7.4": {
+    ...STRESS_BAND,
+    checks: [
+      { suffix: "stress.case1", label: "Yükleme durumu I" },
+      { suffix: "stress.case3", label: "Yükleme durumu III (test)" },
+    ],
+  },
+  "7.5": {
+    ...STRESS_BAND,
+    checks: [
+      { suffix: "fatigue.sigmaX", label: "Boyuna gerilme σx" },
+      { suffix: "fatigue.sigmaY", label: "Enine gerilme σy" },
+      { suffix: "fatigue.tau", label: "Kesme gerilmesi τ" },
+      { suffix: "fatigue.combined", label: "Bileşik oran" },
+    ],
+  },
+  "7.6": {
+    ...SAFETY_BAND,
+    checks: [{ suffix: "deflection", label: "Sehim oranı L/δ" }],
+  },
+  "7.8": {
+    ...SAFETY_BAND,
+    limitLabel: "Sınır",
+    checks: [
+      { suffix: "section.spanToDepthRatio", label: "Açıklık / yükseklik L/h" },
+      { suffix: "section.spanToWidthRatio", label: "Açıklık / genişlik L/b" },
+      { suffix: "dynamics.frequencySeparation", label: "Frekans ayrımı" },
+    ],
+  },
+};
+
 function girderAdapter(key: GirderModuleKey): ModuleAdapter {
   const ikinci = key === "girder2";
   return {
@@ -712,6 +1029,8 @@ function girderAdapter(key: GirderModuleKey): ModuleAdapter {
         inputDefs: defs(s.inputKeys, GIRDER_INPUT_MAP),
         selectionDefs: defs(s.selectionKeys, GIRDER_SELECTION_MAP),
         selectionKeys: s.selectionKeys,
+        confirmation: s.confirmation,
+        headline: GIRDER_HEADLINES[s.id],
         checkSuffixes: s.checkSuffixes,
         table: t
           ? {
@@ -743,6 +1062,38 @@ function girderAdapter(key: GirderModuleKey): ModuleAdapter {
 
 // ---------------------------------------------------------------- Buruşma
 
+/**
+ * Buruşma şeritleri. Panel GENİŞLİĞİ bir ölçü kontrolüdür, gerilme değil —
+ * etiketleri satır başına ezilir. Yükleme Durumu II KAPSAM bilgilendirmesi
+ * şeride girmez.
+ */
+const BUCKLING_HEADLINES: Record<string, AdapterHeadline> = {
+  "8.1": {
+    ...STRESS_BAND,
+    title: "Uygunluk Özeti",
+    checks: [
+      { suffix: "side.case1", label: "Yükleme durumu I" },
+      { suffix: "side.case3", label: "Yükleme durumu III (test)" },
+      {
+        suffix: "side.width", label: "Panel genişliği",
+        computedLabel: "Ölçü", limitLabel: "Sınır",
+      },
+    ],
+  },
+  "8.2": {
+    ...STRESS_BAND,
+    title: "Uygunluk Özeti",
+    checks: [
+      { suffix: "top.case1", label: "Yükleme durumu I" },
+      { suffix: "top.case3", label: "Yükleme durumu III (test)" },
+      {
+        suffix: "top.width", label: "Panel genişliği",
+        computedLabel: "Ölçü", limitLabel: "Sınır",
+      },
+    ],
+  },
+};
+
 function bucklingAdapter(): ModuleAdapter {
   return {
     key: "buckling",
@@ -763,6 +1114,7 @@ function bucklingAdapter(): ModuleAdapter {
       extraInputDefs: s.panel === "side" ? [...BUCKLING_EXTRA_FIELDS] : undefined,
       selectionDefs: [],
       selectionKeys: [],
+      headline: BUCKLING_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
@@ -785,6 +1137,22 @@ function bucklingAdapter(): ModuleAdapter {
 
 // ---------------------------------------------------------------- Başkiriş
 
+/** Başkiriş şeritleri — statik ve yorulma gerilmeleri. */
+const ENDCARRIAGE_HEADLINES: Record<string, AdapterHeadline> = {
+  "9.3": {
+    ...STRESS_BAND,
+    checks: [{ suffix: "stress", label: "Bileşik gerilme" }],
+  },
+  "9.4": {
+    ...STRESS_BAND,
+    checks: [
+      { suffix: "fatigue.sigma", label: "Normal gerilme σ" },
+      { suffix: "fatigue.tau", label: "Kesme gerilmesi τ" },
+      { suffix: "fatigue.combined", label: "Bileşik oran" },
+    ],
+  },
+};
+
 function endCarriageAdapter(): ModuleAdapter {
   return {
     key: "endCarriage",
@@ -798,6 +1166,7 @@ function endCarriageAdapter(): ModuleAdapter {
       inputDefs: defs(s.inputKeys, ENDCARRIAGE_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, ENDCARRIAGE_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
+      headline: ENDCARRIAGE_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
       rows: s.rows.map((r) => {
         const sub = r.subst;
@@ -1212,6 +1581,7 @@ function girderDepsYedek(
   return {
     hoistLoadKg: specs.mainCapacityT * 1000,
     liftSpeedMpm: specs.mainLiftSpeedMpm,
+    hoistDrumRpm: result.mainHoist?.values.drumRpm ?? 0,
     girdersInBridge: hasSecondGirder(specs) ? 4 : 2,
     mainHookBlockWeightKg: input.mainHoist?.inputs.hookBlockWeightKg ?? 0,
     mainRopeWeightKg: input.mainHoist?.inputs.ropeWeightKg ?? 0,
@@ -1348,6 +1718,13 @@ function girderDeriveContext(
   const ikinci = which === "girder2";
   const auxVar = ikinci && mods.aux !== undefined;
   const h = (auxVar ? mods.aux : mods.main)?.inputs as HoistInputs | undefined;
+  const wheelInputs = mods.wheelLoads?.inputs as { wheelSpacingsText?: string } | undefined;
+  const bridgeInputs = mods.bridge?.inputs as TravelInputs | undefined;
+  const wheelsPerSide = normalizeWheelCount(bridgeInputs?.wheelCount ?? 4) / 2;
+  const bridgeAxleSpacingM = wheelInputs?.wheelSpacingsText
+    ? resolveWheelSpacings(wheelInputs.wheelSpacingsText, wheelsPerSide)
+        .reduce((sum, spacing) => sum + spacing, 0) / 1000
+    : undefined;
   return {
     mainHookBlockWeightKg: h?.hookBlockWeightKg ?? 0,
     mainRopeWeightKg: h?.ropeWeightKg ?? 0,
@@ -1356,6 +1733,8 @@ function girderDeriveContext(
       auxVar && hasSeparateAuxTrolley(specs)
         ? specs.auxTrolleyWeightT ?? specs.mainTrolleyWeightT
         : specs.mainTrolleyWeightT,
+    liftHeightM: auxVar ? specs.auxLiftHeightM : specs.mainLiftHeightM,
+    bridgeAxleSpacingM,
   };
 }
 
@@ -1456,6 +1835,9 @@ export function withDerivedTravel(
   put("accelerationMs2", d.accelerationMs2);
 
   const selPatch: Partial<TravelSelections> = {};
+  if (d.motorCount !== undefined && d.motorCount !== selections.motorCount) {
+    selPatch.motorCount = d.motorCount;
+  }
   if (d.gearboxRatio !== undefined && d.gearboxRatio !== selections.gearboxRatio) {
     selPatch.gearboxRatio = d.gearboxRatio;
   }
@@ -1581,6 +1963,15 @@ export function withDerivedGirder(
   put("psiHAOverride", d.psiHAOverride);
   put("psiHKOverride", d.psiHKOverride);
   put("amplifyYcOverride", d.amplifyYcOverride);
+  const loadGeometryChanged =
+    (d.hookTopPositionM !== undefined && d.hookTopPositionM !== inputs.hookTopPositionM) ||
+    (d.bridgeAxleSpacingM !== undefined && d.bridgeAxleSpacingM !== inputs.bridgeAxleSpacingM);
+  put("hookTopPositionM", d.hookTopPositionM);
+  put("bridgeAxleSpacingM", d.bridgeAxleSpacingM);
+  put("wheelContactTMm", d.wheelContactTMm);
+  if (loadGeometryChanged && inputs.loadMeasurementsConfirmed === true) {
+    patch.loadMeasurementsConfirmed = false;
+  }
 
   if (Object.keys(patch).length === 0) return state;
   return { ...state, inputs: { ...inputs, ...patch } };

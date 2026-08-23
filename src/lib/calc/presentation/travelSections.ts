@@ -115,14 +115,14 @@ export const TRAVEL_SECTIONS: TravelSectionDef[] = [
     equipmentSlugs: ["wheel"],
     description:
       "Tekerlek yükleri ve ray temas basıncı kontrolü (FEM 1.001 4.2.4.1). Köprüde maksimum/minimum yükler araba yanaşma eksantrikliğiyle hesaplanır.",
-    inputKeys: ["minApproachM", "wheelCount", "wheelsPerMotor"],
+    inputKeys: ["minApproachM", "wheelCount", "driveCount", "wheelsPerMotor"],
     selectionKeys: ["railFamily", "railCode", "wheelMaterial", "wheelTensileNmm2", "wheelDiaMm"],
     rows: [
       {
         key: "drive.drivenWheels", label: "Tahrikli Teker Sayısı",
-        formula: "n_tahrik = motor adedi × motor başına teker",
+        formula: "n_tahrik,teker = tahrik adedi × motor başına teker",
         subst: (x) =>
-          `${n(x.sel.motorCount)} × ${n(num(x.c["drive.wheelsPerMotor"]))}`,
+          `${n(x.inp.driveCount)} × ${n(num(x.c["drive.wheelsPerMotor"]))}`,
         digits: 0,
       },
       {

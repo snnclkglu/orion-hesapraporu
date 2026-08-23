@@ -55,6 +55,13 @@ export interface WheelLoadSectionDef {
    * arayüz tarafında adanmış bir bileşen çizilir.
    */
   editor?: "wheelSpacing";
+  /** Bölüm başlığında gösterilen kullanıcı ölçü onayı. */
+  confirmation?: {
+    inputKey: keyof WheelLoadInputs & string;
+    actionLabel: string;
+    confirmedLabel: string;
+    warning: string;
+  };
   /** "wheelLoads." öneki hariç kontrol id sonekleri */
   checkSuffixes: string[];
 }
@@ -100,7 +107,18 @@ export const WHEELLOAD_SECTIONS: WheelLoadSectionDef[] = [
     ],
     selectionKeys: ["guideMeans", "wheelPairMode"],
     editor: "wheelSpacing",
+    confirmation: {
+      inputKey: "measurementsConfirmed",
+      actionLabel: "Ölçü Onayı Ver",
+      confirmedLabel: "Ölçüler Onaylandı",
+      warning:
+        "Teker düzeni ölçüleri kullanıcı tarafından onaylanmadı; bölüm uygun değildir.",
+    },
     rows: [
+      {
+        key: "wheelSet.measurementsConfirmed",
+        label: "Kullanıcı Ölçü Onayı",
+      },
       {
         key: "vertical.hoistLoad",
         label: "Kaldırma Yükü SL",
@@ -184,7 +202,7 @@ export const WHEELLOAD_SECTIONS: WheelLoadSectionDef[] = [
         standard: "FEM 1.001 9.4.1.3",
       },
     ],
-    checkSuffixes: [],
+    checkSuffixes: ["measurements.confirmed"],
   },
   {
     id: "10.2",
@@ -268,8 +286,10 @@ export const WHEELLOAD_SECTIONS: WheelLoadSectionDef[] = [
       "arasında bir kılavuz kuvveti, tekerlerde ise enine ve boyuna teğetsel " +
       "kuvvetler doğar. Kuvvetler anlık kayma kutbu etrafındaki dönmeden çıkar.",
     depKeys: [],
-    inputKeys: ["guideSpacingMm", "guideClearanceMm"],
-    selectionKeys: ["guideMeans", "wheelPairMode"],
+    // Kılavuz geometrisi ve düzen seçimi 10.1'de BİR KEZ girilir. Bu bölüm
+    // aynı değerleri yalnız hesapta kullanır; tekrar kutu açmaz.
+    inputKeys: [],
+    selectionKeys: [],
     rows: [
       {
         key: "skew.alphaGuide",

@@ -73,7 +73,6 @@ import {
   renumberTitle,
   sectionDisplayNumbers,
   adapterTitle,
-  type AdapterHeadline,
   type AdapterSection,
   type AnyFieldDef,
   type HeadlineItem,
@@ -915,14 +914,8 @@ function InlineCheckLine({ check }: { check: AnyCheck }) {
  * hesaplanmaz. Etiketler bölüm tanımından okunur ("Oluşan / İzin verilen",
  * "Gerçekleşen / Gereken").
  */
-function HeadlineLine({
-  item,
-  headline,
-}: {
-  item: HeadlineItem;
-  headline: AdapterHeadline;
-}) {
-  const { check, label } = item;
+function HeadlineLine({ item }: { item: HeadlineItem }) {
+  const { check, label, computedLabel, limitLabel } = item;
   const d = checkDisplay(check);
   const color = check.pass ? BRAND.success : BRAND.red;
   const conv = (v: number) => toDisplayUnit(v, d.unit);
@@ -942,14 +935,14 @@ function HeadlineLine({
     >
       <CheckGlyph pass={check.pass} size={7} />
       <Text style={s.headlineLabel}>{label}</Text>
-      <Text style={s.cmpLabel}>{headline.computedLabel.toLocaleUpperCase("tr-TR")}</Text>
+      <Text style={s.cmpLabel}>{computedLabel.toLocaleUpperCase("tr-TR")}</Text>
       <Text style={[s.cmpValue, s.cmpGap, { color }]}>
         {fmt(computed.value)}
         {unit ? <Text style={s.cmpUnit}>{unit}</Text> : null}
       </Text>
       {d.operator === "…" ? null : <Text style={[s.cmpOp, s.cmpGap]}>{d.operator}</Text>}
       <Text style={[s.cmpLabel, s.cmpGap]}>
-        {headline.limitLabel.toLocaleUpperCase("tr-TR")}
+        {limitLabel.toLocaleUpperCase("tr-TR")}
       </Text>
       <Text style={[s.cmpValue, s.cmpGap]}>
         {limitText}
@@ -2170,7 +2163,7 @@ function ModulePage({
         const headline = section.headline;
         const headlineNodes = headline
           ? headlineItems(adapter.checkPrefix, section, mr.checks).map((it) => (
-              <HeadlineLine key={it.check.id} item={it} headline={headline} />
+              <HeadlineLine key={it.check.id} item={it} />
             ))
           : [];
         if (headline?.placement === "band" && headlineNodes.length > 0) {

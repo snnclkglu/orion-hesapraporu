@@ -82,7 +82,7 @@ import type { AnyCheck } from "../types";
 //   değil, gereken oranın kendisidir; sapma sıfır çıktığı için eski uyarı
 //   sessiz kalıyordu. Yeni kontrol o boşluğu kapatır ve 5.5'teki
 //   `gearbox.requiredRatio` satırına bağlanır.
-const EXPECTED_CHECK_COUNT = 280;
+const EXPECTED_CHECK_COUNT = 289;
 
 const result: CalcResult = runCalc(NEW_WORK_TEMPLATE);
 

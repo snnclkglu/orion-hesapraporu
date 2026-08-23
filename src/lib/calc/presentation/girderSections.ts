@@ -55,6 +55,13 @@ export interface GirderSectionDef {
   rows: GirderRowDef[];
   /** Bölüm sonunda gösterilecek özet tablo (varsa) */
   table?: GirderSectionTable;
+  /** Bölüm başlığında gösterilen kullanıcı ölçü onayı. */
+  confirmation?: {
+    inputKey: keyof GirderInputs & string;
+    actionLabel: string;
+    confirmedLabel: string;
+    warning: string;
+  };
   /** Bölümde gösterilecek kontrol id sonekleri ("girder." öneki hariç) */
   checkSuffixes: string[];
 }
@@ -157,6 +164,12 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         subst: (x) => `${n(num(x.c["section.area"]))} · 0,8`, unit: "kg/m",
       },
       {
+        key: "section.approxGirderWeight", label: "Yaklaşık Ana Kiriş Ağırlığı",
+        formula: "G_kiriş,yaklaşık = G · L · 1,15",
+        subst: (x) => `${n(num(x.c["section.weightPerLength"]), 2)} · ${n(x.specs.spanM)} · 1,15`,
+        unit: "kg", digits: 0,
+      },
+      {
         key: "section.centroidZ", label: "Ağırlık Merkezi Cz", formula: "Cz = Σ(Ai · zi) / A", unit: "mm",
       },
       {
@@ -197,22 +210,19 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         key: "section.inertiaTorsion", label: "Burulma Sabiti Ixx", formula: "Ixx = 4·(b·h)² / Σ(si/ti)  [kapalı kutu]",
         subst: (x) => `4·(${n(num(x.c["section.torsionBoxWidth"]))}·${n(num(x.c["section.torsionBoxHeight"]))})² / Σ(si/ti)`, unit: "cm⁴",
       },
-      {
-        key: "section.spanToDepthRatio", label: "Kiriş Narinliği L/h", formula: "L / h ≤ 25",
-        subst: (x) => `${n(x.specs.spanM * 1000)} / ${n(num(x.c["section.height"]))}`,
-        digits: 1, standard: "CMAA 70 3.5.1",
-      },
-      {
-        key: "section.spanToWidthRatio", label: "Kiriş Narinliği L/b", formula: "L / a ≤ 65",
-        subst: (x) => `${n(x.specs.spanM * 1000)} / ${n(x.inp.aMm)}`,
-        digits: 1, standard: "CMAA 70 3.5.1",
-      },
     ],
     checkSuffixes: [],
   },
   {
     id: "7.2",
     title: "Yükler",
+    confirmation: {
+      inputKey: "loadMeasurementsConfirmed",
+      actionLabel: "Ölçü Onayı Ver",
+      confirmedLabel: "Ölçüler Onaylandı",
+      warning:
+        "Yükler bölümündeki yerleşim ölçüleri kullanıcı tarafından onaylanmadı; bölüm uygun değildir.",
+    },
     description:
       "Ölü/hareketli yükler, FEM dinamik katsayı ψ, yatay ivme dinamik katsayıları ψh ve " +
       "yatay hareket yükleri. Teker sayıları, tahrikli teker sayıları ve hızlar yürütme " +
@@ -221,6 +231,10 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     inputKeys: ["hookTopPositionM", "psiHAOverride", "psiHKOverride", "bridgeAxleSpacingM", "trolleyWheelSpacingM", "trolleyAxleSpacingM"],
     selectionKeys: [],
     rows: [
+      {
+        key: "loads.measurementsConfirmed",
+        label: "Kullanıcı Ölçü Onayı",
+      },
       {
         key: "load.bridgeDeadWeight", label: "Bir Kirişe Düşen Köprü Ağırlığı Wv",
         formula: "Wv = G_köprü / 2 · 1000",
@@ -372,7 +386,7 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
         unit: "kg", standard: "FEM 1.001 2.2.3.3",
       },
     ],
-    checkSuffixes: [],
+    checkSuffixes: ["loads.measurements.confirmed"],
   },
   {
     id: "7.3",
@@ -1026,6 +1040,77 @@ export const GIRDER_SECTIONS: GirderSectionDef[] = [
     },
     // Kamber bir uygunluk ölçütü değil imalat ölçüsüdür — kontrolü yoktur.
     checkSuffixes: [],
+  },
+  {
+    id: "7.8",
+    title: "Kutu Kiriş Oranları ve Basit Dinamik Tarama",
+    description:
+      "CMAA 70 md. 3.5.1, kaynaklı kutu kirişler için L/h ≤ 25 ve L/b ≤ 65 " +
+      "oranlarını kılavuz verir; burada b, flanş genişliği değil iki gövde " +
+      "sacı arasındaki net mesafedir (bu hesapta a). Aynı madde b/t ve h/t " +
+      "oranlarının buruşma analiziyle doğrulanmasını ister; bu doğrulama 08 · " +
+      "Buruşma bölümündedir. Dinamik kısım FEM 1.001 A-2.2.3'ün basit " +
+      "salınım sistemi yaklaşımını kullanır. FEM sayısal bir rezonans kabul " +
+      "bandı vermediği için ±20% ayrım yalnız ORION ön mühendislik uyarısıdır; " +
+      "nihai modal analiz yerine geçmez.",
+    depKeys: ["hoistDrumRpm"],
+    inputKeys: [],
+    selectionKeys: [],
+    rows: [
+      {
+        key: "section.spanToDepthRatio",
+        label: "Açıklık / Kiriş Yüksekliği L/h",
+        formula: "L / h ≤ 25",
+        subst: (x) => `${n(x.specs.spanM * 1000)} / ${n(num(x.c["section.height"]))}`,
+        digits: 1,
+        standard: "CMAA 70 3.5.1",
+      },
+      {
+        key: "section.spanToWidthRatio",
+        label: "Açıklık / Gövdeler Arası Mesafe L/b",
+        formula: "L / b ≤ 65   (b = a = iki gövde sacı arası net açıklık)",
+        subst: (x) => `${n(x.specs.spanM * 1000)} / ${n(x.inp.aMm)}`,
+        digits: 1,
+        standard: "CMAA 70 3.5.1",
+      },
+      {
+        key: "dynamics.naturalPeriod",
+        label: "Birinci Düşey Doğal Periyot Ön Tahmini T1",
+        formula: "T1 ≈ 2π · √(δ/g)",
+        subst: (x) => `2π · √(${n(num(x.c["deflection.value"]), 2)} / 1000 / 9,81)`,
+        unit: "s",
+        digits: 3,
+        standard: "FEM 1.001 A-2.2.3 model yaklaşımı",
+      },
+      {
+        key: "dynamics.naturalFrequency",
+        label: "Birinci Düşey Doğal Frekans Ön Tahmini f1",
+        formula: "f1 = 1 / T1",
+        unit: "Hz",
+        digits: 3,
+      },
+      {
+        key: "dynamics.hoistExcitationFrequency",
+        label: "Tambur Dönüş Frekansı (Olası Uyarım) fd",
+        formula: "fd = n_tambur / 60",
+        subst: (x) => `${n(x.deps.hoistDrumRpm, 3)} / 60`,
+        unit: "Hz",
+        digits: 3,
+      },
+      {
+        key: "dynamics.frequencySeparation",
+        label: "Doğal / Uyarım Frekansı Ayrımı",
+        formula: "Δf = |f1 − fd| / maks(f1 ; fd) · 100 ≥ %20",
+        unit: "%",
+        digits: 1,
+        standard: "ORION ön mühendislik taraması",
+      },
+    ],
+    checkSuffixes: [
+      "section.spanToDepthRatio",
+      "section.spanToWidthRatio",
+      "dynamics.frequencySeparation",
+    ],
   },
 ];
 

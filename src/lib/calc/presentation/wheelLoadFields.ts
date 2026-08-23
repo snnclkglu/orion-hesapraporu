@@ -55,7 +55,17 @@ export const WHEELLOAD_INPUT_FIELDS: FieldDef<WheelLoadInputs>[] = [
     label: "Kılavuz Elemanları Arası wb",
     unit: "mm",
     type: "number",
-    hint: "Teker flanşıyla kılavuzlamada dingil mesafesine eşittir; kılavuz makarasında makaralar arası mesafedir.",
+    hint:
+      "Vincin bir ray üzerindeki öndeki ve arkadaki yanal kılavuz noktaları " +
+      "arasındaki boyuna mesafedir. Teker flanşı kılavuzsa ilk ve son kılavuz " +
+      "teker ekseni arası; ayrı kılavuz makarası varsa ön ve arka makara " +
+      "merkezleri arası ölçülür. Otomatikte teker düzeninin ilk–son eksen " +
+      "mesafesi kullanılır.",
+    info:
+      "Bu ölçü raylar arası açıklık değildir. Vinç yürüyüş yönünde ölçülen " +
+      "kılavuzlama tabanıdır ve savrulma açısındaki boşluk/aşınma paylarının " +
+      "paydasına girer. Değer büyüdükçe aynı kılavuz boşluğunun oluşturduğu " +
+      "savrulma açısı küçülür.",
     standardRef: "FEM 1.001 9.4.1.5",
   },
   {

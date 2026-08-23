@@ -8,6 +8,7 @@
 import type { WheelLoadInputs, WheelLoadSelections } from "../modules/wheelLoads";
 
 export const V5_WHEELLOAD_INPUTS: WheelLoadInputs = {
+  measurementsConfirmed: true,
   // 4 tekerli vinç: rayda iki teker, aralarındaki mesafe dingil mesafesidir.
   // Teker adedi köprü yürütme bölümünden değiştiğinde görsel düzenleyici
   // mesafe listesini yeni teker sayısına göre yeniden kurar.

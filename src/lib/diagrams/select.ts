@@ -54,6 +54,7 @@ import { ROOM_DESIGN_RH_PCT, type ClimateLoadResult } from "@/lib/calc/climate-l
 import type { Diagram } from "./model";
 import { climateRoomDiagram } from "./climateRoom";
 import { girderSectionDiagram } from "./girderSection";
+import { girderDynamicsDiagram } from "./girderDynamics";
 import {
   bucklingFactorChart,
   bucklingInteractionChart,
@@ -192,6 +193,11 @@ export function diagramForSection(
         tTopThkMm: i.railTProfileTopThkMm,
         tTopWidthMm: i.railTProfileTopWidthMm,
         czMm: v?.czMm, cyMm: v?.cyMm,
+        spanM: input.specs.spanM,
+        areaCm2: v?.areaCm2,
+        weightPerM: v?.weightPerM,
+        iyyCm4: v?.iyyCm4,
+        approxGirderWeightKg: v?.approxGirderWeightKg,
       });
     }
 
@@ -208,6 +214,23 @@ export function diagramForSection(
         selfWeightKg: c["load.bridgeDeadWeight"],
         liveLoadKg: c["load.hoistLoad"],
         momentKgCm: c["moment.verticalTotal"],
+      });
+    }
+
+    if (isGirderKey(moduleKey) && rawSectionId === "7.8") {
+      const gk = moduleKey as GirderWhich;
+      const st = input[gk];
+      const v = result[gk]?.values as GirderValues | undefined;
+      if (!st || !v) return null;
+      return girderDynamicsDiagram({
+        spanM: input.specs.spanM,
+        heightMm: v.heightMm,
+        webGapMm: st.inputs.aMm,
+        spanToDepthRatio: v.spanToDepthRatio,
+        spanToWidthRatio: v.spanToWidthRatio,
+        naturalFrequencyHz: v.naturalFrequencyHz,
+        excitationFrequencyHz: v.hoistExcitationFrequencyHz,
+        separationPct: v.frequencySeparationPct,
       });
     }
 

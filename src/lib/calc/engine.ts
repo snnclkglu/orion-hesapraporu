@@ -294,6 +294,8 @@ export function girderDepsFor(
   return {
     hoistLoadKg: capacityT * 1000,
     liftSpeedMpm,
+    hoistDrumRpm: (ikinci ? result.auxHoist ?? result.mainHoist : result.mainHoist)
+      ?.values.drumRpm ?? 0,
     girdersInBridge: girdersInBridge(specs),
     mainHookBlockWeightKg: hoistInput.inputs.hookBlockWeightKg,
     mainRopeWeightKg: hoistInput.inputs.ropeWeightKg,
