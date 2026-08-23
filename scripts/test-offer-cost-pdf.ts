@@ -333,30 +333,35 @@ async function main() {
   kontrol(duz(metin).includes("51.000"), "çelik ağırlığı 51.000 kg basıldı");
   kontrol(duz(metin).includes("59.500"), "toplam vinç ağırlığı 59.500 kg basıldı");
   kontrol(duz(metin).includes("27.850"), "ana kiriş 27.850 kg basıldı");
-  kontrol(duz(metin).includes("750x1900x750t10"), "seçilen kiriş kesiti basıldı");
-  kontrol(metin.includes("KURULU GÜÇ"), "kurulu güç satırı var");
 
-  // 1b — 18.08.2026 TURUNUN BELGEYE YANSIYAN KARARLARI
+  // 1b — 23.08.2026 TURU: BELGE MALİYETE DARALDI (md. 5 · 7 · 8)
   //
-  // Bunlar EKRANDA yapılıp BELGEDE unutulan türden şeylerdir: ekrana bakan
-  // kimse PDF'in ⌀ basmadığını fark etmez, çünkü ikisine aynı anda bakılmaz.
-  console.log("\n  18.08 turu → belge");
-  kontrol(metin.includes("⌀"), "çap öneki ⌀ belgede basılıyor (md. 4)");
-
-  // ALAN DEFTERİNDE ANAHTAR TEKİLDİR: "Sehim Limiti" bir süre hem KİRİŞ VE
-  // SEHİM hem SINIF KATSAYILARI bölümünde tanımlıydı ve belgede İKİ KEZ
-  // çıkıyordu. Sayaç o çift tanımın geri gelmesini yakalar.
-  const sehimLimiti = duz(metin).split(duz("Sehim Limiti")).length - 1;
-  kontrol(sehimLimiti === 1, `"Sehim Limiti" belgede bir kez geçiyor (${sehimLimiti})`);
-  kontrol(duz(metin).includes(duz("Kesit Ölçüleri")), "kesit ölçüleri belgede (md. 6)");
-  kontrol(duz(metin).includes(duz("Kesit Ataleti")), "kesit ataleti belgede (md. 6)");
+  // Bunlar SİLME kararlarıdır ve silmenin sınanması eklemeninkinden daha
+  // önemlidir: bir bölümü geri getiren tek satırlık bir düzenleme hiçbir testi
+  // kırmadan belgeyi eski hâline döndürürdü.
+  console.log("\n  23.08 turu → belgeden düşenler");
+  kontrol(!metin.includes("HESAPLAR"), "HESAPLAR bölümü belgede YOK (md. 8)");
+  kontrol(!metin.includes("MODEL KATSAYILARI"), "MODEL KATSAYILARI belgede YOK (md. 8)");
+  kontrol(
+    !duz(metin).includes(duz("Kesit Ölçüleri")) && !duz(metin).includes(duz("Kesit Ataleti")),
+    "kesit ölçüleri de HESAPLAR ile birlikte düştü (md. 8)"
+  );
+  kontrol(!duz(metin).includes(duz("elle girildi")), '"elle girildi" ipucusu YOK (md. 7)');
+  kontrol(
+    !duz(metin).includes(duz("Oranların tabanı")),
+    "oran tabanı açıklama notu YOK (md. 5) — kural etiketlerde zaten yazılı"
+  );
+  // KURAL DÜŞMEDİ, YALNIZ NOT DÜŞTÜ: ara toplamın etiketi tabanı hâlâ söyler.
+  kontrol(
+    duz(metin).includes(duz("DOĞRUDAN MALİYET (ORAN TABANI)")),
+    "oran tabanı ARA TOPLAMIN ETİKETİNDE duruyor (MALIYET-5)"
+  );
+  kontrol(duz(metin).includes(duz("AĞIRLIKLAR")), "ağırlık kırılımı belgede duruyor");
   kontrol(duz(metin).includes(duz("HAMMADDE BİRİM FİYATLARI")), "hammadde fiyat şeridi belgede (md. 12)");
   // AD BÜYÜK HARF (kullanıcı isteği 19.08.2026, md. 3): defterdeki maliyet
   // kalemi adları artık büyük yazılıyor. `duz()` yalnız boşluk siler, yazımı
   // eşitlemez — çapa da büyük harfe çekildi.
   kontrol(duz(metin).includes(duz("ÇELİK İMALAT İŞÇİLİĞİ [EUR")), "hammadde satırı birimiyle basıldı");
-  // SEHİM MİLİMETREDİR (md. 7): ASTOR kirişinde 20,5 mm.
-  kontrol(duz(metin).includes("20,5"), "sehim milimetre olarak basıldı (md. 7)");
 
   // 2 — ANA BAŞLIKLAR VE TOPLAM
   console.log("\n  ana başlıklar");
@@ -430,9 +435,11 @@ async function main() {
   // %91'in üstünde doludur (ölçülen dip: 729 · 780 · 780 · 740 / 795 pt), yani
   // beş taban, bir hedef değil. Sayı DÜŞERSE sav da düşürülür — büyürse bir
   // sıkıştırma sessizce geri alınmış demektir.
+  // BÜTÇE 5'TEN 4'E İNDİ (23.08.2026, md. 8): HESAPLAR bölümü, kesit ölçüleri
+  // ve model katsayıları belgeden düştü. Sayı yine ÖLÇÜLDÜ, seçilmedi.
   kontrol(
-    sayfalar.length <= 5,
-    `tek kalemli çalışma ${sayfalar.length} yaprak (bütçe: 5, eski hâli: 8)`
+    sayfalar.length <= 4,
+    `tek kalemli çalışma ${sayfalar.length} yaprak (bütçe: 4, eski hâli: 8)`
   );
   kontrol(
     duz(sayfalar[0]).includes(duz("TOPLAM MALİYET")) &&
@@ -452,7 +459,26 @@ async function main() {
   console.log("\n  teklifle bağ");
   kontrol(metin.includes("GAMAK"), "satırın teklifteki karşılığı (motor markası) basıldı");
   kontrol(metin.includes("ANA KALEM KIRILIMI"), "kırılım tablosu var");
-  kontrol(metin.includes("MODEL KATSAYILARI"), "katsayılar belgede kayıtlı");
+
+  // 5b — ÖZET TABLOSUNDAKİ YÜZDELER (kullanıcı isteği 23.08.2026, md. 6)
+  //
+  // Yüzde bir SÜS değil bir SAV'dır: tabanı yanlış seçen bir düzenleme (sütun
+  // dip toplamı ↔ satırın kendi maliyeti) hiçbir sayıyı bozmadan belgeyi
+  // yanlış okutur. Sav bu yüzden ÇEKİRDEĞİN kendi sayısıyla karşılaştırır.
+  console.log("\n  özetteki yüzdeler");
+  const bas = ozet.items[0].headings;
+  const pay = (n: number | null) =>
+    n === null || !bas.loaded ? null : Math.round((n / bas.loaded) * 100);
+  const imalatPayi = pay(bas.fabrication);
+  const projePayi = pay(bas.project);
+  kontrol(
+    imalatPayi !== null && duz(metin).includes(`%${imalatPayi}`),
+    `imalatın SATIR MALİYETİNE oranı basıldı (%${imalatPayi})`
+  );
+  kontrol(
+    projePayi !== null && duz(metin).includes(`%${projePayi}`),
+    `projenin SATIR MALİYETİNE oranı basıldı (%${projePayi})`
+  );
 
   // 6 — YERLEŞİM (md. 12)
   //

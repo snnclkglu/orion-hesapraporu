@@ -43,6 +43,7 @@ import {
 } from "@/lib/offers/cost/labels";
 import { RAILS } from "@/lib/calc/tables";
 import { costCompareRows, costDeviationLevel, type CostCompareRow } from "@/lib/offers/cost/compare";
+import { costAmountLevel, costAmountWeight, costLargestAmount } from "@/lib/offers/cost/heat";
 import { CRANE_CLASSES, COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import type { CostModelResult } from "@/lib/offers/cost/model";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
@@ -340,6 +341,7 @@ function ModelSatiri({
   model,
   params,
   readOnly,
+  isiTabani,
   onEz,
 }: {
   f: CostFieldDef;
@@ -347,10 +349,26 @@ function ModelSatiri({
   model: CostModelResult | undefined;
   params: Record<string, number>;
   readOnly: boolean;
+  /** Ağırlık ısısının tabanı — verilmezse satır renksizdir (bkz. `AGIRLIK_ISISI`). */
+  isiTabani?: number;
   onEz: (key: string, v: number | null) => void;
 }) {
   const deger = model?.values[f.key] ?? null;
   const elle = item.overrides[f.key] !== undefined;
+  // AĞIRLIK ISISI (kullanıcı isteği 23.08.2026, md. 3) — tutar ısısının
+  // (MALIYET-44) aynı rampası, aynı sözleşmesi: veri yalnız SEVİYE taşır
+  // (`--oc-level`), ton/doygunluk/parlaklık `.oc-amount`ta ve tema başına.
+  // YALNIZ KİLOGRAM ALANLARINDA: bir sehim milimetresinin ya da bir devir
+  // sayısının "büyüklüğü" para gibi okunmaz, ölçek anlamsız olurdu.
+  const isi =
+    isiTabani === undefined || f.unit !== "kg" ? null : costAmountLevel(deger, isiTabani);
+  const isiStili =
+    isi === null
+      ? undefined
+      : ({ "--oc-level": `${isi}` } as React.CSSProperties);
+  // RENK TEK TAŞIYICI DEĞİLDİR (WCAG 1.4.1): aynı büyüklük yazının
+  // KALINLIĞIYLA da verilir — siyah beyaz bir çıktıda da okunur.
+  const isiSinifi = isi === null ? "" : cn("oc-amount", costAmountWeight(isi));
   const duzenlenebilir = costFieldEditable(f) && !readOnly;
   // KATALOG BOYU HER ZAMAN AÇIK BİR SEÇİCİDİR (md. 1 ve 5): halat donanımı,
   // tambur çapı, teker çapı, motor ve sürücü listeden seçilir ve seçim
@@ -419,12 +437,19 @@ function ModelSatiri({
           type="button"
           title="Elle gir"
           onClick={() => onEz(f.key, deger ?? 0)}
-          className="oc-tap h-8 w-28 rounded-md border border-transparent px-2 text-right font-mono text-sm tabular-nums transition-colors hover:border-input hover:bg-muted"
+          style={isiStili}
+          className={cn(
+            "oc-tap h-8 w-28 rounded-md border border-transparent px-2 text-right font-mono text-sm tabular-nums transition-colors hover:border-input hover:bg-muted",
+            isiSinifi
+          )}
         >
           {costFieldText(f, deger)}
         </button>
       ) : (
-        <span className="w-28 px-2 text-right font-mono text-sm tabular-nums">
+        <span
+          style={isiStili}
+          className={cn("w-28 px-2 text-right font-mono text-sm tabular-nums", isiSinifi)}
+        >
           {costFieldText(f, deger)}
         </span>
       )}
@@ -453,6 +478,7 @@ function ModelBolumu({
   model,
   params,
   readOnly,
+  isiTabani,
   onChange,
   altSatir,
 }: {
@@ -461,6 +487,8 @@ function ModelBolumu({
   model: CostModelResult | undefined;
   params: Record<string, number>;
   readOnly: boolean;
+  /** Ağırlık ısısının tabanı — yalnız Ağırlıklar sayfası verir. */
+  isiTabani?: number;
   onChange: (next: CostItem) => void;
   /** Bölümün sonuna eklenen serbest satır — kiriş kesidi gibi sayı OLMAYAN değerler. */
   altSatir?: React.ReactNode;
@@ -494,6 +522,7 @@ function ModelBolumu({
               model={model}
               params={params}
               readOnly={readOnly}
+              isiTabani={isiTabani}
               onEz={ez}
             />
           );
@@ -512,6 +541,7 @@ export function ModelSayfasi({
   model,
   params,
   readOnly,
+  isiTabani,
   onChange,
 }: {
   baslik: string;
@@ -521,6 +551,8 @@ export function ModelSayfasi({
   model: CostModelResult | undefined;
   params: Record<string, number>;
   readOnly: boolean;
+  /** Ağırlık ısısının tabanı — yalnız Ağırlıklar sayfası verir (md. 3). */
+  isiTabani?: number;
   onChange: (next: CostItem) => void;
 }) {
   const ezikSayisi = Object.keys(item.overrides).filter((k) =>
@@ -559,6 +591,7 @@ export function ModelSayfasi({
             model={model}
             params={params}
             readOnly={readOnly}
+            isiTabani={isiTabani}
             onChange={onChange}
             altSatir={
               // KESİT SATIRI SAYI DEĞİLDİR ama KİRİŞ VE SEHİM bölümünün
@@ -635,6 +668,29 @@ export function AgirlikSayfasi({
   const ozet = WEIGHT_SECTIONS.find((s) => s.key === AGIRLIK_OZET_KEY);
   const kirilim = WEIGHT_SECTIONS.filter((s) => s.key !== AGIRLIK_OZET_KEY);
 
+  /**
+   * AĞIRLIK ISISININ TABANI — SAYFANIN EN AĞIR SATIRI.
+   *
+   * Kullanıcı isteği (23.08.2026, md. 3): *"renklendirmeyi Ağırlıklar
+   * sayfasında ağırlığın büyüklüğüne göre de istiyorum. Anlaşılabilirliği
+   * artsın."* Ölçek MALIYET-44'ün tutar ısısının aynısıdır ve tabanı da aynı
+   * mantıkla seçilir: BELGENİN (burada: sayfanın) en büyüğü, bölüm içi bir
+   * ölçek değil. Bölüm bazlı bir taban, 900 kg'lık merdivenleri 27.850 kg'lık
+   * ana kirişle AYNI kırmızıda gösterirdi.
+   *
+   * TOPLAM SATIRLARI DA TABANA GİRER (`f.sum` süzülmez) ve bu bilinçlidir:
+   * özet kartı ile kırılım AYNI ölçeği paylaşmalıdır, yoksa aynı sayı sayfanın
+   * iki yerinde iki farklı renk alırdı. Toplamların en kırmızı görünmesi
+   * doğrudur — onlar sayfanın en büyük sayılarıdır.
+   *
+   * BİR KEZ HESAPLANIR VE AŞAĞI GEÇİRİLİR (MALIYET-44 ile aynı kural).
+   */
+  const isiTabani = costLargestAmount(
+    WEIGHT_SECTIONS.flatMap((s) =>
+      s.fields.filter((f) => f.unit === "kg").map((f) => model?.values[f.key] ?? null)
+    )
+  );
+
   return (
     <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_27rem] xl:items-start">
@@ -654,6 +710,7 @@ export function AgirlikSayfasi({
               model={model}
               params={params}
               readOnly={readOnly}
+              isiTabani={isiTabani}
               onChange={onChange}
             />
           </Bolum>
@@ -662,12 +719,13 @@ export function AgirlikSayfasi({
 
       <ModelSayfasi
         baslik="AĞIRLIK KIRILIMI"
-        aciklama="Alt montaj ağırlıkları modelden türer. Bildiğiniz bir ağırlığı yazarsanız yukarıdaki toplamlar ona göre yeniden hesaplanır."
+        aciklama="Alt montaj ağırlıkları modelden türer. Bildiğiniz bir ağırlığı yazarsanız yukarıdaki toplamlar ona göre yeniden hesaplanır. Sayının rengi AĞIRLIĞIN BÜYÜKLÜĞÜNÜ söyler: sarı hafif, kırmızı sayfanın en ağırı."
         sections={kirilim}
         item={item}
         model={model}
         params={params}
         readOnly={readOnly}
+        isiTabani={isiTabani}
         onChange={onChange}
       />
     </>

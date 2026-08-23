@@ -22,6 +22,7 @@ import {
   costPerKg,
   costTotals,
   loadedCostByOfferItem,
+  manualCostByPriceLine,
   withCostTotals,
 } from "../totals";
 import type { CostItem, CostLine, CostPayload } from "../types";
@@ -404,6 +405,101 @@ describe("MALİYET ÖZETİ — teklif ve maliyet TEK yapıda", () => {
     expect(o.margin.price).toBeNull();
     expect(o.steelKg).toBeNull();
     expect(o.weightKg).toBeNull();
+  });
+});
+
+/**
+ * SERBEST FİYAT SATIRININ MALİYETİ — ÜÇ KAYNAK, TEK SIRA.
+ *
+ * Kullanıcı isteği (23.08.2026, md. 1): *"Eğer özet sayfasından girersem
+ * öncelik o olsun. Fiyat kısmına da oradan gelsin."* Sıra dört ekranda birden
+ * okunur (özet · teklif editörünün maliyet sütunu · PDF · Excel); bir yerde
+ * elle tekrarlansaydı aynı nakliye iki ekranda iki maliyetle görünürdü.
+ */
+describe("serbest satır maliyeti — kaynak sırası", () => {
+  const p = astorBelgesi();
+  const t = costTotals(p, { [p.items[0].id]: 59500 });
+
+  /** Özet sayfasından girilen kayıtlarla bir maliyet belgesi kurar. */
+  const belge = (kayitlar: CostPayload["manualLineCosts"]): CostPayload => ({
+    ...p,
+    manualLineCosts: kayitlar,
+  });
+
+  it("hiçbir yerde yoksa TEKLİFİN fiyat satırındaki kutu okunur", () => {
+    const o = costOverview(t, teklifBelgesi(), {}, p);
+    const nakliye = o.manualLines.find((l) => l.description === "NAKLİYE")!;
+    expect(nakliye.amount).toBe(6200);
+    expect(nakliye.source).toBe("price");
+  });
+
+  it("ÖZETTEN girilen tek maliyet fiyat sayfasındakini EZER", () => {
+    const o = costOverview(
+      t,
+      teklifBelgesi(),
+      {},
+      belge({ f2: { total: 7100, fabrication: null, project: null, rates: {} } })
+    );
+    const nakliye = o.manualLines.find((l) => l.description === "NAKLİYE")!;
+    expect(nakliye.amount).toBe(7100);
+    expect(nakliye.source).toBe("overview");
+    // Kâr da EZİLEN sayıdan hesaplanır; iki kaynak TOPLANMAZ.
+    expect(o.manualTotal).toBe(7100);
+  });
+
+  it("KIRILIM girilirse toplam kutusu OKUNMAZ — iki kaynak toplanmaz", () => {
+    const o = costOverview(
+      t,
+      teklifBelgesi(),
+      {},
+      belge({
+        f2: {
+          total: 99_999,
+          fabrication: 1000,
+          project: 2000,
+          rates: { fixed: 500, consumable: null, finance: null },
+        },
+      })
+    );
+    const nakliye = o.manualLines.find((l) => l.description === "NAKLİYE")!;
+    expect(nakliye.amount).toBe(3500);
+    expect(nakliye.source).toBe("breakdown");
+    expect(nakliye.headings.loaded).toBe(3500);
+    // GİRİLMEMİŞ BAŞLIK UYDURULMAZ (değişmez md. 4): sıfır değil, `null`.
+    expect(nakliye.headings.rates.find((x) => x.key === "consumable")?.amount).toBeNull();
+  });
+
+  it("maliyeti HİÇ girilmemiş serbest satır listede DURUR, tutarı boş kalır", () => {
+    // Satır görünmeden özet tablosuna maliyet YAZILAMAZ; ayrıca teklif
+    // tutarına girip maliyet toplamına girmeyen bir satırın sessizce
+    // kaybolması kârı olduğundan yüksek gösterirdi.
+    const teklif = teklifBelgesi();
+    const maliyetsiz: OfferPayload = {
+      ...teklif,
+      pricing: {
+        ...teklif.pricing,
+        lines: teklif.pricing.lines.map((l) =>
+          l.id === "f2" ? { ...l, manualCost: null } : l
+        ),
+      },
+    };
+    const o = costOverview(t, maliyetsiz, {}, p);
+    const nakliye = o.manualLines.find((l) => l.description === "NAKLİYE")!;
+    expect(nakliye.amount).toBeNull();
+    expect(o.manualTotal).toBeNull();
+    expect(o.margin.cost).toBeCloseTo(t.total as number, 6);
+  });
+
+  it("teklif editörünün sözlüğü YALNIZ özetten gireni taşır", () => {
+    // Sözlükte olmayan satır eskisi gibi kendi `manualCost` kutusunu okur;
+    // fiyat sayfasındaki kutu YERİNDE KALIR (kullanıcı: *"o kalsın"*).
+    const sozluk = manualCostByPriceLine(
+      belge({
+        f2: { total: 7100, fabrication: null, project: null, rates: {} },
+        f9: { total: null, fabrication: null, project: null, rates: {} },
+      })
+    );
+    expect(sozluk).toEqual({ f2: 7100 });
   });
 });
 

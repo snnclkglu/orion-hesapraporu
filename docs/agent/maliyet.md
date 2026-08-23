@@ -5,7 +5,7 @@
 > `.claude/rules/maliyet.md` ve haritadaki satır ondan ÜRETİLİR
 > (`npx tsx scripts/agent-docs/split.ts --uygula`).
 
-**Kapsam:** `src/lib/offers/cost/**` · `src/app/(app)/offers/cost-*.ts` · `src/app/(app)/offers/[id]/costs/**` · `src/app/(app)/offers/[id]/cost-panel.tsx` · `src/lib/pdf/offer-cost.tsx` · `scripts/test-offer-cost-pdf.ts`
+**Kapsam:** `src/lib/offers/cost/**` · `src/app/(app)/offers/cost-*.ts` · `src/app/(app)/offers/[id]/costs/**` · `src/app/(app)/offers/[id]/cost-panel.tsx` · `src/lib/pdf/offer-cost.tsx` · `src/lib/xlsx/offer-cost.ts` · `scripts/test-offer-cost-pdf.ts` · `scripts/test-offer-cost-excel.ts`
 
 ## MALIYET-1 — Maliyet TEKLİF PAYLOAD'INA GİRMEZ; ayrı tablo, ayrı zincir.
 
@@ -1002,3 +1002,126 @@ ekran söylüyordu. Artık **Teklifi İndir** / **Teklifi İndir ve Yayımla** /
 düğmenin aynı belgeye iki ayrı adla ("Teklifi İndir" ve "PDF İndir ve Yayımla")
 işaret etmesi, ayrımı biçimden sanmaya davet ederdi. Excel düğmesi **Excel
 İndir** kalır — orada ayırt edici olan biçimin kendisidir.
+
+## MALIYET-48 — Özet bir GİRİŞ ekranıdır: serbest satırın maliyeti orada yaşar.
+
+Kullanıcı isteği (23.08.2026, md. 1): *"Teklifte, fiyat satırına elle girdiğim
+kalemler var … elle çelik ve toplam ağırlık girdiğim gibi, diğer kalemleri de
+istersem girebilsem. Maliyetlendirmeyi hızlıca basitçe bu özet tabloda bitirmiş
+olurum. Bu ekstra kalemler için çok detay istemiyorum … Şu an bu kalemlerin tek
+maliyetini teklif fiyat bölümünden girebiliyorum, o kalsın. Ama özet sayfasından
+da girebileyim. Eğer özet sayfasından girersem öncelik o olsun. Fiyat kısmına da
+oradan gelsin."*
+
+- **ÜÇ KAYNAK, TEK SIRA** (`manualLineCost`, `cost/types.ts`): ① özet
+  sayfasındaki BEŞ BAŞLIK kırılımı → ② özetteki tek maliyet kutusu → ③ teklifin
+  fiyat satırındaki eski kutu. **İki kaynak asla TOPLANMAZ** (MALIYET-4): kırılım
+  doluysa tek maliyet kutusu HİÇ okunmaz ve ekran bunu bir cümleyle söyler —
+  sessizce yutulan bir girdi, kullanıcının yazdığı sayıyı aramasına yol açardı.
+  Sıra dört yerden okunur (özet ekranı · teklif editörünün maliyet sütunu · PDF ·
+  Excel) ve dördü de aynı fonksiyonu çağırır.
+- **VERİ MALİYET PAYLOAD'INDA YAŞAR** (`manualLineCosts`, anahtar
+  `OfferPriceLine.id`), teklifinkinde değil (MALIYET-1). Yetim anahtar SİLİNMEZ —
+  `manualLineWeights` ile aynı gerekçe. `withCostDefaults`e eklenmesi ŞARTTIR
+  (MALIYET-39'un son maddesi).
+- **TEKLİF EKRANINA BİR SAYI GİDER, TEKLİF BELGESİNE DEĞİL**:
+  `manualCostByPriceLine` sözlüğü `loadedCostByOfferItem`in kardeşidir. Sözlükte
+  bulunan satırda fiyat sayfasının kutusu YAZIYA döner ("özet" etiketiyle);
+  bulunmayanda kutu yerinde kalır — kullanıcının kendi cümlesi: *"o kalsın"*.
+- **MALİYETİ HİÇ GİRİLMEMİŞ SERBEST SATIR DA LİSTEDEDİR.** Süzgeç bir zamanlar
+  `manualCost === null` olanı atıyordu; satır görünmeden özet tablosuna maliyet
+  YAZILAMAZ. Atlamak ayrıca sessizdi — teklif tutarına giren bir nakliye maliyet
+  özetinde hiç görünmeden kârı olduğundan yüksek gösteriyordu. Tutarı `null` olan
+  satır toplama girmez (`toplaSayilar`).
+- **KAYNAK İŞARETİ ŞEKİL + RENKTİR**: vinç yuvarlak, serbest satır KARE ve
+  ayrı tonda (`.oc-series-bg`, ton bir AÇIDIR — değişmez md. 6). Yalnız renk
+  olsaydı ayrım renk körlüğünde düşerdi (WCAG 1.4.1); yazılı "fiyat satırı"
+  etiketi de bu yüzden yerinde durur.
+
+## MALIYET-49 — Yüzdenin İKİ tabanı vardır ve fark söylenir.
+
+Kullanıcı isteği (23.08.2026, md. 6): *"tabloda çelik, toplam, imalat, proje ve
+genel gider kısımlarının değerlerinin yanına maliyet toplamlarına % oranı da
+yazmanı istiyorum. Hem uygulamaya hem pdf excel raporlara."*
+
+- **PARA sütunları SATIRIN KENDİ MALİYETİNE** oranlanır ("bu vincin maliyetinin
+  %54'ü proje"). **MALİYET sütununda yüzde YOKTUR** — o tabandır ve %100 yazmak
+  hiçbir şey söylemezdi; kullanıcının saydığı sütunlar arasında bulunmaması da
+  bunu söylüyor.
+- **AĞIRLIK sütunları BELGENİN DİP TOPLAMINA** oranlanır ("bu kalem belgedeki
+  çeliğin %82'si"). Bir kilogramın bir avroya oranı diye bir şey yoktur; tek
+  taban kullanmak sayıyı anlamsız yapardı.
+- **DİP TOPLAM SATIRINDA** para sütunlarının yüzdesi belgenin TOPLAM MALİYETİNE
+  orandır; ağırlık dip toplamlarında yüzde yoktur (onlar zaten tabandır).
+- **DİP TOPLAM KENDİ SÜTUNUNU TOPLAR**, `costTotals`i değil: serbest satırların
+  beş başlığı artık elle girilebildiği için `totals.fabrication` yalnız
+  VİNÇLERİ sayar ve sütunu gözle toplayan okuyucu dip toplamı tutturamazdı.
+- **EXCEL'DE YÜZDE AYRI SÜTUNDUR** (`ÇELİK %`, `İMALAT %`, `<ORAN> %`): hücreye
+  metin yazmak dosyanın en baştaki sözleşmesini kırardı ("hücreye SAYI yazılır").
+  Sütun numaraları `ozetSutunlari`da TEK yerdedir — her oran grubu artık İKİ
+  sütun tutar ve numaraları elle saymak, dördüncü bir oran açıldığında başlıkla
+  verinin sessizce kaymasına yol açardı.
+
+## MALIYET-50 — Isı ekrandan BELGEYE taşındı; rampa TEK tanımdır.
+
+Kullanıcı isteği (23.08.2026, md. 3 ve 4): *"renklendirmeyi Ağırlıklar
+sayfasında ağırlığın büyüklüğüne göre de istiyorum"* ve *"indirilen teklif
+maliyet pdf ve excellerde de renklendirme kullan."*
+
+- **AYNI RAMPA, ÜÇ ÇIKTI.** Ekran rengi `globals.css`teki `.oc-amount`
+  kuralında, belge rengi `heat.ts`teki `COST_HEAT_RAMP` sabitinde yaşar; ikisi
+  aynı sayılardır ve **bir test `globals.css`i OKUYARAK** ayrışmayı engeller
+  (değişmez md. 8, `terms.test.ts` deseni). @react-pdf ve exceljs CSS okumaz,
+  hazır renk ister; dönüşüm `oklchToHex` ile TEK yerde yapılır — sabit hex
+  yazmak değişmez md. 6'yı kırardı. **AÇIK TEMANIN şeridi kullanılır**: PDF ve
+  Excel beyaz kâğıdın karşılığıdır.
+- **AĞIRLIK ISISININ TABANI SAYFANIN EN AĞIR SATIRIDIR** ve toplam satırları da
+  tabana girer: özet kartı ile kırılım aynı ölçeği paylaşmalıdır, yoksa aynı
+  sayı sayfanın iki yerinde iki farklı renk alırdı. Yalnız `kg` alanları
+  renklenir — bir sehim milimetresinin "büyüklüğü" para gibi okunmaz.
+- **ÖZET TABLOSUNDA ÖLÇEK SÜTUN BAZINDADIR** (çelik · toplam ağırlık · maliyet
+  ayrı ayrı): tek ölçekte çelik, toplam ağırlıkla yarışır ve HER ZAMAN daha
+  soğuk görünürdü.
+- **EXCEL'DE ISI YAZI RENGİDİR, DOLGU DEĞİL**: dolguyu boyamak, koşullu
+  biçimlendirme kuran kullanıcının kendi zeminini elinden alırdı. Hücre SAYI
+  kalır.
+- **ÜST ŞERİDİN ÜÇ KUTUSU** (MALİYET · TEKLİF · KÂR) `.oc-fieldgroup`
+  sözleşmesini kullanır (MALIYET-43): ton veriden, doygunluk temadan. Kâr
+  kutusunun tonu SAYININ İŞARETİNDEN gelir — zarar eden bir teklif yeşil
+  görünmemelidir.
+
+## MALIYET-51 — Üst şerit BELGENİN tamamını gösterir; iç belgeler maliyete daraldı.
+
+Kullanıcı bildirimi (23.08.2026, md. 2): *"Üstte maliyet kâr ve % yazan yerdeki
+değer sadece vincin değil o teklifteki kalemlerin tamamının maliyeti olsun …
+Ayrıca bunun yanına bir kutuda eğer oluşturulmuşsa teklif fiyatı da yazmalı."*
+
+Şerit `costTotals.total`i basıyordu — MALİYET BELGESİNİN toplamı, yani teklifin
+serbest fiyat satırlarına yazılan maliyetler HARİÇ. Aynı ekranın Özet bölümü
+`costOverview.margin.cost`u gösteriyordu: tek ekranda iki toplam. Kâr da yanlış
+tabandan çıkıyor ve teklif tutarını `pricing.total`dan okuyup **iskontoyu
+görmüyordu**. Üçü de artık `overview.margin`den gelir (MALIYET-29). Teklif
+kutusu YALNIZ fiyat varsa çizilir — fiyatsız bir maliyet çalışması meşrudur ve
+boş bir kutu "fiyat sıfır" diye okunurdu.
+
+**İÇ BELGELERDEN DÜŞENLER** (aynı tur, md. 5 · 7 · 8 · 9 · 10). Hepsi SİLME
+kararıdır ve silmenin sınanması eklemeninkinden önemlidir — bir bölümü geri
+getiren tek satırlık bir düzenleme hiçbir testi kırmadan belgeyi eski hâline
+döndürürdü; iki duman testi bunu sav olarak tutar:
+
+- **HESAPLAR bölümü ve kesit ölçüleri** (PDF): halat, tambur, motor, teker ve
+  kiriş kesidi bir MALİYET sorusunun cevabı değildir; yerleri hesap raporudur
+  (`/projects`). PDF bütçesi 5 → **4 yaprak**.
+- **MODEL KATSAYILARI** (PDF ve Excel): MALIYET-6 DEĞİŞMEDİ — katsayılar hâlâ
+  belgeye aittir ve `payload.params`ta saklanır, yalnız BASILMAZLAR.
+- **"elle girildi" ipucusu** (PDF ağırlıklar): belgede otuzdan fazla satıra
+  çıkabiliyordu ve okuyanın sorusuna ("bu vinç kaç kilo") cevap vermiyordu.
+- **Oran tabanı açıklama notu** (YALNIZ PDF): kural etiketin kendisinde zaten
+  yazılıdır ("DOĞRUDAN MALİYET (ORAN TABANI)"). **Excel'de KALIR** — orada
+  ORAN sütununu görüp tabanı arayan okuyucu vardır ve çizelge üzerinde çalışılır.
+- **MİKTAR KAYNAĞI sütunu ve DONMUŞ BÖLME** (Excel): MALIYET-4 değişmedi,
+  miktarın kaynağı EKRANDA görünür; donmuş bölme ise kullanıcının kendi
+  görünümüne el koyuyordu. Süzgeç KALIR — biri okuyanın sorusunu daraltır,
+  öteki pencereye el koyar.
+- **Çizelgenin açıklama notu** (Excel): söylediği üç şeyin üçü de tablonun
+  kendisinde duruyordu.

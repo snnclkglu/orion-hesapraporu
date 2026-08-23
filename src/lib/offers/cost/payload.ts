@@ -50,6 +50,7 @@ import type {
   CostRateGroup,
   CostTemplate,
   CostTemplateSkeleton,
+  ManualLineCost,
 } from "./types";
 
 export const COST_PAYLOAD_VERSION = 1;
@@ -203,6 +204,7 @@ export function emptyCostPayload(
     items: [],
     removedOfferItemIds: [],
     manualLineWeights: {},
+    manualLineCosts: {},
     overviewMargins: {},
     general: costGroupFromKey(GENERAL_GROUP_KEY),
     rates: defaultRateGroups(),
@@ -705,6 +707,33 @@ function agirliklarBoslu(
   return out;
 }
 
+/**
+ * Serbest fiyat satırlarının ELLE girilen maliyet kırılımını ham veriden okur.
+ *
+ * `agirliklarBoslu`nun kardeşidir ve aynı iki kuralı taşır: okunamayan sayı
+ * `null` olur (sıfır DEĞİL) ve YETİM ANAHTAR SİLİNMEZ — taşıma yolu teklifi
+ * görmez, süzmeye kalkmak teklif bir an okunamadığında girilmiş maliyetleri
+ * silmek olurdu.
+ *
+ * ORAN ANAHTARLARI DA SÜZÜLMEZ: bir oran grubu defterden kaldırılsa bile
+ * yazılan tutar belgede kalır. Ekran onu yalnız defterde karşılığı olan
+ * anahtarlar için çizer, ama silmez.
+ */
+function serbestMaliyetler(raw: unknown): Record<string, ManualLineCost> {
+  const out: Record<string, ManualLineCost> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const o = (v ?? {}) as Record<string, unknown>;
+    out[k] = {
+      total: sayiVeyaNull(o.total),
+      fabrication: sayiVeyaNull(o.fabrication),
+      project: sayiVeyaNull(o.project),
+      rates: sayilarBoslu(o.rates),
+    };
+  }
+  return out;
+}
+
 export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
   const p = (raw ?? {}) as Record<string, unknown>;
   const bos = emptyCostPayload(currency);
@@ -739,6 +768,7 @@ export function withCostDefaults(raw: unknown, currency = "EUR"): CostPayload {
     // olmasaydı kullanıcının girdiği ağırlık ve kâr yüzdesi ekranda görünür,
     // Kaydet'e basınca sessizce yok olurdu.
     manualLineWeights: agirliklarBoslu(p.manualLineWeights),
+    manualLineCosts: serbestMaliyetler(p.manualLineCosts),
     overviewMargins: sayilarBoslu(p.overviewMargins),
     general: p.general ? groupFromRaw(p.general) : bos.general,
     // ORANLI GRUPLAR DEFTERDEN TAMAMLANIR: yeni bir oran grubu eklenirse

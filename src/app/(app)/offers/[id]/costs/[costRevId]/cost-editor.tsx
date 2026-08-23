@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { fmtMoney0 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { costModels, costSteelWeights, costWeights, withCostDerived } from "@/lib/offers/cost/payload";
-import { costMargin, costOverview, costTotals } from "@/lib/offers/cost/totals";
+import { costOverview, costTotals } from "@/lib/offers/cost/totals";
 import type { CostItem, CostPayload } from "@/lib/offers/cost/types";
 import { fmtCostField } from "@/lib/offers/cost/labels";
 import type { OfferPayload } from "@/lib/offers/types";
@@ -57,6 +57,47 @@ const BOLUMLER = [
   { key: "katsayi", label: "Katsayılar", kalemli: false },
   { key: "not", label: "Notlar", kalemli: false },
 ] as const;
+
+/**
+ * ÜST ŞERİDİN SAYI KUTUSU — soft tonlu, tek satır.
+ *
+ * `.oc-fieldgroup` sözleşmesi (MALIYET-43): veri yalnız TON AÇISINI taşır,
+ * doygunluk ve parlaklık `globals.css`te ve TEMA BAŞINA verilir. Elle hex
+ * yazmak değişmez md. 6'yı kırardı.
+ *
+ * RENK TEK TAŞIYICI DEĞİLDİR: her kutunun başlığı ayrıca YAZIYLA durur
+ * ("Maliyet" · "Teklif" · "Kâr") — renk yalnız gözü hızlandırır.
+ */
+function TutarKutusu({
+  baslik,
+  tutar,
+  currency,
+  ton,
+  alt,
+}: {
+  baslik: string;
+  tutar: number | null;
+  currency: string;
+  ton: number;
+  /** İkinci satır — kâr kutusunda satış üzerinden yüzde. */
+  alt?: string;
+}) {
+  const tonStili = { "--oc-hue": `${ton}` } as React.CSSProperties;
+  return (
+    <div className="oc-fieldgroup rounded-md py-1 pr-2.5 pl-2" style={tonStili}>
+      <div
+        className="oc-fieldgroup-title text-[10px] font-semibold tracking-wide uppercase"
+        style={tonStili}
+      >
+        {baslik}
+      </div>
+      <div className="font-mono text-sm font-semibold tabular-nums">
+        {tutar === null ? "—" : fmtMoney0(tutar, currency)}
+      </div>
+      {alt ? <div className="text-[10px] text-muted-foreground">{alt}</div> : null}
+    </div>
+  );
+}
 
 export function CostEditor({
   offerId,
@@ -133,9 +174,8 @@ export function CostEditor({
   // ÖZET SAF ÇEKİRDEKTEN GELİR: ekran tek bir toplam bile kendi hesaplamaz.
   const overview = useMemo(
     () => costOverview(totals, offer, costSteelWeights(models), payload),
-    [totals, offer, models]
+    [totals, offer, models, payload]
   );
-  const kar = costMargin(offer.pricing.total ?? null, totals.total);
 
   const item = payload.items.find((i) => i.id === kalemId) ?? payload.items[0];
   const bolum = BOLUMLER.find((b) => b.key === aktif) ?? BOLUMLER[0];
@@ -272,13 +312,50 @@ export function CostEditor({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="text-right">
-            <div className="font-mono text-sm">{fmtMoney0(totals.total, payload.currency)}</div>
-            <div className="text-xs text-muted-foreground">
-              {kar.profit === null
-                ? "kâr —"
-                : `kâr ${fmtMoney0(kar.profit, payload.currency)} · %${fmtCostField(kar.marginPercent, 0)}`}
-            </div>
+          {/* ÜST ŞERİDİN ÜÇ SAYISI — BELGENİN TAMAMI, bir vincin değil.
+              Kullanıcı bildirimi (23.08.2026, md. 2): *"Üstte maliyet kâr ve %
+              yazan yerdeki değer sadece vincin değil o teklifteki kalemlerin
+              tamamının maliyeti olsun … Ayrıca bunun yanına bir kutuda eğer
+              oluşturulmuşsa teklif fiyatı da yazmalı."*
+
+              Şerit bugüne kadar `costTotals.total`i basıyordu: MALİYET
+              BELGESİNİN toplamı, yani teklifin serbest fiyat satırlarına
+              yazılan maliyetler HARİÇ (MALIYET-11). Aynı ekranın Özet bölümü
+              ise `costOverview.margin.cost`u gösteriyordu — iki sayı, tek
+              ekran. Kâr da bu yüzden yanlış tabandan hesaplanıyordu ve teklif
+              tutarını `pricing.total`dan okuyordu, yani İSKONTOYU görmüyordu.
+              Üçü de artık `overview.margin`den gelir (MALIYET-29).
+
+              RENK ÜÇÜNÜ AYIRIR (aynı madde: *"her şeyin aynı renk olması
+              anlaşılırlığı azaltıyor. Maliyetler sayfasındaki gibi soft
+              renklendirme iyi olur."*) — Maliyetler sayfasının grup
+              başlıklarıyla AYNI sözleşme (`.oc-fieldgroup`, MALIYET-43): ton
+              bir AÇIDIR, doygunluk ve parlaklık temadan gelir. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <TutarKutusu baslik="Maliyet" tutar={overview.margin.cost} currency={payload.currency} ton={25} />
+            {/* TEKLİF KUTUSU YALNIZ FİYAT VARSA ÇİZİLİR: *"eğer oluşturulmuşsa"*.
+                Fiyatsız bir maliyet çalışması meşrudur (önce maliyet, sonra
+                fiyat) ve orada boş bir kutu "fiyat sıfır" diye okunurdu. */}
+            {overview.margin.price === null ? null : (
+              <TutarKutusu
+                baslik="Teklif"
+                tutar={overview.margin.price}
+                currency={payload.currency}
+                ton={255}
+              />
+            )}
+            <TutarKutusu
+              baslik="Kâr"
+              tutar={overview.margin.profit}
+              currency={payload.currency}
+              // TON VERİDEN GELİR: zarar eden bir teklif yeşil görünmemelidir.
+              ton={overview.margin.profit !== null && overview.margin.profit < 0 ? 25 : 150}
+              alt={
+                overview.margin.marginPercent === null
+                  ? undefined
+                  : `satışın %${fmtCostField(overview.margin.marginPercent, 0)}`
+              }
+            />
           </div>
           <Button asChild variant="outline" className="oc-tap">
             <a href={`/offers/${offerId}/costs/${costRevId}/pdf`}>

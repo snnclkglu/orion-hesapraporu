@@ -36,9 +36,7 @@ import { Document, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/ren
 import { BRAND, BrandBand, BrandPage, FONTS, PAGE, T, mm, trUpper } from "@/lib/pdf/brand";
 import { fmtMoney0, fmtNum, fmtTutar } from "@/lib/currency";
 import { baslikDuzeni } from "@/lib/tr-text";
-import { COST_PARAM_DEFS } from "@/lib/offers/cost/params";
 import {
-  CALC_SECTIONS,
   WEIGHT_SECTIONS,
   costFieldText,
   fmtCostField,
@@ -52,6 +50,7 @@ import {
   printedCostPayload,
 } from "@/lib/offers/cost/payload";
 import { MATERIAL_PRICE_DEFS, offerRefValue } from "@/lib/offers/cost/registry";
+import { costHeatHex, costLargestAmount } from "@/lib/offers/cost/heat";
 import {
   costBreakdown,
   costGroupTotal,
@@ -59,7 +58,7 @@ import {
   costOverview,
   costTotals,
 } from "@/lib/offers/cost/totals";
-import type { CostOverview, CostTotals } from "@/lib/offers/cost/totals";
+import type { CostOverview } from "@/lib/offers/cost/totals";
 import type { CostGroup, CostPayload } from "@/lib/offers/cost/types";
 import type { OfferPayload } from "@/lib/offers/types";
 import { offerDocLine } from "@/lib/offers/no";
@@ -190,6 +189,15 @@ const S = StyleSheet.create({
   deger: { ...T.data, fontSize: 7.2, textAlign: "right" },
   kalin: { fontWeight: 700, color: BRAND.ink },
   not: { ...T.caption, fontSize: 6.4, color: BRAND.gray500 },
+  /**
+   * DEĞERİN ALTINDAKİ YÜZDE (kullanıcı isteği 23.08.2026, md. 6).
+   *
+   * Aynı hücreye " · %16" diye eklemek 52 pt'lik sütuna sığmıyordu (ölçüldü:
+   * "126.695 € · %65" ≈ 62 pt) ve @react-pdf sığmayanı KIRPMAZ, taşırır.
+   * İkinci satır 5,6 pt'dir: bir yüzde en fazla dört karakterdir ve mono
+   * rakamların binlik ayracı burada yoktur, yani 7 pt sınırı geçerli değil.
+   */
+  yuzde: { ...T.caption, fontSize: 5.6, color: BRAND.gray500, textAlign: "right" },
   /** Uyarı notu — sayılmayan ama SÖYLENEN şeyler (MALIYET-13/29). */
   uyari: { ...T.caption, fontSize: 6.6, color: BRAND.red, marginTop: 3 },
   ozetKutu: { borderWidth: 0.8, borderColor: BRAND.line350, padding: 6, marginTop: 8 },
@@ -278,7 +286,8 @@ function AltBaslik({
 function alanSatirlari(
   fields: readonly CostFieldDef[],
   v: (k: string) => number | null,
-  overrides: Record<string, number | undefined>
+  /** Isı ölçeğinin tabanı — kilogram alanları büyüklüğüne göre renklenir. */
+  isiTabani?: number
 ): DegerSatiri[] {
   return fields
     .filter((f) => v(f.key) !== null)
@@ -287,9 +296,12 @@ function alanSatirlari(
       etiket: f.label,
       kalin: f.sum,
       deger: `${costFieldText(f, v(f.key))} ${f.unit}`.trim(),
-      // ELLE GİRİLDİ İŞARETİ DÜŞMEZ: ezilen bir değer artık modelin değil
-      // mühendisin sayısıdır ve belge bunu söylemek zorundadır (MALIYET-7).
-      ipucu: overrides[f.key] === undefined ? undefined : "elle girildi",
+      // AĞIRLIK ISISI BELGEDE DE VARDIR (kullanıcı isteği 23.08.2026, md. 3–4):
+      // ekranla AYNI rampa (`costHeatHex`), yalnız kilogram alanlarında.
+      renk:
+        isiTabani === undefined || f.unit !== "kg"
+          ? undefined
+          : (costHeatHex(v(f.key), isiTabani) ?? undefined),
     }));
 }
 
@@ -300,6 +312,8 @@ interface DegerSatiri {
   deger: string;
   kalin?: boolean;
   ipucu?: string;
+  /** Değerin mürekkebi — ısı rengi; verilmezse belgenin kendi mürekkebi. */
+  renk?: string;
 }
 
 /**
@@ -315,12 +329,15 @@ function Deger({
   kalin,
   ipucu,
   dar,
+  renk,
 }: {
   etiket: string;
   deger: string;
   kalin?: boolean;
   ipucu?: string;
   dar?: boolean;
+  /** Değerin mürekkebi — ısı rengi (md. 3–4); verilmezse belgenin mürekkebi. */
+  renk?: string;
 }) {
   return (
     <View style={S.satir} wrap={false}>
@@ -331,7 +348,14 @@ function Deger({
         <Text style={[S.etiket, kalin ? S.kalin : {}]}>{etiket}</Text>
         {ipucu ? <Text style={S.not}>{ipucu}</Text> : null}
       </View>
-      <Text style={[S.deger, kalin ? S.kalin : {}, { width: dar ? DAR_DEGER : DEGER_SUTUN }]}>
+      <Text
+        style={[
+          S.deger,
+          kalin ? S.kalin : {},
+          { width: dar ? DAR_DEGER : DEGER_SUTUN },
+          renk ? { color: renk } : {},
+        ]}
+      >
         {deger}
       </Text>
     </View>
@@ -353,7 +377,7 @@ function IkiSutunlu({ satirlar }: { satirlar: readonly DegerSatiri[] }) {
   if (satirlar.length === 0) return null;
   if (satirlar.length === 1) {
     const r = satirlar[0];
-    return <Deger etiket={r.etiket} deger={r.deger} kalin={r.kalin} ipucu={r.ipucu} />;
+    return <Deger etiket={r.etiket} deger={r.deger} kalin={r.kalin} ipucu={r.ipucu} renk={r.renk} />;
   }
   const orta = Math.ceil(satirlar.length / 2);
   const sutunlar = [satirlar.slice(0, orta), satirlar.slice(orta)];
@@ -366,7 +390,15 @@ function IkiSutunlu({ satirlar }: { satirlar: readonly DegerSatiri[] }) {
         // çocuğudur ve yükseklikleri normal ölçülür.
         <View key={i} style={S.sutun}>
           {sutun.map((r) => (
-            <Deger key={r.key} etiket={r.etiket} deger={r.deger} kalin={r.kalin} ipucu={r.ipucu} dar />
+            <Deger
+              key={r.key}
+              etiket={r.etiket}
+              deger={r.deger}
+              kalin={r.kalin}
+              ipucu={r.ipucu}
+              renk={r.renk}
+              dar
+            />
           ))}
         </View>
       ))}
@@ -396,6 +428,49 @@ const KIRILIM_SUTUN = { tutar: 62, pay: 28 };
  * oranların kendi dağılımı zaten ANA BAŞLIKLAR kutusundadır.
  */
 const OZET_SUTUN = { adet: 26, celik: 48, agirlik: 48, imalat: 52, proje: 52, genel: 52, maliyet: 58 };
+
+/**
+ * BİR SAYININ TABANINA ORANI (%) — ekranla AYNI kural (`overview-view.tsx`).
+ *
+ * Kullanıcı isteği (23.08.2026, md. 6): *"çelik, toplam, imalat, proje ve genel
+ * gider kısımlarının değerlerinin yanına maliyet toplamlarına % oranı da
+ * yazmanı istiyorum. Hem uygulamaya hem pdf excel raporlara."*
+ *
+ * İKİ TABAN VARDIR ve fark bilinçlidir — bir kilogramın bir avroya oranı diye
+ * bir şey yoktur: PARA sütunları SATIRIN KENDİ MALİYETİNE, AĞIRLIK sütunları
+ * belgenin dip toplamına oranlanır. MALİYET sütununda yüzde YOKTUR; o tabandır.
+ */
+function oran(pay: number | null, taban: number | null): number | null {
+  if (pay === null || taban === null || taban === 0 || !Number.isFinite(taban)) return null;
+  return (pay / taban) * 100;
+}
+
+/**
+ * ÖZET TABLOSUNUN İKİ SATIRLI HÜCRESİ — üstte değer, altında yüzde.
+ *
+ * `View`e SABİT GENİŞLİK verilir, `flex` DEĞİL (MALIYET-30): sütun yönündeki
+ * bir kapta `flexBasis: 0` yüksekliği sıfırlar ve iki satır ÜST ÜSTE binerdi.
+ */
+function OzetHucre({
+  genislik,
+  deger,
+  yuzde,
+  kalin,
+  renk,
+}: {
+  genislik: number;
+  deger: string;
+  yuzde: number | null;
+  kalin?: boolean;
+  renk?: string;
+}) {
+  return (
+    <View style={{ width: genislik }}>
+      <Text style={[S.deger, kalin ? S.kalin : {}, renk ? { color: renk } : {}]}>{deger}</Text>
+      {yuzde === null ? null : <Text style={S.yuzde}>%{fmtCostField(yuzde, 0)}</Text>}
+    </View>
+  );
+}
 
 /** Özet kutusunun bir satırı; `cizgi` üstüne kalın ayraç koyar (ara toplam). */
 function OzetSatir({
@@ -429,16 +504,15 @@ function OzetSatir({
  *     kendisiyle karıştırılırdı.
  *   · ORAN SÜTUNLARI "GENEL GİDER"DE BİRLEŞİR — gerekçesi `OZET_SUTUN`da.
  *
- * SERBEST SATIRIN BEŞ BAŞLIĞI YOKTUR ve uydurulmaz: bir nakliyenin "imalat
- * payı" diye bir şey yoktur (değişmez md. 4); hücreler "—" kalır.
+ * SERBEST SATIRIN BEŞ BAŞLIĞI ELLE GİRİLİR (23.08.2026, md. 1) ve
+ * GİRİLMEMİŞSE UYDURULMAZ: bir nakliyenin "imalat payı" diye bir şey yoktur
+ * (değişmez md. 4); dokunulmamış hücre "—" kalır.
  */
 function OzetListesi({
   ozet,
-  totals,
   currency,
 }: {
   ozet: CostOverview;
-  totals: CostTotals;
   currency: string;
 }) {
   const para = (v: number | null) => fmtMoney0(v, currency);
@@ -474,6 +548,14 @@ function OzetListesi({
     return <Text style={S.not}>Bu maliyet çalışmasında henüz kalem yok.</Text>;
   }
 
+  // ISI ÖLÇEKLERİ SÜTUN BAZINDADIR (kullanıcı isteği 23.08.2026, md. 4):
+  // "bu sütunun en büyüğü" cümlesi literal olarak doğrudur. Tek bir ölçek
+  // kurulsaydı çelik ağırlığı toplam ağırlıkla yarışır ve HER ZAMAN daha soğuk
+  // görünürdü — sütunun kendi içindeki fark hiç okunmazdı.
+  const enBuyukMaliyet = costLargestAmount(satirlar.map((r) => r.maliyet));
+  const enBuyukCelik = costLargestAmount(satirlar.map((r) => r.celik));
+  const enBuyukAgirlik = costLargestAmount(satirlar.map((r) => r.agirlik));
+
   return (
     <View>
       <View style={S.basSatir}>
@@ -504,12 +586,45 @@ function OzetListesi({
           <Text style={[S.deger, { width: OZET_SUTUN.adet }]}>
             {r.qty === null ? "—" : fmtCostField(r.qty, 0)}
           </Text>
-          <Text style={[S.deger, { width: OZET_SUTUN.celik }]}>{kg(r.celik)}</Text>
-          <Text style={[S.deger, { width: OZET_SUTUN.agirlik }]}>{kg(r.agirlik)}</Text>
-          <Text style={[S.deger, { width: OZET_SUTUN.imalat }]}>{para(r.imalat)}</Text>
-          <Text style={[S.deger, { width: OZET_SUTUN.proje }]}>{para(r.proje)}</Text>
-          <Text style={[S.deger, { width: OZET_SUTUN.genel }]}>{para(r.genel)}</Text>
-          <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.maliyet }]}>{para(r.maliyet)}</Text>
+          {/* AĞIRLIK YÜZDESİNİN TABANI BELGENİN DİP TOPLAMIDIR ("bu kalem
+              belgedeki çeliğin %75'i"); PARA yüzdelerininki SATIRIN KENDİ
+              MALİYETİDİR ("bu vincin maliyetinin %65'i proje"). */}
+          <OzetHucre
+            genislik={OZET_SUTUN.celik}
+            deger={kg(r.celik)}
+            yuzde={oran(r.celik, ozet.steelKgAll)}
+            renk={costHeatHex(r.celik, enBuyukCelik) ?? undefined}
+          />
+          <OzetHucre
+            genislik={OZET_SUTUN.agirlik}
+            deger={kg(r.agirlik)}
+            yuzde={oran(r.agirlik, ozet.weightKgAll)}
+            renk={costHeatHex(r.agirlik, enBuyukAgirlik) ?? undefined}
+          />
+          <OzetHucre
+            genislik={OZET_SUTUN.imalat}
+            deger={para(r.imalat)}
+            yuzde={oran(r.imalat, r.maliyet)}
+          />
+          <OzetHucre
+            genislik={OZET_SUTUN.proje}
+            deger={para(r.proje)}
+            yuzde={oran(r.proje, r.maliyet)}
+          />
+          <OzetHucre
+            genislik={OZET_SUTUN.genel}
+            deger={para(r.genel)}
+            yuzde={oran(r.genel, r.maliyet)}
+          />
+          {/* MALİYET SÜTUNUNDA YÜZDE YOKTUR: o, ötekilerin TABANIDIR. Rengi
+              satırın büyüklüğünü söyler (MALIYET-44'ün belgedeki karşılığı). */}
+          <OzetHucre
+            genislik={OZET_SUTUN.maliyet}
+            deger={para(r.maliyet)}
+            yuzde={null}
+            kalin
+            renk={costHeatHex(r.maliyet, enBuyukMaliyet) ?? undefined}
+          />
         </View>
       ))}
       {/* DİP TOPLAM AĞIRLIKLARI serbest satırların elle girilen kilolarını da
@@ -521,11 +636,34 @@ function OzetListesi({
       <View style={[S.satir, { borderBottomWidth: 0.8, borderBottomColor: BRAND.line350 }]} wrap={false}>
         <Text style={[S.etiket, S.satirEtiket, S.kalin]}>TOPLAM</Text>
         <Text style={[S.deger, { width: OZET_SUTUN.adet }]} />
+        {/* AĞIRLIK DİP TOPLAMINDA YÜZDE YOKTUR: o hücre zaten satır
+            yüzdelerinin TABANIDIR ve %100 yazmak hiçbir şey söylemezdi. */}
         <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.celik }]}>{kg(ozet.steelKgAll)}</Text>
         <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.agirlik }]}>{kg(ozet.weightKgAll)}</Text>
-        <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.imalat }]}>{para(totals.fabrication)}</Text>
-        <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.proje }]}>{para(totals.project)}</Text>
-        <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.genel }]}>{para(totals.rateTotal)}</Text>
+        {/* PARA SÜTUNLARININ DİP TOPLAMI KENDİ SÜTUNUNU TOPLAR, `costTotals`i
+            DEĞİL: serbest fiyat satırlarının beş başlığı artık elle
+            girilebiliyor (23.08.2026, md. 1) ve `totals.fabrication` yalnız
+            VİNÇLERİ sayar. İkisi karışsaydı sütunun gözle toplanan hâli dip
+            toplamı tutturmazdı. Yüzdenin tabanı belgenin toplam maliyetidir —
+            satırdaki cümlenin belge düzeyindeki karşılığı. */}
+        <OzetHucre
+          genislik={OZET_SUTUN.imalat}
+          deger={para(topla(satirlar.map((r) => r.imalat)))}
+          yuzde={oran(topla(satirlar.map((r) => r.imalat)), ozet.margin.cost)}
+          kalin
+        />
+        <OzetHucre
+          genislik={OZET_SUTUN.proje}
+          deger={para(topla(satirlar.map((r) => r.proje)))}
+          yuzde={oran(topla(satirlar.map((r) => r.proje)), ozet.margin.cost)}
+          kalin
+        />
+        <OzetHucre
+          genislik={OZET_SUTUN.genel}
+          deger={para(topla(satirlar.map((r) => r.genel)))}
+          yuzde={oran(topla(satirlar.map((r) => r.genel)), ozet.margin.cost)}
+          kalin
+        />
         <Text style={[S.deger, S.kalin, { width: OZET_SUTUN.maliyet }]}>{para(ozet.margin.cost)}</Text>
       </View>
     </View>
@@ -607,10 +745,19 @@ function MaliyetBaslik() {
 function MaliyetGrubu({
   group,
   currency,
+  enBuyukTutar,
   refOf,
 }: {
   group: CostGroup;
   currency: string;
+  /**
+   * ISI ÖLÇEĞİNİN TABANI — BELGENİN en büyük satır tutarı (MALIYET-44).
+   *
+   * Grubun kendi en büyüğü DEĞİL ve bu bilinçlidir: 500 €'luk bir grubun en
+   * pahalı satırı, 70.000 €'luk grubunkiyle aynı kırmızıyı alırdı. Ekran da
+   * aynı tabanı kullanır (`lines-view`), yani aynı satır iki yerde aynı renk.
+   */
+  enBuyukTutar: number;
   /** Satırın teklifteki karşılığı — `offerRefValue` ile çözülür. */
   refOf: (groupKey: string, lineKey: string) => string | null;
 }) {
@@ -668,7 +815,19 @@ function MaliyetGrubu({
             <Text style={[S.deger, { width: MALIYET_SUTUN.fiyat }]}>
               {l.priceSource ? fmtNum(l.unitPrice) : fmtTutar(l.unitPrice)}
             </Text>
-            <Text style={[S.deger, { width: MALIYET_SUTUN.tutar }]}>
+            {/* TUTAR ISISI BELGEDE DE VARDIR (md. 4): ekranla AYNI rampa
+                (`costHeatHex`), aynı taban. Renk TEK TAŞIYICI değildir —
+                sayının kendisi zaten yazılıdır. */}
+            <Text
+              style={[
+                S.deger,
+                { width: MALIYET_SUTUN.tutar },
+                (() => {
+                  const renk = costHeatHex(costLineAmount(l), enBuyukTutar);
+                  return renk ? { color: renk } : {};
+                })(),
+              ]}
+            >
               {fmtMoney0(costLineAmount(l), currency)}
             </Text>
           </View>
@@ -705,6 +864,15 @@ export function OfferCostDocument({
   const ozet = costOverview(totals, offerPayload, costSteelWeights(models), basilan);
   const kar = ozet.margin;
   const cur = payload.currency || offer.currency;
+
+  // ISI ÖLÇEĞİNİN TABANI BİR KEZ HESAPLANIR VE AŞAĞI GEÇİRİLİR (MALIYET-44):
+  // her grubun kendi tabanını bulması, aynı sayının belgenin iki yerinde iki
+  // farklı renk alması demekti.
+  const enBuyukTutar = costLargestAmount([
+    ...basilan.items.flatMap((i) => i.groups.flatMap((g) => g.lines.map(costLineAmount))),
+    ...basilan.general.lines.map(costLineAmount),
+    ...basilan.rates.flatMap((r) => r.lines.map(costLineAmount)),
+  ]);
 
   const docLine = `${offerDocLine(offer.offerNo, offer.offerRevNo ?? 0)} · MALİYET M${costRevNo} · İÇ BELGE`;
 
@@ -781,11 +949,12 @@ export function OfferCostDocument({
                 currency={cur}
               />
             ))}
+            {/* ORAN TABANI NOTU KALDIRILDI (kullanıcı isteği 23.08.2026, md. 5).
+                KURAL DEĞİŞMEDİ (MALIYET-5: taban DOĞRUDAN MALİYETTİR) ve
+                belgede zaten YAZILIDIR: ara toplam satırının etiketi "DOĞRUDAN
+                MALİYET (ORAN TABANI)"dır ve her oran satırı kendi yüzdesini
+                taşır. Not, aynı cümleyi ikinci kez söylüyordu. */}
             <OzetSatir etiket="TOPLAM MALİYET" tutar={totals.total} currency={cur} cizgi />
-            <Text style={[S.not, { marginTop: 3 }]}>
-              Oranların tabanı DOĞRUDAN MALİYETTİR (kullanıcı kararı, 17.08.2026):
-              toplam = doğrudan maliyet × (1 + oranların toplamı).
-            </Text>
           </View>
 
           <View style={S.kutu}>
@@ -817,7 +986,7 @@ export function OfferCostDocument({
             bir bölüm değil. Ekranın kendi listesiyle aynı `costOverview`
             alanlarını okur. */}
         <Baslik>MALİYET ÖZETİ</Baslik>
-        <OzetListesi ozet={ozet} totals={totals} currency={cur} />
+        <OzetListesi ozet={ozet} currency={cur} />
 
         {/* DAĞITILAMAYAN YÜK VE MALİYETİ AÇILMAMIŞ KALEM SESSİZ GEÇİLMEZ. */}
         {Math.abs(ozet.unallocated) > 0 ? (
@@ -873,7 +1042,15 @@ export function OfferCostDocument({
         // girecek (aşağıdaki gerekçe) ve bunun için "ilk"in kim olduğu render
         // sırasında bilinmelidir.
         const agirlikBolumleri = WEIGHT_SECTIONS.filter((s) => doluBolum(s.fields));
-        const hesapBolumleri = CALC_SECTIONS.filter((s) => doluBolum(s.fields));
+        // AĞIRLIK ISISININ TABANI — KALEMİN EN AĞIR SATIRI (md. 3–4). Ekranın
+        // `AgirlikSayfasi`ndaki ölçeğin belgedeki ikizi: toplam satırları da
+        // tabana girer, yoksa aynı sayı özet kutusunda ve kırılımda iki farklı
+        // renk alırdı.
+        const isiTabani = costLargestAmount(
+          WEIGHT_SECTIONS.flatMap((sec) =>
+            sec.fields.filter((f) => f.unit === "kg").map((f) => v(f.key))
+          )
+        );
         return (
           // İLK KALEM YAPRAK BAŞLATMAZ: bu <Page> zaten özetin ardındaki yeni
           // yaprakta açılır. Sonrakiler `break` ile kendi yapraklarını alır.
@@ -896,66 +1073,45 @@ export function OfferCostDocument({
               </Text>
             ) : null}
 
-            {/* AĞIRLIK VE HESAP BÖLÜMLERİ BÜTÜN KALIR (`wrap={false}`) — maliyet
+            {/* AĞIRLIK BÖLÜMLERİ BÜTÜN KALIR (`wrap={false}`) — maliyet
                 grubunun tersine, ve bilerek. Bu bölümlerin alan sayısı KODDA
                 sabittir; en kalabalığı 13 satır ≈ 240 pt, yani hiçbiri sayfa
                 boyunu (745,7 pt) aşamaz ve altbilgiye taşma riski yoktur.
                 Maliyet grubunun satırları ise kullanıcının açtığı serbest
                 satırlarla sınırsız büyür — orada bütünlük tehlikeliydi. */}
-            {/* BÖLÜM BAŞLIĞI İLK BÖLÜMÜN KUTUSUNDADIR, kardeşi değil.
-                Ölçülen kusur: "HESAPLAR" 2. sayfanın dibinde tek başına kaldı,
-                altındaki 132 pt boş durdu, ilk hesap bölümü 3. sayfada başladı.
-                `minPresenceAhead` bunu ÇÖZMEZ — başlıktan sonra 124 pt yer
-                vardı, sığmayan şey 13 satırlık (≈240 pt) bölünmez bölümdü.
-                Aynı kutuya girince başlık bölümüyle birlikte taşınır ve boşluk
-                veri bağımlı bir sayıya değil, yapıya bağlanmış olur. */}
+            {/* BÖLÜM BAŞLIĞI İLK BÖLÜMÜN KUTUSUNDADIR, kardeşi değil:
+                başlık bölümüyle birlikte taşınır ve sayfa dibinde tek başına
+                kalmaz. `minPresenceAhead` bunu çözmez — sığmayan şey 13
+                satırlık (≈240 pt) BÖLÜNMEZ bölümün kendisidir.
+
+                HESAPLAR BÖLÜMÜ VE KESİT ÖLÇÜLERİ BU BELGEDE YOKTUR (kullanıcı
+                isteği 23.08.2026, md. 8: *"Hesaplar ve MODEL KATSAYILARI kısmı
+                maliyet hem pdf hem excelde olmasın."*). Halat, tambur, motor,
+                teker ve kiriş kesidi bir MALİYET sorusunun cevabı değildir;
+                onların yeri hesap raporudur (`/projects`). Belge maliyetin
+                kendisine daraldı: ağırlık → maliyet kalemleri. */}
             {agirlikBolumleri.length === 0 ? <Baslik>AĞIRLIKLAR</Baslik> : null}
             {agirlikBolumleri.map((s, i) => (
               <View key={s.key} wrap={false}>
                 {i === 0 ? <Baslik>AĞIRLIKLAR</Baslik> : null}
                 <AltBaslik>{s.title}</AltBaslik>
-                <IkiSutunlu satirlar={alanSatirlari(s.fields, v, item.overrides)} />
+                {/* "ELLE GİRİLDİ" İŞARETİ KALKTI (kullanıcı isteği md. 7):
+                    belgede 36 satıra kadar çıkabilen bir ipucu satırıydı ve
+                    okuyanın sorusuna ("bu vinç kaç kilo") cevap vermiyordu.
+                    Bilgi ekranda durur — orada asa düğmesi zaten görünür. */}
+                <IkiSutunlu satirlar={alanSatirlari(s.fields, v, isiTabani)} />
               </View>
             ))}
-
-            {hesapBolumleri.length === 0 ? <Baslik>HESAPLAR</Baslik> : null}
-            {hesapBolumleri.map((s, i) => (
-              <View key={s.key} wrap={false}>
-                {i === 0 ? <Baslik>HESAPLAR</Baslik> : null}
-                <AltBaslik>{s.title}</AltBaslik>
-                {/* ⌀ ÖNEKİ BELGEDE DE BASILIR (kullanıcı isteği md. 4):
-                    `alanSatirlari` ekranla aynı `costFieldText`i çağırır. */}
-                <IkiSutunlu satirlar={alanSatirlari(s.fields, v, item.overrides)} />
-              </View>
-            ))}
-            {/* KESİT ÖLÇÜLERİ BELGEDE DE DURUR (kullanıcı isteği md. 6).
-                Ekranda pop-up'ta açılan ölçüler burada satır satır basılır:
-                iç belgeyi altı ay sonra açan mühendis "bu 27.850 kg hangi
-                kesitten çıktı" sorusunu ekrana dönmeden cevaplayabilmelidir.
-                Ad tek başına ("750x1900x750 t10") ataleti ve kg/m'yi
-                söylemiyordu. */}
-            {model?.section ? (
-              <>
-                <Deger
-                  etiket="Seçilen Kiriş Kesiti"
-                  deger={model.section.name}
-                  kalin
-                  ipucu={model.deflectionOk === false ? "SEHİM ŞARTI SAĞLANMIYOR" : undefined}
-                />
-                <Deger
-                  etiket="Kesit Ölçüleri (üst × perde × alt, et)"
-                  deger={`${fmtNum(model.section.topMm)} × ${fmtNum(model.section.webMm)} × ${fmtNum(model.section.botMm)} · t ${fmtNum(model.section.tMm)} mm`}
-                />
-                <Deger etiket="Kesit Alanı" deger={`${fmtCostField(model.section.areaCm2, 1)} cm²`} />
-                <Deger etiket="Kesit Ataleti" deger={`${fmtCostField(model.section.inertiaCm4, 0)} cm⁴`} />
-                <Deger etiket="Sac Metre Ağırlığı" deger={`${fmtCostField(model.section.kgPerM, 1)} kg/m`} />
-                {model.camber ? <Deger etiket="Kamber" deger="Verilecek" /> : null}
-              </>
-            ) : null}
 
             <Baslik>MALİYET KALEMLERİ</Baslik>
             {item.groups.map((g) => (
-              <MaliyetGrubu key={g.id} group={g} currency={cur} refOf={refFor(item.offerItemId)} />
+              <MaliyetGrubu
+                key={g.id}
+                group={g}
+                currency={cur}
+                enBuyukTutar={enBuyukTutar}
+                refOf={refFor(item.offerItemId)}
+              />
             ))}
           </View>
         );
@@ -967,7 +1123,12 @@ export function OfferCostDocument({
             sorulacak soru"nun cevabıdır (MALIYET-6/22). */}
         <Baslik>PROJE GENELİ VE ORANLI GRUPLAR</Baslik>
         {basilan.general.lines.length ? (
-          <MaliyetGrubu group={basilan.general} currency={cur} refOf={() => null} />
+          <MaliyetGrubu
+            group={basilan.general}
+            currency={cur}
+            enBuyukTutar={enBuyukTutar}
+            refOf={() => null}
+          />
         ) : (
           <Text style={S.not}>Proje geneli gideri girilmemiş.</Text>
         )}
@@ -1001,6 +1162,7 @@ export function OfferCostDocument({
                       key={l.id}
                       etiket={l.label || "—"}
                       deger={fmtMoney0(costLineAmount(l), cur)}
+                      renk={costHeatHex(costLineAmount(l), enBuyukTutar) ?? undefined}
                     />
                   ))}
                   <Deger etiket="TOPLAM" deger={fmtMoney0(tutar, cur)} kalin />
@@ -1028,22 +1190,12 @@ export function OfferCostDocument({
           }))}
         />
 
-        {/* KIRK KATSAYI, İKİ SÜTUN. Liste tek sütundayken tek başına bir buçuk
-            yaprak tutuyordu; okunma sıklığı ise belgedeki en düşük olandır —
-            arşiv kaydıdır, karar girdisi değil. Sıkıştırmanın en çok işe
-            yaradığı yer burasıdır ve hiçbir katsayı düşmedi (MALIYET-6). */}
-        <Baslik>MODEL KATSAYILARI</Baslik>
-        <Text style={S.not}>
-          Bu katsayılar BU maliyet çalışmasına aittir; sonradan değiştirilen bir
-          varsayılan bu belgeyi etkilemez.
-        </Text>
-        <IkiSutunlu
-          satirlar={COST_PARAM_DEFS.map((d) => ({
-            key: d.key,
-            etiket: `${d.label}${d.unit ? ` [${d.unit}]` : ""}`,
-            deger: fmtNum(payload.params[d.key] ?? d.value),
-          }))}
-        />
+        {/* MODEL KATSAYILARI BU BELGEDE YOKTUR (kullanıcı isteği 23.08.2026,
+            md. 8). Kırk katsayı iki sütunda bile bir yaprağın yarısını
+            tutuyordu ve okunma sıklığı belgedeki en düşük olandı. MALIYET-6
+            değişmedi — katsayılar hâlâ BELGEYE aittir ve `payload.params`ta
+            saklanır; yalnız BASILMAZLAR. Kayıt, kaynağın kendisidir: bir
+            revizyonun katsayıları ekranda Katsayılar bölümünden okunur. */}
       </BrandPage>
     </Document>
   );

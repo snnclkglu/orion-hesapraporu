@@ -10,8 +10,12 @@ paths:
   - "orion-hesapraporu/src/app/(app)/offers/[id]/cost-panel.tsx"
   - "src/lib/pdf/offer-cost.tsx"
   - "orion-hesapraporu/src/lib/pdf/offer-cost.tsx"
+  - "src/lib/xlsx/offer-cost.ts"
+  - "orion-hesapraporu/src/lib/xlsx/offer-cost.ts"
   - "scripts/test-offer-cost-pdf.ts"
   - "orion-hesapraporu/scripts/test-offer-cost-pdf.ts"
+  - "scripts/test-offer-cost-excel.ts"
+  - "orion-hesapraporu/scripts/test-offer-cost-excel.ts"
 ---
 
 # Maliyet Çalışması — kurallar `docs/agent/maliyet.md` dosyasındadır

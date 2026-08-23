@@ -18,9 +18,16 @@
 import { effectiveTotal, totalledLines } from "../pricing";
 import type { OfferPayload } from "../types";
 import { paramOf } from "./params";
-import { costGroupLines } from "./types";
+import { costGroupLines, manualLineCost } from "./types";
 import { FABRICATION_GROUP_KEY } from "./registry";
-import type { CostGroup, CostItem, CostLine, CostPayload, CostRateGroup } from "./types";
+import type {
+  CostGroup,
+  CostItem,
+  CostLine,
+  CostPayload,
+  CostRateGroup,
+  ManualLineCostSource,
+} from "./types";
 
 /** Satırın tutarı; miktar ya da birim fiyat eksikse `null` (sıfır DEĞİL). */
 export function costLineAmount(line: CostLine): number | null {
@@ -359,6 +366,34 @@ export function loadedCostByOfferItem(totals: CostTotals): Record<string, number
 }
 
 /**
+ * SERBEST FİYAT SATIRLARININ ÖZET SAYFASINDAN GİRİLEN MALİYETİ — satır kimliği
+ * → tutar.
+ *
+ * Kullanıcı isteği (23.08.2026, md. 1): *"Eğer özet sayfasından girersem
+ * öncelik o olsun. Fiyat kısmına da oradan gelsin."* Teklif editörünün maliyet
+ * sütunu bunu okur; bulamadığı satırda eskisi gibi kendi `manualCost` kutusuna
+ * düşer.
+ *
+ * `loadedCostByOfferItem`İN KARDEŞİDİR ve aynı yönde çalışır: maliyet belgesi
+ * teklif ekranına bir sayı verir, teklif belgesine DEĞİL (MALIYET-1). Fiyat
+ * satırının kendi kutusu yerinde kalır — kullanıcının kendi cümlesi: *"o
+ * kalsın"*.
+ *
+ * TEKLİF SÜZGECİ BURADA YOKTUR ve olmamalıdır: sözlük yalnız YAZILANI taşır,
+ * hangi satırın toplama girdiğine teklif tarafı karar verir. Süzmek, maliyet
+ * belgesinin teklifin gizleme kararlarını ikinci kez yorumlaması olurdu.
+ */
+export function manualCostByPriceLine(payload: CostPayload): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [id, c] of Object.entries(payload.manualLineCosts ?? {})) {
+    const { amount, source } = manualLineCost(c, null);
+    if (amount === null || source === "price") continue;
+    out[id] = amount;
+  }
+  return out;
+}
+
+/**
  * BEŞ ANA BAŞLIĞIN KALEM BAZINDA DAĞILIMI.
  *
  * Kullanıcı isteği (22.08.2026, md. 7): *"VİNÇLER için de özet bilgileri
@@ -536,12 +571,27 @@ export interface CostOverviewItem {
 export interface CostOverviewManualLine {
   id: string;
   description: string;
-  amount: number;
+  /**
+   * SATIRIN GEÇERLİ MALİYETİ — üç kaynağın sırasından çıkar (`manualLineCost`):
+   * özet kırılımı → özetin tek kutusu → teklifin fiyat satırındaki kutu.
+   *
+   * `null` OLABİLİR ve bu yeni bir durumdur (23.08.2026, md. 1): liste artık
+   * maliyeti HİÇ girilmemiş serbest satırları da taşır, çünkü kullanıcı onları
+   * özet tablosunda görmeden oraya bir sayı yazamaz. Sıfır DEĞİL "—" görünür.
+   */
+  amount: number | null;
+  /** Maliyetin nereden geldiği — ekran ve teklif editörü bunu YAZIYLA söyler. */
+  source: ManualLineCostSource;
+  /**
+   * BEŞ BAŞLIK — vinçte HESAPLANIR, burada YAZILIR (23.08.2026, md. 1).
+   *
+   * Uydurulmaz: dokunulmamış hücre `null` kalır ve "—" görünür (değişmez
+   * md. 4). `loaded` satırın geçerli maliyetidir (`amount` ile aynı sayı) —
+   * tablo vinç satırıyla serbest satırı AYNI şekilde çizebilsin diye.
+   */
+  headings: CostItemHeadings;
   /**
    * ELLE GİRİLEN AĞIRLIKLAR (md. 7) — maliyet payload'ında yaşar.
-   *
-   * BEŞ BAŞLIK YOKTUR ve uydurulmaz: bir nakliye satırının "imalat payı" diye
-   * bir şey yoktur (değişmez md. 4). Ekranda o hücreler "—" görünür.
    */
   steelKg: number | null;
   totalKg: number | null;
@@ -660,14 +710,35 @@ export function costOverview(
   });
 
   const agirliklar = payload?.manualLineWeights ?? {};
+  const serbestMaliyet = payload?.manualLineCosts ?? {};
+  // MALİYETİ GİRİLMEMİŞ SERBEST SATIR DA LİSTEDEDİR (23.08.2026, md. 1).
+  //
+  // Süzgeç bir zamanlar `manualCost === null` olanı atıyordu ve bu, kullanıcının
+  // istediği akışı imkânsız kılıyordu: satır görünmeden özet tablosuna maliyet
+  // YAZILAMAZ. Atlamak ayrıca sessizdi — teklif tutarına giren bir nakliye,
+  // maliyet özetinde hiç görünmeden kârı olduğundan yüksek gösteriyordu.
+  // Toplama girmesi değişmedi: tutarı `null` olan satır `toplaSayilar`da atlanır.
   const manualLines: CostOverviewManualLine[] = totalledLines(offer.pricing.lines).flatMap((l) => {
-    if (l.itemId || l.manualCost === null || l.manualCost === undefined) return [];
+    if (l.itemId) return [];
     const a = agirliklar[l.id];
+    const c = serbestMaliyet[l.id];
+    const { amount, source } = manualLineCost(c, l.manualCost);
     return [
       {
         id: l.id,
         description: l.description,
-        amount: l.manualCost,
+        amount,
+        source,
+        headings: {
+          fabrication: c?.fabrication ?? null,
+          project: c?.project ?? null,
+          rates: totals.rates.map((r) => ({
+            key: r.key,
+            title: r.title,
+            amount: c?.rates?.[r.key] ?? null,
+          })),
+          loaded: amount,
+        },
         steelKg: a?.steelKg ?? null,
         totalKg: a?.totalKg ?? null,
       },

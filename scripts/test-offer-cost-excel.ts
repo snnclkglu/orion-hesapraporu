@@ -414,10 +414,12 @@ async function main() {
   // satırları aynı tablodadır; ayrımı TÜR sütunu söyler. Excel bu ayrımı ayrı
   // bir blokla yapmaya devam ediyordu — ekranla belge iki farklı yapı
   // anlatıyordu.
+  // HER ORAN ARTIK İKİ SÜTUN TUTAR (tutar + yüzde, 23.08.2026 md. 6); ağırlık
+  // ve beş başlık sütunlarının her birinin yanında da bir yüzde sütunu var.
   const beklenenBasliklar = [
     "KALEM", "TÜR", "ADET", "ÇELİK [KG]", "TOPLAM AĞIRLIK [KG]",
-    "ÇELİK × ADET [KG]", "TOPLAM × ADET [KG]", "BİRİM MALİYET", "PAKET MALİYET",
-    "İMALAT", "PROJE",
+    "ÇELİK × ADET [KG]", "ÇELİK %", "TOPLAM × ADET [KG]", "TOPLAM %",
+    "BİRİM MALİYET", "PAKET MALİYET", "İMALAT", "İMALAT %", "PROJE", "PROJE %",
   ];
   const okunanBasliklar = beklenenBasliklar.map((_, i) =>
     String(hucre(oz, kalemBaslik, i + 1) ?? "")
@@ -427,38 +429,89 @@ async function main() {
     `kalem tablosunun başlıkları yerinde (${okunanBasliklar.join(" · ")})`
   );
   // ORAN SÜTUNLARI DEFTERDEN GELİR: sayıları sabit yazılmaz, `totals.rates`
-  // kadardır ve hemen ardından maliyet ile EUR/KG sütunları durur.
-  const maliyetSutunu = 12 + totals.rates.length;
+  // kadardır ve her biri İKİ sütundur; ardından maliyet ile EUR/KG durur.
+  const CELIK = 6;
+  const CELIK_YUZDE = 7;
+  const AGIRLIK = 8;
+  const IMALAT = 12;
+  const IMALAT_YUZDE = 13;
+  const maliyetSutunu = 16 + totals.rates.length * 2;
   kontrol(
     String(hucre(oz, kalemBaslik, maliyetSutunu) ?? "") === "GENEL GİDER DAHİL MALİYET" &&
       String(hucre(oz, kalemBaslik, maliyetSutunu + 1) ?? "") === "EUR/KG",
     `oran sütunlarından sonra maliyet ve EUR/KG geliyor (${totals.rates.length} oran)`
+  );
+  kontrol(
+    String(hucre(oz, kalemBaslik, 16) ?? "") === teknikDegerBuyuk(totals.rates[0].title) &&
+      String(hucre(oz, kalemBaslik, 17) ?? "") === `${teknikDegerBuyuk(totals.rates[0].title)} %`,
+    "her oran grubu TUTAR + YÜZDE olarak iki sütun (md. 6)"
   );
   const ilkKalem = kalemBaslik + 1;
   kontrol(String(hucre(oz, ilkKalem, 2) ?? "") === "vinç", "vinç satırının TÜRÜ yazılı");
   kontrol(hucre(oz, ilkKalem, 4) === 51_000, "çelik ağırlığı 51.000 kg SAYI olarak yazıldı");
   kontrol(hucre(oz, ilkKalem, 5) === 59_500, "toplam vinç ağırlığı 59.500 kg yazıldı");
   kontrol(
-    yakin(typeof hucre(oz, ilkKalem, 8) === "number" ? (hucre(oz, ilkKalem, 8) as number) : null,
+    yakin(typeof hucre(oz, ilkKalem, 10) === "number" ? (hucre(oz, ilkKalem, 10) as number) : null,
       totals.items[0].unit),
     "kalemin birim maliyeti = costTotals.items[0].unit"
   );
-  // SERBEST FİYAT SATIRI AYNI TABLODADIR ve beş başlığı BOŞTUR — bir
-  // nakliyenin "imalat payı" diye bir şey yoktur (değişmez md. 4).
+
+  // YÜZDENİN TABANI İKİ TÜRLÜDÜR (md. 6) ve sav bunu ayrı ayrı sınar: ağırlık
+  // sütunları BELGENİN DİP TOPLAMINA, para sütunları SATIRIN KENDİ MALİYETİNE
+  // oranlanır. İkisini karıştıran bir düzenleme hiçbir sayıyı bozmadan belgeyi
+  // yanlış okuturdu.
+  const celikPayi = hucre(oz, ilkKalem, CELIK_YUZDE);
+  kontrol(
+    typeof celikPayi === "number" &&
+      ozet.steelKgAll !== null &&
+      Math.abs(celikPayi - (ozet.items[0].steelPackageKg ?? 0) / ozet.steelKgAll) < 1e-9,
+    "çelik yüzdesinin tabanı BELGENİN dip toplamı"
+  );
+  const imalatPayi = hucre(oz, ilkKalem, IMALAT_YUZDE);
+  const bas0 = ozet.items[0].headings;
+  kontrol(
+    typeof imalatPayi === "number" &&
+      bas0.loaded !== null &&
+      Math.abs(imalatPayi - (bas0.fabrication ?? 0) / bas0.loaded) < 1e-9,
+    "imalat yüzdesinin tabanı SATIRIN KENDİ maliyeti"
+  );
+  // YÜZDE HÜCRESİ SAYIDIR (0–1) ve biçimi yüzdedir: metin yazılsaydı pivot ve
+  // sıralama düşerdi (dosyanın en başındaki sözleşme).
+  kontrol(
+    oz.getRow(ilkKalem).getCell(IMALAT_YUZDE).numFmt === "0%",
+    "yüzde hücresi 0–1 SAYI + yüzde biçimli"
+  );
+
+  // TUTAR ISISI HÜCRENİN YAZI RENGİNDEDİR (md. 4) ve dolgu DEĞİLDİR: dolguyu
+  // boyamak, koşullu biçimlendirme kuran kullanıcının zeminini elinden alırdı.
+  const isiliHucre = oz.getRow(ilkKalem).getCell(maliyetSutunu);
+  kontrol(
+    typeof isiliHucre.font?.color?.argb === "string" &&
+      /^FF[0-9A-F]{6}$/.test(isiliHucre.font.color.argb),
+    `maliyet hücresi ısı renginde (${isiliHucre.font?.color?.argb})`
+  );
+  kontrol(
+    isiliHucre.fill === undefined || isiliHucre.fill.type !== "pattern" ||
+      isiliHucre.fill.pattern === "none",
+    `ısı YAZI rengidir, hücre DOLGUSU değil (${JSON.stringify(isiliHucre.fill)})`
+  );
+
+  // SERBEST FİYAT SATIRI AYNI TABLODADIR; beş başlığı ELLE girilebilir
+  // (23.08.2026 md. 1) ama girilmemişse BOŞ kalır — uydurulmaz (md. 4).
   const serbest = okunanSatirlar(oz, kalemBaslik + 1).find(
     (no) => String(hucre(oz, no, 2) ?? "") === "fiyat satırı"
   );
   kontrol(serbest !== undefined, "serbest fiyat satırı aynı listede");
   if (serbest !== undefined) {
     kontrol(
-      hucre(oz, serbest, 10) === null || hucre(oz, serbest, 10) === undefined,
-      "serbest satırın İMALAT payı BOŞ (uydurulmuyor)"
+      hucre(oz, serbest, IMALAT) === null || hucre(oz, serbest, IMALAT) === undefined,
+      "girilmemiş İMALAT payı BOŞ (uydurulmuyor)"
     );
     kontrol(hucre(oz, serbest, maliyetSutunu) === 2_500, "serbest satırın maliyeti listede (2.500 €)");
   }
   kontrol(
-    yakin(sayi(oz, "TOPLAM", 6), ozet.steelKgAll) &&
-      yakin(sayi(oz, "TOPLAM", 7), ozet.weightKgAll),
+    yakin(sayi(oz, "TOPLAM", CELIK), ozet.steelKgAll) &&
+      yakin(sayi(oz, "TOPLAM", AGIRLIK), ozet.weightKgAll),
     "ağırlık dip toplamları = costOverview.steelKgAll / weightKgAll"
   );
   kontrol(
@@ -466,12 +519,21 @@ async function main() {
     "maliyet sütununun dip toplamı = kâr satırındaki TOPLAM MALİYET"
   );
 
+  // 5b — 23.08.2026 TURU: ÇIKTIDAN DÜŞENLER (md. 8 · 9 · 10)
+  console.log("\n  23.08 turu → çıktıdan düşenler");
+  kontrol(satirBul(oz, "MODEL KATSAYILARI") === 0, "MODEL KATSAYILARI bloğu YOK (md. 8)");
+  // ExcelJS okurken `views`i `null` da bırakabilir; sav "donmuş bölme yok"
+  // demektir, "alan tanımsız" değil.
+  const donmus = (w: ExcelJS.Worksheet) =>
+    (w.views ?? []).some((v) => v?.state === "frozen");
+  kontrol(!donmus(oz), "Özet sekmesinde donmuş bölme YOK (md. 9)");
+
   // 6 — SAYI MI METİN Mİ (Excel istemenin tek sebebi)
   console.log("\n  sayı mı metin mi");
   const paraHucreleri = [
     hucre(oz, satirBul(oz, "TOPLAM MALİYET"), 4),
     hucre(oz, satirBul(oz, "KÂR"), 2),
-    hucre(oz, ilkKalem, 9),
+    hucre(oz, ilkKalem, 11),
   ];
   kontrol(
     paraHucreleri.every((v) => typeof v === "number"),
@@ -513,9 +575,12 @@ async function main() {
   console.log("\n  maliyet kalemleri çizelgesi");
   const ks = okunan.getWorksheet("Maliyet Kalemleri")!;
   const ksBaslik = satirBul(ks, "KAYNAK");
+  // MİKTAR KAYNAĞI SÜTUNU KALDIRILDI (23.08.2026, md. 9): her satırda tekrar
+  // eden ve süzgeçte hiç kullanılmayan bir metindi. MALIYET-4 değişmedi —
+  // miktarın kaynağı EKRANDA görünür.
   const ksBeklenen = [
     "KAYNAK", "ADET", "GRUP", "KALEM", "MİKTAR", "BİRİM",
-    "BİRİM FİYAT", "TUTAR", "PAKET TUTAR", "MİKTAR KAYNAĞI", "TEKLİFTE", "NOT",
+    "BİRİM FİYAT", "TUTAR", "PAKET TUTAR", "TEKLİFTE", "NOT",
   ];
   kontrol(
     ksBeklenen.every((h, i) => String(hucre(ks, ksBaslik, i + 1) ?? "") === h),
@@ -528,6 +593,9 @@ async function main() {
     "ilk satır KAYNAK sütununda vincin adını taşıyor"
   );
   kontrol(ks.autoFilter !== undefined && ks.autoFilter !== null, "çizelge SÜZGEÇLİ açılıyor");
+  // SÜZGEÇ KALIR, DONDURMA KALKAR (md. 9): ikisi ayrı şeydir — biri okuyanın
+  // sorusunu daraltır, öteki pencerenin kendisine el koyar.
+  kontrol(!donmus(ks), "çizelgede donmuş bölme YOK (md. 9)");
 
   // PAKET TUTAR TOPLANABİLİR OLANIDIR: TUTAR bir adedin maliyetidir. İki
   // vinçli bir teklifte TUTAR sütununu toplayan okuyucu doğrudan maliyeti yarı

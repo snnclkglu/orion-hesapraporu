@@ -84,3 +84,99 @@ export function costAmountWeight(level: number | null): "" | "font-medium" | "fo
   if (level >= 0.45) return "font-medium";
   return "";
 }
+
+// ————————————————————————————————————— belgedeki karşılığı (PDF · Excel)
+
+/**
+ * `.oc-amount` RAMPASININ KATSAYILARI — `globals.css` ile BİREBİR.
+ *
+ * Kullanıcı isteği (23.08.2026, md. 4): *"İndirilen teklif maliyet pdf ve
+ * excellerde de renklendirme kullan."* Ekran rengi bir CSS değişkeniyle
+ * verilir (`--oc-level`); @react-pdf ve exceljs ise CSS okumaz, HAZIR bir renk
+ * ister. Rampanın sayıları bu yüzden burada da durmak zorundadır.
+ *
+ * İKİ YERDE YAŞAYAN BİR KURAL BİR TESTLE KİLİTLENİR (değişmez md. 8):
+ * `__tests__/heat.test.ts` `globals.css`i OKUYUP bu sayılarla karşılaştırır.
+ * Kopya sessizce ayrışırsa ekran bir rengi, belge başkasını gösterirdi ve
+ * kusur ancak ikisi yan yana konunca görülürdü.
+ *
+ * AÇIK TEMANIN ŞERİDİ KULLANILIR ve bu bilinçlidir: hem PDF hem Excel BEYAZ
+ * kâğıdın karşılığıdır; koyu tema şeridi orada okunmaz.
+ */
+export const COST_HEAT_RAMP = {
+  /** L: 0,58 → 0,48. Sarı uçta 0,58'i geçmez (WCAG AA, `.oc-amount` yorumu). */
+  lightness: { base: 0.58, span: -0.1 },
+  /** C: 0,07 → 0,16. */
+  chroma: { base: 0.07, span: 0.09 },
+  /** H: 95° (sarı) → 25° (kiremit kırmızısı). */
+  hue: { base: 95, span: -70 },
+} as const;
+
+/** Isı seviyesinin OKLCH karşılığı — ekrandaki `.oc-amount` ile aynı sayı. */
+export function costHeatOklch(level: number): { l: number; c: number; h: number } {
+  const t = Math.min(1, Math.max(0, level));
+  return {
+    l: COST_HEAT_RAMP.lightness.base + COST_HEAT_RAMP.lightness.span * t,
+    c: COST_HEAT_RAMP.chroma.base + COST_HEAT_RAMP.chroma.span * t,
+    h: COST_HEAT_RAMP.hue.base + COST_HEAT_RAMP.hue.span * t,
+  };
+}
+
+/** sRGB gama eğrisi — doğrusal kanaldan 0–255 bileşene. */
+function gama(v: number): number {
+  const s = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  return Math.round(Math.min(1, Math.max(0, s)) * 255);
+}
+
+/**
+ * OKLCH → `#RRGGBB`.
+ *
+ * Dönüşüm Björn Ottosson'un Oklab tanımıdır (oklch → oklab → LMS → doğrusal
+ * sRGB → gama). Bir tabloya bakarak sabit hex yazmak daha kısa olurdu ve
+ * değişmez md. 6'yı kırardı: renk bir AÇIDIR; hex yalnız ÇIKTININ biçimidir ve
+ * o çıktı burada, tek yerde üretilir.
+ *
+ * GAMUT DIŞI DEĞER KIRPILIR: rampanın uçları sRGB içindedir (ölçüldü), ama
+ * kırpma yine de yazılır — dışarı taşan bir kanal `NaN` değil, en yakın basılı
+ * renk vermelidir.
+ */
+export function oklchToHex(l: number, c: number, hDeg: number): string {
+  const h = (hDeg * Math.PI) / 180;
+  const a = c * Math.cos(h);
+  const b = c * Math.sin(h);
+
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.291485548 * b;
+
+  const L = l_ * l_ * l_;
+  const M = m_ * m_ * m_;
+  const S = s_ * s_ * s_;
+
+  const r = 4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S;
+  const g = -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S;
+  const bl = -0.0041960863 * L - 0.7034186147 * M + 1.707614701 * S;
+
+  const hex = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${hex(gama(r))}${hex(gama(g))}${hex(gama(bl))}`.toUpperCase();
+}
+
+/**
+ * Tutarın (ya da ağırlığın) BELGEDEKİ rengi — renk verilemiyorsa `null`.
+ *
+ * `null` DÖNMEK ANLAMLIDIR (`costAmountLevel` ile aynı gerekçe): girilmemiş bir
+ * sayı "—"dir ve ona "en soğuk" rengi vermek BİLİNMEYENİ küçük göstermek
+ * olurdu. Çağıran taraf `null`da kendi varsayılan mürekkebini kullanır.
+ */
+export function costHeatHex(amount: number | null, largest: number): string | null {
+  const t = costAmountLevel(amount, largest);
+  if (t === null) return null;
+  const { l, c, h } = costHeatOklch(t);
+  return oklchToHex(l, c, h);
+}
+
+/** Excel ARGB — alfa ÖNDE ve tam opak; `#RRGGBB` doğrudan yapıştırılamaz. */
+export function costHeatArgb(amount: number | null, largest: number): string | null {
+  const hex = costHeatHex(amount, largest);
+  return hex === null ? null : `FF${hex.slice(1)}`;
+}

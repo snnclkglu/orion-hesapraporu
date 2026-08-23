@@ -8,7 +8,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { costModels, costWeights, withCostDefaults } from "@/lib/offers/cost/payload";
-import { costTotals, loadedCostByOfferItem } from "@/lib/offers/cost/totals";
+import {
+  costTotals,
+  loadedCostByOfferItem,
+  manualCostByPriceLine,
+} from "@/lib/offers/cost/totals";
 import type { CostPayload } from "@/lib/offers/cost/types";
 import { MATERIAL_PRICE_DEFS } from "@/lib/offers/cost/registry";
 
@@ -181,6 +185,14 @@ export interface OfferCostForEditor {
   sourceRevNo: number | null;
   /** Teklif kalemi kimliği → genel gider dahil maliyet. */
   byItem: Record<string, number>;
+  /**
+   * SERBEST FİYAT SATIRI kimliği → maliyet özetinden girilen maliyet.
+   *
+   * Kullanıcı isteği (23.08.2026, md. 1): *"Eğer özet sayfasından girersem
+   * öncelik o olsun. Fiyat kısmına da oradan gelsin."* Sözlükte OLMAYAN satır
+   * eskisi gibi kendi `manualCost` kutusunu okur — iki kaynak TOPLANMAZ.
+   */
+  byManualLine: Record<string, number>;
   direct: number | null;
   total: number | null;
 }
@@ -199,6 +211,7 @@ export async function loadOfferCostForEditor(
     status: kayit.summary.status,
     sourceRevNo: kayit.summary.sourceRevNo,
     byItem: loadedCostByOfferItem(totals),
+    byManualLine: manualCostByPriceLine(kayit.payload),
     direct: totals.direct,
     total: totals.total,
   };

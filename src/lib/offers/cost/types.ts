@@ -279,6 +279,78 @@ export interface CostItem {
   groups: CostGroup[];
 }
 
+/**
+ * SERBEST FİYAT SATIRININ ÖZET SAYFASINDAN GİRİLEN MALİYETİ.
+ *
+ * Vinçlerin beş başlığı HESAPLANIR (`costHeadingsByItem`); burada YAZILIR.
+ * "Bu ekstra kalemler için çok detay istemiyorum" (kullanıcı, 23.08.2026):
+ * satırın kendi maliyet grupları, modeli ve miktar–fiyat çarpımı yoktur —
+ * yalnız beş kutu ve bir toplam.
+ *
+ * HER ALAN AYRI AYRI `null` OLABİLİR ve olmalıdır: bir nakliyenin imalatı
+ * yoktur, sabit gideri olabilir. Girilmemiş hücreye sıfır yazmak, hiç
+ * düşünülmemiş bir kalemi "yok" ilan etmenin sessiz yoluydu (değişmez md. 4).
+ */
+export interface ManualLineCost {
+  /** Özet sayfasından girilen TEK maliyet; kırılım doluysa OKUNMAZ. */
+  total: number | null;
+  fabrication: number | null;
+  project: number | null;
+  /** Oran grubu anahtarı (`sabit` · `sarf` · `finansman`) → tutar. */
+  rates: Record<string, number | null>;
+}
+
+/** Hiç dokunulmamış serbest satırın kaydı — beş kutu da boş. */
+export const EMPTY_MANUAL_LINE_COST: ManualLineCost = {
+  total: null,
+  fabrication: null,
+  project: null,
+  rates: {},
+};
+
+/**
+ * ÖZET SAYFASINDAN GİRİLEN KIRILIMIN TOPLAMI — hiç sayı yoksa `null`.
+ *
+ * `null` ile `0` ARASINDAKİ FARK BURADA KARAR VERİR: dönen değer `null`sa
+ * satırın maliyeti bir alt kaynağa (`total`, sonra teklifin `manualCost`u)
+ * düşer; `0` dönseydi kırılıma hiç dokunulmamış her satır "bedava" olurdu.
+ */
+export function manualLineBreakdownTotal(c: ManualLineCost | undefined): number | null {
+  if (!c) return null;
+  const parcalar = [c.fabrication, c.project, ...Object.values(c.rates ?? {})];
+  const dolu = parcalar.filter((n): n is number => n !== null && Number.isFinite(n));
+  return dolu.length ? dolu.reduce((t, n) => t + n, 0) : null;
+}
+
+/** Serbest satırın maliyetinin HANGİ kaynaktan geldiği — ekran bunu söyler. */
+export type ManualLineCostSource = "breakdown" | "overview" | "price";
+
+/**
+ * SERBEST FİYAT SATIRININ GEÇERLİ MALİYETİ VE KAYNAĞI — TEK karar noktası.
+ *
+ * Sıra kullanıcının kendi cümlesindedir (23.08.2026, md. 1): *"Eğer özet
+ * sayfasından girersem öncelik o olsun."* Kırılım en özgüldür, sonra özetin
+ * tek kutusu, en sonda teklifin fiyat sayfasındaki eski kutu.
+ *
+ * DÖRT ÇAĞRI YERİ VARDIR (özet ekranı · teklif editörünün maliyet sütunu ·
+ * PDF · Excel) ve dördü de bunu çağırır. Sıra bir yerde elle tekrarlansaydı
+ * aynı nakliye iki ekranda iki farklı maliyetle görünürdü — MALIYET-24'ün
+ * yasakladığı ayrışmanın birebir tekrarı.
+ */
+export function manualLineCost(
+  c: ManualLineCost | undefined,
+  priceLineManualCost: number | null | undefined
+): { amount: number | null; source: ManualLineCostSource } {
+  const kirilim = manualLineBreakdownTotal(c);
+  if (kirilim !== null) return { amount: kirilim, source: "breakdown" };
+  if (c && c.total !== null && Number.isFinite(c.total)) {
+    return { amount: c.total, source: "overview" };
+  }
+  const fiyat =
+    priceLineManualCost === null || priceLineManualCost === undefined ? null : priceLineManualCost;
+  return { amount: fiyat, source: "price" };
+}
+
 // ————————————————————————————————————————————————————————— belge
 
 export interface CostPayload {
@@ -357,6 +429,34 @@ export interface CostPayload {
    * (`removedOfferItemIds`in kararlı davranışının aynısı).
    */
   manualLineWeights: Record<string, { steelKg: number | null; totalKg: number | null }>;
+  /**
+   * SERBEST FİYAT SATIRLARININ ÖZET SAYFASINDAN GİRİLEN MALİYETİ — anahtar
+   * TEKLİF fiyat satırının kimliğidir (`OfferPriceLine.id`).
+   *
+   * Kullanıcı isteği (23.08.2026, md. 1): *"elle çelik ve toplam ağırlık
+   * girdiğim gibi, diğer kalemleri de istersem girebilsem. Maliyetlendirmeyi
+   * hızlıca basitçe bu özet tabloda bitirmiş olurum … Şu an bu kalemlerin tek
+   * maliyetini teklif fiyat bölümünden girebiliyorum, o kalsın. Ama özet
+   * sayfasından da girebileyim. Eğer özet sayfasından girersem öncelik o
+   * olsun. Fiyat kısmına da oradan gelsin."*
+   *
+   * ÜÇ KAYNAK VARDIR VE SIRALARI SABİTTİR (`manualLineCost`):
+   *   1. KIRILIM (`fabrication` · `project` · `rates`) — girilmişse satırın
+   *      maliyeti onların TOPLAMIDIR ve `total` okunmaz.
+   *   2. `total` — özet sayfasından girilen TEK maliyet.
+   *   3. Teklifin fiyat satırındaki `manualCost` — eski yol, yerinde kalır.
+   * Sıra bir tercih değil bir ZORUNLULUKTUR: iki kaynak asla TOPLANMAZ
+   * (MALIYET-4), yoksa aynı nakliye iki kez faturalanmış olurdu.
+   *
+   * MALİYET PAYLOAD'INDA YAŞAR, TEKLİFİNKİNDE DEĞİL (MALIYET-1) —
+   * `manualLineWeights` ile aynı gerekçe: müşteriye giden nesnenin içine iç
+   * veri koymak, korumayı bir süzgeç fonksiyonunun dikkatine bırakırdı.
+   *
+   * BEŞ BAŞLIK BURADA UYDURULMAZ, YAZILIR: bir nakliyenin "imalat payı" diye
+   * bir şey yoktur (değişmez md. 4) — ama kullanıcı bir traversin imalatını
+   * BİLİYORSA yazabilmelidir. Girilmemiş hücre `null` kalır ve "—" görünür.
+   */
+  manualLineCosts: Record<string, ManualLineCost>;
   /**
    * ÖZET SAYFASINDAKİ KÂR YÜZDELERİ — satır kimliği → yüzde.
    *

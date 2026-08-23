@@ -78,6 +78,42 @@ export function teklifFiksturu(): OfferPayload {
       unitPrice: 308_222,
       inTotal: true,
     },
+    // SERBEST FİYAT SATIRLARI FİKSTÜRDE DURMAK ZORUNDADIR (23.08.2026, md. 1):
+    // özet tablosunun ELLE GİRİLEN sütunları yalnız bu satırlarda çizilir ve
+    // fikstürde olmasalardı önizleme özelliğin çalıştığını hiç göstermezdi.
+    //
+    // ÜÇÜ ÜÇ AYRI HÂLİ ANLATIR ve bilerek öyle kuruldu:
+    //   · maliyeti FİYAT sayfasından girilmiş (eski yol, yerinde kalır),
+    //   · maliyeti HİÇ girilmemiş (özetten girilebilsin diye listede durur),
+    //   · beş başlığı özetten girilmiş (kırılım toplamı geçerli olur).
+    {
+      id: "onizleme-yurume-yolu",
+      itemId: null,
+      description: "Yürüme Yolu A65",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 18_000,
+      inTotal: true,
+      manualCost: 14_000,
+    },
+    {
+      id: "onizleme-kapali-bara",
+      itemId: null,
+      description: "Kapalı Bara 40 Metre",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 2_800,
+      inTotal: true,
+    },
+    {
+      id: "onizleme-kaldirma-traversi",
+      itemId: null,
+      description: "Kaldırma Traversi",
+      qty: 1,
+      unit: "Takım",
+      unitPrice: 26_500,
+      inTotal: true,
+    },
   ];
   p.pricing = withTotal(p.pricing);
   return withDefaults(p, "EUR");
@@ -163,6 +199,26 @@ export function maliyetFiksturu(offer: OfferPayload): CostPayload {
     tampon.qty = 8;
     tampon.qtyManual = true;
   }
+  // ÖZETTEN GİRİLEN VERİ (23.08.2026, md. 1 · 22.08.2026, md. 7): ağırlıklar
+  // ve serbest satır maliyetleri maliyet belgesinde yaşar, teklifinkinde değil
+  // (MALIYET-1). Fikstür üç hâli birden kurar ki önizleme hepsini göstersin.
+  p.manualLineWeights = {
+    "onizleme-yurume-yolu": { steelKg: 4_000, totalKg: 4_000 },
+    "onizleme-kaldirma-traversi": { steelKg: 7_000, totalKg: 7_000 },
+  };
+  p.manualLineCosts = {
+    // TEK MALİYET özetten girildi — teklifin Fiyat sayfasındaki kutuya göre
+    // önceliklidir ve orada da bu sayı görünür.
+    "onizleme-kapali-bara": { total: 2_000, fabrication: null, project: null, rates: {} },
+    // KIRILIM girildi: satırın maliyeti beş kutunun TOPLAMIDIR (20.000 €) ve
+    // tek maliyet kutusu o satırda hiç okunmaz.
+    "onizleme-kaldirma-traversi": {
+      total: null,
+      fabrication: 6_500,
+      project: 11_000,
+      rates: { fixed: 2_000, consumable: 300, finance: 200 },
+    },
+  };
   return withCostDerived(p);
 }
 

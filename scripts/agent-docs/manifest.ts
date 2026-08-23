@@ -243,7 +243,12 @@ export const ALANLAR: Alan[] = [
       "src/app/(app)/offers/[id]/costs/**",
       "src/app/(app)/offers/[id]/cost-panel.tsx",
       "src/lib/pdf/offer-cost.tsx",
+      // EXCEL ÇIKTISI DA BU ALANDADIR: PDF ile aynı `costOverview`i okur ve
+      // ikisinin ayrışması MALIYET-24'ün yasakladığı şeydir — biri kural
+      // dosyasının kapsamında, öteki dışında olsaydı ayrışma davet edilirdi.
+      "src/lib/xlsx/offer-cost.ts",
       "scripts/test-offer-cost-pdf.ts",
+      "scripts/test-offer-cost-excel.ts",
     ],
     al: [],
   },

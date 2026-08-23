@@ -1388,9 +1388,19 @@ function FiyatEditor({
    * Yani doğrudan maliyet + proje geneli ve oranlı grupların payı. Yalnız
    * doğrudanı göstermek, sabit giderleri hiç taşımayan sahte bir kâr üretirdi.
    * Serbest satırda (kalem bağı yok) maliyet YOKTUR ve sıfır da yazılmaz.
+   *
+   * SERBEST SATIRIN İKİ KAYNAĞI VARDIR VE TOPLANMAZLAR (23.08.2026, md. 1):
+   * maliyet çalışmasının ÖZET sayfasından girilen sayı ÖNCELİKLİDİR, yoksa bu
+   * sayfadaki kutu okunur. Kullanıcının kendi cümlesi: *"Eğer özet sayfasından
+   * girersem öncelik o olsun. Fiyat kısmına da oradan gelsin."*
    */
+  const ozettenMaliyet = (line: OfferPriceLine): number | null =>
+    line.itemId ? null : (cost?.byManualLine[line.id] ?? null);
+
   const satirMaliyeti = (line: OfferPriceLine): number | null =>
-    line.itemId ? (cost ? (cost.byItem[line.itemId] ?? null) : null) : (line.manualCost ?? null);
+    line.itemId
+      ? (cost ? (cost.byItem[line.itemId] ?? null) : null)
+      : (ozettenMaliyet(line) ?? line.manualCost ?? null);
 
   /**
    * AYNI KALEME BAĞLI BİRDEN ÇOK SATIR uyarılır, sessizce düzeltilmez.
@@ -1423,9 +1433,11 @@ function FiyatEditor({
    * (MALIYET-11'in "sütun toplanmaz" gerekçesinin aynısı).
    */
   const toplamMaliyet = useMemo(() => {
+    // ÖZETTEN GELEN SAYI BURADA DA ÖNCELİKLİDİR: sütun bir sayıyı, kâr satırı
+    // başkasını okusaydı ekran kendi kendisiyle çelişirdi.
     const serbest = p.lines
       .filter((l) => !l.itemId && !l.hidden && l.inTotal)
-      .map((l) => l.manualCost ?? null)
+      .map((l) => cost?.byManualLine[l.id] ?? l.manualCost ?? null)
       .filter((n): n is number => n !== null);
     const belge = cost?.total ?? null;
     if (belge === null && serbest.length === 0) return null;
@@ -1696,6 +1708,20 @@ function FiyatEditor({
                         {fmtMoney0(satirMaliyeti(line), p.currency)}
                       </span>
                     )
+                  ) : ozettenMaliyet(line) !== null ? (
+                    /* ÖZETTEN GELEN MALİYET KUTU DEĞİL YAZIDIR (md. 1): iki
+                       kaynak asla toplanmaz ve hangisinin geçerli olduğu
+                       hücreye bakarak anlaşılmalıdır. Kutu çizilseydi buraya
+                       yazılan sayı hiçbir yere gitmeyen bir sayı olurdu. */
+                    <span
+                      className="inline-flex items-center gap-1.5"
+                      title="Bu maliyet MALİYET ÖZETİ sayfasından girildi ve önceliklidir. Değiştirmek için maliyet çalışmasının Özet bölümünü açın."
+                    >
+                      <span className="text-[10px] tracking-wide uppercase">özet</span>
+                      <span className="font-medium text-foreground">
+                        {fmtMoney0(ozettenMaliyet(line), p.currency)}
+                      </span>
+                    </span>
                   ) : (
                     <SayiKutusu
                       binlik
