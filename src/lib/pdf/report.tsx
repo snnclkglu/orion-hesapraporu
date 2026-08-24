@@ -154,6 +154,18 @@ export interface ReportProps {
    * Özeti'nden ve "Ana Ekipman Seçimleri" bloğundan da düşer.
    */
   hiddenSections?: readonly string[];
+  /**
+   * ŞEMASI gizlenen alt bölümler (`inputs.hiddenDiagrams`,
+   * `hiddenDiagramsFromRevision` ile okunur; anahtar `hiddenSections` ile aynı
+   * biçimde, ör. `"main-2.2.5"`).
+   *
+   * Bölümün KENDİSİ basılır — girdiler, katalog seçimi, formüller ve
+   * kontroller aynen yerindedir; yalnız parametrik şeması çizilmez. Belgede
+   * yerine hiçbir iz bırakılmaz (boş kutu, "şema gizlendi" notu yok): şema
+   * düşer, altındaki bloklar yukarı kayar ve okuyan bir eksik olduğunu
+   * anlamaz.
+   */
+  hiddenDiagrams?: readonly string[];
   /** Panelden düzenlenebilir rapor ayarları (app_settings 'report') */
   settings?: ReportSettings;
   /** Rapor seviyesi (varsayılan "detayli") */
@@ -245,6 +257,11 @@ function isSectionHidden(
 /** Props'tan gizli bölüm kümesi — bütün sayfa üreticileri aynı kümeyi okur. */
 function hiddenSetOf(props: Pick<ReportProps, "hiddenSections">): Set<string> {
   return new Set(props.hiddenSections ?? []);
+}
+
+/** Props'tan ŞEMASI gizlenen bölümlerin kümesi (bkz. `hiddenDiagrams`). */
+function hiddenDiagramSetOf(props: Pick<ReportProps, "hiddenDiagrams">): Set<string> {
+  return new Set(props.hiddenDiagrams ?? []);
 }
 
 /**
@@ -2099,6 +2116,7 @@ function ModulePage({
   if (!state || !mr) return null;
   const ctx = ctxFor(adapter.key, input, result, deps);
   const hidden = hiddenSetOf(props);
+  const hiddenDiagrams = hiddenDiagramSetOf(props);
   const [no, ...rest] = renumberTitle(adapterTitle(adapter, input.specs), moduleNo).split(" · ");
   /**
    * Bölüm bu rapora giriyor mu — hem SÜZGEÇ hem NUMARANIN dayanağı.
@@ -2125,7 +2143,11 @@ function ModulePage({
         const scoped = section.inputScope ? section.inputScope.get(inputs) : inputs;
         const { byRow, rest } = distributeChecks(adapter, section, mr);
         const secChecks = sectionChecks(adapter, section, mr);
-        const diagrams = diagramsForSection(adapter.key, section.rawId, input, result);
+        // Şeması gizlenen bölümde çizim HİÇ ÜRETİLMEZ: boş bir yer tutucu
+        // bile bırakılmaz, sonraki bloklar yukarı kayar (bkz. hiddenDiagrams).
+        const diagrams = isSectionHidden(hiddenDiagrams, adapter.key, section.rawId)
+          ? []
+          : diagramsForSection(adapter.key, section.rawId, input, result);
         const secNo = secNos.get(section.rawId) ?? renumberSectionId(section.id, moduleNo);
 
         // Bölüm gövdesi düz bir PARÇA dizisidir. Her alt başlık kendi ilk

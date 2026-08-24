@@ -7,6 +7,7 @@ import {
   CALC_FIELD,
   altsFromRevision,
   calcInputFromRevision,
+  hiddenDiagramsFromRevision,
   hiddenSectionsFromRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
@@ -92,6 +93,8 @@ export async function issueRevision(
         sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
         // Gizlenen alt bölümler arşiv raporunda da basılmaz (indirme ucuyla aynı).
         hiddenSections: hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson),
+        // Şeması gizlenen bölümler arşiv raporunda da çizilmez.
+        hiddenDiagrams: hiddenDiagramsFromRevision(revision.inputs as RevisionInputsJson),
       });
       const { error: uploadError } = await supabase.storage
         .from("reports")
@@ -194,7 +197,12 @@ export async function saveRevision(
   disabledModules?: string[],
   sectionNotes?: RevisionSectionNotes,
   /** Gizlenen alt bölümler (`sectionHideKeyFor` anahtarları, ör. "trolley-5.7") */
-  hiddenSections?: string[]
+  hiddenSections?: string[],
+  /**
+   * ŞEMASI gizlenen alt bölümler (`sectionDiagramHideKeyFor` anahtarları).
+   * Bölüm rapora girmeye devam eder; yalnız parametrik çizimi basılmaz.
+   */
+  hiddenDiagrams?: string[]
 ): Promise<SaveResult> {
   const supabase = await createClient();
   const {
@@ -213,6 +221,7 @@ export async function saveRevision(
         specs: calcInput.specs,
         disabledModules: disabledModules ?? [],
         hiddenSections: hiddenSections ?? [],
+        hiddenDiagrams: hiddenDiagrams ?? [],
       },
       selections: {
         ...moduleJson(store, "selections"),

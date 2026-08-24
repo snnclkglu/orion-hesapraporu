@@ -151,7 +151,10 @@ export function shaftWeldDiagram(p: ShaftWeldParams): Diagram {
   );
 
   // --- Köşe kaynak dikişleri (göbek ↔ flanş, üstte ve altta)
-  const wLeg = 15;
+  // Kaynak üçgeni semboliktir, ölçekli değildir: eski 15 px bacak dikişi
+  // gerçek boğaz kalınlığına göre orantısız iri görünüyordu. Kullanıcı kararı
+  // (24.08.2026): bacak ~%25'ine indirilir, ince bir köşe dikişi olarak durur.
+  const wLeg = 4;
   for (const sign of [-1, 1] as const) {
     const yHub = yAxis + sign * hubHalf;
     els.push({

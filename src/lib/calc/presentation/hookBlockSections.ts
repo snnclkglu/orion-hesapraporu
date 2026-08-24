@@ -76,6 +76,13 @@ export interface HookBlockSectionDef {
   equipmentSlugs?: readonly string[];
   /** Kanca sistemine göre bu hesap alt bölümünün uygulama ve rapor görünürlüğü. */
   visible?: (specs: TechnicalSpecs, which: HookBlockKey) => boolean;
+  /**
+   * Bölümün girdi ızgarasından önce çizilecek özel düzenleyici. `sheaveOffsets`:
+   * mil üzerindeki makara eksenlerini merkezden, makara adedince ADLI kutuyla
+   * (M1…Mn) girer — makara sayısı arttıkça kutu sayısı da artar; serbest metin
+   * alanının aksine ölçüsü girilmeyen makara "otomatik ortaya" düşmez.
+   */
+  editor?: "sheaveOffsets";
 }
 
 /** Standart/ikiz düzende tarihsel davranış korunur; çift tamburda kullanıcı seçer. */
@@ -399,9 +406,14 @@ const HOOKBLOCK_SECTIONS_RAW: HookBlockSectionDef[] = [
       "mil çapında hesaplanır; makara rulmanı da bu çapa oturur. Bileşik gerilme " +
       "CMAA 70 4.11.4.1'e göre √(σ² + 3τ²), kesme gerilmesi ortalama (τ = V/A) " +
       "kabulüyle alınır.",
+    // `shaftSheaveOffsetsText` bilerek ızgarada DEĞİL: değeri, makara adedine
+    // göre çoğalan adlı kutulardan (M1…Mn) yazan `SheaveOffsetsEditor`
+    // düzenler (bkz. editor: "sheaveOffsets"). Serbest metin kutusu ölçü
+    // girilmeyen makarayı sessizce merkeze atıyordu.
     inputKeys: [
-      "shaftSupportOffsetMm", "shaftSheaveOffsetsText", "shaftD1Mm",
+      "shaftSupportOffsetMm", "shaftD1Mm",
     ],
+    editor: "sheaveOffsets",
     selectionKeys: ["shaftMaterial"],
     rows: [
       {

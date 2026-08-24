@@ -311,7 +311,7 @@ export interface AdapterSection {
    * ızgarasıyla anlatılamayan geometriler için arayüz adanmış bir bileşen
    * çizer (teker düzeni ölçü zinciri). PDF tarafı bu alanı yok sayar.
    */
-  editor?: "wheelSpacing" | "festoon";
+  editor?: "wheelSpacing" | "festoon" | "sheaveOffsets";
   /** Bölüm başlığında gösterilen ve uygunluk kontrolünü besleyen ölçü onayı. */
   confirmation?: {
     inputKey: string;
@@ -717,6 +717,7 @@ function hookBlockAdapter(which: HookBlockKey): ModuleAdapter {
       inputDefs: defs(s.inputKeys, HOOKBLOCK_INPUT_MAP),
       selectionDefs: defs(s.selectionKeys, HOOKBLOCK_SELECTION_MAP),
       selectionKeys: s.selectionKeys,
+      editor: s.editor,
       headline: HOOKBLOCK_HEADLINES[s.id],
       checkSuffixes: s.checkSuffixes,
       visible: s.visible ? (specs: TechnicalSpecs) => s.visible!(specs, which) : undefined,

@@ -49,6 +49,7 @@ import {
 import {
   CALC_FIELD,
   altKeyFor,
+  sectionDiagramHideKeyFor,
   sectionHideKeyFor,
   sectionNoteKeyFor,
   splitAltKey,
@@ -63,6 +64,7 @@ import type { GirderSelections } from "@/lib/calc/modules/mainGirder";
 import type { HookBlockInputs, HookBlockValues } from "@/lib/calc/modules/hookBlock";
 import type { WheelLoadInputs } from "@/lib/calc/modules/wheelLoads";
 import { WheelSpacingEditor } from "@/components/wheel-spacing-editor";
+import { SheaveOffsetsEditor } from "@/components/sheave-offsets-editor";
 import {
   ADAPTER_BY_KEY,
   MODULE_ADAPTERS,
@@ -107,6 +109,7 @@ import {
 import { CatalogPicker } from "@/components/catalog-picker";
 import { CatalogSheetButton } from "@/components/catalog-sheet-dialog";
 import { SectionDiagram } from "@/components/diagrams/section-diagram";
+import { diagramsForSection } from "@/lib/diagrams/select";
 import { FestoonSchematic } from "@/components/festoon-schematic";
 import {
   BufferArrangementSchematic,
@@ -261,7 +264,7 @@ function nearestOption(options: string[], current: string, numeric: boolean): st
 }
 
 function Field({
-  def, value, onChange, disabled, auto, context, specs,
+  def, value, onChange, disabled, auto, context, specs, mobileFull,
 }: {
   def: AnyFieldDef;
   value: object;
@@ -272,6 +275,8 @@ function Field({
   context?: StandardContext;
   /** Etiketi teknik özelliklere göre çözebilmek için (ör. kanca/tutucu tipi) */
   specs?: TechnicalSpecs;
+  /** Teknik özelliklerde uzun seçimler iki dar sütuna bölünmez. */
+  mobileFull?: boolean;
 }) {
   const v = (value as Record<string, unknown>)[def.key];
   const id = `f-${def.key}`;
@@ -306,7 +311,12 @@ function Field({
     // seçenek etiketi (ör. "HC2 — Normal kaldırma (genel amaçlı vinç)") olan
     // alanın sütununu içerik genişliğine zorluyor ve alan komşusunun üstüne
     // taşıyordu. Sıfırlanınca sütun küçülebiliyor, metin de kırpılıyor.
-    <div className="grid min-w-0 content-start gap-1 pb-3 row-span-2 grid-rows-subgrid">
+    <div
+      className={cn(
+        "grid min-w-0 content-start gap-1 pb-2 row-span-2 grid-rows-subgrid sm:pb-3",
+        mobileFull && "max-sm:col-span-2"
+      )}
+    >
       <Label htmlFor={id} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         {/* Etiket ile bilgi düğmesi tek bir satır içi öbektir. Düğme ayrı flex
             öğesiyken sütunun sonuna sığmayıp tek başına alt satıra düşüyordu;
@@ -1287,7 +1297,7 @@ function useIsDesktop(): boolean {
 
 export function RevisionEditor({
   projectId, revisionId, readOnly, initial, initialAlts, initialSectionNotes, initialDisabled,
-  initialHidden,
+  initialHidden, initialHiddenDiagrams,
 }: {
   projectId: string;
   revisionId: string;
@@ -1305,6 +1315,11 @@ export function RevisionEditor({
    * ekipman listesinde görünmez; girdileri korunur.
    */
   initialHidden?: string[];
+  /**
+   * ŞEMASI gizlenen alt bölümler (`sectionDiagramHideKeyFor` anahtarları).
+   * Bölüm hesaba ve PDF rapora GİRER; yalnız parametrik çizimi belgeye basılmaz.
+   */
+  initialHiddenDiagrams?: string[];
 }) {
   const [specs, setSpecs] = useState(initial.specs);
   const [mods, setMods] = useState<ModulesState>(() => initModules(initial));
@@ -1313,6 +1328,12 @@ export function RevisionEditor({
   // Gizlenen alt bölümler — başlıktaki kutucukla açılıp kapanır.
   const [hiddenSections, setHiddenSections] = useState<Set<string>>(
     () => new Set(initialHidden ?? [])
+  );
+  // ŞEMASI gizlenen alt bölümler — bölüm başlığındaki «Şemayı Gizle»
+  // kutucuğuyla açılıp kapanır. Bölümü gizlemekten bağımsızdır: bölüm rapora
+  // girer, yalnız çizimi PDF'e basılmaz.
+  const [hiddenDiagrams, setHiddenDiagrams] = useState<Set<string>>(
+    () => new Set(initialHiddenDiagrams ?? [])
   );
   const [stepIndex, setStepIndex] = useState(0);
   /**
@@ -1391,7 +1412,7 @@ export function RevisionEditor({
       return;
     }
     setDirty(true);
-  }, [specs, mods, alts, sectionNotes, enabled, hiddenSections]);
+  }, [specs, mods, alts, sectionNotes, enabled, hiddenSections, hiddenDiagrams]);
 
   // Kayıp koruması: tarayıcı kapanışı/yenileme için beforeunload, uygulama içi
   // gezinme (Link tıklaması) için capture fazında confirm.
@@ -1507,6 +1528,10 @@ export function RevisionEditor({
   const deps = useMemo(() => buildModuleDeps(calcInput, result), [calcInput, result]);
   /** Kayda giden gizli alt bölüm listesi (sıralı — diff satırı kararlı olsun). */
   const hiddenList = useMemo(() => [...hiddenSections].sort(), [hiddenSections]);
+  const hiddenDiagramsList = useMemo(
+    () => [...hiddenDiagrams].sort(),
+    [hiddenDiagrams]
+  );
   /**
    * Gizlenen alt bölümlerin kontrol kimlikleri. Motor bölüm sınırı bilmez ve
    * kontrolleri yine üretir; kullanıcıya GÖSTERİLEN sayılar (durum şeridi,
@@ -1784,7 +1809,8 @@ export function RevisionEditor({
         fullCalcInput,
         disabledList,
         sectionNotes,
-        hiddenList
+        hiddenList,
+        hiddenDiagramsList
       );
       if (res.error) toast.error(res.error);
       else {
@@ -1821,28 +1847,43 @@ export function RevisionEditor({
     });
   }
 
+  /**
+   * Bölümün ŞEMASINI gizle/göster — başlıktaki «Şemayı Gizle» kutucuğundan
+   * çağrılır. Bölümü gizlemekten bağımsızdır: bölüm rapora girmeye devam eder,
+   * yalnız parametrik çizimi PDF'e basılmaz.
+   */
+  function toggleDiagramHidden(key: ModuleKey, sectionRawId: string, hide: boolean) {
+    const hideKey = sectionDiagramHideKeyFor(key, sectionRawId);
+    setHiddenDiagrams((current) => {
+      const next = new Set(current);
+      if (hide) next.add(hideKey);
+      else next.delete(hideKey);
+      return next;
+    });
+  }
+
   // ------------------------------------------------------------ renderers
   /**
    * Kart iç boşluğu telefonda bir kademe kısılır: 24px'lik yatay boşluk
    * 375px'lik ekranda hesap satırına 271px bırakıyordu.
    */
-  const cardSpacing = "[--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]";
+  const cardSpacing = "[--card-spacing:--spacing(3)] sm:[--card-spacing:--spacing(6)]";
 
   function renderSpecs() {
     return (
       <Card className={cardSpacing}>
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-2 sm:pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <span className="inline-flex h-6 items-center bg-primary/10 px-2 font-mono text-xs font-semibold tabular-nums text-primary">
               01
             </span>
             <span className="tracking-tight">Teknik Özellikler</span>
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Vincin ana teknik verileri. Tüm hesap bölümleri bu değerlerden beslenir.
           </p>
         </CardHeader>
-        <CardContent className="grid gap-6">
+        <CardContent className="grid gap-4 sm:gap-6">
           {SPEC_GROUPS.map((group) => {
             // Bölüm bağı EDİTÖR VE PDF İÇİN TEK YÜKLEMDEN okunur
             // (`specFieldVisibleForModules`): ayrı yazıldıklarında kapatılan
@@ -1858,16 +1899,16 @@ export function RevisionEditor({
             );
             if (fields.length === 0) return null;
             return (
-              <section key={group.key} className="grid gap-2.5">
+              <section key={group.key} className="grid gap-1.5 sm:gap-2.5">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5">
-                  <h3 className="oc-kicker text-foreground/80">{group.title}</h3>
+                  <h3 className="oc-kicker leading-tight text-foreground/80">{group.title}</h3>
                   {group.description && (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground max-sm:line-clamp-1 sm:text-[11px]">
                       {group.description}
                     </span>
                   )}
                 </div>
-                <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-1 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {fields.map((f) => (
                     <Field
                       key={f.key}
@@ -1877,6 +1918,7 @@ export function RevisionEditor({
                       disabled={readOnly}
                       context={stdContext}
                       specs={specs}
+                      mobileFull={f.type !== "number"}
                     />
                   ))}
                 </div>
@@ -2080,6 +2122,13 @@ export function RevisionEditor({
     // Alt bölüm gizleme: kutucuk başlıktadır, içerik soluk ama düzenlenebilir
     // kalır (girdiler korunur — bölüm aç/kapa mantığının aynısı).
     const isHidden = hiddenSections.has(sectionHideKeyFor(key, section.rawId));
+    // Şema gizleme AYRI bir karardır: bölümün parametrik çizimi var mı diye
+    // bakılır (yoksa kutucuk anlamsız), gizliyse çizim ekranda durur ama
+    // "PDF'e girmiyor" işaretlenir. Diyagram BİR KEZ üretilir; hem kutucuğun
+    // görünürlüğü hem çizim aynı listeyi okur.
+    const sectionDiagrams = diagramsForSection(key, section.rawId, calcInput, result);
+    const hasDiagram = sectionDiagrams.length > 0;
+    const isDiagramHidden = hiddenDiagrams.has(sectionDiagramHideKeyFor(key, section.rawId));
     const confirmation = section.confirmation;
     const confirmationIsOn = confirmation
       ? (inputs as Record<string, unknown>)[confirmation.inputKey] === true
@@ -2165,7 +2214,7 @@ export function RevisionEditor({
 
     return (
       <Card className={cardSpacing}>
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-3 sm:pb-4">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             {/* Numara gizli bölümde TİRE basar (`HIDDEN_SECTION_NO`): bölüm
                 rapora girmediği için sırada da değildir. Rozet o hâlde
@@ -2246,6 +2295,30 @@ export function RevisionEditor({
                   Gizle
                 </label>
               )}
+              {/* «Şemayı Gizle»: yalnız çizimi olan ve BÖLÜMÜ gizli olmayan alt
+                  bölümlerde çıkar (bölüm zaten gizliyse çizim de basılmaz).
+                  İşaretliyken bölüm PDF raporda AYNEN durur — girdiler, katalog
+                  seçimi, kontroller yerinde — yalnız şeması basılmaz. Müşteri
+                  belgede bir eksik görmez; ekranda çizim mühendis için kalır. */}
+              {!readOnly && !isHidden && hasDiagram && (
+                <label
+                  className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-10"
+                  title="Bu bölümün şemasını PDF raporlardan gizle. Bölümün kendisi (girdiler, seçim, kontroller) rapora girmeye devam eder; yalnız çizim basılmaz. Şema mühendislik ekranında görünmeyi sürdürür."
+                >
+                  <input
+                    type="checkbox"
+                    checked={isDiagramHidden}
+                    onChange={(e) => toggleDiagramHidden(key, section.rawId, e.target.checked)}
+                    className="size-3.5 accent-primary"
+                  />
+                  Şemayı Gizle
+                </label>
+              )}
+              {!isHidden && isDiagramHidden && (
+                <Badge variant="outline" className="font-normal text-muted-foreground">
+                  {"Şema PDF'e girmiyor"}
+                </Badge>
+              )}
               {isHidden ? (
                 <Badge variant="outline" className="font-normal text-muted-foreground">
                   Gizli
@@ -2266,7 +2339,7 @@ export function RevisionEditor({
             </span>
           </CardTitle>
           {section.description && (
-            <p className="text-sm text-muted-foreground">{section.description}</p>
+            <p className="text-xs text-muted-foreground sm:text-sm">{section.description}</p>
           )}
           {confirmation && !confirmationIsOn && (
             <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
@@ -2285,7 +2358,7 @@ export function RevisionEditor({
             korunur — «Gizle» kutusunu kaldırınca bölüm aynen geri gelir.
           </div>
         )}
-        <CardContent className={cn("grid gap-5", isHidden && "opacity-55")}>
+        <CardContent className={cn("grid gap-4 sm:gap-5", isHidden && "opacity-55")}>
           {/* Not KUTUSU yalnız not açıkken yer kaplar; "not ekle" düğmesi
               başlık satırındadır (bkz. CardTitle). */}
           {noteIsEnabled && (
@@ -2312,28 +2385,38 @@ export function RevisionEditor({
               />
             </section>
           )}
-          {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım) */}
-          {section.rawId === "5.8" && isTravelKey(key) ? (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          {/* Parametrik diyagram (7.1 kesit, 5.2/6.2 teker mili, 2.1/3.1 donanım).
+              Şeması gizlenen bölümde çizim EKRANDA KALIR (mühendisin çalışma
+              aracı) ama "PDF'e girmiyor" şeridiyle işaretlenir ve soluklaşır —
+              belgede basılmayacağı buradan görülür (PDF gizlemesi report.tsx'te).*/}
+          <div className={cn("relative grid gap-2", isDiagramHidden && "opacity-60")}>
+            {isDiagramHidden && (
+              <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center bg-muted px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {"PDF'e girmiyor"}
+              </span>
+            )}
+            {section.rawId === "5.8" && isTravelKey(key) ? (
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+                <SectionDiagram
+                  moduleKey={key}
+                  sectionId={section.rawId}
+                  input={calcInput}
+                  result={result}
+                />
+                <BufferArrangementSchematic
+                  installedCount={(inputs as TravelInputs).bufferCount}
+                  axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
+                />
+              </div>
+            ) : (
               <SectionDiagram
                 moduleKey={key}
                 sectionId={section.rawId}
                 input={calcInput}
                 result={result}
               />
-              <BufferArrangementSchematic
-                installedCount={(inputs as TravelInputs).bufferCount}
-                axisTitle={FESTOON_AXIS_TITLES[key] ?? "Hareket Ekseni"}
-              />
-            </div>
-          ) : (
-            <SectionDiagram
-              moduleKey={key}
-              sectionId={section.rawId}
-              input={calcInput}
-              result={result}
-            />
-          )}
+            )}
+          </div>
           {/* Özel düzenleyici: teker düzeni ölçü zinciri (10.1). Teker adedi
               Köprü Yürütme bölümünden okunur; geometri BİR RAY için girilir. */}
           {section.editor === "wheelSpacing" && (
@@ -2345,6 +2428,25 @@ export function RevisionEditor({
                   ...(inputs as object),
                   wheelSpacingsText: next,
                   ...(confirmation ? { [confirmation.inputKey]: false } : {}),
+                })
+              }
+              disabled={readOnly}
+            />
+          )}
+          {/* Özel düzenleyici: kanca bloğu mili makara ekseni ölçüleri (4.4).
+              Makara adedi hesaptan (otomatik/elle) okunur; her makaraya M1…Mn
+              adlı bir kutu düşer, böylece ölçüsü girilmeyen makara "otomatik
+              ortaya" atılmaz. */}
+          {section.editor === "sheaveOffsets" && isHookBlockKey(key) && (
+            <SheaveOffsetsEditor
+              sheaveCount={
+                (moduleResult(key)?.values as HookBlockValues | undefined)?.sheaveCount ?? 1
+              }
+              value={(inputs as HookBlockInputs).shaftSheaveOffsetsText}
+              onChange={(next) =>
+                setModuleInputs(key, {
+                  ...(inputs as object),
+                  shaftSheaveOffsetsText: next,
                 })
               }
               disabled={readOnly}
@@ -3125,7 +3227,7 @@ export function RevisionEditor({
     // SABİT ÇERÇEVE: sayfa gövdesi kaymaz. Bölüm rayı ve içerik kendi
     // bölgelerinde kayar; adım şeridi çerçevenin gerçek alt kenarıdır.
     // Eskiden üstte bir durum çubuğu daha vardı; o artık sayfa başlığında.
-    <div className="flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
+    <div className="oc-engineering-editor flex min-h-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-5">
       <StatusSlot>{statusStrip}</StatusSlot>
 
       {/* Örtü — alt tabaka açıkken. Yalnız telefonda/tablet portrede vardır;

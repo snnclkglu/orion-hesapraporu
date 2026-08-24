@@ -536,11 +536,14 @@ export function drumBrakeDiagram(p: DrumBrakeParams): Diagram {
   });
 
   // ======================================================== ÖZET SÜTUNU
-  const STEP = 15.5;
+  // Seçim özeti ve ağırlık satırları %20 büyük yazılır (kullanıcı kararı,
+  // 24.08.2026): eski 7,5/8 punto dar ekranda okunmuyordu. Satır aralığı da
+  // aynı oranda açılır ki büyüyen yazılar birbirine girmesin.
+  const STEP = 18.5;
   let ly = 70;
   const row = (k: string, v: string, color = DCOL.ink, bold = false) => {
-    els.push(txt(SUM_X, ly, k, 7.5, { fill: DCOL.muted }));
-    els.push(txt(SUM_R, ly, v, 8, { anchor: "end", fill: color, bold }));
+    els.push(txt(SUM_X, ly, k, 9, { fill: DCOL.muted }));
+    els.push(txt(SUM_R, ly, v, 9.5, { anchor: "end", fill: color, bold }));
     ly += STEP;
   };
   const rule = () => {
@@ -549,7 +552,7 @@ export function drumBrakeDiagram(p: DrumBrakeParams): Diagram {
     ly += 13;
   };
 
-  els.push(txt(SUM_X, 50, "SEÇİM ÖZETİ", 9, { fill: DCOL.accent, bold: true }));
+  els.push(txt(SUM_X, 50, "SEÇİM ÖZETİ", 11, { fill: DCOL.accent, bold: true }));
   if (p.brand) row("Marka", p.brand);
   row("Model", spec.model, DCOL.ink, true);
   row("Kasnak Çapı", `Ø${fmtN(spec.drumDiaMm)} mm`);
@@ -557,7 +560,7 @@ export function drumBrakeDiagram(p: DrumBrakeParams): Diagram {
   row("Ayar Aralığı", `${fmtN(spec.minTorqueNm)} – ${fmtN(spec.maxTorqueNm)} Nm`);
 
   rule();
-  els.push(txt(SUM_X, ly, "AĞIRLIK", 8, { fill: DCOL.accent, bold: true }));
+  els.push(txt(SUM_X, ly, "AĞIRLIK", 9.5, { fill: DCOL.accent, bold: true }));
   ly += STEP + 2;
   row("Fren — İtici Hariç", `${fmtN(spec.brakeWeightKg)} kg`);
   row(

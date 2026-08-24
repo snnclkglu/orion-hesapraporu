@@ -9,6 +9,7 @@ import { runCalc } from "@/lib/calc/engine";
 import {
   altsFromRevision,
   calcInputFromRevision,
+  hiddenDiagramsFromRevision,
   hiddenSectionsFromRevision,
   sectionNotesFromRevision,
   type RevisionInputsJson,
@@ -90,6 +91,8 @@ export async function GET(
     sectionNotes: sectionNotesFromRevision(revision.selections as RevisionSelectionsJson),
     // Gizlenen alt bölümler raporun hiçbir seviyesinde basılmaz.
     hiddenSections: hiddenSectionsFromRevision(revision.inputs as RevisionInputsJson),
+    // Şeması gizlenen bölümler: bölüm basılır, çizimi basılmaz.
+    hiddenDiagrams: hiddenDiagramsFromRevision(revision.inputs as RevisionInputsJson),
   });
 
   // Dosya adı: İŞ ADI - DOKÜMAN KODU - VERSİYON - SEVİYE (bkz. pdf/doc-naming).

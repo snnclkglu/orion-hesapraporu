@@ -11,6 +11,7 @@ import { IssueRevisionButton } from "./issue-button";
 import { ReportMenu } from "./report-menu";
 import { TemplateToggle } from "./template-toggle";
 import {
+  hiddenDiagramsFromRevision,
   hiddenSectionsFromRevision,
   loadRevision,
   sectionNotesFromRevision,
@@ -62,6 +63,9 @@ export default async function RevisionPage({
   // basılmayan bir hesabın kontrolü yayın uyarısı üretmemeli.
   const hiddenSections = hiddenSectionsFromRevision(inputs);
   const hiddenCheckIds = hiddenSectionCheckIds(hiddenSections, loaded.full.specs);
+  // Şeması gizlenen bölümler: editör soluk göstermez (bölüm rapora girer),
+  // yalnız çizimini "PDF'e girmiyor" rozetiyle işaretler.
+  const hiddenDiagrams = hiddenDiagramsFromRevision(inputs);
 
   return (
     // Başlık şeridi sabit yükseklikte; editör kalan alanı doldurur ve
@@ -155,6 +159,7 @@ export default async function RevisionPage({
         initialSectionNotes={sectionNotesFromRevision(selections)}
         initialDisabled={loaded.disabled}
         initialHidden={hiddenSections}
+        initialHiddenDiagrams={hiddenDiagrams}
       />
     </div>
   );

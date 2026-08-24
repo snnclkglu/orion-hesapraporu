@@ -69,6 +69,18 @@ export interface RevisionInputsJson {
    * hiç basmaz. Girdiler korunur; kutucuk geri açılınca bölüm aynen döner.
    */
   hiddenSections?: string[] | null;
+  /**
+   * Kullanıcının ŞEMASINI gizlediği alt bölümler — anahtar `hiddenSections`
+   * ile AYNI uzayda (`${moduleKey}-${sectionRawId}`).
+   *
+   * Bölümü gizlemekten farkı: hesap, girdi tablosu, katalog seçimi ve
+   * kontroller PDF raporda AYNEN durur; yalnız o bölümün parametrik şeması
+   * basılmaz. Müşteriye giden belgede bir boşluk ya da "şema gizlendi" notu
+   * bırakılmaz — şema sessizce düşer, metin akışı kapanır. Mühendislik
+   * ekranında şema GÖRÜNMEYE devam eder (çizim mühendisin çalışma aracıdır),
+   * yalnız "PDF'e girmiyor" rozetiyle işaretlenir.
+   */
+  hiddenDiagrams?: string[] | null;
 }
 
 export interface RevisionSelectionsJson {
@@ -131,14 +143,20 @@ export function sectionHideKeyFor(moduleKey: string, sectionRawId: string): stri
 }
 
 /**
- * JSONB snapshot'tan gizli alt bölüm listesini güvenle okur. Bozuk/yinelenen
- * girdiler atlanır; anahtar biçimi (`modul-rawId`) tutmayan değerler düşer —
- * serbest biçimli JSONB'ye güvenilmez (altsFromRevision ile aynı ilke).
+ * Gizlenen ŞEMANIN anahtarı — gizli bölüm ve not anahtarlarıyla AYNI uzay.
+ * Aynı alt bölümü işaret eden üçüncü bir kayıt olduğu için biçim de aynıdır.
  */
-export function hiddenSectionsFromRevision(
-  inputs: RevisionInputsJson | null | undefined
-): string[] {
-  const raw = (inputs as { hiddenSections?: unknown } | null | undefined)?.hiddenSections;
+export function sectionDiagramHideKeyFor(moduleKey: string, sectionRawId: string): string {
+  return `${moduleKey}-${sectionRawId}`;
+}
+
+/**
+ * `${modul}-${rawId}` biçimli anahtar listesini güvenle okur: bozuk/yinelenen
+ * girdiler atlanır — serbest biçimli JSONB'ye güvenilmez (altsFromRevision ile
+ * aynı ilke). Gizli bölüm ve gizli şema listeleri TEK süzgeci paylaşır; ayrı
+ * yazılsalardı biri sıkı biri gevşek davranabilirdi.
+ */
+function sectionKeyList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const out = new Set<string>();
   for (const v of raw) {
@@ -148,6 +166,27 @@ export function hiddenSectionsFromRevision(
     out.add(v);
   }
   return [...out];
+}
+
+/** JSONB snapshot'tan gizli alt bölüm listesini güvenle okur. */
+export function hiddenSectionsFromRevision(
+  inputs: RevisionInputsJson | null | undefined
+): string[] {
+  return sectionKeyList(
+    (inputs as { hiddenSections?: unknown } | null | undefined)?.hiddenSections
+  );
+}
+
+/**
+ * JSONB snapshot'tan ŞEMASI gizlenen alt bölümlerin listesini okur.
+ * Alan yoksa boş döner: eski revizyonlar bugünkü hâllerini birebir korur.
+ */
+export function hiddenDiagramsFromRevision(
+  inputs: RevisionInputsJson | null | undefined
+): string[] {
+  return sectionKeyList(
+    (inputs as { hiddenDiagrams?: unknown } | null | undefined)?.hiddenDiagrams
+  );
 }
 
 /** JSONB snapshot'tan güvenli not haritası okur; boş/bozuk girdileri atlar. */

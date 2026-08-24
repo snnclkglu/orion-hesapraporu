@@ -95,6 +95,7 @@ export const MODULE_LABELS: Record<string, string> = {
 const EXTRA_LABELS: Record<string, FieldLabel> = {
   disabledModules: { label: "Kapatılan Hesap Bölümleri" },
   hiddenSections: { label: "Gizlenen Alt Bölümler" },
+  hiddenDiagrams: { label: "Şeması Gizlenen Bölümler" },
   ropeWeightAuto: { label: "Halat Ağırlığı Otomatik" },
   hookBlockWeightAuto: { label: "Kanca Bloğu Ağırlığı Otomatik" },
   tempFactorAuto: { label: "Sıcaklık Faktörü Otomatik" },

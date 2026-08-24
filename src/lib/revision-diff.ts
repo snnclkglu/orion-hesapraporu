@@ -75,7 +75,7 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
   for (const mk of moduleKeys) {
     // Kapalı bölüm ve gizli alt bölüm listeleri modül nesnesi değil, dizidir —
     // ayrı ele alınırlar.
-    if (mk === "disabledModules" || mk === "hiddenSections") continue;
+    if (mk === "disabledModules" || mk === "hiddenSections" || mk === "hiddenDiagrams") continue;
     diffModuleObjects(mk, "input", aInputs[mk], bInputs[mk], fields);
   }
 
@@ -104,6 +104,20 @@ export function diffRevisions(a: Snapshot, b: Snapshot): RevisionDiff {
       key: "hiddenSections",
       a: aHid.length ? aHid.join(", ") : "—",
       b: bHid.length ? bHid.join(", ") : "—",
+    });
+  }
+
+  // Şeması gizlenen bölüm değişimi de ayrı bir satırdır: müşteriye giden
+  // belgeden bir çizimi kaldırmak/geri getirmek karşılaştırmada görünmeli.
+  const aDia = Array.isArray(aInputs.hiddenDiagrams) ? [...aInputs.hiddenDiagrams].sort() : [];
+  const bDia = Array.isArray(bInputs.hiddenDiagrams) ? [...bInputs.hiddenDiagrams].sort() : [];
+  if (JSON.stringify(aDia) !== JSON.stringify(bDia)) {
+    fields.push({
+      module: "specs",
+      kind: "input",
+      key: "hiddenDiagrams",
+      a: aDia.length ? aDia.join(", ") : "—",
+      b: bDia.length ? bDia.join(", ") : "—",
     });
   }
 
