@@ -482,6 +482,21 @@ export interface RopeLengthPlan {
  * sırayla bölünür. Denge makarasındaysa iki yiv tek sürekli sağ helis halatta
  * birleşir; dolayısıyla parça adedi tahrikli uç sayısının yarısıdır.
  */
+/**
+ * Halat boyu payı oranı — kaldırma yüksekliğine göre (kullanıcı kararı,
+ * 2026-08-24). Kısa kaldırmada uçtaki artık pay oransal olarak büyüktür:
+ *   · h ≤ 10 m           → %10
+ *   · 10 m < h < 30 m    → %10'dan %5'e LİNEER düşer
+ *   · h ≥ 30 m           → %5
+ * Pay, tek yiv halat boyuna `pay · h · mekanik avantaj` olarak eklenir.
+ */
+export function ropeAllowanceFraction(liftHeightM: number): number {
+  const h = Number.isFinite(liftHeightM) ? liftHeightM : 0;
+  if (h <= 10) return 0.1;
+  if (h >= 30) return 0.05;
+  return 0.1 - ((h - 10) / 20) * 0.05;
+}
+
 export function ropeLengthPlan(
   inp: Pick<HoistInputs, "drivenFalls" | "totalFalls" | "fixedSheaveCount" | "sheaveEfficiency" | "reevingLabel" | "safetyGrooveCount" | "ropeBalancingType" | "ropeOrderLengthAuto">,
   sel: Pick<HoistSelections, "drumDiaMm" | "ropeDiaMm" | "ropeOrderLengthM">,
@@ -491,7 +506,7 @@ export function ropeLengthPlan(
   const rig = deriveReeving(reeving);
   const groove = drumGrooveRequirement(inp as HoistInputs, sel, liftHeightM);
   const drumCircumferenceM = Math.PI * (sel.drumDiaMm / 1000);
-  const allowanceM = 0.1 * liftHeightM * rig.mechanicalAdvantage;
+  const allowanceM = ropeAllowanceFraction(liftHeightM) * liftHeightM * rig.mechanicalAdvantage;
   const lengthPerGrooveM = groove.grooves * drumCircumferenceM + allowanceM;
   const driven = Math.max(1, Math.round(reeving.drivenFalls));
   const rawTotalLengthM = lengthPerGrooveM * driven;

@@ -993,8 +993,9 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
       "Otomatik değer: <tahrikli halat sayısı> × <gerekli yiv boyu>. " +
       "Kesirli yiv adedi yukarı tam sayıya çıkarılır; boy = tam yiv adedi × hatve.\n\n" +
       "Tek yiv için halat boyu:\n" +
-      "L = z × π × D + (%10 × h × (n_toplam / n_tahrik))\n\n" +
-      "z: gerekli tam sarım sayısı, D: tambur çapı, h: kaldırma yüksekliği.\n\n" +
+      "L = z × π × D + (p · h × (n_toplam / n_tahrik))\n\n" +
+      "z: gerekli tam sarım sayısı, D: tambur çapı, h: kaldırma yüksekliği, " +
+      "p: yükseklik payı (h ≤ 10 m %10; 10–30 m arası lineer %5'e; ≥ 30 m %5).\n\n" +
       "Denge traversinde her yiv ayrı halattır. Denge makarasındaysa iki yivin boyu tek sürekli halatta birleşir.",
   },
   {
@@ -1007,7 +1008,9 @@ export const HOIST_SELECTION_FIELDS: FieldDef<HoistSelections>[] = [
       "Parça boyu = L_ham / n_parça. Her halat parçası eksik siparişe yol " +
       "açmaması için yukarı tam metreye yuvarlanır; otomatik toplam sipariş " +
       "boyu = n_parça × ⌈parça boyu⌉.\n\n" +
-      "Otomatik anahtarı kapatıldığında toplam halat boyu elle değiştirilebilir.",
+      "Otomatik anahtarı kapatıldığında toplam halat boyu elle değiştirilebilir.\n\n" +
+      "Yükseklik payı: kaldırma yüksekliği ≤ 10 m ise %10; 10–30 m arasında " +
+      "lineer olarak %5'e iner; ≥ 30 m ise %5.",
   },
   { key: "shaftMaterial", label: "Mil Malzemesi", type: "select", options: SHAFT_MATERIALS },
   {
